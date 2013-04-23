@@ -84,6 +84,8 @@ struct hdmi_tx_audio_acr_arry {
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
 static irqreturn_t hdmi_tx_isr(int irq, void *data);
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
+static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
+	enum hdmi_tx_power_module_type module, int enable);
 
 struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -93,10 +95,13 @@ struct mdss_hw hdmi_tx_hw = {
 
 struct dss_gpio hpd_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-hpd"},
-	{0, 1, COMPATIBLE_NAME "-ddc-clk"},
-	{0, 1, COMPATIBLE_NAME "-ddc-data"},
 	{0, 1, COMPATIBLE_NAME "-mux-en"},
 	{0, 0, COMPATIBLE_NAME "-mux-sel"}
+};
+
+struct dss_gpio ddc_gpio_config[] = {
+	{0, 1, COMPATIBLE_NAME "-ddc-clk"},
+	{0, 1, COMPATIBLE_NAME "-ddc-data"}
 };
 
 struct dss_gpio core_gpio_config[] = {
@@ -110,6 +115,7 @@ const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
 	case HDMI_TX_HPD_PM:	return "HDMI_TX_HPD_PM";
+	case HDMI_TX_DDC_PM:	return "HDMI_TX_DDC_PM";
 	case HDMI_TX_CORE_PM:	return "HDMI_TX_CORE_PM";
 	case HDMI_TX_CEC_PM:	return "HDMI_TX_CEC_PM";
 	default: return "???";
@@ -187,6 +193,7 @@ const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
 	case HDMI_TX_HPD_PM:	return "HDMI_TX_HPD_PM";
+	case HDMI_TX_DDC_PM:	return "HDMI_TX_DDC_PM";
 	case HDMI_TX_CORE_PM:	return "HDMI_TX_CORE_PM";
 	case HDMI_TX_CEC_PM:	return "HDMI_TX_CEC_PM";
 	default: return "???";
@@ -810,11 +817,19 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 	DEV_DBG("%s: Got HPD interrupt\n", __func__);
 
 	if (hdmi_ctrl->hpd_state) {
+		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, true)) {
+			DEV_ERR("%s: Failed to enable ddc power\n", __func__);
+			return;
+		}
+
 		hdmi_tx_read_sink_info(hdmi_ctrl);
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 1);
 		DEV_INFO("%s: sense cable CONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
 	} else {
+		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
+			DEV_WARN("%s: Failed to disable ddc power\n", __func__);
+
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 		DEV_INFO("%s: sense cable DISCONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
@@ -2323,6 +2338,13 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_tx_set_mode(hdmi_ctrl, false);
 
+	if (hdmi_ctrl->hpd_state) {
+		rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, 0);
+		if (rc)
+			DEV_INFO("%s: Failed to disable ddc power. Error=%d\n",
+				__func__, rc);
+	}
+
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	if (rc)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
@@ -2884,6 +2906,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 		mp->clk_config[1].rate = 0;
 		break;
 
+	case HDMI_TX_DDC_PM:
 	case HDMI_TX_CEC_PM:
 		mp->num_clk = 0;
 		DEV_DBG("%s: no clk\n", __func__);
@@ -2942,6 +2965,9 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 	switch (module_type) {
 	case HDMI_TX_HPD_PM:
 		mod_name = "hpd";
+		break;
+	case HDMI_TX_DDC_PM:
+		mod_name = "ddc";
 		break;
 	case HDMI_TX_CORE_PM:
 		mod_name = "core";
@@ -3138,6 +3164,10 @@ static int hdmi_tx_get_dt_gpio_data(struct device *dev,
 	case HDMI_TX_HPD_PM:
 		gpio_list_size = ARRAY_SIZE(hpd_gpio_config);
 		gpio_list = hpd_gpio_config;
+		break;
+	case HDMI_TX_DDC_PM:
+		gpio_list_size = ARRAY_SIZE(ddc_gpio_config);
+		gpio_list = ddc_gpio_config;
 		break;
 	case HDMI_TX_CORE_PM:
 		gpio_list_size = ARRAY_SIZE(core_gpio_config);
