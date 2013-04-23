@@ -500,6 +500,7 @@ struct intel_hdmi {
 	bool has_hdmi_sink;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
+	enum hdmi_panel_fitter pfit;
 	bool rgb_quant_range_selectable;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
@@ -923,6 +924,7 @@ int intel_connector_update_modes(struct drm_connector *connector,
 int intel_ddc_get_modes(struct drm_connector *c, struct i2c_adapter *adapter);
 void intel_attach_force_audio_property(struct drm_connector *connector);
 void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
+void intel_attach_force_pfit_property(struct drm_connector *connector);
 
 
 /* intel_overlay.c */

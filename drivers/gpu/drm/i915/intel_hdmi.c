@@ -691,6 +691,19 @@ static void intel_hdmi_prepare(struct intel_encoder *encoder)
 	else
 		hdmi_val |= SDVO_PIPE_SEL(crtc->pipe);
 
+	if (intel_hdmi->pfit) {
+		u32 val = 0;
+		if (intel_hdmi->pfit == PILLAR_BOX)
+			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
+				PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTER_BOX)
+			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
+				PFIT_SCALING_LETTER;
+		DRM_DEBUG_DRIVER("pfit val = %x", val);
+
+		I915_WRITE(PFIT_CONTROL, val);
+	}
+
 	I915_WRITE(intel_hdmi->hdmi_reg, hdmi_val);
 	POSTING_READ(intel_hdmi->hdmi_reg);
 }
@@ -793,6 +806,19 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 
 	I915_WRITE(intel_hdmi->hdmi_reg, temp);
 	POSTING_READ(intel_hdmi->hdmi_reg);
+
+	if (intel_hdmi->pfit) {
+		u32 val = 0;
+		if (intel_hdmi->pfit == PILLAR_BOX)
+			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
+				PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTER_BOX)
+			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
+				PFIT_SCALING_LETTER;
+		DRM_DEBUG_DRIVER("pfit val = %x", val);
+
+		I915_WRITE(PFIT_CONTROL, val);
+	}
 
 	/* HW workaround, need to write this twice for issue that may result
 	 * in first write getting masked.
@@ -1135,6 +1161,15 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		goto done;
 	}
 
+	if (property == dev_priv->force_pfit_property) {
+		if (val == intel_hdmi->pfit)
+			return 0;
+
+		DRM_DEBUG_DRIVER("val = %lld", val);
+		intel_hdmi->pfit = val;
+		goto done;
+	}
+
 	return -EINVAL;
 
 done:
@@ -1431,6 +1466,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 {
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
+	intel_attach_force_pfit_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 
@@ -1451,6 +1487,7 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
 	connector->stereo_allowed = 1;
+	intel_hdmi->pfit = 0;
 
 	switch (port) {
 	case PORT_B:
