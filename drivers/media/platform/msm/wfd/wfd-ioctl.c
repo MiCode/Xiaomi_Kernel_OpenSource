@@ -1006,6 +1006,7 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	WFD_MSG_DBG("Calling videobuf_streamoff\n");
 	vb2_streamoff(&inst->vid_bufq, i);
+	wake_up(&inst->event_handler.wait);
 	return 0;
 }
 static int wfdioc_dqbuf(struct file *filp, void *fh,
@@ -1545,14 +1546,22 @@ static int wfd_close(struct file *filp)
 unsigned int wfd_poll(struct file *filp, struct poll_table_struct *pt)
 {
 	struct wfd_inst *inst = file_to_inst(filp);
-	unsigned int flags = 0;
+	unsigned int poll_flags = 0;
+	unsigned long flags;
+	bool streamoff = false;
 
 	poll_wait(filp, &inst->event_handler.wait, pt);
 
-	if (v4l2_event_pending(&inst->event_handler))
-		flags |= POLLPRI;
+	spin_lock_irqsave(&inst->inst_lock, flags);
+	streamoff = inst->streamoff;
+	spin_unlock_irqrestore(&inst->inst_lock, flags);
 
-	return flags;
+	if (v4l2_event_pending(&inst->event_handler))
+		poll_flags |= POLLPRI;
+	if (streamoff)
+		poll_flags |= POLLERR;
+
+	return poll_flags;
 }
 
 static const struct v4l2_file_operations g_wfd_fops = {
