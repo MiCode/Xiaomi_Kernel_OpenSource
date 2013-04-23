@@ -785,13 +785,13 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 
 			struct kgsl_memdesc *memdesc =
 				adreno_find_ctxtmem(device, ptbase, ibaddr,
-					ibsize);
+					ibsize << 2);
 
 			/* IOMMU uses a NOP IB placed in setsate memory */
 			if (NULL == memdesc)
 				if (kgsl_gpuaddr_in_memdesc(
 						&device->mmu.setstate_memory,
-						ibaddr, ibsize))
+						ibaddr, ibsize << 2))
 					memdesc = &device->mmu.setstate_memory;
 			/*
 			 * The IB from CP_IB1_BASE and the IBs for legacy
