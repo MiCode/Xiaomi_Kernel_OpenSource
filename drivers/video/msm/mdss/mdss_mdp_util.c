@@ -520,6 +520,11 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 		}
 	}
 
+	if (!*start) {
+		pr_err("start address is zero!\n");
+		return -ENOMEM;
+	}
+
 	if (!ret && (img->offset < data->len)) {
 		data->addr += img->offset;
 		data->len -= img->offset;
