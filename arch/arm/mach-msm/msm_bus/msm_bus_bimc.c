@@ -1460,7 +1460,7 @@ static void msm_bus_bimc_set_qos_mode(struct msm_bus_bimc_info *binfo,
 		 * boundary in future
 		 */
 		wmb();
-		set_qos_mode(binfo->base, mas_index, 0, 1, 1);
+		set_qos_mode(binfo->base, mas_index, 1, 1, 1);
 		break;
 
 	case BIMC_QOS_MODE_BYPASS:
