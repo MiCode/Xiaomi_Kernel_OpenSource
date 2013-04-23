@@ -1200,22 +1200,28 @@ static int qpnp_adc_tm_read_status(void)
 		}
 	}
 
-	rc = qpnp_adc_tm_reg_update(QPNP_ADC_TM_MULTI_MEAS_EN,
-		sensor_mask, false);
-	if (rc < 0) {
-		pr_err("multi meas disable for channel failed\n");
-		goto fail;
-	}
+	if (adc_tm_high_enable || adc_tm_low_enable) {
+		rc = qpnp_adc_tm_reg_update(QPNP_ADC_TM_MULTI_MEAS_EN,
+			sensor_mask, false);
+		if (rc < 0) {
+			pr_err("multi meas disable for channel failed\n");
+			goto fail;
+		}
 
-	rc = qpnp_adc_tm_enable_if_channel_meas();
-	if (rc < 0) {
-		pr_err("re-enabling measurement failed\n");
-		return rc;
-	}
+		rc = qpnp_adc_tm_enable_if_channel_meas();
+		if (rc < 0) {
+			pr_err("re-enabling measurement failed\n");
+			return rc;
+		}
+	} else
+		pr_debug("No threshold status enable %d for high/low??\n",
+								sensor_mask);
+
 fail:
 	mutex_unlock(&adc_tm->adc->adc_lock);
 
-	schedule_work(&adc_tm->sensor[sensor_num].work);
+	if (adc_tm_high_enable || adc_tm_low_enable)
+		schedule_work(&adc_tm->sensor[sensor_num].work);
 
 	return rc;
 }
