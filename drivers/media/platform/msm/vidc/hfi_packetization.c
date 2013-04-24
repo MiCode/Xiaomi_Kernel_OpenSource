@@ -316,6 +316,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_ASPECT_RATIO:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_MPEG2_SEQDISP:
+		ret = HFI_PROPERTY_PARAM_VDEC_MPEG2_SEQDISP_EXTRADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
