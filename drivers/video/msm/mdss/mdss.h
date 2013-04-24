@@ -110,6 +110,9 @@ struct mdss_data_type {
 	void *video_intf;
 	u32 nintf;
 
+	struct mdss_ad_info *ad_cfgs;
+	u32 nad_cfgs;
+
 	struct ion_client *iclient;
 	int iommu_attached;
 	struct mdss_iommu_map_type *iommu_map;
