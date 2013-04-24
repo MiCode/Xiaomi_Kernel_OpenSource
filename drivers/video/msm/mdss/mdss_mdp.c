@@ -134,6 +134,7 @@ static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 				       char *prop_name);
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 
 int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd)
 {
@@ -1161,6 +1162,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_ad_cfg(pdev);
+	if (rc) {
+		pr_err("Error in device tree : ad\n");
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -1481,6 +1488,41 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdata->has_decimation = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-decimation");
 	return 0;
+}
+
+static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 *ad_offsets = NULL;
+	int rc;
+
+	mdata->nad_cfgs = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-ad-off");
+
+	if (mdata->nad_cfgs == 0) {
+		mdata->ad_cfgs = NULL;
+		return 0;
+	}
+	if (mdata->nad_cfgs > mdata->nmixers_intf)
+		return -EINVAL;
+
+	ad_offsets = kzalloc(sizeof(u32) * mdata->nad_cfgs, GFP_KERNEL);
+	if (!ad_offsets) {
+		pr_err("no mem assigned: kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-ad-off", ad_offsets,
+					mdata->nad_cfgs);
+	if (rc)
+		goto parse_done;
+
+	rc = mdss_mdp_ad_addr_setup(mdata, ad_offsets);
+	if (rc)
+		pr_err("unable to setup assertive display\n");
+
+parse_done:
+	kfree(ad_offsets);
+	return rc;
 }
 
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
