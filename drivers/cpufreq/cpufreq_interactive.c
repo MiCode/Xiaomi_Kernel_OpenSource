@@ -845,9 +845,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->hispeed_validate_time =
 				pcpu->target_set_time;
 			pcpu->governor_enabled = 1;
-			pcpu->idle_exit_time = pcpu->target_set_time;
-			mod_timer(&pcpu->cpu_timer,
-				jiffies + usecs_to_jiffies(timer_rate));
 			smp_wmb();
 		}
 
