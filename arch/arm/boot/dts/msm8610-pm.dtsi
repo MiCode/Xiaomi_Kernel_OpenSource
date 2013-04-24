@@ -382,9 +382,9 @@
 		qcom,offset-page-indices = <56>;
 	};
 
-	qcom,rpm-stats@0xfc19dbd0{
+	qcom,rpm-stats@fc19dba0 {
 		compatible = "qcom,rpm-stats";
-		reg = <0xfc19dbd0 0x1000>;
+		reg = <0xfc19dba0 0x1000>;
 		reg-names = "phys_addr_base";
 		qcom,sleep-stats-version = <2>;
 	};
