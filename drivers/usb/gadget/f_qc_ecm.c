@@ -430,8 +430,6 @@ static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 
 	bam_data_disconnect(&ecm_qc_bam_port, 0);
 
-	ecm_ipa_cleanup(ipa_params.ipa_priv);
-
 	return 0;
 }
 
