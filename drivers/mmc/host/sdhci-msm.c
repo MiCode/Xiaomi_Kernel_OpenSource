@@ -38,6 +38,7 @@
 #include <linux/dma-mapping.h>
 #include <mach/gpio.h>
 #include <mach/msm_bus.h>
+#include <linux/iopoll.h>
 
 #include "sdhci-pltfm.h"
 
@@ -80,6 +81,31 @@
 #define CORE_VENDOR_SPEC	0x10C
 #define CORE_CLK_PWRSAVE	(1 << 1)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
+
+#define CORE_MCI_DATA_CTRL	0x2C
+#define CORE_MCI_DPSM_ENABLE	(1 << 0)
+
+#define CORE_TESTBUS_CONFIG	0x0CC
+#define CORE_TESTBUS_ENA	(1 << 3)
+#define CORE_TESTBUS_SEL2	(1 << 4)
+
+/*
+ * Waiting until end of potential AHB access for data:
+ * 16 AHB cycles (160ns for 100MHz and 320ns for 50MHz) +
+ * delay on AHB (2us) = maximum 2.32us
+ * Taking x10 times margin
+ */
+#define CORE_AHB_DATA_DELAY_US  23
+/* Waiting until end of potential AHB access for descriptor:
+ * Single (1 AHB cycle) + delay on AHB bus = max 2us
+ * INCR4 (4 AHB cycles) + delay on AHB bus = max 2us
+ * Single (1 AHB cycle) + delay on AHB bus = max 2us
+ * Total 8 us delay with margin
+ */
+#define CORE_AHB_DESC_DELAY_US  8
+
+#define CORE_SDCC_DEBUG_REG	0x124
+#define CORE_DEBUG_REG_AHB_HTRANS       (3 << 12)
 
 /* 8KB descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
@@ -2032,6 +2058,51 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 	return 0;
 }
 
+/*
+ * sdhci_msm_disable_data_xfer - disable undergoing AHB bus data transfer
+ *
+ * Write 0 to bit 0 in MCI_DATA_CTL (offset 0x2C) - clearing TxActive bit by
+ * access to legacy registers. It will stop current burst and prevent start of
+ * the next on.
+ *
+ * Polling CORE_AHB_DATA_DELAY_US timeout, by reading bit 13:12 until they are 0
+ * in CORE_SDCC_DEBUG_REG (offset 0x124) will validate that AHB burst was
+ * completed and a new one didn't start.
+ *
+ * Waiting for 4us while AHB finishes descriptors fetch.
+ */
+static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u32 value;
+	int ret;
+
+	value = readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CTRL);
+	value &= ~(u32)CORE_MCI_DPSM_ENABLE;
+	writel_relaxed(value, msm_host->core_mem + CORE_MCI_DATA_CTRL);
+
+	/* Enable the test bus for device slot */
+	writel_relaxed(CORE_TESTBUS_ENA | CORE_TESTBUS_SEL2,
+			msm_host->core_mem + CORE_TESTBUS_CONFIG);
+
+	ret = readl_poll_timeout_noirq(msm_host->core_mem
+			+ CORE_SDCC_DEBUG_REG, value,
+			!(value & CORE_DEBUG_REG_AHB_HTRANS),
+			CORE_AHB_DATA_DELAY_US, 1);
+	if (ret) {
+		pr_err("%s: %s: can't stop ongoing AHB bus access by ADMA\n",
+				mmc_hostname(host->mmc), __func__);
+		BUG();
+	}
+	/* Disable the test bus for device slot */
+	value = readl_relaxed(msm_host->core_mem + CORE_TESTBUS_CONFIG);
+	value &= ~CORE_TESTBUS_ENA;
+	writel_relaxed(value, msm_host->core_mem + CORE_TESTBUS_CONFIG);
+
+	udelay(CORE_AHB_DESC_DELAY_US);
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
@@ -2042,6 +2113,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.platform_bus_voting = sdhci_msm_bus_voting,
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
+	.disable_data_xfer = sdhci_msm_disable_data_xfer,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
