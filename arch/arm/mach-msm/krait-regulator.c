@@ -410,7 +410,8 @@ static bool enable_phase_management(struct pmic_gang_vreg *pvreg)
 #define ONE_PHASE_COEFF		1000000
 #define TWO_PHASE_COEFF		2000000
 
-#define PHASE_SETTLING_TIME_US		10
+#define PWM_SETTLING_TIME_US		50
+#define PHASE_SETTLING_TIME_US		50
 static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				int coeff_total)
 {
@@ -453,6 +454,7 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 			return rc;
 		} else {
 			pvreg->pfm_mode = false;
+			udelay(PWM_SETTLING_TIME_US);
 		}
 	}
 
