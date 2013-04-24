@@ -237,6 +237,17 @@ struct pp_hist_col_info {
 	spinlock_t hist_lock;
 };
 
+struct mdss_ad_info {
+	char __iomem *base;
+	u32 sts;
+	u32 state;
+	u32 ad_data;
+	u32 ad_data_mode;
+	struct mdss_ad_init init;
+	struct mdss_ad_cfg cfg;
+	struct mutex lock;
+};
+
 struct pp_sts_type {
 	u32 pa_sts;
 	u32 pcc_sts;
@@ -452,6 +463,13 @@ int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block);
 int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 				struct mdp_histogram_data *hist);
 void mdss_mdp_hist_intr_done(u32 isr);
+
+int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
+int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
+				struct mdss_ad_init_cfg *init_cfg);
+int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
+				struct mdss_ad_input *input);
+int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 					  u32 type);
