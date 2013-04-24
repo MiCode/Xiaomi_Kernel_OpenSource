@@ -44,6 +44,7 @@
 struct hbm_msm {
 	u32 *base;
 	struct usb_hcd *hcd;
+	bool disable_park_mode;
 };
 
 static struct hbm_msm *hbm_ctx;
@@ -173,8 +174,8 @@ int hbm_pipe_init(u32 QH_addr, u32 pipe_num, bool is_consumer)
 		USB_OTG_HS_HBM_PIPE_PRODUCER, 1 << pipe_num,
 		(is_consumer ? 0 : 1));
 
-	/*  disable park mode as default */
-	set_disable_park_mode(pipe_num, true);
+	/*  set park mode */
+	set_disable_park_mode(pipe_num, hbm_ctx->disable_park_mode);
 
 	/*  enable zlt as default*/
 	set_disable_zlt(pipe_num, false);
@@ -186,7 +187,7 @@ int hbm_pipe_init(u32 QH_addr, u32 pipe_num, bool is_consumer)
 	return 0;
 }
 
-void hbm_init(struct usb_hcd *hcd)
+void hbm_init(struct usb_hcd *hcd, bool disable_park_mode)
 {
 	pr_info("%s\n", __func__);
 
@@ -198,6 +199,7 @@ void hbm_init(struct usb_hcd *hcd)
 
 	hbm_ctx->base = hcd->regs;
 	hbm_ctx->hcd = hcd;
+	hbm_ctx->disable_park_mode = disable_park_mode;
 
 	/* reset hbm */
 	hbm_reset(true);

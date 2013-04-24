@@ -422,6 +422,7 @@ struct msm_hsic_host_platform_data {
 	u32 standalone_latency;
 	bool pool_64_bit_align;
 	bool enable_hbm;
+	bool disable_park_mode;
 };
 
 struct msm_usb_host_platform_data {

@@ -35,6 +35,10 @@
 	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
 };
 
+&hsic_host {
+	qcom,disable-park-mode;
+};
+
 &sfpb_spinlock {
 	status = "disable";
 };

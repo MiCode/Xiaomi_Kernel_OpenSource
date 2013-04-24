@@ -1851,6 +1851,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 				"qcom,pool-64-bit-align");
 	pdata->enable_hbm = of_property_read_bool(node,
 				"qcom,enable-hbm");
+	pdata->disable_park_mode = (of_property_read_bool(node,
+				"qcom,disable-park-mode"));
 
 	return pdata;
 }
@@ -2088,7 +2090,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		pm_runtime_put_sync(pdev->dev.parent);
 
 	if (mehci->enable_hbm)
-		hbm_init(hcd);
+		hbm_init(hcd, pdata->disable_park_mode);
 
 	return 0;
 
