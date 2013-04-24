@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,7 +142,7 @@ void *msm_gemini_core_framedone_irq(int gemini_irq_status, void *context)
 	buf_p = msm_gemini_hw_pingpong_active_buffer(&we_pingpong_buf);
 	if (buf_p) {
 		buf_p->framedone_len = msm_gemini_hw_encode_output_size();
-		GMN_DBG("%s:%d] framedone_len %d\n", __func__, __LINE__,
+		pr_debug("%s:%d] framedone_len %d\n", __func__, __LINE__,
 			buf_p->framedone_len);
 	}
 
