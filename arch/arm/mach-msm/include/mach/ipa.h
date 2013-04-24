@@ -583,6 +583,8 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl);
  */
 int ipa_rm_create_resource(struct ipa_rm_create_params *create_params);
 
+int ipa_rm_delete_resource(enum ipa_rm_resource_name resource_name);
+
 int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 			struct ipa_rm_register_params *reg_params);
 
@@ -951,6 +953,12 @@ static inline int ipa_teardown_sys_pipe(u32 clnt_hdl)
  */
 static inline int ipa_rm_create_resource(
 		struct ipa_rm_create_params *create_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_delete_resource(
+		enum ipa_rm_resource_name resource_name)
 {
 	return -EPERM;
 }

@@ -39,7 +39,6 @@ int  ipa_rm_dep_graph_create(struct ipa_rm_dep_graph **dep_graph)
 		result = -ENOMEM;
 		goto bail;
 	}
-	rwlock_init(&((*dep_graph)->lock));
 bail:
 	return result;
 }
@@ -55,12 +54,10 @@ void ipa_rm_dep_graph_delete(struct ipa_rm_dep_graph *graph)
 	int resource_index;
 	if (!graph)
 		return;
-	write_lock(&graph->lock);
 	for (resource_index = 0;
 			resource_index < IPA_RM_RESOURCE_MAX;
 			resource_index++)
 		kfree(graph->resource_table[resource_index]);
-	write_unlock(&graph->lock);
 	memset(graph->resource_table, 0, sizeof(graph->resource_table));
 }
 
@@ -88,9 +85,7 @@ int ipa_rm_dep_graph_get_resource(
 		result = -EINVAL;
 		goto bail;
 	}
-	read_lock(&graph->lock);
 	*resource = graph->resource_table[resource_index];
-	read_unlock(&graph->lock);
 	if (!*resource) {
 		result = -EINVAL;
 		goto bail;
@@ -112,6 +107,7 @@ int ipa_rm_dep_graph_add(struct ipa_rm_dep_graph *graph,
 {
 	int result = 0;
 	int resource_index;
+
 	if (!graph || !resource) {
 		result = -EINVAL;
 		goto bail;
@@ -121,11 +117,26 @@ int ipa_rm_dep_graph_add(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
-	write_lock(&graph->lock);
 	graph->resource_table[resource_index] = resource;
-	write_unlock(&graph->lock);
 bail:
 	return result;
+}
+
+/**
+ * ipa_rm_dep_graph_remove() - removes resource from graph
+ * @graph: [in] dependency graph
+ * @resource: [in] resource to add
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_rm_dep_graph_remove(struct ipa_rm_dep_graph *graph,
+		enum ipa_rm_resource_name resource_name)
+{
+	if (!graph)
+		return -EINVAL;
+
+	graph->resource_table[resource_name] = NULL;
+	return 0;
 }
 
 /**

@@ -99,7 +99,7 @@ int ipa_rm_resource_create(
 		struct ipa_rm_create_params *create_params,
 		struct ipa_rm_resource **resource);
 
-void ipa_rm_resource_delete(struct ipa_rm_resource *resource);
+int ipa_rm_resource_delete(struct ipa_rm_resource *resource);
 
 int ipa_rm_resource_producer_register(struct ipa_rm_resource_prod *producer,
 				struct ipa_rm_register_params *reg_params);
