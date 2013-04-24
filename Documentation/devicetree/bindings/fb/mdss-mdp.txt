@@ -112,6 +112,18 @@ Optional properties:
 		      compression feature in the rotator.
 - qcom,mdss-has-decimation: Boolean property to indicate the presence of
 			    decimation feature in fetch.
+- qcom,mdss-ad-off:		Array of offset addresses for the available
+				Assertive Display (AD) blocks. These offsets
+				are calculated from the register "mdp_phys"
+				defined in reg property. The number of AD
+				offsets should be less than or equal to the
+				number of mixers driving interfaces defined in
+				property: qcom,mdss-mixer-intf-off. Assumes
+				that AD blocks are aligned with the mixer
+				offsets as well (i.e. the first mixer offset
+				corresponds to the same pathway as the first
+				AD offset).
+
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
