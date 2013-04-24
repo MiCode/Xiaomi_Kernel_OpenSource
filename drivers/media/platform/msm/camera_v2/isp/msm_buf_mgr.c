@@ -287,13 +287,15 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 					bufq->buf_client_count)
 					list_del_init(
 					&temp_buf_info->share_list);
-				if (temp_buf_info->buf_reuse_flag)
+				if (temp_buf_info->buf_reuse_flag) {
 					kfree(temp_buf_info);
-				else
+				} else {
 					*buf_info = temp_buf_info;
+					rc = 0;
+				}
 				spin_unlock_irqrestore(
 					&bufq->bufq_lock, flags);
-				return 0;
+				return rc;
 			}
 		}
 	}
@@ -342,6 +344,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 			(*buf_info)->buf_used[id] = 1;
 			(*buf_info)->buf_get_count = 1;
 			(*buf_info)->buf_put_count = 0;
+			(*buf_info)->buf_reuse_flag = 0;
 			list_add_tail(&(*buf_info)->share_list,
 						  &bufq->share_head);
 		}
