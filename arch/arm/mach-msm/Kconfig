@@ -1761,6 +1761,16 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	help
 	  SMD Transport Layer for IPC Router
 
+config MSM_IPC_ROUTER_HSIC_XPRT
+	depends on USB_QCOM_IPC_BRIDGE
+	depends on MSM_IPC_ROUTER
+	bool "MSM HSIC XPRT Layer"
+	help
+	  HSIC Transport Layer that enables off-chip communication of
+	  IPC Router. When the HSIC endpoint becomes available, this layer
+	  registers the transport with IPC Router and enable message
+	  exchange.
+
 config MSM_IPC_ROUTER_SECURITY
 	depends on MSM_IPC_ROUTER
 	bool "MSM IPC Router Security support"
