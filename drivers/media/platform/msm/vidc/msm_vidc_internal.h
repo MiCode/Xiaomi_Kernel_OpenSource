@@ -130,7 +130,6 @@ struct session_prop {
 	u32 height;
 	u32 fps;
 	u32 bitrate;
-	u64 prev_time_stamp;
 };
 
 struct buf_queue {
