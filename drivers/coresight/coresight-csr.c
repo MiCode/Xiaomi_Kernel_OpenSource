@@ -102,7 +102,7 @@ void msm_qdss_csr_enable_bam_to_usb(void)
 
 	CSR_LOCK(drvdata);
 }
-EXPORT_SYMBOL_GPL(msm_qdss_csr_enable_bam_to_usb);
+EXPORT_SYMBOL(msm_qdss_csr_enable_bam_to_usb);
 
 void msm_qdss_csr_disable_bam_to_usb(void)
 {
@@ -117,7 +117,7 @@ void msm_qdss_csr_disable_bam_to_usb(void)
 
 	CSR_LOCK(drvdata);
 }
-EXPORT_SYMBOL_GPL(msm_qdss_csr_disable_bam_to_usb);
+EXPORT_SYMBOL(msm_qdss_csr_disable_bam_to_usb);
 
 void msm_qdss_csr_disable_flush(void)
 {
@@ -132,7 +132,7 @@ void msm_qdss_csr_disable_flush(void)
 
 	CSR_LOCK(drvdata);
 }
-EXPORT_SYMBOL_GPL(msm_qdss_csr_disable_flush);
+EXPORT_SYMBOL(msm_qdss_csr_disable_flush);
 
 static int __devinit csr_probe(struct platform_device *pdev)
 {
