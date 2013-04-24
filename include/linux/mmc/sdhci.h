@@ -258,6 +258,9 @@ struct sdhci_host {
 	struct mutex ios_mutex;
 	enum sdhci_power_policy power_policy;
 
+	bool irq_enabled; /* host irq status flag */
+	bool async_int_supp;  /* async support to rxv int, when clks are off */
+	bool disable_sdio_irq_deferred; /* status of disabling sdio irq */
 	unsigned long private[0] ____cacheline_aligned;
 };
 #endif /* LINUX_MMC_SDHCI_H */
