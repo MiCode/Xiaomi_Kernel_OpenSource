@@ -49,7 +49,6 @@
 #include "platsmp.h"
 #include "spm.h"
 #include "pm.h"
-#include "lpm_resources.h"
 #include "modem_notifier.h"
 
 static struct memtype_reserve msm8610_reserve_table[] __initdata = {
@@ -104,7 +103,6 @@ void __init msm8610_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
 	msm_spm_device_init();
 	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
