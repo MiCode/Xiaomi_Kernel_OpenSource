@@ -1197,16 +1197,19 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	if (!ctl)
 		return NULL;
 
 	switch (mux) {
 	case MDSS_MDP_MIXER_MUX_DEFAULT:
 	case MDSS_MDP_MIXER_MUX_LEFT:
-		mixer = ctl->mixer_left;
+		mixer = mdp5_data->mixer_swap ?
+			ctl->mixer_right : ctl->mixer_left;
 		break;
 	case MDSS_MDP_MIXER_MUX_RIGHT:
-		mixer = ctl->mixer_right;
+		mixer = mdp5_data->mixer_swap ?
+			ctl->mixer_left : ctl->mixer_right;
 		break;
 	}
 
