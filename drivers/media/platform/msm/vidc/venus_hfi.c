@@ -282,6 +282,7 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	u32 packet_size_in_words, new_read_idx;
 	u32 *read_ptr;
 	struct vidc_iface_q_info *qinfo;
+	int rc = 0;
 
 	if (!info || !packet || !pb_tx_req_is_set) {
 		dprintk(VIDC_ERR, "Invalid Params");
@@ -317,17 +318,27 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 
 	new_read_idx = queue->qhdr_read_idx + packet_size_in_words;
 	dprintk(VIDC_DBG, "Read Ptr: %d", (u32) new_read_idx);
-	if (new_read_idx < queue->qhdr_q_size) {
-		memcpy(packet, read_ptr,
-			packet_size_in_words << 2);
-	} else {
-		new_read_idx -= queue->qhdr_q_size;
-		memcpy(packet, read_ptr,
+	if (((packet_size_in_words << 2) <= VIDC_IFACEQ_MED_PKT_SIZE)
+			&& queue->qhdr_read_idx <= queue->qhdr_q_size) {
+		if (new_read_idx < queue->qhdr_q_size) {
+			memcpy(packet, read_ptr,
+					packet_size_in_words << 2);
+		} else {
+			new_read_idx -= queue->qhdr_q_size;
+			memcpy(packet, read_ptr,
 			(packet_size_in_words - new_read_idx) << 2);
-		memcpy(packet + ((packet_size_in_words -
-			new_read_idx) << 2),
-			(u8 *)qinfo->q_array.align_virtual_addr,
-			new_read_idx << 2);
+			memcpy(packet + ((packet_size_in_words -
+					new_read_idx) << 2),
+					(u8 *)qinfo->q_array.align_virtual_addr,
+					new_read_idx << 2);
+		}
+	} else {
+		dprintk(VIDC_WARN,
+			"BAD packet received, read_idx: 0x%x, pkt_size: %d\n",
+			queue->qhdr_read_idx, packet_size_in_words << 2);
+		dprintk(VIDC_WARN, "Dropping this packet\n");
+		new_read_idx = queue->qhdr_write_idx;
+		rc = -ENODATA;
 	}
 
 	queue->qhdr_read_idx = new_read_idx;
@@ -340,7 +351,7 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	*pb_tx_req_is_set = (1 == queue->qhdr_tx_req) ? 1 : 0;
 	venus_hfi_hal_sim_modify_msg_packet(packet);
 	dprintk(VIDC_DBG, "Out : ");
-	return 0;
+	return rc;
 }
 
 static int venus_hfi_alloc(void *mem, void *clnt, u32 size, u32 align,
