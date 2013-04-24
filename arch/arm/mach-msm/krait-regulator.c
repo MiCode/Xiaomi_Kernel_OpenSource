@@ -61,9 +61,7 @@
 #define PMIC_VOLTAGE_MAX		1355000
 #define LV_RANGE_STEP			5000
 
-#define LOAD_PER_PHASE			3200000
-
-#define CORE_VOLTAGE_MIN		900000
+#define CORE_VOLTAGE_BOOTUP		900000
 
 #define KRAIT_LDO_VOLTAGE_MIN		465000
 #define KRAIT_LDO_VOLTAGE_OFFSET	465000
@@ -146,7 +144,10 @@
  *				regulator's callback functions to prevent
  *				simultaneous updates to the pmic's phase
  *				voltage.
- * @apcs_gcc_base		virtual address of the APCS GCC registers
+ * @apcs_gcc_base:		virtual address of the APCS GCC registers
+ * @manage_phases:		begin phase control
+ * @pfm_threshold:		the sum of coefficients below which PFM can be
+ *				enabled
  */
 struct pmic_gang_vreg {
 	const char		*name;
@@ -159,6 +160,8 @@ struct pmic_gang_vreg {
 	bool			retention_enabled;
 	bool			use_phase_switching;
 	void __iomem		*apcs_gcc_base;
+	bool			manage_phases;
+	int			pfm_threshold;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -175,7 +178,7 @@ struct krait_power_vreg {
 	const char			*name;
 	struct pmic_gang_vreg		*pvreg;
 	int				uV;
-	int				load_uA;
+	int				load;
 	enum krait_supply_mode		mode;
 	void __iomem			*reg_base;
 	void __iomem			*mdd_base;
@@ -185,6 +188,8 @@ struct krait_power_vreg {
 	int				ldo_threshold_uV;
 	int				ldo_delta_uV;
 	int				cpu_num;
+	int				coeff1;
+	int				coeff2;
 	bool				online;
 };
 
@@ -293,6 +298,229 @@ static int __krait_power_mdd_enable(struct krait_power_vreg *kvreg, bool on)
 	return 0;
 }
 
+#define COEFF2_UV_THRESHOLD 850000
+static int get_coeff2(int krait_uV)
+{
+	int coeff2 = 0;
+	int krait_mV = krait_uV / 1000;
+
+	if (krait_uV <= COEFF2_UV_THRESHOLD)
+		coeff2 = (612229 * krait_mV) / 1000 - 211258;
+	else
+		coeff2 = (892564 * krait_mV) / 1000 - 449543;
+
+	return  coeff2;
+}
+
+static int get_coeff1(int actual_uV, int requested_uV, int load)
+{
+	int ratio = actual_uV * 1000 / requested_uV;
+	int coeff1 = 330 * load + (load * 673 * ratio / 1000);
+
+	return coeff1;
+}
+
+static int get_coeff_total(struct krait_power_vreg *from)
+{
+	int coeff_total = 0;
+	struct krait_power_vreg *kvreg;
+	struct pmic_gang_vreg *pvreg = from->pvreg;
+
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (!kvreg->online)
+			continue;
+
+		if (kvreg->mode == LDO_MODE) {
+			kvreg->coeff1 =
+				get_coeff1(kvreg->uV - kvreg->ldo_delta_uV,
+							kvreg->uV, kvreg->load);
+			kvreg->coeff2 =
+				get_coeff2(kvreg->uV - kvreg->ldo_delta_uV);
+		} else {
+			kvreg->coeff1 =
+				get_coeff1(pvreg->pmic_vmax_uV,
+							kvreg->uV, kvreg->load);
+			kvreg->coeff2 = get_coeff2(pvreg->pmic_vmax_uV);
+		}
+		coeff_total += kvreg->coeff1 + kvreg->coeff2;
+	}
+
+	return coeff_total;
+}
+
+static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg, int phase_count)
+{
+	pr_debug("programming phase_count = %d\n", phase_count);
+	if (pvreg->use_phase_switching)
+		/*
+		 * note the PMIC sets the phase count to one more than
+		 * the value in the register - hence subtract 1 from it
+		 */
+		return msm_spm_apcs_set_phase(phase_count - 1);
+	else
+		return 0;
+}
+
+static int num_online(struct pmic_gang_vreg *pvreg)
+{
+	int online_total = 0;
+	struct krait_power_vreg *kvreg;
+
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (kvreg->online)
+			online_total++;
+	}
+	return online_total;
+}
+
+static int get_total_load(struct krait_power_vreg *from)
+{
+	int load_total = 0;
+	struct krait_power_vreg *kvreg;
+	struct pmic_gang_vreg *pvreg = from->pvreg;
+
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (!kvreg->online)
+			continue;
+		load_total += kvreg->load;
+	}
+
+	return load_total;
+}
+
+#define PMIC_FTS_MODE_PFM	0x00
+#define PMIC_FTS_MODE_PWM	0x80
+#define ONE_PHASE_COEFF		1000000
+#define TWO_PHASE_COEFF		2000000
+
+#define PHASE_SETTLING_TIME_US		10
+static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
+				int coeff_total)
+{
+	struct pmic_gang_vreg *pvreg = from->pvreg;
+	int phase_count;
+	int rc = 0;
+	int n_online = num_online(pvreg);
+	int load_total;
+
+	load_total = get_total_load(from);
+
+	if (pvreg->manage_phases == false)
+		return 0;
+
+	/* First check if the coeff is low for PFM mode */
+	if (load_total <= pvreg->pfm_threshold && n_online == 1) {
+		if (!pvreg->pfm_mode) {
+			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
+			if (rc) {
+				pr_err("%s PFM en failed load_t %d rc = %d\n",
+					from->name, load_total, rc);
+				return rc;
+			} else {
+				pvreg->pfm_mode = true;
+			}
+		}
+		return rc;
+	}
+
+	/* coeff is high switch to PWM mode before changing phases */
+	if (pvreg->pfm_mode) {
+		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+		if (rc) {
+			pr_err("%s PFM exit failed load %d rc = %d\n",
+				from->name, coeff_total, rc);
+			return rc;
+		} else {
+			pvreg->pfm_mode = false;
+		}
+	}
+
+	/* calculate phases */
+	if (coeff_total < ONE_PHASE_COEFF)
+		phase_count = 1;
+	else if (coeff_total < TWO_PHASE_COEFF)
+		phase_count = 2;
+	else
+		phase_count = 4;
+
+	/* don't increase the phase count higher than number of online cpus */
+	if (phase_count > n_online)
+		phase_count = n_online;
+
+	if (phase_count != pvreg->pmic_phase_count) {
+		rc = set_pmic_gang_phases(pvreg, phase_count);
+		if (rc < 0) {
+			pr_err("%s failed set phase %d rc = %d\n",
+				from->name, phase_count, rc);
+			return rc;
+		}
+
+		/* complete the writes before the delay */
+		mb();
+
+		/*
+		 * delay until the phases are settled when
+		 * the count is raised
+		 */
+		if (phase_count > pvreg->pmic_phase_count)
+			udelay(PHASE_SETTLING_TIME_US);
+
+		pvreg->pmic_phase_count = phase_count;
+	}
+
+	return rc;
+}
+
+static unsigned int _get_optimum_mode(struct regulator_dev *rdev,
+			int input_uV, int output_uV, int load)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	int coeff_total;
+	int rc;
+
+	coeff_total = get_coeff_total(kvreg);
+
+	rc = pmic_gang_set_phases(kvreg, coeff_total);
+	if (rc < 0) {
+		dev_err(&rdev->dev, "%s failed set mode %d rc = %d\n",
+				kvreg->name, coeff_total, rc);
+	}
+
+	return kvreg->mode;
+}
+
+static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
+			int input_uV, int output_uV, int load_uA)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+	int rc;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	kvreg->load = load_uA;
+	if (!kvreg->online) {
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		return kvreg->mode;
+	}
+
+	rc = _get_optimum_mode(rdev, input_uV, output_uV, load_uA);
+	mutex_unlock(&pvreg->krait_power_vregs_lock);
+
+	return rc;
+}
+
+static int krait_power_set_mode(struct regulator_dev *rdev, unsigned int mode)
+{
+	return 0;
+}
+
+static unsigned int krait_power_get_mode(struct regulator_dev *rdev)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+
+	return kvreg->mode;
+}
+
 static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 {
 	if (kvreg->mode == HS_MODE)
@@ -366,19 +594,6 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	kvreg->mode = LDO_MODE;
 	pr_debug("%s using LDO\n", kvreg->name);
 	return 0;
-}
-
-static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg, int phase_count)
-{
-	pr_debug("programming phase_count = %d\n", phase_count);
-	if (pvreg->use_phase_switching)
-		/*
-		 * note the PMIC sets the phase count to one more than
-		 * the value in the register - hence subtract 1 from it
-		 */
-		return msm_spm_apcs_set_phase(phase_count - 1);
-	else
-		return 0;
 }
 
 static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
@@ -524,46 +739,6 @@ static int krait_voltage_decrease(struct krait_power_vreg *from,
 	return rc;
 }
 
-#define PHASE_SETTLING_TIME_US		10
-static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
-				int load_uA)
-{
-	struct pmic_gang_vreg *pvreg = from->pvreg;
-	int phase_count = DIV_ROUND_UP(load_uA, LOAD_PER_PHASE);
-	int rc = 0;
-
-	if (phase_count <= 0)
-		phase_count = 1;
-
-	 /* Increase phases if it is less than the number of cpus online */
-	if (phase_count < num_online_cpus()) {
-		phase_count = num_online_cpus();
-	}
-
-	if (phase_count != pvreg->pmic_phase_count) {
-		rc = set_pmic_gang_phases(pvreg, phase_count);
-		if (rc < 0) {
-			dev_err(&from->rdev->dev,
-				"%s failed set phase %d rc = %d\n",
-				pvreg->name, phase_count, rc);
-			return rc;
-		}
-
-		/* complete the writes before the delay */
-		mb();
-
-		/*
-		 * delay until the phases are settled when
-		 * the count is raised
-		 */
-		if (phase_count > pvreg->pmic_phase_count)
-			udelay(PHASE_SETTLING_TIME_US);
-
-		pvreg->pmic_phase_count = phase_count;
-	}
-	return rc;
-}
-
 static int krait_power_get_voltage(struct regulator_dev *rdev)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
@@ -590,21 +765,6 @@ static int get_vmax(struct pmic_gang_vreg *pvreg)
 	return vmax;
 }
 
-static int get_total_load(struct krait_power_vreg *from)
-{
-	int load_total = 0;
-	struct krait_power_vreg *kvreg;
-	struct pmic_gang_vreg *pvreg = from->pvreg;
-
-	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
-			continue;
-		load_total += kvreg->load_uA;
-	}
-
-	return load_total;
-}
-
 #define ROUND_UP_VOLTAGE(v, res) (DIV_ROUND_UP(v, res) * res)
 static int _set_voltage(struct regulator_dev *rdev,
 			int orig_krait_uV, int requested_uV)
@@ -613,6 +773,7 @@ static int _set_voltage(struct regulator_dev *rdev,
 	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
 	int rc;
 	int vmax;
+	int coeff_total;
 
 	pr_debug("%s: %d to %d\n", kvreg->name, orig_krait_uV, requested_uV);
 	/*
@@ -635,6 +796,10 @@ static int _set_voltage(struct regulator_dev *rdev,
 		dev_err(&rdev->dev, "%s failed to set %duV from %duV rc = %d\n",
 				kvreg->name, requested_uV, orig_krait_uV, rc);
 	}
+
+	coeff_total = get_coeff_total(kvreg);
+	/* adjust the phases since coeff2 would have changed */
+	rc = pmic_gang_set_phases(kvreg, coeff_total);
 
 	return rc;
 }
@@ -670,89 +835,6 @@ static int krait_power_set_voltage(struct regulator_dev *rdev,
 	return rc;
 }
 
-#define PMIC_FTS_MODE_PFM	0x00
-#define PMIC_FTS_MODE_PWM	0x80
-#define PFM_LOAD_UA		500000
-static unsigned int _get_optimum_mode(struct regulator_dev *rdev,
-			int input_uV, int output_uV, int load_uA)
-{
-	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
-	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
-	int rc;
-	int load_total_uA;
-
-	load_total_uA = get_total_load(kvreg);
-
-	if (load_total_uA < PFM_LOAD_UA) {
-		if (!pvreg->pfm_mode) {
-			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
-			if (rc) {
-				dev_err(&rdev->dev,
-					"%s enter PFM failed load %d rc = %d\n",
-					kvreg->name, load_total_uA, rc);
-				goto out;
-			} else {
-				pvreg->pfm_mode = true;
-			}
-		}
-		return kvreg->mode;
-	}
-
-	if (pvreg->pfm_mode) {
-		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
-		if (rc) {
-			dev_err(&rdev->dev,
-				"%s exit PFM failed load %d rc = %d\n",
-				kvreg->name, load_total_uA, rc);
-			goto out;
-		} else {
-			pvreg->pfm_mode = false;
-		}
-	}
-
-	rc = pmic_gang_set_phases(kvreg, load_total_uA);
-	if (rc < 0) {
-		dev_err(&rdev->dev, "%s failed set mode %d rc = %d\n",
-				kvreg->name, load_total_uA, rc);
-		goto out;
-	}
-
-out:
-	return kvreg->mode;
-}
-
-static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
-			int input_uV, int output_uV, int load_uA)
-{
-	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
-	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
-	int rc;
-
-	mutex_lock(&pvreg->krait_power_vregs_lock);
-	kvreg->load_uA = load_uA;
-	if (!kvreg->online) {
-		mutex_unlock(&pvreg->krait_power_vregs_lock);
-		return kvreg->mode;
-	}
-
-	rc = _get_optimum_mode(rdev, input_uV, output_uV, load_uA);
-	mutex_unlock(&pvreg->krait_power_vregs_lock);
-
-	return rc;
-}
-
-static int krait_power_set_mode(struct regulator_dev *rdev, unsigned int mode)
-{
-	return 0;
-}
-
-static unsigned int krait_power_get_mode(struct regulator_dev *rdev)
-{
-	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
-
-	return kvreg->mode;
-}
-
 static int krait_power_is_enabled(struct regulator_dev *rdev)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
@@ -769,7 +851,7 @@ static int krait_power_enable(struct regulator_dev *rdev)
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	__krait_power_mdd_enable(kvreg, true);
 	kvreg->online = true;
-	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load_uA);
+	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
 		goto en_err;
 	/*
@@ -791,8 +873,7 @@ static int krait_power_disable(struct regulator_dev *rdev)
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	kvreg->online = false;
 
-	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV,
-							kvreg->load_uA);
+	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
 		goto dis_err;
 
@@ -1012,7 +1093,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	kvreg->desc.ops		= &krait_power_ops;
 	kvreg->desc.type	= REGULATOR_VOLTAGE;
 	kvreg->desc.owner	= THIS_MODULE;
-	kvreg->uV		= CORE_VOLTAGE_MIN;
+	kvreg->uV		= CORE_VOLTAGE_BOOTUP;
 	kvreg->mode		= HS_MODE;
 	kvreg->desc.ops		= &krait_power_ops;
 	kvreg->headroom_uV	= headroom_uV;
@@ -1111,6 +1192,7 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 {
 	int rc;
 	bool use_phase_switching = false;
+	int pfm_threshold;
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct pmic_gang_vreg *pvreg;
@@ -1123,6 +1205,13 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 
 	use_phase_switching = of_property_read_bool(node,
 						"qcom,use-phase-switching");
+
+	rc = of_property_read_u32(node, "qcom,pfm-threshold", &pfm_threshold);
+	if (rc < 0) {
+		dev_err(dev, "pfm-threshold missing rc=%d, pfm disabled\n", rc);
+		return -EINVAL;
+	}
+
 	pvreg = devm_kzalloc(&pdev->dev,
 			sizeof(struct pmic_gang_vreg), GFP_KERNEL);
 	if (!pvreg) {
@@ -1148,6 +1237,7 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 	pvreg->retention_enabled = true;
 	pvreg->pmic_min_uV_for_retention = INT_MAX;
 	pvreg->use_phase_switching = use_phase_switching;
+	pvreg->pfm_threshold = pfm_threshold;
 
 	mutex_init(&pvreg->krait_power_vregs_lock);
 	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
@@ -1235,6 +1325,14 @@ void secondary_cpu_hs_init(void *base_ptr)
 		| BHS_EN_MASK,
 		base_ptr + APC_PWR_GATE_CTL);
 }
+
+static int __devinit begin_pmic_phase_management(void)
+{
+	if (the_gang != NULL)
+		the_gang->manage_phases = true;
+	return 0;
+}
+late_initcall(begin_pmic_phase_management);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("KRAIT POWER regulator driver");
