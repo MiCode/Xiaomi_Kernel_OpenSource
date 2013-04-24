@@ -66,7 +66,7 @@ static void *ocmem_base;
 #define NUM_PORTS_SHIFT (0)
 #define GFX_MPU_SHIFT (12)
 
-#define NUM_MACROS_MASK (0xF << 8)
+#define NUM_MACROS_MASK (0x3F << 8)
 #define NUM_MACROS_SHIFT (8)
 
 #define INTERLEAVING_MASK (0x1 << 17)
