@@ -12,11 +12,11 @@ Required properties:
 - reg:		Specifies the SPMI address and size for this PON (power-on) peripheral
 - interrupts:	Specifies the interrupt associated with PON.
 - interrupt-names:	Specify the interrupt names associated with interrupts. Must be
-			one of "kpdpwr", "kpdpwr-bark", "resin", "resin-bark", "cblpwr".
-			Bark interrupts are associated with system reset configuration
-			to allow default reset configuration to be activated. If system
-			reset configuration is not supported then bark interrupts are
-			nops.
+			one of "kpdpwr", "kpdpwr-bark", "resin", "resin-bark", "cblpwr",
+			"kpdpwr-resin-bark". Bark interrupts are associated with system
+			reset configuration to allow default reset configuration to be
+			activated. If system reset configuration is not supported then
+			bark interrupts are nops.
 
 Optional properties:
 - qcom,pon-dbc-delay		The debounce delay for the power-key interrupt
@@ -34,6 +34,8 @@ Optional properties:
 				to reset the system. This property can only be
 				used by one device on the system. It is an error
 				to include it more than once.
+- qcom,s3-debounce		The debounce delay for stage3 reset trigger in
+				secs. The values range from 0 to 128.
 
 All the below properties are in the sub-node section (properties of the child
 node).
@@ -82,9 +84,13 @@ Example:
 		reg = <0x800 0x100>;
 		interrupts = <0x0 0x8 0x0>,
 			     <0x0 0x8 0x1>,
-			     <0x0 0x8 0x4>;
-		interrupt-names = "kpdpwr", "resin", "resin-bark";
+			     <0x0 0x8 0x4>,
+			     <0x0 0x8 0x5>;
+		interrupt-names = "kpdpwr", "resin",
+				"resin-bark", "kpdpwr-resin-bark";
 		qcom,pon-dbc-delay = <15625>;
+		qcom,system-reset;
+		qcom,s3-debounce = <32>;
 
 		qcom,pon_1 {
 			qcom,pon-type = <0>;
@@ -96,9 +102,18 @@ Example:
 			qcom,pon-type = <1>;
 			qcom,support-reset = <1>;
 			qcom,pull-up = <1>;
-			qcom,s1-timer = <3072>;
+			qcom,s1-timer = <0>;
 			qcom,s2-timer = <2000>;
 			qcom,s2-type = <1>;
 			linux,code = <114>;
 		};
-	}
+
+		qcom,pon_3 {
+			qcom,pon-type = <3>;
+			qcom,support-reset = <1>;
+			qcom,s1-timer = <6720>;
+			qcom,s2-timer = <2000>;
+			qcom,s2-type = <7>;
+			qcom,pull-up = <1>;
+		};
+	};
