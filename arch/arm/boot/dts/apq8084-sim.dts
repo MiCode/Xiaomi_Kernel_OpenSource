@@ -165,3 +165,7 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&usb3 {
+	qcom,skip-charger-detection;
+};
