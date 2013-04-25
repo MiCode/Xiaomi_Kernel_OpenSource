@@ -830,6 +830,8 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
+	mutex_init(&iadc->adc->adc_lock);
+
 	rc = of_property_read_u32(node, "qcom,rsense",
 			&iadc->rsense);
 	if (rc)

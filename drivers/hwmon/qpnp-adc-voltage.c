@@ -982,6 +982,7 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "failed to read device tree\n");
 		goto fail;
 	}
+	mutex_init(&vadc->adc->adc_lock);
 
 	rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq_eoc,
 				qpnp_vadc_isr, IRQF_TRIGGER_RISING,
