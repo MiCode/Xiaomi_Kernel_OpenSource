@@ -42,6 +42,12 @@ enum usb_pipe_mem_type {
 	OCI_MEM,		/* Shared memory among peripherals */
 };
 
+enum usb_bam_event_type {
+	USB_BAM_EVENT_WAKEUP_PIPE = 0,	/* Wake a pipe */
+	USB_BAM_EVENT_WAKEUP,		/* Wake a bam (first pipe waked) */
+	USB_BAM_EVENT_INACTIVITY,	/* Inactivity on all pipes */
+};
+
 struct usb_bam_connect_ipa_params {
 	u8 src_idx;
 	u8 dst_idx;
@@ -57,16 +63,20 @@ struct usb_bam_connect_ipa_params {
 	void *priv;
 	void (*notify)(void *priv, enum ipa_dp_evt_type evt,
 			unsigned long data);
+	int (*activity_notify)(void *priv);
+	int (*inactivity_notify)(void *priv);
 };
 
 /**
 * struct usb_bam_event_info: suspend/resume event information.
+* @type: usb bam event type.
 * @event: holds event data.
 * @callback: suspend/resume callback.
 * @param: port num (for suspend) or NULL (for resume).
 * @event_w: holds work queue parameters.
 */
 struct usb_bam_event_info {
+	enum usb_bam_event_type type;
 	struct sps_register_event event;
 	int (*callback)(void *);
 	void *param;
@@ -89,8 +99,12 @@ struct usb_bam_event_info {
 * @desc_fifo_size: descriptor fifo size.
 * @data_mem_buf: data fifo buffer.
 * @desc_mem_buf: descriptor fifo buffer.
-* @wake_event: event for wakeup.
+* @event: event for wakeup.
 * @enabled: true if pipe is enabled.
+* @priv: private data to return upon activity_notify
+*	or inactivity_notify callbacks.
+* @activity_notify: callback to invoke on activity on one of the in pipes.
+* @inactivity_notify: callback to invoke on inactivity on all pipes.
 */
 struct usb_bam_pipe_connect {
 	const char *name;
@@ -109,8 +123,11 @@ struct usb_bam_pipe_connect {
 	u32 desc_fifo_size;
 	struct sps_mem_buffer data_mem_buf;
 	struct sps_mem_buffer desc_mem_buf;
-	struct usb_bam_event_info wake_event;
+	struct usb_bam_event_info event;
 	bool enabled;
+	void *priv;
+	int (*activity_notify)(void *priv);
+	int (*inactivity_notify)(void *priv);
 };
 
 /**
