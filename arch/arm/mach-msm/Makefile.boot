@@ -64,7 +64,7 @@ endif
         dtb-$(CONFIG_ARCH_APQ8084)	+= apq8084-sim.dtb
 
 # MSMKRYPTON
-   zreladdr-$(CONFIG_ARCH_MSMKRYPTON)	:= 0x00208000
+   zreladdr-$(CONFIG_ARCH_MSMKRYPTON)	:= 0x00008000
 	dtb-$(CONFIG_ARCH_MSMKRYPTON)	+= msmkrypton-sim.dtb
 
 # MSM9615
