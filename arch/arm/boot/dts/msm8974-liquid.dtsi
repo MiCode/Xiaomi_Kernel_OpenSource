@@ -318,6 +318,7 @@
 			"Lineout_3 amp", "LINEOUT3",
 			"Lineout_2 amp", "LINEOUT2",
 			"Lineout_4 amp", "LINEOUT4",
+			"SPK_ultrasound amp", "SPK_OUT",
 			"AMIC1", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Analog Mic4",
 			"AMIC2", "MIC BIAS2 External",
@@ -346,6 +347,7 @@
 		qcom,ext-spk-amp-supply = <&ext_5v>;
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
 		qcom,dock-plug-det-irq = <&pm8841_mpps 2 0>;
+		qcom,ext-ult-spk-amp-gpio = <&pm8941_gpios 6 0>;
 		qcom,hdmi-audio-rx;
 
 		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 74 0>;
@@ -449,6 +451,14 @@
 	};
 
 	gpio@c500 { /* GPIO 6 */
+		/* ULTRASOUND_EN_1 PA AB enable */
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,pull = <4>; /* PULL_DOWN */
+		qcom,vin-sel = <0>; /* VPH */
+		qcom,out-strength = <2>; /* STRENGTH_MED */
+		qcom,src-sel = <0>; /* CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c600 { /* GPIO 7 */
