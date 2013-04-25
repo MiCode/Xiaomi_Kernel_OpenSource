@@ -860,7 +860,7 @@ static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	rc = v4l2_subdev_call(cpp_dev->buf_mgr_subdev, core, ioctl,
 		buff_mgr_ops, buff_mgr_info);
 	if (rc < 0)
-		pr_err("%s: line %d rc = %d\n", __func__, __LINE__, rc);
+		pr_debug("%s: line %d rc = %d\n", __func__, __LINE__, rc);
 	return rc;
 }
 
@@ -1010,7 +1010,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		&buff_mgr_info);
 	if (rc < 0) {
 		rc = -EAGAIN;
-		pr_err("error getting buffer rc:%d\n", rc);
+		pr_debug("error getting buffer rc:%d\n", rc);
 		goto ERROR2;
 	}
 
