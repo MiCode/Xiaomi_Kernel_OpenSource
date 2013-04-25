@@ -2340,9 +2340,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	msm_hs_start_rx_locked(uport);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
-	ret = pm_runtime_set_active(uport->dev);
-	if (ret)
-		dev_err(uport->dev, "set active error:%d\n", ret);
+
 	pm_runtime_enable(uport->dev);
 
 	return 0;
@@ -3180,7 +3178,6 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work);
 	flush_workqueue(msm_uport->hsuart_wq);
 	pm_runtime_disable(uport->dev);
-	pm_runtime_set_suspended(uport->dev);
 
 	/* Disable the transmitter */
 	msm_hs_write(uport, UARTDM_CR_ADDR, UARTDM_CR_TX_DISABLE_BMSK);
