@@ -1458,7 +1458,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 	int ret;
 	struct mtd_oob_ops ops;
 
-	ops.mode = MTD_OPS_PLACE_OOB;
+	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
@@ -1643,7 +1643,7 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	int ret;
 	struct mtd_oob_ops ops;
 
-	ops.mode = MTD_OPS_PLACE_OOB;
+	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
