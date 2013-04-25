@@ -691,7 +691,6 @@
 		reg = <0xf9011050 0x8>;
 		reg-names = "rcg_base";
 		a7_cpu-supply = <&apc_vreg_corner>;
-		a7_mem-supply = <&pm8226_l3>;
 	};
 
 	qcom,ocmem@fdd00000 {

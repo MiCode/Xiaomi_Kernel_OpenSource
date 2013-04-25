@@ -10,7 +10,6 @@ Required properties:
 - reg-names: name of the bases for the above registers. "rcg_base"
 	     is expected.
 - a7_cpu-supply: regulator to supply a7 cpu
-- a7_mem-supply: regulator to supply a7 l2 cache
 
 Example:
 	qcom,acpuclk@f9011050 {
@@ -18,5 +17,4 @@ Example:
 		reg = <0xf9011050 0x8>;
 		reg-names = "rcg_base";
 		a7_cpu-supply = <&pm8026_s2>;
-		a7_mem-supply = <&pm8026_l3>;
 	};
