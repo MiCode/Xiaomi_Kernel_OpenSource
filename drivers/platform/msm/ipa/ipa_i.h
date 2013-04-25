@@ -479,6 +479,14 @@ struct ipa_rx_pkt_wrapper {
  * @is_sys_mem: flag indicating if NAT memory is sys memory
  * @is_dev_init: flag indicating if NAT device is initialized
  * @lock: NAT memory mutex
+ * @nat_base_address: nat table virutal address
+ * @ipv4_rules_addr: base nat table address
+ * @ipv4_expansion_rules_addr: expansion table address
+ * @index_table_addr: index table address
+ * @index_table_expansion_addr: index expansion table address
+ * @size_base_tables: base table size
+ * @size_expansion_tables: expansion table size
+ * @public_ip_addr: ip address of nat table
  */
 struct ipa_nat_mem {
 	struct class *class;
@@ -492,6 +500,14 @@ struct ipa_nat_mem {
 	bool is_sys_mem;
 	bool is_dev_init;
 	struct mutex lock;
+	void *nat_base_address;
+	char *ipv4_rules_addr;
+	char *ipv4_expansion_rules_addr;
+	char *index_table_addr;
+	char *index_table_expansion_addr;
+	u32 size_base_tables;
+	u32 size_expansion_tables;
+	u32 public_ip_addr;
 };
 
 /**

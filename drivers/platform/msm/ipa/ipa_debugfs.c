@@ -104,6 +104,7 @@ static struct dentry *dfile_ip6_flt;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
+static struct dentry *dfile_ip4_nat;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -720,6 +721,238 @@ static ssize_t ipa_read_msg(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa_read_nat4(struct file *file,
+		char __user *ubuf, size_t count,
+		loff_t *ppos) {
+
+#define ENTRY_U32_FIELDS 8
+#define NAT_ENTRY_ENABLE 0x8000
+#define NAT_ENTRY_RST_FIN_BIT 0x4000
+#define BASE_TABLE 0
+#define EXPANSION_TABLE 1
+
+	u32 *base_tbl, *indx_tbl;
+	u32 tbl_size, *tmp;
+	u32 value, i, j, rule_id;
+	u16 enable, tbl_entry, flag;
+	int nbytes, cnt;
+
+	cnt = 0;
+	value = ipa_ctx->nat_mem.public_ip_addr;
+	nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN,
+				"Table IP Address:%d.%d.%d.%d\n",
+				((value & 0xFF000000) >> 24),
+				((value & 0x00FF0000) >> 16),
+				((value & 0x0000FF00) >> 8),
+				((value & 0x000000FF)));
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN,
+				"Table Size:%d\n",
+				ipa_ctx->nat_mem.size_base_tables);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN,
+				"Expansion Table Size:%d\n",
+				ipa_ctx->nat_mem.size_expansion_tables);
+	cnt += nbytes;
+
+	if (!ipa_ctx->nat_mem.is_sys_mem) {
+		nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN,
+					"Not supported for local(shared) memory\n");
+		cnt += nbytes;
+
+		return simple_read_from_buffer(ubuf, count,
+						ppos, dbg_buff, cnt);
+	}
+
+
+	/* Print Base tables */
+	rule_id = 0;
+	for (j = 0; j < 2; j++) {
+		if (j == BASE_TABLE) {
+			tbl_size = ipa_ctx->nat_mem.size_base_tables;
+			base_tbl = (u32 *)ipa_ctx->nat_mem.ipv4_rules_addr;
+
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+					"\nBase Table:\n");
+			cnt += nbytes;
+		} else {
+			tbl_size = ipa_ctx->nat_mem.size_expansion_tables;
+			base_tbl =
+			 (u32 *)ipa_ctx->nat_mem.ipv4_expansion_rules_addr;
+
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+					"\nExpansion Base Table:\n");
+			cnt += nbytes;
+		}
+
+		if (base_tbl != NULL) {
+			for (i = 0; i <= tbl_size; i++, rule_id++) {
+				tmp = base_tbl;
+				value = tmp[4];
+				enable = ((value & 0xFFFF0000) >> 16);
+
+				if (enable & NAT_ENTRY_ENABLE) {
+					nbytes = scnprintf(dbg_buff + cnt,
+								IPA_MAX_MSG_LEN,
+								"Rule:%d ",
+								rule_id);
+					cnt += nbytes;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Private_IP:%d.%d.%d.%d ",
+						((value & 0xFF000000) >> 24),
+						((value & 0x00FF0000) >> 16),
+						((value & 0x0000FF00) >> 8),
+						((value & 0x000000FF)));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Target_IP:%d.%d.%d.%d ",
+						((value & 0xFF000000) >> 24),
+						((value & 0x00FF0000) >> 16),
+						((value & 0x0000FF00) >> 8),
+						((value & 0x000000FF)));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Next_Index:%d  Public_Port:%d ",
+						(value & 0x0000FFFF),
+						((value & 0xFFFF0000) >> 16));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Private_Port:%d  Target_Port:%d ",
+						(value & 0x0000FFFF),
+						((value & 0xFFFF0000) >> 16));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"IP-CKSM-delta:0x%x  ",
+						(value & 0x0000FFFF));
+					cnt += nbytes;
+
+					flag = ((value & 0xFFFF0000) >> 16);
+					if (flag & NAT_ENTRY_RST_FIN_BIT) {
+						nbytes =
+						 scnprintf(dbg_buff + cnt,
+							  IPA_MAX_MSG_LEN,
+								"IP_CKSM_delta:0x%x  Flags:%s ",
+							  (value & 0x0000FFFF),
+								"Direct_To_A5");
+						cnt += nbytes;
+					} else {
+						nbytes =
+						 scnprintf(dbg_buff + cnt,
+							IPA_MAX_MSG_LEN,
+							"IP_CKSM_delta:0x%x  Flags:%s ",
+							(value & 0x0000FFFF),
+							"Fwd_to_route");
+						cnt += nbytes;
+					}
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Time_stamp:0x%x Proto:%d ",
+						(value & 0x00FFFFFF),
+						((value & 0xFF000000) >> 27));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Prev_Index:%d  Indx_tbl_entry:%d ",
+						(value & 0x0000FFFF),
+						((value & 0xFFFF0000) >> 16));
+					cnt += nbytes;
+					tmp++;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"TCP_UDP_cksum_delta:0x%x\n",
+						((value & 0xFFFF0000) >> 16));
+					cnt += nbytes;
+				}
+
+				base_tbl += ENTRY_U32_FIELDS;
+
+			}
+		}
+	}
+
+	/* Print Index tables */
+	rule_id = 0;
+	for (j = 0; j < 2; j++) {
+		if (j == BASE_TABLE) {
+			tbl_size = ipa_ctx->nat_mem.size_base_tables;
+			indx_tbl = (u32 *)ipa_ctx->nat_mem.index_table_addr;
+
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+					"\nIndex Table:\n");
+			cnt += nbytes;
+		} else {
+			tbl_size = ipa_ctx->nat_mem.size_expansion_tables;
+			indx_tbl =
+			 (u32 *)ipa_ctx->nat_mem.index_table_expansion_addr;
+
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+					"\nExpansion Index Table:\n");
+			cnt += nbytes;
+		}
+
+		if (indx_tbl != NULL) {
+			for (i = 0; i <= tbl_size; i++, rule_id++) {
+				tmp = indx_tbl;
+				value = *tmp;
+				tbl_entry = (value & 0x0000FFFF);
+
+				if (tbl_entry) {
+					nbytes = scnprintf(dbg_buff + cnt,
+								IPA_MAX_MSG_LEN,
+								"Rule:%d ",
+								rule_id);
+					cnt += nbytes;
+
+					value = *tmp;
+					nbytes = scnprintf(dbg_buff + cnt,
+						IPA_MAX_MSG_LEN,
+						"Table_Entry:%d  Next_Index:%d\n",
+						tbl_entry,
+						((value & 0xFFFF0000) >> 16));
+					cnt += nbytes;
+				}
+
+				indx_tbl++;
+			}
+		}
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
 };
@@ -761,6 +994,10 @@ const struct file_operations ipa_msg_ops = {
 const struct file_operations ipa_dbg_cnt_ops = {
 	.read = ipa_read_dbg_cnt,
 	.write = ipa_write_dbg_cnt,
+};
+
+const struct file_operations ipa_nat4_ops = {
+	.read = ipa_read_nat4,
 };
 
 void ipa_debugfs_init(void)
@@ -857,6 +1094,13 @@ void ipa_debugfs_init(void)
 			&ipa_msg_ops);
 	if (!dfile_msg || IS_ERR(dfile_msg)) {
 		IPAERR("fail to create file for debug_fs msg\n");
+		goto fail;
+	}
+
+	dfile_ip4_nat = debugfs_create_file("ip4_nat", read_only_mode, dent,
+			0, &ipa_nat4_ops);
+	if (!dfile_ip4_nat || IS_ERR(dfile_ip4_nat)) {
+		IPAERR("fail to create file for debug_fs ip4 nat\n");
 		goto fail;
 	}
 

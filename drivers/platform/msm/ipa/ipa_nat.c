@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			IPAERR("unable to map memory. Err:%d\n", result);
 			goto bail;
 		}
+		ipa_ctx->nat_mem.nat_base_address = nat_ctx->vaddr;
 	} else {
 		IPADBG("Mapping shared(local) memory\n");
 		IPADBG("map sz=0x%lx\n", vsize);
@@ -88,7 +89,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			result = -EAGAIN;
 			goto bail;
 		}
-
+		ipa_ctx->nat_mem.nat_base_address = (void *)vma->vm_start;
 	}
 	nat_ctx->is_mapped = true;
 	vma->vm_ops = &ipa_nat_remap_vm_ops;
@@ -298,6 +299,35 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		result = -EPERM;
 		goto free_cmd;
 	}
+
+	ipa_ctx->nat_mem.public_ip_addr = init->ip_addr;
+	IPADBG("Table ip address:0x%x", ipa_ctx->nat_mem.public_ip_addr);
+
+	ipa_ctx->nat_mem.ipv4_rules_addr =
+	 (char *)ipa_ctx->nat_mem.nat_base_address + init->ipv4_rules_offset;
+	IPADBG("ipv4_rules_addr: 0x%p\n",
+				 ipa_ctx->nat_mem.ipv4_rules_addr);
+
+	ipa_ctx->nat_mem.ipv4_expansion_rules_addr =
+	 (char *)ipa_ctx->nat_mem.nat_base_address + init->expn_rules_offset;
+	IPADBG("ipv4_expansion_rules_addr: 0x%p\n",
+				 ipa_ctx->nat_mem.ipv4_expansion_rules_addr);
+
+	ipa_ctx->nat_mem.index_table_addr =
+		 (char *)ipa_ctx->nat_mem.nat_base_address + init->index_offset;
+	IPADBG("index_table_addr: 0x%p\n",
+				 ipa_ctx->nat_mem.index_table_addr);
+
+	ipa_ctx->nat_mem.index_table_expansion_addr =
+	 (char *)ipa_ctx->nat_mem.nat_base_address + init->index_expn_offset;
+	IPADBG("index_table_expansion_addr: 0x%p\n",
+				 ipa_ctx->nat_mem.index_table_expansion_addr);
+
+	IPADBG("size_base_tables: %d\n", init->table_entries);
+	ipa_ctx->nat_mem.size_base_tables  = init->table_entries;
+
+	IPADBG("size_expansion_tables: %d\n", init->expn_table_entries);
+	ipa_ctx->nat_mem.size_expansion_tables = init->expn_table_entries;
 
 	IPADBG("return\n");
 	result = 0;
