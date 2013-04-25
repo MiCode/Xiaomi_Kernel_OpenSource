@@ -221,6 +221,9 @@ static void pp_sharp_config(char __iomem *offset,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
 static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
+static void pp_ad_cfg_write(struct mdss_ad_info *ad);
+static void pp_ad_init_write(struct mdss_ad_info *ad);
+static void pp_ad_input_write(struct mdss_ad_info *ad, u32 bl_lvl);
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd);
 static void pp_ad_cfg_lut(char __iomem *offset, u32 *data);
 
@@ -1136,6 +1139,13 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 mixer_num)
 
 	if (mixer_num < mdata->nad_cfgs) {
 		ad = &mdata->ad_cfgs[mixer_num];
+
+		if (PP_AD_STATE_CFG & ad->state)
+			pp_ad_cfg_write(ad);
+		if (PP_AD_STATE_INIT & ad->state)
+			pp_ad_init_write(ad);
+		if (PP_AD_STATE_DATA & ad->state)
+			pp_ad_input_write(ad, ctl->mfd->bl_level);
 		if ((PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr)
 			ctl->add_vsync_handler(ctl, &ad->handle);
 	}
@@ -2732,9 +2742,9 @@ error:
 	return ret;
 }
 
-static void pp_ad_input_write(struct mdss_ad_info *ad, char __iomem *base,
-				u32 bl_lvl)
+static void pp_ad_input_write(struct mdss_ad_info *ad, u32 bl_lvl)
 {
+	char __iomem *base = ad->base;
 	switch (ad->cfg.mode) {
 	case MDSS_AD_MODE_AUTO_BL:
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_AL);
@@ -2757,9 +2767,10 @@ static void pp_ad_input_write(struct mdss_ad_info *ad, char __iomem *base,
 	}
 }
 
-static void pp_ad_init_write(struct mdss_ad_info *ad, char __iomem *base)
+static void pp_ad_init_write(struct mdss_ad_info *ad)
 {
 	u32 temp;
+	char __iomem *base = ad->base;
 	writel_relaxed(ad->init.i_control[0] & 0x1F,
 				base + MDSS_MDP_REG_AD_CON_CTRL_0);
 	writel_relaxed(ad->init.i_control[1] << 8,
@@ -2797,8 +2808,9 @@ static void pp_ad_init_write(struct mdss_ad_info *ad, char __iomem *base)
 }
 
 #define MDSS_PP_AD_DEF_CALIB 0x6E
-static void pp_ad_cfg_write(struct mdss_ad_info *ad, char __iomem *base)
+static void pp_ad_cfg_write(struct mdss_ad_info *ad)
 {
+	char __iomem *base = ad->base;
 	u32 temp, temp_calib = MDSS_PP_AD_DEF_CALIB;
 	switch (ad->cfg.mode) {
 	case MDSS_AD_MODE_AUTO_BL:
@@ -2888,14 +2900,14 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			ad->calc_itr = ad->cfg.stab_itr;
 			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 		}
-		pp_ad_input_write(ad, base, mfd->bl_level);
+		pp_ad_input_write(ad, mfd->bl_level);
 	}
 
 	if (ad->sts & PP_AD_STS_DIRTY_CFG) {
 		ad->sts &= ~PP_AD_STS_DIRTY_CFG;
 		ad->state |= PP_AD_STATE_CFG;
 
-		pp_ad_cfg_write(ad, base);
+		pp_ad_cfg_write(ad);
 
 		if (!MDSS_AD_MODE_DATA_MATCH(ad->cfg.mode, ad->ad_data_mode)) {
 			ad->sts &= ~PP_AD_STS_DIRTY_DATA;
@@ -2906,7 +2918,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	if (ad->sts & PP_AD_STS_DIRTY_INIT) {
 		ad->sts &= ~PP_AD_STS_DIRTY_INIT;
 		ad->state |= PP_AD_STATE_INIT;
-		pp_ad_init_write(ad, base);
+		pp_ad_init_write(ad);
 	}
 
 	if ((ad->sts & PP_STS_ENABLE) && PP_AD_STATE_IS_READY(ad->state)) {
