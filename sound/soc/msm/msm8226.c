@@ -296,10 +296,10 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
-	case 0:
+	case 8000:
 		msm_btsco_rate = BTSCO_RATE_8KHZ;
 		break;
-	case 1:
+	case 16000:
 		msm_btsco_rate = BTSCO_RATE_16KHZ;
 		break;
 	default:
@@ -310,11 +310,6 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
 	return 0;
 }
-
-static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
-	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
-		     msm_btsco_rate_get, msm_btsco_rate_put),
-};
 
 static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
@@ -550,6 +545,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 		     msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 	SOC_ENUM_EXT("AUX PCM SampleRate", msm8226_auxpcm_enum[0],
 			msm8226_auxpcm_rate_get, msm8226_auxpcm_rate_put),
+	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
+		     msm_btsco_rate_get, msm_btsco_rate_put),
 };
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
