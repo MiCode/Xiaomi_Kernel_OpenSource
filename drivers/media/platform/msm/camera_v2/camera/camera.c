@@ -595,12 +595,17 @@ static int camera_v4l2_close(struct file *filep)
 	struct v4l2_event event;
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	struct camera_v4l2_private *sp = fh_to_private(filep->private_data);
-
 	BUG_ON(!pvdev);
 
 	atomic_sub_return(1, &pvdev->opened);
 
 	if (atomic_read(&pvdev->opened) == 0) {
+
+		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
+			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
+
+		/* Donot wait, imaging server may have crashed */
+		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 
 		camera_pack_event(filep, MSM_CAMERA_DEL_SESSION, 0, -1, &event);
 
