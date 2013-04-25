@@ -21,8 +21,9 @@
 	qcom,csiphy@fda0ac00 {
 		cell-index = <0>;
 		compatible = "qcom,csiphy";
-		reg = <0xfda0ac00 0x200>;
-		reg-names = "csiphy";
+		reg = <0xfda0ac00 0x200>,
+			<0xfda00030 0x4>;
+		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
 	};
@@ -30,8 +31,9 @@
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
 		compatible = "qcom,csiphy";
-		reg = <0xfda0b000 0x200>;
-		reg-names = "csiphy";
+		reg = <0xfda0b000 0x200>,
+			<0xfda00038 0x4>;
+		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
 	};
@@ -61,8 +63,9 @@
 	qcom,ispif@fda0a000 {
 		cell-index = <0>;
 		compatible = "qcom,ispif";
-		reg = <0xfda0a000 0x500>;
-		reg-names = "ispif";
+		reg = <0xfda0a000 0x500>,
+			<0xfda00020 0x10>;
+		reg-names = "ispif", "csi_clk_mux";
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
 	};
