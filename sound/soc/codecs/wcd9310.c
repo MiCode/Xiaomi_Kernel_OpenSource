@@ -55,6 +55,8 @@ MODULE_PARM_DESC(cfilt_adjust_ms, "delay after adjusting cfilt voltage in ms");
 #define MBHC_FW_READ_ATTEMPTS 15
 #define MBHC_FW_READ_TIMEOUT 2000000
 #define MBHC_VDDIO_SWITCH_WAIT_MS 10
+#define COMP_DIGITAL_DB_GAIN_APPLY(a, b) \
+	(((a) <= 0) ? ((a) - b) : (a))
 
 #define SLIM_CLOSE_TIMEOUT 1000
 /* The wait time value comes from codec HW specification */
@@ -100,9 +102,7 @@ enum {
 	RX_MIX1_INP_SEL_RX6,
 	RX_MIX1_INP_SEL_RX7,
 };
-
-#define TABLA_COMP_DIGITAL_GAIN_HP_OFFSET 3
-#define TABLA_COMP_DIGITAL_GAIN_LINEOUT_OFFSET 6
+#define MAX_PA_GAIN_OPTIONS  13
 
 #define TABLA_MCLK_RATE_12288KHZ 12288000
 #define TABLA_MCLK_RATE_9600KHZ 9600000
@@ -219,6 +219,28 @@ struct comp_sample_dependent_params {
 	u32 rms_meter_div_fact;
 	u32 rms_meter_resamp_fact;
 	u32 shutdown_timeout;
+};
+
+struct comp_dgtl_gain_offset {
+	u8 whole_db_gain;
+	u8 half_db_gain;
+};
+
+static const struct comp_dgtl_gain_offset
+			comp_dgtl_gain[MAX_PA_GAIN_OPTIONS] = {
+	{0, 0},
+	{1, 1},
+	{3, 0},
+	{4, 1},
+	{6, 0},
+	{7, 1},
+	{9, 0},
+	{10, 1},
+	{12, 0},
+	{13, 1},
+	{15, 0},
+	{16, 1},
+	{18, 0},
 };
 
 /* Data used by MBHC */
@@ -378,6 +400,7 @@ struct tabla_priv {
 	/*compander*/
 	int comp_enabled[COMPANDER_MAX];
 	u32 comp_fs[COMPANDER_MAX];
+	u8  comp_gain_offset[TABLA_SB_PGD_MAX_NUMBER_OF_RX_SLAVE_DEV_PORTS - 1];
 
 	/* Maintain the status of AUX PGA */
 	int aux_pga_cnt;
@@ -806,34 +829,51 @@ static int tabla_put_iir_band_audio_mixer(
 
 static int tabla_compander_gain_offset(
 	struct snd_soc_codec *codec, u32 enable,
-	unsigned int reg, int mask, int event, u32 comp)
+	unsigned int pa_reg, unsigned int vol_reg,
+	int mask, int event,
+	struct comp_dgtl_gain_offset *gain_offset,
+	int index)
 {
-	int pa_mode = snd_soc_read(codec, reg) & mask;
-	int gain_offset = 0;
-	/*  if PMU && enable is 1-> offset is 3
-	 *  if PMU && enable is 0-> offset is 0
-	 *  if PMD && pa_mode is PA -> offset is 0: PMU compander is off
-	 *  if PMD && pa_mode is comp -> offset is -3: PMU compander is on.
-	 */
+	unsigned int pa_gain = snd_soc_read(codec, pa_reg);
+	unsigned int digital_vol = snd_soc_read(codec, vol_reg);
+	int pa_mode = pa_gain & mask;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: pa_gain(0x%x=0x%x)digital_vol(0x%x=0x%x)event(0x%x) index(%d)\n",
+		 __func__, pa_reg, pa_gain, vol_reg, digital_vol, event, index);
+	if (((pa_gain & 0xF) + 1) > ARRAY_SIZE(comp_dgtl_gain) ||
+		(index >= ARRAY_SIZE(tabla->comp_gain_offset))) {
+		pr_err("%s: Out of array boundary\n", __func__);
+		return -EINVAL;
+	}
 
 	if (SND_SOC_DAPM_EVENT_ON(event) && (enable != 0)) {
-		if (comp == COMPANDER_1)
-			gain_offset = TABLA_COMP_DIGITAL_GAIN_HP_OFFSET;
-		if (comp == COMPANDER_2)
-			gain_offset = TABLA_COMP_DIGITAL_GAIN_LINEOUT_OFFSET;
+		gain_offset->whole_db_gain = COMP_DIGITAL_DB_GAIN_APPLY(
+		  (digital_vol - comp_dgtl_gain[pa_gain & 0xF].whole_db_gain),
+		  comp_dgtl_gain[pa_gain & 0xF].half_db_gain);
+		pr_debug("%s: listed whole_db_gain:0x%x, adjusted whole_db_gain:0x%x\n",
+			 __func__, comp_dgtl_gain[pa_gain & 0xF].whole_db_gain,
+			 gain_offset->whole_db_gain);
+		gain_offset->half_db_gain =
+				comp_dgtl_gain[pa_gain & 0xF].half_db_gain;
+		tabla->comp_gain_offset[index] = digital_vol -
+						 gain_offset->whole_db_gain ;
 	}
 	if (SND_SOC_DAPM_EVENT_OFF(event) && (pa_mode == 0)) {
-		if (comp == COMPANDER_1)
-			gain_offset = -TABLA_COMP_DIGITAL_GAIN_HP_OFFSET;
-		if (comp == COMPANDER_2)
-			gain_offset = -TABLA_COMP_DIGITAL_GAIN_LINEOUT_OFFSET;
-
+		gain_offset->whole_db_gain = digital_vol +
+					     tabla->comp_gain_offset[index];
+		pr_debug("%s: listed whole_db_gain:0x%x, adjusted whole_db_gain:0x%x\n",
+			 __func__, comp_dgtl_gain[pa_gain & 0xF].whole_db_gain,
+			 gain_offset->whole_db_gain);
+		gain_offset->half_db_gain = 0;
 	}
-	pr_debug("%s: compander #%d gain_offset %d\n",
-		 __func__, comp + 1, gain_offset);
-	return gain_offset;
-}
 
+	pr_debug("%s: half_db_gain(%d)whole_db_gain(%d)comp_gain_offset[%d](%d)\n",
+		 __func__, gain_offset->half_db_gain,
+		 gain_offset->whole_db_gain, index,
+		 tabla->comp_gain_offset[index]);
+	return 0;
+}
 
 static int tabla_config_gain_compander(
 				struct snd_soc_codec *codec,
@@ -841,8 +881,7 @@ static int tabla_config_gain_compander(
 {
 	int value = 0;
 	int mask = 1 << 4;
-	int gain = 0;
-	int gain_offset;
+	struct comp_dgtl_gain_offset gain_offset = {0, 0};
 	if (compander >= COMPANDER_MAX) {
 		pr_err("%s: Error, invalid compander channel\n", __func__);
 		return -EINVAL;
@@ -852,43 +891,61 @@ static int tabla_config_gain_compander(
 		value = 1 << 4;
 
 	if (compander == COMPANDER_1) {
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_HPH_L_GAIN, mask, event, compander);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_HPH_L_GAIN,
+				TABLA_A_CDC_RX1_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 0);
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_L_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX1_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX1_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_HPH_R_GAIN, mask, event, compander);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX1_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_HPH_R_GAIN,
+				TABLA_A_CDC_RX2_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 1);
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_R_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX2_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX2_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX2_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
 	} else if (compander == COMPANDER_2) {
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_LINE_1_GAIN, mask, event, compander);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_1_GAIN,
+				TABLA_A_CDC_RX3_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 2);
 		snd_soc_update_bits(codec, TABLA_A_RX_LINE_1_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX3_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX3_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_LINE_3_GAIN, mask, event, compander);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX3_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_3_GAIN,
+				TABLA_A_CDC_RX4_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 3);
 		snd_soc_update_bits(codec, TABLA_A_RX_LINE_3_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX4_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX4_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_LINE_2_GAIN, mask, event, compander);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX4_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_2_GAIN,
+				TABLA_A_CDC_RX5_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 4);
 		snd_soc_update_bits(codec, TABLA_A_RX_LINE_2_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX5_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX5_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
-		gain_offset = tabla_compander_gain_offset(codec, enable,
-				TABLA_A_RX_LINE_4_GAIN, mask, event, compander);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX5_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
+		tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_4_GAIN,
+				TABLA_A_CDC_RX6_VOL_CTL_B2_CTL,
+				mask, event, &gain_offset, 5);
 		snd_soc_update_bits(codec, TABLA_A_RX_LINE_4_GAIN, mask, value);
-		gain = snd_soc_read(codec, TABLA_A_CDC_RX6_VOL_CTL_B2_CTL);
 		snd_soc_update_bits(codec, TABLA_A_CDC_RX6_VOL_CTL_B2_CTL,
-				0xFF, gain - gain_offset);
+				    0xFF, gain_offset.whole_db_gain);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX6_B6_CTL,
+				    0x02, gain_offset.half_db_gain);
 	}
 	return 0;
 }
