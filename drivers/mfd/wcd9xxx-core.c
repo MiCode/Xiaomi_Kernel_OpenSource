@@ -70,8 +70,7 @@ static int wcd9xxx_intf = -1;
 static int wcd9xxx_read(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		       int bytes, void *dest, bool interface_reg)
 {
-	int ret;
-	u8 *buf = dest;
+	int i, ret;
 
 	if (bytes <= 0) {
 		dev_err(wcd9xxx->dev, "Invalid byte read length %d\n", bytes);
@@ -82,9 +81,11 @@ static int wcd9xxx_read(struct wcd9xxx *wcd9xxx, unsigned short reg,
 	if (ret < 0) {
 		dev_err(wcd9xxx->dev, "Codec read failed\n");
 		return ret;
-	} else
-		dev_dbg(wcd9xxx->dev, "Read 0x%02x from 0x%x\n",
-			 *buf, reg);
+	} else {
+		for (i = 0; i < bytes; i++)
+			dev_dbg(wcd9xxx->dev, "Read 0x%02x from 0x%x\n",
+				((u8 *)dest)[i], reg + i);
+	}
 
 	return 0;
 }
@@ -107,15 +108,16 @@ EXPORT_SYMBOL_GPL(wcd9xxx_reg_read);
 static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			int bytes, void *src, bool interface_reg)
 {
-	u8 *buf = src;
+	int i;
 
 	if (bytes <= 0) {
 		pr_err("%s: Error, invalid write length\n", __func__);
 		return -EINVAL;
 	}
 
-	dev_dbg(wcd9xxx->dev, "Write %02x to 0x%x\n",
-		 *buf, reg);
+	for (i = 0; i < bytes; i++)
+		dev_dbg(wcd9xxx->dev, "Write %02x to 0x%x\n", ((u8 *)src)[i],
+			reg + i);
 
 	return wcd9xxx->write_dev(wcd9xxx, reg, bytes, src, interface_reg);
 }
