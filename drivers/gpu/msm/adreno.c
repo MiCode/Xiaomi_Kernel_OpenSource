@@ -2777,9 +2777,6 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 	unsigned long wait;
 	unsigned long timeout = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
 
-	if (!(rb->flags & KGSL_FLAGS_STARTED))
-		return 0;
-
 	/*
 	 * The first time into the loop, wait for 100 msecs and kick wptr again
 	 * to ensure that the hardware has updated correctly.  After that, kick
