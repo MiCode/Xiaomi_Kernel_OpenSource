@@ -1309,8 +1309,14 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *msm)
 	data |= (0x7F | (1 << 14));
 	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1002, data);
 
-	/* Set LOS_BIAS to 0x5 */
-	dwc3_msm_write_readback(msm->base, SS_PHY_PARAM_CTRL_1, 0x07, 0x5);
+	/*
+	 * Set the QSCRATCH SS_PHY_PARAM_CTRL1 parameters as follows
+	 * TX_FULL_SWING [26:20] amplitude to 127
+	 * TX_DEEMPH_3_5DB [13:8] to 22
+	 * LOS_BIAS [2:0] to 0x5
+	 */
+	dwc3_msm_write_readback(msm->base, SS_PHY_PARAM_CTRL_1,
+				0x07f03f07, 0x07f01605);
 }
 
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
