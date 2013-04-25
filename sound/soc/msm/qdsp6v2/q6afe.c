@@ -2965,11 +2965,17 @@ fail_cmd:
 }
 
 int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
-	int l_ch, int r_ch)
+	int l_ch, int r_ch, u32 enable)
 {
 	int ret = -EINVAL;
 	union afe_spkr_prot_config prot_config;
 	int index = 0;
+
+	if (!enable) {
+		pr_debug("%s Disable Feedback tx path", __func__);
+		this_afe.vi_tx_port = -1;
+		return 0;
+	}
 
 	if ((q6audio_validate_port(src_port) < 0) ||
 		(q6audio_validate_port(dst_port) < 0)) {
@@ -3011,6 +3017,7 @@ static int __init afe_init(void)
 	this_afe.apr = NULL;
 	this_afe.dtmf_gen_rx_portid = -1;
 	this_afe.mmap_handle = 0;
+	this_afe.vi_tx_port = -1;
 	for (i = 0; i < AFE_MAX_PORTS; i++)
 		init_waitqueue_head(&this_afe.wait[i]);
 

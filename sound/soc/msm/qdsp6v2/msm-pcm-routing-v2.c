@@ -2426,15 +2426,21 @@ static int spkr_prot_put_vi_lch_port(struct snd_kcontrol *kcontrol,
 			__func__, e->shift_l , e->values[item]);
 		if (e->shift_l < MSM_BACKEND_DAI_MAX &&
 			e->values[item] < MSM_BACKEND_DAI_MAX)
+			/* Enable feedback TX path */
 			ret = afe_spk_prot_feed_back_cfg(
 			   msm_bedais[e->values[item]].port_id,
-			   msm_bedais[e->shift_l].port_id, 1, 0);
+			   msm_bedais[e->shift_l].port_id, 1, 0, 1);
 		else {
-			pr_err("%s values are out of range\n", __func__);
-			ret = -EINVAL;
+			pr_debug("%s values are out of range item %d\n",
+			__func__, e->values[item]);
+			/* Disable feedback TX path */
+			if (e->values[item] == MSM_BACKEND_DAI_MAX)
+				ret = afe_spk_prot_feed_back_cfg(0, 0, 0, 0, 0);
+			else
+				ret = -EINVAL;
 		}
 	} else {
-		pr_err("%s item value is out of range\n", __func__);
+		pr_err("%s item value is out of range item\n", __func__);
 		ret = -EINVAL;
 	}
 	mutex_unlock(&routing_lock);
@@ -2449,11 +2455,11 @@ static int spkr_prot_get_vi_lch_port(struct snd_kcontrol *kcontrol,
 }
 
 static const char * const slim0_rx_vi_fb_tx_lch_mux_text[] = {
-	"SLIM4_TX",
+	"ZERO", "SLIM4_TX"
 };
 
 static const int const slim0_rx_vi_fb_tx_lch_value[] = {
-	MSM_BACKEND_DAI_SLIMBUS_4_TX,
+	MSM_BACKEND_DAI_MAX, MSM_BACKEND_DAI_SLIMBUS_4_TX
 };
 static const struct soc_enum slim0_rx_vi_fb_lch_mux_enum =
 	SOC_VALUE_ENUM_DOUBLE(0, MSM_BACKEND_DAI_SLIMBUS_0_RX, 0, 0,
