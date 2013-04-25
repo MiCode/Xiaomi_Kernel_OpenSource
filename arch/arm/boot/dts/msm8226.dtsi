@@ -917,6 +917,42 @@
 				<55 512 3936000 393600>,
 				<55 512 3936000 393600>;
 	};
+
+	qcom,qcrypto@fd404000 {
+		compatible = "qcom,qcrypto";
+                reg  =  <0xfd400000 0x20000>,
+                        <0xfd404000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 207 0>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-hw-shared;
+		qcom,msm-bus,name = "qcrypto-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<56 512 0 0>,
+				<56 512 3936000 393600>;
+	};
+
+        qcom,qcedev@fd400000 {
+		compatible = "qcom,qcedev";
+		reg  =  <0xfd400000 0x20000>,
+			<0xfd404000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 207 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-hw-shared;
+		qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<56 512 0 0>,
+				<56 512 3936000 393600>;
+	};
 };
 
 &gdsc_venus {
