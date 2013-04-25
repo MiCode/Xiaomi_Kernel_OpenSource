@@ -31,6 +31,7 @@
 #include <asm/cacheflush.h>
 #include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
+#include <trace/events/kmem.h>
 
 static atomic_t system_heap_allocated;
 static atomic_t system_contig_heap_allocated;
@@ -85,9 +86,13 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 
 		if (order > 4)
 			gfp_flags = high_order_gfp_flags;
+		trace_alloc_pages_sys_start(gfp_flags, order);
 		page = alloc_pages(gfp_flags, order);
-		if (!page)
+		trace_alloc_pages_sys_end(gfp_flags, order);
+		if (!page) {
+			trace_alloc_pages_sys_fail(gfp_flags, order);
 			return 0;
+		}
 		sg_init_table(&sg, 1);
 		sg_set_page(&sg, page, PAGE_SIZE << order, 0);
 		dma_sync_sg_for_device(NULL, &sg, 1, DMA_BIDIRECTIONAL);
