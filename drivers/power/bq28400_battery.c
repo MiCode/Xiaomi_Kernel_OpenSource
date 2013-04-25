@@ -164,6 +164,9 @@ struct debug_reg {
 	u16	subcmd;
 };
 
+static int fake_battery = -EINVAL;
+module_param(fake_battery, int, 0644);
+
 #define BQ28400_DEBUG_REG(x) {#x, SBS_##x, 0}
 #define BQ28400_DEBUG_SUBREG(x, y) {#y, SBS_##x, SUBCMD_##y}
 
@@ -402,6 +405,11 @@ static int bq28400_read_avg_current(struct i2c_client *client)
 static int bq28400_read_rsoc(struct i2c_client *client)
 {
 	int percentage = 0;
+
+	if (fake_battery != -EINVAL) {
+		pr_debug("Reporting Fake SOC = %d\n", fake_battery);
+		return fake_battery;
+	}
 
 	/* This register is only 1 byte */
 	percentage = i2c_smbus_read_byte_data(client, SBS_RSOC);
