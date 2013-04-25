@@ -154,7 +154,10 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx);
 /**
  * Connect USB-to-IPA SPS connection.
  *
- * This function returns the allocated pipes number and clnt handles.
+ * This function returns the allocated pipes number and clnt
+ * handles. Assumes that the user first connects producer pipes
+ * and only after that consumer pipes, since that's the correct
+ * sequence for the handshake with the IPA.
  *
  * @ipa_params - in/out parameters
  *

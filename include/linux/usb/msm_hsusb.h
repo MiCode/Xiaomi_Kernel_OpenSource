@@ -222,6 +222,7 @@ struct msm_otg_platform_data {
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
 	bool delay_lpm_on_disconnect;
+	bool delay_lpm_hndshk_on_disconnect;
 	bool dp_manual_pullup;
 	bool enable_sec_phy;
 	struct msm_bus_scale_pdata *bus_scale_table;
@@ -462,10 +463,13 @@ struct usb_ext_notification {
 	int (*notify)(void *, int, void (*)(int online));
 	void *ctxt;
 };
-
+#ifdef CONFIG_USB_BAM
+bool msm_bam_lpm_ok(void);
+#else
+static inline bool msm_bam_lpm_ok(void) { return true; }
+#endif
 #ifdef CONFIG_USB_CI13XXX_MSM
 void msm_hw_bam_disable(bool bam_disable);
-
 #else
 static inline void msm_hw_bam_disable(bool bam_disable)
 {
