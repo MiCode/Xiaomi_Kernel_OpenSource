@@ -481,6 +481,7 @@ void diag_send_feature_mask_update(smd_channel_t *ch, int proc)
 	driver->feature_mask->ctrl_pkt_data_len = 4 + FEATURE_MASK_LEN_BYTES;
 	driver->feature_mask->feature_mask_len = FEATURE_MASK_LEN_BYTES;
 	memcpy(buf, driver->feature_mask, header_size);
+	feature_byte |= F_DIAG_INT_FEATURE_MASK;
 	feature_byte |= APPS_RESPOND_LOG_ON_DEMAND;
 	memcpy(buf+header_size, &feature_byte, FEATURE_MASK_LEN_BYTES);
 
