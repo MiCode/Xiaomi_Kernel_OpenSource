@@ -458,9 +458,9 @@ Required properties:
 - qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
 - qcom,sec-auxpcm-gpio-dout : GPIO on which Secondary AUXPCM DOUT signal is coming.
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
-
 Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+- qcom,ext-ult-spk-amp-gpio : GPIO for enabling of speaker path amplifier.
 
 Example:
 

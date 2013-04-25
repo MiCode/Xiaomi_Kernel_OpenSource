@@ -75,6 +75,11 @@ static int msm8974_auxpcm_rate = 8000;
 #define EXT_CLASS_D_DIS_DELAY 3000
 #define EXT_CLASS_D_DELAY_DELTA 2000
 
+/* It takes about 13ms for Class-AB PAs to ramp-up */
+#define EXT_CLASS_AB_EN_DELAY 10000
+#define EXT_CLASS_AB_DIS_DELAY 1000
+#define EXT_CLASS_AB_DELAY_DELTA 1000
+
 #define NUM_OF_AUXPCM_GPIOS 4
 
 static inline int param_is_mask(int p)
@@ -184,6 +189,7 @@ enum {
 static struct platform_device *spdev;
 static struct regulator *ext_spk_amp_regulator;
 static int ext_spk_amp_gpio = -1;
+static int ext_ult_spk_amp_gpio = -1;
 static int msm8974_spk_control = 1;
 static int msm8974_ext_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
@@ -231,7 +237,41 @@ static int msm8974_liquid_ext_spk_power_amp_init(void)
 		}
 	}
 
+	ext_ult_spk_amp_gpio = of_get_named_gpio(spdev->dev.of_node,
+		"qcom,ext-ult-spk-amp-gpio", 0);
+
+	if (ext_ult_spk_amp_gpio >= 0) {
+		ret = gpio_request(ext_ult_spk_amp_gpio,
+						   "ext_ult_spk_amp_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext-ult_spk-amp-gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+		gpio_direction_output(ext_ult_spk_amp_gpio, 0);
+	}
+
 	return 0;
+}
+
+static void msm8974_liquid_ext_ult_spk_power_amp_enable(u32 on)
+{
+	if (on) {
+		regulator_enable(ext_spk_amp_regulator);
+		gpio_direction_output(ext_ult_spk_amp_gpio, 1);
+		/* time takes enable the external power class AB amplifier */
+		usleep_range(EXT_CLASS_AB_EN_DELAY,
+			     EXT_CLASS_AB_EN_DELAY + EXT_CLASS_AB_DELAY_DELTA);
+	} else {
+		gpio_direction_output(ext_ult_spk_amp_gpio, 0);
+		regulator_disable(ext_spk_amp_regulator);
+		/* time takes disable the external power class AB amplifier */
+		usleep_range(EXT_CLASS_AB_DIS_DELAY,
+			     EXT_CLASS_AB_DIS_DELAY + EXT_CLASS_AB_DELAY_DELTA);
+	}
+
+	pr_debug("%s: %s external ultrasound SPKR_DRV PAs.\n", __func__,
+			on ? "Enable" : "Disable");
 }
 
 static void msm8974_liquid_ext_spk_power_amp_enable(u32 on)
@@ -286,7 +326,6 @@ static void msm8974_liquid_docking_irq_work(struct work_struct *work)
 	mutex_unlock(&dapm->codec->mutex);
 
 }
-
 
 static irqreturn_t msm8974_liquid_docking_irq_handler(int irq, void *dev)
 {
@@ -495,6 +534,33 @@ static int msm_ext_spkramp_event(struct snd_soc_dapm_widget *w,
 
 }
 
+static int msm_ext_spkramp_ultrasound_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *k, int event)
+{
+
+	pr_debug("%s()\n", __func__);
+
+	if (!strncmp(w->name, "SPK_ultrasound amp", 19)) {
+		if (!gpio_is_valid(ext_ult_spk_amp_gpio)) {
+			pr_err("%s: ext_ult_spk_amp_gpio isn't configured\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		if (SND_SOC_DAPM_EVENT_ON(event))
+			msm8974_liquid_ext_ult_spk_power_amp_enable(1);
+		else
+			msm8974_liquid_ext_ult_spk_power_amp_enable(0);
+
+	} else {
+			pr_err("%s() Invalid Speaker Widget = %s\n",
+					__func__, w->name);
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
@@ -567,6 +633,8 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SPK("Lineout_2 amp", msm_ext_spkramp_event),
 	SND_SOC_DAPM_SPK("Lineout_4 amp", msm_ext_spkramp_event),
+	SND_SOC_DAPM_SPK("SPK_ultrasound amp",
+					 msm_ext_spkramp_ultrasound_event),
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -2452,9 +2520,12 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 	if (ext_spk_amp_regulator)
 		regulator_put(ext_spk_amp_regulator);
 
+	if (gpio_is_valid(ext_ult_spk_amp_gpio))
+		gpio_free(ext_ult_spk_amp_gpio);
+
 	gpio_free(pdata->mclk_gpio);
 	gpio_free(pdata->us_euro_gpio);
-	if (ext_spk_amp_gpio >= 0)
+	if (gpio_is_valid(ext_spk_amp_gpio))
 		gpio_free(ext_spk_amp_gpio);
 
 	if (msm8974_liquid_dock_dev != NULL) {
