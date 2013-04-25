@@ -38,7 +38,7 @@
 #define EN_FEW_WAIT_VAL		(0x8 << 16)
 #define CLK_DIS_WAIT_VAL	(0x2 << 12)
 
-#define TIMEOUT_US		1000
+#define TIMEOUT_US		100
 
 struct gdsc {
 	struct regulator_dev	*rdev;
