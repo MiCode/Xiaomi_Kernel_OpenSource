@@ -190,8 +190,8 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX
 			|| dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
-		rx_port = PCM_RX;
-		tx_port = PCM_TX;
+		rx_port = AFE_PORT_ID_PRIMARY_PCM_RX;
+		tx_port = AFE_PORT_ID_PRIMARY_PCM_TX;
 	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX
 			|| dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
 		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;
@@ -295,8 +295,8 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX ||
 			dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
-		rx_port = PCM_RX;
-		tx_port = PCM_TX;
+		rx_port = AFE_PORT_ID_PRIMARY_PCM_RX;
+		tx_port = AFE_PORT_ID_PRIMARY_PCM_TX;
 	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX ||
 			dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
 		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;
@@ -420,8 +420,8 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 
 	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX ||
 			dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
-		rx_port = PCM_RX;
-		tx_port = PCM_TX;
+		rx_port = AFE_PORT_ID_PRIMARY_PCM_RX;
+		tx_port = AFE_PORT_ID_PRIMARY_PCM_TX;
 	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX ||
 			dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
 		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;

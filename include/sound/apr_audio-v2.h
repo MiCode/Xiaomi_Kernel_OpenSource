@@ -634,8 +634,6 @@ struct adm_cmd_connect_afe_port_v5 {
  *	when a new port is added here. */
 #define PRIMARY_I2S_RX 0		/* index = 0 */
 #define PRIMARY_I2S_TX 1		/* index = 1 */
-#define PCM_RX 2			/* index = 2 */
-#define PCM_TX 3			/* index = 3 */
 #define SECONDARY_I2S_RX 4		/* index = 4 */
 #define SECONDARY_I2S_TX 5		/* index = 5 */
 #define MI2S_RX 6			/* index = 6 */
