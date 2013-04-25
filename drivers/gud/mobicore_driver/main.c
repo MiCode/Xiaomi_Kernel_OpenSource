@@ -29,6 +29,7 @@
 #include <linux/mman.h>
 #include <linux/completion.h>
 #include <linux/fdtable.h>
+#include <linux/cdev.h>
 #include <net/net_namespace.h>
 #include <net/sock.h>
 #include <net/tcp_states.h>
@@ -55,6 +56,15 @@ struct device mcd_debug_subname = {
 };
 
 struct device *mcd = &mcd_debug_subname;
+
+/* We need 2 devices for admin and user interface*/
+#define MC_DEV_MAX 2
+
+/* Need to discover a chrdev region for the driver */
+static dev_t mc_dev_admin, mc_dev_user;
+struct cdev mc_admin_cdev, mc_user_cdev;
+/* Device class for the driver assigned major */
+static struct class *mc_device_class;
 
 #ifndef FMODE_PATH
  #define FMODE_PATH 0x0
@@ -1205,13 +1215,6 @@ static const struct file_operations mc_admin_fops = {
 	.read		= mc_fd_read,
 };
 
-static struct miscdevice mc_admin_device = {
-	.name	= MC_ADMIN_DEVNODE,
-	.mode	= (S_IRWXU),
-	.minor	= 253,
-	.fops	= &mc_admin_fops,
-};
-
 /* function table structure of this device driver. */
 static const struct file_operations mc_user_fops = {
 	.owner		= THIS_MODULE,
@@ -1221,30 +1224,80 @@ static const struct file_operations mc_user_fops = {
 	.mmap		= mc_fd_mmap,
 };
 
-static struct miscdevice mc_user_device = {
-	.name	= MC_USER_DEVNODE,
-	.mode	= (S_IRWXU | S_IRWXG | S_IRWXO),
-	.minor	= 254,
-	.fops	= &mc_user_fops,
-};
+static int create_devices(void)
+{
+	int ret = 0;
+
+	cdev_init(&mc_admin_cdev, &mc_admin_fops);
+	cdev_init(&mc_user_cdev, &mc_user_fops);
+
+	mc_device_class = class_create(THIS_MODULE, "mobicore");
+	if (IS_ERR(mc_device_class)) {
+		MCDRV_DBG_ERROR(mcd, "failed to create device class");
+		ret = PTR_ERR(mc_device_class);
+		goto out;
+	}
+
+	ret = alloc_chrdev_region(&mc_dev_admin, 0, MC_DEV_MAX, "mobicore");
+	if (ret < 0) {
+		MCDRV_DBG_ERROR(mcd, "failed to allocate char dev region\n");
+		goto error;
+	}
+	mc_dev_user = MKDEV(MAJOR(mc_dev_admin), 1);
+
+	MCDRV_DBG_VERBOSE(mcd, "%s: dev %d", "mobicore", MAJOR(mc_dev_region));
+
+	/* First the ADMIN node */
+	ret = cdev_add(&mc_admin_cdev,  mc_dev_admin, 1);
+	if (ret != 0) {
+		MCDRV_DBG_ERROR(mcd, "admin device register failed\n");
+		goto error;
+	}
+	mc_admin_cdev.owner = THIS_MODULE;
+	device_create(mc_device_class, NULL, mc_dev_admin, NULL,
+		      MC_ADMIN_DEVNODE);
+
+	/* Then the user node */
+
+	ret = cdev_add(&mc_user_cdev, mc_dev_user, 1);
+	if (ret != 0) {
+		MCDRV_DBG_ERROR(mcd, "user device register failed\n");
+		goto error_unregister;
+	}
+	mc_user_cdev.owner = THIS_MODULE;
+	device_create(mc_device_class, NULL, mc_dev_user, NULL,
+		      MC_USER_DEVNODE);
+
+	goto out;
+error_unregister:
+	device_destroy(mc_device_class, mc_dev_admin);
+	device_destroy(mc_device_class, mc_dev_user);
+
+	cdev_del(&mc_admin_cdev);
+	cdev_del(&mc_user_cdev);
+	unregister_chrdev_region(mc_dev_admin, MC_DEV_MAX);
+error:
+	class_destroy(mc_device_class);
+out:
+	return ret;
+}
 
 /*
  * This function is called the kernel during startup or by a insmod command.
- * This device is installed and registered as miscdevice, then interrupt and
+ * This device is installed and registered as cdev, then interrupt and
  * queue handling is set up
  */
 static int __init mobicore_init(void)
 {
 	int ret = 0;
-
 	dev_set_name(mcd, "mcd");
 
-	MCDRV_DBG(mcd, "enter (Build " __TIMESTAMP__ ")\n");
-	MCDRV_DBG(mcd, "mcDrvModuleApi version is %i.%i\n",
-		  MCDRVMODULEAPI_VERSION_MAJOR,
-		  MCDRVMODULEAPI_VERSION_MINOR);
+	dev_info(mcd, "MobiCore Driver, Build: " __TIMESTAMP__ "\n");
+	dev_info(mcd, "MobiCore mcDrvModuleApi version is %i.%i\n",
+		 MCDRVMODULEAPI_VERSION_MAJOR,
+		 MCDRVMODULEAPI_VERSION_MINOR);
 #ifdef MOBICORE_COMPONENT_BUILD_TAG
-	MCDRV_DBG(mcd, "%s\n", MOBICORE_COMPONENT_BUILD_TAG);
+	dev_info(mcd, "MobiCore %s\n", MOBICORE_COMPONENT_BUILD_TAG);
 #endif
 	/* Hardware does not support ARM TrustZone -> Cannot continue! */
 	if (!has_security_extensions()) {
@@ -1264,6 +1317,10 @@ static int __init mobicore_init(void)
 		goto error;
 
 	init_completion(&ctx.isr_comp);
+
+	/* initialize event counter for signaling of an IRQ to zero */
+	atomic_set(&ctx.isr_counter, 0);
+
 	/* set up S-SIQ interrupt handler */
 	ret = request_irq(MC_INTR_SSIQ, mc_ssiq_isr, IRQF_TRIGGER_RISING,
 			MC_ADMIN_DEVNODE, &ctx);
@@ -1280,20 +1337,9 @@ static int __init mobicore_init(void)
 	}
 #endif
 
-	ret = misc_register(&mc_admin_device);
-	if (ret != 0) {
-		MCDRV_DBG_ERROR(mcd, "admin device register failed\n");
-		goto free_isr;
-	}
-
-	ret = misc_register(&mc_user_device);
-	if (ret != 0) {
-		MCDRV_DBG_ERROR(mcd, "user device register failed\n");
-		goto free_admin;
-	}
-
-	/* initialize event counter for signaling of an IRQ to zero */
-	atomic_set(&ctx.isr_counter, 0);
+	ret = create_devices();
+	if (ret != 0)
+		goto free_pm;
 
 	ret = mc_init_l2_tables();
 
@@ -1315,10 +1361,12 @@ static int __init mobicore_init(void)
 	MCDRV_DBG(mcd, "initialized\n");
 	return 0;
 
-free_admin:
-	misc_deregister(&mc_admin_device);
+free_pm:
+#ifdef MC_PM_RUNTIME
+	mc_pm_free();
 free_isr:
 	free_irq(MC_INTR_SSIQ, &ctx);
+#endif
 err_req_irq:
 	mc_fastcall_destroy();
 error:
@@ -1341,10 +1389,12 @@ static void __exit mobicore_exit(void)
 	mc_pm_free();
 #endif
 
-	free_irq(MC_INTR_SSIQ, &ctx);
+	device_destroy(mc_device_class, mc_dev_admin);
+	device_destroy(mc_device_class, mc_dev_user);
+	class_destroy(mc_device_class);
+	unregister_chrdev_region(mc_dev_admin, MC_DEV_MAX);
 
-	misc_deregister(&mc_admin_device);
-	misc_deregister(&mc_user_device);
+	free_irq(MC_INTR_SSIQ, &ctx);
 
 	mc_fastcall_destroy();
 
@@ -1358,4 +1408,3 @@ MODULE_AUTHOR("Giesecke & Devrient GmbH");
 MODULE_AUTHOR("Trustonic Limited");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MobiCore driver");
-
