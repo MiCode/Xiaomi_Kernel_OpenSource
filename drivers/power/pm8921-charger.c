@@ -83,6 +83,7 @@
 #define CHG_COMP_OVR		0x20A
 #define IUSB_FINE_RES		0x2B6
 #define OVP_USB_UVD		0x2B7
+#define PM8921_USB_TRIM_SEL	0x339
 
 /* check EOC every 10 seconds */
 #define EOC_CHECK_PERIOD_MS	10000
@@ -777,6 +778,44 @@ struct usb_ma_limit_entry {
 };
 
 /* USB Trim tables */
+static int usb_trim_pm8921_table_1[USB_TRIM_ENTRIES] = {
+	0x0,
+	0x0,
+	-0x5,
+	0x0,
+	-0x7,
+	0x0,
+	-0x9,
+	-0xA,
+	0x0,
+	0x0,
+	-0xE,
+	0x0,
+	-0xF,
+	0x0,
+	-0x10,
+	0x0
+};
+
+static int usb_trim_pm8921_table_2[USB_TRIM_ENTRIES] = {
+	0x0,
+	0x0,
+	-0x2,
+	0x0,
+	-0x4,
+	0x0,
+	-0x4,
+	-0x5,
+	0x0,
+	0x0,
+	-0x6,
+	0x0,
+	-0x6,
+	0x0,
+	-0x6,
+	0x0
+};
+
 static int usb_trim_8038_table[USB_TRIM_ENTRIES] = {
 	0x0,
 	0x0,
@@ -844,6 +883,8 @@ static struct usb_ma_limit_entry usb_ma_table[] = {
 #define REG_USB_OVP_TRIM_ORIG_MSB	0x09C
 #define REG_USB_OVP_TRIM_PM8917		0x2B5
 #define REG_USB_OVP_TRIM_PM8917_BIT	BIT(0)
+#define USB_TRIM_MAX_DATA_PM8917	0x3F
+#define USB_TRIM_POLARITY_PM8917_BIT	BIT(6)
 static int pm_chg_usb_trim(struct pm8921_chg_chip *chip, int index)
 {
 	u8 temp, sbi_config, msb, lsb, mask;
@@ -3805,11 +3846,14 @@ static void free_irqs(struct pm8921_chg_chip *chip)
 		}
 }
 
+#define PM8921_USB_TRIM_SEL_BIT		BIT(6)
 /* determines the initial present states */
 static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 {
 	int fsm_state;
 	int is_fast_chg;
+	int rc = 0;
+	u8 trim_sel_reg = 0, regsbi;
 
 	chip->dc_present = !!is_dc_chg_plugged_in(chip);
 	chip->usb_present = !!is_usb_chg_plugged_in(chip);
@@ -3872,10 +3916,26 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 			fsm_state);
 
 	/* Determine which USB trim column to use */
-	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917)
+	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917) {
 		chip->usb_trim_table = usb_trim_8917_table;
-	else if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8038)
+	} else if (pm8xxx_get_version(chip->dev->parent) ==
+						PM8XXX_VERSION_8038) {
 		chip->usb_trim_table = usb_trim_8038_table;
+	} else if (pm8xxx_get_version(chip->dev->parent) ==
+						PM8XXX_VERSION_8921) {
+		rc = pm8xxx_readb(chip->dev->parent, REG_SBI_CONFIG, &regsbi);
+		rc |= pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, 0x5E);
+		rc |= pm8xxx_readb(chip->dev->parent, PM8921_USB_TRIM_SEL,
+								&trim_sel_reg);
+		rc |= pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, regsbi);
+		if (rc)
+			pr_err("Failed to read trim sel register rc=%d\n", rc);
+
+		if (trim_sel_reg & PM8921_USB_TRIM_SEL_BIT)
+			chip->usb_trim_table = usb_trim_pm8921_table_1;
+		else
+			chip->usb_trim_table = usb_trim_pm8921_table_2;
+	}
 }
 
 struct pm_chg_irq_init_data {
