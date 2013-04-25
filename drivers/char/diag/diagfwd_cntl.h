@@ -30,6 +30,9 @@
 /* Send Diag F3 mask */
 #define DIAG_CTRL_MSG_F3_MASK_V2	11
 
+/* Denotes that we support sending/receiving the feature mask */
+#define F_DIAG_INT_FEATURE_MASK	0x01
+
 struct cmd_code_range {
 	uint16_t cmd_code_lo;
 	uint16_t cmd_code_hi;
