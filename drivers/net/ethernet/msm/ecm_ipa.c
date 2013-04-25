@@ -209,6 +209,8 @@ int ecm_ipa_init(ecm_ipa_callback *ecm_ipa_rx_dp_notify,
 	NULL_CHECK(ecm_ipa_rx_dp_notify);
 	NULL_CHECK(ecm_ipa_tx_dp_notify);
 	NULL_CHECK(priv);
+	pr_debug("rx_cb=0x%p, tx_cb=0x%p priv=0x%p\n",
+			ecm_ipa_rx_dp_notify, ecm_ipa_tx_dp_notify, *priv);
 	net = alloc_etherdev(sizeof(struct ecm_ipa_dev));
 	if (!net) {
 		ret = -ENOMEM;
@@ -430,8 +432,8 @@ int ecm_ipa_configure(u8 host_ethaddr[], u8 device_ethaddr[],
 	NULL_CHECK(dev);
 	net = dev->net;
 	NULL_CHECK(net);
-	pr_debug("host_ethaddr=%pM device_ethaddr=%pM\n",
-					host_ethaddr, device_ethaddr);
+	pr_debug("priv=0x%p, host_ethaddr=%pM device_ethaddr=%pM\n",
+					priv, host_ethaddr, device_ethaddr);
 	result = ecm_ipa_create_rm_resource(dev);
 	if (result) {
 		ECM_IPA_ERROR("fail on RM create\n");
@@ -482,8 +484,8 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	struct ecm_ipa_dev *dev = priv;
 	ECM_IPA_LOG_ENTRY();
 	NULL_CHECK(priv);
-	pr_debug("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d\n",
-					usb_to_ipa_hdl, ipa_to_usb_hdl);
+	pr_debug("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d, priv=0x%p\n",
+					usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
 	if (!usb_to_ipa_hdl || usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
 		ECM_IPA_ERROR("usb_to_ipa_hdl(%d) is not a valid ipa handle\n",
 				usb_to_ipa_hdl);
@@ -512,6 +514,7 @@ int ecm_ipa_disconnect(void *priv)
 	struct ecm_ipa_dev *dev = priv;
 	ECM_IPA_LOG_ENTRY();
 	NULL_CHECK(dev);
+	pr_debug("priv=0x%p\n", priv);
 	netif_carrier_off(dev->net);
 	ECM_IPA_LOG_EXIT();
 	return 0;
@@ -632,6 +635,7 @@ void ecm_ipa_cleanup(void *priv)
 {
 	struct ecm_ipa_dev *dev = priv;
 	ECM_IPA_LOG_ENTRY();
+	pr_debug("priv=0x%p\n", priv);
 	if (!dev) {
 		ECM_IPA_ERROR("dev NULL pointer\n");
 		return;
@@ -640,10 +644,9 @@ void ecm_ipa_cleanup(void *priv)
 	ecm_ipa_destory_rm_resource(dev);
 	ecm_ipa_debugfs_destroy(dev);
 
-	if (!dev->net) {
-		unregister_netdev(dev->net);
-		free_netdev(dev->net);
-	}
+	unregister_netdev(dev->net);
+	free_netdev(dev->net);
+
 	pr_debug("cleanup done\n");
 	ecm_ipa_ctx = NULL;
 	ECM_IPA_LOG_EXIT();
