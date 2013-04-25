@@ -289,10 +289,10 @@ static int vdd_corner[] = {
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
-/* TODO: Needs to confirm the below values */
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
+#define RPM_QPIC_CLK_TYPE	0x63697071
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
 
@@ -304,6 +304,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define CNOC_ID		0x2
 
 #define BIMC_ID		0x0
+
+#define QPIC_ID		0x0
 
 #define D0_ID		 1
 #define D1_ID		 2
@@ -319,6 +321,8 @@ DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
+
+DEFINE_CLK_RPM_SMD(qpic_clk, qpic_a_clk, RPM_QPIC_CLK_TYPE, QPIC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
@@ -821,26 +825,6 @@ static struct rcg_clk pdm2_clk_src = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 60000000),
 		CLK_INIT(pdm2_clk_src.c),
-	},
-};
-
-static struct clk_freq_tbl ftbl_gcc_qpic_clk[] = {
-	F( 50000000,    gpll0,   12,   0,   0),
-	F(100000000,    gpll0,    6,   0,   0),
-	F_END
-};
-
-static struct rcg_clk qpic_clk_src = {
-	.cmd_rcgr_reg =  QPIC_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_qpic_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "qpic_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
-		CLK_INIT(qpic_clk_src.c)
 	},
 };
 
@@ -1387,29 +1371,6 @@ static struct local_vote_clk gcc_prng_ahb_clk = {
 	},
 };
 
-static struct branch_clk gcc_qpic_ahb_clk = {
-	.cbcr_reg = QPIC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_qpic_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_qpic_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_qpic_clk = {
-	.cbcr_reg = QPIC_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.parent = &qpic_clk_src.c,
-		.dbg_name = "gcc_qpic_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_qpic_clk.c),
-	},
-};
-
 static struct branch_clk gcc_sdcc2_ahb_clk = {
 	.cbcr_reg = SDCC2_AHB_CBCR,
 	.has_sibling = 1,
@@ -1629,8 +1590,7 @@ struct measure_mux_entry measure_mux_v2_only[] __initdata = {
 	{&gcc_ipa_clk.c,			GCC_BASE, 0x01E0},
 	{&gcc_ipa_cnoc_clk.c,			GCC_BASE, 0x01E1},
 	{&gcc_ipa_sleep_clk.c,			GCC_BASE, 0x01E2},
-	{&gcc_qpic_clk.c,			GCC_BASE, 0x01D8},
-	{&gcc_qpic_ahb_clk.c,			GCC_BASE, 0x01D9},
+	{&qpic_clk.c,				GCC_BASE, 0x01D8},
 };
 
 struct measure_mux_entry measure_mux[ARRAY_SIZE(measure_mux_common)
@@ -1888,6 +1848,8 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("bus_clk", pnoc_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk", cnoc_a_clk.c, ""),
 	CLK_LOOKUP("mem_clk", bimc_a_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_a_clk.c, ""),
 
 	CLK_LOOKUP("bus_clk",	cnoc_msmbus_clk.c,	"msm_config_noc"),
 	CLK_LOOKUP("bus_a_clk",	cnoc_msmbus_a_clk.c,	"msm_config_noc"),
