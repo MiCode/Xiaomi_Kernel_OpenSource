@@ -75,6 +75,11 @@ struct usb_bam_sps_type {
 *	handle/device of the sps driver.
 * @pipes_enabled_per_bam: This array stores for each BAM
 *	("ssusb", "hsusb" or "hsic") the number of pipes currently enabled.
+* @inactivity_timer_ms: The timeout configuration per each bam for inactivity
+*	timer feature.
+* @is_bam_inactivity: Is there no activity on all pipes belongs to a
+*	specific bam. (no activity = no data is pulled or pushed
+*	from/into ones of the pipes).
 */
 struct usb_bam_ctx_type {
 	struct usb_bam_sps_type usb_bam_sps;
@@ -87,6 +92,8 @@ struct usb_bam_ctx_type {
 	char qdss_core_name[USB_BAM_MAX_STR_LEN];
 	u32 h_bam[MAX_BAMS];
 	u8 pipes_enabled_per_bam[MAX_BAMS];
+	u32 inactivity_timer_ms[MAX_BAMS];
+	bool is_bam_inactivity[MAX_BAMS];
 };
 
 static char *bam_enable_strings[MAX_BAMS] = {
@@ -131,10 +138,14 @@ static struct completion cons_avail[MAX_BAMS];
 static struct completion cons_released[MAX_BAMS];
 static struct completion prod_released[MAX_BAMS];
 
-static spinlock_t usb_bam_lock;
+static spinlock_t usb_bam_peer_handshake_info_lock;
 static struct usb_bam_peer_handshake_info peer_handshake_info;
+static spinlock_t usb_bam_lock; /* Protect ctx and usb_bam_connections */
 static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
+
+static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
+	void *param, bool trigger_cb_per_pipe);
 
 static int get_bam_type_from_core_name(const char *name)
 {
@@ -164,6 +175,42 @@ static bool bam_use_private_mem(enum usb_bam bam)
 				return true;
 
 	return false;
+}
+
+static void usb_bam_set_inactivity_timer(enum usb_bam bam)
+{
+	struct sps_timer_ctrl timer_ctrl;
+	struct usb_bam_pipe_connect *pipe_connect;
+	struct sps_pipe *pipe = NULL;
+	int i;
+
+	/*
+	 * Since we configure global incativity timer for all pipes
+	 * and not per each pipe, it is enough to use some pipe
+	 * handle associated with this bam, so just find the first one.
+	 * This pipe handle is required due to SPS driver API we use below.
+	 */
+	for (i = 0; i < ctx.max_connections; i++) {
+		pipe_connect = &usb_bam_connections[i];
+		if (pipe_connect->bam_type == bam) {
+			pipe = ctx.usb_bam_sps.sps_pipes[i];
+			break;
+		}
+	}
+
+	if (!pipe) {
+		pr_err("%s: Bam %s has no pipes\n", __func__,
+			bam_enable_strings[bam]);
+		return;
+	}
+
+	timer_ctrl.op = SPS_TIMER_OP_CONFIG;
+	timer_ctrl.mode = SPS_TIMER_MODE_ONESHOT;
+	timer_ctrl.timeout_msec = ctx.inactivity_timer_ms[bam];
+	sps_timer_ctrl(pipe, &timer_ctrl, NULL);
+
+	timer_ctrl.op = SPS_TIMER_OP_RESET;
+	sps_timer_ctrl(pipe, &timer_ctrl, NULL);
 }
 
 static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
@@ -319,6 +366,7 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		pr_err("%s: sps_connect failed %d\n", __func__, ret);
 		goto error;
 	}
+
 	return 0;
 
 error:
@@ -360,6 +408,10 @@ static int connect_pipe_ipa(u8 idx,
 			__func__, ret);
 		return ret;
 	}
+
+	pipe_connect->activity_notify = ipa_params->activity_notify;
+	pipe_connect->inactivity_notify = ipa_params->inactivity_notify;
+	pipe_connect->priv = ipa_params->priv;
 
 	/* IPA input parameters */
 	ipa_in_params.client_bam_hdl = usb_handle;
@@ -462,6 +514,12 @@ static int connect_pipe_ipa(u8 idx,
 		goto error;
 	}
 
+	/* Set global inactivity timer upon first pipe connection */
+	if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0 &&
+		ctx.inactivity_timer_ms[pipe_connect->bam_type] &&
+		pipe_connect->inactivity_notify)
+		usb_bam_set_inactivity_timer(pipe_connect->bam_type);
+
 	return 0;
 
 error:
@@ -545,6 +603,8 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 		return -EINVAL;
 	}
 
+	spin_lock(&usb_bam_lock);
+
 	/* Check if BAM requires RESET before connect and reset of first pipe */
 	if ((pdata->reset_on_connect[pipe_connect->bam_type] == true) &&
 	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0))
@@ -553,12 +613,14 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 	ret = connect_pipe(idx, bam_pipe_idx);
 	if (ret) {
 		pr_err("%s: pipe connection[%d] failure\n", __func__, idx);
+		spin_unlock(&usb_bam_lock);
 		return ret;
 	}
 
 	pipe_connect->enabled = 1;
 	ctx.pipes_enabled_per_bam[pipe_connect->bam_type] += 1;
 
+	spin_unlock(&usb_bam_lock);
 	return 0;
 }
 
@@ -747,19 +809,26 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		return 0;
 	}
 
+	spin_lock(&usb_bam_lock);
+
 	 /* Check if BAM requires RESET before connect and reset first pipe */
 	 if ((pdata->reset_on_connect[cur_bam] == true) &&
 		 (ctx.pipes_enabled_per_bam[cur_bam] == 0))
 			sps_device_reset(ctx.h_bam[cur_bam]);
+
+	spin_unlock(&usb_bam_lock);
 
 	if (ipa_params->dir == USB_TO_PEER_PERIPHERAL) {
 		pr_debug("%s: Starting connect sequence\n", __func__);
 		wait_for_prod_granted(cur_bam);
 	}
 
+	spin_lock(&usb_bam_lock);
+
 	ret = connect_pipe_ipa(idx, ipa_params);
 	if (ret) {
 		pr_err("%s: pipe connection failure\n", __func__);
+		spin_unlock(&usb_bam_lock);
 		return ret;
 	}
 
@@ -774,28 +843,30 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		pr_debug("%s: Ended connect sequence\n", __func__);
 	}
 
+	spin_unlock(&usb_bam_lock);
+
 	return 0;
 }
 EXPORT_SYMBOL(usb_bam_connect_ipa);
 
 int usb_bam_client_ready(bool ready)
 {
-	spin_lock(&usb_bam_lock);
+	spin_lock(&usb_bam_peer_handshake_info_lock);
 	if (peer_handshake_info.client_ready == ready) {
 		pr_debug("%s: client state is already %d\n",
 			__func__, ready);
-		spin_unlock(&usb_bam_lock);
+		spin_unlock(&usb_bam_peer_handshake_info_lock);
 		return 0;
 	}
 
 	peer_handshake_info.client_ready = ready;
 
-	spin_unlock(&usb_bam_lock);
+	spin_unlock(&usb_bam_peer_handshake_info_lock);
 	if (!queue_work(ctx.usb_bam_wq,
 			&peer_handshake_info.reset_event.event_w)) {
-		spin_lock(&usb_bam_lock);
+		spin_lock(&usb_bam_peer_handshake_info_lock);
 		peer_handshake_info.pending_work++;
-		spin_unlock(&usb_bam_lock);
+		spin_unlock(&usb_bam_peer_handshake_info_lock);
 	}
 
 	return 0;
@@ -803,18 +874,108 @@ int usb_bam_client_ready(bool ready)
 
 static void usb_bam_work(struct work_struct *w)
 {
+	int i;
 	struct usb_bam_event_info *event_info =
 		container_of(w, struct usb_bam_event_info, event_w);
+	struct usb_bam_pipe_connect *pipe_connect =
+		container_of(event_info, struct usb_bam_pipe_connect, event);
+	struct usb_bam_pipe_connect *pipe_connect_iter;
+	int (*callback)(void *priv);
+	void *param = NULL;
 
-	event_info->callback(event_info->param);
+	switch (event_info->type) {
+	case USB_BAM_EVENT_WAKEUP:
+	case USB_BAM_EVENT_WAKEUP_PIPE:
+
+		pr_debug("%s recieved USB_BAM_EVENT_WAKEUP\n", __func__);
+
+		/* Notify about wakeup / activity of the bam */
+		event_info->callback(event_info->param);
+
+		/*
+		 * Reset inactivity timer counter if this pipe's bam
+		 * has inactivity timeout.
+		 */
+		spin_lock(&usb_bam_lock);
+		if (ctx.inactivity_timer_ms[pipe_connect->bam_type])
+			usb_bam_set_inactivity_timer(pipe_connect->bam_type);
+		spin_unlock(&usb_bam_lock);
+
+		break;
+
+	case USB_BAM_EVENT_INACTIVITY:
+
+		pr_debug("%s recieved USB_BAM_EVENT_INACTIVITY\n", __func__);
+
+		/*
+		 * Since event info is one structure per pipe, it might be
+		 * overriden when we will register the wakeup events below,
+		 * and still we want ot register the wakeup events before we
+		 * notify on the inactivity in order to identify the next
+		 * activity as soon as possible.
+		 */
+		callback = event_info->callback;
+		param = event_info->param;
+
+		/*
+		 * Upon inactivity, configure wakeup irq for all pipes
+		 * that are into the usb bam.
+		 */
+		spin_lock(&usb_bam_lock);
+		for (i = 0; i < ctx.max_connections; i++) {
+			pipe_connect_iter = &usb_bam_connections[i];
+			if (pipe_connect_iter->bam_type ==
+				pipe_connect->bam_type &&
+			    pipe_connect_iter->dir ==
+				PEER_PERIPHERAL_TO_USB &&
+				pipe_connect_iter->enabled) {
+				__usb_bam_register_wake_cb(i,
+					pipe_connect_iter->activity_notify,
+					pipe_connect_iter->priv,
+					false);
+			}
+		}
+		spin_unlock(&usb_bam_lock);
+
+		/* Notify about the inactivity */
+		if (callback)
+			callback(param);
+
+		break;
+	default:
+		pr_err("%s: unknown usb bam event type %d\n", __func__,
+			event_info->type);
+	}
 }
 
 static void usb_bam_wake_cb(struct sps_event_notify *notify)
 {
-	struct usb_bam_event_info *wake_event_info =
+	struct usb_bam_event_info *event_info =
 		(struct usb_bam_event_info *)notify->user;
+	struct usb_bam_pipe_connect *pipe_connect =
+		container_of(event_info,
+			     struct usb_bam_pipe_connect,
+			     event);
 
-	queue_work(ctx.usb_bam_wq, &wake_event_info->event_w);
+	spin_lock(&usb_bam_lock);
+
+	if (event_info->type == USB_BAM_EVENT_WAKEUP_PIPE)
+		queue_work(ctx.usb_bam_wq, &event_info->event_w);
+	else if (event_info->type == USB_BAM_EVENT_WAKEUP &&
+			ctx.is_bam_inactivity[pipe_connect->bam_type]) {
+
+		/*
+		 * Sps wake event is per pipe, so usb_bam_wake_cb is
+		 * called per pipe. However, we want to filter the wake
+		 * event to be wake event per all the pipes.
+		 * Therefore, the first pipe that awaked will be considered
+		 * as global bam wake event.
+		 */
+		ctx.is_bam_inactivity[pipe_connect->bam_type] = false;
+		queue_work(ctx.usb_bam_wq, &event_info->event_w);
+	}
+
+	spin_unlock(&usb_bam_lock);
 }
 
 static void usb_bam_sm_work(struct work_struct *w)
@@ -822,15 +983,15 @@ static void usb_bam_sm_work(struct work_struct *w)
 	pr_debug("%s: current state: %d\n", __func__,
 		peer_handshake_info.state);
 
-	spin_lock(&usb_bam_lock);
+	spin_lock(&usb_bam_peer_handshake_info_lock);
 
 	switch (peer_handshake_info.state) {
 	case USB_BAM_SM_INIT:
 		if (peer_handshake_info.client_ready) {
-			spin_unlock(&usb_bam_lock);
+			spin_unlock(&usb_bam_peer_handshake_info_lock);
 			smsm_change_state(SMSM_APPS_STATE, 0,
 				SMSM_USB_PLUG_UNPLUG);
-			spin_lock(&usb_bam_lock);
+			spin_lock(&usb_bam_peer_handshake_info_lock);
 			peer_handshake_info.state = USB_BAM_SM_PLUG_NOTIFIED;
 		}
 		break;
@@ -842,19 +1003,19 @@ static void usb_bam_sm_work(struct work_struct *w)
 		break;
 	case USB_BAM_SM_PLUG_ACKED:
 		if (!peer_handshake_info.client_ready) {
-			spin_unlock(&usb_bam_lock);
+			spin_unlock(&usb_bam_peer_handshake_info_lock);
 			smsm_change_state(SMSM_APPS_STATE,
 				SMSM_USB_PLUG_UNPLUG, 0);
-			spin_lock(&usb_bam_lock);
+			spin_lock(&usb_bam_peer_handshake_info_lock);
 			peer_handshake_info.state = USB_BAM_SM_UNPLUG_NOTIFIED;
 		}
 		break;
 	case USB_BAM_SM_UNPLUG_NOTIFIED:
 		if (peer_handshake_info.ack_received) {
-			spin_unlock(&usb_bam_lock);
+			spin_unlock(&usb_bam_peer_handshake_info_lock);
 			peer_handshake_info.reset_event.
 				callback(peer_handshake_info.reset_event.param);
-			spin_lock(&usb_bam_lock);
+			spin_lock(&usb_bam_peer_handshake_info_lock);
 			peer_handshake_info.state = USB_BAM_SM_INIT;
 			peer_handshake_info.ack_received = 0;
 		}
@@ -863,12 +1024,12 @@ static void usb_bam_sm_work(struct work_struct *w)
 
 	if (peer_handshake_info.pending_work) {
 		peer_handshake_info.pending_work--;
-		spin_unlock(&usb_bam_lock);
+		spin_unlock(&usb_bam_peer_handshake_info_lock);
 		queue_work(ctx.usb_bam_wq,
 			&peer_handshake_info.reset_event.event_w);
-		spin_lock(&usb_bam_lock);
+		spin_lock(&usb_bam_peer_handshake_info_lock);
 	}
-	spin_unlock(&usb_bam_lock);
+	spin_unlock(&usb_bam_peer_handshake_info_lock);
 }
 
 static void usb_bam_ack_toggle_cb(void *priv,
@@ -877,29 +1038,29 @@ static void usb_bam_ack_toggle_cb(void *priv,
 	static int last_processed_state;
 	int current_state;
 
-	spin_lock(&usb_bam_lock);
+	spin_lock(&usb_bam_peer_handshake_info_lock);
 
 	current_state = new_state & SMSM_USB_PLUG_UNPLUG;
 
 	if (current_state == last_processed_state) {
-		spin_unlock(&usb_bam_lock);
+		spin_unlock(&usb_bam_peer_handshake_info_lock);
 		return;
 	}
 
 	last_processed_state = current_state;
 	peer_handshake_info.ack_received = true;
 
-	spin_unlock(&usb_bam_lock);
+	spin_unlock(&usb_bam_peer_handshake_info_lock);
 	if (!queue_work(ctx.usb_bam_wq,
 			&peer_handshake_info.reset_event.event_w)) {
-		spin_lock(&usb_bam_lock);
+		spin_lock(&usb_bam_peer_handshake_info_lock);
 		peer_handshake_info.pending_work++;
-		spin_unlock(&usb_bam_lock);
+		spin_unlock(&usb_bam_peer_handshake_info_lock);
 	}
 }
 
-int usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
-	void *param)
+static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
+	void *param, bool trigger_cb_per_pipe)
 {
 	struct sps_pipe *pipe = ctx.usb_bam_sps.sps_pipes[idx];
 	struct sps_connect *sps_connection;
@@ -914,8 +1075,11 @@ int usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 	pipe = ctx.usb_bam_sps.sps_pipes[idx];
 	sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
 	pipe_connect = &usb_bam_connections[idx];
-	wake_event_info = &pipe_connect->wake_event;
+	wake_event_info = &pipe_connect->event;
 
+	wake_event_info->type = (trigger_cb_per_pipe ?
+				USB_BAM_EVENT_WAKEUP_PIPE :
+				USB_BAM_EVENT_WAKEUP);
 	wake_event_info->param = param;
 	wake_event_info->callback = callback;
 	wake_event_info->event.mode = SPS_TRIGGER_CALLBACK;
@@ -939,6 +1103,12 @@ int usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 	}
 
 	return 0;
+}
+
+int usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
+	void *param)
+{
+	return __usb_bam_register_wake_cb(idx, callback, param, true);
 }
 
 int usb_bam_register_peer_reset_cb(int (*callback)(void *), void *param)
@@ -983,18 +1153,24 @@ int usb_bam_disconnect_pipe(u8 idx)
 		return 0;
 	}
 
+	spin_lock(&usb_bam_lock);
+
 	ret = disconnect_pipe(idx);
 	if (ret) {
 		pr_err("%s: src pipe disconnection failure\n", __func__);
+		spin_unlock(&usb_bam_lock);
 		return ret;
 	}
 
 	pipe_connect->enabled = 0;
+
 	if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)
 		pr_err("%s: wrong pipes enabled counter for bam_type=%d\n",
 			__func__, pipe_connect->bam_type);
 	else
 		ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
+
+	spin_unlock(&usb_bam_lock);
 
 	return 0;
 }
@@ -1066,8 +1242,8 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	enum usb_bam cur_bam;
 
 
-	if (!ipa_params->prod_clnt_hdl || !ipa_params->cons_clnt_hdl) {
-		pr_err("%s: One of the handles is missing\n", __func__);
+	if (!ipa_params->prod_clnt_hdl && !ipa_params->cons_clnt_hdl) {
+		pr_err("%s: Both of the handles is missing\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1191,6 +1367,53 @@ int usb_bam_a2_reset(void)
 	}
 
 	return ret;
+}
+
+static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
+{
+	int i;
+	enum usb_bam bam;
+	struct usb_bam_pipe_connect *pipe_connect;
+	struct usb_bam_event_info *event_info;
+
+	switch (sps_cb_case) {
+	case SPS_CALLBACK_BAM_TIMER_IRQ:
+
+		pr_debug("%s:recieved SPS_CALLBACK_BAM_TIMER_IRQ\n", __func__);
+
+		spin_lock(&usb_bam_lock);
+
+		bam = get_bam_type_from_core_name((char *)user);
+		ctx.is_bam_inactivity[bam] = true;
+		pr_debug("%s: Incativity happened on bam=%s,%d\n", __func__,
+			(char *)user, bam);
+
+		for (i = 0; i < ctx.max_connections; i++) {
+			pipe_connect = &usb_bam_connections[i];
+
+			/*
+			 * Notify inactivity once, Since it is global
+			 * for all pipes on bam.
+			 */
+			if (pipe_connect->bam_type == bam) {
+				event_info = &pipe_connect->event;
+				event_info->type = USB_BAM_EVENT_INACTIVITY;
+				event_info->param = pipe_connect->priv;
+				event_info->callback =
+					pipe_connect->inactivity_notify;
+				queue_work(ctx.usb_bam_wq,
+						&event_info->event_w);
+				break;
+			}
+		}
+
+		spin_unlock(&usb_bam_lock);
+
+		break;
+	default:
+		pr_debug("%s:received sps_cb_case=%d\n", __func__,
+			(int)sps_cb_case);
+	}
 }
 
 static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
@@ -1402,6 +1625,9 @@ static int usb_bam_init(int bam_idx)
 	props.summing_threshold = USB_THRESHOLD;
 	props.event_threshold = USB_THRESHOLD;
 	props.num_pipes = pdata->usb_bam_num_pipes;
+	props.callback = usb_bam_sps_events;
+	props.user = bam_enable_strings[bam_idx];
+
 	/*
 	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
 	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
@@ -1462,12 +1688,88 @@ static int enable_usb_bams(struct platform_device *pdev)
 	return 0;
 }
 
+static ssize_t
+usb_bam_show_inactivity_timer(struct device *dev, struct device_attribute *attr,
+		    char *buf)
+{
+	char *buff = buf;
+	int i;
+
+	spin_lock(&usb_bam_lock);
+
+	for (i = 0; i < ARRAY_SIZE(bam_enable_strings); i++) {
+		buff += snprintf(buff, PAGE_SIZE, "%s: %dms\n",
+					bam_enable_strings[i],
+					ctx.inactivity_timer_ms[i]);
+	}
+
+	spin_unlock(&usb_bam_lock);
+
+	return buff - buf;
+}
+
+static ssize_t usb_bam_store_inactivity_timer(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buff, size_t count)
+{
+	char buf[USB_BAM_MAX_STR_LEN];
+	char *trimmed_buf, *bam_str, *bam_name, *timer;
+	int timer_d;
+	enum usb_bam bam;
+
+	if (strnstr(buff, "help", USB_BAM_MAX_STR_LEN)) {
+		pr_info("Usage: <bam_name> <ms>,<bam_name> <ms>,...\n");
+		pr_info("\tbam_name: [%s, %s, %s]\n",
+			bam_enable_strings[SSUSB_BAM],
+			bam_enable_strings[HSUSB_BAM],
+			bam_enable_strings[HSIC_BAM]);
+		pr_info("\tms: time in ms. Use 0 to disable timer\n");
+		return count;
+	}
+
+	strlcpy(buf, buff, sizeof(buf));
+	trimmed_buf = strim(buf);
+
+	while (trimmed_buf) {
+		bam_str = strsep(&trimmed_buf, ",");
+		if (bam_str) {
+			bam_name = strsep(&bam_str, " ");
+			bam = get_bam_type_from_core_name(bam_name);
+
+			timer = strsep(&bam_str, " ");
+			sscanf(timer, "%d", &timer_d);
+
+			spin_lock(&usb_bam_lock);
+
+			ctx.inactivity_timer_ms[bam] = timer_d;
+			/* Apply new timer setting if bam has running pipes */
+			if (ctx.pipes_enabled_per_bam[bam] > 0)
+				usb_bam_set_inactivity_timer(bam);
+
+			spin_unlock(&usb_bam_lock);
+		}
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(inactivity_timer, S_IWUSR | S_IRUSR,
+		   usb_bam_show_inactivity_timer,
+		   usb_bam_store_inactivity_timer);
+
+
 static int usb_bam_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct msm_usb_bam_platform_data *pdata;
 
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
+
+	ret = device_create_file(&pdev->dev, &dev_attr_inactivity_timer);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to create fs node\n");
+		return ret;
+	}
 
 	ctx.mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
 	if (IS_ERR(ctx.mem_clk))
@@ -1495,12 +1797,14 @@ static int usb_bam_probe(struct platform_device *pdev)
 
 	for (i = 0; i < ctx.max_connections; i++) {
 		usb_bam_connections[i].enabled = 0;
-		INIT_WORK(&usb_bam_connections[i].wake_event.event_w,
+		INIT_WORK(&usb_bam_connections[i].event.event_w,
 			usb_bam_work);
 	}
 
 	for (i = 0; i < MAX_BAMS; i++) {
 		ctx.pipes_enabled_per_bam[i] = 0;
+		ctx.inactivity_timer_ms[i] = 0;
+		ctx.is_bam_inactivity[i] = false;
 		init_completion(&prod_avail[i]);
 		complete(&prod_avail[i]);
 		init_completion(&cons_avail[i]);
@@ -1513,7 +1817,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 		cur_cons_state[i] = IPA_RM_RESOURCE_RELEASED;
 	}
 
-	spin_lock_init(&usb_bam_lock);
+	spin_lock_init(&usb_bam_peer_handshake_info_lock);
 	INIT_WORK(&peer_handshake_info.reset_event.event_w, usb_bam_sm_work);
 
 	ctx.usb_bam_wq = alloc_workqueue("usb_bam_wq",
@@ -1529,6 +1833,8 @@ static int usb_bam_probe(struct platform_device *pdev)
 		return ret;
 	}
 	usb_bam_ipa_create_resources();
+
+	spin_lock_init(&usb_bam_lock);
 
 	return ret;
 }
