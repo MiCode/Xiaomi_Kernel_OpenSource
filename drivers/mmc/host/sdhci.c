@@ -2126,7 +2126,49 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 
 static int sdhci_stop_request(struct mmc_host *mmc)
 {
-	return -ENOSYS;
+	struct sdhci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	struct mmc_data *data;
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (!host->mrq || !host->data)
+		goto out;
+
+	data = host->data;
+
+	if (host->ops->disable_data_xfer)
+		host->ops->disable_data_xfer(host);
+
+	sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+
+	if (host->flags & SDHCI_REQ_USE_DMA) {
+		if (host->flags & SDHCI_USE_ADMA) {
+			sdhci_adma_table_post(host, data);
+		} else {
+			if (!data->host_cookie)
+				dma_unmap_sg(mmc_dev(host->mmc), data->sg,
+					     data->sg_len,
+					     (data->flags & MMC_DATA_READ) ?
+					     DMA_FROM_DEVICE : DMA_TO_DEVICE);
+		}
+	}
+	del_timer(&host->timer);
+	host->mrq = NULL;
+	host->cmd = NULL;
+	host->data = NULL;
+out:
+	spin_unlock_irqrestore(&host->lock, flags);
+	return 0;
+}
+
+static unsigned int sdhci_get_xfer_remain(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	u32 present_state = 0;
+
+	present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
+
+	return present_state & SDHCI_DOING_WRITE;
 }
 
 static const struct mmc_host_ops sdhci_ops = {
@@ -2143,6 +2185,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.enable		= sdhci_enable,
 	.disable	= sdhci_disable,
 	.stop_request = sdhci_stop_request,
+	.get_xfer_remain = sdhci_get_xfer_remain,
 };
 
 /*****************************************************************************\
