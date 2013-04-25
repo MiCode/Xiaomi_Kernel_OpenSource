@@ -304,9 +304,11 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 			pr_warn("%s: status1 : %s\n", __func__, linebuf);
 		}
 
-		memset(status, 0, num_irq_regs);
-		wcd9xxx_bulk_write(wcd9xxx, WCD9XXX_A_INTR_STATUS0,
+		memset(status, 0xff, num_irq_regs);
+		wcd9xxx_bulk_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0,
 				   num_irq_regs, status);
+		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+			wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MODE, 0x02);
 	}
 	wcd9xxx_unlock_sleep(wcd9xxx);
 
