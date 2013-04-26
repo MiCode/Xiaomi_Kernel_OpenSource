@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,20 +16,20 @@
 	interrupt-controller;
 	#interrupt-cells = <3>;
 
-	qcom,pm8644@0 {
+	qcom,pma8084@0 {
 		spmi-slave-container;
 		reg = <0x0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm8644_gpios: gpios {
+		pma8084_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pm8644-gpio";
+			label = "pma8084-gpio";
 
 			gpio@c000 {
 				reg = <0xc000 0x100>;
@@ -140,121 +140,16 @@
 				reg = <0xd500 0x100>;
 				qcom,pin-num = <22>;
 			};
-
-			gpio@d600 {
-				reg = <0xd600 0x100>;
-				qcom,pin-num = <23>;
-			};
-
-			gpio@d700 {
-				reg = <0xd700 0x100>;
-				qcom,pin-num = <24>;
-			};
-
-			gpio@d800 {
-				reg = <0xd800 0x100>;
-				qcom,pin-num = <25>;
-			};
-
-			gpio@d900 {
-				reg = <0xd900 0x100>;
-				qcom,pin-num = <26>;
-			};
-
-			gpio@da00 {
-				reg = <0xda00 0x100>;
-				qcom,pin-num = <27>;
-			};
-
-			gpio@db00 {
-				reg = <0xdb00 0x100>;
-				qcom,pin-num = <28>;
-			};
-
-			gpio@dc00 {
-				reg = <0xdc00 0x100>;
-				qcom,pin-num = <29>;
-			};
-
-			gpio@dd00 {
-				reg = <0xdd00 0x100>;
-				qcom,pin-num = <30>;
-			};
-
-			gpio@de00 {
-				reg = <0xde00 0x100>;
-				qcom,pin-num = <31>;
-			};
-
-			gpio@df00 {
-				reg = <0xdf00 0x100>;
-				qcom,pin-num = <32>;
-			};
-
-			gpio@e000 {
-				reg = <0xe000 0x100>;
-				qcom,pin-num = <33>;
-			};
-
-			gpio@e100 {
-				reg = <0xe100 0x100>;
-				qcom,pin-num = <34>;
-			};
-
-			gpio@e200 {
-				reg = <0xe200 0x100>;
-				qcom,pin-num = <35>;
-			};
-
-			gpio@e300 {
-				reg = <0xe300 0x100>;
-				qcom,pin-num = <36>;
-			};
-
-			gpio@e400 {
-				reg = <0xe400 0x100>;
-				qcom,pin-num = <37>;
-			};
-
-			gpio@e500 {
-				reg = <0xe500 0x100>;
-				qcom,pin-num = <38>;
-			};
-
-			gpio@e600 {
-				reg = <0xe600 0x100>;
-				qcom,pin-num = <39>;
-			};
-
-			gpio@e700 {
-				reg = <0xe700 0x100>;
-				qcom,pin-num = <40>;
-			};
-
-			gpio@e800 {
-				reg = <0xe800 0x100>;
-				qcom,pin-num = <41>;
-			};
-
-			gpio@e900 {
-				reg = <0xe900 0x100>;
-				qcom,pin-num = <42>;
-			};
-
-			gpio@ea00 {
-				reg = <0xea00 0x100>;
-				qcom,pin-num = <43>;
-			};
 		};
 
-		pm8644_mpps: mpps {
+		pma8084_mpps: mpps {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pm8644-mpp";
+			label = "pma8084-mpp";
 
 			mpp@a000 {
 				reg = <0xa000 0x100>;
@@ -285,17 +180,27 @@
 				reg = <0xa500 0x100>;
 				qcom,pin-num = <6>;
 			};
+
+			mpp@a600 {
+				reg = <0xa600 0x100>;
+				qcom,pin-num = <7>;
+			};
+
+			mpp@a700 {
+				reg = <0xa700 0x100>;
+				qcom,pin-num = <8>;
+			};
 		};
 	};
 
-	qcom,pm8644@1 {
+	qcom,pma8084@1 {
 		spmi-slave-container;
 		reg = <0x1>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
 		regulator@1400 {
-			regulator-name = "8644_s1";
+			regulator-name = "8084_s1";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -315,7 +220,7 @@
 		};
 
 		regulator@1700 {
-			regulator-name = "8644_s2";
+			regulator-name = "8084_s2";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -335,7 +240,7 @@
 		};
 
 		regulator@1a00 {
-			regulator-name = "8644_s3";
+			regulator-name = "8084_s3";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -355,7 +260,7 @@
 		};
 
 		regulator@1d00 {
-			regulator-name = "8644_s4";
+			regulator-name = "8084_s4";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -375,7 +280,7 @@
 		};
 
 		regulator@2000 {
-			regulator-name = "8644_s5";
+			regulator-name = "8084_s5";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -395,7 +300,7 @@
 		};
 
 		regulator@2300 {
-			regulator-name = "8644_s6";
+			regulator-name = "8084_s6";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -415,7 +320,7 @@
 		};
 
 		regulator@2600 {
-			regulator-name = "8644_s7";
+			regulator-name = "8084_s7";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -435,7 +340,7 @@
 		};
 
 		regulator@2900 {
-			regulator-name = "8644_s8";
+			regulator-name = "8084_s8";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -455,7 +360,7 @@
 		};
 
 		regulator@2c00 {
-			regulator-name = "8644_s9";
+			regulator-name = "8084_s9";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -475,7 +380,7 @@
 		};
 
 		regulator@2f00 {
-			regulator-name = "8644_s10";
+			regulator-name = "8084_s10";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -495,7 +400,7 @@
 		};
 
 		regulator@3200 {
-			regulator-name = "8644_s11";
+			regulator-name = "8084_s11";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -514,207 +419,246 @@
 			};
 		};
 
+		regulator@3500 {
+			regulator-name = "8084_s12";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x3500 0x300>;
+			status = "disabled";
+
+			qcom,ctl@3500 {
+				reg = <0x3500 0x100>;
+			};
+			qcom,ps@3600 {
+				reg = <0x3600 0x100>;
+			};
+			qcom,freq@3700 {
+				reg = <0x3700 0x100>;
+			};
+		};
+
 		regulator@4000 {
-			regulator-name = "8644_l1";
+			regulator-name = "8084_l1";
 			reg = <0x4000 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4100 {
-			regulator-name = "8644_l2";
+			regulator-name = "8084_l2";
 			reg = <0x4100 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4200 {
-			regulator-name = "8644_l3";
+			regulator-name = "8084_l3";
 			reg = <0x4200 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4300 {
-			regulator-name = "8644_l4";
+			regulator-name = "8084_l4";
 			reg = <0x4300 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4400 {
-			regulator-name = "8644_l5";
+			regulator-name = "8084_l5";
 			reg = <0x4400 0x100>;
 			compatible = "qcom,qpnp-regulator";
-			qcom,force-type = <0x04 0x10>;
 			status = "disabled";
 		};
 
 		regulator@4500 {
-			regulator-name = "8644_l6";
+			regulator-name = "8084_l6";
 			reg = <0x4500 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4600 {
-			regulator-name = "8644_l7";
+			regulator-name = "8084_l7";
 			reg = <0x4600 0x100>;
 			compatible = "qcom,qpnp-regulator";
-			qcom,force-type = <0x04 0x10>;
 			status = "disabled";
 		};
 
 		regulator@4700 {
-			regulator-name = "8644_l8";
+			regulator-name = "8084_l8";
 			reg = <0x4700 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4800 {
-			regulator-name = "8644_l9";
+			regulator-name = "8084_l9";
 			reg = <0x4800 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4900 {
-			regulator-name = "8644_l10";
+			regulator-name = "8084_l10";
 			reg = <0x4900 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4a00 {
-			regulator-name = "8644_l11";
+			regulator-name = "8084_l11";
 			reg = <0x4a00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4b00 {
-			regulator-name = "8644_l12";
+			regulator-name = "8084_l12";
 			reg = <0x4b00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4c00 {
-			regulator-name = "8644_l13";
+			regulator-name = "8084_l13";
 			reg = <0x4c00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4d00 {
-			regulator-name = "8644_l14";
+			regulator-name = "8084_l14";
 			reg = <0x4d00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4e00 {
-			regulator-name = "8644_l15";
+			regulator-name = "8084_l15";
 			reg = <0x4e00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@4f00 {
-			regulator-name = "8644_l16";
+			regulator-name = "8084_l16";
 			reg = <0x4f00 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5000 {
-			regulator-name = "8644_l17";
+			regulator-name = "8084_l17";
 			reg = <0x5000 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5100 {
-			regulator-name = "8644_l18";
+			regulator-name = "8084_l18";
 			reg = <0x5100 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5200 {
-			regulator-name = "8644_l19";
+			regulator-name = "8084_l19";
 			reg = <0x5200 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5300 {
-			regulator-name = "8644_l20";
+			regulator-name = "8084_l20";
 			reg = <0x5300 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5400 {
-			regulator-name = "8644_l21";
+			regulator-name = "8084_l21";
 			reg = <0x5400 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5500 {
-			regulator-name = "8644_l22";
+			regulator-name = "8084_l22";
 			reg = <0x5500 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5600 {
-			regulator-name = "8644_l23";
+			regulator-name = "8084_l23";
 			reg = <0x5600 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5700 {
-			regulator-name = "8644_l24";
+			regulator-name = "8084_l24";
 			reg = <0x5700 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@5800 {
-			regulator-name = "8644_l25";
+			regulator-name = "8084_l25";
 			reg = <0x5800 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
+		regulator@5900 {
+			regulator-name = "8084_l26";
+			reg = <0x5900 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5a00 {
+			regulator-name = "8084_l27";
+			reg = <0x5a00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
 		regulator@8000 {
-			regulator-name = "8644_lvs1";
+			regulator-name = "8084_lvs1";
 			reg = <0x8000 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@8100 {
-			regulator-name = "8644_lvs2";
+			regulator-name = "8084_lvs2";
 			reg = <0x8100 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@8200 {
-			regulator-name = "8644_mvs1";
+			regulator-name = "8084_lvs3";
 			reg = <0x8200 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
 
 		regulator@8300 {
-			regulator-name = "8644_mvs2";
+			regulator-name = "8084_lvs4";
 			reg = <0x8300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8400 {
+			regulator-name = "8084_mvs1";
+			reg = <0x8400 0x100>;
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
