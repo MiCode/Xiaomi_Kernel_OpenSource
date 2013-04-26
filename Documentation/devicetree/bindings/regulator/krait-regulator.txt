@@ -9,16 +9,27 @@ krait LDO/BHS control regulator.
 [First Level Nodes]
 Required properties:
 - compatible:			Must be "qcom,krait-pdn"
-- reg:				Specifies the physical address of the APCS GCC
-				register base
-- reg-names:			"apcs_gcc" -string to identify the area where
-				the APCS GCC registers reside.
+- reg:				This property contains a list of physical
+				addresses for Krait PDN features.  The list
+				should contain the address of the APCS GCC
+				register base and the address of the phase
+				scaling factor eFuse.
+- reg-names:			This property contains a list of strings naming
+				the registers listed in the reg property.
+				"apcs_gcc" is a string to identify the area
+				where the APCS GCC registers reside.
+				"phase-scaling-efuse" should be used to identify
+				the phase scaling factor eFuse address.
 - qcom,pfm-threshold		The power coeff threshold in abstract power units below which
 				pmic will be made to operate in PFM mode.
 
 Optional properties:
 - qcom,use-phase-switching	indicates whether the driver should add/shed phases on the PMIC
 				ganged regulator as cpus are hotplugged.
+- qcom,use-phase-scaling-factor	Boolean which indicates if the value stored in
+				the phase scaling eFuse should be used or not.
+				If this property is not specified, then worst
+				case scaling will be assumed.
 
 [Second Level Nodes]
 Required properties:
@@ -49,10 +60,12 @@ binding, defined in regulator.txt, can also be used.
 
 Example:
 	krait_pdn: krait-pdn@f9011000 {
-		reg = <0xf9011000 0x1000>;
-		reg-names = "apcs_gcc";
+		reg = <0xf9011000 0x1000>,
+		      <0xfc4b80b0 8>;
+		reg-names = "apcs_gcc", "phase-scaling-efuse";
 		compatible = "qcom,krait-pdn";
 		qcom,use-phase-switching;
+		qcom,use-phase-scaling-factor;
 		qcom,pfm-threshold = <376975>;
 		#address-cells = <1>;
 		#size-cells = <1>;
