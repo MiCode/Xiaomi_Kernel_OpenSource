@@ -66,11 +66,17 @@ static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 {
 	int rc = 0;
 
-	/* Increase vdd_mem before vdd_cpu. vdd_mem should be >= vdd_cpu. */
-	rc = regulator_set_voltage(priv->vdd_mem, vdd_mem, priv->vdd_max_mem);
-	if (rc) {
-		pr_err("vdd_mem increase failed (%d)\n", rc);
-		return rc;
+	if (priv->vdd_mem) {
+		/*
+		 * Increase vdd_mem before vdd_cpu. vdd_mem should
+		 * be >= vdd_cpu.
+		 */
+		rc = regulator_set_voltage(priv->vdd_mem, vdd_mem,
+						priv->vdd_max_mem);
+		if (rc) {
+			pr_err("vdd_mem increase failed (%d)\n", rc);
+			return rc;
+		}
 	}
 
 	rc = regulator_set_voltage(priv->vdd_cpu, vdd_cpu, priv->vdd_max_cpu);
@@ -91,6 +97,9 @@ static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 		pr_err("vdd_cpu decrease failed (%d)\n", ret);
 		return;
 	}
+
+	if (!priv->vdd_mem)
+		return;
 
 	/* Decrease vdd_mem after vdd_cpu. vdd_mem should be >= vdd_cpu. */
 	ret = regulator_set_voltage(priv->vdd_mem, vdd_mem, priv->vdd_max_mem);
@@ -343,10 +352,12 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	if (rc)
 		goto err_vdd;
 
-	rc = regulator_enable(priv->vdd_mem);
-	if (rc) {
-		dev_err(&pdev->dev, "regulator_enable for mem failed\n");
-		goto err_vdd;
+	if (priv->vdd_mem) {
+		rc = regulator_enable(priv->vdd_mem);
+		if (rc) {
+			dev_err(&pdev->dev, "regulator_enable for mem failed\n");
+			goto err_vdd;
+		}
 	}
 
 	rc = regulator_enable(priv->vdd_cpu);
@@ -369,7 +380,8 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	return 0;
 
 err_vdd_cpu:
-	regulator_disable(priv->vdd_mem);
+	if (priv->vdd_mem)
+		regulator_disable(priv->vdd_mem);
 err_vdd:
 	return rc;
 }
