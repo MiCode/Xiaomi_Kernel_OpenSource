@@ -127,6 +127,7 @@ struct wcd9xxx_resmgr {
 
 	unsigned long cond_flags;
 	struct list_head update_bit_cond_h;
+	struct mutex update_bit_cond_lock;
 
 	/*
 	 * Currently, only used for mbhc purpose, to protect

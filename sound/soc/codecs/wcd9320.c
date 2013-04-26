@@ -45,6 +45,8 @@
 #define TAIKO_HPH_PA_SETTLE_COMP_ON 3000
 #define TAIKO_HPH_PA_SETTLE_COMP_OFF 13000
 
+#define DAPM_MICBIAS2_EXTERNAL_STANDALONE "MIC BIAS2 External Standalone"
+
 static atomic_t kp_taiko_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
@@ -466,6 +468,8 @@ struct taiko_priv {
 	s32 dmic_1_2_clk_cnt;
 	s32 dmic_3_4_clk_cnt;
 	s32 dmic_5_6_clk_cnt;
+	s32 ldo_h_users;
+	s32 micb_2_users;
 
 	u32 anc_slot;
 	bool anc_func;
@@ -2650,16 +2654,26 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
 
-		if (taiko->mbhc_started &&
-		    taiko->resmgr.pdata->micbias.bias2_is_headset_only &&
-		    micb_ctl_reg == TAIKO_A_MICB_2_CTL)
-			wcd9xxx_resmgr_add_cond_update_bits(&taiko->resmgr,
-						  WCD9XXX_COND_HPH_MIC,
-						  micb_ctl_reg, w->shift,
-						  false);
-		else
+		if (taiko->mbhc_started && micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
+			if (++taiko->micb_2_users == 1) {
+				if (taiko->resmgr.pdata->
+				    micbias.bias2_is_headset_only)
+					wcd9xxx_resmgr_add_cond_update_bits(
+							 &taiko->resmgr,
+							 WCD9XXX_COND_HPH_MIC,
+							 micb_ctl_reg, w->shift,
+							 false);
+				else
+					snd_soc_update_bits(codec, micb_ctl_reg,
+							    1 << w->shift,
+							    1 << w->shift);
+			}
+			pr_debug("%s: micb_2_users %d\n", __func__,
+				 taiko->micb_2_users);
+		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    1 << w->shift);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20000);
@@ -2667,15 +2681,27 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (taiko->mbhc_started &&
-		    taiko->resmgr.pdata->micbias.bias2_is_headset_only &&
-		    micb_ctl_reg == TAIKO_A_MICB_2_CTL)
-			wcd9xxx_resmgr_rm_cond_update_bits(&taiko->resmgr,
-						  WCD9XXX_COND_HPH_MIC,
-						  micb_ctl_reg, 7, false);
-		else
+		if (taiko->mbhc_started && micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
+			if (--taiko->micb_2_users == 0) {
+				if (taiko->resmgr.pdata->
+				    micbias.bias2_is_headset_only)
+					wcd9xxx_resmgr_rm_cond_update_bits(
+							&taiko->resmgr,
+							WCD9XXX_COND_HPH_MIC,
+							micb_ctl_reg, 7, false);
+				else
+					snd_soc_update_bits(codec, micb_ctl_reg,
+							    1 << w->shift, 0);
+			}
+			pr_debug("%s: micb_2_users %d\n", __func__,
+				 taiko->micb_2_users);
+			WARN(taiko->micb_2_users < 0,
+			     "Unexpected micbias users %d\n",
+			     taiko->micb_2_users);
+		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    0);
+		}
 
 		/* Let MBHC module know so micbias switch to be off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_off);
@@ -2695,6 +2721,22 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/* called under codec_resource_lock acquisition */
+static int taiko_enable_mbhc_micbias(struct snd_soc_codec *codec, bool enable)
+{
+	int rc;
+
+	if (enable)
+		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
+					     DAPM_MICBIAS2_EXTERNAL_STANDALONE);
+	else
+		rc = snd_soc_dapm_disable_pin(&codec->dapm,
+					     DAPM_MICBIAS2_EXTERNAL_STANDALONE);
+	if (!rc)
+		snd_soc_dapm_sync(&codec->dapm);
+	pr_debug("%s: leave ret %d\n", __func__, rc);
+	return rc;
+}
 
 static void tx_hpf_corner_freq_callback(struct work_struct *work)
 {
@@ -2926,16 +2968,63 @@ static int taiko_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol, int event)
+/* called under codec_resource_lock acquisition */
+static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = w->codec;
+	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: enter\n", __func__);
 	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
+	case SND_SOC_DAPM_PRE_PMU:
+		if (++priv->ldo_h_users == 1) {
+			wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
+						   WCD9XXX_BANDGAP_AUDIO_MODE);
+			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
+						     WCD9XXX_CLK_RCO);
+			snd_soc_update_bits(codec, TAIKO_A_LDO_H_MODE_1, 1 << 7,
+					    1 << 7);
+			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
+						     WCD9XXX_CLK_RCO);
+			pr_debug("%s: ldo_h_users %d\n", __func__,
+				 priv->ldo_h_users);
+			/* LDO enable requires 1ms to settle down */
+			usleep_range(1000, 1000);
+		}
+		break;
 	case SND_SOC_DAPM_POST_PMD:
-		usleep_range(1000, 1000);
+		if (--priv->ldo_h_users == 0) {
+			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
+						     WCD9XXX_CLK_RCO);
+			snd_soc_update_bits(codec, TAIKO_A_LDO_H_MODE_1, 1 << 7,
+					    0);
+			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
+						     WCD9XXX_CLK_RCO);
+			wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
+						   WCD9XXX_BANDGAP_AUDIO_MODE);
+			pr_debug("%s: ldo_h_users %d\n", __func__,
+				 priv->ldo_h_users);
+		}
+		WARN(priv->ldo_h_users < 0, "Unexpected ldo_h users %d\n",
+		     priv->ldo_h_users);
 		break;
 	}
+	pr_debug("%s: leave\n", __func__);
 	return 0;
+}
+
+static int taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *kcontrol, int event)
+{
+	int rc;
+	struct snd_soc_codec *codec = w->codec;
+	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	WCD9XXX_BCL_LOCK(&priv->resmgr);
+	rc = __taiko_codec_enable_ldo_h(w, kcontrol, event);
+	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
+	return rc;
 }
 
 static int taiko_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
@@ -3795,7 +3884,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS3 Internal2", NULL, "LDO_H"},
 	{"MIC BIAS3 External", NULL, "LDO_H"},
 	{"MIC BIAS4 External", NULL, "LDO_H"},
-
+	{DAPM_MICBIAS2_EXTERNAL_STANDALONE, NULL, "LDO_H Standalone"},
 };
 
 static int taiko_readable(struct snd_soc_codec *ssc, unsigned int reg)
@@ -5113,8 +5202,17 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("CDC_CONN", WCD9XXX_A_CDC_CLK_OTHR_CTL, 2, 0, NULL,
 		0),
 
-	SND_SOC_DAPM_SUPPLY("LDO_H", TAIKO_A_LDO_H_MODE_1, 7, 0,
-		taiko_codec_enable_ldo_h, SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_SUPPLY("LDO_H", SND_SOC_NOPM, 7, 0,
+			    taiko_codec_enable_ldo_h,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	/*
+	 * DAPM 'LDO_H Standalone' is to be powered by mbhc driver after
+	 * acquring codec_resource lock.
+	 * So call __taiko_codec_enable_ldo_h instead and avoid deadlock.
+	 */
+	SND_SOC_DAPM_SUPPLY("LDO_H Standalone", SND_SOC_NOPM, 7, 0,
+			    __taiko_codec_enable_ldo_h,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY("COMP0_CLK", SND_SOC_NOPM, 0, 0,
 		taiko_config_compander, SND_SOC_DAPM_PRE_PMU |
@@ -5219,6 +5317,10 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
 
 	SND_SOC_DAPM_INPUT("AMIC2"),
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS2_EXTERNAL_STANDALONE, SND_SOC_NOPM,
+			       7, 0, taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", SND_SOC_NOPM, 7, 0,
 			       taiko_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -6031,6 +6133,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		wcd9xxx_mbhc_deinit(&taiko->mbhc);
 		taiko->mbhc_started = false;
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+					taiko_enable_mbhc_micbias,
 					WCD9XXX_MBHC_VERSION_TAIKO);
 		if (ret) {
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
@@ -6203,6 +6306,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+				taiko_enable_mbhc_micbias,
 				WCD9XXX_MBHC_VERSION_TAIKO);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
@@ -6218,6 +6322,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	taiko->aux_pga_cnt = 0;
 	taiko->aux_l_gain = 0x1F;
 	taiko->aux_r_gain = 0x1F;
+	taiko->ldo_h_users = 0;
+	taiko->micb_2_users = 0;
 	taiko_update_reg_defaults(codec);
 	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
 	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
