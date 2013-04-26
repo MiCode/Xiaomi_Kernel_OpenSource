@@ -36,6 +36,7 @@ wit the following convention:
 	reg = <(baseaddr) (size)>;
 	(linux,contiguous-region);
 	(linux,default-contiguous-region);
+	(linux,reserve-region);
 	(linux,memory-limit);
         label = (unique_name);
 };
@@ -49,6 +50,9 @@ linux,contiguous-region: property indicating that the defined memory
 linux,default-contiguous-region: property indicating that the region
 		is the default region for all contiguous memory
 		allocations, Linux specific (optional)
+linux,reserve-region: property indicating that the contiguous memory will
+		not be given back to the system allocator. The memory be
+		always be available for contiguous use.
 linux,memory-limit: property specifying an upper bound on the physical address
 		of the region if the region is placed dynamically. If no limit
 		is specificed, the region may be placed anywhere in the physical
