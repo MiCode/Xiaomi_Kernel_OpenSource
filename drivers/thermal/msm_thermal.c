@@ -103,6 +103,7 @@ enum PMIC_SW_MODE {
 	ko_attr.attr.mode = 444; \
 	ko_attr.show = vdd_rstr_reg_##_name##_show; \
 	ko_attr.store = NULL; \
+	sysfs_attr_init(&ko_attr.attr); \
 	_rail.attr_gp.attrs[j] = &ko_attr.attr;
 
 #define VDD_RES_RW_ATTRIB(_rail, ko_attr, j, _name) \
@@ -110,6 +111,7 @@ enum PMIC_SW_MODE {
 	ko_attr.attr.mode = 644; \
 	ko_attr.show = vdd_rstr_reg_##_name##_show; \
 	ko_attr.store = vdd_rstr_reg_##_name##_store; \
+	sysfs_attr_init(&ko_attr.attr); \
 	_rail.attr_gp.attrs[j] = &ko_attr.attr;
 
 #define VDD_RSTR_ENABLE_FROM_ATTRIBS(attr) \
@@ -126,6 +128,7 @@ enum PMIC_SW_MODE {
 	ko_attr.attr.mode = 644; \
 	ko_attr.show = psm_reg_##_name##_show; \
 	ko_attr.store = psm_reg_##_name##_store; \
+	sysfs_attr_init(&ko_attr.attr); \
 	_rail.attr_gp.attrs[j] = &ko_attr.attr;
 
 #define PSM_REG_MODE_FROM_ATTRIBS(attr) \
