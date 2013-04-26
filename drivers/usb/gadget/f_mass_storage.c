@@ -2510,7 +2510,8 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		goto reset_bulk_int;
 	fsg->bulk_out->driver_data = common;
 	fsg->bulk_out_enabled = 1;
-	common->bulk_out_maxpacket = le16_to_cpu(fsg->bulk_in->desc->wMaxPacketSize);
+	common->bulk_out_maxpacket =
+			le16_to_cpu(fsg->bulk_out->desc->wMaxPacketSize);
 	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 	csw_hack_sent = 0;
 	write_error_after_csw_sent = 0;
