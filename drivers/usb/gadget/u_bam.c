@@ -667,11 +667,11 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		teth_bridge_disconnect();
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
-		teth_bridge_disconnect();
 	}
 }
 
@@ -742,8 +742,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		d->ipa_params.priv = priv;
 		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
 
-		d->ipa_params.client = IPA_CLIENT_USB_CONS;
-		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+		d->ipa_params.client = IPA_CLIENT_USB_PROD;
+		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
@@ -751,8 +751,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 
-		d->ipa_params.client = IPA_CLIENT_USB_PROD;
-		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+		d->ipa_params.client = IPA_CLIENT_USB_CONS;
+		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",

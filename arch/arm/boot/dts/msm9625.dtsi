@@ -155,7 +155,7 @@
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
-		qcom,hsusb-otg-delay-lpm;
+		qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <2>;
@@ -205,6 +205,7 @@
 			qcom,src-bam-pipe-index = <1>;
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe1 {
 			label = "hsusb-ipa-in-0";
@@ -217,6 +218,7 @@
 			qcom,dst-bam-pipe-index = <0>;
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe2 {
 			label = "hsusb-qdss-in-0";

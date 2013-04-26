@@ -219,10 +219,10 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
 		}
 
-		d->ipa_params.client = IPA_CLIENT_USB_CONS;
-		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+		d->ipa_params.client = IPA_CLIENT_USB_PROD;
+		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		if (d->func_type == USB_FUNC_ECM) {
-			d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
+			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
 			d->ipa_params.priv = ecm_qc_get_ipa_priv();
 		}
 		ret = usb_bam_connect_ipa(&d->ipa_params);
@@ -232,10 +232,10 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			return;
 		}
 
-		d->ipa_params.client = IPA_CLIENT_USB_PROD;
-		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+		d->ipa_params.client = IPA_CLIENT_USB_CONS;
+		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		if (d->func_type == USB_FUNC_ECM) {
-			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
+			d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
 			d->ipa_params.priv = ecm_qc_get_ipa_priv();
 		}
 		ret = usb_bam_connect_ipa(&d->ipa_params);
