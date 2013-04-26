@@ -877,8 +877,6 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 
 	init_completion(&adc_qpnp->adc_rslt_completion);
 
-	mutex_init(&adc_qpnp->adc_lock);
-
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_get_devicetree_data);
