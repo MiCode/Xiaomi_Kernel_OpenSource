@@ -18,7 +18,9 @@
 	model = "Qualcomm MSM 8610 Simulator";
 	compatible = "qcom,msm8610-sim", "qcom,msm8610", "qcom,sim";
 	qcom,msm-id = <147 16 0>;
+};
 
+&soc {
 	serial@f991f000 {
 		status = "ok";
 	};

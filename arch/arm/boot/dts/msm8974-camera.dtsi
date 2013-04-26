@@ -13,7 +13,7 @@
 
 /include/ "skeleton.dtsi"
 
-/ {
+&soc {
 	qcom,msm-cam@fd8C0000 {
 		compatible = "qcom,msm-cam";
 		reg = <0xfd8C0000 0x10000>;

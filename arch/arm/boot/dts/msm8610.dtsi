@@ -11,6 +11,28 @@
  */
 
 /include/ "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8610";
+	compatible = "qcom,msm8610";
+	interrupt-parent = <&intc>;
+
+	memory {
+		qsecom_mem: qsecom_region {
+			linux,contiguous-region;
+			reg = <0 0x100000>;
+			label = "qsecom_mem";
+		};
+	};
+
+	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+	};
+
+	soc: soc { };
+};
+
 /include/ "msm-iommu-v0.dtsi"
 /include/ "msm8610-ion.dtsi"
 /include/ "msm8610-gpu.dtsi"
@@ -21,10 +43,10 @@
 /include/ "msm8610-bus.dtsi"
 /include/ "msm8610-mdss.dtsi"
 
-/ {
-	model = "Qualcomm MSM 8610";
-	compatible = "qcom,msm8610";
-	interrupt-parent = <&intc>;
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
 
 	intc: interrupt-controller@f9000000 {
 		compatible = "qcom,msm-qgic2";
@@ -44,21 +66,6 @@
 		ngpio = <102>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
-	};
-
-	memory {
-
-		qsecom_mem: qsecom_region {
-			linux,contiguous-region;
-			reg = <0 0x100000>;
-			label = "qsecom_mem";
-		};
-
-	};
-
-	aliases {
-		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
-		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
 	qcom,mpm2-sleep-counter@fc4a3000 {

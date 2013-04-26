@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	tmc_etr: tmc@fc322000 {
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc322000 0x1000>,

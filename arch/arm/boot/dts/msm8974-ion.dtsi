@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,ion {
 		compatible = "qcom,msm-ion";
 		#address-cells = <1>;

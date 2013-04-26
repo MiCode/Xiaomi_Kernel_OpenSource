@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	jpeg_iommu: qcom,iommu@fda64000 {
 		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;

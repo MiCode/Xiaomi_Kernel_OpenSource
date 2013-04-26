@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,mdss_lcdc_ili9341_qvga {
 		compatible = "qcom,mdss-qpic-panel";
 		label = "ili qvga lcdc panel";

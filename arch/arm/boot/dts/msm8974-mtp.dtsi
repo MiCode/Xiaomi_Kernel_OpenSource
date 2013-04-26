@@ -14,7 +14,7 @@
 /include/ "msm8974-camera-sensor-mtp.dtsi"
 /include/ "msm8974-leds.dtsi"
 
-/ {
+&soc {
 	serial@f991e000 {
 		status = "ok";
 	};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -260,7 +260,7 @@
 	};
 };
 
-/ {
+&soc {
 	ext_2p95v: regulator-isl80101 {
 		compatible = "regulator-fixed";
 		regulator-name = "ext_2p95v";

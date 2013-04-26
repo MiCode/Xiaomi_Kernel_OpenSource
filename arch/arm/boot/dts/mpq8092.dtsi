@@ -11,14 +11,23 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "mpq8092-iommu.dtsi"
-/include/ "msm-gdsc.dtsi"
-/include/ "mpq8092-ion.dtsi"
 
 / {
 	model = "Qualcomm MPQ8092";
 	compatible = "qcom,mpq8092";
 	interrupt-parent = <&intc>;
+
+	soc: soc { };
+};
+
+/include/ "mpq8092-iommu.dtsi"
+/include/ "msm-gdsc.dtsi"
+/include/ "mpq8092-ion.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
 
 	intc: interrupt-controller@f9000000 {
 		compatible = "qcom,msm-qgic2";

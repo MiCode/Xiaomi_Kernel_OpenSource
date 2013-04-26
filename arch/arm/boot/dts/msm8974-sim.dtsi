@@ -14,7 +14,7 @@
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor-cdp.dtsi"
 
-/ {
+&soc {
 	qcom,mdss_dsi@fd922800 {
 		qcom,mdss_dsi_sim_video {
 			status = "ok";

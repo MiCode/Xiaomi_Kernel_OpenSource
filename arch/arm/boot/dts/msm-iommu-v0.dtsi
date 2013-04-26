@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	lpass_iommu: qcom,iommu@fd000000 {
 		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;

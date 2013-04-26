@@ -21,7 +21,7 @@
 /include/ "msm8974-v1-iommu-domains.dtsi"
 /include/ "msm8974-v1-pm.dtsi"
 
-/ {
+&soc {
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;

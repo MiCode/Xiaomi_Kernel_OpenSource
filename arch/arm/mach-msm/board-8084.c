@@ -120,7 +120,7 @@ void __init apq8084_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	apq8084_init_gpiomux();
-	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+	board_dt_populate(adata);
 	apq8084_add_drivers();
 }
 

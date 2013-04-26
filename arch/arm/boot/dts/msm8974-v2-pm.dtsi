@@ -12,7 +12,7 @@
 
 /include/ "skeleton.dtsi"
 
-/ {
+&soc {
 	qcom,spm@f9089000 {
 		compatible = "qcom,spm-v2";
 	#address-cells = <1>;

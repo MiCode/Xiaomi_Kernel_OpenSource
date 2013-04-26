@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	msm-mmss-noc@fc478000 {
 		compatible = "msm-bus-fabric";
 		reg = <0xfc478000 0x00004000>;
