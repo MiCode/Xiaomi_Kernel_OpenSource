@@ -271,6 +271,21 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	master = c_ctrl->cci_info->cci_i2c_master;
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
+
+	/*
+	 * Call validate queue to make sure queue is empty before starting.
+	 * If this call fails, don't proceed with i2c_read call. This is to
+	 * avoid overflow / underflow of queue
+	 */
+	rc = msm_cci_validate_queue(cci_dev,
+		cci_dev->cci_i2c_queue_info[master][queue].max_queue_size - 1,
+		master, queue);
+	if (rc < 0) {
+		pr_err("%s:%d Initial validataion failed rc %d\n", __func__,
+			__LINE__, rc);
+		goto ERROR;
+	}
+
 	CDBG("%s master %d, queue %d\n", __func__, master, queue);
 	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
@@ -450,6 +465,21 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
 		c_ctrl->cci_info->id_map);
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
+
+	/*
+	 * Call validate queue to make sure queue is empty before starting.
+	 * If this call fails, don't proceed with i2c_write call. This is to
+	 * avoid overflow / underflow of queue
+	 */
+	rc = msm_cci_validate_queue(cci_dev,
+		cci_dev->cci_i2c_queue_info[master][queue].max_queue_size - 1,
+		master, queue);
+	if (rc < 0) {
+		pr_err("%s:%d Initial validataion failed rc %d\n", __func__,
+			__LINE__, rc);
+		goto ERROR;
+	}
+
 	val = CCI_I2C_SET_PARAM_CMD | c_ctrl->cci_info->sid << 4 |
 		c_ctrl->cci_info->retries << 16 |
 		c_ctrl->cci_info->id_map << 18;
@@ -694,16 +724,6 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 		(irq & CCI_IRQ_STATUS_0_I2C_M1_Q1_REPORT_BMSK)) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
 		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
-	} else if ((irq & CCI_IRQ_STATUS_0_I2C_M0_Q0_NACK_ERR_BMSK) ||
-		(irq & CCI_IRQ_STATUS_0_I2C_M0_Q1_NACK_ERR_BMSK)) {
-		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
-		msm_camera_io_w(CCI_M0_HALT_REQ_RMSK,
-			cci_dev->base + CCI_HALT_REQ_ADDR);
-	} else if ((irq & CCI_IRQ_STATUS_0_I2C_M1_Q0_NACK_ERR_BMSK) ||
-		(irq & CCI_IRQ_STATUS_0_I2C_M1_Q1_NACK_ERR_BMSK)) {
-		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
-		msm_camera_io_w(CCI_M1_HALT_REQ_RMSK,
-			cci_dev->base + CCI_HALT_REQ_ADDR);
 	} else if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 		msm_camera_io_w(CCI_M0_RESET_RMSK,
@@ -712,6 +732,16 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 		cci_dev->cci_master_info[MASTER_1].reset_pending = TRUE;
 		msm_camera_io_w(CCI_M1_RESET_RMSK,
 			cci_dev->base + CCI_RESET_CMD_ADDR);
+	} else if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
+		pr_err("%s:%d MASTER_0 error %x\n", __func__, __LINE__, irq);
+		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
+		msm_camera_io_w(CCI_M0_HALT_REQ_RMSK,
+			cci_dev->base + CCI_HALT_REQ_ADDR);
+	} else if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
+		pr_err("%s:%d MASTER_1 error %x\n", __func__, __LINE__, irq);
+		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
+		msm_camera_io_w(CCI_M1_HALT_REQ_RMSK,
+			cci_dev->base + CCI_HALT_REQ_ADDR);
 	} else {
 		pr_err("%s unhandled irq 0x%x\n", __func__, irq);
 		cci_dev->cci_master_info[MASTER_0].status = 0;
