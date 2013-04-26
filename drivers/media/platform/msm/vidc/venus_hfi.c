@@ -219,6 +219,9 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 	}
 	queue->qhdr_write_idx = new_write_idx;
 	*rx_req_is_set = (1 == queue->qhdr_rx_req) ? 1 : 0;
+	/*Memory barrier to make sure data is written before an
+	 * interupt is raised on venus.*/
+	mb();
 	dprintk(VIDC_DBG, "Out : ");
 	return 0;
 }
@@ -294,6 +297,9 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 		dprintk(VIDC_WARN, "Queues have already been freed\n");
 		return -EINVAL;
 	}
+	/*Memory barrier to make sure data is valid before
+	 *reading it*/
+	mb();
 	queue = (struct hfi_queue_header *) qinfo->q_hdr;
 
 	if (!queue) {
