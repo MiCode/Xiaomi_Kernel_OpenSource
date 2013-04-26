@@ -179,12 +179,27 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       req->src_rect.h, req->dst_rect.h);
 			return -EINVAL;
 		}
+
+		if (req->flags & MDP_BWC_EN) {
+			if ((req->src.width != req->src_rect.w) ||
+			    (req->src.height != req->src_rect.h)) {
+				pr_err("BWC: unequal src img and rect w,h\n");
+				return -EINVAL;
+			}
+		}
 	}
 
 	if (fmt->is_yuv) {
 		if ((req->src_rect.x & 0x1) || (req->src_rect.y & 0x1) ||
 		    (req->src_rect.w & 0x1) || (req->src_rect.h & 0x1)) {
 			pr_err("invalid odd src resolution or coordinates\n");
+			return -EINVAL;
+		}
+	}
+
+	if (req->flags & MDP_DEINTERLACE) {
+		if ((req->src.width % 4 != 0) || (req->src.height % 4 != 0)) {
+			pr_err("interlaced fmt w,h need to be even post div\n");
 			return -EINVAL;
 		}
 	}
