@@ -1083,7 +1083,6 @@ static int venus_hfi_core_release(void *device)
 		if (!(dev->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 			disable_irq_nosync(dev->hal_data->irq);
 		dev->intr_status = 0;
-		venus_hfi_interface_queues_release(dev);
 		mutex_unlock(&dev->clock_lock);
 	}
 	dprintk(VIDC_INFO, "HAL exited\n");
@@ -2794,6 +2793,7 @@ static void venus_hfi_unload_fw(void *dev)
 		flush_workqueue(device->vidc_workq);
 		venus_hfi_disable_clks(device);
 		subsystem_put(device->resources.fw.cookie);
+		venus_hfi_interface_queues_release(dev);
 		venus_hfi_iommu_detach(device);
 		device->resources.fw.cookie = NULL;
 	}
