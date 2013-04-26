@@ -319,6 +319,7 @@ static int qpnp_set_control(bool pwm_hi, bool pwm_lo, bool pwm_out,
 #define QPNP_ENABLE_LUT_CONTROL		qpnp_set_control(0, 0, 0, 0, 1)
 #define QPNP_ENABLE_PWM_CONTROL		qpnp_set_control(0, 0, 0, 1, 0)
 #define QPNP_ENABLE_PWM_MODE		qpnp_set_control(1, 1, 1, 1, 0)
+#define QPNP_ENABLE_PWM_MODE_GPLED_CHANNEL	qpnp_set_control(1, 1, 1, 1, 1)
 #define QPNP_ENABLE_LPG_MODE		qpnp_set_control(1, 1, 1, 0, 1)
 #define QPNP_DISABLE_PWM_MODE		qpnp_set_control(0, 0, 0, 1, 0)
 #define QPNP_DISABLE_LPG_MODE		qpnp_set_control(0, 0, 0, 0, 1)
@@ -908,6 +909,17 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 
 }
 
+#define QPNP_GPLED_LPG_CHANNEL_RANGE_START 8
+#define QPNP_GPLED_LPG_CHANNEL_RANGE_END 11
+
+static inline int qpnp_enable_pwm_mode(struct qpnp_pwm_config *pwm_conf)
+{
+	if (pwm_conf->channel_id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START ||
+		pwm_conf->channel_id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
+		return QPNP_ENABLE_PWM_MODE_GPLED_CHANNEL;
+	return QPNP_ENABLE_PWM_MODE;
+}
+
 static int qpnp_lpg_configure_pwm_state(struct pwm_device *pwm,
 					enum qpnp_pwm_state state)
 {
@@ -917,7 +929,7 @@ static int qpnp_lpg_configure_pwm_state(struct pwm_device *pwm,
 	int			rc;
 
 	if (state == QPNP_PWM_ENABLE)
-		value = QPNP_ENABLE_PWM_MODE;
+		value = qpnp_enable_pwm_mode(&pwm->pwm_config);
 	else
 		value = QPNP_DISABLE_PWM_MODE;
 
