@@ -84,6 +84,11 @@ enum wcd9xxx_micbias_num {
 	MBHC_MICBIAS4,
 };
 
+enum wcd9xx_mbhc_micbias_enable_bits {
+	MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
+	MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
+};
+
 enum wcd9xxx_mbhc_state {
 	MBHC_STATE_NONE = -1,
 	MBHC_STATE_POTENTIAL,
@@ -207,6 +212,8 @@ struct wcd9xxx_mbhc_config {
 	int gpio_level_insert;
 	bool insert_detect; /* codec has own MBHC_INSERT_DETECT */
 	bool detect_extn_cable;
+	/* bit mask of enum wcd9xx_mbhc_micbias_enable_bits */
+	unsigned long micbias_enable_flags;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
 };
@@ -268,6 +275,9 @@ struct wcd9xxx_mbhc {
 	struct snd_soc_jack button_jack;
 
 	struct notifier_block nblock;
+
+	bool micbias_enable;
+	int (*micbias_enable_cb) (struct snd_soc_codec*,  bool);
 
 	enum wcd9xxx_mbhc_version mbhc_version;
 
@@ -335,7 +345,9 @@ struct wcd9xxx_mbhc {
 int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 		       struct wcd9xxx_mbhc_config *mbhc_cfg);
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
-		      struct snd_soc_codec *codec, int version);
+		      struct snd_soc_codec *codec,
+		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
+		      int version);
 void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc);
 void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,

@@ -659,7 +659,6 @@ void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
 	bool set;
 
 	pr_debug("%s: enter\n", __func__);
-	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
 	set = !!test_bit(cond, &resmgr->cond_flags);
 	list_for_each(l, &resmgr->update_bit_cond_h) {
 		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
@@ -675,13 +674,14 @@ void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
 void wcd9xxx_resmgr_cond_update_cond(struct wcd9xxx_resmgr *resmgr,
 				     enum wcd9xxx_resmgr_cond cond, bool set)
 {
-	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	mutex_lock(&resmgr->update_bit_cond_lock);
 	if ((set && !test_and_set_bit(cond, &resmgr->cond_flags)) ||
 	    (!set && test_and_clear_bit(cond, &resmgr->cond_flags))) {
 		pr_debug("%s: Resource %d condition changed to %s\n", __func__,
 			 cond, set ? "set" : "clear");
 		wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
 	}
+	mutex_unlock(&resmgr->update_bit_cond_lock);
 }
 
 int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
@@ -700,11 +700,11 @@ int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 	entry->shift = shift;
 	entry->invert = invert;
 
-	WCD9XXX_BCL_LOCK(resmgr);
+	mutex_lock(&resmgr->update_bit_cond_lock);
 	list_add_tail(&entry->list, &resmgr->update_bit_cond_h);
 
 	wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
-	WCD9XXX_BCL_UNLOCK(resmgr);
+	mutex_unlock(&resmgr->update_bit_cond_lock);
 
 	return 0;
 }
@@ -722,7 +722,7 @@ int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 	struct wcd9xxx_resmgr_cond_entry *e = NULL;
 
 	pr_debug("%s: enter\n", __func__);
-	WCD9XXX_BCL_LOCK(resmgr);
+	mutex_lock(&resmgr->update_bit_cond_lock);
 	list_for_each_safe(l, next, &resmgr->update_bit_cond_h) {
 		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
 		if (e->reg == reg && e->shift == shift && e->invert == invert) {
@@ -730,12 +730,12 @@ int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 					    1 << e->shift,
 					    e->invert << e->shift);
 			list_del(&e->list);
-			WCD9XXX_BCL_UNLOCK(resmgr);
+			mutex_unlock(&resmgr->update_bit_cond_lock);
 			kfree(e);
 			return 0;
 		}
 	}
-	WCD9XXX_BCL_UNLOCK(resmgr);
+	mutex_unlock(&resmgr->update_bit_cond_lock);
 	pr_err("%s: Cannot find update bit entry reg 0x%x, shift %d\n",
 	       __func__, e ? e->reg : 0, e ? e->shift : 0);
 
@@ -776,12 +776,14 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 	BLOCKING_INIT_NOTIFIER_HEAD(&resmgr->notifier);
 
 	mutex_init(&resmgr->codec_resource_lock);
+	mutex_init(&resmgr->update_bit_cond_lock);
 
 	return 0;
 }
 
 void wcd9xxx_resmgr_deinit(struct wcd9xxx_resmgr *resmgr)
 {
+	mutex_destroy(&resmgr->update_bit_cond_lock);
 	mutex_destroy(&resmgr->codec_resource_lock);
 }
 
