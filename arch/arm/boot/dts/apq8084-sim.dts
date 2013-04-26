@@ -22,7 +22,9 @@
 	aliases {
 		serial0 = &uart0;
 	};
+};
 
+&soc {
 	uart0: serial@f991f000 {
 		status = "ok";
 	};

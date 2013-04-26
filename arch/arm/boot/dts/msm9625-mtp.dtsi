@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	i2c@f9925000 {
 		charger@57 {
 			compatible = "summit,smb137c";

@@ -26,7 +26,7 @@
 
 /* CPR controlled regulator */
 
-/ {
+&soc {
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
 		compatible = "qcom,cpr-regulator";

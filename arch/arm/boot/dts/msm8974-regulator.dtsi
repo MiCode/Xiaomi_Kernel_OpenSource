@@ -458,7 +458,7 @@
 	};
 };
 
-/ {
+&soc {
 	krait_pdn: krait-pdn@f9011000 {
 		reg = <0xf9011000 0x1000>;
 		reg-names = "apcs_gcc";

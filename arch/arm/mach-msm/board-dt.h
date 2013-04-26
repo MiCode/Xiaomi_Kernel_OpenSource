@@ -10,8 +10,11 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of_platform.h>
+
 void __init msm_dt_init_irq(void);
 void __init msm_dt_init_irq_nompm(void);
 void __init msm_dt_init_irq_l2x0(void);
 int __init msm_scan_dt_map_imem(unsigned long node, const char *uname,
 				int depth, void *data);
+void __init board_dt_populate(struct of_dev_auxdata *adata);

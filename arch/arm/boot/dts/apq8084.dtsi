@@ -11,12 +11,20 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "apq8084-ion.dtsi"
 
 / {
 	model = "Qualcomm APQ 8084";
 	compatible = "qcom,apq8084";
 	interrupt-parent = <&intc>;
+	soc: soc { };
+};
+
+/include/ "apq8084-ion.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
 
 	intc: interrupt-controller@f9000000 {
 		compatible = "qcom,msm-qgic2";

@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,msm_qpic@f9ac0000 {
 		compatible = "qcom,mdss_qpic";
 		reg = <0xf9ac0000 0x24000>;

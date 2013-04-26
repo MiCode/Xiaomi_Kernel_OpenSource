@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,mdss_dsi_sharp_qhd_video {
 		compatible = "qcom,mdss-dsi-panel";
 		label = "sharp QHD LS043T1LE01 video mode dsi panel";

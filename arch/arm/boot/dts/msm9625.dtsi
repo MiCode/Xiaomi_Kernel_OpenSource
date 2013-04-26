@@ -11,10 +11,6 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msm9625-ion.dtsi"
-/include/ "msm9625-pm.dtsi"
-/include/ "msm9625-coresight.dtsi"
-/include/ "msm9625-smp2p.dtsi"
 
 / {
 	model = "Qualcomm MSM 9625";
@@ -24,6 +20,19 @@
 	aliases {
 		spi0 = &spi_0;
 	};
+
+	soc: soc { };
+};
+
+/include/ "msm9625-ion.dtsi"
+/include/ "msm9625-pm.dtsi"
+/include/ "msm9625-coresight.dtsi"
+/include/ "msm9625-smp2p.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
 
 	intc: interrupt-controller@F9000000 {
 		compatible = "qcom,msm-qgic2";
