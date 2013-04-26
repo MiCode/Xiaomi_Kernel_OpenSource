@@ -313,6 +313,7 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 	}
 
 	pr_err("riva: smsm state changed to smsm reset\n");
+	wcnss_riva_dump_pmic_regs();
 
 	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
 		&smem_reset_size);
