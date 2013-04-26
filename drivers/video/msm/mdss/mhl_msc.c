@@ -169,6 +169,7 @@ int mhl_queue_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 	cmd_env = vmalloc(sizeof(struct msc_cmd_envelope));
 	if (!cmd_env) {
 		pr_err("%s: out of memory!\n", __func__);
+		mutex_unlock(&msc_send_workqueue_mutex);
 		return -ENOMEM;
 	}
 

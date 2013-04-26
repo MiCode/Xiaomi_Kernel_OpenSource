@@ -194,6 +194,7 @@ static int mdss_mdp_wb_init(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
+	int rc = 0;
 
 	mutex_lock(&mdss_mdp_wb_buf_lock);
 	if (wb == NULL) {
@@ -202,7 +203,8 @@ static int mdss_mdp_wb_init(struct msm_fb_data_type *mfd)
 		mdp5_data->wb = wb;
 	} else if (mfd->index != wb->fb_ndx) {
 		pr_err("only one writeback intf supported at a time\n");
-		return -EMLINK;
+		rc = -EMLINK;
+		goto error;
 	} else {
 		pr_debug("writeback already initialized\n");
 	}
@@ -217,8 +219,9 @@ static int mdss_mdp_wb_init(struct msm_fb_data_type *mfd)
 	init_waitqueue_head(&wb->wait_q);
 
 	mdp5_data->wb = wb;
+error:
 	mutex_unlock(&mdss_mdp_wb_buf_lock);
-	return 0;
+	return rc;
 }
 
 static int mdss_mdp_wb_terminate(struct msm_fb_data_type *mfd)

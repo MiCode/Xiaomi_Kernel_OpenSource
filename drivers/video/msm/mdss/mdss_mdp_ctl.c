@@ -938,7 +938,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl)
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL);
 	if (ret) {
 		pr_err("panel power on failed ctl=%d\n", ctl->num);
-		return ret;
+		goto error;
 	}
 
 	ret = mdss_mdp_ctl_start_sub(ctl);
@@ -961,6 +961,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+error:
 	mutex_unlock(&ctl->lock);
 
 	return ret;
