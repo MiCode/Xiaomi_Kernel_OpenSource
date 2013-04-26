@@ -92,6 +92,16 @@
 #define MDD_CONFIG_CTL		0x00000000
 #define MDD_MODE		0x00000010
 
+#define PHASE_SCALING_REF	4
+
+/* bit definitions for phase scaling eFuses */
+#define PHASE_SCALING_EFUSE_VERSION_POS		26
+#define PHASE_SCALING_EFUSE_VERSION_MASK	KRAIT_MASK(27, 26)
+#define PHASE_SCALING_EFUSE_VERSION_SET		1
+
+#define PHASE_SCALING_EFUSE_VALUE_POS		16
+#define PHASE_SCALING_EFUSE_VALUE_MASK		KRAIT_MASK(18, 16)
+
 /* bit definitions for APC_PWR_GATE_CTL */
 #define BHS_CNT_BIT_POS		24
 #define BHS_CNT_MASK		KRAIT_MASK(31, 24)
@@ -149,6 +159,10 @@
  * @manage_phases:		begin phase control
  * @pfm_threshold:		the sum of coefficients below which PFM can be
  *				enabled
+ * @efuse_phase_scaling_factor:	Phase scaling factor read out of an eFuse.  When
+ *				calculating the appropriate phase count to use,
+ *				coeff2 is multiplied by this factor and then
+ *				divided by PHASE_SCALING_REF.
  */
 struct pmic_gang_vreg {
 	const char		*name;
@@ -163,6 +177,7 @@ struct pmic_gang_vreg {
 	void __iomem		*apcs_gcc_base;
 	bool			manage_phases;
 	int			pfm_threshold;
+	int			efuse_phase_scaling_factor;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -201,6 +216,12 @@ struct krait_power_vreg {
 DEFINE_PER_CPU(struct krait_power_vreg *, krait_vregs);
 
 static u32 version;
+
+static int use_efuse_phase_scaling_factor;
+module_param_named(
+	use_phase_scaling_efuse, use_efuse_phase_scaling_factor, int,
+	S_IRUSR | S_IWUSR
+);
 
 static int is_between(int left, int right, int value)
 {
@@ -304,7 +325,7 @@ static int __krait_power_mdd_enable(struct krait_power_vreg *kvreg, bool on)
 }
 
 #define COEFF2_UV_THRESHOLD 850000
-static int get_coeff2(int krait_uV)
+static int get_coeff2(int krait_uV, int phase_scaling_factor)
 {
 	int coeff2 = 0;
 	int krait_mV = krait_uV / 1000;
@@ -313,6 +334,8 @@ static int get_coeff2(int krait_uV)
 		coeff2 = (612229 * krait_mV) / 1000 - 211258;
 	else
 		coeff2 = (892564 * krait_mV) / 1000 - 449543;
+
+	coeff2 = coeff2 * phase_scaling_factor / PHASE_SCALING_REF;
 
 	return  coeff2;
 }
@@ -330,6 +353,10 @@ static int get_coeff_total(struct krait_power_vreg *from)
 	int coeff_total = 0;
 	struct krait_power_vreg *kvreg;
 	struct pmic_gang_vreg *pvreg = from->pvreg;
+	int phase_scaling_factor = PHASE_SCALING_REF;
+
+	if (use_efuse_phase_scaling_factor)
+		phase_scaling_factor = pvreg->efuse_phase_scaling_factor;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
 		if (!kvreg->online)
@@ -340,12 +367,14 @@ static int get_coeff_total(struct krait_power_vreg *from)
 				get_coeff1(kvreg->uV - kvreg->ldo_delta_uV,
 							kvreg->uV, kvreg->load);
 			kvreg->coeff2 =
-				get_coeff2(kvreg->uV - kvreg->ldo_delta_uV);
+				get_coeff2(kvreg->uV - kvreg->ldo_delta_uV,
+							phase_scaling_factor);
 		} else {
 			kvreg->coeff1 =
 				get_coeff1(pvreg->pmic_vmax_uV,
 							kvreg->uV, kvreg->load);
-			kvreg->coeff2 = get_coeff2(pvreg->pmic_vmax_uV);
+			kvreg->coeff2 = get_coeff2(pvreg->pmic_vmax_uV,
+							phase_scaling_factor);
 		}
 		coeff_total += kvreg->coeff1 + kvreg->coeff2;
 	}
@@ -1226,6 +1255,65 @@ static struct syscore_ops boot_cpu_mdd_ops = {
 	.resume		= boot_cpu_mdd_on,
 };
 
+static int __devinit krait_pdn_phase_scaling_init(struct pmic_gang_vreg *pvreg,
+				struct platform_device *pdev)
+{
+	struct resource *res;
+	void __iomem *efuse;
+	u32 efuse_data, efuse_version;
+	bool scaling_factor_valid, use_efuse;
+
+	use_efuse = of_property_read_bool(pdev->dev.of_node,
+					  "qcom,use-phase-scaling-factor");
+	/*
+	 * Allow usage of the eFuse phase scaling factor if it is enabled in
+	 * either device tree or by module parameter.
+	 */
+	use_efuse_phase_scaling_factor = use_efuse_phase_scaling_factor
+					 || use_efuse;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"phase-scaling-efuse");
+	if (!res || !res->start) {
+		pr_err("phase scaling eFuse address is missing\n");
+		return -EINVAL;
+	}
+
+	efuse = ioremap(res->start, 8);
+	if (!efuse) {
+		pr_err("could not map phase scaling eFuse address\n");
+		return -EINVAL;
+	}
+
+	efuse_data = readl_relaxed(efuse);
+	efuse_version = readl_relaxed(efuse + 4);
+
+	iounmap(efuse);
+
+	scaling_factor_valid
+		= ((efuse_version & PHASE_SCALING_EFUSE_VERSION_MASK) >>
+				PHASE_SCALING_EFUSE_VERSION_POS)
+			== PHASE_SCALING_EFUSE_VERSION_SET;
+
+	if (scaling_factor_valid)
+		pvreg->efuse_phase_scaling_factor
+			= ((efuse_data & PHASE_SCALING_EFUSE_VALUE_MASK)
+				>> PHASE_SCALING_EFUSE_VALUE_POS) + 1;
+	else
+		pvreg->efuse_phase_scaling_factor = PHASE_SCALING_REF;
+
+	pr_info("eFuse phase scaling factor = %d/%d%s\n",
+		pvreg->efuse_phase_scaling_factor, PHASE_SCALING_REF,
+		scaling_factor_valid ? "" : " (eFuse not blown)");
+	pr_info("initial phase scaling factor = %d/%d%s\n",
+		use_efuse_phase_scaling_factor
+			? pvreg->efuse_phase_scaling_factor : PHASE_SCALING_REF,
+		PHASE_SCALING_REF,
+		use_efuse_phase_scaling_factor ? "" : " (ignoring eFuse)");
+
+	return 0;
+}
+
 static int __devinit krait_pdn_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1268,6 +1356,10 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 
 	if (pvreg->apcs_gcc_base == NULL)
 		return -ENOMEM;
+
+	rc = krait_pdn_phase_scaling_init(pvreg, pdev);
+	if (rc)
+		return rc;
 
 	pvreg->name = "pmic_gang";
 	pvreg->pmic_vmax_uV = PMIC_VOLTAGE_MIN;
