@@ -148,7 +148,7 @@
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,hfi = "q6";
-		qcom,max-hw-load = <97200>; /* FWVGA @ 30 * 2 */
+		qcom,max-hw-load = <108000>; /* 720p @ 30 * 1 */
 	};
 
 	qcom,usbbam@f9a44000 {
