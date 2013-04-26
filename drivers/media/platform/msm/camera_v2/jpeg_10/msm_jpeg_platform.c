@@ -70,7 +70,7 @@ error1:
 }
 
 static struct msm_cam_clk_info jpeg_8x_clk_info[] = {
-	{"core_clk", 228570000},
+	{"core_clk", JPEG_CLK_RATE},
 	{"iface_clk", -1},
 	{"bus_clk0", -1},
 	{"camss_top_ahb_clk", -1},
@@ -135,8 +135,8 @@ static struct msm_bus_vectors msm_jpeg_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_JPEG,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1027648000,
-		.ib  = 1105920000,
+		.ab  = JPEG_CLK_RATE * 2.5,
+		.ib  = JPEG_CLK_RATE * 2.5,
 	},
 };
 
