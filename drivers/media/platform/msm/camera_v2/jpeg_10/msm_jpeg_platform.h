@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/iommu.h>
 #include <mach/iommu.h>
 #include "msm_jpeg_sync.h"
+#define JPEG_CLK_RATE 266670000
 
 void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file *file,
 	struct ion_handle **ionhandle, int domain_num);
