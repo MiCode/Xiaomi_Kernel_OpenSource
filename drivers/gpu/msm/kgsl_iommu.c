@@ -84,6 +84,13 @@ static void _iommu_unlock(void)
 
 struct remote_iommu_petersons_spinlock kgsl_iommu_sync_lock_vars;
 
+/*
+ * One page allocation for a guard region to protect against over-zealous
+ * GPU pre-fetch
+ */
+
+static struct page *kgsl_guard_page;
+
 static int get_iommu_unit(struct device *dev, struct kgsl_mmu **mmu_out,
 			struct kgsl_iommu_unit **iommu_unit_out)
 {
@@ -1378,6 +1385,15 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		iommu_ops.mmu_cleanup_pt = kgsl_iommu_cleanup_regs;
 	}
 
+	if (kgsl_guard_page == NULL) {
+		kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
+				__GFP_HIGHMEM);
+		if (kgsl_guard_page == NULL) {
+			status = -ENOMEM;
+			goto done;
+		}
+	}
+
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
 			__func__);
 done:
@@ -1628,7 +1644,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		unsigned int *tlb_flags)
 {
 	int ret;
-	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+	unsigned int range = memdesc->size;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 
 	/* All GPU addresses as assigned are page aligned, but some
@@ -1639,6 +1655,9 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 
 	if (range == 0 || gpuaddr == 0)
 		return 0;
+
+	if (kgsl_memdesc_has_guard_page(memdesc))
+		range += PAGE_SIZE;
 
 	ret = iommu_unmap_range(iommu_pt->domain, gpuaddr, range);
 	if (ret)
@@ -1664,13 +1683,9 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	int ret;
 	unsigned int iommu_virt_addr;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
-	int size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+	int size = memdesc->size;
 
 	BUG_ON(NULL == iommu_pt);
-
-	/* if there's a guard page, we'll map it read only below */
-	if ((protflags & IOMMU_WRITE) && kgsl_memdesc_has_guard_page(memdesc))
-			size -= PAGE_SIZE;
 
 	iommu_virt_addr = memdesc->gpuaddr;
 
@@ -1682,16 +1697,14 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 			protflags, ret);
 		return ret;
 	}
-	if ((protflags & IOMMU_WRITE) && kgsl_memdesc_has_guard_page(memdesc)) {
-		struct scatterlist *sg = &memdesc->sg[memdesc->sglen - 1];
-
+	if (kgsl_memdesc_has_guard_page(memdesc)) {
 		ret = iommu_map(iommu_pt->domain, iommu_virt_addr + size,
-				kgsl_get_sg_pa(sg), PAGE_SIZE,
+				page_to_phys(kgsl_guard_page), PAGE_SIZE,
 				protflags & ~IOMMU_WRITE);
 		if (ret) {
-			KGSL_CORE_ERR("iommu_map(%p, %x, %x, %x) err: %d\n",
+			KGSL_CORE_ERR("iommu_map(%p, %x, guard, %x) err: %d\n",
 				iommu_pt->domain, iommu_virt_addr + size,
-				kgsl_get_sg_pa(sg), protflags & ~IOMMU_WRITE,
+				protflags & ~IOMMU_WRITE,
 				ret);
 			/* cleanup the partial mapping */
 			iommu_unmap_range(iommu_pt->domain, iommu_virt_addr,
@@ -1770,6 +1783,11 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	iommu->sync_lock_vars = NULL;
 
 	kfree(iommu);
+
+	if (kgsl_guard_page != NULL) {
+		__free_page(kgsl_guard_page);
+		kgsl_guard_page = NULL;
+	}
 
 	return 0;
 }
