@@ -20,6 +20,7 @@
 
 #define MSM_VENC_DVC_NAME "msm_venc_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
+#define MIN_NUM_CAPTURE_BUFFERS 4
 #define MIN_BIT_RATE 64000
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000
@@ -777,16 +778,21 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		*num_planes = 1;
 		buff_req = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-		*num_buffers = buff_req->buffer_count_actual =
+		if (buff_req) {
+			*num_buffers = buff_req->buffer_count_actual =
 			max(*num_buffers, buff_req->buffer_count_actual);
-			if (*num_buffers > VIDEO_MAX_FRAME) {
-				dprintk(VIDC_ERR,
+		}
+		if (*num_buffers < MIN_NUM_CAPTURE_BUFFERS)
+			*num_buffers = MIN_NUM_CAPTURE_BUFFERS;
+
+		if (*num_buffers > VIDEO_MAX_FRAME) {
+			dprintk(VIDC_ERR,
 					"Failed : No of slices requested = %d"\
 					" Max supported slices = %d",
 					*num_buffers, VIDEO_MAX_FRAME);
-				rc = -EINVAL;
-				break;
-			}
+			rc = -EINVAL;
+			break;
+		}
 		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 				V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		if (ctrl)
