@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,6 +109,45 @@ struct qce_cmdlistptr_ops {
 	struct qce_cmdlist_info unlock_all_pipes;
 };
 
+struct qce_ce_cfg_reg_setting {
+	uint32_t crypto_cfg_be;
+	uint32_t crypto_cfg_le;
+
+	uint32_t encr_cfg_aes_cbc_128;
+	uint32_t encr_cfg_aes_cbc_256;
+
+	uint32_t encr_cfg_aes_ecb_128;
+	uint32_t encr_cfg_aes_ecb_256;
+
+	uint32_t encr_cfg_aes_xts_128;
+	uint32_t encr_cfg_aes_xts_256;
+
+	uint32_t encr_cfg_aes_ctr_128;
+	uint32_t encr_cfg_aes_ctr_256;
+
+	uint32_t encr_cfg_aes_ccm_128;
+	uint32_t encr_cfg_aes_ccm_256;
+
+	uint32_t encr_cfg_des_cbc;
+	uint32_t encr_cfg_des_ecb;
+
+	uint32_t encr_cfg_3des_cbc;
+	uint32_t encr_cfg_3des_ecb;
+
+	uint32_t auth_cfg_cmac_128;
+	uint32_t auth_cfg_cmac_256;
+
+	uint32_t auth_cfg_sha1;
+	uint32_t auth_cfg_sha256;
+
+	uint32_t auth_cfg_hmac_sha1;
+	uint32_t auth_cfg_hmac_sha256;
+
+	uint32_t auth_cfg_aes_ccm_128;
+	uint32_t auth_cfg_aes_ccm_256;
+	uint32_t auth_cfg_aead_sha1_hmac;
+
+};
 
 /* DM data structure with buffers, commandlists & commmand pointer lists */
 struct ce_sps_data {
