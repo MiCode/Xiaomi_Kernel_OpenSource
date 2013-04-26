@@ -1559,34 +1559,54 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 static int qcedev_check_cipher_key(struct qcedev_cipher_op_req *req,
 						struct qcedev_control *podev)
 {
+
+	if (req->encklen < 0) {
+		pr_err("%s: Invalid key size: %d\n", __func__, req->encklen);
+		return -EINVAL;
+	}
 	/* if intending to use HW key make sure key fields are set
 	 * correctly and HW key is indeed supported in target
 	 */
 	if (req->encklen == 0) {
 		int i;
-		for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++)
-			if (req->enckey[i])
+		for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++) {
+			if (req->enckey[i]) {
+				pr_err("%s: Invalid key: non-zero key input\n",
+								__func__);
 				goto error;
+			}
+		}
 		if ((req->op != QCEDEV_OPER_ENC_NO_KEY) &&
 			(req->op != QCEDEV_OPER_DEC_NO_KEY))
-			if (!podev->platform_support.hw_key_support)
+			if (!podev->platform_support.hw_key_support) {
+				pr_err("%s: Invalid op %d\n", __func__,
+						(uint32_t)req->op);
 				goto error;
+			}
 	} else {
 		if (req->encklen == QCEDEV_AES_KEY_192) {
-			if (!podev->ce_support.aes_key_192)
+			if (!podev->ce_support.aes_key_192) {
+				pr_err("%s: AES-192 not supported\n", __func__);
 				goto error;
+			}
 		} else {
 			/* if not using HW key make sure key
 			 * length is valid
 			 */
 			if ((req->mode == QCEDEV_AES_MODE_XTS)) {
-				if (!((req->encklen == QCEDEV_AES_KEY_128*2) ||
-					(req->encklen == QCEDEV_AES_KEY_256*2)))
+				if ((req->encklen != QCEDEV_AES_KEY_128*2) &&
+				(req->encklen != QCEDEV_AES_KEY_256*2)) {
+					pr_err("%s: unsupported key size: %d\n",
+							__func__, req->encklen);
 					goto error;
+				}
 			} else {
-				if (!((req->encklen == QCEDEV_AES_KEY_128) ||
-					(req->encklen == QCEDEV_AES_KEY_256)))
+				if ((req->encklen != QCEDEV_AES_KEY_128) &&
+					(req->encklen != QCEDEV_AES_KEY_256)) {
+					pr_err("%s: unsupported key size %d\n",
+							__func__, req->encklen);
 					goto error;
+				}
 			}
 		}
 	}
@@ -1602,32 +1622,48 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 		pr_err("%s: Use of PMEM is not supported\n", __func__);
 		goto error;
 	}
-	if ((req->entries == 0) || (req->data_len == 0))
+	if ((req->entries == 0) || (req->data_len == 0) ||
+			(req->entries > QCEDEV_MAX_BUFFERS)) {
+		pr_err("%s: Invalid cipher length/entries\n", __func__);
 		goto error;
+	}
 	if ((req->alg >= QCEDEV_ALG_LAST) ||
-		(req->mode >= QCEDEV_AES_DES_MODE_LAST))
+		(req->mode >= QCEDEV_AES_DES_MODE_LAST)) {
+		pr_err("%s: Invalid algorithm %d\n", __func__,
+						(uint32_t)req->alg);
 		goto error;
-
-	if ((req->mode == QCEDEV_AES_MODE_XTS) && (!podev->ce_support.aes_xts))
-					goto error;
-
-	if (req->alg == QCEDEV_ALG_AES)
+	}
+	if ((req->mode == QCEDEV_AES_MODE_XTS) &&
+				(!podev->ce_support.aes_xts)) {
+		pr_err("%s: XTS algorithm is not supported\n", __func__);
+		goto error;
+	}
+	if (req->alg == QCEDEV_ALG_AES) {
 		if (qcedev_check_cipher_key(req, podev))
-					goto error;
+			goto error;
+
+	}
 	/* if using a byteoffset, make sure it is CTR mode using vbuf */
 	if (req->byteoffset) {
-		if (req->mode != QCEDEV_AES_MODE_CTR)
+		if (req->mode != QCEDEV_AES_MODE_CTR) {
+			pr_err("%s: Operation on byte offset not supported\n",
+								 __func__);
 			goto error;
+		}
 	}
 	/* Ensure zer ivlen for ECB  mode  */
-	if (req->ivlen != 0) {
+	if (req->ivlen > 0) {
 		if ((req->mode == QCEDEV_AES_MODE_ECB) ||
-				(req->mode == QCEDEV_DES_MODE_ECB))
+				(req->mode == QCEDEV_DES_MODE_ECB)) {
+			pr_err("%s: Expecting a zero length IV\n", __func__);
 			goto error;
+		}
 	} else {
 		if ((req->mode != QCEDEV_AES_MODE_ECB) &&
-				(req->mode != QCEDEV_DES_MODE_ECB))
+				(req->mode != QCEDEV_DES_MODE_ECB)) {
+			pr_err("%s: Expecting a non-zero ength IV\n", __func__);
 			goto error;
+		}
 	}
 
 	return 0;
@@ -1640,20 +1676,42 @@ static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 						struct qcedev_control *podev)
 {
 	if ((req->alg == QCEDEV_ALG_AES_CMAC) &&
-				(!podev->ce_support.cmac))
+				(!podev->ce_support.cmac)) {
+		pr_err("%s: CMAC not supported\n", __func__);
 		goto sha_error;
-
-	if ((req->entries == 0) || (req->data_len == 0))
+	}
+	if ((req->entries == 0) || (req->data_len == 0) ||
+			(req->entries > QCEDEV_MAX_BUFFERS)) {
+		pr_err("%s: Invalid data length (%d)/ num entries (%d)\n",
+				__func__, req->data_len, req->entries);
 		goto sha_error;
+	}
 
-	if (req->alg >= QCEDEV_ALG_SHA_ALG_LAST)
+	if (req->alg >= QCEDEV_ALG_SHA_ALG_LAST) {
+		pr_err("%s: Invalid algorithm (%d)\n", __func__, req->alg);
 		goto sha_error;
-
+	}
 	if ((req->alg == QCEDEV_ALG_SHA1_HMAC) ||
 			(req->alg == QCEDEV_ALG_SHA1_HMAC)) {
-		if (req->authklen == 0)
+		if (req->authkey == NULL) {
+			pr_err("%s: Invalid authkey pointer\n", __func__);
 			goto sha_error;
+		}
+		if (req->authklen <= 0) {
+			pr_err("%s: Invalid authkey length (%d)\n",
+						__func__, req->authklen);
+			goto sha_error;
+		}
 	}
+
+	if (req->alg == QCEDEV_ALG_AES_CMAC) {
+		if ((req->authklen != QCEDEV_AES_KEY_128) &&
+					(req->authklen != QCEDEV_AES_KEY_256)) {
+			pr_err("%s: unsupported key length\n", __func__);
+			goto sha_error;
+		}
+	}
+
 	return 0;
 sha_error:
 	return -EINVAL;
