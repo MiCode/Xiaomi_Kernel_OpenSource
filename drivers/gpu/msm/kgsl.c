@@ -1845,6 +1845,9 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	if (!kgsl_mmu_use_cpu_map(private->pagetable->mmu))
 		entry->memdesc.flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
 
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU)
+		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
+
 	switch (memtype) {
 	case KGSL_USER_MEM_TYPE_PMEM:
 		if (param->fd == 0 || param->len == 0)
@@ -2068,6 +2071,9 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
 		return -ENOMEM;
+
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU)
+		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	result = kgsl_allocate_user(&entry->memdesc, private->pagetable, size,
 				    flags);
@@ -2729,10 +2735,6 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		int i;
 		int sglen = entry->memdesc.sglen;
 		unsigned long addr = vma->vm_start;
-
-		/* don't map in the guard page, it should always fault */
-		if (kgsl_memdesc_has_guard_page(&entry->memdesc))
-			sglen--;
 
 		for_each_sg(entry->memdesc.sg, s, sglen, i) {
 			int j;
