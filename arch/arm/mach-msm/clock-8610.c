@@ -255,6 +255,7 @@ static void __iomem *virt_bases[N_BASES];
 #define          MMSS_MMSSNOC_AXI_CBCR	    0x506C
 #define                   BIMC_GFX_BCR	    0x5090
 #define                  BIMC_GFX_CBCR	    0x5094
+#define                MMSS_CAMSS_MISC	    0x3718
 
 #define				AUDIO_CORE_GDSCR	    0x7000
 #define                                 SPDM_BCR	    0x1000
@@ -1932,6 +1933,115 @@ static struct branch_clk csi1rdi_clk = {
 	},
 };
 
+static struct mux_clk csi0phy_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(11),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(9),
+	.sources = (struct mux_source[]) {
+		{ &csi0phy_clk.c,     0 },
+		{ &csi1phy_clk.c, BIT(9) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "csi0phy_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(csi0phy_mux_clk.c),
+	},
+};
+
+static struct mux_clk csi1phy_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(10),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(8),
+	.sources = (struct mux_source[]) {
+		{ &csi0phy_clk.c,     0 },
+		{ &csi1phy_clk.c, BIT(8) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "csi1phy_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(csi1phy_mux_clk.c),
+	},
+};
+
+static struct mux_clk csi0pix_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(7),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(3),
+	.sources = (struct mux_source[]) {
+		{ &csi0pix_clk.c,      0 },
+		{ &csi1pix_clk.c, BIT(3) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "csi0pix_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(csi0pix_mux_clk.c),
+	},
+};
+
+
+static struct mux_clk rdi2_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(6),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(2),
+	.sources = (struct mux_source[]) {
+		{ &csi0rdi_clk.c,      0 },
+		{ &csi1rdi_clk.c, BIT(2) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "rdi2_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(rdi2_mux_clk.c),
+	},
+};
+
+static struct mux_clk rdi1_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(5),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(1),
+	.sources = (struct mux_source[]) {
+		{ &csi0rdi_clk.c,      0 },
+		{ &csi1rdi_clk.c, BIT(1) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "rdi1_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(rdi1_mux_clk.c),
+	},
+};
+
+static struct mux_clk rdi0_mux_clk = {
+	.enable_reg = MMSS_CAMSS_MISC,
+	.enable_mask = BIT(4),
+	.select_reg = MMSS_CAMSS_MISC,
+	.select_mask = BIT(0),
+	.sources = (struct mux_source[]) {
+		{ &csi0rdi_clk.c,      0 },
+		{ &csi1rdi_clk.c, BIT(0) },
+		{ 0 },
+	},
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "rdi0_mux_clk",
+		.ops = &clk_ops_mux,
+		CLK_INIT(rdi0_mux_clk.c),
+	},
+};
+
 static struct branch_clk csi_ahb_clk = {
 	.cbcr_reg = CSI_AHB_CBCR,
 	.has_sibling = 1,
@@ -2772,6 +2882,13 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",                      vfe_clk.c, ""),
 	CLK_LOOKUP("core_clk",                  vfe_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",                  vfe_axi_clk.c, ""),
+
+	CLK_LOOKUP("core_clk",              csi0pix_mux_clk.c, ""),
+	CLK_LOOKUP("core_clk",              csi0phy_mux_clk.c, ""),
+	CLK_LOOKUP("core_clk",              csi1phy_mux_clk.c, ""),
+	CLK_LOOKUP("core_clk",                 rdi2_mux_clk.c, ""),
+	CLK_LOOKUP("core_clk",                 rdi1_mux_clk.c, ""),
+	CLK_LOOKUP("core_clk",                 rdi0_mux_clk.c, ""),
 
 	CLK_LOOKUP("core_clk",   oxili_gfx3d_clk.c, "fdc00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk",    oxili_ahb_clk.c, "fdc00000.qcom,kgsl-3d0"),
