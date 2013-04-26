@@ -190,6 +190,7 @@ static struct platform_device *spdev;
 static struct regulator *ext_spk_amp_regulator;
 static int ext_spk_amp_gpio = -1;
 static int ext_ult_spk_amp_gpio = -1;
+static int ext_ult_lo_amp_gpio = -1;
 static int msm8974_spk_control = 1;
 static int msm8974_ext_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
@@ -390,41 +391,82 @@ static int msm8974_liquid_init_docking(struct snd_soc_dapm_context *dapm)
 	return 0;
 }
 
-
-
-
-static void msm8974_ext_spk_power_amp_on(u32 spk)
+static int msm8974_liquid_ext_spk_power_amp_on(u32 spk)
 {
-	if (spk & (LO_1_SPK_AMP |
-		   LO_3_SPK_AMP |
-		   LO_2_SPK_AMP |
-		   LO_4_SPK_AMP)) {
+	int rc;
 
-		pr_debug("%s() External Left/Right Speakers already turned on. spk = 0x%08x\n",
-						__func__, spk);
+	if (spk & (LO_1_SPK_AMP | LO_3_SPK_AMP | LO_2_SPK_AMP | LO_4_SPK_AMP)) {
+		pr_debug("%s: External speakers are already on. spk = 0x%x\n",
+			 __func__, spk);
 
 		msm8974_ext_spk_pamp |= spk;
-
 		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
-			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
-			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
-			(msm8974_ext_spk_pamp & LO_4_SPK_AMP)) {
-
+		    (msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+		    (msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+		    (msm8974_ext_spk_pamp & LO_4_SPK_AMP))
 			if (ext_spk_amp_gpio >= 0 &&
-				msm8974_liquid_dock_dev != NULL &&
-				msm8974_liquid_dock_dev->dock_plug_det == 0)
+			    msm8974_liquid_dock_dev &&
+			    msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(1);
-		}
+		rc = 0;
 	} else  {
+		pr_err("%s: Invalid external speaker ampl. spk = 0x%x\n",
+		       __func__, spk);
+		rc = -EINVAL;
+	}
 
-		pr_err("%s: ERROR : Invalid External Speaker Ampl. spk = 0x%08x\n",
+	return rc;
+}
+
+static void msm8974_fluid_ext_us_amp_on(u32 spk)
+{
+	if (!gpio_is_valid(ext_ult_lo_amp_gpio)) {
+		pr_err("%s: ext_ult_lo_amp_gpio isn't configured\n", __func__);
+	} else if (spk & (LO_1_SPK_AMP | LO_3_SPK_AMP)) {
+		pr_debug("%s: External US amp is already on. spk = 0x%x\n",
+			 __func__, spk);
+		msm8974_ext_spk_pamp |= spk;
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+		    (msm8974_ext_spk_pamp & LO_3_SPK_AMP))
+			pr_debug("%s: Turn on US amp. spk = 0x%x\n",
+				 __func__, spk);
+			gpio_direction_output(ext_ult_lo_amp_gpio, 1);
+
+	} else  {
+		pr_err("%s: Invalid external speaker ampl. spk = 0x%x\n",
 			__func__, spk);
-		return;
 	}
 }
 
-static void msm8974_ext_spk_power_amp_off(u32 spk)
+static void msm8974_fluid_ext_us_amp_off(u32 spk)
 {
+	if (!gpio_is_valid(ext_ult_lo_amp_gpio)) {
+		pr_err("%s: ext_ult_lo_amp_gpio isn't configured\n", __func__);
+	} else if (spk & (LO_1_SPK_AMP | LO_3_SPK_AMP)) {
+		pr_debug("%s LO1 and LO3. spk = 0x%x", __func__, spk);
+		if (!msm8974_ext_spk_pamp) {
+			pr_debug("%s: Turn off US amp. spk = 0x%x\n",
+				 __func__, spk);
+			gpio_direction_output(ext_ult_lo_amp_gpio, 0);
+			msm8974_ext_spk_pamp = 0;
+		}
+	} else  {
+		pr_err("%s: Invalid external speaker ampl. spk = 0x%x\n",
+			__func__, spk);
+	}
+}
+
+static void msm8974_ext_spk_power_amp_on(u32 spk)
+{
+	if (gpio_is_valid(ext_spk_amp_gpio))
+		msm8974_liquid_ext_spk_power_amp_on(spk);
+	else if (gpio_is_valid(ext_ult_lo_amp_gpio))
+		msm8974_fluid_ext_us_amp_on(spk);
+}
+
+static void msm8974_liquid_ext_spk_power_amp_off(u32 spk)
+{
+
 	if (spk & (LO_1_SPK_AMP |
 		   LO_3_SPK_AMP |
 		   LO_2_SPK_AMP |
@@ -447,6 +489,14 @@ static void msm8974_ext_spk_power_amp_off(u32 spk)
 			__func__, spk);
 		return;
 	}
+}
+
+static void msm8974_ext_spk_power_amp_off(u32 spk)
+{
+	if (gpio_is_valid(ext_spk_amp_gpio))
+		msm8974_liquid_ext_spk_power_amp_off(spk);
+	else if (gpio_is_valid(ext_ult_lo_amp_gpio))
+		msm8974_fluid_ext_us_amp_off(spk);
 }
 
 static void msm8974_ext_control(struct snd_soc_codec *codec)
@@ -2340,6 +2390,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	struct msm8974_asoc_mach_data *pdata;
 	int ret;
 	const char *auxpcm_pri_gpio_set = NULL;
+	const char *prop_name_ult_lo_gpio = "qcom,ext-ult-lo-amp-gpio";
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -2411,9 +2462,26 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	ext_ult_lo_amp_gpio = of_get_named_gpio(pdev->dev.of_node,
+						prop_name_ult_lo_gpio, 0);
+	if (!gpio_is_valid(ext_ult_lo_amp_gpio)) {
+		dev_dbg(&pdev->dev,
+			"Couldn't find %s property in node %s, %d\n",
+			prop_name_ult_lo_gpio, pdev->dev.of_node->full_name,
+			ext_ult_lo_amp_gpio);
+	} else {
+		ret = gpio_request(ext_ult_lo_amp_gpio, "US_AMP_GPIO");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request US amp gpio %d\n",
+				__func__, ext_ult_lo_amp_gpio);
+			goto err;
+		}
+	}
+
 	ret = msm8974_prepare_codec_mclk(card);
 	if (ret)
-		goto err;
+		goto err1;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,hdmi-audio-rx")) {
 		dev_info(&pdev->dev, "%s(): hdmi audio support present\n",
@@ -2462,7 +2530,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
-		goto err;
+		goto err1;
 	}
 
 	ret = of_property_read_string(pdev->dev.of_node,
@@ -2471,7 +2539,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
 			"qcom,prim-auxpcm-gpio-set",
 			pdev->dev.of_node->full_name);
-		goto err;
+		goto err1;
 	}
 	if (!strcmp(auxpcm_pri_gpio_set, "prim-gpio-prim")) {
 		lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
@@ -2481,20 +2549,24 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Invalid value %s for AUXPCM GPIO set\n",
 			auxpcm_pri_gpio_set);
 		ret = -EINVAL;
-		goto err;
+		goto err1;
 	}
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
 		ret = -EINVAL;
-		goto err;
+		goto err1;
 	}
 	lpaif_sec_muxsel_virt_addr = ioremap(LPAIF_SEC_MODE_MUXSEL, 4);
 	if (lpaif_sec_muxsel_virt_addr == NULL) {
 		pr_err("%s Sec muxsel virt addr is null\n", __func__);
 		ret = -EINVAL;
-		goto err;
+		goto err1;
 	}
 	return 0;
+
+err1:
+	gpio_free(ext_ult_lo_amp_gpio);
+	ext_ult_lo_amp_gpio = -1;
 err:
 	if (pdata->mclk_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free gpio %d\n",
@@ -2522,6 +2594,9 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 
 	if (gpio_is_valid(ext_ult_spk_amp_gpio))
 		gpio_free(ext_ult_spk_amp_gpio);
+
+	if (gpio_is_valid(ext_ult_lo_amp_gpio))
+		gpio_free(ext_ult_lo_amp_gpio);
 
 	gpio_free(pdata->mclk_gpio);
 	gpio_free(pdata->us_euro_gpio);
