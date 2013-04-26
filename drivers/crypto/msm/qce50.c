@@ -496,25 +496,17 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		for (i = 0; i < noncelen32; i++, pce++)
 			pce->data = nonce32[i];
 
-		/* TBD  NEW FEATURE partial AES CCM  pkt support set last bit */
-		auth_cfg |= ((1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST));
+		if (creq->authklen ==  AES128_KEY_SIZE)
+			auth_cfg = pce_dev->reg.auth_cfg_aes_ccm_128;
+		else {
+			if (creq->authklen ==  AES256_KEY_SIZE)
+				auth_cfg = pce_dev->reg.auth_cfg_aes_ccm_256;
+		}
 		if (creq->dir == QCE_ENCRYPT)
 			auth_cfg |= (CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
 		else
 			auth_cfg |= (CRYPTO_AUTH_POS_AFTER << CRYPTO_AUTH_POS);
 		auth_cfg |= ((creq->authsize - 1) << CRYPTO_AUTH_SIZE);
-		auth_cfg |= (CRYPTO_AUTH_MODE_CCM << CRYPTO_AUTH_MODE);
-		if (creq->authklen ==  AES128_KEY_SIZE)
-			auth_cfg |= (CRYPTO_AUTH_KEY_SZ_AES128 <<
-						CRYPTO_AUTH_KEY_SIZE);
-		else {
-			if (creq->authklen ==  AES256_KEY_SIZE)
-				auth_cfg |= (CRYPTO_AUTH_KEY_SZ_AES256 <<
-							CRYPTO_AUTH_KEY_SIZE);
-		}
-		auth_cfg |= (CRYPTO_AUTH_ALG_AES << CRYPTO_AUTH_ALG);
-		auth_cfg |= ((MAX_NONCE/sizeof(uint32_t)) <<
-						CRYPTO_AUTH_NONCE_NUM_WORDS);
 
 		if (use_hw_key == true)	{
 			auth_cfg |= (1 << CRYPTO_USE_HW_KEY_AUTH);
@@ -544,21 +536,37 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	}
 	switch (creq->mode) {
 	case QCE_MODE_ECB:
-		encr_cfg |= (CRYPTO_ENCR_MODE_ECB << CRYPTO_ENCR_MODE);
+		if (key_size == AES128_KEY_SIZE)
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ecb_128;
+		else
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ecb_256;
 		break;
 	case QCE_MODE_CBC:
-		encr_cfg |= (CRYPTO_ENCR_MODE_CBC << CRYPTO_ENCR_MODE);
+		if (key_size == AES128_KEY_SIZE)
+			encr_cfg = pce_dev->reg.encr_cfg_aes_cbc_128;
+		else
+			encr_cfg = pce_dev->reg.encr_cfg_aes_cbc_256;
 		break;
 	case QCE_MODE_XTS:
-		encr_cfg |= (CRYPTO_ENCR_MODE_XTS << CRYPTO_ENCR_MODE);
+		if (key_size == AES128_KEY_SIZE)
+			encr_cfg = pce_dev->reg.encr_cfg_aes_xts_128;
+		else
+			encr_cfg = pce_dev->reg.encr_cfg_aes_xts_256;
 		break;
 	case QCE_MODE_CCM:
+		if (key_size == AES128_KEY_SIZE)
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ccm_128;
+		else
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ccm_256;
 		encr_cfg |= (CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE) |
 				(CRYPTO_LAST_CCM_XFR << CRYPTO_LAST_CCM);
 		break;
 	case QCE_MODE_CTR:
 	default:
-		encr_cfg |= (CRYPTO_ENCR_MODE_CTR << CRYPTO_ENCR_MODE);
+		if (key_size == AES128_KEY_SIZE)
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ctr_128;
+		else
+			encr_cfg = pce_dev->reg.encr_cfg_aes_ctr_256;
 		break;
 	}
 	pce_dev->mode = creq->mode;
@@ -602,13 +610,15 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 			uint32_t xtsklen =
 					creq->encklen/(2 * sizeof(uint32_t));
 
-			_byte_stream_to_net_words(xtskey32, (creq->enckey +
-					creq->encklen/2), creq->encklen/2);
-			/* write xts encr key */
-			pce = cmdlistinfo->encr_xts_key;
-			for (i = 0; i < xtsklen; i++, pce++)
-				pce->data = xtskey32[i];
-
+			if ((use_hw_key == false) && (use_pipe_key == false)) {
+				_byte_stream_to_net_words(xtskey32,
+					(creq->enckey + creq->encklen/2),
+							creq->encklen/2);
+				/* write xts encr key */
+				pce = cmdlistinfo->encr_xts_key;
+				for (i = 0; i < xtsklen; i++, pce++)
+					pce->data = xtskey32[i];
+			}
 			/* write xts du size */
 			pce = cmdlistinfo->encr_xts_du_size;
 			if (use_pipe_key == true)
@@ -644,26 +654,13 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		if (creq->op == QCE_REQ_ABLK_CIPHER_NO_KEY) {
 				encr_cfg |= (CRYPTO_ENCR_KEY_SZ_AES128 <<
 						CRYPTO_ENCR_KEY_SZ);
-			encr_cfg |= CRYPTO_ENCR_ALG_AES << CRYPTO_ENCR_ALG;
 		} else {
 			if (use_hw_key == false) {
 				/* write encr key */
 				pce = cmdlistinfo->encr_key;
 				for (i = 0; i < enck_size_in_word; i++, pce++)
 					pce->data = enckey32[i];
-				switch (key_size) {
-				case AES128_KEY_SIZE:
-					encr_cfg |= (CRYPTO_ENCR_KEY_SZ_AES128
-							 << CRYPTO_ENCR_KEY_SZ);
-					break;
-				case AES256_KEY_SIZE:
-				default:
-					encr_cfg |= (CRYPTO_ENCR_KEY_SZ_AES256
-							 << CRYPTO_ENCR_KEY_SZ);
-				break;
-				} /* end of switch (creq->encklen) */
 			}
-			encr_cfg |= CRYPTO_ENCR_ALG_AES << CRYPTO_ENCR_ALG;
 		} /* else of if (creq->op == QCE_REQ_ABLK_CIPHER_NO_KEY) */
 		break;
 	} /* end of switch (creq->mode)  */
@@ -1902,20 +1899,11 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 	uint32_t key_reg = 0;
 	uint32_t xts_key_reg = 0;
 	uint32_t iv_reg = 0;
-	uint32_t crypto_cfg = 0;
-	uint32_t beats = (pdev->ce_sps.ce_burst_size >> 3) - 1;
-	uint32_t pipe_pair = pdev->ce_sps.pipe_pair_index;
 
 	*pvaddr = (unsigned char *) ALIGN(((unsigned int)(*pvaddr)),
 					pdev->ce_sps.ce_burst_size);
 	ce_vaddr = (struct sps_command_element *)(*pvaddr);
 	ce_vaddr_start = (uint32_t)(*pvaddr);
-	crypto_cfg = (beats << CRYPTO_REQ_SIZE) |
-			BIT(CRYPTO_MASK_DOUT_INTR) |
-			BIT(CRYPTO_MASK_DIN_INTR) |
-			BIT(CRYPTO_MASK_OP_DONE_INTR) |
-			(0 << CRYPTO_HIGH_SPD_EN_N) |
-			(pipe_pair << CRYPTO_PIPE_SET_SELECT);
 	/*
 	 * Designate chunks of the allocated memory to various
 	 * command list pointers related to AES cipher operations defined
@@ -1928,11 +1916,10 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 			cmdlistptr->cipher_aes_128_cbc_ctr.cmdlist =
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_128_cbc_ctr);
-
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES128 <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-						CRYPTO_ENCR_ALG);
+			if (mode == QCE_MODE_CBC)
+				encr_cfg = pdev->reg.encr_cfg_aes_cbc_128;
+			else
+				encr_cfg = pdev->reg.encr_cfg_aes_ctr_128;
 			iv_reg = 4;
 			key_reg = 4;
 			xts_key_reg = 0;
@@ -1941,10 +1928,10 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_256_cbc_ctr);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES256 <<
-							CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-							CRYPTO_ENCR_ALG);
+			if (mode == QCE_MODE_CBC)
+				encr_cfg = pdev->reg.encr_cfg_aes_cbc_256;
+			else
+				encr_cfg = pdev->reg.encr_cfg_aes_ctr_256;
 			iv_reg = 4;
 			key_reg = 8;
 			xts_key_reg = 0;
@@ -1956,12 +1943,7 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_128_ecb);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES128 <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_ECB <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_aes_ecb_128;
 			iv_reg = 0;
 			key_reg = 4;
 			xts_key_reg = 0;
@@ -1970,12 +1952,7 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_256_ecb);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES256 <<
-							CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-							CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_ECB <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_aes_ecb_256;
 			iv_reg = 0;
 			key_reg = 8;
 			xts_key_reg = 0;
@@ -1987,12 +1964,7 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_128_xts);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES128 <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_XTS <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_aes_xts_128;
 			iv_reg = 4;
 			key_reg = 4;
 			xts_key_reg = 4;
@@ -2001,12 +1973,7 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_aes_256_xts);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES256 <<
-							CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_AES <<
-							CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_XTS <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_aes_xts_256;
 			iv_reg = 4;
 			key_reg = 8;
 			xts_key_reg = 8;
@@ -2019,8 +1986,8 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 	break;
 	}
 
-	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG, crypto_cfg,
-						&pcl_info->crypto_cfg);
+	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_SEG_SIZE_REG, 0,
 						&pcl_info->seg_size);
@@ -2074,7 +2041,7 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 						0, &pcl_info->auth_seg_size);
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-				(crypto_cfg | CRYPTO_LITTLE_ENDIAN_MASK), NULL);
+			pdev->reg.crypto_cfg_le, NULL);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_GOPROC_REG,
 			((1 << CRYPTO_GO) | (1 << CRYPTO_RESULTS_DUMP)),
@@ -2099,20 +2066,11 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 	uint32_t encr_cfg = 0;
 	uint32_t key_reg = 0;
 	uint32_t iv_reg = 0;
-	uint32_t crypto_cfg = 0;
-	uint32_t beats = (pdev->ce_sps.ce_burst_size >> 3) - 1;
-	uint32_t pipe_pair = pdev->ce_sps.pipe_pair_index;
 
 	*pvaddr = (unsigned char *) ALIGN(((unsigned int)(*pvaddr)),
 					pdev->ce_sps.ce_burst_size);
 	ce_vaddr = (struct sps_command_element *)(*pvaddr);
 	ce_vaddr_start = (uint32_t)(*pvaddr);
-	crypto_cfg = (beats << CRYPTO_REQ_SIZE) |
-			BIT(CRYPTO_MASK_DOUT_INTR) |
-			BIT(CRYPTO_MASK_DIN_INTR) |
-			BIT(CRYPTO_MASK_OP_DONE_INTR) |
-			(0 << CRYPTO_HIGH_SPD_EN_N) |
-			(pipe_pair << CRYPTO_PIPE_SET_SELECT);
 
 	/*
 	 * Designate chunks of the allocated memory to various
@@ -2126,12 +2084,8 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 						(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_des_cbc);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_DES <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_DES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_CBC <<
-							CRYPTO_ENCR_MODE);
+
+			encr_cfg = pdev->reg.encr_cfg_des_cbc;
 			iv_reg = 2;
 			key_reg = 2;
 		} else {
@@ -2139,12 +2093,7 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 						(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_des_ecb);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_DES <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_DES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_ECB <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_des_ecb;
 			iv_reg = 0;
 			key_reg = 2;
 		}
@@ -2155,12 +2104,7 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 						(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_3des_cbc);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_3DES <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_DES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_CBC <<
-							CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_3des_cbc;
 			iv_reg = 2;
 			key_reg = 6;
 		} else {
@@ -2168,12 +2112,7 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 						(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->cipher_3des_ecb);
 
-			encr_cfg = (CRYPTO_ENCR_KEY_SZ_3DES <<
-						CRYPTO_ENCR_KEY_SZ) |
-					(CRYPTO_ENCR_ALG_DES <<
-						CRYPTO_ENCR_ALG) |
-					(CRYPTO_ENCR_MODE_ECB <<
-						CRYPTO_ENCR_MODE);
+			encr_cfg = pdev->reg.encr_cfg_3des_ecb;
 			iv_reg = 0;
 			key_reg = 6;
 		}
@@ -2184,8 +2123,8 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 	break;
 	}
 
-	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG, crypto_cfg,
-						&pcl_info->crypto_cfg);
+	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_SEG_SIZE_REG, 0,
 						&pcl_info->seg_size);
@@ -2218,8 +2157,7 @@ static int _setup_cipher_des_cmdlistptrs(struct qce_device *pdev,
 						0, &pcl_info->auth_seg_size);
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-			(crypto_cfg | CRYPTO_LITTLE_ENDIAN_MASK),
-			NULL);
+			pdev->reg.crypto_cfg_le, NULL);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_GOPROC_REG,
 			((1 << CRYPTO_GO) | (1 << CRYPTO_RESULTS_DUMP)),
@@ -2243,20 +2181,12 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 	uint32_t key_reg = 0;
 	uint32_t auth_cfg = 0;
 	uint32_t iv_reg = 0;
-	uint32_t crypto_cfg = 0;
-	uint32_t beats = (pdev->ce_sps.ce_burst_size >> 3) - 1;
-	uint32_t pipe_pair = pdev->ce_sps.pipe_pair_index;
 
 	*pvaddr = (unsigned char *) ALIGN(((unsigned int)(*pvaddr)),
 					pdev->ce_sps.ce_burst_size);
 	ce_vaddr_start = (uint32_t)(*pvaddr);
 	ce_vaddr = (struct sps_command_element *)(*pvaddr);
-	crypto_cfg = (beats << CRYPTO_REQ_SIZE) |
-			BIT(CRYPTO_MASK_DOUT_INTR) |
-			BIT(CRYPTO_MASK_DIN_INTR) |
-			BIT(CRYPTO_MASK_OP_DONE_INTR) |
-			(0 << CRYPTO_HIGH_SPD_EN_N) |
-			(pipe_pair << CRYPTO_PIPE_SET_SELECT);
+
 	/*
 	 * Designate chunks of the allocated memory to various
 	 * command list pointers related to authentication operations
@@ -2267,13 +2197,10 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->auth_sha1.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->auth_sha1);
 
-		auth_cfg = (CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_SHA1 << CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+		auth_cfg = pdev->reg.auth_cfg_sha1;
 		iv_reg = 5;
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_AUTH_SEG_CFG_REG,
 							0, NULL);
 
@@ -2282,13 +2209,10 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->auth_sha256.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->auth_sha256);
 
-		auth_cfg = (CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_SHA256 << CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+		auth_cfg = pdev->reg.auth_cfg_sha256;
 		iv_reg = 8;
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		/* 1 dummy write */
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
 								0, NULL);
@@ -2299,14 +2223,11 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->auth_sha1_hmac.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->auth_sha1_hmac);
 
-		auth_cfg = (CRYPTO_AUTH_MODE_HMAC << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_SHA1 << CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+		auth_cfg = pdev->reg.auth_cfg_hmac_sha1;
 		key_reg = 16;
 		iv_reg = 5;
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_AUTH_SEG_CFG_REG,
 							0, NULL);
 	break;
@@ -2314,16 +2235,11 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->aead_sha1_hmac.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->aead_sha1_hmac);
 
-		auth_cfg = (CRYPTO_AUTH_MODE_HMAC << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_SHA1 << CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS) |
-				(1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST);
-
+		auth_cfg = pdev->reg.auth_cfg_aead_sha1_hmac;
 		key_reg = 16;
 		iv_reg = 5;
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		/* 1 dummy write */
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
 								0, NULL);
@@ -2334,15 +2250,12 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->auth_sha256_hmac.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->auth_sha256_hmac);
 
-		auth_cfg = (CRYPTO_AUTH_MODE_HMAC << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_SHA256 << CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+		auth_cfg = pdev->reg.auth_cfg_hmac_sha256;
 		key_reg = 16;
 		iv_reg = 8;
 
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		/* 1 dummy write */
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
 								0, NULL);
@@ -2355,32 +2268,18 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 						(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->auth_aes_128_cmac);
 
-			auth_cfg = (1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST) |
-				(CRYPTO_AUTH_MODE_CMAC << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_ENUM_16_BYTES <<
-							CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_AES << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_KEY_SZ_AES128 <<
-							CRYPTO_AUTH_KEY_SIZE) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+			auth_cfg = pdev->reg.auth_cfg_cmac_128;
 			key_reg = 4;
 		} else {
 			cmdlistptr->auth_aes_256_cmac.cmdlist =
 							(uint32_t)ce_vaddr;
 			pcl_info = &(cmdlistptr->auth_aes_256_cmac);
 
-			auth_cfg = (1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST)|
-				(CRYPTO_AUTH_MODE_CMAC << CRYPTO_AUTH_MODE)|
-				(CRYPTO_AUTH_SIZE_ENUM_16_BYTES <<
-							CRYPTO_AUTH_SIZE) |
-				(CRYPTO_AUTH_ALG_AES << CRYPTO_AUTH_ALG) |
-				(CRYPTO_AUTH_KEY_SZ_AES256 <<
-							CRYPTO_AUTH_KEY_SIZE) |
-				(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+			auth_cfg = pdev->reg.auth_cfg_cmac_256;
 			key_reg = 8;
 		}
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 		/* 1 dummy write */
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
 								0, NULL);
@@ -2437,8 +2336,7 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev,
 				0, NULL);
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-			(crypto_cfg | CRYPTO_LITTLE_ENDIAN_MASK),
-			NULL);
+					pdev->reg.crypto_cfg_le, NULL);
 
 	if (alg != QCE_AEAD_SHA1_HMAC)
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_GOPROC_REG,
@@ -2462,20 +2360,12 @@ static int _setup_aead_cmdlistptrs(struct qce_device *pdev,
 	uint32_t encr_cfg = 0;
 	uint32_t auth_cfg = 0;
 	uint32_t key_reg = 0;
-	uint32_t crypto_cfg = 0;
-	uint32_t beats = (pdev->ce_sps.ce_burst_size >> 3) - 1;
-	uint32_t pipe_pair = pdev->ce_sps.pipe_pair_index;
 
 	*pvaddr = (unsigned char *) ALIGN(((unsigned int)(*pvaddr)),
 					pdev->ce_sps.ce_burst_size);
 	ce_vaddr_start = (uint32_t)(*pvaddr);
 	ce_vaddr = (struct sps_command_element *)(*pvaddr);
-	crypto_cfg = (beats << CRYPTO_REQ_SIZE) |
-			BIT(CRYPTO_MASK_DOUT_INTR) |
-			BIT(CRYPTO_MASK_DIN_INTR) |
-			BIT(CRYPTO_MASK_OP_DONE_INTR) |
-			(0 << CRYPTO_HIGH_SPD_EN_N) |
-			(pipe_pair << CRYPTO_PIPE_SET_SELECT);
+
 	/*
 	 * Designate chunks of the allocated memory to various
 	 * command list pointers related to aead operations
@@ -2485,36 +2375,21 @@ static int _setup_aead_cmdlistptrs(struct qce_device *pdev,
 		cmdlistptr->aead_aes_128_ccm.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->aead_aes_128_ccm);
 
-		auth_cfg = (1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST) |
-			(CRYPTO_AUTH_MODE_CCM << CRYPTO_AUTH_MODE)|
-			(CRYPTO_AUTH_ALG_AES << CRYPTO_AUTH_ALG) |
-			(CRYPTO_AUTH_KEY_SZ_AES128 << CRYPTO_AUTH_KEY_SIZE);
-		auth_cfg &= ~(1 << CRYPTO_USE_HW_KEY_AUTH);
-		encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES128 << CRYPTO_ENCR_KEY_SZ) |
-			(CRYPTO_ENCR_ALG_AES << CRYPTO_ENCR_ALG) |
-			((CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE));
+		auth_cfg = pdev->reg.auth_cfg_aes_ccm_128;
+		encr_cfg = pdev->reg.encr_cfg_aes_ccm_128;
 		key_reg = 4;
 	} else {
 
 		cmdlistptr->aead_aes_256_ccm.cmdlist = (uint32_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->aead_aes_256_ccm);
 
-		auth_cfg = (1 << CRYPTO_LAST) | (1 << CRYPTO_FIRST) |
-			(CRYPTO_AUTH_MODE_CCM << CRYPTO_AUTH_MODE)|
-			(CRYPTO_AUTH_ALG_AES << CRYPTO_AUTH_ALG) |
-			(CRYPTO_AUTH_KEY_SZ_AES256 << CRYPTO_AUTH_KEY_SIZE) |
-			((MAX_NONCE/sizeof(uint32_t)) <<
-						CRYPTO_AUTH_NONCE_NUM_WORDS);
-		auth_cfg &= ~(1 << CRYPTO_USE_HW_KEY_AUTH);
-		encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES256 << CRYPTO_ENCR_KEY_SZ) |
-			(CRYPTO_ENCR_ALG_AES << CRYPTO_ENCR_ALG) |
-			(CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE) |
-			(CRYPTO_LAST_CCM_XFR << CRYPTO_LAST_CCM);
+		auth_cfg = pdev->reg.auth_cfg_aes_ccm_256;
+		encr_cfg = pdev->reg.encr_cfg_aes_ccm_256;
 
 		key_reg = 8;
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-				crypto_cfg, &pcl_info->crypto_cfg);
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG, 0, NULL);
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_CFG_REG, 0, NULL);
@@ -2584,8 +2459,7 @@ static int _setup_aead_cmdlistptrs(struct qce_device *pdev,
 			0, NULL);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-			(crypto_cfg | CRYPTO_LITTLE_ENDIAN_MASK),
-			NULL);
+					pdev->reg.crypto_cfg_le, NULL);
 
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_GOPROC_REG,
 			((1 << CRYPTO_GO) | (1 << CRYPTO_RESULTS_DUMP)),
