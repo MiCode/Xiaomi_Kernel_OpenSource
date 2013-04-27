@@ -143,9 +143,9 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	if (!bl_lvl && value)
 		bl_lvl = 1;
 
-	mutex_lock(&mfd->lock);
+	mutex_lock(&mfd->bl_lock);
 	mdss_fb_set_backlight(mfd, bl_lvl);
-	mutex_unlock(&mfd->lock);
+	mutex_unlock(&mfd->bl_lock);
 }
 
 static struct led_classdev backlight_led = {
@@ -263,6 +263,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp = *mdp_instance;
 
 	mutex_init(&mfd->lock);
+	mutex_init(&mfd->bl_lock);
 
 	fbi_list[fbi_list_index++] = fbi;
 
@@ -524,7 +525,7 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 	(*bl_lvl) = temp;
 }
 
-/* must call this function from within mfd->lock */
+/* must call this function from within mfd->bl_lock */
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 {
 	struct mdss_panel_data *pdata;
@@ -566,11 +567,11 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 	if (unset_bl_level && !bl_updated) {
 		pdata = dev_get_platdata(&mfd->pdev->dev);
 		if ((pdata) && (pdata->set_backlight)) {
-			mutex_lock(&mfd->lock);
+			mutex_lock(&mfd->bl_lock);
 			mfd->bl_level = unset_bl_level;
 			pdata->set_backlight(pdata, mfd->bl_level);
 			bl_level_old = unset_bl_level;
-			mutex_unlock(&mfd->lock);
+			mutex_unlock(&mfd->bl_lock);
 			bl_updated = 1;
 		}
 	}
