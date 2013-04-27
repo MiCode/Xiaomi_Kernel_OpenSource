@@ -235,7 +235,7 @@ static void clk_ctrl_work(struct work_struct *work)
 }
 
 static int mdss_mdp_cmd_vsync_ctrl(struct mdss_mdp_ctl *ctl,
-		mdp_vsync_handler_t send_vsync)
+		struct mdss_mdp_vsync_handler *handler)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	unsigned long flags;
@@ -247,7 +247,7 @@ static int mdss_mdp_cmd_vsync_ctrl(struct mdss_mdp_ctl *ctl,
 		return -ENODEV;
 	}
 
-	enable = (send_vsync != NULL);
+	enable = (handler->vsync_handler != NULL);
 
 	pr_debug("%s: ctx=%p ctx=%d enabled=%d %d clk_enabled=%d clk_ctrl=%d\n",
 			__func__, ctx, ctx->pp_num, ctx->vsync_enabled, enable,
@@ -263,7 +263,7 @@ static int mdss_mdp_cmd_vsync_ctrl(struct mdss_mdp_ctl *ctl,
 		spin_lock_irqsave(&ctx->clk_lock, flags);
 		ctx->clk_control = 0;
 		ctx->expire = 0;
-		ctx->send_vsync = send_vsync;
+		ctx->send_vsync = handler->vsync_handler;
 		spin_unlock_irqrestore(&ctx->clk_lock, flags);
 		if (ctx->clk_enabled == 0) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
@@ -376,6 +376,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	int need_wait = 0;
+	struct mdss_mdp_vsync_handler null_handle;
 	int ret;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
@@ -399,7 +400,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 
 	ctx->panel_on = 0;
 
-	mdss_mdp_cmd_vsync_ctrl(ctl, NULL);
+	null_handle.vsync_handler = NULL;
+	mdss_mdp_cmd_vsync_ctrl(ctl, &null_handle);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctl->intf_num,
 				   NULL, NULL);
@@ -478,7 +480,8 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->stop_fnc = mdss_mdp_cmd_stop;
 	ctl->display_fnc = mdss_mdp_cmd_kickoff;
 	ctl->wait_fnc = mdss_mdp_cmd_wait4comp;
-	ctl->set_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
+	ctl->add_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
+	ctl->remove_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
 
 	pr_debug("%s:-\n", __func__);
 
