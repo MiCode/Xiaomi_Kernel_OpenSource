@@ -810,8 +810,10 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	int num_iommu_units;
 	struct kgsl_context *context;
 	struct adreno_context *adreno_ctx = NULL;
+	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
-	if (!adreno_dev->drawctxt_active) {
+	if (!adreno_dev->drawctxt_active ||
+		KGSL_STATE_ACTIVE != device->state) {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
 		return;
 	}
@@ -863,12 +865,9 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	 */
 	adreno_ringbuffer_issuecmds(device, adreno_ctx, KGSL_CMD_FLAGS_PMODE,
 			&link[0], sizedwords);
-	/* timestamp based clock gating is currently unstable on iommuv1 */
-	if (msm_soc_version_supports_iommu_v0()) {
-		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-		kgsl_mmu_disable_clk_on_ts(&device->mmu,
-			rb->timestamp[KGSL_MEMSTORE_GLOBAL], true);
-	}
+
+	kgsl_mmu_disable_clk_on_ts(&device->mmu,
+		rb->timestamp[KGSL_MEMSTORE_GLOBAL], true);
 
 	kgsl_context_put(context);
 }
