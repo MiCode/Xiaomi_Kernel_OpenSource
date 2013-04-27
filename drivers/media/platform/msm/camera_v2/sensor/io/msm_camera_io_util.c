@@ -122,7 +122,7 @@ int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 				rc = PTR_ERR(clk_ptr[i]);
 				goto cam_clk_get_err;
 			}
-			if (clk_info[i].clk_rate >= 0) {
+			if (clk_info[i].clk_rate > 0) {
 				rc = clk_set_rate(clk_ptr[i],
 							clk_info[i].clk_rate);
 				if (rc < 0) {
