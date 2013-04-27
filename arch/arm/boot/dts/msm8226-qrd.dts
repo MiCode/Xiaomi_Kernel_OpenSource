@@ -268,6 +268,18 @@
 	};
 };
 
+&pm8226_bms {
+	status = "okay";
+	qcom,batt-type = <4>;
+	qcom,max-voltage-uv = <4350000>;
+};
+
+&pm8226_chg {
+	status = "okay";
+	qcom,chg-vddmax-mv = <4350>;
+	qcom,chg-vddsafe-mv = <4350>;
+};
+
 &pm8226_gpios {
 	gpio@c000 { /* GPIO 1 */
 		/* XO_PMIC_CDC_MCLK enable for tapan codec */
