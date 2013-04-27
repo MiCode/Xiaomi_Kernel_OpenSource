@@ -133,15 +133,21 @@ struct msm_ipc_server_port {
 	struct msm_ipc_router_xprt_info *xprt_info;
 };
 
+struct msm_ipc_resume_tx_port {
+	struct list_head list;
+	uint32_t port_id;
+	uint32_t node_id;
+};
+
 #define RP_HASH_SIZE 32
 struct msm_ipc_router_remote_port {
 	struct list_head list;
 	uint32_t node_id;
 	uint32_t port_id;
 	uint32_t restart_state;
-	wait_queue_head_t quota_wait;
 	uint32_t tx_quota_cnt;
 	struct mutex quota_lock;
+	struct list_head resume_tx_port_list;
 	void *sec_rule;
 };
 
@@ -657,13 +663,104 @@ static struct msm_ipc_router_remote_port *msm_ipc_router_create_remote_port(
 	rport_ptr->restart_state = RESTART_NORMAL;
 	rport_ptr->sec_rule = NULL;
 	rport_ptr->tx_quota_cnt = 0;
-	init_waitqueue_head(&rport_ptr->quota_wait);
 	mutex_init(&rport_ptr->quota_lock);
+	INIT_LIST_HEAD(&rport_ptr->resume_tx_port_list);
 	list_add_tail(&rport_ptr->list,
 		      &rt_entry->remote_port_list[key]);
 	mutex_unlock(&rt_entry->lock);
 	mutex_unlock(&routing_table_lock);
 	return rport_ptr;
+}
+
+/**
+ * msm_ipc_router_free_resume_tx_port() - Free the resume_tx ports
+ * @rport_ptr: Pointer to the remote port.
+ *
+ * This function deletes all the resume_tx ports associated with a remote port
+ * and frees the memory allocated to each resume_tx port.
+ *
+ * Must be called with rport_ptr->quota_lock locked.
+ */
+static void msm_ipc_router_free_resume_tx_port(
+	struct msm_ipc_router_remote_port *rport_ptr)
+{
+	struct msm_ipc_resume_tx_port *rtx_port, *tmp_rtx_port;
+
+	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
+			&rport_ptr->resume_tx_port_list, list) {
+		list_del(&rtx_port->list);
+		kfree(rtx_port);
+	}
+}
+
+/**
+ * msm_ipc_router_lookup_resume_tx_port() - Lookup resume_tx port list
+ * @rport_ptr: Remote port whose resume_tx port list needs to be looked.
+ * @port_id: Port ID which needs to be looked from the list.
+ *
+ * return 1 if the port_id is found in the list, else 0.
+ *
+ * This function is used to lookup the existence of a local port in
+ * remote port's resume_tx list. This function is used to ensure that
+ * the same port is not added to the remote_port's resume_tx list repeatedly.
+ *
+ * Must be called with rport_ptr->quota_lock locked.
+ */
+static int msm_ipc_router_lookup_resume_tx_port(
+	struct msm_ipc_router_remote_port *rport_ptr, uint32_t port_id)
+{
+	struct msm_ipc_resume_tx_port *rtx_port;
+
+	list_for_each_entry(rtx_port, &rport_ptr->resume_tx_port_list, list) {
+		if (port_id == rtx_port->port_id)
+			return 1;
+	}
+	return 0;
+}
+
+/**
+ * post_resume_tx() - Post the resume_tx event
+ * @rport_ptr: Pointer to the remote port
+ * @pkt : The data packet that is received on a resume_tx event
+ *
+ * This function informs about the reception of the resume_tx message from a
+ * remote port pointed by rport_ptr to all the local ports that are in the
+ * resume_tx_ports_list of this remote port. On posting the information, this
+ * function sequentially deletes each entry in the resume_tx_port_list of the
+ * remote port.
+ *
+ * Must be called with rport_ptr->quota_lock locked.
+ */
+static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
+						   struct rr_packet *pkt)
+{
+	struct msm_ipc_resume_tx_port *rtx_port, *tmp_rtx_port;
+	struct msm_ipc_port *local_port;
+	struct rr_packet *cloned_pkt;
+
+	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
+				&rport_ptr->resume_tx_port_list, list) {
+		mutex_lock(&local_ports_lock);
+		local_port =
+			msm_ipc_router_lookup_local_port(rtx_port->port_id);
+		if (local_port) {
+			cloned_pkt = clone_pkt(pkt);
+			if (cloned_pkt) {
+				mutex_lock(&local_port->port_rx_q_lock);
+				list_add_tail(&cloned_pkt->list,
+						&local_port->port_rx_q);
+				wake_up(&local_port->port_rx_wait_q);
+				mutex_unlock(&local_port->port_rx_q_lock);
+			} else {
+				pr_err("%s: Clone_pkt failed for %08x:%08x\n",
+					__func__, local_port->this_port.node_id,
+					local_port->this_port.port_id);
+			}
+		}
+		mutex_unlock(&local_ports_lock);
+		list_del(&rtx_port->list);
+		kfree(rtx_port);
+	}
 }
 
 static void msm_ipc_router_destroy_remote_port(
@@ -683,7 +780,9 @@ static void msm_ipc_router_destroy_remote_port(
 		pr_err("%s: Node %d is not up\n", __func__, node_id);
 		return;
 	}
-
+	mutex_lock(&rport_ptr->quota_lock);
+	msm_ipc_router_free_resume_tx_port(rport_ptr);
+	mutex_unlock(&rport_ptr->quota_lock);
 	mutex_lock(&rt_entry->lock);
 	list_del(&rport_ptr->list);
 	kfree(rport_ptr);
@@ -1158,7 +1257,7 @@ static void reset_remote_port_info(uint32_t node_id, uint32_t port_id)
 	}
 	mutex_lock(&rport_ptr->quota_lock);
 	rport_ptr->restart_state = RESTART_PEND;
-	wake_up(&rport_ptr->quota_wait);
+	msm_ipc_router_free_resume_tx_port(rport_ptr);
 	mutex_unlock(&rport_ptr->quota_lock);
 	return;
 }
@@ -1240,7 +1339,8 @@ static void msm_ipc_cleanup_remote_client_info(
 						continue;
 					mutex_lock(&rport_ptr->quota_lock);
 					rport_ptr->restart_state = RESTART_PEND;
-					wake_up(&rport_ptr->quota_wait);
+					msm_ipc_router_free_resume_tx_port(
+								rport_ptr);
 					mutex_unlock(&rport_ptr->quota_lock);
 					ctl.cli.node_id = rport_ptr->node_id;
 					ctl.cli.port_id = rport_ptr->port_id;
@@ -1531,8 +1631,8 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 		}
 		mutex_lock(&rport_ptr->quota_lock);
 		rport_ptr->tx_quota_cnt = 0;
+		post_resume_tx(rport_ptr, pkt);
 		mutex_unlock(&rport_ptr->quota_lock);
-		wake_up(&rport_ptr->quota_wait);
 		break;
 
 	case IPC_ROUTER_CTRL_CMD_NEW_SERVER:
@@ -1939,8 +2039,8 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	struct rr_header *hdr;
 	struct msm_ipc_router_xprt_info *xprt_info;
 	struct msm_ipc_routing_table_entry *rt_entry;
+	struct msm_ipc_resume_tx_port  *resume_tx_port;
 	int ret;
-	DEFINE_WAIT(__wait);
 
 	if (!rport_ptr || !src || !pkt)
 		return -EINVAL;
@@ -1965,29 +2065,33 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	hdr->dst_port_id = rport_ptr->port_id;
 	pkt->length += IPC_ROUTER_HDR_SIZE;
 
-	for (;;) {
-		prepare_to_wait(&rport_ptr->quota_wait, &__wait,
-				TASK_INTERRUPTIBLE);
-		mutex_lock(&rport_ptr->quota_lock);
-		if (rport_ptr->restart_state != RESTART_NORMAL)
-			break;
-		if (rport_ptr->tx_quota_cnt <
-		     IPC_ROUTER_DEFAULT_RX_QUOTA)
-			break;
-		if (signal_pending(current))
-			break;
-		mutex_unlock(&rport_ptr->quota_lock);
-		schedule();
-	}
-	finish_wait(&rport_ptr->quota_wait, &__wait);
-
+	mutex_lock(&rport_ptr->quota_lock);
 	if (rport_ptr->restart_state != RESTART_NORMAL) {
 		mutex_unlock(&rport_ptr->quota_lock);
 		return -ENETRESET;
 	}
-	if (signal_pending(current)) {
+	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA) {
+		if (msm_ipc_router_lookup_resume_tx_port(
+			rport_ptr, src->this_port.port_id)) {
+			mutex_unlock(&rport_ptr->quota_lock);
+			return -EAGAIN;
+		}
+		resume_tx_port =
+			kzalloc(sizeof(struct msm_ipc_resume_tx_port),
+							GFP_KERNEL);
+		if (!resume_tx_port) {
+			pr_err("%s: Resume_Tx port allocation failed\n",
+								__func__);
+			mutex_unlock(&rport_ptr->quota_lock);
+			return -ENOMEM;
+		}
+		INIT_LIST_HEAD(&resume_tx_port->list);
+		resume_tx_port->port_id = src->this_port.port_id;
+		resume_tx_port->node_id = src->this_port.node_id;
+		list_add_tail(&resume_tx_port->list,
+				&rport_ptr->resume_tx_port_list);
 		mutex_unlock(&rport_ptr->quota_lock);
-		return -ERESTARTSYS;
+		return -EAGAIN;
 	}
 	rport_ptr->tx_quota_cnt++;
 	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA)
