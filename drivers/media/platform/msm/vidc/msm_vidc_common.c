@@ -2383,38 +2383,27 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	struct msm_vidc_core_capability *capability;
 	int rc = 0;
 	struct v4l2_event dqevent;
+	struct hfi_device *hdev;
 
-	if (!inst) {
+	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 	capability = &inst->capability;
+	hdev = inst->core->device;
 
 	if (inst->capability.capability_set) {
-		if (msm_vp8_low_tier &&
-			inst->core->hfi_type == VIDC_HFI_VENUS &&
-			inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP8) {
-			capability->width.max = DEFAULT_WIDTH;
-			capability->height.max = DEFAULT_HEIGHT;
-		}
-		if (inst->prop.width < capability->width.min ||
-			inst->prop.width > capability->width.max ||
-			(inst->prop.width % capability->width.step_size != 0)) {
-			dprintk(VIDC_ERR,
-			"Unsupported width = %d range min(%u) - max(%u) step_size(%u)",
-			inst->prop.width, capability->width.min,
-			capability->width.max, capability->width.step_size);
-			rc = -ENOTSUPP;
-		}
+		rc = call_hfi_op(hdev, capability_check,
+			inst->fmts[OUTPUT_PORT]->fourcc,
+			inst->prop.width, &capability->width.max,
+			&capability->height.max);
 
-		if (inst->prop.height < capability->height.min ||
-			inst->prop.height > capability->height.max ||
-			(inst->prop.height %
-			capability->height.step_size != 0)) {
+		if (!rc && (inst->prop.height * inst->prop.width >
+			capability->width.max * capability->height.max)) {
 			dprintk(VIDC_ERR,
-			"Unsupported height = %d range min(%u) - max(%u) step_size(%u)",
-			inst->prop.height, capability->height.min,
-			capability->height.max, capability->height.step_size);
+			"Unsupported WxH = (%u)x(%u), Max supported is - (%u)x(%u)",
+			inst->prop.width, inst->prop.height,
+			capability->width.max, capability->height.max);
 			rc = -ENOTSUPP;
 		}
 	}
