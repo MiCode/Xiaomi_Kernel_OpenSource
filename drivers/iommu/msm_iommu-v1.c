@@ -804,6 +804,19 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 	ctx_drvdata = dev_get_drvdata(&pdev->dev);
 	BUG_ON(!ctx_drvdata);
 
+	if (!drvdata->ctx_attach_count) {
+		pr_err("Unexpected IOMMU page fault!\n");
+		pr_err("name = %s\n", drvdata->name);
+		pr_err("Power is OFF. Unable to read page fault information\n");
+		/*
+		 * We cannot determine which context bank caused the issue so
+		 * we just return handled here to ensure IRQ handler code is
+		 * happy
+		 */
+		ret = IRQ_HANDLED;
+		goto fail;
+	}
+
 	ret = __enable_clocks(drvdata);
 	if (ret) {
 		ret = IRQ_NONE;
