@@ -471,6 +471,8 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	DECLARE_COMPLETION_ONSTACK(done);
 	u8 wbuf[SLIM_RX_MSGQ_BUF_LEN];
 
+	*clkgear = ctrl->clkgear;
+	*subfrmc = 0;
 	txn.mt = SLIM_MSG_MT_DEST_REFERRED_USER;
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
@@ -479,6 +481,34 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	txn.wbuf = wbuf;
 	txn.rbuf = NULL;
 
+	if (ctrl->sched.msgsl != ctrl->sched.pending_msgsl) {
+		pr_debug("slim reserve BW for messaging: req: %d",
+				ctrl->sched.pending_msgsl);
+		txn.mc = SLIM_USR_MC_REQ_BW;
+		wbuf[txn.len++] = ((sb->laddr & 0x1f) |
+				((u8)(ctrl->sched.pending_msgsl & 0x7) << 5));
+		wbuf[txn.len++] = (u8)(ctrl->sched.pending_msgsl >> 3);
+		ret = ngd_get_tid(ctrl, &txn, &wbuf[txn.len++], &done);
+		if (ret)
+			return ret;
+		txn.rl = txn.len + 4;
+		ret = ngd_xferandwait_ack(ctrl, &txn);
+		if (ret)
+			return ret;
+
+		txn.mc = SLIM_USR_MC_RECONFIG_NOW;
+		txn.len = 2;
+		wbuf[1] = sb->laddr;
+		txn.rl = txn.len + 4;
+		ret = ngd_get_tid(ctrl, &txn, &wbuf[0], &done);
+		if (ret)
+			return ret;
+		ret = ngd_xferandwait_ack(ctrl, &txn);
+		if (ret)
+			return ret;
+
+		txn.len = 0;
+	}
 	list_for_each_entry(pch, &sb->mark_define, pending) {
 		struct slim_ich *slc;
 		slc = &ctrl->chans[pch->chan];
@@ -1039,8 +1069,6 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.config_port = msm_config_port;
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
-	/* Reserve some messaging BW for satellite-apps driver communication */
-	dev->ctrl.sched.pending_msgsl = 30;
 	dev->bam_mem = bam_mem;
 
 	init_completion(&dev->reconf);
