@@ -404,20 +404,27 @@ static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 	memset(&modes, 0,
 		(MSM_SPM_MODE_NR - 2) * sizeof(struct msm_spm_seq_entry));
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		goto fail;
-
-	spm_data.reg_base_addr = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
-	if (!spm_data.reg_base_addr)
-		return -ENOMEM;
-
 	key = "qcom,core-id";
 	ret = of_property_read_u32(node, key, &val);
 	if (ret)
 		goto fail;
 	cpu = val;
+
+	/*
+	 * Device with id 0..NR_CPUS are SPM for apps cores
+	 * Device with id 0xFFFF is for L2 SPM.
+	 */
+	if (cpu >= 0 && cpu < num_possible_cpus()) {
+		mode_of_data = of_cpu_modes;
+		num_modes = ARRAY_SIZE(of_cpu_modes);
+		dev = &per_cpu(msm_cpu_spm_device, cpu);
+
+	} else if (cpu == 0xffff) {
+		mode_of_data = of_l2_modes;
+		num_modes = ARRAY_SIZE(of_l2_modes);
+		dev = &msm_spm_l2_device;
+	} else
+		return ret;
 
 	key = "qcom,saw2-ver-reg";
 	ret = of_property_read_u32(node, key, &val);
@@ -429,21 +436,17 @@ static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &val);
 	if (!ret)
 		spm_data.vctl_timeout_us = val;
+	else if (cpu == 0xffff)
+		goto fail;
 
-	/*
-	 * Device with id 0..NR_CPUS are SPM for apps cores
-	 * Device with id 0xFFFF is for L2 SPM.
-	 */
-	if (cpu >= 0 && cpu < num_possible_cpus()) {
-		mode_of_data = of_cpu_modes;
-		num_modes = ARRAY_SIZE(of_cpu_modes);
-		dev = &per_cpu(msm_cpu_spm_device, cpu);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		goto fail;
 
-	} else {
-		mode_of_data = of_l2_modes;
-		num_modes = ARRAY_SIZE(of_l2_modes);
-		dev = &msm_spm_l2_device;
-	}
+	spm_data.reg_base_addr = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+	if (!spm_data.reg_base_addr)
+		return -ENOMEM;
 
 	spm_data.vctl_port = -1;
 	spm_data.phase_port = -1;
