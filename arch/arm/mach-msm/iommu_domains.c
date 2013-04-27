@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/idr.h>
 #include <asm/sizes.h>
 #include <asm/page.h>
 #include <mach/iommu.h>
@@ -36,9 +37,14 @@ struct msm_iova_data {
 	int domain_num;
 };
 
+struct msm_iommu_data_entry {
+	struct list_head list;
+	void *data;
+};
+
 static struct rb_root domain_root;
 DEFINE_MUTEX(domain_mutex);
-static atomic_t domain_nums = ATOMIC_INIT(-1);
+static DEFINE_IDA(domain_nums);
 
 void msm_iommu_set_client_name(struct iommu_domain *domain, char const *name)
 {
@@ -273,6 +279,27 @@ static int add_domain(struct msm_iova_data *node)
 	return 0;
 }
 
+static int remove_domain(struct iommu_domain *domain)
+{
+	struct rb_root *root = &domain_root;
+	struct rb_node *n;
+	struct msm_iova_data *node;
+	int ret = -EINVAL;
+
+	mutex_lock(&domain_mutex);
+
+	for (n = rb_first(root); n; n = rb_next(n)) {
+		node = rb_entry(n, struct msm_iova_data, node);
+		if (node->domain == domain) {
+			rb_erase(&node->node, &domain_root);
+			ret = 0;
+			break;
+		}
+	}
+	mutex_unlock(&domain_mutex);
+	return ret;
+}
+
 struct iommu_domain *msm_get_iommu_domain(int domain_num)
 {
 	struct msm_iova_data *data;
@@ -306,6 +333,27 @@ int msm_find_domain_no(const struct iommu_domain *domain)
 	return domain_num;
 }
 EXPORT_SYMBOL(msm_find_domain_no);
+
+static struct msm_iova_data *msm_domain_to_iova_data(struct iommu_domain
+						     const *domain)
+{
+	struct rb_root *root = &domain_root;
+	struct rb_node *n;
+	struct msm_iova_data *node;
+	struct msm_iova_data *iova_data = ERR_PTR(-EINVAL);
+
+	mutex_lock(&domain_mutex);
+
+	for (n = rb_first(root); n; n = rb_next(n)) {
+		node = rb_entry(n, struct msm_iova_data, node);
+		if (node->domain == domain) {
+			iova_data = node;
+			break;
+		}
+	}
+	mutex_unlock(&domain_mutex);
+	return iova_data;
+}
 
 int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
@@ -393,11 +441,11 @@ int msm_register_domain(struct msm_iova_layout *layout)
 	if (!data)
 		return -ENOMEM;
 
-	pools = kmalloc(sizeof(struct mem_pool) * layout->npartitions,
+	pools = kzalloc(sizeof(struct mem_pool) * layout->npartitions,
 			GFP_KERNEL);
 
 	if (!pools)
-		goto out;
+		goto free_data;
 
 	for (i = 0; i < layout->npartitions; i++) {
 		if (layout->partitions[i].size == 0)
@@ -435,10 +483,13 @@ int msm_register_domain(struct msm_iova_layout *layout)
 
 	data->pools = pools;
 	data->npools = layout->npartitions;
-	data->domain_num = atomic_inc_return(&domain_nums);
+	data->domain_num = ida_simple_get(&domain_nums, 0, 0, GFP_KERNEL);
+	if (data->domain_num < 0)
+		goto free_pools;
+
 	data->domain = iommu_domain_alloc(bus, layout->domain_flags);
 	if (!data->domain)
-		goto out;
+		goto free_domain_num;
 
 	msm_iommu_set_client_name(data->domain, layout->client_name);
 
@@ -446,12 +497,49 @@ int msm_register_domain(struct msm_iova_layout *layout)
 
 	return data->domain_num;
 
-out:
+free_domain_num:
+	ida_simple_remove(&domain_nums, data->domain_num);
+
+free_pools:
+	for (i = 0; i < layout->npartitions; i++) {
+		if (pools[i].gpool)
+			gen_pool_destroy(pools[i].gpool);
+	}
+	kfree(pools);
+free_data:
 	kfree(data);
 
 	return -EINVAL;
 }
 EXPORT_SYMBOL(msm_register_domain);
+
+int msm_unregister_domain(struct iommu_domain *domain)
+{
+	unsigned int i;
+	struct msm_iova_data *data = msm_domain_to_iova_data(domain);
+
+	if (IS_ERR_OR_NULL(data)) {
+		pr_err("%s: Could not find iova_data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (remove_domain(data->domain)) {
+		pr_err("%s: Domain not found. Failed to remove domain\n",
+			__func__);
+	}
+
+	iommu_domain_free(domain);
+
+	ida_simple_remove(&domain_nums, data->domain_num);
+
+	for (i = 0; i < data->npools; ++i)
+		gen_pool_destroy(data->pools[i].gpool);
+
+	kfree(data->pools);
+	kfree(data);
+	return 0;
+}
+EXPORT_SYMBOL(msm_unregister_domain);
 
 static int find_and_add_contexts(struct iommu_group *group,
 				 const struct device_node *node,
