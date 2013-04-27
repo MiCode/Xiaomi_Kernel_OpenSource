@@ -550,9 +550,15 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 	if (kvreg->mode == HS_MODE)
 		return 0;
 	/* enable bhs */
+	krait_masked_write(kvreg, APC_PWR_GATE_CTL, BHS_EN_MASK, BHS_EN_MASK);
+	/* complete the above write before the delay */
+	mb();
+	/* wait for the bhs to settle */
+	udelay(BHS_SETTLING_DELAY_US);
+
+	/* Turn on BHS segments */
 	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
-		BHS_SEG_EN_MASK | BHS_EN_MASK,
-		BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS | BHS_EN_MASK);
+		BHS_SEG_EN_MASK, BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS);
 
 	/* complete the above write before the delay */
 	mb();
@@ -1329,32 +1335,32 @@ module_exit(krait_power_exit);
 
 void secondary_cpu_hs_init(void *base_ptr)
 {
+	uint32_t reg_val;
+
 	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
-	writel_relaxed(
-		BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
+	reg_val =  BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
 		| LDO_PWR_DWN_MASK
 		| CLK_SRC_DEFAULT << CLK_SRC_SEL_BIT_POS
-		| BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS
-		| BHS_EN_MASK,
-		base_ptr + APC_PWR_GATE_CTL);
+		| BHS_EN_MASK;
+	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 
 	/* complete the above write before the delay */
 	mb();
+	/* wait for the bhs to settle */
+	udelay(BHS_SETTLING_DELAY_US);
 
-	/*
-	 * wait for the bhs to settle
-	 */
+	/* Turn on BHS segments */
+	reg_val |= BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS;
+	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
+
+	/* complete the above write before the delay */
+	mb();
+	 /* wait for the bhs to settle */
 	udelay(BHS_SETTLING_DELAY_US);
 
 	/* Finally turn on the bypass so that BHS supplies power */
-	writel_relaxed(
-		BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
-		| LDO_PWR_DWN_MASK
-		| CLK_SRC_DEFAULT << CLK_SRC_SEL_BIT_POS
-		| LDO_BYP_MASK
-		| BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS
-		| BHS_EN_MASK,
-		base_ptr + APC_PWR_GATE_CTL);
+	reg_val |= LDO_BYP_MASK;
+	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 }
 
 MODULE_LICENSE("GPL v2");
