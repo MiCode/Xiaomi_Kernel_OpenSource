@@ -1074,6 +1074,8 @@ struct hfi_device {
 	int (*get_fw_info)(void *dev, enum fw_info info);
 	int (*get_stride_scanline)(int color_fmt, int width,
 		int height,	int *stride, int *scanlines);
+	int (*capability_check)(u32 fourcc, u32 width,
+		u32 *max_width, u32 *max_height);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
