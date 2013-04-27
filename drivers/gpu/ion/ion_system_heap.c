@@ -25,16 +25,12 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <linux/seq_file.h>
 #include "ion_priv.h"
 #include <mach/memory.h>
 #include <asm/cacheflush.h>
 #include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
 #include <trace/events/kmem.h>
-
-static atomic_t system_heap_allocated;
-static atomic_t system_contig_heap_allocated;
 
 static unsigned int high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO |
 					    __GFP_NOWARN | __GFP_NORETRY |
@@ -212,7 +208,6 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	}
 
 	buffer->priv_virt = table;
-	atomic_add(size, &system_heap_allocated);
 	return 0;
 err1:
 	kfree(table);
@@ -246,7 +241,6 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 				get_order(sg_dma_len(sg)));
 	sg_free_table(table);
 	kfree(table);
-	atomic_sub(buffer->size, &system_heap_allocated);
 }
 
 struct sg_table *ion_system_heap_map_dma(struct ion_heap *heap,
@@ -261,15 +255,6 @@ void ion_system_heap_unmap_dma(struct ion_heap *heap,
 	return;
 }
 
-static int ion_system_print_debug(struct ion_heap *heap, struct seq_file *s,
-				  const struct rb_root *unused)
-{
-	seq_printf(s, "total bytes currently allocated: %lx\n",
-			(unsigned long) atomic_read(&system_heap_allocated));
-
-	return 0;
-}
-
 static struct ion_heap_ops system_heap_ops = {
 	.allocate = ion_system_heap_allocate,
 	.free = ion_system_heap_free,
@@ -278,7 +263,6 @@ static struct ion_heap_ops system_heap_ops = {
 	.map_kernel = ion_heap_map_kernel,
 	.unmap_kernel = ion_heap_unmap_kernel,
 	.map_user = ion_heap_map_user,
-	.print_debug = ion_system_print_debug,
 };
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *pheap)
@@ -340,14 +324,12 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 	buffer->priv_virt = kzalloc(len, GFP_KERNEL);
 	if (!buffer->priv_virt)
 		return -ENOMEM;
-	atomic_add(len, &system_contig_heap_allocated);
 	return 0;
 }
 
 void ion_system_contig_heap_free(struct ion_buffer *buffer)
 {
 	kfree(buffer->priv_virt);
-	atomic_sub(buffer->size, &system_contig_heap_allocated);
 }
 
 static int ion_system_contig_heap_phys(struct ion_heap *heap,
@@ -401,16 +383,6 @@ int ion_system_contig_heap_map_user(struct ion_heap *heap,
 	}
 }
 
-static int ion_system_contig_print_debug(struct ion_heap *heap,
-					 struct seq_file *s,
-					 const struct rb_root *unused)
-{
-	seq_printf(s, "total bytes currently allocated: %lx\n",
-		(unsigned long) atomic_read(&system_contig_heap_allocated));
-
-	return 0;
-}
-
 void *ion_system_contig_heap_map_kernel(struct ion_heap *heap,
 	struct ion_buffer *buffer)
 {
@@ -432,7 +404,6 @@ static struct ion_heap_ops kmalloc_ops = {
 	.map_kernel = ion_heap_map_kernel,
 	.unmap_kernel = ion_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
-	.print_debug = ion_system_contig_print_debug,
 };
 
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *pheap)
