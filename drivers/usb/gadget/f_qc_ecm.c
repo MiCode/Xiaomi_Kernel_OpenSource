@@ -599,7 +599,7 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			DBG(cdev, "activate ecm\n");
 			if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
 				net = gether_qc_connect_name(&ecm->port,
-								"ecm0");
+								"ecm0", true);
 				if (IS_ERR(net))
 					return PTR_ERR(net);
 			}
