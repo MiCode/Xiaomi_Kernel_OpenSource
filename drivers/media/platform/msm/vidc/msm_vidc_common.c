@@ -582,7 +582,6 @@ static void handle_session_close(enum command_response cmd, void *data)
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
-		queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_CLOSE_DONE);
 		inst->session = NULL;
 		show_stats(inst);
 	} else {

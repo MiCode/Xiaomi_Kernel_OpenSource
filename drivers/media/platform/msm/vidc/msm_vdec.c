@@ -1143,6 +1143,11 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 			goto exit;
 		}
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+		/* Clients rely on this event for joining poll thread.
+		 * This event should be returned even if firmware has
+		 * failed to respond */
+		dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
+		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unknown Decoder Command\n");
