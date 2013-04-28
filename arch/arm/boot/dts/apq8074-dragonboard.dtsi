@@ -21,6 +21,7 @@
 
 	qcom,mdss_dsi_sharp_qhd_video {
 		status = "ok";
+		qcom,cont-splash-enabled;
 	};
 
 	qcom,hdmi_tx@fd922100 {
