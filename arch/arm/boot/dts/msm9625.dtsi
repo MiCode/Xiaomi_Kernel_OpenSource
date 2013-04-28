@@ -190,6 +190,7 @@
 				<85 512 40000 640000>;
 		qcom,pool-64-bit-align;
 		qcom,enable-hbm;
+		hsic,consider-ipa-handshake;
 	};
 
 	qcom,usbbam@f9a44000 {
