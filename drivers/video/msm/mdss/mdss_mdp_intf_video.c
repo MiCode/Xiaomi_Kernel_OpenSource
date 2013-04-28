@@ -13,11 +13,16 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/iopoll.h>
+
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 
-/* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define VSYNC_TIMEOUT msecs_to_jiffies(84)
+/* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
+#define VSYNC_TIMEOUT_US 100000
+
+#define MDP_INTR_MASK_INTF_VSYNC(intf_num) \
+	(1 << (2 * (intf_num - MDSS_MDP_INTF0) + MDSS_MDP_IRQ_INTF_VSYNC))
 
 /* intf timing settings */
 struct intf_timing_params {
@@ -45,6 +50,8 @@ struct mdss_mdp_video_ctx {
 	u8 ref_cnt;
 
 	u8 timegen_en;
+	bool polling_en;
+	u32 poll_cnt;
 	struct completion vsync_comp;
 	int wait_pending;
 
@@ -350,12 +357,51 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	pr_debug("intr ctl=%d vsync cnt=%u vsync_time=%d\n",
 		 ctl->num, ctl->vsync_cnt, (int)ktime_to_ms(vsync_time));
 
+	ctx->polling_en = false;
 	complete_all(&ctx->vsync_comp);
 	spin_lock(&ctx->vsync_lock);
 	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
 		tmp->vsync_handler(ctl, vsync_time);
 	}
 	spin_unlock(&ctx->vsync_lock);
+}
+
+static int mdss_mdp_video_pollwait(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
+	u32 mask, status;
+	int rc;
+
+	mask = MDP_INTR_MASK_INTF_VSYNC(ctl->intf_num);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	rc = readl_poll_timeout(ctl->mdata->mdp_base + MDSS_MDP_REG_INTR_STATUS,
+		status,
+		(status & mask) || try_wait_for_completion(&ctx->vsync_comp),
+		1000,
+		VSYNC_TIMEOUT_US);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	if (rc == 0) {
+		pr_debug("vsync poll successful! rc=%d status=0x%x\n",
+				rc, status);
+		ctx->poll_cnt++;
+		if (status) {
+			struct mdss_mdp_vsync_handler *tmp;
+			unsigned long flags;
+			ktime_t vsync_time = ktime_get();
+
+			spin_lock_irqsave(&ctx->vsync_lock, flags);
+			list_for_each_entry(tmp, &ctx->vsync_handlers, list)
+				tmp->vsync_handler(ctl, vsync_time);
+			spin_unlock_irqrestore(&ctx->vsync_lock, flags);
+		}
+	} else {
+		pr_warn("vsync poll timed out! rc=%d status=0x%x mask=0x%x\n",
+				rc, status, mask);
+	}
+
+	return rc;
 }
 
 static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
@@ -371,9 +417,20 @@ static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 
 	WARN(!ctx->wait_pending, "waiting without commit! ctl=%d", ctl->num);
 
-	rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
-			VSYNC_TIMEOUT);
-	WARN(rc <= 0, "vsync timed out (%d) ctl=%d\n", rc, ctl->num);
+	if (ctx->polling_en) {
+		rc = mdss_mdp_video_pollwait(ctl);
+	} else {
+		rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+				usecs_to_jiffies(VSYNC_TIMEOUT_US));
+		if (rc < 0) {
+			pr_warn("vsync wait interrupted ctl=%d\n", ctl->num);
+		} else if (rc == 0) {
+			pr_warn("vsync wait timeout %d, fallback to poll mode\n",
+					ctl->num);
+			ctx->polling_en++;
+			rc = mdss_mdp_video_pollwait(ctl);
+		}
+	}
 
 	if (ctx->wait_pending) {
 		ctx->wait_pending = 0;
@@ -428,7 +485,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		wmb();
 
 		rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
-				VSYNC_TIMEOUT);
+				usecs_to_jiffies(VSYNC_TIMEOUT_US));
 		WARN(rc <= 0, "timeout (%d) enabling timegen on ctl=%d\n",
 				rc, ctl->num);
 
