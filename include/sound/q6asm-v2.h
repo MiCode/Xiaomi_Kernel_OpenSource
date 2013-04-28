@@ -70,7 +70,6 @@
 #define COMPRESSED_IO	0x0040
 #define NT_MODE        0x0400
 
-
 #define NO_TIMESTAMP    0xFF00
 #define SET_TIMESTAMP   0x0000
 
@@ -78,6 +77,19 @@
 #define SOFT_PAUSE_DISABLE	0
 
 #define SESSION_MAX	0x08
+
+/* payload structure bytes */
+#define READDONE_IDX_STATUS 0
+#define READDONE_IDX_BUFADD_LSW 1
+#define READDONE_IDX_BUFADD_MSW 2
+#define READDONE_IDX_MEMMAP_HDL 3
+#define READDONE_IDX_SIZE 4
+#define READDONE_IDX_OFFSET 5
+#define READDONE_IDX_LSW_TS 6
+#define READDONE_IDX_MSW_TS 7
+#define READDONE_IDX_FLAGS 8
+#define READDONE_IDX_NUMFRAMES 9
+#define READDONE_IDX_SEQ_ID 10
 
 #define SOFT_PAUSE_PERIOD       30   /* ramp up/down for 30ms    */
 #define SOFT_PAUSE_STEP         2000 /* Step value 2ms or 2000us */
