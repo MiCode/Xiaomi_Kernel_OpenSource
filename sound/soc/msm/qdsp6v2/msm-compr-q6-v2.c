@@ -39,7 +39,10 @@
 #define COMPRE_CAPTURE_NUM_PERIODS	16
 /* Allocate the worst case frame size for compressed audio */
 #define COMPRE_CAPTURE_HEADER_SIZE	(sizeof(struct snd_compr_audio_info))
-#define COMPRE_CAPTURE_MAX_FRAME_SIZE	(6144)
+/* Changing period size to 4032. 4032 will make sure COMPRE_CAPTURE_PERIOD_SIZE
+ * is 4096 with meta data size of 64 and MAX_NUM_FRAMES_PER_BUFFER 1
+ */
+#define COMPRE_CAPTURE_MAX_FRAME_SIZE	(4032)
 #define COMPRE_CAPTURE_PERIOD_SIZE	((COMPRE_CAPTURE_MAX_FRAME_SIZE + \
 					  COMPRE_CAPTURE_HEADER_SIZE) * \
 					  MAX_NUM_FRAMES_PER_BUFFER)
@@ -226,7 +229,7 @@ static void compr_event_handler(uint32_t opcode,
 				prtd->pcm_irq_pos);
 
 		memcpy(prtd->audio_client->port[OUT].buf->data +
-			   prtd->pcm_irq_pos, (ptrmem + 2),
+			   prtd->pcm_irq_pos, (ptrmem + READDONE_IDX_SIZE),
 			   COMPRE_CAPTURE_HEADER_SIZE);
 		pr_debug("buf = %p, updated data = 0x%X, *data = %p\n",
 				prtd->audio_client->port[OUT].buf,
@@ -235,9 +238,10 @@ static void compr_event_handler(uint32_t opcode,
 				prtd->audio_client->port[OUT].buf->data);
 		if (!atomic_read(&prtd->start))
 			break;
-		pr_debug("frame size=%d, buffer = 0x%X\n", ptrmem[2],
-				ptrmem[1]);
-		if (ptrmem[2] > COMPRE_CAPTURE_MAX_FRAME_SIZE) {
+		pr_debug("frame size=%d, buffer = 0x%X\n",
+				ptrmem[READDONE_IDX_SIZE],
+				ptrmem[READDONE_IDX_BUFADD_LSW]);
+		if (ptrmem[READDONE_IDX_SIZE] > COMPRE_CAPTURE_MAX_FRAME_SIZE) {
 			pr_err("Frame length exceeded the max length");
 			break;
 		}
@@ -546,7 +550,7 @@ static void populate_codec_list(struct compr_audio *compr,
 {
 	pr_debug("%s\n", __func__);
 	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 4;
+	compr->info.compr_cap.num_codecs = 5;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
@@ -555,6 +559,7 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	compr->info.compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
 	compr->info.compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
+	compr->info.compr_cap.codecs[4] = SND_AUDIOCODEC_AMRWB;
 	/* Add new codecs here */
 }
 
