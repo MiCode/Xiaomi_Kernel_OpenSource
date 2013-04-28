@@ -514,11 +514,15 @@ static int connect_pipe_ipa(u8 idx,
 		goto error;
 	}
 
+	spin_lock(&usb_bam_lock);
+
 	/* Set global inactivity timer upon first pipe connection */
 	if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0 &&
 		ctx.inactivity_timer_ms[pipe_connect->bam_type] &&
 		pipe_connect->inactivity_notify)
 		usb_bam_set_inactivity_timer(pipe_connect->bam_type);
+
+	spin_unlock(&usb_bam_lock);
 
 	return 0;
 
@@ -823,14 +827,13 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		wait_for_prod_granted(cur_bam);
 	}
 
-	spin_lock(&usb_bam_lock);
-
 	ret = connect_pipe_ipa(idx, ipa_params);
 	if (ret) {
 		pr_err("%s: pipe connection failure\n", __func__);
-		spin_unlock(&usb_bam_lock);
 		return ret;
 	}
+
+	spin_lock(&usb_bam_lock);
 
 	pipe_connect->enabled = 1;
 	ctx.pipes_enabled_per_bam[cur_bam] += 1;
