@@ -56,6 +56,7 @@ struct msm_fb_data_type;
 
 struct msm_mdp_interface {
 	int (*fb_mem_alloc_fnc)(struct msm_fb_data_type *mfd);
+	int (*fb_mem_get_iommu_domain)(void);
 	int (*init_fnc)(struct msm_fb_data_type *mfd);
 	int (*on_fnc)(struct msm_fb_data_type *mfd);
 	int (*off_fnc)(struct msm_fb_data_type *mfd);
