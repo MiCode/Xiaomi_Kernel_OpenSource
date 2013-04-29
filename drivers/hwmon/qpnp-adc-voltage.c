@@ -431,12 +431,32 @@ static int32_t qpnp_vadc_version_check(void)
 	return 0;
 }
 
-static uint32_t qpnp_vadc_calib_device(void)
+static void qpnp_vadc_625mv_channel_sel(uint32_t *ref_channel_sel)
+{
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+	uint32_t dt_index = 0;
+
+	/* Check if the buffered 625mV channel exists */
+	while ((vadc->adc->adc_channels[dt_index].channel_num
+		!= SPARE1) && (dt_index < vadc->max_channels_available))
+		dt_index++;
+
+	if (dt_index >= vadc->max_channels_available) {
+		pr_debug("Use default 625mV ref channel\n");
+		*ref_channel_sel = REF_625MV;
+	} else {
+		pr_debug("Use buffered 625mV ref channel\n");
+		*ref_channel_sel = SPARE1;
+	}
+}
+
+static int32_t qpnp_vadc_calib_device(void)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
 	struct qpnp_adc_amux_properties conv;
 	int rc, calib_read_1, calib_read_2, count = 0;
 	u8 status1 = 0;
+	uint32_t ref_channel_sel = 0;
 
 	conv.amux_channel = REF_125V;
 	conv.decimation = DECIMATION_TYPE2;
@@ -470,7 +490,8 @@ static uint32_t qpnp_vadc_calib_device(void)
 		goto calib_fail;
 	}
 
-	conv.amux_channel = REF_625MV;
+	qpnp_vadc_625mv_channel_sel(&ref_channel_sel);
+	conv.amux_channel = ref_channel_sel;
 	conv.decimation = DECIMATION_TYPE2;
 	conv.mode_sel = ADC_OP_NORMAL_MODE << QPNP_VADC_OP_MODE_SHIFT;
 	conv.hw_settle_time = ADC_CHANNEL_HW_SETTLE_DELAY_0US;
@@ -647,6 +668,7 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
 	int rc = 0, scale_type, amux_prescaling, dt_index = 0;
+	uint32_t ref_channel;
 
 	if (!vadc || !vadc->vadc_initialized)
 		return -EPROBE_DEFER;
@@ -664,6 +686,11 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 			goto fail_unlock;
 		} else
 			vadc->vadc_init_calib = true;
+	}
+
+	if (channel == REF_625MV) {
+		qpnp_vadc_625mv_channel_sel(&ref_channel);
+		channel = ref_channel;
 	}
 
 	vadc->adc->amux_prop->amux_channel = channel;
