@@ -4,7 +4,7 @@ QPNP (Qualcomm Plug N Play) LEDs driver is used for
 controlling LEDs that are part of PMIC on Qualcomm reference
 platforms. The PMIC is connected to Host processor via
 SPMI bus. This driver supports various LED modules such as
-WLED (white LED), RGB LED and flash LED.
+Keypad backlight, WLED (white LED), RGB LED and flash LED.
 
 Each LED module is represented as a node of "leds-qpnp". This
 node will further contain the type of LED supported and its
@@ -75,6 +75,18 @@ Optional properties for MPP LED:
 - qcom,default-state: default state of the led, should be "on" or "off"
 - qcom,source-sel: select power source, default 1 (enabled)
 - qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
+
+Keypad backlight is a backlight source for buttons. It supports four rows
+and the required rows are enabled by specifying values in the properties.
+
+Required properties for keypad backlight:
+- qcom,mode: mode the led should operate in, options 0 = PWM, 1 = LPG
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
+- qcom,row-src-sel-val: select source for rows. One bit is used for each row.
+			Specify 0 for vph_pwr and 1 for vbst for each row.
+- qcom,row-scan-val: select rows for scanning
+- qcom,row-scan-en: row scan enable
 
 Example:
 
@@ -174,3 +186,18 @@ Example:
 			};
 	};
 
+	qcom,leds@e200 {
+		status = "okay";
+		qcom,kpdbl {
+			label = "kpdbl";
+			linux,name = "button-backlight";
+			qcom,mode = <0>;
+			qcom,pwm-channel = <8>;
+			qcom,pwm-us = <1000>;
+			qcom,id = <7>;
+			qcom,max-current = <20>;
+			qcom,row-src-sel-val = <0x00>;
+			qcom,row-scan-en = <0x01>;
+			qcom,row-scan-val = <0x01>;
+		};
+	};
