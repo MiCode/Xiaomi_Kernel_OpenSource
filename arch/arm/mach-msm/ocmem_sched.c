@@ -1515,6 +1515,18 @@ int process_free(int id, struct ocmem_handle *handle)
 				pr_err("ocmem: Failed to unmap %p\n", req);
 				goto free_fail;
 			}
+			/* Turn off the memory */
+			if (req->req_sz != 0) {
+
+				offset = phys_to_offset(req->req_start);
+				rc = ocmem_memory_off(req->owner, offset,
+					req->req_sz);
+
+				if (rc < 0) {
+					pr_err("Failed to switch OFF memory macros\n");
+					goto free_fail;
+				}
+			}
 
 			rc = do_free(req);
 			if (rc < 0) {
@@ -1525,21 +1537,19 @@ int process_free(int id, struct ocmem_handle *handle)
 			pr_debug("request %p was already shrunk to 0\n", req);
 	}
 
-	/* Turn off the memory */
-	if (req->req_sz != 0) {
+	if (!TEST_STATE(req, R_FREE)) {
+		/* Turn off the memory */
+		if (req->req_sz != 0) {
 
-		offset = phys_to_offset(req->req_start);
+			offset = phys_to_offset(req->req_start);
+			rc = ocmem_memory_off(req->owner, offset, req->req_sz);
 
-		rc = ocmem_memory_off(req->owner, offset, req->req_sz);
-
-		if (rc < 0) {
-			pr_err("Failed to switch OFF memory macros\n");
-			goto free_fail;
+			if (rc < 0) {
+				pr_err("Failed to switch OFF memory macros\n");
+				goto free_fail;
+			}
 		}
 
-	}
-
-	if (!TEST_STATE(req, R_FREE)) {
 		/* free the allocation */
 		rc = do_free(req);
 		if (rc < 0)
