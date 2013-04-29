@@ -322,7 +322,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (pipe && pipe->ndx != req->id) {
 		pr_debug("replacing pnum=%d at stage=%d mux=%d\n",
 				pipe->num, req->z_order, mixer_mux);
-		pipe->params_changed = true;
+		mdss_mdp_mixer_pipe_unstage(pipe);
 	}
 
 	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, mixer_mux);
