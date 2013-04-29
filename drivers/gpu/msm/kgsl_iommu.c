@@ -347,22 +347,17 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			KGSL_IOMMU_V1_FSYNR0_WNR_SHIFT)) ? 1 : 0);
 
 	pid = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
-	KGSL_MEM_CRIT(iommu_dev->kgsldev,
-		"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, pid);
-	KGSL_MEM_CRIT(iommu_dev->kgsldev,
-		"context = %d FSR = %X FSYNR0 = %X FSYNR1 = %X(%s fault)\n",
-		iommu_dev->ctx_id, fsr, fsynr0, fsynr1,
-		write ? "write" : "read");
 
 	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE)
 		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, addr);
 
 	if (!no_page_fault_log) {
 		KGSL_MEM_CRIT(iommu_dev->kgsldev,
-			"GPU PAGE FAULT: addr = %lX pid = %d\n",
-			addr, kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase));
-		KGSL_MEM_CRIT(iommu_dev->kgsldev, "context = %d FSR = %X\n",
-			iommu_dev->ctx_id, fsr);
+			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, pid);
+		KGSL_MEM_CRIT(iommu_dev->kgsldev,
+		 "context = %d FSR = %X FSYNR0 = %X FSYNR1 = %X(%s fault)\n",
+			iommu_dev->ctx_id, fsr, fsynr0, fsynr1,
+			write ? "write" : "read");
 
 		_check_if_freed(iommu_dev, addr, pid);
 
