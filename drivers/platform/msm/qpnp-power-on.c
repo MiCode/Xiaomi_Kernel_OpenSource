@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,47 +24,51 @@
 #include <linux/log2.h>
 
 /* PON common register addresses */
-#define QPNP_PON_RT_STS(base)		(base + 0x10)
-#define QPNP_PON_PULL_CTL(base)		(base + 0x70)
-#define QPNP_PON_DBC_CTL(base)		(base + 0x71)
+#define QPNP_PON_RT_STS(base)			(base + 0x10)
+#define QPNP_PON_PULL_CTL(base)			(base + 0x70)
+#define QPNP_PON_DBC_CTL(base)			(base + 0x71)
 
 /* PON/RESET sources register addresses */
-#define QPNP_PON_KPDPWR_S1_TIMER(base)	(base + 0x40)
-#define QPNP_PON_KPDPWR_S2_TIMER(base)	(base + 0x41)
-#define QPNP_PON_KPDPWR_S2_CNTL(base)	(base + 0x42)
-#define QPNP_PON_RESIN_S1_TIMER(base)	(base + 0x44)
-#define QPNP_PON_RESIN_S2_TIMER(base)	(base + 0x45)
-#define QPNP_PON_RESIN_S2_CNTL(base)	(base + 0x46)
-#define QPNP_PON_PS_HOLD_RST_CTL(base)	(base + 0x5A)
+#define QPNP_PON_WARM_RESET_REASON1(base)	(base + 0xA)
+#define QPNP_PON_WARM_RESET_REASON2(base)	(base + 0xB)
+#define QPNP_PON_KPDPWR_S1_TIMER(base)		(base + 0x40)
+#define QPNP_PON_KPDPWR_S2_TIMER(base)		(base + 0x41)
+#define QPNP_PON_KPDPWR_S2_CNTL(base)		(base + 0x42)
+#define QPNP_PON_RESIN_S1_TIMER(base)		(base + 0x44)
+#define QPNP_PON_RESIN_S2_TIMER(base)		(base + 0x45)
+#define QPNP_PON_RESIN_S2_CNTL(base)		(base + 0x46)
+#define QPNP_PON_PS_HOLD_RST_CTL(base)		(base + 0x5A)
 
-#define QPNP_PON_RESIN_PULL_UP		BIT(0)
-#define QPNP_PON_KPDPWR_PULL_UP		BIT(1)
-#define QPNP_PON_CBLPWR_PULL_UP		BIT(2)
-#define QPNP_PON_S2_CNTL_EN		BIT(7)
-#define QPNP_PON_S2_RESET_ENABLE	BIT(7)
-#define QPNP_PON_DELAY_BIT_SHIFT	6
+#define QPNP_PON_WARM_RESET_TFT			BIT(4)
 
-#define QPNP_PON_S1_TIMER_MASK		(0xF)
-#define QPNP_PON_S2_TIMER_MASK		(0x7)
-#define QPNP_PON_S2_CNTL_TYPE_MASK	(0xF)
+#define QPNP_PON_RESIN_PULL_UP			BIT(0)
+#define QPNP_PON_KPDPWR_PULL_UP			BIT(1)
+#define QPNP_PON_CBLPWR_PULL_UP			BIT(2)
+#define QPNP_PON_S2_CNTL_EN			BIT(7)
+#define QPNP_PON_S2_RESET_ENABLE		BIT(7)
+#define QPNP_PON_DELAY_BIT_SHIFT		6
 
-#define QPNP_PON_DBC_DELAY_MASK		(0x7)
-#define QPNP_PON_KPDPWR_N_SET		BIT(0)
-#define QPNP_PON_RESIN_N_SET		BIT(1)
-#define QPNP_PON_CBLPWR_N_SET		BIT(2)
-#define QPNP_PON_RESIN_BARK_N_SET	BIT(4)
+#define QPNP_PON_S1_TIMER_MASK			(0xF)
+#define QPNP_PON_S2_TIMER_MASK			(0x7)
+#define QPNP_PON_S2_CNTL_TYPE_MASK		(0xF)
 
-#define QPNP_PON_RESET_EN		BIT(7)
-#define QPNP_PON_WARM_RESET		BIT(0)
-#define QPNP_PON_SHUTDOWN		BIT(2)
+#define QPNP_PON_DBC_DELAY_MASK			(0x7)
+#define QPNP_PON_KPDPWR_N_SET			BIT(0)
+#define QPNP_PON_RESIN_N_SET			BIT(1)
+#define QPNP_PON_CBLPWR_N_SET			BIT(2)
+#define QPNP_PON_RESIN_BARK_N_SET		BIT(4)
+
+#define QPNP_PON_RESET_EN			BIT(7)
+#define QPNP_PON_WARM_RESET			BIT(0)
+#define QPNP_PON_SHUTDOWN			BIT(2)
 
 /* Ranges */
-#define QPNP_PON_S1_TIMER_MAX		10256
-#define QPNP_PON_S2_TIMER_MAX		2000
-#define QPNP_PON_RESET_TYPE_MAX		0xF
-#define PON_S1_COUNT_MAX		0xF
+#define QPNP_PON_S1_TIMER_MAX			10256
+#define QPNP_PON_S2_TIMER_MAX			2000
+#define QPNP_PON_RESET_TYPE_MAX			0xF
+#define PON_S1_COUNT_MAX			0xF
 
-#define QPNP_KEY_STATUS_DELAY		msecs_to_jiffies(250)
+#define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 
 enum pon_type {
 	PON_KPDPWR,
@@ -174,6 +178,50 @@ int qpnp_pon_system_pwr_off(bool reset)
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
+
+/**
+ * qpnp_pon_is_warm_reset - Checks if the PMIC went through a warm reset.
+ *
+ * Returns > 0 for warm resets, 0 for not warm reset, < 0 for errors
+ *
+ * Note that this function will only return the warm vs not-warm reset status
+ * of the PMIC that is configured as the system-reset device.
+ */
+int qpnp_pon_is_warm_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg;
+
+	if (!pon)
+		return -EPROBE_DEFER;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_WARM_RESET_REASON1(pon->base), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_WARM_RESET_REASON1(pon->base), rc);
+		return rc;
+	}
+
+	if (reg)
+		return 1;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_WARM_RESET_REASON2(pon->base), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_WARM_RESET_REASON2(pon->base), rc);
+		return rc;
+	}
+	if (reg & QPNP_PON_WARM_RESET_TFT)
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
 static struct qpnp_pon_config *
 qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
