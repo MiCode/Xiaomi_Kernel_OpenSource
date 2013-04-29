@@ -1113,14 +1113,14 @@ config KERNEL_MSM_CONTIG_MEM_REGION
 config KERNEL_PMEM_SMI_REGION
 	bool "Enable in-kernel PMEM region for SMI"
 	default y if ARCH_MSM8X60
-	depends on ANDROID_PMEM && ((ARCH_QSD8X50 && !PMEM_GPU0) || (ARCH_MSM8X60 && !VCM))
+	depends on (ARCH_QSD8X50 && !PMEM_GPU0) || (ARCH_MSM8X60 && !VCM)
 	help
 	   Enable the in-kernel PMEM allocator to use SMI memory.
 
 config PMEM_GPU0
 	bool "Enable PMEM GPU0 region"
 	default y
-	depends on ARCH_QSD8X50 && ANDROID_PMEM
+	depends on ARCH_QSD8X50
 	help
 	  Enable the PMEM GPU0 device on SMI Memory.
 
@@ -1856,7 +1856,6 @@ config MSM_AVS_HW
 
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
-	depends on ANDROID_PMEM
 	help
 	  Provides access to registers needed by the userspace OpenGL|ES
 	  library.
@@ -1864,7 +1863,6 @@ config MSM_HW3D
 config MSM_ADSP
 	depends on (ARCH_MSM7X01A || ARCH_MSM7X25 || ARCH_MSM7X27)
 	tristate "MSM ADSP driver"
-	depends on ANDROID_PMEM
 	default y
 	help
 	  Provides access to registers needed by the userspace aDSP library.
@@ -1890,7 +1888,7 @@ endchoice
 
 config MSM7KV2_AUDIO
 	bool "MSM7K v2 audio"
-	depends on (ARCH_MSM7X30 && ANDROID_PMEM)
+	depends on ARCH_MSM7X30
 	default y
 	help
 	  Enables QDSP5V2-based audio drivers for audio playbacks and
@@ -1906,14 +1904,14 @@ config MSM_ADSP_REPORT_EVENTS
 
 config MSM_QDSP6
 	tristate "QDSP6 support"
-	depends on ARCH_QSD8X50 && ANDROID_PMEM
+	depends on ARCH_QSD8X50
 	default y
 	help
 	  Enable support for qdsp6. This provides audio and video functionality.
 
 config MSM8X60_AUDIO
 	tristate "MSM8X60 audio support"
-	depends on ARCH_MSM8X60 && ANDROID_PMEM
+	depends on ARCH_MSM8X60
 	default y
 	help
 	  Enable support for qdsp6v2. This provides audio functionality.
@@ -1972,7 +1970,7 @@ config WIFI_MEM_PREALLOC
 
 config QSD_AUDIO
 	bool "QSD audio"
-	depends on ARCH_MSM_SCORPION && MSM_DALRPC && ANDROID_PMEM && !MSM_SMP
+	depends on ARCH_MSM_SCORPION && MSM_DALRPC && !MSM_SMP
 	default y
 	help
 	  Provides PCM, MP3, and AAC audio playback.
