@@ -32,9 +32,8 @@ struct spmii_boardinfo {
 static DEFINE_MUTEX(board_lock);
 static LIST_HEAD(board_list);
 static DEFINE_IDR(ctrl_idr);
-static struct device_type spmi_ctrl_type = { 0 };
-
-#define to_spmi(dev)	platform_get_drvdata(to_platform_device(dev))
+static struct device_type spmi_dev_type;
+static struct device_type spmi_ctrl_type;
 
 /* Forward declarations */
 struct bus_type spmi_bus_type;
@@ -69,6 +68,9 @@ int spmi_add_controller(struct spmi_controller *ctrl)
 	int	id;
 	int	status;
 
+	if (!ctrl)
+		return -EINVAL;
+
 	pr_debug("adding controller for bus %d (0x%p)\n", ctrl->nr, ctrl);
 
 	if (ctrl->nr & ~MAX_ID_MASK) {
@@ -98,17 +100,69 @@ retry:
 }
 EXPORT_SYMBOL_GPL(spmi_add_controller);
 
+/* Remove a device associated with a controller */
+static int spmi_ctrl_remove_device(struct device *dev, void *data)
+{
+	struct spmi_device *spmidev = to_spmi_device(dev);
+	struct spmi_controller *ctrl = data;
+
+	if (dev->type == &spmi_dev_type && spmidev->ctrl == ctrl)
+		spmi_remove_device(spmidev);
+
+	return 0;
+}
+
 /**
  * spmi_del_controller: Controller tear-down.
- * @ctrl: controller to which this device is to be added to.
+ * @ctrl: controller to be removed.
  *
  * Controller added with the above API is torn down using this API.
  */
 int spmi_del_controller(struct spmi_controller *ctrl)
 {
-	return -ENXIO;
+	struct spmi_controller *found;
+
+	if (!ctrl)
+		return -EINVAL;
+
+	/* Check that the ctrl has been added */
+	mutex_lock(&board_lock);
+	found = idr_find(&ctrl_idr, ctrl->nr);
+	mutex_unlock(&board_lock);
+	if (found != ctrl)
+		return -EINVAL;
+
+	/* Remove all the clients associated with this controller */
+	mutex_lock(&board_lock);
+	bus_for_each_dev(&spmi_bus_type, NULL, ctrl, spmi_ctrl_remove_device);
+	mutex_unlock(&board_lock);
+
+	spmi_dfs_del_controller(ctrl);
+
+	mutex_lock(&board_lock);
+	idr_remove(&ctrl_idr, ctrl->nr);
+	mutex_unlock(&board_lock);
+
+	init_completion(&ctrl->dev_released);
+	device_unregister(&ctrl->dev);
+	wait_for_completion(&ctrl->dev_released);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(spmi_del_controller);
+
+#define spmi_ctrl_attr_gr NULL
+static void spmi_ctrl_release(struct device *dev)
+{
+	struct spmi_controller *ctrl = to_spmi_controller(dev);
+
+	complete(&ctrl->dev_released);
+}
+
+static struct device_type spmi_ctrl_type = {
+	.groups		= spmi_ctrl_attr_gr,
+	.release	= spmi_ctrl_release,
+};
 
 #define spmi_device_attr_gr NULL
 #define spmi_device_uevent NULL
@@ -141,7 +195,7 @@ struct spmi_device *spmi_alloc_device(struct spmi_controller *ctrl)
 {
 	struct spmi_device *spmidev;
 
-	if (!ctrl) {
+	if (!ctrl || !spmi_busnum_to_ctrl(ctrl->nr)) {
 		pr_err("Missing SPMI controller\n");
 		return NULL;
 	}
@@ -174,12 +228,15 @@ static struct device *get_valid_device(struct spmi_device *spmidev)
 	if (dev->bus != &spmi_bus_type || dev->type != &spmi_dev_type)
 		return NULL;
 
+	if (!spmidev->ctrl || !spmi_busnum_to_ctrl(spmidev->ctrl->nr))
+		return NULL;
+
 	return dev;
 }
 
 /**
  * spmi_add_device: Add a new device without register board info.
- * @ctrl: controller to which this device is to be added to.
+ * @spmi_dev: spmi_device to be added (registered).
  *
  * Called when device doesn't have an explicit client-driver to be probed, or
  * the client-driver is a module installed dynamically.
@@ -190,7 +247,7 @@ int spmi_add_device(struct spmi_device *spmidev)
 	struct device *dev = get_valid_device(spmidev);
 
 	if (!dev) {
-		pr_err("%s: invalid SPMI device\n", __func__);
+		pr_err("invalid SPMI device\n");
 		return -EINVAL;
 	}
 
