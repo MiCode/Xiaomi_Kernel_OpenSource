@@ -44,6 +44,22 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",  BLSP2_UART_CLK, "f9960000.serial", OFF),
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("core_clk",   BLSP2_I2C_CLK,  "f9966000.i2c",    OFF),
+	CLK_DUMMY("iface_clk",  BLSP2_I2C_CLK,  "f9966000.i2c",    OFF),
+	CLK_DUMMY("core_clk",   BLSP1_I2C_CLK,  "f9924000.i2c",    OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_I2C_CLK,  "f9924000.i2c",    OFF),
+	CLK_DUMMY("core_clk",   NULL,           "f9a55000.usb",    OFF),
+	CLK_DUMMY("iface_clk",  NULL,           "f9a55000.usb",    OFF),
+	CLK_DUMMY("phy_clk",    NULL,           "f9a55000.usb",    OFF),
+	CLK_DUMMY("xo",         NULL,           "f9a55000.usb",    OFF),
+	CLK_DUMMY("core_clk",   NULL,           "msm_ehci_host",   OFF),
+	CLK_DUMMY("iface_clk",  NULL,           "msm_ehci_host",   OFF),
+	CLK_DUMMY("sleep_clk",  NULL,           "msm_ehci_host",   OFF),
+	CLK_DUMMY("xo",         NULL,           "msm_ehci_host",   OFF),
+	CLK_DUMMY("core_clk",   NULL,           "f9824900.sdhci_msm", OFF),
+	CLK_DUMMY("iface_clk",  NULL,           "f9824900.sdhci_msm", OFF),
+	CLK_DUMMY("core_clk",   NULL,           "f98a4900.sdhci_msm", OFF),
+	CLK_DUMMY("iface_clk",  NULL,           "f98a4900.sdhci_msm", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
