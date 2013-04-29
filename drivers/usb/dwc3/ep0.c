@@ -751,6 +751,9 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 	dwc->ep0_next_event = DWC3_EP0_NRDY_STATUS;
 
 	r = next_request(&ep0->request_list);
+	if (r == NULL)
+		return;
+
 	ur = &r->request;
 	if ((epnum & 1) && ur->zero &&
 		(ur->length % ep0->endpoint.maxpacket == 0)) {
