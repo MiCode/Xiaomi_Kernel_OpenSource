@@ -1457,7 +1457,7 @@ msm_spi_use_dma(struct msm_spi *dd, struct spi_transfer *tr, u8 bpw)
 		}
 
 		if (tr->cs_change &&
-		   ((bpw != 8) || (bpw != 16) || (bpw != 32)))
+		   ((bpw != 8) && (bpw != 16) && (bpw != 32)))
 			return false;
 	}
 
