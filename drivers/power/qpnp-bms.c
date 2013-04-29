@@ -24,6 +24,7 @@
 #include <linux/rtc.h>
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/qpnp/power-on.h>
 #include <linux/mfd/pm8xxx/batterydata-lib.h>
 
 /* BMS Register Offsets */
@@ -680,10 +681,12 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 }
 
 #define OCV_RAW_UNINITIALIZED	0xFFFF
+#define MIN_OCV_UV		2000000
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
 				int batt_temp)
 {
+	bool warm_reset = false;
 	int rc;
 
 	mutex_lock(&chip->bms_output_lock);
@@ -716,7 +719,18 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 
 	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
 		convert_and_store_ocv(chip, raw, batt_temp);
-		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
+		pr_debug("PON_OCV_UV = %d, cc = %llx\n",
+				chip->last_ocv_uv, raw->cc);
+		warm_reset = qpnp_pon_is_warm_reset();
+		if (raw->last_good_ocv_uv < MIN_OCV_UV
+				|| warm_reset > 0) {
+			pr_debug("OCV is stale or bad, estimating new OCV.\n");
+			chip->last_ocv_uv = estimate_ocv(chip);
+			raw->last_good_ocv_uv = chip->last_ocv_uv;
+			reset_cc(chip);
+			pr_debug("New PON_OCV_UV = %d, cc = %llx\n",
+					chip->last_ocv_uv, raw->cc);
+		}
 	} else if (chip->new_battery) {
 		/* if a new battery was inserted, estimate the ocv */
 		reset_for_new_battery(chip, batt_temp);
@@ -2442,6 +2456,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
 	union power_supply_propval retval = {0,};
+	bool warm_reset;
 	int rc, vbatt;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -2462,6 +2477,11 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		pr_info("iadc not ready: %d, deferring probe\n", rc);
 		goto error_read;
 	}
+
+	warm_reset = qpnp_pon_is_warm_reset();
+	rc = warm_reset;
+	if (rc < 0)
+		goto error_read;
 
 	rc = register_spmi(chip, spmi);
 	if (rc) {
@@ -2573,9 +2593,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto unregister_dc;
 	}
 
-	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u\n",
-				get_prop_bms_capacity(chip),
-				vbatt, chip->last_ocv_uv, chip->r_sense_uohm);
+	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u warm_reset = %d\n",
+			get_prop_bms_capacity(chip), vbatt, chip->last_ocv_uv,
+			chip->r_sense_uohm, warm_reset);
 	return 0;
 
 unregister_dc:
