@@ -711,9 +711,6 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 		goto resource_busy;
 	}
 
-	pr_debug("Before sending packet the outstanding packets counter is %d\n",
-				atomic_read(&dev->outstanding_pkts));
-
 	if (atomic_read(&dev->outstanding_pkts) >= dev->outstanding_high) {
 		pr_debug("Outstanding high boundary reached (%d)- stopping queue\n",
 				dev->outstanding_high);
@@ -812,8 +809,6 @@ void ecm_ipa_tx_complete_notify(void *priv,
 				dev->outstanding_low);
 		netif_wake_queue(dev->net);
 	}
-	pr_debug("After Tx-complete the outstanding packets counter is %d\n",
-				atomic_read(&dev->outstanding_pkts));
 
 	dev_kfree_skb_any(skb);
 	return;
