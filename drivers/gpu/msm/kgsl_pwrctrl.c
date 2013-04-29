@@ -1448,16 +1448,11 @@ int kgsl_active_count_get(struct kgsl_device *device)
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	if (device->active_cnt == 0) {
-		if (device->requested_state == KGSL_STATE_SUSPEND ||
-				device->state == KGSL_STATE_SUSPEND) {
-			mutex_unlock(&device->mutex);
-			wait_for_completion(&device->hwaccess_gate);
-			mutex_lock(&device->mutex);
-		} else if (device->state == KGSL_STATE_DUMP_AND_FT) {
-			mutex_unlock(&device->mutex);
-			wait_for_completion(&device->ft_gate);
-			mutex_lock(&device->mutex);
-		}
+		mutex_unlock(&device->mutex);
+		wait_for_completion(&device->hwaccess_gate);
+		wait_for_completion(&device->ft_gate);
+		mutex_lock(&device->mutex);
+
 		ret = kgsl_pwrctrl_wake(device);
 	}
 	if (ret == 0)
