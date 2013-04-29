@@ -515,6 +515,17 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.start = pronto_start;
 	drv->subsys_desc.stop = pronto_stop;
 
+	ret = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-err-ready", 0);
+	if (ret < 0)
+		return ret;
+
+	ret = gpio_to_irq(ret);
+	if (ret < 0)
+		return ret;
+
+	drv->subsys_desc.err_ready_irq = ret;
+
 	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
