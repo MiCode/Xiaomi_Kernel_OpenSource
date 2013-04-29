@@ -199,9 +199,6 @@ struct vss_unmap_memory_cmd {
 #define VSS_ICOMMON_CMD_SET_VOICE_TIMING		0x000111E0
 /* Set the voice timing parameters. */
 
-#define VSS_IWIDEVOICE_CMD_SET_WIDEVOICE                0x00011243
-/* Enable/disable WideVoice */
-
 #define VSS_IMEMORY_CMD_MAP_PHYSICAL			0x00011334
 #define VSS_IMEMORY_RSP_MAP				0x00011336
 #define VSS_IMEMORY_CMD_UNMAP				0x00011337
@@ -296,14 +293,6 @@ struct vss_imvm_cmd_set_policy_dual_control_t {
 	/* Set to TRUE to enable modem state machine control */
 } __packed;
 
-struct vss_iwidevoice_cmd_set_widevoice_t {
-	uint32_t enable;
-	/* WideVoice enable/disable; possible values:
-	* - 0 -- WideVoice disabled
-	* - 1 -- WideVoice enabled
-	*/
-} __packed;
-
 struct mvm_attach_vocproc_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_attach_vocproc_t mvm_attach_cvp_handle;
@@ -347,11 +336,6 @@ struct mvm_set_network_cmd {
 struct mvm_set_voice_timing_cmd {
 	struct apr_hdr hdr;
 	struct vss_icommon_cmd_set_voice_timing_t timing;
-} __packed;
-
-struct mvm_set_widevoice_enable_cmd {
-	struct apr_hdr hdr;
-	struct vss_iwidevoice_cmd_set_widevoice_t vss_set_wv;
 } __packed;
 
 struct vss_imemory_table_descriptor_t {
@@ -489,7 +473,6 @@ struct vss_imemory_cmd_unmap_t {
 #define VSS_ISTREAM_CMD_SET_ENC_DTX_MODE		0x0001101D
 /* Set encoder DTX mode. */
 
-#define MODULE_ID_VOICE_MODULE_FENS			0x00010EEB
 #define MODULE_ID_VOICE_MODULE_ST			0x00010EE3
 #define VOICE_PARAM_MOD_ENABLE				0x00010E00
 #define MOD_ENABLE_PARAM_LEN				4
@@ -1267,13 +1250,8 @@ struct voice_data {
 
 	uint16_t sidetone_gain;
 	uint8_t tty_mode;
-	/* widevoice enable value */
-	uint8_t wv_enable;
 	/* slowtalk enable value */
 	uint32_t st_enable;
-	/* FENC enable value */
-	uint32_t fens_enable;
-
 	uint32_t dtmf_rx_detect_en;
 	/* Local Call Hold mode */
 	uint8_t lch_mode;
@@ -1365,8 +1343,6 @@ enum {
 int voc_set_pp_enable(uint16_t session_id, uint32_t module_id,
 		      uint32_t enable);
 int voc_get_pp_enable(uint16_t session_id, uint32_t module_id);
-int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable);
-uint32_t voc_get_widevoice_enable(uint16_t session_id);
 uint8_t voc_get_tty_mode(uint16_t session_id);
 int voc_set_tty_mode(uint16_t session_id, uint8_t tty_mode);
 int voc_start_voice_call(uint16_t session_id);
