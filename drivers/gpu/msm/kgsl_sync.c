@@ -168,7 +168,6 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 fail_event:
 fail_copy_fd:
 	/* clean up sync_fence_install */
-	sync_fence_put(fence);
 	put_unused_fd(priv.fence_fd);
 fail_fd:
 	/* clean up sync_fence_create */
