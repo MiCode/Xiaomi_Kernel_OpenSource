@@ -2689,6 +2689,8 @@ static int __devinit android_probe(struct platform_device *pdev)
 		of_property_read_u32(pdev->dev.of_node,
 				"qcom,android-usb-swfi-latency",
 				&pdata->swfi_latency);
+		pdata->cdrom = of_property_read_bool(pdev->dev.of_node,
+				"qcom,android-usb-cdrom");
 	} else {
 		pdata = pdev->dev.platform_data;
 	}
