@@ -49,18 +49,11 @@
 /**
  * struct ecm_ipa_dev - main driver context parameters
  * @net: network interface struct implemented by this driver
- * @folder: debugfs folder for various debuging switches
+ * @directory: debugfs directory for various debuging switches
  * @tx_enable: flag that enable/disable Tx path to continue to IPA
  * @rx_enable: flag that enable/disable Rx path to continue to IPA
  * @rm_enable: flag that enable/disable Resource manager request prior to Tx
  * @dma_enable: flag that allow on-the-fly DMA mode for IPA
- * @tx_file: saved debugfs entry to allow cleanup
- * @rx_file: saved debugfs entry to allow cleanup
- * @rm_file: saved debugfs entry to allow cleanup
- * @outstanding_file:  saved debugfs entry to allow cleanup
- * @outstanding_high_file saved debugfs entry to allow cleanup
- * @outstanding_low_file saved debugfs entry to allow cleanup
- * @dma_file: saved debugfs entry to allow cleanup
  * @eth_ipv4_hdr_hdl: saved handle for ipv4 header-insertion table
  * @eth_ipv6_hdr_hdl: saved handle for ipv6 header-insertion table
  * @usb_to_ipa_hdl: save handle for IPA pipe operations
@@ -76,14 +69,7 @@ struct ecm_ipa_dev {
 	bool rx_enable;
 	bool rm_enable;
 	bool dma_enable;
-	struct dentry *folder;
-	struct dentry *tx_file;
-	struct dentry *rx_file;
-	struct dentry *rm_file;
-	struct dentry *outstanding_high_file;
-	struct dentry *outstanding_low_file;
-	struct dentry *dma_file;
-	struct dentry *outstanding_file;
+	struct dentry *directory;
 	uint32_t eth_ipv4_hdr_hdl;
 	uint32_t eth_ipv6_hdr_hdl;
 	u32 usb_to_ipa_hdl;
@@ -937,80 +923,74 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 {
 	const mode_t flags = S_IRUGO | S_IWUGO;
 	const mode_t flags_read_only = S_IRUGO;
+	struct dentry *file;
 
-	int ret = -EINVAL;
 	ECM_IPA_LOG_ENTRY();
+
 	if (!dev)
 		return -EINVAL;
-	dev->folder = debugfs_create_dir("ecm_ipa", NULL);
-	if (!dev->folder) {
-		ECM_IPA_ERROR("could not create debugfs folder entry\n");
-		ret = -EFAULT;
-		goto fail_folder;
+
+	dev->directory = debugfs_create_dir("ecm_ipa", NULL);
+	if (!dev->directory) {
+		ECM_IPA_ERROR("could not create debugfs directory entry\n");
+		goto fail_directory;
 	}
-	dev->tx_file = debugfs_create_file("tx_enable", flags, dev->folder, dev,
+	file = debugfs_create_file("tx_enable", flags, dev->directory, dev,
 		   &ecm_ipa_debugfs_tx_ops);
-	if (!dev->tx_file) {
+	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs tx file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
-	dev->rx_file = debugfs_create_file("rx_enable", flags, dev->folder, dev,
+	file = debugfs_create_file("rx_enable", flags, dev->directory, dev,
 			&ecm_ipa_debugfs_rx_ops);
-	if (!dev->rx_file) {
+	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs rx file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
-	dev->rm_file = debugfs_create_file("rm_enable", flags, dev->folder, dev,
+	file = debugfs_create_file("rm_enable", flags, dev->directory, dev,
 			&ecm_ipa_debugfs_rm_ops);
-	if (!dev->rm_file) {
+	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs rm file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
-	dev->dma_file = debugfs_create_file("dma_enable", flags, dev->folder,
+	file = debugfs_create_file("dma_enable", flags, dev->directory,
 			dev, &ecm_ipa_debugfs_dma_ops);
-	if (!dev->dma_file) {
+	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs dma file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
 
-	dev->outstanding_high_file = debugfs_create_u8("outstanding_high",
-			flags, dev->folder, &dev->outstanding_high);
-	if (!dev->outstanding_high_file) {
+	file = debugfs_create_u8("outstanding_high",
+			flags, dev->directory, &dev->outstanding_high);
+	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding_high file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
-	dev->outstanding_low_file = debugfs_create_u8("outstanding_low",
-			flags, dev->folder, &dev->outstanding_low);
-	if (!dev->outstanding_low_file) {
+	file = debugfs_create_u8("outstanding_low",
+			flags, dev->directory, &dev->outstanding_low);
+	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding_low file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
-	dev->outstanding_file = debugfs_create_file("outstanding",
-			flags_read_only, dev->folder, dev,
+	file = debugfs_create_file("outstanding",
+			flags_read_only, dev->directory, dev,
 			&ecm_ipa_debugfs_atomic_ops);
-	if (!dev->outstanding_file) {
+	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding file\n");
-		ret = -EFAULT;
 		goto fail_file;
 	}
 
 	ECM_IPA_LOG_EXIT();
 	return 0;
 fail_file:
-	debugfs_remove_recursive(dev->folder);
-fail_folder:
-	return ret;
+	debugfs_remove_recursive(dev->directory);
+fail_directory:
+	return -EFAULT;
 }
 
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev)
 {
-	debugfs_remove_recursive(dev->folder);
+	debugfs_remove_recursive(dev->directory);
 }
 
 static void eth_get_drvinfo(struct net_device *net,
