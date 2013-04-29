@@ -94,7 +94,8 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 
 	for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
 
-		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_CTRL_0(i));
+		msm_camera_io_w(1 << PIX0_LINE_BUF_EN_BIT,
+			ispif->base + ISPIF_VFE_m_CTRL_0(i));
 		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_IRQ_MASK_0(i));
 		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_IRQ_MASK_1(i));
 		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_IRQ_MASK_2(i));
