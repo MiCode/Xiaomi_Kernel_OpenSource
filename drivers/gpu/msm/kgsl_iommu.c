@@ -1345,13 +1345,27 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 * we're better off with extra room.
 	 */
 	if (mmu->pt_per_process) {
+#ifndef CONFIG_MSM_KGSL_CFF_DUMP
 		mmu->pt_base = PAGE_OFFSET;
 		mmu->pt_size = KGSL_IOMMU_GLOBAL_MEM_BASE
 				- kgsl_mmu_get_base_addr(mmu) - SZ_1M;
 		mmu->use_cpu_map = true;
+#else
+		mmu->pt_base = KGSL_PAGETABLE_BASE;
+		mmu->pt_size = KGSL_IOMMU_GLOBAL_MEM_BASE +
+				KGSL_IOMMU_GLOBAL_MEM_SIZE -
+				KGSL_PAGETABLE_BASE;
+		mmu->use_cpu_map = false;
+#endif
 	} else {
 		mmu->pt_base = KGSL_PAGETABLE_BASE;
+#ifndef CONFIG_MSM_KGSL_CFF_DUMP
 		mmu->pt_size = SZ_2G;
+#else
+		mmu->pt_size = KGSL_IOMMU_GLOBAL_MEM_BASE +
+				KGSL_IOMMU_GLOBAL_MEM_SIZE -
+				KGSL_PAGETABLE_BASE;
+#endif
 		mmu->use_cpu_map = false;
 	}
 
