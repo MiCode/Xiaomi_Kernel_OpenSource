@@ -410,7 +410,7 @@ static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
  */
 static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 {
-	return mmu->pt_per_process;
+	return mmu->use_cpu_map;
 }
 
 /*
