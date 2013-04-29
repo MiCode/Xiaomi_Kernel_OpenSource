@@ -364,6 +364,22 @@ static int get_line(struct platform_device *pdev)
 	return msm_hsl_port->uart.line;
 }
 
+static int bus_vote(uint32_t client, int vector)
+{
+	int ret = 0;
+
+	if (!client)
+		return ret;
+
+	pr_debug("Voting for bus scaling:%d\n", vector);
+
+	ret = msm_bus_scale_client_update_request(client, vector);
+	if (ret)
+		pr_err("Failed to request bus bw vector %d\n", vector);
+
+	return ret;
+}
+
 static int clk_en(struct uart_port *port, int enable)
 {
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
@@ -372,9 +388,13 @@ static int clk_en(struct uart_port *port, int enable)
 	if (enable) {
 
 		msm_hsl_port->clk_enable_count++;
-		ret = clk_prepare_enable(msm_hsl_port->clk);
+		ret = bus_vote(msm_hsl_port->bus_perf_client,
+				!!msm_hsl_port->clk_enable_count);
 		if (ret)
 			goto err;
+		ret = clk_prepare_enable(msm_hsl_port->clk);
+		if (ret)
+			goto err_bus;
 		if (msm_hsl_port->pclk) {
 			ret = clk_prepare_enable(msm_hsl_port->pclk);
 			if (ret)
@@ -386,23 +406,17 @@ static int clk_en(struct uart_port *port, int enable)
 		clk_disable_unprepare(msm_hsl_port->clk);
 		if (msm_hsl_port->pclk)
 			clk_disable_unprepare(msm_hsl_port->pclk);
-	}
-
-	if (msm_hsl_port->bus_perf_client) {
-			pr_debug("Voting for bus scaling:%d\n",
-					!!msm_hsl_port->clk_enable_count);
-			ret = msm_bus_scale_client_update_request(
-				msm_hsl_port->bus_perf_client,
+		ret = bus_vote(msm_hsl_port->bus_perf_client,
 				!!msm_hsl_port->clk_enable_count);
-			if (ret)
-				pr_err("Failed to request bus bw vector %d\n",
-					!!msm_hsl_port->clk_enable_count);
 	}
 
 	return ret;
 
 err_clk_disable:
 	clk_disable_unprepare(msm_hsl_port->clk);
+err_bus:
+	bus_vote(msm_hsl_port->bus_perf_client,
+			!!(msm_hsl_port->clk_enable_count - 1));
 err:
 	msm_hsl_port->clk_enable_count--;
 	return ret;
