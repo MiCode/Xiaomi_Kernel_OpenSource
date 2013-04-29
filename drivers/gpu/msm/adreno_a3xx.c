@@ -3306,6 +3306,39 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 			NULL, PERFCOUNTER_FLAG_KERNEL);
 }
 
+/**
+ * a3xx_protect_init() - Initializes register protection on a3xx
+ * @device: Pointer to the device structure
+ * Performs register writes to enable protected access to sensitive
+ * registers
+ */
+static void a3xx_protect_init(struct kgsl_device *device)
+{
+	/* enable access protection to privileged registers */
+	kgsl_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
+
+	/* RBBM registers */
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0, 0x63000040);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_1, 0x62000080);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_2, 0x600000CC);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_3, 0x60000108);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_4, 0x64000140);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_5, 0x66000400);
+
+	/* CP registers */
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_6, 0x65000700);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_7, 0x610007D8);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_8, 0x620007E0);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_9, 0x61001178);
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_A, 0x64001180);
+
+	/* RB registers */
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_B, 0x60003300);
+
+	/* VBIF registers */
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_C, 0x6B00C000);
+}
+
 static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -3370,6 +3403,8 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}
+	/* Turn on protection */
+	a3xx_protect_init(device);
 
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
