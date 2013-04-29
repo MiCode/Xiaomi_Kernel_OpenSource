@@ -729,6 +729,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOSEQ)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOSEQ;
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DECODEONLY)
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_DECODEONLY;
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
 		case HAL_PICTURE_I:
