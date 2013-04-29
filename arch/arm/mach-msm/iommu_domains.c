@@ -378,7 +378,9 @@ int msm_allocate_iova_address(unsigned int iommu_domain,
 	if (!pool->gpool)
 		return -EINVAL;
 
+	mutex_lock(&pool->pool_mutex);
 	va = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
+	mutex_unlock(&pool->pool_mutex);
 	if (va) {
 		pool->free -= size;
 		/* Offset because genpool can't handle 0 addresses */
@@ -423,7 +425,9 @@ void msm_free_iova_address(unsigned long iova,
 	if (pool->paddr == 0)
 		iova += SZ_4K;
 
+	mutex_lock(&pool->pool_mutex);
 	gen_pool_free(pool->gpool, iova, size);
+	mutex_unlock(&pool->pool_mutex);
 }
 
 int msm_register_domain(struct msm_iova_layout *layout)
@@ -458,6 +462,7 @@ int msm_register_domain(struct msm_iova_layout *layout)
 
 		pools[i].paddr = layout->partitions[i].start;
 		pools[i].size = layout->partitions[i].size;
+		mutex_init(&pools[i].pool_mutex);
 
 		/*
 		 * genalloc can't handle a pool starting at address 0.
