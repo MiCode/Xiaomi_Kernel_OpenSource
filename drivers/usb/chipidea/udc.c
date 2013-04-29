@@ -2254,9 +2254,7 @@ static int udc_start(struct ci13xxx *ci)
 	pm_runtime_no_callbacks(&ci->gadget.dev);
 	pm_runtime_enable(&ci->gadget.dev);
 
-	retval = register_trace_usb_daytona_invalid_access(dump_usb_info,
-								NULL);
-	if (retval)
+	if (register_trace_usb_daytona_invalid_access(dump_usb_info, NULL))
 		pr_err("Registering trace failed\n");
 
 	return retval;
