@@ -491,10 +491,6 @@ static int connect_to_bam(void)
 				__func__);
 		return -EFAULT;
 	}
-	ret = sps_device_reset(a2_mux_ctx->a2_device_handle);
-	if (ret)
-		IPAERR("%s: device reset failed ret = %d\n",
-		       __func__, ret);
 	memset(&connect_params, 0, sizeof(struct ipa_sys_connect_params));
 	connect_params.client = IPA_CLIENT_A2_TETHERED_CONS;
 	connect_params.notify = ipa_tethered_notify;
@@ -604,12 +600,6 @@ static int disconnect_to_bam(void)
 	if (ret) {
 		IPAERR("%s: IPA bridge embedded DL failed to disconnect: %d\n",
 				__func__, ret);
-		return ret;
-	}
-	ret = sps_device_reset(a2_mux_ctx->a2_device_handle);
-	if (ret) {
-		IPAERR("%s: device reset failed ret = %d\n",
-			__func__, ret);
 		return ret;
 	}
 	verify_tx_queue_is_empty(__func__);
