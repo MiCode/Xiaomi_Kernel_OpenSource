@@ -30,6 +30,8 @@
 #define CNTTIDR		0x08
 #define CNTTIDR_VIRT(n)	(BIT(1) << ((n) * 4))
 
+#define CNTPCT_LO	0x00
+#define CNTPCT_HI	0x04
 #define CNTVCT_LO	0x08
 #define CNTVCT_HI	0x0c
 #define CNTFRQ		0x10
@@ -405,6 +407,19 @@ u32 arch_timer_get_rate(void)
 	return arch_timer_rate;
 }
 
+static u64 arch_counter_get_cntpct_mem(void)
+{
+	u32 pct_lo, pct_hi, tmp_hi;
+
+	do {
+		pct_hi = readl_relaxed(arch_counter_base + CNTPCT_HI);
+		pct_lo = readl_relaxed(arch_counter_base + CNTPCT_LO);
+		tmp_hi = readl_relaxed(arch_counter_base + CNTPCT_HI);
+	} while (pct_hi != tmp_hi);
+
+	return ((u64) pct_hi << 32) | pct_lo;
+}
+
 static u64 arch_counter_get_cntvct_mem(void)
 {
 	u32 vct_lo, vct_hi, tmp_hi;
@@ -424,7 +439,7 @@ static u64 arch_counter_get_cntvct_mem(void)
  * to exist on arm64. arm doesn't use this before DT is probed so even
  * if we don't have the cp15 accessors we won't have a problem.
  */
-u64 (*arch_timer_read_counter)(void) = arch_counter_get_cntvct;
+u64 (*arch_timer_read_counter)(void) = arch_counter_get_cntvct_cp15;
 
 static cycle_t arch_counter_read(struct clocksource *cs)
 {
@@ -432,6 +447,19 @@ static cycle_t arch_counter_read(struct clocksource *cs)
 }
 
 static cycle_t arch_counter_read_cc(const struct cyclecounter *cc)
+{
+	return arch_timer_read_counter();
+}
+
+u64 arch_counter_get_cntpct(void)
+{
+	if (arch_timer_read_counter == arch_counter_get_cntvct_cp15)
+		return arch_counter_get_cntpct_cp15();
+	else
+		return arch_counter_get_cntpct_mem();
+}
+
+u64 arch_counter_get_cntvct(void)
 {
 	return arch_timer_read_counter();
 }
@@ -462,7 +490,7 @@ static void __init arch_counter_register(unsigned type)
 
 	/* Register the CP15 based counter if we have one */
 	if (type & ARCH_CP15_TIMER) {
-		arch_timer_read_counter = arch_counter_get_cntvct;
+		arch_timer_read_counter = arch_counter_get_cntvct_cp15;
 	} else {
 		arch_timer_read_counter = arch_counter_get_cntvct_mem;
 
