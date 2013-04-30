@@ -125,7 +125,7 @@ static irqreturn_t mdp3_irq_handler(int irq, void *ptr)
 	pr_debug("mdp3_irq_handler irq=%d\n", mdp_interrupt);
 
 	spin_lock(&mdata->irq_lock);
-	mdp_interrupt &= mdata->irqMask;
+	mdp_interrupt &= mdata->irq_mask;
 
 	while (mdp_interrupt && i < MDP3_MAX_INTR) {
 		if ((mdp_interrupt & 0x1) && mdata->callbacks[i].cb)
@@ -145,14 +145,15 @@ void mdp3_irq_enable(int type)
 
 	pr_debug("mdp3_irq_enable type=%d\n", type);
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
-	if (mdp3_res->irqMask & BIT(type)) {
+	mdp3_res->irq_ref_count[type] += 1;
+	if (mdp3_res->irq_ref_count[type] > 1) {
 		pr_debug("interrupt %d already enabled\n", type);
 		spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 		return;
 	}
-	irqEnabled = mdp3_res->irqMask;
-	mdp3_res->irqMask |= BIT(type);
-	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irqMask);
+	irqEnabled = mdp3_res->irq_mask;
+	mdp3_res->irq_mask |= BIT(type);
+	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
 	if (!irqEnabled)
 		enable_irq(mdp3_res->irq);
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
@@ -163,26 +164,33 @@ void mdp3_irq_disable(int type)
 	unsigned long flag;
 
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
-	if (mdp3_res->irqMask & BIT(type)) {
-		mdp3_res->irqMask &= ~BIT(type);
-		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irqMask);
-		if (!mdp3_res->irqMask)
-			disable_irq(mdp3_res->irq);
-	} else {
+	if (mdp3_res->irq_ref_count[type] <= 0) {
 		pr_debug("interrupt %d not enabled\n", type);
+		spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
+		return;
+	}
+	mdp3_res->irq_ref_count[type] -= 1;
+	if (mdp3_res->irq_ref_count[type] == 0) {
+		mdp3_res->irq_mask &= ~BIT(type);
+		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
+		if (!mdp3_res->irq_mask)
+			disable_irq(mdp3_res->irq);
 	}
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
 
 void mdp3_irq_disable_nosync(int type)
 {
-	if (mdp3_res->irqMask & BIT(type)) {
-		mdp3_res->irqMask &= ~BIT(type);
-		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irqMask);
-		if (!mdp3_res->irqMask)
-			disable_irq_nosync(mdp3_res->irq);
-	} else {
+	if (mdp3_res->irq_ref_count[type] <= 0) {
 		pr_debug("interrupt %d not enabled\n", type);
+		return;
+	}
+	mdp3_res->irq_ref_count[type] -= 1;
+	if (mdp3_res->irq_ref_count[type] == 0) {
+		mdp3_res->irq_mask &= ~BIT(type);
+		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
+		if (!mdp3_res->irq_mask)
+			disable_irq_nosync(mdp3_res->irq);
 	}
 }
 
