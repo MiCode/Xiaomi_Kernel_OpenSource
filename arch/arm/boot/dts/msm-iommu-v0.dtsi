@@ -207,6 +207,7 @@
 		reg = <0xfd880000 0x10000>;
 		interrupts = <0 38 0>;
 		qcom,glb-offset = <0xF000>;
+		qcom,needs-alt-core-clk;
 		label = "gfx_iommu";
 		qcom,iommu-pmu-ngroups = <1>;
 		qcom,iommu-pmu-ncounters = <4>;
