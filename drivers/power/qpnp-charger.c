@@ -1564,9 +1564,9 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 
 			rc |= devm_request_irq(chip->dev, chip->chg_failed_irq,
 				qpnp_chg_chgr_chg_failed_irq_handler,
-				IRQF_TRIGGER_RISING, "chg_failed", chip);
+				IRQF_TRIGGER_RISING, "chg-failed", chip);
 			if (rc < 0) {
-				pr_err("Can't request %d chg_failed chg: %d\n",
+				pr_err("Can't request %d chg-failed: %d\n",
 						chip->chg_failed_irq, rc);
 				return rc;
 			}
@@ -1584,7 +1584,7 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc |= devm_request_irq(chip->dev, chip->chg_trklchg_irq,
 				qpnp_chg_chgr_chg_trklchg_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"fast-chg-on", chip);
+				"trkl-chg-on", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d trkl-chg-on: %d\n",
 						chip->chg_trklchg_irq, rc);
@@ -1607,7 +1607,7 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc = devm_request_irq(chip->dev, chip->batt_pres_irq,
 				qpnp_chg_bat_if_batt_pres_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"bat_if_batt_pres", chip);
+				"batt-pres", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d batt-pres irq: %d\n",
 						chip->batt_pres_irq, rc);
@@ -1628,9 +1628,9 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc = devm_request_irq(chip->dev, chip->usbin_valid_irq,
 				qpnp_chg_usb_usbin_valid_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-					"chg_usbin_valid", chip);
+					"usbin-valid", chip);
 			if (rc < 0) {
-				pr_err("Can't request %d usbinvalid: %d\n",
+				pr_err("Can't request %d usbin-valid: %d\n",
 						chip->usbin_valid_irq, rc);
 				return rc;
 			}
@@ -1644,9 +1644,9 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc = devm_request_irq(chip->dev, chip->chg_gone_irq,
 				qpnp_chg_usb_chg_gone_irq_handler,
 				IRQF_TRIGGER_RISING,
-					"chg_gone_irq", chip);
+					"chg-gone", chip);
 			if (rc < 0) {
-				pr_err("Can't request %d chg_gone: %d\n",
+				pr_err("Can't request %d chg-gone: %d\n",
 						chip->chg_gone_irq, rc);
 				return rc;
 			}
@@ -1663,9 +1663,9 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc = devm_request_irq(chip->dev, chip->dcin_valid_irq,
 				qpnp_chg_dc_dcin_valid_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"chg_dcin_valid", chip);
+				"dcin-valid", chip);
 			if (rc < 0) {
-				pr_err("Can't request %d dcinvalid: %d\n",
+				pr_err("Can't request %d dcin-valid: %d\n",
 						chip->dcin_valid_irq, rc);
 				return rc;
 			}
