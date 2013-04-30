@@ -367,6 +367,7 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 
 int mdss_mdp_rotator_release(u32 ndx)
 {
+	int rc = 0;
 	struct mdss_mdp_rotator_session *rot;
 	mutex_lock(&rotator_lock);
 	rot = mdss_mdp_rotator_session_get(ndx);
@@ -374,11 +375,11 @@ int mdss_mdp_rotator_release(u32 ndx)
 		mdss_mdp_rotator_finish(rot);
 	} else {
 		pr_warn("unknown session id=%x\n", ndx);
-		return -ENOENT;
+		rc = -ENOENT;
 	}
 	mutex_unlock(&rotator_lock);
 
-	return 0;
+	return rc;
 }
 
 int mdss_mdp_rotator_release_all(void)
