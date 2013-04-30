@@ -13,6 +13,7 @@
 #define __WCD9XXX_COMMON_H__
 
 #include <linux/notifier.h>
+#include <linux/mfd/wcd9xxx/core-resource.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 
 enum wcd9xxx_bandgap_type {
@@ -102,7 +103,7 @@ enum wcd9xxx_notify_event {
 
 struct wcd9xxx_resmgr {
 	struct snd_soc_codec *codec;
-	struct wcd9xxx *core;
+	struct wcd9xxx_core_resource *core_res;
 
 	u32 rx_bias_count;
 
@@ -150,7 +151,7 @@ struct wcd9xxx_resmgr {
 
 int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
-			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
 			struct wcd9xxx_reg_address *reg_addr);
 void wcd9xxx_resmgr_deinit(struct wcd9xxx_resmgr *resmgr);
