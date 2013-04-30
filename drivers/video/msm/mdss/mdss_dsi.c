@@ -1080,10 +1080,9 @@ int dsi_panel_device_register(struct platform_device *pdev,
 				&(panel_data->panel_info),
 				       sizeof(struct mdss_panel_info));
 
-	mdss_dsi_irq_handler_config(ctrl_pdata);
 	ctrl_pdata->panel_data.set_backlight = panel_data->bl_fnc;
 	ctrl_pdata->bklt_ctrl = panel_data->panel_info.bklt_ctrl;
-	ctrl_pdata->pwm_gpio = panel_data->panel_info.pwm_gpio;
+	ctrl_pdata->pwm_pmic_gpio = panel_data->panel_info.pwm_pmic_gpio;
 	ctrl_pdata->pwm_period = panel_data->panel_info.pwm_period;
 	ctrl_pdata->pwm_lpg_chan = panel_data->panel_info.pwm_lpg_chan;
 	ctrl_pdata->bklt_max = panel_data->panel_info.bl_max;
@@ -1091,6 +1090,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	if (ctrl_pdata->bklt_ctrl == BL_PWM)
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
 
+	mdss_dsi_ctrl_init(ctrl_pdata);
 	/*
 	 * register in mdp driver
 	 */
@@ -1172,8 +1172,6 @@ static int mdss_dsi_register_driver(void)
 static int __init mdss_dsi_driver_init(void)
 {
 	int ret;
-
-	mdss_dsi_init();
 
 	ret = mdss_dsi_register_driver();
 	if (ret) {
