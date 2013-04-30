@@ -26,9 +26,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include "ion_priv.h"
-#include <mach/memory.h>
-#include <asm/cacheflush.h>
-#include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
 #include <trace/events/kmem.h>
 
@@ -285,7 +282,7 @@ static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	return 0;
 }
 
-struct ion_heap *ion_system_heap_create(struct ion_platform_heap *pheap)
+struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 {
 	struct ion_system_heap *heap;
 	int i;
@@ -399,7 +396,7 @@ static struct ion_heap_ops kmalloc_ops = {
 	.map_user = ion_heap_map_user,
 };
 
-struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *pheap)
+struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *unused)
 {
 	struct ion_heap *heap;
 
