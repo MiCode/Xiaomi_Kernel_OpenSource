@@ -2356,6 +2356,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_pcm_hostless,
 	&msm_multi_ch_pcm,
 	&msm_lowlatency_pcm,
+	&msm_fm_loopback,
 };
 
 static void __init msm8930_i2c_init(void)

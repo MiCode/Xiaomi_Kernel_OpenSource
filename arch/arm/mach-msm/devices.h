@@ -260,6 +260,7 @@ extern struct platform_device msm_i2s_cpudai1;
 extern struct platform_device msm_i2s_cpudai4;
 extern struct platform_device msm_i2s_cpudai5;
 extern struct platform_device msm_cpudai_stub;
+extern struct platform_device msm_fm_loopback;
 
 extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_pil_modem;
