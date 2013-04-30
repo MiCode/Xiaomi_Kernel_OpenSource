@@ -39,6 +39,7 @@
 static atomic_t ov_active_panels = ATOMIC_INIT(0);
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
+static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
@@ -603,7 +604,7 @@ static inline int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 	return 0;
 }
 
-static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
+static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -628,8 +629,6 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	mutex_unlock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list)
 		mdss_mdp_pipe_destroy(pipe);
-
-	return 0;
 }
 
 int mdss_mdp_copy_splash_screen(struct mdss_panel_data *pdata)
@@ -826,7 +825,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 	mutex_unlock(&mfd->no_update.lock);
 
 commit_fail:
-	ret = mdss_mdp_overlay_cleanup(mfd);
+	mdss_mdp_overlay_cleanup(mfd);
 
 	mutex_unlock(&mdp5_data->ov_lock);
 
@@ -1021,7 +1020,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
-static int mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
+static void mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
@@ -1039,9 +1038,7 @@ static int mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 			mdss_mdp_display_wait4comp(ctl);
 	}
 
-	ret = mdss_mdp_overlay_cleanup(mfd);
-
-	return ret;
+	mdss_mdp_overlay_cleanup(mfd);
 }
 
 static void mdss_mdp_overlay_force_dma_cleanup(struct mdss_data_type *mdata)
@@ -1914,7 +1911,10 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			return rc;
 	}
 
-	if (!IS_ERR_VALUE(rc) && mdp5_data->vsync_pending) {
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("Failed to turn on fb%d\n", mfd->index);
+		mdss_mdp_overlay_off(mfd);
+	} else if (mdp5_data->vsync_pending) {
 		mdp5_data->vsync_pending = 0;
 		mdss_mdp_overlay_vsync_ctrl(mfd, mdp5_data->vsync_pending);
 	}
