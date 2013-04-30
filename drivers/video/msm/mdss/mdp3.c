@@ -48,11 +48,12 @@
 #include "mdss_fb.h"
 #include "mdp3_hwio.h"
 #include "mdp3_ctrl.h"
+#include "mdp3_ppp.h"
 
 #define MDP_CORE_HW_VERSION	0x03040310
 struct mdp3_hw_resource *mdp3_res;
 
-#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
+#define MDP_BUS_VECTOR_ENTRY_DMA(ab_val, ib_val)		\
 	{						\
 		.src = MSM_BUS_MASTER_MDP_PORT0,	\
 		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
@@ -60,18 +61,57 @@ struct mdp3_hw_resource *mdp3_res;
 		.ib = (ib_val),				\
 	}
 
-static struct msm_bus_vectors mdp_bus_vectors[] = {
-	MDP_BUS_VECTOR_ENTRY(0, 0),
-	MDP_BUS_VECTOR_ENTRY(SZ_128M, SZ_256M),
-	MDP_BUS_VECTOR_ENTRY(SZ_256M, SZ_512M),
+static struct msm_bus_vectors mdp_bus_dma_vectors[] = {
+	MDP_BUS_VECTOR_ENTRY_DMA(0, 0),
+	MDP_BUS_VECTOR_ENTRY_DMA(SZ_128M, SZ_256M),
+	MDP_BUS_VECTOR_ENTRY_DMA(SZ_256M, SZ_512M),
+};
+static struct msm_bus_paths
+	mdp_bus_dma_usecases[ARRAY_SIZE(mdp_bus_dma_vectors)];
+static struct msm_bus_scale_pdata mdp_bus_dma_scale_table = {
+	.usecase = mdp_bus_dma_usecases,
+	.num_usecases = ARRAY_SIZE(mdp_bus_dma_usecases),
+	.name = "mdp3",
 };
 
-static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
+#define MDP_BUS_VECTOR_ENTRY_PPP(ab_val, ib_val)		\
+	{						\
+		.src = MSM_BUS_MASTER_MDPE,	\
+		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
+		.ab = (ab_val),				\
+		.ib = (ib_val),				\
+	}
 
-static struct msm_bus_scale_pdata mdp_bus_scale_table = {
-	.usecase = mdp_bus_usecases,
-	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
+static struct msm_bus_vectors mdp_bus_ppp_vectors[] = {
+	MDP_BUS_VECTOR_ENTRY_PPP(0, 0),
+	MDP_BUS_VECTOR_ENTRY_PPP(SZ_128M, SZ_256M),
+	MDP_BUS_VECTOR_ENTRY_PPP(SZ_256M, SZ_512M),
+};
+
+static struct msm_bus_paths
+	mdp_bus_ppp_usecases[ARRAY_SIZE(mdp_bus_ppp_vectors)];
+
+static struct msm_bus_scale_pdata mdp_bus_ppp_scale_table = {
+	.usecase = mdp_bus_ppp_usecases,
+	.num_usecases = ARRAY_SIZE(mdp_bus_ppp_usecases),
 	.name = "mdp3",
+};
+
+struct mdp3_bus_handle_map mdp3_bus_handle[MDP3_BUS_HANDLE_MAX] = {
+	[MDP3_BUS_HANDLE_DMA] = {
+		.bus_vector = mdp_bus_dma_vectors,
+		.usecases = mdp_bus_dma_usecases,
+		.scale_pdata = &mdp_bus_dma_scale_table,
+		.current_bus_idx = 0,
+		.handle = 0,
+	},
+	[MDP3_BUS_HANDLE_PPP] = {
+		.bus_vector = mdp_bus_ppp_vectors,
+		.usecases = mdp_bus_ppp_usecases,
+		.scale_pdata = &mdp_bus_ppp_scale_table,
+		.current_bus_idx = 0,
+		.handle = 0,
+	},
 };
 
 struct mdp3_iommu_domain_map mdp3_iommu_domains[MDP3_IOMMU_DOMAIN_MAX] = {
@@ -213,71 +253,106 @@ int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb)
 
 static int mdp3_bus_scale_register(void)
 {
+	int i;
+
 	if (!mdp3_res->bus_handle) {
-		struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
-		int i;
+		pr_err("No bus handle\n");
+		return -EINVAL;
+	}
+	for (i = 0; i < MDP3_BUS_HANDLE_MAX; i++) {
+		struct mdp3_bus_handle_map *bus_handle =
+			&mdp3_res->bus_handle[i];
 
-		for (i = 0; i < bus_pdata->num_usecases; i++) {
-			mdp_bus_usecases[i].num_paths = 1;
-			mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
-		}
+		if (!bus_handle->handle) {
+			int j;
+			struct msm_bus_scale_pdata *bus_pdata =
+				bus_handle->scale_pdata;
 
-		mdp3_res->bus_handle = msm_bus_scale_register_client(bus_pdata);
-		if (!mdp3_res->bus_handle) {
-			pr_err("not able to get bus scale\n");
-			return -ENOMEM;
+			for (j = 0; j < bus_pdata->num_usecases; j++) {
+				bus_handle->usecases[j].num_paths = 1;
+				bus_handle->usecases[j].vectors =
+					&bus_handle->bus_vector[j];
+			}
+
+			bus_handle->handle =
+				msm_bus_scale_register_client(bus_pdata);
+			if (!bus_handle->handle) {
+				pr_err("not able to get bus scale i=%d\n", i);
+				return -ENOMEM;
+			}
+			pr_debug("register bus_hdl=%x\n",
+				bus_handle->handle);
 		}
-		pr_debug("register bus_hdl=%x\n", mdp3_res->bus_handle);
 	}
 	return 0;
 }
 
 static void mdp3_bus_scale_unregister(void)
 {
-	pr_debug("unregister bus_handle=%x\n", mdp3_res->bus_handle);
-
-	if (mdp3_res->bus_handle)
-		msm_bus_scale_unregister_client(mdp3_res->bus_handle);
+	int i;
+	for (i = 0; i < MDP3_BUS_HANDLE_MAX; i++) {
+		pr_debug("unregister index=%d bus_handle=%x\n",
+			i, mdp3_res->bus_handle[i].handle);
+		if (mdp3_res->bus_handle[i].handle) {
+			msm_bus_scale_unregister_client(
+			   mdp3_res->bus_handle[i].handle);
+			mdp3_res->bus_handle[i].handle = 0;
+		}
+	}
 }
 
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 {
-	static int current_bus_idx;
+	struct mdp3_bus_handle_map *bus_handle;
+	int cur_bus_idx;
 	int bus_idx;
+	int client_idx;
 	int rc;
 
-	if (mdp3_res->bus_handle < 1) {
-		pr_err("invalid bus handle %d\n", mdp3_res->bus_handle);
+	if (client == MDP3_CLIENT_DMA_P) {
+		client_idx  = MDP3_BUS_HANDLE_DMA;
+	} else if (client == MDP3_CLIENT_PPP) {
+		client_idx  = MDP3_BUS_HANDLE_PPP;
+	} else {
+		pr_err("invalid client %d\n", client);
+		return -EINVAL;
+	}
+
+	bus_handle = &mdp3_res->bus_handle[client_idx];
+	cur_bus_idx = bus_handle->current_bus_idx;
+
+	if (bus_handle->handle < 1) {
+		pr_err("invalid bus handle %d\n", bus_handle->handle);
 		return -EINVAL;
 	}
 
 	if ((ab_quota | ib_quota) == 0) {
 		bus_idx = 0;
 	} else {
-		int num_cases = mdp_bus_scale_table.num_usecases;
+		int num_cases = bus_handle->scale_pdata->num_usecases;
 		struct msm_bus_vectors *vect = NULL;
 
-		bus_idx = (current_bus_idx % (num_cases - 1)) + 1;
+		bus_idx = (cur_bus_idx % (num_cases - 1)) + 1;
 
 		/* aligning to avoid performing updates for small changes */
 		ab_quota = ALIGN(ab_quota, SZ_64M);
 		ib_quota = ALIGN(ib_quota, SZ_64M);
 
-		vect = mdp_bus_scale_table.usecase[current_bus_idx].vectors;
+		vect = bus_handle->scale_pdata->usecase[cur_bus_idx].vectors;
 		if ((ab_quota == vect->ab) && (ib_quota == vect->ib)) {
 			pr_debug("skip bus scaling, no change in vectors\n");
 			return 0;
 		}
 
-		vect = mdp_bus_scale_table.usecase[bus_idx].vectors;
+		vect = bus_handle->scale_pdata->usecase[bus_idx].vectors;
 		vect->ab = ab_quota;
 		vect->ib = ib_quota;
 
 		pr_debug("bus scale idx=%d ab=%llu ib=%llu\n", bus_idx,
 				vect->ab, vect->ib);
 	}
-	current_bus_idx = bus_idx;
-	rc = msm_bus_scale_client_update_request(mdp3_res->bus_handle, bus_idx);
+	bus_handle->current_bus_idx = bus_idx;
+	rc = msm_bus_scale_client_update_request(bus_handle->handle, bus_idx);
 	return rc;
 }
 
@@ -298,7 +373,7 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 		mdp3_res->clock_ref_count[clk_idx]--;
 
 	count = mdp3_res->clock_ref_count[clk_idx];
-	if (count == 1) {
+	if (count == 1 && enable) {
 		pr_debug("clk=%d en=%d\n", clk_idx, enable);
 		ret = clk_prepare_enable(clk);
 	} else if (count == 0) {
@@ -655,6 +730,7 @@ static int mdp3_res_init(void)
 		pr_err("fail to attach DMA-P context 0\n");
 		return rc;
 	}
+	mdp3_res->bus_handle = mdp3_bus_handle;
 	rc = mdp3_bus_scale_register();
 	if (rc) {
 		pr_err("unable to register bus scaling\n");
@@ -800,9 +876,28 @@ done:
 	return ret;
 }
 
+int mdp3_ppp_iommu_attach(void)
+{
+	int rc;
+	rc = mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_0);
+	rc |= mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_1);
+	return rc;
+}
+
+int mdp3_ppp_iommu_dettach(void)
+{
+	int rc;
+	rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_0);
+	rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_1);
+	return rc;
+}
+
 static int mdp3_init(struct msm_fb_data_type *mfd)
 {
-	return mdp3_ctrl_init(mfd);
+	int rc;
+	rc = mdp3_ctrl_init(mfd);
+	rc |= mdp3_ppp_res_init();
+	return rc;
 }
 
 u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
