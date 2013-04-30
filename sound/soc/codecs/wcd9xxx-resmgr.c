@@ -797,7 +797,7 @@ int wcd9xxx_resmgr_unregister_notifier(struct wcd9xxx_resmgr *resmgr,
 
 int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
-			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
 			struct wcd9xxx_reg_address *reg_addr)
 {
@@ -808,7 +808,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 	resmgr->bandgap_type = WCD9XXX_BANDGAP_OFF;
 	resmgr->codec = codec;
 	/* This gives access of core handle to lock/unlock suspend */
-	resmgr->core = wcd9xxx;
+	resmgr->core_res = core_res;
 	resmgr->pdata = pdata;
 	resmgr->reg_addr = reg_addr;
 

@@ -4051,6 +4051,7 @@ static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
 	int ret;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -4064,13 +4065,15 @@ static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 				reg, ret);
 	}
 
-	return wcd9xxx_reg_write(codec->control_data, reg, value);
+	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
 }
 static unsigned int taiko_read(struct snd_soc_codec *codec,
 				unsigned int reg)
 {
 	unsigned int val;
 	int ret;
+
+	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -4087,7 +4090,7 @@ static unsigned int taiko_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	val = wcd9xxx_reg_read(codec->control_data, reg);
+	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
 	return val;
 }
 
@@ -6151,8 +6154,11 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = taiko->codec;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
 
-	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
+	ret = wcd9xxx_request_irq(core_res, WCD9XXX_IRQ_SLIMBUS,
 				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
 	if (ret)
 		pr_err("%s: Failed to request irq %d\n", __func__,
@@ -6166,8 +6172,11 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 static void taiko_cleanup_irqs(struct taiko_priv *taiko)
 {
 	struct snd_soc_codec *codec = taiko->codec;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
 
-	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, taiko);
+	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_SLIMBUS, taiko);
 }
 
 int taiko_hs_detect(struct snd_soc_codec *codec,
@@ -6180,7 +6189,7 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 		taiko->mbhc_started = true;
 	return rc;
 }
-EXPORT_SYMBOL_GPL(taiko_hs_detect);
+EXPORT_SYMBOL(taiko_hs_detect);
 
 void taiko_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
@@ -6190,7 +6199,7 @@ void taiko_event_register(
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	taiko->machine_codec_event_cb = machine_event_cb;
 }
-EXPORT_SYMBOL_GPL(taiko_event_register);
+EXPORT_SYMBOL(taiko_event_register);
 
 static void taiko_init_slim_slave_cfg(struct snd_soc_codec *codec)
 {
@@ -6412,6 +6421,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	int i, rco_clk_rate;
 	void *ptr = NULL;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct wcd9xxx_core_resource *core_res;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -6437,8 +6447,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	wcd9xxx = codec->control_data;
+	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
-	ret = wcd9xxx_resmgr_init(&taiko->resmgr, codec, wcd9xxx, pdata,
+	ret = wcd9xxx_resmgr_init(&taiko->resmgr, codec, core_res, pdata,
 				  &taiko_reg_address);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);

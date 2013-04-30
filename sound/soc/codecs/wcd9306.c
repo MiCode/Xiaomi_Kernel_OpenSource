@@ -2977,6 +2977,7 @@ static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
 	int ret;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -2990,13 +2991,14 @@ static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
 				reg, ret);
 	}
 
-	return wcd9xxx_reg_write(codec->control_data, reg, value);
+	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
 }
 static unsigned int tapan_read(struct snd_soc_codec *codec,
 				unsigned int reg)
 {
 	unsigned int val;
 	int ret;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -3013,7 +3015,7 @@ static unsigned int tapan_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	val = wcd9xxx_reg_read(codec->control_data, reg);
+	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
 	return val;
 }
 
@@ -4815,8 +4817,10 @@ static int tapan_setup_irqs(struct tapan_priv *tapan)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = tapan->codec;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
-	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
+	ret = wcd9xxx_request_irq(core_res, WCD9XXX_IRQ_SLIMBUS,
 				  tapan_slimbus_irq, "SLIMBUS Slave", tapan);
 	if (ret)
 		pr_err("%s: Failed to request irq %d\n", __func__,
@@ -4830,7 +4834,9 @@ static int tapan_setup_irqs(struct tapan_priv *tapan)
 static void tapan_cleanup_irqs(struct tapan_priv *tapan)
 {
 	struct snd_soc_codec *codec = tapan->codec;
-	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, tapan);
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
+	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_SLIMBUS, tapan);
 }
 
 
@@ -4905,7 +4911,7 @@ int tapan_hs_detect(struct snd_soc_codec *codec,
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	return wcd9xxx_mbhc_start(&tapan->mbhc, mbhc_cfg);
 }
-EXPORT_SYMBOL_GPL(tapan_hs_detect);
+EXPORT_SYMBOL(tapan_hs_detect);
 
 static int tapan_device_down(struct wcd9xxx *wcd9xxx)
 {
@@ -5010,10 +5016,12 @@ static struct regulator *tapan_codec_find_regulator(
 
 static void tapan_enable_config_rco(struct wcd9xxx *core, bool enable)
 {
+	struct wcd9xxx_core_resource *core_res = &core->core_res;
+
 	if (enable) {
 		/* Enable RC Oscillator */
 		wcd9xxx_reg_update(core, WCD9XXX_A_RC_OSC_FREQ, 0x10, 0x00);
-		wcd9xxx_reg_write(core, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x17);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x17);
 		usleep_range(5, 5);
 		wcd9xxx_reg_update(core, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0x80);
 		wcd9xxx_reg_update(core, WCD9XXX_A_RC_OSC_TEST, 0x80, 0x80);
@@ -5022,7 +5030,7 @@ static void tapan_enable_config_rco(struct wcd9xxx *core, bool enable)
 		usleep_range(20, 20);
 		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN1, 0x08, 0x08);
 		/* Enable MCLK and wait 1ms till it gets enabled */
-		wcd9xxx_reg_write(core, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
 		usleep_range(1000, 1000);
 		/* Enable CLK BUFF and wait for 1.2ms */
 		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN1, 0x01, 0x01);
@@ -5050,6 +5058,7 @@ static bool tapan_check_wcd9306(struct device *cdc_dev, bool sensed)
 	bool ret = true;
 	unsigned long timeout;
 	bool timedout;
+	struct wcd9xxx_core_resource *core_res = &core->core_res;
 
 	if (!core) {
 		dev_err(cdc_dev, "%s: core not initialized\n", __func__);
@@ -5059,18 +5068,19 @@ static bool tapan_check_wcd9306(struct device *cdc_dev, bool sensed)
 	tapan_enable_config_rco(core, 1);
 
 	if (sensed == false) {
-		reg_val = wcd9xxx_reg_read(core, TAPAN_A_QFUSE_CTL);
-		wcd9xxx_reg_write(core, TAPAN_A_QFUSE_CTL, (reg_val | 0x03));
+		reg_val = wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_CTL);
+		wcd9xxx_reg_write(core_res, TAPAN_A_QFUSE_CTL,
+					(reg_val | 0x03));
 	}
 
 	timeout = jiffies + HZ;
 	do {
-		if ((wcd9xxx_reg_read(core, TAPAN_A_QFUSE_STATUS)))
+		if ((wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_STATUS)))
 			break;
 	} while (!(timedout = time_after(jiffies, timeout)));
 
-	if (wcd9xxx_reg_read(core, TAPAN_A_QFUSE_DATA_OUT1) ||
-	    wcd9xxx_reg_read(core, TAPAN_A_QFUSE_DATA_OUT2)) {
+	if (wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_DATA_OUT1) ||
+	    wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_DATA_OUT2)) {
 		dev_info(cdc_dev, "%s: wcd9302 detected\n", __func__);
 		ret = false;
 	} else
@@ -5090,6 +5100,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	int ret = 0;
 	int i, rco_clk_rate;
 	void *ptr = NULL;
+	struct wcd9xxx_core_resource *core_res;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -5115,8 +5126,9 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	wcd9xxx = codec->control_data;
+	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
-	ret = wcd9xxx_resmgr_init(&tapan->resmgr, codec, wcd9xxx, pdata,
+	ret = wcd9xxx_resmgr_init(&tapan->resmgr, codec, core_res, pdata,
 				  &tapan_reg_address);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
