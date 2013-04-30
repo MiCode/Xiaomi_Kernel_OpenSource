@@ -29,33 +29,47 @@
 void vsync_notify_handler(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
+	spin_lock(&session->vsync_lock);
+	session->vsync_time = ktime_get();
 	complete(&session->vsync_comp);
+	spin_unlock(&session->vsync_lock);
 }
 
 static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 {
 	struct mdp3_session_data *mdp3_session;
 	struct mdp3_vsync_notification vsync_client;
+	struct mdp3_vsync_notification *arg = NULL;
+	unsigned long flag;
 
+	pr_debug("mdp3_ctrl_vsync_enable =%d\n", enable);
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 	if (!mdp3_session || !mdp3_session->panel || !mdp3_session->dma ||
 		!mdp3_session->intf)
 		return -ENODEV;
 
-	vsync_client.handler = vsync_notify_handler;
-	vsync_client.arg = mdp3_session;
-
-	mutex_lock(&mdp3_session->lock);
 	if (!mdp3_session->status) {
 		pr_debug("fb%d is not on yet", mfd->index);
-		mutex_unlock(&mdp3_session->lock);
 		return -EINVAL;
 	}
+	if (enable) {
+		vsync_client.handler = vsync_notify_handler;
+		vsync_client.arg = mdp3_session;
+		arg = &vsync_client;
+	}
 
-	mdp3_session->dma->vsync_enable(mdp3_session->dma, &vsync_client);
+	mutex_lock(&mdp3_session->lock);
+	mdp3_session->dma->vsync_enable(mdp3_session->dma, arg);
 	mutex_unlock(&mdp3_session->lock);
+	spin_lock_irqsave(&mdp3_session->vsync_lock, flag);
+	if (enable)
+		INIT_COMPLETION(mdp3_session->vsync_comp);
+	else
+		complete_all(&mdp3_session->vsync_comp);
+	spin_unlock_irqrestore(&mdp3_session->vsync_lock, flag);
 	return 0;
 }
+
 
 static ssize_t mdp3_vsync_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -64,8 +78,8 @@ static ssize_t mdp3_vsync_show_event(struct device *dev,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdp3_session_data *mdp3_session = NULL;
 	u64 vsync_ticks;
-	ktime_t vsync_time;
 	int rc;
+	unsigned long flag;
 
 	if (!mfd || !mfd->mdp.private1)
 		return 0;
@@ -78,11 +92,11 @@ static ssize_t mdp3_vsync_show_event(struct device *dev,
 	if (rc <= 0) {
 		pr_warn("vsync wait on fb%d interrupted (%d)\n",
 			mfd->index, rc);
-		return -EBUSY;
 	}
 
-	vsync_time = mdp3_session->dma->get_vsync_time(mdp3_session->dma);
-	vsync_ticks = ktime_to_ns(vsync_time);
+	spin_lock_irqsave(&mdp3_session->vsync_lock, flag);
+	vsync_ticks = ktime_to_ns(mdp3_session->vsync_time);
+	spin_unlock_irqrestore(&mdp3_session->vsync_lock, flag);
 
 	pr_debug("fb%d vsync=%llu", mfd->index, vsync_ticks);
 	rc = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_ticks);
@@ -478,8 +492,6 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 	case MSMFB_OVERLAY_VSYNC_CTRL:
 		if (!copy_from_user(&val, argp, sizeof(val))) {
 			rc = mdp3_ctrl_vsync_enable(mfd, val);
-			if (!val)
-				init_completion(&mdp3_session->vsync_comp);
 		} else {
 			pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed\n");
 			rc = -EFAULT;
@@ -525,6 +537,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	memset(mdp3_session, 0, sizeof(struct mdp3_session_data));
 	mutex_init(&mdp3_session->lock);
 	init_completion(&mdp3_session->vsync_comp);
+	spin_lock_init(&mdp3_session->vsync_lock);
 	mdp3_session->dma = mdp3_get_dma_pipe(MDP3_DMA_CAP_ALL);
 	if (!mdp3_session->dma) {
 		rc = -ENODEV;
@@ -540,7 +553,6 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 
 	mdp3_session->panel = dev_get_platdata(&mfd->pdev->dev);
 	mdp3_session->status = 0;
-
 	mfd->mdp.private1 = mdp3_session;
 
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
