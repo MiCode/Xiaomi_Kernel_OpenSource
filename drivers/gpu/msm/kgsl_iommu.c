@@ -268,6 +268,8 @@ static void _check_if_freed(struct kgsl_iommu_device *iommu_dev,
 	void *base = kgsl_driver.memfree_hist.base_hist_rb;
 	struct kgsl_memfree_hist_elem *wptr;
 	struct kgsl_memfree_hist_elem *p;
+	char name[32];
+	memset(name, 0, sizeof(name));
 
 	mutex_lock(&kgsl_driver.memfree_hist_mutex);
 	wptr = kgsl_driver.memfree_hist.wptr;
@@ -277,12 +279,15 @@ static void _check_if_freed(struct kgsl_iommu_device *iommu_dev,
 			if (addr >= p->gpuaddr &&
 				addr < (p->gpuaddr + p->size)) {
 
+				kgsl_get_memory_usage(name, sizeof(name) - 1,
+					p->flags),
 				KGSL_LOG_DUMP(iommu_dev->kgsldev,
 					"---- premature free ----\n");
 				KGSL_LOG_DUMP(iommu_dev->kgsldev,
-					"[%8.8X-%8.8X] was already freed by pid %d\n",
+					"[%8.8X-%8.8X] (%s) was already freed by pid %d\n",
 					p->gpuaddr,
 					p->gpuaddr + p->size,
+					name,
 					p->pid);
 			}
 		p++;
