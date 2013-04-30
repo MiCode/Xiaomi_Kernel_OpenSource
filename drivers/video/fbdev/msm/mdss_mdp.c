@@ -388,12 +388,11 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 
 		bus_idx = (current_bus_idx % (num_cases - 1)) + 1;
 
-		/* aligning to avoid performing updates for small changes */
-		ab_quota = ALIGN(ab_quota, SZ_64M);
-		ib_quota = ALIGN(ib_quota, SZ_64M);
-
 		vect = mdp_bus_scale_table.usecase[current_bus_idx].vectors;
-		if ((ab_quota == vect->ab) && (ib_quota == vect->ib)) {
+
+		/* avoid performing updates for small changes */
+		if ((ALIGN(ab_quota, SZ_64M) == ALIGN(vect->ab, SZ_64M)) &&
+			(ALIGN(ib_quota, SZ_64M) == ALIGN(vect->ib, SZ_64M))) {
 			pr_debug("skip bus scaling, no change in vectors\n");
 			return 0;
 		}
