@@ -73,6 +73,9 @@
 #define CF0TH12_BYTE4_OFFSET   11
 #define MAX_SINR_FIRSTSTAGE	127
 #define MAX_RMSSI_FIRSTSTAGE	127
+#define RDS_PS0_XFR_MODE 0x01
+#define RDS_PS0_LEN 6
+#define RX_REPEATE_BYTE_OFFSET 5
 
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
