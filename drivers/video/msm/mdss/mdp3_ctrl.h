@@ -29,6 +29,8 @@ struct mdp3_session_data {
 	struct mdss_panel_data *panel;
 	struct mdp3_intf *intf;
 	struct msm_fb_data_type *mfd;
+	ktime_t vsync_time;
+	spinlock_t vsync_lock;
 	struct completion vsync_comp;
 };
 

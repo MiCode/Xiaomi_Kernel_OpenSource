@@ -100,7 +100,8 @@ struct mdp3_hw_resource {
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];
 
 	spinlock_t irq_lock;
-	u32 irqMask;
+	u32 irq_ref_count[MDP3_MAX_INTR];
+	u32 irq_mask;
 	struct mdp3_intr_cb callbacks[MDP3_MAX_INTR];
 
 	struct early_suspend suspend_handler;
