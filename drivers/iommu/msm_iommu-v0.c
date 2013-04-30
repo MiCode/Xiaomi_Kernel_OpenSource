@@ -148,12 +148,26 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 		if (ret)
 			clk_disable_unprepare(drvdata->pclk);
 	}
+
+	if (ret)
+		goto fail;
+
+	if (drvdata->aclk) {
+		ret = clk_prepare_enable(drvdata->aclk);
+		if (ret) {
+			clk_disable_unprepare(drvdata->clk);
+			clk_disable_unprepare(drvdata->pclk);
+		}
+	}
+
 fail:
 	return ret;
 }
 
 static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 {
+	if (drvdata->aclk)
+		clk_disable_unprepare(drvdata->aclk);
 	if (drvdata->clk)
 		clk_disable_unprepare(drvdata->clk);
 	clk_disable_unprepare(drvdata->pclk);
