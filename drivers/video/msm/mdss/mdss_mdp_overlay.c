@@ -1467,6 +1467,7 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	int ret;
 	struct msmfb_mdp_pp mdp_pp;
 	u32 copyback = 0;
+	u32 copy_from_kernel = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
 	ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
@@ -1493,7 +1494,7 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 					mdp5_data->ctl,
 					(struct mdp_igc_lut_data *)
 					&mdp_pp.data.lut_cfg_data.data,
-					&copyback);
+					&copyback, copy_from_kernel);
 			break;
 
 		case mdp_lut_pgc:
