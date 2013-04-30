@@ -582,7 +582,7 @@ static bool is_battery_charging(struct qpnp_bms_chip *chip)
 	return false;
 }
 
-static bool is_batfet_open(struct qpnp_bms_chip *chip)
+static bool is_battery_full(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
 
@@ -610,18 +610,32 @@ static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 
 	iadc_channel = chip->use_external_rsense ?
 				EXTERNAL_RSENSE : INTERNAL_RSENSE;
-	rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
-				VBAT_SNS, &v_result);
-	if (rc) {
-		pr_err("vadc read failed with rc: %d\n", rc);
-		return rc;
+	if (is_battery_full(chip)) {
+		rc = get_battery_current(chip, ibat_ua);
+		if (rc) {
+			pr_err("bms current read failed with rc: %d\n", rc);
+			return rc;
+		}
+		rc = qpnp_vadc_read(VBAT_SNS, &v_result);
+		if (rc) {
+			pr_err("vadc read failed with rc: %d\n", rc);
+			return rc;
+		}
+		*vbat_uv = (int)v_result.physical;
+	} else {
+		rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
+					VBAT_SNS, &v_result);
+		if (rc) {
+			pr_err("adc sync read failed with rc: %d\n", rc);
+			return rc;
+		}
+		/*
+		* reverse the current read by the iadc, since the bms uses
+		* flipped battery current polarity.
+		*/
+		*ibat_ua = -1 * (int)i_result.result_ua;
+		*vbat_uv = (int)v_result.physical;
 	}
-	/*
-	 * reverse the current read by the iadc, since the bms uses
-	 * flipped battery current polarity.
-	 */
-	*ibat_ua = -1 * (int)i_result.result_ua;
-	*vbat_uv = (int)v_result.physical;
 
 	return 0;
 }
@@ -1401,7 +1415,7 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		goto out;
 	}
 
-	if (ibat_ua < 0 && !is_batfet_open(chip)) {
+	if (ibat_ua < 0 && !is_battery_full(chip)) {
 		soc = charging_adjustments(chip, params, soc, vbat_uv, ibat_ua,
 				batt_temp);
 		goto out;
