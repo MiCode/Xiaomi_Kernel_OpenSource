@@ -222,7 +222,7 @@ struct mdss_panel_info {
 	u32 out_format;
 	u32 vic; /* video identification code */
 	int bklt_ctrl;	/* backlight ctrl */
-	int pwm_gpio;
+	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
 
