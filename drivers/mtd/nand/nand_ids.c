@@ -153,6 +153,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 	EXTENDED_ID_NAND("NAND 64GiB 1,8V 16-bit", 0x2E, 65536, LP_OPTIONS16),
 	EXTENDED_ID_NAND("NAND 64GiB 3,3V 16-bit", 0x4E, 65536, LP_OPTIONS16),
 
+	{"NAND 4GiB 1,8V 8-bit", {{ 0xAC }} , 2048, 4096, 0x20000, 0 },
 	{NULL}
 };
 
