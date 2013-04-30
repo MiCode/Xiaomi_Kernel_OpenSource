@@ -80,8 +80,8 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 	{ 1,  384000, ACPUPLL, 5, 0,   CPR_CORNER_SVS,    0, 3 },
 	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 4 },
 	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 4 },
-	{ 0,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 5 },
-	{ 0, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 5 },
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 5 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 5 },
 	{ 0 }
 };
 
