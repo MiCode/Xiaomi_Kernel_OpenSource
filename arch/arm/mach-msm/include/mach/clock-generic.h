@@ -65,4 +65,65 @@ static inline struct mux_clk *to_mux_clk(struct clk *c)
 
 extern struct clk_ops clk_ops_gen_mux;
 
+/* ==================== Divider clock ==================== */
+
+struct div_clk;
+
+struct clk_div_ops {
+	int (*set_div)(struct div_clk *clk, int div);
+	int (*get_div)(struct div_clk *clk);
+
+	/* Optional */
+	bool (*is_enabled)(struct div_clk *clk);
+	int (*enable)(struct div_clk *clk);
+	void (*disable)(struct div_clk *clk);
+};
+
+struct div_clk {
+	unsigned int	div;
+	unsigned int	min_div;
+	unsigned int	max_div;
+	unsigned long	rate_margin;
+	struct clk_div_ops *ops;
+
+	/* Fields not used by helper function. */
+	void *const __iomem *base;
+	u32		offset;
+	u32		mask;
+	u32		shift;
+	u32		en_mask;
+	void		*priv;
+	struct clk	c;
+};
+
+static inline struct div_clk *to_div_clk(struct clk *c)
+{
+	return container_of(c, struct div_clk, c);
+}
+
+extern struct clk_ops clk_ops_div;
+extern struct clk_ops clk_ops_slave_div;
+
+#define DEFINE_FIXED_DIV_CLK(clk_name, _div, _parent) \
+static struct div_clk clk_name = {	\
+	.div = _div,				\
+	.c = {					\
+		.parent = _parent,		\
+		.dbg_name = #clk_name,		\
+		.ops = &clk_ops_div,		\
+		CLK_INIT(clk_name.c),		\
+	}					\
+}
+
+#define DEFINE_FIXED_SLAVE_DIV_CLK(clk_name, _div, _parent) \
+static struct div_clk clk_name = {	\
+	.div = _div,				\
+	.c = {					\
+		.parent = _parent,		\
+		.dbg_name = #clk_name,		\
+		.ops = &clk_ops_slave_div,		\
+		CLK_INIT(clk_name.c),		\
+	}					\
+}
+
 #endif
