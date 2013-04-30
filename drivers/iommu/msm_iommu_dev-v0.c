@@ -129,7 +129,8 @@ static void msm_iommu_reset(void __iomem *base, void __iomem *glb_base, int ncb)
 }
 
 static int msm_iommu_parse_dt(struct platform_device *pdev,
-				struct msm_iommu_drvdata *drvdata)
+				struct msm_iommu_drvdata *drvdata,
+				int *needs_alt_core_clk)
 {
 #ifdef CONFIG_OF_DEVICE
 	struct device_node *child;
@@ -169,6 +170,10 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		pr_err("%s: Missing property label\n", __func__);
 		return -EINVAL;
 	}
+
+	*needs_alt_core_clk = of_property_read_bool(pdev->dev.of_node,
+						   "qcom,needs-alt-core-clk");
+
 	drvdata->sec_id = -1;
 	drvdata->ttbr_split = 0;
 #endif
@@ -176,7 +181,8 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 }
 
 static int __get_clocks(struct platform_device *pdev,
-				 struct msm_iommu_drvdata *drvdata)
+			struct msm_iommu_drvdata *drvdata,
+			int needs_alt_core_clk)
 {
 	int ret = 0;
 
@@ -199,6 +205,18 @@ static int __get_clocks(struct platform_device *pdev,
 	} else {
 		drvdata->clk = NULL;
 	}
+
+	if (needs_alt_core_clk) {
+		drvdata->aclk = devm_clk_get(&pdev->dev, "alt_core_clk");
+		if (IS_ERR(drvdata->aclk))
+			return PTR_ERR(drvdata->aclk);
+	}
+
+	if (drvdata->aclk && clk_get_rate(drvdata->aclk) == 0) {
+		ret = clk_round_rate(drvdata->aclk, 1000);
+		clk_set_rate(drvdata->aclk, ret);
+	}
+
 	return 0;
 fail:
 	return ret;
@@ -206,33 +224,11 @@ fail:
 
 static void __put_clocks(struct msm_iommu_drvdata *drvdata)
 {
+	if (drvdata->aclk)
+		clk_put(drvdata->aclk);
 	if (drvdata->clk)
 		clk_put(drvdata->clk);
 	clk_put(drvdata->pclk);
-}
-
-static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
-{
-	int ret;
-
-	ret = clk_prepare_enable(drvdata->pclk);
-	if (ret)
-		goto fail;
-
-	if (drvdata->clk) {
-		ret = clk_prepare_enable(drvdata->clk);
-		if (ret)
-			clk_disable_unprepare(drvdata->pclk);
-	}
-fail:
-	return ret;
-}
-
-static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
-{
-	if (drvdata->clk)
-		clk_disable_unprepare(drvdata->clk);
-	clk_disable_unprepare(drvdata->pclk);
 }
 
 /*
@@ -326,6 +322,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_dev *iommu_dev = pdev->dev.platform_data;
 	int ret;
+	int needs_alt_core_clk = 0;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
 
@@ -335,7 +332,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	if (pdev->dev.of_node) {
-		ret = msm_iommu_parse_dt(pdev, drvdata);
+		ret = msm_iommu_parse_dt(pdev, drvdata, &needs_alt_core_clk);
 		if (ret)
 			goto fail;
 	} else if (pdev->dev.platform_data) {
@@ -382,12 +379,12 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata->dev = &pdev->dev;
 
-	ret = __get_clocks(pdev, drvdata);
+	ret = __get_clocks(pdev, drvdata, needs_alt_core_clk);
 
 	if (ret)
 		goto fail;
 
-	__enable_clocks(drvdata);
+	iommu_access_ops_v0.iommu_clk_on(drvdata);
 
 	msm_iommu_reset(drvdata->base, drvdata->glb_base, drvdata->ncb);
 
@@ -401,7 +398,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	msm_iommu_add_drv(drvdata);
 	platform_set_drvdata(pdev, drvdata);
 
-	__disable_clocks(drvdata);
+	iommu_access_ops_v0.iommu_clk_off(drvdata);
 
 	pmon_info = msm_iommu_pm_alloc(&pdev->dev);
 	if (pmon_info != NULL) {
@@ -430,7 +427,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	return 0;
 
 fail_clk:
-	__disable_clocks(drvdata);
+	iommu_access_ops_v0.iommu_clk_off(drvdata);
 	__put_clocks(drvdata);
 fail:
 	return ret;
@@ -618,9 +615,9 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	__enable_clocks(drvdata);
+	iommu_access_ops_v0.iommu_clk_on(drvdata);
 	__program_m2v_tables(drvdata, ctx_drvdata);
-	__disable_clocks(drvdata);
+	iommu_access_ops_v0.iommu_clk_off(drvdata);
 
 	dev_info(&pdev->dev, "context %s using bank %d\n", ctx_drvdata->name,
 							   ctx_drvdata->num);
