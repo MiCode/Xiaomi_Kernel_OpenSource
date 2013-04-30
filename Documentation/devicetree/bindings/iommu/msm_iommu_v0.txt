@@ -11,17 +11,18 @@ Optional properties:
 - qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
 - qcom,iommu-pmu-ncounters: Number of PMU counters per group.
 - qcom,iommu-pmu-event-classes: List of event classes supported.
+
 - List of sub nodes, one for each of the translation context banks supported.
-  Each sub node has the following required properties:
+    Required properties for each sub-node:
 
-  - reg : offset and length of the register set for the context bank.
-  - interrupts : should contain the context bank interrupt.
-  - qcom,iommu-ctx-mids : List of machine identifiers associated with this
-    translation context.
-  - label : Name of the context bank
+    - reg : offset and length of the register set for the context bank.
+    - interrupts : should contain the context bank interrupt.
+    - qcom,iommu-ctx-mids : List of machine identifiers associated with this
+      translation context.
+    - label : Name of the context bank
 
-Optional properties:
-  - none
+    Optional properties for each sub-node:
+    - none
 
 Example:
 
