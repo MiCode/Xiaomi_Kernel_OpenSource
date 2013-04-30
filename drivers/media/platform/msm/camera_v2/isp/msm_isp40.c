@@ -299,6 +299,8 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 			&& vfe_dev->axi_data.src_info[VFE_PIX_0].
 			pix_stream_count == 0) {
 			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
+			if (vfe_dev->axi_data.stream_update)
+				msm_isp_axi_stream_update(vfe_dev);
 			msm_isp_update_framedrop_reg(vfe_dev);
 		}
 	}
