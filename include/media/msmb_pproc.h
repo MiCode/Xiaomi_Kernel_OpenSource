@@ -112,9 +112,10 @@ struct msm_cpp_frame_info_t {
 	struct timeval in_time, out_time;
 	void *cookie;
 	int32_t *status;
-
+	int32_t duplicate_output;
+	uint32_t duplicate_identity;
 	struct msm_cpp_buffer_info_t input_buffer_info;
-	struct msm_cpp_buffer_info_t output_buffer_info;
+	struct msm_cpp_buffer_info_t output_buffer_info[2];
 };
 
 struct cpp_hw_info {
