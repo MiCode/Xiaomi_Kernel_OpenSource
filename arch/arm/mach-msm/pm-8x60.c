@@ -1368,7 +1368,7 @@ static int msm_pc_debug_counters_file_read(struct file *file,
 	if (!data)
 		return -EINVAL;
 
-	if (!bufu || count < 0)
+	if (!bufu)
 		return -EINVAL;
 
 	if (!access_ok(VERIFY_WRITE, bufu, count))
