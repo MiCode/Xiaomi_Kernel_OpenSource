@@ -117,6 +117,7 @@ enum {
 
 enum msm_pcm_routing_event {
 	MSM_PCM_RT_EVT_BUF_RECFG,
+	MSM_PCM_RT_EVT_DEVSWITCH,
 	MSM_PCM_RT_EVT_MAX,
 };
 /* dai_id: front-end ID,
