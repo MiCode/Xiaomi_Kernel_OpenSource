@@ -667,7 +667,7 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
-static enum handoff byte_rcg_handoff(struct clk *clk)
+enum handoff byte_rcg_handoff(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
 	u32 div_val;
@@ -718,7 +718,7 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 	return 0;
 }
 
-static enum handoff pixel_rcg_handoff(struct clk *clk)
+enum handoff pixel_rcg_handoff(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
 	u32 div_val, mval, nval, cfg_regval;
