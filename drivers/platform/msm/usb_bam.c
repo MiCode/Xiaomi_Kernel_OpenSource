@@ -630,20 +630,20 @@ static int disconnect_pipe(u8 idx)
 
 static void usb_bam_resume_core(enum usb_bam cur_bam)
 {
-	struct usb_phy *trans = usb_get_transceiver();
+	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 
 	if (cur_bam != HSUSB_BAM)
 		return;
-	BUG_ON(trans == NULL);
+	BUG_ON(IS_ERR_OR_NULL(phy));
 	pr_debug("%s: resume core", __func__);
-	pm_runtime_resume(trans->dev);
+	pm_runtime_resume(phy->dev);
 }
 
 static void usb_bam_start_lpm(bool disconnect)
 {
-	struct usb_phy *trans = usb_get_transceiver();
+	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 
-	BUG_ON(trans == NULL);
+	BUG_ON(IS_ERR_OR_NULL(phy));
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 
@@ -651,13 +651,13 @@ static void usb_bam_start_lpm(bool disconnect)
 	info.lpm_wait_pipes = 0;
 
 	if (disconnect)
-		pm_runtime_put_noidle(trans->dev);
+		pm_runtime_put_noidle(phy->dev);
 
 	if (info.pending_lpm) {
 		info.pending_lpm = 0;
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_debug("%s: Going to LPM\n", __func__);
-		pm_runtime_suspend(trans->dev);
+		pm_runtime_suspend(phy->dev);
 	} else
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
@@ -1258,9 +1258,9 @@ static void usb_bam_start_suspend(struct work_struct *w)
 
 static void usb_bam_finish_resume(struct work_struct *w)
 {
-	struct usb_phy *trans = usb_get_transceiver();
+	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 
-	BUG_ON(trans == NULL);
+	BUG_ON(IS_ERR_OR_NULL(phy));
 	pr_debug("%s: enter", __func__);
 	mutex_lock(&info.suspend_resume_mutex);
 	/* Suspend happened in the meantime */
