@@ -3061,6 +3061,7 @@ static struct clk_lookup msm_clocks_8610_rumi[] = {
 	CLK_DUMMY("core_clk",   NULL, "fd870000.qcom,iommu", OFF),
 	CLK_DUMMY("iface_clk",  NULL, "fd880000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk",   NULL, "fd880000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk",   NULL, "fd880000.qcom,iommu", OFF),
 	CLK_DUMMY("iface_clk",  NULL, "fd000000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk",   NULL, "fd000000.qcom,iommu", OFF),
 	CLK_DUMMY("iface_clk",  NULL, "fd010000.qcom,iommu", OFF),
