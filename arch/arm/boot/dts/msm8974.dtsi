@@ -47,6 +47,13 @@
 			reg = <0 0x2000000>;
 			label = "adsp_mem";
 		};
+
+		qsecom_mem: qsecom_region {
+			linux,contiguous-region;
+			reg = <0 0x1100000>;
+			label = "qseecom_mem";
+		};
+
 	};
 
 	intc: interrupt-controller@F9000000 {
