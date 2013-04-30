@@ -731,12 +731,18 @@ fail_rm_create:
 
 static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *dev)
 {
+	int result;
+
 	ECM_IPA_LOG_ENTRY();
+
 	if (!dev->rm_enable)
 		return;
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
 			IPA_RM_RESOURCE_USB_CONS);
 	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
+	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
+	if (result)
+		ECM_IPA_ERROR("resource deletion failed\n");
 
 	ECM_IPA_LOG_EXIT();
 }
