@@ -22,10 +22,16 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/control.h>
+#include <sound/tlv.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 
 #include "msm-pcm-routing.h"
+
+#define LOOPBACK_VOL_MAX_STEPS 0x2000
+
+static const DECLARE_TLV_DB_LINEAR(loopback_rx_vol_gain, 0,
+				LOOPBACK_VOL_MAX_STEPS);
 
 struct msm_pcm_loopback {
 	struct snd_pcm_substream *playback_substream;
@@ -42,6 +48,7 @@ struct msm_pcm_loopback {
 	int capture_start;
 	int session_id;
 	struct audio_client *audio_client;
+	int volume;
 };
 
 static void stop_pcm(struct msm_pcm_loopback *pcm);
@@ -99,6 +106,24 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode,
 	}
 }
 
+static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
+{
+	int rc = 0;
+
+	pr_debug("%s Setting volume 0x%x\n", __func__, volume);
+
+	if (prtd) {
+		rc = q6asm_set_volume(prtd->audio_client, volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
+		prtd->volume = volume;
+	}
+	return rc;
+}
+
 static int msm_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -111,6 +136,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	mutex_lock(&pcm->lock);
 
 	snd_soc_set_runtime_hwparams(substream, &dummy_pcm_hardware);
+	pcm->volume = 0x2000;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		pcm->playback_substream = substream;
@@ -155,6 +181,13 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->playback_substream->stream,
 			event);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			pcm->playback_substream = substream;
+			ret = pcm_loopback_set_volume(pcm, pcm->volume);
+			if (ret < 0)
+				dev_err(rtd->platform->dev,
+					"Error %d setting volume", ret);
+		}
 	}
 	dev_info(rtd->platform->dev, "%s: Instance = %d, Stream ID = %s\n",
 			__func__ , pcm->instance, substream->pcm->id);
@@ -290,6 +323,38 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.trigger        = msm_pcm_trigger,
 };
 
+static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_pcm_volume *vol = kcontrol->private_data;
+	struct snd_pcm_substream *substream = vol->pcm->streams[0].substream;
+	struct msm_pcm_loopback *prtd = substream->runtime->private_data;
+	int volume = ucontrol->value.integer.value[0];
+
+	rc = pcm_loopback_set_volume(prtd, volume);
+	return rc;
+}
+
+static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_volume *volume_info;
+	struct snd_kcontrol *kctl;
+	int ret = 0;
+
+	dev_dbg(rtd->dev, "%s, Volume cntrl add\n", __func__);
+	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+					NULL, 1,
+					rtd->dai_link->be_id,
+					&volume_info);
+	if (ret < 0)
+		return ret;
+	kctl = volume_info->kctl;
+	kctl->put = msm_pcm_volume_ctl_put;
+	kctl->tlv.p = loopback_rx_vol_gain;
+	return 0;
+}
 
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -298,6 +363,10 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ret = msm_pcm_add_controls(rtd);
+	if (ret)
+		dev_err(rtd->dev, "%s, kctl add failed\n", __func__);
 	return ret;
 }
 
