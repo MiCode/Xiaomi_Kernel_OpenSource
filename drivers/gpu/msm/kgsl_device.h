@@ -196,6 +196,7 @@ struct kgsl_device {
 	int snapshot_maxsize;   /* Max size of the snapshot region */
 	int snapshot_size;      /* Current size of the snapshot region */
 	u32 snapshot_timestamp;	/* Timestamp of the last valid snapshot */
+	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	int snapshot_frozen;	/* 1 if the snapshot output is frozen until
 				   it gets read by the user.  This avoids
 				   losing the output on multiple hangs  */
