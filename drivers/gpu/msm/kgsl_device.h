@@ -280,6 +280,12 @@ struct kgsl_process_private {
 	unsigned int refcnt;
 	pid_t pid;
 	spinlock_t mem_lock;
+
+	/* General refcount for process private struct obj */
+	struct kref refcount;
+	/* Mutex to synchronize access to each process_private struct obj */
+	struct mutex process_private_mutex;
+
 	struct rb_root mem_rb;
 	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
