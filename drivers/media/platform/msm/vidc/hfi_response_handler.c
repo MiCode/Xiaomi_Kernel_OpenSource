@@ -1018,6 +1018,41 @@ static void hfi_process_session_end_done(
 	callback(SESSION_END_DONE, &cmd_done);
 }
 
+static void hfi_process_session_abort_done(
+	msm_vidc_callback callback, u32 device_id,
+	struct hfi_msg_sys_session_abort_done_packet *pkt)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	struct hal_session *sess_close;
+
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_ABORT_DONE");
+
+	if (!pkt || pkt->size !=
+		sizeof(struct hfi_msg_sys_session_abort_done_packet)) {
+		dprintk(VIDC_ERR, "%s: bad packet/packet size: %d",
+				__func__, pkt ? pkt->size : 0);
+		return;
+	}
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	cmd_done.device_id = device_id;
+	cmd_done.session_id =
+		((struct hal_session *) pkt->session_id)->session_id;
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
+	cmd_done.data = NULL;
+	cmd_done.size = 0;
+
+	sess_close = (struct hal_session *)pkt->session_id;
+	if (!sess_close) {
+		dprintk(VIDC_ERR, "%s: invalid session pointer\n", __func__);
+		return;
+	}
+	dprintk(VIDC_ERR, "deleted the session: 0x%x",
+		sess_close->session_id);
+	list_del(&sess_close->list);
+	kfree(sess_close);
+	callback(SESSION_ABORT_DONE, &cmd_done);
+}
+
 static void hfi_process_session_get_seq_hdr_done(
 	msm_vidc_callback callback, u32 device_id,
 	struct hfi_msg_session_get_sequence_header_done_packet *pkt)
@@ -1133,6 +1168,10 @@ u32 hfi_process_msg_packet(
 			callback, device_id, (struct
 			hfi_msg_session_release_buffers_done_packet*)
 			msg_hdr);
+		break;
+	case HFI_MSG_SYS_SESSION_ABORT_DONE:
+		hfi_process_session_abort_done(callback, device_id, (struct
+			hfi_msg_sys_session_abort_done_packet*) msg_hdr);
 		break;
 	default:
 		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
