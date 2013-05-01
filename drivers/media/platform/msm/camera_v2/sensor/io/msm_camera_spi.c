@@ -69,12 +69,12 @@ static void msm_camera_set_addr(uint32_t addr, uint8_t addr_len,
 
 static int32_t msm_camera_spi_read_helper(struct msm_camera_i2c_client *client,
 		struct msm_camera_spi_inst *inst, uint32_t addr, uint8_t *data,
-		uint16_t num_byte)
+		uint32_t num_byte)
 {
 	int32_t rc = -EFAULT;
 	struct spi_device *spi = client->spi_client->spi_master;
 	char *tx, *rx;
-	uint16_t len;
+	uint32_t len;
 	int8_t retries = client->spi_client->retries;
 
 	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR)
@@ -140,14 +140,14 @@ int32_t msm_camera_spi_read(struct msm_camera_i2c_client *client,
 }
 
 int32_t msm_camera_spi_read_seq(struct msm_camera_i2c_client *client,
-	uint32_t addr, uint8_t *data, uint16_t num_byte)
+	uint32_t addr, uint8_t *data, uint32_t num_byte)
 {
 	return msm_camera_spi_read_helper(client,
 		&client->spi_client->cmd_tbl.read_seq, addr, data, num_byte);
 }
 
 int32_t msm_camera_spi_query_id(struct msm_camera_i2c_client *client,
-	uint32_t addr, uint8_t *data, uint16_t num_byte)
+	uint32_t addr, uint8_t *data, uint32_t num_byte)
 {
 	return msm_camera_spi_read_helper(client,
 		&client->spi_client->cmd_tbl.query_id, addr, data, num_byte);

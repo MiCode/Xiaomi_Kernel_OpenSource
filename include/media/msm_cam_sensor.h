@@ -305,18 +305,19 @@ enum eeprom_cfg_type_t {
 	CFG_EEPROM_READ_CAL_DATA,
 	CFG_EEPROM_WRITE_DATA,
 };
+
 struct eeprom_get_t {
-	uint16_t num_bytes;
+	uint32_t num_bytes;
 };
 
 struct eeprom_read_t {
 	uint8_t *dbuffer;
-	uint16_t num_bytes;
+	uint32_t num_bytes;
 };
 
 struct eeprom_write_t {
 	uint8_t *dbuffer;
-	uint16_t num_bytes;
+	uint32_t num_bytes;
 };
 
 struct msm_eeprom_cfg_data {
