@@ -1,0 +1,37 @@
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp3";
+		reg = <0xfd900000 0x100000>;
+		reg-names = "mdp_phys";
+		interrupts = <0 72 0>;
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+			qcom,memory-reservation-type = "EBI1";
+			qcom,memory-reservation-size = <0x800000>;
+		};
+	};
+
+	mdss_dsi0: qcom,mdss_dsi@fdd00000 {
+		compatible = "qcom,msm-dsi-v2";
+		label = "MDSS DSI CTRL->0";
+		cell-index = <0>;
+		reg = <0xfdd00000 0x100000>;
+		interrupts = <0 30 0>;
+		vdda-supply = <&pm8110_l4>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+	};
+};
