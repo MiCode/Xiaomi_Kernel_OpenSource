@@ -914,7 +914,7 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 
 static inline int qpnp_enable_pwm_mode(struct qpnp_pwm_config *pwm_conf)
 {
-	if (pwm_conf->channel_id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START ||
+	if (pwm_conf->channel_id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START &&
 		pwm_conf->channel_id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
 		return QPNP_ENABLE_PWM_MODE_GPLED_CHANNEL;
 	return QPNP_ENABLE_PWM_MODE;
