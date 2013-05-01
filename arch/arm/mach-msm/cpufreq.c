@@ -410,4 +410,4 @@ static int __init msm_cpufreq_register(void)
 	return cpufreq_register_driver(&msm_cpufreq_driver);
 }
 
-late_initcall(msm_cpufreq_register);
+device_initcall(msm_cpufreq_register);
