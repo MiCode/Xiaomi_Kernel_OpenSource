@@ -110,6 +110,15 @@ enum {
 	AANC_FF_GAIN_ADAPTIVE,
 	AANC_FFGAIN_ADAPTIVE_EN,
 	AANC_GAIN_CONTROL,
+	SPKR_CLIP_PIPE_BANK_SEL,
+	SPKR_CLIPDET_VAL0,
+	SPKR_CLIPDET_VAL1,
+	SPKR_CLIPDET_VAL2,
+	SPKR_CLIPDET_VAL3,
+	SPKR_CLIPDET_VAL4,
+	SPKR_CLIPDET_VAL5,
+	SPKR_CLIPDET_VAL6,
+	SPKR_CLIPDET_VAL7,
 	MAX_CFG_REGISTERS,
 };
 
@@ -182,6 +191,74 @@ static struct afe_param_cdc_reg_cfg audio_reg_cfg[] = {
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_ANC1_GAIN_CTL),
 		AANC_GAIN_CONTROL, 0xFF, 8, 0
 	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_INTR_DESTN3),
+		MAD_CLIP_INT_DEST_SELECT_REG, 0x8, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_INTR_MASK3),
+		MAD_CLIP_INT_MASK_REG, 0x8, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_INTR_STATUS3),
+		MAD_CLIP_INT_STATUS_REG, 0x8, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_INTR_CLEAR3),
+		MAD_CLIP_INT_CLEAR_REG, 0x8, 8, 0
+	},
+};
+
+static struct afe_param_cdc_reg_cfg clip_reg_cfg[] = {
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_B1_CTL),
+		SPKR_CLIP_PIPE_BANK_SEL, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL0),
+		SPKR_CLIPDET_VAL0, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL1),
+		SPKR_CLIPDET_VAL1, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL2),
+		SPKR_CLIPDET_VAL2, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL3),
+		SPKR_CLIPDET_VAL3, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL4),
+		SPKR_CLIPDET_VAL4, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL5),
+		SPKR_CLIPDET_VAL5, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL6),
+		SPKR_CLIPDET_VAL6, 0x1, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL7),
+		SPKR_CLIPDET_VAL7, 0x1, 8, 0
+	},
 };
 
 static struct afe_param_cdc_reg_cfg_data taiko_audio_reg_cfg = {
@@ -189,9 +266,20 @@ static struct afe_param_cdc_reg_cfg_data taiko_audio_reg_cfg = {
 	.reg_data = audio_reg_cfg,
 };
 
+static struct afe_param_cdc_reg_cfg_data taiko_clip_reg_cfg = {
+	.num_registers = ARRAY_SIZE(clip_reg_cfg),
+	.reg_data = clip_reg_cfg,
+};
+
 static struct afe_param_id_cdc_aanc_version taiko_cdc_aanc_version = {
 	.cdc_aanc_minor_version = AFE_API_VERSION_CDC_AANC_VERSION,
 	.aanc_hw_version        = AANC_HW_BLOCK_VERSION_2,
+};
+
+static struct afe_param_id_clip_bank_sel clip_bank_sel = {
+	.minor_version = AFE_API_VERSION_CLIP_BANK_SEL_CFG,
+	.num_banks = AFE_CLIP_MAX_BANKS,
+	.bank_map = {0, 1, 2, 3},
 };
 
 module_param_cb(spkr_drv_wrnd, &spkr_drv_wrnd_param_ops, &spkr_drv_wrnd, 0644);
@@ -5949,6 +6037,7 @@ void *taiko_get_afe_config(struct snd_soc_codec *codec,
 			   enum afe_config_type config_type)
 {
 	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *taiko_core = dev_get_drvdata(codec->dev->parent);
 
 	switch (config_type) {
 	case AFE_SLIMBUS_SLAVE_CONFIG:
@@ -5959,6 +6048,16 @@ void *taiko_get_afe_config(struct snd_soc_codec *codec,
 		return &taiko_slimbus_slave_port_cfg;
 	case AFE_AANC_VERSION:
 		return &taiko_cdc_aanc_version;
+	case AFE_CLIP_BANK_SEL:
+		if (!TAIKO_IS_1_0(taiko_core->version))
+			return &clip_bank_sel;
+		else
+			return NULL;
+	case AFE_CDC_CLIP_REGISTERS_CONFIG:
+		if (!TAIKO_IS_1_0(taiko_core->version))
+			return &taiko_clip_reg_cfg;
+		else
+			return NULL;
 	default:
 		pr_err("%s: Unknown config_type 0x%x\n", __func__, config_type);
 		return NULL;
