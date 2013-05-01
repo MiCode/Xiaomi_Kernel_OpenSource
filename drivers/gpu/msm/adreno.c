@@ -813,7 +813,8 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
 	if (!adreno_dev->drawctxt_active ||
-		KGSL_STATE_ACTIVE != device->state) {
+		KGSL_STATE_ACTIVE != device->state ||
+		!device->active_cnt) {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
 		return;
 	}
