@@ -1410,19 +1410,38 @@ int teth_bridge_disconnect(void)
 		goto bail;
 	}
 
-	/* Request the BRIDGE_PROD resource */
+	/*
+	 * Delete part of IPA resource manager dependency graph. Only the
+	 * BRIDGE_PROD <-> A2 dependency remains intact
+	 */
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+				       IPA_RM_RESOURCE_USB_CONS);
+	if ((res != 0) && (res != -EINPROGRESS))
+		TETH_ERR(
+			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> USB_CONS\n");
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+				       IPA_RM_RESOURCE_A2_CONS);
+	if ((res != 0) && (res != -EINPROGRESS))
+		TETH_ERR(
+			"Failed deleting ipa_rm dependency USB_PROD <-> A2_CONS\n");
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
+				       IPA_RM_RESOURCE_USB_CONS);
+	if ((res != 0) && (res != -EINPROGRESS))
+		TETH_ERR(
+			"Failed deleting ipa_rm dependency A2_PROD <-> USB_CONS\n");
+
+	/* Request the BRIDGE_PROD resource, A2 and IPA should power up */
 	res = teth_request_resource();
 	if (res) {
 		TETH_ERR("request_resource() failed.\n");
 		goto bail;
 	}
 
-	teth_ctx->is_connected = false;
-
 	/* Close the channel to A2 */
 	if (a2_mux_close_channel(A2_MUX_TETHERED_0))
 		TETH_ERR("a2_mux_close_channel() failed\n");
 
+	/* Teardown the IPA HW bridge */
 	if (teth_ctx->is_hw_bridge_complete) {
 		/* Delete header entries */
 		if (ipa_del_hdr(teth_ctx->hdr_del))
@@ -1452,27 +1471,14 @@ int teth_bridge_disconnect(void)
 
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 
-	/* Delete IPA Resource manager dependency graph */
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-				       IPA_RM_RESOURCE_USB_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> USB_CONS\n");
+	/* Delete the last ipa_rm dependency - BRIDGE_PROD <-> A2 */
 	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
 				       IPA_RM_RESOURCE_A2_CONS);
 	if ((res != 0) && (res != -EINPROGRESS))
 		TETH_ERR(
 			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-				       IPA_RM_RESOURCE_A2_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency USB_PROD <-> A2_CONS\n");
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
-				       IPA_RM_RESOURCE_USB_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency A2_PROD <-> USB_CONS\n");
+
+	teth_ctx->is_connected = false;
 bail:
 	TETH_DBG_FUNC_EXIT();
 
