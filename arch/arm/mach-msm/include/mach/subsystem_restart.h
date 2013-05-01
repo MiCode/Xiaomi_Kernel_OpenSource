@@ -55,6 +55,7 @@ struct subsys_desc {
 	int (*powerup)(const struct subsys_desc *desc);
 	void (*crash_shutdown)(const struct subsys_desc *desc);
 	int (*ramdump)(int, const struct subsys_desc *desc);
+	unsigned int err_ready_irq;
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
