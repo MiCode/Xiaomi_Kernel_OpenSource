@@ -418,7 +418,33 @@ static int dvb_dmxdev_update_events(struct dmxdev_events_queue *events,
 	return 0;
 }
 
-static ssize_t dvb_dmxdev_buffer_read(struct dvb_ringbuffer *src,
+static inline int dvb_dmxdev_check_data(struct dmxdev_filter *filter,
+			struct dvb_ringbuffer *src)
+{
+	int data_status_change;
+
+	if (filter)
+		if (mutex_lock_interruptible(&filter->mutex))
+			return -ERESTARTSYS;
+
+	if (!src->data ||
+		!dvb_ringbuffer_empty(src) ||
+		src->error ||
+		(filter &&
+		 (filter->state != DMXDEV_STATE_GO) &&
+		 (filter->state != DMXDEV_STATE_DONE)))
+		data_status_change = 1;
+	else
+		data_status_change = 0;
+
+	if (filter)
+		mutex_unlock(&filter->mutex);
+
+	return data_status_change;
+}
+
+static ssize_t dvb_dmxdev_buffer_read(struct dmxdev_filter *filter,
+					struct dvb_ringbuffer *src,
 					int non_blocking, char __user *buf,
 					size_t count, loff_t *ppos)
 {
@@ -441,9 +467,26 @@ static ssize_t dvb_dmxdev_buffer_read(struct dvb_ringbuffer *src,
 			break;
 		}
 
-		ret = wait_event_interruptible(src->queue, (!src->data) ||
-						!dvb_ringbuffer_empty(src) ||
-						(src->error != 0));
+		if (filter) {
+			if ((filter->state == DMXDEV_STATE_DONE) &&
+				dvb_ringbuffer_empty(src))
+				break;
+
+			mutex_unlock(&filter->mutex);
+		}
+
+		ret = wait_event_interruptible(src->queue,
+				dvb_dmxdev_check_data(filter, src));
+
+		if (filter) {
+			if (mutex_lock_interruptible(&filter->mutex))
+				return -ERESTARTSYS;
+
+			if ((filter->state != DMXDEV_STATE_GO) &&
+				(filter->state != DMXDEV_STATE_DONE))
+				return -ENODEV;
+		}
+
 		if (ret < 0)
 			break;
 
@@ -1110,9 +1153,9 @@ static ssize_t dvb_dvr_read(struct file *file, char __user *buf, size_t count,
 	if (dmxdev->exit)
 		return -ENODEV;
 
-	res = dvb_dmxdev_buffer_read(&dmxdev->dvr_buffer,
-				      file->f_flags & O_NONBLOCK,
-				      buf, count, ppos);
+	res = dvb_dmxdev_buffer_read(NULL, &dmxdev->dvr_buffer,
+				file->f_flags & O_NONBLOCK,
+				buf, count, ppos);
 
 	if (res > 0) {
 		dvb_dmxdev_notify_data_read(dmxdev->dvr_feed, res);
@@ -3548,7 +3591,7 @@ static ssize_t dvb_dmxdev_read_sec(struct dmxdev_filter *dfil,
 		hcount = 3 + dfil->todo;
 		if (hcount > count)
 			hcount = count;
-		result = dvb_dmxdev_buffer_read(&dfil->buffer,
+		result = dvb_dmxdev_buffer_read(dfil, &dfil->buffer,
 						file->f_flags & O_NONBLOCK,
 						buf, hcount, ppos);
 		if (result < 0) {
@@ -3569,7 +3612,7 @@ static ssize_t dvb_dmxdev_read_sec(struct dmxdev_filter *dfil,
 	}
 	if (count > dfil->todo)
 		count = dfil->todo;
-	result = dvb_dmxdev_buffer_read(&dfil->buffer,
+	result = dvb_dmxdev_buffer_read(dfil, &dfil->buffer,
 					file->f_flags & O_NONBLOCK,
 					buf, count, ppos);
 	if (result < 0)
@@ -3598,9 +3641,10 @@ dvb_demux_read(struct file *file, char __user *buf, size_t count,
 	if (dmxdevfilter->type == DMXDEV_TYPE_SEC)
 		ret = dvb_dmxdev_read_sec(dmxdevfilter, file, buf, count, ppos);
 	else
-		ret = dvb_dmxdev_buffer_read(&dmxdevfilter->buffer,
-					    file->f_flags & O_NONBLOCK,
-					    buf, count, ppos);
+		ret = dvb_dmxdev_buffer_read(dmxdevfilter,
+					&dmxdevfilter->buffer,
+					file->f_flags & O_NONBLOCK,
+					buf, count, ppos);
 
 	if (ret > 0) {
 		dvb_dmxdev_notify_data_read(dmxdevfilter, ret);
