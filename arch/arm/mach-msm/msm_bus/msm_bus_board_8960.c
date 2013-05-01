@@ -440,10 +440,7 @@ static struct msm_bus_node_info system_fabric_info[]  = {
 	},
 };
 
-static int mport_mdp[] = {
-	MSM_BUS_MASTER_PORT_MDP_PORT0,
-	MSM_BUS_MASTER_PORT_MDP_PORT1,
-};
+static int mport_mdp[] = {MSM_BUS_MASTER_PORT_MDP_PORT0,};
 static int mport_mdp1[] = {MSM_BUS_MASTER_PORT_MDP_PORT1,};
 static int mport_rotator[] = {MSM_BUS_MASTER_PORT_ROTATOR,};
 static int mport_graphics_3d[] = {MSM_BUS_MASTER_PORT_GRAPHICS_3D,};
