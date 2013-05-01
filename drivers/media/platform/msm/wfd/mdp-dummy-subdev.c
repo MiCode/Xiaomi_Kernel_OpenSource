@@ -12,6 +12,7 @@
 */
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
+#include <linux/slab.h>
 #include <media/videobuf2-core.h>
 
 #include "enc-subdev.h"
