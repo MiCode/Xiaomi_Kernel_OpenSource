@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,7 @@ int msm_bus_axi_porthalt(int master_port)
 	MSM_BUS_DBG("master_port: %d iid: %d fabid%d\n",
 		master_port, priv_id, GET_FABID(priv_id));
 	fabdev = msm_bus_get_fabric_device(GET_FABID(priv_id));
-	if (IS_ERR(fabdev)) {
+	if (IS_ERR_OR_NULL(fabdev)) {
 		MSM_BUS_ERR("Fabric device not found for mport: %d\n",
 			master_port);
 		return -ENODEV;
@@ -65,7 +65,7 @@ int msm_bus_axi_portunhalt(int master_port)
 	MSM_BUS_DBG("master_port: %d iid: %d fabid: %d\n",
 		master_port, priv_id, GET_FABID(priv_id));
 	fabdev = msm_bus_get_fabric_device(GET_FABID(priv_id));
-	if (IS_ERR(fabdev)) {
+	if (IS_ERR_OR_NULL(fabdev)) {
 		MSM_BUS_ERR("Fabric device not found for mport: %d\n",
 			master_port);
 		return -ENODEV;

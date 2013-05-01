@@ -1769,8 +1769,13 @@ static void *msm_bus_bimc_allocate_bimc_data(struct platform_device *pdev,
 		}
 	}
 
+	if (fab_pdata->virt) {
+		MSM_BUS_DBG("Don't get memory regions for virtual fabric\n");
+		goto skip_mem;
+	}
+
 	bimc_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!bimc_mem && !fab_pdata->virt) {
+	if (!bimc_mem) {
 		MSM_BUS_ERR("Cannot get BIMC Base address\n");
 		kfree(binfo);
 		return NULL;
@@ -1792,6 +1797,7 @@ static void *msm_bus_bimc_allocate_bimc_data(struct platform_device *pdev,
 		return NULL;
 	}
 
+skip_mem:
 	fab_pdata->hw_data = (void *)binfo;
 	return (void *)binfo;
 }
