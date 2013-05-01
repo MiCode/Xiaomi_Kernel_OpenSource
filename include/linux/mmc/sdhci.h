@@ -191,6 +191,7 @@ struct sdhci_host {
 #define SDHCI_SDIO_IRQ_ENABLED	(1<<9)	/* SDIO irq enabled */
 #define SDHCI_SDR104_NEEDS_TUNING (1<<10)	/* SDR104/HS200 needs tuning */
 #define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
+#define SDHCI_USE_ADMA_64BIT	 (1<<12)/* Host is 64-bit ADMA capable */
 
 	unsigned int version;	/* SDHCI spec. version */
 
@@ -220,7 +221,9 @@ struct sdhci_host {
 	u8 *align_buffer;	/* Bounce buffer */
 
 	unsigned int adma_desc_sz; /* ADMA descriptor table size */
+	unsigned int adma_desc_line_sz; /* ADMA descriptor line size */
 	unsigned int align_buf_sz; /* Bounce buffer size */
+	unsigned int align_bytes; /* Alignment bytes (4/8 for 32-bit/64-bit) */
 	unsigned int adma_max_desc; /* Max ADMA descriptos (max sg segments) */
 
 	dma_addr_t adma_addr;	/* Mapped ADMA descr. table */

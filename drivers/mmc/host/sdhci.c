@@ -141,10 +141,17 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 	pr_info(DRIVER_NAME ": Host ctl2: 0x%08x\n",
 		sdhci_readw(host, SDHCI_HOST_CONTROL2));
 
-	if (host->flags & SDHCI_USE_ADMA)
+	if (host->flags & SDHCI_USE_ADMA_64BIT) {
+		pr_info(DRIVER_NAME ": ADMA Err: 0x%08x\n",
+		       readl(host->ioaddr + SDHCI_ADMA_ERROR));
+		pr_info(DRIVER_NAME ": ADMA Addr(0:31): 0x%08x | ADMA Addr(32:63): 0x%08x\n",
+		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS_LOW),
+		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS_HIGH));
+	} else if (host->flags & SDHCI_USE_ADMA) {
 		pr_info(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
-		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
+		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS_LOW));
+	}
 
 	if (host->ops->dump_vendor_regs)
 		host->ops->dump_vendor_regs(host);
@@ -504,18 +511,27 @@ static void sdhci_kunmap_atomic(void *buffer, unsigned long *flags)
 	local_irq_restore(*flags);
 }
 
-static void sdhci_set_adma_desc(u8 *desc, u32 addr, int len, unsigned cmd)
+static void sdhci_set_adma_desc(struct sdhci_host *host, u8 *desc,
+				dma_addr_t addr, int len, unsigned cmd)
 {
-	__le32 *dataddr = (__le32 __force *)(desc + 4);
 	__le16 *cmdlen = (__le16 __force *)desc;
 
-	/* SDHCI specification says ADMA descriptors should be 4 byte
-	 * aligned, so using 16 or 32bit operations should be safe. */
+	/*
+	 * SDHCI specification says ADMA descriptors should be 4 byte
+	 * or 8 byte aligned, so using 16 or 32 or 64bit operations
+	 * should be safe.
+	 */
 
 	cmdlen[0] = cpu_to_le16(cmd);
 	cmdlen[1] = cpu_to_le16(len);
 
-	dataddr[0] = cpu_to_le32(addr);
+	if (host->flags & SDHCI_USE_ADMA_64BIT) {
+		__le64 *dataddr = (__le64 __force *)(desc + 4);
+		dataddr[0] = cpu_to_le64(addr);
+	} else {
+		__le32 *dataddr = (__le32 __force *)(desc + 4);
+		dataddr[0] = cpu_to_le32(addr);
+	}
 }
 
 static int sdhci_pre_dma_transfer(struct sdhci_host *host,
@@ -588,7 +604,7 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 					  direction);
 	if (dma_mapping_error(mmc_dev(host->mmc), host->align_addr))
 		goto fail;
-	BUG_ON(host->align_addr & 0x3);
+	BUG_ON(host->align_addr & (host->align_bytes - 1));
 
 	host->sg_count = sdhci_pre_dma_transfer(host, data, NULL);
 	if (host->sg_count < 0)
@@ -604,30 +620,39 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		len = sg_dma_len(sg);
 
 		/*
-		 * The SDHCI specification states that ADMA
-		 * addresses must be 32-bit aligned. If they
-		 * aren't, then we use a bounce buffer for
-		 * the (up to three) bytes that screw up the
-		 * alignment.
+		 * The SDHCI specification states that ADMA addresses must be
+		 * 32-bit aligned for 32-bit ADMA or 64-bit aligned for 64-bit
+		 * ADMA. If they aren't, then we use a bounce buffer for the
+		 * (up to three for 32-bit and up to seven for 64-bit) bytes
+		 * that screw up the alignment.
+		 *
 		 */
-		offset = (4 - (addr & 0x3)) & 0x3;
+		offset = (host->align_bytes - (addr & (host->align_bytes - 1)))
+				& (host->align_bytes - 1);
 		if (offset) {
 			if (data->flags & MMC_DATA_WRITE) {
 				buffer = sdhci_kmap_atomic(sg, &flags);
-				WARN_ON(((long)buffer & PAGE_MASK) > (PAGE_SIZE - 3));
+				/*
+				 * This check is intended here to verify if the
+				 * page offset plus alignment bytes is indeed
+				 * within the same page.
+				 */
+				WARN_ON(((long)buffer & (PAGE_SIZE - 1)) >
+					(PAGE_SIZE - (host->align_bytes - 1)));
 				memcpy(align, buffer, offset);
 				sdhci_kunmap_atomic(buffer, &flags);
 			}
 
 			/* tran, valid */
-			sdhci_set_adma_desc(desc, align_addr, offset, 0x21);
+			sdhci_set_adma_desc(host, desc, align_addr,
+						offset, 0x21);
 
 			BUG_ON(offset > 65536);
 
-			align += 4;
-			align_addr += 4;
+			align += host->align_bytes;
+			align_addr += host->align_bytes;
 
-			desc += 8;
+			desc += host->adma_desc_line_sz;
 
 			addr += offset;
 			len -= offset;
@@ -636,8 +661,8 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		BUG_ON(len > 65536);
 
 		/* tran, valid */
-		sdhci_set_adma_desc(desc, addr, len, 0x21);
-		desc += 8;
+		sdhci_set_adma_desc(host, desc, addr, len, 0x21);
+		desc += host->adma_desc_line_sz;
 
 		/*
 		 * If this triggers then we have a calculation bug
@@ -651,7 +676,7 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		* Mark the last descriptor as the terminating descriptor
 		*/
 		if (desc != host->adma_desc) {
-			desc -= 8;
+			desc -= host->adma_desc_line_sz;
 			desc[0] |= 0x2; /* end */
 		}
 	} else {
@@ -660,7 +685,7 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		*/
 
 		/* nop, end, valid */
-		sdhci_set_adma_desc(desc, 0, 0, 0x3);
+		sdhci_set_adma_desc(host, desc, 0, 0, 0x3);
 	}
 
 	/*
@@ -715,15 +740,22 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 		align = host->align_buffer;
 
 		for_each_sg(data->sg, sg, host->sg_count, i) {
-			if (sg_dma_address(sg) & 0x3) {
-				size = 4 - (sg_dma_address(sg) & 0x3);
+			if (sg_dma_address(sg) & (host->align_bytes - 1)) {
+				size = host->align_bytes - (sg_dma_address(sg)
+					& (host->align_bytes - 1));
 
 				buffer = sdhci_kmap_atomic(sg, &flags);
-				WARN_ON(((long)buffer & PAGE_MASK) > (PAGE_SIZE - 3));
+				/*
+				 * This check is intended here to verify if the
+				 * page offset plus alignment bytes is indeed
+				 * within the same page.
+				 */
+				WARN_ON(((long)buffer & (PAGE_SIZE - 1)) >
+					(PAGE_SIZE - (host->align_bytes - 1)));
 				memcpy(buffer, align, size);
 				sdhci_kunmap_atomic(buffer, &flags);
 
-				align += 4;
+				align += host->align_bytes;
 			}
 		}
 	}
@@ -937,8 +969,18 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 				WARN_ON(1);
 				host->flags &= ~SDHCI_REQ_USE_DMA;
 			} else {
-				sdhci_writel(host, host->adma_addr,
-					SDHCI_ADMA_ADDRESS);
+				if (host->flags & SDHCI_USE_ADMA_64BIT) {
+					sdhci_writel(host,
+						(u32)host->adma_addr,
+						SDHCI_ADMA_ADDRESS_LOW);
+					sdhci_writel(host,
+					  (u32)((u64)host->adma_addr
+						  >> SDHCI_HI_SHIFT),
+					  SDHCI_ADMA_ADDRESS_HIGH);
+				} else {
+					sdhci_writel(host, host->adma_addr,
+						SDHCI_ADMA_ADDRESS_LOW);
+				}
 			}
 		} else {
 			int sg_cnt;
@@ -968,10 +1010,14 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
 		if ((host->flags & SDHCI_REQ_USE_DMA) &&
-			(host->flags & SDHCI_USE_ADMA))
-			ctrl |= SDHCI_CTRL_ADMA32;
-		else
+			(host->flags & SDHCI_USE_ADMA)) {
+			if (host->flags & SDHCI_USE_ADMA_64BIT)
+				ctrl |= SDHCI_CTRL_ADMA64;
+			else
+				ctrl |= SDHCI_CTRL_ADMA32;
+		} else {
 			ctrl |= SDHCI_CTRL_SDMA;
+		}
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 	}
 
@@ -2632,21 +2678,28 @@ static void sdhci_show_adma_error(struct sdhci_host *host)
 {
 	const char *name = mmc_hostname(host->mmc);
 	u8 *desc = host->adma_desc;
-	__le32 *dma;
 	__le16 *len;
 	u8 attr;
 
 	sdhci_dumpregs(host);
 
 	while (true) {
-		dma = (__le32 *)(desc + 4);
 		len = (__le16 *)(desc + 2);
 		attr = *desc;
 
-		DBG("%s: %p: DMA 0x%08x, LEN 0x%04x, Attr=0x%02x\n",
-		    name, desc, le32_to_cpu(*dma), le16_to_cpu(*len), attr);
+		if (host->flags & SDHCI_USE_ADMA_64BIT) {
+			__le64 *dma = (__le64 *)(desc + 4);
+			pr_info("%s: %p: DMA %llx, LEN 0x%04x, Attr=0x%02x\n",
+			    name, desc, (long long)le64_to_cpu(*dma),
+			    le16_to_cpu(*len), attr);
+		} else {
+			__le32 *dma = (__le32 *)(desc + 4);
+			pr_info("%s: %p: DMA 0x%08x, LEN 0x%04x, Attr=0x%02x\n",
+			    name, desc, le32_to_cpu(*dma), le16_to_cpu(*len),
+			    attr);
+		}
 
-		desc += 8;
+		desc += host->adma_desc_line_sz;
 
 		if (attr & 2)
 			break;
@@ -3164,6 +3217,25 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 
 EXPORT_SYMBOL_GPL(sdhci_alloc_host);
 
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+static int sdhci_is_adma2_64bit(struct sdhci_host *host)
+{
+	u32 caps;
+
+	caps = (host->quirks & SDHCI_QUIRK_MISSING_CAPS) ? host->caps :
+		sdhci_readl(host, SDHCI_CAPABILITIES);
+
+	if (caps & SDHCI_CAN_64BIT)
+		return 1;
+	return 0;
+}
+#else
+static int sdhci_is_adma2_64bit(struct sdhci_host *host)
+{
+	return 0;
+}
+#endif
+
 int sdhci_add_host(struct sdhci_host *host)
 {
 	struct mmc_host *mmc;
@@ -3219,8 +3291,11 @@ int sdhci_add_host(struct sdhci_host *host)
 	}
 
 	if ((host->version >= SDHCI_SPEC_200) &&
-		(caps[0] & SDHCI_CAN_DO_ADMA2))
+		(caps[0] & SDHCI_CAN_DO_ADMA2)) {
 		host->flags |= SDHCI_USE_ADMA;
+		if (sdhci_is_adma2_64bit(host))
+			host->flags |= SDHCI_USE_ADMA_64BIT;
+	}
 
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_ADMA) &&
 		(host->flags & SDHCI_USE_ADMA)) {
@@ -3253,7 +3328,17 @@ int sdhci_add_host(struct sdhci_host *host)
 			host->adma_desc_sz = ADMA_SIZE;
 		}
 
-		host->align_buf_sz = host->adma_max_desc * 4;
+		if (host->flags & SDHCI_USE_ADMA_64BIT) {
+			host->adma_desc_line_sz = 12;
+			host->align_bytes = 8;
+		} else {
+			host->adma_desc_line_sz = 8;
+			host->align_bytes = 4;
+		}
+
+		host->adma_desc_sz = (host->adma_max_desc * 2 + 1) *
+						host->adma_desc_line_sz;
+		host->align_buf_sz = host->adma_max_desc * host->align_bytes;
 
 		pr_debug("%s: %s: dma_desc_size: %d\n",
 			mmc_hostname(host->mmc), __func__, host->adma_desc_sz);
@@ -3703,8 +3788,10 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	pr_info("%s: SDHCI controller on %s [%s] using %s\n",
 		mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
-		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
-		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
+		(host->flags & SDHCI_USE_ADMA) ?
+		((host->flags & SDHCI_USE_ADMA_64BIT) ?
+		"64-bit ADMA" : "32-bit ADMA") :
+		((host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO"));
 
 	sdhci_enable_card_detection(host);
 
