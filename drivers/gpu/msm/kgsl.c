@@ -666,78 +666,44 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 }
 EXPORT_SYMBOL(kgsl_late_resume_driver);
 
-/* file operations */
-static struct kgsl_process_private *
-kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
+/**
+ * kgsl_destroy_process_private() - Cleanup function to free process private
+ * @kref: - Pointer to object being destroyed's kref struct
+ * Free struct object and all other resources attached to it.
+ * Since the function can be used when not all resources inside process
+ * private have been allocated, there is a check to (before each resource
+ * cleanup) see if the struct member being cleaned is in fact allocated or not.
+ * If the value is not NULL, resource is freed.
+ */
+static void kgsl_destroy_process_private(struct kref *kref)
 {
-	struct kgsl_process_private *private;
 
-	mutex_lock(&kgsl_driver.process_mutex);
-	list_for_each_entry(private, &kgsl_driver.process_list, list) {
-		if (private->pid == task_tgid_nr(current)) {
-			private->refcnt++;
-			goto out;
-		}
-	}
-
-	/* no existing process private found for this dev_priv, create one */
-	private = kzalloc(sizeof(struct kgsl_process_private), GFP_KERNEL);
-	if (private == NULL) {
-		KGSL_DRV_ERR(cur_dev_priv->device, "kzalloc(%d) failed\n",
-			sizeof(struct kgsl_process_private));
-		goto out;
-	}
-
-	spin_lock_init(&private->mem_lock);
-	private->refcnt = 1;
-	private->pid = task_tgid_nr(current);
-	private->mem_rb = RB_ROOT;
-
-	idr_init(&private->mem_idr);
-
-	if (kgsl_mmu_enabled())
-	{
-		unsigned long pt_name;
-		struct kgsl_mmu *mmu = &cur_dev_priv->device->mmu;
-
-		pt_name = task_tgid_nr(current);
-		private->pagetable = kgsl_mmu_getpagetable(mmu, pt_name);
-		if (private->pagetable == NULL) {
-			kfree(private);
-			private = NULL;
-			goto out;
-		}
-	}
-
-	list_add(&private->list, &kgsl_driver.process_list);
-
-	kgsl_process_init_sysfs(private);
-	kgsl_process_init_debugfs(private);
-
-out:
-	mutex_unlock(&kgsl_driver.process_mutex);
-	return private;
-}
-
-static void
-kgsl_put_process_private(struct kgsl_device *device,
-			 struct kgsl_process_private *private)
-{
 	struct kgsl_mem_entry *entry = NULL;
 	int next = 0;
 
-	if (!private)
+
+	struct kgsl_process_private *private = container_of(kref,
+			struct kgsl_process_private, refcount);
+
+	/*
+	 * Remove this process from global process list
+	 * We do not acquire a lock first as it is expected that
+	 * kgsl_destroy_process_private() is only going to be called
+	 * through kref_put() which is only called after acquiring
+	 * the lock.
+	 */
+	if (!private) {
+		KGSL_CORE_ERR("Cannot destroy null process private\n");
+		mutex_unlock(&kgsl_driver.process_mutex);
 		return;
-
-	mutex_lock(&kgsl_driver.process_mutex);
-
-	if (--private->refcnt)
-		goto unlock;
-
-	kgsl_process_uninit_sysfs(private);
-	debugfs_remove_recursive(private->debug_root);
-
+	}
 	list_del(&private->list);
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	if (private->kobj.parent)
+		kgsl_process_uninit_sysfs(private);
+	if (private->debug_root)
+		debugfs_remove_recursive(private->debug_root);
 
 	while (1) {
 		rcu_read_lock();
@@ -755,9 +721,110 @@ kgsl_put_process_private(struct kgsl_device *device,
 	}
 	kgsl_mmu_putpagetable(private->pagetable);
 	idr_destroy(&private->mem_idr);
+
 	kfree(private);
-unlock:
+	return;
+}
+
+static void
+kgsl_put_process_private(struct kgsl_device *device,
+			 struct kgsl_process_private *private)
+{
+	mutex_lock(&kgsl_driver.process_mutex);
+
+	/*
+	 * kref_put() returns 1 when the refcnt has reached 0 and the destroy
+	 * function is called. Mutex is released in the destroy function if
+	 * its called, so only release mutex if kref_put() return 0
+	 */
+	if (!kref_put(&private->refcount, kgsl_destroy_process_private))
+		mutex_unlock(&kgsl_driver.process_mutex);
+	return;
+}
+
+/**
+ * find_process_private() - Helper function to search for process private
+ * @cur_dev_priv: Pointer to device private structure which contains pointers
+ * to device and process_private structs.
+ * Returns: Pointer to the found/newly created private struct
+ */
+static struct kgsl_process_private *
+kgsl_find_process_private(struct kgsl_device_private *cur_dev_priv)
+{
+	struct kgsl_process_private *private;
+
+	/* Search in the process list */
+	mutex_lock(&kgsl_driver.process_mutex);
+	list_for_each_entry(private, &kgsl_driver.process_list, list) {
+		if (private->pid == task_tgid_nr(current)) {
+			kref_get(&private->refcount);
+			goto done;
+		}
+	}
+
+	/* no existing process private found for this dev_priv, create one */
+	private = kzalloc(sizeof(struct kgsl_process_private), GFP_KERNEL);
+	if (private == NULL) {
+		KGSL_DRV_ERR(cur_dev_priv->device, "kzalloc(%d) failed\n",
+			sizeof(struct kgsl_process_private));
+		goto done;
+	}
+
+	kref_init(&private->refcount);
+
+	private->pid = task_tgid_nr(current);
+	spin_lock_init(&private->mem_lock);
+	mutex_init(&private->process_private_mutex);
+	/* Add the newly created process struct obj to the process list */
+	list_add(&private->list, &kgsl_driver.process_list);
+done:
 	mutex_unlock(&kgsl_driver.process_mutex);
+	return private;
+}
+
+/**
+ * kgsl_get_process_private() - Used to find the process private structure
+ * @cur_dev_priv: Current device pointer
+ * Finds or creates a new porcess private structire and initializes its members
+ * Returns: Pointer to the private process struct obj found/created or
+ * NULL if pagetable creation for this process private obj failed.
+ */
+static struct kgsl_process_private *
+kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
+{
+	struct kgsl_process_private *private;
+
+	private = kgsl_find_process_private(cur_dev_priv);
+
+	mutex_lock(&private->process_private_mutex);
+
+	if (!private->mem_rb.rb_node) {
+		private->mem_rb = RB_ROOT;
+		idr_init(&private->mem_idr);
+	}
+
+	if ((!private->pagetable) && kgsl_mmu_enabled()) {
+		unsigned long pt_name;
+		struct kgsl_mmu *mmu = &cur_dev_priv->device->mmu;
+
+		pt_name = task_tgid_nr(current);
+		private->pagetable = kgsl_mmu_getpagetable(mmu, pt_name);
+		if (private->pagetable == NULL) {
+			mutex_unlock(&private->process_private_mutex);
+			kgsl_put_process_private(cur_dev_priv->device,
+						private);
+			return NULL;
+		}
+	}
+
+	if (!private->kobj.parent)
+		kgsl_process_init_sysfs(private);
+	if (!private->debug_root)
+		kgsl_process_init_debugfs(private);
+
+	mutex_unlock(&private->process_private_mutex);
+
+	return private;
 }
 
 static int kgsl_release(struct inode *inodep, struct file *filep)
