@@ -107,6 +107,9 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 		struct kobject *kobj, struct bin_attribute *attributes,
 		char *buf, loff_t pos, size_t count);
 
+static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
 static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
@@ -301,6 +304,9 @@ static struct bin_attribute dev_attr_data = {
 };
 
 static struct device_attribute attrs[] = {
+	__ATTR(forceflash, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_force_reflash_store),
 	__ATTR(doreflash, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_do_reflash_store),
@@ -1460,6 +1466,40 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 	fwu->data_pos += count;
 
 	return count;
+}
+
+static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+
+	if (sscanf(buf, "%u", &input) != 1) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	if (input != 1) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	fwu->force_update = true;
+	retval = synaptics_fw_updater(fwu->ext_data_source);
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Failed to do reflash\n",
+				__func__);
+		goto exit;
+	}
+
+	retval = count;
+
+exit:
+	kfree(fwu->ext_data_source);
+	fwu->ext_data_source = NULL;
+	return retval;
 }
 
 static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
