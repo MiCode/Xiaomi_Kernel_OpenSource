@@ -822,7 +822,8 @@ static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
 			int remain, void *priv)
 {
 	struct kgsl_snapshot_replay_mem_list *header = snapshot;
-	struct kgsl_process_private *private;
+	struct kgsl_process_private *private = NULL;
+	struct kgsl_process_private *tmp_private;
 	unsigned int ptbase;
 	struct rb_node *node;
 	struct kgsl_mem_entry *entry = NULL;
@@ -831,10 +832,12 @@ static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
 
 	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
 	mutex_lock(&kgsl_driver.process_mutex);
-	list_for_each_entry(private, &kgsl_driver.process_list, list) {
-		if (kgsl_mmu_pt_equal(&device->mmu, private->pagetable,
-			ptbase))
+	list_for_each_entry(tmp_private, &kgsl_driver.process_list, list) {
+		if (kgsl_mmu_pt_equal(&device->mmu, tmp_private->pagetable,
+			ptbase)) {
+			private = tmp_private;
 			break;
+		}
 	}
 	mutex_unlock(&kgsl_driver.process_mutex);
 	if (!private) {
