@@ -72,14 +72,42 @@ void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	mdss_dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
 }
 
-static struct mdss_dsi_ctrl_pdata *mdss_dsi_ndx2ctrl(int ndx)
+/*
+ * acquire ctrl->mutex first
+ */
+void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 {
-	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	mutex_lock(&ctrl->mutex);
+	if (enable) {
+		if (ctrl->clk_cnt == 0) {
+			mdss_dsi_prepare_clocks(ctrl);
+			mdss_dsi_clk_enable(ctrl);
+		}
+		ctrl->clk_cnt++;
+	} else {
+		if (ctrl->clk_cnt) {
+			ctrl->clk_cnt--;
+			if (ctrl->clk_cnt == 0) {
+				mdss_dsi_clk_disable(ctrl);
+				mdss_dsi_unprepare_clocks(ctrl);
+			}
+		}
+	}
+	pr_debug("%s: ctrl ndx=%d enabled=%d clk_cnt=%d\n",
+			__func__, ctrl->ndx, enable, ctrl->clk_cnt);
+	mutex_unlock(&ctrl->mutex);
+}
 
-	if (ndx < DSI_CTRL_MAX)
-		ctrl = ctrl_list[ndx];
+void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+{
+	if (enable == 0) {
+		/* need wait before disable */
+		mutex_lock(&ctrl->cmd_mutex);
+		mdss_dsi_cmd_mdp_busy(ctrl);
+		mutex_unlock(&ctrl->cmd_mutex);
+	}
 
-	return ctrl;
+	mdss_dsi_clk_ctrl(ctrl, enable);
 }
 
 void mdss_dsi_enable_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
@@ -1438,13 +1466,6 @@ void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl)
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 }
 
-void mdss_dsi_mdp_busy_wait(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	mutex_lock(&ctrl->cmd_mutex);
-	mdss_dsi_cmd_mdp_busy(ctrl);
-	mutex_unlock(&ctrl->cmd_mutex);
-}
-
 void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flags;
@@ -1510,6 +1531,7 @@ void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		goto need_lock;
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
+	mdss_dsi_clk_ctrl(ctrl, 1);
 
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0004);
 	if (data & 0x02) {
@@ -1530,27 +1552,14 @@ void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	else
 		mdss_dsi_cmdlist_tx(ctrl, req);
 
+	mdss_dsi_clk_ctrl(ctrl, 0);
+
 need_lock:
 
 	if (from_mdp) /* from pipe_commit */
 		mdss_dsi_cmd_mdp_start(ctrl);
 
 	mutex_unlock(&ctrl->cmd_mutex);
-}
-
-/*
- * mdss_dsi_cmdlist_kickoff() called from command mode kickoff
- */
-void mdss_dsi_cmdlist_kickoff(int intf)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl;
-
-	ctrl = mdss_dsi_ndx2ctrl(intf);
-
-	if (ctrl == NULL)
-		return;
-
-	mdss_dsi_cmdlist_commit(ctrl, 1);
 }
 
 /*

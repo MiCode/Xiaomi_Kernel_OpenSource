@@ -170,13 +170,10 @@ void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	clk_unprepare(ctrl_pdata->byte_clk);
 }
 
-void mdss_dsi_clk_enable(struct mdss_panel_data *pdata)
+void mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	u32 esc_clk_rate = 19200000;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -206,12 +203,8 @@ void mdss_dsi_clk_enable(struct mdss_panel_data *pdata)
 	ctrl_pdata->mdss_dsi_clk_on = 1;
 }
 
-void mdss_dsi_clk_disable(struct mdss_panel_data *pdata)
+void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
