@@ -1082,17 +1082,25 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
 {
 	int retval = 0;
-	unsigned char intr_status;
+	unsigned char *intr_status;
 
 	if (enable) {
 		if (rmi4_data->irq_enabled)
 			return retval;
 
+		intr_status = kzalloc(rmi4_data->num_of_intr_regs, GFP_KERNEL);
+		if (!intr_status) {
+			dev_err(&rmi4_data->i2c_client->dev,
+					"%s: Failed to alloc memory\n",
+					__func__);
+			return -ENOMEM;
+		}
 		/* Clear interrupts first */
 		retval = synaptics_rmi4_i2c_read(rmi4_data,
 				rmi4_data->f01_data_base_addr + 1,
-				&intr_status,
+				intr_status,
 				rmi4_data->num_of_intr_regs);
+		kfree(intr_status);
 		if (retval < 0)
 			return retval;
 
