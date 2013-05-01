@@ -488,7 +488,7 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint32_t cmd_bits,
 		vfe_intf = params->entries[i].vfe_intf;
 		for (k = 0; k < params->entries[i].num_cids; k++) {
 			cid = params->entries[i].cids[k];
-			vc = cid % 4;
+			vc = cid / 4;
 			if (intf_type == RDI2) {
 				/* zero out two bits */
 				ispif->applied_intf_cmd[vfe_intf].intf_cmd1 &=
