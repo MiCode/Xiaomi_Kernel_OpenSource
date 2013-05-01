@@ -103,6 +103,11 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	}
 
 	vec_arr = of_get_property(of_node, "qcom,msm-bus,vectors-KBps", &len);
+	if (vec_arr == NULL) {
+		pr_err("Error: Vector array not found\n");
+		goto err;
+	}
+
 	if (len != num_usecases * num_paths * sizeof(uint32_t) * 4) {
 		pr_err("Error: Length-error on getting vectors\n");
 		goto err;
@@ -432,7 +437,7 @@ err:
 struct msm_bus_fabric_registration
 	*msm_bus_of_get_fab_data(struct platform_device *pdev)
 {
-	struct device_node *of_node = pdev->dev.of_node;
+	struct device_node *of_node;
 	struct msm_bus_fabric_registration *pdata;
 	bool mem_err = false;
 	int ret = 0;
@@ -443,6 +448,7 @@ struct msm_bus_fabric_registration
 		return NULL;
 	}
 
+	of_node = pdev->dev.of_node;
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_bus_fabric_registration), GFP_KERNEL);
 	if (!pdata) {
