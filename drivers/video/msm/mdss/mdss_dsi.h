@@ -315,12 +315,13 @@ enum {
 };
 
 struct mdss_dsi_ctrl_pdata {
-	int ndx;
+	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
 	int reg_size;
+	u32 clk_cnt;
 	struct clk *byte_clk;
 	struct clk *esc_clk;
 	struct clk *pixel_clk;
@@ -387,8 +388,11 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
-void mdss_dsi_clk_enable(struct mdss_panel_data *pdata);
-void mdss_dsi_clk_disable(struct mdss_panel_data *pdata);
+void mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
+				int enable);
 void mdss_dsi_controller_cfg(int enable,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);

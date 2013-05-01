@@ -95,11 +95,6 @@ static struct dsi_cmd_desc dcs_read_cmd = {
 	dcs_cmd
 };
 
-static void dcs_read_cb(u32 data)
-{
-	pr_info("%s: bklt_ctrl=%x\n", __func__, data);
-}
-
 u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
 			char cmd0, char cmd1)
 {
@@ -112,7 +107,7 @@ u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 1;
-	cmdreq.cb = dcs_read_cb; /* call back */
+	cmdreq.cb = NULL; /* call back */
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 	/*
 	 * blocked here, until call back called
@@ -226,6 +221,7 @@ static int mdss_dsi_panel_dcs_cmds(struct mdss_dsi_ctrl_pdata *ctrl,
 	int cnt = 0;
 
 	mutex_lock(&ctrl->mutex);
+	mdss_dsi_clk_ctrl(ctrl, 1);
 	bp = cmd_bytes;
 	while (len >= sizeof(*dchdr)) {
 		dchdr = (struct dsi_ctrl_hdr *)bp;
@@ -247,6 +243,7 @@ static int mdss_dsi_panel_dcs_cmds(struct mdss_dsi_ctrl_pdata *ctrl,
 		len -= dchdr->dlen;
 		cnt++;
 	}
+	mdss_dsi_clk_ctrl(ctrl, 0);
 	mutex_unlock(&ctrl->mutex);
 
 	return cnt;

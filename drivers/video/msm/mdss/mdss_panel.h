@@ -81,6 +81,10 @@ enum {
  * @MDSS_EVENT_FB_REGISTERED:	Called after fb dev driver has been registered,
  *				panel driver gets ptr to struct fb_info which
  *				holds fb dev information.
+ * @MDSS_EVENT_PANEL_CLK_CTRL:	panel clock control
+				 - 0 clock disable
+				 - 1 clock enable
+ * @MDSS_EVENT_DSI_CMDLIST_KOFF: kickoff sending dcs command from command list
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -94,6 +98,8 @@ enum mdss_intf_events {
 	MDSS_EVENT_CHECK_PARAMS,
 	MDSS_EVENT_CONT_SPLASH_FINISH,
 	MDSS_EVENT_FB_REGISTERED,
+	MDSS_EVENT_PANEL_CLK_CTRL,
+	MDSS_EVENT_DSI_CMDLIST_KOFF,
 };
 
 struct lcd_panel_info {
