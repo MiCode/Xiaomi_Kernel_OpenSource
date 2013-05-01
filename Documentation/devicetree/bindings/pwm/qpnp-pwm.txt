@@ -11,17 +11,10 @@ to indicate various states of charging.
 
 Required device bindings:
 - compatible:		should be "qcom,qpnp-pwm"
-- reg:			Offset and length of the controller's LPG channel register,
-			and LPG look-up table (LUT). The LPG look-up table is a
-			contiguous address space that is populated with PWM values.
-			The size of PWM value is 9 bit and the size of each
-			entry of the table is 8 bit. Thus, two entries are used
-			to fill each PWM value. The lower entry is used for PWM
-			LSB byte and higher entry is used for PWM MSB bit.
-- reg-names:		Names for the above registers.
+- reg:			Offset and length of the controller's LPG channel register.
+- reg-names:		Name for the above register.
 			"qpnp-lpg-channel-base" = physical base address of the
 			controller's LPG channel register.
-			"qpnp-lpg-lut-base" = physical base address of LPG LUT.
 - qcom,channel-id:	channel Id for the PWM.
 
 Optional device bindings:
@@ -52,12 +45,20 @@ The following bindings are needed to configure LPG mode, where a list of
 duty cycle percentages is populated. The size of the list cannot exceed
 the size of the LPG look-up table.
 
-- qcom,period:			PWM period time in microseconds.
-- qcom,duty-percents:		List of entries for look-up table
-- cell-index:			Index of look-up table that should be used to start
-				filling up the duty-pct list. start-idx + size of list
-				cannot exceed the size of look-up table.
-- label:			"lpg"
+- reg:			Offset and length of LPG look-up table (LUT). The LPG look-up table is a
+			contiguous address space that is populated with PWM values.
+			The size of PWM value is 9 bit and the size of each
+			entry of the table is 8 bit. Thus, two entries are used
+			to fill each PWM value. The lower entry is used for PWM
+			LSB byte and higher entry is used for PWM MSB bit.
+- reg-names:		Name for the above register.
+			"qpnp-lpg-lut-base" = physical base address of LPG LUT.
+- qcom,period:		PWM period time in microseconds.
+- qcom,duty-percents:	List of entries for look-up table
+- cell-index:		Index of look-up table that should be used to start
+			filling up the duty-pct list. start-idx + size of list
+			cannot exceed the size of look-up table.
+- label:		"lpg"
 
 
 Optional bindings to support LPG feature:
