@@ -1092,6 +1092,10 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		ctrl_pdata->panel_data.panel_info.panel_power_on = 1;
 	}
 
+	ctrl_pdata->pclk_rate = dsi_pclk_rate;
+	ctrl_pdata->byte_clk_rate = panel_data->panel_info.clk_rate / 8;
+	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
+			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	if (ctrl_pdata->panel_data.panel_info.cont_splash_enabled) {
 		mdss_dsi_prepare_clocks(ctrl_pdata);
@@ -1110,11 +1114,6 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	ctrl_pdata->on = panel_data->on;
 	ctrl_pdata->off = panel_data->off;
-
-	ctrl_pdata->pclk_rate = dsi_pclk_rate;
-	ctrl_pdata->byte_clk_rate = panel_data->panel_info.clk_rate / 8;
-	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
-			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	if (panel_data->panel_info.pdest == DISPLAY_1) {
 		mdss_debug_register_base("dsi0",
