@@ -408,11 +408,13 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
-	mdss_dsi_clk_disable(pdata);
-	mdss_dsi_unprepare_clocks(ctrl_pdata);
+	if (pdata->panel_info.type == MIPI_CMD_PANEL)
+		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
 	/* disable DSI controller */
 	mdss_dsi_controller_cfg(0, pdata);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
 	/* disable DSI phy */
 	mdss_dsi_phy_enable(ctrl_pdata->ctrl_base, 0);
@@ -510,8 +512,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
 
-	mdss_dsi_prepare_clocks(ctrl_pdata);
-	mdss_dsi_clk_enable(pdata);
+	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
@@ -588,6 +589,9 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xac, tmp);
 		wmb();
 	}
+
+	if (pdata->panel_info.type == MIPI_CMD_PANEL)
+		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
 	pr_debug("%s-:\n", __func__);
 	return 0;
@@ -697,6 +701,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				 ctrl_pdata->dsi_on_state);
 			rc = -EINVAL;
 		}
+		break;
+	case MDSS_EVENT_PANEL_CLK_CTRL:
+		mdss_dsi_clk_req(ctrl_pdata, (int)arg);
+		break;
+	case MDSS_EVENT_DSI_CMDLIST_KOFF:
+		mdss_dsi_cmdlist_commit(ctrl_pdata, 1);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
@@ -1115,10 +1125,8 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
-	if (ctrl_pdata->panel_data.panel_info.cont_splash_enabled) {
-		mdss_dsi_prepare_clocks(ctrl_pdata);
-		mdss_dsi_clk_enable(&(ctrl_pdata->panel_data));
-	}
+	if (ctrl_pdata->panel_data.panel_info.cont_splash_enabled)
+		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
