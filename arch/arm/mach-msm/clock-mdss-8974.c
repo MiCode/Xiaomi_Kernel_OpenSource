@@ -409,9 +409,9 @@ out:
 static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 {
 	if (mdss_gdsc_enabled() && mdss_dsi_check_pll_lock()) {
-		c->rate = 53000000;
-		dsi_pll_rate = 53000000;
-		pll_byte_clk_rate = 53000000;
+		c->rate = 52954560;
+		dsi_pll_rate = 52954560;
+		pll_byte_clk_rate = 52954560;
 		pll_pclk_rate = 105000000;
 		dsipll_refcount++;
 		return HANDOFF_ENABLED_CLK;
