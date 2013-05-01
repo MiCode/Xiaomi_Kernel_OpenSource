@@ -1121,11 +1121,24 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 	int rc = 0;
 	struct v4l2_event dqevent = {0};
 	struct msm_vidc_core *core = inst->core;
+
+	if (!dec || !inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s invalid params", __func__);
+		return -EINVAL;
+	}
 	switch (dec->cmd) {
 	case V4L2_DEC_QCOM_CMD_FLUSH:
 		rc = msm_comm_flush(inst, dec->flags);
 		break;
 	case V4L2_DEC_CMD_STOP:
+		if (core->state != VIDC_CORE_INVALID &&
+			inst->state ==  MSM_VIDC_CORE_INVALID) {
+			rc = msm_comm_recover_from_session_error(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed to recover from session_error: %d\n",
+					rc);
+		}
 		rc = msm_comm_release_scratch_buffers(inst);
 		if (rc)
 			dprintk(VIDC_ERR,

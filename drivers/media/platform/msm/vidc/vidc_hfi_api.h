@@ -1020,7 +1020,7 @@ enum fw_info {
 };
 
 #define call_hfi_op(q, op, args...)			\
-	(((q)->op) ? ((q)->op(args)) : 0)
+	(((q) && (q)->op) ? ((q)->op(args)) : 0)
 
 struct hfi_device {
 	void *hfi_device_data;
