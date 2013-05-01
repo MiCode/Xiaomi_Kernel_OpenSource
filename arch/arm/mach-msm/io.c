@@ -574,6 +574,7 @@ void __init msm_map_msm8226_io(void)
 
 #ifdef CONFIG_ARCH_MSM8610
 static struct map_desc msm8610_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(QGIC_DIST, MSM8610),
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8610),
 	MSM_CHIP_DEVICE(TLMM, MSM8610),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8610),
