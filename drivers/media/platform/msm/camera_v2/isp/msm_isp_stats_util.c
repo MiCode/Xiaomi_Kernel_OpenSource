@@ -206,7 +206,11 @@ int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg)
 
 	framedrop_period = msm_isp_get_framedrop_period(
 	   stream_req_cmd->framedrop_pattern);
-	stream_info->framedrop_pattern = 0x1;
+
+	if (stream_req_cmd->framedrop_pattern == SKIP_ALL)
+		stream_info->framedrop_pattern = 0x0;
+	else
+		stream_info->framedrop_pattern = 0x1;
 	stream_info->framedrop_period = framedrop_period - 1;
 
 	if (!stream_info->composite_flag)

@@ -64,6 +64,7 @@ enum msm_vfe_frame_skip_pattern {
 	EVERY_8FRAME,
 	EVERY_16FRAME,
 	EVERY_32FRAME,
+	SKIP_ALL,
 	MAX_SKIP,
 };
 
