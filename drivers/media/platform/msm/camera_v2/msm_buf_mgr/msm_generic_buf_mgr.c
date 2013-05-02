@@ -161,6 +161,7 @@ static int __init msm_buf_mngr_init(void)
 	msm_buf_mngr_dev->subdev.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	msm_buf_mngr_dev->subdev.sd.entity.group_id =
 		MSM_CAMERA_SUBDEV_BUF_MNGR;
+	msm_buf_mngr_dev->subdev.close_seq = MSM_SD_CLOSE_4TH_CATEGORY;
 	rc = msm_sd_register(&msm_buf_mngr_dev->subdev);
 	if (rc != 0) {
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);

@@ -570,6 +570,7 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csiphy_cmd(csiphy_dev, arg);
 		break;
 	case VIDIOC_MSM_CSIPHY_RELEASE:
+	case MSM_SD_SHUTDOWN:
 		rc = msm_csiphy_release(csiphy_dev, arg);
 		break;
 	default:
@@ -665,7 +666,7 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 	media_entity_init(&new_csiphy_dev->msm_sd.sd.entity, 0, NULL, 0);
 	new_csiphy_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	new_csiphy_dev->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_CSIPHY;
-
+	new_csiphy_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x4;
 	msm_sd_register(&new_csiphy_dev->msm_sd);
 	new_csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 	return 0;

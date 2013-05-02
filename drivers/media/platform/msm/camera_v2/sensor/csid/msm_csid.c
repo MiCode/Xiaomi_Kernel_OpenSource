@@ -460,6 +460,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csid_cmd(csid_dev, arg);
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
+	case MSM_SD_SHUTDOWN:
 		rc = msm_csid_release(csid_dev);
 		break;
 	default:
@@ -552,6 +553,7 @@ static int __devinit csid_probe(struct platform_device *pdev)
 	media_entity_init(&new_csid_dev->msm_sd.sd.entity, 0, NULL, 0);
 	new_csid_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	new_csid_dev->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_CSID;
+	new_csid_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x5;
 	msm_sd_register(&new_csid_dev->msm_sd);
 
 	rc = request_irq(new_csid_dev->irq->start, msm_csid_irq,
