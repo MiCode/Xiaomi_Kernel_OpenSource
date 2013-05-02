@@ -112,6 +112,7 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_XOTHERM] = {qpnp_adc_tdkntcg_therm},
 	[SCALE_THERM_100K_PULLUP] = {qpnp_adc_scale_therm_pu2},
 	[SCALE_THERM_150K_PULLUP] = {qpnp_adc_scale_therm_pu1},
+	[SCALE_QRD_BATT_THERM] = {qpnp_adc_scale_qrd_batt_therm},
 };
 
 static int32_t qpnp_vadc_read_reg(int16_t reg, u8 *data)
