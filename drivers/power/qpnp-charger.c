@@ -1814,11 +1814,15 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBBP_BOOST_SUBTYPE:
 		break;
 	case SMBB_MISC_SUBTYPE:
-		chip->type = SMBB;
 	case SMBBP_MISC_SUBTYPE:
-		chip->type = SMBBP;
 	case SMBCL_MISC_SUBTYPE:
-		chip->type = SMBCL;
+		if (subtype == SMBB_MISC_SUBTYPE)
+			chip->type = SMBB;
+		else if (subtype == SMBBP_MISC_SUBTYPE)
+			chip->type = SMBBP;
+		else if (subtype == SMBCL_MISC_SUBTYPE)
+			chip->type = SMBCL;
+
 		pr_debug("Setting BOOT_DONE\n");
 		rc = qpnp_chg_masked_write(chip,
 			chip->misc_base + CHGR_MISC_BOOT_DONE,
