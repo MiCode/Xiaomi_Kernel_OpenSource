@@ -80,6 +80,7 @@ struct msm_actuator_ctrl_t {
 	struct msm_camera_i2c_reg_tbl *i2c_reg_tbl;
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
+	uint32_t subdev_id;
 };
 
 #endif
