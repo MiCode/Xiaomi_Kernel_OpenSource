@@ -567,7 +567,6 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 
 	pdata->panel_info.cont_splash_enabled = 0;
 
-	ion_free(iclient, pdata->panel_info.splash_ihdl);
 
 	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
 	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
@@ -575,10 +574,11 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 	if (mdss_mdp_rev == MDSS_MDP_HW_REV_102)
 		mdss_v2_intf_off =  0xEC00;
 
-	/* wait for 1 VSYNC for the pipe to be unstaged */
-	msleep(20);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
 			mdss_v2_intf_off, 0);
+	/* wait for 1 VSYNC for the pipe to be unstaged */
+	msleep(20);
+	ion_free(iclient, pdata->panel_info.splash_ihdl);
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
 			NULL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
