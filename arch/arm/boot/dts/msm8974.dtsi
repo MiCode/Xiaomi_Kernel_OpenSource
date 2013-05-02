@@ -732,6 +732,22 @@
 		qcom,i2c-src-freq = <50000000>;
 	};
 
+	i2c_1: i2c@f9923000 {
+		cell-index = <1>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9923000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 95 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,scl-gpio = <&msmgpio 3 0>;
+		qcom,sda-gpio = <&msmgpio 2 0>;
+		status = "disabled";
+	};
+
 	i2c_2: i2c@f9924000 {
 		cell-index = <2>;
 		compatible = "qcom,i2c-qup";
