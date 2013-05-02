@@ -229,7 +229,15 @@ enum dmx_event {
 	DMX_EVENT_MARKER = 0x00000100,
 
 	/* New indexing entry is ready */
-	DMX_EVENT_NEW_INDEX_ENTRY = 0x00000200
+	DMX_EVENT_NEW_INDEX_ENTRY = 0x00000200,
+
+	/*
+	 * Section filter timer expired. This is notified
+	 * when timeout is configured to section filter
+	 * (dmx_sct_filter_params) and no sections were
+	 * received for the given time.
+	 */
+	DMX_EVENT_SECTION_TIMEOUT = 0x00000400
 };
 
 enum dmx_oob_cmd {

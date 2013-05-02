@@ -2215,6 +2215,9 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 		dvb_ringbuffer_flush(&dmxdevfilter->buffer);
 		dvb_dmxdev_notify_data_read(dmxdevfilter, flush_len);
 		dmxdevfilter->buffer.error = 0;
+	} else if (event->type == DMX_EVENT_SECTION_TIMEOUT) {
+		/* clear buffer error now that user was notified */
+		dmxdevfilter->buffer.error = 0;
 	}
 
 	/*
@@ -2245,10 +2248,13 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 static void dvb_dmxdev_filter_timeout(unsigned long data)
 {
 	struct dmxdev_filter *dmxdevfilter = (struct dmxdev_filter *)data;
+	struct dmx_filter_event event;
 
 	dmxdevfilter->buffer.error = -ETIMEDOUT;
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 	dmxdevfilter->state = DMXDEV_STATE_TIMEDOUT;
+	event.type = DMX_EVENT_SECTION_TIMEOUT;
+	dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
 	wake_up_all(&dmxdevfilter->buffer.queue);
 }
