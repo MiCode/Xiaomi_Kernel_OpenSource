@@ -610,5 +610,12 @@
 			label = "vibrator";
 			status = "disabled";
 		};
+
+		pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+		};
 	};
 };
