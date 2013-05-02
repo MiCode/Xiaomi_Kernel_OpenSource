@@ -2997,8 +2997,6 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	pce_dev->dir = c_req->dir;
 	if  ((pce_dev->ce_sps.minor_version == 0) && (c_req->dir == QCE_DECRYPT)
 			&& (c_req->mode == QCE_MODE_CBC)) {
-		struct ablkcipher_request *areq =
-				(struct ablkcipher_request *)pce_dev->areq;
 		memcpy(pce_dev->dec_iv, (unsigned char *)sg_virt(areq->src) +
 					 areq->src->length - 16,
 			NUM_OF_CRYPTO_CNTR_IV_REG * CRYPTO_REG_SIZE);
