@@ -836,7 +836,7 @@
 		label = "vchg_sns";
 		reg = <2>;
 		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <3>;
+		qcom,pre-div-channel-scaling = <2>;
 		qcom,calibration-type = "absolute";
 		qcom,scale-function = <0>;
 		qcom,hw-settle-time = <0>;
