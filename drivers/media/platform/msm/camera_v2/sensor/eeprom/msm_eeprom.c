@@ -444,14 +444,16 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 			spi_client->spi_master->dev.of_node;
 	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_PLATFORM_DEVICE)
 		of_node = e_ctrl->pdev->dev.of_node;
-	rc = msm_camera_get_dt_power_setting_data(of_node,
-		  &power_info->power_setting, &power_info->power_setting_size);
-	if (rc)
-		return rc;
 
 	rc = msm_camera_get_dt_vreg_data(of_node, &power_info->cam_vreg,
 					     &power_info->num_vreg);
-	if (rc)
+	if (rc < 0)
+		return rc;
+
+	rc = msm_camera_get_dt_power_setting_data(of_node,
+		power_info->cam_vreg, power_info->num_vreg,
+		&power_info->power_setting, &power_info->power_setting_size);
+	if (rc < 0)
 		goto ERROR1;
 
 	power_info->gpio_conf = kzalloc(sizeof(struct msm_camera_gpio_conf),
