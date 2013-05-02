@@ -79,6 +79,7 @@ struct mem_region_pair {
 struct wfd_inst {
 	struct vb2_queue vid_bufq;
 	struct mutex lock;
+	struct mutex vb2_lock;
 	u32 buf_count;
 	struct task_struct *mdp_task;
 	void *mdp_inst;
@@ -939,7 +940,10 @@ static int wfdioc_qbuf(struct file *filp, void *fh,
 		return rc;
 	}
 
+	mutex_lock(&inst->vb2_lock);
 	rc = vb2_qbuf(&inst->vid_bufq, b);
+	mutex_unlock(&inst->vb2_lock);
+
 	if (rc)
 		WFD_MSG_ERR("Failed to queue buffer\n");
 	else
@@ -1005,7 +1009,10 @@ static int wfdioc_dqbuf(struct file *filp, void *fh,
 	int rc;
 
 	WFD_MSG_DBG("Waiting to dequeue buffer\n");
-	rc = vb2_dqbuf(&inst->vid_bufq, b, 0);
+
+	/* XXX: If we switch to non-blocking mode in the future,
+	 * we'll need to lock this with vb2_lock */
+	rc = vb2_dqbuf(&inst->vid_bufq, b, false /* blocking */);
 
 	if (rc)
 		WFD_MSG_ERR("Failed to dequeue buffer\n");
@@ -1246,8 +1253,13 @@ static int wfd_set_default_properties(struct file *filp)
 static void venc_op_buffer_done(void *cookie, u32 status,
 			struct vb2_buffer *buf)
 {
+	struct file *filp = cookie;
+	struct wfd_inst *inst = file_to_inst(filp);
+
 	WFD_MSG_DBG("yay!! got callback\n");
+	mutex_lock(&inst->vb2_lock);
 	vb2_buffer_done(buf, VB2_BUF_STATE_DONE);
+	mutex_unlock(&inst->vb2_lock);
 }
 
 static void venc_ip_buffer_done(void *cookie, u32 status,
@@ -1419,6 +1431,7 @@ static int wfd_open(struct file *filp)
 	}
 	filp->private_data = &inst->event_handler;
 	mutex_init(&inst->lock);
+	mutex_init(&inst->vb2_lock);
 	INIT_LIST_HEAD(&inst->input_mem_list);
 	INIT_LIST_HEAD(&inst->minfo_list);
 
@@ -1519,6 +1532,8 @@ static int wfd_close(struct file *filp)
 
 		wfd_stats_deinit(&inst->stats);
 		v4l2_fh_del(&inst->event_handler);
+		mutex_destroy(&inst->lock);
+		mutex_destroy(&inst->vb2_lock);
 		kfree(inst);
 	}
 
