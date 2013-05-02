@@ -42,7 +42,6 @@
 #include "qce.h"
 
 
-#define MAX_CRYPTO_DEVICE 3
 #define DEBUG_MAX_FNAME  16
 #define DEBUG_MAX_RW_BUF 1024
 
@@ -53,6 +52,8 @@ struct crypto_stat {
 	u32 aead_sha1_des_dec;
 	u32 aead_sha1_3des_enc;
 	u32 aead_sha1_3des_dec;
+	u32 aead_ccm_aes_enc;
+	u32 aead_ccm_aes_dec;
 	u32 aead_op_success;
 	u32 aead_op_fail;
 	u32 ablk_cipher_aes_enc;
@@ -72,7 +73,7 @@ struct crypto_stat {
 	u32 sha_hmac_op_success;
 	u32 sha_hmac_op_fail;
 };
-static struct crypto_stat _qcrypto_stat[MAX_CRYPTO_DEVICE];
+static struct crypto_stat _qcrypto_stat;
 static struct dentry *_debug_dent;
 static char _debug_read_buf[DEBUG_MAX_RW_BUF];
 
@@ -581,11 +582,7 @@ static int _disp_stats(int id)
 	struct crypto_stat *pstat;
 	int len = 0;
 
-	if (id < 0) {
-		pr_err("Crypto id is %d, cannot be negative\n", id);
-		return len;
-	}
-	pstat = &_qcrypto_stat[id];
+	pstat = &_qcrypto_stat;
 	len = snprintf(_debug_read_buf, DEBUG_MAX_RW_BUF - 1,
 			"\nQualcomm crypto accelerator %d Statistics:\n",
 				id + 1);
@@ -639,6 +636,13 @@ static int _disp_stats(int id)
 	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   AEAD SHA1-3DES decryption     : %d\n",
 					pstat->aead_sha1_3des_dec);
+
+	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+			"   AEAD CCM-AES encryption     : %d\n",
+					pstat->aead_ccm_aes_enc);
+	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+			"   AEAD CCM-AES decryption     : %d\n",
+					pstat->aead_ccm_aes_dec);
 
 	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   AEAD operation success       : %d\n",
@@ -858,7 +862,7 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	uint32_t diglen = crypto_ahash_digestsize(ahash);
 	uint32_t *auth32 = (uint32_t *)authdata;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&cp->pdev->dev, "_qce_ahash_complete: %p ret %d\n",
@@ -916,7 +920,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&cp->pdev->dev, "_qce_ablk_cipher_complete: %p ret %d\n",
@@ -967,7 +971,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(areq);
 
@@ -1358,7 +1362,7 @@ static int _start_qcrypto_process(struct crypto_priv *cp)
 	int ret = 0;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 again:
 	spin_lock_irqsave(&cp->lock, flags);
@@ -1434,7 +1438,7 @@ static int _qcrypto_enc_aes_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1458,7 +1462,7 @@ static int _qcrypto_enc_aes_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1482,7 +1486,7 @@ static int _qcrypto_enc_aes_ctr(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1506,7 +1510,7 @@ static int _qcrypto_enc_aes_xts(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1533,7 +1537,7 @@ static int _qcrypto_aead_encrypt_aes_ccm(struct aead_request *req)
 		(ctx->auth_key_len != AES_KEYSIZE_256))
 		return  -EINVAL;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -1542,7 +1546,7 @@ static int _qcrypto_aead_encrypt_aes_ccm(struct aead_request *req)
 	rctx->mode = QCE_MODE_CCM;
 	rctx->iv = req->iv;
 
-	pstat->aead_sha1_aes_enc++;
+	pstat->aead_ccm_aes_enc++;
 	return _qcrypto_queue_req(cp, &req->base);
 }
 
@@ -1553,7 +1557,7 @@ static int _qcrypto_enc_des_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1574,7 +1578,7 @@ static int _qcrypto_enc_des_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1595,7 +1599,7 @@ static int _qcrypto_enc_3des_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1616,7 +1620,7 @@ static int _qcrypto_enc_3des_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1637,7 +1641,7 @@ static int _qcrypto_dec_aes_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1661,7 +1665,7 @@ static int _qcrypto_dec_aes_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1686,7 +1690,7 @@ static int _qcrypto_dec_aes_ctr(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1712,7 +1716,7 @@ static int _qcrypto_dec_des_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1733,7 +1737,7 @@ static int _qcrypto_dec_des_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1754,7 +1758,7 @@ static int _qcrypto_dec_3des_ecb(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1775,7 +1779,7 @@ static int _qcrypto_dec_3des_cbc(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1796,7 +1800,7 @@ static int _qcrypto_dec_aes_xts(struct ablkcipher_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
@@ -1824,7 +1828,7 @@ static int _qcrypto_aead_decrypt_aes_ccm(struct aead_request *req)
 		(ctx->auth_key_len != AES_KEYSIZE_256))
 		return  -EINVAL;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -1833,7 +1837,7 @@ static int _qcrypto_aead_decrypt_aes_ccm(struct aead_request *req)
 	rctx->mode = QCE_MODE_CCM;
 	rctx->iv = req->iv;
 
-	pstat->aead_sha1_aes_dec++;
+	pstat->aead_ccm_aes_dec++;
 	return _qcrypto_queue_req(cp, &req->base);
 }
 
@@ -1939,7 +1943,7 @@ static int _qcrypto_aead_encrypt_aes_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&cp->pdev->dev, "_qcrypto_aead_encrypt_aes_cbc: %p\n", req);
@@ -1963,7 +1967,7 @@ static int _qcrypto_aead_decrypt_aes_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&cp->pdev->dev, "_qcrypto_aead_decrypt_aes_cbc: %p\n", req);
@@ -1988,7 +1992,7 @@ static int _qcrypto_aead_givencrypt_aes_cbc(struct aead_givcrypt_request *req)
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(areq);
 	rctx->aead = 1;
@@ -2012,7 +2016,7 @@ static int _qcrypto_aead_encrypt_aes_ctr(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2032,7 +2036,7 @@ static int _qcrypto_aead_decrypt_aes_ctr(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2057,7 +2061,7 @@ static int _qcrypto_aead_givencrypt_aes_ctr(struct aead_givcrypt_request *req)
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(areq);
 	rctx->aead = 1;
@@ -2081,7 +2085,7 @@ static int _qcrypto_aead_encrypt_des_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2101,7 +2105,7 @@ static int _qcrypto_aead_decrypt_des_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2123,7 +2127,7 @@ static int _qcrypto_aead_givencrypt_des_cbc(struct aead_givcrypt_request *req)
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(areq);
 	rctx->aead = 1;
@@ -2146,7 +2150,7 @@ static int _qcrypto_aead_encrypt_3des_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2166,7 +2170,7 @@ static int _qcrypto_aead_decrypt_3des_cbc(struct aead_request *req)
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -2188,7 +2192,7 @@ static int _qcrypto_aead_givencrypt_3des_cbc(struct aead_givcrypt_request *req)
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	rctx = aead_request_ctx(areq);
 	rctx->aead = 1;
@@ -2220,10 +2224,9 @@ static int _sha_init(struct qcrypto_sha_ctx *ctx)
 static int _sha1_init(struct ahash_request *req)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct crypto_priv *cp = sha_ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	_sha_init(sha_ctx);
 	sha_ctx->alg = QCE_HASH_SHA1;
@@ -2241,10 +2244,9 @@ static int _sha1_init(struct ahash_request *req)
 static int _sha256_init(struct ahash_request *req)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct crypto_priv *cp = sha_ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 
 	_sha_init(sha_ctx);
 	sha_ctx->alg = QCE_HASH_SHA256;
@@ -2688,7 +2690,7 @@ static int _sha1_hmac_init(struct ahash_request *req)
 	struct crypto_stat *pstat;
 	int ret = 0;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 	pstat->sha1_hmac_digest++;
 
 	_sha_init(sha_ctx);
@@ -2715,7 +2717,7 @@ static int _sha256_hmac_init(struct ahash_request *req)
 	struct crypto_stat *pstat;
 	int ret = 0;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 	pstat->sha256_hmac_digest++;
 
 	_sha_init(sha_ctx);
@@ -2853,10 +2855,9 @@ static int _sha256_hmac_final(struct ahash_request *req)
 static int _sha1_hmac_digest(struct ahash_request *req)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct crypto_priv *cp = sha_ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 	pstat->sha1_hmac_digest++;
 
 	_sha_init(sha_ctx);
@@ -2871,10 +2872,9 @@ static int _sha1_hmac_digest(struct ahash_request *req)
 static int _sha256_hmac_digest(struct ahash_request *req)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct crypto_priv *cp = sha_ctx->cp;
 	struct crypto_stat *pstat;
 
-	pstat = &_qcrypto_stat[cp->pdev->id];
+	pstat = &_qcrypto_stat;
 	pstat->sha256_hmac_digest++;
 
 	_sha_init(sha_ctx);
@@ -3327,12 +3327,6 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	int i;
 	struct msm_ce_hw_support *platform_support;
 
-	if (pdev->id >= MAX_CRYPTO_DEVICE) {
-		pr_err("%s: device id %d  exceeds allowed %d\n",
-				__func__, pdev->id, MAX_CRYPTO_DEVICE);
-		return -ENOENT;
-	}
-
 	cp = kzalloc(sizeof(*cp), GFP_KERNEL);
 	if (!cp) {
 		pr_err("qcrypto Memory allocation of q_alg FAIL, error %ld\n",
@@ -3572,7 +3566,7 @@ static struct platform_driver _qualcomm_crypto = {
 	},
 };
 
-static int _debug_qcrypto[MAX_CRYPTO_DEVICE];
+static int _debug_qcrypto;
 
 static int _debug_stats_open(struct inode *inode, struct file *file)
 {
@@ -3599,9 +3593,7 @@ static ssize_t _debug_stats_write(struct file *file, const char __user *buf,
 			size_t count, loff_t *ppos)
 {
 
-	int qcrypto = *((int *) file->private_data);
-
-	memset((char *)&_qcrypto_stat[qcrypto], 0, sizeof(struct crypto_stat));
+	memset((char *)&_qcrypto_stat, 0, sizeof(struct crypto_stat));
 	return count;
 };
 
@@ -3615,7 +3607,6 @@ static int _qcrypto_debug_init(void)
 {
 	int rc;
 	char name[DEBUG_MAX_FNAME];
-	int i;
 	struct dentry *dent;
 
 	_debug_dent = debugfs_create_dir("qcrypto", NULL);
@@ -3625,17 +3616,15 @@ static int _qcrypto_debug_init(void)
 		return PTR_ERR(_debug_dent);
 	}
 
-	for (i = 0; i < MAX_CRYPTO_DEVICE; i++) {
-		snprintf(name, DEBUG_MAX_FNAME-1, "stats-%d", i+1);
-		_debug_qcrypto[i] = i;
-		dent = debugfs_create_file(name, 0644, _debug_dent,
-				&_debug_qcrypto[i], &_debug_stats_ops);
-		if (dent == NULL) {
-			pr_err("qcrypto debugfs_create_file fail, error %ld\n",
-					PTR_ERR(dent));
-			rc = PTR_ERR(dent);
-			goto err;
-		}
+	snprintf(name, DEBUG_MAX_FNAME-1, "stats-%d", 1);
+	_debug_qcrypto = 0;
+	dent = debugfs_create_file(name, 0644, _debug_dent,
+				&_debug_qcrypto, &_debug_stats_ops);
+	if (dent == NULL) {
+		pr_err("qcrypto debugfs_create_file fail, error %ld\n",
+				PTR_ERR(dent));
+		rc = PTR_ERR(dent);
+		goto err;
 	}
 	return 0;
 err:
