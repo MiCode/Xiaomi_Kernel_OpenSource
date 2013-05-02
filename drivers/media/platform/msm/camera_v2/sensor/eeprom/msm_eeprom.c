@@ -42,13 +42,13 @@ int32_t msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 			e_ctrl->eboard_info->eeprom_name,
 			sizeof(cdata->cfg.eeprom_name));
 		break;
-	case CFG_EEPROM_GET_DATA:
-		CDBG("%s E CFG_EEPROM_GET_DATA\n", __func__);
+	case CFG_EEPROM_GET_CAL_DATA:
+		CDBG("%s E CFG_EEPROM_GET_CAL_DATA\n", __func__);
 		cdata->cfg.get_data.num_bytes =
 			e_ctrl->num_bytes;
 		break;
-	case CFG_EEPROM_READ_DATA:
-		CDBG("%s E CFG_EEPROM_READ_DATA\n", __func__);
+	case CFG_EEPROM_READ_CAL_DATA:
+		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
 		rc = copy_to_user(cdata->cfg.read_data.dbuffer,
 			e_ctrl->memory_data,
 			cdata->cfg.read_data.num_bytes);
