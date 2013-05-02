@@ -650,6 +650,17 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 	drv->subsys_desc.start = mss_start;
 	drv->subsys_desc.stop = mss_stop;
 
+	ret = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-err-ready", 0);
+	if (ret < 0)
+		return ret;
+
+	ret = gpio_to_irq(ret);
+	if (ret < 0)
+		return ret;
+
+	drv->subsys_desc.err_ready_irq = ret;
+
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
 		ret = PTR_ERR(drv->subsys);
