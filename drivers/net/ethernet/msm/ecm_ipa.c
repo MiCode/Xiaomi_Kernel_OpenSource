@@ -65,9 +65,9 @@
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
-	bool tx_enable;
-	bool rx_enable;
-	bool rm_enable;
+	u32 tx_enable;
+	u32 rx_enable;
+	u32  rm_enable;
 	bool dma_enable;
 	struct dentry *directory;
 	uint32_t eth_ipv4_hdr_hdl;
@@ -113,9 +113,6 @@ static int ecm_ipa_register_properties(void);
 static void ecm_ipa_deregister_properties(void);
 static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev);
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev);
-static int ecm_ipa_debugfs_tx_open(struct inode *inode, struct file *file);
-static int ecm_ipa_debugfs_rx_open(struct inode *inode, struct file *file);
-static int ecm_ipa_debugfs_rm_open(struct inode *inode, struct file *file);
 static int ecm_ipa_debugfs_dma_open(struct inode *inode, struct file *file);
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
 static ssize_t ecm_ipa_debugfs_enable_read(struct file *file,
@@ -135,25 +132,12 @@ static const struct net_device_ops ecm_ipa_netdev_ops = {
 	.ndo_start_xmit = ecm_ipa_start_xmit,
 	.ndo_set_mac_address = eth_mac_addr,
 };
+
 static const struct ethtool_ops ops = {
 	.get_drvinfo = eth_get_drvinfo,
 	.get_link = ethtool_op_get_link,
 };
-const struct file_operations ecm_ipa_debugfs_tx_ops = {
-	.open = ecm_ipa_debugfs_tx_open,
-	.read = ecm_ipa_debugfs_enable_read,
-	.write = ecm_ipa_debugfs_enable_write,
-};
-const struct file_operations ecm_ipa_debugfs_rx_ops = {
-	.open = ecm_ipa_debugfs_rx_open,
-	.read = ecm_ipa_debugfs_enable_read,
-	.write = ecm_ipa_debugfs_enable_write,
-};
-const struct file_operations ecm_ipa_debugfs_rm_ops = {
-	.open = ecm_ipa_debugfs_rm_open,
-	.read = ecm_ipa_debugfs_enable_read,
-	.write = ecm_ipa_debugfs_enable_write,
-};
+
 const struct file_operations ecm_ipa_debugfs_dma_ops = {
 	.open = ecm_ipa_debugfs_dma_open,
 	.read = ecm_ipa_debugfs_enable_read,
@@ -800,33 +784,6 @@ void ecm_ipa_tx_complete_notify(void *priv,
 	return;
 }
 
-static int ecm_ipa_debugfs_tx_open(struct inode *inode, struct file *file)
-{
-	struct ecm_ipa_dev *dev = inode->i_private;
-	ECM_IPA_LOG_ENTRY();
-	file->private_data = &(dev->tx_enable);
-	ECM_IPA_LOG_ENTRY();
-	return 0;
-}
-
-static int ecm_ipa_debugfs_rx_open(struct inode *inode, struct file *file)
-{
-	struct ecm_ipa_dev *dev = inode->i_private;
-	ECM_IPA_LOG_ENTRY();
-	file->private_data = &(dev->rx_enable);
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-
-static int ecm_ipa_debugfs_rm_open(struct inode *inode, struct file *file)
-{
-	struct ecm_ipa_dev *dev = inode->i_private;
-	ECM_IPA_LOG_ENTRY();
-	file->private_data = &(dev->rm_enable);
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file)
 {
 	struct ecm_ipa_dev *dev = inode->i_private;
@@ -921,7 +878,7 @@ static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 
 static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 {
-	const mode_t flags = S_IRUGO | S_IWUGO;
+	const mode_t flags_read_write = S_IRUGO | S_IWUGO;
 	const mode_t flags_read_only = S_IRUGO;
 	struct dentry *file;
 
@@ -935,46 +892,44 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 		ECM_IPA_ERROR("could not create debugfs directory entry\n");
 		goto fail_directory;
 	}
-	file = debugfs_create_file("tx_enable", flags, dev->directory, dev,
-		   &ecm_ipa_debugfs_tx_ops);
+	file = debugfs_create_bool("tx_enable", flags_read_write,
+			dev->directory, &dev->tx_enable);
 	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs tx file\n");
 		goto fail_file;
 	}
-	file = debugfs_create_file("rx_enable", flags, dev->directory, dev,
-			&ecm_ipa_debugfs_rx_ops);
+	file = debugfs_create_bool("rx_enable", flags_read_write,
+			dev->directory, &dev->rx_enable);
 	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs rx file\n");
 		goto fail_file;
 	}
-	file = debugfs_create_file("rm_enable", flags, dev->directory, dev,
-			&ecm_ipa_debugfs_rm_ops);
+	file = debugfs_create_bool("rm_enable", flags_read_write,
+			dev->directory, &dev->rm_enable);
 	if (!file) {
 		ECM_IPA_ERROR("could not create debugfs rm file\n");
 		goto fail_file;
 	}
-	file = debugfs_create_file("dma_enable", flags, dev->directory,
-			dev, &ecm_ipa_debugfs_dma_ops);
-	if (!file) {
-		ECM_IPA_ERROR("could not create debugfs dma file\n");
-		goto fail_file;
-	}
-
-	file = debugfs_create_u8("outstanding_high",
-			flags, dev->directory, &dev->outstanding_high);
+	file = debugfs_create_u8("outstanding_high", flags_read_write,
+			dev->directory, &dev->outstanding_high);
 	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding_high file\n");
 		goto fail_file;
 	}
-	file = debugfs_create_u8("outstanding_low",
-			flags, dev->directory, &dev->outstanding_low);
+	file = debugfs_create_u8("outstanding_low", flags_read_write,
+			dev->directory, &dev->outstanding_low);
 	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding_low file\n");
 		goto fail_file;
 	}
-	file = debugfs_create_file("outstanding",
-			flags_read_only, dev->directory, dev,
-			&ecm_ipa_debugfs_atomic_ops);
+	file = debugfs_create_file("dma_enable", flags_read_write,
+			dev->directory, dev, &ecm_ipa_debugfs_dma_ops);
+	if (!file) {
+		ECM_IPA_ERROR("could not create debugfs dma file\n");
+		goto fail_file;
+	}
+	file = debugfs_create_file("outstanding", flags_read_only,
+			dev->directory, dev, &ecm_ipa_debugfs_atomic_ops);
 	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding file\n");
 		goto fail_file;
