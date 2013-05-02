@@ -920,6 +920,7 @@ static struct rcg_clk blsp1_qup6_spi_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_qup1_6_i2c_apps_clk[] = {
+	F(19200000,    cxo,   1,   0,   0),
 	F(50000000,  gpll0,  12,   0,   0),
 	F_END
 };
