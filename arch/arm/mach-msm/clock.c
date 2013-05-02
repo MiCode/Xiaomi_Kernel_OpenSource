@@ -62,7 +62,7 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 {
 	int level, rc = 0, i;
 	struct regulator **r = vdd_class->regulator;
-	const int **vdd_uv = vdd_class->vdd_uv;
+	int **vdd_uv = vdd_class->vdd_uv;
 	int max_level = vdd_class->num_levels - 1;
 
 	for (level = max_level; level > 0; level--)
