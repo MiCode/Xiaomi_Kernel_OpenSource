@@ -703,7 +703,8 @@ static int mpq_tsif_dmx_init(
 	mpq_demux->dmxdev.capabilities =
 		DMXDEV_CAP_DUPLEX |
 		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_INDEXING;
+		DMXDEV_CAP_INDEXING |
+		DMXDEV_CAP_TS_INSERTION;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
 	mpq_demux->dmxdev.demux->get_stc = mpq_tsif_dmx_get_stc;

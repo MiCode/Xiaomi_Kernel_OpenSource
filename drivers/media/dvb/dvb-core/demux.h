@@ -246,7 +246,10 @@ struct dmx_ts_feed {
 				struct dmx_secure_mode *sec_mode);
 	int (*oob_command) (struct dmx_ts_feed *feed,
 			struct dmx_oob_command *cmd);
-
+	int (*ts_insertion_init)(struct dmx_ts_feed *feed);
+	int (*ts_insertion_terminate)(struct dmx_ts_feed *feed);
+	int (*ts_insertion_insert_buffer)(struct dmx_ts_feed *feed,
+			char *data, size_t size);
 };
 
 /*--------------------------------------------------------------------------*/

@@ -114,6 +114,35 @@ struct dmxdev_events_queue {
 	struct dmx_filter_event queue[DMX_EVENT_QUEUE_SIZE];
 };
 
+#define DMX_MIN_INSERTION_REPETITION_TIME	25 /* in msec */
+struct ts_insertion_buffer {
+	/* work scheduled for insertion of this buffer */
+	struct work_struct work;
+
+	struct list_head next;
+
+	/* buffer holding TS packets for insertion */
+	char *buffer;
+
+	/* buffer size */
+	size_t size;
+
+	/* buffer ID from user */
+	u32 identifier;
+
+	/* repetition time for the buffer insertion */
+	u32 repetition_time;
+
+	/* timer used for insertion of the buffer */
+	struct timer_list timer;
+
+	/* the recording filter to which this buffer belongs */
+	struct dmxdev_filter *dmxdevfilter;
+
+	/* indication whether insertion should be aborted */
+	int abort;
+};
+
 struct dmxdev_filter {
 	union {
 		struct dmx_section_filter *sec;
@@ -145,6 +174,9 @@ struct dmxdev_filter {
 	enum dmx_tsp_format_t dmx_tsp_format;
 	u32 rec_chunk_size;
 
+	/* list of buffers used for insertion (struct ts_insertion_buffer) */
+	struct list_head insertion_buffers;
+
 	/* End-of-stream indication has been received */
 	int eos_state;
 
@@ -170,6 +202,8 @@ struct dmxdev {
 #define DMXDEV_CAP_PULL_MODE	0x02
 #define DMXDEV_CAP_INDEXING	0x04
 #define DMXDEV_CAP_EXTERNAL_BUFFS_ONLY	0x08
+#define DMXDEV_CAP_TS_INSERTION	0x10
+
 
 	enum dmx_playback_mode_t playback_mode;
 	dmx_source_t source;

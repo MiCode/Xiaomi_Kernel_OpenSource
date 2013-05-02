@@ -706,6 +706,46 @@ struct dmx_indexing_params {
 	__u64 types;
 };
 
+struct dmx_set_ts_insertion {
+	/*
+	 * Unique identifier managed by the caller.
+	 * This identifier can be used later to remove the
+	 * insertion using DMX_ABORT_TS_INSERTION ioctl.
+	 */
+	__u32 identifier;
+
+	/*
+	 * Repetition time in msec, minimum allowed value is 25msec.
+	 * 0 repetition time means one-shot insertion is done.
+	 * Insertion done based on wall-clock.
+	 */
+	__u32 repetition_time;
+
+	/*
+	 * TS packets buffer to be inserted.
+	 * The buffer is inserted as-is to the recording buffer
+	 * without any modification.
+	 * It is advised to set discontinuity flag in the very
+	 * first TS packet in the buffer.
+	 */
+	const __u8 *ts_packets;
+
+	/*
+	 * Size in bytes of the TS packets buffer to be inserted.
+	 * Should be in multiples of 188 or 192 bytes
+	 * depending on recording filter output format.
+	 */
+	size_t size;
+};
+
+struct dmx_abort_ts_insertion {
+	/*
+	 * Identifier of the insertion buffer previously set
+	 * using DMX_SET_TS_INSERTION.
+	 */
+	__u32 identifier;
+};
+
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
 #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
@@ -734,5 +774,7 @@ struct dmx_indexing_params {
 #define DMX_GET_EVENTS_MASK	_IOR('o', 67, struct dmx_events_mask)
 #define DMX_PUSH_OOB_COMMAND	_IOW('o', 68, struct dmx_oob_command)
 #define DMX_SET_INDEXING_PARAMS _IOW('o', 69, struct dmx_indexing_params)
+#define DMX_SET_TS_INSERTION _IOW('o', 70, struct dmx_set_ts_insertion)
+#define DMX_ABORT_TS_INSERTION _IOW('o', 71, struct dmx_abort_ts_insertion)
 
 #endif /*_DVBDMX_H_*/
