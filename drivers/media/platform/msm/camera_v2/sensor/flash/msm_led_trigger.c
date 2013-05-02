@@ -59,11 +59,11 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 
 	case MSM_CAMERA_LED_LOW:
 		led_trigger_event(fctrl->led_trigger[0],
-			fctrl->max_current[0] / 2);
+			fctrl->op_current[0] / 2);
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
-		led_trigger_event(fctrl->led_trigger[0], fctrl->max_current[0]);
+		led_trigger_event(fctrl->led_trigger[0], fctrl->op_current[0]);
 		break;
 
 	case MSM_CAMERA_LED_INIT:
@@ -144,7 +144,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 			CDBG("default trigger %s\n", fctrl.led_trigger_name[i]);
 
 			rc = of_property_read_u32(flash_src_node,
-				"qcom,max-current", &fctrl.max_current[i]);
+				"qcom,current", &fctrl.op_current[i]);
 			if (rc < 0) {
 				pr_err("failed rc %d\n", rc);
 				of_node_put(flash_src_node);
@@ -153,7 +153,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 
 			of_node_put(flash_src_node);
 
-			CDBG("max_current[%d] %d\n", i, fctrl.max_current[i]);
+			CDBG("max_current[%d] %d\n", i, fctrl.op_current[i]);
 
 			led_trigger_register_simple(fctrl.led_trigger_name[i],
 				&fctrl.led_trigger[i]);
