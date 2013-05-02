@@ -1193,21 +1193,20 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	config.hdr.token = index;
 
 	switch (port_id) {
-	case PRIMARY_I2S_RX:
-	case PRIMARY_I2S_TX:
-		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
-		break;
 	case AFE_PORT_ID_PRIMARY_PCM_RX:
 	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
 		break;
+	case PRIMARY_I2S_RX:
+	case PRIMARY_I2S_TX:
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
@@ -1332,6 +1331,8 @@ int afe_get_port_index(u16 port_id)
 	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_TX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
