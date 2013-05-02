@@ -768,6 +768,19 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		raw->cc = 0;
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 		chip->new_battery = false;
+	} else if (chip->done_charging) {
+		chip->done_charging = false;
+		/* if we just finished charging, reset CC and fake 100% */
+		chip->ocv_reading_at_100 = raw->last_good_ocv_raw;
+		chip->last_ocv_uv = chip->max_voltage_uv;
+		raw->last_good_ocv_uv = chip->max_voltage_uv;
+		raw->cc = 0;
+		reset_cc(chip);
+		chip->last_ocv_temp = batt_temp;
+		chip->software_cc_uah = 0;
+		chip->last_cc_uah = INT_MIN;
+		pr_debug("EOC Battery full ocv_reading = 0x%x\n",
+				chip->ocv_reading_at_100);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		convert_and_store_ocv(chip, raw, batt_temp);
 		/* forget the old cc value upon ocv */
@@ -776,21 +789,10 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 	}
 
-	/* fake a high OCV if done charging */
-	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
+	/* stop faking a high OCV if we get a new OCV */
+	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw)
 		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
-	} else {
-		/*
-		 * force 100% ocv by selecting the highest voltage the
-		 * battery could ever reach
-		 */
-		raw->last_good_ocv_uv = chip->max_voltage_uv;
-		chip->last_ocv_uv = chip->max_voltage_uv;
-		chip->last_ocv_temp = batt_temp;
-		reset_cc(chip);
-		chip->software_cc_uah = 0;
-		raw->cc = 0;
-	}
+
 	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
 			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
 	pr_debug("cc_raw= 0x%llx\n", raw->cc);
