@@ -228,6 +228,7 @@ static ssize_t power_ro_lock_store(struct device *dev,
 	md = mmc_blk_get(dev_to_disk(dev));
 	card = md->queue.card;
 
+	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
 
 	ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BOOT_WP,
@@ -240,6 +241,7 @@ static ssize_t power_ro_lock_store(struct device *dev,
 		card->ext_csd.boot_ro_lock |= EXT_CSD_BOOT_WP_B_PWR_WP_EN;
 
 	mmc_release_host(card->host);
+	mmc_rpm_release(card->host, &card->dev);
 
 	if (!ret) {
 		pr_info("%s: Locking boot partition ro until next power on\n",
