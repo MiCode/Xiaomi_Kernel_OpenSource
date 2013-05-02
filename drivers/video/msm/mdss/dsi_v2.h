@@ -181,7 +181,7 @@ struct dsi_cmd_desc {
 
 struct dsi_panel_cmds_list {
 	struct dsi_cmd_desc *buf;
-	char size;
+	int size;
 	char ctrl_state;
 };
 
