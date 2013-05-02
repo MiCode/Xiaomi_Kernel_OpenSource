@@ -629,6 +629,9 @@ static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 		return msm_actuator_get_subdev_id(a_ctrl, argp);
 	case VIDIOC_MSM_ACTUATOR_CFG:
 		return msm_actuator_config(a_ctrl, argp);
+	case MSM_SD_SHUTDOWN:
+		msm_actuator_close(sd, NULL);
+		return 0;
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -710,6 +713,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	media_entity_init(&act_ctrl_t->msm_sd.sd.entity, 0, NULL, 0);
 	act_ctrl_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
+	act_ctrl_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&act_ctrl_t->msm_sd);
 	CDBG("succeeded\n");
 	CDBG("Exit\n");
@@ -780,6 +784,7 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	media_entity_init(&msm_actuator_t->msm_sd.sd.entity, 0, NULL, 0);
 	msm_actuator_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	msm_actuator_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
+	msm_actuator_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&msm_actuator_t->msm_sd);
 	CDBG("Exit\n");
 	return rc;

@@ -50,10 +50,12 @@ struct msm_sd_close_ioctl {
 #define MSM_SD_CLOSE_1ST_CATEGORY  0x00010000
 #define MSM_SD_CLOSE_2ND_CATEGORY  0x00020000
 #define MSM_SD_CLOSE_3RD_CATEGORY  0x00030000
+#define MSM_SD_CLOSE_4TH_CATEGORY  0x00040000
 
 struct msm_sd_subdev {
 	struct v4l2_subdev sd;
 	int close_seq;
+	struct list_head list;
 };
 
 struct msm_sd_req_sd {

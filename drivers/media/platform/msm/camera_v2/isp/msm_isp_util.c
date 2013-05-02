@@ -389,6 +389,11 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 		rc = msm_isp_update_axi_stream(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+	case MSM_SD_SHUTDOWN:
+		while (vfe_dev->vfe_open_cnt != 0)
+			msm_isp_close_node(sd, NULL);
+		break;
+
 	default:
 		pr_err("%s: Invalid ISP command\n", __func__);
 		rc = -EINVAL;
@@ -912,11 +917,10 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev);
 	if (rc <= 0)
-		pr_err("%s: halt timeout\n", __func__);
+		pr_err("%s: halt timeout rc=%ld\n", __func__, rc);
 
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
-
 	vfe_dev->vfe_open_cnt--;
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
