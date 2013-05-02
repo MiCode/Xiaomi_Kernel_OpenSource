@@ -405,6 +405,39 @@ static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
 	return i;
 }
 
+size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl, unsigned int nents,
+			   void *buf, size_t buflen)
+{
+	int i;
+	size_t offset, len;
+
+	for (i = 0, offset = 0; i < nents; ++i) {
+		len = sg_copy_from_buffer(sgl, 1, buf, buflen);
+		buf += len;
+		buflen -= len;
+		offset += len;
+		sgl = scatterwalk_sg_next(sgl);
+	}
+
+	return offset;
+}
+
+size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl, unsigned int nents,
+			 void *buf, size_t buflen)
+{
+	int i;
+	size_t offset, len;
+
+	for (i = 0, offset = 0; i < nents; ++i) {
+		len = sg_copy_to_buffer(sgl, 1, buf, buflen);
+		buf += len;
+		buflen -= len;
+		offset += len;
+		sgl = scatterwalk_sg_next(sgl);
+	}
+
+	return offset;
+}
 static struct qcrypto_alg *_qcrypto_sha_alg_alloc(struct crypto_priv *cp,
 		struct ahash_alg *template)
 {
@@ -943,7 +976,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 		areq->dst = rctx->orig_dst;
 
 		num_sg = qcrypto_count_sg(areq->dst, areq->nbytes);
-		bytes = sg_copy_from_buffer(areq->dst, num_sg,
+		bytes = qcrypto_sg_copy_from_buffer(areq->dst, num_sg,
 			rctx->data, areq->nbytes);
 		if (bytes != areq->nbytes)
 			pr_warn("bytes copied=0x%x bytes to copy= 0x%x", bytes,
@@ -988,7 +1021,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 				nbytes = areq->cryptlen -
 						crypto_aead_authsize(aead);
 			num_sg = qcrypto_count_sg(areq->dst, nbytes);
-			bytes = sg_copy_from_buffer(areq->dst, num_sg,
+			bytes = qcrypto_sg_copy_from_buffer(areq->dst, num_sg,
 					((char *)rctx->data + areq->assoclen),
 					nbytes);
 			if (bytes != nbytes)
@@ -1118,7 +1151,7 @@ static int qcrypto_aead_ccm_format_adata(struct qce_req *qreq, uint32_t alen,
 	qreq->assoclen = ALIGN((alen + len), 16);
 
 	num_sg = qcrypto_count_sg(sg, alen);
-	bytes = sg_copy_to_buffer(sg, num_sg, adata, alen);
+	bytes = qcrypto_sg_copy_to_buffer(sg, num_sg, adata, alen);
 	if (bytes != alen)
 		pr_warn("bytes copied=0x%x bytes to copy= 0x%x", bytes, alen);
 
@@ -1153,7 +1186,7 @@ static int _qcrypto_process_ablkcipher(struct crypto_priv *cp,
 			return -ENOMEM;
 		}
 		num_sg = qcrypto_count_sg(req->src, req->nbytes);
-		bytes = sg_copy_to_buffer(req->src, num_sg, rctx->data,
+		bytes = qcrypto_sg_copy_to_buffer(req->src, num_sg, rctx->data,
 								req->nbytes);
 		if (bytes != req->nbytes)
 			pr_warn("bytes copied=0x%x bytes to copy= 0x%x", bytes,
@@ -1305,7 +1338,7 @@ static int _qcrypto_process_aead(struct crypto_priv *cp,
 			memcpy((char *)rctx->data, qreq.assoc, qreq.assoclen);
 
 			num_sg = qcrypto_count_sg(req->src, req->cryptlen);
-			bytes = sg_copy_to_buffer(req->src, num_sg,
+			bytes = qcrypto_sg_copy_to_buffer(req->src, num_sg,
 				rctx->data + qreq.assoclen , req->cryptlen);
 			if (bytes != req->cryptlen)
 				pr_warn("bytes copied=0x%x bytes to copy= 0x%x",
@@ -2355,7 +2388,8 @@ static int _copy_source(struct ahash_request  *req)
 	}
 
 	num_sg = qcrypto_count_sg(req->src, req->nbytes);
-	bytes = sg_copy_to_buffer(req->src, num_sg, srctx->data, req->nbytes);
+	bytes = qcrypto_sg_copy_to_buffer(req->src, num_sg, srctx->data,
+						req->nbytes);
 	if (bytes != req->nbytes)
 		pr_warn("bytes copied=0x%x bytes to copy= 0x%x", bytes,
 							req->nbytes);
@@ -2390,7 +2424,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	if (total <= sha_block_size) {
 		k_src = &sha_ctx->trailing_buf[sha_ctx->trailing_buf_len];
 		num_sg = qcrypto_count_sg(req->src, len);
-		bytes = sg_copy_to_buffer(req->src, num_sg, k_src, len);
+		bytes = qcrypto_sg_copy_to_buffer(req->src, num_sg, k_src, len);
 
 		sha_ctx->trailing_buf_len = total;
 		if (sha_ctx->alg == QCE_HASH_SHA1)
