@@ -609,6 +609,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			"rx=%u\n"
 			"rx_repl_repost=%u\n"
 			"x_intr_repost=%u\n"
+			"x_intr_repost_tx=%u\n"
 			"rx_q_len=%u\n"
 			"act_clnt=%u\n"
 			"con_clnt_bmap=0x%x\n"
@@ -623,6 +624,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.rx_pkts,
 			ipa_ctx->stats.rx_repl_repost,
 			ipa_ctx->stats.x_intr_repost,
+			ipa_ctx->stats.x_intr_repost_tx,
 			ipa_ctx->stats.rx_q_len,
 			ipa_ctx->ipa_active_clients,
 			connect,
