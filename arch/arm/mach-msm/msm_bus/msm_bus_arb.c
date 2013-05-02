@@ -574,6 +574,10 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 
 	curr = client->curr;
 	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("Null pdata passed to update-request\n");
+		return -ENXIO;
+	}
 
 	if (index >= pdata->num_usecases) {
 		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
@@ -718,7 +722,7 @@ void msm_bus_scale_client_reset_pnodes(uint32_t cl)
 {
 	int i, src, pnode, index;
 	struct msm_bus_client *client = (struct msm_bus_client *)(cl);
-	if (IS_ERR(client)) {
+	if (IS_ERR_OR_NULL(client)) {
 		MSM_BUS_ERR("msm_bus_scale_reset_pnodes error\n");
 		return;
 	}
@@ -739,7 +743,7 @@ void msm_bus_scale_client_reset_pnodes(uint32_t cl)
 void msm_bus_scale_unregister_client(uint32_t cl)
 {
 	struct msm_bus_client *client = (struct msm_bus_client *)(cl);
-	if (IS_ERR(client) || (!client))
+	if (IS_ERR_OR_NULL(client))
 		return;
 	if (client->curr != 0)
 		msm_bus_scale_client_update_request(cl, 0);
