@@ -2331,6 +2331,25 @@ static int dvbdmx_ts_feed_oob_cmd(struct dmx_ts_feed *ts_feed,
 	return ret;
 }
 
+static int dvbdmx_ts_insertion_insert_buffer(struct dmx_ts_feed *ts_feed,
+			char *data, size_t size)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dvb_demux *demux = feed->demux;
+
+	spin_lock(&demux->lock);
+	if (!ts_feed->is_filtering) {
+		spin_unlock(&demux->lock);
+		return 0;
+	}
+
+	feed->cb.ts(data, size, NULL, 0, ts_feed, DMX_OK);
+
+	spin_unlock(&demux->lock);
+
+	return 0;
+}
+
 static int dmx_ts_set_tsp_out_format(
 	struct dmx_ts_feed *ts_feed,
 	enum dmx_tsp_format_t tsp_format)
@@ -2401,6 +2420,10 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->notify_data_read = NULL;
 	(*ts_feed)->set_secure_mode = dmx_ts_set_secure_mode;
 	(*ts_feed)->oob_command = dvbdmx_ts_feed_oob_cmd;
+	(*ts_feed)->ts_insertion_init = NULL;
+	(*ts_feed)->ts_insertion_terminate = NULL;
+	(*ts_feed)->ts_insertion_insert_buffer =
+		dvbdmx_ts_insertion_insert_buffer;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
