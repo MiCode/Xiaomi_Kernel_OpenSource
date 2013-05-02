@@ -200,9 +200,11 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
+		status = "disabled";
 	};
 
 	mpp@a200 { /* MPP 3 */
+		status = "disabled";
 	};
 
 	mpp@a300 { /* MPP 4 */
