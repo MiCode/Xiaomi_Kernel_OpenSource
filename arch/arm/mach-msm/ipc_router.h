@@ -62,6 +62,12 @@ enum {
 	IRSC_PORT,
 };
 
+enum {
+	NULL_MODE,
+	SINGLE_LINK_MODE,
+	MULTI_LINK_MODE,
+};
+
 union rr_control_msg {
 	uint32_t cmd;
 	struct {
