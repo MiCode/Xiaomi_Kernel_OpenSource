@@ -40,7 +40,7 @@ struct msm_led_flash_ctrl_t {
 	struct msm_flash_fn_t *func_tbl;
 	const char *led_trigger_name[MAX_LED_TRIGGERS];
 	struct led_trigger *led_trigger[MAX_LED_TRIGGERS];
-	uint32_t max_current[MAX_LED_TRIGGERS];
+	uint32_t op_current[MAX_LED_TRIGGERS];
 	void *data;
 };
 
