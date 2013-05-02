@@ -117,7 +117,9 @@ struct qpnp_bms_chip {
 	u8				revision1;
 	u8				revision2;
 	int				battery_present;
+	int				battery_status;
 	bool				new_battery;
+	bool				done_charging;
 	bool				last_soc_invalid;
 	/* platform data */
 	int				r_sense_uohm;
@@ -140,7 +142,6 @@ struct qpnp_bms_chip {
 
 	struct delayed_work		calculate_soc_delayed_work;
 	struct work_struct		recalc_work;
-	struct work_struct		battery_insertion_work;
 
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
@@ -225,7 +226,6 @@ static char *qpnp_bms_supplicants[] = {
 };
 
 static enum power_supply_property msm_bms_power_props[] = {
-	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE,
@@ -588,7 +588,7 @@ static void reset_cc(struct qpnp_bms_chip *chip)
 		pr_err("cc reenable failed: %d\n", rc);
 }
 
-static bool is_battery_charging(struct qpnp_bms_chip *chip)
+static int get_battery_status(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
 
@@ -598,12 +598,17 @@ static bool is_battery_charging(struct qpnp_bms_chip *chip)
 		/* if battery has been registered, use the status property */
 		chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_STATUS, &ret);
-		return ret.intval == POWER_SUPPLY_STATUS_CHARGING;
+		return ret.intval;
 	}
 
 	/* Default to false if the battery power supply is not registered. */
 	pr_debug("battery power supply is not registered\n");
-	return false;
+	return POWER_SUPPLY_STATUS_UNKNOWN;
+}
+
+static bool is_battery_charging(struct qpnp_bms_chip *chip)
+{
+	return get_battery_status(chip) == POWER_SUPPLY_STATUS_CHARGING;
 }
 
 static bool is_battery_present(struct qpnp_bms_chip *chip)
@@ -626,20 +631,7 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 
 static bool is_battery_full(struct qpnp_bms_chip *chip)
 {
-	union power_supply_propval ret = {0,};
-
-	if (chip->batt_psy == NULL)
-		chip->batt_psy = power_supply_get_by_name("battery");
-	if (chip->batt_psy) {
-		/* if battery has been registered, use the status property */
-		chip->batt_psy->get_property(chip->batt_psy,
-					POWER_SUPPLY_PROP_STATUS, &ret);
-		return ret.intval == POWER_SUPPLY_STATUS_FULL;
-	}
-
-	/* Default to true if the battery power supply is not registered. */
-	pr_debug("battery power supply is not registered\n");
-	return true;
+	return get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL;
 }
 
 static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
@@ -2252,11 +2244,56 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
-static void battery_insertion_work(struct work_struct *work)
+static void charging_began(struct qpnp_bms_chip *chip)
 {
-	struct qpnp_bms_chip *chip = container_of(work,
-				struct qpnp_bms_chip,
-				battery_insertion_work);
+	mutex_lock(&chip->last_soc_mutex);
+	chip->charge_start_tm_sec = 0;
+	chip->catch_up_time_sec = 0;
+	mutex_unlock(&chip->last_soc_mutex);
+
+	mutex_lock(&chip->last_ocv_uv_mutex);
+	chip->soc_at_cv = -EINVAL;
+	chip->prev_chg_soc = -EINVAL;
+	mutex_unlock(&chip->last_ocv_uv_mutex);
+}
+
+static void charging_ended(struct qpnp_bms_chip *chip)
+{
+	mutex_lock(&chip->last_soc_mutex);
+	chip->charge_start_tm_sec = 0;
+	chip->catch_up_time_sec = 0;
+	mutex_unlock(&chip->last_soc_mutex);
+
+	mutex_lock(&chip->last_ocv_uv_mutex);
+	chip->soc_at_cv = -EINVAL;
+	chip->prev_chg_soc = -EINVAL;
+	if (get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL)
+		chip->done_charging = true;
+	mutex_unlock(&chip->last_ocv_uv_mutex);
+}
+
+static void battery_status_check(struct qpnp_bms_chip *chip)
+{
+	int status = get_battery_status(chip);
+
+	if (chip->battery_status != status) {
+		if (status == POWER_SUPPLY_STATUS_CHARGING) {
+			pr_debug("charging started\n");
+			charging_began(chip);
+		} else if (chip->battery_status
+				== POWER_SUPPLY_STATUS_CHARGING) {
+			pr_debug("charging ended\n");
+			charging_ended(chip);
+		}
+		chip->battery_status = status;
+		/* a new battery was inserted or removed, so force a soc
+		 * recalculation to update the SoC */
+		schedule_work(&chip->recalc_work);
+	}
+}
+
+static void battery_insertion_check(struct qpnp_bms_chip *chip)
+{
 	bool present = is_battery_present(chip);
 
 	mutex_lock(&chip->vbat_monitor_mutex);
@@ -2308,18 +2345,13 @@ static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
 	return chip->fcc_mah * 1000;
 }
 
-static int get_prop_bms_present(struct qpnp_bms_chip *chip)
-{
-	return is_battery_present(chip);
-}
-
-static void set_prop_bms_present(struct qpnp_bms_chip *chip, int present)
-{
-	schedule_work(&chip->battery_insertion_work);
-}
-
 static void qpnp_bms_external_power_changed(struct power_supply *psy)
 {
+	struct qpnp_bms_chip *chip = container_of(psy, struct qpnp_bms_chip,
+								bms_psy);
+
+	battery_insertion_check(chip);
+	battery_status_check(chip);
 }
 
 static int qpnp_bms_power_get_property(struct power_supply *psy,
@@ -2341,26 +2373,6 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
-		break;
-	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = get_prop_bms_present(chip);
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int qpnp_bms_power_set_property(struct power_supply *psy,
-					enum power_supply_property psp,
-					const union power_supply_propval *val)
-{
-	struct qpnp_bms_chip *chip = container_of(psy, struct qpnp_bms_chip,
-								bms_psy);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_PRESENT:
-		set_prop_bms_present(chip, val->intval);
 		break;
 	default:
 		return -EINVAL;
@@ -2608,6 +2620,7 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->last_soc = -EINVAL;
 	chip->last_soc_est = -EINVAL;
 	chip->battery_present = -EINVAL;
+	chip->battery_status = POWER_SUPPLY_STATUS_UNKNOWN;
 	chip->last_cc_uah = INT_MIN;
 	chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
 	chip->prev_last_good_ocv_raw = OCV_RAW_UNINITIALIZED;
@@ -2911,7 +2924,6 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
 	INIT_WORK(&chip->recalc_work, recalculate_work);
-	INIT_WORK(&chip->battery_insertion_work, battery_insertion_work);
 
 	read_shutdown_soc_and_iavg(chip);
 
@@ -2938,7 +2950,6 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	chip->bms_psy.properties = msm_bms_power_props;
 	chip->bms_psy.num_properties = ARRAY_SIZE(msm_bms_power_props);
 	chip->bms_psy.get_property = qpnp_bms_power_get_property;
-	chip->bms_psy.set_property = qpnp_bms_power_set_property;
 	chip->bms_psy.external_power_changed =
 		qpnp_bms_external_power_changed;
 	chip->bms_psy.supplied_to = qpnp_bms_supplicants;
