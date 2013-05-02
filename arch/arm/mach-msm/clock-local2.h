@@ -163,7 +163,7 @@ struct mux_source {
 };
 
 /**
- * struct mux_clk - branch clock
+ * struct cam_mux_clk - branch clock
  * @c: clk
  * @enable_reg: register that contains the enable bit(s) for the mux
  * @select_reg: register that contains the source selection bits for the mux
@@ -172,7 +172,7 @@ struct mux_source {
  * @sources: list of mux sources
  * @base: pointer to base address of ioremapped registers.
  */
-struct mux_clk {
+struct cam_mux_clk {
 	struct clk c;
 	const u32 enable_reg;
 	const u32 select_reg;
@@ -184,9 +184,9 @@ struct mux_clk {
 	void *const __iomem *base;
 };
 
-static inline struct mux_clk *to_mux_clk(struct clk *clk)
+static inline struct cam_mux_clk *to_cam_mux_clk(struct clk *clk)
 {
-	return container_of(clk, struct mux_clk, c);
+	return container_of(clk, struct cam_mux_clk, c);
 }
 
 /*
@@ -200,7 +200,7 @@ void set_rate_hid(struct rcg_clk *clk, struct clk_freq_tbl *nf);
  */
 extern spinlock_t local_clock_reg_lock;
 
-extern struct clk_ops clk_ops_mux;
+extern struct clk_ops clk_ops_cam_mux;
 extern struct clk_ops clk_ops_empty;
 extern struct clk_ops clk_ops_rcg;
 extern struct clk_ops clk_ops_rcg_mnd;
