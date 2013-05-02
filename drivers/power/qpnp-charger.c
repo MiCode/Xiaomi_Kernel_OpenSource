@@ -730,9 +730,6 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 		}
 	}
 
-	if (chip->bms_psy)
-		power_supply_set_present(chip->bms_psy, batt_present);
-
 	return IRQ_HANDLED;
 }
 
@@ -927,6 +924,10 @@ static enum power_supply_property msm_batt_power_props[] = {
 
 static char *pm_power_supplied_to[] = {
 	"battery",
+};
+
+static char *pm_batt_supplied_to[] = {
+	"bms",
 };
 
 #define USB_WALL_THRESHOLD_MA	500
@@ -2112,7 +2113,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	struct qpnp_chg_chip	*chip;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
-	bool present;
 	int rc = 0;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -2269,14 +2269,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		if (rc)
 			goto fail_chg_enable;
 
-		/* if bms exists, notify it of the presence of the battery */
-		if (!chip->bms_psy)
-			chip->bms_psy = power_supply_get_by_name("bms");
-		if (chip->bms_psy) {
-			present = get_prop_batt_present(chip);
-			power_supply_set_present(chip->bms_psy, present);
-		}
-
 		chip->batt_psy.name = "battery";
 		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
 		chip->batt_psy.properties = msm_batt_power_props;
@@ -2288,6 +2280,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				qpnp_batt_property_is_writeable;
 		chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
+		chip->batt_psy.supplied_to = pm_batt_supplied_to;
+		chip->batt_psy.num_supplicants =
+				ARRAY_SIZE(pm_batt_supplied_to);
 
 		rc = power_supply_register(chip->dev, &chip->batt_psy);
 		if (rc < 0) {
