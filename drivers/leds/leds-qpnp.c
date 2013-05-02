@@ -171,6 +171,8 @@
 #define LED_MPP_SINK_MASK		0x07
 #define LED_MPP_MODE_MASK		0x7F
 #define LED_MPP_EN_MASK			0x80
+#define LED_MPP_SRC_MASK		0x0F
+#define LED_MPP_MODE_CTRL_MASK		0x70
 
 #define LED_MPP_MODE_SINK		(0x06 << 4)
 #define LED_MPP_MODE_ENABLE		0x01
@@ -551,7 +553,8 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 			return rc;
 		}
 
-		val = led->mpp_cfg->source_sel | led->mpp_cfg->mode_ctrl;
+		val = (led->mpp_cfg->source_sel & LED_MPP_SRC_MASK) |
+			(led->mpp_cfg->mode_ctrl & LED_MPP_MODE_CTRL_MASK);
 
 		rc = qpnp_led_masked_write(led,
 		LED_MPP_MODE_CTRL(led->base), LED_MPP_MODE_MASK,
