@@ -107,10 +107,13 @@ Required properties for keypad backlight:
 - qcom,mode: mode the led should operate in, options "pwm" and "lpg"
 - qcom,pwm-channel: pwm channel the led will operate on
 - qcom,pwm-us: time the pwm device will modulate at (us)
-- qcom,row-src-sel-val: select source for rows. One bit is used for each row.
-			Specify 0 for vph_pwr and 1 for vbst for each row.
-- qcom,row-scan-val: select rows for scanning
-- qcom,row-scan-en: row scan enable
+- qcom,row-id: specify the id of the row. Supported values are 0 to 3.
+
+Optional properties for keypad backlight:
+- qcom,row-src-vbst: select source for rows. Specify for vbst and ignore it
+			for vph_pwr.
+- qcom,row-src-en: specify to enable row source
+- qcom,always-on: specify if the module has to be always on
 
 Required properties for PWM mode only:
 - qcom,pwm-us: time the pwm device will modulate at (us)
@@ -259,16 +262,33 @@ Example:
 
 	qcom,leds@e200 {
 		status = "okay";
-		qcom,kpdbl {
+
+		qcom,kpdbl1 {
 			label = "kpdbl";
-			linux,name = "button-backlight";
+			linux,name = "kpdbl-pwm-1";
 			qcom,mode = <0>;
 			qcom,pwm-channel = <8>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
 			qcom,max-current = <20>;
-			qcom,row-src-sel-val = <0x00>;
-			qcom,row-scan-en = <0x01>;
-			qcom,row-scan-val = <0x01>;
+			qcom,row-id = <0>;
+			qcom,row-src-en;
+			qcom,always-on;
 		};
+
+		qcom,kpdbl2 {
+			label = "kpdbl";
+			linux,name = "kpdbl-lut-2";
+			qcom,mode = <1>;
+			qcom,pwm-channel = <9>;
+			qcom,pwm-us = <1000>;
+			qcom,start-idx = <1>;
+			qcom,duty-pcts = [00 00 00 00 64
+					64 00 00 00 00];
+			qcom,id = <7>;
+			qcom,max-current = <20>;
+			qcom,row-id = <1>;
+			qcom,row-src-en;
+		};
+
 	};
