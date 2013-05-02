@@ -110,8 +110,8 @@ struct mdss_mdp_ctl;
 typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
 struct mdss_mdp_vsync_handler {
+	bool enabled;
 	mdp_vsync_handler_t vsync_handler;
-	u32 ref_cnt;
 	struct list_head list;
 };
 
