@@ -3438,6 +3438,9 @@ int qce_close(void *handle)
 	if (handle == NULL)
 		return -ENODEV;
 
+	qce_enable_clk(pce_dev);
+	qce_sps_exit(pce_dev);
+
 	if (pce_dev->iobase)
 		iounmap(pce_dev->iobase);
 	if (pce_dev->coh_vmem)
@@ -3447,7 +3450,6 @@ int qce_close(void *handle)
 	qce_disable_clk(pce_dev);
 	__qce_deinit_clk(pce_dev);
 
-	qce_sps_exit(pce_dev);
 	kfree(handle);
 
 	return 0;
