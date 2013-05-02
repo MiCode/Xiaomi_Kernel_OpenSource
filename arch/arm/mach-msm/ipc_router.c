@@ -1245,6 +1245,67 @@ static int forward_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	return 0;
 }
 
+static int msm_ipc_router_send_remove_client(struct comm_mode_info *mode_info,
+					uint32_t node_id, uint32_t port_id)
+{
+	union rr_control_msg msg;
+	struct msm_ipc_router_xprt_info *tmp_xprt_info;
+	int mode;
+	void *xprt_info;
+	int rc = 0;
+
+	if (!mode_info) {
+		pr_err("%s: NULL mode_info\n", __func__);
+		return -EINVAL;
+	}
+	mode = mode_info->mode;
+	xprt_info = mode_info->xprt_info;
+
+	msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
+	msg.cli.node_id = node_id;
+	msg.cli.port_id = port_id;
+
+	if ((mode == SINGLE_LINK_MODE) && xprt_info) {
+		mutex_lock(&xprt_info_list_lock);
+		list_for_each_entry(tmp_xprt_info, &xprt_info_list, list) {
+			if (tmp_xprt_info != xprt_info)
+				continue;
+			msm_ipc_router_send_control_msg(tmp_xprt_info, &msg);
+			break;
+		}
+		mutex_unlock(&xprt_info_list_lock);
+	} else if ((mode == SINGLE_LINK_MODE) && !xprt_info) {
+		broadcast_ctl_msg_locally(&msg);
+	} else if (mode == MULTI_LINK_MODE) {
+		broadcast_ctl_msg(&msg);
+		broadcast_ctl_msg_locally(&msg);
+	} else if (mode != NULL_MODE) {
+		pr_err("%s: Invalid mode(%d) + xprt_inf(%p) for %08x:%08x\n",
+			__func__, mode, xprt_info, node_id, port_id);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+static void update_comm_mode_info(struct comm_mode_info *mode_info,
+				  struct msm_ipc_router_xprt_info *xprt_info)
+{
+	if (!mode_info) {
+		pr_err("%s: NULL mode_info\n", __func__);
+		return;
+	}
+
+	if (mode_info->mode == NULL_MODE) {
+		mode_info->xprt_info = xprt_info;
+		mode_info->mode = SINGLE_LINK_MODE;
+	} else if (mode_info->mode == SINGLE_LINK_MODE &&
+		   mode_info->xprt_info != xprt_info) {
+		mode_info->mode = MULTI_LINK_MODE;
+	}
+
+	return;
+}
+
 static void reset_remote_port_info(uint32_t node_id, uint32_t port_id)
 {
 	struct msm_ipc_router_remote_port *rport_ptr;
@@ -1915,6 +1976,7 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	broadcast_ctl_msg(&ctl);
 	spin_lock_irqsave(&port_ptr->port_lock, flags);
 	port_ptr->type = SERVER_PORT;
+	port_ptr->mode_info.mode = MULTI_LINK_MODE;
 	port_ptr->port_name.service = server->name.service;
 	port_ptr->port_name.instance = server->name.instance;
 	spin_unlock_irqrestore(&port_ptr->port_lock, flags);
@@ -2026,6 +2088,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	ret_len = pkt->length;
 	wake_up(&port_ptr->port_rx_wait_q);
 	mutex_unlock(&port_ptr->port_rx_q_lock);
+	update_comm_mode_info(&src->mode_info, NULL);
 	mutex_unlock(&local_ports_lock);
 
 	return ret_len;
@@ -2118,6 +2181,7 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 		pr_err("%s: Write on XPRT failed\n", __func__);
 		return ret;
 	}
+	update_comm_mode_info(&src->mode_info, xprt_info);
 
 	RAW_HDR("[w rr_h] "
 		"ver=%i,type=%s,src_nid=%08x,src_port_id=%08x,"
@@ -2407,13 +2471,11 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		 * Server port could have been a client port earlier.
 		 * Send REMOVE_CLIENT message in either case.
 		 */
-		msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
-		msg.cli.node_id = port_ptr->this_port.node_id;
-		msg.cli.port_id = port_ptr->this_port.port_id;
 		RR("x REMOVE_CLIENT id=%d:%08x\n",
-		   msg.cli.node_id, msg.cli.port_id);
-		broadcast_ctl_msg(&msg);
-		broadcast_ctl_msg_locally(&msg);
+		   port_ptr->this_port.node_id, port_ptr->this_port.port_id);
+		msm_ipc_router_send_remove_client(&port_ptr->mode_info,
+			port_ptr->this_port.node_id,
+			port_ptr->this_port.port_id);
 	} else if (port_ptr->type == CONTROL_PORT) {
 		mutex_lock(&control_ports_lock);
 		list_del(&port_ptr->list);
