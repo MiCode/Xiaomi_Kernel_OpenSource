@@ -159,6 +159,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 {
 	int cpu = 0;
 	int ret = 0;
+	struct cpufreq_policy *policy = NULL;
 
 	if (!freq_table_get) {
 		ret = check_freq_table();
@@ -174,16 +175,20 @@ static int update_cpu_min_freq_all(uint32_t min)
 
 	for_each_possible_cpu(cpu) {
 		ret = msm_cpufreq_set_freq_limits(cpu, min, limited_max_freq);
-
 		if (ret) {
 			pr_err("%s:Fail to set limits for cpu%d\n",
 					__func__, cpu);
 			return ret;
 		}
 
-		if (cpufreq_update_policy(cpu))
-			pr_debug("%s: Cannot update policy for cpu%d\n",
-					__func__, cpu);
+		if (cpu_online(cpu)) {
+			policy = cpufreq_cpu_get(cpu);
+			if (!policy)
+				continue;
+			cpufreq_driver_target(policy, policy->cur,
+					CPUFREQ_RELATION_L);
+			cpufreq_cpu_put(policy);
+		}
 	}
 
 	return ret;
