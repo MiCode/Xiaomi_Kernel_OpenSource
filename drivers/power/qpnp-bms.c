@@ -135,6 +135,7 @@ struct qpnp_bms_chip {
 	struct sf_lut			*rbatt_sf_lut;
 	int				default_rbatt_mohm;
 	int				rbatt_capacitive_mohm;
+	int				rbatt_mohm;
 
 	struct delayed_work		calculate_soc_delayed_work;
 	struct work_struct		recalc_work;
@@ -219,6 +220,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
@@ -1169,6 +1171,12 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	params->rbatt_mohm = get_rbatt(chip, soc_rbatt, batt_temp);
 	pr_debug("rbatt_mohm = %d\n", params->rbatt_mohm);
 
+	if (params->rbatt_mohm != chip->rbatt_mohm
+			&& chip->bms_psy.name != NULL) {
+		chip->rbatt_mohm = params->rbatt_mohm;
+		power_supply_changed(&chip->bms_psy);
+	}
+
 	calculate_iavg(chip, params->cc_uah, &params->iavg_ua,
 						params->delta_time_s);
 
@@ -1931,6 +1939,12 @@ static int get_prop_bms_current_max(struct qpnp_bms_chip *chip)
 	return chip->ibat_max_ua;
 }
 
+/* Returns estimated battery resistance */
+static int get_prop_bms_batt_resistance(struct qpnp_bms_chip *chip)
+{
+	return chip->rbatt_mohm * 1000;
+}
+
 /* Returns instantaneous current in uA */
 static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
 {
@@ -1987,6 +2001,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = get_prop_bms_current_max(chip);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = get_prop_bms_batt_resistance(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
