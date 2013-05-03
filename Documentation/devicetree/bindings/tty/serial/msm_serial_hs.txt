@@ -12,6 +12,11 @@ Required properties:
 - interrupt-names :
 	- "core_irq" to be used as uart irq
 	- "bam irq" to be used as bam irq
+- #interrupt-cells: Specifies the number of cells needed to encode an interrupt
+		source. The type shall be a <u32> and the value shall be 1
+- #address-cells: Specifies the number of cells needed to encode an address.
+		The type shall be <u32> and the value shall be 0
+- interrupt-parent = It is needed for interrupt mapping
 - bam-tx-ep-pipe-index : BAM TX Endpoint Pipe Index for HSUART
 - bam-rx-ep-pipe-index : BAM RX Endpoint Pipe Index for HSUART
 
@@ -35,8 +40,13 @@ Example:
 		reg = <0xf995d000 0x1000>,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
-		interrupts = <0 113 0>, <0 239 0>;
 		interrupt-names = "core_irq", "bam_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart7>;
+		interrupts = <0 1>;
+		#interrupt-cells = <1>;
+		interrupt-map = <0 &intc 0 113 0
+				1 &intc 0 239 0>
 		qcom,bam-tx-ep-pipe-index = <0>;
 		qcom,bam-rx-ep-pipe-index = <1>;
 	};
@@ -50,10 +60,10 @@ Gpio's are optional if it is required to be not configured by UART driver or
 case where there is nothing connected and we want to use internal loopback mode
 for uart.
 - qcom, wakeup_irq : UART RX GPIO IRQ line to be configured as wakeup source.
-- qcom,inject_rx_on_wakeup : inject_rx_on_wakeup enables feature where on
+- qcom,inject-rx-on-wakeup : inject_rx_on_wakeup enables feature where on
 receiving interrupt with UART RX GPIO IRQ line (i.e. above wakeup_irq property),
 HSUART driver injects provided character with property rx_to_inject.
-- qcom, rx_to_inject : The character to be inserted on wakeup.
+- qcom, rx-char-to-inject : The character to be inserted on wakeup.
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
 below optional properties:
     - qcom,msm_bus,name
@@ -80,13 +90,21 @@ Example:
 		reg = <0x19c40000 0x1000">,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
-		interrupts = <0 113 0>, <0 239 0>;
-		interrupt-names = "core_irq", "bam_irq";
-
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart7>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 113 0
+				1 &intc 0 239 0
+				2 &msmgpio 42 0>;
 		qcom,tx-gpio = <&msmgpio 41 0x00>;
 		qcom,rx-gpio = <&msmgpio 42 0x00>;
 		qcom,cts-gpio = <&msmgpio 43 0x00>;
 		qcom,rfr-gpio = <&msmgpio 44 0x00>;
+		qcom,inject-rx-on-wakeup = <1>;
+		qcom,rx-char-to-inject = <0xFD>;
 
 		qcom,bam-tx-ep-pipe-index = <0>;
 		qcom,bam-rx-ep-pipe-index = <1>;
