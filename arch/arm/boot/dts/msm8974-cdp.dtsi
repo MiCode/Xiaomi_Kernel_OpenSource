@@ -407,6 +407,8 @@
 	qcom,rx-gpio = <&msmgpio 42 0x00>;
 	qcom,cts-gpio = <&msmgpio 43 0x00>;
 	qcom,rfr-gpio = <&msmgpio 44 0x00>;
+	qcom,inject-rx-on-wakeup = <1>;
+	qcom,rx-char-to-inject = <0xFD>;
 };
 
 &usb3 {
