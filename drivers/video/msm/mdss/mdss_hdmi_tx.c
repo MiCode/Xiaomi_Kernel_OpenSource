@@ -2868,7 +2868,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 
 	switch (module_type) {
 	case HDMI_TX_HPD_PM:
-		mp->num_clk = 2;
+		mp->num_clk = 3;
 		mp->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
 			mp->num_clk, GFP_KERNEL);
 		if (!mp->clk_config) {
@@ -2884,6 +2884,16 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 		snprintf(mp->clk_config[1].clk_name, 32, "%s", "core_clk");
 		mp->clk_config[1].type = DSS_CLK_OTHER;
 		mp->clk_config[1].rate = 19200000;
+
+		/*
+		 * This clock is required to clock MDSS interrupt registers
+		 * when HDMI is the only block turned on within MDSS. Since
+		 * rate for this clock is controlled by MDP driver, treat this
+		 * similar to AHB clock and do not set rate for it.
+		 */
+		snprintf(mp->clk_config[2].clk_name, 32, "%s", "mdp_core_clk");
+		mp->clk_config[2].type = DSS_CLK_AHB;
+		mp->clk_config[2].rate = 0;
 		break;
 
 	case HDMI_TX_CORE_PM:
