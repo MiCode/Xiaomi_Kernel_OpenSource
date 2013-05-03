@@ -5122,6 +5122,17 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",  venus0_axi_clk.c, "fdc00000.qcom,vidc"),
 	CLK_LOOKUP("mem_clk",  venus0_ocmemnoc_clk.c, "fdc00000.qcom,vidc"),
 
+	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fd8c1024.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("core0_clk", camss_jpeg_jpeg0_clk.c, "fd8c35a4.qcom,gdsc"),
+	CLK_LOOKUP("core1_clk", camss_jpeg_jpeg1_clk.c, "fd8c35a4.qcom,gdsc"),
+	CLK_LOOKUP("core2_clk", camss_jpeg_jpeg2_clk.c, "fd8c35a4.qcom,gdsc"),
+	CLK_LOOKUP("core0_clk", camss_vfe_vfe0_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core1_clk", camss_vfe_vfe1_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("csi0_clk", camss_csi_vfe0_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("csi1_clk", camss_csi_vfe1_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("cpp_clk", camss_vfe_cpp_clk.c,	"fd8c36a4.qcom,gdsc"),
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4024.qcom,gdsc"),
 
 	/* LPASS clocks */
