@@ -952,6 +952,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 		result = mdss_fb_blank_sub(FB_BLANK_UNBLANK, info,
 					   mfd->op_enable);
 		if (result) {
+			pm_runtime_put(info->dev);
 			pr_err("mdss_fb_open: can't turn on display!\n");
 			return result;
 		}
