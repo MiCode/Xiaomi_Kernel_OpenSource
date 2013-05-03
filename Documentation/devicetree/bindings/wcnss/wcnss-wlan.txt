@@ -24,6 +24,8 @@ Required properties:
 Optional properties:
 - qcom,has_autodetect_xo: boolean flag to determine whether Iris XO auto detect
 should be performed during boot up.
+- qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
+using a smaller count for this buffer will reduce the memory usage.
 
 Example:
 
