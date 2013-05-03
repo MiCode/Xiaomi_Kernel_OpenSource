@@ -15,7 +15,8 @@
 #include "vidc_hfi_api.h"
 
 #define MAX_DBG_BUF_SIZE 4096
-int msm_vidc_debug = 0x3;
+int msm_vidc_debug = VIDC_ERR | VIDC_WARN;
+int msm_vidc_debug_out = VIDC_OUT_PRINTK;
 int msm_fw_debug = 0x18;
 int msm_fw_debug_mode = 0x1;
 int msm_fw_low_power_mode = 0x1;
@@ -168,6 +169,11 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	}
 	if (!debugfs_create_u32("vp8_low_tier", S_IRUGO | S_IWUSR,
 			parent, &msm_vp8_low_tier)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("debug_output", S_IRUGO | S_IWUSR,
+			parent, &msm_vidc_debug_out)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}

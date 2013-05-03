@@ -1198,11 +1198,9 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
-	struct v4l2_control control;
 	struct hal_nal_stream_format_supported stream_format;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;/*, prop;*/
-	u32 control_idx = 0;
 	enum hal_property property_id = 0;
 	u32 property_val = 0;
 	void *pdata;
@@ -1287,10 +1285,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
-			property_id,
-			msm_vdec_ctrls[control_idx].id,
-			control.value);
+			"Control: HAL property = %d, ctrl_id = 0x%x, ctrl_value = %d\n",
+			property_id, ctrl->id, ctrl->val);
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
 	}
