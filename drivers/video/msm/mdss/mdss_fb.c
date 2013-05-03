@@ -1598,12 +1598,15 @@ static int mdss_fb_display_commit(struct fb_info *info,
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
-	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct msm_fb_data_type *mfd;
 	void __user *argp = (void __user *)arg;
 	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
 
+	if (!info || !info->par)
+		return -EINVAL;
+	mfd = (struct msm_fb_data_type *)info->par;
 	mdss_fb_power_setting_idle(mfd);
 
 	mdss_fb_pan_idle(mfd);
