@@ -546,6 +546,9 @@ qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
 	/* Don't run on battery for batteryless hardware */
 	if (chip->use_default_batt_values)
 		return 0;
+	/* Don't force on battery if battery is not present */
+	if (!qpnp_chg_is_batt_present(chip))
+		return 0;
 
 	/* This bit forces the charger to run off of the battery rather
 	 * than a connected charger */
