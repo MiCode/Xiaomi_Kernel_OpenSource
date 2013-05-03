@@ -198,6 +198,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "core: 0x%p\n", inst->core);
 	write_str(&dbg_buf, "height: %d\n", inst->prop.height);
 	write_str(&dbg_buf, "width: %d\n", inst->prop.width);
+	write_str(&dbg_buf, "fps: %d\n", inst->prop.fps);
 	write_str(&dbg_buf, "state: %d\n", inst->state);
 	write_str(&dbg_buf, "-----------Formats-------------\n");
 	for (i = 0; i < MAX_PORT_NUM; i++) {
