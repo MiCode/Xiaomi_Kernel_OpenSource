@@ -3013,26 +3013,9 @@ static struct rcg_clk cpp_clk_src = {
 	},
 };
 
-static struct branch_clk mdss_ahb_clk;
-static struct clk dsipll0_byte_clk_src = {
-	.depends = &mdss_ahb_clk.c,
-	.parent = &cxo_clk_src.c,
-	.dbg_name = "dsipll0_byte_clk_src",
-	.ops = &clk_ops_dsi_byte_pll,
-	CLK_INIT(dsipll0_byte_clk_src),
-};
-
-static struct clk dsipll0_pixel_clk_src = {
-	.depends = &mdss_ahb_clk.c,
-	.parent = &cxo_clk_src.c,
-	.dbg_name = "dsipll0_pixel_clk_src",
-	.ops = &clk_ops_dsi_pixel_pll,
-	CLK_INIT(dsipll0_pixel_clk_src),
-};
-
 static struct clk_freq_tbl byte_freq_tbl[] = {
 	{
-		.src_clk = &dsipll0_byte_clk_src,
+		.src_clk = &byte_clk_src_8974.c,
 		.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
 	},
 	F_END
@@ -3043,7 +3026,7 @@ static struct rcg_clk byte0_clk_src = {
 	.current_freq = byte_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &dsipll0_byte_clk_src,
+		.parent = &byte_clk_src_8974.c,
 		.dbg_name = "byte0_clk_src",
 		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP3(LOW, 93800000, NOMINAL, 187500000,
@@ -3057,7 +3040,7 @@ static struct rcg_clk byte1_clk_src = {
 	.current_freq = byte_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &dsipll0_byte_clk_src,
+		.parent = &byte_clk_src_8974.c,
 		.dbg_name = "byte1_clk_src",
 		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP3(LOW, 93800000, NOMINAL, 187500000,
@@ -3301,7 +3284,7 @@ static int set_rate_pixel(struct clk *clk, unsigned long rate)
 
 static struct clk_freq_tbl pixel_freq_tbl[] = {
 	{
-		.src_clk = &dsipll0_pixel_clk_src,
+		.src_clk = &pixel_clk_src_8974.c,
 		.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val)
 				| BVAL(4, 0, 0),
 	},
@@ -3313,9 +3296,9 @@ static struct rcg_clk pclk0_clk_src = {
 	.current_freq = pixel_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &dsipll0_pixel_clk_src,
+		.parent = &pixel_clk_src_8974.c,
 		.dbg_name = "pclk0_clk_src",
-		.ops = &clk_ops_pixel,
+		.ops = &clk_ops_pixel_clock,
 		VDD_DIG_FMAX_MAP2(LOW, 125000000, NOMINAL, 250000000),
 		CLK_INIT(pclk0_clk_src.c),
 	},
@@ -3326,9 +3309,9 @@ static struct rcg_clk pclk1_clk_src = {
 	.current_freq = pixel_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &dsipll0_pixel_clk_src,
+		.parent = &pixel_clk_src_8974.c,
 		.dbg_name = "pclk1_clk_src",
-		.ops = &clk_ops_pixel,
+		.ops = &clk_ops_pixel_clock,
 		VDD_DIG_FMAX_MAP2(LOW, 125000000, NOMINAL, 250000000),
 		CLK_INIT(pclk1_clk_src.c),
 	},
