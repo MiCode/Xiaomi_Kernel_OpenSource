@@ -1146,6 +1146,9 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		}
 	}
 
+	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
+					"qcom,headset-jack-type-NO");
+
 	ret = msm8226_prepare_codec_mclk(card);
 	if (ret)
 		goto err_vdd_spkr;
