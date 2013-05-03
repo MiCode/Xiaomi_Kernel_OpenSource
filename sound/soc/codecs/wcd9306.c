@@ -461,8 +461,8 @@ static int tapan_get_iir_enable_audio_mixer(
 					kcontrol->private_value)->shift;
 
 	ucontrol->value.integer.value[0] =
-		snd_soc_read(codec, (TAPAN_A_CDC_IIR1_CTL + 16 * iir_idx)) &
-		(1 << band_idx);
+		(snd_soc_read(codec, (TAPAN_A_CDC_IIR1_CTL + 16 * iir_idx)) &
+		(1 << band_idx)) != 0;
 
 	dev_dbg(codec->dev, "%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx,
@@ -485,23 +485,54 @@ static int tapan_put_iir_enable_audio_mixer(
 	snd_soc_update_bits(codec, (TAPAN_A_CDC_IIR1_CTL + 16 * iir_idx),
 		(1 << band_idx), (value << band_idx));
 
-	dev_dbg(codec->dev, "%s: IIR #%d band #%d enable %d\n", __func__,
-		iir_idx, band_idx, value);
+	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
+		iir_idx, band_idx,
+		((snd_soc_read(codec, (TAPAN_A_CDC_IIR1_CTL + 16 * iir_idx)) &
+		(1 << band_idx)) != 0));
 	return 0;
 }
 static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
 				int iir_idx, int band_idx,
 				int coeff_idx)
 {
+	uint32_t value = 0;
+
 	/* Address does not automatically update if reading */
 	snd_soc_write(codec,
 		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t)) & 0x7F);
+
+	value |= snd_soc_read(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx));
+
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 1) & 0x7F);
+
+	value |= (snd_soc_read(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 8);
+
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 2) & 0x7F);
+
+	value |= (snd_soc_read(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 16);
+
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 3) & 0x7F);
 
 	/* Mask bits top 2 bits since they are reserved */
-	return ((snd_soc_read(codec,
-		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 24)) &
-		0x3FFFFFFF;
+	value |= ((snd_soc_read(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) & 0x3F) << 24);
+
+	return value;
+
 }
 
 static int tapan_get_iir_band_audio_mixer(
@@ -545,13 +576,19 @@ static int tapan_get_iir_band_audio_mixer(
 
 static void set_iir_band_coeff(struct snd_soc_codec *codec,
 				int iir_idx, int band_idx,
-				int coeff_idx, uint32_t value)
+				uint32_t value)
 {
-	/* Mask top 3 bits, 6-8 are reserved */
-	/* Update address manually each time */
 	snd_soc_write(codec,
-		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value & 0xFF));
+
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value >> 8) & 0xFF);
+
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value >> 16) & 0xFF);
 
 	/* Mask top 2 bits, 7-8 are reserved */
 	snd_soc_write(codec,
@@ -570,15 +607,21 @@ static int tapan_put_iir_band_audio_mixer(
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
 
-	set_iir_band_coeff(codec, iir_idx, band_idx, 0,
+	/* Mask top bit it is reserved */
+	/* Updates addr automatically for each B2 write */
+	snd_soc_write(codec,
+		(TAPAN_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		(band_idx * BAND_MAX * sizeof(uint32_t)) & 0x7F);
+
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[0]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 1,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[1]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 2,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[2]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 3,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[3]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 4,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[4]);
 
 	dev_dbg(codec->dev, "%s: IIR #%d band #%d b0 = 0x%x\n"
