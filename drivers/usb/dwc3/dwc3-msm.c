@@ -37,6 +37,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/cdev.h>
+#include <linux/completion.h>
 
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -134,6 +136,7 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
  *
  */
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
+#define QSCRATCH_CTRL_REG      (QSCRATCH_REG_OFFSET + 0x04)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
 #define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
 #define PARAMETER_OVERRIDE_X_REG (QSCRATCH_REG_OFFSET + 0x14)
@@ -218,6 +221,15 @@ struct dwc3_msm {
 	unsigned long		lpm_flags;
 #define MDWC3_CORECLK_OFF		BIT(0)
 #define MDWC3_TCXO_SHUTDOWN		BIT(1)
+
+	u32 qscratch_ctl_val;
+	dev_t ext_chg_dev;
+	struct cdev ext_chg_cdev;
+	struct class *ext_chg_class;
+	struct device *ext_chg_device;
+	bool ext_chg_opened;
+	bool ext_chg_active;
+	struct completion ext_chg_wait;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1362,6 +1374,11 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 		dwc3_msm_read_reg(msm->base, CGCTL_REG) | 0x18);
 
 	dwc3_msm_ss_phy_reg_init(msm);
+	/*
+	 * This is required to restore the POR value after userspace
+	 * is done with charger detection.
+	 */
+	msm->qscratch_ctl_val = dwc3_msm_read_reg(msm->base, QSCRATCH_CTRL_REG);
 }
 
 static void dwc3_msm_block_reset(bool core_reset)
@@ -1469,6 +1486,8 @@ static void dwc3_chg_block_reset(struct dwc3_msm *mdwc)
 {
 	u32 chg_ctrl;
 
+	dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
+			mdwc->qscratch_ctl_val);
 	/* Clear charger detecting control bits */
 	dwc3_msm_write_reg(mdwc->base, CHARGING_DET_CTRL_REG, 0x0);
 
@@ -1562,9 +1581,14 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 	case USB_CHG_STATE_DETECTED:
 		dwc3_chg_block_reset(mdwc);
 		/* Enable VDP_SRC */
-		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER)
+		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
 			dwc3_msm_write_readback(mdwc->base,
 					CHARGING_DET_CTRL_REG, 0x1F, 0x10);
+			if (mdwc->ext_chg_opened) {
+				init_completion(&mdwc->ext_chg_wait);
+				mdwc->ext_chg_active = true;
+			}
+		}
 		dev_dbg(mdwc->dev, "chg_type = %s\n",
 			chg_to_string(mdwc->charger.chg_type));
 		mdwc->charger.notify_detection_complete(mdwc->otg_xceiv->otg,
@@ -1625,6 +1649,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
 	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
+
+	if (!dcp && !host_bus_suspend)
+		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
+			mdwc->qscratch_ctl_val);
 
 	/* Sequence to put SSPHY in low power state:
 	 * 1. Clear REF_SS_PHY_EN in SS_PHY_CTRL_REG
@@ -1850,6 +1878,30 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static void dwc3_wait_for_ext_chg_done(struct dwc3_msm *mdwc)
+{
+	unsigned long t;
+
+	/*
+	 * Defer next cable connect event till external charger
+	 * detection is completed.
+	 */
+
+	if (mdwc->ext_chg_active && (mdwc->ext_xceiv.bsv ||
+				!mdwc->ext_xceiv.id)) {
+
+		dev_dbg(mdwc->dev, "before ext chg wait\n");
+
+		t = wait_for_completion_timeout(&mdwc->ext_chg_wait,
+				msecs_to_jiffies(3000));
+		if (!t)
+			dev_err(mdwc->dev, "ext chg wait timeout\n");
+		else
+			dev_dbg(mdwc->dev, "ext chg wait done\n");
+	}
+
+}
+
 static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1859,9 +1911,11 @@ static void dwc3_resume_work(struct work_struct *w)
 	/* handle any event that was queued while work was already running */
 	if (!atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
-		if (mdwc->otg_xceiv)
+		if (mdwc->otg_xceiv) {
+			dwc3_wait_for_ext_chg_done(mdwc);
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
+		}
 		return;
 	}
 
@@ -1874,9 +1928,11 @@ static void dwc3_resume_work(struct work_struct *w)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_PHY_RESUME);
 		pm_runtime_put_noidle(mdwc->dev);
-		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability))
+		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability)) {
+			dwc3_wait_for_ext_chg_done(mdwc);
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
+		}
 	}
 }
 
@@ -2089,6 +2145,7 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
@@ -2261,6 +2318,131 @@ static ssize_t adc_enable_store(struct device *dev,
 static DEVICE_ATTR(adc_enable, S_IRUGO | S_IWUSR, adc_enable_show,
 		adc_enable_store);
 
+static int dwc3_msm_ext_chg_open(struct inode *inode, struct file *file)
+{
+	struct dwc3_msm *mdwc = context;
+
+	pr_debug("dwc3-msm ext chg open\n");
+
+	mdwc->ext_chg_opened = true;
+	return 0;
+}
+
+static ssize_t
+dwc3_msm_ext_chg_write(struct file *file, const char __user *ubuf,
+				size_t size, loff_t *pos)
+{
+	struct dwc3_msm *mdwc = context;
+	char kbuf[16];
+
+	memset(kbuf, 0x00, sizeof(kbuf));
+	if (copy_from_user(&kbuf, ubuf, min_t(size_t, sizeof(kbuf) - 1, size)))
+		return -EFAULT;
+
+	pr_debug("%s: buf = %s\n", __func__, kbuf);
+
+	if (!strncmp(kbuf, "enable", 6)) {
+		pr_info("%s: on\n", __func__);
+		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
+			pm_runtime_get_sync(mdwc->dev);
+		} else {
+			mdwc->ext_chg_active = false;
+			complete(&mdwc->ext_chg_wait);
+			return -ENODEV;
+		}
+	} else if (!strncmp(kbuf, "disable", 7)) {
+		pr_info("%s: off\n", __func__);
+		mdwc->ext_chg_active = false;
+		complete(&mdwc->ext_chg_wait);
+		pm_runtime_put(mdwc->dev);
+	} else {
+		return -EINVAL;
+	}
+
+	return size;
+}
+
+static int dwc3_msm_ext_chg_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	int ret;
+
+	pr_debug("%s: size = %lu %x\n", __func__, vsize, (int) vma->vm_pgoff);
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+	ret = io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+				 vsize, vma->vm_page_prot);
+	if (ret < 0)
+		pr_err("%s: failed with return val %d\n", __func__, ret);
+
+	return ret;
+}
+
+static int dwc3_msm_ext_chg_release(struct inode *inode, struct file *file)
+{
+	struct dwc3_msm *mdwc = context;
+
+	pr_debug("dwc3-msm ext chg release\n");
+
+	mdwc->ext_chg_opened = false;
+
+	return 0;
+}
+
+static const struct file_operations dwc3_msm_ext_chg_fops = {
+	.owner = THIS_MODULE,
+	.open = dwc3_msm_ext_chg_open,
+	.write = dwc3_msm_ext_chg_write,
+	.mmap = dwc3_msm_ext_chg_mmap,
+	.release = dwc3_msm_ext_chg_release,
+};
+
+static int dwc3_msm_setup_cdev(struct dwc3_msm *mdwc)
+{
+	int ret;
+
+	ret = alloc_chrdev_region(&mdwc->ext_chg_dev, 0, 1, "usb_ext_chg");
+	if (ret < 0) {
+		pr_err("Fail to allocate usb ext char dev region\n");
+		return ret;
+	}
+	mdwc->ext_chg_class = class_create(THIS_MODULE, "dwc_ext_chg");
+	if (ret < 0) {
+		pr_err("Fail to create usb ext chg class\n");
+		goto unreg_chrdev;
+	}
+	cdev_init(&mdwc->ext_chg_cdev, &dwc3_msm_ext_chg_fops);
+	mdwc->ext_chg_cdev.owner = THIS_MODULE;
+
+	ret = cdev_add(&mdwc->ext_chg_cdev, mdwc->ext_chg_dev, 1);
+	if (ret < 0) {
+		pr_err("Fail to add usb ext chg cdev\n");
+		goto destroy_class;
+	}
+	mdwc->ext_chg_device = device_create(mdwc->ext_chg_class,
+					NULL, mdwc->ext_chg_dev, NULL,
+					"usb_ext_chg");
+	if (IS_ERR(mdwc->ext_chg_device)) {
+		pr_err("Fail to create usb ext chg device\n");
+		ret = PTR_ERR(mdwc->ext_chg_device);
+		mdwc->ext_chg_device = NULL;
+		goto del_cdev;
+	}
+
+	pr_debug("dwc3 msm ext chg cdev setup success\n");
+	return 0;
+
+del_cdev:
+	cdev_del(&mdwc->ext_chg_cdev);
+destroy_class:
+	class_destroy(mdwc->ext_chg_class);
+unreg_chrdev:
+	unregister_chrdev_region(mdwc->ext_chg_dev, 1);
+
+	return ret;
+}
+
 static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -2288,6 +2470,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&msm->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&msm->id_work, dwc3_id_work);
 	INIT_DELAYED_WORK(&msm->init_adc_work, dwc3_init_adc_work);
+	init_completion(&msm->ext_chg_wait);
 
 	msm->xo_clk = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(msm->xo_clk)) {
@@ -2651,6 +2834,11 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		}
 		msm->otg_xceiv = NULL;
 	}
+	if (msm->ext_xceiv.otg_capability && msm->charger.start_detection) {
+		ret = dwc3_msm_setup_cdev(msm);
+		if (ret)
+			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
+	}
 
 	wake_lock_init(&msm->wlock, WAKE_LOCK_SUSPEND, "msm_dwc3");
 	wake_lock(&msm->wlock);
@@ -2702,6 +2890,13 @@ put_xo:
 static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*msm = platform_get_drvdata(pdev);
+
+	if (!msm->ext_chg_device) {
+		device_destroy(msm->ext_chg_class, msm->ext_chg_dev);
+		cdev_del(&msm->ext_chg_cdev);
+		class_destroy(msm->ext_chg_class);
+		unregister_chrdev_region(msm->ext_chg_dev, 1);
+	}
 
 	if (msm->id_adc_detect)
 		qpnp_adc_tm_usbid_end();
@@ -2791,7 +2986,26 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 static int dwc3_msm_runtime_idle(struct device *dev)
 {
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
 	dev_dbg(dev, "DWC3-msm runtime idle\n");
+
+	if (mdwc->ext_chg_active) {
+		dev_dbg(dev, "Deferring LPM\n");
+		/*
+		 * Charger detection may happen in user space.
+		 * Delay entering LPM by 3 sec.  Otherwise we
+		 * have to exit LPM when user space begins
+		 * charger detection.
+		 *
+		 * This timer will be canceled when user space
+		 * votes against LPM by incrementing PM usage
+		 * counter.  We enter low power mode when
+		 * PM usage counter is decremented.
+		 */
+		pm_schedule_suspend(dev, 3000);
+		return -EAGAIN;
+	}
 
 	return 0;
 }
