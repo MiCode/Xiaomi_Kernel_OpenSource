@@ -24,6 +24,68 @@
 	serial@f991e000 {
 		status = "ok";
 	};
+
+	i2c@f9923000{
+		atmel_mxt_ts@4a {
+		compatible = "atmel,mxt-ts";
+		reg = <0x4a>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <1 0x2>;
+		vdd_ana-supply = <&pm8110_l19>;
+		vcc_i2c-supply = <&pm8110_l14>;
+		atmel,reset-gpio = <&msmgpio 0 0x00>;
+		atmel,irq-gpio = <&msmgpio 1 0x00>;
+		atmel,panel-coords = <0 0 508 880>;
+		atmel,display-coords = <0 0 480 800>;
+		atmel,i2c-pull-up;
+		atmel,no-force-update;
+		atmel,cfg_1 {
+			atmel,family-id = <0x81>;
+			atmel,variant-id = <0x15>;
+			atmel,version = <0x11>;
+			atmel,build = <0xaa>;
+			atmel,config = [
+				/* Object 6, Instance = 0 */
+				00 00 00 00 00 00
+				/* Object 38, Instance = 0 */
+				1D 01 00 0C 04 0D 00 00
+				/* Object 7, Instance = 0 */
+				20 08 32
+				/* Object 8, Instance = 0 */
+				19 00 14 14 FF 00 FF 00 00 00
+				/* Object 9, Instance = 0 */
+				83 00 00 13 0B 00 20 32 01 03
+				00 32 05 30 0A 05 0A 00 70 03
+				FC 01 00 36 2F 2C 00 00 40 00
+				00 0A 00 00 02
+				/* Object 18, Instance = 0 */
+				00 00
+				/* Object 19, Instance = 0 */
+				00 00 00 00 00 00
+				/* Object 25, Instance = 0 */
+				03 00 18 79 A8 61
+				/* Object 58, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00
+				/* Object 42, Instance = 0 */
+				00 00 00 00 00 00 00 00
+				/* Object 46, Instance = 0 */
+				04 03 08 10 00 00 00 00 00
+				/* Object 47, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				/* Object 48, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00
+				/* Object 55, Instance = 0 */
+				00 00 00 00
+				];
+			};
+		};
+	};
 };
 
 &spmi_bus {
