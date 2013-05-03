@@ -671,7 +671,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* RGB, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
+					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 		}
 
 		phasey_step = mdss_mdp_scale_phase_step(
@@ -728,7 +728,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* RGB, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
+					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 		}
 
 		phasex_step = mdss_mdp_scale_phase_step(
