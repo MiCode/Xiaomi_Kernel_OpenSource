@@ -536,6 +536,7 @@ u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
 
 int mdss_panel_register_done(struct mdss_panel_data *pdata);
 int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback);
 
 #define mfd_to_mdp5_data(mfd) (mfd->mdp.private1)
 #define mfd_to_mdata(mfd) (((struct mdss_overlay_private *)\
