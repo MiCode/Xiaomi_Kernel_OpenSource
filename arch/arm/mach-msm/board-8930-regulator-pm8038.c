@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("VDDIO_CDC",		"sitar1p1-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"sitar1p1-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"sitar1p1-slim"),
-	REGULATOR_SUPPLY("vddp",		"0-0048"),
+	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("mhl_iovcc18",		"0-0039"),
 	REGULATOR_SUPPLY("vdd-io",		"spi0.0"),
 	REGULATOR_SUPPLY("vdd-phy",		"spi0.0"),
@@ -209,7 +209,6 @@ VREG_CONSUMERS(LVS2) = {
 	REGULATOR_SUPPLY("8038_lvs2",		NULL),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-004a"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
-	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("vddio",		"12-0018"),
 	REGULATOR_SUPPLY("vlogic",		"12-0068"),
 };

@@ -1718,12 +1718,6 @@ fail_gpio_req:
 
 static struct isa1200_regulator isa1200_reg_data[] = {
 	{
-		.name = "vddp",
-		.min_uV = ISA_I2C_VTG_MIN_UV,
-		.max_uV = ISA_I2C_VTG_MAX_UV,
-		.load_uA = ISA_I2C_CURR_UA,
-	},
-	{
 		.name = "vcc_i2c",
 		.min_uV = ISA_I2C_VTG_MIN_UV,
 		.max_uV = ISA_I2C_VTG_MAX_UV,
