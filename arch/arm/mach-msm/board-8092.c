@@ -29,6 +29,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
+#include <mach/clk-provider.h>
 
 #include "board-dt.h"
 #include "clock.h"
