@@ -67,6 +67,7 @@
 #define early_machine_is_msmkrypton()	0
 #endif
 
+#define PLATFORM_SUBTYPE_MDM	1
 #define PLATFORM_SUBTYPE_SGLTE	6
 
 enum msm_cpu {
