@@ -2280,7 +2280,7 @@ static int msm_spi_bam_init(struct msm_spi *dd)
 		bam_props.phys_addr = dd->bam.phys_addr;
 		bam_props.virt_addr = dd->bam.base;
 		bam_props.irq       = dd->bam.irq;
-		bam_props.manage    = SPS_BAM_MGR_LOCAL;
+		bam_props.manage    = SPS_BAM_MGR_DEVICE_REMOTE;
 		bam_props.summing_threshold = 0x10;
 
 		rc = sps_register_bam_device(&bam_props, &bam_handle);
