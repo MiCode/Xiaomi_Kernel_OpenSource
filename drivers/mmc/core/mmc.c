@@ -1734,9 +1734,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	if (err)
 		goto remove_card;
 
-	/* Initialize clock scaling only for high frequency modes */
-	if (mmc_card_hs200(host->card) || mmc_card_ddr_mode(host->card))
-		mmc_init_clk_scaling(host);
+	mmc_init_clk_scaling(host);
 
 	return 0;
 
