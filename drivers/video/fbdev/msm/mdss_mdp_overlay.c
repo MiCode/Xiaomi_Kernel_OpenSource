@@ -65,11 +65,19 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 {
 	u32 xres, yres;
 	u32 min_src_size, min_dst_size;
+	int content_secure;
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 
 	xres = mfd->fbi->var.xres;
 	yres = mfd->fbi->var.yres;
 
+	content_secure = (req->flags & MDP_SECURE_OVERLAY_SESSION);
+	if (!ctl->is_secure && content_secure &&
+				 (mfd->panel.type == WRITEBACK_PANEL)) {
+		pr_debug("return due to security concerns\n");
+		return -EPERM;
+	}
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102) {
 		min_src_size = fmt->is_yuv ? 2 : 1;
 		min_dst_size = 1;
