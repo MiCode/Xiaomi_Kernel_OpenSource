@@ -2123,8 +2123,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 		INIT_WORK(&chip->adc_measure_work,
 			qpnp_bat_if_adc_measure_work);
-		INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
 	}
+
+	INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
 
 	if (chip->dc_chgpth_base) {
 		chip->dc_psy.name = "qpnp-dc";
