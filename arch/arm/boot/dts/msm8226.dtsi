@@ -750,6 +750,7 @@
 
 		/* GPIO inputs from wcnss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_4_in 1 0>;
 		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_4_in 2 0>;
 
 		/* GPIO output to wcnss */
