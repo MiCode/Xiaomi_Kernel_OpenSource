@@ -137,6 +137,111 @@ static void intel_update_primary_plane(struct intel_crtc *crtc)
 		I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
 }
 
+/*
+ * enable/disable primary plane alpha channel based on the z-order
+ */
+void
+i915_set_primary_alpha(struct drm_i915_private *dev_priv, int zorder, int plane)
+{
+	u32 dspcntr;
+	u32 reg;
+	u32 pixformat;
+	bool alpha = false;
+
+	if (zorder != P1S1S2C1 && zorder != P1S2S1C1)
+		alpha = true;
+	else
+		alpha = false;
+
+	reg = DSPCNTR(plane);
+	dspcntr = I915_READ(reg);
+	pixformat = dspcntr & DISPPLANE_PIXFORMAT_MASK;
+	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+
+	DRM_DEBUG_DRIVER("pixformat = %x, alpha = %d", pixformat, alpha);
+
+	switch (pixformat) {
+	case DISPPLANE_BGRX555:
+	case DISPPLANE_BGRA555:
+		if (alpha)
+			dspcntr |= DISPPLANE_BGRA555;
+		else
+			dspcntr |= DISPPLANE_BGRX555;
+		break;
+	case DISPPLANE_BGRX888:
+	case DISPPLANE_BGRA888:
+		if (alpha)
+			dspcntr |= DISPPLANE_BGRA888;
+		else
+			dspcntr |= DISPPLANE_BGRX888;
+		break;
+	case DISPPLANE_RGBX888:
+	case DISPPLANE_RGBA888:
+		if (alpha)
+			dspcntr |= DISPPLANE_RGBA888;
+		else
+			dspcntr |= DISPPLANE_RGBX888;
+		break;
+	default:
+		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
+		break;
+	}
+
+	if (pixformat != (dspcntr & DISPPLANE_PIXFORMAT_MASK)) {
+		I915_WRITE(reg, dspcntr);
+		DRM_DEBUG_DRIVER("dspcntr = %x", dspcntr);
+	}
+}
+
+/*
+ * enable/disable sprite alpha channel based on the z-order
+ */
+void i915_set_sprite_alpha(struct drm_i915_private *dev_priv, int zorder,
+				int pipe, int plane)
+{
+	u32 spcntr;
+	u32 pixformat;
+	bool alpha = false;
+
+	if (zorder != S1P1S2C1 && zorder != S1S2P1C1 && plane == 0)
+		alpha = true;
+	else if (zorder != S2P1S1C1 && zorder != S2S1P1C1 && plane == 1)
+		alpha = true;
+	else
+		alpha = false;
+
+	spcntr = I915_READ(SPCNTR(pipe, plane));
+	pixformat = spcntr & SP_PIXFORMAT_MASK;
+	spcntr &= ~SP_PIXFORMAT_MASK;
+
+	DRM_DEBUG_DRIVER("sprite pixformat = %x plane = %d", pixformat, plane);
+
+	switch (pixformat) {
+	case SP_FORMAT_BGRA8888:
+	case SP_FORMAT_BGRX8888:
+		if (alpha)
+			spcntr |= SP_FORMAT_BGRA8888;
+		else
+			spcntr |= SP_FORMAT_BGRX8888;
+		break;
+	case SP_FORMAT_RGBA8888:
+	case SP_FORMAT_RGBX8888:
+		if (alpha)
+			spcntr |= SP_FORMAT_RGBA8888;
+		else
+			spcntr |= SP_FORMAT_RGBX8888;
+		break;
+	default:
+		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
+		break;
+	}
+
+	if (pixformat != (spcntr & SP_PIXFORMAT_MASK)) {
+		I915_WRITE(SPCNTR(pipe, plane), spcntr);
+		DRM_DEBUG_DRIVER("spcntr = %x ", spcntr);
+	}
+}
+
 int i915_set_plane_zorder(struct drm_device *dev, void *data,
 			  struct drm_file *file)
 {
@@ -146,6 +251,7 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	u32 order = zorder->order;
 	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
 	int pipe = (order >> 31) & 0x1;
+	int z_order = order & 0x000F;
 
 	s1_zorder = (order >> 3) & 0x1;
 	s1_bottom = (order >> 2) & 0x1;
@@ -175,6 +281,11 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	if (s2_bottom)
 		val |= SPRITE_FORCE_BOTTOM;
 	I915_WRITE(SPCNTR(pipe, 1), val);
+
+	i915_set_primary_alpha(dev_priv, z_order, pipe);
+
+	i915_set_sprite_alpha(dev_priv, z_order, pipe, 0);
+	i915_set_sprite_alpha(dev_priv, z_order, pipe, 1);
 
 	return 0;
 }

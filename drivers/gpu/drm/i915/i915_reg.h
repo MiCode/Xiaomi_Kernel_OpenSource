@@ -4208,6 +4208,14 @@ enum punit_power_well {
 #define   SPRITE_DEST_KEY		(1<<2)
 #define	  SPRITE_FORCE_BOTTOM		(1<<2)
 #define	  SPRITE_ZORDER_ENABLE		(1<<0)
+
+#define P1S1S2C1	0
+#define P1S2S1C1	8
+#define S2P1S1C1        1
+#define S2S1P1C1        9
+#define S1P1S2C1        4
+#define S1S2P1C1        6
+
 #define _SPRA_LINOFF		0x70284
 #define _SPRA_STRIDE		0x70288
 #define _SPRA_POS		0x7028c
