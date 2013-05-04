@@ -1145,7 +1145,7 @@ static int _qcrypto_process_ablkcipher(struct crypto_priv *cp,
 
 		rctx->orig_src = req->src;
 		rctx->orig_dst = req->dst;
-		rctx->data = kzalloc((req->nbytes + 64), GFP_KERNEL);
+		rctx->data = kzalloc((req->nbytes + 64), GFP_ATOMIC);
 
 		if (rctx->data == NULL) {
 			pr_err("Mem Alloc fail rctx->data, err %ld for 0x%x\n",
@@ -1294,7 +1294,7 @@ static int _qcrypto_process_aead(struct crypto_priv *cp,
 			rctx->orig_src = req->src;
 			rctx->orig_dst = req->dst;
 			rctx->data = kzalloc((req->cryptlen + qreq.assoclen +
-					qreq.authsize + 64*2), GFP_KERNEL);
+					qreq.authsize + 64*2), GFP_ATOMIC);
 			if (rctx->data == NULL) {
 				pr_err("Mem Alloc fail rctx->data, err %ld\n",
 							PTR_ERR(rctx->data));
@@ -2347,7 +2347,7 @@ static int _copy_source(struct ahash_request  *req)
 
 	srctx = ahash_request_ctx(req);
 	srctx->orig_src = req->src;
-	srctx->data = kzalloc((req->nbytes + 64), GFP_KERNEL);
+	srctx->data = kzalloc((req->nbytes + 64), GFP_ATOMIC);
 	if (srctx->data == NULL) {
 		pr_err("Mem Alloc fail rctx->data, err %ld for 0x%x\n",
 				PTR_ERR(srctx->data), (req->nbytes + 64));
@@ -2431,13 +2431,13 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	if (sha_ctx->trailing_buf_len) {
 		if (cp->ce_support.aligned_only)  {
 			sha_ctx->sg = kzalloc(sizeof(struct scatterlist),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 			if (sha_ctx->sg == NULL) {
 				pr_err("MemAlloc fail sha_ctx->sg, error %ld\n",
 						PTR_ERR(sha_ctx->sg));
 				return -ENOMEM;
 			}
-			rctx->data2 = kzalloc((req->nbytes + 64), GFP_KERNEL);
+			rctx->data2 = kzalloc((req->nbytes + 64), GFP_ATOMIC);
 			if (rctx->data2 == NULL) {
 				pr_err("Mem Alloc fail srctx->data2, err %ld\n",
 							PTR_ERR(rctx->data2));
@@ -2458,7 +2458,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 		} else {
 			sg_mark_end(sg_last);
 			sha_ctx->sg = kzalloc(2 * (sizeof(struct scatterlist)),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 			if (sha_ctx->sg == NULL) {
 				pr_err("MEMalloc fail sha_ctx->sg, error %ld\n",
 							PTR_ERR(sha_ctx->sg));
