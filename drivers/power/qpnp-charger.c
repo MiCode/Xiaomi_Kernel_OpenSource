@@ -2249,7 +2249,7 @@ static int qpnp_chg_suspend(struct device *dev)
 	return rc;
 }
 
-static const struct dev_pm_ops qpnp_bms_pm_ops = {
+static const struct dev_pm_ops qpnp_chg_pm_ops = {
 	.resume		= qpnp_chg_resume,
 	.suspend	= qpnp_chg_suspend,
 };
@@ -2258,9 +2258,10 @@ static struct spmi_driver qpnp_charger_driver = {
 	.probe		= qpnp_charger_probe,
 	.remove		= __devexit_p(qpnp_charger_remove),
 	.driver		= {
-		.name	= QPNP_CHARGER_DEV_NAME,
-		.owner  = THIS_MODULE,
-		.of_match_table = qpnp_charger_match_table,
+		.name		= QPNP_CHARGER_DEV_NAME,
+		.owner		= THIS_MODULE,
+		.of_match_table	= qpnp_charger_match_table,
+		.pm		= &qpnp_chg_pm_ops,
 	},
 };
 
