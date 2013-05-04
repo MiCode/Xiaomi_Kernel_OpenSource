@@ -448,6 +448,18 @@
 		qcom,scl-gpio = <&msmgpio 3 0>;
 	};
 
+	i2c_cdc: i2c@f9927000 { /* BLSP1 QUP5 */
+                cell-index = <5>;
+                compatible = "qcom,i2c-qup";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "qup_phys_addr";
+                reg = <0xf9927000 0x1000>;
+                interrupt-names = "qup_err_intr";
+                interrupts = <0 99 0>;
+                qcom,i2c-bus-freq = <100000>;
+        };
+
 	i2c@f9928000 { /* BLSP1 QUP6 */
 		cell-index = <6>;
 		compatible = "qcom,i2c-qup";
