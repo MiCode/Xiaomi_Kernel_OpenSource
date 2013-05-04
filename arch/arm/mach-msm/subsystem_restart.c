@@ -495,6 +495,9 @@ static int subsys_start(struct subsys_device *subsys)
 	if (ret)
 		return ret;
 
+	if (!subsys->desc->is_loadable)
+		return 0;
+
 	ret = wait_for_err_ready(subsys);
 	if (ret)
 		/* pil-boot succeeded but we need to shutdown
