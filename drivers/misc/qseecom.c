@@ -1918,6 +1918,10 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 		qclk = &qseecom.ce_drv;
 
 	mutex_lock(&clk_access_lock);
+
+	if (qclk->clk_access_cnt == ULONG_MAX)
+		goto err;
+
 	if (qclk->clk_access_cnt > 0) {
 		qclk->clk_access_cnt++;
 		mutex_unlock(&clk_access_lock);
@@ -1965,6 +1969,12 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce)
 		qclk = &qseecom.ce_drv;
 
 	mutex_lock(&clk_access_lock);
+
+	if (qclk->clk_access_cnt == 0) {
+		mutex_unlock(&clk_access_lock);
+		return;
+	}
+
 	if (qclk->clk_access_cnt == 1) {
 		if (qclk->ce_clk != NULL)
 			clk_disable_unprepare(qclk->ce_clk);
@@ -2495,8 +2505,8 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 	ireq.pipe = set_key_para->pipe;
 	ireq.flags = set_key_para->flags;
 
-	/* set PIPE_ENC */
-	ireq.pipe_type = QSEOS_PIPE_ENC;
+	/* set both PIPE_ENC and PIPE_ENC_XTS*/
+	ireq.pipe_type = QSEOS_PIPE_ENC|QSEOS_PIPE_ENC_XTS;
 
 	if (set_key_para->set_clear_key_flag ==
 			QSEECOM_SET_CE_KEY_CMD)
@@ -2510,17 +2520,6 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
 		pr_err("scm call to set QSEOS_PIPE_ENC key failed : %d\n", ret);
-		return ret;
-	}
-
-	/* set PIPE_ENC_XTS */
-	ireq.pipe_type = QSEOS_PIPE_ENC_XTS;
-	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,
-				&ireq, sizeof(struct qseecom_key_select_ireq),
-				&resp, sizeof(struct qseecom_command_scm_resp));
-	if (ret) {
-		pr_err("scm call to set QSEOS_PIPE_ENC_XTS key failed : %d\n",
-			ret);
 		return ret;
 	}
 

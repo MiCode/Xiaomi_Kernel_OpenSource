@@ -67,9 +67,9 @@ enum qseecom_qceos_key_gen_cmd_id {
 };
 
 enum qseecom_pipe_type {
-	QSEOS_PIPE_ENC = 0,
-	QSEOS_PIPE_ENC_XTS,
-	QSEOS_PIPE_AUTH,
+	QSEOS_PIPE_ENC = 0x1,
+	QSEOS_PIPE_ENC_XTS = 0x2,
+	QSEOS_PIPE_AUTH = 0x4,
 	QSEOS_PIPE_ENUM_FILL = 0x7FFFFFFF
 };
 
