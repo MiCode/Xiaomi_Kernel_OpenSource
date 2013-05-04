@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/dma-buf.h>
 #include <linux/export.h>
 #include <linux/iommu.h>
 #include <linux/ion.h>
@@ -69,6 +70,7 @@ struct ion_iommu_meta {
 	struct sg_table *table;
 	unsigned long size;
 	struct mutex lock;
+	struct dma_buf *dbuf;
 };
 
 static struct rb_root iommu_root;
@@ -85,9 +87,9 @@ static void ion_iommu_meta_add(struct ion_iommu_meta *meta)
 		parent = *p;
 		entry = rb_entry(parent, struct ion_iommu_meta, node);
 
-		if (meta->handle < entry->handle) {
+		if (meta->table < entry->table) {
 			p = &(*p)->rb_left;
-		} else if (meta->handle > entry->handle) {
+		} else if (meta->table > entry->table) {
 			p = &(*p)->rb_right;
 		} else {
 			pr_err("%s: handle %p already exists\n", __func__,
@@ -101,7 +103,7 @@ static void ion_iommu_meta_add(struct ion_iommu_meta *meta)
 }
 
 
-static struct ion_iommu_meta *ion_iommu_meta_lookup(struct ion_handle *handle)
+static struct ion_iommu_meta *ion_iommu_meta_lookup(struct sg_table *table)
 {
 	struct rb_root *root = &iommu_root;
 	struct rb_node **p = &root->rb_node;
@@ -112,9 +114,9 @@ static struct ion_iommu_meta *ion_iommu_meta_lookup(struct ion_handle *handle)
 		parent = *p;
 		entry = rb_entry(parent, struct ion_iommu_meta, node);
 
-		if (handle < entry->handle)
+		if (table < entry->table)
 			p = &(*p)->rb_left;
-		else if (handle > entry->handle)
+		else if (table > entry->table)
 			p = &(*p)->rb_right;
 		else
 			return entry;
@@ -319,7 +321,8 @@ out:
 	return ERR_PTR(ret);
 }
 
-static struct ion_iommu_meta *ion_iommu_meta_create(struct ion_handle *handle,
+static struct ion_iommu_meta *ion_iommu_meta_create(struct ion_client *client,
+						struct ion_handle *handle,
 						struct sg_table *table,
 						unsigned long size)
 {
@@ -333,6 +336,7 @@ static struct ion_iommu_meta *ion_iommu_meta_create(struct ion_handle *handle,
 	meta->handle = handle;
 	meta->table = table;
 	meta->size = size;
+	meta->dbuf = ion_share_dma_buf(client, handle);
 	kref_init(&meta->ref);
 	mutex_init(&meta->lock);
 	ion_iommu_meta_add(meta);
@@ -347,6 +351,7 @@ static void ion_iommu_meta_destroy(struct kref *kref)
 
 
 	rb_erase(&meta->node, &iommu_root);
+	dma_buf_put(meta->dbuf);
 	kfree(meta);
 }
 
@@ -427,13 +432,13 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	}
 
 	mutex_lock(&msm_iommu_map_mutex);
-	iommu_meta = ion_iommu_meta_lookup(handle);
+	iommu_meta = ion_iommu_meta_lookup(table);
 
 	if (!iommu_meta)
-		iommu_meta = ion_iommu_meta_create(handle, table, size);
+		iommu_meta = ion_iommu_meta_create(client, handle, table, size);
 	else
 		kref_get(&iommu_meta->ref);
-
+	BUG_ON(iommu_meta->size != size);
 	mutex_unlock(&msm_iommu_map_mutex);
 
 	iommu_map = ion_iommu_lookup(iommu_meta, domain_num, partition_num);
@@ -493,6 +498,7 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 {
 	struct ion_iommu_map *iommu_map;
 	struct ion_iommu_meta *meta;
+	struct sg_table *table;
 
 	if (IS_ERR_OR_NULL(client)) {
 		pr_err("%s: client pointer is invalid\n", __func__);
@@ -503,9 +509,10 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 		return;
 	}
 
+	table = ion_sg_table(client, handle);
 
 	mutex_lock(&msm_iommu_map_mutex);
-	meta = ion_iommu_meta_lookup(handle);
+	meta = ion_iommu_meta_lookup(table);
 	if (!meta) {
 		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
 				domain_num, partition_num, handle);
