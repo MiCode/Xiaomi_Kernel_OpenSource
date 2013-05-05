@@ -298,7 +298,9 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	if (in->client == IPA_CLIENT_HSIC1_CONS ||
 			in->client == IPA_CLIENT_HSIC2_CONS ||
 			in->client == IPA_CLIENT_HSIC3_CONS ||
-			in->client == IPA_CLIENT_HSIC4_CONS) {
+			in->client == IPA_CLIENT_HSIC4_CONS ||
+			in->client == IPA_CLIENT_A2_TETHERED_CONS ||
+			in->client == IPA_CLIENT_A2_EMBEDDED_CONS) {
 		IPADBG("disable holb for ep=%d tmr=%d\n", ipa_ep_idx,
 			ipa_ctx->hol_timer);
 		ipa_write_reg(ipa_ctx->mmio,
