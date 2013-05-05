@@ -41,6 +41,8 @@
 
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
+#define TAIKO_VALIDATE_RX_SBPORT_RANGE(port) ((port >= 16) && (port <= 22))
+#define TAIKO_CONVERT_RX_SBPORT_ID(port) (port - 16) /* RX1 port ID = 0 */
 
 #define TAIKO_HPH_PA_SETTLE_COMP_ON 3000
 #define TAIKO_HPH_PA_SETTLE_COMP_OFF 13000
@@ -4275,6 +4277,65 @@ static int taiko_set_decimator_rate(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static void taiko_set_rxsb_port_format(struct snd_pcm_hw_params *params,
+				       struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct taiko_priv *taiko_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_codec_dai_data *cdc_dai;
+	struct wcd9xxx_ch *ch;
+	int port;
+	u8 bit_sel;
+	u16 sb_ctl_reg, field_shift;
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		bit_sel = 0x2;
+		taiko_p->dai[dai->id].bit_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		bit_sel = 0x0;
+		taiko_p->dai[dai->id].bit_width = 24;
+		break;
+	default:
+		dev_err(codec->dev, "Invalid format\n");
+		return;
+	}
+
+	cdc_dai = &taiko_p->dai[dai->id];
+
+	list_for_each_entry(ch, &cdc_dai->wcd9xxx_ch_list, list) {
+		port = wcd9xxx_get_slave_port(ch->ch_num);
+
+		if (IS_ERR_VALUE(port) ||
+		    !TAIKO_VALIDATE_RX_SBPORT_RANGE(port)) {
+			dev_warn(codec->dev,
+				 "%s: invalid port ID %d returned for RX DAI\n",
+				 __func__, port);
+			return;
+		}
+
+		port = TAIKO_CONVERT_RX_SBPORT_ID(port);
+
+		if (port <= 3) {
+			sb_ctl_reg = TAIKO_A_CDC_CONN_RX_SB_B1_CTL;
+			field_shift = port << 1;
+		} else if (port <= 6) {
+			sb_ctl_reg = TAIKO_A_CDC_CONN_RX_SB_B2_CTL;
+			field_shift = (port - 4) << 1;
+		} else { /* should not happen */
+			dev_warn(codec->dev,
+				 "%s: bad port ID %d\n", __func__, port);
+			return;
+		}
+
+		dev_dbg(codec->dev, "%s: sb_ctl_reg %x field_shift %x\n",
+			__func__, sb_ctl_reg, field_shift);
+		snd_soc_update_bits(codec, sb_ctl_reg, 0x3 << field_shift,
+				    bit_sel << field_shift);
+	}
+}
+
 static int taiko_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
@@ -4389,29 +4450,7 @@ static int taiko_hw_params(struct snd_pcm_substream *substream,
 			snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_I2S_CTL,
 					    0x03, (rx_fs_rate >> 0x05));
 		} else {
-			switch (params_format(params)) {
-			case SNDRV_PCM_FORMAT_S16_LE:
-				snd_soc_update_bits(codec,
-					TAIKO_A_CDC_CONN_RX_SB_B1_CTL,
-					0xFF, 0xAA);
-				snd_soc_update_bits(codec,
-					TAIKO_A_CDC_CONN_RX_SB_B2_CTL,
-					0xFF, 0x2A);
-				taiko->dai[dai->id].bit_width = 16;
-				break;
-			case SNDRV_PCM_FORMAT_S24_LE:
-				snd_soc_update_bits(codec,
-					TAIKO_A_CDC_CONN_RX_SB_B1_CTL,
-					0xFF, 0x00);
-				snd_soc_update_bits(codec,
-					TAIKO_A_CDC_CONN_RX_SB_B2_CTL,
-					0xFF, 0x00);
-				taiko->dai[dai->id].bit_width = 24;
-				break;
-			default:
-				dev_err(codec->dev, "Invalid format\n");
-				break;
-			}
+			taiko_set_rxsb_port_format(params, dai);
 			taiko->dai[dai->id].rate   = params_rate(params);
 		}
 		break;
