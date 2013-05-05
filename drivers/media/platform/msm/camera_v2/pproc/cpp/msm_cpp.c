@@ -182,7 +182,7 @@ static struct msm_cpp_buff_queue_info_t *msm_cpp_get_buff_queue_entry(
 
 static unsigned long msm_cpp_get_phy_addr(struct cpp_device *cpp_dev,
 	struct msm_cpp_buff_queue_info_t *buff_queue_info, uint32_t buff_index,
-	uint8_t native_buff)
+	uint8_t native_buff, int *fd)
 {
 	unsigned long phy_add = 0;
 	struct list_head *buff_head;
@@ -196,6 +196,7 @@ static unsigned long msm_cpp_get_phy_addr(struct cpp_device *cpp_dev,
 	list_for_each_entry_safe(buff, save, buff_head, entry) {
 		if (buff->map_info.buff_info.index == buff_index) {
 			phy_add = buff->map_info.phy_addr;
+			*fd = buff->map_info.buff_info.fd;
 			break;
 		}
 	}
@@ -279,7 +280,7 @@ static void msm_cpp_dequeue_buffer_info(struct cpp_device *cpp_dev,
 
 static unsigned long msm_cpp_fetch_buffer_info(struct cpp_device *cpp_dev,
 	struct msm_cpp_buffer_info_t *buffer_info, uint32_t session_id,
-	uint32_t stream_id)
+	uint32_t stream_id, int *fd)
 {
 	unsigned long phy_addr = 0;
 	struct msm_cpp_buff_queue_info_t *buff_queue_info;
@@ -294,10 +295,11 @@ static unsigned long msm_cpp_fetch_buffer_info(struct cpp_device *cpp_dev,
 	}
 
 	phy_addr = msm_cpp_get_phy_addr(cpp_dev, buff_queue_info,
-		buffer_info->index, native_buff);
+		buffer_info->index, native_buff, fd);
 	if ((phy_addr == 0) && (native_buff)) {
 		phy_addr = msm_cpp_queue_buffer_info(cpp_dev, buff_queue_info,
 			buffer_info);
+		*fd = buffer_info->fd;
 	}
 	return phy_addr;
 }
@@ -1196,6 +1198,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
 	uint8_t fw_version_1_2_x = 0;
+	int in_fd;
 
 	int i = 0;
 	if (!new_frame) {
@@ -1233,15 +1236,13 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	in_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->input_buffer_info,
 		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF));
+		(new_frame->identity & 0xFFFF), &in_fd);
 	if (!in_phyaddr) {
 		pr_err("error gettting input physical address\n");
 		rc = -EINVAL;
 		goto ERROR2;
 	}
 
-	memset(&new_frame->output_buffer_info[0], 0,
-		sizeof(struct msm_cpp_buffer_info_t));
 	memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 	buff_mgr_info.session_id = ((new_frame->identity >> 16) & 0xFFFF);
 	buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
@@ -1256,7 +1257,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->output_buffer_info[0],
 		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF));
+		(new_frame->identity & 0xFFFF),
+		&new_frame->output_buffer_info[0].fd);
 	if (!out_phyaddr0) {
 		pr_err("error gettting output physical address\n");
 		rc = -EINVAL;
@@ -1286,7 +1288,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->output_buffer_info[1],
 			((new_frame->duplicate_identity >> 16) & 0xFFFF),
-			(new_frame->duplicate_identity & 0xFFFF));
+			(new_frame->duplicate_identity & 0xFFFF),
+			&new_frame->output_buffer_info[1].fd);
 		if (!out_phyaddr1) {
 			pr_err("error gettting output physical address\n");
 			rc = -EINVAL;
@@ -1558,6 +1561,27 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		while (cpp_dev->cpp_open_cnt != 0)
 			cpp_close_node(sd, NULL);
 		rc = 0;
+		break;
+	}
+	case VIDIOC_MSM_CPP_SEND_BUF_DONE: {
+		struct msm_buf_mngr_info buff_mgr_info;
+		rc = (copy_from_user(&buff_mgr_info,
+				(void __user *)ioctl_ptr->ioctl_ptr,
+				sizeof(struct msm_buf_mngr_info)) ?
+				-EFAULT : 0);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		rc = msm_cpp_buffer_ops(cpp_dev,
+			VIDIOC_MSM_BUF_MNGR_BUF_DONE,
+			&buff_mgr_info);
+		if (rc < 0) {
+			pr_err("error in buf done\n");
+			rc = -EINVAL;
+		}
+
 		break;
 	}
 	}
