@@ -86,6 +86,7 @@ struct a2_mux_context_type {
 	struct list_head bam_tx_pool;
 	spinlock_t bam_tx_pool_spinlock;
 	struct workqueue_struct *a2_mux_tx_workqueue;
+	struct workqueue_struct *a2_mux_rx_workqueue;
 	int a2_mux_initialized;
 	bool bam_is_connected;
 	bool bam_connect_in_progress;
@@ -659,7 +660,7 @@ static void bam_dmux_smsm_cb(void *priv,
 		IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_on_reqs_in);
 		grab_wakelock();
 		(void) connect_to_bam();
-		queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
+		queue_work(a2_mux_ctx->a2_mux_rx_workqueue,
 			   &a2_mux_ctx->kickoff_ul_request_resource);
 	} else if (!(new_state & SMSM_A2_POWER_CONTROL)) {
 		IPADBG("%s: MODEM PWR CTRL 0\n", __func__);
@@ -1477,6 +1478,13 @@ static int a2_mux_initialize_context(int handle)
 		       __func__);
 		return -ENOMEM;
 	}
+	a2_mux_ctx->a2_mux_rx_workqueue =
+		create_singlethread_workqueue("a2_mux_rx");
+	if (!a2_mux_ctx->a2_mux_rx_workqueue) {
+		IPAERR("%s: a2_mux_rx_workqueue alloc failed\n",
+			__func__);
+		return -ENOMEM;
+	}
 	return 0;
 }
 
@@ -1602,5 +1610,7 @@ int a2_mux_exit(void)
 				NULL);
 	if (a2_mux_ctx->a2_mux_tx_workqueue)
 		destroy_workqueue(a2_mux_ctx->a2_mux_tx_workqueue);
+	if (a2_mux_ctx->a2_mux_rx_workqueue)
+		destroy_workqueue(a2_mux_ctx->a2_mux_rx_workqueue);
 	return 0;
 }
