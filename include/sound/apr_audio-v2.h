@@ -6928,4 +6928,10 @@ struct afe_svc_cmd_set_clip_bank_selection {
 	struct afe_port_param_data_v2 pdata;
 	struct afe_param_id_clip_bank_sel bank_sel;
 } __packed;
+
+/* Ultrasound supported formats */
+#define US_POINT_EPOS_FORMAT 0x00012310
+#define US_RAW_FORMAT        0x0001127C
+#define US_PROX_FORMAT       0x0001272B
+
 #endif /*_APR_AUDIO_V2_H_ */

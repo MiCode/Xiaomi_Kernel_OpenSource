@@ -1262,7 +1262,7 @@ struct asm_stream_cmd_open_read_v2_1 {
 #define MPEG4_MULTI_AAC 0x00010D86
 #define US_POINT_EPOS_FORMAT 0x00012310
 #define US_RAW_FORMAT        0x0001127C
-#define US_PROX_FORMAT       0x00012721
+#define US_PROX_FORMAT       0x0001272B
 #define MULTI_CHANNEL_PCM    0x00010C66
 
 #define ASM_ENCDEC_SBCRATE         0x00010C13

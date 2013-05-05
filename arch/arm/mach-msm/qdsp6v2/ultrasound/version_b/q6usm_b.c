@@ -17,7 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
-#include <sound/apr_audio.h>
+#include <sound/apr_audio-v2.h>
 #include <mach/qdsp6v2/apr_us_b.h>
 #include "q6usm.h"
 
