@@ -36,11 +36,14 @@
 #define of_board_is_rumi()	of_machine_is_compatible("qcom,rumi")
 #define of_board_is_fluid()	of_machine_is_compatible("qcom,fluid")
 #define of_board_is_liquid()	of_machine_is_compatible("qcom,liquid")
+#define of_board_is_dragonboard()	\
+	of_machine_is_compatible("qcom,dragonboard")
 
 #define machine_is_msm8974()	of_machine_is_compatible("qcom,msm8974")
 #define machine_is_msm9625()	of_machine_is_compatible("qcom,msm9625")
 #define machine_is_msm8610()	of_machine_is_compatible("qcom,msm8610")
 #define machine_is_msm8226()	of_machine_is_compatible("qcom,msm8226")
+#define machine_is_apq8074()	of_machine_is_compatible("qcom,apq8074")
 
 #define early_machine_is_msm8610()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
@@ -55,11 +58,13 @@
 #define of_board_is_rumi()		0
 #define of_board_is_fluid()		0
 #define of_board_is_liquid()		0
+#define of_board_is_dragonboard()	0
 
 #define machine_is_msm8974()		0
 #define machine_is_msm9625()		0
 #define machine_is_msm8610()		0
 #define machine_is_msm8226()		0
+#define machine_is_apq8074()		0
 
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0
