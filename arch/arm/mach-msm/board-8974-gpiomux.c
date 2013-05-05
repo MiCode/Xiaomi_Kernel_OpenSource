@@ -1171,6 +1171,23 @@ static void msm_gpiomux_sdc4_install(void)
 static void msm_gpiomux_sdc4_install(void) {}
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
+static struct msm_gpiomux_config apq8074_dragonboard_ts_config[] __initdata = {
+	{
+		/* BLSP1 QUP I2C_DATA */
+		.gpio      = 2,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		/* BLSP1 QUP I2C_CLK */
+		.gpio      = 3,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+};
+
 void __init msm_8974_init_gpiomux(void)
 {
 	int rc;
@@ -1236,4 +1253,8 @@ void __init msm_8974_init_gpiomux(void)
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_MDM)
 		msm_gpiomux_install(mdm_configs,
 			ARRAY_SIZE(mdm_configs));
+
+	if (of_board_is_dragonboard() && machine_is_apq8074())
+		msm_gpiomux_install(apq8074_dragonboard_ts_config,
+			ARRAY_SIZE(apq8074_dragonboard_ts_config));
 }
