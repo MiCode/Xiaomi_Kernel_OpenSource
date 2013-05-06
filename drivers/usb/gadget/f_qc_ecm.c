@@ -77,15 +77,7 @@ struct f_ecm_qc {
 	bool				is_open;
 };
 
-struct f_ecm_qc_ipa_params {
-	u8			dev_mac[ETH_ALEN];
-	u8			host_mac[ETH_ALEN];
-	ecm_ipa_callback	ipa_rx_cb;
-	ecm_ipa_callback	ipa_tx_cb;
-	void			*ipa_priv;
-};
-
-static struct f_ecm_qc_ipa_params ipa_params;
+static struct ecm_ipa_params ipa_params;
 
 static inline struct f_ecm_qc *func_to_ecm_qc(struct usb_function *f)
 {
@@ -435,17 +427,17 @@ static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 
 void *ecm_qc_get_ipa_rx_cb(void)
 {
-	return ipa_params.ipa_rx_cb;
+	return ipa_params.ecm_ipa_rx_dp_notify;
 }
 
 void *ecm_qc_get_ipa_tx_cb(void)
 {
-	return ipa_params.ipa_tx_cb;
+	return ipa_params.ecm_ipa_tx_dp_notify;
 }
 
 void *ecm_qc_get_ipa_priv(void)
 {
-	return ipa_params.ipa_priv;
+	return ipa_params.private;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -849,7 +841,7 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	ecm_qc_string_defs[1].s = NULL;
 
 	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
-		ecm_ipa_cleanup(ipa_params.ipa_priv);
+		ecm_ipa_cleanup(ipa_params.private);
 
 	kfree(ecm);
 }
@@ -920,12 +912,13 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	/* export host's Ethernet address in CDC format */
 	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		gether_qc_get_macs(ipa_params.dev_mac, ipa_params.host_mac);
+		gether_qc_get_macs(ipa_params.device_ethaddr,
+				ipa_params.host_ethaddr);
 		snprintf(ecm->ethaddr, sizeof ecm->ethaddr,
 		"%02X%02X%02X%02X%02X%02X",
-		ipa_params.host_mac[0], ipa_params.host_mac[1],
-		ipa_params.host_mac[2], ipa_params.host_mac[3],
-		ipa_params.host_mac[4], ipa_params.host_mac[5]);
+		ipa_params.host_ethaddr[0], ipa_params.host_ethaddr[1],
+		ipa_params.host_ethaddr[2], ipa_params.host_ethaddr[3],
+		ipa_params.host_ethaddr[4], ipa_params.host_ethaddr[5]);
 	} else
 		snprintf(ecm->ethaddr, sizeof ecm->ethaddr,
 		"%02X%02X%02X%02X%02X%02X",
@@ -957,21 +950,15 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return status;
 
-	status = ecm_ipa_init(&ipa_params.ipa_rx_cb, &ipa_params.ipa_tx_cb,
-			&ipa_params.ipa_priv);
+	pr_debug("setting ecm_ipa, host_ethaddr=%pM, device_ethaddr=%pM",
+			ipa_params.host_ethaddr, ipa_params.device_ethaddr);
+	status = ecm_ipa_init(&ipa_params);
 	if (status) {
-		pr_err("failed to initialize ECM IPA Driver");
+		pr_err("failed to initialize ecm_ipa");
 		ecm_qc_string_defs[1].s = NULL;
 		kfree(ecm);
-		return status;
-	}
-
-	status = ecm_ipa_configure(ipa_params.host_mac, ipa_params.dev_mac,
-			ipa_params.ipa_priv);
-	if (status) {
-		pr_err("failed to configure ECM IPA Driver");
-		ecm_qc_string_defs[1].s = NULL;
-		kfree(ecm);
+	} else {
+		pr_debug("ecm_ipa successful created");
 	}
 
 	return status;
