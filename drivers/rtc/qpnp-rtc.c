@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-13, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -503,12 +503,17 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 		}
 	}
 
-	rtc_dd->rtc_ctrl_reg = BIT_RTC_ENABLE;
-	rc = qpnp_write_wrapper(rtc_dd, &rtc_dd->rtc_ctrl_reg,
+	rc = qpnp_read_wrapper(rtc_dd, &rtc_dd->rtc_ctrl_reg,
 				rtc_dd->rtc_base + REG_OFFSET_RTC_CTRL, 1);
 	if (rc) {
 		dev_err(&spmi->dev,
-				"Write to RTC control reg failed\n");
+			"Read from RTC control reg failed\n");
+		goto fail_rtc_enable;
+	}
+
+	if (!(rtc_dd->rtc_ctrl_reg & BIT_RTC_ENABLE)) {
+		dev_err(&spmi->dev,
+			"RTC h/w disabled, rtc not registered\n");
 		goto fail_rtc_enable;
 	}
 
