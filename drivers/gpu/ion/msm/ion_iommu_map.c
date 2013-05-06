@@ -516,7 +516,7 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 	if (!meta) {
 		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
 				domain_num, partition_num, handle);
-		mutex_lock(&msm_iommu_map_mutex);
+		mutex_unlock(&msm_iommu_map_mutex);
 		goto out;
 
 	}
