@@ -3271,7 +3271,8 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("byte_clk", mdss_byte0_clk.c, "fd922800.qcom,mdss_dsi"),
 	CLK_LOOKUP("core_clk", mdss_esc0_clk.c, "fd922800.qcom,mdss_dsi"),
 	CLK_LOOKUP("pixel_clk", mdss_pclk0_clk.c, "fd922800.qcom,mdss_dsi"),
-	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "mdss_dsi_clk_ctrl"),
+	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd922800.qcom,mdss_dsi"),
+	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "fd922800.qcom,mdss_dsi"),
 
 	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd900000.qcom,mdss_mdp"),
