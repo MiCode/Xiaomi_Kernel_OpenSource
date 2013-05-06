@@ -115,6 +115,9 @@ enum msm_cpu {
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 	MSM_CPU_8974,
+	MSM_CPU_8974PRO_AA,
+	MSM_CPU_8974PRO_AB,
+	MSM_CPU_8974PRO_AC,
 	MSM_CPU_8627,
 	MSM_CPU_8625,
 	MSM_CPU_9625,
@@ -434,6 +437,42 @@ static inline int cpu_is_msm8974(void)
 #endif
 }
 
+static inline int cpu_is_msm8974pro_aa(void)
+{
+#ifdef CONFIG_ARCH_MSM8974
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8974PRO_AA;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8974pro_ab(void)
+{
+#ifdef CONFIG_ARCH_MSM8974
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8974PRO_AB;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8974pro_ac(void)
+{
+#ifdef CONFIG_ARCH_MSM8974
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8974PRO_AC;
+#else
+	return 0;
+#endif
+}
+
 static inline int cpu_is_mpq8092(void)
 {
 #ifdef CONFIG_ARCH_MPQ8092
@@ -497,6 +536,12 @@ static inline int soc_class_is_msm8930(void)
 {
 	return cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8930ab() ||
 	       cpu_is_msm8627();
+}
+
+static inline int soc_class_is_msm8974(void)
+{
+	return cpu_is_msm8974() || cpu_is_msm8974pro_aa() ||
+	       cpu_is_msm8974pro_ab() || cpu_is_msm8974pro_ac();
 }
 
 #endif

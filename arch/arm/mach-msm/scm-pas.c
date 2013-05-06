@@ -268,7 +268,7 @@ static int __init scm_pas_init(void)
 	rate = clk_round_rate(scm_clocks[CORE_CLK_SRC], 1);
 	clk_set_rate(scm_clocks[CORE_CLK_SRC], rate);
 
-	if (cpu_is_msm8974() || cpu_is_msm8226() || cpu_is_msm8610()) {
+	if (soc_class_is_msm8974() || cpu_is_msm8226() || cpu_is_msm8610()) {
 		scm_pas_bw_tbl[0].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
 		scm_pas_bw_tbl[1].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
 	} else {
