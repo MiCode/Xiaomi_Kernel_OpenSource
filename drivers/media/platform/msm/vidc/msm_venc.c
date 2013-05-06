@@ -687,7 +687,7 @@ static u32 get_frame_size_nv12(int plane, u32 height, u32 width)
 
 static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 {
-	return height * width * 2;
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
 }
 
 static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
@@ -2035,7 +2035,6 @@ exit:
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
-	struct hal_frame_size frame_sz;
 	int rc = 0;
 	int i;
 	struct hfi_device *hdev;
@@ -2063,6 +2062,9 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		struct hal_uncompressed_format_select hal_fmt = {0};
+		struct hal_frame_size frame_sz;
+
 		inst->prop.width = f->fmt.pix_mp.width;
 		inst->prop.height = f->fmt.pix_mp.height;
 		rc = msm_vidc_check_session_supported(inst);
@@ -2099,6 +2101,29 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				"Format: %d not supported on OUTPUT port\n",
 				f->fmt.pix_mp.pixelformat);
 			rc = -EINVAL;
+			goto exit;
+		}
+
+		switch (fmt->fourcc) {
+		case V4L2_PIX_FMT_NV12:
+			hal_fmt.format = HAL_COLOR_FORMAT_NV12;
+			break;
+		case V4L2_PIX_FMT_NV21:
+			hal_fmt.format = HAL_COLOR_FORMAT_NV21;
+			break;
+		default:
+			/* we really shouldn't be here */
+			rc = -ENOTSUPP;
+			goto exit;
+		}
+
+		hal_fmt.buffer_type = HAL_BUFFER_INPUT;
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
+			&hal_fmt);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set input color format\n");
 			goto exit;
 		}
 	}
