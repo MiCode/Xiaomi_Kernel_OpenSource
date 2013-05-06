@@ -116,6 +116,21 @@ u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
+static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds)
+{
+	struct dcs_cmd_req cmdreq;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = pcmds->cmds;
+	cmdreq.cmds_cnt = pcmds->cmd_cnt;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
@@ -211,44 +226,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
-static int mdss_dsi_panel_dcs_cmds(struct mdss_dsi_ctrl_pdata *ctrl,
-				char *cmd_bytes, int len)
-{
-	char *bp;
-	struct dsi_ctrl_hdr *dchdr;
-	struct dsi_cmd_desc cmd;
-	struct dcs_cmd_req cmdreq;
-	int cnt = 0;
-
-	mutex_lock(&ctrl->mutex);
-	mdss_dsi_clk_ctrl(ctrl, 1);
-	bp = cmd_bytes;
-	while (len >= sizeof(*dchdr)) {
-		dchdr = (struct dsi_ctrl_hdr *)bp;
-		pr_debug("%s: bp=%x len=%d tot=%d\n", __func__,
-					*bp, dchdr->dlen, len);
-		len -= sizeof(*dchdr);
-		bp += sizeof(*dchdr);
-		cmd.dchdr = *dchdr;
-		cmd.payload = bp;
-
-		cmdreq.cmds = &cmd;
-		cmdreq.cmds_cnt = 1;
-		cmdreq.flags = CMD_REQ_COMMIT;
-		cmdreq.rlen = 0;
-		cmdreq.cb = NULL;
-		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
-
-		bp += dchdr->dlen;
-		len -= dchdr->dlen;
-		cnt++;
-	}
-	mdss_dsi_clk_ctrl(ctrl, 0);
-	mutex_unlock(&ctrl->mutex);
-
-	return cnt;
-}
-
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mipi_panel_info *mipi;
@@ -265,10 +242,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
-	if (ctrl->on_cmd_len)
-		mdss_dsi_panel_dcs_cmds(ctrl,
-				 ctrl->on_cmd_buf,
-				 ctrl->on_cmd_len);
+	if (ctrl->on_cmds.cmd_cnt)
+		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
 
 	pr_debug("%s:-\n", __func__);
 	return 0;
@@ -291,14 +266,94 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 
 	mipi  = &pdata->panel_info.mipi;
 
-	if (ctrl->off_cmd_len)
-		mdss_dsi_panel_dcs_cmds(ctrl,
-				 ctrl->off_cmd_buf,
-				 ctrl->off_cmd_len);
+	if (ctrl->off_cmds.cmd_cnt)
+		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
+
+
+static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
+		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
+{
+	const char *data;
+	int blen = 0, len;
+	char *buf, *bp;
+	struct dsi_ctrl_hdr *dchdr;
+	int i, cnt;
+
+	data = of_get_property(np, cmd_key, &blen);
+	if (!data) {
+		pr_err("%s: failed, key=%s\n", __func__, cmd_key);
+		return -ENOMEM;
+	}
+
+	buf = kzalloc(sizeof(char) * blen, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	memcpy(buf, data, blen);
+
+	/* scan dcs commands */
+	bp = buf;
+	len = blen;
+	cnt = 0;
+	while (len > sizeof(*dchdr)) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		dchdr->dlen = ntohs(dchdr->dlen);
+		if (dchdr->dlen > len) {
+			pr_err("%s: dtsi cmd=%x error, len=%d",
+				__func__, dchdr->dtype, dchdr->dlen);
+			return -ENOMEM;
+		}
+		bp += sizeof(*dchdr);
+		len -= sizeof(*dchdr);
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
+		cnt++;
+	}
+
+	if (len != 0) {
+		pr_err("%s: dcs_cmd=%x len=%d error!",
+				__func__, buf[0], blen);
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	pcmds->cmds = kzalloc(cnt * sizeof(struct dsi_cmd_desc),
+						GFP_KERNEL);
+	if (!pcmds->cmds)
+		return -ENOMEM;
+
+	pcmds->cmd_cnt = cnt;
+	pcmds->buf = buf;
+	pcmds->blen = blen;
+
+	bp = buf;
+	len = blen;
+	for (i = 0; i < cnt; i++) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		len -= sizeof(*dchdr);
+		bp += sizeof(*dchdr);
+		pcmds->cmds[i].dchdr = *dchdr;
+		pcmds->cmds[i].payload = bp;
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
+	}
+
+	pcmds->link_state = DSI_LP_MODE; /* default */
+
+	data = of_get_property(np, link_key, NULL);
+	if (!strncmp(data, "DSI_HS_MODE", 11))
+		pcmds->link_state = DSI_HS_MODE;
+
+	pr_debug("%s: dcs_cmd=%x len=%d, cmd_cnt=%d link_state=%d\n", __func__,
+		pcmds->buf[0], pcmds->blen, pcmds->cmd_cnt, pcmds->link_state);
+
+	return 0;
+}
+
 
 static int mdss_panel_parse_dt(struct platform_device *pdev,
 			       struct mdss_panel_common_pdata *panel_data)
@@ -309,10 +364,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	int rc, i, len;
 	const char *data;
 	static const char *bl_ctrl_type, *pdest;
-	static const char *on_cmds_state, *off_cmds_state;
-	char *on_cmds = NULL, *off_cmds = NULL;
-	struct dsi_ctrl_hdr *dchdr;
-	char *bp;
 	bool fbc_enabled = false;
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-res", res, 2);
@@ -609,102 +660,14 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 			panel_data->panel_info.bpp;
 	}
 
-	on_cmds_state = of_get_property(pdev->dev.of_node,
-				"qcom,on-cmds-dsi-state", NULL);
-	if (!strncmp(on_cmds_state, "DSI_LP_MODE", 11)) {
-		panel_data->dsi_on_state = DSI_LP_MODE;
-	} else if (!strncmp(on_cmds_state, "DSI_HS_MODE", 11)) {
-		panel_data->dsi_on_state = DSI_HS_MODE;
-	} else {
-		pr_debug("%s: ON cmds state not specified. Set Default\n",
-							__func__);
-		panel_data->dsi_on_state = DSI_LP_MODE;
-	}
+	mdss_dsi_parse_dcs_cmds(np, &panel_data->on_cmds,
+		"qcom,panel-on-cmds", "qcom,on-cmds-dsi-state");
 
-	off_cmds_state = of_get_property(pdev->dev.of_node,
-				"qcom,off-cmds-dsi-state", NULL);
-	if (!strncmp(off_cmds_state, "DSI_LP_MODE", 11)) {
-		panel_data->dsi_off_state = DSI_LP_MODE;
-	} else if (!strncmp(off_cmds_state, "DSI_HS_MODE", 11)) {
-		panel_data->dsi_off_state = DSI_HS_MODE;
-	} else {
-		pr_debug("%s: ON cmds state not specified. Set Default\n",
-							__func__);
-		panel_data->dsi_off_state = DSI_LP_MODE;
-	}
-
-	data = of_get_property(np, "qcom,panel-on-cmds", &len);
-	if (!data) {
-		pr_err("%s:%d, Unable to read ON cmds", __func__, __LINE__);
-		goto error;
-	}
-
-	on_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
-	if (!on_cmds)
-		return -ENOMEM;
-
-	memcpy(on_cmds, data, len);
-	panel_data->on_cmd_len = len;
-	panel_data->on_cmd_buf = on_cmds;
-
-	/* scan dcs commands */
-	bp = on_cmds;
-	while (len > sizeof(*dchdr)) {
-		dchdr = (struct dsi_ctrl_hdr *)bp;
-		dchdr->dlen = ntohs(dchdr->dlen);
-		pr_debug("%s: bp=%x len=%d\n", __func__, *bp, dchdr->dlen);
-		bp += sizeof(*dchdr);
-		len -= sizeof(*dchdr);
-		bp += dchdr->dlen;
-		len -= dchdr->dlen;
-	}
-
-	if (len != 0) {
-		pr_err("%s: dcs on command byte Error, len=%d", __func__, len);
-		panel_data->on_cmd_len = 0;
-		goto error2;
-	}
-
-	data = of_get_property(np, "qcom,panel-off-cmds", &len);
-	if (!data) {
-		pr_err("%s:%d, Unable to read OFF cmds", __func__, __LINE__);
-		goto error2;
-	}
-
-	off_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
-	if (!off_cmds)
-		goto error2;
-
-	memcpy(off_cmds, data, len);
-	panel_data->off_cmd_len = len;
-	panel_data->off_cmd_buf = off_cmds;
-
-	/* scan dcs commands */
-	bp = off_cmds;
-	while (len > sizeof(*dchdr)) {
-		dchdr = (struct dsi_ctrl_hdr *)bp;
-		dchdr->dlen = ntohs(dchdr->dlen);
-		pr_debug("%s: bp=%x len=%d\n", __func__, *bp, dchdr->dlen);
-		bp += sizeof(*dchdr);
-		len -= sizeof(*dchdr);
-		bp += dchdr->dlen;
-		len -= dchdr->dlen;
-	}
-
-	if (len != 0) {
-		pr_err("%s: dcs OFF command byte Error, len=%d", __func__, len);
-		panel_data->off_cmd_len = 0;
-		goto error1;
-	}
+	mdss_dsi_parse_dcs_cmds(np, &panel_data->off_cmds,
+		"qcom,panel-off-cmds", "qcom,off-cmds-dsi-state");
 
 	return 0;
 
-error1:
-	kfree(panel_data->off_cmd_buf);
-	panel_data->off_cmd_buf = NULL;
-error2:
-	kfree(panel_data->on_cmd_buf);
-	panel_data->on_cmd_buf = NULL;
 error:
 	return -EINVAL;
 }
