@@ -331,3 +331,10 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&slim_msm {
+	tapan_codec {
+		qcom,cdc-micbias1-ext-cap;
+	};
+
+};
