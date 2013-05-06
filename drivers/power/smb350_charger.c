@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,9 @@ static int smb350_get_prop_charge_type(struct smb350_device *dev)
 
 	if (!chg_enabled) {
 		pr_warn("Charging not enabled.\n");
+		/* release the wake-lock when DC power removed */
+		if (wake_lock_active(&dev->chg_wake_lock))
+			wake_unlock(&dev->chg_wake_lock);
 		return POWER_SUPPLY_CHARGE_TYPE_NONE;
 	}
 
