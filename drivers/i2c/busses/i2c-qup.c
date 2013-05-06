@@ -37,6 +37,7 @@
 #include <linux/of_gpio.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
+#include <mach/msm_bus_board.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
@@ -142,6 +143,22 @@ static struct gpiomux_setting recovery_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+/**
+ * qup_i2c_clk_path_vote: data to use bus scaling driver for clock path vote
+ *
+ * @client_hdl when zero, client is not registered with the bus scaling driver,
+ *      and bus scaling functionality should not be used. When non zero, it
+ *      is a bus scaling client id and may be used to vote for clock path.
+ * @reg_err when true, registration error was detected and an error message was
+ *      logged. i2c will attempt to re-register but will log error only once.
+ *      once registration succeed, the flag is set to false.
+ */
+struct qup_i2c_clk_path_vote {
+	u32                         client_hdl;
+	struct msm_bus_scale_pdata *pdata;
+	bool                        reg_err;
+};
+
 struct qup_i2c_dev {
 	struct device                *dev;
 	void __iomem                 *base;		/* virtual */
@@ -172,6 +189,7 @@ struct qup_i2c_dev {
 	struct mutex                 mlock;
 	void                         *complete;
 	int                          i2c_gpios[ARRAY_SIZE(i2c_rsrcs)];
+	struct qup_i2c_clk_path_vote clk_path_vote;
 };
 
 #ifdef DEBUG
@@ -333,11 +351,160 @@ qup_config_core_on_en(struct qup_i2c_dev *dev)
 	mb();
 }
 
+#define MSM_I2C_CLK_PATH_SUSPEND (0)
+#define MSM_I2C_CLK_PATH_RESUME  (1)
+#define MSM_I2C_CLK_PATH_MAX_BW(dev) ((dev->pdata->src_clk_rate * 8) / 1000)
+
+static int i2c_qup_clk_path_init(struct platform_device *pdev,
+							struct qup_i2c_dev *dev)
+{
+	struct msm_bus_vectors *paths    = NULL;
+	struct msm_bus_paths   *usecases = NULL;
+
+	if (!dev->pdata->master_id)
+		return 0;
+
+	dev_dbg(&pdev->dev, "initialises bus-scaling clock voting");
+
+	paths = devm_kzalloc(&pdev->dev, sizeof(*paths) * 2, GFP_KERNEL);
+	if (!paths) {
+		dev_err(&pdev->dev,
+		"msm_bus_paths.paths memory allocation failed");
+		return -ENOMEM;
+	}
+
+	usecases = devm_kzalloc(&pdev->dev, sizeof(*usecases) * 2, GFP_KERNEL);
+	if (!usecases) {
+		dev_err(&pdev->dev,
+		"msm_bus_scale_pdata.usecases memory allocation failed");
+		goto path_init_err;
+	}
+
+	dev->clk_path_vote.pdata = devm_kzalloc(&pdev->dev,
+					    sizeof(*dev->clk_path_vote.pdata),
+					    GFP_KERNEL);
+	if (!dev->clk_path_vote.pdata) {
+		dev_err(&pdev->dev,
+		"msm_bus_scale_pdata memory allocation failed");
+		goto path_init_err;
+	}
+
+	paths[MSM_I2C_CLK_PATH_SUSPEND] = (struct msm_bus_vectors) {
+		dev->pdata->master_id, MSM_BUS_SLAVE_EBI_CH0, 0, 0
+	};
+
+	paths[MSM_I2C_CLK_PATH_RESUME]  = (struct msm_bus_vectors) {
+		dev->pdata->master_id, MSM_BUS_SLAVE_EBI_CH0, 0,
+						MSM_I2C_CLK_PATH_MAX_BW(dev)
+	};
+
+	usecases[MSM_I2C_CLK_PATH_SUSPEND] = (struct msm_bus_paths) {
+		.num_paths = 1,
+		.vectors   = &paths[MSM_I2C_CLK_PATH_SUSPEND],
+	};
+
+	usecases[MSM_I2C_CLK_PATH_RESUME] = (struct msm_bus_paths) {
+		.num_paths = 1,
+		.vectors   = &paths[MSM_I2C_CLK_PATH_RESUME],
+	};
+
+	*dev->clk_path_vote.pdata = (struct msm_bus_scale_pdata) {
+		.active_only  = dev->pdata->active_only,
+		.name         = pdev->name,
+		.num_usecases = 2,
+		.usecase      = usecases,
+	};
+
+	return 0;
+
+path_init_err:
+	devm_kfree(&pdev->dev, paths);
+	devm_kfree(&pdev->dev, usecases);
+	devm_kfree(&pdev->dev, dev->clk_path_vote.pdata);
+	dev->clk_path_vote.pdata = NULL;
+	return -ENOMEM;
+}
+
+static void i2c_qup_clk_path_teardown(struct qup_i2c_dev *dev)
+{
+	if (dev->clk_path_vote.client_hdl) {
+		msm_bus_scale_unregister_client(dev->clk_path_vote.client_hdl);
+		dev->clk_path_vote.client_hdl = 0;
+	}
+}
+
+static void i2c_qup_clk_path_vote(struct qup_i2c_dev *dev)
+{
+	if (dev->clk_path_vote.client_hdl)
+		msm_bus_scale_client_update_request(
+						dev->clk_path_vote.client_hdl,
+						MSM_I2C_CLK_PATH_RESUME);
+}
+
+static void i2c_qup_clk_path_unvote(struct qup_i2c_dev *dev)
+{
+	if (dev->clk_path_vote.client_hdl)
+		msm_bus_scale_client_update_request(
+						dev->clk_path_vote.client_hdl,
+						MSM_I2C_CLK_PATH_SUSPEND);
+}
+
+/**
+ * i2c_qup_clk_path_postponed_register: reg with bus-scaling after it is probed
+ *
+ * Workaround: i2c driver may be probed before the bus scaling driver. Thus,
+ * this function should be called not from probe but from a later context.
+ * This function may be called more then once before register succeed. At
+ * this case only one error message will be logged. At boot time all clocks
+ * are on, so earlier i2c transactions should succeed.
+ */
+static void i2c_qup_clk_path_postponed_register(struct qup_i2c_dev *dev)
+{
+	/*
+	 * bail out if path voting is diabled (master_id == 0) or if it is
+	 * already registered (client_hdl != 0)
+	 */
+	if (!dev->pdata->master_id || dev->clk_path_vote.client_hdl)
+		return;
+
+	dev->clk_path_vote.client_hdl = msm_bus_scale_register_client(
+						dev->clk_path_vote.pdata);
+
+	if (dev->clk_path_vote.client_hdl) {
+		if (dev->clk_path_vote.reg_err) {
+			/* log a success message if an error msg was logged */
+			dev->clk_path_vote.reg_err = false;
+			dev_info(dev->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0x%x",
+				dev->pdata->master_id, dev->pdata->active_only,
+				dev->clk_path_vote.client_hdl);
+		}
+
+		if (dev->pdata->active_only)
+			i2c_qup_clk_path_vote(dev);
+	} else {
+		/* guard to log only one error on multiple failure */
+		if (!dev->clk_path_vote.reg_err) {
+			dev->clk_path_vote.reg_err = true;
+
+			dev_info(dev->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0",
+				dev->pdata->master_id, dev->pdata->active_only);
+		}
+	}
+}
+
 static void
 qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
 	dev->pwr_state = state;
 	if (state != 0) {
+		i2c_qup_clk_path_postponed_register(dev);
+		if (!dev->pdata->active_only)
+			i2c_qup_clk_path_vote(dev);
+
 		clk_prepare_enable(dev->clk);
 		if (!dev->pdata->keep_ahb_clk_on)
 			clk_prepare_enable(dev->pclk);
@@ -347,6 +514,8 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 		qup_config_core_on_en(dev);
 		if (!dev->pdata->keep_ahb_clk_on)
 			clk_disable_unprepare(dev->pclk);
+		if (!dev->pdata->active_only)
+			i2c_qup_clk_path_unvote(dev);
 	}
 }
 
@@ -1099,11 +1268,12 @@ enum msm_i2c_dt_entry_status {
 enum msm_i2c_dt_entry_type {
 	DT_U32,
 	DT_GPIO,
+	DT_BOOL,
 };
 
 struct msm_i2c_dt_to_pdata_map {
 	const char                  *dt_name;
-	int                         *ptr_data;
+	void                        *ptr_data;
 	enum msm_i2c_dt_entry_status status;
 	enum msm_i2c_dt_entry_type   type;
 	int                          default_val;
@@ -1119,28 +1289,42 @@ int __devinit msm_i2c_rsrcs_dt_to_pdata_map(struct platform_device *pdev,
 	{"qcom,i2c-bus-freq", &pdata->clk_freq    , DT_REQUIRED , DT_U32 ,  0},
 	{"cell-index"       , &pdev->id           , DT_REQUIRED , DT_U32 , -1},
 	{"qcom,i2c-src-freq", &pdata->src_clk_rate, DT_SUGGESTED, DT_U32,   0},
+	{"qcom,master-id"   , &pdata->master_id   , DT_SUGGESTED, DT_U32,   0},
 	{"qcom,scl-gpio"    , gpios               , DT_OPTIONAL , DT_GPIO, -1},
 	{"qcom,sda-gpio"    , gpios + 1           , DT_OPTIONAL , DT_GPIO, -1},
+	{"qcom,active-only" , &pdata->active_only , DT_OPTIONAL , DT_BOOL,  0},
 	{NULL               , NULL                , 0           , 0      ,  0},
 	};
 
 	for (itr = map; itr->dt_name ; ++itr) {
-		if (itr->type == DT_GPIO) {
+		switch (itr->type) {
+		case DT_GPIO:
 			ret = of_get_named_gpio(node, itr->dt_name, 0);
 			if (ret >= 0) {
-				*itr->ptr_data = ret;
+				*((int *) itr->ptr_data) = ret;
 				ret = 0;
 			}
-		} else {
+			break;
+		case DT_U32:
 			ret = of_property_read_u32(node, itr->dt_name,
-								itr->ptr_data);
+							 (u32 *) itr->ptr_data);
+			break;
+		case DT_BOOL:
+			*((bool *) itr->ptr_data) =
+				of_property_read_bool(node, itr->dt_name);
+			ret = 0;
+			break;
+		default:
+			dev_err(&pdev->dev, "%d is an unknown DT entry type\n",
+								itr->type);
+			ret = -EBADE;
 		}
 
 		dev_dbg(&pdev->dev, "DT entry ret:%d name:%s val:%d\n",
-					ret, itr->dt_name, *itr->ptr_data);
+				ret, itr->dt_name, *((int *)itr->ptr_data));
 
 		if (ret) {
-			*itr->ptr_data = itr->default_val;
+			*((int *)itr->ptr_data) = itr->default_val;
 
 			if (itr->status < DT_OPTIONAL) {
 				dev_err(&pdev->dev, "Missing '%s' DT entry\n",
@@ -1326,6 +1510,14 @@ blsp_core_init:
 	dev->clk_ctl = 0;
 	dev->pos = 0;
 
+	ret = i2c_qup_clk_path_init(pdev, dev);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"Failed to init clock path-voting data structs. err:%d", ret);
+		/* disable i2c_qup_clk_path_xxx() functionality */
+		dev->pdata->master_id = 0;
+	}
+
 	if (dev->pdata->src_clk_rate <= 0) {
 		dev_info(&pdev->dev,
 			"No src_clk_rate specified in platfrom data\n");
@@ -1443,6 +1635,7 @@ err_request_irq_failed:
 err_reset_failed:
 	clk_disable_unprepare(dev->clk);
 	clk_disable_unprepare(dev->pclk);
+	i2c_qup_clk_path_teardown(dev);
 err_gsbi_failed:
 	iounmap(dev->base);
 err_ioremap_failed:
@@ -1488,6 +1681,11 @@ qup_i2c_remove(struct platform_device *pdev)
 		clk_put(dev->pclk);
 	}
 	clk_put(dev->clk);
+
+	if (dev->pdata->active_only)
+		i2c_qup_clk_path_unvote(dev);
+	i2c_qup_clk_path_teardown(dev);
+
 	if (dev->gsbi)
 		iounmap(dev->gsbi);
 	iounmap(dev->base);
