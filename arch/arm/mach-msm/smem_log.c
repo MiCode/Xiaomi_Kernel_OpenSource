@@ -32,6 +32,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/smem_log.h>
+#include <mach/msm_smem.h>
 
 #include <asm/arch_timer.h>
 

@@ -36,7 +36,8 @@
 #include <mach/socinfo.h>
 
 #if defined(CONFIG_MSM_SMD)
-#include "smd_private.h"
+#include <mach/msm_smem.h>
+#include <mach/msm_smsm.h>
 #endif
 #include "timer.h"
 

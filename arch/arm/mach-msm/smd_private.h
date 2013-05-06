@@ -34,37 +34,6 @@
 #define VERSION_MODEM     9
 #define VERSION_DSPS      10
 
-#define SMD_HEAP_SIZE 512
-
-struct smem_heap_info {
-	unsigned initialized;
-	unsigned free_offset;
-	unsigned heap_remaining;
-	unsigned reserved;
-};
-
-struct smem_heap_entry {
-	unsigned allocated;
-	unsigned offset;
-	unsigned size;
-	unsigned reserved; /* bits 1:0 reserved, bits 31:2 aux smem base addr */
-};
-#define BASE_ADDR_MASK 0xfffffffc
-
-struct smem_proc_comm {
-	unsigned command;
-	unsigned status;
-	unsigned data1;
-	unsigned data2;
-};
-
-struct smem_shared {
-	struct smem_proc_comm proc_comm[4];
-	unsigned version[32];
-	struct smem_heap_info heap_info;
-	struct smem_heap_entry heap_toc[SMD_HEAP_SIZE];
-};
-
 #if defined(CONFIG_MSM_SMD_PKG4)
 struct smsm_interrupt_info {
 	uint32_t aArm_en_mask;
@@ -313,7 +282,4 @@ struct interrupt_stat {
 	uint32_t smsm_interrupt_id;
 };
 extern struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
-
-/* used for unit testing spinlocks */
-remote_spinlock_t *smem_get_remote_spinlock(void);
 #endif
