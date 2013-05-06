@@ -18,6 +18,7 @@
 #define BYTES_PER_BLOCK             (3)
 #define MAX_PS_LENGTH              (96)
 #define MAX_RT_LENGTH              (64)
+#define RX_STATIONS0_LEN           (15)
 
 #define XFRDAT0                    (0x20)
 #define XFRDAT1                    (0x21)
