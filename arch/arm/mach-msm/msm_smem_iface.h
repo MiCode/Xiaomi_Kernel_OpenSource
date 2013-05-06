@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #define __ARCH_ARM_MACH_MSM_SMEM_IFACE_H
 
 #include <mach/msm_smsm.h>
+#include <mach/msm_smem.h>
 
 #define MAX_KEY_EVENTS 10
 #define MAX_SEC_KEY_PAYLOAD 32

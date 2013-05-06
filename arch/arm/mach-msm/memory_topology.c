@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/memory.h>
 #include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
+#include <mach/msm_smem.h>
 #include "smd_private.h"
 
 #if defined(CONFIG_ARCH_MSM8960)

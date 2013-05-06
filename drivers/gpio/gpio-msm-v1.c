@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/gpio.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,7 +24,7 @@
 #include <asm/mach/irq.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
-#include <mach/msm_smsm.h>
+#include <mach/msm_smem.h>
 #include <mach/proc_comm.h>
 
 

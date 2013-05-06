@@ -19,7 +19,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
-#include <mach/msm_smsm.h>
+#include <mach/msm_smem.h>
 #include <mach/msm_ipc_logging.h>
 #include "smp2p_private_api.h"
 #include "smp2p_private.h"

@@ -31,7 +31,7 @@
 #include <mach/iommu_hw-v0.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
-#include <mach/msm_smsm.h>
+#include <mach/msm_smem.h>
 
 #define MRC(reg, processor, op1, crn, crm, op2)				\
 __asm__ __volatile__ (							\

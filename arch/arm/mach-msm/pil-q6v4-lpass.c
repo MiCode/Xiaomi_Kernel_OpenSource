@@ -25,6 +25,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/ramdump.h>
+#include <mach/msm_smem.h>
 
 #include "smd_private.h"
 #include "sysmon.h"

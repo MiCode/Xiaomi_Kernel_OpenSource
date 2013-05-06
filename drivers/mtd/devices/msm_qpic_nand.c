@@ -30,7 +30,7 @@
 #include <linux/of.h>
 #include <linux/ctype.h>
 #include <mach/sps.h>
-#include <mach/msm_smsm.h>
+#include <mach/msm_smem.h>
 #define PAGE_SIZE_2K 2048
 #define PAGE_SIZE_4K 4096
 #define WRITE 1

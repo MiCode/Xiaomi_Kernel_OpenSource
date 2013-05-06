@@ -3,7 +3,7 @@
  * MSM Power Management Routines
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -44,9 +44,10 @@
 #endif
 #include <mach/socinfo.h>
 #include <mach/proc_comm.h>
+#include <mach/msm_smem.h>
+#include <mach/msm_smsm.h>
 #include <asm/smp_scu.h>
 
-#include "smd_private.h"
 #include "smd_rpcrouter.h"
 #include "acpuclock.h"
 #include "clock.h"
