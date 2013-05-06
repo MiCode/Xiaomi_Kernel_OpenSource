@@ -32,6 +32,7 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct device *dev = NULL;
+	int rc = 0;
 
 	if (!pdev) {
 		pr_err("%s: Invalid pdev\n", __func__);
@@ -39,32 +40,53 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
+	ctrl_pdata->ahb_clk = clk_get(dev, "iface_clk");
+	if (IS_ERR(ctrl_pdata->ahb_clk)) {
+		rc = PTR_ERR(ctrl_pdata->ahb_clk);
+		pr_err("%s: Unable to get mdss ahb clk. rc=%d\n",
+			__func__, rc);
+		goto mdss_dsi_clk_err;
+	}
+
+	ctrl_pdata->axi_clk = clk_get(dev, "bus_clk");
+	if (IS_ERR(ctrl_pdata->axi_clk)) {
+		rc = PTR_ERR(ctrl_pdata->axi_clk);
+		pr_err("%s: Unable to get axi bus clk. rc=%d\n",
+			__func__, rc);
+		goto mdss_dsi_clk_err;
+	}
+
 	ctrl_pdata->byte_clk = clk_get(dev, "byte_clk");
 	if (IS_ERR(ctrl_pdata->byte_clk)) {
-		pr_err("can't find dsi_byte_clk\n");
+		rc = PTR_ERR(ctrl_pdata->byte_clk);
+		pr_err("%s: can't find dsi_byte_clk. rc=%d\n",
+			__func__, rc);
 		ctrl_pdata->byte_clk = NULL;
 		goto mdss_dsi_clk_err;
 	}
 
 	ctrl_pdata->pixel_clk = clk_get(dev, "pixel_clk");
 	if (IS_ERR(ctrl_pdata->pixel_clk)) {
-		pr_err("can't find dsi_pixel_clk\n");
+		rc = PTR_ERR(ctrl_pdata->pixel_clk);
+		pr_err("%s: can't find dsi_pixel_clk. rc=%d\n",
+			__func__, rc);
 		ctrl_pdata->pixel_clk = NULL;
 		goto mdss_dsi_clk_err;
 	}
 
 	ctrl_pdata->esc_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(ctrl_pdata->esc_clk)) {
-		pr_err("can't find dsi_esc_clk\n");
+		rc = PTR_ERR(ctrl_pdata->esc_clk);
+		pr_err("%s: can't find dsi_esc_clk. rc=%d\n",
+			__func__, rc);
 		ctrl_pdata->esc_clk = NULL;
 		goto mdss_dsi_clk_err;
 	}
 
-	return 0;
-
 mdss_dsi_clk_err:
-	mdss_dsi_clk_deinit(ctrl_pdata);
-	return -EPERM;
+	if (rc)
+		mdss_dsi_clk_deinit(ctrl_pdata);
+	return rc;
 }
 
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
@@ -75,6 +97,10 @@ void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
 		clk_put(ctrl_pdata->esc_clk);
 	if (ctrl_pdata->pixel_clk)
 		clk_put(ctrl_pdata->pixel_clk);
+	if (ctrl_pdata->axi_clk)
+		clk_put(ctrl_pdata->axi_clk);
+	if (ctrl_pdata->ahb_clk)
+		clk_put(ctrl_pdata->ahb_clk);
 }
 
 #define PREF_DIV_RATIO 27
@@ -154,6 +180,33 @@ int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 				      / (8 * bpp));
 
 	return 0;
+}
+
+int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+
+	rc = clk_prepare_enable(ctrl_pdata->ahb_clk);
+	if (rc) {
+		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
+		goto error;
+	}
+
+	rc = clk_prepare_enable(ctrl_pdata->axi_clk);
+	if (rc) {
+		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
+		clk_disable_unprepare(ctrl_pdata->ahb_clk);
+		goto error;
+	}
+
+error:
+	return rc;
+}
+
+void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	clk_disable_unprepare(ctrl_pdata->axi_clk);
+	clk_disable_unprepare(ctrl_pdata->ahb_clk);
 }
 
 void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
