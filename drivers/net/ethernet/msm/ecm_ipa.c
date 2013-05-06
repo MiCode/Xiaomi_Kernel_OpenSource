@@ -80,25 +80,22 @@ struct ecm_ipa_dev {
 };
 
 /**
- * struct ecm_ipa_ctx - saved pointer for the std ecm network device
+ * struct ecm_ipa_ctx - saved pointer for the ecm_ipa network device
  *                which allow ecm_ipa to be a singleton
  */
 static struct ecm_ipa_dev *ecm_ipa_ctx;
 
-static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
-static int ecm_ipa_set_device_ethernet_addr(
-	u8 *dev_ethaddr, u8 device_ethaddr[]);
-static void ecm_ipa_packet_receive_notify(void *priv,
-		enum ipa_dp_evt_type evt,
-		unsigned long data);
-static void ecm_ipa_tx_complete_notify(void *priv,
-		enum ipa_dp_evt_type evt,
-		unsigned long data);
-static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl);
 static int ecm_ipa_open(struct net_device *net);
+static void ecm_ipa_packet_receive_notify(void *priv,
+		enum ipa_dp_evt_type evt, unsigned long data);
+static void ecm_ipa_tx_complete_notify(void *priv,
+		enum ipa_dp_evt_type evt, unsigned long data);
 static int ecm_ipa_stop(struct net_device *net);
-static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
-					struct net_device *net);
+static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *dev,
+		const void *dst_mac, const void *src_mac);
+static void ecm_ipa_rules_destroy(struct ecm_ipa_dev *dev);
+static int ecm_ipa_register_properties(void);
+static void ecm_ipa_deregister_properties(void);
 static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 		unsigned long data);
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *dev);
@@ -106,25 +103,28 @@ static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *dev);
 static bool rx_filter(struct sk_buff *skb);
 static bool tx_filter(struct sk_buff *skb);
 static bool rm_enabled(struct ecm_ipa_dev *dev);
-
-static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *dev,
-		const void *dst_mac, const void *src_mac);
-static int ecm_ipa_register_properties(void);
-static void ecm_ipa_deregister_properties(void);
-static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev);
-static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev);
-static int ecm_ipa_debugfs_dma_open(struct inode *inode, struct file *file);
+static int resource_request(struct ecm_ipa_dev *dev);
+static void resource_release(struct ecm_ipa_dev *dev);
+static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
+					struct net_device *net);
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
+static ssize_t ecm_ipa_debugfs_enable_write_dma(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos);
+static int ecm_ipa_debugfs_dma_open(struct inode *inode, struct file *file);
+static ssize_t ecm_ipa_debugfs_enable_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos);
 static ssize_t ecm_ipa_debugfs_enable_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
-static ssize_t ecm_ipa_debugfs_enable_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos);
-static ssize_t ecm_ipa_debugfs_enable_write_dma(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos);
-static void eth_get_drvinfo(struct net_device *net,
-		struct ethtool_drvinfo *drv_info);
+static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev);
+static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev);
+static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
+static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl);
+static int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
+		u8 device_ethaddr[]);
+static int ecm_ipa_init_module(void);
+static void ecm_ipa_cleanup_module(void);
 
 static const struct net_device_ops ecm_ipa_netdev_ops = {
 	.ndo_open		= ecm_ipa_open,
@@ -133,24 +133,351 @@ static const struct net_device_ops ecm_ipa_netdev_ops = {
 	.ndo_set_mac_address = eth_mac_addr,
 };
 
-static const struct ethtool_ops ops = {
-	.get_drvinfo = eth_get_drvinfo,
-	.get_link = ethtool_op_get_link,
-};
-
 const struct file_operations ecm_ipa_debugfs_dma_ops = {
-	.open = ecm_ipa_debugfs_dma_open,
+		.open = ecm_ipa_debugfs_dma_open,
 	.read = ecm_ipa_debugfs_enable_read,
 	.write = ecm_ipa_debugfs_enable_write_dma,
 };
 
 const struct file_operations ecm_ipa_debugfs_atomic_ops = {
-		.open = ecm_ipa_debugfs_atomic_open,
-		.read = ecm_ipa_debugfs_atomic_read,
+	.open = ecm_ipa_debugfs_atomic_open,
+	.read = ecm_ipa_debugfs_atomic_read,
 };
 
 /**
- * ecm_ipa_init() - initializes internal data structures
+ * ecm_ipa_init() - create network device and initializes internal
+ * data structures
+ * @params: in/out parameters required for ecm_ipa initialization
+ *
+ * Shall be called prior to pipe connection.
+ * The out parameters (the callbacks) shall be supplied to ipa_connect.
+ * Detailed description:
+ *  - allocate the network device
+ *  - set default values for driver internals
+ *  - create debugfs folder and files
+ *  - create IPA resource manager client
+ *  - add header insertion rules for IPA driver (based on host/device
+ *    Ethernet addresses given in input params)
+ *  - register tx/rx properties to IPA driver (will be later used
+ *    by IPA configuration manager to configure reset of the IPA rules)
+ *  - set the carrier state to "off" (until ecm_ipa_connect is called)
+ *  - register the network device
+ *  - set the out parameters
+ *
+ * Returns negative errno, or zero on success
+ */
+int ecm_ipa_init(struct ecm_ipa_params *params)
+{
+	int result = 0;
+	struct net_device *net;
+	struct ecm_ipa_dev *dev;
+
+	ECM_IPA_LOG_ENTRY();
+	pr_debug("%s initializing\n", DRIVER_NAME);
+	NULL_CHECK(params);
+
+	pr_debug("host_ethaddr=%pM, device_ethaddr=%pM\n",
+		params->host_ethaddr,
+		params->device_ethaddr);
+
+	net = alloc_etherdev(sizeof(struct ecm_ipa_dev));
+	if (!net) {
+		result = -ENOMEM;
+		ECM_IPA_ERROR("fail to allocate etherdev\n");
+		goto fail_alloc_etherdev;
+	}
+	pr_debug("network device was successfully allocated\n");
+
+	dev = netdev_priv(net);
+	memset(dev, 0, sizeof(*dev));
+	dev->net = net;
+	ecm_ipa_ctx = dev;
+	dev->tx_enable = true;
+	dev->rx_enable = true;
+	dev->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
+	dev->outstanding_low = DEFAULT_OUTSTANDING_LOW;
+	atomic_set(&dev->outstanding_pkts, 0);
+	snprintf(net->name, sizeof(net->name), "%s%%d", "ecm");
+	net->netdev_ops = &ecm_ipa_netdev_ops;
+	pr_debug("internal data structures were intialized and defaults set\n");
+
+	result = ecm_ipa_debugfs_init(dev);
+	if (result)
+		goto fail_debugfs;
+	pr_debug("debugfs entries were created\n");
+
+	result = ecm_ipa_create_rm_resource(dev);
+	if (result) {
+		ECM_IPA_ERROR("fail on RM create\n");
+		goto fail_create_rm;
+	}
+	pr_debug("RM resource was created\n");
+
+	result = ecm_ipa_set_device_ethernet_addr(net->dev_addr,
+			params->device_ethaddr);
+	if (result) {
+		ECM_IPA_ERROR("set device MAC failed\n");
+		goto fail_set_device_ethernet;
+	}
+	pr_debug("Device Ethernet address set %pM\n", net->dev_addr);
+
+	result = ecm_ipa_rules_cfg(dev, params->host_ethaddr,
+			params->device_ethaddr);
+	if (result) {
+		ECM_IPA_ERROR("fail on ipa rules set\n");
+		goto fail_rules_cfg;
+	}
+	pr_debug("Ethernet header insertion set\n");
+
+	result = ecm_ipa_register_properties();
+	if (result) {
+		ECM_IPA_ERROR("fail on properties set\n");
+		goto fail_register_tx;
+	}
+	pr_debug("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
+
+	netif_carrier_off(net);
+	pr_debug("set carrier off\n");
+
+	result = register_netdev(net);
+	if (result) {
+		ECM_IPA_ERROR("register_netdev failed: %d\n", result);
+		goto fail_register_netdev;
+	}
+	pr_debug("register_netdev succeeded\n");
+
+	params->ecm_ipa_rx_dp_notify = ecm_ipa_packet_receive_notify;
+	params->ecm_ipa_tx_dp_notify = ecm_ipa_tx_complete_notify;
+	params->private = (void *)dev;
+	ECM_IPA_LOG_EXIT();
+
+	return 0;
+
+fail_register_netdev:
+	ecm_ipa_deregister_properties();
+fail_register_tx:
+	ecm_ipa_rules_destroy(dev);
+fail_set_device_ethernet:
+fail_rules_cfg:
+	ecm_ipa_destory_rm_resource(dev);
+fail_create_rm:
+	ecm_ipa_debugfs_destroy(dev);
+fail_debugfs:
+	free_netdev(net);
+fail_alloc_etherdev:
+	return result;
+}
+EXPORT_SYMBOL(ecm_ipa_init);
+
+
+int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
+		void *priv)
+{
+	struct ecm_ipa_dev *dev = priv;
+
+	ECM_IPA_LOG_ENTRY();
+	NULL_CHECK(priv);
+	pr_debug("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d, priv=0x%p\n",
+					usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
+
+	if (!usb_to_ipa_hdl || usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
+		ECM_IPA_ERROR("usb_to_ipa_hdl(%d) is not a valid ipa handle\n",
+				usb_to_ipa_hdl);
+		return -EINVAL;
+	}
+	if (!ipa_to_usb_hdl || ipa_to_usb_hdl >= IPA_CLIENT_MAX) {
+		ECM_IPA_ERROR("ipa_to_usb_hdl(%d) is not a valid ipa handle\n",
+				ipa_to_usb_hdl);
+		return -EINVAL;
+	}
+	dev->ipa_to_usb_hdl = ipa_to_usb_hdl;
+	dev->usb_to_ipa_hdl = usb_to_ipa_hdl;
+	ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
+	pr_debug("end-point configured\n");
+
+	netif_carrier_on(dev->net);
+	if (!netif_carrier_ok(dev->net)) {
+		ECM_IPA_ERROR("netif_carrier_ok error\n");
+		return -EBUSY;
+	}
+	pr_debug("carrier_on notified, ecm_ipa is operational\n");
+
+	ECM_IPA_LOG_EXIT();
+	return 0;
+}
+EXPORT_SYMBOL(ecm_ipa_connect);
+
+static int ecm_ipa_open(struct net_device *net)
+{
+	struct ecm_ipa_dev *dev;
+	ECM_IPA_LOG_ENTRY();
+
+	dev = netdev_priv(net);
+
+	if (!netif_carrier_ok(net))
+		pr_debug("carrier is not ON yet - continuing\n");
+
+	netif_start_queue(net);
+	pr_debug("queue started\n");
+
+	ECM_IPA_LOG_EXIT();
+	return 0;
+}
+
+/**
+ * ecm_ipa_start_xmit() - send data from APPs to USB core via IPA core
+ * @skb: packet received from Linux stack
+ * @net: the network device being used to send this packet
+ *
+ * Several conditions needed in order to send the packet to IPA:
+ * - we are in a valid state were the queue is not stopped
+ * - Filter Tx switch is turned off
+ * - The resources required for actual Tx are all up
+ *
+ */
+static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
+					struct net_device *net)
+{
+	int ret;
+	netdev_tx_t status = NETDEV_TX_BUSY;
+	struct ecm_ipa_dev *dev = netdev_priv(net);
+
+	if (unlikely(netif_queue_stopped(net))) {
+		ECM_IPA_ERROR("interface queue is stopped\n");
+		goto out;
+	}
+
+	if (unlikely(tx_filter(skb))) {
+		dev_kfree_skb_any(skb);
+		pr_debug("packet got filtered out on Tx path\n");
+		status = NETDEV_TX_OK;
+		goto out;
+	}
+	ret = resource_request(dev);
+	if (ret) {
+		pr_debug("Waiting to resource\n");
+		netif_stop_queue(net);
+		goto resource_busy;
+	}
+
+	if (atomic_read(&dev->outstanding_pkts) >= dev->outstanding_high) {
+		pr_debug("Outstanding high boundary reached (%d)- stopping queue\n",
+				dev->outstanding_high);
+		netif_stop_queue(net);
+		status = -NETDEV_TX_BUSY;
+		goto out;
+	}
+
+	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
+	if (ret) {
+		ECM_IPA_ERROR("ipa transmit failed (%d)\n", ret);
+		goto fail_tx_packet;
+	}
+
+	atomic_inc(&dev->outstanding_pkts);
+	net->stats.tx_packets++;
+	net->stats.tx_bytes += skb->len;
+	status = NETDEV_TX_OK;
+	goto out;
+
+fail_tx_packet:
+out:
+	resource_release(dev);
+resource_busy:
+	return status;
+}
+
+/**
+ * ecm_ipa_packet_receive_notify() - Rx notify
+ *
+ * @priv: ecm driver context
+ * @evt: event type
+ * @data: data provided with event
+ *
+ * IPA will pass a packet with skb->data pointing to Ethernet packet frame
+ */
+static void ecm_ipa_packet_receive_notify(void *priv,
+		enum ipa_dp_evt_type evt,
+		unsigned long data)
+{
+	struct sk_buff *skb = (struct sk_buff *)data;
+	struct ecm_ipa_dev *dev = priv;
+	int result;
+
+	if (evt != IPA_RECEIVE)	{
+		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
+		return;
+	}
+
+	skb->dev = dev->net;
+	skb->protocol = eth_type_trans(skb, dev->net);
+	if (rx_filter(skb)) {
+		pr_debug("packet got filtered out on Rx path\n");
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	result = netif_rx(skb);
+	if (result)
+		ECM_IPA_ERROR("fail on netif_rx\n");
+	dev->net->stats.rx_packets++;
+	dev->net->stats.rx_bytes += skb->len;
+
+	return;
+}
+
+static int ecm_ipa_stop(struct net_device *net)
+{
+	ECM_IPA_LOG_ENTRY();
+	pr_debug("stopping net device\n");
+	netif_stop_queue(net);
+	ECM_IPA_LOG_EXIT();
+	return 0;
+}
+
+int ecm_ipa_disconnect(void *priv)
+{
+	struct ecm_ipa_dev *dev = priv;
+	ECM_IPA_LOG_ENTRY();
+	NULL_CHECK(dev);
+	pr_debug("priv=0x%p\n", priv);
+	netif_carrier_off(dev->net);
+	ECM_IPA_LOG_EXIT();
+	return 0;
+}
+EXPORT_SYMBOL(ecm_ipa_disconnect);
+
+
+/**
+ * ecm_ipa_cleanup() - destroys all
+ * ecm information
+ * @priv: main driver context parameters
+ *
+ */
+void ecm_ipa_cleanup(void *priv)
+{
+	struct ecm_ipa_dev *dev = priv;
+	ECM_IPA_LOG_ENTRY();
+	pr_debug("priv=0x%p\n", priv);
+	if (!dev) {
+		ECM_IPA_ERROR("dev NULL pointer\n");
+		return;
+	}
+
+	ecm_ipa_destory_rm_resource(dev);
+	ecm_ipa_debugfs_destroy(dev);
+
+	unregister_netdev(dev->net);
+	free_netdev(dev->net);
+
+	pr_debug("cleanup done\n");
+	ecm_ipa_ctx = NULL;
+	ECM_IPA_LOG_EXIT();
+	return ;
+}
+EXPORT_SYMBOL(ecm_ipa_cleanup);
+
+/**
  * @ecm_ipa_rx_dp_notify: supplied callback to be called by the IPA
  * driver upon data packets received from USB pipe into IPA core.
  * @ecm_ipa_rt_dp_notify: supplied callback to be called by the IPA
@@ -167,54 +494,7 @@ const struct file_operations ecm_ipa_debugfs_atomic_ops = {
  *
  * Returns negative errno, or zero on success
  */
-int ecm_ipa_init(ecm_ipa_callback *ecm_ipa_rx_dp_notify,
-		ecm_ipa_callback *ecm_ipa_tx_dp_notify,
-		void **priv)
-{
-	int ret = 0;
-	struct net_device *net;
-	struct ecm_ipa_dev *dev;
-	ECM_IPA_LOG_ENTRY();
-	pr_debug("%s initializing\n", DRIVER_NAME);
-	NULL_CHECK(ecm_ipa_rx_dp_notify);
-	NULL_CHECK(ecm_ipa_tx_dp_notify);
-	NULL_CHECK(priv);
-	pr_debug("rx_cb=0x%p, tx_cb=0x%p priv=0x%p\n",
-			ecm_ipa_rx_dp_notify, ecm_ipa_tx_dp_notify, *priv);
-	net = alloc_etherdev(sizeof(struct ecm_ipa_dev));
-	if (!net) {
-		ret = -ENOMEM;
-		ECM_IPA_ERROR("fail to allocate etherdev\n");
-		goto fail_alloc_etherdev;
-	}
-	pr_debug("etherdev was successfully allocated\n");
-	dev = netdev_priv(net);
-	memset(dev, 0, sizeof(*dev));
-	dev->tx_enable = true;
-	dev->rx_enable = true;
-	atomic_set(&dev->outstanding_pkts, 0);
-	dev->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
-	dev->outstanding_low = DEFAULT_OUTSTANDING_LOW;
-	dev->net = net;
-	ecm_ipa_ctx = dev;
-	*priv = (void *)dev;
-	snprintf(net->name, sizeof(net->name), "%s%%d", "ecm");
-	net->netdev_ops = &ecm_ipa_netdev_ops;
-	pr_debug("internal data structures were intialized\n");
-	ret = ecm_ipa_debugfs_init(dev);
-	if (ret)
-		goto fail_debugfs;
-	pr_debug("debugfs entries were created\n");
-	*ecm_ipa_rx_dp_notify = ecm_ipa_packet_receive_notify;
-	*ecm_ipa_tx_dp_notify = ecm_ipa_tx_complete_notify;
-	ECM_IPA_LOG_EXIT();
-	return 0;
-fail_debugfs:
-	free_netdev(net);
-fail_alloc_etherdev:
-	return ret;
-}
-EXPORT_SYMBOL(ecm_ipa_init);
+
 
 /**
  * ecm_ipa_rules_cfg() - set header insertion and register Tx/Rx properties
@@ -390,106 +670,6 @@ static void ecm_ipa_deregister_properties(void)
  *
  * Returns negative errno, or zero on success
  */
-int ecm_ipa_configure(u8 host_ethaddr[], u8 device_ethaddr[],
-		void *priv)
-{
-	struct ecm_ipa_dev *dev = priv;
-	struct net_device *net;
-	int result;
-	ECM_IPA_LOG_ENTRY();
-	NULL_CHECK(host_ethaddr);
-	NULL_CHECK(host_ethaddr);
-	NULL_CHECK(dev);
-	net = dev->net;
-	NULL_CHECK(net);
-	pr_debug("priv=0x%p, host_ethaddr=%pM device_ethaddr=%pM\n",
-					priv, host_ethaddr, device_ethaddr);
-	result = ecm_ipa_create_rm_resource(dev);
-	if (result) {
-		ECM_IPA_ERROR("fail on RM create\n");
-		return -EINVAL;
-	}
-	pr_debug("RM resource was created\n");
-	netif_carrier_off(dev->net);
-	result = ecm_ipa_set_device_ethernet_addr(net->dev_addr,
-			device_ethaddr);
-	if (result) {
-		ECM_IPA_ERROR("set device MAC failed\n");
-		goto fail_set_device_ethernet;
-	}
-	result = ecm_ipa_rules_cfg(dev, host_ethaddr, device_ethaddr);
-	if (result) {
-		ECM_IPA_ERROR("fail on ipa rules set\n");
-		goto fail_set_device_ethernet;
-	}
-	pr_debug("Ethernet header insertion was set\n");
-	result = ecm_ipa_register_properties();
-	if (result) {
-		ECM_IPA_ERROR("fail on properties set\n");
-		goto fail_register_tx;
-	}
-	pr_debug("ECM 2 Tx and 2 Rx properties were registered\n");
-	result = register_netdev(net);
-	if (result) {
-		ECM_IPA_ERROR("register_netdev failed: %d\n", result);
-		goto fail_register_netdev;
-	}
-	pr_debug("register_netdev succeeded\n");
-	ECM_IPA_LOG_EXIT();
-	return 0;
-fail_register_netdev:
-	ecm_ipa_deregister_properties();
-fail_register_tx:
-fail_set_device_ethernet:
-	ecm_ipa_rules_destroy(dev);
-	ecm_ipa_destory_rm_resource(dev);
-	free_netdev(net);
-	return result;
-}
-EXPORT_SYMBOL(ecm_ipa_configure);
-
-int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
-		void *priv)
-{
-	struct ecm_ipa_dev *dev = priv;
-	ECM_IPA_LOG_ENTRY();
-	NULL_CHECK(priv);
-	pr_debug("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d, priv=0x%p\n",
-					usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
-	if (!usb_to_ipa_hdl || usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
-		ECM_IPA_ERROR("usb_to_ipa_hdl(%d) is not a valid ipa handle\n",
-				usb_to_ipa_hdl);
-		return -EINVAL;
-	}
-	if (!ipa_to_usb_hdl || ipa_to_usb_hdl >= IPA_CLIENT_MAX) {
-		ECM_IPA_ERROR("ipa_to_usb_hdl(%d) is not a valid ipa handle\n",
-				ipa_to_usb_hdl);
-		return -EINVAL;
-	}
-	dev->ipa_to_usb_hdl = ipa_to_usb_hdl;
-	dev->usb_to_ipa_hdl = usb_to_ipa_hdl;
-	ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
-	netif_carrier_on(dev->net);
-	if (!netif_carrier_ok(dev->net)) {
-		ECM_IPA_ERROR("netif_carrier_ok error\n");
-		return -EBUSY;
-	}
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-EXPORT_SYMBOL(ecm_ipa_connect);
-
-int ecm_ipa_disconnect(void *priv)
-{
-	struct ecm_ipa_dev *dev = priv;
-	ECM_IPA_LOG_ENTRY();
-	NULL_CHECK(dev);
-	pr_debug("priv=0x%p\n", priv);
-	netif_carrier_off(dev->net);
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-EXPORT_SYMBOL(ecm_ipa_disconnect);
 
 
 static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
@@ -578,52 +758,6 @@ static bool rm_enabled(struct ecm_ipa_dev *dev)
 	return dev->rm_enable;
 }
 
-static int ecm_ipa_open(struct net_device *net)
-{
-	ECM_IPA_LOG_ENTRY();
-	netif_start_queue(net);
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-
-static int ecm_ipa_stop(struct net_device *net)
-{
-	ECM_IPA_LOG_ENTRY();
-	pr_debug("stopping net device\n");
-	netif_stop_queue(net);
-	ECM_IPA_LOG_EXIT();
-	return 0;
-}
-
-/**
- * ecm_ipa_cleanup() - destroys all
- * ecm information
- * @priv: main driver context parameters
- *
- */
-void ecm_ipa_cleanup(void *priv)
-{
-	struct ecm_ipa_dev *dev = priv;
-	ECM_IPA_LOG_ENTRY();
-	pr_debug("priv=0x%p\n", priv);
-	if (!dev) {
-		ECM_IPA_ERROR("dev NULL pointer\n");
-		return;
-	}
-
-	ecm_ipa_destory_rm_resource(dev);
-	ecm_ipa_debugfs_destroy(dev);
-
-	unregister_netdev(dev->net);
-	free_netdev(dev->net);
-
-	pr_debug("cleanup done\n");
-	ecm_ipa_ctx = NULL;
-	ECM_IPA_LOG_EXIT();
-	return ;
-}
-EXPORT_SYMBOL(ecm_ipa_cleanup);
-
 static int resource_request(struct ecm_ipa_dev *dev)
 {
 	int result = 0;
@@ -646,108 +780,6 @@ out:
 }
 
 /**
- * ecm_ipa_start_xmit() - send data from APPs to USB core via IPA core
- * @skb: packet received from Linux stack
- * @net: the network device being used to send this packet
- *
- * Several conditions needed in order to send the packet to IPA:
- * - we are in a valid state were the queue is not stopped
- * - Filter Tx switch is turned off
- * - The resources required for actual Tx are all up
- *
- */
-static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
-					struct net_device *net)
-{
-	int ret;
-	netdev_tx_t status = NETDEV_TX_BUSY;
-	struct ecm_ipa_dev *dev = netdev_priv(net);
-
-	if (unlikely(netif_queue_stopped(net))) {
-		ECM_IPA_ERROR("interface queue is stopped\n");
-		goto out;
-	}
-
-	if (unlikely(tx_filter(skb))) {
-		dev_kfree_skb_any(skb);
-		pr_debug("packet got filtered out on Tx path\n");
-		status = NETDEV_TX_OK;
-		goto out;
-	}
-	ret = resource_request(dev);
-	if (ret) {
-		pr_debug("Waiting to resource\n");
-		netif_stop_queue(net);
-		goto resource_busy;
-	}
-
-	if (atomic_read(&dev->outstanding_pkts) >= dev->outstanding_high) {
-		pr_debug("Outstanding high boundary reached (%d)- stopping queue\n",
-				dev->outstanding_high);
-		netif_stop_queue(net);
-		status = -NETDEV_TX_BUSY;
-		goto out;
-	}
-
-	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
-	if (ret) {
-		ECM_IPA_ERROR("ipa transmit failed (%d)\n", ret);
-		goto fail_tx_packet;
-	}
-
-	atomic_inc(&dev->outstanding_pkts);
-	net->stats.tx_packets++;
-	net->stats.tx_bytes += skb->len;
-	status = NETDEV_TX_OK;
-	goto out;
-
-fail_tx_packet:
-out:
-	resource_release(dev);
-resource_busy:
-	return status;
-}
-
-/**
- * ecm_ipa_packet_receive_notify() - Rx notify
- *
- * @priv: ecm driver context
- * @evt: event type
- * @data: data provided with event
- *
- * IPA will pass a packet with skb->data pointing to Ethernet packet frame
- */
-void ecm_ipa_packet_receive_notify(void *priv,
-		enum ipa_dp_evt_type evt,
-		unsigned long data)
-{
-	struct sk_buff *skb = (struct sk_buff *)data;
-	struct ecm_ipa_dev *dev = priv;
-	int result;
-
-	if (evt != IPA_RECEIVE)	{
-		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
-		return;
-	}
-
-	skb->dev = dev->net;
-	skb->protocol = eth_type_trans(skb, dev->net);
-	if (rx_filter(skb)) {
-		pr_debug("packet got filtered out on Rx path\n");
-		dev_kfree_skb_any(skb);
-		return;
-	}
-
-	result = netif_rx(skb);
-	if (result)
-		ECM_IPA_ERROR("fail on netif_rx\n");
-	dev->net->stats.rx_packets++;
-	dev->net->stats.rx_bytes += skb->len;
-
-	return;
-}
-
-/**
  * ecm_ipa_tx_complete_notify() - Rx notify
  *
  * @priv: ecm driver context
@@ -757,7 +789,7 @@ void ecm_ipa_packet_receive_notify(void *priv,
  * Check that the packet is the one we sent and release it
  * This function will be called in defered context in IPA wq.
  */
-void ecm_ipa_tx_complete_notify(void *priv,
+static void ecm_ipa_tx_complete_notify(void *priv,
 		enum ipa_dp_evt_type evt,
 		unsigned long data)
 {
@@ -948,15 +980,6 @@ static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev)
 	debugfs_remove_recursive(dev->directory);
 }
 
-static void eth_get_drvinfo(struct net_device *net,
-		struct ethtool_drvinfo *drv_info)
-{
-	ECM_IPA_LOG_ENTRY();
-	strlcpy(drv_info->driver, DRIVER_NAME, sizeof(drv_info->driver));
-	ECM_IPA_LOG_EXIT();
-}
-
-
 /**
  * ecm_ipa_ep_cfg() - configure the USB endpoints for ECM
  *
@@ -972,7 +995,7 @@ static void eth_get_drvinfo(struct net_device *net,
  *  - No aggregation
  *  - Add Ethernet header
  */
-int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl)
+static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl)
 {
 	int result = 0;
 	struct ipa_ep_cfg usb_to_ipa_ep_cfg;
@@ -1014,7 +1037,7 @@ out:
  * which is needed for cores that does not support blocks logic
  * Note that client handles are the actual pipe index
  */
-int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
+static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
 {
 	int result = 0;
 	struct ipa_ep_cfg_mode cfg_mode;
@@ -1050,7 +1073,8 @@ out:
  *
  * Returns 0 for success, negative otherwise
  */
-int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr, u8 device_ethaddr[])
+static int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
+		u8 device_ethaddr[])
 {
 	if (!is_valid_ether_addr(device_ethaddr))
 		return -EINVAL;
