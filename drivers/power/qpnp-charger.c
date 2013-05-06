@@ -2361,6 +2361,11 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
+	/* Set USB psy online to avoid userspace from shutting down if battery
+	 * capacity is at zero and no chargers online. */
+	if (qpnp_chg_is_usb_chg_plugged_in(chip))
+		power_supply_set_online(chip->usb_psy, 1);
+
 	pr_info("success chg_dis = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
 			chip->charging_disabled,
 			qpnp_chg_is_usb_chg_plugged_in(chip),
