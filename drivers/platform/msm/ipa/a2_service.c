@@ -88,6 +88,7 @@ struct a2_mux_context_type {
 	struct workqueue_struct *a2_mux_tx_workqueue;
 	int a2_mux_initialized;
 	bool bam_is_connected;
+	bool bam_connect_in_progress;
 	int a2_mux_send_power_vote_on_init_once;
 	int a2_mux_sw_bridge_is_connected;
 	u32 a2_device_handle;
@@ -237,7 +238,6 @@ static inline void ul_powerdown(void)
 		INIT_COMPLETION(a2_mux_ctx->ul_wakeup_ack_completion);
 		power_vote(0);
 	}
-	a2_mux_ctx->bam_is_connected = false;
 }
 
 static void ul_wakeup(void)
@@ -245,7 +245,8 @@ static void ul_wakeup(void)
 	int ret;
 
 	mutex_lock(&a2_mux_ctx->wakeup_lock);
-	if (a2_mux_ctx->bam_is_connected) {
+	if (a2_mux_ctx->bam_is_connected &&
+				!a2_mux_ctx->bam_connect_in_progress) {
 		IPADBG("%s Already awake\n", __func__);
 		mutex_unlock(&a2_mux_ctx->wakeup_lock);
 		return;
@@ -259,7 +260,6 @@ static void ul_wakeup(void)
 			grab_wakelock();
 		else
 			a2_mux_ctx->a2_pc_disabled_wakelock_skipped = 1;
-		a2_mux_ctx->bam_is_connected = true;
 		mutex_unlock(&a2_mux_ctx->wakeup_lock);
 		return;
 	}
@@ -298,7 +298,6 @@ static void ul_wakeup(void)
 			goto bail;
 		}
 	}
-	a2_mux_ctx->bam_is_connected = true;
 	IPADBG("%s complete\n", __func__);
 	mutex_unlock(&a2_mux_ctx->wakeup_lock);
 	return;
@@ -367,26 +366,82 @@ static void bam_mux_write_done(bool is_tethered, struct sk_buff *skb)
 		dev_kfree_skb_any(skb);
 }
 
+static bool msm_bam_dmux_kickoff_ul_power_down(void)
+
+{
+	bool is_connected;
+
+	write_lock(&a2_mux_ctx->ul_wakeup_lock);
+	if (a2_mux_ctx->bam_connect_in_progress) {
+		a2_mux_ctx->bam_is_connected = false;
+		is_connected = true;
+	} else {
+		is_connected = a2_mux_ctx->bam_is_connected;
+		a2_mux_ctx->bam_is_connected = false;
+		if (is_connected) {
+			a2_mux_ctx->bam_connect_in_progress = true;
+			queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
+				&a2_mux_ctx->kickoff_ul_power_down);
+		}
+	}
+	write_unlock(&a2_mux_ctx->ul_wakeup_lock);
+	return is_connected;
+}
+
+static bool msm_bam_dmux_kickoff_ul_wakeup(void)
+{
+	bool is_connected;
+
+	write_lock(&a2_mux_ctx->ul_wakeup_lock);
+	if (a2_mux_ctx->bam_connect_in_progress) {
+		a2_mux_ctx->bam_is_connected = true;
+		is_connected = false;
+	} else {
+		is_connected = a2_mux_ctx->bam_is_connected;
+		a2_mux_ctx->bam_is_connected = true;
+		if (!is_connected) {
+			a2_mux_ctx->bam_connect_in_progress = true;
+			queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
+				&a2_mux_ctx->kickoff_ul_wakeup);
+		}
+	}
+	write_unlock(&a2_mux_ctx->ul_wakeup_lock);
+	return is_connected;
+}
+
 static void kickoff_ul_power_down_func(struct work_struct *work)
 {
-	unsigned long flags;
+	bool is_connected;
 
-	write_lock_irqsave(&a2_mux_ctx->ul_wakeup_lock, flags);
-	if (a2_mux_ctx->bam_is_connected) {
-		IPADBG("%s: UL active - forcing powerdown\n", __func__);
-		ul_powerdown();
-	}
-	write_unlock_irqrestore(&a2_mux_ctx->ul_wakeup_lock, flags);
-	ipa_rm_notify_completion(IPA_RM_RESOURCE_RELEASED,
-			IPA_RM_RESOURCE_A2_CONS);
+	IPADBG("%s: UL active - forcing powerdown\n", __func__);
+	ul_powerdown();
+	write_lock(&a2_mux_ctx->ul_wakeup_lock);
+	is_connected = a2_mux_ctx->bam_is_connected;
+	a2_mux_ctx->bam_is_connected = false;
+	a2_mux_ctx->bam_connect_in_progress = false;
+	write_unlock(&a2_mux_ctx->ul_wakeup_lock);
+	if (is_connected)
+		msm_bam_dmux_kickoff_ul_wakeup();
+	else
+		ipa_rm_notify_completion(IPA_RM_RESOURCE_RELEASED,
+						IPA_RM_RESOURCE_A2_CONS);
 }
 
 static void kickoff_ul_wakeup_func(struct work_struct *work)
 {
-	if (!a2_mux_ctx->bam_is_connected)
-		ul_wakeup();
-	ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
+	bool is_connected;
+
+	ul_wakeup();
+	write_lock(&a2_mux_ctx->ul_wakeup_lock);
+	is_connected = a2_mux_ctx->bam_is_connected;
+	a2_mux_ctx->bam_is_connected = true;
+	a2_mux_ctx->bam_connect_in_progress = false;
+	write_unlock(&a2_mux_ctx->ul_wakeup_lock);
+	if (is_connected)
+		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
 			IPA_RM_RESOURCE_A2_CONS);
+	else
+		msm_bam_dmux_kickoff_ul_power_down();
 }
 
 static void kickoff_ul_request_resource_func(struct work_struct *work)
@@ -412,33 +467,6 @@ static void kickoff_ul_request_resource_func(struct work_struct *work)
 		}
 	}
 	toggle_apps_ack();
-}
-
-static bool msm_bam_dmux_kickoff_ul_wakeup(void)
-{
-	bool is_connected;
-
-	read_lock(&a2_mux_ctx->ul_wakeup_lock);
-	is_connected = a2_mux_ctx->bam_is_connected;
-	read_unlock(&a2_mux_ctx->ul_wakeup_lock);
-	if (!is_connected)
-		queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
-			   &a2_mux_ctx->kickoff_ul_wakeup);
-	return is_connected;
-}
-
-static bool msm_bam_dmux_kickoff_ul_power_down(void)
-
-{
-	bool is_connected;
-
-	read_lock(&a2_mux_ctx->ul_wakeup_lock);
-	is_connected = a2_mux_ctx->bam_is_connected;
-	read_unlock(&a2_mux_ctx->ul_wakeup_lock);
-	if (is_connected)
-		queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
-			   &a2_mux_ctx->kickoff_ul_power_down);
-	return is_connected;
 }
 
 static void ipa_embedded_notify(void *priv,
@@ -926,7 +954,8 @@ int a2_mux_write(enum a2_mux_logical_channel_id id, struct sk_buff *skb)
 	}
 	spin_unlock_irqrestore(&a2_mux_ctx->bam_ch[id].lock, flags);
 	read_lock(&a2_mux_ctx->ul_wakeup_lock);
-	is_connected = a2_mux_ctx->bam_is_connected;
+	is_connected = a2_mux_ctx->bam_is_connected &&
+					!a2_mux_ctx->bam_connect_in_progress;
 	read_unlock(&a2_mux_ctx->ul_wakeup_lock);
 	if (!is_connected)
 		return -ENODEV;
@@ -1230,7 +1259,8 @@ int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
 	a2_mux_ctx->bam_ch[lcid].use_wm = 0;
 	spin_unlock_irqrestore(&a2_mux_ctx->bam_ch[lcid].lock, flags);
 	read_lock(&a2_mux_ctx->ul_wakeup_lock);
-	is_connected = a2_mux_ctx->bam_is_connected;
+	is_connected = a2_mux_ctx->bam_is_connected &&
+					!a2_mux_ctx->bam_connect_in_progress;
 	read_unlock(&a2_mux_ctx->ul_wakeup_lock);
 	if (!is_connected)
 		return -ENODEV;
@@ -1299,7 +1329,8 @@ int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid)
 	if (!a2_mux_ctx->a2_mux_initialized)
 		return -ENODEV;
 	read_lock(&a2_mux_ctx->ul_wakeup_lock);
-	is_connected = a2_mux_ctx->bam_is_connected;
+	is_connected = a2_mux_ctx->bam_is_connected &&
+					!a2_mux_ctx->bam_connect_in_progress;
 	read_unlock(&a2_mux_ctx->ul_wakeup_lock);
 	if (!is_connected && !bam_ch_is_in_reset(lcid))
 		return -ENODEV;
