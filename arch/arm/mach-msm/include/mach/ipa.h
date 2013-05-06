@@ -464,6 +464,13 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 int ipa_disconnect(u32 clnt_hdl);
 
 /*
+ * Resume / Suspend
+ */
+int ipa_resume(u32 clnt_hdl);
+
+int ipa_suspend(u32 clnt_hdl);
+
+/*
  * Configuration
  */
 int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
@@ -691,6 +698,19 @@ static inline int ipa_connect(const struct ipa_connect_params *in,
 }
 
 static inline int ipa_disconnect(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+/*
+ * Resume / Suspend
+ */
+static inline int ipa_resume(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_suspend(u32 clnt_hdl)
 {
 	return -EPERM;
 }
