@@ -3580,8 +3580,12 @@ static int __devexit pm8921_bms_remove(struct platform_device *pdev)
 
 static int pm8921_bms_suspend(struct device *dev)
 {
-	the_chip->first_report_after_suspend = true;
-	the_chip->calc_soc_at_suspend = calculated_soc;
+	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&chip->calculate_soc_delayed_work);
+
+	chip->first_report_after_suspend = true;
+	chip->calc_soc_at_suspend = calculated_soc;
 
 	return 0;
 }
@@ -3591,22 +3595,26 @@ static int pm8921_bms_resume(struct device *dev)
 	int rc;
 	unsigned long time_since_last_recalc;
 	unsigned long tm_now_sec;
+	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
 
 	rc = get_current_time(&tm_now_sec);
 	if (rc) {
 		pr_err("Could not read current time: %d\n", rc);
 		return 0;
 	}
-	if (tm_now_sec > the_chip->last_recalc_time) {
+	if (tm_now_sec > chip->last_recalc_time) {
 		time_since_last_recalc = tm_now_sec -
-				the_chip->last_recalc_time;
+				chip->last_recalc_time;
 		pr_debug("Time since last recalc: %lu\n",
 				time_since_last_recalc);
-		if (time_since_last_recalc >= the_chip->soc_calc_period) {
-			the_chip->last_recalc_time = tm_now_sec;
-			recalculate_soc(the_chip);
+		if ((time_since_last_recalc * 1000) >=
+					chip->soc_calc_period) {
+			chip->last_recalc_time = tm_now_sec;
+			recalculate_soc(chip);
 		}
 	}
+	schedule_delayed_work(&chip->calculate_soc_delayed_work,
+				msecs_to_jiffies(chip->soc_calc_period));
 
 	return 0;
 }
