@@ -7,6 +7,7 @@
 
 enum color_fmts {
 	COLOR_FMT_NV12,
+	COLOR_FMT_NV21,
 };
 
 static inline unsigned int VENUS_Y_STRIDE(int color_fmt, int width)
@@ -16,6 +17,7 @@ static inline unsigned int VENUS_Y_STRIDE(int color_fmt, int width)
 		goto invalid_input;
 
 	switch (color_fmt) {
+	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 		alignment = 128;
 		stride = MSM_MEDIA_ALIGN(width, alignment);
@@ -34,6 +36,7 @@ static inline unsigned int VENUS_UV_STRIDE(int color_fmt, int width)
 		goto invalid_input;
 
 	switch (color_fmt) {
+	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 		alignment = 128;
 		stride = MSM_MEDIA_ALIGN(width, alignment);
@@ -52,6 +55,7 @@ static inline unsigned int VENUS_Y_SCANLINES(int color_fmt, int height)
 		goto invalid_input;
 
 	switch (color_fmt) {
+	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 		alignment = 32;
 		sclines = MSM_MEDIA_ALIGN(height, alignment);
@@ -70,6 +74,7 @@ static inline unsigned int VENUS_UV_SCANLINES(int color_fmt, int height)
 		goto invalid_input;
 
 	switch (color_fmt) {
+	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 		alignment = 16;
 		sclines = MSM_MEDIA_ALIGN(((height + 1) >> 1), alignment);
@@ -96,6 +101,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 	y_sclines = VENUS_Y_SCANLINES(color_fmt, height);
 	uv_sclines = VENUS_UV_SCANLINES(color_fmt, height);
 	switch (color_fmt) {
+	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 		uv_alignment = 4096;
 		y_plane = y_stride * y_sclines;
