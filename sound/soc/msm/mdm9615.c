@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2336,6 +2336,9 @@ static int __init mdm9615_audio_init(void)
 {
 	int ret;
 
+	/* Set GPIO headset detection by default */
+	hs_detect_use_gpio = true;
+
 	if (!cpu_is_msm9615()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
@@ -2412,8 +2415,6 @@ static int __init mdm9615_audio_init(void)
 		pr_err("%s: SIF or Spare ptr are NULL", __func__);
 	sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
 	secpcm_portslc_virt_addr = ioremap(SEC_PCM_PORT_SLC_ADDR, 4);
-
-	hs_detect_use_gpio = true;
 
 	return ret;
 }
