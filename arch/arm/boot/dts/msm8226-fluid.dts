@@ -16,7 +16,10 @@
 / {
 	model = "Qualcomm MSM 8226 FLUID";
 	compatible = "qcom,msm8226-fluid", "qcom,msm8226", "qcom,fluid";
-	qcom,msm-id = <145 3 0>;
+	qcom,msm-id = <145 3 0>,
+		      <158 3 0>,
+		      <159 3 0>,
+		      <198 3 0>;
 };
 
 &soc {

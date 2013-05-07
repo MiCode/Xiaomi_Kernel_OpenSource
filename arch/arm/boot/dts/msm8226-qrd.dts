@@ -18,7 +18,10 @@
 / {
 	model = "Qualcomm MSM 8226 QRD";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
-	qcom,msm-id = <145 11 0>;
+	qcom,msm-id = <145 11 0>,
+		      <158 11 0>,
+		      <159 11 0>,
+		      <198 11 0>;
 };
 
 &soc {
