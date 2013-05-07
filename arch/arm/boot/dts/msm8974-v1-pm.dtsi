@@ -310,6 +310,7 @@
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
+		qcom,cpus-as-clocks;
 	};
 
 	qcom,cpu-sleep-status@f9088008 {
