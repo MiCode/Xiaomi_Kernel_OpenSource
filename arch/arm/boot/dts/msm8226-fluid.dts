@@ -17,7 +17,9 @@
 	model = "Qualcomm MSM 8226 FLUID";
 	compatible = "qcom,msm8226-fluid", "qcom,msm8226", "qcom,fluid";
 	qcom,msm-id = <145 3 0>;
+};
 
+&soc {
 	serial@f991f000 {
 		status = "disabled";
 	};

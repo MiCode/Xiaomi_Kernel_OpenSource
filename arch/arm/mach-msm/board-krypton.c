@@ -64,7 +64,7 @@ void __init msmkrypton_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msmkrypton_init_gpiomux();
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	board_dt_populate(adata);
 	msmkrypton_add_drivers();
 }
 

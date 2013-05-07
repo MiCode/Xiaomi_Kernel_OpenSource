@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,mdss_dsi_orise_720p_video {
 		compatible = "qcom,mdss-dsi-panel";
 		label = "orise 720p video mode dsi panel";

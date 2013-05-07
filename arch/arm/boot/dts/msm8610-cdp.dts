@@ -20,7 +20,9 @@
 	compatible = "qcom,msm8610-cdp", "qcom,msm8610", "qcom,cdp";
 	qcom,msm-id = <147 1 0>, <165 1 0>, <161 1 0>, <162 1 0>,
 		      <163 1 0>, <164 1 0>, <166 1 0>;
+};
 
+&soc {
 	serial@f991e000 {
 		status = "ok";
 	};

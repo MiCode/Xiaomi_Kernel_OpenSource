@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,iommu-domains {
 		compatible = "qcom,iommu-domains";
 

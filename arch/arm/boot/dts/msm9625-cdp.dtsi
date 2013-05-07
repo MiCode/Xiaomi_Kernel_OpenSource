@@ -13,7 +13,7 @@
 /include/ "msm9625-display.dtsi"
 /include/ "qpic-panel-ili-qvga.dtsi"
 
-/ {
+&soc {
 	i2c@f9925000 {
 		charger@57 {
 			compatible = "summit,smb137c";

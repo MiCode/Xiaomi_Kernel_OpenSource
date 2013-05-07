@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-/ {
+&soc {
 	qcom,smp2p-modem {
 		compatible = "qcom,smp2p";
 		reg = <0xf9011008 0x4>;

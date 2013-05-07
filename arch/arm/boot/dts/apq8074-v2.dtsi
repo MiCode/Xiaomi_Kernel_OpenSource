@@ -18,7 +18,7 @@
 
 /include/ "msm8974-v2.dtsi"
 
-/ {
+&soc {
 	qcom,qseecom@a700000 {
 		compatible = "qcom,qseecom";
 		reg = <0x0a700000 0x500000>;

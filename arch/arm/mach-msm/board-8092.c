@@ -102,7 +102,7 @@ static void __init mpq8092_init(void)
 
 	mpq8092_init_gpiomux();
 	msm_clock_init(&mpq8092_clock_init_data);
-	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+	board_dt_populate(adata);
 }
 
 static const char *mpq8092_dt_match[] __initconst = {

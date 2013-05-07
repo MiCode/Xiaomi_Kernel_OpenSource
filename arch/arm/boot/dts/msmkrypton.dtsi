@@ -17,6 +17,14 @@
 	compatible = "qcom,msmkrypton";
 	interrupt-parent = <&intc>;
 
+	soc: soc { };
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
 	intc: interrupt-controller@f9000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;

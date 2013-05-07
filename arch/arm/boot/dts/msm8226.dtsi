@@ -11,41 +11,11 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msm8226-ion.dtsi"
-/include/ "msm8226-camera.dtsi"
-/include/ "msm-gdsc.dtsi"
-/include/ "msm8226-iommu.dtsi"
-/include/ "msm8226-pm.dtsi"
-/include/ "msm8226-smp2p.dtsi"
-/include/ "msm8226-gpu.dtsi"
-/include/ "msm8226-bus.dtsi"
-/include/ "msm8226-mdss.dtsi"
-/include/ "msm8226-coresight.dtsi"
-/include/ "msm8226-iommu-domains.dtsi"
+
 / {
 	model = "Qualcomm MSM 8226";
 	compatible = "qcom,msm8226";
 	interrupt-parent = <&intc>;
-
-	intc: interrupt-controller@f9000000 {
-		compatible = "qcom,msm-qgic2";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		reg = <0xF9000000 0x1000>,
-		      <0xF9002000 0x1000>;
-	};
-
-	msmgpio: gpio@fd510000 {
-		compatible = "qcom,msm-gpio";
-		interrupt-controller;
-		#interrupt-cells = <2>;
-		reg = <0xfd510000 0x4000>;
-		gpio-controller;
-		#gpio-cells = <2>;
-		ngpio = <117>;
-		interrupts = <0 208 0>;
-		qcom,direct-connect-irqs = <8>;
-	};
 
 	aliases {
 		spi0 = &spi_0;
@@ -65,7 +35,46 @@
 			reg = <0 0x780000>;
 			label = "qsecom_mem";
 		};
+	};
 
+	soc: soc { };
+};
+
+/include/ "msm8226-ion.dtsi"
+/include/ "msm8226-camera.dtsi"
+/include/ "msm-gdsc.dtsi"
+/include/ "msm8226-iommu.dtsi"
+/include/ "msm8226-pm.dtsi"
+/include/ "msm8226-smp2p.dtsi"
+/include/ "msm8226-gpu.dtsi"
+/include/ "msm8226-bus.dtsi"
+/include/ "msm8226-mdss.dtsi"
+/include/ "msm8226-coresight.dtsi"
+/include/ "msm8226-iommu-domains.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	intc: interrupt-controller@f9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xF9000000 0x1000>,
+		      <0xF9002000 0x1000>;
+	};
+
+	msmgpio: gpio@fd510000 {
+		compatible = "qcom,msm-gpio";
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd510000 0x4000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpio = <117>;
+		interrupts = <0 208 0>;
+		qcom,direct-connect-irqs = <8>;
 	};
 
 	qcom,mpm2-sleep-counter@fc4a3000 {
