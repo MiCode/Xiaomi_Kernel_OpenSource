@@ -5356,20 +5356,6 @@ static struct pll_config mmpll3_v2_config __initdata = {
 	.main_output_mask = BIT(0),
 };
 
-#define PWR_ON_MASK		BIT(31)
-#define EN_REST_WAIT_MASK	(0xF << 20)
-#define EN_FEW_WAIT_MASK	(0xF << 16)
-#define CLK_DIS_WAIT_MASK	(0xF << 12)
-#define SW_OVERRIDE_MASK	BIT(2)
-#define HW_CONTROL_MASK		BIT(1)
-#define SW_COLLAPSE_MASK	BIT(0)
-
-/* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
-#define EN_REST_WAIT_VAL	(0x2 << 20)
-#define EN_FEW_WAIT_VAL		(0x2 << 16)
-#define CLK_DIS_WAIT_VAL	(0x2 << 12)
-#define GDSC_TIMEOUT_US		50000
-
 static void __init reg_init(void)
 {
 	u32 regval;
