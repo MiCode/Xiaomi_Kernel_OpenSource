@@ -43,4 +43,7 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
  */
 #define MC_VM_UNMAP
 
+/* Enable Power Management for Crypto Engine */
+#define MC_CRYPTO_CLOCK_MANAGEMENT
+
 #endif /* _MC_PLATFORM_H_ */

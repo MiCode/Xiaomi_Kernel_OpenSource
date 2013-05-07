@@ -60,7 +60,16 @@ static void fastcall_work_func(struct kthread_work *work)
 {
 	struct fastcall_work *fc_work =
 		container_of(work, struct fastcall_work, work);
+
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	mc_pm_clock_enable();
+#endif
+
 	smc(fc_work->data);
+
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	mc_pm_clock_disable();
+#endif
 }
 
 void mc_fastcall(void *data)
@@ -114,7 +123,16 @@ static void fastcall_work_func(struct work_struct *work)
 {
 	struct fastcall_work_struct *fc_work =
 		container_of(work, struct fastcall_work_struct, work);
+
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	mc_pm_clock_enable();
+#endif
+
 	smc(fc_work->data);
+
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	mc_pm_clock_disable();
+#endif
 }
 
 void mc_fastcall(void *data)

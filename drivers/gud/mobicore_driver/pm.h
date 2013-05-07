@@ -31,5 +31,13 @@
 int mc_pm_initialize(struct mc_context *context);
 /* Free all Power Management resources*/
 int mc_pm_free(void);
+/* Initialize secure crypto clocks */
+int mc_pm_clock_initialize(void);
+/* Free secure crypto clocks */
+void mc_pm_clock_finalize(void);
+/* Enable secure crypto clocks */
+int mc_pm_clock_enable(void);
+/* Disable secure crypto clocks */
+void mc_pm_clock_disable(void);
 
 #endif /* _MC_PM_H_ */

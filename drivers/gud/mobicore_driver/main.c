@@ -51,7 +51,6 @@ struct device_driver mcd_debug_name = {
 };
 
 struct device mcd_debug_subname = {
-	.init_name = "", /* Set to 'mcd' at mc_init() time */
 	.driver = &mcd_debug_name
 };
 
@@ -1343,6 +1342,10 @@ static int __init mobicore_init(void)
 
 	ret = mc_init_l2_tables();
 
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	ret = mc_pm_clock_initialize();
+#endif
+
 	/*
 	 * initialize unique number counter which we can use for
 	 * handles. It is limited to 2^32, but this should be
@@ -1397,6 +1400,10 @@ static void __exit mobicore_exit(void)
 	free_irq(MC_INTR_SSIQ, &ctx);
 
 	mc_fastcall_destroy();
+
+#ifdef MC_CRYPTO_CLOCK_MANAGEMENT
+	mc_pm_clock_finalize();
+#endif
 
 	MCDRV_DBG_VERBOSE(mcd, "exit");
 }
