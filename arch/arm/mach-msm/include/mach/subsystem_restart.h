@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ struct module;
  * @powerup: Start a subsystem
  * @crash_shutdown: Shutdown a subsystem when the system crashes (can't sleep)
  * @ramdump: Collect a ramdump of the subsystem
+ * @is_loadable: Indicate if subsystem firmware is loadable via pil framework
  */
 struct subsys_desc {
 	const char *name;
@@ -56,6 +57,7 @@ struct subsys_desc {
 	void (*crash_shutdown)(const struct subsys_desc *desc);
 	int (*ramdump)(int, const struct subsys_desc *desc);
 	unsigned int err_ready_irq;
+	int is_loadable;
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)

@@ -92,7 +92,6 @@ struct mba_data {
 	void *smem_ramdump_dev;
 	bool crash_shutdown;
 	bool ignore_errors;
-	int is_loadable;
 	int err_fatal_irq;
 	int force_stop_gpio;
 };
@@ -502,7 +501,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 
-	if (!drv->is_loadable)
+	if (!subsys->is_loadable)
 		return 0;
 	pil_shutdown(&drv->desc);
 	pil_shutdown(&drv->q6->desc);
@@ -514,7 +513,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	struct mba_data *drv = subsys_to_drv(subsys);
 	int ret;
 
-	if (!drv->is_loadable)
+	if (!subsys->is_loadable)
 		return 0;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
@@ -601,7 +600,7 @@ static int mss_start(const struct subsys_desc *desc)
 	int ret;
 	struct mba_data *drv = subsys_to_drv(desc);
 
-	if (!drv->is_loadable)
+	if (!desc->is_loadable)
 		return 0;
 
 	ret = pil_boot(&drv->q6->desc);
@@ -624,7 +623,7 @@ static void mss_stop(const struct subsys_desc *desc)
 {
 	struct mba_data *drv = subsys_to_drv(desc);
 
-	if (!drv->is_loadable)
+	if (!desc->is_loadable)
 		return;
 
 	pil_shutdown(&drv->desc);
@@ -826,16 +825,17 @@ err_mba_desc:
 static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
-	int ret, err_fatal_gpio;
+	int ret, err_fatal_gpio, is_loadable;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	drv->is_loadable = of_property_read_bool(pdev->dev.of_node,
+	is_loadable = of_property_read_bool(pdev->dev.of_node,
 							"qcom,is-loadable");
-	if (drv->is_loadable) {
+	if (is_loadable) {
+		drv->subsys_desc.is_loadable = 1;
 		ret = pil_mss_loadable_init(drv, pdev);
 		if (ret)
 			return ret;
