@@ -426,6 +426,7 @@ static void android_disable(struct android_dev *dev)
 struct adb_data {
 	bool opened;
 	bool enabled;
+	struct android_dev *dev;
 };
 
 static int
@@ -459,6 +460,7 @@ static void adb_android_function_enable(struct android_usb_function *f)
 
 	data->enabled = true;
 
+
 	/* Disable the gadget until adbd is ready */
 	if (!data->opened)
 		android_disable(dev);
@@ -490,27 +492,45 @@ static void adb_ready_callback(void)
 	struct android_dev *dev = adb_function.android_dev;
 	struct adb_data *data = adb_function.config;
 
+	/* dev is null in case ADB is not in the composition */
+	if (dev)
+		mutex_lock(&dev->mutex);
+
+	/* Save dev in case the adb function will get disabled */
+	data->dev = dev;
 	data->opened = true;
 
-	if (data->enabled && dev) {
-		mutex_lock(&dev->mutex);
+	if (data->enabled && dev)
 		android_enable(dev);
+
+	if (dev)
 		mutex_unlock(&dev->mutex);
-	}
 }
 
 static void adb_closed_callback(void)
 {
-	struct android_dev *dev = adb_function.android_dev;
 	struct adb_data *data = adb_function.config;
+	struct android_dev *dev = adb_function.android_dev;
+
+	/* In case new composition is without ADB, use saved one */
+	if (!dev)
+		dev = data->dev;
+
+	if (!dev)
+		pr_err("adb_closed_callback: data->dev is NULL");
+
+	if (dev)
+		mutex_lock(&dev->mutex);
 
 	data->opened = false;
 
-	if (data->enabled) {
-		mutex_lock(&dev->mutex);
+	if (data->enabled)
 		android_disable(dev);
+
+	data->dev = NULL;
+
+	if (dev)
 		mutex_unlock(&dev->mutex);
-	}
 }
 
 
