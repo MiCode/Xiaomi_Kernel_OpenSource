@@ -708,45 +708,6 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
-/*
- * physical contiguous memory should be allocated in mdss_fb, and SMMU
- * virtual address mapping can be done in the MDP h/w specific code.   It
- * should have a reference count, if none is current mapped, the SMMU context
- * can bedetached, thus allowing power saving in SMMU.
- */
-static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
-{
-	int dom;
-	void *virt = NULL;
-	unsigned long phys = 0;
-	size_t size;
-	u32 yres = mfd->fbi->var.yres_virtual;
-
-	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
-
-	if (mfd->index == 0) {
-		virt = allocate_contiguous_memory(size, MEMTYPE_EBI1, SZ_1M, 0);
-		if (!virt) {
-			pr_err("unable to alloc fbmem size=%u\n", size);
-			return -ENOMEM;
-		}
-		phys = memory_pool_node_paddr(virt);
-		dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
-		msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
-					&mfd->iova);
-
-		pr_debug("allocating %u bytes at %p (%lx phys) for fb %d\n",
-			size, virt, phys, mfd->index);
-	} else {
-		size = 0;
-	}
-
-	mfd->fbi->screen_base = virt;
-	mfd->fbi->fix.smem_start = phys;
-	mfd->fbi->fix.smem_len = size;
-	return 0;
-}
-
 struct mdp3_dma *mdp3_get_dma_pipe(int capability)
 {
 	int i;
@@ -775,12 +736,19 @@ struct mdp3_intf *mdp3_get_display_intf(int type)
 	return NULL;
 }
 
+static int mdp3_fb_mem_get_iommu_domain(void)
+{
+	if (!mdp3_res)
+		return -ENODEV;
+	return mdp3_res->domains[MDP3_IOMMU_DOMAIN].domain_idx;
+}
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
 	static struct msm_mdp_interface mdp3_interface = {
 	.init_fnc = mdp3_init,
-	.fb_mem_alloc_fnc = mdp3_fbmem_alloc,
+	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
 	.fb_stride = mdp3_fb_stride,
 	};
 
