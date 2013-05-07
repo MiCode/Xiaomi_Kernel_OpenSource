@@ -194,6 +194,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	ecm_ipa_ctx = dev;
 	dev->tx_enable = true;
 	dev->rx_enable = true;
+	dev->rm_enable = true;
 	dev->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
 	dev->outstanding_low = DEFAULT_OUTSTANDING_LOW;
 	atomic_set(&dev->outstanding_pkts, 0);
