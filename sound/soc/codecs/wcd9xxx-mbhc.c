@@ -134,6 +134,14 @@ enum pa_dac_ack_flags {
 	WCD9XXX_HPHR_DAC_OFF_ACK
 };
 
+enum wcd9xxx_current_v_idx {
+	WCD9XXX_CURRENT_V_INS_H,
+	WCD9XXX_CURRENT_V_INS_HU,
+	WCD9XXX_CURRENT_V_B1_H,
+	WCD9XXX_CURRENT_V_B1_HU,
+	WCD9XXX_CURRENT_V_BR_H,
+};
+
 static bool wcd9xxx_mbhc_polling(struct wcd9xxx_mbhc *mbhc)
 {
 	return mbhc->polling_active;
@@ -266,6 +274,7 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 	int cfilt_k_val;
 	bool override;
 	struct snd_soc_codec *codec;
+	struct mbhc_internal_cal_data *d = &mbhc->mbhc_data;
 
 	codec = mbhc->codec;
 
@@ -278,7 +287,7 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 		if (!override)
 			wcd9xxx_turn_onoff_override(codec, true);
 		/* Adjust threshold if Mic Bias voltage changes */
-		if (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV) {
+		if (d->micb_mv != VDDIO_MICBIAS_MV) {
 			cfilt_k_val = wcd9xxx_resmgr_get_k_val(mbhc->resmgr,
 							      VDDIO_MICBIAS_MV);
 			usleep_range(10000, 10000);
@@ -286,11 +295,28 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 					mbhc->mbhc_bias_regs.cfilt_val,
 					0xFC, (cfilt_k_val << 2));
 			usleep_range(10000, 10000);
+			/* Threshods for insertion/removal */
 			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B1_CTL,
-				      mbhc->mbhc_data.adj_v_ins_hu & 0xFF);
+				      d->v_ins_hu[MBHC_V_IDX_VDDIO] & 0xFF);
 			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B2_CTL,
-				      (mbhc->mbhc_data.adj_v_ins_hu >> 8) &
+				      (d->v_ins_hu[MBHC_V_IDX_VDDIO] >> 8) &
 				      0xFF);
+			/* Threshods for button press */
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B3_CTL,
+				      d->v_b1_hu[MBHC_V_IDX_VDDIO] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B4_CTL,
+				      (d->v_b1_hu[MBHC_V_IDX_VDDIO] >> 8) &
+				      0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B5_CTL,
+				      d->v_b1_h[MBHC_V_IDX_VDDIO] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B6_CTL,
+				      (d->v_b1_h[MBHC_V_IDX_VDDIO] >> 8) &
+				      0xFF);
+			/* Threshods for button release */
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B9_CTL,
+				      d->v_brh[MBHC_V_IDX_VDDIO] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B10_CTL,
+				      (d->v_brh[MBHC_V_IDX_VDDIO] >> 8) & 0xFF);
 			pr_debug("%s: Programmed MBHC thresholds to VDDIO\n",
 				 __func__);
 		}
@@ -312,18 +338,36 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 		    restartpolling)
 			wcd9xxx_pause_hs_polling(mbhc);
 		/* Reprogram thresholds */
-		if (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV) {
+		if (d->micb_mv != VDDIO_MICBIAS_MV) {
 			cfilt_k_val =
 			    wcd9xxx_resmgr_get_k_val(mbhc->resmgr,
-						     mbhc->mbhc_data.micb_mv);
+						     d->micb_mv);
 			snd_soc_update_bits(codec,
 					mbhc->mbhc_bias_regs.cfilt_val,
 					0xFC, (cfilt_k_val << 2));
 			usleep_range(10000, 10000);
+			/* Revert threshods for insertion/removal */
 			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B1_CTL,
-					mbhc->mbhc_data.v_ins_hu & 0xFF);
+					d->v_ins_hu[MBHC_V_IDX_CFILT] & 0xFF);
 			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B2_CTL,
-					(mbhc->mbhc_data.v_ins_hu >> 8) & 0xFF);
+					(d->v_ins_hu[MBHC_V_IDX_CFILT] >> 8) &
+					0xFF);
+			/* Revert threshods for button press */
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B3_CTL,
+				      d->v_b1_hu[MBHC_V_IDX_CFILT] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B4_CTL,
+				      (d->v_b1_hu[MBHC_V_IDX_CFILT] >> 8) &
+				      0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B5_CTL,
+				      d->v_b1_h[MBHC_V_IDX_CFILT] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B6_CTL,
+				      (d->v_b1_h[MBHC_V_IDX_CFILT] >> 8) &
+				      0xFF);
+			/* Revert threshods for button release */
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B9_CTL,
+				      d->v_brh[MBHC_V_IDX_CFILT] & 0xFF);
+			snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B10_CTL,
+				      (d->v_brh[MBHC_V_IDX_CFILT] >> 8) & 0xFF);
 			pr_debug("%s: Programmed MBHC thresholds to MICBIAS\n",
 					__func__);
 		}
@@ -347,17 +391,37 @@ static void wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc, int vddio_switch)
 	return __wcd9xxx_switch_micbias(mbhc, vddio_switch, true, true);
 }
 
-static s16 wcd9xxx_get_current_v_ins(struct wcd9xxx_mbhc *mbhc, bool hu)
+static s16 wcd9xxx_get_current_v(struct wcd9xxx_mbhc *mbhc,
+				 const enum wcd9xxx_current_v_idx idx)
 {
-	s16 v_ins;
+	enum mbhc_v_index vidx;
+	s16 ret = -EINVAL;
+
 	if ((mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV) &&
 	    mbhc->mbhc_micbias_switched)
-		v_ins = hu ? (s16)mbhc->mbhc_data.adj_v_ins_hu :
-			(s16)mbhc->mbhc_data.adj_v_ins_h;
+		vidx = MBHC_V_IDX_VDDIO;
 	else
-		v_ins = hu ? (s16)mbhc->mbhc_data.v_ins_hu :
-			(s16)mbhc->mbhc_data.v_ins_h;
-	return v_ins;
+		vidx = MBHC_V_IDX_CFILT;
+
+	switch (idx) {
+	case WCD9XXX_CURRENT_V_INS_H:
+		ret = (s16)mbhc->mbhc_data.v_ins_h[vidx];
+		break;
+	case WCD9XXX_CURRENT_V_INS_HU:
+		ret = (s16)mbhc->mbhc_data.v_ins_hu[vidx];
+		break;
+	case WCD9XXX_CURRENT_V_B1_H:
+		ret = (s16)mbhc->mbhc_data.v_b1_h[vidx];
+		break;
+	case WCD9XXX_CURRENT_V_B1_HU:
+		ret = (s16)mbhc->mbhc_data.v_b1_hu[vidx];
+		break;
+	case WCD9XXX_CURRENT_V_BR_H:
+		ret = (s16)mbhc->mbhc_data.v_brh[vidx];
+		break;
+	}
+
+	return ret;
 }
 
 void *wcd9xxx_mbhc_cal_btn_det_mp(
@@ -389,27 +453,25 @@ EXPORT_SYMBOL_GPL(wcd9xxx_mbhc_cal_btn_det_mp);
 static void wcd9xxx_calibrate_hs_polling(struct wcd9xxx_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
-	const s16 v_ins_hu = wcd9xxx_get_current_v_ins(mbhc, true);
+	const s16 v_ins_hu = wcd9xxx_get_current_v(mbhc,
+						   WCD9XXX_CURRENT_V_INS_HU);
+	const s16 v_b1_hu = wcd9xxx_get_current_v(mbhc,
+						  WCD9XXX_CURRENT_V_B1_HU);
+	const s16 v_b1_h = wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_H);
+	const s16 v_brh = wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_BR_H);
 
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B1_CTL, v_ins_hu & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B2_CTL,
 		      (v_ins_hu >> 8) & 0xFF);
-
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B3_CTL,
-		      mbhc->mbhc_data.v_b1_hu & 0xFF);
+	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B3_CTL, v_b1_hu & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B4_CTL,
-		      (mbhc->mbhc_data.v_b1_hu >> 8) & 0xFF);
-
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B5_CTL,
-		      mbhc->mbhc_data.v_b1_h & 0xFF);
+		      (v_b1_hu >> 8) & 0xFF);
+	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B5_CTL, v_b1_h & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B6_CTL,
-		      (mbhc->mbhc_data.v_b1_h >> 8) & 0xFF);
-
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B9_CTL,
-		      mbhc->mbhc_data.v_brh & 0xFF);
+		      (v_b1_h >> 8) & 0xFF);
+	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B9_CTL, v_brh & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B10_CTL,
-		      (mbhc->mbhc_data.v_brh >> 8) & 0xFF);
-
+		      (v_brh >> 8) & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B11_CTL,
 		      mbhc->mbhc_data.v_brl & 0xFF);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B12_CTL,
@@ -813,6 +875,19 @@ static void wcd9xxx_cancel_hs_detect_plug(struct wcd9xxx_mbhc *mbhc,
 	WCD9XXX_BCL_LOCK(mbhc->resmgr);
 }
 
+static s16 scale_v_micb_vddio(struct wcd9xxx_mbhc *mbhc, int v, bool tovddio)
+{
+	int r;
+	int vddio_k, mb_k;
+	vddio_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, VDDIO_MICBIAS_MV);
+	mb_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, mbhc->mbhc_data.micb_mv);
+	if (tovddio)
+		r = v * vddio_k / mb_k;
+	else
+		r = v * mb_k / vddio_k;
+	return r;
+}
+
 static s16 wcd9xxx_get_current_v_hs_max(struct wcd9xxx_mbhc *mbhc)
 {
 	s16 v_hs_max;
@@ -821,7 +896,7 @@ static s16 wcd9xxx_get_current_v_hs_max(struct wcd9xxx_mbhc *mbhc)
 	plug_type = WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 	if ((mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV) &&
 	    mbhc->mbhc_micbias_switched)
-		v_hs_max = mbhc->mbhc_data.adj_v_hs_max;
+		v_hs_max = scale_v_micb_vddio(mbhc, plug_type->v_hs_max, true);
 	else
 		v_hs_max = plug_type->v_hs_max;
 	return v_hs_max;
@@ -1030,19 +1105,6 @@ static void wcd9xxx_cleanup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 
 	mbhc->polling_active = false;
 	mbhc->mbhc_state = MBHC_STATE_NONE;
-}
-
-static s16 scale_v_micb_vddio(struct wcd9xxx_mbhc *mbhc, int v, bool tovddio)
-{
-	int r;
-	int vddio_k, mb_k;
-	vddio_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, VDDIO_MICBIAS_MV);
-	mb_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, mbhc->mbhc_data.micb_mv);
-	if (tovddio)
-		r = v * vddio_k / mb_k;
-	else
-		r = v * mb_k / vddio_k;
-	return r;
 }
 
 /* called under codec_resource_lock acquisition */
@@ -1680,7 +1742,8 @@ static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
 		bias_value = wcd9xxx_codec_sta_dce(mbhc, 1,  true);
 		pr_debug("%s: DCE %d,%d, %d us left\n", __func__, bias_value,
 			 wcd9xxx_codec_sta_dce_v(mbhc, 1, bias_value), min_us);
-		if (bias_value < wcd9xxx_get_current_v_ins(mbhc, false)) {
+		if (bias_value <
+		    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_H)) {
 			pr_debug("%s: checking false removal\n", __func__);
 			msleep(500);
 			removed = !wcd9xxx_hs_remove_settle(mbhc);
@@ -1942,7 +2005,8 @@ static u16 wcd9xxx_codec_v_sta_dce(struct wcd9xxx_mbhc *mbhc,
 static void wcd9xxx_mbhc_calc_thres(struct wcd9xxx_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec;
-	s16 btn_mv = 0, btn_delta_mv;
+	s16 adj_v_hs_max;
+	s16 btn_mv = 0, btn_mv_sta[MBHC_V_IDX_NUM], btn_mv_dce[MBHC_V_IDX_NUM];
 	struct wcd9xxx_mbhc_btn_detect_cfg *btn_det;
 	struct wcd9xxx_mbhc_plug_type_cfg *plug_type;
 	u16 *btn_high;
@@ -1953,23 +2017,21 @@ static void wcd9xxx_mbhc_calc_thres(struct wcd9xxx_mbhc *mbhc)
 	btn_det = WCD9XXX_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
 	plug_type = WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 
-	mbhc->mbhc_data.v_ins_hu =
+	mbhc->mbhc_data.v_ins_hu[MBHC_V_IDX_CFILT] =
 	    wcd9xxx_codec_v_sta_dce(mbhc, STA, plug_type->v_hs_max);
-	mbhc->mbhc_data.v_ins_h =
+	mbhc->mbhc_data.v_ins_h[MBHC_V_IDX_CFILT] =
 	    wcd9xxx_codec_v_sta_dce(mbhc, DCE, plug_type->v_hs_max);
 
 	mbhc->mbhc_data.v_inval_ins_low = FAKE_INS_LOW;
 	mbhc->mbhc_data.v_inval_ins_high = FAKE_INS_HIGH;
 
 	if (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV) {
-		mbhc->mbhc_data.adj_v_hs_max =
-		    scale_v_micb_vddio(mbhc, plug_type->v_hs_max, true);
-		mbhc->mbhc_data.adj_v_ins_hu =
-		    wcd9xxx_codec_v_sta_dce(mbhc, STA,
-					    mbhc->mbhc_data.adj_v_hs_max);
-		mbhc->mbhc_data.adj_v_ins_h =
-		    wcd9xxx_codec_v_sta_dce(mbhc, DCE,
-					    mbhc->mbhc_data.adj_v_hs_max);
+		adj_v_hs_max = scale_v_micb_vddio(mbhc, plug_type->v_hs_max,
+						  true);
+		mbhc->mbhc_data.v_ins_hu[MBHC_V_IDX_VDDIO] =
+		    wcd9xxx_codec_v_sta_dce(mbhc, STA, adj_v_hs_max);
+		mbhc->mbhc_data.v_ins_h[MBHC_V_IDX_VDDIO] =
+		    wcd9xxx_codec_v_sta_dce(mbhc, DCE, adj_v_hs_max);
 		mbhc->mbhc_data.v_inval_ins_low =
 		    scale_v_micb_vddio(mbhc, mbhc->mbhc_data.v_inval_ins_low,
 				       false);
@@ -1983,17 +2045,27 @@ static void wcd9xxx_mbhc_calc_thres(struct wcd9xxx_mbhc *mbhc)
 	for (i = 0; i < btn_det->num_btn; i++)
 		btn_mv = btn_high[i] > btn_mv ? btn_high[i] : btn_mv;
 
-	mbhc->mbhc_data.v_b1_h = wcd9xxx_codec_v_sta_dce(mbhc, DCE, btn_mv);
-	btn_delta_mv = btn_mv + btn_det->v_btn_press_delta_sta;
-	mbhc->mbhc_data.v_b1_hu =
-	    wcd9xxx_codec_v_sta_dce(mbhc, STA, btn_delta_mv);
+	btn_mv_sta[MBHC_V_IDX_CFILT] = btn_mv + btn_det->v_btn_press_delta_sta;
+	btn_mv_dce[MBHC_V_IDX_CFILT] = btn_mv + btn_det->v_btn_press_delta_cic;
+	btn_mv_sta[MBHC_V_IDX_VDDIO] =
+	    scale_v_micb_vddio(mbhc, btn_mv_sta[MBHC_V_IDX_CFILT], true);
+	btn_mv_dce[MBHC_V_IDX_VDDIO] =
+	    scale_v_micb_vddio(mbhc, btn_mv_dce[MBHC_V_IDX_CFILT], true);
 
-	btn_delta_mv = btn_mv + btn_det->v_btn_press_delta_cic;
+	mbhc->mbhc_data.v_b1_hu[MBHC_V_IDX_CFILT] =
+	    wcd9xxx_codec_v_sta_dce(mbhc, STA, btn_mv_sta[MBHC_V_IDX_CFILT]);
+	mbhc->mbhc_data.v_b1_h[MBHC_V_IDX_CFILT] =
+	    wcd9xxx_codec_v_sta_dce(mbhc, DCE, btn_mv_dce[MBHC_V_IDX_CFILT]);
+	mbhc->mbhc_data.v_b1_hu[MBHC_V_IDX_VDDIO] =
+	    wcd9xxx_codec_v_sta_dce(mbhc, STA, btn_mv_sta[MBHC_V_IDX_VDDIO]);
+	mbhc->mbhc_data.v_b1_h[MBHC_V_IDX_VDDIO] =
+	    wcd9xxx_codec_v_sta_dce(mbhc, DCE, btn_mv_dce[MBHC_V_IDX_VDDIO]);
 
-	mbhc->mbhc_data.v_b1_huc =
-	    wcd9xxx_codec_v_sta_dce(mbhc, DCE, btn_delta_mv);
+	mbhc->mbhc_data.v_brh[MBHC_V_IDX_CFILT] =
+	    mbhc->mbhc_data.v_b1_h[MBHC_V_IDX_CFILT];
+	mbhc->mbhc_data.v_brh[MBHC_V_IDX_VDDIO] =
+	    mbhc->mbhc_data.v_b1_h[MBHC_V_IDX_VDDIO];
 
-	mbhc->mbhc_data.v_brh = mbhc->mbhc_data.v_b1_h;
 	mbhc->mbhc_data.v_brl = BUTTON_MIN;
 
 	mbhc->mbhc_data.v_no_mic =
@@ -2278,12 +2350,17 @@ static void wcd9xxx_codec_drive_v_to_micbias(struct wcd9xxx_mbhc *mbhc,
 static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
 {
 	int i;
+	s16 mb_v;
 	int r = 0;
 	const int dces = NUM_DCE_PLUG_DETECT;
-	s16 mb_v, v_ins_hu, v_ins_h;
-
-	v_ins_hu = wcd9xxx_get_current_v_ins(mbhc, true);
-	v_ins_h = wcd9xxx_get_current_v_ins(mbhc, false);
+	const s16 v_ins_hu =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_HU);
+	const s16 v_ins_h =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_H);
+	const s16 v_b1_hu =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_HU);
+	const s16 v_b1_h =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_H);
 
 	for (i = 0; i < dces; i++) {
 		usleep_range(10000, 10000);
@@ -2291,8 +2368,7 @@ static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
 			mb_v = wcd9xxx_codec_sta_dce(mbhc, 0, true);
 			pr_debug("%s: STA[0]: %d,%d\n", __func__, mb_v,
 				 wcd9xxx_codec_sta_dce_v(mbhc, 0, mb_v));
-			if (mb_v < (s16)mbhc->mbhc_data.v_b1_hu ||
-			    mb_v > v_ins_hu) {
+			if (mb_v < v_b1_hu || mb_v > v_ins_hu) {
 				r = 1;
 				break;
 			}
@@ -2300,8 +2376,7 @@ static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
 			mb_v = wcd9xxx_codec_sta_dce(mbhc, 1, true);
 			pr_debug("%s: DCE[%d]: %d,%d\n", __func__, i, mb_v,
 				 wcd9xxx_codec_sta_dce_v(mbhc, 1, mb_v));
-			if (mb_v < (s16)mbhc->mbhc_data.v_b1_h ||
-			    mb_v > v_ins_h) {
+			if (mb_v < v_b1_h || mb_v > v_ins_h) {
 				r = 1;
 				break;
 			}
@@ -2995,8 +3070,16 @@ ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 	int n = 0;
 	struct wcd9xxx_mbhc *mbhc = file->private_data;
 	const struct mbhc_internal_cal_data *p = &mbhc->mbhc_data;
-	const s16 v_ins_hu_cur = wcd9xxx_get_current_v_ins(mbhc, true);
-	const s16 v_ins_h_cur = wcd9xxx_get_current_v_ins(mbhc, false);
+	const s16 v_ins_hu =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_HU);
+	const s16 v_ins_h =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_H);
+	const s16 v_b1_hu =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_HU);
+	const s16 v_b1_h =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_H);
+	const s16 v_br_h =
+	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_BR_H);
 
 	n = scnprintf(buffer, size - n, "dce_z = %x(%dmv)\n",  p->dce_z,
 		      wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_z));
@@ -3006,35 +3089,19 @@ ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 		       p->sta_z, wcd9xxx_codec_sta_dce_v(mbhc, 0, p->sta_z));
 	n += scnprintf(buffer + n, size - n, "sta_mb = %x(%dmv)\n",
 		       p->sta_mb, wcd9xxx_codec_sta_dce_v(mbhc, 0, p->sta_mb));
-	n += scnprintf(buffer + n, size - n, "t_dce = %x\n",  p->t_dce);
-	n += scnprintf(buffer + n, size - n, "t_sta = %x\n",  p->t_sta);
-	n += scnprintf(buffer + n, size - n, "micb_mv = %dmv\n",
-		       p->micb_mv);
-	n += scnprintf(buffer + n, size - n, "v_ins_hu = %x(%dmv)%s\n",
-		       p->v_ins_hu,
-		       wcd9xxx_codec_sta_dce_v(mbhc, 0, p->v_ins_hu),
-		       p->v_ins_hu == v_ins_hu_cur ? "*" : "");
-	n += scnprintf(buffer + n, size - n, "v_ins_h = %x(%dmv)%s\n",
-		       p->v_ins_h, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->v_ins_h),
-		       p->v_ins_h == v_ins_h_cur ? "*" : "");
-	n += scnprintf(buffer + n, size - n, "adj_v_ins_hu = %x(%dmv)%s\n",
-		       p->adj_v_ins_hu,
-		       wcd9xxx_codec_sta_dce_v(mbhc, 0, p->adj_v_ins_hu),
-		       p->adj_v_ins_hu == v_ins_hu_cur ? "*" : "");
-	n += scnprintf(buffer + n, size - n, "adj_v_ins_h = %x(%dmv)%s\n",
-		       p->adj_v_ins_h,
-		       wcd9xxx_codec_sta_dce_v(mbhc, 1, p->adj_v_ins_h),
-		       p->adj_v_ins_h == v_ins_h_cur ? "*" : "");
+	n += scnprintf(buffer + n, size - n, "t_dce = %d\n",  p->t_dce);
+	n += scnprintf(buffer + n, size - n, "t_sta = %d\n",  p->t_sta);
+	n += scnprintf(buffer + n, size - n, "micb_mv = %dmv\n", p->micb_mv);
+	n += scnprintf(buffer + n, size - n, "v_ins_hu = %x(%dmv)\n",
+		       v_ins_hu, wcd9xxx_codec_sta_dce_v(mbhc, 0, v_ins_hu));
+	n += scnprintf(buffer + n, size - n, "v_ins_h = %x(%dmv)\n",
+		       v_ins_h, wcd9xxx_codec_sta_dce_v(mbhc, 1, v_ins_h));
 	n += scnprintf(buffer + n, size - n, "v_b1_hu = %x(%dmv)\n",
-		       p->v_b1_hu,
-		       wcd9xxx_codec_sta_dce_v(mbhc, 0, p->v_b1_hu));
+		       v_b1_hu, wcd9xxx_codec_sta_dce_v(mbhc, 0, v_b1_hu));
 	n += scnprintf(buffer + n, size - n, "v_b1_h = %x(%dmv)\n",
-		       p->v_b1_h, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->v_b1_h));
-	n += scnprintf(buffer + n, size - n, "v_b1_huc = %x(%dmv)\n",
-		       p->v_b1_huc,
-		       wcd9xxx_codec_sta_dce_v(mbhc, 1, p->v_b1_huc));
+		       v_b1_h, wcd9xxx_codec_sta_dce_v(mbhc, 1, v_b1_h));
 	n += scnprintf(buffer + n, size - n, "v_brh = %x(%dmv)\n",
-		       p->v_brh, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->v_brh));
+		       v_br_h, wcd9xxx_codec_sta_dce_v(mbhc, 1, v_br_h));
 	n += scnprintf(buffer + n, size - n, "v_brl = %x(%dmv)\n",  p->v_brl,
 		       wcd9xxx_codec_sta_dce_v(mbhc, 0, p->v_brl));
 	n += scnprintf(buffer + n, size - n, "v_no_mic = %x(%dmv)\n",

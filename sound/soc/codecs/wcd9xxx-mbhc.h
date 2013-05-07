@@ -28,6 +28,12 @@ struct mbhc_micbias_regs {
 	u8 cfilt_sel;
 };
 
+enum mbhc_v_index {
+	MBHC_V_IDX_CFILT,
+	MBHC_V_IDX_VDDIO,
+	MBHC_V_IDX_NUM,
+};
+
 /* Data used by MBHC */
 struct mbhc_internal_cal_data {
 	u16 dce_z;
@@ -38,17 +44,13 @@ struct mbhc_internal_cal_data {
 	u32 t_dce;
 	u32 t_sta;
 	u32 micb_mv;
-	u16 v_ins_hu;
-	u16 v_ins_h;
-	u16 v_b1_hu;
-	u16 v_b1_h;
-	u16 v_b1_huc;
-	u16 v_brh;
+	u16 v_ins_hu[MBHC_V_IDX_NUM];
+	u16 v_ins_h[MBHC_V_IDX_NUM];
+	u16 v_b1_hu[MBHC_V_IDX_NUM];
+	u16 v_b1_h[MBHC_V_IDX_NUM];
+	u16 v_brh[MBHC_V_IDX_NUM];
 	u16 v_brl;
 	u16 v_no_mic;
-	s16 adj_v_hs_max;
-	u16 adj_v_ins_hu;
-	u16 adj_v_ins_h;
 	s16 v_inval_ins_low;
 	s16 v_inval_ins_high;
 };
