@@ -128,8 +128,10 @@ struct stats {
  * @teth_wq: dedicated workqueue, used for setting up the HW bridge and for
  * sending packets using the SW bridge when the system is waking up from power
  * collapse
- * @a2_ipa_hdr_len: A2 to IPA header length, used to configure the A2 endpoint
- * for header removal
+ * @a2_ipa_hdr_len: A2 to IPA header length, used for configuring the A2
+ * endpoint for header removal
+ * @ipa_a2_hdr_len: IPA to A2 header length, used for configuring the A2
+ * endpoint for header removal
  * @hdr_del: array to store the headers handles in order to delete them later
  * @routing_del: array of routing rules handles, one array for IPv4 and one for
  * IPv6
@@ -160,6 +162,7 @@ struct teth_bridge_ctx {
 	struct stats stats;
 	struct workqueue_struct *teth_wq;
 	u16 a2_ipa_hdr_len;
+	u16 ipa_a2_hdr_len;
 	struct ipa_ioc_del_hdr *hdr_del;
 	struct ipa_ioc_del_rt_rule *routing_del[TETH_IP_FAMILIES];
 	struct ipa_ioc_del_flt_rule *filtering_del[TETH_IP_FAMILIES];
@@ -287,6 +290,7 @@ static int configure_ipa_header_block_internal(u32 usb_ipa_hdr_len,
 	}
 
 	hdr_cfg.hdr_len = ipa_a2_hdr_len;
+	teth_ctx->ipa_a2_hdr_len = ipa_a2_hdr_len;
 	res = ipa_cfg_ep_hdr(teth_ctx->ipa_a2_pipe_hdl, &hdr_cfg);
 	if (res) {
 		TETH_ERR("Header insertion config for IPA->A2 pipe failed\n");
@@ -1225,6 +1229,28 @@ static void bridge_prod_notify_cb(void *notify_cb_data,
 				  enum ipa_rm_event event,
 				  unsigned long data)
 {
+	switch (event) {
+	case IPA_RM_RESOURCE_GRANTED:
+		complete(&teth_ctx->is_bridge_prod_up);
+		break;
+
+	case IPA_RM_RESOURCE_RELEASED:
+		complete(&teth_ctx->is_bridge_prod_down);
+		break;
+
+	default:
+		TETH_ERR("Unsupported notification!\n");
+		WARN_ON(1);
+		break;
+	}
+
+	return;
+}
+
+static void a2_prod_notify_cb(void *notify_cb_data,
+			      enum ipa_rm_event event,
+			      unsigned long data)
+{
 	int res;
 	struct ipa_ep_cfg ipa_ep_cfg;
 
@@ -1243,15 +1269,15 @@ static void bridge_prod_notify_cb(void *notify_cb_data,
 
 		/* Reset the various endpoints configuration */
 		memset(&ipa_ep_cfg, 0, sizeof(ipa_ep_cfg));
+		ipa_ep_cfg.hdr.hdr_len = teth_ctx->ipa_a2_hdr_len;
 		ipa_cfg_ep(teth_ctx->ipa_a2_pipe_hdl, &ipa_ep_cfg);
 
+		memset(&ipa_ep_cfg, 0, sizeof(ipa_ep_cfg));
 		ipa_ep_cfg.hdr.hdr_len = teth_ctx->a2_ipa_hdr_len;
 		ipa_cfg_ep(teth_ctx->a2_ipa_pipe_hdl, &ipa_ep_cfg);
-		complete(&teth_ctx->is_bridge_prod_up);
 		break;
 
 	case IPA_RM_RESOURCE_RELEASED:
-		complete(&teth_ctx->is_bridge_prod_down);
 		break;
 
 	default:
@@ -1283,6 +1309,7 @@ static void bridge_prod_notify_cb(void *notify_cb_data,
 int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr)
 {
 	int res = 0;
+	struct ipa_rm_register_params a2_prod_reg_params;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (usb_notify_cb_ptr == NULL) {
@@ -1323,10 +1350,22 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr)
 		goto fail_add_dependency_3;
 	}
 
+	/* Register for A2_PROD resource notifications */
+	a2_prod_reg_params.user_data = NULL;
+	a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+	res = ipa_rm_register(IPA_RM_RESOURCE_A2_PROD, &a2_prod_reg_params);
+	if (res) {
+		TETH_ERR("ipa_rm_register() failed\n");
+		goto fail_add_dependency_4;
+	}
+
 	/* Return 0 as EINPROGRESS is a valid return value at this point */
 	res = 0;
 	goto bail;
 
+fail_add_dependency_4:
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
+				 IPA_RM_RESOURCE_USB_CONS);
 fail_add_dependency_3:
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 				 IPA_RM_RESOURCE_A2_CONS);
@@ -1368,6 +1407,7 @@ static void initialize_context(void)
 	teth_ctx->comp_hw_bridge_in_progress = false;
 	memset(&teth_ctx->stats, 0, sizeof(teth_ctx->stats));
 	teth_ctx->a2_ipa_hdr_len = 0;
+	teth_ctx->ipa_a2_hdr_len = 0;
 	memset(teth_ctx->hdr_del,
 	       0,
 	       sizeof(struct ipa_ioc_del_hdr) + TETH_TOTAL_HDR_ENTRIES *
@@ -1402,6 +1442,7 @@ static void initialize_context(void)
 int teth_bridge_disconnect(void)
 {
 	int res;
+	struct ipa_rm_register_params a2_prod_reg_params;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (!teth_ctx->is_connected) {
@@ -1477,6 +1518,13 @@ int teth_bridge_disconnect(void)
 	if ((res != 0) && (res != -EINPROGRESS))
 		TETH_ERR(
 			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
+
+	/* Deregister from A2_PROD notifications */
+	a2_prod_reg_params.user_data = NULL;
+	a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+	res = ipa_rm_deregister(IPA_RM_RESOURCE_A2_PROD, &a2_prod_reg_params);
+	if (res)
+		TETH_ERR("Failed deregistering from A2_prod notifications.\n");
 
 	teth_ctx->is_connected = false;
 bail:
