@@ -414,6 +414,7 @@ struct functionfs_config {
 	bool opened;
 	bool enabled;
 	struct ffs_data *data;
+	struct android_dev *dev;
 };
 
 static int ffs_function_init(struct android_usb_function *f,
@@ -531,14 +532,18 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	if (ret)
 		return ret;
 
+	/* dev is null in case ADB is not in the composition */
+	if (dev)
+		mutex_lock(&dev->mutex);
+
 	config->data = ffs;
 	config->opened = true;
 
-	if (config->enabled) {
-		mutex_lock(&dev->mutex);
+	if (config->enabled && dev)
 		android_enable(dev);
+
+	if (dev)
 		mutex_unlock(&dev->mutex);
-	}
 
 	return 0;
 }
@@ -548,12 +553,25 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	struct android_dev *dev = ffs_function.android_dev;
 	struct functionfs_config *config = ffs_function.config;
 
+	/* In case new composition is without ADB, use saved one */
+	if (!dev)
+		dev = config->dev;
 
-	if (config->enabled) {
+	if (!dev)
+		pr_err("adb_closed_callback: config->dev is NULL");
+
+	if (dev)
 		mutex_lock(&dev->mutex);
+
+	config->opened = false;
+
+	if (config->enabled)
 		android_disable(dev);
+
+	config->dev = NULL;
+
+	if (dev)
 		mutex_unlock(&dev->mutex);
-	}
 
 	config->opened = false;
 	config->data = NULL;
