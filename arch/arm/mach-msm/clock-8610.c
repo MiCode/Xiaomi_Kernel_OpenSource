@@ -2495,7 +2495,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{            &gcc_ce1_axi_clk.c, GCC_BASE, 0x0139},
 	{            &gcc_ce1_ahb_clk.c, GCC_BASE, 0x013a},
 	{             &gcc_xo_clk_src.c, GCC_BASE, 0x0149},
-	{                   &bimc_clk.c, GCC_BASE, 0x0154},
+	{                   &bimc_clk.c, GCC_BASE, 0x015d},
 	{          &gcc_bimc_smmu_clk.c, GCC_BASE, 0x015e},
 	{       &gcc_lpass_q6_axi_clk.c, GCC_BASE, 0x0160},
 
@@ -2539,11 +2539,11 @@ static struct measure_mux_entry measure_mux[] = {
 	{             &q6ss_ahb_lfabif_clk.c, LPASS_BASE, 0x001e},
 	{                     &q6ss_xo_clk.c, LPASS_BASE, 0x002b},
 
-	{&apc0_m_clk,                    APCS_BASE, 0x10},
-	{&apc1_m_clk,                    APCS_BASE, 0x11},
-	{&apc2_m_clk,                    APCS_BASE, 0x12},
-	{&apc3_m_clk,                    APCS_BASE, 0x13},
-	{&l2_m_clk,                      APCS_BASE, 0x15},
+	{&apc0_m_clk,                    APCS_BASE, 0x00010},
+	{&apc1_m_clk,                    APCS_BASE, 0x00114},
+	{&apc2_m_clk,                    APCS_BASE, 0x00220},
+	{&apc3_m_clk,                    APCS_BASE, 0x00324},
+	{&l2_m_clk,                      APCS_BASE, 0x01000},
 
 	{&dummy_clk, N_BASES, 0x0000},
 };
@@ -2610,6 +2610,8 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		clk->multiplier = 4;
 		clk_sel = 0x16A;
 		regval = measure_mux[i].debug_mux;
+		/* Use a divider value of 4. */
+		regval |= BVAL(31, 30, 0x3);
 		writel_relaxed(regval, APCS_REG_BASE(GLB_CLK_DIAG));
 		break;
 
