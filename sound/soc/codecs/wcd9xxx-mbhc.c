@@ -3800,7 +3800,20 @@ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_REMOVAL, mbhc);
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_INSERTION, mbhc);
 
-	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH, mbhc);
+	switch (mbhc->mbhc_version) {
+	case WCD9XXX_MBHC_VERSION_TAIKO:
+		wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO,
+				 mbhc);
+		break;
+	case WCD9XXX_MBHC_VERSION_TAPAN:
+		wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN,
+				 mbhc);
+		break;
+	default:
+		pr_err("%s: irq free failed! Invalid MBHC version %d\n",
+			__func__, mbhc->mbhc_version);
+	}
+
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT, mbhc);
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT, mbhc);
 

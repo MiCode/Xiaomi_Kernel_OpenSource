@@ -1729,6 +1729,7 @@ static struct slim_driver tapan_slim_driver = {
 	.id_table = tapan_slimtest_id,
 	.resume = wcd9xxx_slim_resume,
 	.suspend = wcd9xxx_slim_suspend,
+	.device_up = wcd9xxx_slim_device_up,
 };
 
 static struct i2c_device_id wcd9xxx_id_table[] = {
