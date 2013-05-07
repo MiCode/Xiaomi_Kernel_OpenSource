@@ -88,6 +88,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_MATRIX_Y_SIZE	0x05
 #define MXT_OBJECT_NUM		0x06
 #define MXT_OBJECT_START	0x07
+#define	MXT_MAX_OBJECT_VALUE	0xFF
 
 #define MXT_OBJECT_SIZE		6
 
@@ -1955,6 +1956,47 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	return count;
 }
 
+static ssize_t mxt_update_single_byte_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	int err;
+	int obj_type, obj_offset, obj_val;
+
+	sscanf(buf, "%d %d %d", &obj_type, &obj_offset, &obj_val);
+
+	if (obj_val > MXT_MAX_OBJECT_VALUE) {
+		dev_err(&data->client->dev, "Invalid Object value\n");
+		return -EINVAL;
+	}
+
+	if (data->state == APPMODE) {
+		disable_irq(data->irq);
+		err = mxt_write_object(data, obj_type, obj_offset, obj_val);
+		if (err < 0) {
+			dev_err(&data->client->dev, "Failed to write object\n");
+			goto write_obj_fail;
+		}
+
+		err = mxt_backup_nv(data);
+		if (err) {
+			dev_err(&data->client->dev, "Failed to back up NV\n");
+			goto write_obj_fail;
+		}
+	} else {
+		dev_err(dev,
+			"Not in APPMODE, Unable to write single object\n");
+		return -EINVAL;
+	}
+
+	err = count;
+
+write_obj_fail:
+	enable_irq(data->irq);
+	return err;
+}
+
 #if defined(CONFIG_SECURE_TOUCH)
 
 static ssize_t mxt_secure_touch_enable_show(struct device *dev,
@@ -2058,6 +2100,8 @@ static DEVICE_ATTR(hw_version, S_IRUGO, mxt_hw_version_show, NULL);
 static DEVICE_ATTR(object, S_IRUGO, mxt_object_show, NULL);
 static DEVICE_ATTR(update_fw, S_IWUSR, NULL, mxt_update_fw_store);
 static DEVICE_ATTR(force_cfg_update, 0664, NULL, mxt_force_cfg_update_store);
+static DEVICE_ATTR(update_object_byte, 0664, NULL,
+					mxt_update_single_byte_store);
 
 static struct attribute *mxt_attrs[] = {
 	&dev_attr_fw_version.attr,
@@ -2065,6 +2109,7 @@ static struct attribute *mxt_attrs[] = {
 	&dev_attr_object.attr,
 	&dev_attr_update_fw.attr,
 	&dev_attr_force_cfg_update.attr,
+	&dev_attr_update_object_byte.attr,
 #if defined(CONFIG_SECURE_TOUCH)
 	&dev_attr_secure_touch_enable.attr,
 	&dev_attr_secure_touch.attr,
