@@ -297,6 +297,7 @@ obj-$(CONFIG_MACH_MPQ8064_DTV) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o board-9615-gpiomux.o board-9615-storage.o board-9615-display.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o clock-pll.o
 obj-$(CONFIG_ARCH_APQ8084) += board-8084.o board-8084-gpiomux.o
+obj-$(CONFIG_ARCH_APQ8084) += clock-8084.o
 obj-$(CONFIG_ARCH_MSM8974) += board-8974.o board-8974-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8974) += acpuclock-8974.o
 obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.o clock-voter.o clock-mdss-8974.o

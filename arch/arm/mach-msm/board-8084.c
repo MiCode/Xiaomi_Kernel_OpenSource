@@ -74,27 +74,6 @@ static void __init apq8084_early_memory(void)
 	of_scan_flat_dt(dt_scan_for_memory_hole, apq8084_reserve_table);
 }
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
-	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
-	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
-	CLK_DUMMY("iface_clk",	SDC2_P_CLK,	"msm_sdcc.2", OFF),
-	CLK_DUMMY("xo",   NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("core_clk",   NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("sleep_clk",  NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("sleep_a_clk",   NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("utmi_clk",   NULL, "f9200000.qcom,ssusb", OFF),
-	CLK_DUMMY("ref_clk",    NULL, "f9200000.qcom,ssusb", OFF),
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -104,7 +83,7 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 void __init apq8084_add_drivers(void)
 {
 	msm_smd_init();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	msm_clock_init(&msm8084_clock_init_data);
 }
 
 static void __init apq8084_map_io(void)
