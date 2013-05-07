@@ -748,19 +748,12 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode,
 		msleep(50);
 		if (!mhl_ctrl->disc_enabled)
 			MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
-
-		spin_lock_irqsave(&mhl_ctrl->lock, flags);
-		mhl_ctrl->tx_powered_off = true;
-		spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
-
 		if (hdmi_mhl_ops && hpd_off) {
 			rc = hdmi_mhl_ops->set_upstream_hpd(
 				mhl_ctrl->pdata->hdmi_pdev, 0);
 			pr_debug("%s: hdmi unset hpd %s\n", __func__,
 				 rc ? "failed" : "passed");
 		}
-		msleep(200);
-		MHL_SII_PAGE1_MOD(0x003D, BIT0, 0x00);
 		mhl_ctrl->cur_state = POWER_STATE_D3;
 		break;
 	default:
@@ -1096,7 +1089,12 @@ static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		if (BIT6 & (cbus_stat ^ t)) {
 			u8 status = cbus_stat & BIT6;
 			mhl_drive_hpd(mhl_ctrl, status ? HPD_UP : HPD_DOWN);
-
+			if (!status) {
+				MHL_SII_PAGE1_MOD(0x003D, BIT0, 0x00);
+				spin_lock_irqsave(&mhl_ctrl->lock, flags);
+				mhl_ctrl->tx_powered_off = true;
+				spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+			}
 			spin_lock_irqsave(&mhl_ctrl->lock, flags);
 			mhl_ctrl->dwnstream_hpd = cbus_stat;
 			spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
@@ -1345,29 +1343,26 @@ static irqreturn_t mhl_tx_isr(int irq, void *data)
 	 * interrupts. In D3, we get only RGND
 	 */
 	rc = dev_detect_isr(mhl_ctrl);
-	if (rc) {
-		pr_info("%s: dev_detect_isr rc=[%d]\n", __func__, rc);
-		return IRQ_HANDLED;
-	}
+	if (rc)
+		pr_debug("%s: dev_detect_isr rc=[%d]\n", __func__, rc);
 
 	pr_debug("%s: cur pwr state is [0x%x]\n",
 		 __func__, mhl_ctrl->cur_state);
-	if (mhl_ctrl->cur_state == POWER_STATE_D0_MHL) {
-		/*
-		 * If dev_detect_isr() didn't move the tx to D3
-		 * on disconnect, continue to check other
-		 * interrupt sources.
-		 */
-		mhl_misc_isr(mhl_ctrl);
 
-		/*
-		 * Check for any peer messages for DCAP_CHG, MSC etc
-		 * Dispatch to have the CBUS module working only
-		 * once connected.
-		 */
-		mhl_cbus_isr(mhl_ctrl);
-		mhl_hpd_stat_isr(mhl_ctrl);
-	}
+	/*
+	 * If dev_detect_isr() didn't move the tx to D3
+	 * on disconnect, continue to check other
+	 * interrupt sources.
+	 */
+	mhl_misc_isr(mhl_ctrl);
+
+	/*
+	 * Check for any peer messages for DCAP_CHG, MSC etc
+	 * Dispatch to have the CBUS module working only
+	 * once connected.
+	 */
+	mhl_cbus_isr(mhl_ctrl);
+	mhl_hpd_stat_isr(mhl_ctrl);
 
 	return IRQ_HANDLED;
 }
@@ -1401,7 +1396,7 @@ static int mhl_tx_chip_init(struct mhl_tx_ctrl *mhl_ctrl)
 	 * MHL-USB handshake is implemented
 	 */
 	mhl_init_reg_settings(mhl_ctrl, true);
-	switch_mode(mhl_ctrl, POWER_STATE_D0_NO_MHL, false);
+	switch_mode(mhl_ctrl, POWER_STATE_D3, true);
 	return 0;
 }
 
