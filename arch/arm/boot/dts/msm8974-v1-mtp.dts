@@ -18,7 +18,9 @@
 / {
 	model = "Qualcomm MSM 8974 MTP";
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
-	qcom,msm-id = <126 8 0>;
+	qcom,msm-id = <126 8 0>,
+		      <185 8 0>,
+		      <186 8 0>;
 };
 
 &pm8941_chg {
