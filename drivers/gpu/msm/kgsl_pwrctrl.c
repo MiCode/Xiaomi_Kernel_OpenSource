@@ -1454,6 +1454,8 @@ int kgsl_active_count_get(struct kgsl_device *device)
 	}
 	if (ret == 0)
 		device->active_cnt++;
+	trace_kgsl_active_count(device,
+		(unsigned long) __builtin_return_address(0));
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_active_count_get);
@@ -1482,6 +1484,8 @@ int kgsl_active_count_get_light(struct kgsl_device *device)
 	}
 
 	device->active_cnt++;
+	trace_kgsl_active_count(device,
+		(unsigned long) __builtin_return_address(0));
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_active_count_get_light);
@@ -1504,6 +1508,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 	kgsl_pwrscale_idle(device);
 	if (device->active_cnt > 1) {
 		device->active_cnt--;
+		trace_kgsl_active_count(device,
+			(unsigned long) __builtin_return_address(0));
 		return;
 	}
 
@@ -1520,6 +1526,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 	}
 	device->active_cnt--;
 
+	trace_kgsl_active_count(device,
+		(unsigned long) __builtin_return_address(0));
 	if (device->active_cnt == 0)
 		complete(&device->suspend_gate);
 }

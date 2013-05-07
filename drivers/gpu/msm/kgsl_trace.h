@@ -739,6 +739,30 @@ TRACE_EVENT(kgsl_fire_event,
 			__entry->id, __entry->ts, __entry->age)
 );
 
+TRACE_EVENT(kgsl_active_count,
+
+	TP_PROTO(struct kgsl_device *device, unsigned long ip),
+
+	TP_ARGS(device, ip),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, count)
+		__field(unsigned long, ip)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->count = device->active_cnt;
+		__entry->ip = ip;
+	),
+
+	TP_printk(
+		"d_name=%s active_cnt=%x func=%pf",
+		__get_str(device_name), __entry->count, (void *) __entry->ip
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
