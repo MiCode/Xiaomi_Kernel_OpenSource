@@ -117,7 +117,7 @@ struct dmxdev_events_queue {
 #define DMX_MIN_INSERTION_REPETITION_TIME	25 /* in msec */
 struct ts_insertion_buffer {
 	/* work scheduled for insertion of this buffer */
-	struct work_struct work;
+	struct delayed_work dwork;
 
 	struct list_head next;
 
@@ -132,9 +132,6 @@ struct ts_insertion_buffer {
 
 	/* repetition time for the buffer insertion */
 	u32 repetition_time;
-
-	/* timer used for insertion of the buffer */
-	struct timer_list timer;
 
 	/* the recording filter to which this buffer belongs */
 	struct dmxdev_filter *dmxdevfilter;
