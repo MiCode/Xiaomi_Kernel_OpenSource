@@ -2334,6 +2334,9 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
+	/* finish the ongoing hpd work if any */
+	flush_work_sync(&hdmi_ctrl->hpd_int_work);
+
 	/* Turn off HPD interrupts */
 	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 0);
 
