@@ -1434,6 +1434,11 @@
 			qcom,min-level = <1>; /* No Request */
 		};
 
+		qcom,vdd-apps-rstr{
+			qcom,vdd-rstr-reg = "vdd_apps";
+			qcom,levels = <1881600 1958400 2265600>;
+			qcom,freq-req;
+		};
 	};
 
 	qcom,bam_dmux@fc834000 {
