@@ -1111,7 +1111,8 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 
 	fbi = mfd->fbi;
 
-	if (fbi->fix.smem_len == 0 || mdp5_data->borderfill_enable) {
+	if (!fbi->fix.smem_start || fbi->fix.smem_len == 0 ||
+	     mdp5_data->borderfill_enable) {
 		mfd->mdp.kickoff_fnc(mfd);
 		return;
 	}
@@ -1142,9 +1143,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pan_display_error;
 	}
 
-	if (is_mdss_iommu_attached())
+	if (is_mdss_iommu_attached()) {
+		if (!mfd->iova) {
+			pr_err("mfd iova is zero\n");
+			goto pan_display_error;
+		}
 		data.p[0].addr = mfd->iova;
-	else
+	} else
 		data.p[0].addr = fbi->fix.smem_start;
 
 	data.p[0].addr += offset;
