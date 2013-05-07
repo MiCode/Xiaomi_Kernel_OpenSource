@@ -379,7 +379,7 @@
 #define CRYPTO_FIRST				17
 #define CRYPTO_LAST				16
 
-#define CRYPTO_AUTH_POS				15 /* bit 15 .. 14*/
+#define CRYPTO_AUTH_POS				14 /* bit 15 .. 14*/
 #define CRYPTO_AUTH_POS_MASK			(0x3 << CRYPTO_AUTH_POS)
 #define CRYPTO_AUTH_POS_BEFORE			0
 #define CRYPTO_AUTH_POS_AFTER			1
