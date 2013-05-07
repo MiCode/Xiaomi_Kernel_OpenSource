@@ -1466,17 +1466,18 @@ static int probe_vdd_rstr(struct device_node *node,
 		if (ret)
 			goto read_node_fail;
 
-		key = "qcom,min-level";
-		ret = of_property_read_u32(child_node, key,
-				&rails[i].min_level);
-		if (ret)
-			goto read_node_fail;
-
 		key = "qcom,freq-req";
 		rails[i].freq_req = of_property_read_bool(child_node, key);
+		if (rails[i].freq_req)
+			rails[i].min_level = MSM_CPUFREQ_NO_LIMIT;
+		else {
+			key = "qcom,min-level";
+			ret = of_property_read_u32(child_node, key,
+				&rails[i].min_level);
+			if (ret)
+				goto read_node_fail;
+		}
 
-		if (ret)
-			goto read_node_fail;
 		rails[i].curr_level = 0;
 		rails[i].reg = NULL;
 		i++;

@@ -56,15 +56,15 @@ Optional properties
 
 Optional child nodes
 - qcom,<vdd restriction child node name>: Define the name of the child node.
-			If this property exisits, qcom,vdd-rstr-reg, qcom,levels,
-			qcom,min-level and qcom,freq-req need to exist, otherwise
-			we return an error.
+			If this property exisits, qcom,vdd-rstr-reg, qcom,levels
+			need to exist. qcom,min-level is optional if qcom,freq-req
+			exists, otherwise it's required.
 - qcom,vdd-rstr-reg: Name of the rail
 - qcom,levels: Array of the level values. Unit is corner voltage for voltage request
 			or kHz for frequency request.
 - qcom,min-level: Request this level as minimum level when disabling voltage
-			restriction. Unit is corner voltage for voltage request
-			or kHz for frequency request.
+			restriction. Unit is corner voltage for voltage request.
+			This will not be required if qcom,freq-req exists.
 - qcom,freq-req: Flag to determine if we should restrict frequency on this rail
 			instead of voltage.
 
@@ -91,6 +91,12 @@ Example:
 			qcom,vdd-rstr-reg = "vdd_dig";
 			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
 			qcom,min-level = <1>; /* No Request */
+		};
+
+		qcom,vdd-apps-rstr{
+			qcom,vdd-rstr-reg = "vdd_apps";
+			qcom,levels = <1881600 1958400 2265600>;
+			qcom,freq-req;
 		};
 	};
 
