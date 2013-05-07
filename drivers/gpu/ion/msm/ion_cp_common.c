@@ -13,6 +13,7 @@
  */
 
 #include <linux/memory_alloc.h>
+#include <linux/slab.h>
 #include <linux/types.h>
 #include <mach/scm.h>
 #include <linux/highmem.h>
@@ -97,18 +98,17 @@ static int ion_cp_change_mem_v2(unsigned int phy_base, unsigned int size,
 
 	nchunks = size / V2_CHUNK_SIZE;
 
-	chunk_list = allocate_contiguous_ebi(sizeof(unsigned long)*nchunks,
-						SZ_4K, 0);
+	chunk_list = kmalloc(sizeof(unsigned long)*nchunks, GFP_KERNEL);
 	if (!chunk_list)
 		return -ENOMEM;
 
 	for (i = 0; i < nchunks; i++)
 		chunk_list[i] = phy_base + i * V2_CHUNK_SIZE;
 
-	ret = ion_cp_change_chunks_state(memory_pool_node_paddr(chunk_list),
+	ret = ion_cp_change_chunks_state(__pa(chunk_list),
 					nchunks, V2_CHUNK_SIZE, usage, lock);
 
-	free_contiguous_memory(chunk_list);
+	kfree(chunk_list);
 	return ret;
 }
 
