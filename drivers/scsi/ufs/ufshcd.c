@@ -603,16 +603,11 @@ static int ufshcd_compose_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	case UTP_CMD_TYPE_SCSI:
 	case UTP_CMD_TYPE_DEV_MANAGE:
 		ufshcd_prepare_req_desc(lrbp, &upiu_flags);
-		if (lrbp->cmd && lrbp->command_type == UTP_CMD_TYPE_SCSI)
+		if (lrbp->command_type == UTP_CMD_TYPE_SCSI)
 			ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
-		else if (lrbp->cmd)
+		else
 			ufshcd_prepare_utp_query_req_upiu(hba, lrbp,
 								upiu_flags);
-		else {
-			dev_err(hba->dev, "%s: Invalid UPIU request\n",
-				__func__);
-			ret = -EINVAL;
-		}
 		break;
 	case UTP_CMD_TYPE_UFS:
 		/* For UFS native command implementation */
