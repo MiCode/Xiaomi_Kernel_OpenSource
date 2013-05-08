@@ -208,7 +208,9 @@
 			};
 		};
 	};
+};
 
+&spmi_bus {
 	qcom,pm8110@1 {
 		qcom,vibrator@c000 {
 			status = "okay";
