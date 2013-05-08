@@ -230,12 +230,12 @@ int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	return rc;
 }
 
-static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, uint32_t rate)
+static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 {
 	int rc = 0;
 	int clk_idx = vfe_dev->hw_info->vfe_clk_idx;
 	long round_rate =
-		clk_round_rate(vfe_dev->vfe_clk[clk_idx], rate);
+		clk_round_rate(vfe_dev->vfe_clk[clk_idx], *rate);
 	if (round_rate < 0) {
 		pr_err("%s: Invalid vfe clock rate\n", __func__);
 		return round_rate;
@@ -246,6 +246,7 @@ static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, uint32_t rate)
 		pr_err("%s: Vfe set rate error\n", __func__);
 		return rc;
 	}
+	*rate = round_rate;
 	return 0;
 }
 
@@ -266,7 +267,7 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
 
 	rc = msm_isp_set_clk_rate(vfe_dev,
-		vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
+		&vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
 	if (rc < 0) {
 		pr_err("%s: clock set rate failed\n", __func__);
 		return rc;
