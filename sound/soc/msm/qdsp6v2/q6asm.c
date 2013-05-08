@@ -45,17 +45,6 @@
 
 #define TRUE        0x01
 #define FALSE       0x00
-#define READDONE_IDX_STATUS 0
-#define READDONE_IDX_BUFADD_LSW 1
-#define READDONE_IDX_BUFADD_MSW 2
-#define READDONE_IDX_MEMMAP_HDL 3
-#define READDONE_IDX_SIZE 4
-#define READDONE_IDX_OFFSET 5
-#define READDONE_IDX_LSW_TS 6
-#define READDONE_IDX_MSW_TS 7
-#define READDONE_IDX_FLAGS 8
-#define READDONE_IDX_NUMFRAMES 9
-#define READDONE_IDX_SEQ_ID 10
 
 /* TODO, combine them together */
 static DEFINE_MUTEX(session_lock);
@@ -3371,6 +3360,7 @@ int q6asm_async_read(struct audio_client *ac,
 	struct list_head *ptr, *next;
 	u32 lbuf_addr_lsw;
 	u32 liomode;
+	u32 io_compressed;
 
 	if (!ac || ac->apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -3387,12 +3377,15 @@ int q6asm_async_read(struct audio_client *ac,
 	read.buf_size = param->len;
 	read.seq_id = param->uid;
 	liomode = (NT_MODE | ASYNC_IO_MODE);
+	io_compressed = (ASYNC_IO_MODE | COMPRESSED_IO);
 	if (ac->io_mode == liomode)
 		lbuf_addr_lsw = (read.buf_addr_lsw - 32);
+	else if (ac->io_mode == io_compressed)
+		lbuf_addr_lsw = (read.buf_addr_lsw - 64);
 	else
 		lbuf_addr_lsw = read.buf_addr_lsw;
 
-	list_for_each_safe(ptr, next, &ac->port[IN].mem_map_handle) {
+	list_for_each_safe(ptr, next, &ac->port[OUT].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node, list);
 			if (buf_node->buf_addr_lsw == lbuf_addr_lsw) {
 				read.mem_map_handle = buf_node->mmap_hdl;
