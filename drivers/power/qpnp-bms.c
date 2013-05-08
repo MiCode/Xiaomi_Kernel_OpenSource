@@ -127,7 +127,7 @@ struct qpnp_bms_chip {
 	int				adjust_soc_low_threshold;
 	int				chg_term_ua;
 	enum battery_type		batt_type;
-	unsigned int			fcc;
+	unsigned int			fcc_mah;
 	struct single_row_lut		*fcc_temp_lut;
 	struct single_row_lut		*fcc_sf_lut;
 	struct pc_temp_ocv_lut		*pc_temp_ocv_lut;
@@ -1963,7 +1963,7 @@ static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
 /* Returns full charge design in uAh */
 static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
 {
-	return chip->fcc;
+	return chip->fcc_mah * 1000;
 }
 
 static int get_prop_bms_present(struct qpnp_bms_chip *chip)
@@ -2175,7 +2175,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		}
 	}
 
-	chip->fcc = batt_data->fcc;
+	chip->fcc_mah = batt_data->fcc;
 	chip->fcc_temp_lut = batt_data->fcc_temp_lut;
 	chip->fcc_sf_lut = batt_data->fcc_sf_lut;
 	chip->pc_temp_ocv_lut = batt_data->pc_temp_ocv_lut;
