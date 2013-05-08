@@ -248,13 +248,14 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl)
 	return ret;
 }
 
-static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata)
+static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
+					       u32 off)
 {
 	struct mdss_mdp_ctl *ctl = NULL;
-	int cnum;
+	u32 cnum;
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (cnum = 0; cnum < mdata->nctl; cnum++) {
+	for (cnum = off; cnum < mdata->nctl; cnum++) {
 		ctl = mdata->ctl_off + cnum;
 		if (ctl->ref_cnt == 0) {
 			ctl->ref_cnt++;
@@ -391,7 +392,7 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	struct mdss_mdp_ctl *ctl = NULL;
 	struct mdss_mdp_mixer *mixer = NULL;
 
-	ctl = mdss_mdp_ctl_alloc(mdss_res);
+	ctl = mdss_mdp_ctl_alloc(mdss_res, mdss_res->nmixers_intf);
 	if (!ctl)
 		return NULL;
 
@@ -669,7 +670,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	int ret = 0;
 
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
-	ctl = mdss_mdp_ctl_alloc(mdata);
+	ctl = mdss_mdp_ctl_alloc(mdata, MDSS_MDP_CTL0);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
 		return ERR_PTR(-ENOMEM);
