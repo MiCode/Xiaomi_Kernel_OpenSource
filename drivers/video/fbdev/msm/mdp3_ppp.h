@@ -18,7 +18,7 @@
 
 #define PPP_WRITEL(val, off) MDP3_REG_WRITE(off, val)
 
-#define MAX_BLIT_REQ 256
+#define MAX_BLIT_REQ 16
 #define PPP_UPSCALE_MAX 64
 #define PPP_BLUR_SCALE_MAX 128
 #define PPP_LUT_MAX 256
@@ -403,11 +403,12 @@ void ppp_load_gaussian_lut(void);
 void ppp_load_x_scale_table(int idx);
 void ppp_load_y_scale_table(int idx);
 
-int mdp3_ppp_start_blit(struct msm_fb_data_type *mfd,
-	struct mdp_blit_req *req);
-int mdp3_ppp_res_init(void);
+int mdp3_ppp_res_init(struct msm_fb_data_type *mfd);
 int mdp3_ppp_init(void);
 int config_ppp_op_mode(struct ppp_blit_op *blit_op);
 void ppp_enable(void);
+int mdp3_ppp_parse_req(void __user *p,
+	struct mdp_async_blit_req_list *req_list_header,
+	int async);
 
 #endif
