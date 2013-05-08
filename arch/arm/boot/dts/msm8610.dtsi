@@ -721,8 +721,6 @@
 		qcom,sensors = <2>;
 		qcom,slope = <2901 2846>;
 		qcom,calib-mode = "fuse_map3";
-		qcom,calibration-less-mode;
-		qcom,tsens-local-init;
 		qcom,sensor-id = <0 5>;
 	};
 
