@@ -19,5 +19,6 @@ struct vkeys_platform_data {
 	int panel_maxy;
 	int *keycodes;
 	int num_keys;
+	int y_offset;
 };
 #endif

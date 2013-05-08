@@ -105,6 +105,12 @@ static int __devinit vkey_parse_dt(struct device *dev,
 			return -EINVAL;
 		}
 	}
+
+	rc = of_property_read_u32(np, "qcom,y-offset", &pdata->y_offset);
+	if (rc) {
+		dev_err(dev, "Failed to read y position offset\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -147,7 +153,7 @@ static int __devinit vkeys_probe(struct platform_device *pdev)
 	width = ((pdata->disp_maxx - (border * (pdata->num_keys - 1)))
 			/ pdata->num_keys);
 	height = (pdata->panel_maxy - pdata->disp_maxy);
-	center_y = pdata->disp_maxy + (height / 2);
+	center_y = pdata->disp_maxy + (height / 2) + pdata->y_offset;
 	height = height * HEIGHT_SCALE_NUM / HEIGHT_SCALE_DENOM;
 
 	x2 -= border * BORDER_ADJUST_NUM / BORDER_ADJUST_DENOM;
