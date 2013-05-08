@@ -156,7 +156,7 @@
 			qcom,led_mpp_3 {
 				label = "mpp";
 				linux,name = "wled-backlight";
-				linux-default-trigger = "none";
+				linux,default-trigger = "bkl-trigger";
 				qcom,default-state = "on";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
