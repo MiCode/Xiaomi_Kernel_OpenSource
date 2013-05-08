@@ -2581,6 +2581,7 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 		INIT_COMPLETION(device->ft_gate);
 		/* Detected a hang */
 
+		kgsl_cffdump_hang(device->id);
 		/* Run fault tolerance at max power level */
 		curr_pwrlevel = pwr->active_pwrlevel;
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->max_pwrlevel);
