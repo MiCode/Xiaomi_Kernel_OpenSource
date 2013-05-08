@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1026,6 +1026,9 @@ int msm_dcvs_register_core(
 	uint32_t ret1;
 	uint32_t ret2;
 
+	if (!msm_dcvs_enabled)
+		return ret;
+
 	offset = get_core_offset(type, type_core_num);
 	if (offset < 0)
 		return ret;
@@ -1277,6 +1280,9 @@ static int __init msm_dcvs_late_init(void)
 	struct kobject *module_kobj = NULL;
 	int ret = 0;
 
+	if (!msm_dcvs_enabled)
+		return ret;
+
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
 		pr_err("%s: cannot find kobject for module %s\n",
@@ -1343,6 +1349,7 @@ static int __init msm_dcvs_early_init(void)
 	ret = msm_dcvs_scm_init(SZ_32K);
 	if (ret) {
 		__err("Unable to initialize DCVS err=%d\n", ret);
+		msm_dcvs_enabled = 0;
 		goto done;
 	}
 
