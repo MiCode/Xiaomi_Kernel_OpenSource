@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,11 @@ enum msm_ipc_router_event {
 	MSM_IPC_ROUTER_WRITE_DONE,
 };
 
+struct comm_mode_info {
+	int mode;
+	void *xprt_info;
+};
+
 struct msm_ipc_port {
 	struct list_head list;
 
@@ -39,6 +44,7 @@ struct msm_ipc_port {
 	uint32_t type;
 	unsigned flags;
 	spinlock_t port_lock;
+	struct comm_mode_info mode_info;
 
 	struct list_head incomplete;
 	struct mutex incomplete_lock;
