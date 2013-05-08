@@ -93,6 +93,20 @@
 				linux,name = "led:flash_1";
 				qcom,current = <625>;
 			};
+
+			pm8941_torch: qcom,flash_torch {
+				qcom,max-current = <200>;
+				qcom,default-state = "off";
+				qcom,headroom = <0>;
+				qcom,startup-dly = <1>;
+				linux,default-trigger =
+					"torch_trigger";
+				label = "flash";
+				qcom,id = <2>;
+				linux,name = "led:flash_torch";
+				qcom,current = <200>;
+				qcom,torch-enable;
+			};
 		};
 
 		qcom,leds@d400 {
