@@ -176,6 +176,8 @@
 				qcom,ss-power = <163>;
 				qcom,energy-overhead = <1577736>;
 				qcom,time-overhead = <5067>;
+				qcom,min-cpu-mode= "pc";
+				qcom,sync-cpus;
 			};
 
 			qcom,system-mode@1 {
@@ -184,6 +186,8 @@
 				qcom,ss-power = <83>;
 				qcom,energy-overhead = <2274420>;
 				qcom,time-overhead = <6605>;
+				qcom,min-cpu-mode = "pc";
+				qcom,sync-cpus;
 			};
 		};
 	};
