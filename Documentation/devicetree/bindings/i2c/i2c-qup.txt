@@ -28,10 +28,18 @@ Optional property:
 		      recovery procedure.
  - qcom,sda-gpio     : I2C data  GPIO number. Required for execution of bus
 		      recovery procedure.
+ - qcom,active-only  : Vote for core clock when the application processor goes
+		      to active state and remove that vote when it goes to idle
+		      state. This flag may improve service time of first i2c
+		      request at the expense of power consumption. When this
+		      entry is not present, voting is done by the runtime-pm
+		      callbacks.
+ - qcom,master-id    : Master endpoint number used for voting on clocks using
+		      bus-scaling driver.
 
 Example:
-	i2c@f9966000 {
-		cell-index = <0>;
+	i2c_3: i2c@f9966000 {
+		cell-index = <3>;
 		compatible = "qcom,i2c-qup";
 		reg = <0xf9966000 0x1000>;
 		reg-names = "qup_phys_addr";
