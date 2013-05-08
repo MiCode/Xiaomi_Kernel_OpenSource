@@ -47,10 +47,10 @@ int adm_memory_map_regions(int port_id, uint32_t *buf_add, uint32_t mempool_id,
 int adm_memory_unmap_regions(int port_id, uint32_t *buf_add, uint32_t *bufsz,
 						uint32_t bufcnt);
 
-int adm_close(int port);
+int adm_close(int port, bool perf_mode);
 
 int adm_matrix_map(int session_id, int path, int num_copps,
-				unsigned int *port_id, int copp_id);
+		unsigned int *port_id, int copp_id, bool perf_mode);
 
 int adm_connect_afe_port(int mode, int session_id, int port_id);
 
