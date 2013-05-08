@@ -25,6 +25,8 @@
 #include <linux/socket.h>
 #include <linux/gfp.h>
 #include <linux/qmi_encdec.h>
+#include <linux/workqueue.h>
+#include <linux/mutex.h>
 
 #include <mach/msm_qmi_interface.h>
 #include <mach/msm_ipc_router.h>
@@ -33,6 +35,8 @@
 
 static LIST_HEAD(svc_event_nb_list);
 static DEFINE_MUTEX(svc_event_nb_list_lock);
+static DEFINE_MUTEX(msm_qmi_init_lock);
+static struct workqueue_struct *msm_qmi_pending_workqueue;
 
 struct elem_info qmi_response_type_v01_ei[] = {
 	{
@@ -87,8 +91,94 @@ static void qmi_event_notify(unsigned event, void *priv)
 		spin_unlock_irqrestore(&handle->notify_lock, flags);
 		break;
 
+	case MSM_IPC_ROUTER_RESUME_TX:
+		queue_delayed_work(msm_qmi_pending_workqueue,
+				   &handle->resume_tx_work,
+				   msecs_to_jiffies(0));
+		break;
 	default:
 		break;
+	}
+	mutex_unlock(&handle->handle_lock);
+}
+
+/**
+ * init_msm_qmi() - Init function for kernel space QMI
+ *
+ * This function is implemented to initialize the QMI resources that are common
+ * across kernel space QMI users. As it is not necessary for this init function
+ * to be module_init function it is called when the first handle of kernel space
+ * QMI gets created.
+ */
+static void init_msm_qmi(void)
+{
+	static bool msm_qmi_inited;
+
+	if (likely(msm_qmi_inited))
+		return;
+
+	mutex_lock(&msm_qmi_init_lock);
+	if (likely(msm_qmi_inited && msm_qmi_pending_workqueue)) {
+		mutex_unlock(&msm_qmi_init_lock);
+		return;
+	}
+	msm_qmi_inited = 1;
+	msm_qmi_pending_workqueue =
+			create_singlethread_workqueue("msm_qmi_rtx_q");
+	mutex_unlock(&msm_qmi_init_lock);
+}
+
+/**
+ * handle_resume_tx() - Handle the Resume_Tx event
+ * @work : Pointer to the work strcuture.
+ *
+ * This function handles the resume_tx event for any QMI client that
+ * exists in the kernel space. This function parses the pending_txn_list of
+ * the handle and attempts a send for each transaction in that list.
+ */
+static void handle_resume_tx(struct work_struct *work)
+{
+	struct delayed_work *rtx_work = to_delayed_work(work);
+	struct qmi_handle *handle =
+		container_of(rtx_work, struct qmi_handle, resume_tx_work);
+	struct qmi_txn *pend_txn, *temp_txn;
+	int ret;
+	uint16_t msg_id;
+
+	mutex_lock(&handle->handle_lock);
+	list_for_each_entry_safe(pend_txn, temp_txn,
+				&handle->pending_txn_list, list) {
+		ret = msm_ipc_router_send_msg(
+				(struct msm_ipc_port *)handle->src_port,
+				(struct msm_ipc_addr *)handle->dest_info,
+				pend_txn->enc_data, pend_txn->enc_data_len);
+
+		if (ret == -EAGAIN) {
+			mutex_unlock(&handle->handle_lock);
+			return;
+		}
+		msg_id = ((struct qmi_header *)pend_txn->enc_data)->msg_id;
+		kfree(pend_txn->enc_data);
+		if (ret < 0) {
+			if (pend_txn->type == QMI_ASYNC_TXN) {
+				pend_txn->resp_cb(pend_txn->handle,
+						msg_id, pend_txn->resp,
+						pend_txn->resp_cb_data,
+						ret);
+				list_del(&pend_txn->list);
+				kfree(pend_txn);
+			} else if (pend_txn->type == QMI_SYNC_TXN) {
+				pend_txn->send_stat = ret;
+				wake_up(&pend_txn->wait_q);
+			}
+			pr_err("%s: Sending transaction %d from port %d failed",
+				__func__, pend_txn->txn_id,
+				((struct msm_ipc_port *)handle->src_port)->
+							this_port.port_id);
+		} else {
+			list_del(&pend_txn->list);
+			list_add_tail(&pend_txn->list, &handle->txn_list);
+		}
 	}
 	mutex_unlock(&handle->handle_lock);
 }
@@ -118,20 +208,39 @@ struct qmi_handle *qmi_handle_create(
 	temp_handle->src_port = port_ptr;
 	temp_handle->next_txn_id = 1;
 	INIT_LIST_HEAD(&temp_handle->txn_list);
+	INIT_LIST_HEAD(&temp_handle->pending_txn_list);
 	mutex_init(&temp_handle->handle_lock);
 	spin_lock_init(&temp_handle->notify_lock);
 	temp_handle->notify = notify;
 	temp_handle->notify_priv = notify_priv;
 	temp_handle->handle_reset = 0;
 	init_waitqueue_head(&temp_handle->reset_waitq);
+	INIT_DELAYED_WORK(&temp_handle->resume_tx_work, handle_resume_tx);
+	init_msm_qmi();
 	return temp_handle;
 }
 EXPORT_SYMBOL(qmi_handle_create);
 
 static void clean_txn_info(struct qmi_handle *handle)
 {
-	struct qmi_txn *txn_handle, *temp_txn_handle;
+	struct qmi_txn *txn_handle, *temp_txn_handle, *pend_txn;
 
+	list_for_each_entry_safe(pend_txn, temp_txn_handle,
+				&handle->pending_txn_list, list) {
+		if (pend_txn->type == QMI_ASYNC_TXN) {
+			list_del(&pend_txn->list);
+			pend_txn->resp_cb(pend_txn->handle,
+					((struct qmi_header *)
+					pend_txn->enc_data)->msg_id,
+					pend_txn->resp, pend_txn->resp_cb_data,
+					-ENETRESET);
+			kfree(pend_txn->enc_data);
+			kfree(pend_txn);
+		} else if (pend_txn->type == QMI_SYNC_TXN) {
+			kfree(pend_txn->enc_data);
+			wake_up(&pend_txn->wait_q);
+		}
+	}
 	list_for_each_entry_safe(txn_handle, temp_txn_handle,
 				 &handle->txn_list, list) {
 		if (txn_handle->type == QMI_ASYNC_TXN) {
@@ -154,7 +263,7 @@ int qmi_handle_destroy(struct qmi_handle *handle)
 	handle->handle_reset = 1;
 	clean_txn_info(handle);
 	mutex_unlock(&handle->handle_lock);
-
+	flush_delayed_work(&handle->resume_tx_work);
 	rc = wait_event_interruptible(handle->reset_waitq,
 				      list_empty(&handle->txn_list));
 
@@ -194,7 +303,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	struct msg_desc *resp_desc, void *resp, unsigned int resp_len,
 	void (*resp_cb)(struct qmi_handle *handle,
 			unsigned int msg_id, void *msg,
-			void *resp_cb_data),
+			void *resp_cb_data, int stat),
 	void *resp_cb_data)
 {
 	struct qmi_txn *txn_handle;
@@ -230,6 +339,8 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	txn_handle->resp_received = 0;
 	txn_handle->resp_cb = resp_cb;
 	txn_handle->resp_cb_data = resp_cb_data;
+	txn_handle->enc_data = NULL;
+	txn_handle->enc_data_len = 0;
 
 	/* Encode the request msg */
 	encoded_req_len = req_desc->max_msg_len + QMI_HEADER_SIZE;
@@ -256,12 +367,35 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 			  txn_handle->txn_id, req_desc->msg_id,
 			  encoded_req_len);
 	encoded_req_len += QMI_HEADER_SIZE;
-	list_add_tail(&txn_handle->list, &handle->txn_list);
 
+	/*
+	 * Check if this port has transactions queued to its pending list
+	 * and if there are any pending transactions then add the current
+	 * transaction to the pending list rather than sending it. This avoids
+	 * out-of-order message transfers.
+	 */
+	if (!list_empty(&handle->pending_txn_list)) {
+		rc = -EAGAIN;
+		goto append_pend_txn;
+	}
+
+	list_add_tail(&txn_handle->list, &handle->txn_list);
 	/* Send the request */
 	rc = msm_ipc_router_send_msg((struct msm_ipc_port *)(handle->src_port),
 		(struct msm_ipc_addr *)handle->dest_info,
 		encoded_req, encoded_req_len);
+append_pend_txn:
+	if (rc == -EAGAIN) {
+		txn_handle->enc_data = encoded_req;
+		txn_handle->enc_data_len = encoded_req_len;
+		if (list_empty(&handle->pending_txn_list))
+			list_del(&txn_handle->list);
+		list_add_tail(&txn_handle->list, &handle->pending_txn_list);
+		if (ret_txn_handle)
+			*ret_txn_handle = txn_handle;
+		mutex_unlock(&handle->handle_lock);
+		return 0;
+	}
 	if (rc < 0) {
 		pr_err("%s: send_msg failed %d\n", __func__, rc);
 		goto encode_and_send_req_err3;
@@ -306,13 +440,15 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 	/* Wait for the response */
 	if (!timeout_ms) {
 		rc = wait_event_interruptible(txn_handle->wait_q,
-					(txn_handle->resp_received ||
-					 handle->handle_reset));
+				(txn_handle->resp_received ||
+				 handle->handle_reset ||
+				(txn_handle->send_stat < 0)));
 	} else {
 		rc = wait_event_interruptible_timeout(txn_handle->wait_q,
-					(txn_handle->resp_received ||
-					 handle->handle_reset),
-					msecs_to_jiffies(timeout_ms));
+				(txn_handle->resp_received ||
+				handle->handle_reset ||
+				(txn_handle->send_stat < 0)),
+				msecs_to_jiffies(timeout_ms));
 		if (rc == 0)
 			rc = -ETIMEDOUT;
 	}
@@ -324,6 +460,8 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 			rc = -ENETRESET;
 		if (rc >= 0)
 			rc = -EFAULT;
+		if (txn_handle->send_stat < 0)
+			rc = txn_handle->send_stat;
 		goto send_req_wait_err;
 	}
 	rc = 0;
@@ -344,7 +482,7 @@ int qmi_send_req_nowait(struct qmi_handle *handle,
 			void *resp, unsigned int resp_len,
 			void (*resp_cb)(struct qmi_handle *handle,
 					unsigned int msg_id, void *msg,
-					void *resp_cb_data),
+					void *resp_cb_data, int stat),
 			void *resp_cb_data)
 {
 	return qmi_encode_and_send_req(NULL, handle, QMI_ASYNC_TXN,
@@ -407,7 +545,7 @@ static int handle_qmi_response(struct qmi_handle *handle,
 		if (txn_handle->resp_cb)
 			txn_handle->resp_cb(txn_handle->handle, msg_id,
 					    txn_handle->resp,
-					    txn_handle->resp_cb_data);
+					    txn_handle->resp_cb_data, 0);
 		list_del(&txn_handle->list);
 		kfree(txn_handle);
 		rc = 0;

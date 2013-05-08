@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/socket.h>
 #include <linux/gfp.h>
 #include <linux/qmi_encdec.h>
+#include <linux/workqueue.h>
 
 #define QMI_COMMON_TLV_TYPE 0
 
@@ -45,6 +46,8 @@ struct qmi_handle {
 	void *ind_cb_priv;
 	int handle_reset;
 	wait_queue_head_t reset_waitq;
+	struct list_head pending_txn_list;
+	struct delayed_work resume_tx_work;
 };
 
 enum qmi_result_type_v01 {
@@ -153,7 +156,8 @@ int qmi_send_req_nowait(struct qmi_handle *handle,
 			void *resp, unsigned int resp_len,
 			void (*resp_cb)(struct qmi_handle *handle,
 					unsigned int msg_id, void *msg,
-					void *resp_cb_data),
+					void *resp_cb_data,
+					int stat),
 			void *resp_cb_data);
 
 /**

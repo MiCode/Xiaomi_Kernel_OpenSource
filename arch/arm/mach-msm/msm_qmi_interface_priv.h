@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,12 +34,15 @@ struct qmi_txn {
 	uint16_t txn_id;
 	enum txn_type type;
 	struct qmi_handle *handle;
+	void *enc_data;
+	unsigned int enc_data_len;
 	struct msg_desc *resp_desc;
 	void *resp;
 	unsigned int resp_len;
 	int resp_received;
+	int send_stat;
 	void (*resp_cb)(struct qmi_handle *handle, unsigned int msg_id,
-			void *msg, void *resp_cb_data);
+			void *msg, void *resp_cb_data, int stat);
 	void *resp_cb_data;
 	wait_queue_head_t wait_q;
 };

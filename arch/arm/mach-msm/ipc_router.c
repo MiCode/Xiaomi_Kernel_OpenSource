@@ -735,8 +735,14 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 				&rport_ptr->resume_tx_port_list, list) {
 		local_port =
 			msm_ipc_router_lookup_local_port(rtx_port->port_id);
-		if (local_port)
+		if (local_port && local_port->notify)
+			local_port->notify(MSM_IPC_ROUTER_RESUME_TX,
+						local_port->priv);
+		else if (local_port)
 			post_pkt_to_port(local_port, pkt, 1);
+		else
+			pr_err("%s: Local Port %d not Found",
+				__func__, rtx_port->port_id);
 		list_del(&rtx_port->list);
 		kfree(rtx_port);
 	}
@@ -2216,6 +2222,8 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 	}
 
 	ret = msm_ipc_router_send_to(src, out_skb_head, dest);
+	if (ret == -EAGAIN)
+		return ret;
 	if (ret < 0) {
 		pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
 			__func__, ret);
