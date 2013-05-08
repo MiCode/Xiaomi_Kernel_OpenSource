@@ -14,6 +14,7 @@
 
 /include/ "msm8610.dtsi"
 /include/ "dsi-v2-panel-truly-wvga-video.dtsi"
+/include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 CDP";
