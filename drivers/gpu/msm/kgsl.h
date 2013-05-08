@@ -151,6 +151,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_GLOBAL BIT(1)
 /* The memdesc is frozen during a snapshot */
 #define KGSL_MEMDESC_FROZEN BIT(2)
+/* The memdesc is scheduled to be freed on a timestamp */
+#define KGSL_MEMDESC_FREE_PENDING BIT(3)
 
 /* shared memory allocation */
 struct kgsl_memdesc {

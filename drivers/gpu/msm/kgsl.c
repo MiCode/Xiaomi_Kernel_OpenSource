@@ -1346,6 +1346,12 @@ static long _cmdstream_freememontimestamp(struct kgsl_device_private *dev_priv,
 				"invalid gpuaddr %08x\n", gpuaddr);
 		return -EINVAL;
 	}
+	if (entry->memdesc.priv & KGSL_MEMDESC_FREE_PENDING) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+	entry->memdesc.priv |= KGSL_MEMDESC_FREE_PENDING;
+
 	trace_kgsl_mem_timestamp_queue(device, entry, context_id,
 				       kgsl_readtimestamp(device, context,
 						  KGSL_TIMESTAMP_RETIRED),
@@ -1445,6 +1451,11 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 	}
 
+	if (entry->memdesc.priv & KGSL_MEMDESC_FREE_PENDING) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	trace_kgsl_mem_free(entry);
 
 	kgsl_memfree_hist_set_event(entry->priv->pid,
@@ -1470,6 +1481,12 @@ static long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
 		KGSL_MEM_INFO(dev_priv->device, "invalid id %d\n", param->id);
 		return -EINVAL;
 	}
+
+	if (entry->memdesc.priv & KGSL_MEMDESC_FREE_PENDING) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	trace_kgsl_mem_free(entry);
 
 	kgsl_memfree_hist_set_event(entry->priv->pid,
