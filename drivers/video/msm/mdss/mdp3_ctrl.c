@@ -130,52 +130,41 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 	return 0;
 }
 
-static int mdp3_ctrl_blit_req(struct msm_fb_data_type *mfd, void __user *p)
+static int mdp3_ctrl_async_blit_req(struct msm_fb_data_type *mfd,
+	void __user *p)
 {
-	const int MAX_LIST_WINDOW = 16;
-	struct mdp_blit_req req_list[MAX_LIST_WINDOW];
-	struct mdp_blit_req_list req_list_header;
-	int rc, count, i, req_list_count;
+	struct mdp_async_blit_req_list req_list_header;
+	int rc, count;
+	void __user *p_req;
 
 	if (copy_from_user(&req_list_header, p, sizeof(req_list_header)))
 		return -EFAULT;
-	p += sizeof(req_list_header);
+	p_req = p + sizeof(req_list_header);
 	count = req_list_header.count;
 	if (count < 0 || count >= MAX_BLIT_REQ)
 		return -EINVAL;
-	while (count > 0) {
-		/*
-		 * Access the requests through a narrow window to decrease copy
-		 * overhead and make larger requests accessible to the
-		 * coherency management code.
-		 * NOTE: The window size is intended to be larger than the
-		 *       typical request size, but not require more than 2
-		 *       kbytes of stack storage.
-		 */
-		req_list_count = count;
-		if (req_list_count > MAX_LIST_WINDOW)
-			req_list_count = MAX_LIST_WINDOW;
-		if (copy_from_user(&req_list, p,
-				sizeof(struct mdp_blit_req)*req_list_count))
-			return -EFAULT;
-		/*
-		 * Do the blit DMA, if required -- returning early only if
-		 * there is a failure.
-		 */
-		for (i = 0; i < req_list_count; i++) {
-			if (!(req_list[i].flags & MDP_NO_BLIT)) {
-				/* Do the actual blit. */
-				rc = mdp3_ppp_start_blit(mfd, &(req_list[i]));
-				if (rc)
-					return rc;
-			}
-		}
+	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 1);
+	if (!rc)
+		rc = copy_to_user(p, &req_list_header, sizeof(req_list_header));
+	return rc;
+}
 
-		/* Go to next window of requests. */
-		count -= req_list_count;
-		p += sizeof(struct mdp_blit_req)*req_list_count;
-	}
-	return 0;
+static int mdp3_ctrl_blit_req(struct msm_fb_data_type *mfd, void __user *p)
+{
+	struct mdp_async_blit_req_list req_list_header;
+	int rc, count;
+	void __user *p_req;
+
+	if (copy_from_user(&(req_list_header.count), p,
+			sizeof(struct mdp_blit_req_list)))
+		return -EFAULT;
+	p_req = p + sizeof(struct mdp_blit_req_list);
+	count = req_list_header.count;
+	if (count < 0 || count >= MAX_BLIT_REQ)
+		return -EINVAL;
+	req_list_header.sync.acq_fen_fd_cnt = 0;
+	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 0);
+	return rc;
 }
 
 static ssize_t mdp3_vsync_show_event(struct device *dev,
@@ -239,8 +228,10 @@ static int mdp3_ctrl_res_req_clk(struct msm_fb_data_type *mfd, int status)
 	int rc = 0;
 	if (status) {
 
-		mdp3_clk_set_rate(MDP3_CLK_CORE, MDP_CORE_CLK_RATE);
-		mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE);
+		mdp3_clk_set_rate(MDP3_CLK_CORE, MDP_CORE_CLK_RATE,
+				MDP3_CLIENT_DMA_P);
+		mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
+				MDP3_CLIENT_DMA_P);
 
 		rc = mdp3_clk_enable(true);
 		if (rc)
@@ -744,6 +735,9 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 			pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed\n");
 			rc = -EFAULT;
 		}
+		break;
+	case MSMFB_ASYNC_BLIT:
+		rc = mdp3_ctrl_async_blit_req(mfd, argp);
 		break;
 	case MSMFB_BLIT:
 		rc = mdp3_ctrl_blit_req(mfd, argp);
