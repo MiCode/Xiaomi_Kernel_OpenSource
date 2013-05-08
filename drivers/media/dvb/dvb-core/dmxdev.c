@@ -1796,19 +1796,10 @@ static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
 	return 0;
 }
 
-static void dvb_dmxdev_ts_insertion_timer(unsigned long data)
-{
-	struct ts_insertion_buffer *ts_buffer =
-		(struct ts_insertion_buffer *)data;
-
-	if (ts_buffer && !ts_buffer->abort)
-		schedule_work(&ts_buffer->work);
-}
-
 static void dvb_dmxdev_ts_insertion_work(struct work_struct *worker)
 {
 	struct ts_insertion_buffer *ts_buffer =
-		container_of(worker, struct ts_insertion_buffer, work);
+		container_of(worker, struct ts_insertion_buffer, dwork.work);
 	struct dmxdev_feed *feed;
 	size_t free_bytes;
 	struct dmx_ts_feed *ts;
@@ -1832,8 +1823,8 @@ static void dvb_dmxdev_ts_insertion_work(struct work_struct *worker)
 		ts->ts_insertion_insert_buffer(ts,
 			ts_buffer->buffer, ts_buffer->size);
 
-	if (ts_buffer->repetition_time)
-		mod_timer(&ts_buffer->timer, jiffies +
+	if (ts_buffer->repetition_time && !ts_buffer->abort)
+		schedule_delayed_work(&ts_buffer->dwork,
 				msecs_to_jiffies(ts_buffer->repetition_time));
 }
 
@@ -1854,7 +1845,7 @@ static void dvb_dmxdev_queue_ts_insertion(
 	}
 
 	ts_buffer->abort = 0;
-	schedule_work(&ts_buffer->work);
+	schedule_delayed_work(&ts_buffer->dwork, 0);
 }
 
 static void dvb_dmxdev_cancel_ts_insertion(
@@ -1873,16 +1864,10 @@ static void dvb_dmxdev_cancel_ts_insertion(
 		return;
 	}
 
-	/*
-	 * Work should be stopped first as it might re-trigger the timer
-	 * until it is stopped. Timer would not re-schedule the work
-	 * due to the abort flag.
-	 */
 	ts_buffer->abort = 1;
 
 	mutex_unlock(&ts_buffer->dmxdevfilter->mutex);
-	cancel_work_sync(&ts_buffer->work);
-	del_timer_sync(&ts_buffer->timer);
+	cancel_delayed_work_sync(&ts_buffer->dwork);
 	mutex_lock(&ts_buffer->dmxdevfilter->mutex);
 }
 
@@ -1928,11 +1913,7 @@ static int dvb_dmxdev_set_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 	ts_buffer->identifier = params->identifier;
 	ts_buffer->repetition_time = params->repetition_time;
 	ts_buffer->dmxdevfilter = dmxdevfilter;
-	init_timer(&ts_buffer->timer);
-	ts_buffer->timer.function = dvb_dmxdev_ts_insertion_timer;
-	ts_buffer->timer.data = (unsigned long)ts_buffer;
-	ts_buffer->timer.expires = 0xffffffffL;
-	INIT_WORK(&ts_buffer->work, dvb_dmxdev_ts_insertion_work);
+	INIT_DELAYED_WORK(&ts_buffer->dwork, dvb_dmxdev_ts_insertion_work);
 
 	first_buffer = list_empty(&dmxdevfilter->insertion_buffers);
 	list_add_tail(&ts_buffer->next, &dmxdevfilter->insertion_buffers);
