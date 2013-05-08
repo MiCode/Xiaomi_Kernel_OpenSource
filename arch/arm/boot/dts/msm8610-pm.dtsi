@@ -114,7 +114,7 @@
 			qcom,type = <0x61706d73>;	/* "smpa" */
 			qcom,id = <0x01>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
-			qcom,init-value = <5>;		/* Super Turbo */
+			qcom,init-value = <3>;		/* SVS SOC */
 		};
 
 		qcom,lpm-resources@1 {
@@ -123,7 +123,7 @@
 			qcom,type = <0x616F646C>;	/* "ldoa" */
 			qcom,id = <0x03>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
-			qcom,init-value = <3>;		/* Active */
+			qcom,init-value = <3>;		/* SVS SOC */
 		};
 
 		qcom,lpm-resources@2 {
