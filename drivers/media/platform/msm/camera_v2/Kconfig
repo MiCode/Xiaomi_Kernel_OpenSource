@@ -36,6 +36,16 @@ config MSM_CSI20_HEADER
           This config macro is required targets based on 8960,
           8930 and 8064 platforms.
 
+config MSM_CSI22_HEADER
+        bool "Qualcomm MSM CSI 2.2 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 2.2
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required targets based on 8610
+          platform.
+
 config MSM_CSI30_HEADER
         bool "Qualcomm MSM CSI 3.0 Header"
         depends on MSMB_CAMERA
@@ -81,6 +91,15 @@ config MSM_ISPIF
           This module acts as a crossbar between CSID and VFE. Output
           of any CID of CSID can be routed to of of pixel or raw
           data interface in VFE.
+
+config MSM_ISPIF_V1
+        bool "Qualcomm MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of MSM_CSI22_HEADER can be routed to of pixel
+          or raw data interface in VFE.
 
 config S5K3L1YX
 	bool "Sensor S5K3L1YX (BAYER 12M)"
