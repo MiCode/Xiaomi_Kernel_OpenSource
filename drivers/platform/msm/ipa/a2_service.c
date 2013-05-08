@@ -92,11 +92,13 @@ struct a2_mux_context_type {
 	bool bam_connect_in_progress;
 	int a2_mux_send_power_vote_on_init_once;
 	int a2_mux_sw_bridge_is_connected;
+	bool a2_mux_dl_wakeup;
 	u32 a2_device_handle;
 	struct mutex wakeup_lock;
 	struct completion ul_wakeup_ack_completion;
 	struct completion bam_connection_completion;
 	struct completion request_resource_completion;
+	struct completion dl_wakeup_completion;
 	rwlock_t ul_wakeup_lock;
 	int wait_for_ack;
 	struct wake_lock bam_wakelock;
@@ -431,6 +433,7 @@ static void kickoff_ul_power_down_func(struct work_struct *work)
 static void kickoff_ul_wakeup_func(struct work_struct *work)
 {
 	bool is_connected;
+	int ret;
 
 	ul_wakeup();
 	write_lock(&a2_mux_ctx->ul_wakeup_lock);
@@ -440,8 +443,19 @@ static void kickoff_ul_wakeup_func(struct work_struct *work)
 	write_unlock(&a2_mux_ctx->ul_wakeup_lock);
 	if (is_connected)
 		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
-			IPA_RM_RESOURCE_A2_CONS);
-	else
+				IPA_RM_RESOURCE_A2_CONS);
+	INIT_COMPLETION(a2_mux_ctx->dl_wakeup_completion);
+	if (!a2_mux_ctx->a2_mux_dl_wakeup) {
+		ret = wait_for_completion_timeout(
+			&a2_mux_ctx->dl_wakeup_completion,
+			A2_MUX_COMPLETION_TIMEOUT);
+		if (unlikely(ret == 0)) {
+			IPAERR("%s timeout A2 PROD\n", __func__);
+			BUG();
+			return;
+		}
+	}
+	if (!is_connected)
 		msm_bam_dmux_kickoff_ul_power_down();
 }
 
@@ -468,6 +482,8 @@ static void kickoff_ul_request_resource_func(struct work_struct *work)
 		}
 	}
 	toggle_apps_ack();
+	a2_mux_ctx->a2_mux_dl_wakeup = true;
+	complete_all(&a2_mux_ctx->dl_wakeup_completion);
 }
 
 static void ipa_embedded_notify(void *priv,
@@ -635,6 +651,7 @@ static int disconnect_to_bam(void)
 	(void) ipa_rm_release_resource(IPA_RM_RESOURCE_A2_PROD);
 	if (a2_mux_ctx->disconnect_ack)
 		toggle_apps_ack();
+	a2_mux_ctx->a2_mux_dl_wakeup = false;
 	a2_mux_ctx->a2_mux_sw_bridge_is_connected = 0;
 	complete_all(&a2_mux_ctx->bam_connection_completion);
 	return 0;
@@ -1467,6 +1484,7 @@ static int a2_mux_initialize_context(int handle)
 	init_completion(&a2_mux_ctx->ul_wakeup_ack_completion);
 	init_completion(&a2_mux_ctx->bam_connection_completion);
 	init_completion(&a2_mux_ctx->request_resource_completion);
+	init_completion(&a2_mux_ctx->dl_wakeup_completion);
 	wake_lock_init(&a2_mux_ctx->bam_wakelock,
 		       WAKE_LOCK_SUSPEND, "a2_mux_wakelock");
 	a2_mux_ctx->a2_mux_initialized = 1;
