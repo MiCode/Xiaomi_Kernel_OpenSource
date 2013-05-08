@@ -286,7 +286,7 @@ static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
-	MSG_LVL_HIGH,
+	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
@@ -725,7 +725,7 @@ static const uint32_t msg_bld_masks_22[] = {
 /* LOG CODES */
 
 #define LOG_0	0x0
-#define LOG_1	0x17F4
+#define LOG_1	0x17FA
 #define LOG_2	0x0
 #define LOG_3	0x0
 #define LOG_4	0x4910
