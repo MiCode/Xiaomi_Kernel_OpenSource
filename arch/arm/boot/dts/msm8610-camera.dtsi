@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc{
+	qcom,msm-cam@fd8c0000 {
+		compatible = "qcom,msm-cam";
+		reg = <0xfd8C0000 0x10000>;
+		reg-names = "msm-cam";
+	};
+
+	qcom,csiphy@fda00c00 {
+		cell-index = <0>;
+		compatible = "qcom,csiphy";
+		reg = <0xfda00c00 0x1f4>;
+		reg-names = "csiphy";
+		interrupts = <0 78 0>;
+		interrupt-names = "csiphy";
+	};
+
+	qcom,csiphy@fda01000 {
+		cell-index = <1>;
+		compatible = "qcom,csiphy";
+		reg = <0xfda01000 0x1f4>;
+		reg-names = "csiphy";
+		interrupts = <0 79 0>;
+		interrupt-names = "csiphy";
+	};
+
+	qcom,csid@fda00000 {
+		cell-index = <0>;
+		compatible = "qcom,csid";
+		reg = <0xfda00000 0x100>;
+		reg-names = "csid";
+		interrupts = <0 50 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
+	};
+
+	qcom,csid@fda00400 {
+		cell-index = <1>;
+		compatible = "qcom,csid";
+		reg = <0xfda00400 0x100>;
+		reg-names = "csid";
+		interrupts = <0 51 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
+	};
+
+	qcom,ispif@fda00800 {
+		cell-index = <0>;
+		compatible = "qcom,ispif";
+		reg = <0xfda00800 0x200>;
+		reg-names = "ispif";
+		interrupts = <0 52 0>;
+		interrupt-names = "ispif";
+	};
+
+	qcom,vfe@fde00000 {
+		cell-index = <0>;
+		compatible = "qcom,vfe32";
+		reg = <0xfde00000 0x800>;
+		reg-names = "vfe", "vfe_vbif";
+		interrupts = <0 49 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe>;
+	};
+
+};

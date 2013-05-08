@@ -33,6 +33,7 @@
 	soc: soc { };
 };
 
+/include/ "msm8610-camera.dtsi"
 /include/ "msm-iommu-v0.dtsi"
 /include/ "msm8610-ion.dtsi"
 /include/ "msm8610-gpu.dtsi"
@@ -472,7 +473,7 @@
                 qcom,i2c-bus-freq = <100000>;
         };
 
-	i2c@f9928000 { /* BLSP1 QUP6 */
+	i2c: i2c@f9928000 { /* BLSP1 QUP6 */
 		cell-index = <6>;
 		compatible = "qcom,i2c-qup";
 		#address-cells = <1>;
