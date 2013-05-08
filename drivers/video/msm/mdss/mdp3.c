@@ -32,6 +32,8 @@
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
+#include <linux/file.h>
+#include <linux/msm_kgsl.h>
 
 #include <mach/board.h>
 #include <mach/clk.h>
@@ -694,6 +696,108 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 	mdp3_res->irq = res->start;
 
 	return 0;
+}
+
+int mdp3_put_img(struct mdp3_img_data *data)
+{
+	struct ion_client *iclient = mdp3_res->ion_client;
+	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
+
+	if (!data->srcp_file) {
+		pr_debug("No img to put\n");
+		return 0;
+	}
+	if (data->flags & MDP_BLIT_SRC_GEM) {
+		pr_debug("memory source MDP_BLIT_SRC_GEM\n");
+	} else if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
+		pr_debug("fb mem buf=0x%x\n", data->addr);
+		fput_light(data->srcp_file, data->p_need);
+		data->srcp_file = NULL;
+	} else {
+		ion_unmap_iommu(iclient, data->srcp_ihdl, dom, 0);
+		ion_free(iclient, data->srcp_ihdl);
+		data->srcp_ihdl = NULL;
+	}
+	return 0;
+}
+
+int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data)
+{
+	struct file *file;
+	int ret = -EINVAL;
+	int fb_num;
+	unsigned long *start, *len;
+	struct ion_client *iclient = mdp3_res->ion_client;
+	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
+
+	start = (unsigned long *) &data->addr;
+	len = (unsigned long *) &data->len;
+	data->flags |= img->flags;
+	data->p_need = 0;
+
+	if (img->flags & MDP_BLIT_SRC_GEM) {
+		data->srcp_file = NULL;
+		ret = kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
+					&data->addr, &data->len);
+		if (!ret)
+			goto done;
+	}
+	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+		file = fget_light(img->memory_id, &data->p_need);
+		if (file == NULL) {
+			pr_err("invalid framebuffer file (%d)\n",
+					img->memory_id);
+			return -EINVAL;
+		}
+		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+			ret = mdss_fb_get_phys_info(start, len, fb_num);
+			if (ret) {
+				pr_err("mdss_fb_get_phys_info() failed\n");
+				fput_light(file, data->p_need);
+				file = NULL;
+			}
+		} else {
+			pr_err("invalid FB_MAJOR\n");
+			fput_light(file, data->p_need);
+			file = NULL;
+			ret = -EINVAL;
+		}
+		data->srcp_file = file;
+		if (!ret)
+			goto done;
+	}
+	if (iclient) {
+		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
+		if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
+			pr_err("error on ion_import_fd\n");
+			ret = PTR_ERR(data->srcp_ihdl);
+			data->srcp_ihdl = NULL;
+			return ret;
+		}
+
+		ret = ion_map_iommu(iclient, data->srcp_ihdl, dom,
+		    0, SZ_4K, 0, start, len, 0, 0);
+
+		if (IS_ERR_VALUE(ret)) {
+			ion_free(iclient, data->srcp_ihdl);
+			pr_err("failed to map ion handle (%d)\n", ret);
+			return ret;
+		}
+	}
+done:
+	if (!ret && (img->offset < data->len)) {
+		data->addr += img->offset;
+		data->len -= img->offset;
+
+		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
+			 data->srcp_ihdl, data->addr, data->len);
+	} else {
+		mdp3_put_img(data);
+		return -EINVAL;
+	}
+
+	return ret;
 }
 
 static int mdp3_init(struct msm_fb_data_type *mfd)
