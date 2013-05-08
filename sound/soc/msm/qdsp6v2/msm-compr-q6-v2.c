@@ -497,6 +497,10 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 			if (!atomic_cmpxchg(&compressed_audio.audio_ocmem_req,
 									0, 1))
 				audio_ocmem_process_req(AUDIO, true);
+			else
+				atomic_inc(&compressed_audio.audio_ocmem_req);
+			pr_debug("%s: req: %d\n", __func__,
+			atomic_read(&compressed_audio.audio_ocmem_req));
 		}
 
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
@@ -619,7 +623,6 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
-	atomic_set(&compressed_audio.audio_ocmem_req, 0);
 	compressed_audio.prtd =  &compr->prtd;
 
 	return 0;
@@ -653,8 +656,14 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 
 	dir = IN;
 	atomic_set(&prtd->pending_buffer, 0);
-	if (atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 1, 0))
+
+	if (atomic_read(&compressed_audio.audio_ocmem_req) > 1)
+		atomic_dec(&compressed_audio.audio_ocmem_req);
+	else if (atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 1, 0))
 		audio_ocmem_process_req(AUDIO, false);
+
+	pr_debug("%s: req: %d\n", __func__,
+		atomic_read(&compressed_audio.audio_ocmem_req));
 	prtd->pcm_irq_pos = 0;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	compressed_audio.prtd = NULL;
@@ -1171,6 +1180,8 @@ static __devinit int msm_compr_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "%s: dev name %s\n",
 			 __func__, dev_name(&pdev->dev));
+
+	atomic_set(&compressed_audio.audio_ocmem_req, 0);
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
 }
