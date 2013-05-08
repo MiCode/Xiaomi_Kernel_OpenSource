@@ -400,9 +400,11 @@ static inline void q6_hfi_add_apr_hdr(struct q6_hfi_device *dev,
 static int q6_hfi_apr_callback(struct apr_client_data *data, void *priv)
 {
 	struct q6_hfi_device *device = priv;
+	struct hfi_msg_event_notify_packet pkt = {0};
+	void *payload = NULL;
 	int rc = 0;
 
-	if (!data || !device || !data->payload_size) {
+	if (!data || !device) {
 		dprintk(VIDC_ERR, "%s - Invalid arguments", __func__);
 		return -EINVAL;
 	}
@@ -410,7 +412,23 @@ static int q6_hfi_apr_callback(struct apr_client_data *data, void *priv)
 	dprintk(VIDC_DBG, "%s opcode = %u payload size = %u", __func__,
 				data->opcode, data->payload_size);
 
-	rc = q6_hfi_iface_eventq_write(device, data->payload);
+	if (data->opcode == RESET_EVENTS) {
+		dprintk(VIDC_ERR, "%s Received subsystem reset event: %d",
+				__func__, data->reset_event);
+		pkt.packet_type = HFI_MSG_EVENT_NOTIFY;
+		pkt.size = sizeof(pkt);
+		pkt.event_id = HFI_EVENT_SYS_ERROR;
+		pkt.event_data1 = data->opcode;
+		pkt.event_data2 = data->reset_event;
+		payload = &pkt;
+	} else if (data->payload_size > 0) {
+		payload = data->payload;
+	} else {
+		dprintk(VIDC_ERR, "%s - Invalid payload size", __func__);
+		return -EINVAL;
+	}
+
+	rc = q6_hfi_iface_eventq_write(device, payload);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s failed to write to event queue",
 				__func__);
