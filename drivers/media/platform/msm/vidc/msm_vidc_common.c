@@ -313,6 +313,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
+		msm_comm_recover_from_session_error(inst);
 		rc = -EIO;
 	} else {
 		rc = 0;
@@ -343,7 +344,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response) {
+	if (response && !response->status) {
 		struct vidc_hal_session_init_done *session_init_done =
 			(struct vidc_hal_session_init_done *) response->data;
 		inst = (struct msm_vidc_inst *)response->session_id;
@@ -1228,7 +1229,8 @@ static int msm_vidc_load_resources(int flipped_state,
 			}
 			mutex_unlock(&temp->lock);
 		}
-
+		inst->state = MSM_VIDC_CORE_INVALID;
+		msm_comm_recover_from_session_error(inst);
 		return -ENOMEM;
 	}
 
@@ -1880,6 +1882,8 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	if (!rc) {
 		dprintk(VIDC_ERR,
 			"Wait interrupted or timeout: %d\n", rc);
+		inst->state = MSM_VIDC_CORE_INVALID;
+		msm_comm_recover_from_session_error(inst);
 		rc = -EIO;
 		goto exit;
 	}
@@ -1940,6 +1944,13 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
 					SESSION_RELEASE_BUFFER_DONE);
+				if (rc) {
+					mutex_lock(&inst->sync_lock);
+					inst->state = MSM_VIDC_CORE_INVALID;
+					mutex_unlock(&inst->sync_lock);
+					msm_comm_recover_from_session_error(
+						inst);
+				}
 				mutex_lock(&inst->lock);
 			}
 			list_del(&buf->list);
@@ -2004,6 +2015,13 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
 					SESSION_RELEASE_BUFFER_DONE);
+				if (rc) {
+					mutex_lock(&inst->sync_lock);
+					inst->state = MSM_VIDC_CORE_INVALID;
+					mutex_unlock(&inst->sync_lock);
+					msm_comm_recover_from_session_error(
+						inst);
+				}
 				mutex_lock(&inst->lock);
 			}
 			list_del(&buf->list);
@@ -2386,6 +2404,20 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_core *core;
+	enum command_response cmd = SYS_ERROR;
+	struct msm_vidc_cb_cmd_done response  = {0};
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid input parameters", __func__);
+		return;
+	}
+	core = inst->core;
+	response.device_id = (u32) core->id;
+	handle_sys_error(cmd, (void *) &response);
+
+}
 int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 {
 	struct hfi_device *hdev;
@@ -2394,6 +2426,12 @@ int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s: invalid input parameters", __func__);
 		return -EINVAL;
+	}
+	if (inst->state < MSM_VIDC_OPEN_DONE) {
+		dprintk(VIDC_WARN,
+			"No corresponding FW session. No need to send Abort");
+		inst->state = MSM_VIDC_CORE_INVALID;
+		return rc;
 	}
 	hdev = inst->core->device;
 
@@ -2408,10 +2446,14 @@ int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "session_abort failed rc: %d\n", rc);
 		return rc;
 	}
-
-	rc = wait_for_sess_signal_receipt(inst, SESSION_ABORT_DONE);
-	if (rc)
+	rc = wait_for_completion_timeout(
+		&inst->completions[SESSION_MSG_INDEX(SESSION_ABORT_DONE)],
+		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
 			__func__, rc);
+		msm_comm_generate_sys_error(inst);
+	} else
+		change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
 	return rc;
 }
