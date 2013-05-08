@@ -1358,16 +1358,25 @@ static const struct snd_kcontrol_new mi2s_config_controls[] = {
 	SOC_ENUM_EXT("PRI MI2S RX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
-	SOC_ENUM_EXT("SEC RX Format", mi2s_config_enum[0],
+	SOC_ENUM_EXT("SEC MI2S RX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("TERT MI2S RX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("QUAT MI2S RX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
 	SOC_ENUM_EXT("PRI MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
-	SOC_ENUM_EXT("SEC MI2S RX Format", mi2s_config_enum[0],
+	SOC_ENUM_EXT("SEC MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
-	SOC_ENUM_EXT("SEC MI2S TX Format", mi2s_config_enum[0],
+	SOC_ENUM_EXT("TERT MI2S TX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("QUAT MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
 };
@@ -1384,6 +1393,10 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.0", 17))
 			ctrl = &mi2s_config_controls[0];
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
+			ctrl = &mi2s_config_controls[1];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.2", 17))
+			ctrl = &mi2s_config_controls[2];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.3", 17))
 			ctrl = &mi2s_config_controls[3];
 	}
 
@@ -1402,9 +1415,13 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 	ctrl = NULL;
 	if (mi2s_dai_data->tx_dai.mi2s_dai_data.port_config.i2s.channel_mode) {
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.0", 17))
-			ctrl = &mi2s_config_controls[2];
-		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
 			ctrl = &mi2s_config_controls[4];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
+			ctrl = &mi2s_config_controls[5];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.2", 17))
+			ctrl = &mi2s_config_controls[6];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.3", 17))
+			ctrl = &mi2s_config_controls[7];
 	}
 
 	if (ctrl) {
