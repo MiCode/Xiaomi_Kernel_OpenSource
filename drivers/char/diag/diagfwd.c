@@ -689,9 +689,15 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					 int len, int type)
 {
 	driver->pkt_length = len;
-	if (entry.process_id != NON_APPS_PROC && type != MODEM_DATA) {
-		diag_update_pkt_buffer(buf);
-		diag_update_sleeping_process(entry.process_id, PKT_TYPE);
+
+	/* If the process_id corresponds to an apps process */
+	if (entry.process_id != NON_APPS_PROC) {
+		/* If the message is to be sent to the apps process */
+		if (type != MODEM_DATA) {
+			diag_update_pkt_buffer(buf);
+			diag_update_sleeping_process(entry.process_id,
+							PKT_TYPE);
+		}
 	} else {
 		if (len > 0) {
 			if (entry.client_id < NUM_SMD_DATA_CHANNELS) {
