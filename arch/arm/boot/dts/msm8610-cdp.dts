@@ -207,6 +207,17 @@
 			qcom,vib-vtg-level-mV = <3100>;
 		};
 	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "atmel_mxt_ts";
+		qcom,disp-maxx = <480>;
+		qcom,disp-maxy = <800>;
+		qcom,panel-maxx = <508>;
+		qcom,panel-maxy = <880>;
+		qcom,key-codes = <158 102 139>;
+		qcom,y-offset = <35>;
+	};
 };
 
 &sdhc_1 {
