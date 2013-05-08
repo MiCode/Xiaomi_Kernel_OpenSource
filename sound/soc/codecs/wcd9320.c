@@ -488,6 +488,8 @@ struct taiko_priv {
 	bool spkr_pa_widget_on;
 	struct regulator *spkdrv_reg;
 
+	bool mbhc_started;
+
 	struct afe_param_cdc_slimbus_slave_cfg slimbus_slave_cfg;
 
 	/* resmgr module */
@@ -2648,7 +2650,9 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
 
-		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL)
+		if (taiko->mbhc_started &&
+		    taiko->resmgr.pdata->micbias.bias2_is_headset_only &&
+		    micb_ctl_reg == TAIKO_A_MICB_2_CTL)
 			wcd9xxx_resmgr_add_cond_update_bits(&taiko->resmgr,
 						  WCD9XXX_COND_HPH_MIC,
 						  micb_ctl_reg, w->shift,
@@ -2663,7 +2667,9 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL)
+		if (taiko->mbhc_started &&
+		    taiko->resmgr.pdata->micbias.bias2_is_headset_only &&
+		    micb_ctl_reg == TAIKO_A_MICB_2_CTL)
 			wcd9xxx_resmgr_rm_cond_update_bits(&taiko->resmgr,
 						  WCD9XXX_COND_HPH_MIC,
 						  micb_ctl_reg, 7, false);
@@ -5960,8 +5966,12 @@ static void taiko_cleanup_irqs(struct taiko_priv *taiko)
 int taiko_hs_detect(struct snd_soc_codec *codec,
 		    struct wcd9xxx_mbhc_config *mbhc_cfg)
 {
+	int rc;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
-	return wcd9xxx_mbhc_start(&taiko->mbhc, mbhc_cfg);
+	rc = wcd9xxx_mbhc_start(&taiko->mbhc, mbhc_cfg);
+	if (!rc)
+		taiko->mbhc_started = true;
+	return rc;
 }
 EXPORT_SYMBOL_GPL(taiko_hs_detect);
 
@@ -6017,13 +6027,20 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	taiko_init_slim_slave_cfg(codec);
 	taiko_slim_interface_init_reg(codec);
 
-	wcd9xxx_mbhc_deinit(&taiko->mbhc);
-	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
-				WCD9XXX_MBHC_VERSION_TAIKO);
-	if (ret)
-		pr_err("%s: mbhc init failed %d\n", __func__, ret);
-	else
-		wcd9xxx_mbhc_start(&taiko->mbhc, taiko->mbhc.mbhc_cfg);
+	if (taiko->mbhc_started) {
+		wcd9xxx_mbhc_deinit(&taiko->mbhc);
+		taiko->mbhc_started = false;
+		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+					WCD9XXX_MBHC_VERSION_TAIKO);
+		if (ret) {
+			pr_err("%s: mbhc init failed %d\n", __func__, ret);
+		} else {
+			ret = wcd9xxx_mbhc_start(&taiko->mbhc,
+						 taiko->mbhc.mbhc_cfg);
+			if (!ret)
+				taiko->mbhc_started = true;
+		}
+	}
 	mutex_unlock(&codec->mutex);
 	return ret;
 }
