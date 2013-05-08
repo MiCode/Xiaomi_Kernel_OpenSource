@@ -1384,17 +1384,17 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 			 *  The result is saved with the response so that
 			 *  the ufs_core layer will handle it.
 			 */
-			result |= DID_OK << 16;
+			result = DID_OK << 16;
 			ufshcd_copy_query_response(hba, lrbp);
 			break;
 		case UPIU_TRANSACTION_REJECT_UPIU:
 			/* TODO: handle Reject UPIU Response */
-			result |= DID_ERROR << 16;
+			result = DID_ERROR << 16;
 			dev_err(hba->dev,
 				"Reject UPIU not fully implemented\n");
 			break;
 		default:
-			result |= DID_ERROR << 16;
+			result = DID_ERROR << 16;
 			dev_err(hba->dev,
 				"Unexpected request response code = %x\n",
 				result);
