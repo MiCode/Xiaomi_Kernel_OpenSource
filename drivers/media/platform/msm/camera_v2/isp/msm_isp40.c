@@ -520,26 +520,37 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x40);
 	comp_mask &= ~(0x7F << (comp_mask_index * 8));
 	comp_mask |= (axi_data->composite_info[comp_mask_index].
-	stream_composite_mask << (comp_mask_index * 8));
+		stream_composite_mask << (comp_mask_index * 8));
+	if (stream_info->plane_offset[0])
+		comp_mask |= (axi_data->composite_info[comp_mask_index].
+		stream_composite_mask << 24);
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask |= 1 << (comp_mask_index + 25);
+	if (stream_info->plane_offset[0] && (comp_mask >> 24))
+		irq_mask |= BIT(28);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
 
 static void msm_vfe40_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t comp_mask, comp_mask_index = stream_info->comp_mask_index;
 	uint32_t irq_mask;
 
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x40);
 	comp_mask &= ~(0x7F << (comp_mask_index * 8));
+	if (stream_info->plane_offset[0])
+		comp_mask &= ~(axi_data->composite_info[comp_mask_index].
+		stream_composite_mask << 24);
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask &= ~(1 << (comp_mask_index + 25));
+	if (stream_info->plane_offset[0] && !(comp_mask >> 24))
+		irq_mask &= ~BIT(28);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
 
@@ -1219,7 +1230,7 @@ static void msm_vfe40_get_error_mask(
 
 static struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
 	.num_wm = 4,
-	.num_comp_mask = 4,
+	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
 	.min_wm_ub = 64,
