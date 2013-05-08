@@ -725,8 +725,7 @@ int ufshcd_query_request(struct ufs_hba *hba,
 	bool sdev_lookup = true;
 
 	if (!hba || !query || !response) {
-		dev_err(hba->dev,
-			"%s: NULL pointer hba = %p, query = %p response = %p\n",
+		pr_err("%s: NULL pointer hba = %p, query = %p response = %p\n",
 			__func__, hba, query, response);
 		return -EINVAL;
 	}
