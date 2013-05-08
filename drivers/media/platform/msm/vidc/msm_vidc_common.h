@@ -48,3 +48,4 @@ struct hal_buffer_requirements *get_buff_req_buffer(
 		V4L2_CTRL_DRIVER_PRIV(idx))
 
 #endif
+int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst);

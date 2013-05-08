@@ -808,6 +808,7 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		handle_release_res_done(cmd, data);
 		break;
 	case SESSION_END_DONE:
+	case SESSION_ABORT_DONE:
 		handle_session_close(cmd, data);
 		break;
 	case VIDC_EVENT_CHANGE:
@@ -2209,7 +2210,10 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
-		rc = call_hfi_op(hdev, session_flush, inst->session,
+		/*Do not send flush in case of session_error */
+		if (!(inst->state == MSM_VIDC_CORE_INVALID &&
+			  core->state != VIDC_CORE_INVALID))
+			rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_ALL);
 	}
 	mutex_unlock(&inst->sync_lock);
@@ -2377,5 +2381,35 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 		wake_up(&inst->kernel_event_queue);
 	}
+	return rc;
+}
+
+int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
+{
+	struct hfi_device *hdev;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid input parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	init_completion(&inst->completions[SESSION_MSG_INDEX
+		(SESSION_ABORT_DONE)]);
+
+	/* We have received session_error. Send session_abort to firmware
+	 *  to clean up and release the session
+	 */
+	rc = call_hfi_op(hdev, session_abort, (void *) inst->session);
+	if (rc) {
+		dprintk(VIDC_ERR, "session_abort failed rc: %d\n", rc);
+		return rc;
+	}
+
+	rc = wait_for_sess_signal_receipt(inst, SESSION_ABORT_DONE);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
+			__func__, rc);
 	return rc;
 }
