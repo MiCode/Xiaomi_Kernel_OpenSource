@@ -842,7 +842,6 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 	int rbatt_mohm, scalefactor;
 
 	rbatt_mohm = chip->default_rbatt_mohm;
-	pr_debug("rbatt before scaling = %d\n", rbatt_mohm);
 	if (chip->rbatt_sf_lut == NULL)  {
 		pr_debug("RBATT = %d\n", rbatt_mohm);
 		return rbatt_mohm;
@@ -851,18 +850,10 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 	batt_temp = batt_temp / 10;
 	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
 						batt_temp, soc_rbatt_mohm);
-	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
-				scalefactor, batt_temp, soc_rbatt_mohm);
 	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
 
 	rbatt_mohm += chip->r_conn_mohm;
-	pr_debug("adding r_conn_mohm = %d rbatt = %d\n",
-				chip->r_conn_mohm, rbatt_mohm);
 	rbatt_mohm += chip->rbatt_capacitive_mohm;
-	pr_debug("adding rbatt_capacitive_mohm = %d rbatt = %d\n",
-				chip->rbatt_capacitive_mohm, rbatt_mohm);
-
-	pr_debug("RBATT = %d\n", rbatt_mohm);
 	return rbatt_mohm;
 }
 
@@ -915,9 +906,6 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 							+ (chip->v_cutoff_uv);
 		delta_uv = ocv_mv * 1000 - unusable_uv;
 
-		pr_debug("soc = %d ocv = %d rbat = %d u_uv = %d delta_v = %d\n",
-				i, ocv_mv, rbatt_mohm, unusable_uv, delta_uv);
-
 		if (delta_uv > 0)
 			break;
 
@@ -933,10 +921,10 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp);
 	uuc_uah = (params->fcc_uah * pc_unusable) / 100;
-	pr_debug("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d uuc = %d\n",
+	pr_debug("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d rbatt_pc = %d uuc = %d\n",
 					uuc_iavg_ma,
 					uuc_rbatt_mohm, unusable_uv,
-					pc_unusable, uuc_uah);
+					pc_unusable, i, uuc_uah);
 	*ret_pc_unusable = pc_unusable;
 	return uuc_uah;
 }
@@ -1180,6 +1168,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	if (soc_rbatt < 0)
 		soc_rbatt = 0;
 	params->rbatt_mohm = get_rbatt(chip, soc_rbatt, batt_temp);
+	pr_debug("rbatt_mohm = %d\n", params->rbatt_mohm);
 
 	calculate_iavg(chip, params->cc_uah, &params->iavg_ua,
 						params->delta_time_s);
