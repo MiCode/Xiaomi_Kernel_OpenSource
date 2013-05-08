@@ -187,6 +187,7 @@ static void ipa_handle_tx(struct ipa_sys_context *sys)
 	int inactive_cycles = 0;
 	int cnt;
 
+	ipa_inc_client_enable_clks();
 	do {
 		cnt = ipa_handle_tx_core(sys, true, true);
 		if (cnt == 0) {
@@ -199,6 +200,7 @@ static void ipa_handle_tx(struct ipa_sys_context *sys)
 	} while (inactive_cycles <= POLLING_INACTIVITY_TX);
 
 	ipa_tx_switch_to_intr_mode(sys);
+	ipa_dec_client_disable_clks();
 }
 
 static void ipa_wq_handle_tx(struct work_struct *work)
@@ -914,6 +916,7 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 	int inactive_cycles = 0;
 	int cnt;
 
+	ipa_inc_client_enable_clks();
 	do {
 		cnt = ipa_handle_rx_core(sys, true, true);
 		if (cnt == 0) {
@@ -926,6 +929,7 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
 	ipa_rx_switch_to_intr_mode(sys);
+	ipa_dec_client_disable_clks();
 }
 
 static void switch_to_intr_rx_work_func(struct work_struct *work)
