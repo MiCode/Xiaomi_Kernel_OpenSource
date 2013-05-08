@@ -936,6 +936,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		if (rc < 0)
 			dev_err(&led->spmi_dev->dev,
 					"MPP set brightness failed (%d)\n", rc);
+		break;
 	case QPNP_ID_KPDBL:
 		rc = qpnp_kpdbl_set(led);
 		if (rc < 0)
