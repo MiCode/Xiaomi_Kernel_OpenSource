@@ -697,32 +697,43 @@ exit:
 }
 int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
-	u32 us_per_frame = 0;
-	int rc = 0;
+	u64 us_per_frame = 0;
+	int rc = 0, fps = 0, rem = 0;
 	if (a->parm.output.timeperframe.denominator) {
 		switch (a->type) {
-		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			us_per_frame = a->parm.output.timeperframe.numerator/
-				a->parm.output.timeperframe.denominator;
-			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-			us_per_frame = a->parm.capture.timeperframe.numerator/
-				a->parm.capture.timeperframe.denominator;
+		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+			us_per_frame = a->parm.output.timeperframe.numerator *
+				(u64)USEC_PER_SEC;
+			do_div(us_per_frame, a->parm.output.\
+					timeperframe.denominator);
 			break;
 		default:
 			dprintk(VIDC_ERR,
-				"Scale clocks : Unknown buffer type\n");
+					"Scale clocks : Unknown buffer type %d\n",
+					a->type);
 			break;
 		}
 	}
+
 	if (!us_per_frame) {
 		dprintk(VIDC_ERR,
-				"Failed to scale clocks : time between frames is 0\n");
+			"Failed to scale clocks : time between frames is 0\n");
 		rc = -EINVAL;
 		goto exit;
 	}
-	inst->prop.fps = (u8) (USEC_PER_SEC / us_per_frame);
-	if (inst->prop.fps) {
+
+	fps = USEC_PER_SEC;
+	rem = do_div(fps, us_per_frame);
+	if (rem) {
+		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
+		fps++;
+	}
+
+	if (inst->prop.fps != fps) {
+		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
+				inst, inst->prop.fps, fps);
+		inst->prop.fps = fps;
 		msm_comm_scale_clocks_and_bus(inst);
 	}
 exit:
@@ -1191,7 +1202,6 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
 	inst->prop.fps = 30;
-	inst->prop.prev_time_stamp = 0;
 	return rc;
 }
 
