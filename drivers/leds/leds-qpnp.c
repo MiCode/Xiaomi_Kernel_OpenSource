@@ -93,6 +93,7 @@
 #define FLASH_LED_STROBE_CTRL(base)	(base + 0x47)
 #define FLASH_LED_UNLOCK_SECURE(base)	(base + 0xD0)
 #define FLASH_LED_TORCH(base)		(base + 0xE4)
+#define FLASH_FAULT_DETECT(base)	(base + 0x51)
 
 #define FLASH_MAX_LEVEL			0x4F
 #define	FLASH_NO_MASK			0x00
@@ -106,10 +107,9 @@
 #define FLASH_TMR_MASK			0x03
 #define FLASH_TMR_WATCHDOG		0x03
 #define FLASH_TMR_SAFETY		0x00
-
+#define FLASH_FAULT_DETECT_MASK		0X80
 #define FLASH_HW_VREG_OK		0x80
 #define FLASH_VREG_MASK			0xC0
-
 #define FLASH_STARTUP_DLY_MASK		0x02
 
 #define FLASH_ENABLE_ALL		0xE0
@@ -120,6 +120,7 @@
 #define FLASH_ENABLE_LED_0		0x40
 #define FLASH_ENABLE_LED_1		0x20
 #define FLASH_INIT_MASK			0xE0
+#define	FLASH_SELFCHECK_ENABLE		0x80
 
 #define FLASH_STROBE_SW			0xC0
 #define FLASH_STROBE_HW			0xC4
@@ -130,7 +131,7 @@
 #define FLASH_CURRENT_PRGM_MIN		1
 #define FLASH_CURRENT_PRGM_SHIFT	1
 #define FLASH_CURRENT_MAX		0x4F
-#define FLASH_CURRENT_TORCH		0x0F
+#define FLASH_CURRENT_TORCH		0x07
 
 #define FLASH_DURATION_200ms		0x13
 #define FLASH_CLAMP_200mA		0x0F
@@ -635,18 +636,10 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				return rc;
 			}
 
-			qpnp_led_masked_write(led, FLASH_MAX_CURR(led->base),
-				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
-			if (rc) {
-				dev_err(&led->spmi_dev->dev,
-					"Max current reg write failed(%d)\n",
-					rc);
-				return rc;
-			}
-
 			rc = qpnp_led_masked_write(led,
 				led->flash_cfg->current_addr,
-				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+				FLASH_CURRENT_MASK,
+				led->flash_cfg->current_prgm);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Current reg write failed(%d)\n", rc);
@@ -655,10 +648,21 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 
 			rc = qpnp_led_masked_write(led,
 				led->flash_cfg->second_addr,
-				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+				FLASH_CURRENT_MASK,
+				led->flash_cfg->current_prgm);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"2nd Current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			qpnp_led_masked_write(led, FLASH_MAX_CURR(led->base),
+				FLASH_CURRENT_MASK,
+				led->max_current);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Max current reg write failed(%d)\n",
 					rc);
 				return rc;
 			}
@@ -672,12 +676,37 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				return rc;
 			}
 		} else {
+			/* Set flash safety timer */
 			rc = qpnp_led_masked_write(led,
-				FLASH_MAX_CURR(led->base),
-				FLASH_CURRENT_MASK, FLASH_CURRENT_MAX);
+				FLASH_SAFETY_TIMER(led->base),
+				FLASH_SAFETY_TIMER_MASK,
+				led->flash_cfg->duration);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Safety timer reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			/* Set max current */
+			rc = qpnp_led_masked_write(led,
+				FLASH_MAX_CURR(led->base), FLASH_CURRENT_MASK,
+				FLASH_MAX_LEVEL);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Max current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			/* Set clamp current */
+			rc = qpnp_led_masked_write(led,
+				FLASH_CLAMP_CURR(led->base),
+				FLASH_CURRENT_MASK,
+				led->flash_cfg->clamp_curr);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Clamp current reg write failed(%d)\n",
 					rc);
 				return rc;
 			}
@@ -712,16 +741,6 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"2nd Current reg write failed(%d)\n",
-					rc);
-				return rc;
-			}
-
-			rc = qpnp_led_masked_write(led,
-				FLASH_CLAMP_CURR(led->base),
-				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
-			if (rc) {
-				dev_err(&led->spmi_dev->dev,
-					"Clamp Current reg write failed(%d)\n",
 					rc);
 				return rc;
 			}
@@ -765,25 +784,16 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Secure reg write failed(%d)\n", rc);
-			}
-
-			rc = qpnp_led_masked_write(led,
-				FLASH_LED_TORCH(led->base),
-				FLASH_TORCH_MASK, FLASH_LED_TORCH_DISABLE);
-			if (rc) {
-				dev_err(&led->spmi_dev->dev,
-					"Torch reg write failed(%d)\n", rc);
 				return rc;
 			}
 
 			rc = qpnp_led_masked_write(led,
-				FLASH_SAFETY_TIMER(led->base),
-				FLASH_SAFETY_TIMER_MASK,
-				led->flash_cfg->duration);
+					FLASH_LED_TORCH(led->base),
+					FLASH_TORCH_MASK,
+					FLASH_LED_TORCH_DISABLE);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
-					"Safety timer reg write failed(%d)\n",
-					rc);
+					"Torch reg write failed(%d)\n", rc);
 				return rc;
 			}
 		}
@@ -1212,58 +1222,54 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 			"LED %d flash write failed(%d)\n", led->id, rc);
 		return rc;
 	}
-	rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
-		FLASH_INIT_MASK, FLASH_ENABLE_MODULE);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Enable reg write failed(%d)\n", rc);
-		return rc;
-	}
 
-	/* Set flash safety timer */
-	rc = qpnp_led_masked_write(led, FLASH_SAFETY_TIMER(led->base),
-		FLASH_SAFETY_TIMER_MASK, led->flash_cfg->duration);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Safety timer reg write failed(%d)\n", rc);
-		return rc;
-	}
-
-	/* Set max current */
-	rc = qpnp_led_masked_write(led, FLASH_MAX_CURR(led->base),
-		FLASH_CURRENT_MASK, FLASH_MAX_LEVEL);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Max current reg write failed(%d)\n", rc);
-		return rc;
-	}
-	/* Set clamp current */
-	rc = qpnp_led_masked_write(led, FLASH_CLAMP_CURR(led->base),
-		FLASH_CURRENT_MASK, led->flash_cfg->clamp_curr);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Clamp current reg write failed(%d)\n", rc);
-		return rc;
-	}
-
-	/* Set timer control - safety or watchdog */
-	if (led->flash_cfg->safety_timer)
-		rc = qpnp_led_masked_write(led, FLASH_LED_TMR_CTRL(led->base),
-			FLASH_TMR_MASK, FLASH_TMR_SAFETY);
-	else
-		rc = qpnp_led_masked_write(led, FLASH_LED_TMR_CTRL(led->base),
-			FLASH_TMR_MASK, FLASH_TMR_WATCHDOG);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"LED timer ctrl reg write failed(%d)\n", rc);
-		return rc;
-	}
 	/* Set headroom */
 	rc = qpnp_led_masked_write(led, FLASH_HEADROOM(led->base),
 		FLASH_HEADROOM_MASK, led->flash_cfg->headroom);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
 			"Headroom reg write failed(%d)\n", rc);
+		return rc;
+	}
+
+	/* Set startup delay */
+	rc = qpnp_led_masked_write(led,
+		FLASH_STARTUP_DELAY(led->base), FLASH_STARTUP_DLY_MASK,
+		led->flash_cfg->startup_dly);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Startup delay reg write failed(%d)\n", rc);
+		return rc;
+	}
+
+	/* Set timer control - safety or watchdog */
+	if (led->flash_cfg->safety_timer) {
+		rc = qpnp_led_masked_write(led,
+			FLASH_LED_TMR_CTRL(led->base),
+			FLASH_TMR_MASK, FLASH_TMR_SAFETY);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"LED timer ctrl reg write failed(%d)\n",
+				rc);
+			return rc;
+		}
+	}
+
+	/* Set Vreg force */
+	rc = qpnp_led_masked_write(led,	FLASH_VREG_OK_FORCE(led->base),
+		FLASH_VREG_MASK, FLASH_HW_VREG_OK);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Vreg OK reg write failed(%d)\n", rc);
+		return rc;
+	}
+
+	/* Set self fault check */
+	rc = qpnp_led_masked_write(led, FLASH_FAULT_DETECT(led->base),
+		FLASH_FAULT_DETECT_MASK, FLASH_SELFCHECK_ENABLE);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Fault detect reg write failed(%d)\n", rc);
 		return rc;
 	}
 
@@ -1276,32 +1282,7 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 		return rc;
 	}
 
-	/* Set startup delay */
-	rc = qpnp_led_masked_write(led, FLASH_STARTUP_DELAY(led->base),
-		FLASH_STARTUP_DLY_MASK, led->flash_cfg->startup_dly);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Startup delay reg write failed(%d)\n", rc);
-		return rc;
-	}
-
-	rc = qpnp_led_masked_write(led, FLASH_VREG_OK_FORCE(led->base),
-		FLASH_VREG_MASK, FLASH_HW_VREG_OK);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Vreg OK reg write failed(%d)\n", rc);
-		return rc;
-	}
-
-	/* Set led current and disable module */
-	rc = qpnp_led_masked_write(led, led->flash_cfg->current_addr,
-		FLASH_CURRENT_MASK, led->flash_cfg->current_prgm);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-			"Current reg write failed(%d)\n", rc);
-		return rc;
-	}
-
+	/* Disable flash LED module */
 	rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
 		FLASH_ENABLE_MODULE_MASK, FLASH_DISABLE_ALL);
 	if (rc) {
@@ -1310,7 +1291,6 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 		return rc;
 	}
 
-	led->flash_cfg->torch_enable = false;
 	led->flash_cfg->strobe_type = 0;
 
 	/* dump flash registers */
@@ -1682,6 +1662,9 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 
 	led->flash_cfg->safety_timer =
 		of_property_read_bool(node, "qcom,safety-timer");
+
+	led->flash_cfg->torch_enable =
+		of_property_read_bool(node, "qcom,torch-enable");
 
 	return 0;
 }
