@@ -119,6 +119,12 @@ static struct hdmi_edid_video_mode_property_type
 	 89909, 119880, 148352, 119880, false},
 	{HDMI_VFRMT_1280x720p120_16_9, 1280, 720, false, 1650, 370, 750, 30,
 	 90000, 120000, 148500, 120000, false},
+	{HDMI_VFRMT_1280x1024p60_5_4, 1280, 1024, false, 1688, 408, 1066, 42,
+	 63981, 60020, 108000, 60000, false},
+
+	/* All 1024 H Active */
+	{HDMI_VFRMT_1024x768p60_4_3, 1024, 768, false, 1344, 320, 806, 38,
+	 48363, 60004, 65000, 60000, false},
 
 	/* All 1440 H Active */
 	{HDMI_VFRMT_1440x576i50_4_3, 1440, 576, true,  1728, 288, 625, 24,
@@ -1016,7 +1022,7 @@ static void hdmi_edid_get_extended_video_formats(
 static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *data_buf, u32 num_of_cea_blocks)
 {
-	u8 i = 0;
+	u8 i = 0, offset = 0, std_blk = 0;
 	u32 video_format = HDMI_VFRMT_640x480p60_4_3;
 	u32 has480p = false;
 	u8 len;
@@ -1173,6 +1179,72 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 			desc_offset += 0x12;
 			++i;
 		}
+	}
+
+	std_blk = 0;
+	offset  = 0;
+	while (std_blk < 8) {
+		if ((edid_blk0[0x26 + offset] == 0x81) &&
+		    (edid_blk0[0x26 + offset + 1] == 0x80)) {
+			pr_debug("%s: 108MHz: off=[%x] stdblk=[%x]\n",
+				 __func__, offset, std_blk);
+			hdmi_edid_add_sink_video_format(sink_data,
+				HDMI_VFRMT_1280x1024p60_5_4);
+		}
+		if ((edid_blk0[0x26 + offset] == 0x61) &&
+		    (edid_blk0[0x26 + offset + 1] == 0x40)) {
+			pr_debug("%s: 65MHz: off=[%x] stdblk=[%x]\n",
+				 __func__, offset, std_blk);
+			hdmi_edid_add_sink_video_format(sink_data,
+				HDMI_VFRMT_1024x768p60_4_3);
+			break;
+		} else {
+			offset += 2;
+		}
+		std_blk++;
+	}
+	/* check if the EDID revision is 4 (version 1.4) */
+	if (edid_blk0[0x13] == 4) {
+		u8  start = 0x36;
+		i = 0;
+		/* Check each of 4 - 18 bytes descriptors */
+		while (i < 4) {
+			u8  iter   = start;
+			u32 header_1 = 0;
+			u8  header_2 = 0;
+			header_1 = edid_blk0[iter++];
+			header_1 = header_1 << 8 | edid_blk0[iter++];
+			header_1 = header_1 << 8 | edid_blk0[iter++];
+			header_1 = header_1 << 8 | edid_blk0[iter++];
+			header_2 = edid_blk0[iter];
+			if (header_1 == 0x000000F7 &&
+			    header_2 == 0x00) {
+				iter++;
+				/* VESA DMT Standard Version (0x0A)*/
+				iter++;
+				/* First set of supported formats */
+				iter++;
+				/* Second set of supported formats */
+				if (edid_blk0[iter] & 0x02) {
+					pr_debug("%s: DMT 1280x1024@60\n",
+						 __func__);
+					hdmi_edid_add_sink_video_format(
+						sink_data,
+						HDMI_VFRMT_1280x1024p60_5_4);
+					break;
+				}
+			}
+			i++;
+			start += 0x12;
+		}
+	}
+
+	/* Established Timing I and II */
+	if (edid_blk0[0x24] & BIT(3)) {
+		pr_debug("%s: 65MHz: off=[%x] stdblk=[%x]\n",
+			 __func__, offset, std_blk);
+		hdmi_edid_add_sink_video_format(sink_data,
+				HDMI_VFRMT_1024x768p60_4_3);
 	}
 
 	hdmi_edid_get_extended_video_formats(edid_ctrl, data_buf+0x80);
