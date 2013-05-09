@@ -412,6 +412,9 @@ go_proc:
 	/* write seg size */
 	*((uint32_t *)(pce_dev->ce_dm.buffer.seg_size)) = sreq->size;
 
+	/* clear status */
+	*((uint32_t *)(pce_dev->ce_dm.buffer.status)) = 0;
+
 	_ce_setup_hash_cmdrptrlist(pce_dev, sreq);
 
 	return 0;
@@ -685,6 +688,9 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 
 	*((uint32_t *)(buffer->seg_size)) = totallen_in;
 
+	/* clear status */
+	*((uint32_t *)(pce_dev->ce_dm.buffer.status)) = 0;
+
 	_ce_setup_cipher_cmdrptrlist(pce_dev, creq);
 	return 0;
 };
@@ -708,13 +714,19 @@ static int _aead_complete(struct qce_device *pce_dev)
 
 	/* check MAC */
 	if (pce_dev->mode == QCE_MODE_CCM) {
-		uint32_t result;
+		int32_t result = 0;
 
 		result =
 			(uint32_t)(*((uint32_t *)pce_dev->ce_dm.buffer.status));
 		result &= (1 << CRYPTO_MAC_FAILED);
 		result |= (pce_dev->ce_dm.chan_ce_in_status |
 					pce_dev->ce_dm.chan_ce_out_status);
+		if (pce_dev->ce_dm.chan_ce_in_status |
+			 pce_dev->ce_dm.chan_ce_out_status)
+			result = -ENXIO;
+		else if (result & (1 << CRYPTO_MAC_FAILED))
+			result = -EBADMSG;
+
 		pce_dev->qce_cb(areq, pce_dev->ce_dm.buffer.auth_result, NULL,
 							result);
 	}
@@ -1617,16 +1629,16 @@ static int qce_setup_cmdlists(struct qce_device *pce_dev,
 	pscmd++;
 
 
-	/* SET SEG SIZE REGISTER and OCB COMMAND LIST */
-	pce_dev->ce_dm.cmdlist.set_seg_size_ocb = pscmd;
-	pscmd->cmd = CMD_LC | CMD_MODE_SINGLE | CMD_OCB;
+	/* SET SEG SIZE REGISTER LIST */
+	pce_dev->ce_dm.cmdlist.set_seg_size = pscmd;
+	pscmd->cmd = CMD_LC | CMD_MODE_SINGLE;
 	pscmd->dst = (unsigned) (CRYPTO_SEG_SIZE_REG + pce_dev->phy_iobase);
 	pscmd->len = CRYPTO_REG_SIZE;
 	pscmd->src = GET_PHYS_ADDR(pce_dev->ce_dm.buffer.seg_size);
 	pscmd++;
 
 
-	/* OCU COMMAND LIST */
+	/* Get status and OCU COMMAND LIST */
 	pce_dev->ce_dm.cmdlist.get_status_ocu = pscmd;
 	pscmd->cmd = CMD_LC | CMD_MODE_SINGLE | CMD_OCU;
 	pscmd->src = (unsigned) (CRYPTO_STATUS_REG + pce_dev->phy_iobase);
@@ -1634,9 +1646,17 @@ static int qce_setup_cmdlists(struct qce_device *pce_dev,
 	pscmd->dst = GET_PHYS_ADDR(pce_dev->ce_dm.buffer.status);
 	pscmd++;
 
-	/* CLEAR STATUS COMMAND LIST */
+	/* CLEAR STATUS and OCU COMMAND LIST */
 	pce_dev->ce_dm.cmdlist.clear_status = pscmd;
 	pscmd->cmd = CMD_LC | CMD_MODE_SINGLE | CMD_OCU;
+	pscmd->dst = (unsigned) (CRYPTO_STATUS_REG + pce_dev->phy_iobase);
+	pscmd->len = CRYPTO_REG_SIZE;
+	pscmd->src = GET_PHYS_ADDR(pce_dev->ce_dm.buffer.status);
+	pscmd++;
+
+	/* CLEAR STATUS and OCB COMMAND LIST */
+	pce_dev->ce_dm.cmdlist.clear_status_ocb = pscmd;
+	pscmd->cmd = CMD_LC | CMD_MODE_SINGLE | CMD_OCB;
 	pscmd->dst = (unsigned) (CRYPTO_STATUS_REG + pce_dev->phy_iobase);
 	pscmd->len = CRYPTO_REG_SIZE;
 	pscmd->src = GET_PHYS_ADDR(pce_dev->ce_dm.buffer.status);
@@ -1715,7 +1735,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_128_cbc_ctr = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_128_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_iv);
@@ -1727,7 +1748,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_256_cbc_ctr = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_256_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_iv);
@@ -1739,7 +1761,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_128_ecb = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_128_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_cfg);
@@ -1750,7 +1773,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *)ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_256_ecb = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_256_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_cfg);
@@ -1761,7 +1785,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *)ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_128_xts = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_128_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_128_xts_key);
@@ -1775,7 +1800,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_aes_256_xts = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_256_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_aes_256_xts_key);
@@ -1789,7 +1815,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *)ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_des_cbc = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_des_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_des_iv);
@@ -1800,7 +1827,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *)ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_des_ecb = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_des_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_cfg);
@@ -1810,7 +1838,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_3des_cbc = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_3des_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_des_iv);
@@ -1821,7 +1850,8 @@ static int _setup_cipher_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->cipher_3des_ecb = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_cipher_3des_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_cfg);
@@ -1861,7 +1891,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_sha1 = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_iv_20);
@@ -1879,7 +1910,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_sha256 = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_iv_32);
@@ -1897,7 +1929,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_sha1_hmac = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_key_512);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_cfg);
@@ -1916,7 +1949,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_sha256_hmac = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_key_512);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_cfg);
@@ -1935,7 +1969,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_aes_128_cmac = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_iv);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_key);
@@ -1953,7 +1988,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->auth_aes_256_cmac = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_cipher_cfg);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_iv);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_key);
@@ -1988,7 +2024,8 @@ static int _setup_aead_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->aead_aes_128_ccm = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_iv);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_byte_count);
@@ -2005,7 +2042,8 @@ static int _setup_aead_cmdptrlists(struct qce_device *pce_dev,
 	cmd_ptr_vaddr = (uint32_t *) ALIGN(((unsigned int) cmd_ptr_vaddr), 16);
 	cmdptrlist->aead_aes_256_ccm = QCE_SET_CMD_PTR(cmd_ptr_vaddr);
 
-	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->clear_status_ocb);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_seg_size);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_iv);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_key);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->reset_auth_byte_count);
