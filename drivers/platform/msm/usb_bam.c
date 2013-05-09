@@ -1744,10 +1744,12 @@ static ssize_t usb_bam_store_inactivity_timer(struct device *dev,
 
 			spin_lock(&usb_bam_lock);
 
-			ctx.inactivity_timer_ms[bam] = timer_d;
 			/* Apply new timer setting if bam has running pipes */
-			if (ctx.pipes_enabled_per_bam[bam] > 0)
-				usb_bam_set_inactivity_timer(bam);
+			if (ctx.inactivity_timer_ms[bam] != timer_d) {
+				ctx.inactivity_timer_ms[bam] = timer_d;
+				if (ctx.pipes_enabled_per_bam[bam] > 0)
+					usb_bam_set_inactivity_timer(bam);
+			}
 
 			spin_unlock(&usb_bam_lock);
 		}
