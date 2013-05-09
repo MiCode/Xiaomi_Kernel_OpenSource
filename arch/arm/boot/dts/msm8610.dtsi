@@ -676,7 +676,6 @@
 			    "restart_reg", "cxrail_bhs_reg";
 
 		interrupts = <0 24 1>;
-		vdd_mss-supply = <&pm8110_s1>;
 		vdd_cx-supply = <&pm8110_s1_corner>;
 		vdd_mx-supply = <&pm8110_l3>;
 		vdd_pll-supply = <&pm8110_l10>;
