@@ -61,8 +61,29 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 		if (inst->session_type == type &&
 			inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
-			num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
-					inst->prop.width, inst->prop.fps);
+			int stride, scanlines, rc;
+			struct hfi_device *hdev;
+
+			hdev = inst->core->device;
+			if (!hdev) {
+				dprintk(VIDC_ERR,
+						"No hdev (probably in bad state)\n");
+				return -EINVAL;
+			}
+
+			rc = call_hfi_op(hdev, get_stride_scanline,
+					COLOR_FMT_NV12,
+					inst->prop.width, inst->prop.height,
+					&stride, &scanlines);
+			if (rc) {
+				dprintk(VIDC_WARN,
+						"Failed to determine stride/scan when getting load. Perf. might be affected\n");
+				stride = inst->prop.width;
+				scanlines = inst->prop.height;
+			}
+
+			num_mbs_per_sec += NUM_MBS_PER_SEC(stride, scanlines,
+					inst->prop.fps);
 		}
 		mutex_unlock(&inst->lock);
 	}
