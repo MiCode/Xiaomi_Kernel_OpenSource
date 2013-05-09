@@ -232,7 +232,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	struct ipa_tx_pkt_wrapper *tx_pkt;
 	unsigned long irq_flags;
 	int result;
-	u16 sps_flags = SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_INT;
+	u16 sps_flags = SPS_IOVEC_FLAG_EOT;
 	dma_addr_t dma_address;
 	u16 len;
 	u32 mem_flag = GFP_ATOMIC;
@@ -469,8 +469,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		}
 
 		if (i == (num_desc - 1)) {
-			iovec->flags |= (SPS_IOVEC_FLAG_EOT |
-					SPS_IOVEC_FLAG_INT);
+			iovec->flags |= SPS_IOVEC_FLAG_EOT;
 			/* "mark" the last desc */
 			tx_pkt->cnt = IPA_LAST_DESC_CNT;
 		}
@@ -1018,11 +1017,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ipa_ctx->ep[ipa_ep_idx].connect.dest_pipe_index =
 			ipa_ctx->a5_pipe_index++;
 		ipa_ctx->ep[ipa_ep_idx].connect.src_pipe_index = ipa_ep_idx;
-		ipa_ctx->ep[ipa_ep_idx].connect.options =
-			SPS_O_AUTO_ENABLE | SPS_O_EOT | SPS_O_ACK_TRANSFERS |
+		ipa_ctx->ep[ipa_ep_idx].connect.options = SPS_O_ACK_TRANSFERS |
 			SPS_O_NO_DISABLE;
-		if (ipa_ctx->polling_mode)
-			ipa_ctx->ep[ipa_ep_idx].connect.options |= SPS_O_POLL;
 	} else {
 		ipa_ctx->ep[ipa_ep_idx].connect.mode = SPS_MODE_DEST;
 		ipa_ctx->ep[ipa_ep_idx].connect.source = SPS_DEV_HANDLE_MEM;
@@ -1031,12 +1027,15 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ipa_ctx->ep[ipa_ep_idx].connect.src_pipe_index =
 			ipa_ctx->a5_pipe_index++;
 		ipa_ctx->ep[ipa_ep_idx].connect.dest_pipe_index = ipa_ep_idx;
-		ipa_ctx->ep[ipa_ep_idx].connect.options =
-			SPS_O_AUTO_ENABLE | SPS_O_EOT;
-		if (ipa_ctx->polling_mode)
+		if (sys_in->client == IPA_CLIENT_A5_LAN_WAN_PROD)
 			ipa_ctx->ep[ipa_ep_idx].connect.options |=
-				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+				SPS_O_ACK_TRANSFERS;
 	}
+
+	ipa_ctx->ep[ipa_ep_idx].connect.options |= (SPS_O_AUTO_ENABLE |
+		SPS_O_EOT);
+	if (ipa_ctx->polling_mode)
+		ipa_ctx->ep[ipa_ep_idx].connect.options |= SPS_O_POLL;
 
 	ipa_ctx->ep[ipa_ep_idx].connect.desc.size = sys_in->desc_fifo_sz;
 	ipa_ctx->ep[ipa_ep_idx].connect.desc.base =
@@ -1346,7 +1345,7 @@ void ipa_replenish_rx_cache(void)
 
 		ret = sps_transfer_one(sys->ep->ep_hdl, rx_pkt->dma_address,
 				       IPA_RX_SKB_SIZE, rx_pkt,
-				       SPS_IOVEC_FLAG_INT);
+				       0);
 
 		if (ret) {
 			IPAERR("sps_transfer_one failed %d\n", ret);
