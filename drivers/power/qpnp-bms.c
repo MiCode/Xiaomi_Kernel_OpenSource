@@ -1522,10 +1522,6 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
 						vbat_uv, chip->v_cutoff_uv);
 		return 1;
-	} else if (soc > 0 && vbat_uv < chip->v_cutoff_uv) {
-		pr_debug("forcing soc to 0, vbat (%d) < cutoff (%d)\n",
-						vbat_uv, chip->v_cutoff_uv);
-		return 0;
 	} else {
 		pr_debug("not clamping, using soc = %d, vbat = %d and cutoff = %d\n",
 				soc, vbat_uv, chip->v_cutoff_uv);
