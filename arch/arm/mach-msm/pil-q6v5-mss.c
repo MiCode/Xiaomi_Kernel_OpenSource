@@ -104,13 +104,15 @@ module_param(modem_auth_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 static int pil_mss_power_up(struct q6v5_data *drv)
 {
-	int ret;
+	int ret = 0;
 	struct device *dev = drv->desc.dev;
 	u32 regval;
 
-	ret = regulator_enable(drv->vreg);
-	if (ret)
-		dev_err(dev, "Failed to enable modem regulator.\n");
+	if (drv->vreg) {
+		ret = regulator_enable(drv->vreg);
+		if (ret)
+			dev_err(dev, "Failed to enable modem regulator.\n");
+	}
 
 	if (drv->cxrail_bhs) {
 		regval = readl_relaxed(drv->cxrail_bhs);
@@ -134,7 +136,10 @@ static int pil_mss_power_down(struct q6v5_data *drv)
 		writel_relaxed(regval, drv->cxrail_bhs);
 	}
 
-	return regulator_disable(drv->vreg);
+	if (drv->vreg)
+		return regulator_disable(drv->vreg);
+
+	return 0;
 }
 
 static int pil_mss_enable_clks(struct q6v5_data *drv)
@@ -724,6 +729,7 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	struct q6v5_data *q6;
 	struct pil_desc *q6_desc, *mba_desc;
 	struct resource *res;
+	struct property *prop;
 	int ret;
 
 	int clk_ready = of_get_named_gpio(pdev->dev.of_node,
@@ -761,30 +767,35 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	if (!q6->restart_reg)
 		return -ENOMEM;
 
-	q6->vreg = devm_regulator_get(&pdev->dev, "vdd_mss");
-	if (IS_ERR(q6->vreg))
-		return PTR_ERR(q6->vreg);
+	q6->vreg = NULL;
+
+	prop = of_find_property(pdev->dev.of_node, "vdd_mss-supply", NULL);
+	if (prop) {
+		q6->vreg = devm_regulator_get(&pdev->dev, "vdd_mss");
+		if (IS_ERR(q6->vreg))
+			return PTR_ERR(q6->vreg);
+
+		ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV,
+						MAX_VDD_MSS_UV);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to set vreg voltage.\n");
+
+		ret = regulator_set_optimum_mode(q6->vreg, 100000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to set vreg mode.\n");
+			return ret;
+		}
+	}
 
 	q6->vreg_mx = devm_regulator_get(&pdev->dev, "vdd_mx");
 	if (IS_ERR(q6->vreg_mx))
 		return PTR_ERR(q6->vreg_mx);
-
-	ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV, MAX_VDD_MSS_UV);
-	if (ret)
-		dev_err(&pdev->dev, "Failed to set regulator's voltage.\n");
-
-	ret = regulator_set_optimum_mode(q6->vreg, 100000);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to set regulator's mode.\n");
-		return ret;
-	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 		"cxrail_bhs_reg");
 	if (res)
 		q6->cxrail_bhs = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
-
 
 	q6->ahb_clk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(q6->ahb_clk))
