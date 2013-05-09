@@ -205,6 +205,7 @@ struct pde_opener {
 extern const struct inode_operations proc_link_inode_operations;
 extern const struct inode_operations proc_pid_link_inode_operations;
 extern const struct super_operations proc_sops;
+extern const struct file_operations proc_reclaim_operations;
 
 void proc_init_kmemcache(void);
 void set_proc_pid_nlink(void);
