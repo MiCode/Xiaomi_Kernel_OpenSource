@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@ struct wcnss_wlan_config {
 #define WCNSS_WLAN_IRQ_INVALID -1
 #define HAVE_WCNSS_SUSPEND_RESUME_NOTIFY 1
 #define HAVE_WCNSS_RESET_INTR 1
+#define HAVE_WCNSS_CAL_DOWNLOAD 1
 
 struct device *wcnss_wlan_get_device(void);
 struct resource *wcnss_wlan_get_memory_map(struct device *dev);
@@ -65,7 +66,7 @@ void wcnss_suspend_notify(void);
 void wcnss_resume_notify(void);
 void wcnss_riva_log_debug_regs(void);
 void wcnss_pronto_log_debug_regs(void);
-int wcnss_cold_boot_done(void);
+int wcnss_device_ready(void);
 
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
