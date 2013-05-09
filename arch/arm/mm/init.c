@@ -395,32 +395,29 @@ void find_memory_hole(void)
 	unsigned long hole_end_virt;
 
 	/*
-	 * Find the start and end of the hole, using meminfo
-	 * if it hasnt been found already.
+	 * Find the start and end of the hole, using meminfo.
 	 */
-	if (memory_hole_start == 0 && memory_hole_end == 0) {
-		for (i = 0; i < (meminfo.nr_banks - 1); i++) {
-			if ((meminfo.bank[i].start + meminfo.bank[i].size) !=
+	for (i = 0; i < (meminfo.nr_banks - 1); i++) {
+		if ((meminfo.bank[i].start + meminfo.bank[i].size) !=
 						meminfo.bank[i+1].start) {
-				if (meminfo.bank[i].start + meminfo.bank[i].size
+			if (meminfo.bank[i].start + meminfo.bank[i].size
 							<= MAX_HOLE_ADDRESS) {
 
-					hole_start = meminfo.bank[i].start +
+				hole_start = meminfo.bank[i].start +
 							meminfo.bank[i].size;
-					hole_size = meminfo.bank[i+1].start -
+				hole_size = meminfo.bank[i+1].start -
 								hole_start;
 
-					if (memory_hole_start == 0 &&
+				if (memory_hole_start == 0 &&
 							memory_hole_end == 0) {
-						memory_hole_start = hole_start;
-						memory_hole_end = hole_start +
+					memory_hole_start = hole_start;
+					memory_hole_end = hole_start +
 								hole_size;
-					} else if ((memory_hole_end -
+				} else if ((memory_hole_end -
 					memory_hole_start) <= hole_size) {
-						memory_hole_start = hole_start;
-						memory_hole_end = hole_start +
+					memory_hole_start = hole_start;
+					memory_hole_end = hole_start +
 								hole_size;
-					}
 				}
 			}
 		}
