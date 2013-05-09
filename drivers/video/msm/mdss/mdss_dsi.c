@@ -431,6 +431,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	pr_info("%s:%d DSI on for continuous splash.\n", __func__, __LINE__);
 
@@ -439,7 +440,16 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	mipi  = &pdata->panel_info.mipi;
+	mipi = &pdata->panel_info.mipi;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
+				ctrl_pdata, ctrl_pdata->ndx);
+
+	WARN(ctrl_pdata->panel_state != UNKNOWN_STATE,
+			"incorrect panel state=%d\n", ctrl_pdata->panel_state);
 
 	ret = mdss_dsi_panel_power_on(pdata, 1);
 	if (ret) {
@@ -452,6 +462,8 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	pdata->panel_info.panel_power_on = 1;
 
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
+
+	ctrl_pdata->panel_state = PANEL_ON;
 
 	pr_debug("%s-:End\n", __func__);
 	return ret;
@@ -598,12 +610,15 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
 
-	ret = ctrl_pdata->on(pdata);
-	if (ret) {
-		pr_err("%s: unable to initialize the panel\n", __func__);
-		return ret;
+	if (ctrl_pdata->panel_state != PANEL_ON) {
+		ret = ctrl_pdata->on(pdata);
+		if (ret) {
+			pr_err("%s: unable to initialize the panel\n",
+							__func__);
+			return ret;
+		}
+		ctrl_pdata->panel_state = PANEL_ON;
 	}
-
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
 
 	pr_debug("%s-:\n", __func__);
@@ -628,12 +643,14 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
 
-	ret = ctrl_pdata->off(pdata);
-	if (ret) {
-		pr_err("%s: Panel OFF failed\n", __func__);
-		return ret;
+	if (ctrl_pdata->panel_state == PANEL_ON) {
+		ret = ctrl_pdata->off(pdata);
+		if (ret) {
+			pr_err("%s: Panel OFF failed\n", __func__);
+			return ret;
+		}
+		ctrl_pdata->panel_state = PANEL_OFF;
 	}
-
 	pr_debug("%s-:End\n", __func__);
 	return ret;
 }
@@ -1126,6 +1143,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		ctrl_pdata->ndx = 1;
 	}
 
+	ctrl_pdata->panel_state = UNKNOWN_STATE;
 	pr_debug("%s: Panal data initialized\n", __func__);
 	return 0;
 }
