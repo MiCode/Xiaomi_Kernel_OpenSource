@@ -1448,6 +1448,13 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flag;
+	u32 data;
+
+	/* DSI_INTL_CTRL */
+	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data |= DSI_INTR_VIDEO_DONE_MASK;
+
+	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
 	INIT_COMPLETION(ctrl->video_comp);
@@ -1456,6 +1463,10 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	wait_for_completion_timeout(&ctrl->video_comp,
 			msecs_to_jiffies(VSYNC_PERIOD * 4));
+
+	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data &= ~DSI_INTR_VIDEO_DONE_MASK;
+	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 }
 
 static void mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
