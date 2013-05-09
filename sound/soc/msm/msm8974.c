@@ -2388,7 +2388,7 @@ static int msm8974_prepare_us_euro(struct snd_soc_card *card)
 {
 	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret;
-	if (pdata->us_euro_gpio) {
+	if (pdata->us_euro_gpio >= 0) {
 		dev_dbg(card->dev, "%s : us_euro gpio request %d", __func__,
 			pdata->us_euro_gpio);
 		ret = gpio_request(pdata->us_euro_gpio, "TAIKO_CODEC_US_EURO");
@@ -2524,7 +2524,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,us-euro-gpios", 0);
 	if (pdata->us_euro_gpio < 0) {
-		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
+		dev_info(&pdev->dev, "property %s not detected in node %s",
 			"qcom,us-euro-gpios",
 			pdev->dev.of_node->full_name);
 	} else {
