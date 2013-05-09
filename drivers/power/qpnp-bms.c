@@ -1100,8 +1100,7 @@ static int get_current_time(unsigned long *now_tm_sec)
 	if (rtc == NULL) {
 		pr_err("%s: unable to open rtc device (%s)\n",
 			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
-		rc = -EINVAL;
-		goto close_time;
+		return -EINVAL;
 	}
 
 	rc = rtc_read_time(rtc, &tm);
