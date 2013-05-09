@@ -69,7 +69,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 		type = *(uint32_t *)(buf);
 		data_len = *(uint32_t *)(buf + 4);
 		if (type < DIAG_CTRL_MSG_REG ||
-				 type > DIAG_CTRL_MSG_F3_MASK_V2) {
+				 type > DIAG_CTRL_MSG_LAST) {
 			pr_alert("diag: In %s, Invalid Msg type %d proc %d",
 				 __func__, type, smd_info->peripheral);
 			break;
