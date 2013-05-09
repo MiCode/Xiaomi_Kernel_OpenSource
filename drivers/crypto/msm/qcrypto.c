@@ -56,6 +56,7 @@ struct crypto_stat {
 	u32 aead_ccm_aes_dec;
 	u32 aead_op_success;
 	u32 aead_op_fail;
+	u32 aead_bad_msg;
 	u32 ablk_cipher_aes_enc;
 	u32 ablk_cipher_aes_dec;
 	u32 ablk_cipher_des_enc;
@@ -684,6 +685,9 @@ static int _disp_stats(int id)
 			"   AEAD operation fail          : %d\n",
 					pstat->aead_op_fail);
 	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+			"   AEAD bad message             : %d\n",
+					pstat->aead_bad_msg);
+	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   SHA1 digest			 : %d\n",
 					pstat->sha1_digest);
 	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
@@ -1036,12 +1040,6 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 		kzfree(rctx->assoc);
 		areq->assoc = rctx->assoc_sg;
 		areq->assoclen = rctx->assoclen;
-		if (ret) {
-			if (ret == 0x2000000)
-				ret = -EBADMSG;
-			else
-				ret = -ENXIO;
-		}
 	} else {
 		if (ret == 0) {
 			if (rctx->dir  == QCE_ENCRYPT) {
@@ -1070,10 +1068,14 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 			memcpy(ctx->iv, iv, crypto_aead_ivsize(aead));
 	}
 
-	if (ret)
+	if (ret == (-EBADMSG))
+		pstat->aead_bad_msg++;
+	else if (ret)
 		pstat->aead_op_fail++;
 	else
 		pstat->aead_op_success++;
+
+	cp->res = ret;
 
 	if (cp->platform_support.ce_shared)
 		schedule_work(&cp->unlock_ce_ws);
