@@ -3,7 +3,7 @@
  * FocalTech ft5x06 TouchScreen driver.
  *
  * Copyright (c) 2010  Focal tech Ltd.
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/input/ft5x06_ts.h>
 
@@ -51,6 +52,7 @@
 #define POINT_READ_BUF	(3 + FT_TOUCH_STEP * CFG_MAX_TOUCH_POINTS)
 
 /*register address*/
+#define FT5X06_REG_ID		0xA3
 #define FT5X06_REG_PMODE	0xA5
 #define FT5X06_REG_FW_VER	0xA6
 #define FT5X06_REG_POINT_RATE	0x88
@@ -66,6 +68,9 @@
 #define FT5X06_VTG_MAX_UV	3300000
 #define FT5X06_I2C_VTG_MIN_UV	1800000
 #define FT5X06_I2C_VTG_MAX_UV	1800000
+
+#define FT5X06_COORDS_ARR_SIZE	4
+#define MAX_BUTTONS		4
 
 struct ts_event {
 	u16 x[CFG_MAX_TOUCH_POINTS];	/*x coordinate */
@@ -398,15 +403,138 @@ static const struct dev_pm_ops ft5x06_ts_pm_ops = {
 };
 #endif
 
+#ifdef CONFIG_OF
+static int ft5x06_get_dt_coords(struct device *dev, char *name,
+				struct ft5x06_ts_platform_data *pdata)
+{
+	u32 coords[FT5X06_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	int coords_size, rc;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != FT5X06_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(np, name, coords, coords_size);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
+
+	if (!strcmp(name, "focaltech,panel-coords")) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (!strcmp(name, "focaltech,display-coords")) {
+		pdata->x_min = coords[0];
+		pdata->y_min = coords[1];
+		pdata->x_max = coords[2];
+		pdata->y_max = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ft5x06_parse_dt(struct device *dev,
+			struct ft5x06_ts_platform_data *pdata)
+{
+	int rc, i;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+	u32 temp_val, num_buttons;
+	u32 button_map[MAX_BUTTONS];
+
+	rc = ft5x06_get_dt_coords(dev, "focaltech,panel-coords", pdata);
+	if (rc && (rc != -EINVAL))
+		return rc;
+
+	rc = ft5x06_get_dt_coords(dev, "focaltech,display-coords", pdata);
+	if (rc)
+		return rc;
+
+	pdata->i2c_pull_up = of_property_read_bool(np,
+						"focaltech,i2c-pull-up");
+
+	pdata->no_force_update = of_property_read_bool(np,
+						"focaltech,no-force-update");
+	/* reset, irq gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "focaltech,reset-gpio",
+				0, &pdata->reset_gpio_flags);
+	if (pdata->reset_gpio < 0)
+		return pdata->reset_gpio;
+
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "focaltech,irq-gpio",
+				0, &pdata->irq_gpio_flags);
+	if (pdata->irq_gpio < 0)
+		return pdata->irq_gpio;
+
+	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
+	if (!rc)
+		pdata->family_id = temp_val;
+	else
+		return rc;
+
+	prop = of_find_property(np, "focaltech,button-map", NULL);
+	if (prop) {
+		num_buttons = prop->length / sizeof(temp_val);
+		if (num_buttons > MAX_BUTTONS)
+			return -EINVAL;
+
+		rc = of_property_read_u32_array(np,
+			"focaltech,button-map", button_map,
+			num_buttons);
+		if (rc) {
+			dev_err(dev, "Unable to read key codes\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+#else
+static int ft5x06_parse_dt(struct device *dev,
+			struct ft5x06_ts_platform_data *pdata)
+{
+	return -ENODEV;
+}
+#endif
+
 static int ft5x06_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
-	const struct ft5x06_ts_platform_data *pdata = client->dev.platform_data;
+	struct ft5x06_ts_platform_data *pdata;
 	struct ft5x06_ts_data *data;
 	struct input_dev *input_dev;
 	u8 reg_value;
 	u8 reg_addr;
 	int err;
+
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev,
+			sizeof(struct ft5x06_ts_platform_data), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		err = ft5x06_parse_dt(&client->dev, pdata);
+		if (err)
+			return err;
+	} else
+		pdata = client->dev.platform_data;
 
 	if (!pdata) {
 		dev_err(&client->dev, "Invalid pdata\n");
@@ -447,9 +575,9 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0,
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
 			     pdata->x_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0,
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
 			     pdata->y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0,
 			     CFG_MAX_TOUCH_POINTS, 0, 0);
@@ -523,6 +651,19 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	/* make sure CTP already finish startup process */
 	msleep(FT_STARTUP_DLY);
+
+	/* check the controller id */
+	reg_addr = FT5X06_REG_ID;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
+	if (err < 0) {
+		dev_err(&client->dev, "version read failed");
+		return err;
+	}
+
+	if (pdata->family_id != reg_value) {
+		dev_err(&client->dev, "%s:Unsupported controller\n", __func__);
+		goto free_reset_gpio;
+	}
 
 	/*get some register information */
 	reg_addr = FT5X06_REG_FW_VER;
@@ -626,12 +767,22 @@ static const struct i2c_device_id ft5x06_ts_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, ft5x06_ts_id);
 
+#ifdef CONFIG_OF
+static struct of_device_id ft5x06_match_table[] = {
+	{ .compatible = "focaltech,5x06",},
+	{ },
+};
+#else
+#define ft5x06_match_table NULL
+#endif
+
 static struct i2c_driver ft5x06_ts_driver = {
 	.probe = ft5x06_ts_probe,
 	.remove = __devexit_p(ft5x06_ts_remove),
 	.driver = {
 		   .name = "ft5x06_ts",
 		   .owner = THIS_MODULE,
+		.of_match_table = ft5x06_match_table,
 #ifdef CONFIG_PM
 		   .pm = &ft5x06_ts_pm_ops,
 #endif
