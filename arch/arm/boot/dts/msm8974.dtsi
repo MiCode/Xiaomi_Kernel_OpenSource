@@ -1127,7 +1127,6 @@
 		vdd_mx-supply = <&pm8841_s1>;
 		vdd_pll-supply = <&pm8941_l12>;
 		qcom,vdd_pll = <1800000>;
-		qcom,is-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth;
 
