@@ -23,7 +23,8 @@
 /* truncate at 1k */
 #define MDSS_MDP_BUS_FACTOR_SHIFT 10
 /* 1.5 bus fudge factor */
-#define MDSS_MDP_BUS_FUDGE_FACTOR(val) (((val) / 2) * 3)
+#define MDSS_MDP_BUS_FUDGE_FACTOR_IB(val) (((val) / 2) * 3)
+#define MDSS_MDP_BUS_FUDGE_FACTOR_AB(val) (val << 1)
 /* 1.25 clock fudge factor */
 #define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
 
@@ -81,7 +82,8 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
 		bus_ab_quota = bus_ib_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
-		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
+		bus_ab_quota = MDSS_MDP_BUS_FUDGE_FACTOR_AB(bus_ab_quota);
+		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR_IB(bus_ib_quota);
 		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
 
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
