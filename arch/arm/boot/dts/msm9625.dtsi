@@ -763,6 +763,7 @@
 	qcom,mss {
 		compatible = "qcom,pil-q6v5-mss";
 		interrupts = <0 24 1>;
+		qcom,is-not-loadable;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;

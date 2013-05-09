@@ -30,7 +30,8 @@ Optional properties:
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
 		      domain.
-- qcom,is-loadable:   Boolean- Present if the image needs to be loaded.
+- qcom,is-not-loadable: Boolean- Present if the image does not need to
+			be loaded.
 - qcom,pil-self-auth: Boolean- True if authentication is required.
 
 Example:
@@ -47,7 +48,7 @@ Example:
 		vdd_cx-supply = <&pm8841_s2>;
 		vdd_mx-supply = <&pm8841_s1>;
 
-		qcom,is-loadable;
+		qcom,is-not-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth;
 
