@@ -2739,7 +2739,7 @@ static int msm_hs_sps_init(struct msm_hs_port *msm_uport)
 
 		/* SPS driver wll handle the UART BAM IRQ */
 		bam.irq = (u32)msm_uport->bam_irq;
-		bam.manage = SPS_BAM_MGR_LOCAL;
+		bam.manage = SPS_BAM_MGR_DEVICE_REMOTE;
 
 		pr_debug("msm_serial_hs: bam physical base=0x%x\n",
 							(u32)bam.phys_addr);
