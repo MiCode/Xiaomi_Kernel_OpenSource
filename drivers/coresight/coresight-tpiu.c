@@ -269,6 +269,10 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	if (ret)
 		goto err4;
 
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_FIXED);
+	if (ret)
+		goto err5;
+
 	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x16D);
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
 
@@ -280,6 +284,8 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	TPIU_LOCK(drvdata);
 
 	return 0;
+err5:
+	regulator_disable(drvdata->reg_io);
 err4:
 	tpiu_reg_set_voltage(drvdata->reg_io, 0, drvdata->reg_high_io);
 err3:
@@ -362,6 +368,8 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 	__tpiu_disable(drvdata);
 
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 0);
+
+	clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 
 	regulator_disable(drvdata->reg);
 	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
