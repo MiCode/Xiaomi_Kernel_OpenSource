@@ -336,27 +336,28 @@ bail:
 int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 {
 	struct ipa_rm_resource *consumer, *producer;
-	int i, result = 0;
+	int peers_index, result = 0, list_size;
 
-	IPADBG("IPA RM: %s ENTER\n", __func__);
-
+	IPADBG("ipa_rm_resource_delete ENTER with resource %d\n",
+					resource->name);
 	if (!resource) {
 		IPADBG("ipa_rm_resource_delete ENTER with invalid param\n");
 		return -EINVAL;
 	}
 	if (resource->type == IPA_RM_PRODUCER) {
 		if (resource->peers_list) {
-			for (i = IPA_RM_RESOURCE_PROD_MAX;
-					i < IPA_RM_RESOURCE_MAX;
-						++i) {
+			list_size = ipa_rm_peers_list_get_size(
+				resource->peers_list);
+			for (peers_index = 0;
+				peers_index < list_size;
+				peers_index++) {
 				consumer = ipa_rm_peers_list_get_resource(
-						i,
+						peers_index,
 						resource->peers_list);
-				if (consumer) {
+				if (consumer)
 					ipa_rm_resource_delete_dependency(
 						resource,
 						consumer);
-				}
 			}
 			ipa_rm_peers_list_delete(resource->peers_list);
 		}
@@ -365,9 +366,13 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 		kfree((struct ipa_rm_resource_prod *) resource);
 	} else if (resource->type == IPA_RM_CONSUMER) {
 		if (resource->peers_list) {
-			for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; ++i) {
+			list_size = ipa_rm_peers_list_get_size(
+				resource->peers_list);
+			for (peers_index = 0;
+					peers_index < list_size;
+					peers_index++){
 				producer = ipa_rm_peers_list_get_resource(
-							i,
+							peers_index,
 							resource->peers_list);
 				if (producer)
 					ipa_rm_resource_delete_dependency(
