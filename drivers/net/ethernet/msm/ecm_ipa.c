@@ -46,6 +46,27 @@
 #define ECM_IPA_LOG_ENTRY() pr_debug("begin\n")
 #define ECM_IPA_LOG_EXIT() pr_debug("end\n")
 
+/** enum ecm_ipa_state - specify the current driver internal state
+ *
+ * The driver internal state changes due to its API usage.
+ * The driver saves its internal state to guard from caller illegal
+ * call sequence.
+ * LOADED is the first state which is the default one.
+ * INITIALIZED is the driver state once it finished registering
+ *  the network device
+ * CONNECTED is the driver state once the USB pipes were connected to IPA
+ * UP is the driver state when it allows Linux network stack start
+ *  data transfer
+ */
+enum ecm_ipa_mode {
+	ECM_IPA_LOADED,
+	ECM_IPA_INITIALIZED,
+	ECM_IPA_CONNECTED,
+	ECM_IPA_UP,
+};
+
+#define ECM_IPA_MODE(dev) pr_debug("Driver mode changed - %d", dev->mode);
+
 /**
  * struct ecm_ipa_dev - main driver context parameters
  * @net: network interface struct implemented by this driver
@@ -62,6 +83,7 @@
  * @outstanding_high: number of outstanding packets allowed
  * @outstanding_low: number of outstanding packets which shall cause
  *  to netdev queue start (after stopped due to outstanding_high reached)
+ * @mode: current mode of ecm_ipa driver
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
@@ -77,6 +99,7 @@ struct ecm_ipa_dev {
 	atomic_t outstanding_pkts;
 	u8 outstanding_high;
 	u8 outstanding_low;
+	enum ecm_ipa_mode mode;
 };
 
 /**
@@ -123,6 +146,8 @@ static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
 static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl);
 static int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
 		u8 device_ethaddr[]);
+static bool ecm_ipa_state_validate(enum ecm_ipa_mode current_mode,
+		enum ecm_ipa_mode new_mode);
 static int ecm_ipa_init_module(void);
 static void ecm_ipa_cleanup_module(void);
 
@@ -134,7 +159,7 @@ static const struct net_device_ops ecm_ipa_netdev_ops = {
 };
 
 const struct file_operations ecm_ipa_debugfs_dma_ops = {
-		.open = ecm_ipa_debugfs_dma_open,
+	.open = ecm_ipa_debugfs_dma_open,
 	.read = ecm_ipa_debugfs_enable_read,
 	.write = ecm_ipa_debugfs_enable_write_dma,
 };
@@ -250,6 +275,9 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	params->ecm_ipa_rx_dp_notify = ecm_ipa_packet_receive_notify;
 	params->ecm_ipa_tx_dp_notify = ecm_ipa_tx_complete_notify;
 	params->private = (void *)dev;
+	dev->mode = ECM_IPA_INITIALIZED;
+	ECM_IPA_MODE(dev);
+
 	ECM_IPA_LOG_EXIT();
 
 	return 0;
@@ -281,6 +309,11 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	pr_debug("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d, priv=0x%p\n",
 					usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
 
+	if (!ecm_ipa_state_validate(dev->mode, ECM_IPA_CONNECTED)) {
+		ECM_IPA_ERROR("can't call connect before driver init\n");
+		return -EPERM;
+	}
+
 	if (!usb_to_ipa_hdl || usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
 		ECM_IPA_ERROR("usb_to_ipa_hdl(%d) is not a valid ipa handle\n",
 				usb_to_ipa_hdl);
@@ -303,7 +336,11 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	}
 	pr_debug("carrier_on notified, ecm_ipa is operational\n");
 
+	dev->mode = ECM_IPA_CONNECTED;
+	ECM_IPA_MODE(dev);
+
 	ECM_IPA_LOG_EXIT();
+
 	return 0;
 }
 EXPORT_SYMBOL(ecm_ipa_connect);
@@ -311,9 +348,15 @@ EXPORT_SYMBOL(ecm_ipa_connect);
 static int ecm_ipa_open(struct net_device *net)
 {
 	struct ecm_ipa_dev *dev;
+
 	ECM_IPA_LOG_ENTRY();
 
 	dev = netdev_priv(net);
+
+	if (!ecm_ipa_state_validate(dev->mode, ECM_IPA_UP)) {
+		ECM_IPA_ERROR("can't bring driver up before cable connect\n");
+		return -EPERM;
+	}
 
 	if (!netif_carrier_ok(net))
 		pr_debug("carrier is not ON yet - continuing\n");
@@ -321,7 +364,11 @@ static int ecm_ipa_open(struct net_device *net)
 	netif_start_queue(net);
 	pr_debug("queue started\n");
 
+	dev->mode = ECM_IPA_UP;
+	ECM_IPA_MODE(dev);
+
 	ECM_IPA_LOG_EXIT();
+
 	return 0;
 }
 
@@ -346,6 +393,11 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 	if (unlikely(netif_queue_stopped(net))) {
 		ECM_IPA_ERROR("interface queue is stopped\n");
 		goto out;
+	}
+
+	if (unlikely(dev->mode != ECM_IPA_UP)) {
+		ECM_IPA_ERROR("can't send without network interface up\n");
+		return -NETDEV_TX_BUSY;
 	}
 
 	if (unlikely(tx_filter(skb))) {
@@ -429,9 +481,21 @@ static void ecm_ipa_packet_receive_notify(void *priv,
 
 static int ecm_ipa_stop(struct net_device *net)
 {
+	struct ecm_ipa_dev *dev = netdev_priv(net);
+
 	ECM_IPA_LOG_ENTRY();
-	pr_debug("stopping net device\n");
+
+	if (!ecm_ipa_state_validate(dev->mode, ECM_IPA_CONNECTED)) {
+		ECM_IPA_ERROR("can't do network interface down without up\n");
+		return -EPERM;
+	}
+
 	netif_stop_queue(net);
+	pr_debug("network device stopped\n");
+
+	dev->mode = ECM_IPA_CONNECTED;
+	ECM_IPA_MODE(dev);
+
 	ECM_IPA_LOG_EXIT();
 	return 0;
 }
@@ -439,11 +503,27 @@ static int ecm_ipa_stop(struct net_device *net)
 int ecm_ipa_disconnect(void *priv)
 {
 	struct ecm_ipa_dev *dev = priv;
+
 	ECM_IPA_LOG_ENTRY();
 	NULL_CHECK(dev);
 	pr_debug("priv=0x%p\n", priv);
+
+	if (!ecm_ipa_state_validate(dev->mode, ECM_IPA_INITIALIZED)) {
+		ECM_IPA_ERROR("can't disconnect without connect first\n");
+		return -EPERM;
+	}
+
 	netif_carrier_off(dev->net);
+	pr_debug("carrier_off notifcation was sent\n");
+
+	netif_stop_queue(dev->net);
+	pr_debug("queue stopped\n");
+
+	dev->mode = ECM_IPA_INITIALIZED;
+	ECM_IPA_MODE(dev);
+
 	ECM_IPA_LOG_EXIT();
+
 	return 0;
 }
 EXPORT_SYMBOL(ecm_ipa_disconnect);
@@ -458,12 +538,19 @@ EXPORT_SYMBOL(ecm_ipa_disconnect);
 void ecm_ipa_cleanup(void *priv)
 {
 	struct ecm_ipa_dev *dev = priv;
+
 	ECM_IPA_LOG_ENTRY();
+
 	pr_debug("priv=0x%p\n", priv);
+
 	if (!dev) {
 		ECM_IPA_ERROR("dev NULL pointer\n");
 		return;
 	}
+
+	if (!ecm_ipa_state_validate(dev->mode, ECM_IPA_LOADED))
+		ECM_IPA_ERROR("can't clean driver without cable disconnect\n");
+
 
 	ecm_ipa_destory_rm_resource(dev);
 	ecm_ipa_debugfs_destroy(dev);
@@ -474,6 +561,7 @@ void ecm_ipa_cleanup(void *priv)
 	pr_debug("cleanup done\n");
 	ecm_ipa_ctx = NULL;
 	ECM_IPA_LOG_EXIT();
+
 	return ;
 }
 EXPORT_SYMBOL(ecm_ipa_cleanup);
@@ -975,6 +1063,7 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 	}
 
 	ECM_IPA_LOG_EXIT();
+
 	return 0;
 fail_file:
 	debugfs_remove_recursive(dev->directory);
@@ -1088,6 +1177,48 @@ static int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
 	memcpy(dev_ethaddr, device_ethaddr, ETH_ALEN);
 	pr_debug("device ethernet address: %pM\n", dev_ethaddr);
 	return 0;
+}
+
+/** ecm_ipa_state_validate - check if a state transition is allowed
+ *
+ * Allowed transition:
+ *  LOADED->INITIALIZED: ecm_ipa_init()
+ *  INITIALIZED->CONNECTED: ecm_ipa_connect()
+ *  CONNECTED->INITIALIZED: ecm_ipa_disconnect()
+ *  CONNECTED->UP: ecm_ipa_open()
+ *  UP->CONNECTED: ecm_ipa_stop()
+ *  UP->INITIALIZED: ecm_ipa_disconnect()
+ *  INITIALIZED-> LOADED
+ */
+static bool ecm_ipa_state_validate(enum ecm_ipa_mode current_mode,
+		enum ecm_ipa_mode new_mode)
+{
+	bool result;
+
+	switch (current_mode) {
+	case ECM_IPA_LOADED:
+		result = (new_mode == ECM_IPA_INITIALIZED);
+		break;
+	case ECM_IPA_INITIALIZED:
+		result = (new_mode == ECM_IPA_CONNECTED ||
+				new_mode == ECM_IPA_LOADED);
+		break;
+	case ECM_IPA_CONNECTED:
+		result = (new_mode == ECM_IPA_INITIALIZED ||
+				new_mode == ECM_IPA_UP);
+		break;
+	case ECM_IPA_UP:
+		result = (new_mode == ECM_IPA_CONNECTED ||
+				new_mode == ECM_IPA_INITIALIZED);
+		break;
+	default:
+		result = false;
+		break;
+	}
+
+	pr_debug("state transition (%d->%d)- %s\n", current_mode,
+			new_mode , result ? "Allowed" : "Forbidden");
+	return result;
 }
 
 /**
