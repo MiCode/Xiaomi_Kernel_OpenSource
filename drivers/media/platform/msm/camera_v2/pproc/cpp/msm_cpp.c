@@ -1013,6 +1013,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *u_frame_info =
 		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
+	uint8_t fw_version_1_2_x = 0;
 
 	int i = 0;
 	if (!new_frame) {
@@ -1117,12 +1118,21 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		((cpp_frame_msg[12] >> 10) & 0x3FF) +
 		(cpp_frame_msg[12] & 0x3FF);
 
+	fw_version_1_2_x = 0;
+	if (cpp_dev->hw_info.cpp_hw_version == 0x10010000)
+		fw_version_1_2_x = 2;
+
 	for (i = 0; i < num_stripes; i++) {
-		cpp_frame_msg[133 + i * 27] += (uint32_t) in_phyaddr;
-		cpp_frame_msg[139 + i * 27] += (uint32_t) out_phyaddr0;
-		cpp_frame_msg[140 + i * 27] += (uint32_t) out_phyaddr1;
-		cpp_frame_msg[141 + i * 27] += (uint32_t) out_phyaddr0;
-		cpp_frame_msg[142 + i * 27] += (uint32_t) out_phyaddr1;
+		cpp_frame_msg[(133 + fw_version_1_2_x) + i * 27] +=
+			(uint32_t) in_phyaddr;
+		cpp_frame_msg[(139 + fw_version_1_2_x) + i * 27] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[(140 + fw_version_1_2_x) + i * 27] +=
+			(uint32_t) out_phyaddr1;
+		cpp_frame_msg[(141 + fw_version_1_2_x) + i * 27] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[(142 + fw_version_1_2_x) + i * 27] +=
+			(uint32_t) out_phyaddr1;
 	}
 
 	frame_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
