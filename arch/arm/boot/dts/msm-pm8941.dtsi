@@ -584,10 +584,10 @@
 			};
 
 			chan@3 {
-				label = "spare1";
+				label = "spare1_div3";
 				reg = <3>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <6>;
+				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -595,10 +595,10 @@
 			};
 
 			chan@4 {
-				label = "spare2";
+				label = "usb_id_mv";
 				reg = <4>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <6>;
+				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -872,7 +872,7 @@
 				reg = <0xb5>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <3>;
