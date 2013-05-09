@@ -614,6 +614,37 @@ static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 } /* hdmi_tx_set_audio_switch_node */
 
+static int hdmi_tx_config_avmute(struct hdmi_tx_ctrl *hdmi_ctrl, int set)
+{
+	struct dss_io_data *io;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: Core io is not initialized\n", __func__);
+		return -EINVAL;
+	}
+
+	if (set)
+		DSS_REG_W(io, HDMI_GC,
+			DSS_REG_R(io, HDMI_GC) | BIT(0));
+	else
+		DSS_REG_W(io, HDMI_GC,
+			DSS_REG_R(io, HDMI_GC) & ~BIT(0));
+
+	/* Enable AV Mute tranmission here */
+	DSS_REG_W(io, HDMI_VBI_PKT_CTRL,
+		DSS_REG_R(io, HDMI_VBI_PKT_CTRL) | (BIT(4) & BIT(5)));
+
+	DEV_DBG("%s: AVMUTE %s\n", __func__, set ? "set" : "cleared");
+
+	return 0;
+} /* hdmi_tx_config_avmute */
+
 void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 {
 	int rc = 0;
@@ -629,13 +660,25 @@ void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 
 	switch (status) {
 	case HDCP_STATE_AUTHENTICATED:
-		if (hdmi_ctrl->hpd_state)
+		if (hdmi_ctrl->hpd_state) {
+			/* Clear AV Mute */
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, 0);
+			if (rc)
+				DEV_ERR("%s: Failed to clear av mute. rc=%d\n",
+					__func__, rc);
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1, false);
+		}
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
 
 		if (hdmi_ctrl->hpd_state) {
+			/* Set AV Mute */
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
+			if (rc)
+				DEV_ERR("%s: Failed to set av mute. rc=%d\n",
+					__func__, rc);
+
 			DEV_DBG("%s: Reauthenticating\n", __func__);
 			rc = hdmi_hdcp_reauthenticate(
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
@@ -2743,6 +2786,12 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 
 	case MDSS_EVENT_PANEL_ON:
 		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
+			/* Set AV Mute before starting authentication */
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
+			if (rc)
+				DEV_ERR("%s: Failed to set av mute. rc=%d\n",
+					__func__, rc);
+
 			DEV_DBG("%s: Starting HDCP authentication\n", __func__);
 			rc = hdmi_hdcp_authenticate(
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
