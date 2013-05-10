@@ -17,6 +17,7 @@ Optional properties:
 - List of sub nodes, one for each of the translation context banks supported.
     Required properties for each sub-node:
 
+    - compatible : "qcom,msm-smmu-v0-ctx"
     - reg : offset and length of the register set for the context bank.
     - interrupts : should contain the context bank interrupt.
     - qcom,iommu-ctx-mids : List of machine identifiers associated with this
@@ -42,6 +43,7 @@ Example:
 						0x11>;
 
 		qcom,iommu-ctx@fd000000 {
+			compatible = "qcom,msm-smmu-v0-ctx";
 			reg = <0xfd000000 0x1000>;
 			interrupts = <0 250 0>;
 			qcom,iommu-ctx-mids = <0 3>;
