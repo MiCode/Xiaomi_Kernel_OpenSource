@@ -22,6 +22,7 @@
 #define SMP_MB_SIZE		(mdss_res->smp_mb_size)
 #define SMP_MB_CNT		(mdss_res->smp_mb_cnt)
 #define SMP_ENTRIES_PER_MB	(SMP_MB_SIZE / 16)
+#define MAX_BPP 4
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
@@ -152,6 +153,9 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		ps.num_planes = 2;
 		ps.ystride[0] = pipe->src.w >> pipe->horz_deci;
 		ps.ystride[1] = pipe->src.h >> pipe->vert_deci;
+	} else if (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
+		ps.ystride[0] = max(pipe->mixer->width, pipe->src.w) * MAX_BPP;
+		ps.num_planes = 1;
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
 			pipe->src.w, pipe->src.h, &ps, 0);
