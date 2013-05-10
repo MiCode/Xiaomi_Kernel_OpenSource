@@ -561,6 +561,13 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		pdata->set_backlight(pdata, temp);
 		mfd->bl_level = bkl_lvl;
 		bl_level_old = temp;
+
+		if (mfd->mdp.update_ad_input) {
+			mutex_unlock(&mfd->bl_lock);
+			/* Will trigger ad_setup which will grab bl_lock */
+			mfd->mdp.update_ad_input(mfd);
+			mutex_lock(&mfd->bl_lock);
+		}
 	}
 }
 

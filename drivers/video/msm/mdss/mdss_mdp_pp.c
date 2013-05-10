@@ -284,6 +284,9 @@ static void pp_enhist_config(unsigned long flags, char __iomem *base,
 static void pp_sharp_config(char __iomem *offset,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
+static int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
+static struct mdss_ad_info *mdss_mdp_get_ad(struct msm_fb_data_type *mfd);
+static int pp_update_ad_input(struct msm_fb_data_type *mfd);
 static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
 static void pp_ad_cfg_write(struct mdss_ad_info *ad);
 static void pp_ad_init_write(struct mdss_ad_info *ad);
@@ -2680,7 +2683,7 @@ void mdss_mdp_hist_intr_done(u32 isr)
 }
 
 #define MDSS_AD_MAX_MIXERS 1
-int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
+static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 {
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	u32 mixer_num;
@@ -2718,23 +2721,47 @@ int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 	return mixer_id[0];
 }
 
+static struct mdss_ad_info *mdss_mdp_get_ad(struct msm_fb_data_type *mfd)
+{
+	int ad_num;
+	struct mdss_data_type *mdata;
+	struct mdss_ad_info *ad = NULL;
+	mdata = mfd_to_mdata(mfd);
+
+	ad_num = mdss_ad_init_checks(mfd);
+	if (ad_num >= 0)
+		ad = &mdata->ad_cfgs[ad_num];
+	return ad;
+}
+
+static int pp_update_ad_input(struct msm_fb_data_type *mfd)
+{
+	struct mdss_ad_info *ad;
+	struct mdss_ad_input input;
+
+	ad = mdss_mdp_get_ad(mfd);
+	if (!ad)
+		return -EINVAL;
+
+	pr_debug("backlight level changed, trigger update to AD");
+	input.mode = ad->cfg.mode;
+	if (MDSS_AD_MODE_DATA_MATCH(ad->cfg.mode, MDSS_AD_INPUT_AMBIENT))
+		input.in.amb_light = ad->ad_data;
+	else
+		input.in.strength = ad->ad_data;
+	/* call to ad_input will trigger backlight read */
+	return mdss_mdp_ad_input(mfd, &input, 0);
+}
+
 int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 			struct mdss_ad_init_cfg *init_cfg)
 {
-	int ad_num;
 	struct mdss_ad_info *ad;
-	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
-	ctl = mdp5_data->ctl;
-
-	ad_num = mdss_ad_init_checks(mfd);
-	if (ad_num < 0)
-		return ad_num;
-
-	mdata = mdss_mdp_get_mdata();
-	ad = &mdata->ad_cfgs[ad_num];
+	ad = mdss_mdp_get_ad(mfd);
+	if (!ad)
+		return -EINVAL;
 
 	mutex_lock(&ad->lock);
 	if (init_cfg->ops & MDP_PP_AD_INIT) {
@@ -2760,26 +2787,20 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 		ad->mfd = mfd;
 	}
 	mutex_unlock(&ad->lock);
+	ctl = mfd_to_ctl(mfd);
 	mdss_mdp_pp_setup(ctl);
 	return 0;
 }
 
 int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
-			struct mdss_ad_input *input) {
-	int ad_num, ret = 0;
+			struct mdss_ad_input *input, int wait) {
+	int ret = 0;
 	struct mdss_ad_info *ad;
-	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
-	ctl = mdp5_data->ctl;
-
-	ad_num = mdss_ad_init_checks(mfd);
-	if (ad_num < 0)
-		return ad_num;
-
-	mdata = mdss_mdp_get_mdata();
-	ad = &mdata->ad_cfgs[ad_num];
+	ad = mdss_mdp_get_ad(mfd);
+	if (!ad)
+		return -EINVAL;
 
 	mutex_lock(&ad->lock);
 	if (!PP_AD_STATE_IS_INITCFG(ad->state) &&
@@ -2824,16 +2845,21 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 error:
 	mutex_unlock(&ad->lock);
 	if (!ret) {
-		mutex_lock(&ad->lock);
-		init_completion(&ad->comp);
-		mutex_unlock(&ad->lock);
+		if (wait) {
+			mutex_lock(&ad->lock);
+			init_completion(&ad->comp);
+			mutex_unlock(&ad->lock);
+		}
+		ctl = mfd_to_ctl(mfd);
 		mdss_mdp_pp_setup(ctl);
-		ret = wait_for_completion_interruptible_timeout(&ad->comp,
-							HIST_WAIT_TIMEOUT(1));
-		if (ret == 0)
-			ret = -ETIMEDOUT;
-		else if (ret > 0)
-			input->output = ad->last_str;
+		if (wait) {
+			ret = wait_for_completion_interruptible_timeout(
+					&ad->comp, HIST_WAIT_TIMEOUT(1));
+			if (ret == 0)
+				ret = -ETIMEDOUT;
+			else if (ret > 0)
+				input->output = ad->last_str;
+		}
 	}
 	return ret;
 }
@@ -2958,19 +2984,16 @@ static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t)
 #define MDSS_PP_AD_BYPASS_DEF 0x101
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
-	int ad_num, ret = 0;
+	int ret = 0;
 	struct mdss_ad_info *ad;
-	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	char __iomem *base;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF;
 
-	ad_num = mdss_ad_init_checks(mfd);
-	if (ad_num < 0)
-		return ad_num;
+	ad = mdss_mdp_get_ad(mfd);
+	if (!ad)
+		return -EINVAL;
 
-	mdata = mdss_mdp_get_mdata();
-	ad = &mdata->ad_cfgs[ad_num];
 	base = ad->base;
 
 	mutex_lock(&ad->lock);
@@ -3021,10 +3044,17 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		bypass = 0;
 		ret = 1;
 		ad->state |= PP_AD_STATE_RUN;
+		mutex_lock(&mfd->bl_lock);
+		mfd->mdp.update_ad_input = pp_update_ad_input;
+		mutex_unlock(&mfd->bl_lock);
+
 	} else {
 		if (ad->state & PP_AD_STATE_RUN) {
 			ret = 1;
 			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			mutex_lock(&mfd->bl_lock);
+			mfd->mdp.update_ad_input = NULL;
+			mutex_unlock(&mfd->bl_lock);
 		}
 		ad->state &= ~PP_AD_STATE_RUN;
 	}
