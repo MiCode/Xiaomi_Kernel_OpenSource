@@ -548,7 +548,6 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 
 		prop = of_get_property(node, "qcom,vdd-voltage-level", &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
-			of_node_put(reg_node);
 			dev_err(dev, "sdc voltage levels not specified\n");
 		} else {
 			drvdata->reg_low = be32_to_cpup(&prop[0]);
@@ -557,7 +556,6 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 
 		prop = of_get_property(node, "qcom,vdd-current-level", &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
-			of_node_put(reg_node);
 			dev_err(dev, "sdc current levels not specified\n");
 		} else {
 			drvdata->reg_lpm = be32_to_cpup(&prop[0]);
