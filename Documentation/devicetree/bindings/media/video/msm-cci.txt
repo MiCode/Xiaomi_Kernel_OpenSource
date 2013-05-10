@@ -51,6 +51,9 @@ Required properties:
 - qcom,sensor-name : should contain unique sensor name to differentiate from
     other sensor
     - "s5k3l1yx"
+- qcom,vdd-cx-supply : should contain regulator from which cx voltage is
+    supplied
+- qcom,vdd-cx-name : should contain names of cx regulator
 - cam_vdig-supply : should contain regulator from which digital voltage is
     supplied
 - cam_vana-supply : should contain regulator from which analog voltage is
@@ -191,6 +194,8 @@ Example:
                qcom,led-flash-src = <&led_flash0>;
                qcom,mount-angle = <90>;
                qcom,sensor-name = "s5k3l1yx";
+               qcom,vdd-cx-supply = <&pm8841_s2>;
+               qcom,vdd-cx-name = "qcom,vdd-cx";
                cam_vdig-supply = <&pm8941_l3>;
                cam_vana-supply = <&pm8941_l17>;
                cam_vio-supply = <&pm8941_lvs3>;
