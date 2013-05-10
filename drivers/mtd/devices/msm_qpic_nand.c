@@ -2029,13 +2029,47 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	struct mtd_oob_ops ops;
 
 	ops.mode = MTD_OPS_AUTO_OOB;
-	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
-	ops.datbuf = (uint8_t *)buf;
 	ops.oobbuf = NULL;
-	ret =  msm_nand_write_oob(mtd, to, &ops);
-	*retlen = ops.retlen;
+
+	/* partial page writes are not supported */
+	if ((to & (mtd->writesize - 1)) || (len % mtd->writesize)) {
+		ret = -EINVAL;
+		*retlen = ops.retlen;
+		pr_err("%s: partial page writes are not supported\n", __func__);
+		goto out;
+	}
+
+	/*
+	 * Handle writing of large size write buffer in vmalloc
+	 * address space that does not fit in an MMU page.
+	 */
+	if (!virt_addr_valid(buf) &&
+		((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE) {
+		ops.len = mtd->writesize;
+
+		for (;;) {
+			ops.datbuf = (uint8_t *) buf;
+			ret = msm_nand_write_oob(mtd, to, &ops);
+			if (ret < 0)
+				break;
+
+			len -= mtd->writesize;
+			*retlen += mtd->writesize;
+			if (len == 0)
+				break;
+
+			buf += mtd->writesize;
+			to += mtd->writesize;
+		}
+	} else {
+		ops.len = len;
+		ops.datbuf = (uint8_t *)buf;
+		ret =  msm_nand_write_oob(mtd, to, &ops);
+		*retlen = ops.retlen;
+	}
+out:
 	return ret;
 }
 
@@ -2466,6 +2500,7 @@ int msm_nand_scan(struct mtd_info *mtd)
 		mtd->writesize = supported_flash->pagesize;
 		mtd->oobsize   = supported_flash->oobsize;
 		mtd->erasesize = supported_flash->blksize;
+		mtd->writebufsize = mtd->writesize;
 		mtd_writesize = mtd->writesize;
 
 		/* Check whether NAND device support 8bit ECC*/
