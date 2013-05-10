@@ -34,6 +34,8 @@
 static DEFINE_MUTEX(iommu_list_lock);
 static LIST_HEAD(iommu_list);
 
+static struct of_device_id msm_iommu_v0_ctx_match_table[];
+
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv)
 {
 	mutex_lock(&iommu_list_lock);
@@ -128,11 +130,11 @@ static void msm_iommu_reset(void __iomem *base, void __iomem *glb_base, int ncb)
 	mb();
 }
 
+#ifdef CONFIG_OF_DEVICE
 static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata,
 				int *needs_alt_core_clk)
 {
-#ifdef CONFIG_OF_DEVICE
 	struct device_node *child;
 	struct resource *r;
 	u32 glb_offset = 0;
@@ -158,11 +160,8 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	for_each_child_of_node(pdev->dev.of_node, child) {
+	for_each_child_of_node(pdev->dev.of_node, child)
 		drvdata->ncb++;
-		if (!of_platform_device_create(child, NULL, &pdev->dev))
-			pr_err("Failed to create %s device\n", child->name);
-	}
 
 	ret = of_property_read_string(pdev->dev.of_node, "label",
 			&drvdata->name);
@@ -176,9 +175,24 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 
 	drvdata->sec_id = -1;
 	drvdata->ttbr_split = 0;
-#endif
+
+	ret = of_platform_populate(pdev->dev.of_node,
+				   msm_iommu_v0_ctx_match_table,
+				   NULL, &pdev->dev);
+	if (ret)
+		pr_err("Failed to create iommu context device\n");
+
+	return ret;
+}
+
+#else
+static int msm_iommu_parse_dt(struct platform_device *pdev,
+				struct msm_iommu_drvdata *drvdata,
+				int *needs_alt_core_clk)
+{
 	return 0;
 }
+#endif
 
 static int __get_clocks(struct platform_device *pdev,
 			struct msm_iommu_drvdata *drvdata,
@@ -647,15 +661,15 @@ static struct platform_driver msm_iommu_driver = {
 	.remove		= __devexit_p(msm_iommu_remove),
 };
 
-static struct of_device_id msm_iommu_ctx_match_table[] = {
-	{ .name = "qcom,iommu-ctx", },
+static struct of_device_id msm_iommu_v0_ctx_match_table[] = {
+	{ .compatible = "qcom,msm-smmu-v0-ctx", },
 	{}
 };
 
 static struct platform_driver msm_iommu_ctx_driver = {
 	.driver = {
 		.name	= "msm_iommu_ctx",
-		.of_match_table = msm_iommu_ctx_match_table,
+		.of_match_table = msm_iommu_v0_ctx_match_table,
 	},
 	.probe		= msm_iommu_ctx_probe,
 	.remove		= __devexit_p(msm_iommu_ctx_remove),
