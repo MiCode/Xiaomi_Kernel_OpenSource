@@ -602,6 +602,34 @@ enum qpnp_adc_tm_channel_select	{
 	QPNP_ADC_TM_CH_SELECT_NONE
 };
 
+enum qpnp_comp_scheme_type {
+	COMP_ID_GF = 0,
+	COMP_ID_SMIC,
+	COMP_ID_TSMC,
+	COMP_ID_NUM,
+};
+
+enum qpnp_iadc_rev {
+	QPNP_IADC_VER_3_0 = 0x1,
+	QPNP_IADC_VER_3_1 = 0x3,
+};
+
+#define QPNP_VBAT_SNS_COEFF_1_TYPEA				3000
+#define QPNP_VBAT_SNS_COEFF_2_TYPEA				45810000
+#define QPNP_VBAT_SNS_COEFF_3					100000
+#define QPNP_VBAT_SNS_COEFF_1_TYPEB				3500
+#define QPNP_VBAT_SNS_COEFF_2_TYPEB				80000000
+
+#define QPNP_COEFF_1					969000
+#define QPNP_COEFF_2					34
+#define QPNP_COEFF_3_TYPEA				1700000
+#define QPNP_COEFF_3_TYPEB				1000000
+#define QPNP_COEFF_4					100
+#define QPNP_COEFF_5					15000
+#define QPNP_COEFF_6					100000
+#define QPNP_COEFF_7					21700
+#define QPNP_COEFF_8					100000000
+
 /**
  * struct qpnp_adc_tm_config - Represent ADC Thermal Monitor configuration.
  * @channel: ADC channel for which thermal monitoring is requested.
@@ -1252,6 +1280,11 @@ int32_t qpnp_vadc_iadc_sync_request(enum qpnp_vadc_channels channel);
  */
 int32_t qpnp_vadc_iadc_sync_complete_request(
 	enum qpnp_vadc_channels channel, struct qpnp_vadc_result *result);
+/**
+ * qpnp_vadc_sns_comp_result() - Compensate vbatt readings based on temperature
+ * @result:	Voltage in uV that needs compensation.
+ */
+int32_t qpnp_vbat_sns_comp_result(int64_t *result);
 #else
 static inline int32_t qpnp_vadc_read(uint32_t channel,
 				struct qpnp_vadc_result *result)
@@ -1336,6 +1369,8 @@ static inline int32_t qpnp_vadc_iadc_sync_complete_request(
 				enum qpnp_vadc_channels channel,
 				struct qpnp_vadc_result *result)
 { return -ENXIO; }
+static inline int32_t qpnp_vbat_sns_comp_result(int64_t *result)
+{ return -ENXIO; }
 #endif
 
 /* Public API */
@@ -1389,6 +1424,7 @@ int32_t qpnp_iadc_vadc_sync_read(
  * @result:	0 on success.
  */
 int32_t qpnp_iadc_calibrate_for_trim(void);
+int32_t qpnp_iadc_comp_result(int64_t *result);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 						struct qpnp_iadc_result *result)
@@ -1405,6 +1441,8 @@ static inline int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_calibrate_for_trim(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_comp_result(int64_t *result, int32_t sign)
 { return -ENXIO; }
 #endif
 
