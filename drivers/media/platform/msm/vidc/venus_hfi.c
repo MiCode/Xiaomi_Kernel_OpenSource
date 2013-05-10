@@ -217,9 +217,12 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 			packet + ((packet_size_in_words - new_write_idx) << 2),
 			new_write_idx  << 2);
 	}
+	/* Memory barrier to make sure packet is written before updating the
+	 * write index */
+	mb();
 	queue->qhdr_write_idx = new_write_idx;
 	*rx_req_is_set = (1 == queue->qhdr_rx_req) ? 1 : 0;
-	/*Memory barrier to make sure data is written before an
+	/*Memory barrier to make sure write index is updated before an
 	 * interupt is raised on venus.*/
 	mb();
 	dprintk(VIDC_DBG, "Out : ");
