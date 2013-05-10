@@ -1548,7 +1548,7 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_ad_config(mfd, &mdp_pp.data.ad_init_cfg);
 		break;
 	case mdp_op_ad_input:
-		ret = mdss_mdp_ad_input(mfd, &mdp_pp.data.ad_input);
+		ret = mdss_mdp_ad_input(mfd, &mdp_pp.data.ad_input, 1);
 		if (ret > 0) {
 			ret = 0;
 			copyback = 1;
