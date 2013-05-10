@@ -29,7 +29,7 @@ struct q6core_str {
 	struct apr_svc *core_handle_q;
 	wait_queue_head_t bus_bw_req_wait;
 	u32 bus_bw_resp_received;
-	struct avcs_cmd_rsp_get_low_power_segments_info_t *lp_ocm_payload;
+	struct avcs_cmd_rsp_get_low_power_segments_info_t lp_ocm_payload;
 };
 
 static struct q6core_str q6core_lcl;
@@ -74,19 +74,19 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		pr_info("%s: cmd = AVCS_CMDRSP_GET_LOW_POWER_SEGMENTS_INFO num_segments = 0x%x\n",
 					__func__, payload1[0]);
 		nseg = payload1[0];
-		q6core_lcl.lp_ocm_payload->num_segments = nseg;
-		q6core_lcl.lp_ocm_payload->bandwidth = payload1[1];
+		q6core_lcl.lp_ocm_payload.num_segments = nseg;
+		q6core_lcl.lp_ocm_payload.bandwidth = payload1[1];
 		for (i = 0, j = 2; i < nseg; i++) {
-			q6core_lcl.lp_ocm_payload->mem_segment[i].type =
+			q6core_lcl.lp_ocm_payload.mem_segment[i].type =
 					(payload1[j] & 0xffff);
-			q6core_lcl.lp_ocm_payload->mem_segment[i].category =
+			q6core_lcl.lp_ocm_payload.mem_segment[i].category =
 					((payload1[j++] >> 16) & 0xffff);
-			q6core_lcl.lp_ocm_payload->mem_segment[i].size =
+			q6core_lcl.lp_ocm_payload.mem_segment[i].size =
 					payload1[j++];
-			q6core_lcl.lp_ocm_payload->
+			q6core_lcl.lp_ocm_payload.
 				mem_segment[i].start_address_lsw =
 				payload1[j++];
-			q6core_lcl.lp_ocm_payload->
+			q6core_lcl.lp_ocm_payload.
 				mem_segment[i].start_address_msw =
 				payload1[j++];
 		}
@@ -152,7 +152,6 @@ int core_get_low_power_segments(
 		struct avcs_cmd_rsp_get_low_power_segments_info_t **lp_memseg)
 {
 	struct avcs_cmd_get_low_power_segments_info lp_ocm_cmd;
-	u8 *cptr = NULL;
 	int ret = 0;
 
 	pr_debug("%s: ", __func__);
@@ -163,16 +162,6 @@ int core_get_low_power_segments(
 		return -ENODEV;
 	}
 
-	cptr = kzalloc(
-		sizeof(struct avcs_cmd_rsp_get_low_power_segments_info_t),
-		GFP_KERNEL);
-	if (!cptr) {
-		pr_err("%s: Failed to allocate memory for low power segment struct\n",
-				__func__);
-		return -ENOMEM;
-	}
-	q6core_lcl.lp_ocm_payload =
-		(struct avcs_cmd_rsp_get_low_power_segments_info_t *) cptr;
 
 	lp_ocm_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -201,7 +190,7 @@ int core_get_low_power_segments(
 		goto fail_cmd;
 	}
 
-	*lp_memseg = q6core_lcl.lp_ocm_payload;
+	*lp_memseg = &q6core_lcl.lp_ocm_payload;
 	return 0;
 
 fail_cmd:
@@ -215,14 +204,6 @@ static int __init core_init(void)
 	q6core_lcl.bus_bw_resp_received = 0;
 
 	q6core_lcl.core_handle_q = NULL;
-	q6core_lcl.lp_ocm_payload = kzalloc(
-	sizeof(struct avcs_cmd_rsp_get_low_power_segments_info_t), GFP_KERNEL);
-
-	if (!q6core_lcl.lp_ocm_payload) {
-		pr_err("%s: Failed to allocate memory for low power segment struct\n",
-				__func__);
-		return -ENOMEM;
-	}
 
 	return 0;
 }
@@ -230,7 +211,7 @@ module_init(core_init);
 
 static void __exit core_exit(void)
 {
-	kfree(q6core_lcl.lp_ocm_payload);
+
 }
 module_exit(core_exit);
 MODULE_DESCRIPTION("ADSP core driver");
