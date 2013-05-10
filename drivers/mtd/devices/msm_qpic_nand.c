@@ -1748,6 +1748,75 @@ validate_mtd_params_failed:
 	return err;
 }
 
+/**
+ * msm_nand_read_partial_page() - read partial page
+ * @mtd: pointer to mtd info
+ * @from: start address of the page
+ * @ops: pointer to mtd_oob_ops
+ *
+ * Reads a page into a bounce buffer and copies the required
+ * number of bytes to actual buffer. The pages that are aligned
+ * do not use bounce buffer.
+ */
+static int msm_nand_read_partial_page(struct mtd_info *mtd,
+		loff_t from, struct mtd_oob_ops *ops)
+{
+	int err = 0;
+	unsigned char *actual_buf;
+	unsigned char *bounce_buf;
+	loff_t aligned_from;
+	loff_t offset;
+	size_t len;
+	size_t actual_len;
+
+	actual_len = ops->len;
+	actual_buf = ops->datbuf;
+
+	bounce_buf = kmalloc(mtd->writesize, GFP_KERNEL);
+	if (!bounce_buf) {
+		pr_err("%s: could not allocate memory\n", __func__);
+		err = -ENOMEM;
+		goto out;
+	}
+
+	/* Get start address of page to read from */
+	ops->len = mtd->writesize;
+	offset = from & (mtd->writesize - 1);
+	aligned_from = from - offset;
+
+	for (;;) {
+		bool no_copy = false;
+
+		len = mtd->writesize - offset;
+		if (len > actual_len)
+			len = actual_len;
+
+		if (offset == 0 && len == mtd->writesize)
+			no_copy = true;
+
+		ops->datbuf = no_copy ? actual_buf : bounce_buf;
+		err = msm_nand_read_oob(mtd, aligned_from, ops);
+		if (err < 0)
+			break;
+
+		if (!no_copy)
+			memcpy(actual_buf, bounce_buf + offset, len);
+
+		actual_len -= len;
+		ops->retlen += len;
+		if (actual_len == 0)
+			break;
+
+		actual_buf += len;
+		offset = 0;
+		aligned_from += mtd->writesize;
+	}
+
+	kfree(bounce_buf);
+out:
+	return err;
+}
+
 /*
  * Function that gets called from upper layers such as MTD/YAFFS2 to read a
  * page with only main data.
@@ -1764,7 +1833,13 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ops.ooblen = 0;
 	ops.datbuf = buf;
 	ops.oobbuf = NULL;
-	ret =  msm_nand_read_oob(mtd, from, &ops);
+
+	if (!(from & (mtd->writesize - 1)) && !(len % mtd->writesize))
+		/* read pages on page boundary */
+		ret = msm_nand_read_oob(mtd, from, &ops);
+	else
+		ret = msm_nand_read_partial_page(mtd, from, &ops);
+
 	*retlen = ops.retlen;
 	return ret;
 }
