@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,7 +62,7 @@ static int deserialize_log(struct ipc_log_context *ilctxt,
 	dctxt.output_format = OUTPUT_DEBUGFS;
 	dctxt.buff = buff;
 	dctxt.size = size;
-	spin_lock_irqsave(&ipc_log_context_list_lock, flags);
+	read_lock_irqsave(&ipc_log_context_list_lock, flags);
 	spin_lock(&ilctxt->ipc_log_context_lock);
 	while (dctxt.size >= MAX_MSG_DECODED_SIZE &&
 	       !is_ilctxt_empty(ilctxt)) {
@@ -70,19 +70,19 @@ static int deserialize_log(struct ipc_log_context *ilctxt,
 		deserialize_func = get_deserialization_func(ilctxt,
 							ectxt.hdr.type);
 		spin_unlock(&ilctxt->ipc_log_context_lock);
-		spin_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+		read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
 		if (deserialize_func)
 			deserialize_func(&ectxt, &dctxt);
 		else
 			pr_err("%s: unknown message 0x%x\n",
 				__func__, ectxt.hdr.type);
-		spin_lock_irqsave(&ipc_log_context_list_lock, flags);
+		read_lock_irqsave(&ipc_log_context_list_lock, flags);
 		spin_lock(&ilctxt->ipc_log_context_lock);
 	}
 	if ((size - dctxt.size) == 0)
 		init_completion(&ilctxt->read_avail);
 	spin_unlock(&ilctxt->ipc_log_context_lock);
-	spin_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+	read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
 	return size - dctxt.size;
 }
 

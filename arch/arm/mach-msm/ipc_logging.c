@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@
 #include "ipc_logging.h"
 
 static LIST_HEAD(ipc_log_context_list);
-DEFINE_SPINLOCK(ipc_log_context_list_lock);
+DEFINE_RWLOCK(ipc_log_context_list_lock);
 static atomic_t next_log_id = ATOMIC_INIT(0);
 
 static struct ipc_log_page *get_first_page(struct ipc_log_context *ilctxt)
@@ -140,7 +140,7 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt)
 		return;
 	}
 
-	spin_lock_irqsave(&ipc_log_context_list_lock, flags);
+	read_lock_irqsave(&ipc_log_context_list_lock, flags);
 	spin_lock(&ilctxt->ipc_log_context_lock);
 	while (ilctxt->write_avail < ectxt->offset)
 		msg_read(ilctxt, NULL);
@@ -165,7 +165,7 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt)
 	ilctxt->write_avail -= ectxt->offset;
 	complete(&ilctxt->read_avail);
 	spin_unlock(&ilctxt->ipc_log_context_lock);
-	spin_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+	read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
 }
 EXPORT_SYMBOL(ipc_log_write);
 
@@ -471,13 +471,13 @@ int add_deserialization_func(void *ctxt, int type,
 	if (!df_info)
 		return -ENOSPC;
 
-	spin_lock_irqsave(&ipc_log_context_list_lock, flags);
+	read_lock_irqsave(&ipc_log_context_list_lock, flags);
 	spin_lock(&ilctxt->ipc_log_context_lock);
 	df_info->type = type;
 	df_info->dfunc = dfunc;
 	list_add_tail(&df_info->list, &ilctxt->dfunc_info_list);
 	spin_unlock(&ilctxt->ipc_log_context_lock);
-	spin_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+	read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
 	return 0;
 }
 EXPORT_SYMBOL(add_deserialization_func);
@@ -528,9 +528,9 @@ void *ipc_log_context_create(int max_num_pages,
 
 	create_ctx_debugfs(ctxt, mod_name);
 
-	spin_lock_irqsave(&ipc_log_context_list_lock, flags);
+	write_lock_irqsave(&ipc_log_context_list_lock, flags);
 	list_add_tail(&ctxt->list, &ipc_log_context_list);
-	spin_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+	write_unlock_irqrestore(&ipc_log_context_list_lock, flags);
 	return (void *)ctxt;
 
 release_ipc_log_context:
