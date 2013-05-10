@@ -20,11 +20,43 @@
 #include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
 #include <mach/msm_smem.h>
-#include "smd_private.h"
 
 #if defined(CONFIG_ARCH_MSM8960)
 #include "rpm_resources.h"
 #endif
+
+struct smem_ram_ptn {
+	char name[16];
+	unsigned start;
+	unsigned size;
+
+	/* RAM Partition attribute: READ_ONLY, READWRITE etc.  */
+	unsigned attr;
+
+	/* RAM Partition category: EBI0, EBI1, IRAM, IMEM */
+	unsigned category;
+
+	/* RAM Partition domain: APPS, MODEM, APPS & MODEM (SHARED) etc. */
+	unsigned domain;
+
+	/* RAM Partition type: system, bootloader, appsboot, apps etc. */
+	unsigned type;
+
+	/* reserved for future expansion without changing version number */
+	unsigned reserved2, reserved3, reserved4, reserved5;
+} __attribute__ ((__packed__));
+
+
+struct smem_ram_ptable {
+	#define _SMEM_RAM_PTABLE_MAGIC_1 0x9DA5E0A8
+	#define _SMEM_RAM_PTABLE_MAGIC_2 0xAF9EC4E2
+	unsigned magic[2];
+	unsigned version;
+	unsigned reserved1;
+	unsigned len;
+	struct smem_ram_ptn parts[32];
+	unsigned buf;
+} __attribute__ ((__packed__));
 
 static struct mem_region_t {
 	u64 start;

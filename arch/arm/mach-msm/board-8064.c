@@ -85,7 +85,6 @@
 #include "pm.h"
 #include "pm-boot.h"
 #include "devices-msm8x60.h"
-#include "smd_private.h"
 #include "platsmp.h"
 
 #define MHL_GPIO_INT           30
