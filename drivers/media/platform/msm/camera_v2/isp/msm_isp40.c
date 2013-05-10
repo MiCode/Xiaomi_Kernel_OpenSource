@@ -436,6 +436,8 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 {
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
 	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
+	/*Ignore composite 3 irq which is used for dual VFE only*/
+	*irq_status0 &= ~BIT(28);
 	msm_camera_io_w(*irq_status0, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w(*irq_status1, vfe_dev->vfe_base + 0x34);
 	msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x24);
