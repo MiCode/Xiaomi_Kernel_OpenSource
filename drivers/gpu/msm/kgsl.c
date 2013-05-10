@@ -632,8 +632,13 @@ void kgsl_early_suspend_driver(struct early_suspend *h)
 	KGSL_PWR_WARN(device, "early suspend start\n");
 	mutex_lock(&device->mutex);
 	device->pwrctrl.restore_slumber = true;
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
-	kgsl_pwrctrl_sleep(device);
+
+	/* Only go to slumber if active_cnt is 0 */
+	if (device->active_cnt == 0) {
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
+		kgsl_pwrctrl_sleep(device);
+	}
+
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "early suspend end\n");
 }
@@ -669,9 +674,17 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 	 * We don't have a way to go directly from
 	 * a deeper sleep state to NAP, which is
 	 * the desired state here.
+	 *
+	 * Except if active_cnt is non zero which means that
+	 * we probably went to early_suspend with it non zero
+	 * and thus the system is still in an active state.
 	 */
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-	kgsl_pwrctrl_sleep(device);
+
+	if (device->active_cnt == 0) {
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
+		kgsl_pwrctrl_sleep(device);
+	}
+
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "late resume end\n");
 }
