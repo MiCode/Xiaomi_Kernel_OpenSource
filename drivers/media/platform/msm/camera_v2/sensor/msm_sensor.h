@@ -65,6 +65,7 @@ struct msm_sensor_ctrl_t {
 	bool free_power_setting;
 	struct msm_cam_clk_info *clk_info;
 	uint16_t clk_info_size;
+	void *misc_regulator;
 };
 
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
