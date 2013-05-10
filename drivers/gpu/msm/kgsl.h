@@ -226,11 +226,8 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 
 extern const struct dev_pm_ops kgsl_pm_ops;
 
-struct early_suspend;
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
 int kgsl_resume_driver(struct platform_device *pdev);
-void kgsl_early_suspend_driver(struct early_suspend *h);
-void kgsl_late_resume_driver(struct early_suspend *h);
 
 void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
 		unsigned int value);
