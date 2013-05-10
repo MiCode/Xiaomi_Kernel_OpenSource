@@ -185,7 +185,6 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 
-	int				ibat_max_ua;
 	int				prev_uuc_iavg_ma;
 	int				prev_pc_unusable;
 	int				ibat_at_cv_ua;
@@ -219,7 +218,6 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
@@ -1397,9 +1395,6 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 
 	ocv_est_uv = vbat_uv + (ibat_ua * params->rbatt_mohm)/1000;
 
-	chip->ibat_max_ua = (ocv_est_uv - chip->v_cutoff_uv) * 1000
-					/ (params->rbatt_mohm);
-
 	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp);
 	soc_est = div_s64((s64)params->fcc_uah * pc_est - params->uuc_uah*100,
 				(s64)params->fcc_uah - params->uuc_uah);
@@ -1933,12 +1928,6 @@ static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 	return report_state_of_charge(chip);
 }
 
-/* Returns estimated max current that the battery can supply in uA */
-static int get_prop_bms_current_max(struct qpnp_bms_chip *chip)
-{
-	return chip->ibat_max_ua;
-}
-
 /* Returns estimated battery resistance */
 static int get_prop_bms_batt_resistance(struct qpnp_bms_chip *chip)
 {
@@ -1998,9 +1987,6 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_bms_current_now(chip);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = get_prop_bms_current_max(chip);
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		val->intval = get_prop_bms_batt_resistance(chip);

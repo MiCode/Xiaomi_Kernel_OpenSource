@@ -818,7 +818,6 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TEMP,
@@ -957,21 +956,6 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 		return POWER_SUPPLY_STATUS_CHARGING;
 
 	return POWER_SUPPLY_STATUS_DISCHARGING;
-}
-static int
-get_prop_current_max(struct qpnp_chg_chip *chip)
-{
-	union power_supply_propval ret = {0,};
-
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
-		return ret.intval;
-	} else {
-		pr_debug("No BMS supply registered return 0\n");
-	}
-
-	return 0;
 }
 
 static int
@@ -1150,9 +1134,6 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_capacity(chip);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = get_prop_current_max(chip);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_current_now(chip);
