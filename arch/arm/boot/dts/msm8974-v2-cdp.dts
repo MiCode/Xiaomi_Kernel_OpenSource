@@ -18,7 +18,9 @@
 / {
 	model = "Qualcomm MSM 8974v2 CDP";
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,msm-id = <126 1 0x20000>;
+	qcom,msm-id = <126 1 0x20000>,
+		      <185 1 0x20000>,
+		      <186 1 0x20000>;
 };
 
 &usb3 {
