@@ -143,6 +143,7 @@ struct qpnp_bms_chip {
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
 	struct mutex			soc_invalidation_mutex;
+	struct mutex			last_soc_mutex;
 
 	bool				use_external_rsense;
 	bool				use_ocv_thresholds;
@@ -165,7 +166,9 @@ struct qpnp_bms_chip {
 	int				last_ocv_uv;
 	int				last_ocv_temp;
 	int				last_cc_uah;
+	unsigned long			last_soc_change_sec;
 	unsigned long			tm_sec;
+	unsigned long			report_tm_sec;
 	bool				first_time_calc_soc;
 	bool				first_time_calc_uuc;
 	int				pon_ocv_uv;
@@ -177,9 +180,9 @@ struct qpnp_bms_chip {
 	int				last_soc;
 	int				last_soc_est;
 	int				last_soc_unbound;
-
-	int				charge_time_us;
-	int				catch_up_time_us;
+	bool				was_charging_at_sleep;
+	int				charge_start_tm_sec;
+	int				catch_up_time_sec;
 	struct single_row_lut		*adjusted_fcc_temp_lut;
 
 	unsigned int			vadc_v0625;
@@ -661,7 +664,10 @@ static int estimate_ocv(struct qpnp_bms_chip *chip)
 static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 {
 	chip->last_ocv_uv = estimate_ocv(chip);
+	mutex_lock(&chip->last_soc_mutex);
 	chip->last_soc = -EINVAL;
+	chip->last_soc_invalid = true;
+	mutex_unlock(&chip->last_soc_mutex);
 	chip->soc_at_cv = -EINVAL;
 	chip->shutdown_soc_invalid = true;
 	chip->shutdown_soc = 0;
@@ -670,7 +676,6 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	reset_cc(chip);
 	chip->last_cc_uah = INT_MIN;
 	chip->last_ocv_temp = batt_temp;
-	chip->last_soc_invalid = true;
 	chip->prev_batt_terminal_uv = 0;
 }
 
@@ -1123,21 +1128,22 @@ close_time:
 	return rc;
 }
 
-static int calculate_delta_time(struct qpnp_bms_chip *chip, int *delta_time_s)
+static int calculate_delta_time(unsigned long *time_stamp, int *delta_time_s)
 {
 	unsigned long now_tm_sec = 0;
 
 	/* default to delta time = 0 if anything fails */
 	*delta_time_s = 0;
 
-	get_current_time(&now_tm_sec);
+	if (get_current_time(&now_tm_sec)) {
+		pr_err("RTC read failed\n");
+		return 0;
+	}
 
-	*delta_time_s = (now_tm_sec - chip->tm_sec);
-	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d\n",
-		chip->tm_sec, now_tm_sec, *delta_time_s);
+	*delta_time_s = (now_tm_sec - *time_stamp);
 
 	/* remember this time */
-	chip->tm_sec = now_tm_sec;
+	*time_stamp = now_tm_sec;
 	return 0;
 }
 
@@ -1148,7 +1154,9 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 {
 	int soc_rbatt;
 
-	calculate_delta_time(chip, &params->delta_time_s);
+	calculate_delta_time(&chip->tm_sec, &params->delta_time_s);
+	pr_debug("tm_sec = %ld, delta_s = %d\n",
+		chip->tm_sec, params->delta_time_s);
 	params->fcc_uah = calculate_fcc(chip, batt_temp);
 	pr_debug("FCC = %uuAh batt_temp = %d\n", params->fcc_uah, batt_temp);
 
@@ -1240,8 +1248,10 @@ static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 	ocv_est_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
 	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
 	chip->last_ocv_uv = ocv_est_uv;
+	mutex_lock(&chip->last_soc_mutex);
 	chip->last_soc = -EINVAL;
 	chip->last_soc_invalid = true;
+	mutex_unlock(&chip->last_soc_mutex);
 	reset_cc(chip);
 	chip->last_cc_uah = INT_MIN;
 	stop_ocv_updates(chip);
@@ -1532,6 +1542,7 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 	}
 }
 
+#define SLEEP_RECALC_INTERVAL	3
 static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
 					int batt_temp)
@@ -1643,13 +1654,30 @@ done_calculating:
 	}
 
 	chip->calculated_soc = new_calculated_soc;
+	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
+	mutex_lock(&chip->last_soc_mutex);
 	if (chip->last_soc_invalid) {
 		chip->last_soc_invalid = false;
 		chip->last_soc = -EINVAL;
 	}
-	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
-	chip->first_time_calc_soc = 0;
+	/*
+	 * Check if more than a long time has passed since the last
+	 * calculation (more than n times compared to the soc recalculation
+	 * rate, where n is defined by SLEEP_RECALC_INTERVAL). If this is true,
+	 * then the system must have gone through a long sleep, and SoC can be
+	 * allowed to become unbounded by the last reported SoC
+	 */
+	if (params.delta_time_s * 1000 >
+			chip->calculate_soc_ms * SLEEP_RECALC_INTERVAL
+			&& !chip->first_time_calc_soc) {
+		chip->last_soc_unbound = true;
+		chip->last_soc_change_sec = chip->last_recalc_time;
+		pr_debug("last_soc unbound because elapsed time = %d\n",
+				params.delta_time_s);
+	}
+	mutex_unlock(&chip->last_soc_mutex);
 	get_current_time(&chip->last_recalc_time);
+	chip->first_time_calc_soc = 0;
 	return chip->calculated_soc;
 }
 
@@ -1687,7 +1715,8 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
 
-	wake_lock(&chip->soc_wake_lock);
+	if (!wake_lock_active(&chip->soc_wake_lock))
+		wake_lock(&chip->soc_wake_lock);
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
 	} else {
@@ -1765,32 +1794,20 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 #define SOC_CATCHUP_SEC_MAX		600
 #define SOC_CATCHUP_SEC_PER_PERCENT	60
 #define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX/SOC_CATCHUP_SEC_PER_PERCENT)
-static int scale_soc_while_chg(struct qpnp_bms_chip *chip,
-				int delta_time_us, int new_soc, int prev_soc)
+static int scale_soc_while_chg(struct qpnp_bms_chip *chip, int chg_time_sec,
+				int catch_up_sec, int new_soc, int prev_soc)
 {
-	int chg_time_sec;
-	int catch_up_sec;
 	int scaled_soc;
 	int numerator;
 
 	/*
-	 * The device must be charging for reporting a higher soc, if
-	 * not ignore this soc and continue reporting the prev_soc.
-	 * Also don't report a high value immediately slowly scale the
+	 * Don't report a high value immediately slowly scale the
 	 * value from prev_soc to the new soc based on a charge time
 	 * weighted average
 	 */
-
-	/* if not charging, return last soc */
-	if (!is_battery_charging(chip))
-		return prev_soc;
-
-	chg_time_sec = DIV_ROUND_UP(chip->charge_time_us, USEC_PER_SEC);
-	catch_up_sec = DIV_ROUND_UP(chip->catch_up_time_us, USEC_PER_SEC);
+	pr_debug("cts = %d catch_up_sec = %d\n", chg_time_sec, catch_up_sec);
 	if (catch_up_sec == 0)
 		return new_soc;
-	pr_debug("cts= %d catch_up_sec = %d\n", chg_time_sec, catch_up_sec);
-
 	/*
 	 * if charging for more than catch_up time, simply return
 	 * new soc
@@ -1823,14 +1840,17 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 	return chip->prev_voltage_based_soc;
 }
 
+#define SOC_CHANGE_PER_SEC	20
 static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 {
-	int soc;
-	int delta_time_us;
+	int soc, soc_change;
+	int time_since_last_change_sec, charge_time_sec = 0;
+	unsigned long last_change_sec;
 	struct timespec now;
 	struct qpnp_vadc_result result;
 	int batt_temp;
 	int rc;
+	bool charging, charging_since_last_report;
 
 	soc = chip->calculated_soc;
 
@@ -1845,68 +1865,84 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 						result.measurement);
 	batt_temp = (int)result.physical;
 
-	do_posix_clock_monotonic_gettime(&now);
-	if (chip->t_soc_queried.tv_sec != 0) {
-		delta_time_us
-		= (now.tv_sec - chip->t_soc_queried.tv_sec) * USEC_PER_SEC
-			+ (now.tv_nsec - chip->t_soc_queried.tv_nsec) / 1000;
-	} else {
-		/* calculation for the first time */
-		delta_time_us = 0;
-	}
+	mutex_lock(&chip->last_soc_mutex);
+	last_change_sec = chip->last_soc_change_sec;
+	calculate_delta_time(&last_change_sec, &time_since_last_change_sec);
 
+	charging = is_battery_charging(chip);
+	charging_since_last_report = charging || (chip->last_soc_unbound
+			&& chip->was_charging_at_sleep);
 	/*
 	 * account for charge time - limit it to SOC_CATCHUP_SEC to
 	 * avoid overflows when charging continues for extended periods
 	 */
-	if (is_battery_charging(chip)) {
-		if (chip->charge_time_us == 0) {
+	if (charging) {
+		if (chip->charge_start_tm_sec == 0) {
 			/*
 			 * calculating soc for the first time
 			 * after start of chg. Initialize catchup time
 			 */
 			if (abs(soc - chip->last_soc) < MAX_CATCHUP_SOC)
-				chip->catch_up_time_us =
+				chip->catch_up_time_sec =
 				(soc - chip->last_soc)
-					* SOC_CATCHUP_SEC_PER_PERCENT
-					* USEC_PER_SEC;
+					* SOC_CATCHUP_SEC_PER_PERCENT;
 			else
-				chip->catch_up_time_us =
-				SOC_CATCHUP_SEC_MAX * USEC_PER_SEC;
+				chip->catch_up_time_sec = SOC_CATCHUP_SEC_MAX;
 
-			if (chip->catch_up_time_us < 0)
-				chip->catch_up_time_us = 0;
+			if (chip->catch_up_time_sec < 0)
+				chip->catch_up_time_sec = 0;
+			chip->charge_start_tm_sec = last_change_sec;
 		}
 
-		/* add charge time */
-		if (chip->charge_time_us < SOC_CATCHUP_SEC_MAX * USEC_PER_SEC)
-			chip->charge_time_us += delta_time_us;
+		charge_time_sec = min(SOC_CATCHUP_SEC_MAX, (int)last_change_sec
+				- chip->charge_start_tm_sec);
 
 		/* end catchup if calculated soc and last soc are same */
 		if (chip->last_soc == soc)
-			chip->catch_up_time_us = 0;
+			chip->catch_up_time_sec = 0;
 	}
 
-	/* last_soc < soc  ... scale and catch up */
-	if (chip->last_soc != -EINVAL && chip->last_soc < soc && soc != 100)
-		soc = scale_soc_while_chg(chip, delta_time_us,
-						soc, chip->last_soc);
+	if (chip->last_soc != -EINVAL) {
+		/* last_soc < soc  ... if we have not been charging at all
+		 * since the last time this was called, report previous SoC.
+		 * Otherwise, scale and catch up.
+		 */
+		if (chip->last_soc < soc && !charging_since_last_report)
+			soc = chip->last_soc;
+		else if (chip->last_soc < soc && soc != 100)
+			soc = scale_soc_while_chg(chip, charge_time_sec,
+					chip->catch_up_time_sec,
+					soc, chip->last_soc);
 
-	if (chip->last_soc_unbound)
-		chip->last_soc_unbound = false;
-	else if (chip->last_soc != -EINVAL) {
+		soc_change = min((int)abs(chip->last_soc - soc),
+			time_since_last_change_sec / SOC_CHANGE_PER_SEC);
+		if (chip->last_soc_unbound) {
+			chip->last_soc_unbound = false;
+		} else {
+			/*
+			 * if soc have not been unbound by resume,
+			 * only change reported SoC by 1.
+			 */
+			soc_change = min(1, soc_change);
+		}
+
 		if (soc < chip->last_soc && soc != 0)
-			soc = chip->last_soc - 1;
+			soc = chip->last_soc - soc_change;
 		if (soc > chip->last_soc && soc != 100)
-			soc = chip->last_soc + 1;
+			soc = chip->last_soc + soc_change;
 	}
 
-	pr_debug("last_soc = %d, calculated_soc = %d, soc = %d\n",
-			chip->last_soc, chip->calculated_soc, soc);
+	if (chip->last_soc != soc)
+		chip->last_soc_change_sec = last_change_sec;
+
+	pr_debug("last_soc = %d, calculated_soc = %d, soc = %d, time since last change = %d\n",
+			chip->last_soc, chip->calculated_soc,
+			soc, time_since_last_change_sec);
 	chip->last_soc = bound_soc(soc);
 	backup_soc_and_iavg(chip, batt_temp, chip->last_soc);
 	pr_debug("Reported SOC = %d\n", chip->last_soc);
 	chip->t_soc_queried = now;
+	mutex_unlock(&chip->last_soc_mutex);
 
 	return soc;
 }
@@ -2482,6 +2518,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->bms_output_lock);
 	mutex_init(&chip->last_ocv_uv_mutex);
 	mutex_init(&chip->soc_invalidation_mutex);
+	mutex_init(&chip->last_soc_mutex);
 
 	wake_lock_init(&chip->soc_wake_lock, WAKE_LOCK_SUSPEND,
 			"qpnp_soc_lock");
@@ -2567,7 +2604,7 @@ static int bms_suspend(struct device *dev)
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 
 	cancel_delayed_work_sync(&chip->calculate_soc_delayed_work);
-	chip->last_soc_unbound = true;
+	chip->was_charging_at_sleep = is_battery_charging(chip);
 	return 0;
 }
 
@@ -2584,10 +2621,6 @@ static int bms_resume(struct device *dev)
 	if (rc) {
 		pr_err("Could not read current time: %d\n", rc);
 	} else if (tm_now_sec > chip->last_recalc_time) {
-		/*
-		 * unbind the last soc so that the next
-		 * recalculation is not limited to changing by 1%
-		 */
 		time_since_last_recalc = tm_now_sec - chip->last_recalc_time;
 		pr_debug("Time since last recalc: %lu\n",
 				time_since_last_recalc);
@@ -2598,6 +2631,10 @@ static int bms_resume(struct device *dev)
 
 		time_until_next_recalc = max(0, soc_calc_period
 				- (int)(time_since_last_recalc * 1000));
+
+		if (!wake_lock_active(&chip->soc_wake_lock)
+				&& time_until_next_recalc == 0)
+			wake_lock(&chip->soc_wake_lock);
 
 		schedule_delayed_work(&chip->calculate_soc_delayed_work,
 			round_jiffies_relative(msecs_to_jiffies
