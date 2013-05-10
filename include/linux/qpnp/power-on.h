@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +17,10 @@
 
 #ifdef CONFIG_QPNP_POWER_ON
 int qpnp_pon_system_pwr_off(bool reset);
+int qpnp_pon_is_warm_reset(void);
 #else
 static int qpnp_pon_system_pwr_off(bool reset) { return -ENODEV; }
+static inline int qpnp_pon_is_warm_reset(void) { return -ENODEV; }
 #endif
 
 #endif
