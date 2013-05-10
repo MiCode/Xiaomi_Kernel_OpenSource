@@ -506,7 +506,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 
-	if (!subsys->is_loadable)
+	if (subsys->is_not_loadable)
 		return 0;
 	pil_shutdown(&drv->desc);
 	pil_shutdown(&drv->q6->desc);
@@ -518,7 +518,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	struct mba_data *drv = subsys_to_drv(subsys);
 	int ret;
 
-	if (!subsys->is_loadable)
+	if (subsys->is_not_loadable)
 		return 0;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
@@ -605,7 +605,7 @@ static int mss_start(const struct subsys_desc *desc)
 	int ret;
 	struct mba_data *drv = subsys_to_drv(desc);
 
-	if (!desc->is_loadable)
+	if (desc->is_not_loadable)
 		return 0;
 
 	ret = pil_boot(&drv->q6->desc);
@@ -628,7 +628,7 @@ static void mss_stop(const struct subsys_desc *desc)
 {
 	struct mba_data *drv = subsys_to_drv(desc);
 
-	if (!desc->is_loadable)
+	if (desc->is_not_loadable)
 		return;
 
 	pil_shutdown(&drv->desc);
@@ -836,17 +836,18 @@ err_mba_desc:
 static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
-	int ret, err_fatal_gpio, is_loadable;
+	int ret, err_fatal_gpio, is_not_loadable;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	is_loadable = of_property_read_bool(pdev->dev.of_node,
-							"qcom,is-loadable");
-	if (is_loadable) {
-		drv->subsys_desc.is_loadable = 1;
+	is_not_loadable = of_property_read_bool(pdev->dev.of_node,
+							"qcom,is-not-loadable");
+	if (is_not_loadable) {
+		drv->subsys_desc.is_not_loadable = 1;
+	} else {
 		ret = pil_mss_loadable_init(drv, pdev);
 		if (ret)
 			return ret;
