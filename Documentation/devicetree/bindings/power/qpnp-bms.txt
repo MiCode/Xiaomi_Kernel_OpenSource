@@ -47,7 +47,7 @@ Parent node required properties:
 			SoC recalculations when the current SoC is below
 			qcom,low-soc-calculate-soc-threshold or when battery
 			voltage is below qcom,low-voltage-threshold.
-- qcom,soc-calculate-soc-ms : The time period between subsequent SoC
+- qcom,calculate-soc-ms : The time period between subsequent SoC
 			recalculations when the current SoC is above or equal
 			qcom,low-soc-calculate-soc-threshold.
 - qcom,chg-term-ua : current in micro-amps when charging is considered done.
