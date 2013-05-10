@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MPQ8092 Simulator";
-	compatible = "qcom,mpq8092-sim", "qcom,mpq8092";
+	compatible = "qcom,mpq8092-sim", "qcom,mpq8092", "qcom,sim";
 	qcom,msm-id = <126 16 0>;
 };
 
