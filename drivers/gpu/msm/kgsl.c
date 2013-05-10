@@ -959,7 +959,12 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		result = device->ftbl->start(device);
 		if (result)
 			goto err_freedevpriv;
-
+		/*
+		 * Make sure the gates are open, so they don't block until
+		 * we start suspend or FT.
+		 */
+		complete_all(&device->ft_gate);
+		complete_all(&device->hwaccess_gate);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		kgsl_active_count_put(device);
 	}
