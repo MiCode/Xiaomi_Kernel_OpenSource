@@ -698,11 +698,9 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	iounmap(cpp_dev->cpp_hw_base);
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 		cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 0);
-	if (0) {
-		regulator_disable(cpp_dev->fs_cpp);
-		regulator_put(cpp_dev->fs_cpp);
-		cpp_dev->fs_cpp = NULL;
-	}
+	regulator_disable(cpp_dev->fs_cpp);
+	regulator_put(cpp_dev->fs_cpp);
+	cpp_dev->fs_cpp = NULL;
 	msm_isp_update_bandwidth(ISP_CPP, 0, 0);
 	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 }
