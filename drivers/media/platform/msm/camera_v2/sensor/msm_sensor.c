@@ -353,7 +353,7 @@ ERROR1:
 	return rc;
 }
 
-static int32_t msm_sensor_get_dt_gpio_req_tbl(struct device_node *of_node,
+int32_t msm_sensor_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
 	uint16_t gpio_array_size)
 {
@@ -437,7 +437,7 @@ ERROR1:
 	return rc;
 }
 
-static int32_t msm_sensor_get_dt_gpio_set_tbl(struct device_node *of_node,
+int32_t msm_sensor_get_dt_gpio_set_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
 	uint16_t gpio_array_size)
 {
@@ -521,7 +521,7 @@ ERROR1:
 	return rc;
 }
 
-static int32_t msm_sensor_init_gpio_pin_tbl(struct device_node *of_node,
+int32_t msm_sensor_init_gpio_pin_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
 	uint16_t gpio_array_size)
 {
