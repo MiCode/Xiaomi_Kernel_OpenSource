@@ -90,7 +90,7 @@ struct msm_vfe_axi_ops {
 	void (*enable_wm) (struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint8_t enable);
 	void (*cfg_io_format) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream_request_cmd *stream_req_cmd);
+		struct msm_vfe_axi_stream *stream_info);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
@@ -105,13 +105,13 @@ struct msm_vfe_axi_ops {
 		struct msm_vfe_axi_stream *stream_info);
 
 	void (*cfg_wm_reg) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
+		struct msm_vfe_axi_stream *stream_info,
 		uint8_t plane_idx);
 	void (*clear_wm_reg) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
 
 	void (*cfg_wm_xbar_reg) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
+		struct msm_vfe_axi_stream *stream_info,
 		uint8_t plane_idx);
 	void (*clear_wm_xbar_reg) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
@@ -233,7 +233,8 @@ struct msm_vfe_axi_stream {
 	enum msm_vfe_axi_stream_src stream_src;
 	uint8_t num_planes;
 	uint8_t wm[MAX_PLANES_PER_STREAM];
-	uint32_t plane_offset[MAX_PLANES_PER_STREAM];
+	uint32_t output_format;/*Planar/RAW/Misc*/
+	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 	uint8_t comp_mask_index;
 	struct msm_isp_buffer *buf[2];
 	uint32_t session_id;

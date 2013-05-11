@@ -523,14 +523,14 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	comp_mask &= ~(0x7F << (comp_mask_index * 8));
 	comp_mask |= (axi_data->composite_info[comp_mask_index].
 		stream_composite_mask << (comp_mask_index * 8));
-	if (stream_info->plane_offset[0])
+	if (stream_info->plane_cfg[0].plane_addr_offset)
 		comp_mask |= (axi_data->composite_info[comp_mask_index].
 		stream_composite_mask << 24);
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask |= 1 << (comp_mask_index + 25);
-	if (stream_info->plane_offset[0] && (comp_mask >> 24))
+	if (stream_info->plane_cfg[0].plane_addr_offset && (comp_mask >> 24))
 		irq_mask |= BIT(28);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
@@ -544,14 +544,14 @@ static void msm_vfe40_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x40);
 	comp_mask &= ~(0x7F << (comp_mask_index * 8));
-	if (stream_info->plane_offset[0])
+	if (stream_info->plane_cfg[0].plane_addr_offset)
 		comp_mask &= ~(axi_data->composite_info[comp_mask_index].
 		stream_composite_mask << 24);
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask &= ~(1 << (comp_mask_index + 25));
-	if (stream_info->plane_offset[0] && !(comp_mask >> 24))
+	if (stream_info->plane_cfg[0].plane_addr_offset && (comp_mask >> 24))
 		irq_mask &= ~BIT(28);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
@@ -614,11 +614,11 @@ static void msm_vfe40_clear_framedrop(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream_request_cmd *stream_req_cmd)
+	struct msm_vfe_axi_stream *stream_info)
 {
 	int bpp, bpp_reg = 0;
 	uint32_t io_format_reg;
-	bpp = msm_isp_get_bit_per_pixel(stream_req_cmd->output_format);
+	bpp = msm_isp_get_bit_per_pixel(stream_info->output_format);
 
 	switch (bpp) {
 	case 8:
@@ -632,7 +632,7 @@ static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 		break;
 	}
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
-	switch (stream_req_cmd->stream_src) {
+	switch (stream_info->stream_src) {
 	case CAMIF_RAW:
 		io_format_reg &= 0xFFFFCFFF;
 		io_format_reg |= bpp_reg << 12;
@@ -753,43 +753,39 @@ static void msm_vfe40_cfg_rdi_reg(
 
 static void msm_vfe40_axi_cfg_wm_reg(
 	struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
+	struct msm_vfe_axi_stream *stream_info,
 	uint8_t plane_idx)
 {
 	uint32_t val;
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
 
 	if (!stream_info->frame_based) {
 		/*WR_IMAGE_SIZE*/
 		val =
 			((msm_isp_cal_word_per_line(
-				stream_cfg_cmd->output_format,
-				stream_cfg_cmd->plane_cfg[plane_idx].
+				stream_info->output_format,
+				stream_info->plane_cfg[plane_idx].
 				output_width)+1)/2 - 1) << 16 |
-				(stream_cfg_cmd->plane_cfg[plane_idx].
+				(stream_info->plane_cfg[plane_idx].
 				output_height - 1);
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 
 		/*WR_BUFFER_CFG*/
 		val =
-			msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
-			stream_cfg_cmd->plane_cfg[
+			msm_isp_cal_word_per_line(stream_info->output_format,
+			stream_info->plane_cfg[
 				plane_idx].output_stride) << 16 |
-			(stream_cfg_cmd->plane_cfg[
+			(stream_info->plane_cfg[
 				plane_idx].output_height - 1) << 4 |
 			VFE40_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	} else {
 		msm_camera_io_w(0x2, vfe_dev->vfe_base + wm_base);
 		val =
-			msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
-			stream_cfg_cmd->plane_cfg[
+			msm_isp_cal_word_per_line(stream_info->output_format,
+			stream_info->plane_cfg[
 				plane_idx].output_width) << 16 |
-			(stream_cfg_cmd->plane_cfg[
+			(stream_info->plane_cfg[
 				plane_idx].output_height - 1) << 4 |
 			VFE40_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
@@ -821,20 +817,16 @@ static void msm_vfe40_axi_clear_wm_reg(
 
 static void msm_vfe40_axi_cfg_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
+	struct msm_vfe_axi_stream *stream_info,
 	uint8_t plane_idx)
 {
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 	struct msm_vfe_axi_plane_cfg *plane_cfg =
-		&stream_cfg_cmd->plane_cfg[plane_idx];
+		&stream_info->plane_cfg[plane_idx];
 	uint8_t wm = stream_info->wm[plane_idx];
 	uint32_t xbar_cfg = 0;
 	uint32_t xbar_reg_cfg = 0;
 
-	switch (stream_cfg_cmd->stream_src) {
+	switch (stream_info->stream_src) {
 	case PIX_ENCODER:
 	case PIX_VIEWFINDER: {
 		if (plane_cfg->output_plane_format != CRCB_PLANE &&
@@ -842,7 +834,7 @@ static void msm_vfe40_axi_cfg_wm_xbar_reg(
 			/*SINGLE_STREAM_SEL*/
 			xbar_cfg |= plane_cfg->output_plane_format << 8;
 		} else {
-			switch (stream_cfg_cmd->output_format) {
+			switch (stream_info->output_format) {
 			case V4L2_PIX_FMT_NV12:
 			case V4L2_PIX_FMT_NV16:
 				xbar_cfg |= 0x3 << 4; /*PAIR_STREAM_SWAP_CTRL*/
@@ -850,7 +842,7 @@ static void msm_vfe40_axi_cfg_wm_xbar_reg(
 			}
 			xbar_cfg |= 0x1 << 1; /*PAIR_STREAM_EN*/
 		}
-		if (stream_cfg_cmd->stream_src == PIX_VIEWFINDER)
+		if (stream_info->stream_src == PIX_VIEWFINDER)
 			xbar_cfg |= 0x1; /*VIEW_STREAM_EN*/
 		break;
 	}

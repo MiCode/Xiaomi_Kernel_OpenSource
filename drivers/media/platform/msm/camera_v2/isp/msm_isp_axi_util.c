@@ -136,23 +136,23 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	}
 
 	for (i = 0; i < stream_info->num_planes; i++) {
-		stream_info->plane_offset[i] =
-			stream_cfg_cmd->plane_cfg[i].plane_addr_offset;
+		stream_info->plane_cfg[i] = stream_cfg_cmd->plane_cfg[i];
 		stream_info->max_width = max(stream_info->max_width,
 			stream_cfg_cmd->plane_cfg[i].output_width);
 	}
 
+	stream_info->output_format = stream_cfg_cmd->output_format;
 	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	stream_info->frame_based = stream_cfg_cmd->frame_base;
 	return 0;
 }
 
 static uint32_t msm_isp_axi_get_plane_size(
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd, int plane_idx)
+	struct msm_vfe_axi_stream *stream_info, int plane_idx)
 {
 	uint32_t size = 0;
-	struct msm_vfe_axi_plane_cfg *plane_cfg = stream_cfg_cmd->plane_cfg;
-	switch (stream_cfg_cmd->output_format) {
+	struct msm_vfe_axi_plane_cfg *plane_cfg = stream_info->plane_cfg;
+	switch (stream_info->output_format) {
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
@@ -211,21 +211,17 @@ static uint32_t msm_isp_axi_get_plane_size(
 }
 
 void msm_isp_axi_reserve_wm(struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
+	struct msm_vfe_axi_stream *stream_info)
 {
 	int i, j;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
-
 	for (i = 0; i < stream_info->num_planes; i++) {
 		for (j = 0; j < axi_data->hw_info->num_wm; j++) {
 			if (!axi_data->free_wm[j]) {
 				axi_data->free_wm[j] =
-					stream_cfg_cmd->axi_stream_handle;
+					stream_info->stream_handle;
 				axi_data->wm_image_size[j] =
 					msm_isp_axi_get_plane_size(
-						stream_cfg_cmd, i);
+						stream_info, i);
 				axi_data->num_used_wm++;
 				break;
 			}
@@ -246,20 +242,17 @@ void msm_isp_axi_free_wm(struct msm_vfe_axi_shared_data *axi_data,
 
 void msm_isp_axi_reserve_comp_mask(
 	struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
+	struct msm_vfe_axi_stream *stream_info)
 {
 	int i;
 	uint8_t comp_mask = 0;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
 	for (i = 0; i < stream_info->num_planes; i++)
 		comp_mask |= 1 << stream_info->wm[i];
 
 	for (i = 0; i < axi_data->hw_info->num_comp_mask; i++) {
 		if (!axi_data->composite_info[i].stream_handle) {
 			axi_data->composite_info[i].stream_handle =
-			stream_cfg_cmd->axi_stream_handle;
+				stream_info->stream_handle;
 			axi_data->composite_info[i].
 				stream_composite_mask = comp_mask;
 			axi_data->num_used_composite_mask++;
@@ -471,18 +464,18 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	stream_info = &vfe_dev->axi_data.
 		stream_info[HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
-	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_cfg_cmd);
+	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
 	if (stream_cfg_cmd->stream_src == CAMIF_RAW ||
 		stream_cfg_cmd->stream_src == IDEAL_RAW)
 			vfe_dev->hw_info->vfe_ops.axi_ops.
-				cfg_io_format(vfe_dev, stream_cfg_cmd);
+				cfg_io_format(vfe_dev, stream_info);
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
 
 	if (stream_info->num_planes > 1) {
 		msm_isp_axi_reserve_comp_mask(
-			&vfe_dev->axi_data, stream_cfg_cmd);
+			&vfe_dev->axi_data, stream_info);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
 		cfg_comp_mask(vfe_dev, stream_info);
 	} else {
@@ -492,10 +485,10 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	for (i = 0; i < stream_info->num_planes; i++) {
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-			cfg_wm_reg(vfe_dev, stream_cfg_cmd, i);
+			cfg_wm_reg(vfe_dev, stream_info, i);
 
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-			cfg_wm_xbar_reg(vfe_dev, stream_cfg_cmd, i);
+			cfg_wm_xbar_reg(vfe_dev, stream_info, i);
 	}
 	return rc;
 }
@@ -610,7 +603,7 @@ static void msm_isp_cfg_pong_address(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 			vfe_dev, stream_info->wm[i],
 			VFE_PONG_FLAG, buf->mapped_info[i].paddr +
-			stream_info->plane_offset[i]);
+			stream_info->plane_cfg[i].plane_addr_offset);
 	stream_info->buf[1] = buf;
 }
 
@@ -657,7 +650,7 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 			vfe_dev, stream_info->wm[i],
 			pingpong_status, buf->mapped_info[i].paddr +
-			stream_info->plane_offset[i]);
+			stream_info->plane_cfg[i].plane_addr_offset);
 
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	stream_info->buf[pingpong_bit] = buf;
