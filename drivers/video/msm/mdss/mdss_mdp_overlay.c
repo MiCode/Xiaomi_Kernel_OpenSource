@@ -696,6 +696,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret;
 
 	mutex_lock(&mdp5_data->ov_lock);
@@ -704,6 +705,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 		struct mdss_mdp_data *buf;
 		if (pipe->back_buf.num_planes) {
 			buf = &pipe->back_buf;
+		} else if (ctl->play_cnt == 0) {
+			pipe->params_changed++;
+			buf = &pipe->front_buf;
 		} else if (!pipe->params_changed) {
 			continue;
 		} else if (pipe->front_buf.num_planes) {
@@ -1869,7 +1873,19 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	if (!mdp5_data->ctl->power_on)
 		return 0;
 
-	mdss_mdp_overlay_release_all(mfd);
+	if (!mfd->ref_cnt) {
+		mdss_mdp_overlay_release_all(mfd);
+	} else {
+		int need_cleanup;
+		mutex_lock(&mfd->lock);
+		need_cleanup = !list_empty(&mdp5_data->pipes_cleanup);
+		mutex_unlock(&mfd->lock);
+
+		if (need_cleanup) {
+			pr_debug("cleaning up some pipes\n");
+			mdss_mdp_overlay_kickoff(mfd);
+		}
+	}
 
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl);
 	if (rc == 0) {
