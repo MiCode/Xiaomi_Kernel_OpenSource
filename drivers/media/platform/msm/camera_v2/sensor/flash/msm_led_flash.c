@@ -87,3 +87,31 @@ int32_t msm_led_flash_create_v4lsubdev(struct platform_device *pdev, void *data)
 	CDBG("probe success\n");
 	return 0;
 }
+
+int32_t msm_led_i2c_flash_create_v4lsubdev(void *data)
+{
+	struct msm_led_flash_ctrl_t *fctrl =
+		(struct msm_led_flash_ctrl_t *)data;
+	CDBG("Enter\n");
+
+	if (!fctrl) {
+		pr_err("fctrl NULL\n");
+		return -EINVAL;
+	}
+
+	/* Initialize sub device */
+	v4l2_subdev_init(&fctrl->msm_sd.sd, &msm_flash_subdev_ops);
+	v4l2_set_subdevdata(&fctrl->msm_sd.sd, fctrl);
+
+	fctrl->msm_sd.sd.internal_ops = &msm_flash_internal_ops;
+	fctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(fctrl->msm_sd.sd.name, ARRAY_SIZE(fctrl->msm_sd.sd.name),
+		"msm_flash");
+	media_entity_init(&fctrl->msm_sd.sd.entity, 0, NULL, 0);
+	fctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	fctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_LED_FLASH;
+	msm_sd_register(&fctrl->msm_sd);
+
+	CDBG("probe success\n");
+	return 0;
+}
