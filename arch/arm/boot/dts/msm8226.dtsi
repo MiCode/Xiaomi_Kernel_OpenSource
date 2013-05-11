@@ -350,6 +350,11 @@
 		compatible = "qcom,msm8226-audio-tapan";
 		qcom,model = "msm8226-tapan-snd-card";
 		qcom,tapan-mclk-clk-freq = <9600000>;
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
 	};
 
 	qcom,msm-pcm {
@@ -500,6 +505,28 @@
 
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
+	};
+
+	qcom,msm-auxpcm {
+		compatible = "qcom,msm-auxpcm-resource";
+		qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
+		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+
+		qcom,msm-prim-auxpcm-rx {
+			qcom,msm-auxpcm-dev-id = <4106>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
+
+		qcom,msm-prim-auxpcm-tx {
+			qcom,msm-auxpcm-dev-id = <4107>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
 	};
 
 	qcom,wcnss-wlan@fb000000 {
