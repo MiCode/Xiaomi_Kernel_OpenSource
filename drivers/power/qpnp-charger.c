@@ -1364,7 +1364,7 @@ static int qpnp_chg_tchg_max_set(struct qpnp_chg_chip *chip, int minutes)
 
 	temp = (minutes - 1)/QPNP_CHG_TCHG_STEP;
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX,
-			QPNP_CHG_I_MASK, temp, 1);
+			QPNP_CHG_TCHG_MASK, temp, 1);
 }
 
 #define QPNP_CHG_V_MIN_MV	3240
