@@ -509,6 +509,26 @@ config ARCH_MSM8226
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
+
+config ARCH_MSMSAMARIUM
+	bool "MSMSAMARIUM"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM
+	select MSM_GPIOMUX
+	select MULTI_IRQ_HANDLER
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
+	select MSM_PM8X60 if PM
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select ARM_HAS_SG_CHAIN
+	select MSM_RUN_QUEUE_STATS
+	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 endmenu
 
 choice
@@ -1111,6 +1131,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MPQ8092
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
+	default "0x00000000" if ARCH_MSMSAMARIUM
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x00000000" if ARCH_FSM9900
 	default "0x00200000" if ARCH_MSM9625
@@ -1284,6 +1305,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on FSM9900 devices.
+
+	config DEBUG_MSMSAMARIUM_UART
+		bool "Kernel low-level debugging messages via MSM SAMARIUM UART"
+		depends on ARCH_MSMSAMARIUM
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM SAMARIUM devices.
 endchoice
 
 choice
