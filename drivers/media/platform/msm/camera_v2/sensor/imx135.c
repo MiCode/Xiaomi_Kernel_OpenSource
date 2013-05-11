@@ -36,6 +36,12 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 		.delay = 0,
 	},
 	{
+		.seq_type = SENSOR_VREG,
+		.seq_val = CAM_VAF,
+		.config_val = 0,
+		.delay = 0,
+	},
+	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
@@ -44,6 +50,18 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 30,
+	},
+	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_STANDBY,
+		.config_val = GPIO_OUT_LOW,
+		.delay = 1,
+	},
+	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 30,
 	},
