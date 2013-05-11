@@ -41,6 +41,9 @@
 
 #include "smd_private.h"
 
+static int enable_debug;
+module_param(enable_debug, int, S_IRUGO | S_IWUSR);
+
 /**
  * enum p_subsys_state - state of a subsystem (private)
  * @SUBSYS_NORMAL: subsystem is operating normally
@@ -419,7 +422,7 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 {
 	int ret;
 
-	if (!subsys->desc->err_ready_irq)
+	if (!subsys->desc->err_ready_irq || enable_debug == 1)
 		return 0;
 
 	ret = wait_for_completion_timeout(&subsys->err_ready,
