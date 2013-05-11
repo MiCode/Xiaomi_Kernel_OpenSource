@@ -486,11 +486,10 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 				struct mdp_histogram_data *hist);
 void mdss_mdp_hist_intr_done(u32 isr);
 
-int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
 int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 				struct mdss_ad_init_cfg *init_cfg);
 int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
-				struct mdss_ad_input *input);
+				struct mdss_ad_input *input, int wait);
 int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
