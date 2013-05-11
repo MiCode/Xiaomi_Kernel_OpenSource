@@ -91,8 +91,8 @@
 #define QPNP_M2_ADC_CH_SEL_CTL				0x70
 #define QPNP_M2_LOW_THR_LSB				0x71
 #define QPNP_M2_LOW_THR_MSB				0x72
-#define QPNP_M2_HIGH_THR_LSB				0x7b
-#define QPNP_M2_HIGH_THR_MSB				0x7c
+#define QPNP_M2_HIGH_THR_LSB				0x73
+#define QPNP_M2_HIGH_THR_MSB				0x74
 #define QPNP_M3_ADC_CH_SEL_CTL				0x78
 #define QPNP_M3_LOW_THR_LSB				0x79
 #define QPNP_M3_LOW_THR_MSB				0x7a
