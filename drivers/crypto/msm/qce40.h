@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,7 @@ struct ce_reg_buffers {
 struct ce_cmdlists {
 	dmov_s *get_hw_version;
 	dmov_s *clear_status;
+	dmov_s *clear_status_ocb;
 	dmov_s *get_status_ocu;
 
 	dmov_s *set_cipher_cfg;
@@ -162,7 +163,7 @@ struct ce_cmdlists {
 	dmov_s *reset_auth_cfg;
 	dmov_s *reset_auth_byte_count;
 
-	dmov_s *set_seg_size_ocb;
+	dmov_s *set_seg_size;
 	dmov_s *get_status_wait;
 	dmov_s *set_go_proc;
 
