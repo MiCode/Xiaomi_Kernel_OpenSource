@@ -201,7 +201,8 @@
 		qcom,ipc-bit-offset = <1>;
 
 		qcom,gic-parent = <&intc>;
-		qcom,gic-map = <47 172>, /* usb2_hsic_async_wakeup_irq */
+		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
+			<47 172>, /* usb2_hsic_async_wakeup_irq */
 			<41 180>,   /* usb_async_wakeup_irq */
 			<62 222>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
