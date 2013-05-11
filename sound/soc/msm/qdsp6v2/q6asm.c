@@ -3363,6 +3363,7 @@ int q6asm_async_read(struct audio_client *ac,
 	u32 lbuf_addr_lsw;
 	u32 liomode;
 	u32 io_compressed;
+	int dir = 0;
 
 	if (!ac || ac->apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -3380,15 +3381,21 @@ int q6asm_async_read(struct audio_client *ac,
 	read.seq_id = param->uid;
 	liomode = (NT_MODE | ASYNC_IO_MODE);
 	io_compressed = (ASYNC_IO_MODE | COMPRESSED_IO);
-	if (ac->io_mode == liomode)
+	if (ac->io_mode == liomode) {
 		lbuf_addr_lsw = (read.buf_addr_lsw - 32);
-	else if (ac->io_mode == io_compressed)
+		/*legacy wma driver case*/
+		dir = IN;
+	} else if (ac->io_mode == io_compressed) {
 		lbuf_addr_lsw = (read.buf_addr_lsw - 64);
-	else
+		dir = OUT;
+	} else {
 		lbuf_addr_lsw = read.buf_addr_lsw;
+		dir = OUT;
+	}
 
-	list_for_each_safe(ptr, next, &ac->port[OUT].mem_map_handle) {
-		buf_node = list_entry(ptr, struct asm_buffer_node, list);
+	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
+		buf_node = list_entry(ptr, struct asm_buffer_node,
+			list);
 			if (buf_node->buf_addr_lsw == lbuf_addr_lsw) {
 				read.mem_map_handle = buf_node->mmap_hdl;
 				break;
