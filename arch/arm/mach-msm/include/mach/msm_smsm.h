@@ -353,7 +353,7 @@ static inline void *smem_find(unsigned id, unsigned size)
 }
 static inline phys_addr_t smem_virt_to_phys(void *smem_address)
 {
-	return NULL;
+	return (phys_addr_t) NULL;
 }
 #endif
 #endif
