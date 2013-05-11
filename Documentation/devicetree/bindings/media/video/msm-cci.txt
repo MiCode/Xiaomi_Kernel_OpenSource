@@ -91,6 +91,7 @@ Optional properties:
 - gpios : should contain phandle to gpio controller node and array of
     #gpio-cells specifying specific gpio (controller specific)
 - qcom,gpio-reset : should contain index to gpio used by sensors reset_n
+- qcom,gpio-standby : should contain index to gpio used by sensors standby_n
 - qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
 - qcom,gpio-req-tbl-flags : should contain direction of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)
@@ -201,11 +202,15 @@ Example:
                qcom,cam-vreg-op-mode = <105000 80000 0 100000>;
                qcom,gpio-no-mux = <0>;
                gpios = <&msmgpio 15 0>,
+                       <&msmgpio 90 0>,
+                       <&msmgpio 89 0>;
                qcom,gpio-reset = <1>;
-               qcom,gpio-req-tbl-num = <0 1>;
-               qcom,gpio-req-tbl-flags = <1 0>;
+               qcom,gpio-standby = <2>;
+               qcom,gpio-req-tbl-num = <0 1 2>;
+               qcom,gpio-req-tbl-flags = <1 0 0>;
                qcom,gpio-req-tbl-label = "CAMIF_MCLK",
-                                         "CAM_RESET1";
+                                         "CAM_RESET1",
+                                         "CAM_STANDBY";
                qcom,gpio-set-tbl-num = <1 1>;
                qcom,gpio-set-tbl-flags = <0 2>;
                qcom,gpio-set-tbl-delay = <1000 4000>;
