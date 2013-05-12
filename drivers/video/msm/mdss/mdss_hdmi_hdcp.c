@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -287,7 +287,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	timeout_count = 100;
 	keys_state = (link0_status >> 28) & 0x7;
 	while ((keys_state != HDCP_KEYS_STATE_VALID) &&
-		timeout_count--) {
+		--timeout_count) {
 		link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
 		keys_state = (link0_status >> 28) & 0x7;
 		DEV_DBG("%s: %s: Keys not ready(%d). s=%d\n, l0=%0x08x",
@@ -320,7 +320,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 				link0_status);
 			msleep(20);
 		}
-	} while (!an_ready && timeout_count--);
+	} while (!an_ready && --timeout_count);
 
 	if (!timeout_count) {
 		rc = -ETIMEDOUT;
