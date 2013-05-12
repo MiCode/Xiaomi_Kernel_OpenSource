@@ -465,6 +465,8 @@ Optional properties:
 - qcom,ext-ult-lo-amp-gpio: GPIO to enable external ultrasound lineout
 			    amplifier.
 
+- qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
+
 Example:
 
 sound {
