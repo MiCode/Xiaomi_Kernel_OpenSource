@@ -40,6 +40,8 @@ Optional properties :
   DATA GPIO PAD.
 - qcom,phy-sof-workaround : If present then HSIC PHY has h/w BUGs related to
   SOFs. Software workarounds are required for the same.
+- hsic,consider-ipa-handshake: If present then hsic low power mode is
+  depend on suitable handshake with the IPA peer.
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
@@ -71,6 +73,7 @@ Example MSM HSIC EHCI controller device node :
 		hsic,ignore-cal-pad-config;
 		hsic,strobe-pad-offset = <0x2050>;
 		hsic,data-pad-offset = <0x2054>;
+		hsic,consider-ipa-handshake;
 
 		qcom,msm-bus,name = "hsic";
 		qcom,msm-bus,num-cases = <2>;
