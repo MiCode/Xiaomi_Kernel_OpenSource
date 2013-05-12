@@ -126,6 +126,7 @@ struct usb_bam_pipe_connect {
 	struct sps_mem_buffer desc_mem_buf;
 	struct usb_bam_event_info event;
 	bool enabled;
+	bool suspended;
 	int ipa_clnt_hdl;
 	void *priv;
 	int (*activity_notify)(void *priv);
