@@ -669,3 +669,32 @@ qcom,msm-audio-ion {
 	compatible = "qcom,msm-audio-ion;
 	qcom,smmu-enabled;
 };
+
+* MSM8226 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8226-audio-tapan"
+- qcom,model : The user-visible name of this sound card.
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+		 Possible Values:
+		 prim-gpio-prim : Primary AUXPCM shares GPIOs with Primary MI2S
+		 prim-gpio-tert : Primary AUXPCM shares GPIOs with Tertiary MI2S
+
+Example:
+
+sound {
+	compatible = "qcom,msm8226-audio-tapan";
+	qcom,model = "msm8226-tapan-snd-card";
+	qcom,tapan-mclk-clk-freq = <9600000>;
+	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
+	qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
+	qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
+	qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
+	qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+};

@@ -26,6 +26,7 @@
 #include <mach/socinfo.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include "../codecs/wcd9306.h"
+#include <linux/io.h>
 
 #define DRV_NAME "msm8226-asoc-tapan"
 
@@ -35,14 +36,27 @@
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
 
-#define GPIO_AUX_PCM_DOUT 43
-#define GPIO_AUX_PCM_DIN 44
-#define GPIO_AUX_PCM_SYNC 45
-#define GPIO_AUX_PCM_CLK 46
-
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 #define TAPAN_EXT_CLK_RATE 9600000
+
+#define NUM_OF_AUXPCM_GPIOS 4
+
+static int msm8226_auxpcm_rate = 8000;
+static atomic_t auxpcm_rsc_ref;
+static const char *const auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
+static const struct soc_enum msm8226_auxpcm_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
+};
+
+#define LPAIF_OFFSET 0xFE000000
+#define LPAIF_PRI_MODE_MUXSEL (LPAIF_OFFSET + 0x2B000)
+#define LPAIF_SEC_MODE_MUXSEL (LPAIF_OFFSET + 0x2C000)
+#define LPAIF_TER_MODE_MUXSEL (LPAIF_OFFSET + 0x2D000)
+#define LPAIF_QUAD_MODE_MUXSEL (LPAIF_OFFSET + 0x2E000)
+
+#define I2S_PCM_SEL 1
+#define I2S_PCM_SEL_OFFSET 1
 
 void *def_tapan_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -62,10 +76,33 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 };
 
+struct msm_auxpcm_gpio {
+	unsigned gpio_no;
+	const char *gpio_name;
+};
+
+struct msm_auxpcm_ctrl {
+	struct msm_auxpcm_gpio *pin_data;
+	u32 cnt;
+};
+
 struct msm8226_asoc_mach_data {
 	int mclk_gpio;
 	u32 mclk_freq;
+	struct msm_auxpcm_ctrl *auxpcm_ctrl;
 };
+
+#define GPIO_NAME_INDEX 0
+#define DT_PARSE_INDEX  1
+
+static char *msm_auxpcm_gpio_name[][2] = {
+	{"PRIM_AUXPCM_CLK",       "qcom,prim-auxpcm-gpio-clk"},
+	{"PRIM_AUXPCM_SYNC",      "qcom,prim-auxpcm-gpio-sync"},
+	{"PRIM_AUXPCM_DIN",       "qcom,prim-auxpcm-gpio-din"},
+	{"PRIM_AUXPCM_DOUT",      "qcom,prim-auxpcm-gpio-dout"},
+};
+
+void *lpaif_pri_muxsel_virt_addr;
 
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
@@ -292,6 +329,45 @@ static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm8226_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm8226_auxpcm_rate;
+	return 0;
+}
+
+static int msm8226_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm8226_auxpcm_rate = 8000;
+		break;
+	case 1:
+		msm8226_auxpcm_rate = 16000;
+		break;
+	default:
+		msm8226_auxpcm_rate = 8000;
+		break;
+	}
+	return 0;
+}
+
+static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate =
+	    hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels =
+	    hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = msm8226_auxpcm_rate;
+	channels->min = channels->max = 1;
+
+	return 0;
+}
+
 static int msm_proxy_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -303,6 +379,118 @@ static int msm_proxy_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
+
+static int msm_aux_pcm_get_gpios(struct msm_auxpcm_ctrl *auxpcm_ctrl)
+{
+	struct msm_auxpcm_gpio *pin_data = NULL;
+	int ret = 0;
+	int i;
+	int j;
+
+	pin_data = auxpcm_ctrl->pin_data;
+	if (!pin_data) {
+		pr_err("%s: Invalid control data for AUXPCM\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	for (i = 0; i < auxpcm_ctrl->cnt; i++, pin_data++) {
+		ret = gpio_request(pin_data->gpio_no,
+				pin_data->gpio_name);
+		pr_debug("%s: gpio = %d, gpio name = %s\n"
+			"ret = %d\n", __func__,
+			pin_data->gpio_no,
+			pin_data->gpio_name,
+			ret);
+		if (ret) {
+			pr_err("%s: Failed to request gpio %d\n",
+				__func__, pin_data->gpio_no);
+			/* Release all GPIOs on failure */
+			if (i > 0) {
+				for (j = i; j >= 0; j--)
+					gpio_free(pin_data->gpio_no);
+			}
+			goto err;
+		}
+	}
+err:
+	return ret;
+}
+
+static int msm_aux_pcm_free_gpios(struct msm_auxpcm_ctrl *auxpcm_ctrl)
+{
+	struct msm_auxpcm_gpio *pin_data = NULL;
+	int i;
+	int ret = 0;
+
+	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL) {
+		pr_err("%s: Invalid control data for AUXPCM\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	pin_data = auxpcm_ctrl->pin_data;
+	for (i = 0; i < auxpcm_ctrl->cnt; i++, pin_data++) {
+		gpio_free(pin_data->gpio_no);
+		pr_debug("%s: gpio = %d, gpio_name = %s\n",
+			__func__, pin_data->gpio_no,
+			pin_data->gpio_name);
+	}
+err:
+	return ret;
+}
+
+static int msm_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
+	int ret = 0;
+
+	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
+
+	auxpcm_ctrl = pdata->auxpcm_ctrl;
+
+	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL ||
+		lpaif_pri_muxsel_virt_addr == NULL) {
+		pr_err("%s: Invalid control data for AUXPCM\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (atomic_inc_return(&auxpcm_rsc_ref) == 1) {
+		iowrite32(I2S_PCM_SEL << I2S_PCM_SEL_OFFSET,
+				lpaif_pri_muxsel_virt_addr);
+		ret = msm_aux_pcm_get_gpios(auxpcm_ctrl);
+	}
+	if (ret < 0) {
+		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+		return -EINVAL;
+	}
+err:
+	return ret;
+}
+
+static void msm_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
+
+	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
+
+	auxpcm_ctrl = pdata->auxpcm_ctrl;
+
+	if (atomic_dec_return(&auxpcm_rsc_ref) == 0)
+		msm_aux_pcm_free_gpios(auxpcm_ctrl);
+}
+
+static struct snd_soc_ops msm_auxpcm_be_ops = {
+	.startup = msm_auxpcm_startup,
+	.shutdown = msm_auxpcm_shutdown,
+};
 
 static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
@@ -358,6 +546,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 		     msm_slim_0_rx_ch_get, msm_slim_0_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_snd_enum[1],
 		     msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
+	SOC_ENUM_EXT("AUX PCM SampleRate", msm8226_auxpcm_enum[0],
+			msm8226_auxpcm_rate_get, msm8226_auxpcm_rate_put),
 };
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -893,6 +1083,35 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	/* AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_AUXPCM_RX,
+		.stream_name = "AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.4106",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
+		.ops = &msm_auxpcm_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1
+		/* this dainlink has playback support */
+	},
+	{
+		.name = LPASS_BE_AUXPCM_TX,
+		.stream_name = "AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.4107",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
+		.ops = &msm_auxpcm_be_ops,
+		.ignore_suspend = 1
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -1053,6 +1272,70 @@ struct snd_soc_card snd_soc_card_msm8226 = {
 	.num_links	= ARRAY_SIZE(msm8226_dai),
 };
 
+static int msm8226_dtparse_auxpcm(struct platform_device *pdev,
+				struct msm_auxpcm_ctrl **auxpcm_ctrl,
+				char *msm_auxpcm_gpio_name[][2])
+{
+	int ret = 0;
+	int i = 0;
+	struct msm_auxpcm_gpio *pin_data = NULL;
+	struct msm_auxpcm_ctrl *ctrl;
+	unsigned int gpio_no[NUM_OF_AUXPCM_GPIOS];
+	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
+	int auxpcm_cnt = 0;
+
+	pin_data = devm_kzalloc(&pdev->dev, (ARRAY_SIZE(gpio_no) *
+				sizeof(struct msm_auxpcm_gpio)),
+				GFP_KERNEL);
+	if (!pin_data) {
+		dev_err(&pdev->dev, "No memory for gpio\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(gpio_no); i++) {
+		gpio_no[i] = of_get_named_gpio_flags(pdev->dev.of_node,
+				msm_auxpcm_gpio_name[i][DT_PARSE_INDEX],
+				0, &flags);
+
+		if (gpio_no[i] > 0) {
+			pin_data[i].gpio_name =
+			     msm_auxpcm_gpio_name[auxpcm_cnt][GPIO_NAME_INDEX];
+			pin_data[i].gpio_no = gpio_no[i];
+			dev_dbg(&pdev->dev, "%s:GPIO gpio[%s] =\n"
+				"0x%x\n", __func__,
+				pin_data[i].gpio_name,
+				pin_data[i].gpio_no);
+			auxpcm_cnt++;
+		} else {
+			dev_err(&pdev->dev, "%s:Invalid AUXPCM GPIO[%s]= %x\n",
+				 __func__,
+				msm_auxpcm_gpio_name[i][GPIO_NAME_INDEX],
+				gpio_no[i]);
+			ret = -ENODEV;
+			goto err;
+		}
+	}
+
+	ctrl = devm_kzalloc(&pdev->dev,
+				sizeof(struct msm_auxpcm_ctrl), GFP_KERNEL);
+	if (!ctrl) {
+		dev_err(&pdev->dev, "No memory for gpio\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ctrl->pin_data = pin_data;
+	ctrl->cnt = auxpcm_cnt;
+	*auxpcm_ctrl = ctrl;
+	return ret;
+
+err:
+	if (pin_data)
+		devm_kfree(&pdev->dev, pin_data);
+	return ret;
+}
+
 static int msm8226_prepare_codec_mclk(struct snd_soc_card *card)
 {
 	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
@@ -1074,6 +1357,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &snd_soc_card_msm8226;
 	struct msm8226_asoc_mach_data *pdata;
 	int ret;
+	const char *auxpcm_pri_gpio_set = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -1085,6 +1369,15 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	if (!pdata) {
 		dev_err(&pdev->dev, "Can't allocate msm8226_asoc_mach_data\n");
 		ret = -ENOMEM;
+		goto err;
+	}
+
+	/* Parse AUXPCM info from DT */
+	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
+					msm_auxpcm_gpio_name);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"%s: Auxpcm pin data parse failed\n", __func__);
 		goto err;
 	}
 
@@ -1160,6 +1453,30 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err_vdd_spkr;
 	}
 	mutex_init(&cdc_mclk_mutex);
+
+	ret = of_property_read_string(pdev->dev.of_node,
+			"qcom,prim-auxpcm-gpio-set", &auxpcm_pri_gpio_set);
+	if (ret) {
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
+			"qcom,prim-auxpcm-gpio-set",
+			pdev->dev.of_node->full_name);
+		goto err_vdd_spkr;
+	}
+	if (!strcmp(auxpcm_pri_gpio_set, "prim-gpio-prim")) {
+		lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
+	} else if (!strcmp(auxpcm_pri_gpio_set, "prim-gpio-tert")) {
+		lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_TER_MODE_MUXSEL, 4);
+	} else {
+		dev_err(&pdev->dev, "Invalid value %s for AUXPCM GPIO set\n",
+			auxpcm_pri_gpio_set);
+		ret = -EINVAL;
+		goto err_vdd_spkr;
+	}
+	if (lpaif_pri_muxsel_virt_addr == NULL) {
+		pr_err("%s Pri muxsel virt addr is null\n", __func__);
+		ret = -EINVAL;
+		goto err_vdd_spkr;
+	}
 
 	return 0;
 
