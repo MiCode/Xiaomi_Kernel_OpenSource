@@ -201,6 +201,22 @@ static int mhl_update_devcap(struct mhl_tx_ctrl *mhl_ctrl,
 	return 0;
 }
 
+int mhl_msc_clear(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	if (!mhl_ctrl)
+		return -EFAULT;
+
+	memset(mhl_ctrl->devcap, 0, 16);
+	mhl_ctrl->devcap_state = 0;
+	mhl_ctrl->path_en_state = 0;
+	mhl_ctrl->status[0] = 0;
+	mhl_ctrl->status[1] = 0;
+	mhl_ctrl->scrpd_busy = 0;
+	mhl_ctrl->wr_burst_pending = 0;
+
+	return 0;
+}
+
 int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req)
 {
@@ -541,7 +557,7 @@ int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 		 * connected device bits
 		 * changed and DEVCAP READY
 		 */
-		if (((value ^ mhl_ctrl->devcap_state) &
+		if (((value ^ mhl_ctrl->status[offset]) &
 		     MHL_STATUS_DCAP_RDY)) {
 			if (value & MHL_STATUS_DCAP_RDY) {
 				mhl_ctrl->devcap_state = 0;
@@ -563,7 +579,7 @@ int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 		 * bit set
 		 */
 		tmds_en = mhl_check_tmds_enabled(mhl_ctrl);
-		if ((value ^ mhl_ctrl->path_en_state)
+		if ((value ^ mhl_ctrl->status[offset])
 		    & MHL_STATUS_PATH_ENABLED) {
 			if (value & MHL_STATUS_PATH_ENABLED) {
 				if (tmds_en &&
@@ -593,7 +609,7 @@ int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 		}
 		break;
 	}
-	mhl_ctrl->path_en_state = value;
+	mhl_ctrl->status[offset] = value;
 	return 0;
 }
 
