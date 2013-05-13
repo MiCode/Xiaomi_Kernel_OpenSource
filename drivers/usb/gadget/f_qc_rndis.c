@@ -426,6 +426,7 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	struct usb_gadget *gadget = cdev->gadget;
 
 	dev->bam_port.cdev = cdev;
+	dev->bam_port.func = &dev->port.func;
 	dev->bam_port.in = dev->port.in_ep;
 	dev->bam_port.out = dev->port.out_ep;
 
