@@ -64,6 +64,9 @@ Parent node required properties:
 			curve.
 - qcom,hold-soc-est: if the voltage-based estimated SoC is above this percent,
 			the BMS will clamp SoC to be at least 1.
+- qcom,tm-temp-margin: if the pmic die temperature changes by more than this
+			value, recalibrate the ADCs. The unit of this property
+			is in millidegrees celsius.
 
 Parent node optional properties:
 - qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
@@ -122,6 +125,7 @@ pm8941_bms: qcom,bms {
 	qcom,low-ocv-correction-limit-uv = <100>;
 	qcom,high-ocv-correction-limit-uv = <50>;
 	qcom,hold-soc-est = <3>;
+	qcom,tm-temp-margin = <5000>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;

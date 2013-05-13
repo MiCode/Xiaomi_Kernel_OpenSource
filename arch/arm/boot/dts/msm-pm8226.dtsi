@@ -173,6 +173,7 @@
 			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
 			qcom,batt-type = <0>;
+			qcom,tm-temp-margin = <5000>;
 			qcom,low-ocv-correction-limit-uv = <100>;
 			qcom,high-ocv-correction-limit-uv = <50>;
 			qcom,hold-soc-est = <3>;
