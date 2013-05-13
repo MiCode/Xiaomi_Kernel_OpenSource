@@ -187,6 +187,8 @@ struct dvb_demux_feed {
 	int first_cc;
 	int pusi_seen;		/* prevents feeding of garbage from previous section */
 
+	u8 scrambling_bits;
+
 	struct dvb_demux_rec_info *rec_info;
 	u64 prev_tsp_num;
 	u64 prev_stc;
