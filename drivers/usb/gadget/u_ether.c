@@ -70,7 +70,7 @@ struct eth_dev {
 	struct sk_buff_head	rx_frames;
 
 	unsigned		header_len;
-	unsigned		ul_max_pkts_per_xfer;
+	unsigned int		ul_max_pkts_per_xfer;
 	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
 	int			(*unwrap)(struct gether *,
 						struct sk_buff *skb,
