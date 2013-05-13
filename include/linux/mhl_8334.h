@@ -146,6 +146,7 @@ struct mhl_tx_ctrl {
 	struct completion msc_cmd_done;
 	uint8_t devcap[16];
 	uint8_t devcap_state;
+	uint8_t status[2];
 	uint8_t path_en_state;
 	void *hdmi_mhl_ops;
 	struct work_struct mhl_msc_send_work;

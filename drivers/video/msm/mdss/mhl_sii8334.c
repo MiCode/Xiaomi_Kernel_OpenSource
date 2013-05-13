@@ -867,6 +867,7 @@ static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
 	/* disabling Tx termination */
 	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0xD0);
 	switch_mode(mhl_ctrl, POWER_STATE_D3, true);
+	mhl_msc_clear(mhl_ctrl);
 }
 
 static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
