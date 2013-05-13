@@ -870,7 +870,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		return 0;
 
 	if (motg->pdata->delay_lpm_hndshk_on_disconnect && !msm_bam_lpm_ok())
-		return 0;
+		return -EBUSY;
 
 	disable_irq(motg->irq);
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
