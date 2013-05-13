@@ -33,6 +33,7 @@
 #include <linux/wait.h>          /* wait() macros, sleeping */
 #include <linux/tspp.h>          /* tspp functions */
 #include <linux/bitops.h>        /* BIT() macro */
+#include <linux/regulator/consumer.h>
 #include <mach/sps.h>            /* BAM stuff */
 #include <mach/gpio.h>
 #include <linux/wakelock.h>      /* Locking functions */
@@ -40,6 +41,7 @@
 #include <linux/jiffies.h>       /* Jiffies counter */
 #include <mach/dma.h>
 #include <mach/msm_tspp.h>
+#include <mach/rpm-regulator-smd.h>
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -447,6 +449,8 @@ struct tspp_device {
 	/* clocks */
 	struct clk *tsif_pclk;
 	struct clk *tsif_ref_clk;
+	/* regulators */
+	struct regulator *tsif_vreg;
 	/* data */
 	struct tspp_pid_filter_table *filters[TSPP_FILTER_TABLES];
 	struct tspp_channel channels[TSPP_NUM_CHANNELS];
@@ -763,13 +767,31 @@ static int tspp_config_gpios(struct tspp_device *device,
 /*** Clock functions ***/
 static int tspp_clock_start(struct tspp_device *device)
 {
+	int rc;
+
 	if (device == NULL) {
 		pr_err("tspp: Can't start clocks, invalid device\n");
 		return -EINVAL;
 	}
 
+	if (device->tsif_vreg) {
+		rc = regulator_set_voltage(device->tsif_vreg,
+					RPM_REGULATOR_CORNER_SUPER_TURBO,
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
+		if (rc) {
+			pr_err("Unable to set CX voltage.\n");
+			return rc;
+		}
+	}
+
 	if (device->tsif_pclk && clk_prepare_enable(device->tsif_pclk) != 0) {
 		pr_err("tspp: Can't start pclk");
+
+		if (device->tsif_vreg) {
+			regulator_set_voltage(device->tsif_vreg,
+					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
+		}
 		return -EBUSY;
 	}
 
@@ -777,6 +799,11 @@ static int tspp_clock_start(struct tspp_device *device)
 		clk_prepare_enable(device->tsif_ref_clk) != 0) {
 		pr_err("tspp: Can't start ref clk");
 		clk_disable_unprepare(device->tsif_pclk);
+		if (device->tsif_vreg) {
+			regulator_set_voltage(device->tsif_vreg,
+					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
+		}
 		return -EBUSY;
 	}
 
@@ -785,6 +812,8 @@ static int tspp_clock_start(struct tspp_device *device)
 
 static void tspp_clock_stop(struct tspp_device *device)
 {
+	int rc;
+
 	if (device == NULL) {
 		pr_err("tspp: Can't stop clocks, invalid device\n");
 		return;
@@ -795,6 +824,14 @@ static void tspp_clock_stop(struct tspp_device *device)
 
 	if (device->tsif_ref_clk)
 		clk_disable_unprepare(device->tsif_ref_clk);
+
+	if (device->tsif_vreg) {
+		rc = regulator_set_voltage(device->tsif_vreg,
+					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
+		if (rc)
+			pr_err("Unable to set CX voltage.\n");
+	}
 }
 
 /*** TSIF functions ***/
@@ -2667,6 +2704,7 @@ msm_tspp_dt_to_pdata(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_tspp_platform_data *data;
 	struct msm_gpio *gpios;
+	struct property *prop;
 	int i, rc;
 	int gpio;
 	u32 gpio_func;
@@ -2690,6 +2728,11 @@ msm_tspp_dt_to_pdata(struct platform_device *pdev)
 			rc);
 		return NULL;
 	}
+
+	data->tsif_vreg_present = 0;
+	prop = of_find_property(node, "vdd_cx-supply", NULL);
+	if (prop)
+		data->tsif_vreg_present = 1;
 
 	data->num_gpios = of_gpio_count(node);
 	if (data->num_gpios == 0) {
@@ -2842,6 +2885,31 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	/* set up references */
 	device->pdev = pdev;
 	platform_set_drvdata(pdev, device);
+
+	/* map regulators */
+	if (data->tsif_vreg_present) {
+		device->tsif_vreg = devm_regulator_get(&pdev->dev, "vdd_cx");
+		if (IS_ERR(device->tsif_vreg)) {
+			rc = PTR_ERR(device->tsif_vreg);
+			device->tsif_vreg = NULL;
+			goto err_regultaor;
+		}
+
+		/* Set an initial voltage and enable the regulator */
+		rc = regulator_set_voltage(device->tsif_vreg,
+					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to set CX voltage.\n");
+			goto err_regultaor;
+		}
+
+		rc = regulator_enable(device->tsif_vreg);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to enable CX regulator.\n");
+			goto err_regultaor;
+		}
+	}
 
 	/* map clocks */
 	if (data->tsif_pclk) {
@@ -3032,6 +3100,9 @@ err_refclock:
 	if (device->tsif_pclk)
 		clk_put(device->tsif_pclk);
 err_pclock:
+	if (device->tsif_vreg)
+		regulator_disable(device->tsif_vreg);
+err_regultaor:
 	kfree(device);
 
 out:
@@ -3080,6 +3151,9 @@ static int __devexit msm_tspp_remove(struct platform_device *pdev)
 
 	if (device->tsif_pclk)
 		clk_put(device->tsif_pclk);
+
+	if (device->tsif_vreg)
+		regulator_disable(device->tsif_vreg);
 
 	pm_runtime_disable(&pdev->dev);
 

@@ -20,6 +20,7 @@ struct msm_tspp_platform_data {
 	const struct msm_gpio *gpios;
 	const char *tsif_pclk;
 	const char *tsif_ref_clk;
+	int tsif_vreg_present;
 };
 
 struct tspp_data_descriptor {
