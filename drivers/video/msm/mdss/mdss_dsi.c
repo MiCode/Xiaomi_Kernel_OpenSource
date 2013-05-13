@@ -441,15 +441,8 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 
 	mipi  = &pdata->panel_info.mipi;
 
-	ret = mdss_dsi_panel_power_on(pdata, 1);
-	if (ret) {
-		pr_err("%s: Panel power on failed\n", __func__);
-		return ret;
-	}
 	mdss_dsi_sw_reset(pdata);
 	mdss_dsi_host_init(mipi, pdata);
-
-	pdata->panel_info.panel_power_on = 1;
 
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
 
@@ -1090,6 +1083,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
 		ctrl_pdata->panel_data.panel_info.panel_power_on = 1;
+		rc = mdss_dsi_panel_power_on(&(ctrl_pdata->panel_data), 1);
+		if (rc) {
+			pr_err("%s: Panel power on failed\n", __func__);
+			return rc;
+		}
 	}
 
 
