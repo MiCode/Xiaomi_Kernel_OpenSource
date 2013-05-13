@@ -92,6 +92,7 @@ static void bam_data_start_endless_rx(struct bam_data_port *port)
 	if (!port->port_usb)
 		return;
 
+	pr_debug("%s: enqueue\n", __func__);
 	status = usb_ep_queue(port->port_usb->out, d->rx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("error enqueuing transfer, %d\n", status);
@@ -105,9 +106,38 @@ static void bam_data_start_endless_tx(struct bam_data_port *port)
 	if (!port->port_usb)
 		return;
 
+	pr_debug("%s: enqueue\n", __func__);
 	status = usb_ep_queue(port->port_usb->in, d->tx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("error enqueuing transfer, %d\n", status);
+}
+
+static void bam_data_stop_endless_rx(struct bam_data_port *port)
+{
+	struct bam_data_ch_info *d = &port->data_ch;
+	int status;
+
+	if (!port->port_usb)
+		return;
+
+	pr_debug("%s: dequeue\n", __func__);
+	status = usb_ep_dequeue(port->port_usb->out, d->rx_req);
+	if (status)
+		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
+
+}
+static void bam_data_stop_endless_tx(struct bam_data_port *port)
+{
+	struct bam_data_ch_info *d = &port->data_ch;
+	int status;
+
+	if (!port->port_usb)
+		return;
+
+	pr_debug("%s: dequeue\n", __func__);
+	status = usb_ep_dequeue(port->port_usb->in, d->tx_req);
+	if (status)
+		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
 }
 
 static int bam_data_peer_reset_cb(void *param)
@@ -529,9 +559,28 @@ static int bam_data_wake_cb(void *param)
 	return usb_gadget_wakeup(d_port->cdev->gadget);
 }
 
+static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
+{
+	struct bam_data_port *port = param;
+
+	if (dir == USB_TO_PEER_PERIPHERAL)
+		bam_data_start_endless_rx(port);
+	else
+		bam_data_start_endless_tx(port);
+}
+
+static void bam_data_stop(void *param, enum usb_bam_pipe_dir dir)
+{
+	struct bam_data_port *port = param;
+
+	if (dir == USB_TO_PEER_PERIPHERAL)
+		bam_data_stop_endless_rx(port);
+	else
+		bam_data_stop_endless_tx(port);
+}
+
 void bam_data_suspend(u8 port_num)
 {
-
 	struct bam_data_port	*port;
 	struct bam_data_ch_info *d;
 
@@ -540,6 +589,11 @@ void bam_data_suspend(u8 port_num)
 
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
 	usb_bam_register_wake_cb(d->dst_connection_idx, bam_data_wake_cb, port);
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		usb_bam_register_start_stop_cbs(bam_data_start, bam_data_stop,
+									port);
+		usb_bam_suspend(&d->ipa_params);
+	}
 }
 
 void bam_data_resume(u8 port_num)
@@ -553,5 +607,6 @@ void bam_data_resume(u8 port_num)
 
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
 	usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		usb_bam_resume(&d->ipa_params);
 }
-

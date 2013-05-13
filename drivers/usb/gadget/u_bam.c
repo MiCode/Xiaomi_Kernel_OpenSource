@@ -539,9 +539,12 @@ static void gbam_start_endless_rx(struct gbam_port *port)
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
 
-	if (!port->port_usb)
+	if (!port->port_usb) {
+		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
+	}
 
+	pr_debug("%s: enqueue\n", __func__);
 	status = usb_ep_queue(port->port_usb->out, d->rx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("%s: error enqueuing transfer, %d\n", __func__, status);
@@ -552,12 +555,67 @@ static void gbam_start_endless_tx(struct gbam_port *port)
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
 
-	if (!port->port_usb)
+	if (!port->port_usb) {
+		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
+	}
 
+	pr_debug("%s: enqueue\n", __func__);
 	status = usb_ep_queue(port->port_usb->in, d->tx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("%s: error enqueuing transfer, %d\n", __func__, status);
+}
+
+static void gbam_stop_endless_rx(struct gbam_port *port)
+{
+	struct bam_ch_info *d = &port->data_ch;
+	int status;
+
+	if (!port->port_usb) {
+		pr_err("%s: port->port_usb is NULL", __func__);
+		return;
+	}
+	pr_debug("%s: dequeue\n", __func__);
+
+	status = usb_ep_dequeue(port->port_usb->out, d->rx_req);
+	if (status)
+		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
+
+}
+static void gbam_stop_endless_tx(struct gbam_port *port)
+{
+	struct bam_ch_info *d = &port->data_ch;
+	int status;
+
+	if (!port->port_usb) {
+		pr_err("%s: port->port_usb is NULL", __func__);
+		return;
+	}
+
+	pr_debug("%s: dequeue\n", __func__);
+	status = usb_ep_dequeue(port->port_usb->in, d->tx_req);
+	if (status)
+		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
+}
+
+static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
+{
+	struct gbam_port *port = param;
+
+	if (dir == USB_TO_PEER_PERIPHERAL)
+		gbam_start_endless_rx(port);
+	else
+		gbam_start_endless_tx(port);
+}
+
+static void gbam_stop(void *param, enum usb_bam_pipe_dir dir)
+{
+	struct gbam_port *port = param;
+
+	if (dir == USB_TO_PEER_PERIPHERAL)
+		gbam_stop_endless_rx(port);
+	else
+		gbam_stop_endless_tx(port);
 }
 
 static void gbam_start_io(struct gbam_port *port)
@@ -1409,6 +1467,10 @@ void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
 
 	usb_bam_register_wake_cb(d->dst_connection_idx, gbam_wake_cb, port);
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		usb_bam_register_start_stop_cbs(gbam_start, gbam_stop, port);
+		usb_bam_suspend(&d->ipa_params);
+	}
 }
 
 void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
@@ -1426,4 +1488,6 @@ void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
 
 	usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		usb_bam_resume(&d->ipa_params);
 }
