@@ -25,6 +25,8 @@
 
 /******************************************************************/
 /* the below APIs are implemented by the MSC functionality */
+int mhl_msc_clear(struct mhl_tx_ctrl *mhl_ctrl);
+
 int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req);
 
