@@ -374,12 +374,17 @@ static int convert_vbatt_uv_to_raw(struct qpnp_bms_chip *chip,
 static inline int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 					uint16_t reading)
 {
-	int uv;
+	int64_t uv;
+	int rc;
 
 	uv = vadc_reading_to_uv(reading);
-	pr_debug("%u raw converted into %d uv\n", reading, uv);
+	pr_debug("%u raw converted into %lld uv\n", reading, uv);
 	uv = adjust_vbatt_reading(chip, uv);
-	pr_debug("adjusted into %d uv\n", uv);
+	pr_debug("adjusted into %lld uv\n", uv);
+	rc = qpnp_vbat_sns_comp_result(&uv);
+	if (rc)
+		pr_debug("could not compensate vbatt\n");
+	pr_debug("compensated into %lld uv\n", uv);
 	return uv;
 }
 
