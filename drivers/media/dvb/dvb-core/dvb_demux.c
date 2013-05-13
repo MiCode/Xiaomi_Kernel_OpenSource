@@ -437,6 +437,27 @@ next_prefix_lookup:
 }
 EXPORT_SYMBOL(dvb_dmx_video_pattern_search);
 
+static int dvb_dmx_check_pes_end(struct dvb_demux_feed *feed)
+{
+	struct dmx_data_ready data;
+
+	if (!feed->pusi_seen)
+		return 0;
+
+	data.status = DMX_OK_PES_END;
+	data.data_length = 0;
+	data.pes_end.start_gap = 0;
+	data.pes_end.actual_length = feed->peslen;
+	data.pes_end.disc_indicator_set = 0;
+	data.pes_end.pes_length_mismatch = 0;
+	data.pes_end.stc = 0;
+	data.pes_end.tei_counter = feed->pes_tei_counter;
+	data.pes_end.cont_err_counter = feed->pes_cont_err_counter;
+	data.pes_end.ts_packets_num = feed->pes_ts_packets_num;
+
+	return feed->data_ready_cb.ts(&feed->feed.ts, &data);
+}
+
 static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 					   const u8 *buf)
 {
@@ -444,7 +465,6 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 	int p;
 	int ccok;
 	u8 cc;
-	struct dmx_data_ready data;
 
 	if (count == 0)
 		return -1;
@@ -462,24 +482,7 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 
 	/* PUSI ? */
 	if (buf[1] & 0x40) {
-		if (feed->pusi_seen) {
-			/* We had seen PUSI before, this means
-			 * that previous PES can be closed now.
-			 */
-			data.status = DMX_OK_PES_END;
-			data.data_length = 0;
-			data.pes_end.start_gap = 0;
-			data.pes_end.actual_length = feed->peslen;
-			data.pes_end.disc_indicator_set = 0;
-			data.pes_end.pes_length_mismatch = 0;
-			data.pes_end.stc = 0;
-			data.pes_end.tei_counter = feed->pes_tei_counter;
-			data.pes_end.cont_err_counter =
-				feed->pes_cont_err_counter;
-			data.pes_end.ts_packets_num = feed->pes_ts_packets_num;
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		}
-
+		dvb_dmx_check_pes_end(feed);
 		feed->pusi_seen = 1;
 		feed->peslen = 0;
 		feed->pes_tei_counter = 0;
@@ -2250,7 +2253,9 @@ static int dvbdmx_ts_feed_oob_cmd(struct dmx_ts_feed *ts_feed,
 	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
 	struct dmx_data_ready data;
 	struct dvb_demux *dvbdmx = feed->demux;
-	int ret;
+	int ret = 0;
+	int secure_non_rec = feed->secure_mode.is_secured &&
+		!dvb_dmx_is_rec_feed(feed);
 
 	mutex_lock(&dvbdmx->mutex);
 
@@ -2259,13 +2264,14 @@ static int dvbdmx_ts_feed_oob_cmd(struct dmx_ts_feed *ts_feed,
 		return -EINVAL;
 	}
 
-	/* Decoder feeds are handled by plug-in */
-	if (feed->ts_type & TS_DECODER) {
+	/* Decoder & non-recording secure feeds are handled by plug-in */
+	if ((feed->ts_type & TS_DECODER) || secure_non_rec) {
 		if (feed->demux->oob_command)
 			ret = feed->demux->oob_command(feed, cmd);
-		else
-			ret = 0;
+	}
 
+	if (!(feed->ts_type & (TS_PAYLOAD_ONLY | TS_PACKET)) ||
+		secure_non_rec) {
 		mutex_unlock(&dvbdmx->mutex);
 		return ret;
 	}
@@ -2274,44 +2280,9 @@ static int dvbdmx_ts_feed_oob_cmd(struct dmx_ts_feed *ts_feed,
 
 	switch (cmd->type) {
 	case DMX_OOB_CMD_EOS:
-		if (feed->ts_type & TS_PAYLOAD_ONLY) {
-			if (feed->secure_mode.is_secured) {
-				/* Secure feeds are handled by plug-in */
-				if (feed->demux->oob_command)
-					ret = feed->demux->oob_command(feed,
-						cmd);
-				else
-					ret = 0;
-				break;
-			}
+		if (feed->ts_type & TS_PAYLOAD_ONLY)
+			dvb_dmx_check_pes_end(feed);
 
-			/* Close last PES on non-secure feeds */
-			if (feed->pusi_seen) {
-				data.status = DMX_OK_PES_END;
-				data.pes_end.start_gap = 0;
-				data.pes_end.actual_length =
-					feed->peslen;
-				data.pes_end.disc_indicator_set = 0;
-				data.pes_end.pes_length_mismatch = 0;
-				data.pes_end.stc = 0;
-				data.pes_end.tei_counter =
-					feed->pes_tei_counter;
-				data.pes_end.cont_err_counter =
-					feed->pes_cont_err_counter;
-				data.pes_end.ts_packets_num =
-					feed->pes_ts_packets_num;
-
-				feed->peslen = 0;
-				feed->pes_tei_counter = 0;
-				feed->pes_ts_packets_num = 0;
-				feed->pes_cont_err_counter = 0;
-
-				ret = feed->data_ready_cb.ts(&feed->feed.ts,
-					&data);
-				if (ret)
-					break;
-			}
-		}
 		data.status = DMX_OK_EOS;
 		ret = feed->data_ready_cb.ts(&feed->feed.ts, &data);
 		break;

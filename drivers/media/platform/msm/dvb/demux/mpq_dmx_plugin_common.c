@@ -4772,6 +4772,12 @@ int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
 	mutex_lock(&mpq_demux->mutex);
 	mpq_feed = feed->priv;
 
+	if (!dvb_dmx_is_video_feed(feed) && !dvb_dmx_is_pcr_feed(feed) &&
+		!feed->secure_mode.is_secured) {
+		mutex_unlock(&mpq_demux->mutex);
+		return 0;
+	}
+
 	event.data_length = 0;
 
 	switch (cmd->type) {
