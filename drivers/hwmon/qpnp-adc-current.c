@@ -305,8 +305,9 @@ static int32_t qpnp_iadc_read_conversion_result(uint16_t *data)
 static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 							int64_t die_temp)
 {
-	int64_t temp_var = 0, sign_coeff = 0, sys_gain_coeff = 0;
+	int64_t temp_var = 0, sign_coeff = 0, sys_gain_coeff = 0, old;
 
+	old = *result;
 	*result = *result * 1000000;
 
 	if (comp.revision == QPNP_IADC_VER_3_1) {
@@ -315,9 +316,12 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 			sys_gain_coeff = -QPNP_COEFF_6 * (comp.sys_gain - 128);
 		else
 			sys_gain_coeff = QPNP_COEFF_6 * comp.sys_gain;
+	} else if (comp.revision != QPNP_IADC_VER_3_0) {
+		/* unsupported revision, do not compensate */
+		*result = old;
+		return 0;
 	}
 
-	comp.id = 0;
 	if (!comp.ext_rsense) {
 		/* internal rsense */
 		switch (comp.id) {
@@ -335,8 +339,8 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 		if (comp.revision == QPNP_IADC_VER_3_0)
 			temp_var = QPNP_COEFF_1 * (1000000 - temp_var);
 		else if (comp.revision == QPNP_IADC_VER_3_1)
-			temp_var = (1000000 - temp_var);
-		*result = div64_s64(*result, temp_var);
+			temp_var = 1000000 * (1000000 - temp_var);
+		*result = div64_s64(*result * 1000000, temp_var);
 	}
 
 	sign_coeff = *result < 0 ? QPNP_COEFF_7 : QPNP_COEFF_5;
@@ -353,6 +357,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 		}
 		*result = div64_s64(*result, temp_var);
 	}
+	pr_debug("%lld compensated into %lld\n", old, *result);
 
 	return 0;
 }
