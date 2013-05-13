@@ -21,6 +21,10 @@ Required properties:
 - qcom,has_48mhz_xo: boolean flag to determine the usage of 24MHz XO from RF
 - qcom,has_pronto_hw: boolean flag to determine the revId of the WLAN subsystem
 
+Optional properties:
+- qcom,has_autodetect_xo: boolean flag to determine whether Iris XO auto detect
+should be performed during boot up.
+
 Example:
 
     qcom,wcnss-wlan@fb000000 {
