@@ -195,7 +195,7 @@ struct dmx_buffer_status {
 	/* write pointer offset in bytes */
 	unsigned int write_offset;
 
-	/* non-zero if data error occured */
+	/* non-zero if data error occurred */
 	int error;
 };
 
@@ -237,7 +237,10 @@ enum dmx_event {
 	 * (dmx_sct_filter_params) and no sections were
 	 * received for the given time.
 	 */
-	DMX_EVENT_SECTION_TIMEOUT = 0x00000400
+	DMX_EVENT_SECTION_TIMEOUT = 0x00000400,
+
+	/* Scrambling bits change between clear and scrambled */
+	DMX_EVENT_SCRAMBLING_STATUS_CHANGE = 0x00000800
 };
 
 enum dmx_oob_cmd {
@@ -256,7 +259,7 @@ enum dmx_oob_cmd {
 /* Discontinuity indicator was set */
 #define DMX_FILTER_DISCONTINUITY_INDICATOR	0x02
 
-/* PES legnth in PES header is not correct */
+/* PES length in PES header is not correct */
 #define DMX_FILTER_PES_LENGTH_ERROR		0x04
 
 
@@ -412,7 +415,7 @@ struct dmx_index_event_info {
 	/*
 	 * The PID the index entry belongs to.
 	 * In case of recording filter, multiple PIDs may exist in the same
-	 * filter through DMX_ADD_PID ioctl and each can be indexed seperatly.
+	 * filter through DMX_ADD_PID ioctl and each can be indexed separately.
 	 */
 	__u16 pid;
 
@@ -423,13 +426,30 @@ struct dmx_index_event_info {
 	__u64 match_tsp_num;
 
 	/*
-	 * The TS packet number in the recorded data preceeding
+	 * The TS packet number in the recorded data preceding
 	 * match_tsp_num and has PUSI set.
 	 */
 	__u64 last_pusi_tsp_num;
 
 	/* STC associated with match_tsp_num, in 27MHz */
 	__u64 stc;
+};
+
+/* Scrambling information associated with DMX_EVENT_SCRAMBLING_STATUS_CHANGE */
+struct dmx_scrambling_status_event_info {
+	/*
+	 * The PID which its scrambling bit status changed.
+	 * In case of recording filter, multiple PIDs may exist in the same
+	 * filter through DMX_ADD_PID ioctl, each may have
+	 * different scrambling bits status.
+	 */
+	__u16 pid;
+
+	/* old value of scrambling bits */
+	__u8 old_value;
+
+	/* new value of scrambling bits */
+	__u8 new_value;
 };
 
 /*
@@ -447,6 +467,7 @@ struct dmx_filter_event {
 		struct dmx_es_data_event_info es_data;
 		struct dmx_marker_event_info marker;
 		struct dmx_index_event_info index;
+		struct dmx_scrambling_status_event_info scrambling_status;
 	} params;
 };
 
@@ -754,6 +775,19 @@ struct dmx_abort_ts_insertion {
 	__u32 identifier;
 };
 
+struct dmx_scrambling_bits {
+	/*
+	 * The PID to return its scrambling bit value.
+	 * In case of recording filter, multiple PIDs may exist in the same
+	 * filter through DMX_ADD_PID ioctl, each may have different
+	 * scrambling bits status.
+	 */
+	__u16 pid;
+
+	/* Current value of scrambling bits: 0, 1, 2 or 3 */
+	__u8 value;
+};
+
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
 #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
@@ -784,5 +818,6 @@ struct dmx_abort_ts_insertion {
 #define DMX_SET_INDEXING_PARAMS _IOW('o', 69, struct dmx_indexing_params)
 #define DMX_SET_TS_INSERTION _IOW('o', 70, struct dmx_set_ts_insertion)
 #define DMX_ABORT_TS_INSERTION _IOW('o', 71, struct dmx_abort_ts_insertion)
+#define DMX_GET_SCRAMBLING_BITS _IOWR('o', 72, struct dmx_scrambling_bits)
 
 #endif /*_DVBDMX_H_*/
