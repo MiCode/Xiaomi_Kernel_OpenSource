@@ -1464,8 +1464,8 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 		ret = voc_set_ext_ec_ref(msm_route_ext_ec_ref, false);
 		break;
 	}
-	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
 	mutex_unlock(&routing_lock);
+	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
 	return ret;
 }
 
