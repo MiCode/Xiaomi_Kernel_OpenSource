@@ -43,10 +43,6 @@
 #define CCI_IRQ_MASK_0_RMSK                                         0x7fff7ff7
 #define CCI_IRQ_CLEAR_0_ADDR                                        0x00000c08
 #define CCI_IRQ_STATUS_0_ADDR                                       0x00000c0c
-#define CCI_IRQ_STATUS_0_I2C_M1_Q1_NACK_ERR_BMSK                    0x40000000
-#define CCI_IRQ_STATUS_0_I2C_M1_Q0_NACK_ERR_BMSK                    0x20000000
-#define CCI_IRQ_STATUS_0_I2C_M0_Q1_NACK_ERR_BMSK                    0x10000000
-#define CCI_IRQ_STATUS_0_I2C_M0_Q0_NACK_ERR_BMSK                     0x8000000
 #define CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_HALT_ACK_BMSK                   0x4000000
 #define CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK                   0x2000000
 #define CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK                           0x1000000
@@ -55,6 +51,8 @@
 #define CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK                            0x1000
 #define CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK                           0x100
 #define CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK                            0x10
+#define CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK                          0x18000EE6
+#define CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK                          0x60EE6000
 #define CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK                               0x1
 #define CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR                               0x00000c00
 #endif /* __MSM_CAM_CCI_HWREG__ */
