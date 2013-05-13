@@ -68,6 +68,7 @@ void wcnss_riva_log_debug_regs(void);
 void wcnss_pronto_log_debug_regs(void);
 int wcnss_device_ready(void);
 void wcnss_riva_dump_pmic_regs(void);
+int wcnss_xo_auto_detect_enabled(void);
 
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
