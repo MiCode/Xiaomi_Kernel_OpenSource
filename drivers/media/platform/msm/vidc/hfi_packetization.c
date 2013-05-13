@@ -45,6 +45,22 @@ static int cabac_model[] = {
 	[ilog2(HAL_H264_CABAC_MODEL_2)] = HFI_H264_CABAC_MODEL_2,
 };
 
+static int color_format[] = {
+	[ilog2(HAL_COLOR_FORMAT_MONOCHROME)] = HFI_COLOR_FORMAT_MONOCHROME,
+	[ilog2(HAL_COLOR_FORMAT_NV12)] = HFI_COLOR_FORMAT_NV12,
+	[ilog2(HAL_COLOR_FORMAT_NV21)] = HFI_COLOR_FORMAT_NV21,
+	[ilog2(HAL_COLOR_FORMAT_NV12_4x4TILE)] = HFI_COLOR_FORMAT_NV12_4x4TILE,
+	[ilog2(HAL_COLOR_FORMAT_NV21_4x4TILE)] = HFI_COLOR_FORMAT_NV21_4x4TILE,
+	[ilog2(HAL_COLOR_FORMAT_YUYV)] = HFI_COLOR_FORMAT_YUYV,
+	[ilog2(HAL_COLOR_FORMAT_YVYU)] = HFI_COLOR_FORMAT_YVYU,
+	[ilog2(HAL_COLOR_FORMAT_UYVY)] = HFI_COLOR_FORMAT_UYVY,
+	[ilog2(HAL_COLOR_FORMAT_VYUY)] = HFI_COLOR_FORMAT_VYUY,
+	[ilog2(HAL_COLOR_FORMAT_RGB565)] = HFI_COLOR_FORMAT_RGB565,
+	[ilog2(HAL_COLOR_FORMAT_BGR565)] = HFI_COLOR_FORMAT_BGR565,
+	[ilog2(HAL_COLOR_FORMAT_RGB888)] = HFI_COLOR_FORMAT_RGB888,
+	[ilog2(HAL_COLOR_FORMAT_BGR888)] = HFI_COLOR_FORMAT_BGR888,
+};
+
 static inline int hal_to_hfi_type(int property, int hal_type)
 {
 	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
@@ -66,6 +82,9 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	case HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL:
 		return (hal_type >= ARRAY_SIZE(cabac_model)) ?
 			-ENOTSUPP : cabac_model[hal_type];
+	case HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT:
+		return (hal_type >= ARRAY_SIZE(color_format)) ?
+			-ENOTSUPP : color_format[hal_type];
 	default:
 		return -ENOTSUPP;
 	}
@@ -632,11 +651,13 @@ int create_pkt_cmd_session_set_property(
 			hfi->buffer_type = buffer_type;
 		else
 			return -EINVAL;
-		hfi->format = prop->format;
+		hfi->format = hal_to_hfi_type(
+				HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
+				prop->format);
 		pkt->size += sizeof(u32) +
 			sizeof(struct hfi_uncompressed_format_select);
 		break;
-		}
+	}
 	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO:
 		break;
 	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_INFO:
