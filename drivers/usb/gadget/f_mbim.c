@@ -798,8 +798,6 @@ static void mbim_do_notify(struct f_mbim *mbim)
 {
 	struct usb_request		*req = mbim->not_port.notify_req;
 	struct usb_cdc_notification	*event;
-	struct usb_composite_dev	*cdev = mbim->cdev;
-	__le32				*data;
 	int				status;
 
 	pr_debug("notify_state: %d", mbim->not_port.notify_state);
@@ -836,36 +834,6 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		}
 
 		return;
-
-	case NCM_NOTIFY_CONNECT:
-		event->bNotificationType = USB_CDC_NOTIFY_NETWORK_CONNECTION;
-		if (mbim->is_open)
-			event->wValue = cpu_to_le16(1);
-		else
-			event->wValue = cpu_to_le16(0);
-		event->wLength = 0;
-		req->length = sizeof *event;
-
-		pr_info("notify connect %s\n",
-			mbim->is_open ? "true" : "false");
-		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
-		break;
-
-	case NCM_NOTIFY_SPEED:
-		event->bNotificationType = USB_CDC_NOTIFY_SPEED_CHANGE;
-		event->wValue = cpu_to_le16(0);
-		event->wLength = cpu_to_le16(8);
-		req->length = NCM_STATUS_BYTECOUNT;
-
-		/* SPEED_CHANGE data is up/down speeds in bits/sec */
-		data = req->buf + sizeof *event;
-		data[0] = cpu_to_le32(mbim_bitrate(cdev->gadget));
-		data[1] = data[0];
-
-		pr_info("notify speed %d\n",
-			mbim_bitrate(cdev->gadget));
-		mbim->not_port.notify_state = NCM_NOTIFY_CONNECT;
-		break;
 	}
 
 	event->bmRequestType = 0xA1;
@@ -886,22 +854,6 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		atomic_dec(&mbim->not_port.notify_count);
 		pr_err("usb_ep_queue failed, err: %d", status);
 	}
-}
-
-/*
- * Context: mbim->lock held
- */
-static void mbim_notify(struct f_mbim *mbim)
-{
-	/*
-	 * If mbim_notify() is called before the second (CONNECT)
-	 * notification is sent, then it will reset to send the SPEED
-	 * notificaion again (and again, and again), but it's not a problem
-	 */
-	pr_debug("dev:%p\n", mbim);
-
-	mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
-	mbim_do_notify(mbim);
 }
 
 static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
@@ -1391,7 +1343,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		mbim->data_alt_int = alt;
 		spin_lock(&mbim->lock);
-		mbim_notify(mbim);
+		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 		spin_unlock(&mbim->lock);
 	} else {
 		goto fail;
