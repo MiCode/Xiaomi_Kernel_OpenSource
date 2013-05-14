@@ -565,6 +565,7 @@ int msm_vidc_close(void *instance)
 	struct msm_vidc_core *core;
 	struct list_head *ptr, *next;
 	int rc = 0;
+	int i;
 
 	if (!inst)
 		return -EINVAL;
@@ -592,6 +593,9 @@ int msm_vidc_close(void *instance)
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
+	for (i = 0; i < MAX_PORT_NUM; i++)
+		vb2_queue_release(&inst->bufq[i].vb2_bufq);
+
 	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n", VIDC_INFO, inst);
 	kfree(inst);
 	return 0;
