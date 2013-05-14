@@ -893,7 +893,8 @@ static void usb_bam_work(struct work_struct *w)
 		pr_debug("%s recieved USB_BAM_EVENT_WAKEUP\n", __func__);
 
 		/* Notify about wakeup / activity of the bam */
-		event_info->callback(event_info->param);
+		if (event_info->callback)
+			event_info->callback(event_info->param);
 
 		/*
 		 * Reset inactivity timer counter if this pipe's bam
