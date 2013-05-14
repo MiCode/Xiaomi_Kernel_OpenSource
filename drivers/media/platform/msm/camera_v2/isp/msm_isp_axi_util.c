@@ -852,7 +852,7 @@ static int msm_isp_axi_wait_for_cfg_done(struct vfe_device *vfe_dev,
 	spin_unlock_irqrestore(&vfe_dev->shared_data_lock, flags);
 	rc = wait_for_completion_interruptible_timeout(
 		&vfe_dev->stream_config_complete,
-		msecs_to_jiffies(500));
+		msecs_to_jiffies(VFE_MAX_CFG_TIMEOUT));
 	if (rc == 0) {
 		pr_err("%s: wait timeout\n", __func__);
 		rc = -1;

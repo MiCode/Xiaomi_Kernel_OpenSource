@@ -343,7 +343,7 @@ static int msm_isp_stats_wait_for_cfg_done(struct vfe_device *vfe_dev)
 	atomic_set(&vfe_dev->stats_data.stats_update, 2);
 	rc = wait_for_completion_interruptible_timeout(
 		&vfe_dev->stats_config_complete,
-		msecs_to_jiffies(500));
+		msecs_to_jiffies(VFE_MAX_CFG_TIMEOUT));
 	if (rc == 0) {
 		pr_err("%s: wait timeout\n", __func__);
 		rc = -1;
