@@ -2819,6 +2819,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34d000.jtagmm"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34e000.jtagmm"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34f000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fd820018.hwevent"),
 
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
@@ -2852,8 +2853,9 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34d000.jtagmm"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34e000.jtagmm"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34f000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fd820018.hwevent"),
 
-
+	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fd820018.hwevent"),
 
 	CLK_LOOKUP("core_clk_src", blsp1_qup1_spi_apps_clk_src.c, ""),
 	CLK_LOOKUP("core_clk_src", blsp1_qup2_spi_apps_clk_src.c, ""),
