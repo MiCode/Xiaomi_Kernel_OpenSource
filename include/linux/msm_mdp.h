@@ -716,7 +716,7 @@ struct msmfb_metadata {
 	} data;
 };
 
-#define MDP_MAX_FENCE_FD	10
+#define MDP_MAX_FENCE_FD	32
 #define MDP_BUF_SYNC_FLAG_WAIT	1
 
 struct mdp_buf_sync {
