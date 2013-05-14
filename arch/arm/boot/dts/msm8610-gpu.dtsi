@@ -25,7 +25,6 @@
 		qcom,initial-pwrlevel = <1>;
 
 		qcom,idle-timeout = <8>; /* <HZ/12> */
-		qcom,nap-allowed = <1>;
 		qcom,strtstp-sleepwake;
 		qcom,clk-map = <0x000005E>; /* KGSL_CLK_CORE |
 			KGSL_CLK_IFACE | KGSL_CLK_MEM | KGSL_CLK_MEM_IFACE |

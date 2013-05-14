@@ -23,6 +23,8 @@
 #define KGSL_PWRLEVEL_NOMINAL 1
 #define KGSL_PWRLEVEL_LAST_OFFSET 2
 
+#define KGSL_PWR_ON	0xFFFF
+
 #define KGSL_MAX_CLKS 6
 
 struct platform_device;
@@ -57,7 +59,6 @@ struct kgsl_clk_stats {
  * @gpu_reg - pointer to the regulator structure for gpu_reg
  * @gpu_cx - pointer to the regulator structure for gpu_cx
  * @pcl - bus scale identifier
- * @nap_allowed - true if the device supports naps
  * @idle_needed - true if the device needs a idle before clock change
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
@@ -85,7 +86,6 @@ struct kgsl_pwrctrl {
 	struct regulator *gpu_reg;
 	struct regulator *gpu_cx;
 	uint32_t pcl;
-	unsigned int nap_allowed;
 	unsigned int idle_needed;
 	const char *irq_name;
 	s64 time;
