@@ -437,6 +437,7 @@ static int32_t qpnp_vadc_version_check(void)
 static int32_t qpnp_vbat_sns_comp(int64_t *result, u8 id, int64_t die_temp)
 {
 	int64_t temp_var = 0;
+	int64_t old = *result;
 
 	if (die_temp < 25000)
 		return 0;
@@ -462,6 +463,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result, u8 id, int64_t die_temp)
 	*result = *result * temp_var;
 
 	*result = div64_s64(*result, 1000000);
+	pr_debug("%lld compensated into %lld\n", old, *result);
 
 	return 0;
 }
