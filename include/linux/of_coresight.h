@@ -13,7 +13,7 @@
 #ifndef __LINUX_OF_CORESIGHT_H
 #define __LINUX_OF_CORESIGHT_H
 
-#ifdef CONFIG_OF
+#ifdef CONFIG_OF_CORESIGHT
 extern struct coresight_platform_data *of_get_coresight_platform_data(
 				struct device *dev, struct device_node *node);
 extern struct coresight_cti_data *of_get_coresight_cti_data(
