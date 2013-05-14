@@ -82,7 +82,7 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 
 /* connect/disconnect is handled by individual functions */
 struct net_device *gether_qc_connect_name(struct qc_gether *link,
-		const char *netname);
+		const char *netname, bool netif_enable);
 void gether_qc_disconnect_name(struct qc_gether *link, const char *netname);
 
 /* each configuration may bind one instance of an ethernet link */
