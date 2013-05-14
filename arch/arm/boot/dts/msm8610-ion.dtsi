@@ -33,6 +33,21 @@
 			reg = <27>;
 			linux,contiguous-region = <&qsecom_mem>;
 		};
+
+		qcom,ion-heap@23 { /* OTHER PIL HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <23>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-fixed = <0x0bf00000 0x1A00000>;
+		};
+
+		qcom,ion-heap@26 { /* MODEM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <26>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-fixed = <0x08000000 0x3F00000>;
+		};
+
 	};
 };
 
