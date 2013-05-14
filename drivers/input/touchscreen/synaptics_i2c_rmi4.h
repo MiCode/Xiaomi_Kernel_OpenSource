@@ -68,6 +68,8 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
+#define NAME_BUFFER_SIZE 128
+
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
  * @query_base_addr: base address for query registers
@@ -183,6 +185,7 @@ struct synaptics_rmi4_device_info {
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
  * @flip_x: set to TRUE if desired to flip direction on x-axis
  * @flip_y: set to TRUE if desired to flip direction on y-axis
+ * @fw_updating: firmware is updating flag
  * @sensor_sleep: flag to indicate sleep state of sensor
  * @wait: wait queue for touch data polling in interrupt thread
  * @i2c_read: pointer to i2c read function
@@ -202,7 +205,7 @@ struct synaptics_rmi4_data {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
-	const char *fw_image_name;
+	char fw_image_name[NAME_BUFFER_SIZE];
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
@@ -224,6 +227,7 @@ struct synaptics_rmi4_data {
 	bool sensor_sleep;
 	bool flip_x;
 	bool flip_y;
+	bool fw_updating;
 	wait_queue_head_t wait;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);

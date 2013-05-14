@@ -53,8 +53,6 @@
 #define BLOCK_NUMBER_OFFSET 0
 #define BLOCK_DATA_OFFSET 2
 
-#define NAME_BUFFER_SIZE 128
-
 enum falsh_config_area {
 	UI_CONFIG_AREA = 0x00,
 	PERM_CONFIG_AREA = 0x01,
@@ -98,53 +96,6 @@ enum image_file_option {
 #define POLLING_MODE 0
 
 #define SLEEP_TIME_US 50
-
-static ssize_t fwu_sysfs_show_image(struct file *data_file,
-		struct kobject *kobj, struct bin_attribute *attributes,
-		char *buf, loff_t pos, size_t count);
-
-static ssize_t fwu_sysfs_store_image(struct file *data_file,
-		struct kobject *kobj, struct bin_attribute *attributes,
-		char *buf, loff_t pos, size_t count);
-
-static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_write_config_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_read_config_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_config_area_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_image_size_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t fwu_sysfs_block_size_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_firmware_block_count_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_configuration_block_count_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_perm_config_block_count_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_bl_config_block_count_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
-
-static ssize_t fwu_sysfs_config_id_show(struct device *dev,
-		struct device_attribute *attr, char *buf);
 
 static int fwu_wait_for_idle(int timeout_ms);
 
@@ -290,59 +241,7 @@ struct synaptics_rmi4_fwu_handle {
 	struct f34_flash_properties flash_properties;
 	struct workqueue_struct *fwu_workqueue;
 	struct delayed_work fwu_work;
-	char *firmware_name;
-};
-
-static struct bin_attribute dev_attr_data = {
-	.attr = {
-		.name = "data",
-		.mode = (S_IRUGO | S_IWUGO),
-	},
-	.size = 0,
-	.read = fwu_sysfs_show_image,
-	.write = fwu_sysfs_store_image,
-};
-
-static struct device_attribute attrs[] = {
-	__ATTR(force_update_fw, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_force_reflash_store),
-	__ATTR(update_fw, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_do_reflash_store),
-	__ATTR(writeconfig, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_write_config_store),
-	__ATTR(readconfig, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_read_config_store),
-	__ATTR(configarea, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_config_area_store),
-	__ATTR(imagesize, S_IWUGO,
-			synaptics_rmi4_show_error,
-			fwu_sysfs_image_size_store),
-	__ATTR(blocksize, S_IRUGO,
-			fwu_sysfs_block_size_show,
-			synaptics_rmi4_store_error),
-	__ATTR(fwblockcount, S_IRUGO,
-			fwu_sysfs_firmware_block_count_show,
-			synaptics_rmi4_store_error),
-	__ATTR(configblockcount, S_IRUGO,
-			fwu_sysfs_configuration_block_count_show,
-			synaptics_rmi4_store_error),
-	__ATTR(permconfigblockcount, S_IRUGO,
-			fwu_sysfs_perm_config_block_count_show,
-			synaptics_rmi4_store_error),
-	__ATTR(blconfigblockcount, S_IRUGO,
-			fwu_sysfs_bl_config_block_count_show,
-			synaptics_rmi4_store_error),
-	__ATTR(dispconfigblockcount, S_IRUGO,
-			fwu_sysfs_disp_config_block_count_show,
-			synaptics_rmi4_store_error),
-	__ATTR(config_id, S_IRUGO,
-			fwu_sysfs_config_id_show,
-			synaptics_rmi4_store_error),
+	char firmware_name[NAME_BUFFER_SIZE];
 };
 
 static struct synaptics_rmi4_fwu_handle *fwu;
@@ -1302,26 +1201,23 @@ static int fwu_start_reflash(void)
 
 	pr_notice("%s: Start of reflash process\n", __func__);
 
-	if (!fwu->rmi4_data->fw_image_name) {
-		retval = 0;
+	if (strnlen(fwu->rmi4_data->fw_image_name, NAME_BUFFER_SIZE) == 0) {
 		dev_err(&fwu->rmi4_data->i2c_client->dev,
 			"Firmware image name not given, skipping update\n");
-		goto exit;
+		return 0;
+	}
+
+	if (strnlen(fwu->rmi4_data->fw_image_name, NAME_BUFFER_SIZE) ==
+		NAME_BUFFER_SIZE) {
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"Firmware image name exceeds max length (%d), " \
+			"skipping update\n", NAME_BUFFER_SIZE);
+		return 0;
 	}
 
 	if (fwu->ext_data_source)
 		fw_image = fwu->ext_data_source;
 	else {
-		fwu->firmware_name = kcalloc(NAME_BUFFER_SIZE,
-			sizeof(char), GFP_KERNEL);
-		if (!fwu->firmware_name) {
-			dev_err(&fwu->rmi4_data->i2c_client->dev,
-				"%s Failed to allocate firmware name (%d).\n",
-				__func__, NAME_BUFFER_SIZE);
-			retval = -ENOMEM;
-			goto memory_exit;
-		}
-
 		snprintf(fwu->firmware_name, NAME_BUFFER_SIZE, "%s",
 			fwu->rmi4_data->fw_image_name);
 		dev_info(&fwu->rmi4_data->i2c_client->dev,
@@ -1336,8 +1232,7 @@ static int fwu_start_reflash(void)
 					"%s: Firmware image %s not available\n",
 					__func__,
 					fwu->firmware_name);
-			retval = -EINVAL;
-			goto exit;
+			return -EINVAL;
 		}
 
 		dev_dbg(&fwu->rmi4_data->i2c_client->dev,
@@ -1408,13 +1303,11 @@ static int fwu_start_reflash(void)
 		goto exit;
 	}
 
+exit:
 	if (fw_entry)
 		release_firmware(fw_entry);
 
 	pr_notice("%s: End of reflash process\n", __func__);
-exit:
-	kfree(fwu->firmware_name);
-memory_exit:
 	return retval;
 }
 
@@ -1428,10 +1321,19 @@ int synaptics_fw_updater(unsigned char *fw_data)
 	if (!fwu->initialized)
 		return -ENODEV;
 
+	fwu->rmi4_data->fw_updating = true;
+	if (fwu->rmi4_data->touch_stopped == true) {
+		fwu->rmi4_data->fw_updating = false;
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"Cannot start fw upgrade while device is in suspend\n");
+		return -EBUSY;
+	}
+
 	fwu->ext_data_source = fw_data;
 	fwu->config_area = UI_CONFIG_AREA;
 
 	retval = fwu_start_reflash();
+	fwu->rmi4_data->fw_updating = false;
 
 	return retval;
 }
@@ -1466,6 +1368,40 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 	fwu->data_pos += count;
 
 	return count;
+}
+
+static ssize_t fwu_sysfs_fw_name_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+	char *strptr;
+
+	if (count >= NAME_BUFFER_SIZE) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Input over %d characters long\n", NAME_BUFFER_SIZE);
+		return -EINVAL;
+	}
+
+	strptr = strnstr(buf, ".img",
+			count);
+	if (!strptr) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Input is not valid .img file\n");
+		return -EINVAL;
+	}
+
+	strlcpy(rmi4_data->fw_image_name, buf, count);
+	return count;
+}
+
+static ssize_t fwu_sysfs_fw_name_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if (strnlen(fwu->rmi4_data->fw_image_name, NAME_BUFFER_SIZE) > 0)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			fwu->rmi4_data->fw_image_name);
+	else
+		return snprintf(buf, PAGE_SIZE, "No firmware name given\n");
 }
 
 static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
@@ -1691,6 +1627,62 @@ static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 
 	return;
 }
+
+static struct bin_attribute dev_attr_data = {
+	.attr = {
+		.name = "data",
+		.mode = (S_IRUGO | S_IWUGO),
+	},
+	.size = 0,
+	.read = fwu_sysfs_show_image,
+	.write = fwu_sysfs_store_image,
+};
+
+static struct device_attribute attrs[] = {
+	__ATTR(fw_name, S_IWUGO | S_IRUGO,
+			fwu_sysfs_fw_name_show,
+			fwu_sysfs_fw_name_store),
+	__ATTR(force_update_fw, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_force_reflash_store),
+	__ATTR(update_fw, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_do_reflash_store),
+	__ATTR(writeconfig, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_write_config_store),
+	__ATTR(readconfig, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_read_config_store),
+	__ATTR(configarea, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_config_area_store),
+	__ATTR(imagesize, S_IWUGO,
+			synaptics_rmi4_show_error,
+			fwu_sysfs_image_size_store),
+	__ATTR(blocksize, S_IRUGO,
+			fwu_sysfs_block_size_show,
+			synaptics_rmi4_store_error),
+	__ATTR(fwblockcount, S_IRUGO,
+			fwu_sysfs_firmware_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(configblockcount, S_IRUGO,
+			fwu_sysfs_configuration_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(permconfigblockcount, S_IRUGO,
+			fwu_sysfs_perm_config_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(blconfigblockcount, S_IRUGO,
+			fwu_sysfs_bl_config_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(dispconfigblockcount, S_IRUGO,
+			fwu_sysfs_disp_config_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(config_id, S_IRUGO,
+			fwu_sysfs_config_id_show,
+			synaptics_rmi4_store_error),
+};
+
 
 static void synaptics_rmi4_fwu_work(struct work_struct *work)
 {
