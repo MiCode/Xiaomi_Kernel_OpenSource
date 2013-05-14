@@ -32,6 +32,7 @@
 #define SOCINFO_VERSION_MINOR(ver) (ver & 0x0000ffff)
 
 #ifdef CONFIG_OF
+#define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
 #define of_board_is_sim()	of_machine_is_compatible("qcom,sim")
 #define of_board_is_rumi()	of_machine_is_compatible("qcom,rumi")
 #define of_board_is_fluid()	of_machine_is_compatible("qcom,fluid")
