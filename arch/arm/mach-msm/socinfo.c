@@ -27,8 +27,8 @@
 #include <asm/mach-types.h>
 
 #include <mach/socinfo.h>
+#include <mach/msm_smem.h>
 
-#include "smd_private.h"
 #include "boot_stats.h"
 
 #define BUILD_ID_LENGTH 32
