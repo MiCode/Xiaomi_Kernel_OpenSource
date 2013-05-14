@@ -2137,7 +2137,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	int ret = 0, dead = 0;
 	u32 vdd_max_current;
 	u16 host_version;
-	u32 pwr;
+	u32 pwr, irq_status, irq_ctl;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -2263,6 +2263,27 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	}
 	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
+
+	/*
+	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
+	 * was either BUS_ON or IO_HIGH_V. So before we enable the power irq
+	 * interrupt in GIC (by registering the interrupt handler), we need to
+	 * ensure that any pending power irq interrupt status is acknowledged
+	 * otherwise power irq interrupt handler would be fired prematurely.
+	 */
+	irq_status = readl_relaxed(msm_host->core_mem + CORE_PWRCTL_STATUS);
+	writel_relaxed(irq_status, (msm_host->core_mem + CORE_PWRCTL_CLEAR));
+	irq_ctl = readl_relaxed(msm_host->core_mem + CORE_PWRCTL_CTL);
+	if (irq_status & (CORE_PWRCTL_BUS_ON | CORE_PWRCTL_BUS_OFF))
+		irq_ctl |= CORE_PWRCTL_BUS_SUCCESS;
+	if (irq_status & (CORE_PWRCTL_IO_HIGH | CORE_PWRCTL_IO_LOW))
+		irq_ctl |= CORE_PWRCTL_IO_SUCCESS;
+	writel_relaxed(irq_ctl, (msm_host->core_mem + CORE_PWRCTL_CTL));
+	/*
+	 * Ensure that above writes are propogated before interrupt enablement
+	 * in GIC.
+	 */
+	mb();
 
 	/*
 	 * Following are the deviations from SDHC spec v3.0 -
