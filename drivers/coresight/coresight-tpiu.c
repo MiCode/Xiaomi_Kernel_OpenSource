@@ -631,6 +631,8 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 
 		for (i = 0; i < drvdata->seta_gpiocnt; i++)
 			drvdata->seta_cfgs[i].dir = seta_cfgs[i];
+
+		devm_kfree(dev, seta_cfgs);
 	} else {
 		dev_err(dev, "seta gpios not specified\n");
 	}
@@ -697,6 +699,8 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 
 		for (i = 0; i < drvdata->setb_gpiocnt; i++)
 			drvdata->setb_cfgs[i].dir = setb_cfgs[i];
+
+		devm_kfree(dev, setb_cfgs);
 	} else {
 		dev_err(dev, "setb gpios not specified\n");
 	}
