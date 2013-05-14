@@ -74,7 +74,7 @@ MODULE_PARM_DESC(rndis_multipacket_dl_disable,
 static unsigned int rndis_ul_max_pkt_per_xfer = 1;
 module_param(rndis_ul_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rndis_ul_max_pkt_per_xfer,
-	"Disable RNDIS Multi-packet support in DownLink");
+	"Maximum packets per transfer for UL aggregation");
 
 struct f_rndis {
 	struct gether			port;
