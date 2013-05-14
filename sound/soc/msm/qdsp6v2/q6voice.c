@@ -56,7 +56,7 @@ static int voice_send_set_device_cmd(struct voice_data *v);
 static int voice_send_disable_vocproc_cmd(struct voice_data *v);
 static int voice_send_vol_index_cmd(struct voice_data *v);
 static int voice_send_mvm_unmap_memory_physical_cmd(struct voice_data *v,
-						    unsigned int bufcnt);
+						    uint32_t mem_handle);
 static int voice_send_mvm_cal_network_cmd(struct voice_data *v);
 static int voice_send_mvm_media_type_cmd(struct voice_data *v);
 static int voice_send_cvs_data_exchange_mode_cmd(struct voice_data *v);
@@ -225,6 +225,29 @@ static bool is_volte_session(u16 session_id)
 static bool is_voice2_session(u16 session_id)
 {
 	return (session_id == common.voice[VOC_PATH_VOICE2_PASSIVE].session_id);
+}
+
+static bool is_other_session_active(u16 session_id)
+{
+	int i;
+	bool ret = false;
+
+	/* Check if there is other active session except the input one */
+	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
+		if (common.voice[i].session_id == session_id)
+			continue;
+
+		if ((common.voice[i].voc_state == VOC_RUN) ||
+		    (common.voice[i].voc_state == VOC_CHANGE) ||
+		    (common.voice[i].voc_state == VOC_STANDBY)) {
+			ret = true;
+			break;
+		}
+	}
+	pr_debug("%s: ret %d\n", __func__, ret);
+
+	return ret;
+
 }
 
 static int voice_apr_register(void)
@@ -676,7 +699,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 	cvs_handle = voice_get_cvs_handle(v);
 
 	/* MVM, CVS sessions are destroyed only for Full control sessions. */
-	if (is_voip_session(v->session_id) || v->voc_state == VOC_ERROR) {
+	if (is_voip_session(v->session_id)) {
 		pr_debug("%s: MVM detach stream, VOC_STATE: %d\n", __func__,
 				v->voc_state);
 
@@ -698,6 +721,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		if (ret < 0) {
 			pr_err("%s: Error %d sending DETACH_STREAM\n",
 			       __func__, ret);
+
 			goto fail;
 		}
 		ret = wait_event_timeout(v->mvm_wait,
@@ -705,9 +729,25 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait event timeout\n", __func__);
+
 			goto fail;
 		}
 
+		/* Unmap memory */
+		if (v->shmem_info.mem_handle != 0) {
+			ret = voice_send_mvm_unmap_memory_physical_cmd(v,
+						v->shmem_info.mem_handle);
+			if (ret < 0) {
+				pr_err("%s Memory_unmap for voip failed %d\n",
+				       __func__, ret);
+
+				goto fail;
+			}
+			v->shmem_info.mem_handle = 0;
+		}
+	}
+
+	if (is_voip_session(v->session_id) || v->voc_state == VOC_ERROR) {
 		/* Destroy CVS. */
 		pr_debug("%s: CVS destroy session\n", __func__);
 
@@ -726,6 +766,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		if (ret < 0) {
 			pr_err("%s: Error %d sending CVS DESTROY\n",
 			       __func__, ret);
+
 			goto fail;
 		}
 		ret = wait_event_timeout(v->cvs_wait,
@@ -739,11 +780,21 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		cvs_handle = 0;
 		voice_set_cvs_handle(v, cvs_handle);
 
-		ret = voice_send_mvm_unmap_memory_physical_cmd(v,
-							       NUM_OF_BUFFERS);
-		if (ret < 0) {
-			pr_err("%s CMD Memory_unmap_regions failed %d\n",
-				__func__, ret);
+		/* Unmap physical memory for calibration */
+		pr_debug("%s: cal_mem_handle %d\n", __func__,
+			 common.cal_mem_handle);
+
+		if (!is_other_session_active(v->session_id) &&
+					    (common.cal_mem_handle != 0)) {
+			ret = voice_send_mvm_unmap_memory_physical_cmd(v,
+							common.cal_mem_handle);
+			if (ret < 0) {
+				pr_err("%s Fail at cal mem unmap %d\n",
+				       __func__, ret);
+
+				goto fail;
+			}
+			common.cal_mem_handle = 0;
 		}
 
 		/* Destroy MVM. */
@@ -2673,7 +2724,7 @@ fail:
 }
 
 static int voice_send_mvm_unmap_memory_physical_cmd(struct voice_data *v,
-							 unsigned int bufcnt)
+						    uint32_t mem_handle)
 {
 	struct vss_imemory_cmd_unmap_t mem_unmap;
 	int ret = 0;
@@ -2701,7 +2752,7 @@ static int voice_send_mvm_unmap_memory_physical_cmd(struct voice_data *v,
 	mem_unmap.hdr.dest_port = mvm_handle;
 	mem_unmap.hdr.token = 0;
 	mem_unmap.hdr.opcode = VSS_IMEMORY_CMD_UNMAP;
-	mem_unmap.mem_handle = v->shmem_info.mem_handle;
+	mem_unmap.mem_handle = mem_handle;
 
 	pr_debug("%s: mem_handle: ox%x\n", __func__, mem_unmap.mem_handle);
 
