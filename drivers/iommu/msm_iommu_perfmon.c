@@ -257,6 +257,7 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 					dev_get_drvdata(iommu->iommu_dev);
 
 	iommu->ops->iommu_power_on(iommu_drvdata);
+	iommu->ops->iommu_bus_vote(iommu_drvdata, 1);
 	iommu->ops->iommu_clk_on(iommu_drvdata);
 
 	/* Reset counters in HW */
@@ -311,6 +312,7 @@ static void iommu_pm_off(struct iommu_pmon *pmon)
 
 	iommu->ops->iommu_lock_release();
 	iommu->ops->iommu_clk_off(iommu_drvdata);
+	iommu->ops->iommu_bus_vote(iommu_drvdata, 0);
 	iommu->ops->iommu_power_off(iommu_drvdata);
 
 	pr_info("%s: TLB performance monitoring turned OFF\n",

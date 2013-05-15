@@ -98,6 +98,7 @@ struct msm_iommu_bfb_settings {
  * @halt_enabled: Set to 1 if IOMMU halt is supported in the IOMMU, 0 otherwise.
  * @asid:         List of ASID and their usage count (index is ASID value).
  * @ctx_attach_count: Count of how many context are attached.
+ * @bus_client  : Bus client needed to vote for bus bandwidth.
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -121,12 +122,14 @@ struct msm_iommu_drvdata {
 	int halt_enabled;
 	int *asid;
 	unsigned int ctx_attach_count;
+	unsigned int bus_client;
 };
 
 /**
  * struct iommu_access_ops - Callbacks for accessing IOMMU
  * @iommu_power_on:     Turn on power to unit
  * @iommu_power_off:    Turn off power to unit
+ * @iommu_bus_vote:     Vote for bus bandwidth
  * @iommu_clk_on:       Turn on clks to unit
  * @iommu_clk_off:      Turn off clks to unit
  * @iommu_lock_initialize: Initialize the remote lock
@@ -136,6 +139,8 @@ struct msm_iommu_drvdata {
 struct iommu_access_ops {
 	int (*iommu_power_on)(struct msm_iommu_drvdata *);
 	void (*iommu_power_off)(struct msm_iommu_drvdata *);
+	int (*iommu_bus_vote)(struct msm_iommu_drvdata *drvdata,
+			      unsigned int vote);
 	int (*iommu_clk_on)(struct msm_iommu_drvdata *);
 	void (*iommu_clk_off)(struct msm_iommu_drvdata *);
 	void * (*iommu_lock_initialize)(void);
