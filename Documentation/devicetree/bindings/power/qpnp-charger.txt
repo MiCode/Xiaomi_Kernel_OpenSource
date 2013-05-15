@@ -41,6 +41,8 @@ Parent node optional properties:
 					by default. This can then be overriden
 					writing the the module parameter
 					"charging_disabled".
+- qcom,duty-cycle-100p:			Set this property to enable the 100% duty
+					cycle feature.
 - qcom,use-default-batt-values:		Set this flag to force reporting of
 					battery temperature of 250 decidegree
 					Celsius, state of charge to be 50%

@@ -263,6 +263,7 @@ struct qpnp_chg_chip {
 	bool				batt_present;
 	bool				charging_disabled;
 	bool				use_default_batt_values;
+	bool				duty_cycle_100p;
 	unsigned int			bpd_detection;
 	unsigned int			max_bat_chg_current;
 	unsigned int			warm_bat_chg_ma;
@@ -608,6 +609,32 @@ qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
 			CHGR_ON_BAT_FORCE_BIT,
 			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
+}
+
+#define BUCK_DUTY_MASK_100P	0x30
+static int
+qpnp_buck_set_100_duty_cycle_enable(struct qpnp_chg_chip *chip, int enable)
+{
+	int rc;
+
+	pr_debug("enable: %d\n", enable);
+
+	rc = qpnp_chg_masked_write(chip,
+		chip->buck_base + SEC_ACCESS, 0xA5, 0xA5, 1);
+	if (rc) {
+		pr_debug("failed to write sec access rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_masked_write(chip,
+		chip->buck_base + BUCK_TEST_SMBC_MODES,
+			BUCK_DUTY_MASK_100P, enable ? 0x00 : 0x10, 1);
+	if (rc) {
+		pr_debug("failed enable 100p duty cycle rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 #define COMPATATOR_OVERRIDE_0	0x80
@@ -2148,6 +2175,18 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,charging-disabled");
+
+	/* Get the duty-cycle-100p property */
+	chip->duty_cycle_100p = of_property_read_bool(
+					chip->spmi->dev.of_node,
+					"qcom,duty-cycle-100p");
+	if (chip->duty_cycle_100p) {
+		rc = qpnp_buck_set_100_duty_cycle_enable(chip, 1);
+		if (rc) {
+			pr_err("failed to enable duty cycle %d\n", rc);
+			return rc;
+		}
+	}
 
 	/* Get the fake-batt-values property */
 	chip->use_default_batt_values =
