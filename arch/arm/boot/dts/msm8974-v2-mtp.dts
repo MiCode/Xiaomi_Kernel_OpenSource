@@ -34,3 +34,7 @@
 
 	qcom,misc-ref = <&pm8941_misc>;
 };
+
+&pm8941_chg {
+	qcom,bpd-detection = "bpd_id";
+};
