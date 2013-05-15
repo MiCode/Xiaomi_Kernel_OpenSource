@@ -15,3 +15,4 @@ obj-$(CONFIG_OF_PCI_IRQ)  += of_pci_irq.o
 obj-$(CONFIG_OF_SPMI)	+= of_spmi.o
 obj-$(CONFIG_OF_MTD)	+= of_mtd.o
 obj-$(CONFIG_OF_SLIMBUS)	+= of_slimbus.o
+obj-$(CONFIG_OF_CORESIGHT) += of_coresight.o
