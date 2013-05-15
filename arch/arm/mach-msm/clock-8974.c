@@ -5391,12 +5391,6 @@ static void __init reg_init(void)
 		writel_relaxed(regval | BIT(26) | BIT(25),
 				GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 	}
-
-	/*
-	 * TODO: Confirm that no clocks need to be voted on in this sleep vote
-	 * register.
-	 */
-	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
 static void __init msm8974_clock_post_init(void)
