@@ -56,6 +56,8 @@
 		} while (0)
 
 
+#define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
+
 static inline uint32_t buf_page_start(void *buf)
 {
 	uint32_t start = (uint32_t) buf & PAGE_MASK;
@@ -517,6 +519,28 @@ static int put_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	return err;
 }
 
+static void inv_args_pre(uint32_t sc, remote_arg_t *rpra)
+{
+	int i, inbufs, outbufs;
+	uint32_t end;
+
+	inbufs = REMOTE_SCALARS_INBUFS(sc);
+	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
+	for (i = inbufs; i < inbufs + outbufs; ++i) {
+		if (!rpra[i].buf.len)
+			continue;
+		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv))
+			continue;
+		if (!IS_CACHE_ALIGNED((uint32_t)rpra[i].buf.pv))
+			dmac_flush_range(rpra[i].buf.pv,
+				(char *)rpra[i].buf.pv + 1);
+		end = (uint32_t)rpra[i].buf.pv + rpra[i].buf.len;
+		if (!IS_CACHE_ALIGNED(end))
+			dmac_flush_range((char *)end,
+				(char *)end + 1);
+	}
+}
+
 static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
 {
 	int i, inbufs, outbufs;
@@ -780,6 +804,7 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 	}
 
 	context_list_alloc_ctx(&me->clst, &ctx);
+	inv_args_pre(sc, rpra);
 	VERIFY(err, 0 == fastrpc_invoke_send(me, kernel, invoke->handle, sc,
 						ctx, &obuf));
 	if (err)
