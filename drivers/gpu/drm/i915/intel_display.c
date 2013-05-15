@@ -7050,6 +7050,51 @@ static void lpt_init_pch_refclk(struct drm_device *dev)
 		lpt_disable_clkout_dp(dev);
 }
 
+int intel_enable_CSC(struct drm_device *dev, void *data, struct drm_file *priv)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct CSC_Coeff *wgCSCCoeff = data;
+	struct drm_mode_object *obj;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	u32 pipeconf;
+	int pipe;
+	u32 csc_reg=_PIPEACSC;
+	int i = 0, j = 0;
+
+	obj = drm_mode_object_find(dev, wgCSCCoeff->crtc_id,
+			DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n", wgCSCCoeff->crtc_id);
+			return -EINVAL;
+	}
+
+	crtc = obj_to_crtc(obj);
+	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+	intel_crtc = to_intel_crtc(crtc);
+	pipe = intel_crtc->pipe;
+	DRM_DEBUG_DRIVER("pipe = %d\n", pipe);
+	pipeconf = I915_READ(PIPECONF(pipe));
+	pipeconf |= PIPECONF_CSC_ENABLE;
+
+	if (pipe == 0)
+		csc_reg = _PIPEACSC;
+	else if (pipe == 1)
+		csc_reg = _PIPEBCSC;
+	else
+		BUG();
+
+	I915_WRITE(PIPECONF(pipe), pipeconf);
+	POSTING_READ(PIPECONF(pipe));
+
+	for (i = 0; i < 6; i++) {
+		I915_WRITE(csc_reg + j, wgCSCCoeff->VLV_CSC_Coeff[i].Value);
+		j = j + 0x4;
+	}
+
+	return 0;
+}
+
 /*
  * Initialize reference clocks when the driver loads
  */

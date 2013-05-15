@@ -63,6 +63,23 @@
 #define I915_NR_TEX_REGIONS 255	/* table size 2k - maximum due to use
 				 * of chars for next/prev indices */
 #define I915_LOG_MIN_TEX_REGION_SIZE 14
+#define MAX_CSC_COEFFICIENTS 9
+struct drm_intel_csc_params {
+	float   m_CSCCoeff[MAX_CSC_COEFFICIENTS];
+};
+
+union CSC_COEFFICIENT_WG {
+	unsigned int  Value;
+	struct {
+	unsigned int Coeff_2:16; /* bit 0-15 */
+	unsigned int  Coeff_1:16; /* bits 16-32 */
+	};
+};
+
+struct CSC_Coeff {
+	unsigned int crtc_id;
+	union CSC_COEFFICIENT_WG VLV_CSC_Coeff[6];
+};
 
 typedef struct _drm_i915_init {
 	enum {

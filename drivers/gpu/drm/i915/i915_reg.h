@@ -2228,6 +2228,10 @@ enum punit_power_well {
 /* Same as Haswell, but 72064 bytes now. */
 #define GEN8_CXT_TOTAL_SIZE		(18 * PAGE_SIZE)
 
+/* CSC Control Register */
+#define	_PIPEACSC	0x600b0
+#define	_PIPEBCSC	0x610b0
+#define	PIPECONF_CSC_ENABLE	(1<<15)
 
 #define VLV_CLK_CTL2			0x101104
 #define   CLK_CTL2_CZCOUNT_30NS_SHIFT	28
