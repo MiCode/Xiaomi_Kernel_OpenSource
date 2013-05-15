@@ -976,18 +976,33 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			enum msm_isp_camif_update_state camif_update)
 {
 	int i, rc = 0;
+	uint8_t wait_for_complete = 0;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+
 		stream_info->state = STOP_PENDING;
+		if (stream_info->stream_type == BURST_STREAM &&
+			stream_info->runtime_num_burst_capture == 0) {
+			/*Configure AXI writemasters to stop immediately
+			 *since for burst case, write masters already skip
+			 *all frames.
+			 */
+			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
+			stream_info->state = INACTIVE;
+		} else {
+			wait_for_complete = 1;
+		}
 	}
 
-	rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
-	if (rc < 0) {
-		pr_err("%s: wait for config done failed\n", __func__);
-		return rc;
+	if (wait_for_complete) {
+		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
+		if (rc < 0) {
+			pr_err("%s: wait for config done failed\n", __func__);
+			return rc;
+		}
 	}
 	msm_isp_update_stream_bandwidth(vfe_dev);
 	if (camif_update == DISABLE_CAMIF)
