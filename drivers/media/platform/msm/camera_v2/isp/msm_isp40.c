@@ -29,8 +29,9 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
-#define VFE40_V1_VERSION 0x10000018
-#define VFE40_V2_VERSION 0x1001001A
+#define VFE40_8974V1_VERSION 0x10000018
+#define VFE40_8974V2_VERSION 0x1001001A
+#define VFE40_8x26_VERSION 0x20000013
 
 #define VFE40_BURST_LEN 3
 #define VFE40_STATS_BURST_LEN 2
@@ -90,7 +91,8 @@ static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
 {
 	void __iomem *vfebase = vfe_dev->vfe_base;
-	if (vfe_dev->vfe_hw_version == VFE40_V1_VERSION) {
+	if (vfe_dev->vfe_hw_version == VFE40_8974V1_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8x26_VERSION) {
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_0);
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_1);
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_2);
@@ -99,7 +101,7 @@ static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_5);
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_6);
 		msm_camera_io_w(0x0002AAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_7);
-	} else if (vfe_dev->vfe_hw_version == VFE40_V2_VERSION) {
+	} else if (vfe_dev->vfe_hw_version == VFE40_8974V2_VERSION) {
 		msm_camera_io_w(0xAAA9AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_0);
 		msm_camera_io_w(0xAAA9AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_1);
 		msm_camera_io_w(0xAAA9AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_2);
@@ -108,81 +110,138 @@ static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
 		msm_camera_io_w(0xAAA9AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_5);
 		msm_camera_io_w(0xAAA9AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_6);
 		msm_camera_io_w(0x0001AAA9, vfebase + VFE40_BUS_BDG_QOS_CFG_7);
+	} else {
+		BUG();
+		pr_err("%s: QOS is NOT configured for HW Version %x\n",
+			__func__, vfe_dev->vfe_hw_version);
 	}
+}
+
+static void msm_vfe40_init_vbif_parms_8974_v1(struct vfe_device *vfe_dev)
+{
+	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
+	msm_camera_io_w(0x1,
+		vfe_vbif_base + VFE40_VBIF_CLKON);
+	msm_camera_io_w(0x01010101,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
+	msm_camera_io_w(0x01010101,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
+	msm_camera_io_w(0x10010110,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
+	msm_camera_io_w(0x00001010,
+		vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
+	msm_camera_io_w(0x00001010,
+		vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_OCMEM_OUT_MAX_BURST);
+	msm_camera_io_w(0x00000030,
+		vfe_vbif_base + VFE40_VBIF_ARB_CTL);
+	msm_camera_io_w(0x00000FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
+	msm_camera_io_w(0x0FFF0FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
+	msm_camera_io_w(0x00000001,
+		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
+	msm_camera_io_w(0x22222222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	msm_camera_io_w(0x00002222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
+	return;
+}
+
+static void msm_vfe40_init_vbif_parms_8974_v2(struct vfe_device *vfe_dev)
+{
+	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
+	msm_camera_io_w(0x1,
+		vfe_vbif_base + VFE40_VBIF_CLKON);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
+	msm_camera_io_w(0x00000010,
+		vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
+	msm_camera_io_w(0x00000010,
+		vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
+	msm_camera_io_w(0x00000010,
+		vfe_vbif_base + VFE40_VBIF_ARB_CTL);
+	msm_camera_io_w(0x00000FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
+	msm_camera_io_w(0x0FFF0FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
+	msm_camera_io_w(0x00000003,
+		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
+	msm_camera_io_w(0x22222222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	msm_camera_io_w(0x00002222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
+	return;
+}
+
+static void msm_vfe40_init_vbif_parms_8x26(struct vfe_device *vfe_dev)
+{
+	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
+	msm_camera_io_w(0x10101010,
+		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
+	msm_camera_io_w(0x00000010,
+		vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
+	msm_camera_io_w(0x00000010,
+		vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
+	msm_camera_io_w(0x000000FF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
+	msm_camera_io_w(0x00FF00FF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
+	msm_camera_io_w(0x00000003,
+		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
+	msm_camera_io_w(0x22222222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	return;
 }
 
 static void msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev)
 {
-	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
-	if (vfe_dev->vfe_hw_version == VFE40_V1_VERSION) {
-		msm_camera_io_w(0x1,
-			vfe_vbif_base + VFE40_VBIF_CLKON);
-		msm_camera_io_w(0x01010101,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
-		msm_camera_io_w(0x01010101,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
-		msm_camera_io_w(0x10010110,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
-		msm_camera_io_w(0x00001010,
-			vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
-		msm_camera_io_w(0x00001010,
-			vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
-		msm_camera_io_w(0x00000707,
-			vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
-		msm_camera_io_w(0x00000707,
-			vfe_vbif_base + VFE40_VBIF_OCMEM_OUT_MAX_BURST);
-		msm_camera_io_w(0x00000030,
-			vfe_vbif_base + VFE40_VBIF_ARB_CTL);
-		msm_camera_io_w(0x00000FFF,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
-		msm_camera_io_w(0x0FFF0FFF,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
-		msm_camera_io_w(0x00000001,
-			vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
-		msm_camera_io_w(0x22222222,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
-		msm_camera_io_w(0x00002222,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
-	} else if (vfe_dev->vfe_hw_version == VFE40_V2_VERSION) {
-		msm_camera_io_w(0x1,
-			vfe_vbif_base + VFE40_VBIF_CLKON);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
-		msm_camera_io_w(0x10101010,
-			vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
-		msm_camera_io_w(0x00000010,
-			vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
-		msm_camera_io_w(0x00000010,
-			vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
-		msm_camera_io_w(0x00000707,
-			vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
-		msm_camera_io_w(0x00000010,
-			vfe_vbif_base + VFE40_VBIF_ARB_CTL);
-		msm_camera_io_w(0x00000FFF,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
-		msm_camera_io_w(0x0FFF0FFF,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
-		msm_camera_io_w(0x00000003,
-			vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
-		msm_camera_io_w(0x22222222,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
-		msm_camera_io_w(0x00002222,
-			vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
+	switch (vfe_dev->vfe_hw_version) {
+	case VFE40_8974V1_VERSION:
+		msm_vfe40_init_vbif_parms_8974_v1(vfe_dev);
+		break;
+	case VFE40_8974V2_VERSION:
+		msm_vfe40_init_vbif_parms_8974_v2(vfe_dev);
+		break;
+	case VFE40_8x26_VERSION:
+		msm_vfe40_init_vbif_parms_8x26(vfe_dev);
+		break;
+	default:
+		BUG();
+		pr_err("%s: VBIF is NOT configured for HW Version %x\n",
+			__func__, vfe_dev->vfe_hw_version);
+		break;
 	}
+
 }
 
 static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
