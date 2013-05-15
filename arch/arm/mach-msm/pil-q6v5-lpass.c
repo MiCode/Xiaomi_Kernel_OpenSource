@@ -410,12 +410,6 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->err_fatal_irq = ret;
 
 	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
-					    "qcom,gpio-err-ready", 0));
-	if (ret < 0)
-		return ret;
-	drv->subsys_desc.err_ready_irq = ret;
-
-	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
 					    "qcom,gpio-proxy-unvote", 0));
 	if (ret < 0)
 		return ret;
