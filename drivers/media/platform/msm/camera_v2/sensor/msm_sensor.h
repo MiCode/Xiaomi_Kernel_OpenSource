@@ -37,6 +37,11 @@
 
 struct msm_sensor_ctrl_t;
 
+enum msm_sensor_state_t {
+	MSM_SENSOR_POWER_DOWN,
+	MSM_SENSOR_POWER_UP,
+};
+
 struct msm_sensor_fn_t {
 	int (*sensor_config) (struct msm_sensor_ctrl_t *, void __user *);
 	int (*sensor_power_down)
@@ -67,6 +72,7 @@ struct msm_sensor_ctrl_t {
 	struct msm_cam_clk_info *clk_info;
 	uint16_t clk_info_size;
 	void *misc_regulator;
+	enum msm_sensor_state_t sensor_state;
 };
 
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
