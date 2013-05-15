@@ -882,9 +882,9 @@ static s16 scale_v_micb_vddio(struct wcd9xxx_mbhc *mbhc, int v, bool tovddio)
 	vddio_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, VDDIO_MICBIAS_MV);
 	mb_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, mbhc->mbhc_data.micb_mv);
 	if (tovddio)
-		r = v * vddio_k / mb_k;
+		r = v * (vddio_k + 4) / (mb_k + 4);
 	else
-		r = v * mb_k / vddio_k;
+		r = v * (mb_k + 4) / (vddio_k + 4);
 	return r;
 }
 
@@ -988,24 +988,30 @@ static short wcd9xxx_codec_sta_dce(struct wcd9xxx_mbhc *mbhc, int dce,
 	return __wcd9xxx_codec_sta_dce(mbhc, dce, false, norel);
 }
 
-static s32 wcd9xxx_codec_sta_dce_v(struct wcd9xxx_mbhc *mbhc, s8 dce,
-				   u16 bias_value)
+static s32 __wcd9xxx_codec_sta_dce_v(struct wcd9xxx_mbhc *mbhc, s8 dce,
+				     u16 bias_value, s16 z)
 {
-	s16 value, z, mb;
+	s16 value, mb;
 	s32 mv;
 
 	value = bias_value;
 	if (dce) {
-		z = (mbhc->mbhc_data.dce_z);
 		mb = (mbhc->mbhc_data.dce_mb);
 		mv = (value - z) * (s32)mbhc->mbhc_data.micb_mv / (mb - z);
 	} else {
-		z = (mbhc->mbhc_data.sta_z);
 		mb = (mbhc->mbhc_data.sta_mb);
 		mv = (value - z) * (s32)mbhc->mbhc_data.micb_mv / (mb - z);
 	}
 
 	return mv;
+}
+
+static s32 wcd9xxx_codec_sta_dce_v(struct wcd9xxx_mbhc *mbhc, s8 dce,
+				   u16 bias_value)
+{
+	s16 z;
+	z = dce ? (s16)mbhc->mbhc_data.dce_z : (s16)mbhc->mbhc_data.sta_z;
+	return __wcd9xxx_codec_sta_dce_v(mbhc, dce, bias_value, z);
 }
 
 /* called only from interrupt which is under codec_resource_lock acquisition */
@@ -2462,18 +2468,45 @@ static int wcd9xxx_get_button_mask(const int btn)
 	return mask;
 }
 
+void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
+{
+	s16 reg0, reg1;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
+	/* Pull down micbias to ground and disconnect vddio switch */
+	reg0 = snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg);
+	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 0x81, 0x1);
+	reg1 = snd_soc_read(codec, mbhc->mbhc_bias_regs.mbhc_reg);
+	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.mbhc_reg, 1 << 7, 0);
+
+	/* Disconnect override from micbias */
+	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 0);
+	usleep_range(1000, 1000 + 1000);
+	*sta_z = wcd9xxx_codec_sta_dce(mbhc, 0, false);
+	*dce_z = wcd9xxx_codec_sta_dce(mbhc, 1, false);
+
+	/* Connect override from micbias */
+	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 4);
+	/* Disable pull down micbias to ground */
+	snd_soc_write(codec, mbhc->mbhc_bias_regs.mbhc_reg, reg1);
+	snd_soc_write(codec, mbhc->mbhc_bias_regs.ctl_reg, reg0);
+}
+
 irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 {
 	int i, mask;
-	short dce, sta;
-	s32 mv, mv_s, stamv_s;
 	bool vddio;
 	u8 mbhc_status;
+	s16 dce_z, sta_z;
 	int btn = -1, meas = 0;
 	struct wcd9xxx_mbhc *mbhc = data;
 	const struct wcd9xxx_mbhc_btn_detect_cfg *d =
 	    WCD9XXX_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
 	short btnmeas[d->n_btn_meas + 1];
+	short dce[d->n_btn_meas + 1], sta;
+	s32 mv[d->n_btn_meas + 1], mv_s[d->n_btn_meas + 1];
+	s32 stamv, stamv_s;
 	struct snd_soc_codec *codec = mbhc->codec;
 	struct wcd9xxx *core = mbhc->resmgr->core;
 	int n_btn_meas = d->n_btn_meas;
@@ -2497,9 +2530,6 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 		goto done;
 	}
 
-	dce = wcd9xxx_read_dce_result(codec);
-	mv = wcd9xxx_codec_sta_dce_v(mbhc, 1, dce);
-
 	/* If switch nterrupt already kicked in, ignore button press */
 	if (mbhc->in_swch_irq_handler) {
 		pr_debug("%s: Swtich level changed, ignore button press\n",
@@ -2511,13 +2541,10 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 	/* Measure scaled HW DCE */
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
-	mv_s = vddio ? scale_v_micb_vddio(mbhc, mv, false) : mv;
 
 	/* Measure scaled HW STA */
+	dce[0] = wcd9xxx_read_dce_result(codec);
 	sta = wcd9xxx_read_sta_result(codec);
-	stamv_s = wcd9xxx_codec_sta_dce_v(mbhc, 0, sta);
-	if (vddio)
-		stamv_s = scale_v_micb_vddio(mbhc, stamv_s, false);
 	if (mbhc_status != STATUS_REL_DETECTION) {
 		if (mbhc->mbhc_last_resume &&
 		    !time_after(jiffies, mbhc->mbhc_last_resume + HZ)) {
@@ -2527,30 +2554,55 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 		} else {
 			pr_debug("%s: Button is released without resume",
 				 __func__);
-			btn = wcd9xxx_determine_button(mbhc, mv_s);
+			wcd9xxx_get_z(mbhc, &dce_z, &sta_z);
+			stamv = __wcd9xxx_codec_sta_dce_v(mbhc, 0, sta, sta_z);
+			if (vddio)
+				stamv_s = scale_v_micb_vddio(mbhc, stamv,
+							     false);
+			else
+				stamv_s = stamv;
+			mv[0] = __wcd9xxx_codec_sta_dce_v(mbhc, 1, dce[0],
+							  dce_z);
+			mv_s[0] = vddio ? scale_v_micb_vddio(mbhc, mv[0],
+							     false) : mv[0];
+			btn = wcd9xxx_determine_button(mbhc, mv_s[0]);
 			if (btn != wcd9xxx_determine_button(mbhc, stamv_s))
 				btn = -1;
 			goto done;
 		}
 	}
 
+	for (meas = 1; ((d->n_btn_meas) && (meas < (d->n_btn_meas + 1)));
+	     meas++)
+		dce[meas] = wcd9xxx_codec_sta_dce(mbhc, 1, false);
+
+	wcd9xxx_get_z(mbhc, &dce_z, &sta_z);
+
+	stamv = __wcd9xxx_codec_sta_dce_v(mbhc, 0, sta, sta_z);
+	if (vddio)
+		stamv_s = scale_v_micb_vddio(mbhc, stamv, false);
+	else
+		stamv_s = stamv;
 	pr_debug("%s: Meas HW - STA 0x%x,%d,%d\n", __func__,
-		 sta & 0xFFFF, wcd9xxx_codec_sta_dce_v(mbhc, 0, sta), stamv_s);
+		 sta & 0xFFFF, stamv, stamv_s);
 
 	/* determine pressed button */
-	btnmeas[meas++] = wcd9xxx_determine_button(mbhc, mv_s);
+	mv[0] = __wcd9xxx_codec_sta_dce_v(mbhc, 1, dce[0], dce_z);
+	mv_s[0] = vddio ? scale_v_micb_vddio(mbhc, mv[0], false) : mv[0];
+	btnmeas[0] = wcd9xxx_determine_button(mbhc, mv_s[0]);
 	pr_debug("%s: Meas HW - DCE 0x%x,%d,%d button %d\n", __func__,
-		 dce & 0xFFFF, mv, mv_s, btnmeas[meas - 1]);
+		 dce[0] & 0xFFFF, mv[0], mv_s[0], btnmeas[0]);
 	if (n_btn_meas == 0)
 		btn = btnmeas[0];
-	for (; ((d->n_btn_meas) && (meas < (d->n_btn_meas + 1))); meas++) {
-		dce = wcd9xxx_codec_sta_dce(mbhc, 1, false);
-		mv = wcd9xxx_codec_sta_dce_v(mbhc, 1, dce);
-		mv_s = vddio ? scale_v_micb_vddio(mbhc, mv, false) : mv;
-
-		btnmeas[meas] = wcd9xxx_determine_button(mbhc, mv_s);
+	for (meas = 1; (n_btn_meas && d->n_btn_meas &&
+			(meas < (d->n_btn_meas + 1))); meas++) {
+		mv[meas] = __wcd9xxx_codec_sta_dce_v(mbhc, 1, dce[meas], dce_z);
+		mv_s[meas] = vddio ? scale_v_micb_vddio(mbhc, mv[meas], false) :
+				     mv[meas];
+		btnmeas[meas] = wcd9xxx_determine_button(mbhc, mv_s[meas]);
 		pr_debug("%s: Meas %d - DCE 0x%x,%d,%d button %d\n",
-			 __func__, meas, dce & 0xFFFF, mv, mv_s, btnmeas[meas]);
+			 __func__, meas, dce[meas] & 0xFFFF, mv[meas],
+			 mv_s[meas], btnmeas[meas]);
 		/*
 		 * if large enough measurements are collected,
 		 * start to check if last all n_btn_con measurements were
@@ -3107,8 +3159,8 @@ ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 	const s16 v_br_h =
 	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_BR_H);
 
-	n = scnprintf(buffer, size - n, "dce_z = %x(%dmv)\n",  p->dce_z,
-		      wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_z));
+	n = scnprintf(buffer, size - n, "dce_z = %x(%dmv)\n",
+		      p->dce_z, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_z));
 	n += scnprintf(buffer + n, size - n, "dce_mb = %x(%dmv)\n",
 		       p->dce_mb, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_mb));
 	n += scnprintf(buffer + n, size - n, "sta_z = %x(%dmv)\n",
