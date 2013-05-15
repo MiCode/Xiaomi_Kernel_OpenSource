@@ -1074,14 +1074,6 @@ int rndis_rm_hdr(struct gether *port,
 		struct sk_buff		*skb2;
 		u32		msg_len, data_offset, data_len;
 
-		/* some rndis hosts send extra byte to avoid zlp, ignore it */
-		if (skb->len == 1) {
-			if (num_pkts > rndis_ul_max_pkt_per_xfer_rcvd)
-				rndis_ul_max_pkt_per_xfer_rcvd = num_pkts;
-			dev_kfree_skb_any(skb);
-			return 0;
-		}
-
 		if (skb->len < sizeof *hdr) {
 			pr_err("invalid rndis pkt: skblen:%u hdr_len:%u",
 					skb->len, sizeof *hdr);
@@ -1115,7 +1107,8 @@ int rndis_rm_hdr(struct gether *port,
 
 		skb_pull(skb, data_offset + 8);
 
-		if (msg_len == skb->len) {
+		if (data_len == skb->len ||
+				data_len == (skb->len - 1)) {
 			skb_trim(skb, data_len);
 			break;
 		}
