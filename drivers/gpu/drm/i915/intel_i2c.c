@@ -533,11 +533,15 @@ clear_err:
 			 adapter->name, msgs[i].addr,
 			 (msgs[i].flags & I2C_M_RD) ? 'r' : 'w', msgs[i].len);
 
-	goto out;
+	goto fallback;
 
 timeout:
 	DRM_INFO("GMBUS [%s] timed out, falling back to bit banging on pin %d\n",
 		 bus->adapter.name, bus->reg0 & 0xff);
+	DRM_INFO("GMBUS [%s] timed out,\n", bus->adapter.name);
+
+fallback:
+	DRM_INFO("Falling back to bit banging on pin %d\n", bus->reg0 & 0xff);
 	I915_WRITE(GMBUS0 + reg_offset, 0);
 
 	/* Hardware may not support GMBUS over these pins? Try GPIO bitbanging instead. */
