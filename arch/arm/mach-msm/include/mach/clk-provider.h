@@ -61,8 +61,8 @@ struct clk_vdd_class {
 	struct regulator **regulator;
 	int num_regulators;
 	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
-	int **vdd_uv;
-	int **vdd_ua;
+	int *vdd_uv;
+	int *vdd_ua;
 	int *level_votes;
 	int num_levels;
 	unsigned long cur_level;
@@ -92,9 +92,6 @@ struct clk_vdd_class {
 		.cur_level = _num_levels, \
 		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
-
-#define VDD_UV(...) ((int []){__VA_ARGS__})
-#define VDD_UA(...) ((int []){__VA_ARGS__})
 
 enum handoff {
 	HANDOFF_ENABLED_CLK,

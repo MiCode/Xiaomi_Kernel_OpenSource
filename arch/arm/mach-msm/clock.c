@@ -62,27 +62,31 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 {
 	int level, rc = 0, i;
 	struct regulator **r = vdd_class->regulator;
-	int **vdd_uv = vdd_class->vdd_uv;
-	int **vdd_ua = vdd_class->vdd_ua;
-	int max_level = vdd_class->num_levels - 1;
+	int *uv = vdd_class->vdd_uv;
+	int *ua = vdd_class->vdd_ua;
+	int n_reg = vdd_class->num_regulators;
+	int max_lvl = vdd_class->num_levels - 1;
+	int lvl_base;
 
-	for (level = max_level; level > 0; level--)
+	for (level = max_lvl; level > 0; level--)
 		if (vdd_class->level_votes[level])
 			break;
 
 	if (level == vdd_class->cur_level)
 		return 0;
 
+	max_lvl = max_lvl * n_reg;
+	lvl_base = level * n_reg;
 	for (i = 0; i < vdd_class->num_regulators; i++) {
-		rc = regulator_set_voltage(r[i], vdd_uv[level][i],
-			vdd_uv[max_level][i]);
+		rc = regulator_set_voltage(r[i], uv[lvl_base + i],
+					   uv[max_lvl + i]);
 		if (rc)
 			goto set_voltage_fail;
 
-		if (!vdd_ua)
+		if (!ua)
 			continue;
 
-		rc = regulator_set_optimum_mode(r[i], vdd_ua[level][i]);
+		rc = regulator_set_optimum_mode(r[i], ua[lvl_base + i]);
 		if (rc < 0)
 			goto set_mode_fail;
 	}
@@ -95,18 +99,17 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 	return 0;
 
 set_mode_fail:
-	regulator_set_voltage(r[i], vdd_uv[vdd_class->cur_level][i],
-				vdd_uv[max_level][i]);
+	regulator_set_voltage(r[i], uv[vdd_class->cur_level * n_reg + i],
+			      uv[max_lvl + i]);
 
 set_voltage_fail:
+	lvl_base = vdd_class->cur_level * n_reg;
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], vdd_uv[vdd_class->cur_level][i],
-					vdd_uv[max_level][i]);
+		regulator_set_voltage(r[i], uv[lvl_base + i], uv[max_lvl + i]);
 
-		if (!vdd_ua)
+		if (!ua)
 			continue;
-		regulator_set_optimum_mode(r[i],
-					vdd_ua[vdd_class->cur_level][i]);
+		regulator_set_optimum_mode(r[i], ua[lvl_base + i]);
 	}
 
 	return rc;
