@@ -240,13 +240,18 @@ struct dsi_buf {
 #define DTYPE_DCS_READ1_RESP    0x21    /* 1 parameter, short */
 #define DTYPE_DCS_READ2_RESP    0x22    /* 2 parameter, short */
 
+
+struct dsi_ctrl_hdr {
+	char dtype;	/* data type */
+	char last;	/* last in chain */
+	char vc;	/* virtual chan */
+	char ack;	/* ask ACK from peripheral */
+	char wait;	/* ms */
+	short dlen;	/* 16 bits */
+} __packed;
+
 struct dsi_cmd_desc {
-	int dtype;
-	int last;
-	int vc;
-	int ack;	/* ask ACK from peripheral */
-	int wait;
-	int dlen;
+	struct dsi_ctrl_hdr dchdr;
 	char *payload;
 };
 
@@ -256,19 +261,17 @@ struct dsi_kickoff_action {
 	void *data;
 };
 
-struct dsi_panel_cmds_list {
-	struct dsi_cmd_desc *buf;
-	u32 size;
-	char ctrl_state;
-};
-
 struct mdss_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
-	struct dsi_panel_cmds_list *dsi_panel_on_cmds;
-	struct dsi_panel_cmds_list *dsi_panel_off_cmds;
+	char *on_cmd_buf;
+	int on_cmd_len;
+	int dsi_on_state;
+	char *off_cmd_buf;
+	int off_cmd_len;
+	int dsi_off_state;
 };
 
 struct dsi_drv_cm_data {
@@ -301,12 +304,17 @@ struct mdss_dsi_ctrl_pdata {
 	int pwm_lpg_chan;
 	int bklt_max;
 	struct pwm_device *pwm_bl;
-	struct dsi_panel_cmds_list *on_cmds;
-	struct dsi_panel_cmds_list *off_cmds;
 	struct dsi_drv_cm_data shared_pdata;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
 	struct dss_module_power power_data;
+
+	char *on_cmd_buf;
+	int on_cmd_len;
+	int dsi_on_state;
+	char *off_cmd_buf;
+	int off_cmd_len;
+	int dsi_off_state;
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
