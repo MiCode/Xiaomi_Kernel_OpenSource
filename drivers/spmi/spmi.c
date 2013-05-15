@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,6 @@ struct spmii_boardinfo {
 
 static DEFINE_MUTEX(board_lock);
 static LIST_HEAD(board_list);
-static LIST_HEAD(spmi_ctrl_list);
 static DEFINE_IDR(ctrl_idr);
 static struct device_type spmi_ctrl_type = { 0 };
 
@@ -51,14 +50,10 @@ struct spmi_controller *spmi_busnum_to_ctrl(u32 bus_num)
 	struct spmi_controller *ctrl;
 
 	mutex_lock(&board_lock);
-	list_for_each_entry(ctrl, &spmi_ctrl_list, list) {
-		if (bus_num == ctrl->nr) {
-			mutex_unlock(&board_lock);
-			return ctrl;
-		}
-	}
+	ctrl = idr_find(&ctrl_idr, bus_num);
 	mutex_unlock(&board_lock);
-	return NULL;
+
+	return ctrl;
 }
 EXPORT_SYMBOL_GPL(spmi_busnum_to_ctrl);
 
@@ -243,7 +238,6 @@ void spmi_remove_device(struct spmi_device *spmi_dev)
 }
 EXPORT_SYMBOL_GPL(spmi_remove_device);
 
-/* If controller is not present, only add to boards list */
 static void spmi_match_ctrl_to_boardinfo(struct spmi_controller *ctrl,
 				struct spmi_boardinfo *bi)
 {
@@ -262,27 +256,29 @@ static void spmi_match_ctrl_to_boardinfo(struct spmi_controller *ctrl,
  * @n: number of entries.
  * API enumerates respective devices on corresponding controller.
  * Called from board-init function.
+ * If controller is not present, only add to boards list
  */
 int spmi_register_board_info(int busnum,
 			struct spmi_boardinfo const *info, unsigned n)
 {
 	int i;
 	struct spmii_boardinfo *bi;
+	struct spmi_controller *ctrl;
 
 	bi = kzalloc(n * sizeof(*bi), GFP_KERNEL);
 	if (!bi)
 		return -ENOMEM;
 
+	ctrl = spmi_busnum_to_ctrl(busnum);
+
 	for (i = 0; i < n; i++, bi++, info++) {
-		struct spmi_controller *ctrl;
 
 		memcpy(&bi->board_info, info, sizeof(*info));
 		mutex_lock(&board_lock);
 		list_add_tail(&bi->list, &board_list);
-		list_for_each_entry(ctrl, &spmi_ctrl_list, list)
-			if (ctrl->nr == busnum)
-				spmi_match_ctrl_to_boardinfo(ctrl,
-							&bi->board_info);
+
+		if (ctrl)
+			spmi_match_ctrl_to_boardinfo(ctrl, &bi->board_info);
 		mutex_unlock(&board_lock);
 	}
 	return 0;
@@ -736,10 +732,6 @@ static int spmi_register_controller(struct spmi_controller *ctrl)
 
 	dev_dbg(&ctrl->dev, "Bus spmi-%d registered: dev:%x\n",
 					ctrl->nr, (u32)&ctrl->dev);
-
-	mutex_lock(&board_lock);
-	list_add_tail(&ctrl->list, &spmi_ctrl_list);
-	mutex_unlock(&board_lock);
 
 	spmi_dfs_add_controller(ctrl);
 	return 0;

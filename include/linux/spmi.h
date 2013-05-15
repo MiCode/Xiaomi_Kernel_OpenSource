@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +54,6 @@ struct spmi_device;
 struct spmi_controller {
 	struct device		dev;
 	unsigned int		nr;
-	struct list_head	list;
 	int		(*cmd)(struct spmi_controller *, u8 opcode, u8 sid);
 	int		(*read_cmd)(struct spmi_controller *,
 				u8 opcode, u8 sid, u16 addr, u8 bc, u8 *buf);
