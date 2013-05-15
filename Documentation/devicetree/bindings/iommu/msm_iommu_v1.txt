@@ -21,6 +21,7 @@ Optional properties:
 - qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
 - qcom,iommu-pmu-ncounters: Number of PMU counters per group.
 - qcom,iommu-pmu-event-classes: List of event classes supported.
+- Bus scaling properties: See msm_bus.txt
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

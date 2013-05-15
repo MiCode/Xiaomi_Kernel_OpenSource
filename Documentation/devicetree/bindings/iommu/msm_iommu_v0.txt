@@ -13,6 +13,7 @@ Optional properties:
 - qcom,iommu-pmu-event-classes: List of event classes supported.
 - qcom,needs-alt-core-clk : boolean to enable the secondary core clock for
   access to the IOMMU configuration registers
+- Bus scaling properties: See msm_bus.txt
 
 - List of sub nodes, one for each of the translation context banks supported.
     Required properties for each sub-node:
