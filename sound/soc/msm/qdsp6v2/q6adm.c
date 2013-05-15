@@ -1187,24 +1187,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (perf_mode) {
-		for (i = 0; i < num_copps; i++) {
-			int tmp;
-
-			tmp = afe_get_port_index(port_id[i]);
-			if (tmp >= 0 && tmp < AFE_MAX_PORTS) {
-				rtac_add_adm_device(port_id[i], atomic_read(
-					&this_adm.copp_low_latency_id[tmp]),
-					path, session_id);
-				pr_debug("%s, copp_id: %d\n", __func__,
-					atomic_read(
-					&this_adm.copp_low_latency_id[tmp]));
-			} else {
-				pr_debug("%s: Invalid port index %d",
-					__func__, tmp);
-			}
-		}
-	} else {
+	if (!perf_mode) {
 		for (i = 0; i < num_copps; i++)
 			send_adm_cal(port_id[i], path);
 
@@ -1473,8 +1456,8 @@ int adm_close(int port_id, bool perf_mode)
 			goto fail_cmd;
 		}
 	}
-	if (!atomic_read(&this_adm.copp_cnt[index]) &&
-		!atomic_read(&this_adm.copp_low_latency_cnt[index])) {
+
+	if (!perf_mode) {
 		pr_debug("%s: remove adm device from rtac\n", __func__);
 		rtac_remove_adm_device(port_id);
 	}
