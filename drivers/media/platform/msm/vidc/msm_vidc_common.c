@@ -543,6 +543,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL ;
 	struct msm_vidc_core *core = NULL;
+	subsystem_crashed("venus");
 	if (response) {
 		core = get_vidc_core(response->device_id);
 		dprintk(VIDC_WARN, "SYS_ERROR received for core %p\n", core);
