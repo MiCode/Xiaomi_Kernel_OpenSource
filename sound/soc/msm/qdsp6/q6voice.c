@@ -1058,7 +1058,9 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 	}
 	/* Set encoder properties. */
 	switch (common.mvs_info.media_type) {
-	case VSS_MEDIA_ID_EVRC_MODEM: {
+	case VSS_MEDIA_ID_EVRC_MODEM:
+	case VSS_MEDIA_ID_4GV_NB_MODEM:
+	case VSS_MEDIA_ID_4GV_WB_MODEM: {
 		struct cvs_set_cdma_enc_minmax_rate_cmd cvs_set_cdma_rate;
 
 		pr_debug("Setting EVRC min-max rate\n");
