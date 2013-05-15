@@ -99,6 +99,11 @@ enum wcd9xxx_mbhc_clk_freq {
 	TAIKO_NUM_CLK_FREQS,
 };
 
+enum wcd9xxx_mbhc_event_state {
+	MBHC_EVENT_PA_HPHL,
+	MBHC_EVENT_PA_HPHR,
+};
+
 struct wcd9xxx_mbhc_general_cfg {
 	u8 t_ldoh;
 	u8 t_bg_fast_settle;
@@ -241,8 +246,13 @@ struct wcd9xxx_mbhc {
 
 	bool no_mic_headset_override;
 
-	/* track PA/DAC state */
+	/* track PA/DAC state to sync with userspace */
 	unsigned long hph_pa_dac_state;
+	/*
+	 * save codec's state with resmgr event notification
+	 * bit flags of enum wcd9xxx_mbhc_event_state
+	 */
+	unsigned long event_state;
 
 	unsigned long mbhc_last_resume; /* in jiffies */
 
