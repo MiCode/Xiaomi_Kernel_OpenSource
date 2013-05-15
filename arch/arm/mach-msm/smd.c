@@ -3939,12 +3939,11 @@ int __init msm_smd_init(void)
 	}
 
 	registered = true;
-	rc = remote_spin_lock_init(&remote_spinlock, SMEM_SPINLOCK_SMEM_ALLOC);
+	rc = init_smem_remote_spinlock();
 	if (rc) {
 		pr_err("%s: remote spinlock init failed %d\n", __func__, rc);
 		return rc;
 	}
-	spinlocks_initialized = 1;
 
 	rc = platform_driver_register(&msm_smd_driver);
 	if (rc) {
