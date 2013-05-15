@@ -23,6 +23,9 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 
+/* Common PNP defines */
+#define QPNP_PON_REVISION2(base)		(base + 0x01)
+
 /* PON common register addresses */
 #define QPNP_PON_RT_STS(base)			(base + 0x10)
 #define QPNP_PON_PULL_CTL(base)			(base + 0x70)
@@ -38,6 +41,7 @@
 #define QPNP_PON_RESIN_S2_TIMER(base)		(base + 0x45)
 #define QPNP_PON_RESIN_S2_CNTL(base)		(base + 0x46)
 #define QPNP_PON_PS_HOLD_RST_CTL(base)		(base + 0x5A)
+#define QPNP_PON_PS_HOLD_RST_CTL2(base)		(base + 0x5B)
 
 #define QPNP_PON_WARM_RESET_TFT			BIT(4)
 
@@ -140,17 +144,31 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 int qpnp_pon_system_pwr_off(bool reset)
 {
 	int rc;
+	u8 reg;
+	u16 rst_en_reg;
 	struct qpnp_pon *pon = sys_reset_dev;
 
 	if (!pon)
 		return -ENODEV;
 
-	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
-							QPNP_PON_RESET_EN, 0);
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_REVISION2(pon->base), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_REVISION2(pon->base), rc);
+		return rc;
+	}
+
+	if (reg == 0x00)
+		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL(pon->base);
+	else
+		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL2(pon->base);
+
+	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN, 0);
 	if (rc)
 		dev_err(&pon->spmi->dev,
-			"Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
+			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
 
 	/*
 	 * We need 10 sleep clock cycles here. But since the clock is
@@ -167,13 +185,11 @@ int qpnp_pon_system_pwr_off(bool reset)
 			"Unable to write to addr=%x, rc(%d)\n",
 				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
 
-	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
-							QPNP_PON_RESET_EN,
-							QPNP_PON_RESET_EN);
+	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN,
+						    QPNP_PON_RESET_EN);
 	if (rc)
 		dev_err(&pon->spmi->dev,
-			"Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
+			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
 
 	return rc;
 }
