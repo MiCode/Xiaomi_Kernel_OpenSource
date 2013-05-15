@@ -2541,6 +2541,6 @@ int msm_venc_ctrl_deinit(struct msm_vidc_inst *inst)
 		kfree(curr->cluster);
 		kfree(curr);
 	}
-
+	v4l2_ctrl_handler_free(&inst->ctrl_handler);
 	return 0;
 }
