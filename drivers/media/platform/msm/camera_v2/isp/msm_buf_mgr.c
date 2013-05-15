@@ -567,11 +567,18 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	if (buf_state == MSM_ISP_BUFFER_STATE_DIVERTED) {
 		buf_info = msm_isp_get_buf_ptr(buf_mgr,
 						info->handle, info->buf_idx);
-		if (info->dirty_buf)
-			msm_isp_put_buf(buf_mgr, info->handle, info->buf_idx);
-		else
-			msm_isp_buf_done(buf_mgr, info->handle, info->buf_idx,
-				buf_info->tv, buf_info->frame_id);
+		if (info->dirty_buf) {
+			rc = msm_isp_put_buf(buf_mgr,
+				info->handle, info->buf_idx);
+		} else {
+			if (BUF_SRC(bufq->stream_id))
+				pr_err("%s: Invalid native buffer state\n",
+					__func__);
+			else
+				rc = msm_isp_buf_done(buf_mgr,
+					info->handle, info->buf_idx,
+					buf_info->tv, buf_info->frame_id);
+		}
 	} else {
 		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
 		if (BUF_SRC(bufq->stream_id)) {
