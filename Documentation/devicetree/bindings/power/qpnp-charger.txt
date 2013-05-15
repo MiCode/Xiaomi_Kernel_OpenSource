@@ -56,6 +56,13 @@ Parent node optional properties:
 - qcom,warm-bat-mv:			Warm temperature battery target voltage.
 - qcom,cool-bat-mv:			Cool temperature battery target voltage.
 - qcom,tchg-mins:			Maximum total software initialized charge time.
+- qcom,bpd-detection:			Select a battery presence detection scheme by
+					specifying either "bpd_thm", "bpd_id" or
+					"bpd_thm_id". "bpd_thm" selects the temperature
+					pin, "bpd_id" uses the id pin for battery presence
+					detection, "bpd_thm_id" selects both.
+					If the property is not set the hw default will
+					be used.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
