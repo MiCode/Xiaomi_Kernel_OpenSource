@@ -330,12 +330,13 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 
 	drv->crash = true;
 
+	disable_irq_nosync(drv->irq);
+
 	if (drv->restart_inprogress) {
 		pr_err("Ignoring wcnss bite irq, restart in progress\n");
 		return IRQ_HANDLED;
 	}
 
-	disable_irq_nosync(drv->irq);
 	drv->restart_inprogress = true;
 	restart_wcnss(drv);
 
