@@ -20,58 +20,14 @@
 			reg = <30>;
 		};
 
-		qcom,ion-heap@8 { /* CP_MM HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <8>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x7800000>;
-		};
-
-		qcom,ion-heap@29 { /* FIRMWARE HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <29>;
-			qcom,heap-align = <0x20000>;
-			qcom,heap-adjacent = <8>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0xA00000>;
-		};
-
-		qcom,ion-heap@12 { /* MFC HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <12>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x2000>;
-		};
-
-		qcom,ion-heap@24 { /* SF HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <24>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x2800000>;
+		qcom,ion-heap@21 { /* SYSTEM CONTIG HEAP */
+			reg = <21>;
 		};
 
 		qcom,ion-heap@25 { /* IOMMU HEAP */
 			reg = <25>;
 		};
 
-		qcom,ion-heap@27 { /* QSECOM HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <27>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x600000>;
-		};
-
-		qcom,ion-heap@28 { /* AUDIO HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <28>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x2B4000>;
-		};
 	};
 };
 
