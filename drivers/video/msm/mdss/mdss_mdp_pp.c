@@ -2747,7 +2747,7 @@ static int pp_update_ad_input(struct msm_fb_data_type *mfd)
 	struct mdss_ad_input input;
 
 	ad = mdss_mdp_get_ad(mfd);
-	if (!ad)
+	if (!ad || ad->cfg.mode == MDSS_AD_MODE_AUTO_BL)
 		return -EINVAL;
 
 	pr_debug("backlight level changed, trigger update to AD");
