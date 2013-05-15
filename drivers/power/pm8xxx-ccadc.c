@@ -790,6 +790,15 @@ static int __devexit pm8xxx_ccadc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int pm8xxx_ccadc_suspend(struct device *dev)
+{
+	struct pm8xxx_ccadc_chip *chip = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&chip->calib_ccadc_work);
+
+	return 0;
+}
+
 #define CCADC_CALIB_TEMP_THRESH 20
 static int pm8xxx_ccadc_resume(struct device *dev)
 {
@@ -823,8 +832,11 @@ static int pm8xxx_ccadc_resume(struct device *dev)
 				|| delta_temp > CCADC_CALIB_TEMP_THRESH) {
 			the_chip->last_calib_time = current_time_sec;
 			the_chip->last_calib_temp = batt_temp;
-			cancel_delayed_work(&the_chip->calib_ccadc_work);
 			schedule_delayed_work(&the_chip->calib_ccadc_work, 0);
+		} else {
+			schedule_delayed_work(&the_chip->calib_ccadc_work,
+				msecs_to_jiffies(the_chip->calib_delay_ms -
+					(time_since_last_calib * 1000)));
 		}
 	}
 
@@ -832,6 +844,7 @@ static int pm8xxx_ccadc_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops pm8xxx_ccadc_pm_ops = {
+	.suspend	= pm8xxx_ccadc_suspend,
 	.resume		= pm8xxx_ccadc_resume,
 };
 
