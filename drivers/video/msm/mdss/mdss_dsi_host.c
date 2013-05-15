@@ -1712,7 +1712,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0110, isr0);
 		}
 
-	pr_debug("%s: isr=%x %x", __func__, isr, (int)DSI_INTR_ERROR);
+	pr_debug("%s: isr=%x", __func__, isr);
 
 	if (isr & DSI_INTR_ERROR) {
 		pr_err("%s: isr=%x %x", __func__, isr, (int)DSI_INTR_ERROR);
