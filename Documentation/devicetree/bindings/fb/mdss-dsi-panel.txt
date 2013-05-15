@@ -56,9 +56,9 @@ Optional properties:
 - qcom,enable-gpio:			Specifies the panel lcd/display enable gpio.
 - qcom,rst-gpio:			Specifies the panel reset gpio.
 - qcom,te-gpio:				Specifies the gpio used for TE.
-- qcom,dsi-lpg-channel :		LPG channel for backlight.
-- qcom,dsi-pwm-period :			PWM period in microseconds.
-- qcom,dsi-pwm-gpio :			PWM gpio.
+- qcom,pwm-lpg-channel:			LPG channel for backlight.
+- qcom,pwm-period:			PWM period in microseconds.
+- qcom,pwm-pmic-gpio:			PMIC gpio binding to backlight.
 - qcom,mdss-pan-broadcast-mode:		Boolean used to enable broadcast mode.
 - qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
 - qcom,fbc-enabled:			Boolean used to enable frame buffer compression mode.

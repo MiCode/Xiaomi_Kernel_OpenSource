@@ -26,9 +26,6 @@
 
 #define DT_CMD_HDR 6
 
-static struct dsi_buf dsi_panel_tx_buf;
-static struct dsi_buf dsi_panel_rx_buf;
-
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 static struct mdss_dsi_phy_ctrl phy_params;
@@ -37,16 +34,18 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int ret;
 
-	if (!gpio_is_valid(ctrl->pwm_gpio)) {
-		pr_err("%s: pwm_gpio=%d Invalid\n", __func__,
-				ctrl->pwm_gpio);
+	if (!gpio_is_valid(ctrl->pwm_pmic_gpio)) {
+		pr_err("%s: pwm_pmic_gpio=%d Invalid\n", __func__,
+				ctrl->pwm_pmic_gpio);
+		ctrl->pwm_pmic_gpio = -1;
 		return;
 	}
 
-	ret = gpio_request(ctrl->pwm_gpio, "disp_pwm");
+	ret = gpio_request(ctrl->pwm_pmic_gpio, "disp_pwm");
 	if (ret) {
-		pr_err("%s: pwm_gpio=%d request failed\n", __func__,
-				ctrl->pwm_gpio);
+		pr_err("%s: pwm_pmic_gpio=%d request failed\n", __func__,
+				ctrl->pwm_pmic_gpio);
+		ctrl->pwm_pmic_gpio = -1;
 		return;
 	}
 
@@ -54,8 +53,8 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->pwm_bl == NULL || IS_ERR(ctrl->pwm_bl)) {
 		pr_err("%s: lpg_chan=%d pwm request failed", __func__,
 				ctrl->pwm_lpg_chan);
-		gpio_free(ctrl->pwm_gpio);
-		ctrl->pwm_gpio = -1;
+		gpio_free(ctrl->pwm_pmic_gpio);
+		ctrl->pwm_pmic_gpio = -1;
 	}
 }
 
@@ -74,7 +73,7 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: bklt_ctrl=%d pwm_period=%d pwm_gpio=%d pwm_lpg_chan=%d\n",
 			__func__, ctrl->bklt_ctrl, ctrl->pwm_period,
-				ctrl->pwm_gpio, ctrl->pwm_lpg_chan);
+				ctrl->pwm_pmic_gpio, ctrl->pwm_lpg_chan);
 
 	pr_debug("%s: ndx=%d level=%d duty=%d\n", __func__,
 					ctrl->ndx, level, duty);
@@ -90,6 +89,61 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
 }
 
+static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
+static struct dsi_cmd_desc dcs_read_cmd = {
+	{DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(dcs_cmd)},
+	dcs_cmd
+};
+
+static void dcs_read_cb(u32 data)
+{
+	pr_info("%s: bklt_ctrl=%x\n", __func__, data);
+}
+
+u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
+			char cmd0, char cmd1)
+{
+	struct dcs_cmd_req cmdreq;
+
+	dcs_cmd[0] = cmd0;
+	dcs_cmd[1] = cmd1;
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &dcs_read_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
+	cmdreq.rlen = 1;
+	cmdreq.cb = dcs_read_cb; /* call back */
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+	/*
+	 * blocked here, until call back called
+	 */
+
+	return 0;
+}
+
+static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc backlight_cmd = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
+	led_pwm1
+};
+
+static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
+{
+	struct dcs_cmd_req cmdreq;
+
+	pr_debug("%s: level=%d\n", __func__, level);
+
+	led_pwm1[1] = (unsigned char)level;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
 
 void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
@@ -152,6 +206,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	case BL_PWM:
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
 		break;
+	case BL_DCS_CMD:
+		mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
+		break;
 	default:
 		pr_err("%s: Unknown bl_ctrl configuration\n",
 			__func__);
@@ -159,14 +216,16 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
-static int mdss_dsi_panel_dcs_cmds(struct mdss_panel_data *pdata,
+static int mdss_dsi_panel_dcs_cmds(struct mdss_dsi_ctrl_pdata *ctrl,
 				char *cmd_bytes, int len)
 {
 	char *bp;
 	struct dsi_ctrl_hdr *dchdr;
 	struct dsi_cmd_desc cmd;
+	struct dcs_cmd_req cmdreq;
 	int cnt = 0;
 
+	mutex_lock(&ctrl->mutex);
 	bp = cmd_bytes;
 	while (len >= sizeof(*dchdr)) {
 		dchdr = (struct dsi_ctrl_hdr *)bp;
@@ -176,11 +235,19 @@ static int mdss_dsi_panel_dcs_cmds(struct mdss_panel_data *pdata,
 		bp += sizeof(*dchdr);
 		cmd.dchdr = *dchdr;
 		cmd.payload = bp;
-		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf, &cmd, 1);
+
+		cmdreq.cmds = &cmd;
+		cmdreq.cmds_cnt = 1;
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+
 		bp += dchdr->dlen;
 		len -= dchdr->dlen;
 		cnt++;
 	}
+	mutex_unlock(&ctrl->mutex);
 
 	return cnt;
 }
@@ -202,9 +269,11 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	if (ctrl->on_cmd_len)
-		mdss_dsi_panel_dcs_cmds(pdata,
+		mdss_dsi_panel_dcs_cmds(ctrl,
 				 ctrl->on_cmd_buf,
 				 ctrl->on_cmd_len);
+
+	pr_debug("%s:-\n", __func__);
 	return 0;
 }
 
@@ -226,10 +295,11 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	mipi  = &pdata->panel_info.mipi;
 
 	if (ctrl->off_cmd_len)
-		mdss_dsi_panel_dcs_cmds(pdata,
+		mdss_dsi_panel_dcs_cmds(ctrl,
 				 ctrl->off_cmd_buf,
 				 ctrl->off_cmd_len);
 
+	pr_debug("%s:-\n", __func__);
 	return 0;
 }
 
@@ -312,15 +382,15 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	} else if (!strncmp(bl_ctrl_type, "bl_ctrl_pwm", 11)) {
 		panel_data->panel_info.bklt_ctrl = BL_PWM;
 
-		rc = of_property_read_u32(np, "qcom,dsi-pwm-period", &tmp);
+		rc = of_property_read_u32(np, "qcom,pwm-period", &tmp);
 		if (rc) {
-			pr_err("%s:%d, Error, dsi pwm_period\n",
+			pr_err("%s:%d, Error, panel pwm_period\n",
 						__func__, __LINE__);
 			return -EINVAL;
 		}
 		panel_data->panel_info.pwm_period = tmp;
 
-		rc = of_property_read_u32(np, "qcom,dsi-lpg-channel", &tmp);
+		rc = of_property_read_u32(np, "qcom,pwm-lpg-channel", &tmp);
 		if (rc) {
 			pr_err("%s:%d, Error, dsi lpg channel\n",
 						__func__, __LINE__);
@@ -328,8 +398,10 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 		}
 		panel_data->panel_info.pwm_lpg_chan = tmp;
 
-		tmp = of_get_named_gpio(np, "qcom,dsi-pwm-gpio", 0);
-		panel_data->panel_info.pwm_gpio =  tmp;
+		tmp = of_get_named_gpio(np, "qcom,pwm-pmic-gpio", 0);
+		panel_data->panel_info.pwm_pmic_gpio =  tmp;
+	} else if (!strncmp(bl_ctrl_type, "bl_ctrl_dcs", 11)) {
+		panel_data->panel_info.bklt_ctrl = BL_DCS_CMD;
 	} else {
 		pr_debug("%s: Unknown backlight control\n", __func__);
 		panel_data->panel_info.bklt_ctrl = UNKNOWN_CTRL;
@@ -687,9 +759,6 @@ static struct platform_driver this_driver = {
 
 static int __init mdss_dsi_panel_init(void)
 {
-	mdss_dsi_buf_alloc(&dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
-	mdss_dsi_buf_alloc(&dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
-
 	return platform_driver_register(&this_driver);
 }
 module_init(mdss_dsi_panel_init);
