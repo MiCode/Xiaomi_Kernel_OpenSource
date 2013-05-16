@@ -184,7 +184,6 @@ struct msm_slim_endp {
 	struct sps_connect		config;
 	struct sps_register_event	event;
 	struct sps_mem_buffer		buf;
-	struct completion		*xcomp;
 	bool				connected;
 };
 
