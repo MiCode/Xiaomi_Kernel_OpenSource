@@ -111,31 +111,15 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_IPC_LOGGING) += ipc_logging_debug.o
 endif
 obj-y += socinfo.o
-ifndef CONFIG_ARCH_MSM8960
-ifndef CONFIG_ARCH_MSM8X60
-ifndef CONFIG_ARCH_APQ8064
-ifndef CONFIG_ARCH_MSM8974
-ifndef CONFIG_ARCH_MSM8226
-ifndef CONFIG_ARCH_MSM9625
-ifndef CONFIG_ARCH_MPQ8092
-ifndef CONFIG_ARCH_MSM8610
-ifndef CONFIG_ARCH_APQ8084
-ifndef CONFIG_ARCH_MSMKRYPTON
-ifndef CONFIG_ARCH_FSM9900
-ifndef CONFIG_ARCH_MSMSAMARIUM
-	obj-y += nand_partitions.o
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
+obj-$(CONFIG_ARCH_MSM7X01A) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM7X25) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM7X27) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM7X30) += nand_partitions.o
+obj-$(CONFIG_ARCH_QSD8X50) += nand_partitions.o
+obj-$(CONFIG_ARCH_FSM9XXX) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM9615) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM8625) += nand_partitions.o
+obj-$(CONFIG_ARCH_MSM7X27A) += nand_partitions.o
 obj-$(CONFIG_MSM_SDIO_TTY) += sdio_tty.o
 obj-$(CONFIG_MSM_SMD_TTY) += smd_tty.o
 obj-$(CONFIG_MSM_SMD_QMI) += smd_qmi.o
