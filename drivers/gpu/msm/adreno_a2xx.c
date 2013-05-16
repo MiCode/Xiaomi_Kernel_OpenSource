@@ -1707,11 +1707,11 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	int i;
 
-	adreno_regread(device, REG_MASTER_INT_SIGNAL, &master_status);
+	kgsl_regread(device, REG_MASTER_INT_SIGNAL, &master_status);
 	while (!status && (num_reads < VALID_STATUS_COUNT_MAX) &&
 		(master_status & MASTER_INT_SIGNAL__CP_INT_STAT)) {
-		adreno_regread(device, REG_CP_INT_STATUS, &status);
-		adreno_regread(device, REG_MASTER_INT_SIGNAL,
+		kgsl_regread(device, REG_CP_INT_STATUS, &status);
+		kgsl_regread(device, REG_MASTER_INT_SIGNAL,
 					&master_status);
 		num_reads++;
 	}
@@ -1752,7 +1752,7 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 
 	/* only ack bits we understand */
 	status &= CP_INT_MASK;
-	adreno_regwrite(device, REG_CP_INT_ACK, status);
+	kgsl_regwrite(device, REG_CP_INT_ACK, status);
 
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
 		queue_work(device->work_queue, &device->ts_expired_ws);
@@ -1767,10 +1767,10 @@ static void a2xx_rbbm_intrcallback(struct kgsl_device *device)
 	unsigned int addr = 0;
 	const char *source;
 
-	adreno_regread(device, REG_RBBM_INT_STATUS, &status);
+	kgsl_regread(device, REG_RBBM_INT_STATUS, &status);
 
 	if (status & RBBM_INT_CNTL__RDERR_INT_MASK) {
-		adreno_regread(device, REG_RBBM_READ_ERROR, &rderr);
+		kgsl_regread(device, REG_RBBM_READ_ERROR, &rderr);
 		source = (rderr & RBBM_READ_ERROR_REQUESTER)
 			 ? "host" : "cp";
 		/* convert to dword address */
@@ -1794,7 +1794,7 @@ static void a2xx_rbbm_intrcallback(struct kgsl_device *device)
 	}
 
 	status &= RBBM_INT_MASK;
-	adreno_regwrite(device, REG_RBBM_INT_ACK, status);
+	kgsl_regwrite(device, REG_RBBM_INT_ACK, status);
 }
 
 irqreturn_t a2xx_irq_handler(struct adreno_device *adreno_dev)
@@ -1803,7 +1803,7 @@ irqreturn_t a2xx_irq_handler(struct adreno_device *adreno_dev)
 	irqreturn_t result = IRQ_NONE;
 	unsigned int status;
 
-	adreno_regread(device, REG_MASTER_INT_SIGNAL, &status);
+	kgsl_regread(device, REG_MASTER_INT_SIGNAL, &status);
 
 	if (status & MASTER_INT_SIGNAL__MH_INT_STAT) {
 		kgsl_mh_intrcallback(device);
@@ -1828,14 +1828,14 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (state) {
-		adreno_regwrite(device, REG_RBBM_INT_CNTL, RBBM_INT_MASK);
-		adreno_regwrite(device, REG_CP_INT_CNTL, CP_INT_MASK);
-		adreno_regwrite(device, MH_INTERRUPT_MASK,
+		kgsl_regwrite(device, REG_RBBM_INT_CNTL, RBBM_INT_MASK);
+		kgsl_regwrite(device, REG_CP_INT_CNTL, CP_INT_MASK);
+		kgsl_regwrite(device, MH_INTERRUPT_MASK,
 			kgsl_mmu_get_int_mask());
 	} else {
-		adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);
-		adreno_regwrite(device, REG_CP_INT_CNTL, 0);
-		adreno_regwrite(device, MH_INTERRUPT_MASK, 0);
+		kgsl_regwrite(device, REG_RBBM_INT_CNTL, 0);
+		kgsl_regwrite(device, REG_CP_INT_CNTL, 0);
+		kgsl_regwrite(device, MH_INTERRUPT_MASK, 0);
 	}
 
 	/* Force the writes to post before touching the IRQ line */
@@ -1847,7 +1847,7 @@ static unsigned int a2xx_irq_pending(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int status;
 
-	adreno_regread(device, REG_MASTER_INT_SIGNAL, &status);
+	kgsl_regread(device, REG_MASTER_INT_SIGNAL, &status);
 
 	return (status &
 		(MASTER_INT_SIGNAL__MH_INT_STAT |
@@ -1929,21 +1929,21 @@ static unsigned int a2xx_busy_cycles(struct adreno_device *adreno_dev)
 	unsigned int reg, val;
 
 	/* Freeze the counter */
-	adreno_regwrite(device, REG_CP_PERFMON_CNTL,
+	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
 		REG_PERF_MODE_CNT | REG_PERF_STATE_FREEZE);
 
 	/* Get the value */
-	adreno_regread(device, REG_RBBM_PERFCOUNTER1_LO, &val);
+	kgsl_regread(device, REG_RBBM_PERFCOUNTER1_LO, &val);
 
 	/* Reset the counter */
-	adreno_regwrite(device, REG_CP_PERFMON_CNTL,
+	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
 		REG_PERF_MODE_CNT | REG_PERF_STATE_RESET);
 
 	/* Re-Enable the performance monitors */
-	adreno_regread(device, REG_RBBM_PM_OVERRIDE2, &reg);
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, (reg | 0x40));
-	adreno_regwrite(device, REG_RBBM_PERFCOUNTER1_SELECT, 0x1);
-	adreno_regwrite(device, REG_CP_PERFMON_CNTL,
+	kgsl_regread(device, REG_RBBM_PM_OVERRIDE2, &reg);
+	kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, (reg | 0x40));
+	kgsl_regwrite(device, REG_RBBM_PERFCOUNTER1_SELECT, 0x1);
+	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
 		REG_PERF_MODE_CNT | REG_PERF_STATE_ENABLE);
 
 	return val;
@@ -1969,7 +1969,7 @@ static void a2xx_gmeminit(struct adreno_device *adreno_dev)
 	/* must be aligned to size */
 	rb_edram_info.f.edram_range = (adreno_dev->gmem_base >> 14);
 
-	adreno_regwrite(device, REG_RB_EDRAM_INFO, rb_edram_info.val);
+	kgsl_regwrite(device, REG_RB_EDRAM_INFO, rb_edram_info.val);
 }
 
 static void a2xx_start(struct adreno_device *adreno_dev)
@@ -1981,8 +1981,8 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	 * before issuing a soft reset.  The overrides will then be
 	 * turned off (set to 0)
 	 */
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
+	kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+	kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
 	/*
 	 * Only reset CP block if all blocks have previously been
@@ -1990,11 +1990,11 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	 */
 	if (!(device->flags & KGSL_FLAGS_SOFT_RESET) ||
 		!adreno_is_a22x(adreno_dev)) {
-		adreno_regwrite(device, REG_RBBM_SOFT_RESET,
+		kgsl_regwrite(device, REG_RBBM_SOFT_RESET,
 			0xFFFFFFFF);
 		device->flags |= KGSL_FLAGS_SOFT_RESET;
 	} else {
-		adreno_regwrite(device, REG_RBBM_SOFT_RESET,
+		kgsl_regwrite(device, REG_RBBM_SOFT_RESET,
 			0x00000001);
 	}
 	/*
@@ -2003,11 +2003,11 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	 */
 	msleep(30);
 
-	adreno_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000000);
+	kgsl_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000000);
 
 	if (adreno_is_a225(adreno_dev)) {
 		/* Enable large instruction store for A225 */
-		adreno_regwrite(device, REG_SQ_FLOW_CONTROL,
+		kgsl_regwrite(device, REG_SQ_FLOW_CONTROL,
 			0x18000000);
 	}
 
@@ -2015,29 +2015,29 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 		/* For A20X based targets increase number of clocks
 		 * that RBBM will wait before de-asserting Register
 		 * Clock Active signal */
-		adreno_regwrite(device, REG_RBBM_CNTL, 0x0000FFFF);
+		kgsl_regwrite(device, REG_RBBM_CNTL, 0x0000FFFF);
 	else
-		adreno_regwrite(device, REG_RBBM_CNTL, 0x00004442);
+		kgsl_regwrite(device, REG_RBBM_CNTL, 0x00004442);
 
-	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
-	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
+	kgsl_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
+	kgsl_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
 	if (cpu_is_msm8960())
-		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x200);
+		kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x200);
 	else
-		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
+		kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
 
 	if (!adreno_is_a22x(adreno_dev))
-		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
+		kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
 	else
-		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
+		kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 
-	adreno_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
+	kgsl_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
 
 	/* Make sure interrupts are disabled */
-	adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);
-	adreno_regwrite(device, REG_CP_INT_CNTL, 0);
-	adreno_regwrite(device, REG_SQ_INT_CNTL, 0);
+	kgsl_regwrite(device, REG_RBBM_INT_CNTL, 0);
+	kgsl_regwrite(device, REG_CP_INT_CNTL, 0);
+	kgsl_regwrite(device, REG_SQ_INT_CNTL, 0);
 
 	a2xx_gmeminit(adreno_dev);
 }

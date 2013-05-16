@@ -373,10 +373,6 @@ void adreno_coresight_remove(struct platform_device *pdev);
 int adreno_coresight_init(struct platform_device *pdev);
 
 int adreno_idle(struct kgsl_device *device);
-void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
-				unsigned int *value);
-void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
-				unsigned int value);
 
 void adreno_shadermem_regread(struct kgsl_device *device,
 						unsigned int offsetwords,
@@ -664,7 +660,7 @@ static inline void adreno_readreg(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		adreno_regread(device,
+		kgsl_regread(device,
 			adreno_dev->gpudev->reg_offsets->offsets[offset_name],
 								val);
 }
@@ -681,7 +677,7 @@ static inline void adreno_writereg(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		adreno_regwrite(device,
+		kgsl_regwrite(device,
 		adreno_dev->gpudev->reg_offsets->offsets[offset_name], val);
 }
 

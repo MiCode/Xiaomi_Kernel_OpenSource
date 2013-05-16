@@ -109,7 +109,7 @@ static ssize_t coresight_read_reg(struct kgsl_device *device,
 
 	mutex_lock(&device->mutex);
 	if (!kgsl_active_count_get(device)) {
-		adreno_regread(device, offset, &regval);
+		kgsl_regread(device, offset, &regval);
 		kgsl_active_count_put(device);
 	}
 	mutex_unlock(&device->mutex);
