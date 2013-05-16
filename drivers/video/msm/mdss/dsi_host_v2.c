@@ -890,7 +890,7 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
 	msm_dsi_clk_disable();
 	msm_dsi_unprepare_clocks();
-
+	msm_dsi_phy_off(dsi_host_private->dsi_base);
 	msm_dsi_ahb_ctrl(0);
 
 	ret = msm_dsi_regulator_disable();
