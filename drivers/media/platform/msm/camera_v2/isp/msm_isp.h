@@ -419,6 +419,7 @@ struct vfe_device {
 	struct msm_vfe_error_info error_info;
 	struct msm_isp_buf_mgr *buf_mgr;
 	int dump_reg;
+	int vfe_clk_idx;
 	uint32_t vfe_open_cnt;
 };
 
