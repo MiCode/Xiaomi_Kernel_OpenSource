@@ -219,6 +219,7 @@ struct diagchar_dev {
 	int num_clients;
 	int polling_reg_flag;
 	struct diag_write_device *buf_tbl;
+	unsigned int buf_tbl_size;
 	int use_device_tree;
 	/* DCI related variables */
 	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
