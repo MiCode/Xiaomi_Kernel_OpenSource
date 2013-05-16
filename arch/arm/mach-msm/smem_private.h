@@ -19,7 +19,7 @@
 
 #define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
 extern remote_spinlock_t remote_spinlock;
-extern int spinlocks_initialized;
+extern int spinlocks_initialized; /* only modify in init_smem_remote_spinlock */
 
 #define SMD_HEAP_SIZE 512
 
@@ -65,4 +65,10 @@ extern struct ramdump_segment *smem_ramdump_segments;
 
 /* used for unit testing spinlocks */
 remote_spinlock_t *smem_get_remote_spinlock(void);
+
+/*
+ * used to ensure the remote spinlock is only inited once since local
+ * spinlock init code appears non-reentrant
+ */
+int init_smem_remote_spinlock(void);
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_ */

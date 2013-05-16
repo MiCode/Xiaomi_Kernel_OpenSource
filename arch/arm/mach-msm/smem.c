@@ -56,6 +56,7 @@ struct smem_area *smem_areas;
 struct ramdump_segment *smem_ramdump_segments;
 
 static void *smem_ramdump_dev;
+static DEFINE_MUTEX(spinlock_init_lock);
 
 struct restart_notifier_block {
 	unsigned processor;
@@ -215,6 +216,7 @@ void *smem_alloc2(unsigned id, unsigned size_in)
 	struct smem_heap_entry *toc = shared->heap_toc;
 	unsigned long flags;
 	void *ret = NULL;
+	int rc;
 
 	if (!shared->heap_info.initialized) {
 		pr_err("%s: smem heap info not initialized\n", __func__);
@@ -223,6 +225,15 @@ void *smem_alloc2(unsigned id, unsigned size_in)
 
 	if (id >= SMEM_NUM_ITEMS)
 		return NULL;
+
+	if (unlikely(!spinlocks_initialized)) {
+		rc = init_smem_remote_spinlock();
+		if (unlikely(rc)) {
+			pr_err("%s: remote spinlock init failed %d\n",
+								__func__, rc);
+			return NULL;
+		}
+	}
 
 	size_in = ALIGN(size_in, 8);
 	remote_spin_lock_irqsave(&remote_spinlock, flags);
@@ -300,6 +311,35 @@ remote_spinlock_t *smem_get_remote_spinlock(void)
 	return &remote_spinlock;
 }
 EXPORT_SYMBOL(smem_get_remote_spinlock);
+
+/**
+ * init_smem_remote_spinlock - Reentrant remote spinlock initialization
+ *
+ * @returns: sucess or error code for failure
+ */
+int init_smem_remote_spinlock(void)
+{
+	int rc = 0;
+
+	/*
+	 * Optimistic locking.  Init only needs to be done once by the first
+	 * caller.  After that, serializing inits between different callers
+	 * is unnecessary.  The second check after the lock ensures init
+	 * wasn't previously completed by someone else before the lock could
+	 * be grabbed.
+	 */
+	if (!spinlocks_initialized) {
+		mutex_lock(&spinlock_init_lock);
+		if (!spinlocks_initialized) {
+			rc = remote_spin_lock_init(&remote_spinlock,
+						SMEM_SPINLOCK_SMEM_ALLOC);
+			if (!rc)
+				spinlocks_initialized = 1;
+		}
+		mutex_unlock(&spinlock_init_lock);
+	}
+	return rc;
+}
 
 static int restart_notifier_cb(struct notifier_block *this,
 				unsigned long code,
