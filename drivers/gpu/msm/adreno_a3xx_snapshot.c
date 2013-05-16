@@ -35,8 +35,8 @@ static void _rbbm_debug_bus_read(struct kgsl_device *device,
 	unsigned int block_id, unsigned int index, unsigned int *val)
 {
 	unsigned int block = (block_id << 8) | 1 << 16;
-	adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, block | index);
-	adreno_regread(device, A3XX_RBBM_DEBUG_BUS_DATA_STATUS, val);
+	kgsl_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, block | index);
+	kgsl_regread(device, A3XX_RBBM_DEBUG_BUS_DATA_STATUS, val);
 }
 
 /**
@@ -108,9 +108,9 @@ static int a3xx_snapshot_vpc_memory(struct kgsl_device *device, void *snapshot,
 	for (bank = 0; bank < VPC_MEMORY_BANKS; bank++) {
 		for (addr = 0; addr < VPC_MEMORY_SIZE; addr++) {
 			unsigned int val = bank | (addr << 4);
-			adreno_regwrite(device,
+			kgsl_regwrite(device,
 				A3XX_VPC_VPC_DEBUG_RAM_SEL, val);
-			adreno_regread(device,
+			kgsl_regread(device,
 				A3XX_VPC_VPC_DEBUG_RAM_READ, &data[i++]);
 		}
 	}
@@ -134,9 +134,9 @@ static int a3xx_snapshot_cp_meq(struct kgsl_device *device, void *snapshot,
 	header->type = SNAPSHOT_DEBUG_CP_MEQ;
 	header->size = CP_MEQ_SIZE;
 
-	adreno_regwrite(device, A3XX_CP_MEQ_ADDR, 0x0);
+	kgsl_regwrite(device, A3XX_CP_MEQ_ADDR, 0x0);
 	for (i = 0; i < CP_MEQ_SIZE; i++)
-		adreno_regread(device, A3XX_CP_MEQ_DATA, &data[i]);
+		kgsl_regread(device, A3XX_CP_MEQ_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(CP_MEQ_SIZE);
 }
@@ -164,9 +164,9 @@ static int a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
 	 * maintain always changing hardcoded constants
 	 */
 
-	adreno_regwrite(device, REG_CP_ME_RAM_RADDR, 0x0);
+	kgsl_regwrite(device, REG_CP_ME_RAM_RADDR, 0x0);
 	for (i = 0; i < size; i++)
-		adreno_regread(device, REG_CP_ME_RAM_DATA, &data[i]);
+		kgsl_regread(device, REG_CP_ME_RAM_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -195,7 +195,7 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	 */
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0x0);
 	for (i = 0; i < size; i++)
-		adreno_regread(device, A3XX_CP_PFP_UCODE_DATA, &data[i]);
+		kgsl_regread(device, A3XX_CP_PFP_UCODE_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -226,9 +226,9 @@ static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
 	header->size = size;
 
-	adreno_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
+	kgsl_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
 	for (i = 0; i < size; i++)
-		adreno_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
+		kgsl_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -253,12 +253,12 @@ static int a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
 	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
 	header->size = size;
 
-	adreno_regwrite(device, A3XX_CP_MERCIU_ADDR, 0x0);
+	kgsl_regwrite(device, A3XX_CP_MERCIU_ADDR, 0x0);
 
 	for (i = 0; i < A330_CP_MERCIU_QUEUE_SIZE; i++) {
-		adreno_regread(device, A3XX_CP_MERCIU_DATA,
+		kgsl_regread(device, A3XX_CP_MERCIU_DATA,
 			&data[(i * 2)]);
-		adreno_regread(device, A3XX_CP_MERCIU_DATA2,
+		kgsl_regread(device, A3XX_CP_MERCIU_DATA2,
 			&data[(i * 2) + 1]);
 	}
 
@@ -444,7 +444,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	list.count = 0;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
-	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x00);
+	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x00);
 
 	/* Store relevant registers in list to snapshot */
 	_snapshot_a3xx_regs(regs, &list);
@@ -516,7 +516,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = a3xx_snapshot_debugbus(device, snapshot, remain);
 
 	/* Enable Clock gating */
-	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
+	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL,
 		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
 
 	return snapshot;

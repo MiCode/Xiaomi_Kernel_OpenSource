@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,11 +38,11 @@ static int a2xx_snapshot_sxdebug(struct kgsl_device *device, void *snapshot,
 	header->size = SXDEBUG_COUNT;
 
 	for (i = 0; i < SXDEBUG_COUNT; i++) {
-		adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1B00 | i);
-		adreno_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
+		kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1B00 | i);
+		kgsl_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
 	}
 
-	adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
+	kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
 
 	return DEBUG_SECTION_SZ(SXDEBUG_COUNT);
 }
@@ -65,11 +65,11 @@ static int a2xx_snapshot_cpdebug(struct kgsl_device *device, void *snapshot,
 	header->size = CPDEBUG_COUNT;
 
 	for (i = 0; i < CPDEBUG_COUNT; i++) {
-		adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1628);
-		adreno_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
+		kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1628);
+		kgsl_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
 	}
 
-	adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
+	kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
 
 	return DEBUG_SECTION_SZ(CPDEBUG_COUNT);
 }
@@ -82,7 +82,8 @@ static int a2xx_snapshot_cpdebug(struct kgsl_device *device, void *snapshot,
 
 #define SQ_DEBUG_WRITE(_device, _reg, _data, _offset) \
 	do { _data[(_offset)++] = (_reg); \
-	adreno_regread(_device, (_reg), &_data[(_offset)++]); } while (0)
+		kgsl_regread(_device, (_reg), &_data[(_offset)++]);	\
+	} while (0)
 
 #define SQ_DEBUG_BANK_SIZE 23
 
@@ -175,7 +176,7 @@ static int a2xx_snapshot_sqthreaddebug(struct kgsl_device *device,
 	header->size = size;
 
 	for (i = 0; i < 16; i++) {
-		adreno_regwrite(device, REG_SQ_DEBUG_TB_STATUS_SEL,
+		kgsl_regwrite(device, REG_SQ_DEBUG_TB_STATUS_SEL,
 				i | (6<<4) | (i<<7) | (1<<11) | (1<<12)
 				| (i<<16) | (6<<20) | (i<<23));
 		SQ_DEBUG_WRITE(device, REG_SQ_DEBUG_VTX_TB_STATE_MEM,
@@ -215,11 +216,11 @@ static int a2xx_snapshot_miudebug(struct kgsl_device *device, void *snapshot,
 	header->size = MIUDEBUG_COUNT;
 
 	for (i = 0; i < MIUDEBUG_COUNT; i++) {
-		adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1600 | i);
-		adreno_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
+		kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0x1600 | i);
+		kgsl_regread(device, REG_RBBM_DEBUG_OUT, &data[i]);
 	}
 
-	adreno_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
+	kgsl_regwrite(device, REG_RBBM_DEBUG_CNTL, 0);
 
 	return DEBUG_SECTION_SZ(MIUDEBUG_COUNT);
 }
@@ -297,8 +298,8 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	 * work
 	 */
 
-	adreno_regread(device, REG_RBBM_PM_OVERRIDE2, &pmoverride);
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xFF);
+	kgsl_regread(device, REG_RBBM_PM_OVERRIDE2, &pmoverride);
+	kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xFF);
 
 	/* SX debug registers */
 	snapshot = kgsl_snapshot_add_section(device,
@@ -376,7 +377,7 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 
 	/* Reset the clock gating */
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, pmoverride);
+	kgsl_regwrite(device, REG_RBBM_PM_OVERRIDE2, pmoverride);
 
 	return snapshot;
 }
