@@ -1750,6 +1750,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC1", "DEC1 MUX"},
 	{"IIR1 INP1 MUX", "DEC2", "DEC2 MUX"},
+	{"MIC BIAS Internal1", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal2", NULL, "INT_LDO_H"},
 	{"MIC BIAS External", NULL, "INT_LDO_H"},
 };
