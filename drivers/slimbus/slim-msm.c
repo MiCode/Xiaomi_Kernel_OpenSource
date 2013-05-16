@@ -73,6 +73,52 @@ void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 #endif
 }
 
+irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat)
+{
+	int i;
+	u32 int_en = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+							dev->ver));
+	/*
+	 * different port-interrupt than what we enabled, ignore.
+	 * This may happen if overflow/underflow is reported, but
+	 * was disabled due to unavailability of buffers provided by
+	 * client.
+	 */
+	if ((pstat & int_en) == 0)
+		return IRQ_HANDLED;
+	for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
+		if (pstat & (1 << i)) {
+			u32 val = readl_relaxed(PGD_PORT(PGD_PORT_STATn,
+						i, dev->ver));
+			if (val & MSM_PORT_OVERFLOW) {
+				dev->ctrl.ports[i-dev->port_b].err =
+						SLIM_P_OVERFLOW;
+			} else if (val & MSM_PORT_UNDERFLOW) {
+				dev->ctrl.ports[i-dev->port_b].err =
+					SLIM_P_UNDERFLOW;
+			}
+		}
+	}
+	/*
+	 * Disable port interrupt here. Re-enable when more
+	 * buffers are provided for this port.
+	 */
+	writel_relaxed((int_en & (~pstat)),
+			PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+					dev->ver));
+	/* clear port interrupts */
+	writel_relaxed(pstat, PGD_THIS_EE(PGD_PORT_INT_CL_EEn,
+							dev->ver));
+	pr_info("disabled overflow/underflow for port 0x%x", pstat);
+
+	/*
+	 * Guarantee that port interrupt bit(s) clearing writes go
+	 * through before exiting ISR
+	 */
+	mb();
+	return IRQ_HANDLED;
+}
+
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep)
 {
 	int ret;
@@ -138,13 +184,9 @@ msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
 {
 	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
-	u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-					dev->ver));
 	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pn, dev->ver));
 	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pn, dev->ver));
 	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pn, dev->ver));
-	writel_relaxed((int_port | 1 << pn) , PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-								dev->ver));
 	/* Make sure that port registers are updated before returning */
 	mb();
 }
@@ -171,7 +213,7 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 		}
 	}
 
-	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->pipe_b),
+	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->port_b),
 					dev->ver));
 	if (dev->ctrl.ports[pn].flow == SLIM_SRC) {
 		cfg->destination = dev->bam.hdl;
@@ -196,7 +238,7 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	ret = sps_connect(dev->pipes[pn].sps, cfg);
 	if (!ret) {
 		dev->pipes[pn].connected = true;
-		msm_hw_set_port(dev, pn + dev->pipe_b);
+		msm_hw_set_port(dev, pn + dev->port_b);
 	}
 	return ret;
 }
@@ -209,7 +251,7 @@ int msm_config_port(struct slim_controller *ctrl, u8 pn)
 	if (ctrl->ports[pn].req == SLIM_REQ_HALF_DUP ||
 		ctrl->ports[pn].req == SLIM_REQ_MULTI_CH)
 		return -EPROTONOSUPPORT;
-	if (pn >= (MSM_SLIM_NPORTS - dev->pipe_b))
+	if (pn >= (MSM_SLIM_NPORTS - dev->port_b))
 		return -ENODEV;
 
 	endpoint = &dev->pipes[pn];
@@ -265,6 +307,16 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, NULL,
 				SPS_IOVEC_FLAG_INT);
 	dev_dbg(dev->dev, "sps submit xfer error code:%x\n", ret);
+	if (!ret) {
+		/* Enable port interrupts */
+		u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+						dev->ver));
+		if (!(int_port & (1 << (dev->port_b + pn))))
+			writel_relaxed((int_port | (1 << (dev->port_b + pn))),
+				PGD_THIS_EE(PGD_PORT_INT_EN_EEn, dev->ver));
+		/* Make sure that port registers are updated before returning */
+		mb();
+	}
 
 	return ret;
 }
@@ -680,7 +732,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 		if ((sec_props.ees[dev->ee].pipe_mask >> i) & 0x1)
 			break;
 	}
-	dev->pipe_b = i - 7;
+	dev->port_b = i - 7;
 
 	/* Register the BAM device with the SPS driver */
 	ret = sps_register_bam_device(&bam_props, &bam_handle);

@@ -89,6 +89,7 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)d;
 	void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr, dev->ver);
 	u32 stat = readl_relaxed(ngd + NGD_INT_STAT);
+	u32 pstat;
 
 	if (stat & NGD_INT_TX_MSG_SENT) {
 		writel_relaxed(NGD_INT_TX_MSG_SENT, ngd + NGD_INT_CLR);
@@ -147,6 +148,10 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 		mb();
 		dev_err(dev->dev, "NGD IE VE change");
 	}
+
+	pstat = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_ST_EEn, dev->ver));
+	if (pstat != 0)
+		return msm_slim_port_irq_handler(dev, pstat);
 	return IRQ_HANDLED;
 }
 
