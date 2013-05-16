@@ -23,6 +23,13 @@
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
 
+		coresight-id = <52>;
+		coresight-name = "coresight-mnoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <5>;
+
 		mas-mdp-port0 {
 			cell-id = <22>;
 			label = "mas-mdp-port0";
@@ -220,6 +227,13 @@
 		qcom,qos-freq = <4800>;
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
+
+		coresight-id = <50>;
+		coresight-name = "coresight-snoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <3>;
 
 		mas-lpass-ahb {
 			cell-id = <52>;
@@ -421,6 +435,13 @@
 		qcom,ntieredslaves = <0>;
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
+
+		coresight-id = <54>;
+		coresight-name = "coresight-pnoc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <6>;
 
 		mas-pnoc-cfg {
 			cell-id = <88>;
@@ -895,6 +916,13 @@
 		qcom,qos-freq = <4800>;
 		qcom,hw-sel = "BIMC";
 		qcom,rpm-en;
+
+		coresight-id = <55>;
+		coresight-name = "coresight-bimc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <3>;
 
 		mas-ampss-m0 {
 			cell-id = <1>;
