@@ -34,6 +34,7 @@ struct dsi_panel_private {
 	int rst_gpio;
 	int disp_en_gpio;
 	int video_mode_gpio;
+	int te_gpio;
 	char bl_ctrl;
 
 	struct regulator *vddio_vreg;
@@ -190,6 +191,8 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				gpio_set_value(panel_private->video_mode_gpio,
 						0);
 		}
+		if (gpio_is_valid(panel_private->te_gpio))
+			gpio_request(panel_private->te_gpio, "panel_te");
 	} else {
 		gpio_set_value(panel_private->rst_gpio, 0);
 		gpio_free(panel_private->rst_gpio);
@@ -202,6 +205,8 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		if (gpio_is_valid(panel_private->video_mode_gpio))
 			gpio_free(panel_private->video_mode_gpio);
 
+		if (gpio_is_valid(panel_private->te_gpio))
+			gpio_free(panel_private->te_gpio);
 		dsi_panel_power(0);
 	}
 }
@@ -233,16 +238,10 @@ static int dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s:%d, debug info (mode) : %d\n", __func__, __LINE__,
 		 mipi->mode);
 
-	if (mipi->mode == DSI_VIDEO_MODE) {
-		dsi_cmds_tx_v2(pdata, &panel_private->dsi_panel_tx_buf,
-				panel_private->on_cmds_list->buf,
-				panel_private->on_cmds_list->size);
-	} else {
-		pr_err("%s:%d, CMD MODE NOT SUPPORTED", __func__, __LINE__);
-		return -EINVAL;
-	}
 
-	return 0;
+	return dsi_cmds_tx_v2(pdata, &panel_private->dsi_panel_tx_buf,
+					panel_private->on_cmds_list->buf,
+					panel_private->on_cmds_list->size);
 }
 
 static int dsi_panel_off(struct mdss_panel_data *pdata)
@@ -252,16 +251,10 @@ static int dsi_panel_off(struct mdss_panel_data *pdata)
 
 	pr_debug("%s:%d, debug info\n", __func__, __LINE__);
 
-	if (mipi->mode == DSI_VIDEO_MODE) {
-		dsi_cmds_tx_v2(pdata, &panel_private->dsi_panel_tx_buf,
-				panel_private->off_cmds_list->buf,
-				panel_private->off_cmds_list->size);
-	} else {
-		pr_debug("%s:%d, CMD mode not supported", __func__, __LINE__);
-		return -EINVAL;
-	}
 
-	return 0;
+	return dsi_cmds_tx_v2(pdata, &panel_private->dsi_panel_tx_buf,
+					panel_private->off_cmds_list->buf,
+					panel_private->off_cmds_list->size);
 }
 
 static int dsi_panel_parse_gpio(struct platform_device *pdev)
@@ -272,6 +265,8 @@ static int dsi_panel_parse_gpio(struct platform_device *pdev)
 	panel_private->rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
 	panel_private->video_mode_gpio = of_get_named_gpio(np,
 						"qcom,mode-selection-gpio", 0);
+	panel_private->te_gpio = of_get_named_gpio(np,
+						"qcom,te-gpio", 0);
 	return 0;
 }
 
@@ -364,85 +359,8 @@ static int dsi_panel_parse_phy(struct platform_device *pdev,
 				struct dsi_panel_common_pdata *panel_data)
 {
 	struct device_node *np = pdev->dev.of_node;
-	u32 res[6], tmp;
-	int i, len, rc;
+	int i, len;
 	const char *data;
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-mode", &tmp);
-	panel_data->panel_info.mipi.mode = (!rc ? tmp : DSI_VIDEO_MODE);
-
-	rc = of_property_read_u32(np,
-		"qcom,mdss-pan-dsi-h-pulse-mode", &tmp);
-	panel_data->panel_info.mipi.pulse_mode_hsa_he = (!rc ? tmp : false);
-
-	rc = of_property_read_u32_array(np,
-		"qcom,mdss-pan-dsi-h-power-stop", res, 3);
-	panel_data->panel_info.mipi.hbp_power_stop = (!rc ? res[0] : false);
-	panel_data->panel_info.mipi.hsa_power_stop = (!rc ? res[1] : false);
-	panel_data->panel_info.mipi.hfp_power_stop = (!rc ? res[2] : false);
-
-	rc = of_property_read_u32_array(np,
-		"qcom,mdss-pan-dsi-bllp-power-stop", res, 2);
-	panel_data->panel_info.mipi.bllp_power_stop =
-					(!rc ? res[0] : false);
-	panel_data->panel_info.mipi.eof_bllp_power_stop =
-					(!rc ? res[1] : false);
-
-	rc = of_property_read_u32(np,
-		"qcom,mdss-pan-dsi-traffic-mode", &tmp);
-	panel_data->panel_info.mipi.traffic_mode =
-			(!rc ? tmp : DSI_NON_BURST_SYNCH_PULSE);
-
-	rc = of_property_read_u32(np,
-		"qcom,mdss-pan-dsi-dst-format", &tmp);
-	panel_data->panel_info.mipi.dst_format =
-			(!rc ? tmp : DSI_VIDEO_DST_FORMAT_RGB888);
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-vc", &tmp);
-	panel_data->panel_info.mipi.vc = (!rc ? tmp : 0);
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-rgb-swap", &tmp);
-	panel_data->panel_info.mipi.rgb_swap = (!rc ? tmp : DSI_RGB_SWAP_RGB);
-
-	rc = of_property_read_u32_array(np,
-		"qcom,mdss-pan-dsi-data-lanes", res, 4);
-	panel_data->panel_info.mipi.data_lane0 = (!rc ? res[0] : true);
-	panel_data->panel_info.mipi.data_lane1 = (!rc ? res[1] : false);
-	panel_data->panel_info.mipi.data_lane2 = (!rc ? res[2] : false);
-	panel_data->panel_info.mipi.data_lane3 = (!rc ? res[3] : false);
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-dlane-swap", &tmp);
-	panel_data->panel_info.mipi.dlane_swap = (!rc ? tmp : 0);
-
-	rc = of_property_read_u32_array(np, "qcom,mdss-pan-dsi-t-clk", res, 2);
-	panel_data->panel_info.mipi.t_clk_pre = (!rc ? res[0] : 0x24);
-	panel_data->panel_info.mipi.t_clk_post = (!rc ? res[1] : 0x03);
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-stream", &tmp);
-	panel_data->panel_info.mipi.stream = (!rc ? tmp : 0);
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-mdp-tr", &tmp);
-	panel_data->panel_info.mipi.mdp_trigger =
-			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
-	if (panel_data->panel_info.mipi.mdp_trigger > 6) {
-		pr_err("%s:%d, Invalid mdp trigger. Forcing to sw trigger",
-						 __func__, __LINE__);
-		panel_data->panel_info.mipi.mdp_trigger =
-					DSI_CMD_TRIGGER_SW;
-	}
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-dma-tr", &tmp);
-	panel_data->panel_info.mipi.dma_trigger =
-			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
-	if (panel_data->panel_info.mipi.dma_trigger > 6) {
-		pr_err("%s:%d, Invalid dma trigger. Forcing to sw trigger",
-						 __func__, __LINE__);
-		panel_data->panel_info.mipi.dma_trigger =
-					DSI_CMD_TRIGGER_SW;
-	}
-
-	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-frame-rate", &tmp);
-	panel_data->panel_info.mipi.frame_rate = (!rc ? tmp : 60);
 
 	data = of_get_property(np, "qcom,panel-phy-regulatorSettings", &len);
 	if ((!data) || (len != 6)) {
@@ -713,6 +631,102 @@ static int dsi_panel_parse_other(struct platform_device *pdev,
 	return rc;
 }
 
+static int dsi_panel_parse_host_cfg(struct platform_device *pdev,
+				struct dsi_panel_common_pdata *panel_data)
+{
+	struct device_node *np = pdev->dev.of_node;
+	u32 res[6], tmp;
+	int rc;
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-mode", &tmp);
+	panel_data->panel_info.mipi.mode = (!rc ? tmp : DSI_VIDEO_MODE);
+
+	rc = of_property_read_u32(np,
+		"qcom,mdss-pan-dsi-h-pulse-mode", &tmp);
+	panel_data->panel_info.mipi.pulse_mode_hsa_he = (!rc ? tmp : false);
+
+	rc = of_property_read_u32_array(np,
+		"qcom,mdss-pan-dsi-h-power-stop", res, 3);
+	panel_data->panel_info.mipi.hbp_power_stop = (!rc ? res[0] : false);
+	panel_data->panel_info.mipi.hsa_power_stop = (!rc ? res[1] : false);
+	panel_data->panel_info.mipi.hfp_power_stop = (!rc ? res[2] : false);
+
+	rc = of_property_read_u32_array(np,
+		"qcom,mdss-pan-dsi-bllp-power-stop", res, 2);
+	panel_data->panel_info.mipi.bllp_power_stop =
+					(!rc ? res[0] : false);
+	panel_data->panel_info.mipi.eof_bllp_power_stop =
+					(!rc ? res[1] : false);
+
+	rc = of_property_read_u32(np,
+		"qcom,mdss-pan-dsi-traffic-mode", &tmp);
+	panel_data->panel_info.mipi.traffic_mode =
+			(!rc ? tmp : DSI_NON_BURST_SYNCH_PULSE);
+
+	rc = of_property_read_u32(np,
+		"qcom,mdss-pan-dsi-dst-format", &tmp);
+	panel_data->panel_info.mipi.dst_format =
+			(!rc ? tmp : DSI_VIDEO_DST_FORMAT_RGB888);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-vc", &tmp);
+	panel_data->panel_info.mipi.vc = (!rc ? tmp : 0);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-rgb-swap", &tmp);
+	panel_data->panel_info.mipi.rgb_swap = (!rc ? tmp : DSI_RGB_SWAP_RGB);
+
+	rc = of_property_read_u32_array(np,
+		"qcom,mdss-pan-dsi-data-lanes", res, 4);
+	panel_data->panel_info.mipi.data_lane0 = (!rc ? res[0] : true);
+	panel_data->panel_info.mipi.data_lane1 = (!rc ? res[1] : false);
+	panel_data->panel_info.mipi.data_lane2 = (!rc ? res[2] : false);
+	panel_data->panel_info.mipi.data_lane3 = (!rc ? res[3] : false);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-dlane-swap", &tmp);
+	panel_data->panel_info.mipi.dlane_swap = (!rc ? tmp : 0);
+
+	rc = of_property_read_u32_array(np, "qcom,mdss-pan-dsi-t-clk", res, 2);
+	panel_data->panel_info.mipi.t_clk_pre = (!rc ? res[0] : 0x24);
+	panel_data->panel_info.mipi.t_clk_post = (!rc ? res[1] : 0x03);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-stream", &tmp);
+	panel_data->panel_info.mipi.stream = (!rc ? tmp : 0);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-te-sel", &tmp);
+	panel_data->panel_info.mipi.te_sel = (!rc ? tmp : 1);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-insert-dcs-cmd", &tmp);
+	panel_data->panel_info.mipi.insert_dcs_cmd = (!rc ? tmp : 1);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-wr-mem-continue", &tmp);
+	panel_data->panel_info.mipi.wr_mem_continue = (!rc ? tmp : 0x3c);
+	rc = of_property_read_u32(np, "qcom,mdss-pan-wr-mem-start", &tmp);
+	panel_data->panel_info.mipi.wr_mem_start = (!rc ? tmp : 0x2c);
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-mdp-tr", &tmp);
+	panel_data->panel_info.mipi.mdp_trigger =
+			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
+	if (panel_data->panel_info.mipi.mdp_trigger > 6) {
+		pr_err("%s:%d, Invalid mdp trigger. Forcing to sw trigger",
+						 __func__, __LINE__);
+		panel_data->panel_info.mipi.mdp_trigger =
+					DSI_CMD_TRIGGER_SW;
+	}
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-dma-tr", &tmp);
+	panel_data->panel_info.mipi.dma_trigger =
+			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
+	if (panel_data->panel_info.mipi.dma_trigger > 6) {
+		pr_err("%s:%d, Invalid dma trigger. Forcing to sw trigger",
+						 __func__, __LINE__);
+		panel_data->panel_info.mipi.dma_trigger =
+					DSI_CMD_TRIGGER_SW;
+	}
+
+	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-frame-rate", &tmp);
+	panel_data->panel_info.mipi.frame_rate = (!rc ? tmp : 60);
+	return rc;
+}
+
 static int dsi_panel_parse_dt(struct platform_device *pdev,
 				struct dsi_panel_common_pdata *panel_data,
 				char *bl_ctrl)
@@ -752,6 +766,12 @@ static int dsi_panel_parse_dt(struct platform_device *pdev,
 	rc = dsi_panel_parse_other(pdev, panel_data);
 	if (rc) {
 		pr_err("fail to parse DSI panel destination\n");
+		return rc;
+	}
+
+	rc = dsi_panel_parse_host_cfg(pdev, panel_data);
+	if (rc) {
+		pr_err("fail to parse DSI host configs\n");
 		return rc;
 	}
 
