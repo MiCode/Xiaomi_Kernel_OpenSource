@@ -475,7 +475,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	mutex_lock(&clk->prepare_lock);
 
 	/* Return early if the rate isn't going to change */
-	if (clk->rate == rate)
+	if (clk->rate == rate && !(clk->flags & CLKFLAG_NO_RATE_CACHE))
 		goto out;
 
 	trace_clock_set_rate(name, rate, raw_smp_processor_id());
