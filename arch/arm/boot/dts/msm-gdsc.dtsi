@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
-
 &soc {
 	gdsc_venus: qcom,gdsc@fd8c1024 {
 		compatible = "qcom,gdsc";
