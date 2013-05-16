@@ -115,6 +115,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+	sg_free_table(info->table);
 	/* release sg table */
 	kfree(info->table);
 	kfree(info);
