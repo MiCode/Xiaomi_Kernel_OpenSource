@@ -83,6 +83,14 @@
 #define QPNP_VADC_M1_LOW_THR_MSB					0x6a
 #define QPNP_VADC_M1_HIGH_THR_LSB				0x6b
 #define QPNP_VADC_M1_HIGH_THR_MSB				0x6c
+#define QPNP_VADC_ACCESS					0xd0
+#define QPNP_VADC_ACCESS_DATA					0xa5
+#define QPNP_VADC_PERH_RESET_CTL3				0xda
+#define QPNP_FOLLOW_OTST2_RB					BIT(3)
+#define QPNP_FOLLOW_WARM_RB					BIT(2)
+#define QPNP_FOLLOW_SHUTDOWN1_RB				BIT(1)
+#define QPNP_FOLLOW_SHUTDOWN2_RB				BIT(0)
+
 #define QPNP_INT_TEST_VAL					0xE1
 
 #define QPNP_VADC_DATA0						0x60
@@ -144,6 +152,40 @@ static int32_t qpnp_vadc_write_reg(int16_t reg, u8 data)
 		(vadc->adc->offset + reg), buf, 1);
 	if (rc < 0) {
 		pr_err("qpnp adc write reg %d failed with %d\n", reg, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int32_t qpnp_vadc_warm_rst_configure(void)
+{
+	int rc = 0;
+	u8 data = 0;
+
+	rc = qpnp_vadc_write_reg(QPNP_VADC_ACCESS, QPNP_VADC_ACCESS_DATA);
+	if (rc < 0) {
+		pr_err("VADC write access failed\n");
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_PERH_RESET_CTL3, &data);
+	if (rc < 0) {
+		pr_err("VADC perh reset ctl3 read failed\n");
+		return rc;
+	}
+
+	rc = qpnp_vadc_write_reg(QPNP_VADC_ACCESS, QPNP_VADC_ACCESS_DATA);
+	if (rc < 0) {
+		pr_err("VADC write access failed\n");
+		return rc;
+	}
+
+	data |= QPNP_FOLLOW_WARM_RB;
+
+	rc = qpnp_vadc_write_reg(QPNP_VADC_PERH_RESET_CTL3, data);
+	if (rc < 0) {
+		pr_err("VADC perh reset ctl3 write failed\n");
 		return rc;
 	}
 
@@ -1125,6 +1167,12 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 		return rc;
 	}
 	vadc->id = fab_id;
+
+	rc = qpnp_vadc_warm_rst_configure();
+	if (rc < 0) {
+		pr_err("Setting perp reset on warm reset failed %d\n", rc);
+		return rc;
+	}
 
 	vadc->vadc_initialized = true;
 	vadc->vadc_iadc_sync_lock = false;
