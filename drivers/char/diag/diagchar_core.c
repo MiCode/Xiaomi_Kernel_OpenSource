@@ -1167,7 +1167,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 		/* place holder for number of data field */
 		ret += 4;
 
-		for (i = 0; i < driver->poolsize_write_struct; i++) {
+		for (i = 0; i < driver->buf_tbl_size; i++) {
 			if (driver->buf_tbl[i].length > 0) {
 #ifdef DIAG_DEBUG
 				pr_debug("diag: WRITING the buf address "
