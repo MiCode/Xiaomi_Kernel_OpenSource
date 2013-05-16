@@ -80,11 +80,18 @@ static struct msm_isp_buffer *msm_isp_get_buf_ptr(
 }
 
 static uint32_t msm_isp_get_buf_handle(
-	struct msm_isp_buf_mgr *buf_mgr)
+	struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t session_id, uint32_t stream_id)
 {
 	int i;
 	if ((buf_mgr->buf_handle_cnt << 8) == 0)
 		buf_mgr->buf_handle_cnt++;
+
+	for (i = 0; i < buf_mgr->num_buf_q; i++) {
+		if (buf_mgr->bufq[i].session_id == session_id &&
+			buf_mgr->bufq[i].stream_id == stream_id)
+			return 0;
+	}
 
 	for (i = 0; i < buf_mgr->num_buf_q; i++) {
 		if (buf_mgr->bufq[i].bufq_handle == 0) {
@@ -604,7 +611,8 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	buf_request->handle = msm_isp_get_buf_handle(buf_mgr);
+	buf_request->handle = msm_isp_get_buf_handle(buf_mgr,
+		buf_request->session_id, buf_request->stream_id);
 	if (!buf_request->handle) {
 		pr_err("Invalid buffer handle\n");
 		return rc;
