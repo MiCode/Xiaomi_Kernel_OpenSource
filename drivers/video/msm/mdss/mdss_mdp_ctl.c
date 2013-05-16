@@ -1442,6 +1442,27 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	return ret;
 }
 
+int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl)
+{
+	int ret;
+
+	ret = mutex_lock_interruptible(&ctl->lock);
+	if (ret)
+		return ret;
+
+	if (!ctl->power_on) {
+		mutex_unlock(&ctl->lock);
+		return 0;
+	}
+
+	if (ctl->wait_pingpong)
+		ret = ctl->wait_pingpong(ctl, NULL);
+
+	mutex_unlock(&ctl->lock);
+
+	return ret;
+}
+
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_ctl *sctl = NULL;
