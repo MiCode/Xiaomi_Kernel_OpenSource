@@ -75,7 +75,8 @@ enum dmx_success {
 	DMX_FIFO_ERROR, /* Receiver FIFO overrun */
 	DMX_MISSED_ERROR, /* Receiver missed packet */
 	DMX_OK_DECODER_BUF, /* Received OK, new ES data in decoder buffer */
-	DMX_OK_IDX /* Received OK, new index event */
+	DMX_OK_IDX, /* Received OK, new index event */
+	DMX_OK_SCRAMBLING_STATUS, /* Received OK, new scrambling status */
 } ;
 
 
@@ -135,6 +136,7 @@ struct dmx_data_ready {
 		} marker;
 
 		struct dmx_index_event_info idx_event;
+		struct dmx_scrambling_status_event_info scrambling_bits;
 	};
 };
 
@@ -250,6 +252,7 @@ struct dmx_ts_feed {
 	int (*ts_insertion_terminate)(struct dmx_ts_feed *feed);
 	int (*ts_insertion_insert_buffer)(struct dmx_ts_feed *feed,
 			char *data, size_t size);
+	int (*get_scrambling_bits)(struct dmx_ts_feed *feed, u8 *value);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -300,6 +303,7 @@ struct dmx_section_feed {
 				struct dmx_secure_mode *sec_mode);
 	int (*oob_command) (struct dmx_section_feed *feed,
 				struct dmx_oob_command *cmd);
+	int (*get_scrambling_bits)(struct dmx_section_feed *feed, u8 *value);
 };
 
 /*--------------------------------------------------------------------------*/
