@@ -92,6 +92,7 @@
 	};
 
 	i2c@f9923000 {
+		status = "ok";
 		atmel_mxt_ts@4a {
 			compatible = "atmel,mxt-ts";
 			reg = <0x4a>;
