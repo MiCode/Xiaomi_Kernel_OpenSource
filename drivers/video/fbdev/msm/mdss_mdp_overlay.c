@@ -701,6 +701,14 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
+
+	ret = mdss_mdp_display_wait4pingpong(mdp5_data->ctl);
+	if (ret) {
+		mutex_unlock(&mfd->lock);
+		mutex_unlock(&mdp5_data->ov_lock);
+		return ret;
+	}
+
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		struct mdss_mdp_data *buf;
 		if (pipe->back_buf.num_planes) {

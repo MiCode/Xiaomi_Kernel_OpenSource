@@ -335,32 +335,12 @@ static void mdss_mdp_cmd_chk_clock(struct mdss_mdp_cmd_ctx *ctx)
 	mutex_unlock(&ctx->clk_mtx);
 }
 
-static int mdss_mdp_cmd_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
-{
-	struct mdss_mdp_cmd_ctx *ctx;
-	int rc;
-
-	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return -ENODEV;
-	}
-
-	pr_debug("%s: intf_num=%d ctx=%p\n", __func__, ctl->intf_num, ctx);
-
-	rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
-			KOFF_TIMEOUT);
-	WARN(rc <= 0, "cmd kickoff timed out (%d) ctl=%d\n", rc, ctl->num);
-
-	return 0;
-}
-
-int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
+static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	unsigned long flags;
 	int need_wait = 0;
-	int rc;
+	int rc = 0;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -377,11 +357,29 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 			__func__, need_wait, ctl->intf_num, ctx);
 
 	if (need_wait) {
-		rc = wait_for_completion_interruptible_timeout(
+		rc = wait_for_completion_timeout(
 				&ctx->pp_comp, KOFF_TIMEOUT);
 
-		WARN(rc <= 0, "cmd kickoff timed out (%d) ctl=%d\n",
+		if (rc <= 0) {
+			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
+			rc = -EPERM;
+		} else
+			rc = 0;
+	}
+
+	return rc;
+}
+
+int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
+{
+	struct mdss_mdp_cmd_ctx *ctx;
+	int rc;
+
+	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
 	}
 
 	if (ctx->panel_on == 0) {
@@ -456,6 +454,12 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
 	WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
 
+	ctl->stop_fnc = NULL;
+	ctl->display_fnc = NULL;
+	ctl->wait_pingpong = NULL;
+	ctl->add_vsync_handler = NULL;
+	ctl->remove_vsync_handler = NULL;
+
 	pr_debug("%s:-\n", __func__);
 
 	return 0;
@@ -519,7 +523,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 
 	ctl->stop_fnc = mdss_mdp_cmd_stop;
 	ctl->display_fnc = mdss_mdp_cmd_kickoff;
-	ctl->wait_fnc = mdss_mdp_cmd_wait4comp;
+	ctl->wait_pingpong = mdss_mdp_cmd_wait4pingpong;
 	ctl->add_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
 	ctl->remove_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
 
