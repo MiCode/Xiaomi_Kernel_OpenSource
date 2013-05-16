@@ -317,6 +317,25 @@ config ARCH_MPQ8092
 	select SPARSE_IRQ
 	select MSM_NOPM
 
+config ARCH_FSM9900
+	bool "FSM9900"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM
+	select MSM_GPIOMUX
+	select MULTI_IRQ_HANDLER
+	select MSM_PIL
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select REGULATOR
+	select ARM_HAS_SG_CHAIN
+	select MSM_RUN_QUEUE_STATS
+	select MSM_NOPM
+
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
 	select ARCH_MSM_SCORPION
@@ -1094,6 +1113,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
 	default "0x10000000" if ARCH_FSM9XXX
+	default "0x00000000" if ARCH_FSM9900
 	default "0x00200000" if ARCH_MSM9625
 	default "0x00000000" if ARCH_MSMKRYPTON
 	default "0x00200000" if !MSM_STACKED_MEMORY
@@ -1257,6 +1277,14 @@ choice
                 help
                   Say Y here if you want the debug print routines to direct
                   their output to the serial port on MSM9625 devices.
+
+	config DEBUG_FSM9900_UART
+		bool "Kernel low-level debugging messages via FSM9900 UART"
+		depends on ARCH_FSM9900
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on FSM9900 devices.
 endchoice
 
 choice
