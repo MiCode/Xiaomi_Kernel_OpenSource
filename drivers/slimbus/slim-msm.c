@@ -283,6 +283,25 @@ enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
 	return SLIM_P_INPROGRESS;
 }
 
+static void msm_slim_port_cb(struct sps_event_notify *ev)
+{
+
+	struct completion *comp = ev->data.transfer.user;
+	struct sps_iovec *iovec = &ev->data.transfer.iovec;
+
+	if (ev->event_id == SPS_EVENT_DESC_DONE) {
+
+		pr_debug("desc done iovec = (0x%x 0x%x 0x%x)\n",
+			iovec->addr, iovec->size, iovec->flags);
+
+	} else {
+		pr_err("%s: ERR event %d\n",
+					__func__, ev->event_id);
+	}
+	if (comp)
+		complete(comp);
+}
+
 int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 			u32 len, struct completion *comp)
 {
@@ -293,18 +312,17 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 		return -ENODEV;
 
 
-	ctrl->ports[pn].xcomp = comp;
 	sreg.options = (SPS_EVENT_DESC_DONE|SPS_EVENT_ERROR);
 	sreg.mode = SPS_TRIGGER_WAIT;
-	sreg.xfer_done = comp;
-	sreg.callback = NULL;
-	sreg.user = &ctrl->ports[pn];
+	sreg.xfer_done = NULL;
+	sreg.callback = msm_slim_port_cb;
+	sreg.user = NULL;
 	ret = sps_register_event(dev->pipes[pn].sps, &sreg);
 	if (ret) {
 		dev_dbg(dev->dev, "sps register event error:%x\n", ret);
 		return ret;
 	}
-	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, NULL,
+	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, comp,
 				SPS_IOVEC_FLAG_INT);
 	dev_dbg(dev->dev, "sps submit xfer error code:%x\n", ret);
 	if (!ret) {
