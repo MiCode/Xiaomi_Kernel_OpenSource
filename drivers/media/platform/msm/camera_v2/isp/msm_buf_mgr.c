@@ -420,7 +420,7 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 
 static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle, uint32_t buf_index,
-	struct timeval *tv, uint32_t frame_id)
+	struct timeval *tv, uint32_t frame_id, uint32_t output_format)
 {
 	int rc = -1;
 	unsigned long flags;
@@ -467,6 +467,7 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		} else {
 			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
 			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
+			buf_info->vb2_buf->v4l2_buf.reserved = output_format;
 			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
 		}
@@ -577,7 +578,7 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 			else
 				rc = msm_isp_buf_done(buf_mgr,
 					info->handle, info->buf_idx,
-					buf_info->tv, buf_info->frame_id);
+					buf_info->tv, buf_info->frame_id, 0);
 		}
 	} else {
 		bufq = msm_isp_get_bufq(buf_mgr, info->handle);

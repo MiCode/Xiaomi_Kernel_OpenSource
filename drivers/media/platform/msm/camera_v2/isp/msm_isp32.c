@@ -638,6 +638,7 @@ static void msm_vfe32_axi_cfg_wm_xbar_reg(
 		} else {
 			switch (stream_info->output_format) {
 			case V4L2_PIX_FMT_NV12:
+			case V4L2_PIX_FMT_NV14:
 			case V4L2_PIX_FMT_NV16:
 				xbar_cfg |= 0x3 << 3; /*PAIR_STREAM_SWAP_CTRL*/
 				break;

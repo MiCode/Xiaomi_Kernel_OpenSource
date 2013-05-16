@@ -62,6 +62,7 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
 			bufs->vb2_buf->v4l2_buf.sequence  = buf_info->frame_id;
 			bufs->vb2_buf->v4l2_buf.timestamp = buf_info->timestamp;
+			bufs->vb2_buf->v4l2_buf.reserved = 0;
 			ret = buf_mngr_dev->vb2_ops.buf_done
 					(bufs->vb2_buf,
 						buf_info->session_id,
