@@ -2962,9 +2962,14 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 		D("open event for '%s'\n", xprt->name);
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_xprt_work),
 				GFP_ATOMIC);
-		xprt_work->xprt = xprt;
-		INIT_WORK(&xprt_work->work, xprt_open_worker);
-		queue_work(msm_ipc_router_workqueue, &xprt_work->work);
+		if (xprt_work) {
+			xprt_work->xprt = xprt;
+			INIT_WORK(&xprt_work->work, xprt_open_worker);
+			queue_work(msm_ipc_router_workqueue, &xprt_work->work);
+		} else {
+			pr_err("%s: malloc failure - Couldn't notify OPEN event",
+				__func__);
+		}
 		break;
 
 	case IPC_ROUTER_XPRT_EVENT_CLOSE:
@@ -2972,9 +2977,14 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 		atomic_inc(&pending_close_count);
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_xprt_work),
 				GFP_ATOMIC);
-		xprt_work->xprt = xprt;
-		INIT_WORK(&xprt_work->work, xprt_close_worker);
-		queue_work(msm_ipc_router_workqueue, &xprt_work->work);
+		if (xprt_work) {
+			xprt_work->xprt = xprt;
+			INIT_WORK(&xprt_work->work, xprt_close_worker);
+			queue_work(msm_ipc_router_workqueue, &xprt_work->work);
+		} else {
+			pr_err("%s: malloc failure - Couldn't notify CLOSE event",
+				__func__);
+		}
 		break;
 	}
 
