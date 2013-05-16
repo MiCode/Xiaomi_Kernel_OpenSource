@@ -27,15 +27,11 @@ int msm_isp_validate_axi_request(
 
 void msm_isp_axi_reserve_wm(
 	struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
-
-void msm_isp_axi_reserve_rdi(
-	struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
+	struct msm_vfe_axi_stream *stream_info);
 
 void msm_isp_axi_reserve_comp_mask(
 	struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
+	struct msm_vfe_axi_stream *stream_info);
 
 int msm_isp_axi_check_stream_state(
 	struct vfe_device *vfe_dev,
