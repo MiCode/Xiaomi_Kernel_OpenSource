@@ -674,7 +674,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	list_del(&private->list);
 	mutex_unlock(&kgsl_driver.process_mutex);
 
-	if (private->kobj.parent)
+	if (private->kobj.ktype)
 		kgsl_process_uninit_sysfs(private);
 	if (private->debug_root)
 		debugfs_remove_recursive(private->debug_root);
@@ -791,7 +791,7 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 		}
 	}
 
-	if (!private->kobj.parent)
+	if (!private->kobj.ktype)
 		kgsl_process_init_sysfs(private);
 	if (!private->debug_root)
 		kgsl_process_init_debugfs(private);
