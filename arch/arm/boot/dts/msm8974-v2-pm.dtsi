@@ -190,9 +190,9 @@
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
 			qcom,latency-us = <1>;
-			qcom,ss-power = <784>;
-			qcom,energy-overhead = <190000>;
-			qcom,time-overhead = <100>;
+			qcom,ss-power = <715>;
+			qcom,energy-overhead = <17700>;
+			qcom,time-overhead = <2>;
 		};
 
 		qcom,lpm-level@1 {
@@ -206,10 +206,10 @@
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
-			qcom,latency-us = <75>;
-			qcom,ss-power = <735>;
-			qcom,energy-overhead = <77341>;
-			qcom,time-overhead = <105>;
+			qcom,latency-us = <35>;
+			qcom,ss-power = <542>;
+			qcom,energy-overhead = <34920>;
+			qcom,time-overhead = <40>;
 		};
 
 
@@ -224,10 +224,10 @@
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
-			qcom,latency-us = <95>;
-			qcom,ss-power = <725>;
-			qcom,energy-overhead = <99500>;
-			qcom,time-overhead = <130>;
+			qcom,latency-us = <300>;
+			qcom,ss-power = <476>;
+			qcom,energy-overhead = <225300>;
+			qcom,time-overhead = <350>;
 		};
 
 		qcom,lpm-level@3 {
@@ -241,10 +241,10 @@
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
-			qcom,latency-us = <2000>;
-			qcom,ss-power = <138>;
-			qcom,energy-overhead = <1208400>;
-			qcom,time-overhead = <3200>;
+			qcom,latency-us = <2817>;
+			qcom,ss-power = <163>;
+			qcom,energy-overhead = <1577736>;
+			qcom,time-overhead = <5067>;
 		};
 
 		qcom,lpm-level@4 {
@@ -258,29 +258,14 @@
 			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
-			qcom,latency-us = <3000>;
-			qcom,ss-power = <110>;
-			qcom,energy-overhead = <1250300>;
-			qcom,time-overhead = <3500>;
+			qcom,latency-us = <3922>;
+			qcom,ss-power = <83>;
+			qcom,energy-overhead = <2274420>;
+			qcom,time-overhead = <6605>;
 		};
 
 		qcom,lpm-level@5 {
 			reg = <0x5>;
-			qcom,mode = "pc";
-			qcom,xo = "xo_off";
-			qcom,l2 = "l2_cache_gdhs";
-			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
-			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
-			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
-			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
-			qcom,latency-us = <3000>;
-			qcom,ss-power = <68>;
-			qcom,energy-overhead = <1350200>;
-			qcom,time-overhead = <4000>;
-		};
-
-		qcom,lpm-level@6 {
-			reg = <0x6>;
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
@@ -288,14 +273,14 @@
 			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
 			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
-			qcom,latency-us = <10300>;
-			qcom,ss-power = <63>;
-			qcom,energy-overhead = <2128000>;
-			qcom,time-overhead = <18200>;
+			qcom,latency-us = <4922>;
+			qcom,ss-power = <68>;
+			qcom,energy-overhead = <2568180>;
+			qcom,time-overhead = <8812>;
 		};
 
-		qcom,lpm-level@7 {
-			reg = <0x7>;
+		qcom,lpm-level@6 {
+			reg = <0x6>;
 			qcom,mode= "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
@@ -303,14 +288,14 @@
 			qcom,vdd-mem-lower-bound = <950000>;  /* SVS SOC */
 			qcom,vdd-dig-upper-bound = <4>;  /* NORMAL */
 			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
-			qcom,latency-us = <18000>;
-			qcom,ss-power = <10>;
-			qcom,energy-overhead = <3202600>;
-			qcom,time-overhead = <27000>;
+			qcom,latency-us = <5890>;
+			qcom,ss-power = <60>;
+			qcom,energy-overhead = <2675900>;
+			qcom,time-overhead = <10140>;
 		};
 
-		qcom,lpm-level@8 {
-			reg = <0x8>;
+		qcom,lpm-level@7 {
+			reg = <0x7>;
 			qcom,mode= "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
@@ -318,10 +303,10 @@
 			qcom,vdd-mem-lower-bound = <675000>; /* RETENTION */
 			qcom,vdd-dig-upper-bound = <3>; /* SVS SOC */
 			qcom,vdd-dig-lower-bound = <1>; /* RETENTION */
-			qcom,latency-us = <20000>;
-			qcom,ss-power = <2>;
-			qcom,energy-overhead = <4252000>;
-			qcom,time-overhead = <32000>;
+			qcom,latency-us = <8500>;
+			qcom,ss-power = <18>;
+			qcom,energy-overhead = <3286600>;
+			qcom,time-overhead = <15760>;
 		};
 	};
 
