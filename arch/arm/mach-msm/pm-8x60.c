@@ -855,8 +855,10 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 	time = ktime_to_ns(ktime_get());
 
 	if (sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) {
+		int64_t ns = msm_pm_timer_enter_idle();
 		notify_rpm = true;
-		sleep_delay = (uint32_t)msm_pm_timer_enter_idle();
+		do_div(ns, NSEC_PER_SEC / SCLK_HZ);
+		sleep_delay = (uint32_t)ns;
 
 		if (sleep_delay == 0) /* 0 would mean infinite time */
 			sleep_delay = 1;
