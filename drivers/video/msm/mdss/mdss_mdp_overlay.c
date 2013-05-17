@@ -1549,7 +1549,8 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		}
 		break;
 	default:
-		pr_err("Unsupported request to MDP_PP IOCTL.\n");
+		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
+								mdp_pp.op);
 		ret = -EINVAL;
 		break;
 	}
