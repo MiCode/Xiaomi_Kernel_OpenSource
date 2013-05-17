@@ -191,6 +191,20 @@ void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
 	mb();
 }
 
+static void msm_slim_disconn_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
+{
+	struct msm_slim_endp *endpoint = &dev->pipes[pn];
+	struct sps_register_event sps_event;
+	writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn, (pn + dev->port_b),
+					dev->ver));
+	/* Make sure port register is updated */
+	mb();
+	memset(&sps_event, 0, sizeof(sps_event));
+	sps_register_event(endpoint->sps, &sps_event);
+	sps_disconnect(endpoint->sps);
+	dev->pipes[pn].connected = false;
+}
+
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 {
 	struct msm_slim_endp *endpoint = &dev->pipes[pn];
@@ -204,13 +218,23 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	cfg->options = SPS_O_DESC_DONE | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
 
-	if (dev->pipes[pn].connected) {
-		ret = sps_set_config(dev->pipes[pn].sps, cfg);
-		if (ret) {
-			dev_err(dev->dev, "sps pipe-port set config erro:%x\n",
-						ret);
-			return ret;
+	if (dev->pipes[pn].connected &&
+			dev->ctrl.ports[pn].state == SLIM_P_CFG) {
+		return -EISCONN;
+	} else if (dev->pipes[pn].connected) {
+		writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn, (pn + dev->port_b),
+						dev->ver));
+		/* Make sure port disabling goes through */
+		mb();
+		/* Is pipe already connected in desired direction */
+		if ((dev->ctrl.ports[pn].flow == SLIM_SRC &&
+			cfg->mode == SPS_MODE_DEST) ||
+			(dev->ctrl.ports[pn].flow == SLIM_SINK &&
+			 cfg->mode == SPS_MODE_SRC)) {
+			msm_hw_set_port(dev, pn + dev->port_b);
+			return 0;
 		}
+		msm_slim_disconn_pipe_port(dev, pn);
 	}
 
 	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->port_b),
@@ -233,9 +257,13 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 		cfg->mode = SPS_MODE_SRC;
 	}
 	/* Space for desciptor FIFOs */
-	cfg->desc.size = MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec);
-	cfg->config = SPS_CONFIG_DEFAULT;
-	ret = sps_connect(dev->pipes[pn].sps, cfg);
+	ret = msm_slim_sps_mem_alloc(dev, &cfg->desc,
+				MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec));
+	if (ret)
+		pr_err("mem alloc for descr failed:%d", ret);
+	else
+		ret = sps_connect(dev->pipes[pn].sps, cfg);
+
 	if (!ret) {
 		dev->pipes[pn].connected = true;
 		msm_hw_set_port(dev, pn + dev->port_b);
@@ -258,6 +286,22 @@ int msm_config_port(struct slim_controller *ctrl, u8 pn)
 	ret = msm_slim_init_endpoint(dev, endpoint);
 	dev_dbg(dev->dev, "sps register bam error code:%x\n", ret);
 	return ret;
+}
+
+void msm_dealloc_port(struct slim_controller *ctrl, u8 pn)
+{
+	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	struct msm_slim_endp *endpoint;
+	if (pn >= (MSM_SLIM_NPORTS - dev->port_b))
+		return;
+	endpoint = &dev->pipes[pn];
+	if (dev->pipes[pn].connected)
+		msm_slim_disconn_pipe_port(dev, pn);
+	if (endpoint->sps) {
+		struct sps_connect *config = &endpoint->config;
+		msm_slim_free_endpoint(endpoint);
+		msm_slim_sps_mem_free(dev, &config->desc);
+	}
 }
 
 enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
@@ -820,6 +864,12 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 	if (dev->use_tx_msgqs >= MSM_MSGQ_ENABLED)
 		msm_slim_remove_ep(dev, &dev->tx_msgq, &dev->use_tx_msgqs);
 	if (dereg) {
+		int i;
+		for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
+			if (dev->pipes[i - dev->port_b].connected)
+				msm_dealloc_port(&dev->ctrl,
+						i - dev->port_b);
+		}
 		sps_deregister_bam_device(dev->bam.hdl);
 		dev->bam.hdl = 0L;
 	}
