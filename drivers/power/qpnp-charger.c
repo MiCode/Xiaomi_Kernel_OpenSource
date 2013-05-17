@@ -1153,7 +1153,6 @@ static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
 {
 	union power_supply_propval ret = {0,};
-	bool usb_online, dc_online;
 
 	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
 		return DEFAULT_CAPACITY;
@@ -1162,11 +1161,8 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 		chip->bms_psy->get_property(chip->bms_psy,
 			  POWER_SUPPLY_PROP_CAPACITY, &ret);
 		if (ret.intval == 0) {
-			usb_online = chip->usb_psy->get_property(chip->usb_psy,
-					  POWER_SUPPLY_PROP_ONLINE, &ret);
-			dc_online = chip->dc_psy.get_property(&chip->dc_psy,
-					  POWER_SUPPLY_PROP_ONLINE, &ret);
-			if (!usb_online && !dc_online)
+			if (!qpnp_chg_is_usb_chg_plugged_in(chip)
+				&& !qpnp_chg_is_usb_chg_plugged_in(chip))
 				pr_warn_ratelimited("Battery 0, CHG absent\n");
 		}
 		return ret.intval;
