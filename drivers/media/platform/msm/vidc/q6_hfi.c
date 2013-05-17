@@ -618,6 +618,21 @@ static int q6_hfi_session_abort(void *session)
 		HFI_CMD_SYS_SESSION_ABORT);
 }
 
+static int q6_hfi_session_clean(void *session)
+{
+	struct hal_session *sess_close;
+	if (!session) {
+		dprintk(VIDC_ERR, "Invalid Params %s", __func__);
+		return -EINVAL;
+	}
+	sess_close = session;
+	dprintk(VIDC_DBG, "deleted the session: 0x%x",
+			sess_close->session_id);
+	list_del(&sess_close->list);
+	kfree(sess_close);
+	return 0;
+}
+
 static int q6_hfi_session_set_buffers(void *sess,
 	struct vidc_buffer_addr_info *buffer_info)
 {
@@ -1364,6 +1379,7 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_init = q6_hfi_session_init;
 	hdev->session_end = q6_hfi_session_end;
 	hdev->session_abort = q6_hfi_session_abort;
+	hdev->session_clean = q6_hfi_session_clean;
 	hdev->session_set_buffers = q6_hfi_session_set_buffers;
 	hdev->session_release_buffers = q6_hfi_session_release_buffers;
 	hdev->session_load_res = q6_hfi_session_load_res;

@@ -1457,12 +1457,12 @@ static void *venus_hfi_session_init(void *device, u32 session_id,
 		goto err_session_init_fail;
 	}
 
-	if (venus_hfi_iface_cmdq_write(dev, &pkt))
-		goto err_session_init_fail;
 	if (venus_hfi_sys_set_debug(dev, msm_fw_debug))
 		dprintk(VIDC_ERR, "Setting fw_debug msg ON failed");
 	if (venus_hfi_sys_set_idle_message(dev, msm_fw_low_power_mode))
 		dprintk(VIDC_ERR, "Setting idle response ON failed");
+	if (venus_hfi_iface_cmdq_write(dev, &pkt))
+		goto err_session_init_fail;
 	return (void *) new_session;
 
 err_session_init_fail:
@@ -1507,6 +1507,21 @@ static int venus_hfi_session_abort(void *session)
 {
 	return venus_hfi_send_session_cmd(session,
 		HFI_CMD_SYS_SESSION_ABORT);
+}
+
+static int venus_hfi_session_clean(void *session)
+{
+	struct hal_session *sess_close;
+	if (!session) {
+		dprintk(VIDC_ERR, "Invalid Params %s", __func__);
+		return -EINVAL;
+	}
+	sess_close = session;
+	dprintk(VIDC_DBG, "deleted the session: 0x%p",
+			sess_close);
+	list_del(&sess_close->list);
+	kfree(sess_close);
+	return 0;
 }
 
 static int venus_hfi_session_set_buffers(void *sess,
@@ -2983,6 +2998,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_init = venus_hfi_session_init;
 	hdev->session_end = venus_hfi_session_end;
 	hdev->session_abort = venus_hfi_session_abort;
+	hdev->session_clean = venus_hfi_session_clean;
 	hdev->session_set_buffers = venus_hfi_session_set_buffers;
 	hdev->session_release_buffers = venus_hfi_session_release_buffers;
 	hdev->session_load_res = venus_hfi_session_load_res;
