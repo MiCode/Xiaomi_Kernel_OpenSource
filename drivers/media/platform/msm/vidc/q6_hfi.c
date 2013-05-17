@@ -362,17 +362,18 @@ err_fail_init_res:
 
 void q6_hfi_delete_device(void *device)
 {
-	struct q6_hfi_device *close, *dev;
+	struct q6_hfi_device *close, *tmp, *dev;
 
 	if (device) {
 		q6_hfi_deinit_resources(device);
 		dev = (struct q6_hfi_device *) device;
-		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
+		list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 			if (close->device_id == dev->device_id) {
 				hal_ctxt.dev_count--;
 				list_del(&close->list);
 				destroy_workqueue(close->vidc_workq);
 				kfree(close);
+				break;
 			}
 		}
 
