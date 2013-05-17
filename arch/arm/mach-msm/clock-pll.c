@@ -294,13 +294,7 @@ static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct pll_freq_tbl *nf;
 	struct pll_clk *pll = to_pll_clk(c);
-	u32 mode;
-
-	mode = readl_relaxed(PLL_MODE_REG(pll));
-
-	/* Don't change PLL's rate if it is enabled */
-	if ((mode & PLL_MODE_MASK) == PLL_MODE_MASK)
-		return -EBUSY;
+	unsigned long flags;
 
 	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END
 			&& nf->freq_hz != rate; nf++)
@@ -309,12 +303,24 @@ static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 	if (nf->freq_hz == PLL_FREQ_END)
 		return -EINVAL;
 
+	/*
+	 * Ensure PLL is off before changing rate. For optimization reasons,
+	 * assume no downstream clock is using actively using it.
+	 */
+	spin_lock_irqsave(&c->lock, flags);
+	if (c->count)
+		c->ops->disable(c);
+
 	writel_relaxed(nf->l_val, PLL_L_REG(pll));
 	writel_relaxed(nf->m_val, PLL_M_REG(pll));
 	writel_relaxed(nf->n_val, PLL_N_REG(pll));
 
 	__pll_config_reg(PLL_CONFIG_REG(pll), nf, &pll->masks);
 
+	if (c->count)
+		c->ops->enable(c);
+
+	spin_unlock_irqrestore(&c->lock, flags);
 	return 0;
 }
 
