@@ -1235,7 +1235,7 @@ static int epm_psoc_clear_buffer(struct epm_adc_drv *epm_adc)
 	if (rc)
 		return rc;
 
-	rc = rx_buf[2];
+	rc = rx_buf[1];
 
 	return rc;
 }
