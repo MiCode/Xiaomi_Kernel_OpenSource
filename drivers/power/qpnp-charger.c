@@ -680,8 +680,10 @@ qpnp_chg_vbatdet_lo_irq_handler(int irq, void *_chip)
 	}
 
 	power_supply_changed(chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
-	power_supply_changed(&chip->batt_psy);
+	if (chip->dc_chgpth_base)
+		power_supply_changed(&chip->dc_psy);
+	if (chip->bat_if_base)
+		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
 }
 
@@ -796,9 +798,11 @@ qpnp_chg_chgr_chg_failed_irq_handler(int irq, void *_chip)
 	if (rc)
 		pr_err("Failed to write chg_fail clear bit!\n");
 
-	power_supply_changed(&chip->batt_psy);
+	if (chip->bat_if_base)
+		power_supply_changed(&chip->batt_psy);
 	power_supply_changed(chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
+	if (chip->dc_chgpth_base)
+		power_supply_changed(&chip->dc_psy);
 	return IRQ_HANDLED;
 }
 
@@ -810,7 +814,8 @@ qpnp_chg_chgr_chg_trklchg_irq_handler(int irq, void *_chip)
 	pr_debug("TRKL IRQ triggered\n");
 
 	chip->chg_done = false;
-	power_supply_changed(&chip->batt_psy);
+	if (chip->bat_if_base)
+		power_supply_changed(&chip->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -822,9 +827,11 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 
 	pr_debug("FAST_CHG IRQ triggered\n");
 	chip->chg_done = false;
-	power_supply_changed(&chip->batt_psy);
+	if (chip->bat_if_base)
+		power_supply_changed(&chip->batt_psy);
 	power_supply_changed(chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
+	if (chip->dc_chgpth_base)
+		power_supply_changed(&chip->dc_psy);
 	enable_irq(chip->chg_vbatdet_lo_irq);
 
 	return IRQ_HANDLED;
