@@ -30,6 +30,7 @@
 #include "clock.h"
 #include "devices.h"
 #include "platsmp.h"
+#include "modem_notifier.h"
 
 static struct memtype_reserve apq8084_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -81,6 +82,7 @@ static void __init apq8084_early_memory(void)
  */
 void __init apq8084_add_drivers(void)
 {
+	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_clock_init(&msm8084_clock_init_data);
 }
