@@ -20,6 +20,7 @@
 };
 
 /include/ "apq8084-ion.dtsi"
+/include/ "apq8084-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
