@@ -715,6 +715,7 @@ static int __sched_grow(struct ocmem_req *req, bool can_block)
 	bool retry;
 	struct ocmem_region *spanned_r = NULL;
 	struct ocmem_region *overlap_r = NULL;
+	int rc = 0;
 
 	struct ocmem_req *matched_req = NULL;
 	struct ocmem_region *matched_region = NULL;
@@ -758,9 +759,10 @@ retry_next_step:
 	if (overlap_r == NULL) {
 		/* no conflicting regions, schedule this region */
 		zone->z_ops->free(zone, curr_start, curr_sz);
-		alloc_addr = zone->z_ops->allocate(zone, curr_sz + growth_sz);
+		rc = zone->z_ops->allocate(zone, curr_sz + growth_sz,
+								&alloc_addr);
 
-		if (alloc_addr < 0) {
+		if (rc) {
 			pr_err("ocmem: zone allocation operation failed\n");
 			goto internal_error;
 		}
@@ -924,6 +926,7 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 	struct ocmem_region *matched_region = NULL;
 	struct ocmem_region *region = NULL;
 	unsigned long alloc_addr = 0x0;
+	int rc =  0;
 
 	struct ocmem_zone *zone = get_zone(owner);
 
@@ -948,9 +951,9 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 		goto internal_error;
 	}
 
-	alloc_addr = zone->z_ops->allocate(zone, new_sz);
+	rc = zone->z_ops->allocate(zone, new_sz, &alloc_addr);
 
-	if (alloc_addr < 0) {
+	if (rc) {
 		pr_err("Zone Allocation operation failed\n");
 		goto internal_error;
 	}
@@ -1023,6 +1026,7 @@ static int __sched_allocate(struct ocmem_req *req, bool can_block,
 	enum client_prio prio = req->prio;
 	unsigned long alloc_addr = 0x0;
 	bool retry;
+	int rc = 0;
 
 	struct ocmem_region *spanned_r = NULL;
 	struct ocmem_region *overlap_r = NULL;
@@ -1069,9 +1073,9 @@ retry_next_step:
 
 	if (overlap_r == NULL) {
 		/* no conflicting regions, schedule this region */
-		alloc_addr = zone->z_ops->allocate(zone, sz);
+		rc = zone->z_ops->allocate(zone, sz, &alloc_addr);
 
-		if (alloc_addr < 0) {
+		if (rc) {
 			pr_err("Zone Allocation operation failed\n");
 			goto internal_error;
 		}
