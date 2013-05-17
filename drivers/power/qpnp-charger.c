@@ -25,6 +25,9 @@
 #include <linux/power_supply.h>
 #include <linux/bitops.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/of_regulator.h>
+#include <linux/regulator/machine.h>
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
@@ -92,8 +95,10 @@
 #define SEC_ACCESS				0xD0
 #define BAT_IF_VREF_BAT_THM_CTRL		0x4A
 #define BAT_IF_BPD_CTRL				0x48
-
+#define BOOST_VSET				0x41
+#define BOOST_ENABLE_CONTROL			0x46
 #define REG_OFFSET_PERP_SUBTYPE			0x05
+
 /* SMBB peripheral subtype values */
 #define SMBB_CHGR_SUBTYPE			0x01
 #define SMBB_BUCK_SUBTYPE			0x02
@@ -132,6 +137,7 @@
 #define REV_BST_DETECTED		BIT(0)
 #define BAT_THM_EN			BIT(1)
 #define BAT_ID_EN			BIT(0)
+#define BOOST_PWR_EN			BIT(7)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -187,6 +193,11 @@
 struct qpnp_chg_irq {
 	unsigned int		irq;
 	unsigned long		disabled;
+};
+
+struct qpnp_chg_regulator {
+	struct regulator_desc			rdesc;
+	struct regulator_dev			*rdev;
 };
 
 /**
@@ -296,6 +307,8 @@ struct qpnp_chg_chip {
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
 	struct wake_lock		eoc_wake_lock;
+	struct qpnp_chg_regulator	otg_vreg;
+	struct qpnp_chg_regulator	boost_vreg;
 };
 
 
@@ -423,6 +436,25 @@ qpnp_chg_is_otg_en_set(struct qpnp_chg_chip *chip)
 	pr_debug("usb otg en 0x%x\n", usb_otg_en);
 
 	return (usb_otg_en & USB_OTG_EN_BIT) ? 1 : 0;
+}
+
+static int
+qpnp_chg_is_boost_en_set(struct qpnp_chg_chip *chip)
+{
+	u8 boost_en_ctl;
+	int rc;
+
+	rc = qpnp_chg_read(chip, &boost_en_ctl,
+		chip->boost_base + BOOST_ENABLE_CONTROL, 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				chip->boost_base + BOOST_ENABLE_CONTROL, rc);
+		return rc;
+	}
+
+	pr_debug("boost en 0x%x\n", boost_en_ctl);
+
+	return (boost_en_ctl & BOOST_PWR_EN) ? 1 : 0;
 }
 
 static int
@@ -1242,21 +1274,6 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		chip->bms_psy = power_supply_get_by_name("bms");
 
 	chip->usb_psy->get_property(chip->usb_psy,
-			  POWER_SUPPLY_PROP_SCOPE, &ret);
-	if (ret.intval) {
-		if ((ret.intval == POWER_SUPPLY_SCOPE_SYSTEM)
-				&& !qpnp_chg_is_otg_en_set(chip)) {
-			switch_usb_to_host_mode(chip);
-			return;
-		}
-		if ((ret.intval == POWER_SUPPLY_SCOPE_DEVICE)
-				&& qpnp_chg_is_otg_en_set(chip)) {
-			switch_usb_to_charge_mode(chip);
-			return;
-		}
-	}
-
-	chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_ONLINE, &ret);
 
 	/* Only honour requests while USB is present */
@@ -1484,6 +1501,48 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 	return qpnp_chg_write(chip, &temp, chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
+#define BOOST_MIN_UV	4200000
+#define BOOST_MAX_UV	5500000
+#define BOOST_STEP_UV	50000
+#define BOOST_MIN	16
+#define N_BOOST_V	((BOOST_MAX_UV - BOOST_MIN_UV) / BOOST_STEP_UV + 1)
+static int
+qpnp_boost_vset(struct qpnp_chg_chip *chip, int voltage)
+{
+	u8 reg = 0;
+
+	if (voltage < BOOST_MIN_UV || voltage > BOOST_MAX_UV) {
+		pr_err("invalid voltage requested %d uV\n", voltage);
+		return -EINVAL;
+	}
+
+	reg = DIV_ROUND_UP(voltage - BOOST_MIN_UV, BOOST_STEP_UV) + BOOST_MIN;
+
+	pr_debug("voltage=%d setting %02x\n", voltage, reg);
+	return qpnp_chg_write(chip, &reg, chip->boost_base + BOOST_VSET, 1);
+}
+
+static int
+qpnp_boost_vget_uv(struct qpnp_chg_chip *chip)
+{
+	int rc;
+	u8 boost_reg;
+
+	rc = qpnp_chg_read(chip, &boost_reg,
+		 chip->boost_base + BOOST_VSET, 1);
+	if (rc) {
+		pr_err("failed to read BOOST_VSET rc=%d\n", rc);
+		return rc;
+	}
+
+	if (boost_reg < BOOST_MIN) {
+		pr_err("Invalid reading from 0x%x\n", boost_reg);
+		return -EINVAL;
+	}
+
+	return BOOST_MIN_UV + ((boost_reg - BOOST_MIN) * BOOST_STEP_UV);
+}
+
 /* JEITA compliance logic */
 static void
 qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
@@ -1545,6 +1604,123 @@ qpnp_batt_system_temp_level_set(struct qpnp_chg_chip *chip, int lvl_sel)
 		pr_err("Unsupported level selected %d\n", lvl_sel);
 	}
 }
+
+/* OTG regulator operations */
+static int
+qpnp_chg_regulator_otg_enable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return switch_usb_to_host_mode(chip);
+}
+
+static int
+qpnp_chg_regulator_otg_disable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return switch_usb_to_charge_mode(chip);
+}
+
+static int
+qpnp_chg_regulator_otg_is_enabled(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return qpnp_chg_is_otg_en_set(chip);
+}
+
+static int
+qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return qpnp_chg_masked_write(chip,
+		chip->boost_base + BOOST_ENABLE_CONTROL,
+		BOOST_PWR_EN,
+		BOOST_PWR_EN, 1);
+}
+
+/* Boost regulator operations */
+static int
+qpnp_chg_regulator_boost_disable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return qpnp_chg_masked_write(chip,
+		chip->boost_base + BOOST_ENABLE_CONTROL,
+		BOOST_PWR_EN,
+		0, 1);
+}
+
+static int
+qpnp_chg_regulator_boost_is_enabled(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return qpnp_chg_is_boost_en_set(chip);
+}
+
+static int
+qpnp_chg_regulator_boost_set_voltage(struct regulator_dev *rdev,
+		int min_uV, int max_uV, unsigned *selector)
+{
+	int uV = min_uV;
+	int rc;
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	if (uV < BOOST_MIN_UV && max_uV >= BOOST_MIN_UV)
+		uV = BOOST_MIN_UV;
+
+
+	if (uV < BOOST_MIN_UV || uV > BOOST_MAX_UV) {
+		pr_err("request %d uV is out of bounds\n", uV);
+		return -EINVAL;
+	}
+
+	*selector = DIV_ROUND_UP(uV - BOOST_MIN_UV, BOOST_STEP_UV);
+	if ((*selector * BOOST_STEP_UV + BOOST_MIN_UV) > max_uV) {
+		pr_err("no available setpoint [%d, %d] uV\n", min_uV, max_uV);
+		return -EINVAL;
+	}
+
+	rc = qpnp_boost_vset(chip, uV);
+
+	return rc;
+}
+
+static int
+qpnp_chg_regulator_boost_get_voltage(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return qpnp_boost_vget_uv(chip);
+}
+
+static int
+qpnp_chg_regulator_boost_list_voltage(struct regulator_dev *rdev,
+			unsigned selector)
+{
+	if (selector >= N_BOOST_V)
+		return 0;
+
+	return BOOST_MIN_UV + (selector * BOOST_STEP_UV);
+}
+
+static struct regulator_ops qpnp_chg_otg_reg_ops = {
+	.enable			= qpnp_chg_regulator_otg_enable,
+	.disable		= qpnp_chg_regulator_otg_disable,
+	.is_enabled		= qpnp_chg_regulator_otg_is_enabled,
+};
+
+static struct regulator_ops qpnp_chg_boost_reg_ops = {
+	.enable			= qpnp_chg_regulator_boost_enable,
+	.disable		= qpnp_chg_regulator_boost_disable,
+	.is_enabled		= qpnp_chg_regulator_boost_is_enabled,
+	.set_voltage		= qpnp_chg_regulator_boost_set_voltage,
+	.get_voltage		= qpnp_chg_regulator_boost_get_voltage,
+	.list_voltage		= qpnp_chg_regulator_boost_list_voltage,
+};
 
 #define CONSECUTIVE_COUNT	3
 static void
@@ -1933,6 +2109,8 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 {
 	int rc = 0;
 	u8 reg = 0;
+	struct regulator_init_data *init_data;
+	struct regulator_desc *rdesc;
 
 	switch (subtype) {
 	case SMBB_CHGR_SUBTYPE:
@@ -2049,6 +2227,38 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			}
 		}
 
+		init_data = of_get_regulator_init_data(chip->dev,
+						       spmi_resource->of_node);
+		if (!init_data) {
+			pr_err("unable to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		if (init_data->constraints.name) {
+			if (of_get_property(chip->dev->of_node,
+						"otg-parent-supply", NULL))
+				init_data->supply_regulator = "otg-parent";
+
+			rdesc			= &(chip->otg_vreg.rdesc);
+			rdesc->owner		= THIS_MODULE;
+			rdesc->type		= REGULATOR_VOLTAGE;
+			rdesc->ops		= &qpnp_chg_otg_reg_ops;
+			rdesc->name		= init_data->constraints.name;
+
+			init_data->constraints.valid_ops_mask
+				|= REGULATOR_CHANGE_STATUS;
+
+			chip->otg_vreg.rdev = regulator_register(rdesc,
+					chip->dev, init_data, chip,
+					spmi_resource->of_node);
+			if (IS_ERR(chip->otg_vreg.rdev)) {
+				rc = PTR_ERR(chip->otg_vreg.rdev);
+				if (rc != -EPROBE_DEFER)
+					pr_err("OTG reg failed, rc=%d\n", rc);
+				return rc;
+			}
+		}
+
 		rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + USB_OVP_CTL,
 			USB_VALID_DEB_20MS,
@@ -2074,6 +2284,38 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		break;
 	case SMBB_BOOST_SUBTYPE:
 	case SMBBP_BOOST_SUBTYPE:
+		init_data = of_get_regulator_init_data(chip->dev,
+					       spmi_resource->of_node);
+		if (!init_data) {
+			pr_err("unable to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		if (init_data->constraints.name) {
+			if (of_get_property(chip->dev->of_node,
+						"boost-parent-supply", NULL))
+				init_data->supply_regulator = "boost-parent";
+
+			rdesc			= &(chip->boost_vreg.rdesc);
+			rdesc->owner		= THIS_MODULE;
+			rdesc->type		= REGULATOR_VOLTAGE;
+			rdesc->ops		= &qpnp_chg_boost_reg_ops;
+			rdesc->name		= init_data->constraints.name;
+
+			init_data->constraints.valid_ops_mask
+				|= REGULATOR_CHANGE_STATUS
+					| REGULATOR_CHANGE_VOLTAGE;
+
+			chip->boost_vreg.rdev = regulator_register(rdesc,
+					chip->dev, init_data, chip,
+					spmi_resource->of_node);
+			if (IS_ERR(chip->boost_vreg.rdev)) {
+				rc = PTR_ERR(chip->boost_vreg.rdev);
+				if (rc != -EPROBE_DEFER)
+					pr_err("boost reg failed, rc=%d\n", rc);
+				return rc;
+			}
+		}
 		break;
 	case SMBB_MISC_SUBTYPE:
 	case SMBBP_MISC_SUBTYPE:
@@ -2337,7 +2579,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			chip->usb_chgpth_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
-				pr_err("Failed to init subtype 0x%x rc=%d\n",
+				if (rc != -EPROBE_DEFER)
+					pr_err("Failed to init subtype 0x%x rc=%d\n",
 						subtype, rc);
 				goto fail_chg_enable;
 			}
@@ -2356,7 +2599,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			chip->boost_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
-				pr_err("Failed to init subtype 0x%x rc=%d\n",
+				if (rc != -EPROBE_DEFER)
+					pr_err("Failed to init subtype 0x%x rc=%d\n",
 						subtype, rc);
 				goto fail_chg_enable;
 			}
@@ -2508,6 +2752,12 @@ qpnp_charger_remove(struct spmi_device *spmi)
 	}
 	cancel_work_sync(&chip->adc_measure_work);
 	cancel_delayed_work_sync(&chip->eoc_work);
+
+	if (chip->otg_vreg.rdev)
+		regulator_unregister(chip->otg_vreg.rdev);
+
+	if (chip->boost_vreg.rdev)
+		regulator_unregister(chip->boost_vreg.rdev);
 
 	dev_set_drvdata(&spmi->dev, NULL);
 	kfree(chip);
