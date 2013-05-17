@@ -91,6 +91,7 @@
 #define BUCK_TEST_SMBC_MODES			0xE6
 #define SEC_ACCESS				0xD0
 #define BAT_IF_VREF_BAT_THM_CTRL		0x4A
+#define BAT_IF_BPD_CTRL				0x48
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 /* SMBB peripheral subtype values */
@@ -126,7 +127,11 @@
 #define USB_VALID_DEB_20MS		0x03
 #define BUCK_VBAT_REG_NODE_SEL_BIT	BIT(0)
 #define VREF_BATT_THERM_FORCE_ON	0xC0
+#define BAT_IF_BPD_CTRL_SEL		0x03
 #define VREF_BAT_THM_ENABLED_FSM	0x80
+#define REV_BST_DETECTED		BIT(0)
+#define BAT_THM_EN			BIT(1)
+#define BAT_ID_EN			BIT(0)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -253,6 +258,7 @@ struct qpnp_chg_chip {
 	bool				batt_present;
 	bool				charging_disabled;
 	bool				use_default_batt_values;
+	unsigned int			bpd_detection;
 	unsigned int			max_bat_chg_current;
 	unsigned int			warm_bat_chg_ma;
 	unsigned int			cool_bat_chg_ma;
@@ -290,6 +296,25 @@ static struct of_device_id qpnp_charger_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
 	{}
 };
+
+#define BPD_MAX		3
+
+static const char *bpd_list[BPD_MAX] = {
+	"bpd_thm",
+	"bpd_id",
+	"bpd_thm_id",
+};
+
+static inline int
+get_bpd(const char *name)
+{
+	int i = 0;
+	for (i = 0 ; i < BPD_MAX; i++) {
+		if (strcmp(name, bpd_list[i]) == 0)
+			return i;
+	}
+	return -EINVAL;
+}
 
 static int
 qpnp_chg_read(struct qpnp_chg_chip *chip, u8 *val,
@@ -1853,7 +1878,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 				struct spmi_resource *spmi_resource)
 {
 	int rc = 0;
-	u8 reg;
+	u8 reg = 0;
 
 	switch (subtype) {
 	case SMBB_CHGR_SUBTYPE:
@@ -1932,6 +1957,20 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
 	case SMBCL_BAT_IF_SUBTYPE:
+		/* Select battery presence detection */
+		if (chip->bpd_detection == 1)
+			reg = BAT_ID_EN;
+		else if (chip->bpd_detection == 2)
+			reg = BAT_ID_EN | BAT_THM_EN;
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_BPD_CTRL,
+			BAT_IF_BPD_CTRL_SEL,
+			reg, 1);
+		if (rc) {
+			pr_debug("failed to chose BPD rc=%d\n", rc);
+			return rc;
+		}
 		/* Force on VREF_BAT_THM */
 		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
@@ -2031,6 +2070,7 @@ static int
 qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 {
 	int rc = 0;
+	const char *bpd;
 
 	OF_PROP_READ(chip, max_voltage_mv, "vddmax-mv", rc, 0);
 	OF_PROP_READ(chip, min_voltage_mv, "vinmin-mv", rc, 0);
@@ -2049,6 +2089,18 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	OF_PROP_READ(chip, tchg_mins, "tchg-mins", rc, 1);
 	if (rc)
 		return rc;
+
+	rc = of_property_read_string(chip->spmi->dev.of_node,
+		"qcom,bpd-detection", &bpd);
+	if (rc) {
+		pr_debug("no bpd-detection specified, ignored\n");
+	} else {
+		chip->bpd_detection = get_bpd(bpd);
+		if (chip->bpd_detection < 0) {
+			pr_err("failed to determine bpd schema %d\n", rc);
+			return rc;
+		}
+	}
 
 	/* Look up JEITA compliance parameters if cool and warm temp provided */
 	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
@@ -2361,8 +2413,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	if (qpnp_chg_is_usb_chg_plugged_in(chip))
 		power_supply_set_online(chip->usb_psy, 1);
 
-	pr_info("success chg_dis = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
+	pr_info("success chg_dis = %d, bpd = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
 			chip->charging_disabled,
+			chip->bpd_detection,
 			qpnp_chg_is_usb_chg_plugged_in(chip),
 			qpnp_chg_is_dc_chg_plugged_in(chip),
 			get_prop_batt_present(chip),
