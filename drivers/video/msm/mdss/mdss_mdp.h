@@ -496,6 +496,8 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 				struct mdss_ad_input *input, int wait);
 int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off);
+int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
+				struct mdss_calib_cfg *cfg);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 					  u32 type);

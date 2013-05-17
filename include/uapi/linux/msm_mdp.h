@@ -653,6 +653,12 @@ struct mdss_ad_input {
 	uint32_t output;
 };
 
+#define MDSS_CALIB_MODE_BL	0x1
+struct mdss_calib_cfg {
+	uint32_t ops;
+	uint32_t calib_mask;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
