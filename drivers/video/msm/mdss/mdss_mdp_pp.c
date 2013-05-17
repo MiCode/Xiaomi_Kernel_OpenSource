@@ -1055,6 +1055,10 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		if (ret < 0)
 			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
 	}
+	/* call calibration specific processing here */
+	if (ctl->mfd->calib_mode)
+		goto flush_exit;
+
 	/* nothing to update */
 	if ((!flags) && (!(opmode)) && (ret <= 0))
 		goto dspp_exit;
@@ -1145,6 +1149,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	if (pp_sts->pgc_sts & PP_STS_ENABLE)
 		opmode |= (1 << 22);
 
+flush_exit:
 	writel_relaxed(opmode, basel + MDSS_MDP_REG_DSPP_OP_MODE);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + dspp_num));
 	wmb();
@@ -3332,9 +3337,6 @@ end:
 	return ret;
 }
 
-
-
-
 int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 {
 	int ret = -1;
@@ -3357,4 +3359,15 @@ int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return ret;
+}
+
+int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
+				struct mdss_calib_cfg *cfg)
+{
+	if (!mdss_pp_res || !mfd)
+		return -EINVAL;
+	mutex_lock(&mdss_pp_mutex);
+	mfd->calib_mode = cfg->calib_mask;
+	mutex_unlock(&mdss_pp_mutex);
+	return 0;
 }
