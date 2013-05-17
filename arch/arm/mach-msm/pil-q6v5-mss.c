@@ -628,15 +628,8 @@ static int mss_start(const struct subsys_desc *desc)
 	if (ret)
 		return ret;
 	ret = pil_boot(&drv->desc);
-	if (ret) {
+	if (ret)
 		pil_shutdown(&drv->q6->desc);
-		/*
-		 * We know now that the unvote interrupt is not coming.
-		 * Remove the proxy votes immediately.
-		 */
-		if (drv->q6->desc.proxy_unvote_irq)
-			pil_q6v5_mss_remove_proxy_votes(&drv->q6->desc);
-	}
 	return ret;
 }
 
