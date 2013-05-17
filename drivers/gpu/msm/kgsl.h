@@ -238,6 +238,10 @@ void kgsl_trace_issueibcmds(struct kgsl_device *device, int id,
 		unsigned int timestamp, unsigned int flags,
 		int result, unsigned int type);
 
+int kgsl_open_device(struct kgsl_device *device);
+
+int kgsl_close_device(struct kgsl_device *device);
+
 #ifdef CONFIG_MSM_KGSL_DRM
 extern int kgsl_drm_init(struct platform_device *dev);
 extern void kgsl_drm_exit(void);

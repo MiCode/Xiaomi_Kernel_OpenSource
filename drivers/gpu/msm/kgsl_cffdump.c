@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -614,3 +614,37 @@ static void destroy_channel(void)
 	}
 }
 
+int kgsl_cff_dump_enable_set(void *data, u64 val)
+{
+	int ret = 0;
+	struct kgsl_device *device = (struct kgsl_device *)data;
+	/*
+	 * If CFF dump enabled then set active count to prevent device
+	 * from restarting because simulator cannot run device restarts
+	 */
+	if (!kgsl_cff_dump_enable && val) {
+		kgsl_cff_dump_enable = 1;
+		mutex_lock(&device->mutex);
+		ret = kgsl_open_device(device);
+		if (!ret) {
+			ret = kgsl_active_count_get(device);
+		mutex_unlock(&device->mutex);
+		if (ret)
+			kgsl_cff_dump_enable = 0;
+	}
+	if (kgsl_cff_dump_enable && !val) {
+		kgsl_cff_dump_enable = 0;
+		mutex_lock(&device->mutex);
+		ret = kgsl_close_device(device);
+		mutex_unlock(&device->mutex);
+	}
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_cff_dump_enable_set);
+
+int kgsl_cff_dump_enable_get(void *data, u64 *val)
+{
+	*val = kgsl_cff_dump_enable;
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_cff_dump_enable_get);
