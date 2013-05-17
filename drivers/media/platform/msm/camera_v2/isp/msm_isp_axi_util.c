@@ -745,7 +745,7 @@ static void msm_isp_update_camif_output_count(
 			&axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 		if (stream_info->stream_src >= RDI_INTF_0)
-			return;
+			continue;
 		if (stream_info->stream_src == PIX_ENCODER ||
 			stream_info->stream_src == PIX_VIEWFINDER ||
 			stream_info->stream_src == IDEAL_RAW) {
