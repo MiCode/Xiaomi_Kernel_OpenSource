@@ -29,11 +29,13 @@
 			qcom,masterp = <2>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "NoC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		mas-vfe {
@@ -47,6 +49,8 @@
 			qcom,ws = <10000>;
 			qcom,qport = <2>;
 			qcom,mas-hw-id = <11>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		mas-mdpe {
@@ -55,11 +59,13 @@
 			qcom,masterp = <4>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "NoC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,ws = <10000>;
 			qcom,qport = <7>;
 			qcom,mas-hw-id = <11>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		fab-bimc {
@@ -67,7 +73,7 @@
 			label = "fab-bimc";
 			qcom,gateway;
 			qcom,slavep = <16>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <16>;
 		};
@@ -77,7 +83,7 @@
 			label = "slv-camera-cfg";
 			qcom,slavep = <0>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <3>;
 		};
@@ -87,7 +93,7 @@
 			label = "slv-display-cfg";
 			qcom,slavep = <1>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <4>;
 		};
@@ -97,7 +103,7 @@
 			label = "slv-cpr-cfg";
 			qcom,slavep = <3>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <6>;
 		};
@@ -107,7 +113,7 @@
 			label = "slv-cpr-xpu-cfg";
 			qcom,slavep = <4>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <7>;
 		};
@@ -117,7 +123,7 @@
 			label = "slv-misc-cfg";
 			qcom,slavep = <6>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <8>;
 		};
@@ -127,7 +133,7 @@
 			label = "slv-misc-xpu-cfg";
 			qcom,slavep = <7>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <9>;
 		};
@@ -137,7 +143,7 @@
 			label = "slv-gfx3d-cfg";
 			qcom,slavep = <9>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <11>;
 		};
@@ -147,7 +153,7 @@
 			label = "slv-mmss-clk-cfg";
 			qcom,slavep = <11>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <12>;
 		};
@@ -157,7 +163,7 @@
 			label = "slv-mmss-clk-xpu-cfg";
 			qcom,slavep = <12>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <13>;
 		};
@@ -167,7 +173,7 @@
 			label = "slv-mnoc-mpu-cfg";
 			qcom,slavep = <13>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <14>;
 		};
@@ -177,7 +183,7 @@
 			label = "slv-onoc-mpu-cfg";
 			qcom,slavep = <14>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <15>;
 		};
@@ -187,7 +193,7 @@
 			label = "slv-service-mnoc";
 			qcom,slavep = <18>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <17>;
 		};
@@ -197,7 +203,7 @@
 			label = "slv-dsi-cfg";
 			qcom,slavep = <19>;
 			qcom,tier = <2>;
-			qcom,buswidth = <16>;
+			qcom,buswidth = <8>;
 			qcom,hw-sel = "NoC";
 			qcom,slv-hw-id = <19>;
 		};
@@ -272,8 +278,8 @@
 			qcom,mas-hw-id = <29>;
 			qcom,slv-hw-id = <28>;
 			qcom,mode = "Fixed";
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
+			qcom,prio0 = <2>;
+			qcom,prio1 = <2>;
 		};
 
 		fab-ovnoc {
@@ -291,6 +297,9 @@
 			qcom,masterp = <5>;
 			qcom,tier = <2>;
 			qcom,mas-hw-id = <23>;
+			qcom,hw-sel = "NoC";
+			qcom,prio0 = <1>;
+			qcom,prio1 = <1>;
 		};
 
 		mas-mss {
@@ -899,6 +908,7 @@
 			qcom,mas-hw-id = <0>;
 			qcom,prio-rd = <1>;
 			qcom,prio-wr = <1>;
+			qcom,prio-lvl = <1>;
 		};
 
 		mas-mss-proc {
@@ -943,8 +953,8 @@
 			qcom,qport = <4>;
 			qcom,mas-hw-id = <25>;
 			qcom,mode = "Fixed";
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio0 = <1>;
+			qcom,prio1 = <1>;
 		};
 
 		mas-gfx3d {
@@ -952,13 +962,11 @@
 			label = "mas-gfx3d";
 			qcom,masterp = <5>;
 			qcom,tier = <2>;
-			qcom,hw-sel = "NoC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,hw-sel = "BIMC";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,ws = <10000>;
 			qcom,qport = <5>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
 			qcom,mas-hw-id = <6>;
 		};
 
