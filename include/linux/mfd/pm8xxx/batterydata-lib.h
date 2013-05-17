@@ -18,10 +18,10 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
-#define PC_CC_ROWS             29
+#define PC_CC_ROWS             31
 #define PC_CC_COLS             13
 
-#define PC_TEMP_ROWS		29
+#define PC_TEMP_ROWS		31
 #define PC_TEMP_COLS		8
 
 #define MAX_SINGLE_LUT_COLS	20
@@ -74,6 +74,7 @@ enum battery_type {
 	BATT_PALLADIUM,
 	BATT_DESAY,
 	BATT_OEM,
+	BATT_QRD_4V35_2000MAH,
 };
 
 /**
@@ -114,6 +115,7 @@ struct bms_battery_data {
 extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
 extern struct bms_battery_data  oem_batt_data;
+extern struct bms_battery_data QRD_4v35_2000mAh_data;
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);
