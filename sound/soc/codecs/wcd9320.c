@@ -294,6 +294,7 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 #define NUM_INTERPOLATORS 7
 #define BITS_PER_REG 8
 #define TAIKO_TX_PORT_NUMBER	16
+#define TAIKO_RX_PORT_START_NUMBER	16
 
 #define TAIKO_I2S_MASTER_MODE_MASK 0x08
 
@@ -409,19 +410,19 @@ struct hpf_work {
 static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
 static const struct wcd9xxx_ch taiko_rx_chs[TAIKO_RX_MAX] = {
-	WCD9XXX_CH(16, 0),
-	WCD9XXX_CH(17, 1),
-	WCD9XXX_CH(18, 2),
-	WCD9XXX_CH(19, 3),
-	WCD9XXX_CH(20, 4),
-	WCD9XXX_CH(21, 5),
-	WCD9XXX_CH(22, 6),
-	WCD9XXX_CH(23, 7),
-	WCD9XXX_CH(24, 8),
-	WCD9XXX_CH(25, 9),
-	WCD9XXX_CH(26, 10),
-	WCD9XXX_CH(27, 11),
-	WCD9XXX_CH(28, 12),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER, 0),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 1, 1),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 2, 2),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 3, 3),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 4, 4),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 5, 5),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 6, 6),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 7, 7),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 8, 8),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 9, 9),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 10, 10),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 11, 11),
+	WCD9XXX_CH(TAIKO_RX_PORT_START_NUMBER + 12, 12),
 };
 
 static const struct wcd9xxx_ch taiko_tx_chs[TAIKO_TX_MAX] = {
@@ -2042,11 +2043,10 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 						vtable,
 						port_id,
 						taiko_p->dai)) {
-					pr_debug("%s: TX%u is used by other\n"
-						"virtual port\n",
+					dev_dbg(codec->dev, "%s: TX%u is used by other virtual port\n",
 						__func__, port_id + 1);
 					mutex_unlock(&codec->mutex);
-					return -EINVAL;
+					return 0;
 				}
 				widget->value |= 1 << port_id;
 				list_add_tail(&core->tx_chs[port_id].list,
@@ -2057,11 +2057,11 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 				list_del_init(&core->tx_chs[port_id].list);
 			} else {
 				if (enable)
-					pr_debug("%s: TX%u port is used by\n"
+					dev_dbg(codec->dev, "%s: TX%u port is used by\n"
 						"this virtual port\n",
 						__func__, port_id + 1);
 				else
-					pr_debug("%s: TX%u port is not used by\n"
+					dev_dbg(codec->dev, "%s: TX%u port is not used by\n"
 						"this virtual port\n",
 						__func__, port_id + 1);
 				/* avoid update power function */
@@ -2130,23 +2130,35 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		list_del_init(&core->rx_chs[port_id].list);
 	break;
 	case 1:
-		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list))
-			goto pr_err;
+		if (wcd9xxx_rx_vport_validation(port_id +
+			TAIKO_RX_PORT_START_NUMBER,
+			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id + 1);
+			goto rtn;
+		}
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF1_PB].wcd9xxx_ch_list);
 	break;
 	case 2:
-		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF2_PB].wcd9xxx_ch_list))
-			goto pr_err;
+		if (wcd9xxx_rx_vport_validation(port_id +
+			TAIKO_RX_PORT_START_NUMBER,
+			&taiko_p->dai[AIF2_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id + 1);
+			goto rtn;
+		}
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF2_PB].wcd9xxx_ch_list);
 	break;
 	case 3:
-		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF3_PB].wcd9xxx_ch_list))
-			goto pr_err;
+		if (wcd9xxx_rx_vport_validation(port_id +
+			TAIKO_RX_PORT_START_NUMBER,
+			&taiko_p->dai[AIF3_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id + 1);
+			goto rtn;
+		}
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF3_PB].wcd9xxx_ch_list);
 	break;
@@ -2154,14 +2166,11 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		pr_err("Unknown AIF %d\n", widget->value);
 		goto err;
 	}
-
+rtn:
 	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, widget->value, e);
 
 	mutex_unlock(&codec->mutex);
 	return 0;
-pr_err:
-	pr_err("%s: RX%u is used by current requesting AIF_PB itself\n",
-		__func__, port_id + 1);
 err:
 	mutex_unlock(&codec->mutex);
 	return -EINVAL;

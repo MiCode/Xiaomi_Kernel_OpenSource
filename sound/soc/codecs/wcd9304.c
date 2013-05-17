@@ -45,6 +45,7 @@
 #define NUM_DECIMATORS 4
 #define NUM_INTERPOLATORS 3
 #define BITS_PER_REG 8
+#define SITAR_RX_PORT_START_NUMBER 10
 
 enum {
 	AIF1_PB = 0,
@@ -53,11 +54,11 @@ enum {
 };
 
 struct wcd9xxx_ch sitar_rx_chs[SITAR_RX_MAX] = {
-	WCD9XXX_CH(10, 0),
-	WCD9XXX_CH(11, 1),
-	WCD9XXX_CH(12, 2),
-	WCD9XXX_CH(13, 3),
-	WCD9XXX_CH(14, 4)
+	WCD9XXX_CH(SITAR_RX_PORT_START_NUMBER, 0),
+	WCD9XXX_CH(SITAR_RX_PORT_START_NUMBER + 1, 1),
+	WCD9XXX_CH(SITAR_RX_PORT_START_NUMBER + 2, 2),
+	WCD9XXX_CH(SITAR_RX_PORT_START_NUMBER + 3, 3),
+	WCD9XXX_CH(SITAR_RX_PORT_START_NUMBER + 4, 4)
 };
 
 struct wcd9xxx_ch sitar_tx_chs[SITAR_TX_MAX] = {
@@ -1368,10 +1369,10 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 						vport_check_table[dai_id],
 						port_id,
 						sitar_p->dai)) {
-				pr_info("%s: TX%u is used by other virtual port\n",
+				dev_dbg(codec->dev, "%s: TX%u is used by other virtual port\n",
 					__func__, port_id + 1);
 				mutex_unlock(&codec->mutex);
-				return -EINVAL;
+				return 0;
 			}
 			widget->value |= 1 << port_id;
 			list_add_tail(&core->tx_chs[port_id].list,
@@ -1381,10 +1382,10 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			list_del_init(&core->tx_chs[port_id].list);
 		} else {
 			if (enable)
-				pr_info("%s: TX%u port is used by this virtual port\n",
+				dev_dbg(codec->dev, "%s: TX%u port is used by this virtual port\n",
 					__func__, port_id + 1);
 			else
-				pr_info("%s: TX%u port is not used by this virtual port\n",
+				dev_dbg(codec->dev, "%s: TX%u port is not used by this virtual port\n",
 					__func__, port_id + 1);
 			/* avoid update power function */
 			mutex_unlock(&codec->mutex);
@@ -1446,9 +1447,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		list_del_init(&core->rx_chs[port_id].list);
 		break;
 	case 1:
-		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&sitar_p->dai[AIF1_PB].wcd9xxx_ch_list))
-			goto pr_err;
+		if (wcd9xxx_rx_vport_validation(port_id +
+			SITAR_RX_PORT_START_NUMBER,
+			&sitar_p->dai[AIF1_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id + 1);
+			goto rtn;
+		}
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &sitar_p->dai[AIF1_PB].wcd9xxx_ch_list);
 		break;
@@ -1458,14 +1463,10 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		goto err;
 	}
 
-
+rtn:
 	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, widget->value, e);
-
 	mutex_unlock(&codec->mutex);
 	return 0;
-pr_err:
-	pr_err("%s: RX%u is used by current requesting AIF_PB itself\n",
-		__func__, port_id + 1);
 err:
 	mutex_unlock(&codec->mutex);
 	return -EINVAL;
