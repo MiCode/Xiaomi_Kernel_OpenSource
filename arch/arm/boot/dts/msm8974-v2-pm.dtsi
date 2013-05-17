@@ -428,6 +428,17 @@
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
 
+		qcom,pm-snoc-client {
+			compatible = "qcom,pm-snoc-client";
+			qcom,msm-bus,name = "ocimem_snoc";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<54 585 0 0>,
+				<54 585 0 800000>;
+		};
+
 		qcom,cpu-sleep-status@f9088008{
 			compatible = "qcom,cpu-sleep-status";
 			reg = <0xf9088008 0x100>;
