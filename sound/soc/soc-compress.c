@@ -227,7 +227,7 @@ static int soc_compr_set_params(struct snd_compr_stream *cstream,
 				SND_SOC_DAPM_STREAM_START);
 
 	/* cancel any delayed stream shutdown that is pending */
-	rtd->pop_wait = 0;
+	codec_dai->pop_wait = 0;
 	mutex_unlock(&rtd->pcm_mutex);
 
 	cancel_delayed_work_sync(&rtd->delayed_work);
