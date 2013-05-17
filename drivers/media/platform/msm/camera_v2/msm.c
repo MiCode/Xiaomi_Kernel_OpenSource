@@ -413,6 +413,7 @@ void msm_delete_command_ack_q(unsigned int session_id, unsigned int stream_id)
 
 	spin_lock_irqsave(&(session->command_ack_q.lock), flags);
 	list_del_init(&cmd_ack->list);
+	kzfree(cmd_ack);
 	session->command_ack_q.len--;
 	spin_unlock_irqrestore(&(session->command_ack_q.lock), flags);
 }
