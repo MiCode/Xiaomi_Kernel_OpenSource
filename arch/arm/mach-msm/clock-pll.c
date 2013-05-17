@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/remote_spinlock.h>
 
 #include <mach/scm-io.h>
@@ -262,11 +263,31 @@ static enum handoff local_pll_clk_handoff(struct clk *c)
 	struct pll_clk *pll = to_pll_clk(c);
 	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
 	u32 mask = PLL_BYPASSNL | PLL_RESET_N | PLL_OUTCTRL;
+	unsigned long parent_rate;
+	u32 lval, mval, nval, userval;
 
-	if ((mode & mask) == mask)
+	if ((mode & mask) != mask)
+		return HANDOFF_DISABLED_CLK;
+
+	/* Assume bootloaders configure PLL to c->rate */
+	if (c->rate)
 		return HANDOFF_ENABLED_CLK;
 
-	return HANDOFF_DISABLED_CLK;
+	parent_rate = clk_get_rate(c->parent);
+	lval = readl_relaxed(PLL_L_REG(pll));
+	mval = readl_relaxed(PLL_M_REG(pll));
+	nval = readl_relaxed(PLL_N_REG(pll));
+	userval = readl_relaxed(PLL_CONFIG_REG(pll));
+
+	c->rate = parent_rate * lval;
+
+	if (pll->masks.mn_en_mask && userval) {
+		if (!nval)
+			nval = 1;
+		c->rate += (parent_rate * mval) / nval;
+	}
+
+	return HANDOFF_ENABLED_CLK;
 }
 
 static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
