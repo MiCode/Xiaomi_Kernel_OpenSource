@@ -1583,10 +1583,7 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	for (i = 0; i < transfer->iovec_count; i++) {
 		u32 flags = iovec->flags;
 
-		if (iovec->addr == 0) {
-			SPS_ERR("sps:%s:iovec address is invalid.\n", __func__);
-			return SPS_ERROR;
-		} else if (iovec->size > SPS_IOVEC_MAX_SIZE) {
+		if (iovec->size > SPS_IOVEC_MAX_SIZE) {
 			SPS_ERR("sps:%s:iovec size is invalid.\n", __func__);
 			return SPS_ERROR;
 		}
