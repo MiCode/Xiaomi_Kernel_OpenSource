@@ -75,7 +75,7 @@ static struct gpiomux_setting lcd_en_act_cfg = {
 static struct gpiomux_setting lcd_en_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting gpio_keys_active = {
