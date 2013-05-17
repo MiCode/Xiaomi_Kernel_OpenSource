@@ -1706,6 +1706,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	int			ret = 0;
 	u32			reg;
 
+	pm_runtime_get_sync(dwc->dev);
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver) {
@@ -1765,6 +1766,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	dwc3_ep0_out_start(dwc);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	pm_runtime_put(dwc->dev);
 
 	return 0;
 
@@ -1773,6 +1775,7 @@ err1:
 
 err0:
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	pm_runtime_put(dwc->dev);
 
 	return ret;
 }
