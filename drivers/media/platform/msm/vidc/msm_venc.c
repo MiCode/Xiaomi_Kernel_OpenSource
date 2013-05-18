@@ -787,11 +787,10 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 		if (*num_buffers > VIDEO_MAX_FRAME) {
 			dprintk(VIDC_ERR,
-					"Failed : No of slices requested = %d"\
-					" Max supported slices = %d",
-					*num_buffers, VIDEO_MAX_FRAME);
-			rc = -EINVAL;
-			break;
+				"Changing buffers requested, from %d to max"\
+				" supported (%d) best effort encoding\n",
+				*num_buffers, VIDEO_MAX_FRAME);
+			*num_buffers = VIDEO_MAX_FRAME;
 		}
 		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 				V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
