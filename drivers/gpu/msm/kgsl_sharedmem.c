@@ -598,7 +598,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			gfp_mask |= __GFP_COMP | __GFP_NORETRY |
 				__GFP_NO_KSWAPD | __GFP_NOWARN;
 		else
-			gfp_mask |= GFP_KERNEL | __GFP_NORETRY;
+			gfp_mask |= GFP_KERNEL;
 
 		page = alloc_pages(gfp_mask, get_order(page_size));
 
