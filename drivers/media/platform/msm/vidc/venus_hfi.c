@@ -2953,12 +2953,12 @@ err_fail_init_res:
 
 void venus_hfi_delete_device(void *device)
 {
-	struct venus_hfi_device *close, *dev;
+	struct venus_hfi_device *close, *tmp, *dev;
 
 	if (device) {
 		venus_hfi_deinit_resources(device);
 		dev = (struct venus_hfi_device *) device;
-		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
+		list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 			if (close->hal_data->irq == dev->hal_data->irq) {
 				hal_ctxt.dev_count--;
 				free_irq(dev->hal_data->irq, close);
