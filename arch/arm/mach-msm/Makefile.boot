@@ -105,3 +105,6 @@ initrd_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x12000000
    zreladdr-$(CONFIG_ARCH_MSM8610)	:= 0x00008000
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-rumi.dtb
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-sim.dtb
+
+# MSMSAMARIUM
+   zreladdr-$(CONFIG_ARCH_MSMSAMARIUM)	:= 0x00008000
