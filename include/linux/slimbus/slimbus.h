@@ -511,8 +511,11 @@ enum slim_clk_state {
  * @wakeup: This function pointer implements controller-specific procedure
  *	to wake it up from clock-pause. Framework will call this to bring
  *	the controller out of clock pause.
- * @config_port: Configure a port and make it ready for data transfer. This is
- *	called by framework after connect_port message is sent successfully.
+ * @alloc_port: Allocate a port and make it ready for data transfer. This is
+ *	called by framework to make sure controller can take necessary steps
+ *	to initialize its port
+ * @dealloc_port: Counter-part of alloc_port. This is called by framework so
+ *	that controller can free resources associated with this port
  * @framer_handover: If this controller has multiple framers, this API will
  *	be called to switch between framers if controller desires to change
  *	the active framer.
@@ -557,7 +560,9 @@ struct slim_controller {
 	int			(*get_laddr)(struct slim_controller *ctrl,
 				const u8 *ea, u8 elen, u8 *laddr);
 	int			(*wakeup)(struct slim_controller *ctrl);
-	int			(*config_port)(struct slim_controller *ctrl,
+	int			(*alloc_port)(struct slim_controller *ctrl,
+				u8 port);
+	void			(*dealloc_port)(struct slim_controller *ctrl,
 				u8 port);
 	int			(*framer_handover)(struct slim_controller *ctrl,
 				struct slim_framer *new_framer);
@@ -795,6 +800,8 @@ extern enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb,
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if source is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid direction is specified for non-manager port,
+ * or if the manager side port number is out of bounds, or in incorrect state
  */
 extern int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh);
 
@@ -808,6 +815,9 @@ extern int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh);
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if sink is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid parameters are passed, or invalid direction is
+ * specified for non-manager port, or if the manager side port number is out of
+ * bounds, or in incorrect state
  */
 extern int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink,
 				u16 chanh);
