@@ -13,6 +13,9 @@
 #include <linux/delay.h>
 #include "ipa_i.h"
 
+#define IPA_A2_HOLB_TMR_EN 0x1
+#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0xff
+
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
@@ -175,6 +178,38 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 	return 0;
 }
 
+static void ipa_program_holb(struct ipa_ep_context *ep, int ipa_ep_idx)
+{
+	u32 hol_en;
+	u32 hol_tmr;
+
+	if (IPA_CLIENT_IS_PROD(ep->client))
+		return;
+
+	switch (ep->client) {
+	case IPA_CLIENT_HSIC1_CONS:
+	case IPA_CLIENT_HSIC2_CONS:
+	case IPA_CLIENT_HSIC3_CONS:
+	case IPA_CLIENT_HSIC4_CONS:
+		hol_en = ipa_ctx->hol_en;
+		hol_tmr = ipa_ctx->hol_timer;
+		break;
+	case IPA_CLIENT_A2_TETHERED_CONS:
+	case IPA_CLIENT_A2_EMBEDDED_CONS:
+		hol_en = IPA_A2_HOLB_TMR_EN;
+		hol_tmr = IPA_A2_HOLB_TMR_DEFAULT_VAL;
+		break;
+	default:
+		return;
+	}
+
+	IPADBG("disable holb for ep=%d tmr=%d\n", ipa_ep_idx, hol_tmr);
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(ipa_ep_idx), hol_en);
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(ipa_ep_idx), hol_tmr);
+}
+
 /**
  * ipa_connect() - low-level IPA client connect
  * @in:	[in] input parameters from client
@@ -290,21 +325,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	memcpy(&sps->desc, &ep->connect.desc, sizeof(struct sps_mem_buffer));
 	memcpy(&sps->data, &ep->connect.data, sizeof(struct sps_mem_buffer));
 
-	if (in->client == IPA_CLIENT_HSIC1_CONS ||
-			in->client == IPA_CLIENT_HSIC2_CONS ||
-			in->client == IPA_CLIENT_HSIC3_CONS ||
-			in->client == IPA_CLIENT_HSIC4_CONS ||
-			in->client == IPA_CLIENT_A2_TETHERED_CONS ||
-			in->client == IPA_CLIENT_A2_EMBEDDED_CONS) {
-		IPADBG("disable holb for ep=%d tmr=%d\n", ipa_ep_idx,
-			ipa_ctx->hol_timer);
-		ipa_write_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(ipa_ep_idx),
-			ipa_ctx->hol_en);
-		ipa_write_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(ipa_ep_idx),
-			ipa_ctx->hol_timer);
-	}
+	ipa_program_holb(ep, ipa_ep_idx);
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
