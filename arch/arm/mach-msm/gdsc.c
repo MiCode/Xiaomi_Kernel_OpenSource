@@ -48,6 +48,7 @@ struct gdsc {
 	struct clk		**clocks;
 	int			clock_count;
 	bool			toggle_mems;
+	bool			retain_logic;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -96,16 +97,20 @@ static int gdsc_disable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int i, ret;
+	int i, ret = 0;
 
-	regval = readl_relaxed(sc->gdscr);
-	regval |= SW_COLLAPSE_MASK;
-	writel_relaxed(regval, sc->gdscr);
+	if (!sc->retain_logic) {
+		regval = readl_relaxed(sc->gdscr);
+		regval |= SW_COLLAPSE_MASK;
+		writel_relaxed(regval, sc->gdscr);
 
-	ret = readl_tight_poll_timeout(sc->gdscr, regval,
-				       !(regval & PWR_ON_MASK), TIMEOUT_US);
-	if (ret)
-		dev_err(&rdev->dev, "%s disable timed out\n", sc->rdesc.name);
+		ret = readl_tight_poll_timeout(sc->gdscr, regval,
+					       !(regval & PWR_ON_MASK),
+						TIMEOUT_US);
+		if (ret)
+			dev_err(&rdev->dev, "%s disable timed out\n",
+				sc->rdesc.name);
+	}
 
 	if (sc->toggle_mems) {
 		for (i = 0; i < sc->clock_count; i++) {
@@ -214,6 +219,8 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 		}
 	}
 	sc->toggle_mems = !retain_mems;
+	sc->retain_logic = of_property_read_bool(pdev->dev.of_node,
+					    "qcom,retain-logic");
 
 	sc->rdev = regulator_register(&sc->rdesc, &pdev->dev, init_data, sc,
 				      pdev->dev.of_node);
