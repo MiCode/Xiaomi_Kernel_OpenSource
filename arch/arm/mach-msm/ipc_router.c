@@ -1654,16 +1654,157 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	return rc;
 }
 
+static int process_resume_tx_msg(union rr_control_msg *msg,
+				 struct rr_packet *pkt)
+{
+	struct msm_ipc_router_remote_port *rport_ptr;
+
+	RR("o RESUME_TX id=%d:%08x\n", msg->cli.node_id, msg->cli.port_id);
+
+	rport_ptr = msm_ipc_router_lookup_remote_port(msg->cli.node_id,
+						      msg->cli.port_id);
+	if (!rport_ptr) {
+		pr_err("%s: Unable to resume client\n", __func__);
+		return -ENODEV;
+	}
+	mutex_lock(&rport_ptr->quota_lock);
+	rport_ptr->tx_quota_cnt = 0;
+	post_resume_tx(rport_ptr, pkt);
+	mutex_unlock(&rport_ptr->quota_lock);
+	return 0;
+}
+
+static int process_new_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
+			union rr_control_msg *msg, struct rr_packet *pkt)
+{
+	struct msm_ipc_routing_table_entry *rt_entry;
+	struct msm_ipc_server *server;
+	struct msm_ipc_router_remote_port *rport_ptr;
+
+	if (msg->srv.instance == 0) {
+		pr_err("%s: Server %08x create rejected, version = 0\n",
+			__func__, msg->srv.service);
+		return -EINVAL;
+	}
+
+	RR("o NEW_SERVER id=%d:%08x service=%08x:%08x\n", msg->srv.node_id,
+	    msg->srv.port_id, msg->srv.service, msg->srv.instance);
+	/*
+	 * Find the entry from Routing Table corresponding to Node ID.
+	 * Under SSR, an entry will be found. When the subsystem hosting
+	 * service is not adjacent, an entry will not be found and hence
+	 * allocate an entry. Update the entry with the Node ID that it
+	 * corresponds to and the XPRT through which it can be reached.
+	 */
+	mutex_lock(&routing_table_lock);
+	rt_entry = lookup_routing_table(msg->srv.node_id);
+	if (!rt_entry) {
+		rt_entry = alloc_routing_table_entry(msg->srv.node_id);
+		if (!rt_entry) {
+			mutex_unlock(&routing_table_lock);
+			pr_err("%s: rt_entry allocation failed\n", __func__);
+			return -ENOMEM;
+		}
+		mutex_lock(&rt_entry->lock);
+		rt_entry->neighbor_node_id = xprt_info->remote_node_id;
+		rt_entry->xprt_info = xprt_info;
+		mutex_unlock(&rt_entry->lock);
+		add_routing_table_entry(rt_entry);
+	}
+	mutex_unlock(&routing_table_lock);
+
+	/*
+	 * If the service does not exist already in the database, create and
+	 * store the service info. Create a remote port structure in which
+	 * the service is hosted and cache the security rule for the service
+	 * in that remote port structure.
+	 */
+	mutex_lock(&server_list_lock);
+	server = msm_ipc_router_lookup_server(msg->srv.service,
+			msg->srv.instance, msg->srv.node_id, msg->srv.port_id);
+	if (!server) {
+		server = msm_ipc_router_create_server(
+				msg->srv.service, msg->srv.instance,
+				msg->srv.node_id, msg->srv.port_id, xprt_info);
+		if (!server) {
+			mutex_unlock(&server_list_lock);
+			pr_err("%s: Server Create failed\n", __func__);
+			return -ENOMEM;
+		}
+
+		if (!msm_ipc_router_lookup_remote_port(
+				msg->srv.node_id, msg->srv.port_id)) {
+			rport_ptr = msm_ipc_router_create_remote_port(
+					msg->srv.node_id, msg->srv.port_id);
+			if (!rport_ptr) {
+				mutex_unlock(&server_list_lock);
+				return -ENOMEM;
+			}
+			rport_ptr->sec_rule = msm_ipc_get_security_rule(
+						msg->srv.service,
+						msg->srv.instance);
+		}
+	}
+	mutex_unlock(&server_list_lock);
+
+	/*
+	 * Relay the new server message to other subsystems that do not belong
+	 * to the cluster from which this message is received. Notify the
+	 * local clients waiting for this service.
+	 */
+	relay_msg(xprt_info, pkt);
+	post_control_ports(pkt);
+	return 0;
+}
+
+static int process_rmv_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
+			union rr_control_msg *msg, struct rr_packet *pkt)
+{
+	struct msm_ipc_server *server;
+
+	RR("o REMOVE_SERVER service=%08x:%d\n",
+	    msg->srv.service, msg->srv.instance);
+	mutex_lock(&server_list_lock);
+	server = msm_ipc_router_lookup_server(msg->srv.service,
+			msg->srv.instance, msg->srv.node_id, msg->srv.port_id);
+	if (server) {
+		msm_ipc_router_destroy_server(server, msg->srv.node_id,
+					      msg->srv.port_id);
+		/*
+		 * Relay the new server message to other subsystems that do not
+		 * belong to the cluster from which this message is received.
+		 * Notify the local clients communicating with the service.
+		 */
+		relay_msg(xprt_info, pkt);
+		post_control_ports(pkt);
+	}
+	mutex_unlock(&server_list_lock);
+	return 0;
+}
+
+static int process_rmv_client_msg(struct msm_ipc_router_xprt_info *xprt_info,
+			union rr_control_msg *msg, struct rr_packet *pkt)
+{
+	struct msm_ipc_router_remote_port *rport_ptr;
+
+	RR("o REMOVE_CLIENT id=%d:%08x\n", msg->cli.node_id, msg->cli.port_id);
+	rport_ptr = msm_ipc_router_lookup_remote_port(msg->cli.node_id,
+						      msg->cli.port_id);
+	if (rport_ptr)
+		msm_ipc_router_destroy_remote_port(rport_ptr);
+
+	relay_msg(xprt_info, pkt);
+	post_control_ports(pkt);
+	return 0;
+}
+
 static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 			       struct rr_packet *pkt)
 {
 	union rr_control_msg *msg;
-	struct msm_ipc_router_remote_port *rport_ptr;
 	int rc = 0;
 	struct sk_buff *temp_ptr;
 	struct rr_header *hdr;
-	struct msm_ipc_server *server;
-	struct msm_ipc_routing_table_entry *rt_entry;
 
 	if (pkt->length != (IPC_ROUTER_HDR_SIZE + sizeof(*msg))) {
 		pr_err("%s: r2r msg size %d != %d\n", __func__, pkt->length,
@@ -1687,115 +1828,17 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	case IPC_ROUTER_CTRL_CMD_HELLO:
 		rc = process_hello_msg(xprt_info, hdr);
 		break;
-
 	case IPC_ROUTER_CTRL_CMD_RESUME_TX:
-		RR("o RESUME_TX id=%d:%08x\n",
-		   msg->cli.node_id, msg->cli.port_id);
-
-		rport_ptr = msm_ipc_router_lookup_remote_port(msg->cli.node_id,
-							msg->cli.port_id);
-		if (!rport_ptr) {
-			pr_err("%s: Unable to resume client\n", __func__);
-			break;
-		}
-		mutex_lock(&rport_ptr->quota_lock);
-		rport_ptr->tx_quota_cnt = 0;
-		post_resume_tx(rport_ptr, pkt);
-		mutex_unlock(&rport_ptr->quota_lock);
+		rc = process_resume_tx_msg(msg, pkt);
 		break;
-
 	case IPC_ROUTER_CTRL_CMD_NEW_SERVER:
-		if (msg->srv.instance == 0) {
-			pr_err(
-			"rpcrouter: Server create rejected, version = 0, "
-			"service = %08x\n", msg->srv.service);
-			break;
-		}
-
-		RR("o NEW_SERVER id=%d:%08x service=%08x:%08x\n",
-		   msg->srv.node_id, msg->srv.port_id,
-		   msg->srv.service, msg->srv.instance);
-
-		mutex_lock(&routing_table_lock);
-		rt_entry = lookup_routing_table(msg->srv.node_id);
-		if (!rt_entry) {
-			rt_entry = alloc_routing_table_entry(msg->srv.node_id);
-			if (!rt_entry) {
-				mutex_unlock(&routing_table_lock);
-				pr_err("%s: rt_entry allocation failed\n",
-					__func__);
-				return -ENOMEM;
-			}
-			mutex_lock(&rt_entry->lock);
-			rt_entry->neighbor_node_id = xprt_info->remote_node_id;
-			rt_entry->xprt_info = xprt_info;
-			mutex_unlock(&rt_entry->lock);
-			add_routing_table_entry(rt_entry);
-		}
-		mutex_unlock(&routing_table_lock);
-
-		mutex_lock(&server_list_lock);
-		server = msm_ipc_router_lookup_server(msg->srv.service,
-						      msg->srv.instance,
-						      msg->srv.node_id,
-						      msg->srv.port_id);
-		if (!server) {
-			server = msm_ipc_router_create_server(
-				msg->srv.service, msg->srv.instance,
-				msg->srv.node_id, msg->srv.port_id, xprt_info);
-			if (!server) {
-				mutex_unlock(&server_list_lock);
-				pr_err("%s: Server Create failed\n", __func__);
-				return -ENOMEM;
-			}
-
-			if (!msm_ipc_router_lookup_remote_port(
-					msg->srv.node_id, msg->srv.port_id)) {
-				rport_ptr = msm_ipc_router_create_remote_port(
-					msg->srv.node_id, msg->srv.port_id);
-				if (!rport_ptr)
-					pr_err("%s: Remote port create "
-					       "failed\n", __func__);
-				else
-					rport_ptr->sec_rule =
-						msm_ipc_get_security_rule(
-						msg->srv.service,
-						msg->srv.instance);
-			}
-			wake_up(&newserver_wait);
-		}
-		mutex_unlock(&server_list_lock);
-
-		relay_msg(xprt_info, pkt);
-		post_control_ports(pkt);
+		rc = process_new_server_msg(xprt_info, msg, pkt);
 		break;
 	case IPC_ROUTER_CTRL_CMD_REMOVE_SERVER:
-		RR("o REMOVE_SERVER service=%08x:%d\n",
-		   msg->srv.service, msg->srv.instance);
-		mutex_lock(&server_list_lock);
-		server = msm_ipc_router_lookup_server(msg->srv.service,
-						      msg->srv.instance,
-						      msg->srv.node_id,
-						      msg->srv.port_id);
-		if (server) {
-			msm_ipc_router_destroy_server(server,
-						      msg->srv.node_id,
-						      msg->srv.port_id);
-			relay_msg(xprt_info, pkt);
-			post_control_ports(pkt);
-		}
-		mutex_unlock(&server_list_lock);
+		rc = process_rmv_server_msg(xprt_info, msg, pkt);
 		break;
 	case IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT:
-		RR("o REMOVE_CLIENT id=%d:%08x\n",
-		    msg->cli.node_id, msg->cli.port_id);
-		rport_ptr = msm_ipc_router_lookup_remote_port(msg->cli.node_id,
-							msg->cli.port_id);
-		if (rport_ptr)
-			msm_ipc_router_destroy_remote_port(rport_ptr);
-
-		relay_msg(xprt_info, pkt);
-		post_control_ports(pkt);
+		rc = process_rmv_client_msg(xprt_info, msg, pkt);
 		break;
 	case IPC_ROUTER_CTRL_CMD_PING:
 		/* No action needed for ping messages received */
