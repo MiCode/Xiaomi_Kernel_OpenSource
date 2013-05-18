@@ -271,7 +271,7 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	return ret;
 }
 
-int msm_config_port(struct slim_controller *ctrl, u8 pn)
+int msm_alloc_port(struct slim_controller *ctrl, u8 pn)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
 	struct msm_slim_endp *endpoint;
