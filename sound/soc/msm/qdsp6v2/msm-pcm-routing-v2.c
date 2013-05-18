@@ -385,6 +385,10 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 			else if (msm_bedais[i].format ==
 						SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
+
+			if (msm_bedais[i].port_id == VOICE_RECORD_RX ||
+			    msm_bedais[i].port_id == VOICE_RECORD_TX)
+				topology = DEFAULT_COPP_TOPOLOGY;
 			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
 				(channels > 0))
 				adm_multi_ch_copp_open(msm_bedais[i].port_id,
@@ -513,6 +517,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			channels = msm_bedais[reg].channel;
 			if (msm_bedais[reg].format == SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
+
+			if (msm_bedais[reg].port_id == VOICE_RECORD_RX ||
+			    msm_bedais[reg].port_id == VOICE_RECORD_TX)
+				topology = DEFAULT_COPP_TOPOLOGY;
 
 			if ((session_type == SESSION_TYPE_RX) &&
 				(channels > 0)) {
@@ -3503,6 +3511,10 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			channels = bedai->channel;
 			if (bedai->format == SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
+
+			if (bedai->port_id == VOICE_RECORD_RX ||
+			    bedai->port_id == VOICE_RECORD_TX)
+				topology = DEFAULT_COPP_TOPOLOGY;
 
 			if ((playback) && (channels > 0)) {
 				perf_mode = test_bit(i, &(bedai->perf_mode));
