@@ -2419,12 +2419,13 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 	case QSEOS_RESULT_SUCCESS:
 		break;
 	case QSEOS_RESULT_FAIL_KEY_ID_EXISTS:
+		pr_debug("process_incomplete_cmd return Key ID exists.\n");
 		break;
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret) {
 			if (resp.result == QSEOS_RESULT_FAIL_KEY_ID_EXISTS) {
-				pr_warn("process_incomplete_cmd return Key ID exits.\n");
+				pr_debug("process_incomplete_cmd return Key ID exists.\n");
 				ret = 0;
 			} else {
 				pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
@@ -2503,9 +2504,8 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 			return -EFAULT;
 	}
 
-	if (qseecom.qsee.instance == qseecom.ce_drv.instance)
-		__qseecom_enable_clk(CLK_QSEE);
-	else
+	__qseecom_enable_clk(CLK_QSEE);
+	if (qseecom.qsee.instance != qseecom.ce_drv.instance)
 		__qseecom_enable_clk(CLK_CE_DRV);
 
 	memcpy(ireq.key_id, set_key_para->key_id, QSEECOM_KEY_ID_SIZE);
@@ -2529,6 +2529,9 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
 		pr_err("scm call to set QSEOS_PIPE_ENC key failed : %d\n", ret);
+		__qseecom_disable_clk(CLK_QSEE);
+		if (qseecom.qsee.instance != qseecom.ce_drv.instance)
+			__qseecom_disable_clk(CLK_CE_DRV);
 		return ret;
 	}
 
@@ -2548,9 +2551,8 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 		break;
 	}
 
-	if (qseecom.qsee.instance == qseecom.ce_drv.instance)
-		__qseecom_disable_clk(CLK_QSEE);
-	else
+	__qseecom_disable_clk(CLK_QSEE);
+	if (qseecom.qsee.instance != qseecom.ce_drv.instance)
 		__qseecom_disable_clk(CLK_CE_DRV);
 
 	return ret;
