@@ -869,6 +869,7 @@
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0xf>;
 	};
 
 	spi_0: spi@f9923000 { /* BLSP1 QUP1 */

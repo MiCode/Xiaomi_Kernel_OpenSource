@@ -596,7 +596,14 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 		pr_info("%s: Max frequency reset for cpu%d\n",
 				KBUILD_MODNAME, cpu);
 
-	ret = cpufreq_update_policy(cpu);
+	if (cpu_online(cpu)) {
+		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			return ret;
+		ret = cpufreq_driver_target(policy, policy->cur,
+				CPUFREQ_RELATION_H);
+		cpufreq_cpu_put(policy);
+	}
 
 	return ret;
 }
@@ -748,14 +755,56 @@ exit:
 	return ret;
 }
 
+static void __cpuinit do_freq_control(long temp)
+{
+	int ret = 0;
+	int cpu = 0;
+	uint32_t max_freq = limited_max_freq;
+
+	if (temp >= msm_thermal_info.limit_temp_degC) {
+		if (limit_idx == limit_idx_low)
+			return;
+
+		limit_idx -= msm_thermal_info.freq_step;
+		if (limit_idx < limit_idx_low)
+			limit_idx = limit_idx_low;
+		max_freq = table[limit_idx].frequency;
+	} else if (temp < msm_thermal_info.limit_temp_degC -
+		 msm_thermal_info.temp_hysteresis_degC) {
+		if (limit_idx == limit_idx_high)
+			return;
+
+		limit_idx += msm_thermal_info.freq_step;
+		if (limit_idx >= limit_idx_high) {
+			limit_idx = limit_idx_high;
+			max_freq = MSM_CPUFREQ_NO_LIMIT;
+		} else
+			max_freq = table[limit_idx].frequency;
+	}
+
+	if (max_freq == limited_max_freq)
+		return;
+
+	/* Update new limits */
+	for_each_possible_cpu(cpu) {
+		if (!(msm_thermal_info.freq_control_mask & BIT(cpu)))
+			continue;
+		ret = update_cpu_max_freq(cpu, max_freq);
+		if (ret)
+			pr_debug(
+			"%s: Unable to limit cpu%d max freq to %d\n",
+					KBUILD_MODNAME, cpu, max_freq);
+	}
+
+}
+
 static void __cpuinit check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
 	long temp = 0;
-	uint32_t max_freq = limited_max_freq;
-	int cpu = 0;
 	int ret = 0;
+
 	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
 	ret = tsens_get_temp(&tsens_dev, &temp);
 	if (ret) {
@@ -775,38 +824,7 @@ static void __cpuinit check_temp(struct work_struct *work)
 	do_core_control(temp);
 	do_vdd_restriction();
 	do_psm();
-
-	if (temp >= msm_thermal_info.limit_temp_degC) {
-		if (limit_idx == limit_idx_low)
-			goto reschedule;
-
-		limit_idx -= msm_thermal_info.freq_step;
-		if (limit_idx < limit_idx_low)
-			limit_idx = limit_idx_low;
-		max_freq = table[limit_idx].frequency;
-	} else if (temp < msm_thermal_info.limit_temp_degC -
-		 msm_thermal_info.temp_hysteresis_degC) {
-		if (limit_idx == limit_idx_high)
-			goto reschedule;
-
-		limit_idx += msm_thermal_info.freq_step;
-		if (limit_idx >= limit_idx_high) {
-			limit_idx = limit_idx_high;
-			max_freq = MSM_CPUFREQ_NO_LIMIT;
-		} else
-			max_freq = table[limit_idx].frequency;
-	}
-	if (max_freq == limited_max_freq)
-		goto reschedule;
-
-	/* Update new limits */
-	for_each_possible_cpu(cpu) {
-		ret = update_cpu_max_freq(cpu, max_freq);
-		if (ret)
-			pr_debug(
-			"%s: Unable to limit cpu%d max freq to %d\n",
-					KBUILD_MODNAME, cpu, max_freq);
-	}
+	do_freq_control(temp);
 
 reschedule:
 	if (enabled)
@@ -1598,6 +1616,9 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &data.freq_step);
 	if (ret)
 		goto fail;
+
+	key = "qcom,freq-control-mask";
+	ret = of_property_read_u32(node, key, &data.freq_control_mask);
 
 	key = "qcom,core-limit-temp";
 	ret = of_property_read_u32(node, key, &data.core_limit_temp_degC);

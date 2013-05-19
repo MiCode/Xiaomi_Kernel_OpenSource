@@ -736,6 +736,7 @@
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0xf>;
 	};
 
 	qcom,ipc-spinlock@fd484000 {
