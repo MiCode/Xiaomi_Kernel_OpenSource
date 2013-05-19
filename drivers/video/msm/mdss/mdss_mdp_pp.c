@@ -2788,6 +2788,9 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 
 	if (init_cfg->ops & MDP_PP_OPS_DISABLE) {
 		ad->sts &= ~PP_STS_ENABLE;
+		mutex_unlock(&ad->lock);
+		cancel_work_sync(&ad->calc_work);
+		mutex_lock(&ad->lock);
 		ad->mfd = NULL;
 	} else if (init_cfg->ops & MDP_PP_OPS_ENABLE) {
 		ad->sts |= PP_STS_ENABLE;
@@ -3095,11 +3098,18 @@ static void pp_ad_calc_worker(struct work_struct *work)
 {
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl;
+	struct msm_fb_data_type *mfd;
 	u32 bl, calc_done = 0;
 	ad = container_of(work, struct mdss_ad_info, calc_work);
-	ctl = mfd_to_ctl(ad->mfd);
 
 	mutex_lock(&ad->lock);
+	if (!ad->mfd || !(ad->sts & PP_STS_ENABLE)) {
+		mutex_unlock(&ad->lock);
+		return;
+	}
+	mfd = ad->mfd;
+	ctl = mfd_to_ctl(ad->mfd);
+
 	if (PP_AD_STATE_RUN & ad->state) {
 		/* Kick off calculation */
 		ad->calc_itr--;
@@ -3138,9 +3148,9 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		ctl->remove_vsync_handler(ctl, &ad->handle);
 	}
 	mutex_unlock(&ad->lock);
-	mutex_lock(&ad->mfd->lock);
+	mutex_lock(&mfd->lock);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + ad->num));
-	mutex_unlock(&ad->mfd->lock);
+	mutex_unlock(&mfd->lock);
 }
 
 #define PP_AD_LUT_LEN 33
