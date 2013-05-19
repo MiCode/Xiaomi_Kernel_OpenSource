@@ -1577,9 +1577,11 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 
 		if (pktsize == 192) {
 			if (leadingbytes)
-				memcpy(timestamp, &buf[p], TIMESTAMP_LEN);
+				memcpy(timestamp, &demux->tsbuf[p],
+					TIMESTAMP_LEN);
 			else
-				memcpy(timestamp, &buf[188], TIMESTAMP_LEN);
+				memcpy(timestamp, &demux->tsbuf[188],
+					TIMESTAMP_LEN);
 		} else {
 			memset(timestamp, 0, TIMESTAMP_LEN);
 		}
