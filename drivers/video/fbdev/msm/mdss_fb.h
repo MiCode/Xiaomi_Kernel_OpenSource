@@ -75,6 +75,10 @@ struct msm_mdp_interface {
 };
 
 #define IS_CALIB_MODE_BL(mfd) (((mfd)->calib_mode) & MDSS_CALIB_MODE_BL)
+#define MDSS_BRIGHT_TO_BL(out, v, bl_max, max_bright) do {\
+					out = (2 * (v) * (bl_max) + max_bright)\
+					/ (2 * max_bright);\
+					} while (0)
 
 struct msm_fb_data_type {
 	u32 key;
