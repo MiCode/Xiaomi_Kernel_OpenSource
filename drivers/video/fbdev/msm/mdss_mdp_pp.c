@@ -3105,7 +3105,23 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	} else {
 		if (ad->state & PP_AD_STATE_RUN) {
 			ret = 1;
+			/* Clear state and regs when going to off state*/
+			ad->sts = 0;
 			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			ad->state &= !PP_AD_STATE_INIT;
+			ad->state &= !PP_AD_STATE_CFG;
+			ad->state &= !PP_AD_STATE_DATA;
+			ad->state &= !PP_AD_STATE_BL_LIN;
+			ad->bl_bright_shift = 0;
+			ad->ad_data = 0;
+			ad->ad_data_mode = 0;
+			ad->calc_itr = 0;
+			memset(&ad->bl_lin, 0, sizeof(uint32_t) *
+								AD_BL_LIN_LEN);
+			memset(&ad->bl_lin_inv, 0, sizeof(uint32_t) *
+								AD_BL_LIN_LEN);
+			memset(&ad->init, 0, sizeof(struct mdss_ad_init));
+			memset(&ad->cfg, 0, sizeof(struct mdss_ad_cfg));
 			mutex_lock(&mfd->bl_lock);
 			mfd->mdp.update_ad_input = NULL;
 			mutex_unlock(&mfd->bl_lock);
