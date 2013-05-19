@@ -2776,7 +2776,8 @@ static int pp_update_ad_input(struct msm_fb_data_type *mfd)
 	if (!ad || ad->cfg.mode == MDSS_AD_MODE_AUTO_BL)
 		return -EINVAL;
 
-	pr_debug("backlight level changed, trigger update to AD");
+	pr_debug("backlight level changed (%d), trigger update to AD",
+						mfd->bl_level);
 	input.mode = ad->cfg.mode;
 	if (MDSS_AD_MODE_DATA_MATCH(ad->cfg.mode, MDSS_AD_INPUT_AMBIENT))
 		input.in.amb_light = ad->ad_data;
@@ -2859,14 +2860,16 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl;
+	u32 bl;
 
 	ad = mdss_mdp_get_ad(mfd);
 	if (!ad)
 		return -EINVAL;
 
 	mutex_lock(&ad->lock);
-	if (!PP_AD_STATE_IS_INITCFG(ad->state) &&
-			!PP_AD_STS_IS_DIRTY(ad->sts)) {
+	if ((!PP_AD_STATE_IS_INITCFG(ad->state) &&
+			!PP_AD_STS_IS_DIRTY(ad->sts)) &&
+			!input->mode == MDSS_AD_MODE_CALIB) {
 		pr_warn("AD not initialized or configured.");
 		ret = -EPERM;
 		goto error;
@@ -2898,6 +2901,25 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 		ad->calc_itr = ad->cfg.stab_itr;
 		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 		ad->sts |= PP_AD_STS_DIRTY_DATA;
+		break;
+	case MDSS_AD_MODE_CALIB:
+		wait = 0;
+		if (mfd->calib_mode) {
+			bl = input->in.calib_bl;
+			if (bl >= AD_BL_LIN_LEN) {
+				pr_warn("calib_bl 255 max!");
+				break;
+			}
+			mutex_unlock(&ad->lock);
+			mutex_lock(&mfd->bl_lock);
+			MDSS_BRIGHT_TO_BL(bl, bl, mfd->panel_info->bl_max,
+							MDSS_MAX_BL_BRIGHTNESS);
+			mdss_fb_set_backlight(mfd, bl);
+			mutex_unlock(&mfd->bl_lock);
+			mutex_lock(&ad->lock);
+		} else {
+			pr_warn("should be in calib mode");
+		}
 		break;
 	default:
 		pr_warn("invalid default %d", input->mode);
