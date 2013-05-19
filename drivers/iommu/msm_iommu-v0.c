@@ -32,6 +32,7 @@
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus.h>
 
 #define MRC(reg, processor, op1, crn, crm, op2)				\
 __asm__ __volatile__ (							\
@@ -135,6 +136,20 @@ void *msm_iommu_lock_initialize(void)
 	return msm_iommu_remote_lock.lock;
 }
 
+static int apply_bus_vote(struct msm_iommu_drvdata *drvdata, unsigned int vote)
+{
+	int ret = 0;
+
+	if (drvdata->bus_client) {
+		ret = msm_bus_scale_client_update_request(drvdata->bus_client,
+							  vote);
+		if (ret)
+			pr_err("%s: Failed to vote for bus: %d\n", __func__,
+				vote);
+	}
+	return ret;
+}
+
 static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 {
 	int ret;
@@ -202,6 +217,7 @@ static void _iommu_lock_release(void)
 struct iommu_access_ops iommu_access_ops_v0 = {
 	.iommu_power_on = __enable_regulators,
 	.iommu_power_off = __disable_regulators,
+	.iommu_bus_vote = apply_bus_vote,
 	.iommu_clk_on = __enable_clocks,
 	.iommu_clk_off = __disable_clocks,
 	.iommu_lock_initialize = _iommu_lock_initialize,
@@ -506,6 +522,11 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto unlock;
 		}
 
+	ret = apply_bus_vote(iommu_drvdata, 1);
+
+	if (ret)
+		goto unlock;
+
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret)
 		goto unlock;
@@ -572,6 +593,9 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	msm_iommu_remote_spin_unlock();
 
 	__disable_clocks(iommu_drvdata);
+
+	apply_bus_vote(iommu_drvdata, 0);
+
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
 unlock:

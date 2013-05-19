@@ -28,6 +28,7 @@
 #include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
+#include <mach/msm_bus.h>
 
 static struct of_device_id msm_iommu_v1_ctx_match_table[];
 
@@ -86,6 +87,36 @@ static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
 	return 0;
 }
 
+static int __get_bus_vote_client(struct platform_device *pdev,
+				  struct msm_iommu_drvdata *drvdata)
+{
+	int ret = 0;
+	struct msm_bus_scale_pdata *bs_table;
+	const char *dummy;
+
+	/* Check whether bus scaling has been specified for this node */
+	ret = of_property_read_string(pdev->dev.of_node, "qcom,msm-bus,name",
+				      &dummy);
+	if (ret)
+		return 0;
+
+	bs_table = msm_bus_cl_get_pdata(pdev);
+
+	if (bs_table) {
+		drvdata->bus_client = msm_bus_scale_register_client(bs_table);
+		if (IS_ERR(&drvdata->bus_client)) {
+			pr_err("%s(): Bus client register failed.\n", __func__);
+			ret = -EINVAL;
+		}
+	}
+	return ret;
+}
+
+static void __put_bus_vote_client(struct msm_iommu_drvdata *drvdata)
+{
+	msm_bus_scale_unregister_client(drvdata->bus_client);
+}
+
 static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata)
 {
@@ -95,6 +126,11 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 
 	drvdata->dev = &pdev->dev;
 	msm_iommu_add_drv(drvdata);
+
+	ret = __get_bus_vote_client(pdev, drvdata);
+
+	if (ret)
+		goto fail;
 
 	ret = msm_iommu_parse_bfb_settings(pdev, drvdata);
 	if (ret)
@@ -143,6 +179,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		pr_err("Failed to create iommu context device\n");
 
 fail:
+	__put_bus_vote_client(drvdata);
 	return ret;
 }
 
@@ -305,6 +342,7 @@ static int __devexit msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		__put_bus_vote_client(drv);
 		msm_iommu_remove_drv(drv);
 		if (drv->clk)
 			clk_put(drv->clk);
