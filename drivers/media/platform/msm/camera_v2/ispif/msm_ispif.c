@@ -91,7 +91,6 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 	BUG_ON(!ispif);
 
 	memset(ispif->sof_count, 0, sizeof(ispif->sof_count));
-
 	for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
 
 		msm_camera_io_w(1 << PIX0_LINE_BUF_EN_BIT,
@@ -105,9 +104,13 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 			ISPIF_VFE_m_IRQ_CLEAR_1(i));
 		msm_camera_io_w(0xFFFFFFFF, ispif->base +
 			ISPIF_VFE_m_IRQ_CLEAR_2(i));
+
 		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_INPUT_SEL(i));
-		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
-		msm_camera_io_w(0, ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
+
+		msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
+			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
+		msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
+			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
 
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 0));
@@ -905,6 +908,12 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
+	case MSM_SD_SHUTDOWN: {
+		struct ispif_device *ispif =
+			(struct ispif_device *)v4l2_get_subdevdata(sd);
+		msm_ispif_release(ispif);
+		return 0;
+	}
 	default:
 		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
 		return -ENOIOCTLCMD;
@@ -986,6 +995,7 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	ispif->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	ispif->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ISPIF;
 	ispif->msm_sd.sd.entity.name = pdev->name;
+	ispif->msm_sd.close_seq = MSM_SD_CLOSE_1ST_CATEGORY | 0x1;
 	rc = msm_sd_register(&ispif->msm_sd);
 	if (rc) {
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);

@@ -773,6 +773,12 @@ static long msm_cci_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CCI_CFG:
 		rc = msm_cci_config(sd, arg);
 		break;
+	case MSM_SD_SHUTDOWN: {
+		struct msm_camera_cci_ctrl ctrl_cmd;
+		ctrl_cmd.cmd = MSM_CCI_RELEASE;
+		rc = msm_cci_config(sd, &ctrl_cmd);
+		break;
+	}
 	default:
 		rc = -ENOIOCTLCMD;
 	}
@@ -1007,6 +1013,7 @@ static int __devinit msm_cci_probe(struct platform_device *pdev)
 		goto cci_release_mem;
 	}
 	disable_irq(new_cci_dev->irq->start);
+	new_cci_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
 	msm_sd_register(&new_cci_dev->msm_sd);
 	new_cci_dev->pdev = pdev;
 	msm_cci_init_cci_params(new_cci_dev);

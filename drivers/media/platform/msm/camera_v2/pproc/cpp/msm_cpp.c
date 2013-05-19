@@ -208,7 +208,6 @@ static unsigned long msm_cpp_queue_buffer_info(struct cpp_device *cpp_dev,
 		pr_err("ION import failed\n");
 		goto QUEUE_BUFF_ERROR1;
 	}
-
 	rc = ion_map_iommu(cpp_dev->client, buff->map_info.ion_handle,
 		cpp_dev->domain_num, 0, SZ_4K, 0,
 		(unsigned long *)&buff->map_info.phy_addr,
@@ -237,6 +236,7 @@ QUEUE_BUFF_ERROR1:
 static void msm_cpp_dequeue_buffer_info(struct cpp_device *cpp_dev,
 	struct msm_cpp_buffer_map_list_t *buff)
 {
+
 	ion_unmap_iommu(cpp_dev->client, buff->map_info.ion_handle,
 		cpp_dev->domain_num, 0);
 	ion_free(cpp_dev->client, buff->map_info.ion_handle);
@@ -390,6 +390,8 @@ static void msm_cpp_delete_buff_queue(struct cpp_device *cpp_dev)
 			pr_err("Queue not free sessionid: %d, streamid: %d\n",
 				cpp_dev->buff_queue[i].session_id,
 				cpp_dev->buff_queue[i].stream_id);
+			msm_cpp_dequeue_buff_info_list
+				(cpp_dev, &cpp_dev->buff_queue[i]);
 			msm_cpp_free_buff_queue_entry(cpp_dev,
 				cpp_dev->buff_queue[i].session_id,
 				cpp_dev->buff_queue[i].stream_id);
@@ -821,9 +823,16 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	uint32_t i;
 	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+
 	mutex_lock(&cpp_dev->mutex);
+
+	if (cpp_dev->cpp_open_cnt == 0) {
+		mutex_unlock(&cpp_dev->mutex);
+		return 0;
+	}
+
 	for (i = 0; i < MAX_ACTIVE_CPP_INSTANCE; i++) {
-		if (cpp_dev->cpp_subscribe_list[i].vfh == &fh->vfh) {
+		if (cpp_dev->cpp_subscribe_list[i].active == 1) {
 			cpp_dev->cpp_subscribe_list[i].active = 0;
 			cpp_dev->cpp_subscribe_list[i].vfh = NULL;
 			break;
@@ -835,7 +844,6 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	CPP_DBG("close %d %p\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt--;
 	if (cpp_dev->cpp_open_cnt == 0) {
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
@@ -843,6 +851,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		cpp_release_hardware(cpp_dev);
 		cpp_dev->state = CPP_STATE_OFF;
 	}
+
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
 }
@@ -1245,6 +1254,13 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		kfree(event_qcmd);
 		break;
 	}
+	case MSM_SD_SHUTDOWN: {
+		mutex_unlock(&cpp_dev->mutex);
+		while (cpp_dev->cpp_open_cnt != 0)
+			cpp_close_node(sd, NULL);
+		rc = 0;
+		break;
+	}
 	}
 	mutex_unlock(&cpp_dev->mutex);
 	CPP_DBG("X\n");
@@ -1446,6 +1462,7 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 	cpp_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	cpp_dev->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_CPP;
 	cpp_dev->msm_sd.sd.entity.name = pdev->name;
+	cpp_dev->msm_sd.close_seq = MSM_SD_CLOSE_3RD_CATEGORY;
 	msm_sd_register(&cpp_dev->msm_sd);
 	msm_cpp_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
 	msm_cpp_v4l2_subdev_fops.open = v4l2_subdev_fops.open;

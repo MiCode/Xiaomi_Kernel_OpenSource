@@ -62,6 +62,7 @@ struct msm_sensor_ctrl_t {
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
 	struct msm_camera_i2c_reg_setting stop_setting;
+	bool stop_setting_valid;
 	bool free_power_setting;
 	struct msm_cam_clk_info *clk_info;
 	uint16_t clk_info_size;

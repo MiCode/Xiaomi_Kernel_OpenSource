@@ -1050,6 +1050,7 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_sensor_power_setting_array *power_setting_array = NULL;
 	struct msm_sensor_power_setting *power_setting = NULL;
 	struct msm_camera_sensor_board_info *data = s_ctrl->sensordata;
+	s_ctrl->stop_setting_valid = 0;
 
 	CDBG("%s:%d\n", __func__, __LINE__);
 	power_setting_array = &s_ctrl->power_setting_array;
@@ -1151,7 +1152,9 @@ static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
 		s_ctrl->sensor_i2c_client, &s_ctrl->stop_setting);
-	kfree(s_ctrl->stop_setting.reg_setting);
+	if (s_ctrl->stop_setting_valid == 1)
+		kfree(s_ctrl->stop_setting.reg_setting);
+
 	return;
 }
 
@@ -1168,6 +1171,7 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_SENSOR_CFG:
 		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_RELEASE:
+	case MSM_SD_SHUTDOWN:
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;
 	default:
@@ -1380,6 +1384,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			break;
 		}
+		s_ctrl->stop_setting_valid = 1;
 
 		reg_setting = stop_setting->reg_setting;
 		stop_setting->reg_setting = kzalloc(stop_setting->size *
@@ -1558,6 +1563,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
 	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
+	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
 	CDBG("%s:%d\n", __func__, __LINE__);
 
@@ -1649,6 +1655,7 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 		&session_id);
 	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
+	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
 	CDBG("%s:%d\n", __func__, __LINE__);
 
