@@ -2073,6 +2073,7 @@ static int usb_bam_init(int bam_idx)
 	props.num_pipes = pdata->usb_bam_num_pipes;
 	props.callback = usb_bam_sps_events;
 	props.user = bam_enable_strings[bam_idx];
+	props.options = SPS_BAM_OPT_IRQ_WAKEUP;
 
 	/*
 	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs

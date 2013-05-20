@@ -1270,6 +1270,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	LPASS_SCSS_GP_HIGH_IRQ,
 	SPS_MTI_31,
 	A2_BAM_IRQ,
+	USB1_HS_BAM_IRQ,
 };
 
 struct msm_mpm_device_data msm9615_mpm_dev_data __initdata = {
