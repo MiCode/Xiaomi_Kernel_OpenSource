@@ -335,6 +335,8 @@ struct msm_isp_event_data {
 	 *which use monotonic clock
 	 */
 	struct timeval timestamp;
+	/* Monotonic timestamp since bootup */
+	struct timeval mono_timestamp;
 	/* if pix is a src frame_id is from camif */
 	uint32_t frame_id;
 	union {
