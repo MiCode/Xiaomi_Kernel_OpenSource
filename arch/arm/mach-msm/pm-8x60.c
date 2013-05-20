@@ -940,13 +940,13 @@ cpuidle_enter_bail:
 
 int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 {
-	int timeout = 10;
+	int timeout = 0;
 
 	if (!msm_pm_slp_sts)
 		return 0;
 	if (!msm_pm_slp_sts[cpu].base_addr)
 		return 0;
-	while (timeout--) {
+	while (1) {
 		/*
 		 * Check for the SPM of the core being hotplugged to set
 		 * its sleep state.The SPM sleep state indicates that the
@@ -957,10 +957,10 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 		if (acc_sts & msm_pm_slp_sts[cpu].mask)
 			return 0;
 		udelay(100);
+		WARN(++timeout == 10, "CPU%u didn't collape within 1ms\n",
+					cpu);
 	}
 
-	pr_info("%s(): Timed out waiting for CPU %u SPM to enter sleep state",
-		__func__, cpu);
 	return -EBUSY;
 }
 
