@@ -45,7 +45,6 @@
 #include "qseecom_kernel.h"
 
 #define QSEECOM_DEV			"qseecom"
-#define QSEOS_VERSION_13		0x13
 #define QSEOS_VERSION_14		0x14
 #define QSEEE_VERSION_00		0x400000
 #define QSEE_VERSION_01			0x401000
@@ -89,11 +88,6 @@ enum qseecom_ce_hw_instance {
 static struct class *driver_class;
 static dev_t qseecom_device_no;
 static struct cdev qseecom_cdev;
-
-/* Data structures used in legacy support */
-static void *pil;
-static uint32_t pil_ref_cnt;
-static DEFINE_MUTEX(pil_access_lock);
 
 static DEFINE_MUTEX(qsee_bw_mutex);
 static DEFINE_MUTEX(app_access_lock);
@@ -3023,10 +3017,10 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		}
 		qseecom.qseos_version = QSEOS_VERSION_14;
 	} else {
-		qseecom.qseos_version = QSEOS_VERSION_13;
-		qseecom.qsee_version = 0;
-		pil = NULL;
-		pil_ref_cnt = 0;
+		pr_err("QSEE legacy version is not supported:");
+		pr_err("Support for TZ1.3 and earlier is deprecated\n");
+		rc = -EINVAL;
+		goto err;
 	}
 	qseecom.commonlib_loaded = false;
 	qseecom.pdev = class_dev;
