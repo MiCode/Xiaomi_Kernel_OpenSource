@@ -443,6 +443,8 @@ SOC_ENUM("LHPF4 Mode", arizona_lhpf4_mode),
 ARIZONA_SAMPLE_RATE_CONTROL("Sample Rate 2", 2),
 ARIZONA_SAMPLE_RATE_CONTROL("Sample Rate 3", 3),
 
+SOC_VALUE_ENUM("FX Rate", arizona_fx_rate),
+
 SOC_VALUE_ENUM("ISRC1 FSL", arizona_isrc_fsl[0]),
 SOC_VALUE_ENUM("ISRC2 FSL", arizona_isrc_fsl[1]),
 SOC_VALUE_ENUM("ISRC3 FSL", arizona_isrc_fsl[2]),

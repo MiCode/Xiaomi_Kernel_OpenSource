@@ -211,6 +211,7 @@ extern const struct soc_enum arizona_isrc_fsh[];
 extern const struct soc_enum arizona_asrc_rate1;
 extern const struct soc_enum arizona_input_rate;
 extern const struct soc_enum arizona_output_rate;
+extern const struct soc_enum arizona_fx_rate;
 extern const struct soc_enum arizona_spdif_rate;
 
 extern const struct soc_enum arizona_in_vi_ramp;
