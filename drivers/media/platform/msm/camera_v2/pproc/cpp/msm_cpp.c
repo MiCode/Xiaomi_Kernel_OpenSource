@@ -43,6 +43,9 @@
 
 #define CONFIG_MSM_CPP_DBG 0
 
+/* dump the frame command before writing to the hardware */
+#define  MSM_CPP_DUMP_FRM_CMD 0
+
 #if CONFIG_MSM_CPP_DBG
 #define CPP_DBG(fmt, args...) pr_err(fmt, ##args)
 #else
@@ -897,8 +900,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 		event_qcmd->command = processed_frame;
 		CPP_DBG("fid %d\n", processed_frame->frame_id);
 		msm_enqueue(&cpp_dev->eventData_q, &event_qcmd->list_eventdata);
-
-		if (!processed_frame->output_buffer_info.processed_divert) {
+		if (!processed_frame->output_buffer_info[0].processed_divert) {
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
 			buff_mgr_info.session_id =
@@ -908,10 +910,32 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			buff_mgr_info.index =
-				processed_frame->output_buffer_info.index;
+				processed_frame->output_buffer_info[0].index;
 			rc = msm_cpp_buffer_ops(cpp_dev,
 				VIDIOC_MSM_BUF_MNGR_BUF_DONE,
 				&buff_mgr_info);
+			if (rc < 0) {
+				pr_err("error putting buffer\n");
+				rc = -EINVAL;
+			}
+		}
+
+		if (processed_frame->duplicate_output  &&
+			!processed_frame->
+				output_buffer_info[1].processed_divert) {
+			memset(&buff_mgr_info, 0 ,
+				sizeof(struct msm_buf_mngr_info));
+			buff_mgr_info.session_id =
+			((processed_frame->duplicate_identity >> 16) & 0xFFFF);
+			buff_mgr_info.stream_id =
+				(processed_frame->duplicate_identity & 0xFFFF);
+			buff_mgr_info.frame_id = processed_frame->frame_id;
+			buff_mgr_info.timestamp = processed_frame->timestamp;
+			buff_mgr_info.index =
+				processed_frame->output_buffer_info[1].index;
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_BUF_DONE,
+					&buff_mgr_info);
 			if (rc < 0) {
 				pr_err("error putting buffer\n");
 				rc = -EINVAL;
@@ -923,6 +947,23 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 	}
 	return rc;
 }
+
+#if MSM_CPP_DUMP_FRM_CMD
+static int msm_cpp_dump_frame_cmd(uint32_t *cmd, int32_t len)
+{
+	int i;
+	pr_err("%s: -------- cpp frame cmd msg start --------", __func__);
+	for (i = 0; i < len; i++)
+		pr_err("%s: msg[%03d] = 0x%08x", __func__, i, cmd[i]);
+	pr_err("%s: --------- cpp frame cmd msg end ---------", __func__);
+	return 0;
+}
+#else
+static int msm_cpp_dump_frame_cmd(uint32_t *cmd, int32_t len)
+{
+	return 0;
+}
+#endif
 
 static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	struct msm_queue_cmd *frame_qcmd)
@@ -936,6 +977,8 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		msm_enqueue(&cpp_dev->processing_q,
 					&frame_qcmd->list_frame);
 		msm_cpp_write(0x6, cpp_dev->base);
+		msm_cpp_dump_frame_cmd(process_frame->cpp_cmd_msg,
+				process_frame->msg_len);
 		for (i = 0; i < process_frame->msg_len; i++)
 			msm_cpp_write(process_frame->cpp_cmd_msg[i],
 				cpp_dev->base);
@@ -960,7 +1003,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *new_frame =
 		kzalloc(sizeof(struct msm_cpp_frame_info_t), GFP_KERNEL);
 	uint32_t *cpp_frame_msg;
-	unsigned long in_phyaddr, out_phyaddr;
+	unsigned long in_phyaddr, out_phyaddr0, out_phyaddr1;
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info;
 	struct msm_cpp_frame_info_t *u_frame_info =
@@ -1010,7 +1053,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		goto ERROR2;
 	}
 
-	memset(&new_frame->output_buffer_info, 0,
+	memset(&new_frame->output_buffer_info[0], 0,
 		sizeof(struct msm_cpp_buffer_info_t));
 	memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 	buff_mgr_info.session_id = ((new_frame->identity >> 16) & 0xFFFF);
@@ -1022,16 +1065,48 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		pr_debug("error getting buffer rc:%d\n", rc);
 		goto ERROR2;
 	}
-
-	new_frame->output_buffer_info.index = buff_mgr_info.index;
-	out_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
-		&new_frame->output_buffer_info,
+	new_frame->output_buffer_info[0].index = buff_mgr_info.index;
+	out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
+		&new_frame->output_buffer_info[0],
 		((new_frame->identity >> 16) & 0xFFFF),
 		(new_frame->identity & 0xFFFF));
-	if (!out_phyaddr) {
+	if (!out_phyaddr0) {
 		pr_err("error gettting output physical address\n");
 		rc = -EINVAL;
 		goto ERROR3;
+	}
+	out_phyaddr1 = out_phyaddr0;
+
+	/* get buffer for duplicate output */
+	if (new_frame->duplicate_output) {
+		CPP_DBG("duplication enabled, dup_id=0x%x",
+			new_frame->duplicate_identity);
+		memset(&new_frame->output_buffer_info[1], 0,
+			sizeof(struct msm_cpp_buffer_info_t));
+		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
+		buff_mgr_info.session_id =
+			((new_frame->duplicate_identity >> 16) & 0xFFFF);
+		buff_mgr_info.stream_id =
+			(new_frame->duplicate_identity & 0xFFFF);
+		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
+			&buff_mgr_info);
+		if (rc < 0) {
+			rc = -EAGAIN;
+			pr_err("error getting buffer rc:%d\n", rc);
+			goto ERROR2;
+		}
+		new_frame->output_buffer_info[1].index = buff_mgr_info.index;
+		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->output_buffer_info[1],
+			((new_frame->duplicate_identity >> 16) & 0xFFFF),
+			(new_frame->duplicate_identity & 0xFFFF));
+		if (!out_phyaddr1) {
+			pr_err("error gettting output physical address\n");
+			rc = -EINVAL;
+			goto ERROR3;
+		}
+		/* set duplicate enable bit */
+		cpp_frame_msg[5] |= 0x1;
 	}
 
 	num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
@@ -1040,10 +1115,10 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 
 	for (i = 0; i < num_stripes; i++) {
 		cpp_frame_msg[133 + i * 27] += (uint32_t) in_phyaddr;
-		cpp_frame_msg[139 + i * 27] += (uint32_t) out_phyaddr;
-		cpp_frame_msg[140 + i * 27] += (uint32_t) out_phyaddr;
-		cpp_frame_msg[141 + i * 27] += (uint32_t) out_phyaddr;
-		cpp_frame_msg[142 + i * 27] += (uint32_t) out_phyaddr;
+		cpp_frame_msg[139 + i * 27] += (uint32_t) out_phyaddr0;
+		cpp_frame_msg[140 + i * 27] += (uint32_t) out_phyaddr1;
+		cpp_frame_msg[141 + i * 27] += (uint32_t) out_phyaddr0;
+		cpp_frame_msg[142 + i * 27] += (uint32_t) out_phyaddr1;
 	}
 
 	frame_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
