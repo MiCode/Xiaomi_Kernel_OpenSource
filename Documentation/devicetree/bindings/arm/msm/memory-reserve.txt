@@ -69,3 +69,20 @@ Required parameters:
 This region is assumed to be a part of a separate hole that has been removed
 and this binding specifies the fixed location and size of the region within
 that hole.
+
+
+Some drivers may only wish to reserve memory from the system. Reserved memory
+is still tracked internally by the Linux page allocator. The memory is reserved
+from the buddy allocator at bootup but may be freed back at a later point in
+time with memblock_free and free_bootmem_late.
+
+Required parameters:
+-qcom,memblock-reserve: base and size of block to be reserved. Drivers should
+call memblock_is_reserved before attempting to use the base address to ensure
+the memory was completely reserved.
+
+	qcom,a-driver {
+		compatible = "qcom,a-driver";
+		/* reserve a 4MB region @ 0x200000 for use later */
+		qcom,memblock-reserve = <0x200000 0x400000>;
+	};
