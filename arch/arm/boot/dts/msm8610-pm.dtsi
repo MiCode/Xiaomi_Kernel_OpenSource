@@ -386,4 +386,10 @@
 		reg-names = "phys_addr_base";
 		qcom,sleep-stats-version = <2>;
 	};
+
+	qcom,rpm-rbcpr-stats@fc000000 {
+		compatible = "qcom,rpmrbcpr-stats";
+		reg = <0xfc000000 0x1a0000>;
+		qcom,start-offset = <0x190010>;
+	};
 };
