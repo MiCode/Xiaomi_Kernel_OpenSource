@@ -1650,6 +1650,10 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 								 __func__);
 			goto error;
 		}
+		if (req->byteoffset >= AES_CE_BLOCK_SIZE) {
+			pr_err("%s: Invalid byte offset\n", __func__);
+			goto error;
+		}
 	}
 	/* Ensure zer ivlen for ECB  mode  */
 	if (req->ivlen > 0) {
