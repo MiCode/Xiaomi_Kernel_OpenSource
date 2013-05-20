@@ -1271,6 +1271,15 @@ int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num);
 int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		u32 tb_sel, u32 desc_sel);
 
+/**
+ * Vote for or relinquish BAM DMA clock
+ *
+ * @clk_on - to turn on or turn off the clock
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_ctrl_bam_dma_clk(bool clk_on);
 #else
 static inline int sps_register_bam_device(const struct sps_bam_props
 			*bam_props, u32 *dev_handle)
@@ -1430,6 +1439,11 @@ static inline int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
 
 static inline int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		u32 tb_sel, u32 desc_sel)
+{
+	return -EPERM;
+}
+
+static inline int sps_ctrl_bam_dma_clk(bool clk_on)
 {
 	return -EPERM;
 }
