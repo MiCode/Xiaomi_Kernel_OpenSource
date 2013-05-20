@@ -224,7 +224,26 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
+		};
+
+		pm8226_l8_ao: regulator-l8-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_l8_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
 			qcom,consumer-supplies = "vdd_sr2_pll", "";
+		};
+
+		pm8226_l8_so: regulator-l8-so {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_l8_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-enable = <0>;
 		};
 	};
 
