@@ -1784,9 +1784,7 @@ static int msm8x10_wcd_codec_enable_clock_block(struct snd_soc_codec *codec,
 	} else {
 		snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_TOP_CLK_CTL,
 				    0x0f, 0x00);
-		snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_CLK_MCLK_CTL,
-				    0x01, 0x01);
-		snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_CLK_MCLK_CTL,
+		snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_CLK_PDM_CTL,
 				    0x03, 0x00);
 	}
 	return 0;
