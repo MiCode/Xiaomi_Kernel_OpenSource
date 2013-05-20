@@ -97,6 +97,8 @@
 #define BAT_IF_BPD_CTRL				0x48
 #define BOOST_VSET				0x41
 #define BOOST_ENABLE_CONTROL			0x46
+#define COMP_OVR1				0xEA
+
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 
 /* SMBB peripheral subtype values */
@@ -189,6 +191,7 @@
 
 /* Workaround flags */
 #define CHG_FLAGS_VCP_WA		BIT(0)
+#define BOOST_FLASH_WA			BIT(1)
 
 struct qpnp_chg_irq {
 	unsigned int		irq;
@@ -1634,6 +1637,30 @@ static int
 qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 {
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc;
+
+	if (qpnp_chg_is_usb_chg_plugged_in(chip) &&
+			(chip->flags & BOOST_FLASH_WA)) {
+		qpnp_chg_usb_suspend_enable(chip, 1);
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+		if (rc) {
+			pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + COMP_OVR1,
+			0xFF,
+			0x2F, 1);
+		if (rc) {
+			pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	return qpnp_chg_masked_write(chip,
 		chip->boost_base + BOOST_ENABLE_CONTROL,
@@ -1642,15 +1669,96 @@ qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 }
 
 /* Boost regulator operations */
+#define ABOVE_VBAT_WEAK		BIT(1)
 static int
 qpnp_chg_regulator_boost_disable(struct regulator_dev *rdev)
 {
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc;
+	u8 vbat_sts;
 
-	return qpnp_chg_masked_write(chip,
+	rc = qpnp_chg_masked_write(chip,
 		chip->boost_base + BOOST_ENABLE_CONTROL,
 		BOOST_PWR_EN,
 		0, 1);
+	if (rc) {
+		pr_err("failed to disable boost rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_read(chip, &vbat_sts,
+			chip->chgr_base + CHGR_VBAT_STATUS, 1);
+	if (rc) {
+		pr_err("failed to read bat sts rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!(vbat_sts & ABOVE_VBAT_WEAK) && (chip->flags & BOOST_FLASH_WA)) {
+		rc = qpnp_chg_masked_write(chip,
+			chip->chgr_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+		if (rc) {
+			pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->chgr_base + COMP_OVR1,
+			0xFF,
+			0x20, 1);
+		if (rc) {
+			pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+			return rc;
+		}
+
+		usleep(2000);
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->chgr_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+		if (rc) {
+			pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->chgr_base + COMP_OVR1,
+			0xFF,
+			0x00, 1);
+		if (rc) {
+			pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (qpnp_chg_is_usb_chg_plugged_in(chip)
+			&& (chip->flags & BOOST_FLASH_WA)) {
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+		if (rc) {
+			pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + COMP_OVR1,
+			0xFF,
+			0x00, 1);
+		if (rc) {
+			pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+			return rc;
+		}
+
+		usleep(1000);
+
+		qpnp_chg_usb_suspend_enable(chip, 0);
+	}
+
+	return rc;
 }
 
 static int
@@ -1908,6 +2016,8 @@ qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
 {
 	if (chip->revision > 0 && chip->type == SMBB)
 		chip->flags |= CHG_FLAGS_VCP_WA;
+	if (chip->type == SMBB)
+		chip->flags |= BOOST_FLASH_WA;
 }
 
 static int
