@@ -32,6 +32,24 @@ static const int ep_mapping[IPA_MODE_MAX][IPA_CLIENT_MAX] = {
 	{ 19, -1, -1, -1, -1, 11, 15, 8, 6, 2, 1, 5, 14, 16, 17, 18, -1, 10, 9, 7, 3, 4 },
 };
 
+static unsigned int ipa_calc_pull_len(u32 hdr_len)
+{
+	unsigned int pull_len, padding;
+
+	pull_len = sizeof(struct ipa_a5_mux_hdr);
+
+	/*
+	 * IP packet starts on word boundary
+	 * remove the MUX header and any padding and pass the frame to
+	 * the client which registered a rx callback on the "src pipe"
+	 */
+	padding = hdr_len & 0x3;
+	if (padding)
+		pull_len += 4 - padding;
+
+	return pull_len;
+}
+
 /**
  * ipa_cfg_route() - configure IPA route
  * @route: IPA route
@@ -751,6 +769,9 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
 		ipa_write_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_HDR_n_OFST_v2(clnt_hdl), val);
 
+	if (IPA_CLIENT_IS_PROD(ep->client))
+		ep->pull_len = ipa_calc_pull_len(ipa_ep_cfg->hdr_len);
+
 	return 0;
 }
 EXPORT_SYMBOL(ipa_cfg_ep_hdr);
@@ -1263,4 +1284,3 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 	else
 		return 0;
 }
-

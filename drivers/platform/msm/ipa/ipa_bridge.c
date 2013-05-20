@@ -45,19 +45,23 @@
 #define IPA_UL_DESC_FIFO_SZ 0x530
 #define IPA_DL_DATA_FIFO_SZ 0x2400
 #define IPA_DL_DESC_FIFO_SZ 0x8a0
+#define IPA_DL_EMB_DATA_FIFO_SZ 0x1800
+#define IPA_DL_EMB_DESC_FIFO_SZ 0x4e8
 
-#define IPA_SMEM_UL_DATA_FIFO_OFST 0x3dd0
-#define IPA_SMEM_UL_DESC_FIFO_OFST 0x49d0
-#define IPA_SMEM_DL_DATA_FIFO_OFST 0x4f00
-#define IPA_SMEM_DL_DESC_FIFO_OFST 0x7300
+#define IPA_SMEM_UL_DATA_FIFO_OFST 0
+#define IPA_SMEM_UL_DESC_FIFO_OFST 0xc00
+#define IPA_SMEM_DL_DATA_FIFO_OFST 0x1130
+#define IPA_SMEM_DL_DESC_FIFO_OFST 0x3530
+#define IPA_SMEM_UL_EMB_DATA_FIFO_OFST 0x3dd0
+#define IPA_SMEM_UL_EMB_DESC_FIFO_OFST 0x49d0
 
-#define IPA_OCIMEM_UL_DATA_FIFO_OFST 0
-#define IPA_OCIMEM_UL_DESC_FIFO_OFST (IPA_OCIMEM_UL_DATA_FIFO_OFST + \
-		IPA_UL_DATA_FIFO_SZ)
-#define IPA_OCIMEM_DL_DATA_FIFO_OFST (IPA_OCIMEM_UL_DESC_FIFO_OFST + \
-		IPA_UL_DESC_FIFO_SZ)
-#define IPA_OCIMEM_DL_DESC_FIFO_OFST (IPA_OCIMEM_DL_DATA_FIFO_OFST + \
-		IPA_DL_DATA_FIFO_SZ)
+#define IPA_OCIMEM_DL_A2_DATA_FIFO_OFST 0
+#define IPA_OCIMEM_DL_A2_DESC_FIFO_OFST (IPA_OCIMEM_DL_A2_DATA_FIFO_OFST + \
+		IPA_DL_EMB_DATA_FIFO_SZ)
+#define IPA_OCIMEM_DL_IPA_DATA_FIFO_OFST (IPA_OCIMEM_DL_A2_DESC_FIFO_OFST + \
+		IPA_DL_EMB_DESC_FIFO_SZ)
+#define IPA_OCIMEM_DL_IPA_DESC_FIFO_OFST (IPA_OCIMEM_DL_IPA_DATA_FIFO_OFST + \
+		IPA_DL_EMB_DATA_FIFO_SZ)
 
 enum ipa_pipe_type {
 	IPA_DL_FROM_A2,
@@ -116,7 +120,7 @@ static int ipa_get_desc_fifo_sz(enum ipa_bridge_dir dir,
 		if (dir == IPA_BRIDGE_DIR_UL)
 			sz = IPA_UL_DESC_FIFO_SZ;
 		else
-			sz = IPA_DL_DESC_FIFO_SZ;
+			sz = IPA_DL_EMB_DESC_FIFO_SZ;
 	}
 
 	return sz;
@@ -136,7 +140,7 @@ static int ipa_get_data_fifo_sz(enum ipa_bridge_dir dir,
 		if (dir == IPA_BRIDGE_DIR_UL)
 			sz = IPA_UL_DATA_FIFO_SZ;
 		else
-			sz = IPA_DL_DATA_FIFO_SZ;
+			sz = IPA_DL_EMB_DATA_FIFO_SZ;
 	}
 
 	return sz;
@@ -162,6 +166,38 @@ static int ipa_get_a2_pipe_num(enum ipa_bridge_dir dir,
 	return ep;
 }
 
+int ipa_setup_ipa_dma_fifos(enum ipa_bridge_dir dir,
+		enum ipa_bridge_type type,
+		struct sps_mem_buffer *desc,
+		struct sps_mem_buffer *data)
+{
+	int ret;
+
+	ret = sps_setup_bam2bam_fifo(data,
+			IPA_OCIMEM_DL_IPA_DATA_FIFO_OFST,
+			ipa_get_data_fifo_sz(dir, type), 1);
+	if (ret) {
+		IPAERR("DAFIFO setup fail %d dir %d type %d\n",
+				ret, dir, type);
+		return ret;
+	}
+
+	ret = sps_setup_bam2bam_fifo(desc,
+			IPA_OCIMEM_DL_IPA_DESC_FIFO_OFST,
+			ipa_get_desc_fifo_sz(dir, type), 1);
+	if (ret) {
+		IPAERR("DEFIFO setup fail %d dir %d type %d\n",
+				ret, dir, type);
+		return ret;
+	}
+
+	IPADBG("dir=%d type=%d Dpa=%x Dsz=%u Dva=%p dpa=%x dsz=%u dva=%p\n",
+			dir, type, data->phys_base, data->size, data->base,
+			desc->phys_base, desc->size, desc->base);
+
+	return 0;
+}
+
 int ipa_setup_a2_dma_fifos(enum ipa_bridge_dir dir,
 		enum ipa_bridge_type type,
 		struct sps_mem_buffer *desc,
@@ -169,7 +205,7 @@ int ipa_setup_a2_dma_fifos(enum ipa_bridge_dir dir,
 {
 	int ret;
 
-	if (type == IPA_BRIDGE_TYPE_EMBEDDED) {
+	if (type == IPA_BRIDGE_TYPE_TETHERED) {
 		if (dir == IPA_BRIDGE_DIR_UL) {
 			desc->base = ipa_ctx->smem_pipe_mem +
 				IPA_SMEM_UL_DESC_FIFO_OFST;
@@ -191,26 +227,17 @@ int ipa_setup_a2_dma_fifos(enum ipa_bridge_dir dir,
 		}
 	} else {
 		if (dir == IPA_BRIDGE_DIR_UL) {
-			ret = sps_setup_bam2bam_fifo(data,
-					IPA_OCIMEM_UL_DATA_FIFO_OFST,
-					ipa_get_data_fifo_sz(dir, type), 1);
-			if (ret) {
-				IPAERR("DAFIFO setup fail %d dir %d type %d\n",
-						ret, dir, type);
-				return ret;
-			}
-
-			ret = sps_setup_bam2bam_fifo(desc,
-					IPA_OCIMEM_UL_DESC_FIFO_OFST,
-					ipa_get_desc_fifo_sz(dir, type), 1);
-			if (ret) {
-				IPAERR("DEFIFO setup fail %d dir %d type %d\n",
-						ret, dir, type);
-				return ret;
-			}
+			desc->base = ipa_ctx->smem_pipe_mem +
+				IPA_SMEM_UL_EMB_DESC_FIFO_OFST;
+			desc->phys_base = smem_virt_to_phys(desc->base);
+			desc->size = ipa_get_desc_fifo_sz(dir, type);
+			data->base = ipa_ctx->smem_pipe_mem +
+				IPA_SMEM_UL_EMB_DATA_FIFO_OFST;
+			data->phys_base = smem_virt_to_phys(data->base);
+			data->size = ipa_get_data_fifo_sz(dir, type);
 		} else {
 			ret = sps_setup_bam2bam_fifo(data,
-					IPA_OCIMEM_DL_DATA_FIFO_OFST,
+					IPA_OCIMEM_DL_A2_DATA_FIFO_OFST,
 					ipa_get_data_fifo_sz(dir, type), 1);
 			if (ret) {
 				IPAERR("DAFIFO setup fail %d dir %d type %d\n",
@@ -219,7 +246,7 @@ int ipa_setup_a2_dma_fifos(enum ipa_bridge_dir dir,
 			}
 
 			ret = sps_setup_bam2bam_fifo(desc,
-					IPA_OCIMEM_DL_DESC_FIFO_OFST,
+					IPA_OCIMEM_DL_A2_DESC_FIFO_OFST,
 					ipa_get_desc_fifo_sz(dir, type), 1);
 			if (ret) {
 				IPAERR("DEFIFO setup fail %d dir %d type %d\n",
@@ -288,6 +315,15 @@ static int setup_dma_bam_bridge(enum ipa_bridge_dir dir,
 	ipa_in_params.notify = props->notify;
 	ipa_in_params.desc_fifo_sz = ipa_get_desc_fifo_sz(dir, type);
 	ipa_in_params.data_fifo_sz = ipa_get_data_fifo_sz(dir, type);
+
+	if (type == IPA_BRIDGE_TYPE_EMBEDDED && dir == IPA_BRIDGE_DIR_DL) {
+		if (ipa_setup_ipa_dma_fifos(dir, type, &ipa_in_params.desc,
+					&ipa_in_params.data)) {
+			IPAERR("fail to setup IPA-DMA FIFOs dir=%d type=%d\n",
+					dir, type);
+			goto fail_get_a2_prop;
+		}
+	}
 
 	if (ipa_connect(&ipa_in_params, &sps_out_params, clnt_hdl)) {
 		IPAERR("ipa connect failed dir=%d type=%d\n", dir, type);
