@@ -229,6 +229,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
@@ -860,31 +861,27 @@ static s64 cc_uv_to_pvh(s64 cc_uv)
 }
 
 /**
- * calculate_cc-
+ * calculate_cc() - converts a hardware coulomb counter reading into uah
  * @chip:		the bms chip pointer
  * @cc:			the cc reading from bms h/w
- * @val:		return value
- * @coulomb_counter:	adjusted coulomb counter for 100%
+ * @clear_cc:		whether this function should clear the hardware counter
+ *			after reading
  *
- * RETURNS: in val pointer coulomb counter based charger in uAh
- *          (micro Amp hour)
+ * Converts the 64 bit hardware coulomb counter into microamp-hour by taking
+ * into account hardware resolution and adc errors.
+ *
+ * Return: the coulomb counter based charge in uAh (micro-amp hour)
  */
-static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
+static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc, bool clear_cc)
 {
 	struct qpnp_iadc_calib calibration;
 	struct qpnp_vadc_result result;
 	int64_t cc_voltage_uv, cc_pvh, cc_uah;
-	int ibat_ua, rc;
+	int rc;
 
 	rc = qpnp_vadc_read(DIE_TEMP, &result);
 	if (rc) {
 		pr_err("could not read pmic die temperature: %d\n", rc);
-		return chip->software_cc_uah;
-	}
-
-	rc = get_battery_current(chip, &ibat_ua);
-	if (rc) {
-		pr_err("could not read battery current: %d\n", rc);
 		return chip->software_cc_uah;
 	}
 
@@ -901,9 +898,14 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 	rc = qpnp_iadc_comp_result(&cc_uah);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
-	chip->software_cc_uah += cc_uah;
-	reset_cc(chip);
-	return (int)chip->software_cc_uah;
+
+	if (clear_cc) {
+		chip->software_cc_uah += cc_uah;
+		reset_cc(chip);
+		return (int)chip->software_cc_uah;
+	} else {
+		return chip->software_cc_uah + cc_uah;
+	}
 }
 
 static int get_rbatt(struct qpnp_bms_chip *chip,
@@ -1232,7 +1234,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	pr_debug("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
 
 	/* calculate cc micro_volt_hour */
-	params->cc_uah = calculate_cc(chip, raw->cc);
+	params->cc_uah = calculate_cc(chip, raw->cc, true);
 	pr_debug("cc_uah = %duAh raw->cc = %llx\n", params->cc_uah, raw->cc);
 
 	soc_rbatt = ((params->ocv_charge_uah - params->cc_uah) * 100)
@@ -2355,6 +2357,20 @@ static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
 	return result_ua;
 }
 
+/* Returns coulomb counter in uAh */
+static int get_prop_bms_charge_counter(struct qpnp_bms_chip *chip)
+{
+	int64_t cc_raw;
+
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+	read_cc_raw(chip, &cc_raw);
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+
+	return calculate_cc(chip, cc_raw, false);
+}
+
 /* Returns full charge design in uAh */
 static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
 {
@@ -2386,6 +2402,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		val->intval = get_prop_bms_batt_resistance(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		val->intval = get_prop_bms_charge_counter(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
