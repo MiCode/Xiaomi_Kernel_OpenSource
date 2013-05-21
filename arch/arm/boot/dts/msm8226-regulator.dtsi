@@ -62,6 +62,8 @@
 		qcom,vdd-apc-step-up-limit = <1>;
 		qcom,vdd-apc-step-down-limit = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-enable;
 	};
 };
 
