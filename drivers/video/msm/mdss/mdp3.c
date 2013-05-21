@@ -290,12 +290,16 @@ static int mdp3_bus_scale_register(void)
 static void mdp3_bus_scale_unregister(void)
 {
 	int i;
+
+	if (!mdp3_res->bus_handle)
+		return;
+
 	for (i = 0; i < MDP3_BUS_HANDLE_MAX; i++) {
 		pr_debug("unregister index=%d bus_handle=%x\n",
 			i, mdp3_res->bus_handle[i].handle);
 		if (mdp3_res->bus_handle[i].handle) {
 			msm_bus_scale_unregister_client(
-			   mdp3_res->bus_handle[i].handle);
+				mdp3_res->bus_handle[i].handle);
 			mdp3_res->bus_handle[i].handle = 0;
 		}
 	}
@@ -484,11 +488,20 @@ static int mdp3_clk_setup(void)
 
 static void mdp3_clk_remove(void)
 {
-	clk_put(mdp3_res->clocks[MDP3_CLK_AHB]);
-	clk_put(mdp3_res->clocks[MDP3_CLK_CORE]);
-	clk_put(mdp3_res->clocks[MDP3_CLK_VSYNC]);
-	clk_put(mdp3_res->clocks[MDP3_CLK_LCDC]);
-	clk_put(mdp3_res->clocks[MDP3_CLK_DSI]);
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_AHB]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_AHB]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_CORE]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_CORE]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_VSYNC]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_VSYNC]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_LCDC]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_LCDC]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_DSI]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_DSI]);
 }
 
 int mdp3_clk_enable(int enable)
@@ -519,6 +532,7 @@ static int mdp3_irq_setup(void)
 		return ret;
 	}
 	disable_irq(mdp3_res->irq);
+	mdp3_res->irq_registered = true;
 	return 0;
 }
 
@@ -556,7 +570,8 @@ int mdp3_iommu_dettach(int context)
 	struct mdp3_iommu_ctx_map *context_map;
 	struct mdp3_iommu_domain_map *domain_map;
 
-	if (context >= MDP3_IOMMU_CTX_MAX)
+	if (!mdp3_res->iommu_contexts ||
+		context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
 	context_map = mdp3_res->iommu_contexts + context;
@@ -595,10 +610,13 @@ int mdp3_iommu_domain_init(void)
 
 		mdp3_iommu_domains[i].domain_idx = domain_idx;
 		mdp3_iommu_domains[i].domain = msm_get_iommu_domain(domain_idx);
-		if (!mdp3_iommu_domains[i].domain) {
+		if (IS_ERR_OR_NULL(mdp3_iommu_domains[i].domain)) {
 			pr_err("unable to get iommu domain(%d)\n",
 				domain_idx);
-			return -EINVAL;
+			if (!mdp3_iommu_domains[i].domain)
+				return -EINVAL;
+			else
+				return PTR_ERR(mdp3_iommu_domains[i].domain);
 		}
 		iommu_set_fault_handler(mdp3_iommu_domains[i].domain,
 					mdp3_iommu_fault_handler,
@@ -623,10 +641,13 @@ int mdp3_iommu_context_init(void)
 		mdp3_iommu_contexts[i].ctx =
 			msm_iommu_get_ctx(mdp3_iommu_contexts[i].ctx_name);
 
-		if (!mdp3_iommu_contexts[i].ctx) {
+		if (IS_ERR_OR_NULL(mdp3_iommu_contexts[i].ctx)) {
 			pr_warn("unable to get iommu ctx(%s)\n",
 				mdp3_iommu_contexts[i].ctx_name);
-			return -EINVAL;
+			if (!mdp3_iommu_contexts[i].ctx)
+				return -EINVAL;
+			else
+				return PTR_ERR(mdp3_iommu_contexts[i].ctx);
 		}
 	}
 
@@ -651,6 +672,19 @@ int mdp3_iommu_init(void)
 		return ret;
 	}
 	return ret;
+}
+
+void mdp3_iommu_deinit(void)
+{
+	int i;
+
+	if (!mdp3_res->domains)
+		return;
+
+	for (i = 0; i < MDP3_IOMMU_DOMAIN_MAX; i++) {
+		if (!IS_ERR_OR_NULL(mdp3_res->domains[i].domain))
+			msm_unregister_domain(mdp3_res->domains[i].domain);
+	}
 }
 
 static int mdp3_check_version(void)
@@ -740,6 +774,21 @@ static int mdp3_res_init(void)
 	rc = mdp3_hw_init();
 
 	return rc;
+}
+
+static void mdp3_res_deinit(void)
+{
+	mdp3_bus_scale_unregister();
+	mdp3_iommu_dettach(MDP3_IOMMU_CTX_DMA_0);
+	mdp3_iommu_deinit();
+
+	if (!IS_ERR_OR_NULL(mdp3_res->ion_client))
+		ion_client_destroy(mdp3_res->ion_client);
+
+	mdp3_clk_remove();
+
+	if (mdp3_res->irq_registered)
+		devm_free_irq(&mdp3_res->pdev->dev, mdp3_res->irq, mdp3_res);
 }
 
 static int mdp3_parse_dt(struct platform_device *pdev)
@@ -847,7 +896,10 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data)
 		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
 		if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
 			pr_err("error on ion_import_fd\n");
-			ret = PTR_ERR(data->srcp_ihdl);
+			if (!data->srcp_ihdl)
+				ret = -EINVAL;
+			else
+				ret = PTR_ERR(data->srcp_ihdl);
 			data->srcp_ihdl = NULL;
 			return ret;
 		}
@@ -1002,6 +1054,11 @@ static int mdp3_probe(struct platform_device *pdev)
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
+		mdp3_res_deinit();
+
+		if (mdp3_res->mdp_base)
+			devm_iounmap(&pdev->dev, mdp3_res->mdp_base);
+
 		devm_kfree(&pdev->dev, mdp3_res);
 		mdp3_res = NULL;
 	}

@@ -119,6 +119,8 @@ struct mdp3_hw_resource {
 	u32 irq_mask;
 	struct mdp3_intr_cb callbacks[MDP3_MAX_INTR];
 
+	int irq_registered;
+
 	struct early_suspend suspend_handler;
 };
 
