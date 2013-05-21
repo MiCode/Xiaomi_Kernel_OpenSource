@@ -111,7 +111,10 @@ dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-cdp.dtb \
 	msm8226-mtp.dtb \
-	msm8226-qrd.dtb
+	msm8226-qrd.dtb \
+	msm8926-cdp.dtb \
+	msm8926-mtp.dtb \
+	msm8926-qrd.dtb
 dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
 	msm8610-sim.dtb
 dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
