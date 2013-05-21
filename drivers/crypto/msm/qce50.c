@@ -1504,6 +1504,45 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev)
 }
 #endif
 
+
+static void _qce_dump_descr_fifos_fail(struct qce_device *pce_dev)
+{
+	int i, j, ents;
+	struct sps_iovec *iovec = pce_dev->ce_sps.in_transfer.iovec;
+	uint32_t cmd_flags = SPS_IOVEC_FLAG_CMD;
+
+	printk(KERN_INFO "==============================================\n");
+	printk(KERN_INFO "CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
+	printk(KERN_INFO "==============================================\n");
+	for (i = 0; i <  pce_dev->ce_sps.in_transfer.iovec_count; i++) {
+		printk(KERN_INFO " [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
+					iovec->addr, iovec->size, iovec->flags);
+		if (iovec->flags & cmd_flags) {
+			struct sps_command_element *pced;
+
+			pced = (struct sps_command_element *)
+					(GET_VIRT_ADDR(iovec->addr));
+			ents = iovec->size/(sizeof(struct sps_command_element));
+			for (j = 0; j < ents; j++) {
+				printk(KERN_INFO "      [%d] [0x%x] 0x%x\n", j,
+					pced->addr, pced->data);
+				pced++;
+			}
+		}
+		iovec++;
+	}
+
+	printk(KERN_INFO "==============================================\n");
+	printk(KERN_INFO "PRODUCER (RX/OUT/SRC) PIPE DESCRIPTOR\n");
+	printk(KERN_INFO "==============================================\n");
+	iovec = pce_dev->ce_sps.out_transfer.iovec;
+	for (i = 0; i <  pce_dev->ce_sps.out_transfer.iovec_count; i++) {
+		printk(KERN_INFO " [%d] addr=0x%x  size=0x%x  flags=0x%x\n", i,
+				iovec->addr, iovec->size, iovec->flags);
+		iovec++;
+	}
+}
+
 static void _qce_sps_iovec_count_init(struct qce_device *pce_dev)
 {
 	pce_dev->ce_sps.in_transfer.iovec_count = 0;
@@ -1602,6 +1641,7 @@ static int _qce_sps_transfer(struct qce_device *pce_dev)
 	if (rc) {
 		pr_err("sps_xfr() fail (consumer pipe=0x%x) rc = %d,",
 				(u32)pce_dev->ce_sps.consumer.pipe, rc);
+		_qce_dump_descr_fifos_fail(pce_dev);
 		return rc;
 	}
 	rc = sps_transfer(pce_dev->ce_sps.producer.pipe,
