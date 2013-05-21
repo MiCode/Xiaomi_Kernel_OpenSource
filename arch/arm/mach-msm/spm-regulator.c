@@ -42,16 +42,39 @@ struct voltage_range {
 static const struct voltage_range fts2_range0 = {0, 350000, 1275000,  5000};
 static const struct voltage_range fts2_range1 = {0, 700000, 2040000, 10000};
 
-/* Specifies the PMIC internal slew rate in uV/us. */
-#define QPNP_FTS2_SLEW_RATE		6000
-
 #define QPNP_FTS2_REG_TYPE		0x04
 #define QPNP_FTS2_REG_SUBTYPE		0x05
 #define QPNP_FTS2_REG_VOLTAGE_RANGE	0x40
 #define QPNP_FTS2_REG_VOLTAGE_SETPOINT	0x41
+#define QPNP_FTS2_REG_MODE		0x45
+#define QPNP_FTS2_REG_STEP_CTRL		0x61
 
 #define QPNP_FTS2_TYPE			0x1C
 #define QPNP_FTS2_SUBTYPE		0x08
+
+#define QPNP_FTS2_MODE_PWM		0x80
+#define QPNP_FTS2_MODE_AUTO		0x40
+
+#define QPNP_FTS2_STEP_CTRL_STEP_MASK	0x18
+#define QPNP_FTS2_STEP_CTRL_STEP_SHIFT	3
+#define QPNP_FTS2_STEP_CTRL_DELAY_MASK	0x07
+#define QPNP_FTS2_STEP_CTRL_DELAY_SHIFT	0
+
+/* Clock rate in kHz of the FTS2 regulator reference clock. */
+#define QPNP_FTS2_CLOCK_RATE		19200
+
+/* Time to delay in us to ensure that a mode change has completed. */
+#define QPNP_FTS2_MODE_CHANGE_DELAY	50
+
+/* Minimum time in us that it takes to complete a single SPMI write. */
+#define QPNP_SPMI_WRITE_MIN_DELAY	8
+
+/*
+ * The ratio QPNP_FTS2_STEP_MARGIN_NUM/QPNP_FTS2_STEP_MARGIN_DEN is use to
+ * adjust the step rate in order to account for oscillator variance.
+ */
+#define QPNP_FTS2_STEP_MARGIN_NUM	4
+#define QPNP_FTS2_STEP_MARGIN_DEN	5
 
 struct spm_vreg {
 	struct regulator_desc		rdesc;
@@ -64,7 +87,22 @@ struct spm_vreg {
 	unsigned			last_set_vlevel;
 	bool				online;
 	u16				spmi_base_addr;
+	u8				init_mode;
+	int				step_rate;
 };
+
+static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
+{
+	int rc;
+
+	rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
+		vreg->spmi_base_addr + QPNP_FTS2_REG_MODE, &mode, 1);
+	if (rc)
+		dev_err(&vreg->spmi_dev->dev, "%s: could not write to mode register, rc=%d\n",
+			__func__, rc);
+
+	return rc;
+}
 
 static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 {
@@ -74,6 +112,14 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 	if (vreg->vlevel == vreg->last_set_vlevel)
 		return 0;
 
+	if (!(vreg->init_mode & QPNP_FTS2_MODE_PWM)
+	    && vreg->uV > vreg->last_set_uV) {
+		/* Switch to PWM mode so that voltage ramping is fast. */
+		rc = qpnp_fts2_set_mode(vreg, QPNP_FTS2_MODE_PWM);
+		if (rc)
+			return rc;
+	}
+
 	rc = msm_spm_apcs_set_vdd(vreg->vlevel);
 	if (rc) {
 		pr_err("%s: msm_spm_set_vdd failed %d\n", vreg->rdesc.name, rc);
@@ -81,10 +127,21 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 	}
 
 	if (vreg->uV > vreg->last_set_uV) {
-		/* Wait for voltage to stabalize. */
+		/* Wait for voltage stepping to complete. */
 		udelay(DIV_ROUND_UP(vreg->uV - vreg->last_set_uV,
-					QPNP_FTS2_SLEW_RATE));
+					vreg->step_rate));
 	}
+
+	if (!(vreg->init_mode & QPNP_FTS2_MODE_PWM)
+	    && vreg->uV > vreg->last_set_uV) {
+		/* Wait for mode transition to complete. */
+		udelay(QPNP_FTS2_MODE_CHANGE_DELAY - QPNP_SPMI_WRITE_MIN_DELAY);
+		/* Switch to AUTO mode so that power consumption is lowered. */
+		rc = qpnp_fts2_set_mode(vreg, QPNP_FTS2_MODE_AUTO);
+		if (rc)
+			return rc;
+	}
+
 	vreg->last_set_uV = vreg->uV;
 	vreg->last_set_vlevel = vreg->vlevel;
 
@@ -254,6 +311,51 @@ static int qpnp_fts2_init_voltage(struct spm_vreg *vreg)
 	return rc;
 }
 
+static int qpnp_fts2_init_mode(struct spm_vreg *vreg)
+{
+	int rc;
+
+	rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
+		vreg->spmi_base_addr + QPNP_FTS2_REG_MODE, &vreg->init_mode, 1);
+	if (rc)
+		dev_err(&vreg->spmi_dev->dev, "%s: could not read mode register, rc=%d\n",
+			__func__, rc);
+
+	return rc;
+}
+
+static int qpnp_fts2_init_step_rate(struct spm_vreg *vreg)
+{
+	int rc;
+	u8 reg = 0;
+	int step, delay;
+
+	rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
+		vreg->spmi_base_addr + QPNP_FTS2_REG_STEP_CTRL, &reg, 1);
+	if (rc) {
+		dev_err(&vreg->spmi_dev->dev, "%s: could not read stepping control register, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	step = (reg & QPNP_FTS2_STEP_CTRL_STEP_MASK)
+		>> QPNP_FTS2_STEP_CTRL_STEP_SHIFT;
+	delay = (reg & QPNP_FTS2_STEP_CTRL_DELAY_MASK)
+		>> QPNP_FTS2_STEP_CTRL_DELAY_SHIFT;
+
+	/* step_rate has units of uV/us. */
+	vreg->step_rate = QPNP_FTS2_CLOCK_RATE * vreg->range->step_uV
+				* (1 << step);
+	vreg->step_rate /= 1000 * (8 << delay);
+	vreg->step_rate = vreg->step_rate * QPNP_FTS2_STEP_MARGIN_NUM
+				/ QPNP_FTS2_STEP_MARGIN_DEN;
+
+	/* Ensure that the stepping rate is greater than 0. */
+	vreg->step_rate = max(vreg->step_rate, 1);
+
+	return rc;
+}
+
 static int __devinit spm_regulator_probe(struct spmi_device *spmi)
 {
 	struct device_node *node = spmi->dev.of_node;
@@ -299,6 +401,14 @@ static int __devinit spm_regulator_probe(struct spmi_device *spmi)
 	if (rc)
 		return rc;
 
+	rc = qpnp_fts2_init_mode(vreg);
+	if (rc)
+		return rc;
+
+	rc = qpnp_fts2_init_step_rate(vreg);
+	if (rc)
+		return rc;
+
 	init_data = of_get_regulator_init_data(&spmi->dev, node);
 	if (!init_data) {
 		dev_err(&spmi->dev, "%s: unable to allocate memory\n",
@@ -334,8 +444,12 @@ static int __devinit spm_regulator_probe(struct spmi_device *spmi)
 
 	dev_set_drvdata(&spmi->dev, vreg);
 
-	pr_info("name=%s, range=%d\n", vreg->rdesc.name,
-		(vreg->range == &fts2_range0) ? 0 : 1);
+	pr_info("name=%s, range=%s, voltage=%d uV, mode=%s, step rate=%d uV/us\n",
+		vreg->rdesc.name, vreg->range == &fts2_range0 ? "LV" : "MV",
+		vreg->uV,
+		vreg->init_mode & QPNP_FTS2_MODE_PWM ? "PWM" :
+		    (vreg->init_mode & QPNP_FTS2_MODE_AUTO ? "AUTO" : "PFM"),
+		vreg->step_rate);
 
 	return rc;
 }
