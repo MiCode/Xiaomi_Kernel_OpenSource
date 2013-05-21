@@ -192,13 +192,9 @@ static ssize_t mdp3_vsync_show_event(struct device *dev,
 
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
-	rc = wait_for_completion_interruptible_timeout(
-				&mdp3_session->vsync_comp,
-				msecs_to_jiffies(VSYNC_PERIOD * 5));
-	if (rc <= 0) {
-		pr_warn("vsync wait on fb%d interrupted (%d)\n",
-			mfd->index, rc);
-	}
+	rc = wait_for_completion_interruptible(&mdp3_session->vsync_comp);
+	if (rc < 0)
+		return rc;
 
 	spin_lock_irqsave(&mdp3_session->vsync_lock, flag);
 	vsync_ticks = ktime_to_ns(mdp3_session->vsync_time);
