@@ -117,6 +117,7 @@ struct mdp3_hw_resource {
 	u32 irq_ref_count[MDP3_MAX_INTR];
 	u32 irq_mask;
 	struct mdp3_intr_cb callbacks[MDP3_MAX_INTR];
+	int irq_registered;
 };
 
 struct mdp3_img_data {
