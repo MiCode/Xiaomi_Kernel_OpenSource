@@ -1009,7 +1009,7 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 				radio->xfr_in_progress = 0;
 			} else if (radio->xfr_bytes_left > 14) {
 				copy_from_xfr(radio, TAVARUA_BUF_SRCH_LIST,
-							XFR_REG_NUM);
+							RX_STATIONS0_LEN);
 				request_read_xfr(radio,	RX_STATIONS_1);
 			} else if (radio->xfr_bytes_left) {
 				FMDBG("In else RX_STATIONS_0\n");
