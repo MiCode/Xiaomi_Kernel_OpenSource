@@ -547,6 +547,7 @@
 
 		gpios = <&msmgpio 40 0>, <&msmgpio 41 0>, <&msmgpio 42 0>, <&msmgpio 43 0>, <&msmgpio 44 0>;
 		qcom,has_pronto_hw;
+		qcom,has_autodetect_xo;
 	};
 
 	qcom,msm-adsp-sensors {
