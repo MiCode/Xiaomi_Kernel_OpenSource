@@ -13,6 +13,7 @@ Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
 - qcom,secure-context : boolean indicating that a context is secure and
   programmed by the secure environment.
+- qcom,vdd-supply: Regulator needed to access IOMMU
 - qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
 - interrupts : should contain the performance monitor overflow interrupt number.
