@@ -14,21 +14,27 @@
 
 &jpeg_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_jpeg>;
 };
 
 &mdp_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_mdss>;
 };
 
 &venus_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_venus>;
 };
 
 &kgsl_iommu {
 	status = "ok";
 	qcom,needs-alt-core-clk;
+	vdd-supply = <&gdsc_oxili_cx>;
+	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 };
 
 &vfe_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_vfe>;
 };
