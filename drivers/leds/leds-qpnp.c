@@ -1631,7 +1631,7 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 	if (!rc)
 		led->flash_cfg->headroom = (u8) val;
 	else if (rc == -EINVAL)
-		led->flash_cfg->headroom = HEADROOM_300mV;
+		led->flash_cfg->headroom = HEADROOM_500mV;
 	else
 		return rc;
 
@@ -1656,7 +1656,7 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 	if (!rc)
 		led->flash_cfg->startup_dly = (u8) val;
 	else if (rc == -EINVAL)
-		led->flash_cfg->startup_dly = DELAY_32us;
+		led->flash_cfg->startup_dly = DELAY_128us;
 	else
 		return rc;
 
