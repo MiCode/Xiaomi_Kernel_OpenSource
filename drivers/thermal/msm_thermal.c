@@ -608,6 +608,7 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 	return ret;
 }
 
+#ifdef CONFIG_SMP
 static void __cpuinit do_core_control(long temp)
 {
 	int i = 0;
@@ -657,6 +658,12 @@ static void __cpuinit do_core_control(long temp)
 	}
 	mutex_unlock(&core_control_mutex);
 }
+#else
+static void do_core_control(long temp)
+{
+	return;
+}
+#endif
 
 static int do_vdd_restriction(void)
 {
@@ -935,6 +942,7 @@ module_param_cb(enabled, &module_ops, &enabled, 0644);
 MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
 
 
+#ifdef CONFIG_SMP
 /* Call with core_control_mutex locked */
 static int __cpuinit update_offline_cores(int val)
 {
@@ -957,6 +965,12 @@ static int __cpuinit update_offline_cores(int val)
 	}
 	return ret;
 }
+#else
+static int update_offline_cores(int val)
+{
+	return 0;
+}
+#endif
 
 static ssize_t show_cc_enabled(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -1176,11 +1190,13 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 		return -EINVAL;
 
 	enabled = 1;
-	core_control_enabled = 1;
+	if (num_possible_cpus() > 1)
+		core_control_enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
 	schedule_delayed_work(&check_temp_work, 0);
 
-	register_cpu_notifier(&msm_thermal_cpu_notifier);
+	if (num_possible_cpus() > 1)
+		register_cpu_notifier(&msm_thermal_cpu_notifier);
 
 	return ret;
 }
@@ -1690,7 +1706,8 @@ int __init msm_thermal_device_init(void)
 
 int __init msm_thermal_late_init(void)
 {
-	msm_thermal_add_cc_nodes();
+	if (num_possible_cpus() > 1)
+		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
 	alarm_init(&thermal_rtc, ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
