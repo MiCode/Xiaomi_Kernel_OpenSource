@@ -536,6 +536,8 @@ static int connect_to_bam(void)
 				__func__);
 		return -EFAULT;
 	}
+	if (sps_ctrl_bam_dma_clk(true))
+		WARN_ON(1);
 	memset(&connect_params, 0, sizeof(struct ipa_sys_connect_params));
 	connect_params.client = IPA_CLIENT_A2_TETHERED_CONS;
 	connect_params.notify = ipa_tethered_notify;
@@ -606,6 +608,8 @@ bridge_tethered_dl_failed:
 	ipa_bridge_teardown(IPA_BRIDGE_DIR_UL, IPA_BRIDGE_TYPE_TETHERED,
 			a2_mux_ctx->tethered_prod);
 bridge_tethered_ul_failed:
+	if (sps_ctrl_bam_dma_clk(false))
+		WARN_ON(1);
 	return ret;
 }
 
@@ -647,6 +651,8 @@ static int disconnect_to_bam(void)
 				__func__, ret);
 		return ret;
 	}
+	if (sps_ctrl_bam_dma_clk(false))
+		WARN_ON(1);
 	verify_tx_queue_is_empty(__func__);
 	(void) ipa_rm_release_resource(IPA_RM_RESOURCE_A2_PROD);
 	if (a2_mux_ctx->disconnect_ack)
