@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@ enum qce_ota_oper_enum {
 struct ota_dev_control;
 
 struct ota_async_req {
-	struct list_head list;
+	struct list_head rlist;
 	struct completion complete;
 	int err;
 	enum qce_ota_oper_enum op;
@@ -52,7 +52,7 @@ struct ota_async_req {
 		struct qce_f8_multi_pkt_req f8_mp_req;
 	} req;
 
-	struct ota_dev_control  *podev;
+	struct ota_qce_dev  *pqce;
 };
 
 /*
@@ -68,19 +68,29 @@ struct ota_dev_control {
 
 	/* misc device */
 	struct miscdevice miscdevice;
+	struct list_head ready_commands;
+	unsigned magic;
+	struct list_head qce_dev;
+	spinlock_t lock;
+	struct mutex register_lock;
+	bool registered;
+	uint32_t total_units;
+};
 
+struct ota_qce_dev {
+	struct list_head qlist;
 	/* qce handle */
 	void *qce;
 
 	/* platform device */
 	struct platform_device *pdev;
 
-	unsigned magic;
-
-	struct list_head ready_commands;
 	struct ota_async_req *active_command;
-	spinlock_t lock;
 	struct tasklet_struct done_tasklet;
+	struct ota_dev_control *podev;
+	uint32_t unit;
+	u32 totalReq;
+	u32 errReq;
 };
 
 #define OTA_MAGIC 0x4f544143
@@ -89,7 +99,7 @@ static long qcota_ioctl(struct file *file,
 			  unsigned cmd, unsigned long arg);
 static int qcota_open(struct inode *inode, struct file *file);
 static int qcota_release(struct inode *inode, struct file *file);
-static int start_req(struct ota_dev_control *podev);
+static int start_req(struct ota_qce_dev *pqce, struct ota_async_req *areq);
 
 static const struct file_operations qcota_fops = {
 	.owner = THIS_MODULE,
@@ -98,34 +108,14 @@ static const struct file_operations qcota_fops = {
 	.release = qcota_release,
 };
 
-static struct ota_dev_control qcota_dev[] = {
-	{
-		.miscdevice = {
+static struct ota_dev_control qcota_dev = {
+	.miscdevice = {
 			.minor = MISC_DYNAMIC_MINOR,
 			.name = "qcota0",
 			.fops = &qcota_fops,
-		},
-		.magic = OTA_MAGIC,
 	},
-	{
-		.miscdevice = {
-			.minor = MISC_DYNAMIC_MINOR,
-			.name = "qcota1",
-			.fops = &qcota_fops,
-		},
-		.magic = OTA_MAGIC,
-	},
-	{
-		.miscdevice = {
-			.minor = MISC_DYNAMIC_MINOR,
-			.name = "qcota2",
-			.fops = &qcota_fops,
-		},
-		.magic = OTA_MAGIC,
-	}
+	.magic = OTA_MAGIC,
 };
-
-#define MAX_OTA_DEVICE ARRAY_SIZE(qcota_dev)
 
 #define DEBUG_MAX_FNAME  16
 #define DEBUG_MAX_RW_BUF 1024
@@ -141,27 +131,22 @@ struct qcota_stat {
 	u32 f9_op_success;
 	u32 f9_op_fail;
 };
-static struct qcota_stat _qcota_stat[MAX_OTA_DEVICE];
+static struct qcota_stat _qcota_stat;
 static struct dentry *_debug_dent;
 static char _debug_read_buf[DEBUG_MAX_RW_BUF];
-static int _debug_qcota[MAX_OTA_DEVICE];
+static int _debug_qcota;
 
-static struct ota_dev_control *qcota_minor_to_control(unsigned n)
+static struct ota_dev_control *qcota_control(void)
 {
-	int i;
 
-	for (i = 0; i < MAX_OTA_DEVICE; i++) {
-		if (qcota_dev[i].miscdevice.minor == n)
-			return &qcota_dev[i];
-	}
-	return NULL;
+	return &qcota_dev;
 }
 
 static int qcota_open(struct inode *inode, struct file *file)
 {
 	struct ota_dev_control *podev;
 
-	podev = qcota_minor_to_control(MINOR(inode->i_rdev));
+	podev = qcota_control();
 	if (podev == NULL) {
 		pr_err("%s: no such device %d\n", __func__,
 				MINOR(inode->i_rdev));
@@ -191,38 +176,52 @@ static int qcota_release(struct inode *inode, struct file *file)
 
 static void req_done(unsigned long data)
 {
-	struct ota_dev_control *podev = (struct ota_dev_control *)data;
+	struct ota_qce_dev *pqce = (struct ota_qce_dev *)data;
+	struct ota_dev_control *podev = pqce->podev;
 	struct ota_async_req *areq;
 	unsigned long flags;
 	struct ota_async_req *new_req = NULL;
 	int ret = 0;
 
+
 	spin_lock_irqsave(&podev->lock, flags);
-	areq = podev->active_command;
-	podev->active_command = NULL;
+
+	areq = pqce->active_command;
+	if (unlikely(areq == NULL))
+		pr_err("ota_crypto: req_done, no active request\n");
+	pqce->active_command = NULL;
 
 again:
 	if (!list_empty(&podev->ready_commands)) {
 		new_req = container_of(podev->ready_commands.next,
-						struct ota_async_req, list);
-		list_del(&new_req->list);
-		podev->active_command = new_req;
+						struct ota_async_req, rlist);
+		list_del(&new_req->rlist);
+		pqce->active_command = new_req;
+		spin_unlock_irqrestore(&podev->lock, flags);
+
 		new_req->err = 0;
-		ret = start_req(podev);
-	}
+		ret = start_req(pqce, new_req); /* start a new request */
 
-	spin_unlock_irqrestore(&podev->lock, flags);
+	} else {
+		spin_unlock_irqrestore(&podev->lock, flags);
+	};
 
-	if (areq)
+	if (areq) {
 		complete(&areq->complete);
-
-	if (new_req && ret) {
-		complete(&new_req->complete);
-		spin_lock_irqsave(&podev->lock, flags);
-		podev->active_command = NULL;
 		areq = NULL;
+	};
+
+	/* if error from issuing request  */
+	if (unlikely(new_req && ret)) {
+		new_req->err = ret;
+		complete(&new_req->complete);
 		ret = 0;
 		new_req = NULL;
+
+		spin_lock_irqsave(&podev->lock, flags);
+		pqce->active_command = NULL;
+
+		/* try to get next new request */
 		goto again;
 	}
 
@@ -233,64 +232,61 @@ static void f9_cb(void *cookie, unsigned char *icv, unsigned char *iv,
 	int ret)
 {
 	struct ota_async_req *areq = (struct ota_async_req *) cookie;
-	struct ota_dev_control *podev;
-	struct qcota_stat *pstat;
+	struct ota_qce_dev *pqce;
 
-	podev = areq->podev;
-	pstat = &_qcota_stat[podev->pdev->id];
+	pqce = areq->pqce;
 	areq->req.f9_req.mac_i  = (uint32_t) icv;
 
-	if (ret)
+	if (ret) {
+		pqce->errReq++;
 		areq->err = -ENXIO;
-	else
+	} else
 		areq->err = 0;
 
-	tasklet_schedule(&podev->done_tasklet);
-};
+	tasklet_schedule(&pqce->done_tasklet);
+}
 
 static void f8_cb(void *cookie, unsigned char *icv, unsigned char *iv,
 	int ret)
 {
 	struct ota_async_req *areq = (struct ota_async_req *) cookie;
-	struct ota_dev_control *podev;
-	struct qcota_stat *pstat;
+	struct ota_qce_dev *pqce;
 
-	podev = areq->podev;
-	pstat = &_qcota_stat[podev->pdev->id];
+	pqce = areq->pqce;
 
-	if (ret)
+	if (ret) {
+		pqce->errReq++;
 		areq->err = -ENXIO;
-	else
+	} else {
 		areq->err = 0;
+	}
 
-	tasklet_schedule(&podev->done_tasklet);
-};
+	tasklet_schedule(&pqce->done_tasklet);
+}
 
-static int start_req(struct ota_dev_control *podev)
+static int start_req(struct ota_qce_dev *pqce, struct ota_async_req *areq)
 {
-	struct ota_async_req *areq;
 	struct qce_f9_req *pf9;
 	struct qce_f8_multi_pkt_req *p_mp_f8;
 	struct qce_f8_req *pf8;
 	int ret = 0;
 
-	/* start the command on the podev->active_command */
-	areq = podev->active_command;
-	areq->podev = podev;
+	/* command should be on the podev->active_command */
+	areq->pqce = pqce;
 
 	switch (areq->op) {
 	case QCE_OTA_F8_OPER:
 		pf8 = &areq->req.f8_req;
-		ret = qce_f8_req(podev->qce, pf8, areq, f8_cb);
+		ret = qce_f8_req(pqce->qce, pf8, areq, f8_cb);
 		break;
 	case QCE_OTA_MPKT_F8_OPER:
 		p_mp_f8 = &areq->req.f8_mp_req;
-		ret = qce_f8_multi_pkt_req(podev->qce, p_mp_f8, areq, f8_cb);
+		ret = qce_f8_multi_pkt_req(pqce->qce, p_mp_f8, areq, f8_cb);
 		break;
 
 	case QCE_OTA_F9_OPER:
 		pf9 = &areq->req.f9_req;
-		ret =  qce_f9_req(podev->qce, pf9, areq, f9_cb);
+		ret =  qce_f9_req(pqce->qce, pf9, areq, f9_cb);
 		break;
 
 	default:
@@ -298,32 +294,60 @@ static int start_req(struct ota_dev_control *podev)
 		break;
 	};
 	areq->err = ret;
+	pqce->totalReq++;
+	if (ret)
+		pqce->errReq++;
 	return ret;
-};
+}
+
+static struct ota_qce_dev *schedule_qce(struct ota_dev_control *podev)
+{
+	/* do this function with spinlock set */
+	struct ota_qce_dev *p;
+
+	if (unlikely(list_empty(&podev->qce_dev))) {
+		pr_err("%s: no valid qce to schedule\n", __func__);
+		return NULL;
+	}
+
+	list_for_each_entry(p, &podev->qce_dev, qlist) {
+		if (p->active_command == NULL)
+			return p;
+	}
+	return NULL;
+}
 
 static int submit_req(struct ota_async_req *areq, struct ota_dev_control *podev)
 {
 	unsigned long flags;
 	int ret = 0;
 	struct qcota_stat *pstat;
+	struct ota_qce_dev *pqce;
 
 	areq->err = 0;
-	spin_lock_irqsave(&podev->lock, flags);
-	if (podev->active_command == NULL) {
-		podev->active_command = areq;
-		ret = start_req(podev);
-	} else {
-		list_add_tail(&areq->list, &podev->ready_commands);
-	}
 
-	if (ret != 0)
-		podev->active_command = NULL;
-	spin_unlock_irqrestore(&podev->lock, flags);
+	spin_lock_irqsave(&podev->lock, flags);
+	pqce = schedule_qce(podev);
+	if (pqce) {
+		pqce->active_command = areq;
+		spin_unlock_irqrestore(&podev->lock, flags);
+
+		ret = start_req(pqce, areq);
+		if (ret != 0) {
+			spin_lock_irqsave(&podev->lock, flags);
+			pqce->active_command = NULL;
+			spin_unlock_irqrestore(&podev->lock, flags);
+		}
+
+	} else {
+		list_add_tail(&areq->rlist, &podev->ready_commands);
+		spin_unlock_irqrestore(&podev->lock, flags);
+	}
 
 	if (ret == 0)
 		wait_for_completion(&areq->complete);
 
-	pstat = &_qcota_stat[podev->pdev->id];
+	pstat = &_qcota_stat;
 	switch (areq->op) {
 	case QCE_OTA_F8_OPER:
 		if (areq->err)
@@ -350,7 +374,7 @@ static int submit_req(struct ota_async_req *areq, struct ota_dev_control *podev)
 	};
 
 	return areq->err;
-};
+}
 
 static long qcota_ioctl(struct file *file,
 			  unsigned cmd, unsigned long arg)
@@ -377,7 +401,7 @@ static long qcota_ioctl(struct file *file,
 
 	init_completion(&areq.complete);
 
-	pstat = &_qcota_stat[podev->pdev->id];
+	pstat = &_qcota_stat;
 
 	switch (cmd) {
 	case QCOTA_F9_REQ:
@@ -523,67 +547,112 @@ static int qcota_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct ota_dev_control *podev;
 	struct ce_hw_support ce_support;
+	struct ota_qce_dev *pqce;
+	unsigned long flags;
 
-	if (pdev->id >= MAX_OTA_DEVICE) {
-		pr_err("%s: device id %d  exceeds allowed %d\n",
-			__func__, pdev->id, MAX_OTA_DEVICE);
-		return -ENOENT;
+	podev = &qcota_dev;
+	pqce = kzalloc(sizeof(*pqce), GFP_KERNEL);
+	if (!pqce) {
+		pr_err("qcota_probe: Memory allocation FAIL\n");
+		return -ENOMEM;
 	}
 
-	podev = &qcota_dev[pdev->id];
-
-	INIT_LIST_HEAD(&podev->ready_commands);
-	podev->active_command = NULL;
-	spin_lock_init(&podev->lock);
-	tasklet_init(&podev->done_tasklet, req_done, (unsigned long)podev);
+	pqce->podev = podev;
+	pqce->active_command = NULL;
+	tasklet_init(&pqce->done_tasklet, req_done, (unsigned long)pqce);
 
 	/* open qce */
 	handle = qce_open(pdev, &rc);
 	if (handle == NULL) {
-		pr_err("%s: device id %d, can not open qce\n",
-			__func__, pdev->id);
-		platform_set_drvdata(pdev, NULL);
-		return rc;
+		pr_err("%s: device %s, can not open qce\n",
+			__func__, pdev->name);
+		goto err;
 	}
 	if (qce_hw_support(handle, &ce_support) < 0 ||
 					ce_support.ota == false) {
-		pr_err("%s: device id %d, qce does not support ota capability\n",
-			__func__, pdev->id);
+		pr_err("%s: device %s, qce does not support ota capability\n",
+			__func__, pdev->name);
 		rc = -ENODEV;
 		goto err;
 	}
-	podev->qce = handle;
-	podev->pdev = pdev;
-	platform_set_drvdata(pdev, podev);
+	pqce->qce = handle;
+	pqce->pdev = pdev;
+	pqce->totalReq = 0;
+	pqce->errReq = 0;
+	platform_set_drvdata(pdev, pqce);
 
-	rc = misc_register(&podev->miscdevice);
-	if (rc < 0)
+	mutex_lock(&podev->register_lock);
+	rc = 0;
+	if (podev->registered == false) {
+		rc = misc_register(&podev->miscdevice);
+		if (rc == 0) {
+			pqce->unit = podev->total_units;
+			podev->total_units++;
+			podev->registered = true;
+		};
+	} else {
+		pqce->unit = podev->total_units;
+		podev->total_units++;
+	}
+	mutex_unlock(&podev->register_lock);
+	if (rc) {
+		pr_err("ion: failed to register misc device.\n");
 		goto err;
+	}
+
+	spin_lock_irqsave(&podev->lock, flags);
+	list_add_tail(&pqce->qlist, &podev->qce_dev);
+	spin_unlock_irqrestore(&podev->lock, flags);
 
 	return 0;
 err:
 	if (handle)
 		qce_close(handle);
+
 	platform_set_drvdata(pdev, NULL);
-	podev->qce = NULL;
-	podev->pdev = NULL;
+	tasklet_kill(&pqce->done_tasklet);
+	kfree(pqce);
 	return rc;
-};
+}
 
 static int qcota_remove(struct platform_device *pdev)
 {
 	struct ota_dev_control *podev;
+	struct ota_qce_dev *pqce;
+	unsigned long flags;
 
-	podev = platform_get_drvdata(pdev);
-	if (!podev)
+	pqce = platform_get_drvdata(pdev);
+	if (!pqce)
 		return 0;
-	if (podev->qce)
-		qce_close(podev->qce);
+	if (pqce->qce)
+		qce_close(pqce->qce);
 
-	if (podev->miscdevice.minor != MISC_DYNAMIC_MINOR)
-		misc_deregister(&podev->miscdevice);
-	tasklet_kill(&podev->done_tasklet);
+	podev = pqce->podev;
+	if (!podev)
+		goto ret;
+
+	spin_lock_irqsave(&podev->lock, flags);
+	list_del(&pqce->qlist);
+	spin_unlock_irqrestore(&podev->lock, flags);
+
+	mutex_lock(&podev->register_lock);
+	if (--podev->total_units == 0) {
+		if (podev->miscdevice.minor != MISC_DYNAMIC_MINOR)
+			misc_deregister(&podev->miscdevice);
+		podev->registered = false;
+	}
+	mutex_unlock(&podev->register_lock);
+ret:
+
+	tasklet_kill(&pqce->done_tasklet);
+	kfree(pqce);
 	return 0;
+}
+
+static struct of_device_id qcota_match[] = {
+	{	.compatible = "qcom,qcota",
+	},
+	{}
 };
 
 static struct platform_driver qcota_plat_driver = {
@@ -592,18 +661,21 @@ static struct platform_driver qcota_plat_driver = {
 	.driver = {
 		.name = "qcota",
 		.owner = THIS_MODULE,
+		.of_match_table = qcota_match,
 	},
 };
 
-static int _disp_stats(int id)
+static int _disp_stats(void)
 {
 	struct qcota_stat *pstat;
 	int len = 0;
+	struct ota_dev_control *podev = &qcota_dev;
+	unsigned long flags;
+	struct ota_qce_dev *p;
 
-	pstat = &_qcota_stat[id];
+	pstat = &_qcota_stat;
 	len = snprintf(_debug_read_buf, DEBUG_MAX_RW_BUF - 1,
-			"\nQualcomm OTA crypto accelerator %d Statistics:\n",
-				id + 1);
+			"\nQualcomm OTA crypto accelerator Statistics:\n");
 
 	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   F8 request             : %d\n",
@@ -635,6 +707,27 @@ static int _disp_stats(int id)
 			"   F9 operation fail      : %d\n",
 					pstat->f9_op_fail);
 
+	spin_lock_irqsave(&podev->lock, flags);
+
+	list_for_each_entry(p, &podev->qce_dev, qlist) {
+		len += snprintf(
+			_debug_read_buf + len,
+			DEBUG_MAX_RW_BUF - len - 1,
+			"   Engine %d Req          : %d\n",
+			p->unit,
+			p->totalReq
+		);
+		len += snprintf(
+			_debug_read_buf + len,
+			DEBUG_MAX_RW_BUF - len - 1,
+			"   Engine %d Req Error    : %d\n",
+			p->unit,
+			p->errReq
+		);
+	}
+
+	spin_unlock_irqrestore(&podev->lock, flags);
+
 	return len;
 }
 
@@ -648,10 +741,9 @@ static ssize_t _debug_stats_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	int rc = -EINVAL;
-	int qcota = *((int *) file->private_data);
 	int len;
 
-	len = _disp_stats(qcota);
+	len = _disp_stats();
 
 	rc = simple_read_from_buffer((void __user *) buf, len,
 			ppos, (void *) _debug_read_buf, len);
@@ -662,12 +754,23 @@ static ssize_t _debug_stats_read(struct file *file, char __user *buf,
 static ssize_t _debug_stats_write(struct file *file, const char __user *buf,
 			size_t count, loff_t *ppos)
 {
+	struct ota_dev_control *podev = &qcota_dev;
+	unsigned long flags;
+	struct ota_qce_dev *p;
 
-	int qcota = *((int *) file->private_data);
+	memset((char *)&_qcota_stat, 0, sizeof(struct qcota_stat));
 
-	memset((char *)&_qcota_stat[qcota], 0, sizeof(struct qcota_stat));
+	spin_lock_irqsave(&podev->lock, flags);
+
+	list_for_each_entry(p, &podev->qce_dev, qlist) {
+		p->totalReq = 0;
+		p->errReq = 0;
+	}
+
+	spin_unlock_irqrestore(&podev->lock, flags);
+
 	return count;
-};
+}
 
 static const struct file_operations _debug_stats_ops = {
 	.open =         _debug_stats_open,
@@ -679,7 +782,6 @@ static int _qcota_debug_init(void)
 {
 	int rc;
 	char name[DEBUG_MAX_FNAME];
-	int i;
 	struct dentry *dent;
 
 	_debug_dent = debugfs_create_dir("qcota", NULL);
@@ -689,17 +791,15 @@ static int _qcota_debug_init(void)
 		return PTR_ERR(_debug_dent);
 	}
 
-	for (i = 0; i < MAX_OTA_DEVICE; i++) {
-		snprintf(name, DEBUG_MAX_FNAME-1, "stats-%d", i+1);
-		_debug_qcota[i] = i;
-		dent = debugfs_create_file(name, 0644, _debug_dent,
-				&_debug_qcota[i], &_debug_stats_ops);
-		if (dent == NULL) {
-			pr_err("qcota debugfs_create_file fail, error %ld\n",
+	snprintf(name, DEBUG_MAX_FNAME-1, "stats-0");
+	_debug_qcota = 0;
+	dent = debugfs_create_file(name, 0644, _debug_dent,
+				&_debug_qcota, &_debug_stats_ops);
+	if (dent == NULL) {
+		pr_err("qcota debugfs_create_file fail, error %ld\n",
 					PTR_ERR(dent));
-			rc = PTR_ERR(dent);
-			goto err;
-		}
+		rc = PTR_ERR(dent);
+		goto err;
 	}
 	return 0;
 err:
@@ -710,10 +810,20 @@ err:
 static int __init qcota_init(void)
 {
 	int rc;
+	struct ota_dev_control *podev;
 
 	rc = _qcota_debug_init();
 	if (rc)
 		return rc;
+
+	podev = &qcota_dev;
+	INIT_LIST_HEAD(&podev->ready_commands);
+	INIT_LIST_HEAD(&podev->qce_dev);
+	spin_lock_init(&podev->lock);
+	mutex_init(&podev->register_lock);
+	podev->registered = false;
+	podev->total_units = 0;
+
 	return platform_driver_register(&qcota_plat_driver);
 }
 static void __exit qcota_exit(void)
@@ -725,7 +835,7 @@ static void __exit qcota_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Rohit Vaswani <rvaswani@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Ota Crypto driver");
-MODULE_VERSION("1.01");
+MODULE_VERSION("1.02");
 
 module_init(qcota_init);
 module_exit(qcota_exit);
