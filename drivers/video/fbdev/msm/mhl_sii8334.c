@@ -1933,6 +1933,72 @@ static struct i2c_device_id mhl_sii_i2c_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, mhl_sii_i2c_id);
 
+#if defined(CONFIG_PM) || defined(CONFIG_PM_SLEEP)
+static int mhl_i2c_suspend_sub(struct i2c_client *client)
+{
+	enable_irq_wake(client->irq);
+	disable_irq(client->irq);
+	return 0;
+}
+
+static int mhl_i2c_resume_sub(struct i2c_client *client)
+{
+	disable_irq_wake(client->irq);
+	enable_irq(client->irq);
+	return 0;
+}
+#endif /* defined(CONFIG_PM) || defined(CONFIG_PM_SLEEP) */
+
+#if defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP)
+static int mhl_i2c_suspend(struct i2c_client *client, pm_message_t state)
+{
+	if (!client)
+		return -ENODEV;
+	pr_debug("%s: mhl suspend\n", __func__);
+	return mhl_i2c_suspend_sub(client);
+}
+
+static int mhl_i2c_resume(struct i2c_client *client)
+{
+	if (!client)
+		return -ENODEV;
+	pr_debug("%s: mhl resume\n", __func__);
+	return mhl_i2c_resume_sub(client);
+}
+#else
+#define mhl_i2c_suspend NULL
+#define mhl_i2c_resume NULL
+#endif /* defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP) */
+
+#ifdef CONFIG_PM_SLEEP
+static int mhl_i2c_pm_suspend(struct device *dev)
+{
+	struct i2c_client *client =
+		container_of(dev, struct i2c_client, dev);
+
+	if (!client)
+		return -ENODEV;
+	pr_debug("%s: mhl pm suspend\n", __func__);
+	return mhl_i2c_suspend_sub(client);
+
+}
+
+static int mhl_i2c_pm_resume(struct device *dev)
+{
+	struct i2c_client *client =
+		container_of(dev, struct i2c_client, dev);
+
+	if (!client)
+		return -ENODEV;
+	pr_debug("%s: mhl pm resume\n", __func__);
+	return mhl_i2c_resume_sub(client);
+}
+
+static const struct dev_pm_ops mhl_i2c_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mhl_i2c_pm_suspend, mhl_i2c_pm_resume)
+};
+#endif /* CONFIG_PM_SLEEP */
+
 static struct of_device_id mhl_match_table[] = {
 	{.compatible = COMPATIBLE_NAME,},
 	{ },
@@ -1943,9 +2009,16 @@ static struct i2c_driver mhl_sii_i2c_driver = {
 		.name = MHL_DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = mhl_match_table,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &mhl_i2c_pm_ops,
+#endif /* CONFIG_PM_SLEEP */
 	},
 	.probe = mhl_i2c_probe,
 	.remove =  mhl_i2c_remove,
+#if defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP)
+	.suspend = mhl_i2c_suspend,
+	.resume = mhl_i2c_resume,
+#endif /* defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP) */
 	.id_table = mhl_sii_i2c_id,
 };
 
