@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@ enum {
 #define IS_MSG_TYPE(x) (((x) > TSV_TYPE_MSG_START) && \
 			((x) < TSV_TYPE_MSG_END))
 
-extern spinlock_t ipc_log_context_list_lock;
+extern rwlock_t ipc_log_context_list_lock;
 
 extern int msg_read(struct ipc_log_context *ilctxt,
 		    struct encode_context *ectxt);
