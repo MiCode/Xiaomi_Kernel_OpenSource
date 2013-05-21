@@ -476,23 +476,44 @@ static void msm_ipc_router_free_skb(struct sk_buff_head *skb_head)
 	kfree(skb_head);
 }
 
+static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
+			    struct rr_packet *pkt, int clone)
+{
+	struct rr_packet *temp_pkt = pkt;
+
+	if (unlikely(!port_ptr || !pkt))
+		return -EINVAL;
+
+	if (clone) {
+		temp_pkt = clone_pkt(pkt);
+		if (!temp_pkt) {
+			pr_err("%s: Error cloning packet for port %08x:%08x\n",
+				__func__, port_ptr->this_port.node_id,
+				port_ptr->this_port.port_id);
+			return -ENOMEM;
+		}
+	}
+
+	mutex_lock(&port_ptr->port_rx_q_lock);
+	wake_lock(&port_ptr->port_rx_wake_lock);
+	list_add_tail(&temp_pkt->list, &port_ptr->port_rx_q);
+	wake_up(&port_ptr->port_rx_wait_q);
+	if (port_ptr->notify)
+		port_ptr->notify(MSM_IPC_ROUTER_READ_CB, port_ptr->priv);
+	mutex_unlock(&port_ptr->port_rx_q_lock);
+	return 0;
+}
+
 static int post_control_ports(struct rr_packet *pkt)
 {
 	struct msm_ipc_port *port_ptr;
-	struct rr_packet *cloned_pkt;
 
 	if (!pkt)
 		return -EINVAL;
 
 	mutex_lock(&control_ports_lock);
-	list_for_each_entry(port_ptr, &control_ports, list) {
-		mutex_lock(&port_ptr->port_rx_q_lock);
-		cloned_pkt = clone_pkt(pkt);
-		wake_lock(&port_ptr->port_rx_wake_lock);
-		list_add_tail(&cloned_pkt->list, &port_ptr->port_rx_q);
-		wake_up(&port_ptr->port_rx_wait_q);
-		mutex_unlock(&port_ptr->port_rx_q_lock);
-	}
+	list_for_each_entry(port_ptr, &control_ports, list)
+		post_pkt_to_port(port_ptr, pkt, 1);
 	mutex_unlock(&control_ports_lock);
 	return 0;
 }
@@ -736,27 +757,14 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 {
 	struct msm_ipc_resume_tx_port *rtx_port, *tmp_rtx_port;
 	struct msm_ipc_port *local_port;
-	struct rr_packet *cloned_pkt;
 
 	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
 				&rport_ptr->resume_tx_port_list, list) {
 		mutex_lock(&local_ports_lock);
 		local_port =
 			msm_ipc_router_lookup_local_port(rtx_port->port_id);
-		if (local_port) {
-			cloned_pkt = clone_pkt(pkt);
-			if (cloned_pkt) {
-				mutex_lock(&local_port->port_rx_q_lock);
-				list_add_tail(&cloned_pkt->list,
-						&local_port->port_rx_q);
-				wake_up(&local_port->port_rx_wait_q);
-				mutex_unlock(&local_port->port_rx_q_lock);
-			} else {
-				pr_err("%s: Clone_pkt failed for %08x:%08x\n",
-					__func__, local_port->this_port.node_id,
-					local_port->this_port.port_id);
-			}
-		}
+		if (local_port)
+			post_pkt_to_port(local_port, pkt, 1);
 		mutex_unlock(&local_ports_lock);
 		list_del(&rtx_port->list);
 		kfree(rtx_port);
@@ -1901,14 +1909,7 @@ static void do_read_data(struct work_struct *work)
 			}
 		}
 
-		mutex_lock(&port_ptr->port_rx_q_lock);
-		wake_lock(&port_ptr->port_rx_wake_lock);
-		list_add_tail(&pkt->list, &port_ptr->port_rx_q);
-		wake_up(&port_ptr->port_rx_wait_q);
-		if (port_ptr->notify)
-			port_ptr->notify(MSM_IPC_ROUTER_READ_CB,
-					 port_ptr->priv);
-		mutex_unlock(&port_ptr->port_rx_q_lock);
+		post_pkt_to_port(port_ptr, pkt, 0);
 		mutex_unlock(&local_ports_lock);
 
 process_done:
@@ -2082,12 +2083,8 @@ static int loopback_data(struct msm_ipc_port *src,
 		return -ENODEV;
 	}
 
-	mutex_lock(&port_ptr->port_rx_q_lock);
-	wake_lock(&port_ptr->port_rx_wake_lock);
-	list_add_tail(&pkt->list, &port_ptr->port_rx_q);
 	ret_len = pkt->length;
-	wake_up(&port_ptr->port_rx_wait_q);
-	mutex_unlock(&port_ptr->port_rx_q_lock);
+	post_pkt_to_port(port_ptr, pkt, 0);
 	update_comm_mode_info(&src->mode_info, NULL);
 	mutex_unlock(&local_ports_lock);
 
