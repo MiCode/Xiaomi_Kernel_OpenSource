@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,19 @@
  * SPI driver for Qualcomm MSM platforms.
  */
 
+/**
+ * msm_spi_platform_data: msm spi-controller's configuration data
+ *
+ * @active_only when set, votes when system active and removes the vote when
+ *       system goes idle (optimises for performance). When unset, voting using
+ *       runtime pm (optimizes for power).
+ * @master_id master id number of the controller's wrapper (BLSP or GSBI).
+ *       When zero, clock path voting is disabled.
+ */
 struct msm_spi_platform_data {
 	u32 max_clock_speed;
+	bool active_only;
+	u32  master_id;
 	int (*gpio_config)(void);
 	void (*gpio_release)(void);
 	int (*dma_config)(void);
