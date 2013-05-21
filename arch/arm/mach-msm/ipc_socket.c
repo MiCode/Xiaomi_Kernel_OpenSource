@@ -407,9 +407,9 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	lock_sock(sk);
 	timeout = sk->sk_rcvtimeo;
-	mutex_lock(&port_ptr->port_rx_q_lock);
+	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
 	while (list_empty(&port_ptr->port_rx_q)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock);
+		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
 		release_sock(sk);
 		if (timeout < 0) {
 			ret = wait_event_interruptible(
@@ -431,9 +431,9 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 			return 0;
 		}
 		lock_sock(sk);
-		mutex_lock(&port_ptr->port_rx_q_lock);
+		mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
 	}
-	mutex_unlock(&port_ptr->port_rx_q_lock);
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
 
 	ret = msm_ipc_router_read(port_ptr, &msg, buf_len);
 	if (ret <= 0 || !msg) {
