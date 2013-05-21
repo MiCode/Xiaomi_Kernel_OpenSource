@@ -1725,7 +1725,7 @@ int mdss_register_panel(struct platform_device *pdev,
 
 	if (!mdp_instance) {
 		pr_err("mdss mdp resource not initialized yet\n");
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 
 	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
