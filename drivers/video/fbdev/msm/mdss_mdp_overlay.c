@@ -1286,20 +1286,14 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	unsigned long flags;
 	u64 vsync_ticks;
-	unsigned long timeout;
 	int ret;
 
 	if (!mdp5_data->ctl || !mdp5_data->ctl->power_on)
 		return 0;
 
-	timeout = msecs_to_jiffies(VSYNC_PERIOD * 5);
-	ret = wait_for_completion_interruptible_timeout(&mdp5_data->vsync_comp,
-			timeout);
-	if (ret <= 0) {
-		pr_debug("Sending current time as vsync timestamp for fb%d\n",
-				mfd->index);
-		mdp5_data->vsync_time = ktime_get();
-	}
+	ret = wait_for_completion_interruptible(&mdp5_data->vsync_comp);
+	if (ret < 0)
+		return ret;
 
 	spin_lock_irqsave(&mdp5_data->vsync_lock, flags);
 	vsync_ticks = ktime_to_ns(mdp5_data->vsync_time);
