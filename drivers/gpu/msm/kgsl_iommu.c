@@ -242,7 +242,7 @@ static void _find_mem_entries(struct kgsl_mmu *mmu, unsigned int faultaddr,
 
 	list_for_each_entry(private, &kgsl_driver.process_list, list) {
 
-		if (private->pagetable->name != id)
+		if (private->pagetable && (private->pagetable->name != id))
 			continue;
 
 		spin_lock(&private->mem_lock);
