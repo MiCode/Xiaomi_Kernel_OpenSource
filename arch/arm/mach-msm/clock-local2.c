@@ -559,11 +559,8 @@ static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
 {
 	struct branch_clk *branch = to_branch_clk(c);
 
-	if (!branch->bcr_reg) {
-		WARN("clk_reset called on an unsupported clock (%s)\n",
-			c->dbg_name);
+	if (!branch->bcr_reg)
 		return -EPERM;
-	}
 	return __branch_clk_reset(BCR_REG(branch), action);
 }
 
