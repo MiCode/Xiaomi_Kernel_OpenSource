@@ -1546,6 +1546,7 @@ static struct clk_freq_tbl ftbl_mmss_mmssnoc_axi_clk[] = {
 	F_END,
 };
 
+static struct branch_clk mmss_mmssnoc_axi_clk;
 static struct rcg_clk axi_clk_src = {
 	.cmd_rcgr_reg = AXI_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1557,6 +1558,7 @@ static struct rcg_clk axi_clk_src = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000),
 		CLK_INIT(axi_clk_src.c),
+		.depends = &mmss_mmssnoc_axi_clk.c
 	},
 };
 
@@ -2320,7 +2322,6 @@ static struct branch_clk mmss_mmssnoc_axi_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &axi_clk_src.c,
 		.dbg_name = "mmss_mmssnoc_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mmssnoc_axi_clk.c),
@@ -2336,7 +2337,6 @@ static struct branch_clk mmss_s0_axi_clk = {
 		.dbg_name = "mmss_s0_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_s0_axi_clk.c),
-		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -3232,10 +3232,6 @@ static void __init msm8610_clock_pre_init(void)
 	/* Maintain the max nominal frequency on the MMSSNOC AHB bus. */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c,  40000000);
 	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
-
-	/* TODO: Remove this once the bus driver is in place */
-	clk_set_rate(&axi_clk_src.c, 200000000);
-	clk_prepare_enable(&mmss_s0_axi_clk.c);
 }
 
 struct clock_init_data msm8610_clock_init_data __initdata = {
