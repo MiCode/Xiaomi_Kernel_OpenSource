@@ -46,9 +46,6 @@ struct msm_ipc_port {
 	spinlock_t port_lock;
 	struct comm_mode_info mode_info;
 
-	struct list_head incomplete;
-	struct mutex incomplete_lock;
-
 	struct list_head port_rx_q;
 	struct mutex port_rx_q_lock;
 	char rx_wakelock_name[MAX_WAKELOCK_NAME_SZ];
