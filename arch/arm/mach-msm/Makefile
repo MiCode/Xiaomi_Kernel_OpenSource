@@ -317,6 +317,7 @@ obj-$(CONFIG_ARCH_MSM9625) += board-9625.o board-9625-gpiomux.o
 obj-$(CONFIG_ARCH_MSM9625) += clock-local2.o clock-pll.o clock-9625.o clock-rpm.o clock-voter.o acpuclock-9625.o acpuclock-cortex.o
 obj-$(CONFIG_ARCH_MSM8930) += acpuclock-8930.o acpuclock-8627.o acpuclock-8930aa.o acpuclock-8930ab.o
 obj-$(CONFIG_ARCH_MPQ8092) += board-8092.o board-8092-gpiomux.o
+obj-$(CONFIG_ARCH_MPQ8092) += clock-8092.o
 obj-$(CONFIG_ARCH_MSM8226) += board-8226.o board-8226-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8226) += clock-local2.o clock-pll.o clock-8226.o clock-rpm.o clock-voter.o clock-mdss-8226.o
 obj-$(CONFIG_ARCH_MSM8226) += acpuclock-8226.o acpuclock-cortex.o
