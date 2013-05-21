@@ -48,12 +48,16 @@ struct gdsc {
 	struct clk		**clocks;
 	int			clock_count;
 	bool			toggle_mems;
-	bool			retain_logic;
+	bool			toggle_logic;
+	bool			resets_asserted;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
+
+	if (!sc->toggle_logic)
+		return !sc->resets_asserted;
 
 	return !!(readl_relaxed(sc->gdscr) & PWR_ON_MASK);
 }
@@ -64,15 +68,22 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret;
 
-	regval = readl_relaxed(sc->gdscr);
-	regval &= ~SW_COLLAPSE_MASK;
-	writel_relaxed(regval, sc->gdscr);
+	if (sc->toggle_logic) {
+		regval = readl_relaxed(sc->gdscr);
+		regval &= ~SW_COLLAPSE_MASK;
+		writel_relaxed(regval, sc->gdscr);
 
-	ret = readl_tight_poll_timeout(sc->gdscr, regval, regval & PWR_ON_MASK,
-				       TIMEOUT_US);
-	if (ret) {
-		dev_err(&rdev->dev, "%s enable timed out\n", sc->rdesc.name);
-		return ret;
+		ret = readl_tight_poll_timeout(sc->gdscr, regval,
+					regval & PWR_ON_MASK, TIMEOUT_US);
+		if (ret) {
+			dev_err(&rdev->dev, "%s enable timed out\n",
+				sc->rdesc.name);
+			return ret;
+		}
+	} else {
+		for (i = 0; i < sc->clock_count; i++)
+			clk_reset(sc->clocks[i], CLK_RESET_DEASSERT);
+		sc->resets_asserted = false;
 	}
 
 	if (sc->toggle_mems) {
@@ -99,7 +110,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret = 0;
 
-	if (!sc->retain_logic) {
+	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
 		regval |= SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
@@ -110,6 +121,10 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		if (ret)
 			dev_err(&rdev->dev, "%s disable timed out\n",
 				sc->rdesc.name);
+	} else {
+		for (i = 0; i < sc->clock_count; i++)
+			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
+		sc->resets_asserted = true;
 	}
 
 	if (sc->toggle_mems) {
@@ -219,8 +234,20 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 		}
 	}
 	sc->toggle_mems = !retain_mems;
-	sc->retain_logic = of_property_read_bool(pdev->dev.of_node,
-					    "qcom,retain-logic");
+	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
+						"qcom,skip-logic-collapse");
+	if (!sc->toggle_logic) {
+		regval &= ~SW_COLLAPSE_MASK;
+		writel_relaxed(regval, sc->gdscr);
+
+		ret = readl_tight_poll_timeout(sc->gdscr, regval,
+					regval & PWR_ON_MASK, TIMEOUT_US);
+		if (ret) {
+			dev_err(&pdev->dev, "%s enable timed out\n",
+				sc->rdesc.name);
+			return ret;
+		}
+	}
 
 	sc->rdev = regulator_register(&sc->rdesc, &pdev->dev, init_data, sc,
 				      pdev->dev.of_node);
