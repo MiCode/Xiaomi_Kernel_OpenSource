@@ -752,6 +752,19 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		return -EBUSY;
 	}
 
+	if (pdata->consider_ipa_handshake) {
+		dev_dbg(mehci->dev, "%s:Wait for resources release\n",
+			__func__);
+		if (!msm_bam_hsic_lpm_ok()) {
+			dev_dbg(mehci->dev, "%s:Prod+Cons not released\n",
+			__func__);
+			enable_irq(hcd->irq);
+			return -EBUSY;
+		}
+		dev_dbg(mehci->dev, "%s:Prod+Cons resources released\n",
+			__func__);
+	}
+
 	/*
 	 * PHY may take some time or even fail to enter into low power
 	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
@@ -829,7 +842,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 
 	wake_unlock(&mehci->wlock);
 
-	dev_dbg(mehci->dev, "HSIC-USB in low power mode\n");
+	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
 
 	return 0;
 }
@@ -846,6 +859,14 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in !in_lpm\n", __func__);
 		return 0;
+	}
+
+	if (pdata->consider_ipa_handshake) {
+		dev_dbg(mehci->dev, "%s:Wait for producer resource\n",
+			__func__);
+		msm_bam_wait_for_hsic_prod_granted();
+		dev_dbg(mehci->dev, "%s:Producer resource obtained\n",
+			__func__);
 	}
 
 	/* Handles race with Async interrupt */
@@ -933,7 +954,13 @@ skip_phy_resume:
 	}
 
 	enable_irq(hcd->irq);
-	dev_dbg(mehci->dev, "HSIC-USB exited from low power mode\n");
+	dev_info(mehci->dev, "HSIC-USB exited from low power mode\n");
+
+	if (pdata->consider_ipa_handshake) {
+		dev_dbg(mehci->dev, "%s:Notify usb bam on resume complete\n",
+			__func__);
+		msm_bam_hsic_notify_on_resume();
+	}
 
 	return 0;
 }
@@ -1853,6 +1880,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 				"qcom,enable-hbm");
 	pdata->disable_park_mode = (of_property_read_bool(node,
 				"qcom,disable-park-mode"));
+	pdata->consider_ipa_handshake = (of_property_read_bool(node,
+				"hsic,consider-ipa-handshake"));
 
 	return pdata;
 }
@@ -2092,6 +2121,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (mehci->enable_hbm)
 		hbm_init(hcd, pdata->disable_park_mode);
 
+	msm_bam_set_hsic_host_dev(&pdev->dev);
+
 	return 0;
 
 destroy_wq:
@@ -2114,6 +2145,8 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
+
+	msm_bam_set_hsic_host_dev(NULL);
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
