@@ -2345,7 +2345,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			return rc;
 
 		rc = qpnp_chg_masked_write(chip,
-			chip->chgr_base + CHGR_BUCK_BCK_VBAT_REG_MODE,
+			chip->buck_base + CHGR_BUCK_BCK_VBAT_REG_MODE,
 			BUCK_VBAT_REG_NODE_SEL_BIT,
 			BUCK_VBAT_REG_NODE_SEL_BIT, 1);
 		if (rc) {
