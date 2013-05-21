@@ -4212,6 +4212,7 @@ static struct branch_clk venus0_ocmemnoc_clk = {
 
 static struct branch_clk venus0_vcodec0_clk = {
 	.cbcr_reg = VENUS0_VCODEC0_CBCR,
+	.bcr_reg = VENUS0_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
