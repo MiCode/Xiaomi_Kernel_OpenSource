@@ -309,18 +309,18 @@ static int mdm9625_mi2s_startup(struct snd_pcm_substream *substream)
 			pr_err("set format for codec dai failed\n");
 			return ret;
 		}
-	}
-	/* This sets the CONFIG PARAMETER WS_SRC.
-	 * 1 means internal clock master mode.
-	 * 0 means external clock slave mode.
-	 */
-	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
-	if (ret < 0)
-		pr_err("set fmt cpu dai failed\n");
+		/* This sets the CONFIG PARAMETER WS_SRC.
+		 * 1 means internal clock master mode.
+		 * 0 means external clock slave mode.
+		 */
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0)
+			pr_err("set fmt cpu dai failed\n");
 
-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBS_CFS);
-	if (ret < 0)
-		pr_err("set fmt for codec dai failed\n");
+		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0)
+			pr_err("set fmt for codec dai failed\n");
+	}
 
 	return ret;
 }
