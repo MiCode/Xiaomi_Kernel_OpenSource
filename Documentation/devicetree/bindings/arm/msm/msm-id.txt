@@ -10,9 +10,16 @@ is the bootloader's responsibility to pass the correct device tree to the kernel
 Format:
 
 It is expected that the qcom,msm-id entry be at the top level of the device
-tree structure.  The format of the entry is:
+tree structure.  The format can take one of the two forms below:
 
    qcom,msm-id = <chipset_id, platform_id, rev_id> [, <c2, p2, r2> ...]
+   qcom,msm-id = <chipset_id, rev_id> [, <c2, r2> ...]
+
+If the second format is used one must also define the board-id.
 
 Example:
    qcom,msm-id = <126 15 0>;
+
+   qcom,board-id= <15 2>;
+   qcom,msm-id = <126 0>;
+

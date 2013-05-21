@@ -1,0 +1,18 @@
+* BOARD-ID
+
+The qcom,board-id entry specifies the MSM platform and subtype revision.
+It can optionally be an array of these to indicate multiple hardware that use
+the same device tree.  It is expected that the bootloader will use this
+information at boot-up to decide which device tree to use when given multiple
+device trees, some of which may not be compatible with the actual hardware.  It
+is the bootloader's responsibility to pass the correct device tree to the kernel.
+
+Format:
+
+It is expected that the qcom,board-id entry be at the top level of the device
+tree structure.  The format of the entry is:
+
+   qcom,board-id = <platform_id, subtype_id> [, <p2, s2> ...]
+
+Example:
+   qcom,board-id = <15 0>;

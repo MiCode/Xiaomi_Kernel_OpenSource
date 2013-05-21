@@ -121,7 +121,9 @@ dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8926-mtp.dtb \
 	msm8926-qrd.dtb \
 	apq8026-xpm.dtb \
-	apq8026-mtp.dtb
+	apq8026-mtp.dtb \
+	msm8226-v1-qrd-skuf.dtb \
+	msm8226-v2-qrd-skuf.dtb
 dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
 	msm8610-sim.dtb
 dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
