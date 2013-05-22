@@ -22,6 +22,7 @@
 #include <linux/interrupt.h>
 #include <linux/input.h>
 #include <linux/log2.h>
+#include <linux/qpnp/power-on.h>
 
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
@@ -42,6 +43,7 @@
 #define QPNP_PON_RESIN_S2_CNTL(base)		(base + 0x46)
 #define QPNP_PON_PS_HOLD_RST_CTL(base)		(base + 0x5A)
 #define QPNP_PON_PS_HOLD_RST_CTL2(base)		(base + 0x5B)
+#define QPNP_PON_TRIGGER_EN(base)		(base + 0x80)
 
 #define QPNP_PON_WARM_RESET_TFT			BIT(4)
 
@@ -238,6 +240,39 @@ int qpnp_pon_is_warm_reset(void)
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+/**
+ * qpnp_pon_trigger_config - Configures (enable/disable) the PON trigger source
+ * @pon_src: PON source to be configured
+ * @enable: to enable or disable the PON trigger
+ *
+ * This function configures the power-on trigger capability of a
+ * PON source. If a specific PON trigger is disabled it cannot act
+ * as a power-on source to the PMIC.
+ */
+
+int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+
+	if (!pon)
+		return -EPROBE_DEFER;
+
+	if (pon_src < PON_SMPL || pon_src > PON_KPDPWR_N) {
+		dev_err(&pon->spmi->dev, "Invalid PON source\n");
+		return -EINVAL;
+	}
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_TRIGGER_EN(pon->base),
+				BIT(pon_src), enable ? BIT(pon_src) : 0);
+	if (rc)
+		dev_err(&pon->spmi->dev, "Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_TRIGGER_EN(pon->base), rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_pon_trigger_config);
 
 static struct qpnp_pon_config *
 qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
