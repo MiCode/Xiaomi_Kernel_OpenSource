@@ -15,12 +15,38 @@
 
 #include <linux/errno.h>
 
+/**
+ * enum pon_trigger_source: List of PON trigger sources
+ * %PON_SMPL:		PON triggered by SMPL - Sudden Momentary Power Loss
+ * %PON_RTC:		PON triggered by RTC alarm
+ * %PON_DC_CHG:		PON triggered by insertion of DC charger
+ * %PON_USB_CHG:	PON triggered by insertion of USB
+ * %PON_PON1:		PON triggered by other PMIC (multi-PMIC option)
+ * %PON_CBLPWR_N:	PON triggered by power-cable insertion
+ * %PON_KPDPWR_N:	PON triggered by long press of the power-key
+ */
+enum pon_trigger_source {
+	PON_SMPL = 1,
+	PON_RTC,
+	PON_DC_CHG,
+	PON_USB_CHG,
+	PON_PON1,
+	PON_CBLPWR_N,
+	PON_KPDPWR_N,
+};
+
 #ifdef CONFIG_QPNP_POWER_ON
 int qpnp_pon_system_pwr_off(bool reset);
 int qpnp_pon_is_warm_reset(void);
+int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable);
 #else
 static int qpnp_pon_system_pwr_off(bool reset) { return -ENODEV; }
 static inline int qpnp_pon_is_warm_reset(void) { return -ENODEV; }
+static inline int qpnp_pon_trigger_config(enum pon_trigger_source pon_src,
+							bool enable)
+{
+	return -ENODEV;
+}
 #endif
 
 #endif
