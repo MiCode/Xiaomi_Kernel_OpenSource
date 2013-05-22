@@ -94,7 +94,7 @@ static struct msm_bus_paths
 static struct msm_bus_scale_pdata mdp_bus_ppp_scale_table = {
 	.usecase = mdp_bus_ppp_usecases,
 	.num_usecases = ARRAY_SIZE(mdp_bus_ppp_usecases),
-	.name = "mdp3",
+	.name = "mdp3_ppp",
 };
 
 struct mdp3_bus_handle_map mdp3_bus_handle[MDP3_BUS_HANDLE_MAX] = {
