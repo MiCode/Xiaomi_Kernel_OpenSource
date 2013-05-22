@@ -14,6 +14,7 @@
  * SPI driver for Qualcomm MSM platforms
  *
  */
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -2604,11 +2605,12 @@ static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
 }
 
 /**
- * msm_spi_dt_to_pdata: copy device-tree data to platfrom data struct
+ * msm_spi_dt_to_pdata: create pdata and read gpio config from device tree
  */
-struct msm_spi_platform_data *
-__init msm_spi_dt_to_pdata(struct platform_device *pdev)
+struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
+			struct platform_device *pdev, struct msm_spi *dd)
 {
+	int i;
 	struct msm_spi_platform_data *pdata;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -2618,22 +2620,36 @@ __init msm_spi_dt_to_pdata(struct platform_device *pdev)
 	} else {
 		struct msm_spi_dt_to_pdata_map map[] = {
 		{"spi-max-frequency",
-			&pdata->max_clock_speed,         DT_SGST, DT_U32,  0},
+			&pdata->max_clock_speed,         DT_SGST, DT_U32,   0},
 		{"qcom,infinite-mode",
-			&pdata->infinite_mode,           DT_OPT,  DT_U32,  0},
+			&pdata->infinite_mode,           DT_OPT,  DT_U32,   0},
 		{"qcom,active-only",
-			&pdata->active_only,             DT_OPT,  DT_BOOL, 0},
+			&pdata->active_only,             DT_OPT,  DT_BOOL,  0},
 		{"qcom,master-id",
-			&pdata->master_id,               DT_SGST, DT_U32,  0},
+			&pdata->master_id,               DT_SGST, DT_U32,   0},
 		{"qcom,ver-reg-exists",
-			&pdata->ver_reg_exists,          DT_OPT,  DT_BOOL, 0},
+			&pdata->ver_reg_exists,          DT_OPT,  DT_BOOL,  0},
 		{"qcom,use-bam",
-			&pdata->use_bam,                 DT_OPT,  DT_BOOL, 0},
+			&pdata->use_bam,                 DT_OPT,  DT_BOOL,  0},
 		{"qcom,bam-consumer-pipe-index",
-			&pdata->bam_consumer_pipe_index, DT_OPT,  DT_U32,  0},
+			&pdata->bam_consumer_pipe_index, DT_OPT,  DT_U32,   0},
 		{"qcom,bam-producer-pipe-index",
-			&pdata->bam_producer_pipe_index, DT_OPT,  DT_U32,  0},
-		{NULL,  NULL,                            0,       0,       0},
+			&pdata->bam_producer_pipe_index, DT_OPT,  DT_U32,   0},
+		{"qcom,gpio-clk",
+			&dd->spi_gpios[0],               DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-miso",
+			&dd->spi_gpios[1],               DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-mosi",
+			&dd->spi_gpios[2],               DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-cs0",
+			&dd->cs_gpios[0].gpio_num,       DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-cs1",
+			&dd->cs_gpios[1].gpio_num,       DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-cs2",
+			&dd->cs_gpios[2].gpio_num,       DT_OPT,  DT_GPIO, -1},
+		{"qcom,gpio-cs3",
+			&dd->cs_gpios[3].gpio_num,       DT_OPT,  DT_GPIO, -1},
+		{NULL,  NULL,                            0,       0,        0},
 		};
 
 		if (msm_spi_dt_to_pdata_populate(pdev, pdata, map)) {
@@ -2655,6 +2671,10 @@ __init msm_spi_dt_to_pdata(struct platform_device *pdev)
 			pdata->use_bam = false;
 		}
 	}
+
+	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
+		dd->cs_gpios[i].valid = (dd->cs_gpios[i].gpio_num >= 0);
+
 	return pdata;
 }
 
@@ -2714,7 +2734,6 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	int                     clk_enabled = 0;
 	int                     pclk_enabled = 0;
 	struct msm_spi_platform_data *pdata;
-	enum of_gpio_flags flags;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct msm_spi));
 	if (!master) {
@@ -2734,7 +2753,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		dd->qup_ver = SPI_QUP_VERSION_BFAM;
 		master->dev.of_node = pdev->dev.of_node;
-		pdata = msm_spi_dt_to_pdata(pdev);
+		pdata = msm_spi_dt_to_pdata(pdev, dd);
 		if (!pdata) {
 			rc = -ENOMEM;
 			goto err_probe_exit;
@@ -2746,18 +2765,6 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 				"using default bus_num %d\n", pdev->id);
 		else
 			master->bus_num = pdev->id = rc;
-
-		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
-			dd->spi_gpios[i] = of_get_gpio_flags(pdev->dev.of_node,
-								i, &flags);
-		}
-
-		for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
-			dd->cs_gpios[i].gpio_num = of_get_named_gpio_flags(
-						pdev->dev.of_node, "cs-gpios",
-						i, &flags);
-			dd->cs_gpios[i].valid = 0;
-		}
 	} else {
 		pdata = pdev->dev.platform_data;
 		dd->qup_ver = SPI_QUP_VERSION_NONE;
