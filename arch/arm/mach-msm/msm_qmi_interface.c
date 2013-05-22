@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -450,6 +450,11 @@ int qmi_recv_msg(struct qmi_handle *handle)
 	/* Read the messages */
 	rc = msm_ipc_router_read_msg((struct msm_ipc_port *)(handle->src_port),
 				     &src_addr, &recv_msg, &recv_msg_len);
+	if (rc == -ENOMSG) {
+		mutex_unlock(&handle->handle_lock);
+		return rc;
+	}
+
 	if (rc < 0) {
 		pr_err("%s: Read failed %d\n", __func__, rc);
 		mutex_unlock(&handle->handle_lock);
