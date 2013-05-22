@@ -2613,7 +2613,7 @@ static void venus_hfi_deinit_resources(struct venus_hfi_device *device)
 
 static int venus_hfi_iommu_attach(struct venus_hfi_device *device)
 {
-	int rc;
+	int rc = 0;
 	struct iommu_domain *domain;
 	int i;
 	struct iommu_set *iommu_group_set;

@@ -540,7 +540,7 @@ static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
 						struct device *dev)
 {
 	struct msm8x10_wcd_pdata *pdata;
-	int ret, i;
+	int ret = 0, i;
 	char **codec_supplies;
 	u32 num_of_supplies = 0;
 
