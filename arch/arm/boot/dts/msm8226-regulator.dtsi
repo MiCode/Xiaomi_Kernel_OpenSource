@@ -421,3 +421,10 @@
 		};
 	};
 };
+
+&pm8226_chg_boost {
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <5000000>;
+	regulator-name = "8226_smbbp_boost";
+};
+
