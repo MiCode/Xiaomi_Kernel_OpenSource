@@ -922,8 +922,10 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 
 	if (ci->driver)
 		ci->driver->disconnect(gadget);
+	spin_lock_irqsave(ci->lock, flags);
 	_ep_nuke(&ci->ep0out);
 	_ep_nuke(&ci->ep0in);
+	spin_unlock_irqrestore(ci->lock, flags);
 
 	if (ci->ep0in.last_zptr) {
 		dma_pool_free(ci->ep0in.td_pool, ci->ep0in.last_zptr,
