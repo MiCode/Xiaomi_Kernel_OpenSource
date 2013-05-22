@@ -2163,6 +2163,126 @@ static int smux_ut_remote_tx_stop(char *buf, int max)
 	return i;
 }
 
+/**
+ * Verify Remote-initiated wakeup test case.
+ *
+ * @buf       Output buffer for failure/status messages
+ * @max       Size of @buf
+ */
+static int smux_ut_remote_initiated_wakeup(char *buf, int max)
+{
+	int i = 0;
+	int failed = 0;
+	static struct smux_mock_callback cb_data;
+	static int cb_initialized;
+	int ret;
+
+	if (!cb_initialized)
+		mock_cb_data_init(&cb_data);
+
+	smux_set_loopback_data_reply_delay(SMUX_REMOTE_DELAY_TIME_MS);
+	mock_cb_data_reset(&cb_data);
+	do {
+		unsigned long start_j;
+		unsigned transfer_time;
+		unsigned lwakeups_start;
+		unsigned rwakeups_start;
+		unsigned lwakeups_end;
+		unsigned rwakeups_end;
+		unsigned lwakeup_delta;
+		unsigned rwakeup_delta;
+
+		/* open port */
+		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data, smux_mock_cb,
+					get_rx_buffer);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_connected, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* do local wakeup test and send echo packet */
+		msleep(SMUX_REMOTE_INACTIVITY_TIME_MS);
+		smux_get_wakeup_counts(&lwakeups_start, &rwakeups_start);
+		msm_smux_write(SMUX_TEST_LCID, (void *)0x12345678,
+				"Hello", 5);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_write_done, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* verify local initiated wakeup */
+		smux_get_wakeup_counts(&lwakeups_end, &rwakeups_end);
+		if (lwakeups_end > lwakeups_start)
+			i += scnprintf(buf + i, max - i,
+					"\tGood - have Apps-initiated wakeup\n");
+		else
+			i += scnprintf(buf + i, max - i,
+					"\tBad - no Apps-initiated wakeup\n");
+
+		/* verify remote wakeup and echo response */
+		smux_get_wakeup_counts(&lwakeups_start, &rwakeups_start);
+		start_j = jiffies;
+		INIT_COMPLETION(cb_data.cb_completion);
+		if (!cb_data.event_read_done)
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion,
+					SMUX_REMOTE_DELAY_TIME_MS * 2),
+				>, 0);
+		transfer_time = (unsigned)jiffies_to_msecs(jiffies - start_j);
+		UT_ASSERT_INT(cb_data.event_read_done, ==, 1);
+		UT_ASSERT_INT_IN_RANGE(transfer_time,
+			SMUX_REMOTE_DELAY_TIME_MS -
+			SMUX_REMOTE_INACTIVITY_TIME_MS,
+			SMUX_REMOTE_DELAY_TIME_MS +
+			SMUX_REMOTE_INACTIVITY_TIME_MS);
+		smux_get_wakeup_counts(&lwakeups_end, &rwakeups_end);
+
+		lwakeup_delta = lwakeups_end - lwakeups_end;
+		rwakeup_delta = rwakeups_end - rwakeups_end;
+		if (rwakeup_delta && lwakeup_delta) {
+			i += scnprintf(buf + i, max - i,
+					"\tBoth local and remote wakeup - re-run test (transfer time %d ms)\n",
+					transfer_time);
+			failed = 1;
+			break;
+		} else if (lwakeup_delta) {
+			i += scnprintf(buf + i, max - i,
+					"\tLocal wakeup only (transfer time %d ms) - FAIL\n",
+					transfer_time);
+			failed = 1;
+			break;
+		} else {
+			i += scnprintf(buf + i, max - i,
+					"\tRemote wakeup verified (transfer time %d ms) - OK\n",
+					transfer_time);
+		}
+	} while (0);
+
+	if (!failed) {
+		i += scnprintf(buf + i, max - i, "\tOK\n");
+	} else {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+		i += mock_cb_data_print(&cb_data, buf + i, max - i);
+	}
+
+	mock_cb_data_reset(&cb_data);
+	msm_smux_close(SMUX_TEST_LCID);
+	wait_for_completion_timeout(&cb_data.cb_completion, HZ);
+
+	mock_cb_data_reset(&cb_data);
+	smux_set_loopback_data_reply_delay(0);
+
+	return i;
+}
+
 static char debug_buffer[DEBUG_BUFMAX];
 
 static ssize_t debug_read(struct file *file, char __user *buf,
@@ -2238,6 +2358,8 @@ static int __init smux_debugfs_init(void)
 			smux_ut_remote_tx_stop);
 	debug_create("ut_remote_throughput", 0444, dent,
 			smux_ut_remote_throughput);
+	debug_create("ut_remote_initiated_wakeup", 0444, dent,
+			smux_ut_remote_initiated_wakeup);
 	return 0;
 }
 
