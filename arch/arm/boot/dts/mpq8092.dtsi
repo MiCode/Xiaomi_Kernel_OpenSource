@@ -69,6 +69,11 @@
 		status = "disabled";
 	};
 
+	qcom,msm-imem@fe805000 {
+                compatible = "qcom,msm-imem";
+                reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
