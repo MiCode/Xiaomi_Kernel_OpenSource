@@ -271,6 +271,7 @@
 		compatible = "qcom,android-usb";
 		reg = <0xfe8050c8 0xc8>;
 		qcom,android-usb-cdrom;
+		qcom,android-usb-swfi-latency = <1>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
