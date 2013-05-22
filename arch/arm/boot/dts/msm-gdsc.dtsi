@@ -109,4 +109,11 @@
 		reg = <0xfc401ec0 0x4>;
 		status = "disabled";
 	};
+
+	gdsc_vcap: qcom,gdsc@fd8c1804 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vcap";
+		reg = <0xfd8c1804 0x4>;
+		status = "disabled";
+	};
 };
