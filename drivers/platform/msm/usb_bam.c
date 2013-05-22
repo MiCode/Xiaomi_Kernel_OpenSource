@@ -1043,7 +1043,7 @@ void wait_for_cons_granted(enum usb_bam cur_bam)
 	pr_debug("%s: Waiting for CONS\n", __func__);
 	if (info.cur_cons_state[cur_bam] != IPA_RM_RESOURCE_GRANTED) {
 		if (!wait_for_completion_timeout(&info.cons_avail[cur_bam],
-						USB_BAM_TIMEOUT*6))
+						USB_BAM_TIMEOUT))
 			pr_err("%s: Timeout wainting for CONS_REQUEST\n",
 			__func__);
 		pr_err("%s: Finished waiting for CONS\n", __func__);
