@@ -149,7 +149,7 @@
 		compatible = "qcom,msm8x10-wcd-i2c";
 		reg = <0x0d>;
 		cdc-vdda-cp-supply = <&pm8110_s4>;
-		qcom,cdc-vdda-cp-voltage = <2150000 2150000>;
+		qcom,cdc-vdda-cp-voltage = <1800000 2150000>;
 		qcom,cdc-vdda-cp-current = <650000>;
 
 		cdc-vdda-h-supply = <&pm8110_l6>;
@@ -171,6 +171,13 @@
 		qcom,cdc-micbias-cfilt-sel = <0x0>;
 		qcom,cdc-micbias-cfilt-mv = <1800000>;
 		qcom,cdc-mclk-clk-rate = <12288000>;
+
+		qcom,cdc-static-supplies = "cdc-vdda-h",
+					   "cdc-vdd-px",
+					   "cdc-vdd-1p2v";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdda-cp",
+					      "cdc-vdd-mic-bias";
 	};
 
 	msm8x10_wcd_codec@77{
