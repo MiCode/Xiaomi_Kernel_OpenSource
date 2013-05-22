@@ -585,11 +585,11 @@
 		spi-max-frequency = <19200000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		gpios = <&msmgpio 56 0>, /* CLK  */
-			<&msmgpio 54 0>, /* MISO */
-			<&msmgpio 53 0>; /* MOSI */
-		cs-gpios = <&msmgpio 55 0>;
 		qcom,master-id = <84>;
+		qcom,gpio-mosi = <&msmgpio 53 0>;
+		qcom,gpio-miso = <&msmgpio 54 0>;
+		qcom,gpio-clk  = <&msmgpio 56 0>;
+		qcom,gpio-cs0  = <&msmgpio 55 0>;
 	};
 
 	tspp: msm_tspp@f99d8000 {
@@ -819,11 +819,11 @@
 		spi-max-frequency = <19200000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		gpios = <&msmgpio 3 0>, /* CLK  */
-			<&msmgpio 1 0>, /* MISO */
-			<&msmgpio 0 0>; /* MOSI */
-		cs-gpios = <&msmgpio 9 0>;
 		qcom,master-id = <86>;
+		qcom,gpio-mosi = <&msmgpio 0 0>;
+		qcom,gpio-miso = <&msmgpio 1 0>;
+		qcom,gpio-clk  = <&msmgpio 3 0>;
+		qcom,gpio-cs2  = <&msmgpio 9 0>;
 	};
 
 	qcom,acpuclk@f9000000 {

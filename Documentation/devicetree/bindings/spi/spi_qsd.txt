@@ -17,9 +17,13 @@ Required alias:
 	'spi{n}' where n is the bus number.
 
 Optional properties:
-- gpios : Specifies the gpio pins to be used for SPI CLK, MISO, MOSI in
-  that order.
-- cs-gpios : Specifies the gpio pins to be used for chipselects.
+- qcom,gpio-mosi : GPIO pin number of the MOSI bus line.
+- qcom,gpio-miso : GPIO pin number of the MISO bus line.
+- qcom,gpio-clk  : GPIO pin number of the CLK  bus line.
+- qcom,gpio-cs0  : GPIO pin number of the chipselect0 bus line.
+- qcom,gpio-cs1  : GPIO pin number of the chipselect1 bus line.
+- qcom,gpio-cs2  : GPIO pin number of the chipselect2 bus line.
+- qcom,gpio-cs3  : GPIO pin number of the chipselect3 bus line.
 - qcom,infinite-mode: When missing or set to zero, QUP uses infinite-mode. When
   value is non-zero, the value is the number of words in maximum transfer
   length.
@@ -77,10 +81,10 @@ Example:
 		spi-max-frequency = <19200000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		gpios = <&msmgpio 3 0>, /* CLK  */
-			<&msmgpio 1 0>, /* MISO */
-			<&msmgpio 0 0>; /* MOSI */
-		cs-gpios = <&msmgpio 9 0>;
+		qcom,gpio-mosi = <&msmgpio 0 0>;
+		qcom,gpio-miso = <&msmgpio 1 0>;
+		qcom,gpio-clk  = <&msmgpio 3 0>;
+		qcom,gpio-cs2  = <&msmgpio 9 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
