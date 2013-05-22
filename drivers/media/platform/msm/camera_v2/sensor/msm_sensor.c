@@ -1155,6 +1155,7 @@ static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 		s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
 			s_ctrl->sensor_i2c_client, &s_ctrl->stop_setting);
 		kfree(s_ctrl->stop_setting.reg_setting);
+		s_ctrl->stop_setting.reg_setting = NULL;
 	}
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return;
@@ -1395,6 +1396,8 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		break;
 
 	case CFG_POWER_DOWN:
+		kfree(s_ctrl->stop_setting.reg_setting);
+		s_ctrl->stop_setting.reg_setting = NULL;
 		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
 			pr_err("%s:%d failed: invalid state %d\n", __func__,
 				__LINE__, s_ctrl->sensor_state);
