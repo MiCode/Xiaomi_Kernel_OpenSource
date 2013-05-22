@@ -369,6 +369,13 @@
 		qcom,pc-resets-timer;
 	};
 
+	qcom,cpu-sleep-status@f9088008{
+		compatible = "qcom,cpu-sleep-status";
+		reg = <0xf9088008 0x100>;
+		qcom,cpu-alias-addr = <0x10000>;
+		qcom,sleep-status-mask= <0x80000>;
+	};
+
 	qcom,rpm-log@fc19dc00 {
 		compatible = "qcom,rpm-log";
 		reg = <0xfc19dc00 0x4000>;
