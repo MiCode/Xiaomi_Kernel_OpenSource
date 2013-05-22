@@ -637,13 +637,6 @@
 	};
 
 	mpp@a400 { /* MPP 5 */
-		/* SPI_ETH config */
-		qcom,mode = <1>; /* DIG_OUT */
-		qcom,output-type = <0>; /* CMOS */
-		qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
-		qcom,src-sel = <0>; /* CONSTANT */
-		qcom,out-strength = <1>;  /* QPNP_PIN_OUT_STRENGTH_LOW */
-		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 
 	mpp@a500 { /* MPP 6 */
