@@ -391,6 +391,10 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 		return rc;
 	}
 
+	if (hdmi_ctrl->mhl_max_pclk && hpd &&
+	    (!hdmi_ctrl->mhl_hpd_on || hdmi_ctrl->hpd_feature_on))
+		return 0;
+
 	if (0 == hpd && hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
 	} else if (1 == hpd && !hdmi_ctrl->hpd_feature_on) {
@@ -2507,6 +2511,9 @@ static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on)
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	/* mhl status should override */
+	hdmi_ctrl->mhl_hpd_on = on;
 
 	if (!on && hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
