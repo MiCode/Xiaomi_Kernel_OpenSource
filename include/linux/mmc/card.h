@@ -276,7 +276,6 @@ struct mmc_bkops_stats {
  *        percentage of sectors that should issue check for
  *        BKOPS need
  * @bkops_stats: BKOPS statistics
- * @poll_for_completion:	Poll on BKOPS completion
  * @cancel_delayed_work: A flag to indicate if the delayed work
  *        should be cancelled
  * @sectors_changed:  number of  sectors written or
@@ -294,10 +293,6 @@ struct mmc_bkops_info {
  * is idle.
  */
 #define MMC_IDLE_BKOPS_TIME_MS 200
-	struct work_struct	poll_for_completion;
-/* Polling timeout and interval for waiting on non-blocking BKOPs completion */
-#define BKOPS_COMPLETION_POLLING_TIMEOUT_MS (4 * 60 * 1000) /* in ms */
-#define BKOPS_COMPLETION_POLLING_INTERVAL_MS 1000 /* in ms */
 	bool			cancel_delayed_work;
 	unsigned int		sectors_changed;
 /*

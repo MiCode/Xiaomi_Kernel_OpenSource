@@ -1400,8 +1400,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (card->ext_csd.bkops_en) {
 			INIT_DELAYED_WORK(&card->bkops_info.dw,
 					  mmc_start_idle_time_bkops);
-			INIT_WORK(&card->bkops_info.poll_for_completion,
-				  mmc_bkops_completion_polling);
 
 			/*
 			 * Calculate the time to start the BKOPs checking.
