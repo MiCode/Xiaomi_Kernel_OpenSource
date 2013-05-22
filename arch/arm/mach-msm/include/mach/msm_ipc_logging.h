@@ -183,6 +183,14 @@ void tsv_byte_array_read(struct encode_context *ectxt,
 int add_deserialization_func(void *ctxt, int type,
 			void (*dfunc)(struct encode_context *,
 				      struct decode_context *));
+
+/*
+ * ipc_log_context_destroy: Destroy debug log context
+ *
+ * @ctxt: debug log context created by calling ipc_log_context_create API.
+ */
+int ipc_log_context_destroy(void *ctxt);
+
 #else
 
 static inline void *ipc_log_context_create(int max_num_pages,
@@ -230,6 +238,9 @@ static inline void tsv_byte_array_read(struct encode_context *ectxt,
 static inline int add_deserialization_func(void *ctxt, int type,
 			void (*dfunc)(struct encode_context *,
 				      struct decode_context *))
+{ return 0; }
+
+static inline int ipc_log_context_destroy(void *ctxt)
 { return 0; }
 
 #endif

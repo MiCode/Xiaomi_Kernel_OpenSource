@@ -544,6 +544,35 @@ release_ipc_log_context:
 }
 EXPORT_SYMBOL(ipc_log_context_create);
 
+/*
+ * Destroy debug log context
+ *
+ * @ctxt: debug log context created by calling ipc_log_context_create API.
+ */
+int ipc_log_context_destroy(void *ctxt)
+{
+	struct ipc_log_context *ilctxt = (struct ipc_log_context *)ctxt;
+	struct ipc_log_page *pg = NULL;
+	unsigned long flags;
+
+	if (!ilctxt)
+		return 0;
+
+	while (!list_empty(&ilctxt->page_list)) {
+		pg = get_first_page(ctxt);
+		list_del(&pg->hdr.list);
+		kfree(pg);
+	}
+
+	write_lock_irqsave(&ipc_log_context_list_lock, flags);
+	list_del(&ilctxt->list);
+	write_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+
+	kfree(ilctxt);
+	return 0;
+}
+EXPORT_SYMBOL(ipc_log_context_destroy);
+
 static int __init ipc_logging_init(void)
 {
 	check_and_create_debugfs();
