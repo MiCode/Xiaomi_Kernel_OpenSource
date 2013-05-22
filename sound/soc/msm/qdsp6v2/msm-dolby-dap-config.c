@@ -641,7 +641,7 @@ int msm_routing_get_dolby_dap_param_visualizer_control(
 		DOLBY_PARAM_PAYLOAD_SIZE * sizeof(uint32_t);
 	int port_id = dolby_dap_params_states.port_id;
 	if (port_id == DOLBY_INVALID_PORT_ID) {
-		pr_err("%s, port_id not set, returning error", __func__);
+		pr_debug("%s, port_id not set, returning error", __func__);
 		ucontrol->value.integer.value[0] = 0;
 		return -EINVAL;
 	}
