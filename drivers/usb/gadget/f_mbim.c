@@ -1497,6 +1497,11 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	mbim->not_port.notify_req->context = mbim;
 	mbim->not_port.notify_req->complete = mbim_notify_complete;
 
+	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
+		mbim_desc.wMaxSegmentSize = cpu_to_le16(0x800);
+	else
+		mbim_desc.wMaxSegmentSize = cpu_to_le16(0xfe0);
+
 	/* copy descriptors, and track endpoint copies */
 	f->fs_descriptors = usb_copy_descriptors(mbim_fs_function);
 	if (!f->fs_descriptors)
