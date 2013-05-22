@@ -418,6 +418,7 @@ config USB_G_ANDROID
 	select USB_F_FS
 	select USB_U_SERIAL
 	select USB_F_ECM
+	select USB_F_NCM
 	select USB_F_MASS_STORAGE
 	select SND_PCM
 	help

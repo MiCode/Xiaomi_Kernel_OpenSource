@@ -38,6 +38,7 @@
 
 #include "u_fs.h"
 #include "u_ecm.h"
+#include "u_ncm.h"
 #include "f_diag.c"
 #include "f_qdss.c"
 #include "f_rmnet.c"
@@ -966,6 +967,134 @@ static struct android_usb_function gps_function = {
 	.bind_config	= gps_function_bind_config,
 };
 
+/* ncm */
+struct ncm_function_config {
+	u8      ethaddr[ETH_ALEN];
+	struct usb_function *func;
+	struct usb_function_instance *fi;
+};
+
+static int
+ncm_function_init(struct android_usb_function *f, struct usb_composite_dev *c)
+{
+	struct ncm_function_config *config;
+	config = kzalloc(sizeof(struct ncm_function_config), GFP_KERNEL);
+	if (!config)
+		return -ENOMEM;
+
+	f->config = config;
+
+	config->fi = usb_get_function_instance("ncm");
+	if (IS_ERR(config->fi))
+		return PTR_ERR(config->fi);
+
+	return 0;
+}
+
+static void ncm_function_cleanup(struct android_usb_function *f)
+{
+	struct ncm_function_config *config = f->config;
+	if (config) {
+		usb_put_function(config->func);
+		usb_put_function_instance(config->fi);
+	}
+
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int
+ncm_function_bind_config(struct android_usb_function *f,
+				struct usb_configuration *c)
+{
+	struct ncm_function_config *ncm = f->config;
+	int ret;
+	struct f_ncm_opts *ncm_opts = NULL;
+
+	if (!ncm) {
+		pr_err("%s: ncm config is null\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
+		ncm->ethaddr[0], ncm->ethaddr[1], ncm->ethaddr[2],
+		ncm->ethaddr[3], ncm->ethaddr[4], ncm->ethaddr[5]);
+
+	ncm_opts = container_of(ncm->fi, struct f_ncm_opts, func_inst);
+	strlcpy(ncm_opts->net->name, "ncm%%d", sizeof(ncm_opts->net->name));
+
+	gether_set_qmult(ncm_opts->net, qmult);
+	if (!gether_set_host_addr(ncm_opts->net, host_addr))
+		pr_info("using host ethernet address: %s", host_addr);
+	if (!gether_set_dev_addr(ncm_opts->net, dev_addr))
+		pr_info("using self ethernet address: %s", dev_addr);
+
+	gether_set_gadget(ncm_opts->net, c->cdev->gadget);
+	ret = gether_register_netdev(ncm_opts->net);
+	if (ret) {
+		pr_err("%s: register_netdev failed\n", __func__);
+		return ret;
+	}
+
+	ncm_opts->bound = true;
+	gether_get_host_addr_u8(ncm_opts->net, ncm->ethaddr);
+
+	ncm->func = usb_get_function(ncm->fi);
+	if (IS_ERR(ncm->func)) {
+		pr_err("%s: usb_get_function failed\n", __func__);
+		return PTR_ERR(ncm->func);
+	}
+
+	return usb_add_function(c, ncm->func);
+}
+
+static void ncm_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	struct ncm_function_config *ncm = f->config;
+	if (ncm->func)
+		usb_remove_function(c, ncm->func);
+}
+
+static ssize_t ncm_ethaddr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct ncm_function_config *ncm = f->config;
+	return snprintf(buf, PAGE_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		ncm->ethaddr[0], ncm->ethaddr[1], ncm->ethaddr[2],
+		ncm->ethaddr[3], ncm->ethaddr[4], ncm->ethaddr[5]);
+}
+
+static ssize_t ncm_ethaddr_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct ncm_function_config *ncm = f->config;
+
+	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		    (int *)&ncm->ethaddr[0], (int *)&ncm->ethaddr[1],
+		    (int *)&ncm->ethaddr[2], (int *)&ncm->ethaddr[3],
+		    (int *)&ncm->ethaddr[4], (int *)&ncm->ethaddr[5]) == 6)
+		return size;
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(ncm_ethaddr, S_IRUGO | S_IWUSR, ncm_ethaddr_show,
+					       ncm_ethaddr_store);
+static struct device_attribute *ncm_function_attributes[] = {
+	&dev_attr_ncm_ethaddr,
+	NULL
+};
+
+static struct android_usb_function ncm_function = {
+	.name		= "ncm",
+	.init		= ncm_function_init,
+	.cleanup	= ncm_function_cleanup,
+	.bind_config	= ncm_function_bind_config,
+	.unbind_config	= ncm_function_unbind_config,
+	.attributes	= ncm_function_attributes,
+};
 
 /* ecm transport string */
 static char ecm_transports[MAX_XPORT_STR_LEN];
@@ -2221,6 +2350,7 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&rndis_qc_function,
 	&ecm_function,
+	&ncm_function,
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
