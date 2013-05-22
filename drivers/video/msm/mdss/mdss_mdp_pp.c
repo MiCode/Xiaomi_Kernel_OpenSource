@@ -1652,6 +1652,9 @@ int mdss_mdp_igc_lut_config(struct mdss_mdp_ctl *ctl,
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
+	if (config->len != IGC_LUT_ENTRIES)
+		return -EINVAL;
+
 	mutex_lock(&mdss_pp_mutex);
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
