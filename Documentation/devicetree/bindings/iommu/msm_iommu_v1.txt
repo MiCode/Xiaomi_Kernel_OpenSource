@@ -28,7 +28,10 @@ Optional properties:
 
   - compatible : "qcom,msm-smmu-v1-ctx"
   - reg : offset and length of the register set for the context bank.
-  - interrupts : should contain the context bank interrupt.
+  - interrupts : should contain the context bank interrupt. If this is
+    a secure context bank, this should be a list of 2 3-tuples where
+    the first is the non-secure interrupt, and the second is the
+    secure interrupt.
   - qcom,iommu-ctx-sids : List of stream identifiers associated with this
     translation context.
   - label : Name of the context bank

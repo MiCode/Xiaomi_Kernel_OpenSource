@@ -38,6 +38,7 @@
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
 
+/* commands for SCM_SVC_MP */
 #define IOMMU_SECURE_CFG	2
 #define IOMMU_SECURE_PTBL_SIZE  3
 #define IOMMU_SECURE_PTBL_INIT  4
@@ -46,6 +47,9 @@
 #define IOMMU_SECURE_MAP2 0x0B
 #define IOMMU_SECURE_UNMAP2 0x0C
 #define IOMMU_TLBINVAL_FLAG 0x00000001
+
+/* commands for SCM_SVC_UTIL */
+#define IOMMU_DUMP_SMMU_FAULT_REGS 0X0C
 
 static struct iommu_access_ops *iommu_access_ops;
 
@@ -73,9 +77,152 @@ struct msm_scm_unmap2_req {
 	unsigned int flags;
 };
 
+struct msm_scm_fault_regs_dump {
+	uint32_t dump_size;
+	uint32_t fsr_addr;
+	uint32_t fsr;
+	uint32_t far0_addr;
+	uint32_t far0;
+	uint32_t far1_addr;
+	uint32_t far1;
+	uint32_t par0_addr;
+	uint32_t par0;
+	uint32_t par1_addr;
+	uint32_t par1;
+	uint32_t fsyn0_addr;
+	uint32_t fsyn0;
+	uint32_t fsyn1_addr;
+	uint32_t fsyn1;
+	uint32_t ttbr0_addr;
+	uint32_t ttbr0;
+	uint32_t ttbr1_addr;
+	uint32_t ttbr1;
+	uint32_t ttbcr_addr;
+	uint32_t ttbcr;
+	uint32_t sctlr_addr;
+	uint32_t sctlr;
+	uint32_t actlr_addr;
+	uint32_t actlr;
+	uint32_t prrr_addr;
+	uint32_t prrr;
+	uint32_t nmrr_addr;
+	uint32_t nmrr;
+};
+
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops)
 {
 	iommu_access_ops = access_ops;
+}
+
+static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
+				struct msm_scm_fault_regs_dump *regs)
+{
+	int ret;
+
+	struct msm_scm_fault_regs_dump_req {
+		uint32_t id;
+		uint32_t cb_num;
+		phys_addr_t buff;
+		uint32_t len;
+	} req_info;
+	int resp;
+
+	req_info.id = smmu_id;
+	req_info.cb_num = cb_num;
+	req_info.buff = virt_to_phys(regs);
+	req_info.len = sizeof(*regs);
+
+	ret = scm_call(SCM_SVC_UTIL, IOMMU_DUMP_SMMU_FAULT_REGS,
+		&req_info, sizeof(req_info), &resp, 1);
+
+	return ret;
+}
+
+irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
+{
+	struct platform_device *pdev = dev_id;
+	struct msm_iommu_drvdata *drvdata;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	struct msm_scm_fault_regs_dump *regs;
+	int tmp, ret = IRQ_HANDLED;
+
+	iommu_access_ops->iommu_lock_acquire();
+
+	BUG_ON(!pdev);
+
+	drvdata = dev_get_drvdata(pdev->dev.parent);
+	BUG_ON(!drvdata);
+
+	ctx_drvdata = dev_get_drvdata(&pdev->dev);
+	BUG_ON(!ctx_drvdata);
+
+	regs = kmalloc(sizeof(*regs), GFP_KERNEL);
+	if (!regs) {
+		pr_err("%s: Couldn't allocate memory\n", __func__);
+		goto lock_release;
+	}
+
+	if (!drvdata->ctx_attach_count) {
+		pr_err("Unexpected IOMMU page fault from secure context bank!\n");
+		pr_err("name = %s\n", drvdata->name);
+		pr_err("Power is OFF. Unable to read page fault information\n");
+		/*
+		 * We cannot determine which context bank caused the issue so
+		 * we just return handled here to ensure IRQ handler code is
+		 * happy
+		 */
+		goto free_regs;
+	}
+
+	iommu_access_ops->iommu_clk_on(drvdata);
+	tmp = msm_iommu_dump_fault_regs(drvdata->sec_id,
+					ctx_drvdata->num, regs);
+	iommu_access_ops->iommu_clk_off(drvdata);
+
+	if (tmp) {
+		pr_err("%s: Couldn't dump fault registers!\n", __func__);
+		goto free_regs;
+	} else if (regs->fsr) {
+		struct msm_iommu_context_regs ctx_regs = {
+			.far = regs->far0,
+			.par = regs->par0,
+			.fsr = regs->fsr,
+			.fsynr0 = regs->fsyn0,
+			.fsynr1 = regs->fsyn1,
+			.ttbr0 = regs->ttbr0,
+			.ttbr1 = regs->ttbr1,
+			.sctlr = regs->sctlr,
+			.actlr = regs->actlr,
+			.prrr = regs->prrr,
+			.nmrr = regs->nmrr,
+		};
+
+		if (!ctx_drvdata->attached_domain) {
+			pr_err("Bad domain in interrupt handler\n");
+			tmp = -ENOSYS;
+		} else {
+			tmp = report_iommu_fault(ctx_drvdata->attached_domain,
+				&ctx_drvdata->pdev->dev,
+				regs->far0, 0);
+		}
+
+		/* if the fault wasn't handled by someone else: */
+		if (tmp == -ENOSYS) {
+			pr_err("Unexpected IOMMU page fault from secure context bank!\n");
+			pr_err("name = %s\n", drvdata->name);
+			pr_err("context = %s (%d)\n", ctx_drvdata->name,
+				ctx_drvdata->num);
+			pr_err("Interesting registers:\n");
+			print_ctx_regs(&ctx_regs);
+		}
+	} else {
+		ret = IRQ_NONE;
+	}
+free_regs:
+	kfree(regs);
+lock_release:
+	iommu_access_ops->iommu_lock_release();
+	return ret;
 }
 
 static int msm_iommu_sec_ptbl_init(void)
