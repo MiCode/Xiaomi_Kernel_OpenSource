@@ -783,10 +783,12 @@ static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-static void print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
+void print_ctx_regs(struct msm_iommu_context_regs *regs)
 {
+	uint32_t fsr = regs->fsr;
+
 	pr_err("FAR    = %08x    PAR    = %08x\n",
-		 GET_FAR(base, ctx), GET_PAR(base, ctx));
+		 regs->far, regs->par);
 	pr_err("FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n", fsr,
 			(fsr & 0x02) ? "TF " : "",
 			(fsr & 0x04) ? "AFF " : "",
@@ -799,13 +801,31 @@ static void print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
 			(fsr & 0x80000000) ? "MULTI " : "");
 
 	pr_err("FSYNR0 = %08x    FSYNR1 = %08x\n",
-		 GET_FSYNR0(base, ctx), GET_FSYNR1(base, ctx));
+		 regs->fsynr0, regs->fsynr1);
 	pr_err("TTBR0  = %08x    TTBR1  = %08x\n",
-		 GET_TTBR0(base, ctx), GET_TTBR1(base, ctx));
+		 regs->ttbr0, regs->ttbr1);
 	pr_err("SCTLR  = %08x    ACTLR  = %08x\n",
-		 GET_SCTLR(base, ctx), GET_ACTLR(base, ctx));
+		 regs->sctlr, regs->actlr);
 	pr_err("PRRR   = %08x    NMRR   = %08x\n",
-		 GET_PRRR(base, ctx), GET_NMRR(base, ctx));
+		 regs->prrr, regs->nmrr);
+}
+
+static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
+{
+	struct msm_iommu_context_regs regs = {
+		.far = GET_FAR(base, ctx),
+		.par = GET_PAR(base, ctx),
+		.fsr = fsr,
+		.fsynr0 = GET_FSYNR0(base, ctx),
+		.fsynr1 = GET_FSYNR1(base, ctx),
+		.ttbr0 = GET_TTBR0(base, ctx),
+		.ttbr1 = GET_TTBR1(base, ctx),
+		.sctlr = GET_SCTLR(base, ctx),
+		.actlr = GET_ACTLR(base, ctx),
+		.prrr = GET_PRRR(base, ctx),
+		.nmrr = GET_NMRR(base, ctx),
+	};
+	print_ctx_regs(&regs);
 }
 
 irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
@@ -861,7 +881,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 			pr_err("context = %s (%d)\n", ctx_drvdata->name,
 							ctx_drvdata->num);
 			pr_err("Interesting registers:\n");
-			print_ctx_regs(drvdata->base, ctx_drvdata->num, fsr);
+			__print_ctx_regs(drvdata->base, ctx_drvdata->num, fsr);
 		}
 
 		SET_FSR(drvdata->base, ctx_drvdata->num, fsr);
