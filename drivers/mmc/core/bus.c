@@ -153,10 +153,18 @@ static int mmc_runtime_suspend(struct device *dev)
 {
 	struct mmc_card *card = mmc_dev_to_card(dev);
 
-	if (mmc_use_core_runtime_pm(card->host))
-		return 0;
-	else
+	if (mmc_use_core_runtime_pm(card->host)) {
+		/*
+		 * If idle time bkops is running on the card, let's not get
+		 * into suspend.
+		 */
+		if (mmc_card_doing_bkops(card) && mmc_card_is_prog_state(card))
+			return -EBUSY;
+		else
+			return 0;
+	} else {
 		return mmc_power_save_host(card->host);
+	}
 }
 
 static int mmc_runtime_resume(struct device *dev)
