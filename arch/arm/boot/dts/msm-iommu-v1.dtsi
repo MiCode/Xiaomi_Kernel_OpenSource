@@ -183,7 +183,7 @@
 		qcom,iommu-ctx@fd931000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfd931000 0x1000>;
-			interrupts = <0 47 0>;
+			interrupts = <0 47 0>, <0 46 0>;
 			qcom,iommu-ctx-sids = <1>;
 			label = "mdp_1";
 			qcom,secure-context;
@@ -192,7 +192,7 @@
 		qcom,iommu-ctx@fd932000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfd932000 0x1000>;
-			interrupts = <0 47 0>;
+			interrupts = <0 47 0>, <0 46 0>;
 			qcom,iommu-ctx-sids = <>;
 			label = "mdp_2";
 			qcom,secure-context;
@@ -295,7 +295,7 @@
 		venus_cp: qcom,iommu-ctx@fdc8d000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfdc8d000 0x1000>;
-			interrupts = <0 42 0>;
+			interrupts = <0 42 0>, <0 43 0>;
 			qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84 0x85>;
 			label = "venus_cp";
 			qcom,secure-context;
@@ -304,7 +304,7 @@
 		venus_fw: qcom,iommu-ctx@fdc8e000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfdc8e000 0x1000>;
-			interrupts = <0 42 0>;
+			interrupts = <0 42 0>, <0 43 0>;
 			qcom,iommu-ctx-sids = <0xc0 0xc6>;
 			label = "venus_fw";
 			qcom,secure-context;

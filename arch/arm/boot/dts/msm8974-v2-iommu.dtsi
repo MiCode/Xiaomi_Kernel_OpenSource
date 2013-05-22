@@ -78,7 +78,7 @@
 	venus_sec_pixel: qcom,iommu-ctx@fdc8f000 {
 		compatible = "qcom,msm-smmu-v1-ctx";
 		reg = <0xfdc8f000 0x1000>;
-		interrupts = <0 42 0>;
+		interrupts = <0 42 0>, <0 43 0>;
 		qcom,iommu-ctx-sids = <0x85>;
 		label = "venus_sec_pixel";
 		qcom,secure-context;
@@ -87,7 +87,7 @@
 	venus_sec_non_pixel: qcom,iommu-ctx@fdc90000 {
 		compatible = "qcom,msm-smmu-v1-ctx";
 		reg = <0xfdc90000 0x1000>;
-		interrupts = <0 42 0>;
+		interrupts = <0 42 0>, <0 43 0>;
 		qcom,iommu-ctx-sids = <0x87 0xA0>;
 		label = "venus_sec_non_pixel";
 		qcom,secure-context;
