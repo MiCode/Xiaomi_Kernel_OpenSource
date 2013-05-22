@@ -178,6 +178,15 @@ static int bam_data_peer_reset_cb(void *param)
 reenable_eps:
 	/* Re-Enable the relevant EPs, if EPs were originally enabled */
 	if (reenable_eps) {
+		if (config_ep_by_speed(port->port_usb->cdev->gadget,
+			port->port_usb->func, port->port_usb->in) ||
+		    config_ep_by_speed(port->port_usb->cdev->gadget,
+			port->port_usb->func, port->port_usb->out)) {
+			pr_err("%s: config_ep_by_speed failed", __func__);
+				port->port_usb->in->desc = NULL;
+				port->port_usb->out->desc = NULL;
+				return -EINVAL;
+		}
 		ret = usb_ep_enable(port->port_usb->in);
 		if (ret) {
 			pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
