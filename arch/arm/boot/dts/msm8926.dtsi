@@ -22,3 +22,9 @@
 	model = "Qualcomm MSM 8926";
 	compatible = "qcom,msm8926";
 };
+
+&soc {
+	qcom,mss@fc880000 {
+		vdd_mss-supply = <&pm8226_s5>;
+	};
+};
