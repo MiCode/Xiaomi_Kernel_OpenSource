@@ -706,7 +706,7 @@ static int smux_ut_remote_basic(char *buf, int max)
  * Run a basic loopback test followed by a subsystem restart and then another
  * loopback test.
  */
-static int smux_ut_remote_ssr_basic(char *buf, int max)
+static int smux_ut_ssr_remote_basic(char *buf, int max)
 {
 	const struct test_vector test_data[] = {
 		{"hello\0world\n", sizeof("hello\0world\n")},
@@ -747,7 +747,7 @@ static int smux_ut_remote_ssr_basic(char *buf, int max)
 /**
  * Verify Subsystem Restart Support During Port Open
  */
-static int smux_ut_remote_ssr_open(char *buf, int max)
+static int smux_ut_ssr_remote_open(char *buf, int max)
 {
 	static struct smux_mock_callback cb_data;
 	static int cb_initialized;
@@ -829,7 +829,7 @@ static int smux_ut_remote_ssr_open(char *buf, int max)
  *
  * @returns Number of bytes written to @buf
  */
-static int smux_ut_remote_ssr_rx_buff_retry(char *buf, int max)
+static int smux_ut_ssr_remote_rx_buff_retry(char *buf, int max)
 {
 	static struct smux_mock_callback cb_data;
 	static int cb_initialized;
@@ -2348,12 +2348,12 @@ static int __init smux_debugfs_init(void)
 			smux_ut_local_get_rx_buff_retry);
 	debug_create("ut_local_get_rx_buff_retry_auto", 0444, dent,
 			smux_ut_local_get_rx_buff_retry_auto);
-	debug_create("ut_remote_ssr_basic", 0444, dent,
-			smux_ut_remote_ssr_basic);
-	debug_create("ut_remote_ssr_open", 0444, dent,
-			smux_ut_remote_ssr_open);
-	debug_create("ut_remote_ssr_rx_buff_retry", 0444, dent,
-			smux_ut_remote_ssr_rx_buff_retry);
+	debug_create("ut_ssr_remote_basic", 0444, dent,
+			smux_ut_ssr_remote_basic);
+	debug_create("ut_ssr_remote_open", 0444, dent,
+			smux_ut_ssr_remote_open);
+	debug_create("ut_ssr_remote_rx_buff_retry", 0444, dent,
+			smux_ut_ssr_remote_rx_buff_retry);
 	debug_create("ut_remote_tx_stop", 0444, dent,
 			smux_ut_remote_tx_stop);
 	debug_create("ut_remote_throughput", 0444, dent,
