@@ -427,8 +427,16 @@ static int msm_pcm_mmap(struct snd_pcm_substream *substream,
 	struct msm_audio *prtd = runtime->private_data;
 	struct audio_client *ac = prtd->audio_client;
 	struct audio_port_data *apd = ac->port;
-	struct audio_buffer *ab = &(apd[IN].buf[0]);
+	struct audio_buffer *ab;
+	int dir = -1;
+
 	prtd->mmap_flag = 1;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dir = IN;
+	else
+		dir = OUT;
+	ab = &(apd[dir].buf[0]);
 
 	return msm_audio_ion_mmap(ab, vma);
 }

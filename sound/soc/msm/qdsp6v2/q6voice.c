@@ -4769,4 +4769,4 @@ static int __init voice_init(void)
 	return rc;
 }
 
-device_initcall(voice_init);
+late_initcall(voice_init);
