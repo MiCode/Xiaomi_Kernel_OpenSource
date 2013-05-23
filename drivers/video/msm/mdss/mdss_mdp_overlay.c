@@ -197,19 +197,31 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 				return -EINVAL;
 			}
 		}
+
+		if (req->flags & MDP_DEINTERLACE) {
+			if (req->flags & MDP_SOURCE_ROTATED_90) {
+				if ((req->src_rect.w % 4) != 0) {
+					pr_err("interlaced rect not h/4\n");
+					return -EINVAL;
+				}
+			} else if ((req->src_rect.h % 4) != 0) {
+				pr_err("interlaced rect not h/4\n");
+				return -EINVAL;
+			}
+		}
+	} else {
+		if (req->flags & MDP_DEINTERLACE) {
+			if ((req->src_rect.h % 4) != 0) {
+				pr_err("interlaced rect h not multiple of 4\n");
+				return -EINVAL;
+			}
+		}
 	}
 
 	if (fmt->is_yuv) {
 		if ((req->src_rect.x & 0x1) || (req->src_rect.y & 0x1) ||
 		    (req->src_rect.w & 0x1) || (req->src_rect.h & 0x1)) {
 			pr_err("invalid odd src resolution or coordinates\n");
-			return -EINVAL;
-		}
-	}
-
-	if (req->flags & MDP_DEINTERLACE) {
-		if ((req->src.width % 4 != 0) || (req->src.height % 4 != 0)) {
-			pr_err("interlaced fmt w,h need to be even post div\n");
 			return -EINVAL;
 		}
 	}
