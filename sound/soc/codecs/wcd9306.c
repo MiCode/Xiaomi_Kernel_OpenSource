@@ -1867,7 +1867,7 @@ static int tapan_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		release_firmware(fw);
 
 		break;
-	case SND_SOC_DAPM_POST_PMD:
+	case SND_SOC_DAPM_PRE_PMD:
 		msleep(40);
 		snd_soc_update_bits(codec, TAPAN_A_CDC_ANC1_B1_CTL, 0x01, 0x00);
 		snd_soc_update_bits(codec, TAPAN_A_CDC_ANC2_B1_CTL, 0x02, 0x00);
@@ -2339,12 +2339,11 @@ static int tapan_codec_enable_anc_hph(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					TAPAN_A_RX_HPH_CNP_EN, 0x30, 0x00);
 			msleep(40);
-		}
-		if (w->shift == 5) {
 			snd_soc_update_bits(codec,
 					TAPAN_A_TX_7_MBHC_EN, 0x80, 00);
 			ret |= tapan_codec_enable_anc(w, kcontrol, event);
 		}
+		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = tapan_hph_pa_event(w, kcontrol, event);
 		break;
