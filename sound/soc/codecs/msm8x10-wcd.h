@@ -147,6 +147,7 @@ struct msm8x10_wcd_regulator {
 	int min_uV;
 	int max_uV;
 	int optimum_uA;
+	bool ondemand;
 	struct regulator *regulator;
 };
 
