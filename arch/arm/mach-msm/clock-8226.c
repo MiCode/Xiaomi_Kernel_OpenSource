@@ -51,6 +51,7 @@ static void __iomem *virt_bases[N_BASES];
 
 /* Mux source select values */
 #define xo_source_val  0
+#define xo_a_clk_source_val  0
 #define gpll0_source_val 1
 #define gpll1_source_val 2
 
@@ -440,6 +441,7 @@ static struct branch_clk oxilicx_axi_clk;
 #define Q6SS_AHB_LFABIF_CBCR                               (0x22000)
 #define Q6SS_AHBM_CBCR                                     (0x22004)
 #define Q6SS_XO_CBCR                                       (0x26000)
+#define KPSS_AHB_CMD_RCGR                                  (0x120C)
 
 static unsigned int soft_vote_gpll0;
 
@@ -2852,6 +2854,27 @@ static struct pll_clk a7sspll = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_kpss_ahb_clk[] = {
+	F_GCC(19200000, xo_a_clk, 0, 0, 0),
+	F_GCC(37500000, gpll0, 16, 0, 0),
+	F_GCC(75000000, gpll0,  8, 0, 0),
+	F_END
+};
+
+static struct rcg_clk kpss_ahb_clk_src = {
+	.cmd_rcgr_reg = KPSS_AHB_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_kpss_ahb_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "kpss_ahb_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP2(LOW, 37500000, NOMINAL, 75000000),
+		CLK_INIT(kpss_ahb_clk_src.c),
+	},
+};
+
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_clk, &cnoc_clk.c, LONG_MAX);
@@ -3117,6 +3140,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("xo",     xo_a_clk.c, "f9011050.qcom,acpuclk"),
 	CLK_LOOKUP("gpll0",  gpll0_ao.c, "f9011050.qcom,acpuclk"),
 	CLK_LOOKUP("a7sspll", a7sspll.c, "f9011050.qcom,acpuclk"),
+	CLK_LOOKUP("kpss_ahb", kpss_ahb_clk_src.c, ""),
 
 	/* WCNSS CLOCKS */
 	CLK_LOOKUP("xo", cxo_wlan_clk.c, "fb000000.qcom,wcnss-wlan"),
@@ -3585,6 +3609,9 @@ static void __init msm8226_clock_post_init(void)
 	clk_set_rate(&mclk1_clk_src.c, mclk1_clk_src.freq_tbl[0].freq_hz);
 	clk_set_rate(&esc0_clk_src.c, esc0_clk_src.freq_tbl[0].freq_hz);
 	clk_set_rate(&vsync_clk_src.c, vsync_clk_src.freq_tbl[0].freq_hz);
+
+	clk_set_rate(&kpss_ahb_clk_src.c, 19200000);
+	clk_prepare_enable(&kpss_ahb_clk_src.c);
 }
 
 #define GCC_CC_PHYS		0xFC400000
