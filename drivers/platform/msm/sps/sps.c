@@ -1985,6 +1985,35 @@ int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
 EXPORT_SYMBOL(sps_get_unused_desc_num);
 
 /**
+ * Vote for or relinquish BAM DMA clock
+ *
+ */
+int sps_ctrl_bam_dma_clk(bool clk_on)
+{
+	int ret;
+
+	SPS_DBG("sps:%s.", __func__);
+
+	if (!sps->is_ready)
+		return -EPROBE_DEFER;
+
+	if (clk_on == true) {
+		SPS_DBG("sps:vote for bam dma clk.\n");
+		ret = clk_prepare_enable(sps->bamdma_clk);
+		if (ret) {
+			SPS_ERR("sps:fail to enable bamdma_clk:ret=%d\n", ret);
+			return ret;
+		}
+	} else {
+		SPS_DBG("sps:relinquish bam dma clk.\n");
+		clk_disable_unprepare(sps->bamdma_clk);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(sps_ctrl_bam_dma_clk);
+
+/**
  * Register a BAM device
  *
  */
