@@ -25,6 +25,7 @@
 #define CLKFLAG_MAX			0x00000800
 #define CLKFLAG_INIT_DONE		0x00001000
 #define CLKFLAG_INIT_ERR		0x00002000
+#define CLKFLAG_NO_RATE_CACHE		0x00004000
 
 struct clk_lookup;
 struct clk;
