@@ -58,7 +58,7 @@
 
 #define MAX_MSM8X10_WCD_DEVICE	4
 #define CODEC_DT_MAX_PROP_SIZE	40
-#define MSM8X10_WCD_I2C_GSBI_SLAVE_ID "5-000d"
+#define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH 64
 
 enum {
 	MSM8X10_WCD_I2C_TOP_LEVEL = 0,
@@ -117,6 +117,12 @@ enum msm8x10_wcd_bandgap_type {
 	MSM8X10_WCD_BANDGAP_MBHC_MODE,
 };
 
+enum {
+	ON_DEMAND_MICBIAS = 0,
+	ON_DEMAND_CP,
+	ON_DEMAND_SUPPLIES_MAX,
+};
+
 struct hpf_work {
 	struct msm8x10_wcd_priv *msm8x10_wcd;
 	u32 decimator;
@@ -125,6 +131,16 @@ struct hpf_work {
 };
 
 static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
+
+struct on_demand_supply {
+	struct regulator *supply;
+	atomic_t ref;
+};
+
+static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
+	"cdc-vdd-mic-bias",
+	"cdc-vdda-cp",
+};
 
 struct msm8x10_wcd_priv {
 	struct snd_soc_codec *codec;
@@ -136,6 +152,7 @@ struct msm8x10_wcd_priv {
 	bool clock_active;
 	bool config_mode_active;
 	bool mbhc_polling_active;
+	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	struct mutex codec_resource_lock;
 	/* resmgr module */
 	struct wcd9xxx_resmgr resmgr;
@@ -159,13 +176,9 @@ struct msm8x10_wcd_i2c {
 	int mod_id;
 };
 
-static char *msm8x10_wcd_supplies[] = {
-	"cdc-vdda-cp", "cdc-vdda-h", "cdc-vdd-px", "cdc-vdd-1p2v",
-	"cdc-vdd-mic-bias",
-};
-
 static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
-	struct msm8x10_wcd_regulator *vreg, const char *vreg_name);
+	struct msm8x10_wcd_regulator *vreg,
+	const char *vreg_name, bool ondemand);
 static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
 	struct msm8x10_wcd_micbias_setting *micbias);
 static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
@@ -449,7 +462,8 @@ static unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec,
 
 
 static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
-	struct msm8x10_wcd_regulator *vreg, const char *vreg_name)
+	struct msm8x10_wcd_regulator *vreg, const char *vreg_name,
+	bool ondemand)
 {
 	int len, ret = 0;
 	const __be32 *prop;
@@ -471,6 +485,7 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 		prop_name, dev->of_node->full_name);
 
 	vreg->name = vreg_name;
+	vreg->ondemand = ondemand;
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
 		"qcom,%s-voltage", vreg_name);
@@ -479,7 +494,7 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 	if (!prop || (len != (2 * sizeof(__be32)))) {
 		dev_err(dev, "%s %s property\n",
 			prop ? "invalid format" : "no", prop_name);
-		return -ENODEV;
+		return -EINVAL;
 	} else {
 		vreg->min_uV = be32_to_cpup(&prop[0]);
 		vreg->max_uV = be32_to_cpup(&prop[1]);
@@ -492,12 +507,12 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 	if (ret) {
 		dev_err(dev, "Looking up %s property in node %s failed",
 			prop_name, dev->of_node->full_name);
-		return -ENODEV;
+		return -EFAULT;
 	}
 	vreg->optimum_uA = prop_val;
 
-	dev_info(dev, "%s: vol=[%d %d]uV, curr=[%d]uA\n", vreg->name,
-		 vreg->min_uV, vreg->max_uV, vreg->optimum_uA);
+	dev_info(dev, "%s: vol=[%d %d]uV, curr=[%d]uA, ond %d\n\n", vreg->name,
+		 vreg->min_uV, vreg->max_uV, vreg->optimum_uA, vreg->ondemand);
 	return 0;
 }
 
@@ -545,38 +560,72 @@ static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
 						struct device *dev)
 {
 	struct msm8x10_wcd_pdata *pdata;
-	int ret = 0, i;
-	char **codec_supplies;
-	u32 num_of_supplies = 0;
+	int ret, static_cnt, ond_cnt, idx, i;
+	const char *name = NULL;
+	const char *static_prop_name = "qcom,cdc-static-supplies";
+	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(dev, "could not allocate memory for platform data\n");
 		return NULL;
 	}
-	if ((!strcmp(dev_name(dev), MSM8X10_WCD_I2C_GSBI_SLAVE_ID))) {
-		codec_supplies = msm8x10_wcd_supplies;
-		num_of_supplies = ARRAY_SIZE(msm8x10_wcd_supplies);
-	} else {
-		dev_err(dev, "%s unsupported device %s\n",
-			__func__, dev_name(dev));
+
+	static_cnt = of_property_count_strings(dev->of_node, static_prop_name);
+	if (IS_ERR_VALUE(static_cnt)) {
+		dev_err(dev, "%s: Failed to get static supplies %d\n", __func__,
+			static_cnt);
+		ret = -EINVAL;
 		goto err;
 	}
 
-	if (num_of_supplies > ARRAY_SIZE(pdata->regulator)) {
+	/* On-demand supply list is an optional property */
+	ond_cnt = of_property_count_strings(dev->of_node, ond_prop_name);
+	if (IS_ERR_VALUE(ond_cnt))
+		ond_cnt = 0;
+
+	BUG_ON(static_cnt <= 0 || ond_cnt < 0);
+	if ((static_cnt + ond_cnt) > ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
-			__func__, num_of_supplies,
-			ARRAY_SIZE(pdata->regulator));
-
+			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
+		ret = -EINVAL;
 		goto err;
 	}
 
-	for (i = 0; i < num_of_supplies; i++) {
-		ret = msm8x10_wcd_dt_parse_vreg_info(dev, &pdata->regulator[i],
-			codec_supplies[i]);
+	for (idx = 0; idx < static_cnt; idx++) {
+		ret = of_property_read_string_index(dev->of_node,
+						    static_prop_name, idx,
+						    &name);
+		if (ret) {
+			dev_err(dev, "%s: of read string %s idx %d error %d\n",
+				__func__, static_prop_name, idx, ret);
+			goto err;
+		}
+
+		dev_dbg(dev, "%s: Found static cdc supply %s\n", __func__,
+			name);
+		ret = msm8x10_wcd_dt_parse_vreg_info(dev,
+						&pdata->regulator[idx],
+						name, false);
 		if (ret)
 			goto err;
 	}
+
+	for (i = 0; i < ond_cnt; i++, idx++) {
+		ret = of_property_read_string_index(dev->of_node, ond_prop_name,
+						    i, &name);
+		if (ret)
+			goto err;
+
+		dev_dbg(dev, "%s: Found on-demand cdc supply %s\n", __func__,
+			name);
+		ret = msm8x10_wcd_dt_parse_vreg_info(dev,
+						&pdata->regulator[idx],
+						name, true);
+		if (ret)
+			goto err;
+	}
+
 	ret = msm8x10_wcd_dt_parse_micbias_info(dev, &pdata->micbias);
 	if (ret)
 		goto err;
@@ -588,12 +637,64 @@ err:
 	return NULL;
 }
 
+static int msm8x10_wcd_codec_enable_on_demand_supply(
+		struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = w->codec;
+	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
+	struct on_demand_supply *supply;
+
+	if (w->shift >= ON_DEMAND_SUPPLIES_MAX) {
+		ret = -EINVAL;
+		goto out;
+	}
+	dev_dbg(codec->dev, "%s: supply: %s event: %d ref: %d\n",
+		__func__, on_demand_supply_name[w->shift], event,
+		atomic_read(&msm8x10_wcd->on_demand_list[w->shift].ref));
+
+	supply = &msm8x10_wcd->on_demand_list[w->shift];
+	WARN_ONCE(!supply->supply, "%s isn't defined\n",
+		  on_demand_supply_name[w->shift]);
+	if (!supply->supply)
+		goto out;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (atomic_inc_return(&supply->ref) == 1)
+			ret = regulator_enable(supply->supply);
+		if (ret)
+			dev_err(codec->dev, "%s: Failed to enable %s\n",
+				__func__,
+				on_demand_supply_name[w->shift]);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (atomic_read(&supply->ref) == 0) {
+			dev_dbg(codec->dev, "%s: %s supply has been disabled.\n",
+				 __func__, on_demand_supply_name[w->shift]);
+			goto out;
+		}
+		if (atomic_dec_return(&supply->ref) == 0)
+			ret = regulator_disable(supply->supply);
+			if (ret)
+				dev_err(codec->dev, "%s: Failed to disable %s\n",
+					__func__,
+					on_demand_supply_name[w->shift]);
+		break;
+	default:
+		break;
+	}
+out:
+	return ret;
+}
+
 static int msm8x10_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 
+	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* Enable charge pump clock*/
@@ -624,6 +725,8 @@ static int msm8x10_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 				    0x01, 0x00);
 		snd_soc_update_bits(codec,
 				    MSM8X10_WCD_A_CP_STATIC, 0x08, 0x00);
+		break;
+	default:
 		break;
 	}
 	return 0;
@@ -1728,6 +1831,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT PA", NULL, "CP"},
 	{"LINEOUT PA", NULL, "LINEOUT DAC"},
 
+	{"CP", NULL, "CP_REGULATOR"},
 	{"CP", NULL, "RX_BIAS"},
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", NULL, "RX3 CHAIN"},
@@ -1807,6 +1911,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS Internal1", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal2", NULL, "INT_LDO_H"},
 	{"MIC BIAS External", NULL, "INT_LDO_H"},
+	{"MIC BIAS Internal1", NULL, "MICBIAS_REGULATOR"},
+	{"MIC BIAS Internal2", NULL, "MICBIAS_REGULATOR"},
+	{"MIC BIAS External", NULL, "MICBIAS_REGULATOR"},
 };
 
 static int msm8x10_wcd_startup(struct snd_pcm_substream *substream,
@@ -2227,9 +2334,21 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("RX2 MIX2 INP1", SND_SOC_NOPM, 0, 0,
 		&rx2_mix2_inp1_mux),
 
+	SND_SOC_DAPM_SUPPLY("MICBIAS_REGULATOR", SND_SOC_NOPM,
+		ON_DEMAND_MICBIAS, 0,
+		msm8x10_wcd_codec_enable_on_demand_supply,
+		SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY("CP_REGULATOR", SND_SOC_NOPM,
+		ON_DEMAND_CP, 0,
+		msm8x10_wcd_codec_enable_on_demand_supply,
+		SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_SUPPLY("CP", MSM8X10_WCD_A_CP_EN, 0, 0,
-		msm8x10_wcd_codec_enable_charge_pump, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+		msm8x10_wcd_codec_enable_charge_pump, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
 		msm8x10_wcd_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
@@ -2415,6 +2534,21 @@ static int msm8x10_wcd_bringup(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static struct regulator *wcd8x10_wcd_codec_find_regulator(
+				const struct msm8x10_wcd *msm8x10,
+				const char *name)
+{
+	int i;
+
+	for (i = 0; i < msm8x10->num_of_supplies; i++) {
+		if (msm8x10->supplies[i].supply &&
+		    !strncmp(msm8x10->supplies[i].supply, name, strlen(name)))
+			return msm8x10->supplies[i].consumer;
+	}
+
+	return NULL;
+}
+
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd;
@@ -2440,20 +2574,33 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
-
+	msm8x10_wcd->on_demand_list[ON_DEMAND_CP].supply =
+				wcd8x10_wcd_codec_find_regulator(
+				codec->control_data,
+				on_demand_supply_name[ON_DEMAND_CP]);
+	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_CP].ref, 0);
+	msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].supply =
+				wcd8x10_wcd_codec_find_regulator(
+				codec->control_data,
+				on_demand_supply_name[ON_DEMAND_MICBIAS]);
+	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 	msm8x10_wcd->mclk_enabled = false;
 	msm8x10_wcd->bandgap_type = MSM8X10_WCD_BANDGAP_OFF;
 	msm8x10_wcd->clock_active = false;
 	msm8x10_wcd->config_mode_active = false;
 	msm8x10_wcd->mbhc_polling_active = false;
 	mutex_init(&msm8x10_wcd->codec_resource_lock);
-	msm8x10_wcd->codec = codec;
 
 	return 0;
 }
 
 static int msm8x10_wcd_codec_remove(struct snd_soc_codec *codec)
 {
+	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
+	msm8x10_wcd->on_demand_list[ON_DEMAND_CP].supply = NULL;
+	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_CP].ref, 0);
+	msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
+	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 	return 0;
 }
 
@@ -2479,7 +2626,7 @@ static struct snd_soc_codec_driver soc_codec_dev_msm8x10_wcd = {
 	.num_dapm_routes = ARRAY_SIZE(audio_map),
 };
 
-static int msm8x10_wcd_enable_supplies(struct msm8x10_wcd *msm8x10,
+static int msm8x10_wcd_init_supplies(struct msm8x10_wcd *msm8x10,
 				struct msm8x10_wcd_pdata *pdata)
 {
 	int ret;
@@ -2517,8 +2664,13 @@ static int msm8x10_wcd_enable_supplies(struct msm8x10_wcd *msm8x10,
 	}
 
 	for (i = 0; i < msm8x10->num_of_supplies; i++) {
+		if (regulator_count_voltages(msm8x10->supplies[i].consumer) <=
+			0)
+			continue;
+
 		ret = regulator_set_voltage(msm8x10->supplies[i].consumer,
-			pdata->regulator[i].min_uV, pdata->regulator[i].max_uV);
+			pdata->regulator[i].min_uV,
+			pdata->regulator[i].max_uV);
 		if (ret) {
 			dev_err(msm8x10->dev, "%s: Setting regulator voltage failed for regulator %s err = %d\n",
 				__func__, msm8x10->supplies[i].supply, ret);
@@ -2531,24 +2683,13 @@ static int msm8x10_wcd_enable_supplies(struct msm8x10_wcd *msm8x10,
 			dev_err(msm8x10->dev, "%s: Setting regulator optimum mode failed for regulator %s err = %d\n",
 				__func__, msm8x10->supplies[i].supply, ret);
 			goto err_get;
+		} else {
+			ret = 0;
 		}
 	}
 
-	ret = regulator_bulk_enable(msm8x10->num_of_supplies,
-				    msm8x10->supplies);
-	if (ret != 0) {
-		dev_err(msm8x10->dev, "Failed to enable supplies: err = %d\n",
-				ret);
-		goto err_configure;
-	}
 	return ret;
 
-err_configure:
-	for (i = 0; i < msm8x10->num_of_supplies; i++) {
-		regulator_set_voltage(msm8x10->supplies[i].consumer, 0,
-			pdata->regulator[i].max_uV);
-		regulator_set_optimum_mode(msm8x10->supplies[i].consumer, 0);
-	}
 err_get:
 	regulator_bulk_free(msm8x10->num_of_supplies, msm8x10->supplies);
 err_supplies:
@@ -2556,6 +2697,35 @@ err_supplies:
 err:
 	return ret;
 }
+
+static int msm8x10_wcd_enable_static_supplies(struct msm8x10_wcd *msm8x10,
+					  struct msm8x10_wcd_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < msm8x10->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		ret = regulator_enable(msm8x10->supplies[i].consumer);
+		if (ret) {
+			pr_err("%s: Failed to enable %s\n", __func__,
+			       msm8x10->supplies[i].supply);
+			break;
+		} else {
+			pr_debug("%s: Enabled regulator %s\n", __func__,
+				 msm8x10->supplies[i].supply);
+		}
+	}
+
+	while (ret && --i)
+		if (!pdata->regulator[i].ondemand)
+			regulator_disable(msm8x10->supplies[i].consumer);
+
+	return ret;
+}
+
+
 
 static void msm8x10_wcd_disable_supplies(struct msm8x10_wcd *msm8x10,
 				     struct msm8x10_wcd_pdata *pdata)
@@ -2565,6 +2735,9 @@ static void msm8x10_wcd_disable_supplies(struct msm8x10_wcd *msm8x10,
 	regulator_bulk_disable(msm8x10->num_of_supplies,
 				    msm8x10->supplies);
 	for (i = 0; i < msm8x10->num_of_supplies; i++) {
+		if (regulator_count_voltages(msm8x10->supplies[i].consumer) <=
+			0)
+			continue;
 		regulator_set_voltage(msm8x10->supplies[i].consumer, 0,
 			pdata->regulator[i].max_uV);
 		regulator_set_optimum_mode(msm8x10->supplies[i].consumer, 0);
@@ -2677,12 +2850,21 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	msm8x10->dev = &client->dev;
 	msm8x10->read_dev = msm8x10_wcd_reg_read;
 	msm8x10->write_dev = msm8x10_wcd_reg_write;
-	ret = msm8x10_wcd_enable_supplies(msm8x10, pdata);
+	ret = msm8x10_wcd_init_supplies(msm8x10, pdata);
 	if (ret) {
 		dev_err(&client->dev, "%s: Fail to enable Codec supplies\n",
 			__func__);
 		goto err_codec;
 	}
+
+	ret = msm8x10_wcd_enable_static_supplies(msm8x10, pdata);
+	if (ret) {
+		pr_err("%s: Fail to enable Codec pre-reset supplies\n",
+			   __func__);
+		goto err_codec;
+	}
+	usleep_range(5, 5);
+
 	ret = msm8x10_wcd_device_init(msm8x10);
 	if (ret) {
 		dev_err(&client->dev,
