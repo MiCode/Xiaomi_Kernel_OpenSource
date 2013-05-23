@@ -1386,7 +1386,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 
 	/* A nop is required in an indirect buffer when switching
 	 * pagetables in-stream */
-	kgsl_sharedmem_writel(&mmu->setstate_memory,
+	kgsl_sharedmem_writel(mmu->device, &mmu->setstate_memory,
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_nop_packet(1));
 
@@ -1637,7 +1637,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	_iommu_unlock();
 
 	/* For complete CFF */
-	kgsl_cffdump_setmem(mmu->setstate_memory.gpuaddr +
+	kgsl_cffdump_setmem(mmu->device, mmu->setstate_memory.gpuaddr +
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_nop_packet(1), sizeof(unsigned int));
 

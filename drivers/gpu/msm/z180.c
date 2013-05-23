@@ -467,10 +467,10 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	addmarker(&z180_dev->ringbuffer, z180_dev->current_timestamp);
 
 	/* monkey patch the IB so that it jumps back to the ringbuffer */
-	kgsl_sharedmem_writel(&entry->memdesc,
+	kgsl_sharedmem_writel(device, &entry->memdesc,
 		      ((sizedwords + 1) * sizeof(unsigned int)),
 		      rb_gpuaddr(z180_dev, z180_dev->current_timestamp));
-	kgsl_sharedmem_writel(&entry->memdesc,
+	kgsl_sharedmem_writel(device, &entry->memdesc,
 			      ((sizedwords + 2) * sizeof(unsigned int)),
 			      nextcnt);
 
@@ -710,7 +710,7 @@ static void _z180_regwrite_simple(struct kgsl_device *device,
 	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
 	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
-	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
+	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */
 	wmb();

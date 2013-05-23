@@ -60,11 +60,11 @@ struct adreno_ringbuffer {
 };
 
 
-#define GSL_RB_WRITE(ring, gpuaddr, data) \
+#define GSL_RB_WRITE(device, ring, gpuaddr, data) \
 	do { \
 		*ring = data; \
 		wmb(); \
-		kgsl_cffdump_setmem(gpuaddr, data, 4); \
+		kgsl_cffdump_setmem(device, gpuaddr, data, 4); \
 		ring++; \
 		gpuaddr += sizeof(uint); \
 	} while (0)

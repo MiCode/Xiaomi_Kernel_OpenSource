@@ -131,6 +131,7 @@ struct adreno_context {
 	struct kgsl_memdesc constant_load_commands[3];
 	struct kgsl_memdesc cond_execs[4];
 	struct kgsl_memdesc hlsqcontrol_restore_commands[1];
+	struct kgsl_device_private *dev_priv;
 };
 
 int adreno_drawctxt_create(struct kgsl_device *device,

@@ -576,7 +576,7 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 	kgsl_regwrite(device, MH_INTERRUPT_MASK,
 			GSL_MMU_INT_MASK | MH_INTERRUPT_MASK__MMU_PAGE_FAULT);
 
-	kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
+	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
 			   mmu->setstate_memory.size);
 
 	/* TRAN_ERROR needs a 32 byte (32 byte aligned) chunk of memory

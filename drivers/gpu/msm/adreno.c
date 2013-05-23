@@ -891,7 +891,7 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 	 * writes For CFF dump we must idle and use the registers so that it is
 	 * easier to filter out the mmu accesses from the dump
 	 */
-	if (!kgsl_cff_dump_enable && adreno_dev->drawctxt_active) {
+	if (!device->cff_dump_enable && adreno_dev->drawctxt_active) {
 		context = idr_find(&device->context_idr, context_id);
 		if (context == NULL)
 			return;
@@ -1814,7 +1814,7 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
 
-	kgsl_cffdump_close(device->id);
+	kgsl_cffdump_close(device);
 
 	return 0;
 }
@@ -1861,11 +1861,11 @@ static void adreno_set_max_ts_for_bad_ctxs(struct kgsl_device *device)
 	while ((context = idr_get_next(&device->context_idr, &next))) {
 		temp_adreno_context = context->devctxt;
 		if (temp_adreno_context->flags & CTXT_FLAGS_GPU_HANG) {
-			kgsl_sharedmem_writel(&device->memstore,
+			kgsl_sharedmem_writel(device, &device->memstore,
 				KGSL_MEMSTORE_OFFSET(context->id,
 				soptimestamp),
 				rb->timestamp[context->id]);
-			kgsl_sharedmem_writel(&device->memstore,
+			kgsl_sharedmem_writel(device, &device->memstore,
 				KGSL_MEMSTORE_OFFSET(context->id,
 				eoptimestamp),
 				rb->timestamp[context->id]);
@@ -2542,7 +2542,7 @@ adreno_ft(struct kgsl_device *device,
 	else
 		device->mmu.hwpagetable = device->mmu.defaultpagetable;
 	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = timestamp;
-	kgsl_sharedmem_writel(&device->memstore,
+	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 			eoptimestamp),
 			rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
@@ -2581,7 +2581,7 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 		INIT_COMPLETION(device->ft_gate);
 		/* Detected a hang */
 
-		kgsl_cffdump_hang(device->id);
+		kgsl_cffdump_hang(device);
 		/* Run fault tolerance at max power level */
 		curr_pwrlevel = pwr->active_pwrlevel;
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->max_pwrlevel);
@@ -2823,7 +2823,7 @@ int adreno_idle(struct kgsl_device *device)
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
-	kgsl_cffdump_regpoll(device->id,
+	kgsl_cffdump_regpoll(device,
 		adreno_dev->gpudev->reg_rbbm_status << 2,
 		0x00000000, 0x80000000);
 
@@ -3080,7 +3080,7 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 
 	kgsl_trace_regwrite(device, offsetwords, value);
 
-	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
+	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
 	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
@@ -3140,18 +3140,18 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 		/* Make sure the memstore read has posted */
 		mb();
 		if (timestamp_cmp(ref_ts, timestamp) >= 0) {
-			kgsl_sharedmem_writel(&device->memstore,
+			kgsl_sharedmem_writel(device, &device->memstore,
 					KGSL_MEMSTORE_OFFSET(context_id,
 						ref_wait_ts), timestamp);
 			/* Make sure the memstore write is posted */
 			wmb();
 		}
 	} else {
-		kgsl_sharedmem_writel(&device->memstore,
+		kgsl_sharedmem_writel(device, &device->memstore,
 				KGSL_MEMSTORE_OFFSET(context_id,
 					ref_wait_ts), timestamp);
 		enableflag = 1;
-		kgsl_sharedmem_writel(&device->memstore,
+		kgsl_sharedmem_writel(device, &device->memstore,
 				KGSL_MEMSTORE_OFFSET(context_id,
 					ts_cmp_enable), enableflag);
 
