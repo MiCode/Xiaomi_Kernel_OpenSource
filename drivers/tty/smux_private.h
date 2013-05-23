@@ -1,6 +1,6 @@
 /* drivers/tty/smux_private.h
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -122,6 +122,7 @@ enum {
 	SMUX_CMD_CLOSE_LCH = 0x2,
 	SMUX_CMD_STATUS = 0x3,
 	SMUX_CMD_PWR_CTL = 0x4,
+	SMUX_CMD_DELAY = 0x5,
 
 	SMUX_CMD_BYTE, /* for internal usage */
 	SMUX_NUM_COMMANDS
@@ -181,6 +182,8 @@ void smux_rx_state_machine(const unsigned char *data, int len, int flag);
 void smuxld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 			   char *fp, int count);
 bool smux_remote_is_active(void);
+void smux_set_loopback_data_reply_delay(uint32_t ms);
+void smux_get_wakeup_counts(int *local_cnt, int *remote_cnt);
 
 /* testing parameters */
 extern int smux_byte_loopback;
