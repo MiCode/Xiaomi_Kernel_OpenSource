@@ -47,17 +47,17 @@
 #define QPNP_PWM_SIZE_MASK			0x30
 #define QPNP_PWM_FREQ_CLK_SELECT_SHIFT		0
 #define QPNP_PWM_FREQ_CLK_SELECT_MASK		0x03
-#define QPNP_PWM_SIZE_9_BIT			0x03
-
+#define QPNP_MIN_PWM_BIT_SIZE		6
+#define QPNP_MAX_PWM_BIT_SIZE		9
 #define QPNP_SET_PWM_CLK(val, clk, pwm_size) \
 do { \
 	val = (clk + 1) & QPNP_PWM_FREQ_CLK_SELECT_MASK; \
-	val |= ((pwm_size > 6 ? QPNP_PWM_SIZE_9_BIT : 0) << \
-			QPNP_PWM_SIZE_SHIFT) & QPNP_PWM_SIZE_MASK; \
+	val |= (((pwm_size - QPNP_MIN_PWM_BIT_SIZE) << \
+		QPNP_PWM_SIZE_SHIFT) & QPNP_PWM_SIZE_MASK); \
 } while (0)
 
 #define QPNP_GET_PWM_SIZE(reg) ((reg & QPNP_PWM_SIZE_MASK) \
-					>> QPNP_PWM_SIZE_SHIFT)
+				>> QPNP_PWM_SIZE_SHIFT)
 
 /* LPG Control for LPG_PWM_FREQ_PREDIV_CLK */
 #define QPNP_PWM_FREQ_PRE_DIVIDE_SHIFT		5
@@ -68,7 +68,7 @@ do { \
 do { \
 	val = (pre_div << QPNP_PWM_FREQ_PRE_DIVIDE_SHIFT) & \
 				QPNP_PWM_FREQ_PRE_DIVIDE_MASK;	\
-	val |= pre_div_exp & QPNP_PWM_FREQ_EXP_MASK;	\
+	val |= (pre_div_exp & QPNP_PWM_FREQ_EXP_MASK);	\
 } while (0)
 
 /* LPG Control for LPG_PWM_TYPE_CONFIG */
@@ -161,6 +161,12 @@ do { \
 #define SPMI_LPG_REV1_RAMP_CONTROL_OFFSET	0x86
 #define SPMI_LPG_REG_ADDR(b, n)	(b + SPMI_LPG_REG_BASE_OFFSET + (n))
 #define SPMI_MAX_BUF_LEN	8
+
+#define QPNP_GPLED_LPG_CHANNEL_RANGE_START 8
+#define QPNP_GPLED_LPG_CHANNEL_RANGE_END 11
+#define qpnp_check_gpled_lpg_channel(id) \
+	(id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START && \
+	id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
 
 /* LPG revisions */
 enum qpnp_lpg_revision {
@@ -374,20 +380,29 @@ static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 addr,
  * (PWM Period / N) = (Pre-divide * Clock Period) * 2^m
  */
 static void qpnp_lpg_calc_period(unsigned int period_us,
-				   struct pwm_period_config *period)
+				   struct qpnp_pwm_config *pwm_conf)
 {
 	int		n, m, clk, div;
 	int		best_m, best_div, best_clk;
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
+	int		id = pwm_conf->channel_id;
+	struct pwm_period_config *period = &pwm_conf->period;
 
 	/* PWM Period / N */
-	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
-		period_n = (period_us * NSEC_PER_USEC) >> 6;
+	if (qpnp_check_gpled_lpg_channel(id))
+		n = 7;
+	else
 		n = 6;
+
+	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
+		period_n = (period_us * NSEC_PER_USEC) >> n;
 	} else {
-		period_n = (period_us >> 9) * NSEC_PER_USEC;
-		n = 9;
+		if (qpnp_check_gpled_lpg_channel(id))
+			n = 8;
+		else
+			n = 9;
+		period_n = (period_us >> n) * NSEC_PER_USEC;
 	}
 
 	min_err = last_err = (unsigned)(-1);
@@ -422,10 +437,22 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 		}
 	}
 
-	/* Use higher resolution */
-	if (best_m >= 3 && n == 6) {
-		n += 3;
-		best_m -= 3;
+	/* Adapt to optimal pwm size, the higher the resolution the better */
+	if (qpnp_check_gpled_lpg_channel(id)) {
+		if (n == 7 && best_m >= 1) {
+			n += 1;
+			best_m -= 1;
+		}
+	} else {
+		if (n == 6 && best_m >= 3) {
+			n += 3;
+			best_m -= 3;
+		} else {
+			if (n == 6) {
+				n += best_m;
+				best_m -= best_m;
+			}
+		}
 	}
 
 	period->pwm_size = n;
@@ -467,8 +494,8 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 	int			offset = (lut->lo_index << 1) - 2;
 
 	pwm_size = QPNP_GET_PWM_SIZE(
-			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) &
-						QPNP_PWM_SIZE_9_BIT ? 9 : 6;
+			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) +
+				QPNP_MIN_PWM_BIT_SIZE;
 
 	max_pwm_value = (1 << pwm_size) - 1;
 
@@ -542,8 +569,8 @@ static int qpnp_lpg_save_pwm_value(struct pwm_device *pwm)
 	int rc;
 
 	pwm_size = QPNP_GET_PWM_SIZE(
-			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) &
-						QPNP_PWM_SIZE_9_BIT ? 9 : 6;
+			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) +
+			QPNP_MIN_PWM_BIT_SIZE;
 
 	max_pwm_value = (1 << pwm_size) - 1;
 
@@ -910,13 +937,9 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 					addr1, 1, chip);
 }
 
-#define QPNP_GPLED_LPG_CHANNEL_RANGE_START 8
-#define QPNP_GPLED_LPG_CHANNEL_RANGE_END 11
-
 static inline int qpnp_enable_pwm_mode(struct qpnp_pwm_config *pwm_conf)
 {
-	if (pwm_conf->channel_id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START &&
-		pwm_conf->channel_id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
+	if (qpnp_check_gpled_lpg_channel(pwm_conf->channel_id))
 		return QPNP_ENABLE_PWM_MODE_GPLED_CHANNEL;
 	return QPNP_ENABLE_PWM_MODE;
 }
@@ -968,7 +991,7 @@ static int _pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	period = &pwm_config->period;
 
 	if (pwm_config->pwm_period != period_us) {
-		qpnp_lpg_calc_period(period_us, period);
+		qpnp_lpg_calc_period(period_us, pwm_config);
 		qpnp_lpg_save_period(pwm);
 		pwm_config->pwm_period = period_us;
 	}
@@ -1024,7 +1047,7 @@ static int _pwm_lut_config(struct pwm_device *pwm, int period_us,
 	period = &pwm_config->period;
 
 	if (pwm_config->pwm_period != period_us) {
-		qpnp_lpg_calc_period(period_us, period);
+		qpnp_lpg_calc_period(period_us, pwm_config);
 		qpnp_lpg_save_period(pwm);
 		pwm_config->pwm_period = period_us;
 	}
