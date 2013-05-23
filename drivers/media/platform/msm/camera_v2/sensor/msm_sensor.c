@@ -616,7 +616,7 @@ ERROR:
 static int32_t msm_sensor_get_dt_data(struct platform_device *pdev,
 	struct msm_sensor_ctrl_t *s_ctrl)
 {
-	int32_t rc = 0, i = 0;
+	int32_t rc = 0, i = 0, ret = 0;
 	struct device_node *of_node = pdev->dev.of_node;
 	struct msm_camera_gpio_conf *gconf = NULL;
 	struct msm_camera_sensor_board_info *sensordata = NULL;
@@ -777,14 +777,11 @@ static int32_t msm_sensor_get_dt_data(struct platform_device *pdev,
 	sensordata->slave_info->sensor_id_reg_addr = id_info[1];
 	sensordata->slave_info->sensor_id = id_info[2];
 
-	rc = of_property_read_string(of_node, "qcom,vdd-cx-name",
+	/*Optional property, don't return error if absent */
+	ret = of_property_read_string(of_node, "qcom,vdd-cx-name",
 		&sensordata->misc_regulator);
 	CDBG("%s qcom,misc_regulator %s, rc %d\n", __func__,
-		 sensordata->misc_regulator, rc);
-	if (rc < 0) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto ERROR9;
-	}
+		 sensordata->misc_regulator, ret);
 
 	kfree(gpio_array);
 
