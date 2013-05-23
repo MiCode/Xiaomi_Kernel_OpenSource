@@ -428,3 +428,14 @@
 	regulator-name = "8226_smbbp_boost";
 };
 
+&soc {
+	usb_otg_sw: regulator-ncp380 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_otg_sw";
+		gpio = <&msmgpio 67 0>;
+		parent-supply = <&pm8226_chg_boost>;
+		startup-delay-us = <4000>;
+		enable-active-high;
+		status = "disabled";
+	};
+};

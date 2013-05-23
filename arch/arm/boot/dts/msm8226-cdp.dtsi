@@ -384,3 +384,7 @@
 	qcom,charging-disabled;
 	qcom,use-default-batt-values;
 };
+
+&usb_otg_sw {
+	status = "okay";
+};

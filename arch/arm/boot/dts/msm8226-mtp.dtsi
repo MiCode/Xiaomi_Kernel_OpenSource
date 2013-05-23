@@ -416,6 +416,10 @@
 	qcom,charging-disabled;
 };
 
+&usb_otg_sw {
+	status = "okay";
+};
+
 &slim_msm {
 	tapan_codec {
 		qcom,cdc-micbias1-ext-cap;
