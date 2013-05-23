@@ -4606,10 +4606,10 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 		mpq_demux->sdmx_filter_count, mpq_demux->filters_status);
 
 	process_end_time = current_kernel_time();
-	mpq_dmx_update_sdmx_stat(mpq_demux, prev_fill_count,
-		&process_start_time, &process_end_time);
-
 	bytes_read = prev_fill_count - fill_count;
+
+	mpq_dmx_update_sdmx_stat(mpq_demux, bytes_read,
+			&process_start_time, &process_end_time);
 
 	MPQ_DVB_DBG_PRINT(
 		"%s: SDMX result=%d, input_fill_count=%u, read_offset=%u, read %d bytes from input, status=0x%X, errors=0x%X\n",
