@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 #include <linux/interrupt.h>
+#include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
@@ -260,6 +261,7 @@ struct tsens_tm_device_sensor {
 
 struct tsens_tm_device {
 	struct platform_device		*pdev;
+	struct workqueue_struct		*tsens_wq;
 	bool				prev_reading_avail;
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
@@ -657,7 +659,7 @@ static void tsens_scheduler_fn(struct work_struct *work)
 		}
 		if (upper_thr || lower_thr) {
 			/* Notify user space */
-			schedule_work(&tm->sensor[i].work);
+			queue_work(tm->tsens_wq, &tm->sensor[i].work);
 			rc = tsens_get_sw_id_mapping(
 					tm->sensor[i].sensor_hw_num,
 					&sensor_sw_id);
@@ -675,7 +677,7 @@ static void tsens_scheduler_fn(struct work_struct *work)
 
 static irqreturn_t tsens_isr(int irq, void *data)
 {
-	schedule_work(&tmdev->tsens_work);
+	queue_work(tmdev->tsens_wq, &tmdev->tsens_work);
 
 	return IRQ_HANDLED;
 }
@@ -1508,6 +1510,12 @@ static int tsens_tm_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	tmdev->pdev = pdev;
+	tmdev->tsens_wq = alloc_workqueue("tsens_wq", WQ_HIGHPRI, 0);
+	if (!tmdev->tsens_wq) {
+		rc = -ENOMEM;
+		goto fail;
+	}
+
 	rc = tsens_calib_sensors();
 	if (rc < 0) {
 		pr_err("Calibration failed\n");
@@ -1522,6 +1530,8 @@ static int tsens_tm_probe(struct platform_device *pdev)
 
 	return 0;
 fail:
+	if (tmdev->tsens_wq)
+		destroy_workqueue(tmdev->tsens_wq);
 	if (tmdev->tsens_calib_addr)
 		iounmap(tmdev->tsens_calib_addr);
 	if (tmdev->res_calib_mem)
@@ -1615,6 +1625,7 @@ static int tsens_tm_remove(struct platform_device *pdev)
 		release_mem_region(tmdev->res_tsens_mem->start,
 			tmdev->tsens_len);
 	free_irq(tmdev->tsens_irq, tmdev);
+	destroy_workqueue(tmdev->tsens_wq);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
