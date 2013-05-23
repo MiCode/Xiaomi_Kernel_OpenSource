@@ -3043,7 +3043,8 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 		ret = (raw_count_full * clk->multiplier);
 	}
 
-	writel_relaxed(0x51A00, GCC_REG_BASE(PLLTEST_PAD_CFG));
+	/* Set pin to gcc_debug_clock, enable output mode, disable input mode */
+	writel_relaxed(0x51200, GCC_REG_BASE(PLLTEST_PAD_CFG));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	clk_disable_unprepare(&xo.c);
