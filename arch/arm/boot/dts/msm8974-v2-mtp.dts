@@ -36,5 +36,5 @@
 };
 
 &pm8941_chg {
-	qcom,bpd-detection = "bpd_id";
+	qcom,bpd-detection = "bpd_thm";
 };
