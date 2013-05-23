@@ -65,6 +65,10 @@ Parent node optional properties:
 					detection, "bpd_thm_id" selects both.
 					If the property is not set the hw default will
 					be used.
+- otg-parent-supply			Specify a phandle to a parent supply regulator
+					for the OTG regulator.
+- boost-parent-supply			Specify a phandle to a parent supply regulator
+					for the boost regulator.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
@@ -87,6 +91,7 @@ Sub node required properties:
 
 			qcom,usb-chgpth:
 			 - usbin-valid
+
 			qcom,chgr:
 			 - chg-done
 			 - chg-failed
@@ -143,12 +148,25 @@ Sub node required properties:
 			 - limit-error:		Limiting error on SMBB boost.
 			 - boost-pwr-ok:	Status of boost power.
 
+Sub node optional properties:
+			qcom,usb-chgpth:
+			 - regulator-name:	A string used as a descriptive name
+						for the OTG regulator.
+			qcom,boost:
+			 - regulator-min-microvolt:	Minimum boost voltage setting.
+			 - regulator-max-microvolt:	Maximum boost voltage setting.
+			 - regulator-name:	A string used as a descriptive name
+						for the boost regulator.
+
 Example:
 	pm8941-chg {
 		spmi-dev-container;
 		compatible = "qcom,qpnp-charger";
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		otg-parent-supply = <&pm8941_boost>;
+		boost-parent-supply = <&foo_parent_reg>;
 
 		qcom,vddmax-mv = <4200>;
 		qcom,vddsafe-mv = <4200>;
@@ -220,7 +238,7 @@ Example:
 						"batt-pres";
 		};
 
-		qcom,usb-chgpth@1300 {
+		pm8941_chg_otg: qcom,usb-chgpth@1300 {
 			reg = <0x1300 0x100>;
 			interrupts =	<0 0x13 0x0>,
 					<0 0x13 0x1>,
@@ -240,7 +258,7 @@ Example:
 						"coarse-det-dc";
 		};
 
-		qcom,boost@1500 {
+		pm8941_chg_boost: qcom,boost@1500 {
 			reg = <0x1500 0x100>;
 			interrupts =	<0x0 0x15 0x0>,
 					<0x0 0x15 0x1>;
@@ -252,4 +270,16 @@ Example:
 		qcom,misc@1600 {
 			reg = <0x1600 0x100>;
 		};
+	};
+
+In regulator specific device tree file:
+
+	&pm8941_chg_boost {
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-name = "8941_smbb_boost";
+	};
+
+	&pm8941_chg_otg {
+		regulator-name = "8941_smbb_otg";
 	};
