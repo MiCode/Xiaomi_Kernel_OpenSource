@@ -3257,6 +3257,9 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	mutex_lock(&mfd->lock);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + ad->num));
 	mutex_unlock(&mfd->lock);
+
+	/* Trigger update notify to wake up those waiting for display updates */
+	mdss_fb_update_notify_update(mfd);
 }
 
 #define PP_AD_LUT_LEN 33

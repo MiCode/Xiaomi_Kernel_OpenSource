@@ -148,6 +148,18 @@ struct msm_fb_backup_type {
 	struct mdp_display_commit disp_commit;
 };
 
+static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
+{
+	complete(&mfd->update.comp);
+	mutex_lock(&mfd->no_update.lock);
+	if (mfd->no_update.timer.function)
+		del_timer(&(mfd->no_update.timer));
+
+	mfd->no_update.timer.expires = jiffies + (2 * HZ);
+	add_timer(&mfd->no_update.timer);
+	mutex_unlock(&mfd->no_update.lock);
+}
+
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);

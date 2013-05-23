@@ -746,15 +746,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
 
-	complete(&mfd->update.comp);
-	mutex_lock(&mfd->no_update.lock);
-	if (mfd->no_update.timer.function)
-		del_timer(&(mfd->no_update.timer));
-
-	mfd->no_update.timer.expires = jiffies + (2 * HZ);
-	add_timer(&mfd->no_update.timer);
-	mutex_unlock(&mfd->no_update.lock);
-
+	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	mdss_mdp_overlay_cleanup(mfd);
 
