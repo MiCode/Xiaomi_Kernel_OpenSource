@@ -55,11 +55,13 @@ int kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
 			unsigned int offsetbytes);
 
-int kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
+int kgsl_sharedmem_writel(struct kgsl_device *device,
+			const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes,
 			uint32_t src);
 
-int kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc,
+int kgsl_sharedmem_set(struct kgsl_device *device,
+			const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes, unsigned int value,
 			unsigned int sizebytes);
 

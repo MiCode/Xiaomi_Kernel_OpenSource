@@ -2360,7 +2360,8 @@ static int a3xx_drawctxt_create(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	kgsl_sharedmem_set(&drawctxt->gpustate, 0, 0, CONTEXT_SIZE);
+	kgsl_sharedmem_set(&adreno_dev->dev, &drawctxt->gpustate, 0, 0,
+			CONTEXT_SIZE);
 	tmp_ctx.cmd = drawctxt->gpustate.hostptr + CMD_OFFSET;
 
 	if (!(drawctxt->flags & CTXT_FLAGS_PREAMBLE)) {
@@ -2419,7 +2420,7 @@ static void a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 		 * already be saved.)
 		 */
 
-		kgsl_cffdump_syncmem(NULL,
+		kgsl_cffdump_syncmem(context->dev_priv,
 			&context->gpustate,
 			context->context_gmem_shadow.gmem_save[1],
 			context->context_gmem_shadow.gmem_save[2] << 2, true);
@@ -2461,7 +2462,7 @@ static void a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	 */
 
 	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
-		kgsl_cffdump_syncmem(NULL,
+		kgsl_cffdump_syncmem(context->dev_priv,
 			&context->gpustate,
 			context->context_gmem_shadow.gmem_restore[1],
 			context->context_gmem_shadow.gmem_restore[2] << 2,
@@ -2509,25 +2510,26 @@ static int a3xx_rb_init(struct adreno_device *adreno_dev,
 
 	cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint) * (rb->wptr - 18);
 
-	GSL_RB_WRITE(cmds, cmds_gpu, cp_type3_packet(CP_ME_INIT, 17));
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x000003f7);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000080);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000100);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000180);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00006600);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000150);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x0000014e);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000154);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000001);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu,
+			cp_type3_packet(CP_ME_INIT, 17));
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x000003f7);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000080);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000100);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000180);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00006600);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000150);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x0000014e);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000154);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000001);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
 	/* Protected mode control - turned off for A3XX */
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
 
 	adreno_ringbuffer_submit(rb);
 
