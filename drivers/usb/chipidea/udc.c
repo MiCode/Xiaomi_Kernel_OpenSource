@@ -32,7 +32,7 @@
 #include "bits.h"
 #include "debug.h"
 
-#define USB_MAX_TIMEOUT		100 /* 100msec timeout */
+#define USB_MAX_TIMEOUT		25 /* 25msec timeout */
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(200)
 #define EP_PRIME_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 #define MAX_PRIME_CHECK_RETRY	3 /*Wait for 3sec for EP prime failure */
