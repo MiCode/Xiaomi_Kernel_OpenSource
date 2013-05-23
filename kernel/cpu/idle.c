@@ -11,7 +11,7 @@
 
 #include <trace/events/power.h>
 
-static int __read_mostly cpu_idle_force_poll;
+int __read_mostly cpu_idle_force_poll;
 
 void cpu_idle_poll_ctrl(bool enable)
 {
