@@ -1150,10 +1150,22 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 		return;
 
 	bw = sdhci_get_bw_required(host, ios);
-	if (enable)
+	if (enable) {
 		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
-	else
-		sdhci_msm_bus_queue_work(host);
+	} else {
+		/*
+		 * If clock gating is enabled, then remove the vote
+		 * immediately because clocks will be disabled only
+		 * after SDHCI_MSM_MMC_CLK_GATE_DELAY and thus no
+		 * additional delay is required to remove the bus vote.
+		 */
+#ifdef CONFIG_MMC_CLKGATE
+		if (host->mmc->clkgate_delay)
+			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+		else
+#endif
+			sdhci_msm_bus_queue_work(host);
+	}
 }
 
 /* Regulator utility functions */
@@ -1664,12 +1676,15 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 	if (enable && !atomic_read(&msm_host->clks_on)) {
 		pr_debug("%s: request to enable clocks\n",
 				mmc_hostname(host->mmc));
+
+		sdhci_msm_bus_voting(host, 1);
+
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk)) {
 			rc = clk_prepare_enable(msm_host->bus_clk);
 			if (rc) {
 				pr_err("%s: %s: failed to enable the bus-clock with error %d\n",
 					mmc_hostname(host->mmc), __func__, rc);
-				goto out;
+				goto remove_vote;
 			}
 		}
 		if (!IS_ERR(msm_host->pclk)) {
@@ -1698,6 +1713,8 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 			clk_disable_unprepare(msm_host->pclk);
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 			clk_disable_unprepare(msm_host->bus_clk);
+
+		sdhci_msm_bus_voting(host, 0);
 	}
 	atomic_set(&msm_host->clks_on, enable);
 	goto out;
@@ -1707,6 +1724,9 @@ disable_pclk:
 disable_bus_clk:
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
+remove_vote:
+	if (msm_host->msm_bus_vote.client_handle)
+		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 out:
 	return rc;
 }
@@ -1753,6 +1773,11 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		msm_host->clk_rate = sup_clock;
 		host->clock = clock;
+		/*
+		 * Update the bus vote in case of frequency change due to
+		 * clock scaling.
+		 */
+		sdhci_msm_bus_voting(host, 1);
 	}
 out:
 	sdhci_set_clock(host, clock);
@@ -1800,7 +1825,6 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.toggle_cdr = sdhci_msm_toggle_cdr,
 	.get_max_segments = sdhci_msm_max_segs,
 	.set_clock = sdhci_msm_set_clock,
-	.platform_bus_voting = sdhci_msm_bus_voting,
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
 };
@@ -1902,11 +1926,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
 
+	ret = sdhci_msm_bus_register(msm_host, pdev);
+	if (ret)
+		goto clk_disable;
+
+	if (msm_host->msm_bus_vote.client_handle)
+		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
+				  sdhci_msm_bus_work);
+	sdhci_msm_bus_voting(host, 1);
+
 	/* Setup regulators */
 	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, true);
 	if (ret) {
 		dev_err(&pdev->dev, "Regulator setup failed (%d)\n", ret);
-		goto clk_disable;
+		goto bus_unregister;
 	}
 
 	/* Reset the core and Enable SDHC mode */
@@ -2030,14 +2063,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
 
-	ret = sdhci_msm_bus_register(msm_host, pdev);
-	if (ret)
-		goto vreg_deinit;
-
-	if (msm_host->msm_bus_vote.client_handle)
-		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
-				  sdhci_msm_bus_work);
-
 	init_completion(&msm_host->pwr_irq_completion);
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
@@ -2046,7 +2071,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "%s: Failed to request card detection IRQ %d\n",
 					__func__, ret);
-			goto bus_unregister;
+			goto vreg_deinit;
 		}
 	}
 
@@ -2079,10 +2104,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	sdhci_remove_host(host, dead);
-bus_unregister:
-	sdhci_msm_bus_unregister(msm_host);
 vreg_deinit:
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
+bus_unregister:
+	if (msm_host->msm_bus_vote.client_handle)
+		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+	sdhci_msm_bus_unregister(msm_host);
 clk_disable:
 	if (!IS_ERR(msm_host->clk))
 		clk_disable_unprepare(msm_host->clk);
