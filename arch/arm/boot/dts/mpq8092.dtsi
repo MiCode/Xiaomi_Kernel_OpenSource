@@ -21,6 +21,7 @@
 };
 
 /include/ "mpq8092-iommu.dtsi"
+/include/ "mpq8092-iommu-domains.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "mpq8092-ion.dtsi"
 
