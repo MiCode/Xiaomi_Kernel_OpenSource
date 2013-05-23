@@ -2554,11 +2554,13 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 		SPS_ERR("sps:sps_device_init err.");
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 		clk_disable_unprepare(sps->dfab_clk);
+		clk_disable_unprepare(sps->bamdma_clk);
 #endif
 		goto sps_device_init_err;
 	}
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 	clk_disable_unprepare(sps->dfab_clk);
+	clk_disable_unprepare(sps->bamdma_clk);
 #endif
 	sps->is_ready = true;
 
