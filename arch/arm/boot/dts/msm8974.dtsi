@@ -767,6 +767,7 @@
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <50000000>;
+		qcom,master-id = <84>;
 	};
 
 	i2c_1: i2c@f9923000 {
@@ -782,6 +783,7 @@
 		qcom,i2c-src-freq = <19200000>;
 		qcom,scl-gpio = <&msmgpio 3 0>;
 		qcom,sda-gpio = <&msmgpio 2 0>;
+		qcom,master-id = <86>;
 		status = "disabled";
 	};
 
@@ -796,6 +798,7 @@
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <50000000>;
+		qcom,master-id = <86>;
 	};
 
 	spi_0: spi@f9923000 {
