@@ -622,10 +622,18 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 int compressed_set_volume(unsigned volume)
 {
 	int rc = 0;
+	int avg_vol = 0;
 	if (compressed_audio.prtd && compressed_audio.prtd->audio_client) {
-		rc = q6asm_set_lrgain(compressed_audio.prtd->audio_client,
-						(volume >> 16) & 0xFFFF,
-						volume & 0xFFFF);
+		if (compressed_audio.prtd->channel_mode > 2) {
+			avg_vol = (((volume >> 16) & 0xFFFF) +
+				   (volume & 0xFFFF)) / 2;
+			rc = q6asm_set_volume(
+				compressed_audio.prtd->audio_client, avg_vol);
+		} else {
+			rc = q6asm_set_lrgain(
+				compressed_audio.prtd->audio_client,
+				(volume >> 16) & 0xFFFF, volume & 0xFFFF);
+		}
 		if (rc < 0) {
 			pr_err("%s: Send Volume command failed rc=%d\n",
 						__func__, rc);
@@ -793,6 +801,11 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			prtd->audio_client->perf_mode,
 			prtd->session_id,
 			substream->stream);
+		/* the number of channels are required to call volume api
+		   accoridngly. So, get channels from hw params */
+		if ((params_channels(params) > 0) &&
+		    (params_periods(params) <= runtime->hw.channels_max))
+			prtd->channel_mode = params_channels(params);
 
 		ret = compressed_set_volume(0);
 		if (ret < 0)
