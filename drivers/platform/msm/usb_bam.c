@@ -137,6 +137,7 @@ struct usb_bam_ipa_handshake_info {
 	int connect_complete;
 	bool lpm_wait_pipes;
 	int bus_suspend;
+	bool disconnected;
 	bool in_lpm[MAX_BAMS];
 
 	int (*wake_cb)(void *);
@@ -758,8 +759,16 @@ static void usb_bam_finish_suspend(void)
 
 	mutex_lock(&info.suspend_resume_mutex);
 
-	/* If resume was called don't finish this work */
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
+	/* If cable was disconnected, let disconnection seq do everything */
+	if (info.disconnected) {
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+		mutex_unlock(&info.suspend_resume_mutex);
+		pr_debug("%s: Cable disconnected\n", __func__);
+		return;
+	}
+
+	/* If resume was called don't finish this work */
 	if (!info.bus_suspend) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_err("%s: Bus suspend in progress\n", __func__);
@@ -785,8 +794,8 @@ static void usb_bam_finish_suspend(void)
 				ipa_rm_resource_cons[cur_bam]);
 		}
 		ipa_suspend_pipes();
-		mutex_unlock(&info.suspend_resume_mutex);
 		usb_bam_start_lpm(0);
+		mutex_unlock(&info.suspend_resume_mutex);
 		return;
 	}
 
@@ -1158,11 +1167,21 @@ void usb_bam_suspend(struct usb_bam_connect_ipa_params *ipa_params)
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	}
 
+	spin_lock(&usb_bam_ipa_handshake_info_lock);
+	/* If cable was disconnected, let disconnection seq do everything */
+	if (info.disconnected) {
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+		pr_debug("%s: Cable disconnected\n", __func__);
+		return;
+	}
+
 	/* Don't go to LPM if data in the pipes */
 	if (!check_pipes_empty(src_idx, dst_idx)) {
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_err("%s: pipes not empty, won't start suspend", __func__);
 		return;
 	}
+	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
 	queue_work(ctx.usb_bam_wq, &info.suspend_work);
 }
@@ -1173,9 +1192,18 @@ static void usb_bam_start_suspend(struct work_struct *w)
 	mutex_lock(&info.suspend_resume_mutex);
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
+	/* If cable was disconnected, let disconnection seq do everything */
+	if (info.disconnected) {
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+		mutex_unlock(&info.suspend_resume_mutex);
+		pr_debug("%s: Cable disconnected\n", __func__);
+		return;
+	}
+
 	if (!info.bus_suspend) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_err("%s: Resume started, not suspending", __func__);
+		mutex_unlock(&info.suspend_resume_mutex);
 		return;
 	}
 
@@ -1431,6 +1459,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			spin_lock(&usb_bam_ipa_handshake_info_lock);
 			info.lpm_wait_handshake[HSUSB_BAM] = true;
 			info.connect_complete = 0;
+			info.disconnected = 0;
 			info.lpm_wait_pipes = 1;
 			info.bus_suspend = 0;
 			info.cons_stopped = 0;
@@ -1942,6 +1971,9 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		/* Do the release handshake with the A2 via RM */
 		cur_bam = pipe_connect->bam_type;
 		info.lpm_wait_pipes = 1;
+		spin_lock(&usb_bam_ipa_handshake_info_lock);
+		info.disconnected = 1;
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		wait_for_prod_release(cur_bam);
 		/* close USB -> IPA pipe */
 		usb_bam_resume_core(cur_bam);
@@ -2004,8 +2036,8 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 				ipa_rm_resource_cons[cur_bam]);
 		}
 		pr_debug("%s Ended disconnect sequence\n", __func__);
-		mutex_unlock(&info.suspend_resume_mutex);
 		usb_bam_start_lpm(1);
+		mutex_unlock(&info.suspend_resume_mutex);
 		return 0;
 	}
 
