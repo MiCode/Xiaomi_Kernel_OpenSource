@@ -2735,6 +2735,9 @@ static void a3xx_perfcounter_enable_pwr(struct kgsl_device *device,
 {
 	unsigned int in, out;
 
+	if (countable > 1)
+		return;
+
 	adreno_regread(device, A3XX_RBBM_RBBM_CTL, &in);
 
 	if (countable == 0)
@@ -2790,6 +2793,9 @@ static void a3xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
 {
 	unsigned int in, out, bit;
 
+	if (countable > 2)
+		return;
+
 	adreno_regread(device, A3XX_VBIF_PERF_CNT_EN, &in);
 	if (countable == 0)
 		bit = VBIF_PERF_PWR_CNT_0;
@@ -2823,12 +2829,6 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int val = 0;
 	struct a3xx_perfcounter_register *reg;
 
-	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
-		return;
-
-	if (counter >= a3xx_perfcounter_reglist[group].count)
-		return;
-
 	/* Special cases */
 	if (group == KGSL_PERFCOUNTER_GROUP_PWR)
 		return a3xx_perfcounter_enable_pwr(device, countable);
@@ -2836,6 +2836,12 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		return a3xx_perfcounter_enable_vbif(device, counter, countable);
 	else if (group == KGSL_PERFCOUNTER_GROUP_VBIF_PWR)
 		return a3xx_perfcounter_enable_vbif_pwr(device, countable);
+
+	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
+		return;
+
+	if (counter >= a3xx_perfcounter_reglist[group].count)
+		return;
 
 	reg = &(a3xx_perfcounter_reglist[group].regs[counter]);
 
