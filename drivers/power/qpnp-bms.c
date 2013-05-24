@@ -3048,7 +3048,7 @@ static int bms_resume(struct device *dev)
 {
 	int rc;
 	int soc_calc_period;
-	int time_until_next_recalc;
+	int time_until_next_recalc = 0;
 	unsigned long time_since_last_recalc;
 	unsigned long tm_now_sec;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
@@ -3056,26 +3056,24 @@ static int bms_resume(struct device *dev)
 	rc = get_current_time(&tm_now_sec);
 	if (rc) {
 		pr_err("Could not read current time: %d\n", rc);
-	} else if (tm_now_sec > chip->last_recalc_time) {
-		time_since_last_recalc = tm_now_sec - chip->last_recalc_time;
-		pr_debug("Time since last recalc: %lu\n",
-				time_since_last_recalc);
+	} else {
 		if (chip->calculated_soc < chip->low_soc_calc_threshold)
 			soc_calc_period = chip->low_soc_calculate_soc_ms;
 		else
 			soc_calc_period = chip->calculate_soc_ms;
-
+		time_since_last_recalc = tm_now_sec - chip->last_recalc_time;
+		pr_debug("Time since last recalc: %lu\n",
+				time_since_last_recalc);
 		time_until_next_recalc = max(0, soc_calc_period
 				- (int)(time_since_last_recalc * 1000));
-
-		if (!wake_lock_active(&chip->soc_wake_lock)
-				&& time_until_next_recalc == 0)
-			wake_lock(&chip->soc_wake_lock);
-
-		schedule_delayed_work(&chip->calculate_soc_delayed_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(time_until_next_recalc)));
 	}
+
+	if (!wake_lock_active(&chip->soc_wake_lock)
+			&& time_until_next_recalc == 0)
+		wake_lock(&chip->soc_wake_lock);
+	schedule_delayed_work(&chip->calculate_soc_delayed_work,
+		round_jiffies_relative(msecs_to_jiffies
+		(time_until_next_recalc)));
 	return 0;
 }
 
