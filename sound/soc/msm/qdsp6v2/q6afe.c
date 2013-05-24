@@ -1948,6 +1948,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 		goto fail_cmd;
 	}
 	pr_debug("%s: mmap handle 0x%x\n", __func__, this_afe.mmap_handle);
+	kfree(mmap_region_cmd);
 	return 0;
 fail_cmd:
 	kfree(mmap_region_cmd);
@@ -2013,6 +2014,7 @@ int afe_cmd_memory_map_nowait(int port_id, u32 dma_addr_p, u32 dma_buf_sz)
 	if (ret)
 		pr_err("%s: AFE memory map cmd failed %d\n",
 		       __func__, ret);
+	kfree(mmap_region_cmd);
 	return ret;
 }
 int q6afe_audio_client_buf_free_contiguous(unsigned int dir,
