@@ -1477,34 +1477,26 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		*handle = NULL;
 		return -EINVAL;
 	}
-
+	mutex_lock(&app_access_lock);
 	if (qseecom.qsee_version > QSEEE_VERSION_00) {
-		mutex_lock(&app_access_lock);
 		if (qseecom.commonlib_loaded == false) {
 			ret = qseecom_load_commonlib_image(data);
 			if (ret == 0)
 				qseecom.commonlib_loaded = true;
 		}
-		mutex_unlock(&app_access_lock);
 	}
-
 	if (ret) {
 		pr_err("Failed to load commonlib image\n");
-		kfree(data);
-		kfree(*handle);
-		*handle = NULL;
-		return -EIO;
+		ret = -EIO;
+		goto err;
 	}
 
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq);
-	if (ret < 0) {
-		kzfree(data);
-		kfree(*handle);
-		*handle = NULL;
-		return -EINVAL;
-	}
+	if (ret < 0)
+		goto err;
+
 	data->client.app_id = ret;
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
@@ -1527,26 +1519,17 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		/* load the app and get the app_id  */
 		pr_debug("%s: Loading app for the first time'\n",
 				qseecom.pdev->init_name);
-		mutex_lock(&app_access_lock);
 		ret = __qseecom_load_fw(data, app_name);
-		mutex_unlock(&app_access_lock);
-
-		if (ret < 0) {
-			kfree(*handle);
-			kfree(data);
-			*handle = NULL;
-			return ret;
-		}
+		if (ret < 0)
+			goto err;
 		data->client.app_id = ret;
 	}
 	if (!found_app) {
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry) {
-			pr_err("kmalloc failed\n");
-			kfree(data);
-			kfree(*handle);
-			*handle = NULL;
-			return -ENOMEM;
+			pr_err("kmalloc for app entry failed\n");
+			ret =  -ENOMEM;
+			goto err;
 		}
 		entry->app_id = ret;
 		entry->ref_cnt = 1;
@@ -1571,7 +1554,8 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	kclient_entry = kzalloc(sizeof(*kclient_entry), GFP_KERNEL);
 	if (!kclient_entry) {
 		pr_err("kmalloc failed\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err;
 	}
 	kclient_entry->handle = *handle;
 
@@ -1580,7 +1564,15 @@ int qseecom_start_app(struct qseecom_handle **handle,
 			&qseecom.registered_kclient_list_head);
 	spin_unlock_irqrestore(&qseecom.registered_kclient_list_lock, flags);
 
+	mutex_unlock(&app_access_lock);
 	return 0;
+
+err:
+	kfree(data);
+	kfree(*handle);
+	*handle = NULL;
+	mutex_unlock(&app_access_lock);
+	return ret;
 }
 EXPORT_SYMBOL(qseecom_start_app);
 
