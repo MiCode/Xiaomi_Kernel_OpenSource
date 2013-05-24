@@ -45,6 +45,8 @@ static unsigned int debug_quirks2;
 
 static void sdhci_finish_data(struct sdhci_host *);
 
+static bool sdhci_check_state(struct sdhci_host *);
+
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
 
 static void sdhci_dump_state(struct sdhci_host *host)
@@ -300,7 +302,7 @@ static void sdhci_led_control(struct led_classdev *led,
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	if (host->runtime_suspended)
+	if (host->runtime_suspended || sdhci_check_state(host))
 		goto out;
 
 	if (brightness == LED_OFF)
