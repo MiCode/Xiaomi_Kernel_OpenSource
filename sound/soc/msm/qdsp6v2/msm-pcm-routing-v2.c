@@ -410,7 +410,8 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				msm_bedais[i].port_id;
 			port_id = srs_port_id = msm_bedais[i].port_id;
 			srs_send_params(srs_port_id, 1, 0);
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!perf_mode))
 				if (dolby_dap_init(port_id,
 						msm_bedais[i].channel) < 0)
 					pr_err("%s: Err init dolby dap\n",
@@ -453,7 +454,8 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
 			adm_close(msm_bedais[i].port_id,
 				test_bit(fedai_id, &msm_bedais[i].perf_mode));
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!test_bit(fedai_id, &msm_bedais[i].perf_mode)))
 				dolby_dap_deinit(msm_bedais[i].port_id);
 		}
 	}
@@ -544,7 +546,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				perf_mode);
 			port_id = srs_port_id = msm_bedais[reg].port_id;
 			srs_send_params(srs_port_id, 1, 0);
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!perf_mode))
 				if (dolby_dap_init(port_id, channels) < 0)
 					pr_err("%s: Err init dolby dap\n",
 						__func__);
@@ -558,7 +561,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			INVALID_SESSION) {
 			perf_mode = test_bit(val, &msm_bedais[reg].perf_mode);
 			adm_close(msm_bedais[reg].port_id, perf_mode);
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!perf_mode))
 				dolby_dap_deinit(msm_bedais[reg].port_id);
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type,
@@ -3451,9 +3455,10 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 			adm_close(bedai->port_id,
 				test_bit(i, &(bedai->perf_mode)));
 			srs_port_id = -1;
-			clear_bit(i, &(bedai->perf_mode));
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!test_bit(i, &(bedai->perf_mode))))
 				dolby_dap_deinit(bedai->port_id);
+			clear_bit(i, &(bedai->perf_mode));
 		}
 	}
 
@@ -3539,7 +3544,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				perf_mode);
 			port_id = srs_port_id = bedai->port_id;
 			srs_send_params(srs_port_id, 1, 0);
-			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
+			    (!perf_mode))
 				if (dolby_dap_init(port_id, channels) < 0)
 					pr_err("%s: Err init dolby dap\n",
 						__func__);
