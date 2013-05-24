@@ -314,7 +314,7 @@ DECLARE_EVENT_CLASS(ion_alloc,
 	TP_ARGS(client_name, heap_name, len, mask, flags),
 
 	TP_STRUCT__entry(
-		__field(const char *,	client_name)
+		__array(char,		client_name, 64)
 		__field(const char *,	heap_name)
 		__field(size_t,		len)
 		__field(unsigned int,	mask)
@@ -322,7 +322,7 @@ DECLARE_EVENT_CLASS(ion_alloc,
 	),
 
 	TP_fast_assign(
-		__entry->client_name	= client_name;
+		strlcpy(__entry->client_name, client_name, 64);
 		__entry->heap_name	= heap_name;
 		__entry->len		= len;
 		__entry->mask		= mask;
