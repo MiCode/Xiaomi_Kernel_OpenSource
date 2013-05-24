@@ -281,6 +281,8 @@ struct wcd9xxx_mbhc {
 
 	enum wcd9xxx_mbhc_version mbhc_version;
 
+	u32 rco_clk_rate;
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
 	struct dentry *debugfs_mbhc;
@@ -347,7 +349,8 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		      struct snd_soc_codec *codec,
 		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
-		      int version);
+		      int version,
+		      int rco_clk_rate);
 void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc);
 void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,

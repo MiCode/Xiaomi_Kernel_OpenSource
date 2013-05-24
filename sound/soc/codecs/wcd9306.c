@@ -67,14 +67,12 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 
 #define TAPAN_I2S_MASTER_MODE_MASK 0x08
 #define TAPAN_MCLK_CLK_12P288MHZ 12288000
-#define TAPAN_MCLK_CLK_9P6HZ 9600000
+#define TAPAN_MCLK_CLK_9P6MHZ 9600000
 
 #define TAPAN_SLIM_CLOSE_TIMEOUT 1000
 #define TAPAN_SLIM_IRQ_OVERFLOW (1 << 0)
 #define TAPAN_SLIM_IRQ_UNDERFLOW (1 << 1)
 #define TAPAN_SLIM_IRQ_PORT_CLOSED (1 << 2)
-#define TAPAN_MCLK_CLK_12P288MHZ 12288000
-#define TAPAN_MCLK_CLK_9P6HZ 9600000
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -4446,7 +4444,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx *wcd9xxx;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
-	int i;
+	int i, rco_clk_rate;
 	void *ptr = NULL;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
@@ -4482,8 +4480,14 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
+	if (TAPAN_IS_1_0(control->version))
+		rco_clk_rate = TAPAN_MCLK_CLK_12P288MHZ;
+	else
+		rco_clk_rate = TAPAN_MCLK_CLK_9P6MHZ;
+
 	ret = wcd9xxx_mbhc_init(&tapan->mbhc, &tapan->resmgr, codec, NULL,
-				WCD9XXX_MBHC_VERSION_TAPAN);
+				WCD9XXX_MBHC_VERSION_TAPAN,
+				rco_clk_rate);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		return ret;
@@ -4507,7 +4511,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, TAPAN_A_CHIP_CTL, 0x06, 0x0);
 		snd_soc_update_bits(codec, TAPAN_A_RX_COM_TIMER_DIV, 0x01,
 				0x01);
-	} else if (wcd9xxx->mclk_rate == TAPAN_MCLK_CLK_9P6HZ) {
+	} else if (wcd9xxx->mclk_rate == TAPAN_MCLK_CLK_9P6MHZ) {
 		snd_soc_update_bits(codec, TAPAN_A_CHIP_CTL, 0x06, 0x2);
 	}
 	tapan_codec_init_reg(codec);
