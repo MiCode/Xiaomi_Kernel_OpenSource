@@ -54,6 +54,7 @@ static void sdhci_finish_command(struct sdhci_host *);
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode);
 static void sdhci_tuning_timer(unsigned long data);
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
+static bool sdhci_check_state(struct sdhci_host *);
 
 #ifdef CONFIG_PM_RUNTIME
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -308,7 +309,7 @@ static void sdhci_led_control(struct led_classdev *led,
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	if (host->runtime_suspended)
+	if (host->runtime_suspended || sdhci_check_state(host))
 		goto out;
 
 	if (brightness == LED_OFF)
@@ -1464,7 +1465,8 @@ static bool sdhci_check_state(struct sdhci_host *host)
 	struct mmc_host *mmc = host->mmc;
 
 	if (!host->clock || !host->pwr ||
-	    pm_runtime_suspended(mmc->parent))
+	    (mmc_use_core_runtime_pm(mmc) ?
+	     pm_runtime_suspended(mmc->parent) : 0))
 		return true;
 	else
 		return false;
