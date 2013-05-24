@@ -15,8 +15,8 @@ Optional properties:
  - qcom,retain-mems: Presence denotes a hardware requirement to leave the
 		     forced memory retention signals in the core's clock
 		     branch control register asserted.
- - qcom,retain-logic: Presence denotes a requirement to leave power to the
-		      core's logic enabled.
+ - qcom,skip-logic-collapse: Presence denotes a requirement to leave power to
+                             the core's logic enabled.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
