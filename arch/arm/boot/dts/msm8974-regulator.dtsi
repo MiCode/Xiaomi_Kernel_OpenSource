@@ -380,7 +380,7 @@
 		status = "okay";
 		pm8941_l19: regulator-l19 {
 			regulator-min-microvolt = <2900000>;
-			regulator-max-microvolt = <2900000>;
+			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <2900000>;
 			status = "okay";
 		};
