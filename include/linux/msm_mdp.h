@@ -641,6 +641,8 @@ struct mdss_ad_init {
 	uint32_t *bl_lin_inv;
 };
 
+#define MDSS_AD_BL_CTRL_MODE_EN 1
+#define MDSS_AD_BL_CTRL_MODE_DIS 0
 struct mdss_ad_cfg {
 	uint32_t mode;
 	uint32_t al_calib_lut[33];
@@ -653,6 +655,7 @@ struct mdss_ad_cfg {
 	uint8_t strength_limit;
 	uint8_t t_filter_recursion;
 	uint16_t stab_itr;
+	uint32_t bl_ctrl_mode;
 };
 
 /* ops uses standard MDP_PP_* flags */
