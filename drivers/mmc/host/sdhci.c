@@ -56,6 +56,7 @@ static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
 static int sdhci_pre_dma_transfer(struct sdhci_host *host,
 					struct mmc_data *data);
 static int sdhci_do_get_cd(struct sdhci_host *host);
+static bool sdhci_check_state(struct sdhci_host *);
 
 #ifdef CONFIG_PM
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -305,7 +306,7 @@ static void sdhci_led_control(struct led_classdev *led,
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	if (host->runtime_suspended)
+	if (host->runtime_suspended || sdhci_check_state(host))
 		goto out;
 
 	if (brightness == LED_OFF)
