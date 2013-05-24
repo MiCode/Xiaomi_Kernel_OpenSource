@@ -12,9 +12,10 @@ CPR regulator device is for Qualcomm RBCPR (RapidBridge CPR) on
 
 Required properties:
 - compatible:			Must be "qcom,cpr-regulator"
-- reg:				Register addresses for RBCPR and efuse
-- reg-names:			Register names. Must be "rbcpr", "pvs_efuse"
-				and "cpr_efuse"
+- reg:				Register addresses for RBCPR, RBCPR clock
+				select, PVS eFuse and CPR eFuse
+- reg-names:			Register names. Must be "rbcpr", "rbcpr_clk",
+				"pvs_efuse" and "cpr_efuse"
 - regulator-name:		A string used to describe the regulator
 - interrupts:			Interrupt line from RBCPR to interrupt controller.
 - regulator-min-microvolt:	Minimum corner value as min constraint, which
