@@ -2740,6 +2740,8 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
 
+	spin_lock_init(&host->lock);
+
 	return host;
 }
 
@@ -3131,8 +3133,6 @@ int sdhci_add_host(struct sdhci_host *host)
 			"support voltages.\n", mmc_hostname(mmc));
 		return -ENODEV;
 	}
-
-	spin_lock_init(&host->lock);
 
 	/*
 	 * Maximum number of segments. Depends on if the hardware
