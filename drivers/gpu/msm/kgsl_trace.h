@@ -70,7 +70,7 @@ TRACE_EVENT(kgsl_issueibcmds,
 	),
 
 	TP_printk(
-		"d_name=%s ctx=%u ib=0x%u numibs=%u timestamp=0x%x "
+		"d_name=%s ctx=%u ib=0x%u numibs=%u ts=%u "
 		"flags=0x%x(%s) result=%d type=%s",
 		__get_str(device_name),
 		__entry->drawctxt_id,
@@ -116,7 +116,7 @@ TRACE_EVENT(kgsl_readtimestamp,
 	),
 
 	TP_printk(
-		"d_name=%s context_id=%u type=%u timestamp=0x%x",
+		"d_name=%s context_id=%u type=%u ts=%u",
 		__get_str(device_name),
 		__entry->context_id,
 		__entry->type,
@@ -154,7 +154,7 @@ TRACE_EVENT(kgsl_waittimestamp_entry,
 	),
 
 	TP_printk(
-		"d_name=%s context_id=%u curr_ts=0x%x timestamp=0x%x timeout=%u",
+		"d_name=%s ctx=%u curr_ts=%u ts=%u timeout=%u",
 		__get_str(device_name),
 		__entry->context_id,
 		__entry->curr_ts,
@@ -186,7 +186,7 @@ TRACE_EVENT(kgsl_waittimestamp_exit,
 	),
 
 	TP_printk(
-		"d_name=%s curr_ts=0x%x result=%d",
+		"d_name=%s curr_ts=%u result=%d",
 		__get_str(device_name),
 		__entry->curr_ts,
 		__entry->result
@@ -209,7 +209,7 @@ DECLARE_EVENT_CLASS(kgsl_pwr_template,
 	),
 
 	TP_printk(
-		"d_name=%s %s",
+		"d_name=%s flag=%s",
 		__get_str(device_name),
 		__entry->on ? "on" : "off"
 	)
@@ -304,7 +304,7 @@ TRACE_EVENT(kgsl_gpubusy,
 	),
 
 	TP_printk(
-		"d_name=%s busy=%d elapsed=%d",
+		"d_name=%s busy=%u elapsed=%d",
 		__get_str(device_name),
 		__entry->busy,
 		__entry->elapsed
@@ -327,7 +327,7 @@ DECLARE_EVENT_CLASS(kgsl_pwrstate_template,
 	),
 
 	TP_printk(
-		"d_name=%s %s",
+		"d_name=%s state=%s",
 		__get_str(device_name),
 		kgsl_pwrstate_to_str(__entry->state)
 	)
@@ -369,7 +369,7 @@ TRACE_EVENT(kgsl_mem_alloc,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d tgid=%d usage=%s id=%d flags=0x%08x",
+		"gpuaddr=0x%08x size=%u tgid=%u usage=%s id=%u flags=0x%08x",
 		__entry->gpuaddr, __entry->size, __entry->tgid,
 		__entry->usage, __entry->id, __entry->flags
 	)
@@ -401,7 +401,7 @@ TRACE_EVENT(kgsl_mem_mmap,
 	),
 
 	TP_printk(
-		"useraddr=%lx gpuaddr=0x%08x size=%d usage=%s id=%d"
+		"useraddr=0x%lx gpuaddr=0x%08x size=%u usage=%s id=%u"
 		" flags=0x%08x",
 		__entry->useraddr, __entry->gpuaddr, __entry->size,
 		__entry->usage, __entry->id, __entry->flags
@@ -432,7 +432,7 @@ TRACE_EVENT(kgsl_mem_unmapped_area_collision,
 	),
 
 	TP_printk(
-		"id=%d hint=0x%lx len=%ld addr=0x%lx",
+		"id=%u hint=0x%lx len=%lu addr=0x%lx",
 		__entry->id, __entry->hint, __entry->len, __entry->addr
 	)
 );
@@ -465,7 +465,7 @@ TRACE_EVENT(kgsl_mem_map,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d type=%d fd=%d tgid=%d usage=%s id=%d",
+		"gpuaddr=0x%08x size=%u type=%d fd=%d tgid=%u usage=%s id=%u",
 		__entry->gpuaddr, __entry->size,
 		__entry->type, __entry->fd, __entry->tgid,
 		__entry->usage, __entry->id
@@ -499,7 +499,7 @@ TRACE_EVENT(kgsl_mem_free,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d type=%d tgid=%d usage=%s id=%d",
+		"gpuaddr=0x%08x size=%u type=%d tgid=%u usage=%s id=%u",
 		__entry->gpuaddr, __entry->size, __entry->type,
 		__entry->tgid, __entry->usage, __entry->id
 	)
@@ -531,7 +531,7 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d tgid=%d usage=%s id=%d op=%c%c",
+		"gpuaddr=0x%08x size=%u tgid=%u usage=%s id=%u op=%c%c",
 		__entry->gpuaddr, __entry->size, __entry->tgid, __entry->usage,
 		__entry->id,
 		(__entry->op & KGSL_GPUMEM_CACHE_CLEAN) ? 'c' : '.',
@@ -599,8 +599,8 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 	),
 
 	TP_printk(
-		"d_name=%s gpuaddr=0x%08x size=%d type=%d usage=%s id=%d ctx=%u"
-		" curr_ts=0x%x free_ts=0x%x",
+		"d_name=%s gpuaddr=0x%08x size=%u type=%d usage=%s id=%u ctx=%u"
+		" curr_ts=%u free_ts=%u",
 		__get_str(device_name),
 		__entry->gpuaddr,
 		__entry->size,
@@ -700,7 +700,7 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 	),
 
 	TP_printk(
-		"d_name=%s page=0x%08x pt=%d op=%s",
+		"d_name=%s page=0x%08x pt=%u op=%s",
 		__get_str(device_name), __entry->page, __entry->pt,
 		__get_str(op)
 	)
@@ -726,7 +726,7 @@ TRACE_EVENT(kgsl_regwrite,
 	),
 
 	TP_printk(
-		"d_name=%s reg=%x value=%x",
+		"d_name=%s reg=0x%x value=0x%x",
 		__get_str(device_name), __entry->offset, __entry->value
 	)
 );
@@ -743,7 +743,7 @@ TRACE_EVENT(kgsl_register_event,
 			__entry->timestamp = timestamp;
 		),
 		TP_printk(
-			"ctx=%d ts=%d",
+			"ctx=%u ts=%u",
 			__entry->id, __entry->timestamp)
 );
 
@@ -762,7 +762,7 @@ TRACE_EVENT(kgsl_fire_event,
 			__entry->age = age;
 		),
 		TP_printk(
-			"ctx=%d ts=%d age=%u",
+			"ctx=%u ts=%u age=%u",
 			__entry->id, __entry->ts, __entry->age)
 );
 
@@ -785,7 +785,7 @@ TRACE_EVENT(kgsl_active_count,
 	),
 
 	TP_printk(
-		"d_name=%s active_cnt=%x func=%pf",
+		"d_name=%s active_cnt=%u func=%pf",
 		__get_str(device_name), __entry->count, (void *) __entry->ip
 	)
 );
