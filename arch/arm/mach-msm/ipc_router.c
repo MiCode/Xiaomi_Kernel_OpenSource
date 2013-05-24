@@ -466,6 +466,7 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 			    struct rr_packet *pkt, int clone)
 {
 	struct rr_packet *temp_pkt = pkt;
+	void (*notify)(unsigned event, void *priv);
 
 	if (unlikely(!port_ptr || !pkt))
 		return -EINVAL;
@@ -484,9 +485,10 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	wake_lock(&port_ptr->port_rx_wake_lock);
 	list_add_tail(&temp_pkt->list, &port_ptr->port_rx_q);
 	wake_up(&port_ptr->port_rx_wait_q);
-	if (port_ptr->notify)
-		port_ptr->notify(MSM_IPC_ROUTER_READ_CB, port_ptr->priv);
+	notify = port_ptr->notify;
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	if (notify)
+		notify(MSM_IPC_ROUTER_READ_CB, port_ptr->priv);
 	return 0;
 }
 
