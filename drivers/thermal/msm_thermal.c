@@ -1435,6 +1435,8 @@ static int probe_vdd_rstr(struct device_node *node,
 	char *key = NULL;
 	struct device_node *child_node = NULL;
 
+	rails = NULL;
+
 	key = "qcom,vdd-restriction-temp";
 	ret = of_property_read_u32(node, key, &data->vdd_rstr_temp_degC);
 	if (ret)
@@ -1530,6 +1532,8 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	int ret = 0;
 	int j = 0;
 	char *key = NULL;
+
+	psm_rails = NULL;
 
 	key = "qcom,pmic-sw-mode-temp";
 	ret = of_property_read_u32(node, key, &data->psm_temp_degC);
