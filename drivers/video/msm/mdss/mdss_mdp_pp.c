@@ -3138,6 +3138,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->state |= PP_AD_STATE_RUN;
 		mutex_lock(&mfd->bl_lock);
 		mfd->mdp.update_ad_input = pp_update_ad_input;
+		mfd->ext_bl_ctrl = ad->cfg.bl_ctrl_mode;
 		mutex_unlock(&mfd->bl_lock);
 
 	} else {
@@ -3162,6 +3163,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			memset(&ad->cfg, 0, sizeof(struct mdss_ad_cfg));
 			mutex_lock(&mfd->bl_lock);
 			mfd->mdp.update_ad_input = NULL;
+			mfd->ext_bl_ctrl = 0;
 			mutex_unlock(&mfd->bl_lock);
 		}
 		ad->state &= ~PP_AD_STATE_RUN;
