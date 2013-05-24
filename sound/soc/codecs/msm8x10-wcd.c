@@ -616,7 +616,7 @@ static int msm8x10_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 				    0x00);
 		snd_soc_update_bits(codec,
 				    MSM8X10_WCD_A_CDC_CLK_OTHR_RESET_B1_CTL,
-				    0x01, 0x01);
+				    0x01, 0x00);
 		snd_soc_update_bits(codec,
 				    MSM8X10_WCD_A_CP_STATIC, 0x08, 0x00);
 		break;
