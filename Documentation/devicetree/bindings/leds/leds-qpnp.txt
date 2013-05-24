@@ -50,7 +50,7 @@ Optional properties for flash:
 RGB Led is a tri-colored led, Red, Blue & Green.
 
 Required properties for RGB led:
-- qcom,mode: mode the led should operate in, options 0 = PWM, 1 = LPG
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg"
 - qcom,pwm-channel: pwm channel the led will operate on
 
 Required properties for PWM mode only:
@@ -59,6 +59,8 @@ Required properties for PWM mode only:
 Required properties for LPG mode only:
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
 - qcom,pause-lo: pause at low end of cycle
 - qcom,pause-hi: pause at high end of cycle
 - qcom,ramp-step-ms: step between each cycle (ms)
@@ -76,18 +78,47 @@ Optional properties for MPP LED:
 - qcom,default-state: default state of the led, should be "on" or "off"
 - qcom,source-sel: select power source, default 1 (enabled)
 - qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
+- qcom,mode: mode the led should operate in, options "pwm", "lpg" and "manual"
+
+Required properties for PWM mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
 
 Keypad backlight is a backlight source for buttons. It supports four rows
 and the required rows are enabled by specifying values in the properties.
 
 Required properties for keypad backlight:
-- qcom,mode: mode the led should operate in, options 0 = PWM, 1 = LPG
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg"
 - qcom,pwm-channel: pwm channel the led will operate on
 - qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,row-src-sel-val: select source for rows. One bit is used for each row.
 			Specify 0 for vph_pwr and 1 for vbst for each row.
 - qcom,row-scan-val: select rows for scanning
 - qcom,row-scan-en: row scan enable
+
+Required properties for PWM mode only:
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
 
 Example:
 
@@ -105,12 +136,30 @@ Example:
 		};
 	};
 
+	qcom,leds@a300 {
+		status = "okay";
+		qcom,led_mpp_pwm {
+			label = "mpp";
+			linux,name = "green";
+			linux,default-trigger = "none";
+			qcom,default-state = "off";
+			qcom,max-current = <40>;
+			qcom,current-setting = <5>;
+			qcom,id = <6>;
+			qcom,mode = "pwm";
+			qcom,source-sel = <8>;
+			qcom,mode-ctrl = <0x60>;
+			qcom,pwm-channel = <0>;
+			qcom,pwm-us = <1000>;
+		};
+	};
+
 	qcom,leds@d000 {
 		status = "okay";
 		qcom,rgb_pwm {
 			label = "rgb";
 			linux,name = "led:rgb_red";
-			qcom,mode = <0>;
+			qcom,mode = "pwm";
 			qcom,pwm-channel = <6>;
 			qcom,pwm-us = <1000>;
 			qcom,duty-ms = <20>;
@@ -128,7 +177,7 @@ Example:
 		qcom,rgb_lpg {
 			label = "rgb";
 			linux,name = "led:rgb_blue";
-			qcom,mode = <1>;
+			qcom,mode = "lpg";
 			qcom,pwm-channel = <4>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;

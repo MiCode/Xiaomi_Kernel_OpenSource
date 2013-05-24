@@ -18,7 +18,7 @@
 			qcom,rgb_0 {
 				label = "rgb";
 				linux,name = "led:rgb_red";
-				qcom,mode = <0>;
+				qcom,mode = "pwm";
 				qcom,pwm-channel = <6>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
@@ -31,7 +31,7 @@
 			qcom,rgb_1 {
 				label = "rgb";
 				linux,name = "led:rgb_green";
-				qcom,mode = <0>;
+				qcom,mode = "pwm";
 				qcom,pwm-channel = <5>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
@@ -43,7 +43,7 @@
 			qcom,rgb_2 {
 				label = "rgb";
 				linux,name = "led:rgb_blue";
-				qcom,mode = <0>;
+				qcom,mode = "pwm";
 				qcom,pwm-channel = <4>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
