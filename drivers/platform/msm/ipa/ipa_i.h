@@ -363,6 +363,9 @@ struct ipa_ep_context {
 	bool desc_fifo_client_allocated;
 	bool data_fifo_client_allocated;
 	bool suspended;
+	unsigned int pull_len;
+	struct ipa_ip_packet_init *cmd;
+	dma_addr_t dma_addr;
 };
 
 /**
@@ -378,6 +381,7 @@ struct ipa_ep_context {
 struct ipa_sys_context {
 	struct list_head head_desc_list;
 	u32 len;
+	u32 max_len;
 	spinlock_t spinlock;
 	struct sps_register_event event;
 	struct ipa_ep_context *ep;
@@ -636,8 +640,6 @@ struct ipa_context {
 	struct kmem_cache *hdr_cache;
 	struct kmem_cache *hdr_offset_cache;
 	struct kmem_cache *rt_tbl_cache;
-	struct kmem_cache *tx_pkt_wrapper_cache;
-	struct kmem_cache *rx_pkt_wrapper_cache;
 	struct kmem_cache *tree_node_cache;
 	unsigned long rt_idx_bitmap[IPA_IP_MAX];
 	struct mutex lock;
@@ -687,6 +689,7 @@ struct ipa_context {
 	/* store HOLB configuration for WLAN TX pipes */
 	u32 hol_en;
 	u32 hol_timer;
+	struct sk_buff_head rx_list;
 };
 
 /**
@@ -774,8 +777,6 @@ int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
 void teth_bridge_get_client_handles(u32 *producer_handle,
 		u32 *consumer_handle);
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
-		bool in_atomic);
-int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_get_ep_mapping(enum ipa_operating_mode mode,
 		       enum ipa_client_type client);
