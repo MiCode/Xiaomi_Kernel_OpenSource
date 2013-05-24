@@ -2721,14 +2721,25 @@ config MSM_OCMEM_POWER_DEBUG
 	  related operations of OCMEM. Both local power management
 	  and RPM assisted power management operations are supported.
 
-config MSM_OCMEM_POWER_DISABLE
-	bool "OCMEM Disable Power Control"
+config MSM_OCMEM_DEBUG_ALWAYS_ON
+	bool "Keep OCMEM always turned ON"
 	depends on MSM_OCMEM_DEBUG
 	help
+	  Always vote for all OCMEM clocks and keep all OCMEM
+	  macros turned ON and never allow them to be turned OFF.
+	  Both local power management and RPM assisted power modes
+	  are supported for individual macro power control operations.
+
+config MSM_OCMEM_POWER_DISABLE
+	bool "OCMEM Disable Power Control"
+	depends on MSM_OCMEM
+	help
 	  Disable all OCMEM power management.
-	  This keeps all OCMEM macros turned ON at all times thus
-	  never allowing them to be turned OFF. Both local power
-	  management and RPM assisted power modes are supported.
+	  Skip all OCMEM power operations that turn ON or
+	  turn OFF the macros. Both local power management and
+	  RPM assisted power management operations are skipped.
+	  Enable this configuration if OCMEM is being exclusively
+	  used as GMEM or OCIMEM.
 
 config SENSORS_ADSP
 	bool "Enable Sensors Driver Support for ADSP"
