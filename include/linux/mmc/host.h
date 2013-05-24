@@ -313,6 +313,8 @@ struct mmc_host {
 /* Use runtime PM framework provided by MMC core */
 #define MMC_CAP2_CORE_RUNTIME_PM (1 << 19)
 #define MMC_CAP2_SANITIZE	(1 << 20)		/* Support Sanitize */
+/* Allows Asynchronous SDIO irq while card is in 4-bit mode */
+#define MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE (1 << 21)
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
