@@ -22,6 +22,35 @@
 };
 
 &soc {
+	i2c@f9923000{
+		focaltech@38{
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <1 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vcc_i2c-supply = <&pm8110_l14>;
+			focaltech,family-id = <0x06>;
+			focaltech,reset-gpio = <&msmgpio 0 0x00>;
+			focaltech,irq-gpio = <&msmgpio 1 0x00>;
+			focaltech,display-coords = <0 0 480 800>;
+			focaltech,panel-coords = <0 0 480 800>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <480>;
+		qcom,disp-maxy = <800>;
+		qcom,panel-maxx = <481>;
+		qcom,panel-maxy = <940>;
+		qcom,key-codes = <139 0 102 158 0 0 0>;
+		qcom,y-offset = <0>;
+	};
 	serial@f991e000 {
 		status = "ok";
 	};
