@@ -54,14 +54,16 @@
 #define TSPP_RAW_TTS_SIZE		192
 #define TSPP_RAW_SIZE			188
 
-#define MAX_BAM_DESCRIPTOR_SIZE	(32*1024 - 1)
+#define MAX_BAM_DESCRIPTOR_SIZE	(32 * 1024 - 1)
+
+#define MAX_BAM_DESCRIPTOR_COUNT	(8 * 1024 - 2)
 
 #define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
 
 #define TSPP_DESCRIPTOR_SIZE	(TSPP_RAW_TTS_SIZE)
 
 #define TSPP_BUFFER_COUNT(buffer_size)	\
-	((buffer_size) / TSPP_RAW_TTS_SIZE)
+	((buffer_size) / TSPP_DESCRIPTOR_SIZE)
 
 /* When TSPP notifies demux that new packets are received.
  * Using max descriptor size (170 packets).
@@ -1798,6 +1800,11 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 	for (i = 0; i < TSIF_COUNT; i++) {
 		mpq_dmx_tspp_info.tsif[i].buffer_count =
 				TSPP_BUFFER_COUNT(tspp_out_buffer_size);
+
+		if (mpq_dmx_tspp_info.tsif[i].buffer_count >
+			MAX_BAM_DESCRIPTOR_COUNT)
+			mpq_dmx_tspp_info.tsif[i].buffer_count =
+				MAX_BAM_DESCRIPTOR_COUNT;
 
 		mpq_dmx_tspp_info.tsif[i].aggregate_ids =
 			vzalloc(mpq_dmx_tspp_info.tsif[i].buffer_count *
