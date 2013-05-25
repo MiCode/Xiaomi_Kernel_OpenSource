@@ -90,6 +90,7 @@
 		qcom,mdss-dsi-dma-trigger = <0x04>;
 		qcom,mdss-dsi-mdp-trigger = <0x0>;
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-
+		qcom,mdss-dsi-pan-enable-dynamic-fps;
+		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
 	};
 };
