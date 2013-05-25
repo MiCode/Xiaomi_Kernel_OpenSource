@@ -692,7 +692,7 @@ static void mdss_mdp_overlay_update_pm(struct mdss_overlay_private *mdp5_data)
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe, *next;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret;
 
@@ -706,7 +706,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
+	list_for_each_entry_safe(pipe, next, &mdp5_data->pipes_used,
+			used_list) {
 		struct mdss_mdp_data *buf;
 		if (pipe->back_buf.num_planes) {
 			buf = &pipe->back_buf;
@@ -714,6 +715,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 			pipe->params_changed++;
 			buf = &pipe->front_buf;
 		} else if (!pipe->params_changed) {
+			if (pipe->mixer) {
+				if (!mdss_mdp_pipe_is_staged(pipe)) {
+					list_del(&pipe->used_list);
+					list_add(&pipe->cleanup_list,
+						 &mdp5_data->pipes_cleanup);
+				}
+			}
 			continue;
 		} else if (pipe->front_buf.num_planes) {
 			buf = &pipe->front_buf;
