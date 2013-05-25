@@ -104,7 +104,7 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 
 snd-soc-timpani-objs := timpani.o
 snd-soc-msm-stub-objs := msm_stub.o
-snd-soc-msm-hdmi-rx-objs := msm_hdmi_codec_rx.o
+obj-$(CONFIG_SND_SOC_MSM_HDMI_CODEC_RX) := msm_hdmi_codec_rx.o
 
 # Amp
 snd-soc-max9877-objs := max9877.o
@@ -214,7 +214,6 @@ obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
 obj-$(CONFIG_SND_SOC_WM9713)	+= snd-soc-wm9713.o
 obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_MSM_STUB)  += snd-soc-msm-stub.o
-obj-$(CONFIG_SND_SOC_MSM_HDMI_CODEC_RX)  += snd-soc-msm-hdmi-rx.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
