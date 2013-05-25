@@ -710,3 +710,8 @@ done:
 
 	return ret;
 }
+
+int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
+{
+	return (pipe == pipe->mixer->stage_pipe[pipe->mixer_stage]);
+}
