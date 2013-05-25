@@ -840,7 +840,7 @@ int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -918,7 +918,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -979,7 +979,7 @@ int afe_apply_gain(u16 port_id, u16 gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1731,7 +1731,7 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
