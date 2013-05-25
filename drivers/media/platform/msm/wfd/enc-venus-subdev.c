@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 #include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
 #include <media/v4l2-subdev.h>
@@ -48,6 +49,13 @@ struct venc_inst {
 	bool callback_thread_running;
 	struct completion dq_complete, cmd_complete;
 	bool secure;
+	struct workqueue_struct *fill_buf_wq;
+};
+
+struct fill_buf_work {
+	struct venc_inst *inst;
+	struct mem_region *mregion;
+	struct work_struct work;
 };
 
 static const int subscribed_events[] = {
@@ -331,6 +339,14 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	init_completion(&inst->dq_complete);
 	init_completion(&inst->cmd_complete);
 	mutex_init(&inst->lock);
+
+	inst->fill_buf_wq = create_singlethread_workqueue("venc_vidc_ftb_wq");
+	if (!inst->fill_buf_wq) {
+		WFD_MSG_ERR("Failed to create ftb wq\n");
+		rc = -ENOMEM;
+		goto vidc_wq_create_fail;
+	}
+
 	inst->vidc_context = msm_vidc_open(MSM_VIDC_CORE_0, MSM_VIDC_ENCODER);
 	if (!inst->vidc_context) {
 		WFD_MSG_ERR("Failed to create vidc context\n");
@@ -362,6 +378,8 @@ vidc_kthread_create_fail:
 vidc_subscribe_fail:
 	msm_vidc_close(inst->vidc_context);
 vidc_open_fail:
+	destroy_workqueue(inst->fill_buf_wq);
+vidc_wq_create_fail:
 	kfree(inst);
 venc_open_fail:
 	return rc;
@@ -385,6 +403,7 @@ static long venc_close(struct v4l2_subdev *sd, void *arg)
 
 	wait_for_completion(&inst->cmd_complete);
 
+	destroy_workqueue(inst->fill_buf_wq);
 	if (inst->callback_thread && inst->callback_thread_running)
 		kthread_stop(inst->callback_thread);
 
@@ -551,6 +570,7 @@ static long venc_stop(struct v4l2_subdev *sd)
 
 	inst = (struct venc_inst *)sd->dev_priv;
 
+	flush_workqueue(inst->fill_buf_wq);
 	rc = msm_vidc_streamoff(inst->vidc_context, BUF_TYPE_INPUT);
 	if (rc) {
 		WFD_MSG_ERR("Failed to streamoff vidc's input port");
@@ -938,24 +958,11 @@ static long venc_set_framerate(struct v4l2_subdev *sd, void *arg)
 	return msm_vidc_s_parm(inst->vidc_context, &p);
 }
 
-static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
+static long fill_outbuf(struct venc_inst *inst, struct mem_region *mregion)
 {
-	struct venc_inst *inst = NULL;
-	struct mem_region *mregion = NULL;
 	struct v4l2_buffer buffer = {0};
 	struct v4l2_plane plane = {0};
 	int index = 0, rc = 0;
-
-	if (!sd) {
-		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
-		return -EINVAL;
-	} else if (!arg) {
-		WFD_MSG_ERR("Invalid output buffer ot fill\n");
-		return -EINVAL;
-	}
-
-	inst = (struct venc_inst *)sd->dev_priv;
-	mregion = get_registered_mregion(&inst->registered_output_bufs, arg);
 
 	if (!mregion) {
 		WFD_MSG_ERR("Output buffer not registered\n");
@@ -994,8 +1001,77 @@ static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 		mark_index_busy(&inst->free_output_indices, index);
 		mutex_unlock(&inst->lock);
 	}
-	return rc;
 
+	return rc;
+}
+
+static void fill_outbuf_helper(struct work_struct *work)
+{
+	int rc;
+	struct fill_buf_work *fbw =
+		container_of(work, struct fill_buf_work, work);
+
+	rc = fill_outbuf(fbw->inst, fbw->mregion);
+	if (rc) {
+		struct vb2_buffer *vb = NULL;
+
+		WFD_MSG_ERR("Failed to fill buffer async\n");
+		vb = (struct vb2_buffer *)fbw->mregion->cookie;
+		vb->v4l2_buf.flags = 0;
+		vb->v4l2_buf.timestamp = ns_to_timeval(-1);
+		vb->v4l2_planes[0].bytesused = 0;
+
+		fbw->inst->vmops.op_buffer_done(
+				fbw->inst->vmops.cbdata, rc, vb);
+	}
+
+	kfree(fbw);
+}
+
+static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
+{
+	struct fill_buf_work *fbw;
+	struct venc_inst *inst = NULL;
+	struct mem_region *mregion;
+
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	} else if (!arg) {
+		WFD_MSG_ERR("Invalid output buffer ot fill\n");
+		return -EINVAL;
+	}
+
+	inst = (struct venc_inst *)sd->dev_priv;
+	mregion = get_registered_mregion(&inst->registered_output_bufs, arg);
+	if (!mregion) {
+		WFD_MSG_ERR("Output buffer not registered\n");
+		return -ENOENT;
+	}
+
+	fbw = kzalloc(sizeof(*fbw), GFP_KERNEL);
+	if (!fbw) {
+		WFD_MSG_ERR("Couldn't allocate memory\n");
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&fbw->work, fill_outbuf_helper);
+	fbw->inst = inst;
+	fbw->mregion = mregion;
+	/* XXX: The need for a wq to qbuf to vidc is necessitated as a
+	 * workaround for a bug in the v4l2 framework. VIDIOC_QBUF from
+	 * triggers a down_read(current->mm->mmap_sem).  There is another
+	 * _read(..) as msm_vidc_qbuf() depends on videobuf2 framework
+	 * as well. However, a _write(..) after the first _read() by a
+	 * different driver will prevent the second _read(...) from
+	 * suceeding.
+	 *
+	 * As we can't modify the framework, we're working around by issue
+	 * by queuing in a different thread effectively.
+	 */
+	queue_work(inst->fill_buf_wq, &fbw->work);
+
+	return 0;
 }
 
 static long venc_encode_frame(struct v4l2_subdev *sd, void *arg)
@@ -1126,6 +1202,8 @@ static long venc_flush_buffers(struct v4l2_subdev *sd, void *arg)
 	}
 
 	inst = (struct venc_inst *)sd->dev_priv;
+
+	flush_workqueue(inst->fill_buf_wq);
 
 	enc_cmd.cmd = V4L2_ENC_QCOM_CMD_FLUSH;
 	enc_cmd.flags = V4L2_QCOM_CMD_FLUSH_OUTPUT |
