@@ -2275,8 +2275,11 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->otg_srp_reqd = 0;
 
 	udc->driver->disconnect(gadget);
+
+	spin_lock_irqsave(udc->lock, flags);
 	_ep_nuke(&udc->ep0out);
 	_ep_nuke(&udc->ep0in);
+	spin_unlock_irqrestore(udc->lock, flags);
 
 	if (udc->ep0in.last_zptr) {
 		dma_pool_free(udc->ep0in.td_pool, udc->ep0in.last_zptr,
