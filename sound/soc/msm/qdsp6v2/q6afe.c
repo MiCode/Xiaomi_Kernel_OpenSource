@@ -392,11 +392,23 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	if ((this_afe.afe_cal_addr[path].cal_paddr != cal_block.cal_paddr) ||
 		(cal_block.cal_size > this_afe.afe_cal_addr[path].cal_size)) {
 		atomic_set(&this_afe.mem_map_cal_index, path);
-		if (this_afe.afe_cal_addr[path].cal_paddr != 0)
-			afe_cmd_memory_unmap(
+		if (this_afe.afe_cal_addr[path].cal_paddr != 0) {
+			result = afe_cmd_memory_unmap(
 				this_afe.afe_cal_addr[path].cal_paddr);
+			if (result) {
+				pr_err("%s: AFE memory unmap failed\n",
+						__func__);
+				atomic_set(&this_afe.mem_map_cal_index, -1);
+				goto done;
+			}
+		}
 
-		afe_cmd_memory_map(cal_block.cal_paddr, size);
+		result = afe_cmd_memory_map(cal_block.cal_paddr, size);
+		if (result) {
+			pr_err("%s: AFE memory map failed\n", __func__);
+			atomic_set(&this_afe.mem_map_cal_index, -1);
+			goto done;
+		}
 		atomic_set(&this_afe.mem_map_cal_index, -1);
 		this_afe.afe_cal_addr[path].cal_paddr = cal_block.cal_paddr;
 		this_afe.afe_cal_addr[path].cal_size = size;
@@ -1930,6 +1942,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 	pr_debug("%s: dma_addr_p 0x%x , size %d\n", __func__,
 					dma_addr_p, dma_buf_sz);
 	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	this_afe.mmap_handle = 0;
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) mmap_region_cmd);
 	if (ret < 0) {
@@ -1947,6 +1960,12 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: Memory map cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
 	pr_debug("%s: mmap handle 0x%x\n", __func__, this_afe.mmap_handle);
 	kfree(mmap_region_cmd);
 	return 0;
@@ -2101,10 +2120,16 @@ int afe_cmd_memory_unmap(u32 mem_map_handle)
 	/* Todo */
 	index = mregion.hdr.token = IDX_RSVD_2;
 
+	atomic_set(&this_afe.status, 0);
 	ret = afe_apr_send_pkt(&mregion, &this_afe.wait[index]);
 	if (ret)
 		pr_err("%s: AFE memory unmap cmd failed %d\n",
 		       __func__, ret);
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: Memory unmap cmd failed\n", __func__);
+		ret = -EINVAL;
+	}
+
 	return ret;
 }
 
