@@ -1552,7 +1552,7 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 				struct soc_params *params, int soc,
 				int vbat_uv, int ibat_ua, int batt_temp)
 {
-	int chg_soc, batt_terminal_uv;
+	int chg_soc, soc_ibat, batt_terminal_uv, weight_ibat, weight_cc;
 
 	batt_terminal_uv = vbat_uv + VBATT_ERROR_MARGIN
 				+ (ibat_ua * chip->r_conn_mohm) / 1000;
@@ -1590,10 +1590,16 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 		return chip->prev_chg_soc;
 	}
 
-	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
+	soc_ibat = bound_soc(linear_interpolate(chip->soc_at_cv,
+					chip->ibat_at_cv_ua,
 					100, -1 * chip->chg_term_ua,
-					ibat_ua);
-	chg_soc = bound_soc(chg_soc);
+					ibat_ua));
+	weight_ibat = bound_soc(linear_interpolate(1, chip->soc_at_cv,
+					100, 100, chip->prev_chg_soc));
+	weight_cc = 100 - weight_ibat;
+	chg_soc = bound_soc((soc_ibat * weight_ibat + weight_cc * soc)/100);
+	pr_debug("weight_ibat = %d, weight_cc = %d, soc_ibat = %d, soc_cc = %d\n",
+			weight_ibat, weight_cc, soc_ibat, soc);
 
 	/* always report a higher soc */
 	if (chg_soc > chip->prev_chg_soc) {
