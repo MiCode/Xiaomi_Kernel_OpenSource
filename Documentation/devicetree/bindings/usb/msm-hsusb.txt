@@ -121,11 +121,6 @@ Required properties :
 
 Optional properties :
 - qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
-- qcom,pool-64-bit-align: If present then the pool's memory will be aligned
-  to 64 bits
-- qcom,enable_hbm: if present host bus manager is enabled.
-- qcom,disable-park-mode: if present park mode is enabled. Park mode enables executing
-  up to 3 usb packets from each QH.
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {
