@@ -1242,10 +1242,10 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	params->rbatt_mohm = get_rbatt(chip, soc_rbatt, batt_temp);
 	pr_debug("rbatt_mohm = %d\n", params->rbatt_mohm);
 
-	if (params->rbatt_mohm != chip->rbatt_mohm
-			&& chip->bms_psy.name != NULL) {
+	if (params->rbatt_mohm != chip->rbatt_mohm) {
 		chip->rbatt_mohm = params->rbatt_mohm;
-		power_supply_changed(&chip->bms_psy);
+		if (chip->bms_psy.name != NULL)
+			power_supply_changed(&chip->bms_psy);
 	}
 
 	calculate_iavg(chip, params->cc_uah, &params->iavg_ua,
