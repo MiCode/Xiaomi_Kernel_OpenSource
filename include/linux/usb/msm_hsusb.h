@@ -425,6 +425,7 @@ struct msm_hsic_host_platform_data {
 	bool enable_hbm;
 	bool disable_park_mode;
 	bool consider_ipa_handshake;
+	bool ahb_async_bridge_bypass;
 };
 
 struct msm_usb_host_platform_data {
