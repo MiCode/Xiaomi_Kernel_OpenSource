@@ -416,6 +416,7 @@ struct mmc_host {
 };
 
 extern struct mmc_host *mmc_alloc_host(int extra, struct device *);
+extern bool mmc_host_may_gate_card(struct mmc_card *);
 extern int mmc_add_host(struct mmc_host *);
 extern void mmc_remove_host(struct mmc_host *);
 extern void mmc_free_host(struct mmc_host *);
