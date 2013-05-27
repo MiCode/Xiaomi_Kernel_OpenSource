@@ -1683,6 +1683,12 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 		return -EINVAL;
 	}
 
+	res = teth_request_resource();
+	if (res) {
+		TETH_ERR("request_resource() failed.\n");
+		return res;
+	}
+
 	memcpy(&teth_ctx->aggr_params,
 	       aggr_params,
 	       sizeof(struct teth_aggr_params));
@@ -1693,6 +1699,8 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 	res = teth_set_aggregation();
 	if (res)
 		TETH_ERR("Failed setting aggregation params\n");
+
+	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 	TETH_DBG_FUNC_EXIT();
 
 	return res;
