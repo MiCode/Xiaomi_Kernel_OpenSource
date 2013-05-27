@@ -2123,6 +2123,8 @@ kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 	unsigned int id, last_id = 0, *id_list = NULL, actual_count = 0;
 	struct kgsl_mem_entry **entries = NULL;
 	long ret = 0;
+	size_t op_size = 0;
+	bool full_flush = false;
 
 	if (param->id_list == NULL || param->count == 0
 			|| param->count > (UINT_MAX/sizeof(unsigned int)))
@@ -2167,13 +2169,26 @@ kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 			continue;
 		}
 
+		op_size += entry->memdesc.size;
 		entries[actual_count++] = entry;
 
+		/* If we exceed the breakeven point, flush the entire cache */
+		if (op_size >= kgsl_driver.full_cache_threshold &&
+		    param->op == KGSL_GPUMEM_CACHE_FLUSH) {
+			full_flush = true;
+			break;
+		}
 		last_id = id;
+	}
+	if (full_flush) {
+		trace_kgsl_mem_sync_full_cache(actual_count, op_size,
+					       param->op);
+		__cpuc_flush_kern_all();
 	}
 
 	for (i = 0; i < actual_count; i++) {
-		_kgsl_gpumem_sync_cache(entries[i], param->op);
+		if (!full_flush)
+			_kgsl_gpumem_sync_cache(entries[i], param->op);
 		kgsl_mem_entry_put(entries[i]);
 	}
 end:
@@ -3032,6 +3047,11 @@ struct kgsl_driver kgsl_driver  = {
 	.devlock = __MUTEX_INITIALIZER(kgsl_driver.devlock),
 	.memfree_hist_mutex =
 		__MUTEX_INITIALIZER(kgsl_driver.memfree_hist_mutex),
+	/*
+	 * Full cache flushes are faster than line by line on at least
+	 * 8064 and 8974 once the region to be flushed is > 16mb.
+	 */
+	.full_cache_threshold = SZ_16M,
 };
 EXPORT_SYMBOL(kgsl_driver);
 

@@ -134,6 +134,7 @@ struct kgsl_driver {
 		unsigned int mapped_max;
 		unsigned int histogram[16];
 	} stats;
+	unsigned int full_cache_threshold;
 };
 
 extern struct kgsl_driver kgsl_driver;

@@ -539,6 +539,33 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 	)
 );
 
+TRACE_EVENT(kgsl_mem_sync_full_cache,
+
+	TP_PROTO(unsigned int num_bufs, unsigned int bulk_size,
+		unsigned int op),
+
+	TP_ARGS(num_bufs, bulk_size, op),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, num_bufs)
+		__field(unsigned int, bulk_size)
+		__field(unsigned int, op)
+	),
+
+	TP_fast_assign(
+		__entry->num_bufs = num_bufs;
+		__entry->bulk_size = bulk_size;
+		__entry->op = op;
+	),
+
+	TP_printk(
+		"num_bufs=%d bulk_size=%d op=%c%c",
+		__entry->num_bufs, __entry->bulk_size,
+		(__entry->op & KGSL_GPUMEM_CACHE_CLEAN) ? 'c' : '.',
+		(__entry->op & KGSL_GPUMEM_CACHE_INV) ? 'i' : '.'
+	)
+);
+
 DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 
 	TP_PROTO(struct kgsl_device *device, struct kgsl_mem_entry *mem_entry,
