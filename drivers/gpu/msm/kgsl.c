@@ -29,6 +29,8 @@
 #include <linux/io.h>
 #include <mach/socinfo.h>
 #include <linux/mman.h>
+#include <linux/sort.h>
+#include <asm/cacheflush.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -2104,6 +2106,82 @@ kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
+static int mem_id_cmp(const void *_a, const void *_b)
+{
+	const unsigned int *a = _a, *b = _b;
+	int cmp = a - b;
+	return (cmp < 0) ? -1 : (cmp > 0);
+}
+
+static long
+kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	int i;
+	struct kgsl_gpumem_sync_cache_bulk *param = data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	unsigned int id, last_id = 0, *id_list = NULL, actual_count = 0;
+	struct kgsl_mem_entry **entries = NULL;
+	long ret = 0;
+
+	if (param->id_list == NULL || param->count == 0
+			|| param->count > (UINT_MAX/sizeof(unsigned int)))
+		return -EINVAL;
+
+	id_list = kzalloc(param->count * sizeof(unsigned int), GFP_KERNEL);
+	if (id_list == NULL)
+		return -ENOMEM;
+
+	entries = kzalloc(param->count * sizeof(*entries), GFP_KERNEL);
+	if (entries == NULL) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	if (copy_from_user(id_list, param->id_list,
+				param->count * sizeof(unsigned int))) {
+		ret = -EFAULT;
+		goto end;
+	}
+	/* sort the ids so we can weed out duplicates */
+	sort(id_list, param->count, sizeof(int), mem_id_cmp, NULL);
+
+	for (i = 0; i < param->count; i++) {
+		unsigned int cachemode;
+		struct kgsl_mem_entry *entry = NULL;
+
+		id = id_list[i];
+		/* skip 0 ids or duplicates */
+		if (id == last_id)
+			continue;
+
+		entry = kgsl_sharedmem_find_id(private, id);
+		if (entry == NULL)
+			continue;
+
+		/* skip uncached memory */
+		cachemode = kgsl_memdesc_get_cachemode(&entry->memdesc);
+		if (cachemode != KGSL_CACHEMODE_WRITETHROUGH &&
+		    cachemode != KGSL_CACHEMODE_WRITEBACK) {
+			kgsl_mem_entry_put(entry);
+			continue;
+		}
+
+		entries[actual_count++] = entry;
+
+		last_id = id;
+	}
+
+	for (i = 0; i < actual_count; i++) {
+		_kgsl_gpumem_sync_cache(entries[i], param->op);
+		kgsl_mem_entry_put(entries[i]);
+	}
+end:
+	kfree(entries);
+	kfree(id_list);
+	return ret;
+}
+
 /* Legacy cache function, does a flush (clean  + invalidate) */
 
 static long
@@ -2510,6 +2588,8 @@ static const struct {
 			kgsl_ioctl_gpumem_get_info, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_SYNC_CACHE,
 			kgsl_ioctl_gpumem_sync_cache, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK,
+			kgsl_ioctl_gpumem_sync_cache_bulk, 0),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
