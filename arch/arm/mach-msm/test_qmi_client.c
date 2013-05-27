@@ -61,6 +61,25 @@ static struct workqueue_struct *test_clnt_workqueue;
 /* Variable to hold the test result */
 static int test_res;
 
+static unsigned int callback_count;
+static void test_async_resp_cb(struct qmi_handle *handle,
+			   unsigned int msg_id, void *msg,
+			   void *resp_cb_data, int stat)
+{
+	callback_count++;
+	if (stat == 0)
+		D("%s invoked %d time(s): [RESP_LEN] = %d, [RESP_VALID] = %d",
+			__func__, callback_count,
+			((struct test_data_resp_msg_v01 *)msg)->data_len,
+			((struct test_data_resp_msg_v01 *)msg)->data_valid);
+	else if (stat < 0)
+		pr_err("%s: Request Failed [MSG_ID]: %d, [ERR_ID]: %d, [Callback_count]: %d",
+			__func__, msg_id, stat,	callback_count);
+
+	kfree(msg);
+	kfree(resp_cb_data);
+}
+
 static int test_qmi_ping_pong_send_sync_msg(void)
 {
 	struct test_ping_req_msg_v01 req;
@@ -138,12 +157,68 @@ data_send_err:
 	return rc;
 }
 
+static int test_qmi_data_send_async_msg(unsigned int data_len)
+{
+	struct test_data_req_msg_v01 *req;
+	struct test_data_resp_msg_v01 *resp;
+	struct msg_desc req_desc, *resp_desc;
+	int rc, i;
+
+	req = kzalloc(sizeof(struct test_data_req_msg_v01), GFP_KERNEL);
+	if (!req) {
+		pr_err("%s: Data req msg alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	resp = kzalloc(sizeof(struct test_data_resp_msg_v01), GFP_KERNEL);
+	if (!resp) {
+		pr_err("%s: Data resp msg alloc failed\n", __func__);
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	resp_desc = kzalloc(sizeof(struct msg_desc), GFP_KERNEL);
+	if (!resp_desc) {
+		pr_err("%s: Resp_desc msg alloc failed\n", __func__);
+		kfree(req);
+		kfree(resp);
+		return -ENOMEM;
+	}
+
+	req->data_len = data_len;
+	for (i = 0; i < data_len; i = i + sizeof(int))
+		memcpy(req->data + i, (uint8_t *)&i, sizeof(int));
+	req->client_name_valid = 0;
+
+	req_desc.max_msg_len = TEST_DATA_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id = TEST_DATA_REQ_MSG_ID_V01;
+	req_desc.ei_array = test_data_req_msg_v01_ei;
+
+	resp_desc->max_msg_len = TEST_DATA_REQ_MAX_MSG_LEN_V01;
+	resp_desc->msg_id = TEST_DATA_REQ_MSG_ID_V01;
+	resp_desc->ei_array = test_data_resp_msg_v01_ei;
+
+	rc = qmi_send_req_nowait(test_clnt, &req_desc, req, sizeof(*req),
+			       resp_desc, resp, sizeof(*resp),
+			       test_async_resp_cb, (void *)resp_desc);
+	if (rc < 0) {
+		pr_err("%s: send req failed\n", __func__);
+		kfree(resp);
+		kfree(resp_desc);
+	}
+	kfree(req);
+	return rc;
+}
+
 static void test_clnt_recv_msg(struct work_struct *work)
 {
 	int rc;
 
-	rc = qmi_recv_msg(test_clnt);
-	if (rc < 0)
+	do {
+		D("%s: Notified about a Receive Event", __func__);
+	} while ((rc = qmi_recv_msg(test_clnt)) == 0);
+
+	if (rc != -ENOMSG)
 		pr_err("%s: Error receiving message\n", __func__);
 }
 
@@ -280,6 +355,32 @@ static ssize_t test_qmi_write(struct file *fp, const char __user *buf,
 				} while (test_clnt_reset);
 			}
 		}
+	} else if (!strncmp(cmd, "data_async", sizeof(cmd))) {
+		int i;
+		callback_count = 0;
+		for (i = 0; i < test_rep_cnt; i++) {
+			test_res = test_qmi_data_send_async_msg(test_data_sz);
+			if (test_res == -ENETRESET || test_clnt_reset) {
+				--i;
+				do {
+					msleep(50);
+				} while (test_clnt_reset);
+			} else if (test_res < 0) {
+				--i;
+				pr_err("%s: Error sending txn, aborting now",
+					__func__);
+				break;
+			}
+		}
+		while (callback_count < i) {
+			if (test_clnt_reset) {
+				pr_err("%s: Service Exited", __func__);
+				break;
+			}
+			msleep(50);
+		}
+		D("%s complete\n", __func__);
+		callback_count = 0;
 	} else {
 		test_res = -EINVAL;
 	}
