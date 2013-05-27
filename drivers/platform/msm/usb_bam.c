@@ -171,6 +171,7 @@ static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
 
 static struct device *hsic_host_dev;
+static bool hsic_host_dev_resumed_from_cons_request;
 
 static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
@@ -897,6 +898,8 @@ static int cons_request_resource(enum usb_bam cur_bam)
 
 		break;
 	case HSIC_BAM:
+			hsic_host_dev_resumed_from_cons_request = true;
+
 			usb_bam_resume_hsic_host();
 
 			/*
@@ -946,13 +949,29 @@ static int cons_release_resource(enum usb_bam cur_bam)
 	}
 	spin_unlock(&usb_bam_lock);
 
-	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	if (cur_bam == HSUSB_BAM && info.bus_suspend)
-		queue_work(ctx.usb_bam_wq, &info.finish_suspend_work);
-	spin_unlock(&usb_bam_ipa_handshake_info_lock);
+	if (cur_bam == HSUSB_BAM) {
+		spin_lock(&usb_bam_ipa_handshake_info_lock);
+		if (info.bus_suspend)
+			queue_work(ctx.usb_bam_wq, &info.finish_suspend_work);
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
-	pr_debug("%s: EINPROGRESS cons_release", __func__);
-	return -EINPROGRESS;
+		pr_debug("%s: EINPROGRESS cons_release", __func__);
+		return -EINPROGRESS;
+	} else if (cur_bam == HSIC_BAM) {
+
+		/*
+		 * Allow to go to lpm for now. Actual state will be checked
+		 * in msm_bam_hsic_lpm_ok() just before going to lpm.
+		 */
+		if (hsic_host_dev && !info.in_lpm[HSIC_BAM]) {
+			pr_debug("%s: Putting hsic device %x\n", __func__,
+			(int)hsic_host_dev);
+			pm_runtime_put(hsic_host_dev);
+			info.in_lpm[HSIC_BAM] = true;
+		}
+	}
+
+	return 0;
 }
 
 static int hsic_cons_release_resource(void)
@@ -1314,6 +1333,9 @@ void usb_bam_resume(struct usb_bam_connect_ipa_params *ipa_params)
 
 void msm_bam_wait_for_hsic_prod_granted(void)
 {
+	if (hsic_host_dev_resumed_from_cons_request)
+		return;
+
 	ctx.is_bam_inactivity[HSIC_BAM] = false;
 
 	/* Get back to resume state including wakeup ipa */
@@ -1331,8 +1353,11 @@ void msm_bam_hsic_notify_on_resume(void)
 	 * and clocked on. Therefore we can now set the inactivity
 	 * timer to the hsic bam hw.
 	 */
-	if (ctx.inactivity_timer_ms[HSIC_BAM])
+	if (ctx.inactivity_timer_ms[HSIC_BAM] &&
+	    !hsic_host_dev_resumed_from_cons_request)
 		usb_bam_set_inactivity_timer(HSIC_BAM);
+
+	hsic_host_dev_resumed_from_cons_request = false;
 }
 
 bool msm_bam_hsic_lpm_ok(void)
@@ -1345,18 +1370,6 @@ bool msm_bam_hsic_lpm_ok(void)
 		pr_debug("%s: Starting hsic full suspend sequence\n",
 			__func__);
 
-		info.lpm_wait_handshake[HSIC_BAM] = true;
-
-		wait_for_prod_release(HSIC_BAM);
-		pr_debug("%s: complete wait on hsic producer s=%d\n",
-			__func__, info.cur_prod_state[HSIC_BAM]);
-
-		wait_for_cons_release(HSIC_BAM);
-		pr_debug("%s: complete wait on hsic consumer s=%d\n",
-			__func__, info.cur_cons_state[HSIC_BAM]);
-
-		info.lpm_wait_handshake[HSIC_BAM] = false;
-
 		/*
 		 * Start low power mode by releasing the device
 		 * only in case that indeed the resources were released
@@ -1365,9 +1378,6 @@ bool msm_bam_hsic_lpm_ok(void)
 		 * resources release)
 		 */
 		spin_lock(&usb_bam_lock);
-
-		pr_debug("%s: goto lpm?, inactivity=%d\n",
-			__func__, ctx.is_bam_inactivity[HSIC_BAM]);
 
 		if (info.cur_cons_state[HSIC_BAM] ==
 			IPA_RM_RESOURCE_RELEASED &&
@@ -1397,14 +1407,18 @@ bool msm_bam_hsic_lpm_ok(void)
 			return true;
 		}
 
-		/* We not allow lpm, therefore renew our vote here */
+		/* We don't allow lpm, therefore renew our vote here */
 		if (info.in_lpm[HSIC_BAM]) {
-			pr_debug("%s: Getting hsic device %x\n", __func__,
-			(int)hsic_host_dev);
+			pr_err("%s: Not allow lpm while ref count=0\n",
+				__func__);
+			pr_err("%s: inactivity=%d, c_s=%d p_s=%d lpm=%d\n",
+				__func__, ctx.is_bam_inactivity[HSIC_BAM],
+				info.cur_cons_state[HSIC_BAM],
+				info.cur_prod_state[HSIC_BAM],
+				info.in_lpm[HSIC_BAM]);
 			pm_runtime_get(hsic_host_dev);
 			info.in_lpm[HSIC_BAM] = false;
 			spin_unlock(&usb_bam_lock);
-			wait_for_prod_granted(HSIC_BAM, false);
 		} else
 			spin_unlock(&usb_bam_lock);
 
@@ -1652,20 +1666,27 @@ static void usb_bam_work(struct work_struct *w)
 		}
 		spin_unlock(&usb_bam_lock);
 
+		/* Notify about the inactivity to the USB class driver */
+		if (callback)
+			callback(param);
+
+		wait_for_prod_release(pipe_connect->bam_type);
+		pr_debug("%s: complete wait on hsic producer s=%d\n",
+			__func__, info.cur_prod_state[pipe_connect->bam_type]);
+
 		/*
-		 * Allow to go to lpm for now. Actual state will be checked
-		 * in msm_bam_hsic_lpm_ok() just before going to lpm.
+		 * Allow to go to lpm for now if also consumer is down.
+		 * If consumer is up, we will wait to the release consumer
+		 * notification.
 		 */
-		if (hsic_host_dev) {
+		if (hsic_host_dev &&
+		    info.cur_cons_state[HSIC_BAM] ==
+		    IPA_RM_RESOURCE_RELEASED && !info.in_lpm[HSIC_BAM]) {
 			pr_debug("%s: Putting hsic device %x\n", __func__,
 			(int)hsic_host_dev);
 			pm_runtime_put(hsic_host_dev);
 			info.in_lpm[HSIC_BAM] = true;
 		}
-
-		/* Notify about the inactivity to the USB class driver */
-		if (callback)
-			callback(param);
 
 		break;
 	default:
@@ -1699,21 +1720,6 @@ static void usb_bam_wake_cb(struct sps_event_notify *notify)
 		 * as global bam wake event.
 		 */
 		ctx.is_bam_inactivity[bam] = false;
-
-		/*
-		 * In case that this wakeup event occured while we are
-		 * waiting to release of the resurces in order to get into
-		 * low power mode, just cancle the waiting.
-		 */
-		if (info.lpm_wait_handshake[bam]) {
-			pr_debug("%s: cancel waiting for lpm\n", __func__);
-			if (info.cur_prod_state[bam] !=
-			    IPA_RM_RESOURCE_RELEASED)
-				complete_all(&info.prod_released[bam]);
-			if (info.cur_cons_state[bam] !=
-			    IPA_RM_RESOURCE_RELEASED)
-				complete_all(&info.cons_released[bam]);
-		}
 
 		queue_work(ctx.usb_bam_wq, &event_info->event_w);
 	}
