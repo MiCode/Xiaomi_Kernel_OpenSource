@@ -1281,7 +1281,7 @@ static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-static void print_ctx_regs(void __iomem *base, int ctx)
+static void __print_ctx_regs(void __iomem *base, int ctx)
 {
 	unsigned int fsr = GET_FSR(base, ctx);
 	pr_err("FAR    = %08x    PAR    = %08x\n",
@@ -1347,7 +1347,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 			pr_err("name    = %s\n", drvdata->name);
 			pr_err("context = %s (%d)\n", ctx_drvdata->name, num);
 			pr_err("Interesting registers:\n");
-			print_ctx_regs(base, num);
+			__print_ctx_regs(base, num);
 		}
 
 		SET_FSR(base, num, fsr);
