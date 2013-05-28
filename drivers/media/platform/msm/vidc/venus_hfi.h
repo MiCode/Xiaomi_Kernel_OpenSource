@@ -116,6 +116,14 @@ enum vidc_hw_reg {
 	VIDC_HWREG_HVI_SOFTINTEN =  0xA,
 };
 
+enum bus_index {
+	BUS_IDX_ENC_OCMEM,
+	BUS_IDX_DEC_OCMEM,
+	BUS_IDX_ENC_DDR,
+	BUS_IDX_DEC_DDR,
+	BUS_IDX_MAX
+};
+
 struct vidc_mem_addr {
 	u8 *align_device_addr;
 	u8 *align_virtual_addr;
