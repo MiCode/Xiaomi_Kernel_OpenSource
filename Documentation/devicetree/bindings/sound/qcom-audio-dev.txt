@@ -467,6 +467,12 @@ Optional properties:
 
 - qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
 
+
+* APQ8074 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,apq8074-audio-taiko"
+
 Example:
 
 sound {

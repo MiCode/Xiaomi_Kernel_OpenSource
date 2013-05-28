@@ -190,6 +190,23 @@ config SND_SOC_MSM8974
 	 the machine drivers and the corresponding
 	 DAI-links.
 
+config SND_SOC_APQ8074
+	tristate "SoC Machine driver for APQ8O74 boards"
+	depends on ARCH_MSM8974
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_WCD9320
+	select SND_SOC_MSM_HDMI_CODEC_RX
+	select SND_DYNAMIC_MINORS
+	select AUDIO_OCMEM
+	help
+	 To add support for SoC audio on APQ8074.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine drivers and the corresponding
+	 DAI-links.
+
 config SND_SOC_MSM8226
 	tristate "SoC Machine driver for MSM8226 boards"
 	depends on ARCH_MSM8226
