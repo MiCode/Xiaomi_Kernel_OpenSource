@@ -30,6 +30,7 @@ struct q6core_str {
 	wait_queue_head_t bus_bw_req_wait;
 	u32 bus_bw_resp_received;
 	struct avcs_cmd_rsp_get_low_power_segments_info_t lp_ocm_payload;
+	u32 param;
 };
 
 static struct q6core_str q6core_lcl;
@@ -101,6 +102,17 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		q6core_lcl.core_handle_q = NULL;
 		break;
 	}
+
+	case AVCS_CMDRSP_ADSP_EVENT_GET_STATE:
+		payload1 = data->payload;
+		q6core_lcl.param = payload1[0];
+		pr_debug("%s: Received ADSP get state response 0x%x\n",
+			 __func__, q6core_lcl.param);
+		/* ensure .param is updated prior to .bus_bw_resp_received */
+		wmb();
+		q6core_lcl.bus_bw_resp_received = 1;
+		wake_up(&q6core_lcl.bus_bw_req_wait);
+		break;
 
 	default:
 		pr_err("Message id from adsp core svc: %d\n", data->opcode);
@@ -197,6 +209,39 @@ fail_cmd:
 	return ret;
 }
 
+bool q6core_is_adsp_ready(void)
+{
+	int rc;
+	bool ret = false;
+	struct apr_hdr hdr;
+
+	pr_debug("%s: enter\n", __func__);
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				      APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, 0);
+	hdr.opcode = AVCS_CMD_ADSP_EVENT_GET_STATE;
+
+	ocm_core_open();
+	q6core_lcl.bus_bw_resp_received = 0;
+	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)&hdr);
+	if (rc < 0) {
+		pr_err("%s: Get ADSP state APR packet send event\n", __func__);
+		goto bail;
+	}
+
+	rc = wait_event_timeout(q6core_lcl.bus_bw_req_wait,
+				(q6core_lcl.bus_bw_resp_received == 1),
+				msecs_to_jiffies(TIMEOUT_MS));
+	if (rc > 0 && q6core_lcl.bus_bw_resp_received) {
+		/* ensure to read updated param by callback thread */
+		rmb();
+		ret = !!q6core_lcl.param;
+	}
+bail:
+	pr_debug("%s: leave, rc %d, adsp ready %d\n", __func__, rc, ret);
+	return ret;
+}
 
 static int __init core_init(void)
 {
