@@ -109,6 +109,7 @@ struct mc_drv_cmd_open_session_payload_t {
 	uint32_t device_id;
 	struct mc_uuid_t uuid;
 	uint32_t tci;
+	uint32_t handle;
 	uint32_t len;
 };
 
@@ -119,10 +120,8 @@ struct mc_drv_cmd_open_session_t {
 
 
 struct mc_drv_rsp_open_session_payload_t {
-	uint32_t device_id;
 	uint32_t session_id;
 	uint32_t device_session_id;
-	uint32_t mc_result;
 	uint32_t session_magic;
 };
 
@@ -186,7 +185,6 @@ struct mc_drv_cmd_map_bulk_mem_t {
 struct mc_drv_rsp_map_bulk_mem_payload_t {
 	uint32_t session_id;
 	uint32_t secure_virtual_adr;
-	uint32_t mc_result;
 };
 
 struct mc_drv_rsp_map_bulk_mem_t {
@@ -210,7 +208,6 @@ struct mc_drv_cmd_unmap_bulk_mem_t {
 struct mc_drv_rsp_unmap_bulk_mem_payload_t {
 	uint32_t response_id;
 	uint32_t session_id;
-	uint32_t mc_result;
 };
 
 struct mc_drv_rsp_unmap_bulk_mem_t {
