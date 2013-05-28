@@ -524,7 +524,7 @@ static void adb_closed_callback(void)
 
 	data->opened = false;
 
-	if (data->enabled)
+	if (data->enabled && dev)
 		android_disable(dev);
 
 	data->dev = NULL;
