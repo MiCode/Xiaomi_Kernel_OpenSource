@@ -440,7 +440,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	null_handle.vsync_handler = NULL;
 	mdss_mdp_cmd_vsync_ctrl(ctl, &null_handle);
 
-	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctl->intf_num,
+	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
 				   NULL, NULL);
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
 				   NULL, NULL);
