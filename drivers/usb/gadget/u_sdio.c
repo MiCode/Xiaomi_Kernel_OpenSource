@@ -232,7 +232,7 @@ int gsdio_write(struct gsdio_port *port, struct usb_request *req)
 {
 	unsigned	avail;
 	char		*packet;
-	unsigned	size = req->actual;
+	unsigned	size;
 	unsigned	n;
 	int		ret = 0;
 
@@ -271,6 +271,7 @@ int gsdio_write(struct gsdio_port *port, struct usb_request *req)
 		return -ENODEV;
 	}
 
+	size = req->actual;
 	packet = req->buf;
 	n = port->n_read;
 	if (n) {
