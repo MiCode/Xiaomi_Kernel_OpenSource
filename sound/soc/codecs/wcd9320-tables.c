@@ -680,7 +680,10 @@ const u8 taiko_reg_readable[TAIKO_CACHE_SIZE] = {
 	[TAIKO_A_CDC_SPKR_CLIPDET_VAL5] = 1,
 	[TAIKO_A_CDC_SPKR_CLIPDET_VAL6] = 1,
 	[TAIKO_A_CDC_SPKR_CLIPDET_VAL7] = 1,
-
+	[TAIKO_A_CDC_PA_RAMP_B1_CTL] = 1,
+	[TAIKO_A_CDC_PA_RAMP_B2_CTL] = 1,
+	[TAIKO_A_CDC_PA_RAMP_B3_CTL] = 1,
+	[TAIKO_A_CDC_PA_RAMP_B4_CTL] = 1,
 };
 
 const u8 taiko_reset_reg_defaults[TAIKO_CACHE_SIZE] = {
