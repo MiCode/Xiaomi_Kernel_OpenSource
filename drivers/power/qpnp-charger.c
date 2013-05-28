@@ -2369,6 +2369,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			chip->otg_vreg.rdev = regulator_register(rdesc, &cfg);
 			if (IS_ERR(chip->otg_vreg.rdev)) {
 				rc = PTR_ERR(chip->otg_vreg.rdev);
+				chip->otg_vreg.rdev = NULL;
 				if (rc != -EPROBE_DEFER)
 					pr_err("OTG reg failed, rc=%d\n", rc);
 				return rc;
@@ -2430,6 +2431,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			chip->boost_vreg.rdev = regulator_register(rdesc, &cfg);
 			if (IS_ERR(chip->boost_vreg.rdev)) {
 				rc = PTR_ERR(chip->boost_vreg.rdev);
+				chip->boost_vreg.rdev = NULL;
 				if (rc != -EPROBE_DEFER)
 					pr_err("boost reg failed, rc=%d\n", rc);
 				return rc;
@@ -2855,6 +2857,8 @@ unregister_batt:
 	if (chip->bat_if_base)
 		power_supply_unregister(&chip->batt_psy);
 fail_chg_enable:
+	regulator_unregister(chip->otg_vreg.rdev);
+	regulator_unregister(chip->boost_vreg.rdev);
 	kfree(chip->thermal_mitigation);
 	kfree(chip);
 	dev_set_drvdata(&spmi->dev, NULL);
@@ -2872,11 +2876,8 @@ qpnp_charger_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->adc_measure_work);
 	cancel_delayed_work_sync(&chip->eoc_work);
 
-	if (chip->otg_vreg.rdev)
-		regulator_unregister(chip->otg_vreg.rdev);
-
-	if (chip->boost_vreg.rdev)
-		regulator_unregister(chip->boost_vreg.rdev);
+	regulator_unregister(chip->otg_vreg.rdev);
+	regulator_unregister(chip->boost_vreg.rdev);
 
 	dev_set_drvdata(&spmi->dev, NULL);
 	kfree(chip);
