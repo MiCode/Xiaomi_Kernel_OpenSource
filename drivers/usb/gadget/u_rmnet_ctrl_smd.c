@@ -604,6 +604,11 @@ int gsmd_ctrl_setup(enum ctrl_client client_num, unsigned int count,
 
 	pr_debug("%s: requested ports:%d\n", __func__, count);
 
+	if (client_num >= NR_CTRL_CLIENTS) {
+		pr_err("%s: Invalid client:%d\n", __func__, client_num);
+		return -EINVAL;
+	}
+
 	if (!count || count > MAX_CTRL_PER_CLIENT) {
 		pr_err("%s: Invalid num of ports count:%d\n",
 				__func__, count);
