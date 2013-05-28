@@ -71,4 +71,6 @@ remote_spinlock_t *smem_get_remote_spinlock(void);
  * spinlock init code appears non-reentrant
  */
 int init_smem_remote_spinlock(void);
+
+bool smem_initialized_check(void);
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_ */

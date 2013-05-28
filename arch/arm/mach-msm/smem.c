@@ -35,6 +35,10 @@
 #define OVERFLOW_ADD_UNSIGNED(type, a, b) \
 	(((type)~0 - (a)) < (b) ? true : false)
 
+#define MODEM_SBL_VERSION_INDEX 7
+#define SMEM_VERSION_INFO_SIZE (32 * 4)
+#define SMEM_VERSION 0x000B
+
 enum {
 	MSM_SMEM_DEBUG = 1U << 0,
 	MSM_SMEM_INFO = 1U << 1,
@@ -57,6 +61,7 @@ struct ramdump_segment *smem_ramdump_segments;
 
 static void *smem_ramdump_dev;
 static DEFINE_MUTEX(spinlock_init_lock);
+static DEFINE_SPINLOCK(smem_init_check_lock);
 
 struct restart_notifier_block {
 	unsigned processor;
@@ -187,12 +192,48 @@ void *smem_alloc(unsigned id, unsigned size)
 }
 EXPORT_SYMBOL(smem_alloc);
 
-void *smem_find(unsigned id, unsigned size_in)
+static void *__smem_get_entry(unsigned id, unsigned *size, bool skip_init_check)
+{
+	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
+	struct smem_heap_entry *toc = shared->heap_toc;
+	int use_spinlocks = spinlocks_initialized;
+	void *ret = 0;
+	unsigned long flags = 0;
+
+	if (!skip_init_check && !smem_initialized_check())
+		return ret;
+
+	if (id >= SMEM_NUM_ITEMS)
+		return ret;
+
+	if (use_spinlocks)
+		remote_spin_lock_irqsave(&remote_spinlock, flags);
+	/* toc is in device memory and cannot be speculatively accessed */
+	if (toc[id].allocated) {
+		phys_addr_t phys_base;
+
+		*size = toc[id].size;
+		barrier();
+
+		phys_base = toc[id].reserved & BASE_ADDR_MASK;
+		if (!phys_base)
+			phys_base = (phys_addr_t)msm_shared_ram_phys;
+		ret = smem_phys_to_virt(phys_base, toc[id].offset);
+	} else {
+		*size = 0;
+	}
+	if (use_spinlocks)
+		remote_spin_unlock_irqrestore(&remote_spinlock, flags);
+
+	return ret;
+}
+
+static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
 {
 	unsigned size;
 	void *ptr;
 
-	ptr = smem_get_entry(id, &size);
+	ptr = __smem_get_entry(id, &size, skip_init_check);
 	if (!ptr)
 		return 0;
 
@@ -204,6 +245,11 @@ void *smem_find(unsigned id, unsigned size_in)
 	}
 
 	return ptr;
+}
+
+void *smem_find(unsigned id, unsigned size_in)
+{
+	return __smem_find(id, size_in, false);
 }
 EXPORT_SYMBOL(smem_find);
 
@@ -218,10 +264,8 @@ void *smem_alloc2(unsigned id, unsigned size_in)
 	void *ret = NULL;
 	int rc;
 
-	if (!shared->heap_info.initialized) {
-		pr_err("%s: smem heap info not initialized\n", __func__);
+	if (!smem_initialized_check())
 		return NULL;
-	}
 
 	if (id >= SMEM_NUM_ITEMS)
 		return NULL;
@@ -268,35 +312,7 @@ EXPORT_SYMBOL(smem_alloc2);
 
 void *smem_get_entry(unsigned id, unsigned *size)
 {
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	struct smem_heap_entry *toc = shared->heap_toc;
-	int use_spinlocks = spinlocks_initialized;
-	void *ret = 0;
-	unsigned long flags = 0;
-
-	if (id >= SMEM_NUM_ITEMS)
-		return ret;
-
-	if (use_spinlocks)
-		remote_spin_lock_irqsave(&remote_spinlock, flags);
-	/* toc is in device memory and cannot be speculatively accessed */
-	if (toc[id].allocated) {
-		phys_addr_t phys_base;
-
-		*size = toc[id].size;
-		barrier();
-
-		phys_base = toc[id].reserved & BASE_ADDR_MASK;
-		if (!phys_base)
-			phys_base = (phys_addr_t)msm_shared_ram_phys;
-		ret = smem_phys_to_virt(phys_base, toc[id].offset);
-	} else {
-		*size = 0;
-	}
-	if (use_spinlocks)
-		remote_spin_unlock_irqrestore(&remote_spinlock, flags);
-
-	return ret;
+	return __smem_get_entry(id, size, false);
 }
 EXPORT_SYMBOL(smem_get_entry);
 
@@ -340,6 +356,62 @@ int init_smem_remote_spinlock(void)
 	}
 	return rc;
 }
+
+/**
+ * smem_initialized_check - Reentrant check that smem has been initialized
+ *
+ * @returns: true if initialized, false if not.
+ */
+bool smem_initialized_check(void)
+{
+	static int checked;
+	static int is_inited;
+	unsigned long flags;
+	struct smem_shared *smem;
+	int *version_array;
+
+	if (likely(checked)) {
+		if (unlikely(!is_inited))
+			pr_err("%s: smem not initialized\n", __func__);
+		return is_inited;
+	}
+
+	spin_lock_irqsave(&smem_init_check_lock, flags);
+	if (checked) {
+		spin_unlock_irqrestore(&smem_init_check_lock, flags);
+		if (unlikely(!is_inited))
+			pr_err("%s: smem not initialized\n", __func__);
+		return is_inited;
+	}
+
+	smem = (void *)MSM_SHARED_RAM_BASE;
+
+	if (smem->heap_info.initialized != 1)
+		goto failed;
+	if (smem->heap_info.reserved != 0)
+		goto failed;
+
+	version_array = __smem_find(SMEM_VERSION_INFO, SMEM_VERSION_INFO_SIZE,
+									true);
+	if (version_array == NULL)
+		goto failed;
+	if (version_array[MODEM_SBL_VERSION_INDEX] != SMEM_VERSION << 16)
+		goto failed;
+
+	is_inited = 1;
+	checked = 1;
+	spin_unlock_irqrestore(&smem_init_check_lock, flags);
+	return is_inited;
+
+failed:
+	is_inited = 0;
+	checked = 1;
+	spin_unlock_irqrestore(&smem_init_check_lock, flags);
+	pr_err("%s: bootloader failure detected, shared memory not inited\n",
+								__func__);
+	return is_inited;
+}
+EXPORT_SYMBOL(smem_initialized_check);
 
 static int restart_notifier_cb(struct notifier_block *this,
 				unsigned long code,
