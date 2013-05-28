@@ -187,13 +187,6 @@ static void ipa_program_holb(struct ipa_ep_context *ep, int ipa_ep_idx)
 		return;
 
 	switch (ep->client) {
-	case IPA_CLIENT_HSIC1_CONS:
-	case IPA_CLIENT_HSIC2_CONS:
-	case IPA_CLIENT_HSIC3_CONS:
-	case IPA_CLIENT_HSIC4_CONS:
-		hol_en = ipa_ctx->hol_en;
-		hol_tmr = ipa_ctx->hol_timer;
-		break;
 	case IPA_CLIENT_A2_TETHERED_CONS:
 	case IPA_CLIENT_A2_EMBEDDED_CONS:
 		hol_en = IPA_A2_HOLB_TMR_EN;
