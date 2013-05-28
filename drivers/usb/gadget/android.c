@@ -566,7 +566,7 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 
 	config->opened = false;
 
-	if (config->enabled)
+	if (config->enabled && dev)
 		android_disable(dev);
 
 	config->dev = NULL;
