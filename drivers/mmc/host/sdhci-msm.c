@@ -512,19 +512,25 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	int rc = 0;
 	unsigned long flags;
 	u32 wait_cnt;
+	bool prev_pwrsave, curr_pwrsave;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
 	spin_lock_irqsave(&host->lock, flags);
-
+	prev_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			  CORE_CLK_PWRSAVE);
+	curr_pwrsave = prev_pwrsave;
 	/*
 	 * Make sure that clock is always enabled when DLL
 	 * tuning is in progress. Keeping PWRSAVE ON may
 	 * turn off the clock. So let's disable the PWRSAVE
 	 * here and re-enable it once tuning is completed.
 	 */
-	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
-			& ~CORE_CLK_PWRSAVE),
-			host->ioaddr + CORE_VENDOR_SPEC);
+	if (prev_pwrsave) {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_CLK_PWRSAVE),
+				host->ioaddr + CORE_VENDOR_SPEC);
+		curr_pwrsave = false;
+	}
 
 	/* Write 1 to DLL_RST bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
@@ -567,10 +573,18 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	}
 
 out:
-	/* re-enable PWRSAVE */
-	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
-			CORE_CLK_PWRSAVE),
-			host->ioaddr + CORE_VENDOR_SPEC);
+	/* Restore the correct PWRSAVE state */
+	if (prev_pwrsave ^ curr_pwrsave) {
+		u32 reg = readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC);
+
+		if (prev_pwrsave)
+			reg |= CORE_CLK_PWRSAVE;
+		else
+			reg &= ~CORE_CLK_PWRSAVE;
+
+		writel_relaxed(reg, host->ioaddr + CORE_VENDOR_SPEC);
+	}
+
 	spin_unlock_irqrestore(&host->lock, flags);
 	pr_debug("%s: Exit %s\n", mmc_hostname(mmc), __func__);
 	return rc;
