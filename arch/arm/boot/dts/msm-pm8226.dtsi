@@ -57,7 +57,7 @@
 			status = "disabled";
 
 			qcom,vddmax-mv = <4200>;
-			qcom,vddsafe-mv = <4200>;
+			qcom,vddsafe-mv = <4230>;
 			qcom,vinmin-mv = <4200>;
 			qcom,vbatdet-delta-mv = <150>;
 			qcom,ibatmax-ma = <1500>;
