@@ -762,7 +762,7 @@ static void usb_bam_finish_suspend(void)
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	/* If cable was disconnected, let disconnection seq do everything */
-	if (info.disconnected) {
+	if (info.disconnected || info.cons_stopped) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		mutex_unlock(&info.suspend_resume_mutex);
 		pr_debug("%s: Cable disconnected\n", __func__);
@@ -772,7 +772,7 @@ static void usb_bam_finish_suspend(void)
 	/* If resume was called don't finish this work */
 	if (!info.bus_suspend) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
-		pr_err("%s: Bus suspend in progress\n", __func__);
+		pr_err("%s: Bus resume in progress\n", __func__);
 		goto no_lpm;
 	}
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
