@@ -72,7 +72,6 @@
 #endif
 
 #define MODULE_NAME "msm_smd"
-#define SMEM_VERSION 0x000B
 #define SMD_VERSION 0x00020000
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4)
@@ -3800,6 +3799,9 @@ free_smem_areas:
 static int msm_smd_probe(struct platform_device *pdev)
 {
 	int ret;
+
+	if (!smem_initialized_check())
+		return -ENODEV;
 
 	SMD_INFO("smd probe\n");
 	INIT_WORK(&probe_work, smd_channel_probe_worker);
