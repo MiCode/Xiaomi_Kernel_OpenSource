@@ -1974,7 +1974,8 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	switch (msm_uport->clk_state) {
 	case MSM_HS_CLK_OFF:
 		wake_lock(&msm_uport->dma_wake_lock);
-		disable_irq_nosync(msm_uport->wakeup.irq);
+		if (use_low_power_wakeup(msm_uport))
+			disable_irq_nosync(msm_uport->wakeup.irq);
 		spin_unlock_irqrestore(&uport->lock, flags);
 
 		/* Vote for PNOC BUS Scaling */
@@ -2348,7 +2349,8 @@ static int msm_hs_startup(struct uart_port *uport)
 free_uart_irq:
 	free_irq(uport->irq, msm_uport);
 free_wake_irq:
-	irq_set_irq_wake(msm_uport->wakeup.irq, 0);
+	if (use_low_power_wakeup(msm_uport))
+		irq_set_irq_wake(msm_uport->wakeup.irq, 0);
 sps_disconnect_rx:
 	if (is_blsp_uart(msm_uport))
 		sps_disconnect(sps_pipe_handle_rx);
