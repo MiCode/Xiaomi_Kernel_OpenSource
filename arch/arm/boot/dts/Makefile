@@ -111,10 +111,12 @@ dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-v1-cdp.dtb \
 	msm8226-v1-mtp.dtb \
-	msm8226-v1-qrd.dtb \
+	msm8226-v1-qrd-evt.dtb \
+	msm8226-v1-qrd-dvt.dtb \
 	msm8226-v2-cdp.dtb \
 	msm8226-v2-mtp.dtb \
-	msm8226-v2-qrd.dtb \
+	msm8226-v2-qrd-evt.dtb \
+	msm8226-v2-qrd-dvt.dtb \
 	msm8926-cdp.dtb \
 	msm8926-mtp.dtb \
 	msm8926-qrd.dtb \
