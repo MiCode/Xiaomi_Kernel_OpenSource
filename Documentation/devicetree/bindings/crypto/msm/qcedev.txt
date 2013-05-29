@@ -15,8 +15,7 @@ Required properties:
 
 Optional properties:
   - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
-
-
+  - qcom,ce-hw-key : optional, indicates if the hardware supports use of HW KEY.
 
 Example:
 
