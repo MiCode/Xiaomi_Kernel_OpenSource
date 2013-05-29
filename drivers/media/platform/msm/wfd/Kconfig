@@ -4,3 +4,9 @@ menuconfig MSM_WFD
 		---help---
 		Enables the Wifi Display driver.
 
+menuconfig MSM_WFD_DEBUG
+	bool "Qualcomm MSM Wifi Display Driver Debug Mode"
+		depends on MSM_WFD
+		---help---
+		Enables the Wifi Display driver in debug mode
+

@@ -19,6 +19,10 @@
 #include "mdp-subdev.h"
 #include "wfd-util.h"
 
+#ifndef CONFIG_MSM_WFD_DEBUG
+#error "Dummy subdevice must only be used when CONFIG_MSM_WFD_DEBUG=y"
+#endif
+
 struct mdp_buf_queue {
 	struct mdp_buf_info mdp_buf_info;
 	struct list_head node;

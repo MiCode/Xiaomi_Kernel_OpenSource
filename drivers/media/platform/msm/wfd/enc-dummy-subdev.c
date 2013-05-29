@@ -18,6 +18,10 @@
 #include "enc-subdev.h"
 #include "wfd-util.h"
 
+#ifndef CONFIG_MSM_WFD_DEBUG
+#error "Dummy subdevice must only be used when CONFIG_MSM_WFD_DEBUG=y"
+#endif
+
 #define DEFAULT_WIDTH 1920
 #define DEFAULT_HEIGHT 1080
 #define ALLOC_SIZE ALIGN((DEFAULT_WIDTH * DEFAULT_HEIGHT * 3) / 2, SZ_1M)
