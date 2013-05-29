@@ -3387,9 +3387,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	cp->pdev = pdev;
 	qce_hw_support(cp->qce, &cp->ce_support);
 	if (cp->ce_support.bam)	 {
-		cp->platform_support.ce_shared = 0;
+		cp->platform_support.ce_shared = cp->ce_support.is_shared;
 		cp->platform_support.shared_ce_resource = 0;
-		cp->platform_support.hw_key_support = 0;
+		cp->platform_support.hw_key_support = cp->ce_support.hw_key;
 		cp->platform_support.bus_scale_table =	NULL;
 		cp->platform_support.sha_hmac = 1;
 
