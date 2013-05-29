@@ -138,6 +138,49 @@ static void select_clk_source_div(struct acpuclk_drv_data *drv_data,
 		pr_warn("acpu rcg didn't update its configuration\n");
 }
 
+static struct clkctl_acpu_speed *__init find_cur_cpu_level(void)
+{
+	struct clkctl_acpu_speed *f, *max = priv->freq_tbl;
+	void __iomem *apcs_rcg_config = priv->apcs_rcg_config;
+	struct acpuclk_reg_data *r = &priv->reg_data;
+	u32 regval, div, src;
+	unsigned long rate;
+	struct clk *parent;
+
+	regval = readl_relaxed(apcs_rcg_config);
+	src = regval & r->cfg_src_mask;
+	src >>= r->cfg_src_shift;
+
+	div = regval & r->cfg_div_mask;
+	div >>= r->cfg_div_shift;
+	/* No support for half-integer dividers */
+	div = div > 1 ? (div + 1) / 2 : 0;
+
+	for (f = priv->freq_tbl; f->khz; f++) {
+		if (f->use_for_scaling)
+			max = f;
+
+		if (f->src_sel != src || f->src_div != div)
+			continue;
+
+		parent = priv->src_clocks[f->src].clk;
+		rate = parent->rate / (div ? div : 1);
+		if (f->khz * 1000 == rate)
+			break;
+	}
+
+	if (f->khz)
+		return f;
+
+	pr_err("CPUs are running at an unknown rate. Defaulting to %u KHz.\n",
+		max->khz);
+
+	/* Change to a safe frequency */
+	select_clk_source_div(priv, priv->freq_tbl);
+	/* Default to largest frequency */
+	return max;
+}
+
 static int set_speed_atomic(struct clkctl_acpu_speed *tgt_s)
 {
 	struct clkctl_acpu_speed *strt_s = priv->current_speed;
@@ -231,7 +274,7 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	strt_s = priv->current_speed;
 
 	/* Return early if rate didn't change */
-	if (rate == strt_s->khz)
+	if (rate == strt_s->khz && reason != SETRATE_INIT)
 		goto out;
 
 	/* Find target frequency */
@@ -244,7 +287,7 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	}
 
 	/* Increase VDD levels if needed */
-	if ((reason == SETRATE_CPUFREQ || reason == SETRATE_INIT)
+	if ((reason == SETRATE_CPUFREQ)
 			&& (tgt_s->khz > strt_s->khz)) {
 		rc = increase_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
 		if (rc)
@@ -274,7 +317,7 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	set_bus_bw(tgt_s->bw_level);
 
 	/* Drop VDD levels if we can. */
-	if (tgt_s->khz < strt_s->khz)
+	if (tgt_s->khz < strt_s->khz || reason == SETRATE_INIT)
 		decrease_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
 
 out:
@@ -328,8 +371,8 @@ static struct acpuclk_data acpuclk_cortex_data = {
 int __init acpuclk_cortex_init(struct platform_device *pdev,
 	struct acpuclk_drv_data *data)
 {
-	unsigned long max_cpu_khz = 0;
-	int i, rc;
+	int rc;
+	int parent;
 
 	priv = data;
 	mutex_init(&priv->lock);
@@ -343,46 +386,41 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 		BUG();
 	}
 
-	/* Improve boot time by ramping up CPU immediately */
-	for (i = 0; priv->freq_tbl[i].khz != 0; i++)
-		if (priv->freq_tbl[i].use_for_scaling)
-			max_cpu_khz = priv->freq_tbl[i].khz;
-
 	/* Initialize regulators */
 	rc = increase_vdd(priv->vdd_max_cpu, priv->vdd_max_mem);
 	if (rc)
-		goto err_vdd;
+		return rc;
 
 	if (priv->vdd_mem) {
 		rc = regulator_enable(priv->vdd_mem);
 		if (rc) {
 			dev_err(&pdev->dev, "regulator_enable for mem failed\n");
-			goto err_vdd;
+			return rc;
 		}
 	}
 
 	rc = regulator_enable(priv->vdd_cpu);
 	if (rc) {
 		dev_err(&pdev->dev, "regulator_enable for cpu failed\n");
-		goto err_vdd_cpu;
+		return rc;
 	}
 
-	/*
-	 * Select a state which is always a valid transition to align SW with
-	 * the HW configuration set by the bootloaders.
-	 */
-	acpuclk_cortex_set_rate(0, acpuclk_cortex_data.power_collapse_khz,
-		SETRATE_INIT);
-	acpuclk_cortex_set_rate(0, max_cpu_khz, SETRATE_INIT);
+	priv->current_speed = find_cur_cpu_level();
+	parent = priv->current_speed->src;
+	rc = clk_prepare_enable(priv->src_clocks[parent].clk);
+	if (rc) {
+		dev_err(&pdev->dev, "handoff: prepare_enable failed\n");
+		return rc;
+	}
+
+	rc = acpuclk_cortex_set_rate(0, priv->current_speed->khz, SETRATE_INIT);
+	if (rc) {
+		dev_err(&pdev->dev, "handoff: set rate failed\n");
+		return rc;
+	}
 
 	acpuclk_register(&acpuclk_cortex_data);
 	cpufreq_table_init();
 
 	return 0;
-
-err_vdd_cpu:
-	if (priv->vdd_mem)
-		regulator_disable(priv->vdd_mem);
-err_vdd:
-	return rc;
 }
