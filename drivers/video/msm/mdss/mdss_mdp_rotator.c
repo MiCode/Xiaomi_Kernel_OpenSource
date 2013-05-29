@@ -99,6 +99,7 @@ static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
 		pr_debug("waiting for rot=%d to complete\n", rot->pipe->num);
 		mdss_mdp_display_wait4comp(ctl);
 		rot->busy = false;
+		mdss_mdp_smp_release(rot->pipe);
 
 	}
 	mutex_unlock(&rot->lock);
