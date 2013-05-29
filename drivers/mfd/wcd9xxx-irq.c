@@ -193,10 +193,24 @@ void wcd9xxx_nested_irq_unlock(struct wcd9xxx *wcd9xxx)
 	mutex_unlock(&wcd9xxx->nested_irq_lock);
 }
 
-static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
+static bool wcd9xxx_is_mbhc_irq(struct wcd9xxx *wcd9xxx, int irqbit)
 {
 	if ((irqbit <= WCD9XXX_IRQ_MBHC_INSERTION) &&
-	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL)) {
+	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL))
+		return true;
+	else if (wcd9xxx->codec_type->id_major == TAIKO_MAJOR &&
+		 irqbit == WCD9320_IRQ_MBHC_JACK_SWITCH)
+		return true;
+	else if (wcd9xxx->codec_type->id_major == TAPAN_MAJOR &&
+		 irqbit == WCD9306_IRQ_MBHC_JACK_SWITCH)
+		return true;
+	else
+		return false;
+}
+
+static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
+{
+	if (wcd9xxx_is_mbhc_irq(wcd9xxx, irqbit)) {
 		wcd9xxx_nested_irq_lock(wcd9xxx);
 		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
 					   BIT_BYTE(irqbit),
