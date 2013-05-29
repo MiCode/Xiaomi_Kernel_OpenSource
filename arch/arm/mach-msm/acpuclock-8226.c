@@ -87,7 +87,6 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 
 static struct acpuclk_drv_data drv_data = {
 	.freq_tbl = acpu_freq_tbl_8226,
-	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 	.bus_scale = &bus_client_pdata,
 	.vdd_max_cpu = CPR_CORNER_TURBO,
 	.src_clocks = {
