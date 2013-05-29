@@ -3562,6 +3562,9 @@ static void __init msm8226_clock_post_init(void)
 	 */
 	clk_prepare_enable(&xo_a_clk.c);
 
+	/* Set an initial rate (fmax at nominal) on the MMSSNOC AXI clock */
+	clk_set_rate(&axi_clk_src.c, 200000000);
+
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb_hs_system_clk_src.c,
 			usb_hs_system_clk_src.freq_tbl[0].freq_hz);
@@ -3640,9 +3643,6 @@ static void __init msm8226_clock_pre_init(void)
 	 * access mmss clock controller registers.
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
-
-	/* Set an initial rate (fmax at nominal) on the MMSSNOC AXI clock */
-	clk_set_rate(&axi_clk_src.c, 200000000);
 
 	enable_rpm_scaling();
 
