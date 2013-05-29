@@ -1,0 +1,77 @@
+/* Copyright (c) 2013 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>,
+		      <0xfd924000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys";
+		interrupts = <0 72 0>;
+
+		qcom,max-clk-rate = <320000000>;
+
+		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
+					  0x00001A00 0x00001E00>;
+		qcom,mdss-pipe-rgb-off = <0x00002200 0x00002600
+					  0x00002A00 0x00002E00>;
+		qcom,mdss-pipe-dma-off = <0x00003200 0x00003600>;
+
+		qcom,mdss-pipe-vig-fetch-id = <1 4 7 19>;
+		qcom,mdss-pipe-rgb-fetch-id = <16 17 18 22>;
+		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+
+		qcom,mdss-smp-data = <44 8192>;
+
+		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
+				     0x00000900 0x0000A00>;
+		qcom,mdss-mixer-intf-off = <0x00003A00 0x00003E00
+					    0x00004200 0x00004E00>;
+		qcom,mdss-mixer-wb-off = <0x00004600 0x00004A00>;
+		qcom,mdss-dspp-off = <0x00005200 0x00005600 0x00005A00
+				      0x00005E00>;
+		qcom,mdss-wb-off = <0x00011100 0x00011500 0x00011900
+				    0x00011D00 0x00012100>;
+		qcom,mdss-intf-off = <0x00012500 0x00012700
+				      0x00012900 0x00012b00>;
+                qcom,mdss-pingpong-off = <0x00012F00 0x00013000 0x00013100
+					  0x00013200>;
+		qcom,mdss-ad-off = <0x0013500 0x00013700 0x00013900>;
+
+		qcom,mdss-has-bwc;
+		qcom,mdss-has-decimation;
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+			qcom,memory-reservation-type = "EBI1";
+			qcom,memory-reservation-size = <0x1000000>;
+		};
+
+		mdss_fb1: qcom,mdss_fb_external {
+			cell-index = <1>;
+			compatible = "qcom,mdss-fb";
+		};
+
+		mdss_fb2: qcom,mdss_fb_wfd {
+			cell-index = <2>;
+			compatible = "qcom,mdss-fb";
+		};
+	};
+
+	qcom,mdss_wb_panel {
+		compatible = "qcom,mdss_wb";
+		qcom,mdss_pan_res = <1920 1080>;
+		qcom,mdss_pan_bpp = <24>;
+		qcom,mdss-fb-map = <&mdss_fb2>;
+	};
+};
