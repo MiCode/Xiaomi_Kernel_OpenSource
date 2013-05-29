@@ -176,12 +176,25 @@ static int pil_lpass_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 
 static int pil_lpass_reset_trusted(struct pil_desc *pil)
 {
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	int ret;
+
+	ret = clk_prepare_enable(drv->axi_clk);
+	if (ret)
+		return ret;
 	return pas_auth_and_reset(PAS_Q6);
 }
 
 static int pil_lpass_shutdown_trusted(struct pil_desc *pil)
 {
-	return pas_shutdown(PAS_Q6);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	int ret;
+
+	ret = pas_shutdown(PAS_Q6);
+	if (ret)
+		return ret;
+	clk_disable_unprepare(drv->axi_clk);
+	return 0;
 }
 
 static struct pil_reset_ops pil_lpass_ops_trusted = {
