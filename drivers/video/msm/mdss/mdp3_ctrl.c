@@ -29,6 +29,7 @@
 #define VSYNC_PERIOD 16
 
 static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd);
+static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx);
 
 static void mdp3_bufq_init(struct mdp3_buffer_queue *bufq)
 {
@@ -503,8 +504,9 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		pr_err("mdp clock resource release failed\n");
 off_error:
 	mdp3_session->status = 0;
-
 	mutex_unlock(&mdp3_session->lock);
+	if (mdp3_session->overlay.id != MSMFB_NEW_REQUEST)
+		mdp3_overlay_unset(mfd, mdp3_session->overlay.id);
 	return 0;
 }
 
