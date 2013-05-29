@@ -430,6 +430,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd);
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 					struct msm_fb_data_type *mfd);
 int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata);
 void mdss_mdp_ctl_splash_start(struct mdss_panel_data *pdata);
 int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl);

@@ -517,6 +517,7 @@ int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl)
 	case MIPI_VIDEO_PANEL:
 		return mdss_mdp_video_reconfigure_splash_done(ctl);
 	case MIPI_CMD_PANEL:
+		return mdss_mdp_cmd_reconfigure_splash_done(ctl);
 	default:
 		return 0;
 	}
