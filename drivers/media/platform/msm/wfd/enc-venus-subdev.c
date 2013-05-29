@@ -646,6 +646,33 @@ set_input_buffer_fail:
 	return rc;
 }
 
+#ifdef CONFIG_MSM_WFD_DEBUG
+static void *venc_map_kernel(struct ion_client *client,
+		struct ion_handle *handle)
+{
+	return ion_map_kernel(client, handle);
+}
+
+static void venc_unmap_kernel(struct ion_client *client,
+		struct ion_handle *handle)
+{
+	ion_unmap_kernel(client, handle);
+}
+#else
+
+static void *venc_map_kernel(struct ion_client *client,
+		struct ion_handle *handle)
+{
+	return NULL;
+}
+
+static void venc_unmap_kernel(struct ion_client *client,
+		struct ion_handle *handle)
+{
+	return;
+}
+#endif
+
 static int venc_map_user_to_kernel(struct venc_inst *inst,
 		struct mem_region *mregion)
 {
@@ -680,18 +707,8 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		goto venc_map_fail;
 	}
 
-	if (!inst->secure) {
-		mregion->kvaddr = ion_map_kernel(venc_ion_client,
-				mregion->ion_handle);
-		if (IS_ERR_OR_NULL(mregion->kvaddr)) {
-			WFD_MSG_ERR("Failed to map buffer into kernel\n");
-			rc = PTR_ERR(mregion->kvaddr);
-			mregion->kvaddr = NULL;
-			goto venc_map_fail;
-		}
-	} else {
-		mregion->kvaddr = NULL;
-	}
+	mregion->kvaddr = inst->secure ? NULL :
+		venc_map_kernel(venc_ion_client, mregion->ion_handle);
 
 	if (inst->secure) {
 		rc = msm_ion_secure_buffer(venc_ion_client,
@@ -728,8 +745,8 @@ venc_domain_fail:
 	if (inst->secure)
 		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 venc_map_iommu_map_fail:
-	if (!inst->secure)
-		ion_unmap_kernel(venc_ion_client, mregion->ion_handle);
+	if (!inst->secure && !IS_ERR_OR_NULL(mregion->kvaddr))
+		venc_unmap_kernel(venc_ion_client, mregion->ion_handle);
 venc_map_fail:
 	return rc;
 }
@@ -762,8 +779,8 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 		mregion->paddr = NULL;
 	}
 
-	if (mregion->kvaddr) {
-		ion_unmap_kernel(venc_ion_client, mregion->ion_handle);
+	if (!IS_ERR_OR_NULL(mregion->kvaddr)) {
+		venc_unmap_kernel(venc_ion_client, mregion->ion_handle);
 		mregion->kvaddr = NULL;
 	}
 
