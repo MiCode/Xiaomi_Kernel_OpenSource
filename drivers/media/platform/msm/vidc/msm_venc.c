@@ -1730,12 +1730,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO:
 	{
-		struct v4l2_ctrl *rc_mode, *frame_rate;
+		struct v4l2_ctrl *rc_mode;
 		bool cfr = false;
 
 		property_id = HAL_PARAM_VENC_H264_VUI_TIMING_INFO;
 		rc_mode = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
-		frame_rate = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE);
 
 		switch (rc_mode->val) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
@@ -1752,20 +1751,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			vui_timing_info.enable = 0;
 			break;
 		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
-			/* Only support this in CFR mode because we
-			 * don't really know how to fill out vui_timing_info.
-			 * time_scale in vfr mode.  The assumed framerate
-			 * might be incorrect. */
-			if (!cfr) {
-				dprintk(VIDC_ERR, "Can't set %x in VFR mode\n",
-						ctrl->id);
-				rc = -ENOTSUPP;
-				break;
-			}
-
 			vui_timing_info.enable = 1;
 			vui_timing_info.fixed_frame_rate = cfr;
-			vui_timing_info.time_scale = frame_rate->val;
+			vui_timing_info.time_scale = inst->prop.fps;
 		}
 
 		pdata = &vui_timing_info;
