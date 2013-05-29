@@ -2904,16 +2904,17 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 			ret = ALIGN(ret, (1 << align));
 
 		/*make sure there isn't a GPU only mapping at this address */
-		if (kgsl_sharedmem_region_empty(private, ret, len))
+		if (kgsl_sharedmem_region_empty(private, ret, orig_len))
 			break;
 
-		trace_kgsl_mem_unmapped_area_collision(entry, addr, len, ret);
+		trace_kgsl_mem_unmapped_area_collision(entry, addr, orig_len,
+							ret);
 
 		/*
 		 * If we collided, bump the hint address so that
 		 * get_umapped_area knows to look somewhere else.
 		 */
-		addr = (addr == 0) ? ret + len : addr + len;
+		addr = (addr == 0) ? ret + orig_len : addr + orig_len;
 
 		/*
 		 * The addr hint can be set by userspace to be near
