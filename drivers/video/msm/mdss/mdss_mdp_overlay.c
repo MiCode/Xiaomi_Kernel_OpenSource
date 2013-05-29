@@ -180,6 +180,11 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 				pr_err("BWC: unequal src img and rect w,h\n");
 				return -EINVAL;
 			}
+
+			if (req->flags & MDP_DECIMATION_EN) {
+				pr_err("Can't enable BWC decode && decimate\n");
+				return -EINVAL;
+			}
 		}
 
 		if (req->flags & MDP_DEINTERLACE) {
