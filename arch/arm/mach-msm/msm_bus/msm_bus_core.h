@@ -81,6 +81,12 @@ struct msm_bus_node_info {
 	unsigned int prio_wr;
 	unsigned int prio1;
 	unsigned int prio0;
+	u64 th;
+	unsigned int mode_thresh;
+	bool dual_conf;
+	u64 bimc_bw;
+	u32 bimc_gp;
+	u32 bimc_thmp;
 	const char *name;
 };
 
@@ -147,6 +153,9 @@ struct msm_bus_hw_algorithm {
 		*fab_pdata, void *hw_data, void **cdata);
 	int (*port_unhalt)(uint32_t haltid, uint8_t mport);
 	int (*port_halt)(uint32_t haltid, uint8_t mport);
+	void (*config_master)(struct msm_bus_fabric_registration *fab_pdata,
+		struct msm_bus_inode_info *info,
+		uint64_t req_clk, uint64_t req_bw);
 };
 
 struct msm_bus_fabric_device {
@@ -179,6 +188,9 @@ struct msm_bus_fab_algorithm {
 	void (*update_bw)(struct msm_bus_fabric_device *fabdev, struct
 		msm_bus_inode_info * hop, struct msm_bus_inode_info *info,
 		int64_t add_bw, int *master_tiers, int ctx);
+	void (*config_master)(struct msm_bus_fabric_device *fabdev,
+		struct msm_bus_inode_info *info, uint64_t req_clk,
+		uint64_t req_bw);
 };
 
 struct msm_bus_board_algorithm {

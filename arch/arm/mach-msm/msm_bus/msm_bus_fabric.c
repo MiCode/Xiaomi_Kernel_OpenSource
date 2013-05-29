@@ -509,6 +509,46 @@ out:
 	return status;
 }
 
+static void msm_bus_fabric_config_master(
+	struct msm_bus_fabric_device *fabdev,
+	struct msm_bus_inode_info *info, uint64_t req_clk, uint64_t req_bw)
+{
+	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+	long rounded_rate;
+
+	if (fabdev->hw_algo.config_master == NULL)
+		return;
+
+	/* Enable clocks before accessing QoS registers */
+	if (fabric->info.nodeclk[DUAL_CTX].clk)
+		if (fabric->info.nodeclk[DUAL_CTX].rate == 0) {
+			rounded_rate = clk_round_rate(fabric->
+				info.nodeclk[DUAL_CTX].clk, 1);
+		if (clk_set_rate(fabric->info.nodeclk[DUAL_CTX].clk,
+				rounded_rate))
+			MSM_BUS_ERR("Error: clk: en: Node: %d rate: %ld",
+				fabric->fabdev.id, rounded_rate);
+
+		clk_prepare_enable(fabric->info.nodeclk[DUAL_CTX].clk);
+	}
+
+	if (info->iface_clk.clk)
+		clk_prepare_enable(info->iface_clk.clk);
+
+	fabdev->hw_algo.config_master(fabric->pdata, info, req_clk, req_bw);
+
+	/* Disable clocks after accessing QoS registers */
+	if (fabric->info.nodeclk[DUAL_CTX].clk &&
+			fabric->info.nodeclk[DUAL_CTX].rate == 0)
+		clk_disable_unprepare(fabric->info.nodeclk[DUAL_CTX].clk);
+
+	if (info->iface_clk.clk) {
+		MSM_BUS_DBG("Commented: Will disable clock for info: %d\n",
+			info->node_info->priv_id);
+		clk_disable_unprepare(info->iface_clk.clk);
+	}
+}
+
 /**
  * msm_bus_fabric_hw_commit() - Commit the arbitration data to Hardware.
  * @fabric: Fabric for which the data should be committed
@@ -664,6 +704,7 @@ static struct msm_bus_fab_algorithm msm_bus_algo = {
 	.find_node = msm_bus_fabric_find_node,
 	.find_gw_node = msm_bus_fabric_find_gw_node,
 	.get_gw_list = msm_bus_fabric_get_gw_list,
+	.config_master = msm_bus_fabric_config_master,
 };
 
 static int msm_bus_fabric_hw_init(struct msm_bus_fabric_registration *pdata,
