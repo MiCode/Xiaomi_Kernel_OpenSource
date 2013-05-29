@@ -1382,6 +1382,7 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
+		snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
@@ -1394,6 +1395,7 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
 
+		snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
 		break;
 	}
 	return 0;
@@ -1694,9 +1696,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"I2S TX1", NULL, "TX_I2S_CLK"},
 	{"I2S TX2", NULL, "TX_I2S_CLK"},
-
-	{"DEC1 MUX", NULL, "TX CLK"},
-	{"DEC2 MUX", NULL, "TX CLK"},
 
 	{"I2S TX1", NULL, "DEC1 MUX"},
 	{"I2S TX2", NULL, "DEC2 MUX"},
@@ -2136,8 +2135,6 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 
 	SND_SOC_DAPM_AIF_IN("I2S RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_SUPPLY("TX CLK", MSM8X10_WCD_A_CDC_DIG_CLK_CTL,
-			4, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("INT_LDO_H", SND_SOC_NOPM, 1, 0, NULL, 0),
 
 	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
@@ -2336,10 +2333,11 @@ static const struct msm8x10_wcd_reg_mask_val msm8x10_wcd_reg_defaults[] = {
 	/* Reduce LINE DAC bias to 70% */
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_RX_LINE_BIAS_PA, 0x78),
 
-	/* Disable TX7 internal biasing path which can cause leakage */
+	/* Disable internal biasing path which can cause leakage */
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_BIAS_CURR_CTL_2, 0x04),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_MICB_CFILT_1_VAL, 0x60),
-	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_MICB_1_CTL, 0x82),
+	/* Enable pulldown to reduce leakage */
+	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_MICB_1_CTL, 0x83),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_TX_COM_BIAS, 0xE0),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_TX_1_EN, 0x32),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_TX_2_EN, 0x32),
@@ -2350,6 +2348,9 @@ static const struct msm8x10_wcd_reg_mask_val msm8x10_wcd_reg_defaults[] = {
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_CDC_CLSG_FREQ_THRESH_B3_CTL, 0x1A),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_CDC_CLSG_FREQ_THRESH_B4_CTL, 0x47),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_CDC_CLSG_GAIN_THRESH_CTL, 0x23),
+
+	/* Always set TXD_CLK_EN bit to reduce the leakage */
+	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_CDC_DIG_CLK_CTL, 0x10),
 };
 
 static void msm8x10_wcd_update_reg_defaults(struct snd_soc_codec *codec)
