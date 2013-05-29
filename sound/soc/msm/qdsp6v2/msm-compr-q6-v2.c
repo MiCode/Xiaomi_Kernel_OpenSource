@@ -818,10 +818,6 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		    (params_periods(params) <= runtime->hw.channels_max))
 			prtd->channel_mode = params_channels(params);
 
-		ret = compressed_set_volume(prtd, 0);
-		if (ret < 0)
-			pr_err("%s : Set Volume failed : %d", __func__, ret);
-
 		ret = q6asm_set_softpause(prtd->audio_client, &softpause);
 		if (ret < 0)
 			pr_err("%s: Send SoftPause Param failed ret=%d\n",

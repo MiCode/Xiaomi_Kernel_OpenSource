@@ -594,7 +594,6 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		prtd->audio_client->perf_mode,
 		prtd->session_id, substream->stream);
 
-	lpa_set_volume(prtd, 0);
 	ret = q6asm_set_softpause(prtd->audio_client, &softpause);
 	if (ret < 0)
 		pr_err("%s: Send SoftPause Param failed ret=%d\n",
