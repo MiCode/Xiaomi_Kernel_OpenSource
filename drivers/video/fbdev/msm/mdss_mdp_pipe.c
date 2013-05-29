@@ -139,7 +139,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	u32 num_blks = 0, reserved = 0;
 	struct mdss_mdp_plane_sizes ps;
 	int i;
-	int rc = 0;
+	int rc = 0, rot_mode = 0;
 	u32 nlines;
 
 	if (pipe->bwc_mode) {
@@ -153,24 +153,32 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		ps.num_planes = 2;
 		ps.ystride[0] = pipe->src.w >> pipe->horz_deci;
 		ps.ystride[1] = pipe->src.h >> pipe->vert_deci;
-	} else if (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
-		ps.ystride[0] = max(pipe->mixer->width, pipe->src.w) * MAX_BPP;
-		ps.num_planes = 1;
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
 			pipe->src.w, pipe->src.h, &ps, 0);
 		if (rc)
 			return rc;
+
+		if (pipe->mixer && pipe->mixer->rotator_mode)
+			rot_mode = 1;
+		else if (ps.num_planes == 1)
+			ps.ystride[0] = MAX_BPP *
+				max(pipe->mixer->width, pipe->src.w);
 	}
 
 	nlines = pipe->bwc_mode ? 1 : 2;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
-		num_blks = DIV_ROUND_UP(nlines * ps.ystride[i], SMP_MB_SIZE);
+		if (rot_mode) {
+			num_blks = 1;
+		} else {
+			num_blks = DIV_ROUND_UP(ps.ystride[i] * nlines,
+					SMP_MB_SIZE);
 
-		if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
-			num_blks = roundup_pow_of_two(num_blks);
+			if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
+				num_blks = roundup_pow_of_two(num_blks);
+		}
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
@@ -205,6 +213,13 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_smp_set_wm_levels(pipe, cnt);
 	mutex_unlock(&mdss_mdp_smp_lock);
 	return 0;
+}
+
+void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe)
+{
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_smp_free(pipe);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 }
 
 int mdss_mdp_smp_setup(struct mdss_data_type *mdata, u32 cnt, u32 size)
