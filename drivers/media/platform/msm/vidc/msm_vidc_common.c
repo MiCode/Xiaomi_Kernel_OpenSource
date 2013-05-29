@@ -68,6 +68,7 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 			if (!hdev) {
 				dprintk(VIDC_ERR,
 						"No hdev (probably in bad state)\n");
+				mutex_unlock(&inst->lock);
 				return -EINVAL;
 			}
 
