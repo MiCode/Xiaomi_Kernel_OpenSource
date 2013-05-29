@@ -1258,6 +1258,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			power_setting_array->size *
 			sizeof(struct msm_sensor_power_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(power_setting_array->power_setting);
 			rc = -EFAULT;
 			break;
 		}
