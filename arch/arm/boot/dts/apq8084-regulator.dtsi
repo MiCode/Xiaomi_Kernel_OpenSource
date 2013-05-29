@@ -325,3 +325,53 @@
 	};
 };
 
+&rpm_bus {
+	rpm-regulator-smpb1 {
+		compatible = "qcom,rpm-regulator-smd-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+
+		pma8084_s1_ao: regulator-s1-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8084_s1_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <675000>;
+			regulator-max-microvolt = <1050000>;
+		};
+	};
+
+	rpm-regulator-smpb2 {
+		compatible = "qcom,rpm-regulator-smd-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+
+		pma8084_s2_corner_ao: regulator-s2-corner-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8084_s2_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		compatible = "qcom,rpm-regulator-smd-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <12>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+
+		pma8084_l12_ao: regulator-l12-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8084_l12_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+	};
+};
