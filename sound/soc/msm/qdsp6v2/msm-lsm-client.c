@@ -117,8 +117,8 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 
 		if (copy_from_user(prtd->lsm_client->sound_model.data,
 				   snd_model.data, snd_model.data_size)) {
-			pr_err("%s: copy from user data failed size %d\n",
-			       __func__, snd_model.data_size);
+			pr_err("%s: copy from user data failed data %p size %d\n",
+			       __func__, snd_model.data, snd_model.data_size);
 			rc = -EFAULT;
 			break;
 		}
@@ -128,9 +128,12 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 						snd_model.min_keyw_confidence,
 						snd_model.min_user_confidence,
 						snd_model.detect_failure);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("%s: q6lsm_register_sound_model failed =%d\n",
 			       __func__, rc);
+			q6lsm_snd_model_buf_free(prtd->lsm_client);
+		}
+
 		break;
 
 	case SNDRV_LSM_DEREG_SND_MODEL:
@@ -213,11 +216,10 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 		pr_debug("%s: Stopping LSM client session\n", __func__);
 		if (prtd->lsm_client->started) {
 			ret = q6lsm_stop(prtd->lsm_client, true);
-			if (!ret) {
-				prtd->lsm_client->started = false;
-				pr_debug("%s: LSM client session stopped\n",
-					 __func__);
-			}
+			if (!ret)
+				pr_debug("%s: LSM client session stopped %d\n",
+					 __func__, ret);
+			prtd->lsm_client->started = false;
 		}
 		break;
 
@@ -258,10 +260,10 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 	}
 	ret = q6lsm_open(prtd->lsm_client);
 	if (ret < 0) {
-		pr_err("%s: lsm out open failed\n", __func__);
+		pr_err("%s: lsm open failed, %d\n", __func__, ret);
 		q6lsm_client_free(prtd->lsm_client);
 		kfree(prtd);
-		return -ENOMEM;
+		return ret;
 	}
 
 	pr_debug("%s: Session ID %d\n", __func__, prtd->lsm_client->session);

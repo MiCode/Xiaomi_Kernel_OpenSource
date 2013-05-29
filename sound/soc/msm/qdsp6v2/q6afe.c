@@ -50,6 +50,7 @@ struct afe_ctl {
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
+static unsigned long afe_configured_cmd;
 
 static struct afe_ctl this_afe;
 
@@ -1053,8 +1054,26 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 		ret = -EINVAL;
 	}
 
+	if (!ret)
+		set_bit(config_type, &afe_configured_cmd);
+
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
+}
+
+/*
+ * afe_clear_config - If SSR happens ADSP loses AFE configs, let AFE driver know
+ *		      about the state so client driver can wait until AFE is
+ *		      reconfigured.
+ */
+void afe_clear_config(enum afe_config_type config)
+{
+	clear_bit(config, &afe_configured_cmd);
+}
+
+bool afe_has_config(enum afe_config_type config)
+{
+	return !!test_bit(config, &afe_configured_cmd);
 }
 
 static int afe_send_cmd_port_start(u16 port_id)

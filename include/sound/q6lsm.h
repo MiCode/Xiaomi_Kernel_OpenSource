@@ -124,6 +124,7 @@ int q6lsm_open(struct lsm_client *client);
 int q6lsm_start(struct lsm_client *client, bool wait);
 int q6lsm_stop(struct lsm_client *client, bool wait);
 int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len);
+int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
 int q6lsm_register_sound_model(struct lsm_client *client,
 			       enum lsm_detection_mode mode, u16 minkeyword,
