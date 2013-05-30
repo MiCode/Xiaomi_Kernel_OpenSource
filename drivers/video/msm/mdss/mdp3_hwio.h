@@ -60,6 +60,9 @@
 #define MDP3_REG_EBI2_LCD0				0x003c
 #define MDP3_REG_EBI2_LCD0_YSTRIDE			0x0050
 
+/*clock control*/
+#define MDP3_REG_CGC_EN					0x0100
+
 /*DMA_P*/
 #define MDP3_REG_DMA_P_CONFIG				0x90000
 #define MDP3_REG_DMA_P_SIZE				0x90004
