@@ -299,9 +299,13 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 {
 	struct mdss_mdp_ctl *ctl = NULL;
 	u32 cnum;
+	u32 nctl = mdata->nctl;
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (cnum = off; cnum < mdata->nctl; cnum++) {
+	if (!mdata->has_wfd_blk)
+		nctl++;
+
+	for (cnum = off; cnum < nctl; cnum++) {
 		ctl = mdata->ctl_off + cnum;
 		if (ctl->ref_cnt == 0) {
 			ctl->ref_cnt++;
@@ -399,13 +403,18 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 			(mixer_pool[MDSS_MDP_INTF_LAYERMIXER2].ref_cnt == 0))
 		mixer_pool += MDSS_MDP_INTF_LAYERMIXER2;
 
+	/*Allocate virtual wb mixer if no dedicated wfd wb blk is present*/
+	if (!ctl->mdata->has_wfd_blk && (type == MDSS_MDP_MIXER_TYPE_WRITEBACK))
+		nmixers += 1;
+
 	for (i = 0; i < nmixers; i++) {
 		mixer = mixer_pool + i;
 		if (mixer->ref_cnt == 0) {
 			mixer->ref_cnt++;
 			mixer->params_changed++;
 			mixer->ctl = ctl;
-			pr_debug("alloc mixer num%d\n", mixer->num);
+			pr_debug("alloc mixer num %d for ctl=%d\n",
+				 mixer->num, ctl->num);
 			break;
 		}
 		mixer = NULL;
@@ -440,12 +449,16 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	struct mdss_mdp_mixer *mixer = NULL;
 
 	ctl = mdss_mdp_ctl_alloc(mdss_res, mdss_res->nmixers_intf);
-	if (!ctl)
+	if (!ctl) {
+		pr_err("unable to allocate wb ctl\n");
 		return NULL;
+	}
 
 	mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK, false);
-	if (!mixer)
+	if (!mixer) {
+		pr_err("unable to allocate wb mixer\n");
 		goto error;
+	}
 
 	mixer->rotator_mode = rotator;
 
@@ -467,6 +480,9 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 
 	ctl->start_fnc = mdss_mdp_writeback_start;
 	ctl->power_on = true;
+	ctl->wb_type = (rotator ? MDSS_MDP_WB_CTL_TYPE_BLOCK :
+			MDSS_MDP_WB_CTL_TYPE_LINE);
+	mixer->ctl = ctl;
 
 	if (ctl->start_fnc)
 		ctl->start_fnc(ctl);
@@ -705,6 +721,7 @@ static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
 			mdss_mdp_mixer_free(mixer);
 			return -EINVAL;
 		}
+		ctl->wb_type = MDSS_MDP_WB_CTL_TYPE_LINE;
 	}
 	ctl->mixer_left = mixer;
 
@@ -1212,9 +1229,13 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 	struct mdss_mdp_mixer *head;
 	u32 i;
 	int rc = 0;
+	u32 size = len;
+
+	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) && !mdata->has_wfd_blk)
+		size++;
 
 	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_mixer) *
-			len, GFP_KERNEL);
+			size, GFP_KERNEL);
 
 	if (!head) {
 		pr_err("unable to setup mixer type=%d :kzalloc fail\n",
@@ -1233,6 +1254,13 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 				pingpong_offsets[i];
 		}
 	}
+
+	/*
+	 * Duplicate the last writeback mixer for concurrent line and block mode
+	 * operations
+	*/
+	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) && !mdata->has_wfd_blk)
+		head[len] = head[len - 1];
 
 	switch (type) {
 
@@ -1257,10 +1285,24 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 	u32 *ctl_offsets, u32 *wb_offsets, u32 len)
 {
 	struct mdss_mdp_ctl *head;
+	struct mutex *shared_lock = NULL;
 	u32 i;
+	u32 size = len;
+
+	if (!mdata->has_wfd_blk) {
+		size++;
+		shared_lock = devm_kzalloc(&mdata->pdev->dev,
+					   sizeof(struct mutex),
+					   GFP_KERNEL);
+		if (!shared_lock) {
+			pr_err("unable to allocate mem for mutex\n");
+			return -ENOMEM;
+		}
+		mutex_init(shared_lock);
+	}
 
 	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_ctl) *
-			len, GFP_KERNEL);
+			size, GFP_KERNEL);
 
 	if (!head) {
 		pr_err("unable to setup ctl and wb: kzalloc fail\n");
@@ -1274,6 +1316,16 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		head[i].ref_cnt = 0;
 	}
 
+	if (!mdata->has_wfd_blk) {
+		head[len - 1].shared_lock = shared_lock;
+		/*
+		 * Allocate a virtual ctl to be able to perform simultaneous
+		 * line mode and block mode operations on the same
+		 * writeback block
+		*/
+		head[len] = head[len - 1];
+		head[len].num = -1;
+	}
 	mdata->ctl_off = head;
 
 	return 0;
@@ -1400,11 +1452,19 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe)
 
 static int mdss_mdp_mixer_update(struct mdss_mdp_mixer *mixer)
 {
+	u32 off = 0;
+	if (!mixer)
+		return -EINVAL;
+
 	mixer->params_changed = 0;
 
 	/* skip mixer setup for rotator */
-	if (!mixer->rotator_mode)
+	if (!mixer->rotator_mode) {
 		mdss_mdp_mixer_setup(mixer->ctl, mixer);
+	} else {
+		off = __mdss_mdp_ctl_get_mixer_off(mixer);
+		mdss_mdp_ctl_write(mixer->ctl, off, 0);
+	}
 
 	return 0;
 }
@@ -1533,11 +1593,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		return -ENODEV;
 	}
 
+	mutex_lock(&ctl->lock);
 	pr_debug("commit ctl=%d play_cnt=%d\n", ctl->num, ctl->play_cnt);
-
-	ret = mutex_lock_interruptible(&ctl->lock);
-	if (ret)
-		return ret;
 
 	if (!ctl->power_on) {
 		mutex_unlock(&ctl->lock);
@@ -1631,6 +1688,36 @@ int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
 	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
 	return mixer_cnt;
+}
+
+/**
+ * @mdss_mdp_ctl_mixer_switch() - return ctl mixer of @return_type
+ * @ctl: Pointer to ctl structure to be switched.
+ * @return_type: wb_type of the ctl to be switched to.
+ *
+ * Virtual mixer switch should be performed only when there is no
+ * dedicated wfd block and writeback block is shared.
+ */
+struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
+					       u32 return_type)
+{
+	int i;
+	struct mdss_data_type *mdata = ctl->mdata;
+
+	if (ctl->wb_type == return_type) {
+		mdata->mixer_switched = false;
+		return ctl;
+	}
+	for (i = 0; i <= mdata->nctl; i++) {
+		if (mdata->ctl_off[i].wb_type == return_type) {
+			pr_debug("switching mixer from ctl=%d to ctl=%d\n",
+				 ctl->num, mdata->ctl_off[i].num);
+			mdata->mixer_switched = true;
+			return mdata->ctl_off + i;
+		}
+	}
+	pr_err("unable to switch mixer to type=%d\n", return_type);
+	return NULL;
 }
 
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
