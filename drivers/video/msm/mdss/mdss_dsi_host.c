@@ -1098,6 +1098,40 @@ void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata)
 	pr_debug("%s: BTA done, status = %d\n", __func__, status);
 }
 
+static char set_tear_on[2] = {0x35, 0x00};
+static struct dsi_cmd_desc dsi_tear_on_cmd = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_tear_on)}, set_tear_on};
+
+static char set_tear_off[2] = {0x34, 0x00};
+static struct dsi_cmd_desc dsi_tear_off_cmd = {
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(set_tear_off)}, set_tear_off};
+
+void mdss_dsi_set_tear_on(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct dcs_cmd_req cmdreq;
+
+	cmdreq.cmds = &dsi_tear_on_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
+void mdss_dsi_set_tear_off(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct dcs_cmd_req cmdreq;
+
+	cmdreq.cmds = &dsi_tear_off_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
 int mdss_dsi_cmd_reg_tx(u32 data,
 			unsigned char *ctrl_base)
 {
