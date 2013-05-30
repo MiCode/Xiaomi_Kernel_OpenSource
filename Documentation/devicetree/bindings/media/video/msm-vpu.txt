@@ -1,0 +1,55 @@
+* Qualcomm MSM VPU
+
+VPU (Video Processing Unit) applies high quality video post-processing
+functions like noise reduction, deinterlacing, scaling, etc in real-time
+on streaming video.
+
+
+Required properties:
+- compatible :
+    - "qti,vpu"
+- reg : Specify offset and length of the device register sets.
+- reg-names : Names corresponding to the defined register sets.
+    - "vpu_csr" : CSR registers
+    - "vpu_smem" : Shared memory
+- interrupts : Specify the vpu interrupts.
+- interrupt-names : Names corresponding to the defined interrupts list.
+    - "vpu_wdog" : Watchdog interrupt
+    - "vpu_hfi" : Firmware to Host interrupt
+
+- qti,maple-clk-load-freq-tbl: Table of <load, freq> entries. An entry
+  specifies a given VPU processing load (in bits per second), and a
+  corresponding clock frequency (in Hz) to set. Entries should be in ascending
+  order of load, and their number is variable. For maple clock.
+- qti,vdp-clk-load-freq-tbl: Same as above, for vdp clock.
+- qti,bus-clk-load-freq-tbl: Same as above, for bus clock.
+- qti,bus-load-vector-tbl: Vectors of <load, ab, ib>. The (ab,ib) pairs are
+  ddr bus bandwidths to be requested at corresponding video processing load.
+  Vectors should be in ascending order of load, and their number is variable.
+- qti,enabled-iommu-maps: List of IOMMU maps to be enabled, defined by name.
+    - "vpu_nonsecure" : IOMMU for accessing non-secure video buffers
+    - "vpu_secure" : IOMMU for accessing secure video buffers
+    - "vpu_firmware" : IOMMU for loading firmware image.
+- vdd-supply: regulator that supplies the vpu.
+
+
+Example:
+	qti,vpu@fdc00000 {
+		compatible = "qti,vpu";
+		reg = <0xfdc00000 0xff000>,
+			<0xbfe00000 0x100000>;
+		reg-names = "vpu_csr", "vpu_smem";
+		interrupts = <0 44 0>, <0 45 0>;
+		interrupt-names = "vpu_wdog", "vpu_hfi";
+		qti,maple-clk-load-freq-tbl = <100000 50000000>,
+			<500000 400000000>;
+		qti,vdp-clk-load-freq-tbl = <200000 100000000>,
+			<400000 320000000>;
+		qti,bus-clk-load-freq-tbl = <100000 40000000>,
+			<200000 80000000>;
+		qti,bus-load-vector-tbl = <0 0 0>,
+			<489600 536000 1600000>,
+			<979200 2024000 1600000>;
+		qti,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
+		vdd-supply = <&gdsc_vpu>;
+	};
