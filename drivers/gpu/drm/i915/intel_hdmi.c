@@ -693,12 +693,15 @@ static void intel_hdmi_prepare(struct intel_encoder *encoder)
 
 	if (intel_hdmi->pfit) {
 		u32 val = 0;
-		if (intel_hdmi->pfit == PILLAR_BOX)
-			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
-				PFIT_SCALING_PILLAR;
-		else if (intel_hdmi->pfit == LETTER_BOX)
-			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
-				PFIT_SCALING_LETTER;
+		if (intel_hdmi->pfit == AUTOSCALE)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+		if (intel_hdmi->pfit == PILLARBOX)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTERBOX)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 		DRM_DEBUG_DRIVER("pfit val = %x", val);
 
 		I915_WRITE(PFIT_CONTROL, val);
@@ -781,6 +784,7 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	u32 temp;
 	u32 enable_bits = SDVO_ENABLE;
 
@@ -809,12 +813,15 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 
 	if (intel_hdmi->pfit) {
 		u32 val = 0;
-		if (intel_hdmi->pfit == PILLAR_BOX)
-			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
-				PFIT_SCALING_PILLAR;
-		else if (intel_hdmi->pfit == LETTER_BOX)
-			val =  PFIT_ENABLE | (1 << PFIT_PIPE_SHIFT) |
-				PFIT_SCALING_LETTER;
+		if (intel_hdmi->pfit == AUTOSCALE)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+		if (intel_hdmi->pfit == PILLARBOX)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTERBOX)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 		DRM_DEBUG_DRIVER("pfit val = %x", val);
 
 		I915_WRITE(PFIT_CONTROL, val);

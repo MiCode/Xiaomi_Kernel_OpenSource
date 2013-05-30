@@ -562,9 +562,10 @@ struct intel_device_info {
 #undef SEP_SEMICOLON
 
 enum hdmi_panel_fitter {
-	AUTO_SCALE,
-	PILLAR_BOX,
-	LETTER_BOX,
+	PFIT_OFF,
+	AUTOSCALE,
+	PILLARBOX,
+	LETTERBOX,
 };
 
 enum i915_cache_level {
