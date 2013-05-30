@@ -551,6 +551,9 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 {
 	int result = 0;
 	unsigned long flags;
+	unsigned long consumer_flags;
+	bool state_changed = false;
+	bool release_consumer = false;
 	if (!resource || !depends_on)
 		return -EINVAL;
 	IPADBG("IPA RM: %s from %d to %d ENTER\n",
@@ -565,38 +568,59 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 	spin_lock_irqsave(&resource->state_lock, flags);
 	switch (resource->state) {
 	case IPA_RM_RELEASED:
+		break;
 	case IPA_RM_GRANTED:
+		release_consumer = true;
 		break;
 	case IPA_RM_RELEASE_IN_PROGRESS:
 		if (((struct ipa_rm_resource_prod *)
-				resource)->pending_release > 0)
-			((struct ipa_rm_resource_prod *)
+			resource)->pending_release > 0)
+				((struct ipa_rm_resource_prod *)
 					resource)->pending_release--;
+		spin_lock_irqsave(&depends_on->state_lock, consumer_flags);
+		if (depends_on->state == IPA_RM_RELEASE_IN_PROGRESS &&
+			((struct ipa_rm_resource_prod *)
+			resource)->pending_release == 0) {
+			resource->state = IPA_RM_RELEASED;
+			state_changed = true;
+		}
+		spin_unlock_irqrestore(&depends_on->state_lock, consumer_flags);
 		break;
 	case IPA_RM_REQUEST_IN_PROGRESS:
+		release_consumer = true;
 		if (((struct ipa_rm_resource_prod *)
-				resource)->pending_request > 0)
-			((struct ipa_rm_resource_prod *)
+			resource)->pending_request > 0)
+				((struct ipa_rm_resource_prod *)
 					resource)->pending_request--;
+		spin_lock_irqsave(&depends_on->state_lock, consumer_flags);
+		if (depends_on->state == IPA_RM_REQUEST_IN_PROGRESS &&
+			((struct ipa_rm_resource_prod *)
+				resource)->pending_request == 0) {
+			resource->state = IPA_RM_GRANTED;
+			state_changed = true;
+		}
+		spin_unlock_irqrestore(&depends_on->state_lock, consumer_flags);
 		break;
 	default:
 		result = -EINVAL;
 		spin_unlock_irqrestore(&resource->state_lock, flags);
 		goto bail;
 	}
-	spin_unlock_irqrestore(&resource->state_lock, flags);
-	if (ipa_rm_peers_list_has_last_peer(resource->peers_list)) {
+	if (state_changed &&
+		ipa_rm_peers_list_has_last_peer(resource->peers_list)) {
 		(void) ipa_rm_wq_send_cmd(IPA_RM_WQ_NOTIFY_PROD,
 				resource->name,
-				IPA_RM_RESOURCE_RELEASED);
+				resource->state);
 		result = -EINPROGRESS;
 	}
+	spin_unlock_irqrestore(&resource->state_lock, flags);
 	ipa_rm_peers_list_remove_peer(resource->peers_list,
 			depends_on->name);
 	ipa_rm_peers_list_remove_peer(depends_on->peers_list,
 			resource->name);
-	(void) ipa_rm_resource_consumer_release(
-			(struct ipa_rm_resource_cons *)depends_on);
+	if (release_consumer)
+		(void) ipa_rm_resource_consumer_release(
+				(struct ipa_rm_resource_cons *)depends_on);
 	IPADBG("IPA RM: %s from %d to %d SUCCESS\n",
 		__func__,
 		resource->name,
