@@ -212,7 +212,7 @@ char *mdss_dsi_buf_init(struct dsi_buf *dp)
 int mdss_dsi_buf_alloc(struct dsi_buf *dp, int size)
 {
 
-	dp->start = kmalloc(size, GFP_KERNEL);
+	dp->start = dma_alloc_writecombine(NULL, size, &dp->dmap, GFP_KERNEL);
 	if (dp->start == NULL) {
 		pr_err("%s:%u\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -1350,11 +1350,6 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	len = ALIGN(tp->len, 4);
 	size = ALIGN(tp->len, SZ_4K);
 
-	tp->dmap = dma_map_single(&dsi_dev, tp->data, size, DMA_TO_DEVICE);
-	if (dma_mapping_error(&dsi_dev, tp->dmap)) {
-		pr_err("%s: dmap mapp failed\n", __func__);
-		return -ENOMEM;
-	}
 
 	if (is_mdss_iommu_attached()) {
 		int ret = msm_iommu_map_contig_buffer(tp->dmap,
@@ -1399,8 +1394,6 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		msm_iommu_unmap_contig_buffer(addr,
 			mdss_get_iommu_domain(domain), 0, size);
 
-	dma_unmap_single(&dsi_dev, tp->dmap, size, DMA_TO_DEVICE);
-	tp->dmap = 0;
 	return tp->len;
 }
 
