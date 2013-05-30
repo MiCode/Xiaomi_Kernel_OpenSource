@@ -345,7 +345,6 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 
 int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 {
-	static int current_bus_idx;
 	int bus_idx;
 
 	if (mdss_res->bus_hdl < 1) {
@@ -359,9 +358,10 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 		int num_cases = mdp_bus_scale_table.num_usecases;
 		struct msm_bus_vectors *vect = NULL;
 
-		bus_idx = (current_bus_idx % (num_cases - 1)) + 1;
+		bus_idx = (mdss_res->current_bus_idx % (num_cases - 1)) + 1;
 
-		vect = mdp_bus_scale_table.usecase[current_bus_idx].vectors;
+		vect = mdp_bus_scale_table.usecase[mdss_res->current_bus_idx].
+			vectors;
 
 		/* avoid performing updates for small changes */
 		if ((ALIGN(ab_quota, SZ_64M) == ALIGN(vect->ab, SZ_64M)) &&
@@ -377,7 +377,7 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 		pr_debug("bus scale idx=%d ab=%llu ib=%llu\n", bus_idx,
 				vect->ab, vect->ib);
 	}
-	current_bus_idx = bus_idx;
+	mdss_res->current_bus_idx = bus_idx;
 	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, bus_idx);
 }
 
@@ -626,8 +626,14 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
-		if (!enable)
+		if (!enable) {
+			msm_bus_scale_client_update_request(
+				mdss_res->bus_hdl, 0);
 			pm_runtime_put(&mdata->pdev->dev);
+		} else {
+			msm_bus_scale_client_update_request(
+				mdss_res->bus_hdl, mdss_res->current_bus_idx);
+		}
 	}
 
 	mutex_unlock(&mdp_clk_lock);
