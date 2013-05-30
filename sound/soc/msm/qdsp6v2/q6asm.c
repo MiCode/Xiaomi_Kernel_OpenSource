@@ -408,7 +408,7 @@ void send_asm_custom_topology(struct audio_client *ac)
 
 	result = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (result < 0) {
+	if (!result) {
 		pr_err("%s: Set topologies failed payload = 0x%x\n",
 			__func__, cal_block.cal_paddr);
 		goto done;
