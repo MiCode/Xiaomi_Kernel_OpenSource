@@ -132,6 +132,7 @@ struct qce_sha_req {
 	bool last_blk;			/* last block indicator */
 	unsigned int size;		/* data length in bytes */
 	void *areq;
+	unsigned int  flags;
 };
 
 struct qce_req {
@@ -155,6 +156,7 @@ struct qce_req {
 	unsigned int cryptlen;		/* data length */
 	unsigned int use_pmem;		/* is source of data PMEM allocated? */
 	struct qcedev_pmem_info *pmem;	/* pointer to pmem_info structure*/
+	unsigned int  flags;
 };
 
 void *qce_open(struct platform_device *pdev, int *rc);

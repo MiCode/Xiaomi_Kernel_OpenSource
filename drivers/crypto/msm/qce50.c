@@ -33,6 +33,7 @@
 #include <mach/dma.h>
 #include <mach/clk.h>
 #include <mach/socinfo.h>
+#include <mach/qcrypto.h>
 
 #include "qce.h"
 #include "qce50.h"
@@ -460,28 +461,21 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		key_size = creq->encklen;
 
 	_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
-	pce = cmdlistinfo->go_proc;
-
-	/* check for null key. If null, use hw key*/
 	enck_size_in_word = key_size/sizeof(uint32_t);
-	for (i = 0; i < enck_size_in_word; i++) {
-		if (enckey32[i] != 0)
-			break;
-	}
-	if (i == enck_size_in_word) {
+
+	pce = cmdlistinfo->go_proc;
+	if ((creq->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
 		use_hw_key = true;
-		pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
-						pce_dev->phy_iobase);
-	}
-	if (use_hw_key == false) {
-		for (i = 0; i < enck_size_in_word; i++) {
-			if (enckey32[i] != 0xFFFFFFFF)
-				break;
-		}
-		if (i == enck_size_in_word)
+	} else {
+		if ((creq->flags & QCRYPTO_CTX_USE_PIPE_KEY) ==
+					QCRYPTO_CTX_USE_PIPE_KEY)
 			use_pipe_key = true;
 	}
-	if (use_hw_key == false)
+	pce = cmdlistinfo->go_proc;
+	if (use_hw_key == true)
+		pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
+						pce_dev->phy_iobase);
+	else
 		pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
 						pce_dev->phy_iobase);
 
@@ -622,11 +616,12 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 			}
 			/* write xts du size */
 			pce = cmdlistinfo->encr_xts_du_size;
-			if (use_pipe_key == true)
+			if (!(creq->flags & QCRYPTO_CTX_XTS_MASK))
+				pce->data = creq->cryptlen;
+			else
 				pce->data = min((unsigned int)QCE_SECTOR_SIZE,
 						creq->cryptlen);
-			else
-				pce->data = creq->cryptlen;
+
 		}
 		if (creq->mode !=  QCE_MODE_ECB) {
 			if (creq->mode ==  QCE_MODE_XTS)
@@ -920,21 +915,12 @@ static int _ce_setup_cipher_direct(struct qce_device *pce_dev,
 
 	_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
 
-	/* check for null key. If null, use hw key*/
 	enck_size_in_word = key_size/sizeof(uint32_t);
-	for (i = 0; i < enck_size_in_word; i++) {
-		if (enckey32[i] != 0)
-			break;
-	}
-	if (i == enck_size_in_word)
+	if ((creq->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
 		use_hw_key = true;
-
-	if (use_hw_key == false) {
-		for (i = 0; i < enck_size_in_word; i++) {
-			if (enckey32[i] != 0xFFFFFFFF)
-				break;
-		}
-		if (i == enck_size_in_word)
+	} else {
+		if ((creq->flags & QCRYPTO_CTX_USE_PIPE_KEY) ==
+					QCRYPTO_CTX_USE_PIPE_KEY)
 			use_pipe_key = true;
 	}
 
