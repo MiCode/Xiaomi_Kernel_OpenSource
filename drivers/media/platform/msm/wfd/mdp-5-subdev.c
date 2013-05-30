@@ -73,7 +73,7 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 	mops->cookie = inst;
 	return 0;
 mdp_secure_fail:
-	msm_fb_writeback_terminate(inst->mdp);
+	msm_fb_writeback_terminate(fbi);
 mdp_open_fail:
 	kfree(inst);
 	return rc;
@@ -83,17 +83,10 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = arg;
 	int rc = 0;
-	struct fb_info *fbi = NULL;
 	if (inst) {
 		rc = msm_fb_writeback_start(inst->mdp);
 		if (rc) {
 			WFD_MSG_ERR("Failed to start MDP mode\n");
-			goto exit;
-		}
-		fbi = msm_fb_get_writeback_fb();
-		if (!fbi) {
-			WFD_MSG_ERR("Failed to acquire mdp instance\n");
-			rc = -ENODEV;
 			goto exit;
 		}
 	}
@@ -105,7 +98,6 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = arg;
 	int rc = 0;
-	struct fb_info *fbi = NULL;
 	if (inst) {
 		rc = msm_fb_writeback_stop(inst->mdp);
 		if (rc) {
@@ -113,7 +105,6 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 			return rc;
 		}
 
-		fbi = (struct fb_info *)inst->mdp;
 	}
 	return 0;
 }
@@ -121,12 +112,10 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 static int mdp_close(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = arg;
-	struct fb_info *fbi = NULL;
 	if (inst) {
-		fbi = (struct fb_info *)inst->mdp;
 		if (inst->secure)
 			msm_fb_writeback_set_secure(inst->mdp, false);
-		msm_fb_writeback_terminate(fbi);
+		msm_fb_writeback_terminate(inst->mdp);
 		kfree(inst);
 	}
 	return 0;
