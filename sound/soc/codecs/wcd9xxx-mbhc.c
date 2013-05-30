@@ -1080,7 +1080,7 @@ static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x6, 0x0);
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.mbhc_reg, 0x80, 0x00);
+	__wcd9xxx_switch_micbias(mbhc, 0, false, false);
 
 	usleep_range(generic->t_shutdown_plug_rem,
 		     generic->t_shutdown_plug_rem);
@@ -1490,6 +1490,11 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 		 */
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADSET);
 		msleep(100);
+
+		/* if PA is already on, switch micbias source to VDDIO */
+		if (mbhc->event_state &
+		    (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR))
+			__wcd9xxx_switch_micbias(mbhc, 1, false, false);
 		wcd9xxx_start_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
@@ -3240,18 +3245,31 @@ wcd9xxx_event_to_micbias(const enum wcd9xxx_notify_event event)
 	enum wcd9xxx_micbias_num ret;
 	switch (event) {
 	case WCD9XXX_EVENT_PRE_MICBIAS_1_ON:
+	case WCD9XXX_EVENT_PRE_MICBIAS_1_OFF:
+	case WCD9XXX_EVENT_POST_MICBIAS_1_ON:
+	case WCD9XXX_EVENT_POST_MICBIAS_1_OFF:
 		ret = MBHC_MICBIAS1;
 		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_2_ON:
+	case WCD9XXX_EVENT_PRE_MICBIAS_2_OFF:
+	case WCD9XXX_EVENT_POST_MICBIAS_2_ON:
+	case WCD9XXX_EVENT_POST_MICBIAS_2_OFF:
 		ret = MBHC_MICBIAS2;
 		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_3_ON:
+	case WCD9XXX_EVENT_PRE_MICBIAS_3_OFF:
+	case WCD9XXX_EVENT_POST_MICBIAS_3_ON:
+	case WCD9XXX_EVENT_POST_MICBIAS_3_OFF:
 		ret = MBHC_MICBIAS3;
 		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_4_ON:
+	case WCD9XXX_EVENT_PRE_MICBIAS_4_OFF:
+	case WCD9XXX_EVENT_POST_MICBIAS_4_ON:
+	case WCD9XXX_EVENT_POST_MICBIAS_4_OFF:
 		ret = MBHC_MICBIAS4;
 		break;
 	default:
+		WARN_ONCE(1, "Cannot convert event %d to micbias\n", event);
 		ret = MBHC_MICBIAS_INVALID;
 		break;
 	}
@@ -3349,33 +3367,41 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 	case WCD9XXX_EVENT_POST_MICBIAS_4_OFF:
 		if (mbhc->mbhc_cfg->micbias ==
 		    wcd9xxx_event_to_micbias(event) &&
-		    wcd9xxx_is_hph_pa_on(codec))
+		    (mbhc->event_state &
+		     (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
 			wcd9xxx_switch_micbias(mbhc, 1);
 		break;
 	/* PA usage change */
 	case WCD9XXX_EVENT_PRE_HPHL_PA_ON:
+		set_bit(MBHC_EVENT_PA_HPHL, &mbhc->event_state);
 		if (!(snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg) & 0x80))
-			/* if micbias is enabled, switch to vddio */
+			/* if micbias is not enabled, switch to vddio */
 			wcd9xxx_switch_micbias(mbhc, 1);
 		break;
 	case WCD9XXX_EVENT_PRE_HPHR_PA_ON:
-		/* Not used now */
+		set_bit(MBHC_EVENT_PA_HPHR, &mbhc->event_state);
 		break;
 	case WCD9XXX_EVENT_POST_HPHL_PA_OFF:
+		clear_bit(MBHC_EVENT_PA_HPHL, &mbhc->event_state);
 		/* if HPH PAs are off, report OCP and switch back to CFILT */
 		clear_bit(WCD9XXX_HPHL_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
 		clear_bit(WCD9XXX_HPHL_DAC_OFF_ACK, &mbhc->hph_pa_dac_state);
 		if (mbhc->hph_status & SND_JACK_OC_HPHL)
 			hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
-		wcd9xxx_switch_micbias(mbhc, 0);
+		if (!(mbhc->event_state &
+		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
+			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	case WCD9XXX_EVENT_POST_HPHR_PA_OFF:
+		clear_bit(MBHC_EVENT_PA_HPHR, &mbhc->event_state);
 		/* if HPH PAs are off, report OCP and switch back to CFILT */
 		clear_bit(WCD9XXX_HPHR_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
 		clear_bit(WCD9XXX_HPHR_DAC_OFF_ACK, &mbhc->hph_pa_dac_state);
 		if (mbhc->hph_status & SND_JACK_OC_HPHR)
 			hphrocp_off_report(mbhc, SND_JACK_OC_HPHL);
-		wcd9xxx_switch_micbias(mbhc, 0);
+		if (!(mbhc->event_state &
+		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
+			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	/* Clock usage change */
 	case WCD9XXX_EVENT_PRE_MCLK_ON:
