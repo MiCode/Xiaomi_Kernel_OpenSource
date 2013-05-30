@@ -931,6 +931,73 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 EXPORT_SYMBOL(ipa_cfg_ep_route);
 
 /**
+ * ipa_cfg_ep_holb() - IPA end-point holb configuration
+ *
+ * If an IPA producer pipe is full, IPA HW by default will block
+ * indefinitely till space opens up. During this time no packets
+ * including those from unrelated pipes will be processed. Enabling
+ * HOLB means IPA HW will be allowed to drop packets as/when needed
+ * and indefinite blocking is avoided.
+ *
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			ipa_ep_cfg == NULL || ipa_ep_cfg->tmr_val > 511 ||
+			ipa_ep_cfg->en > 1) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	if (IPA_CLIENT_IS_PROD(ipa_ctx->ep[clnt_hdl].client)) {
+		IPAERR("HOLB does not apply to IPA in EP %d\n", clnt_hdl);
+		return -EINVAL;
+	}
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		IPAERR("per EP HOLB not supported\n");
+		return -EPERM;
+	} else {
+		ipa_ctx->ep[clnt_hdl].holb = *ipa_ep_cfg;
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(clnt_hdl),
+			ipa_ep_cfg->en);
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(clnt_hdl),
+			ipa_ep_cfg->tmr_val);
+		IPAERR("cfg holb %u ep=%d tmr=%d\n", ipa_ep_cfg->en, clnt_hdl,
+				ipa_ep_cfg->tmr_val);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_holb);
+
+/**
+ * ipa_cfg_ep_holb_by_client() - IPA end-point holb configuration
+ *
+ * Wrapper function for ipa_cfg_ep_holb() with client name instead of
+ * client handle. This function is used for clients that does not have
+ * client handle.
+ *
+ * @client:	[in] client name
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
+				const struct ipa_ep_cfg_holb *ipa_ep_cfg)
+{
+	return ipa_cfg_ep_holb(ipa_get_ep_mapping(ipa_ctx->mode, client),
+			       ipa_ep_cfg);
+}
+EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
+
+/**
  * ipa_dump_buff_internal() - dumps buffer for debug purposes
  * @base: buffer base address
  * @phy_base: buffer physical base address

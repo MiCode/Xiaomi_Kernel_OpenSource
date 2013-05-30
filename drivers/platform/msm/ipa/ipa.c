@@ -50,12 +50,6 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
-/*
- * This equals a timer value of 162.56us. This value was
- * determined empirically and shows good bi-directional
- * WLAN throughputs
- */
-#define IPA_HOLB_TMR_DEFAULT_VAL 0x7f
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -1603,8 +1597,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENOMEM;
 		goto fail_mem;
 	}
-	ipa_ctx->hol_en = 0x1;
-	ipa_ctx->hol_timer = IPA_HOLB_TMR_DEFAULT_VAL;
 
 	IPADBG("polling_mode=%u delay_ms=%u\n", polling_mode, polling_delay_ms);
 	ipa_ctx->polling_mode = polling_mode;
