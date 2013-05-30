@@ -602,6 +602,13 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	}
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
 
+	if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+		if (mipi->vsync_enable && mipi->hw_vsync_mode
+			&& gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+				mdss_dsi_set_tear_on(ctrl_pdata);
+		}
+	}
+
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -610,6 +617,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
+	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	pr_debug("%s+:\n", __func__);
@@ -621,8 +629,16 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+	mipi = &pdata->panel_info.mipi;
 
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
+
+	if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+		if (mipi->vsync_enable && mipi->hw_vsync_mode
+			&& gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+			mdss_dsi_set_tear_off(ctrl_pdata);
+		}
+	}
 
 	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 		ret = ctrl_pdata->off(pdata);
