@@ -494,6 +494,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->overfetch_disable = fmt->is_yuv &&
 			!(pipe->flags & MDP_SOURCE_ROTATED_90);
 
+	req->id = pipe->ndx;
 	pipe->req_data = *req;
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
@@ -576,7 +577,6 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	pipe->params_changed++;
 
-	req->id = pipe->ndx;
 	req->vert_deci = pipe->vert_deci;
 
 	*ppipe = pipe;
@@ -766,7 +766,11 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe, *next;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_mdp_ctl *tmp;
 	int ret;
+
+	if (ctl->shared_lock)
+		mutex_lock(ctl->shared_lock);
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
@@ -775,12 +779,44 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 	if (ret) {
 		mutex_unlock(&mfd->lock);
 		mutex_unlock(&mdp5_data->ov_lock);
+		if (ctl->shared_lock)
+			mutex_unlock(ctl->shared_lock);
 		return ret;
 	}
 
 	list_for_each_entry_safe(pipe, next, &mdp5_data->pipes_used,
 			used_list) {
 		struct mdss_mdp_data *buf;
+		/*
+		 * When external is connected and no dedicated wfd is present,
+		 * reprogram DMA pipe before kickoff to clear out any previous
+		 * block mode configuration.
+		 */
+		if ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
+		    (ctl->shared_lock && !ctl->mdata->has_wfd_blk)) {
+			if (ctl->mdata->mixer_switched) {
+				ret = mdss_mdp_overlay_pipe_setup(mfd,
+						&pipe->req_data, &pipe);
+				pr_debug("reseting DMA pipe for ctl=%d",
+					 ctl->num);
+			}
+			if (ret) {
+				pr_err("can't reset DMA pipe ret=%d ctl=%d\n",
+					ret, ctl->num);
+				mutex_unlock(&mfd->lock);
+				goto commit_fail;
+			}
+
+			tmp = mdss_mdp_ctl_mixer_switch(ctl,
+					MDSS_MDP_WB_CTL_TYPE_LINE);
+			if (!tmp) {
+				mutex_unlock(&mfd->lock);
+				ret = -EINVAL;
+				goto commit_fail;
+			}
+			pipe->mixer = mdss_mdp_mixer_get(tmp,
+					MDSS_MDP_MIXER_MUX_DEFAULT);
+		}
 		if (pipe->back_buf.num_planes) {
 			buf = &pipe->back_buf;
 		} else if (ctl->play_cnt == 0) {
@@ -831,6 +867,8 @@ commit_fail:
 	mdss_mdp_overlay_cleanup(mfd);
 
 	mutex_unlock(&mdp5_data->ov_lock);
+	if (ctl->shared_lock)
+		mutex_unlock(ctl->shared_lock);
 
 	return ret;
 }
