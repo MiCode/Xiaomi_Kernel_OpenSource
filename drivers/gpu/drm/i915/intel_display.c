@@ -2106,6 +2106,21 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 
 	I915_WRITE(reg, val | PIPECONF_ENABLE);
 	POSTING_READ(reg);
+
+	/* disable the sprite planes */
+	if (IS_VALLEYVIEW(dev_priv->dev)) {
+		int i;
+		for (i = 0; i < VLV_NUM_SPRITES; i++) {
+			val = I915_READ(SPCNTR(pipe, i));
+			if ((val & SP_ENABLE) == 0)
+				break;
+
+			I915_WRITE(SPCNTR(pipe, i), (val & ~SP_ENABLE));
+			/* Activate double buffered register update */
+			I915_WRITE(SPSURF(pipe, i), 0);
+			POSTING_READ(SPSURF(pipe, i));
+		}
+	}
 }
 
 /**
