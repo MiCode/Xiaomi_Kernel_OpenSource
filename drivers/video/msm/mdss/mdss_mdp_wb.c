@@ -527,7 +527,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		goto kickoff_fail;
 	}
 
-	ret = mdss_mdp_display_commit(ctl, &wb_args);
+	ret = mdss_mdp_writeback_display_commit(ctl, &wb_args);
 	if (ret) {
 		pr_err("error on commit ctl=%d\n", ctl->num);
 		goto kickoff_fail;

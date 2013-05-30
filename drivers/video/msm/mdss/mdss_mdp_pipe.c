@@ -269,12 +269,13 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 }
 
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
-						u32 type)
+						u32 type, u32 off)
 {
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_pipe *pipe_pool = NULL;
 	u32 npipes;
+	bool pipe_share = false;
 	u32 i;
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
@@ -296,6 +297,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		pipe_pool = mdata->dma_pipes;
 		npipes = mdata->ndma_pipes;
+		if (!mdata->has_wfd_blk &&
+		   (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK))
+			pipe_share = true;
 		break;
 
 	default:
@@ -304,7 +308,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		break;
 	}
 
-	for (i = 0; i < npipes; i++) {
+	for (i = off; i < npipes; i++) {
 		pipe = pipe_pool + i;
 		if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
 			pipe->mixer = mixer;
@@ -317,6 +321,14 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
 		mutex_init(&pipe->pp_res.hist.hist_mutex);
 		spin_lock_init(&pipe->pp_res.hist.hist_lock);
+	} else if (pipe_share) {
+		/*
+		 * when there is no dedicated wfd blk, DMA pipe can be
+		 * shared as long as its attached to a writeback mixer
+		 */
+		pipe = mdata->dma_pipes + mixer->num;
+		mdss_mdp_pipe_map(pipe);
+		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
 	} else {
 		pr_err("no %d type pipes available\n", type);
 	}
@@ -328,20 +340,20 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	struct mdss_data_type *mdata;
-	u32 pnum;
 
 	mutex_lock(&mdss_mdp_sspp_lock);
 	mdata = mixer->ctl->mdata;
-	pnum = mixer->num;
-
-	if (atomic_cmpxchg(&((mdata->dma_pipes[pnum]).ref_cnt), 0, 1) == 0) {
-		pipe = &mdata->dma_pipes[pnum];
-		pipe->mixer = mixer;
-
+	pipe = mdss_mdp_pipe_init(mixer, MDSS_MDP_PIPE_TYPE_DMA, mixer->num);
+	if (!pipe) {
+		pr_err("DMA pipes not available for mixer=%d\n", mixer->num);
+	} else if (pipe != &mdata->dma_pipes[mixer->num]) {
+		pr_err("Requested DMA pnum=%d not available\n",
+			mdata->dma_pipes[mixer->num].num);
+		mdss_mdp_pipe_unmap(pipe);
+		pipe = NULL;
 	} else {
-		pr_err("DMA pnum%d\t not available\n", pnum);
+		pipe->mixer = mixer;
 	}
-
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
@@ -351,7 +363,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 {
 	struct mdss_mdp_pipe *pipe;
 	mutex_lock(&mdss_mdp_sspp_lock);
-	pipe = mdss_mdp_pipe_init(mixer, type);
+	pipe = mdss_mdp_pipe_init(mixer, type, 0);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
@@ -633,13 +645,14 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 {
 	int ret = 0;
 	u32 params_changed, opmode;
+	struct mdss_mdp_ctl *ctl;
 
 	if (!pipe) {
 		pr_err("pipe not setup properly for queue\n");
 		return -ENODEV;
 	}
 
-	if (!pipe->mixer) {
+	if (!pipe->mixer || !pipe->mixer->ctl) {
 		pr_err("pipe mixer not setup properly for queue\n");
 		return -ENODEV;
 	}
@@ -648,8 +661,16 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		 pipe->mixer->num, pipe->play_cnt);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-
-	params_changed = pipe->params_changed;
+	ctl = pipe->mixer->ctl;
+	/*
+	 * Reprogram the pipe when there is no dedicated wfd blk and
+	 * virtual mixer is allocated for the DMA pipe during concurrent
+	 * line and block mode operations
+	 */
+	params_changed = (pipe->params_changed) ||
+			 ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
+			 (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
+			 && (ctl->mdata->mixer_switched));
 	if (src_data == NULL) {
 		mdss_mdp_pipe_solidfill_setup(pipe);
 		goto update_nobuf;
