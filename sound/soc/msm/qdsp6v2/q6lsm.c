@@ -83,6 +83,13 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 		return -EINVAL;
 	}
 
+	if (data->opcode == RESET_EVENTS) {
+		pr_debug("%s: SSR event received 0x%x, event 0x%x, proc 0x%x\n",
+			 __func__, data->opcode, data->reset_event,
+			 data->reset_proc);
+		return 0;
+	}
+
 	payload = data->payload;
 	pr_debug("%s: Session %d opcode 0x%x token 0x%x payload size %d\n",
 		__func__, client->session,
@@ -649,12 +656,21 @@ static struct lsm_client *q6lsm_get_lsm_client(int session_id)
 static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv)
 {
 	unsigned long flags;
-	uint32_t sid = 0;
+	uint32_t command;
+	uint32_t retcode;
+	uint32_t sid;
 	const uint32_t *payload = data->payload;
-	const uint32_t command = payload[0];
-	const uint32_t retcode = payload[1];
 	struct lsm_client *client = NULL;
 
+	if (data->opcode == RESET_EVENTS) {
+		pr_debug("%s: SSR event received 0x%x, event 0x%x, proc 0x%x\n",
+			 __func__, data->opcode, data->reset_event,
+			 data->reset_proc);
+		return 0;
+	}
+
+	command = payload[0];
+	retcode = payload[1];
 	pr_debug("%s: opcode 0x%x command 0x%x return code 0x%x\n", __func__,
 		 data->opcode, command, retcode);
 
