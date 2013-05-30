@@ -322,7 +322,7 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 #define TAIKO_SLIM_IRQ_UNDERFLOW (1 << 1)
 #define TAIKO_SLIM_IRQ_PORT_CLOSED (1 << 2)
 #define TAIKO_MCLK_CLK_12P288MHZ 12288000
-#define TAIKO_MCLK_CLK_9P6HZ 9600000
+#define TAIKO_MCLK_CLK_9P6MHZ 9600000
 
 #define TAIKO_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FORMAT_S24_LE)
@@ -5725,7 +5725,7 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	snd_soc_update_bits(codec, TAIKO_A_MICB_4_CTL, 0x1E, value);
 
 	/* Set the DMIC sample rate */
-	if (pdata->mclk_rate == TAIKO_MCLK_CLK_9P6HZ) {
+	if (pdata->mclk_rate == TAIKO_MCLK_CLK_9P6MHZ) {
 		switch (pdata->dmic_sample_rate) {
 		case TAIKO_DMIC_SAMPLE_RATE_2P4MHZ:
 			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_4;
@@ -6148,6 +6148,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	int ret = 0;
 	struct snd_soc_codec *codec;
 	struct taiko_priv *taiko;
+	int rco_clk_rate;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	taiko = snd_soc_codec_get_drvdata(codec);
@@ -6178,9 +6179,16 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	if (taiko->mbhc_started) {
 		wcd9xxx_mbhc_deinit(&taiko->mbhc);
 		taiko->mbhc_started = false;
+
+		if (TAIKO_IS_1_0(wcd9xxx->version))
+			rco_clk_rate = TAIKO_MCLK_CLK_12P288MHZ;
+		else
+			rco_clk_rate = TAIKO_MCLK_CLK_9P6MHZ;
+
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 					taiko_enable_mbhc_micbias,
-					WCD9XXX_MBHC_VERSION_TAIKO);
+					WCD9XXX_MBHC_VERSION_TAIKO,
+					rco_clk_rate);
 		if (ret) {
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		} else {
@@ -6312,7 +6320,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx *wcd9xxx;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
-	int i;
+	int i, rco_clk_rate;
 	void *ptr = NULL;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 
@@ -6350,10 +6358,16 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	taiko->clsh_d.buck_mv = taiko_codec_get_buck_mv(codec);
 	wcd9xxx_clsh_init(&taiko->clsh_d, &taiko->resmgr);
 
+	if (TAIKO_IS_1_0(core->version))
+		rco_clk_rate = TAIKO_MCLK_CLK_12P288MHZ;
+	else
+		rco_clk_rate = TAIKO_MCLK_CLK_9P6MHZ;
+
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 				taiko_enable_mbhc_micbias,
-				WCD9XXX_MBHC_VERSION_TAIKO);
+				WCD9XXX_MBHC_VERSION_TAIKO,
+				rco_clk_rate);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_init;
@@ -6374,7 +6388,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
 	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
 		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x0);
-	else if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_9P6HZ)
+	else if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_9P6MHZ)
 		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x2);
 	taiko_codec_init_reg(codec);
 	ret = taiko_handle_pdata(taiko);

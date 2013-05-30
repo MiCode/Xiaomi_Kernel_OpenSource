@@ -74,7 +74,6 @@
 
 #define MCLK_RATE_12288KHZ 12288000
 #define MCLK_RATE_9600KHZ 9600000
-#define WCD9XXX_RCO_CLK_RATE MCLK_RATE_12288KHZ
 
 #define DEFAULT_DCE_STA_WAIT 55
 #define DEFAULT_DCE_WAIT 60000
@@ -3586,7 +3585,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 		snd_soc_update_bits(codec, WCD9XXX_A_TX_COM_BIAS, 1 << 4,
 				    0 << 4);
 		/* Re-calibrate clock rate dependent values */
-		wcd9xxx_update_mbhc_clk_rate(mbhc, WCD9XXX_RCO_CLK_RATE);
+		wcd9xxx_update_mbhc_clk_rate(mbhc, mbhc->rco_clk_rate);
 		/* If clock source changes, stop and restart polling */
 		if (wcd9xxx_mbhc_polling(mbhc)) {
 			wcd9xxx_calibrate_hs_polling(mbhc);
@@ -3654,7 +3653,8 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		      struct snd_soc_codec *codec,
 		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
-		      int version)
+		      int version,
+		      int rco_clk_rate)
 {
 	int ret;
 	void *core;
@@ -3679,6 +3679,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->resmgr->mbhc = mbhc;
 	mbhc->micbias_enable_cb = micbias_enable_cb;
 	mbhc->mbhc_version = version;
+	mbhc->rco_clk_rate = rco_clk_rate;
 
 	if (mbhc->headset_jack.jack == NULL) {
 		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,
