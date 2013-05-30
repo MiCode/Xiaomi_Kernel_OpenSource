@@ -351,7 +351,7 @@ err_same_state:
 	return rc;
 }
 
-static void queue_v4l2_event(struct msm_vidc_inst *inst, int event_type)
+void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type)
 {
 	struct v4l2_event event = {.id = 0, .type = event_type};
 	v4l2_event_queue_fh(&inst->event_handler, &event);
@@ -367,7 +367,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->lock);
 	inst->session = NULL;
 	inst->state = MSM_VIDC_CORE_INVALID;
-	queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 	mutex_unlock(&inst->lock);
 }
 
@@ -443,7 +443,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 		}
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
-			queue_v4l2_event(inst, event);
+			msm_vidc_queue_v4l2_event(inst, event);
 		}
 
 		return;
@@ -537,7 +537,7 @@ static void handle_session_flush(enum command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
-		queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
+		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 	} else {
 		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
 	}
@@ -555,7 +555,8 @@ static void handle_session_error(enum command_response cmd, void *data)
 			mutex_lock(&inst->sync_lock);
 			inst->state = MSM_VIDC_CORE_INVALID;
 			mutex_unlock(&inst->sync_lock);
-			queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+			msm_vidc_queue_v4l2_event(inst,
+					V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 		}
 	} else {
 		dprintk(VIDC_ERR,
@@ -594,7 +595,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 				}
 				inst->session = NULL;
 				mutex_unlock(&inst->lock);
-				queue_v4l2_event(inst,
+				msm_vidc_queue_v4l2_event(inst,
 						V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 			}
 		} else {
@@ -626,7 +627,8 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 	mutex_unlock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst) {
-			queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+			msm_vidc_queue_v4l2_event(inst,
+					V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 			mutex_lock(&inst->lock);
 			inst->state = MSM_VIDC_CORE_INVALID;
 			if (inst->core)
@@ -2243,7 +2245,8 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 			}
 		}
 	}
-	queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
+
+	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 	return;
 }
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
@@ -2449,7 +2452,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;
 	int rc = 0;
-	struct v4l2_event dqevent;
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -2478,9 +2480,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		mutex_lock(&inst->sync_lock);
 		inst->state = MSM_VIDC_CORE_INVALID;
 		mutex_unlock(&inst->sync_lock);
-		dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
-		dqevent.id = 0;
-		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 		wake_up(&inst->kernel_event_queue);
 	}
 	return rc;

@@ -254,4 +254,6 @@ void handle_cmd_response(enum command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
+void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
+
 #endif
