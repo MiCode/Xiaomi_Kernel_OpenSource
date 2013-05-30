@@ -1855,7 +1855,6 @@ int msm_venc_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 {
 	int rc = 0;
-	struct v4l2_event dqevent = {0};
 	struct msm_vidc_core *core;
 	core = inst->core;
 	switch (enc->cmd) {
@@ -1865,8 +1864,8 @@ int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 	case V4L2_ENC_CMD_STOP:
 		if (inst->state == MSM_VIDC_CORE_INVALID ||
 			core->state == VIDC_CORE_INVALID) {
-			dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
-			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+			msm_vidc_queue_v4l2_event(inst,
+					V4L2_EVENT_MSM_VIDC_CLOSE_DONE);
 			return rc;
 		}
 		rc = msm_comm_release_scratch_buffers(inst);
@@ -1881,8 +1880,7 @@ int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 		/* Clients rely on this event for joining poll thread.
 		 * This event should be returned even if firmware has
 		 * failed to respond */
-		dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
-		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_CLOSE_DONE);
 		break;
 	}
 	if (rc)
