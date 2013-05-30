@@ -84,7 +84,7 @@
 #define VDDIO_MICBIAS_MV 1800
 
 #define WCD9XXX_HPHL_STATUS_READY_WAIT_US 1000
-#define WCD9XXX_MUX_SWITCH_READY_WAIT_US 100
+#define WCD9XXX_MUX_SWITCH_READY_WAIT_MS 50
 #define WCD9XXX_MEAS_DELTA_MAX_MV 50
 #define WCD9XXX_MEAS_INVALD_RANGE_LOW_MV 20
 #define WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV 80
@@ -2824,9 +2824,11 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	usleep_range(WCD9XXX_MUX_SWITCH_READY_WAIT_US,
-		     WCD9XXX_MUX_SWITCH_READY_WAIT_US +
-		     WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	/*
+	 * Hardware that has external cap can delay mic bias ramping down up
+	 * to 50ms.
+	 */
+	msleep(WCD9XXX_MUX_SWITCH_READY_WAIT_MS);
 	/* DCE measurement for 0 voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
@@ -2846,7 +2848,11 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	usleep_range(100, 100);
+	/*
+	 * Hardware that has external cap can delay mic bias ramping down up
+	 * to 50ms.
+	 */
+	msleep(WCD9XXX_MUX_SWITCH_READY_WAIT_MS);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x04);
 	usleep_range(mbhc->mbhc_data.t_dce, mbhc->mbhc_data.t_dce);
 	mbhc->mbhc_data.dce_mb = wcd9xxx_read_dce_result(codec);
@@ -2859,7 +2865,11 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	usleep_range(100, 100);
+	/*
+	 * Hardware that has external cap can delay mic bias ramping down up
+	 * to 50ms.
+	 */
+	msleep(WCD9XXX_MUX_SWITCH_READY_WAIT_MS);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	usleep_range(mbhc->mbhc_data.t_sta, mbhc->mbhc_data.t_sta);
 	mbhc->mbhc_data.sta_mb = wcd9xxx_read_sta_result(codec);
