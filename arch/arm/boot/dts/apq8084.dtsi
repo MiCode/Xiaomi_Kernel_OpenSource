@@ -26,6 +26,7 @@
 /include/ "apq8084-coresight.dtsi"
 /include/ "apq8084-mdss.dtsi"
 /include/ "apq8084-gpu.dtsi"
+/include/ "apq8084-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -359,6 +360,14 @@
 		reg = <0xfc4be024 0x8>;
 		reg-names = "fuse-base";
 	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone; /* TODO: remove this after bring up */
+	};
+
 };
 
 &gdsc_venus {
