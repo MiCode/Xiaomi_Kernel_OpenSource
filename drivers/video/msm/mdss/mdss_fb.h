@@ -50,6 +50,7 @@ struct disp_info_notify {
 	struct timer_list timer;
 	struct completion comp;
 	struct mutex lock;
+	int value;
 };
 
 struct msm_fb_data_type;
@@ -150,6 +151,7 @@ struct msm_fb_backup_type {
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 {
+	mfd->update.value = NOTIFY_TYPE_UPDATE;
 	complete(&mfd->update.comp);
 	mutex_lock(&mfd->no_update.lock);
 	if (mfd->no_update.timer.function)
