@@ -119,6 +119,7 @@ struct mdss_data_type {
 	struct mdss_iommu_map_type *iommu_map;
 
 	void *debug_data;
+	int current_bus_idx;
 };
 extern struct mdss_data_type *mdss_res;
 
