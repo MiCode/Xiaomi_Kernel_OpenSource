@@ -94,8 +94,7 @@ const char *ipa_event_name[] = {
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
-static struct dentry *dfile_ep_hol_en;
-static struct dentry *dfile_ep_hol_timer;
+static struct dentry *dfile_ep_holb;
 static struct dentry *dfile_hdr;
 static struct dentry *dfile_ip4_rt;
 static struct dentry *dfile_ip6_rt;
@@ -147,11 +146,15 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
-static ssize_t ipa_write_ep_hol_en_reg(struct file *file,
+static ssize_t ipa_write_ep_holb(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
-	u32 endp_reg_val;
+	struct ipa_ep_cfg_holb holb;
+	u32 en;
+	u32 tmr_val;
+	u32 ep_idx;
 	unsigned long missing;
+	char *sptr, *token;
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -161,40 +164,31 @@ static ssize_t ipa_write_ep_hol_en_reg(struct file *file,
 		return -EFAULT;
 
 	dbg_buff[count] = '\0';
-	if (kstrtou32(dbg_buff, 16, &endp_reg_val))
-		return -EFAULT;
 
-	ipa_write_reg(ipa_ctx->mmio,
-		IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(ep_reg_idx),
-		endp_reg_val);
+	sptr = dbg_buff;
 
-	ipa_ctx->hol_en = endp_reg_val;
+	token = strsep(&sptr, " ");
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &ep_idx))
+		return -EINVAL;
 
-	return count;
-}
+	token = strsep(&sptr, " ");
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &en))
+		return -EINVAL;
 
-static ssize_t ipa_write_ep_hol_timer_reg(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos)
-{
-	u32 endp_reg_val;
-	unsigned long missing;
+	token = strsep(&sptr, " ");
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &tmr_val))
+		return -EINVAL;
 
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
+	holb.en = en;
+	holb.tmr_val = tmr_val;
 
-	missing = copy_from_user(dbg_buff, buf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtou32(dbg_buff, 16, &endp_reg_val))
-		return -EFAULT;
-
-	ipa_write_reg(ipa_ctx->mmio,
-		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(ep_reg_idx),
-		endp_reg_val);
-
-	ipa_ctx->hol_timer = endp_reg_val;
+	ipa_cfg_ep_holb(ep_idx, &holb);
 
 	return count;
 }
@@ -964,11 +958,8 @@ const struct file_operations ipa_ep_reg_ops = {
 	.write = ipa_write_ep_reg,
 };
 
-const struct file_operations ipa_ep_hol_en_ops = {
-	.write = ipa_write_ep_hol_en_reg,
-};
-const struct file_operations ipa_ep_hol_timer_ops = {
-	.write = ipa_write_ep_hol_timer_reg,
+const struct file_operations ipa_ep_holb_ops = {
+	.write = ipa_write_ep_holb,
 };
 
 const struct file_operations ipa_hdr_ops = {
@@ -1029,17 +1020,10 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
-	dfile_ep_hol_en = debugfs_create_file("hol_en", write_only_mode, dent,
-			0, &ipa_ep_hol_en_ops);
-	if (!dfile_ep_hol_en || IS_ERR(dfile_ep_hol_en)) {
+	dfile_ep_holb = debugfs_create_file("holb", write_only_mode, dent,
+			0, &ipa_ep_holb_ops);
+	if (!dfile_ep_holb || IS_ERR(dfile_ep_holb)) {
 		IPAERR("fail to create file for debug_fs dfile_ep_hol_en\n");
-		goto fail;
-	}
-
-	dfile_ep_hol_timer = debugfs_create_file("hol_timer", write_only_mode,
-			dent, 0, &ipa_ep_hol_timer_ops);
-	if (!dfile_ep_hol_timer || IS_ERR(dfile_ep_hol_timer)) {
-		IPAERR("fail to create file for debug_fs dfile_ep_hol_timer\n");
 		goto fail;
 	}
 
