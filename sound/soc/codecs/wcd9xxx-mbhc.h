@@ -34,6 +34,12 @@ enum mbhc_v_index {
 	MBHC_V_IDX_NUM,
 };
 
+enum mbhc_cal_type {
+	MBHC_CAL_MCLK,
+	MBHC_CAL_RCO,
+	MBHC_CAL_NUM,
+};
+
 /* Data used by MBHC */
 struct mbhc_internal_cal_data {
 	u16 dce_z;
