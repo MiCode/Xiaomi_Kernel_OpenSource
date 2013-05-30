@@ -4271,9 +4271,6 @@ static const struct tapan_reg_mask_val tapan_reg_defaults[] = {
 	 */
 	TAPAN_REG_VAL(TAPAN_A_MICB_2_MBHC, 0x41),
 
-	/* not needed if MBHC is not needed */
-	/* Disable TX7 internal biasing path which can cause leakage */
-	TAPAN_REG_VAL(TAPAN_A_TX_SUP_SWITCH_CTRL_1, 0xBF),
 };
 
 static const struct tapan_reg_mask_val tapan_2_x_reg_reset_values[] = {
