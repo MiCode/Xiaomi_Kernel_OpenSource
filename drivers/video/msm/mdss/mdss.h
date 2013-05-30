@@ -122,6 +122,7 @@ struct mdss_data_type {
 	struct early_suspend early_suspend;
 	void *debug_data;
 	int current_bus_idx;
+	bool mixer_switched;
 };
 extern struct mdss_data_type *mdss_res;
 
