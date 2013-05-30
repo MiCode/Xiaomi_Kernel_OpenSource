@@ -50,7 +50,7 @@
 #define MSMFB_HISTOGRAM_START	_IOR(MSMFB_IOCTL_MAGIC, 144, \
 						struct mdp_histogram_start_req)
 #define MSMFB_HISTOGRAM_STOP	_IOR(MSMFB_IOCTL_MAGIC, 145, unsigned int)
-#define MSMFB_NOTIFY_UPDATE	_IOW(MSMFB_IOCTL_MAGIC, 146, unsigned int)
+#define MSMFB_NOTIFY_UPDATE	_IOWR(MSMFB_IOCTL_MAGIC, 146, unsigned int)
 
 #define MSMFB_OVERLAY_3D       _IOWR(MSMFB_IOCTL_MAGIC, 147, \
 						struct msmfb_overlay_3d)
@@ -87,6 +87,12 @@
 enum {
 	NOTIFY_UPDATE_START,
 	NOTIFY_UPDATE_STOP,
+};
+
+enum {
+	NOTIFY_TYPE_NO_UPDATE,
+	NOTIFY_TYPE_SUSPEND,
+	NOTIFY_TYPE_UPDATE,
 };
 
 enum {
