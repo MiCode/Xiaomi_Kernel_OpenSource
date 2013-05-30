@@ -96,13 +96,14 @@ void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
 	if (!mfd)
 		pr_err("%s mfd NULL\n", __func__);
+	mfd->no_update.value = NOTIFY_TYPE_NO_UPDATE;
 	complete(&mfd->no_update.comp);
 }
 
 static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 							unsigned long *argp)
 {
-	int ret, notify;
+	int ret, notify, to_user;
 
 	ret = copy_from_user(&notify, argp, sizeof(int));
 	if (ret) {
@@ -117,14 +118,18 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		INIT_COMPLETION(mfd->update.comp);
 		ret = wait_for_completion_interruptible_timeout(
 						&mfd->update.comp, 4 * HZ);
+		to_user = mfd->update.value;
 	} else {
 		INIT_COMPLETION(mfd->no_update.comp);
 		ret = wait_for_completion_interruptible_timeout(
 						&mfd->no_update.comp, 4 * HZ);
+		to_user = mfd->no_update.value;
 	}
 	if (ret == 0)
 		ret = -ETIMEDOUT;
-	return (ret > 0) ? 0 : ret;
+	else
+		ret = copy_to_user(argp, &to_user, sizeof(int));
+	return ret;
 }
 
 static int lcd_backlight_registered;
@@ -617,6 +622,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			int curr_pwr_state;
 
 			del_timer(&mfd->no_update.timer);
+			mfd->no_update.value = NOTIFY_TYPE_SUSPEND;
 			complete(&mfd->no_update.comp);
 
 			mfd->op_enable = false;
