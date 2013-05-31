@@ -562,6 +562,7 @@ void __init msm_map_mpq8092_io(void)
 {
 	msm_shared_ram_phys = MPQ8092_MSM_SHARED_RAM_PHYS;
 	msm_map_io(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MPQ8092 */
 
