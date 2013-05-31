@@ -108,6 +108,12 @@ static const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata aspect ratio",
 };
 
+static const char *const perf_level[] = {
+	"Nominal",
+	"Performance",
+	"Turbo"
+};
+
 enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_QP = 1 << 0,
 	MSM_VENC_CTRL_CLUSTER_INTRA_PERIOD = 1 << 1,
@@ -663,6 +669,19 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED,
 		.default_value =
 			V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL,
+		.name = "Encoder Performance Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL,
+		.maximum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO,
+		.default_value = V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL,
+		.menu_skip_mask = ~(
+			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL) |
+			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO)),
+		.qmenu = perf_level,
+		.step = 0,
 	},
 };
 
@@ -1762,6 +1781,22 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 
 		pdata = &enable;
+		break;
+	case V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL:
+		switch (ctrl->val) {
+		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL:
+			inst->flags &= ~VIDC_TURBO;
+			break;
+		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO:
+			inst->flags |= VIDC_TURBO;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Perf mode %x not supported",
+					ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+
 		break;
 	default:
 		rc = -ENOTSUPP;
