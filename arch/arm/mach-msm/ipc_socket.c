@@ -55,6 +55,10 @@ do { \
 	} \
 } while (0) \
 
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t)-1)
+#endif
+
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
 static const struct proto_ops msm_ipc_proto_ops;
@@ -458,7 +462,8 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 	struct msm_ipc_port *port_ptr;
 	struct server_lookup_args server_arg;
 	struct msm_ipc_server_info *srv_info = NULL;
-	unsigned int n, srv_info_sz = 0;
+	unsigned int n;
+	size_t srv_info_sz = 0;
 	int ret;
 
 	if (!sk)
@@ -499,16 +504,16 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 			break;
 		}
 		if (server_arg.num_entries_in_array) {
-			srv_info_sz = server_arg.num_entries_in_array *
-					sizeof(*srv_info);
-			if ((srv_info_sz / sizeof(*srv_info)) !=
-			    server_arg.num_entries_in_array) {
+			if (server_arg.num_entries_in_array >
+				(SIZE_MAX / sizeof(*srv_info))) {
 				pr_err("%s: Integer Overflow %d * %d\n",
 					__func__, sizeof(*srv_info),
 					server_arg.num_entries_in_array);
 				ret = -EINVAL;
 				break;
 			}
+			srv_info_sz = server_arg.num_entries_in_array *
+					sizeof(*srv_info);
 			srv_info = kmalloc(srv_info_sz, GFP_KERNEL);
 			if (!srv_info) {
 				ret = -ENOMEM;
