@@ -203,6 +203,7 @@ struct kgsl_mem_entry {
 #define MMU_CONFIG 1
 #endif
 
+void kgsl_hang_check(struct work_struct *work);
 void kgsl_mem_entry_destroy(struct kref *kref);
 int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
 
