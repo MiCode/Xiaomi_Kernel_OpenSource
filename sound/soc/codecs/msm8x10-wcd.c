@@ -2579,6 +2579,23 @@ static int msm8x10_wcd_pads_config(void)
 	usleep_range(100, 200);
 	return 0;
 }
+
+
+static int msm8x10_wcd_clk_init(void)
+{
+	/* Div-2 */
+	iowrite32(0x3, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR, 4));
+	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_M, 4));
+	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_N, 4));
+	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_D, 4));
+	/* Digital codec clock enable */
+	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
+	/* Set the update bit to make the settings go through */
+	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
+	usleep_range(100, 200);
+	return 0;
+}
+
 static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
 {
 	mutex_init(&msm8x10->io_lock);
@@ -2586,6 +2603,7 @@ static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
 	mutex_init(&msm8x10->pm_lock);
 	msm8x10->wlock_holders = 0;
 	msm8x10_wcd_pads_config();
+	msm8x10_wcd_clk_init();
 	return 0;
 }
 
