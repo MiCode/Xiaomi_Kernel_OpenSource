@@ -1035,6 +1035,8 @@ static void wcnss_send_cal_rsp(unsigned char fw_status)
 	rc = wcnss_smd_tx(msg, rsphdr->msg_len);
 	if (rc < 0)
 		pr_err("wcnss: smd tx failed\n");
+
+	kfree(msg);
 }
 
 /* Collect calibrated data from WCNSS */
