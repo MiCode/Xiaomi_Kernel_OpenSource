@@ -680,7 +680,7 @@ static void wcd9xxx_clr_and_turnon_hph_padac(struct wcd9xxx_mbhc *mbhc)
 				&mbhc->hph_pa_dac_state)) {
 		pr_debug("%s: HPHL clear flag and enable DAC\n", __func__);
 		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_DAC_CTL,
-				    0xC0, 0xC0);
+				    0x80, 0x80);
 	}
 
 	if (test_and_clear_bit(WCD9XXX_HPHR_PA_OFF_ACK,
