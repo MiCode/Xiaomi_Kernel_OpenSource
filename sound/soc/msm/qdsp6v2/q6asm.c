@@ -1717,12 +1717,14 @@ int q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
 	run.time_lsw = lsw_ts;
 	run.time_msw = msw_ts;
 
+	/* have to increase first avoid race */
+	atomic_inc(&ac->nowait_cmd_cnt);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &run);
 	if (rc < 0) {
+		atomic_dec(&ac->nowait_cmd_cnt);
 		pr_err("%s:Commmand run failed[%d]", __func__, rc);
 		return -EINVAL;
 	}
-	atomic_inc(&ac->nowait_cmd_cnt);
 	return 0;
 }
 
@@ -3693,12 +3695,14 @@ int q6asm_cmd_nowait(struct audio_client *ac, int cmd)
 	pr_debug("%s:session[%d]opcode[0x%x] ", __func__,
 						ac->session,
 						hdr.opcode);
+	/* have to increase first avoid race */
+	atomic_inc(&ac->nowait_cmd_cnt);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
 	if (rc < 0) {
+		atomic_dec(&ac->nowait_cmd_cnt);
 		pr_err("%s:Commmand 0x%x failed\n", __func__, hdr.opcode);
 		goto fail_cmd;
 	}
-	atomic_inc(&ac->nowait_cmd_cnt);
 	return 0;
 fail_cmd:
 	return -EINVAL;
