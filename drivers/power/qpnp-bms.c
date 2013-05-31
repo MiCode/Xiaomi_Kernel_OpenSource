@@ -1443,8 +1443,6 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	int rc;
 	bool charging, charging_since_last_report;
 
-	soc = chip->calculated_soc;
-
 	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
 
 	if (rc) {
@@ -1457,6 +1455,8 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	batt_temp = (int)result.physical;
 
 	mutex_lock(&chip->last_soc_mutex);
+	soc = chip->calculated_soc;
+
 	last_change_sec = chip->last_soc_change_sec;
 	calculate_delta_time(&last_change_sec, &time_since_last_change_sec);
 
@@ -1934,9 +1934,9 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					new_calculated_soc);
 
 done_calculating:
+	mutex_lock(&chip->last_soc_mutex);
 	chip->calculated_soc = new_calculated_soc;
 	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
-	mutex_lock(&chip->last_soc_mutex);
 	if (chip->last_soc_invalid) {
 		chip->last_soc_invalid = false;
 		chip->last_soc = -EINVAL;
