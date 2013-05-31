@@ -669,6 +669,7 @@
 
 		gpios = <&msmgpio 23 0>, <&msmgpio 24 0>, <&msmgpio 25 0>, <&msmgpio 26 0>, <&msmgpio 27 0>;
 		qcom,has_pronto_hw;
+		qcom,wlan-rx-buff-count = <256>;
 	};
 
 	qcom,mss@fc880000 {
