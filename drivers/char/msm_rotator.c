@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -351,6 +351,7 @@ static int get_bpp(int format)
 	case MDP_RGBA_8888:
 	case MDP_BGRA_8888:
 	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
 		return 4;
 
 	case MDP_Y_CBCR_H2V2:
@@ -407,6 +408,7 @@ static int msm_rotator_get_plane_sizes(uint32_t format,	uint32_t w, uint32_t h,
 	case MDP_RGBA_8888:
 	case MDP_BGRA_8888:
 	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
 	case MDP_RGB_888:
 	case MDP_RGB_565:
 	case MDP_BGR_565:
@@ -811,6 +813,7 @@ static int msm_rotator_rgb_types(struct msm_rotator_img_info *info,
 			break;
 
 		case MDP_BGRA_8888:
+		case MDP_BGRX_8888:
 			iowrite32(GET_PACK_PATTERN(CLR_ALPHA, CLR_B, CLR_G,
 						   CLR_R, 8),
 				  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
@@ -1118,6 +1121,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	case MDP_XRGB_8888:
 	case MDP_BGRA_8888:
 	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
 	case MDP_YCBCR_H1V1:
 	case MDP_YCRCB_H1V1:
 		rc = msm_rotator_rgb_types(msm_rotator_dev->img_info[s],
@@ -1275,6 +1279,7 @@ static int msm_rotator_start(unsigned long arg,
 	case MDP_XRGB_8888:
 	case MDP_RGBX_8888:
 	case MDP_BGRA_8888:
+	case MDP_BGRX_8888:
 		is_rgb = 1;
 		info.dst.format = info.src.format;
 		break;
