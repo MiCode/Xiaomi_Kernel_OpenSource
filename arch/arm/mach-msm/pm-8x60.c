@@ -1579,14 +1579,6 @@ static int __init msm_pm_8x60_init(void)
 {
 	int rc;
 
-	rc = platform_driver_register(&msm_cpu_status_driver);
-
-	if (rc) {
-		pr_err("%s(): failed to register driver %s\n", __func__,
-				msm_cpu_status_driver.driver.name);
-		return rc;
-	}
-
 	rc = platform_driver_register(&msm_cpu_pm_snoc_client_driver);
 
 	if (rc) {
@@ -1598,3 +1590,8 @@ static int __init msm_pm_8x60_init(void)
 	return platform_driver_register(&msm_pm_8x60_driver);
 }
 device_initcall(msm_pm_8x60_init);
+
+void __init msm_pm_sleep_status_init(void)
+{
+	platform_driver_register(&msm_cpu_status_driver);
+}
