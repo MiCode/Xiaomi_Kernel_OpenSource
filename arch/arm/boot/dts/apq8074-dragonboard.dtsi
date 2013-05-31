@@ -11,6 +11,7 @@
  */
 
 /include/ "dsi-panel-sharp-qhd-video.dtsi"
+/include/ "msm8974-camera-sensor-dragonboard.dtsi"
 /include/ "msm8974-leds.dtsi"
 
 / {
