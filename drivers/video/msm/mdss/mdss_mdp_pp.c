@@ -3184,3 +3184,88 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off)
 	}
 	return rc;
 }
+
+static int is_valid_calib_addr(void *addr)
+{
+	int ret = 0;
+	unsigned int ptr;
+	ptr = (unsigned int) addr;
+	/* if request is outside the MDP reg-map or is not aligned 4 */
+	if (ptr == 0x0 || ptr > 0x5138 || ptr % 0x4)
+		goto end;
+	if (ptr >= 0x100 && ptr <= 0x5138) {
+		/* if ptr is in dspp range */
+		if (ptr >= 0x4600 && ptr <= 0x5138) {
+			/* if ptr is in dspp0 range*/
+			if (ptr >= 0x4600 && ptr <= 0x4938)
+				ptr -= 0x4600;
+			/* if ptr is in dspp1 range */
+			else if (ptr >= 0x4a00 && ptr <= 0x4d38)
+				ptr -= 0x4a00;
+			/* if ptr is in dspp2 range */
+			else if (ptr >= 0x4e00 && ptr <= 0x5138)
+				ptr -= 0x4e00;
+			/* if ptr is in pcc plane rgb coeff.range */
+			if (ptr >= 0x30 && ptr <= 0xe8)
+				ret = 1;
+			/* if ptr is in ARLUT red range */
+			else if (ptr >= 0x2b0 && ptr <= 0x2b8)
+				ret = 1;
+			/* if ptr is in PA range */
+			else if (ptr >= 0x238 && ptr <= 0x244)
+				ret = 1;
+			 /* if ptr is in ARLUT green range */
+			else if (ptr >= 0x2c0 && ptr <= 0x2c8)
+				ret = 1;
+			/* if ptr is in ARLUT blue range or
+			    gamut map table range */
+			else if (ptr >= 0x2d0 && ptr <= 0x338)
+				ret = 1;
+			/* if ptr is dspp0,dspp1,dspp2 op mode
+						register */
+			else if (ptr == 0)
+				ret = 1;
+		} else if (ptr >= 0x600 && ptr <= 0x608)
+				ret = 1;
+		else if (ptr >= 0x400 && ptr <= 0x408)
+				ret = 1;
+		else if ((ptr == 0x1830) || (ptr == 0x1c30) ||
+				(ptr == 0x1430) || (ptr == 0x1e38))
+				ret = 1;
+		else if ((ptr == 0x1e3c) || (ptr == 0x1e30))
+				ret = 1;
+		else if (ptr >= 0x3220 && ptr <= 0x3228)
+				ret = 1;
+		else if (ptr >= 0x3200 || ptr == 0x100)
+				ret = 1;
+	}
+end:
+	return ret;
+}
+
+
+
+
+int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
+{
+	int ret = -1;
+	void *ptr = (void *) cfg->addr;
+
+	if (is_valid_calib_addr(ptr))
+		ret = 0;
+	else
+		return ret;
+	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdp_base));
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	if (cfg->ops & MDP_PP_OPS_READ) {
+		cfg->data = readl_relaxed(ptr);
+		*copyback = 1;
+		ret = 0;
+	} else if (cfg->ops & MDP_PP_OPS_WRITE) {
+		writel_relaxed(cfg->data, ptr);
+		ret = 0;
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	return ret;
+}
