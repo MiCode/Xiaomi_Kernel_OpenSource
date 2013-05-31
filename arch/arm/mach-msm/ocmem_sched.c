@@ -1060,13 +1060,6 @@ static int __sched_allocate(struct ocmem_req *req, bool can_block,
 			goto invalid_op_error;
 	}
 
-	region = create_region();
-
-	if (!region) {
-		pr_err("ocmem: Unable to create region\n");
-		goto invalid_op_error;
-	}
-
 	retry = false;
 
 	pr_debug("ocmem: do_allocate: %s request %p size %lx\n",
@@ -1081,6 +1074,14 @@ retry_next_step:
 	overlap_r = find_region_intersection(zone->z_head, zone->z_head + sz);
 
 	if (overlap_r == NULL) {
+
+		region = create_region();
+
+		if (!region) {
+			pr_err("ocmem: Unable to create region\n");
+			goto invalid_op_error;
+		}
+
 		/* no conflicting regions, schedule this region */
 		rc = zone->z_ops->allocate(zone, sz, &alloc_addr);
 
@@ -1176,7 +1177,6 @@ retry_next_step:
 
 trigger_eviction:
 	pr_debug("Trigger eviction of region %p\n", overlap_r);
-	destroy_region(region);
 	return OP_EVICT;
 
 err_not_supported:
