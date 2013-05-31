@@ -151,15 +151,21 @@ struct msm_fb_backup_type {
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 {
-	mfd->update.value = NOTIFY_TYPE_UPDATE;
-	complete(&mfd->update.comp);
-	mutex_lock(&mfd->no_update.lock);
-	if (mfd->no_update.timer.function)
-		del_timer(&(mfd->no_update.timer));
+	int needs_complete = 0;
+	mutex_lock(&mfd->update.lock);
+	mfd->update.value = mfd->update.type;
+	needs_complete = mfd->update.value == NOTIFY_TYPE_UPDATE;
+	mutex_unlock(&mfd->update.lock);
+	if (needs_complete) {
+		complete(&mfd->update.comp);
+		mutex_lock(&mfd->no_update.lock);
+		if (mfd->no_update.timer.function)
+			del_timer(&(mfd->no_update.timer));
 
-	mfd->no_update.timer.expires = jiffies + (2 * HZ);
-	add_timer(&mfd->no_update.timer);
-	mutex_unlock(&mfd->no_update.lock);
+		mfd->no_update.timer.expires = jiffies + (2 * HZ);
+		add_timer(&mfd->no_update.timer);
+		mutex_unlock(&mfd->no_update.lock);
+	}
 }
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
