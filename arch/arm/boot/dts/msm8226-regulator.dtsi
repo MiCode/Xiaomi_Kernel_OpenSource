@@ -30,8 +30,9 @@
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
 		compatible = "qcom,cpr-regulator";
-		reg = <0xf9018000 0x1000>, <0xfc4b80b0 8>, <0xfc4bc450 16>;
-		reg-names = "rbcpr", "pvs_efuse", "cpr_efuse";
+		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b80b0 8>,
+			<0xfc4bc450 16>;
+		reg-names = "rbcpr", "rbcpr_clk", "pvs_efuse", "cpr_efuse";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;

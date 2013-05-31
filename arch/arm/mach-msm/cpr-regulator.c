@@ -114,6 +114,11 @@
 #define CPR_NUM_RING_OSC	8
 #define CPR_NUM_SAVE_REGS	10
 
+/* RBCPR Clock Control Register */
+#define RBCPR_CLK_SEL_MASK	BIT(0)
+#define RBCPR_CLK_SEL_19P2_MHZ	0
+#define RBCPR_CLK_SEL_AHB_CLK	BIT(0)
+
 /* CPR eFuse parameters */
 #define CPR_FUSE_TARGET_QUOT_BITS	12
 #define CPR_FUSE_TARGET_QUOT_BITS_MASK	((1<<CPR_FUSE_TARGET_QUOT_BITS)-1)
@@ -180,6 +185,7 @@ struct cpr_regulator {
 
 	unsigned int	cpr_irq;
 	void __iomem	*rbcpr_base;
+	phys_addr_t	rbcpr_clk_addr;
 	struct mutex	cpr_mutex;
 
 	int		ceiling_volt[CPR_CORNER_MAX];
@@ -815,10 +821,23 @@ static int cpr_regulator_resume(struct platform_device *pdev)
 #define cpr_regulator_resume NULL
 #endif
 
-static void cpr_config(struct cpr_regulator *cpr_vreg)
+static int cpr_config(struct cpr_regulator *cpr_vreg)
 {
 	int i;
-	u32 val, gcnt;
+	u32 val, gcnt, reg;
+	void __iomem *rbcpr_clk;
+
+	/* Use 19.2 MHz clock for CPR. */
+	rbcpr_clk = ioremap(cpr_vreg->rbcpr_clk_addr, 4);
+	if (!rbcpr_clk) {
+		pr_err("Unable to map rbcpr_clk\n");
+		return -EINVAL;
+	}
+	reg = readl_relaxed(rbcpr_clk);
+	reg &= ~RBCPR_CLK_SEL_MASK;
+	reg |= RBCPR_CLK_SEL_19P2_MHZ & RBCPR_CLK_SEL_MASK;
+	writel_relaxed(reg, rbcpr_clk);
+	iounmap(rbcpr_clk);
 
 	/* Disable interrupt and CPR */
 	cpr_write(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line), 0);
@@ -888,6 +907,8 @@ static void cpr_config(struct cpr_regulator *cpr_vreg)
 	cpr_corner_save(cpr_vreg, CPR_CORNER_SVS);
 	cpr_corner_save(cpr_vreg, CPR_CORNER_NORMAL);
 	cpr_corner_save(cpr_vreg, CPR_CORNER_TURBO);
+
+	return 0;
 }
 
 static int __init cpr_pvs_init(struct cpr_regulator *cpr_vreg)
@@ -1199,6 +1220,13 @@ static int __init cpr_init_cpr(struct platform_device *pdev,
 	}
 	cpr_vreg->cpr_fuse_addr = res->start;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rbcpr_clk");
+	if (!res || !res->start) {
+		pr_err("missing rbcpr_clk address: res=%p\n", res);
+		return -EINVAL;
+	}
+	cpr_vreg->rbcpr_clk_addr = res->start;
+
 	rc = cpr_init_cpr_efuse(cpr_vreg);
 	if (rc)
 		return rc;
@@ -1227,7 +1255,9 @@ static int __init cpr_init_cpr(struct platform_device *pdev,
 	}
 
 	/* Configure CPR HW but keep it disabled */
-	cpr_config(cpr_vreg);
+	rc = cpr_config(cpr_vreg);
+	if (rc)
+		return rc;
 
 	rc = request_threaded_irq(cpr_vreg->cpr_irq, NULL, cpr_irq_handler,
 				  IRQF_TRIGGER_RISING, "cpr", cpr_vreg);
