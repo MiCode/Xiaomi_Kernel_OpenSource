@@ -19,6 +19,27 @@
 		status = "disabled";
 	};
 
+	gdsc_venus_core0: qcom,gdsc@fd8c1040 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core0";
+		reg = <0xfd8c1040 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core1: qcom,gdsc@fd8c1044 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core1";
+		reg = <0xfd8c1044 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_vpu: qcom,gdsc@fd8c1404 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vpu";
+		reg = <0xfd8c1404 0x4>;
+		status = "disabled";
+	};
+
 	gdsc_mdss: qcom,gdsc@fd8c2304 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mdss";
@@ -58,6 +79,34 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb_hsic";
 		reg = <0xfc400404 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_pcie_0: qcom,gdsc@fc401ac4 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie_0";
+		reg = <0xfc401ac4 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_pcie_1: qcom,gdsc@fc401b44 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie_1";
+		reg = <0xfc401b44 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_usb30: qcom,gdsc@fc401e84 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0xfc401e84 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_usb30_sec: qcom,gdsc@fc401ec0 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30_sec";
+		reg = <0xfc401ec0 0x4>;
 		status = "disabled";
 	};
 };
