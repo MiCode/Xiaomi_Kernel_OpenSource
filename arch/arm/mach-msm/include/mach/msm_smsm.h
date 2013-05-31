@@ -39,12 +39,16 @@ enum {
 };
 #endif
 
+/*
+ * Ordered by when processors adopted the SMSM protocol.  May not be 1-to-1
+ * with SMEM PIDs, despite initial expectations.
+ */
 enum {
 	SMSM_APPS = SMEM_APPS,
 	SMSM_MODEM = SMEM_MODEM,
 	SMSM_Q6 = SMEM_Q6,
-	SMSM_DSPS = SMEM_DSPS,
-	SMSM_WCNSS = SMEM_WCNSS,
+	SMSM_WCNSS,
+	SMSM_DSPS,
 };
 extern uint32_t SMSM_NUM_HOSTS;
 
