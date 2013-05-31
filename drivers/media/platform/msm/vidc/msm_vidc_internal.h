@@ -170,6 +170,7 @@ struct msm_vidc_debug {
 
 enum msm_vidc_modes {
 	VIDC_SECURE = 1 << 0,
+	VIDC_TURBO = 1 << 1,
 };
 
 struct msm_vidc_core_capability {

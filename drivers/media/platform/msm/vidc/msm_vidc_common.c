@@ -46,6 +46,28 @@
 	u32 __mbs = (__h >> 4) * (__w >> 4);\
 	__mbs;\
 })
+static bool is_turbo_requested(struct msm_vidc_core *core,
+		enum session_type type)
+{
+	struct msm_vidc_inst *inst = NULL;
+
+	list_for_each_entry(inst, &core->instances, list) {
+		bool wants_turbo = false;
+
+		mutex_lock(&inst->lock);
+		if (inst->session_type == type &&
+			inst->state >= MSM_VIDC_OPEN_DONE &&
+			inst->state < MSM_VIDC_STOP_DONE) {
+			wants_turbo = inst->flags & VIDC_TURBO;
+		}
+		mutex_unlock(&inst->lock);
+
+		if (wants_turbo)
+			return true;
+	}
+
+	return false;
+}
 
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
@@ -87,7 +109,10 @@ static int msm_comm_scale_bus(struct msm_vidc_core *core,
 		return -EINVAL;
 	}
 
-	load = msm_comm_get_load(core, type);
+	if (is_turbo_requested(core, type))
+		load = core->resources.max_load;
+	else
+		load = msm_comm_get_load(core, type);
 
 	rc = call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
 					 load, type, mtype);
@@ -934,8 +959,14 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 			__func__, hdev);
 		return -EINVAL;
 	}
-	num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
-	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
+
+	if (is_turbo_requested(core, MSM_VIDC_ENCODER) ||
+			is_turbo_requested(core, MSM_VIDC_DECODER)) {
+		num_mbs_per_sec = core->resources.max_load;
+	} else {
+		num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
+		num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
+	}
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d\n", num_mbs_per_sec);
 	rc = call_hfi_op(hdev, scale_clocks,
