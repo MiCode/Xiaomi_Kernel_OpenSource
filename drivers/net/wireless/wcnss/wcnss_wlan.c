@@ -103,6 +103,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_PRONTO_LAST_ADDR1_OFFSET		0x10
 #define CCU_PRONTO_LAST_ADDR2_OFFSET		0x14
 
+#define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
+
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
 #define WCNSS_VERSION_LEN			30
@@ -258,6 +260,7 @@ static struct {
 	const struct dev_pm_ops *pm_ops;
 	int		triggered;
 	int		smd_channel_ready;
+	u32		wlan_rx_buff_count;
 	smd_channel_t	*smd_ch;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
@@ -977,6 +980,17 @@ int fw_cal_data_available(void)
 		return -ENODEV;
 }
 
+u32 wcnss_get_wlan_rx_buff_count(void)
+{
+	if (penv)
+		return penv->wlan_rx_buff_count;
+	else
+		return WCNSS_DEF_WLAN_RX_BUFF_COUNT;
+
+}
+EXPORT_SYMBOL(wcnss_get_wlan_rx_buff_count);
+
+
 static int wcnss_smd_tx(void *data, int len)
 {
 	int ret = 0;
@@ -1499,6 +1513,11 @@ wcnss_trigger_config(struct platform_device *pdev)
 	struct resource *res;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has_pronto_hw");
+
+	if (of_property_read_u32(pdev->dev.of_node,
+			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
+		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
+	}
 
 	/* make sure we are only triggered once */
 	if (penv->triggered)
