@@ -1544,7 +1544,7 @@ static int set_scratch_buffers(struct msm_vidc_inst *inst,
 		scratch_buf->buffer_count_actual,
 		scratch_buf->buffer_size);
 
-	if (inst->mode == VIDC_SECURE)
+	if (inst->flags & VIDC_SECURE)
 		smem_flags |= SMEM_SECURE;
 
 	if (scratch_buf->buffer_size) {
@@ -1632,7 +1632,7 @@ static int set_persist_buffers(struct msm_vidc_inst *inst,
 		return rc;
 	}
 
-	if (inst->mode == VIDC_SECURE)
+	if (inst->flags & VIDC_SECURE)
 		smem_flags |= SMEM_SECURE;
 
 	if (persist_buf->buffer_size) {

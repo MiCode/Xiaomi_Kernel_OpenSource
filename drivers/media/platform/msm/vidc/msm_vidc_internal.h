@@ -168,9 +168,8 @@ struct msm_vidc_debug {
 	int samples;
 };
 
-enum msm_vidc_mode {
-	VIDC_NON_SECURE,
-	VIDC_SECURE,
+enum msm_vidc_modes {
+	VIDC_SECURE = 1 << 0,
 };
 
 struct msm_vidc_core_capability {
@@ -225,7 +224,7 @@ struct msm_vidc_inst {
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;
-	enum msm_vidc_mode mode;
+	enum msm_vidc_modes flags;
 	struct msm_vidc_core_capability capability;
 };
 

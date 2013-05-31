@@ -1302,8 +1302,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &hal_property;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
-		inst->mode = VIDC_SECURE;
-		dprintk(VIDC_DBG, "Setting secure mode to :%d\n", inst->mode);
+		inst->flags |= VIDC_SECURE;
+		dprintk(VIDC_DBG, "Setting secure mode to: %d\n",
+				!!(inst->flags & VIDC_SECURE));
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
 	{
