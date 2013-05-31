@@ -359,7 +359,20 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	ctx_drvdata->secure_context = of_property_read_bool(pdev->dev.of_node,
 							"qcom,secure-context");
 
-	if (!ctx_drvdata->secure_context) {
+	if (ctx_drvdata->secure_context) {
+		irq = platform_get_irq(pdev, 1);
+		if (irq > 0) {
+			ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+					msm_iommu_secure_fault_handler_v2,
+					IRQF_ONESHOT | IRQF_SHARED,
+					"msm_iommu_secure_irq", pdev);
+			if (ret) {
+				pr_err("Request IRQ %d failed with ret=%d\n",
+					irq, ret);
+				return ret;
+			}
+		}
+	} else {
 		irq = platform_get_irq(pdev, 0);
 		if (irq > 0) {
 			ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
