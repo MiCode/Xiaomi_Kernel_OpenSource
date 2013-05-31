@@ -237,8 +237,8 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-				<84 512 0 0>,
-				<84 512 500 800>;
+				<86 512 0 0>,
+				<86 512 500 800>;
 	};
 
 	usb_otg: usb@f9a55000 {
