@@ -1213,8 +1213,8 @@
 		qcom,iris-vdddig-supply = <&pm8941_l3>;
 
 		gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>, <&msmgpio 39 0>, <&msmgpio 40 0>;
-		qcom,has_48mhz_xo;
-		qcom,has_pronto_hw;
+		qcom,has-48mhz-xo;
+		qcom,has-pronto-hw;
 	};
 
 	qcom,ocmem@fdd00000 {

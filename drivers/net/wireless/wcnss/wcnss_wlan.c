@@ -1512,7 +1512,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	int size = 0;
 	struct resource *res;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
-									"qcom,has_pronto_hw");
+									"qcom,has-pronto-hw");
 
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
@@ -1529,7 +1529,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo) {
 		if (has_pronto_hw) {
 			has_48mhz_xo = of_property_read_bool(pdev->dev.of_node,
-										"qcom,has_48mhz_xo");
+										"qcom,has-48mhz-xo");
 		} else {
 			has_48mhz_xo = pdata->has_48mhz_xo;
 		}
@@ -1539,7 +1539,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 
 	if (WCNSS_CONFIG_UNSPECIFIED == has_autodetect_xo && has_pronto_hw) {
 		has_autodetect_xo = of_property_read_bool(pdev->dev.of_node,
-									"qcom,has_autodetect_xo");
+									"qcom,has-autodetect-xo");
 	}
 
 	penv->thermal_mitigation = 0;

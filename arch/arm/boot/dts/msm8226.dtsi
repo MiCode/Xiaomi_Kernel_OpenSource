@@ -547,8 +547,8 @@
 		qcom,iris-vdddig-supply = <&pm8226_l24>;
 
 		gpios = <&msmgpio 40 0>, <&msmgpio 41 0>, <&msmgpio 42 0>, <&msmgpio 43 0>, <&msmgpio 44 0>;
-		qcom,has_pronto_hw;
-		qcom,has_autodetect_xo;
+		qcom,has-pronto-hw;
+		qcom,has-autodetect-xo;
 	};
 
 	qcom,msm-adsp-sensors {
