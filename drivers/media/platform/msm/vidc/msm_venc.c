@@ -1977,7 +1977,7 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
 	u32 property_id = 0, us_per_frame = 0;
 	void *pdata;
-	int rc = 0, fps = 0, rem = 0;
+	int rc = 0, fps = 0;
 	struct hal_frame_rate frame_rate;
 	struct hfi_device *hdev;
 
@@ -2014,11 +2014,12 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 
 	fps = USEC_PER_SEC;
-	rem = do_div(fps, us_per_frame);
-	if (rem) {
-		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
-		fps++;
-	}
+	do_div(fps, us_per_frame);
+
+	if ((fps % 15 == 14) || (fps % 24 == 23))
+		fps = fps + 1;
+	else if ((fps % 24 == 1) || (fps % 15 == 1))
+		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
 		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
