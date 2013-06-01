@@ -153,10 +153,6 @@
 	status = "ok";
 };
 
-&gdsc_vfe {
-	status = "ok";
-};
-
 &gdsc_oxili_gx {
 	status = "ok";
 };
