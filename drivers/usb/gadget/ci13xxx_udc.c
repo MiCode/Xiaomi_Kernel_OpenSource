@@ -3281,7 +3281,13 @@ static void ep_fifo_flush(struct usb_ep *ep)
 	del_timer(&mEp->prime_timer);
 	mEp->prime_timer_count = 0;
 	dbg_event(_usb_addr(mEp), "FFLUSH", 0);
-	hw_ep_flush(mEp->num, mEp->dir);
+	/*
+	 * _ep_nuke() takes care of flushing the endpoint.
+	 * some function drivers expect udc to retire all
+	 * pending requests upon flushing an endpoint.  There
+	 * is no harm in doing it.
+	 */
+	_ep_nuke(mEp);
 
 	spin_unlock_irqrestore(mEp->lock, flags);
 }
