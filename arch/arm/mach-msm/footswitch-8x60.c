@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,7 @@
 
 #define GFS_DELAY_CNT		31
 
-#define RESET_DELAY_US		1
+#define DEFAULT_RESET_DELAY_US	1
 /* Clock rate to use if one has not previously been set. */
 #define DEFAULT_RATE		27000000
 #define MAX_CLKS		10
@@ -72,6 +72,7 @@ struct footswitch {
 	bool			is_claimed;
 	struct fs_clk_data	*clk_data;
 	struct clk		*core_clk;
+	unsigned long		reset_delay_us;
 };
 
 static int setup_clocks(struct footswitch *fs)
@@ -181,7 +182,7 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
-	udelay(RESET_DELAY_US);
+	udelay(fs->reset_delay_us);
 
 	/* Enable the power rail at the footswitch. */
 	regval |= ENABLE_BIT;
@@ -200,9 +201,9 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	/* Toggle core reset again after first power-on (required for GFX3D). */
 	if (fs->desc.id == FS_GFX3D) {
 		clk_reset(fs->core_clk, CLK_RESET_ASSERT);
-		udelay(RESET_DELAY_US);
+		udelay(fs->reset_delay_us);
 		clk_reset(fs->core_clk, CLK_RESET_DEASSERT);
-		udelay(RESET_DELAY_US);
+		udelay(fs->reset_delay_us);
 	}
 
 	/* Prevent core memory from collapsing when its clock is gated. */
@@ -265,7 +266,7 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
-	udelay(RESET_DELAY_US);
+	udelay(fs->reset_delay_us);
 
 	/*
 	 * Return clocks to their state before this function. For robustness
@@ -339,7 +340,7 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
-	udelay(RESET_DELAY_US);
+	udelay(fs->reset_delay_us);
 
 	/* Enable the power rail at the footswitch. */
 	regval |= ENABLE_BIT;
@@ -354,7 +355,7 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	/* Deassert resets for all clocks in the power domain. */
 	for (clock = fs->clk_data; clock->clk; clock++)
 		clk_reset(clock->clk, CLK_RESET_DEASSERT);
-	udelay(RESET_DELAY_US);
+	udelay(fs->reset_delay_us);
 
 	/* Re-enable core clock. */
 	clk_prepare_enable(fs->core_clk);
@@ -497,6 +498,8 @@ static int footswitch_probe(struct platform_device *pdev)
 	fs->clk_data = driver_data->clks;
 	fs->bus_port0 = driver_data->bus_port0;
 	fs->bus_port1 = driver_data->bus_port1;
+	fs->reset_delay_us =
+		driver_data->reset_delay_us ? : DEFAULT_RESET_DELAY_US;
 
 	for (clock = fs->clk_data; clock->name; clock++) {
 		clock->clk = clk_get(&pdev->dev, clock->name);
