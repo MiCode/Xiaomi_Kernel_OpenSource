@@ -63,7 +63,7 @@ Parent node optional properties:
 					"bpd_thm_id". "bpd_thm" selects the temperature
 					pin, "bpd_id" uses the id pin for battery presence
 					detection, "bpd_thm_id" selects both.
-					If the property is not set the hw default will
+					If the property is not set, the temperatue pin will
 					be used.
 - otg-parent-supply			Specify a phandle to a parent supply regulator
 					for the OTG regulator.

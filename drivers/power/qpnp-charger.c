@@ -320,20 +320,24 @@ static struct of_device_id qpnp_charger_match_table[] = {
 	{}
 };
 
-#define BPD_MAX		3
+enum bpd_type {
+	BPD_TYPE_BAT_ID,
+	BPD_TYPE_BAT_THM,
+	BPD_TYPE_BAT_THM_BAT_ID,
+};
 
-static const char *bpd_list[BPD_MAX] = {
-	"bpd_thm",
-	"bpd_id",
-	"bpd_thm_id",
+static const char * const bpd_label[] = {
+	[BPD_TYPE_BAT_ID] = "bpd_id",
+	[BPD_TYPE_BAT_THM] = "bpd_thm",
+	[BPD_TYPE_BAT_THM_BAT_ID] = "bpd_thm_id",
 };
 
 static inline int
 get_bpd(const char *name)
 {
 	int i = 0;
-	for (i = 0 ; i < BPD_MAX; i++) {
-		if (strcmp(name, bpd_list[i]) == 0)
+	for (i = 0; i < ARRAY_SIZE(bpd_label); i++) {
+		if (strcmp(bpd_label[i], name) == 0)
 			return i;
 	}
 	return -EINVAL;
@@ -2300,10 +2304,20 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBBP_BAT_IF_SUBTYPE:
 	case SMBCL_BAT_IF_SUBTYPE:
 		/* Select battery presence detection */
-		if (chip->bpd_detection == 1)
+		switch (chip->bpd_detection) {
+		case BPD_TYPE_BAT_THM:
+			reg = BAT_THM_EN;
+			break;
+		case BPD_TYPE_BAT_ID:
 			reg = BAT_ID_EN;
-		else if (chip->bpd_detection == 2)
-			reg = BAT_ID_EN | BAT_THM_EN;
+			break;
+		case BPD_TYPE_BAT_THM_BAT_ID:
+			reg = BAT_THM_EN | BAT_ID_EN;
+			break;
+		default:
+			reg = BAT_THM_EN;
+			break;
+		}
 
 		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + BAT_IF_BPD_CTRL,
@@ -2501,7 +2515,8 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	rc = of_property_read_string(chip->spmi->dev.of_node,
 		"qcom,bpd-detection", &bpd);
 	if (rc) {
-		pr_debug("no bpd-detection specified, ignored\n");
+		/* Select BAT_THM as default BPD scheme */
+		chip->bpd_detection = BPD_TYPE_BAT_THM;
 	} else {
 		chip->bpd_detection = get_bpd(bpd);
 		if (chip->bpd_detection < 0) {
