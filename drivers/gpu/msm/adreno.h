@@ -16,6 +16,7 @@
 #include "kgsl_device.h"
 #include "adreno_drawctxt.h"
 #include "adreno_ringbuffer.h"
+#include "adreno_profile.h"
 #include "kgsl_iommu.h"
 #include <mach/ocmem.h>
 
@@ -38,6 +39,7 @@
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
 #define KGSL_CMD_FLAGS_INTERNAL_ISSUE	0x00000002
 #define KGSL_CMD_FLAGS_GET_INT		0x00000004
+#define KGSL_CMD_FLAGS_PROFILE		0x00000008
 #define KGSL_CMD_FLAGS_EOF	        0x00000100
 
 /* Command identifiers */
@@ -48,6 +50,8 @@
 #define KGSL_END_OF_IB_IDENTIFIER	0x2ABEDEAD
 #define KGSL_END_OF_FRAME_IDENTIFIER	0x2E0F2E0F
 #define KGSL_NOP_IB_IDENTIFIER	        0x20F20F20
+#define KGSL_START_OF_PROFILE_IDENTIFIER	0x2DEFADE1
+#define KGSL_END_OF_PROFILE_IDENTIFIER	0x2DEFADE2
 
 #ifdef CONFIG_MSM_SCM
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  (&kgsl_pwrscale_policy_tz)
@@ -131,6 +135,7 @@ struct adreno_device {
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
 	unsigned int gpu_cycles;
+	struct adreno_profile profile;
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0
@@ -156,10 +161,12 @@ struct adreno_perfcount_register {
  * struct adreno_perfcount_group: registers for a hardware group
  * @regs: available registers for this group
  * @reg_count: total registers for this group
+ * @name: group name for this group
  */
 struct adreno_perfcount_group {
 	struct adreno_perfcount_register *regs;
 	unsigned int reg_count;
+	const char *name;
 };
 
 /**
@@ -413,6 +420,12 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 int adreno_ft_init_sysfs(struct kgsl_device *device);
 void adreno_ft_uninit_sysfs(struct kgsl_device *device);
+
+int adreno_perfcounter_get_groupid(struct adreno_device *adreno_dev,
+					const char *name);
+
+const char *adreno_perfcounter_get_name(struct adreno_device
+					*adreno_dev, unsigned int groupid);
 
 int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int countable, unsigned int *offset,

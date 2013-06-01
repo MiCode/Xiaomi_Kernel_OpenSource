@@ -33,7 +33,7 @@ msm_adreno-y += \
 	adreno_a3xx_snapshot.o \
 	adreno.o
 
-msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o
+msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o adreno_profile.o
 
 msm_z180-y += \
 	z180.o \
