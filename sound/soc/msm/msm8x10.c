@@ -38,6 +38,7 @@ static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static int msm_proxy_rx_ch = 2;
+static struct snd_soc_jack hs_jack;
 
 #define MSM8X10_DINO_LPASS_AUDIO_CORE_DIG_CODEC_CLK_SEL	0xFE03B004
 #define MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR			0xFE02C000
@@ -386,6 +387,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_sync(dapm);
 	ret =  msm_enable_mclk_root(AFE_PORT_ID_SECONDARY_MI2S_RX,
 				    &digital_cdc_clk);
+
+	ret = snd_soc_jack_new(codec, "Headset Jack",
+			SND_JACK_HEADSET, &hs_jack);
+
+	if (ret) {
+		pr_err("%s: Failed to create headset jack\n", __func__);
+		return ret;
+	}
+
 exit:
 	return ret;
 }
@@ -652,7 +662,6 @@ static struct snd_soc_dai_link msm8x10_dai[] = {
 		.codec_dai_name = "msm8x10_wcd_i2s_tx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
-		.init = &msm_audrx_init,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ops = &msm8x10_mi2s_be_ops,
 		.ignore_suspend = 1,
