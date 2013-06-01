@@ -234,7 +234,6 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			       struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps)
 {
-	u32 stride_off;
 	if (fmt->is_yuv) {
 		ps->rau_cnt = DIV_ROUND_UP(w, 64);
 		ps->ystride[0] = 64 * 4;
@@ -258,9 +257,8 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 		return -EINVAL;
 	}
 
-	stride_off = DIV_ROUND_UP(ps->rau_cnt, 8);
-	ps->ystride[0] = ps->ystride[0] * ps->rau_cnt + stride_off;
-	ps->ystride[1] = ps->ystride[1] * ps->rau_cnt + stride_off;
+	ps->ystride[0] *= ps->rau_cnt;
+	ps->ystride[1] *= ps->rau_cnt;
 	ps->num_planes = 2;
 
 	return 0;
@@ -286,9 +284,16 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (bwc_mode) {
+		u32 meta_size;
+
 		rc = mdss_mdp_get_rau_strides(w, h, fmt, ps);
 		if (rc)
 			return rc;
+
+		meta_size = DIV_ROUND_UP(ps->rau_cnt, 8);
+		ps->ystride[0] += meta_size;
+		ps->ystride[1] += meta_size;
+
 		ystride0_off = DIV_ROUND_UP(h, ps->rau_h[0]);
 		ystride1_off = DIV_ROUND_UP(h, ps->rau_h[1]);
 		ps->plane_size[0] = (ps->ystride[0] * ystride0_off) +

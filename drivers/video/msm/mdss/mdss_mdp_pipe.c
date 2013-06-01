@@ -163,9 +163,10 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			return rc;
 	}
 
+	nlines = pipe->bwc_mode ? 1 : 2;
+
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
-		nlines = pipe->bwc_mode ? ps.rau_h[i] : 2;
 		num_blks = DIV_ROUND_UP(nlines * ps.ystride[i], SMP_MB_SIZE);
 
 		if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
