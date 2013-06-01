@@ -692,6 +692,9 @@ Required properties:
 		 prim-gpio-prim : Primary AUXPCM shares GPIOs with Primary MI2S
 		 prim-gpio-tert : Primary AUXPCM shares GPIOs with Tertiary MI2S
 
+Optional Properties:
+- qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+
 Example:
 
 sound {
@@ -703,4 +706,5 @@ sound {
 	qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
 	qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
 	qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+	qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;
 };
