@@ -241,7 +241,13 @@ static int __devinit dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
 	for (i = 0; i < num; i++) {
 		struct dwc3_event_buffer	*evt;
 
-		evt = dwc3_alloc_one_event_buffer(dwc, length);
+		/*
+		 * As SW workaround, allocate 8 bytes more than size of event
+		 * buffer given to USB Controller to avoid possible memory
+		 * corruption caused by event buffer overflow when Hw writes
+		 * Vendor Device test event which could be of 12 bytes.
+		 */
+		evt = dwc3_alloc_one_event_buffer(dwc, (length + 8));
 		if (IS_ERR(evt)) {
 			dev_err(dwc->dev, "can't allocate event buffer\n");
 			return PTR_ERR(evt);
@@ -276,7 +282,7 @@ static int dwc3_event_buffers_setup(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(n),
 				upper_32_bits(evt->dma));
 		dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(n),
-				evt->length & 0xffff);
+				(evt->length - 8) & 0xffff);
 		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(n), 0);
 	}
 
