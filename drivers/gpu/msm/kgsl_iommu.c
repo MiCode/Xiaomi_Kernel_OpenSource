@@ -920,15 +920,15 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 
 	iommu_access_ops = get_iommu_access_ops_v0();
 
-	if (iommu_access_ops && iommu_access_ops->iommu_lock_initialize)
-		lock_phy_addr = (iommu_access_ops->iommu_lock_initialize()
-			- MSM_SHARED_RAM_BASE + msm_shared_ram_phys);
-
-	if (!lock_phy_addr) {
-		iommu_access_ops = NULL;
-		KGSL_DRV_ERR(mmu->device,
-				"GPU CPU sync lock is not supported by kernel\n");
-		return -ENXIO;
+	if (iommu_access_ops && iommu_access_ops->iommu_lock_initialize) {
+		lock_phy_addr = (uint32_t)
+				iommu_access_ops->iommu_lock_initialize();
+		if (!lock_phy_addr) {
+			iommu_access_ops = NULL;
+			return status;
+		}
+		lock_phy_addr = lock_phy_addr - (uint32_t)MSM_SHARED_RAM_BASE +
+				(uint32_t)msm_shared_ram_phys;
 	}
 
 	/* Align the physical address to PAGE boundary and store the offset */
