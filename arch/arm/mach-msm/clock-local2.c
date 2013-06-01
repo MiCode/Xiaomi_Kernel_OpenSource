@@ -698,7 +698,7 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 enum handoff pixel_rcg_handoff(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
-	u32 div_val, mval, nval, cfg_regval;
+	u32 div_val = 0, mval = 0, nval = 0, cfg_regval;
 	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
 
 	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
@@ -712,6 +712,15 @@ enum handoff pixel_rcg_handoff(struct clk *clk)
 
 	clk->rate = pre_div_rate;
 
+	/*
+	 * Pixel clocks have one frequency entry in their frequency table.
+	 * Update that entry.
+	 */
+	if (rcg->current_freq) {
+		rcg->current_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
+		rcg->current_freq->div_src_val |= div_val;
+	}
+
 	/* If MND is used, find the rate after the MND division */
 	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
 		mval = readl_relaxed(M_REG(rcg));
@@ -719,6 +728,11 @@ enum handoff pixel_rcg_handoff(struct clk *clk)
 		if (!nval)
 			return HANDOFF_DISABLED_CLK;
 		nval = (~nval) + mval;
+		if (rcg->current_freq) {
+			rcg->current_freq->n_val = ~(nval - mval);
+			rcg->current_freq->m_val = mval;
+			rcg->current_freq->d_val = ~nval;
+		}
 		clk->rate = (pre_div_rate * mval) / nval;
 	}
 

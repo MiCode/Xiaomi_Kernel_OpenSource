@@ -34,9 +34,9 @@
 struct clk_freq_tbl {
 	unsigned long	freq_hz;
 	struct clk	*src_clk;
-	const u32	m_val;
-	const u32	n_val;
-	const u32	d_val;
+	u32	m_val;
+	u32	n_val;
+	u32	d_val;
 	u32	div_src_val;
 	const unsigned	sys_vdd;
 };
