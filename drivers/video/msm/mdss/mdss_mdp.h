@@ -265,6 +265,9 @@ struct mdss_ad_info {
 	u32 last_str;
 	u32 last_bl;
 	u32 calc_itr;
+	uint32_t bl_bright_shift;
+	uint32_t bl_lin[AD_BL_LIN_LEN];
+	uint32_t bl_lin_inv[AD_BL_LIN_LEN];
 };
 
 struct pp_sts_type {

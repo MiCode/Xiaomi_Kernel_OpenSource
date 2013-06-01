@@ -599,6 +599,9 @@ struct mdp_calib_config_data {
 	uint32_t data;
 };
 
+#define MDSS_MAX_BL_BRIGHTNESS 255
+#define AD_BL_LIN_LEN (MDSS_MAX_BL_BRIGHTNESS + 1)
+
 #define MDSS_AD_MODE_AUTO_BL	0x0
 #define MDSS_AD_MODE_AUTO_STR	0x1
 #define MDSS_AD_MODE_TARG_STR	0x3
@@ -625,6 +628,9 @@ struct mdss_ad_init {
 	uint16_t frame_h;
 	uint8_t logo_v;
 	uint8_t logo_h;
+	uint32_t bl_lin_len;
+	uint32_t *bl_lin;
+	uint32_t *bl_lin_inv;
 };
 
 struct mdss_ad_cfg {
