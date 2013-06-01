@@ -3073,7 +3073,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	if (PP_AD_STS_DIRTY_VSYNC & ad->sts) {
 		pr_debug("dirty vsync, calc_itr = %d", ad->calc_itr);
 		ad->sts &= ~PP_AD_STS_DIRTY_VSYNC;
-		if (!(PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr) {
+		if (!(PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr &&
+					(ad->state & PP_AD_STATE_RUN)) {
 			ctl->add_vsync_handler(ctl, &ad->handle);
 			ad->state |= PP_AD_STATE_VSYNC;
 		} else if ((PP_AD_STATE_VSYNC & ad->state) &&
