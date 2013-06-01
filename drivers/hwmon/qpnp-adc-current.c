@@ -646,13 +646,15 @@ int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint8_t	rslt_rsense;
-	int32_t	rc, sign_bit = 0;
+	int32_t	rc = 0, sign_bit = 0;
 
 	if (!iadc || !iadc->iadc_initialized)
 		return -EPROBE_DEFER;
 
-	if (iadc->external_rsense)
+	if (iadc->external_rsense) {
 		*rsense = iadc->rsense;
+		return rc;
+	}
 
 	rc = qpnp_iadc_read_reg(QPNP_IADC_NOMINAL_RSENSE, &rslt_rsense);
 	if (rc < 0) {
