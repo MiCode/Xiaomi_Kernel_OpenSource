@@ -37,7 +37,17 @@
 #define DIAG_CTRL_MSG_LAST DIAG_CTRL_MSG_F3_MASK_WITH_PRESET_ID
 
 /* Denotes that we support sending/receiving the feature mask */
-#define F_DIAG_INT_FEATURE_MASK	0x01
+#define F_DIAG_INT_FEATURE_MASK		0x01
+/* Denotes that we support responding to "Log on Demand" */
+#define F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER	0x04
+/*
+ * Supports dedicated main request/response on
+ * new Data Rx and DCI Rx channels
+ */
+#define F_DIAG_REQ_RSP_CHANNEL		0x10
+
+#define ENABLE_SEPARATE_CMDRSP	1
+#define DISABLE_SEPARATE_CMDRSP	0
 
 struct cmd_code_range {
 	uint16_t cmd_code_lo;
@@ -110,6 +120,7 @@ struct diag_ctrl_msg_diagmode {
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
+void diag_notify_ctrl_update_fn(struct work_struct *work);
 void diag_clean_reg_fn(struct work_struct *work);
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd);
