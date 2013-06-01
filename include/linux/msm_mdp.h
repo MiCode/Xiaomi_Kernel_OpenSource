@@ -666,6 +666,11 @@ struct mdss_ad_input {
 	uint32_t output;
 };
 
+struct mdss_calib_cfg {
+	uint32_t ops;
+	uint32_t calib_mask;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -678,6 +683,7 @@ enum {
 	mdp_op_calib_cfg,
 	mdp_op_ad_cfg,
 	mdp_op_ad_input,
+	mdp_op_calib_mode,
 	mdp_op_max,
 };
 
@@ -703,6 +709,7 @@ struct msmfb_mdp_pp {
 		struct mdp_gamut_cfg_data gamut_cfg_data;
 		struct mdp_calib_config_data calib_cfg;
 		struct mdss_ad_init_cfg ad_init_cfg;
+		struct mdss_calib_cfg mdss_calib_cfg;
 		struct mdss_ad_input ad_input;
 	} data;
 };
