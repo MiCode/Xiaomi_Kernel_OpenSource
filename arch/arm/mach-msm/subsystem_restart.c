@@ -427,8 +427,10 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 
 	ret = wait_for_completion_timeout(&subsys->err_ready,
 					  msecs_to_jiffies(10000));
-	if (!ret)
+	if (!ret) {
+		pr_err("[%s]: Error ready timed out\n", subsys->desc->name);
 		return -ETIMEDOUT;
+	}
 
 	return 0;
 }
