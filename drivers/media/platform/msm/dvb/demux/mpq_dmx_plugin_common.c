@@ -4055,11 +4055,13 @@ static void mpq_sdmx_pes_filter_results(struct mpq_demux *mpq_demux,
 		pes_event.pes_end.start_gap = 0;
 		pes_event.data_length = 0;
 
-		/* Parse error indicators - TODO: these should be per filter */
+		/* Parse error indicators */
 		if (sts->error_indicators & SDMX_FILTER_ERR_INVALID_PES_LEN)
 			pes_event.pes_end.pes_length_mismatch = 1;
-		if (sts->error_indicators & SDMX_FILTER_ERR_CONT_CNT_INVALID)
-			pes_event.pes_end.disc_indicator_set = 0;
+		else
+			pes_event.pes_end.pes_length_mismatch = 0;
+
+		pes_event.pes_end.disc_indicator_set = 0;
 
 		pes_event.pes_end.stc = 0;
 		pes_event.pes_end.tei_counter = counters.transport_err_count;
