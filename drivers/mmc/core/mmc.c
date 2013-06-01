@@ -18,6 +18,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
 #include <linux/pm_runtime.h>
+#include <linux/reboot.h>
 
 #include "core.h"
 #include "bus.h"
@@ -900,6 +901,20 @@ out:
 	return err;
 }
 
+static int mmc_reboot_notify(struct notifier_block *notify_block,
+		unsigned long event, void *unused)
+{
+	struct mmc_card *card = container_of(
+			notify_block, struct mmc_card, reboot_notify);
+
+	if (event != SYS_RESTART)
+		card->issue_long_pon = true;
+	else
+		card->issue_long_pon = false;
+
+	return NOTIFY_OK;
+}
+
 /*
  * Handle the detection and initialisation of a card.
  *
@@ -979,6 +994,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->type = MMC_TYPE_MMC;
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
+		card->reboot_notify.notifier_call = mmc_reboot_notify;
 	}
 
 	/*
@@ -1460,6 +1476,22 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 	return err;
 }
 
+int mmc_send_long_pon(struct mmc_card *card)
+{
+	int err = 0;
+	struct mmc_host *host = card->host;
+
+	mmc_claim_host(host);
+	if (card->issue_long_pon && mmc_can_poweroff_notify(card)) {
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
+		if (err)
+			pr_warning("%s: error %d sending Long PON",
+					mmc_hostname(host), err);
+	}
+	mmc_release_host(host);
+	return err;
+}
+
 /*
  * Host is being removed. Free up the current card.
  */
@@ -1468,6 +1500,7 @@ static void mmc_remove(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
+	unregister_reboot_notifier(&host->card->reboot_notify);
 	mmc_remove_card(host->card);
 
 	mmc_claim_host(host);
@@ -1733,6 +1766,8 @@ int mmc_attach_mmc(struct mmc_host *host)
 		goto remove_card;
 
 	mmc_init_clk_scaling(host);
+
+	register_reboot_notifier(&host->card->reboot_notify);
 
 	return 0;
 

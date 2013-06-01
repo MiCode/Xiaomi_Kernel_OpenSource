@@ -13,6 +13,7 @@
 #include <linux/device.h>
 #include <linux/mmc/core.h>
 #include <linux/mod_devicetable.h>
+#include <linux/notifier.h>
 
 struct mmc_cid {
 	unsigned int		manfid;
@@ -384,6 +385,8 @@ struct mmc_card {
 
 	struct device_attribute rpm_attrib;
 	unsigned int		idle_timeout;
+	struct notifier_block        reboot_notify;
+	bool issue_long_pon;
 };
 
 /*
@@ -604,6 +607,7 @@ struct mmc_driver {
 	void (*remove)(struct mmc_card *);
 	int (*suspend)(struct mmc_card *);
 	int (*resume)(struct mmc_card *);
+	void (*shutdown)(struct mmc_card *);
 };
 
 extern int mmc_register_driver(struct mmc_driver *);
@@ -615,4 +619,5 @@ extern struct mmc_wr_pack_stats *mmc_blk_get_packed_statistics(
 			struct mmc_card *card);
 extern void mmc_blk_init_packed_statistics(struct mmc_card *card);
 extern void mmc_blk_disable_wr_packing(struct mmc_queue *mq);
+extern int mmc_send_long_pon(struct mmc_card *card);
 #endif /* LINUX_MMC_CARD_H */
