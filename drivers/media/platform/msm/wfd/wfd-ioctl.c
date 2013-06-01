@@ -1258,7 +1258,7 @@ static void venc_op_buffer_done(void *cookie, u32 status,
 
 	WFD_MSG_DBG("yay!! got callback\n");
 	mutex_lock(&inst->vb2_lock);
-	vb2_buffer_done(buf, VB2_BUF_STATE_DONE);
+	vb2_buffer_done(buf, status ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
 	mutex_unlock(&inst->vb2_lock);
 }
 
