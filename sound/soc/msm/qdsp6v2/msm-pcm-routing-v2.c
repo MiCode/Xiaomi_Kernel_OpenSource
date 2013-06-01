@@ -58,6 +58,7 @@ static int fm_pcmrx_switch_enable;
 static int srs_alsa_ctrl_ever_called;
 static int lsm_mux_slim_port;
 static int slim0_rx_aanc_fb_port;
+static int msm_route_ec_ref_rx = 3; /* NONE */
 
 enum {
 	MADNONE,
@@ -1346,6 +1347,51 @@ static int msm_routing_put_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 					ucontrol->value.integer.value[4];
 	return 0;
 }
+
+static int msm_routing_ec_ref_rx_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ec_ref_rx  = %d", __func__, msm_route_ec_ref_rx);
+	ucontrol->value.integer.value[0] = msm_route_ec_ref_rx;
+	return 0;
+}
+
+static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int ec_ref_port_id;
+	mutex_lock(&routing_lock);
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_route_ec_ref_rx = 0;
+		ec_ref_port_id = SLIMBUS_0_RX;
+		break;
+	case 1:
+		msm_route_ec_ref_rx = 1;
+		ec_ref_port_id = PRIMARY_I2S_RX;
+		break;
+	default:
+		msm_route_ec_ref_rx = 3; /* NONE */
+		ec_ref_port_id = -1;
+		break;
+	}
+	adm_ec_ref_rx_id(ec_ref_port_id);
+	pr_debug("%s: msm_route_ec_ref_rx = %d\n",
+	    __func__, msm_route_ec_ref_rx);
+	mutex_unlock(&routing_lock);
+	return 0;
+}
+
+static const char *const ec_ref_rx[] = { "SLIM_RX", "I2S_RX", "PROXY_RX",
+	"NONE" };
+static const struct soc_enum msm_route_ec_ref_rx_enum[] = {
+	SOC_ENUM_SINGLE_EXT(4, ec_ref_rx),
+};
+
+static const struct snd_kcontrol_new ec_ref_rx_mixer_controls[] = {
+	SOC_ENUM_EXT("EC_REF_RX", msm_route_ec_ref_rx_enum[0],
+		     msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put),
+};
 
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_I2S_RX ,
@@ -3690,6 +3736,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				dolby_dap_param_end_point_controls,
 			ARRAY_SIZE(dolby_dap_param_end_point_controls));
 
+	snd_soc_add_platform_controls(platform,
+				ec_ref_rx_mixer_controls,
+			ARRAY_SIZE(ec_ref_rx_mixer_controls));
 	return 0;
 }
 

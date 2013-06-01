@@ -55,6 +55,7 @@ struct adm_ctl {
 	atomic_t mem_map_cal_index;
 
 	int set_custom_topology;
+	int ec_ref_rx;
 };
 
 static struct adm_ctl			this_adm;
@@ -965,7 +966,13 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 		open.mode_of_operation = path;
 		open.endpoint_id_1 = tmp_port;
-		open.endpoint_id_2 = 0xFFFF;
+
+		if (this_adm.ec_ref_rx == -1) {
+			open.endpoint_id_2 = 0xFFFF;
+		} else if (this_adm.ec_ref_rx && (path != 1)) {
+			open.endpoint_id_2 = this_adm.ec_ref_rx;
+			this_adm.ec_ref_rx = -1;
+		}
 
 		open.topology_id = topology;
 		if ((open.topology_id == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
@@ -1366,6 +1373,12 @@ int adm_get_copp_id(int port_index)
 	return atomic_read(&this_adm.copp_id[port_index]);
 }
 
+void adm_ec_ref_rx_id(int port_id)
+{
+	this_adm.ec_ref_rx = port_id;
+	pr_debug("%s ec_ref_rx:%d", __func__, this_adm.ec_ref_rx);
+}
+
 int adm_close(int port_id, bool perf_mode)
 {
 	struct apr_hdr close;
@@ -1471,6 +1484,7 @@ static int __init adm_init(void)
 	int i = 0;
 	this_adm.apr = NULL;
 	this_adm.set_custom_topology = 1;
+	this_adm.ec_ref_rx = -1;
 
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
 		atomic_set(&this_adm.copp_id[i], RESET_COPP_ID);
