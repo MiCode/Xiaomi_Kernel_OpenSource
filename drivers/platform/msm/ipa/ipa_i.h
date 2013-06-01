@@ -350,6 +350,7 @@ struct ipa_ep_context {
 	enum ipa_client_type client;
 	struct sps_pipe *ep_hdl;
 	struct ipa_ep_cfg cfg;
+	struct ipa_ep_cfg_holb holb;
 	u32 dst_pipe_index;
 	u32 rt_tbl_idx;
 	struct sps_connect connect;
@@ -686,9 +687,6 @@ struct ipa_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
-	/* store HOLB configuration for WLAN TX pipes */
-	u32 hol_en;
-	u32 hol_timer;
 	struct sk_buff_head rx_list;
 };
 

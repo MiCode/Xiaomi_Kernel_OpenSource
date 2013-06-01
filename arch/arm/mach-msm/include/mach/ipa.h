@@ -186,6 +186,16 @@ struct ipa_ep_cfg_route {
 };
 
 /**
+ * struct ipa_ep_cfg_holb - head of line blocking configuration in IPA end-point
+ * @en: enable(1 => ok to drop pkt)/disable(0 => never drop pkt)
+ * @tmr_val: duration in units of 128 IPA clk clock cyles [0,511], 1 clk=1.28us
+ */
+struct ipa_ep_cfg_holb {
+	u16 en;
+	u16 tmr_val;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:	NAT parmeters
  * @hdr:	Header parameters
@@ -485,6 +495,11 @@ int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg);
 
 int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
 
+int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
+				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
 /*
  * Header removal / addition
  */
@@ -750,6 +765,12 @@ static inline int ipa_cfg_ep_aggr(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_route(u32 clnt_hdl,
 		const struct ipa_ep_cfg_route *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
+		const struct ipa_ep_cfg_holb *ipa_ep_cfg)
 {
 	return -EPERM;
 }
