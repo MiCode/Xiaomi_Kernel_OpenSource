@@ -27,7 +27,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_formats.h"
-
+#include "mdss_debug.h"
 #define DEFAULT_FRAME_RATE	60
 
 enum {
@@ -124,6 +124,7 @@ static inline void mdss_mdp_intr_done(int index)
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 {
+	struct mdss_data_type *mdata = ptr;
 	u32 isr, mask, hist_isr, hist_mask;
 
 
@@ -172,17 +173,25 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_RD_PTR)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_RD_PTR);
 
-	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC)
+	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_EDP);
+	}
 
-	if (isr & MDSS_MDP_INTR_INTF_1_VSYNC)
+	if (isr & MDSS_MDP_INTR_INTF_1_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_1);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0);
+	}
 
-	if (isr & MDSS_MDP_INTR_INTF_2_VSYNC)
+	if (isr & MDSS_MDP_INTR_INTF_2_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_2);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1);
+	}
 
-	if (isr & MDSS_MDP_INTR_INTF_3_VSYNC)
+	if (isr & MDSS_MDP_INTR_INTF_3_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_3);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI);
+	}
 
 	if (isr & MDSS_MDP_INTR_WB_0_DONE)
 		mdss_mdp_intr_done(MDP_INTR_WB_0);
