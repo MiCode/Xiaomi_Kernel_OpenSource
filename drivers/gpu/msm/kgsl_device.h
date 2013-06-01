@@ -293,6 +293,7 @@ void kgsl_process_events(struct work_struct *work);
  * @events: list head of pending events for this context
  * @events_list: list node for the list of all contexts that have pending events
  * @pid: process that owns this context.
+ * @tid: task that created this context.
  * @pagefault: flag set if this context caused a pagefault.
  * @pagefault_ts: global timestamp of the pagefault, if KGSL_CONTEXT_PAGEFAULT
  * is set.
@@ -301,6 +302,7 @@ struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
 	pid_t pid;
+	pid_t tid;
 	struct kgsl_device_private *dev_priv;
 	unsigned long priv;
 	struct kgsl_device *device;

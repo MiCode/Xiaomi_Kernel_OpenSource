@@ -249,6 +249,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	if (device->state != KGSL_STATE_HUNG)
 		adreno_idle(device);
 
+	adreno_profile_process_results(device);
+
 	kgsl_sharedmem_free(&drawctxt->gpustate);
 	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
 }
