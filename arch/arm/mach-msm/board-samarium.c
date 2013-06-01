@@ -42,6 +42,10 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 };
 
 static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
+			"msm_sdcc.2", NULL),
 	{},
 };
 
