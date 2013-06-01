@@ -540,12 +540,12 @@
 				qcom,cs-out-en;
 				qcom,op-fdbck = <1>;
 				qcom,default-state = "on";
-				qcom,max-current = <25>;
+				qcom,max-current = <20>;
 				qcom,ctrl-delay-us = <0>;
 				qcom,boost-curr-lim = <3>;
 				qcom,cp-sel = <0>;
 				qcom,switch-freq = <2>;
-				qcom,ovp-val = <2>;
+				qcom,ovp-val = <1>;
 				qcom,num-strings = <1>;
 				qcom,id = <0>;
 			};
