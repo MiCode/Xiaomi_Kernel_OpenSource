@@ -642,6 +642,10 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
+
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
