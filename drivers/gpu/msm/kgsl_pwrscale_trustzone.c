@@ -110,8 +110,12 @@ static ssize_t tz_governor_store(struct kgsl_device *device,
 	else if (!strncmp(str, "performance", 11))
 		priv->governor = TZ_GOVERNOR_PERFORMANCE;
 
-	if (priv->governor == TZ_GOVERNOR_PERFORMANCE)
+	if (priv->governor == TZ_GOVERNOR_PERFORMANCE) {
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->max_pwrlevel);
+		pwr->default_pwrlevel = pwr->max_pwrlevel;
+	} else {
+		pwr->default_pwrlevel = pwr->init_pwrlevel;
+	}
 
 	mutex_unlock(&device->mutex);
 	return count;
