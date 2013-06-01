@@ -578,7 +578,8 @@ int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode1)
 
 void *q6asm_mmap_apr_reg(void)
 {
-	if (atomic_read(&this_mmap.ref_cnt) == 0) {
+	if ((atomic_read(&this_mmap.ref_cnt) == 0) ||
+	    (this_mmap.apr == NULL)) {
 		this_mmap.apr = apr_register("ADSP", "ASM", \
 					(apr_fn)q6asm_mmapcallback,\
 					0x0FFFFFFFF, &this_mmap);
