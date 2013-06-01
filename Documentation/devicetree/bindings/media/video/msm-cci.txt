@@ -51,9 +51,6 @@ Required properties:
 - qcom,sensor-name : should contain unique sensor name to differentiate from
     other sensor
     - "s5k3l1yx"
-- qcom,vdd-cx-supply : should contain regulator from which cx voltage is
-    supplied
-- qcom,vdd-cx-name : should contain names of cx regulator
 - cam_vdig-supply : should contain regulator from which digital voltage is
     supplied
 - cam_vana-supply : should contain regulator from which analog voltage is
@@ -133,6 +130,10 @@ Optional properties:
    property should contain phandle of respective actuator node
 - qcom,led-flash-src : if LED flash is supported by this sensor, this
    property should contain phandle of respective LED flash node
+- qcom,vdd-cx-supply : should contain regulator from which cx voltage is
+    supplied
+- qcom,vdd-cx-name : should contain names of cx regulator
+
 * Qualcomm MSM ACTUATOR
 
 Required properties:
