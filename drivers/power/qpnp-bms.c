@@ -168,6 +168,7 @@ struct qpnp_bms_chip {
 	uint16_t			ocv_reading_at_100;
 	uint16_t			prev_last_good_ocv_raw;
 	int				last_ocv_uv;
+	int				charging_adjusted_ocv;
 	int				last_ocv_temp;
 	int				last_cc_uah;
 	unsigned long			last_soc_change_sec;
@@ -1610,9 +1611,8 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 		chip->prev_chg_soc = chg_soc;
 
 		find_ocv_for_soc(chip, params, batt_temp, chg_soc, &new_ocv_uv);
-		chip->last_ocv_uv = new_ocv_uv;
-		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n",
-				new_ocv_uv,
+		chip->charging_adjusted_ocv = new_ocv_uv;
+		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n", new_ocv_uv,
 				chip->prev_chg_soc);
 	}
 
@@ -2286,7 +2286,13 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 	if (get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL) {
 		chip->done_charging = true;
 		chip->last_soc_invalid = true;
+	} else if (chip->charging_adjusted_ocv > 0) {
+		pr_debug("Charging stopped before full, adjusted OCV = %d\n",
+				chip->charging_adjusted_ocv);
+		chip->last_ocv_uv = chip->charging_adjusted_ocv;
 	}
+	chip->charging_adjusted_ocv = -EINVAL;
+
 	mutex_unlock(&chip->last_ocv_uv_mutex);
 }
 
