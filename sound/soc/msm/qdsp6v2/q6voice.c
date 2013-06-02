@@ -300,6 +300,16 @@ static bool is_voice2_session(u32 session_id)
 	return (session_id == common.voice[VOC_PATH_VOICE2_PASSIVE].session_id);
 }
 
+static bool is_voc_state_active(int voc_state)
+{
+	if ((voc_state == VOC_RUN) ||
+		(voc_state == VOC_CHANGE) ||
+		(voc_state == VOC_STANDBY))
+		return true;
+
+	return false;
+}
+
 static bool is_other_session_active(u32 session_id)
 {
 	int i;
@@ -310,9 +320,7 @@ static bool is_other_session_active(u32 session_id)
 		if (common.voice[i].session_id == session_id)
 			continue;
 
-		if ((common.voice[i].voc_state == VOC_RUN) ||
-		    (common.voice[i].voc_state == VOC_CHANGE) ||
-		    (common.voice[i].voc_state == VOC_STANDBY)) {
+		if (is_voc_state_active(common.voice[i].voc_state)) {
 			ret = true;
 			break;
 		}
@@ -1213,9 +1221,8 @@ void voc_disable_dtmf_det_on_active_sessions(void)
 	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
 		v = &common.voice[i];
 		if ((v->dtmf_rx_detect_en) &&
-			((v->voc_state == VOC_RUN) ||
-			 (v->voc_state == VOC_CHANGE) ||
-			 (v->voc_state == VOC_STANDBY))) {
+			is_voc_state_active(v->voc_state)) {
+
 			pr_debug("disable dtmf det on ses_id=%d\n",
 				 v->session_id);
 			voice_send_dtmf_rx_detection_cmd(v, 0);
@@ -1236,9 +1243,7 @@ int voc_enable_dtmf_rx_detection(uint32_t session_id, uint32_t enable)
 	mutex_lock(&v->lock);
 	v->dtmf_rx_detect_en = enable;
 
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
+	if (is_voc_state_active(v->voc_state))
 		ret = voice_send_dtmf_rx_detection_cmd(v,
 						       v->dtmf_rx_detect_en);
 
@@ -2325,6 +2330,62 @@ static int voice_send_cvp_deregister_vol_cal_cmd(struct voice_data *v)
 
 done:
 	return ret;
+}
+
+int voc_register_vocproc_vol_table(void)
+{
+	int			result = 0;
+	int			i;
+	struct voice_data	*v = NULL;
+	pr_debug("%s\n", __func__);
+
+	mutex_lock(&common.common_lock);
+	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
+		v = &common.voice[i];
+
+		mutex_lock(&v->lock);
+		if (is_voc_state_active(v->voc_state)) {
+			result = voice_send_cvp_register_vol_cal_cmd(v);
+			if (result) {
+				pr_err("%s: Failed to register vocvol table for session 0x%x!\n",
+					__func__, v->session_id);
+				mutex_unlock(&v->lock);
+				goto done;
+			}
+		}
+		mutex_unlock(&v->lock);
+	}
+done:
+	mutex_unlock(&common.common_lock);
+	return result;
+}
+
+int voc_deregister_vocproc_vol_table(void)
+{
+	int			result = 0;
+	int			i;
+	struct voice_data	*v = NULL;
+	pr_debug("%s\n", __func__);
+
+	mutex_lock(&common.common_lock);
+	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
+		v = &common.voice[i];
+
+		mutex_lock(&v->lock);
+		if (is_voc_state_active(v->voc_state)) {
+			result = voice_send_cvp_deregister_vol_cal_cmd(v);
+			if (result) {
+				pr_err("%s: Failed to deregister vocvol table for session 0x%x!\n",
+					__func__, v->session_id);
+				mutex_unlock(&v->lock);
+				goto done;
+			}
+		}
+		mutex_unlock(&v->lock);
+	}
+done:
+	mutex_unlock(&common.common_lock);
+	return result;
 }
 
 static int voice_map_memory_physical_cmd(struct voice_data *v,
@@ -3870,9 +3931,7 @@ int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute)
 
 	v->stream_tx.stream_mute = mute;
 
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
+	if (is_voc_state_active(v->voc_state))
 		ret = voice_send_stream_mute_cmd(v);
 
 	mutex_unlock(&v->lock);
@@ -4026,9 +4085,7 @@ int voc_set_rx_vol_index(uint32_t session_id, uint32_t dir, uint32_t vol_idx)
 
 	v->dev_rx.volume = vol_idx;
 
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
+	if (is_voc_state_active(v->voc_state))
 		ret = voice_send_vol_index_cmd(v);
 
 	mutex_unlock(&v->lock);

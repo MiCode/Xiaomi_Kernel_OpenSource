@@ -20,6 +20,7 @@
 #include <linux/mm.h>
 #include <linux/msm_audio_ion.h>
 #include "audio_acdb.h"
+#include "q6voice.h"
 
 
 #define MAX_NETWORKS			15
@@ -949,6 +950,36 @@ static int get_spk_protection_status(struct msm_spk_prot_status *status)
 	return result;
 }
 
+static int register_vocvol_table(void)
+{
+	int result = 0;
+	pr_debug("%s\n", __func__);
+
+	result = voc_register_vocproc_vol_table();
+	if (result < 0) {
+		pr_err("%s: Register vocproc vol failed!\n", __func__);
+		goto done;
+	}
+
+done:
+	return result;
+}
+
+static int deregister_vocvol_table(void)
+{
+	int result = 0;
+	pr_debug("%s\n", __func__);
+
+	result = voc_deregister_vocproc_vol_table();
+	if (result < 0) {
+		pr_err("%s: Deregister vocproc vol failed!\n", __func__);
+		goto done;
+	}
+
+done:
+	return result;
+}
+
 static int acdb_open(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
@@ -1139,9 +1170,15 @@ static long acdb_ioctl(struct file *f,
 		}
 		if (copy_to_user((void *)arg, &prot_status,
 			sizeof(prot_status))) {
-			pr_err("%s Failed to update prot_status\n", __func__);
+			pr_err("%s: Failed to update prot_status\n", __func__);
 		}
 		mutex_unlock(&acdb_data.acdb_mutex);
+		goto done;
+	case AUDIO_REGISTER_VOCPROC_VOL_TABLE:
+		result = register_vocvol_table();
+		goto done;
+	case AUDIO_DEREGISTER_VOCPROC_VOL_TABLE:
+		result = deregister_vocvol_table();
 		goto done;
 	}
 
