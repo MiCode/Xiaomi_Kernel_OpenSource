@@ -629,6 +629,14 @@
 				"tsif_data",
 				"tsif_sync";
 		qcom,gpios-func = <1>;
+
+		qcom,msm-bus,name = "tsif";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<82 512 0 0>, /* No vote */
+				<82 512 12288 24576>; /* Max. bandwidth, 2xTSIF, each max of 96Mbps */
 	};
 
 	slim_msm: slim@fe12f000 {
