@@ -4111,7 +4111,7 @@ static void mpq_sdmx_section_filter_results(struct mpq_demux *mpq_demux,
 		MPQ_DVB_DBG_PRINT("%s: Notify CRC err event\n", __func__);
 		event.status = DMX_CRC_ERROR;
 		event.data_length = 0;
-		feed->data_ready_cb.sec(&feed->filter->filter, &event);
+		dvb_dmx_notify_section_event(feed, &event, 1);
 	}
 
 	if (sts->error_indicators & SDMX_FILTER_ERR_D_BUF_FULL)
@@ -4145,12 +4145,7 @@ section_filter_check_eos:
 	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
 		event.data_length = 0;
 		event.status = DMX_OK_EOS;
-		f = feed->filter;
-
-		while (f && sec->is_filtering) {
-			feed->data_ready_cb.sec(&f->filter, &event);
-			f = f->next;
-		}
+		dvb_dmx_notify_section_event(feed, &event, 1);
 	}
 
 }
@@ -4819,21 +4814,11 @@ int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
 		event.status = DMX_OK_MARKER;
 		event.marker.id = cmd->params.marker.id;
 
-		if (feed->type == DMX_TYPE_SEC) {
-			struct dvb_demux_filter *f = feed->filter;
-			struct dmx_section_feed *sec = &feed->feed.sec;
-
-			while (f && sec->is_filtering) {
-				ret = feed->data_ready_cb.sec(&f->filter,
-					&event);
-				if (ret)
-					break;
-				f = f->next;
-			}
-		} else {
+		if (feed->type == DMX_TYPE_SEC)
+			ret = dvb_dmx_notify_section_event(feed, &event, 1);
+		else
 			/* MPQ_TODO: Notify decoder via the stream buffer */
 			ret = feed->data_ready_cb.ts(&feed->feed.ts, &event);
-		}
 		break;
 
 	default:

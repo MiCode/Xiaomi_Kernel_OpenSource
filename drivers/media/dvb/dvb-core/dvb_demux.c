@@ -442,6 +442,45 @@ next_prefix_lookup:
 }
 EXPORT_SYMBOL(dvb_dmx_video_pattern_search);
 
+/**
+ * dvb_dmx_notify_section_event() - Notify demux event for all filters of a
+ * specified section feed.
+ *
+ * @feed:		dvb_demux_feed object
+ * @event:		demux event to notify
+ * @should_lock:	specifies whether the function should lock the demux
+ *
+ * Caller is responsible for locking the demux properly, either by doing the
+ * locking itself and setting 'should_lock' to 0, or have the function do it
+ * by setting 'should_lock' to 1.
+ */
+int dvb_dmx_notify_section_event(struct dvb_demux_feed *feed,
+	struct dmx_data_ready *event, int should_lock)
+{
+	struct dvb_demux_filter *f;
+
+	if (feed == NULL || event == NULL || feed->type != DMX_TYPE_SEC)
+		return -EINVAL;
+
+	if (!should_lock && !spin_is_locked(&feed->demux->lock))
+		return -EINVAL;
+
+	if (should_lock)
+		spin_lock(&feed->demux->lock);
+
+	f = feed->filter;
+	while (f && feed->feed.sec.is_filtering) {
+		feed->data_ready_cb.sec(&f->filter, event);
+		f = f->next;
+	}
+
+	if (should_lock)
+		spin_unlock(&feed->demux->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(dvb_dmx_notify_section_event);
+
 static int dvb_dmx_check_pes_end(struct dvb_demux_feed *feed)
 {
 	struct dmx_data_ready data;
@@ -1310,8 +1349,7 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 		dmx_data_ready.scrambling_bits.new_value = scrambling_bits;
 
 		if (feed->type == DMX_TYPE_SEC)
-			feed->data_ready_cb.sec(&feed->filter->filter,
-					&dmx_data_ready);
+			dvb_dmx_notify_section_event(feed, &dmx_data_ready, 0);
 		else
 			feed->data_ready_cb.ts(&feed->feed.ts, &dmx_data_ready);
 	}
@@ -2735,7 +2773,7 @@ static int dvbdmx_section_feed_oob_cmd(struct dmx_section_feed *section_feed,
 	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)section_feed;
 	struct dvb_demux *dvbdmx = feed->demux;
 	struct dmx_data_ready data;
-	int ret;
+	int ret = 0;
 
 	data.data_length = 0;
 
@@ -2760,19 +2798,20 @@ static int dvbdmx_section_feed_oob_cmd(struct dmx_section_feed *section_feed,
 	switch (cmd->type) {
 	case DMX_OOB_CMD_EOS:
 		data.status = DMX_OK_EOS;
-		ret = feed->data_ready_cb.sec(&feed->filter->filter, &data);
 		break;
 
 	case DMX_OOB_CMD_MARKER:
 		data.status = DMX_OK_MARKER;
 		data.marker.id = cmd->params.marker.id;
-		ret = feed->data_ready_cb.sec(&feed->filter->filter, &data);
 		break;
 
 	default:
 		ret = -EINVAL;
 		break;
 	}
+
+	if (!ret)
+		ret = dvb_dmx_notify_section_event(feed, &data, 1);
 
 	mutex_unlock(&dvbdmx->mutex);
 	return ret;
