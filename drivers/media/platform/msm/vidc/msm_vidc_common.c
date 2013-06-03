@@ -716,6 +716,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
 			break;
 		case HAL_PICTURE_I:
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
