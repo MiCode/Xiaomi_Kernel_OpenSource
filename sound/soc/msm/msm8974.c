@@ -1996,6 +1996,58 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		 /* this dainlink has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA8,
 	},
+	/* HDMI Hostless */
+	{
+		.name = "HDMI_RX_HOSTLESS",
+		.stream_name = "HDMI_RX_HOSTLESS",
+		.cpu_dai_name = "HDMI_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_4_TX,
+		.stream_name = "Slimbus4 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16393",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name	= "taiko_vifeedback",
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		.be_hw_params_fixup = msm_slim_4_tx_be_hw_params_fixup,
+		.ops = &msm8974_be_ops,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+	},
+	/* Ultrasound RX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Playback",
+		.stream_name = "SLIMBUS_2 Hostless Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16388",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_rx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
+	},
+	/* Ultrasound TX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Capture",
+		.stream_name = "SLIMBUS_2 Hostless Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_tx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
@@ -2075,21 +2127,6 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 		.be_hw_params_fixup = msm_proxy_tx_be_hw_params_fixup,
 		.ignore_suspend = 1,
-	},
-	/* HDMI Hostless */
-	{
-		.name = "HDMI_RX_HOSTLESS",
-		.stream_name = "HDMI_RX_HOSTLESS",
-		.cpu_dai_name = "HDMI_HOSTLESS",
-		.platform_name = "msm-pcm-hostless",
-		.dynamic = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			SND_SOC_DPCM_TRIGGER_POST},
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
 	},
 	/* Primary AUX PCM Backend DAI Links */
 	{
@@ -2250,19 +2287,6 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
-	{
-		.name = LPASS_BE_SLIMBUS_4_TX,
-		.stream_name = "Slimbus4 Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16393",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_vifeedback",
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
-		.be_hw_params_fixup = msm_slim_4_tx_be_hw_params_fixup,
-		.ops = &msm8974_be_ops,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-	},
 	/* Incall Record Uplink BACK END DAI Link */
 	{
 		.name = LPASS_BE_INCALL_RECORD_TX,
@@ -2314,30 +2338,6 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
-	},
-	/* Ultrasound RX Back End DAI Link */
-	{
-		.name = "SLIMBUS_2 Hostless Playback",
-		.stream_name = "SLIMBUS_2 Hostless Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16388",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "taiko_codec",
-		.codec_dai_name = "taiko_rx2",
-		.ignore_suspend = 1,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm8974_slimbus_2_be_ops,
-	},
-	/* Ultrasound TX Back End DAI Link */
-	{
-		.name = "SLIMBUS_2 Hostless Capture",
-		.stream_name = "SLIMBUS_2 Hostless Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16389",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "taiko_codec",
-		.codec_dai_name = "taiko_tx2",
-		.ignore_suspend = 1,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm8974_slimbus_2_be_ops,
 	},
 };
 
