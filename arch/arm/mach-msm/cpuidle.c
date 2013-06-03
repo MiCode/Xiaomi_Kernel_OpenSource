@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpuidle.h>
-#include <linux/cpu_pm.h>
 
 #include <mach/cpuidle.h>
 
@@ -75,8 +74,6 @@ static int msm_cpuidle_enter(
 		count = ARRAY_SIZE(msm_cstates);
 	}
 
-	cpu_pm_enter();
-
 	pm_mode = msm_pm_idle_enter(dev, drv, index, states);
 
 	for (i = 0; i < count; i++) {
@@ -86,7 +83,6 @@ static int msm_cpuidle_enter(
 		}
 	}
 
-	cpu_pm_exit();
 	local_irq_enable();
 
 	return ret;
