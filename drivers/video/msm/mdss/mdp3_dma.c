@@ -28,8 +28,6 @@ static void mdp3_vsync_intr_handler(int type, void *arg)
 	pr_debug("mdp3_vsync_intr_handler\n");
 	spin_lock(&dma->dma_lock);
 	vsync_client = dma->vsync_client;
-	if (!vsync_client.handler)
-		dma->cb_type &= ~MDP3_DMA_CALLBACK_TYPE_VSYNC;
 	complete(&dma->vsync_comp);
 	spin_unlock(&dma->dma_lock);
 	if (vsync_client.handler)
@@ -43,10 +41,6 @@ static void mdp3_dma_done_intr_handler(int type, void *arg)
 	struct mdp3_dma *dma = (struct mdp3_dma *)arg;
 
 	pr_debug("mdp3_dma_done_intr_handler\n");
-	spin_lock(&dma->dma_lock);
-	dma->busy = false;
-	dma->cb_type &= ~MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-	spin_unlock(&dma->dma_lock);
 	complete(&dma->dma_comp);
 	mdp3_irq_disable_nosync(type);
 }
@@ -54,18 +48,8 @@ static void mdp3_dma_done_intr_handler(int type, void *arg)
 void mdp3_dma_callback_enable(struct mdp3_dma *dma, int type)
 {
 	int irq_bit;
-	unsigned long flag;
 
 	pr_debug("mdp3_dma_callback_enable type=%d\n", type);
-
-	spin_lock_irqsave(&dma->dma_lock, flag);
-	if (dma->cb_type & type) {
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-		return;
-	} else {
-		dma->cb_type |= type;
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-	}
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO ||
 		dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_LCDC) {
@@ -92,18 +76,8 @@ void mdp3_dma_callback_enable(struct mdp3_dma *dma, int type)
 void mdp3_dma_callback_disable(struct mdp3_dma *dma, int type)
 {
 	int irq_bit;
-	unsigned long flag;
 
 	pr_debug("mdp3_dma_callback_disable type=%d\n", type);
-
-	spin_lock_irqsave(&dma->dma_lock, flag);
-	if ((dma->cb_type & type) == 0) {
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-		return;
-	} else {
-		dma->cb_type &= ~type;
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-	}
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO ||
 		dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_LCDC) {
@@ -443,7 +417,6 @@ static int mdp3_dmap_histo_config(struct mdp3_dma *dma,
 
 static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
 {
-	int wait_for_dma_done = 0;
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 
@@ -451,22 +424,15 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-		spin_lock_irqsave(&dma->dma_lock, flag);
-		if (dma->busy)
-			wait_for_dma_done = 1;
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-
-		if (wait_for_dma_done)
-			wait_for_completion_killable(&dma->dma_comp);
+		wait_for_completion_killable(&dma->dma_comp);
 	}
 
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)buf);
 	dma->source_config.buf = buf;
-	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 1);
-		dma->busy = true;
-	}
+
 	wmb();
 	init_completion(&dma->vsync_comp);
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
@@ -480,28 +446,19 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
 
 static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf)
 {
-	int wait_for_dma_done = 0;
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-		spin_lock_irqsave(&dma->dma_lock, flag);
-		if (dma->busy)
-			wait_for_dma_done = 1;
-		spin_unlock_irqrestore(&dma->dma_lock, flag);
-
-		if (wait_for_dma_done)
-			wait_for_completion_killable(&dma->dma_comp);
+		wait_for_completion_killable(&dma->dma_comp);
 	}
 
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR, (u32)buf);
 	dma->source_config.buf = buf;
-	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
 		MDP3_REG_WRITE(MDP3_REG_DMA_S_START, 1);
-		dma->busy = true;
-	}
 	wmb();
 	init_completion(&dma->vsync_comp);
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
@@ -613,7 +570,6 @@ static int mdp3_dma_start(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
 		MDP3_REG_WRITE(dma_start_offset, 1);
-		dma->busy = true;
 	}
 
 	intf->start(intf);
@@ -653,7 +609,6 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	mdp3_dma_callback_disable(dma, MDP3_DMA_CALLBACK_TYPE_VSYNC |
 					MDP3_DMA_CALLBACK_TYPE_DMA_DONE);
 
-	dma->busy = false;
 	return ret;
 }
 
@@ -666,8 +621,6 @@ int mdp3_dma_init(struct mdp3_dma *dma,
 	pr_debug("mdp3_dma_init\n");
 	switch (dma->dma_sel) {
 	case MDP3_DMA_P:
-		dma->busy = 0;
-
 		ret = mdp3_dmap_config(dma, source_config, output_config);
 		if (ret < 0)
 			return ret;
@@ -687,7 +640,6 @@ int mdp3_dma_init(struct mdp3_dma *dma,
 		dma->stop = mdp3_dma_stop;
 		break;
 	case MDP3_DMA_S:
-		dma->busy = 0;
 		ret = mdp3_dmas_config(dma, source_config, output_config);
 		if (ret < 0)
 			return ret;
@@ -715,7 +667,6 @@ int mdp3_dma_init(struct mdp3_dma *dma,
 	spin_lock_init(&dma->dma_lock);
 	init_completion(&dma->vsync_comp);
 	init_completion(&dma->dma_comp);
-	dma->cb_type = 0;
 	dma->vsync_client.handler = NULL;
 	dma->vsync_client.arg = NULL;
 
