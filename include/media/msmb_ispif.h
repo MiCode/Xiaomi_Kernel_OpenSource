@@ -1,8 +1,10 @@
 #ifndef MSM_CAM_ISPIF_H
 #define MSM_CAM_ISPIF_H
 
-#define CSID_VERSION_V2                       0x02000011
-#define CSID_VERSION_V3                       0x30000000
+#define CSID_VERSION_V20                      0x02000011
+#define CSID_VERSION_V22                      0x02001000
+#define CSID_VERSION_V30                      0x30000000
+#define CSID_VERSION_V3                      0x30000000
 
 enum msm_ispif_vfe_intf {
 	VFE0,

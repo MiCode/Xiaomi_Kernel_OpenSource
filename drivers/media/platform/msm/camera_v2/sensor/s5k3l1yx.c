@@ -93,9 +93,15 @@ static const struct i2c_device_id s5k3l1yx_i2c_id[] = {
 	{ }
 };
 
+static int32_t msm_s5k3l1yx_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &s5k3l1yx_s_ctrl);
+}
+
 static struct i2c_driver s5k3l1yx_i2c_driver = {
 	.id_table = s5k3l1yx_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_s5k3l1yx_i2c_probe,
 	.driver = {
 		.name = S5K3L1YX_SENSOR_NAME,
 	},

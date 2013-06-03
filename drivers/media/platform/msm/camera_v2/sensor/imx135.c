@@ -93,9 +93,15 @@ static const struct i2c_device_id imx135_i2c_id[] = {
 	{ }
 };
 
+static int32_t msm_imx135_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &imx135_s_ctrl);
+}
+
 static struct i2c_driver imx135_i2c_driver = {
 	.id_table = imx135_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_imx135_i2c_probe,
 	.driver = {
 		.name = IMX135_SENSOR_NAME,
 	},

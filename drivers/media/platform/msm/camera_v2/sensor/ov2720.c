@@ -75,9 +75,15 @@ static const struct i2c_device_id ov2720_i2c_id[] = {
 	{ }
 };
 
+static int32_t msm_ov2720_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &ov2720_s_ctrl);
+}
+
 static struct i2c_driver ov2720_i2c_driver = {
 	.id_table = ov2720_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_ov2720_i2c_probe,
 	.driver = {
 		.name = OV2720_SENSOR_NAME,
 	},
