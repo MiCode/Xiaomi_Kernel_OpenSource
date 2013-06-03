@@ -1025,6 +1025,21 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA5,
 	},
+	{
+		.name = "MSM8226 Media9",
+		.stream_name = "MultiMedia9",
+		.cpu_dai_name   = "MultiMedia9",
+		.platform_name  = "msm-pcm-dsp.0",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		/* This dailink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
