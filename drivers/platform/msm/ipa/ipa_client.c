@@ -18,7 +18,7 @@
  * directional throughputs
  */
 #define IPA_A2_HOLB_TMR_EN 0x1
-#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0xff
+#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0x1ff
 #define IPA_WLAN_HOLB_TMR_EN 0x1
 #define IPA_WLAN_HOLB_TMR_DEFAULT_VAL 0x7f
 
