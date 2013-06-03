@@ -1879,12 +1879,27 @@ qpnp_eoc_work(struct work_struct *work)
 					|| chg_sts & TRKL_CHG_ON_IRQ)) {
 		ibat_ma = get_prop_current_now(chip) / 1000;
 		vbat_mv = get_prop_battery_voltage_now(chip) / 1000;
-		pr_debug("ibat_ma: %d term_current =%d\n",
-				ibat_ma, chip->term_current);
-		if (ibat_ma > chip->term_current) {
-			pr_debug("charging but increase in current demand\n");
+
+		pr_debug("ibat_ma = %d vbat_mv = %d term_current_ma = %d\n",
+				ibat_ma, vbat_mv, chip->term_current);
+
+		if ((!(chg_sts & VBAT_DET_LOW_IRQ)) && (vbat_mv <
+			(chip->max_voltage_mv - chip->resume_delta_mv))) {
+			pr_debug("woke up too early\n");
+			qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
+			goto stop_eoc;
+		}
+
+		if (!(buck_sts & VDD_LOOP_IRQ)) {
+			pr_debug("Not in CV\n");
 			count = 0;
-		} else if ((ibat_ma * -1) < chip->term_current) {
+		} else if ((ibat_ma * -1) > chip->term_current) {
+			pr_debug("Not at EOC, battery current too high\n");
+			count = 0;
+		} else if (ibat_ma > 0) {
+			pr_debug("Charging but system demand increased\n");
+			count = 0;
+		} else {
 			if (count == CONSECUTIVE_COUNT) {
 				pr_info("End of Charging\n");
 				qpnp_chg_charge_en(chip, 0);
@@ -1896,11 +1911,6 @@ qpnp_eoc_work(struct work_struct *work)
 				count += 1;
 				pr_debug("EOC count = %d\n", count);
 			}
-		} else if ((!(chg_sts & VBAT_DET_LOW_IRQ)) && (vbat_mv <
-			(chip->max_voltage_mv - chip->resume_delta_mv))) {
-			pr_debug("woke up too early\n");
-			qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
-			goto stop_eoc;
 		}
 	} else {
 		pr_debug("not charging\n");
