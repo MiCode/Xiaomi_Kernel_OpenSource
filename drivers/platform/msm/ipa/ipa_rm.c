@@ -251,7 +251,8 @@ int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 	}
 	result = ipa_rm_resource_producer_register(
 			(struct ipa_rm_resource_prod *)resource,
-			reg_params);
+			reg_params,
+			true);
 bail:
 	read_unlock(&ipa_rm_ctx->lock);
 	return result;
@@ -312,7 +313,8 @@ int ipa_rm_notify_completion(enum ipa_rm_event event,
 	}
 	ipa_rm_wq_send_cmd(IPA_RM_WQ_RESOURCE_CB,
 			resource_name,
-			event);
+			event,
+			false);
 	result = 0;
 bail:
 	return result;
@@ -339,7 +341,8 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 		}
 		ipa_rm_resource_producer_notify_clients(
 				(struct ipa_rm_resource_prod *)resource,
-				ipa_rm_work->event);
+				ipa_rm_work->event,
+				ipa_rm_work->notify_registered_only);
 		read_unlock(&ipa_rm_ctx->lock);
 		break;
 	case IPA_RM_WQ_NOTIFY_CONS:
@@ -368,12 +371,15 @@ static void ipa_rm_wq_handler(struct work_struct *work)
  * ipa_rm_wq_send_cmd() - send a command for deferred work
  * @wq_cmd: command that should be executed
  * @resource_name: resource on which command should be executed
+ * @notify_registered_only: notify only clients registered by
+ *	ipa_rm_register()
  *
  * Returns: 0 on success, negative otherwise
  */
 int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_event event)
+		enum ipa_rm_event event,
+		bool notify_registered_only)
 {
 	int result = -ENOMEM;
 	struct ipa_rm_wq_work_type *work = kzalloc(sizeof(*work), GFP_KERNEL);
@@ -382,6 +388,7 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 		work->wq_cmd = wq_cmd;
 		work->resource_name = resource_name;
 		work->event = event;
+		work->notify_registered_only = notify_registered_only;
 		result = queue_work(ipa_rm_ctx->ipa_rm_wq,
 				(struct work_struct *)work);
 	}
