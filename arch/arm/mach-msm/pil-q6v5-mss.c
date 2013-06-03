@@ -217,28 +217,13 @@ static int pil_mss_shutdown(struct pil_desc *pil)
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_MODEM_HALT_BASE);
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_NC_HALT_BASE);
 
-	/*
-	 * If the shutdown function is called before the reset function, clocks
-	 * and power will not be enabled yet. Enable them here so that register
-	 * writes performed during the shutdown succeed.
-	 */
-	if (drv->is_booted == false) {
-		pil_mss_power_up(drv);
-		pil_mss_enable_clks(drv);
-	}
-	pil_q6v5_shutdown(pil);
-
-	pil_mss_disable_clks(drv);
-
 	writel_relaxed(1, drv->restart_reg);
 
-	/*
-	 * access to the cx_rail_bhs is restricted until after the gcc_mss
-	 * reset is asserted once the PBL starts executing.
-	 */
-	pil_mss_power_down(drv);
-
-	drv->is_booted = false;
+	if (drv->is_booted) {
+		pil_mss_disable_clks(drv);
+		pil_mss_power_down(drv);
+		drv->is_booted = false;
+	}
 
 	return 0;
 }
