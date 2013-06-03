@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,8 @@
 
 #ifndef __KGSL_CFFDUMP_H
 #define __KGSL_CFFDUMP_H
+
+extern unsigned int kgsl_cff_dump_enable;
 
 #ifdef CONFIG_MSM_KGSL_CFF_DUMP
 
@@ -44,6 +46,8 @@ void kgsl_cffdump_memory_base(enum kgsl_deviceid device_id, unsigned int base,
 			      unsigned int range, unsigned int gmemsize);
 
 void kgsl_cffdump_hang(enum kgsl_deviceid device_id);
+int kgsl_cff_dump_enable_set(void *data, u64 val);
+int kgsl_cff_dump_enable_get(void *data, u64 *val);
 
 #else
 
@@ -63,6 +67,16 @@ void kgsl_cffdump_hang(enum kgsl_deviceid device_id);
 #define kgsl_cffdump_hang(device_id)				(void)0
 #define kgsl_cffdump_user_event(cff_opcode, op1, op2, op3, op4, op5) \
 	(void)param
+
+static inline int kgsl_cff_dump_enable_set(void *data, u64 val)
+{
+	return -EINVAL;
+}
+
+static inline int kgsl_cff_dump_enable_get(void *data, u64 *val)
+{
+	return -EINVAL;
+}
 
 #endif /* CONFIG_MSM_KGSL_CFF_DUMP */
 
