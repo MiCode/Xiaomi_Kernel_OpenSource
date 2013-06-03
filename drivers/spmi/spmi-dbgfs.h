@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,10 @@
 
 #ifdef CONFIG_DEBUG_FS
 int spmi_dfs_add_controller(struct spmi_controller *ctrl);
+int spmi_dfs_del_controller(struct spmi_controller *ctrl);
 #else
 static int spmi_dfs_add_controller(struct spmi_controller *ctrl) { return 0; }
+static int spmi_dfs_del_controller(struct spmi_controller *ctrl) { return 0; }
 #endif
 
 struct dentry *spmi_dfs_create_file(struct spmi_controller *ctrl,

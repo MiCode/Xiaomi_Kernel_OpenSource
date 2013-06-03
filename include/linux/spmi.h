@@ -54,6 +54,7 @@ struct spmi_device;
 struct spmi_controller {
 	struct device		dev;
 	unsigned int		nr;
+	struct completion	dev_released;
 	int		(*cmd)(struct spmi_controller *, u8 opcode, u8 sid);
 	int		(*read_cmd)(struct spmi_controller *,
 				u8 opcode, u8 sid, u16 addr, u8 bc, u8 *buf);
