@@ -103,4 +103,5 @@
 
 #define ISPIF_IRQ_GLOBAL_CLEAR_CMD        0x000001
 
+#define ISPIF_STOP_INTF_IMMEDIATELY              0xAAAAAAAA
 #endif /* __MSM_ISPIF_HWREG_V1_H__ */

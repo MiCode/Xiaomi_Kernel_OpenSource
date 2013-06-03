@@ -83,6 +83,12 @@ static struct v4l2_subdev_info ov9724_subdev_info[] = {
 	},
 };
 
+static int32_t msm_ov9724_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &ov9724_s_ctrl);
+}
+
 static const struct i2c_device_id ov9724_i2c_id[] = {
 	{OV9724_SENSOR_NAME, (kernel_ulong_t)&ov9724_s_ctrl},
 	{ }
@@ -90,7 +96,7 @@ static const struct i2c_device_id ov9724_i2c_id[] = {
 
 static struct i2c_driver ov9724_i2c_driver = {
 	.id_table = ov9724_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_ov9724_i2c_probe,
 	.driver = {
 		.name = OV9724_SENSOR_NAME,
 	},
