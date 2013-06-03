@@ -226,13 +226,11 @@ struct mdp3_dma {
 	u32 capability;
 	int in_use;
 	int available;
-	int busy;
 
 	spinlock_t dma_lock;
 	struct completion vsync_comp;
 	struct completion dma_comp;
 	struct mdp3_vsync_notification vsync_client;
-	u32 cb_type;
 
 	struct mdp3_dma_output_config output_config;
 	struct mdp3_dma_source source_config;
