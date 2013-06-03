@@ -256,8 +256,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <3>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe4 {
@@ -269,8 +269,8 @@
 			qcom,usb-bam-mem-type = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <4>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe5 {
@@ -282,8 +282,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <5>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe6 {
@@ -295,8 +295,8 @@
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a04000>;
 			qcom,dst-bam-pipe-index = <6>;
-			qcom,data-fifo-size = <0xD480>;
-			qcom,descriptor-fifo-size = <0x3200>;
+			qcom,data-fifo-size = <0xF800>;
+			qcom,descriptor-fifo-size = <0x3A58>;
 			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe7 {
