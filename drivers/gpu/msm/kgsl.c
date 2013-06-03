@@ -154,8 +154,8 @@ void kgsl_memfree_hist_set_event(unsigned int pid, unsigned int gpuaddr,
  */
 
 struct kgsl_mem_entry * __must_check
-kgsl_get_mem_entry(struct kgsl_device *device, unsigned int ptbase,
-		   unsigned int gpuaddr, unsigned int size)
+kgsl_get_mem_entry(struct kgsl_device *device,
+	phys_addr_t ptbase, unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_process_private *priv;
 	struct kgsl_mem_entry *entry;

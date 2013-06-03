@@ -609,11 +609,12 @@ done:
  */
 static int kgsl_iommu_pt_equal(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pt,
-				unsigned int pt_base)
+				phys_addr_t pt_base)
 {
 	struct kgsl_iommu_pt *iommu_pt = pt ? pt->priv : NULL;
-	unsigned int domain_ptbase = iommu_pt ?
+	phys_addr_t domain_ptbase = iommu_pt ?
 				iommu_get_pt_base_addr(iommu_pt->domain) : 0;
+
 	/* Only compare the valid address bits of the pt_base */
 	domain_ptbase &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
@@ -1152,7 +1153,7 @@ err:
  * Return - actual pagetable address that the ttbr0 register is programmed
  * with
  */
-static unsigned int kgsl_iommu_get_pt_base_addr(struct kgsl_mmu *mmu,
+static phys_addr_t kgsl_iommu_get_pt_base_addr(struct kgsl_mmu *mmu,
 						struct kgsl_pagetable *pt)
 {
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
@@ -1161,17 +1162,15 @@ static unsigned int kgsl_iommu_get_pt_base_addr(struct kgsl_mmu *mmu,
 }
 
 /*
- * kgsl_iommu_get_pt_lsb - Return the lsb of the ttbr0 IOMMU register
+ * kgsl_iommu_get_default_ttbr0 - Return the ttbr0 value programmed by
+ * iommu driver
  * @mmu - Pointer to mmu structure
  * @hostptr - Pointer to the IOMMU register map. This is used to match
  * the iommu device whose lsb value is to be returned
  * @ctx_id - The context bank whose lsb valus is to be returned
- * Return - returns the lsb which is the last 14 bits of the ttbr0 IOMMU
- * register. ttbr0 is the actual PTBR for of the IOMMU. The last 14 bits
- * are only programmed once in the beginning when a domain is attached
- * does not change.
+ * Return - returns the ttbr0 value programmed by iommu driver
  */
-static int kgsl_iommu_get_pt_lsb(struct kgsl_mmu *mmu,
+static phys_addr_t kgsl_iommu_get_default_ttbr0(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id)
 {
@@ -1182,7 +1181,7 @@ static int kgsl_iommu_get_pt_lsb(struct kgsl_mmu *mmu,
 		for (j = 0; j < iommu_unit->dev_count; j++)
 			if (unit_id == i &&
 				ctx_id == iommu_unit->dev[j].ctx_id)
-				return iommu_unit->dev[j].pt_lsb;
+				return iommu_unit->dev[j].default_ttbr0;
 	}
 	return 0;
 }
@@ -1626,11 +1625,19 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
-			iommu_unit->dev[j].pt_lsb = KGSL_IOMMMU_PT_LSB(iommu,
+			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
+				iommu_unit->dev[j].default_ttbr0 =
+						KGSL_IOMMU_GET_CTX_REG_LL(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						TTBR0);
+			} else {
+				iommu_unit->dev[j].default_ttbr0 =
 						KGSL_IOMMU_GET_CTX_REG(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
-						TTBR0));
+						TTBR0);
+			}
 		}
 	}
 	kgsl_iommu_lock_rb_in_tlb(mmu);
@@ -1806,10 +1813,10 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	return 0;
 }
 
-static unsigned int
+static phys_addr_t
 kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 {
-	unsigned int pt_base;
+	phys_addr_t pt_base;
 	struct kgsl_iommu *iommu = mmu->priv;
 	/* We cannot enable or disable the clocks in interrupt context, this
 	 function is called from interrupt context if there is an axi error */
@@ -1842,16 +1849,14 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	struct kgsl_iommu *iommu = mmu->priv;
 	int temp;
 	int i;
-	unsigned int pt_base = kgsl_iommu_get_pt_base_addr(mmu,
+	phys_addr_t pt_base = kgsl_iommu_get_pt_base_addr(mmu,
 						mmu->hwpagetable);
-	unsigned int pt_val;
+	phys_addr_t pt_val;
 
 	if (kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER)) {
 		KGSL_DRV_ERR(mmu->device, "Failed to enable iommu clocks\n");
 		return;
 	}
-	/* Mask off the lsb of the pt base address since lsb will not change */
-	pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
 	/* For v0 SMMU GPU needs to be idle for tlb invalidate as well */
 	if (msm_soc_version_supports_iommu_v0())
@@ -1866,12 +1871,21 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		for (i = 0; i < iommu->unit_count; i++) {
 			/* get the lsb value which should not change when
 			 * changing ttbr0 */
-			pt_val = kgsl_iommu_get_pt_lsb(mmu, i,
+			pt_val = kgsl_iommu_get_default_ttbr0(mmu, i,
 						KGSL_IOMMU_CONTEXT_USER);
-			pt_val += pt_base;
 
-			KGSL_IOMMU_SET_CTX_REG(iommu, (&iommu->iommu_units[i]),
-				KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
+			pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+			pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+			pt_val |= pt_base;
+			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
+				KGSL_IOMMU_SET_CTX_REG_LL(iommu,
+					(&iommu->iommu_units[i]),
+					KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
+			} else {
+				KGSL_IOMMU_SET_CTX_REG(iommu,
+					(&iommu->iommu_units[i]),
+					KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
+			}
 
 			mb();
 			temp = KGSL_IOMMU_GET_CTX_REG(iommu,
@@ -1976,7 +1990,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk_on_ts = kgsl_iommu_disable_clk_on_ts,
-	.mmu_get_pt_lsb = kgsl_iommu_get_pt_lsb,
+	.mmu_get_default_ttbr0 = kgsl_iommu_get_default_ttbr0,
 	.mmu_get_reg_gpuaddr = kgsl_iommu_get_reg_gpuaddr,
 	.mmu_get_reg_ahbaddr = kgsl_iommu_get_reg_ahbaddr,
 	.mmu_get_num_iommu_units = kgsl_iommu_get_num_iommu_units,

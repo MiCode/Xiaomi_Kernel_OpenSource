@@ -27,7 +27,7 @@
 
 struct kgsl_snapshot_object {
 	unsigned int gpuaddr;
-	unsigned int ptbase;
+	phys_addr_t ptbase;
 	unsigned int size;
 	unsigned int offset;
 	int type;
@@ -140,6 +140,7 @@ static int snapshot_os(struct kgsl_device *device,
 	int hang = (int) priv;
 	int ctxtcount = 0;
 	int size = sizeof(*header);
+	phys_addr_t temp_ptbase;
 
 	/* Figure out how many active contexts there are - these will
 	 * be appended on the end of the structure */
@@ -181,11 +182,14 @@ static int snapshot_os(struct kgsl_device *device,
 	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
+
 	/* Get the current PT base */
-	header->ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	temp_ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	/* Truncate to 32 bits in case LPAE is used */
+	header->ptbase = (__u32)temp_ptbase;
 	/* And the PID for the task leader */
 	pid = header->pid = kgsl_mmu_get_ptname_from_ptbase(&device->mmu,
-								header->ptbase);
+								temp_ptbase);
 
 	task = find_task_by_vpid(pid);
 
@@ -267,7 +271,7 @@ static int kgsl_snapshot_dump_object(struct kgsl_device *device,
 
 	header.size = ALIGN(obj->size, 4) >> 2;
 	header.gpuaddr = obj->gpuaddr;
-	header.ptbase = obj->ptbase;
+	header.ptbase = (__u32)obj->ptbase;
 	header.type = obj->type;
 
 	ret = obj_itr_out(itr, &header, sizeof(header));
@@ -309,7 +313,7 @@ static void kgsl_snapshot_put_object(struct kgsl_device *device,
  * Return 1 if the object is already in the list - this can save us from
  * having to parse the sme thing over again.
 */
-int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+int kgsl_snapshot_have_object(struct kgsl_device *device, phys_addr_t ptbase,
 	unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_snapshot_object *obj;
@@ -339,7 +343,7 @@ EXPORT_SYMBOL(kgsl_snapshot_have_object);
  * size of the object being frozen
  */
 
-int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
+int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 	unsigned int gpuaddr, unsigned int size, unsigned int type)
 {
 	struct kgsl_mem_entry *entry;
