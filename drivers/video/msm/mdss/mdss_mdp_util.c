@@ -558,7 +558,8 @@ u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd)
 	u32 pixel_total;
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 
-	if (panel_info->type == MIPI_VIDEO_PANEL) {
+	if ((panel_info->type == MIPI_VIDEO_PANEL) ||
+			(panel_info->type == MIPI_CMD_PANEL)) {
 		frame_rate = panel_info->mipi.frame_rate;
 	} else {
 		pixel_total = (panel_info->lcdc.h_back_porch +
