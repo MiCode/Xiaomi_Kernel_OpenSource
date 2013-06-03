@@ -25,6 +25,9 @@ struct avcs_cmd_get_low_power_segments_info {
 
 #define AVCS_CMDRSP_GET_LOW_POWER_SEGMENTS_INFO           0x00012904
 
+#define AVCS_CMD_ADSP_EVENT_GET_STATE		0x0001290C
+#define AVCS_CMDRSP_ADSP_EVENT_GET_STATE	0x0001290D
+
 /* @brief AVCS_CMDRSP_GET_LOW_POWER_SEGMENTS_INFO payload
  * structure. Payload for this event comprises one instance of
  * avcs_cmd_rsp_get_low_power_segments_info_t, followed
@@ -89,6 +92,7 @@ struct avcs_cmd_rsp_get_low_power_segments_info_t {
 
 int core_get_low_power_segments(
 			struct avcs_cmd_rsp_get_low_power_segments_info_t **);
+bool q6core_is_adsp_ready(void);
 
 #define ADSP_CMD_SET_DOLBY_MANUFACTURER_ID 0x00012918
 
