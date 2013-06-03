@@ -107,6 +107,7 @@ struct rr_packet {
 struct msm_ipc_sock {
 	struct sock sk;
 	struct msm_ipc_port *port;
+	void *default_pil;
 };
 
 struct msm_ipc_router_xprt {
@@ -157,5 +158,16 @@ void msm_ipc_router_exit_sockets(void);
 void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule);
 
 void msm_ipc_sync_default_sec_rule(void *rule);
+
+#if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT
+extern void *msm_ipc_load_default_node(void);
+
+extern void msm_ipc_unload_default_node(void *pil);
+#else
+static inline void *msm_ipc_load_default_node(void)
+{ return NULL; }
+
+static inline void msm_ipc_unload_default_node(void *pil) { }
+#endif
 
 #endif
