@@ -285,6 +285,8 @@ struct qpnp_chg_chip {
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
 	unsigned int			min_voltage_mv;
+	int				set_vddmax_mv;
+	int				delta_vddmax_mv;
 	unsigned int			warm_bat_mv;
 	unsigned int			cool_bat_mv;
 	unsigned int			resume_delta_mv;
@@ -1501,10 +1503,11 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 		pr_err("bad mV=%d asked to set\n", voltage);
 		return -EINVAL;
 	}
+	chip->set_vddmax_mv = voltage + chip->delta_vddmax_mv;
 
-	temp = (voltage - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
+	temp = (chip->set_vddmax_mv - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
 
-	pr_debug("voltage=%d setting %02x\n", voltage, temp);
+	pr_debug("voltage=%d setting %02x\n", chip->set_vddmax_mv, temp);
 	return qpnp_chg_write(chip, &temp, chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
@@ -1834,6 +1837,31 @@ static struct regulator_ops qpnp_chg_boost_reg_ops = {
 	.list_voltage		= qpnp_chg_regulator_boost_list_voltage,
 };
 
+#define MIN_DELTA_MV_TO_INCREASE_VDD_MAX	13
+#define MAX_DELTA_VDD_MAX_MV			30
+static void
+qpnp_chg_adjust_vddmax(struct qpnp_chg_chip *chip, int vbat_mv)
+{
+	int delta_mv, closest_delta_mv, sign;
+
+	delta_mv = chip->max_voltage_mv - vbat_mv;
+	if (delta_mv > 0 && delta_mv < MIN_DELTA_MV_TO_INCREASE_VDD_MAX) {
+		pr_debug("vbat is not low enough to increase vdd\n");
+		return;
+	}
+
+	sign = delta_mv > 0 ? 1 : -1;
+	closest_delta_mv = ((delta_mv + sign * QPNP_CHG_V_STEP_MV / 2)
+			/ QPNP_CHG_V_STEP_MV) * QPNP_CHG_V_STEP_MV;
+	pr_debug("max_voltage = %d, vbat_mv = %d, delta_mv = %d, closest = %d\n",
+			chip->max_voltage_mv, vbat_mv,
+			delta_mv, closest_delta_mv);
+	chip->delta_vddmax_mv = clamp(chip->delta_vddmax_mv + closest_delta_mv,
+			-MAX_DELTA_VDD_MAX_MV, MAX_DELTA_VDD_MAX_MV);
+	pr_debug("using delta_vddmax_mv = %d\n", chip->delta_vddmax_mv);
+	qpnp_chg_set_appropriate_vddmax(chip);
+}
+
 #define CONSECUTIVE_COUNT	3
 static void
 qpnp_eoc_work(struct work_struct *work)
@@ -1889,6 +1917,9 @@ qpnp_eoc_work(struct work_struct *work)
 			qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
 			goto stop_eoc;
 		}
+
+		if (buck_sts & VDD_LOOP_IRQ)
+			qpnp_chg_adjust_vddmax(chip, vbat_mv);
 
 		if (!(buck_sts & VDD_LOOP_IRQ)) {
 			pr_debug("Not in CV\n");
@@ -2844,6 +2875,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+	qpnp_chg_set_appropriate_vddmax(chip);
 
 	rc = qpnp_chg_request_irqs(chip);
 	if (rc) {
