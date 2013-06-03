@@ -45,17 +45,21 @@ enum ipa_rm_wq_cmd {
  *			should be done
  * @dep_graph: data structure to search for resource if exists
  * @event: event to notify
+ * @notify_registered_only: notify only clients registered by
+ *	ipa_rm_register()
  */
 struct ipa_rm_wq_work_type {
 	struct work_struct		work;
 	enum ipa_rm_wq_cmd		wq_cmd;
 	enum ipa_rm_resource_name	resource_name;
 	enum ipa_rm_event		event;
+	bool				notify_registered_only;
 };
 
 int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_event event);
+		enum ipa_rm_event event,
+		bool notify_registered_only);
 
 int ipa_rm_initialize(void);
 

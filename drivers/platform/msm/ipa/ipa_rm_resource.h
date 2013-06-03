@@ -39,10 +39,12 @@ enum ipa_rm_resource_type {
  * struct ipa_rm_notification_info - notification information
  *				of IPA RM client
  * @reg_params: registration parameters
+ * @explicit: registered explicitly by ipa_rm_register()
  * @link: link to the list of all registered clients information
  */
 struct ipa_rm_notification_info {
 	struct ipa_rm_register_params	reg_params;
+	bool				explicit;
 	struct list_head		link;
 };
 
@@ -102,7 +104,8 @@ int ipa_rm_resource_create(
 int ipa_rm_resource_delete(struct ipa_rm_resource *resource);
 
 int ipa_rm_resource_producer_register(struct ipa_rm_resource_prod *producer,
-				struct ipa_rm_register_params *reg_params);
+				struct ipa_rm_register_params *reg_params,
+				bool explicit);
 
 int ipa_rm_resource_producer_deregister(struct ipa_rm_resource_prod *producer,
 				struct ipa_rm_register_params *reg_params);
@@ -122,6 +125,7 @@ void ipa_rm_resource_consumer_handle_cb(struct ipa_rm_resource_cons *consumer,
 
 void ipa_rm_resource_producer_notify_clients(
 				struct ipa_rm_resource_prod *producer,
-				enum ipa_rm_event event);
+				enum ipa_rm_event event,
+				bool notify_registered_only);
 
 #endif /* _IPA_RM_RESOURCE_H_ */
