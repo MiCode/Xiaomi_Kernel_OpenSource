@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
+#include <mach/msm_bus.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -47,6 +48,7 @@ struct msm_rng_device {
 	struct platform_device *pdev;
 	void __iomem *base;
 	struct clk *prng_clk;
+	uint32_t qrng_perf_client;
 };
 
 static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
@@ -77,7 +79,12 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		dev_err(&pdev->dev, "failed to enable clock in callback\n");
 		return 0;
 	}
-
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+					msm_rng_dev->qrng_perf_client, 1);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
 	/* read random data from h/w */
 	do {
 		/* check status bit if data is available */
@@ -97,7 +104,9 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		if ((maxsize - currsize) < 4)
 			break;
 	} while (currsize < maxsize);
-
+	if (msm_rng_dev->qrng_perf_client)
+		ret = msm_bus_scale_client_update_request(
+					msm_rng_dev->qrng_perf_client, 0);
 	/* vote to turn off clock */
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
 
@@ -115,6 +124,12 @@ static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 	unsigned long reg_val = 0;
 	int ret = 0;
 
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 1);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
 	/* Enable the PRNG CLK */
 	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
 	if (ret) {
@@ -145,8 +160,10 @@ static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 		*/
 		mb();
 	}
-
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
+	if (msm_rng_dev->qrng_perf_client)
+		ret = msm_bus_scale_client_update_request(
+					msm_rng_dev->qrng_perf_client, 0);
 
 	return 0;
 }
@@ -157,6 +174,7 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	struct msm_rng_device *msm_rng_dev = NULL;
 	void __iomem *base = NULL;
 	int error = 0;
+	struct msm_bus_scale_pdata *qrng_platform_support = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
@@ -197,6 +215,15 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	msm_rng_dev->pdev = pdev;
 	platform_set_drvdata(pdev, msm_rng_dev);
 
+	if (pdev->dev.of_node) {
+		/* Register bus client */
+		qrng_platform_support = msm_bus_cl_get_pdata(pdev);
+		msm_rng_dev->qrng_perf_client = msm_bus_scale_register_client(
+						qrng_platform_support);
+		if (!msm_rng_dev->qrng_perf_client)
+			pr_err("Unable to register bus client\n");
+	}
+
 	/* Enable rng h/w */
 	error = msm_rng_enable_hw(msm_rng_dev);
 
@@ -232,6 +259,8 @@ static int __devexit msm_rng_remove(struct platform_device *pdev)
 	clk_put(msm_rng_dev->prng_clk);
 	iounmap(msm_rng_dev->base);
 	platform_set_drvdata(pdev, NULL);
+	if (msm_rng_dev->qrng_perf_client)
+		msm_bus_scale_unregister_client(msm_rng_dev->qrng_perf_client);
 	kfree(msm_rng_dev);
 	return 0;
 }
