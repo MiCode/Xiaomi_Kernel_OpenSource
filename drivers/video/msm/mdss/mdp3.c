@@ -393,7 +393,8 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 
 
 
-int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate)
+int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate,
+			int client)
 {
 	int ret = 0;
 	unsigned long rounded_rate;
@@ -406,6 +407,19 @@ int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate)
 			pr_err("unable to round rate err=%ld\n", rounded_rate);
 			mutex_unlock(&mdp3_res->res_mutex);
 			return -EINVAL;
+		}
+		if (clk_type == MDP3_CLK_CORE) {
+			if (client == MDP3_CLIENT_DMA_P) {
+				mdp3_res->dma_core_clk_request = rounded_rate;
+			} else if (client == MDP3_CLIENT_PPP) {
+				mdp3_res->ppp_core_clk_request = rounded_rate;
+			} else {
+				pr_err("unrecognized client=%d\n", client);
+				mutex_unlock(&mdp3_res->res_mutex);
+				return -EINVAL;
+			}
+			rounded_rate = max(mdp3_res->dma_core_clk_request,
+				mdp3_res->ppp_core_clk_request);
 		}
 		if (rounded_rate != clk_get_rate(clk)) {
 			ret = clk_set_rate(clk, rounded_rate);
@@ -948,7 +962,7 @@ static int mdp3_init(struct msm_fb_data_type *mfd)
 {
 	int rc;
 	rc = mdp3_ctrl_init(mfd);
-	rc |= mdp3_ppp_res_init();
+	rc |= mdp3_ppp_res_init(mfd);
 	return rc;
 }
 
