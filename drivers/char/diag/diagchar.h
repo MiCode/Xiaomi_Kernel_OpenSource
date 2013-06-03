@@ -333,6 +333,8 @@ struct diagchar_dev {
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
+	struct device *dci_device;
+	struct device *dci_cmd_device;
 	/* Variables for non real time mode */
 	int real_time_mode;
 	int real_time_update_busy;

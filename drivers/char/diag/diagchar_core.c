@@ -1453,19 +1453,25 @@ drop:
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 			driver->smd_dci[i].in_busy_1 = 0;
-			if (driver->smd_dci[i].ch)
+			if (driver->smd_dci[i].ch) {
+				diag_dci_try_deactivate_wakeup_source(
+						driver->smd_dci[i].ch);
 				queue_work(driver->diag_dci_wq,
 				&(driver->smd_dci[i].diag_read_smd_work));
+			}
 		}
 		if (driver->supports_separate_cmdrsp) {
 			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
 				if (!driver->separate_cmdrsp[i])
 					continue;
 				driver->smd_dci_cmd[i].in_busy_1 = 0;
-				if (driver->smd_dci_cmd[i].ch)
+				if (driver->smd_dci_cmd[i].ch) {
+					diag_dci_try_deactivate_wakeup_source(
+						driver->smd_dci_cmd[i].ch);
 					queue_work(driver->diag_dci_wq,
 						&(driver->smd_dci_cmd[i].
 							diag_read_smd_work));
+				}
 			}
 		}
 		goto exit;

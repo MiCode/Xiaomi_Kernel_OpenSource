@@ -176,6 +176,26 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 		bytes_in_buf += bytes_written;
 		bytes_remaining -= bytes_written;
 #endif
+		if (driver->dci_device) {
+			bytes_written = scnprintf(buf+bytes_in_buf,
+						  bytes_remaining,
+				"dci power active, relax: %lu, %lu\n",
+				driver->dci_device->power.wakeup->active_count,
+				driver->dci_device->power.wakeup->relax_count);
+			bytes_in_buf += bytes_written;
+			bytes_remaining -= bytes_written;
+		}
+		if (driver->dci_cmd_device) {
+			bytes_written = scnprintf(buf+bytes_in_buf,
+						  bytes_remaining,
+				"dci cmd power active, relax: %lu, %lu\n",
+				driver->dci_cmd_device->power.wakeup->
+						  active_count,
+				driver->dci_cmd_device->power.wakeup->
+						  relax_count);
+			bytes_in_buf += bytes_written;
+			bytes_remaining -= bytes_written;
+		}
 	}
 	temp_data += diag_dbgfs_dci_data_index;
 	for (i = diag_dbgfs_dci_data_index; i < DIAG_DCI_DEBUG_CNT; i++) {

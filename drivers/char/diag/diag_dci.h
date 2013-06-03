@@ -138,4 +138,7 @@ int diag_dci_query_event_mask(uint16_t event_id);
 void diag_dci_smd_record_info(int read_bytes);
 uint8_t diag_dci_get_cumulative_real_time(void);
 int diag_dci_set_real_time(int client_id, uint8_t real_time);
+/* Functions related to DCI wakeup sources */
+void diag_dci_try_activate_wakeup_source(smd_channel_t *channel);
+void diag_dci_try_deactivate_wakeup_source(smd_channel_t *channel);
 #endif
