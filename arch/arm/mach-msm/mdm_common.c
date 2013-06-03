@@ -138,41 +138,6 @@ static void mdm_device_list_remove(struct mdm_device *mdev)
 	spin_unlock_irqrestore(&mdm_devices_lock, flags);
 }
 
-struct mdm_device *mdm_get_device_by_device_id(int device_id)
-{
-	unsigned long flags;
-	struct mdm_device *mdev = NULL;
-
-	spin_lock_irqsave(&mdm_devices_lock, flags);
-	list_for_each_entry(mdev, &mdm_devices, link) {
-		if (mdev && mdev->mdm_data.device_id == device_id) {
-			spin_unlock_irqrestore(&mdm_devices_lock, flags);
-			return mdev;
-		}
-	}
-	spin_unlock_irqrestore(&mdm_devices_lock, flags);
-	return NULL;
-}
-
-struct mdm_device *mdm_get_device_by_name(const char *name)
-{
-	unsigned long flags;
-	struct mdm_device *mdev;
-
-	if (!name)
-		return NULL;
-	spin_lock_irqsave(&mdm_devices_lock, flags);
-	list_for_each_entry(mdev, &mdm_devices, link) {
-		if (mdev && !strncmp(mdev->device_name, name,
-				sizeof(mdev->device_name))) {
-			spin_unlock_irqrestore(&mdm_devices_lock, flags);
-			return mdev;
-		}
-	}
-	spin_unlock_irqrestore(&mdm_devices_lock, flags);
-	return NULL;
-}
-
 /* If the platform's cascading_ssr flag is set, the subsystem
  * restart module will restart the other modems so stop
  * monitoring them as well.
@@ -390,18 +355,12 @@ static void mdm_update_gpio_configs(struct mdm_device *mdev,
 	}
 }
 
-long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
+static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
 	int status, ret = 0;
-	struct mdm_device *mdev;
+	struct mdm_device *mdev = filp->private_data;
 	struct mdm_modem_drv *mdm_drv;
-
-	mdev = mdm_get_device_by_name(filp->f_path.dentry->d_iname);
-	if (!mdev) {
-		pr_err("%s: mdm_device not found\n", __func__);
-		return -ENODEV;
-	}
 
 	if (_IOC_TYPE(cmd) != CHARM_CODE) {
 		pr_err("%s: invalid ioctl code to mdm id %d\n",
@@ -559,6 +518,11 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 /* set the mdm_device as the file's private data */
 static int mdm_modem_open(struct inode *inode, struct file *file)
 {
+	struct miscdevice *misc = file->private_data;
+	struct mdm_device *mdev = container_of(misc,
+			struct mdm_device, misc_device);
+
+	file->private_data = mdev;
 	return 0;
 }
 
@@ -1072,6 +1036,7 @@ static int __devinit mdm_modem_probe(struct platform_device *pdev)
 		goto init_err;
 	}
 
+	platform_set_drvdata(pdev, mdev);
 	mdm_modem_initialize_data(pdev, mdev);
 
 	if (mdm_ops->debug_state_changed_cb)
@@ -1118,10 +1083,7 @@ init_err:
 static int __devexit mdm_modem_remove(struct platform_device *pdev)
 {
 	int ret;
-	struct mdm_device *mdev = mdm_get_device_by_device_id(pdev->id);
-
-	if (!mdev)
-		return -ENODEV;
+	struct mdm_device *mdev = platform_get_drvdata(pdev);
 
 	pr_debug("%s: removing device id %d\n",
 			__func__, mdev->mdm_data.device_id);
@@ -1135,9 +1097,7 @@ static int __devexit mdm_modem_remove(struct platform_device *pdev)
 static void mdm_modem_shutdown(struct platform_device *pdev)
 {
 	struct mdm_modem_drv *mdm_drv;
-	struct mdm_device *mdev = mdm_get_device_by_device_id(pdev->id);
-	if (!mdev)
-		return;
+	struct mdm_device *mdev = platform_get_drvdata(pdev);
 
 	pr_debug("%s: shutting down device id %d\n",
 		 __func__, mdev->mdm_data.device_id);
