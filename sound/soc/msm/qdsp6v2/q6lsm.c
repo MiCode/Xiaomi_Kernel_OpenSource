@@ -31,6 +31,7 @@
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
 #include "audio_acdb.h"
+#include "q6core.h"
 
 #define APR_TIMEOUT	(5 * HZ)
 #define LSM_CAL_SIZE	4096
@@ -70,7 +71,6 @@ static struct lsm_client *lsm_session[LSM_MAX_SESSION_ID + 1];
 
 static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv);
 static int q6lsm_send_cal(struct lsm_client *client);
-static int q6lsm_snd_model_buf_free(struct lsm_client *client);
 
 static int q6lsm_callback(struct apr_client_data *data, void *priv)
 {
@@ -318,6 +318,13 @@ int q6lsm_open(struct lsm_client *client)
 	int rc;
 	struct lsm_stream_cmd_open_tx open;
 
+	if (!afe_has_config(AFE_CDC_REGISTERS_CONFIG) ||
+	    !afe_has_config(AFE_SLIMBUS_SLAVE_CONFIG)) {
+		pr_err("%s: AFE isn't configured yet\n", __func__);
+		rc = -EAGAIN;
+		goto exit;
+	}
+
 	memset(&open, 0, sizeof(open));
 	q6lsm_add_hdr(client, &open.hdr, sizeof(open), true);
 
@@ -330,6 +337,7 @@ int q6lsm_open(struct lsm_client *client)
 		pr_err("%s: Open failed opcode 0x%x, rc %d\n",
 		       __func__, open.hdr.opcode, rc);
 
+exit:
 	pr_debug("%s: leave %d\n", __func__, rc);
 	return rc;
 }
@@ -468,8 +476,9 @@ int q6lsm_deregister_sound_model(struct lsm_client *client)
 		       cmd.hdr.opcode, rc);
 	} else {
 		pr_debug("%s: Deregister sound model succeeded\n", __func__);
-		q6lsm_snd_model_buf_free(client);
 	}
+
+	q6lsm_snd_model_buf_free(client);
 
 	return rc;
 }
@@ -500,8 +509,8 @@ static int q6lsm_memory_map_regions(struct lsm_client *client,
 	int rc;
 	int cmd_size = 0;
 
-	pr_debug("%s: dma_addr_p 0x%x, dma_buf_sz %d, session %d\n",
-		 __func__, dma_addr_p, dma_buf_sz, client->session);
+	pr_debug("%s: dma_addr_p 0x%x, dma_buf_sz %d, mmap_p 0x%p, session %d\n",
+		 __func__, dma_addr_p, dma_buf_sz, mmap_p, client->session);
 
 	cmd_size = sizeof(struct avs_cmd_shared_mem_map_regions) +
 		   sizeof(struct avs_shared_map_region_payload);
@@ -537,6 +546,29 @@ static int q6lsm_memory_map_regions(struct lsm_client *client,
 	return rc;
 }
 
+static int q6lsm_memory_unmap_regions(struct lsm_client *client,
+				      uint32_t handle)
+{
+	struct avs_cmd_shared_mem_unmap_regions unmap;
+	int rc = 0;
+	int cmd_size = 0;
+
+	cmd_size = sizeof(struct avs_cmd_shared_mem_unmap_regions);
+	q6lsm_add_mmaphdr(client, &unmap.hdr, cmd_size,
+			  true, (client->session << 8));
+	unmap.hdr.opcode = LSM_SESSION_CMD_SHARED_MEM_UNMAP_REGIONS;
+	unmap.mem_map_handle = handle;
+
+	pr_debug("%s: unmap handle 0x%x\n", __func__, unmap.mem_map_handle);
+	rc = q6lsm_apr_send_pkt(client, client->mmap_apr, &unmap, true,
+				NULL);
+	if (rc)
+		pr_err("%s: Failed mmap_regions opcode 0x%x rc %d\n",
+		       __func__, unmap.hdr.opcode, rc);
+
+	return rc;
+}
+
 static int q6lsm_send_cal(struct lsm_client *client)
 {
 	int rc;
@@ -557,15 +589,20 @@ static int q6lsm_send_cal(struct lsm_client *client)
 	/* Cache mmap address, only map once or if new addr */
 	if ((lsm_common.lsm_cal_addr != lsm_cal.cal_paddr) ||
 	    (lsm_cal.cal_size > lsm_common.lsm_cal_size)) {
-		if (lsm_common.lsm_cal_addr != 0)
-			afe_cmd_memory_unmap(lsm_cal.cal_paddr);
+		if (lsm_common.lsm_cal_addr != 0) {
+			rc = q6lsm_memory_unmap_regions(client,
+						lsm_common.mmap_handle_for_cal);
+			if (rc)
+				pr_warn("%s: Unmapping %x failed, %d\n",
+					__func__, lsm_common.lsm_cal_addr, rc);
+		}
 
 		rc = q6lsm_memory_map_regions(client, lsm_cal.cal_paddr,
 					      LSM_CAL_SIZE,
 					      &lsm_common.mmap_handle_for_cal);
 		if (rc < 0) {
-			pr_err("%s: Calibration data memory map failed\n",
-			       __func__);
+			pr_err("%s: Calibration data memory map failed, %d\n",
+			       __func__, rc);
 			goto bail;
 		}
 		lsm_common.lsm_cal_addr = lsm_cal.cal_paddr;
@@ -589,38 +626,18 @@ bail:
 	return rc;
 }
 
-static int q6lsm_memory_unmap_regions(struct lsm_client *client)
-{
-	struct avs_cmd_shared_mem_unmap_regions unmap;
-	int rc = 0;
-	int cmd_size = 0;
-
-	cmd_size = sizeof(struct avs_cmd_shared_mem_unmap_regions);
-	q6lsm_add_mmaphdr(client, &unmap.hdr, cmd_size,
-			  true, (client->session << 8));
-	unmap.hdr.opcode = LSM_SESSION_CMD_SHARED_MEM_UNMAP_REGIONS;
-	unmap.mem_map_handle = client->sound_model.mem_map_handle;
-
-	pr_debug("%s: unmap handle 0x%x\n", __func__, unmap.mem_map_handle);
-	rc = q6lsm_apr_send_pkt(client, client->mmap_apr, &unmap, true,
-				NULL);
-	if (rc)
-		pr_err("%s: Failed mmap_regions opcode 0x%x rc %d\n",
-		       __func__, unmap.hdr.opcode, rc);
-
-	return rc;
-}
-
-static int q6lsm_snd_model_buf_free(struct lsm_client *client)
+int q6lsm_snd_model_buf_free(struct lsm_client *client)
 {
 	int rc;
 
 	pr_debug("%s: Session id %d\n", __func__, client->session);
 	mutex_lock(&client->cmd_lock);
-	rc = q6lsm_memory_unmap_regions(client);
-	if (rc < 0) {
+	rc = q6lsm_memory_unmap_regions(client,
+					client->sound_model.mem_map_handle);
+	if (rc < 0)
 		pr_err("%s CMD Memory_unmap_regions failed\n", __func__);
-	} else if (client->sound_model.data) {
+
+	if (client->sound_model.data) {
 		ion_unmap_kernel(client->sound_model.client,
 				 client->sound_model.handle);
 		ion_free(client->sound_model.client,
@@ -666,6 +683,7 @@ static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: SSR event received 0x%x, event 0x%x, proc 0x%x\n",
 			 __func__, data->opcode, data->reset_event,
 			 data->reset_proc);
+		lsm_common.lsm_cal_addr = 0;
 		return 0;
 	}
 
@@ -726,6 +744,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 		if (IS_ERR_OR_NULL(client->sound_model.client)) {
 			pr_err("%s: ION create client for AUDIO failed\n",
 			       __func__);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 		client->sound_model.handle =
@@ -734,6 +753,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 		if (IS_ERR_OR_NULL(client->sound_model.handle)) {
 			pr_err("%s: ION memory allocation for AUDIO failed\n",
 			       __func__);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 
@@ -744,6 +764,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 		if (rc) {
 			pr_err("%s: ION get physical mem failed, rc%d\n",
 			       __func__, rc);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 
@@ -752,6 +773,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 				   client->sound_model.handle);
 		if (IS_ERR_OR_NULL(client->sound_model.data)) {
 			pr_err("%s: ION memory mapping failed\n", __func__);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 		memset(client->sound_model.data, 0, len);

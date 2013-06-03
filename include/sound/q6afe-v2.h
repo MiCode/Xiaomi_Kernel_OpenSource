@@ -197,6 +197,8 @@ int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type);
 enum afe_mad_type afe_port_get_mad_type(u16 port_id);
 int afe_set_config(enum afe_config_type config_type, void *config_data,
 		   int arg);
+void afe_clear_config(enum afe_config_type config);
+bool afe_has_config(enum afe_config_type config);
 
 void afe_set_aanc_info(struct aanc_data *aanc_info);
 #endif /* __Q6AFE_V2_H__ */
