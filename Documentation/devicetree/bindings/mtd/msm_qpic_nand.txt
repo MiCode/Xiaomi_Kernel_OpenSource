@@ -20,6 +20,13 @@ Required properties:
 Optional properties:
 - read-only: This parameter, if present, indicates that this partition
   should only be mounted read-only.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,active-only
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
 
 Examples:
 
@@ -31,6 +38,11 @@ Examples:
 			    "bam_phys";
 		interrupts = <0 279 0>;
 		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <1>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <91 512 0 0>,
 	};
 
        qcom,mtd-partitions {
