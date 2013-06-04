@@ -22,6 +22,7 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 {
 	struct device_node *node;
 	struct slim_boardinfo *binfo = NULL;
+	struct slim_boardinfo *temp;
 	int n = 0;
 	int ret = 0;
 
@@ -58,14 +59,16 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 		}
 		memcpy(slim->e_addr, prop->value, 6);
 
-		binfo = krealloc(binfo, (n + 1) * sizeof(struct slim_boardinfo),
+		temp = krealloc(binfo, (n + 1) * sizeof(struct slim_boardinfo),
 					GFP_KERNEL);
-		if (!binfo) {
+		if (!temp) {
 			dev_err(&ctrl->dev, "out of memory");
 			kfree(name);
 			kfree(slim);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto of_slim_err;
 		}
+		binfo = temp;
 
 		slim->dev.of_node = of_node_get(node);
 		slim->name = (const char *)name;
@@ -73,13 +76,15 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 		binfo[n].slim_slave = slim;
 		n++;
 	}
-	return slim_register_board_info(binfo, n);
+	ret = slim_register_board_info(binfo, n);
+	if (!ret)
+		goto of_slim_ret;
 of_slim_err:
-	n--;
-	while (n >= 0) {
+	while (n-- > 0) {
 		kfree(binfo[n].slim_slave->name);
 		kfree(binfo[n].slim_slave);
 	}
+of_slim_ret:
 	kfree(binfo);
 	return ret;
 }
