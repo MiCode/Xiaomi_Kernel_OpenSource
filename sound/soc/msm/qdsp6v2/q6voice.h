@@ -486,6 +486,12 @@ struct vss_imemory_cmd_unmap_t {
 #define VSS_IPLAYBACK_PORT_ID_DEFAULT			0x0000FFFF
 /* Default AFE port ID. */
 
+#define VSS_IPLAYBACK_PORT_ID_VOICE			0x00008005
+/* AFE port ID for VOICE 1. */
+
+#define VSS_IPLAYBACK_PORT_ID_VOICE2			0x00008002
+/* AFE port ID for VOICE 2. */
+
 #define VSS_IRECORD_CMD_START				0x000112BE
 /* Start in-call conversation recording. */
 #define VSS_IRECORD_CMD_STOP				0x00011237
@@ -1209,6 +1215,7 @@ struct incall_music_info {
 	uint32_t playing;
 	int count;
 	int force;
+	uint16_t port_id;
 };
 
 struct share_memory_info {
@@ -1370,6 +1377,6 @@ void voc_disable_dtmf_det_on_active_sessions(void);
 
 uint32_t voc_get_session_id(char *name);
 
-int voc_start_playback(uint32_t set);
+int voc_start_playback(uint32_t set, uint16_t port_id);
 int voc_start_record(uint32_t port_id, uint32_t set);
 #endif
