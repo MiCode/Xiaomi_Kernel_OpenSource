@@ -749,6 +749,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
 	case VOICE_PLAYBACK_TX:
+	case VOICE2_PLAYBACK_TX:
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
 		rc = msm_dai_q6_psuedo_port_hw_params(params,
@@ -2080,6 +2081,7 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
 		break;
 	case VOICE_PLAYBACK_TX:
+	case VOICE2_PLAYBACK_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_voice_playback_tx_dai);
 		break;
