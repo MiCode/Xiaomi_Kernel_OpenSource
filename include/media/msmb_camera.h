@@ -14,6 +14,9 @@
 #define MSM_CAM_V4L2_IOCTL_CMD_ACK \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 32, struct v4l2_event)
 
+#define MSM_CAM_V4L2_IOCTL_NOTIFY_ERROR \
+	_IOW('V', BASE_VIDIOC_PRIVATE + 33, struct v4l2_event)
+
 #define QCAMERA_DEVICE_GROUP_ID	1
 #define QCAMERA_VNODE_GROUP_ID	2
 #define MSM_CAMERA_NAME					"msm_camera"
