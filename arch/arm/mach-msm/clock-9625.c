@@ -1850,7 +1850,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("bus_clk", pnoc_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk", cnoc_a_clk.c, ""),
 	CLK_LOOKUP("mem_clk", bimc_a_clk.c, ""),
-	CLK_LOOKUP("core_clk", qpic_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_clk.c, "f9ac0000.qcom,nand"),
 	CLK_LOOKUP("core_clk", qpic_a_clk.c, ""),
 
 	CLK_LOOKUP("bus_clk",	cnoc_msmbus_clk.c,	"msm_config_noc"),
