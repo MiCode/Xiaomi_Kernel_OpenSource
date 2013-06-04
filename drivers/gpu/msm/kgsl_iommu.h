@@ -83,20 +83,6 @@ struct kgsl_iommu_register_list {
 	int ctx_reg;
 };
 
-#ifdef CONFIG_MSM_IOMMU
-extern struct iommu_access_ops iommu_access_ops_v0;
-
-static inline struct iommu_access_ops *get_iommu_access_ops_v0(void)
-{
-	return &iommu_access_ops_v0;
-}
-#else
-static inline struct iommu_access_ops *get_iommu_access_ops_v0(void)
-{
-	return NULL;
-}
-#endif
-
 /*
  * Max number of iommu units that the gpu core can have
  * On APQ8064, KGSL can control a maximum of 2 IOMMU units.

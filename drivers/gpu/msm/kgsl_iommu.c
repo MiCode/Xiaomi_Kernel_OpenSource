@@ -919,7 +919,7 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 	if (iommu->sync_lock_initialized)
 		return status;
 
-	iommu_access_ops = get_iommu_access_ops_v0();
+	iommu_access_ops = msm_get_iommu_access_ops();
 
 	if (iommu_access_ops && iommu_access_ops->iommu_lock_initialize) {
 		lock_phy_addr = (uint32_t)

@@ -144,8 +144,6 @@ struct iommu_pm_hw_ops {
 	unsigned int (*read_counter)(struct iommu_pmon_counter *);
 };
 
-extern struct iommu_access_ops iommu_access_ops_v0;
-extern struct iommu_access_ops iommu_access_ops_v1;
 #define MSM_IOMMU_PMU_NO_EVENT_CLASS -1
 
 #ifdef CONFIG_MSM_IOMMU_PMON

@@ -52,10 +52,6 @@ __asm__ __volatile__ (							\
 #define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
 #define MSM_IOMMU_ATTR_CACHED_WT	0x3
 
-struct bus_type msm_iommu_sec_bus_type = {
-	.name = "msm_iommu_sec_bus",
-};
-
 static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 				 unsigned int len);
 
@@ -224,7 +220,6 @@ struct iommu_access_ops iommu_access_ops_v0 = {
 	.iommu_lock_acquire = _iommu_lock_acquire,
 	.iommu_lock_release = _iommu_lock_release,
 };
-EXPORT_SYMBOL(iommu_access_ops_v0);
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 {
