@@ -41,6 +41,10 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
 
+static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
+	{}
+};
+
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -64,7 +68,7 @@ void __init msmkrypton_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msmkrypton_init_gpiomux();
-	board_dt_populate(adata);
+	board_dt_populate(msmkrypton_auxdata_lookup);
 	msmkrypton_add_drivers();
 }
 
