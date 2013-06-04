@@ -64,8 +64,6 @@ struct msm_dai_q6_mi2s_dai_config {
 struct msm_dai_q6_mi2s_dai_data {
 	struct msm_dai_q6_mi2s_dai_config tx_dai;
 	struct msm_dai_q6_mi2s_dai_config rx_dai;
-	struct snd_pcm_hw_constraint_list rate_constraint;
-	struct snd_pcm_hw_constraint_list bitwidth_constraint;
 };
 
 /* MI2S format field for AFE_PORT_CMD_I2S_CONFIG command
@@ -1472,20 +1470,6 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 static int msm_dai_q6_mi2s_startup(struct snd_pcm_substream *substream,
 				   struct snd_soc_dai *dai)
 {
-	struct msm_dai_q6_mi2s_dai_data *mi2s_dai_data =
-		dev_get_drvdata(dai->dev);
-
-	dev_dbg(dai->dev, "%s: cnst list %p\n", __func__,
-		mi2s_dai_data->rate_constraint.list);
-
-	if (mi2s_dai_data->rate_constraint.list) {
-		snd_pcm_hw_constraint_list(substream->runtime, 0,
-				SNDRV_PCM_HW_PARAM_RATE,
-				&mi2s_dai_data->rate_constraint);
-		snd_pcm_hw_constraint_list(substream->runtime, 0,
-				SNDRV_PCM_HW_PARAM_SAMPLE_BITS,
-				&mi2s_dai_data->bitwidth_constraint);
-	}
 
 	return 0;
 }
@@ -1659,11 +1643,25 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 	dai_data->port_config.i2s.i2s_cfg_minor_version =
 			AFE_API_VERSION_I2S_CONFIG;
 	dai_data->port_config.i2s.sample_rate = dai_data->rate;
-	if (!mi2s_dai_data->rate_constraint.list) {
-		mi2s_dai_data->rate_constraint.list = &dai_data->rate;
-		mi2s_dai_data->bitwidth_constraint.list = &dai_data->bitwidth;
+	if (test_bit(STATUS_PORT_STARTED,
+	    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) ||
+	    test_bit(STATUS_PORT_STARTED,
+	    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
+		if ((mi2s_dai_data->tx_dai.mi2s_dai_data.rate !=
+		    mi2s_dai_data->rx_dai.mi2s_dai_data.rate) ||
+		   (mi2s_dai_data->rx_dai.mi2s_dai_data.bitwidth !=
+		    mi2s_dai_data->tx_dai.mi2s_dai_data.bitwidth)) {
+			dev_err(dai->dev, "%s: Error mismatch in HW params\n"
+				"Tx sample_rate = %u bit_width = %hu\n"
+				"Rx sample_rate = %u bit_width = %hu\n"
+				, __func__,
+				mi2s_dai_data->tx_dai.mi2s_dai_data.rate,
+				mi2s_dai_data->tx_dai.mi2s_dai_data.bitwidth,
+				mi2s_dai_data->rx_dai.mi2s_dai_data.rate,
+				mi2s_dai_data->rx_dai.mi2s_dai_data.bitwidth);
+			return -EINVAL;
+		}
 	}
-
 	dev_dbg(dai->dev, "%s: dai id %d dai_data->channels = %d\n"
 		"sample_rate = %u i2s_cfg_minor_version = %#x\n"
 		"bit_width = %hu  channel_mode = %#x mono_stereo = %#x\n"
@@ -1738,14 +1736,6 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
-	}
-
-	if (!test_bit(STATUS_PORT_STARTED,
-			mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) &&
-		!test_bit(STATUS_PORT_STARTED,
-			mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask)) {
-		mi2s_dai_data->rate_constraint.list = NULL;
-		mi2s_dai_data->bitwidth_constraint.list = NULL;
 	}
 }
 
@@ -2002,8 +1992,6 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (IS_ERR_VALUE(rc))
 		goto free_dai;
 
-	dai_data->rate_constraint.count = 1;
-	dai_data->bitwidth_constraint.count = 1;
 	rc = snd_soc_register_dai(&pdev->dev, mi2s_dai);
 	if (IS_ERR_VALUE(rc))
 		goto err_register;
