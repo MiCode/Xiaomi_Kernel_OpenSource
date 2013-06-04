@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
@@ -23,6 +24,10 @@
 #include "io.h"
 #include "xhci.h"
 
+#define MAX_INVALID_CHRGR_RETRY 3
+static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
+module_param(max_chgr_retry_count, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(max_chgr_retry_count, "Max invalid charger retry count");
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
 static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
@@ -686,6 +691,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
+			dotg->charger_retry_count = 0;
 			if (charger) {
 				if (charger->chg_type == DWC3_INVALID_CHARGER)
 					charger->start_detection(dotg->charger,
@@ -720,6 +726,17 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					phy->state = OTG_STATE_B_PERIPHERAL;
 					work = 1;
 					break;
+				case DWC3_UNSUPPORTED_CHARGER:
+					dotg->charger_retry_count++;
+					if (dotg->charger_retry_count ==
+						max_chgr_retry_count) {
+						dwc3_otg_set_power(phy, 0);
+						pm_runtime_put_sync(phy->dev);
+						break;
+					}
+					charger->start_detection(dotg->charger,
+									false);
+
 				default:
 					dev_dbg(phy->dev, "chg_det started\n");
 					charger->start_detection(charger, true);
@@ -744,6 +761,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			if (charger)
 				charger->start_detection(dotg->charger, false);
 
+			dotg->charger_retry_count = 0;
 			dwc3_otg_set_power(phy, 0);
 			dev_dbg(phy->dev, "No device, trying to suspend\n");
 			pm_runtime_put_sync(phy->dev);
