@@ -375,16 +375,23 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 					 int len, int index)
 {
-	int i;
-	int status = 0;
+	int i, status = 0;
+	unsigned int read_len = 0;
 
-	/* remove UID from user space pkt before sending to peripheral */
-	buf = buf + 4;
-	if (len > APPS_BUF_SIZE - 10) {
-		pr_err("diag: dci: buffer overwrite possible since payload bigger than buf size\n");
+	/* The first 4 bytes is the uid tag and the next four bytes is
+	   the minmum packet length of a request packet */
+	if (len < DCI_PKT_REQ_MIN_LEN) {
+		pr_err("diag: dci: Invalid pkt len %d in %s\n", len, __func__);
 		return -EIO;
 	}
-	len = len - 4;
+	if (len > APPS_BUF_SIZE - 10) {
+		pr_err("diag: dci: Invalid payload length in %s\n", __func__);
+		return -EIO;
+	}
+	/* remove UID from user space pkt before sending to peripheral*/
+	buf = buf + sizeof(int);
+	read_len += sizeof(int);
+	len = len - sizeof(int);
 	mutex_lock(&driver->dci_mutex);
 	/* prepare DCI packet */
 	driver->apps_dci_buf[0] = CONTROL_CHAR; /* start */
@@ -395,7 +402,13 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 		driver->req_tracking_tbl[index].tag;
 	for (i = 0; i < len; i++)
 		driver->apps_dci_buf[i+9] = *(buf+i);
+	read_len += len;
 	driver->apps_dci_buf[9+len] = CONTROL_CHAR; /* end */
+	if ((read_len + 9) >= USER_SPACE_DATA) {
+		pr_err("diag: dci: Invalid length while forming dci pkt in %s",
+								__func__);
+		return -EIO;
+	}
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		struct diag_smd_info *smd_info = driver->separate_cmdrsp[i] ?
@@ -449,10 +462,10 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 {
 	unsigned char *temp = buf;
 	uint16_t subsys_cmd_code, log_code, item_num;
-	int subsys_id, cmd_code, ret = -1, index = -1, found = 0, read_len = 0;
+	int subsys_id, cmd_code, ret = -1, index = -1, found = 0;
 	struct diag_master_table entry;
 	int count, set_mask, num_codes, bit_index, event_id, offset = 0, i;
-	unsigned int byte_index;
+	unsigned int byte_index, read_len = 0;
 	uint8_t equip_id, *log_mask_ptr, *head_log_mask_ptr, byte_mask;
 	uint8_t *event_mask_ptr;
 
@@ -462,15 +475,24 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
 
+	if (!temp) {
+		pr_err("diag: Invalid buffer in %s\n", __func__);
+	}
+
 	/* This is Pkt request/response transaction */
 	if (*(int *)temp > 0) {
+		if (len < DCI_PKT_REQ_MIN_LEN || len > USER_SPACE_DATA) {
+			pr_err("diag: dci: Invalid length %d len in %s", len,
+								__func__);
+			return -EIO;
+		}
 		/* enter this UID into kernel table and return index */
 		index = diag_register_dci_transaction(*(int *)temp);
 		if (index < 0) {
 			pr_alert("diag: registering new DCI transaction failed\n");
 			return DIAG_DCI_NO_REG;
 		}
-		temp += 4;
+		temp += sizeof(int);
 		/*
 		 * Check for registered peripheral and fwd pkt to
 		 * appropriate proc
@@ -480,7 +502,12 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		subsys_id = (int)(*(char *)temp);
 		temp++;
 		subsys_cmd_code = *(uint16_t *)temp;
-		temp += 2;
+		temp += sizeof(uint16_t);
+		read_len += sizeof(int) + 2 + sizeof(uint16_t);
+		if (read_len >= USER_SPACE_DATA) {
+			pr_err("diag: dci: Invalid length in %s\n", __func__);
+			return -EIO;
+		}
 		pr_debug("diag: %d %d %d", cmd_code, subsys_id,
 			subsys_cmd_code);
 		for (i = 0; i < diag_max_reg; i++) {
@@ -514,6 +541,12 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			}
 		}
 	} else if (*(int *)temp == DCI_LOG_TYPE) {
+		/* Minimum length of a log mask config is 12 + 2 bytes for
+		   atleast one log code to be set or reset */
+		if (len < DCI_LOG_CON_MIN_LEN || len > USER_SPACE_DATA) {
+			pr_err("diag: dci: Invalid length in %s\n", __func__);
+			return -EIO;
+		}
 		/* find client id and table */
 		i = diag_dci_find_client_index(current->tgid);
 		if (i == DCI_CLIENT_INDEX_INVALID) {
@@ -521,21 +554,33 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			return ret;
 		}
 		/* Extract each log code and put in client table */
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
 		set_mask = *(int *)temp;
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
 		num_codes = *(int *)temp;
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
+
+		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
+			pr_err("diag: dci: Invalid number of log codes %d\n",
+								num_codes);
+			return -EIO;
+		}
 
 		head_log_mask_ptr = driver->dci_client_tbl[i].dci_log_mask;
+		if (!head_log_mask_ptr) {
+			pr_err("diag: dci: Invalid Log mask pointer in %s\n",
+								__func__);
+			return -ENOMEM;
+		}
 		pr_debug("diag: head of dci log mask %p\n", head_log_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
 		while (count < num_codes) {
 			if (read_len >= USER_SPACE_DATA) {
-				pr_err("diag: dci: Log type, possible buffer overflow\n");
+				pr_err("diag: dci: Invalid length for log type in %s",
+								__func__);
 				return -EIO;
 			}
 			log_code = *(uint16_t *)temp;
@@ -589,6 +634,12 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		/* send updated mask to peripherals */
 		ret = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
+		/* Minimum length of a event mask config is 12 + 4 bytes for
+		  atleast one event id to be set or reset. */
+		if (len < DCI_EVENT_CON_MIN_LEN || len > USER_SPACE_DATA) {
+			pr_err("diag: dci: Invalid length in %s\n", __func__);
+			return -EIO;
+		}
 		/* find client id and table */
 		i = diag_dci_find_client_index(current->tgid);
 		if (i == DCI_CLIENT_INDEX_INVALID) {
@@ -596,21 +647,36 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			return ret;
 		}
 		/* Extract each log code and put in client table */
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
 		set_mask = *(int *)temp;
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
 		num_codes = *(int *)temp;
-		temp += 4;
-		read_len += 4;
+		temp += sizeof(int);
+		read_len += sizeof(int);
+
+		/* Check for positive number of event ids. Also, the number of
+		   event ids should fit in the buffer along with set_mask and
+		   num_codes which are 4 bytes each */
+		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
+			pr_err("diag: dci: Invalid number of event ids %d\n",
+								num_codes);
+			return -EIO;
+		}
 
 		event_mask_ptr = driver->dci_client_tbl[i].dci_event_mask;
+		if (!event_mask_ptr) {
+			pr_err("diag: dci: Invalid event mask pointer in %s\n",
+								__func__);
+			return -ENOMEM;
+		}
 		pr_debug("diag: head of dci event mask %p\n", event_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
 		while (count < num_codes) {
 			if (read_len >= USER_SPACE_DATA) {
-				pr_err("diag: dci: Event type, possible buffer overflow\n");
+				pr_err("diag: dci: Invalid length for event type in %s",
+								__func__);
 				return -EIO;
 			}
 			event_id = *(int *)temp;
