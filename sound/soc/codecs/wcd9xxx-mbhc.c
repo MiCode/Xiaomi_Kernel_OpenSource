@@ -1838,12 +1838,12 @@ static void wcd9xxx_hs_remove_irq_swch(struct wcd9xxx_mbhc *mbhc)
 /* called only from interrupt which is under codec_resource_lock acquisition */
 static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
 {
-	short bias_value;
+	s16 dce;
+	unsigned long timeout;
 	bool removed = true;
 	struct snd_soc_codec *codec = mbhc->codec;
 	const struct wcd9xxx_mbhc_general_cfg *generic =
 		WCD9XXX_MBHC_CAL_GENERAL_PTR(mbhc->mbhc_cfg->calibration);
-	int min_us = FAKE_REMOVAL_MIN_PERIOD_MS * 1000;
 
 	pr_debug("%s: enter\n", __func__);
 	if (mbhc->current_plug != PLUG_TYPE_HEADSET) {
@@ -1855,23 +1855,21 @@ static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
 	}
 
 	usleep_range(generic->t_shutdown_plug_rem,
-			generic->t_shutdown_plug_rem);
+		     generic->t_shutdown_plug_rem);
 
+	timeout = jiffies + msecs_to_jiffies(FAKE_REMOVAL_MIN_PERIOD_MS);
 	do {
-		bias_value = wcd9xxx_codec_sta_dce(mbhc, 1,  true);
-		pr_debug("%s: DCE %d,%d, %d us left\n", __func__, bias_value,
-			 wcd9xxx_codec_sta_dce_v(mbhc, 1, bias_value), min_us);
-		if (bias_value <
+		dce = wcd9xxx_codec_sta_dce(mbhc, 1,  true);
+		pr_debug("%s: DCE 0x%x,%d\n", __func__, dce,
+			 wcd9xxx_codec_sta_dce_v(mbhc, 1, dce));
+		if (dce <
 		    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_H)) {
-			pr_debug("%s: checking false removal\n", __func__);
-			msleep(500);
-			removed = !wcd9xxx_hs_remove_settle(mbhc);
-			pr_debug("%s: headset %sactually removed\n", __func__,
-				 removed ? "" : "not ");
+			removed = false;
 			break;
 		}
-		min_us -= mbhc->mbhc_data.t_dce;
-	} while (min_us > 0);
+	} while (!time_after(jiffies, timeout));
+	pr_debug("%s: headset %sactually removed\n", __func__,
+		  removed ? "" : "not ");
 
 	if (removed) {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
