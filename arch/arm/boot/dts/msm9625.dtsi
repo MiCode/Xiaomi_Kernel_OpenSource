@@ -243,9 +243,9 @@
 			qcom,dst-bam-physical-address = <0xf9a44000>;
 			qcom,dst-bam-pipe-index = <2>;
 			qcom,data-fifo-offset = <0x4100>;
-			qcom,data-fifo-size = <0x400>;
+			qcom,data-fifo-size = <0x700>;
 			qcom,descriptor-fifo-offset = <0x4000>;
-			qcom,descriptor-fifo-size = <0x400>;
+			qcom,descriptor-fifo-size = <0x100>;
 		};
 		qcom,pipe3 {
 			label = "hsic-ipa-in-0";
