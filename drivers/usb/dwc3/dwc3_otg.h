@@ -50,6 +50,7 @@ struct dwc3_otg {
 	struct power_supply	*psy;
 	struct completion	dwc3_xcvr_vbus_init;
 	int			host_bus_suspend;
+	int			charger_retry_count;
 };
 
 /**
@@ -70,6 +71,7 @@ enum dwc3_chg_type {
 	DWC3_DCP_CHARGER,
 	DWC3_CDP_CHARGER,
 	DWC3_PROPRIETARY_CHARGER,
+	DWC3_UNSUPPORTED_CHARGER,
 };
 
 struct dwc3_charger {
