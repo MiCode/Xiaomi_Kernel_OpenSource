@@ -349,8 +349,13 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 
 	rc = wait_for_completion_interruptible_timeout(&ctx->wb_comp,
 			KOFF_TIMEOUT);
-	WARN(rc <= 0, "writeback kickoff timed out (%d) ctl=%d\n",
-							rc, ctl->num);
+	if (rc <= 0) {
+		rc = -ENODEV;
+		WARN(1, "writeback kickoff timed out (%d) ctl=%d\n",
+						rc, ctl->num);
+	} else {
+		rc = 0;
+	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false); /* clock off */
 
