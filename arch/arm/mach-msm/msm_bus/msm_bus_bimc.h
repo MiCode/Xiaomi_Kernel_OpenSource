@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,9 +93,11 @@ struct msm_bus_bimc_qos_mode {
 struct msm_bus_bimc_qos_bw {
 	uint64_t bw;	/* bw is in Bytes/sec */
 	uint32_t ws;	/* Window size in nano seconds*/
-	uint64_t thh;	/* Threshold high, bytes per second */
-	uint64_t thm;	/* Threshold medium, bytes per second */
-	uint64_t thl;	/* Threshold low, bytes per second */
+	int64_t thh;	/* Threshold high, bytes per second */
+	int64_t thm;	/* Threshold medium, bytes per second */
+	int64_t thl;	/* Threshold low, bytes per second */
+	u32 gp;	/* Grant Period in micro seconds */
+	u32 thmp; /* Threshold medium in percentage */
 };
 
 struct msm_bus_bimc_clk_gate {
