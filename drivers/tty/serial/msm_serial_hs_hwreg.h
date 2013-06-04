@@ -32,6 +32,10 @@
 #define ADM1_CRCI_GSBI6_RX_SEL         0x800
 #define ADM1_CRCI_GSBI6_TX_SEL         0x400
 
+#define MSM_ENABLE_UART_CLOCK 13
+#define MSM_DISABLE_UART_CLOCK 14
+#define MSM_GET_UART_CLOCK_STATUS 15
+
 enum msm_hsl_regs {
 	UARTDM_MR1,
 	UARTDM_MR2,
