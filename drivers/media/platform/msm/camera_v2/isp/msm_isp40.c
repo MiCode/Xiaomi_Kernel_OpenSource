@@ -819,6 +819,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
 
 	if (!stream_info->frame_based) {
+		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
 		/*WR_IMAGE_SIZE*/
 		val =
 			((msm_isp_cal_word_per_line(
