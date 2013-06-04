@@ -460,9 +460,6 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	else
 		key_size = creq->encklen;
 
-	_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
-	enck_size_in_word = key_size/sizeof(uint32_t);
-
 	pce = cmdlistinfo->go_proc;
 	if ((creq->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
 		use_hw_key = true;
@@ -478,6 +475,10 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	else
 		pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
 						pce_dev->phy_iobase);
+	if ((use_pipe_key == false) && (use_hw_key == false)) {
+		_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
+		enck_size_in_word = key_size/sizeof(uint32_t);
+	}
 
 	if ((creq->op == QCE_REQ_AEAD) && (creq->mode == QCE_MODE_CCM)) {
 		uint32_t authklen32 = creq->encklen/sizeof(uint32_t);
@@ -913,9 +914,6 @@ static int _ce_setup_cipher_direct(struct qce_device *pce_dev,
 	else
 		key_size = creq->encklen;
 
-	_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
-
-	enck_size_in_word = key_size/sizeof(uint32_t);
 	if ((creq->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
 		use_hw_key = true;
 	} else {
@@ -923,7 +921,10 @@ static int _ce_setup_cipher_direct(struct qce_device *pce_dev,
 					QCRYPTO_CTX_USE_PIPE_KEY)
 			use_pipe_key = true;
 	}
-
+	if ((use_pipe_key == false) && (use_hw_key == false)) {
+		_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
+		enck_size_in_word = key_size/sizeof(uint32_t);
+	}
 	if ((creq->op == QCE_REQ_AEAD) && (creq->mode == QCE_MODE_CCM)) {
 		uint32_t authklen32 = creq->encklen/sizeof(uint32_t);
 		uint32_t noncelen32 = MAX_NONCE/sizeof(uint32_t);
