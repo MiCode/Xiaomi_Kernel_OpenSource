@@ -1012,6 +1012,12 @@
 				<55 512 0 0>,
 				<55 512 3936000 393600>;
 	};
+
+	cpu-pmu {
+		compatible = "arm,cortex-a7-pmu";
+		qcom,irq-is-percpu;
+		interrupts = <1 7 0xf00>;
+	};
 };
 
 &gdsc_venus {
