@@ -1498,7 +1498,7 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 		vbus_otg = devm_regulator_get(motg->phy.dev, "vbus_otg");
 		if (IS_ERR(vbus_otg)) {
 			pr_err("Unable to get vbus_otg\n");
-			return -ENODEV;
+			return PTR_ERR(vbus_otg);
 		}
 	}
 
