@@ -17,6 +17,12 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
+static struct gpiomux_setting gpio_spi_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -159,6 +165,30 @@ static struct msm_gpiomux_config msm_atmel_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE] = &atmel_int_act_cfg,
 			[GPIOMUX_SUSPENDED] = &atmel_int_sus_cfg,
+		},
+	},
+	{
+		.gpio      = 86,		/* BLSP1 QUP4 SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 87,		/* BLSP1 QUP4 SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 89,		/* BLSP1 QUP4 SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 88,		/* BLSP1 QUP4 SPI_CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 };
