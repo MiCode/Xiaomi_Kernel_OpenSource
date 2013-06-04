@@ -121,7 +121,6 @@ TRACE_EVENT(sched_switch_with_ctrs,
 
 #endif
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
+#define TRACE_INCLUDE_PATH ../../arch/arm/mach-msm
 #define TRACE_INCLUDE_FILE perf_trace_counters
 #include <trace/define_trace.h>
-
