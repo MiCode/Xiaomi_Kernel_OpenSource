@@ -639,7 +639,6 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			goto exit;
 
 		if (codec_clk) {
-			clk_set_rate(codec_clk, TAIKO_EXT_CLK_RATE);
 			clk_prepare_enable(codec_clk);
 			taiko_mclk_enable(codec, 1, dapm);
 		} else {
