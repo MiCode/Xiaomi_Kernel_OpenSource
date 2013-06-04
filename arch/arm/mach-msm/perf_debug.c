@@ -30,6 +30,7 @@ static char *descriptions =
 	"5  Perf: Add DT support for L1 and L2 PMU\n"
 	"6  Perf: Add cortex A5 device tree support\n"
 	"7  Perf: Add L1 counters to tracepoints\n"
+	"8  Perf: Add cortex A7 perf support\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
