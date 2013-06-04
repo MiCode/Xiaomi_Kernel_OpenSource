@@ -14,12 +14,32 @@ menuconfig IOMMU_SUPPORT
 if IOMMU_SUPPORT
 
 # MSM IOMMU support
+
+# MSM_IOMMU always gets selected by whoever wants it.
 config MSM_IOMMU
-	bool "MSM IOMMU Support"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8974 || ARCH_MPQ8092 || ARCH_MSM8610 || ARCH_MSM8226 || ARCH_APQ8084
+	bool
+
+# MSM IOMMUv0 support
+config MSM_IOMMU_V0
+	bool "MSM IOMMUv0 Support"
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8610
 	select IOMMU_API
+	select MSM_IOMMU
 	help
-	  Support for the IOMMUs found on certain Qualcomm SOCs.
+	  Support for the IOMMUs (v0) found on certain Qualcomm SOCs.
+	  These IOMMUs allow virtualization of the address space used by most
+	  cores within the multimedia subsystem.
+
+	  If unsure, say N here.
+
+# MSM IOMMUv1 support
+config MSM_IOMMU_V1
+	bool "MSM IOMMUv1 Support"
+	depends on ARCH_MSM8974 || ARCH_MPQ8092 || ARCH_MSM8226 || ARCH_APQ8084
+	select IOMMU_API
+	select MSM_IOMMU
+	help
+	  Support for the IOMMUs (v1) found on certain Qualcomm SOCs.
 	  These IOMMUs allow virtualization of the address space used by most
 	  cores within the multimedia subsystem.
 
@@ -28,7 +48,7 @@ config MSM_IOMMU
 # MSM IOMMU CPU-GPU sync programming support
 config MSM_IOMMU_GPU_SYNC
 	bool "MSM IOMMU CPU-GPU Sync Support"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930) && MSM_IOMMU && MSM_REMOTE_SPINLOCK_SFPB
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930) && MSM_IOMMU_V0 && MSM_REMOTE_SPINLOCK_SFPB
 	help
 	  Say Y here if you want to synchronize access to IOMMU configuration
 	  port between CPU and GPU. CPU will grab a remote spinlock before

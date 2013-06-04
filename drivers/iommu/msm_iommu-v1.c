@@ -141,7 +141,6 @@ struct iommu_access_ops iommu_access_ops_v1 = {
 	.iommu_lock_acquire = _iommu_lock_acquire,
 	.iommu_lock_release = _iommu_lock_release,
 };
-EXPORT_SYMBOL(iommu_access_ops_v1);
 
 void iommu_halt(const struct msm_iommu_drvdata *iommu_drvdata)
 {

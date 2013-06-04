@@ -21,6 +21,8 @@
 
 extern pgprot_t     pgprot_kernel;
 extern struct bus_type msm_iommu_sec_bus_type;
+extern struct iommu_access_ops iommu_access_ops_v0;
+extern struct iommu_access_ops iommu_access_ops_v1;
 
 /* Domain attributes */
 #define MSM_IOMMU_DOMAIN_PT_CACHEABLE	0x1
@@ -229,6 +231,8 @@ struct remote_iommu_petersons_spinlock {
 void *msm_iommu_lock_initialize(void);
 void msm_iommu_mutex_lock(void);
 void msm_iommu_mutex_unlock(void);
+void msm_set_iommu_access_ops(struct iommu_access_ops *ops);
+struct iommu_access_ops *msm_get_iommu_access_ops(void);
 #else
 static inline void *msm_iommu_lock_initialize(void)
 {
@@ -236,6 +240,14 @@ static inline void *msm_iommu_lock_initialize(void)
 }
 static inline void msm_iommu_mutex_lock(void) { }
 static inline void msm_iommu_mutex_unlock(void) { }
+static inline void msm_set_iommu_access_ops(struct iommu_access_ops *ops)
+{
+
+}
+static inline struct iommu_access_ops *msm_get_iommu_access_ops(void)
+{
+	return NULL;
+}
 #endif
 
 #ifdef CONFIG_MSM_IOMMU_GPU_SYNC
