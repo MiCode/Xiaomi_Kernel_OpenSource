@@ -741,10 +741,14 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (NULL != fw)
 		ptr_bin = (uint32_t *)fw->data;
 
-	for (i = 0; i < fw->size/4; i++) {
-		if (ptr_bin) {
-			msm_cpp_write(*ptr_bin, cpp_dev->base);
-			ptr_bin++;
+	if (ptr_bin == NULL) {
+		pr_err("ptr_bin is NULL\n");
+	} else {
+		for (i = 0; i < fw->size/4; i++) {
+			if (ptr_bin) {
+				msm_cpp_write(*ptr_bin, cpp_dev->base);
+				ptr_bin++;
+			}
 		}
 	}
 	if (fw)
@@ -1172,6 +1176,11 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	int rc = 0;
 	char *fw_name_bin;
 
+	if (ioctl_ptr == NULL) {
+		pr_err("ioctl_ptr is null\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&cpp_dev->mutex);
 	CPP_DBG("E cmd: %d\n", cmd);
 	switch (cmd) {
@@ -1187,7 +1196,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE: {
 		if (cpp_dev->is_firmware_loaded == 0) {
-			fw_name_bin = kzalloc(ioctl_ptr->len, GFP_KERNEL);
+			fw_name_bin = kzalloc(ioctl_ptr->len+1, GFP_KERNEL);
 			if (!fw_name_bin) {
 				pr_err("%s:%d: malloc error\n", __func__,
 					__LINE__);
@@ -1195,6 +1204,14 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 
+			if (ioctl_ptr->ioctl_ptr == NULL) {
+				pr_err("ioctl_ptr->ioctl_ptr=NULL\n");
+				return -EINVAL;
+			}
+			if (ioctl_ptr->len == 0) {
+				pr_err("ioctl_ptr->len is 0\n");
+				return -EINVAL;
+			}
 			rc = (copy_from_user(fw_name_bin,
 				(void __user *)ioctl_ptr->ioctl_ptr,
 				ioctl_ptr->len) ? -EFAULT : 0);
@@ -1202,6 +1219,11 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				ERR_COPY_FROM_USER();
 				kfree(fw_name_bin);
 				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
+			*(fw_name_bin+ioctl_ptr->len) = '\0';
+			if (cpp_dev == NULL) {
+				pr_err("cpp_dev is null\n");
 				return -EINVAL;
 			}
 
