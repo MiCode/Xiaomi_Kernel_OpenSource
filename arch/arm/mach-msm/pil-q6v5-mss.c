@@ -97,7 +97,7 @@ struct mba_data {
 	int force_stop_gpio;
 };
 
-static int pbl_mba_boot_timeout_ms = 100;
+static int pbl_mba_boot_timeout_ms = 1000;
 module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 static int modem_auth_timeout_ms = 10000;
