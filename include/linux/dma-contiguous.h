@@ -65,6 +65,9 @@ struct device;
  */
 #define MAX_CMA_AREAS	(1 + CONFIG_CMA_AREAS)
 
+
+phys_addr_t cma_get_base(struct device *dev);
+
 extern struct cma *dma_contiguous_def_area;
 
 void dma_contiguous_reserve(phys_addr_t addr_limit);
@@ -127,6 +130,12 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 				 int count)
 {
 	return false;
+}
+
+
+static inline phys_addr_t cma_get_base(struct device *dev)
+{
+	return 0;
 }
 
 #endif
