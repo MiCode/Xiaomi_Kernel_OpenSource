@@ -44,7 +44,12 @@
 
 
 #define DEBUG_MAX_FNAME  16
-#define DEBUG_MAX_RW_BUF 1024
+#define DEBUG_MAX_RW_BUF 2048
+
+/*
+ * For crypto 5.0 which has burst size alignment requirement.
+ */
+#define MAX_ALIGN_SIZE  0x40
 
 struct crypto_stat {
 	u32 aead_sha1_aes_enc;
@@ -1089,6 +1094,37 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 		areq->assoc = rctx->assoc_sg;
 		areq->assoclen = rctx->assoclen;
 	} else {
+		uint32_t ivsize = crypto_aead_ivsize(aead);
+
+		/* for aead operations, other than aes(ccm) */
+		if (cp->ce_support.aligned_only)  {
+			struct qcrypto_cipher_req_ctx *rctx;
+			uint32_t bytes = 0;
+			uint32_t nbytes = 0;
+			uint32_t num_sg = 0;
+			uint32_t offset = areq->assoclen + ivsize;
+
+			rctx = aead_request_ctx(areq);
+			areq->src = rctx->orig_src;
+			areq->dst = rctx->orig_dst;
+
+			if (rctx->dir == QCE_ENCRYPT)
+				nbytes = areq->cryptlen;
+			else
+				nbytes = areq->cryptlen -
+						crypto_aead_authsize(aead);
+			num_sg = qcrypto_count_sg(areq->dst, nbytes);
+			bytes = qcrypto_sg_copy_from_buffer(
+					areq->dst,
+					num_sg,
+					(char *)rctx->data + offset,
+					nbytes);
+			if (bytes != nbytes)
+				pr_warn("bytes copied=0x%x bytes to copy= 0x%x",
+						bytes, nbytes);
+			kfree(rctx->data);
+		}
+
 		if (ret == 0) {
 			if (rctx->dir  == QCE_ENCRYPT) {
 				/* copy the icv to dst */
@@ -1113,7 +1149,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 		}
 
 		if (iv)
-			memcpy(ctx->iv, iv, crypto_aead_ivsize(aead));
+			memcpy(ctx->iv, iv, ivsize);
 	}
 
 	if (ret == (-EBADMSG))
@@ -1176,7 +1212,7 @@ static int qcrypto_aead_ccm_format_adata(struct qce_req *qreq, uint32_t alen,
 	uint32_t bytes = 0;
 	uint32_t num_sg = 0;
 
-	qreq->assoc = kzalloc((alen + 0x64), (GFP_KERNEL | __GFP_DMA));
+	qreq->assoc = kzalloc((alen + 0x64), GFP_ATOMIC);
 	if (!qreq->assoc) {
 		pr_err("qcrypto Memory allocation of adata FAIL, error %ld\n",
 				PTR_ERR(qreq->assoc));
@@ -1434,6 +1470,68 @@ static int _qcrypto_process_aead(struct crypto_priv *cp,
 		sg_set_buf(req->assoc, qreq.assoc,
 					req->assoclen);
 		sg_mark_end(req->assoc);
+	} else {
+		/* for aead operations, other than aes(ccm) */
+		if (cp->ce_support.aligned_only) {
+			uint32_t bytes = 0;
+			uint32_t num_sg = 0;
+
+			rctx->orig_src = req->src;
+			rctx->orig_dst = req->dst;
+			/*
+			 * The data area should be big enough to
+			 * include  assoicated data, ciphering data stream,
+			 * generated MAC, and CCM padding.
+			 */
+			rctx->data = kzalloc(
+					(req->cryptlen +
+						req->assoclen +
+						qreq.ivsize +
+						MAX_ALIGN_SIZE * 2),
+					GFP_ATOMIC);
+			if (rctx->data == NULL) {
+				pr_err("Mem Alloc fail rctx->data, err %ld\n",
+						PTR_ERR(rctx->data));
+				return -ENOMEM;
+			}
+
+			/* copy associated data */
+			num_sg = qcrypto_count_sg(req->assoc, req->assoclen);
+			bytes = qcrypto_sg_copy_to_buffer(
+				req->assoc, num_sg,
+				rctx->data, req->assoclen);
+
+			if (bytes != req->assoclen)
+				pr_warn("bytes copied=0x%x bytes to copy= 0x%x",
+						bytes, req->assoclen);
+
+			/* copy iv */
+			memcpy(rctx->data + req->assoclen, qreq.iv,
+				qreq.ivsize);
+
+			/* copy src */
+			num_sg = qcrypto_count_sg(req->src, req->cryptlen);
+			bytes = qcrypto_sg_copy_to_buffer(
+					req->src,
+					num_sg,
+					rctx->data + req->assoclen +
+						qreq.ivsize,
+					req->cryptlen);
+			if (bytes != req->cryptlen)
+				pr_warn("bytes copied=0x%x bytes to copy= 0x%x",
+						bytes, req->cryptlen);
+			sg_set_buf(&rctx->ssg, rctx->data,
+				req->cryptlen + req->assoclen
+					+ qreq.ivsize);
+			sg_mark_end(&rctx->ssg);
+
+			sg_set_buf(&rctx->dsg, rctx->data,
+				req->cryptlen + req->assoclen
+					+ qreq.ivsize);
+			sg_mark_end(&rctx->dsg);
+			req->src = &rctx->ssg;
+			req->dst = &rctx->dsg;
+		}
 	}
 	ret =  qce_aead_req(cp->qce, &qreq);
 
@@ -3646,7 +3744,8 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 
 	/* register crypto aead (hmac-sha1) algorithms the device supports */
-	if (cp->ce_support.sha1_hmac_20 || cp->ce_support.sha1_hmac) {
+	if (cp->ce_support.sha1_hmac_20 || cp->ce_support.sha1_hmac
+		|| cp->ce_support.sha_hmac) {
 		for (i = 0; i < ARRAY_SIZE(_qcrypto_aead_sha1_hmac_algos);
 									i++) {
 			struct qcrypto_alg *q_alg;

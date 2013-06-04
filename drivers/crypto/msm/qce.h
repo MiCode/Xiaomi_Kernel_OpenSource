@@ -73,7 +73,6 @@ enum qce_hash_alg_enum {
 	QCE_HASH_SHA1_HMAC   = 2,
 	QCE_HASH_SHA256_HMAC = 3,
 	QCE_HASH_AES_CMAC = 4,
-	QCE_AEAD_SHA1_HMAC = 5,
 	QCE_HASH_LAST
 };
 
