@@ -968,6 +968,8 @@ static int cons_release_resource(enum usb_bam cur_bam)
 			(int)hsic_host_dev);
 			pm_runtime_put(hsic_host_dev);
 			info.in_lpm[HSIC_BAM] = true;
+			/* In case consumer release before resume happned */
+			hsic_host_dev_resumed_from_cons_request = false;
 		}
 	}
 
