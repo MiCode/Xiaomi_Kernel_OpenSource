@@ -114,6 +114,12 @@ static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
+static ssize_t synaptics_rmi4_mode_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t synaptics_rmi4_mode_resume_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data);
@@ -237,6 +243,12 @@ static struct device_attribute attrs[] = {
 	__ATTR(full_pm_cycle, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_full_pm_cycle_show,
 			synaptics_rmi4_full_pm_cycle_store),
+	__ATTR(mode_suspend, S_IWUGO,
+			synaptics_rmi4_show_error,
+			synaptics_rmi4_mode_suspend_store),
+	__ATTR(mode_resume, S_IWUGO,
+			synaptics_rmi4_show_error,
+			synaptics_rmi4_mode_resume_store),
 #endif
 	__ATTR(reset, S_IWUGO,
 			synaptics_rmi4_show_error,
@@ -284,6 +296,34 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 		return -EINVAL;
 
 	rmi4_data->full_pm_cycle = input > 0 ? 1 : 0;
+
+	return count;
+}
+
+static ssize_t synaptics_rmi4_mode_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	synaptics_rmi4_suspend(&(rmi4_data->input_dev->dev));
+
+	return count;
+}
+
+static ssize_t synaptics_rmi4_mode_resume_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
 
 	return count;
 }
