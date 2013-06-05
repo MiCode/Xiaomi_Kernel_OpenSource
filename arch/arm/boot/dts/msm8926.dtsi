@@ -28,4 +28,10 @@
 	qcom,mss@fc880000 {
 		vdd_mss-supply = <&pm8226_s5>;
 	};
+
+	qcom,acpuclk@f9011050 {
+		reg =	<0xf9011050 0x8>,
+			<0xfc4b80b0 0x8>;
+		reg-names = "rcg_base", "pte_efuse";
+	};
 };

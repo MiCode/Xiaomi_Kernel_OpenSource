@@ -17,3 +17,9 @@
  */
 
 /include/ "msm8226.dtsi"
+&soc {
+	qcom,acpuclk@f9011050 {
+		reg =	<0xf9011050 0x8>;
+		reg-names = "rcg_base";
+	};
+};
