@@ -23,6 +23,13 @@
 		qcom,needs-alt-core-clk;
 		label = "jpeg_iommu";
 		status = "disabled";
+		qcom,msm-bus,name = "jpeg_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<62 512 0 0>,
+				<62 512 0 1000>;
 
 		qcom,iommu-pmu-ngroups = <1>;
 		qcom,iommu-pmu-ncounters = <8>;
@@ -112,6 +119,13 @@
 		vdd-supply = <&gdsc_mdss>;
 		qcom,iommu-secure-id = <1>;
 		label = "mdp_iommu";
+		qcom,msm-bus,name = "mdp_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>,
+				<22 512 0 1000>;
 		status = "disabled";
 
 		qcom,iommu-pmu-ngroups = <1>;
@@ -212,6 +226,13 @@
 		qcom,iommu-secure-id = <0>;
 		qcom,needs-alt-core-clk;
 		label = "venus_iommu";
+		qcom,msm-bus,name = "venus_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 0 1000>;
 		status = "disabled";
 
 		qcom,iommu-pmu-ngroups = <1>;
@@ -323,6 +344,13 @@
 		qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 		qcom,needs-alt-core-clk;
 		label = "kgsl_iommu";
+		qcom,msm-bus,name = "kgsl_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,
+				<26 512 0 1000>;
 		status = "disabled";
 
 		qcom,iommu-pmu-ngroups = <1>;
@@ -399,6 +427,13 @@
 		vdd-supply = <&gdsc_vfe>;
 		qcom,needs-alt-core-clk;
 		label = "vfe_iommu";
+		qcom,msm-bus,name = "vfe_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<29 512 0 0>,
+				<29 512 0 1000>;
 		status = "disabled";
 
 		qcom,iommu-pmu-ngroups = <1>;
