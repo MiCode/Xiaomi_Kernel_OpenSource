@@ -118,6 +118,32 @@ static void __put_bus_vote_client(struct msm_iommu_drvdata *drvdata)
 	drvdata->bus_client = 0;
 }
 
+#ifdef CONFIG_IOMMU_NON_SECURE
+static inline void get_secure_id(struct device_node *node,
+			  struct msm_iommu_drvdata *drvdata)
+{
+}
+
+static inline void get_secure_ctx(struct device_node *node,
+				  struct msm_iommu_ctx_drvdata *ctx_drvdata)
+{
+	ctx_drvdata->secure_context = 0;
+}
+#else
+static void get_secure_id(struct device_node *node,
+			  struct msm_iommu_drvdata *drvdata)
+{
+	of_property_read_u32(node, "qcom,iommu-secure-id", &drvdata->sec_id);
+}
+
+static void get_secure_ctx(struct device_node *node,
+			   struct msm_iommu_ctx_drvdata *ctx_drvdata)
+{
+	ctx_drvdata->secure_context =
+			of_property_read_bool(node, "qcom,secure-context");
+}
+#endif
+
 static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata)
 {
@@ -154,8 +180,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		goto fail;
 
 	drvdata->sec_id = -1;
-	of_property_read_u32(pdev->dev.of_node, "qcom,iommu-secure-id",
-				&drvdata->sec_id);
+	get_secure_id(pdev->dev.of_node, drvdata);
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clk_base");
 	if (r) {
@@ -361,8 +386,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	int irq = 0, ret = 0;
 	u32 nsid;
 
-	ctx_drvdata->secure_context = of_property_read_bool(pdev->dev.of_node,
-							"qcom,secure-context");
+	get_secure_ctx(pdev->dev.of_node, ctx_drvdata);
 
 	if (ctx_drvdata->secure_context) {
 		irq = platform_get_irq(pdev, 1);
