@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,12 @@ struct usm_stream_cmd_open_write {
 /* Encoder/decoder configuration block */
 #define USM_PARAM_ID_ENCDEC_ENC_CFG_BLK			0x0001230D
 
+/* Max number of static located ports (bytes) */
+#define USM_MAX_PORT_NUMBER 8
+
+/* Max number of static located transparent data (bytes) */
+#define USM_MAX_CFG_DATA_SIZE 100
+
 /* Parameter structures used in  USM_STREAM_CMD_SET_ENCDEC_PARAM command */
 /* common declarations */
 struct usm_cfg_common {
@@ -60,26 +66,7 @@ struct usm_cfg_common {
 	u16 bits_per_sample;
 	u32 sample_rate;
 	u32 dev_id;
-	u32 data_map;
-} __packed;
-
-/* Max number of static located transparent data (bytes) */
-#define USM_MAX_CFG_DATA_SIZE 100
-struct usm_encode_cfg_blk {
-	u32 frames_per_buf;
-	u32 format_id;
-	/* <cfg_size> = sizeof(usm_cfg_common)+|tarnsp_data| */
-	u32 cfg_size;
-	struct usm_cfg_common cfg_common;
-	/* Transparent configuration data for specific encoder */
-	u8  transp_data[USM_MAX_CFG_DATA_SIZE];
-} __packed;
-
-struct usm_stream_cmd_encdec_cfg_blk {
-	struct apr_hdr hdr;
-	u32 param_id;
-	u32 param_size;
-	struct usm_encode_cfg_blk enc_blk;
+	u8 data_map[USM_MAX_PORT_NUMBER];
 } __packed;
 
 struct us_encdec_cfg {
@@ -87,16 +74,6 @@ struct us_encdec_cfg {
 	struct usm_cfg_common cfg_common;
 	u16 params_size;
 	u8 *params;
-} __packed;
-
-struct usm_stream_media_format_update {
-	struct apr_hdr hdr;
-	u32 format_id;
-	/* <cfg_size> = sizeof(usm_cfg_common)+|tarnsp_data| */
-	u32 cfg_size;
-	struct usm_cfg_common cfg_common;
-	/* Transparent configuration data for specific encoder */
-	u8  transp_data[USM_MAX_CFG_DATA_SIZE];
 } __packed;
 
 /* Start/stop US signal detection */

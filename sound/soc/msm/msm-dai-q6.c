@@ -1805,7 +1805,7 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_tx_dai = {
 		SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
-		.channels_max = 5,
+		.channels_max = 8,
 		.rate_min =     8000,
 		.rate_max =	192000,
 	},

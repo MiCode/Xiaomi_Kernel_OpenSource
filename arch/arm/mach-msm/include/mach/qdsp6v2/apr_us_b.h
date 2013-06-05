@@ -67,4 +67,30 @@ struct usm_stream_cmd_write {
 
 #define USM_DATA_EVENT_WRITE_DONE		0x00012727
 
+struct usm_stream_media_format_update {
+	struct apr_hdr hdr;
+	u32 format_id;
+	/* <cfg_size> = sizeof(usm_cfg_common)+|transp_data| */
+	u32 cfg_size;
+	struct usm_cfg_common cfg_common;
+	/* Transparent configuration data for specific encoder */
+	u8  transp_data[USM_MAX_CFG_DATA_SIZE];
+} __packed;
+
+struct usm_encode_cfg_blk {
+	u32 frames_per_buf;
+	u32 format_id;
+	/* <cfg_size> = sizeof(usm_cfg_common)+|transp_data| */
+	u32 cfg_size;
+	struct usm_cfg_common cfg_common;
+	/* Transparent configuration data for specific encoder */
+	u8  transp_data[USM_MAX_CFG_DATA_SIZE];
+} __packed;
+
+struct usm_stream_cmd_encdec_cfg_blk {
+	struct apr_hdr hdr;
+	u32 param_id;
+	u32 param_size;
+	struct usm_encode_cfg_blk enc_blk;
+} __packed;
 #endif /* __APR_US_B_H__ */

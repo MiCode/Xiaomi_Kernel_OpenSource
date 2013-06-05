@@ -620,13 +620,13 @@ static uint32_t q6usm_ext2int_format(uint32_t ext_format)
 	uint32_t int_format = INVALID_FORMAT;
 	switch (ext_format) {
 	case FORMAT_USPS_EPOS:
-		int_format = US_POINT_EPOS_FORMAT;
+		int_format = US_POINT_EPOS_FORMAT_V2;
 		break;
 	case FORMAT_USRAW:
-		int_format = US_RAW_FORMAT;
+		int_format = US_RAW_FORMAT_V2;
 		break;
 	case FORMAT_USPROX:
-		int_format = US_PROX_FORMAT;
+		int_format = US_PROX_FORMAT_V2;
 		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, ext_format);
@@ -757,11 +757,19 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 		enc_cfg->enc_blk.transp_data[6],
 		enc_cfg->enc_blk.transp_data[7]
 	       );
-	pr_debug("%s: srate:%d, ch=%d, bps= %d; dmap:0x%x; dev_id=0x%x\n",
+	pr_debug("%s: srate:%d, ch=%d, bps= %d;\n",
 		__func__, enc_cfg->enc_blk.cfg_common.sample_rate,
 		enc_cfg->enc_blk.cfg_common.ch_cfg,
-		enc_cfg->enc_blk.cfg_common.bits_per_sample,
-		enc_cfg->enc_blk.cfg_common.data_map,
+		enc_cfg->enc_blk.cfg_common.bits_per_sample);
+	pr_debug("dmap:[0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x]; dev_id=0x%x\n",
+		enc_cfg->enc_blk.cfg_common.data_map[0],
+		enc_cfg->enc_blk.cfg_common.data_map[1],
+		enc_cfg->enc_blk.cfg_common.data_map[2],
+		enc_cfg->enc_blk.cfg_common.data_map[3],
+		enc_cfg->enc_blk.cfg_common.data_map[4],
+		enc_cfg->enc_blk.cfg_common.data_map[5],
+		enc_cfg->enc_blk.cfg_common.data_map[6],
+		enc_cfg->enc_blk.cfg_common.data_map[7],
 		enc_cfg->enc_blk.cfg_common.dev_id);
 
 	rc = apr_send_pkt(usc->apr, (uint32_t *) enc_cfg);
