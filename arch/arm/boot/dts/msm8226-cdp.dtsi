@@ -258,13 +258,15 @@
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
-				qcom,mode = "lpg";
+				qcom,mode = "pwm";
+				qcom,pwm-us = <1000>;
 				qcom,source-sel = <8>;
 				qcom,mode-ctrl = <0x60>;
 				qcom,pwm-channel = <0>;
 				qcom,start-idx = <1>;
 				qcom,duty-pcts = [00 00 00 00 64
 						 64 00 00 00 00];
+				qcom,use-blink;
 			};
 		};
 
@@ -278,13 +280,15 @@
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
+				qcom,mode = "pwm";
+				qcom,pwm-us = <1000>;
 				qcom,mode-ctrl = <0x60>;
 				qcom,source-sel = <10>;
-				qcom,mode = "lpg";
 				qcom,pwm-channel = <5>;
 				qcom,start-idx = <1>;
 				qcom,duty-pcts = [00 00 00 00 64
 						 64 00 00 00 00];
+				qcom,use-blink;
 			};
 		};
 	};
