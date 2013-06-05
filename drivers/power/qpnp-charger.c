@@ -2171,7 +2171,7 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc |= devm_request_irq(chip->dev,
 				chip->chg_vbatdet_lo.irq,
 				qpnp_chg_vbatdet_lo_irq_handler,
-				IRQF_TRIGGER_RISING,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				"vbat-det-lo", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d vbat-det-lo: %d\n",
