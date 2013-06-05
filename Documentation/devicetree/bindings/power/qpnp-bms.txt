@@ -67,6 +67,16 @@ Parent node required properties:
 - qcom,tm-temp-margin: if the pmic die temperature changes by more than this
 			value, recalibrate the ADCs. The unit of this property
 			is in millidegrees celsius.
+- qcom,min-fcc-learning-soc: An interger value which defines the minimum SOC
+			to start FCC learning. This is applicable only if
+			FCC learning is enabled.
+- qcom,min-fcc-ocv-pc:	An interger value which defines the minimum PC-lookup(OCV)
+			to start FCC learning. This is applicable only if
+			FCC learning is enabled.
+- qcom,min-fcc-learning-samples: An interger value which defines the minimum
+			number of the FCC measurement cycles required to
+			generate an FCC update. This is applicable only
+			if the FCC learning is enabled.
 
 Parent node optional properties:
 - qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
@@ -81,6 +91,8 @@ Parent node optional properties:
 			RDS of the batfet.
 - qcom,use-ocv-thresholds : A boolean that controls whether BMS will take
 			new OCVs only between the defined thresholds.
+- qcom,enable-fcc-learning: A boolean that defines if FCC learning is enabled.
+
 
 All sub node required properties:
 - reg : offset and length of the PMIC peripheral register map.
