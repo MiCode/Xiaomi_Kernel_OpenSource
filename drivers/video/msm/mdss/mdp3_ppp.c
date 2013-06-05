@@ -901,7 +901,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	req = mdp3_ppp_next_req(&ppp_stat->req_q);
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 
-	mdp3_ppp_iommu_attach();
+	mdp3_iommu_enable(MDP3_CLIENT_PPP);
 	mdp3_ppp_turnon(mfd, 1);
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
@@ -926,7 +926,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 		mutex_unlock(&ppp_stat->req_mutex);
 	}
 	mdp3_ppp_turnon(mfd, 0);
-	mdp3_ppp_iommu_dettach();
+	mdp3_iommu_disable(MDP3_CLIENT_PPP);
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
