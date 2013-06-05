@@ -75,6 +75,7 @@ enum battery_type {
 	BATT_DESAY,
 	BATT_OEM,
 	BATT_QRD_4V35_2000MAH,
+	BATT_QRD_4V2_1300MAH,
 };
 
 /**
@@ -116,6 +117,7 @@ extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
 extern struct bms_battery_data  oem_batt_data;
 extern struct bms_battery_data QRD_4v35_2000mAh_data;
+extern struct bms_battery_data  qrd_4v2_1300mah_data;
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);

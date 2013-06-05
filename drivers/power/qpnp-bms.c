@@ -2544,6 +2544,8 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		batt_data = &oem_batt_data;
 	} else if (chip->batt_type == BATT_QRD_4V35_2000MAH) {
 		batt_data = &QRD_4v35_2000mAh_data;
+	} else if (chip->batt_type == BATT_QRD_4V2_1300MAH) {
+		batt_data = &qrd_4v2_1300mah_data;
 	} else {
 		battery_id = read_battery_id(chip);
 		if (battery_id < 0) {
