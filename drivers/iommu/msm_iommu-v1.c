@@ -822,12 +822,18 @@ static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-void print_ctx_regs(struct msm_iommu_context_regs *regs)
+void print_ctx_regs(struct msm_iommu_context_reg regs[])
 {
-	uint32_t fsr = regs->fsr;
+	uint32_t fsr = regs[DUMP_REG_FSR].val;
 
-	pr_err("FAR    = %08x    PAR    = %08x\n",
-		 regs->far, regs->par);
+	pr_err("FAR    = %016llx\n",
+		COMBINE_DUMP_REG(
+			regs[DUMP_REG_FAR1].val,
+			regs[DUMP_REG_FAR0].val));
+	pr_err("PAR    = %016llx\n",
+		COMBINE_DUMP_REG(
+			regs[DUMP_REG_PAR1].val,
+			regs[DUMP_REG_PAR0].val));
 	pr_err("FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n", fsr,
 			(fsr & 0x02) ? "TF " : "",
 			(fsr & 0x04) ? "AFF " : "",
@@ -840,31 +846,61 @@ void print_ctx_regs(struct msm_iommu_context_regs *regs)
 			(fsr & 0x80000000) ? "MULTI " : "");
 
 	pr_err("FSYNR0 = %08x    FSYNR1 = %08x\n",
-		 regs->fsynr0, regs->fsynr1);
+		 regs[DUMP_REG_FSYNR0].val, regs[DUMP_REG_FSYNR1].val);
 	pr_err("TTBR0  = %08x    TTBR1  = %08x\n",
-		 regs->ttbr0, regs->ttbr1);
+		 regs[DUMP_REG_TTBR0].val, regs[DUMP_REG_TTBR1].val);
 	pr_err("SCTLR  = %08x    ACTLR  = %08x\n",
-		 regs->sctlr, regs->actlr);
+		 regs[DUMP_REG_SCTLR].val, regs[DUMP_REG_ACTLR].val);
 	pr_err("PRRR   = %08x    NMRR   = %08x\n",
-		 regs->prrr, regs->nmrr);
+		 regs[DUMP_REG_PRRR].val, regs[DUMP_REG_NMRR].val);
 }
 
 static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
 {
-	struct msm_iommu_context_regs regs = {
-		.far = GET_FAR(base, ctx),
-		.par = GET_PAR(base, ctx),
-		.fsr = fsr,
-		.fsynr0 = GET_FSYNR0(base, ctx),
-		.fsynr1 = GET_FSYNR1(base, ctx),
-		.ttbr0 = GET_TTBR0(base, ctx),
-		.ttbr1 = GET_TTBR1(base, ctx),
-		.sctlr = GET_SCTLR(base, ctx),
-		.actlr = GET_ACTLR(base, ctx),
-		.prrr = GET_PRRR(base, ctx),
-		.nmrr = GET_NMRR(base, ctx),
+	struct msm_iommu_context_reg regs[MAX_DUMP_REGS] = {
+		[DUMP_REG_FAR0] = {
+			.val = GET_FAR(base, ctx)
+		},
+		[DUMP_REG_FAR1] = {
+			/* TODO: make GET_FAR 64-bit and take this from that */
+			.val = 0
+		},
+		[DUMP_REG_PAR0] = {
+			.val = GET_PAR(base, ctx)
+		},
+		[DUMP_REG_PAR1] = {
+			/* TODO: make GET_PAR 64-bit and take this from that */
+			.val = 0
+		},
+		[DUMP_REG_FSR] = {
+			.val = fsr
+		},
+		[DUMP_REG_FSYNR0] = {
+			.val = GET_FSYNR0(base, ctx)
+		},
+		[DUMP_REG_FSYNR1] = {
+			.val = GET_FSYNR1(base, ctx)
+		},
+		[DUMP_REG_TTBR0] = {
+			.val = GET_TTBR0(base, ctx)
+		},
+		[DUMP_REG_TTBR1] = {
+			.val = GET_TTBR1(base, ctx)
+		},
+		[DUMP_REG_SCTLR] = {
+			.val = GET_SCTLR(base, ctx)
+		},
+		[DUMP_REG_ACTLR] = {
+			.val = GET_ACTLR(base, ctx)
+		},
+		[DUMP_REG_PRRR] = {
+			.val = GET_PRRR(base, ctx)
+		},
+		[DUMP_REG_NMRR] = {
+			.val = GET_NMRR(base, ctx)
+		},
 	};
-	print_ctx_regs(&regs);
+	print_ctx_regs(regs);
 }
 
 irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)

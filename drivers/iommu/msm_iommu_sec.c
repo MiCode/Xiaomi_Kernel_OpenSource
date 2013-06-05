@@ -34,6 +34,7 @@
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
 #include <mach/scm.h>
+#include <mach/memory.h>
 
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
@@ -77,37 +78,19 @@ struct msm_scm_unmap2_req {
 	unsigned int flags;
 };
 
+#define NUM_DUMP_REGS 14
+/*
+ * some space to allow the number of registers returned by the secure
+ * environment to grow
+ */
+#define WIGGLE_ROOM (NUM_DUMP_REGS * 2)
+/* Each entry is a (reg_addr, reg_val) pair, hence the * 2 */
+#define SEC_DUMP_SIZE ((NUM_DUMP_REGS * 2) + WIGGLE_ROOM)
+
 struct msm_scm_fault_regs_dump {
 	uint32_t dump_size;
-	uint32_t fsr_addr;
-	uint32_t fsr;
-	uint32_t far0_addr;
-	uint32_t far0;
-	uint32_t far1_addr;
-	uint32_t far1;
-	uint32_t par0_addr;
-	uint32_t par0;
-	uint32_t par1_addr;
-	uint32_t par1;
-	uint32_t fsyn0_addr;
-	uint32_t fsyn0;
-	uint32_t fsyn1_addr;
-	uint32_t fsyn1;
-	uint32_t ttbr0_addr;
-	uint32_t ttbr0;
-	uint32_t ttbr1_addr;
-	uint32_t ttbr1;
-	uint32_t ttbcr_addr;
-	uint32_t ttbcr;
-	uint32_t sctlr_addr;
-	uint32_t sctlr;
-	uint32_t actlr_addr;
-	uint32_t actlr;
-	uint32_t prrr_addr;
-	uint32_t prrr;
-	uint32_t nmrr_addr;
-	uint32_t nmrr;
-};
+	uint32_t dump_data[SEC_DUMP_SIZE];
+} __packed;
 
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops)
 {
@@ -138,6 +121,97 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	invalidate_caches((unsigned long) regs, sizeof(*regs),
 			(unsigned long)virt_to_phys(regs));
 
+	return ret;
+}
+
+static struct dump_regs_tbl {
+	/*
+	 * To keep things context-bank-agnostic, we only store the CB
+	 * register offset in `key'
+	 */
+	unsigned long key;
+	const char *name;
+	int offset;
+} dump_regs_tbl[MAX_DUMP_REGS];
+
+#define EXTRACT_DUMP_REG_KEY(addr, ctx) (addr & ((1 << CTX_SHIFT) - 1))
+
+#define DUMP_REG_INIT(dump_reg, cb_reg)				\
+	do {							\
+		dump_regs_tbl[dump_reg].key = cb_reg;		\
+		dump_regs_tbl[dump_reg].name = #cb_reg;		\
+	} while (0)
+
+static void msm_iommu_sec_build_dump_regs_table(void)
+{
+	DUMP_REG_INIT(DUMP_REG_FAR0,	CB_FAR);
+	DUMP_REG_INIT(DUMP_REG_FAR1,	CB_FAR + 4);
+	DUMP_REG_INIT(DUMP_REG_PAR0,	CB_PAR);
+	DUMP_REG_INIT(DUMP_REG_PAR1,	CB_PAR + 4);
+	DUMP_REG_INIT(DUMP_REG_FSR,	CB_FSR);
+	DUMP_REG_INIT(DUMP_REG_FSYNR0,	CB_FSYNR0);
+	DUMP_REG_INIT(DUMP_REG_FSYNR1,	CB_FSYNR1);
+	DUMP_REG_INIT(DUMP_REG_TTBR0,	CB_TTBR0);
+	DUMP_REG_INIT(DUMP_REG_TTBR1,	CB_TTBR1);
+	DUMP_REG_INIT(DUMP_REG_SCTLR,	CB_SCTLR);
+	DUMP_REG_INIT(DUMP_REG_ACTLR,	CB_ACTLR);
+	DUMP_REG_INIT(DUMP_REG_PRRR,	CB_PRRR);
+	DUMP_REG_INIT(DUMP_REG_NMRR,	CB_NMRR);
+}
+
+static int msm_iommu_reg_dump_to_regs(
+	struct msm_iommu_context_reg ctx_regs[],
+	struct msm_scm_fault_regs_dump *dump, int cb_num)
+{
+	int i, j, ret = 0;
+	const uint32_t nvals = (dump->dump_size / sizeof(uint32_t));
+	uint32_t *it = (uint32_t *) dump->dump_data;
+	const uint32_t * const end = ((uint32_t *) dump) + nvals;
+
+	for (i = 1; it < end; it += 2, i += 2) {
+		uint32_t addr	= *it;
+		uint32_t val	= *(it + 1);
+		struct msm_iommu_context_reg *reg = NULL;
+
+		for (j = 0; j < MAX_DUMP_REGS; ++j) {
+			if (dump_regs_tbl[j].key ==
+				EXTRACT_DUMP_REG_KEY(addr, cb_num)) {
+				reg = &ctx_regs[j];
+				break;
+			}
+		}
+
+		if (reg == NULL) {
+			pr_debug("Unknown register in secure CB dump: %x (%x)\n",
+				addr, EXTRACT_DUMP_REG_KEY(addr, cb_num));
+			continue;
+		}
+
+		if (reg->valid) {
+			WARN(1, "Invalid (repeated?) register in CB dump: %x\n",
+				addr);
+			continue;
+		}
+
+		reg->val = val;
+		reg->valid = true;
+	}
+
+	if (i != nvals) {
+		pr_err("Invalid dump! %d != %d\n", i, nvals);
+		ret = 1;
+		goto out;
+	}
+
+	for (i = 0; i < MAX_DUMP_REGS; ++i) {
+		if (!ctx_regs[i].valid) {
+			pr_err("Register missing from dump: %s, %lx\n",
+				dump_regs_tbl[i].name, dump_regs_tbl[i].key);
+			ret = 1;
+		}
+	}
+
+out:
 	return ret;
 }
 
@@ -183,43 +257,40 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	iommu_access_ops->iommu_clk_off(drvdata);
 
 	if (tmp) {
-		pr_err("%s: Couldn't dump fault registers!\n", __func__);
+		pr_err("%s: Couldn't dump fault registers (%d) %s, ctx: %d\n",
+			__func__, tmp, drvdata->name, ctx_drvdata->num);
 		goto free_regs;
-	} else if (regs->fsr) {
-		struct msm_iommu_context_regs ctx_regs = {
-			.far = regs->far0,
-			.par = regs->par0,
-			.fsr = regs->fsr,
-			.fsynr0 = regs->fsyn0,
-			.fsynr1 = regs->fsyn1,
-			.ttbr0 = regs->ttbr0,
-			.ttbr1 = regs->ttbr1,
-			.sctlr = regs->sctlr,
-			.actlr = regs->actlr,
-			.prrr = regs->prrr,
-			.nmrr = regs->nmrr,
-		};
-
-		if (!ctx_drvdata->attached_domain) {
-			pr_err("Bad domain in interrupt handler\n");
-			tmp = -ENOSYS;
-		} else {
-			tmp = report_iommu_fault(ctx_drvdata->attached_domain,
-				&ctx_drvdata->pdev->dev,
-				regs->far0, 0);
-		}
-
-		/* if the fault wasn't handled by someone else: */
-		if (tmp == -ENOSYS) {
-			pr_err("Unexpected IOMMU page fault from secure context bank!\n");
-			pr_err("name = %s\n", drvdata->name);
-			pr_err("context = %s (%d)\n", ctx_drvdata->name,
-				ctx_drvdata->num);
-			pr_err("Interesting registers:\n");
-			print_ctx_regs(&ctx_regs);
-		}
 	} else {
-		ret = IRQ_NONE;
+		struct msm_iommu_context_reg ctx_regs[MAX_DUMP_REGS];
+		memset(ctx_regs, 0, sizeof(ctx_regs));
+		tmp = msm_iommu_reg_dump_to_regs(ctx_regs, regs,
+						ctx_drvdata->num);
+		if (!tmp && ctx_regs[DUMP_REG_FSR].val) {
+			if (!ctx_drvdata->attached_domain) {
+				pr_err("Bad domain in interrupt handler\n");
+				tmp = -ENOSYS;
+			} else {
+				tmp = report_iommu_fault(
+					ctx_drvdata->attached_domain,
+					&ctx_drvdata->pdev->dev,
+					COMBINE_DUMP_REG(
+						ctx_regs[DUMP_REG_FAR1].val,
+						ctx_regs[DUMP_REG_FAR0].val),
+					0);
+			}
+
+			/* if the fault wasn't handled by someone else: */
+			if (tmp == -ENOSYS) {
+				pr_err("Unexpected IOMMU page fault from secure context bank!\n");
+				pr_err("name = %s\n", drvdata->name);
+				pr_err("context = %s (%d)\n", ctx_drvdata->name,
+					ctx_drvdata->num);
+				pr_err("Interesting registers:\n");
+				print_ctx_regs(ctx_regs);
+			}
+		} else {
+			ret = IRQ_NONE;
+		}
 	}
 free_regs:
 	kfree(regs);
@@ -728,6 +799,9 @@ static int __init msm_iommu_sec_init(void)
 
 	bus_set_iommu(&msm_iommu_sec_bus_type, &msm_iommu_ops);
 	ret = msm_iommu_sec_ptbl_init();
+	if (ret)
+		goto fail;
+	msm_iommu_sec_build_dump_regs_table();
 fail:
 	return ret;
 }
