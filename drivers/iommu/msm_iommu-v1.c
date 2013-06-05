@@ -259,12 +259,46 @@ static void __reset_iommu(void __iomem *base)
 	mb();
 }
 
+#ifdef CONFIG_IOMMU_NON_SECURE
+static void __reset_iommu_secure(void __iomem *base)
+{
+	SET_NSACR(base, 0);
+	SET_NSCR2(base, 0);
+	SET_NSGFAR(base, 0);
+	SET_NSGFSRRESTORE(base, 0);
+	mb();
+}
+
+static void __program_iommu_secure(void __iomem *base)
+{
+	SET_NSCR0_SMCFCFG(base, 1);
+	SET_NSCR0_USFCFG(base, 1);
+	SET_NSCR0_STALLD(base, 1);
+	SET_NSCR0_GCFGFIE(base, 1);
+	SET_NSCR0_GCFGFRE(base, 1);
+	SET_NSCR0_GFIE(base, 1);
+	SET_NSCR0_GFRE(base, 1);
+	SET_NSCR0_CLIENTPD(base, 0);
+}
+
+#else
+static inline void __reset_iommu_secure(void __iomem *base)
+{
+}
+
+static inline void __program_iommu_secure(void __iomem *base)
+{
+}
+
+#endif
+
 /*
  * May only be called for non-secure iommus
  */
 static void __program_iommu(void __iomem *base)
 {
 	__reset_iommu(base);
+	__reset_iommu_secure(base);
 
 	SET_CR0_SMCFCFG(base, 1);
 	SET_CR0_USFCFG(base, 1);
@@ -274,6 +308,8 @@ static void __program_iommu(void __iomem *base)
 	SET_CR0_GFIE(base, 1);
 	SET_CR0_GFRE(base, 1);
 	SET_CR0_CLIENTPD(base, 0);
+
+	__program_iommu_secure(base);
 
 	mb(); /* Make sure writes complete before returning */
 }
