@@ -128,4 +128,9 @@ void ipa_rm_resource_producer_notify_clients(
 				enum ipa_rm_event event,
 				bool notify_registered_only);
 
+int ipa_rm_resource_producer_print_stat(
+		struct ipa_rm_resource *resource,
+		char *buf,
+		int size);
+
 #endif /* _IPA_RM_RESOURCE_H_ */
