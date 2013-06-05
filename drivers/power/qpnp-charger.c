@@ -940,6 +940,20 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 }
 
 static int
+qpnp_dc_property_is_writeable(struct power_supply *psy,
+						enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int
 qpnp_batt_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
@@ -1036,6 +1050,7 @@ switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
 static enum power_supply_property pm_power_props_mains[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
 static enum power_supply_property msm_batt_power_props[] = {
@@ -1081,6 +1096,9 @@ qpnp_power_get_property_mains(struct power_supply *psy,
 			return 0;
 
 		val->intval = qpnp_chg_is_dc_chg_plugged_in(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = chip->maxinput_dc_ma;
 		break;
 	default:
 		return -EINVAL;
@@ -2056,6 +2074,36 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 }
 
 static int
+qpnp_dc_power_set_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  const union power_supply_propval *val)
+{
+	struct qpnp_chg_chip *chip = container_of(psy, struct qpnp_chg_chip,
+								dc_psy);
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (!val->intval)
+			break;
+
+		rc = qpnp_chg_idcmax_set(chip, val->intval / 1000);
+		if (rc) {
+			pr_err("Error setting idcmax property %d\n", rc);
+			return rc;
+		}
+		chip->maxinput_dc_ma = (val->intval / 1000);
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	power_supply_changed(&chip->dc_psy);
+	return rc;
+}
+
+static int
 qpnp_batt_power_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
@@ -2890,6 +2938,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		chip->dc_psy.properties = pm_power_props_mains;
 		chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props_mains);
 		chip->dc_psy.get_property = qpnp_power_get_property_mains;
+		chip->dc_psy.set_property = qpnp_dc_power_set_property;
+		chip->dc_psy.property_is_writeable =
+				qpnp_dc_property_is_writeable;
 
 		rc = power_supply_register(chip->dev, &chip->dc_psy);
 		if (rc < 0) {
