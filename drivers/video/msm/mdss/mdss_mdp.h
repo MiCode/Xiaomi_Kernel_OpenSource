@@ -567,6 +567,8 @@ u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
 int mdss_panel_register_done(struct mdss_panel_data *pdata);
 int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback);
+int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
+						u32 *copyback);
 
 int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg);

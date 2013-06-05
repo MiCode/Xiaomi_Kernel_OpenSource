@@ -1676,6 +1676,11 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	case mdp_op_calib_mode:
 		ret = mdss_mdp_calib_mode(mfd, &mdp_pp.data.mdss_calib_cfg);
 		break;
+	case mdp_op_calib_buffer:
+		ret = mdss_mdp_calib_config_buffer(
+				(struct mdp_calib_config_buffer *)
+				 &mdp_pp.data.calib_buffer, &copyback);
+		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
 								mdp_pp.op);
