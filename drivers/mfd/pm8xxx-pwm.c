@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,10 +58,11 @@
 #define PM8XXX_PWM_DISABLE		0x3F
 
 /* PM8XXX LPG PWM */
+#define SSBI_REG_ADDR_LPG_BANK_LOW_EN	0x130
 #define SSBI_REG_ADDR_LPG_CTL_BASE	0x13C
 #define SSBI_REG_ADDR_LPG_CTL(n)	(SSBI_REG_ADDR_LPG_CTL_BASE + (n))
 #define SSBI_REG_ADDR_LPG_BANK_SEL	0x143
-#define SSBI_REG_ADDR_LPG_BANK_EN	0x144
+#define SSBI_REG_ADDR_LPG_BANK_HIGH_EN	0x144
 #define SSBI_REG_ADDR_LPG_LUT_CFG0	0x145
 #define SSBI_REG_ADDR_LPG_LUT_CFG1	0x146
 #define SSBI_REG_ADDR_LPG_TEST		0x147
@@ -206,13 +207,15 @@ struct pwm_device {
 	struct pm8xxx_pwm_chip	*chip;
 	int			bypass_lut;
 	int			dtest_mode_supported;
+	int			banks;
 };
 
 struct pm8xxx_pwm_chip {
 	struct pwm_device		*pwm_dev;
 	u8				pwm_channels;
 	u8				pwm_total_pre_divs;
-	u8				bank_mask;
+	u8				lo_bank_mask;
+	u8				hi_bank_mask;
 	struct mutex			pwm_mutex;
 	struct device			*dev;
 	bool				is_lpg_supported;
@@ -259,18 +262,37 @@ static int pm8xxx_pwm_bank_enable(struct pwm_device *pwm, int enable)
 
 	chip = pwm->chip;
 
-	if (enable)
-		reg = chip->bank_mask | (1 << pwm->pwm_id);
-	else
-		reg = chip->bank_mask & ~(1 << pwm->pwm_id);
+	if (pwm->banks & PM_PWM_BANK_LO) {
+		if (enable)
+			reg = chip->lo_bank_mask | (1 << pwm->pwm_id);
+		else
+			reg = chip->lo_bank_mask & ~(1 << pwm->pwm_id);
 
-	rc = pm8xxx_writeb(chip->dev->parent, SSBI_REG_ADDR_LPG_BANK_EN, reg);
-	if (rc) {
-		pr_err("pm8xxx_writeb(): rc=%d (Enable LPG Bank)\n", rc);
-		return rc;
+		rc = pm8xxx_writeb(chip->dev->parent,
+				SSBI_REG_ADDR_LPG_BANK_LOW_EN, reg);
+		if (rc) {
+			pr_err("pm8xxx_writeb(): Enable Bank Low =%d\n", rc);
+			return rc;
+		}
+
+		chip->lo_bank_mask = reg;
 	}
-	chip->bank_mask = reg;
 
+	if (pwm->banks & PM_PWM_BANK_HI) {
+		if (enable)
+			reg = chip->hi_bank_mask | (1 << pwm->pwm_id);
+		else
+			reg = chip->hi_bank_mask & ~(1 << pwm->pwm_id);
+
+		rc = pm8xxx_writeb(chip->dev->parent,
+				SSBI_REG_ADDR_LPG_BANK_HIGH_EN, reg);
+		if (rc) {
+			pr_err("pm8xxx_writeb(): Enable Bank High =%d\n", rc);
+			return rc;
+		}
+
+		chip->hi_bank_mask = reg;
+	}
 	return 0;
 }
 
@@ -1009,6 +1031,16 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 
 	period = &pwm->period;
 	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (flags & PM_PWM_BANK_HI)
+		pwm->banks = PM_PWM_BANK_HI;
+
+	if (flags & PM_PWM_BANK_LO)
+		pwm->banks |= PM_PWM_BANK_LO;
+
+	/*Enable both banks if banks information is not shared.*/
+	if (!pwm->banks)
+		pwm->banks |= (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
 
 	if (!pwm->in_use) {
 		pr_err("pwm_id: %d: stale handle?\n", pwm->pwm_id);
