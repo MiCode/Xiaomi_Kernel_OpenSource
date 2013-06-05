@@ -595,7 +595,7 @@ int diag_command_reg(unsigned long ioarg)
 	}
 	head_params = kzalloc(pkt_params.count*sizeof(
 		struct bindpkt_params), GFP_KERNEL);
-	if (!head_params) {
+	if (ZERO_OR_NULL_PTR(head_params)) {
 		pr_err("diag: unable to alloc memory\n");
 		return -ENOMEM;
 	} else
