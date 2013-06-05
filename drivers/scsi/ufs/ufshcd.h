@@ -174,8 +174,10 @@ struct ufs_dev_cmd {
  * @irq: Irq number of the controller
  * @active_uic_cmd: handle of active UIC command
  * @uic_cmd_mutex: mutex for uic command
- * @ufshcd_tm_wait_queue: wait queue for task management
+ * @tm_wq: wait queue for task management
+ * @tm_tag_wq: wait queue for free task management slots
  * @tm_condition: condition variable for task management
+ * @tm_slots_in_use: bit map of task management request slots in use
  * @ufshcd_state: UFSHCD states
  * @intr_mask: Interrupt Mask Bits
  * @ee_ctrl_mask: Exception event control mask
@@ -216,8 +218,10 @@ struct ufs_hba {
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 
-	wait_queue_head_t ufshcd_tm_wait_queue;
+	wait_queue_head_t tm_wq;
+	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
+	unsigned long tm_slots_in_use;
 
 	u32 ufshcd_state;
 	u32 intr_mask;
