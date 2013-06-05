@@ -44,6 +44,7 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 
 	sg_init_table(&sg, 1);
 	sg_set_page(&sg, page, PAGE_SIZE << pool->order, 0);
+	sg_dma_address(&sg) = sg_phys(&sg);
 	dma_sync_sg_for_device(NULL, &sg, 1, DMA_BIDIRECTIONAL);
 
 	return page;
