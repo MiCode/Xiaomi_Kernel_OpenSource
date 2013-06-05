@@ -156,8 +156,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_GLOBAL BIT(1)
 /* The memdesc is frozen during a snapshot */
 #define KGSL_MEMDESC_FROZEN BIT(2)
-/* The memdesc is scheduled to be freed on a timestamp */
-#define KGSL_MEMDESC_FREE_PENDING BIT(3)
+/* The memdesc is mapped into a pagetable */
+#define KGSL_MEMDESC_MAPPED BIT(3)
 
 /* shared memory allocation */
 struct kgsl_memdesc {
@@ -195,6 +195,8 @@ struct kgsl_mem_entry {
 	/* back pointer to private structure under whose context this
 	* allocation is made */
 	struct kgsl_process_private *priv;
+	/* Initialized to 0, set to 1 when entry is marked for freeing */
+	int pending_free;
 };
 
 #ifdef CONFIG_MSM_KGSL_MMU_PAGE_FAULT
