@@ -3376,3 +3376,69 @@ int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
 	mutex_unlock(&mdss_pp_mutex);
 	return 0;
 }
+
+int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
+						u32 *copyback)
+{
+	int ret = -1;
+	int counter = cfg->size / (sizeof(uint32_t) * 2);
+	uint32_t *buff = NULL, *buff_org = NULL;
+	void *ptr;
+	int i = 0;
+
+	buff_org = buff = kzalloc(cfg->size, GFP_KERNEL);
+	if (buff == NULL) {
+		pr_err("Allocation failed");
+		return ret;
+	}
+
+	if (copy_from_user(buff, cfg->buffer, cfg->size)) {
+		kfree(buff);
+		pr_err("Copy failed");
+		return ret;
+	}
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	if (cfg->ops & MDP_PP_OPS_READ) {
+		for (i = 0 ; i < counter ; i++) {
+			if (is_valid_calib_addr((void *) *buff)) {
+				ret = 0;
+			} else {
+				ret = -1;
+				pr_err("Address validation failed");
+				break;
+			}
+
+			ptr = (void *)(((unsigned int) *buff) +
+					 (mdss_res->mdp_base));
+			buff++;
+			*buff = readl_relaxed(ptr);
+			buff++;
+		}
+		if (!ret)
+			ret = copy_to_user(cfg->buffer, buff_org, cfg->size);
+		*copyback = 1;
+	} else if (cfg->ops & MDP_PP_OPS_WRITE) {
+		for (i = 0 ; i < counter ; i++) {
+			if (is_valid_calib_addr((void *) *buff)) {
+				ret = 0;
+			} else {
+				ret = -1;
+				pr_err("Address validation failed");
+				break;
+			}
+
+			ptr = (void *)(((unsigned int) *buff) +
+					 (mdss_res->mdp_base));
+			buff++;
+			writel_relaxed(*buff, ptr);
+			buff++;
+		}
+	}
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	kfree(buff_org);
+	return ret;
+}
