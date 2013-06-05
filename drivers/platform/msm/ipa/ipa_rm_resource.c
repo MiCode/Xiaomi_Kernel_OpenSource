@@ -525,10 +525,11 @@ int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 		consumer_result = ipa_rm_resource_consumer_request(
 				(struct ipa_rm_resource_cons *)depends_on);
 		spin_lock_irqsave(&resource->state_lock, flags);
-		if (consumer_result != -EINPROGRESS)
+		if (consumer_result != -EINPROGRESS) {
 			resource->state = prev_state;
 			((struct ipa_rm_resource_prod *)
 					resource)->pending_request--;
+		}
 		result = consumer_result;
 		break;
 	}
