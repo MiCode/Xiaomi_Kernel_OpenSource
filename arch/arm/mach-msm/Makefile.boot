@@ -93,6 +93,8 @@ endif
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= apq8026-xpm.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= apq8026-mtp.dtb
 
 # FSM9XXX
    zreladdr-$(CONFIG_ARCH_FSM9XXX)	:= 0x10008000
