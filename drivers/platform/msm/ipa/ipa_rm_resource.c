@@ -913,3 +913,197 @@ bail:
 	spin_unlock_irqrestore(&consumer->resource.state_lock, flags);
 	return;
 }
+
+/*
+ * ipa_rm_resource_producer_print_stat() - print the
+ * resource status and all his dependencies
+ *
+ * @resource: [in] Resource resource
+ * @buff: [in] The buf used to print
+ * @size: [in] Buf size
+ *
+ * Returns: number of bytes used on success, negative on failure
+ */
+
+int ipa_rm_resource_producer_print_stat(
+				struct ipa_rm_resource *resource,
+				char *buf,
+				int size){
+
+	int i, nbytes, cnt = 0;
+	unsigned long flags;
+	struct ipa_rm_resource *consumer;
+
+	if (!buf || size < 0)
+		return -EINVAL;
+	switch (resource->name) {
+	case IPA_RM_RESOURCE_BRIDGE_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"BRIDGE_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_A2_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"A2_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_USB_PROD:
+			nbytes = scnprintf(buf + cnt, size - cnt,
+			 "USB_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_HSIC_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "HSIC_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_STD_ECM_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "STD_ECM_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_0_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "WWAN_0_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_1_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"WWAN_1_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_2_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"WWAN_2_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_3_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+				 "WWAN_3_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_4_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"WWAN_4_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_5_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "WWAN_5_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_6_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"WWAN_6_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WWAN_7_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "WWAN_7_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_WLAN_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			 "WLAN_PROD[");
+		cnt += nbytes;
+		break;
+	default:
+		return -EPERM;
+	}
+	spin_lock_irqsave(&resource->state_lock, flags);
+	switch (resource->state) {
+	case IPA_RM_RELEASED:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"Released] -> ");
+		cnt += nbytes;
+		break;
+	case IPA_RM_REQUEST_IN_PROGRESS:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"Request In Progress] -> ");
+		cnt += nbytes;
+		break;
+	case IPA_RM_GRANTED:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"Granted] -> ");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RELEASE_IN_PROGRESS:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"Release In Progress] -> ");
+		cnt += nbytes;
+		break;
+	default:
+		spin_unlock_irqrestore(
+			&resource->state_lock,
+			flags);
+		return -EPERM;
+	}
+	spin_unlock_irqrestore(
+			&resource->state_lock,
+			flags);
+	for (i = 0; i < resource->peers_list->max_peers; ++i) {
+		consumer =
+			ipa_rm_peers_list_get_resource(
+			i,
+			resource->peers_list);
+		if (consumer) {
+			switch (consumer->name) {
+			case IPA_RM_RESOURCE_A2_CONS:
+				nbytes = scnprintf(buf + cnt,
+						size - cnt,
+						 " A2_CONS[");
+				cnt += nbytes;
+				break;
+			case IPA_RM_RESOURCE_USB_CONS:
+				nbytes = scnprintf(buf + cnt,
+						size - cnt,
+						 " USB_CONS[");
+				cnt += nbytes;
+				break;
+			case IPA_RM_RESOURCE_HSIC_CONS:
+				nbytes = scnprintf(buf + cnt,
+						size - cnt,
+						 " HSIC_CONS[");
+				cnt += nbytes;
+				break;
+			default:
+				return -EPERM;
+			}
+			spin_lock_irqsave(&consumer->state_lock, flags);
+			switch (consumer->state) {
+			case IPA_RM_RELEASED:
+				nbytes = scnprintf(buf + cnt, size - cnt,
+					"Released], ");
+				cnt += nbytes;
+				break;
+			case IPA_RM_REQUEST_IN_PROGRESS:
+				nbytes = scnprintf(buf + cnt, size - cnt,
+						"Request In Progress], ");
+				cnt += nbytes;
+					break;
+			case IPA_RM_GRANTED:
+				nbytes = scnprintf(buf + cnt, size - cnt,
+						"Granted], ");
+				cnt += nbytes;
+				break;
+			case IPA_RM_RELEASE_IN_PROGRESS:
+				nbytes = scnprintf(buf + cnt, size - cnt,
+						"Release In Progress], ");
+				cnt += nbytes;
+				break;
+			default:
+				spin_unlock_irqrestore(
+						&consumer->state_lock,
+						flags);
+				return -EPERM;
+			}
+			spin_unlock_irqrestore(
+					&consumer->state_lock,
+					flags);
+		}
+	}
+	nbytes = scnprintf(buf + cnt, size - cnt,
+			 "\n");
+	cnt += nbytes;
+	return cnt;
+}

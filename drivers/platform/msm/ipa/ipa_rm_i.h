@@ -63,6 +63,8 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 
 int ipa_rm_initialize(void);
 
+int ipa_rm_stat(char *buf, int size);
+
 void ipa_rm_exit(void);
 
 #endif /* _IPA_RM_I_H_ */

@@ -430,6 +430,46 @@ bail:
 }
 
 /**
+ * ipa_rm_stat() - print RM stat
+ * @buf: [in] The user buff used to print
+ * @size: [in] The size of buf
+ * Returns: number of bytes used on success, negative on failure
+ *
+ * This function is called by ipa_debugfs in order to receive
+ * a full picture of the current state of the RM
+ */
+
+int ipa_rm_stat(char *buf, int size)
+{
+	int i, cnt = 0, result = EINVAL;
+	struct ipa_rm_resource *resource = NULL;
+
+	if (!buf || size < 0)
+		goto bail;
+
+	read_lock(&ipa_rm_ctx->lock);
+	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; ++i) {
+		result = ipa_rm_dep_graph_get_resource(
+				ipa_rm_ctx->dep_graph,
+				i,
+				&resource);
+		if (!result) {
+			result = ipa_rm_resource_producer_print_stat(
+							resource, buf + cnt,
+							size-cnt);
+			if (result < 0)
+				goto bail;
+			cnt += result;
+		}
+	}
+	result = cnt;
+
+bail:
+	read_unlock(&ipa_rm_ctx->lock);
+	return result;
+}
+
+/**
  * ipa_rm_exit() - free all IPA RM resources
  */
 void ipa_rm_exit(void)
