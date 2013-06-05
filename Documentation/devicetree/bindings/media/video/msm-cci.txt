@@ -95,6 +95,11 @@ Optional properties:
     #gpio-cells specifying specific gpio (controller specific)
 - qcom,gpio-reset : should contain index to gpio used by sensors reset_n
 - qcom,gpio-standby : should contain index to gpio used by sensors standby_n
+- qcom,gpio-vio : should contain index to gpio used by sensors io vreg enable
+- qcom,gpio-vana : should contain index to gpio used by sensors analog vreg enable
+- qcom,gpio-vdig : should contain index to gpio used by sensors digital vreg enable
+- qcom,gpio-vaf : should contain index to gpio used by sensors af vreg enable
+- qcom,gpio-af-pwdm : should contain index to gpio used by sensors af pwdm_n
 - qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
 - qcom,gpio-req-tbl-flags : should contain direction of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)
