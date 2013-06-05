@@ -308,6 +308,7 @@ struct pwm_config_data {
 	struct pwm_duty_cycles	*duty_cycles;
 	u8	mode;
 	u8	enable;
+	bool use_blink;
 };
 
 /**
@@ -1283,8 +1284,122 @@ static ssize_t led_strobe_type_store(struct device *dev,
 	return count;
 }
 
+static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
+					struct spmi_device *spmi_dev,
+					const char *name)
+{
+	int rc, start_idx, idx_len;
+
+	if (pwm_cfg->pwm_channel != -1) {
+		pwm_cfg->pwm_dev =
+			pwm_request(pwm_cfg->pwm_channel, name);
+
+		if (IS_ERR_OR_NULL(pwm_cfg->pwm_dev)) {
+			dev_err(&spmi_dev->dev,
+				"could not acquire PWM Channel %d, " \
+				"error %ld\n",
+				pwm_cfg->pwm_channel,
+				PTR_ERR(pwm_cfg->pwm_dev));
+			pwm_cfg->pwm_dev = NULL;
+			return -ENODEV;
+		}
+
+		if (pwm_cfg->mode == LPG_MODE) {
+			start_idx =
+			pwm_cfg->duty_cycles->start_idx;
+			idx_len =
+			pwm_cfg->duty_cycles->num_duty_pcts;
+
+			if (idx_len >= PWM_LUT_MAX_SIZE &&
+					start_idx) {
+				dev_err(&spmi_dev->dev,
+					"Wrong LUT size or index\n");
+				return -EINVAL;
+			}
+			if ((start_idx + idx_len) >
+					PWM_LUT_MAX_SIZE) {
+				dev_err(&spmi_dev->dev,
+					"Exceed LUT limit\n");
+				return -EINVAL;
+			}
+			rc = pwm_lut_config(pwm_cfg->pwm_dev,
+				PM_PWM_PERIOD_MIN, /* ignored by hardware */
+				pwm_cfg->duty_cycles->duty_pcts,
+				pwm_cfg->lut_params);
+			if (rc < 0) {
+				dev_err(&spmi_dev->dev, "Failed to " \
+					"configure pwm LUT\n");
+				return rc;
+			}
+		}
+	} else {
+		dev_err(&spmi_dev->dev,
+			"Invalid PWM channel\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void led_blink(struct qpnp_led_data *led,
+			struct pwm_config_data *pwm_cfg)
+{
+	u8 previous_mode;
+
+	previous_mode = pwm_cfg->mode;
+	if (pwm_cfg->use_blink) {
+		if (led->cdev.brightness) {
+			if (led->id == QPNP_ID_LED_MPP)
+				led->mpp_cfg->pwm_mode = LPG_MODE;
+			pwm_cfg->mode = LPG_MODE;
+			pwm_free(pwm_cfg->pwm_dev);
+			qpnp_pwm_init(pwm_cfg, led->spmi_dev, led->cdev.name);
+			qpnp_led_set(&led->cdev, led->cdev.brightness);
+			if (led->id == QPNP_ID_LED_MPP)
+				led->mpp_cfg->pwm_mode = previous_mode;
+			pwm_cfg->mode = previous_mode;
+		} else {
+			pwm_free(pwm_cfg->pwm_dev);
+			qpnp_pwm_init(pwm_cfg, led->spmi_dev, led->cdev.name);
+			qpnp_led_set(&led->cdev, led->cdev.brightness);
+		}
+	}
+}
+
+static ssize_t blink_store(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	struct qpnp_led_data *led;
+	unsigned long blinking;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+
+	ret = kstrtoul(buf, 10, &blinking);
+	if (ret)
+		return ret;
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
+	led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
+
+	switch (led->id) {
+	case QPNP_ID_LED_MPP:
+		led_blink(led, led->mpp_cfg->pwm_cfg);
+		break;
+	case QPNP_ID_RGB_RED:
+	case QPNP_ID_RGB_GREEN:
+	case QPNP_ID_RGB_BLUE:
+		led_blink(led, led->rgb_cfg->pwm_cfg);
+		break;
+	default:
+		dev_err(&led->spmi_dev->dev, "Invalid LED id type for blink\n");
+		return -EINVAL;
+	}
+	return count;
+}
+
 static DEVICE_ATTR(led_mode, 0664, NULL, led_mode_store);
 static DEVICE_ATTR(strobe, 0664, NULL, led_strobe_type_store);
+static DEVICE_ATTR(blink, 0664, NULL, blink_store);
 
 static struct attribute *led_attrs[] = {
 	&dev_attr_led_mode.attr,
@@ -1294,6 +1409,15 @@ static struct attribute *led_attrs[] = {
 
 static const struct attribute_group led_attr_group = {
 	.attrs = led_attrs,
+};
+
+static struct attribute *blink_attrs[] = {
+	&dev_attr_blink.attr,
+	NULL
+};
+
+static const struct attribute_group blink_attr_group = {
+	.attrs = blink_attrs,
 };
 
 static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
@@ -1383,63 +1507,6 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 
 	/* dump flash registers */
 	qpnp_dump_regs(led, flash_debug_regs, ARRAY_SIZE(flash_debug_regs));
-
-	return 0;
-}
-
-static int __devinit qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
-					struct spmi_device *spmi_dev,
-					const char *name)
-{
-	int rc, start_idx, idx_len;
-
-	if (pwm_cfg->pwm_channel != -1) {
-		pwm_cfg->pwm_dev =
-			pwm_request(pwm_cfg->pwm_channel, name);
-
-		if (IS_ERR_OR_NULL(pwm_cfg->pwm_dev)) {
-			dev_err(&spmi_dev->dev,
-				"could not acquire PWM Channel %d, " \
-				"error %ld\n",
-				pwm_cfg->pwm_channel,
-				PTR_ERR(pwm_cfg->pwm_dev));
-			pwm_cfg->pwm_dev = NULL;
-			return -ENODEV;
-		}
-
-		if (pwm_cfg->mode == LPG_MODE) {
-			start_idx =
-			pwm_cfg->duty_cycles->start_idx;
-			idx_len =
-			pwm_cfg->duty_cycles->num_duty_pcts;
-
-			if (idx_len >= PWM_LUT_MAX_SIZE &&
-					start_idx) {
-				dev_err(&spmi_dev->dev,
-					"Wrong LUT size or index\n");
-				return -EINVAL;
-			}
-			if ((start_idx + idx_len) >
-					PWM_LUT_MAX_SIZE) {
-				dev_err(&spmi_dev->dev,
-					"Exceed LUT limit\n");
-				return -EINVAL;
-			}
-			rc = pwm_lut_config(pwm_cfg->pwm_dev,
-				PM_PWM_PERIOD_MIN, /* ignored by hardware */
-				pwm_cfg->duty_cycles->duty_pcts,
-				pwm_cfg->lut_params);
-			if (rc < 0) {
-				dev_err(&spmi_dev->dev, "Failed to " \
-					"configure pwm LUT\n");
-				return rc;
-			}
-		}
-	} else {
-		dev_err(&spmi_dev->dev,
-			"Invalid PWM channel\n");
-		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -1845,14 +1912,18 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 			return rc;
 	}
 
-	if (pwm_cfg->mode == LPG_MODE) {
+	pwm_cfg->use_blink =
+		of_property_read_bool(node, "qcom,use-blink");
+
+	if (pwm_cfg->mode == LPG_MODE || pwm_cfg->use_blink) {
 		pwm_cfg->duty_cycles =
 			devm_kzalloc(&spmi_dev->dev,
 			sizeof(struct pwm_duty_cycles), GFP_KERNEL);
 		if (!pwm_cfg->duty_cycles) {
 			dev_err(&spmi_dev->dev,
 				"Unable to allocate memory\n");
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto bad_lpg_params;
 		}
 
 		prop = of_find_property(node, "qcom,duty-pcts",
@@ -1860,11 +1931,13 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 		if (!prop) {
 			dev_err(&spmi_dev->dev, "Looking up property " \
 				"node qcom,duty-pcts failed\n");
-			return -ENODEV;
+			rc =  -ENODEV;
+			goto bad_lpg_params;
 		} else if (!pwm_cfg->duty_cycles->num_duty_pcts) {
 			dev_err(&spmi_dev->dev, "Invalid length of " \
 				"duty pcts\n");
-			return -EINVAL;
+			rc =  -EINVAL;
+			goto bad_lpg_params;
 		}
 
 		pwm_cfg->duty_cycles->duty_pcts =
@@ -1874,7 +1947,8 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 		if (!pwm_cfg->duty_cycles->duty_pcts) {
 			dev_err(&spmi_dev->dev,
 				"Unable to allocate memory\n");
-			return -ENOMEM;
+			rc =  -ENOMEM;
+			goto bad_lpg_params;
 		}
 
 		temp_cfg = devm_kzalloc(&spmi_dev->dev,
@@ -1883,7 +1957,8 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 		if (!temp_cfg) {
 			dev_err(&spmi_dev->dev, "Failed to allocate " \
 				"memory for duty pcts\n");
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto bad_lpg_params;
 		}
 
 		memcpy(temp_cfg, prop->value,
@@ -1898,21 +1973,21 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 			pwm_cfg->lut_params.start_idx = val;
 			pwm_cfg->duty_cycles->start_idx = val;
 		} else
-			return rc;
+			goto bad_lpg_params;
 
 		pwm_cfg->lut_params.lut_pause_hi = 0;
 		rc = of_property_read_u32(node, "qcom,pause-hi", &val);
 		if (!rc)
 			pwm_cfg->lut_params.lut_pause_hi = val;
 		else if (rc != -EINVAL)
-			return rc;
+			goto bad_lpg_params;
 
 		pwm_cfg->lut_params.lut_pause_lo = 0;
 		rc = of_property_read_u32(node, "qcom,pause-lo", &val);
 		if (!rc)
 			pwm_cfg->lut_params.lut_pause_lo = val;
 		else if (rc != -EINVAL)
-			return rc;
+			goto bad_lpg_params;
 
 		pwm_cfg->lut_params.ramp_step_ms =
 				QPNP_LUT_RAMP_STEP_DEFAULT;
@@ -1920,19 +1995,28 @@ static int __devinit qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 		if (!rc)
 			pwm_cfg->lut_params.ramp_step_ms = val;
 		else if (rc != -EINVAL)
-			return rc;
+			goto bad_lpg_params;
 
 		pwm_cfg->lut_params.flags = QPNP_LED_PWM_FLAGS;
 		rc = of_property_read_u32(node, "qcom,lut-flags", &val);
 		if (!rc)
 			pwm_cfg->lut_params.flags = (u8) val;
 		else if (rc != -EINVAL)
-			return rc;
+			goto bad_lpg_params;
 
 		pwm_cfg->lut_params.idx_len =
 			pwm_cfg->duty_cycles->num_duty_pcts;
 	}
 	return 0;
+
+bad_lpg_params:
+	pwm_cfg->use_blink = false;
+	if (pwm_cfg->mode == PWM_MODE) {
+		dev_err(&spmi_dev->dev, "LPG parameters not set for" \
+			" blink mode, defaulting to PWM mode\n");
+		return 0;
+	}
+	return rc;
 };
 
 static int qpnp_led_get_mode(const char *mode)
@@ -2271,6 +2355,26 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 			if (rc)
 				goto fail_id_check;
 
+		}
+
+		if (led->id == QPNP_ID_LED_MPP) {
+			if (!led->mpp_cfg->pwm_cfg)
+				break;
+			if (led->mpp_cfg->pwm_cfg->use_blink) {
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&blink_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
+		} else if ((led->id == QPNP_ID_RGB_RED) ||
+			(led->id == QPNP_ID_RGB_GREEN) ||
+			(led->id == QPNP_ID_RGB_BLUE)) {
+			if (led->rgb_cfg->pwm_cfg->use_blink) {
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&blink_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
 		}
 
 		/* configure default state */
