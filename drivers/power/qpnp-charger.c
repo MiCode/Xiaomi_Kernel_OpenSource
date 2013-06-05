@@ -2063,6 +2063,8 @@ qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
 		chip->flags |= CHG_FLAGS_VCP_WA;
 	if (chip->type == SMBB)
 		chip->flags |= BOOST_FLASH_WA;
+	if (chip->type == SMBBP)
+		chip->flags |= BOOST_FLASH_WA;
 }
 
 static int
