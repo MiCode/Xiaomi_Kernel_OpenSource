@@ -115,6 +115,7 @@ static int __get_bus_vote_client(struct platform_device *pdev,
 static void __put_bus_vote_client(struct msm_iommu_drvdata *drvdata)
 {
 	msm_bus_scale_unregister_client(drvdata->bus_client);
+	drvdata->bus_client = 0;
 }
 
 static int msm_iommu_parse_dt(struct platform_device *pdev,
