@@ -224,10 +224,23 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 				return result;
 			}
 
+			result = kgsl_mmu_get_gpuaddr(priv->pagetable,
+							&priv->memdesc);
+			if (result) {
+				DRM_ERROR(
+				"kgsl_mmu_get_gpuaddr failed. result = %d\n",
+				result);
+				ion_free(kgsl_drm_ion_client,
+					priv->ion_handle);
+				priv->ion_handle = NULL;
+				return result;
+			}
 			result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 			if (result) {
 				DRM_ERROR(
 				"kgsl_mmu_map failed.  result = %d\n", result);
+				kgsl_mmu_put_gpuaddr(priv->pagetable,
+							&priv->memdesc);
 				ion_free(kgsl_drm_ion_client,
 					priv->ion_handle);
 				priv->ion_handle = NULL;
@@ -273,10 +286,17 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 			priv->memdesc.sglen++;
 		}
 
+		result = kgsl_mmu_get_gpuaddr(priv->pagetable, &priv->memdesc);
+		if (result) {
+			DRM_ERROR(
+			"kgsl_mmu_get_gpuaddr failed.  result = %d\n", result);
+			goto memerr;
+		}
 		result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 		if (result) {
 			DRM_ERROR(
 			"kgsl_mmu_map failed.  result = %d\n", result);
+			kgsl_mmu_put_gpuaddr(priv->pagetable, &priv->memdesc);
 			goto memerr;
 		}
 
@@ -311,8 +331,10 @@ kgsl_gem_free_memory(struct drm_gem_object *obj)
 	if (!kgsl_gem_memory_allocated(obj) || TYPE_IS_FD(priv->type))
 		return;
 
-	if (priv->memdesc.gpuaddr)
+	if (priv->memdesc.gpuaddr) {
 		kgsl_mmu_unmap(priv->memdesc.pagetable, &priv->memdesc);
+		kgsl_mmu_put_gpuaddr(priv->memdesc.pagetable, &priv->memdesc);
+	}
 
 	/* ION will take care of freeing the sg table. */
 	priv->memdesc.sg = NULL;
@@ -645,9 +667,21 @@ kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
 		priv->memdesc.sglen++;
 	}
 
+	ret = kgsl_mmu_get_gpuaddr(priv->pagetable, &priv->memdesc);
+	if (ret) {
+		DRM_ERROR("kgsl_mmu_get_gpuaddr failed.  ret = %d\n", ret);
+		ion_free(kgsl_drm_ion_client,
+			priv->ion_handle);
+		priv->ion_handle = NULL;
+		kgsl_mmu_putpagetable(priv->pagetable);
+		drm_gem_object_release(obj);
+		kfree(priv);
+		return -ENOMEM;
+	}
 	ret = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 	if (ret) {
 		DRM_ERROR("kgsl_mmu_map failed.  ret = %d\n", ret);
+		kgsl_mmu_put_gpuaddr(priv->pagetable, &priv->memdesc);
 		ion_free(kgsl_drm_ion_client,
 			priv->ion_handle);
 		priv->ion_handle = NULL;
