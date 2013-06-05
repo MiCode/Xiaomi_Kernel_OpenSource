@@ -1022,6 +1022,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	int i, ret = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
+	u32 mixer_cnt;
+	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return -EINVAL;
@@ -1046,7 +1048,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	else
 		flags = 0;
 
-	if (dspp_num < mdata->nad_cfgs) {
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+	if (dspp_num < mdata->nad_cfgs && (mixer_cnt != 2) &&
+			ctl->mfd->panel_info->type != MIPI_CMD_PANEL) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
 		if (ret < 0)
 			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
@@ -2755,6 +2759,13 @@ static int pp_update_ad_input(struct msm_fb_data_type *mfd)
 {
 	struct mdss_ad_info *ad;
 	struct mdss_ad_input input;
+	struct mdss_mdp_ctl *ctl;
+
+	if (!mfd)
+		return -EINVAL;
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl)
+		return -EINVAL;
 
 	ad = mdss_mdp_get_ad(mfd);
 	if (!ad || ad->cfg.mode == MDSS_AD_MODE_AUTO_BL)
