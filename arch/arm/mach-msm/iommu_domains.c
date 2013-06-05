@@ -165,6 +165,7 @@ int msm_iommu_map_contig_buffer(unsigned long phys,
 {
 	unsigned long iova;
 	int ret;
+	struct iommu_domain *domain;
 
 	if (size & (align - 1))
 		return -EINVAL;
@@ -180,8 +181,14 @@ int msm_iommu_map_contig_buffer(unsigned long phys,
 	if (ret)
 		return -ENOMEM;
 
-	ret = msm_iommu_map_iova_phys(msm_get_iommu_domain(domain_no), iova,
-					phys, size, cached);
+	domain = msm_get_iommu_domain(domain_no);
+	if (!domain) {
+		pr_err("%s: Could not find domain %u. Unable to map\n",
+			__func__, domain_no);
+		msm_free_iova_address(iova, domain_no, partition_no, size);
+		return -EINVAL;
+	}
+	ret = msm_iommu_map_iova_phys(domain, iova, phys, size, cached);
 
 	if (ret)
 		msm_free_iova_address(iova, domain_no, partition_no, size);
@@ -197,10 +204,18 @@ void msm_iommu_unmap_contig_buffer(unsigned long iova,
 					unsigned int partition_no,
 					unsigned long size)
 {
+	struct iommu_domain *domain;
+
 	if (!msm_use_iommu())
 		return;
 
-	iommu_unmap_range(msm_get_iommu_domain(domain_no), iova, size);
+	domain = msm_get_iommu_domain(domain_no);
+	if (domain) {
+		iommu_unmap_range(domain, iova, size);
+	} else {
+		pr_err("%s: Could not find domain %u. Unable to unmap\n",
+			__func__, domain_no);
+	}
 	msm_free_iova_address(iova, domain_no, partition_no, size);
 }
 EXPORT_SYMBOL(msm_iommu_unmap_contig_buffer);
