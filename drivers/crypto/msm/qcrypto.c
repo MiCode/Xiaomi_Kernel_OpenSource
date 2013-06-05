@@ -774,11 +774,21 @@ static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct crypto_priv *cp = ctx->cp;
 
+	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY)
+		return 0;
+
 	if (_qcrypto_check_aes_keylen(cipher, cp, len)) {
 		return -EINVAL;
 	} else {
 		ctx->enc_key_len = len;
-		memcpy(ctx->enc_key, key, len);
+		if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY))  {
+			if (key != NULL) {
+				memcpy(ctx->enc_key, key, len);
+			} else {
+				pr_err("%s Inavlid key pointer\n", __func__);
+				return -EINVAL;
+			}
+		}
 	}
 	return 0;
 };
@@ -790,12 +800,20 @@ static int _qcrypto_setkey_aes_xts(struct crypto_ablkcipher *cipher,
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct crypto_priv *cp = ctx->cp;
 
-
+	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY)
+		return 0;
 	if (_qcrypto_check_aes_keylen(cipher, cp, len/2)) {
 		return -EINVAL;
 	} else {
 		ctx->enc_key_len = len;
-		memcpy(ctx->enc_key, key, len);
+		if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY))  {
+			if (key != NULL) {
+				memcpy(ctx->enc_key, key, len);
+			} else {
+				pr_err("%s Inavlid key pointer\n", __func__);
+				return -EINVAL;
+			}
+		}
 	}
 	return 0;
 };
@@ -808,6 +826,12 @@ static int _qcrypto_setkey_des(struct crypto_ablkcipher *cipher, const u8 *key,
 	u32 tmp[DES_EXPKEY_WORDS];
 	int ret = des_ekey(tmp, key);
 
+	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
+		pr_err("%s HW KEY usage not supported for DES algorithm\n",
+								__func__);
+		return 0;
+	};
+
 	if (len != DES_KEY_SIZE) {
 		crypto_ablkcipher_set_flags(cipher, CRYPTO_TFM_RES_BAD_KEY_LEN);
 		return -EINVAL;
@@ -819,7 +843,14 @@ static int _qcrypto_setkey_des(struct crypto_ablkcipher *cipher, const u8 *key,
 	}
 
 	ctx->enc_key_len = len;
-	memcpy(ctx->enc_key, key, len);
+	if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY)) {
+		if (key != NULL) {
+			memcpy(ctx->enc_key, key, len);
+		} else {
+			pr_err("%s Inavlid key pointer\n", __func__);
+			return -EINVAL;
+		}
+	}
 	return 0;
 };
 
@@ -829,12 +860,24 @@ static int _qcrypto_setkey_3des(struct crypto_ablkcipher *cipher, const u8 *key,
 	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 
+	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
+		pr_err("%s HW KEY usage not supported for 3DES algorithm\n",
+								__func__);
+		return 0;
+	};
 	if (len != DES3_EDE_KEY_SIZE) {
 		crypto_ablkcipher_set_flags(cipher, CRYPTO_TFM_RES_BAD_KEY_LEN);
 		return -EINVAL;
 	};
 	ctx->enc_key_len = len;
-	memcpy(ctx->enc_key, key, len);
+	if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY)) {
+		if (key != NULL) {
+			memcpy(ctx->enc_key, key, len);
+		} else {
+			pr_err("%s Inavlid key pointer\n", __func__);
+			return -EINVAL;
+		}
+	}
 	return 0;
 };
 
