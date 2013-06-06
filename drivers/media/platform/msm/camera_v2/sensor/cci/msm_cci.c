@@ -714,40 +714,40 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 			complete(&cci_dev->cci_master_info[MASTER_1].
 				reset_complete);
 		}
-	} else if ((irq & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK) ||
+	}
+	if ((irq & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK) ||
 		(irq & CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK) ||
 		(irq & CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK)) {
 		cci_dev->cci_master_info[MASTER_0].status = 0;
 		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
-	} else if ((irq & CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK) ||
+	}
+	if ((irq & CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK) ||
 		(irq & CCI_IRQ_STATUS_0_I2C_M1_Q0_REPORT_BMSK) ||
 		(irq & CCI_IRQ_STATUS_0_I2C_M1_Q1_REPORT_BMSK)) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
 		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
-	} else if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
+	}
+	if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 		msm_camera_io_w(CCI_M0_RESET_RMSK,
 			cci_dev->base + CCI_RESET_CMD_ADDR);
-	} else if (irq & CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_HALT_ACK_BMSK) {
+	}
+	if (irq & CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_1].reset_pending = TRUE;
 		msm_camera_io_w(CCI_M1_RESET_RMSK,
 			cci_dev->base + CCI_RESET_CMD_ADDR);
-	} else if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
+	}
+	if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
 		pr_err("%s:%d MASTER_0 error %x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		msm_camera_io_w(CCI_M0_HALT_REQ_RMSK,
 			cci_dev->base + CCI_HALT_REQ_ADDR);
-	} else if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
+	}
+	if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
 		pr_err("%s:%d MASTER_1 error %x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		msm_camera_io_w(CCI_M1_HALT_REQ_RMSK,
 			cci_dev->base + CCI_HALT_REQ_ADDR);
-	} else {
-		pr_err("%s unhandled irq 0x%x\n", __func__, irq);
-		cci_dev->cci_master_info[MASTER_0].status = 0;
-		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
-		cci_dev->cci_master_info[MASTER_1].status = 0;
-		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
 	}
 	return IRQ_HANDLED;
 }
