@@ -206,18 +206,7 @@ void mdp3_irq_disable(int type)
 	unsigned long flag;
 
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
-	if (mdp3_res->irq_ref_count[type] <= 0) {
-		pr_debug("interrupt %d not enabled\n", type);
-		spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
-		return;
-	}
-	mdp3_res->irq_ref_count[type] -= 1;
-	if (mdp3_res->irq_ref_count[type] == 0) {
-		mdp3_res->irq_mask &= ~BIT(type);
-		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
-		if (!mdp3_res->irq_mask)
-			disable_irq(mdp3_res->irq);
-	}
+	mdp3_irq_disable_nosync(type);
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
 
