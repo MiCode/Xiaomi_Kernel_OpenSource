@@ -72,6 +72,12 @@ enum cp_mem_usage {
  */
 #define ION_FLAG_FORCE_CONTIGUOUS (1 << 30)
 
+/*
+ * Used in conjunction with heap which pool memory to force an allocation
+ * to come from the page allocator directly instead of from the pool allocation
+ */
+#define ION_FLAG_POOL_FORCE_ALLOC (1 << 16)
+
 /**
 * Deprecated! Please use the corresponding ION_FLAG_*
 */
