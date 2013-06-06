@@ -360,6 +360,25 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	return ret;
 }
 
+static u32 get_hfi_buf_mode(enum buffer_mode_type hal_buf_mode)
+{
+	u32 buf_mode;
+	switch (hal_buf_mode) {
+	case HAL_BUFFER_MODE_STATIC:
+		buf_mode = HFI_BUFFER_MODE_STATIC;
+		break;
+	case HAL_BUFFER_MODE_RING:
+		buf_mode = HFI_BUFFER_MODE_RING;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid buffer mode :0x%x\n",
+				hal_buf_mode);
+		buf_mode = 0;
+		break;
+	}
+	return buf_mode;
+}
+
 int create_pkt_cmd_session_set_buffers(
 		struct hfi_cmd_session_set_buffers_packet *pkt,
 		u32 session_id,
@@ -1274,6 +1293,39 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL;
 		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
 		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
+	case HAL_PARAM_BUFFER_ALLOC_MODE:
+	{
+		u32 buffer_type;
+		u32 buffer_mode;
+		struct hfi_buffer_alloc_mode *hfi;
+		struct hal_buffer_alloc_mode *alloc_info = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE;
+		hfi = (struct hfi_buffer_alloc_mode *)
+			&pkt->rg_property_data[1];
+		buffer_type = get_hfi_buffer(alloc_info->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+		buffer_mode = get_hfi_buf_mode(alloc_info->buffer_mode);
+		if (buffer_mode)
+			hfi->buffer_mode = buffer_mode;
+		else
+			return -EINVAL;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_buffer_alloc_mode);
+		break;
+	}
+	case HAL_PARAM_VDEC_FRAME_ASSEMBLY:
+	{
+		struct hfi_enable *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VDEC_FRAME_ASSEMBLY;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hfi_enable *) pdata)->enable;
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}

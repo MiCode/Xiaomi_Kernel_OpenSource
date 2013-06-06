@@ -68,6 +68,10 @@ static const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata aspect ratio",
 	"Extradata mpeg2 seqdisp",
 };
+static const char *const mpeg_vidc_video_alloc_mode_type[] = {
+	"Buffer Allocation Static",
+	"Buffer Allocation Ring Buffer",
+};
 
 static const char *const perf_level[] = {
 	"Nominal",
@@ -248,6 +252,33 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO)),
 		.qmenu = perf_level,
 		.step = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE,
+		.name = "Buffer allocation mode",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_STATIC,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_RING,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_STATIC,
+		.menu_skip_mask = ~(
+			(1 << V4L2_MPEG_VIDC_VIDEO_STATIC) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_RING)
+			),
+		.qmenu = mpeg_vidc_video_alloc_mode_type,
+		.step = 0,
+		.cluster = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY,
+		.name = "Video frame assembly",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_FRAME_ASSEMBLY_DISABLE,
+		.maximum = V4L2_MPEG_VIDC_FRAME_ASSEMBLY_ENABLE,
+		.default_value =  V4L2_MPEG_VIDC_FRAME_ASSEMBLY_DISABLE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = 0,
 	},
 };
 
@@ -1357,13 +1388,29 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE:
+	{
+		struct hal_buffer_alloc_mode mode;
+		property_id = HAL_PARAM_BUFFER_ALLOC_MODE;
+		mode.buffer_mode = ctrl->val;
+		mode.buffer_type = HAL_BUFFER_INPUT;
+		pdata = &mode;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY:
+	{
+		property_id = HAL_PARAM_VDEC_FRAME_ASSEMBLY;
+		hal_property.enable = ctrl->val;
+		pdata = &hal_property;
+		break;
+	}
 	default:
 		break;
 	}
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: HAL property = %d, ctrl_id = 0x%x, ctrl_value = %d\n",
+			"Control: HAL property=0x%x,ctrl: id=0x%x,value=0x%x\n",
 			property_id, ctrl->id, ctrl->val);
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
