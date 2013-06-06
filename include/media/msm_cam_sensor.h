@@ -46,6 +46,8 @@
 
 #define MAX_EEPROM_NAME 32
 
+#define MAX_AF_ITERATIONS 3
+
 enum msm_camera_i2c_reg_addr_type {
 	MSM_CAMERA_I2C_BYTE_ADDR = 1,
 	MSM_CAMERA_I2C_WORD_ADDR,
@@ -131,6 +133,11 @@ enum camera_vreg_type {
 	REG_LDO,
 	REG_VS,
 	REG_GPIO,
+};
+
+enum sensor_af_t {
+	SENSOR_AF_FOCUSSED,
+	SENSOR_AF_NOT_FOCUSSED,
 };
 
 struct msm_sensor_power_setting {
@@ -346,6 +353,11 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_RESOLUTION,
 	CFG_SET_STOP_STREAM,
 	CFG_SET_START_STREAM,
+	CFG_SET_SATURATION,
+	CFG_SET_CONTRAST,
+	CFG_SET_SHARPNESS,
+	CFG_SET_AUTOFOCUS,
+	CFG_CANCEL_AUTOFOCUS,
 };
 
 enum msm_actuator_cfg_type_t {
@@ -508,6 +520,9 @@ struct msm_camera_led_cfg_t {
 
 #define VIDIOC_MSM_EEPROM_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data)
+
+#define VIDIOC_MSM_SENSOR_GET_AF_STATUS \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, uint32_t)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 

@@ -1424,8 +1424,51 @@ int32_t mt9m114_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		break;
-	}
-	default:
+		}
+		case CFG_SET_SATURATION: {
+			int32_t sat_lev;
+			if (copy_from_user(&sat_lev, (void *)cdata->cfg.setting,
+				sizeof(int32_t))) {
+				pr_err("%s:%d failed\n", __func__, __LINE__);
+				rc = -EFAULT;
+				break;
+			}
+		pr_debug("%s: Saturation Value is %d", __func__, sat_lev);
+		break;
+		}
+		case CFG_SET_CONTRAST: {
+			int32_t con_lev;
+			if (copy_from_user(&con_lev, (void *)cdata->cfg.setting,
+				sizeof(int32_t))) {
+				pr_err("%s:%d failed\n", __func__, __LINE__);
+				rc = -EFAULT;
+				break;
+			}
+		pr_debug("%s: Contrast Value is %d", __func__, con_lev);
+		break;
+		}
+		case CFG_SET_SHARPNESS: {
+			int32_t shp_lev;
+			if (copy_from_user(&shp_lev, (void *)cdata->cfg.setting,
+				sizeof(int32_t))) {
+				pr_err("%s:%d failed\n", __func__, __LINE__);
+				rc = -EFAULT;
+				break;
+			}
+		pr_debug("%s: Sharpness Value is %d", __func__, shp_lev);
+		break;
+		}
+		case CFG_SET_AUTOFOCUS: {
+		/* TO-DO: set the Auto Focus */
+		pr_debug("%s: Setting Auto Focus", __func__);
+		break;
+		}
+		case CFG_CANCEL_AUTOFOCUS: {
+		/* TO-DO: Cancel the Auto Focus */
+		pr_debug("%s: Cancelling Auto Focus", __func__);
+		break;
+		}
+		default:
 		rc = -EFAULT;
 		break;
 	}

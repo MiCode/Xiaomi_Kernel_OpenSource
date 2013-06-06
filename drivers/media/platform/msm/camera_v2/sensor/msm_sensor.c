@@ -1162,6 +1162,15 @@ static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 	return;
 }
 
+static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
+			void __user *argp)
+{
+	/* TO-DO: Need to set AF status register address and expected value
+	We need to check the AF status in the sensor register and
+	set the status in the *status variable accordingly*/
+	return 0;
+}
+
 static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -1174,6 +1183,8 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG:
 		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+	case VIDIOC_MSM_SENSOR_GET_AF_STATUS:
+		return msm_sensor_get_af_status(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_RELEASE:
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;
