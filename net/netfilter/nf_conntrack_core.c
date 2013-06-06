@@ -1101,7 +1101,7 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 /* Refresh the NAT type entry. */
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
-	(void)nattype_refresh_timer(ct->nattype_entry);
+	(void)nattype_refresh_timer(ct->nattype_entry, ct->timeout.expires);
 #endif
 
 acct:
