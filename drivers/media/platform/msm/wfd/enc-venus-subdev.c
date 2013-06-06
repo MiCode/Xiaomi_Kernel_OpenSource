@@ -78,6 +78,26 @@ int venc_init(struct v4l2_subdev *sd, u32 val)
 	return venc_ion_client ? 0 : -ENOMEM;
 }
 
+static int invalidate_cache(struct ion_client *client,
+		struct mem_region *mregion)
+{
+	if (!client || !mregion) {
+		WFD_MSG_ERR(
+			"Failed to flush ion buffer: invalid client or region\n");
+		return -EINVAL;
+	} else if (!mregion->ion_handle) {
+		WFD_MSG_ERR(
+			"Failed to flush ion buffer: not an ion buffer\n");
+		return -EINVAL;
+	}
+
+	return msm_ion_do_cache_op(client,
+			mregion->ion_handle,
+			mregion->kvaddr,
+			mregion->size,
+			ION_IOC_INV_CACHES);
+
+}
 static int next_free_index(struct index_bitmap *index_bitmap)
 {
 	int index = find_first_zero_bit(index_bitmap->bitmap,
@@ -236,6 +256,16 @@ static int venc_vidc_callback_thread(void *data)
 				vb->v4l2_buf.timestamp = buffer.timestamp;
 				vb->v4l2_planes[0].bytesused =
 					buffer.m.planes[0].bytesused;
+
+				/* Buffer is on its way to userspace, so
+				 * invalidate the cache */
+				rc = invalidate_cache(venc_ion_client, mregion);
+				if (rc) {
+					WFD_MSG_WARN(
+						"Failed to invalidate cache %d\n",
+						rc);
+					/* Not fatal, move on */
+				}
 
 				inst->vmops.op_buffer_done(
 					inst->vmops.cbdata, 0, vb);
