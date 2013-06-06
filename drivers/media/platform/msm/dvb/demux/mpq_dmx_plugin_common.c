@@ -14,11 +14,12 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <linux/file.h>
+#include <linux/scatterlist.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
 #include "mpq_sdmx.h"
 
-#define SDMX_MAJOR_VERSION_MATCH	(3)
+#define SDMX_MAJOR_VERSION_MATCH	(4)
 
 #define TS_PACKET_HEADER_LENGTH (4)
 
@@ -3369,14 +3370,64 @@ int mpq_sdmx_close_session(struct mpq_demux *mpq_demux)
 }
 EXPORT_SYMBOL(mpq_sdmx_close_session);
 
+static int mpq_sdmx_get_buffer_chunks(struct mpq_demux *mpq_demux,
+	struct ion_handle *buff_handle,
+	u32 actual_buff_size,
+	struct sdmx_buff_descr buff_chunks[SDMX_MAX_PHYSICAL_CHUNKS])
+{
+	int i;
+	struct sg_table *sg_ptr;
+	struct scatterlist *sg;
+	u32 chunk_size;
+
+	memset(buff_chunks, 0,
+		sizeof(struct sdmx_buff_descr) * SDMX_MAX_PHYSICAL_CHUNKS);
+
+	sg_ptr = ion_sg_table(mpq_demux->ion_client, buff_handle);
+	if (sg_ptr == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: ion_sg_table failed\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (sg_ptr->nents == 0) {
+		MPQ_DVB_ERR_PRINT("%s: num of scattered entries is 0\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (sg_ptr->nents > SDMX_MAX_PHYSICAL_CHUNKS) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: num of scattered entries %d greater than max supported %d\n",
+			__func__, sg_ptr->nents, SDMX_MAX_PHYSICAL_CHUNKS);
+		return -EINVAL;
+	}
+
+	sg = sg_ptr->sgl;
+	for (i = 0; i < sg_ptr->nents; i++) {
+		buff_chunks[i].base_addr =
+			(void *)sg_dma_address(sg);
+		if (sg->length > actual_buff_size)
+			chunk_size = actual_buff_size;
+		else
+			chunk_size = sg->length;
+
+		buff_chunks[i].size = chunk_size;
+		sg = sg_next(sg);
+		actual_buff_size -= chunk_size;
+	}
+
+	return 0;
+}
+
 static int mpq_sdmx_init_data_buffer(struct mpq_demux *mpq_demux,
 	struct mpq_feed *feed, u32 *num_buffers,
-	struct sdmx_buff_descr *buf_desc, enum sdmx_buf_mode *buf_mode)
+	struct sdmx_data_buff_descr buf_desc[DMX_MAX_DECODER_BUFFER_NUM],
+	enum sdmx_buf_mode *buf_mode)
 {
 	struct dvb_demux_feed *dvbdmx_feed = feed->dvb_demux_feed;
 	struct dvb_ringbuffer *buffer;
 	struct mpq_video_feed_info *feed_data = &feed->video_info;
-	ion_phys_addr_t addr;
 	struct ion_handle *sdmx_buff;
 	int ret;
 	int i;
@@ -3389,56 +3440,55 @@ static int mpq_sdmx_init_data_buffer(struct mpq_demux *mpq_demux,
 		*num_buffers = feed_data->buffer_desc.decoder_buffers_num;
 
 		for (i = 0; i < *num_buffers; i++) {
-			ret = ion_phys(mpq_demux->ion_client,
-				feed_data->buffer_desc.ion_handle[i],
-				&addr, &buf_desc[i].size);
+			buf_desc[i].length =
+				feed_data->buffer_desc.desc[i].size;
+
+			ret = mpq_sdmx_get_buffer_chunks(mpq_demux,
+					feed_data->buffer_desc.ion_handle[i],
+					buf_desc[i].length,
+					buf_desc[i].buff_chunks);
 			if (ret) {
 				MPQ_DVB_ERR_PRINT(
-					"%s: FAILED to get physical buffer address, ret=%d\n",
-					__func__, ret);
-					goto end;
+					"%s: mpq_sdmx_get_buffer_chunks failed\n",
+					__func__);
+				return ret;
 			}
-			buf_desc[i].base_addr = (void *)addr;
-			buf_desc[i].size = feed_data->buffer_desc.desc[i].size;
-		}
-	} else {
-		*num_buffers = 1;
-		if (dvb_dmx_is_sec_feed(dvbdmx_feed) ||
-			dvb_dmx_is_pcr_feed(dvbdmx_feed)) {
-			buffer = &feed->sdmx_buf;
-			sdmx_buff = feed->sdmx_buf_handle;
-		} else {
-			buffer = (struct dvb_ringbuffer *)
-				dvbdmx_feed->feed.ts.buffer.ringbuff;
-			sdmx_buff = dvbdmx_feed->feed.ts.buffer.priv_handle;
 		}
 
-		if (sdmx_buff == NULL) {
-			MPQ_DVB_ERR_PRINT(
-				"%s: Invalid buffer allocation\n",
-				__func__);
-			return -ENOMEM;
-		}
-
-		ret = ion_phys(mpq_demux->ion_client, sdmx_buff, &addr,
-			&buf_desc[0].size);
-		if (ret) {
-			MPQ_DVB_ERR_PRINT(
-				"%s: FAILED to get physical buffer address, ret=%d\n",
-				__func__, ret);
-				goto end;
-		} else {
-			buf_desc[0].size = buffer->size;
-			buf_desc[0].base_addr = (void *)addr;
-		}
-
+		return 0;
 	}
+
+	*num_buffers = 1;
+	if (dvb_dmx_is_sec_feed(dvbdmx_feed) ||
+		dvb_dmx_is_pcr_feed(dvbdmx_feed)) {
+		buffer = &feed->sdmx_buf;
+		sdmx_buff = feed->sdmx_buf_handle;
+	} else {
+		buffer = (struct dvb_ringbuffer *)
+			dvbdmx_feed->feed.ts.buffer.ringbuff;
+		sdmx_buff = dvbdmx_feed->feed.ts.buffer.priv_handle;
+	}
+
+	if (sdmx_buff == NULL) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: Invalid buffer allocation\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	buf_desc[0].length = buffer->size;
+	ret = mpq_sdmx_get_buffer_chunks(mpq_demux, sdmx_buff,
+		buf_desc[0].length,
+		buf_desc[0].buff_chunks);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_sdmx_get_buffer_chunks failed\n",
+			__func__);
+		return ret;
+	}
+
 	return 0;
-
-end:
-	return ret;
 }
-
 
 static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	struct dvb_demux_feed *dvbdmx_feed)
@@ -3447,7 +3497,7 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	struct mpq_feed *feed;
 	struct mpq_feed *main_rec_feed;
 	struct sdmx_buff_descr metadata_buff_desc;
-	struct sdmx_buff_descr data_buff_desc[DMX_MAX_DECODER_BUFFER_NUM];
+	struct sdmx_data_buff_descr *data_buff_desc = NULL;
 	u32 data_buf_num = DMX_MAX_DECODER_BUFFER_NUM;
 	enum sdmx_buf_mode buf_mode;
 	enum sdmx_raw_out_format ts_out_format = SDMX_188_OUTPUT;
@@ -3490,6 +3540,15 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 		MPQ_DVB_DBG_PRINT("%s: SDMX_PES_FILTER\n", __func__);
 	}
 
+	data_buff_desc = vmalloc(
+			sizeof(*data_buff_desc)*DMX_MAX_DECODER_BUFFER_NUM);
+	if (!data_buff_desc) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: failed to allocate memory for data buffer\n",
+			__func__);
+		return -ENOMEM;
+	}
+
 	/*
 	 * Recording feed sdmx filter handle lookup:
 	 * In case this is a recording filter with multiple feeds,
@@ -3530,7 +3589,7 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 				MPQ_DVB_ERR_PRINT(
 					"%s: Failed to initialize metadata buffer. ret=%d\n",
 					__func__, ret);
-				goto end;
+				goto sdmx_filter_setup_failed;
 			}
 		}
 
@@ -3541,7 +3600,7 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 				"%s: Failed to initialize data buffer. ret=%d\n",
 				__func__, ret);
 			mpq_sdmx_terminate_metadata_buffer(feed);
-			goto end;
+			goto sdmx_filter_setup_failed;
 		}
 		ret = sdmx_add_filter(mpq_demux->sdmx_session_handle,
 			dvbdmx_feed->pid,
@@ -3559,14 +3618,14 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 				__func__, ret);
 			ret = -ENODEV;
 			mpq_sdmx_terminate_metadata_buffer(feed);
-			goto end;
+			goto sdmx_filter_setup_failed;
 		}
 
 		MPQ_DVB_DBG_PRINT(
 			"%s: feed=0x%p, filter pid=%d, handle=%d, data buffer(s)=%d, size=%d\n",
 			__func__, feed, dvbdmx_feed->pid,
 			feed->sdmx_filter_handle,
-			data_buf_num, data_buff_desc[0].size);
+			data_buf_num, data_buff_desc[0].length);
 
 		mpq_demux->sdmx_filter_count++;
 	} else {
@@ -3583,7 +3642,7 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 				"%s: FAILED to add raw pid, ret=%d\n",
 				__func__, ret);
 			ret = -ENODEV;
-			goto end;
+			goto sdmx_filter_setup_failed;
 		}
 	}
 
@@ -3606,11 +3665,15 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 				"%s: FAILED to set key ladder, ret=%d\n",
 				__func__, ret);
 			ret = -ENODEV;
-			goto end;
+			goto sdmx_filter_setup_failed;
 		}
 	}
 
-end:
+	vfree(data_buff_desc);
+	return 0;
+
+sdmx_filter_setup_failed:
+	vfree(data_buff_desc);
 	return ret;
 }
 
