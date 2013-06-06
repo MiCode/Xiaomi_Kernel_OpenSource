@@ -1418,6 +1418,10 @@ static int venus_hfi_session_get_property(void *sess,
 		break;
 	case HAL_SYS_DEBUG_CONFIG:
 		break;
+	case HAL_PARAM_BUFFER_ALLOC_MODE:
+		break;
+	case HAL_PARAM_VDEC_FRAME_ASSEMBLY:
+		break;
 	/*FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET*/
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
