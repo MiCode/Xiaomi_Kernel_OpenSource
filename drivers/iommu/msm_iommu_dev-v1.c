@@ -263,13 +263,19 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata->glb_base = drvdata->base;
 
-	drvdata->gdsc = devm_regulator_get(&pdev->dev, "vdd");
-	if (IS_ERR(drvdata->gdsc))
-		return PTR_ERR(drvdata->gdsc);
+	if (of_get_property(pdev->dev.of_node, "vdd-supply", NULL)) {
 
-	drvdata->alt_gdsc = devm_regulator_get(&pdev->dev, "qcom,alt-vdd");
-	if (IS_ERR(drvdata->alt_gdsc))
-		drvdata->alt_gdsc = NULL;
+		drvdata->gdsc = devm_regulator_get(&pdev->dev, "vdd");
+		if (IS_ERR(drvdata->gdsc))
+			return PTR_ERR(drvdata->gdsc);
+
+		drvdata->alt_gdsc = devm_regulator_get(&pdev->dev,
+							"qcom,alt-vdd");
+		if (IS_ERR(drvdata->alt_gdsc))
+			drvdata->alt_gdsc = NULL;
+	} else {
+		pr_debug("Warning: No regulator specified for IOMMU\n");
+	}
 
 	drvdata->pclk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(drvdata->pclk))
