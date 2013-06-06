@@ -207,12 +207,21 @@ enum msm_vfe_axi_state {
 	AVALIABLE,
 	INACTIVE,
 	ACTIVE,
-	PAUSE,
+	PAUSED,
 	START_PENDING,
 	STOP_PENDING,
+	PAUSE_PENDING,
+	RESUME_PENDING,
 	STARTING,
 	STOPPING,
-	PAUSE_PENDING,
+	PAUSING,
+	RESUMING,
+};
+
+enum msm_vfe_axi_cfg_update_state {
+	NO_AXI_CFG_UPDATE,
+	APPLYING_UPDATE_RESUME,
+	UPDATE_REQUESTED,
 };
 
 #define VFE_NO_DROP            0xFFFFFFFF
@@ -251,6 +260,7 @@ struct msm_vfe_axi_stream {
 	uint32_t init_frame_drop;
 	uint32_t burst_frame_count;/*number of sof before burst stop*/
 	uint8_t framedrop_update;
+	spinlock_t lock;
 
 	/*Bandwidth calculation info*/
 	uint32_t max_width;
@@ -263,6 +273,7 @@ struct msm_vfe_axi_stream {
 	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
 	uint32_t runtime_num_burst_capture;
 	uint8_t runtime_framedrop_update;
+	uint32_t runtime_output_format;
 };
 
 struct msm_vfe_axi_composite_info {
@@ -298,6 +309,7 @@ struct msm_vfe_axi_shared_data {
 		composite_info[MAX_NUM_COMPOSITE_MASK];
 	uint8_t num_used_composite_mask;
 	uint32_t stream_update;
+	atomic_t axi_cfg_update;
 	enum msm_isp_camif_update_state pipeline_update;
 	struct msm_vfe_src_info src_info[VFE_SRC_MAX];
 	uint16_t stream_handle_cnt;
