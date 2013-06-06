@@ -176,7 +176,11 @@ void audio_aio_async_read_ack(struct q6audio_aio *audio, uint32_t token,
 	atomic_add(payload[9], &audio->in_samples);
 
 	spin_lock_irqsave(&audio->dsp_lock, flags);
-	BUG_ON(list_empty(&audio->in_queue));
+	if (list_empty(&audio->in_queue)) {
+		spin_unlock_irqrestore(&audio->dsp_lock, flags);
+		pr_warning("%s unexpected ack from dsp\n", __func__);
+		return;
+	}
 	filled_buf = list_first_entry(&audio->in_queue,
 					struct audio_aio_buffer_node, list);
 
