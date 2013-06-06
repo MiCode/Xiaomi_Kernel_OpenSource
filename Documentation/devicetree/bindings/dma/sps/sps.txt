@@ -14,6 +14,9 @@ Optional properties:
         1 - With BAM DMA and without pipe memory
         2 - With BAM DMA and with pipe memory
         3 - Without BAM DMA and without pipe memory
+  - qcom,pipe-attr-ee: BAM pipes are attributed to a specific EE, with
+    which we can know the pipes belong to apps side and can have the
+    error interrupts at the pipe level.
 
 Example:
 
@@ -24,4 +27,5 @@ Example:
 		      <0xfe803000 0x4800>;
 		interrupts = <0 94 0>;
 		qcom,device-type = <2>;
+		qcom,pipe-attr-ee;
 	};
