@@ -610,8 +610,8 @@ static void msm_ehci_phy_susp_fail_work(struct work_struct *w)
 	msm_ehci_vbus_power(mhcd, 1);
 }
 
-#define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
-#define PHY_RESUME_TIMEOUT_USEC		(100 * 1000)
+#define PHY_SUSP_TIMEOUT_MSEC	500
+#define PHY_RESUME_TIMEOUT_USEC	(100 * 1000)
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_ehci_suspend(struct msm_hcd *mhcd)
@@ -636,24 +636,34 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		return -EBUSY;
 	}
 
-	/* Set the PHCD bit, only if it is not set by the controller.
-	 * PHY may take some time or even fail to enter into low power
-	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
-	 * in failure case.
+	/* If port is enabled wait 5ms for PHCD to come up. Reset PHY
+	 * and link if it fails to do so.
+	 * If port is not enabled set the PHCD bit and poll for it to
+	 * come up with in 500ms. Reset phy and link if it fails to do so.
 	 */
 	portsc = readl_relaxed(USB_PORTSC);
-	if (!(portsc & PORTSC_PHCD)) {
-		writel_relaxed(portsc | PORTSC_PHCD,
-				USB_PORTSC);
+	if (portsc & PORT_PE) {
 
-		timeout = jiffies + usecs_to_jiffies(PHY_SUSPEND_TIMEOUT_USEC);
+		usleep_range(5000, 5000);
+
+		if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD)) {
+			dev_err(mhcd->dev,
+				"Unable to suspend PHY. portsc: %8x\n",
+				readl_relaxed(USB_PORTSC));
+			goto reset_phy_and_link;
+		}
+	} else {
+		writel_relaxed(portsc | PORTSC_PHCD, USB_PORTSC);
+
+		timeout = jiffies + msecs_to_jiffies(PHY_SUSP_TIMEOUT_MSEC);
 		while (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD)) {
 			if (time_after(jiffies, timeout)) {
-				dev_err(mhcd->dev, "Unable to suspend PHY\n");
-				schedule_work(&mhcd->phy_susp_fail_work);
-				return -ETIMEDOUT;
+				dev_err(mhcd->dev,
+					"Unable to suspend PHY. portsc: %8x\n",
+					readl_relaxed(USB_PORTSC));
+				goto reset_phy_and_link;
 			}
-			udelay(1);
+			usleep_range(10000, 10000);
 		}
 	}
 
@@ -717,6 +727,10 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 	dev_info(mhcd->dev, "EHCI USB in low power mode\n");
 
 	return 0;
+
+reset_phy_and_link:
+	schedule_work(&mhcd->phy_susp_fail_work);
+	return -ETIMEDOUT;
 }
 
 static int msm_ehci_resume(struct msm_hcd *mhcd)
