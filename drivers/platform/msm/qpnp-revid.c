@@ -52,17 +52,20 @@ static u8 qpnp_read_byte(struct spmi_device *spmi, u16 addr)
 }
 
 #define PM8941_PERIPHERAL_SUBTYPE	0x01
+#define PM8226_PERIPHERAL_SUBTYPE	0x04
 static size_t build_pmic_string(char *buf, size_t n, int sid,
 		u8 subtype, u8 rev1, u8 rev2, u8 rev3, u8 rev4)
 {
 	size_t pos = 0;
 	/*
-	 * In early versions of PM8941, the major revision number started
-	 * incrementing from 0 (eg 0 = v1.0, 1 = v2.0).
+	 * In early versions of PM8941 and PM8226, the major revision number
+	 * started incrementing from 0 (eg 0 = v1.0, 1 = v2.0).
 	 * Increment the major revision number here if the chip is an early
-	 * version of PM8941.
+	 * version of PM8941 or PM8226.
 	 */
-	if ((int)subtype == PM8941_PERIPHERAL_SUBTYPE && rev4 < 0x02)
+	if (((int)subtype == PM8941_PERIPHERAL_SUBTYPE
+			|| (int)subtype == PM8226_PERIPHERAL_SUBTYPE)
+			&& rev4 < 0x02)
 		rev4++;
 
 	pos += snprintf(buf + pos, n - pos, "PMIC@SID%d", sid);
