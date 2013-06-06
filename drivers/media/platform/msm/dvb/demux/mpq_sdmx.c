@@ -115,7 +115,7 @@ struct sdmx_add_filt_req {
 	enum sdmx_raw_out_format ts_out_format;
 	u32 flags;
 	u32 num_data_bufs;
-	struct sdmx_buff_descr data_bufs[];
+	struct sdmx_data_buff_descr data_bufs[];
 };
 
 struct sdmx_add_filt_rsp {
@@ -478,7 +478,7 @@ int sdmx_add_filter(int session_handle,
 	struct sdmx_buff_descr *meta_data_buf,
 	enum sdmx_buf_mode d_buf_mode,
 	u32 num_data_bufs,
-	struct sdmx_buff_descr *data_bufs,
+	struct sdmx_data_buff_descr *data_bufs,
 	int *filter_handle,
 	enum sdmx_raw_out_format ts_out_format,
 	u32 flags)
@@ -493,7 +493,7 @@ int sdmx_add_filter(int session_handle,
 		return SDMX_STATUS_INVALID_INPUT_PARAMS;
 
 	cmd_len = sizeof(struct sdmx_add_filt_req)
-		+ num_data_bufs * sizeof(struct sdmx_buff_descr);
+		+ num_data_bufs * sizeof(struct sdmx_data_buff_descr);
 	rsp_len = sizeof(struct sdmx_add_filt_rsp);
 
 	/* Will be later overridden by SDMX response */
@@ -523,7 +523,7 @@ int sdmx_add_filter(int session_handle,
 	cmd->buffer_mode = d_buf_mode;
 	cmd->num_data_bufs = num_data_bufs;
 	memcpy(cmd->data_bufs, data_bufs,
-		num_data_bufs * sizeof(struct sdmx_buff_descr));
+		num_data_bufs * sizeof(struct sdmx_data_buff_descr));
 
 	/* Issue QSEECom command */
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],

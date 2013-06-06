@@ -19,6 +19,8 @@
 #define SDMX_MAX_SESSIONS  (4)
 #define SDMX_LOOPBACK_PID  (0x2000)
 
+#define SDMX_MAX_PHYSICAL_CHUNKS (10)
+
 /* Filter-level error indicators */
 #define SDMX_FILTER_SUCCESS                       (0)
 #define SDMX_FILTER_ERR_MD_BUF_FULL               BIT(0)
@@ -164,8 +166,16 @@ struct sdmx_buff_descr {
 	/* Physical address where buffer starts */
 	void *base_addr;
 
-	/* Total size of buffer */
+	/* Size of buffer */
 	u32 size;
+};
+
+struct sdmx_data_buff_descr {
+	/* Physical chunks of the buffer */
+	struct sdmx_buff_descr buff_chunks[SDMX_MAX_PHYSICAL_CHUNKS];
+
+	/* Length of buffer */
+	u32 length;
 };
 
 /*
@@ -231,7 +241,7 @@ int sdmx_set_session_cfg(int session_handle, enum sdmx_proc_mode proc_mode,
 
 int sdmx_add_filter(int session_handle, u16 pid, enum sdmx_filter filter_type,
 	struct sdmx_buff_descr *meta_data_buf, enum sdmx_buf_mode data_buf_mode,
-	u32 num_data_bufs, struct sdmx_buff_descr *data_bufs,
+	u32 num_data_bufs, struct sdmx_data_buff_descr *data_bufs,
 	int *filter_handle, enum sdmx_raw_out_format ts_out_format, u32 flags);
 
 int sdmx_remove_filter(int session_handle, int filter_handle);
