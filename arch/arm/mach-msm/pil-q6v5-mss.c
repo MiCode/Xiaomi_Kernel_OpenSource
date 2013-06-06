@@ -79,6 +79,8 @@
 #define EXTERNAL_BHS_STATUS		BIT(4)
 #define BHS_TIMEOUT_US			50
 
+#define STOP_ACK_TIMEOUT_MS		1000
+
 struct mba_data {
 	void __iomem *rmb_base;
 	void __iomem *io_clamp_reg;
@@ -94,7 +96,9 @@ struct mba_data {
 	bool crash_shutdown;
 	bool ignore_errors;
 	int err_fatal_irq;
+	unsigned int stop_ack_irq;
 	int force_stop_gpio;
+	struct completion stop_ack;
 };
 
 static int pbl_mba_boot_timeout_ms = 1000;
@@ -484,16 +488,36 @@ static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	pr_err("Fatal error on the modem.\n");
+	subsys_set_crash_status(drv->subsys, true);
 	restart_modem(drv);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t modem_stop_ack_intr_handler(int irq, void *dev_id)
+{
+	struct mba_data *drv = dev_id;
+	pr_info("Received stop ack interrupt from modem\n");
+	complete(&drv->stop_ack);
 	return IRQ_HANDLED;
 }
 
 static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
+	unsigned long ret;
 
 	if (subsys->is_not_loadable)
 		return 0;
+
+	if (!subsys_get_crash_status(drv->subsys)) {
+		gpio_set_value(drv->force_stop_gpio, 1);
+		ret = wait_for_completion_timeout(&drv->stop_ack,
+				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
+		if (!ret)
+			pr_warn("Timed out on stop ack from modem.\n");
+		gpio_set_value(drv->force_stop_gpio, 0);
+	}
+
 	pil_shutdown(&drv->desc);
 	pil_shutdown(&drv->q6->desc);
 	return 0;
@@ -511,6 +535,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	 * run concurrently with either the watchdog bite error handler or the
 	 * SMSM callback, making it safe to unset the flag below.
 	 */
+	init_completion(&drv->stop_ack);
 	drv->ignore_errors = false;
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
@@ -525,7 +550,10 @@ static void modem_crash_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 	drv->crash_shutdown = true;
-	gpio_set_value(drv->force_stop_gpio, 1);
+	if (!subsys_get_crash_status(drv->subsys)) {
+		gpio_set_value(drv->force_stop_gpio, 1);
+		mdelay(STOP_ACK_TIMEOUT_MS);
+	}
 }
 
 static struct ramdump_segment smem_segments[] = {
@@ -582,6 +610,7 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	if (drv->ignore_errors)
 		return IRQ_HANDLED;
 	pr_err("Watchdog bite received from modem software!\n");
+	subsys_set_crash_status(drv->subsys, true);
 	restart_modem(drv);
 	return IRQ_HANDLED;
 }
@@ -594,6 +623,7 @@ static int mss_start(const struct subsys_desc *desc)
 	if (desc->is_not_loadable)
 		return 0;
 
+	init_completion(&drv->stop_ack);
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
 		return ret;
@@ -685,6 +715,14 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 			IRQF_TRIGGER_RISING, "pil-mss", drv);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register SMP2P err fatal handler!\n");
+		goto err_irq;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->stop_ack_irq,
+			modem_stop_ack_intr_handler,
+			IRQF_TRIGGER_RISING, "pil-mss", drv);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to register SMP2P stop ack handler!\n");
 		goto err_irq;
 	}
 
@@ -822,7 +860,7 @@ err_mba_desc:
 static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
-	int ret, err_fatal_gpio, is_not_loadable;
+	int ret, err_fatal_gpio, is_not_loadable, stop_ack_gpio;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -848,6 +886,16 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	drv->err_fatal_irq = gpio_to_irq(err_fatal_gpio);
 	if (drv->err_fatal_irq < 0)
 		return drv->err_fatal_irq;
+
+	stop_ack_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-stop-ack", 0);
+	if (stop_ack_gpio < 0)
+		return stop_ack_gpio;
+
+	ret = gpio_to_irq(stop_ack_gpio);
+	if (ret < 0)
+		return ret;
+	drv->stop_ack_irq = ret;
 
 	/* Get the GPIO pin for writing the outbound bits: add more as needed */
 	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
