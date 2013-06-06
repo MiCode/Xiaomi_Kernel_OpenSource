@@ -45,6 +45,7 @@ static enum vidc_status hfi_map_err_status(int hfi_err)
 	case HFI_ERR_SESSION_UNSUPPORTED_PROPERTY:
 	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
 	case HFI_ERR_SESSION_INSUFFICIENT_RESOURCES:
+	case HFI_ERR_SESSION_UNSUPPORTED_STREAM:
 		vidc_err = VIDC_ERR_NOT_SUPPORTED;
 		break;
 	case HFI_ERR_SYS_MAX_SESSIONS_REACHED:
@@ -786,6 +787,8 @@ static void hfi_process_session_etb_done(
 	data_done.input_done.offset = pkt->offset;
 	data_done.input_done.filled_len = pkt->filled_len;
 	data_done.input_done.packet_buffer = pkt->packet_buffer;
+	data_done.input_done.status =
+		hfi_map_err_status((u32) pkt->error_type);
 	callback(SESSION_ETB_DONE, &data_done);
 }
 

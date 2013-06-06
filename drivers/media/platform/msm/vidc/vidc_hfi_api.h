@@ -936,6 +936,7 @@ struct vidc_hal_ebd {
 	u32 timestamp_hi;
 	u32 timestamp_lo;
 	u32 flags;
+	u32 status;
 	u32 mark_target;
 	u32 mark_data;
 	u32 stats;
