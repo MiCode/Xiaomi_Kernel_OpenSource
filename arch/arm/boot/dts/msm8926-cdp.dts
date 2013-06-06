@@ -21,3 +21,14 @@
 	compatible = "qcom,msm8926-cdp", "qcom,msm8926", "qcom,cdp";
 	qcom,msm-id = <200 1 0>;
 };
+
+&pm8226_chg {
+	status = "ok";
+	qcom,charging-disabled;
+	qcom,use-default-batt-values;
+
+	qcom,bat-if@1200 {
+		status = "disabled";
+	};
+
+};
