@@ -170,6 +170,11 @@
 #define APDS993X_PDRVIE_25MA	0x80  /* PS 25mA LED drive */
 #define APDS993X_PDRVIE_12_5MA	0xC0  /* PS 12.5mA LED drive */
 
+/*calibration*/
+#define DEFAULT_CROSS_TALK	400
+#define ADD_TO_CROSS_TALK	300
+#define SUB_FROM_PS_THRESHOLD	100
+
 
 typedef enum
 {
@@ -223,6 +228,11 @@ struct apds993x_data {
 	unsigned int ps_detection;		/* 5 = near-to-far; 0 = far-to-near */
 	unsigned int ps_data;			/* to store PS data */
 
+	/*calibration*/
+	unsigned int cross_talk;		/* cross_talk value */
+	unsigned int avg_cross_talk;		/* average cross_talk  */
+	unsigned int ps_cal_result;		/* result of calibration*/
+
 	/* ALS parameters */
 	unsigned int als_threshold_l;	/* low threshold */
 	unsigned int als_threshold_h;	/* high threshold */
@@ -250,6 +260,9 @@ static unsigned short apds993x_als_integration_tb[] = {2720, 5168, 10064};
 static unsigned short apds993x_als_res_tb[] = { 10240, 19456, 37888 };
 static unsigned char apds993x_als_again_tb[] = { 1, 8, 16, 120 };
 static unsigned char apds993x_als_again_bit_tb[] = { 0x00, 0x01, 0x02, 0x03 };
+
+/*calibration*/
+static int apds993x_cross_talk_val = 0;
 
 #ifdef ALS_POLLING_ENABLED
 static int apds993x_set_als_poll_delay(struct i2c_client *client, unsigned int val);
@@ -456,6 +469,127 @@ static int apds993x_set_control(struct i2c_client *client, int control)
 	data->control = control;
 
 	return ret;
+}
+
+/*calibration*/
+void apds993x_swap(int *x, int *y)
+{
+	int temp = *x;
+	*x = *y;
+	*y = temp;
+}
+
+static int apds993x_run_cross_talk_calibration(struct i2c_client *client)
+{
+	struct apds993x_data *data = i2c_get_clientdata(client);
+	unsigned int sum_of_pdata = 0;
+	unsigned int temp_pdata[20];
+	unsigned int ArySize = 20;
+	unsigned int cal_check_flag = 0;
+	int i, j;
+#if defined(APDS993x_SENSOR_DEBUG)
+	int status;
+	int rdata;
+#endif
+	pr_info("%s: START proximity sensor calibration\n", __func__);
+
+RECALIBRATION:
+	apds993x_set_enable(client, 0x0D);/* Enable PS and Wait */
+
+#if defined(APDS993x_SENSOR_DEBUG)
+	mutex_lock(&data->update_lock);
+	status = i2c_smbus_read_byte_data(client, CMD_BYTE|APDS993X_STATUS_REG);
+	rdata = i2c_smbus_read_byte_data(client, CMD_BYTE|APDS993X_ENABLE_REG);
+	mutex_unlock(&data->update_lock);
+
+	pr_info("%s: APDS993x_ENABLE_REG=%2d APDS993x_STATUS_REG=%2d\n",
+			__func__, rdata, status);
+#endif
+
+	for (i = 0; i < 20; i++) {
+		mdelay(6);
+		mutex_lock(&data->update_lock);
+		temp_pdata[i] = i2c_smbus_read_word_data(client,
+				CMD_WORD|APDS993X_PDATAL_REG);
+		mutex_unlock(&data->update_lock);
+	}
+
+	/* pdata sorting */
+	for (i = 0; i < ArySize - 1; i++)
+		for (j = i+1; j < ArySize; j++)
+			if (temp_pdata[i] > temp_pdata[j])
+				apds993x_swap(temp_pdata + i, temp_pdata + j);
+
+	/* calculate the cross-talk using central 10 data */
+	for (i = 5; i < 15; i++) {
+		pr_info("%s: temp_pdata = %d\n", __func__, temp_pdata[i]);
+		sum_of_pdata = sum_of_pdata + temp_pdata[i];
+	}
+
+	data->cross_talk = sum_of_pdata/10;
+	pr_info("%s: sum_of_pdata = %d   cross_talk = %d\n",
+			__func__, sum_of_pdata, data->cross_talk);
+
+	/*
+	 * this value is used at Hidden Menu to check
+	 * if the calibration is pass or fail
+	 */
+	data->avg_cross_talk = data->cross_talk;
+
+	if (data->cross_talk > 720) {
+		pr_warn("%s: invalid calibrated data\n", __func__);
+
+		if (cal_check_flag == 0) {
+			pr_info("%s: RECALIBRATION start\n", __func__);
+			cal_check_flag = 1;
+			goto RECALIBRATION;
+		} else {
+			pr_err("%s: CALIBRATION FAIL -> "
+			       "cross_talk is set to DEFAULT\n", __func__);
+			data->cross_talk = DEFAULT_CROSS_TALK;
+			apds993x_set_enable(client, 0x00); /* Power Off */
+			data->ps_cal_result = 0; /* 0:Fail, 1:Pass */
+			return -EINVAL;
+		}
+	}
+
+	data->ps_threshold = ADD_TO_CROSS_TALK + data->cross_talk;
+	data->ps_hysteresis_threshold =
+		data->ps_threshold - SUB_FROM_PS_THRESHOLD;
+
+	apds993x_set_enable(client, 0x00); /* Power Off */
+	data->ps_cal_result = 1;
+
+	pr_info("%s: total_pdata = %d & cross_talk = %d\n",
+			__func__, sum_of_pdata, data->cross_talk);
+	pr_info("%s: FINISH proximity sensor calibration\n", __func__);
+
+	/* Save the cross-talk to the non-volitile memory in the phone  */
+	return data->cross_talk;
+}
+
+/* apply the Cross-talk value to threshold */
+static void apds993x_set_ps_threshold_adding_cross_talk(
+		struct i2c_client *client, int cal_data)
+{
+	struct apds993x_data *data = i2c_get_clientdata(client);
+
+	if (cal_data > 770)
+		cal_data = 770;
+	if (cal_data < 0)
+		cal_data = 0;
+
+	if (cal_data == 0) {
+		data->ps_threshold = APDS993X_PS_DETECTION_THRESHOLD;
+		data->ps_hysteresis_threshold =
+			data->ps_threshold - SUB_FROM_PS_THRESHOLD;
+	} else {
+		data->cross_talk = cal_data;
+		data->ps_threshold = ADD_TO_CROSS_TALK + data->cross_talk;
+		data->ps_hysteresis_threshold =
+			data->ps_threshold - SUB_FROM_PS_THRESHOLD;
+	}
+	pr_info("%s: configurations are set\n", __func__);
 }
 
 static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
@@ -1052,6 +1186,9 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			apds993x_set_piht(client,
 					APDS993X_PS_DETECTION_THRESHOLD);
 
+			/*calirbation*/
+			apds993x_set_ps_threshold_adding_cross_talk(client, data->cross_talk);
+
 			if (data->enable_als_sensor==0) {
 				/* only enable PS interrupt */
 				apds993x_set_enable(client, 0x27);
@@ -1354,6 +1491,107 @@ static ssize_t apds993x_show_pdata(struct device *dev,
 
 static DEVICE_ATTR(pdata, S_IRUGO, apds993x_show_pdata, NULL);
 
+/*calibration sysfs*/
+static ssize_t apds993x_show_status(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct apds993x_data *data = i2c_get_clientdata(client);
+	int status;
+	int rdata;
+
+	mutex_lock(&data->update_lock);
+	status = i2c_smbus_read_byte_data(client, CMD_BYTE|APDS993X_STATUS_REG);
+	rdata = i2c_smbus_read_byte_data(client, CMD_BYTE|APDS993X_ENABLE_REG);
+	mutex_unlock(&data->update_lock);
+
+	pr_info("%s: APDS993x_ENABLE_REG=%2d APDS993x_STATUS_REG=%2d\n",
+			__func__, rdata, status);
+
+	return sprintf(buf, "%d\n", status);
+}
+
+static DEVICE_ATTR(status, S_IRUSR | S_IRGRP, apds993x_show_status, NULL);
+
+static ssize_t apds993x_show_ps_run_calibration(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct apds993x_data *data = i2c_get_clientdata(client);
+
+	return sprintf(buf, "%d\n", data->avg_cross_talk);
+}
+
+static ssize_t apds993x_store_ps_run_calibration(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct apds993x_data *data = i2c_get_clientdata(client);
+	int ret = 0;
+
+	/* start calibration */
+	ret = apds993x_run_cross_talk_calibration(client);
+
+	/* set threshold for near/far status */
+	data->ps_threshold = data->cross_talk + ADD_TO_CROSS_TALK;
+	data->ps_hysteresis_threshold =
+		data->ps_threshold - SUB_FROM_PS_THRESHOLD;
+
+	pr_info("%s: [piht][pilt][c_t] = [%d][%d][%d]\n", __func__,
+			data->ps_threshold,
+			data->ps_hysteresis_threshold,
+			data->cross_talk);
+
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static DEVICE_ATTR(ps_run_calibration,  S_IWUSR | S_IWGRP | S_IRUGO,
+		apds993x_show_ps_run_calibration,
+		apds993x_store_ps_run_calibration);
+
+static ssize_t apds993x_show_ps_default_crosstalk(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", DEFAULT_CROSS_TALK);
+}
+
+static ssize_t apds993x_store_ps_default_crosstalk(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct apds993x_data *data = i2c_get_clientdata(client);
+
+	data->ps_threshold = DEFAULT_CROSS_TALK + ADD_TO_CROSS_TALK;
+	data->ps_hysteresis_threshold =
+		data->ps_threshold - SUB_FROM_PS_THRESHOLD;
+
+	pr_info("%s: [piht][pilt][c_t] = [%d][%d][%d]\n", __func__,
+			data->ps_threshold,
+			data->ps_hysteresis_threshold,
+			data->cross_talk);
+
+	return count;
+}
+
+static DEVICE_ATTR(ps_default_crosstalk, S_IRUGO | S_IWUSR | S_IWGRP,
+		apds993x_show_ps_default_crosstalk,
+		apds993x_store_ps_default_crosstalk);
+
+/* for Calibration result */
+static ssize_t apds993x_show_ps_cal_result(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct apds993x_data *data = i2c_get_clientdata(client);
+
+	return sprintf(buf, "%d\n", data->ps_cal_result);
+}
+
+static DEVICE_ATTR(ps_cal_result, S_IRUGO, apds993x_show_ps_cal_result, NULL);
+/*calibration sysfs end*/
 
 #ifdef APDS993X_HAL_USE_SYS_ENABLE
 static ssize_t apds993x_show_enable_ps_sensor(struct device *dev,
@@ -1455,6 +1693,11 @@ static struct attribute *apds993x_attributes[] = {
 	&dev_attr_enable_als_sensor.attr,
 	&dev_attr_als_poll_delay.attr,
 #endif
+	/*calibration*/
+	&dev_attr_status.attr,
+	&dev_attr_ps_run_calibration.attr,
+	&dev_attr_ps_default_crosstalk.attr,
+	&dev_attr_ps_cal_result.attr,
 	NULL
 };
 
@@ -1553,6 +1796,10 @@ static int apds993x_init_client(struct i2c_client *client)
 	err = apds993x_set_piht(client, APDS993X_PS_DETECTION_THRESHOLD);
 	if (err < 0)
 		return err;
+
+	/*calirbation*/
+	apds993x_set_ps_threshold_adding_cross_talk(client, data->cross_talk);
+	data->ps_detection = 0; /* initial value = far*/
 
 	/* force first ALS interrupt to get the environment reading */
 	err = apds993x_set_ailt(client, 0xFFFF);
@@ -1953,6 +2200,17 @@ static int apds993x_probe(struct i2c_client *client,
 	data->als_again_index = APDS993X_ALS_GAIN_8X;	// 8x AGAIN
 	data->als_reduce = 0;	// no ALS 6x reduction
 	data->als_prev_lux = 0;
+
+	/* calibration */
+	if (apds993x_cross_talk_val > 0 && apds993x_cross_talk_val < 1000) {
+		data->cross_talk = apds993x_cross_talk_val;
+	} else {
+		/*
+		 * default value: Get the cross-talk value from the memory.
+		 * This value is saved during the cross-talk calibration
+		 */
+		data->cross_talk = DEFAULT_CROSS_TALK;
+	}
 
 	mutex_init(&data->update_lock);
 
