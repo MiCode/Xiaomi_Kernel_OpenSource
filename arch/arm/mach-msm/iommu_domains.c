@@ -247,10 +247,10 @@ EXPORT_SYMBOL(msm_iommu_unmap_contig_buffer);
 static struct msm_iova_data *find_domain(int domain_num)
 {
 	struct rb_root *root = &domain_root;
-	struct rb_node *p = root->rb_node;
+	struct rb_node *p;
 
 	mutex_lock(&domain_mutex);
-
+	p = root->rb_node;
 	while (p) {
 		struct msm_iova_data *node;
 
