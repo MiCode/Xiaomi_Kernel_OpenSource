@@ -754,6 +754,10 @@ struct hal_nal_stream_format_supported {
 	u32 nal_stream_format_supported;
 };
 
+struct hal_nal_stream_format_select {
+	u32 nal_stream_format_select;
+};
+
 struct hal_multi_view_format {
 	u32 views;
 	u32 rg_view_order[1];

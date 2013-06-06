@@ -61,6 +61,18 @@ static int color_format[] = {
 	[ilog2(HAL_COLOR_FORMAT_BGR888)] = HFI_COLOR_FORMAT_BGR888,
 };
 
+static int nal_type[] = {
+	[ilog2(HAL_NAL_FORMAT_STARTCODES)] = HFI_NAL_FORMAT_STARTCODES,
+	[ilog2(HAL_NAL_FORMAT_ONE_NAL_PER_BUFFER)] =
+		HFI_NAL_FORMAT_ONE_NAL_PER_BUFFER,
+	[ilog2(HAL_NAL_FORMAT_ONE_BYTE_LENGTH)] =
+		HFI_NAL_FORMAT_ONE_BYTE_LENGTH,
+	[ilog2(HAL_NAL_FORMAT_TWO_BYTE_LENGTH)] =
+		HFI_NAL_FORMAT_TWO_BYTE_LENGTH,
+	[ilog2(HAL_NAL_FORMAT_FOUR_BYTE_LENGTH)] =
+		HFI_NAL_FORMAT_FOUR_BYTE_LENGTH,
+};
+
 static inline int hal_to_hfi_type(int property, int hal_type)
 {
 	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
@@ -85,6 +97,9 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	case HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT:
 		return (hal_type >= ARRAY_SIZE(color_format)) ?
 			-ENOTSUPP : color_format[hal_type];
+	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
+		return (hal_type >= ARRAY_SIZE(nal_type)) ?
+			-ENOTSUPP : nal_type[hal_type];
 	default:
 		return -ENOTSUPP;
 	}
@@ -717,40 +732,20 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
 	{
-		struct hal_nal_stream_format_supported *prop =
-			(struct hal_nal_stream_format_supported *)pdata;
+		struct hfi_nal_stream_format_select *hfi;
+		struct hal_nal_stream_format_select *prop =
+			(struct hal_nal_stream_format_select *)pdata;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SELECT;
+		hfi = (struct hfi_nal_stream_format_select *)
+			&pkt->rg_property_data[1];
 		dprintk(VIDC_DBG, "data is :%d",
-				prop->nal_stream_format_supported);
-
-		switch (prop->nal_stream_format_supported) {
-		case HAL_NAL_FORMAT_STARTCODES:
-			pkt->rg_property_data[1] =
-				HFI_NAL_FORMAT_STARTCODES;
-			break;
-		case HAL_NAL_FORMAT_ONE_NAL_PER_BUFFER:
-			pkt->rg_property_data[1] =
-				HFI_NAL_FORMAT_ONE_NAL_PER_BUFFER;
-			break;
-		case HAL_NAL_FORMAT_ONE_BYTE_LENGTH:
-			pkt->rg_property_data[1] =
-				HFI_NAL_FORMAT_ONE_BYTE_LENGTH;
-			break;
-		case HAL_NAL_FORMAT_TWO_BYTE_LENGTH:
-			pkt->rg_property_data[1] =
-				HFI_NAL_FORMAT_TWO_BYTE_LENGTH;
-			break;
-		case HAL_NAL_FORMAT_FOUR_BYTE_LENGTH:
-			pkt->rg_property_data[1] =
-				HFI_NAL_FORMAT_FOUR_BYTE_LENGTH;
-			break;
-		default:
-			dprintk(VIDC_ERR, "Invalid nal format: 0x%x",
-				  prop->nal_stream_format_supported);
-			break;
-		}
-		pkt->size += sizeof(u32) * 2;
+				prop->nal_stream_format_select);
+		hfi->nal_stream_format_select = hal_to_hfi_type(
+				HAL_PARAM_NAL_STREAM_FORMAT_SELECT,
+				prop->nal_stream_format_select);
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_nal_stream_format_select);
 		break;
 	}
 	case HAL_PARAM_VDEC_OUTPUT_ORDER:
