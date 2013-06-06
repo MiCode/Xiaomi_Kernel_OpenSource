@@ -251,8 +251,8 @@ static int mdss_mdp_wb_terminate(struct msm_fb_data_type *mfd)
 	if (wb->secure_pipe)
 		mdss_mdp_pipe_destroy(wb->secure_pipe);
 	mutex_unlock(&wb->lock);
-
-	mdp5_data->ctl->is_secure = false;
+	if (mdp5_data->ctl)
+		mdp5_data->ctl->is_secure = false;
 	mdp5_data->wb = NULL;
 	mutex_unlock(&mdss_mdp_wb_buf_lock);
 
