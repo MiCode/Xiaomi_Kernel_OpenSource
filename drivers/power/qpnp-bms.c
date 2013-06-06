@@ -2251,7 +2251,8 @@ static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
 	} else {
 		pr_debug("unknown voltage notification state: %d\n", state);
 	}
-	power_supply_changed(&chip->bms_psy);
+	if (chip->bms_psy.name != NULL)
+		power_supply_changed(&chip->bms_psy);
 }
 
 static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
