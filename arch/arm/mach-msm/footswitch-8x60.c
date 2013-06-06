@@ -25,7 +25,10 @@
 #include <mach/msm_bus.h>
 #include <mach/scm-io.h>
 #include <mach/clk.h>
+#include <mach/rpm.h>
+
 #include "footswitch.h"
+#include "rpm_resources.h"
 
 #ifdef CONFIG_MSM_SECURE_IO
 #undef readl_relaxed
@@ -442,6 +445,120 @@ err:
 	return rc;
 }
 
+static void force_bus_clocks(bool enforce)
+{
+	static struct msm_rpm_iv_pair iv;
+	int ret;
+
+	if (enforce) {
+		iv.id = MSM_RPM_STATUS_ID_RPM_CTL;
+		ret = msm_rpm_get_status(&iv, 1);
+		if (ret)
+			pr_err("Failed to read RPM_CTL resource status\n");
+
+		iv.id = MSM_RPM_ID_RPM_CTL;
+		iv.value |= BIT(6);
+	} else {
+		iv.id = MSM_RPM_ID_RPM_CTL;
+		iv.value &= ~BIT(6);
+	}
+
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
+	if (ret)
+		pr_err("Force bus clocks request=%d failed\n", enforce);
+}
+
+static int gfx3d_8064_footswitch_enable(struct regulator_dev *rdev)
+{
+	struct footswitch *fs = rdev_get_drvdata(rdev);
+	struct fs_clk_data *clock;
+	uint32_t regval, rc = 0;
+
+	mutex_lock(&claim_lock);
+	fs->is_claimed = true;
+	mutex_unlock(&claim_lock);
+
+	/* Return early if already enabled. */
+	regval = readl_relaxed(fs->gfs_ctl_reg);
+	if ((regval & (ENABLE_BIT | CLAMP_BIT)) == ENABLE_BIT)
+		return 0;
+
+	/* Un-halt all bus ports in the power domain. */
+	if (fs->bus_port0) {
+		rc = msm_bus_axi_portunhalt(fs->bus_port0);
+		if (rc) {
+			pr_err("%s port 0 unhalt failed.\n", fs->desc.name);
+			goto err;
+		}
+	}
+	if (fs->bus_port1) {
+		rc = msm_bus_axi_portunhalt(fs->bus_port1);
+		if (rc) {
+			pr_err("%s port 1 unhalt failed.\n", fs->desc.name);
+			goto err_port2_halt;
+		}
+	}
+
+	/* Apply AFAB/EBI clock limits. */
+	force_bus_clocks(true);
+
+	/* Enable the power rail at the footswitch. */
+	regval |= ENABLE_BIT;
+	writel_relaxed(regval, fs->gfs_ctl_reg);
+	/* Wait for the rail to fully charge. */
+	mb();
+	udelay(1);
+
+	/* Make sure required clocks are on at the correct rates. */
+	rc = setup_clocks(fs);
+	if (rc)
+		goto err_setup_clocks;
+
+	/*
+	 * (Re-)Assert resets for all clocks in the clock domain, since
+	 * footswitch_enable() is first called before footswitch_disable()
+	 * and resets should be asserted before power is restored.
+	 */
+	for (clock = fs->clk_data; clock->clk; clock++)
+		; /* Do nothing */
+	for (clock--; clock >= fs->clk_data; clock--)
+		clk_reset(clock->clk, CLK_RESET_ASSERT);
+	/* Wait for synchronous resets to propagate. */
+	udelay(fs->reset_delay_us);
+
+	/* Un-clamp the I/O ports. */
+	regval &= ~CLAMP_BIT;
+	writel_relaxed(regval, fs->gfs_ctl_reg);
+
+	/* Deassert resets for all clocks in the power domain. */
+	for (clock = fs->clk_data; clock->clk; clock++)
+		clk_reset(clock->clk, CLK_RESET_DEASSERT);
+
+	/* Prevent core memory from collapsing when its clock is gated. */
+	clk_set_flags(fs->core_clk, CLKFLAG_RETAIN_MEM);
+
+	/* Return clocks to their state before this function. */
+	restore_clocks(fs);
+
+	/* Remove AFAB/EBI clock limits after any transients have settled. */
+	udelay(30);
+	force_bus_clocks(false);
+
+	fs->is_enabled = true;
+	return 0;
+
+err_setup_clocks:
+	regval &= ~ENABLE_BIT;
+	writel_relaxed(regval, fs->gfs_ctl_reg);
+	force_bus_clocks(false);
+	msm_bus_axi_porthalt(fs->bus_port1);
+err_port2_halt:
+	msm_bus_axi_porthalt(fs->bus_port0);
+err:
+	return rc;
+}
+
+
 static struct regulator_ops standard_fs_ops = {
 	.is_enabled = footswitch_is_enabled,
 	.enable = footswitch_enable,
@@ -452,6 +569,12 @@ static struct regulator_ops gfx2d_fs_ops = {
 	.is_enabled = footswitch_is_enabled,
 	.enable = gfx2d_footswitch_enable,
 	.disable = gfx2d_footswitch_disable,
+};
+
+static struct regulator_ops gfx3d_8064_fs_ops = {
+	.is_enabled = footswitch_is_enabled,
+	.enable = gfx3d_8064_footswitch_enable,
+	.disable = footswitch_disable,
 };
 
 #define FOOTSWITCH(_id, _name, _ops, _gfs_ctl_reg) \
@@ -468,6 +591,8 @@ static struct regulator_ops gfx2d_fs_ops = {
 static struct footswitch footswitches[] = {
 	FOOTSWITCH(FS_GFX2D0, "fs_gfx2d0", &gfx2d_fs_ops, GFX2D0_GFS_CTL_REG),
 	FOOTSWITCH(FS_GFX2D1, "fs_gfx2d1", &gfx2d_fs_ops, GFX2D1_GFS_CTL_REG),
+	FOOTSWITCH(FS_GFX3D_8064, "fs_gfx3d", &gfx3d_8064_fs_ops,
+		   GFX3D_GFS_CTL_REG),
 	FOOTSWITCH(FS_GFX3D,  "fs_gfx3d", &standard_fs_ops, GFX3D_GFS_CTL_REG),
 	FOOTSWITCH(FS_IJPEG,  "fs_ijpeg", &standard_fs_ops, GEMINI_GFS_CTL_REG),
 	FOOTSWITCH(FS_MDP,    "fs_mdp",   &standard_fs_ops, MDP_GFS_CTL_REG),
