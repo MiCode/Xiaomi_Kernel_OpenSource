@@ -78,6 +78,8 @@ Parent node optional properties:
 					for the OTG regulator.
 - boost-parent-supply			Specify a phandle to a parent supply regulator
 					for the boost regulator.
+- qcom,resume-soc			Capacity in percent at which charging should resume
+					when a fully charged battery drops below this level.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
