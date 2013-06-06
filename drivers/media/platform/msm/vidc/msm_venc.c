@@ -304,7 +304,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
-		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH,
+		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
 		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.step = 1,
 		.menu_skip_mask = 0,
@@ -1052,6 +1052,8 @@ static inline int venc_v4l2_to_hal(int id, int value)
 			return HAL_H264_PROFILE_HIGH422;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE:
 			return HAL_H264_PROFILE_HIGH444;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
+			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
 			goto unknown_value;
 		}
