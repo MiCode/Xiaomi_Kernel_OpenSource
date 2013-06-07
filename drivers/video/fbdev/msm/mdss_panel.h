@@ -310,6 +310,20 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 	return frame_rate;
 }
 
+/*
+ * mdss_panel_get_vtotal() - return panel vertical height
+ * @pinfo:	Pointer to panel info containing all panel information
+ *
+ * Returns the total height of the panel including any blanking regions
+ * which are not visible to user but used to calculate panel pixel clock.
+ */
+static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
+{
+	return pinfo->yres + pinfo->lcdc.v_back_porch +
+			pinfo->lcdc.v_front_porch +
+			pinfo->lcdc.v_pulse_width;
+}
+
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata);
 #endif /* MDSS_PANEL_H */

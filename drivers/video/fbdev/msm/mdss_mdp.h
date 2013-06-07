@@ -364,6 +364,12 @@ struct mdss_overlay_private {
 	bool mixer_swap;
 };
 
+struct mdss_mdp_perf_params {
+	u32 ib_quota;
+	u32 ab_quota;
+	u32 mdp_clk_rate;
+};
+
 #define is_vig_pipe(_pipe_id_) ((_pipe_id_) <= MDSS_MDP_SSPP_VIG2)
 static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
 				      u32 reg, u32 val)
@@ -430,6 +436,8 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
+int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
+		struct mdss_mdp_perf_params *perf);
 
 struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
 int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);
