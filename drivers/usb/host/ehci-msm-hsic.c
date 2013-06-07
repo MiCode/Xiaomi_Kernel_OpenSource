@@ -2130,7 +2130,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (mehci->enable_hbm)
 		hbm_init(hcd, pdata->disable_park_mode);
 
-	msm_bam_set_hsic_host_dev(&pdev->dev);
+	if (pdata && pdata->consider_ipa_handshake)
+		msm_bam_set_hsic_host_dev(&pdev->dev);
 
 	return 0;
 
@@ -2155,7 +2156,8 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
-	msm_bam_set_hsic_host_dev(NULL);
+	if (pdata && pdata->consider_ipa_handshake)
+		msm_bam_set_hsic_host_dev(NULL);
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
