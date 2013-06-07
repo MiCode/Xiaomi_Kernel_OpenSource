@@ -18,13 +18,13 @@
 
 #define QSEECOM_KEY_ID_SIZE   32
 
-#define	QSEOS_RESULT_FAIL_LOAD_KS         -48
-#define	QSEOS_RESULT_FAIL_SAVE_KS         -49
-#define	QSEOS_RESULT_FAIL_MAX_KEYS        -50
-#define	QSEOS_RESULT_FAIL_KEY_ID_EXISTS   -51
-#define	QSEOS_RESULT_FAIL_KEY_ID_DNE      -52
-#define	QSEOS_RESULT_FAIL_KS_OP           -53
-#define	QSEOS_RESULT_FAIL_CE_PIPE_INVALID -54
+#define	QSEOS_RESULT_FAIL_LOAD_KS         -57
+#define	QSEOS_RESULT_FAIL_SAVE_KS         -58
+#define	QSEOS_RESULT_FAIL_MAX_KEYS        -59
+#define	QSEOS_RESULT_FAIL_KEY_ID_EXISTS   -60
+#define	QSEOS_RESULT_FAIL_KEY_ID_DNE      -61
+#define	QSEOS_RESULT_FAIL_KS_OP           -62
+#define	QSEOS_RESULT_FAIL_CE_PIPE_INVALID -63
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
