@@ -34,6 +34,7 @@
 #define VFE40_8974V2_VERSION 0x1001001A
 #define VFE40_8974V3_VERSION 0x1001001B
 #define VFE40_8x26_VERSION 0x20000013
+#define VFE40_8x26V2_VERSION 0x20010014
 
 #define VFE40_BURST_LEN 3
 #define VFE40_STATS_BURST_LEN 2
@@ -93,8 +94,10 @@ static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
 {
 	void __iomem *vfebase = vfe_dev->vfe_base;
+
 	if (vfe_dev->vfe_hw_version == VFE40_8974V1_VERSION ||
-		vfe_dev->vfe_hw_version == VFE40_8x26_VERSION) {
+		vfe_dev->vfe_hw_version == VFE40_8x26_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8x26V2_VERSION) {
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_0);
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_1);
 		msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_2);
@@ -237,6 +240,7 @@ static void msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev)
 		msm_vfe40_init_vbif_parms_8974_v2(vfe_dev);
 		break;
 	case VFE40_8x26_VERSION:
+	case VFE40_8x26V2_VERSION:
 		msm_vfe40_init_vbif_parms_8x26(vfe_dev);
 		break;
 	default:
