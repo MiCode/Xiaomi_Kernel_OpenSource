@@ -952,8 +952,8 @@ static void subsys_device_release(struct device *dev)
 static irqreturn_t subsys_err_ready_intr_handler(int irq, void *subsys)
 {
 	struct subsys_device *subsys_dev = subsys;
-	pr_info("Error ready interrupt occured for %s\n",
-		 subsys_dev->desc->name);
+	dev_info(subsys_dev->desc->dev,
+		"Subsystem error monitoring/handling services are up\n");
 
 	if (subsys_dev->desc->is_not_loadable)
 		return IRQ_HANDLED;
