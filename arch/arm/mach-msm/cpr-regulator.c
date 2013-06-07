@@ -682,10 +682,20 @@ static int cpr_regulator_enable(struct regulator_dev *rdev)
 	}
 
 	rc = regulator_enable(cpr_vreg->vdd_apc);
-	if (!rc)
-		cpr_vreg->vreg_enabled = true;
-	else
+	if (rc) {
 		pr_err("regulator_enable: vdd_apc: rc=%d\n", rc);
+		return rc;
+	}
+
+	cpr_vreg->vreg_enabled = true;
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
+	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->corner) {
+		cpr_irq_clr(cpr_vreg);
+		cpr_corner_switch(cpr_vreg, cpr_vreg->corner);
+		cpr_ctl_enable(cpr_vreg);
+	}
+	mutex_unlock(&cpr_vreg->cpr_mutex);
 
 	return rc;
 }
@@ -700,10 +710,17 @@ static int cpr_regulator_disable(struct regulator_dev *rdev)
 		if (cpr_vreg->vdd_mx)
 			rc = regulator_disable(cpr_vreg->vdd_mx);
 
-		if (rc)
+		if (rc) {
 			pr_err("regulator_disable: vdd_mx: rc=%d\n", rc);
-		else
-			cpr_vreg->vreg_enabled = false;
+			return rc;
+		}
+
+		cpr_vreg->vreg_enabled = false;
+
+		mutex_lock(&cpr_vreg->cpr_mutex);
+		if (cpr_is_allowed(cpr_vreg))
+			cpr_ctl_disable(cpr_vreg);
+		mutex_unlock(&cpr_vreg->cpr_mutex);
 	} else {
 		pr_err("regulator_disable: vdd_apc: rc=%d\n", rc);
 	}
@@ -739,7 +756,7 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 	if (rc)
 		goto _exit;
 
-	if (cpr_is_allowed(cpr_vreg)) {
+	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->vreg_enabled) {
 		cpr_irq_clr(cpr_vreg);
 		cpr_corner_switch(cpr_vreg, corner);
 		cpr_ctl_enable(cpr_vreg);
