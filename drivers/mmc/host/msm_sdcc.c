@@ -6112,6 +6112,10 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	msmsdcc_msm_bus_cancel_work_and_set_vote(host, &mmc->ios);
 
+	/* Disable SDHCi mode if supported */
+	if (is_sdhci_supported(host))
+		writel_relaxed(0, (host->base + MCI_CORE_HC_MODE));
+
 	/* Apply Hard reset to SDCC to put it in power on default state */
 	msmsdcc_hard_reset(host);
 
