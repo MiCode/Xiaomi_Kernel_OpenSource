@@ -38,6 +38,10 @@ static const struct of_device_id msm_vfe_dt_match[] = {
 		.compatible = "qcom,vfe40",
 		.data = &vfe40_hw_info,
 	},
+	{
+		.compatible = "qcom,vfe32",
+		.data = &vfe32_hw_info,
+	},
 	{}
 };
 
