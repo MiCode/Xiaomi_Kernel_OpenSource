@@ -1,0 +1,53 @@
+FocalTech touch controller
+
+The focaltech controller is connected to host processor
+via i2c. The controller generates interrupts when the
+user touches the panel. The host controller is expected
+to read the touch coordinates over i2c and pass the coordinates
+to the rest of the system.
+
+Required properties:
+
+ - compatible		: should be "focaltech,5x06"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - vdd-supply		: Power supply needed to power up the device
+ - vcc_i2c-supply	: Power source required to power up i2c bus
+ - focaltech,family-id	: family identification of the controller
+ - focaltech,irq-gpio	: irq gpio which is to provide interrupts to host,
+				same as "interrupts" node. It will also
+				contain active low or active high information.
+ - focaltech,reset-gpio	: reset gpio to control the reset of chip
+ - focaltech,display-coords : display coordinates in pixels. It is a four
+				tuple consisting of min x, min y, max x and
+				max y values
+
+Optional properties:
+
+ - focaltech,panel-coords : panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values
+ - focaltech,i2c-pull-up : to specify pull up is required
+ - focaltech,no-force-update : to specify force update is allowed
+ - focaltech,button-map : button map of key codes. The number
+				of key codes depend on panel
+
+Example:
+	i2c@f9924000 {
+		ft5x06_ts@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <61 0x2>;
+			vdd-supply = <&pm8941_l22>;
+			vcc_i2c-supply = <&pm8941_s3>;
+			focaltech,reset-gpio = <&msmgpio 60 0x00>;
+			focaltech,irq-gpio = <&msmgpio 61 0x00>;
+			focaltech,panel-coords = <0 0 480 800>;
+			focaltech,display-coords = <0 0 480 800>;
+			focaltech,button-map= <158 102 139 217>;
+			focaltech,family-id = <0x0a>;
+		};
+	};
