@@ -349,11 +349,16 @@ static int
 qpnp_chg_read(struct qpnp_chg_chip *chip, u8 *val,
 			u16 base, int count)
 {
-	int rc;
+	int rc = 0;
 	struct spmi_device *spmi = chip->spmi;
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, base, val,
-					count);
+	if (base == 0) {
+		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
+			base, spmi->sid, rc);
+		return -EINVAL;
+	}
+
+	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, base, val, count);
 	if (rc) {
 		pr_err("SPMI read failed base=0x%02x sid=0x%02x rc=%d\n", base,
 				spmi->sid, rc);
@@ -366,11 +371,16 @@ static int
 qpnp_chg_write(struct qpnp_chg_chip *chip, u8 *val,
 			u16 base, int count)
 {
-	int rc;
+	int rc = 0;
 	struct spmi_device *spmi = chip->spmi;
 
-	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, base, val,
-					count);
+	if (base == 0) {
+		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
+			base, spmi->sid, rc);
+		return -EINVAL;
+	}
+
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, base, val, count);
 	if (rc) {
 		pr_err("write failed base=0x%02x sid=0x%02x rc=%d\n",
 			base, spmi->sid, rc);
@@ -2940,12 +2950,14 @@ static int qpnp_chg_resume(struct device *dev)
 	struct qpnp_chg_chip *chip = dev_get_drvdata(dev);
 	int rc = 0;
 
-	rc = qpnp_chg_masked_write(chip,
-	chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
-		VREF_BATT_THERM_FORCE_ON,
-		VREF_BATT_THERM_FORCE_ON, 1);
-	if (rc)
-		pr_debug("failed to force on VREF_BAT_THM rc=%d\n", rc);
+	if (chip->bat_if_base) {
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
+			VREF_BATT_THERM_FORCE_ON,
+			VREF_BATT_THERM_FORCE_ON, 1);
+		if (rc)
+			pr_debug("failed to force on VREF_BAT_THM rc=%d\n", rc);
+	}
 
 	return rc;
 }
@@ -2955,12 +2967,14 @@ static int qpnp_chg_suspend(struct device *dev)
 	struct qpnp_chg_chip *chip = dev_get_drvdata(dev);
 	int rc = 0;
 
-	rc = qpnp_chg_masked_write(chip,
-	chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
-		VREF_BATT_THERM_FORCE_ON,
-		VREF_BAT_THM_ENABLED_FSM, 1);
-	if (rc)
-		pr_debug("failed to enable FSM ctrl VREF_BAT_THM rc=%d\n", rc);
+	if (chip->bat_if_base) {
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
+			VREF_BATT_THERM_FORCE_ON,
+			VREF_BAT_THM_ENABLED_FSM, 1);
+		if (rc)
+			pr_debug("failed to set FSM VREF_BAT_THM rc=%d\n", rc);
+	}
 
 	return rc;
 }
