@@ -23,6 +23,8 @@ struct panel_id {
 	u16 type;
 };
 
+#define DEFAULT_FRAME_RATE	60
+
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
 #define MDDI_PANEL		1	/* MDDI */
@@ -269,6 +271,44 @@ struct mdss_panel_data {
 
 	struct mdss_panel_data *next;
 };
+
+/**
+ * mdss_get_panel_framerate() - get panel frame rate based on panel information
+ * @panel_info:	Pointer to panel info containing all panel information
+ */
+static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
+{
+	u32 frame_rate, pixel_total;
+
+	if (panel_info == NULL)
+		return DEFAULT_FRAME_RATE;
+
+	switch (panel_info->type) {
+	case MIPI_VIDEO_PANEL:
+	case MIPI_CMD_PANEL:
+		frame_rate = panel_info->mipi.frame_rate;
+		break;
+	case WRITEBACK_PANEL:
+		frame_rate = DEFAULT_FRAME_RATE;
+		break;
+	default:
+		pixel_total = (panel_info->lcdc.h_back_porch +
+			  panel_info->lcdc.h_front_porch +
+			  panel_info->lcdc.h_pulse_width +
+			  panel_info->xres) *
+			 (panel_info->lcdc.v_back_porch +
+			  panel_info->lcdc.v_front_porch +
+			  panel_info->lcdc.v_pulse_width +
+			  panel_info->yres);
+		if (pixel_total)
+			frame_rate = panel_info->clk_rate / pixel_total;
+		else
+			frame_rate = DEFAULT_FRAME_RATE;
+
+		break;
+	}
+	return frame_rate;
+}
 
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata);
