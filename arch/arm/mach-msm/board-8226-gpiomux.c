@@ -485,7 +485,7 @@ void __init msm8226_init_gpiomux(void)
 	msm_gpiomux_install(msm_auxpcm_configs,
 			ARRAY_SIZE(msm_auxpcm_configs));
 
-	if (of_board_is_cdp() || of_board_is_mtp())
+	if (of_board_is_cdp() || of_board_is_mtp() || of_board_is_xpm())
 		msm_gpiomux_install(usb_otg_sw_configs,
 					ARRAY_SIZE(usb_otg_sw_configs));
 }
