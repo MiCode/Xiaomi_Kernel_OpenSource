@@ -50,6 +50,7 @@ module_param_named(debug_mask, msm_smux_ctl_debug_mask,
 
 static uint32_t smux_ctl_ch_id[] = {
 	SMUX_DATA_CTL_0,
+	SMUX_DATA_CTL_1,
 };
 
 #define SMUX_CTL_NUM_CHANNELS ARRAY_SIZE(smux_ctl_ch_id)
