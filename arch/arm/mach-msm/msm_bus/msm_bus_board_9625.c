@@ -595,8 +595,8 @@ static struct msm_bus_node_info bimc_info[]  = {
 		.ws = 10000,
 		.mas_hw_id = MAS_APPSS_PROC,
 		.prio_lvl = 0,
-		.prio_rd = 2,
-		.prio_wr = 2,
+		.prio_rd = 0,
+		.prio_wr = 0,
 	},
 	{
 		.id = MSM_BUS_MASTER_MSS_PROC,
