@@ -279,6 +279,7 @@ struct mmc_host {
 #define MMC_CAP2_BROKEN_VOLTAGE	(1 << 7)	/* Use the broken voltage */
 #define MMC_CAP2_DETECT_ON_ERR	(1 << 8)	/* On I/O err check card removal */
 #define MMC_CAP2_HC_ERASE_SZ	(1 << 9)	/* High-capacity erase size */
+#define MMC_CAP2_CD_ACTIVE_HIGH (1 << 10) /* Card-detect signal active high */
 
 #define MMC_CAP2_PACKED_RD	(1 << 12)	/* Allow packed read */
 #define MMC_CAP2_PACKED_WR	(1 << 13)	/* Allow packed write */
