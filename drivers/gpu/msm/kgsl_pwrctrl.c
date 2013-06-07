@@ -482,49 +482,6 @@ static int kgsl_pwrctrl_gpuclk_show(struct device *dev,
 			pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq);
 }
 
-static int kgsl_pwrctrl_pwrnap_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t count)
-{
-	char temp[20];
-	unsigned long val;
-	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	struct kgsl_pwrctrl *pwr;
-	int rc;
-
-	if (device == NULL)
-		return 0;
-	pwr = &device->pwrctrl;
-
-	snprintf(temp, sizeof(temp), "%.*s",
-			 (int)min(count, sizeof(temp) - 1), buf);
-	rc = strict_strtoul(temp, 0, &val);
-	if (rc)
-		return rc;
-
-	mutex_lock(&device->mutex);
-
-	if (val == 1)
-		pwr->nap_allowed = true;
-	else if (val == 0)
-		pwr->nap_allowed = false;
-
-	mutex_unlock(&device->mutex);
-
-	return count;
-}
-
-static int kgsl_pwrctrl_pwrnap_show(struct device *dev,
-				    struct device_attribute *attr,
-				    char *buf)
-{
-	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	if (device == NULL)
-		return 0;
-	return snprintf(buf, PAGE_SIZE, "%d\n", device->pwrctrl.nap_allowed);
-}
-
-
 static int kgsl_pwrctrl_idle_timer_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -759,7 +716,6 @@ static int kgsl_pwrctrl_force_bus_on_store(struct device *dev,
 DEVICE_ATTR(gpuclk, 0644, kgsl_pwrctrl_gpuclk_show, kgsl_pwrctrl_gpuclk_store);
 DEVICE_ATTR(max_gpuclk, 0644, kgsl_pwrctrl_max_gpuclk_show,
 	kgsl_pwrctrl_max_gpuclk_store);
-DEVICE_ATTR(pwrnap, 0664, kgsl_pwrctrl_pwrnap_show, kgsl_pwrctrl_pwrnap_store);
 DEVICE_ATTR(idle_timer, 0644, kgsl_pwrctrl_idle_timer_show,
 	kgsl_pwrctrl_idle_timer_store);
 DEVICE_ATTR(gpubusy, 0444, kgsl_pwrctrl_gpubusy_show,
@@ -797,7 +753,6 @@ DEVICE_ATTR(force_bus_on, 0644,
 static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_gpuclk,
 	&dev_attr_max_gpuclk,
-	&dev_attr_pwrnap,
 	&dev_attr_idle_timer,
 	&dev_attr_gpubusy,
 	&dev_attr_gputop,
@@ -1091,7 +1046,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = 0;
 
-	pwr->nap_allowed = pdata->nap_allowed;
 	pwr->idle_needed = pdata->idle_needed;
 	pwr->interval_timeout = pdata->idle_timeout;
 	pwr->strtstp_sleepwake = pdata->strtstp_sleepwake;
@@ -1618,9 +1572,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 
 	INIT_COMPLETION(device->suspend_gate);
 
-	if (device->pwrctrl.nap_allowed == true &&
-			(device->state == KGSL_STATE_ACTIVE &&
-			device->requested_state == KGSL_STATE_NONE)) {
+	if (device->state == KGSL_STATE_ACTIVE &&
+			device->requested_state == KGSL_STATE_NONE) {
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 		if (kgsl_pwrctrl_sleep(device) && device->pwrctrl.irq_last) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);

@@ -525,7 +525,6 @@ EXPORT_SYMBOL(kgsl_check_timestamp);
 static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 {
 	int status = -EINVAL;
-	unsigned int nap_allowed_saved;
 	struct kgsl_pwrscale_policy *policy_saved;
 
 	if (!device)
@@ -534,8 +533,6 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	KGSL_PWR_WARN(device, "suspend start\n");
 
 	mutex_lock(&device->mutex);
-	nap_allowed_saved = device->pwrctrl.nap_allowed;
-	device->pwrctrl.nap_allowed = false;
 	policy_saved = device->pwrscale.policy;
 	device->pwrscale.policy = NULL;
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
@@ -544,6 +541,12 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	 * before supending.
 	 */
 	kgsl_active_count_wait(device);
+
+	/*
+	 * An interrupt could have snuck in and requested NAP in
+	 * the meantime, make sure we're on the SUSPEND path.
+	 */
+	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
 
 	/* Don't let the timer wake us during suspended sleep. */
 	del_timer_sync(&device->idle_timer);
@@ -575,7 +578,6 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 			goto end;
 	}
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	device->pwrctrl.nap_allowed = nap_allowed_saved;
 	device->pwrscale.policy = policy_saved;
 	status = 0;
 
@@ -3327,7 +3329,6 @@ EXPORT_SYMBOL(kgsl_device_platform_probe);
 
 int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 {
-	bool saved_nap;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	BUG_ON(device == NULL);
@@ -3347,8 +3348,8 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 	if (device->pm_dump_enable) {
 
 		KGSL_LOG_DUMP(device,
-			"POWER: NAP ALLOWED = %d | START_STOP_SLEEP_WAKE = %d\n"
-			, pwr->nap_allowed, pwr->strtstp_sleepwake);
+			"POWER: START_STOP_SLEEP_WAKE = %d\n",
+			pwr->strtstp_sleepwake);
 
 		KGSL_LOG_DUMP(device,
 			"POWER: FLAGS = %08lX | ACTIVE POWERLEVEL = %08X",
@@ -3365,11 +3366,6 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 	flush_workqueue(device->work_queue);
 	mutex_lock(&device->mutex);
 
-	/* Turn off napping to make sure we have the clocks full
-	   attention through the following process */
-	saved_nap = device->pwrctrl.nap_allowed;
-	device->pwrctrl.nap_allowed = false;
-
 	/* Force on the clocks */
 	kgsl_pwrctrl_wake(device);
 
@@ -3378,9 +3374,6 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 
 	/*Call the device specific postmortem dump function*/
 	device->ftbl->postmortem_dump(device, manual);
-
-	/* Restore nap mode */
-	device->pwrctrl.nap_allowed = saved_nap;
 
 	/* On a manual trigger, turn on the interrupts and put
 	   the clocks to sleep.  They will recover themselves

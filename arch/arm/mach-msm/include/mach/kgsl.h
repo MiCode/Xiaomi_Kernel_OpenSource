@@ -81,7 +81,6 @@ struct kgsl_device_platform_data {
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	bool strtstp_sleepwake;
-	unsigned int nap_allowed;
 	unsigned int clk_map;
 	unsigned int idle_needed;
 	unsigned int step_mul;

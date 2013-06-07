@@ -66,7 +66,6 @@ Optional Properties:
 			   and when coming back out of resume
 - qcom,step-pwrlevel:	   How many qcom,gpu-pwrlevel should be decremented at once
 - qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
-- qcom,nap-allowed:	   Boolean. <0> or <1> to disable/enable nap.
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
@@ -105,7 +104,6 @@ Example of A330 GPU in MSM8974:
 
 		qcom,initial-pwrlevel = <1>;
 		qcom,idle-timeout = <83>; //<HZ/12>
-		qcom,nap-allowed = <1>;
 		qcom,clk-map = <0x00000016>; //KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE
 
 		/* Bus Scale Settings */

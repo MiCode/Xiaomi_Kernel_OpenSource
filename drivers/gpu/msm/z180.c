@@ -216,8 +216,7 @@ static irqreturn_t z180_irq_handler(struct kgsl_device *device)
 		}
 	}
 
-	if ((device->pwrctrl.nap_allowed == true) &&
-		(device->requested_state == KGSL_STATE_NONE)) {
+	if (device->requested_state == KGSL_STATE_NONE) {
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 		queue_work(device->work_queue, &device->idle_check_ws);
 	}
