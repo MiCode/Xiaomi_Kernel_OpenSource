@@ -56,6 +56,7 @@ extern struct clock_init_data msm8226_clock_init_data;
 extern struct clock_init_data msm8226_rumi_clock_init_data;
 extern struct clock_init_data msm8084_clock_init_data;
 extern struct clock_init_data mpq8092_clock_init_data;
+extern struct clock_init_data msmkrypton_clock_init_data;
 
 int msm_clock_init(struct clock_init_data *data);
 int find_vdd_level(struct clk *clk, unsigned long rate);
