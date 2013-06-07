@@ -437,5 +437,9 @@ void msm_dsi_phy_sw_reset(unsigned char *ctrl_base)
 
 void msm_dsi_phy_off(unsigned char *ctrl_base)
 {
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_PLL_CTRL_5, 0x05f);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_REGULATOR_CTRL_0, 0x02);
 	MIPI_OUTP(ctrl_base + DSI_DSIPHY_CTRL_0, 0x00);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_CTRL_1, 0x7f);
+	MIPI_OUTP(ctrl_base + DSI_CLK_CTRL, 0);
 }
