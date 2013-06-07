@@ -1053,6 +1053,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 };
 
 static char *pm_power_supplied_to[] = {
@@ -1282,6 +1283,16 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 	return DEFAULT_TEMP;
 }
 
+static int get_prop_cycle_count(struct qpnp_chg_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->bms_psy)
+		chip->bms_psy->get_property(chip->bms_psy,
+			  POWER_SUPPLY_PROP_CYCLE_COUNT, &ret);
+	return ret.intval;
+}
+
 static void
 qpnp_batt_external_power_changed(struct power_supply *psy)
 {
@@ -1363,6 +1374,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		val->intval = chip->therm_lvl_sel;
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = get_prop_cycle_count(chip);
 		break;
 	default:
 		return -EINVAL;
