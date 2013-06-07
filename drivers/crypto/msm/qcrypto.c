@@ -24,6 +24,9 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
+#include <linux/sched.h>
+#include <linux/init.h>
 
 #include <crypto/ctr.h>
 #include <crypto/des.h>
@@ -50,6 +53,8 @@
  * For crypto 5.0 which has burst size alignment requirement.
  */
 #define MAX_ALIGN_SIZE  0x40
+
+#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
 
 struct crypto_stat {
 	u32 aead_sha1_aes_enc;
@@ -113,12 +118,17 @@ struct crypto_priv {
 
 	uint32_t ce_lock_count;
 	uint32_t high_bw_req_count;
+	uint32_t low_bw_req_count;
 
 	struct work_struct unlock_ce_ws;
 
 	struct tasklet_struct done_tasklet;
-};
 
+	struct timer_list bw_scale_down_timer;
+
+	struct work_struct low_bw_req_ws;
+
+};
 
 /*-------------------------------------------------------------------------
 * Resource Locking Service
@@ -352,7 +362,8 @@ static void _words_to_byte_stream(uint32_t *iv, unsigned char *b,
 	}
 }
 
-static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req)
+static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req,
+			uint32_t low_bw_req_count)
 {
 	int ret = 0;
 
@@ -377,7 +388,7 @@ static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req)
 		}
 		cp->high_bw_req_count++;
 	} else {
-		if (cp->high_bw_req_count == 1) {
+		if (cp->high_bw_req_count == low_bw_req_count) {
 			ret = msm_bus_scale_client_update_request(
 					cp->bus_scale_handle, 0);
 			if (ret) {
@@ -397,10 +408,47 @@ static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req)
 				mutex_unlock(&qcrypto_sent_bw_req);
 				return;
 			}
+			cp->high_bw_req_count = 0;
 		}
-		cp->high_bw_req_count--;
 	}
 	mutex_unlock(&qcrypto_sent_bw_req);
+}
+
+static void qcrypto_bw_scale_down_timer_callback(unsigned long data)
+{
+	struct crypto_priv *cp = (struct crypto_priv *)data;
+
+	schedule_work(&cp->low_bw_req_ws);
+
+	return;
+}
+
+static void qcrypto_ce_bw_scaling_req(struct crypto_priv *cp, bool high_bw_req)
+{
+	if (high_bw_req) {
+		qcrypto_ce_high_bw_req(cp, true, 0);
+	} else {
+		cp->low_bw_req_count = cp->high_bw_req_count;
+		cp->bw_scale_down_timer.data =
+			(unsigned long)(cp);
+		cp->bw_scale_down_timer.function =
+			qcrypto_bw_scale_down_timer_callback;
+		cp->bw_scale_down_timer.expires = jiffies +
+			msecs_to_jiffies(QCRYPTO_HIGH_BANDWIDTH_TIMEOUT);
+		mod_timer(&(cp->bw_scale_down_timer),
+			cp->bw_scale_down_timer.expires);
+	}
+	return;
+}
+
+static void qcrypto_low_bw_req_work(struct work_struct *work)
+{
+	struct crypto_priv *cp = container_of(work,
+				struct crypto_priv, low_bw_req_ws);
+
+	qcrypto_ce_high_bw_req(cp, false, cp->low_bw_req_count);
+
+	return;
 }
 
 static int _start_qcrypto_process(struct crypto_priv *cp);
@@ -500,7 +548,7 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 	/* random first IV */
 	get_random_bytes(ctx->iv, QCRYPTO_MAX_IV_LENGTH);
 	if (ctx->cp->platform_support.bus_scale_table != NULL)
-		qcrypto_ce_high_bw_req(ctx->cp, true);
+		qcrypto_ce_bw_scaling_req(ctx->cp, true);
 
 	return 0;
 };
@@ -539,7 +587,7 @@ static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
 
 	sha_ctx->ahash_req = NULL;
 	if (sha_ctx->cp->platform_support.bus_scale_table != NULL)
-		qcrypto_ce_high_bw_req(sha_ctx->cp, true);
+		qcrypto_ce_bw_scaling_req(sha_ctx->cp, true);
 
 	return 0;
 };
@@ -561,7 +609,7 @@ static void _qcrypto_ahash_cra_exit(struct crypto_tfm *tfm)
 		sha_ctx->ahash_req = NULL;
 	}
 	if (sha_ctx->cp->platform_support.bus_scale_table != NULL)
-		qcrypto_ce_high_bw_req(sha_ctx->cp, false);
+		qcrypto_ce_bw_scaling_req(sha_ctx->cp, false);
 };
 
 
@@ -611,7 +659,7 @@ static void _qcrypto_cra_ablkcipher_exit(struct crypto_tfm *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 
 	if (ctx->cp->platform_support.bus_scale_table != NULL)
-		qcrypto_ce_high_bw_req(ctx->cp, false);
+		qcrypto_ce_bw_scaling_req(ctx->cp, false);
 };
 
 static void _qcrypto_cra_aead_exit(struct crypto_tfm *tfm)
@@ -619,7 +667,7 @@ static void _qcrypto_cra_aead_exit(struct crypto_tfm *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 
 	if (ctx->cp->platform_support.bus_scale_table != NULL)
-		qcrypto_ce_high_bw_req(ctx->cp, false);
+		qcrypto_ce_bw_scaling_req(ctx->cp, false);
 };
 
 static int _disp_stats(int id)
@@ -747,6 +795,8 @@ static int _qcrypto_remove(struct platform_device *pdev)
 		list_del(&q_alg->entry);
 		kfree(q_alg);
 	}
+	cancel_work_sync(&cp->low_bw_req_ws);
+	del_timer_sync(&cp->bw_scale_down_timer);
 
 	if (cp->qce)
 		qce_close(cp->qce);
@@ -3680,7 +3730,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 	cp->high_bw_req_count = 0;
 	cp->ce_lock_count = 0;
-
+	cp->high_bw_req_count = 0;
 
 	if (cp->platform_support.ce_shared)
 		INIT_WORK(&cp->unlock_ce_ws, qcrypto_unlock_ce);
@@ -3845,6 +3895,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 					q_alg->cipher_alg.cra_driver_name);
 		}
 	}
+
+	init_timer(&(cp->bw_scale_down_timer));
+	INIT_WORK(&cp->low_bw_req_ws, qcrypto_low_bw_req_work);
 
 	return 0;
 err:
