@@ -1916,16 +1916,16 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto pclk_disable;
 	}
 
-	ret = clk_prepare_enable(msm_host->clk);
-	if (ret)
-		goto pclk_disable;
-
 	/* Set to the minimum supported clock frequency */
 	ret = clk_set_rate(msm_host->clk, sdhci_msm_get_min_clock(host));
 	if (ret) {
 		dev_err(&pdev->dev, "MClk rate set failed (%d)\n", ret);
-		goto clk_disable;
+		goto pclk_disable;
 	}
+	ret = clk_prepare_enable(msm_host->clk);
+	if (ret)
+		goto pclk_disable;
+
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
 
