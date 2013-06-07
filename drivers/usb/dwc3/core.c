@@ -398,6 +398,14 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		reg &= ~DWC3_GUSB3PIPECTL_DIS_RXDET_U3_RXDET;
 		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 	}
+	/*
+	 * clear Elastic buffer mode in GUSBPIPE_CTRL(0) register, otherwise
+	 * it results in high link errors and could cause SS mode transfer
+	 * failure.
+	 */
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	return 0;
 
