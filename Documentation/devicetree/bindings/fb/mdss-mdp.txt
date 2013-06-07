@@ -123,7 +123,9 @@ Optional properties:
 				offsets as well (i.e. the first mixer offset
 				corresponds to the same pathway as the first
 				AD offset).
-
+- qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
+			writeback wfd block in MDSS as opposed to writeback
+			block that is shared between rotator and wfd.
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -161,6 +163,7 @@ Example:
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
+		qcom,mdss-has-wfd-blk;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
