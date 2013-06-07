@@ -312,8 +312,6 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, drvdata);
 
-	msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);
-
 	pmon_info = msm_iommu_pm_alloc(&pdev->dev);
 	if (pmon_info != NULL) {
 		ret = msm_iommu_pmon_parse_dt(pdev, pmon_info);
@@ -322,7 +320,7 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 			pr_info("%s: pmon not available.\n", drvdata->name);
 		} else {
 			pmon_info->iommu.base = drvdata->base;
-			pmon_info->iommu.ops = &iommu_access_ops_v1;
+			pmon_info->iommu.ops = msm_get_iommu_access_ops();
 			pmon_info->iommu.hw_ops = iommu_pm_get_hw_ops_v1();
 			pmon_info->iommu.iommu_name = drvdata->name;
 			ret = msm_iommu_pm_iommu_register(pmon_info);
@@ -501,6 +499,10 @@ static int __init msm_iommu_driver_init(void)
 {
 	int ret;
 
+	if (!msm_soc_version_supports_iommu_v0()) {
+		msm_set_iommu_access_ops(&iommu_access_ops_v1);
+		msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);
+	}
 	ret = platform_driver_register(&msm_iommu_driver);
 	if (ret != 0) {
 		pr_err("Failed to register IOMMU driver\n");
