@@ -762,11 +762,6 @@ static int mdp3_res_init(void)
 	if (rc)
 		return rc;
 
-	rc = mdp3_iommu_attach(MDP3_IOMMU_CTX_DMA_0);
-	if (rc) {
-		pr_err("fail to attach DMA-P context 0\n");
-		return rc;
-	}
 	mdp3_res->bus_handle = mdp3_bus_handle;
 	rc = mdp3_bus_scale_register();
 	if (rc) {
@@ -931,19 +926,31 @@ done:
 	return ret;
 }
 
-int mdp3_ppp_iommu_attach(void)
+int mdp3_iommu_enable(int client)
 {
 	int rc;
-	rc = mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_0);
-	rc |= mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_1);
+
+	if (client == MDP3_CLIENT_DMA_P) {
+		rc = mdp3_iommu_attach(MDP3_IOMMU_CTX_DMA_0);
+	} else {
+		rc = mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_0);
+		rc |= mdp3_iommu_attach(MDP3_IOMMU_CTX_PPP_1);
+	}
+
 	return rc;
 }
 
-int mdp3_ppp_iommu_dettach(void)
+int mdp3_iommu_disable(int client)
 {
 	int rc;
-	rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_0);
-	rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_1);
+
+	if (client == MDP3_CLIENT_DMA_P) {
+		rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_DMA_0);
+	} else {
+		rc = mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_0);
+		rc |= mdp3_iommu_dettach(MDP3_IOMMU_CTX_PPP_1);
+	}
+
 	return rc;
 }
 

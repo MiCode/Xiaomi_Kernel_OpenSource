@@ -146,8 +146,8 @@ int mdp3_clk_enable(int enable);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 int mdp3_put_img(struct mdp3_img_data *data);
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
-int mdp3_ppp_iommu_attach(void);
-int mdp3_ppp_iommu_dettach(void);
+int mdp3_iommu_enable(int client);
+int mdp3_iommu_disable(int client);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)

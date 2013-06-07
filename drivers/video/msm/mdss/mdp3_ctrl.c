@@ -398,10 +398,18 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
+	if (rc) {
+		pr_err("fail to attach MDP DMA SMMU\n");
+		goto on_error;
+	}
+
 	/* request bus bandwidth before DSI DMA traffic */
 	rc = mdp3_ctrl_res_req_bus(mfd, 1);
-	if (rc)
+	if (rc) {
 		pr_err("fail to request bus resource\n");
+		goto on_error;
+	}
 
 	panel = mdp3_session->panel;
 	if (panel->event_handler)
@@ -431,9 +439,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	rc = mdp3_ctrl_intf_init(mfd, mdp3_session->intf);
 	if (rc) {
 		pr_err("display interface init failed\n");
-
-
-
 		goto on_error;
 	}
 
@@ -493,6 +498,11 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	rc = mdp3_ctrl_res_req_clk(mfd, 0);
 	if (rc)
 		pr_err("mdp clock resource release failed\n");
+
+	rc = mdp3_iommu_disable(MDP3_CLIENT_DMA_P);
+	if (rc)
+		pr_err("fail to dettach MDP DMA SMMU\n");
+
 off_error:
 	mdp3_session->status = 0;
 	mutex_unlock(&mdp3_session->lock);
