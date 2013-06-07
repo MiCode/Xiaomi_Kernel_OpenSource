@@ -289,6 +289,32 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = pipe->mixer->ctl->mdata;
+	struct mdss_mdp_perf_params perf;
+	int rc;
+
+	for (;;) {
+		rc = mdss_mdp_perf_calc_pipe(pipe, &perf);
+
+		if (!rc && (perf.mdp_clk_rate <= mdata->max_mdp_clk_rate))
+			break;
+
+		/*
+		 * if decimation is available try to reduce minimum clock rate
+		 * requirement by applying vertical decimation and reduce
+		 * mdp clock requirement
+		 */
+		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION))
+			pipe->vert_deci++;
+		else
+			return -EPERM;
+	}
+
+	return 0;
+}
+
 static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 				       struct mdp_overlay *req,
 				       struct mdss_mdp_pipe **ppipe)
@@ -497,6 +523,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	ret = __mdp_pipe_tune_perf(pipe);
+	if (ret) {
+		pr_debug("unable to satisfy performance. ret=%d\n", ret);
+		goto exit_fail;
+	}
+
 	ret = mdss_mdp_smp_reserve(pipe);
 	if (ret) {
 		pr_debug("mdss_mdp_smp_reserve failed. ret=%d\n", ret);
@@ -506,6 +538,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->params_changed++;
 
 	req->id = pipe->ndx;
+	req->vert_deci = pipe->vert_deci;
 
 	*ppipe = pipe;
 
