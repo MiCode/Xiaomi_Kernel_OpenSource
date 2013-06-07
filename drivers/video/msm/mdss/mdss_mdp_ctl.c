@@ -103,7 +103,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
-	const int fps = 60;
+	int fps = DEFAULT_FRAME_RATE;
 	u32 quota, rate;
 	u32 v_total;
 	int i;
@@ -121,6 +121,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
+			fps = mdss_panel_get_framerate(pinfo);
 			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
 				   pinfo->lcdc.v_front_porch +
 				   pinfo->lcdc.v_pulse_width);
