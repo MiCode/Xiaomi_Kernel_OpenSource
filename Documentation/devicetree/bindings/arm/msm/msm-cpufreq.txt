@@ -1,0 +1,44 @@
+Qualcomm MSM CPUfreq device
+
+msm-cpufreq is a device that represents the list of useable CPU frequencies
+and the cache frequency and/or memory bandwidth required for each of them. It
+also captures the bus master/slave ports towards which the bus bandwidth
+requests need to be made to ensure the required memory bandwidth.
+
+Required properties:
+- compatible:		Must be "qcom,msm-cpufreq"
+- qcom,cpufreq-table:	A list of tuples where each tuple consists of a
+			usable CPU frequency (KHz), an optional cache
+			frequency (KHz) and an optional memory bandwidth
+			value (MBPS) listed in that order.  The cache
+			frequencies shall not be listed if the device cannot
+			run the cache asynchronous to one or more CPUs. The
+			memory bandwidth values shall not be listed if the
+			optional cpu-mem-ports property is not supplied.
+
+Optional properties:
+- qcom,cpu-mem-ports:	A list of tuples where each tuple consists of a bus
+			master (CPU) port number and a bus slave (memory)
+			port number.
+
+Example:
+	qcom,msm-cpufreq@0 {
+		regs = <0 4>
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpu-mem-ports = <1 512>, <2 513>;
+		qcom,cpufreq-table =
+			<  300000  300000  600 >,
+			<  422400  422400 1200 >,
+			<  652800  499200 1600 >,
+			<  729600  576000 2456 >,
+			<  883200  576000 2456 >,
+			<  960000  960000 3680 >,
+			< 1036800 1036800 3680 >,
+			< 1190400 1036800 3680 >,
+			< 1267200 1267200 6400 >,
+			< 1497600 1497600 6400 >,
+			< 1574400 1574400 6400 >,
+			< 1728000 1651200 6400 >,
+			< 1958400 1728000 7448 >,
+			< 2265600 1728000 7448 >;
+	};
