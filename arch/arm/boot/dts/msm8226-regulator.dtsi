@@ -411,6 +411,17 @@
 		};
 	};
 
+	rpm-regulator-ldoa25 {
+		status = "okay";
+		pm8226_l25: regulator-l25 {
+			regulator-name = "8226_l25";
+			regulator-min-microvolt = <1775000>;
+			regulator-max-microvolt = <2125000>;
+			qcom,init-voltage = <1775000>;
+			status = "okay";
+		};
+	};
+
 	rpm-regulator-ldoa26 {
 		status = "okay";
 		pm8226_l26: regulator-l26 {
