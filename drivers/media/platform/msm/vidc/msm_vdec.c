@@ -69,6 +69,12 @@ static const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata mpeg2 seqdisp",
 };
 
+static const char *const perf_level[] = {
+	"Nominal",
+	"Performance",
+	"Turbo"
+};
+
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
@@ -228,6 +234,19 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
+		.step = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL,
+		.name = "Encoder Performance Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL,
+		.maximum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO,
+		.default_value = V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL,
+		.menu_skip_mask = ~(
+			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL) |
+			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO)),
+		.qmenu = perf_level,
 		.step = 0,
 	},
 };
@@ -1238,7 +1257,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	u32 control_idx = 0;
 	enum hal_property property_id = 0;
 	u32 property_val = 0;
-	void *pdata;
+	void *pdata = NULL;
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1315,6 +1334,22 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &extra;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL:
+		switch (ctrl->val) {
+		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL:
+			inst->flags &= ~VIDC_TURBO;
+			break;
+		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO:
+			inst->flags |= VIDC_TURBO;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Perf mode %x not supported",
+					ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		break;
 	default:
 		break;
 	}
