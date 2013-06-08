@@ -132,6 +132,16 @@
 			debounce-interval = <15>;
 		};
 	};
+
+    sound {
+        qcom,audio-routing =
+            "RX_BIAS", "MCLK",
+            "INT_LDO_H", "MCLK",
+            "MIC BIAS External", "Handset Mic",
+            "MIC BIAS Internal2", "Headset Mic",
+            "AMIC1", "MIC BIAS External",
+            "AMIC2", "MIC BIAS Internal2";
+    };
 };
 
 &i2c_cdc  {
