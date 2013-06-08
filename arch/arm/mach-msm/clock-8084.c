@@ -49,6 +49,8 @@ static struct clk_lookup msm_clocks_8084[] = {
 	CLK_DUMMY("sleep_a_clk",   NULL, "f9200000.qcom,ssusb", OFF),
 	CLK_DUMMY("utmi_clk",   NULL, "f9200000.qcom,ssusb", OFF),
 	CLK_DUMMY("ref_clk",    NULL, "f9200000.qcom,ssusb", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	"msm_sps", OFF),
 	CLK_DUMMY("",	ufs_axi_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	usb30_master_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	usb30_sec_master_clk_src.c,	"", OFF),
