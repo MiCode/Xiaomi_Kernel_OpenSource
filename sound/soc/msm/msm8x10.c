@@ -94,16 +94,6 @@ static atomic_t aud_init_rsc_ref;
 static int msm8x10_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 
-static const struct snd_soc_dapm_route msm8x10_common_audio_map[] = {
-	{"RX_BIAS", NULL, "MCLK"},
-	{"INT_LDO_H", NULL, "MCLK"},
-	{"MIC BIAS External", NULL, "Handset Mic"},
-	{"MIC BIAS Internal2", NULL, "Headset Mic"},
-	{"AMIC1", NULL, "MIC BIAS External"},
-	{"AMIC2", NULL, "MIC BIAS Internal2"},
-
-};
-
 static const struct snd_soc_dapm_widget msm8x10_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
@@ -380,9 +370,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_new_controls(dapm, msm8x10_dapm_widgets,
 				ARRAY_SIZE(msm8x10_dapm_widgets));
-
-	snd_soc_dapm_add_routes(dapm, msm8x10_common_audio_map,
-		ARRAY_SIZE(msm8x10_common_audio_map));
 
 	snd_soc_dapm_sync(dapm);
 	ret =  msm_enable_mclk_root(AFE_PORT_ID_SECONDARY_MI2S_RX,
@@ -806,6 +793,10 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 
+	ret = snd_soc_of_parse_audio_routing(card,
+			"qcom,audio-routing");
+	if (ret)
+		goto err;
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
