@@ -74,6 +74,8 @@ struct msm_mdp_interface {
 	void *private1;
 };
 
+#define IS_CALIB_MODE_BL(mfd) (((mfd)->calib_mode) & MDSS_CALIB_MODE_BL)
+
 struct msm_fb_data_type {
 	u32 key;
 	u32 index;
@@ -101,6 +103,7 @@ struct msm_fb_data_type {
 	unsigned long cursor_buf_phys;
 	unsigned long cursor_buf_iova;
 
+	u32 calib_mode;
 	u32 bl_level;
 	u32 bl_scale;
 	u32 bl_min_lvl;
