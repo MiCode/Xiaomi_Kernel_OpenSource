@@ -607,6 +607,7 @@ struct mdp_calib_config_data {
 #define MDSS_AD_MODE_AUTO_STR	0x1
 #define MDSS_AD_MODE_TARG_STR	0x3
 #define MDSS_AD_MODE_MAN_STR	0x7
+#define MDSS_AD_MODE_CALIB	0xF
 
 #define MDP_PP_AD_INIT	0x10
 #define MDP_PP_AD_CFG	0x20
@@ -663,6 +664,7 @@ struct mdss_ad_input {
 	union {
 		uint32_t amb_light;
 		uint32_t strength;
+		uint32_t calib_bl;
 	} in;
 	uint32_t output;
 };
