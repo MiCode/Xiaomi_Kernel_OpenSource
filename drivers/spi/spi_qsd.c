@@ -481,6 +481,16 @@ static void msm_spi_set_spi_config(struct msm_spi *dd, int bpw)
 	else if (dd->mode == SPI_BAM_MODE)
 		spi_config |= SPI_CFG_INPUT_FIRST;
 
+	/*
+	 * HS_MODE improves signal stability for spi-clk high rates
+	 * but is invalid in LOOPBACK mode.
+	 */
+	if ((dd->clock_speed >= SPI_HS_MIN_RATE) &&
+	   !(dd->cur_msg->spi->mode & SPI_LOOP))
+		spi_config |= SPI_CFG_HS_MODE;
+	else
+		spi_config &= ~SPI_CFG_HS_MODE;
+
 	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
 }
 
