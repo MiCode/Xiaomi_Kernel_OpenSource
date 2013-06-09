@@ -1649,7 +1649,8 @@
 
 &gdsc_oxili_gx {
 	qcom,clock-names = "core_clk";
-	qcom,retain-mems;
+	qcom,retain-mem;
+	qcom,retain-periph;
 	status = "ok";
 };
 
