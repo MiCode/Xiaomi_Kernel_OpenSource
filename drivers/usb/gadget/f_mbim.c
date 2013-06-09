@@ -1455,6 +1455,7 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	mbim_union_desc.bSlaveInterface0 = status;
 
 	mbim->bam_port.cdev = cdev;
+	mbim->bam_port.func = &mbim->function;
 
 	status = -ENODEV;
 
@@ -1574,6 +1575,7 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_mbim	*mbim = func_to_mbim(f);
 
+	bam_data_destroy(mbim->port_num);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
 	usb_free_descriptors(f->descriptors);
