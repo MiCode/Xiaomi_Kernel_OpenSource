@@ -451,7 +451,7 @@ static int ft5x06_get_dt_coords(struct device *dev, char *name,
 static int ft5x06_parse_dt(struct device *dev,
 			struct ft5x06_ts_platform_data *pdata)
 {
-	int rc, i;
+	int rc;
 	struct device_node *np = dev->of_node;
 	struct property *prop;
 	u32 temp_val, num_buttons;
