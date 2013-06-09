@@ -295,7 +295,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: Trigger start\n", __func__);
-		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		ret = q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
@@ -303,12 +303,12 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
 			break;
 		prtd->cmd_ack = 0;
-		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+		ret = q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE\n");
-		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+		ret = q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 		atomic_set(&prtd->start, 0);
 		break;
 	default:
