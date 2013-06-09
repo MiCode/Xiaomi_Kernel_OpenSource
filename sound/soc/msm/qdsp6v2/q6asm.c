@@ -508,16 +508,17 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 
 int q6asm_mmap_apr_dereg(void)
 {
-	if (atomic_read(&this_mmap.ref_cnt) <= 0) {
-		pr_err("%s: APR Common Port Already Closed\n", __func__);
-		goto done;
-	}
-	atomic_dec(&this_mmap.ref_cnt);
-	if (atomic_read(&this_mmap.ref_cnt) == 0) {
+	int c;
+
+	c = atomic_sub_return(1, &this_mmap.ref_cnt);
+	if (c == 0) {
 		apr_deregister(this_mmap.apr);
-		pr_debug("%s:APR De-Register common port\n", __func__);
+		pr_debug("%s: APR De-Register common port\n", __func__);
+	} else if (c < 0) {
+		pr_err("%s: APR Common Port Already Closed\n", __func__);
+		atomic_set(&this_mmap.ref_cnt, 0);
 	}
-done:
+
 	return 0;
 }
 
