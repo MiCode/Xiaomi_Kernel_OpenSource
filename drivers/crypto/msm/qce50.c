@@ -2729,8 +2729,14 @@ static int qce_setup_ce_sps_data(struct qce_device *pce_dev)
 					pce_dev->ce_sps.ce_burst_size);
 	pce_dev->ce_sps.result_dump = (uint32_t)vaddr;
 	pce_dev->ce_sps.result = (struct ce_result_dump_format *)vaddr;
-	vaddr += 128;
+	vaddr += CRYPTO_RESULT_DUMP_SIZE;
 
+	pce_dev->ce_sps.ignore_buffer = (uint32_t)vaddr;
+	vaddr += pce_dev->ce_sps.ce_burst_size * 2;
+
+	if ((vaddr - pce_dev->coh_vmem) > pce_dev->memsize)
+		panic("qce50: Not enough coherent memory. Allocate %x , need %x",
+			 pce_dev->memsize, vaddr - pce_dev->coh_vmem);
 	return 0;
 }
 
