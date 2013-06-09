@@ -298,7 +298,7 @@ int get_bam2bam_connection_info(u8 idx,
  * Resets the USB BAM that has A2 pipes
  *
  */
-int usb_bam_a2_reset(void);
+int usb_bam_a2_reset(bool to_reconnect);
 
 /**
  * Indicates if the client of the USB BAM is ready to start
@@ -308,6 +308,14 @@ int usb_bam_a2_reset(void);
  *
  */
 int usb_bam_client_ready(bool ready);
+
+/**
+* Returns upon reset completion if reset is in progress
+* immediately otherwise.
+*
+*/
+void usb_bam_reset_complete(void);
+
 /**
 * Returns qdss index from the connections array.
 *
@@ -403,7 +411,7 @@ static inline int get_bam2bam_connection_info(u8 idx,
 	return -ENODEV;
 }
 
-static inline int usb_bam_a2_reset(void)
+static inline int usb_bam_a2_reset(bool to_reconnect)
 {
 	return -ENODEV;
 }
@@ -411,6 +419,11 @@ static inline int usb_bam_a2_reset(void)
 static inline int usb_bam_client_ready(bool ready)
 {
 	return -ENODEV;
+}
+
+static inline void usb_bam_reset_complete(void)
+{
+	return;
 }
 
 static inline int usb_bam_get_qdss_idx(u8 num)

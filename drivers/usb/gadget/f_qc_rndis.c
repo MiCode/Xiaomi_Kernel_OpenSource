@@ -725,13 +725,13 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		 */
 		rndis->port.cdc_filter = 0;
 
+		if (rndis_qc_bam_connect(rndis))
+			goto fail;
+
 		DBG(cdev, "RNDIS RX/TX early activation ...\n");
 		net = gether_qc_connect_name(&rndis->port, "rndis0", false);
 		if (IS_ERR(net))
 			return PTR_ERR(net);
-
-		if (rndis_qc_bam_connect(rndis))
-			goto fail;
 
 		rndis_set_param_dev(rndis->config, net,
 				&rndis->port.cdc_filter);
@@ -976,6 +976,8 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
 
+	pr_debug("rndis_qc_unbind: free");
+	bam_data_destroy(0);
 	rndis_deregister(rndis->config);
 	rndis_exit();
 
