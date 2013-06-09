@@ -1625,6 +1625,7 @@
 
 &gdsc_mdss {
 	qcom,clock-names = "core_clk", "lut_clk";
+	qcom,retain-periph;
 	status = "ok";
 };
 
