@@ -12,9 +12,12 @@ Required properties:
 Optional properties:
  - parent-supply:   phandle to the parent supply/regulator node
  - qcom,clock-names: List of string names for core clocks
- - qcom,retain-mems: Presence denotes a hardware requirement to leave the
-		     forced memory retention signals in the core's clock
-		     branch control register asserted.
+ - qcom,retain-mem:  Presence denotes a hardware requirement to leave the
+		     forced core memory retention signals in the core's clock
+		     branch control registers asserted.
+ - qcom,retain-periph: Presence denotes a hardware requirement to leave the
+		     forced periph memory retention signal in the core's clock
+		     branch control registers asserted.
  - qcom,skip-logic-collapse: Presence denotes a requirement to leave power to
                              the core's logic enabled.
 
