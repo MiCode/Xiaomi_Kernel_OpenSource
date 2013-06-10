@@ -29,6 +29,7 @@
 #include <linux/msm_ion.h>
 #include <asm/smcmod.h>
 #include <mach/scm.h>
+#include <mach/socinfo.h>
 
 static DEFINE_MUTEX(ioctl_lock);
 
@@ -513,6 +514,110 @@ buf_cleanup:
 	return ret;
 }
 
+static int smcmod_send_dec_cmd(struct smcmod_decrypt_req *reqp)
+{
+	struct ion_client *ion_clientp;
+	struct ion_handle *ion_handlep = NULL;
+	int ion_fd;
+	int ret;
+	u32 pa;
+	size_t size;
+	struct {
+		u32 args[4];
+	} req;
+	struct {
+		u32 args[3];
+	} rsp;
+
+	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	if (IS_ERR_OR_NULL(ion_clientp))
+		return PTR_ERR(ion_clientp);
+
+	switch (reqp->operation) {
+	case SMCMOD_DECRYPT_REQ_OP_METADATA: {
+		ion_fd = reqp->request.metadata.ion_fd;
+		ret = smcmod_ion_fd_to_phys(ion_fd, ion_clientp,
+					    &ion_handlep, &pa, &size);
+		if (ret)
+			goto error;
+
+		req.args[0] = reqp->request.metadata.len;
+		req.args[1] = pa;
+		break;
+	}
+	case SMCMOD_DECRYPT_REQ_OP_IMG_FRAG: {
+		ion_fd = reqp->request.img_frag.ion_fd;
+		ret = smcmod_ion_fd_to_phys(ion_fd, ion_clientp,
+					    &ion_handlep, &pa, &size);
+		if (ret)
+			goto error;
+
+		req.args[0] = reqp->request.img_frag.ctx_id;
+		req.args[1] = reqp->request.img_frag.last_frag;
+		req.args[2] = reqp->request.img_frag.frag_len;
+		req.args[3] = pa + reqp->request.img_frag.offset;
+		break;
+	}
+	default:
+		ret = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 * scm_call does cache maintenance over request and response buffers.
+	 * The userspace must flush/invalidate ion input/output buffers itself.
+	 */
+
+	ret = scm_call(reqp->service_id, reqp->command_id,
+		       &req, sizeof(req), &rsp, sizeof(rsp));
+	if (ret)
+		goto error;
+
+	switch (reqp->operation) {
+	case SMCMOD_DECRYPT_REQ_OP_METADATA:
+		reqp->response.metadata.status = rsp.args[0];
+		reqp->response.metadata.ctx_id = rsp.args[1];
+		reqp->response.metadata.end_offset = rsp.args[2] - pa;
+		break;
+	case SMCMOD_DECRYPT_REQ_OP_IMG_FRAG: {
+		reqp->response.img_frag.status = rsp.args[0];
+		break;
+	}
+	default:
+		break;
+	}
+
+error:
+	if (!IS_ERR_OR_NULL(ion_clientp)) {
+		if (!IS_ERR_OR_NULL(ion_handlep))
+			ion_free(ion_clientp, ion_handlep);
+		ion_client_destroy(ion_clientp);
+	}
+	return ret;
+}
+
+static int smcmod_ioctl_check(unsigned cmd)
+{
+	switch (cmd) {
+	case SMCMOD_IOCTL_SEND_REG_CMD:
+	case SMCMOD_IOCTL_SEND_BUF_CMD:
+	case SMCMOD_IOCTL_SEND_CIPHER_CMD:
+	case SMCMOD_IOCTL_SEND_MSG_DIGEST_CMD:
+	case SMCMOD_IOCTL_GET_VERSION:
+		if (!cpu_is_fsm9xxx())
+			return -EINVAL;
+		break;
+	case SMCMOD_IOCTL_SEND_DECRYPT_CMD:
+		if (!cpu_is_msm8226())
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
@@ -530,6 +635,10 @@ static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	 * prevent that from happening.
 	 */
 	mutex_lock(&ioctl_lock);
+
+	ret = smcmod_ioctl_check(cmd);
+	if (ret)
+		goto cleanup;
 
 	switch (cmd) {
 	case SMCMOD_IOCTL_SEND_REG_CMD:
@@ -645,6 +754,26 @@ static long smcmod_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			req = scm_get_version();
 
 			/* copy result back to user */
+			if (copy_to_user(argp, (void *)&req, sizeof(req))) {
+				ret = -EFAULT;
+				goto cleanup;
+			}
+		}
+		break;
+
+	case SMCMOD_IOCTL_SEND_DECRYPT_CMD:
+		{
+			struct smcmod_decrypt_req req;
+
+			if (copy_from_user((void *)&req, argp, sizeof(req))) {
+				ret = -EFAULT;
+				goto cleanup;
+			}
+
+			ret = smcmod_send_dec_cmd(&req);
+			if (ret < 0)
+				goto cleanup;
+
 			if (copy_to_user(argp, (void *)&req, sizeof(req))) {
 				ret = -EFAULT;
 				goto cleanup;

@@ -108,6 +108,45 @@ struct smcmod_msg_digest_req {
 	uint32_t return_val; /* out */
 } __packed;
 
+/**
+ * struct smcmod_decrypt_req - used to decrypt image fragments.
+ * @service_id - requested service.
+ * @command_id - requested command.
+ * @operation - specifies metadata parsing or image fragment decrypting.
+ * @request - describes request parameters depending on operation.
+ * @response - this is the response of the request.
+ */
+struct smcmod_decrypt_req {
+	uint32_t service_id;
+	uint32_t command_id;
+#define SMCMOD_DECRYPT_REQ_OP_METADATA	1
+#define SMCMOD_DECRYPT_REQ_OP_IMG_FRAG	2
+	uint32_t operation;
+	union {
+		struct {
+			uint32_t len;
+			uint32_t ion_fd;
+		} metadata;
+		struct {
+			uint32_t ctx_id;
+			uint32_t last_frag;
+			uint32_t frag_len;
+			uint32_t ion_fd;
+			uint32_t offset;
+		} img_frag;
+	} request;
+	union {
+		struct {
+			uint32_t status;
+			uint32_t ctx_id;
+			uint32_t end_offset;
+		} metadata;
+		struct {
+			uint32_t status;
+		} img_frag;
+	} response;
+};
+
 #define SMCMOD_IOC_MAGIC	0x97
 
 /* Number chosen to avoid any conflicts */
@@ -120,4 +159,7 @@ struct smcmod_msg_digest_req {
 #define SMCMOD_IOCTL_SEND_MSG_DIGEST_CMD \
 	_IOWR(SMCMOD_IOC_MAGIC, 35, struct smcmod_msg_digest_req)
 #define SMCMOD_IOCTL_GET_VERSION _IOWR(SMCMOD_IOC_MAGIC, 36, uint32_t)
+#define SMCMOD_IOCTL_SEND_DECRYPT_CMD \
+	_IOWR(SMCMOD_IOC_MAGIC, 37, struct smcmod_decrypt_req)
+
 #endif /* __SMCMOD_H_ */
