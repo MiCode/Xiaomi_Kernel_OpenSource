@@ -2548,7 +2548,7 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 				hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 				mutex_lock(&hist_info->hist_mutex);
 				for (j = 0; j < HIST_V_SIZE; j++)
-					hist_concat[i] += hist_info->data[i];
+					hist_concat[j] += hist_info->data[j];
 				mutex_unlock(&hist_info->hist_mutex);
 			}
 			hist_data_addr = hist_concat;
