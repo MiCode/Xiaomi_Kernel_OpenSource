@@ -47,30 +47,18 @@
 #define BMS1_S1_DELAY_CTL		0x5A
 /* CC interrupt threshold */
 #define BMS1_CC_THR0			0x7A
-#define BMS1_CC_THR1			0x7B
-#define BMS1_CC_THR2			0x7C
-#define BMS1_CC_THR3			0x7D
-#define BMS1_CC_THR4			0x7E
 /* OCV for r registers */
 #define BMS1_OCV_FOR_R_DATA0		0x80
-#define BMS1_OCV_FOR_R_DATA1		0x81
 #define BMS1_VSENSE_FOR_R_DATA0		0x82
-#define BMS1_VSENSE_FOR_R_DATA1		0x83
 /* Coulomb counter data */
 #define BMS1_CC_DATA0			0x8A
-#define BMS1_CC_DATA1			0x8B
-#define BMS1_CC_DATA2			0x8C
-#define BMS1_CC_DATA3			0x8D
-#define BMS1_CC_DATA4			0x8E
+/* Shadow Coulomb counter data */
+#define BMS1_SW_CC_DATA0		0xA8
 /* OCV for soc data */
 #define BMS1_OCV_FOR_SOC_DATA0		0x90
-#define BMS1_OCV_FOR_SOC_DATA1		0x91
 #define BMS1_VSENSE_PON_DATA0		0x94
-#define BMS1_VSENSE_PON_DATA1		0x95
 #define BMS1_VSENSE_AVG_DATA0		0x98
-#define BMS1_VSENSE_AVG_DATA1		0x99
 #define BMS1_VBAT_AVG_DATA0		0x9E
-#define BMS1_VBAT_AVG_DATA1		0x9F
 /* Extra bms registers */
 #define SOC_STORAGE_REG			0xB0
 #define IAVG_STORAGE_REG		0xB1
@@ -99,6 +87,16 @@
 
 #define QPNP_BMS_DEV_NAME "qcom,qpnp-bms"
 
+enum {
+	SHDW_CC,
+	CC
+};
+
+enum {
+	NORESET,
+	RESET
+};
+
 struct soc_params {
 	int		fcc_uah;
 	int		cc_uah;
@@ -112,6 +110,7 @@ struct soc_params {
 struct raw_soc_params {
 	uint16_t	last_good_ocv_raw;
 	int64_t		cc;
+	int64_t		shdw_cc;
 	int		last_good_ocv_uv;
 };
 
@@ -192,6 +191,7 @@ struct qpnp_bms_chip {
 	bool				first_time_calc_soc;
 	bool				first_time_calc_uuc;
 	int64_t				software_cc_uah;
+	int64_t				software_shdw_cc_uah;
 
 	int				iavg_samples_ma[IAVG_SAMPLES];
 	int				iavg_index;
@@ -264,6 +264,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 };
@@ -564,14 +565,18 @@ static int get_battery_voltage(int *result_uv)
 }
 
 #define CC_36_BIT_MASK 0xFFFFFFFFFLL
-
-static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading)
+static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading,
+							int cc_type)
 {
 	int64_t raw_reading;
 	int rc;
 
-	rc = qpnp_read_wrapper(chip, (u8 *)&raw_reading,
-			chip->base + BMS1_CC_DATA0, 5);
+	if (cc_type == SHDW_CC)
+		rc = qpnp_read_wrapper(chip, (u8 *)&raw_reading,
+				chip->base + BMS1_SW_CC_DATA0, 5);
+	else
+		rc = qpnp_read_wrapper(chip, (u8 *)&raw_reading,
+				chip->base + BMS1_CC_DATA0, 5);
 	if (rc) {
 		pr_err("Error reading cc: rc = %d\n", rc);
 		return -ENXIO;
@@ -635,21 +640,22 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 }
 
 #define CLEAR_CC			BIT(7)
-#define CLEAR_SW_CC			BIT(6)
+#define CLEAR_SHDW_CC			BIT(6)
 /**
  * reset both cc and sw-cc.
  * note: this should only be ever called from one thread
  * or there may be a race condition where CC is never enabled
  * again
  */
-static void reset_cc(struct qpnp_bms_chip *chip)
+static void reset_cc(struct qpnp_bms_chip *chip, u8 flags)
 {
 	int rc;
 
-	pr_debug("resetting cc manually\n");
+	pr_debug("resetting cc manually with flags %hhu\n", flags);
+	mutex_lock(&chip->bms_output_lock);
 	rc = qpnp_masked_write(chip, BMS1_CC_CLEAR_CTL,
-				CLEAR_CC | CLEAR_SW_CC,
-				CLEAR_CC | CLEAR_SW_CC);
+				flags,
+				flags);
 	if (rc)
 		pr_err("cc reset failed: %d\n", rc);
 
@@ -657,9 +663,10 @@ static void reset_cc(struct qpnp_bms_chip *chip)
 	udelay(100);
 
 	rc = qpnp_masked_write(chip, BMS1_CC_CLEAR_CTL,
-				CLEAR_CC | CLEAR_SW_CC, 0);
+				flags, 0);
 	if (rc)
 		pr_err("cc reenable failed: %d\n", rc);
+	mutex_unlock(&chip->bms_output_lock);
 }
 
 static int get_battery_status(struct qpnp_bms_chip *chip)
@@ -778,8 +785,9 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	chip->shutdown_soc = 0;
 	chip->shutdown_iavg_ma = 0;
 	chip->prev_pc_unusable = -EINVAL;
-	reset_cc(chip);
+	reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 	chip->software_cc_uah = 0;
+	chip->software_shdw_cc_uah = 0;
 	chip->last_cc_uah = INT_MIN;
 	chip->last_ocv_temp = batt_temp;
 	chip->prev_batt_terminal_uv = 0;
@@ -796,14 +804,6 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 
 	mutex_lock(&chip->bms_output_lock);
 
-	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
-		/* software workaround for BMS 1.0
-		 * The coulomb counter does not reset upon PON, so reset it
-		 * manually upon probe. */
-		if (chip->revision1 == 0 && chip->revision2 == 0)
-			reset_cc(chip);
-	}
-
 	lock_output_data(chip);
 
 	rc = qpnp_read_wrapper(chip, (u8 *)&raw->last_good_ocv_raw,
@@ -813,7 +813,8 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		return -ENXIO;
 	}
 
-	rc = read_cc_raw(chip, &raw->cc);
+	rc = read_cc_raw(chip, &raw->cc, CC);
+	rc = read_cc_raw(chip, &raw->shdw_cc, SHDW_CC);
 	if (rc) {
 		pr_err("Failed to read raw cc data, rc = %d\n", rc);
 		return rc;
@@ -832,7 +833,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 			pr_debug("OCV is stale or bad, estimating new OCV.\n");
 			chip->last_ocv_uv = estimate_ocv(chip);
 			raw->last_good_ocv_uv = chip->last_ocv_uv;
-			reset_cc(chip);
+			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 			pr_debug("New PON_OCV_UV = %d, cc = %llx\n",
 					chip->last_ocv_uv, raw->cc);
 		}
@@ -840,6 +841,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		/* if a new battery was inserted, estimate the ocv */
 		reset_for_new_battery(chip, batt_temp);
 		raw->cc = 0;
+		raw->shdw_cc = 0;
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 		chip->new_battery = false;
 	} else if (chip->done_charging) {
@@ -849,9 +851,11 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		chip->last_ocv_uv = chip->max_voltage_uv;
 		raw->last_good_ocv_uv = chip->max_voltage_uv;
 		raw->cc = 0;
-		reset_cc(chip);
+		raw->shdw_cc = 0;
+		reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 		chip->last_ocv_temp = batt_temp;
 		chip->software_cc_uah = 0;
+		chip->software_shdw_cc_uah = 0;
 		chip->last_cc_uah = INT_MIN;
 		pr_debug("EOC Battery full ocv_reading = 0x%x\n",
 				chip->ocv_reading_at_100);
@@ -937,6 +941,7 @@ static s64 cc_uv_to_pvh(s64 cc_uv)
  * calculate_cc() - converts a hardware coulomb counter reading into uah
  * @chip:		the bms chip pointer
  * @cc:			the cc reading from bms h/w
+ * @cc_type:		calcualte cc from regular or shadow coulomb counter
  * @clear_cc:		whether this function should clear the hardware counter
  *			after reading
  *
@@ -945,39 +950,48 @@ static s64 cc_uv_to_pvh(s64 cc_uv)
  *
  * Return: the coulomb counter based charge in uAh (micro-amp hour)
  */
-static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc, bool clear_cc)
+static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc,
+					int cc_type, int clear_cc)
 {
 	struct qpnp_iadc_calib calibration;
 	struct qpnp_vadc_result result;
-	int64_t cc_voltage_uv, cc_pvh, cc_uah;
+	int64_t cc_voltage_uv, cc_pvh, cc_uah, *software_counter;
 	int rc;
 
+	software_counter = cc_type == SHDW_CC ?
+			&chip->software_shdw_cc_uah : &chip->software_cc_uah;
 	rc = qpnp_vadc_read(DIE_TEMP, &result);
 	if (rc) {
 		pr_err("could not read pmic die temperature: %d\n", rc);
-		return chip->software_cc_uah;
+		return *software_counter;
 	}
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
-	pr_debug("cc = %lld, die_temp = %lld\n", cc, result.physical);
+	pr_debug("%scc = %lld, die_temp = %lld\n",
+			cc_type == SHDW_CC ? "shdw_" : "",
+			cc, result.physical);
 	cc_voltage_uv = cc_reading_to_uv(cc);
 	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv,
 					calibration.gain_raw
 					- calibration.offset_raw);
-	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
 	cc_pvh = cc_uv_to_pvh(cc_voltage_uv);
-	pr_debug("cc_pvh = %lld pvh\n", cc_pvh);
 	cc_uah = div_s64(cc_pvh, chip->r_sense_uohm);
 	rc = qpnp_iadc_comp_result(&cc_uah);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
-
-	if (clear_cc) {
-		chip->software_cc_uah += cc_uah;
-		reset_cc(chip);
-		return (int)chip->software_cc_uah;
+	if (clear_cc == RESET) {
+		pr_debug("software_%scc = %lld, added cc_uah = %lld\n",
+				cc_type == SHDW_CC ? "sw_" : "",
+				*software_counter, cc_uah);
+		*software_counter += cc_uah;
+		reset_cc(chip, cc_type == SHDW_CC ? CLEAR_SHDW_CC : CLEAR_CC);
+		return (int)*software_counter;
 	} else {
-		return chip->software_cc_uah + cc_uah;
+		pr_debug("software_%scc = %lld, cc_uah = %lld, total = %lld\n",
+				cc_type == SHDW_CC ? "shdw_" : "",
+				*software_counter, cc_uah,
+				*software_counter + cc_uah);
+		return *software_counter + cc_uah;
 	}
 }
 
@@ -1307,8 +1321,9 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	pr_debug("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
 
 	/* calculate cc micro_volt_hour */
-	params->cc_uah = calculate_cc(chip, raw->cc, true);
-	pr_debug("cc_uah = %duAh raw->cc = %llx\n", params->cc_uah, raw->cc);
+	params->cc_uah = calculate_cc(chip, raw->cc, CC, RESET);
+	pr_debug("cc_uah = %duAh raw->cc = %llx\n",
+			params->cc_uah, raw->cc);
 
 	soc_rbatt = ((params->ocv_charge_uah - params->cc_uah) * 100)
 							/ params->fcc_uah;
@@ -1392,8 +1407,9 @@ static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 	chip->last_soc = -EINVAL;
 	chip->last_soc_invalid = true;
 	mutex_unlock(&chip->last_soc_mutex);
-	reset_cc(chip);
+	reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 	chip->software_cc_uah = 0;
+	chip->software_shdw_cc_uah = 0;
 	chip->last_cc_uah = INT_MIN;
 	stop_ocv_updates(chip);
 
@@ -2568,14 +2584,14 @@ static void fcc_learning_config(struct qpnp_bms_chip *chip, bool start)
 	if (start) {
 		chip->start_pc = interpolate_pc(chip->pc_temp_ocv_lut,
 			batt_temp / 10, raw.last_good_ocv_uv / 1000);
-		chip->start_cc_uah = calculate_cc(chip, raw.cc, false);
+		chip->start_cc_uah = calculate_cc(chip, raw.cc, CC, NORESET);
 		chip->start_real_soc = calculate_real_soc(chip,
 				batt_temp, &raw, chip->start_cc_uah);
 		pr_debug("start_pc=%d, start_cc=%d, start_soc=%d real_soc=%d\n",
 			chip->start_pc, chip->start_cc_uah,
 			chip->start_soc, chip->start_real_soc);
 	} else {
-		chip->end_cc_uah = calculate_cc(chip, raw.cc, false);
+		chip->end_cc_uah = calculate_cc(chip, raw.cc, CC, NORESET);
 		delta_soc = 100 - chip->start_real_soc;
 		delta_cc_uah = abs(chip->end_cc_uah - chip->start_cc_uah);
 		new_fcc_uah = div_u64(delta_cc_uah * 100, delta_soc);
@@ -2724,11 +2740,25 @@ static int get_prop_bms_charge_counter(struct qpnp_bms_chip *chip)
 
 	mutex_lock(&chip->bms_output_lock);
 	lock_output_data(chip);
-	read_cc_raw(chip, &cc_raw);
+	read_cc_raw(chip, &cc_raw, CC);
 	unlock_output_data(chip);
 	mutex_unlock(&chip->bms_output_lock);
 
-	return calculate_cc(chip, cc_raw, false);
+	return calculate_cc(chip, cc_raw, CC, NORESET);
+}
+
+/* Returns shadow coulomb counter in uAh */
+static int get_prop_bms_charge_counter_shadow(struct qpnp_bms_chip *chip)
+{
+	int64_t cc_raw;
+
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+	read_cc_raw(chip, &cc_raw, SHDW_CC);
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+
+	return calculate_cc(chip, cc_raw, SHDW_CC, NORESET);
 }
 
 /* Returns full charge design in uAh */
@@ -2765,6 +2795,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = get_prop_bms_charge_counter(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW:
+		val->intval = get_prop_bms_charge_counter_shadow(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
@@ -3269,8 +3302,9 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 						EXTERNAL_RSENSE, rc);
 				return rc;
 			}
-			reset_cc(chip);
+			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 			chip->software_cc_uah = 0;
+			chip->software_shdw_cc_uah = 0;
 		}
 	} else {
 		pr_debug("Internal rsense selected\n");
@@ -3286,8 +3320,8 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 						INTERNAL_RSENSE, rc);
 				return rc;
 			}
-			reset_cc(chip);
-			chip->software_cc_uah = 0;
+			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
+			chip->software_shdw_cc_uah = 0;
 		}
 
 		rc = qpnp_iadc_get_rsense(&rds_rsense_nohm);
