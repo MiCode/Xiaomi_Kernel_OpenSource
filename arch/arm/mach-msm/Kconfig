@@ -2172,12 +2172,12 @@ config MSM_SPM_REGULATOR
 config MSM_SMCMOD
 	tristate "Secure Monitor Call (SMC) Module"
 	default n
-	depends on (ARCH_FSM9XXX && ION && ION_MSM && MSM_SCM)
+	depends on (ION && ION_MSM && MSM_SCM)
 	help
 	  Enable support for smcmod driver. This driver provides a mechanism
 	  to execute the Secure Monitor Call (SMC) to switch from non-secure
-	  to secure execution in the fsm9xxx targets. This module utilizes Ion
-	  for buffer management.
+	  to secure execution in the fsm9xxx and msm8x26 targets. This module
+	  utilizes Ion for buffer management.
 
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart"
