@@ -246,6 +246,9 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			ps->rau_h[1] = 4;
 		} else
 			ps->ystride[1] = 32 * 2;
+
+		/* account for both chroma components */
+		ps->ystride[1] <<= 1;
 	} else if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 		ps->rau_cnt = DIV_ROUND_UP(w, 32);
 		ps->ystride[0] = 32 * 4 * fmt->bpp;
@@ -261,6 +264,10 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 	ps->ystride[1] *= ps->rau_cnt;
 	ps->num_planes = 2;
 
+	pr_debug("BWC rau_cnt=%d strides={%d,%d} heights={%d,%d}\n",
+		ps->rau_cnt, ps->ystride[0], ps->ystride[1],
+		ps->rau_h[0], ps->rau_h[1]);
+
 	return 0;
 }
 
@@ -269,7 +276,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 {
 	struct mdss_mdp_format_params *fmt;
 	int i, rc;
-	u32 bpp, ystride0_off, ystride1_off;
+	u32 bpp;
 	if (ps == NULL)
 		return -EINVAL;
 
@@ -284,24 +291,23 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (bwc_mode) {
-		u32 meta_size;
+		u32 height, meta_size;
 
 		rc = mdss_mdp_get_rau_strides(w, h, fmt, ps);
 		if (rc)
 			return rc;
 
+		height = DIV_ROUND_UP(h, ps->rau_h[0]);
 		meta_size = DIV_ROUND_UP(ps->rau_cnt, 8);
-		ps->ystride[0] += meta_size;
 		ps->ystride[1] += meta_size;
+		ps->ystride[0] += ps->ystride[1] + meta_size;
+		ps->plane_size[0] = ps->ystride[0] * height;
 
-		ystride0_off = DIV_ROUND_UP(h, ps->rau_h[0]);
-		ystride1_off = DIV_ROUND_UP(h, ps->rau_h[1]);
-		ps->plane_size[0] = (ps->ystride[0] * ystride0_off) +
-				    (ps->ystride[1] * ystride1_off);
-		ps->ystride[0] += ps->ystride[1];
 		ps->ystride[1] = 2;
-		ps->plane_size[1] = ps->rau_cnt * ps->ystride[1] *
-				   (ystride0_off + ystride1_off);
+		ps->plane_size[1] = 2 * ps->rau_cnt * height;
+
+		pr_debug("BWC data stride=%d size=%d meta size=%d\n",
+			ps->ystride[0], ps->plane_size[0], ps->plane_size[1]);
 	} else {
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 			ps->num_planes = 1;
