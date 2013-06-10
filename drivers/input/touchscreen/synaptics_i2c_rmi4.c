@@ -34,6 +34,7 @@
 
 #define DRIVER_NAME "synaptics_rmi4_i2c"
 #define INPUT_PHYS_NAME "synaptics_rmi4_i2c/input0"
+#define DEBUGFS_DIR_NAME "ts_debug"
 
 #define RESET_DELAY 100
 
@@ -112,12 +113,6 @@ static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t synaptics_rmi4_mode_suspend_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
-static ssize_t synaptics_rmi4_mode_resume_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
 #if defined(CONFIG_FB)
@@ -243,12 +238,6 @@ static struct device_attribute attrs[] = {
 	__ATTR(full_pm_cycle, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_full_pm_cycle_show,
 			synaptics_rmi4_full_pm_cycle_store),
-	__ATTR(mode_suspend, S_IWUGO,
-			synaptics_rmi4_show_error,
-			synaptics_rmi4_mode_suspend_store),
-	__ATTR(mode_resume, S_IWUGO,
-			synaptics_rmi4_show_error,
-			synaptics_rmi4_mode_resume_store),
 #endif
 	__ATTR(reset, S_IWUGO,
 			synaptics_rmi4_show_error,
@@ -300,33 +289,29 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 	return count;
 }
 
-static ssize_t synaptics_rmi4_mode_suspend_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
 {
-	unsigned int input;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_data *rmi4_data = _data;
 
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
+	if (val)
+		synaptics_rmi4_suspend(&rmi4_data->input_dev->dev);
+	else
+		synaptics_rmi4_resume(&rmi4_data->input_dev->dev);
 
-	synaptics_rmi4_suspend(&(rmi4_data->input_dev->dev));
-
-	return count;
+	return 0;
 }
 
-static ssize_t synaptics_rmi4_mode_resume_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
 {
-	unsigned int input;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_data *rmi4_data = _data;
 
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
+	*val = rmi4_data->suspended;
 
-	synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
-
-	return count;
+	return 0;
 }
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
+			synaptics_rmi4_debug_suspend_set, "%lld\n");
 
 #ifdef CONFIG_FB
 static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
@@ -2061,6 +2046,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	struct synaptics_rmi4_device_info *rmi;
 	struct synaptics_rmi4_platform_data *platform_data =
 			client->dev.platform_data;
+	struct dentry *temp;
 
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -2119,6 +2105,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->sensor_sleep = false;
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fw_updating = false;
+	rmi4_data->suspended = false;
 
 	rmi4_data->i2c_read = synaptics_rmi4_i2c_read;
 	rmi4_data->i2c_write = synaptics_rmi4_i2c_write;
@@ -2295,6 +2282,25 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_enable_irq;
 	}
 
+	rmi4_data->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (rmi4_data->dir == NULL || IS_ERR(rmi4_data->dir)) {
+		dev_err(&client->dev,
+			"%s: Failed to create debugfs directory, rc = %ld\n",
+			__func__, PTR_ERR(rmi4_data->dir));
+		retval = PTR_ERR(rmi4_data->dir);
+		goto err_create_debugfs_dir;
+	}
+
+	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, rmi4_data->dir,
+					rmi4_data, &debug_suspend_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		dev_err(&client->dev,
+			"%s: Failed to create suspend debugfs file, rc = %ld\n",
+			__func__, PTR_ERR(temp));
+		retval = PTR_ERR(temp);
+		goto err_create_debugfs_file;
+	}
+
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
 		retval = sysfs_create_file(&rmi4_data->input_dev->dev.kobj,
 				&attrs[attr_count].attr);
@@ -2320,7 +2326,10 @@ err_sysfs:
 		sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
 				&attrs[attr_count].attr);
 	}
-
+err_create_debugfs_file:
+	debugfs_remove_recursive(rmi4_data->dir);
+err_create_debugfs_dir:
+	free_irq(rmi4_data->irq, rmi4_data);
 err_enable_irq:
 	cancel_delayed_work_sync(&rmi4_data->det_work);
 	flush_workqueue(rmi4_data->det_workqueue);
@@ -2375,6 +2384,7 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
+	debugfs_remove_recursive(rmi4_data->dir);
 	cancel_delayed_work_sync(&rmi4_data->det_work);
 	flush_workqueue(rmi4_data->det_workqueue);
 	destroy_workqueue(rmi4_data->det_workqueue);
@@ -2662,6 +2672,11 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
+	if (rmi4_data->suspended) {
+		dev_info(dev, "Already in suspend state\n");
+		return 0;
+	}
+
 	if (!rmi4_data->fw_updating) {
 		if (!rmi4_data->sensor_sleep) {
 			rmi4_data->touch_stopped = true;
@@ -2675,9 +2690,14 @@ static int synaptics_rmi4_suspend(struct device *dev)
 			dev_err(dev, "failed to enter low power mode\n");
 			return retval;
 		}
-	} else
+	} else {
 		dev_err(dev,
 			"Firmware updating, cannot go into suspend mode\n");
+		return 0;
+	}
+
+	rmi4_data->suspended = true;
+
 	return 0;
 }
 
@@ -2696,6 +2716,11 @@ static int synaptics_rmi4_resume(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
+	if (!rmi4_data->suspended) {
+		dev_info(dev, "Already in awake state\n");
+		return 0;
+	}
+
 	retval = synaptics_rmi4_regulator_lpm(rmi4_data, false);
 	if (retval < 0) {
 		dev_err(dev, "failed to enter active power mode\n");
@@ -2705,6 +2730,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	rmi4_data->touch_stopped = false;
 	synaptics_rmi4_irq_enable(rmi4_data, true);
+
+	rmi4_data->suspended = false;
 
 	return 0;
 }
