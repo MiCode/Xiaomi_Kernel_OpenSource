@@ -42,9 +42,11 @@ enum {
 	MDP_INTR_PING_PONG_0,
 	MDP_INTR_PING_PONG_1,
 	MDP_INTR_PING_PONG_2,
+	MDP_INTR_PING_PONG_3,
 	MDP_INTR_PING_PONG_0_RD_PTR,
 	MDP_INTR_PING_PONG_1_RD_PTR,
 	MDP_INTR_PING_PONG_2_RD_PTR,
+	MDP_INTR_PING_PONG_3_RD_PTR,
 	MDP_INTR_WB_0,
 	MDP_INTR_WB_1,
 	MDP_INTR_WB_2,
@@ -164,6 +166,9 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2);
 
+	if (isr & MDSS_MDP_INTR_PING_PONG_3_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3);
+
 	if (isr & MDSS_MDP_INTR_PING_PONG_0_RD_PTR)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_RD_PTR);
 
@@ -172,6 +177,9 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_RD_PTR)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_RD_PTR);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_3_RD_PTR)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_RD_PTR);
 
 	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
