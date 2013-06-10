@@ -608,6 +608,28 @@
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0x0>;
 	};
+
+	qcom,lpass@fe200000 {
+		compatible = "qcom,pil-q6v5-lpass";
+		reg = <0xfe200000 0x00100>,
+		      <0xfd485100 0x00010>,
+		      <0xfc4016c0 0x00004>;
+		reg-names = "qdsp6_base", "halt_base", "restart_reg";
+
+		vdd_cx-supply = <&pmd9635_l3_corner>;
+		interrupts = <0 162 1>;
+
+		qcom,firmware-name = "adsp";
+		qcom,qdsp6v5cinco;
+
+		/* GPIO inputs from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+	};
 };
 
 &gdsc_pcie_0 {
