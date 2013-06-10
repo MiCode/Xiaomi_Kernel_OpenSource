@@ -638,6 +638,9 @@
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&msmgpio 62 0x1>;
 
+	qcom,vdd-always-on;
+	qcom,vdd-lpm-sup;
+
 	vdd-supply = <&pm8941_l21>;
 	vdd-io-supply = <&pm8941_l13>;
 
