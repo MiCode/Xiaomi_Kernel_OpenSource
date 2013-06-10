@@ -19,6 +19,8 @@
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
 #define GET_CTX_REG(reg, base, ctx) \
 	(readl_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
+#define GET_CTX_REG_L(reg, base, ctx) \
+	(readll_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
 
 #define SET_GLOBAL_REG(reg, base, val)	writel_relaxed((val), ((base) + (reg)))
 
@@ -196,7 +198,7 @@ do { \
 #define GET_CONTEXTIDR(b, c)     GET_CTX_REG(CB_CONTEXTIDR, (b), (c))
 #define GET_PRRR(b, c)           GET_CTX_REG(CB_PRRR, (b), (c))
 #define GET_NMRR(b, c)           GET_CTX_REG(CB_NMRR, (b), (c))
-#define GET_PAR(b, c)            GET_CTX_REG(CB_PAR, (b), (c))
+#define GET_PAR(b, c)            GET_CTX_REG_L(CB_PAR, (b), (c))
 #define GET_FSR(b, c)            GET_CTX_REG(CB_FSR, (b), (c))
 #define GET_FSRRESTORE(b, c)     GET_CTX_REG(CB_FSRRESTORE, (b), (c))
 #define GET_FAR(b, c)            GET_CTX_REG(CB_FAR, (b), (c))
@@ -1307,6 +1309,7 @@ do { \
 #define CB_PAR_TF          (CB_PAR_TF_MASK     << CB_PAR_TF_SHIFT)
 #define CB_PAR_AFF         (CB_PAR_AFF_MASK    << CB_PAR_AFF_SHIFT)
 #define CB_PAR_PF          (CB_PAR_PF_MASK     << CB_PAR_PF_SHIFT)
+#define CB_PAR_EF          (CB_PAR_EF_MASK     << CB_PAR_EF_SHIFT)
 #define CB_PAR_TLBMCF      (CB_PAR_TLBMCF_MASK << CB_PAR_TLBMCF_SHIFT)
 #define CB_PAR_TLBLKF      (CB_PAR_TLBLKF_MASK << CB_PAR_TLBLKF_SHIFT)
 #define CB_PAR_ATOT        (CB_PAR_ATOT_MASK   << CB_PAR_ATOT_SHIFT)
@@ -1682,11 +1685,12 @@ do { \
 #define CB_PAR_TF_MASK          0x01
 #define CB_PAR_AFF_MASK         0x01
 #define CB_PAR_PF_MASK          0x01
+#define CB_PAR_EF_MASK          0x01
 #define CB_PAR_TLBMCF_MASK      0x01
 #define CB_PAR_TLBLKF_MASK      0x01
-#define CB_PAR_ATOT_MASK        0x01
-#define CB_PAR_PLVL_MASK        0x03
-#define CB_PAR_STAGE_MASK       0x01
+#define CB_PAR_ATOT_MASK        0x01ULL
+#define CB_PAR_PLVL_MASK        0x03ULL
+#define CB_PAR_STAGE_MASK       0x01ULL
 
 /* Primary Region Remap Register: CB_PRRR */
 #define CB_PRRR_TR0_MASK        0x03
@@ -2052,11 +2056,12 @@ do { \
 #define CB_PAR_TF_SHIFT            1
 #define CB_PAR_AFF_SHIFT           2
 #define CB_PAR_PF_SHIFT            3
+#define CB_PAR_EF_SHIFT            4
 #define CB_PAR_TLBMCF_SHIFT        5
 #define CB_PAR_TLBLKF_SHIFT        6
 #define CB_PAR_ATOT_SHIFT          31
-#define CB_PAR_PLVL_SHIFT          0
-#define CB_PAR_STAGE_SHIFT         3
+#define CB_PAR_PLVL_SHIFT          32
+#define CB_PAR_STAGE_SHIFT         35
 
 /* Primary Region Remap Register: CB_PRRR */
 #define CB_PRRR_TR0_SHIFT          0

@@ -769,7 +769,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	unsigned int par;
+	u64 par;
 	void __iomem *base;
 	phys_addr_t ret = 0;
 	int ctx;
@@ -802,6 +802,23 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	__disable_clocks(iommu_drvdata);
 
 	if (par & CB_PAR_F) {
+		unsigned int level = (par & CB_PAR_PLVL) >> CB_PAR_PLVL_SHIFT;
+		pr_err("IOMMU translation fault!\n");
+		pr_err("name = %s\n", iommu_drvdata->name);
+		pr_err("context = %s (%d)\n", ctx_drvdata->name,
+						ctx_drvdata->num);
+		pr_err("Interesting registers:\n");
+		pr_err("PAR = %16llx [%s%s%s%s%s%s%s%sPLVL%u %s]\n", par,
+			(par & CB_PAR_F) ? "F " : "",
+			(par & CB_PAR_TF) ? "TF " : "",
+			(par & CB_PAR_AFF) ? "AFF " : "",
+			(par & CB_PAR_PF) ? "PF " : "",
+			(par & CB_PAR_EF) ? "EF " : "",
+			(par & CB_PAR_TLBMCF) ? "TLBMCF " : "",
+			(par & CB_PAR_TLBLKF) ? "TLBLKF " : "",
+			(par & CB_PAR_ATOT) ? "ATOT " : "",
+			level,
+			(par & CB_PAR_STAGE) ? "S2 " : "S1 ");
 		ret = 0;
 	} else {
 		/* We are dealing with a supersection */
