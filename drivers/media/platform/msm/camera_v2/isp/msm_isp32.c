@@ -22,7 +22,7 @@
 #include "msm.h"
 #include "msm_camera_io_util.h"
 
-#define VFE32_BURST_LEN 3
+#define VFE32_BURST_LEN 1
 #define VFE32_UB_SIZE 1024
 #define VFE32_EQUAL_SLICE_UB 204
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
@@ -40,7 +40,17 @@
 	(~(ping_pong >> (idx + VFE32_STATS_PING_PONG_OFFSET)) & 0x1))
 
 #define VFE32_CLK_IDX 0
-static struct msm_cam_clk_info msm_vfe32_clk_info[] = {
+static struct msm_cam_clk_info msm_vfe32_1_clk_info[] = {
+	/*vfe32 clock info for B-family: 8610 */
+	{"vfe_clk_src", 266670000},
+	{"vfe_clk", -1},
+	{"vfe_ahb_clk", -1},
+	{"csi_vfe_clk", -1},
+	{"bus_clk", -1},
+};
+
+static struct msm_cam_clk_info msm_vfe32_2_clk_info[] = {
+	/*vfe32 clock info for A-family: 8960 */
 	{"vfe_clk", 266667000},
 	{"vfe_pclk", -1},
 	{"csi_vfe_clk", -1},
@@ -63,10 +73,15 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 		}
 	}
 
-	rc = msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_clk_info), 1);
-	if (rc < 0)
-		goto clk_enable_failed;
+	rc = msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
+		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 1);
+	if (rc < 0) {
+		rc = msm_cam_clk_enable(&vfe_dev->pdev->dev,
+			 msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
+			ARRAY_SIZE(msm_vfe32_2_clk_info), 1);
+		if (rc < 0)
+			goto clk_enable_failed;
+	}
 
 	vfe_dev->vfe_base = ioremap(vfe_dev->vfe_mem->start,
 		resource_size(vfe_dev->vfe_mem));
@@ -87,8 +102,10 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 irq_req_failed:
 	iounmap(vfe_dev->vfe_base);
 vfe_remap_failed:
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_clk_info), 0);
+	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
+		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
+	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_2_clk_info,
+		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
 clk_enable_failed:
 	regulator_disable(vfe_dev->fs_vfe);
 fs_failed:
@@ -102,8 +119,10 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_base);
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_clk_info), 0);
+	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
+		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
+	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_2_clk_info,
+		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
@@ -330,7 +349,18 @@ static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev)
 static void msm_vfe32_axi_reload_wm(
 	struct vfe_device *vfe_dev, uint32_t reload_mask)
 {
-	msm_camera_io_w_mb(reload_mask, vfe_dev->vfe_base + 0x38);
+	if (!vfe_dev->pdev->dev.of_node) {
+		/*vfe32 A-family: 8960*/
+		msm_camera_io_w_mb(reload_mask, vfe_dev->vfe_base + 0x38);
+	} else {
+		/*vfe32 B-family: 8610*/
+		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x24);
+		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x28);
+		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x20);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x18);
+		msm_camera_io_w(0x9AAAAAAA , vfe_dev->vfe_base + 0x600);
+		msm_camera_io_w(reload_mask, vfe_dev->vfe_base + 0x38);
+	}
 }
 
 static void msm_vfe32_axi_enable_wm(struct vfe_device *vfe_dev,
@@ -914,14 +944,22 @@ static int msm_vfe32_get_platform_data(struct vfe_device *vfe_dev)
 		goto vfe_no_resource;
 	}
 
-	vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe_imgwr");
+	if (!vfe_dev->pdev->dev.of_node)
+		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe_imgwr");
+	else
+		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe0");
+
 	if (!vfe_dev->iommu_ctx[0]) {
 		pr_err("%s: no iommux ctx resource?\n", __func__);
 		rc = -ENODEV;
 		goto vfe_no_resource;
 	}
 
-	vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe_misc");
+	if (!vfe_dev->pdev->dev.of_node)
+		vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe_misc");
+	else
+		vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe0");
+
 	if (!vfe_dev->iommu_ctx[1]) {
 		pr_err("%s: no iommux ctx resource?\n", __func__);
 		rc = -ENODEV;
