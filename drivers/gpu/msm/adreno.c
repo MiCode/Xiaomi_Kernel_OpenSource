@@ -166,6 +166,15 @@ static const struct {
 	/* version of pfp microcode that supports sync_lock
 	   between CPU and GPU for IOMMU-v0 programming */
 	unsigned int sync_lock_pfp_ver;
+	/* PM4 jump table index */
+	unsigned int pm4_jt_idx;
+	/* PM4 jump table load addr */
+	unsigned int pm4_jt_addr;
+	/* PFP jump table index */
+	unsigned int pfp_jt_idx;
+	/* PFP jump table load addr */
+	unsigned int pfp_jt_addr;
+
 } adreno_gpulist[] = {
 	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
@@ -202,10 +211,11 @@ static const struct {
 		512, 0, 2, SZ_512K, 0x3FF037, 0x3FF016 },
 	{ ADRENO_REV_A330, 3, 3, 0, ANY_ID,
 		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
-		512, 0, 2, SZ_1M, NO_VER, NO_VER },
+		512, 0, 2, SZ_1M, NO_VER, NO_VER, 0x8AD, 0x2E4, 0x201, 0x200 },
 	{ ADRENO_REV_A305B, 3, 0, 5, 0x10,
 		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
-		512, 0, 2, SZ_128K, NO_VER, NO_VER },
+		512, 0, 2, SZ_128K, NO_VER, NO_VER, 0x8AD, 0x2E4,
+		0x201, 0x200 },
 	{ ADRENO_REV_A305C, 3, 0, 5, 0x20,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
@@ -1118,6 +1128,10 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;
 	adreno_dev->instruction_size = adreno_gpulist[i].instruction_size;
 	adreno_dev->gmem_size = adreno_gpulist[i].gmem_size;
+	adreno_dev->pm4_jt_idx = adreno_gpulist[i].pm4_jt_idx;
+	adreno_dev->pm4_jt_addr = adreno_gpulist[i].pm4_jt_addr;
+	adreno_dev->pfp_jt_idx = adreno_gpulist[i].pfp_jt_idx;
+	adreno_dev->pfp_jt_addr = adreno_gpulist[i].pfp_jt_addr;
 	adreno_dev->gpulist_index = i;
 }
 
@@ -2175,10 +2189,70 @@ _adreno_check_long_ib(struct kgsl_device *device)
 	}
 }
 
+/**
+ * adreno_soft_reset() -  Do a soft reset of the GPU hardware
+ * @device: KGSL device to soft reset
+ *
+ * "soft reset" the GPU hardware - this is a fast path GPU reset
+ * The GPU hardware is reset but we never pull power so we can skip
+ * a lot of the standard adreno_stop/adreno_start sequence
+ */
+int adreno_soft_reset(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret;
+
+	/* If the jump table index is 0 soft reset is not supported */
+	if ((!adreno_dev->pm4_jt_idx) || (!adreno_dev->gpudev->soft_reset)) {
+		dev_WARN_ONCE(device->dev, 1, "Soft reset not supported");
+		return -EINVAL;
+	}
+
+	adreno_dev->drawctxt_active = NULL;
+
+	/* Stop the ringbuffer */
+	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
+
+	/* Delete the idle timer */
+	del_timer_sync(&device->idle_timer);
+
+	/* Make sure we are totally awake */
+	kgsl_pwrctrl_enable(device);
+
+	/* Reset the GPU */
+	adreno_dev->gpudev->soft_reset(adreno_dev);
+
+	/* Reinitialize the GPU */
+	adreno_dev->gpudev->start(adreno_dev);
+
+	/* Enable IRQ */
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	device->ftbl->irqctrl(device, 1);
+
+	/*
+	 * Restart the ringbuffer - we can go down the warm start path because
+	 * power was never yanked
+	 */
+	ret = adreno_ringbuffer_warm_start(&adreno_dev->ringbuffer);
+	if (ret)
+		return ret;
+
+	device->reset_counter++;
+
+	return 0;
+}
+
 static int
 _adreno_ft_restart_device(struct kgsl_device *device,
 			   struct kgsl_context *context)
 {
+	/* If device soft reset fails try hard reset */
+	if (adreno_soft_reset(device))
+		KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+	else
+		/* Soft reset is successful */
+		goto reset_done;
+
 	/* restart device */
 	if (adreno_stop(device)) {
 		KGSL_FT_ERR(device, "Device stop failed\n");
@@ -2195,6 +2269,7 @@ _adreno_ft_restart_device(struct kgsl_device *device,
 		return 1;
 	}
 
+reset_done:
 	if (context) {
 		struct adreno_context *adreno_context = context->devctxt;
 		kgsl_mmu_setstate(&device->mmu, adreno_context->pagetable,
@@ -2301,6 +2376,7 @@ _adreno_ft(struct kgsl_device *device,
 	struct adreno_context *last_active_ctx = adreno_dev->drawctxt_active;
 	unsigned int long_ib = 0;
 	static int no_context_ft;
+	struct kgsl_mmu *mmu = &device->mmu;
 
 	context = idr_find(&device->context_idr, ft_data->context_id);
 	if (context == NULL) {
@@ -2374,12 +2450,13 @@ _adreno_ft(struct kgsl_device *device,
 
 	/* Do not try the reply if hang is due to a pagefault */
 	if (adreno_context && adreno_context->pagefault) {
+		/* Resume MMU */
+		mmu->mmu_ops->mmu_pagefault_resume(mmu);
 		if ((ft_data->context_id == adreno_context->id) &&
 			(ft_data->global_eop == adreno_context->pagefault_ts)) {
 			ft_data->ft_policy &= ~KGSL_FT_REPLAY;
 			KGSL_FT_ERR(device, "MMU fault skipping replay\n");
 		}
-
 		adreno_context->pagefault = 0;
 	}
 
