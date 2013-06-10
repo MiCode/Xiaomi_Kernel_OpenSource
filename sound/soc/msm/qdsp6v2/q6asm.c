@@ -30,6 +30,7 @@
 #include <linux/time.h>
 #include <linux/atomic.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/mm.h>
 
 #include <asm/ioctls.h>
 
@@ -761,6 +762,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 	int rc = 0;
 	struct audio_buffer *buf;
 	int len;
+	int bytes_to_alloc;
 
 	if (!(ac) || ((dir != IN) && (dir != OUT)))
 		return -EINVAL;
@@ -787,8 +789,13 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 
 	ac->port[dir].buf = buf;
 
+	bytes_to_alloc = bufsz * bufcnt;
+
+	/* The size to allocate should be multiple of 4K bytes */
+	bytes_to_alloc = PAGE_ALIGN(bytes_to_alloc);
+
 	rc = msm_audio_ion_alloc("audio_client", &buf[0].client, &buf[0].handle,
-		bufsz*bufcnt,
+		bytes_to_alloc,
 		(ion_phys_addr_t *)&buf[0].phys, (size_t *)&len,
 		&buf[0].data);
 	if (rc) {
@@ -2720,6 +2727,11 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	bufcnt_t = (is_contiguous) ? 1 : bufcnt;
 	bufsz_t = (is_contiguous) ? (bufsz * bufcnt) : bufsz;
+
+	if (is_contiguous) {
+		/* The size to memory map should be multiple of 4K bytes */
+		bufsz_t = PAGE_ALIGN(bufsz_t);
+	}
 
 	cmd_size = sizeof(struct avs_cmd_shared_mem_map_regions)
 			+ (sizeof(struct avs_shared_map_region_payload)
