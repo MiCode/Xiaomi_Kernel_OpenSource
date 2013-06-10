@@ -34,6 +34,7 @@
 #elif defined CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
+#include <linux/debugfs.h>
 
 #define PDT_PROPS (0x00EF)
 #define PDT_START (0x00E9)
@@ -205,6 +206,7 @@ struct synaptics_rmi4_data {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
+	struct dentry *dir;
 	char fw_image_name[NAME_BUFFER_SIZE];
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
@@ -228,6 +230,7 @@ struct synaptics_rmi4_data {
 	bool flip_x;
 	bool flip_y;
 	bool fw_updating;
+	bool suspended;
 	wait_queue_head_t wait;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);
