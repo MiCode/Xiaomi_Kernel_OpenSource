@@ -75,6 +75,20 @@ config IOMMU_PGTABLES_L2
          section mappings and TLB misses should be quite infrequent.
          Most people can probably say Y here.
 
+config IOMMU_NON_SECURE
+	bool "Turns on programming of secure SMMU by kernel"
+	depends on MSM_IOMMU
+        help
+         Say Y here if you want the kernel to program all SMMUs regardless of
+         whether SMMUs are secure or not. A secure SMMU is an SMMU that has
+         its global address space programmed by the secure environment. In
+         addition some of the context banks might be owned/programmed by the
+         secure environment for a secure SMMU. Enabling this feature can be
+         used during testing when the secure environment is not available
+         and the kernel needs to program all the SMMUs.
+
+         If unsure, say N here.
+
 # AMD IOMMU support
 config AMD_IOMMU
 	bool "AMD IOMMU support"
