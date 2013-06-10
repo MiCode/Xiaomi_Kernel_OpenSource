@@ -71,6 +71,7 @@ Optional properties for RGB led:
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
 - qcom,turn-off-delay-ms: delay in millisecond for turning off the led when its default-state is "on". Value is being ignored in case default-state is "off".
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
 
 MPP LED is an LED controled through a Multi Purpose Pin.
 
@@ -80,6 +81,7 @@ Optional properties for MPP LED:
 - qcom,source-sel: select power source, default 1 (enabled)
 - qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
 - qcom,mode: mode the led should operate in, options "pwm", "lpg" and "manual"
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
 
 Required properties for PWM mode only:
 - qcom,pwm-channel: pwm channel the led will operate on
@@ -161,8 +163,19 @@ Example:
 			label = "rgb";
 			linux,name = "led:rgb_red";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <6>;
 			qcom,pwm-us = <1000>;
+			qcom,pwm-channel = <6>;
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <3>;
+			linux,default-trigger =
+				"battery-charging";
+		};
+		qcom,rgb_lpg {
+			label = "rgb";
+			linux,name = "led:rgb_green";
+			qcom,mode = "lpg";
+			qcom,pwm-channel = <5>;
 			qcom,duty-ms = <20>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;
@@ -175,10 +188,10 @@ Example:
 				"battery-charging";
 		};
 
-		qcom,rgb_lpg {
+		qcom,rgb_blink {
 			label = "rgb";
 			linux,name = "led:rgb_blue";
-			qcom,mode = "lpg";
+			qcom,mode = "pwm";
 			qcom,pwm-channel = <4>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;
@@ -193,6 +206,8 @@ Example:
 			qcom,turn-off-delay-ms = <500>;
 			qcom,id = <5>;
 			linux,default-trigger = "none";
+			qcom,pwm-us = <1000>;
+			qcom,use-blink;
 		};
 	};
 
