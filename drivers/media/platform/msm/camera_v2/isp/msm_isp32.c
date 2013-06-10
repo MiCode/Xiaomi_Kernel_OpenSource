@@ -59,6 +59,7 @@ static struct msm_cam_clk_info msm_vfe32_2_clk_info[] = {
 static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
+	vfe_dev->vfe_clk_idx = 0;
 	rc = msm_isp_init_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
@@ -81,7 +82,10 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 			ARRAY_SIZE(msm_vfe32_2_clk_info), 1);
 		if (rc < 0)
 			goto clk_enable_failed;
-	}
+		else
+			vfe_dev->vfe_clk_idx = 2;
+	} else
+		vfe_dev->vfe_clk_idx = 1;
 
 	vfe_dev->vfe_base = ioremap(vfe_dev->vfe_mem->start,
 		resource_size(vfe_dev->vfe_mem));
@@ -102,10 +106,14 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 irq_req_failed:
 	iounmap(vfe_dev->vfe_base);
 vfe_remap_failed:
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_2_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
+	if (vfe_dev->vfe_clk_idx == 1)
+		msm_cam_clk_enable(&vfe_dev->pdev->dev,
+				msm_vfe32_1_clk_info, vfe_dev->vfe_clk,
+				ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
+	if (vfe_dev->vfe_clk_idx == 2)
+		msm_cam_clk_enable(&vfe_dev->pdev->dev,
+				msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
+				ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
 clk_enable_failed:
 	regulator_disable(vfe_dev->fs_vfe);
 fs_failed:
@@ -119,10 +127,14 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_base);
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
-	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_2_clk_info,
-		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
+	if (vfe_dev->vfe_clk_idx == 1)
+		msm_cam_clk_enable(&vfe_dev->pdev->dev,
+				msm_vfe32_1_clk_info, vfe_dev->vfe_clk,
+				ARRAY_SIZE(msm_vfe32_1_clk_info), 0);
+	if (vfe_dev->vfe_clk_idx == 2)
+		msm_cam_clk_enable(&vfe_dev->pdev->dev,
+				msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
+				ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
