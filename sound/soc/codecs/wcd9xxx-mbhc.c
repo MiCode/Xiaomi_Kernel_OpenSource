@@ -94,9 +94,6 @@
 
 #define WCD9XXX_USLEEP_RANGE_MARGIN_US 1000
 
-#define WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO 28
-#define WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN 21
-
 static bool detect_use_vddio_switch = true;
 
 struct wcd9xxx_mbhc_detect {
@@ -3115,10 +3112,10 @@ static int wcd9xxx_setup_jack_detect_irq(struct wcd9xxx_mbhc *mbhc)
 
 		switch (mbhc->mbhc_version) {
 		case WCD9XXX_MBHC_VERSION_TAIKO:
-			jack_irq = WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO;
+			jack_irq = WCD9320_IRQ_MBHC_JACK_SWITCH;
 			break;
 		case WCD9XXX_MBHC_VERSION_TAPAN:
-			jack_irq = WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN;
+			jack_irq = WCD9306_IRQ_MBHC_JACK_SWITCH;
 			break;
 		default:
 			return -EINVAL;
@@ -3802,12 +3799,10 @@ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 
 	switch (mbhc->mbhc_version) {
 	case WCD9XXX_MBHC_VERSION_TAIKO:
-		wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO,
-				 mbhc);
+		wcd9xxx_free_irq(cdata, WCD9320_IRQ_MBHC_JACK_SWITCH, mbhc);
 		break;
 	case WCD9XXX_MBHC_VERSION_TAPAN:
-		wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN,
-				 mbhc);
+		wcd9xxx_free_irq(cdata, WCD9306_IRQ_MBHC_JACK_SWITCH, mbhc);
 		break;
 	default:
 		pr_err("%s: irq free failed! Invalid MBHC version %d\n",

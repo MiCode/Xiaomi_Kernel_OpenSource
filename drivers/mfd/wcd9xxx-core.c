@@ -283,14 +283,6 @@ static struct mfd_cell tapan_devs[] = {
 	},
 };
 
-
-enum wcd9xxx_chipid_major {
-	TABLA_MAJOR = cpu_to_le16(0x100),
-	SITAR_MAJOR = cpu_to_le16(0x101),
-	TAIKO_MAJOR = cpu_to_le16(0x102),
-	TAPAN_MAJOR = cpu_to_le16(0x103),
-};
-
 static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	{
 		TABLA_MAJOR, cpu_to_le16(0x1), tabla1x_devs,
