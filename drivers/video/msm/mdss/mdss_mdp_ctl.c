@@ -1119,7 +1119,13 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	if (pipe == NULL) {
 		mixercfg = MDSS_MDP_LM_BORDER_COLOR;
 	} else {
-		mixercfg = 1 << (3 * pipe->num);
+		if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+			pipe->num == MDSS_MDP_SSPP_RGB3) {
+			/* Add 2 to account for Cursor & Border bits */
+			mixercfg = 1 << ((3 * pipe->num)+2);
+		} else {
+			mixercfg = 1 << (3 * pipe->num);
+		}
 		if (pipe->src_fmt->alpha_enable)
 			bgalpha = 1;
 		secure = pipe->flags & MDP_SECURE_OVERLAY_SESSION;
@@ -1187,7 +1193,10 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 	pr_debug("mixer=%d mixer_cfg=%x\n", mixer->num, mixercfg);
 
-	ctl->flush_bits |= BIT(6) << mixer->num;	/* LAYER_MIXER */
+	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
+		ctl->flush_bits |= BIT(20);
+	else
+		ctl->flush_bits |= BIT(6) << mixer->num;
 
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, blend_color_out);
 	off = __mdss_mdp_ctl_get_mixer_off(mixer);
@@ -1349,7 +1358,10 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
 		ctl->flush_bits |= BIT(pipe->num) << 5;
-	else /* RGB/VIG pipe */
+	else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+			pipe->num == MDSS_MDP_SSPP_RGB3)
+		ctl->flush_bits |= BIT(pipe->num) << 10;
+	else /* RGB/VIG 0-2 pipes */
 		ctl->flush_bits |= BIT(pipe->num);
 
 	mutex_unlock(&ctl->lock);
