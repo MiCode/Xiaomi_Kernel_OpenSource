@@ -43,6 +43,8 @@
 #include <mach/msm_spi.h>
 #include <mach/sps.h>
 #include <mach/dma.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include "spi_qsd.h"
 
 static int msm_spi_pm_resume_runtime(struct device *device);
@@ -198,6 +200,177 @@ static void msm_spi_clock_set(struct msm_spi *dd, int speed)
 	rc = clk_set_rate(dd->clk, rate);
 	if (!rc)
 		dd->clock_speed = rate;
+}
+
+static void msm_spi_clk_path_vote(struct msm_spi *dd)
+{
+	if (dd->clk_path_vote.client_hdl)
+		msm_bus_scale_client_update_request(
+						dd->clk_path_vote.client_hdl,
+						MSM_SPI_CLK_PATH_RESUME_VEC);
+}
+
+static void msm_spi_clk_path_unvote(struct msm_spi *dd)
+{
+	if (dd->clk_path_vote.client_hdl)
+		msm_bus_scale_client_update_request(
+						dd->clk_path_vote.client_hdl,
+						MSM_SPI_CLK_PATH_SUSPEND_VEC);
+}
+
+static void msm_spi_clk_path_teardown(struct msm_spi *dd)
+{
+	if (dd->pdata->active_only)
+		msm_spi_clk_path_unvote(dd);
+
+	if (dd->clk_path_vote.client_hdl) {
+		msm_bus_scale_unregister_client(dd->clk_path_vote.client_hdl);
+		dd->clk_path_vote.client_hdl = 0;
+	}
+}
+
+/**
+ * msm_spi_clk_path_init_structs: internal impl detail of msm_spi_clk_path_init
+ *
+ * allocates and initilizes the bus scaling vectors.
+ */
+static int msm_spi_clk_path_init_structs(struct msm_spi *dd)
+{
+	struct msm_bus_vectors *paths    = NULL;
+	struct msm_bus_paths   *usecases = NULL;
+
+	dev_dbg(dd->dev, "initialises path clock voting structs");
+
+	paths = devm_kzalloc(dd->dev, sizeof(*paths) * 2, GFP_KERNEL);
+	if (!paths) {
+		dev_err(dd->dev,
+		"msm_bus_paths.paths memory allocation failed");
+		return -ENOMEM;
+	}
+
+	usecases = devm_kzalloc(dd->dev, sizeof(*usecases) * 2, GFP_KERNEL);
+	if (!usecases) {
+		dev_err(dd->dev,
+		"msm_bus_scale_pdata.usecases memory allocation failed");
+		goto path_init_err;
+	}
+
+	dd->clk_path_vote.pdata = devm_kzalloc(dd->dev,
+					    sizeof(*dd->clk_path_vote.pdata),
+					    GFP_KERNEL);
+	if (!dd->clk_path_vote.pdata) {
+		dev_err(dd->dev,
+		"msm_bus_scale_pdata memory allocation failed");
+		goto path_init_err;
+	}
+
+	paths[MSM_SPI_CLK_PATH_SUSPEND_VEC] = (struct msm_bus_vectors) {
+		.src = dd->pdata->master_id,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	};
+
+	paths[MSM_SPI_CLK_PATH_RESUME_VEC]  = (struct msm_bus_vectors) {
+		.src = dd->pdata->master_id,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = MSM_SPI_CLK_PATH_AVRG_BW(dd),
+		.ib  = MSM_SPI_CLK_PATH_BRST_BW(dd),
+	};
+
+	usecases[MSM_SPI_CLK_PATH_SUSPEND_VEC] = (struct msm_bus_paths) {
+		.num_paths = 1,
+		.vectors   = &paths[MSM_SPI_CLK_PATH_SUSPEND_VEC],
+	};
+
+	usecases[MSM_SPI_CLK_PATH_RESUME_VEC] = (struct msm_bus_paths) {
+		.num_paths = 1,
+		.vectors   = &paths[MSM_SPI_CLK_PATH_RESUME_VEC],
+	};
+
+	*dd->clk_path_vote.pdata = (struct msm_bus_scale_pdata) {
+		.active_only  = dd->pdata->active_only,
+		.name         = dev_name(dd->dev),
+		.num_usecases = 2,
+		.usecase      = usecases,
+	};
+
+	return 0;
+
+path_init_err:
+	devm_kfree(dd->dev, paths);
+	devm_kfree(dd->dev, usecases);
+	devm_kfree(dd->dev, dd->clk_path_vote.pdata);
+	dd->clk_path_vote.pdata = NULL;
+	return -ENOMEM;
+}
+
+/**
+ * msm_spi_clk_path_postponed_register: reg with bus-scaling after it is probed
+ *
+ * @return zero on success
+ *
+ * Workaround: SPI driver may be probed before the bus scaling driver. Calling
+ * msm_bus_scale_register_client() will fail if the bus scaling driver is not
+ * ready yet. Thus, this function should be called not from probe but from a
+ * later context. Also, this function may be called more then once before
+ * register succeed. At this case only one error message will be logged. At boot
+ * time all clocks are on, so earlier SPI transactions should succeed.
+ */
+static int msm_spi_clk_path_postponed_register(struct msm_spi *dd)
+{
+	dd->clk_path_vote.client_hdl = msm_bus_scale_register_client(
+						dd->clk_path_vote.pdata);
+
+	if (dd->clk_path_vote.client_hdl) {
+		if (dd->clk_path_vote.reg_err) {
+			/* log a success message if an error msg was logged */
+			dd->clk_path_vote.reg_err = false;
+			dev_info(dd->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0x%x",
+				dd->pdata->master_id, dd->pdata->active_only,
+				dd->clk_path_vote.client_hdl);
+		}
+
+		if (dd->pdata->active_only)
+			msm_spi_clk_path_vote(dd);
+	} else {
+		/* guard to log only one error on multiple failure */
+		if (!dd->clk_path_vote.reg_err) {
+			dd->clk_path_vote.reg_err = true;
+
+			dev_info(dd->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0",
+				dd->pdata->master_id, dd->pdata->active_only);
+		}
+	}
+
+	return dd->clk_path_vote.client_hdl ? 0 : -EAGAIN;
+}
+
+static void msm_spi_clk_path_init(struct msm_spi *dd)
+{
+	/*
+	 * bail out if path voting is diabled (master_id == 0) or if it is
+	 * already registered (client_hdl != 0)
+	 */
+	if (!dd->pdata->master_id || dd->clk_path_vote.client_hdl)
+		return;
+
+	/* if fail once then try no more */
+	if (!dd->clk_path_vote.pdata && msm_spi_clk_path_init_structs(dd)) {
+		dd->pdata->master_id = 0;
+		return;
+	};
+
+	/* on failure try again later */
+	if (msm_spi_clk_path_postponed_register(dd))
+		return;
+
+	if (dd->pdata->active_only)
+		msm_spi_clk_path_vote(dd);
 }
 
 static int msm_spi_calculate_size(int *fifo_size,
@@ -2359,44 +2532,124 @@ static __init int msm_spi_dmov_init(struct msm_spi *dd)
 	return 0;
 }
 
+enum msm_spi_dt_entry_status {
+	DT_REQ,  /* Required:  fail if missing */
+	DT_SGST, /* Suggested: warn if missing */
+	DT_OPT,  /* Optional:  don't warn if missing */
+};
+
+enum msm_spi_dt_entry_type {
+	DT_U32,
+	DT_GPIO,
+	DT_BOOL,
+};
+
+struct msm_spi_dt_to_pdata_map {
+	const char                  *dt_name;
+	void                        *ptr_data;
+	enum msm_spi_dt_entry_status status;
+	enum msm_spi_dt_entry_type   type;
+	int                          default_val;
+};
+
+static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
+					struct msm_spi_platform_data *pdata,
+					struct msm_spi_dt_to_pdata_map  *itr)
+{
+	int  ret, err = 0;
+	struct device_node *node = pdev->dev.of_node;
+
+	for (; itr->dt_name ; ++itr) {
+		switch (itr->type) {
+		case DT_GPIO:
+			ret = of_get_named_gpio(node, itr->dt_name, 0);
+			if (ret >= 0) {
+				*((int *) itr->ptr_data) = ret;
+				ret = 0;
+			}
+			break;
+		case DT_U32:
+			ret = of_property_read_u32(node, itr->dt_name,
+							 (u32 *) itr->ptr_data);
+			break;
+		case DT_BOOL:
+			*((bool *) itr->ptr_data) =
+				of_property_read_bool(node, itr->dt_name);
+			ret = 0;
+			break;
+		default:
+			dev_err(&pdev->dev, "%d is an unknown DT entry type\n",
+								itr->type);
+			ret = -EBADE;
+		}
+
+		dev_dbg(&pdev->dev, "DT entry ret:%d name:%s val:%d\n",
+				ret, itr->dt_name, *((int *)itr->ptr_data));
+
+		if (ret) {
+			*((int *)itr->ptr_data) = itr->default_val;
+
+			if (itr->status < DT_OPT) {
+				dev_err(&pdev->dev, "Missing '%s' DT entry\n",
+								itr->dt_name);
+
+				/* cont on err to dump all missing entries */
+				if (itr->status == DT_REQ && !err)
+					err = ret;
+			}
+		}
+	}
+
+	return err;
+}
+
 /**
  * msm_spi_dt_to_pdata: copy device-tree data to platfrom data struct
  */
 struct msm_spi_platform_data *
 __init msm_spi_dt_to_pdata(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
 	struct msm_spi_platform_data *pdata;
-	int rc;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		pr_err("Unable to allocate platform data\n");
 		return NULL;
+	} else {
+		struct msm_spi_dt_to_pdata_map map[] = {
+		{"spi-max-frequency",
+			&pdata->max_clock_speed,         DT_SGST, DT_U32,  0},
+		{"qcom,infinite-mode",
+			&pdata->infinite_mode,           DT_OPT,  DT_U32,  0},
+		{"qcom,active-only",
+			&pdata->active_only,             DT_OPT,  DT_BOOL, 0},
+		{"qcom,master-id",
+			&pdata->master_id,               DT_SGST, DT_U32,  0},
+		{"qcom,ver-reg-exists",
+			&pdata->ver_reg_exists,          DT_OPT,  DT_BOOL, 0},
+		{"qcom,use-bam",
+			&pdata->use_bam,                 DT_OPT,  DT_BOOL, 0},
+		{"qcom,bam-consumer-pipe-index",
+			&pdata->bam_consumer_pipe_index, DT_OPT,  DT_U32,  0},
+		{"qcom,bam-producer-pipe-index",
+			&pdata->bam_producer_pipe_index, DT_OPT,  DT_U32,  0},
+		{NULL,  NULL,                            0,       0,       0},
+		};
+
+		if (msm_spi_dt_to_pdata_populate(pdev, pdata, map)) {
+			devm_kfree(&pdev->dev, pdata);
+			return NULL;
+		}
 	}
 
-	of_property_read_u32(node, "spi-max-frequency",
-			&pdata->max_clock_speed);
-	of_property_read_u32(node, "qcom,infinite-mode",
-			&pdata->infinite_mode);
-
-	pdata->ver_reg_exists = of_property_read_bool(node
-						, "qcom,ver-reg-exists");
-
-	pdata->use_bam = of_property_read_bool(node, "qcom,use-bam");
-
 	if (pdata->use_bam) {
-		rc = of_property_read_u32(node, "qcom,bam-consumer-pipe-index",
-					&pdata->bam_consumer_pipe_index);
-		if (rc) {
+		if (!pdata->bam_consumer_pipe_index) {
 			dev_warn(&pdev->dev,
 			"missing qcom,bam-consumer-pipe-index entry in device-tree\n");
 			pdata->use_bam = false;
 		}
 
-		rc = of_property_read_u32(node, "qcom,bam-producer-pipe-index",
-					&pdata->bam_producer_pipe_index);
-		if (rc) {
+		if (pdata->bam_producer_pipe_index) {
 			dev_warn(&pdev->dev,
 			"missing qcom,bam-producer-pipe-index entry in device-tree\n");
 			pdata->use_bam = false;
@@ -2808,6 +3061,8 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 	msm_spi_disable_irqs(dd);
 	clk_disable_unprepare(dd->clk);
 	clk_disable_unprepare(dd->pclk);
+	if (!dd->pdata->active_only)
+		msm_spi_clk_path_unvote(dd);
 
 	/* Free  the spi clk, miso, mosi, cs gpio */
 	if (dd->pdata && dd->pdata->gpio_release)
@@ -2858,10 +3113,14 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 	if (ret)
 		return ret;
 
+	msm_spi_clk_path_init(dd);
+	if (!dd->pdata->active_only)
+		msm_spi_clk_path_vote(dd);
 	clk_prepare_enable(dd->clk);
 	clk_prepare_enable(dd->pclk);
 	msm_spi_enable_irqs(dd);
 	dd->suspended = 0;
+
 resume_exit:
 	return 0;
 }
@@ -2917,6 +3176,7 @@ static int __devexit msm_spi_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 	clk_put(dd->clk);
 	clk_put(dd->pclk);
+	msm_spi_clk_path_teardown(dd);
 	destroy_workqueue(dd->workqueue);
 	platform_set_drvdata(pdev, 0);
 	spi_unregister_master(master);
