@@ -288,7 +288,8 @@ static void pp_sharp_config(char __iomem *offset,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
 static int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
-static struct mdss_ad_info *mdss_mdp_get_ad(struct msm_fb_data_type *mfd);
+static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
+					struct mdss_ad_info **ad);
 static int pp_update_ad_input(struct msm_fb_data_type *mfd);
 static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
 static void pp_ad_cfg_write(struct mdss_ad_info *ad);
@@ -2731,8 +2732,12 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 	}
 
 	mixer_num = mdss_mdp_get_ctl_mixers(mfd->index, mixer_id);
-	if (!mixer_num || mixer_num > MDSS_AD_MAX_MIXERS) {
-		pr_err("invalid mixer_num, %d", mixer_num);
+	if (!mixer_num) {
+		pr_debug("no mixers connected, %d", mixer_num);
+		return -EHOSTDOWN;
+	}
+	if (mixer_num > MDSS_AD_MAX_MIXERS) {
+		pr_warn("too many mixers, not supported, %d", mixer_num);
 		return ret;
 	}
 
@@ -2747,9 +2752,10 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 	return mixer_id[0];
 }
 
-static struct mdss_ad_info *mdss_mdp_get_ad(struct msm_fb_data_type *mfd)
+static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
+					struct mdss_ad_info **ret_ad)
 {
-	int ad_num;
+	int ad_num, ret = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_ad_info *ad = NULL;
 	mdata = mfd_to_mdata(mfd);
@@ -2757,11 +2763,15 @@ static struct mdss_ad_info *mdss_mdp_get_ad(struct msm_fb_data_type *mfd)
 	ad_num = mdss_ad_init_checks(mfd);
 	if (ad_num >= 0)
 		ad = &mdata->ad_cfgs[ad_num];
-	return ad;
+	else
+		ret = ad_num;
+	*ret_ad = ad;
+	return ret;
 }
 
 static int pp_update_ad_input(struct msm_fb_data_type *mfd)
 {
+	int ret;
 	struct mdss_ad_info *ad;
 	struct mdss_ad_input input;
 	struct mdss_mdp_ctl *ctl;
@@ -2772,7 +2782,9 @@ static int pp_update_ad_input(struct msm_fb_data_type *mfd)
 	if (!ctl)
 		return -EINVAL;
 
-	ad = mdss_mdp_get_ad(mfd);
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret)
+		return ret;
 	if (!ad || ad->cfg.mode == MDSS_AD_MODE_AUTO_BL)
 		return -EINVAL;
 
@@ -2795,9 +2807,9 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 	int lin_ret = -1, inv_ret = -1, ret = 0;
 	u32 ratio_temp, shift = 0;
 
-	ad = mdss_mdp_get_ad(mfd);
-	if (!ad)
-		return -EINVAL;
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret)
+		return ret;
 
 	mutex_lock(&ad->lock);
 	if (init_cfg->ops & MDP_PP_AD_INIT) {
@@ -2862,9 +2874,9 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl;
 	u32 bl;
 
-	ad = mdss_mdp_get_ad(mfd);
-	if (!ad)
-		return -EINVAL;
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret)
+		return ret;
 
 	mutex_lock(&ad->lock);
 	if ((!PP_AD_STATE_IS_INITCFG(ad->state) &&
@@ -3074,9 +3086,9 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	char __iomem *base;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
-	ad = mdss_mdp_get_ad(mfd);
-	if (!ad)
-		return -EINVAL;
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret)
+		return ret;
 
 	base = ad->base;
 
