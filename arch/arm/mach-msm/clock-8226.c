@@ -2846,11 +2846,6 @@ static struct pll_clk a7sspll = {
 		},
 		.num_fmax = VDD_SR2_PLL_NUM,
 		CLK_INIT(a7sspll.c),
-		/*
-		 * Need to skip handoff of the acpu pll to avoid
-		 * turning off the pll when the cpu is using it
-		 */
-		.flags = CLKFLAG_SKIP_HANDOFF,
 	},
 };
 
