@@ -441,7 +441,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM &&
 		    !drvdata->reset_flush_race) {
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 						       usb_notifier);
@@ -676,7 +676,7 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM &&
 		    !drvdata->reset_flush_race) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			tmc_etr_bam_disable(drvdata);
@@ -996,7 +996,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 
 		if (!drvdata->reset_flush_race) {
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 		}
 
 		tmc_etr_bam_disable(drvdata);
@@ -1020,7 +1020,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 		if (!drvdata->reset_flush_race) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 		}
 
