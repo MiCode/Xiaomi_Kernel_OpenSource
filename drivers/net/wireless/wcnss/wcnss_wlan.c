@@ -79,6 +79,15 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_RIVA_LAST_ADDR1_OFFSET		0x108
 #define CCU_RIVA_LAST_ADDR2_OFFSET		0x10c
 
+#define PRONTO_PMU_SPARE_OFFSET       0x1088
+
+#define PRONTO_PMU_GDSCR_OFFSET       0x0024
+#define PRONTO_PMU_GDSCR_SW_COLLAPSE  BIT(0)
+#define PRONTO_PMU_GDSCR_HW_CTRL      BIT(1)
+
+#define PRONTO_PMU_CBCR_OFFSET        0x0008
+#define PRONTO_PMU_CBCR_CLK_EN        BIT(0)
+
 #define MSM_PRONTO_A2XB_BASE		0xfb100400
 #define A2XB_CFG_OFFSET				0x00
 #define A2XB_INT_SRC_OFFSET			0x0c
@@ -418,6 +427,28 @@ void wcnss_pronto_log_debug_regs(void)
 {
 	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
 	u32 reg = 0;
+
+
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_SPARE_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s:  PRONTO_PMU_SPARE %08x\n", __func__, reg);
+
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_GDSCR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	reg >>= 31;
+
+	if (!reg) {
+		pr_info_ratelimited("%s:  Cannot log, Pronto common SS is power collapsed\n",
+				__func__);
+		return;
+	}
+	reg &= ~(PRONTO_PMU_GDSCR_SW_COLLAPSE | PRONTO_PMU_GDSCR_HW_CTRL);
+	writel_relaxed(reg, reg_addr);
+
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_CBCR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	reg |= PRONTO_PMU_CBCR_CLK_EN;
+	writel_relaxed(reg, reg_addr);
 
 	reg_addr = penv->pronto_a2xb_base + A2XB_CFG_OFFSET;
 	reg = readl_relaxed(reg_addr);
