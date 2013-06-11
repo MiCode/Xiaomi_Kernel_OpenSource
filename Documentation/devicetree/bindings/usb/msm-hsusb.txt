@@ -50,7 +50,10 @@ Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
     - qcom,msm_bus,name
-    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_cases - There are three valid cases for this: NONE, MAX
+		and MIN bandwidth votes. Minimum two cases must be defined for
+		both NONE and MAX votes. If MIN vote is different from NONE VOTE
+		then specify third case for MIN VOTE.
     - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
