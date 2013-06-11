@@ -157,6 +157,7 @@
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x61>;
+				qcom,mode = "manual";
 			};
 		};
 
@@ -171,6 +172,7 @@
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x10>;
+				qcom,mode = "manual";
 			};
 		};
 	};
