@@ -47,6 +47,8 @@ Optional properties :
 		bits 20-25 PARAMETER_OVERRIDE_D
 - qcom,skip-charger-detection: If present then charger detection using BC1.2
   is not supported and attached host should always be assumed as SDP.
+- USB3_GDSC-supply : phandle to the globally distributed switch controller
+  regulator node to the USB controller.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -66,6 +68,7 @@ Example MSM USB3.0 controller device node :
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		vbus_dwc3-supply = <&pm8941_mvs1>;
+		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,dwc-hsphy-init = <0x00D195A4>;
