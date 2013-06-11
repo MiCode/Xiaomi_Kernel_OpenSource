@@ -88,7 +88,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	void *data);
 
 int32_t msm_sensor_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id);
+	const struct i2c_device_id *id, struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
 
