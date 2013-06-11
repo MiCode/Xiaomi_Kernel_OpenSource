@@ -417,7 +417,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
 	/* disable DSI phy */
-	mdss_dsi_phy_enable(ctrl_pdata->ctrl_base, 0);
+	mdss_dsi_phy_enable(ctrl_pdata, 0);
 
 	mdss_dsi_disable_bus_clocks(ctrl_pdata);
 
