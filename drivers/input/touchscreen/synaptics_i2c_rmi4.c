@@ -2302,7 +2302,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	}
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
-		retval = sysfs_create_file(&rmi4_data->input_dev->dev.kobj,
+		retval = sysfs_create_file(&client->dev.kobj,
 				&attrs[attr_count].attr);
 		if (retval < 0) {
 			dev_err(&client->dev,

@@ -1757,7 +1757,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	fwu->initialized = true;
 	fwu->force_update = FORCE_UPDATE;
 
-	retval = sysfs_create_bin_file(&rmi4_data->input_dev->dev.kobj,
+	retval = sysfs_create_bin_file(&rmi4_data->i2c_client->dev.kobj,
 			&dev_attr_data);
 	if (retval < 0) {
 		dev_err(&rmi4_data->i2c_client->dev,
@@ -1767,7 +1767,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
-		retval = sysfs_create_file(&rmi4_data->input_dev->dev.kobj,
+		retval = sysfs_create_file(&rmi4_data->i2c_client->dev.kobj,
 				&attrs[attr_count].attr);
 		if (retval < 0) {
 			dev_err(&rmi4_data->i2c_client->dev,
