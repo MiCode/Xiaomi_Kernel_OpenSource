@@ -858,7 +858,7 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value1, value2, mask1, mask2;
 	u8			*reg1, *reg2;
-	u16			addr;
+	u16			addr, addr1;
 	int			rc;
 
 	value1 = pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
@@ -878,7 +878,7 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 			value2 = QPNP_DISABLE_LPG_MODE;
 		}
 		mask1 = QPNP_RAMP_START_MASK;
-		addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		addr1 = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 					QPNP_RAMP_CONTROL);
 		break;
 	case QPNP_LPG_REVISION_1:
@@ -889,8 +889,8 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 			QPNP_DISABLE_LUT_V1(value1, pwm->pwm_config.channel_id);
 			value2 = QPNP_DISABLE_LPG_MODE;
 		}
-		mask1 = BIT(pwm->pwm_config.channel_id);
-		addr = lpg_config->lut_base_addr +
+		mask1 = value1;
+		addr1 = lpg_config->lut_base_addr +
 			SPMI_LPG_REV1_RAMP_CONTROL_OFFSET;
 		break;
 	default:
@@ -898,15 +898,16 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 		return -EINVAL;
 	}
 
-	rc = qpnp_lpg_save_and_write(value1, mask1, reg1,
+	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+				QPNP_ENABLE_CONTROL);
+
+	rc = qpnp_lpg_save_and_write(value2, mask2, reg2,
 					addr, 1, chip);
 	if (rc)
 		return rc;
-	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-				QPNP_ENABLE_CONTROL);
-	return qpnp_lpg_save_and_write(value2, mask2, reg2,
-					addr, 1, chip);
 
+	return qpnp_lpg_save_and_write(value1, mask1, reg1,
+					addr1, 1, chip);
 }
 
 #define QPNP_GPLED_LPG_CHANNEL_RANGE_START 8
