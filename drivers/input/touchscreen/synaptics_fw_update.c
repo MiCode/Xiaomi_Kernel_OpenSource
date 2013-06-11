@@ -304,10 +304,10 @@ static struct bin_attribute dev_attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(forceflash, S_IWUGO,
+	__ATTR(force_update_fw, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_force_reflash_store),
-	__ATTR(doreflash, S_IWUGO,
+	__ATTR(update_fw, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_do_reflash_store),
 	__ATTR(writeconfig, S_IWUGO,
