@@ -125,7 +125,7 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 	if (enable)
 		INIT_COMPLETION(mdp3_session->vsync_comp);
 	else
-		complete_all(&mdp3_session->vsync_comp);
+		complete(&mdp3_session->vsync_comp);
 	spin_unlock_irqrestore(&mdp3_session->vsync_lock, flag);
 	return 0;
 }
