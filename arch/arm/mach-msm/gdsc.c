@@ -47,7 +47,8 @@ struct gdsc {
 	void __iomem		*gdscr;
 	struct clk		**clocks;
 	int			clock_count;
-	bool			toggle_mems;
+	bool			toggle_mem;
+	bool			toggle_periph;
 	bool			toggle_logic;
 	bool			resets_asserted;
 };
@@ -86,11 +87,11 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		sc->resets_asserted = false;
 	}
 
-	if (sc->toggle_mems) {
-		for (i = 0; i < sc->clock_count; i++) {
+	for (i = 0; i < sc->clock_count; i++) {
+		if (sc->toggle_mem)
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
+		if (sc->toggle_periph)
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
-		}
 	}
 
 	/*
@@ -127,11 +128,11 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		sc->resets_asserted = true;
 	}
 
-	if (sc->toggle_mems) {
-		for (i = 0; i < sc->clock_count; i++) {
+	for (i = 0; i < sc->clock_count; i++) {
+		if (sc->toggle_mem)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+		if (sc->toggle_periph)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
-		}
 	}
 
 	return ret;
@@ -150,7 +151,7 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct gdsc *sc;
 	uint32_t regval;
-	bool retain_mems;
+	bool retain_mem, retain_periph;
 	int i, ret;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
@@ -222,18 +223,23 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | CLK_DIS_WAIT_VAL;
 	writel_relaxed(regval, sc->gdscr);
 
-	retain_mems = of_property_read_bool(pdev->dev.of_node,
-					    "qcom,retain-mems");
+	retain_mem = of_property_read_bool(pdev->dev.of_node,
+					    "qcom,retain-mem");
+	retain_periph = of_property_read_bool(pdev->dev.of_node,
+					    "qcom,retain-periph");
 	for (i = 0; i < sc->clock_count; i++) {
-		if (retain_mems || (regval & PWR_ON_MASK)) {
+		if (retain_mem || (regval & PWR_ON_MASK))
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
-			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
-		} else {
+		else
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+
+		if (retain_periph || (regval & PWR_ON_MASK))
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
+		else
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
-		}
 	}
-	sc->toggle_mems = !retain_mems;
+	sc->toggle_mem = !retain_mem;
+	sc->toggle_periph = !retain_periph;
 	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
 						"qcom,skip-logic-collapse");
 	if (!sc->toggle_logic) {
