@@ -278,7 +278,8 @@ static void ul_wakeup(void)
 					A2_MUX_COMPLETION_TIMEOUT);
 		a2_mux_ctx->wait_for_ack = 0;
 		if (unlikely(ret == 0)) {
-			IPADBG("%s timeout previous ack\n", __func__);
+			IPAERR("%s previous ack from modem timed out\n",
+				__func__);
 			goto bail;
 		}
 	}
@@ -288,7 +289,7 @@ static void ul_wakeup(void)
 	ret = wait_for_completion_timeout(&a2_mux_ctx->ul_wakeup_ack_completion,
 					A2_MUX_COMPLETION_TIMEOUT);
 	if (unlikely(ret == 0)) {
-		IPADBG("%s timeout wakeup ack\n", __func__);
+		IPAERR("%s wakup ack from modem timed out\n", __func__);
 		goto bail;
 	}
 	INIT_COMPLETION(a2_mux_ctx->bam_connection_completion);
@@ -297,7 +298,7 @@ static void ul_wakeup(void)
 			&a2_mux_ctx->bam_connection_completion,
 			A2_MUX_COMPLETION_TIMEOUT);
 		if (unlikely(ret == 0)) {
-			IPADBG("%s timeout power on\n", __func__);
+			IPAERR("%s modem power on timed out\n", __func__);
 			goto bail;
 		}
 	}
@@ -450,7 +451,8 @@ static void kickoff_ul_wakeup_func(struct work_struct *work)
 			&a2_mux_ctx->dl_wakeup_completion,
 			A2_MUX_COMPLETION_TIMEOUT);
 		if (unlikely(ret == 0)) {
-			IPAERR("%s timeout A2 PROD\n", __func__);
+			IPAERR("%s timeout waiting for A2 PROD granted\n",
+				__func__);
 			BUG();
 			return;
 		}
@@ -475,8 +477,8 @@ static void kickoff_ul_request_resource_func(struct work_struct *work)
 			&a2_mux_ctx->request_resource_completion,
 			A2_MUX_COMPLETION_TIMEOUT);
 		if (unlikely(ret == 0)) {
-			IPADBG("%s timeout request A2 PROD resource\n",
-				     __func__);
+			IPAERR("%s timeout waiting for A2 PROD granted\n",
+				__func__);
 			BUG();
 			return;
 		}
