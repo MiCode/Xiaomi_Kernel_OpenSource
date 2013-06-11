@@ -553,9 +553,9 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	if (stream_info->num_planes > 1) {
-		msm_isp_axi_free_comp_mask(&vfe_dev->axi_data, stream_info);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-		clear_comp_mask(vfe_dev, stream_info);
+			clear_comp_mask(vfe_dev, stream_info);
+		msm_isp_axi_free_comp_mask(&vfe_dev->axi_data, stream_info);
 	} else {
 		vfe_dev->hw_info->vfe_ops.axi_ops.
 		clear_wm_irq_mask(vfe_dev, stream_info);
