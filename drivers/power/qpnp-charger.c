@@ -2675,6 +2675,39 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	if (rc)
 		goto fail_chg_enable;
 
+	/* Check if bat_if is set in DT and make sure VADC is present */
+	spmi_for_each_container_dev(spmi_resource, spmi) {
+		if (!spmi_resource) {
+			pr_err("qpnp_chg: spmi resource absent\n");
+			rc = -ENXIO;
+			goto fail_chg_enable;
+		}
+
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			pr_err("node %s IO resource absent!\n",
+				spmi->dev.of_node->full_name);
+			rc = -ENXIO;
+			goto fail_chg_enable;
+		}
+
+		rc = qpnp_chg_read(chip, &subtype,
+				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+		if (rc) {
+			pr_err("Peripheral subtype read failed rc=%d\n", rc);
+			goto fail_chg_enable;
+		}
+
+		if (subtype == SMBB_BAT_IF_SUBTYPE ||
+			subtype == SMBBP_BAT_IF_SUBTYPE ||
+			subtype == SMBCL_BAT_IF_SUBTYPE){
+			rc = qpnp_vadc_is_ready();
+			if (rc)
+				goto fail_chg_enable;
+		}
+	}
+
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
 			pr_err("qpnp_chg: spmi resource absent\n");
@@ -2806,10 +2839,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	device_init_wakeup(&spmi->dev, 1);
 
 	if (chip->bat_if_base) {
-		rc = qpnp_vadc_is_ready();
-		if (rc)
-			goto fail_chg_enable;
-
 		chip->batt_psy.name = "battery";
 		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
 		chip->batt_psy.properties = msm_batt_power_props;
