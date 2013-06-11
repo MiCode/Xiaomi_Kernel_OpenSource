@@ -26,6 +26,12 @@
 
 &soc {
 	qcom,mss@fc880000 {
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x20>,
+		      <0xfc401680 0x4>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base",
+			    "restart_reg";
 		vdd_mss-supply = <&pm8226_s5>;
 	};
 
