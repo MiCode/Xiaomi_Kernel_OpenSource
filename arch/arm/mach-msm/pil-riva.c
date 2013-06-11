@@ -362,7 +362,7 @@ static void riva_post_bootup(struct work_struct *work)
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 
-	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF);
+	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF, NULL);
 }
 
 static int riva_start(const struct subsys_desc *desc)
@@ -404,7 +404,7 @@ static int riva_powerup(const struct subsys_desc *desc)
 	drv = container_of(desc, struct riva_data, subsys_desc);
 	if (pdev && pwlanconfig) {
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_ON);
+					WCNSS_WLAN_SWITCH_ON, NULL);
 		if (!ret)
 			pil_boot(&drv->pil_desc);
 	}

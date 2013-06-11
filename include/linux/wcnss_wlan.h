@@ -30,6 +30,12 @@ struct wcnss_wlan_config {
 	int		use_48mhz_xo;
 };
 
+enum {
+	WCNSS_XO_48MHZ = 1,
+	WCNSS_XO_19MHZ,
+	WCNSS_XO_INVALID,
+};
+
 #define WCNSS_WLAN_IRQ_INVALID -1
 #define HAVE_WCNSS_SUSPEND_RESUME_NOTIFY 1
 #define HAVE_WCNSS_RESET_INTR 1
@@ -52,7 +58,8 @@ struct platform_device *wcnss_get_platform_device(void);
 struct wcnss_wlan_config *wcnss_get_wlan_config(void);
 int wcnss_wlan_power(struct device *dev,
 				struct wcnss_wlan_config *cfg,
-				enum wcnss_opcode opcode);
+				enum wcnss_opcode opcode,
+				int *iris_xo_mode_set);
 int wcnss_req_power_on_lock(char *driver_name);
 int wcnss_free_power_on_lock(char *driver_name);
 unsigned int wcnss_get_serial_number(void);
@@ -71,6 +78,7 @@ int wcnss_device_ready(void);
 void wcnss_riva_dump_pmic_regs(void);
 int wcnss_xo_auto_detect_enabled(void);
 u32 wcnss_get_wlan_rx_buff_count(void);
+int wcnss_wlan_iris_xo_mode(void);
 
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
