@@ -1305,6 +1305,25 @@ exit:
 	return rc;
 }
 
+static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
+{
+	struct msm_vidc_inst *temp;
+	dprintk(VIDC_ERR, "Running instances:\n");
+	dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s\n", "type", "w", "h", "fps");
+	list_for_each_entry(temp, &core->instances, list) {
+		mutex_lock(&temp->lock);
+		if (temp->state >= MSM_VIDC_OPEN_DONE &&
+				temp->state < MSM_VIDC_STOP_DONE) {
+			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d\n",
+					temp->session_type,
+					temp->prop.width,
+					temp->prop.height,
+					temp->prop.fps);
+		}
+		mutex_unlock(&temp->lock);
+	}
+}
+
 static int msm_vidc_load_resources(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
@@ -1327,24 +1346,9 @@ static int msm_vidc_load_resources(int flipped_state,
 	num_mbs_per_sec = msm_comm_get_load(inst->core, MSM_VIDC_DECODER);
 	num_mbs_per_sec += msm_comm_get_load(inst->core, MSM_VIDC_ENCODER);
 	if (num_mbs_per_sec > inst->core->resources.max_load) {
-		struct msm_vidc_inst *temp;
-
 		dprintk(VIDC_ERR, "HW is overloaded, needed: %d max: %d\n",
 			num_mbs_per_sec, inst->core->resources.max_load);
-		dprintk(VIDC_ERR, "Running instances:\n");
-		dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s\n", "type", "w", "h", "fps");
-		list_for_each_entry(temp, &inst->core->instances, list) {
-			mutex_lock(&temp->lock);
-			if (temp->state >= MSM_VIDC_OPEN_DONE &&
-					temp->state < MSM_VIDC_STOP_DONE) {
-				dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d\n",
-						temp->session_type,
-						temp->prop.width,
-						temp->prop.height,
-						temp->prop.fps);
-			}
-			mutex_unlock(&temp->lock);
-		}
+		msm_vidc_print_running_insts(inst->core);
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_recover_from_session_error(inst);
 		return -ENOMEM;
@@ -2479,6 +2483,29 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	return rc;
 }
 
+static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
+{
+	int num_mbs_per_sec = 0;
+
+	if (inst->state == MSM_VIDC_OPEN_DONE) {
+		num_mbs_per_sec = msm_comm_get_load(inst->core,
+					MSM_VIDC_DECODER);
+		num_mbs_per_sec += msm_comm_get_load(inst->core,
+					MSM_VIDC_ENCODER);
+		if (num_mbs_per_sec > inst->core->resources.max_load) {
+			dprintk(VIDC_ERR,
+				"H/w is overloaded. needed: %d max: %d\n",
+				num_mbs_per_sec,
+				inst->core->resources.max_load);
+			mutex_lock(&inst->sync_lock);
+			msm_vidc_print_running_insts(inst->core);
+			mutex_unlock(&inst->sync_lock);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;
@@ -2492,7 +2519,8 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	capability = &inst->capability;
 	hdev = inst->core->device;
 
-	if (inst->capability.capability_set) {
+	rc = msm_vidc_load_supported(inst);
+	if (!rc && inst->capability.capability_set) {
 		rc = call_hfi_op(hdev, capability_check,
 			inst->fmts[OUTPUT_PORT]->fourcc,
 			inst->prop.width, &capability->width.max,
