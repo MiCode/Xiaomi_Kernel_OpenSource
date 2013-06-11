@@ -22,6 +22,7 @@
 #include <linux/of_irq.h>
 #include <linux/memory.h>
 #include <linux/msm_tsens.h>
+#include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/arch.h>
@@ -239,6 +240,7 @@ void __init msm9625_add_drivers(void)
 	msm_clock_init(&msm9625_clock_init_data);
 	msm9625_init_buses();
 	tsens_tm_init_driver();
+	msm_thermal_device_init();
 }
 
 void __init msm9625_init(void)
