@@ -247,6 +247,8 @@ struct adreno_ft_data {
 	unsigned int replay_for_snapshot;
 };
 
+#define FT_DETECT_REGS_COUNT 12
+
 /* Fault Tolerance policy flags */
 #define  KGSL_FT_DISABLE                  BIT(0)
 #define  KGSL_FT_REPLAY                   BIT(1)
@@ -285,7 +287,6 @@ extern const unsigned int a330_registers[];
 extern const unsigned int a330_registers_count;
 
 extern unsigned int ft_detect_regs[];
-extern const unsigned int ft_detect_regs_count;
 
 int adreno_coresight_enable(struct coresight_device *csdev);
 void adreno_coresight_disable(struct coresight_device *csdev);
