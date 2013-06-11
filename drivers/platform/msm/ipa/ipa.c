@@ -197,6 +197,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (_IOC_NR(cmd) >= IPA_IOCTL_MAX)
 		return -ENOTTY;
 
+	ipa_inc_client_enable_clks();
+
 	switch (cmd) {
 	case IPA_IOC_ALLOC_NAT_MEM:
 		if (copy_from_user((u8 *)&nat_mem, (u8 *)arg,
@@ -639,9 +641,12 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						rm_depend.depends_on_name);
 		break;
 	default:        /* redundant, as cmd was checked against MAXNR */
+		ipa_dec_client_disable_clks();
 		return -ENOTTY;
 	}
 	kfree(param);
+
+	ipa_dec_client_disable_clks();
 
 	return retval;
 }
