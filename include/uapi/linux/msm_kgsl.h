@@ -227,6 +227,7 @@ struct kgsl_version {
 #define KGSL_PERFCOUNTER_GROUP_VBIF_PWR 0xE
 
 #define KGSL_PERFCOUNTER_NOT_USED 0xFFFFFFFF
+#define KGSL_PERFCOUNTER_BROKEN 0xFFFFFFFE
 
 /* structure holds list of ibs */
 struct kgsl_ibdesc {
