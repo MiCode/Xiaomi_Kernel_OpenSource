@@ -62,6 +62,23 @@ struct tzbsp_resp {
 	int ret;
 };
 
+static void venus_hfi_dump_packet(u8 *packet)
+{
+	u32 c = 0, packet_size = *(u32 *)packet;
+	const int row_size = 32;
+	/* row must contain enough for 0xdeadbaad * 8 to be converted into
+	 * "de ad ba ab " * 8 + '\0' */
+	char row[3 * row_size];
+
+	for (c = 0; c * row_size < packet_size; ++c) {
+		int bytes_to_read = ((c + 1) * row_size > packet_size) ?
+			packet_size % row_size : row_size;
+		hex_dump_to_buffer(packet + c * row_size, bytes_to_read,
+				row_size, 4, row, sizeof(row), false);
+		dprintk(VIDC_PKT, "%s\n", row);
+	}
+}
+
 static void venus_hfi_sim_modify_cmd_packet(u8 *packet)
 {
 	struct hfi_cmd_sys_session_init_packet *sys_init;
@@ -171,13 +188,18 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 		return -EINVAL;
 	}
 
-	venus_hfi_sim_modify_cmd_packet(packet);
-
 	queue = (struct hfi_queue_header *) qinfo->q_hdr;
 
 	if (!queue) {
 		dprintk(VIDC_ERR, "queue not present");
 		return -ENOENT;
+	}
+
+	venus_hfi_sim_modify_cmd_packet(packet);
+
+	if (msm_vidc_debug & VIDC_PKT) {
+		dprintk(VIDC_PKT, "%s: %p\n", __func__, qinfo);
+		venus_hfi_dump_packet(packet);
 	}
 
 	packet_size_in_words = (*(u32 *)packet) >> 2;
@@ -359,6 +381,10 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 
 	*pb_tx_req_is_set = (1 == queue->qhdr_tx_req) ? 1 : 0;
 	venus_hfi_hal_sim_modify_msg_packet(packet);
+	if (msm_vidc_debug & VIDC_PKT) {
+		dprintk(VIDC_PKT, "%s: %p\n", __func__, qinfo);
+		venus_hfi_dump_packet(packet);
+	}
 	dprintk(VIDC_DBG, "Out : ");
 	return rc;
 }

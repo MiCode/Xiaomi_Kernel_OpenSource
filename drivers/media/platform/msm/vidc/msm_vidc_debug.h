@@ -31,7 +31,13 @@ enum vidc_msg_prio {
 	VIDC_INFO = 0x0004,
 	VIDC_DBG  = 0x0008,
 	VIDC_PROF = 0x0010,
+	VIDC_PKT  = 0x0020,
 	VIDC_FW   = 0x1000,
+};
+
+enum vidc_msg_out {
+	VIDC_OUT_PRINTK = 0,
+	VIDC_OUT_FTRACE,
 };
 
 enum msm_vidc_debugfs_event {
@@ -42,6 +48,7 @@ enum msm_vidc_debugfs_event {
 };
 
 extern int msm_vidc_debug;
+extern int msm_vidc_debug_out;
 extern int msm_fw_debug;
 extern int msm_fw_debug_mode;
 extern int msm_fw_low_power_mode;
@@ -49,10 +56,17 @@ extern int msm_vp8_low_tier;
 
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
-		if (msm_vidc_debug & __level) \
-			printk(KERN_DEBUG VIDC_DBG_TAG \
-				__fmt, __level, ## arg); \
+		if (msm_vidc_debug & __level) { \
+			if (msm_vidc_debug_out == VIDC_OUT_PRINTK) { \
+				printk(KERN_DEBUG VIDC_DBG_TAG \
+						__fmt, __level, ## arg); \
+			} else if (msm_vidc_debug_out == VIDC_OUT_FTRACE) { \
+				trace_printk(KERN_DEBUG VIDC_DBG_TAG \
+						__fmt, __level, ## arg); \
+			} \
+		} \
 	} while (0)
+
 
 struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent);
