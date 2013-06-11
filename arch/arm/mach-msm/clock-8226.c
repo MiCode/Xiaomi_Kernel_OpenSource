@@ -1891,7 +1891,7 @@ static struct rcg_clk vcodec0_clk_src = {
 	.c = {
 		.dbg_name = "vcodec0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOW, 66670000, NOMINAL, 133330000, HIGH,
+		VDD_DIG_FMAX_MAP3(LOW, 66700000, NOMINAL, 133330000, HIGH,
 			160000000),
 		CLK_INIT(vcodec0_clk_src.c),
 	},
