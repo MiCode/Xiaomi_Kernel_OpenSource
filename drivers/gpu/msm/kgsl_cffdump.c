@@ -424,10 +424,8 @@ void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
 
 	if (memdesc == NULL) {
 		struct kgsl_mem_entry *entry;
-		spin_lock(&dev_priv->process_priv->mem_lock);
 		entry = kgsl_sharedmem_find_region(dev_priv->process_priv,
 			gpuaddr, sizebytes);
-		spin_unlock(&dev_priv->process_priv->mem_lock);
 		if (entry == NULL) {
 			KGSL_CORE_ERR("did not find mapping "
 				"for gpuaddr: 0x%08x\n", gpuaddr);
