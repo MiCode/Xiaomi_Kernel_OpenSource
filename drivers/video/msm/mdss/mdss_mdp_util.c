@@ -28,7 +28,6 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_formats.h"
 #include "mdss_debug.h"
-#define DEFAULT_FRAME_RATE	60
 
 enum {
 	MDP_INTR_VSYNC_INTF_0,
@@ -556,28 +555,4 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 	}
 
 	return ret;
-}
-
-u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd)
-{
-	u32 frame_rate = DEFAULT_FRAME_RATE;
-	u32 pixel_total;
-	struct mdss_panel_info *panel_info = mfd->panel_info;
-
-	if ((panel_info->type == MIPI_VIDEO_PANEL) ||
-			(panel_info->type == MIPI_CMD_PANEL)) {
-		frame_rate = panel_info->mipi.frame_rate;
-	} else {
-		pixel_total = (panel_info->lcdc.h_back_porch +
-			  panel_info->lcdc.h_front_porch +
-			  panel_info->lcdc.h_pulse_width +
-			  panel_info->xres) *
-			 (panel_info->lcdc.v_back_porch +
-			  panel_info->lcdc.v_front_porch +
-			  panel_info->lcdc.v_pulse_width +
-			  panel_info->yres);
-		if (pixel_total)
-			frame_rate = panel_info->clk_rate / pixel_total;
-	}
-	return frame_rate;
 }
