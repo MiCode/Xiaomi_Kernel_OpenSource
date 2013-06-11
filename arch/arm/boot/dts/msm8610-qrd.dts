@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8610.dtsi"
+/include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 QRD";
