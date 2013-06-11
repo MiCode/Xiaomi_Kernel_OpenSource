@@ -1416,8 +1416,26 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 				return -EINVAL;
 			}
 
+			if (!rc) {
+				rc = epm_adc_psoc_gpio_init(true);
+				if (rc) {
+					pr_err("GPIO init failed\n");
+					return -EINVAL;
+				}
+			}
+
 			if (copy_to_user((void __user *)arg, &psoc_init,
 				sizeof(struct epm_psoc_init_resp)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_PSOC_ADC_DEINIT:
+		{
+			uint32_t result;
+			result = epm_adc_psoc_gpio_init(false);
+
+			if (copy_to_user((void __user *)arg, &result,
+						sizeof(uint32_t)))
 				return -EFAULT;
 			break;
 		}

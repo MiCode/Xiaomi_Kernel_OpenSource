@@ -101,6 +101,19 @@ struct epm_marker_level {
 	uint8_t		level;
 };
 
+struct epm_gpio_buffer_request {
+	uint8_t		cmd;
+	uint8_t		bitmask_monitor_pin;
+	uint8_t		status;
+};
+
+struct epm_get_gpio_buffer_resp {
+	uint8_t		cmd;
+	uint8_t		status;
+	uint8_t		bitmask_monitor_pin;
+	uint32_t	timestamp;
+};
+
 #ifdef __KERNEL__
 struct epm_adc_platform_data {
 	struct epm_chan_properties *channel;
@@ -125,19 +138,19 @@ struct epm_adc_platform_data {
 #define EPM_ADC_DEINIT		_IOR(EPM_ADC_IOCTL_CODE, 3,	\
 					     uint32_t)
 
-#define EPM_MARKER1_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 90,	\
+#define EPM_MARKER1_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 90,	\
 						uint32_t)
 
-#define EPM_MARKER1_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 91,	\
+#define EPM_MARKER1_RELEASE	_IOWR(EPM_ADC_IOCTL_CODE, 91,	\
 						uint32_t)
 
-#define EPM_MARKER2_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 95,	\
+#define EPM_MARKER2_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 95,	\
 						uint32_t)
 
-#define EPM_MARKER2_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 92,	\
+#define EPM_MARKER2_RELEASE	_IOWR(EPM_ADC_IOCTL_CODE, 92,	\
 						uint32_t)
 
-#define EPM_PSOC_ADC_INIT		_IOR(EPM_ADC_IOCTL_CODE, 4, \
+#define EPM_PSOC_ADC_INIT		_IOWR(EPM_ADC_IOCTL_CODE, 4, \
 					struct epm_psoc_init_resp)
 
 #define EPM_PSOC_ADC_CHANNEL_ENABLE	_IOWR(EPM_ADC_IOCTL_CODE, 5, \
@@ -172,5 +185,14 @@ struct epm_adc_platform_data {
 
 #define EPM_PSOC_ADC_SET_VADC_REFERENCE		_IOWR(EPM_ADC_IOCTL_CODE, 15, \
 						struct epm_psoc_set_vadc)
+
+#define EPM_PSOC_ADC_DEINIT		_IOWR(EPM_ADC_IOCTL_CODE, 16,	\
+							     uint32_t)
+
+#define EPM_PSOC_GPIO_BUFFER_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 17,	\
+								uint32_t)
+
+#define EPM_PSOC_GET_GPIO_BUFFER_DATA	_IOWR(EPM_ADC_IOCTL_CODE, 18,	\
+								uint32_t)
 
 #endif /* __EPM_ADC_H */
