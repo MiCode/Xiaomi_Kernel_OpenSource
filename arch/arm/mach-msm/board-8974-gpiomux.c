@@ -180,6 +180,12 @@ static struct gpiomux_setting gpio_epm_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting gpio_epm_marker_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -524,6 +530,18 @@ static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
 		.gpio      = 81,		/* EPM enable */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_epm_config,
+		},
+	},
+	{
+		.gpio      = 85,		/* EPM MARKER2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_epm_marker_config,
+		},
+	},
+	{
+		.gpio      = 96,		/* EPM MARKER1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_epm_marker_config,
 		},
 	},
 };
