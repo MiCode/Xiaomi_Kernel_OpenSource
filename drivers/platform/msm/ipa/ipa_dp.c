@@ -17,23 +17,21 @@
 #include <linux/netdevice.h>
 #include "ipa_i.h"
 
+
 #define list_next_entry(pos, member) \
 	list_entry(pos->member.next, typeof(*pos), member)
+#define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
-#define POLLING_MIN_SLEEP_RX 2350
-#define POLLING_MAX_SLEEP_RX 2450
-#define POLLING_INACTIVITY_TX 10
-#define POLLING_MIN_SLEEP_TX 100
-#define POLLING_MAX_SLEEP_TX 200
-#define RX_MAX_IND 40
+#define POLLING_MIN_SLEEP_RX 950
+#define POLLING_MAX_SLEEP_RX 1050
+#define POLLING_INACTIVITY_TX 40
+#define POLLING_MIN_SLEEP_TX 400
+#define POLLING_MAX_SLEEP_TX 500
 
 static void replenish_rx_work_func(struct work_struct *work);
 static struct delayed_work replenish_rx_work;
 static void ipa_wq_handle_rx(struct work_struct *work);
 static DECLARE_WORK(rx_work, ipa_wq_handle_rx);
-static void ipa_wq_handle_tx(struct work_struct *work);
-static DECLARE_WORK(tx_work, ipa_wq_handle_tx);
-
 /**
  * ipa_write_done() - this function will be (eventually) called when a Tx
  * operation is complete
@@ -83,7 +81,7 @@ void ipa_wq_write_done(struct work_struct *work)
 	if (tx_pkt->callback)
 		tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
 
-	kfree(tx_pkt);
+	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 }
 
 int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
@@ -121,13 +119,23 @@ int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
 
 		IPADBG("--curr_cnt=%d\n", sys->len);
 
-		if (tx_pkt->callback) {
+		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
+			dma_pool_free(ipa_ctx->dma_pool,
+					tx_pkt->bounce,
+					tx_pkt->mem.phys_base);
+		else
 			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
-					tx_pkt->mem.size, DMA_TO_DEVICE);
-			tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
-		}
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
 
-		kfree(tx_pkt);
+		if (tx_pkt->callback)
+			tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
+
+		if (tx_pkt->cnt > 1 && tx_pkt->cnt != IPA_LAST_DESC_CNT)
+			dma_pool_free(ipa_ctx->dma_pool, tx_pkt->mult.base,
+					tx_pkt->mult.phys_base);
+
+		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		cnt++;
 	};
 
@@ -146,6 +154,11 @@ static void ipa_tx_switch_to_intr_mode(struct ipa_sys_context *sys)
 		goto fail;
 	}
 
+	ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
+	if (ret) {
+		IPAERR("sps_get_config() failed %d\n", ret);
+		goto fail;
+	}
 	sys->event.options = SPS_O_EOT;
 	ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
 	if (ret) {
@@ -192,7 +205,9 @@ static void ipa_handle_tx(struct ipa_sys_context *sys)
 
 static void ipa_wq_handle_tx(struct work_struct *work)
 {
-	ipa_handle_tx(&ipa_ctx->sys[IPA_A5_LAN_WAN_OUT]);
+	struct ipa_tx_pkt_wrapper *tx_pkt;
+	tx_pkt = container_of(work, struct ipa_tx_pkt_wrapper, work);
+	ipa_handle_tx(tx_pkt->sys);
 }
 
 /**
@@ -225,7 +240,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
 
-	tx_pkt = kmalloc(sizeof(struct ipa_tx_pkt_wrapper), mem_flag);
+	tx_pkt = kmem_cache_zalloc(ipa_ctx->tx_pkt_wrapper_cache, mem_flag);
 	if (!tx_pkt) {
 		IPAERR("failed to alloc tx wrapper\n");
 		goto fail_mem_alloc;
@@ -281,11 +296,14 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		IPADBG("sending cmd=%d pyld_len=%d sps_flags=%x\n",
 				desc->opcode, desc->len, sps_flags);
 		IPA_DUMP_BUFF(desc->pyld, dma_address, desc->len);
+		INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
 	} else {
 		len = desc->len;
+		INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 	}
 
-	INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
+	if (unlikely(ipa_ctx->polling_mode))
+		INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 
 	spin_lock_irqsave(&sys->spinlock, irq_flags);
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
@@ -309,8 +327,188 @@ fail_sps_send:
 	else
 		dma_unmap_single(NULL, dma_address, desc->len, DMA_TO_DEVICE);
 fail_dma_map:
-	kfree(tx_pkt);
+	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 fail_mem_alloc:
+	return -EFAULT;
+}
+
+/**
+ * ipa_send() - Send multiple descriptors in one HW transaction
+ * @sys: system pipe context
+ * @num_desc: number of packets
+ * @desc: packets to send (may be immediate command or data)
+ * @in_atomic:  whether caller is in atomic context
+ *
+ * This function is used for system-to-bam connection.
+ * - SPS driver expect struct sps_transfer which will contain all the data
+ *   for a transaction
+ * - The sps_transfer struct will be pointing to bounce buffers for
+ *   its DMA command (immediate command and data)
+ * - ipa_tx_pkt_wrapper will be used for each ipa
+ *   descriptor (allocated from wrappers cache)
+ * - The wrapper struct will be configured for each ipa-desc payload and will
+ *   contain information which will be later used by the user callbacks
+ * - each transfer will be made by calling to sps_transfer()
+ * - Each packet (command or data) that will be sent will also be saved in
+ *   ipa_sys_context for later check that all data was sent
+ *
+ * Return codes: 0: success, -EFAULT: failure
+ */
+int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
+		bool in_atomic)
+{
+	struct ipa_tx_pkt_wrapper *tx_pkt;
+	struct ipa_tx_pkt_wrapper *next_pkt;
+	struct sps_transfer transfer = { 0 };
+	struct sps_iovec *iovec;
+	unsigned long irq_flags;
+	dma_addr_t dma_addr;
+	int i = 0;
+	int j;
+	int result;
+	int fail_dma_wrap = 0;
+	uint size = num_desc * sizeof(struct sps_iovec);
+	u32 mem_flag = GFP_ATOMIC;
+
+	if (unlikely(!in_atomic))
+		mem_flag = GFP_KERNEL;
+
+	transfer.iovec = dma_pool_alloc(ipa_ctx->dma_pool, mem_flag, &dma_addr);
+	transfer.iovec_phys = dma_addr;
+	transfer.iovec_count = num_desc;
+	spin_lock_irqsave(&sys->spinlock, irq_flags);
+	if (!transfer.iovec) {
+		IPAERR("fail to alloc DMA mem for sps xfr buff\n");
+		goto failure_coherent;
+	}
+
+	for (i = 0; i < num_desc; i++) {
+		fail_dma_wrap = 0;
+		tx_pkt = kmem_cache_zalloc(ipa_ctx->tx_pkt_wrapper_cache,
+					   mem_flag);
+		if (!tx_pkt) {
+			IPAERR("failed to alloc tx wrapper\n");
+			goto failure;
+		}
+		/*
+		 * first desc of set is "special" as it holds the count and
+		 * other info
+		 */
+		if (i == 0) {
+			transfer.user = tx_pkt;
+			tx_pkt->mult.phys_base = dma_addr;
+			tx_pkt->mult.base = transfer.iovec;
+			tx_pkt->mult.size = size;
+			tx_pkt->cnt = num_desc;
+			INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
+		}
+
+		iovec = &transfer.iovec[i];
+		iovec->flags = 0;
+
+		INIT_LIST_HEAD(&tx_pkt->link);
+		tx_pkt->type = desc[i].type;
+
+		tx_pkt->mem.base = desc[i].pyld;
+		tx_pkt->mem.size = desc[i].len;
+
+		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
+			WARN_ON(tx_pkt->mem.size > 512);
+
+			/*
+			 * Due to a HW limitation, we need to make sure that the
+			 * packet does not cross a 1KB boundary
+			 */
+			tx_pkt->bounce =
+			   dma_pool_alloc(ipa_ctx->dma_pool,
+					   mem_flag,
+					   &tx_pkt->mem.phys_base);
+			if (!tx_pkt->bounce) {
+				tx_pkt->mem.phys_base = 0;
+			} else {
+				WARN_ON(!ipa_straddle_boundary(
+						(u32)tx_pkt->mem.phys_base,
+						(u32)tx_pkt->mem.phys_base +
+						tx_pkt->mem.size - 1, 1024));
+				memcpy(tx_pkt->bounce, tx_pkt->mem.base,
+						tx_pkt->mem.size);
+			}
+		} else {
+			tx_pkt->mem.phys_base =
+			   dma_map_single(NULL, tx_pkt->mem.base,
+					   tx_pkt->mem.size,
+					   DMA_TO_DEVICE);
+		}
+		if (!tx_pkt->mem.phys_base) {
+			IPAERR("failed to alloc tx wrapper\n");
+			fail_dma_wrap = 1;
+			goto failure;
+		}
+
+		tx_pkt->sys = sys;
+		tx_pkt->callback = desc[i].callback;
+		tx_pkt->user1 = desc[i].user1;
+		tx_pkt->user2 = desc[i].user2;
+
+		/*
+		 * Point the iovec to the bounce buffer and
+		 * add this packet to system pipe context.
+		 */
+		iovec->addr = tx_pkt->mem.phys_base;
+		list_add_tail(&tx_pkt->link, &sys->head_desc_list);
+
+		/*
+		 * Special treatment for immediate commands, where the structure
+		 * of the descriptor is different
+		 */
+		if (desc[i].type == IPA_IMM_CMD_DESC) {
+			iovec->size = desc[i].opcode;
+			iovec->flags |= SPS_IOVEC_FLAG_IMME;
+		} else {
+			iovec->size = desc[i].len;
+		}
+
+		if (i == (num_desc - 1)) {
+			iovec->flags |= SPS_IOVEC_FLAG_EOT;
+			/* "mark" the last desc */
+			tx_pkt->cnt = IPA_LAST_DESC_CNT;
+		}
+	}
+
+	result = sps_transfer(sys->ep->ep_hdl, &transfer);
+	if (result) {
+		IPAERR("sps_transfer failed rc=%d\n", result);
+		goto failure;
+	}
+
+	spin_unlock_irqrestore(&sys->spinlock, irq_flags);
+	return 0;
+
+failure:
+	tx_pkt = transfer.user;
+	for (j = 0; j < i; j++) {
+		next_pkt = list_next_entry(tx_pkt, link);
+		list_del(&tx_pkt->link);
+		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
+			dma_pool_free(ipa_ctx->dma_pool,
+					tx_pkt->bounce,
+					tx_pkt->mem.phys_base);
+		else
+			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
+		tx_pkt = next_pkt;
+	}
+	if (i < num_desc)
+		/* last desc failed */
+		if (fail_dma_wrap)
+			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
+	if (transfer.iovec_phys)
+		dma_pool_free(ipa_ctx->dma_pool, transfer.iovec,
+				  transfer.iovec_phys);
+failure_coherent:
+	spin_unlock_irqrestore(&sys->spinlock, irq_flags);
 	return -EFAULT;
 }
 
@@ -345,6 +543,7 @@ static void ipa_sps_irq_cmd_ack(void *user1, void *user2)
  */
 int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 {
+	struct ipa_desc *desc;
 	int result = 0;
 
 	ipa_inc_client_enable_clks();
@@ -364,10 +563,22 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 		}
 		wait_for_completion(&descr->xfer_done);
 	} else {
-		IPAERR("unsupported chaining multiple IC\n");
+		desc = &descr[num_desc - 1];
+		init_completion(&desc->xfer_done);
+
+		if (desc->callback || desc->user1)
+			WARN_ON(1);
+
+		desc->callback = ipa_sps_irq_cmd_ack;
+		desc->user1 = desc;
+		if (ipa_send(&ipa_ctx->sys[IPA_A5_CMD], num_desc,
+					descr, false)) {
+			IPAERR("fail to send multiple immediate command set\n");
 			result = -EFAULT;
 			goto bail;
 		}
+		wait_for_completion(&desc->xfer_done);
+	}
 
 	IPA_STATS_INC_IC_CNT(num_desc, descr, ipa_ctx->stats.imm_cmds);
 bail:
@@ -386,13 +597,21 @@ bail:
 static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 {
 	struct ipa_sys_context *sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_OUT];
+	struct ipa_tx_pkt_wrapper *tx_pkt;
 	int ret;
 
 	IPADBG("event %d notified\n", notify->event_id);
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
+		tx_pkt = notify->data.transfer.user;
 		if (!atomic_read(&sys->curr_polling_state)) {
+			ret = sps_get_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
+			if (ret) {
+				IPAERR("sps_get_config() failed %d\n", ret);
+				break;
+			}
 			sys->ep->connect.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			ret = sps_set_config(sys->ep->ep_hdl,
@@ -402,7 +621,7 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 				break;
 			}
 			atomic_set(&sys->curr_polling_state, 1);
-			queue_work(ipa_ctx->tx_wq, &tx_work);
+			queue_work(ipa_ctx->tx_wq, &tx_pkt->work);
 		}
 		break;
 	default:
@@ -435,47 +654,6 @@ static void ipa_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 	}
 }
 
-static void ipa_handle_tag_rsp(struct ipa_a5_mux_hdr *mux_hdr)
-{
-	struct completion *compl;
-	struct ipa_tree_node *node;
-
-	/* retrieve the compl object from tag value */
-	mux_hdr++;
-	compl = (struct completion *) ntohl(*((u32 *)mux_hdr));
-	IPADBG("%x %x %p\n", *(u32 *)mux_hdr, *((u32 *)mux_hdr + 1), compl);
-
-	mutex_lock(&ipa_ctx->lock);
-	node = ipa_search(&ipa_ctx->tag_tree, (u32)compl);
-	if (node) {
-		complete_all(compl);
-		rb_erase(&node->node, &ipa_ctx->tag_tree);
-		kmem_cache_free(ipa_ctx->tree_node_cache, node);
-	} else {
-		WARN_ON(1);
-	}
-	mutex_unlock(&ipa_ctx->lock);
-}
-
-static void ipa_dejitter(bool limit)
-{
-	struct sk_buff *skb;
-	int len = skb_queue_len(&ipa_ctx->rx_list);
-	int i;
-	void *cookie;
-	ipa_notify_cb cb;
-
-	if (limit && len >= RX_MAX_IND)
-		len = RX_MAX_IND;
-
-	for (i = len; i > 0; i--) {
-		skb = __skb_dequeue(&ipa_ctx->rx_list);
-		cb = (ipa_notify_cb)*(u32 *)&(skb->cb[0]);
-		cookie = (void *)*(u32 *)&(skb->cb[4]);
-		cb(cookie, IPA_RECEIVE, (unsigned long)skb);
-	}
-}
-
 /**
  * ipa_handle_rx_core() - The core functionality of packet reception. This
  * function is read from multiple code paths.
@@ -497,9 +675,13 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	struct sk_buff *rx_skb;
 	struct sps_iovec iov;
+	unsigned int pull_len;
+	unsigned int padding;
 	int ret;
 	struct ipa_ep_context *ep;
 	int cnt = 0;
+	struct completion *compl;
+	struct ipa_tree_node *node;
 	unsigned int src_pipe;
 
 	while ((in_poll_state ? atomic_read(&sys->curr_polling_state) :
@@ -539,7 +721,7 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 		rx_skb->tail = rx_skb->data + rx_pkt->len;
 		rx_skb->len = rx_pkt->len;
 		rx_skb->truesize = rx_pkt->len + sizeof(struct sk_buff);
-		kfree(rx_pkt);
+		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
 
 		mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
 
@@ -554,9 +736,29 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 		IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
 		IPA_STATS_EXCP_CNT(mux_hdr->flags, ipa_ctx->stats.rx_excp_pkts);
 
-		if (mux_hdr->flags & IPA_A5_MUX_HDR_EXCP_FLAG_TAG) {
-			if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
-				ipa_handle_tag_rsp(mux_hdr);
+		if (unlikely(mux_hdr->flags & IPA_A5_MUX_HDR_EXCP_FLAG_TAG)) {
+			if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL) {
+				/* retrieve the compl object from tag value */
+				mux_hdr++;
+				compl = (struct completion *)
+					ntohl(*((u32 *)mux_hdr));
+				IPADBG("%x %x %p\n", *(u32 *)mux_hdr,
+						*((u32 *)mux_hdr + 1), compl);
+
+				mutex_lock(&ipa_ctx->lock);
+				node = ipa_search(&ipa_ctx->tag_tree,
+						(u32)compl);
+				if (node) {
+					complete_all(compl);
+					rb_erase(&node->node,
+							&ipa_ctx->tag_tree);
+					kmem_cache_free(
+						ipa_ctx->tree_node_cache, node);
+				} else {
+					WARN_ON(1);
+				}
+				mutex_unlock(&ipa_ctx->lock);
+			}
 			dev_kfree_skb(rx_skb);
 			ipa_replenish_rx_cache();
 			++cnt;
@@ -567,22 +769,38 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 		 * Any packets arriving over AMPDU_TX should be dispatched
 		 * to the regular WLAN RX data-path.
 		 */
-		if (src_pipe == WLAN_AMPDU_TX_EP)
+		if (unlikely(src_pipe == WLAN_AMPDU_TX_EP))
 			src_pipe = WLAN_PROD_TX_EP;
 
-		WARN_ON(src_pipe >= IPA_NUM_PIPES);
+		if (unlikely(src_pipe >= IPA_NUM_PIPES ||
+			!ipa_ctx->ep[src_pipe].valid ||
+			!ipa_ctx->ep[src_pipe].client_notify)) {
+			IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
+			  src_pipe, ipa_ctx->ep[src_pipe].valid,
+			  ipa_ctx->ep[src_pipe].client_notify);
+			dev_kfree_skb(rx_skb);
+			ipa_replenish_rx_cache();
+			++cnt;
+			continue;
+		}
 
 		ep = &ipa_ctx->ep[src_pipe];
-		IPADBG("pulling %d bytes from skb\n", ep->pull_len);
-		skb_pull(rx_skb, ep->pull_len);
+		pull_len = sizeof(struct ipa_a5_mux_hdr);
+
+		/*
+		 * IP packet starts on word boundary
+		 * remove the MUX header and any padding and pass the frame to
+		 * the client which registered a rx callback on the "src pipe"
+		 */
+		padding = ep->cfg.hdr.hdr_len & 0x3;
+		if (padding)
+			pull_len += 4 - padding;
+
+		IPADBG("pulling %d bytes from skb\n", pull_len);
+		skb_pull(rx_skb, pull_len);
 		ipa_replenish_rx_cache();
-		if (ep->client_notify) {
-			__skb_queue_tail(&ipa_ctx->rx_list, rx_skb);
-			*(u32 *)&(rx_skb->cb[0]) = (u32)ep->client_notify;
-			*(u32 *)&(rx_skb->cb[4]) = (u32)ep->priv;
-		} else {
-			dev_kfree_skb(rx_skb);
-		}
+		ep->client_notify(ep->priv, IPA_RECEIVE,
+				(unsigned long)(rx_skb));
 		cnt++;
 	};
 
@@ -601,6 +819,11 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 		goto fail;
 	}
 
+	ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
+	if (ret) {
+		IPAERR("sps_get_config() failed %d\n", ret);
+		goto fail;
+	}
 	sys->event.options = SPS_O_EOT;
 	ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
 	if (ret) {
@@ -647,6 +870,12 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		if (!atomic_read(&sys->curr_polling_state)) {
+			ret = sps_get_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
+			if (ret) {
+				IPAERR("sps_get_config() failed %d\n", ret);
+				break;
+			}
 			sys->ep->connect.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			ret = sps_set_config(sys->ep->ep_hdl,
@@ -696,10 +925,8 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		} else {
 			inactive_cycles = 0;
 		}
-		ipa_dejitter(true);
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
-	ipa_dejitter(false);
 	ipa_rx_switch_to_intr_mode(sys);
 	ipa_dec_client_disable_clks();
 }
@@ -835,7 +1062,6 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		break;
 	case 2:
 		sys_idx = ipa_ep_idx;
-		ipa_ctx->sys[sys_idx].max_len = sys_in->desc_fifo_sz / 8 - 2;
 		INIT_DELAYED_WORK(&ipa_ctx->sys[sys_idx].switch_to_intr_work,
 				switch_to_intr_tx_work_func);
 		break;
@@ -950,87 +1176,9 @@ static void ipa_tx_comp_usr_notify_release(void *user1, void *user2)
 		dev_kfree_skb(skb);
 }
 
-static int ipa_send_two(struct sk_buff *skb, struct ipa_sys_context *sys,
-		int dst_ep_idx)
+static void ipa_tx_cmd_comp(void *user1, void *user2)
 {
-	struct ipa_tx_pkt_wrapper *tx_pktc;
-	struct ipa_tx_pkt_wrapper *tx_pktd;
-	struct ipa_ep_context *ep = &ipa_ctx->ep[dst_ep_idx];
-	unsigned long irq_flags;
-	dma_addr_t dma_addrd;
-	int rc = -ENOMEM;
-
-	tx_pktc = kmalloc(sizeof(struct ipa_tx_pkt_wrapper), GFP_ATOMIC);
-	if (!tx_pktc) {
-		IPAERR("failed to alloc tx wrapper C\n");
-		goto fail_mem_alloc_c;
-	}
-
-	tx_pktd = kmalloc(sizeof(struct ipa_tx_pkt_wrapper), GFP_ATOMIC);
-	if (!tx_pktd) {
-		IPAERR("failed to alloc tx wrapper D\n");
-		goto fail_mem_alloc_d;
-	}
-
-	dma_addrd = dma_map_single(NULL, skb->data, skb->len, DMA_TO_DEVICE);
-	if (!dma_addrd) {
-		IPAERR("failed to DMA wrap\n");
-		goto fail_dma_map_d;
-	}
-
-	INIT_LIST_HEAD(&tx_pktc->link);
-	tx_pktc->callback = NULL;
-
-	INIT_LIST_HEAD(&tx_pktd->link);
-	tx_pktd->mem.phys_base = dma_addrd;
-	tx_pktd->mem.base = skb->data;
-	tx_pktd->mem.size = skb->len;
-	tx_pktd->callback = ipa_tx_comp_usr_notify_release;
-	tx_pktd->user1 = skb;
-	tx_pktd->user2 = (void *)dst_ep_idx;
-
-	spin_lock_irqsave(&sys->spinlock, irq_flags);
-	if (sys->len >= sys->max_len)
-		goto fail_oom;
-	list_add_tail(&tx_pktc->link, &sys->head_desc_list);
-	if (sps_transfer_one(sys->ep->ep_hdl, ep->dma_addr, IPA_IP_PACKET_INIT,
-			tx_pktc, SPS_IOVEC_FLAG_IMME |
-			SPS_IOVEC_FLAG_NO_SUBMIT))
-		IPAERR("sps_transfer_one 0 failed\n");
-	list_add_tail(&tx_pktd->link, &sys->head_desc_list);
-	if (sps_transfer_one(sys->ep->ep_hdl, dma_addrd, skb->len, tx_pktd,
-			SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_INT))
-		IPAERR("sps_transfer_one 1 failed\n");
-	sys->len += 2;
-	spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-	return 0;
-
-fail_oom:
-	dma_unmap_single(NULL, dma_addrd, skb->len, DMA_TO_DEVICE);
-fail_dma_map_d:
-	kfree(tx_pktd);
-fail_mem_alloc_d:
-	kfree(tx_pktc);
-fail_mem_alloc_c:
-	return rc;
-}
-
-static int ipa_send_data_hw_path(struct sk_buff *skb,
-		struct ipa_sys_context *sys, int dst_ep_idx)
-{
-	struct ipa_desc desc;
-
-	desc.pyld = skb->data;
-	desc.len = skb->len;
-	desc.type = IPA_DATA_DESC_SKB;
-	desc.callback = ipa_tx_comp_usr_notify_release;
-	desc.user1 = skb;
-	desc.user2 = (void *)dst_ep_idx;
-
-	if (ipa_send_one(sys, &desc, true))
-		return -EFAULT;
-
-	return 0;
+	kfree(user1);
 }
 
 /**
@@ -1063,42 +1211,76 @@ static int ipa_send_data_hw_path(struct sk_buff *skb,
 int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *meta)
 {
+	struct ipa_desc desc[2];
 	int ipa_ep_idx;
+	struct ipa_ip_packet_init *cmd;
+
+	memset(&desc, 0, 2 * sizeof(struct ipa_desc));
 
 	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, dst);
 	if (unlikely(ipa_ep_idx == -1)) {
 		IPAERR("dest EP does not exist.\n");
-		goto fail;
+		goto fail_gen;
 	}
 
 	if (unlikely(ipa_ctx->ep[ipa_ep_idx].valid == 0)) {
 		IPAERR("dest EP not valid.\n");
-		goto fail;
+		goto fail_gen;
 	}
 
 	if (IPA_CLIENT_IS_CONS(dst)) {
-		if (ipa_send_two(skb, &ipa_ctx->sys[IPA_A5_LAN_WAN_OUT],
-					ipa_ep_idx)) {
-			IPAERR("fail to send pkt_init+skb dst=%d skb=%p\n",
-					dst, skb);
-			goto fail;
+		cmd = kzalloc(sizeof(struct ipa_ip_packet_init), GFP_ATOMIC);
+		if (!cmd) {
+			IPAERR("failed to alloc immediate command object\n");
+			goto fail_mem_alloc;
+		}
+
+		cmd->destination_pipe_index = ipa_ep_idx;
+		if (meta && meta->mbim_stream_id_valid)
+			cmd->metadata = meta->mbim_stream_id;
+		desc[0].opcode = IPA_IP_PACKET_INIT;
+		desc[0].pyld = cmd;
+		desc[0].len = sizeof(struct ipa_ip_packet_init);
+		desc[0].type = IPA_IMM_CMD_DESC;
+		desc[0].callback = ipa_tx_cmd_comp;
+		desc[0].user1 = cmd;
+		desc[1].pyld = skb->data;
+		desc[1].len = skb->len;
+		desc[1].type = IPA_DATA_DESC_SKB;
+		desc[1].callback = ipa_tx_comp_usr_notify_release;
+		desc[1].user1 = skb;
+		desc[1].user2 = (void *)ipa_ep_idx;
+
+		if (ipa_send(&ipa_ctx->sys[IPA_A5_LAN_WAN_OUT], 2, desc,
+					true)) {
+			IPAERR("fail to send immediate command\n");
+			goto fail_send;
 		}
 		IPA_STATS_INC_CNT(ipa_ctx->stats.imm_cmds[IPA_IP_PACKET_INIT]);
 	} else if (dst == IPA_CLIENT_A5_WLAN_AMPDU_PROD) {
-		if (ipa_send_data_hw_path(skb,
-					&ipa_ctx->sys[IPA_A5_WLAN_AMPDU_OUT],
-					ipa_ep_idx)) {
-			IPAERR("fail to send skb dst=%d skb=%p\n", dst, skb);
-			goto fail;
+		desc[0].pyld = skb->data;
+		desc[0].len = skb->len;
+		desc[0].type = IPA_DATA_DESC_SKB;
+		desc[0].callback = ipa_tx_comp_usr_notify_release;
+		desc[0].user1 = skb;
+		desc[0].user2 = (void *)ipa_ep_idx;
+
+		if (ipa_send_one(&ipa_ctx->sys[IPA_A5_WLAN_AMPDU_OUT],
+					&desc[0], true)) {
+			IPAERR("fail to send skb\n");
+			goto fail_gen;
 		}
 	} else {
 		IPAERR("%d PROD is not supported.\n", dst);
-		goto fail;
+		goto fail_gen;
 	}
 
 	return 0;
 
-fail:
+fail_send:
+	kfree(cmd);
+fail_mem_alloc:
+fail_gen:
 	return -EFAULT;
 }
 EXPORT_SYMBOL(ipa_tx_dp);
@@ -1134,7 +1316,8 @@ void ipa_replenish_rx_cache(void)
 	rx_len_cached = sys->len;
 
 	while (rx_len_cached < IPA_RX_POOL_CEIL) {
-		rx_pkt = kmalloc(sizeof(struct ipa_rx_pkt_wrapper), flag);
+		rx_pkt = kmem_cache_zalloc(ipa_ctx->rx_pkt_wrapper_cache,
+					   flag);
 		if (!rx_pkt) {
 			IPAERR("failed to alloc rx wrapper\n");
 			goto fail_kmem_cache_alloc;
@@ -1182,7 +1365,7 @@ fail_sps_transfer:
 fail_dma_mapping:
 	dev_kfree_skb(rx_pkt->skb);
 fail_skb_alloc:
-	kfree(rx_pkt);
+	kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
 fail_kmem_cache_alloc:
 	if (rx_len_cached == 0) {
 		IPA_STATS_INC_CNT(ipa_ctx->stats.rx_repl_repost);
@@ -1214,7 +1397,7 @@ void ipa_cleanup_rx(void)
 		dma_unmap_single(NULL, rx_pkt->dma_address, IPA_RX_SKB_SIZE,
 				 DMA_FROM_DEVICE);
 		dev_kfree_skb(rx_pkt->skb);
-		kfree(rx_pkt);
+		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
 }
 

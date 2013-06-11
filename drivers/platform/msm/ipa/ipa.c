@@ -50,7 +50,6 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
-
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
 	{
@@ -1735,6 +1734,22 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENOMEM;
 		goto fail_rt_tbl_cache;
 	}
+	ipa_ctx->tx_pkt_wrapper_cache =
+	   kmem_cache_create("IPA TX PKT WRAPPER",
+			   sizeof(struct ipa_tx_pkt_wrapper), 0, 0, NULL);
+	if (!ipa_ctx->tx_pkt_wrapper_cache) {
+		IPAERR(":ipa tx pkt wrapper cache create failed\n");
+		result = -ENOMEM;
+		goto fail_tx_pkt_wrapper_cache;
+	}
+	ipa_ctx->rx_pkt_wrapper_cache =
+	   kmem_cache_create("IPA RX PKT WRAPPER",
+			   sizeof(struct ipa_rx_pkt_wrapper), 0, 0, NULL);
+	if (!ipa_ctx->rx_pkt_wrapper_cache) {
+		IPAERR(":ipa rx pkt wrapper cache create failed\n");
+		result = -ENOMEM;
+		goto fail_rx_pkt_wrapper_cache;
+	}
 	ipa_ctx->tree_node_cache =
 	   kmem_cache_create("IPA TREE", sizeof(struct ipa_tree_node), 0, 0,
 			   NULL);
@@ -1803,8 +1818,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	mutex_init(&ipa_ctx->lock);
 	mutex_init(&ipa_ctx->nat_mem.lock);
 
-	skb_queue_head_init(&ipa_ctx->rx_list);
-
 	for (i = 0; i < IPA_A5_SYS_MAX; i++) {
 		INIT_LIST_HEAD(&ipa_ctx->sys[i].head_desc_list);
 		spin_lock_init(&ipa_ctx->sys[i].spinlock);
@@ -1818,15 +1831,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 0);
 	}
 
-	ipa_ctx->rx_wq = alloc_workqueue("ipa rx wq", WQ_MEM_RECLAIM |
-			WQ_CPU_INTENSIVE, 1);
+	ipa_ctx->rx_wq = create_singlethread_workqueue("ipa rx wq");
 	if (!ipa_ctx->rx_wq) {
 		IPAERR(":fail to create rx wq\n");
 		result = -ENOMEM;
 		goto fail_rx_wq;
 	}
 
-	ipa_ctx->tx_wq = create_singlethread_workqueue("ipa tx wq");
+	ipa_ctx->tx_wq = alloc_workqueue("ipa tx wq", WQ_MEM_RECLAIM |
+			WQ_CPU_INTENSIVE, 2);
 	if (!ipa_ctx->tx_wq) {
 		IPAERR(":fail to create tx wq\n");
 		result = -ENOMEM;
@@ -1979,6 +1992,10 @@ fail_rx_wq:
 fail_dma_pool:
 	kmem_cache_destroy(ipa_ctx->tree_node_cache);
 fail_tree_node_cache:
+	kmem_cache_destroy(ipa_ctx->rx_pkt_wrapper_cache);
+fail_rx_pkt_wrapper_cache:
+	kmem_cache_destroy(ipa_ctx->tx_pkt_wrapper_cache);
+fail_tx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa_ctx->rt_tbl_cache);
 fail_rt_tbl_cache:
 	kmem_cache_destroy(ipa_ctx->hdr_offset_cache);

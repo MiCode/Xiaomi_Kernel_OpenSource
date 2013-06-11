@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/delay.h>
 #include "ipa_i.h"
 
@@ -251,26 +250,6 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 
-	if (IPA_CLIENT_IS_CONS(in->client)) {
-		ep->cmd = kzalloc(sizeof(struct ipa_ip_packet_init),
-				GFP_KERNEL);
-		if (!ep->cmd) {
-			IPAERR("failed to alloc immediate command object\n");
-			result = -ENOMEM;
-			goto fail;
-		}
-		ep->cmd->destination_pipe_index = ipa_ep_idx;
-		ep->dma_addr = dma_map_single(NULL, ep->cmd,
-				sizeof(struct ipa_ip_packet_init),
-				DMA_TO_DEVICE);
-		if (ep->dma_addr == 0 || ep->dma_addr == ~0) {
-			IPAERR("failed to DMA MAP pkt_init\n");
-			result = -ENOMEM;
-			kfree(ep->cmd);
-			goto fail;
-		}
-	}
-
 	ep->valid = 1;
 	ep->client = in->client;
 	ep->client_notify = in->notify;
@@ -445,13 +424,6 @@ int ipa_disconnect(u32 clnt_hdl)
 	if (result) {
 		IPAERR("SPS de-alloc EP failed.\n");
 		return -EPERM;
-	}
-
-	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		dma_unmap_single(NULL, ep->dma_addr,
-				sizeof(struct ipa_ip_packet_init),
-				DMA_TO_DEVICE);
-		kfree(ep->cmd);
 	}
 
 	ipa_enable_data_path(clnt_hdl);
