@@ -171,7 +171,7 @@ static struct ci13xxx_platform_data ci13xxx_msm_platdata = {
 				  CI13XXX_ZERO_ITC |
 				  CI13XXX_DISABLE_STREAMING |
 				  CI13XXX_IS_OTG,
-
+	.nz_itc			= 0,
 	.notify_event		= ci13xxx_msm_notify_event,
 };
 
@@ -230,7 +230,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	struct ci13xxx_msm_context *ctx;
 	struct platform_device *plat_ci;
 	struct resource *res;
-	int ret;
+	int ret, rc;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
 
@@ -291,10 +291,19 @@ void msm_hw_bam_disable(bool bam_disable)
 	writel_relaxed(val, USB_GENCONFIG);
 }
 
+static const struct of_device_id ci13xx_msm_dt_match[] = {
+	{ .compatible = "qcom,ci13xxx_msm",
+	},
+	{}
+};
+
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
 	.remove = ci13xxx_msm_remove,
-	.driver = { .name = "msm_hsusb", },
+	.driver = {
+		.name = "msm_hsusb",
+		.of_match_table = ci13xx_msm_dt_match,
+	},
 };
 
 module_platform_driver(ci13xxx_msm_driver);
