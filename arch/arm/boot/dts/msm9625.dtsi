@@ -175,6 +175,11 @@
 				<87 512 40000 640000>;
 	};
 
+	msm_hsusb: qcom,ci13xxx_msm {
+		compatible = "qcom,ci13xxx_msm";
+		qcom,itc-level = <4>;
+	};
+
 	hsic_host: hsic@f9a15000 {
 		compatible = "qcom,hsic-host";
 		reg = <0xf9a15000 0x400>;
