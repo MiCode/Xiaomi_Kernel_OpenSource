@@ -2324,8 +2324,8 @@ config SCORPION_Uni_45nm_BUG
 
 config MSM_BUSPM_DEV
 	tristate "MSM Bus Performance Monitor Kernel Module"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM8974)
-	default m
+	depends on MSM_BUS_SCALING
+	default n
 	help
 	  This kernel module is used to mmap() hardware registers for the
 	  performance monitors, counters, etc. The module can also be used to
