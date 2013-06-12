@@ -122,6 +122,7 @@ struct msm_fb_data_type {
 
 	struct disp_info_notify update;
 	struct disp_info_notify no_update;
+	struct completion power_off_comp;
 
 	struct msm_mdp_interface mdp;
 
@@ -143,6 +144,8 @@ struct msm_fb_data_type {
 	void *msm_fb_backup;
 	struct completion power_set_comp;
 	u32 is_power_setting;
+
+	u32 dcm_state;
 };
 
 struct msm_fb_backup_type {
@@ -175,4 +178,5 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
 void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd);
 void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
+int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);
 #endif /* MDSS_FB_H */
