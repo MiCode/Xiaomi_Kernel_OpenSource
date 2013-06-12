@@ -75,6 +75,8 @@ static void __init mpq8092_map_io(void)
 static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
+	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF9922000, \
+			"msm_serial_hsl.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
@@ -96,6 +98,8 @@ static void __init mpq8092_init(void)
 
 static const char *mpq8092_dt_match[] __initconst = {
 	"qcom,mpq8092-sim",
+	"qcom,mpq8092-rumi",
+	"qcom,mpq8092",
 	NULL
 };
 
