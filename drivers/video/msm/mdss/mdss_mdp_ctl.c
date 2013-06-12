@@ -340,6 +340,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mdss_mdp_ctl_lock);
 	ctl->ref_cnt--;
 	ctl->intf_num = MDSS_MDP_NO_INTF;
+	ctl->intf_type = MDSS_MDP_NO_INTF;
 	ctl->is_secure = false;
 	ctl->power_on = false;
 	ctl->start_fnc = NULL;
