@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/stat.h>
 
 #include "mdss_hdmi_hdcp.h"
 
@@ -1171,6 +1172,38 @@ error:
 	return rc;
 } /* hdmi_hdcp_isr */
 
+static ssize_t hdmi_hdcp_sysfs_rda_status(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_hdcp_ctrl *hdcp_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+
+	if (!hdcp_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(hdcp_ctrl->init_data.mutex);
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", hdcp_ctrl->hdcp_state);
+	DEV_DBG("%s: '%d'\n", __func__, hdcp_ctrl->hdcp_state);
+	mutex_unlock(hdcp_ctrl->init_data.mutex);
+
+	return ret;
+} /* hdmi_hdcp_sysfs_rda_hdcp*/
+
+static DEVICE_ATTR(status, S_IRUGO, hdmi_hdcp_sysfs_rda_status, NULL);
+
+static struct attribute *hdmi_hdcp_fs_attrs[] = {
+	&dev_attr_status.attr,
+	NULL,
+};
+
+static struct attribute_group hdmi_hdcp_fs_attr_group = {
+	.name = "hdcp",
+	.attrs = hdmi_hdcp_fs_attrs,
+};
+
 void hdmi_hdcp_deinit(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
@@ -1179,6 +1212,9 @@ void hdmi_hdcp_deinit(void *input)
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+
+	sysfs_remove_group(hdcp_ctrl->init_data.sysfs_kobj,
+				&hdmi_hdcp_fs_attr_group);
 
 	kfree(hdcp_ctrl);
 } /* hdmi_hdcp_deinit */
@@ -1202,6 +1238,12 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 	}
 
 	hdcp_ctrl->init_data = *init_data;
+
+	if (sysfs_create_group(init_data->sysfs_kobj,
+				&hdmi_hdcp_fs_attr_group)) {
+		DEV_ERR("%s: hdcp sysfs group creation failed\n", __func__);
+		goto error;
+	}
 
 	INIT_DELAYED_WORK(&hdcp_ctrl->hdcp_auth_work, hdmi_hdcp_auth_work);
 	INIT_WORK(&hdcp_ctrl->hdcp_int_work, hdmi_hdcp_int_work);
