@@ -126,6 +126,11 @@ Optional properties:
 - qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
 			writeback wfd block in MDSS as opposed to writeback
 			block that is shared between rotator and wfd.
+- qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
+				restricted for a source surface pipe. If this
+				property is not specified, no such restriction
+				would be applied.
+
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -161,6 +166,7 @@ Example:
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;

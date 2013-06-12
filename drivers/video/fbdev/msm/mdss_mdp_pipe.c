@@ -193,6 +193,11 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 			if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
 				num_blks = roundup_pow_of_two(num_blks);
+
+			if (mdata->smp_mb_per_pipe &&
+				(num_blks > mdata->smp_mb_per_pipe) &&
+				!(pipe->flags & MDP_FLIP_LR))
+				num_blks = mdata->smp_mb_per_pipe;
 		}
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
