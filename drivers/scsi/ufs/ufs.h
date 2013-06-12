@@ -36,20 +36,10 @@
 #ifndef _UFS_H
 #define _UFS_H
 
-#include <linux/mutex.h>
-#include <linux/types.h>
-
 #define MAX_CDB_SIZE	16
-#define GENERAL_UPIU_REQUEST_SIZE 32
-#define UPIU_HEADER_DATA_SEGMENT_MAX_SIZE	((ALIGNED_UPIU_SIZE) - \
-					(GENERAL_UPIU_REQUEST_SIZE))
-#define QUERY_OSF_SIZE			((GENERAL_UPIU_REQUEST_SIZE) - \
-					(sizeof(struct utp_upiu_header)))
-#define UFS_QUERY_RESERVED_SCSI_CMD 0xCC
-#define UFS_QUERY_CMD_SIZE 10
 
 #define UPIU_HEADER_DWORD(byte3, byte2, byte1, byte0)\
-			cpu_to_be32((byte3 << 24) | (byte2 << 16) |\
+			((byte3 << 24) | (byte2 << 16) |\
 			 (byte1 << 8) | (byte0))
 
 /*
@@ -72,7 +62,7 @@ enum {
 	UPIU_TRANSACTION_COMMAND	= 0x01,
 	UPIU_TRANSACTION_DATA_OUT	= 0x02,
 	UPIU_TRANSACTION_TASK_REQ	= 0x04,
-	UPIU_TRANSACTION_QUERY_REQ	= 0x16,
+	UPIU_TRANSACTION_QUERY_REQ	= 0x26,
 };
 
 /* UTP UPIU Transaction Codes Target to Initiator */
@@ -83,7 +73,6 @@ enum {
 	UPIU_TRANSACTION_TASK_RSP	= 0x24,
 	UPIU_TRANSACTION_READY_XFER	= 0x31,
 	UPIU_TRANSACTION_QUERY_RSP	= 0x36,
-	UPIU_TRANSACTION_REJECT_UPIU	= 0x3F,
 };
 
 /* UPIU Read/Write flags */
@@ -101,12 +90,6 @@ enum {
 	UPIU_TASK_ATTR_ACA	= 0x03,
 };
 
-/* UPIU Query request function */
-enum {
-	UPIU_QUERY_FUNC_STANDARD_READ_REQUEST = 0x01,
-	UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST = 0x81,
-};
-
 /* UTP QUERY Transaction Specific Fields OpCode */
 enum {
 	UPIU_QUERY_OPCODE_NOP		= 0x0,
@@ -120,21 +103,6 @@ enum {
 	UPIU_QUERY_OPCODE_TOGGLE_FLAG	= 0x8,
 };
 
-/* Query response result code */
-enum {
-	QUERY_RESULT_SUCCESS			= 0x00,
-	QUERY_RESULT_NOT_READABLE		= 0xF6,
-	QUERY_RESULT_NOT_WRITEABLE		= 0xF7,
-	QUERY_RESULT_ALREADY_WRITTEN		= 0xF8,
-	QUERY_RESULT_INVALID_LENGTH		= 0xF9,
-	QUERY_RESULT_INVALID_VALUE		= 0xFA,
-	QUERY_RESULT_INVALID_SELECTOR		= 0xFB,
-	QUERY_RESULT_INVALID_INDEX		= 0xFC,
-	QUERY_RESULT_INVALID_IDN		= 0xFD,
-	QUERY_RESULT_INVALID_OPCODE		= 0xFE,
-	QUERY_RESULT_GENERAL_FAILURE		= 0xFF,
-};
-
 /* UTP Transfer Request Command Type (CT) */
 enum {
 	UPIU_COMMAND_SET_TYPE_SCSI	= 0x0,
@@ -142,17 +110,10 @@ enum {
 	UPIU_COMMAND_SET_TYPE_QUERY	= 0x2,
 };
 
-/* UTP Transfer Request Command Offset */
-#define UPIU_COMMAND_TYPE_OFFSET	28
-
-/* Offset of the response code in the UPIU header */
-#define UPIU_RSP_CODE_OFFSET		8
-
 enum {
 	MASK_SCSI_STATUS	= 0xFF,
 	MASK_TASK_RESPONSE	= 0xFF00,
 	MASK_RSP_UPIU_RESULT	= 0xFFFF,
-	MASK_QUERY_DATA_SEG_LEN	= 0xFFFF,
 };
 
 /* Task management service response */
@@ -177,77 +138,30 @@ struct utp_upiu_header {
 
 /**
  * struct utp_upiu_cmd - Command UPIU structure
+ * @header: UPIU header structure DW-0 to DW-2
  * @data_transfer_len: Data Transfer Length DW-3
  * @cdb: Command Descriptor Block CDB DW-4 to DW-7
  */
 struct utp_upiu_cmd {
+	struct utp_upiu_header header;
 	u32 exp_data_transfer_len;
 	u8 cdb[MAX_CDB_SIZE];
 };
 
 /**
- * struct utp_upiu_query - upiu request buffer structure for
- * query request.
- * @opcode: command to perform B-0
- * @idn: a value that indicates the particular type of data B-1
- * @index: Index to further identify data B-2
- * @selector: Index to further identify data B-3
- * @reserved_osf: spec reserved field B-4,5
- * @length: number of descriptor bytes to read/write B-6,7
- * @value: Attribute value to be written DW-6
- * @reserved: spec reserved DW-7,8
- */
-struct utp_upiu_query {
-	u8 opcode;
-	u8 idn;
-	u8 index;
-	u8 selector;
-	u16 reserved_osf;
-	u16 length;
-	u32 value;
-	u32 reserved[2];
-};
-
-/**
- * struct utp_upiu_req - general upiu request structure
- * @header:UPIU header structure DW-0 to DW-2
- * @sc: fields structure for scsi command
- * @qr: fields structure for query request
- */
-struct utp_upiu_req {
-	struct utp_upiu_header header;
-	union {
-		struct utp_upiu_cmd sc;
-		struct utp_upiu_query qr;
-	};
-};
-
-/**
- * struct utp_cmd_rsp - Response UPIU structure
+ * struct utp_upiu_rsp - Response UPIU structure
+ * @header: UPIU header DW-0 to DW-2
  * @residual_transfer_count: Residual transfer count DW-3
  * @reserved: Reserved double words DW-4 to DW-7
  * @sense_data_len: Sense data length DW-8 U16
  * @sense_data: Sense data field DW-8 to DW-12
  */
-struct utp_cmd_rsp {
+struct utp_upiu_rsp {
+	struct utp_upiu_header header;
 	u32 residual_transfer_count;
 	u32 reserved[4];
 	u16 sense_data_len;
 	u8 sense_data[18];
-};
-
-/**
- * struct utp_upiu_rsp - general upiu response structure
- * @header: UPIU header structure DW-0 to DW-2
- * @sc: fields structure for scsi command
- * @qr: fields structure for query request
- */
-struct utp_upiu_rsp {
-	struct utp_upiu_header header;
-	union {
-		struct utp_cmd_rsp sc;
-		struct utp_upiu_query qr;
-	};
 };
 
 /**
@@ -278,26 +192,6 @@ struct utp_upiu_task_rsp {
 	u32 output_param1;
 	u32 output_param2;
 	u32 reserved[3];
-};
-
-/**
- * struct ufs_query_req - parameters for building a query request
- * @query_func: UPIU header query function
- * @upiu_req: the query request data
- */
-struct ufs_query_req {
-	u8 query_func;
-	struct utp_upiu_query upiu_req;
-};
-
-/**
- * struct ufs_query_resp - UPIU QUERY
- * @response: device response code
- * @upiu_res: query response data
- */
-struct ufs_query_res {
-	u8 response;
-	struct utp_upiu_query upiu_res;
 };
 
 #endif /* End of Header */

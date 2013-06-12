@@ -60,7 +60,6 @@
 #include <scsi/scsi_tcq.h>
 #include <scsi/scsi_dbg.h>
 #include <scsi/scsi_eh.h>
-#include <scsi/scsi_device.h>
 
 #include "ufs.h"
 #include "ufshci.h"
@@ -89,7 +88,7 @@ struct uic_command {
 /**
  * struct ufshcd_lrb - local reference block
  * @utr_descriptor_ptr: UTRD address of the command
- * @ucd_req_ptr: UCD address of the command
+ * @ucd_cmd_ptr: UCD address of the command
  * @ucd_rsp_ptr: Response UPIU address for this command
  * @ucd_prdt_ptr: PRDT address of the command
  * @cmd: pointer to SCSI command
@@ -102,7 +101,7 @@ struct uic_command {
  */
 struct ufshcd_lrb {
 	struct utp_transfer_req_desc *utr_descriptor_ptr;
-	struct utp_upiu_req *ucd_req_ptr;
+	struct utp_upiu_cmd *ucd_cmd_ptr;
 	struct utp_upiu_rsp *ucd_rsp_ptr;
 	struct ufshcd_sg_entry *ucd_prdt_ptr;
 
@@ -116,19 +115,6 @@ struct ufshcd_lrb {
 	unsigned int lun;
 };
 
-/**
- * struct ufs_query - keeps the query request information
- * @request: request upiu and function
- * @descriptor: buffer for sending/receiving descriptor
- * @response: response upiu and response
- * @mutex: lock to allow one query at a time
- */
-struct ufs_query {
-	struct ufs_query_req *request;
-	u8 *descriptor;
-	struct ufs_query_res *response;
-	struct mutex lock_ufs_query;
-};
 
 /**
  * struct ufs_hba - per adapter private structure
@@ -157,7 +143,6 @@ struct ufs_query {
  * @uic_workq: Work queue for UIC completion handling
  * @feh_workq: Work queue for fatal controller error handling
  * @errors: HBA errors
- * @query: query request information
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -199,9 +184,6 @@ struct ufs_hba {
 
 	/* HBA Errors */
 	u32 errors;
-
-	/* Query Request */
-	struct ufs_query query;
 };
 
 int ufshcd_init(struct device *, struct ufs_hba ** , void __iomem * ,
