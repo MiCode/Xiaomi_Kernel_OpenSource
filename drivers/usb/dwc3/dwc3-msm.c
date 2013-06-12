@@ -381,14 +381,28 @@ static void dwc3_msm_ssusb_write_phycreg(void *base, u32 addr, u32 val)
  */
 static u32 dwc3_msm_ssusb_read_phycreg(void *base, u32 addr)
 {
+	bool first_read = true;
+
 	iowrite32(addr, base + SS_CR_PROTOCOL_DATA_IN_REG);
 	iowrite32(0x1, base + SS_CR_PROTOCOL_CAP_ADDR_REG);
 	while (ioread32(base + SS_CR_PROTOCOL_CAP_ADDR_REG))
 		cpu_relax();
 
+	/*
+	 * Due to hardware bug, first read of SSPHY register might be
+	 * incorrect. Hence as workaround, SW should perform SSPHY register
+	 * read twice, but use only second read and ignore first read.
+	 */
+retry:
 	iowrite32(0x1, base + SS_CR_PROTOCOL_READ_REG);
 	while (ioread32(base + SS_CR_PROTOCOL_READ_REG))
 		cpu_relax();
+
+	if (first_read) {
+		ioread32(base + SS_CR_PROTOCOL_DATA_OUT_REG);
+		first_read = false;
+		goto retry;
+	}
 
 	return ioread32(base + SS_CR_PROTOCOL_DATA_OUT_REG);
 }
