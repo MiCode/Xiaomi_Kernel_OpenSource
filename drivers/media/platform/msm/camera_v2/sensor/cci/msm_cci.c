@@ -111,9 +111,30 @@ static void msm_cci_flush_queue(struct cci_device *cci_dev,
 	msm_camera_io_w(1 << master, cci_dev->base + CCI_HALT_REQ_ADDR);
 	rc = wait_for_completion_interruptible_timeout(
 		&cci_dev->cci_master_info[master].reset_complete, CCI_TIMEOUT);
-	if (rc <= 0)
-		pr_err("%s: wait_for_completion_interruptible_timeout %d\n",
-			__func__, __LINE__);
+	if (rc < 0) {
+		pr_err("%s:%d wait failed\n", __func__, __LINE__);
+	} else if (rc == 0) {
+		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
+
+		/* Set reset pending flag to TRUE */
+		cci_dev->cci_master_info[master].reset_pending = TRUE;
+
+		/* Set proper mask to RESET CMD address based on MASTER */
+		if (master == MASTER_0)
+			msm_camera_io_w(CCI_M0_RESET_RMSK,
+				cci_dev->base + CCI_RESET_CMD_ADDR);
+		else
+			msm_camera_io_w(CCI_M1_RESET_RMSK,
+				cci_dev->base + CCI_RESET_CMD_ADDR);
+
+		/* wait for reset done irq */
+		rc = wait_for_completion_interruptible_timeout(
+			&cci_dev->cci_master_info[master].reset_complete,
+			CCI_TIMEOUT);
+		if (rc <= 0)
+			pr_err("%s:%d wait failed %d\n", __func__, __LINE__,
+				rc);
+	}
 	return;
 }
 
