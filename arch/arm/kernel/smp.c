@@ -584,6 +584,8 @@ static void ipi_cpu_stop(unsigned int cpu)
 	local_fiq_disable();
 	local_irq_disable();
 
+	flush_cache_all();
+
 	while (1)
 		cpu_relax();
 }
