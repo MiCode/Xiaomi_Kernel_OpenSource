@@ -18,6 +18,7 @@
 #include "diagfwd.h"
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
+#include "diagmem.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
@@ -248,6 +249,102 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
+						size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0, i = 0;
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = scnprintf(buf, DEBUG_BUF_SIZE,
+		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		driver->diagpool,
+		diag_pools_array[POOL_COPY_IDX],
+		driver->count,
+		driver->diag_hdlc_pool,
+		diag_pools_array[POOL_HDLC_IDX],
+		driver->count_hdlc_pool,
+		driver->diag_user_pool,
+		diag_pools_array[POOL_USER_IDX],
+		driver->count_user_pool,
+		driver->diag_write_struct_pool,
+		diag_pools_array[POOL_WRITE_STRUCT_IDX],
+		driver->count_write_struct_pool);
+
+	for (i = 0; i < MAX_HSIC_CH; i++) {
+		if (!diag_hsic[i].hsic_inited)
+			continue;
+		ret += scnprintf(buf+ret, DEBUG_BUF_SIZE-ret,
+				"POOL_TYPE_HSIC_%d: [0x%p : 0x%p] count = %d\n",
+				i+1,
+				diag_hsic[i].diag_hsic_pool,
+				diag_pools_array[POOL_HSIC_IDX + i],
+				diag_hsic[i].count_hsic_pool);
+	}
+
+	for (i = 0; i < MAX_HSIC_CH; i++) {
+		if (!diag_hsic[i].hsic_inited)
+			continue;
+		ret += scnprintf(buf+ret, DEBUG_BUF_SIZE-ret,
+				"POOL_TYPE_HSIC_%d_WRITE: [0x%p : 0x%p] count = %d\n",
+				i+1,
+				diag_hsic[i].diag_hsic_write_pool,
+				diag_pools_array[POOL_HSIC_WRITE_IDX + i],
+				diag_hsic[i].count_hsic_write_pool);
+	}
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+
+	kfree(buf);
+	return ret;
+}
+#else
+static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
+						size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = scnprintf(buf, DEBUG_BUF_SIZE,
+		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		driver->diagpool,
+		diag_pools_array[POOL_COPY_IDX],
+		driver->count,
+		driver->diag_hdlc_pool,
+		diag_pools_array[POOL_HDLC_IDX],
+		driver->count_hdlc_pool,
+		driver->diag_user_pool,
+		diag_pools_array[POOL_USER_IDX],
+		driver->count_user_pool,
+		driver->diag_write_struct_pool,
+		diag_pools_array[POOL_WRITE_STRUCT_IDX],
+		driver->count_write_struct_pool);
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+
+	kfree(buf);
+	return ret;
+}
+#endif
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 				    size_t count, loff_t *ppos)
 {
@@ -383,6 +480,10 @@ const struct file_operations diag_dbgfs_workpending_ops = {
 	.read = diag_dbgfs_read_workpending,
 };
 
+const struct file_operations diag_dbgfs_mempool_ops = {
+	.read = diag_dbgfs_read_mempool,
+};
+
 void diag_debugfs_init(void)
 {
 	diag_dbgfs_dent = debugfs_create_dir("diag", 0);
@@ -397,6 +498,9 @@ void diag_debugfs_init(void)
 
 	debugfs_create_file("work_pending", 0444, diag_dbgfs_dent, 0,
 		&diag_dbgfs_workpending_ops);
+
+	debugfs_create_file("mempool", 0444, diag_dbgfs_dent, 0,
+		&diag_dbgfs_mempool_ops);
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	debugfs_create_file("bridge", 0444, diag_dbgfs_dent, 0,
