@@ -2263,7 +2263,6 @@ static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
 		pr_err("tm measure failed: %d\n", rc);
 		return rc;
 	}
-	mutex_lock(&chip->vbat_monitor_mutex);
 	if (wake_lock_active(&chip->low_voltage_wake_lock)) {
 		pr_debug("battery removed, releasing wakelock\n");
 		wake_unlock(&chip->low_voltage_wake_lock);
@@ -2272,7 +2271,6 @@ static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
 		pr_debug("battery removed, removing in_cv_range state\n");
 		chip->in_cv_range = false;
 	}
-	mutex_unlock(&chip->vbat_monitor_mutex);
 	return 0;
 }
 
