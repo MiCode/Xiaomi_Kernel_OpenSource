@@ -2761,6 +2761,12 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	/* reset LCH mode */
 	v->lch_mode = 0;
 
+	/* clear mute setting */
+	v->dev_rx.dev_mute =  common.default_mute_val;
+	v->dev_tx.dev_mute =  common.default_mute_val;
+	v->stream_rx.stream_mute = common.default_mute_val;
+	v->stream_tx.stream_mute = common.default_mute_val;
+
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -4182,6 +4188,15 @@ int voc_start_voice_call(uint32_t session_id)
 			pr_err("setup voice failed\n");
 			goto fail;
 		}
+
+		ret = voice_send_vol_index_cmd(v);
+		if (ret < 0)
+			pr_err("voice volume failed\n");
+
+		ret = voice_send_stream_mute_cmd(v);
+		if (ret < 0)
+			pr_err("voice mute failed\n");
+
 		ret = voice_send_start_voice_cmd(v);
 		if (ret < 0) {
 			pr_err("start voice failed\n");
@@ -4891,7 +4906,7 @@ static int __init voice_init(void)
 	memset(&common, 0, sizeof(struct common_data));
 
 	/* set default value */
-	common.default_mute_val = 1;  /* default is mute */
+	common.default_mute_val = 0;  /* default is un-mute */
 	common.default_vol_val = 0;
 	common.default_sample_val = 8000;
 
@@ -4907,8 +4922,8 @@ static int __init voice_init(void)
 
 		/* initialize dev_rx and dev_tx */
 		common.voice[i].dev_rx.volume = common.default_vol_val;
-		common.voice[i].dev_rx.dev_mute =  0;
-		common.voice[i].dev_tx.dev_mute =  0;
+		common.voice[i].dev_rx.dev_mute =  common.default_mute_val;
+		common.voice[i].dev_tx.dev_mute =  common.default_mute_val;
 		common.voice[i].stream_rx.stream_mute = common.default_mute_val;
 		common.voice[i].stream_tx.stream_mute = common.default_mute_val;
 
