@@ -262,6 +262,9 @@ static int pm8xxx_pwm_bank_enable(struct pwm_device *pwm, int enable)
 
 	chip = pwm->chip;
 
+	if (!pwm->banks)
+		pwm->banks = (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
+
 	if (pwm->banks & PM_PWM_BANK_LO) {
 		if (enable)
 			reg = chip->lo_bank_mask | (1 << pwm->pwm_id);
