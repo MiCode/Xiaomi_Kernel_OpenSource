@@ -54,6 +54,7 @@ struct msm_ipc_router_smd_xprt {
 	spinlock_t ss_reset_lock;	/*Subsystem reset lock*/
 	int ss_reset;
 	void *pil;
+	struct completion sft_close_complete;
 };
 
 struct msm_ipc_router_smd_xprt_work {
@@ -217,6 +218,14 @@ static int msm_ipc_router_smd_remote_close(struct msm_ipc_router_xprt *xprt)
 	return rc;
 }
 
+static void smd_xprt_sft_close_done(struct msm_ipc_router_xprt *xprt)
+{
+	struct msm_ipc_router_smd_xprt *smd_xprtp =
+		container_of(xprt, struct msm_ipc_router_smd_xprt, xprt);
+
+	complete_all(&smd_xprtp->sft_close_complete);
+}
+
 static void smd_xprt_read_data(struct work_struct *work)
 {
 	int pkt_size, sz_read, sz;
@@ -322,7 +331,14 @@ static void smd_xprt_open_event(struct work_struct *work)
 {
 	struct msm_ipc_router_smd_xprt_work *xprt_work =
 		container_of(work, struct msm_ipc_router_smd_xprt_work, work);
+	struct msm_ipc_router_smd_xprt *smd_xprtp =
+		container_of(xprt_work->xprt,
+			     struct msm_ipc_router_smd_xprt, xprt);
+	unsigned long flags;
 
+	spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
+	smd_xprtp->ss_reset = 0;
+	spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
 	msm_ipc_router_xprt_notify(xprt_work->xprt,
 				IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
 	D("%s: Notified IPC Router of %s OPEN\n",
@@ -334,11 +350,16 @@ static void smd_xprt_close_event(struct work_struct *work)
 {
 	struct msm_ipc_router_smd_xprt_work *xprt_work =
 		container_of(work, struct msm_ipc_router_smd_xprt_work, work);
+	struct msm_ipc_router_smd_xprt *smd_xprtp =
+		container_of(xprt_work->xprt,
+			     struct msm_ipc_router_smd_xprt, xprt);
 
+	init_completion(&smd_xprtp->sft_close_complete);
 	msm_ipc_router_xprt_notify(xprt_work->xprt,
 				IPC_ROUTER_XPRT_EVENT_CLOSE, NULL);
 	D("%s: Notified IPC Router of %s CLOSE\n",
 	   __func__, xprt_work->xprt->name);
+	wait_for_completion(&smd_xprtp->sft_close_complete);
 	kfree(xprt_work);
 }
 
@@ -362,9 +383,6 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		break;
 
 	case SMD_EVENT_OPEN:
-		spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
-		smd_xprtp->ss_reset = 0;
-		spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_smd_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
@@ -441,6 +459,7 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 		msm_ipc_router_smd_remote_write_avail;
 	smd_remote_xprt[id].xprt.write = msm_ipc_router_smd_remote_write;
 	smd_remote_xprt[id].xprt.close = msm_ipc_router_smd_remote_close;
+	smd_remote_xprt[id].xprt.sft_close_done = smd_xprt_sft_close_done;
 	smd_remote_xprt[id].xprt.priv = NULL;
 
 	init_waitqueue_head(&smd_remote_xprt[id].write_avail_wait_q);
