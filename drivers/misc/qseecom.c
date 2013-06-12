@@ -2009,14 +2009,15 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		pr_err("set_cpus_allowed_ptr failed : ret %d\n",
 				set_cpu_ret);
 		ret = -EFAULT;
-		goto qseecom_load_external_elf_set_cpu_err;
+		goto exit_ion_free;
 	}
+
 	/* Vote for the SFPB clock */
 	ret = qsee_vote_for_clock(data, CLK_SFPB);
 	if (ret) {
 		pr_err("Unable to vote for SFPB clock: ret = %d", ret);
 		ret = -EIO;
-		goto qseecom_load_external_elf_set_cpu_err;
+		goto exit_cpu_restore;
 	}
 	msm_ion_do_cache_op(qseecom.ion_clnt, ihandle, NULL, len,
 				ION_IOC_CLEAN_INV_CACHES);
@@ -2028,23 +2029,32 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		pr_err("scm_call to load failed : ret %d\n",
 				ret);
 		ret = -EFAULT;
-		goto qseecom_load_external_elf_scm_err;
+		goto exit_disable_clock;
 	}
 
-	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+	switch (resp.result) {
+	case QSEOS_RESULT_SUCCESS:
+		break;
+	case QSEOS_RESULT_INCOMPLETE:
+		pr_err("%s: qseos result incomplete\n", __func__);
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret)
-			pr_err("process_incomplete_cmd failed err: %d\n",
-					ret);
-	} else {
-		if (resp.result != QSEOS_RESULT_SUCCESS) {
-			pr_err("scm_call to load image failed resp.result =%d\n",
-						resp.result);
-			ret = -EFAULT;
-		}
+			pr_err("process_incomplete_cmd failed: err: %d\n", ret);
+		break;
+	case QSEOS_RESULT_FAILURE:
+		pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
+		ret = -EFAULT;
+		break;
+	default:
+		pr_err("scm_call response result %d not supported\n",
+							resp.result);
+		ret = -EFAULT;
+		break;
 	}
 
-qseecom_load_external_elf_scm_err:
+exit_disable_clock:
+	qsee_disable_clock_vote(data, CLK_SFPB);
+exit_cpu_restore:
 	/* Restore the CPU mask */
 	mask = CPU_MASK_ALL;
 	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
@@ -2053,12 +2063,10 @@ qseecom_load_external_elf_scm_err:
 				set_cpu_ret);
 		ret = -EFAULT;
 	}
-
-qseecom_load_external_elf_set_cpu_err:
+exit_ion_free:
 	/* Deallocate the handle */
 	if (!IS_ERR_OR_NULL(ihandle))
 		ion_free(qseecom.ion_clnt, ihandle);
-	qsee_disable_clock_vote(data, CLK_SFPB);
 	return ret;
 }
 
