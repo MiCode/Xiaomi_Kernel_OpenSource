@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -240,8 +240,22 @@ int ion_heap_buffer_zero(struct ion_buffer *buffer)
 	return ret;
 }
 
-void ion_heap_free_page(struct ion_buffer *buffer, struct page *page,
-		       unsigned int order)
+struct page *ion_heap_alloc_pages(struct ion_buffer *buffer, gfp_t gfp_flags,
+				  unsigned int order)
+{
+	struct page *page = alloc_pages(gfp_flags, order);
+
+	if (!page)
+		return page;
+
+	if (ion_buffer_fault_user_mappings(buffer))
+		split_page(page, order);
+
+	return page;
+}
+
+void ion_heap_free_pages(struct ion_buffer *buffer, struct page *page,
+			 unsigned int order)
 {
 	int i;
 
