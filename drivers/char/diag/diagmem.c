@@ -20,6 +20,8 @@
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
 
+mempool_t *diag_pools_array[NUM_MEMORY_POOLS];
+
 void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 {
 	void *buf = NULL;
@@ -251,21 +253,30 @@ void diagmem_init(struct diagchar_dev *driver)
 {
 	mutex_init(&driver->diagmem_mutex);
 
-	if (driver->count == 0)
+	if (driver->count == 0) {
 		driver->diagpool = mempool_create_kmalloc_pool(
 					driver->poolsize, driver->itemsize);
+		diag_pools_array[POOL_COPY_IDX] = driver->diagpool;
+	}
 
-	if (driver->count_hdlc_pool == 0)
+	if (driver->count_hdlc_pool == 0) {
 		driver->diag_hdlc_pool = mempool_create_kmalloc_pool(
 				driver->poolsize_hdlc, driver->itemsize_hdlc);
+		diag_pools_array[POOL_HDLC_IDX] = driver->diag_hdlc_pool;
+	}
 
-	if (driver->count_user_pool == 0)
+	if (driver->count_user_pool == 0) {
 		driver->diag_user_pool = mempool_create_kmalloc_pool(
 				driver->poolsize_user, driver->itemsize_user);
+		diag_pools_array[POOL_USER_IDX] = driver->diag_user_pool;
+	}
 
-	if (driver->count_write_struct_pool == 0)
+	if (driver->count_write_struct_pool == 0) {
 		driver->diag_write_struct_pool = mempool_create_kmalloc_pool(
 		driver->poolsize_write_struct, driver->itemsize_write_struct);
+		diag_pools_array[POOL_WRITE_STRUCT_IDX] =
+						driver->diag_write_struct_pool;
+	}
 
 	if (!driver->diagpool)
 		pr_err("diag: Cannot allocate diag mempool\n");
@@ -283,16 +294,27 @@ void diagmem_init(struct diagchar_dev *driver)
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagmem_hsic_init(int index)
 {
-	if (diag_hsic[index].count_hsic_pool == 0)
+	if (index < 0 || index >= MAX_HSIC_CH) {
+		pr_err("diag: Invalid hsic index in %s\n", __func__);
+		return;
+	}
+
+	if (diag_hsic[index].count_hsic_pool == 0) {
 		diag_hsic[index].diag_hsic_pool = mempool_create_kmalloc_pool(
 					diag_hsic[index].poolsize_hsic,
 					diag_hsic[index].itemsize_hsic);
+		diag_pools_array[POOL_HSIC_IDX + index] =
+						diag_hsic[index].diag_hsic_pool;
+	}
 
-	if (diag_hsic[index].count_hsic_write_pool == 0)
+	if (diag_hsic[index].count_hsic_write_pool == 0) {
 		diag_hsic[index].diag_hsic_write_pool =
 				mempool_create_kmalloc_pool(
 					diag_hsic[index].poolsize_hsic_write,
 					diag_hsic[index].itemsize_hsic_write);
+		diag_pools_array[POOL_HSIC_WRITE_IDX + index] =
+					diag_hsic[index].diag_hsic_write_pool;
+	}
 
 	if (!diag_hsic[index].diag_hsic_pool)
 		pr_err("Cannot allocate diag HSIC mempool for ch %d\n", index);
