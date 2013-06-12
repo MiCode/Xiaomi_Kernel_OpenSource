@@ -125,21 +125,7 @@
 #define CPR_FUSE_RO_SEL_BITS		3
 #define CPR_FUSE_RO_SEL_BITS_MASK	((1<<CPR_FUSE_RO_SEL_BITS)-1)
 
-#define CPR_FUSE_TARGET_QUOT_TURBO_SHIFT	0
-#define CPR_FUSE_TARGET_QUOT_NOMINAL_SHIFT	12
-#define CPR_FUSE_TARGET_QUOT_SVS_SHIFT		24
-
-#define CPR_FUSE_DISABLE_CPR_SHIFT		36
-#define CPR_FUSE_LOCAL_APPROACH_SHIFT		37
-#define CPR_FUSE_REDUNDANT_SHIFT		57
-
-/* PVS eFuse parameters */
-#define PVS_FUSE_REDUNDANT_SHIFT	24
-#define PVS_FUSE_REDUNDANT_BITS		3
-#define PVS_FUSE_REDUNDANT_MASK		((1<<PVS_FUSE_REDUNDANT_BITS)-1)
-
-#define PVS_FUSE_BINS_SHIFT		6
-#define PVS_FUSE_BINS_REDUNDANT_SHIFT	27
+#define BYTES_PER_FUSE_ROW		8
 
 enum voltage_change_dir {
 	NO_CHANGE,
@@ -154,9 +140,11 @@ struct cpr_regulator {
 	int				corner;
 	int				ceiling_max;
 
+	/* eFuse parameters */
+	phys_addr_t	efuse_addr;
+	void __iomem	*efuse_base;
+
 	/* Process voltage parameters */
-	phys_addr_t	pvs_efuse;
-	u32		num_efuse_bits;
 	u32		pvs_bin_process[CPR_PVS_EFUSE_BINS_MAX];
 	u32		pvs_corner_v[NUM_APC_PVS][CPR_CORNER_MAX];
 	/* Process voltage variables */
@@ -173,12 +161,9 @@ struct cpr_regulator {
 	int			vdd_mx_vmin;
 
 	/* CPR parameters */
-	phys_addr_t	cpr_fuse_addr;
 	u64		cpr_fuse_bits;
-	u64		cpr_fuse_bits_2;
 	bool		cpr_fuse_disable;
 	bool		cpr_fuse_local;
-	bool		cpr_fuse_redundancy;
 	int		cpr_fuse_target_quot[CPR_CORNER_MAX];
 	int		cpr_fuse_ro_sel[CPR_CORNER_MAX];
 	int		gcnt;
@@ -838,7 +823,7 @@ static int cpr_regulator_resume(struct platform_device *pdev)
 #define cpr_regulator_resume NULL
 #endif
 
-static int cpr_config(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
 {
 	int i;
 	u32 val, gcnt, reg;
@@ -928,47 +913,80 @@ static int cpr_config(struct cpr_regulator *cpr_vreg)
 	return 0;
 }
 
-static int __init cpr_pvs_init(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_is_fuse_redundant(struct cpr_regulator *cpr_vreg,
+					 u32 redun_sel[4])
 {
-	void __iomem *efuse_base;
-	u32 efuse_bits, redundant, shift, mask;
-	int i, process;
+	u32 fuse_bits;
+	int redundant;
 
-	efuse_base = ioremap(cpr_vreg->pvs_efuse, 4);
-	if (!efuse_base) {
-		pr_err("Unable to map pvs_efuse 0x%08x\n",
-				cpr_vreg->pvs_efuse);
-		return -EINVAL;
+	fuse_bits = readl_relaxed(cpr_vreg->efuse_base
+				  + redun_sel[0] * BYTES_PER_FUSE_ROW);
+	fuse_bits = (fuse_bits >> redun_sel[1]) & ((1 << redun_sel[2]) - 1);
+	if (fuse_bits == redun_sel[3])
+		redundant = 1;
+	else
+		redundant = 0;
+
+	pr_info("[row:%d] = 0x%x @%d:%d = %d?: redundant=%d\n",
+		redun_sel[0], fuse_bits,
+		redun_sel[1], redun_sel[2], redun_sel[3], redundant);
+	return redundant;
+}
+
+static int __devinit cpr_pvs_init(struct platform_device *pdev,
+			       struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	u32 efuse_bits;
+	int rc, process;
+	u32 pvs_fuse[3], pvs_fuse_redun_sel[4];
+	bool redundant;
+	size_t pvs_bins;
+
+	rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun-sel",
+					pvs_fuse_redun_sel, 4);
+	if (rc < 0) {
+		pr_err("pvs-fuse-redun-sel missing: rc=%d\n", rc);
+		return rc;
 	}
 
-	efuse_bits = readl_relaxed(efuse_base);
+	redundant = cpr_is_fuse_redundant(cpr_vreg, pvs_fuse_redun_sel);
+
+	if (redundant) {
+		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun",
+						pvs_fuse, 3);
+		if (rc < 0) {
+			pr_err("pvs-fuse-redun missing: rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse",
+						pvs_fuse, 3);
+		if (rc < 0) {
+			pr_err("pvs-fuse missing: rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	/* Construct PVS process # from the efuse bits */
-	redundant = (efuse_bits >> PVS_FUSE_REDUNDANT_SHIFT)
-			& PVS_FUSE_REDUNDANT_MASK;
-	if (redundant == 2)
-		shift = PVS_FUSE_BINS_REDUNDANT_SHIFT;
-	else
-		shift = PVS_FUSE_BINS_SHIFT;
-	mask = (1 << cpr_vreg->num_efuse_bits) - 1;
-	cpr_vreg->pvs_bin = (efuse_bits >> shift) & mask;
+	efuse_bits = readl_relaxed(cpr_vreg->efuse_base +
+				   pvs_fuse[0] * BYTES_PER_FUSE_ROW);
+	cpr_vreg->pvs_bin = (efuse_bits >> pvs_fuse[1]) &
+				   ((1 << pvs_fuse[2]) - 1);
 
-	/* Set ceiling max and use it for APC_PVS_NO */
-	cpr_vreg->ceiling_max =
-		cpr_vreg->pvs_corner_v[APC_PVS_SLOW][CPR_CORNER_TURBO];
-
-	iounmap(efuse_base);
+	pvs_bins = 1 << pvs_fuse[2];
+	rc = of_property_read_u32_array(of_node, "qcom,pvs-bin-process",
+					cpr_vreg->pvs_bin_process,
+					pvs_bins);
+	if (rc < 0) {
+		pr_err("pvs-bin-process missing: rc=%d\n", rc);
+		return rc;
+	}
 
 	process = cpr_vreg->pvs_bin_process[cpr_vreg->pvs_bin];
-	pr_info("[0x%08X] = 0x%08X, n_bits=%d, bin=%d (%d) [redundant=%d]\n",
-		cpr_vreg->pvs_efuse, efuse_bits, cpr_vreg->num_efuse_bits,
-		cpr_vreg->pvs_bin, process, redundant);
-	for (i = APC_PVS_SLOW; i < NUM_APC_PVS; i++) {
-		pr_info("[%d] [%d %d %d] uV\n", i,
-			cpr_vreg->pvs_corner_v[i][CPR_CORNER_SVS],
-			cpr_vreg->pvs_corner_v[i][CPR_CORNER_NORMAL],
-			cpr_vreg->pvs_corner_v[i][CPR_CORNER_TURBO]);
-	}
+	pr_info("[row:%d] = 0x%08X, n_bits=%d, bin=%d (%d)\n",
+		pvs_fuse[0], efuse_bits, pvs_fuse[2],
+		cpr_vreg->pvs_bin, process);
 
 	if (process == APC_PVS_NO || process >= NUM_APC_PVS) {
 		pr_err("Bin=%d (%d) is out of spec. Assume SLOW.\n",
@@ -994,7 +1012,7 @@ do {									\
 	}								\
 } while (0)
 
-static int __init cpr_apc_init(struct platform_device *pdev,
+static int __devinit cpr_apc_init(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
@@ -1055,81 +1073,124 @@ static void cpr_apc_exit(struct cpr_regulator *cpr_vreg)
 	}
 }
 
-static int __init cpr_init_cpr_efuse(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
+				     struct cpr_regulator *cpr_vreg)
 {
-	void __iomem *efuse_base;
+	struct device_node *of_node = pdev->dev.of_node;
+	int i, rc = 0;
+	bool redundant;
+	u32 cpr_fuse_redun_sel[4];
+	char *targ_quot_str, *ro_sel_str;
+	u32 cpr_fuse_row;
+	u32 bp_cpr_disable, bp_scheme;
+	int bp_target_quot[CPR_CORNER_MAX];
+	int bp_ro_sel[CPR_CORNER_MAX];
 	u32 ro_sel, val;
-	u64 fuse_bits;
-	int ro_sel_shift[CPR_CORNER_MAX];
+	u64 fuse_bits, fuse_bits_2;
 
-	efuse_base = ioremap(cpr_vreg->cpr_fuse_addr, 16);
-	if (!efuse_base) {
-		pr_err("Unable to map cpr_fuse_addr 0x%08x\n",
-				cpr_vreg->cpr_fuse_addr);
-		return -EINVAL;
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-redun-sel",
+					cpr_fuse_redun_sel, 4);
+	if (rc < 0) {
+		pr_err("cpr-fuse-redun-sel missing: rc=%d\n", rc);
+		return rc;
 	}
 
-	cpr_vreg->cpr_fuse_bits = readll_relaxed(efuse_base);
-	cpr_vreg->cpr_fuse_bits_2 = readll_relaxed(efuse_base + 8);
+	redundant = cpr_is_fuse_redundant(cpr_vreg, cpr_fuse_redun_sel);
 
-	iounmap(efuse_base);
+	if (redundant) {
+		CPR_PROP_READ_U32(of_node, "cpr-fuse-redun-row",
+				  &cpr_fuse_row, rc);
+		targ_quot_str = "qcom,cpr-fuse-redun-target-quot";
+		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
+	} else {
+		CPR_PROP_READ_U32(of_node, "cpr-fuse-row",
+				  &cpr_fuse_row, rc);
+		targ_quot_str = "qcom,cpr-fuse-target-quot";
+		ro_sel_str = "qcom,cpr-fuse-ro-sel";
+	}
+	if (rc)
+		return rc;
+
+	rc = of_property_read_u32_array(of_node,
+		targ_quot_str,
+		&bp_target_quot[CPR_CORNER_SVS],
+		CPR_CORNER_MAX - CPR_CORNER_SVS);
+	if (rc < 0) {
+		pr_err("missing %s: rc=%d\n", targ_quot_str, rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32_array(of_node,
+		ro_sel_str,
+		&bp_ro_sel[CPR_CORNER_SVS],
+		CPR_CORNER_MAX - CPR_CORNER_SVS);
+	if (rc < 0) {
+		pr_err("missing %s: rc=%d\n", ro_sel_str, rc);
+		return rc;
+	}
 
 	/* Read the control bits of eFuse */
-	cpr_vreg->cpr_fuse_disable = (cpr_vreg->cpr_fuse_bits >>
-				      CPR_FUSE_DISABLE_CPR_SHIFT) & 0x01;
-	cpr_vreg->cpr_fuse_local = (cpr_vreg->cpr_fuse_bits >>
-				    CPR_FUSE_LOCAL_APPROACH_SHIFT) & 0x01;
-	cpr_vreg->cpr_fuse_redundancy = (cpr_vreg->cpr_fuse_bits >>
-					 CPR_FUSE_REDUNDANT_SHIFT) & 0x01;
+	fuse_bits = readll_relaxed(cpr_vreg->efuse_base
+				   + cpr_fuse_row * BYTES_PER_FUSE_ROW);
+	pr_info("[row:%d] = 0x%llx\n", cpr_fuse_row, fuse_bits);
 
-	pr_info("[0x%08X] = 0x%llx\n", cpr_vreg->cpr_fuse_addr,
-		cpr_vreg->cpr_fuse_bits);
-	pr_info("disable = %d, local = %d, redundancy = %d\n",
-			cpr_vreg->cpr_fuse_disable,
-			cpr_vreg->cpr_fuse_local,
-			cpr_vreg->cpr_fuse_redundancy);
-	pr_info("[0x%08X] = 0x%llx\n", cpr_vreg->cpr_fuse_addr + 8,
-		cpr_vreg->cpr_fuse_bits_2);
+	if (redundant) {
+		if (of_property_read_bool(of_node,
+				"qcom,cpr-fuse-redun-bp-cpr-disable")) {
+			CPR_PROP_READ_U32(of_node,
+					  "cpr-fuse-redun-bp-cpr-disable",
+					  &bp_cpr_disable, rc);
+			CPR_PROP_READ_U32(of_node,
+					  "cpr-fuse-redun-bp-scheme",
+					  &bp_scheme, rc);
+			if (rc)
+				return rc;
+			fuse_bits_2 = fuse_bits;
+		} else {
+			u32 temp_row;
 
-	if (cpr_vreg->cpr_fuse_redundancy == 0) {
-		fuse_bits = cpr_vreg->cpr_fuse_bits;
-		ro_sel_shift[CPR_CORNER_SVS] = 54;
-		ro_sel_shift[CPR_CORNER_NORMAL] = 38;
-		ro_sel_shift[CPR_CORNER_TURBO] = 41;
+			/* Use original fuse if no optional property */
+			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
+					  &bp_cpr_disable, rc);
+			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
+					  &bp_scheme, rc);
+			CPR_PROP_READ_U32(of_node, "cpr-fuse-row",
+					  &temp_row, rc);
+			if (rc)
+				return rc;
+			fuse_bits_2 = readll_relaxed(cpr_vreg->efuse_base
+					+ temp_row * BYTES_PER_FUSE_ROW);
+			pr_info("[original row:%d] = 0x%llx\n",
+				temp_row, fuse_bits_2);
+		}
 	} else {
-		fuse_bits = cpr_vreg->cpr_fuse_bits_2;
-		ro_sel_shift[CPR_CORNER_SVS] = 46;
-		ro_sel_shift[CPR_CORNER_NORMAL] = 36;
-		ro_sel_shift[CPR_CORNER_TURBO] = 39;
+		CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
+				  &bp_cpr_disable, rc);
+		CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
+				  &bp_scheme, rc);
+		if (rc)
+			return rc;
+		fuse_bits_2 = fuse_bits;
 	}
 
-	/* SVS */
-	ro_sel = (fuse_bits >> ro_sel_shift[CPR_CORNER_SVS])
-				& CPR_FUSE_RO_SEL_BITS_MASK;
-	val = (fuse_bits >> CPR_FUSE_TARGET_QUOT_SVS_SHIFT)
-				& CPR_FUSE_TARGET_QUOT_BITS_MASK;
-	cpr_vreg->cpr_fuse_target_quot[CPR_CORNER_SVS] = val;
-	cpr_vreg->cpr_fuse_ro_sel[CPR_CORNER_SVS] = ro_sel;
-	pr_info("SVS: ro_sel = %d, target quot = 0x%04x\n", ro_sel, val);
+	cpr_vreg->cpr_fuse_disable = (fuse_bits_2 >> bp_cpr_disable) & 0x01;
+	cpr_vreg->cpr_fuse_local = (fuse_bits_2 >> bp_scheme) & 0x01;
 
-	/* Nominal */
-	ro_sel = (fuse_bits >> ro_sel_shift[CPR_CORNER_NORMAL])
-				& CPR_FUSE_RO_SEL_BITS_MASK;
-	val = (fuse_bits >> CPR_FUSE_TARGET_QUOT_NOMINAL_SHIFT)
-				& CPR_FUSE_TARGET_QUOT_BITS_MASK;
-	cpr_vreg->cpr_fuse_target_quot[CPR_CORNER_NORMAL] = val;
-	cpr_vreg->cpr_fuse_ro_sel[CPR_CORNER_NORMAL] = ro_sel;
-	pr_info("Nominal: ro_sel = %d, target quot = 0x%04x\n", ro_sel, val);
+	pr_info("disable = %d, local = %d\n",
+		cpr_vreg->cpr_fuse_disable, cpr_vreg->cpr_fuse_local);
 
-	/* Turbo */
-	ro_sel = (fuse_bits >> ro_sel_shift[CPR_CORNER_TURBO])
+	for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++) {
+		ro_sel = (fuse_bits >> bp_ro_sel[i])
 				& CPR_FUSE_RO_SEL_BITS_MASK;
-	val = (fuse_bits >> CPR_FUSE_TARGET_QUOT_TURBO_SHIFT)
+		val = (fuse_bits >> bp_target_quot[i])
 				& CPR_FUSE_TARGET_QUOT_BITS_MASK;
-	cpr_vreg->cpr_fuse_target_quot[CPR_CORNER_TURBO] = val;
-	cpr_vreg->cpr_fuse_ro_sel[CPR_CORNER_TURBO] = ro_sel;
-	pr_info("Turbo: ro_sel = %d, target quot = 0x%04x\n", ro_sel, val);
+		cpr_vreg->cpr_fuse_target_quot[i] = val;
+		cpr_vreg->cpr_fuse_ro_sel[i] = ro_sel;
+		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n",
+			i, ro_sel, val);
+	}
 
+	cpr_vreg->cpr_fuse_bits = fuse_bits;
 	if (!cpr_vreg->cpr_fuse_bits) {
 		cpr_vreg->cpr_fuse_disable = 1;
 		pr_err("cpr_fuse_bits = 0: set cpr_fuse_disable = 1\n");
@@ -1138,7 +1199,7 @@ static int __init cpr_init_cpr_efuse(struct cpr_regulator *cpr_vreg)
 	return 0;
 }
 
-static int __init cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg)
 {
 	int i;
 
@@ -1155,7 +1216,7 @@ static int __init cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg)
 	return 0;
 }
 
-static int __init cpr_init_cpr_parameters(struct platform_device *pdev,
+static int __devinit cpr_init_cpr_parameters(struct platform_device *pdev,
 					  struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
@@ -1223,19 +1284,11 @@ static int __init cpr_init_cpr_parameters(struct platform_device *pdev,
 	return rc;
 }
 
-static int __init cpr_init_cpr(struct platform_device *pdev,
+static int __devinit cpr_init_cpr(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
 	struct resource *res;
 	int rc = 0;
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "cpr_efuse");
-	if (!res || !res->start) {
-		pr_err("cpr_efuse missing: res=%p\n", res);
-		return -EINVAL;
-	}
-	cpr_vreg->cpr_fuse_addr = res->start;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rbcpr_clk");
 	if (!res || !res->start) {
@@ -1244,7 +1297,7 @@ static int __init cpr_init_cpr(struct platform_device *pdev,
 	}
 	cpr_vreg->rbcpr_clk_addr = res->start;
 
-	rc = cpr_init_cpr_efuse(cpr_vreg);
+	rc = cpr_init_cpr_efuse(pdev, cpr_vreg);
 	if (rc)
 		return rc;
 
@@ -1287,44 +1340,41 @@ static int __init cpr_init_cpr(struct platform_device *pdev,
 	return 0;
 }
 
-static int __init cpr_pvs_parse_dt(struct platform_device *pdev,
-				   struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_efuse_init(struct platform_device *pdev,
+				 struct cpr_regulator *cpr_vreg)
+{
+	struct resource *res;
+	int len;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse_addr");
+	if (!res || !res->start) {
+		pr_err("efuse_addr missing: res=%p\n", res);
+		return -EINVAL;
+	}
+	cpr_vreg->efuse_addr = res->start;
+	len = res->end - res->start + 1;
+
+	pr_info("efuse_addr = 0x%x (len=0x%x)\n", res->start, len);
+
+	cpr_vreg->efuse_base = ioremap(cpr_vreg->efuse_addr, len);
+	if (!cpr_vreg->efuse_base) {
+		pr_err("Unable to map efuse_addr 0x%08x\n",
+				cpr_vreg->efuse_addr);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void cpr_efuse_free(struct cpr_regulator *cpr_vreg)
+{
+	iounmap(cpr_vreg->efuse_base);
+}
+
+static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	struct resource *res;
-	int rc;
-	size_t pvs_bins;
-
-	/* Parse process voltage parameters */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pvs_efuse");
-	if (!res || !res->start) {
-		pr_err("pvs_efuse missing: res=%p\n", res);
-		return -EINVAL;
-	}
-	cpr_vreg->pvs_efuse = res->start;
-
-	rc = of_property_read_u32(of_node, "qcom,num-efuse-bits",
-				&cpr_vreg->num_efuse_bits);
-	if (rc < 0) {
-		pr_err("num-efuse-bits missing: rc=%d\n", rc);
-		return rc;
-	}
-
-	if (cpr_vreg->num_efuse_bits == 0 ||
-	    cpr_vreg->num_efuse_bits > CPR_PVS_EFUSE_BITS_MAX) {
-		pr_err("invalid num-efuse-bits : %d\n",
-		       cpr_vreg->num_efuse_bits);
-		return -EINVAL;
-	}
-
-	pvs_bins = 1 << cpr_vreg->num_efuse_bits;
-	rc = of_property_read_u32_array(of_node, "qcom,pvs-bin-process",
-					cpr_vreg->pvs_bin_process,
-					pvs_bins);
-	if (rc < 0) {
-		pr_err("pvs-bin-process missing: rc=%d\n", rc);
-		return rc;
-	}
+	int rc, i;
 
 	rc = of_property_read_u32_array(of_node,
 		"qcom,pvs-corner-ceiling-slow",
@@ -1351,6 +1401,17 @@ static int __init cpr_pvs_parse_dt(struct platform_device *pdev,
 	if (rc < 0) {
 		pr_err("pvs-corner-ceiling-fast missing: rc=%d\n", rc);
 		return rc;
+	}
+
+	/* Set ceiling max and use it for APC_PVS_NO */
+	cpr_vreg->ceiling_max =
+		cpr_vreg->pvs_corner_v[APC_PVS_SLOW][CPR_CORNER_TURBO];
+
+	for (i = APC_PVS_SLOW; i < NUM_APC_PVS; i++) {
+		pr_info("[%d] [%d %d %d] uV\n", i,
+			cpr_vreg->pvs_corner_v[i][CPR_CORNER_SVS],
+			cpr_vreg->pvs_corner_v[i][CPR_CORNER_NORMAL],
+			cpr_vreg->pvs_corner_v[i][CPR_CORNER_TURBO]);
 	}
 
 	return 0;
@@ -1386,30 +1447,38 @@ static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	rc = cpr_pvs_parse_dt(pdev, cpr_vreg);
+	rc = cpr_efuse_init(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("Wrong DT parameter specified: rc=%d\n", rc);
+		pr_err("Wrong eFuse address specified: rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = cpr_pvs_init(cpr_vreg);
+	rc = cpr_voltage_plan_init(pdev, cpr_vreg);
+	if (rc) {
+		pr_err("Wrong DT parameter specified: rc=%d\n", rc);
+		goto err_out;
+	}
+
+	rc = cpr_pvs_init(pdev, cpr_vreg);
 	if (rc) {
 		pr_err("Initialize PVS wrong: rc=%d\n", rc);
-		return rc;
+		goto err_out;
 	}
 
 	rc = cpr_apc_init(pdev, cpr_vreg);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			pr_err("Initialize APC wrong: rc=%d\n", rc);
-		return rc;
+		goto err_out;
 	}
 
 	rc = cpr_init_cpr(pdev, cpr_vreg);
 	if (rc) {
 		pr_err("Initialize CPR failed: rc=%d\n", rc);
-		return rc;
+		goto err_out;
 	}
+
+	cpr_efuse_free(cpr_vreg);
 
 	mutex_init(&cpr_vreg->cpr_mutex);
 
@@ -1433,6 +1502,10 @@ static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 	the_cpr = cpr_vreg;
 
 	return 0;
+
+err_out:
+	cpr_efuse_free(cpr_vreg);
+	return rc;
 }
 
 static int __devexit cpr_regulator_remove(struct platform_device *pdev)
