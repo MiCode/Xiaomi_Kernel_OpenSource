@@ -589,6 +589,7 @@
 			<&msmgpio 54 0>, /* MISO */
 			<&msmgpio 53 0>; /* MOSI */
 		cs-gpios = <&msmgpio 55 0>;
+		qcom,master-id = <84>;
 	};
 
 	tspp: msm_tspp@f99d8000 {
@@ -822,6 +823,7 @@
 			<&msmgpio 1 0>, /* MISO */
 			<&msmgpio 0 0>; /* MOSI */
 		cs-gpios = <&msmgpio 9 0>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,acpuclk@f9000000 {
