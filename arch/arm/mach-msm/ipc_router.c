@@ -192,8 +192,6 @@ static DECLARE_COMPLETION(msm_ipc_local_router_up);
 
 static uint32_t next_port_id;
 static DEFINE_MUTEX(next_port_id_lock_lha1);
-static atomic_t pending_close_count = ATOMIC_INIT(0);
-static wait_queue_head_t subsystem_restart_wait;
 static struct workqueue_struct *msm_ipc_router_workqueue;
 
 enum {
@@ -2882,10 +2880,7 @@ static void xprt_close_worker(struct work_struct *work)
 
 	msm_ipc_cleanup_routing_table(xprt_work->xprt->priv);
 	msm_ipc_router_remove_xprt(xprt_work->xprt);
-
-	if (atomic_dec_return(&pending_close_count) == 0)
-		wake_up(&subsystem_restart_wait);
-
+	xprt_work->xprt->sft_close_done(xprt_work->xprt);
 	kfree(xprt_work);
 }
 
@@ -2924,7 +2919,6 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 
 	case IPC_ROUTER_XPRT_EVENT_CLOSE:
 		D("close event for '%s'\n", xprt->name);
-		atomic_inc(&pending_close_count);
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_xprt_work),
 				GFP_ATOMIC);
 		if (xprt_work) {
@@ -2956,45 +2950,6 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 	mutex_unlock(&xprt_info->rx_lock_lhb2);
 	queue_work(xprt_info->workqueue, &xprt_info->read_data);
 }
-
-static int modem_restart_notifier_cb(struct notifier_block *this,
-				unsigned long code,
-				void *data);
-static struct notifier_block msm_ipc_router_nb = {
-	.notifier_call = modem_restart_notifier_cb,
-};
-
-static int modem_restart_notifier_cb(struct notifier_block *this,
-				unsigned long code,
-				void *data)
-{
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		D("%s: SUBSYS_BEFORE_SHUTDOWN\n", __func__);
-		break;
-
-	case SUBSYS_BEFORE_POWERUP:
-		D("%s: waiting for RPC restart to complete\n", __func__);
-		wait_event(subsystem_restart_wait,
-			atomic_read(&pending_close_count) == 0);
-		D("%s: finished restart wait\n", __func__);
-		break;
-
-	default:
-		break;
-	}
-
-	return NOTIFY_DONE;
-}
-
-static void *restart_notifier_handle;
-static __init int msm_ipc_router_modem_restart_late_init(void)
-{
-	restart_notifier_handle = subsys_notif_register_notifier("modem",
-							&msm_ipc_router_nb);
-	return 0;
-}
-late_initcall(msm_ipc_router_modem_restart_late_init);
 
 static int __init msm_ipc_router_init(void)
 {
@@ -3030,7 +2985,6 @@ static int __init msm_ipc_router_init(void)
 	}
 	up_write(&routing_table_lock_lha3);
 
-	init_waitqueue_head(&subsystem_restart_wait);
 	ret = msm_ipc_router_init_sockets();
 	if (ret < 0)
 		pr_err("%s: Init sockets failed\n", __func__);

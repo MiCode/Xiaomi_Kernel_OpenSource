@@ -122,6 +122,7 @@ struct msm_ipc_router_xprt {
 	int (*write)(void *data, uint32_t len,
 		     struct msm_ipc_router_xprt *xprt);
 	int (*close)(struct msm_ipc_router_xprt *xprt);
+	void (*sft_close_done)(struct msm_ipc_router_xprt *xprt);
 };
 
 void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
