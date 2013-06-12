@@ -13,21 +13,17 @@ CPR regulator device is for Qualcomm RBCPR (RapidBridge CPR) on
 Required properties:
 - compatible:			Must be "qcom,cpr-regulator"
 - reg:				Register addresses for RBCPR, RBCPR clock
-				select, PVS eFuse and CPR eFuse
+				select, PVS and CPR eFuse address
 - reg-names:			Register names. Must be "rbcpr", "rbcpr_clk",
-				"pvs_efuse" and "cpr_efuse"
+				"efuse_addr"
 - regulator-name:		A string used to describe the regulator
 - interrupts:			Interrupt line from RBCPR to interrupt controller.
 - regulator-min-microvolt:	Minimum corner value as min constraint, which
 				should be 1 for SVS corner
 - regulator-max-microvolt:	Maximum corner value as max constraint, which
 				should be 4 for SUPER_TURBO or 3 for TURBO
-- qcom,num-efuse-bits:		The number of bits used in efuse memory to
-				represent total number of PVS bins. It should
-				not exceed a maximum of 5 for total number of
-				32 bins.
 - qcom,pvs-bin-process:		A list of integers whose length is equal to 2 to
-				the power of qcom,num-efuse-bits. The location or
+				the power of qcom,pvs-fuse[num-of-bits]. The location or
 				0-based index of an element in the list corresponds
 				to the bin number. The value of each integer
 				corresponds to the PVS process speed of the APC
@@ -54,7 +50,7 @@ Required properties:
 - qcom,cpr-timer-cons-down:	Consecutive number of timer interval (qcom,cpr-timer-delay)
 				occurred before issuing DOWN interrupt.
 - qcom,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
-- qcom,cpr-step-quotient:	Number of CPR quotient (RO count) per vdd-apc-supply step
+- qcom,cpr-step-quotient:	Number of CPR quotient (Ring Oscillator(RO) count) per vdd-apc-supply step
 				to issue error_steps.
 - qcom,cpr-up-threshold:	The threshold for CPR to issue interrupt when
 				error_steps is greater than it when stepping up.
@@ -63,6 +59,62 @@ Required properties:
 - qcom,cpr-idle-clocks:		Idle clock cycles RO can be in.
 - qcom,cpr-gcnt-time:		The time for gate count in microseconds.
 - qcom,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
+
+- qcom,pvs-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+				compare with in order to decide if the redundant PVS fuse bits would be
+				used instead of the original bits. The 4 elements with index [0..3] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => the value to indicate redundant selection
+				When the value of the fuse bits specified by first 3 elements equals to
+				the value in 4th element, redundant PVS fuse bits should be selected.
+				Otherwise, the original PVS bits should be selected.
+- qcom,pvs-fuse:		Array of three elements to indicate the bits for PVS fuse. The array
+				should have index and value like this:
+				  [0] => the PVS fuse row number
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+- qcom,pvs-fuse-redun:		Array of three elements to indicate the bits for redundant PVS fuse.
+				The array should have index and value like this:
+				  [0] => the redundant PVS fuse row number
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+
+- qcom,cpr-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+				compare with in order to decide if the redundant CPR fuse bits would be
+				used instead of the original bits. The 4 elements with index [0..3] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => the value to indicate redundant selection
+				When the value of the fuse bits specified by first 3 elements equals to
+				the value in 4th element, redundant CPR fuse bits should be selected.
+				Otherwise, the original CPR bits should be selected.
+- qcom,cpr-fuse-row:		Row number of CPR fuse
+- qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disable
+- qcom,cpr-fuse-bp-scheme:	Bit position of the bit to indicate if it's a global/local scheme
+- qcom,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for SVS target quotient
+				  [1] => bit position of the LSB bit for NOMINAL target quotient
+				  [2] => bit position of the LSB bit for TURBO target quotient
+- qcom,cpr-fuse-ro-sel:		Array of bit positions in fuse for RO select of all corners.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for SVS RO select bits
+				  [1] => bit position of the LSB bit for NOMINAL RO select bits
+				  [2] => bit position of the LSB bit for TURBO RO select bits
+- qcom,cpr-fuse-redun-row:	Row number of the redundant CPR fuse
+- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for redundant SVS target quotient
+				  [1] => bit position of the LSB bit for redundant NOMINAL target quotient
+				  [2] => bit position of the LSB bit for redundant TURBO target quotient
+- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for redundant SVS RO select bits
+				  [1] => bit position of the LSB bit for redundant NOMINAL RO select bits
+				  [2] => bit position of the LSB bit for redundant TURBO RO select bits
 
 
 Optional properties:
@@ -78,6 +130,10 @@ Optional properties:
 				  2 => equal to slow speed corner ceiling
 				  3 => equal to qcom,vdd-mx-vmax
 				This is required when vdd-mx-supply is present.
+- qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
+- qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
+					This property is required if cpr-fuse-redun-bp-cpr-disable
+					is present, and vise versa.
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
 
@@ -86,13 +142,17 @@ Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
 		compatible = "qcom,cpr-regulator";
-		reg = <0xf9018000 0x1000>, <0xfc4b80b0 8>, <0xfc4bc450 16>;
-		reg-names = "rbcpr", "pvs_efuse", "cpr_efuse";
+		reg = <0xf9018000 0x1000>, <0xfc4b8000 0x1000>;
+		reg-names = "rbcpr", "efuse_addr";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
-		qcom,num-efuse-bits = <5>;
+
+		qcom,pvs-fuse = <22 6 5>;
+		qcom,pvs-fuse-redun-sel = <22 24 3 2>;
+		qcom,pvs-fuse-redun = <22 27 5>;
+
 		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
 					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
 		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
@@ -115,5 +175,15 @@ Example:
 		qcom,cpr-idle-clocks = <5>;
 		qcom,cpr-gcnt-time = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-fuse-row = <138>;
+		qcom,cpr-fuse-bp-cpr-disable = <36>;
+		qcom,cpr-fuse-bp-scheme = <37>;
+		qcom,cpr-fuse-target-quot = <24 12 0>;
+		qcom,cpr-fuse-ro-sel = <54 38 41>;
+		qcom,cpr-fuse-redun-sel = <138 57 1 1>;
+		qcom,cpr-fuse-redun-row = <139>;
+		qcom,cpr-fuse-redun-target-quot = <24 12 0>;
+		qcom,cpr-fuse-redun-ro-sel = <46 36 39>;
 	};
 

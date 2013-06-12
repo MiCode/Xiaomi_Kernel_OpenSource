@@ -30,14 +30,17 @@
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
 		compatible = "qcom,cpr-regulator";
-		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b80b0 8>,
-			<0xfc4bc450 16>;
-		reg-names = "rbcpr", "rbcpr_clk", "pvs_efuse", "cpr_efuse";
+		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b8000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
-		qcom,num-efuse-bits = <5>;
+
+		qcom,pvs-fuse-redun-sel = <22 24 3 2>;
+		qcom,pvs-fuse = <22 6 5>;
+		qcom,pvs-fuse-redun = <22 27 5>;
+
 		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
 					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
 		qcom,pvs-corner-ceiling-slow = <1155000 1160000 1275000>;
@@ -62,6 +65,16 @@
 		qcom,vdd-apc-step-up-limit = <1>;
 		qcom,vdd-apc-step-down-limit = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-fuse-redun-sel = <138 57 1 1>;
+		qcom,cpr-fuse-row = <138>;
+		qcom,cpr-fuse-bp-cpr-disable = <36>;
+		qcom,cpr-fuse-bp-scheme = <37>;
+		qcom,cpr-fuse-target-quot = <24 12 0>;
+		qcom,cpr-fuse-ro-sel = <54 38 41>;
+		qcom,cpr-fuse-redun-row = <139>;
+		qcom,cpr-fuse-redun-target-quot = <24 12 0>;
+		qcom,cpr-fuse-redun-ro-sel = <46 36 39>;
 
 		qcom,cpr-enable;
 	};
