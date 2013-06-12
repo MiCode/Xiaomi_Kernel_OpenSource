@@ -296,20 +296,17 @@ static int process_mem_print(struct seq_file *s, void *unused)
 		print_mem_entry(s, entry);
 	}
 
-	spin_unlock(&private->mem_lock);
 
 	/* now print all the unbound entries */
 	while (1) {
-		rcu_read_lock();
 		entry = idr_get_next(&private->mem_idr, &next);
-		rcu_read_unlock();
-
 		if (entry == NULL)
 			break;
 		if (entry->memdesc.gpuaddr == 0)
 			print_mem_entry(s, entry);
 		next++;
 	}
+	spin_unlock(&private->mem_lock);
 
 	return 0;
 }
