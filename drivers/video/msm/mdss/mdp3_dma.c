@@ -415,7 +415,8 @@ static int mdp3_dmap_histo_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
+static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
+				struct mdp3_intf *intf)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
@@ -424,14 +425,19 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-		wait_for_completion_killable(&dma->dma_comp);
+		if (intf->active)
+			wait_for_completion_killable(&dma->dma_comp);
 	}
-
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)buf);
 	dma->source_config.buf = buf;
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 1);
+
+	if (!intf->active) {
+		pr_debug("mdp3_dmap_update start interface\n");
+		intf->start(intf);
+	}
 
 	wmb();
 	init_completion(&dma->vsync_comp);
@@ -444,14 +450,16 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf)
 	return 0;
 }
 
-static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf)
+static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
+				struct mdp3_intf *intf)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-		wait_for_completion_killable(&dma->dma_comp);
+		if (intf->active)
+			wait_for_completion_killable(&dma->dma_comp);
 	}
 
 	spin_lock_irqsave(&dma->dma_lock, flag);
@@ -459,6 +467,12 @@ static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf)
 	dma->source_config.buf = buf;
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
 		MDP3_REG_WRITE(MDP3_REG_DMA_S_START, 1);
+
+	if (!intf->active) {
+		pr_debug("mdp3_dmap_update start interface\n");
+		intf->start(intf);
+	}
+
 	wmb();
 	init_completion(&dma->vsync_comp);
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
