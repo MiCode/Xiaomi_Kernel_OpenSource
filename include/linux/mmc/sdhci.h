@@ -201,6 +201,7 @@ struct sdhci_host {
 #define SDHCI_SDIO_IRQ_ENABLED	(1<<9)	/* SDIO irq enabled */
 #define SDHCI_HS200_NEEDS_TUNING (1<<10)	/* HS200 needs tuning */
 #define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
+#define SDHCI_HS400_NEEDS_TUNING (1<<12)	/* HS400 needs tuning */
 
 	unsigned int version;	/* SDHCI spec. version */
 
