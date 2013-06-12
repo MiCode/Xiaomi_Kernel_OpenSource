@@ -86,6 +86,8 @@ static int ion_cp_change_mem_v2(unsigned int phy_base, unsigned int size,
 	int nchunks;
 	int ret;
 	int i;
+	int chunk_list_len;
+	phys_addr_t chunk_list_phys;
 
 	if (usage < 0 || usage >= MAX_USAGE)
 		return -EINVAL;
@@ -97,15 +99,26 @@ static int ion_cp_change_mem_v2(unsigned int phy_base, unsigned int size,
 	}
 
 	nchunks = size / V2_CHUNK_SIZE;
+	chunk_list_len = sizeof(unsigned long)*nchunks;
 
-	chunk_list = kmalloc(sizeof(unsigned long)*nchunks, GFP_KERNEL);
+	chunk_list = kmalloc(chunk_list_len, GFP_KERNEL);
 	if (!chunk_list)
 		return -ENOMEM;
 
+	chunk_list_phys = virt_to_phys(chunk_list);
 	for (i = 0; i < nchunks; i++)
 		chunk_list[i] = phy_base + i * V2_CHUNK_SIZE;
 
-	ret = ion_cp_change_chunks_state(__pa(chunk_list),
+	/*
+	 * Flush the chunk list before sending the memory to the
+	 * secure environment to ensure the data is actually present
+	 * in RAM
+	 */
+	dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
+	outer_flush_range(chunk_list_phys,
+			  chunk_list_phys + chunk_list_len);
+
+	ret = ion_cp_change_chunks_state(chunk_list_phys,
 					nchunks, V2_CHUNK_SIZE, usage, lock);
 
 	kfree(chunk_list);
