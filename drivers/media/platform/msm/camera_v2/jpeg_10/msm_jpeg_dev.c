@@ -228,6 +228,7 @@ fail_2:
 
 fail_1:
 	__msm_jpeg_exit(msm_jpeg_device_p);
+	return rc;
 
 fail:
 	kfree(msm_jpeg_device_p);
