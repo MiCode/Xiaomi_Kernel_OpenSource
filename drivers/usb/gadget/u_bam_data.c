@@ -296,6 +296,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d->rx_req->context = port;
 	d->rx_req->complete = bam_data_endless_rx_complete;
 	d->rx_req->length = 0;
+	d->rx_req->no_interrupt = 1;
 	sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
 				 MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
 	d->rx_req->udc_priv = sps_params;
@@ -306,6 +307,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d->tx_req->context = port;
 	d->tx_req->complete = bam_data_endless_tx_complete;
 	d->tx_req->length = 0;
+	d->tx_req->no_interrupt = 1;
 	sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
 				 MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
 	d->tx_req->udc_priv = sps_params;
