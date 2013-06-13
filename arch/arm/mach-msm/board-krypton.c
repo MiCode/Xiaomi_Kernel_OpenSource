@@ -34,6 +34,9 @@
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("core_clk",	SPI_CLK,	"f9928000.spi",  OFF),
+	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"f9928000.spi",  OFF),
+
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
