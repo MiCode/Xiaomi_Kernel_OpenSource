@@ -698,6 +698,8 @@ static int soc_fw_dapm_graph_load(struct soc_fw *sfw,
 
 	dev_dbg(sfw->dev, "ASoC: adding %d DAPM routes\n", count);
 
+	memset(&route, 0, sizeof(route));
+
 	for (i = 0; i < count; i++) {
 		elem = (struct snd_soc_fw_dapm_graph_elem *)sfw->pos;
 		sfw->pos += sizeof(struct snd_soc_fw_dapm_graph_elem);
