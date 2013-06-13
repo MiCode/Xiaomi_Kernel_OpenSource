@@ -31,6 +31,7 @@
  * Mininum BCL poll interval 10 msec
  */
 #define MIN_BCL_POLL_INTERVAL 10
+#define BATTERY_VOLTAGE_MIN 3400
 
 static const char bcl_type[] = "bcl";
 
@@ -43,20 +44,20 @@ enum bcl_device_mode {
 };
 
 /*
- * Battery Current Limit IBat Imax Threshold Mode
+ * Battery Current Limit Iavail Threshold Mode set
  */
-enum bcl_ibat_imax_threshold_mode {
-	BCL_IBAT_IMAX_THRESHOLD_DISABLED = 0,
-	BCL_IBAT_IMAX_THRESHOLD_ENABLED,
+enum bcl_iavail_threshold_mode {
+	BCL_IAVAIL_THRESHOLD_DISABLED = 0,
+	BCL_IAVAIL_THRESHOLD_ENABLED,
 };
 
 /*
- * Battery Current Limit Ibat Imax Trip Type (High and Low Threshold)
+ * Battery Current Limit Iavail Threshold Mode
  */
-enum bcl_ibat_imax_threshold_type {
-	BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW = 0,
-	BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH,
-	BCL_IBAT_IMAX_THRESHOLD_TYPE_MAX,
+enum bcl_iavail_threshold_type {
+	BCL_IAVAIL_LOW_THRESHOLD_TYPE = 0,
+	BCL_IAVAIL_HIGH_THRESHOLD_TYPE,
+	BCL_IAVAIL_THRESHOLD_TYPE_MAX,
 };
 
 /**
@@ -70,118 +71,137 @@ struct bcl_context {
 	/* BCL related config parameter */
 	/* BCL mode enable or not */
 	enum bcl_device_mode bcl_mode;
-	/* BCL Ibat/IMax Threshold Activate or Not */
-	enum bcl_ibat_imax_threshold_mode
-		bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_MAX];
-	/* BCL Ibat/IMax Threshold value in milli Amp */
-	int bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_MAX];
+	/* BCL Iavail Threshold Activate or Not */
+	enum bcl_iavail_threshold_mode
+		bcl_threshold_mode[BCL_IAVAIL_THRESHOLD_TYPE_MAX];
+	/* BCL Iavail Threshold value in milli Amp */
+	int bcl_threshold_value_ma[BCL_IAVAIL_THRESHOLD_TYPE_MAX];
 	/* BCL Type */
 	char bcl_type[BCL_NAME_LENGTH];
-	/* BCL poll in usec */
+	/* BCL poll in msec */
 	int bcl_poll_interval_msec;
 
 	/* BCL realtime value based on poll */
-	/* BCL realtime ibat in milli Amp*/
-	int bcl_ibat_ma;
-	/* BCL realtime calculated imax in milli Amp*/
-	int bcl_imax_ma;
-	/* BCL realtime calculated ocv in uV*/
-	int bcl_ocv_uv;
 	/* BCL realtime vbat in mV*/
 	int bcl_vbat_mv;
 	/* BCL realtime rbat in mOhms*/
-	int bcl_rbat;
+	int bcl_rbat_mohm;
+	/*BCL realtime iavail in milli Amp*/
+	int bcl_iavail;
+	/*BCL vbatt min in mV*/
+	int bcl_vbat_min;
 	/* BCL period poll delay work structure  */
-	struct delayed_work     bcl_imax_work;
+	struct delayed_work     bcl_iavail_work;
 
 };
 
 static struct bcl_context *gbcl;
 
-/*
- * BCL imax calculation and trigger notification to user space
- * if imax cross threshold
- */
-static void bcl_calculate_imax_trigger(void)
+static int bcl_get_battery_voltage(int *vbatt_mv)
 {
-	int ibatt_ua, vbatt_uv;
-	int imax_ma;
-	int ibatt_ma, vbatt_mv;
-	int imax_low_threshold;
-	int imax_high_threshold;
-	bool threshold_cross = false;
-	union power_supply_propval ret = {0,};
 	static struct power_supply *psy;
+	union power_supply_propval ret = {0,};
+
+	if (psy == NULL) {
+		psy = power_supply_get_by_name("battery");
+		if (psy  == NULL) {
+			pr_err("failed to get ps battery\n");
+			return -EINVAL;
+		}
+	}
+
+	if (psy->get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &ret))
+		return -EINVAL;
+
+	if (ret.intval <= 0)
+		return -EINVAL;
+
+	*vbatt_mv = ret.intval / 1000;
+	return 0;
+}
+
+
+static int bcl_get_resistance(int *rbatt_mohm)
+{
+	static struct power_supply *psy;
+	union power_supply_propval ret = {0,};
+
+	if (psy == NULL) {
+		psy = power_supply_get_by_name("bms");
+		if (psy == NULL) {
+			pr_err("failed to get ps bms\n");
+			return -EINVAL;
+		}
+	}
+	if (psy->get_property(psy, POWER_SUPPLY_PROP_RESISTANCE, &ret))
+		return -EINVAL;
+
+	if (ret.intval <= 0)
+		return -EINVAL;
+
+	*rbatt_mohm = ret.intval / 1000;
+
+	return 0;
+}
+
+/*
+ * BCL iavail calculation and trigger notification to user space
+ * if iavail cross threshold
+ */
+static void bcl_calculate_iavail_trigger(void)
+{
+	int iavail_ma = 0;
+	int vbatt_mv;
+	int rbatt_mohm;
+	bool threshold_cross = false;
 
 	if (!gbcl) {
 		pr_err("called before initialization\n");
 		return;
 	}
 
-	if (psy == NULL) {
-		psy = power_supply_get_by_name("battery");
-		if (psy == NULL) {
-			pr_err("failed to get ps battery\n");
-			return;
-		}
-	}
-
-	if (psy->get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &ret))
+	if (bcl_get_battery_voltage(&vbatt_mv))
 		return;
-	ibatt_ua = ret.intval;
 
-	if (psy->get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &ret))
+	if (bcl_get_resistance(&rbatt_mohm))
 		return;
-	vbatt_uv = ret.intval;
 
-	if (psy->get_property(psy, POWER_SUPPLY_PROP_CURRENT_MAX, &ret))
-		return;
-	imax_ma = ret.intval/1000;
+	iavail_ma = (vbatt_mv - gbcl->bcl_vbat_min) * 1000 / rbatt_mohm;
 
-	ibatt_ma = ibatt_ua/1000;
-	vbatt_mv = vbatt_uv/1000;
-
-	gbcl->bcl_ibat_ma = ibatt_ma;
-	gbcl->bcl_imax_ma = imax_ma;
+	gbcl->bcl_rbat_mohm = rbatt_mohm;
 	gbcl->bcl_vbat_mv = vbatt_mv;
+	gbcl->bcl_iavail = iavail_ma;
 
-	pr_debug("ibatt %d, imax %d, vbatt %d\n", ibatt_ma, imax_ma, vbatt_mv);
-	if (gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		== BCL_IBAT_IMAX_THRESHOLD_ENABLED) {
-		imax_high_threshold =
-		imax_ma - gbcl->bcl_threshold_value_ma
-			[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH];
-		if (ibatt_ma >= imax_high_threshold)
-			threshold_cross = true;
-	}
+	pr_debug("iavail %d, vbatt %d rbatt %d\n", iavail_ma, vbatt_mv,
+			rbatt_mohm);
 
-	if (gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-		== BCL_IBAT_IMAX_THRESHOLD_ENABLED) {
-		imax_low_threshold =
-		imax_ma - gbcl->bcl_threshold_value_ma
-			[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW];
-		if (ibatt_ma <= imax_low_threshold)
-			threshold_cross = true;
-	}
+	if ((gbcl->bcl_threshold_mode[BCL_IAVAIL_HIGH_THRESHOLD_TYPE] ==
+				BCL_IAVAIL_THRESHOLD_ENABLED)
+		&& (iavail_ma >=
+		gbcl->bcl_threshold_value_ma[BCL_IAVAIL_HIGH_THRESHOLD_TYPE]))
+		threshold_cross = true;
+	else if ((gbcl->bcl_threshold_mode[BCL_IAVAIL_LOW_THRESHOLD_TYPE]
+				== BCL_IAVAIL_THRESHOLD_ENABLED)
+		&& (iavail_ma <=
+		gbcl->bcl_threshold_value_ma[BCL_IAVAIL_LOW_THRESHOLD_TYPE]))
+		threshold_cross = true;
 
-	if (threshold_cross) {
-		sysfs_notify(&gbcl->dev->kobj,
-				NULL, "type");
-	}
+	if (threshold_cross)
+		sysfs_notify(&gbcl->dev->kobj, NULL, "type");
 }
 
 /*
- * BCL imax work
+ * BCL iavail work
  */
-static void bcl_imax_work(struct work_struct *work)
+static void bcl_iavail_work(struct work_struct *work)
 {
 	struct bcl_context *bcl = container_of(work,
-			struct bcl_context, bcl_imax_work.work);
+			struct bcl_context, bcl_iavail_work.work);
 
 	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
-		bcl_calculate_imax_trigger();
+		bcl_calculate_iavail_trigger();
 		/* restart the delay work for caculating imax */
-		schedule_delayed_work(&bcl->bcl_imax_work,
+		schedule_delayed_work(&bcl->bcl_iavail_work,
 			msecs_to_jiffies(bcl->bcl_poll_interval_msec));
 	}
 }
@@ -200,12 +220,12 @@ static void bcl_mode_set(enum bcl_device_mode mode)
 	if (gbcl->bcl_mode == BCL_DEVICE_DISABLED
 		&& mode == BCL_DEVICE_ENABLED) {
 		gbcl->bcl_mode = mode;
-		bcl_imax_work(&(gbcl->bcl_imax_work.work));
+		bcl_iavail_work(&(gbcl->bcl_iavail_work.work));
 		return;
 	} else if (gbcl->bcl_mode == BCL_DEVICE_ENABLED
 		&& mode == BCL_DEVICE_DISABLED) {
 		gbcl->bcl_mode = mode;
-		cancel_delayed_work_sync(&(gbcl->bcl_imax_work));
+		cancel_delayed_work_sync(&(gbcl->bcl_iavail_work));
 		return;
 	}
 
@@ -223,11 +243,10 @@ name##_show(struct device *dev, struct device_attribute *attr, char *buf) \
 }
 
 show_bcl(type, bcl_type, "%s\n")
-show_bcl(ibat, bcl_ibat_ma, "%d\n")
-show_bcl(imax, bcl_imax_ma, "%d\n")
 show_bcl(vbat, bcl_vbat_mv, "%d\n")
-show_bcl(rbat, bcl_rbat, "%d\n")
-show_bcl(ocv, bcl_ocv_uv, "%d\n")
+show_bcl(rbat, bcl_rbat_mohm, "%d\n")
+show_bcl(iavail, bcl_iavail, "%d\n")
+show_bcl(vbat_min, bcl_vbat_min, "%d\n");
 show_bcl(poll_interval, bcl_poll_interval_msec, "%d\n")
 
 static ssize_t
@@ -259,136 +278,6 @@ mode_store(struct device *dev, struct device_attribute *attr,
 }
 
 static ssize_t
-ibat_imax_low_threshold_mode_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%s\n",
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-		== BCL_IBAT_IMAX_THRESHOLD_ENABLED ? "enabled" : "disabled");
-}
-
-static ssize_t
-ibat_imax_low_threshold_mode_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	if (!strncmp(buf, "enabled", 7))
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-			= BCL_IBAT_IMAX_THRESHOLD_ENABLED;
-	else if (!strncmp(buf, "disabled", 8))
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-			= BCL_IBAT_IMAX_THRESHOLD_DISABLED;
-	else
-		return -EINVAL;
-
-	return count;
-}
-
-static ssize_t
-ibat_imax_low_threshold_value_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-	gbcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]);
-}
-
-static ssize_t
-ibat_imax_low_threshold_value_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	int value;
-
-	if (!gbcl)
-		return -EPERM;
-
-	if (!sscanf(buf, "%d", &value))
-		return -EINVAL;
-
-	if (value < 0)
-		return -EINVAL;
-
-	gbcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-			= value;
-
-	return count;
-}
-
-static ssize_t
-ibat_imax_high_threshold_mode_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%s\n",
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		== BCL_IBAT_IMAX_THRESHOLD_ENABLED ? "enabled" : "disabled");
-}
-
-static ssize_t
-ibat_imax_high_threshold_mode_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	if (!strncmp(buf, "enabled", 7))
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		= BCL_IBAT_IMAX_THRESHOLD_ENABLED;
-	else if (!strncmp(buf, "disabled", 8))
-		gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		= BCL_IBAT_IMAX_THRESHOLD_DISABLED;
-	else
-		return -EINVAL;
-
-	return count;
-}
-
-static ssize_t
-ibat_imax_high_threshold_value_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-	gbcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]);
-}
-
-static ssize_t
-ibat_imax_high_threshold_value_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	int value;
-
-	if (!gbcl)
-		return -EPERM;
-
-	if (!sscanf(buf, "%d", &value))
-		return -EINVAL;
-
-	if (value < 0)
-		return -EINVAL;
-
-	gbcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		= value;
-
-	return count;
-}
-
-static ssize_t
 poll_interval_store(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
@@ -409,31 +298,168 @@ poll_interval_store(struct device *dev,
 	return count;
 }
 
+static ssize_t vbat_min_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int value;
+	int ret;
+
+	if (!gbcl)
+		return -EPERM;
+
+	ret = kstrtoint(buf, 10, &value);
+
+	if (ret || (value < 0)) {
+		pr_err("Incorrect vbatt min value\n");
+		return -EINVAL;
+	}
+
+	gbcl->bcl_vbat_min = value;
+	return count;
+}
+
+static ssize_t iavail_low_threshold_mode_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_LOW_THRESHOLD_TYPE]
+		== BCL_IAVAIL_THRESHOLD_ENABLED ? "enabled" : "disabled");
+}
+
+static ssize_t iavail_low_threshold_mode_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	if (!strncmp(buf, "enabled", 7))
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_LOW_THRESHOLD_TYPE]
+			= BCL_IAVAIL_THRESHOLD_ENABLED;
+	else if (!strncmp(buf, "disabled", 7))
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_LOW_THRESHOLD_TYPE]
+			= BCL_IAVAIL_THRESHOLD_DISABLED;
+	else
+		return -EINVAL;
+
+	return count;
+}
+static ssize_t iavail_high_threshold_mode_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_HIGH_THRESHOLD_TYPE]
+		== BCL_IAVAIL_THRESHOLD_ENABLED ? "enabled" : "disabled");
+}
+
+static ssize_t iavail_high_threshold_mode_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	if (!strncmp(buf, "enabled", 7))
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_HIGH_THRESHOLD_TYPE]
+			= BCL_IAVAIL_THRESHOLD_ENABLED;
+	else if (!strncmp(buf, "disabled", 7))
+		gbcl->bcl_threshold_mode[BCL_IAVAIL_HIGH_THRESHOLD_TYPE]
+			= BCL_IAVAIL_THRESHOLD_DISABLED;
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static ssize_t iavail_low_threshold_value_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+		gbcl->bcl_threshold_value_ma[BCL_IAVAIL_LOW_THRESHOLD_TYPE]);
+}
+
+
+static ssize_t iavail_low_threshold_value_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int val;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &val);
+
+	if (ret || (val < 0)) {
+		pr_err("Incorrect available current threshold value\n");
+		return -EINVAL;
+	}
+
+	gbcl->bcl_threshold_value_ma[BCL_IAVAIL_LOW_THRESHOLD_TYPE] = val;
+
+	return count;
+}
+static ssize_t iavail_high_threshold_value_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	if (!gbcl)
+		return -EPERM;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+		gbcl->bcl_threshold_value_ma[BCL_IAVAIL_HIGH_THRESHOLD_TYPE]);
+}
+
+static ssize_t iavail_high_threshold_value_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int val;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &val);
+
+	if (ret || (val < 0)) {
+		pr_err("Incorrect available current threshold value\n");
+		return -EINVAL;
+	}
+
+	gbcl->bcl_threshold_value_ma[BCL_IAVAIL_HIGH_THRESHOLD_TYPE] = val;
+
+	return count;
+}
+
 /*
  * BCL device attributes
  */
 static struct device_attribute bcl_dev_attr[] = {
 	__ATTR(type, 0444, type_show, NULL),
-	__ATTR(ibat, 0444, ibat_show, NULL),
+	__ATTR(iavail, 0444, iavail_show, NULL),
+	__ATTR(vbat_min, 0644, vbat_min_show, vbat_min_store),
 	__ATTR(vbat, 0444, vbat_show, NULL),
 	__ATTR(rbat, 0444, rbat_show, NULL),
-	__ATTR(ocv, 0444, ocv_show, NULL),
-	__ATTR(imax, 0444, imax_show, NULL),
 	__ATTR(mode, 0644, mode_show, mode_store),
 	__ATTR(poll_interval, 0644,
 		poll_interval_show, poll_interval_store),
-	__ATTR(ibat_imax_low_threshold_mode, 0644,
-		ibat_imax_low_threshold_mode_show,
-		ibat_imax_low_threshold_mode_store),
-	__ATTR(ibat_imax_high_threshold_mode, 0644,
-		ibat_imax_high_threshold_mode_show,
-		ibat_imax_high_threshold_mode_store),
-	__ATTR(ibat_imax_low_threshold_value, 0644,
-		ibat_imax_low_threshold_value_show,
-		ibat_imax_low_threshold_value_store),
-	__ATTR(ibat_imax_high_threshold_value, 0644,
-		ibat_imax_high_threshold_value_show,
-		ibat_imax_high_threshold_value_store)
+	__ATTR(iavail_low_threshold_mode, 0644,
+		iavail_low_threshold_mode_show,
+		iavail_low_threshold_mode_store),
+	__ATTR(iavail_high_threshold_mode, 0644,
+		iavail_high_threshold_mode_show,
+		iavail_high_threshold_mode_store),
+	__ATTR(iavail_low_threshold_value, 0644,
+		iavail_low_threshold_value_show,
+		iavail_low_threshold_value_store),
+	__ATTR(iavail_high_threshold_value, 0644,
+		iavail_high_threshold_value_show,
+		iavail_high_threshold_value_store),
 };
 
 static int create_bcl_sysfs(struct bcl_context *bcl)
@@ -480,12 +506,13 @@ static int __devinit bcl_probe(struct platform_device *pdev)
 	/* Init default BCL params */
 	bcl->dev = &pdev->dev;
 	bcl->bcl_mode = BCL_DEVICE_DISABLED;
-	bcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW]
-		= BCL_IBAT_IMAX_THRESHOLD_DISABLED;
-	bcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
-		= BCL_IBAT_IMAX_THRESHOLD_DISABLED;
-	bcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_LOW] = 0;
-	bcl->bcl_threshold_value_ma[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH] = 0;
+	bcl->bcl_threshold_mode[BCL_IAVAIL_LOW_THRESHOLD_TYPE] =
+					BCL_IAVAIL_THRESHOLD_DISABLED;
+	bcl->bcl_threshold_mode[BCL_IAVAIL_HIGH_THRESHOLD_TYPE] =
+					BCL_IAVAIL_THRESHOLD_DISABLED;
+	bcl->bcl_threshold_value_ma[BCL_IAVAIL_LOW_THRESHOLD_TYPE] = 0;
+	bcl->bcl_threshold_value_ma[BCL_IAVAIL_HIGH_THRESHOLD_TYPE] = 0;
+	bcl->bcl_vbat_min = BATTERY_VOLTAGE_MIN;
 	snprintf(bcl->bcl_type, BCL_NAME_LENGTH, "%s", bcl_type);
 	bcl->bcl_poll_interval_msec = BCL_POLL_INTERVAL;
 	ret = create_bcl_sysfs(bcl);
@@ -495,7 +522,7 @@ static int __devinit bcl_probe(struct platform_device *pdev)
 		return ret;
 	}
 	platform_set_drvdata(pdev, bcl);
-	INIT_DELAYED_WORK(&bcl->bcl_imax_work, bcl_imax_work);
+	INIT_DELAYED_WORK_DEFERRABLE(&bcl->bcl_iavail_work, bcl_iavail_work);
 
 	return 0;
 }
