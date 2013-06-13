@@ -715,10 +715,10 @@ static int soc_fw_dapm_graph_load(struct soc_fw *sfw,
 
 		route.source = elem->source;
 		route.sink = elem->sink;
-		if (strnlen(elem->control, SND_SOC_FW_TEXT_SIZE) == 0)
-			route.control = NULL;
-		else
+		if (strnlen(elem->control, SND_SOC_FW_TEXT_SIZE))
 			route.control = elem->control;
+		else
+			route.control = NULL;
 
 		/* add route, but keep going if some fail */
 		snd_soc_dapm_add_routes(dapm, &route, 1);
