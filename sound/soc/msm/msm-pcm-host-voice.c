@@ -941,7 +941,8 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 						struct hpcm_buf_node, list);
 			list_del(&buf_node->list);
 			spin_unlock_irqrestore(&dai_data->dsp_lock, dsp_flags);
-			ret = copy_from_user(&buf_node->frame, buf, count);
+			ret = copy_from_user(&buf_node->frame.voc_pkt,
+					     buf, count);
 			buf_node->frame.len = count;
 			spin_lock_irqsave(&dai_data->dsp_lock, dsp_flags);
 			list_add_tail(&buf_node->list, &dai_data->filled_queue);
@@ -986,7 +987,9 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 					struct hpcm_buf_node, list);
 			list_del(&buf_node->list);
 			spin_unlock_irqrestore(&dai_data->dsp_lock, dsp_flags);
-			ret = copy_to_user(buf, &buf_node->frame, count);
+			ret = copy_to_user(buf,
+					   &buf_node->frame.voc_pkt,
+					   count);
 			if (ret) {
 				pr_err("%s: Copy to user retuned %d\n",
 					__func__, ret);
