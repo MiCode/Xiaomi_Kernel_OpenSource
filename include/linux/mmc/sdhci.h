@@ -160,6 +160,11 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 9)
 
+/*
+ * Some SDHC controllers are unable to handle data-end bit error in
+ * 1-bit mode of SDIO.
+ */
+#define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<9)
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
