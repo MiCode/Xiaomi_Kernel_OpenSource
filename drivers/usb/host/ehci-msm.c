@@ -28,6 +28,7 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/usb/otg.h>
+#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 
 #define MSM_USB_BASE (hcd->regs)
@@ -51,7 +52,13 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 	/* Use the AHB transactor */
 	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
-	writel(0x13, USB_USBMODE);
+	writel_relaxed(0x13, USB_USBMODE);
+
+	if (ehci->transceiver->flags & ENABLE_SECONDARY_PHY) {
+		ehci_dbg(ehci, "using secondary hsphy\n");
+		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
+							USB_PHY_CTRL2);
+	}
 
 	ehci_port_power(ehci, 1);
 	return 0;
