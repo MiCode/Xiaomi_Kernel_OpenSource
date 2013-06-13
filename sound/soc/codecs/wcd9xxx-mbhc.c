@@ -1057,8 +1057,10 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	 * Request BG and clock.
 	 * These will be released by wcd9xxx_cleanup_hs_polling
 	 */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x01);
 
@@ -1105,7 +1107,9 @@ static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
 	    WCD9XXX_MBHC_CAL_GENERAL_PTR(mbhc->mbhc_cfg->calibration);
 
 	/* Need MBHC clock */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x6, 0x0);
@@ -1116,8 +1120,10 @@ static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xA, 0x8);
 
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	/* Put requested CLK back */
 	wcd9xxx_resmgr_put_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x00);
 }
@@ -1129,8 +1135,10 @@ static void wcd9xxx_cleanup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_shutdown_hs_removal_detect(mbhc);
 
 	/* Release clock and BG requested by wcd9xxx_mbhc_setup_hs_polling */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_put_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
 	wcd9xxx_resmgr_put_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	mbhc->polling_active = false;
 	mbhc->mbhc_state = MBHC_STATE_NONE;

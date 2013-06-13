@@ -611,22 +611,26 @@ static int spkr_drv_wrnd_param_set(const char *val,
 		WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 		return ret;
 	}
+	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 
 	pr_debug("%s: spkr_drv_wrnd %d -> %d\n", __func__, old, spkr_drv_wrnd);
 	codec = priv->codec;
 	if (old == 0 && spkr_drv_wrnd == 1) {
+		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
 	} else if (old == 1 && spkr_drv_wrnd == 0) {
+		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 		if (!priv->spkr_pa_widget_on)
 			snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80,
 					    0x00);
 	}
 
-	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 	return 0;
 }
 
@@ -2336,22 +2340,22 @@ static int taiko_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		WCD9XXX_BCL_LOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_LOCK(&taiko->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 		/* AUX PGA requires RCO or MCLK */
 		wcd9xxx_resmgr_get_clk_block(&taiko->resmgr, WCD9XXX_CLK_RCO);
 		wcd9xxx_resmgr_enable_rx_bias(&taiko->resmgr, 1);
-		WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_UNLOCK(&taiko->resmgr);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
-		WCD9XXX_BCL_LOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_LOCK(&taiko->resmgr);
 		wcd9xxx_resmgr_enable_rx_bias(&taiko->resmgr, 0);
 		wcd9xxx_resmgr_put_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 		wcd9xxx_resmgr_put_clk_block(&taiko->resmgr, WCD9XXX_CLK_RCO);
-		WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_UNLOCK(&taiko->resmgr);
 		break;
 	}
 	return 0;
@@ -2992,7 +2996,12 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: enter\n", __func__);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/*
+		 * ldo_h_users is protected by codec->mutex, don't need
+		 * additional mutex
+		 */
 		if (++priv->ldo_h_users == 1) {
+			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 			wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 						   WCD9XXX_BANDGAP_AUDIO_MODE);
 			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
@@ -3001,6 +3010,7 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 					    1 << 7);
 			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
 						     WCD9XXX_CLK_RCO);
+			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 			pr_debug("%s: ldo_h_users %d\n", __func__,
 				 priv->ldo_h_users);
 			/* LDO enable requires 1ms to settle down */
@@ -3009,6 +3019,7 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (--priv->ldo_h_users == 0) {
+			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
 						     WCD9XXX_CLK_RCO);
 			snd_soc_update_bits(codec, TAIKO_A_LDO_H_MODE_1, 1 << 7,
@@ -3017,6 +3028,7 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 						     WCD9XXX_CLK_RCO);
 			wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
 						   WCD9XXX_BANDGAP_AUDIO_MODE);
+			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 			pr_debug("%s: ldo_h_users %d\n", __func__,
 				 priv->ldo_h_users);
 		}
@@ -3032,12 +3044,7 @@ static int taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 				    struct snd_kcontrol *kcontrol, int event)
 {
 	int rc;
-	struct snd_soc_codec *codec = w->codec;
-	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
-
-	WCD9XXX_BCL_LOCK(&priv->resmgr);
 	rc = __taiko_codec_enable_ldo_h(w, kcontrol, event);
-	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 	return rc;
 }
 
@@ -4086,7 +4093,7 @@ int taiko_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 	pr_debug("%s: mclk_enable = %u, dapm = %d\n", __func__, mclk_enable,
 		 dapm);
 
-	WCD9XXX_BCL_LOCK(&taiko->resmgr);
+	WCD9XXX_BG_CLK_LOCK(&taiko->resmgr);
 	if (mclk_enable) {
 		wcd9xxx_resmgr_get_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
@@ -4097,7 +4104,7 @@ int taiko_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 		wcd9xxx_resmgr_put_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 	}
-	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+	WCD9XXX_BG_CLK_UNLOCK(&taiko->resmgr);
 
 	return 0;
 }
@@ -6432,10 +6439,10 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 						       WCD9XXX_VDD_SPKDRV_NAME);
 
 	if (spkr_drv_wrnd > 0) {
-		WCD9XXX_BCL_LOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_LOCK(&taiko->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
-		WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+		WCD9XXX_BG_CLK_UNLOCK(&taiko->resmgr);
 	}
 
 	ptr = kmalloc((sizeof(taiko_rx_chs) +
@@ -6529,13 +6536,13 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 {
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 
-	WCD9XXX_BCL_LOCK(&taiko->resmgr);
+	WCD9XXX_BG_CLK_LOCK(&taiko->resmgr);
 	atomic_set(&kp_taiko_priv, 0);
 
 	if (spkr_drv_wrnd > 0)
 		wcd9xxx_resmgr_put_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
-	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+	WCD9XXX_BG_CLK_UNLOCK(&taiko->resmgr);
 
 	taiko_cleanup_irqs(taiko);
 

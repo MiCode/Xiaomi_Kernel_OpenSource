@@ -106,10 +106,18 @@ struct wcd9xxx_resmgr {
 
 	u32 rx_bias_count;
 
+	/*
+	 * bandgap_type, bg_audio_users and bg_mbhc_users have to be
+	 * referred/manipulated after acquiring codec_bg_clk_lock mutex
+	 */
 	enum wcd9xxx_bandgap_type bandgap_type;
 	u16 bg_audio_users;
 	u16 bg_mbhc_users;
 
+	/*
+	 * clk_type, clk_rco_users and clk_mclk_users have to be
+	 * referred/manipulated after acquiring codec_bg_clk_lock mutex
+	 */
 	enum wcd9xxx_clock_type clk_type;
 	u16 clk_rco_users;
 	u16 clk_mclk_users;
@@ -136,6 +144,7 @@ struct wcd9xxx_resmgr {
 	 * general lock to protect codec resource
 	 */
 	struct mutex codec_resource_lock;
+	struct mutex codec_bg_clk_lock;
 };
 
 int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
@@ -181,6 +190,27 @@ void wcd9xxx_resmgr_bcl_unlock(struct wcd9xxx_resmgr *resmgr);
 {							\
 	WARN_ONCE(!mutex_is_locked(&resmgr->codec_resource_lock), \
 		  "%s: BCL should have acquired\n", __func__); \
+}
+
+#define WCD9XXX_BG_CLK_LOCK(resmgr)			\
+{							\
+	struct wcd9xxx_resmgr *__resmgr = resmgr;	\
+	pr_debug("%s: Acquiring BG_CLK\n", __func__);	\
+	mutex_lock(&__resmgr->codec_bg_clk_lock);	\
+	pr_debug("%s: Acquiring BG_CLK done\n", __func__);	\
+}
+
+#define WCD9XXX_BG_CLK_UNLOCK(resmgr)			\
+{							\
+	struct wcd9xxx_resmgr *__resmgr = resmgr;	\
+	pr_debug("%s: Releasing BG_CLK\n", __func__);	\
+	mutex_unlock(&__resmgr->codec_bg_clk_lock);	\
+}
+
+#define WCD9XXX_BG_CLK_ASSERT_LOCKED(resmgr)		\
+{							\
+	WARN_ONCE(!mutex_is_locked(&resmgr->codec_bg_clk_lock), \
+		  "%s: BG_CLK lock should have acquired\n", __func__); \
 }
 
 const char *wcd9xxx_get_event_string(enum wcd9xxx_notify_event type);
