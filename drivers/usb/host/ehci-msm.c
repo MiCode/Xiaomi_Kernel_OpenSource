@@ -48,7 +48,7 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 		return retval;
 
 	/* bursts of unspecified length. */
-	writel(0, USB_AHBBURST);
+	writel_relaxed(0, USB_AHBBURST);
 	/* Use the AHB transactor */
 	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
@@ -59,6 +59,10 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 							USB_PHY_CTRL2);
 	}
+
+	/* Disable ULPI_TX_PKT_EN_CLR_FIX which is valid only for HSIC */
+	writel_relaxed(readl_relaxed(USB_GENCONFIG2) & ~(1<<19),
+					USB_GENCONFIG2);
 
 	ehci_port_power(ehci, 1);
 	return 0;
