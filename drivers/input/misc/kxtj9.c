@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/input/kxtj9.h>
 #include <linux/input-polldev.h>
+#include <linux/regulator/consumer.h>
 
 #define NAME			"kxtj9"
 #define G_MAX			8000
@@ -62,6 +63,11 @@
 #define RES_CTRL_REG1		1
 #define RES_INT_CTRL1		2
 #define RESUME_ENTRIES		3
+/* POWER SUPPLY VOLTAGE RANGE */
+#define KXTJ9_VDD_MIN_UV	2000000
+#define KXTJ9_VDD_MAX_UV	3300000
+#define KXTJ9_VIO_MIN_UV	1750000
+#define KXTJ9_VIO_MAX_UV	1950000
 
 /*
  * The following table lists the maximum appropriate poll interval for each
@@ -92,6 +98,9 @@ struct kxtj9_data {
 	u8 ctrl_reg1;
 	u8 data_ctrl;
 	u8 int_ctrl;
+	bool	power_enabled;
+	struct regulator *vdd;
+	struct regulator *vio;
 };
 
 static int kxtj9_i2c_read(struct kxtj9_data *tj9, u8 addr, u8 *data, int len)
@@ -203,12 +212,130 @@ static int kxtj9_update_odr(struct kxtj9_data *tj9, unsigned int poll_interval)
 	return 0;
 }
 
-static int kxtj9_device_power_on(struct kxtj9_data *tj9)
+static int kxtj9_power_on(struct kxtj9_data *data, bool on)
 {
-	if (tj9->pdata.power_on)
-		return tj9->pdata.power_on();
+	int rc = 0;
+
+	if (!on && data->power_enabled) {
+		rc = regulator_disable(data->vdd);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vdd disable failed rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_disable(data->vio);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vio disable failed rc=%d\n", rc);
+			regulator_enable(data->vdd);
+		}
+		data->power_enabled = false;
+	} else if (on && !data->power_enabled) {
+		rc = regulator_enable(data->vdd);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vdd enable failed rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_enable(data->vio);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vio enable failed rc=%d\n", rc);
+			regulator_disable(data->vdd);
+		}
+		data->power_enabled = true;
+	} else {
+		dev_warn(&data->client->dev,
+				"Power on=%d. enabled=%d\n",
+				on, data->power_enabled);
+	}
+
+	return rc;
+}
+
+static int kxtj9_power_init(struct kxtj9_data *data, bool on)
+{
+	int rc;
+
+	if (!on) {
+		if (regulator_count_voltages(data->vdd) > 0)
+			regulator_set_voltage(data->vdd, 0, KXTJ9_VDD_MAX_UV);
+
+		regulator_put(data->vdd);
+
+		if (regulator_count_voltages(data->vio) > 0)
+			regulator_set_voltage(data->vio, 0, KXTJ9_VIO_MAX_UV);
+
+		regulator_put(data->vio);
+	} else {
+		data->vdd = regulator_get(&data->client->dev, "vdd");
+		if (IS_ERR(data->vdd)) {
+			rc = PTR_ERR(data->vdd);
+			dev_err(&data->client->dev,
+				"Regulator get failed vdd rc=%d\n", rc);
+			return rc;
+		}
+
+		if (regulator_count_voltages(data->vdd) > 0) {
+			rc = regulator_set_voltage(data->vdd, KXTJ9_VDD_MIN_UV,
+						   KXTJ9_VDD_MAX_UV);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"Regulator set failed vdd rc=%d\n",
+					rc);
+				goto reg_vdd_put;
+			}
+		}
+
+		data->vio = regulator_get(&data->client->dev, "vio");
+		if (IS_ERR(data->vio)) {
+			rc = PTR_ERR(data->vio);
+			dev_err(&data->client->dev,
+				"Regulator get failed vio rc=%d\n", rc);
+			goto reg_vdd_set;
+		}
+
+		if (regulator_count_voltages(data->vio) > 0) {
+			rc = regulator_set_voltage(data->vio, KXTJ9_VIO_MIN_UV,
+						   KXTJ9_VIO_MAX_UV);
+			if (rc) {
+				dev_err(&data->client->dev,
+				"Regulator set failed vio rc=%d\n", rc);
+				goto reg_vio_put;
+			}
+		}
+	}
 
 	return 0;
+
+reg_vio_put:
+	regulator_put(data->vio);
+reg_vdd_set:
+	if (regulator_count_voltages(data->vdd) > 0)
+		regulator_set_voltage(data->vdd, 0, KXTJ9_VDD_MAX_UV);
+reg_vdd_put:
+	regulator_put(data->vdd);
+	return rc;
+}
+static int kxtj9_device_power_on(struct kxtj9_data *tj9)
+{
+	int err = 0;
+	if (tj9->pdata.power_on) {
+		err = tj9->pdata.power_on();
+	} else {
+		err = kxtj9_power_on(tj9, true);
+		if (err) {
+			dev_err(&tj9->client->dev, "power on failed");
+			goto err_exit;
+		}
+		msleep(20);
+	}
+
+err_exit:
+	dev_dbg(&tj9->client->dev, "soft power on complete err=%d.\n", err);
+	return err;
 }
 
 static void kxtj9_device_power_off(struct kxtj9_data *tj9)
@@ -222,6 +349,11 @@ static void kxtj9_device_power_off(struct kxtj9_data *tj9)
 
 	if (tj9->pdata.power_off)
 		tj9->pdata.power_off();
+	else
+		kxtj9_power_on(tj9, false);
+
+	dev_dbg(&tj9->client->dev, "soft power off complete.\n");
+	return ;
 }
 
 static int kxtj9_enable(struct kxtj9_data *tj9)
@@ -489,10 +621,6 @@ static int __devinit kxtj9_verify(struct kxtj9_data *tj9)
 {
 	int retval;
 
-	retval = kxtj9_device_power_on(tj9);
-	if (retval < 0)
-		return retval;
-
 	retval = i2c_smbus_read_byte_data(tj9->client, WHO_AM_I);
 	if (retval < 0) {
 		dev_err(&tj9->client->dev, "read err int source\n");
@@ -502,7 +630,6 @@ static int __devinit kxtj9_verify(struct kxtj9_data *tj9)
 	retval = (retval != 0x07 && retval != 0x08) ? -EIO : 0;
 
 out:
-	kxtj9_device_power_off(tj9);
 	return retval;
 }
 
@@ -533,6 +660,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 
 	tj9->client = client;
 	tj9->pdata = *pdata;
+	tj9->power_enabled = false;
 
 	if (pdata->init) {
 		err = pdata->init();
@@ -540,10 +668,21 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 			goto err_free_mem;
 	}
 
+	err = kxtj9_power_init(tj9, true);
+	if (err < 0) {
+		dev_err(&tj9->client->dev, "power init failed! err=%d", err);
+		goto err_pdata_exit;
+	}
+
+	err = kxtj9_device_power_on(tj9);
+	if (err < 0) {
+		dev_err(&client->dev, "power on failed! err=%d\n", err);
+		goto err_power_deinit;
+	}
 	err = kxtj9_verify(tj9);
 	if (err < 0) {
 		dev_err(&client->dev, "device not recognized\n");
-		goto err_pdata_exit;
+		goto err_power_off;
 	}
 
 	i2c_set_clientdata(client, tj9);
@@ -558,7 +697,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 
 		err = kxtj9_setup_input_device(tj9);
 		if (err)
-			goto err_pdata_exit;
+			goto err_power_off;
 
 		err = request_threaded_irq(client->irq, NULL, kxtj9_isr,
 					   IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -577,20 +716,28 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 	} else {
 		err = kxtj9_setup_polled_device(tj9);
 		if (err)
-			goto err_pdata_exit;
+			goto err_power_off;
 	}
 
+	dev_dbg(&client->dev, "%s: kxtj9_probe OK.\n", __func__);
+	kxtj9_device_power_off(tj9);
 	return 0;
 
 err_free_irq:
 	free_irq(client->irq, tj9);
 err_destroy_input:
 	input_unregister_device(tj9->input_dev);
+err_power_off:
+	kxtj9_device_power_off(tj9);
+err_power_deinit:
+	kxtj9_power_init(tj9, false);
 err_pdata_exit:
 	if (tj9->pdata.exit)
 		tj9->pdata.exit();
 err_free_mem:
 	kfree(tj9);
+
+	dev_err(&client->dev, "%s: kxtj9_probe err=%d\n", __func__, err);
 	return err;
 }
 
@@ -605,6 +752,9 @@ static int __devexit kxtj9_remove(struct i2c_client *client)
 	} else {
 		kxtj9_teardown_polled_device(tj9);
 	}
+
+	kxtj9_device_power_off(tj9);
+	kxtj9_power_init(tj9, false);
 
 	if (tj9->pdata.exit)
 		tj9->pdata.exit();
