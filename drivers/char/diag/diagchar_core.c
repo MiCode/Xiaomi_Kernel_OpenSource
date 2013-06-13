@@ -976,6 +976,8 @@ long diagchar_ioctl(struct file *filp,
 				driver->dci_client_tbl[i].dropped_events = 0;
 				driver->dci_client_tbl[i].received_logs = 0;
 				driver->dci_client_tbl[i].received_events = 0;
+				mutex_init(&driver->dci_client_tbl[i].
+								data_mutex);
 				break;
 			}
 		}
@@ -1019,6 +1021,8 @@ long diagchar_ioctl(struct file *filp,
 			driver->dci_client_tbl[result].client = NULL;
 			kfree(driver->dci_client_tbl[result].dci_data);
 			driver->dci_client_tbl[result].dci_data = NULL;
+			mutex_destroy(&driver->dci_client_tbl[result].
+								data_mutex);
 			driver->num_dci_client--;
 		}
 		mutex_unlock(&driver->dci_mutex);
@@ -1360,11 +1364,13 @@ drop:
 			entry = &(driver->dci_client_tbl[i]);
 			if (entry && entry->client) {
 				if (current->tgid == entry->client->tgid) {
+					mutex_lock(&entry->data_mutex);
 					COPY_USER_SPACE_OR_EXIT(buf+4,
 							entry->data_len, 4);
 					COPY_USER_SPACE_OR_EXIT(buf+8,
 					*(entry->dci_data), entry->data_len);
 					entry->data_len = 0;
+					mutex_unlock(&entry->data_mutex);
 					break;
 				}
 			}

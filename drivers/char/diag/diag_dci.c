@@ -118,6 +118,7 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 	if (i != DCI_CLIENT_INDEX_INVALID) {
 		/* copy pkt rsp in client buf */
 		entry = &(driver->dci_client_tbl[i]);
+		mutex_lock(&entry->data_mutex);
 		if (DCI_CHK_CAPACITY(entry, 8+write_len)) {
 			pr_alert("diag: create capacity for pkt rsp\n");
 			entry->total_capacity += 8+write_len;
@@ -125,6 +126,7 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 			entry->total_capacity, GFP_KERNEL);
 			if (!temp_buf) {
 				pr_err("diag: DCI realloc failed\n");
+				mutex_unlock(&entry->data_mutex);
 				return;
 			} else {
 				entry->dci_data = temp_buf;
@@ -139,6 +141,7 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 		memcpy(entry->dci_data+entry->data_len,
 			buf+4+cmd_code_len, write_len);
 		entry->data_len += write_len;
+		mutex_unlock(&entry->data_mutex);
 		/* delete immediate response entry */
 		if (smd_info->buf_in_1[8+cmd_code_len] != 0x80)
 			driver->req_tracking_tbl[index].pid = 0;
@@ -213,6 +216,7 @@ void extract_dci_events(unsigned char *buf)
 				event_mask_ptr = entry->dci_event_mask +
 								 byte_index;
 				mutex_lock(&dci_health_mutex);
+				mutex_lock(&entry->data_mutex);
 				if (*event_mask_ptr & byte_mask) {
 					/* copy to client buffer */
 					if (DCI_CHK_CAPACITY(entry,
@@ -220,6 +224,8 @@ void extract_dci_events(unsigned char *buf)
 						pr_err("diag: DCI event drop\n");
 						driver->dci_client_tbl[i].
 							dropped_events++;
+						mutex_unlock(
+							&entry->data_mutex);
 						mutex_unlock(
 							&dci_health_mutex);
 						break;
@@ -234,6 +240,7 @@ void extract_dci_events(unsigned char *buf)
 						, total_event_len);
 					entry->data_len += 4 + total_event_len;
 				}
+				mutex_unlock(&entry->data_mutex);
 				mutex_unlock(&dci_health_mutex);
 			}
 		}
@@ -270,6 +277,7 @@ void extract_dci_log(unsigned char *buf)
 				return;
 			log_mask_ptr = log_mask_ptr + byte_offset;
 			mutex_lock(&dci_health_mutex);
+			mutex_lock(&entry->data_mutex);
 			if (*log_mask_ptr & byte_mask) {
 				pr_debug("\t log code %x needed by client %d",
 					 log_code, entry->client->tgid);
@@ -279,6 +287,8 @@ void extract_dci_log(unsigned char *buf)
 						pr_err("diag: DCI log drop\n");
 						driver->dci_client_tbl[i].
 								dropped_logs++;
+						mutex_unlock(
+							&entry->data_mutex);
 						mutex_unlock(
 							&dci_health_mutex);
 						return;
@@ -290,6 +300,7 @@ void extract_dci_log(unsigned char *buf)
 					    buf + 4, *(uint16_t *)(buf + 2));
 				entry->data_len += 4 + *(uint16_t *)(buf + 2);
 			}
+			mutex_unlock(&entry->data_mutex);
 			mutex_unlock(&dci_health_mutex);
 		}
 	}
@@ -1214,8 +1225,10 @@ void diag_dci_exit(void)
 	platform_driver_unregister(&msm_diag_dci_driver);
 
 	if (driver->dci_client_tbl) {
-		for (i = 0; i < MAX_DCI_CLIENTS; i++)
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
 			kfree(driver->dci_client_tbl[i].dci_data);
+			mutex_destroy(&driver->dci_client_tbl[i].data_mutex);
+		}
 	}
 
 	if (driver->supports_separate_cmdrsp) {
