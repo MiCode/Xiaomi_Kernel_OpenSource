@@ -31,7 +31,9 @@
 #include <linux/of_gpio.h>
 #endif /* CONFIG_OF */
 
-#define NAME			"kxtj9"
+#define ACCEL_INPUT_DEV_NAME	"accelerometer"
+#define DEVICE_NAME		"kxtj9"
+
 #define G_MAX			8000
 /* OUTPUT REGISTERS */
 #define XOUT_L			0x06
@@ -430,7 +432,7 @@ static void __devinit kxtj9_init_input_device(struct kxtj9_data *tj9,
 	input_set_abs_params(input_dev, ABS_Y, -G_MAX, G_MAX, FUZZ, FLAT);
 	input_set_abs_params(input_dev, ABS_Z, -G_MAX, G_MAX, FUZZ, FLAT);
 
-	input_dev->name = "kxtj9_accel";
+	input_dev->name = ACCEL_INPUT_DEV_NAME;
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &tj9->client->dev;
 }
@@ -519,7 +521,7 @@ static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR|S_IWGRP,
  */
 
 /* Returns currently selected poll interval (in ms) */
-static ssize_t kxtj9_get_poll(struct device *dev,
+static ssize_t kxtj9_get_poll_delay(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -529,8 +531,9 @@ static ssize_t kxtj9_get_poll(struct device *dev,
 }
 
 /* Allow users to select a new poll interval (in ms) */
-static ssize_t kxtj9_set_poll(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t count)
+static ssize_t kxtj9_set_poll_delay(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kxtj9_data *tj9 = i2c_get_clientdata(client);
@@ -561,11 +564,12 @@ static ssize_t kxtj9_set_poll(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static DEVICE_ATTR(poll, S_IRUGO|S_IWUSR, kxtj9_get_poll, kxtj9_set_poll);
+static DEVICE_ATTR(poll_delay, S_IRUGO|S_IWUSR|S_IWGRP,
+			kxtj9_get_poll_delay, kxtj9_set_poll_delay);
 
 static struct attribute *kxtj9_attributes[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_poll.attr,
+	&dev_attr_poll_delay.attr,
 	NULL
 };
 
@@ -936,7 +940,7 @@ static int kxtj9_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(kxtj9_pm_ops, kxtj9_suspend, kxtj9_resume);
 
 static const struct i2c_device_id kxtj9_id[] = {
-	{ NAME, 0 },
+	{ DEVICE_NAME, 0 },
 	{ },
 };
 
@@ -950,7 +954,7 @@ MODULE_DEVICE_TABLE(i2c, kxtj9_id);
 
 static struct i2c_driver kxtj9_driver = {
 	.driver = {
-		.name	= NAME,
+		.name	= DEVICE_NAME,
 		.owner	= THIS_MODULE,
 		.of_match_table = kxtj9_match_table,
 		.pm	= &kxtj9_pm_ops,
