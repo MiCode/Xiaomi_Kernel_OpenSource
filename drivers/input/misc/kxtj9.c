@@ -27,6 +27,10 @@
 #include <linux/input-polldev.h>
 #include <linux/regulator/consumer.h>
 
+#ifdef CONFIG_OF
+#include <linux/of_gpio.h>
+#endif /* CONFIG_OF */
+
 #define NAME			"kxtj9"
 #define G_MAX			8000
 /* OUTPUT REGISTERS */
@@ -632,11 +636,96 @@ static int __devinit kxtj9_verify(struct kxtj9_data *tj9)
 out:
 	return retval;
 }
+#ifdef CONFIG_OF
+static int kxtj9_parse_dt(struct device *dev,
+				struct kxtj9_platform_data *kxtj9_pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+	int rc;
+
+	rc = of_property_read_u32(np, "kionix,min-interval", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read min-interval\n");
+		return rc;
+	} else {
+		kxtj9_pdata->min_interval = temp_val;
+	}
+
+	rc = of_property_read_u32(np, "kionix,init-interval", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read init-interval\n");
+		return rc;
+	} else {
+		kxtj9_pdata->init_interval = temp_val;
+	}
+
+	rc = of_property_read_u32(np, "kionix,axis-map-x", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis-map_x\n");
+		return rc;
+	} else {
+		kxtj9_pdata->axis_map_x = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "kionix,axis-map-y", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis_map_y\n");
+		return rc;
+	} else {
+		kxtj9_pdata->axis_map_y = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "kionix,axis-map-z", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis-map-z\n");
+		return rc;
+	} else {
+		kxtj9_pdata->axis_map_z = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "kionix,g-range", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read g-range\n");
+		return rc;
+	} else {
+		switch (temp_val) {
+		case 2:
+			kxtj9_pdata->g_range = KXTJ9_G_2G;
+			break;
+		case 4:
+			kxtj9_pdata->g_range = KXTJ9_G_4G;
+			break;
+		case 8:
+			kxtj9_pdata->g_range = KXTJ9_G_8G;
+			break;
+		default:
+			kxtj9_pdata->g_range = KXTJ9_G_2G;
+			break;
+		}
+	}
+
+	kxtj9_pdata->negate_x = of_property_read_bool(np, "kionix,negate-x");
+
+	kxtj9_pdata->negate_y = of_property_read_bool(np, "kionix,negate-y");
+
+	kxtj9_pdata->negate_z = of_property_read_bool(np, "kionix,negate-z");
+
+	kxtj9_pdata->res_12bit = of_property_read_bool(np, "kionix,res-12bit");
+
+	return 0;
+}
+#else
+static int kxtj9_parse_dt(struct device *dev,
+				struct kxtj9_platform_data *kxtj9_pdata)
+{
+	return -ENODEV;
+}
+#endif /* !CONFIG_OF */
 
 static int __devinit kxtj9_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
-	const struct kxtj9_platform_data *pdata = client->dev.platform_data;
 	struct kxtj9_data *tj9;
 	int err;
 
@@ -646,11 +735,6 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 		return -ENXIO;
 	}
 
-	if (!pdata) {
-		dev_err(&client->dev, "platform data is NULL; exiting\n");
-		return -EINVAL;
-	}
-
 	tj9 = kzalloc(sizeof(*tj9), GFP_KERNEL);
 	if (!tj9) {
 		dev_err(&client->dev,
@@ -658,12 +742,30 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
+	if (client->dev.of_node) {
+		memset(&tj9->pdata, 0 , sizeof(tj9->pdata));
+		err = kxtj9_parse_dt(&client->dev, &tj9->pdata);
+		if (err) {
+			dev_err(&client->dev,
+				"Unable to parse platfrom data err=%d\n", err);
+			return err;
+		}
+	} else {
+		if (client->dev.platform_data)
+			tj9->pdata = *(struct kxtj9_platform_data *)
+					client->dev.platform_data;
+		else {
+			dev_err(&client->dev,
+				"platform data is NULL; exiting\n");
+			return -EINVAL;
+		}
+	}
+
 	tj9->client = client;
-	tj9->pdata = *pdata;
 	tj9->power_enabled = false;
 
-	if (pdata->init) {
-		err = pdata->init();
+	if (tj9->pdata.init) {
+		err = tj9->pdata.init();
 		if (err < 0)
 			goto err_free_mem;
 	}
@@ -804,12 +906,19 @@ static const struct i2c_device_id kxtj9_id[] = {
 	{ },
 };
 
+static struct of_device_id kxtj9_match_table[] = {
+	{ .compatible = "kionix,kxtj9", },
+	{ },
+};
+
+
 MODULE_DEVICE_TABLE(i2c, kxtj9_id);
 
 static struct i2c_driver kxtj9_driver = {
 	.driver = {
 		.name	= NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = kxtj9_match_table,
 		.pm	= &kxtj9_pm_ops,
 	},
 	.probe		= kxtj9_probe,

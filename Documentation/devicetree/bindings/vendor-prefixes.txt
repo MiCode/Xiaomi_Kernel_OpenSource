@@ -24,6 +24,7 @@ ibm	International Business Machines (IBM)
 idt	Integrated Device Technologies, Inc.
 intercontrol	Inter Control Group
 linux	Linux-specific binding
+kionix	Kionix Inc.
 marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
 mosaixtech	Mosaix Technologies, Inc.
