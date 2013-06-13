@@ -607,39 +607,6 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return 0;
 }
 
-static int mdss_mdp_leading_zero(u32 num)
-{
-	u32 bit = 0x80000000;
-	int i;
-
-	for (i = 0; i < 32; i++) {
-		if (bit & num)
-			return i;
-		bit >>= 1;
-	}
-
-	return i;
-}
-
-static u32 mdss_mdp_scale_phase_step(int f_num, u32 src, u32 dst)
-{
-	u32 val, s;
-	int n;
-
-	n = mdss_mdp_leading_zero(src);
-	if (n > f_num)
-		n = f_num;
-	s = src << n;	/* maximum to reduce lose of resolution */
-	val = s / dst;
-	if (n < f_num) {
-		n = f_num - n;
-		val <<= n;
-		val |= ((s % dst) << n) / dst;
-	}
-
-	return val;
-}
-
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 scale_config = 0;
@@ -705,13 +672,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEY_EN;
+		phasey_step = pipe->phase_step_y;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_h = pipe->dst.h;
+			u32 chroma_shift = 0;
 			if (!pipe->vert_deci &&
 			    ((chroma_sample == MDSS_MDP_CHROMA_420) ||
 			    (chroma_sample == MDSS_MDP_CHROMA_H1V2)))
-				chr_dst_h *= 2;	/* 2x upsample chroma */
+				chroma_shift = 1; /* 2x upsample chroma */
 
 			if (src_h <= pipe->dst.h) {
 				scale_config |= /* G/Y, A */
@@ -722,17 +690,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 
-			if (src_h <= chr_dst_h)
+			if ((src_h >> chroma_shift) <= pipe->dst.h)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_BIL << 14);
 			else
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 14);
 
-			phasey_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, src_h, chr_dst_h);
-
-			writel_relaxed(phasey_step, pipe->base +
+			writel_relaxed(phasey_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
 		} else {
 			if (src_h <= pipe->dst.h)
@@ -744,9 +709,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 		}
-
-		phasey_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, src_h, pipe->dst.h);
 	}
 
 	if ((src_w != pipe->dst.w) ||
@@ -762,14 +724,15 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEX_EN;
+		phasex_step = pipe->phase_step_x;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_w = pipe->dst.w;
+			u32 chroma_shift = 0;
 
 			if (!pipe->horz_deci &&
 			    ((chroma_sample == MDSS_MDP_CHROMA_420) ||
 			    (chroma_sample == MDSS_MDP_CHROMA_H2V1)))
-				chr_dst_w *= 2;	/* 2x upsample chroma */
+				chroma_shift = 1; /* 2x upsample chroma */
 
 			if (src_w <= pipe->dst.w) {
 				scale_config |= /* G/Y, A */
@@ -780,16 +743,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 
-			if (src_w <= chr_dst_w)
+			if ((src_w >> chroma_shift) <= pipe->dst.w)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_BIL << 12);
 			else
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 12);
 
-			phasex_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, src_w, chr_dst_w);
-			writel_relaxed(phasex_step, pipe->base +
+			writel_relaxed(phasex_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
 		} else {
 			if (src_w <= pipe->dst.w)
@@ -801,9 +762,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 		}
-
-		phasex_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, src_w, pipe->dst.w);
 	}
 
 	writel_relaxed(scale_config, pipe->base +
