@@ -1,0 +1,67 @@
+Kionis KXTIK-series accelerometer driver
+
+Required properties:
+
+ - compatible		: Should be "kionix,kxtj9".
+ - reg			: i2c slave address of the device.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Accelerometer sample interrupt to indicate new data ready.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - kionix,min-interval	: Minimal data polling interval in millisecond.
+ - kionix,init-interval	: Initial data polling interval in millisecond.
+ - kionix,axis-map-x	: Select which data will be X-axis of reading.
+				The sensor measures and reports three axis of
+				data, this property selset which data will be
+				interpretd as X-axis gravity data of phone.
+				e.g. Give "0" to this property means the first
+				measurement data will be used as X-axis data
+ - kionix,axis-map-y	: Select which data will be Y-axis of reading.
+				Similar to property above, this property selet
+				Y-axis data.
+ - kionix,axis-map-z	: Select which data will be Z-axis of reading.
+				Similar to property above, this property selet
+				Z-axis data.
+ - kionix,g-range	: Select initial range of measurement. This define
+				the initial configuration of maxinum
+				measurement range of the sensor.Where 2 is 2G,
+				4 is 4G, 8 is 8G, 2G will be used for any other
+				values.
+
+Optional properties:
+
+ - kionix,negate-x	: Boolean to select negate of X-axis data is
+				required, if this property is defined, X-axis
+				data will be negated.
+ - kionix,negate-y	: Boolean to select negate of Y-axis data is
+				required, if this property is defined, Y-axis
+				data will be negated.
+ - kionix,negate-z	: Boolean to select negate of Z-axis data is
+				required, if this property is defined, Z-axis
+				data will be negated.
+ - kionix,res-12bit;	: Boolean to select output data resolution, if this
+				property is defined, sensor will be configured
+				to output 12 bits of data, otherwise sensor will
+				be configured to output 8 bits data.
+
+Example:
+	i2c@f9925000 { /* BLSP-1 QUP-3 */
+		kionix@f {
+			compatible = "kionix,kxtj9";
+			reg = <0x0f>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <81 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			kionix,min-interval = <5>;
+			kionix,init-interval = <200>;
+			kionix,axis-map-x = <1>;
+			kionix,axis-map-y = <0>;
+			kionix,axis-map-z = <2>;
+			kionix,g-range = <2>;
+			kionix,negate-x;
+			kionix,negate-y;
+			kionix,negate-z;
+			kionix,res-12bit;
+		};
+	};
