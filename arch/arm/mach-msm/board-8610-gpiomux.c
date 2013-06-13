@@ -16,6 +16,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 
 static struct gpiomux_setting gpio_spi_config = {
 	.func = GPIOMUX_FUNC_1,
@@ -57,6 +58,30 @@ static struct gpiomux_setting atmel_reset_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting focaltech_int_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting focaltech_int_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting focaltech_reset_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting focaltech_reset_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
@@ -213,6 +238,48 @@ static struct msm_gpiomux_config msm_atmel_configs[] __initdata = {
 		},
 	},
 };
+
+static struct msm_gpiomux_config msm_focaltech_configs[] __initdata = {
+	{
+		.gpio      = 0,		/* TOUCH RESET */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &focaltech_reset_act_cfg,
+			[GPIOMUX_SUSPENDED] = &focaltech_reset_sus_cfg,
+		},
+	},
+	{
+		.gpio      = 1,		/* TOUCH INT */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &focaltech_int_act_cfg,
+			[GPIOMUX_SUSPENDED] = &focaltech_int_sus_cfg,
+		},
+	},
+	{
+		.gpio      = 86,		/* BLSP1 QUP4 SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 87,		/* BLSP1 QUP4 SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 89,		/* BLSP1 QUP4 SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 88,		/* BLSP1 QUP4 SPI_CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+};
+
 
 static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	{
@@ -430,8 +497,13 @@ void __init msm8610_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
-	msm_gpiomux_install(msm_atmel_configs,
+	if (of_board_is_qrd()) {
+		msm_gpiomux_install(msm_focaltech_configs,
+			ARRAY_SIZE(msm_focaltech_configs));
+	} else {
+		msm_gpiomux_install(msm_atmel_configs,
 			ARRAY_SIZE(msm_atmel_configs));
+	}
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
 	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
