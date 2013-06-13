@@ -491,7 +491,7 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 	deffab = msm_bus_get_fabric_device(MSM_BUS_FAB_DEFAULT);
 	if (!deffab) {
 		MSM_BUS_ERR("Error finding default fabric\n");
-		return -ENXIO;
+		return 0;
 	}
 
 	nfab = msm_bus_get_num_fab();
