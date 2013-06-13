@@ -1067,6 +1067,41 @@ static void dvb_dvr_queue_data_feed(struct dmxdev *dmxdev, size_t count)
 	wake_up_all(&cmdbuf->queue);
 }
 
+static int dvb_dvr_external_input_only(struct dmxdev *dmxdev)
+{
+	struct dmx_caps caps;
+	int is_external_only;
+	int flags;
+	size_t tsp_size;
+
+	if (dmxdev->demux->get_tsp_size)
+		tsp_size = dmxdev->demux->get_tsp_size(dmxdev->demux);
+	else
+		tsp_size = 188;
+
+	/*
+	 * For backward compatibility, default assumes that
+	 * external only buffers are not supported.
+	 */
+	flags = 0;
+	if (dmxdev->demux->get_caps) {
+		dmxdev->demux->get_caps(dmxdev->demux, &caps);
+
+		if (tsp_size == 188)
+			flags = caps.playback_188_tsp.flags;
+		else
+			flags = caps.playback_192_tsp.flags;
+	}
+
+	if (!(flags & DMX_BUFFER_INTERNAL_SUPPORT) &&
+		(flags & DMX_BUFFER_EXTERNAL_SUPPORT))
+		is_external_only = 1;
+	else
+		is_external_only = 0;
+
+	return is_external_only;
+}
+
 static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
@@ -1082,7 +1117,9 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 		return -EOPNOTSUPP;
 
 	if (((file->f_flags & O_ACCMODE) == O_RDONLY) ||
-		(!src->data) || (!cmdbuf->data))
+		!src->data || !cmdbuf->data ||
+		(dvb_dvr_external_input_only(dmxdev) &&
+		 (dmxdev->dvr_input_buffer_mode == DMX_BUFFER_MODE_INTERNAL)))
 		return -EINVAL;
 
 	if ((file->f_flags & O_NONBLOCK) &&
@@ -1238,7 +1275,7 @@ static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
 
 	if (buf->size == size)
 		return 0;
-	if ((!size) || (buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
+	if (!size || (buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
 		return -EINVAL;
 
 	newmem = vmalloc_user(size);
@@ -1280,10 +1317,6 @@ static int dvb_dvr_set_buffer_mode(struct dmxdev *dmxdev,
 
 	if ((mode != DMX_BUFFER_MODE_INTERNAL) &&
 		(mode != DMX_BUFFER_MODE_EXTERNAL))
-		return -EINVAL;
-
-	if ((mode == DMX_BUFFER_MODE_INTERNAL) &&
-		(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
 		return -EINVAL;
 
 	if ((mode == DMX_BUFFER_MODE_EXTERNAL) &&
@@ -1543,7 +1576,8 @@ static int dvb_dmxdev_set_buffer_size(struct dmxdev_filter *dmxdevfilter,
 
 	if (buf->size == size)
 		return 0;
-	if ((!size) || (dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
+	if (!size ||
+		(dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
 		return -EINVAL;
 	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
 		return -EBUSY;
@@ -1578,10 +1612,6 @@ static int dvb_dmxdev_set_buffer_mode(struct dmxdev_filter *dmxdevfilter,
 
 	if ((mode != DMX_BUFFER_MODE_INTERNAL) &&
 		(mode != DMX_BUFFER_MODE_EXTERNAL))
-		return -EINVAL;
-
-	if ((mode == DMX_BUFFER_MODE_INTERNAL) &&
-		(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
 		return -EINVAL;
 
 	if ((mode == DMX_BUFFER_MODE_EXTERNAL) &&
@@ -1765,8 +1795,15 @@ static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
 	int found_pid;
 	struct dmxdev_feed *feed;
 	struct dmxdev_feed *ts_feed = NULL;
+	struct dmx_caps caps;
+
+	if (!dmxdevfilter->dev->demux->get_caps)
+		return -EINVAL;
+
+	dmxdevfilter->dev->demux->get_caps(dmxdevfilter->dev->demux, &caps);
 
 	if (!idx_params ||
+		!(caps.caps & DMX_CAP_VIDEO_INDEXING) ||
 		(dmxdevfilter->state < DMXDEV_STATE_SET) ||
 		(dmxdevfilter->type != DMXDEV_TYPE_PES) ||
 		((dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) &&
@@ -1907,10 +1944,16 @@ static int dvb_dmxdev_set_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 	int first_buffer;
 	struct dmxdev_feed *feed;
 	struct ts_insertion_buffer *ts_buffer;
+	struct dmx_caps caps;
+
+	if (!dmxdevfilter->dev->demux->get_caps)
+		return -EINVAL;
+
+	dmxdevfilter->dev->demux->get_caps(dmxdevfilter->dev->demux, &caps);
 
 	if (!params ||
 		!params->size ||
-		!(dmxdevfilter->dev->capabilities & DMXDEV_CAP_TS_INSERTION) ||
+		!(caps.caps & DMX_CAP_TS_INSERTION) ||
 		(dmxdevfilter->state < DMXDEV_STATE_SET) ||
 		(dmxdevfilter->type != DMXDEV_TYPE_PES) ||
 		((dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) &&
@@ -1974,9 +2017,15 @@ static int dvb_dmxdev_abort_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 	int found_buffer;
 	struct dmxdev_feed *feed;
 	struct ts_insertion_buffer *ts_buffer, *tmp;
+	struct dmx_caps caps;
+
+	if (!dmxdevfilter->dev->demux->get_caps)
+			return -EINVAL;
+
+	dmxdevfilter->dev->demux->get_caps(dmxdevfilter->dev->demux, &caps);
 
 	if (!params ||
-		!(dmxdevfilter->dev->capabilities & DMXDEV_CAP_TS_INSERTION) ||
+		!(caps.caps & DMX_CAP_TS_INSERTION) ||
 		(dmxdevfilter->state < DMXDEV_STATE_SET) ||
 		(dmxdevfilter->type != DMXDEV_TYPE_PES) ||
 		((dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) &&
@@ -2122,15 +2171,21 @@ static int dvb_dmxdev_set_playback_mode(struct dmxdev_filter *dmxdevfilter,
 					enum dmx_playback_mode_t playback_mode)
 {
 	struct dmxdev *dmxdev = dmxdevfilter->dev;
+	struct dmx_caps caps;
+
+	if (dmxdev->demux->get_caps)
+		dmxdev->demux->get_caps(dmxdev->demux, &caps);
+	else
+		caps.caps = 0;
 
 	if ((playback_mode != DMX_PB_MODE_PUSH) &&
 		(playback_mode != DMX_PB_MODE_PULL))
 		return -EINVAL;
 
 	if (((dmxdev->source < DMX_SOURCE_DVR0) ||
-		!dmxdev->demux->set_playback_mode ||
-		!(dmxdev->capabilities & DMXDEV_CAP_PULL_MODE)) &&
-		(playback_mode == DMX_PB_MODE_PULL))
+		 !dmxdev->demux->set_playback_mode ||
+		 !(caps.caps & DMX_CAP_PULL_MODE)) &&
+		 (playback_mode == DMX_PB_MODE_PULL))
 		return -EPERM;
 
 	if (dmxdevfilter->state == DMXDEV_STATE_GO)
@@ -3083,6 +3138,43 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 	return 0;
 }
 
+static int dvb_filter_external_buffer_only(struct dmxdev *dmxdev,
+	struct dmxdev_filter *filter)
+{
+	struct dmx_caps caps;
+	int is_external_only;
+	int flags;
+
+	/*
+	 * For backward compatibility, default assumes that
+	 * external only buffers are not supported.
+	 */
+	flags = 0;
+	if (dmxdev->demux->get_caps) {
+		dmxdev->demux->get_caps(dmxdev->demux, &caps);
+
+		if (filter->type == DMXDEV_TYPE_SEC)
+			flags = caps.section.flags;
+		else if (filter->params.pes.output == DMX_OUT_DECODER)
+			/* For decoder filters dmxdev buffer is not required */
+			flags = 0;
+		else if (filter->params.pes.output == DMX_OUT_TAP)
+			flags = caps.pes.flags;
+		else if (filter->dmx_tsp_format == DMX_TSP_FORMAT_188)
+			flags = caps.recording_188_tsp.flags;
+		else
+			flags = caps.recording_192_tsp.flags;
+	}
+
+	if (!(flags & DMX_BUFFER_INTERNAL_SUPPORT) &&
+		(flags & DMX_BUFFER_EXTERNAL_SUPPORT))
+		is_external_only = 1;
+	else
+		is_external_only = 0;
+
+	return is_external_only;
+}
+
 static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 {
 	struct dmxdev *dmxdev = filter->dev;
@@ -3098,14 +3190,18 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 
 	if (!filter->buffer.data) {
 		if ((filter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) ||
-			(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
+			dvb_filter_external_buffer_only(dmxdev, filter))
 			return -ENOMEM;
+
 		mem = vmalloc_user(filter->buffer.size);
 		if (!mem)
 			return -ENOMEM;
 		spin_lock_irq(&filter->dev->lock);
 		filter->buffer.data = mem;
 		spin_unlock_irq(&filter->dev->lock);
+	} else if ((filter->buffer_mode == DMX_BUFFER_MODE_INTERNAL) &&
+			dvb_filter_external_buffer_only(dmxdev, filter)) {
+		return -ENOMEM;
 	}
 
 	filter->eos_state = 0;
@@ -3577,10 +3673,13 @@ static int dvb_dmxdev_set_decoder_buffer(struct dmxdev *dmxdev,
 	struct dmx_decoder_buffers *dec_buffs;
 	struct dmx_caps caps;
 
-	if (NULL == dmxdev || NULL == filter || NULL == buffs)
+	if (!dmxdev || !filter || !buffs)
 		return -EINVAL;
 
 	dec_buffs = &filter->decoder_buffers;
+	if (!dmxdev->demux->get_caps)
+		return -EINVAL;
+
 	dmxdev->demux->get_caps(dmxdev->demux, &caps);
 
 	if ((buffs->buffers_size == 0) ||

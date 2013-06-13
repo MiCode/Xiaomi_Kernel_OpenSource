@@ -548,7 +548,8 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 		return -EINVAL;
 	}
 
-	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA;
+	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA |
+		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 	caps->num_pid_filters = dvb_demux->feednum;
@@ -599,7 +600,6 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_192_tsp.size_alignment = 0;
 	caps->decoder.flags =
-		DMX_BUFFER_CONTIGUOUS_MEM	|
 		DMX_BUFFER_SECURED_IF_DECRYPTED	|
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
 		DMX_BUFFER_INTERNAL_SUPPORT	|
@@ -700,11 +700,7 @@ static int mpq_tsif_dmx_init(
 	/* Now initailize the dmx-dev object */
 	mpq_demux->dmxdev.filternum = MPQ_MAX_DMX_FILES;
 	mpq_demux->dmxdev.demux = &mpq_demux->demux.dmx;
-	mpq_demux->dmxdev.capabilities =
-		DMXDEV_CAP_DUPLEX |
-		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_INDEXING |
-		DMXDEV_CAP_TS_INSERTION;
+	mpq_demux->dmxdev.capabilities = DMXDEV_CAP_DUPLEX;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
 	mpq_demux->dmxdev.demux->get_stc = mpq_tsif_dmx_get_stc;
