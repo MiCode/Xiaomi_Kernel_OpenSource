@@ -172,7 +172,6 @@ static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
 
 static struct device *hsic_host_dev;
-static bool hsic_host_dev_resumed_from_cons_request;
 
 static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
@@ -899,7 +898,6 @@ static int cons_request_resource(enum usb_bam cur_bam)
 
 		break;
 	case HSIC_BAM:
-			hsic_host_dev_resumed_from_cons_request = true;
 
 			usb_bam_resume_hsic_host();
 
@@ -969,8 +967,6 @@ static int cons_release_resource(enum usb_bam cur_bam)
 			(int)hsic_host_dev);
 			pm_runtime_put(hsic_host_dev);
 			info.in_lpm[HSIC_BAM] = true;
-			/* In case consumer release before resume happned */
-			hsic_host_dev_resumed_from_cons_request = false;
 		}
 	}
 
@@ -1336,9 +1332,6 @@ void usb_bam_resume(struct usb_bam_connect_ipa_params *ipa_params)
 
 void msm_bam_wait_for_hsic_prod_granted(void)
 {
-	if (hsic_host_dev_resumed_from_cons_request)
-		return;
-
 	ctx.is_bam_inactivity[HSIC_BAM] = false;
 
 	/* Get back to resume state including wakeup ipa */
@@ -1356,11 +1349,8 @@ void msm_bam_hsic_notify_on_resume(void)
 	 * and clocked on. Therefore we can now set the inactivity
 	 * timer to the hsic bam hw.
 	 */
-	if (ctx.inactivity_timer_ms[HSIC_BAM] &&
-	    !hsic_host_dev_resumed_from_cons_request)
+	if (ctx.inactivity_timer_ms[HSIC_BAM])
 		usb_bam_set_inactivity_timer(HSIC_BAM);
-
-	hsic_host_dev_resumed_from_cons_request = false;
 }
 
 bool msm_bam_hsic_lpm_ok(void)
