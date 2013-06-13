@@ -150,7 +150,7 @@ static void compr_event_handler(uint32_t opcode,
 		 * check for underrun
 		 */
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
-			pr_err("render stopped");
+			pr_info("render stopped");
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
 			break;
 		}
@@ -519,12 +519,14 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 			}
 		}
 		atomic_set(&prtd->start, 0);
+		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE\n");
 		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 		atomic_set(&prtd->start, 0);
+		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
 		break;
 	default:
 		ret = -EINVAL;
@@ -745,7 +747,7 @@ static int msm_compr_mmap(struct snd_pcm_substream *substream,
 	int dir = -1;
 
 	prtd->mmap_flag = 1;
-
+	runtime->render_flag = SNDRV_NON_DMA_MODE;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		dir = IN;
 	else
