@@ -14,7 +14,7 @@
 #define __PM8XXX_BMS_H
 
 #include <linux/errno.h>
-#include <linux/mfd/pm8xxx/batterydata-lib.h>
+#include <linux/batterydata-lib.h>
 
 #define PM8921_BMS_DEV_NAME	"pm8921-bms"
 

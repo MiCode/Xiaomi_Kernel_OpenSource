@@ -13,6 +13,11 @@ device is to enabled:
 		to determine whether the BMS is using an internal or external
 		rsense to accumulate the Coulomb Counter and read current.
 
+Additionally, an optional subnode may be included:
+- qcom,battery-data : A phandle to a node containing the available batterydata
+		profiles. See the batterydata bindings documentation for more
+		details.
+
 Parent node required properties:
 - compatible : should be "qcom,qpnp-bms" for the BM driver.
 - qcom,r-sense-uohm : sensor resistance in in micro-ohms.
@@ -142,6 +147,7 @@ pm8941_bms: qcom,bms {
 	qcom,high-ocv-correction-limit-uv = <50>;
 	qcom,hold-soc-est = <3>;
 	qcom,tm-temp-margin = <5000>;
+	qcom,battery-data = <&mtp_batterydata>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;
