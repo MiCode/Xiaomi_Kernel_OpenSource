@@ -20,6 +20,7 @@
 };
 
 /include/ "msmsamarium-ion.dtsi"
+/include/ "msmsamarium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
