@@ -315,12 +315,16 @@ static int spkr_drv_wrnd_param_set(const char *val,
 	dev_dbg(codec->dev, "%s: spkr_drv_wrnd %d -> %d\n",
 			__func__, old, spkr_drv_wrnd);
 	if (old == 0 && spkr_drv_wrnd == 1) {
+		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 		snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80, 0x80);
 	} else if (old == 1 && spkr_drv_wrnd == 0) {
+		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
 		if (!priv->spkr_pa_widget_on)
 			snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80,
 					    0x00);
@@ -1622,22 +1626,22 @@ static int tapan_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		WCD9XXX_BCL_LOCK(&tapan->resmgr);
+		WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 		/* AUX PGA requires RCO or MCLK */
 		wcd9xxx_resmgr_get_clk_block(&tapan->resmgr, WCD9XXX_CLK_RCO);
+		WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_enable_rx_bias(&tapan->resmgr, 1);
-		WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
-		WCD9XXX_BCL_LOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_enable_rx_bias(&tapan->resmgr, 0);
+		WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_put_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 		wcd9xxx_resmgr_put_clk_block(&tapan->resmgr, WCD9XXX_CLK_RCO);
-		WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
+		WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 		break;
 	}
 	return 0;
@@ -2869,7 +2873,7 @@ int tapan_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 	dev_dbg(codec->dev, "%s: mclk_enable = %u, dapm = %d\n", __func__,
 		 mclk_enable, dapm);
 
-	WCD9XXX_BCL_LOCK(&tapan->resmgr);
+	WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 	if (mclk_enable) {
 		wcd9xxx_resmgr_get_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
@@ -2880,7 +2884,7 @@ int tapan_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 		wcd9xxx_resmgr_put_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 	}
-	WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
+	WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 
 	return 0;
 }
@@ -4521,10 +4525,10 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	if (spkr_drv_wrnd > 0) {
-		WCD9XXX_BCL_LOCK(&tapan->resmgr);
+		WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
-		WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
+		WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 	}
 
 	ptr = kmalloc((sizeof(tapan_rx_chs) +
@@ -4588,13 +4592,13 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 {
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 
-	WCD9XXX_BCL_LOCK(&tapan->resmgr);
+	WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 	atomic_set(&kp_tapan_priv, 0);
 
 	if (spkr_drv_wrnd > 0)
 		wcd9xxx_resmgr_put_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
-	WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
+	WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 
 	tapan_cleanup_irqs(tapan);
 
