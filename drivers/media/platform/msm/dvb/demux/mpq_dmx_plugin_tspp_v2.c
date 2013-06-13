@@ -73,7 +73,7 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	}
 
 	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_INDEXING |
-		DMX_CAP_VIDEO_DECODER_DATA;
+		DMX_CAP_VIDEO_DECODER_DATA | DMX_CAP_TS_INSERTION;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 	caps->num_pid_filters = TSPP_MAX_PID_FILTER_NUM;
@@ -140,11 +140,7 @@ static int mpq_tspp_dmx_init(
 	/* Now initailize the dmx-dev object */
 	mpq_demux->dmxdev.filternum = MPQ_MAX_DMX_FILES;
 	mpq_demux->dmxdev.demux = &mpq_demux->demux.dmx;
-	mpq_demux->dmxdev.capabilities =
-		DMXDEV_CAP_DUPLEX |
-		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_INDEXING |
-		DMXDEV_CAP_TS_INSERTION;
+	mpq_demux->dmxdev.capabilities = DMXDEV_CAP_DUPLEX;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
 	mpq_demux->dmxdev.demux->get_caps = mpq_tspp_dmx_get_caps;
