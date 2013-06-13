@@ -441,7 +441,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.enable_fcc_learning		= 1,
 	.min_fcc_learning_soc		= 20,
 	.min_fcc_ocv_pc			= 30,
-	.max_fcc_learning_samples	= 5,
+	.min_fcc_learning_samples	= 5,
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */

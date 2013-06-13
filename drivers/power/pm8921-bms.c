@@ -156,7 +156,7 @@ struct pm8921_bms_chip {
 	int			enable_fcc_learning;
 	int			min_fcc_learning_soc;
 	int			min_fcc_ocv_pc;
-	int			max_fcc_learning_samples;
+	int			min_fcc_learning_samples;
 	struct			fcc_data *fcc_table;
 	int			fcc_new;
 	int			start_real_soc;
@@ -223,7 +223,7 @@ module_param(last_usb_cal_delta_uv, int, 0644);
 static int last_chargecycles = DEFAULT_CHARGE_CYCLES;
 static int last_charge_increase;
 static int last_fcc_update_count;
-static int max_fcc_cycles = -EINVAL;
+static int min_fcc_cycles = -EINVAL;
 module_param(last_chargecycles, int, 0644);
 module_param(last_charge_increase, int, 0644);
 module_param(last_fcc_update_count, int, 0644);
@@ -253,8 +253,7 @@ static struct kernel_param_ops bms_param_ops = {
 /* Make last_soc as read only as it is already calculated from shutdown_soc */
 module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
 module_param_cb(battery_removed, &bms_param_ops, &battery_removed, 0644);
-module_param_cb(max_fcc_cycles, &bms_param_ops,
-				&max_fcc_cycles, 0644);
+module_param_cb(min_fcc_cycles, &bms_param_ops, &min_fcc_cycles, 0644);
 
 /*
  * bms_fake_battery is set in setups where a battery emulator is used instead
@@ -2790,7 +2789,7 @@ EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
 static void invalidate_fcc(struct pm8921_bms_chip *chip)
 {
-	memset(chip->fcc_table, 0, chip->max_fcc_learning_samples *
+	memset(chip->fcc_table, 0, chip->min_fcc_learning_samples *
 					sizeof(*(chip->fcc_table)));
 	last_fcc_update_count = 0;
 	chip->adjusted_fcc_temp_lut = NULL;
@@ -2807,7 +2806,7 @@ static void update_fcc_table_for_temp(struct pm8921_bms_chip *chip,
 	struct fcc_data *ft;
 
 	/* Interpolate all the FCC entries to the same temperature */
-	for (i = 0; i < chip->max_fcc_learning_samples; i++) {
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
 		ft = &chip->fcc_table[i];
 		if (ft->batt_temp == batt_temp_final)
 			continue;
@@ -2825,7 +2824,7 @@ static void update_fcc_learning_table(struct pm8921_bms_chip *chip,
 	int i, temp_fcc_avg = 0, new_fcc_avg = 0, temp_fcc_delta = 0, count;
 	struct fcc_data *ft;
 
-	count = last_fcc_update_count % chip->max_fcc_learning_samples;
+	count = last_fcc_update_count % chip->min_fcc_learning_samples;
 	ft = &chip->fcc_table[count];
 	ft->fcc_new = ft->fcc_real = new_fcc_uah;
 	ft->batt_temp = ft->temp_real = batt_temp;
@@ -2838,14 +2837,14 @@ static void update_fcc_learning_table(struct pm8921_bms_chip *chip,
 	pr_debug("Updated fcc table. new_fcc=%d, chargecycle=%d, temp=%d fcc_update_count=%d\n",
 		new_fcc_uah, chargecycles, batt_temp, last_fcc_update_count);
 
-	if (last_fcc_update_count < chip->max_fcc_learning_samples) {
+	if (last_fcc_update_count < chip->min_fcc_learning_samples) {
 		pr_debug("Not enough FCC samples. Current count = %d\n",
 						last_fcc_update_count);
 		return; /* Not enough samples to update fcc */
 	}
 
 	/* reject entries if they are > 50 chargecycles apart */
-	for (i = 0; i < chip->max_fcc_learning_samples; i++) {
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
 		if ((chip->fcc_table[i].chargecycles + VALID_FCC_CHGCYL_RANGE)
 							< chargecycles) {
 			pr_debug("Charge cycle too old (> %d cycles apart)\n",
@@ -2857,20 +2856,20 @@ static void update_fcc_learning_table(struct pm8921_bms_chip *chip,
 	update_fcc_table_for_temp(chip, batt_temp);
 
 	/* Calculate the avg. and SD for all the fcc entries */
-	for (i = 0; i < chip->max_fcc_learning_samples; i++)
+	for (i = 0; i < chip->min_fcc_learning_samples; i++)
 		temp_fcc_avg += chip->fcc_table[i].fcc_new;
 
-	temp_fcc_avg /= chip->max_fcc_learning_samples;
+	temp_fcc_avg /= chip->min_fcc_learning_samples;
 	temp_fcc_delta = div_u64(temp_fcc_avg * DELTA_FCC_PERCENT, 100);
 
 	/* fix the fcc if its an outlier i.e. > 5% of the average */
-	for (i = 0; i < chip->max_fcc_learning_samples; i++) {
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
 		ft = &chip->fcc_table[i];
 		if (abs(ft->fcc_new - temp_fcc_avg) > temp_fcc_delta)
 			ft->fcc_new = temp_fcc_avg;
 		new_fcc_avg += ft->fcc_new;
 	}
-	new_fcc_avg /= chip->max_fcc_learning_samples;
+	new_fcc_avg /= chip->min_fcc_learning_samples;
 
 	last_real_fcc_mah = new_fcc_avg/1000;
 	last_real_fcc_batt_temp = batt_temp;
@@ -3496,7 +3495,7 @@ static ssize_t fcc_data_set(struct device *dev, struct device_attribute *attr,
 		return count;
 	}
 
-	i %= chip->max_fcc_learning_samples;
+	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &fcc_new);
 	if (rc != 1)
 		return -EINVAL;
@@ -3535,7 +3534,7 @@ static ssize_t fcc_temp_set(struct device *dev, struct device_attribute *attr,
 	int batt_temp = 0, rc;
 	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
 
-	i %= chip->max_fcc_learning_samples;
+	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &batt_temp);
 	if (rc != 1)
 		return -EINVAL;
@@ -3554,7 +3553,7 @@ static ssize_t fcc_chgcyl_set(struct device *dev, struct device_attribute *attr,
 	int chargecycle = 0, rc;
 	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
 
-	i %= chip->max_fcc_learning_samples;
+	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &chargecycle);
 	if (rc != 1)
 		return -EINVAL;
@@ -3572,10 +3571,10 @@ static ssize_t fcc_list_get(struct device *dev, struct device_attribute *attr,
 	struct fcc_data *ft;
 	int i = 0, j, count = 0;
 
-	if (last_fcc_update_count < chip->max_fcc_learning_samples)
+	if (last_fcc_update_count < chip->min_fcc_learning_samples)
 		i = last_fcc_update_count;
 	else
-		i = chip->max_fcc_learning_samples;
+		i = chip->min_fcc_learning_samples;
 
 	for (j = 0; j < i; j++) {
 		ft = &chip->fcc_table[j];
@@ -3733,7 +3732,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->enable_fcc_learning = pdata->enable_fcc_learning;
 	chip->min_fcc_learning_soc = pdata->min_fcc_learning_soc;
 	chip->min_fcc_ocv_pc = pdata->min_fcc_ocv_pc;
-	chip->max_fcc_learning_samples = pdata->max_fcc_learning_samples;
+	chip->min_fcc_learning_samples = pdata->min_fcc_learning_samples;
 	if (chip->enable_fcc_learning) {
 		if (!chip->min_fcc_learning_soc)
 			chip->min_fcc_learning_soc =
@@ -3741,13 +3740,13 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		if (!chip->min_fcc_ocv_pc)
 			chip->min_fcc_ocv_pc =
 					MIN_START_OCV_PERCENT_FOR_LEARNING;
-		if (!chip->max_fcc_learning_samples ||
-			chip->max_fcc_learning_samples > MAX_FCC_LEARNING_COUNT)
-			chip->max_fcc_learning_samples = MAX_FCC_LEARNING_COUNT;
+		if (!chip->min_fcc_learning_samples ||
+			chip->min_fcc_learning_samples > MAX_FCC_LEARNING_COUNT)
+			chip->min_fcc_learning_samples = MAX_FCC_LEARNING_COUNT;
 
-		max_fcc_cycles = chip->max_fcc_learning_samples;
+		min_fcc_cycles = chip->min_fcc_learning_samples;
 		chip->fcc_table = kzalloc(sizeof(struct fcc_data) *
-				chip->max_fcc_learning_samples, GFP_KERNEL);
+				chip->min_fcc_learning_samples, GFP_KERNEL);
 		if (!chip->fcc_table) {
 			pr_err("Unable to allocate table for fcc learning\n");
 			rc = -ENOMEM;

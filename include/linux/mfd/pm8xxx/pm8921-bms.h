@@ -41,7 +41,7 @@ struct pm8xxx_bms_core_data {
  *				learning can start
  * @min_fcc_ocv_pc:		minimum PC (lookup(OCV)) at which CC counting
  *				for FCC learning can start
- * @max_fcc_learning_samples:	Maximum number of FCC measurement cycles to be
+ * @min_fcc_learning_samples:	Minimum number of FCC measurement cycles to be
  *				used for FCC update
  * @normal_voltage_calc_ms:	The period of soc calculation in ms when battery
  *				voltage higher than cutoff voltage
@@ -74,7 +74,7 @@ struct pm8921_bms_platform_data {
 	int				enable_fcc_learning;
 	int				min_fcc_learning_soc;
 	int				min_fcc_ocv_pc;
-	int				max_fcc_learning_samples;
+	int				min_fcc_learning_samples;
 	int				shutdown_soc_valid_limit;
 	int				ignore_shutdown_soc;
 	int				adjust_soc_low_threshold;
