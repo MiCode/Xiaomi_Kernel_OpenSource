@@ -14,6 +14,7 @@
 
 /include/ "msm8610.dtsi"
 /include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
+/include/ "msm8610-qrd-camera-sensor.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 QRD";
