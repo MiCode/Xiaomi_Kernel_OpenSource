@@ -1093,7 +1093,7 @@ static ssize_t attr_addr_set(struct device *dev, struct device_attribute *attr,
 
 static struct device_attribute attributes[] = {
 
-	__ATTR(pollrate_ms, 0664, attr_get_polling_rate,
+	__ATTR(poll_delay, 0664, attr_get_polling_rate,
 			attr_set_polling_rate),
 	__ATTR(range, 0664, attr_get_range, attr_set_range),
 	__ATTR(enable, 0664, attr_get_enable, attr_set_enable),
@@ -1226,7 +1226,7 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 
 	acc->input_dev->open = lis3dh_acc_input_open;
 	acc->input_dev->close = lis3dh_acc_input_close;
-	acc->input_dev->name = LIS3DH_ACC_DEV_NAME;
+	acc->input_dev->name = ACCEL_INPUT_DEV_NAME;
 	acc->input_dev->id.bustype = BUS_I2C;
 	acc->input_dev->dev.parent = &acc->client->dev;
 
