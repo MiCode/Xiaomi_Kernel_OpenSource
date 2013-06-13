@@ -639,6 +639,7 @@ static void gbam_start_io(struct gbam_port *port)
 			gbam_epout_complete, GFP_ATOMIC);
 	if (ret) {
 		pr_err("%s: rx req allocation failed\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		return;
 	}
 
@@ -655,6 +656,7 @@ static void gbam_start_io(struct gbam_port *port)
 	if (ret) {
 		pr_err("%s: tx req allocation failed\n", __func__);
 		gbam_free_requests(ep, &d->rx_idle);
+		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		return;
 	}
 
