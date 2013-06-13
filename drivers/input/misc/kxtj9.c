@@ -285,19 +285,6 @@ static void kxtj9_disable(struct kxtj9_data *tj9)
 	tj9->enable = false;
 }
 
-static int kxtj9_input_open(struct input_dev *input)
-{
-	struct kxtj9_data *tj9 = input_get_drvdata(input);
-
-	return kxtj9_enable(tj9);
-}
-
-static void kxtj9_input_close(struct input_dev *dev)
-{
-	struct kxtj9_data *tj9 = input_get_drvdata(dev);
-
-	kxtj9_disable(tj9);
-}
 
 static void kxtj9_init_input_device(struct kxtj9_data *tj9,
 					      struct input_dev *input_dev)
@@ -325,8 +312,6 @@ static int kxtj9_setup_input_device(struct kxtj9_data *tj9)
 
 	tj9->input_dev = input_dev;
 
-	input_dev->open = kxtj9_input_open;
-	input_dev->close = kxtj9_input_close;
 	input_set_drvdata(input_dev, tj9);
 
 	kxtj9_init_input_device(tj9, input_dev);
