@@ -945,6 +945,12 @@
 		reg = <0x0fe805720 0x1000>;
 	};
 
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
+
 	jtag_mm0: jtagmm@fc33c000 {
 		compatible = "qcom,jtag-mm";
 		reg = <0xfc33c000 0x1000>,
