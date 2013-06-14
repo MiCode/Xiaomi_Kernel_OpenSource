@@ -24,6 +24,15 @@ if CORESIGHT
 config HAVE_CORESIGHT_SINK
 	bool
 
+config CORESIGHT_FUSE
+	bool "CoreSight Fuse driver"
+	help
+	  This driver provides support for CoreSight Fuse state checks that
+	  other CoreSight drivers can query to determine existence of
+	  Hardware functionality they support. Drivers can then take necessary
+	  actions like failing the probe if the Hardware they manage is
+	  functionally disabled.
+
 config CORESIGHT_CTI
 	bool "CoreSight Cross Trigger Interface driver"
 	help
