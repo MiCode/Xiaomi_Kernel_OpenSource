@@ -16,6 +16,7 @@
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <linux/diagchar.h>
 #include <linux/platform_device.h>
@@ -380,6 +381,18 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 		driver->table[j].client_id = params->client_id;
 	}
 	(*count_entries)++;
+}
+
+void diag_get_timestamp(char *time_str)
+{
+	struct timeval t;
+	struct tm broken_tm;
+	do_gettimeofday(&t);
+	if (!time_str)
+		return;
+	time_to_tm(t.tv_sec, 0, &broken_tm);
+	scnprintf(time_str, DIAG_TS_SIZE, "%d:%d:%d:%ld", broken_tm.tm_hour,
+				broken_tm.tm_min, broken_tm.tm_sec, t.tv_usec);
 }
 
 static int diag_get_remote(int remote_info)
