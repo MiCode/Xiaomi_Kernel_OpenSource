@@ -49,6 +49,21 @@ Optional properties :
   depend on suitable handshake with the IPA peer.
 - qcom,ahb-async-bridge-bypass: if present AHB ASYNC bridge will be bypassed such that
   the bridge on the slave AHB is always used.
+- hsic,log2-itc: itc (interrupt threshold control) defines rate at which usb
+  controller will issue interrupts. It represents max interrupt interval
+  measured in micro frames.  In high speed USB, each micro frame is 125us.
+  Valid values are from zero to six. Zero is default. Higher ITC value will
+  result in higher interrupt latency and can impact overall data latency.
+
+  log2-itc     - Max interrupt threshold
+  --------       -----------------------
+  0 (2^0 = 1)    1 micro frame interrupt threshold aka 125us interrupt threshold
+  1 (2^1 = 2)    2 micro frame interrupt threshold aka 250us interrupt threshold
+  2 (2^2 = 4)    4 micro frame interrupt threshold aka 500us interrupt threshold
+  3 (2^3 = 8)    8 micro frame interrupt threshold aka 1ms interrupt threshold
+  4 (2^4 = 16)   16 micro frame interrupt threshold aka 2ms interrupt threshold
+  5 (2^5 = 32)   32 micro frame interrupt threshold aka 4ms interrupt threshold
+  6 (2^6 = 64)   64 micro frame interrupt threshold aka 8ms interrupt threshold
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:

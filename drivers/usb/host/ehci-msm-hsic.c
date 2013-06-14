@@ -1878,6 +1878,10 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 					&pdata->strobe_pad_offset);
 	of_property_read_u32(node, "hsic,data-pad-offset",
 					&pdata->data_pad_offset);
+	of_property_read_u32(node, "hsic,log2-itc",
+					&pdata->log2_irq_thresh);
+	if (pdata->log2_irq_thresh > 6)
+		pdata->log2_irq_thresh = 0;
 
 	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 
