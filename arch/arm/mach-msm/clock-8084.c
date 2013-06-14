@@ -369,6 +369,27 @@ static struct clk_lookup msm_clocks_8084[] = {
 	CLK_DUMMY("core_clk", NULL, "fe054000.qcom,iommu", OFF),
 	CLK_DUMMY("iface_clk", NULL, "fe064000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk", NULL, "fe064000.qcom,iommu", OFF),
+
+	/* CoreSight clocks */
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc324000.replicator", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc325000.tmc", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc323000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc321000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc322000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc345000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc36c000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc302000.stm", OFF),
+
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc324000.replicator", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc325000.tmc", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc323000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc321000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc322000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc345000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc36c000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc302000.stm", OFF),
 };
 
 struct clock_init_data msm8084_clock_init_data __initdata = {
