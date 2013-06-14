@@ -517,16 +517,15 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	struct usb_request *req;
 	ssize_t r = count;
 	unsigned xfer;
+	int len;
 	int ret = 0;
 
 	DBG(cdev, "mtp_read(%zu)\n", count);
 
-	if (count > mtp_rx_req_len)
-		return -EINVAL;
+	len = ALIGN(count, dev->ep_out->maxpacket);
 
-	if (!IS_ALIGNED(count, dev->ep_out->maxpacket))
-		DBG(cdev, "%s - count(%d) not multiple of mtu(%d)\n", __func__,
-						count, dev->ep_out->maxpacket);
+	if (len > mtp_rx_req_len)
+		return -EINVAL;
 
 	/* we will block until we're online */
 	DBG(cdev, "mtp_read: waiting for online state\n");
@@ -549,7 +548,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 requeue_req:
 	/* queue a request */
 	req = dev->rx_req[0];
-	req->length = mtp_rx_req_len;
+	req->length = len;
 	dev->rx_done = 0;
 	ret = usb_ep_queue(dev->ep_out, req, GFP_KERNEL);
 	if (ret < 0) {
