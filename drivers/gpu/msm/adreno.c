@@ -833,7 +833,7 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 
 	if (!adreno_dev->drawctxt_active ||
 		KGSL_STATE_ACTIVE != device->state ||
-		!device->active_cnt ||
+		!atomic_read(&device->active_cnt) ||
 		device->cff_dump_enable) {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
 		return;
