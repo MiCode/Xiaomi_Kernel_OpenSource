@@ -2,6 +2,7 @@
 # Makefile for CoreSight drivers.
 #
 obj-$(CONFIG_CORESIGHT) += coresight.o
+obj-$(CONFIG_CORESIGHT_FUSE) += coresight-fuse.o
 obj-$(CONFIG_CORESIGHT_CTI) += coresight-cti.o
 obj-$(CONFIG_CORESIGHT_CSR) += coresight-csr.o
 obj-$(CONFIG_CORESIGHT_TMC) += coresight-tmc.o
