@@ -39,6 +39,9 @@ struct mdss_mdp_rotator_session {
 	u8 busy;
 	u8 no_wait;
 
+	struct mdss_mdp_data src_buf;
+	struct mdss_mdp_data dst_buf;
+
 	struct list_head head;
 	struct mdss_mdp_rotator_session *next;
 };
@@ -67,7 +70,7 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 			   struct mdss_mdp_data *src_data,
 			   struct mdss_mdp_data *dst_data);
 
-int mdss_mdp_rotator_release(u32 ndx);
+int mdss_mdp_rotator_release(struct mdss_mdp_rotator_session *rot);
 int mdss_mdp_rotator_release_all(void);
 
 #endif /* MDSS_MDP_ROTATOR_H */
