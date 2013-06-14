@@ -87,7 +87,7 @@ static inline uint32_t buf_page_size(uint32_t size)
 static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 				  struct smq_phy_page *pages, int nr_elems)
 {
-	struct vm_area_struct *vma;
+	struct vm_area_struct *vma, *vmaend;
 	uint32_t start = buf_page_start(addr);
 	uint32_t end = buf_page_start((void *)((uint32_t)addr + sz - 1));
 	uint32_t len = nr_pages << PAGE_SHIFT;
@@ -101,14 +101,14 @@ static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 	VERIFY(err, 0 != (vma = find_vma(current->mm, start)));
 	if (err)
 		goto bail;
-	VERIFY(err, ((uint32_t)addr + sz) <= vma->vm_end);
+	VERIFY(err, 0 != (vmaend = find_vma(current->mm, end)));
 	if (err)
 		goto bail;
 	n = 0;
 	VERIFY(err, 0 == follow_pfn(vma, start, &pfn));
 	if (err)
 		goto bail;
-	VERIFY(err, 0 == follow_pfn(vma, end, &pfnend));
+	VERIFY(err, 0 == follow_pfn(vmaend, end, &pfnend));
 	if (err)
 		goto bail;
 	VERIFY(err, (pfn + nr_pages - 1) == pfnend);
