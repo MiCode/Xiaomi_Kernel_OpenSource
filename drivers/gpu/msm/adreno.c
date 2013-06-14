@@ -1794,11 +1794,6 @@ static int adreno_start(struct kgsl_device *device)
 	if (status)
 		goto error_irq_off;
 
-	/* While fault tolerance is on we do not want timer to
-	 * fire and attempt to change any device state */
-	if (KGSL_STATE_DUMP_AND_FT != device->state)
-		mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-
 	mod_timer(&device->hang_timer,
 		(jiffies + msecs_to_jiffies(KGSL_TIMEOUT_PART)));
 
@@ -2680,6 +2675,12 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 		if (device->state != KGSL_STATE_HUNG)
 			result = 0;
 	} else {
+		/*
+		 * While fault tolerance is happening we do not want the
+		 * idle_timer to fire and attempt to change any device state
+		 */
+		del_timer_sync(&device->idle_timer);
+
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_DUMP_AND_FT);
 		INIT_COMPLETION(device->ft_gate);
 		/* Detected a hang */
@@ -2722,7 +2723,6 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
 		} else {
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
-			mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 			mod_timer(&device->hang_timer,
 				(jiffies +
 				msecs_to_jiffies(KGSL_TIMEOUT_PART)));
