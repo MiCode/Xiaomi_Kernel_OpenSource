@@ -717,6 +717,9 @@ static int __devinit tpiu_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct coresight_desc *desc;
 
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
+
 	if (pdev->dev.of_node) {
 		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 		if (IS_ERR(pdata))

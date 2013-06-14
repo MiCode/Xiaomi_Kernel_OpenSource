@@ -2113,6 +2113,10 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	struct msm_client_dump dump;
 	struct coresight_desc *desc;
 
+	if (coresight_fuse_access_disabled() ||
+	    coresight_fuse_apps_access_disabled())
+		return -EPERM;
+
 	if (pdev->dev.of_node) {
 		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 		if (IS_ERR(pdata))
