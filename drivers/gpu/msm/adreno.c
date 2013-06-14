@@ -2880,6 +2880,7 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned long wait;
 	unsigned long timeout = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+	unsigned int rptr;
 
 	/*
 	 * The first time into the loop, wait for 100 msecs and kick wptr again
@@ -2898,14 +2899,13 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 
 			wait = jiffies + msecs_to_jiffies(KGSL_TIMEOUT_PART);
 		}
-		GSL_RB_GET_READPTR(rb, &rb->rptr);
-
+		rptr = adreno_get_rptr(rb);
 		if (time_after(jiffies, timeout)) {
 			KGSL_DRV_ERR(device, "rptr: %x, wptr: %x\n",
-				rb->rptr, rb->wptr);
+				rptr, rb->wptr);
 			return -ETIMEDOUT;
 		}
-	} while (rb->rptr != rb->wptr);
+	} while (rptr != rb->wptr);
 
 	return 0;
 }
@@ -3005,8 +3005,8 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 	/* If the device isn't active, don't force it on. */
 	if (device->state == KGSL_STATE_ACTIVE) {
 		/* Is the ring buffer is empty? */
-		GSL_RB_GET_READPTR(rb, &rb->rptr);
-		if (rb->rptr == rb->wptr) {
+		unsigned int rptr = adreno_get_rptr(rb);
+		if (rptr == rb->wptr) {
 			/*
 			 * Are there interrupts pending? If so then pretend we
 			 * are not idle - this avoids the possiblity that we go
