@@ -1389,13 +1389,14 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 			(unsigned int *) &context_id,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 				current_context));
-		context = idr_find(&device->context_idr, context_id);
+		context = kgsl_context_get(device, context_id);
 		if (context)
 			ts_processed = kgsl_readtimestamp(device, context,
 				KGSL_TIMESTAMP_RETIRED);
 		KGSL_PWR_INFO(device, "Wake from %s state. CTXT: %d RTRD TS: %08X\n",
 			kgsl_pwrstate_to_str(state),
 			context ? context->id : -1, ts_processed);
+		kgsl_context_put(context);
 		/* fall through */
 	case KGSL_STATE_NAP:
 		/* Turn on the core clocks */
