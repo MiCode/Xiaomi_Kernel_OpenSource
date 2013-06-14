@@ -96,4 +96,9 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 	};
+
+	qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x07f00000 0x8000000>; /* Address and size of hole */
+	};
 };
