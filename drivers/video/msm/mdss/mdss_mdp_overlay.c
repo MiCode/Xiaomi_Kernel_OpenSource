@@ -288,7 +288,7 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 		req->id = rot->session_id;
 	} else {
 		pr_err("Unable to setup rotator session\n");
-		mdss_mdp_rotator_release(rot->session_id);
+		mdss_mdp_rotator_release(rot);
 	}
 
 	return ret;
@@ -894,10 +894,17 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 
 	pr_debug("unset ndx=%x\n", ndx);
 
-	if (ndx & MDSS_MDP_ROT_SESSION_MASK)
-		ret = mdss_mdp_rotator_release(ndx);
-	else
+	if (ndx & MDSS_MDP_ROT_SESSION_MASK) {
+		struct mdss_mdp_rotator_session *rot;
+		rot = mdss_mdp_rotator_session_get(ndx);
+		if (rot) {
+			mdss_mdp_overlay_free_buf(&rot->src_buf);
+			mdss_mdp_overlay_free_buf(&rot->dst_buf);
+			ret = mdss_mdp_rotator_release(rot);
+		}
+	} else {
 		ret = mdss_mdp_overlay_release(mfd, ndx);
+	}
 
 done:
 	mutex_unlock(&mdp5_data->ov_lock);
@@ -958,7 +965,6 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 				   struct msmfb_overlay_data *req)
 {
 	struct mdss_mdp_rotator_session *rot;
-	struct mdss_mdp_data src_data, dst_data;
 	int ret;
 	u32 flgs;
 
@@ -970,26 +976,26 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 
 	flgs = rot->flags & MDP_SECURE_OVERLAY_SESSION;
 
-	ret = mdss_mdp_overlay_get_buf(mfd, &src_data, &req->data, 1, flgs);
+	mdss_mdp_overlay_free_buf(&rot->src_buf);
+	ret = mdss_mdp_overlay_get_buf(mfd, &rot->src_buf, &req->data, 1, flgs);
 	if (ret) {
 		pr_err("src_data pmem error\n");
 		return ret;
 	}
 
-	ret = mdss_mdp_overlay_get_buf(mfd, &dst_data, &req->dst_data, 1, flgs);
+	mdss_mdp_overlay_free_buf(&rot->dst_buf);
+	ret = mdss_mdp_overlay_get_buf(mfd, &rot->dst_buf,
+			&req->dst_data, 1, flgs);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
 		goto dst_buf_fail;
 	}
 
-	ret = mdss_mdp_rotator_queue(rot, &src_data, &dst_data);
+	ret = mdss_mdp_rotator_queue(rot, &rot->src_buf, &rot->dst_buf);
 	if (ret)
 		pr_err("rotator queue error session id=%x\n", req->id);
 
-	mdss_mdp_overlay_free_buf(&dst_data);
 dst_buf_fail:
-	mdss_mdp_overlay_free_buf(&src_data);
-
 	return ret;
 }
 
