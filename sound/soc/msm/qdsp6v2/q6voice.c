@@ -45,6 +45,7 @@ enum {
 	VOC_TOKEN_NONE,
 	VOIP_MEM_MAP_TOKEN,
 	VOC_CAL_MEM_MAP_TOKEN,
+	VOC_VOICE_HOST_PCM_MAP_TOKEN,
 };
 
 static struct common_data common;
@@ -4668,7 +4669,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		return 0;
 	}
 
-	pr_debug("%s: session_id 0x%x\n", __func__, data->dest_port);
+	pr_debug("%s: session_idx 0x%x\n", __func__, data->dest_port);
 
 	v = voice_get_session_by_idx(data->dest_port);
 	if (v == NULL) {
@@ -4745,6 +4746,18 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 				pr_debug("%s: cal mem handle 0x%x\n",
 					 __func__, c->cal_mem_handle);
 
+				v->mvm_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->mvm_wait);
+			}
+		} else if (data->payload_size &&
+			   data->token == VOC_VOICE_HOST_PCM_MAP_TOKEN) {
+			ptr = data->payload;
+			if (ptr[0]) {
+				common.voice_host_pcm_mem_handle = ptr[0];
+
+				pr_debug("%s: vhpcm mem handle 0x%x\n",
+					 __func__,
+					 common.voice_host_pcm_mem_handle);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			}
@@ -5096,8 +5109,12 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
 			case VSS_ICOMMON_CMD_UNMAP_MEMORY:
 			case VSS_IVOLUME_CMD_MUTE_V2:
+			case VSS_IVPCM_CMD_START_V2:
+			case VSS_IVPCM_CMD_STOP:
 				v->cvp_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvp_wait);
+				break;
+			case VSS_IVPCM_EVT_PUSH_BUFFER_V2:
 				break;
 			case VOICE_CMD_SET_PARAM:
 				pr_debug("%s: VOICE_CMD_SET_PARAM\n", __func__);
@@ -5134,6 +5151,14 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 		}
 		rtac_make_voice_callback(RTAC_CVP, data->payload,
 			data->payload_size);
+	} else if (data->opcode == VSS_IVPCM_EVT_NOTIFY_V2) {
+		if ((data->payload != NULL) && data->payload_size ==
+		    sizeof(struct vss_ivpcm_evt_notify_v2_t) &&
+		    common.hostpcm_info.hostpcm_evt_cb != NULL) {
+			common.hostpcm_info.hostpcm_evt_cb(data->payload,
+					voc_get_session_name(v->session_id),
+					common.hostpcm_info.private_data);
+		}
 	}
 	return 0;
 }
@@ -5271,6 +5296,227 @@ static int voice_alloc_oob_mem_table(void)
 done:
 	mutex_unlock(&common.common_lock);
 	return rc;
+}
+
+int voc_send_cvp_start_vocpcm(uint32_t session_id,
+			      struct vss_ivpcm_tap_point *vpcm_tp,
+			      uint32_t no_of_tp)
+{
+	struct cvp_start_cmd cvp_start_cmd;
+	int ret = 0;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct voice_data *v = voice_get_session(session_id);
+	int i = 0;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	apr_cvp = common.apr_q6_cvp;
+
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cvp_handle = voice_get_cvp_handle(v);
+
+	/* Fill the header */
+	cvp_start_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvp_start_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(struct vss_ivpcm_tap_point) * no_of_tp) +
+		sizeof(cvp_start_cmd.vpcm_start_cmd.num_tap_points) +
+		sizeof(cvp_start_cmd.vpcm_start_cmd.mem_handle);
+	cvp_start_cmd.hdr.src_port = voice_get_idx_for_session(v->session_id);
+	cvp_start_cmd.hdr.dest_port = cvp_handle;
+	cvp_start_cmd.hdr.token = 0;
+	cvp_start_cmd.hdr.opcode = VSS_IVPCM_CMD_START_V2;
+
+	for (i = 0; i < no_of_tp; i++) {
+		cvp_start_cmd.vpcm_start_cmd.tap_points[i].tap_point =
+							vpcm_tp[i].tap_point;
+		cvp_start_cmd.vpcm_start_cmd.tap_points[i].direction =
+							vpcm_tp[i].direction;
+		cvp_start_cmd.vpcm_start_cmd.tap_points[i].sampling_rate =
+						    vpcm_tp[i].sampling_rate;
+		cvp_start_cmd.vpcm_start_cmd.tap_points[i].duration = 0;
+	}
+
+	cvp_start_cmd.vpcm_start_cmd.mem_handle =
+				common.voice_host_pcm_mem_handle;
+	cvp_start_cmd.vpcm_start_cmd.num_tap_points = no_of_tp;
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_start_cmd);
+	if (ret < 0) {
+		pr_err("%s: Fail: sending vocpcm map memory,\n", __func__);
+		goto done;
+	}
+	ret = wait_event_timeout(v->cvp_wait,
+			(v->cvp_state == CMD_STATUS_SUCCESS),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+int voc_send_cvp_stop_vocpcm(uint32_t session_id)
+{
+	struct cvp_command vpcm_stop_cmd;
+	int ret = 0;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct voice_data *v = voice_get_session(session_id);
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	apr_cvp = common.apr_q6_cvp;
+
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cvp_handle = voice_get_cvp_handle(v);
+
+	/* fill in the header */
+	vpcm_stop_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				 APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	vpcm_stop_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			 sizeof(vpcm_stop_cmd) - APR_HDR_SIZE);
+	vpcm_stop_cmd.hdr.src_port = voice_get_idx_for_session(v->session_id);
+	vpcm_stop_cmd.hdr.dest_port = cvp_handle;
+	vpcm_stop_cmd.hdr.token = 0;
+	vpcm_stop_cmd.hdr.opcode = VSS_IVPCM_CMD_STOP;
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_cvp, (uint32_t *) &vpcm_stop_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending vocpcm stop,\n");
+		goto done;
+	}
+	ret = wait_event_timeout(v->cvp_wait,
+			(v->cvp_state == CMD_STATUS_SUCCESS),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+int voc_send_cvp_map_vocpcm_memory(uint32_t session_id,
+				   struct mem_map_table *tp_mem_table,
+				   uint32_t paddr, uint32_t bufsize)
+{
+	return  voice_map_memory_physical_cmd(voice_get_session(session_id),
+					      tp_mem_table,
+					      (dma_addr_t) paddr, bufsize,
+					      VOC_VOICE_HOST_PCM_MAP_TOKEN);
+}
+
+int voc_send_cvp_unmap_vocpcm_memory(uint32_t session_id)
+{
+	int ret = 0;
+
+	ret =  voice_send_mvm_unmap_memory_physical_cmd(
+				voice_get_session(session_id),
+				common.voice_host_pcm_mem_handle);
+
+	if (ret == 0)
+		common.voice_host_pcm_mem_handle = 0;
+
+	return ret;
+}
+
+int voc_send_cvp_vocpcm_push_buf_evt(uint32_t session_id,
+			struct vss_ivpcm_evt_push_buffer_v2_t *push_buff_evt)
+{
+	struct cvp_push_buf_cmd vpcm_push_buf_cmd;
+	int ret = 0;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct voice_data *v = voice_get_session(session_id);
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	apr_cvp = common.apr_q6_cvp;
+
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memset(&vpcm_push_buf_cmd, 0, sizeof(vpcm_push_buf_cmd));
+	cvp_handle = voice_get_cvp_handle(v);
+
+	/* fill in the header */
+	vpcm_push_buf_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	vpcm_push_buf_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(vpcm_push_buf_cmd) - APR_HDR_SIZE);
+	vpcm_push_buf_cmd.hdr.src_port =
+				voice_get_idx_for_session(v->session_id);
+	vpcm_push_buf_cmd.hdr.dest_port = cvp_handle;
+	vpcm_push_buf_cmd.hdr.token = 0;
+	vpcm_push_buf_cmd.hdr.opcode = VSS_IVPCM_EVT_PUSH_BUFFER_V2;
+
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.tap_point =
+					push_buff_evt->tap_point;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.push_buf_mask =
+					push_buff_evt->push_buf_mask;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.out_buf_mem_address =
+					push_buff_evt->out_buf_mem_address;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.in_buf_mem_address =
+					push_buff_evt->in_buf_mem_address;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.out_buf_mem_size =
+					push_buff_evt->out_buf_mem_size;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.in_buf_mem_size =
+					push_buff_evt->in_buf_mem_size;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.sampling_rate =
+					push_buff_evt->sampling_rate;
+	vpcm_push_buf_cmd.vpcm_evt_push_buffer.num_in_channels =
+					push_buff_evt->num_in_channels;
+
+	ret = apr_send_pkt(apr_cvp, (uint32_t *) &vpcm_push_buf_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending vocpcm map memory,\n");
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+void voc_register_hpcm_evt_cb(hostpcm_cb_fn hostpcm_cb,
+			      void *private_data)
+{
+	common.hostpcm_info.hostpcm_evt_cb = hostpcm_cb;
+	common.hostpcm_info.private_data = private_data;
+}
+
+void voc_deregister_hpcm_evt_cb(void)
+{
+	common.hostpcm_info.hostpcm_evt_cb = NULL;
+	common.hostpcm_info.private_data = NULL;
 }
 
 static int voice_alloc_cal_mem_map_table(void)
