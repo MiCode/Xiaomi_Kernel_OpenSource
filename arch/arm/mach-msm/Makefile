@@ -62,8 +62,8 @@ obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 obj-$(CONFIG_MSM_AVS_HW) += avs.o
 obj-$(CONFIG_CPU_V6) += idle-v6.o
 obj-$(CONFIG_CPU_V7) += idle-v7.o
-obj-$(CONFIG_MSM_JTAG) += jtag.o
-obj-$(CONFIG_MSM_JTAG_MM) +=  jtag-mm.o
+obj-$(CONFIG_MSM_JTAG) += jtag-fuse.o jtag.o
+obj-$(CONFIG_MSM_JTAG_MM) +=  jtag-fuse.o jtag-mm.o
 
 msm-etm-objs := etm.o
 obj-$(CONFIG_MSM_ETM) += msm-etm.o
