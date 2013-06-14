@@ -193,6 +193,7 @@
 		qcom,pool-64-bit-align;
 		qcom,enable-hbm;
 		hsic,consider-ipa-handshake;
+		hsic,log2-itc = <3>;
 		qcom,ahb-async-bridge-bypass;
 	};
 
