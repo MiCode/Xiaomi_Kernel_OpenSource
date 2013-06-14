@@ -35,9 +35,11 @@
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
 #include <mach/qdsp6v2/apr.h>
+#include <mach/subsystem_notif.h>
 #include "msm8x10-wcd.h"
 #include "wcd9xxx-resmgr.h"
 #include "msm8x10_wcd_registers.h"
+#include "../msm/qdsp6v2/q6core.h"
 
 #define MSM8X10_WCD_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
@@ -185,6 +187,11 @@ static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
 	struct device *dev);
 
 struct msm8x10_wcd_i2c msm8x10_wcd_modules[MAX_MSM8X10_WCD_DEVICE];
+
+static void *adsp_state_notifier;
+
+static struct snd_soc_codec *registered_codec;
+#define ADSP_STATE_READY_TIMEOUT_MS 2000
 
 
 static int get_i2c_msm8x10_wcd_device_info(u16 reg,
@@ -2549,6 +2556,53 @@ static struct regulator *wcd8x10_wcd_codec_find_regulator(
 	return NULL;
 }
 
+static int msm8x10_wcd_device_up(struct snd_soc_codec *codec)
+{
+	pr_debug("%s: device up!\n", __func__);
+
+	mutex_lock(&codec->mutex);
+
+	msm8x10_wcd_bringup(codec);
+	msm8x10_wcd_codec_init_reg(codec);
+	msm8x10_wcd_update_reg_defaults(codec);
+
+	mutex_unlock(&codec->mutex);
+
+	return 0;
+}
+
+static int adsp_state_callback(struct notifier_block *nb, unsigned long value,
+			       void *priv)
+{
+	bool timedout;
+	unsigned long timeout;
+
+	if (value == SUBSYS_AFTER_POWERUP) {
+		pr_debug("%s: ADSP is about to power up. bring up codec\n",
+			 __func__);
+
+		timeout = jiffies +
+			  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+		while (!(timedout = time_after(jiffies, timeout))) {
+			if (!q6core_is_adsp_ready()) {
+				pr_debug("%s: ADSP isn't ready\n", __func__);
+			} else {
+				pr_debug("%s: ADSP is ready\n", __func__);
+				msm8x10_wcd_device_up(registered_codec);
+				break;
+			}
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = adsp_state_callback,
+	.priority = -INT_MAX,
+};
+
+
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd;
@@ -2591,6 +2645,16 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd->mbhc_polling_active = false;
 	mutex_init(&msm8x10_wcd->codec_resource_lock);
 
+	registered_codec = codec;
+	adsp_state_notifier =
+	    subsys_notif_register_notifier("adsp",
+					   &adsp_state_notifier_block);
+	if (!adsp_state_notifier) {
+		pr_err("%s: Failed to register adsp state notifier\n",
+		       __func__);
+		registered_codec = NULL;
+		return -ENOMEM;
+	}
 	return 0;
 }
 
