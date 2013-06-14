@@ -45,6 +45,11 @@
 		qcom,direct-connect-irqs = <8>;
 	};
 
+	qcom,msm-imem@fe805000 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe807800 0x1000>; /* Address and size of IMEM */
+	};
+
 	timer@f9020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
