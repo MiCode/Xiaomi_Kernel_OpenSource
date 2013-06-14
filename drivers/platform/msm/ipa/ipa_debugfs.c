@@ -346,11 +346,18 @@ static int ipa_attrib_dump(char *buff, size_t sz,
 	uint32_t mask[4];
 	int i;
 
-	if (attrib->attrib_mask & IPA_FLT_TOS) {
-		nbytes = scnprintf(buff + cnt, sz - cnt, "tos:%d ",
-				attrib->u.v4.tos);
+
+	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+		nbytes = scnprintf(buff + cnt, sz - cnt, "tos_value:%d ",
+				attrib->tos_value);
 		cnt += nbytes;
 	}
+	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+		nbytes = scnprintf(buff + cnt, sz - cnt, "tos_mask:%d ",
+				attrib->tos_mask);
+		cnt += nbytes;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 		nbytes = scnprintf(buff + cnt, sz - cnt, "protocol:%d ",
 				attrib->u.v4.protocol);

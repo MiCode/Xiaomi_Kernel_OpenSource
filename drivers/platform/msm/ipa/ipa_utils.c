@@ -237,6 +237,20 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*buf = ipa_pad_to_32(*buf);
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			/* 0 => offset of TOS in v4 header */
+			*buf = ipa_write_8(0, *buf);
+			*buf = ipa_write_32((attrib->tos_mask << 16), *buf);
+			*buf = ipa_write_32(attrib->tos_value, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ofst_meq32++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 			*en_rule |= IPA_PROTOCOL_EQ;
 			*buf = ipa_write_8(attrib->u.v4.protocol, *buf);
@@ -566,6 +580,20 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*en_rule |= IPA_FLT_TC;
 			*buf = ipa_write_8(attrib->u.v6.tc, *buf);
 			*buf = ipa_pad_to_32(*buf);
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			/* 0 => offset of TOS in v4 header */
+			*buf = ipa_write_8(0, *buf);
+			*buf = ipa_write_32((attrib->tos_mask << 20), *buf);
+			*buf = ipa_write_32(attrib->tos_value, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ofst_meq32++;
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
