@@ -1,0 +1,28 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-ab.dtsi"
+/include/ "msm8974-liquid.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8974Pro LIQUID";
+	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
+	qcom,msm-id = <209 9 0x10000>,
+		      <211 9 0x10000>,
+		      <212 9 0x10000>,
+		      <214 9 0x10000>,
+		      <215 9 0x10000>,
+		      <217 9 0x10000>,
+		      <218 9 0x10000>;
+};
