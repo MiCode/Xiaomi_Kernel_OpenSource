@@ -33,58 +33,6 @@
 
 static DEFINE_MUTEX(ipc_log_debugfs_init_lock);
 static struct dentry *root_dent;
-#define MAX_MSG_DECODED_SIZE (MAX_MSG_SIZE*4)
-
-static void *get_deserialization_func(struct ipc_log_context *ilctxt,
-				      int type)
-{
-	struct dfunc_info *df_info = NULL;
-
-	if (!ilctxt)
-		return NULL;
-
-	list_for_each_entry(df_info, &ilctxt->dfunc_info_list, list) {
-		if (df_info->type == type)
-			return df_info->dfunc;
-	}
-	return NULL;
-}
-
-static int deserialize_log(struct ipc_log_context *ilctxt,
-			   char *buff, int size)
-{
-	struct encode_context ectxt;
-	struct decode_context dctxt;
-	void (*deserialize_func)(struct encode_context *ectxt,
-				 struct decode_context *dctxt);
-	unsigned long flags;
-
-	dctxt.output_format = OUTPUT_DEBUGFS;
-	dctxt.buff = buff;
-	dctxt.size = size;
-	read_lock_irqsave(&ipc_log_context_list_lock, flags);
-	spin_lock(&ilctxt->ipc_log_context_lock);
-	while (dctxt.size >= MAX_MSG_DECODED_SIZE &&
-	       !is_ilctxt_empty(ilctxt)) {
-		msg_read(ilctxt, &ectxt);
-		deserialize_func = get_deserialization_func(ilctxt,
-							ectxt.hdr.type);
-		spin_unlock(&ilctxt->ipc_log_context_lock);
-		read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
-		if (deserialize_func)
-			deserialize_func(&ectxt, &dctxt);
-		else
-			pr_err("%s: unknown message 0x%x\n",
-				__func__, ectxt.hdr.type);
-		read_lock_irqsave(&ipc_log_context_list_lock, flags);
-		spin_lock(&ilctxt->ipc_log_context_lock);
-	}
-	if ((size - dctxt.size) == 0)
-		init_completion(&ilctxt->read_avail);
-	spin_unlock(&ilctxt->ipc_log_context_lock);
-	read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
-	return size - dctxt.size;
-}
 
 static int debug_log(struct ipc_log_context *ilctxt,
 		     char *buff, int size, int cont)
@@ -97,7 +45,7 @@ static int debug_log(struct ipc_log_context *ilctxt,
 		return -ENOMEM;
 	}
 	do {
-		i = deserialize_log(ilctxt, buff, size - 1);
+		i = ipc_log_extract(ilctxt, buff, size - 1);
 		if (cont && i == 0) {
 			wait_for_completion_interruptible(&ilctxt->read_avail);
 			if (signal_pending(current))

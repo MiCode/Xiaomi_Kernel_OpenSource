@@ -34,6 +34,8 @@
 static LIST_HEAD(ipc_log_context_list);
 DEFINE_RWLOCK(ipc_log_context_list_lock);
 static atomic_t next_log_id = ATOMIC_INIT(0);
+static void *get_deserialization_func(struct ipc_log_context *ilctxt,
+				      int type);
 
 static struct ipc_log_page *get_first_page(struct ipc_log_context *ilctxt)
 {
@@ -339,6 +341,59 @@ int ipc_log_string(void *ilctxt, const char *fmt, ...)
 	ipc_log_write(ilctxt, &ectxt);
 	return 0;
 }
+EXPORT_SYMBOL(ipc_log_string);
+
+/**
+ * ipc_log_extract - Reads and deserializes log
+ *
+ * @ctxt:  logging context
+ * @buff:    buffer to receive the data
+ * @size:    size of the buffer
+ * @returns: 0 if no data read; >0 number of bytes read; < 0 error
+ *
+ * If no data is available to be read, then the ilctxt::read_avail
+ * completion is reinitialized.  This allows clients to block
+ * until new log data is save.
+ */
+int ipc_log_extract(void *ctxt, char *buff, int size)
+{
+	struct encode_context ectxt;
+	struct decode_context dctxt;
+	void (*deserialize_func)(struct encode_context *ectxt,
+				 struct decode_context *dctxt);
+	struct ipc_log_context *ilctxt = (struct ipc_log_context *)ctxt;
+	unsigned long flags;
+
+	if (size < MAX_MSG_DECODED_SIZE)
+		return -EINVAL;
+
+	dctxt.output_format = OUTPUT_DEBUGFS;
+	dctxt.buff = buff;
+	dctxt.size = size;
+	read_lock_irqsave(&ipc_log_context_list_lock, flags);
+	spin_lock(&ilctxt->ipc_log_context_lock);
+	while (dctxt.size >= MAX_MSG_DECODED_SIZE &&
+	       !is_ilctxt_empty(ilctxt)) {
+		msg_read(ilctxt, &ectxt);
+		deserialize_func = get_deserialization_func(ilctxt,
+							ectxt.hdr.type);
+		spin_unlock(&ilctxt->ipc_log_context_lock);
+		read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+		if (deserialize_func)
+			deserialize_func(&ectxt, &dctxt);
+		else
+			pr_err("%s: unknown message 0x%x\n",
+				__func__, ectxt.hdr.type);
+		read_lock_irqsave(&ipc_log_context_list_lock, flags);
+		spin_lock(&ilctxt->ipc_log_context_lock);
+	}
+	if ((size - dctxt.size) == 0)
+		init_completion(&ilctxt->read_avail);
+	spin_unlock(&ilctxt->ipc_log_context_lock);
+	read_unlock_irqrestore(&ipc_log_context_list_lock, flags);
+	return size - dctxt.size;
+}
+EXPORT_SYMBOL(ipc_log_extract);
 
 /*
  * Helper funtion used to read data from a message context.
@@ -481,6 +536,21 @@ int add_deserialization_func(void *ctxt, int type,
 	return 0;
 }
 EXPORT_SYMBOL(add_deserialization_func);
+
+static void *get_deserialization_func(struct ipc_log_context *ilctxt,
+				      int type)
+{
+	struct dfunc_info *df_info = NULL;
+
+	if (!ilctxt)
+		return NULL;
+
+	list_for_each_entry(df_info, &ilctxt->dfunc_info_list, list) {
+		if (df_info->type == type)
+			return df_info->dfunc;
+	}
+	return NULL;
+}
 
 void *ipc_log_context_create(int max_num_pages,
 			     const char *mod_name)
