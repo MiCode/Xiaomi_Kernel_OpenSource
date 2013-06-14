@@ -367,7 +367,10 @@ static int hw_device_reset(struct ci13xxx *udc)
 	 * 8 micro frames. If CPU can handle interrupts at faster rate, ITC
 	 * can be set to lesser value to gain performance.
 	 */
-	if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
+	if (udc->udc_driver->nz_itc)
+		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK,
+			USBCMD_ITC(udc->udc_driver->nz_itc));
+	else if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
 		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(0));
 
 	if (hw_cread(CAP_USBMODE, USBMODE_CM) != USBMODE_CM_DEVICE) {

@@ -129,6 +129,7 @@ struct ci13xxx;
 struct ci13xxx_udc_driver {
 	const char	*name;
 	unsigned long	 flags;
+	unsigned int nz_itc;
 #define CI13XXX_REGS_SHARED		BIT(0)
 #define CI13XXX_REQUIRE_TRANSCEIVER	BIT(1)
 #define CI13XXX_PULLUP_ON_VBUS		BIT(2)

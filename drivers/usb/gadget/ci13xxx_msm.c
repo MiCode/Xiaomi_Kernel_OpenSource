@@ -16,6 +16,8 @@
 
 #define MSM_USB_BASE	(udc->regs)
 
+#define CI13XXX_MSM_MAX_ITC_LEVEL	6
+
 struct ci13xxx_udc_context {
 	int irq;
 	void __iomem *regs;
@@ -177,7 +179,7 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 				  CI13XXX_ZERO_ITC |
 				  CI13XXX_DISABLE_STREAMING |
 				  CI13XXX_IS_OTG,
-
+	.nz_itc			= 0,
 	.notify_event		= ci13xxx_msm_notify_event,
 };
 
@@ -230,9 +232,20 @@ static void ci13xxx_msm_uninstall_wake_gpio(struct platform_device *pdev)
 static int ci13xxx_msm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int ret;
+	int ret, rc;
+	int itc_level = 0;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
+
+	if (pdev->dev.of_node) {
+		rc = of_property_read_u32(pdev->dev.of_node, "qcom,itc-level",
+			&itc_level);
+		/* Acceptable values for nz_itc are: 0,1,2,4,8,16,32,64 */
+		if (itc_level > CI13XXX_MSM_MAX_ITC_LEVEL || rc)
+			ci13xxx_msm_udc_driver.nz_itc = 0;
+		else
+			ci13xxx_msm_udc_driver.nz_itc = 1 << itc_level;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -313,9 +326,18 @@ void msm_hw_bam_disable(bool bam_disable)
 	writel_relaxed(val, USB_GENCONFIG);
 }
 
+static const struct of_device_id ci13xx_msm_dt_match[] = {
+	{ .compatible = "qcom,ci13xxx_msm",
+	},
+	{}
+};
+
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
-	.driver = { .name = "msm_hsusb", },
+	.driver = {
+		.name = "msm_hsusb",
+		.of_match_table = ci13xx_msm_dt_match,
+	},
 	.remove = ci13xxx_msm_remove,
 };
 MODULE_ALIAS("platform:msm_hsusb");
