@@ -1635,7 +1635,9 @@
 
 &gdsc_mdss {
 	qcom,clock-names = "core_clk", "lut_clk";
+	qcom,skip-logic-collapse;
 	qcom,retain-periph;
+	qcom,retain-mem;
 	status = "ok";
 };
 
