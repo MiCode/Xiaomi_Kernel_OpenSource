@@ -929,14 +929,14 @@ int kgsl_close_device(struct kgsl_device *device)
 	int result = 0;
 	device->open_count--;
 	if (device->open_count == 0) {
-		BUG_ON(device->active_cnt > 1);
+		BUG_ON(atomic_read(&device->active_cnt) > 1);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 		/*
 		 * active_cnt special case: we just stopped the device,
 		 * so no need to use kgsl_active_count_put()
 		 */
-		device->active_cnt--;
+		atomic_dec(&device->active_cnt);
 	} else {
 		kgsl_active_count_put(device);
 	}
@@ -998,7 +998,7 @@ int kgsl_open_device(struct kgsl_device *device)
 		 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
 		 * which will be called by kgsl_active_count_get().
 		 */
-		device->active_cnt++;
+		atomic_inc(&device->active_cnt);
 		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
 				device->memstore.size);
 
@@ -1021,7 +1021,8 @@ int kgsl_open_device(struct kgsl_device *device)
 	device->open_count++;
 err:
 	if (result)
-		device->active_cnt--;
+		atomic_dec(&device->active_cnt);
+
 	return result;
 }
 EXPORT_SYMBOL(kgsl_open_device);
@@ -1093,7 +1094,7 @@ err_stop:
 		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
-		device->active_cnt--;
+		atomic_dec(&device->active_cnt);
 	}
 err_freedevpriv:
 	mutex_unlock(&device->mutex);
