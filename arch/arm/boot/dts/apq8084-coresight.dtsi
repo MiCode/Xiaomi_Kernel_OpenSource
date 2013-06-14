@@ -1,0 +1,145 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tmc_etr: tmc@fc326000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc326000 0x1000>,
+		      <0xfc37c000 0x3000>;
+		reg-names = "tmc-base", "bam-base";
+
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+
+		coresight-id = <0>;
+		coresight-name = "coresight-tmc-etr";
+		coresight-nr-inports = <1>;
+	};
+
+	replicator: replicator@fc324000 {
+		compatible = "qcom,coresight-replicator";
+		reg = <0xfc324000 0x1000>;
+		reg-names = "replicator-base";
+
+		coresight-id = <2>;
+		coresight-name = "coresight-replicator";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tmc_etr>;
+		coresight-child-ports = <0>;
+	};
+
+	tmc_etf: tmc@fc325000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc325000 0x1000>;
+		reg-names = "tmc-base";
+
+		coresight-id = <3>;
+		coresight-name = "coresight-tmc-etf";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&replicator>;
+		coresight-child-ports = <0>;
+		coresight-default-sink;
+	};
+
+	funnel_merg: funnel@fc323000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc323000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <4>;
+		coresight-name = "coresight-funnel-merg";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tmc_etf>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in0: funnel@fc321000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc321000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <5>;
+		coresight-name = "coresight-funnel-in0";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in1: funnel@fc322000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc322000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <6>;
+		coresight-name = "coresight-funnel-in1";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <1>;
+	};
+
+	funnel_kpss: funnel@fc355000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc355000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <7>;
+		coresight-name = "coresight-funnel-kpss";
+		coresight-nr-inports = <4>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <5>;
+	};
+
+	funnel_mmss: funnel@fc36c000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc36c000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <8>;
+		coresight-name = "coresight-funnel-mmss";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <1>;
+	};
+
+	stm: stm@fc302000 {
+		compatible = "arm,coresight-stm";
+		reg = <0xfc302000 0x1000>,
+		      <0xfa280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
+
+		coresight-id = <9>;
+		coresight-name = "coresight-stm";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <7>;
+	};
+
+	csr: csr@fc301000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0xfc301000 0x1000>;
+		reg-names = "csr-base";
+
+		coresight-id = <14>;
+		coresight-name = "coresight-csr";
+		coresight-nr-inports = <0>;
+
+		qcom,blk-size = <3>;
+	};
+};
