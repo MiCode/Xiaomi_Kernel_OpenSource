@@ -2170,6 +2170,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	unsigned long timeout;
 	int retry = 0, pt_gnd_mic_swap_cnt = 0;
 	bool correction = false;
+	bool wrk_complete = true;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -2195,12 +2196,14 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		++retry;
 		rmb();
 		if (mbhc->hs_detect_work_stop) {
+			wrk_complete = false;
 			pr_debug("%s: stop requested\n", __func__);
 			break;
 		}
 
 		msleep(HS_DETECT_PLUG_INERVAL_MS);
 		if (wcd9xxx_swch_level_remove(mbhc)) {
+			wrk_complete = false;
 			pr_debug("%s: Switch level is low\n", __func__);
 			break;
 		}
@@ -2274,7 +2277,9 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	if (plug_type == PLUG_TYPE_HIGH_HPH) {
 		pr_debug("%s: polling is done, still HPH, so enabling MIC trigger\n",
 			 __func__);
+		WCD9XXX_BCL_LOCK(mbhc->resmgr);
 		wcd9xxx_find_plug_and_report(mbhc, plug_type);
+		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 	}
 	/* Turn off override */
 	if (!correction)
@@ -2284,10 +2289,11 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 
 	if (mbhc->mbhc_cfg->detect_extn_cable) {
 		WCD9XXX_BCL_LOCK(mbhc->resmgr);
-		if (mbhc->current_plug == PLUG_TYPE_HEADPHONE ||
+		if ((mbhc->current_plug == PLUG_TYPE_HEADPHONE &&
+		    wrk_complete) ||
 		    mbhc->current_plug == PLUG_TYPE_GND_MIC_SWAP ||
 		    mbhc->current_plug == PLUG_TYPE_INVALID ||
-		    plug_type == PLUG_TYPE_INVALID) {
+		    (plug_type == PLUG_TYPE_INVALID && wrk_complete)) {
 			/* Enable removal detection */
 			wcd9xxx_cleanup_hs_polling(mbhc);
 			wcd9xxx_enable_hs_detect(mbhc, 0, 0, false);
