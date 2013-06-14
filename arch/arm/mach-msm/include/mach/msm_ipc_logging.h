@@ -115,6 +115,20 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt);
  */
 int ipc_log_string(void *ilctxt, const char *fmt, ...) __printf(2, 3);
 
+/**
+ * ipc_log_extract - Reads and deserializes log
+ *
+ * @ilctxt:  logging context
+ * @buff:    buffer to receive the data
+ * @size:    size of the buffer
+ * @returns: 0 if no data read; >0 number of bytes read; < 0 error
+ *
+ * If no data is available to be read, then the ilctxt::read_avail
+ * completion is reinitialized.  This allows clients to block
+ * until new log data is save.
+ */
+int ipc_log_extract(void *ilctxt, char *buff, int size);
+
 /*
  * Print a string to decode context.
  * @dctxt   Decode context
@@ -218,6 +232,9 @@ static inline void msg_encode_end(struct encode_context *ectxt) { }
 static inline void ipc_log_write(void *ctxt, struct encode_context *ectxt) { }
 
 static inline int ipc_log_string(void *ilctxt, const char *fmt, ...)
+{ return -EINVAL; }
+
+static inline int ipc_log_extract(void *ilctxt, char *buff, int size)
 { return -EINVAL; }
 
 #define IPC_SPRINTF_DECODE(dctxt, args...) do { } while (0)
