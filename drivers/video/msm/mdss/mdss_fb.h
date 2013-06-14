@@ -90,6 +90,8 @@ struct msm_fb_data_type {
 	struct panel_id panel;
 	struct mdss_panel_info *panel_info;
 	int split_display;
+	int split_fb_left;
+	int split_fb_right;
 
 	u32 dest;
 	struct fb_info *fbi;

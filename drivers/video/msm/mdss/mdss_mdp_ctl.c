@@ -613,6 +613,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_ctl *split_ctl;
 	u32 width, height;
+	int split_fb;
 
 	if (!ctl || !ctl->panel_data) {
 		pr_err("invalid ctl handle\n");
@@ -623,6 +624,13 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	width = ctl->panel_data->panel_info.xres;
 	height = ctl->panel_data->panel_info.yres;
+
+	split_fb = (ctl->mfd->split_fb_left &&
+		    ctl->mfd->split_fb_right &&
+		    (ctl->mfd->split_fb_left <= MAX_MIXER_WIDTH) &&
+		    (ctl->mfd->split_fb_right <= MAX_MIXER_WIDTH)) ? 1 : 0;
+	pr_debug("max=%d xres=%d left=%d right=%d\n", MAX_MIXER_WIDTH,
+		 width, ctl->mfd->split_fb_left, ctl->mfd->split_fb_right);
 
 	if ((split_ctl && (width > MAX_MIXER_WIDTH)) ||
 			(width > (2 * MAX_MIXER_WIDTH))) {
@@ -636,14 +644,16 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
 			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
-					(width > MAX_MIXER_WIDTH));
+			 ((width > MAX_MIXER_WIDTH) || split_fb));
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
 		}
 	}
 
-	if (width > MAX_MIXER_WIDTH)
+	if (split_fb)
+		width = ctl->mfd->split_fb_left;
+	else if (width > MAX_MIXER_WIDTH)
 		width /= 2;
 
 	ctl->mixer_left->width = width;
@@ -653,6 +663,9 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		pr_debug("split display detected\n");
 		return 0;
 	}
+
+	if (split_fb)
+		width = ctl->mfd->split_fb_right;
 
 	if (width < ctl->width) {
 		if (ctl->mixer_right == NULL) {
