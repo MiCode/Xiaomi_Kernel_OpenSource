@@ -190,12 +190,16 @@ fail_pt:
 static unsigned int kgsl_sync_get_timestamp(
 	struct kgsl_sync_timeline *ktimeline, enum kgsl_timestamp_type type)
 {
-	struct kgsl_context *context = idr_find(&ktimeline->device->context_idr,
-						ktimeline->context_id);
-	if (context == NULL)
-		return 0;
+	unsigned int ret = 0;
 
-	return kgsl_readtimestamp(ktimeline->device, context, type);
+	struct kgsl_context *context = kgsl_context_get(ktimeline->device,
+			ktimeline->context_id);
+
+	if (context)
+		ret = kgsl_readtimestamp(ktimeline->device, context, type);
+
+	kgsl_context_put(context);
+	return ret;
 }
 
 static void kgsl_sync_timeline_value_str(struct sync_timeline *sync_timeline,
