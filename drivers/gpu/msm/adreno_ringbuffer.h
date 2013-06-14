@@ -54,7 +54,6 @@ struct adreno_ringbuffer {
 	unsigned int sizedwords;
 
 	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
-	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
 
 	unsigned int timestamp[KGSL_MEMSTORE_MAX];
 };
@@ -74,10 +73,20 @@ struct adreno_ringbuffer {
 
 /* mem rptr */
 #define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
-#define GSL_RB_GET_READPTR(rb, data) \
-	do { \
-		*(data) = rb->memptrs->rptr; \
-	} while (0)
+
+/**
+ * adreno_get_rptr - Get the current ringbuffer read pointer
+ * @rb -  the ringbuffer
+ *
+ * Get the current read pointer, which is written by the GPU.
+ */
+static inline unsigned int
+adreno_get_rptr(struct adreno_ringbuffer *rb)
+{
+	unsigned int result = rb->memptrs->rptr;
+	rmb();
+	return result;
+}
 
 #define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
 
