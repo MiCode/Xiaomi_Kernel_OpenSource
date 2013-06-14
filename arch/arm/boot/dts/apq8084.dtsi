@@ -21,6 +21,7 @@
 
 /include/ "apq8084-ion.dtsi"
 /include/ "apq8084-smp2p.dtsi"
+/include/ "apq8084-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
