@@ -16,16 +16,19 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@30 { /* SYSTEM HEAP */
+		qcom,ion-heap@30 {
 			reg = <30>;
+			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@21 { /* SYSTEM CONTIG HEAP */
+		qcom,ion-heap@21 {
 			reg = <21>;
+			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
-		qcom,ion-heap@25 { /* IOMMU HEAP */
+		qcom,ion-heap@25 {
 			reg = <25>;
+			qcom,ion-heap-type = "IOMMU";
 		};
 
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
@@ -33,6 +36,7 @@
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x05900000 0x2200000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 
 		qcom,ion-heap@26 { /* MODEM HEAP */
@@ -40,6 +44,7 @@
 			reg = <26>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x08000000 0x5100000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 
 		qcom,ion-heap@28 { /* AUDIO HEAP */
@@ -48,6 +53,7 @@
 			qcom,heap-align = <0x1000>;
 			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
 			qcom,memory-reservation-size = <0x614000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
 };
