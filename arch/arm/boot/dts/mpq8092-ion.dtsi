@@ -16,16 +16,19 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@30 { /* SYSTEM HEAP */
+		qcom,ion-heap@30 {
 			reg = <30>;
+			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@21 { /* SYSTEM CONTIG HEAP */
+		qcom,ion-heap@21 {
 			reg = <21>;
+			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
-		qcom,ion-heap@25 { /* IOMMU HEAP */
+		qcom,ion-heap@25 {
 			reg = <25>;
+			qcom,ion-heap-type = "IOMMU";
 		};
 
 	};

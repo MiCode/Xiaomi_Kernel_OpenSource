@@ -18,6 +18,7 @@
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x05a00000 0x2100000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 
 		qcom,ion-heap@26 { /* MODEM HEAP */
@@ -25,6 +26,7 @@
 			reg = <26>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x08000000 0x5000000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
 };

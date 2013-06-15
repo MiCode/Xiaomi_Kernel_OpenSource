@@ -51,74 +51,60 @@ struct ion_heap_desc {
 static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SYSTEM_HEAP_ID,
-		.type	= ION_HEAP_TYPE_SYSTEM,
 		.name	= ION_SYSTEM_HEAP_NAME,
 	},
 	{
 		.id	= ION_SYSTEM_CONTIG_HEAP_ID,
-		.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
 		.name	= ION_KMALLOC_HEAP_NAME,
 	},
 	{
 		.id	= ION_CP_MM_HEAP_ID,
-		.type	= ION_HEAP_TYPE_SECURE_DMA,
 		.name	= ION_MM_HEAP_NAME,
 		.permission_type = IPT_TYPE_MM_CARVEOUT,
 	},
 	{
 		.id	= ION_MM_FIRMWARE_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_MM_FIRMWARE_HEAP_NAME,
 	},
 	{
 		.id	= ION_CP_MFC_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CP,
 		.name	= ION_MFC_HEAP_NAME,
 		.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 	},
 	{
 		.id	= ION_SF_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_SF_HEAP_NAME,
 	},
 	{
 		.id	= ION_IOMMU_HEAP_ID,
-		.type	= ION_HEAP_TYPE_IOMMU,
 		.name	= ION_IOMMU_HEAP_NAME,
 	},
 	{
 		.id	= ION_QSECOM_HEAP_ID,
-		.type	= ION_HEAP_TYPE_DMA,
 		.name	= ION_QSECOM_HEAP_NAME,
 	},
 	{
 		.id	= ION_AUDIO_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_AUDIO_HEAP_NAME,
 	},
 	{
 		.id	= ION_PIL1_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_PIL1_HEAP_NAME,
 	},
 	{
 		.id	= ION_PIL2_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_PIL2_HEAP_NAME,
 	},
 	{
 		.id	= ION_CP_WB_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CP,
 		.name	= ION_WB_HEAP_NAME,
 	},
 	{
 		.id	= ION_CAMERA_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_CAMERA_HEAP_NAME,
 	},
 	{
 		.id	= ION_ADSP_HEAP_ID,
-		.type	= ION_HEAP_TYPE_DMA,
 		.name	= ION_ADSP_HEAP_NAME,
 	}
 };
@@ -593,15 +579,59 @@ static int msm_init_extra_data(struct ion_platform_heap *heap,
 	return ret;
 }
 
-static int msm_ion_populate_heap(struct ion_platform_heap *heap)
+#define MAKE_HEAP_TYPE_MAPPING(h) { .name = #h, \
+			.heap_type = ION_HEAP_TYPE_##h, }
+
+static struct heap_types_info {
+	const char *name;
+	int heap_type;
+} heap_types_info[] = {
+	MAKE_HEAP_TYPE_MAPPING(SYSTEM),
+	MAKE_HEAP_TYPE_MAPPING(SYSTEM_CONTIG),
+	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
+	MAKE_HEAP_TYPE_MAPPING(CHUNK),
+	MAKE_HEAP_TYPE_MAPPING(IOMMU),
+	MAKE_HEAP_TYPE_MAPPING(DMA),
+	MAKE_HEAP_TYPE_MAPPING(CP),
+	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
+	MAKE_HEAP_TYPE_MAPPING(REMOVED),
+};
+
+static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
+					int *heap_type)
+{
+	const char *name;
+	int i, ret = -EINVAL;
+	ret = of_property_read_string(node, "qcom,ion-heap-type", &name);
+	if (ret)
+		goto out;
+	for (i = 0; i < ARRAY_SIZE(heap_types_info); ++i) {
+		if (!strcmp(heap_types_info[i].name, name)) {
+			*heap_type = heap_types_info[i].heap_type;
+			ret = 0;
+			goto out;
+		}
+	}
+	WARN(1, "Unknown heap type: %s. You might need to update heap_types_info in %s",
+		name, __FILE__);
+out:
+	return ret;
+}
+
+static int msm_ion_populate_heap(struct device_node *node,
+				struct ion_platform_heap *heap)
 {
 	unsigned int i;
-	int ret = -EINVAL;
+	int ret = -EINVAL, heap_type = -1;
 	unsigned int len = ARRAY_SIZE(ion_heap_meta);
 	for (i = 0; i < len; ++i) {
 		if (ion_heap_meta[i].id == heap->id) {
 			heap->name = ion_heap_meta[i].name;
-			heap->type = ion_heap_meta[i].type;
+			ret = msm_ion_get_heap_type_from_dt_node(node,
+								&heap_type);
+			if (ret)
+				break;
+			heap->type = heap_type;
 			ret = msm_init_extra_data(heap, &ion_heap_meta[i]);
 			break;
 		}
@@ -793,7 +823,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 		}
 		pdata->heaps[idx].id = val;
 
-		ret = msm_ion_populate_heap(&pdata->heaps[idx]);
+		ret = msm_ion_populate_heap(node, &pdata->heaps[idx]);
 		if (ret)
 			goto free_heaps;
 
