@@ -18,6 +18,7 @@
 
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/input/mt.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
@@ -298,17 +299,22 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 			event->pressure = 0;
 		}
 
-		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-				 event->x[i]);
-		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-				 event->y[i]);
-		input_report_abs(data->input_dev, ABS_MT_PRESSURE,
-				 event->pressure);
-		input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
-				 event->finger_id[i]);
-		input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
-				 event->pressure);
-		input_mt_sync(data->input_dev);
+		input_mt_slot(data->input_dev, i);
+		input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER,
+					!!event->pressure);
+
+		if (event->pressure == FT_PRESS) {
+			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
+					 event->x[i]);
+			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
+					 event->y[i]);
+			input_report_abs(data->input_dev, ABS_MT_PRESSURE,
+					 event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
+					 event->finger_id[i]);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
+					 event->pressure);
+		}
 	}
 
 	input_report_key(data->input_dev, BTN_TOUCH, !!fingerdown);
@@ -1188,12 +1194,11 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
+	input_mt_init_slots(input_dev, CFG_MAX_TOUCH_POINTS);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
 			     pdata->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
 			     pdata->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0,
-			     CFG_MAX_TOUCH_POINTS, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, FT_PRESS, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, FT_PRESS, 0, 0);
 
