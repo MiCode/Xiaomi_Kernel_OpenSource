@@ -937,7 +937,7 @@ static int epm_psoc_get_buffered_data(struct epm_adc_drv *epm_adc,
 	return rc;
 }
 
-static int epm_psoc_timestamp(struct epm_adc_drv *epm_adc,
+static int epm_psoc_get_timestamp(struct epm_adc_drv *epm_adc,
 		struct epm_psoc_system_time_stamp *psoc_timestamp)
 {
 	struct spi_message m;
@@ -955,15 +955,51 @@ static int epm_psoc_timestamp(struct epm_adc_drv *epm_adc,
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
 
-	if (psoc_timestamp->cmd == EPM_PSOC_SET_SYSTEM_TIMESTAMP_CMD) {
-		tx_buf[0] = psoc_timestamp->cmd;
-		tx_buf[1] = (psoc_timestamp->timestamp & 0xff000000) >> 24;
-		tx_buf[2] = (psoc_timestamp->timestamp & 0xff0000) >> 16;
-		tx_buf[3] = (psoc_timestamp->timestamp & 0xff00) >> 8;
-		tx_buf[4] = (psoc_timestamp->timestamp & 0xff);
-	} else if (psoc_timestamp->cmd == EPM_PSOC_GET_SYSTEM_TIMESTAMP_CMD) {
-		tx_buf[0] = psoc_timestamp->cmd;
-	}
+	psoc_timestamp->cmd = EPM_PSOC_GET_SYSTEM_TIMESTAMP_CMD;
+	tx_buf[0] = psoc_timestamp->cmd;
+
+	t.len = sizeof(tx_buf);
+	t.bits_per_word = EPM_ADC_ADS_SPI_BITS_PER_WORD;
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	psoc_timestamp->cmd		= rx_buf[0];
+	psoc_timestamp->timestamp = rx_buf[1] << 24 | rx_buf[2] << 16 |
+					rx_buf[3] << 8 | rx_buf[4];
+
+	return rc;
+}
+
+static int epm_psoc_set_timestamp(struct epm_adc_drv *epm_adc,
+		struct epm_psoc_system_time_stamp *psoc_timestamp)
+{
+	struct spi_message m;
+	struct spi_transfer t;
+	char tx_buf[10], rx_buf[10];
+	int rc = 0;
+
+	spi_setup(epm_adc->epm_spi_client);
+
+	memset(&t, 0, sizeof t);
+	memset(tx_buf, 0, sizeof tx_buf);
+	memset(rx_buf, 0, sizeof tx_buf);
+	t.tx_buf = tx_buf;
+	t.rx_buf = rx_buf;
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	psoc_timestamp->cmd = EPM_PSOC_SET_SYSTEM_TIMESTAMP_CMD;
+	tx_buf[0] = psoc_timestamp->cmd;
+	tx_buf[1] = (psoc_timestamp->timestamp >> 24) & 0xff;
+	tx_buf[2] = (psoc_timestamp->timestamp >> 16) & 0xff;
+	tx_buf[3] = (psoc_timestamp->timestamp >> 8) & 0xff;
+	tx_buf[4] = (psoc_timestamp->timestamp & 0xff);
 
 	t.len = sizeof(tx_buf);
 	t.bits_per_word = EPM_ADC_ADS_SPI_BITS_PER_WORD;
@@ -1378,6 +1414,26 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 			break;
 		}
 	case EPM_PSOC_ADC_GET_SYSTEM_TIMESTAMP:
+		{
+			struct epm_psoc_system_time_stamp psoc_timestamp;
+			int rc;
+
+			if (copy_from_user(&psoc_timestamp,
+				(void __user *)arg,
+				sizeof(struct epm_psoc_system_time_stamp)))
+				return -EFAULT;
+
+			rc = epm_psoc_get_timestamp(epm_adc, &psoc_timestamp);
+			if (rc) {
+				pr_err("PSOC get timestamp failed\n");
+				return -EINVAL;
+			}
+
+			if (copy_to_user((void __user *)arg, &psoc_timestamp,
+				sizeof(struct epm_psoc_system_time_stamp)))
+				return -EFAULT;
+			break;
+		}
 	case EPM_PSOC_ADC_SET_SYSTEM_TIMESTAMP:
 		{
 			struct epm_psoc_system_time_stamp psoc_timestamp;
@@ -1388,9 +1444,9 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 				sizeof(struct epm_psoc_system_time_stamp)))
 				return -EFAULT;
 
-			rc = epm_psoc_timestamp(epm_adc, &psoc_timestamp);
+			rc = epm_psoc_set_timestamp(epm_adc, &psoc_timestamp);
 			if (rc) {
-				pr_err("PSOC buffered measurement failed\n");
+				pr_err("PSOC set timestamp failed\n");
 				return -EINVAL;
 			}
 
