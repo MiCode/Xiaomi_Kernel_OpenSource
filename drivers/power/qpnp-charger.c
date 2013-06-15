@@ -2953,7 +2953,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 	}
 
-	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
+	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
+							&& chip->bat_if_base) {
 		chip->adc_param.low_temp = chip->cool_bat_decidegc;
 		chip->adc_param.high_temp = chip->warm_bat_decidegc;
 		chip->adc_param.timer_interval = ADC_MEAS2_INTERVAL_1S;
