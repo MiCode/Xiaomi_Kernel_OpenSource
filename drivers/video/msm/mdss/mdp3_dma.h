@@ -251,7 +251,7 @@ struct mdp3_dma {
 			struct mdp3_dma_ccs *ccs,
 			struct mdp3_dma_lut *lut);
 
-	int (*update)(struct mdp3_dma *dma, void *buf);
+	int (*update)(struct mdp3_dma *dma, void *buf, struct mdp3_intf *intf);
 
 	int (*update_cursor)(struct mdp3_dma *dma, int x, int y);
 
