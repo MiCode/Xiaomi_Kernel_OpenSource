@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
+#include <linux/msm_tsens.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -86,6 +87,7 @@ void __init apq8084_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_clock_init(&msm8084_clock_init_data);
+	tsens_tm_init_driver();
 }
 
 static void __init apq8084_map_io(void)
