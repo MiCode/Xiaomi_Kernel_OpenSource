@@ -400,8 +400,8 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			tx_pkt->mult.base = transfer.iovec;
 			tx_pkt->mult.size = size;
 			tx_pkt->cnt = num_desc;
-			INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 		}
+		INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 
 		iovec = &transfer.iovec[i];
 		iovec->flags = 0;
