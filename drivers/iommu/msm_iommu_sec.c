@@ -135,6 +135,9 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	ret = scm_call(SCM_SVC_UTIL, IOMMU_DUMP_SMMU_FAULT_REGS,
 		&req_info, sizeof(req_info), &resp, 1);
 
+	invalidate_caches((unsigned long) regs, sizeof(*regs),
+			(unsigned long)virt_to_phys(regs));
+
 	return ret;
 }
 
@@ -315,6 +318,8 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 			unsigned long va, phys_addr_t pa, size_t len)
 {
 	struct msm_scm_map2_req map;
+	void *flush_va;
+	phys_addr_t flush_pa;
 	int ret = 0;
 
 	map.plist.list = virt_to_phys(&pa);
@@ -325,12 +330,22 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 	map.info.va = va;
 	map.info.size = len;
 	map.flags = IOMMU_TLBINVAL_FLAG;
+	flush_va = &pa;
+	flush_pa = virt_to_phys(&pa);
+
+	/*
+	 * Ensure that the buffer is in RAM by the time it gets to TZ
+	 */
+	clean_caches((unsigned long) flush_va, len, flush_pa);
 
 	if (scm_call(SCM_SVC_MP, IOMMU_SECURE_MAP2, &map, sizeof(map), &ret,
 								sizeof(ret)))
 		return -EINVAL;
 	if (ret)
 		return -EINVAL;
+
+	/* Invalidate cache since TZ touched this address range */
+	invalidate_caches((unsigned long) flush_va, len, flush_pa);
 
 	return 0;
 }
@@ -356,6 +371,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 	struct msm_scm_map2_req map;
 	unsigned int *pa_list = 0;
 	unsigned int pa, cnt;
+	void *flush_va;
 	unsigned int offset = 0, chunk_offset = 0;
 	int ret, scm_ret;
 
@@ -370,6 +386,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 		map.plist.list = virt_to_phys(&pa);
 		map.plist.list_size = 1;
 		map.plist.size = len;
+		flush_va = &pa;
 	} else {
 		sgiter = sg;
 		cnt = sg->length / SZ_1M;
@@ -400,7 +417,14 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 		map.plist.list = virt_to_phys(pa_list);
 		map.plist.list_size = cnt;
 		map.plist.size = SZ_1M;
+		flush_va = pa_list;
 	}
+
+	/*
+	 * Ensure that the buffer is in RAM by the time it gets to TZ
+	 */
+	clean_caches((unsigned long) flush_va,
+		map.plist.size * map.plist.list_size, virt_to_phys(flush_va));
 
 	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_MAP2, &map, sizeof(map),
 			&scm_ret, sizeof(scm_ret));
