@@ -69,6 +69,7 @@ struct msm_cpp_frame_strip_info {
 	int bytes_per_pixel;
 	unsigned int source_address;
 	unsigned int destination_address;
+	unsigned int compl_destination_address;
 	unsigned int src_stride;
 	unsigned int dst_stride;
 	int rotate_270;
