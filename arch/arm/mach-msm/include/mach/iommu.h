@@ -188,21 +188,31 @@ struct msm_iommu_ctx_drvdata {
 	int attach_count;
 };
 
-struct msm_iommu_context_regs {
-	uint32_t far;
-	uint32_t par;
-	uint32_t fsr;
-	uint32_t fsynr0;
-	uint32_t fsynr1;
-	uint32_t ttbr0;
-	uint32_t ttbr1;
-	uint32_t sctlr;
-	uint32_t actlr;
-	uint32_t prrr;
-	uint32_t nmrr;
+enum dump_reg {
+	DUMP_REG_FAR0,
+	DUMP_REG_FAR1,
+	DUMP_REG_PAR0,
+	DUMP_REG_PAR1,
+	DUMP_REG_FSR,
+	DUMP_REG_FSYNR0,
+	DUMP_REG_FSYNR1,
+	DUMP_REG_TTBR0,
+	DUMP_REG_TTBR1,
+	DUMP_REG_SCTLR,
+	DUMP_REG_ACTLR,
+	DUMP_REG_PRRR,
+	DUMP_REG_NMRR,
+	MAX_DUMP_REGS,
 };
 
-void print_ctx_regs(struct msm_iommu_context_regs *regs);
+#define COMBINE_DUMP_REG(upper, lower) (((u64) upper << 32) | lower)
+
+struct msm_iommu_context_reg {
+	uint32_t val;
+	bool valid;
+};
+
+void print_ctx_regs(struct msm_iommu_context_reg regs[]);
 
 /*
  * Interrupt handler for the IOMMU context fault interrupt. Hooking the
