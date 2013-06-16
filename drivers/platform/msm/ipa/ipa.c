@@ -1839,7 +1839,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	}
 
 	ipa_ctx->tx_wq = alloc_workqueue("ipa tx wq", WQ_MEM_RECLAIM |
-			WQ_CPU_INTENSIVE, 2);
+			WQ_CPU_INTENSIVE, 1);
 	if (!ipa_ctx->tx_wq) {
 		IPAERR(":fail to create tx wq\n");
 		result = -ENOMEM;
