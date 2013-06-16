@@ -36,6 +36,7 @@
 #include "msm-compr-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
 #include "audio_ocmem.h"
+#include <sound/tlv.h>
 
 #define COMPRE_CAPTURE_NUM_PERIODS	16
 /* Allocate the worst case frame size for compressed audio */
@@ -48,13 +49,14 @@
 					  COMPRE_CAPTURE_HEADER_SIZE) * \
 					  MAX_NUM_FRAMES_PER_BUFFER)
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
+#define COMPRESSED_LR_VOL_MAX_STEPS	0x20002000
 
+const DECLARE_TLV_DB_LINEAR(compr_rx_vol_gain, 0,
+			    COMPRESSED_LR_VOL_MAX_STEPS);
 struct snd_msm {
-	struct msm_audio *prtd;
-	unsigned volume;
 	atomic_t audio_ocmem_req;
 };
-static struct snd_msm compressed_audio = {NULL, 0x20002000} ;
+static struct snd_msm compressed_audio;
 
 static struct audio_locks the_locks;
 
@@ -609,7 +611,6 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
-	compressed_audio.prtd =  &compr->prtd;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (!atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 0, 1))
 			audio_ocmem_process_req(AUDIO, true);
@@ -621,33 +622,29 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-int compressed_set_volume(unsigned volume)
+static int compressed_set_volume(struct msm_audio *prtd, uint32_t volume)
 {
 	int rc = 0;
 	int avg_vol = 0;
 	int lgain = (volume >> 16) & 0xFFFF;
 	int rgain = volume & 0xFFFF;
-	if (compressed_audio.prtd && compressed_audio.prtd->audio_client) {
+	if (prtd && prtd->audio_client) {
 		pr_debug("%s: channels %d volume 0x%x\n", __func__,
-			compressed_audio.prtd->channel_mode, volume);
-		if ((compressed_audio.prtd->channel_mode <= 2) &&
+			prtd->channel_mode, volume);
+		if ((prtd->channel_mode == 2) &&
 			(lgain != rgain)) {
 			pr_debug("%s: call q6asm_set_lrgain\n", __func__);
-			rc = q6asm_set_lrgain(
-				compressed_audio.prtd->audio_client,
-				lgain, rgain);
+			rc = q6asm_set_lrgain(prtd->audio_client, lgain, rgain);
 		} else {
 			avg_vol = (lgain + rgain)/2;
 			pr_debug("%s: call q6asm_set_volume\n", __func__);
-			rc = q6asm_set_volume(
-				compressed_audio.prtd->audio_client, avg_vol);
+			rc = q6asm_set_volume(prtd->audio_client, avg_vol);
 		}
 		if (rc < 0) {
 			pr_err("%s: Send Volume command failed rc=%d\n",
 				__func__, rc);
 		}
 	}
-	compressed_audio.volume = volume;
 	return rc;
 }
 
@@ -673,7 +670,6 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 		atomic_read(&compressed_audio.audio_ocmem_req));
 	prtd->pcm_irq_pos = 0;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
-	compressed_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 		msm_pcm_routing_dereg_phy_stream(
@@ -815,17 +811,15 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		    (params_periods(params) <= runtime->hw.channels_max))
 			prtd->channel_mode = params_channels(params);
 
-		ret = compressed_set_volume(0);
+		ret = compressed_set_volume(prtd, 0);
 		if (ret < 0)
 			pr_err("%s : Set Volume failed : %d", __func__, ret);
 
-		ret = q6asm_set_softpause(compressed_audio.prtd->audio_client,
-								&softpause);
+		ret = q6asm_set_softpause(prtd->audio_client, &softpause);
 		if (ret < 0)
 			pr_err("%s: Send SoftPause Param failed ret=%d\n",
 				__func__, ret);
-		ret = q6asm_set_softvolume(compressed_audio.prtd->audio_client,
-								&softvol);
+		ret = q6asm_set_softvolume(prtd->audio_client, &softvol);
 		if (ret < 0)
 			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
 				__func__, ret);
@@ -1165,6 +1159,66 @@ static int msm_compr_restart(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static int msm_compr_volume_ctl_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_pcm_volume *vol = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream =
+			 vol->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	struct msm_audio *prtd;
+	int volume = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: volume : %x\n", __func__, volume);
+	if (!substream)
+		return -ENODEV;
+	if (!substream->runtime)
+		return 0;
+	prtd = substream->runtime->private_data;
+	if (prtd)
+		rc = compressed_set_volume(prtd, volume);
+
+	return rc;
+}
+
+static int msm_compr_volume_ctl_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_pcm_volume *vol = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream =
+			 vol->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	struct msm_audio *prtd;
+
+	pr_debug("%s\n", __func__);
+	if (!substream)
+		return -ENODEV;
+	if (!substream->runtime)
+		return 0;
+	prtd = substream->runtime->private_data;
+	if (prtd)
+		ucontrol->value.integer.value[0] = prtd->volume;
+	return 0;
+}
+
+static int msm_compr_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	struct snd_pcm *pcm = rtd->pcm;
+	struct snd_pcm_volume *volume_info;
+	struct snd_kcontrol *kctl;
+
+	dev_dbg(rtd->dev, "%s, Volume cntrl add\n", __func__);
+	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				      NULL, 1, rtd->dai_link->be_id,
+				      &volume_info);
+	if (ret < 0)
+		return ret;
+	kctl = volume_info->kctl;
+	kctl->put = msm_compr_volume_ctl_put;
+	kctl->get = msm_compr_volume_ctl_get;
+	kctl->tlv.p = compr_rx_vol_gain;
+	return 0;
+}
 
 static struct snd_pcm_ops msm_compr_ops = {
 	.open	   = msm_compr_open,
@@ -1185,6 +1239,10 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ret = msm_compr_add_controls(rtd);
+	if (ret)
+		pr_err("%s, kctl add failed\n", __func__);
 	return ret;
 }
 
