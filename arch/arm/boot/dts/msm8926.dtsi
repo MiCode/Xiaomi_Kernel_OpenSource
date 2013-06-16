@@ -17,6 +17,7 @@
  */
 
 /include/ "msm8226.dtsi"
+/include/ "msm8226-camera.dtsi"
 
 / {
 	model = "Qualcomm MSM 8926";

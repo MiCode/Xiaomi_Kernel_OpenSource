@@ -14,6 +14,7 @@
 /dts-v1/;
 /include/ "msm8926.dtsi"
 /include/ "msm8226-cdp.dtsi"
+/include/ "msm8226-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8926 CDP";

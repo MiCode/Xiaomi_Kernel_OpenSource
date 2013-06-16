@@ -13,6 +13,7 @@
 /dts-v1/;
 /include/ "msm8226-v2.dtsi"
 /include/ "msm8226-qrd.dtsi"
+/include/ "msm8226-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226v2 QRD";
