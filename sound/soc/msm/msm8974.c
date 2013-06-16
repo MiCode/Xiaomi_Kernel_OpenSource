@@ -2229,7 +2229,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 	{
 		.name = LPASS_BE_AUXPCM_RX,
 		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.4106",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
@@ -2244,7 +2244,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 	{
 		.name = LPASS_BE_AUXPCM_TX,
 		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.4107",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
@@ -2258,7 +2258,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 	{
 		.name = LPASS_BE_SEC_AUXPCM_RX,
 		.stream_name = "Sec AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.4108",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.2",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
@@ -2273,7 +2273,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 	{
 		.name = LPASS_BE_SEC_AUXPCM_TX,
 		.stream_name = "Sec AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.4109",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.2",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
