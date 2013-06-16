@@ -649,7 +649,6 @@ struct ipa_context {
 	struct rb_root rt_rule_hdl_tree;
 	struct rb_root rt_tbl_hdl_tree;
 	struct rb_root flt_rule_hdl_tree;
-	struct rb_root tag_tree;
 	struct ipa_nat_mem nat_mem;
 	u32 excp_hdr_hdl;
 	u32 dflt_v4_rt_rule_hdl;
