@@ -528,6 +528,9 @@ typedef struct dmx_caps {
 /* Indicates whether demux support sending data directly to subtitle decoder */
 #define DMX_CAP_SUBTITLE_DECODER_DATA	0x10
 
+/* Indicates whether TS insertion is supported */
+#define DMX_CAP_TS_INSERTION	0x20
+
 	/* Number of decoders demux can output data to */
 	int num_decoders;
 

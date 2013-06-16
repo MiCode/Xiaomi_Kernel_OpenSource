@@ -196,11 +196,6 @@ struct dmxdev {
 	int filternum;
 	int capabilities;
 #define DMXDEV_CAP_DUPLEX	0x01
-#define DMXDEV_CAP_PULL_MODE	0x02
-#define DMXDEV_CAP_INDEXING	0x04
-#define DMXDEV_CAP_EXTERNAL_BUFFS_ONLY	0x08
-#define DMXDEV_CAP_TS_INSERTION	0x10
-
 
 	enum dmx_playback_mode_t playback_mode;
 	dmx_source_t source;
