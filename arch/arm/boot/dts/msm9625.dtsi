@@ -749,9 +749,8 @@
 		compatible = "qcom,msm-stub-codec";
 	};
 
-	qcom,msm-auxpcm {
-		compatible = "qcom,msm-auxpcm-resource";
-		qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
+	qcom,msm-pri-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
 		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
@@ -759,16 +758,7 @@
 		qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
-
-		qcom,msm-auxpcm-rx {
-			qcom,msm-auxpcm-dev-id = <4106>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
-
-		qcom,msm-auxpcm-tx {
-			qcom,msm-auxpcm-dev-id = <4107>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
+		qcom,msm-auxpcm-interface = "primary";
 	};
 
 	qcom,msm-dai-mi2s {
