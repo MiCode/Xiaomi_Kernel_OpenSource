@@ -18,8 +18,8 @@
  */
 #define IPA_A2_HOLB_TMR_EN 0x1
 #define IPA_A2_HOLB_TMR_DEFAULT_VAL 0x1ff
-#define IPA_WLAN_HOLB_TMR_EN 0x1
-#define IPA_WLAN_HOLB_TMR_DEFAULT_VAL 0x7f
+
+#define IPA_PKT_FLUSH_TO_US 100
 
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
@@ -35,56 +35,17 @@ static void ipa_enable_data_path(u32 clnt_hdl)
 
 static int ipa_disable_data_path(u32 clnt_hdl)
 {
-	DECLARE_COMPLETION_ONSTACK(tag_rsp);
-	struct ipa_desc desc = {0};
-	struct ipa_ip_packet_tag cmd;
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
-	struct ipa_tree_node *node;
-	int result = 0;
 
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
 		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
 		return 0;
 	}
 
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		result = -ENOMEM;
-		goto fail_alloc;
-	}
-
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		ipa_write_reg(ipa_ctx->mmio,
 				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 1);
-
-		cmd.tag = (u32) &tag_rsp;
-
-		desc.pyld = &cmd;
-		desc.len = sizeof(struct ipa_ip_packet_tag);
-		desc.type = IPA_IMM_CMD_DESC;
-		desc.opcode = IPA_IP_PACKET_TAG;
-
-		IPADBG("Wait on TAG %p clnt=%d\n", &tag_rsp, clnt_hdl);
-
-		node->hdl = cmd.tag;
-		mutex_lock(&ipa_ctx->lock);
-		if (ipa_insert(&ipa_ctx->tag_tree, node)) {
-			IPAERR("failed to add to tree\n");
-			result = -EINVAL;
-			mutex_unlock(&ipa_ctx->lock);
-			goto fail_insert;
-		}
-		mutex_unlock(&ipa_ctx->lock);
-
-		if (ipa_send_cmd(1, &desc)) {
-			ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 0);
-			IPAERR("fail to send TAG command\n");
-			result = -EPERM;
-			goto fail_send;
-		}
-		wait_for_completion(&tag_rsp);
+		usleep(IPA_PKT_FLUSH_TO_US);
 		if (IPA_CLIENT_IS_CONS(ep->client) &&
 				ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
 				ep->cfg.aggr.aggr_time_limit)
@@ -92,13 +53,6 @@ static int ipa_disable_data_path(u32 clnt_hdl)
 	}
 
 	return 0;
-
-fail_send:
-	rb_erase(&node->node, &ipa_ctx->tag_tree);
-fail_insert:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
-fail_alloc:
-	return result;
 }
 
 static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
