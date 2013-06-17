@@ -30,6 +30,7 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 static struct msm_actuator msm_vcm_actuator_table;
 static struct msm_actuator msm_piezo_actuator_table;
 
+static struct i2c_driver msm_actuator_i2c_driver;
 static struct msm_actuator *actuators[] = {
 	&msm_vcm_actuator_table,
 	&msm_piezo_actuator_table,
@@ -549,7 +550,11 @@ static int32_t msm_actuator_get_subdev_id(struct msm_actuator_ctrl_t *a_ctrl,
 		pr_err("failed\n");
 		return -EINVAL;
 	}
-	*subdev_id = a_ctrl->pdev->id;
+	if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE)
+		*subdev_id = a_ctrl->pdev->id;
+	else
+		*subdev_id = a_ctrl->subdev_id;
+
 	CDBG("subdev_id %d\n", *subdev_id);
 	CDBG("Exit\n");
 	return 0;
@@ -684,6 +689,11 @@ static struct v4l2_subdev_ops msm_actuator_subdev_ops = {
 	.core = &msm_actuator_subdev_core_ops,
 };
 
+static const struct i2c_device_id msm_actuator_i2c_id[] = {
+	{"qcom,actuator", (kernel_ulong_t)NULL},
+	{ }
+};
+
 static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -691,19 +701,46 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	struct msm_actuator_ctrl_t *act_ctrl_t = NULL;
 	CDBG("Enter\n");
 
+	if (client == NULL) {
+		pr_err("msm_actuator_i2c_probe: client is null\n");
+		rc = -EINVAL;
+		goto probe_failure;
+	}
+
+	act_ctrl_t = kzalloc(sizeof(struct msm_actuator_ctrl_t),
+		GFP_KERNEL);
+	if (!act_ctrl_t) {
+		pr_err("%s:%d failed no memory\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("i2c_check_functionality failed\n");
 		goto probe_failure;
 	}
 
-	act_ctrl_t = (struct msm_actuator_ctrl_t *)(id->driver_data);
 	CDBG("client = %x\n", (unsigned int) client);
+
+	rc = of_property_read_u32(client->dev.of_node, "cell-index",
+		&act_ctrl_t->subdev_id);
+	CDBG("cell-index %d, rc %d\n", act_ctrl_t->subdev_id, rc);
+	if (rc < 0) {
+		pr_err("failed rc %d\n", rc);
+		return rc;
+	}
+
+	act_ctrl_t->i2c_driver = &msm_actuator_i2c_driver;
 	act_ctrl_t->i2c_client.client = client;
+	act_ctrl_t->curr_step_pos = 0,
+	act_ctrl_t->curr_region_index = 0,
 	/* Set device type as I2C */
 	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
 	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
 	act_ctrl_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
 	act_ctrl_t->actuator_mutex = &msm_actuator_mutex;
+
+	act_ctrl_t->cam_name = act_ctrl_t->subdev_id;
+	CDBG("act_ctrl_t->cam_name: %d", act_ctrl_t->cam_name);
 	/* Assign name for sub device */
 	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
 		"%s", act_ctrl_t->i2c_driver->driver.name);
@@ -720,7 +757,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
 	act_ctrl_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&act_ctrl_t->msm_sd);
-	CDBG("succeeded\n");
+	pr_info("msm_actuator_i2c_probe: succeeded\n");
 	CDBG("Exit\n");
 
 probe_failure:
@@ -795,17 +832,21 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	return rc;
 }
 
-static const struct i2c_device_id msm_actuator_i2c_id[] = {
-	{"msm_actuator", (kernel_ulong_t)NULL},
-	{ }
+static const struct of_device_id msm_actuator_i2c_dt_match[] = {
+	{.compatible = "qcom,actuator"},
+	{}
 };
+
+MODULE_DEVICE_TABLE(of, msm_actuator_i2c_dt_match);
 
 static struct i2c_driver msm_actuator_i2c_driver = {
 	.id_table = msm_actuator_i2c_id,
 	.probe  = msm_actuator_i2c_probe,
 	.remove = __exit_p(msm_actuator_i2c_remove),
 	.driver = {
-		.name = "msm_actuator",
+		.name = "qcom,actuator",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_actuator_i2c_dt_match,
 	},
 };
 
