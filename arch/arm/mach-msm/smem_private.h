@@ -17,10 +17,6 @@
 
 #include <mach/ramdump.h>
 
-#define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
-extern remote_spinlock_t remote_spinlock;
-extern int spinlocks_initialized; /* only modify in init_smem_remote_spinlock */
-
 #define SMD_HEAP_SIZE 512
 
 struct smem_heap_info {
@@ -58,19 +54,26 @@ struct smem_area {
 	void __iomem *virt_addr;
 };
 
-extern uint32_t num_smem_areas;
-extern struct smem_area *smem_areas;
-
-extern struct ramdump_segment *smem_ramdump_segments;
-
 /* used for unit testing spinlocks */
 remote_spinlock_t *smem_get_remote_spinlock(void);
 
-/*
- * used to ensure the remote spinlock is only inited once since local
- * spinlock init code appears non-reentrant
- */
-int init_smem_remote_spinlock(void);
-
 bool smem_initialized_check(void);
+
+/**
+ * smem_module_init_notifier_register() - Register a smem module
+ *                                       init notifier block
+ * @nb: Notifier block to be registered
+ *
+ * In order to mark the dependency on SMEM Driver module initialization
+ * register a notifier using this API. Once the smem module_init is
+ * done, notification will be passed to the registered module.
+ */
+int smem_module_init_notifier_register(struct notifier_block *nb);
+
+/**
+ * smem_module_init_notifier_register() - Unregister a smem module
+ *                                       init notifier block
+ * @nb: Notifier block to be unregistered
+ */
+int smem_module_init_notifier_unregister(struct notifier_block *nb);
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_ */
