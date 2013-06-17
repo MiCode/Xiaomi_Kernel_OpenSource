@@ -245,6 +245,48 @@ static void flip_insert_work(struct work_struct *work);
 #define UARTDM_TO_MSM(uart_port) \
 	container_of((uart_port), struct msm_hs_port, uport)
 
+
+static int msm_hs_ioctl(struct uart_port *uport, unsigned int cmd,
+						unsigned long arg)
+{
+	int ret = 0, state = 1;
+	enum msm_hs_clk_states_e clk_state;
+	unsigned long flags;
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+
+	switch (cmd) {
+	case MSM_ENABLE_UART_CLOCK: {
+		pr_debug("%s():ENABLE UART CLOCK: cmd=%d\n", __func__, cmd);
+		msm_hs_request_clock_on(&msm_uport->uport);
+		break;
+	}
+	case MSM_DISABLE_UART_CLOCK: {
+		pr_debug("%s():DISABLE UART CLOCK: cmd=%d\n", __func__, cmd);
+		msm_hs_request_clock_off(&msm_uport->uport);
+		break;
+	}
+	case MSM_GET_UART_CLOCK_STATUS: {
+		/* Return value 0 - UART CLOCK is OFF
+		 * Return value 1 - UART CLOCK is ON */
+		pr_debug("%s():GET UART CLOCK STATUS: cmd=%d\n", __func__, cmd);
+		spin_lock_irqsave(&msm_uport->uport.lock, flags);
+		clk_state = msm_uport->clk_state;
+		spin_unlock_irqrestore(&msm_uport->uport.lock, flags);
+		if (clk_state <= MSM_HS_CLK_OFF)
+			state = 0;
+		ret = state;
+		break;
+	}
+	default: {
+		pr_debug("%s():Unknown cmd specified: cmd=%d\n", __func__, cmd);
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+	}
+
+	return ret;
+}
+
 static ssize_t show_clock(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
@@ -3307,6 +3349,7 @@ static struct uart_ops msm_hs_ops = {
 	.release_port = msm_hs_release_port,
 	.request_port = msm_hs_request_port,
 	.flush_buffer = msm_hs_flush_buffer,
+	.ioctl = msm_hs_ioctl,
 };
 
 module_init(msm_serial_hs_init);
