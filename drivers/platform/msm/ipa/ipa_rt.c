@@ -377,7 +377,8 @@ static int __ipa_commit_rt(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = IPA_RAM_V4_RT_SIZE;
+		avail = ipa_ctx->ip4_rt_tbl_lcl ? IPA_RAM_V4_RT_SIZE :
+			IPA_RAM_V4_RT_SIZE_DDR;
 		size = sizeof(struct ipa_ip_v4_routing_init);
 	} else {
 		avail = ipa_ctx->ip6_rt_tbl_lcl ? IPA_RAM_V6_RT_SIZE :
