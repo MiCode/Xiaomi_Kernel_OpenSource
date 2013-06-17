@@ -1222,7 +1222,7 @@
 		qcom,iris-vddxo-supply = <&pm8941_l6>;
 		qcom,iris-vddrfa-supply = <&pm8941_l11>;
 		qcom,iris-vddpa-supply = <&pm8941_l19>;
-		qcom,iris-vdddig-supply = <&pm8941_l3>;
+		qcom,iris-vdddig-supply = <&pm8941_s3>;
 
 		gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>, <&msmgpio 39 0>, <&msmgpio 40 0>;
 		qcom,has-48mhz-xo;
