@@ -1480,7 +1480,7 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 #define SOC_CATCHUP_SEC_MAX		600
 #define SOC_CATCHUP_SEC_PER_PERCENT	60
 #define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX / SOC_CATCHUP_SEC_PER_PERCENT)
-#define SOC_CHANGE_PER_SEC	20
+#define SOC_CHANGE_PER_SEC		5
 static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 {
 	int soc, soc_change;
@@ -1884,7 +1884,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
 					int batt_temp)
 {
-	int soc, new_ocv_uv;
+	int soc, new_ocv_uv, previous_soc;
 	int shutdown_soc, new_calculated_soc, remaining_usable_charge_uah;
 	struct soc_params params;
 
@@ -1984,6 +1984,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 
 done_calculating:
 	mutex_lock(&chip->last_soc_mutex);
+	previous_soc = chip->calculated_soc;
 	chip->calculated_soc = new_calculated_soc;
 	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
 	if (chip->last_soc_invalid) {
@@ -2007,7 +2008,7 @@ done_calculating:
 	}
 	mutex_unlock(&chip->last_soc_mutex);
 
-	if (new_calculated_soc != chip->calculated_soc
+	if (new_calculated_soc != previous_soc
 			&& chip->bms_psy.name != NULL) {
 		power_supply_changed(&chip->bms_psy);
 		pr_debug("power supply changed\n");
@@ -3474,6 +3475,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		pr_err("failed to set up die temp notifications: %d\n", rc);
 		goto error_setup;
 	}
+
+	battery_insertion_check(chip);
+	battery_status_check(chip);
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
 
