@@ -124,40 +124,7 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	return ret;
 }
 
-static struct dump_regs_tbl {
-	/*
-	 * To keep things context-bank-agnostic, we only store the CB
-	 * register offset in `key'
-	 */
-	unsigned long key;
-	const char *name;
-	int offset;
-} dump_regs_tbl[MAX_DUMP_REGS];
-
 #define EXTRACT_DUMP_REG_KEY(addr, ctx) (addr & ((1 << CTX_SHIFT) - 1))
-
-#define DUMP_REG_INIT(dump_reg, cb_reg)				\
-	do {							\
-		dump_regs_tbl[dump_reg].key = cb_reg;		\
-		dump_regs_tbl[dump_reg].name = #cb_reg;		\
-	} while (0)
-
-static void msm_iommu_sec_build_dump_regs_table(void)
-{
-	DUMP_REG_INIT(DUMP_REG_FAR0,	CB_FAR);
-	DUMP_REG_INIT(DUMP_REG_FAR1,	CB_FAR + 4);
-	DUMP_REG_INIT(DUMP_REG_PAR0,	CB_PAR);
-	DUMP_REG_INIT(DUMP_REG_PAR1,	CB_PAR + 4);
-	DUMP_REG_INIT(DUMP_REG_FSR,	CB_FSR);
-	DUMP_REG_INIT(DUMP_REG_FSYNR0,	CB_FSYNR0);
-	DUMP_REG_INIT(DUMP_REG_FSYNR1,	CB_FSYNR1);
-	DUMP_REG_INIT(DUMP_REG_TTBR0,	CB_TTBR0);
-	DUMP_REG_INIT(DUMP_REG_TTBR1,	CB_TTBR1);
-	DUMP_REG_INIT(DUMP_REG_SCTLR,	CB_SCTLR);
-	DUMP_REG_INIT(DUMP_REG_ACTLR,	CB_ACTLR);
-	DUMP_REG_INIT(DUMP_REG_PRRR,	CB_PRRR);
-	DUMP_REG_INIT(DUMP_REG_NMRR,	CB_NMRR);
-}
 
 static int msm_iommu_reg_dump_to_regs(
 	struct msm_iommu_context_reg ctx_regs[],
@@ -799,9 +766,6 @@ static int __init msm_iommu_sec_init(void)
 
 	bus_set_iommu(&msm_iommu_sec_bus_type, &msm_iommu_ops);
 	ret = msm_iommu_sec_ptbl_init();
-	if (ret)
-		goto fail;
-	msm_iommu_sec_build_dump_regs_table();
 fail:
 	return ret;
 }

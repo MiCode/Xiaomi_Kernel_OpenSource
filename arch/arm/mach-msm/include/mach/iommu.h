@@ -189,7 +189,8 @@ struct msm_iommu_ctx_drvdata {
 };
 
 enum dump_reg {
-	DUMP_REG_FAR0,
+	DUMP_REG_FIRST,
+	DUMP_REG_FAR0 = DUMP_REG_FIRST,
 	DUMP_REG_FAR1,
 	DUMP_REG_PAR0,
 	DUMP_REG_PAR1,
@@ -201,9 +202,22 @@ enum dump_reg {
 	DUMP_REG_SCTLR,
 	DUMP_REG_ACTLR,
 	DUMP_REG_PRRR,
+	DUMP_REG_MAIR0 = DUMP_REG_PRRR,
 	DUMP_REG_NMRR,
+	DUMP_REG_MAIR1 = DUMP_REG_NMRR,
 	MAX_DUMP_REGS,
 };
+
+struct dump_regs_tbl {
+	/*
+	 * To keep things context-bank-agnostic, we only store the CB
+	 * register offset in `key'
+	 */
+	unsigned long key;
+	const char *name;
+	int offset;
+};
+extern struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
 
 #define COMBINE_DUMP_REG(upper, lower) (((u64) upper << 32) | lower)
 
