@@ -1997,12 +1997,6 @@ static void __init reg_init(void)
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
-
-	/*
-	 * TODO: Confirm that no clocks need to be voted on in this sleep vote
-	 * register.
-	 */
-	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
 static void __init msm9625_clock_post_init(void)
