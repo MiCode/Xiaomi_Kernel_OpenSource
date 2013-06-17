@@ -27,7 +27,6 @@
 #define UART_MODE			4
 #define SOCKET_MODE			5
 #define CALLBACK_MODE			6
-#define MEMORY_DEVICE_MODE_NRT		7
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT         	0
 #define DATA_TYPE_F3            	1
@@ -50,6 +49,8 @@
 #define DIAG_IOCTL_DCI_CLEAR_LOGS	28
 #define DIAG_IOCTL_DCI_CLEAR_EVENTS	29
 #define DIAG_IOCTL_REMOTE_DEV		32
+#define DIAG_IOCTL_VOTE_REAL_TIME	33
+#define DIAG_IOCTL_GET_REAL_TIME	34
 
 /* PC Tools IDs */
 #define APQ8060_TOOLS_ID	4062

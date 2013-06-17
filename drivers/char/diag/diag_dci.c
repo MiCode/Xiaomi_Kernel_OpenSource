@@ -1239,6 +1239,10 @@ err:
 
 	if (driver->diag_dci_wq)
 		destroy_workqueue(driver->diag_dci_wq);
+	mutex_destroy(&driver->dci_mutex);
+	mutex_destroy(&dci_log_mask_mutex);
+	mutex_destroy(&dci_event_mask_mutex);
+	mutex_destroy(&dci_health_mutex);
 	return DIAG_DCI_NO_REG;
 }
 
@@ -1381,4 +1385,25 @@ int diag_dci_query_event_mask(uint16_t event_id)
 	return 0;
 }
 
+uint8_t diag_dci_get_cumulative_real_time()
+{
+	uint8_t real_time = MODE_NONREALTIME, i;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++)
+		if (driver->dci_client_tbl[i].client &&
+				driver->dci_client_tbl[i].real_time ==
+				MODE_REALTIME) {
+			real_time = 1;
+			break;
+		}
+	return real_time;
+}
 
+int diag_dci_set_real_time(int client_id, uint8_t real_time)
+{
+	int i = DCI_CLIENT_INDEX_INVALID;
+	i = diag_dci_find_client_index(client_id);
+
+	if (i != DCI_CLIENT_INDEX_INVALID)
+		driver->dci_client_tbl[i].real_time = real_time;
+	return i;
+}

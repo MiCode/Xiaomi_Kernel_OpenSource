@@ -113,6 +113,14 @@
 #define SMD_CMD_TYPE 3
 #define SMD_DCI_CMD_TYPE 4
 
+#define DIAG_PROC_DCI			1
+#define DIAG_PROC_MEMORY_DEVICE		2
+
+/* Flags to vote the DCI or Memory device process up or down
+   when it becomes active or inactive */
+#define VOTE_DOWN			0
+#define VOTE_UP				1
+
 #define DIAG_TS_SIZE	50
 
 /* Maximum number of pkt reg supported at initialization*/
@@ -180,6 +188,11 @@ struct diag_nrt_wake_lock {
 	int copy_count;
 	struct wake_lock read_lock;
 	spinlock_t read_spinlock;
+};
+
+struct real_time_vote_t {
+	uint16_t proc;
+	uint8_t real_time_vote;
 };
 
 /* This structure is defined in USB header file */
@@ -286,7 +299,6 @@ struct diagchar_dev {
 	struct diag_ctrl_msg_mask *msg_mask;
 	struct diag_ctrl_feature_mask *feature_mask;
 	/* State for diag forwarding */
-	int real_time_mode;
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
@@ -306,6 +318,14 @@ struct diagchar_dev {
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
+	/* Variables for non real time mode */
+	int real_time_mode;
+	int real_time_update_busy;
+	uint16_t proc_active_mask;
+	uint16_t proc_rt_vote_mask;
+	struct mutex real_time_mutex;
+	struct work_struct diag_real_time_work;
+	struct workqueue_struct *diag_real_time_wq;
 #ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
 	struct usb_diag_ch *legacy_ch;

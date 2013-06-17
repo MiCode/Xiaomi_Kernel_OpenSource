@@ -151,14 +151,84 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 	return flag;
 }
 
-void diag_send_diag_mode_update(int real_time)
+void diag_update_proc_vote(uint16_t proc, uint8_t vote)
 {
-	int i;
-
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
-		diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
-							real_time);
+	mutex_lock(&driver->real_time_mutex);
+	if (vote)
+		driver->proc_active_mask |= proc;
+	else {
+		driver->proc_active_mask &= ~proc;
+		driver->proc_rt_vote_mask |= proc;
+	}
+	mutex_unlock(&driver->real_time_mutex);
 }
+
+void diag_update_real_time_vote(uint16_t proc, uint8_t real_time)
+{
+	mutex_lock(&driver->real_time_mutex);
+	if (real_time)
+		driver->proc_rt_vote_mask |= proc;
+	else
+		driver->proc_rt_vote_mask &= ~proc;
+	mutex_unlock(&driver->real_time_mutex);
+}
+
+#ifdef CONFIG_DIAG_OVER_USB
+void diag_real_time_work_fn(struct work_struct *work)
+{
+	int temp_real_time = MODE_REALTIME, i;
+
+	/* If any of the process is voting for Real time, then Diag
+	   should be in real time mode irrespective of other clauses. If
+	   USB is connected, check what the memory device process is
+	   voting for. If it is voting for Non real time, the final mode
+	   should be Non real time, real time otherwise. If USB is
+	   disconncted and no process is voting for real time, the
+	   resultant mode should be Non Real Time.
+	*/
+	if ((driver->proc_rt_vote_mask & driver->proc_active_mask) &&
+					(driver->proc_active_mask != 0))
+			temp_real_time = MODE_REALTIME;
+	else if (driver->usb_connected)
+		if ((driver->proc_rt_vote_mask & DIAG_PROC_MEMORY_DEVICE) == 0)
+			temp_real_time = MODE_NONREALTIME;
+		else
+			temp_real_time = MODE_REALTIME;
+	else
+		temp_real_time = MODE_NONREALTIME;
+
+	if (temp_real_time != driver->real_time_mode) {
+		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
+							temp_real_time);
+	} else {
+		pr_info("diag: did not update real time mode, already in the req mode %d",
+					temp_real_time);
+	}
+	if (driver->real_time_update_busy > 0)
+		driver->real_time_update_busy--;
+}
+#else
+void diag_real_time_work_fn(struct work_struct *work)
+{
+	int temp_real_time = MODE_REALTIME, i;
+
+	if (!(driver->proc_rt_vote_mask & driver->proc_active_mask) &&
+					(driver->proc_active_mask != 0))
+		temp_real_time = MODE_NONREALTIME;
+
+	if (temp_real_time != driver->real_time_mode) {
+		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
+							temp_real_time);
+	} else {
+		pr_warn("diag: did not update real time mode, already in the req mode %d",
+					temp_real_time);
+	}
+	if (driver->real_time_update_busy > 0)
+		driver->real_time_update_busy--;
+}
+#endif
 
 void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time)
@@ -343,6 +413,7 @@ void diagfwd_cntl_exit(void)
 		diag_smd_destructor(&driver->smd_cntl[i]);
 
 	destroy_workqueue(driver->diag_cntl_wq);
+	destroy_workqueue(driver->diag_real_time_wq);
 
 	platform_driver_unregister(&msm_smd_ch1_cntl_driver);
 	platform_driver_unregister(&diag_smd_lite_cntl_driver);

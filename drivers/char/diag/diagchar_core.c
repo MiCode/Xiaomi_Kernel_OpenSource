@@ -273,17 +273,19 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
 		driver->socket_process = NULL;
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 	}
 	if (driver->callback_process &&
 		(driver->callback_process->tgid == current->tgid)) {
 		driver->callback_process = NULL;
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
-		diag_send_diag_mode_update(MODE_REALTIME);
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 		diagfwd_connect();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
@@ -796,7 +798,6 @@ void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode)
 int diag_switch_logging(unsigned long ioarg)
 {
 	int temp = 0, success = -EINVAL, status = 0;
-	int temp_realtime_mode = driver->real_time_mode;
 	int requested_mode = (int)ioarg;
 
 	switch (requested_mode) {
@@ -806,7 +807,6 @@ int diag_switch_logging(unsigned long ioarg)
 	case UART_MODE:
 	case SOCKET_MODE:
 	case CALLBACK_MODE:
-	case MEMORY_DEVICE_MODE_NRT:
 		break;
 	default:
 		pr_err("diag: In %s, request to switch to invalid mode: %d\n",
@@ -814,25 +814,27 @@ int diag_switch_logging(unsigned long ioarg)
 		return -EINVAL;
 	}
 
-	mutex_lock(&driver->diagchar_mutex);
-	temp = driver->logging_mode;
-	driver->logging_mode = requested_mode;
-
-	if (driver->logging_mode == MEMORY_DEVICE_MODE_NRT) {
-		diag_send_diag_mode_update(MODE_NONREALTIME);
-		driver->logging_mode = MEMORY_DEVICE_MODE;
-	} else {
-		diag_send_diag_mode_update(MODE_REALTIME);
-	}
-
-	if (temp == driver->logging_mode) {
-		mutex_unlock(&driver->diagchar_mutex);
-		if (driver->logging_mode != MEMORY_DEVICE_MODE ||
-			temp_realtime_mode)
+	if (requested_mode == driver->logging_mode) {
+		if (requested_mode != MEMORY_DEVICE_MODE ||
+					driver->real_time_mode)
 			pr_info_ratelimited("diag: Already in logging mode change requested, mode: %d\n",
 					driver->logging_mode);
 		return 0;
 	}
+
+	diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP);
+	if (requested_mode != MEMORY_DEVICE_MODE)
+		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
+								MODE_REALTIME);
+
+	if (!(requested_mode == MEMORY_DEVICE_MODE &&
+					driver->logging_mode == USB_MODE))
+		queue_work(driver->diag_real_time_wq,
+						&driver->diag_real_time_work);
+
+	mutex_lock(&driver->diagchar_mutex);
+	temp = driver->logging_mode;
+	driver->logging_mode = requested_mode;
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
 		diag_clear_hsic_tbl();
@@ -911,12 +913,14 @@ int diag_switch_logging(unsigned long ioarg)
 long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
-	int i, result = -EINVAL, interim_size = 0, client_id = 0;
+	int i, result = -EINVAL, interim_size = 0, client_id = 0, real_time = 0;
+	int retry_count = 0, timer = 0;
 	uint16_t support_list = 0, interim_rsp_id, remote_dev;
 	struct diag_dci_client_tbl *dci_params;
 	struct diag_dci_health_stats stats;
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
+	struct real_time_vote_t rt_vote;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -966,6 +970,10 @@ long diagchar_ioctl(struct file *filp,
 					driver->smd_dci_cmd[i].in_busy_1 = 0;
 		}
 		driver->num_dci_client++;
+		if (driver->num_dci_client == 1)
+			diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP);
+		queue_work(driver->diag_real_time_wq,
+				 &driver->diag_real_time_work);
 		pr_debug("diag: In %s, id = %d\n",
 				__func__, driver->dci_client_id);
 		driver->dci_client_id++;
@@ -989,6 +997,7 @@ long diagchar_ioctl(struct file *filp,
 				driver->dci_client_tbl[i].dropped_events = 0;
 				driver->dci_client_tbl[i].received_logs = 0;
 				driver->dci_client_tbl[i].received_events = 0;
+				driver->dci_client_tbl[i].real_time = 1;
 				mutex_init(&driver->dci_client_tbl[i].
 								data_mutex);
 				break;
@@ -1037,6 +1046,15 @@ long diagchar_ioctl(struct file *filp,
 			mutex_destroy(&driver->dci_client_tbl[result].
 								data_mutex);
 			driver->num_dci_client--;
+			if (driver->num_dci_client == 0) {
+				diag_update_proc_vote(DIAG_PROC_DCI, VOTE_DOWN);
+			} else {
+				real_time = diag_dci_get_cumulative_real_time();
+				diag_update_real_time_vote(DIAG_PROC_DCI,
+								real_time);
+			}
+			queue_work(driver->diag_real_time_wq,
+				   &driver->diag_real_time_work);
 		}
 		mutex_unlock(&driver->dci_mutex);
 		break;
@@ -1130,6 +1148,44 @@ long diagchar_ioctl(struct file *filp,
 			result = -EFAULT;
 		else
 			result = 1;
+		break;
+	case DIAG_IOCTL_VOTE_REAL_TIME:
+		if (copy_from_user(&rt_vote, (void *)ioarg, sizeof(struct
+							real_time_vote_t)))
+			result = -EFAULT;
+		driver->real_time_update_busy++;
+		if (rt_vote.proc == DIAG_PROC_DCI) {
+			diag_dci_set_real_time(current->tgid,
+						rt_vote.real_time_vote);
+			real_time = diag_dci_get_cumulative_real_time();
+		} else {
+			real_time = rt_vote.real_time_vote;
+		}
+		diag_update_real_time_vote(rt_vote.proc, real_time);
+		queue_work(driver->diag_real_time_wq,
+				 &driver->diag_real_time_work);
+		result = 0;
+		break;
+	case DIAG_IOCTL_GET_REAL_TIME:
+		if (copy_from_user(&real_time, (void *)ioarg, sizeof(int)))
+			return -EFAULT;
+		while (retry_count < 3) {
+			if (driver->real_time_update_busy > 0) {
+				retry_count++;
+				/* The value 10000 was chosen empirically as an
+				   optimum value in order to give the work in
+				   diag_real_time_wq to complete processing.*/
+				for (timer = 0; timer < 5; timer++)
+					usleep_range(10000, 10100);
+			} else {
+				real_time = driver->real_time_mode;
+				if (copy_to_user((void *)ioarg, &real_time,
+								sizeof(int)))
+					return -EFAULT;
+				result = 0;
+				break;
+			}
+		}
 		break;
 	}
 	return result;
@@ -1862,6 +1918,21 @@ fail_free_copy:
 	return ret;
 }
 
+static void diag_real_time_info_init(void)
+{
+	if (!driver)
+		return;
+	driver->real_time_mode = 1;
+	driver->real_time_update_busy = 0;
+	driver->proc_active_mask = 0;
+	driver->proc_rt_vote_mask |= DIAG_PROC_DCI;
+	driver->proc_rt_vote_mask |= DIAG_PROC_MEMORY_DEVICE;
+	driver->diag_real_time_wq = create_singlethread_workqueue(
+							"diag_real_time_wq");
+	INIT_WORK(&(driver->diag_real_time_work), diag_real_time_work_fn);
+	mutex_init(&driver->real_time_mutex);
+}
+
 int mask_request_validate(unsigned char mask_buf[])
 {
 	uint8_t packet_id;
@@ -2063,6 +2134,7 @@ static int __init diagchar_init(void)
 		init_waitqueue_head(&driver->wait_q);
 		init_waitqueue_head(&driver->smd_wait_q);
 		INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
+		diag_real_time_info_init();
 		diag_debugfs_init();
 		diag_masks_init();
 		diagfwd_init();
