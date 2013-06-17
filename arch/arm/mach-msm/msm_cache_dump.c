@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,8 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 
 	temp = ioremap(msm_cache_dump_addr, total_size);
 	memset(temp, 0xFF, total_size);
+	/* Clean caches before sending buffer to TZ */
+	clean_caches((unsigned long) temp, total_size, msm_cache_dump_addr);
 	iounmap(temp);
 
 	l1_cache_data.buf = msm_cache_dump_addr;
