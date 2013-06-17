@@ -168,14 +168,86 @@ struct adreno_perfcounters {
 	unsigned int group_count;
 };
 
+/**
+ * adreno_regs: List of registers that are used in kgsl driver for all
+ * 3D devices. Each device type has different offset value for the same
+ * register, so an array of register offsets are declared for every device
+ * and are indexed by the enumeration values defined in this enum
+ */
+enum adreno_regs {
+	ADRENO_REG_CP_DEBUG,
+	ADRENO_REG_CP_ME_RAM_WADDR,
+	ADRENO_REG_CP_ME_RAM_DATA,
+	ADRENO_REG_CP_PFP_UCODE_DATA,
+	ADRENO_REG_CP_PFP_UCODE_ADDR,
+	ADRENO_REG_CP_WFI_PEND_CTR,
+	ADRENO_REG_CP_RB_BASE,
+	ADRENO_REG_CP_RB_RPTR_ADDR,
+	ADRENO_REG_CP_RB_RPTR,
+	ADRENO_REG_CP_RB_WPTR,
+	ADRENO_REG_CP_PROTECT_CTRL,
+	ADRENO_REG_CP_ME_CNTL,
+	ADRENO_REG_CP_RB_CNTL,
+	ADRENO_REG_CP_IB1_BASE,
+	ADRENO_REG_CP_IB1_BUFSZ,
+	ADRENO_REG_CP_IB2_BASE,
+	ADRENO_REG_CP_IB2_BUFSZ,
+	ADRENO_REG_CP_TIMESTAMP,
+	ADRENO_REG_SCRATCH_ADDR,
+	ADRENO_REG_SCRATCH_UMSK,
+	ADRENO_REG_SCRATCH_REG2,
+	ADRENO_REG_RBBM_STATUS,
+	ADRENO_REG_RBBM_PERFCTR_CTL,
+	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
+	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,
+	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2,
+	ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
+	ADRENO_REG_RBBM_INT_0_MASK,
+	ADRENO_REG_RBBM_INT_0_STATUS,
+	ADRENO_REG_RBBM_AHB_ERROR_STATUS,
+	ADRENO_REG_RBBM_PM_OVERRIDE2,
+	ADRENO_REG_VPC_VPC_DEBUG_RAM_SEL,
+	ADRENO_REG_VPC_VPC_DEBUG_RAM_READ,
+	ADRENO_REG_VSC_PIPE_DATA_ADDRESS_0,
+	ADRENO_REG_VSC_PIPE_DATA_LENGTH_7,
+	ADRENO_REG_VSC_SIZE_ADDRESS,
+	ADRENO_REG_VFD_CONTROL_0,
+	ADRENO_REG_VFD_FETCH_INSTR_0_0,
+	ADRENO_REG_VFD_FETCH_INSTR_1_F,
+	ADRENO_REG_VFD_INDEX_MAX,
+	ADRENO_REG_SP_VS_PVT_MEM_ADDR_REG,
+	ADRENO_REG_SP_FS_PVT_MEM_ADDR_REG,
+	ADRENO_REG_SP_VS_OBJ_START_REG,
+	ADRENO_REG_SP_FS_OBJ_START_REG,
+	ADRENO_REG_PA_SC_AA_CONFIG,
+	ADRENO_REG_SQ_GPR_MANAGEMENT,
+	ADRENO_REG_SQ_INST_STORE_MANAGMENT,
+	ADRENO_REG_TC_CNTL_STATUS,
+	ADRENO_REG_TP0_CHICKEN,
+	ADRENO_REG_REGISTER_MAX,
+};
+
+/**
+ * adreno_reg_offsets: Holds array of register offsets
+ * @offsets: Offset array of size defined by enum adreno_regs
+ * @offset_0: This is the index of the register in offset array whose value
+ * is 0. 0 is a valid register offset and during initialization of the
+ * offset array we need to know if an offset value is correctly defined to 0
+ */
+struct adreno_reg_offsets {
+	unsigned int *offsets;
+	enum adreno_regs offset_0;
+};
+
+#define ADRENO_REG_UNUSED	0xFFFFFFFF
+#define ADRENO_REG_DEFINE(_offset, _reg) [_offset] = _reg
+
 struct adreno_gpudev {
 	/*
-	 * These registers are in a different location on A3XX,  so define
-	 * them in the structure and use them as variables.
+	 * These registers are in a different location on different devices,
+	 * so define them in the structure and use them as variables.
 	 */
-	unsigned int reg_rbbm_status;
-	unsigned int reg_cp_pfp_ucode_data;
-	unsigned int reg_cp_pfp_ucode_addr;
+	struct adreno_reg_offsets *reg_offsets;
 	/* keeps track of when we need to execute the draw workaround code */
 	int ctx_switches_since_last_draw;
 
@@ -205,6 +277,7 @@ struct adreno_gpudev {
 	void (*coresight_config_debug_reg) (struct kgsl_device *device,
 			int debug_reg, unsigned int val);
 	void (*soft_reset)(struct adreno_device *device);
+	void (*postmortem_dump)(struct adreno_device *adreno_dev);
 };
 
 /*
@@ -248,6 +321,11 @@ struct adreno_ft_data {
 };
 
 #define FT_DETECT_REGS_COUNT 12
+
+struct log_field {
+	bool show;
+	const char *display;
+};
 
 /* Fault Tolerance policy flags */
 #define  KGSL_FT_OFF                      BIT(0)
@@ -305,6 +383,9 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 						unsigned int *value);
 
 int adreno_dump(struct kgsl_device *device, int manual);
+void adreno_dump_fields(struct kgsl_device *device,
+			const char *start, const struct log_field *lines,
+			int num);
 unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev);
 
@@ -555,4 +636,66 @@ static inline int adreno_wait_reg_eq(unsigned int *cmds, unsigned int addr,
 	return cmds - start;
 }
 
+/*
+ * adreno_checkreg_off() - Checks the validity of a register enum
+ * @adreno_dev:		Pointer to adreno device
+ * @offset_name:	The register enum that is checked
+ */
+static inline bool adreno_checkreg_off(struct adreno_device *adreno_dev,
+					enum adreno_regs offset_name)
+{
+	if (offset_name >= ADRENO_REG_REGISTER_MAX ||
+		ADRENO_REG_UNUSED ==
+			adreno_dev->gpudev->reg_offsets->offsets[offset_name]) {
+		BUG_ON(1);
+	}
+	return true;
+}
+
+/*
+ * adreno_readreg() - Read a register by getting its offset from the
+ * offset array defined in gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @offset_name:	The register enum that is to be read
+ * @val:		Register value read is placed here
+ */
+static inline void adreno_readreg(struct adreno_device *adreno_dev,
+				enum adreno_regs offset_name, unsigned int *val)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	if (adreno_checkreg_off(adreno_dev, offset_name))
+		adreno_regread(device,
+			adreno_dev->gpudev->reg_offsets->offsets[offset_name],
+								val);
+}
+
+/*
+ * adreno_writereg() - Write a register by getting its offset from the
+ * offset array defined in gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @offset_name:	The register enum that is to be written
+ * @val:		Value to write
+ */
+static inline void adreno_writereg(struct adreno_device *adreno_dev,
+				enum adreno_regs offset_name, unsigned int val)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	if (adreno_checkreg_off(adreno_dev, offset_name))
+		adreno_regwrite(device,
+		adreno_dev->gpudev->reg_offsets->offsets[offset_name], val);
+}
+
+/*
+ * adreno_getreg() - Returns the offset value of a register from the
+ * register offset array in the gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @offset_name:	The register enum whore offset is returned
+ */
+static inline unsigned int adreno_getreg(struct adreno_device *adreno_dev,
+				enum adreno_regs offset_name)
+{
+	if (!adreno_checkreg_off(adreno_dev, offset_name))
+		return ADRENO_REG_REGISTER_MAX;
+	return adreno_dev->gpudev->reg_offsets->offsets[offset_name];
+}
 #endif /*__ADRENO_H */
