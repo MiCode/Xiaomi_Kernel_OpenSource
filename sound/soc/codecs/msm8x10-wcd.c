@@ -50,6 +50,11 @@
 
 #define MSM8X10_WCD_I2S_MASTER_MODE_MASK	0x08
 #define MSM8X10_DINO_CODEC_BASE_ADDR		0xFE043000
+#define MSM8x10_TLMM_CDC_PULL_CTL			0xFD512050
+#define HELICON_CORE_0_I2C_ADDR				0x0d
+#define HELICON_CORE_1_I2C_ADDR				0x77
+#define HELICON_CORE_2_I2C_ADDR				0x66
+#define HELICON_CORE_3_I2C_ADDR				0x55
 
 #define MAX_MSM8X10_WCD_DEVICE	4
 #define CODEC_DT_MAX_PROP_SIZE	40
@@ -2400,6 +2405,15 @@ int msm8x10_wcd_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(msm8x10_wcd_hs_detect);
 
+static int msm8x10_wcd_bringup(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, MSM8X10_WCD_A_CDC_RST_CTL, 0x02);
+	snd_soc_write(codec, MSM8X10_WCD_A_CHIP_CTL, 0x00);
+	usleep_range(5000, 5000);
+	snd_soc_write(codec, MSM8X10_WCD_A_CDC_RST_CTL, 0x03);
+	return 0;
+}
+
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd;
@@ -2422,6 +2436,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	codec->control_data = dev_get_drvdata(codec->dev);
 	snd_soc_codec_set_drvdata(codec, msm8x10_wcd);
 	msm8x10_wcd->codec = codec;
+	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
 
@@ -2557,27 +2572,20 @@ static void msm8x10_wcd_disable_supplies(struct msm8x10_wcd *msm8x10,
 	kfree(msm8x10->supplies);
 }
 
-static int msm8x10_wcd_bringup(struct msm8x10_wcd *msm8x10)
+static int msm8x10_wcd_pads_config(void)
 {
-	msm8x10->read_dev = msm8x10_wcd_reg_read;
-	msm8x10->write_dev(msm8x10, MSM8X10_WCD_A_CDC_RST_CTL, 0x02);
-	msm8x10->write_dev(msm8x10, MSM8X10_WCD_A_CHIP_CTL, 0x00);
-	usleep_range(5000, 5000);
-	msm8x10->write_dev(msm8x10, MSM8X10_WCD_A_CDC_RST_CTL, 0x03);
+	/* Set I2C pads as pull up and rest of pads as no pull */
+	iowrite32(0x03C00000, ioremap(MSM8x10_TLMM_CDC_PULL_CTL, 4));
+	usleep_range(100, 200);
 	return 0;
 }
-
 static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
 {
 	mutex_init(&msm8x10->io_lock);
 	mutex_init(&msm8x10->xfer_lock);
 	mutex_init(&msm8x10->pm_lock);
 	msm8x10->wlock_holders = 0;
-
-	iowrite32(0x03C00000, ioremap(0xFD512050, 4));
-	usleep_range(5000, 5000);
-
-	msm8x10_wcd_bringup(msm8x10);
+	msm8x10_wcd_pads_config();
 	return 0;
 }
 
@@ -2589,14 +2597,43 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	struct msm8x10_wcd_pdata *pdata;
 	static int device_id;
 	struct device *dev;
+	enum apr_subsys_state q6_state;
 
-	dev_dbg(&client->dev, "%s:slave addr = 0x%x device_id = %d\n",
-		__func__, client->addr, device_id);
+	dev_dbg(&client->dev, "%s(%d):slave addr = 0x%x device_id = %d\n",
+		__func__, __LINE__,  client->addr, device_id);
 
-	if (device_id > 0) {
-		msm8x10_wcd_modules[device_id++].client = client;
+	switch (client->addr) {
+	case HELICON_CORE_0_I2C_ADDR:
+		msm8x10_wcd_modules[0].client = client;
+		break;
+	case HELICON_CORE_1_I2C_ADDR:
+		msm8x10_wcd_modules[1].client = client;
+		goto rtn;
+	case HELICON_CORE_2_I2C_ADDR:
+		msm8x10_wcd_modules[2].client = client;
+		goto rtn;
+	case HELICON_CORE_3_I2C_ADDR:
+		msm8x10_wcd_modules[3].client = client;
+		goto rtn;
+	default:
+		ret = -EINVAL;
 		goto rtn;
 	}
+
+	q6_state = apr_get_q6_state();
+	if ((q6_state == APR_SUBSYS_DOWN) &&
+	    (client->addr == HELICON_CORE_0_I2C_ADDR)) {
+		dev_info(&client->dev, "defering %s, adsp_state %d\n", __func__,
+			q6_state);
+		return -EPROBE_DEFER;
+	} else
+		dev_info(&client->dev, "adsp is ready\n");
+
+	dev_dbg(&client->dev, "%s(%d):slave addr = 0x%x device_id = %d\n",
+		__func__, __LINE__,  client->addr, device_id);
+
+	if (client->addr != HELICON_CORE_0_I2C_ADDR)
+		goto rtn;
 
 	dev = &client->dev;
 	if (client->dev.of_node) {
@@ -2619,7 +2656,6 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	}
 
 	msm8x10->dev = &client->dev;
-	msm8x10_wcd_modules[device_id++].client = client;
 	msm8x10->read_dev = msm8x10_wcd_reg_read;
 	msm8x10->write_dev = msm8x10_wcd_reg_write;
 	ret = msm8x10_wcd_enable_supplies(msm8x10, pdata);
