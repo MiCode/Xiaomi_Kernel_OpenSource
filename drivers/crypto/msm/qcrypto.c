@@ -824,7 +824,14 @@ static int _qcrypto_setkey_des(struct crypto_ablkcipher *cipher, const u8 *key,
 	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 	u32 tmp[DES_EXPKEY_WORDS];
-	int ret = des_ekey(tmp, key);
+	int ret;
+
+	if (!key) {
+		pr_err("%s Inavlid key pointer\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = des_ekey(tmp, key);
 
 	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY) {
 		pr_err("%s HW KEY usage not supported for DES algorithm\n",
@@ -843,14 +850,9 @@ static int _qcrypto_setkey_des(struct crypto_ablkcipher *cipher, const u8 *key,
 	}
 
 	ctx->enc_key_len = len;
-	if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY)) {
-		if (key != NULL) {
-			memcpy(ctx->enc_key, key, len);
-		} else {
-			pr_err("%s Inavlid key pointer\n", __func__);
-			return -EINVAL;
-		}
-	}
+	if (!(ctx->flags & QCRYPTO_CTX_USE_PIPE_KEY))
+		memcpy(ctx->enc_key, key, len);
+
 	return 0;
 };
 
