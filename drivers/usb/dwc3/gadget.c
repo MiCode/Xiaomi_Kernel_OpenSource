@@ -36,6 +36,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -55,6 +56,11 @@
 #include "gadget.h"
 #include "debug.h"
 #include "io.h"
+
+static bool tx_fifo_resize_enable;
+module_param(tx_fifo_resize_enable, bool, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(tx_fifo_resize_enable,
+			"Enable allocating Tx fifo for endpoints");
 
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
@@ -178,7 +184,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	int		mdwidth;
 	int		num;
 
-	if (!dwc->needs_fifo_resize)
+	if (!dwc->needs_fifo_resize && !tx_fifo_resize_enable)
 		return 0;
 
 	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
