@@ -57,6 +57,27 @@
 		status = "ok";
 	};
 
+	i2c@f9925000 { /* BLSP-1 QUP-3 */
+		kionix@f {
+			compatible = "kionix,kxtj9";
+			reg = <0x0f>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <81 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			kionix,min_interval = <5>;
+			kionix,init_interval = <200>;
+			kionix,axis_map_x = <1>;
+			kionix,axis_map_y = <0>;
+			kionix,axis_map_z = <2>;
+			kionix,g-range = <2>;
+			kionix,negate-x;
+			kionix,negate-y;
+			kionix,negate-z;
+			kionix,res-12bit;
+		};
+	};
+
 	gpio_keys {
                 compatible = "gpio-keys";
                 input-name = "gpio-keys";
