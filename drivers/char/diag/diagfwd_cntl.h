@@ -124,8 +124,9 @@ void diag_notify_ctrl_update_fn(struct work_struct *work);
 void diag_clean_reg_fn(struct work_struct *work);
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd);
-void diag_send_diag_mode_update(int real_time);
 void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time);
-
+void diag_update_proc_vote(uint16_t proc, uint8_t vote);
+void diag_update_real_time_vote(uint16_t proc, uint8_t real_time);
+void diag_real_time_work_fn(struct work_struct *work);
 #endif

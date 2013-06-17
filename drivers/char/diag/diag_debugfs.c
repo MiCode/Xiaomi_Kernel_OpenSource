@@ -70,7 +70,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Modem CMD in_busy_1: %d\n"
 		"Modem CMD in_busy_2: %d\n"
 		"DCI CMD Modem in_busy_1: %d\n"
-		"logging_mode: %d\n",
+		"logging_mode: %d\n"
+		"real_time_mode: %d\n",
 		(unsigned int)driver->smd_data[MODEM_DATA].ch,
 		(unsigned int)driver->smd_data[LPASS_DATA].ch,
 		(unsigned int)driver->smd_data[WCNSS_DATA].ch,
@@ -100,7 +101,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->smd_cmd[MODEM_DATA].in_busy_1,
 		driver->smd_cmd[MODEM_DATA].in_busy_2,
 		driver->smd_dci_cmd[MODEM_DATA].in_busy_1,
-		driver->logging_mode);
+		driver->logging_mode,
+		driver->real_time_mode);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, DEBUG_BUF_SIZE,
@@ -137,8 +139,12 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 	if (diag_dbgfs_dci_data_index == 0) {
 		bytes_written =
 			scnprintf(buf, buf_size,
-			"number of clients: %d\n",
-			driver->num_dci_client);
+			"number of clients: %d\n"
+			"dci proc active: %d\n"
+			"dci real time vote: %d\n",
+			driver->num_dci_client,
+			(driver->proc_active_mask & DIAG_PROC_DCI) ? 1 : 0,
+			(driver->proc_rt_vote_mask & DIAG_PROC_DCI) ? 1 : 0);
 		bytes_in_buf += bytes_written;
 		bytes_remaining -= bytes_written;
 #ifdef CONFIG_DIAG_OVER_USB
