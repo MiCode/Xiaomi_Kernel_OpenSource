@@ -97,6 +97,7 @@
 #define FLASH_FAULT_DETECT(base)	(base + 0x51)
 
 #define FLASH_MAX_LEVEL			0x4F
+#define TORCH_MAX_LEVEL			0x0F
 #define	FLASH_NO_MASK			0x00
 
 #define FLASH_MASK_1			0x20
@@ -639,8 +640,12 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 	int rc;
 	int val = led->cdev.brightness;
 
-	led->flash_cfg->current_prgm = (val * FLASH_MAX_LEVEL /
-						led->max_current);
+	if (led->flash_cfg->torch_enable)
+		led->flash_cfg->current_prgm =
+			(val * TORCH_MAX_LEVEL / led->max_current);
+	else
+		led->flash_cfg->current_prgm =
+			(val * FLASH_MAX_LEVEL / led->max_current);
 
 	led->flash_cfg->current_prgm =
 		led->flash_cfg->current_prgm >> FLASH_CURRENT_PRGM_SHIFT;
@@ -691,7 +696,7 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 
 			qpnp_led_masked_write(led, FLASH_MAX_CURR(led->base),
 				FLASH_CURRENT_MASK,
-				led->max_current);
+				TORCH_MAX_LEVEL);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Max current reg write failed(%d)\n",
@@ -1840,11 +1845,18 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 		return -EINVAL;
 	}
 
+	led->flash_cfg->torch_enable =
+		of_property_read_bool(node, "qcom,torch-enable");
+
 	rc = of_property_read_u32(node, "qcom,current", &val);
-	if (!rc)
-		led->flash_cfg->current_prgm = (val *
+	if (!rc) {
+		if (led->flash_cfg->torch_enable)
+			led->flash_cfg->current_prgm = (val *
+				TORCH_MAX_LEVEL / led->max_current);
+		else
+			led->flash_cfg->current_prgm = (val *
 				FLASH_MAX_LEVEL / led->max_current);
-	else
+	} else
 		return -EINVAL;
 
 	rc = of_property_read_u32(node, "qcom,headroom", &val);
@@ -1882,9 +1894,6 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 
 	led->flash_cfg->safety_timer =
 		of_property_read_bool(node, "qcom,safety-timer");
-
-	led->flash_cfg->torch_enable =
-		of_property_read_bool(node, "qcom,torch-enable");
 
 	return 0;
 }
