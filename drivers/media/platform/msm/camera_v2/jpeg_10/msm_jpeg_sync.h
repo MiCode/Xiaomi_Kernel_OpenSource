@@ -26,6 +26,14 @@
 #define JPEG_8974_V1 0x10000000
 #define JPEG_8974_V2 0x10010000
 
+enum msm_jpeg_state {
+	MSM_JPEG_INIT,
+	MSM_JPEG_RESET,
+	MSM_JPEG_EXECUTING,
+	MSM_JPEG_STOPPED,
+	MSM_JPEG_IDLE
+};
+
 struct msm_jpeg_q {
 	char const	*name;
 	struct list_head  q;
@@ -98,6 +106,7 @@ struct msm_jpeg_device {
 	wait_queue_head_t reset_wait;
 	uint32_t res_size;
 	uint32_t jpeg_bus_client;
+	enum msm_jpeg_state state;
 };
 
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev);

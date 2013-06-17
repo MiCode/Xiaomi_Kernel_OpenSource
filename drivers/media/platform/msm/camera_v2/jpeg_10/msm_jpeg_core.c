@@ -1,4 +1,4 @@
-/* Copyright (c) 2012,The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013,The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,7 @@ int msm_jpeg_core_reset(struct msm_jpeg_device *pgmn_dev, uint8_t op_mode,
 	JPEG_DBG("%s: reset_done_ack rc %d", __func__, rc);
 	spin_lock_irqsave(&pgmn_dev->reset_lock, flags);
 	pgmn_dev->reset_done_ack = 0;
+	pgmn_dev->state = MSM_JPEG_RESET;
 	spin_unlock_irqrestore(&pgmn_dev->reset_lock, flags);
 
 	return 0;
@@ -196,7 +197,15 @@ irqreturn_t msm_jpeg_core_irq(int irq_num, void *context)
 		jpeg_irq_status);
 
 	/*For reset and framedone IRQs, clear all bits*/
-	if (jpeg_irq_status & 0x10000000) {
+	if (pgmn_dev->state == MSM_JPEG_IDLE) {
+		JPEG_DBG_HIGH("%s %d ] Error IRQ received state %d",
+		__func__, __LINE__, pgmn_dev->state);
+		JPEG_DBG_HIGH("%s %d ] Ignoring the Error", __func__,
+		__LINE__);
+		msm_jpeg_hw_irq_clear(JPEG_IRQ_CLEAR_BMSK,
+			JPEG_IRQ_CLEAR_ALL, pgmn_dev->base);
+		return IRQ_HANDLED;
+	} else if (jpeg_irq_status & 0x10000000) {
 		msm_jpeg_hw_irq_clear(JPEG_IRQ_CLEAR_BMSK,
 			JPEG_IRQ_CLEAR_ALL, pgmn_dev->base);
 	} else if (jpeg_irq_status & 0x1) {
@@ -239,13 +248,25 @@ irqreturn_t msm_jpeg_core_irq(int irq_num, void *context)
 
 	/* Unexpected/unintended HW interrupt */
 	if (msm_jpeg_hw_irq_is_err(jpeg_irq_status)) {
-		if (pgmn_dev->decode_flag)
-			msm_jpeg_decode_status(pgmn_dev->base);
-		msm_jpeg_core_return_buffers(pgmn_dev, jpeg_irq_status);
-		data = msm_jpeg_core_err_irq(jpeg_irq_status, pgmn_dev);
-		if (msm_jpeg_irq_handler)
-			msm_jpeg_irq_handler(MSM_JPEG_HW_MASK_COMP_ERR,
-				context, data);
+		if (pgmn_dev->state != MSM_JPEG_EXECUTING) {
+			/*Clear all the bits and ignore the IRQ*/
+			JPEG_DBG_HIGH("%s %d ] Error IRQ received state %d",
+			__func__, __LINE__, pgmn_dev->state);
+			JPEG_DBG_HIGH("%s %d ] Ignoring the Error", __func__,
+			__LINE__);
+			msm_jpeg_hw_irq_clear(JPEG_IRQ_CLEAR_BMSK,
+			JPEG_IRQ_CLEAR_ALL, pgmn_dev->base);
+			return IRQ_HANDLED;
+		} else {
+			if (pgmn_dev->decode_flag)
+				msm_jpeg_decode_status(pgmn_dev->base);
+			msm_jpeg_core_return_buffers(pgmn_dev, jpeg_irq_status);
+			data = msm_jpeg_core_err_irq(jpeg_irq_status, pgmn_dev);
+			if (msm_jpeg_irq_handler) {
+				msm_jpeg_irq_handler(MSM_JPEG_HW_MASK_COMP_ERR,
+					context, data);
+			}
+		}
 	}
 
 	return IRQ_HANDLED;
