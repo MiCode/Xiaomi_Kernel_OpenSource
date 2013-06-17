@@ -201,9 +201,21 @@ static struct msm_cam_clk_info csid_8610_clk_info[] = {
 	{"csi_ahb_clk", -1},
 	{"csi_src_clk", 200000000},
 	{"csi_clk", -1},
-	{"csi_phy_clk", -1},
-	{"csi_pix_clk", -1},
-	{"csi_rdi_clk", -1},
+	{"csi0phy_mux_clk", -1},
+	{"csi1phy_mux_clk", -1},
+	{"csi0pix_mux_clk", -1},
+	{"csi0rdi_mux_clk", -1},
+	{"csi1rdi_mux_clk", -1},
+	{"csi2rdi_mux_clk", -1},
+};
+
+static struct msm_cam_clk_info csid_8610_clk_src_info[] = {
+	{"csi_phy_src_clk", 0},
+	{"csi_phy_src_clk", 0},
+	{"csi_pix_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
 };
 
 static struct camera_vreg_t csid_8960_vreg_info[] = {
@@ -271,6 +283,9 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 				goto clk_enable_failed;
 			}
 		} else {
+			msm_cam_clk_sel_src(&csid_dev->pdev->dev,
+				&csid_8610_clk_info[3], csid_8610_clk_src_info,
+				ARRAY_SIZE(csid_8610_clk_src_info));
 			rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
 				csid_8610_clk_info, csid_dev->csid_clk,
 				ARRAY_SIZE(csid_8610_clk_info), 1);
