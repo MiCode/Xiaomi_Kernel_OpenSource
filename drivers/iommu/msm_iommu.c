@@ -23,6 +23,17 @@
 static DEFINE_MUTEX(iommu_list_lock);
 static LIST_HEAD(iommu_list);
 
+#define MRC(reg, processor, op1, crn, crm, op2)				\
+__asm__ __volatile__ (							\
+"   mrc   "   #processor "," #op1 ", %0,"  #crn "," #crm "," #op2 "\n"  \
+: "=r" (reg))
+
+#define RCP15_PRRR(reg)   MRC(reg, p15, 0, c10, c2, 0)
+#define RCP15_NMRR(reg)   MRC(reg, p15, 0, c10, c2, 1)
+
+#define RCP15_MAIR0(reg)   MRC(reg, p15, 0, c10, c2, 0)
+#define RCP15_MAIR1(reg)   MRC(reg, p15, 0, c10, c2, 1)
+
 static struct iommu_access_ops *iommu_access_ops;
 
 struct bus_type msm_iommu_sec_bus_type = {
@@ -95,3 +106,88 @@ struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 EXPORT_SYMBOL(msm_iommu_get_ctx);
 
+/* These values come from proc-v7-2level.S */
+#define PRRR_VALUE 0xff0a81a8
+#define NMRR_VALUE 0x40e040e0
+
+/* These values come from proc-v7-3level.S */
+#define MAIR0_VALUE 0xeeaa4400
+#define MAIR1_VALUE 0xff000004
+
+#ifdef CONFIG_IOMMU_LPAE
+#ifdef CONFIG_ARM_LPAE
+/*
+ * If CONFIG_ARM_LPAE AND CONFIG_IOMMU_LPAE are enabled we can use the MAIR
+ * register directly
+ */
+u32 msm_iommu_get_mair0(void)
+{
+	unsigned int mair0;
+
+	RCP15_MAIR0(mair0);
+	return mair0;
+}
+
+u32 msm_iommu_get_mair1(void)
+{
+	unsigned int mair1;
+
+	RCP15_MAIR1(mair1);
+	return mair1;
+}
+#else
+/*
+ * However, If CONFIG_ARM_LPAE is not enabled but CONFIG_IOMMU_LPAE is enabled
+ * we'll just use the hard coded values directly..
+ */
+u32 msm_iommu_get_mair0(void)
+{
+	return MAIR0_VALUE;
+}
+
+u32 msm_iommu_get_mair1(void)
+{
+	return MAIR1_VALUE;
+}
+#endif
+
+#else
+#ifdef CONFIG_ARM_LPAE
+/*
+ * If CONFIG_ARM_LPAE is enabled AND CONFIG_IOMMU_LPAE is disabled
+ * we must use the hardcoded values.
+ */
+u32 msm_iommu_get_prrr(void)
+{
+	return PRRR_VALUE;
+}
+
+u32 msm_iommu_get_nmrr(void)
+{
+	return NMRR_VALUE;
+}
+#else
+/*
+ * If both CONFIG_ARM_LPAE AND CONFIG_IOMMU_LPAE are disabled
+ * we can use the registers directly.
+ */
+#define RCP15_PRRR(reg)		MRC(reg, p15, 0, c10, c2, 0)
+#define RCP15_NMRR(reg)		MRC(reg, p15, 0, c10, c2, 1)
+
+u32 msm_iommu_get_prrr(void)
+{
+	u32 prrr;
+
+	RCP15_PRRR(prrr);
+	return prrr;
+}
+
+u32 msm_iommu_get_nmrr(void)
+{
+	u32 nmrr;
+
+	RCP15_NMRR(nmrr);
+	return nmrr;
+}
+#endif
+#endif

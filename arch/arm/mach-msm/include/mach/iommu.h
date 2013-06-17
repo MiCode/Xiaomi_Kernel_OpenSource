@@ -366,4 +366,10 @@ static inline int msm_soc_version_supports_iommu_v0(void)
 	soc_supports_v0 = 1;
 	return 1;
 }
+
+u32 msm_iommu_get_mair0(void);
+u32 msm_iommu_get_mair1(void);
+u32 msm_iommu_get_prrr(void);
+u32 msm_iommu_get_nmrr(void);
+
 #endif

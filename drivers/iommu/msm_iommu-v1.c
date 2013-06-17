@@ -35,8 +35,13 @@
 #include <mach/msm_bus.h>
 #include "msm_iommu_pagetable.h"
 
+#ifdef CONFIG_IOMMU_LPAE
+/* bitmap of the page sizes currently supported */
+#define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_2M | SZ_32M | SZ_1G)
+#else
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
+#endif
 
 static DEFINE_MUTEX(msm_iommu_lock);
 struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
@@ -355,6 +360,20 @@ static void __release_smg(void __iomem *base, int ctx)
 			SET_SMR_VALID(base, i, 0);
 }
 
+#ifdef CONFIG_IOMMU_LPAE
+static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
+			       unsigned int asid)
+{
+	SET_CB_TTBR0_ASID(base, ctx_num, asid);
+}
+#else
+static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
+			       unsigned int asid)
+{
+	SET_CB_CONTEXTIDR_ASID(base, ctx_num, asid);
+}
+#endif
+
 static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 				  struct msm_iommu_ctx_drvdata *curr_ctx,
 				  struct msm_iommu_priv *priv)
@@ -372,8 +391,6 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 
 		++iommu_drvdata->asid[tmp_drvdata->asid - 1];
 		curr_ctx->asid = tmp_drvdata->asid;
-
-		SET_CB_CONTEXTIDR_ASID(base, curr_ctx->num, curr_ctx->asid);
 		found = 1;
 	}
 
@@ -383,23 +400,79 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 			if (iommu_drvdata->asid[i] == 0) {
 				++iommu_drvdata->asid[i];
 				curr_ctx->asid = i + 1;
-
-				SET_CB_CONTEXTIDR_ASID(base, curr_ctx->num,
-						       curr_ctx->asid);
 				found = 1;
 				break;
 			}
 		}
 		BUG_ON(!found);
 	}
+
+	msm_iommu_set_ASID(base, curr_ctx->num, curr_ctx->asid);
 }
+
+#ifdef CONFIG_IOMMU_LPAE
+static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
+{
+	SET_CB_TTBCR_EAE(base, ctx, 1); /* Extended Address Enable (EAE) */
+}
+
+static void msm_iommu_setup_memory_remap(void __iomem *base, unsigned int ctx)
+{
+	SET_CB_MAIR0(base, ctx, msm_iommu_get_mair0());
+	SET_CB_MAIR1(base, ctx, msm_iommu_get_mair1());
+}
+
+static void msm_iommu_setup_pg_l2_redirect(void __iomem *base, unsigned int ctx)
+{
+	/*
+	 * Configure page tables as inner-cacheable and shareable to reduce
+	 * the TLB miss penalty.
+	 */
+	SET_CB_TTBCR_SH0(base, ctx, 3); /* Inner shareable */
+	SET_CB_TTBCR_ORGN0(base, ctx, 1); /* outer cachable*/
+	SET_CB_TTBCR_IRGN0(base, ctx, 1); /* inner cachable*/
+	SET_CB_TTBCR_T0SZ(base, ctx, 0); /* 0GB-4GB */
+
+
+	SET_CB_TTBCR_SH1(base, ctx, 3); /* Inner shareable */
+	SET_CB_TTBCR_ORGN1(base, ctx, 1); /* outer cachable*/
+	SET_CB_TTBCR_IRGN1(base, ctx, 1); /* inner cachable*/
+	SET_CB_TTBCR_T1SZ(base, ctx, 0); /* TTBR1 not used */
+}
+
+#else
+
+static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
+{
+	/* Turn on TEX Remap */
+	SET_CB_SCTLR_TRE(base, ctx, 1);
+}
+
+static void msm_iommu_setup_memory_remap(void __iomem *base, unsigned int ctx)
+{
+	SET_PRRR(base, ctx, msm_iommu_get_prrr());
+	SET_NMRR(base, ctx, msm_iommu_get_nmrr());
+}
+
+static void msm_iommu_setup_pg_l2_redirect(void __iomem *base, unsigned int ctx)
+{
+	/* Configure page tables as inner-cacheable and shareable to reduce
+	 * the TLB miss penalty.
+	 */
+	SET_CB_TTBR0_S(base, ctx, 1);
+	SET_CB_TTBR0_NOS(base, ctx, 1);
+	SET_CB_TTBR0_IRGN1(base, ctx, 0); /* WB, WA */
+	SET_CB_TTBR0_IRGN0(base, ctx, 1);
+	SET_CB_TTBR0_RGN(base, ctx, 1);   /* WB, WA */
+}
+
+#endif
 
 static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 			      struct msm_iommu_ctx_drvdata *ctx_drvdata,
 			      struct msm_iommu_priv *priv, bool is_secure)
 {
-	unsigned int prrr, nmrr;
-	unsigned int pn;
+	phys_addr_t pn;
 	int num = 0, i, smt_size;
 	void __iomem *base = iommu_drvdata->base;
 	unsigned int ctx = ctx_drvdata->num;
@@ -408,9 +481,14 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	phys_addr_t pgtable = __pa(priv->pt.fl_table);
 
 	__reset_context(base, ctx);
+	msm_iommu_setup_ctx(base, ctx);
+
+	if (priv->pt.redirect)
+		msm_iommu_setup_pg_l2_redirect(base, ctx);
+
+	msm_iommu_setup_memory_remap(base, ctx);
 
 	pn = pgtable >> CB_TTBR0_ADDR_SHIFT;
-	SET_TTBCR(base, ctx, 0);
 	SET_CB_TTBR0_ADDR(base, ctx, pn);
 
 	/* Enable context fault interrupt */
@@ -421,28 +499,8 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	SET_CB_ACTLR_BPRCOSH(base, ctx, 1);
 	SET_CB_ACTLR_BPRCNSH(base, ctx, 1);
 
-	/* Turn on TEX Remap */
-	SET_CB_SCTLR_TRE(base, ctx, 1);
-
 	/* Enable private ASID namespace */
 	SET_CB_SCTLR_ASIDPNE(base, ctx, 1);
-
-	/* Set TEX remap attributes */
-	RCP15_PRRR(prrr);
-	RCP15_NMRR(nmrr);
-	SET_PRRR(base, ctx, prrr);
-	SET_NMRR(base, ctx, nmrr);
-
-	/* Configure page tables as inner-cacheable and shareable to reduce
-	 * the TLB miss penalty.
-	 */
-	if (priv->pt.redirect) {
-		SET_CB_TTBR0_S(base, ctx, 1);
-		SET_CB_TTBR0_NOS(base, ctx, 1);
-		SET_CB_TTBR0_IRGN1(base, ctx, 0); /* WB, WA */
-		SET_CB_TTBR0_IRGN0(base, ctx, 1);
-		SET_CB_TTBR0_RGN(base, ctx, 1);   /* WB, WA */
-	}
 
 	if (!is_secure) {
 		smt_size = GET_IDR0_NUMSMRG(base);
@@ -776,6 +834,29 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	return 0;
 }
 
+#ifdef CONFIG_IOMMU_LPAE
+static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
+{
+	phys_addr_t phy;
+	/* Upper 28 bits from PAR, lower 12 from VA */
+	phy = (par & 0xFFFFFFF000ULL) | (va & 0x00000FFF);
+	return phy;
+}
+#else
+static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
+{
+	phys_addr_t phy;
+
+	/* We are dealing with a supersection */
+	if (par & CB_PAR_SS)
+		phy = (par & 0xFF000000) | (va & 0x00FFFFFF);
+	else /* Upper 20 bits from PAR, lower 12 from VA */
+		phy = (par & 0xFFFFF000) | (va & 0x00000FFF);
+
+	return phy;
+}
+#endif
+
 static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 					  phys_addr_t va)
 {
@@ -834,11 +915,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 			(par & CB_PAR_STAGE) ? "S2 " : "S1 ");
 		ret = 0;
 	} else {
-		/* We are dealing with a supersection */
-		if (ret & CB_PAR_SS)
-			ret = (par & 0xFF000000) | (va & 0x00FFFFFF);
-		else /* Upper 20 bits from PAR, lower 12 from VA */
-			ret = (par & 0xFFFFF000) | (va & 0x00000FFF);
+		ret = msm_iommu_get_phy_from_PAR(va, par);
 	}
 
 fail:
@@ -851,6 +928,20 @@ static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
 {
 	return 0;
 }
+
+#ifdef CONFIG_IOMMU_LPAE
+static inline void print_ctx_mem_attr_regs(struct msm_iommu_context_reg regs[])
+{
+	pr_err("MAIR0   = %08x    MAIR1   = %08x\n",
+		 regs[DUMP_REG_MAIR0].val, regs[DUMP_REG_MAIR1].val);
+}
+#else
+static inline void print_ctx_mem_attr_regs(struct msm_iommu_context_reg regs[])
+{
+	pr_err("PRRR   = %08x    NMRR   = %08x\n",
+		 regs[DUMP_REG_PRRR].val, regs[DUMP_REG_NMRR].val);
+}
+#endif
 
 void print_ctx_regs(struct msm_iommu_context_reg regs[])
 {
@@ -896,8 +987,7 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[])
 
 	pr_err("SCTLR  = %08x    ACTLR  = %08x\n",
 		 regs[DUMP_REG_SCTLR].val, regs[DUMP_REG_ACTLR].val);
-	pr_err("PRRR   = %08x    NMRR   = %08x\n",
-		 regs[DUMP_REG_PRRR].val, regs[DUMP_REG_NMRR].val);
+	print_ctx_mem_attr_regs(regs);
 }
 
 static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)

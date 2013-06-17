@@ -618,12 +618,12 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 static int __init get_tex_class(int icp, int ocp, int mt, int nos)
 {
 	int i = 0;
-	unsigned int prrr = 0;
-	unsigned int nmrr = 0;
+	unsigned int prrr;
+	unsigned int nmrr;
 	int c_icp, c_ocp, c_mt, c_nos;
 
-	RCP15_PRRR(prrr);
-	RCP15_NMRR(nmrr);
+	prrr = msm_iommu_get_prrr();
+	nmrr = msm_iommu_get_nmrr();
 
 	for (i = 0; i < NUM_TEX_CLASS; i++) {
 		c_nos = PRRR_NOS(prrr, i);

@@ -18,12 +18,22 @@
  * attributes.
  * fl_table: Pointer to the first level page table.
  * redirect: Set to 1 if L2 redirect for page tables are enabled, 0 otherwise.
+ * unaligned_fl_table: Original address of memory for the page table.
+ * fl_table is manually aligned (as per spec) but we need the original address
+ * to free the table.
  */
+#ifdef CONFIG_IOMMU_LPAE
+struct msm_iommu_pt {
+	u64 *fl_table;
+	int redirect;
+	u64 *unaligned_fl_table;
+};
+#else
 struct msm_iommu_pt {
 	unsigned long *fl_table;
 	int redirect;
 };
-
+#endif
 /**
  * struct msm_iommu_priv - Container for page table attributes and other
  * private iommu domain information.

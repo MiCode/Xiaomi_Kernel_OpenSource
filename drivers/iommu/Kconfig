@@ -79,6 +79,16 @@ config IOMMU_PGTABLES_L2
          section mappings and TLB misses should be quite infrequent.
          Most people can probably say Y here.
 
+config IOMMU_LPAE
+	bool "Enable support for LPAE in IOMMU"
+	depends on MSM_IOMMU
+	help
+	  Enables Large Physical Address Extension (LPAE) for IOMMU. This allows
+	  clients of IOMMU to access physical addresses that are greater than
+	  32 bits.
+
+	  If unsure, say N here.
+
 config IOMMU_NON_SECURE
 	bool "Turns on programming of secure SMMU by kernel"
 	depends on MSM_IOMMU
