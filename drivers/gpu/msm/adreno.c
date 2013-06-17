@@ -258,6 +258,10 @@ static void adreno_perfcounter_start(struct adreno_device *adreno_dev)
 	struct adreno_perfcount_group *group;
 	unsigned int i, j;
 
+	/* perfcounter start does nothing on a2xx */
+	if (adreno_is_a2xx(adreno_dev))
+		return;
+
 	/* group id iter */
 	for (i = 0; i < counters->group_count; i++) {
 		group = &(counters->groups[i]);
