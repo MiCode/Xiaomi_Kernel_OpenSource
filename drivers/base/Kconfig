@@ -290,6 +290,19 @@ config CMA_AREAS
 
 	  If unsure, leave the default value "7".
 
+config CMA_RESERVE_DEFAULT_AREA
+	bool "Permanently reserve the default area"
+	help
+	  By default, contiguous regions are given back to the page allocator so
+	  the memory may be used when not in contiguous forms. This has better
+	  utilization but the allocation time may be slower. Say Y here to
+	  never have the default region be returned to the page allocator.
+	  This means the memory will always be available for contiguous
+	  allocations but the pages will never be available for anything else
+	  except contiguous allocations.
+
+	  If unsure, say n.
+
 endif
 
 endmenu

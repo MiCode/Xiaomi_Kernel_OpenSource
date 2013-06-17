@@ -97,6 +97,11 @@ static struct cma *cma_get_area_by_name(const char *name)
 #define CMA_SIZE_MBYTES 0
 #endif
 
+#ifdef CONFIG_CMA_RESERVE_DEFAULT_AREA
+#define CMA_RESERVE_AREA 1
+#else
+#define CMA_RESERVE_AREA 0
+#endif
 /*
  * Default global CMA area size can be defined in kernel's .config.
  * This is usefull mainly for distro maintainers to create a kernel
@@ -275,7 +280,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 			 (unsigned long)sel_size / SZ_1M);
 
 		if (dma_contiguous_reserve_area(sel_size, &base, limit, NULL,
-		    true) == 0)
+		    CMA_RESERVE_AREA) == 0)
 			dma_contiguous_def_base = base;
 	}
 #ifdef CONFIG_OF
