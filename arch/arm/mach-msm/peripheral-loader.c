@@ -113,6 +113,7 @@ struct pil_image_info {
  * @region_end: address where relocatable region ends or highest address for
  * non-relocatable images
  * @region: region allocated for relocatable images
+ * @unvoted_flag: flag to keep track if we have unvoted or not.
  *
  * This struct contains data for a pil_desc that should not be exposed outside
  * of this file. This structure points to the descriptor and the descriptor
@@ -132,6 +133,7 @@ struct pil_priv {
 	struct ion_handle *region;
 	struct pil_image_info __iomem *info;
 	int id;
+	int unvoted_flag;
 };
 
 /**
@@ -184,15 +186,21 @@ phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
 }
 EXPORT_SYMBOL(pil_get_entry_addr);
 
-static void pil_proxy_work(struct work_struct *work)
+static void __pil_proxy_unvote(struct pil_priv *priv)
 {
-	struct delayed_work *delayed = to_delayed_work(work);
-	struct pil_priv *priv = container_of(delayed, struct pil_priv, proxy);
 	struct pil_desc *desc = priv->desc;
 
 	desc->ops->proxy_unvote(desc);
 	wake_unlock(&priv->wlock);
 	module_put(desc->owner);
+
+}
+
+static void pil_proxy_unvote_work(struct work_struct *work)
+{
+	struct delayed_work *delayed = to_delayed_work(work);
+	struct pil_priv *priv = container_of(delayed, struct pil_priv, proxy);
+	__pil_proxy_unvote(priv);
 }
 
 static int pil_proxy_vote(struct pil_desc *desc)
@@ -206,6 +214,10 @@ static int pil_proxy_vote(struct pil_desc *desc)
 		if (ret)
 			wake_unlock(&priv->wlock);
 	}
+
+	if (desc->proxy_unvote_irq)
+		enable_irq(desc->proxy_unvote_irq);
+
 	return ret;
 }
 
@@ -237,8 +249,13 @@ static void pil_proxy_unvote(struct pil_desc *desc, int immediate)
 static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
 {
 	struct pil_desc *desc = dev_id;
+	struct pil_priv *priv = desc->priv;
 
-	schedule_delayed_work(&desc->priv->proxy, 0);
+	if (!desc->priv->unvoted_flag) {
+		desc->priv->unvoted_flag = 1;
+		__pil_proxy_unvote(priv);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -651,6 +668,7 @@ int pil_boot(struct pil_desc *desc)
 			goto release_fw;
 	}
 
+	desc->priv->unvoted_flag = 0;
 	ret = pil_proxy_vote(desc);
 	if (ret) {
 		pil_err(desc, "Failed to proxy vote\n");
@@ -687,10 +705,19 @@ EXPORT_SYMBOL(pil_boot);
 void pil_shutdown(struct pil_desc *desc)
 {
 	struct pil_priv *priv = desc->priv;
+
 	if (desc->ops->shutdown)
 		desc->ops->shutdown(desc);
-	if (proxy_timeout_ms == 0 && desc->ops->proxy_unvote)
-		desc->ops->proxy_unvote(desc);
+
+	if (desc->proxy_unvote_irq) {
+		disable_irq(desc->proxy_unvote_irq);
+		if (!desc->priv->unvoted_flag)
+			pil_proxy_unvote(desc, 1);
+		return;
+	}
+
+	if (!proxy_timeout_ms)
+		pil_proxy_unvote(desc, 1);
 	else
 		flush_delayed_work(&priv->proxy);
 }
@@ -741,7 +768,8 @@ int pil_desc_init(struct pil_desc *desc)
 	__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
 
 	if (desc->proxy_unvote_irq > 0) {
-		ret = request_irq(desc->proxy_unvote_irq,
+		ret = request_threaded_irq(desc->proxy_unvote_irq,
+				  NULL,
 				  proxy_unvote_intr_handler,
 				  IRQF_TRIGGER_RISING|IRQF_SHARED,
 				  desc->name, desc);
@@ -751,11 +779,12 @@ int pil_desc_init(struct pil_desc *desc)
 				ret);
 			goto err;
 		}
+		disable_irq(desc->proxy_unvote_irq);
 	}
 
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
 	wake_lock_init(&priv->wlock, WAKE_LOCK_SUSPEND, priv->wname);
-	INIT_DELAYED_WORK(&priv->proxy, pil_proxy_work);
+	INIT_DELAYED_WORK(&priv->proxy, pil_proxy_unvote_work);
 	INIT_LIST_HEAD(&priv->segs);
 
 	return 0;
