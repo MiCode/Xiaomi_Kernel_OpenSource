@@ -287,7 +287,7 @@ static void _check_if_freed(struct kgsl_iommu_device *iommu_dev,
 				addr < (p->gpuaddr + p->size)) {
 
 				kgsl_get_memory_usage(name, sizeof(name) - 1,
-					p->flags),
+					p->flags);
 				KGSL_LOG_DUMP(iommu_dev->kgsldev,
 					"---- premature free ----\n");
 				KGSL_LOG_DUMP(iommu_dev->kgsldev,
