@@ -3685,6 +3685,8 @@ static struct platform_device *msm_otg_add_pdev(
 	const struct resource *res = ofdev->resource;
 	unsigned int num = ofdev->num_resources;
 	int retval;
+	struct ci13xxx_platform_data ci_pdata;
+	struct msm_otg_platform_data *otg_pdata;
 
 	pdev = platform_device_alloc(name, -1);
 	if (!pdev) {
@@ -3697,6 +3699,18 @@ static struct platform_device *msm_otg_add_pdev(
 
 	if (num) {
 		retval = platform_device_add_resources(pdev, res, num);
+		if (retval)
+			goto error;
+	}
+
+	if (!strcmp(name, "msm_hsusb")) {
+		otg_pdata =
+			(struct msm_otg_platform_data *)
+				ofdev->dev.platform_data;
+		ci_pdata.log2_itc = otg_pdata->log2_itc;
+		ci_pdata.usb_core_id = 0;
+		retval = platform_device_add_data(pdev, &ci_pdata,
+			sizeof(ci_pdata));
 		if (retval)
 			goto error;
 	}
@@ -3819,6 +3833,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,dp-manual-pullup");
 	pdata->enable_sec_phy = of_property_read_bool(node,
 					"qcom,usb2-enable-hsphy2");
+	of_property_read_u32(node, "qcom,hsusb-log2-itc",
+				&pdata->log2_itc);
 
 	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (pdata->pmic_id_irq < 0)
@@ -3849,6 +3865,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		if (!pdata->bus_scale_table)
 			dev_dbg(&pdev->dev, "bus scaling is disabled\n");
 
+		pdev->dev.platform_data = pdata;
 		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
 		if (ret) {
 			dev_err(&pdev->dev, "devices setup failed\n");

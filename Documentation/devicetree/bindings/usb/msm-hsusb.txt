@@ -74,6 +74,8 @@ Optional properties :
 	starting controller using usbcmd run/stop bit.
 - qcom,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
 	HSPHY.
+- qcom,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
+	interrupt threshold (ITC), when log2_itc is between 1 to 7.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -134,21 +136,6 @@ Example MSM HSUSB EHCI controller device node :
 		qcom,usb2-enable-hsphy2;
 		qcom,usb2-power-budget = <500>;
 	};
-
-MSM HSUSB controller
-
-Required properties :
-- compatible : should be "qcom,ci13xxx_msm"
-
-Optional properties :
-- qcom,itc-level: value of 2^itc-level will be used for as the interrupt threshold
-	(ITC), when itc-level is between 0 to 6.
-
-Example MSM HSUSB controller device node :
-	msm_hsusb: qcom,ci13xxx_msm {
-		compatible = "qcom,ci13xxx_msm";
-		qcom,itc-level = <4>;
-};
 
 ANDROID USB:
 
