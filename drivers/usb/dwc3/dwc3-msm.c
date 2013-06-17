@@ -1525,7 +1525,8 @@ static const char *chg_to_string(enum dwc3_chg_type chg_type)
 	case DWC3_DCP_CHARGER:		return "USB_DCP_CHARGER";
 	case DWC3_CDP_CHARGER:		return "USB_CDP_CHARGER";
 	case DWC3_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
-	default:			return "INVALID_CHARGER";
+	case DWC3_UNSUPPORTED_CHARGER:	return "INVALID_CHARGER";
+	default:			return "UNKNOWN_CHARGER";
 	}
 }
 
@@ -1555,9 +1556,17 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		if (is_dcd || tmout) {
 			dwc3_chg_disable_dcd(mdwc);
 			if (dwc3_chg_det_check_linestate(mdwc)) {
-				dev_dbg(mdwc->dev, "proprietary charger\n");
-				mdwc->charger.chg_type =
+				dwc3_chg_enable_primary_det(mdwc);
+				usleep_range(1000, 1200);
+				vout = dwc3_chg_det_check_output(mdwc);
+				if (!vout)
+					mdwc->charger.chg_type =
+						DWC3_UNSUPPORTED_CHARGER;
+				else
+					mdwc->charger.chg_type =
 						DWC3_PROPRIETARY_CHARGER;
+				dwc3_msm_write_reg(mdwc->base,
+						CHARGING_DET_CTRL_REG, 0x0);
 				mdwc->chg_state = USB_CHG_STATE_DETECTED;
 				delay = 0;
 				break;
