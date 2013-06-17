@@ -40,14 +40,6 @@ static int msm_btsco_ch = 1;
 static int msm_proxy_rx_ch = 2;
 static struct snd_soc_jack hs_jack;
 
-#define MSM8X10_DINO_LPASS_AUDIO_CORE_DIG_CODEC_CLK_SEL	0xFE03B004
-#define MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR			0xFE02C000
-#define MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR			0xFE02C004
-#define MSM8X10_DINO_LPASS_DIGCODEC_M				0xFE02C008
-#define MSM8X10_DINO_LPASS_DIGCODEC_N				0xFE02C00C
-#define MSM8X10_DINO_LPASS_DIGCODEC_D				0xFE02C010
-#define MSM8X10_DINO_LPASS_DIGCODEC_CBCR			0xFE02C014
-#define MSM8X10_DINO_LPASS_DIGCODEC_AHB_CBCR			0xFE02C018
 
 /*
  * There is limitation for the clock root selection from
@@ -89,7 +81,8 @@ static struct afe_digital_clk_cfg digital_cdc_clk = {
 	0,
 };
 
-static atomic_t aud_init_rsc_ref;
+static atomic_t mclk_rsc_ref;
+static struct mutex cdc_mclk_mutex;
 
 static int msm8x10_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
@@ -103,111 +96,15 @@ static const struct snd_soc_dapm_widget msm8x10_dapm_widgets[] = {
 
 };
 
-/*
- * This function will be replaced by
- * afe_set_lpass_internal_digital_codec_clock(port_id, cfg)
- * in the future after LPASS API fix
- */
-static int msm_enable_lpass_mclk(void)
-{
-	/* Select the codec root */
-	iowrite32(DIG_CDC_CLK_SEL_DIG_CODEC,
-		  ioremap(MSM8X10_DINO_LPASS_AUDIO_CORE_DIG_CODEC_CLK_SEL,
-		  4));
-	/* Div-2 */
-	iowrite32(0x3, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_M, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_N, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_D, 4));
-	/* Digital codec clock enable */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
-	/* AHB clock enable */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_AHB_CBCR, 4));
-	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
-
-	return 0;
-}
-
-static int msm_enable_mclk_root(u16 port_id, struct afe_digital_clk_cfg *cfg)
-{
-	int ret = 0;
-	/*
-	  * msm_enable_lpass_mclk() function call will be replaced by
-	  * ret =  afe_set_lpass_internal_digital_codec_clock(port_id, cfg)
-	  * in the future. Currentlt there is a bug in LPASS plan which
-	  * doesn't consider the digital codec clock. It will be fixed soon
-	  * in new Q6 image
-	  */
-	msm_enable_lpass_mclk();
-	pr_debug("%s(): return = %d\n", __func__, ret);
-	return ret;
-}
-
 static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
 {
-	/* Select the codec root */
-	iowrite32(DIG_CDC_CLK_SEL_DIG_CODEC,
-		  ioremap(MSM8X10_DINO_LPASS_AUDIO_CORE_DIG_CODEC_CLK_SEL,
-		  4));
-	/* Div-2 */
-	iowrite32(0x3, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_M, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_N, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_D, 4));
-	/* Digital codec clock enable */
-	if (cfg->clk_val == 0) {
-		iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
-		pr_debug("%s(line %d)\n", __func__, __LINE__);
-	} else {
-		iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
-		pr_debug("%s(line %d)\n", __func__, __LINE__);
-	}
 	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
-	/* AHB clock enable */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_AHB_CBCR, 4));
 	/* Set the update bit to make the settings go through */
 	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
 
 	return 0;
 
 }
-
-static int msm_config_mi2s_clk(int enable)
-{
-	int ret = 0;
-	pr_debug("%s(line %d):enable = %x\n", __func__, __LINE__, enable);
-	if (enable) {
-		digital_cdc_clk.clk_val = 9600000;
-		mi2s_rx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
-		mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX,
-					  &mi2s_rx_clk);
-		mi2s_tx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
-		mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-					  &mi2s_tx_clk);
-		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
-
-	} else {
-		digital_cdc_clk.clk_val = 0;
-		mi2s_rx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
-		mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX,
-					  &mi2s_rx_clk);
-		mi2s_tx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
-		mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-					  &mi2s_tx_clk);
-		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
-
-	}
-	ret = msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX, &digital_cdc_clk);
-	return ret;
-}
-
 
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -284,7 +181,6 @@ static int mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
 
 	}
-	ret = msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX, &digital_cdc_clk);
 	return ret;
 }
 
@@ -293,20 +189,27 @@ static int msm8x10_enable_codec_ext_clk(struct snd_soc_codec *codec,
 {
 	int ret = 0;
 
-	pr_debug("%s: enable = %d  codec name %s enable %x\n",
-		   __func__, enable, codec->name, enable);
+	mutex_lock(&cdc_mclk_mutex);
+
+	pr_debug("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
+		   __func__, enable, codec->name, enable,
+		   atomic_read(&mclk_rsc_ref));
 	if (enable) {
-		digital_cdc_clk.clk_val = 9600000;
-		msm_config_mi2s_clk(1);
-		ret = msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
-					   &digital_cdc_clk);
-		msm8x10_wcd_mclk_enable(codec, 1, dapm);
+		if (atomic_inc_return(&mclk_rsc_ref) == 1) {
+			digital_cdc_clk.clk_val = 9600000;
+			msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
+					&digital_cdc_clk);
+			msm8x10_wcd_mclk_enable(codec, 1, dapm);
+		}
 	} else {
-		msm8x10_wcd_mclk_enable(codec, 0, dapm);
-		ret = msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
-					   &digital_cdc_clk);
-		msm_config_mi2s_clk(0);
+		if (atomic_dec_return(&mclk_rsc_ref) == 0) {
+			digital_cdc_clk.clk_val = 0;
+			msm8x10_wcd_mclk_enable(codec, 0, dapm);
+			msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
+					&digital_cdc_clk);
+		}
 	}
+	mutex_unlock(&cdc_mclk_mutex);
 	return ret;
 }
 
@@ -363,27 +266,17 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
-	pr_debug("%s(): aud_init_rsc_ref counter = %d\n",
-		__func__, atomic_read(&aud_init_rsc_ref));
-	if (atomic_inc_return(&aud_init_rsc_ref) != 1)
-		goto exit;
-
 	snd_soc_dapm_new_controls(dapm, msm8x10_dapm_widgets,
 				ARRAY_SIZE(msm8x10_dapm_widgets));
 
 	snd_soc_dapm_sync(dapm);
-	ret =  msm_enable_mclk_root(AFE_PORT_ID_SECONDARY_MI2S_RX,
-				    &digital_cdc_clk);
 
 	ret = snd_soc_jack_new(codec, "Headset Jack",
 			SND_JACK_HEADSET, &hs_jack);
-
 	if (ret) {
 		pr_err("%s: Failed to create headset jack\n", __func__);
-		return ret;
 	}
 
-exit:
 	return ret;
 }
 
@@ -804,9 +697,8 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-
-	atomic_set(&aud_init_rsc_ref, 0);
-
+	mutex_init(&cdc_mclk_mutex);
+	atomic_set(&mclk_rsc_ref, 0);
 	return 0;
 err:
 	return ret;
@@ -817,7 +709,7 @@ static int __devexit msm8x10_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
 	snd_soc_unregister_card(card);
-
+	mutex_destroy(&cdc_mclk_mutex);
 	return 0;
 }
 
