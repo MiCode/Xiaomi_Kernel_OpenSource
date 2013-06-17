@@ -61,6 +61,7 @@ struct diag_dci_client_tbl {
 	int dropped_events;
 	int received_logs;
 	int received_events;
+	struct mutex data_mutex;
 };
 
 /* This is used for DCI health stats */
