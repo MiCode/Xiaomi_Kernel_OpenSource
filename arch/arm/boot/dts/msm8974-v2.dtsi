@@ -115,12 +115,12 @@
 		<49880000 1496000>;
 	qcom,dec-ddr-ab-ib = <0 0>,
 		<208000 303000>,
-		<536000 303000>,
-		<1012000 303000>,
-		<2024000 606000>,
-		<3240000 970000>,
-		<4048000 1212000>,
-		<4264000 1279000>;
+		<536000 1600000>,
+		<1012000 1600000>,
+		<2024000 1600000>,
+		<3240000 1600000>,
+		<4048000 1600000>,
+		<4264000 1600000>;
 	qcom,iommu-groups = <&venus_domain_ns &venus_domain_sec_bitstream
 			&venus_domain_sec_pixel &venus_domain_sec_non_pixel>;
 	qcom,iommu-group-buffer-types = <0xfff 0x91 0x42 0x120>;
