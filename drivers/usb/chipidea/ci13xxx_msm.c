@@ -16,6 +16,8 @@
 
 #include "ci.h"
 
+#define CI13XXX_MSM_MAX_LOG2_ITC	7
+
 #define MSM_USB_BASE	(ci->hw_bank.abs)
 
 struct ci13xxx_msm_context {
@@ -231,12 +233,22 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	struct platform_device *plat_ci;
 	struct resource *res;
 	int ret, rc;
+	struct ci13xxx_platform_data *pdata = pdev->dev.platform_data;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
 
 	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+
+	if (pdata) {
+		/* Acceptable values for nz_itc are: 0,1,2,4,8,16,32,64 */
+		if (pdata->log2_itc > CI13XXX_MSM_MAX_LOG2_ITC ||
+			pdata->log2_itc <= 0)
+			ci13xxx_msm_platdata.nz_itc = 0;
+		else
+			ci13xxx_msm_platdata.nz_itc = 1 << (pdata->log2_itc-1);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "USB_RESUME");
 	if (res) {
@@ -291,18 +303,11 @@ void msm_hw_bam_disable(bool bam_disable)
 	writel_relaxed(val, USB_GENCONFIG);
 }
 
-static const struct of_device_id ci13xx_msm_dt_match[] = {
-	{ .compatible = "qcom,ci13xxx_msm",
-	},
-	{}
-};
-
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
 	.remove = ci13xxx_msm_remove,
 	.driver = {
 		.name = "msm_hsusb",
-		.of_match_table = ci13xx_msm_dt_match,
 	},
 };
 

@@ -70,8 +70,6 @@
 #include "host.h"
 #include "debug.h"
 
-#define CI13XXX_MSM_MAX_ITC_LEVEL	6
-
 /* Controller register map */
 static uintptr_t ci_regs_nolpm[] = {
 	[CAP_CAPLENGTH]		= 0x000UL,
@@ -382,7 +380,6 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	struct resource	*res;
 	void __iomem	*base;
 	int		ret;
-	int		itc_level;
 
 	if (!dev->platform_data) {
 		dev_err(dev, "platform data missing\n");
@@ -406,15 +403,6 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 		ci->transceiver = ci->platdata->phy;
 	else
 		ci->global_phy = true;
-
-	if (dev->parent->of_node) {
-		ret = of_property_read_u32(pdev->parent->of_node,
-				"qcom,itc-level", &itc_level);
-		/* Acceptable values for nz_itc are: 0,1,2,4,8,16,32,64 */
-		if (!rc && itc_level <= CI13XXX_MSM_MAX_ITC_LEVEL)
-			ci->platdata->nz_itc = 1 << itc_level;
-	}
-
 
 	ret = hw_device_init(ci, base);
 	if (ret < 0) {

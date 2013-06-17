@@ -204,6 +204,9 @@ enum usb_vdd_value {
  * @enable_sec_phy: Use second HSPHY with USB2 core
  * @bus_scale_table: parameters for bus bandwidth requirements
  * @mhl_dev_name: MHL device name used to register with MHL driver.
+ * @log2_itc: value of 2^(log2_itc-1) will be used as the
+ *              interrupt threshold (ITC), when log2_itc is
+ *              between 1 to 7.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -227,6 +230,7 @@ struct msm_otg_platform_data {
 	bool enable_sec_phy;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *mhl_dev_name;
+	int log2_itc;
 };
 
 /* phy related flags */
@@ -400,6 +404,16 @@ struct msm_otg {
 	unsigned int online;
 	unsigned int host_mode;
 	unsigned int current_max;
+};
+
+struct ci13xxx_platform_data {
+	u8 usb_core_id;
+	/*
+	 * value of 2^(log2_itc-1) will be used as the interrupt threshold
+	 * (ITC), when log2_itc is between 1 to 7.
+	 */
+	int log2_itc;
+	void *prv_data;
 };
 
 struct msm_hsic_host_platform_data {
