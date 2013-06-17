@@ -80,8 +80,8 @@ static struct acpuclk_drv_data drv_data = {
 		.update_mask = RCG_CONFIG_PGM_DATA_BIT | RCG_CONFIG_PGM_ENA_BIT,
 		.poll_mask = RCG_CONFIG_PGM_DATA_BIT,
 	},
-	.power_collapse_khz = 19200,
-	.wait_for_irq_khz = 19200,
+	.power_collapse_khz = 300000,
+	.wait_for_irq_khz = 300000,
 };
 
 static int __init acpuclk_9625_probe(struct platform_device *pdev)
@@ -136,6 +136,9 @@ static int __init acpuclk_9625_probe(struct platform_device *pdev)
 	regval = readl_relaxed(drv_data.apcs_cpu_pwr_ctl);
 	regval |= GPLL0_TO_A5_ALWAYS_ENABLE;
 	writel_relaxed(regval, drv_data.apcs_cpu_pwr_ctl);
+
+	/* Enable the always on source */
+	clk_prepare_enable(drv_data.src_clocks[PLL0].clk);
 
 	return acpuclk_cortex_init(pdev, &drv_data);
 }
