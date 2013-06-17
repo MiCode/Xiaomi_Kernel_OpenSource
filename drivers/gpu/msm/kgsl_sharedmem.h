@@ -260,6 +260,11 @@ kgsl_allocate(struct kgsl_memdesc *memdesc,
 	ret = kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
 	if (ret)
 		return ret;
+	ret = kgsl_mmu_get_gpuaddr(pagetable, memdesc);
+	if (ret) {
+		kgsl_sharedmem_free(memdesc);
+		return ret;
+	}
 	ret = kgsl_mmu_map(pagetable, memdesc);
 	if (ret)
 		kgsl_sharedmem_free(memdesc);
