@@ -155,6 +155,13 @@ void *smem_find(unsigned id, unsigned size);
  */
 phys_addr_t smem_virt_to_phys(void *smem_address);
 
+/**
+ * SMEM initialization function that registers for a SMEM platform driver.
+ *
+ * @returns: success on successful driver registration.
+ */
+int __init msm_smem_init(void);
+
 #else
 static inline void *smem_alloc(unsigned id, unsigned size)
 {
@@ -175,6 +182,10 @@ static inline void *smem_find(unsigned id, unsigned size)
 static inline phys_addr_t smem_virt_to_phys(void *smem_address)
 {
 	return (phys_addr_t) NULL;
+}
+static int __init msm_smem_init(void)
+{
+	return 0;
 }
 #endif /* CONFIG_MSM_SMD  */
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_H_ */

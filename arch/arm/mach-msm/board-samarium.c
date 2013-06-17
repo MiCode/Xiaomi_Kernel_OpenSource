@@ -26,6 +26,7 @@
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smem.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
@@ -61,6 +62,7 @@ static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
  */
 void __init msmsamarium_add_drivers(void)
 {
+	msm_smem_init();
 	msm_clock_init(&msm_dummy_clock_init_data);
 }
 

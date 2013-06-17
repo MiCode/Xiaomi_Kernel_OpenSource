@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/moduleparam.h>
 #include <linux/printk.h>
+#include <linux/notifier.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -53,15 +54,20 @@ module_param_named(debug_mask, msm_smem_debug_mask,
 			pr_debug(x);                      \
 	} while (0)
 
-remote_spinlock_t remote_spinlock;
-int spinlocks_initialized;
-uint32_t num_smem_areas;
-struct smem_area *smem_areas;
-struct ramdump_segment *smem_ramdump_segments;
+#define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
 
+static remote_spinlock_t remote_spinlock;
+static uint32_t num_smem_areas;
+static struct smem_area *smem_areas;
+static struct ramdump_segment *smem_ramdump_segments;
+static int spinlocks_initialized;
 static void *smem_ramdump_dev;
 static DEFINE_MUTEX(spinlock_init_lock);
 static DEFINE_SPINLOCK(smem_init_check_lock);
+static int smem_module_inited;
+static RAW_NOTIFIER_HEAD(smem_module_init_notifier_list);
+static DEFINE_MUTEX(smem_module_init_notifier_lock);
+
 
 struct restart_notifier_block {
 	unsigned processor;
@@ -81,6 +87,8 @@ static struct restart_notifier_block restart_notifiers[] = {
 	{SMEM_MODEM, "gss", .nb.notifier_call = restart_notifier_cb},
 	{SMEM_Q6, "adsp", .nb.notifier_call = restart_notifier_cb},
 };
+
+static int init_smem_remote_spinlock(void);
 
 /**
  * smem_phys_to_virt() - Convert a physical base and offset to virtual address
@@ -333,7 +341,7 @@ EXPORT_SYMBOL(smem_get_remote_spinlock);
  *
  * @returns: sucess or error code for failure
  */
-int init_smem_remote_spinlock(void)
+static int init_smem_remote_spinlock(void)
 {
 	int rc = 0;
 
@@ -473,3 +481,223 @@ static __init int modem_restart_late_init(void)
 	return 0;
 }
 late_initcall(modem_restart_late_init);
+
+int smem_module_init_notifier_register(struct notifier_block *nb)
+{
+	int ret;
+	if (!nb)
+		return -EINVAL;
+	mutex_lock(&smem_module_init_notifier_lock);
+	ret = raw_notifier_chain_register(&smem_module_init_notifier_list, nb);
+	if (smem_module_inited)
+		nb->notifier_call(nb, 0, NULL);
+	mutex_unlock(&smem_module_init_notifier_lock);
+	return ret;
+}
+EXPORT_SYMBOL(smem_module_init_notifier_register);
+
+int smem_module_init_notifier_unregister(struct notifier_block *nb)
+{
+	int ret;
+	if (!nb)
+		return -EINVAL;
+	mutex_lock(&smem_module_init_notifier_lock);
+	ret = raw_notifier_chain_unregister(&smem_module_init_notifier_list,
+						nb);
+	mutex_unlock(&smem_module_init_notifier_lock);
+	return ret;
+}
+EXPORT_SYMBOL(smem_module_init_notifier_unregister);
+
+static void smem_module_init_notify(uint32_t state, void *data)
+{
+	mutex_lock(&smem_module_init_notifier_lock);
+	smem_module_inited = 1;
+	raw_notifier_call_chain(&smem_module_init_notifier_list,
+					state, data);
+	mutex_unlock(&smem_module_init_notifier_lock);
+}
+
+static int msm_smem_probe(struct platform_device *pdev)
+{
+	char *key;
+	struct resource *r;
+	phys_addr_t aux_mem_base;
+	resource_size_t aux_mem_size;
+	int temp_string_size = 11; /* max 3 digit count */
+	char temp_string[temp_string_size];
+	int ret;
+	struct ramdump_segment *ramdump_segments_tmp = NULL;
+	struct smem_area *smem_areas_tmp = NULL;
+	int smem_idx = 0;
+
+	if (!smem_initialized_check())
+		return -ENODEV;
+
+	key = "irq-reg-base";
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (!r) {
+		pr_err("%s: missing '%s'\n", __func__, key);
+		return -ENODEV;
+	}
+
+	num_smem_areas = 1;
+	while (1) {
+		scnprintf(temp_string, temp_string_size, "aux-mem%d",
+				num_smem_areas);
+		r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								temp_string);
+		if (!r)
+			break;
+
+		++num_smem_areas;
+		if (num_smem_areas > 999) {
+			pr_err("%s: max num aux mem regions reached\n",
+								__func__);
+			break;
+		}
+	}
+	/* Initialize main SMEM region and SSR ramdump region */
+	key = "smem";
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (!r) {
+		pr_err("%s: missing '%s'\n", __func__, key);
+		return -ENODEV;
+	}
+
+	smem_areas_tmp = kmalloc_array(num_smem_areas, sizeof(struct smem_area),
+				GFP_KERNEL);
+	if (!smem_areas_tmp) {
+		pr_err("%s: smem areas kmalloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto free_smem_areas;
+	}
+
+	ramdump_segments_tmp = kmalloc_array(num_smem_areas,
+			sizeof(struct ramdump_segment), GFP_KERNEL);
+	if (!ramdump_segments_tmp) {
+		pr_err("%s: ramdump segment kmalloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto free_smem_areas;
+	}
+	smem_areas_tmp[smem_idx].phys_addr =  r->start;
+	smem_areas_tmp[smem_idx].size = resource_size(r);
+	smem_areas_tmp[smem_idx].virt_addr = MSM_SHARED_RAM_BASE;
+
+	ramdump_segments_tmp[smem_idx].address = r->start;
+	ramdump_segments_tmp[smem_idx].size = resource_size(r);
+	++smem_idx;
+
+	/* Configure auxiliary SMEM regions */
+	while (1) {
+		scnprintf(temp_string, temp_string_size, "aux-mem%d",
+								smem_idx);
+		r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							temp_string);
+		if (!r)
+			break;
+		aux_mem_base = r->start;
+		aux_mem_size = resource_size(r);
+
+		ramdump_segments_tmp[smem_idx].address = aux_mem_base;
+		ramdump_segments_tmp[smem_idx].size = aux_mem_size;
+
+		smem_areas_tmp[smem_idx].phys_addr = aux_mem_base;
+		smem_areas_tmp[smem_idx].size = aux_mem_size;
+		smem_areas_tmp[smem_idx].virt_addr = ioremap_nocache(
+			(unsigned long)(smem_areas_tmp[smem_idx].phys_addr),
+			smem_areas_tmp[smem_idx].size);
+		SMEM_DBG("%s: %s = %pa %pa -> %p", __func__, temp_string,
+				&aux_mem_base, &aux_mem_size,
+				smem_areas_tmp[smem_idx].virt_addr);
+
+		if (!smem_areas_tmp[smem_idx].virt_addr) {
+			pr_err("%s: ioremap_nocache() of addr:%pa size: %pa\n",
+				__func__,
+				&smem_areas_tmp[smem_idx].phys_addr,
+				&smem_areas_tmp[smem_idx].size);
+			ret = -ENOMEM;
+			goto free_smem_areas;
+		}
+
+		if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
+				(uintptr_t)smem_areas_tmp[smem_idx].virt_addr,
+				smem_areas_tmp[smem_idx].size)) {
+			pr_err("%s: invalid virtual address block %i: %p:%pa\n",
+					__func__, smem_idx,
+					smem_areas_tmp[smem_idx].virt_addr,
+					&smem_areas_tmp[smem_idx].size);
+			++smem_idx;
+			ret = -EINVAL;
+			goto free_smem_areas;
+		}
+
+		++smem_idx;
+		if (smem_idx > 999) {
+			pr_err("%s: max num aux mem regions reached\n",
+							__func__);
+			break;
+		}
+	}
+
+	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (ret)
+		pr_err("%s: of_platform_populate failed %d\n", __func__, ret);
+
+	smem_areas = smem_areas_tmp;
+	smem_ramdump_segments = ramdump_segments_tmp;
+	return 0;
+
+free_smem_areas:
+	for (smem_idx = smem_idx - 1; smem_idx >= 1; --smem_idx)
+		iounmap(smem_areas_tmp[smem_idx].virt_addr);
+
+	num_smem_areas = 0;
+	kfree(ramdump_segments_tmp);
+	kfree(smem_areas_tmp);
+	return ret;
+}
+
+static struct of_device_id msm_smem_match_table[] = {
+	{ .compatible = "qcom,smem" },
+	{},
+};
+
+static struct platform_driver msm_smem_driver = {
+	.probe = msm_smem_probe,
+	.driver = {
+		.name = "msm_smem",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_smem_match_table,
+	},
+};
+
+int __init msm_smem_init(void)
+{
+	static bool registered;
+	int rc;
+
+	if (registered)
+		return 0;
+
+	registered = true;
+
+	rc = init_smem_remote_spinlock();
+	if (rc) {
+		pr_err("%s: remote spinlock init failed %d\n", __func__, rc);
+		return rc;
+	}
+
+	rc = platform_driver_register(&msm_smem_driver);
+	if (rc) {
+		pr_err("%s: msm_smem_driver register failed %d\n",
+							__func__, rc);
+		return rc;
+	}
+
+	smem_module_init_notify(0, NULL);
+
+	return 0;
+}
+
+module_init(msm_smem_init);

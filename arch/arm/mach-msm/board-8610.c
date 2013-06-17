@@ -45,6 +45,7 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/msm_smem.h>
 #include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
@@ -101,6 +102,7 @@ static void __init msm8610_reserve(void)
 
 void __init msm8610_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
