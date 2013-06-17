@@ -2372,6 +2372,15 @@ config MSM_RPM_RBCPR_STATS_LOG
           RBCPR (Rapid Bridge Core Power Reduction) information . The drivers
           outputs the message via a debugfs node.
 
+config MSM_RPM_RBCPR_STATS_V2_LOG
+        tristate "MSM Resource Power Manager RPBCPR Stat Driver"
+        depends on DEBUG_FS
+          help
+          This option enables v2 of the rpmrbcpr_stats driver which reads RPM
+          memory for statistics pertaining to RPM's RBCPR(Rapid Bridge Core
+          Power Reduction) driver. The drivers outputs the message via a
+          debugfs node.
+
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"
 	default n
