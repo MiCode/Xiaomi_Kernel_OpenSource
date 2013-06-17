@@ -1114,12 +1114,13 @@ struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 	unsigned int gpuaddr, size_t size)
 {
-	struct rb_node *node = private->mem_rb.rb_node;
+	struct rb_node *node;
 
 	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr))
 		return NULL;
 
 	spin_lock(&private->mem_lock);
+	node = private->mem_rb.rb_node;
 	while (node != NULL) {
 		struct kgsl_mem_entry *entry;
 
@@ -1179,7 +1180,7 @@ kgsl_sharedmem_region_empty(struct kgsl_process_private *private,
 	int result = 1;
 	unsigned int gpuaddr_end = gpuaddr + size;
 
-	struct rb_node *node = private->mem_rb.rb_node;
+	struct rb_node *node;
 
 	assert_spin_locked(&private->mem_lock);
 
