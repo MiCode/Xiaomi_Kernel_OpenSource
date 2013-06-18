@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8610-qrd.dtsi"
+/include/ "dsi-v2-panel-otm8018b-fwvga-video.dtsi"
 /include/ "msm8612-qrd-camera-sensor.dtsi"
 
 / {
@@ -77,5 +78,9 @@
 			fsl,irq-gpio = <&msmgpio 81 0x00>;
 			fsl,sensors-position = <5>;
 		};
+	};
+
+	qcom,dsi_v2_otm8018b_fwvga_video {
+		status = "ok";
 	};
 };
