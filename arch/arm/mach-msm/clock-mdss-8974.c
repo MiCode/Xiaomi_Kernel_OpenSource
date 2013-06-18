@@ -906,18 +906,19 @@ static int dsi_pll_enable_seq_m(void)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
 	udelay(1000);
 
-	do {
+	pll_locked = dsi_pll_lock_status();
+	for (i = 0; (i < 4) && !pll_locked; i++) {
+		DSS_REG_W(mdss_dsi_base,
+			DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
+		if (i != 0)
+			DSS_REG_W(mdss_dsi_base,
+				DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
+		udelay(1);
+		DSS_REG_W(mdss_dsi_base,
+			DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+		udelay(1000);
 		pll_locked = dsi_pll_lock_status();
-		if (!pll_locked) {
-			DSS_REG_W(mdss_dsi_base,
-				DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-			udelay(1);
-			DSS_REG_W(mdss_dsi_base,
-				DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-			udelay(1000);
-			i++;
-		}
-	} while ((i < 3) && !pll_locked);
+	}
 
 	if (pll_locked)
 		pr_debug("%s: PLL Locked at attempt #%d\n", __func__, i);
@@ -940,17 +941,17 @@ static int dsi_pll_enable_seq_d(void)
 	 * PLL to successfully lock
 	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
-	udelay(1);
+	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
-	udelay(1);
+	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-	udelay(1);
+	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
-	udelay(1);
+	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-	udelay(1);
+	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1);
+	udelay(1000);
 
 	pll_locked = dsi_pll_lock_status();
 	pr_debug("%s: PLL status = %s\n", __func__,
@@ -1029,6 +1030,7 @@ static int dsi_pll_enable_seq_e(void)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0d);
+	udelay(1);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
 	udelay(1000);
 
