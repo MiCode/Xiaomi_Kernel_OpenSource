@@ -17,6 +17,21 @@
  */
 
 /include/ "msm8974.dtsi"
+
+/include/ "msm-pm8x41-rpm-regulator.dtsi"
+/include/ "msm-pm8841.dtsi"
+&spmi_bus {
+	pm8941_lsid0: qcom,pm8941@0 {
+		reg = <0x0>;
+	};
+	pm8941_lsid1: qcom,pm8941@1 {
+		reg = <0x1>;
+	};
+};
+/include/ "msm-pm8941.dtsi"
+/include/ "msm8974-regulator.dtsi"
+/include/ "msm8974-clock.dtsi"
+
 /include/ "msm8974-v2-iommu.dtsi"
 /include/ "msm8974-v2-iommu-domains.dtsi"
 /include/ "msm8974-v2-pm.dtsi"
