@@ -2877,6 +2877,7 @@ static void update_fcc_learning_table(struct pm8921_bms_chip *chip,
 	pr_debug("FCC update: last_real_fcc_mah=%d, last_real_fcc_batt_temp=%d\n",
 						new_fcc_avg, batt_temp);
 	readjust_fcc_table();
+	sysfs_notify(&chip->dev->kobj, NULL, "fcc_data");
 }
 
 static bool is_new_fcc_valid(int new_fcc_uah, int fcc_uah)
