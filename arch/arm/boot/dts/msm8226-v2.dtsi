@@ -50,3 +50,11 @@
 	qcom,cpr-down-threshold = <5>;
 	qcom,cpr-apc-volt-step = <10000>;
 };
+
+&soc {
+	qcom,acpuclk@f9011050 {
+		reg =	<0xf9011050 0x8>,
+			<0xfc4b80b0 0x8>;
+		reg-names = "rcg_base", "pte_efuse";
+	};
+};
