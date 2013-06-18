@@ -191,6 +191,9 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 int q6asm_open_read(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);
 
+int q6asm_open_read_v2(struct audio_client *ac, uint32_t format,
+			uint16_t bits_per_sample);
+
 int q6asm_open_write(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);
 
@@ -251,6 +254,10 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
+
+int q6asm_enc_cfg_blk_pcm_format_support(struct audio_client *ac,
+			uint32_t rate, uint32_t channels,
+			uint16_t bits_per_sample);
 
 int q6asm_set_encdec_chan_map(struct audio_client *ac,
 		uint32_t num_channels);
