@@ -132,8 +132,8 @@ static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
-		mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
-		mdss_mdp_smp_mmb_free(&pipe->smp[i], true);
+		mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved, false);
+		mdss_mdp_smp_mmb_free(pipe->smp_map[i].allocated, true);
 	}
 	mutex_unlock(&mdss_mdp_smp_lock);
 }
@@ -144,7 +144,7 @@ void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++)
-		mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
+		mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved, false);
 	mutex_unlock(&mdss_mdp_smp_lock);
 }
 
@@ -197,9 +197,8 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
-		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp[i],
-			&pipe->smp_reserved[i], num_blks);
-
+		reserved = mdss_mdp_smp_mmb_reserve(pipe->smp_map[i].allocated,
+			pipe->smp_map[i].reserved, num_blks);
 		if (reserved < num_blks)
 			break;
 	}
@@ -207,7 +206,8 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	if (reserved < num_blks) {
 		pr_debug("insufficient MMB blocks\n");
 		for (; i >= 0; i--)
-			mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
+			mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved,
+				false);
 		rc = -ENOMEM;
 	}
 	mutex_unlock(&mdss_mdp_smp_lock);
@@ -222,8 +222,10 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
-		mdss_mdp_smp_mmb_amend(&pipe->smp[i], &pipe->smp_reserved[i]);
-		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i, &pipe->smp[i]);
+		mdss_mdp_smp_mmb_amend(pipe->smp_map[i].allocated,
+			pipe->smp_map[i].reserved);
+		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
+			pipe->smp_map[i].allocated);
 	}
 	mdss_mdp_smp_set_wm_levels(pipe, cnt);
 	mutex_unlock(&mdss_mdp_smp_lock);
