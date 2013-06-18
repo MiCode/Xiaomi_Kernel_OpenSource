@@ -30,6 +30,7 @@
 #include <linux/list_sort.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
+#include <linux/of_gpio.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -586,6 +587,34 @@ release_fw:
 	return ret;
 }
 
+static void pil_parse_devicetree(struct pil_desc *desc)
+{
+	int clk_ready = 0;
+
+	if (of_find_property(desc->dev->of_node,
+				"qcom,gpio-proxy-unvote",
+				NULL)) {
+		clk_ready = of_get_named_gpio(desc->dev->of_node,
+				"qcom,gpio-proxy-unvote", 0);
+
+		if (clk_ready < 0) {
+			dev_err(desc->dev,
+				"[%s]: Error getting proxy unvoting gpio\n",
+				desc->name);
+			return;
+		}
+
+		clk_ready = gpio_to_irq(clk_ready);
+		if (clk_ready < 0) {
+			dev_err(desc->dev,
+				"[%s]: Error getting proxy unvote IRQ\n",
+				desc->name);
+			return;
+		}
+	}
+	desc->proxy_unvote_irq = clk_ready;
+}
+
 /* Synchronize request_firmware() with suspend */
 static DECLARE_RWSEM(pil_pm_rwsem);
 
@@ -741,12 +770,6 @@ int pil_desc_init(struct pil_desc *desc)
 	void __iomem *addr;
 	char buf[sizeof(priv->info->name)];
 
-	/* Ignore users who don't make any sense */
-	WARN(desc->ops->proxy_unvote && desc->proxy_unvote_irq == 0
-		 && !desc->proxy_timeout,
-		 "Invalid proxy unvote callback or a proxy timeout of 0"
-		 " was specified or no proxy unvote IRQ was specified.\n");
-
 	if (WARN(desc->ops->proxy_unvote && !desc->ops->proxy_vote,
 				"Invalid proxy voting. Ignoring\n"))
 		((struct pil_reset_ops *)desc->ops)->proxy_unvote = NULL;
@@ -767,7 +790,15 @@ int pil_desc_init(struct pil_desc *desc)
 	strncpy(buf, desc->name, sizeof(buf));
 	__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
 
-	if (desc->proxy_unvote_irq > 0) {
+	pil_parse_devicetree(desc);
+
+	/* Ignore users who don't make any sense */
+	WARN(desc->ops->proxy_unvote && desc->proxy_unvote_irq == 0
+		 && !desc->proxy_timeout,
+		 "Invalid proxy unvote callback or a proxy timeout of 0"
+		 " was specified or no proxy unvote IRQ was specified.\n");
+
+	if (desc->proxy_unvote_irq > 0 && desc->ops->proxy_unvote) {
 		ret = request_threaded_irq(desc->proxy_unvote_irq,
 				  NULL,
 				  proxy_unvote_intr_handler,
