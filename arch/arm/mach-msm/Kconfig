@@ -1312,6 +1312,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM SAMARIUM devices.
+
+	config DEBUG_MSM8226_UART
+		bool "Kernel low-level debugging messages via MSM 8226 UART"
+		depends on ARCH_MSM8226
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM 8226 devices.
 endchoice
 
 choice
