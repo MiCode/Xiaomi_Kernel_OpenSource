@@ -11,119 +11,116 @@
  * GNU General Public License for more details.
  */
 
-&spmi_bus {
-	qcom,pm8941@1 {
-		qcom,leds@d000 {
-			status = "okay";
-			qcom,rgb_0 {
-				label = "rgb";
-				linux,name = "led:rgb_red";
-				qcom,mode = "pwm";
-				qcom,pwm-channel = <6>;
-				qcom,pwm-us = <1000>;
-				qcom,max-current = <12>;
-				qcom,default-state = "off";
-				qcom,id = <3>;
-				linux,default-trigger =
-					"battery-charging";
-			};
-
-			qcom,rgb_1 {
-				label = "rgb";
-				linux,name = "led:rgb_green";
-				qcom,mode = "pwm";
-				qcom,pwm-channel = <5>;
-				qcom,pwm-us = <1000>;
-				qcom,max-current = <12>;
-				qcom,default-state = "off";
-				qcom,id = <4>;
-				linux,default-trigger = "battery-full";
-			};
-
-			qcom,rgb_2 {
-				label = "rgb";
-				linux,name = "led:rgb_blue";
-				qcom,mode = "pwm";
-				qcom,pwm-channel = <4>;
-				qcom,pwm-us = <1000>;
-				qcom,max-current = <12>;
-				qcom,id = <5>;
-				status = "disabled";
-			};
+&pm8941_lsid1 {
+	qcom,leds@d000 {
+		status = "okay";
+		qcom,rgb_0 {
+			label = "rgb";
+			linux,name = "led:rgb_red";
+			qcom,mode = "pwm";
+			qcom,pwm-channel = <6>;
+			qcom,pwm-us = <1000>;
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <3>;
+			linux,default-trigger =
+				"battery-charging";
 		};
 
-		qcom,leds@d100 {
-			status = "disabled";
+		qcom,rgb_1 {
+			label = "rgb";
+			linux,name = "led:rgb_green";
+			qcom,mode = "pwm";
+			qcom,pwm-channel = <5>;
+			qcom,pwm-us = <1000>;
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <4>;
+			linux,default-trigger = "battery-full";
 		};
 
-		qcom,leds@d200 {
-			status = "disabled";
-		};
-
-		qcom,leds@d300 {
-			status = "okay";
-			pm8941_flash0: qcom,flash_0 {
-				qcom,max-current = <1000>;
-				qcom,default-state = "off";
-				qcom,headroom = <3>;
-				qcom,duration = <1280>;
-				qcom,clamp-curr = <200>;
-				qcom,startup-dly = <3>;
-				qcom,safety-timer;
-				label = "flash";
-				linux,default-trigger =
-					"flash0_trigger";
-				qcom,id = <1>;
-				linux,name = "led:flash_0";
-				qcom,current = <625>;
-			};
-
-			pm8941_flash1: qcom,flash_1 {
-				qcom,max-current = <1000>;
-				qcom,default-state = "off";
-				qcom,headroom = <3>;
-				qcom,duration = <1280>;
-				qcom,clamp-curr = <200>;
-				qcom,startup-dly = <3>;
-				qcom,safety-timer;
-				linux,default-trigger =
-					"flash1_trigger";
-				label = "flash";
-				qcom,id = <2>;
-				linux,name = "led:flash_1";
-				qcom,current = <625>;
-			};
-
-			pm8941_torch: qcom,flash_torch {
-				qcom,max-current = <200>;
-				qcom,default-state = "off";
-				qcom,headroom = <0>;
-				qcom,startup-dly = <1>;
-				linux,default-trigger =
-					"torch_trigger";
-				label = "flash";
-				qcom,id = <2>;
-				linux,name = "led:flash_torch";
-				qcom,current = <200>;
-				qcom,torch-enable;
-			};
-		};
-
-		qcom,leds@d400 {
-			status = "disabled";
-		};
-
-		qcom,leds@d500 {
-			status = "disabled";
-		};
-
-		qcom,leds@d600 {
-			status = "disabled";
-		};
-
-		qcom,leds@d700 {
+		qcom,rgb_2 {
+			label = "rgb";
+			linux,name = "led:rgb_blue";
+			qcom,mode = "pwm";
+			qcom,pwm-channel = <4>;
+			qcom,pwm-us = <1000>;
+			qcom,max-current = <12>;
+			qcom,id = <5>;
 			status = "disabled";
 		};
 	};
-};
 
+	qcom,leds@d100 {
+		status = "disabled";
+	};
+
+	qcom,leds@d200 {
+		status = "disabled";
+	};
+
+	qcom,leds@d300 {
+		status = "okay";
+		pm8941_flash0: qcom,flash_0 {
+			qcom,max-current = <1000>;
+			qcom,default-state = "off";
+			qcom,headroom = <3>;
+			qcom,duration = <1280>;
+			qcom,clamp-curr = <200>;
+			qcom,startup-dly = <3>;
+			qcom,safety-timer;
+			label = "flash";
+			linux,default-trigger =
+				"flash0_trigger";
+			qcom,id = <1>;
+			linux,name = "led:flash_0";
+			qcom,current = <625>;
+		};
+
+		pm8941_flash1: qcom,flash_1 {
+			qcom,max-current = <1000>;
+			qcom,default-state = "off";
+			qcom,headroom = <3>;
+			qcom,duration = <1280>;
+			qcom,clamp-curr = <200>;
+			qcom,startup-dly = <3>;
+			qcom,safety-timer;
+			linux,default-trigger =
+				"flash1_trigger";
+			label = "flash";
+			qcom,id = <2>;
+			linux,name = "led:flash_1";
+			qcom,current = <625>;
+		};
+
+		pm8941_torch: qcom,flash_torch {
+			qcom,max-current = <200>;
+			qcom,default-state = "off";
+			qcom,headroom = <0>;
+			qcom,startup-dly = <1>;
+			linux,default-trigger =
+				"torch_trigger";
+			label = "flash";
+			qcom,id = <2>;
+			linux,name = "led:flash_torch";
+			qcom,current = <200>;
+			qcom,torch-enable;
+		};
+	};
+
+	qcom,leds@d400 {
+		status = "disabled";
+	};
+
+	qcom,leds@d500 {
+		status = "disabled";
+	};
+
+	qcom,leds@d600 {
+		status = "disabled";
+	};
+
+	qcom,leds@d700 {
+		status = "disabled";
+	};
+};

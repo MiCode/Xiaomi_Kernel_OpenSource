@@ -782,14 +782,12 @@
 	};
 };
 
-&spmi_bus {
-	qcom,pm8941@1 {
-		qcom,leds@d000 {
-			qcom,rgb_2 {
-				status = "ok";
-				qcom,default-state = "on";
-				qcom,turn-off-delay-ms = <1000>;
-			};
+&pm8941_lsid1 {
+	qcom,leds@d000 {
+		qcom,rgb_2 {
+			status = "ok";
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <1000>;
 		};
 	};
 };
