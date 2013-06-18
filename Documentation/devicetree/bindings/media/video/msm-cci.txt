@@ -41,6 +41,7 @@ Required properties:
     - "qcom,s5k3l1yx"
     - "shinetech,gc0339"
     - "shinetech,hi256"
+    - "shinetech,s5k4e1"
 - reg : should contain i2c slave address of the device
 - qcom,slave-id : should contain i2c slave address, device id address
     and expected id read value
