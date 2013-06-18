@@ -823,7 +823,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 		}
 		if (pipe->back_buf.num_planes) {
 			buf = &pipe->back_buf;
-		} else if (ctl->play_cnt == 0) {
+		} else if (ctl->play_cnt == 0 && pipe->front_buf.num_planes) {
 			pipe->params_changed++;
 			buf = &pipe->front_buf;
 		} else if (!pipe->params_changed) {
