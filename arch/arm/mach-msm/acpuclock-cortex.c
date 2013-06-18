@@ -368,6 +368,40 @@ static struct acpuclk_data acpuclk_cortex_data = {
 	.get_rate = acpuclk_cortex_get_rate,
 };
 
+void __init get_speed_bin(void __iomem *base, struct bin_info *bin)
+{
+	u32 pte_efuse, redundant_sel;
+
+	pte_efuse = readl_relaxed(base);
+	redundant_sel = (pte_efuse >> 24) & 0x7;
+	bin->speed = pte_efuse & 0x7;
+
+	if (redundant_sel == 1)
+		bin->speed = (pte_efuse >> 27) & 0x7;
+
+	bin->speed_valid = !!(pte_efuse & BIT(3));
+}
+
+static struct clkctl_acpu_speed *__init select_freq_plan(void)
+{
+	struct bin_info bin;
+
+	if (!priv->pte_efuse_base)
+		return priv->freq_tbl;
+
+	get_speed_bin(priv->pte_efuse_base, &bin);
+
+	if (bin.speed_valid) {
+		pr_info("SPEED BIN: %d\n", bin.speed);
+	} else {
+		bin.speed = 0;
+		pr_warn("SPEED BIN: Defaulting to %d\n",
+			 bin.speed);
+	}
+
+	return priv->pvs_tables[bin.speed];
+}
+
 int __init acpuclk_cortex_init(struct platform_device *pdev,
 	struct acpuclk_drv_data *data)
 {
@@ -379,6 +413,12 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 
 	acpuclk_cortex_data.power_collapse_khz = priv->wait_for_irq_khz;
 	acpuclk_cortex_data.wait_for_irq_khz = priv->wait_for_irq_khz;
+
+	priv->freq_tbl = select_freq_plan();
+	if (!priv->freq_tbl) {
+		pr_err("Invalid freq table selected\n");
+		BUG();
+	}
 
 	bus_perf_client = msm_bus_scale_register_client(priv->bus_scale);
 	if (!bus_perf_client) {

@@ -17,6 +17,8 @@
 #define LVL_NOM         RPM_REGULATOR_CORNER_NORMAL
 #define LVL_HIGH        RPM_REGULATOR_CORNER_SUPER_TURBO
 
+#define NUM_SPEED_BIN	8
+
 enum clk_src {
 	CXO,
 	PLL0,
@@ -52,6 +54,8 @@ struct acpuclk_reg_data {
 struct acpuclk_drv_data {
 	struct mutex			lock;
 	struct clkctl_acpu_speed	*freq_tbl;
+	struct clkctl_acpu_speed	**pvs_tables;
+	void __iomem			*pte_efuse_base;
 	struct clkctl_acpu_speed	*current_speed;
 	struct msm_bus_scale_pdata	*bus_scale;
 	void __iomem			*apcs_rcg_config;
@@ -65,6 +69,11 @@ struct acpuclk_drv_data {
 	struct acpuclk_reg_data		reg_data;
 	unsigned long                   power_collapse_khz;
 	unsigned long                   wait_for_irq_khz;
+};
+
+struct bin_info {
+	bool speed_valid;
+	int speed;
 };
 
 /* Instantaneous bandwidth requests in MB/s. */
