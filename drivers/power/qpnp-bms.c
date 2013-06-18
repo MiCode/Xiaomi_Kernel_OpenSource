@@ -247,6 +247,7 @@ struct qpnp_bms_chip {
 	uint16_t			charge_cycles;
 	u8				charge_increase;
 	int				fcc_new_sysfs;
+	int				fcc_update_complete;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -277,13 +278,35 @@ bms_ro_ops_set(const char *val, const struct kernel_param *kp)
 {
 	return -EINVAL;
 }
+
+static int
+bms_last_fcc_count_set(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+
+	if (battery_removed) {
+		last_fcc_update_count = 0;
+		return 0;
+	}
+	rc = param_set_int(val, kp);
+	if (rc)
+		pr_err("Failed to set last_fcc_update_count rc=%d\n", rc);
+
+	return rc;
+}
+
 static struct kernel_param_ops bms_ro_param_ops = {
 	.set = bms_ro_ops_set,
 	.get = param_get_int,
 };
+static struct kernel_param_ops bms_last_fcc_count_param_ops = {
+	.set = bms_last_fcc_count_set,
+	.get = param_get_int,
+};
 module_param_cb(min_fcc_cycles, &bms_ro_param_ops, &min_fcc_cycles, 0644);
 module_param_cb(battery_removed, &bms_ro_param_ops, &battery_removed, 0644);
-module_param(last_fcc_update_count, int, 0644);
+module_param_cb(last_fcc_update_count, &bms_last_fcc_count_param_ops,
+						&last_fcc_update_count, 0644);
 
 static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 			u16 base, int count)
@@ -2762,6 +2785,11 @@ static ssize_t fcc_data_set(struct device *dev, struct device_attribute *attr,
 	static int i;
 	int fcc_new = 0, rc;
 
+	if (chip->fcc_update_complete) {
+		pr_debug("Invalid FCC update\n");
+		return count;
+	}
+
 	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &fcc_new);
 	if (rc != 1)
@@ -2781,6 +2809,7 @@ static ssize_t fcc_data_get(struct device *dev, struct device_attribute *attr,
 
 	count = snprintf(buf, PAGE_SIZE, "%d", chip->fcc_new_sysfs);
 	pr_debug("Sent: fcc_new=%d\n", chip->fcc_new_sysfs);
+	chip->fcc_update_complete = 1;
 
 	return count;
 }
@@ -2791,6 +2820,9 @@ static ssize_t fcc_temp_set(struct device *dev, struct device_attribute *attr,
 	static int i;
 	int batt_temp = 0, rc;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
+
+	if (chip->fcc_update_complete)
+		return count;
 
 	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &batt_temp);
@@ -2809,6 +2841,9 @@ static ssize_t fcc_chgcyl_set(struct device *dev, struct device_attribute *attr,
 	static int i;
 	int chargecycle = 0, rc;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
+
+	if (chip->fcc_update_complete)
+		return count;
 
 	i %= chip->min_fcc_learning_samples;
 	rc = sscanf(buf, "%d", &chargecycle);
