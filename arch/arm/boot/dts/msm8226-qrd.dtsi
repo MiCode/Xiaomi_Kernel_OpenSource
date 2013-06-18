@@ -323,8 +323,9 @@
 
 &pm8226_chg {
 	status = "okay";
-	qcom,chg-vddmax-mv = <4350>;
-	qcom,chg-vddsafe-mv = <4350>;
+	qcom,vddmax-mv = <4350>;
+	qcom,vddsafe-mv = <4380>;
+	qcom,tchg-mins = <240>;
 };
 
 &pm8226_gpios {
