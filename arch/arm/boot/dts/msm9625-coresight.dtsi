@@ -249,8 +249,9 @@
 	hwevent: hwevent@f9011038 {
 		compatible = "qcom,coresight-hwevent";
 		reg = <0xf9011038 0x8>,
-		      <0xfd4ab160 0x80>;
-		reg-names = "apcs-mux", "ppss-mux";
+		      <0xfd4ab160 0x80>,
+		      <0xfc401600 0x80>;
+		reg-names = "apcs-mux", "ppss-mux", "gcc-mux";
 
 		coresight-id = <20>;
 		coresight-name = "coresight-hwevent";
