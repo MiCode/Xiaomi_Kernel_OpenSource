@@ -527,6 +527,9 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 			ret = ion_map_iommu(iclient, data->srcp_ihdl,
 					    mdss_get_iommu_domain(domain),
 					    0, SZ_4K, 0, start, len, 0, 0);
+			if (ret && (domain == MDSS_IOMMU_DOMAIN_SECURE))
+				msm_ion_unsecure_buffer(iclient,
+						data->srcp_ihdl);
 		} else {
 			ret = ion_phys(iclient, data->srcp_ihdl, start,
 				       (size_t *) len);
@@ -541,6 +544,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 
 	if (!*start) {
 		pr_err("start address is zero!\n");
+		mdss_mdp_put_img(data);
 		return -ENOMEM;
 	}
 
@@ -551,7 +555,8 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
 			 data->srcp_ihdl, data->addr, data->len);
 	} else {
-		return -EINVAL;
+		mdss_mdp_put_img(data);
+		return ret ? : -EOVERFLOW;
 	}
 
 	return ret;
