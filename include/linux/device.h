@@ -21,6 +21,7 @@
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/mutex.h>
+#include <linux/pinctrl/devinfo.h>
 #include <linux/pm.h>
 #include <linux/atomic.h>
 #include <asm/device.h>
@@ -595,6 +596,8 @@ struct device_dma_parameters {
  * @pm_domain:	Provide callbacks that are executed during system suspend,
  * 		hibernation, system resume and during runtime PM transitions
  * 		along with subsystem-level and driver-level callbacks.
+ * @pins:	For device pin management.
+ *		See Documentation/pinctrl.txt for details.
  * @numa_node:	NUMA node this device is close to.
  * @dma_mask:	Dma mask (if dma'ble device).
  * @coherent_dma_mask: Like dma_mask, but for alloc_coherent mapping as not all
@@ -645,6 +648,10 @@ struct device {
 					   core doesn't touch it */
 	struct dev_pm_info	power;
 	struct dev_pm_domain	*pm_domain;
+
+#ifdef CONFIG_PINCTRL
+	struct dev_pin_info	*pins;
+#endif
 
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
