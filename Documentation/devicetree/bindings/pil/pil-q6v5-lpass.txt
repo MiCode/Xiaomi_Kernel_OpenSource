@@ -14,14 +14,14 @@ Required properties:
 - interrupts:         The lpass watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
-- qcom,gpio-err-fatal: GPIO used by the lpass to indicate error fatal to the apps.
-- qcom,gpio-err-ready: GPIO used by the lpass to indicate apps error service is ready.
-- qcom,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
 - qcom,gpio-proxy-unvote: GPIO used by the lpass to indicate apps clock is ready.
 
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
+- qcom,gpio-err-fatal: GPIO used by the lpass to indicate error fatal to the apps.
+- qcom,gpio-err-ready: GPIO used by the lpass to indicate apps error service is ready.
+- qcom,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
 
 Example:
 	qcom,lpass@fe200000 {
