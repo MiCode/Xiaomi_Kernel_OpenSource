@@ -1,0 +1,28 @@
+Qualcomm QCA199x NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI)
+
+Required properties:
+
+- compatible: "qcom,nfc-nci"
+- reg: NCI i2c slave address.
+- qcom,dis-gpio: specific gpio for hardware reset.
+- qcom,irq-gpio: specific gpio for read interrupt.
+- interrupt-parent: Should be phandle for the interrupt controller
+                    that services interrupts for this device.
+- interrupts: should contain the NFC interrupt. NFC has one read interrupt.
+- qcom,clk-gpio: pmic gpio on which bbclk2 signal is coming.
+
+Example:
+
+	i2c@f9925000 { /* BLSP1 QUP3 */
+	    nfc-nci@0e {
+	        compatible = "qcom,nfc-nci";
+		reg = <0x0e>;
+		qcom,irq-gpio = <&msmgpio 21 0x00>;
+		qcom,dis-gpio = <&msmgpio 20 0x00>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <21 0>;
+		qcom,clk-gpio = <&pm8226_gpios 3 0>;
+	    };
+	};
