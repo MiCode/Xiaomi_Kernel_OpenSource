@@ -19,6 +19,8 @@ ifneq ($(CONFIG_USB_XHCI_PLATFORM), )
 	xhci-hcd-y		+= xhci-plat.o
 endif
 
+xhci-hcd-$(CONFIG_USB_XHCI_MSM_HSIC)	+= xhci-msm-hsic.o
+
 obj-$(CONFIG_USB_WHCI_HCD)	+= whci/
 
 obj-$(CONFIG_PCI)		+= pci-quirks.o

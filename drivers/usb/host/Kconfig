@@ -30,6 +30,17 @@ if USB_XHCI_HCD
 config USB_XHCI_PLATFORM
 	tristate
 
+config USB_XHCI_MSM_HSIC
+	bool "Support for HSIC based MSM on-chip XHCI USB controller"
+	depends on USB_XHCI_HCD && ARCH_MSM
+	---help---
+	  Enables support for the HSIC (High Speed Inter-Chip) based
+	  USB Host controller present on the Qualcomm chipsets.
+
+	  HSIC is a supplement to USB 2.0 specification and is preferred
+	  for chip-to-chip interconnect (having maximum circuit length of
+	  10cm) as it removes the analog transceivers.
+
 config USB_XHCI_HCD_DEBUGGING
 	bool "Debugging for the xHCI host controller"
 	---help---
