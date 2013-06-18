@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,11 +30,12 @@
 #include <linux/net_tstamp.h>
 #include <linux/phy.h>
 #include <linux/inet.h>
+#include <asm/div64.h>
 
 #include "qfec.h"
 
 #define QFEC_NAME       "qfec"
-#define QFEC_DRV_VER    "Nov 29 2011"
+#define QFEC_DRV_VER    "Apr 09 2013"
 
 #define ETH_BUF_SIZE    0x600
 #define MAX_N_BD        50
@@ -646,7 +647,7 @@ static struct reg_entry  qfec_reg_tbl[] = {
 
 	{ 1, TS_HI_UPDT_REG,         "TS_HI_UPDATE_REG",       0 },
 	{ 1, TS_LO_UPDT_REG,         "TS_LO_UPDATE_REG",       0 },
-	{ 0, TS_SUB_SEC_INCR_REG,    "TS_SUB_SEC_INCR_REG",    1 },
+	{ 0, TS_SUB_SEC_INCR_REG,    "TS_SUB_SEC_INCR_REG",    40 },
 	{ 0, TS_CTL_REG,             "TS_CTL_REG",        TS_CTL_TSENALL
 							| TS_CTL_TSCTRLSSR
 							| TS_CTL_TSINIT
@@ -1025,13 +1026,18 @@ static int qfec_speed_cfg(struct net_device *dev, unsigned int spd,
 /*
  * configure PTP divider for 25 MHz assuming EMAC PLL 250 MHz
  */
-
 static struct qfec_pll_cfg qfec_pll_ptp = {
-	/* 19.2 MHz  tcxo */
-	0,      0,                                ETH_NS_PRE_DIV(0)
-						| EMAC_PTP_NS_ROOT_EN
-						| EMAC_PTP_NS_CLK_EN
-						| CLK_SRC_TCXO
+	0,
+
+	ETH_MD_M(1) | ETH_MD_2D_N(10),
+
+	ETH_NS_NM(10-1)        |
+	EMAC_PTP_NS_ROOT_EN    |
+	EMAC_PTP_NS_CLK_EN     |
+	ETH_NS_MCNTR_EN        |
+	ETH_NS_MCNTR_MODE_DUAL |
+	ETH_NS_PRE_DIV(0)      |
+	CLK_SRC_PLL_EMAC
 };
 
 #define PLLTEST_PAD_CFG     0x01E0
@@ -1404,93 +1410,189 @@ static int qfec_bd_rx_show(struct device *dev, struct device_attribute *attr,
 }
 
 /*
- * process timestamp values
- *    The pbuf and next fields of the buffer descriptors are overwritten
- *    with the timestamp high and low register values.
+ * The Ethernet core includes IEEE-1588 support. This includes
+ * TS_HIGH_REG and TS_LOW_REG registers driven by an external clock.
+ * Each external clock cycle causes the TS_LOW_REG register to
+ * increment by the value in TS_SUB_SEC_INCR_REG (e.g. set to 40 using
+ * a 25 MHz clock).  Unfortunately, TS_HIGH_REG increments when
+ * TS_LOW_REG overflows at 2^31 instead of 10^9.
  *
- *    The low register is incremented by the value in the subsec_increment
- *    register and overflows at 0x8000 0000 causing the high register to
- *    increment.
+ * Conversion requires scaling (dividing) the 63-bit concatenated
+ * timestamp register value by 10^9 to determine seconds, and taking
+ * the remainder to determine nsec.  Since division is to be avoided,
+ * a combination of multiplication and shift (>>) minimizes the number
+ * of operations.
  *
- *    The subsec_increment register is recommended to be set to the number
- *    of nanosec corresponding to each clock tic, scaled by 2^31 / 10^9
- *    (e.g. 40 * 2^32 / 10^9 = 85.9, or 86 for 25 MHz).  However, the
- *    rounding error in this case will result in a 1 sec error / ~14 mins.
- *
- *    An alternate approach is used.  The subsec_increment is set to 1,
- *    and the concatenation of the 2 timestamp registers used to count
- *    clock tics.  The 63-bit result is manipulated to determine the number
- *    of sec and ns.
+ * To avoid loss of data, the timestamp value is multipled by 2<<30 /
+ * 10^9, and the result scaled by 2<<30 (i.e. >> 30). The shift value
+ * of 30 is determining the log-2 value of the denominator (10^9),
+ * 29.9, and rounding up, 30.
  */
-
-/*
- * convert 19.2 MHz clock tics into sec/ns
+/* ------------------------------------------------
+ * conversion factors
  */
 #define TS_LOW_REG_BITS    31
+#define TS_LOW_REG_MASK    (((uint64_t)1 << TS_LOW_REG_BITS) - 1)
 
 #define MILLION            1000000UL
 #define BILLION            1000000000UL
 
-#define F_CLK              19200000UL
-#define F_CLK_PRE_SC       24
-#define F_CLK_INV_Q        56
-#define F_CLK_INV          (((unsigned long long)1 << F_CLK_INV_Q) / F_CLK)
+#define F_CLK              BILLION
+#define F_CLK_PRE_SC       30
+#define F_CLK_INV_Q        60
+#define F_CLK_INV          (((uint64_t)1 << F_CLK_INV_Q) / F_CLK)
+
 #define F_CLK_TO_NS_Q      25
 #define F_CLK_TO_NS \
-	(((((unsigned long long)1<<F_CLK_TO_NS_Q)*BILLION)+(F_CLK-1))/F_CLK)
-#define US_TO_F_CLK_Q      20
-#define US_TO_F_CLK \
-	(((((unsigned long long)1<<US_TO_F_CLK_Q)*F_CLK)+(MILLION-1))/MILLION)
+	(((((uint64_t)1<<F_CLK_TO_NS_Q)*BILLION)+(F_CLK/2))/F_CLK)
 
-static inline void qfec_get_sec(uint64_t *cnt,
-			uint32_t  *sec, uint32_t  *ns)
+#define NS_TO_F_CLK_Q      30
+#define NS_TO_F_CLK \
+	(((((uint64_t)1<<NS_TO_F_CLK_Q)*F_CLK)+(BILLION/2))/BILLION)
+
+/*
+ * qfec_hilo_collapse - The ptp timestamp low register is a 31 bit
+ * quantity.  Its high order bit is a control bit, thus unused in time
+ * representation.  This routine combines the high and low registers,
+ * collapsing out said bit (ie. making a 63 bit quantity), and then
+ * separates the new 63 bit value into high and low 32 bit values...
+ */
+static inline void qfec_hilo_collapse(
+	uint32_t tsRegHi,
+	uint32_t tsRegLo,
+	uint32_t *tsRegHiPtr,
+	uint32_t *tsRegLoPtr)
 {
-	unsigned long long  t;
-	unsigned long long  subsec;
+	uint64_t cnt;
 
-	t       = *cnt >> F_CLK_PRE_SC;
-	t      *= F_CLK_INV;
-	t     >>= F_CLK_INV_Q - F_CLK_PRE_SC;
-	*sec    = t;
+	cnt   = tsRegHi;
+	cnt <<= TS_LOW_REG_BITS;
+	cnt  |= tsRegLo;
 
-	t       = *cnt - (t * F_CLK);
-	subsec  = t;
+	*tsRegHiPtr = cnt >> 32;
+	*tsRegLoPtr = cnt & 0xffffffff;
+}
 
-	if (subsec >= F_CLK)  {
-		subsec -= F_CLK;
-		*sec   += 1;
+/*
+ * qfec_hilo_2secnsec - converts Etherent timestamp register values to
+ * sec and nsec
+ */
+static inline void qfec_hilo_2secnsec(
+	uint32_t  tsRegHi,
+	uint32_t  tsRegLo,
+	uint32_t *secPtr,
+	uint32_t *nsecPtr)
+{
+	uint64_t cnt;
+	uint64_t hi;
+	uint64_t subsec = 0;
+
+	cnt      = tsRegHi;
+	cnt    <<= TS_LOW_REG_BITS;
+	cnt     += tsRegLo;
+
+	hi       = cnt >> F_CLK_PRE_SC;
+	hi      *= F_CLK_INV;
+	hi     >>= F_CLK_INV_Q - F_CLK_PRE_SC;
+
+	*secPtr  = hi;
+	subsec   = cnt - (hi * F_CLK);
+
+	while (subsec > F_CLK) {
+		subsec  -= F_CLK;
+		*secPtr += 1;
 	}
 
-	subsec  *= F_CLK_TO_NS;
-	subsec >>= F_CLK_TO_NS_Q;
-	*ns      = subsec;
+	*nsecPtr = subsec;
+}
+
+/*
+ * qfec_secnsec_2hilo - converts sec and nsec to Etherent timestamp
+ * register values
+ */
+static inline void qfec_secnsec_2hilo(
+	uint32_t  sec,
+	uint32_t  nsec,
+	uint32_t *tsRegHiPtr,
+	uint32_t *tsRegLoPtr)
+{
+	uint64_t cnt;
+	uint64_t subsec;
+
+	subsec = nsec;
+
+	cnt    = F_CLK;
+	cnt   *= sec;
+	cnt   += subsec;
+
+	*tsRegHiPtr = cnt >> TS_LOW_REG_BITS;
+	*tsRegLoPtr = cnt  & TS_LOW_REG_MASK;
+}
+
+/*
+ * qfec_reg_and_time --
+ *
+ * This function does two things:
+ *
+ * 1) Retrieves and returns the high and low time registers, and
+ *
+ * 2) Converts then returns those high and low register values as
+ *    their seconds and nanoseconds equivalents.
+ */
+static inline void qfec_reg_and_time(
+	struct qfec_priv *privPtr,
+	uint32_t         *tsHiPtr,
+	uint32_t         *tsLoPtr,
+	uint32_t         *secPtr,
+	uint32_t         *nsecPtr)
+{
+	/*
+	 * Read/capture the high and low timestamp registers values.
+	 *
+	 * Insure that the high register's value doesn't increment during read.
+	 */
+	do {
+		*tsHiPtr = qfec_reg_read(privPtr, TS_HIGH_REG);
+		*tsLoPtr = qfec_reg_read(privPtr, TS_LOW_REG);
+	} while (*tsHiPtr != qfec_reg_read(privPtr, TS_HIGH_REG));
+
+	/*
+	 * Convert high and low time registers to secs and nsecs...
+	 */
+	qfec_hilo_2secnsec(*tsHiPtr, *tsLoPtr, secPtr, nsecPtr);
 }
 
 /*
  * read ethernet timestamp registers, pass up raw register values
  * and values converted to sec/ns
  */
-static void qfec_read_timestamp(struct buf_desc *p_bd,
+static void qfec_read_timestamp(
+	struct buf_desc *p_bd,
 	struct skb_shared_hwtstamps *ts)
 {
-	unsigned long long  cnt;
-	unsigned int        sec;
-	unsigned int        subsec;
+	uint32_t ts_hi;
+	uint32_t ts_lo;
+	uint32_t ts_hi63;
+	uint32_t ts_lo63;
+	uint32_t sec;
+	uint32_t nsec;
 
-	cnt    = (unsigned long)qfec_bd_next_get(p_bd);
-	cnt  <<= TS_LOW_REG_BITS;
-	cnt   |= (unsigned long)qfec_bd_pbuf_get(p_bd);
+	ts_hi = (uint32_t) qfec_bd_next_get(p_bd);
+	ts_lo = (uint32_t) qfec_bd_pbuf_get(p_bd);
 
-	/* report raw counts as concatenated 63 bits */
-	sec    = cnt >> 32;
-	subsec = cnt & 0xffffffff;
+	/*
+	 * Combine (then separate) raw registers into 63 (then 32) bit...
+	 */
+	qfec_hilo_collapse(ts_hi, ts_lo, &ts_hi63, &ts_lo63);
 
-	ts->hwtstamp  = ktime_set(sec, subsec);
+	ts->hwtstamp = ktime_set(ts_hi63, ts_lo63);
 
-	/* translate counts to sec and ns */
-	qfec_get_sec(&cnt, &sec, &subsec);
+	/*
+	 * Translate raw registers to sec and ns
+	 */
+	qfec_hilo_2secnsec(ts_hi, ts_lo, &sec, &nsec);
 
-	ts->syststamp = ktime_set(sec, subsec);
+	ts->syststamp = ktime_set(sec, nsec);
 }
 
 /*
@@ -1502,33 +1604,163 @@ static int qfec_cmd(struct device *dev, struct device_attribute *attr,
 	struct qfec_priv  *priv = netdev_priv(to_net_dev(dev));
 	struct timeval     tv;
 
-	if (!strncmp(buf, "setTs", 5))  {
-		unsigned long long  cnt;
-		uint32_t            ts_hi;
-		uint32_t            ts_lo;
-		unsigned long long  subsec;
+	if (!strncmp(buf, "setTs", 5)) {
+		uint32_t ts_hi;
+		uint32_t ts_lo;
+		uint32_t cr;
 
 		do_gettimeofday(&tv);
 
-		/* convert raw sec/usec to ns */
-		subsec   = tv.tv_usec;
-		subsec  *= US_TO_F_CLK;
-		subsec >>= US_TO_F_CLK_Q;
-
-		cnt     = tv.tv_sec;
-		cnt    *= F_CLK;
-		cnt    += subsec;
-
-		ts_hi   = cnt >> 31;
-		ts_lo   = cnt & 0x7FFFFFFF;
+		/* convert raw sec/usec to hi/low registers */
+		qfec_secnsec_2hilo(tv.tv_sec, tv.tv_usec * 1000,
+			&ts_hi, &ts_lo);
 
 		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
 		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
 
-		qfec_reg_write(priv, TS_CTL_REG,
-			qfec_reg_read(priv, TS_CTL_REG) | TS_CTL_TSINIT);
+		/*
+		 * TS_CTL_TSINIT bit cannot be written until it is 0, hence the
+		 * following while loop will run until the bit transitions to 0
+		 */
+		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
+			;
+
+		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
 	} else
 		pr_err("%s: unknown cmd, %s.\n", __func__, buf);
+
+	return strnlen(buf, count);
+}
+
+/*
+ * Do a "slam" of a very particular time into the time registers...
+ */
+static int qfec_slam(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	struct qfec_priv *priv   = netdev_priv(to_net_dev(dev));
+	uint32_t          sec = 0;
+	uint32_t          nsec = 0;
+
+	if (sscanf(buf, "%u %u", &sec, &nsec) == 2) {
+		uint32_t ts_hi;
+		uint32_t ts_lo;
+		uint32_t cr;
+
+		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
+
+		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+
+		/*
+		 * TS_CTL_TSINIT bit cannot be written until it is 0, hence the
+		 * following while loop will run until the bit transitions to 0
+		 */
+		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
+			;
+
+		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
+	} else
+		pr_err("%s: bad offset value, %s.\n", __func__, buf);
+
+	return strnlen(buf, count);
+}
+
+/*
+ * Do a coarse time ajustment (ie. coarsely adjust (+/-) the time
+ * registers by the passed offset)
+ */
+static int qfec_cadj(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	struct qfec_priv *priv   = netdev_priv(to_net_dev(dev));
+	int64_t           offset = 0;
+
+	if (sscanf(buf, "%lld", &offset) == 1) {
+		uint64_t newOffset;
+		uint32_t sec;
+		uint32_t nsec;
+		uint32_t ts_hi;
+		uint32_t ts_lo;
+		uint32_t cr;
+
+		qfec_reg_and_time(priv, &ts_hi, &ts_lo, &sec, &nsec);
+
+		newOffset = (((uint64_t) sec * BILLION) + (uint64_t) nsec)
+			+ offset;
+
+		nsec = do_div(newOffset, BILLION);
+		sec  = newOffset;
+
+		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
+
+		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+
+		/*
+		 * The TS_CTL_TSINIT bit cannot be written until it is 0,
+		 * hence the following while loop will run until the bit
+		 * transitions to 0
+		 */
+		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
+			;
+
+		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
+	} else
+		pr_err("%s: bad offset value, %s.\n", __func__, buf);
+
+	return strnlen(buf, count);
+}
+
+/*
+ * Do a fine time ajustment (ie. have the timestamp registers adjust
+ * themselves by the passed amount).
+ */
+static int qfec_fadj(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	struct qfec_priv *priv = netdev_priv(to_net_dev(dev));
+	int64_t           offset = 0;
+
+	if (sscanf(buf, "%lld", &offset) == 1) {
+		uint32_t direction = 0;
+		uint32_t cr;
+		uint32_t sec, nsec;
+		uint32_t ts_hi, ts_lo;
+
+		if (offset < 0) {
+			direction = 1 << TS_LOW_REG_BITS;
+			offset   *= -1;
+		}
+
+		nsec = do_div(offset, BILLION);
+		sec  = offset;
+
+		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
+
+		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo | direction);
+
+		/*
+		 * As per the hardware documentation, the TS_CTL_TSUPDT bit
+		 * cannot be written until it is 0, hence the following while
+		 * loop will run until the bit transitions to 0...
+		 */
+		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSUPDT)
+			;
+
+		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSUPDT);
+	} else
+		pr_err("%s: bad offset value, %s.\n", __func__, buf);
 
 	return strnlen(buf, count);
 }
@@ -1543,32 +1775,54 @@ static int qfec_tstamp_show(struct device *dev, struct device_attribute *attr,
 	int                 count = PAGE_SIZE;
 	int                 l;
 	struct timeval      tv;
-	unsigned long long  cnt;
 	uint32_t            sec;
-	uint32_t            ns;
+	uint32_t            nsec;
 	uint32_t            ts_hi;
 	uint32_t            ts_lo;
 
-	/* insure that ts_hi didn't increment during read */
-	do {
-		ts_hi = qfec_reg_read(priv, TS_HIGH_REG);
-		ts_lo = qfec_reg_read(priv, TS_LOW_REG);
-	} while (ts_hi != qfec_reg_read(priv, TS_HIGH_REG));
+	qfec_reg_and_time(priv, &ts_hi, &ts_lo, &sec, &nsec);
 
-	cnt    = ts_hi;
-	cnt  <<= TS_LOW_REG_BITS;
-	cnt   |= ts_lo;
+	qfec_hilo_collapse(ts_hi, ts_lo, &ts_hi, &ts_lo);
 
 	do_gettimeofday(&tv);
 
-	ts_hi  = cnt >> 32;
-	ts_lo  = cnt & 0xffffffff;
-
-	qfec_get_sec(&cnt, &sec, &ns);
-
 	l = snprintf(buf, count,
 		"%12u.%09u sec 0x%08x 0x%08x tstamp  %12u.%06u time-of-day\n",
-		sec, ns, ts_hi, ts_lo, (int)tv.tv_sec, (int)tv.tv_usec);
+		sec, nsec, ts_hi, ts_lo, (int)tv.tv_sec, (int)tv.tv_usec);
+
+	return l;
+}
+
+/*
+ * display ethernet mac time as well as the time of the next mac pps
+ * pulse...
+ */
+static int qfec_mtnp_show(
+	struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	struct qfec_priv *priv  = netdev_priv(to_net_dev(dev));
+	int               count = PAGE_SIZE;
+	int               l;
+	uint32_t          ts_hi;
+	uint32_t          ts_lo;
+	uint32_t          sec;
+	uint32_t          nsec;
+	uint32_t          ppsSec;
+	uint32_t          ppsNsec;
+
+	qfec_reg_and_time(priv, &ts_hi, &ts_lo, &sec, &nsec);
+
+	/*
+	 * Convert high and low to time of next rollover (ie. PPS
+	 * pulse)...
+	 */
+	qfec_hilo_2secnsec(ts_hi + 1, 0, &ppsSec, &ppsNsec);
+
+	l = snprintf(buf, count,
+		"%u %u %u %u\n",
+		sec, nsec, ppsSec, ppsNsec);
 
 	return l;
 }
@@ -2549,6 +2803,10 @@ static DEVICE_ATTR(reg,     0444, qfec_reg_show,     NULL);
 static DEVICE_ATTR(mdio,    0444, qfec_mdio_show,    NULL);
 static DEVICE_ATTR(stats,   0444, qfec_stats_show,   NULL);
 static DEVICE_ATTR(tstamp,  0444, qfec_tstamp_show,  NULL);
+static DEVICE_ATTR(slam,    0222, NULL,              qfec_slam);
+static DEVICE_ATTR(cadj,    0222, NULL,              qfec_cadj);
+static DEVICE_ATTR(fadj,    0222, NULL,              qfec_fadj);
+static DEVICE_ATTR(mtnp,    0444, qfec_mtnp_show,    NULL);
 
 static void qfec_sysfs_create(struct net_device *dev)
 {
@@ -2561,7 +2819,11 @@ static void qfec_sysfs_create(struct net_device *dev)
 		device_create_file(&(dev->dev), &dev_attr_mdio) ||
 		device_create_file(&(dev->dev), &dev_attr_reg) ||
 		device_create_file(&(dev->dev), &dev_attr_stats) ||
-		device_create_file(&(dev->dev), &dev_attr_tstamp))
+		device_create_file(&(dev->dev), &dev_attr_tstamp) ||
+		device_create_file(&(dev->dev), &dev_attr_slam) ||
+		device_create_file(&(dev->dev), &dev_attr_cadj) ||
+		device_create_file(&(dev->dev), &dev_attr_fadj) ||
+		device_create_file(&(dev->dev), &dev_attr_mtnp))
 		pr_err("qfec_sysfs_create failed to create sysfs files\n");
 }
 
