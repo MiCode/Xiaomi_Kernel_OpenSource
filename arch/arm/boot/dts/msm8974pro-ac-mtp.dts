@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ac.dtsi"
-/include/ "msm8974-mtp.dtsi"
+/include/ "msm8974pro-ac-pm8941.dtsi"
+/include/ "msm8974pro-ac-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974Pro-AC MTP";

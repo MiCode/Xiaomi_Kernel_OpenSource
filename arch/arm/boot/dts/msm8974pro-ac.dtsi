@@ -17,3 +17,174 @@
  */
 
 /include/ "msm8974pro.dtsi"
+
+/include/ "msm-pma8084-rpm-regulator.dtsi"
+/include/ "msm-pma8084.dtsi"
+/include/ "msm8974pro-ac-regulator.dtsi"
+
+/*
+ * Override PM8841 and PM8941 resources with proper PMA8084 resources for
+ * MSM8974Pro AC.
+ */
+
+&soc {
+	qcom,csid@fda08000  {
+		qcom,mipi-csi-vdd-supply = <&pma8084_l12>;
+	};
+
+	qcom,csid@fda08400 {
+		qcom,mipi-csi-vdd-supply = <&pma8084_l12>;
+	};
+
+	qcom,csid@fda08800 {
+		qcom,mipi-csi-vdd-supply = <&pma8084_l12>;
+	};
+
+	qcom,csid@fda08C00 {
+		qcom,mipi-csi-vdd-supply = <&pma8084_l12>;
+	};
+
+	tpiu@fc318000 {
+		vdd-supply = <&pma8084_l21>;
+	};
+
+	qcom,mdss_dsi@fd922800 {
+		vdd-supply = <&pma8084_l22>;
+		vddio-supply = <&pma8084_l12>;
+		vdda-supply = <&pma8084_l2>;
+	};
+
+	qcom,mdss_dsi@fd922e00 {
+		vdd-supply = <&pma8084_l22>;
+		vddio-supply = <&pma8084_l12>;
+		vdda-supply = <&pma8084_l2>;
+	};
+
+	qcom,hdmi_tx@fd922100 {
+		hpd-5v-supply = <&pma8084_mvs1>;
+		core-vdda-supply = <&pma8084_l12>;
+		core-vcc-supply = <&pma8084_s4>;
+	};
+
+	qcom,mdss_edp@fd923400 {
+		vdda-supply = <&pma8084_l12>;
+	};
+
+	usb@f9a55000 {
+		HSUSB_VDDCX-supply = <&pma8084_s2_corner>;
+		HSUSB_1p8-supply = <&pma8084_l6>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+	};
+
+	qcom,sdcc@f9824000 {
+		vdd-supply = <&pma8084_l20>;
+		vdd-io-supply = <&pma8084_s4>;
+	};
+
+	qcom,sdcc@f98a4000 {
+		vdd-supply = <&pma8084_l21>;
+		vdd-io-supply = <&pma8084_l13>;
+	};
+
+	slim@fe12f000 {
+		taiko_codec {
+			cdc-vdd-buck-supply = <&pma8084_s5>;
+			cdc-vdd-tx-h-supply = <&pma8084_s4>;
+			cdc-vdd-rx-h-supply = <&pma8084_s4>;
+			cdc-vddpx-1-supply = <&pma8084_s4>;
+			cdc-vdd-a-1p2v-supply = <&pma8084_l1>;
+			cdc-vddcx-1-supply = <&pma8084_l1>;
+			cdc-vddcx-2-supply = <&pma8084_l1>;
+		};
+	};
+
+	qcom,acpuclk@f9000000 {
+		krait0_mem-supply = <&pma8084_s1_ao>;
+		krait1_mem-supply = <&pma8084_s1_ao>;
+		krait2_mem-supply = <&pma8084_s1_ao>;
+		krait3_mem-supply = <&pma8084_s1_ao>;
+		krait0_dig-supply = <&pma8084_s2_corner_ao>;
+		krait1_dig-supply = <&pma8084_s2_corner_ao>;
+		krait2_dig-supply = <&pma8084_s2_corner_ao>;
+		krait3_dig-supply = <&pma8084_s2_corner_ao>;
+		krait0_hfpll-supply = <&pma8084_l12_ao>;
+		krait1_hfpll-supply = <&pma8084_l12_ao>;
+		krait2_hfpll-supply = <&pma8084_l12_ao>;
+		krait3_hfpll-supply = <&pma8084_l12_ao>;
+		l2_hfpll-supply = <&pma8084_l12_ao>;
+	};
+
+	qcom,ssusb@f9200000 {
+		ssusb_vdd_dig-supply = <&pma8084_s2_corner>;
+		SSUSB_1p8-supply = <&pma8084_l6>;
+		hsusb_vdd_dig-supply = <&pma8084_s2_corner>;
+		HSUSB_1p8-supply = <&pma8084_l6>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+	};
+
+	qcom,ehci-host@f9a55000 {
+		HSUSB_VDDCX-supply = <&pma8084_s2>;
+		HSUSB_1p8-supply = <&pma8084_l6>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+	};
+
+	qcom,gdsc@fd8c4024 {
+		parent-supply = <&pma8084_s7_corner>;
+	};
+
+	qcom,lpass@fe200000 {
+		vdd_cx-supply = <&pma8084_s2_corner>;
+	};
+
+	qcom,mss@fc880000 {
+		vdd_mss-supply = <&pma8084_s6>;
+		vdd_cx-supply = <&pma8084_s2_corner>;
+		vdd_mx-supply = <&pma8084_s1>;
+		vdd_pll-supply = <&pma8084_l12>;
+	};
+
+	qcom,pronto@fb21b000 {
+		vdd_pronto_pll-supply = <&pma8084_l12>;
+	};
+
+	qcom,wcnss-wlan@fb000000 {
+		qcom,pronto-vddmx-supply = <&pma8084_s1>;
+		qcom,pronto-vddcx-supply = <&pma8084_s2>;
+		qcom,pronto-vddpx-supply = <&pma8084_s4>;
+		qcom,iris-vddxo-supply = <&pma8084_l6>;
+		qcom,iris-vddrfa-supply = <&pma8084_l11>;
+		qcom,iris-vddpa-supply = <&pma8084_l19>;
+		qcom,iris-vdddig-supply = <&pma8084_s4>;
+	};
+
+	qcom,msm-thermal {
+		vdd_dig-supply = <&pma8084_s2_floor_corner>;
+		vdd_gfx-supply = <&pma8084_s7_floor_corner>;
+	};
+
+	qcom,lpm-resources {
+		qcom,lpm-resources@0 {
+			qcom,name = "vdd-dig";
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <2>;
+		};
+
+		qcom,lpm-resources@1 {
+			qcom,name = "vdd-mem";
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <1>;
+		};
+	};
+
+	sound {
+		qcom,cdc-mclk-gpios = <&pma8084_gpios 15 0>;
+	};
+};
+
+&krait_pdn {
+	qcom,use-phase-switching;
+};
+
+&tspp {
+	vdd_cx-supply = <&pma8084_s2_corner>;
+};
