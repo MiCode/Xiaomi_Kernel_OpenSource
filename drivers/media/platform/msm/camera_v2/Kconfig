@@ -182,6 +182,15 @@ config OV8825
 		snapshot config = 3264 * 2448 at 18 fps.
 		2 lanes max fps is 18, 4 lanes max fps is 24.
 
+config s5k4e1
+	bool "Sensor s5k4e1 (BAYER 5MP)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 5 MP Bayer Sensor. It uses 2 mipi lanes,
+		supports 720P preview at 30 fps
+		and QSXGA snapshot at 15 fps.
+		This sensor driver does not support auto focus.
+
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"
 	---help---
