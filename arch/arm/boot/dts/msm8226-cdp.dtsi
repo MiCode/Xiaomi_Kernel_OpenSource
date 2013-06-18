@@ -394,6 +394,10 @@
 &pm8226_chg {
 	qcom,charging-disabled;
 	qcom,use-default-batt-values;
+
+	qcom,bat-if@1200 {
+		status = "disabled";
+	};
 };
 
 &usb_otg_sw {
