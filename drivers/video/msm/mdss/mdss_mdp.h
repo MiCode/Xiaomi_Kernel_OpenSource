@@ -301,6 +301,11 @@ struct mdss_pipe_pp_res {
 	struct pp_sts_type pp_sts;
 };
 
+struct mdss_mdp_pipe_smp_map {
+	DECLARE_BITMAP(reserved, MDSS_MDP_SMP_MMB_BLOCKS);
+	DECLARE_BITMAP(allocated, MDSS_MDP_SMP_MMB_BLOCKS);
+};
+
 struct mdss_mdp_pipe {
 	u32 num;
 	u32 type;
@@ -337,8 +342,7 @@ struct mdss_mdp_pipe {
 	struct mdp_overlay req_data;
 	u32 params_changed;
 
-	unsigned long smp[MAX_PLANES];
-	unsigned long smp_reserved[MAX_PLANES];
+	struct mdss_mdp_pipe_smp_map smp_map[MAX_PLANES];
 
 	struct mdss_mdp_data back_buf;
 	struct mdss_mdp_data front_buf;
