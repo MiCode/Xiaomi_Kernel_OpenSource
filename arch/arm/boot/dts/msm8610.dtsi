@@ -819,6 +819,12 @@
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 	};
 
+	qcom,msm-contig-mem {
+		compatible = "qcom,msm-contig-mem";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+	};
+
 	jtag_mm0: jtagmm@fc34c000 {
 		compatible = "qcom,jtag-mm";
 		reg = <0xfc34c000 0x1000>,
