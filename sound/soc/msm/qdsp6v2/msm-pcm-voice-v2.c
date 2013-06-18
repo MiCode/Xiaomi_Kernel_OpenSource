@@ -286,7 +286,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint16_t session_id = get_session_id(prtd);
+	uint32_t session_id = get_session_id(prtd);
 	enum voice_lch_mode lch_mode;
 	int ret = 0;
 
