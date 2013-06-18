@@ -2154,14 +2154,20 @@ static int __devinit etm_probe(struct platform_device *pdev)
 
 	drvdata->cpu = count++;
 
-	get_online_cpus();
 	etmdrvdata[drvdata->cpu] = drvdata;
 
+	/*
+	 * This is safe wrt CPU_UP_PREPARE and CPU_STARTING hotplug callbacks
+	 * on the secondary cores that may enable the clock and perform
+	 * etm_os_unlock since they occur before the cpu online mask is updated
+	 * for the cpu which is checked by this smp call.
+	 */
 	if (!smp_call_function_single(drvdata->cpu, etm_os_unlock, drvdata, 1))
 		drvdata->os_unlock = true;
+
 	/*
-	 * Use CPU0 to populate read-only configuration data for ETM0. For
-	 * other ETMs copy it over from ETM0.
+	 * OS unlock must have happened on cpu0 so use it to populate read-only
+	 * configuration data for ETM0. For other ETMs copy it over from ETM0.
 	 */
 	if (drvdata->cpu == 0) {
 		register_hotcpu_notifier(&etm_cpu_notifier);
@@ -2171,8 +2177,6 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	} else {
 		etm_copy_arch_data(drvdata);
 	}
-
-	put_online_cpus();
 
 	if (etm_arch_supported(drvdata->arch) == false) {
 		ret = -EINVAL;
