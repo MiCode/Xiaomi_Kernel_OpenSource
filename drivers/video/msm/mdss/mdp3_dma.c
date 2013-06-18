@@ -163,6 +163,29 @@ static void mdp3_dma_vsync_enable(struct mdp3_dma *dma,
 	}
 }
 
+static int mdp3_dma_sync_config(struct mdp3_dma *dma,
+			struct mdp3_dma_source *source_config)
+{
+	u32 sync_config;
+	int dma_sel = dma->dma_sel;
+
+	pr_debug("mdp3_dma_sync_config\n");
+
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+		sync_config = (source_config->height - 1) << 21;
+		sync_config |= source_config->vsync_count;
+		sync_config |= BIT(19);
+		sync_config |= BIT(20);
+
+		MDP3_REG_WRITE(MDP3_REG_SYNC_CONFIG_0 + dma_sel, sync_config);
+		MDP3_REG_WRITE(MDP3_REG_VSYNC_SEL, 0x024);
+		MDP3_REG_WRITE(MDP3_REG_PRIMARY_VSYNC_INIT_VAL + dma_sel, 0);
+		MDP3_REG_WRITE(MDP3_REG_SYNC_THRESH_0 + dma_sel, 0x00100000);
+		MDP3_REG_WRITE(MDP3_REG_PRIMARY_START_P0S + dma_sel, 0x0);
+	}
+	return 0;
+}
+
 static int mdp3_dmap_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config)
@@ -197,6 +220,7 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
+	mdp3_dma_sync_config(dma, source_config);
 
 	mdp3_dma_callback_setup(dma);
 	return 0;
@@ -231,6 +255,7 @@ static int mdp3_dmas_config(struct mdp3_dma *dma,
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
+	mdp3_dma_sync_config(dma, source_config);
 
 	mdp3_dma_callback_setup(dma);
 	return 0;

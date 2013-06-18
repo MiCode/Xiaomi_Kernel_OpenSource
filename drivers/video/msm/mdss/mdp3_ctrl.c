@@ -363,6 +363,7 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	struct fb_var_screeninfo *var;
 	struct mdp3_dma_output_config outputConfig;
 	struct mdp3_dma_source sourceConfig;
+	int frame_rate = mfd->panel_info->mipi.frame_rate;
 
 	fix = &fbi->fix;
 	var = &fbi->var;
@@ -374,6 +375,8 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	sourceConfig.y = 0;
 	sourceConfig.stride = fix->line_length;
 	sourceConfig.buf = (void *)mfd->iova;
+	sourceConfig.vsync_count =
+		MDP_VSYNC_CLK_RATE / (frame_rate * sourceConfig.width);
 
 	outputConfig.dither_en = 0;
 	outputConfig.out_sel = mdp3_ctrl_get_intf_type(mfd);
