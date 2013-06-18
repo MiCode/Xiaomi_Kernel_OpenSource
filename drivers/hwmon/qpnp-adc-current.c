@@ -389,8 +389,13 @@ static int32_t qpnp_iadc_comp_info(void)
 
 	rc = qpnp_iadc_read_reg(QPNP_IADC_ATE_GAIN_CALIB_OFFSET,
 						&iadc->iadc_comp.sys_gain);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("full scale read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (iadc->external_rsense)
+		iadc->iadc_comp.ext_rsense = true;
 
 	pr_debug("fab id = %u, revision = %u, sys gain = %u, external_rsense = %d\n",
 			iadc->iadc_comp.id,
