@@ -1157,6 +1157,16 @@ static const char * const iir1_inp1_text[] = {
 	"ZERO", "DEC1", "DEC2", "RX1", "RX2", "RX3"
 };
 
+/*
+  * There is only one bit to select RX2 (0) or RX3 (1) so add 'ZERO' won't
+  * cause any issue to select the right input, but it eliminates that lineout
+  * is powered-up when HPH is enabled if the 'ZERO" is used in the disable
+  * sequence for lineout.
+  */
+static const char * const rx_rdac4_text[] = {
+	"ZERO", "RX3", "RX2"
+};
+
 static const struct soc_enum rx_mix1_inp1_chain_enum =
 	SOC_ENUM_SINGLE(MSM8X10_WCD_A_CDC_CONN_RX1_B1_CTL, 0, 6, rx_mix1_text);
 
@@ -1194,6 +1204,10 @@ static const struct soc_enum iir1_inp1_mux_enum =
 	SOC_ENUM_SINGLE(MSM8X10_WCD_A_CDC_CONN_EQ1_B1_CTL, 0, 6,
 	iir1_inp1_text);
 
+static const struct soc_enum rx_rdac4_enum  =
+	SOC_ENUM_SINGLE(MSM8X10_WCD_A_CDC_CONN_LO_DAC_CTL, 0, 3,
+	rx_rdac4_text);
+
 static const struct snd_kcontrol_new rx_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX1 MIX1 INP1 Mux", rx_mix1_inp1_chain_enum);
 
@@ -1220,6 +1234,9 @@ static const struct snd_kcontrol_new rx1_mix2_inp1_mux =
 
 static const struct snd_kcontrol_new rx2_mix2_inp1_mux =
 	SOC_DAPM_ENUM("RX2 MIX2 INP1 Mux", rx2_mix2_inp1_chain_enum);
+
+static const struct snd_kcontrol_new rx_dac4_mux =
+	SOC_DAPM_ENUM("RDAC4 MUX Mux", rx_rdac4_enum);
 
 static int msm8x10_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -1310,6 +1327,10 @@ static const struct snd_kcontrol_new dac1_switch[] = {
 };
 static const struct snd_kcontrol_new hphl_switch[] = {
 	SOC_DAPM_SINGLE("Switch", MSM8X10_WCD_A_RX_HPH_L_DAC_CTL, 6, 1, 0)
+};
+
+static const struct snd_kcontrol_new spkr_switch[] = {
+	SOC_DAPM_SINGLE("Switch", MSM8X10_WCD_A_SPKR_DRV_DAC_CTL, 2, 1, 0)
 };
 
 static void msm8x10_wcd_codec_enable_adc_block(struct snd_soc_codec *codec,
@@ -1791,13 +1812,6 @@ static int msm8x10_wcd_lineout_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int msm8x10_wcd_spk_dac_event(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol, int event)
-{
-	dev_dbg(w->codec->dev, "%s %s %d\n", __func__, w->name, event);
-	return 0;
-}
-
 static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX_I2S_CLK", NULL, "CDC_CONN"},
 	{"I2S RX1", NULL, "RX_I2S_CLK"},
@@ -1837,11 +1851,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"LINEOUT PA", NULL, "CP"},
 	{"LINEOUT PA", NULL, "LINEOUT DAC"},
+	{"LINEOUT DAC", NULL, "RDAC4 MUX"},
+
+	{"RDAC4 MUX", "RX2", "RX2 CHAIN"},
+	{"RDAC4 MUX", "RX3", "RX3 CHAIN"},
 
 	{"CP", NULL, "CP_REGULATOR"},
 	{"CP", NULL, "RX_BIAS"},
 	{"SPK PA", NULL, "SPK DAC"},
-	{"SPK DAC", NULL, "RX3 CHAIN"},
+	{"SPK DAC", "Switch", "RX3 CHAIN"},
 
 	{"RX1 CHAIN", NULL, "RX1 CLK"},
 	{"RX2 CHAIN", NULL, "RX2 CLK"},
@@ -2270,6 +2288,9 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 		msm8x10_wcd_hphr_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_MIXER("SPK DAC", SND_SOC_NOPM, 0, 0,
+		spkr_switch, ARRAY_SIZE(spkr_switch)),
+
 	/* Speaker */
 	SND_SOC_DAPM_OUTPUT("LINEOUT"),
 	SND_SOC_DAPM_OUTPUT("SPK_OUT"),
@@ -2288,10 +2309,6 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 		MSM8X10_WCD_A_RX_LINE_1_DAC_CTL, 7, 0,
 		msm8x10_wcd_lineout_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_DAC_E("SPK DAC", NULL, SND_SOC_NOPM, 0, 0,
-			   msm8x10_wcd_spk_dac_event,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -2340,6 +2357,8 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 		&rx1_mix2_inp1_mux),
 	SND_SOC_DAPM_MUX("RX2 MIX2 INP1", SND_SOC_NOPM, 0, 0,
 		&rx2_mix2_inp1_mux),
+	SND_SOC_DAPM_MUX("RDAC4 MUX", SND_SOC_NOPM, 0, 0,
+		&rx_dac4_mux),
 
 	SND_SOC_DAPM_SUPPLY("MICBIAS_REGULATOR", SND_SOC_NOPM,
 		ON_DEMAND_MICBIAS, 0,
@@ -2512,6 +2531,8 @@ static const struct msm8x10_wcd_reg_mask_val
 	/* config DMIC clk to CLK_MODE_1 (3.2Mhz@9.6Mhz mclk) */
 	{MSM8X10_WCD_A_CDC_CLK_DMIC_B1_CTL, 0xEE, 0x22},
 
+	/* Disable REF_EN for MSM8X10_WCD_A_SPKR_DRV_DAC_CTL */
+	{MSM8X10_WCD_A_SPKR_DRV_DAC_CTL, 0x04, 0x00},
 };
 
 static void msm8x10_wcd_codec_init_reg(struct snd_soc_codec *codec)
