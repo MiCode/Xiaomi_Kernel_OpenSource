@@ -58,15 +58,15 @@ enum dmxdev_state {
 
 struct dmxdev_feed {
 	u16 pid;
-	struct dmx_secure_mode sec_mode;
 	struct dmx_indexing_params idx_params;
+	struct dmx_cipher_operations cipher_ops;
 	struct dmx_ts_feed *ts;
 	struct list_head next;
 };
 
 struct dmxdev_sec_feed {
-	struct dmx_secure_mode sec_mode;
 	struct dmx_section_feed *feed;
+	struct dmx_cipher_operations cipher_ops;
 };
 
 #define DMX_EVENT_QUEUE_SIZE	500 /* number of events */
@@ -181,6 +181,8 @@ struct dmxdev_filter {
 	struct timer_list timer;
 	int todo;
 	u8 secheader[3];
+
+	struct dmx_secure_mode sec_mode;
 
 	/* Decoder buffer(s) related */
 	struct dmx_decoder_buffers decoder_buffers;

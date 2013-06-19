@@ -246,6 +246,8 @@ struct dmx_ts_feed {
 				enum dmx_tsp_format_t tsp_format);
 	int (*set_secure_mode)(struct dmx_ts_feed *feed,
 				struct dmx_secure_mode *sec_mode);
+	int (*set_cipher_ops)(struct dmx_ts_feed *feed,
+				struct dmx_cipher_operations *cipher_ops);
 	int (*oob_command) (struct dmx_ts_feed *feed,
 			struct dmx_oob_command *cmd);
 	int (*ts_insertion_init)(struct dmx_ts_feed *feed);
@@ -301,6 +303,8 @@ struct dmx_section_feed {
 			u32 bytes_num);
 	int (*set_secure_mode)(struct dmx_section_feed *feed,
 				struct dmx_secure_mode *sec_mode);
+	int (*set_cipher_ops)(struct dmx_section_feed *feed,
+				struct dmx_cipher_operations *cipher_ops);
 	int (*oob_command) (struct dmx_section_feed *feed,
 				struct dmx_oob_command *cmd);
 	int (*get_scrambling_bits)(struct dmx_section_feed *feed, u8 *value);
@@ -388,6 +392,7 @@ struct dmx_demux {
 	struct dmx_frontend* frontend;    /* Front-end connected to the demux */
 	void* priv;                  /* Pointer to private data of the API client */
 	struct data_buffer dvr_input; /* DVR input buffer */
+	int dvr_input_protected;
 	struct dentry *debugfs_demux_dir; /* debugfs dir */
 
 	int (*open) (struct dmx_demux* demux);

@@ -3650,16 +3650,18 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	 * If pid has a key ladder id associated, we need to
 	 * set it to SDMX.
 	 */
-	if (dvbdmx_feed->secure_mode.is_secured)  {
+	if (dvbdmx_feed->secure_mode.is_secured &&
+		dvbdmx_feed->cipher_ops.operations_count) {
 		MPQ_DVB_DBG_PRINT(
-				"%s: set key-ladder %d to PID %d\n",
-				__func__,
-				dvbdmx_feed->secure_mode.key_ladder_id,
-				dvbdmx_feed->secure_mode.pid);
-		ret = sdmx_set_kl_ind(
-			mpq_demux->sdmx_session_handle,
-			dvbdmx_feed->secure_mode.pid,
-			dvbdmx_feed->secure_mode.key_ladder_id);
+			"%s: set key-ladder %d to PID %d\n",
+			__func__,
+			dvbdmx_feed->cipher_ops.operations[0].key_ladder_id,
+			dvbdmx_feed->cipher_ops.pid);
+
+		ret = sdmx_set_kl_ind(mpq_demux->sdmx_session_handle,
+			dvbdmx_feed->cipher_ops.pid,
+			dvbdmx_feed->cipher_ops.operations[0].key_ladder_id);
+
 		if (ret) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: FAILED to set key ladder, ret=%d\n",
@@ -3789,14 +3791,14 @@ EXPORT_SYMBOL(mpq_dmx_init_mpq_feed);
 /**
  * Note: Called only when filter is in "GO" state - after feed has been started.
  */
-int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
-	struct dmx_secure_mode *sec_mode)
+int mpq_dmx_set_cipher_ops(struct dvb_demux_feed *feed,
+		struct dmx_cipher_operations *cipher_ops)
 {
 	struct mpq_feed *mpq_feed;
 	struct mpq_demux *mpq_demux;
 	int ret = 0;
 
-	if (!feed || !feed->priv || !sec_mode) {
+	if (!feed || !feed->priv || !cipher_ops) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: invalid parameters\n",
 			__func__);
@@ -3804,37 +3806,45 @@ int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
 	}
 
 	MPQ_DVB_DBG_PRINT("%s(%d, %d, %d)\n",
-		__func__, sec_mode->pid,
-		sec_mode->is_secured,
-		sec_mode->key_ladder_id);
+		__func__, cipher_ops->pid,
+		cipher_ops->operations_count,
+		cipher_ops->operations[0].key_ladder_id);
+
+	if ((cipher_ops->operations_count > 1) ||
+		(cipher_ops->operations_count &&
+		 cipher_ops->operations[0].encrypt)) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: Invalid cipher operations, count=%d, encrypt=%d\n",
+			__func__, cipher_ops->operations_count,
+			cipher_ops->operations[0].encrypt);
+		return -EINVAL;
+	}
+
+	if (!feed->secure_mode.is_secured) {
+		/*
+		 * Filter is not configured as secured, setting cipher
+		 * operations is not allowed.
+		 */
+		MPQ_DVB_ERR_PRINT(
+			"%s: Cannot set cipher operations to non-secure filter\n",
+			__func__);
+		return -EPERM;
+	}
 
 	mpq_feed = feed->priv;
 	mpq_demux = mpq_feed->mpq_demux;
 
 	mutex_lock(&mpq_demux->mutex);
 
-	if (feed->secure_mode.is_secured != sec_mode->is_secured) {
-		/*
-		 * Switching between secure & non-secure mode is not allowed
-		 * while filter is running
-		 */
-		MPQ_DVB_ERR_PRINT(
-			"%s: Cannot switch between secure mode while filter is running\n",
-			__func__);
-		mutex_unlock(&mpq_demux->mutex);
-		return -EPERM;
-	}
-
 	/*
 	 * Feed is running in secure mode, this secure mode request is to
 	 * update the key ladder id
 	 */
-	if (feed->secure_mode.pid == sec_mode->pid && sec_mode->is_secured &&
-		feed->secure_mode.key_ladder_id != sec_mode->key_ladder_id &&
-		mpq_demux->sdmx_session_handle != SDMX_INVALID_SESSION_HANDLE) {
+	if ((mpq_demux->sdmx_session_handle != SDMX_INVALID_SESSION_HANDLE) &&
+		cipher_ops->operations_count) {
 		ret = sdmx_set_kl_ind(mpq_demux->sdmx_session_handle,
-			sec_mode->pid,
-			sec_mode->key_ladder_id);
+			cipher_ops->pid,
+			cipher_ops->operations[0].key_ladder_id);
 		if (ret) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: FAILED to set key ladder, ret=%d\n",
@@ -3847,7 +3857,7 @@ int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
 
 	return ret;
 }
-EXPORT_SYMBOL(mpq_dmx_set_secure_mode);
+EXPORT_SYMBOL(mpq_dmx_set_cipher_ops);
 
 static void mpq_sdmx_prepare_filter_status(struct mpq_demux *mpq_demux,
 	struct sdmx_filter_status *filter_sts,
