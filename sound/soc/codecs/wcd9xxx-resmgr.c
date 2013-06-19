@@ -209,8 +209,8 @@ void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
 	int old_clk_rco_users, old_clk_mclk_users;
 
 	pr_debug("%s: enter\n", __func__);
-	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
 
+	WCD9XXX_BG_CLK_LOCK(resmgr);
 	old_bg_audio_users = resmgr->bg_audio_users;
 	old_bg_mbhc_users = resmgr->bg_mbhc_users;
 	old_clk_rco_users = resmgr->clk_rco_users;
@@ -243,6 +243,7 @@ void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
 		while (old_clk_rco_users--)
 			wcd9xxx_resmgr_get_clk_block(resmgr, WCD9XXX_CLK_RCO);
 	}
+	WCD9XXX_BG_CLK_UNLOCK(resmgr);
 	pr_debug("%s: leave\n", __func__);
 }
 

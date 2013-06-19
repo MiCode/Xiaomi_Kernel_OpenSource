@@ -604,18 +604,17 @@ static int spkr_drv_wrnd_param_set(const char *val,
 		return 0;
 	}
 
-	WCD9XXX_BCL_LOCK(&priv->resmgr);
+	codec = priv->codec;
+	mutex_lock(&codec->mutex);
 	old = spkr_drv_wrnd;
 	ret = param_set_int(val, kp);
 	if (ret) {
-		WCD9XXX_BCL_UNLOCK(&priv->resmgr);
+		mutex_unlock(&codec->mutex);
 		return ret;
 	}
-	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 
 	pr_debug("%s: spkr_drv_wrnd %d -> %d\n", __func__, old, spkr_drv_wrnd);
-	codec = priv->codec;
-	if (old == 0 && spkr_drv_wrnd == 1) {
+	if ((old == -1 || old == 0) && spkr_drv_wrnd == 1) {
 		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
@@ -630,6 +629,7 @@ static int spkr_drv_wrnd_param_set(const char *val,
 			snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80,
 					    0x00);
 	}
+	mutex_unlock(&codec->mutex);
 
 	return 0;
 }
@@ -2420,7 +2420,6 @@ static int taiko_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 
 	pr_debug("%s: %d %s\n", __func__, event, w->name);
-	WCD9XXX_BCL_LOCK(&taiko->resmgr);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		taiko->spkr_pa_widget_on = true;
@@ -2431,7 +2430,6 @@ static int taiko_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x00);
 		break;
 	}
-	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
 	return 0;
 }
 
@@ -6189,7 +6187,6 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	taiko = snd_soc_codec_get_drvdata(codec);
 	mutex_lock(&codec->mutex);
-	WCD9XXX_BCL_LOCK(&taiko->resmgr);
 
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
@@ -6201,7 +6198,6 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
-	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
 
 	taiko_update_reg_defaults(codec);
 	taiko_codec_init_reg(codec);

@@ -306,18 +306,18 @@ static int spkr_drv_wrnd_param_set(const char *val,
 		return 0;
 	}
 
-	WCD9XXX_BCL_LOCK(&priv->resmgr);
+	codec = priv->codec;
+	mutex_lock(&codec->mutex);
 	old = spkr_drv_wrnd;
 	ret = param_set_int(val, kp);
 	if (ret) {
-		WCD9XXX_BCL_UNLOCK(&priv->resmgr);
+		mutex_unlock(&codec->mutex);
 		return ret;
 	}
 
-	codec = priv->codec;
 	dev_dbg(codec->dev, "%s: spkr_drv_wrnd %d -> %d\n",
 			__func__, old, spkr_drv_wrnd);
-	if (old == 0 && spkr_drv_wrnd == 1) {
+	if ((old == -1 || old == 0) && spkr_drv_wrnd == 1) {
 		WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
@@ -332,8 +332,8 @@ static int spkr_drv_wrnd_param_set(const char *val,
 			snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80,
 					    0x00);
 	}
+	mutex_unlock(&codec->mutex);
 
-	WCD9XXX_BCL_UNLOCK(&priv->resmgr);
 	return 0;
 }
 
@@ -1701,7 +1701,6 @@ static int tapan_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
-	WCD9XXX_BCL_LOCK(&tapan->resmgr);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		tapan->spkr_pa_widget_on = true;
@@ -1712,7 +1711,6 @@ static int tapan_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80, 0x00);
 		break;
 	}
-	WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
 	return 0;
 }
 
@@ -4537,7 +4535,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tapan = snd_soc_codec_get_drvdata(codec);
 	mutex_lock(&codec->mutex);
-	WCD9XXX_BCL_LOCK(&tapan->resmgr);
 
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
@@ -4546,7 +4543,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 						codec->reg_size, GFP_KERNEL);
 		if (!codec->reg_cache) {
 			pr_err("%s: Cache update failed!\n", __func__);
-			WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
 			mutex_unlock(&codec->mutex);
 			return -ENOMEM;
 		}
@@ -4555,7 +4551,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_resmgr_post_ssr(&tapan->resmgr);
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80, 0x80);
-	WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
 
 	tapan_update_reg_defaults(codec);
 	tapan_update_reg_mclk_rate(wcd9xxx);
