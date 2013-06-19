@@ -143,8 +143,12 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		goto err_ion_handle;
 	}
 
-	if (bufsz != 0)
-		memset((void *)*vaddr, 0, bufsz);
+	*vaddr = ion_map_kernel(*client, *handle);
+	if (IS_ERR_OR_NULL((void *)*vaddr)) {
+		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
+		goto err_ion_handle;
+	}
+	pr_debug("%s: mapped address = %p, size=%d\n", __func__, *vaddr, bufsz);
 
 	return 0;
 
