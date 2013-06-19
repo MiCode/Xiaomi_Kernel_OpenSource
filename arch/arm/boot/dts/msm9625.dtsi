@@ -173,11 +173,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 40000 640000>;
-	};
-
-	msm_hsusb: qcom,ci13xxx_msm {
-		compatible = "qcom,ci13xxx_msm";
-		qcom,itc-level = <4>;
+		qcom,hsusb-log2-itc = <5>;
 	};
 
 	hsic_host: hsic@f9a15000 {
