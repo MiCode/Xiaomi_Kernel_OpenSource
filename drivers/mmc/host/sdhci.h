@@ -584,6 +584,8 @@ struct sdhci_host {
 	ktime_t data_start_time;
 
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
+	struct device_attribute pm_qos_tout;
+
 	enum sdhci_power_policy power_policy;
 
 	unsigned long private[0] ____cacheline_aligned;
