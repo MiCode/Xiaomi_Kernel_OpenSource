@@ -329,6 +329,11 @@ enum sdhci_cookie {
 	COOKIE_MAPPED,		/* mapped by sdhci_prepare_data() */
 };
 
+enum sdhci_power_policy {
+	SDHCI_PERFORMANCE_MODE,
+	SDHCI_POWER_SAVE_MODE,
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
@@ -577,6 +582,9 @@ struct sdhci_host {
 	unsigned int		cpu_dma_latency_us;
 	struct pm_qos_request	pm_qos_req_dma;
 	ktime_t data_start_time;
+
+	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
+	enum sdhci_power_policy power_policy;
 
 	unsigned long private[0] ____cacheline_aligned;
 };

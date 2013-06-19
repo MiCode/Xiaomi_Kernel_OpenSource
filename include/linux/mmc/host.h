@@ -83,6 +83,12 @@ struct mmc_ios {
 	bool enhanced_strobe;			/* hs400es selection */
 };
 
+/* states to represent load on the host */
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
+};
+
 struct mmc_host_ops {
 	/*
 	 * 'enable' is called when the host is claimed and 'disable' is called
@@ -168,6 +174,7 @@ struct mmc_host_ops {
 	 */
 	int	(*multi_io_quirk)(struct mmc_card *card,
 				  unsigned int direction, int blk_size);
+	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 };
 
 struct mmc_card;
