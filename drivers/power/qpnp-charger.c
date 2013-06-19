@@ -1283,22 +1283,15 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
 		return DEFAULT_TEMP;
 
-	if (chip->revision > 0) {
-		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
-		if (rc) {
-			pr_debug("Unable to read batt temperature rc=%d\n", rc);
-			return 0;
-		}
-		pr_debug("get_bat_temp %d %lld\n",
-			results.adc_code, results.physical);
-		return (int)results.physical;
-	} else {
-		pr_debug("batt temp not supported for PMIC 1.0 rc=%d\n", rc);
+	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
+	if (rc) {
+		pr_debug("Unable to read batt temperature rc=%d\n", rc);
+		return 0;
 	}
+	pr_debug("get_bat_temp %d %lld\n",
+		results.adc_code, results.physical);
 
-	/* return default temperature to avoid userspace
-	 * from shutting down unecessarily */
-	return DEFAULT_TEMP;
+	return (int)results.physical;
 }
 
 static int get_prop_cycle_count(struct qpnp_chg_chip *chip)
