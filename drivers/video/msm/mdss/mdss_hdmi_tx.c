@@ -2250,14 +2250,14 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 	 */
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate = 0;
 
+	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
+
 	hdmi_tx_core_off(hdmi_ctrl);
 
 	if (hdmi_ctrl->hpd_off_pending) {
 		hdmi_tx_hpd_off(hdmi_ctrl);
 		hdmi_ctrl->hpd_off_pending = false;
 	}
-
-	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = false;
