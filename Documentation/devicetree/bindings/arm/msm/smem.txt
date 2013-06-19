@@ -10,6 +10,10 @@ Required properties:
 	     "aux-mem1", "aux-mem2", "aux-mem3", ... - optional strings to
 			identify any auxiliary shared memory regions
 
+Optional properties:
+-mpu-enabled : boolean value indicating that Memory Protection Unit based
+	security is enabled on the "smem" shared memory region
+
 [Second level nodes]
 
 qcom,smd
