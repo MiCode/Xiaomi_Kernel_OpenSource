@@ -83,7 +83,8 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
-	info->cpu_addr = dma_alloc_attrs(dev, len, &(info->handle), 0, &attrs);
+	info->cpu_addr = dma_alloc_attrs(dev, len, &(info->handle), GFP_KERNEL,
+						&attrs);
 
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
