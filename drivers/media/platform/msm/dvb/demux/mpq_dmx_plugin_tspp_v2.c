@@ -73,7 +73,8 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	}
 
 	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_INDEXING |
-		DMX_CAP_VIDEO_DECODER_DATA | DMX_CAP_TS_INSERTION;
+		DMX_CAP_VIDEO_DECODER_DATA | DMX_CAP_TS_INSERTION |
+		DMX_CAP_SECURED_INPUT_PLAYBACK;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 	caps->num_pid_filters = TSPP_MAX_PID_FILTER_NUM;
@@ -85,6 +86,7 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->max_bitrate = 320;
 	caps->demod_input_max_bitrate = 96;
 	caps->memory_input_max_bitrate = 80;
+	caps->num_cipher_ops = DMX_MAX_CIPHER_OPERATIONS_COUNT;
 
 	/* TSIF reports 7 bytes STC at unit of 27MHz */
 	caps->max_stc = 0x00FFFFFFFFFFFFFF;

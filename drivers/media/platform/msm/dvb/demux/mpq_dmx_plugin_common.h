@@ -654,15 +654,19 @@ void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux);
 void mpq_dmx_update_hw_statistics(struct mpq_demux *mpq_demux);
 
 /**
- * mpq_dmx_set_secure_mode - Handles set secure mode command from demux device
+ * mpq_dmx_set_cipher_ops - Handles setting of cipher operations
  *
- * @feed: The feed to set its secure mode
- * @sec_mode: Secure mode details (key ladder info)
+ * @feed: The feed to set its cipher operations
+ * @cipher_ops: Cipher operations to be set
+ *
+ * This common function handles only the case when working with
+ * secure-demux. When working with secure demux a single decrypt cipher
+ * operation is allowed.
  *
  * Return error code
-*/
-int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
-		struct dmx_secure_mode *secure_mode);
+ */
+int mpq_dmx_set_cipher_ops(struct dvb_demux_feed *feed,
+		struct dmx_cipher_operations *cipher_ops);
 
 /**
  * mpq_dmx_convert_tts - Convert timestamp attached by HW to each TS
@@ -673,7 +677,7 @@ int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
  * @timestampIn27Mhz: Timestamp result in 27MHz
  *
  * Return error code
-*/
+ */
 void mpq_dmx_convert_tts(struct dvb_demux_feed *feed,
 		const u8 timestamp[TIMESTAMP_LEN],
 		u64 *timestampIn27Mhz);

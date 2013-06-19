@@ -1627,6 +1627,7 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->max_bitrate = 192;
 	caps->demod_input_max_bitrate = 96;
 	caps->memory_input_max_bitrate = 96;
+	caps->num_cipher_ops = 1;
 
 	/* TSIF reports 3 bytes STC at unit of 27MHz/256 */
 	caps->max_stc = (u64)0xFFFFFF * 256;
@@ -1747,7 +1748,7 @@ static int mpq_tspp_dmx_init(
 		mpq_dmx_decoder_fullness_abort;
 	mpq_demux->demux.decoder_buffer_status = mpq_dmx_decoder_buffer_status;
 	mpq_demux->demux.reuse_decoder_buffer = mpq_dmx_reuse_decoder_buffer;
-	mpq_demux->demux.set_secure_mode = mpq_dmx_set_secure_mode;
+	mpq_demux->demux.set_cipher_op = mpq_dmx_set_cipher_ops;
 	mpq_demux->demux.oob_command = mpq_dmx_oob_command;
 	mpq_demux->demux.convert_ts = mpq_dmx_convert_tts;
 
