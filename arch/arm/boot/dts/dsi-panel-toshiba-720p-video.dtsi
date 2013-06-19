@@ -15,10 +15,8 @@
  * Update input XML file to add a new entry or update variable in this file
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
-&soc {
+&mdss_mdp {
 	dsi_tosh_720_vid: qcom,mdss_dsi_toshiba_720p_video {
-		compatible = "qcom,mdss-dsi-panel";
-		status = "disable";
 		qcom,mdss-dsi-panel-name = "toshiba 720p video mode dsi panel";
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";

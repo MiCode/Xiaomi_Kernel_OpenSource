@@ -10,11 +10,9 @@
  * GNU General Public License for more details.
  */
 
-&soc {
+&mdss_mdp {
 	dsi_orise_720_vid: qcom,mdss_dsi_orise_720p_video {
-		compatible = "qcom,mdss-dsi-panel";
 		label = "orise 720p video mode dsi panel";
-		status = "disable";
 		qcom,dsi-ctrl-phandle = <&mdss_dsi1>;
 		qcom,mdss-pan-res = <720 1280>;
 		qcom,mdss-pan-bpp = <24>;
