@@ -116,6 +116,12 @@ enum mdss_mdp_csc_type {
 	MDSS_MDP_MAX_CSC
 };
 
+struct splash_pipe_cfg {
+	int width;
+	int height;
+	int mixer;
+};
+
 struct mdss_mdp_ctl;
 typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
@@ -434,6 +440,7 @@ static inline u32 mdss_mdp_pingpong_read(struct mdss_mdp_mixer *mixer, u32 reg)
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
+int mdss_mdp_scan_cont_splash(void);
 int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
@@ -479,6 +486,8 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		struct mdss_mdp_perf_params *perf);
+
+int mdss_mdp_scan_pipes(void);
 
 struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
 int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);
