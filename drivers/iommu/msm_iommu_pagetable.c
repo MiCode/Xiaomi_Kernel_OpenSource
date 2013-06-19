@@ -334,79 +334,8 @@ fail:
 size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 				size_t len)
 {
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table;
-	unsigned long *sl_pte;
-	unsigned long sl_offset;
-	int i, ret = 0;
-
-	if (len != SZ_16M && len != SZ_1M &&
-	    len != SZ_64K && len != SZ_4K) {
-		pr_debug("Bad length: %d\n", len);
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	if (!pt->fl_table) {
-		pr_debug("Null page table\n");
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	fl_offset = FL_OFFSET(va);		/* Upper 12 bits */
-	fl_pte = pt->fl_table + fl_offset;	/* int pointers, 4 bytes */
-
-	if (*fl_pte == 0) {
-		pr_debug("First level PTE is 0\n");
-		ret = -ENODEV;
-		goto fail;
-	}
-
-	/* Unmap supersection */
-	if (len == SZ_16M) {
-		for (i = 0; i < 16; i++)
-			*(fl_pte+i) = 0;
-
-		clean_pte(fl_pte, fl_pte + 16, pt->redirect);
-	}
-
-	if (len == SZ_1M) {
-		*fl_pte = 0;
-		clean_pte(fl_pte, fl_pte + 1, pt->redirect);
-	}
-
-	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
-	sl_offset = SL_OFFSET(va);
-	sl_pte = sl_table + sl_offset;
-
-	if (len == SZ_64K) {
-		for (i = 0; i < 16; i++)
-			*(sl_pte+i) = 0;
-
-		clean_pte(sl_pte, sl_pte + 16, pt->redirect);
-	}
-
-	if (len == SZ_4K) {
-		*sl_pte = 0;
-		clean_pte(sl_pte, sl_pte + 1, pt->redirect);
-	}
-
-	if (len == SZ_4K || len == SZ_64K) {
-		int used = 0;
-
-		for (i = 0; i < NUM_SL_PTE; i++)
-			if (sl_table[i])
-				used = 1;
-		if (!used) {
-			free_page((unsigned long)sl_table);
-			*fl_pte = 0;
-			clean_pte(fl_pte, fl_pte + 1, pt->redirect);
-		}
-	}
-
-fail:
-	return ret;
+	msm_iommu_pagetable_unmap_range(pt, va, len);
+	return len;
 }
 
 static phys_addr_t get_phys_addr(struct scatterlist *sg)
