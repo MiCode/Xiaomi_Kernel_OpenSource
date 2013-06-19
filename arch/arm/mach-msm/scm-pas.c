@@ -17,6 +17,8 @@
 #include <linux/string.h>
 #include <linux/clk.h>
 
+#include <asm/cacheflush.h>
+
 #include <mach/scm.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus.h>
@@ -149,6 +151,10 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 
 	request.proc = id;
 	request.image_addr = virt_to_phys(mdata_buf);
+
+	/* Flush metadata to ensure secure world doesn't read stale data */
+	__cpuc_flush_dcache_area(mdata_buf, size);
+	outer_flush_range(request.image_addr, request.image_addr + size);
 
 	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
 			sizeof(request), &scm_ret, sizeof(scm_ret));
