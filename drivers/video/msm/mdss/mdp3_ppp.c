@@ -959,17 +959,20 @@ int mdp3_ppp_parse_req(void __user *p,
 	req = &req_q->req[idx];
 
 	if (copy_from_user(&req->req_list, p,
-			sizeof(struct mdp_blit_req) * count))
+			sizeof(struct mdp_blit_req) * count)) {
+		mutex_unlock(&ppp_stat->req_mutex);
 		return -EFAULT;
+	}
 
 	rc = mdp3_ppp_handle_buf_sync(req, &req_list_header->sync);
 	if (rc < 0) {
 		pr_err("%s: Failed create sync point\n", __func__);
+		mutex_unlock(&ppp_stat->req_mutex);
 		return rc;
 	}
 	req->count = count;
 
-	/* We need to grab ion handle while client thread */
+	/* We need to grab ion handle while running in client thread */
 	for (i = 0; i < count; i++) {
 		rc = mdp3_ppp_get_img(&req->req_list[i].src,
 				&req->req_list[i], &req->src_data[i]);
@@ -1032,6 +1035,7 @@ parse_err_1:
 		mdp3_put_img(&req->dst_data[i]);
 	}
 	mdp3_ppp_deinit_buf_sync(req);
+	mutex_unlock(&ppp_stat->req_mutex);
 	return rc;
 }
 
