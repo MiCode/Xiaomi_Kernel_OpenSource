@@ -780,7 +780,7 @@ TRACE_EVENT(kgsl_active_count,
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
-		__entry->count = device->active_cnt;
+		__entry->count = atomic_read(&device->active_cnt);
 		__entry->ip = ip;
 	),
 

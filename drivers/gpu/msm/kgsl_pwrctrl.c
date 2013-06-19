@@ -1152,7 +1152,8 @@ void kgsl_idle_check(struct work_struct *work)
 		 * (active_cnt is zero), then loop with increasing delay,
 		 * waiting for the GPU to become idle.
 		 */
-		while (!device->active_cnt && delay < MAX_UDELAY) {
+		while (!atomic_read(&device->active_cnt) &&
+			(delay < MAX_UDELAY)) {
 			requested_state = device->requested_state;
 			if (!kgsl_pwrctrl_sleep(device))
 				break;
@@ -1503,8 +1504,8 @@ int kgsl_active_count_get(struct kgsl_device *device)
 	int ret = 0;
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (device->active_cnt == 0 &&
-		device->state != KGSL_STATE_ACTIVE) {
+	if ((atomic_read(&device->active_cnt) == 0) &&
+		(device->state != KGSL_STATE_ACTIVE)) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->hwaccess_gate);
 		wait_for_completion(&device->ft_gate);
@@ -1516,7 +1517,7 @@ int kgsl_active_count_get(struct kgsl_device *device)
 		ret = kgsl_pwrctrl_wake(device);
 	}
 	if (ret == 0)
-		device->active_cnt++;
+		atomic_inc(&device->active_cnt);
 	trace_kgsl_active_count(device,
 		(unsigned long) __builtin_return_address(0));
 	return ret;
@@ -1528,25 +1529,17 @@ EXPORT_SYMBOL(kgsl_active_count_get);
  * @device: Pointer to a KGSL device
  *
  * Increase the active count for the KGSL device WITHOUT
- * turning on the clocks. Currently this is only used for creating
- * kgsl_events. The device mutex must be held while calling this function.
+ * turning on the clocks based on the assumption that the clocks are already
+ * on from a previous active_count_get(). Currently this is only used for
+ * creating kgsl_events.
  */
 int kgsl_active_count_get_light(struct kgsl_device *device)
 {
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	if (device->state != KGSL_STATE_ACTIVE) {
-		dev_WARN_ONCE(device->dev, 1, "device in unexpected state %s\n",
-				kgsl_pwrstate_to_str(device->state));
-		return -EINVAL;
-	}
-
-	if (device->active_cnt == 0) {
+	if (atomic_inc_not_zero(&device->active_cnt) == 0) {
 		dev_WARN_ONCE(device->dev, 1, "active count is 0!\n");
 		return -EINVAL;
 	}
 
-	device->active_cnt++;
 	trace_kgsl_active_count(device,
 		(unsigned long) __builtin_return_address(0));
 	return 0;
@@ -1566,32 +1559,27 @@ EXPORT_SYMBOL(kgsl_active_count_get_light);
 void kgsl_active_count_put(struct kgsl_device *device)
 {
 	BUG_ON(!mutex_is_locked(&device->mutex));
-	BUG_ON(device->active_cnt == 0);
+	BUG_ON(atomic_read(&device->active_cnt) == 0);
 
 	kgsl_pwrscale_idle(device);
-	if (device->active_cnt > 1) {
-		device->active_cnt--;
-		trace_kgsl_active_count(device,
-			(unsigned long) __builtin_return_address(0));
-		return;
-	}
 
-	INIT_COMPLETION(device->suspend_gate);
+	if (atomic_dec_and_test(&device->active_cnt)) {
+		INIT_COMPLETION(device->suspend_gate);
 
-	if (device->state == KGSL_STATE_ACTIVE &&
+		if (device->state == KGSL_STATE_ACTIVE &&
 			device->requested_state == KGSL_STATE_NONE) {
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-		queue_work(device->work_queue, &device->idle_check_ws);
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
+			queue_work(device->work_queue, &device->idle_check_ws);
+		}
+
+		mod_timer(&device->idle_timer,
+			jiffies + device->pwrctrl.interval_timeout);
+
+		complete(&device->suspend_gate);
 	}
-
-	mod_timer(&device->idle_timer,
-		jiffies + device->pwrctrl.interval_timeout);
-
-	device->active_cnt--;
 
 	trace_kgsl_active_count(device,
 		(unsigned long) __builtin_return_address(0));
-	complete(&device->suspend_gate);
 }
 EXPORT_SYMBOL(kgsl_active_count_put);
 
@@ -1605,7 +1593,7 @@ void kgsl_active_count_wait(struct kgsl_device *device)
 {
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (device->active_cnt != 0) {
+	if (atomic_read(&device->active_cnt) != 0) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->suspend_gate);
 		mutex_lock(&device->mutex);
