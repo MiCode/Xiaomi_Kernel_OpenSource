@@ -2269,13 +2269,13 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 
 	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 	if (w->shift == 5) {
-		e_pre_on = WCD9XXX_EVENT_PRE_HPHR_PA_ON;
-		e_post_off = WCD9XXX_EVENT_POST_HPHR_PA_OFF;
-		req_clsh_state = WCD9XXX_CLSH_STATE_HPHL;
-	} else if (w->shift == 4) {
 		e_pre_on = WCD9XXX_EVENT_PRE_HPHL_PA_ON;
 		e_post_off = WCD9XXX_EVENT_POST_HPHL_PA_OFF;
 		req_clsh_state = WCD9XXX_CLSH_STATE_HPHR;
+	} else if (w->shift == 4) {
+		e_pre_on = WCD9XXX_EVENT_PRE_HPHR_PA_ON;
+		e_post_off = WCD9XXX_EVENT_POST_HPHR_PA_OFF;
+		req_clsh_state = WCD9XXX_CLSH_STATE_HPHL;
 	} else {
 		pr_err("%s: Invalid w->shift %d\n", __func__, w->shift);
 		return -EINVAL;
@@ -4347,11 +4347,13 @@ static void tapan_update_reg_mclk_rate(struct wcd9xxx *wcd9xxx)
 }
 
 static const struct tapan_reg_mask_val tapan_codec_reg_init_val[] = {
-	/* Initialize current threshold to 350MA
+	/* Initialize current threshold to 365MA
 	 * number of wait and run cycles to 4096
 	 */
-	{TAPAN_A_RX_HPH_OCP_CTL, 0xE1, 0x61},
+	{TAPAN_A_RX_HPH_OCP_CTL, 0xE9, 0x69},
 	{TAPAN_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
+	{TAPAN_A_RX_HPH_L_TEST, 0x01, 0x01},
+	{TAPAN_A_RX_HPH_R_TEST, 0x01, 0x01},
 
 	/* Initialize gain registers to use register gain */
 	{TAPAN_A_RX_HPH_L_GAIN, 0x20, 0x20},
