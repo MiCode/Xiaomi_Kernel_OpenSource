@@ -25,9 +25,12 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi_toshiba_720p_video {
-		status = "ok";
-		qcom,cont-splash-enabled;
+	qcom,mdss_dsi@fd922800 {
+		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+	};
+
+	qcom,mdss_mdp@fd900000 {
+		qcom,mdss-pref-prim-intf = "dsi";
 	};
 
 	qcom,hdmi_tx@fd922100 {
@@ -697,4 +700,8 @@
 				50>;
 		qcom,channel-type = <0x1540>;
 	};
+};
+
+&dsi_tosh_720_vid {
+       qcom,cont-splash-enabled;
 };

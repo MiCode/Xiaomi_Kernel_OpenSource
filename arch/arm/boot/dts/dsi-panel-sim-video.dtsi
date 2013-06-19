@@ -10,11 +10,9 @@
  * GNU General Public License for more details.
  */
 
-&soc {
+&mdss_mdp {
 	dsi_sim_vid: qcom,mdss_dsi_sim_video {
-		compatible = "qcom,mdss-dsi-panel";
 		label = "simulator video mode dsi panel";
-		status = "disable";
 		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
 		qcom,mdss-pan-res = <640 480>;
 		qcom,mdss-pan-bpp = <24>;
