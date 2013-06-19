@@ -1,0 +1,302 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8974-mtp.dtsi"
+
+&cci {
+	qcom,camera@6e {
+		qcom,vdd-cx-supply = <&pma8084_s2>;
+		cam_vdig-supply = <&pma8084_l3>;
+		cam_vana-supply = <&pma8084_l17>;
+		cam_vio-supply = <&pma8084_lvs4>;
+		cam_vaf-supply = <&pma8084_l23>;
+	};
+
+	qcom,camera@20 {
+		qcom,vdd-cx-supply = <&pma8084_s2>;
+		cam_vdig-supply = <&pma8084_l3>;
+		cam_vana-supply = <&pma8084_l17>;
+		cam_vio-supply = <&pma8084_lvs4>;
+		cam_vaf-supply = <&pma8084_l23>;
+	};
+
+	qcom,camera@6c {
+		qcom,vdd-cx-supply = <&pma8084_s2>;
+		cam_vdig-supply = <&pma8084_l3>;
+		cam_vana-supply = <&pma8084_l17>;
+		cam_vio-supply = <&pma8084_lvs4>;
+	};
+
+	qcom,camera@90 {
+		qcom,vdd-cx-supply = <&pma8084_s2>;
+		cam_vdig-supply = <&pma8084_l3>;
+		cam_vana-supply = <&pma8084_l17>;
+		cam_vio-supply = <&pma8084_lvs4>;
+	};
+};
+
+&soc {
+	i2c@f9924000 {
+		atmel_mxt_ts@4a {
+			vdd_ana-supply = <&pma8084_l18>;
+			vcc_i2c-supply = <&pma8084_lvs1>;
+		};
+	};
+
+	i2c@f9967000 {
+		isa1200@48 {
+			vcc_i2c-supply = <&pma8084_s4>;
+		};
+	};
+
+	qcom,ssusb@f9200000 {
+		vbus_dwc3-supply = <&pm8941_mvs1>;
+	};
+
+	qcom,mdss_dsi_toshiba_720p_video {
+		qcom,rst-gpio = <&pma8084_gpios 20 0>;
+	};
+
+	gpio_keys {
+		camera_snapshot {
+			gpios = <&pma8084_gpios 3 0x1>;
+		};
+
+		camera_focus {
+			gpios = <&pma8084_gpios 4 0x1>;
+		};
+
+		vol_up {
+			gpios = <&pma8084_gpios 5 0x1>;
+		};
+	};
+
+	spi@f9923000 {
+		ethernet-switch@2 {
+			rst-gpio = <&pma8084_mpps 6 0>;
+		};
+	};
+};
+
+&sdhc_1 {
+	vdd-supply = <&pma8084_l20>;
+	vdd-io-supply = <&pma8084_s4>;
+};
+
+&sdhc_2 {
+	vdd-supply = <&pma8084_l21>;
+	vdd-io-supply = <&pma8084_l13>;
+};
+
+&pma8084_gpios {
+	gpio@c000 { /* GPIO 1 */
+		/* Unused */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c100 { /* GPIO 2 */
+		/* Unused */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c200 { /* GPIO 3 */
+		/* Snapshot button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		/* Focus button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c400 { /* GPIO 5 */
+		/* Volume up button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c500 { /* GPIO 6 */
+		/* Flash LED now */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <4>;		/* Pull down */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c600 { /* GPIO 7 */
+		/* GRFC_12 */
+	};
+
+	gpio@c700 { /* GPIO 8 */
+		/* Unused */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c800 { /* GPIO 9 */
+		/* Unused */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <2>;		/* Function 1  */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c900 { /* GPIO 10 */
+		/* NFC clock request */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <4>;		/* Pull down */
+		qcom,master-en = <1>;
+	};
+
+	gpio@ca00 { /* GPIO 11 */
+		/* Unused */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <2>;		/* Function 1  */
+		qcom,master-en = <1>;
+	};
+
+	gpio@cb00 { /* GPIO 12 */
+		/* Unused */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <2>;		/* Function 1  */
+		qcom,master-en = <1>;
+	};
+
+	gpio@cc00 { /* GPIO 13 */
+		/* TS_CHGR_IN */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <4>;		/* Pull down */
+		qcom,master-en = <1>;
+	};
+
+	gpio@cd00 { /* GPIO 14 */
+		/* Unused */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <2>;		/* Function 1  */
+		qcom,master-en = <1>;
+	};
+
+	gpio@ce00 { /* GPIO 15 */
+		/* Codec clock */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <2>;		/* Function 1 - DIVCLK1 */
+		qcom,master-en = <1>;
+	};
+
+	gpio@cf00 { /* GPIO 16 */
+		/* Haptics clock */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,out-strength = <3>;	/* High */
+		qcom,src-sel = <3>;       	/* Function 2 - SLEEPCLK3  */
+		qcom,master-en = <1>;
+	};
+
+	gpio@d000 { /* GPIO 17 */
+		/* QPA clock */
+	};
+
+	gpio@d100 { /* GPIO 18 */
+		/* Unused */
+	};
+
+	gpio@d200 { /* GPIO 19 */
+		/* BOOST_BYP */
+	};
+
+	gpio@d300 { /* GPIO 20 */
+		/* Display enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@d400 { /* GPIO 21 */
+		/* BATT_GONE */
+	};
+
+	gpio@d500 { /* GPIO 22 */
+		/* BATT_REM_ALARM */
+	};
+};
+
+&pma8084_mpps {
+	mpp@a000 { /* MPP 1 */
+		/* SDC_UIM_VBIAS */
+		status = "disabled";
+	};
+
+	mpp@a100 { /* MPP 2 */
+		/* PM8941_PON_1 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+		/* VREF_DAC */
+	};
+
+	mpp@a300 { /* MPP 4 */
+		/* Unused */
+	};
+
+	mpp@a400 { /* MPP 5 */
+		/* Unused */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* SPI ethernet enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8V > 1.6V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,master-en = <1>;
+	};
+
+	mpp@a600 { /* MPP 7 */
+		/* NFC disable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,master-en = <1>;
+	};
+
+	mpp@a700 { /* MPP 8 */
+		/* Unused */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,master-en = <1>;
+	};
+};
