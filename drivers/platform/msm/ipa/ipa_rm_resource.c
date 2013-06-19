@@ -720,6 +720,7 @@ int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer)
 			producer->resource.name,
 			IPA_RM_RESOURCE_GRANTED,
 			true);
+		result = 0;
 	}
 unlock_and_bail:
 	spin_unlock_irqrestore(&producer->resource.state_lock, flags);
