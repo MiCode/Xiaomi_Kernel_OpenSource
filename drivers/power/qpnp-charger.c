@@ -28,6 +28,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/of_batterydata.h>
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
@@ -2426,6 +2427,41 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 	return rc;
 }
 
+static int
+qpnp_chg_load_battery_data(struct qpnp_chg_chip *chip)
+{
+	struct bms_battery_data batt_data;
+	struct device_node *node;
+	struct qpnp_vadc_result result;
+	int rc;
+
+	node = of_find_node_by_name(chip->spmi->dev.of_node,
+			"qcom,battery-data");
+	if (node) {
+		memset(&batt_data, 0, sizeof(struct bms_battery_data));
+		rc = qpnp_vadc_read(LR_MUX2_BAT_ID, &result);
+		if (rc) {
+			pr_err("error reading batt id channel = %d, rc = %d\n",
+						LR_MUX2_BAT_ID, rc);
+			return rc;
+		}
+
+		rc = of_batterydata_read_data(node,
+				&batt_data, result.physical);
+		if (rc) {
+			pr_err("failed to read battery data: %d\n", rc);
+			return rc;
+		}
+
+		if (batt_data.max_voltage_uv >= 0)
+			chip->max_voltage_mv = batt_data.max_voltage_uv / 1000;
+		if (batt_data.iterm_ua >= 0)
+			chip->term_current = batt_data.iterm_ua / 1000;
+	}
+
+	return 0;
+}
+
 #define WDOG_EN_BIT	BIT(7)
 static int
 qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
@@ -2833,7 +2869,10 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	if (rc)
 		goto fail_chg_enable;
 
-	/* Check if bat_if is set in DT and make sure VADC is present */
+	/*
+	 * Check if bat_if is set in DT and make sure VADC is present
+	 * Also try loading the battery data profile if bat_if exists
+	 */
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
 			pr_err("qpnp_chg: spmi resource absent\n");
@@ -2861,6 +2900,10 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			subtype == SMBBP_BAT_IF_SUBTYPE ||
 			subtype == SMBCL_BAT_IF_SUBTYPE){
 			rc = qpnp_vadc_is_ready();
+			if (rc)
+				goto fail_chg_enable;
+
+			rc = qpnp_chg_load_battery_data(chip);
 			if (rc)
 				goto fail_chg_enable;
 		}
