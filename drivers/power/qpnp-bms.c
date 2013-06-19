@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
-#include <linux/batterydata-lib.h>
+#include <linux/of_batterydata.h>
 
 /* BMS Register Offsets */
 #define BMS1_REVISION1			0x0
@@ -3183,11 +3183,7 @@ static irqreturn_t bms_sw_cc_thr_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-#define PALLADIUM_ID_MIN	0x7F40
-#define PALLADIUM_ID_MAX	0x7F5A
-#define DESAY_5200_ID_MIN	0x7F7F
-#define DESAY_5200_ID_MAX	0x802F
-static int32_t read_battery_id(struct qpnp_bms_chip *chip)
+static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 {
 	int rc;
 	struct qpnp_vadc_result result;
@@ -3198,16 +3194,16 @@ static int32_t read_battery_id(struct qpnp_bms_chip *chip)
 					LR_MUX2_BAT_ID, rc);
 		return rc;
 	}
-	pr_debug("batt_id phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	pr_debug("raw_code = 0x%x\n", result.adc_code);
-	return result.adc_code;
+
+	return result.physical;
 }
 
 static int set_battery_data(struct qpnp_bms_chip *chip)
 {
 	int64_t battery_id;
+	int rc;
 	struct bms_battery_data *batt_data;
+	struct device_node *node;
 
 	if (chip->batt_type == BATT_DESAY) {
 		batt_data = &desay_5200_data;
@@ -3227,12 +3223,30 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 			return battery_id;
 		}
 
-		if (is_between(PALLADIUM_ID_MIN, PALLADIUM_ID_MAX,
-							battery_id)) {
-			batt_data = &palladium_1500_data;
-		} else if (is_between(DESAY_5200_ID_MIN, DESAY_5200_ID_MAX,
-					battery_id)) {
-			batt_data = &desay_5200_data;
+		node = of_find_node_by_name(chip->spmi->dev.of_node,
+				"qcom,battery-data");
+		if (node) {
+			batt_data = kzalloc(sizeof(struct bms_battery_data),
+					GFP_KERNEL);
+			batt_data->fcc_temp_lut = kzalloc(
+					sizeof(struct single_row_lut),
+					GFP_KERNEL);
+			batt_data->pc_temp_ocv_lut = kzalloc(
+					sizeof(struct pc_temp_ocv_lut),
+					GFP_KERNEL);
+			batt_data->rbatt_sf_lut = kzalloc(
+					sizeof(struct sf_lut), GFP_KERNEL);
+
+			rc = of_batterydata_read_data(node,
+					batt_data, battery_id);
+			if (rc) {
+				pr_err("battery data load failed, using palladium 1500\n");
+				kfree(batt_data->fcc_temp_lut);
+				kfree(batt_data->pc_temp_ocv_lut);
+				kfree(batt_data->rbatt_sf_lut);
+				kfree(batt_data);
+				batt_data = &palladium_1500_data;
+			}
 		} else {
 			pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
 					battery_id);
@@ -3249,6 +3263,14 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	chip->default_rbatt_mohm = batt_data->default_rbatt_mohm;
 	chip->rbatt_capacitive_mohm = batt_data->rbatt_capacitive_mohm;
 	chip->flat_ocv_threshold_uv = batt_data->flat_ocv_threshold_uv;
+
+	/* Override battery properties if specified in the battery profile */
+	if (batt_data->max_voltage_uv >= 0)
+		chip->max_voltage_uv = batt_data->max_voltage_uv;
+	if (batt_data->cutoff_uv >= 0)
+		chip->v_cutoff_uv = batt_data->cutoff_uv;
+	if (batt_data->iterm_ua >= 0)
+		chip->chg_term_ua = batt_data->iterm_ua;
 
 	if (chip->pc_temp_ocv_lut == NULL) {
 		pr_err("temp ocv lut table is NULL\n");
