@@ -1464,6 +1464,14 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		k_stream_buff_info.num_buffs = u_stream_buff_info->num_buffs;
 		k_stream_buff_info.identity = u_stream_buff_info->identity;
+
+		if (k_stream_buff_info.num_buffs > MSM_CAMERA_MAX_STREAM_BUF) {
+			pr_err("%s:%d: unexpected large num buff requested\n",
+				__func__, __LINE__);
+			kfree(u_stream_buff_info);
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
 		k_stream_buff_info.buffer_info =
 			kzalloc(k_stream_buff_info.num_buffs *
 			sizeof(struct msm_cpp_buffer_info_t), GFP_KERNEL);
