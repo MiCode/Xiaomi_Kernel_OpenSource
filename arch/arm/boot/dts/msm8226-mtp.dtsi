@@ -462,6 +462,16 @@
 	};
 };
 
+/ {
+	mtp_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		/include/ "batterydata-palladium.dtsi"
+		/include/ "batterydata-mtp-3000mah.dtsi"
+	};
+};
+
 &pm8226_bms {
 	status = "ok";
 	qcom,enable-fcc-learning;
@@ -469,10 +479,12 @@
 	qcom,min-fcc-ocv-pc = <30>;
 	qcom,min-fcc-learning-samples = <5>;
 	qcom,fcc-resolution = <10>;
+	qcom,battery-data = <&mtp_batterydata>;
 };
 
 &pm8226_chg {
 	qcom,charging-disabled;
+	qcom,battery-data = <&mtp_batterydata>;
 };
 
 &slim_msm {
