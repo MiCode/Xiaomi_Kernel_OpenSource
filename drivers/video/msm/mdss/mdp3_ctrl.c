@@ -951,6 +951,22 @@ pan_error:
 	mutex_unlock(&mdp3_session->lock);
 }
 
+static int mdp3_set_metadata(struct msm_fb_data_type *mfd,
+				struct msmfb_metadata *metadata_ptr)
+{
+	int ret = 0;
+	switch (metadata_ptr->op) {
+	case metadata_op_crc:
+		ret = mdp3_misr_set(&metadata_ptr->data.misr_request);
+		break;
+	default:
+		pr_warn("Unsupported request to MDP SET META IOCTL.\n");
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
@@ -966,8 +982,11 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 		metadata->data.caps.vig_pipes = 0;
 		metadata->data.caps.dma_pipes = 1;
 		break;
+	case metadata_op_crc:
+		ret = mdp3_misr_get(&metadata->data.misr_request);
+		break;
 	default:
-		pr_warn("Unsupported request to MDP META IOCTL.\n");
+		pr_warn("Unsupported request to MDP GET  META IOCTL.\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -1428,11 +1447,19 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 	case MSMFB_METADATA_GET:
 		rc = copy_from_user(&metadata, argp, sizeof(metadata));
-		if (rc)
-			return rc;
-		rc = mdp3_get_metadata(mfd, &metadata);
+		if (!rc)
+			rc = mdp3_get_metadata(mfd, &metadata);
 		if (!rc)
 			rc = copy_to_user(argp, &metadata, sizeof(metadata));
+		if (rc)
+			pr_err("mdp3_get_metadata failed (%d)\n", rc);
+		break;
+	case MSMFB_METADATA_SET:
+		rc = copy_from_user(&metadata, argp, sizeof(metadata));
+		if (!rc)
+			rc = mdp3_set_metadata(mfd, &metadata);
+		if (rc)
+			pr_err("mdp3_set_metadata failed (%d)\n", rc);
 		break;
 	case MSMFB_OVERLAY_GET:
 		rc = copy_from_user(req, argp, sizeof(*req));
