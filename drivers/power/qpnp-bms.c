@@ -1306,7 +1306,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 						struct soc_params *params,
 						int batt_temp)
 {
-	int soc_rbatt;
+	int soc_rbatt, shdw_cc_uah;
 
 	calculate_delta_time(&chip->tm_sec, &params->delta_time_s);
 	pr_debug("tm_sec = %ld, delta_s = %d\n",
@@ -1322,8 +1322,10 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 
 	/* calculate cc micro_volt_hour */
 	params->cc_uah = calculate_cc(chip, raw->cc, CC, RESET);
-	pr_debug("cc_uah = %duAh raw->cc = %llx\n",
-			params->cc_uah, raw->cc);
+	shdw_cc_uah = calculate_cc(chip, raw->shdw_cc, SHDW_CC, RESET);
+	pr_debug("cc_uah = %duAh raw->cc = %llx, shdw_cc_uah = %duAh raw->shdw_cc = %llx\n",
+			params->cc_uah, raw->cc,
+			shdw_cc_uah, raw->shdw_cc);
 
 	soc_rbatt = ((params->ocv_charge_uah - params->cc_uah) * 100)
 							/ params->fcc_uah;
