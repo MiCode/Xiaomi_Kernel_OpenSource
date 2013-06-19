@@ -46,3 +46,7 @@
 &ldrex_spinlock {
 	status = "ok";
 };
+
+&hsusb_otg {
+	qcom,hsusb-l1-supported;
+};
