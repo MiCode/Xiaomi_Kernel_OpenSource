@@ -674,8 +674,6 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 	int ret;
 	struct ipa_ep_context *ep;
 	int cnt = 0;
-	struct completion *compl;
-	struct ipa_tree_node *node;
 	unsigned int src_pipe;
 
 	while ((in_poll_state ? atomic_read(&sys->curr_polling_state) :
@@ -729,35 +727,6 @@ int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 
 		IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
 		IPA_STATS_EXCP_CNT(mux_hdr->flags, ipa_ctx->stats.rx_excp_pkts);
-
-		if (unlikely(mux_hdr->flags & IPA_A5_MUX_HDR_EXCP_FLAG_TAG)) {
-			if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL) {
-				/* retrieve the compl object from tag value */
-				mux_hdr++;
-				compl = (struct completion *)
-					ntohl(*((u32 *)mux_hdr));
-				IPADBG("%x %x %p\n", *(u32 *)mux_hdr,
-						*((u32 *)mux_hdr + 1), compl);
-
-				mutex_lock(&ipa_ctx->lock);
-				node = ipa_search(&ipa_ctx->tag_tree,
-						(u32)compl);
-				if (node) {
-					complete_all(compl);
-					rb_erase(&node->node,
-							&ipa_ctx->tag_tree);
-					kmem_cache_free(
-						ipa_ctx->tree_node_cache, node);
-				} else {
-					WARN_ON(1);
-				}
-				mutex_unlock(&ipa_ctx->lock);
-			}
-			dev_kfree_skb(rx_skb);
-			ipa_replenish_rx_cache();
-			++cnt;
-			continue;
-		}
 
 		/*
 		 * Any packets arriving over AMPDU_TX should be dispatched

@@ -1850,7 +1850,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->rt_rule_hdl_tree = RB_ROOT;
 	ipa_ctx->rt_tbl_hdl_tree = RB_ROOT;
 	ipa_ctx->flt_rule_hdl_tree = RB_ROOT;
-	ipa_ctx->tag_tree = RB_ROOT;
 
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients = 0;
