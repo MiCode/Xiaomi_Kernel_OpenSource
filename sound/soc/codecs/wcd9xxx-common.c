@@ -478,13 +478,17 @@ static void wcd9xxx_clsh_state_lo(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC,
 							0x20, 0x01);
 			wcd9xxx_enable_ncp(codec, true);
-			msleep(NCP_SETTLE_TIME_US);
+			/* NCP settle time recommended by codec specification */
+			usleep_range(NCP_SETTLE_TIME_US,
+				NCP_SETTLE_TIME_US + 10);
 
 		} else {
 			snd_soc_update_bits(codec, WCD9XXX_A_NCP_EN,
 							0x40, 0x00);
 			wcd9xxx_enable_ncp(codec, true);
-			msleep(NCP_SETTLE_TIME_US);
+			/* NCP settle time recommended by codec specification */
+			usleep_range(NCP_SETTLE_TIME_US,
+				NCP_SETTLE_TIME_US + 10);
 			snd_soc_update_bits(codec, WCD9XXX_A_BUCK_MODE_5,
 							0x01, 0x01);
 			snd_soc_update_bits(codec, WCD9XXX_A_BUCK_MODE_5,
