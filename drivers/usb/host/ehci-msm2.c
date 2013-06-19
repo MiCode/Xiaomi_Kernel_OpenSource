@@ -28,6 +28,8 @@
 #include <linux/pm_wakeup.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #include <linux/usb/ulpi.h>
 #include <linux/usb/msm_hsusb_hw.h>
@@ -68,6 +70,7 @@ struct msm_hcd {
 	int					async_irq;
 	bool					async_irq_enabled;
 	uint32_t				async_int_cnt;
+	int					resume_gpio;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -897,6 +900,20 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 	return 0;
 }
 
+static int msm_ehci_bus_resume_with_gpio(struct usb_hcd *hcd)
+{
+	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
+	int ret;
+
+	gpio_direction_output(mhcd->resume_gpio, 1);
+
+	ret = ehci_bus_resume(hcd);
+
+	gpio_direction_output(mhcd->resume_gpio, 0);
+
+	return ret;
+}
+
 #if defined(CONFIG_DEBUG_FS)
 static u32 addr;
 #define BUF_SIZE	32
@@ -1154,6 +1171,10 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 					&pdata->power_budget);
 	pdata->no_selective_suspend = of_property_read_bool(node,
 					"qcom,no-selective-suspend");
+	pdata->resume_gpio = of_get_named_gpio(node, "qcom,resume-gpio", 0);
+	if (pdata->resume_gpio < 0)
+		pdata->resume_gpio = 0;
+
 	return pdata;
 }
 
@@ -1176,6 +1197,8 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 
 	if (!pdev->dev.platform_data)
 		dev_dbg(&pdev->dev, "No platform data given\n");
+
+	pdata = pdev->dev.platform_data;
 
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &ehci_msm_dma_mask;
@@ -1252,6 +1275,20 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s failed to vote for TCXO %d\n",
 								__func__, ret);
 		goto free_xo_handle;
+	}
+
+	if (pdata && pdata->resume_gpio) {
+		mhcd->resume_gpio = pdata->resume_gpio;
+		ret = gpio_request(mhcd->resume_gpio, "hsusb_resume");
+		if (ret) {
+			dev_err(&pdev->dev,
+				"resume gpio(%d) request failed:%d\n",
+				mhcd->resume_gpio, ret);
+			mhcd->resume_gpio = 0;
+		} else {
+			msm_hc2_driver.bus_resume =
+				msm_ehci_bus_resume_with_gpio;
+		}
 	}
 
 	ret = msm_ehci_init_clocks(mhcd, 1);
@@ -1360,6 +1397,8 @@ deinit_vddcx:
 deinit_clocks:
 	msm_ehci_init_clocks(mhcd, 0);
 devote_xo_handle:
+	if (mhcd->resume_gpio)
+		gpio_free(mhcd->resume_gpio);
 	if (!IS_ERR(mhcd->xo_clk))
 		clk_disable_unprepare(mhcd->xo_clk);
 	else
@@ -1395,6 +1434,10 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 			disable_irq_wake(mhcd->async_irq);
 		free_irq(mhcd->async_irq, mhcd);
 	}
+
+	if (mhcd->resume_gpio)
+		gpio_free(mhcd->resume_gpio);
+
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);
 
