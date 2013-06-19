@@ -87,6 +87,11 @@ module_param(lpm_disconnect_thresh , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(lpm_disconnect_thresh,
 	"Delay before entering LPM on USB disconnect");
 
+static bool floated_charger_enable;
+module_param(floated_charger_enable , bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(floated_charger_enable,
+	"Whether to enable floated charger");
+
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
@@ -862,6 +867,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
 	bool host_bus_suspend, device_bus_suspend, dcp, prop_charger;
+	bool floated_charger;
 	u32 phy_ctrl_val = 0, cmd_val;
 	unsigned ret;
 	u32 portsc;
@@ -880,6 +886,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 	dcp = motg->chg_type == USB_DCP_CHARGER;
 	prop_charger = motg->chg_type == USB_PROPRIETARY_CHARGER;
+	floated_charger = motg->chg_type == USB_FLOATED_CHARGER;
 
 	/*
 	 * Abort suspend when,
@@ -888,7 +895,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 */
 
 	if ((test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
-		!dcp && !prop_charger) || test_bit(A_BUS_REQ, &motg->inputs)) {
+		!dcp && !prop_charger && !floated_charger) ||
+		test_bit(A_BUS_REQ, &motg->inputs)) {
 		enable_irq(motg->irq);
 		return -EBUSY;
 	}
@@ -2200,6 +2208,7 @@ static const char *chg_to_string(enum usb_chg_type chg_type)
 	case USB_ACA_C_CHARGER:		return "USB_ACA_C_CHARGER";
 	case USB_ACA_DOCK_CHARGER:	return "USB_ACA_DOCK_CHARGER";
 	case USB_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
+	case USB_FLOATED_CHARGER:	return "USB_FLOATED_CHARGER";
 	default:			return "INVALID_CHARGER";
 	}
 }
@@ -2213,6 +2222,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, chg_work.work);
 	struct usb_phy *phy = &motg->phy;
 	bool is_dcd = false, tmout, vout, is_aca;
+	static bool dcd;
 	u32 line_state, dm_vlgc;
 	unsigned long delay;
 
@@ -2257,6 +2267,10 @@ static void msm_chg_detect_work(struct work_struct *w)
 		motg->dcd_time += MSM_CHG_DCD_POLL_TIME;
 		tmout = motg->dcd_time >= MSM_CHG_DCD_TIMEOUT;
 		if (is_dcd || tmout) {
+			if (is_dcd)
+				dcd = true;
+			else
+				dcd = false;
 			msm_chg_disable_dcd(motg);
 			msm_chg_enable_primary_det(motg);
 			delay = MSM_CHG_PRIMARY_DET_TIME;
@@ -2295,6 +2309,8 @@ static void msm_chg_detect_work(struct work_struct *w)
 
 			if (line_state) /* DP > VLGC or/and DM > VLGC */
 				motg->chg_type = USB_PROPRIETARY_CHARGER;
+			else if (!dcd && floated_charger_enable)
+				motg->chg_type = USB_FLOATED_CHARGER;
 			else
 				motg->chg_type = USB_SDP_CHARGER;
 
@@ -2466,6 +2482,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 					ulpi_write(otg->phy, 0x2, 0x85);
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
+					msm_otg_notify_charger(motg,
+							IDEV_CHG_MAX);
+					pm_runtime_put_noidle(otg->phy->dev);
+					pm_runtime_suspend(otg->phy->dev);
+					break;
+				case USB_FLOATED_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
 					pm_runtime_put_noidle(otg->phy->dev);
