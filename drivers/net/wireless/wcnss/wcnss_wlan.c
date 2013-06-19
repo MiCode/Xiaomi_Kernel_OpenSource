@@ -112,6 +112,9 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_PRONTO_LAST_ADDR1_OFFSET		0x10
 #define CCU_PRONTO_LAST_ADDR2_OFFSET		0x14
 
+#define MSM_PRONTO_SAW2_BASE			0xfb219000
+#define PRONTO_SAW2_SPM_STS_OFFSET		0x0c
+
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
@@ -288,6 +291,7 @@ static struct {
 	void __iomem *riva_ccu_base;
 	void __iomem *pronto_a2xb_base;
 	void __iomem *pronto_ccpu_base;
+	void __iomem *pronto_saw2_base;
 	void __iomem *fiq_reg;
 	int	ssr_boot;
 	int	nv_downloaded;
@@ -478,6 +482,10 @@ void wcnss_pronto_log_debug_regs(void)
 	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
+
+	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_STS_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: PRONTO_SAW2_SPM_STS %08x\n", __func__, reg);
 
 	tst_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_OFFSET;
 	tst_ctrl_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_CTRL_OFFSET;
@@ -1683,6 +1691,14 @@ wcnss_trigger_config(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto fail_ioremap4;
 		}
+		penv->pronto_saw2_base = ioremap_nocache(MSM_PRONTO_SAW2_BASE,
+				SZ_32);
+		if (!penv->pronto_saw2_base) {
+			pr_err("%s: ioremap wcnss physical(saw2) failed\n",
+					__func__);
+			ret = -ENOMEM;
+			goto fail_ioremap5;
+		}
 	}
 
 	/* trigger initialization of the WCNSS */
@@ -1699,6 +1715,9 @@ wcnss_trigger_config(struct platform_device *pdev)
 fail_pil:
 	if (penv->riva_ccu_base)
 		iounmap(penv->riva_ccu_base);
+	if (penv->pronto_saw2_base)
+		iounmap(penv->pronto_saw2_base);
+fail_ioremap5:
 	if (penv->fiq_reg)
 		iounmap(penv->fiq_reg);
 fail_ioremap4:
