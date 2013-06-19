@@ -641,7 +641,7 @@ static void usb_bam_start_lpm(bool disconnect)
 		pr_debug("%s: Going to LPM\n", __func__);
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	info.lpm_wait_handshake[HSUSB_BAM] = false;
-		info.lpm_wait_pipes = 0;
+	info.lpm_wait_pipes = 0;
 	if (disconnect)
 		pm_runtime_put_noidle(trans->dev);
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
@@ -1068,7 +1068,8 @@ void wait_for_cons_granted(enum usb_bam cur_bam)
 	}
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	info.connect_complete = 1;
+	if (cur_bam == HSUSB_BAM)
+		info.connect_complete = 1;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	pr_debug("%s: CONS is granted\n", __func__);
 
@@ -1960,9 +1961,6 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	}
 
 	pr_debug("%s: Starting disconnect sequence\n", __func__);
-	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	info.connect_complete = 0;
-	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
 	mutex_lock(&info.suspend_resume_mutex);
 	/* Delay USB core to go into lpm before we finish our handshake */
@@ -1976,9 +1974,12 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 		/* Do the release handshake with the A2 via RM */
 		cur_bam = pipe_connect->bam_type;
-		info.lpm_wait_pipes = 1;
 		spin_lock(&usb_bam_ipa_handshake_info_lock);
-		info.disconnected = 1;
+		if (cur_bam == HSUSB_BAM) {
+			info.connect_complete = 0;
+			info.lpm_wait_pipes = 1;
+			info.disconnected = 1;
+		}
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		wait_for_prod_release(cur_bam);
 		/* close USB -> IPA pipe */
