@@ -141,6 +141,19 @@ struct sdhci_host {
  * specification.
  */
 #define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<8)
+/*
+ * This is applicable for controllers that advertize timeout clock
+ * value in capabilities register (bit 5-0) as just 50MHz whereas the
+ * base clock frequency is 200MHz. So, the controller internally
+ * multiplies the value in timeout control register by 4 with the
+ * assumption that driver always uses fixed timeout clock value from
+ * capabilities register to calculate the timeout. But when the driver
+ * uses SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK base clock frequency is directly
+ * controller by driver and it's rate varies upto max. 200MHz. This new quirk
+ * will be used in such cases to avoid controller mulplication when timeout is
+ * calculated based on the base clock.
+ */
+#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 9)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

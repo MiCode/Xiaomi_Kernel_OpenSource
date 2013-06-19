@@ -700,6 +700,7 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	u8 count;
 	struct mmc_data *data = cmd->data;
 	unsigned target_timeout, current_timeout;
+	u32 curr_clk = 0; /* In KHz */
 
 	/*
 	 * If the host controller provides us with an incorrect timeout
@@ -734,7 +735,14 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 *     (1) / (2) > 2^6
 	 */
 	count = 0;
-	current_timeout = (1 << 13) * 1000 / host->timeout_clk;
+	if (host->quirks2 & SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK) {
+		curr_clk = host->clock / 1000;
+		if (host->quirks2 & SDHCI_QUIRK2_DIVIDE_TOUT_BY_4)
+			curr_clk /= 4;
+		current_timeout = (1 << 13) * 1000 / curr_clk;
+	} else {
+		current_timeout = (1 << 13) * 1000 / host->timeout_clk;
+	}
 	while (current_timeout < target_timeout) {
 		count++;
 		current_timeout <<= 1;
