@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8610-qrd.dtsi"
+/include/ "msm8612-qrd-camera-sensor.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 QRD";
