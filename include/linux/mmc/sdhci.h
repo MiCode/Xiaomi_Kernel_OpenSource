@@ -247,6 +247,8 @@ struct sdhci_host {
 	struct timer_list	tuning_timer;	/* Timer for tuning */
 
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
+	struct device_attribute pm_qos_tout;
+
 	struct sdhci_next next_data;
 	ktime_t data_start_time;
 	enum sdhci_power_policy power_policy;
