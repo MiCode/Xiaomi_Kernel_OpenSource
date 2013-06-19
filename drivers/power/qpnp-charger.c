@@ -2939,6 +2939,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	qpnp_chg_usb_usbin_valid_irq_handler(USBIN_VALID_IRQ, chip);
+	qpnp_chg_dc_dcin_valid_irq_handler(DCIN_VALID_IRQ, chip);
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
