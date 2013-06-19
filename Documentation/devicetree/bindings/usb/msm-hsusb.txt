@@ -129,6 +129,9 @@ Required properties :
 
 Optional properties :
 - qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
+- qcom,resume-gpio: if present then peripheral connected to usb controller
+  cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
+  gpio to wakeup peripheral.
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {
