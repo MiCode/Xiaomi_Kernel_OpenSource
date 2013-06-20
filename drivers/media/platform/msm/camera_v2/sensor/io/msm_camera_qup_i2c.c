@@ -22,6 +22,10 @@
 #define S_I2C_DBG(fmt, args...) do { } while (0)
 #endif
 
+#define I2C_COMPARE_MATCH 0
+#define I2C_COMPARE_MISMATCH 1
+#define I2C_POLL_MAX_ITERATION 20
+
 static int32_t msm_camera_qup_i2c_rxdata(
 	struct msm_camera_i2c_client *dev_client, unsigned char *rxdata,
 	int data_length)
@@ -330,3 +334,210 @@ int32_t msm_camera_qup_i2c_write_table_w_microdelay(
 	}
 	return rc;
 }
+
+static int32_t msm_camera_qup_i2c_compare(struct msm_camera_i2c_client *client,
+	uint32_t addr, uint16_t data,
+	enum msm_camera_i2c_data_type data_type)
+{
+	int32_t rc;
+	uint16_t reg_data = 0;
+	int data_len = 0;
+	switch (data_type) {
+	case MSM_CAMERA_I2C_BYTE_DATA:
+	case MSM_CAMERA_I2C_WORD_DATA:
+		data_len = data_type;
+		break;
+	case MSM_CAMERA_I2C_SET_BYTE_MASK:
+	case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
+		data_len = MSM_CAMERA_I2C_BYTE_DATA;
+		break;
+	case MSM_CAMERA_I2C_SET_WORD_MASK:
+	case MSM_CAMERA_I2C_UNSET_WORD_MASK:
+		data_len = MSM_CAMERA_I2C_WORD_DATA;
+		break;
+	default:
+		pr_err("%s: Unsupport data type: %d\n", __func__, data_type);
+		break;
+	}
+
+	rc = msm_camera_qup_i2c_read(client, addr, &reg_data, data_len);
+	if (rc < 0)
+		return rc;
+
+	rc = I2C_COMPARE_MISMATCH;
+	switch (data_type) {
+	case MSM_CAMERA_I2C_BYTE_DATA:
+	case MSM_CAMERA_I2C_WORD_DATA:
+		if (data == reg_data)
+			rc = I2C_COMPARE_MATCH;
+		break;
+	case MSM_CAMERA_I2C_SET_BYTE_MASK:
+	case MSM_CAMERA_I2C_SET_WORD_MASK:
+		if ((reg_data & data) == data)
+			rc = I2C_COMPARE_MATCH;
+		break;
+	case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
+	case MSM_CAMERA_I2C_UNSET_WORD_MASK:
+		if (!(reg_data & data))
+			rc = I2C_COMPARE_MATCH;
+		break;
+	default:
+		pr_err("%s: Unsupport data type: %d\n", __func__, data_type);
+		break;
+	}
+
+	S_I2C_DBG("%s: Register and data match result %d\n", __func__,
+		rc);
+	return rc;
+}
+
+int32_t msm_camera_qup_i2c_poll(struct msm_camera_i2c_client *client,
+	uint32_t addr, uint16_t data,
+	enum msm_camera_i2c_data_type data_type)
+{
+	int32_t rc;
+	int i;
+	S_I2C_DBG("%s: addr: 0x%x data: 0x%x dt: %d\n",
+		__func__, addr, data, data_type);
+
+	for (i = 0; i < I2C_POLL_MAX_ITERATION; i++) {
+		rc = msm_camera_qup_i2c_compare(client,
+			addr, data, data_type);
+		if (rc == 0 || rc < 0)
+			break;
+		usleep_range(10000, 11000);
+	}
+	return rc;
+}
+
+static int32_t msm_camera_qup_i2c_set_mask(struct msm_camera_i2c_client *client,
+	uint32_t addr, uint16_t mask,
+	enum msm_camera_i2c_data_type data_type, uint16_t set_mask)
+{
+	int32_t rc;
+	uint16_t reg_data;
+
+	rc = msm_camera_qup_i2c_read(client, addr, &reg_data, data_type);
+	if (rc < 0) {
+		S_I2C_DBG("%s read fail\n", __func__);
+		return rc;
+	}
+	S_I2C_DBG("%s addr: 0x%x data: 0x%x setmask: 0x%x\n",
+			__func__, addr, reg_data, mask);
+
+	if (set_mask)
+		reg_data |= mask;
+	else
+		reg_data &= ~mask;
+	S_I2C_DBG("%s write: 0x%x\n", __func__, reg_data);
+
+	rc = msm_camera_qup_i2c_write(client, addr, reg_data, data_type);
+	if (rc < 0)
+		S_I2C_DBG("%s write fail\n", __func__);
+
+	return rc;
+}
+
+static int32_t msm_camera_qup_i2c_set_write_mask_data(
+	struct msm_camera_i2c_client *client,
+	uint32_t addr, uint16_t data, int16_t mask,
+	enum msm_camera_i2c_data_type data_type)
+{
+	int32_t rc;
+	uint16_t reg_data;
+	CDBG("%s\n", __func__);
+	if (mask == -1)
+		return 0;
+	if (mask == 0) {
+		rc = msm_camera_qup_i2c_write(client, addr, data, data_type);
+	} else {
+		rc = msm_camera_qup_i2c_read(client, addr, &reg_data,
+			data_type);
+		if (rc < 0) {
+			CDBG("%s read fail\n", __func__);
+			return rc;
+		}
+		reg_data &= ~mask;
+		reg_data |= (data & mask);
+		rc = msm_camera_qup_i2c_write(client, addr, reg_data,
+			data_type);
+		if (rc < 0)
+			CDBG("%s write fail\n", __func__);
+	}
+	return rc;
+}
+
+
+int32_t msm_camera_qup_i2c_write_conf_tbl(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_conf *reg_conf_tbl, uint16_t size,
+	enum msm_camera_i2c_data_type data_type)
+{
+	int i;
+	int32_t rc = -EFAULT;
+	pr_err("%s, E. ", __func__);
+	for (i = 0; i < size; i++) {
+		enum msm_camera_i2c_data_type dt;
+		if (reg_conf_tbl->cmd_type == MSM_CAMERA_I2C_CMD_POLL) {
+			rc = msm_camera_qup_i2c_poll(client,
+				reg_conf_tbl->reg_addr,
+				reg_conf_tbl->reg_data,
+				reg_conf_tbl->dt);
+		} else {
+			if (reg_conf_tbl->dt == 0)
+				dt = data_type;
+			else
+				dt = reg_conf_tbl->dt;
+			switch (dt) {
+			case MSM_CAMERA_I2C_BYTE_DATA:
+			case MSM_CAMERA_I2C_WORD_DATA:
+				rc = msm_camera_qup_i2c_write(
+					client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data, dt);
+				break;
+			case MSM_CAMERA_I2C_SET_BYTE_MASK:
+				rc = msm_camera_qup_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_BYTE_DATA, 1);
+				break;
+			case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
+				rc = msm_camera_qup_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_BYTE_DATA, 0);
+				break;
+			case MSM_CAMERA_I2C_SET_WORD_MASK:
+				rc = msm_camera_qup_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 1);
+				break;
+			case MSM_CAMERA_I2C_UNSET_WORD_MASK:
+				rc = msm_camera_qup_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 0);
+				break;
+			case MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA:
+				rc = msm_camera_qup_i2c_set_write_mask_data(
+					client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					reg_conf_tbl->mask,
+					MSM_CAMERA_I2C_BYTE_DATA);
+				break;
+			default:
+				pr_err("%s: Unsupport data type: %d\n",
+					__func__, dt);
+				break;
+			}
+		}
+		if (rc < 0)
+			break;
+		reg_conf_tbl++;
+	}
+	return rc;
+}
+
