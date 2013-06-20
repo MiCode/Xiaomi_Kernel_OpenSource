@@ -54,6 +54,10 @@ Optional properties:
   qcom,iommu-bfb-regs property. If this property is present, the
   qcom,iommu-bfb-regs property shall also be present, and the lengths of both
   properties shall be the same.
+- qcom,iommu-lpae-bfb-regs : See description for qcom,iommu-bfb-regs. This is
+  the same property except this is for IOMMU with LPAE support.
+- qcom,iommu-lpae-bfb-data : See description for qcom,iommu-bfb-data. This is
+  the same property except this is for IOMMU with LPAE support.
 
 Example:
 
