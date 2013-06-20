@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/printk.h>
 #include <linux/msm_ion.h>
 #include <asm/smcmod.h>
+#include <asm/cacheflush.h>
 #include <mach/scm.h>
 
 static DEFINE_MUTEX(ioctl_lock);
@@ -111,6 +112,20 @@ static void smcmod_inv_range(unsigned long start, unsigned long end)
 	}
 	mb();
 	isb();
+}
+
+/*
+ * FIXME:
+ * scm_call will no longer flush the entire cache before calling into the secure
+ * world. Until individual buffers in this driver can be flushed, flush the
+ * entire cache before calling into scm_call.
+ */
+int smcmod_scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
+		void *resp_buf, size_t resp_len)
+{
+	flush_cache_all();
+	outer_flush_all();
+	return scm_call(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf, resp_len);
 }
 
 static int smcmod_ion_fd_to_phys(int32_t fd, struct ion_client *ion_clientp,
@@ -235,7 +250,7 @@ static int smcmod_send_buf_cmd(struct smcmod_buf_req *reqp)
 	}
 
 	/* call scm function to switch to secure world */
-	reqp->return_val = scm_call(reqp->service_id, reqp->command_id,
+	reqp->return_val = smcmod_scm_call(reqp->service_id, reqp->command_id,
 		cmd_vaddrp, reqp->cmd_len, resp_vaddrp, reqp->resp_len);
 
 buf_cleanup:
@@ -356,7 +371,7 @@ static int smcmod_send_cipher_cmd(struct smcmod_cipher_req *reqp)
 	}
 
 	/* call scm function to switch to secure world */
-	reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
+	reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
 		SMCMOD_CRYPTO_CMD_CIPHER, &scm_req,
 		sizeof(scm_req), NULL, 0);
 
@@ -494,13 +509,13 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 
 	/* call scm function to switch to secure world */
 	if (reqp->fixed_block)
-		reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
+		reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
 			SMCMOD_CRYPTO_CMD_MSG_DIGEST_FIXED,
 			&scm_req,
 			sizeof(scm_req),
 			NULL, 0);
 	else
-		reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
+		reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
 			SMCMOD_CRYPTO_CMD_MSG_DIGEST,
 			&scm_req,
 			sizeof(scm_req),
