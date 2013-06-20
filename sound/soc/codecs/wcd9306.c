@@ -4273,6 +4273,12 @@ static const struct tapan_reg_mask_val tapan_reg_defaults[] = {
 	 */
 	TAPAN_REG_VAL(TAPAN_A_MICB_2_MBHC, 0x41),
 
+	/*
+	 * Default register settings to support dynamic change of
+	 * vdd_buck between 1.8 volts and 2.15 volts.
+	 */
+	TAPAN_REG_VAL(TAPAN_A_BUCK_MODE_2, 0xAA),
+
 };
 
 static const struct tapan_reg_mask_val tapan_2_x_reg_reset_values[] = {
@@ -4589,6 +4595,30 @@ static int wcd9xxx_ssr_register(struct wcd9xxx *control,
 	return 0;
 }
 
+static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
+	struct snd_soc_codec *codec)
+{
+	int buck_volt = WCD9XXX_CDC_BUCK_UNSUPPORTED;
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = tapan->resmgr.pdata;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
+		if (!strncmp(pdata->regulator[i].name,
+					 WCD9XXX_SUPPLY_BUCK_NAME,
+					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
+			if ((pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_1P8) ||
+				(pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_2P15))
+				buck_volt = pdata->regulator[i].min_uV;
+			break;
+		}
+	}
+	pr_debug("%s: S4 voltage requested is %d\n", __func__, buck_volt);
+	return buck_volt;
+}
+
 static int tapan_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -4621,10 +4651,6 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_codec_set_drvdata(codec, tapan);
 
-	/* TODO: Read buck voltage from DT property */
-	tapan->clsh_d.buck_mv = WCD9XXX_CDC_BUCK_MV_1P8;
-	wcd9xxx_clsh_init(&tapan->clsh_d, &tapan->resmgr);
-
 	/* codec resmgr module init */
 	wcd9xxx = codec->control_data;
 	pdata = dev_get_platdata(codec->dev->parent);
@@ -4634,6 +4660,16 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		return ret;
 	}
+
+	tapan->clsh_d.buck_mv = tapan_codec_get_buck_mv(codec);
+	/*
+	 * If 1.8 volts is requested on the vdd_cp line, then
+	 * assume that S4 is in a dynamically switchable state
+	 * and can switch between 1.8 volts and 2.15 volts
+	 */
+	if (tapan->clsh_d.buck_mv == WCD9XXX_CDC_BUCK_MV_1P8)
+		tapan->clsh_d.is_dynamic_vdd_cp = true;
+	wcd9xxx_clsh_init(&tapan->clsh_d, &tapan->resmgr);
 
 	if (TAPAN_IS_1_0(control->version))
 		rco_clk_rate = TAPAN_MCLK_CLK_12P288MHZ;
