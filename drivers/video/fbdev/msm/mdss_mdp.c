@@ -52,6 +52,7 @@
 #include "mdss.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include "mdss_panel.h"
 #include "mdss_debug.h"
 
 struct mdss_data_type *mdss_res;
@@ -93,6 +94,13 @@ static struct msm_bus_vectors mdp_bus_vectors[] = {
 	MDP_BUS_VECTOR_ENTRY(SZ_256M, SZ_512M),
 };
 static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
+
+static struct mdss_panel_intf pan_types[] = {
+	{"dsi", MDSS_PANEL_INTF_DSI},
+	{"edp", MDSS_PANEL_INTF_EDP},
+	{"hdmi", MDSS_PANEL_INTF_HDMI},
+};
+
 static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 	.usecase = mdp_bus_usecases,
 	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
@@ -1140,6 +1148,7 @@ probe_done:
 		mdss_mdp_pp_term(&pdev->dev);
 	}
 
+	mdata->pan_cfg.init_done = true;
 	return rc;
 }
 
@@ -1201,6 +1210,43 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 	return 0;
 }
 
+static int mdss_mdp_get_pan_intf(const char *pan_intf)
+{
+	int i, rc = MDSS_PANEL_INTF_INVALID;
+
+	if (!pan_intf)
+		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(pan_types); i++) {
+		if (!strncmp(pan_intf, pan_types[i].name, MDSS_MAX_PANEL_LEN)) {
+			rc = pan_types[i].type;
+			break;
+		}
+	}
+	return rc;
+}
+
+static int mdss_mdp_parse_dt_pan_intf(struct platform_device *pdev)
+{
+	int rc;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	const char *prim_intf = NULL;
+
+	rc = of_property_read_string(pdev->dev.of_node,
+				"qcom,mdss-pref-prim-intf", &prim_intf);
+	if (rc)
+		return -ENODEV;
+
+	rc = mdss_mdp_get_pan_intf(prim_intf);
+	if (rc < 0) {
+		mdata->pan_cfg.pan_intf = MDSS_PANEL_INTF_INVALID;
+	} else {
+		mdata->pan_cfg.pan_intf = rc;
+		rc = 0;
+	}
+	return rc;
+}
+
 static int mdss_mdp_parse_dt(struct platform_device *pdev)
 {
 	int rc;
@@ -1252,6 +1298,11 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		pr_err("Error in device tree : ad\n");
 		return rc;
 	}
+
+	rc = mdss_mdp_parse_dt_pan_intf(pdev);
+	/* if pref pan intf is not present */
+	if (rc)
+		pr_warn("Error in device tree : pan_intf\n");
 
 	return 0;
 }
@@ -1726,7 +1777,7 @@ static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 	return len;
 }
 
-struct mdss_data_type *mdss_mdp_get_mdata()
+struct mdss_data_type *mdss_mdp_get_mdata(void)
 {
 	return mdss_res;
 }
@@ -1762,6 +1813,43 @@ void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable)
 		regulator_disable(mdata->batfet);
 	}
 }
+
+/**
+ * mdss_is_ready() - checks if mdss is probed and ready
+ *
+ * Checks if mdss resources have been initialized
+ *
+ * returns true if mdss is ready, else returns false
+ */
+bool mdss_is_ready(void)
+{
+	return mdss_mdp_get_mdata() ? true : false;
+}
+EXPORT_SYMBOL(mdss_mdp_get_mdata);
+
+/**
+ * mdss_panel_intf_type() - checks if a given intf type is primary
+ * @intf_val: panel interface type of the individual controller
+ *
+ * Individual controller queries with MDP to check if it is
+ * configured as the primary interface.
+ *
+ * returns a pointer to the configured structure mdss_panel_cfg
+ * to the controller that's configured as the primary panel interface.
+ * returns NULL on error or if @intf_val is not the configured
+ * controller.
+ */
+struct mdss_panel_cfg *mdss_panel_intf_type(int intf_val)
+{
+	if (!mdss_res || !mdss_res->pan_cfg.init_done)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	if (mdss_res->pan_cfg.pan_intf == intf_val)
+		return &mdss_res->pan_cfg;
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(mdss_panel_intf_type);
 
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {

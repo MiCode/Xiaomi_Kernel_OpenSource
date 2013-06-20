@@ -20,6 +20,8 @@ Required properties:
 					BIST ctrl settings.
 - qcom,platform-lane-config:		An array of length 45 that specifies the PHY
 					lane configuration settings.
+- qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
+					with the controller.
 
 Optional properties:
 - label:		        	A string used to describe the controller used.
@@ -57,6 +59,7 @@ Example:
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
+		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
