@@ -555,7 +555,7 @@
 			};
 		};
 
-		vadc@3100 {
+		pm8941_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
@@ -797,7 +797,7 @@
 			};
 		};
 
-		iadc@3600 {
+		pm8941_iadc: iadc@3600 {
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
 			#address-cells = <1>;
@@ -819,7 +819,7 @@
 			};
 		};
 
-		qcom,vadc@3400 {
+		pm8941_adc_tm: qcom,vadc@3400 {
 			compatible = "qcom,qpnp-adc-tm";
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
