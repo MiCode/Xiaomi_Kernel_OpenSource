@@ -1534,6 +1534,7 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 				KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						V2PUR, v2pxx);
+				mb();
 				vaddr += PAGE_SIZE;
 				for (l = 0; l < iommu_unit->dev_count; l++) {
 					tlblkcr = KGSL_IOMMU_GET_CTX_REG(iommu,
