@@ -495,7 +495,8 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 	 * Ensure that the buffer is in RAM by the time it gets to TZ
 	 */
 	clean_caches((unsigned long) flush_va,
-		map.plist.size * map.plist.list_size, virt_to_phys(flush_va));
+		sizeof(unsigned long) * map.plist.list_size,
+		virt_to_phys(flush_va));
 
 	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_MAP2, &map, sizeof(map),
 			&scm_ret, sizeof(scm_ret));
