@@ -198,14 +198,6 @@ int usb_bam_disconnect_ipa(
 		struct usb_bam_connect_ipa_params *ipa_params);
 
 /**
- * Wait for Consumer granted from Resource Manager.
- *
- * @ipa_params - in/out parameters
- *
- */
-void usb_bam_wait_for_cons_granted(
-	struct usb_bam_connect_ipa_params *ipa_params);
-/**
  * Register a wakeup callback from peer BAM.
  *
  * @idx - Connection index.
