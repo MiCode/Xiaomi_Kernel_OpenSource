@@ -109,6 +109,10 @@ static struct adreno_device device_3d0 = {
 	.pm4_fw = NULL,
 	.wait_timeout = 0, /* in milliseconds, 0 means disabled */
 	.ib_check_level = 0,
+	.ft_policy = KGSL_FT_DEFAULT_POLICY,
+	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
+	.fast_hang_detect = 1,
+	.long_ib_detect = 1,
 };
 
 /* This set of registers are used for Hang detection
@@ -1682,6 +1686,8 @@ adreno_probe(struct platform_device *pdev)
 
 	adreno_debugfs_init(device);
 
+	adreno_ft_init_sysfs(device);
+
 	kgsl_pwrscale_init(device);
 	kgsl_pwrscale_attach_policy(device, ADRENO_DEFAULT_PWRSCALE_POLICY);
 
@@ -2811,6 +2817,264 @@ done:
 	return result;
 }
 EXPORT_SYMBOL(adreno_dump_and_exec_ft);
+
+/**
+ * _ft_sysfs_store() -  Common routine to write to FT sysfs files
+ * @buf: value to write
+ * @count: size of the value to write
+ * @sysfs_cfg: KGSL FT sysfs config to write
+ *
+ * This is a common routine to write to FT sysfs files.
+ */
+static int _ft_sysfs_store(const char *buf, size_t count, unsigned int *ptr)
+{
+	char temp[20];
+	unsigned long val;
+	int rc;
+
+	snprintf(temp, sizeof(temp), "%.*s",
+			 (int)min(count, sizeof(temp) - 1), buf);
+	rc = kstrtoul(temp, 0, &val);
+	if (rc)
+		return rc;
+
+	*ptr = val;
+
+	return count;
+}
+
+/**
+ * _get_adreno_dev() -  Routine to get a pointer to adreno dev
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ */
+struct adreno_device *_get_adreno_dev(struct device *dev)
+{
+	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	return device ? ADRENO_DEVICE(device) : NULL;
+}
+
+/**
+ * _ft_policy_store() -  Routine to configure FT policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ * FT policy can be set to any of the options below.
+ * KGSL_FT_DISABLE -> BIT(0) Set to disable FT
+ * KGSL_FT_REPLAY  -> BIT(1) Set to enable replay
+ * KGSL_FT_SKIPIB  -> BIT(2) Set to skip IB
+ * KGSL_FT_SKIPFRAME -> BIT(3) Set to skip frame
+ * by default set FT policy to KGSL_FT_DEFAULT_POLICY
+ */
+static int _ft_policy_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	int ret;
+	if (adreno_dev == NULL)
+		return 0;
+
+	mutex_lock(&adreno_dev->dev.mutex);
+	ret = _ft_sysfs_store(buf, count, &adreno_dev->ft_policy);
+	mutex_unlock(&adreno_dev->dev.mutex);
+
+	return ret;
+}
+
+/**
+ * _ft_policy_show() -  Routine to read FT policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ *
+ * This is a routine to read current FT policy
+ */
+static int _ft_policy_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	if (adreno_dev == NULL)
+		return 0;
+	return snprintf(buf, PAGE_SIZE, "0x%X\n", adreno_dev->ft_policy);
+}
+
+/**
+ * _ft_pagefault_policy_store() -  Routine to configure FT
+ * pagefault policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ * FT pagefault policy can be set to any of the options below.
+ * KGSL_FT_PAGEFAULT_INT_ENABLE -> BIT(0) set to enable pagefault INT
+ * KGSL_FT_PAGEFAULT_GPUHALT_ENABLE  -> BIT(1) Set to enable GPU HALT on
+ * pagefaults. This stalls the GPU on a pagefault on IOMMU v1 HW.
+ * KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE  -> BIT(2) Set to log only one
+ * pagefault per page.
+ * KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT -> BIT(3) Set to log only one
+ * pagefault per INT.
+ */
+static int _ft_pagefault_policy_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	int ret;
+	if (adreno_dev == NULL)
+		return 0;
+
+	mutex_lock(&adreno_dev->dev.mutex);
+	ret = _ft_sysfs_store(buf, count, &adreno_dev->ft_pf_policy);
+	mutex_unlock(&adreno_dev->dev.mutex);
+
+	return ret;
+}
+
+/**
+ * _ft_pagefault_policy_show() -  Routine to read FT pagefault
+ * policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ *
+ * This is a routine to read current FT pagefault policy
+ */
+static int _ft_pagefault_policy_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	if (adreno_dev == NULL)
+		return 0;
+	return snprintf(buf, PAGE_SIZE, "0x%X\n", adreno_dev->ft_pf_policy);
+}
+
+/**
+ * _ft_fast_hang_detect_store() -  Routine to configure FT fast
+ * hang detect policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ * 0x1 - Enable fast hang detection
+ * 0x0 - Disable fast hang detection
+ */
+static int _ft_fast_hang_detect_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	int ret;
+	if (adreno_dev == NULL)
+		return 0;
+
+	mutex_lock(&adreno_dev->dev.mutex);
+	ret = _ft_sysfs_store(buf, count, &adreno_dev->fast_hang_detect);
+	mutex_unlock(&adreno_dev->dev.mutex);
+
+	return ret;
+
+}
+
+/**
+ * _ft_fast_hang_detect_show() -  Routine to read FT fast
+ * hang detect policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ */
+static int _ft_fast_hang_detect_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	if (adreno_dev == NULL)
+		return 0;
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+				(adreno_dev->fast_hang_detect ? 1 : 0));
+}
+
+/**
+ * _ft_long_ib_detect_store() -  Routine to configure FT long IB
+ * detect policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ * 0x0 - Enable long IB detection
+ * 0x1 - Disable long IB detection
+ */
+static int _ft_long_ib_detect_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	int ret;
+	if (adreno_dev == NULL)
+		return 0;
+
+	mutex_lock(&adreno_dev->dev.mutex);
+	ret = _ft_sysfs_store(buf, count, &adreno_dev->long_ib_detect);
+	mutex_unlock(&adreno_dev->dev.mutex);
+
+	return ret;
+
+}
+
+/**
+ * _ft_long_ib_detect_show() -  Routine to read FT long IB
+ * detect policy
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ */
+static int _ft_long_ib_detect_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	if (adreno_dev == NULL)
+		return 0;
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+				(adreno_dev->long_ib_detect ? 1 : 0));
+}
+
+
+#define FT_DEVICE_ATTR(name) \
+	DEVICE_ATTR(name, 0644,	_ ## name ## _show, _ ## name ## _store);
+
+FT_DEVICE_ATTR(ft_policy);
+FT_DEVICE_ATTR(ft_pagefault_policy);
+FT_DEVICE_ATTR(ft_fast_hang_detect);
+FT_DEVICE_ATTR(ft_long_ib_detect);
+
+
+const struct device_attribute *ft_attr_list[] = {
+	&dev_attr_ft_policy,
+	&dev_attr_ft_pagefault_policy,
+	&dev_attr_ft_fast_hang_detect,
+	&dev_attr_ft_long_ib_detect,
+	NULL,
+};
+
+int adreno_ft_init_sysfs(struct kgsl_device *device)
+{
+	return kgsl_create_device_sysfs_files(device->dev, ft_attr_list);
+}
+
+void adreno_ft_uninit_sysfs(struct kgsl_device *device)
+{
+	kgsl_remove_device_sysfs_files(device->dev, ft_attr_list);
+}
 
 static int adreno_getproperty(struct kgsl_device *device,
 				enum kgsl_property_type type,
