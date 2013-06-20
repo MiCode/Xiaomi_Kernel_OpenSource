@@ -28,6 +28,7 @@
 /* net device name prefixes, indexed by driver_info->data */
 static const char * const rmnet_names[] = {
 	"rmnet_usb%d",
+	"rmnet2_usb%d",
 };
 
 static int	data_msg_dbg_mask;
@@ -594,6 +595,16 @@ static const struct driver_info rmnet_info = {
 	.data          = 0,
 };
 
+static const struct driver_info rmnet_usb_info = {
+	.description   = "RmNET net device",
+	.flags         = FLAG_SEND_ZLP,
+	.bind          = rmnet_usb_bind,
+	.tx_fixup      = rmnet_usb_tx_fixup,
+	.rx_fixup      = rmnet_usb_rx_fixup,
+	.manage_power  = rmnet_usb_manage_power,
+	.data          = 1,
+};
+
 static const struct usb_device_id vidpids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9034, 4),
 	.driver_info = (unsigned long)&rmnet_info,
@@ -627,6 +638,18 @@ static const struct usb_device_id vidpids[] = {
 	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x904c, 8),
 	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9079, 5),
+	.driver_info = (unsigned long)&rmnet_usb_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9079, 6),
+	.driver_info = (unsigned long)&rmnet_usb_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9079, 7),
+	.driver_info = (unsigned long)&rmnet_usb_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9079, 8),
+	.driver_info = (unsigned long)&rmnet_usb_info,
 	},
 
 	{ }, /* Terminating entry */
