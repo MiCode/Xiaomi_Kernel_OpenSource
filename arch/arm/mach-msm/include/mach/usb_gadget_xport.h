@@ -89,8 +89,8 @@ enum gadget_type {
 	USB_GADGET_RMNET,
 };
 
-#define NUM_RMNET_HSIC_PORTS 1
-#define NUM_DUN_HSIC_PORTS 1
+#define NUM_RMNET_HSIC_PORTS 2
+#define NUM_DUN_HSIC_PORTS 2
 #define NUM_PORTS (NUM_RMNET_HSIC_PORTS \
 	+ NUM_DUN_HSIC_PORTS)
 
@@ -102,9 +102,11 @@ enum gadget_type {
 int ghsic_ctrl_connect(void *, int);
 void ghsic_ctrl_disconnect(void *, int);
 int ghsic_ctrl_setup(unsigned int, enum gadget_type);
+void ghsic_ctrl_set_port_name(const char *, const char *);
 int ghsic_data_connect(void *, int);
 void ghsic_data_disconnect(void *, int);
 int ghsic_data_setup(unsigned int, enum gadget_type);
+void ghsic_data_set_port_name(const char *, const char *);
 
 int ghsuart_ctrl_connect(void *, int);
 void ghsuart_ctrl_disconnect(void *, int);
