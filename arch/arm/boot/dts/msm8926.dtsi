@@ -62,6 +62,12 @@
 	regulator-max-microvolt = <1280000>;
 };
 
+&tlmm_pinmux {
+	gp: gp {
+		qcom,num-pins = <120>;
+	};
+};
+
 &apc_vreg_corner {
 	qcom,pvs-bin-process = <1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2
 				2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3>;
