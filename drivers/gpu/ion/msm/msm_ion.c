@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/memory_alloc.h>
-#include <linux/fmem.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/mm.h>
@@ -422,22 +421,9 @@ static void ion_set_base_address(struct ion_platform_heap *heap,
 			    struct ion_co_heap_pdata *co_heap_data,
 			    struct ion_cp_heap_pdata *cp_data)
 {
-	if (cp_data->reusable) {
-		const struct fmem_data *fmem_info = fmem_get_info();
-
-		if (!fmem_info) {
-			pr_err("fmem info pointer NULL!\n");
-			BUG();
-		}
-
-		heap->base = fmem_info->phys - fmem_info->reserved_size_low;
-		cp_data->virt_addr = fmem_info->virt;
-		pr_info("ION heap %s using FMEM\n", shared_heap->name);
-	} else {
-		heap->base = msm_ion_get_base(heap->size + shared_heap->size,
-						shared_heap->memory_type,
-						co_heap_data->align);
-	}
+	heap->base = msm_ion_get_base(heap->size + shared_heap->size,
+					shared_heap->memory_type,
+					co_heap_data->align);
 	if (heap->base) {
 		shared_heap->base = heap->base + heap->size;
 		cp_data->secure_base = heap->base;
@@ -463,15 +449,6 @@ static void allocate_co_memory(struct ion_platform_heap *heap,
 			struct ion_cp_heap_pdata *cp_data =
 			   (struct ion_cp_heap_pdata *) shared_heap->extra_data;
 			if (cp_data->fixed_position == FIXED_MIDDLE) {
-				const struct fmem_data *fmem_info =
-					fmem_get_info();
-
-				if (!fmem_info) {
-					pr_err("fmem info pointer NULL!\n");
-					BUG();
-				}
-
-				cp_data->virt_addr = fmem_info->virt;
 				if (!cp_data->secure_base) {
 					cp_data->secure_base = heap->base;
 					cp_data->secure_size =
@@ -523,17 +500,6 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 			struct ion_cp_heap_pdata *data =
 				(struct ion_cp_heap_pdata *)
 				heap->extra_data;
-			if (data->reusable) {
-				const struct fmem_data *fmem_info =
-					fmem_get_info();
-				heap->base = fmem_info->phys;
-				data->virt_addr = fmem_info->virt;
-				pr_info("ION heap %s using FMEM\n", heap->name);
-			} else if (data->mem_is_fmem) {
-				const struct fmem_data *fmem_info =
-					fmem_get_info();
-				heap->base = fmem_info->phys + fmem_info->size;
-			}
 			align = data->align;
 			break;
 		}
