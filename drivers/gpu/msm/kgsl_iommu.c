@@ -38,6 +38,7 @@
 
 static struct kgsl_iommu_register_list kgsl_iommuv0_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0 },			/* GLOBAL_BASE */
+	{ 0x0, 1 },			/* SCTLR */
 	{ 0x10, 1 },			/* TTBR0 */
 	{ 0x14, 1 },			/* TTBR1 */
 	{ 0x20, 1 },			/* FSR */
@@ -54,6 +55,7 @@ static struct kgsl_iommu_register_list kgsl_iommuv0_reg[KGSL_IOMMU_REG_MAX] = {
 
 static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0 },			/* GLOBAL_BASE */
+	{ 0x0, 1 },			/* SCTLR */
 	{ 0x20, 1 },			/* TTBR0 */
 	{ 0x28, 1 },			/* TTBR1 */
 	{ 0x58, 1 },			/* FSR */
@@ -1581,6 +1583,8 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	int status;
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j;
+	int sctlr_val = 0;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
 
 	if (mmu->flags & KGSL_FLAGS_STARTED)
 		return 0;
@@ -1632,6 +1636,25 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+
+			/*
+			 * For IOMMU V1 do not halt IOMMU on pagefault if
+			 * FT pagefault policy is set accordingly
+			 */
+			if ((!msm_soc_version_supports_iommu_v0()) &&
+				(!(adreno_dev->ft_pf_policy &
+				   KGSL_FT_PAGEFAULT_GPUHALT_ENABLE))) {
+				sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						SCTLR);
+				sctlr_val |= (0x1 <<
+						KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
+				KGSL_IOMMU_SET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						SCTLR, sctlr_val);
+			}
 			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
 				iommu_unit->dev[j].default_ttbr0 =
 						KGSL_IOMMU_GET_CTX_REG_LL(iommu,
