@@ -221,6 +221,7 @@ enum usb_vdd_value {
  * @log2_itc: value of 2^(log2_itc-1) will be used as the
  *              interrupt threshold (ITC), when log2_itc is
  *              between 1 to 7.
+ * @l1_supported: enable link power management support.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -245,6 +246,7 @@ struct msm_otg_platform_data {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *mhl_dev_name;
 	int log2_itc;
+	bool l1_supported;
 };
 
 /* phy related flags */
@@ -428,6 +430,7 @@ struct ci13xxx_platform_data {
 	 */
 	int log2_itc;
 	void *prv_data;
+	bool l1_supported;
 };
 
 struct msm_hsic_host_platform_data {

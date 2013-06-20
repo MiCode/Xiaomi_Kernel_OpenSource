@@ -66,6 +66,26 @@ static void ci13xxx_msm_disconnect(struct ci13xxx *ci)
 				ULPI_CLR(ULPI_MISC_A));
 }
 
+/* Link power management will reduce power consumption by
+ * short time HW suspend/resume.
+ */
+static void ci13xxx_msm_set_l1(struct ci13xxx *ci)
+{
+	int temp;
+	struct device *dev = ci->gadget.dev.parent;
+
+	dev_dbg(dev, "Enable link power management\n");
+
+	/* Enable remote wakeup and L1 for IN EPs */
+	writel_relaxed(0xffff0000, USB_L1_EP_CTRL);
+
+	temp = readl_relaxed(USB_L1_CONFIG);
+	temp |= L1_CONFIG_LPM_EN | L1_CONFIG_REMOTE_WAKEUP |
+		L1_CONFIG_GATE_SYS_CLK | L1_CONFIG_PHY_LPM |
+		L1_CONFIG_PLL;
+	writel_relaxed(temp, USB_L1_CONFIG);
+}
+
 static void ci13xxx_msm_connect(struct ci13xxx *ci)
 {
 	struct usb_phy *phy = ci->transceiver;
@@ -103,6 +123,9 @@ static void ci13xxx_msm_reset(struct ci13xxx* ci)
 
 	writel_relaxed(0, USB_AHBBURST);
 	writel_relaxed(0x08, USB_AHBMODE);
+
+	if (ci->gadget.l1_supported)
+		ci13xxx_msm_set_l1(ci);
 
 	if (phy && (phy->flags & ENABLE_SECONDARY_PHY)) {
 		int	temp;
@@ -248,6 +271,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 			ci13xxx_msm_platdata.nz_itc = 0;
 		else
 			ci13xxx_msm_platdata.nz_itc = 1 << (pdata->log2_itc-1);
+		ci13xxx_msm_platdata.l1_supported = pdata->l1_supported;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "USB_RESUME");

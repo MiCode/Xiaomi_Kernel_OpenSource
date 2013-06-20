@@ -39,6 +39,15 @@
 #define USB_USBINTR          (MSM_USB_BASE + 0x0148)
 #define USB_FRINDEX          (MSM_USB_BASE + 0x014C)
 
+#define USB_L1_EP_CTRL	     (MSM_USB_BASE + 0x0250)
+#define USB_L1_CONFIG	     (MSM_USB_BASE + 0x0254)
+
+#define L1_CONFIG_LPM_EN	BIT(4)
+#define L1_CONFIG_REMOTE_WAKEUP BIT(5)
+#define L1_CONFIG_GATE_SYS_CLK	BIT(7)
+#define L1_CONFIG_PHY_LPM	BIT(10)
+#define L1_CONFIG_PLL		BIT(11)
+
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK         (3 << 30)
 #define PORTSC_PTS_ULPI         (3 << 30)

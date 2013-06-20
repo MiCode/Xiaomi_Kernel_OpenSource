@@ -404,6 +404,8 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	else
 		ci->global_phy = true;
 
+	ci->gadget.l1_supported = ci->platdata->l1_supported;
+
 	ret = hw_device_init(ci, base);
 	if (ret < 0) {
 		dev_err(dev, "can't initialize hardware\n");

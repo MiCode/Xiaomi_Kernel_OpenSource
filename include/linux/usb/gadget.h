@@ -546,6 +546,7 @@ struct usb_gadget {
 	struct device			dev;
 	unsigned			out_epnum;
 	unsigned			in_epnum;
+	bool				l1_supported;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 

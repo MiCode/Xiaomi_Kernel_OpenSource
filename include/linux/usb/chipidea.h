@@ -22,6 +22,7 @@ struct ci13xxx_platform_data {
 #define CI13XXX_DISABLE_STREAMING	BIT(3)
 #define CI13XXX_ZERO_ITC		BIT(4)
 #define CI13XXX_IS_OTG			BIT(5)
+	bool		l1_supported;
 
 #define CI13XXX_CONTROLLER_RESET_EVENT		0
 #define CI13XXX_CONTROLLER_CONNECT_EVENT	1
