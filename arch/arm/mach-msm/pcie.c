@@ -484,22 +484,19 @@ static void msm_pcie_release_resources(void)
 static void msm_pcie_adjust_tlp_size(struct msm_pcie_dev_t *dev)
 {
 	/*
-	 * Apply this fix only for device such as APQ8064 version 1.
 	 * Set the Max TLP size to 2K, instead of using default of 4K
 	 * to avoid a RAM problem in PCIE20 core of that version.
 	 */
-	if (readl_relaxed(dev->elbi + PCIE20_ELBI_VERSION) == 0x01002107) {
 
-		/*
-		 * CFG_REMOTE_RD_REQ_BRIDGE_SIZE:
-		 *   5=4KB/4=2KB/3=1KB/2=512B/1=256B/0=128B
-		 */
-		writel_relaxed(4, dev->pcie20 +
-					 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL0);
+	/*
+	 * CFG_REMOTE_RD_REQ_BRIDGE_SIZE:
+	 *   5=4KB/4=2KB/3=1KB/2=512B/1=256B/0=128B
+	 */
+	writel_relaxed(4, dev->pcie20 +
+				 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL0);
 
-		writel_relaxed(1, dev->pcie20 +
-					 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL1);
-	}
+	writel_relaxed(1, dev->pcie20 +
+				 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL1);
 };
 
 static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
