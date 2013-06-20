@@ -78,6 +78,15 @@
 		};
 	};
 
+	flashlight {
+		compatible = "qcom,leds-gpio-flash";
+		status = "okay";
+		qcom,flash-en = <&msmgpio 18 0>;
+		qcom,flash-now = <&msmgpio 19 0>;
+		linux,name = "flashlight";
+		linux,default-trigger = "flashlight-trigger";
+	};
+
 	gpio_keys {
                 compatible = "gpio-keys";
                 input-name = "gpio-keys";
