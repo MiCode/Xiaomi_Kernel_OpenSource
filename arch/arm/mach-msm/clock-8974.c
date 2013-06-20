@@ -1401,7 +1401,7 @@ static struct clk_freq_tbl ftbl_gcc_ce1_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_ce1_v3_clk[] = {
+static struct clk_freq_tbl ftbl_gcc_ce1_pro_clk[] = {
 	F( 50000000,  gpll0,  12,   0,   0),
 	F( 75000000,  gpll0,   8,   0,   0),
 	F(100000000,  gpll0,   6,   0,   0),
@@ -1429,7 +1429,7 @@ static struct clk_freq_tbl ftbl_gcc_ce2_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_ce2_v3_clk[] = {
+static struct clk_freq_tbl ftbl_gcc_ce2_pro_clk[] = {
 	F( 50000000,  gpll0,  12,   0,   0),
 	F( 75000000,  gpll0,   8,   0,   0),
 	F(100000000,  gpll0,   6,   0,   0),
@@ -2945,12 +2945,12 @@ static struct clk_freq_tbl ftbl_camss_mclk0_3_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_camss_mclk0_3_v3_clk[] = {
+static struct clk_freq_tbl ftbl_camss_mclk0_3_pro_clk[] = {
 	F_MM( 4800000,    cxo,    4,   0,   0),
 	F_MM( 6000000,  gpll0,   10,   1,  10),
 	F_MM( 8000000,  gpll0,   15,   1,   5),
 	F_MM( 9600000,    cxo,    2,   0,   0),
-	F_MM(16000000,  gpll0,   10,   1,   5),
+	F_MM(16000000,  gpll0, 12.5,   1,   3),
 	F_MM(19200000,    cxo,    1,   0,   0),
 	F_MM(24000000,  gpll0,    5,   1,   5),
 	F_MM(32000000, mmpll0,    5,   1,   5),
@@ -4680,7 +4680,8 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		clk->multiplier = 4;
 		clk_sel = 0x16A;
 
-		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1 &&
+		    cpu_is_msm8974()) {
 			if (measure_mux[i].debug_mux == M_L2)
 				regval = BIT(7)|BIT(0);
 			else
@@ -5512,7 +5513,12 @@ static struct pll_config mmpll3_v2_config __initdata = {
 	.mn_ena_mask = BIT(24),
 	.main_output_val = BIT(0),
 	.main_output_mask = BIT(0),
+	.aux_output_val = BIT(1),
+	.aux_output_mask = BIT(1),
 };
+
+#define cpu_is_msm8974pro() (cpu_is_msm8974pro_aa() || cpu_is_msm8974pro_ab() \
+			     || cpu_is_msm8974pro_ac())
 
 static void __init reg_init(void)
 {
@@ -5520,7 +5526,8 @@ static void __init reg_init(void)
 
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
 
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2
+	    || cpu_is_msm8974pro()) {
 		configure_sr_hpm_lp_pll(&mmpll1_v2_config, &mmpll1_regs, 1);
 		configure_sr_hpm_lp_pll(&mmpll3_v2_config, &mmpll3_regs, 0);
 	} else {
@@ -5537,7 +5544,8 @@ static void __init reg_init(void)
 	 * V2 requires additional votes to allow the LPASS and MMSS
 	 * controllers to use GPLL0.
 	 */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2
+	    || cpu_is_msm8974pro()) {
 		regval = readl_relaxed(
 				GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 		writel_relaxed(regval | BIT(26) | BIT(25),
@@ -5547,7 +5555,8 @@ static void __init reg_init(void)
 
 static void __init msm8974_clock_post_init(void)
 {
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2
+	    || cpu_is_msm8974pro()) {
 		clk_set_rate(&axi_clk_src.c, 291750000);
 		clk_set_rate(&ocmemnoc_clk_src.c, 291750000);
 	} else {
@@ -5661,35 +5670,44 @@ static void __init msm8974_v2_clock_override(void)
 		qup_i2c_clks[i][0]->parent =  qup_i2c_clks[i][1];
 }
 
-/* v2 to v3 clock changes */
-static void __init msm8974_v3_clock_override(void)
+/* v2 to pro clock changes */
+static void __init msm8974_pro_clock_override(void)
 {
 	ce1_clk_src.c.fmax[VDD_DIG_LOW] = 75000000;
 	ce1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 150000000;
-	ce1_clk_src.freq_tbl = ftbl_gcc_ce1_v3_clk;
+	ce1_clk_src.freq_tbl = ftbl_gcc_ce1_pro_clk;
 	ce2_clk_src.c.fmax[VDD_DIG_LOW] = 75000000;
 	ce2_clk_src.c.fmax[VDD_DIG_NOMINAL] = 150000000;
-	ce2_clk_src.freq_tbl = ftbl_gcc_ce2_v3_clk;
+	ce2_clk_src.freq_tbl = ftbl_gcc_ce2_pro_clk;
 
-	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
-	sdcc1_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 400000000;
+	if (cpu_is_msm8974pro_ac()) {
+		sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
+		sdcc1_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 400000000;
+	}
 
 	vfe0_clk_src.c.fmax[VDD_DIG_LOW] = 150000000;
 	vfe0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 320000000;
-	vfe0_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
 	vfe1_clk_src.c.fmax[VDD_DIG_LOW] = 150000000;
 	vfe1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 320000000;
-	vfe1_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
 	cpp_clk_src.c.fmax[VDD_DIG_LOW] = 150000000;
 	cpp_clk_src.c.fmax[VDD_DIG_NOMINAL] = 320000000;
-	cpp_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+
+	if (cpu_is_msm8974pro_ab() || cpu_is_msm8974pro_ac()) {
+		vfe0_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+		vfe1_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+		cpp_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+	} else if (cpu_is_msm8974pro_aa()) {
+		vfe0_clk_src.c.fmax[VDD_DIG_HIGH] = 320000000;
+		vfe1_clk_src.c.fmax[VDD_DIG_HIGH] = 320000000;
+		cpp_clk_src.c.fmax[VDD_DIG_HIGH] = 320000000;
+	}
 
 	mdp_clk_src.c.fmax[VDD_DIG_NOMINAL] = 266670000;
 
-	mclk0_clk_src.freq_tbl = ftbl_camss_mclk0_3_v3_clk;
-	mclk1_clk_src.freq_tbl = ftbl_camss_mclk0_3_v3_clk;
-	mclk2_clk_src.freq_tbl = ftbl_camss_mclk0_3_v3_clk;
-	mclk3_clk_src.freq_tbl = ftbl_camss_mclk0_3_v3_clk;
+	mclk0_clk_src.freq_tbl = ftbl_camss_mclk0_3_pro_clk;
+	mclk1_clk_src.freq_tbl = ftbl_camss_mclk0_3_pro_clk;
+	mclk2_clk_src.freq_tbl = ftbl_camss_mclk0_3_pro_clk;
+	mclk3_clk_src.freq_tbl = ftbl_camss_mclk0_3_pro_clk;
 	mclk0_clk_src.set_rate = set_rate_mnd;
 	mclk1_clk_src.set_rate = set_rate_mnd;
 	mclk2_clk_src.set_rate = set_rate_mnd;
@@ -5733,10 +5751,11 @@ static void __init msm8974_clock_pre_init(void)
 	msm8974_clock_init_data.size -= ARRAY_SIZE(msm_clocks_8974ac_only);
 
 	/* version specific changes */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2
+	    || cpu_is_msm8974pro())
 		msm8974_v2_clock_override();
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 3) {
-		msm8974_v3_clock_override();
+	if (cpu_is_msm8974pro()) {
+		msm8974_pro_clock_override();
 		memcpy(msm_clocks_8974 + ARRAY_SIZE(msm_clocks_8974_common),
 		       msm_clocks_8974ac_only, sizeof(msm_clocks_8974ac_only));
 		msm8974_clock_init_data.size +=
