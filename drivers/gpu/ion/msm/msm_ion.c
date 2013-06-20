@@ -365,6 +365,9 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 	if (!ION_IS_CACHED(flags))
 		return 0;
 
+	if (flags & ION_FLAG_SECURE)
+		return 0;
+
 	table = ion_sg_table(client, handle);
 
 	if (IS_ERR_OR_NULL(table))
