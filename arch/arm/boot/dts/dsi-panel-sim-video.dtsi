@@ -16,7 +16,7 @@
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
 &soc {
-	qcom,mdss_dsi_sim_video {
+	dsi_sim_vid: qcom,mdss_dsi_sim_video {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,mdss-dsi-panel-name = "Simulator video mode dsi panel";

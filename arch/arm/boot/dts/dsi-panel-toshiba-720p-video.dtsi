@@ -16,7 +16,7 @@
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
 &soc {
-	qcom,mdss_dsi_toshiba_720p_video {
+	dsi_tosh_720_vid: qcom,mdss_dsi_toshiba_720p_video {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,mdss-dsi-panel-name = "toshiba 720p video mode dsi panel";
