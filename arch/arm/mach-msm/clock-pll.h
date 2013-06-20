@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,6 +184,8 @@ struct pll_config {
 	u32 mn_ena_mask;
 	u32 main_output_val;
 	u32 main_output_mask;
+	u32 aux_output_val;
+	u32 aux_output_mask;
 };
 
 struct pll_config_regs {

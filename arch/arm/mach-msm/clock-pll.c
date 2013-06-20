@@ -676,6 +676,12 @@ void __init __configure_pll(struct pll_config *config,
 		regval |= config->main_output_val;
 	}
 
+	/* Enable the aux output */
+	if (config->aux_output_mask) {
+		regval &= ~config->aux_output_mask;
+		regval |= config->aux_output_val;
+	}
+
 	/* Set pre-divider and post-divider values */
 	regval &= ~config->pre_div_mask;
 	regval |= config->pre_div_val;
