@@ -4842,7 +4842,11 @@ static struct clk_lookup msm_clocks_8974_rumi[] = {
 	CLK_DUMMY("core_clk", NULL, "fdc84000.qcom,iommu", oFF),
 };
 
-static struct clk_lookup msm_clocks_8974[] = {
+static struct clk_lookup msm_clocks_8974ac_only[] __initdata = {
+	CLK_LOOKUP("gpll4", gpll4_clk_src.c, ""),
+};
+
+static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("xo",        cxo_otg_clk.c,                  "msm_otg"),
 	CLK_LOOKUP("xo",  cxo_pil_lpass_clk.c,      "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",    cxo_pil_mss_clk.c,        "fc880000.qcom,mss"),
@@ -4851,7 +4855,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("xo", cxo_pil_pronto_clk.c,     "fb21b000.qcom,pronto"),
 	CLK_LOOKUP("xo",       cxo_dwc3_clk.c,                 "msm_dwc3"),
 	CLK_LOOKUP("xo",  cxo_ehci_host_clk.c,            "msm_ehci_host"),
-	CLK_LOOKUP("pll",     gpll4_clk_src.c,                         ""),
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
@@ -5366,6 +5369,9 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("",		byte_clk_src_8974.c,               ""),
 };
 
+static struct clk_lookup msm_clocks_8974[ARRAY_SIZE(msm_clocks_8974_common)
+	+ ARRAY_SIZE(msm_clocks_8974ac_only)];
+
 static struct pll_config_regs mmpll0_regs __initdata = {
 	.l_reg = (void __iomem *)MMPLL0_L_REG,
 	.m_reg = (void __iomem *)MMPLL0_M_REG,
@@ -5652,6 +5658,10 @@ static void __init msm8974_v3_clock_override(void)
 	mclk1_clk_src.set_rate = set_rate_mnd;
 	mclk2_clk_src.set_rate = set_rate_mnd;
 	mclk3_clk_src.set_rate = set_rate_mnd;
+	mclk0_clk_src.c.ops = &clk_ops_rcg_mnd;
+	mclk1_clk_src.c.ops = &clk_ops_rcg_mnd;
+	mclk2_clk_src.c.ops = &clk_ops_rcg_mnd;
+	mclk3_clk_src.c.ops = &clk_ops_rcg_mnd;
 }
 
 static void __init msm8974_clock_pre_init(void)
@@ -5682,11 +5692,20 @@ static void __init msm8974_clock_pre_init(void)
 
 	reg_init();
 
+	memcpy(msm_clocks_8974, msm_clocks_8974_common,
+	       sizeof(msm_clocks_8974_common));
+	msm8974_clock_init_data.size -= ARRAY_SIZE(msm_clocks_8974ac_only);
+
 	/* version specific changes */
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
 		msm8974_v2_clock_override();
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 3)
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 3) {
 		msm8974_v3_clock_override();
+		memcpy(msm_clocks_8974 + ARRAY_SIZE(msm_clocks_8974_common),
+		       msm_clocks_8974ac_only, sizeof(msm_clocks_8974ac_only));
+		msm8974_clock_init_data.size +=
+			ARRAY_SIZE(msm_clocks_8974ac_only);
+	}
 
 	clk_ops_pixel_clock = clk_ops_pixel;
 	clk_ops_pixel_clock.set_rate = set_rate_pixel;
