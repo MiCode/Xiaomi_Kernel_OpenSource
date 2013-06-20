@@ -664,7 +664,8 @@ static int __devinit kxtj9_verify(struct kxtj9_data *tj9)
 		goto out;
 	}
 
-	retval = (retval != 0x07 && retval != 0x08) ? -EIO : 0;
+	retval = (retval != 0x05 && retval != 0x07 && retval != 0x08)
+			? -EIO : 0;
 
 out:
 	return retval;
