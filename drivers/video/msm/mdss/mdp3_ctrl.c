@@ -525,6 +525,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 off_error:
 	mdp3_session->status = 0;
+	mdp3_bufq_deinit(&mdp3_session->bufq_out);
 	mutex_unlock(&mdp3_session->lock);
 	if (mdp3_session->overlay.id != MSMFB_NEW_REQUEST)
 		mdp3_overlay_unset(mfd, mdp3_session->overlay.id);
@@ -576,14 +577,11 @@ static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	int rc = 0;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 
-	mdp3_ctrl_pan_display(mfd);
-
 	mutex_lock(&mdp3_session->lock);
 
 	if (mdp3_session->overlay.id == ndx && ndx == 1) {
 		mdp3_session->overlay.id = MSMFB_NEW_REQUEST;
 		mdp3_bufq_deinit(&mdp3_session->bufq_in);
-		mdp3_bufq_deinit(&mdp3_session->bufq_out);
 	} else {
 		rc = -EINVAL;
 	}
@@ -665,7 +663,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 		mdp3_bufq_push(&mdp3_session->bufq_out, data);
 	}
 
-	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 1) {
+	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
 		mdp3_put_img(data);
 	}
@@ -715,7 +713,7 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 				mdp3_session->intf);
 	} else {
 		pr_debug("mdp3_ctrl_pan_display no memory, stop interface");
-		mdp3_session->intf->stop(mdp3_session->intf);
+		mdp3_session->dma->stop(mdp3_session->dma, mdp3_session->intf);
 	}
 pan_error:
 	mutex_unlock(&mdp3_session->lock);
