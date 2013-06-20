@@ -16,7 +16,7 @@
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
 &soc {
-	qcom,mdss_dsi_nt35590_720p_cmd {
+	dsi_nt35590_720_cmd: qcom,mdss_dsi_nt35590_720p_cmd {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,mdss-dsi-panel-name = "nt35590 720p command mode dsi panel";

@@ -16,7 +16,7 @@
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
 &soc {
-	qcom,mdss_dsi_sharp_qhd_video {
+	dsi_sharp_qhd_vid: qcom,mdss_dsi_sharp_qhd_video {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,mdss-dsi-panel-name = "sharp QHD LS043T1LE01 video mode dsi panel";
