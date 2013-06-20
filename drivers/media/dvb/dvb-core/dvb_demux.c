@@ -1893,7 +1893,7 @@ static void dvb_dmx_init_idx_state(struct dvb_demux_feed *feed)
 		(feed->idx_params.types &
 		 (DMX_IDX_H264_IDR_START | DMX_IDX_H264_IDR_END |
 		  DMX_IDX_H264_NON_IDR_END |
-		  DMX_IDX_H264_FIRST_SPS_FRAME_END |
+		  DMX_IDX_H264_FIRST_SPS_FRAME_START |
 		  DMX_IDX_H264_FIRST_SPS_FRAME_END))) {
 		feed->patterns[feed->pattern_num] =
 			dvb_dmx_get_pattern(DMX_IDX_H264_IDR_START);
@@ -1905,7 +1905,7 @@ static void dvb_dmx_init_idx_state(struct dvb_demux_feed *feed)
 		(feed->idx_params.types &
 		 (DMX_IDX_H264_NON_IDR_START | DMX_IDX_H264_NON_IDR_END |
 		  DMX_IDX_H264_IDR_END |
-		  DMX_IDX_H264_FIRST_SPS_FRAME_END |
+		  DMX_IDX_H264_FIRST_SPS_FRAME_START |
 		  DMX_IDX_H264_FIRST_SPS_FRAME_END))) {
 		feed->patterns[feed->pattern_num] =
 			dvb_dmx_get_pattern(DMX_IDX_H264_NON_IDR_START);
