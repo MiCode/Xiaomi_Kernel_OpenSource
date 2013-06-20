@@ -94,7 +94,16 @@ Required properties
 				The offsets are calculated from "mdp_phys"
 				defined in reg property. The number of offsets
 				defiend should reflect the number of progammable
-				interface blocks avaialble in hardware.
+				interface blocks available in hardware.
+- qcom,mdss-pref-prim-intf:	A string which indicates the configured hardware
+				interface between MDP and the primary panel.
+				Individual panel controller drivers initialize
+				hardware based on this property.
+				Based on the interfaces supported at present,
+				possible values are:
+				- "dsi"
+				- "edp"
+				- "hdmi"
 
 Optional properties:
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
@@ -179,6 +188,7 @@ Example:
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
+		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;
