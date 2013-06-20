@@ -3130,11 +3130,11 @@ static void mmc_blk_shutdown(struct mmc_card *card)
 
 	/* Silent the block layer */
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue);
+		rc = mmc_queue_suspend(&md->queue, 1);
 		if (rc)
 			goto suspend_error;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue);
+			rc = mmc_queue_suspend(&part_md->queue, 1);
 			if (rc)
 				goto suspend_error;
 		}
@@ -3161,11 +3161,11 @@ static int mmc_blk_suspend(struct mmc_card *card)
 	int rc = 0;
 
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue);
+		rc = mmc_queue_suspend(&md->queue, 0);
 		if (rc)
 			goto out;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue);
+			rc = mmc_queue_suspend(&part_md->queue, 0);
 			if (rc)
 				goto out_resume;
 		}
