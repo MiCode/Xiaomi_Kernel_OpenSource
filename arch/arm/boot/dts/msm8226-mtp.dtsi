@@ -18,11 +18,6 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi_nt35590_720p_video {
-		status = "ok";
-		qcom,cont-splash-enabled;
-	};
-
 	i2c@f9927000 { /* BLSP1 QUP5 */
 		synaptics@20 {
 			compatible = "synaptics,rmi4";
@@ -483,4 +478,16 @@
 	tapan_codec {
 		qcom,cdc-micbias1-ext-cap;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+};
+
+&dsi_nt35590_720_vid {
+	qcom,cont-splash-enabled;
 };

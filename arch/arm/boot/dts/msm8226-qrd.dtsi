@@ -474,3 +474,15 @@
 &android_usb {
 	qcom,android-usb-cdrom;
 };
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080_vid>;
+};
+
+&dsi_nt35596_1080_vid {
+	qcom,cont-splash-enabled;
+};
