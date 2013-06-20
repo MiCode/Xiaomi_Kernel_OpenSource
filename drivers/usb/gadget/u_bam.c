@@ -725,11 +725,11 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		teth_bridge_disconnect();
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
+		teth_bridge_disconnect();
 	}
 }
 
