@@ -52,6 +52,7 @@ struct wcd9xxx_reg_mask_val {
 struct wcd9xxx_clsh_cdc_data {
 	u8 state;
 	int buck_mv;
+	bool is_dynamic_vdd_cp;
 	struct wcd9xxx_resmgr *resmgr;
 };
 
