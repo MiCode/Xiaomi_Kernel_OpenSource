@@ -37,7 +37,7 @@
 #define LIS3DH_ACC_I2C_SAD_L	((LIS3DH_ACC_I2C_SADROOT<<1)|SAD0L)
 #define LIS3DH_ACC_I2C_SAD_H	((LIS3DH_ACC_I2C_SADROOT<<1)|SAD0H)
 #define	LIS3DH_ACC_DEV_NAME	"lis3dh_acc"
-
+#define ACCEL_INPUT_DEV_NAME	"accelerometer"
 
 /************************************************/
 /*	Accelerometer defines section		*/
