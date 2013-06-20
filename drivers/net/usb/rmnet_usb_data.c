@@ -307,6 +307,7 @@ static int rmnet_usb_data_dmux(struct sk_buff *skb,  struct urb *rx_urb)
 	}
 
 	skb->data = (unsigned char *)(hdr + 1);
+	skb_reset_tail_pointer(skb);
 	rx_urb->actual_length = total_len - pad_len;
 
 	return mux_id - 1;
