@@ -110,9 +110,9 @@
 	rpm-regulator-smpa4 {
 		status = "okay";
 		pm8226_s4: regulator-s4 {
-			regulator-min-microvolt = <2100000>;
-			regulator-max-microvolt = <2100000>;
-			qcom,init-voltage = <2100000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2200000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 	};
