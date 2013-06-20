@@ -42,12 +42,6 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
-struct snd_msm_volume {
-	struct msm_audio *prtd;
-	unsigned volume;
-};
-static struct snd_msm_volume pcm_audio = {NULL, 0x2000};
-
 #define PLAYBACK_MIN_NUM_PERIODS    2
 #define PLAYBACK_MAX_NUM_PERIODS    8
 #define PLAYBACK_MAX_PERIOD_SIZE    12288
@@ -390,7 +384,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->dsp_cnt = 0;
 	prtd->set_channel_map = false;
 	runtime->private_data = prtd;
-	pcm_audio.prtd = prtd;
 
 	return 0;
 }
@@ -479,7 +472,6 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 		q6asm_audio_client_buf_free_contiguous(dir,
 					prtd->audio_client);
-		pcm_audio.prtd = NULL;
 		q6asm_audio_client_free(prtd->audio_client);
 	}
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
@@ -760,30 +752,71 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.mmap		= msm_pcm_mmap,
 };
 
-static int pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
+static int msm_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int i;
-	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
+	struct snd_pcm_chmap *info = snd_kcontrol_chip(kcontrol);
+	unsigned int idx = snd_ctl_get_ioffidx(kcontrol, &ucontrol->id);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
 
 	pr_debug("%s", __func__);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
-		channel_mapping[i] = (char)(ucontrol->value.integer.value[i]);
-	if (pcm_audio.prtd) {
-		pcm_audio.prtd->set_channel_map = true;
-		memcpy(pcm_audio.prtd->channel_map, channel_mapping,
-			PCM_FORMAT_MAX_NUM_CHANNEL);
+	substream = snd_pcm_chmap_substream(info, idx);
+	if (!substream)
+		return -ENODEV;
+	if (!substream->runtime)
+		return 0;
+
+	prtd = substream->runtime->private_data;
+	if (prtd) {
+		prtd->set_channel_map = true;
+			for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+				prtd->channel_map[i] =
+				(char)(ucontrol->value.integer.value[i]);
 	}
+	return 0;
+}
+
+static int msm_pcm_chmap_ctl_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int i;
+	struct snd_pcm_chmap *info = snd_kcontrol_chip(kcontrol);
+	unsigned int idx = snd_ctl_get_ioffidx(kcontrol, &ucontrol->id);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
+
+	pr_debug("%s", __func__);
+	substream = snd_pcm_chmap_substream(info, idx);
+	if (!substream)
+		return -ENODEV;
+	memset(ucontrol->value.integer.value, 0,
+		sizeof(ucontrol->value.integer.value));
+	if (!substream->runtime)
+		return 0; /* no channels set */
+
+	prtd = substream->runtime->private_data;
+
+	if (prtd && prtd->set_channel_map == true) {
+		for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+			ucontrol->value.integer.value[i] =
+					(int)prtd->channel_map[i];
+	} else {
+		for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+			ucontrol->value.integer.value[i] = 0;
+	}
+
 	return 0;
 }
 
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
-	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm *pcm = rtd->pcm;
 	struct snd_pcm_chmap *chmap_info;
 	struct snd_kcontrol *kctl;
-	char device_num[3];
+	char device_num[12];
 	int i, ret = 0;
 
 	if (!card->dev->coherent_dma_mask)
@@ -791,8 +824,9 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s, Channel map cntrl add\n", __func__);
 	ret = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-					NULL, PCM_FORMAT_MAX_NUM_CHANNEL, 0,
-					&chmap_info);
+				     snd_pcm_std_chmaps,
+				     PCM_FORMAT_MAX_NUM_CHANNEL, 0,
+				     &chmap_info);
 	if (ret < 0)
 		return ret;
 	kctl = chmap_info->kctl;
@@ -802,7 +836,8 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
 	pr_debug("%s, Overwriting channel map control name to: %s",
 		__func__, kctl->id.name);
-	kctl->put = pcm_chmap_ctl_put;
+	kctl->put = msm_pcm_chmap_ctl_put;
+	kctl->get = msm_pcm_chmap_ctl_get;
 	return ret;
 }
 
