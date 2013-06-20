@@ -484,6 +484,7 @@
 &pm8941_mpps {
 
 	mpp@a000 { /* MPP 1 */
+		status = "disabled";
 	};
 
 	mpp@a100 { /* MPP 2 */
