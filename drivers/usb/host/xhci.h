@@ -1991,4 +1991,8 @@ static inline struct xhci_ring *xhci_urb_to_transfer_ring(struct xhci_hcd *xhci,
 					urb->stream_id);
 }
 
+/* EHSET */
+int xhci_submit_single_step_set_feature(struct usb_hcd *hcd, struct urb *urb,
+					int is_setup);
+
 #endif /* __LINUX_XHCI_HCD_H */
