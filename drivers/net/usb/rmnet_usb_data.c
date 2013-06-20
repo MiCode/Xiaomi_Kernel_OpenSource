@@ -25,6 +25,11 @@
 #define RMNET_DATA_LEN			2000
 #define HEADROOM_FOR_QOS		8
 
+/* net device name prefixes, indexed by driver_info->data */
+static const char * const rmnet_names[] = {
+	"rmnet_usb%d",
+};
+
 static int	data_msg_dbg_mask;
 
 enum {
@@ -80,6 +85,40 @@ static DEVICE_ATTR(dbg_mask, 0644, dbg_mask_show, dbg_mask_store);
 #define DBG1(x...) DBG(DEBUG_MASK_LVL1, x)
 #define DBG2(x...) DBG(DEBUG_MASK_LVL2, x)
 
+static unsigned int no_rmnet_devs = 1;
+module_param(no_rmnet_devs, uint, S_IRUGO | S_IWUSR);
+
+static unsigned int no_rmnet_insts_per_dev = 4;
+module_param(no_rmnet_insts_per_dev, uint, S_IRUGO | S_IWUSR);
+
+static int rmnet_data_start(void);
+static bool rmnet_data_init;
+
+static int rmnet_init(const char *val, const struct kernel_param *kp)
+{
+	int ret = 0;
+
+	if (rmnet_data_init) {
+		pr_err("dynamic setting rmnet params currently unsupported\n");
+		return -EINVAL;
+	}
+
+	ret = param_set_bool(val, kp);
+	if (ret)
+		return ret;
+
+	rmnet_data_start();
+
+	return ret;
+}
+
+static struct kernel_param_ops rmnet_init_ops = {
+	.set = rmnet_init,
+	.get = param_get_bool,
+};
+module_param_cb(rmnet_data_init, &rmnet_init_ops, &rmnet_data_init,
+		S_IRUGO | S_IWUSR);
+
 static void rmnet_usb_setup(struct net_device *);
 static int rmnet_ioctl(struct net_device *, struct ifreq *, int);
 
@@ -125,6 +164,7 @@ static int rmnet_usb_bind(struct usbnet *usbnet, struct usb_interface *iface)
 	struct usb_host_endpoint	*bulk_in = NULL;
 	struct usb_host_endpoint	*bulk_out = NULL;
 	struct usb_host_endpoint	*int_in = NULL;
+	struct driver_info		*info = usbnet->driver_info;
 	int				status = 0;
 	int				i;
 	int				numends;
@@ -158,7 +198,7 @@ static int rmnet_usb_bind(struct usbnet *usbnet, struct usb_interface *iface)
 	usbnet->status = int_in;
 
 	/*change name of net device to rmnet_usbx here*/
-	strlcpy(usbnet->net->name, "rmnet_usb%d", IFNAMSIZ);
+	strlcpy(usbnet->net->name, rmnet_names[info->data], IFNAMSIZ);
 
 	/*TBD: update rx_urb_size, curently set to eth frame len by usbnet*/
 out:
@@ -466,12 +506,10 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		const struct usb_device_id *prod)
 {
 	struct usbnet		*unet;
+	struct driver_info	*info = (struct driver_info *)prod->driver_info;
 	struct usb_device	*udev;
-	unsigned int		iface_num;
-	static int		first_rmnet_iface_num = -EINVAL;
 	int			status = 0;
 
-	iface_num = iface->cur_altsetting->desc.bInterfaceNumber;
 	if (iface->num_altsetting != 1) {
 		dev_err(&iface->dev, "%s invalid num_altsetting %u\n",
 			__func__, iface->num_altsetting);
@@ -497,15 +535,8 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 	if (status)
 		goto out;
 
-	if (first_rmnet_iface_num == -EINVAL)
-		first_rmnet_iface_num = iface_num;
-
-	/*save control device intstance */
-	unet->data[1] = (unsigned long)ctrl_dev	\
-			[iface_num - first_rmnet_iface_num];
-
-	status = rmnet_usb_ctrl_probe(iface, unet->status,
-		(struct rmnet_ctrl_dev *)unet->data[1]);
+	status = rmnet_usb_ctrl_probe(iface, unet->status, info->data,
+		(struct rmnet_ctrl_dev **)&unet->data[1]);
 	if (status)
 		goto out;
 
@@ -560,6 +591,7 @@ static const struct driver_info rmnet_info = {
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
 	.manage_power  = rmnet_usb_manage_power,
+	.data          = 0,
 };
 
 static const struct usb_device_id vidpids[] = {
@@ -612,31 +644,38 @@ static struct usb_driver rmnet_usb = {
 	.supports_autosuspend = true,
 };
 
-static int __init rmnet_usb_init(void)
+static int rmnet_data_start(void)
 {
 	int	retval;
+
+	if (no_rmnet_devs > MAX_RMNET_DEVS) {
+		pr_err("ERROR:%s: param no_rmnet_devs(%d) > than maximum(%d)",
+			__func__, no_rmnet_devs, MAX_RMNET_DEVS);
+		return -EINVAL;
+	}
 
 	retval = usb_register(&rmnet_usb);
 	if (retval) {
 		err("usb_register failed: %d", retval);
 		return retval;
 	}
-	/* initialize rmnet ctrl device here*/
-	retval = rmnet_usb_ctrl_init();
+
+	/* initialize ctrl devices */
+	retval = rmnet_usb_ctrl_init(no_rmnet_devs, no_rmnet_insts_per_dev);
 	if (retval) {
+		rmnet_usb_ctrl_exit(no_rmnet_devs, no_rmnet_insts_per_dev);
 		usb_deregister(&rmnet_usb);
 		err("rmnet_usb_cmux_init failed: %d", retval);
 		return retval;
 	}
 
-	return 0;
+	return retval;
 }
-module_init(rmnet_usb_init);
 
 static void __exit rmnet_usb_exit(void)
 {
-	rmnet_usb_ctrl_exit();
 	usb_deregister(&rmnet_usb);
+	rmnet_usb_ctrl_exit(no_rmnet_devs, no_rmnet_insts_per_dev);
 }
 module_exit(rmnet_usb_exit);
 
