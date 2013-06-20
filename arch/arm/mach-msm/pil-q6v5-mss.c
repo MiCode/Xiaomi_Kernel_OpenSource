@@ -50,7 +50,6 @@ struct modem_data {
 	struct subsys_desc subsys_desc;
 	void *adsp_state_notifier;
 	void *ramdump_dev;
-	void *smem_ramdump_dev;
 	bool crash_shutdown;
 	bool ignore_errors;
 	int err_fatal_irq;
@@ -167,10 +166,6 @@ static void modem_crash_shutdown(const struct subsys_desc *subsys)
 	}
 }
 
-static struct ramdump_segment smem_segments[] = {
-	{0x0FA00000, 0x0FC00000 - 0x0FA00000},
-};
-
 static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct modem_data *drv = subsys_to_drv(subsys);
@@ -184,19 +179,9 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 		return ret;
 
 	ret = pil_do_ramdump(&drv->mba->desc, drv->ramdump_dev);
-	if (ret < 0) {
+	if (ret < 0)
 		pr_err("Unable to dump modem fw memory (rc = %d).\n", ret);
-		goto out;
-	}
 
-	ret = do_elf_ramdump(drv->smem_ramdump_dev, smem_segments,
-		ARRAY_SIZE(smem_segments));
-	if (ret < 0) {
-		pr_err("Unable to dump smem memory (rc = %d).\n", ret);
-		goto out;
-	}
-
-out:
 	pil_shutdown(&drv->q6->desc);
 	return ret;
 }
@@ -299,14 +284,6 @@ static int __devinit pil_subsys_init(struct modem_data *drv,
 		goto err_ramdump;
 	}
 
-	drv->smem_ramdump_dev = create_ramdump_device("smem-modem", &pdev->dev);
-	if (!drv->smem_ramdump_dev) {
-		pr_err("%s: Unable to create an smem ramdump device.\n",
-			__func__);
-		ret = -ENOMEM;
-		goto err_ramdump_smem;
-	}
-
 	ret = devm_request_irq(&pdev->dev, irq, modem_wdog_bite_irq,
 				IRQF_TRIGGER_RISING, "modem_wdog", drv);
 	if (ret < 0) {
@@ -342,8 +319,6 @@ static int __devinit pil_subsys_init(struct modem_data *drv,
 	return 0;
 
 err_irq:
-	destroy_ramdump_device(drv->smem_ramdump_dev);
-err_ramdump_smem:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
 	subsys_unregister(drv->subsys);
@@ -525,7 +500,6 @@ static int __devexit pil_mss_driver_exit(struct platform_device *pdev)
 	subsys_notif_unregister_notifier(drv->adsp_state_notifier,
 						&adsp_state_notifier_block);
 	subsys_unregister(drv->subsys);
-	destroy_ramdump_device(drv->smem_ramdump_dev);
 	destroy_ramdump_device(drv->ramdump_dev);
 	pil_desc_release(&drv->mba->desc);
 	pil_desc_release(&drv->q6->desc);
