@@ -414,6 +414,7 @@ struct rgb_config_data {
  * struct qpnp_led_data - internal led data structure
  * @led_classdev - led class device
  * @delayed_work - delayed work for turning off the LED
+ * @work - workqueue for led
  * @id - led index
  * @base_reg - base register given in device tree
  * @lock - to protect the transactions
@@ -427,11 +428,12 @@ struct qpnp_led_data {
 	struct led_classdev	cdev;
 	struct spmi_device	*spmi_dev;
 	struct delayed_work	dwork;
+	struct work_struct	work;
 	int			id;
 	u16			base;
 	u8			reg;
 	u8			num_leds;
-	spinlock_t		lock;
+	struct mutex		lock;
 	struct wled_config_data *wled_cfg;
 	struct flash_config_data	*flash_cfg;
 	struct kpdbl_config_data	*kpdbl_cfg;
@@ -943,15 +945,23 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 static void qpnp_led_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
-	int rc, i;
 	struct qpnp_led_data *led;
-	struct qpnp_led_data *led_array;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 	if (value < LED_OFF || value > led->cdev.max_brightness) {
 		dev_err(&led->spmi_dev->dev, "Invalid brightness value\n");
 		return;
 	}
+
+	led->cdev.brightness = value;
+	schedule_work(&led->work);
+}
+
+static void __qpnp_led_work(struct qpnp_led_data *led,
+				enum led_brightness value)
+{
+	int rc, i;
+	struct qpnp_led_data *led_array;
 
 	if (led->id == QPNP_ID_FLASH1_LED0 || led->id == QPNP_ID_FLASH1_LED1) {
 		if (!led->flash_cfg->flash_on && value > 0) {
@@ -980,8 +990,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		}
 	}
 
-	spin_lock(&led->lock);
-	led->cdev.brightness = value;
+	mutex_lock(&led->lock);
 
 	switch (led->id) {
 	case QPNP_ID_WLED:
@@ -1021,7 +1030,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		break;
 	}
-	spin_unlock(&led->lock);
+	mutex_unlock(&led->lock);
 
 	if (led->id == QPNP_ID_FLASH1_LED0 || led->id == QPNP_ID_FLASH1_LED1) {
 		if (led->flash_cfg->flash_on && !value) {
@@ -1048,6 +1057,16 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 			led->flash_cfg->flash_on = false;
 		}
 	}
+}
+
+static void qpnp_led_work(struct work_struct *work)
+{
+	struct qpnp_led_data *led = container_of(work,
+					struct qpnp_led_data, work);
+
+	__qpnp_led_work(led, led->cdev.brightness);
+
+	return;
 }
 
 static int qpnp_led_set_max_brightness(struct qpnp_led_data *led)
@@ -2331,7 +2350,8 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			goto fail_id_check;
 		}
 
-		spin_lock_init(&led->lock);
+		mutex_init(&led->lock);
+		INIT_WORK(&led->work, qpnp_led_work);
 
 		rc =  qpnp_led_initialize(led);
 		if (rc < 0)
@@ -2380,7 +2400,8 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 		/* configure default state */
 		if (led->default_on) {
 			led->cdev.brightness = led->cdev.max_brightness;
-			qpnp_led_set(&led->cdev, led->cdev.brightness);
+			__qpnp_led_work(led, led->cdev.brightness);
+			schedule_work(&led->work);
 			if (led->turn_off_delay_ms > 0)
 				qpnp_led_turn_off(led);
 		} else
@@ -2392,8 +2413,11 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 	return 0;
 
 fail_id_check:
-	for (i = 0; i < parsed_leds; i++)
+	for (i = 0; i < parsed_leds; i++) {
+		mutex_destroy(&led_array[i].lock);
 		led_classdev_unregister(&led_array[i].cdev);
+	}
+
 	return rc;
 }
 
@@ -2403,6 +2427,8 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 	int i, parsed_leds = led_array->num_leds;
 
 	for (i = 0; i < parsed_leds; i++) {
+		cancel_work_sync(&led_array[i].work);
+		mutex_destroy(&led_array[i].lock);
 		led_classdev_unregister(&led_array[i].cdev);
 		switch (led_array[i].id) {
 		case QPNP_ID_WLED:
