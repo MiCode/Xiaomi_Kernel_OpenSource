@@ -177,13 +177,14 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		if (d->func_type == USB_FUNC_MBIM)
-			teth_bridge_disconnect();
 		if (d->func_type == USB_FUNC_ECM)
 			ecm_ipa_disconnect(d->ipa_params.priv);
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
+		if (d->func_type == USB_FUNC_MBIM)
+			teth_bridge_disconnect();
+
 	}
 }
 
