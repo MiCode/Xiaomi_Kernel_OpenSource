@@ -934,6 +934,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	struct hal_buffer_requirements *bufreq;
 	int extra_idx = 0;
 	struct hfi_device *hdev;
+	struct hal_buffer_count_actual new_buf_count;
+	enum hal_property property_id;
 	if (!q || !num_buffers || !num_planes
 		|| !sizes || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p, %p, %p\n",
@@ -959,6 +961,16 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
 					i, inst->capability.height.max,
 					inst->capability.width.max);
+		}
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property,
+				inst->session, property_id, &new_buf_count);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed to set new buffer count(%d) on FW, err: %d\n",
+				new_buf_count.buffer_count_actual, rc);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
@@ -987,15 +999,11 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		}
 		if (*num_buffers && *num_buffers >
 			bufreq->buffer_count_actual) {
-			struct hal_buffer_count_actual new_buf_count;
-			enum hal_property property_id =
-				HAL_PARAM_BUFFER_COUNT_ACTUAL;
-
+			property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 			new_buf_count.buffer_count_actual = *num_buffers;
 			rc = call_hfi_op(hdev, session_set_property,
 				inst->session, property_id, &new_buf_count);
-
 		}
 		if (bufreq->buffer_count_actual > *num_buffers)
 			*num_buffers =  bufreq->buffer_count_actual;
