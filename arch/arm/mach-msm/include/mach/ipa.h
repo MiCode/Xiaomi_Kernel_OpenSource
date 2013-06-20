@@ -667,6 +667,8 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
 int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params);
 
+void ipa_bam_reg_dump(void);
+
 #else /* CONFIG_IPA */
 
 static inline int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
@@ -1097,6 +1099,11 @@ static inline int teth_bridge_set_aggr_params(struct teth_aggr_params
 					      *aggr_params)
 {
 	return -EPERM;
+}
+
+static inline void ipa_bam_reg_dump(void)
+{
+	return;
 }
 
 #endif /* CONFIG_IPA*/

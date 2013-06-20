@@ -548,6 +548,7 @@ static struct net_device_stats *wwan_get_stats(struct net_device *dev)
 static void wwan_tx_timeout(struct net_device *dev)
 {
 	pr_warning("[%s] wwan_tx_timeout(), data stall in UL\n", dev->name);
+	ipa_bam_reg_dump();
 }
 
 /**
