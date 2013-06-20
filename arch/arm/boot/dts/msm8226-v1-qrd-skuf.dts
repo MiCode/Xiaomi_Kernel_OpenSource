@@ -30,4 +30,29 @@
 		status = "ok";
 		qcom,mdss-pan-bl-ctrl = "bl_ctrl_dcs";
 	};
+
+	sound {
+		qcom,model = "msm8226-tapan-skuf-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"SPK_OUT", "EXT_VDD_SPKR",
+			"Lineout_1 amp", "LINEOUT1",
+			"Lineout_2 amp", "LINEOUT2",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS1 External",
+			"MIC BIAS1 External", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic";
+
+		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+		qcom,cdc-lineout-spkr-gpios = <&pm8226_gpios 2 0>;
+		qcom,cdc-vdd-spkr-gpios;
+		qcom,cdc-us-euro-gpios;
+	};
 };
