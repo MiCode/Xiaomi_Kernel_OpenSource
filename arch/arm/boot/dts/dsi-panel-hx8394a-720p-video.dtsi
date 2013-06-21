@@ -1,0 +1,107 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,mdss_dsi_hx8394a_720p_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "hx8394a 720p video mode dsi panel";
+		status = "disable";
+		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
+		qcom,rst-gpio = <&msmgpio 25 0>;
+		qcom,mdss-pan-res = <720 1280>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-dest = "display_1";
+		qcom,mdss-pan-porch-values = <59 60 79 10 2 7>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
+		qcom,mdss-pan-bl-levels = <1 4095>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <1>;
+		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <2>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>; /* 4 lanes */
+		qcom,mdss-pan-dsi-dlane-swap = <0>;
+		qcom,mdss-pan-dsi-t-clk = <0x2d 0x1f>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-dsi-frame-rate = <60>;
+		qcom,panel-phy-regulatorSettings = [07 09 03 00  /* Regualotor settings */
+						    20 00 01];
+		qcom,panel-phy-timingSettings = [8d 24 19 00 34 34
+						    1d 26 2a 03 04 00];
+		qcom,panel-phy-strengthCtrl = [ff 06];
+		qcom,panel-phy-bistCtrl = [00 00 b1 ff           /* BIST Ctrl settings */
+					   00 00];
+		qcom,panel-phy-laneConfig = [00 00 00 00 00 00 00 01 97 /* lane0 config */
+					     00 00 00 00 05 00 00 01 97 /* lane1 config */
+					     00 00 00 00 0a 00 00 01 97 /* lane2 config */
+					     00 00 00 00 0f 00 00 01 97 /* lane3 config */
+					     00 c0 00 00 00 00 00 01 bb]; /* Clk ln config */
+		qcom,panel-on-cmds = [39 01 00 00 00 00 04
+						b9 ff 83 94
+					39 01 00 00 00 00 05
+						c7 00 10 00 10
+					39 01 00 00 00 00 02
+						bc 07
+					39 01 00 00 00 00 02
+						ba 13
+					39 01 00 00 00 00 10
+						b1 01 00 07 83 01
+						12 0f 32 38 29 29
+						50 02 00 00
+					39 01 00 00 00 00 07
+						b2 00 c8 09 05 00
+						71
+					39 01 00 00 00 00 02
+						cc 05
+					05 01 00 00 00 00 02 00 00
+					39 01 00 00 00 00 35
+						d5 00 00 00 00 0a
+						00 01 00 00 00 33
+						00 23 45 67 01 01
+						23 88 88 88 88 88
+						88 88 99 99 99 88
+						88 99 88 54 32 10
+						76 32 10 88 88 88
+						88 88 88 88 99 99
+						99 88 88 88 99
+					39 01 00 00 00 00 17
+						b4 80 08 32 10 00
+						32 15 08 32 12 20
+						33 05 4c 05 37 05
+						3f 1e 5f 5f 06
+					39 01 00 00 00 00 02
+						b6 00
+					39 01 00 00 00 00 23
+						e0 01 05 07 25 35
+						3f 0b 32 04 09 0e
+						10 13 10 14 16 1b
+						01 05 07 25 35 3f
+						0b 32 04 09 0e 10
+						13 10 14 16 1b
+					05 01 00 00 00 00 02 00 00
+					39 01 00 00 00 00 04
+						bf 06 00 10
+					05 01 00 00 c8 00 02 11 00
+					05 01 00 00 32 00 02 29 00];
+
+		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
+		qcom,panel-off-cmds = [05 01 00 00 0a 00 02 28 00
+					05 01 00 00 96 00 02 10 00];
+		qcom,off-cmds-dsi-state = "DSI_HS_MODE";
+	};
+};
