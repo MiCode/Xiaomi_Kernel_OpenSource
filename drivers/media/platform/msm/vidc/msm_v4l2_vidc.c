@@ -387,7 +387,6 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 	for (i = 0; i < b->length; ++i) {
-		buffer_type = HAL_BUFFER_OUTPUT;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].length) {
@@ -404,8 +403,20 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			kfree(binfo);
 			goto exit;
 		}
-		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			buffer_type = HAL_BUFFER_INPUT;
+
+		if (vidc_inst->session_type == MSM_VIDC_DECODER) {
+			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+				buffer_type = HAL_BUFFER_INPUT;
+			else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+				buffer_type = HAL_BUFFER_OUTPUT;
+		} else {
+			/* FIXME in the future.  See comment in msm_comm_get_\
+			 * domain_partition. Same problem here. */
+			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+				buffer_type = HAL_BUFFER_OUTPUT;
+			else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+				buffer_type = HAL_BUFFER_INPUT;
+		}
 
 		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0], &plane);
