@@ -40,6 +40,7 @@ realtek Realtek Semiconductor Corp.
 samsung	Samsung Semiconductor
 sbs	Smart Battery System
 schindler	Schindler
+shinetech	Shine Tech Corporation, Ltd.
 sil	Silicon Image
 simtek
 sirf	SiRF Technology, Inc.
