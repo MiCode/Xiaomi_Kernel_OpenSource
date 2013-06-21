@@ -53,3 +53,7 @@
 
 	status = "ok";
 };
+
+&usb_otg {
+	status = "ok";
+};
