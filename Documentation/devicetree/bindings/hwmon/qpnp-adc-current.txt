@@ -84,6 +84,8 @@ Required properties:
 			6 : 64
 			7 : 128
 			8 : 256
+- qcom,iadc-vadc : Corresponding phandle of the VADC device to read the die_temperature and set
+		simultaneous voltage and current conversion requests.
 
 Example:
 	/* Main Node */
@@ -97,6 +99,7 @@ Example:
                         qcom,adc-bit-resolution = <16>;
                         qcom,adc-vdd-reference = <1800>;
 			qcom,rsense = <1500>;
+			qcom,iadc-vadc = <&pm8941_vadc>;
 
 			/* Channel Node */
                         chan@0 = {

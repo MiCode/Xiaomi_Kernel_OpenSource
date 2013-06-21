@@ -80,6 +80,7 @@ Parent node optional properties:
 					for the boost regulator.
 - qcom,resume-soc			Capacity in percent at which charging should resume
 					when a fully charged battery drops below this level.
+- qcom,chg-vadc				Corresponding VADC device's phandle.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
@@ -196,6 +197,7 @@ Example:
 		qcom,batt-hot-percent = <25>;
 		qcom,batt-cold-percent = <85>;
 		qcom,btc-disabled = <0>;
+		qcom,chg-vadc = <&pm8941_vadc>;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;

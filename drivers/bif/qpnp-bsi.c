@@ -56,6 +56,7 @@ struct qpnp_bsi_chip {
 	atomic_t		irq_flag[QPNP_BSI_IRQ_COUNT];
 	int			batt_present_irq;
 	enum qpnp_vadc_channels	batt_id_adc_channel;
+	struct qpnp_vadc_chip	*vadc_dev;
 };
 
 #define QPNP_BSI_DRIVER_NAME	"qcom,qpnp-bsi"
@@ -1343,7 +1344,8 @@ static int qpnp_bsi_get_battery_rid(struct bif_ctrl_dev *bdev)
 		return -ENXIO;
 	}
 
-	rc = qpnp_vadc_read(chip->batt_id_adc_channel, &adc_result);
+	rc = qpnp_vadc_read(chip->vadc_dev, chip->batt_id_adc_channel,
+								&adc_result);
 	if (!rc) {
 		vid_uV = adc_result.physical;
 
@@ -1672,8 +1674,11 @@ static int __devinit qpnp_bsi_probe(struct spmi_device *spmi)
 
 	/* Ensure that ADC channel is available if it was specified. */
 	if (chip->batt_id_adc_channel < ADC_MAX_NUM) {
-		rc = qpnp_vadc_is_ready();
-		if (rc) {
+		chip->vadc_dev = qpnp_get_vadc(dev, "bsi");
+		if (IS_ERR(chip->vadc_dev)) {
+			rc = PTR_ERR(chip->vadc_dev);
+			if (rc != -EPROBE_DEFER)
+				pr_err("missing vadc property, rc=%d\n", rc);
 			/* Probe retry, do not print an error message */
 			goto cleanup_irqs;
 		}
