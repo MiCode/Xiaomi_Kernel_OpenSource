@@ -1868,6 +1868,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 				"hsic,consider-ipa-handshake"));
 	pdata->ahb_async_bridge_bypass = of_property_read_bool(node,
 				"qcom,ahb-async-bridge-bypass");
+	pdata->disable_cerr = of_property_read_bool(node,
+				"hsic,disable-cerr");
 
 	return pdata;
 }
@@ -1956,8 +1958,10 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	mehci->ehci.pool_64_bit_align = pdata->pool_64_bit_align;
 	mehci->enable_hbm = pdata->enable_hbm;
 
-	if (pdata)
+	if (pdata) {
 		mehci->ehci.log2_irq_thresh = pdata->log2_irq_thresh;
+		mehci->ehci.disable_cerr = pdata->disable_cerr;
+	}
 
 	ret = msm_hsic_init_gdsc(mehci, 1);
 	if (ret) {

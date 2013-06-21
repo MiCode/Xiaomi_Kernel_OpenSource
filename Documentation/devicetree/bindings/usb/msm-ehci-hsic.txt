@@ -65,6 +65,14 @@ Optional properties :
   5 (2^5 = 32)   32 micro frame interrupt threshold aka 4ms interrupt threshold
   6 (2^6 = 64)   64 micro frame interrupt threshold aka 8ms interrupt threshold
 
+- hsic,disable-cerr: CERR is 2bit down error counter that keeps track of number
+  of consecutive errors detected on single usb transaction. When set to non
+  zero value, hw decrements the count and updates qTD when transaction fails.
+  If counter reaches zero, hw marks the qTD inactive and triggers the interrupt.
+  When CERR is programmed to zero, hw ignores transaction failures. ECHI stack
+  programs the CERR  to 3 by default. When this flag is true, CERR is set to
+  zero and transaction errors are ignored.
+
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
     - qcom,msm_bus,name
