@@ -369,8 +369,9 @@
 		compatible = "qcom,coresight-hwevent";
 		reg = <0xfdf30018 0x80>,
 		      <0xf9011080 0x80>,
-		      <0xfd4ab160 0x80>;
-		reg-names = "mmss-mux", "apcs-mux", "ppss-mux";
+		      <0xfd4ab160 0x80>,
+		      <0xfc401600 0x80>;
+		reg-names = "mmss-mux", "apcs-mux", "ppss-mux", "gcc-mux";
 
 		coresight-id = <29>;
 		coresight-name = "coresight-hwevent";
