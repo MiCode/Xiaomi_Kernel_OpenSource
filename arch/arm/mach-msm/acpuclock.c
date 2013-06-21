@@ -44,6 +44,8 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 
 uint32_t acpuclk_get_switch_time(void)
 {
+	if (!acpuclk_data)
+		return 0;
 	return acpuclk_data->switch_time_us;
 }
 
