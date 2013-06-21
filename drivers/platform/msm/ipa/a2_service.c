@@ -1469,6 +1469,35 @@ int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid)
 	return ret;
 }
 
+/**
+ * a2_mux_is_ch_empty() - checks if channel is empty.
+ * @lcid: logical channel ID
+ *
+ * Returns: true if the channel is empty,
+ *		false otherwise
+ */
+int a2_mux_is_ch_empty(enum a2_mux_logical_channel_id lcid)
+{
+	unsigned long flags;
+	int ret;
+
+	if (lcid >= A2_MUX_NUM_CHANNELS ||
+			lcid < 0)
+		return -EINVAL;
+	if (!a2_mux_ctx->a2_mux_initialized)
+		return -ENODEV;
+	spin_lock_irqsave(&a2_mux_ctx->bam_ch[lcid].lock, flags);
+	a2_mux_ctx->bam_ch[lcid].use_wm = 1;
+	ret = a2_mux_ctx->bam_ch[lcid].num_tx_pkts == 0;
+	if (!bam_ch_is_local_open(lcid)) {
+		ret = -ENODEV;
+		IPAERR("%s: port not open: %d\n", __func__,
+		       a2_mux_ctx->bam_ch[lcid].status);
+	}
+	spin_unlock_irqrestore(&a2_mux_ctx->bam_ch[lcid].lock, flags);
+	return ret;
+}
+
 static int a2_mux_initialize_context(int handle)
 {
 	int i;
