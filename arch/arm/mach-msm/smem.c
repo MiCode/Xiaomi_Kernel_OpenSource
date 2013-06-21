@@ -192,11 +192,21 @@ void *smem_alloc(unsigned id, unsigned size)
 }
 EXPORT_SYMBOL(smem_alloc);
 
-static void *__smem_get_entry(unsigned id, unsigned *size, bool skip_init_check)
+/**
+ * __smem_get_entry - Get pointer and size of existing SMEM item
+ *
+ * @id:              ID of SMEM item
+ * @size:            Pointer to size variable for storing the result
+ * @skip_init_check: True means do not verify that SMEM has been initialized
+ * @use_rspinlock:   True to use the remote spinlock
+ * @returns:         Pointer to SMEM item or NULL if it doesn't exist
+ */
+static void *__smem_get_entry(unsigned id, unsigned *size,
+		bool skip_init_check, bool use_rspinlock)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	struct smem_heap_entry *toc = shared->heap_toc;
-	int use_spinlocks = spinlocks_initialized;
+	int use_spinlocks = spinlocks_initialized && use_rspinlock;
 	void *ret = 0;
 	unsigned long flags = 0;
 
@@ -233,7 +243,7 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
 	unsigned size;
 	void *ptr;
 
-	ptr = __smem_get_entry(id, &size, skip_init_check);
+	ptr = __smem_get_entry(id, &size, skip_init_check, true);
 	if (!ptr)
 		return 0;
 
@@ -312,10 +322,26 @@ EXPORT_SYMBOL(smem_alloc2);
 
 void *smem_get_entry(unsigned id, unsigned *size)
 {
-	return __smem_get_entry(id, size, false);
+	return __smem_get_entry(id, size, false, true);
 }
 EXPORT_SYMBOL(smem_get_entry);
 
+/**
+ * smem_get_entry_no_rlock - Get existing item without using remote spinlock
+ *
+ * @id:       ID of SMEM item
+ * @size_out: Pointer to size variable for storing the result
+ * @returns:  Pointer to SMEM item or NULL if it doesn't exist
+ *
+ * This function does not lock the remote spinlock and should only be used in
+ * failure-recover cases such as retrieving the subsystem failure reason during
+ * subsystem restart.
+ */
+void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out)
+{
+	return __smem_get_entry(id, size_out, false, false);
+}
+EXPORT_SYMBOL(smem_get_entry_no_rlock);
 
 /**
  * smem_get_remote_spinlock - Remote spinlock pointer for unit testing.
