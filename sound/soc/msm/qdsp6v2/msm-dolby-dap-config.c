@@ -231,7 +231,7 @@ this needs to be removed after interface validation
 
 static int map_device_to_dolby_endpoint(int device)
 {
-	int i, dolby_dap_device = DOLBY_ENDP_INT_SPEAKERS;
+	int i, dolby_dap_device = DOLBY_ENDP_EXT_SPEAKERS;
 	for (i = 0; i < NUM_DOLBY_ENDP_DEVICE; i++) {
 		if (dolby_dap_endp_params[i].device == device) {
 			dolby_dap_device = dolby_dap_endp_params[i].dap_device;
