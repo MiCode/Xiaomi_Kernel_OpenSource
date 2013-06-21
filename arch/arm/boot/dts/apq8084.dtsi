@@ -19,6 +19,7 @@
 	soc: soc { };
 };
 
+/include/ "msm-gdsc.dtsi"
 /include/ "apq8084-ion.dtsi"
 /include/ "apq8084-smp2p.dtsi"
 /include/ "apq8084-coresight.dtsi"
@@ -282,6 +283,16 @@
 			interrupts = <0 168 1>;
 			qcom,irq-no-suspend;
 		};
+	};
+
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-venus";
+		reg = <0xfdce0000 0x4000>,
+		      <0xfdc80000 0x400>;
+		reg-names = "wrapper_base", "vbif_base";
+		vdd-supply = <&gdsc_venus>;
+
+		qcom,firmware-name = "venus";
 	};
 };
 
