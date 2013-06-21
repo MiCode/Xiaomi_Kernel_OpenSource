@@ -154,6 +154,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		susp_sof_bug:1; /*Chip Idea HC*/
 	unsigned		resume_sof_bug:1;/*Chip Idea HC*/
 	unsigned		reset_sof_bug:1; /*Chip Idea HC*/
+	bool			disable_cerr;
 
 	/* required for usb32 quirk */
 	#define OHCI_CTRL_HCFS          (3 << 6)

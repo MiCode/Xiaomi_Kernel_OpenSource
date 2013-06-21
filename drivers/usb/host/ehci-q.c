@@ -637,7 +637,8 @@ qh_urb_transaction (
 	qtd->urb = urb;
 
 	token = QTD_STS_ACTIVE;
-	token |= (EHCI_TUNE_CERR << 10);
+	if (!ehci->disable_cerr)
+		token |= (EHCI_TUNE_CERR << 10);
 	/* for split transactions, SplitXState initialized to zero */
 
 	len = urb->transfer_buffer_length;
