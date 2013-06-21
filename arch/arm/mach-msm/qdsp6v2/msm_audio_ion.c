@@ -48,6 +48,12 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 {
 	int rc = 0;
 
+	if ((msm_audio_ion_data.smmu_enabled == true) &&
+	    (msm_audio_ion_data.group == NULL)) {
+		pr_debug("%s:probe is not done, deferred\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
 	*client = msm_audio_ion_client_create(UINT_MAX, name);
 	if (IS_ERR_OR_NULL((void *)(*client))) {
 		pr_err("%s: ION create client for AUDIO failed\n", __func__);
@@ -96,8 +102,10 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 
 err_ion_handle:
 	ion_free(*client, *handle);
+	*handle = NULL;
 err_ion_client:
 	msm_audio_ion_client_destroy(*client);
+	*client = NULL;
 err:
 	return -EINVAL;
 }
