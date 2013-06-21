@@ -6223,8 +6223,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 					taiko_enable_mbhc_micbias,
-					WCD9XXX_MBHC_VERSION_TAIKO,
-					rco_clk_rate);
+					NULL, rco_clk_rate);
 		if (ret) {
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		} else {
@@ -6404,8 +6403,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 				taiko_enable_mbhc_micbias,
-				WCD9XXX_MBHC_VERSION_TAIKO,
-				rco_clk_rate);
+				NULL, rco_clk_rate);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_init;
