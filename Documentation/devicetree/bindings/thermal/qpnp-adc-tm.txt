@@ -95,6 +95,7 @@ Required properties:
 			8 : 256
 - qcom,btm-channel-number : There are 5 BTM channels. The BTM channel numbers are statically
 			    allocated to the corresponding channel node.
+- qcom,adc_tm-vadc : phandle to the corresponding VADC device to read the ADC channels.
 
 Example:
 	/* Main Node */
@@ -111,6 +112,7 @@ Example:
 					  "low-thr-en-set";
                         qcom,adc-bit-resolution = <15>;
                         qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8941_vadc>;
 
 			/* Channel Node to be registered as part of thermal sysfs */
                         chan@b5 {

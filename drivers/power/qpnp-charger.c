@@ -328,6 +328,7 @@ struct qpnp_chg_chip {
 	struct wake_lock		eoc_wake_lock;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
+	struct qpnp_vadc_chip		*vadc_dev;
 };
 
 
@@ -1331,7 +1332,7 @@ get_prop_battery_voltage_now(struct qpnp_chg_chip *chip)
 		pr_err("vbat reading not supported for 1.0 rc=%d\n", rc);
 		return 0;
 	} else {
-		rc = qpnp_vadc_read(VBAT_SNS, &results);
+		rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &results);
 		if (rc) {
 			pr_err("Unable to read vbat rc=%d\n", rc);
 			return 0;
@@ -1524,7 +1525,7 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
 		return DEFAULT_TEMP;
 
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &results);
 	if (rc) {
 		pr_debug("Unable to read batt temperature rc=%d\n", rc);
 		return 0;
@@ -2672,7 +2673,7 @@ qpnp_chg_load_battery_data(struct qpnp_chg_chip *chip)
 			"qcom,battery-data");
 	if (node) {
 		memset(&batt_data, 0, sizeof(struct bms_battery_data));
-		rc = qpnp_vadc_read(LR_MUX2_BAT_ID, &result);
+		rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX2_BAT_ID, &result);
 		if (rc) {
 			pr_err("error reading batt id channel = %d, rc = %d\n",
 						LR_MUX2_BAT_ID, rc);
@@ -3140,14 +3141,18 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		if (subtype == SMBB_BAT_IF_SUBTYPE ||
 			subtype == SMBBP_BAT_IF_SUBTYPE ||
-			subtype == SMBCL_BAT_IF_SUBTYPE){
-			rc = qpnp_vadc_is_ready();
-			if (rc)
+			subtype == SMBCL_BAT_IF_SUBTYPE) {
+			chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
+			if (IS_ERR(chip->vadc_dev)) {
+				rc = PTR_ERR(chip->vadc_dev);
+				if (rc != -EPROBE_DEFER)
+					pr_err("vadc property missing\n");
 				goto fail_chg_enable;
 
 			rc = qpnp_chg_load_battery_data(chip);
 			if (rc)
 				goto fail_chg_enable;
+			}
 		}
 	}
 

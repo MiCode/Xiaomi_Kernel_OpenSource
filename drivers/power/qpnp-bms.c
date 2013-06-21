@@ -276,6 +276,7 @@ struct qpnp_bms_chip {
 	bool				battery_removed;
 	struct bms_irq			sw_cc_thr_irq;
 	struct bms_irq			ocv_thr_irq;
+	struct qpnp_vadc_chip		*vadc_dev;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -481,7 +482,7 @@ static inline int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 	pr_debug("%u raw converted into %lld uv\n", reading, uv);
 	uv = adjust_vbatt_reading(chip, uv);
 	pr_debug("adjusted into %lld uv\n", uv);
-	rc = qpnp_vbat_sns_comp_result(&uv);
+	rc = qpnp_vbat_sns_comp_result(chip->vadc_dev, &uv);
 	if (rc)
 		pr_debug("could not compensate vbatt\n");
 	pr_debug("compensated into %lld uv\n", uv);
@@ -596,12 +597,12 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 	return 0;
 }
 
-static int get_battery_voltage(int *result_uv)
+static int get_battery_voltage(struct qpnp_bms_chip *chip, int *result_uv)
 {
 	int rc;
 	struct qpnp_vadc_result adc_result;
 
-	rc = qpnp_vadc_read(VBAT_SNS, &adc_result);
+	rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &adc_result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					VBAT_SNS, rc);
@@ -655,14 +656,14 @@ static int calib_vadc(struct qpnp_bms_chip *chip)
 	int rc, raw_0625, raw_1250;
 	struct qpnp_vadc_result result;
 
-	rc = qpnp_vadc_read(REF_625MV, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, REF_625MV, &result);
 	if (rc) {
 		pr_debug("vadc read failed with rc = %d\n", rc);
 		return rc;
 	}
 	raw_0625 = result.adc_code;
 
-	rc = qpnp_vadc_read(REF_125V, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, REF_125V, &result);
 	if (rc) {
 		pr_debug("vadc read failed with rc = %d\n", rc);
 		return rc;
@@ -807,7 +808,7 @@ static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 			pr_err("bms current read failed with rc: %d\n", rc);
 			return rc;
 		}
-		rc = qpnp_vadc_read(VBAT_SNS, &v_result);
+		rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &v_result);
 		if (rc) {
 			pr_err("vadc read failed with rc: %d\n", rc);
 			return rc;
@@ -1049,7 +1050,7 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc,
 
 	software_counter = cc_type == SHDW_CC ?
 			&chip->software_shdw_cc_uah : &chip->software_cc_uah;
-	rc = qpnp_vadc_read(DIE_TEMP, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, DIE_TEMP, &result);
 	if (rc) {
 		pr_err("could not read pmic die temperature: %d\n", rc);
 		return *software_counter;
@@ -1430,7 +1431,7 @@ static int get_prop_bms_charge_full(struct qpnp_bms_chip *chip)
 	int rc;
 	struct qpnp_vadc_result result;
 
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
 	if (rc) {
 		pr_err("Unable to read battery temperature\n");
 		return rc;
@@ -1689,7 +1690,7 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	int rc;
 	bool charging, charging_since_last_report;
 
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
 
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
@@ -2059,7 +2060,7 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 {
 	int rc, vbat_uv;
 
-	rc = get_battery_voltage(&vbat_uv);
+	rc = get_battery_voltage(chip, &vbat_uv);
 	if (rc < 0) {
 		pr_err("adc vbat failed err = %d\n", rc);
 		return soc;
@@ -2318,7 +2319,7 @@ static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
 	int rc, vbat_uv;
 
-	rc = get_battery_voltage(&vbat_uv);
+	rc = get_battery_voltage(chip, &vbat_uv);
 	if (rc < 0) {
 		pr_err("adc vbat failed err = %d\n", rc);
 		return rc;
@@ -2358,7 +2359,8 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	} else {
 		if (!chip->batfet_closed)
 			qpnp_iadc_calibrate_for_trim(true);
-		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+		rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM,
+								&result);
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
 						LR_MUX1_BATT_THERM, rc);
@@ -2511,10 +2513,10 @@ static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
 	struct qpnp_vadc_result result;
 	int rc;
 
-	rc = qpnp_vadc_read(VBAT_SNS, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &result);
 	pr_debug("vbat = %lld, raw = 0x%x\n", result.physical, result.adc_code);
 
-	get_battery_voltage(&vbat_uv);
+	get_battery_voltage(chip, &vbat_uv);
 	pr_debug("vbat is at %d, state is at %d\n", vbat_uv, state);
 
 	if (state == ADC_TM_LOW_STATE) {
@@ -2892,7 +2894,7 @@ static void fcc_learning_config(struct qpnp_bms_chip *chip, bool start)
 	struct qpnp_vadc_result result;
 	int fcc_uah, new_fcc_uah, delta_cc_uah, delta_soc;
 
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
 	if (rc) {
 		pr_err("Unable to read batt_temp\n");
 		return;
@@ -3291,7 +3293,7 @@ static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 	int rc;
 	struct qpnp_vadc_result result;
 
-	rc = qpnp_vadc_read(LR_MUX2_BAT_ID, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX2_BAT_ID, &result);
 	if (rc) {
 		pr_err("error reading batt id channel = %d, rc = %d\n",
 					LR_MUX2_BAT_ID, rc);
@@ -3726,7 +3728,7 @@ static int refresh_die_temp_monitor(struct qpnp_bms_chip *chip)
 	struct qpnp_vadc_result result;
 	int rc;
 
-	rc = qpnp_vadc_read(DIE_TEMP, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, DIE_TEMP, &result);
 
 	pr_debug("low = %lld, high = %lld\n",
 			result.physical - chip->temperature_margin,
@@ -3746,7 +3748,7 @@ static void btm_notify_die_temp(enum qpnp_tm_state state, void *ctx)
 	struct qpnp_vadc_result result;
 	int rc;
 
-	rc = qpnp_vadc_read(DIE_TEMP, &result);
+	rc = qpnp_vadc_read(chip->vadc_dev, DIE_TEMP, &result);
 
 	if (state == ADC_TM_LOW_STATE)
 		pr_debug("low state triggered\n");
@@ -3792,10 +3794,11 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	rc = qpnp_vadc_is_ready();
-	if (rc) {
-		pr_info("vadc not ready: %d, deferring probe\n", rc);
-		rc = -EPROBE_DEFER;
+	chip->vadc_dev = qpnp_get_vadc(&(spmi->dev), "bms");
+	if (IS_ERR(chip->vadc_dev)) {
+		rc = PTR_ERR(chip->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc property missing, rc=%d\n", rc);
 		goto error_read;
 	}
 
@@ -3956,7 +3959,7 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 
 	chip->bms_psy_registered = true;
 	vbatt = 0;
-	rc = get_battery_voltage(&vbatt);
+	rc = get_battery_voltage(chip, &vbatt);
 	if (rc) {
 		pr_err("error reading vbat_sns adc channel = %d, rc = %d\n",
 						VBAT_SNS, rc);

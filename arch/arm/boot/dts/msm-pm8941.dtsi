@@ -39,6 +39,7 @@
 		label = "pm8941_tz";
 		qcom,channel-num = <8>;
 		qcom,threshold-set = <0>;
+		qcom,temp_alarm-vadc = <&pm8941_vadc>;
 	};
 
 	qcom,power-on@800 {
@@ -100,6 +101,7 @@
 		qcom,min-clock-period = <1000>;
 		qcom,max-clock-period = <160000>;
 		qcom,sample-rate = <4>;
+		qcom,bsi-vadc = <&pm8941_vadc>;
 	};
 
 	pm8941_coincell: qcom,coincell@2800 {
@@ -132,6 +134,7 @@
 		qcom,low-ocv-correction-limit-uv = <100>;
 		qcom,high-ocv-correction-limit-uv = <50>;
 		qcom,hold-soc-est = <3>;
+		qcom,bms-vadc = <&pm8941_vadc>;
 
 		qcom,bms-iadc@3800 {
 			reg = <0x3800 0x100>;
@@ -200,6 +203,7 @@
 		qcom,vbatdet-delta-mv = <100>;
 		qcom,resume-soc = <99>;
 		qcom,tchg-mins = <150>;
+		qcom,chg-vadc = <&pm8941_vadc>;
 
 		qcom,chgr@1000 {
 			status = "disabled";
@@ -806,6 +810,7 @@
 		interrupt-names = "eoc-int-en-set";
 		qcom,adc-bit-resolution = <16>;
 		qcom,adc-vdd-reference = <1800>;
+		qcom,iadc-vadc = <&pm8941_vadc>;
 
 		chan@0 {
 			label = "internal_rsense";
@@ -832,6 +837,7 @@
 					"low-thr-en-set";
 		qcom,adc-bit-resolution = <15>;
 		qcom,adc-vdd-reference = <1800>;
+		qcom,adc_tm-vadc = <&pm8941_vadc>;
 
 		/* Channel Node */
 		chan@b9 {

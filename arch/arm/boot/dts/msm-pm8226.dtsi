@@ -83,6 +83,7 @@
 			qcom,thermal-mitigation = <1500 700 600 325>;
 			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
+			qcom,chg-vadc = <&pm8226_vadc>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
@@ -196,6 +197,7 @@
 			qcom,high-ocv-correction-limit-uv = <50>;
 			qcom,hold-soc-est = <3>;
 			qcom,low-voltage-threshold = <3420000>;
+			qcom,bms-vadc = <&pm8226_vadc>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
@@ -396,7 +398,7 @@
 			};
 		};
 
-		iadc@3600 {
+		pm8226_iadc: iadc@3600 {
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
 			#address-cells = <1>;
@@ -405,6 +407,7 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <16>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,iadc-vadc = <&pm8226_vadc>;
 
 			chan@0 {
 				label = "internal_rsense";
@@ -431,6 +434,7 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8226_vadc>;
 		};
 
 		qcom,temp-alarm@2400 {
@@ -440,6 +444,7 @@
 			label = "pm8226_tz";
 			qcom,channel-num = <8>;
 			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8226_vadc>;
 		};
 
 		qcom,pm8226_rtc {
