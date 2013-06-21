@@ -53,8 +53,6 @@ static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 	item = kmalloc(sizeof(struct ion_page_pool_item), GFP_KERNEL);
 	if (!item)
 		return -ENOMEM;
-
-	mutex_lock(&pool->mutex);
 	item->page = page;
 	if (PageHighMem(page)) {
 		list_add_tail(&item->list, &pool->high_items);
@@ -63,7 +61,6 @@ static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 		list_add_tail(&item->list, &pool->low_items);
 		pool->low_count++;
 	}
-	mutex_unlock(&pool->mutex);
 	return 0;
 }
 
@@ -113,7 +110,9 @@ void ion_page_pool_free(struct ion_page_pool *pool, struct page* page)
 {
 	int ret;
 
+	mutex_lock(&pool->mutex);
 	ret = ion_page_pool_add(pool, page);
+	mutex_unlock(&pool->mutex);
 	if (ret)
 		ion_page_pool_free_pages(pool, page);
 }
