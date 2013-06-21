@@ -153,7 +153,6 @@ struct usb_bam_ipa_handshake_info {
 	bool prod_stopped;
 
 	struct completion prod_avail[MAX_BAMS];
-	struct completion cons_avail[MAX_BAMS];
 	struct completion cons_released[MAX_BAMS];
 	struct completion prod_released[MAX_BAMS];
 
@@ -878,7 +877,6 @@ static int cons_request_resource(enum usb_bam cur_bam)
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	info.cur_cons_state[cur_bam] = IPA_RM_RESOURCE_GRANTED;
-	complete_all(&info.cons_avail[cur_bam]);
 
 	spin_lock(&usb_bam_lock);
 
@@ -1024,7 +1022,7 @@ static void usb_bam_ipa_create_resources(void)
 	}
 }
 
-static void wait_for_prod_granted(enum usb_bam cur_bam, bool start_cons)
+static void wait_for_prod_granted(enum usb_bam cur_bam)
 {
 	int ret;
 
@@ -1038,8 +1036,6 @@ static void wait_for_prod_granted(enum usb_bam cur_bam, bool start_cons)
 			__func__);
 
 	init_completion(&info.prod_avail[cur_bam]);
-	if (start_cons)
-		init_completion(&info.cons_avail[cur_bam]);
 
 	ret = ipa_rm_request_resource(ipa_rm_resource_prod[cur_bam]);
 	if (!ret) {
@@ -1056,42 +1052,20 @@ static void wait_for_prod_granted(enum usb_bam cur_bam, bool start_cons)
 		pr_err("%s: ipa_rm_request_resource ret =%d\n", __func__, ret);
 }
 
-void wait_for_cons_granted(enum usb_bam cur_bam)
+void notify_usb_connected(enum usb_bam cur_bam)
 {
-	pr_debug("%s: Waiting for CONS\n", __func__);
-	if (info.cur_cons_state[cur_bam] != IPA_RM_RESOURCE_GRANTED) {
-		if (!wait_for_completion_timeout(&info.cons_avail[cur_bam],
-						USB_BAM_TIMEOUT))
-			pr_err("%s: Timeout wainting for CONS_REQUEST\n",
-			__func__);
-		pr_err("%s: Finished waiting for CONS\n", __func__);
-	}
+	pr_debug("%s: enter\n", __func__);
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	if (cur_bam == HSUSB_BAM)
 		info.connect_complete = 1;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
-	pr_debug("%s: CONS is granted\n", __func__);
 
 	if (info.cur_cons_state[HSUSB_BAM] == IPA_RM_RESOURCE_GRANTED) {
 		pr_debug("%s: Notify CONS_GRANTED\n", __func__);
 		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
 				 ipa_rm_resource_cons[HSUSB_BAM]);
 	}
-}
-
-void usb_bam_wait_for_cons_granted(
-	struct usb_bam_connect_ipa_params *ipa_params)
-{
-	struct usb_bam_pipe_connect *pipe_connect;
-	enum usb_bam cur_bam;
-	u8 src_idx;
-
-	src_idx = ipa_params->src_idx;
-	pipe_connect = &usb_bam_connections[src_idx];
-	cur_bam = pipe_connect->bam_type;
-
-	wait_for_cons_granted(cur_bam);
 }
 
 static void wait_for_prod_release(enum usb_bam cur_bam)
@@ -1270,8 +1244,8 @@ static void usb_bam_finish_resume(struct work_struct *w)
 	info.lpm_wait_handshake[HSUSB_BAM] = true;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
-	wait_for_prod_granted(HSUSB_BAM, true);
-	wait_for_cons_granted(HSUSB_BAM);
+	wait_for_prod_granted(HSUSB_BAM);
+	notify_usb_connected(HSUSB_BAM);
 	if (info.cons_stopped) {
 		ipa_resume_pipes();
 		if (info.start) {
@@ -1339,7 +1313,7 @@ void msm_bam_wait_for_hsic_prod_granted(void)
 	usb_bam_resume_hsic_host();
 
 	/* Ensure getting the producer resource */
-	wait_for_prod_granted(HSIC_BAM, false);
+	wait_for_prod_granted(HSIC_BAM);
 }
 
 void msm_bam_hsic_notify_on_resume(void)
@@ -1500,7 +1474,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 	if (ipa_params->dir == USB_TO_PEER_PERIPHERAL) {
 		pr_debug("%s: Starting connect sequence\n", __func__);
-		wait_for_prod_granted(cur_bam, true);
+		wait_for_prod_granted(cur_bam);
 	}
 
 	ret = connect_pipe_ipa(idx, ipa_params);
@@ -1524,7 +1498,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	ctx.pipes_enabled_per_bam[cur_bam] += 1;
 	spin_unlock(&usb_bam_lock);
 	if (ipa_params->dir == PEER_PERIPHERAL_TO_USB && cur_bam == HSUSB_BAM)
-		wait_for_cons_granted(cur_bam);
+		notify_usb_connected(cur_bam);
 
 	if (cur_bam == HSUSB_BAM)
 		mutex_unlock(&info.suspend_resume_mutex);
@@ -1586,7 +1560,7 @@ static void usb_bam_work(struct work_struct *w)
 		if (pipe_connect->peer_bam == IPA_P_BAM &&
 		    pipe_connect->bam_type == HSIC_BAM &&
 		    info.cur_prod_state[HSIC_BAM] != IPA_RM_RESOURCE_GRANTED) {
-			wait_for_prod_granted(HSIC_BAM, false);
+			wait_for_prod_granted(HSIC_BAM);
 		}
 
 		/*
@@ -1618,7 +1592,7 @@ static void usb_bam_work(struct work_struct *w)
 
 		if (pipe_connect->bam_type == HSUSB_BAM) {
 			/* A2 wakeup not from LPM (CONS was up) */
-			wait_for_prod_granted(pipe_connect->bam_type, true);
+			wait_for_prod_granted(pipe_connect->bam_type);
 			if (info.start) {
 				pr_debug("%s: Enqueue PROD transfer", __func__);
 				info.start(info.start_stop_param,
@@ -2568,8 +2542,6 @@ static int usb_bam_probe(struct platform_device *pdev)
 		ctx.is_bam_inactivity[i] = false;
 		init_completion(&info.prod_avail[i]);
 		complete(&info.prod_avail[i]);
-		init_completion(&info.cons_avail[i]);
-		complete(&info.cons_avail[i]);
 		init_completion(&info.cons_released[i]);
 		complete(&info.cons_released[i]);
 		init_completion(&info.prod_released[i]);
