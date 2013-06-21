@@ -411,33 +411,14 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	lock_sock(sk);
 	timeout = sk->sk_rcvtimeo;
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
-	while (list_empty(&port_ptr->port_rx_q)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
-		release_sock(sk);
-		if (timeout < 0) {
-			ret = wait_event_interruptible(
-					port_ptr->port_rx_wait_q,
-					!list_empty(&port_ptr->port_rx_q));
-			if (ret)
-				return ret;
-		} else if (timeout > 0) {
-			timeout = wait_event_interruptible_timeout(
-					port_ptr->port_rx_wait_q,
-					!list_empty(&port_ptr->port_rx_q),
-					timeout);
-			if (timeout < 0)
-				return -EFAULT;
-		}
 
-		if (timeout == 0) {
+	ret = msm_ipc_router_rx_data_wait(port_ptr, timeout);
+	if (ret) {
+		release_sock(sk);
+		if (ret == -ENOMSG)
 			m->msg_namelen = 0;
-			return 0;
-		}
-		lock_sock(sk);
-		mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+		return ret;
 	}
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
 
 	ret = msm_ipc_router_read(port_ptr, &msg, buf_len);
 	if (ret <= 0 || !msg) {
