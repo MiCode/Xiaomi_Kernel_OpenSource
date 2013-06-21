@@ -519,6 +519,36 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 		spin_unlock_irqrestore(&cpp_dev->tasklet_lock, flags);
 
 		tasklet_schedule(&cpp_dev->cpp_tasklet);
+	} else if (irq_status & 0x7C0) {
+		pr_err("%s: fatal error: 0x%x\n", __func__, irq_status);
+		pr_err("%s: DEBUG_SP: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x40));
+		pr_err("%s: DEBUG_T: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x44));
+		pr_err("%s: DEBUG_N: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x48));
+		pr_err("%s: DEBUG_R: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4C));
+		pr_err("%s: DEBUG_OPPC: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x50));
+		pr_err("%s: DEBUG_MO: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x54));
+		pr_err("%s: DEBUG_TIMER0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x60));
+		pr_err("%s: DEBUG_TIMER1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x64));
+		pr_err("%s: DEBUG_GPI: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x70));
+		pr_err("%s: DEBUG_GPO: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x74));
+		pr_err("%s: DEBUG_T0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x80));
+		pr_err("%s: DEBUG_R0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x84));
+		pr_err("%s: DEBUG_T1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
+		pr_err("%s: DEBUG_R1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
 	}
 	msm_camera_io_w(irq_status, cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
 	return IRQ_HANDLED;
@@ -562,6 +592,17 @@ void msm_cpp_do_tasklet(unsigned long data)
 				if (msg_id == MSM_CPP_MSG_ID_FRAME_ACK) {
 					CPP_DBG("Frame done!!\n");
 					/* delete CPP timer */
+					CPP_DBG("delete timer %d.\n",
+						del_timer_idx);
+					timer = &cpp_timers[del_timer_idx];
+					del_timer(&timer->cpp_timer);
+					timer->used = 0;
+					timer->data.processed_frame = NULL;
+					del_timer_idx = 1 - del_timer_idx;
+					msm_cpp_notify_frame_done(cpp_dev);
+				} else if (msg_id ==
+					MSM_CPP_MSG_ID_FRAME_NACK) {
+					pr_err("NACK error from hw!!\n");
 					CPP_DBG("delete timer %d.\n",
 						del_timer_idx);
 					timer = &cpp_timers[del_timer_idx];
@@ -659,7 +700,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		disable_irq(cpp_dev->irq->start);
 		cpp_load_fw(cpp_dev, NULL);
 		enable_irq(cpp_dev->irq->start);
-		msm_camera_io_w_mb(0x8, cpp_dev->base +
+		msm_camera_io_w_mb(0x7C8, cpp_dev->base +
 			MSM_CPP_MICRO_IRQGEN_MASK);
 		msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
 			MSM_CPP_MICRO_IRQGEN_CLR);
@@ -739,8 +780,8 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		msm_cpp_write(MSM_CPP_END_ADDRESS, cpp_dev->base);
 		msm_cpp_write(MSM_CPP_START_ADDRESS, cpp_dev->base);
 
-		for (i = 0; i < fw->size/4; i++) {
-			if (ptr_bin) {
+		if (ptr_bin) {
+			for (i = 0; i < fw->size/4; i++) {
 				msm_cpp_write(*ptr_bin, cpp_dev->base);
 				ptr_bin++;
 			}
@@ -848,6 +889,36 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	cpp_dev->cpp_open_cnt--;
 	if (cpp_dev->cpp_open_cnt == 0) {
+		pr_err("%s: irq_status: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4));
+		pr_err("%s: DEBUG_SP: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x40));
+		pr_err("%s: DEBUG_T: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x44));
+		pr_err("%s: DEBUG_N: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x48));
+		pr_err("%s: DEBUG_R: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4C));
+		pr_err("%s: DEBUG_OPPC: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x50));
+		pr_err("%s: DEBUG_MO: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x54));
+		pr_err("%s: DEBUG_TIMER0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x60));
+		pr_err("%s: DEBUG_TIMER1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x64));
+		pr_err("%s: DEBUG_GPI: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x70));
+		pr_err("%s: DEBUG_GPO: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x74));
+		pr_err("%s: DEBUG_T0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x80));
+		pr_err("%s: DEBUG_R0: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x84));
+		pr_err("%s: DEBUG_T1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
+		pr_err("%s: DEBUG_R1: 0x%x\n", __func__,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 		cpp_deinit_mem(cpp_dev);
 		iommu_detach_device(cpp_dev->domain, cpp_dev->iommu_ctx);
@@ -1210,7 +1281,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 			&buff_mgr_info);
 		if (rc < 0) {
 			rc = -EAGAIN;
-			pr_err("error getting buffer rc:%d\n", rc);
+			pr_debug("error getting buffer rc:%d\n", rc);
 			goto ERROR2;
 		}
 		new_frame->output_buffer_info[1].index = buff_mgr_info.index;
@@ -1702,7 +1773,7 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 					   MSM_CPP_MICRO_IRQGEN_MASK);
 	msm_camera_io_w(0xFFFF, cpp_dev->base +
 					   MSM_CPP_MICRO_IRQGEN_CLR);
-
+	msm_camera_io_w(0x80000000, cpp_dev->base + 0xF0);
 	cpp_release_hardware(cpp_dev);
 	cpp_dev->state = CPP_STATE_OFF;
 	msm_cpp_enable_debugfs(cpp_dev);
