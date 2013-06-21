@@ -749,6 +749,10 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 
+	ret = snd_soc_of_parse_card_name(card, "qcom,model");
+	if (ret)
+		goto err;
+
 	ret = snd_soc_of_parse_audio_routing(card,
 			"qcom,audio-routing");
 	if (ret)
