@@ -826,20 +826,16 @@ int mdp3_put_img(struct mdp3_img_data *data)
 	struct ion_client *iclient = mdp3_res->ion_client;
 	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
 
-	if (!data->srcp_file) {
-		pr_debug("No img to put\n");
-		return 0;
-	}
-	if (data->flags & MDP_BLIT_SRC_GEM) {
-		pr_debug("memory source MDP_BLIT_SRC_GEM\n");
-	} else if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
-		pr_debug("fb mem buf=0x%x\n", data->addr);
+	 if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
+		pr_info("mdp3_put_img fb mem buf=0x%x\n", data->addr);
 		fput_light(data->srcp_file, data->p_need);
 		data->srcp_file = NULL;
-	} else {
+	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
 		ion_unmap_iommu(iclient, data->srcp_ihdl, dom, 0);
 		ion_free(iclient, data->srcp_ihdl);
 		data->srcp_ihdl = NULL;
+	} else {
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -855,16 +851,9 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data)
 
 	start = (unsigned long *) &data->addr;
 	len = (unsigned long *) &data->len;
-	data->flags |= img->flags;
+	data->flags = img->flags;
 	data->p_need = 0;
 
-	if (img->flags & MDP_BLIT_SRC_GEM) {
-		data->srcp_file = NULL;
-		ret = kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
-					&data->addr, &data->len);
-		if (!ret)
-			goto done;
-	}
 	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &data->p_need);
 		if (file == NULL) {
@@ -889,8 +878,7 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data)
 		data->srcp_file = file;
 		if (!ret)
 			goto done;
-	}
-	if (iclient) {
+	} else if (iclient) {
 		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
 		if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
 			pr_err("error on ion_import_fd\n");
