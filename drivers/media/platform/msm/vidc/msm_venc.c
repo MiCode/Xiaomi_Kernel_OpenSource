@@ -1877,7 +1877,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
-	inst->prop.fps = 30;
+	inst->prop.fps = 15;
 	return rc;
 }
 
