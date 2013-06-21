@@ -37,4 +37,16 @@
 
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
+    i2c@f9925000 {
+		fsl@1c {
+			compatible = "fsl,mma8x5x";
+			reg = <0x1c>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <81 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			fsl,irq-gpio = <&msmgpio 81 0x00>;
+			fsl,sensors-position = <5>;
+		};
+	};
 };
