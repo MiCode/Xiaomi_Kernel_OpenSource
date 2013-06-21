@@ -1236,6 +1236,15 @@ config MSM_PIL_VPU
 	  VPU is the Video Processing subsystem processor used for
 	  video processing.
 
+config MSM_PIL_BCSS
+	tristate "BCSS (Broadcast Subsystem Boot Support)"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutdown the Broadcast subsystem demodulator.
+
+	  BCSS is the Broadcast subsystem processor to receive and process the
+	  Analog/Digital broadcast data from tuners / external demodulator.
+
 config MSM_PIL_GSS
 	tristate "GSS (Cortex A5) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART

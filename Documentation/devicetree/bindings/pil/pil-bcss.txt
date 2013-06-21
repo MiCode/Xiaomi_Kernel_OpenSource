@@ -1,0 +1,17 @@
+* Broadcast Subsystem Peripheral Image Loader
+
+pil-bcss is a peripheral image loading (PIL) driver. It is used for loading
+and authenticating broadcast demodulator firmware images.
+
+Required properties:
+- compatible: "pil-bcss"
+- qcom,firmware-name: Base name of the firmware image. Ex. "bcss"
+
+Example:
+
+	qcom,pil-bcss {
+		compatible = "qcom,pil-bcss";
+
+		qcom,firmware-name = "bcss";
+	};
+
