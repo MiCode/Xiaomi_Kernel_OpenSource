@@ -131,6 +131,15 @@
 #define VREF_LDO_BIT_POS	0
 #define VREF_LDO_MASK		KRAIT_MASK(6, 0)
 
+#define PWR_GATE_SWITCH_MODE_POS	4
+#define PWR_GATE_SWITCH_MODE_MASK	KRAIT_MASK(6, 4)
+
+#define PWR_GATE_SWITCH_MODE_PC		0
+#define PWR_GATE_SWITCH_MODE_LDO	1
+#define PWR_GATE_SWITCH_MODE_BHS	2
+#define PWR_GATE_SWITCH_MODE_DT		3
+#define PWR_GATE_SWITCH_MODE_RET	4
+
 #define LDO_HDROOM_MIN		50000
 #define LDO_HDROOM_MAX		250000
 
@@ -144,6 +153,10 @@
 #define LDO_DELTA_MAX		100000
 
 #define MSM_L2_SAW_PHYS		0xf9012000
+#define MSM_MDD_BASE_PHYS	0xf908a800
+
+#define KPSS_VERSION_2P0	0x20000000
+
 /**
  * struct pmic_gang_vreg -
  * @name:			the string used to represent the gang
@@ -580,35 +593,55 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 	if (kvreg->mode == HS_MODE)
 		return 0;
 	/* enable bhs */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL, BHS_EN_MASK, BHS_EN_MASK);
-	/* complete the above write before the delay */
-	mb();
-	/* wait for the bhs to settle */
-	udelay(BHS_SETTLING_DELAY_US);
+	if (version > KPSS_VERSION_2P0) {
+		krait_masked_write(kvreg, APC_PWR_GATE_MODE,
+			PWR_GATE_SWITCH_MODE_MASK,
+			PWR_GATE_SWITCH_MODE_BHS << PWR_GATE_SWITCH_MODE_POS);
 
-	/* Turn on BHS segments */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
-		BHS_SEG_EN_MASK, BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS);
+		/* complete the writes before the delay */
+		mb();
 
-	/* complete the above write before the delay */
-	mb();
+		/* wait for the bhs to settle */
+		udelay(BHS_SETTLING_DELAY_US);
+	} else {
+		/* enable bhs */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL,
+						BHS_EN_MASK, BHS_EN_MASK);
 
-	/*
-	 * wait for the bhs to settle - note that
-	 * after the voltage has settled both BHS and LDO are supplying power
-	 * to the krait. This avoids glitches during switching
-	 */
-	udelay(BHS_SETTLING_DELAY_US);
+		/* complete the above write before the delay */
+		mb();
 
-	/*
-	 * enable ldo bypass - the krait is powered still by LDO since
-	 * LDO is enabled
-	 */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL, LDO_BYP_MASK, LDO_BYP_MASK);
+		/* wait for the bhs to settle */
+		udelay(BHS_SETTLING_DELAY_US);
 
-	/* disable ldo - only the BHS provides voltage to the cpu after this */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
+		/* Turn on BHS segments */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL, BHS_SEG_EN_MASK,
+				BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS);
+
+		/* complete the above write before the delay */
+		mb();
+
+		/*
+		 * wait for the bhs to settle - note that
+		 * after the voltage has settled both BHS and LDO are supplying
+		 * power to the krait. This avoids glitches during switching
+		 */
+		udelay(BHS_SETTLING_DELAY_US);
+
+		/*
+		 * enable ldo bypass - the krait is powered still by LDO since
+		 * LDO is enabled
+		 */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL,
+				LDO_BYP_MASK, LDO_BYP_MASK);
+
+		/*
+		 * disable ldo - only the BHS provides voltage to
+		 * the cpu after this
+		 */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL,
 				LDO_PWR_DWN_MASK, LDO_PWR_DWN_MASK);
+	}
 
 	kvreg->mode = HS_MODE;
 	pr_debug("%s using BHS\n", kvreg->name);
@@ -629,27 +662,39 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 		switch_to_using_hs(kvreg);
 
 	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
+	if (version > KPSS_VERSION_2P0) {
+		krait_masked_write(kvreg, APC_PWR_GATE_MODE,
+			PWR_GATE_SWITCH_MODE_MASK,
+			PWR_GATE_SWITCH_MODE_LDO << PWR_GATE_SWITCH_MODE_POS);
 
-	/*
-	 * enable ldo - note that both LDO and BHS are are supplying voltage to
-	 * the cpu after this. This avoids glitches during switching from BHS
-	 * to LDO.
-	 */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL, LDO_PWR_DWN_MASK, 0);
+		/* complete the writes before the delay */
+		mb();
 
-	/* complete the writes before the delay */
-	mb();
+		/* wait for the ldo to settle */
+		udelay(LDO_SETTLING_DELAY_US);
+	} else {
+		/*
+		 * enable ldo - note that both LDO and BHS are are supplying
+		 * voltage to the cpu after this. This avoids glitches during
+		 * switching from BHS to LDO.
+		 */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL,
+						LDO_PWR_DWN_MASK, 0);
 
-	/* wait for the ldo to settle */
-	udelay(LDO_SETTLING_DELAY_US);
+		/* complete the writes before the delay */
+		mb();
 
-	/*
-	 * disable BHS and disable LDO bypass seperate from enabling
-	 * the LDO above.
-	 */
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
-		BHS_EN_MASK | LDO_BYP_MASK, 0);
-	krait_masked_write(kvreg, APC_PWR_GATE_CTL, BHS_SEG_EN_MASK, 0);
+		/* wait for the ldo to settle */
+		udelay(LDO_SETTLING_DELAY_US);
+
+		/*
+		 * disable BHS and disable LDO bypass seperate from enabling
+		 * the LDO above.
+		 */
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL,
+			BHS_EN_MASK | LDO_BYP_MASK, 0);
+		krait_masked_write(kvreg, APC_PWR_GATE_CTL, BHS_SEG_EN_MASK, 0);
+	}
 
 	kvreg->mode = LDO_MODE;
 	pr_debug("%s using LDO\n", kvreg->name);
@@ -993,22 +1038,34 @@ static int set_retention_dbg_uV(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(retention_fops,
 			get_retention_dbg_uV, set_retention_dbg_uV, "%llu\n");
 
+static void kvreg_ldo_voltage_init(struct krait_power_vreg *kvreg)
+{
+	set_krait_retention_uv(kvreg, kvreg->retention_uV);
+	set_krait_ldo_uv(kvreg, kvreg->ldo_default_uV);
+}
+
 #define CPU_PWR_CTL_ONLINE_MASK 0x80
 static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 {
-	int online;
-	/*
-	 * bhs_cnt value sets the ramp-up time from power collapse,
-	 * initialize the ramp up time
-	 */
-	set_krait_retention_uv(kvreg, kvreg->retention_uV);
-	set_krait_ldo_uv(kvreg, kvreg->ldo_default_uV);
-
 	/* setup the bandgap that configures the reference to the LDO */
 	writel_relaxed(0x00000190, kvreg->mdd_base + MDD_CONFIG_CTL);
 	/* Enable MDD */
 	writel_relaxed(0x00000002, kvreg->mdd_base + MDD_MODE);
 	mb();
+
+	if (version > KPSS_VERSION_2P0) {
+		/* Configure hardware sequencer delays. */
+		writel_relaxed(0x30430600, kvreg->reg_base + APC_PWR_GATE_DLY);
+
+		/* Enable the hardware sequencer in BHS mode. */
+		writel_relaxed(0x00000021, kvreg->reg_base + APC_PWR_GATE_MODE);
+	}
+}
+
+static void online_at_probe(struct krait_power_vreg *kvreg)
+{
+	int online;
+
 	online = CPU_PWR_CTL_ONLINE_MASK
 			& readl_relaxed(kvreg->reg_base + CPU_PWR_CTL);
 	kvreg->online_at_probe
@@ -1017,11 +1074,15 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 
 static void glb_init(void __iomem *apcs_gcc_base)
 {
-	/* configure bi-modal switch */
-	writel_relaxed(0x0008736E, apcs_gcc_base + PWR_GATE_CONFIG);
 	/* read kpss version */
 	version = readl_relaxed(apcs_gcc_base + VERSION);
 	pr_debug("version= 0x%x\n", version);
+
+	/* configure bi-modal switch */
+	if (version > KPSS_VERSION_2P0)
+		writel_relaxed(0x0308736E, apcs_gcc_base + PWR_GATE_CONFIG);
+	else
+		writel_relaxed(0x0008736E, apcs_gcc_base + PWR_GATE_CONFIG);
 }
 
 static int __devinit krait_power_probe(struct platform_device *pdev)
@@ -1179,6 +1240,14 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	list_add_tail(&kvreg->link, &the_gang->krait_power_vregs);
 	mutex_unlock(&the_gang->krait_power_vregs_lock);
 
+	online_at_probe(kvreg);
+	kvreg_ldo_voltage_init(kvreg);
+
+	if (kvreg->cpu_num == 0)
+		kvreg_hw_init(kvreg);
+
+	per_cpu(krait_vregs, cpu_num) = kvreg;
+
 	kvreg->rdev = regulator_register(&kvreg->desc, &pdev->dev, init_data,
 					 kvreg, pdev->dev.of_node);
 	if (IS_ERR(kvreg->rdev)) {
@@ -1187,8 +1256,6 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	kvreg_hw_init(kvreg);
-	per_cpu(krait_vregs, cpu_num) = kvreg;
 	dev_dbg(&pdev->dev, "id=%d, name=%s\n", pdev->id, kvreg->name);
 
 	return 0;
@@ -1426,10 +1493,29 @@ static void __exit krait_power_exit(void)
 }
 module_exit(krait_power_exit);
 
-void secondary_cpu_hs_init(void *base_ptr)
+#define GCC_BASE	0xF9011000
+
+/**
+ * secondary_cpu_hs_init - Initialize BHS and LDO registers
+ *				for nonboot cpu
+ *
+ * @base_ptr: address pointer to APC registers of a cpu
+ * @cpu: the cpu being brought out of reset
+ *
+ * seconday_cpu_hs_init() is called when a secondary cpu
+ * is being brought online for the first time. It is not
+ * called for boot cpu. It initializes power related
+ * registers and makes the core run from BHS.
+ * It also ends up turning on MDD which is required when the
+ * core switches to LDO mode
+ */
+void secondary_cpu_hs_init(void *base_ptr, int cpu)
 {
 	uint32_t reg_val;
 	void *l2_saw_base;
+	void *gcc_base_ptr;
+	void *mdd_base;
+	struct krait_power_vreg *kvreg;
 
 	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
 	reg_val =  BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
@@ -1438,14 +1524,23 @@ void secondary_cpu_hs_init(void *base_ptr)
 		| BHS_EN_MASK;
 	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 
-	/* complete the above write before the delay */
-	mb();
-	/* wait for the bhs to settle */
-	udelay(BHS_SETTLING_DELAY_US);
+	if (version == 0) {
+		gcc_base_ptr = ioremap_nocache(GCC_BASE, SZ_4K);
+		version = readl_relaxed(gcc_base_ptr + VERSION);
+		iounmap(gcc_base_ptr);
+	}
 
-	/* Turn on BHS segments */
-	reg_val |= BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS;
-	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
+	/* Turn on the BHS segments only for version < 2 */
+	if (version <= KPSS_VERSION_2P0) {
+		/* complete the above write before the delay */
+		mb();
+		/* wait for the bhs to settle */
+		udelay(BHS_SETTLING_DELAY_US);
+
+		/* Turn on BHS segments */
+		reg_val |= BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS;
+		writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
+	}
 
 	/* complete the above write before the delay */
 	mb();
@@ -1456,23 +1551,48 @@ void secondary_cpu_hs_init(void *base_ptr)
 	reg_val |= LDO_BYP_MASK;
 	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 
-	if (the_gang && the_gang->manage_phases)
-		return;
+	kvreg = per_cpu(krait_vregs, cpu);
+	if (kvreg != NULL) {
+		kvreg_hw_init(kvreg);
+	} else {
+		/*
+		 * This nonboot cpu has not been probed yet. This cpu was
+		 * brought out of reset as a part of maxcpus >= 2. Initialize
+		 * its MDD and APC_PWR_GATE_MODE register here
+		 */
+		mdd_base = ioremap_nocache(MSM_MDD_BASE_PHYS + cpu * 0x10000,
+				SZ_4K);
+		/* setup the bandgap that configures the reference to the LDO */
+		writel_relaxed(0x00000190, mdd_base + MDD_CONFIG_CTL);
+		/* Enable MDD */
+		writel_relaxed(0x00000002, mdd_base + MDD_MODE);
+		mb();
+		iounmap(mdd_base);
 
-	/*
-	 * If the driver has not yet started to manage phases then enable
-	 * max phases.
-	 */
-	l2_saw_base = ioremap_nocache(MSM_L2_SAW_PHYS, SZ_4K);
-	if (!l2_saw_base) {
-		__WARN();
-		return;
+		if (version > KPSS_VERSION_2P0) {
+			writel_relaxed(0x30430600, base_ptr + APC_PWR_GATE_DLY);
+			writel_relaxed(0x00000021,
+						base_ptr + APC_PWR_GATE_MODE);
+		}
+		mb();
 	}
-	writel_relaxed(0x10003, l2_saw_base + 0x1c);
-	mb();
-	udelay(PHASE_SETTLING_TIME_US);
 
-	iounmap(l2_saw_base);
+	if (!the_gang || !the_gang->manage_phases) {
+		/*
+		 * If the driver has not yet started to manage phases then
+		 * enable max phases.
+		 */
+		l2_saw_base = ioremap_nocache(MSM_L2_SAW_PHYS, SZ_4K);
+		if (l2_saw_base) {
+			writel_relaxed(0x10003, l2_saw_base + 0x1c);
+			mb();
+			udelay(PHASE_SETTLING_TIME_US);
+
+			iounmap(l2_saw_base);
+		} else {
+			__WARN();
+		}
+	}
 }
 
 MODULE_LICENSE("GPL v2");

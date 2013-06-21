@@ -147,10 +147,11 @@ static int __cpuinit msm8974_release_secondary(unsigned long base,
 						unsigned int cpu)
 {
 	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
+
 	if (!base_ptr)
 		return -ENODEV;
 
-	secondary_cpu_hs_init(base_ptr);
+	secondary_cpu_hs_init(base_ptr, cpu);
 
 	writel_relaxed(0x021, base_ptr+0x04);
 	mb();
