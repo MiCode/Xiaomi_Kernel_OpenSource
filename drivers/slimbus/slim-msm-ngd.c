@@ -306,8 +306,26 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			txn->mc = SLIM_USR_MC_CONNECT_SINK;
 		else if (txn->mc == SLIM_MSG_MC_DISCONNECT_PORT)
 			txn->mc = SLIM_USR_MC_DISCONNECT_PORT;
-		if (txn->la == SLIM_LA_MGR)
+		if (txn->la == SLIM_LA_MGR) {
+			if (dev->pgdla == SLIM_LA_MGR) {
+				u8 ea[] = {0, QC_DEVID_PGD, 0, 0, QC_MFGID_MSB,
+						QC_MFGID_LSB};
+				ea[2] = (u8)(dev->pdata.eapc & 0xFF);
+				ea[3] = (u8)((dev->pdata.eapc & 0xFF00) >> 8);
+				mutex_unlock(&dev->tx_lock);
+				ret = dev->ctrl.get_laddr(&dev->ctrl, ea, 6,
+						&dev->pgdla);
+				pr_debug("SLIM PGD LA:0x%x, ret:%d", dev->pgdla,
+						ret);
+				if (ret) {
+					pr_err("Incorrect SLIM-PGD EAPC:0x%x",
+							dev->pdata.eapc);
+					return ret;
+				}
+				mutex_lock(&dev->tx_lock);
+			}
 			txn->la = dev->pgdla;
+		}
 		wbuf[i++] = txn->la;
 		la = SLIM_LA_MGR;
 		wbuf[i++] = txn->wbuf[0];
@@ -380,6 +398,8 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			dev_err(dev->dev, "pipe-port connect err:%d", dev->err);
 			goto ngd_xfer_err;
 		}
+		/* Add port-base to port number if this is manager side port */
+		puc[1] += dev->port_b;
 	}
 	dev->err = 0;
 	dev->wr_comp = &tx_sent;
@@ -1070,9 +1090,18 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 		}
 		rxreg_access = of_property_read_bool(pdev->dev.of_node,
 					"qcom,rxreg-access");
+		of_property_read_u32(pdev->dev.of_node, "qcom,apps-ch-pipes",
+					&dev->pdata.apps_pipes);
+		of_property_read_u32(pdev->dev.of_node, "qcom,ea-pc",
+					&dev->pdata.eapc);
 	} else {
 		dev->ctrl.nr = pdev->id;
 	}
+	/*
+	 * Keep PGD's logical address as manager's. Query it when first data
+	 * channel request comes in
+	 */
+	dev->pgdla = SLIM_LA_MGR;
 	dev->ctrl.nchans = MSM_SLIM_NCHANS;
 	dev->ctrl.nports = MSM_SLIM_NPORTS;
 	dev->framer.rootfreq = SLIM_ROOT_FREQ >> 3;
