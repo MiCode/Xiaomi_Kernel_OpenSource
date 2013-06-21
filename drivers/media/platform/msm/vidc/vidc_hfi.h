@@ -408,7 +408,7 @@ struct hfi_cmd_session_empty_buffer_compressed_packet {
 	u32 input_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet {
@@ -427,7 +427,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet {
 	u32 input_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane1_packet {
@@ -436,7 +436,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane1_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer2;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane2_packet {
@@ -445,7 +445,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane2_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer3;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_cmd_session_fill_buffer_packet {
@@ -459,7 +459,7 @@ struct hfi_cmd_session_fill_buffer_packet {
 	u32 output_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
-	u32 rgData[0];
+	u32 rgData[1];
 };
 
 struct hfi_cmd_session_flush_packet {
