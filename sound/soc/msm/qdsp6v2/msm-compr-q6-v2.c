@@ -625,20 +625,26 @@ int compressed_set_volume(unsigned volume)
 {
 	int rc = 0;
 	int avg_vol = 0;
+	int lgain = (volume >> 16) & 0xFFFF;
+	int rgain = volume & 0xFFFF;
 	if (compressed_audio.prtd && compressed_audio.prtd->audio_client) {
-		if (compressed_audio.prtd->channel_mode > 2) {
-			avg_vol = (((volume >> 16) & 0xFFFF) +
-				   (volume & 0xFFFF)) / 2;
-			rc = q6asm_set_volume(
-				compressed_audio.prtd->audio_client, avg_vol);
-		} else {
+		pr_debug("%s: channels %d volume 0x%x\n", __func__,
+			compressed_audio.prtd->channel_mode, volume);
+		if ((compressed_audio.prtd->channel_mode <= 2) &&
+			(lgain != rgain)) {
+			pr_debug("%s: call q6asm_set_lrgain\n", __func__);
 			rc = q6asm_set_lrgain(
 				compressed_audio.prtd->audio_client,
-				(volume >> 16) & 0xFFFF, volume & 0xFFFF);
+				lgain, rgain);
+		} else {
+			avg_vol = (lgain + rgain)/2;
+			pr_debug("%s: call q6asm_set_volume\n", __func__);
+			rc = q6asm_set_volume(
+				compressed_audio.prtd->audio_client, avg_vol);
 		}
 		if (rc < 0) {
 			pr_err("%s: Send Volume command failed rc=%d\n",
-						__func__, rc);
+				__func__, rc);
 		}
 	}
 	compressed_audio.volume = volume;
