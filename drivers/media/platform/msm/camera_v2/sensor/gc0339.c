@@ -183,10 +183,12 @@ int32_t gc0339_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			pr_debug("%s:%d gpio set val %d\n", __func__, __LINE__,
 				data->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val]);
-			gpio_set_value_cansleep(
-				data->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->seq_val],
-				power_setting->config_val);
+			if (data->gpio_conf->gpio_num_info->gpio_num
+				[power_setting->seq_val])
+				gpio_set_value_cansleep(
+					data->gpio_conf->gpio_num_info->gpio_num
+					[power_setting->seq_val],
+					power_setting->config_val);
 			break;
 		case SENSOR_VREG:
 			if (power_setting->seq_val >= CAM_VREG_MAX) {
