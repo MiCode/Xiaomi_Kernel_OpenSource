@@ -33,6 +33,9 @@
 #define TLMMV3_GP_DIR_MASK		1
 #define TLMMV3_GP_FUNC_SHFT		2
 #define TLMMV3_GP_FUNC_MASK		0xF
+#define GPIO_OUT_BIT			1
+#define GPIO_IN_BIT			0
+#define GPIO_OE_BIT			9
 /* SDC1 PIN TYPE REG MASKS */
 #define TLMMV3_SDC1_CLK_DRV_SHFT	6
 #define TLMMV3_SDC1_CLK_DRV_MASK	0x7
@@ -63,6 +66,9 @@
 #define TLMMV3_GP_INOUT_BIT		1
 #define TLMMV3_GP_OUT			BIT(TLMMV3_GP_INOUT_BIT)
 #define TLMMV3_GP_IN			0
+
+#define gc_to_pintype(gc) \
+		container_of(gc, struct msm_pintype_info, gc)
 
 /* SDC Pin type register offsets */
 #define TLMMV3_SDC_OFFSET		0x2044
@@ -305,6 +311,53 @@ static void msm_tlmm_v3_gp_set_reg_base(void __iomem **ptype_base,
 	*ptype_base = tlmm_base;
 }
 
+/* GPIO CHIP */
+static int msm_tlmm_v3_gp_get(struct gpio_chip *gc, unsigned offset)
+{
+	struct msm_pintype_info *pinfo = gc_to_pintype(gc);
+	void __iomem *inout_reg = TLMMV3_GP_INOUT(pinfo->reg_base, offset);
+
+	return readl_relaxed(inout_reg) & BIT(GPIO_IN_BIT);
+}
+
+static void msm_tlmm_v3_gp_set(struct gpio_chip *gc, unsigned offset, int val)
+{
+	struct msm_pintype_info *pinfo = gc_to_pintype(gc);
+	void __iomem *inout_reg = TLMMV3_GP_INOUT(pinfo->reg_base, offset);
+
+	writel_relaxed(val ? BIT(GPIO_OUT_BIT) : 0, inout_reg);
+}
+
+static int msm_tlmm_v3_gp_dir_in(struct gpio_chip *gc, unsigned offset)
+{
+	unsigned int val;
+	struct msm_pintype_info *pinfo = gc_to_pintype(gc);
+	void __iomem *cfg_reg = TLMMV3_GP_CFG(pinfo->reg_base, offset);
+
+	val = readl_relaxed(cfg_reg);
+	val &= ~BIT(GPIO_OE_BIT);
+	writel_relaxed(val, cfg_reg);
+	return 0;
+}
+
+static int msm_tlmm_v3_gp_dir_out(struct gpio_chip *gc, unsigned offset,
+								int val)
+{
+	struct msm_pintype_info *pinfo = gc_to_pintype(gc);
+	void __iomem *cfg_reg = TLMMV3_GP_CFG(pinfo->reg_base, offset);
+
+	msm_tlmm_v3_gp_set(gc, offset, val);
+	val = readl_relaxed(cfg_reg);
+	val |= BIT(GPIO_OE_BIT);
+	writel_relaxed(val, cfg_reg);
+	return 0;
+}
+
+static int msm_tlmm_v3_gp_to_irq(struct gpio_chip *gc, unsigned offset)
+{
+	return -EINVAL;
+}
+
 static struct msm_pintype_info tlmm_v3_pininfo[] = {
 	{
 		.prg_cfg = msm_tlmm_v3_gp_cfg,
@@ -313,6 +366,14 @@ static struct msm_pintype_info tlmm_v3_pininfo[] = {
 		.reg_base = NULL,
 		.prop_name = "qcom,pin-type-gp",
 		.name = "gp",
+		.gc = {
+				.label		  = "msm_tlmm_v3_gpio",
+				.direction_input  = msm_tlmm_v3_gp_dir_in,
+				.direction_output = msm_tlmm_v3_gp_dir_out,
+				.get              = msm_tlmm_v3_gp_get,
+				.set              = msm_tlmm_v3_gp_set,
+				.to_irq           = msm_tlmm_v3_gp_to_irq,
+		},
 	},
 	{
 		.prg_cfg = msm_tlmm_v3_sdc_cfg,
