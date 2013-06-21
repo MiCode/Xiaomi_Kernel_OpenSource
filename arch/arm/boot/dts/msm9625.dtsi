@@ -195,6 +195,7 @@
 		hsic,consider-ipa-handshake;
 		hsic,log2-itc = <3>;
 		qcom,ahb-async-bridge-bypass;
+		hsic,disable-cerr;
 	};
 
 	qcom,usbbam@f9a44000 {
