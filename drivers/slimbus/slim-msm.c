@@ -788,6 +788,10 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 	bam_props.options = SPS_O_DESC_DONE | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
 
+	/* override apps channel pipes if specified in platform-data or DT */
+	if (dev->pdata.apps_pipes)
+		sec_props.ees[dev->ee].pipe_mask = dev->pdata.apps_pipes;
+
 	/* First 7 bits are for message Qs */
 	for (i = 7; i < 32; i++) {
 		/* Check what pipes are owned by Apps. */
