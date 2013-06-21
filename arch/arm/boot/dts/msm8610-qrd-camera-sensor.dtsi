@@ -64,7 +64,7 @@
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 14 0>,
 				<&msmgpio 15 0>,
-				<&msmgpio 8 0>;
+				<&msmgpio 88 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
