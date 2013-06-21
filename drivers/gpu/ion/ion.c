@@ -253,6 +253,8 @@ static void ion_handle_destroy(struct kref *kref)
 	struct ion_client *client = handle->client;
 	struct ion_buffer *buffer = handle->buffer;
 
+	mutex_lock(&client->lock);
+
 	mutex_lock(&buffer->lock);
 	while (handle->kmap_cnt)
 		ion_handle_kmap_put(handle);
@@ -260,6 +262,7 @@ static void ion_handle_destroy(struct kref *kref)
 
 	if (!RB_EMPTY_NODE(&handle->node))
 		rb_erase(&handle->node, &client->handles);
+	mutex_unlock(&client->lock);
 
 	ion_buffer_put(buffer);
 	kfree(handle);
@@ -403,13 +406,13 @@ void ion_free(struct ion_client *client, struct ion_handle *handle)
 
 	mutex_lock(&client->lock);
 	valid_handle = ion_handle_validate(client, handle);
+	mutex_unlock(&client->lock);
 
 	if (!valid_handle) {
 		WARN(1, "%s: invalid handle passed to free.\n", __func__);
 		return;
 	}
 	ion_handle_put(handle);
-	mutex_unlock(&client->lock);
 }
 EXPORT_SYMBOL(ion_free);
 
