@@ -63,6 +63,7 @@ struct ion_device {
  * @dev:		backpointer to ion device
  * @handles:		an rb tree of all the handles in this client
  * @lock:		lock protecting the tree of handles
+ * @heap_type_mask:	mask of all supported heap types
  * @name:		used for debugging
  * @task:		used for debugging
  *
@@ -75,6 +76,7 @@ struct ion_client {
 	struct ion_device *dev;
 	struct rb_root handles;
 	struct mutex lock;
+	unsigned int heap_type_mask;
 	const char *name;
 	struct task_struct *task;
 	pid_t pid;
@@ -408,6 +410,9 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
+		/* if the client doesn't support this heap type */
+		if (!((1 << heap->type) & client->heap_type_mask))
+			continue;
 		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
@@ -622,6 +627,7 @@ static const struct file_operations debug_client_fops = {
 };
 
 struct ion_client *ion_client_create(struct ion_device *dev,
+				     unsigned int heap_type_mask,
 				     const char *name)
 {
 	struct ion_client *client;
@@ -656,6 +662,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->handles = RB_ROOT;
 	mutex_init(&client->lock);
 	client->name = name;
+	client->heap_type_mask = heap_type_mask;
 	client->task = task;
 	client->pid = pid;
 
@@ -1155,7 +1162,7 @@ static int ion_open(struct inode *inode, struct file *file)
 	struct ion_client *client;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
-	client = ion_client_create(dev, "user");
+	client = ion_client_create(dev, -1, "user");
 	if (IS_ERR_OR_NULL(client))
 		return PTR_ERR(client);
 	file->private_data = client;
@@ -1171,7 +1178,7 @@ static const struct file_operations ion_fops = {
 };
 
 static size_t ion_debug_heap_total(struct ion_client *client,
-				   unsigned int id)
+				   enum ion_heap_type type)
 {
 	size_t size = 0;
 	struct rb_node *n;
@@ -1181,7 +1188,7 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		struct ion_handle *handle = rb_entry(n,
 						     struct ion_handle,
 						     node);
-		if (handle->buffer->heap->id == id)
+		if (handle->buffer->heap->type == type)
 			size += handle->buffer->size;
 	}
 	mutex_unlock(&client->lock);
@@ -1202,7 +1209,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
-		size_t size = ion_debug_heap_total(client, heap->id);
+		size_t size = ion_debug_heap_total(client, heap->type);
 		if (!size)
 			continue;
 		if (client->task) {
@@ -1223,7 +1230,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
 						     node);
-		if (buffer->heap->id != heap->id)
+		if (buffer->heap->type != heap->type)
 			continue;
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
