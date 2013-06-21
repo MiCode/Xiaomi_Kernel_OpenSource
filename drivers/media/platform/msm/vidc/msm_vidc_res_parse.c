@@ -386,71 +386,67 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
 	struct platform_device *pdev = res->pdev;
-	struct device_node *ctx_node;
+	struct device_node *domains_parent_node = NULL;
+	struct device_node *domains_child_node = NULL;
 	struct iommu_set *iommu_group_set = &res->iommu_group_set;
-	int array_size;
-	int i;
+	int domain_idx = 0;
 	struct iommu_info *iommu_map;
-	u32 *buffer_types = NULL;
+	int array_size = 0;
 
-	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-groups",
-				&array_size)) {
-		dprintk(VIDC_DBG, "iommu_groups property not present\n");
-		iommu_group_set->count = 0;
+	domains_parent_node = of_find_node_by_name(pdev->dev.of_node,
+				"qcom,vidc-iommu-domains");
+	if (!domains_parent_node) {
+		dprintk(VIDC_DBG, "Node qcom,vidc-iommu-domains not found.\n");
 		return 0;
 	}
 
-	iommu_group_set->count = array_size / sizeof(u32);
+	iommu_group_set->count = 0;
+	for_each_child_of_node(domains_parent_node, domains_child_node) {
+		iommu_group_set->count++;
+	}
+
 	if (iommu_group_set->count == 0) {
-		dprintk(VIDC_ERR, "No group present in iommu_groups\n");
+		dprintk(VIDC_ERR, "No group present in iommu_domains\n");
 		rc = -ENOENT;
 		goto err_no_of_node;
 	}
-
 	iommu_group_set->iommu_maps = kzalloc(iommu_group_set->count *
 			sizeof(*(iommu_group_set->iommu_maps)), GFP_KERNEL);
+
 	if (!iommu_group_set->iommu_maps) {
-		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n",
-			__func__);
+		dprintk(VIDC_ERR, "Cannot allocate iommu_maps\n");
 		rc = -ENOMEM;
 		goto err_no_of_node;
 	}
 
-	buffer_types = kzalloc(iommu_group_set->count * sizeof(*buffer_types),
-				GFP_KERNEL);
-	if (!buffer_types) {
-		dprintk(VIDC_ERR,
-			"%s Failed to alloc iommu group buffer types\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_load_groups;
-	}
+	/* set up each context bank */
+	for_each_child_of_node(domains_parent_node, domains_child_node) {
+		struct device_node *ctx_node = of_parse_phandle(
+						domains_child_node,
+						"qcom,vidc-domain-phandle",
+						0);
+		if (domain_idx >= iommu_group_set->count)
+			break;
 
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-			"qcom,iommu-group-buffer-types", buffer_types,
-			iommu_group_set->count);
-	if (rc) {
-		dprintk(VIDC_ERR,
-		    "%s Failed to read iommu group buffer types\n", __func__);
-		goto err_load_groups;
-	}
-
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		ctx_node = of_parse_phandle(pdev->dev.of_node,
-				"qcom,iommu-groups", i);
+		iommu_map = &iommu_group_set->iommu_maps[domain_idx];
 		if (!ctx_node) {
-			dprintk(VIDC_ERR, "Unable to parse phandle : %u\n", i);
+			dprintk(VIDC_ERR, "Unable to parse pHandle\n");
 			rc = -EBADHANDLE;
 			goto err_load_groups;
 		}
 
+		/* domain info from domains.dtsi */
 		rc = of_property_read_string(ctx_node, "label",
 				&(iommu_map->name));
 		if (rc) {
 			dprintk(VIDC_ERR, "Could not find label property\n");
 			goto err_load_groups;
 		}
+
+		dprintk(VIDC_DBG,
+				"domain %d has name %s\n",
+				domain_idx,
+				iommu_map->name);
 
 		if (!of_get_property(ctx_node, "qcom,virtual-addr-pool",
 				&array_size)) {
@@ -463,25 +459,48 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 
 		iommu_map->npartitions = array_size / sizeof(u32) / 2;
 
+		dprintk(VIDC_DBG,
+				"%d partitions in domain %d",
+				iommu_map->npartitions,
+				domain_idx);
+
 		rc = of_property_read_u32_array(ctx_node,
 				"qcom,virtual-addr-pool",
 				(u32 *)iommu_map->addr_range,
 				iommu_map->npartitions * 2);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"Could not read addr pool for group : %s\n",
-				iommu_map->name);
+				"Could not read addr pool for group : %s (%d)\n",
+				iommu_map->name,
+				rc);
 			goto err_load_groups;
 		}
 
-		iommu_map->buffer_type = buffer_types[i];
 		iommu_map->is_secure =
 			of_property_read_bool(ctx_node,	"qcom,secure-domain");
+
+		dprintk(VIDC_DBG,
+				"domain %s : secure = %d",
+				iommu_map->name,
+				iommu_map->is_secure);
+
+		/* setup partitions and buffer type per partition */
+		rc = of_property_read_u32_array(domains_child_node,
+				"qcom,vidc-partition-buffer-types",
+				iommu_map->buffer_type,
+				iommu_map->npartitions);
+
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"cannot load partition buffertype information (%d)",
+					rc);
+			rc = -ENOENT;
+			goto err_load_groups;
+		}
+		domain_idx++;
 	}
-	kfree(buffer_types);
-	return 0;
+	return rc;
 err_load_groups:
-	kfree(buffer_types);
 	msm_vidc_free_iommu_groups(res);
 err_no_of_node:
 	return rc;

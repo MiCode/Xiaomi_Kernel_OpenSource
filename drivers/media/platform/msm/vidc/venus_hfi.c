@@ -2804,6 +2804,9 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 				iommu_map->addr_range[0].start;
 			memprot.cp_nonpixel_size =
 				iommu_map->addr_range[0].size;
+		} else if (strcmp(iommu_map->name, "venus_cp") == 0) {
+			memprot.cp_nonpixel_start =
+				iommu_map->addr_range[1].start;
 		}
 	}
 
