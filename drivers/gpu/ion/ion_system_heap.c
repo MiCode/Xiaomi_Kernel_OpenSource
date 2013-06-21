@@ -292,27 +292,18 @@ int ion_system_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	struct sg_table *table = buffer->priv_virt;
 	unsigned long addr = vma->vm_start;
-	unsigned long offset = vma->vm_pgoff * PAGE_SIZE;
+	unsigned long offset = vma->vm_pgoff;
 	struct scatterlist *sg;
 	int i;
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
-		struct page *page = sg_page(sg);
-		unsigned long remainder = vma->vm_end - addr;
-		unsigned long len = sg_dma_len(sg);
-
-		if (offset >= sg_dma_len(sg)) {
-			offset -= sg_dma_len(sg);
+		if (offset) {
+			offset--;
 			continue;
-		} else if (offset) {
-			page += offset / PAGE_SIZE;
-			len = sg_dma_len(sg) - offset;
-			offset = 0;
 		}
-		len = min(len, remainder);
-		remap_pfn_range(vma, addr, page_to_pfn(page), len,
-				vma->vm_page_prot);
-		addr += len;
+		remap_pfn_range(vma, addr, page_to_pfn(sg_page(sg)),
+				sg_dma_len(sg), vma->vm_page_prot);
+		addr += sg_dma_len(sg);
 		if (addr >= vma->vm_end)
 			return 0;
 	}
