@@ -31,19 +31,6 @@
 #include "clock.h"
 #include "devices.h"
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("core_clk",	SPI_CLK,	"f9928000.spi",  OFF),
-	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"f9928000.spi",  OFF),
-
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
-
 static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
 	{}
 };
@@ -57,7 +44,7 @@ static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
 void __init msmkrypton_add_drivers(void)
 {
 	msm_smd_init();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	msm_clock_init(&msmkrypton_clock_init_data);
 }
 
 static void __init msmkrypton_map_io(void)
