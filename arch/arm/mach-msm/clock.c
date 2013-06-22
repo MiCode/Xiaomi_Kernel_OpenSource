@@ -23,6 +23,7 @@
 #include <linux/clkdev.h>
 #include <linux/list.h>
 #include <linux/regulator/consumer.h>
+#include <linux/mutex.h>
 #include <trace/events/power.h>
 #include <mach/clk-provider.h>
 #include "clock.h"
@@ -38,6 +39,8 @@ struct handoff_vdd {
 	struct clk_vdd_class *vdd_class;
 };
 static LIST_HEAD(handoff_vdd_list);
+
+static DEFINE_MUTEX(msm_clock_init_lock);
 
 /* Find the voltage level required for a given rate. */
 int find_vdd_level(struct clk *clk, unsigned long rate)
@@ -573,7 +576,7 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL(clk_set_flags);
 
-static struct clock_init_data *clk_init_data;
+static LIST_HEAD(initdata_list);
 
 static void init_sibling_lists(struct clk_lookup *clock_tbl, size_t num_clocks)
 {
@@ -587,33 +590,6 @@ static void init_sibling_lists(struct clk_lookup *clock_tbl, size_t num_clocks)
 			list_add(&clk->siblings, &parent->children);
 	}
 }
-
-/**
- * msm_clock_register() - Register additional clock tables
- * @table: Table of clocks
- * @size: Size of @table
- *
- * Upon return, clock APIs may be used to control clocks registered using this
- * function. This API may only be used after msm_clock_init() has completed.
- * Unlike msm_clock_init(), this function may be called multiple times with
- * different clock lists and used after the kernel has finished booting.
- */
-int msm_clock_register(struct clk_lookup *table, size_t size)
-{
-	if (!clk_init_data)
-		return -ENODEV;
-
-	if (!table)
-		return -EINVAL;
-
-	init_sibling_lists(table, size);
-	clkdev_add_table(table, size);
-	clock_debug_register(table, size);
-
-	return 0;
-}
-EXPORT_SYMBOL(msm_clock_register);
-
 
 static void vdd_class_init(struct clk_vdd_class *vdd)
 {
@@ -646,7 +622,7 @@ static void vdd_class_init(struct clk_vdd_class *vdd)
 	list_add_tail(&v->list, &handoff_vdd_list);
 }
 
-static int __init __handoff_clk(struct clk *clk)
+static int __handoff_clk(struct clk *clk)
 {
 	enum handoff state = HANDOFF_DISABLED_CLK;
 	struct handoff_clk *h = NULL;
@@ -726,29 +702,20 @@ err:
 }
 
 /**
- * msm_clock_init() - Register and initialize a clock driver
- * @data: Driver-specific clock initialization data
+ * msm_clock_register() - Register additional clock tables
+ * @table: Table of clocks
+ * @size: Size of @table
  *
- * Upon return from this call, clock APIs may be used to control
- * clocks registered with this API.
+ * Upon return, clock APIs may be used to control clocks registered using this
+ * function.
  */
-int __init msm_clock_init(struct clock_init_data *data)
+int msm_clock_register(struct clk_lookup *table, size_t size)
 {
-	unsigned n;
-	struct clk_lookup *clock_tbl;
-	size_t num_clocks;
+	int n = 0;
 
-	if (!data)
-		return -EINVAL;
+	mutex_lock(&msm_clock_init_lock);
 
-	clk_init_data = data;
-	if (clk_init_data->pre_init)
-		clk_init_data->pre_init();
-
-	clock_tbl = data->table;
-	num_clocks = data->size;
-
-	init_sibling_lists(clock_tbl, num_clocks);
+	init_sibling_lists(table, size);
 
 	/*
 	 * Enable regulators and temporarily set them up at maximum voltage.
@@ -757,23 +724,50 @@ int __init msm_clock_init(struct clock_init_data *data)
 	 * late_init, by which time we assume all the clocks would have been
 	 * handed off.
 	 */
-	for (n = 0; n < num_clocks; n++)
-		vdd_class_init(clock_tbl[n].clk->vdd_class);
+	for (n = 0; n < size; n++)
+		vdd_class_init(table[n].clk->vdd_class);
 
 	/*
 	 * Detect and preserve initial clock state until clock_late_init() or
 	 * a driver explicitly changes it, whichever is first.
 	 */
-	for (n = 0; n < num_clocks; n++)
-		__handoff_clk(clock_tbl[n].clk);
+	for (n = 0; n < size; n++)
+		__handoff_clk(table[n].clk);
 
-	clkdev_add_table(clock_tbl, num_clocks);
+	clkdev_add_table(table, size);
 
-	if (clk_init_data->post_init)
-		clk_init_data->post_init();
+	clock_debug_register(table, size);
 
-	clock_debug_init();
-	clock_debug_register(clock_tbl, num_clocks);
+	mutex_unlock(&msm_clock_init_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_clock_register);
+
+/**
+ * msm_clock_init() - Register and initialize a clock driver
+ * @data: Driver-specific clock initialization data
+ *
+ * Upon return from this call, clock APIs may be used to control
+ * clocks registered with this API.
+ */
+int __init msm_clock_init(struct clock_init_data *data)
+{
+	if (!data)
+		return -EINVAL;
+
+	if (data->pre_init)
+		data->pre_init();
+
+	mutex_lock(&msm_clock_init_lock);
+	if (data->late_init)
+		list_add(&data->list, &initdata_list);
+	mutex_unlock(&msm_clock_init_lock);
+
+	msm_clock_register(data->table, data->size);
+
+	if (data->post_init)
+		data->post_init();
 
 	return 0;
 }
@@ -782,12 +776,21 @@ static int __init clock_late_init(void)
 {
 	struct handoff_clk *h, *h_temp;
 	struct handoff_vdd *v, *v_temp;
+	struct clock_init_data *initdata, *initdata_temp;
 	int ret = 0;
 
-	if (clk_init_data->late_init)
-		ret = clk_init_data->late_init();
-
 	pr_info("%s: Removing enables held for handed-off clocks\n", __func__);
+
+	mutex_lock(&msm_clock_init_lock);
+
+	list_for_each_entry_safe(initdata, initdata_temp,
+					&initdata_list, list) {
+		ret = initdata->late_init();
+		if (ret)
+			pr_err("%s: %pS failed late_init.\n", __func__,
+				initdata);
+	}
+
 	list_for_each_entry_safe(h, h_temp, &handoff_list, list) {
 		clk_disable_unprepare(h->clk);
 		list_del(&h->list);
@@ -800,6 +803,11 @@ static int __init clock_late_init(void)
 		kfree(v);
 	}
 
+	mutex_unlock(&msm_clock_init_lock);
+
 	return ret;
 }
-late_initcall(clock_late_init);
+/* clock_late_init should run only after all deferred probing
+ * (excluding DLKM probes) has completed.
+ */
+late_initcall_sync(clock_late_init);
