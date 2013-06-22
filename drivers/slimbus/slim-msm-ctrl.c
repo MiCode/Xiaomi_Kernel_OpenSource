@@ -1227,7 +1227,8 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	dev->ctrl.set_laddr = msm_set_laddr;
 	dev->ctrl.xfer_msg = msm_xfer_msg;
 	dev->ctrl.wakeup =  msm_clk_pause_wakeup;
-	dev->ctrl.config_port = msm_config_port;
+	dev->ctrl.alloc_port = msm_alloc_port;
+	dev->ctrl.dealloc_port = msm_dealloc_port;
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
 	/* Reserve some messaging BW for satellite-apps driver communication */

@@ -1085,7 +1085,8 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.allocbw = ngd_allocbw;
 	dev->ctrl.xfer_msg = ngd_xfer_msg;
 	dev->ctrl.wakeup =  ngd_clk_pause_wakeup;
-	dev->ctrl.config_port = msm_config_port;
+	dev->ctrl.alloc_port = msm_alloc_port;
+	dev->ctrl.dealloc_port = msm_dealloc_port;
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
 	dev->bam_mem = bam_mem;

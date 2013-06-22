@@ -281,8 +281,9 @@ irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat);
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep);
 void msm_slim_free_endpoint(struct msm_slim_endp *ep);
 void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn);
+int msm_alloc_port(struct slim_controller *ctrl, u8 pn);
+void msm_dealloc_port(struct slim_controller *ctrl, u8 pn);
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn);
-int msm_config_port(struct slim_controller *ctrl, u8 pn);
 enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
 				u8 pn, u8 **done_buf, u32 *done_len);
 int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,

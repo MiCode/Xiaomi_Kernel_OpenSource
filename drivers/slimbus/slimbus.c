@@ -1089,8 +1089,11 @@ int slim_alloc_mgrports(struct slim_device *sb, enum slim_port_req req,
 		}
 		break;
 	}
-	if (i >= ctrl->nports)
+	if (i >= ctrl->nports) {
 		ret = -EDQUOT;
+		goto alloc_err;
+	}
+	ret = 0;
 	for (j = i; j < i + nphysp; j++) {
 		ctrl->ports[j].state = SLIM_P_UNCFG;
 		ctrl->ports[j].req = req;
@@ -1098,7 +1101,8 @@ int slim_alloc_mgrports(struct slim_device *sb, enum slim_port_req req,
 			ctrl->ports[j].flow = SLIM_SINK;
 		else
 			ctrl->ports[j].flow = SLIM_SRC;
-		ret = ctrl->config_port(ctrl, j);
+		if (ctrl->alloc_port)
+			ret = ctrl->alloc_port(ctrl, j);
 		if (ret) {
 			for (; j >= i; j--)
 				ctrl->ports[j].state = SLIM_P_FREE;
@@ -1126,17 +1130,26 @@ int slim_dealloc_mgrports(struct slim_device *sb, u32 *hdl, int nports)
 	for (i = 0; i < nports; i++) {
 		u8 pn;
 		pn = SLIM_HDL_TO_PORT(hdl[i]);
-		if (ctrl->ports[pn].state == SLIM_P_CFG) {
-			int j;
-			dev_err(&ctrl->dev, "Can't dealloc connected port:%d",
-					i);
+
+		if (pn >= ctrl->nports || ctrl->ports[pn].state == SLIM_P_CFG) {
+			int j, ret;
+			if (pn >= ctrl->nports) {
+				dev_err(&ctrl->dev, "invalid port number");
+				ret = -EINVAL;
+			} else {
+				dev_err(&ctrl->dev,
+					"Can't dealloc connected port:%d", i);
+				ret = -EISCONN;
+			}
 			for (j = i - 1; j >= 0; j--) {
 				pn = SLIM_HDL_TO_PORT(hdl[j]);
 				ctrl->ports[pn].state = SLIM_P_UNCFG;
 			}
 			mutex_unlock(&ctrl->m_ctrl);
-			return -EISCONN;
+			return ret;
 		}
+		if (ctrl->dealloc_port)
+			ctrl->dealloc_port(ctrl, pn);
 		ctrl->ports[pn].state = SLIM_P_FREE;
 	}
 	mutex_unlock(&ctrl->m_ctrl);
@@ -1215,6 +1228,8 @@ static int disconnect_port_ch(struct slim_controller *ctrl, u32 ph)
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if source is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid direction is specified for non-manager port,
+ * or if the manager side port number is out of bounds, or in incorrect state
  */
 int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
 {
@@ -1223,11 +1238,22 @@ int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
 	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
 	struct slim_ich *slc = &ctrl->chans[chan];
 	enum slim_port_flow flow = SLIM_HDL_TO_FLOW(srch);
+	u8 la = SLIM_HDL_TO_LA(srch);
 
-	if (flow != SLIM_SRC)
+	/* manager ports don't have direction when they are allocated */
+	if (la != SLIM_LA_MANAGER && flow != SLIM_SRC)
 		return -EINVAL;
 
 	mutex_lock(&ctrl->sched.m_reconf);
+
+	if (la == SLIM_LA_MANAGER) {
+		u8 pn = SLIM_HDL_TO_PORT(srch);
+		if (pn >= ctrl->nports ||
+			ctrl->ports[pn].state != SLIM_P_UNCFG) {
+			ret = -EINVAL;
+			goto connect_src_err;
+		}
+	}
 
 	if (slc->state == SLIM_CH_FREE) {
 		ret = -ENOTCONN;
@@ -1264,6 +1290,9 @@ EXPORT_SYMBOL_GPL(slim_connect_src);
  * Channel specified in chanh needs to be allocated first.
  * Returns -EALREADY if sink is already configured for this channel.
  * Returns -ENOTCONN if channel is not allocated
+ * Returns -EINVAL if invalid parameters are passed, or invalid direction is
+ * specified for non-manager port, or if the manager side port number is out of
+ * bounds, or in incorrect state
  */
 int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 {
@@ -1290,8 +1319,14 @@ int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 
 	for (j = 0; j < nsink; j++) {
 		enum slim_port_flow flow = SLIM_HDL_TO_FLOW(sinkh[j]);
-		if (flow != SLIM_SINK)
+		u8 la = SLIM_HDL_TO_LA(sinkh[j]);
+		u8 pn = SLIM_HDL_TO_PORT(sinkh[j]);
+		if (la != SLIM_LA_MANAGER && flow != SLIM_SINK)
 			ret = -EINVAL;
+		else if (la == SLIM_LA_MANAGER &&
+				(pn >= ctrl->nports ||
+				ctrl->ports[pn].state != SLIM_P_UNCFG))
+				ret = -EINVAL;
 		else
 			ret = connect_port_ch(ctrl, chan, sinkh[j], SLIM_SINK);
 		if (ret) {
