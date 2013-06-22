@@ -561,3 +561,23 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 
 	return ret;
 }
+
+int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)
+{
+	u32 unit, residue;
+
+	if (dst == 0)
+		return -EINVAL;
+
+	unit = 1 << PHASE_STEP_SHIFT;
+	*out_phase = mult_frac(src, unit, dst);
+
+	/* check if overflow is possible */
+	if (src > dst) {
+		residue = *out_phase & (unit - 1);
+		if (residue && ((residue * dst) < (unit - residue)))
+			return -EOVERFLOW;
+	}
+
+	return 0;
+}
