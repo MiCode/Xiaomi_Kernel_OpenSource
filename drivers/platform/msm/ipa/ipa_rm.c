@@ -119,12 +119,12 @@ int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 {
 	int result;
 
-	read_lock(&ipa_rm_ctx->lock);
+	write_lock(&ipa_rm_ctx->lock);
 	result = ipa_rm_dep_graph_add_dependency(
 						ipa_rm_ctx->dep_graph,
 						resource_name,
 						depends_on_name);
-	read_unlock(&ipa_rm_ctx->lock);
+	write_unlock(&ipa_rm_ctx->lock);
 	return result;
 }
 EXPORT_SYMBOL(ipa_rm_add_dependency);
@@ -145,12 +145,12 @@ int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
 			enum ipa_rm_resource_name depends_on_name)
 {
 	int result;
-	read_lock(&ipa_rm_ctx->lock);
+	write_lock(&ipa_rm_ctx->lock);
 	result = ipa_rm_dep_graph_delete_dependency(
 			  ipa_rm_ctx->dep_graph,
 			  resource_name,
 			  depends_on_name);
-	read_unlock(&ipa_rm_ctx->lock);
+	write_unlock(&ipa_rm_ctx->lock);
 	return result;
 }
 EXPORT_SYMBOL(ipa_rm_delete_dependency);
