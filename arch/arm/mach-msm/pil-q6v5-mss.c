@@ -65,9 +65,9 @@ static void log_modem_sfr(void)
 	u32 size;
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
 
-	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	smem_reason = smem_get_entry_no_rlock(SMEM_SSR_REASON_MSS0, &size);
 	if (!smem_reason || !size) {
-		pr_err("modem subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		pr_err("modem subsystem failure reason: (unknown, smem_get_entry_no_rlock failed).\n");
 		return;
 	}
 	if (!smem_reason[0]) {
