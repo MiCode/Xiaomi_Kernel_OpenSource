@@ -34,11 +34,19 @@
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
 
+/* It takes about 13ms for Class-D PAs to ramp-up */
+#define EXT_CLASS_D_EN_DELAY 13000
+#define EXT_CLASS_D_DIS_DELAY 3000
+#define EXT_CLASS_D_DELAY_DELTA 2000
+
+
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static int msm_proxy_rx_ch = 2;
 static struct snd_soc_jack hs_jack;
+static struct platform_device *spdev;
+static int ext_spk_amp_gpio = -1;
 
 
 /*
@@ -86,15 +94,69 @@ static struct mutex cdc_mclk_mutex;
 
 static int msm8x10_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
+static int msm_ext_spkramp_event(struct snd_soc_dapm_widget *w,
+			      struct snd_kcontrol *kcontrol, int event);
+static void msm8x10_enable_ext_spk_power_amp(u32 on);
 
 static const struct snd_soc_dapm_widget msm8x10_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	msm8x10_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SPK("Lineout amp", msm_ext_spkramp_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 
 };
+static int msm8x10_ext_spk_power_amp_init(void)
+{
+	int ret = 0;
+
+	ext_spk_amp_gpio = of_get_named_gpio(spdev->dev.of_node,
+		"qcom,ext-spk-amp-gpio", 0);
+	if (ext_spk_amp_gpio >= 0) {
+		ret = gpio_request(ext_spk_amp_gpio, "ext_spk_amp_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext_spk_amp_gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+		gpio_direction_output(ext_spk_amp_gpio, 0);
+	}
+	return 0;
+}
+
+static int msm_ext_spkramp_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s()\n", __func__);
+
+	if (ext_spk_amp_gpio >= 0) {
+		if (SND_SOC_DAPM_EVENT_ON(event))
+			msm8x10_enable_ext_spk_power_amp(1);
+		else
+			msm8x10_enable_ext_spk_power_amp(0);
+	}
+	return 0;
+
+}
+
+static void msm8x10_enable_ext_spk_power_amp(u32 on)
+{
+	if (on) {
+		gpio_direction_output(ext_spk_amp_gpio, on);
+		/*time takes enable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+			     EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	} else {
+		gpio_direction_output(ext_spk_amp_gpio, on);
+		/*time takes disable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+			     EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	}
+
+	pr_debug("%s: %s external speaker PAs.\n", __func__,
+			on ? "Enable" : "Disable");
+}
 
 static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
 {
@@ -265,10 +327,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	int ret = 0;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
-
+	msm8x10_ext_spk_power_amp_init();
 	snd_soc_dapm_new_controls(dapm, msm8x10_dapm_widgets,
 				ARRAY_SIZE(msm8x10_dapm_widgets));
 
+	snd_soc_dapm_enable_pin(dapm, "Lineout amp");
 	snd_soc_dapm_sync(dapm);
 
 	ret = snd_soc_jack_new(codec, "Headset Jack",
@@ -691,6 +754,7 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	spdev = pdev;
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
@@ -708,6 +772,8 @@ static int __devexit msm8x10_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
+	if (gpio_is_valid(ext_spk_amp_gpio))
+		gpio_free(ext_spk_amp_gpio);
 	snd_soc_unregister_card(card);
 	mutex_destroy(&cdc_mclk_mutex);
 	return 0;
