@@ -34,3 +34,7 @@
 &ipa_hw {
 	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
 };
+
+&hsusb_otg {
+	qcom,hsusb-l1-supported;
+};

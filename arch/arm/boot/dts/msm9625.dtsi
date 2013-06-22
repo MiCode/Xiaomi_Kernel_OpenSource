@@ -148,7 +148,7 @@
 		interrupts = <0 109 0>;
 	};
 
-	usb@f9a55000 {
+	hsusb_otg: usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0 0 140 0>;
