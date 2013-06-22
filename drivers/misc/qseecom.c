@@ -172,6 +172,7 @@ struct qseecom_control {
 	struct work_struct bw_inactive_req_ws;
 	struct cdev cdev;
 	bool timer_running;
+	bool uclient_shutdown_app;
 };
 
 struct qseecom_client_handle {
@@ -971,6 +972,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		(char *)(load_img_req.img_name));
 	}
 	data->client.app_id = app_id;
+	data->type = QSEECOM_CLIENT_APP;
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
 		pr_err("copy_to_user failed\n");
@@ -1008,7 +1010,8 @@ static int qseecom_unmap_ion_allocated_memory(struct qseecom_dev_handle *data)
 	return ret;
 }
 
-static int qseecom_unload_app(struct qseecom_dev_handle *data)
+static int qseecom_unload_app(struct qseecom_dev_handle *data,
+				bool uclient_release)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -1020,17 +1023,24 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 	if (data->client.app_id > 0) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
-								list) {
+									list) {
 			if (ptr_app->app_id == data->client.app_id) {
 				found_app = true;
-				if (ptr_app->ref_cnt == 1) {
+				if ((uclient_release) &&
+					(!qseecom.uclient_shutdown_app)) {
+					ptr_app->ref_cnt = 0;
 					unload = true;
 					break;
 				} else {
-					ptr_app->ref_cnt--;
-					pr_debug("Can't unload app(%d) inuse\n",
-							ptr_app->app_id);
-					break;
+					if (ptr_app->ref_cnt == 1) {
+						unload = true;
+						break;
+					} else {
+						ptr_app->ref_cnt--;
+						pr_debug("Can't unload app(%d) inuse\n",
+						ptr_app->app_id);
+						break;
+					}
 				}
 			}
 		}
@@ -1038,7 +1048,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 								flags);
 		if (found_app == false) {
 			pr_err("Cannot find app with id = %d\n",
-						data->client.app_id);
+					data->client.app_id);
 			return -EINVAL;
 		}
 	}
@@ -1062,7 +1072,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 				&resp, sizeof(resp));
 		if (ret) {
 			pr_err("scm_call to unload app (id = %d) failed\n",
-							req.app_id);
+								req.app_id);
 			return -EFAULT;
 		} else {
 			pr_warn("App id %d now unloaded\n", req.app_id);
@@ -1071,7 +1081,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 			ret = __qseecom_process_incomplete_cmd(data, &resp);
 			if (ret) {
 				pr_err("process_incomplete_cmd fail err: %d\n",
-						ret);
+									ret);
 				return ret;
 			}
 		}
@@ -2039,7 +2049,7 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	if (!found_handle)
 		pr_err("Unable to find the handle, exiting\n");
 	else
-		ret = qseecom_unload_app(data);
+		ret = qseecom_unload_app(data, false);
 
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
@@ -3359,7 +3369,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		pr_debug("UNLOAD_APP: qseecom_addr = 0x%x\n", (u32)data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
-		ret = qseecom_unload_app(data);
+		qseecom.uclient_shutdown_app = true;
+		ret = qseecom_unload_app(data, false);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		if (ret)
@@ -3656,7 +3667,13 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			ret = qseecom_unregister_listener(data);
 			break;
 		case QSEECOM_CLIENT_APP:
-			ret = qseecom_unload_app(data);
+			ret = qseecom_unload_app(data, true);
+			if (ret) {
+				pr_err("Close failed\n");
+				return ret;
+			} else {
+				qseecom.uclient_shutdown_app = false;
+			}
 			break;
 		case QSEECOM_SECURE_SERVICE:
 		case QSEECOM_GENERIC:
@@ -4061,7 +4078,7 @@ static int __devinit qseecom_remove(struct platform_device *pdev)
 			goto exit_free_kc_handle;
 
 		list_del(&kclient->list);
-		ret = qseecom_unload_app(kclient->handle->dev);
+		ret = qseecom_unload_app(kclient->handle->dev, false);
 		if (!ret) {
 			kzfree(kclient->handle->dev);
 			kzfree(kclient->handle);
