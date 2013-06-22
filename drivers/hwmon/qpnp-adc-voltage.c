@@ -1164,14 +1164,14 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 	rc = qpnp_vadc_read_reg(QPNP_INT_TEST_VAL, &fab_id);
 	if (rc < 0) {
 		pr_err("qpnp adc comp id failed with %d\n", rc);
-		return rc;
+		goto fail;
 	}
 	vadc->id = fab_id;
 
 	rc = qpnp_vadc_warm_rst_configure();
 	if (rc < 0) {
 		pr_err("Setting perp reset on warm reset failed %d\n", rc);
-		return rc;
+		goto fail;
 	}
 
 	vadc->vadc_initialized = true;
