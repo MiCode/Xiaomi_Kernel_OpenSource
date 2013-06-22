@@ -29,6 +29,7 @@
 enum msm_ipc_router_event {
 	MSM_IPC_ROUTER_READ_CB = 0,
 	MSM_IPC_ROUTER_WRITE_DONE,
+	MSM_IPC_ROUTER_RESUME_TX,
 };
 
 struct comm_mode_info {
