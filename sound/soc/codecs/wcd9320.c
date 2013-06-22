@@ -4639,7 +4639,7 @@ static struct snd_soc_dai_driver taiko_dai[] = {
 			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 5,
+			.channels_max = 8,
 		},
 		.ops = &taiko_dai_ops,
 	},

@@ -456,13 +456,18 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 		__func__, config->buf_num, config->stream_format,
 		config->port_cnt, config->params_data_size);
 
-	pr_debug("%s: id[0]=%d, id[1]=%d, id[2]=%d, id[3]=%d, id[4]=%d\n",
+	pr_debug("%s: id[0]=%d, id[1]=%d, id[2]=%d, id[3]=%d, id[4]=%d,\n",
 		__func__,
 		config->port_id[0],
 		config->port_id[1],
 		config->port_id[2],
 		config->port_id[3],
 		config->port_id[4]);
+
+	pr_debug("id[5]=%d, id[6]=%d, id[7]=%d\n",
+		config->port_id[5],
+		config->port_id[6],
+		config->port_id[7]);
 
 	/* q6usm allocation & configuration */
 	usf_xx->buffer_size = config->buf_size;

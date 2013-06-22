@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -652,7 +652,7 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 		sizeof(struct usm_stream_cmd_encdec_cfg_blk);
 	uint32_t round_params_size = 0;
 	uint8_t  is_allocated = 0;
-
+	size_t min_common_size;
 
 	if ((usc == NULL) || (us_cfg == NULL)) {
 		pr_err("%s: wrong input", __func__);
@@ -692,12 +692,13 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 				round_params_size;
 	enc_cfg->enc_blk.frames_per_buf = 1;
 	enc_cfg->enc_blk.format_id = int_format;
-	enc_cfg->enc_blk.cfg_size = sizeof(struct usm_cfg_common)+
+	min_common_size = min(sizeof(struct usm_cfg_common),
+			      sizeof(struct usm_cfg_common_a));
+	enc_cfg->enc_blk.cfg_size = min_common_size +
 				    USM_MAX_CFG_DATA_SIZE +
 				    round_params_size;
 	memcpy(&(enc_cfg->enc_blk.cfg_common), &(us_cfg->cfg_common),
-	       sizeof(struct usm_cfg_common));
-
+	       min_common_size);
 	/* Transparent data copy */
 	memcpy(enc_cfg->enc_blk.transp_data, us_cfg->params,
 	       us_cfg->params_size);
@@ -716,11 +717,15 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 		enc_cfg->enc_blk.transp_data[6],
 		enc_cfg->enc_blk.transp_data[7]
 	       );
-	pr_debug("%s: srate:%d, ch=%d, bps= %d; dmap:0x%x; dev_id=0x%x\n",
+	pr_debug("%s: srate:%d, ch=%d, bps= %d; dmap:[0x%x,0x%x,0x%x,0x%x];\n",
 		__func__, enc_cfg->enc_blk.cfg_common.sample_rate,
 		enc_cfg->enc_blk.cfg_common.ch_cfg,
 		enc_cfg->enc_blk.cfg_common.bits_per_sample,
-		enc_cfg->enc_blk.cfg_common.data_map,
+		enc_cfg->enc_blk.cfg_common.data_map[0],
+		enc_cfg->enc_blk.cfg_common.data_map[1],
+		enc_cfg->enc_blk.cfg_common.data_map[2],
+		enc_cfg->enc_blk.cfg_common.data_map[3]);
+	pr_debug("dev_id=0x%x\n",
 		enc_cfg->enc_blk.cfg_common.dev_id);
 
 	rc = apr_send_pkt(usc->apr, (uint32_t *) enc_cfg);
@@ -757,7 +762,7 @@ int q6usm_dec_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 	uint32_t total_cfg_size = sizeof(struct usm_stream_media_format_update);
 	uint32_t round_params_size = 0;
 	uint8_t  is_allocated = 0;
-
+	size_t min_common_size;
 
 	if ((usc == NULL) || (us_cfg == NULL)) {
 		pr_err("%s: wrong input", __func__);
@@ -794,11 +799,13 @@ int q6usm_dec_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 
 	dec_cfg->hdr.opcode = USM_DATA_CMD_MEDIA_FORMAT_UPDATE;
 	dec_cfg->format_id = int_format;
-	dec_cfg->cfg_size = sizeof(struct usm_cfg_common) +
+	min_common_size = min(sizeof(struct usm_cfg_common),
+			      sizeof(struct usm_cfg_common_a));
+	dec_cfg->cfg_size = min_common_size +
 			    USM_MAX_CFG_DATA_SIZE +
 			    round_params_size;
 	memcpy(&(dec_cfg->cfg_common), &(us_cfg->cfg_common),
-	       sizeof(struct usm_cfg_common));
+	       min_common_size);
 	/* Transparent data copy */
 	memcpy(dec_cfg->transp_data, us_cfg->params, us_cfg->params_size);
 	pr_debug("%s: cfg_size[%d], params_size[%d]; parambytes[%d,%d,%d,%d]\n",
