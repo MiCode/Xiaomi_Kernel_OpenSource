@@ -172,9 +172,13 @@ static int msm_iommu_reg_dump_to_regs(
 
 	for (i = 0; i < MAX_DUMP_REGS; ++i) {
 		if (!ctx_regs[i].valid) {
-			pr_err("Register missing from dump: %s, %lx\n",
-				dump_regs_tbl[i].name, dump_regs_tbl[i].key);
-			ret = 1;
+			if (dump_regs_tbl[i].must_be_present) {
+				pr_err("Register missing from dump: %s, %lx\n",
+					dump_regs_tbl[i].name,
+					dump_regs_tbl[i].key);
+				ret = 1;
+			}
+			ctx_regs[i].val = 0;
 		}
 	}
 
