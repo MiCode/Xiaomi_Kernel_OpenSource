@@ -3716,6 +3716,7 @@ static struct platform_device *msm_otg_add_pdev(
 				ofdev->dev.platform_data;
 		ci_pdata.log2_itc = otg_pdata->log2_itc;
 		ci_pdata.usb_core_id = 0;
+		ci_pdata.l1_supported = otg_pdata->l1_supported;
 		retval = platform_device_add_data(pdev, &ci_pdata,
 			sizeof(ci_pdata));
 		if (retval)
@@ -3846,6 +3847,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (pdata->pmic_id_irq < 0)
 		pdata->pmic_id_irq = 0;
+
+	pdata->l1_supported = of_property_read_bool(node,
+				"qcom,hsusb-l1-supported");
 
 	return pdata;
 }

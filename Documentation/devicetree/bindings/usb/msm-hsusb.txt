@@ -79,6 +79,8 @@ Optional properties :
 	HSPHY.
 - qcom,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
 	interrupt threshold (ITC), when log2_itc is between 1 to 7.
+- qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
+	management).
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
