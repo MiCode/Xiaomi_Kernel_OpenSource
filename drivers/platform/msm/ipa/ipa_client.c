@@ -203,6 +203,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
+	ipa_enable_data_path(ipa_ep_idx);
 
 	ep->valid = 1;
 	ep->client = in->client;
@@ -380,7 +381,6 @@ int ipa_disconnect(u32 clnt_hdl)
 		return -EPERM;
 	}
 
-	ipa_enable_data_path(clnt_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 
 	ipa_dec_client_disable_clks();
