@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/err.h>
 
 #include <linux/clk.h>
 #include <mach/clk-provider.h>
@@ -67,10 +68,12 @@ static long mux_round_rate(struct clk *c, unsigned long rate)
 {
 	struct mux_clk *mux = to_mux_clk(c);
 	int i;
-	long prate, max_prate = 0, rrate = LONG_MAX;
+	unsigned long prate, max_prate = 0, rrate = ULONG_MAX;
 
 	for (i = 0; i < mux->num_parents; i++) {
 		prate = clk_round_rate(mux->parents[i].src, rate);
+		if (IS_ERR_VALUE(prate))
+			continue;
 		if (prate < rate) {
 			max_prate = max(prate, max_prate);
 			continue;
@@ -78,7 +81,7 @@ static long mux_round_rate(struct clk *c, unsigned long rate)
 
 		rrate = min(rrate, prate);
 	}
-	if (rrate == LONG_MAX)
+	if (rrate == ULONG_MAX)
 		rrate = max_prate;
 
 	return rrate ? rrate : -EINVAL;
@@ -200,7 +203,7 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 {
 	struct div_clk *d = to_div_clk(c);
 	unsigned int div, min_div, max_div;
-	long p_rrate, rrate = LONG_MAX;
+	unsigned long p_rrate, rrate = ULONG_MAX;
 
 	rate = max(rate, 1UL);
 
@@ -208,12 +211,12 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 		min_div = max_div = d->div;
 	else {
 		min_div = max(d->min_div, 1U);
-		max_div = min(d->max_div, (unsigned int) (LONG_MAX / rate));
+		max_div = min(d->max_div, (unsigned int) (ULONG_MAX / rate));
 	}
 
 	for (div = min_div; div <= max_div; div++) {
 		p_rrate = clk_round_rate(c->parent, rate * div);
-		if (p_rrate < 0)
+		if (IS_ERR_VALUE(p_rrate))
 			break;
 
 		p_rrate /= div;
@@ -225,7 +228,7 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 		 * for a higher divider. So, stop trying higher dividers.
 		 */
 		if (p_rrate < rate) {
-			if (rrate == LONG_MAX) {
+			if (rrate == ULONG_MAX) {
 				rrate = p_rrate;
 				if (best_div)
 					*best_div = div;
@@ -242,7 +245,7 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 			break;
 	}
 
-	if (rrate == LONG_MAX)
+	if (rrate == ULONG_MAX)
 		return -EINVAL;
 
 	return rrate;
