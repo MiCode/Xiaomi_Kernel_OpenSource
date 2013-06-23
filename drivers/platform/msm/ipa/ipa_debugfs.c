@@ -500,6 +500,32 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 	set = &ipa_ctx->rt_tbl_set[ip];
 
 	mutex_lock(&ipa_ctx->lock);
+	if (ip ==  IPA_IP_v6) {
+		if (ipa_ctx->ip6_rt_tbl_lcl) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"Table Resides on local memory\n");
+			cnt += nbytes;
+		} else {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"Table Resides on system(ddr) memory\n");
+			cnt += nbytes;
+		}
+	} else if (ip == IPA_IP_v4) {
+		if (ipa_ctx->ip4_rt_tbl_lcl) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"Table Resides on local memory\n");
+			cnt += nbytes;
+		} else {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"Table Resides on system(ddr) memory\n");
+			cnt += nbytes;
+		}
+	}
+
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_rt_rule_list, link) {
