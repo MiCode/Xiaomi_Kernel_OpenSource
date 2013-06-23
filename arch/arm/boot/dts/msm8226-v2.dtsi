@@ -51,6 +51,11 @@
 	qcom,cpr-apc-volt-step = <10000>;
 };
 
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x03000512>;
+};
+
 &soc {
 	qcom,acpuclk@f9011050 {
 		reg =	<0xf9011050 0x8>,
