@@ -113,6 +113,7 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
+	ipa_inc_client_enable_clks();
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_VERSION=0x%x\n"
@@ -143,6 +144,7 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 			ipa_read_reg(ipa_ctx->mmio, IPA_FILTER_OFST_v2),
 			ipa_read_reg(ipa_ctx->mmio, IPA_SHARED_MEM_SIZE_OFST_v2)
 				);
+	ipa_dec_client_disable_clks();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -241,6 +243,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		end_idx = start_idx + 1;
 	}
 	pos = *ppos;
+	ipa_inc_client_enable_clks();
 	for (i = start_idx; i < end_idx; i++) {
 
 		if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
@@ -292,13 +295,16 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		*ppos = pos;
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
 					      nbytes);
-		if (ret < 0)
+		if (ret < 0) {
+			ipa_dec_client_disable_clks();
 			return ret;
+		}
 
 		size += ret;
 		ubuf += nbytes;
 		count -= nbytes;
 	}
+	ipa_dec_client_disable_clks();
 
 	*ppos = pos + size;
 	return size;
@@ -709,12 +715,14 @@ static ssize_t ipa_write_dbg_cnt(struct file *file, const char __user *buf,
 	if (kstrtou32(dbg_buff, 0, &option))
 		return -EFAULT;
 
+	ipa_inc_client_enable_clks();
 	if (option == 1)
 		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_n_OFST(0),
 				IPA_DBG_CNTR_ON);
 	else
 		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_n_OFST(0),
 				IPA_DBG_CNTR_OFF);
+	ipa_dec_client_disable_clks();
 
 	return count;
 }
@@ -724,10 +732,12 @@ static ssize_t ipa_read_dbg_cnt(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
+	ipa_inc_client_enable_clks();
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_DEBUG_CNT_REG_0=0x%x\n",
 			ipa_read_reg(ipa_ctx->mmio,
 			IPA_DEBUG_CNT_REG_n_OFST(0)));
+	ipa_dec_client_disable_clks();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
