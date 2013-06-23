@@ -24,6 +24,7 @@
  * Ubicom32 implementation derived from
  * Cameo's implementation(with many thanks):
  */
+
 #include <linux/types.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -59,13 +60,15 @@ struct ipt_nattype {
 	struct list_head list;
 	struct timer_list timeout;
 	unsigned long timeout_value;
-	unsigned char is_valid;
+	unsigned int nattype_cookie;
 	unsigned short proto;		/* Protocol: TCP or UDP */
-	struct nf_nat_ipv4_range range;	/* LAN side src info*/
+	struct nf_nat_ipv4_range range;	/* LAN side source information */
 	unsigned short nat_port;	/* Routed NAT port */
 	unsigned int dest_addr;	/* Original egress packets dst addr */
 	unsigned short dest_port;/* Original egress packets destination port */
 };
+
+#define NATTYPE_COOKIE 0x11abcdef
 
 /* TODO: It might be better to use a hash table for performance in
  * heavy traffic.
@@ -80,7 +83,7 @@ static void nattype_nte_debug_print(const struct ipt_nattype *nte,
 				    const char *s)
 {
 	DEBUGP("%p: %s - proto[%d], src[%pI4:%d], nat[<x>:%d], dest[%pI4:%d]\n",
-	       nte, s, nte->proto,
+		nte, s, nte->proto,
 		&nte->range.min_ip, ntohs(nte->range.min.all),
 		ntohs(nte->nat_port),
 		&nte->dest_addr, ntohs(nte->dest_port));
@@ -105,7 +108,7 @@ bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
 	if (!nte)
 		return false;
 	spin_lock_bh(&nattype_lock);
-	if (!nte->is_valid) {
+	if (nte->nattype_cookie != NATTYPE_COOKIE) {
 		spin_unlock_bh(&nattype_lock);
 		return false;
 	}
@@ -228,9 +231,9 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
 	}
 
 	 /* netfilter NATTYPE LAN Source compare.
-	  * Since we always keep min/max values the same,
-	  * just compare the min values.
-	  */
+	 * Since we always keep min/max values the same,
+	 * just compare the min values.
+	 */
 	if (n1->range.min_ip != n2->range.min_ip) {
 		DEBUGP("nattype_compare: r.min_ip mismatch: %pI4:%pI4\n",
 		       &n1->range.min_ip, &n2->range.min_ip);
@@ -239,8 +242,8 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
 
 	if (n1->range.min.all != n2->range.min.all) {
 		DEBUGP("nattype_compare: r.min mismatch: %d:%d\n",
-		       ntohs(n1->range.min.all),
-		       ntohs(n2->range.min.all));
+				ntohs(n1->range.min.all),
+				ntohs(n2->range.min.all));
 		return false;
 	}
 
@@ -315,7 +318,8 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 		 * Expand the ingress conntrack to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
-			ct, ctinfo, &newrange.min_ip, ntohs(newrange.min.all));
+		       ct, ctinfo, &newrange.min_ip,
+		       ntohs(newrange.min.all));
 		ct->nattype_entry = (unsigned long)nte;
 		ret = nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
 		DEBUGP("Expand returned: %d\n", ret);
@@ -416,11 +420,13 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	 * conntrack instead of the headers.
 	 */
 	if (iph->protocol == IPPROTO_TCP) {
-		nte->range.min.tcp.port = ((struct tcphdr *)protoh)->source;
+		nte->range.min.tcp.port =
+					((struct tcphdr *)protoh)->source;
 		nte->range.max.tcp.port = nte->range.min.tcp.port;
 		nte->dest_port = ((struct tcphdr *)protoh)->dest;
 	} else if (iph->protocol == IPPROTO_UDP) {
-		nte->range.min.udp.port = ((struct udphdr *)protoh)->source;
+		nte->range.min.udp.port =
+					((struct udphdr *)protoh)->source;
 		nte->range.max.udp.port = nte->range.min.udp.port;
 		nte->dest_port = ((struct udphdr *)protoh)->dest;
 	}
@@ -474,7 +480,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
-	nte->is_valid = 1;
+	nte->nattype_cookie = NATTYPE_COOKIE;
 	spin_unlock_bh(&nattype_lock);
 	nattype_nte_debug_print(nte, "ADD");
 	return XT_CONTINUE;
