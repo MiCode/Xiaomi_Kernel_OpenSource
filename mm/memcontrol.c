@@ -1116,11 +1116,6 @@ void mem_cgroup_lru_del_list(struct page *page, enum lru_list lru)
 	mz->lru_size[lru] -= 1 << compound_order(page);
 }
 
-void mem_cgroup_lru_del(struct page *page)
-{
-	mem_cgroup_lru_del_list(page, page_lru(page));
-}
-
 /**
  * mem_cgroup_lru_move_lists - account for moving a page between lrus
  * @zone: zone of the page
@@ -1149,15 +1144,25 @@ struct lruvec *mem_cgroup_lru_move_lists(struct zone *zone,
  * Checks whether given mem is same or in the root_mem_cgroup's
  * hierarchy subtree
  */
-static bool mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
-		struct mem_cgroup *memcg)
+bool __mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
+				  struct mem_cgroup *memcg)
 {
-	if (root_memcg != memcg) {
-		return (root_memcg->use_hierarchy &&
-			css_is_ancestor(&memcg->css, &root_memcg->css));
-	}
+	if (root_memcg == memcg)
+		return true;
+	if (!root_memcg->use_hierarchy)
+		return false;
+	return css_is_ancestor(&memcg->css, &root_memcg->css);
+}
 
-	return true;
+static bool mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
+				       struct mem_cgroup *memcg)
+{
+	bool ret;
+
+	rcu_read_lock();
+	ret = __mem_cgroup_same_or_subtree(root_memcg, memcg);
+	rcu_read_unlock();
+	return ret;
 }
 
 int task_in_mem_cgroup(struct task_struct *task, const struct mem_cgroup *memcg)
@@ -5610,7 +5615,6 @@ static void mem_cgroup_move_task(struct cgroup *cont,
 	if (mm) {
 		if (mc.to)
 			mem_cgroup_move_charge(mm);
-		put_swap_token(mm);
 		mmput(mm);
 	}
 	if (mc.to)
