@@ -49,6 +49,9 @@ Optional properties :
   is not supported and attached host should always be assumed as SDP.
 - USB3_GDSC-supply : phandle to the globally distributed switch controller
   regulator node to the USB controller.
+- qcom,dwc_usb3-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+		measurements on USB_ID channel when using ADC and receive
+		notifications for set thresholds.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -72,6 +75,7 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc-usb3-msm-dbm-eps = <4>
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,dwc-hsphy-init = <0x00D195A4>;
+		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;

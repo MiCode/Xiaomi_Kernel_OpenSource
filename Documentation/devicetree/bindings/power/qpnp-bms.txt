@@ -103,6 +103,8 @@ Parent node optional properties:
 - qcom,use-ocv-thresholds : A boolean that controls whether BMS will take
 			new OCVs only between the defined thresholds.
 - qcom,enable-fcc-learning: A boolean that defines if FCC learning is enabled.
+- qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring measurements
+		and receive notifications for die_temperature, vbatt.
 
 
 All sub node required properties:
@@ -152,6 +154,7 @@ pm8941_bms: qcom,bms {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,bms-vadc = <&pm8941_vadc>;
 	qcom,bms-iadc = <&pm8941_iadc>;
+	qcom,bms-adc_tm = <&pm8941_adc_tm>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;

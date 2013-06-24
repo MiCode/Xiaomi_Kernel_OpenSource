@@ -84,6 +84,7 @@
 			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
 			qcom,chg-vadc = <&pm8226_vadc>;
+			qcom,chg-adc_tm = <&pm8226_adc_tm>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
@@ -201,6 +202,7 @@
 			qcom,low-voltage-threshold = <3420000>;
 			qcom,bms-vadc = <&pm8226_vadc>;
 			qcom,bms-iadc = <&pm8226_iadc>;
+			qcom,bms-adc_tm = <&pm8226_adc_tm>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;

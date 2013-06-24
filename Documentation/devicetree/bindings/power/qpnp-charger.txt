@@ -89,6 +89,8 @@ Sub node required structure:
 	to the collective charging device. For example USB detection
 	and the battery interface are each seperate peripherals and
 	each should be their own subnode.
+- qcom,chg-adc_tm			Corresponding ADC TM device's phandle to set recurring
+					measurements and receive notification for batt_therm.
 
 Sub node required properties:
 - compatible:		Must be "qcom,qpnp-charger".
@@ -202,6 +204,7 @@ Example:
 		qcom,batt-cold-percent = <85>;
 		qcom,btc-disabled = <0>;
 		qcom,chg-vadc = <&pm8941_vadc>;
+		qcom,chg-adc_tm = <&pm8941_adc_tm>;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;

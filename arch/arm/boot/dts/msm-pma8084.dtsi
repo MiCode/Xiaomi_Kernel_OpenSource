@@ -323,6 +323,7 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pma8084_vadc>;
 		};
 
 		qcom,rtc {

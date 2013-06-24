@@ -278,6 +278,7 @@ struct qpnp_bms_chip {
 	struct bms_irq			ocv_thr_irq;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_iadc_chip		*iadc_dev;
+	struct qpnp_adc_tm_chip		*adc_tm_dev;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -2354,7 +2355,8 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	mutex_lock(&chip->vbat_monitor_mutex);
 	if (chip->vbat_monitor_params.state_request !=
 			ADC_TM_HIGH_LOW_THR_DISABLE)
-		qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+		qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_monitor_params);
 	mutex_unlock(&chip->vbat_monitor_mutex);
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
@@ -2456,7 +2458,8 @@ static void configure_vbat_monitor_low(struct qpnp_bms_chip *chip)
 				chip->vbat_monitor_params.low_thr,
 				chip->vbat_monitor_params.high_thr);
 	}
-	qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+	qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_monitor_params);
 	mutex_unlock(&chip->vbat_monitor_mutex);
 }
 
@@ -2504,7 +2507,8 @@ static void configure_vbat_monitor_high(struct qpnp_bms_chip *chip)
 				chip->vbat_monitor_params.low_thr,
 				chip->vbat_monitor_params.high_thr);
 	}
-	qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+	qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_monitor_params);
 	mutex_unlock(&chip->vbat_monitor_mutex);
 }
 
@@ -2528,7 +2532,7 @@ static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
 			configure_vbat_monitor_low(chip);
 		} else {
 			pr_debug("faulty btm trigger, discarding\n");
-			qpnp_adc_tm_channel_measure(
+			qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
 					&chip->vbat_monitor_params);
 		}
 	} else if (state == ADC_TM_HIGH_STATE) {
@@ -2538,7 +2542,7 @@ static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
 			configure_vbat_monitor_high(chip);
 		} else {
 			pr_debug("faulty btm trigger, discarding\n");
-			qpnp_adc_tm_channel_measure(
+			qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
 					&chip->vbat_monitor_params);
 		}
 	} else {
@@ -2554,7 +2558,8 @@ static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
 
 	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
 
-	rc = qpnp_adc_tm_disable_chan_meas(&chip->vbat_monitor_params);
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+						&chip->vbat_monitor_params);
 	if (rc) {
 		pr_err("tm disable failed: %d\n", rc);
 		return rc;
@@ -2574,12 +2579,6 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 {
 	int rc;
 
-	rc = qpnp_adc_tm_is_ready();
-	if (rc) {
-		pr_info("adc tm is not ready yet: %d, defer probe\n", rc);
-		return -EPROBE_DEFER;
-	}
-
 	chip->vbat_monitor_params.low_thr = chip->low_voltage_threshold;
 	chip->vbat_monitor_params.high_thr = chip->max_voltage_uv
 							- VBATT_ERROR_MARGIN;
@@ -2597,12 +2596,14 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 		chip->vbat_monitor_params.state_request =
 			ADC_TM_HIGH_LOW_THR_DISABLE;
 	} else {
-		rc = qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+		rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+						&chip->vbat_monitor_params);
 		if (rc) {
 			pr_err("tm setup failed: %d\n", rc);
-			return rc;
+		return rc;
 		}
 	}
+
 	pr_debug("setup complete\n");
 	return 0;
 }
@@ -3386,6 +3387,38 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
+static int bms_get_adc(struct qpnp_bms_chip *chip,
+					struct spmi_device *spmi)
+{
+	int rc = 0;
+
+	chip->vadc_dev = qpnp_get_vadc(&spmi->dev, "bms");
+	if (IS_ERR(chip->vadc_dev)) {
+		rc = PTR_ERR(chip->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc property missing, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->iadc_dev = qpnp_get_iadc(&spmi->dev, "bms");
+	if (IS_ERR(chip->iadc_dev)) {
+		rc = PTR_ERR(chip->iadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("iadc property missing, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->adc_tm_dev = qpnp_get_adc_tm(&spmi->dev, "bms");
+	if (IS_ERR(chip->adc_tm_dev)) {
+		rc = PTR_ERR(chip->adc_tm_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("adc-tm not ready, defer probe\n");
+		return rc;
+	}
+
+	return 0;
+}
+
 #define SPMI_PROP_READ(chip_prop, qpnp_spmi_property, retval)		\
 do {									\
 	if (retval)							\
@@ -3741,7 +3774,8 @@ static int refresh_die_temp_monitor(struct qpnp_bms_chip *chip)
 						- chip->temperature_margin;
 	chip->die_temp_monitor_params.state_request =
 						ADC_TM_HIGH_LOW_THR_ENABLE;
-	return qpnp_adc_tm_channel_measure(&chip->die_temp_monitor_params);
+	return qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->die_temp_monitor_params);
 }
 
 static void btm_notify_die_temp(enum qpnp_tm_state state, void *ctx)
@@ -3764,17 +3798,14 @@ static void btm_notify_die_temp(enum qpnp_tm_state state, void *ctx)
 
 static int setup_die_temp_monitoring(struct qpnp_bms_chip *chip)
 {
-	int rc = qpnp_adc_tm_is_ready();
-	if (rc) {
-		pr_info("adc tm is not ready yet: %d, defer probe\n", rc);
-		return -EPROBE_DEFER;
-	}
+	int rc;
+
 	chip->die_temp_monitor_params.channel = DIE_TEMP;
 	chip->die_temp_monitor_params.btm_ctx = (void *)chip;
 	chip->die_temp_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
 	chip->die_temp_monitor_params.threshold_notification =
 						&btm_notify_die_temp;
-	refresh_die_temp_monitor(chip);
+	rc = refresh_die_temp_monitor(chip);
 	if (rc) {
 		pr_err("tm setup failed: %d\n", rc);
 		return rc;
@@ -3796,21 +3827,9 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	chip->vadc_dev = qpnp_get_vadc(&(spmi->dev), "bms");
-	if (IS_ERR(chip->vadc_dev)) {
-		rc = PTR_ERR(chip->vadc_dev);
-		if (rc != -EPROBE_DEFER)
-			pr_err("vadc property missing, rc=%d\n", rc);
+	rc = bms_get_adc(chip, spmi);
+	if (rc < 0)
 		goto error_read;
-	}
-
-	chip->iadc_dev = qpnp_get_iadc(&(spmi->dev), "bms");
-	if (IS_ERR(chip->iadc_dev)) {
-		rc = PTR_ERR(chip->iadc_dev);
-		if (rc != -EPROBE_DEFER)
-			pr_err("iadc property missing, rc=%d\n", rc);
-		goto error_read;
-	}
 
 	mutex_init(&chip->bms_output_lock);
 	mutex_init(&chip->last_ocv_uv_mutex);

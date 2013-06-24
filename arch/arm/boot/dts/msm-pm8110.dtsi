@@ -69,6 +69,7 @@
 			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
 			qcom,chg-vadc = <&pm8110_vadc>;
+			qcom,chg-adc_tm = <&pm8110_adc_tm>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
@@ -328,6 +329,7 @@
 			qcom,hold-soc-est = <3>;
 			qcom,bms-vadc = <&pm8110_vadc>;
 			qcom,bms-iadc = <&pm8110_iadc>;
+			qcom,bms-adc_tm = <&pm8110_adc_tm>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
