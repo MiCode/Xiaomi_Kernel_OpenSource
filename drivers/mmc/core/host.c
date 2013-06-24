@@ -296,6 +296,10 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 {
 }
 
+bool mmc_host_may_gate_card(struct mmc_card *card)
+{
+	return false;
+}
 #endif
 
 void mmc_retune_enable(struct mmc_host *host)
