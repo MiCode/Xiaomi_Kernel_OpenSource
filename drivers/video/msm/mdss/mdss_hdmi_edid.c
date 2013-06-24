@@ -854,7 +854,8 @@ static void hdmi_edid_add_sink_video_format(
 static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 	struct hdmi_edid_sink_data *sink_data, u32 num_of_cea_blocks)
 {
-	u8 len, offset, present_multi_3d, hdmi_vic_len, hdmi_3d_len;
+	u8 len, offset, present_multi_3d, hdmi_vic_len;
+	int hdmi_3d_len;
 	u16 structure_all, structure_mask;
 	const u8 *vsd = num_of_cea_blocks ?
 		hdmi_edid_find_block(data_buf+0x80, DBC_START_OFFSET,
