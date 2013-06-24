@@ -2118,6 +2118,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->touch_stopped = false;
 	rmi4_data->sensor_sleep = false;
 	rmi4_data->irq_enabled = false;
+	rmi4_data->fw_updating = false;
 
 	rmi4_data->i2c_read = synaptics_rmi4_i2c_read;
 	rmi4_data->i2c_write = synaptics_rmi4_i2c_write;
@@ -2127,7 +2128,9 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->flip_x = rmi4_data->board->x_flip;
 	rmi4_data->flip_y = rmi4_data->board->y_flip;
 
-	rmi4_data->fw_image_name = rmi4_data->board->fw_image_name;
+	if (rmi4_data->board->fw_image_name)
+		snprintf(rmi4_data->fw_image_name, NAME_BUFFER_SIZE, "%s",
+			rmi4_data->board->fw_image_name);
 
 	rmi4_data->input_dev->name = DRIVER_NAME;
 	rmi4_data->input_dev->phys = INPUT_PHYS_NAME;
@@ -2659,19 +2662,22 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
-	if (!rmi4_data->sensor_sleep) {
-		rmi4_data->touch_stopped = true;
-		wake_up(&rmi4_data->wait);
-		synaptics_rmi4_irq_enable(rmi4_data, false);
-		synaptics_rmi4_sensor_sleep(rmi4_data);
-	}
+	if (!rmi4_data->fw_updating) {
+		if (!rmi4_data->sensor_sleep) {
+			rmi4_data->touch_stopped = true;
+			wake_up(&rmi4_data->wait);
+			synaptics_rmi4_irq_enable(rmi4_data, false);
+			synaptics_rmi4_sensor_sleep(rmi4_data);
+		}
 
-	retval = synaptics_rmi4_regulator_lpm(rmi4_data, true);
-	if (retval < 0) {
-		dev_err(dev, "failed to enter low power mode\n");
-		return retval;
-	}
-
+		retval = synaptics_rmi4_regulator_lpm(rmi4_data, true);
+		if (retval < 0) {
+			dev_err(dev, "failed to enter low power mode\n");
+			return retval;
+		}
+	} else
+		dev_err(dev,
+			"Firmware updating, cannot go into suspend mode\n");
 	return 0;
 }
 
