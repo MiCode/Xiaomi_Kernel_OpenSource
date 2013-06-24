@@ -49,7 +49,8 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,pad-pull-off - Suspend pull configuration for sdc tlmm pins.
 	- qcom,pad-drv-on - Active drive strength configuration for sdc tlmm pins.
 	- qcom,pad-drv-off - Suspend drive strength configuration for sdc tlmm pins.
-	Tlmm pins are specified as <clk cmd data>
+	Tlmm pins are specified as <clk cmd data> and starting with eMMC5.0 as
+	<clk cmd data rclk>
 
 Example:
 
