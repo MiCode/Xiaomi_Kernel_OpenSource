@@ -273,6 +273,9 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		return rc;
 	}
 
+	vfe_dev->axi_data.src_info[VFE_PIX_0].input_format =
+		input_cfg->d.pix_cfg.input_format;
+
 	vfe_dev->hw_info->vfe_ops.core_ops.cfg_camif(
 		vfe_dev, &input_cfg->d.pix_cfg);
 	return rc;

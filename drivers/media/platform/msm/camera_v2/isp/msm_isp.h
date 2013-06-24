@@ -90,7 +90,8 @@ struct msm_vfe_axi_ops {
 	void (*enable_wm) (struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint8_t enable);
 	void (*cfg_io_format) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream *stream_info);
+		enum msm_vfe_axi_stream_src stream_src,
+		uint32_t io_format);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
@@ -289,6 +290,7 @@ struct msm_vfe_src_info {
 	enum msm_vfe_inputmux input_mux;
 	uint32_t width;
 	long pixel_clock;
+	uint32_t input_format;
 };
 
 enum msm_wm_ub_cfg_type {

@@ -98,6 +98,7 @@ struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
+	uint32_t input_format;
 };
 
 struct msm_vfe_rdi_cfg {

@@ -474,6 +474,7 @@ void msm_isp_calculate_bandwidth(
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, i;
+	uint32_t io_format = 0;
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
 
@@ -497,10 +498,20 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_info[HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
 	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
-	if (stream_cfg_cmd->stream_src == CAMIF_RAW ||
-		stream_cfg_cmd->stream_src == IDEAL_RAW)
-			vfe_dev->hw_info->vfe_ops.axi_ops.
-				cfg_io_format(vfe_dev, stream_info);
+	if (stream_info->stream_src < RDI_INTF_0) {
+		io_format = vfe_dev->axi_data.src_info[VFE_PIX_0].input_format;
+		if (stream_info->stream_src == CAMIF_RAW ||
+			stream_info->stream_src == IDEAL_RAW) {
+			if (stream_info->stream_src == CAMIF_RAW &&
+				io_format != stream_info->output_format)
+				pr_warn("%s: Overriding input format\n",
+					__func__);
+
+			io_format = stream_info->output_format;
+		}
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_io_format(
+			vfe_dev, stream_info->stream_src, io_format);
+	}
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
 

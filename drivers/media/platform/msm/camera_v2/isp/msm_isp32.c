@@ -481,11 +481,11 @@ static void msm_vfe32_clear_framedrop(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe32_cfg_io_format(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info)
+	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
 {
 	int bpp, bpp_reg = 0;
 	uint32_t io_format_reg;
-	bpp = msm_isp_get_bit_per_pixel(stream_info->output_format);
+	bpp = msm_isp_get_bit_per_pixel(io_format);
 
 	switch (bpp) {
 	case 8:
@@ -499,7 +499,9 @@ static void msm_vfe32_cfg_io_format(struct vfe_device *vfe_dev,
 		break;
 	}
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x6F8);
-	switch (stream_info->stream_src) {
+	switch (stream_src) {
+	case PIX_ENCODER:
+	case PIX_VIEWFINDER:
 	case CAMIF_RAW:
 		io_format_reg &= 0xFFFFCFFF;
 		io_format_reg |= bpp_reg << 12;
@@ -508,8 +510,6 @@ static void msm_vfe32_cfg_io_format(struct vfe_device *vfe_dev,
 		io_format_reg &= 0xFFFFFFC8;
 		io_format_reg |= bpp_reg << 4;
 		break;
-	case PIX_ENCODER:
-	case PIX_VIEWFINDER:
 	case RDI_INTF_0:
 	case RDI_INTF_1:
 	case RDI_INTF_2:
