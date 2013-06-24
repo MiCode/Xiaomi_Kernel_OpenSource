@@ -200,6 +200,7 @@
 			qcom,hold-soc-est = <3>;
 			qcom,low-voltage-threshold = <3420000>;
 			qcom,bms-vadc = <&pm8226_vadc>;
+			qcom,bms-iadc = <&pm8226_iadc>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;

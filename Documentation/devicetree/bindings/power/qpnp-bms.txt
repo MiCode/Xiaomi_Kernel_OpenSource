@@ -87,6 +87,7 @@ Parent node required properties:
 			For example - A value of 10 indicates:
 			FCC value (in mAh) = (8-bit register value) * 10.
 - qcom,bms-vadc: Corresponding VADC device's phandle.
+- qcom,bms-iadc: Corresponding IADC device's phandle.
 
 Parent node optional properties:
 - qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
@@ -150,6 +151,7 @@ pm8941_bms: qcom,bms {
 	qcom,tm-temp-margin = <5000>;
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,bms-vadc = <&pm8941_vadc>;
+	qcom,bms-iadc = <&pm8941_iadc>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;

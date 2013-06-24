@@ -252,7 +252,7 @@
 			};
 		};
 
-		iadc@3600 {
+		pm8110_iadc: iadc@3600 {
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
 			#address-cells = <1>;
@@ -327,6 +327,7 @@
 			qcom,high-ocv-correction-limit-uv = <50>;
 			qcom,hold-soc-est = <3>;
 			qcom,bms-vadc = <&pm8110_vadc>;
+			qcom,bms-iadc = <&pm8110_iadc>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
