@@ -11,6 +11,7 @@
 #define ISP_NATIVE_BUF_BIT    0x10000
 #define ISP0_BIT              0x20000
 #define ISP1_BIT              0x40000
+#define ISP_META_CHANNEL_BIT  0x80000
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 enum ISP_START_PIXEL_PATTERN {
