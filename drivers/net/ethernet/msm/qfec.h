@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,6 +411,14 @@ struct qfec_buf_desc {
 # define GMII_ADR_REG_GR           0x000007c0 /* addr bits */
 # define GMII_ADR_REG_RSVRD1       0x00000020 /* */
 # define GMII_ADR_REG_CR           0x0000001c /* csr clock range */
+
+# define GMII_ADR_REG_CR_42        0x00000000 /* csr clock 42 */
+# define GMII_ADR_REG_CR_62        0x00000001 /* csr clock 62 */
+# define GMII_ADR_REG_CR_16        0x00000002 /* csr clock 16 */
+# define GMII_ADR_REG_CR_26        0x00000003 /* csr clock 26 */
+# define GMII_ADR_REG_CR_102       0x00000004 /* csr clock 102 */
+# define GMII_ADR_REG_CR_124       0x00000005 /* csr clock 124 */
+
 # define GMII_ADR_REG_GW           0x00000002 /* gmii write */
 # define GMII_ADR_REG_GB           0x00000001 /* gmii busy */
 
