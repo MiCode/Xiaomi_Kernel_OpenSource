@@ -641,7 +641,7 @@ static void ipa_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		tx_pkt = notify->data.transfer.user;
-		queue_work(ipa_ctx->tx_wq, &tx_pkt->work);
+		schedule_work(&tx_pkt->work);
 		break;
 	default:
 		IPAERR("recieved unexpected event id %d\n", notify->event_id);
