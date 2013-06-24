@@ -153,7 +153,6 @@ struct usb_bam_ipa_handshake_info {
 	bool prod_stopped;
 
 	struct completion prod_avail[MAX_BAMS];
-	struct completion cons_released[MAX_BAMS];
 	struct completion prod_released[MAX_BAMS];
 
 	struct mutex suspend_resume_mutex;
@@ -175,7 +174,6 @@ static struct device *hsic_host_dev;
 static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
 static void wait_for_prod_release(enum usb_bam cur_bam);
-static void wait_for_cons_release(enum usb_bam cur_bam);
 
 void msm_bam_set_hsic_host_dev(struct device *dev)
 {
@@ -936,7 +934,6 @@ static int cons_release_resource(enum usb_bam cur_bam)
 			__func__, bam_enable_strings[cur_bam]);
 
 	info.cur_cons_state[cur_bam] = IPA_RM_RESOURCE_RELEASED;
-	complete_all(&info.cons_released[cur_bam]);
 
 	spin_lock(&usb_bam_lock);
 	if (!ctx.pipes_enabled_per_bam[cur_bam]) {
@@ -1078,7 +1075,6 @@ static void wait_for_prod_release(enum usb_bam cur_bam)
 		pr_debug("%s producer already released\n", __func__);
 
 	init_completion(&info.prod_released[cur_bam]);
-	init_completion(&info.cons_released[cur_bam]);
 	pr_debug("%s: Releasing %s_PROD\n", __func__,
 				bam_enable_strings[cur_bam]);
 	ret = ipa_rm_release_resource(ipa_rm_resource_prod[cur_bam]);
@@ -1908,19 +1904,6 @@ int usb_bam_disconnect_pipe(u8 idx)
 	return 0;
 }
 
-static void wait_for_cons_release(enum usb_bam cur_bam)
-{
-	 pr_debug("%s: Waiting for CONS release\n", __func__);
-	 if (info.cur_cons_state[cur_bam] != IPA_RM_RESOURCE_RELEASED) {
-		if (!wait_for_completion_timeout(&info.cons_released[cur_bam],
-						  USB_BAM_TIMEOUT))
-			pr_err("%s: Timeout wainting for CONS_RELEASE\n",
-				__func__);
-	 } else
-		pr_debug("%s Didn't need to wait for CONS release\n",
-		     __func__);
-}
-
 int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 {
 	int ret;
@@ -1987,7 +1970,6 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		pipe_connect->priv = NULL;
 
 		cur_bam = pipe_connect->bam_type;
-		wait_for_cons_release(cur_bam);
 		/* close IPA -> USB pipe */
 		ret = ipa_disconnect(ipa_params->cons_clnt_hdl);
 		if (ret) {
@@ -2542,8 +2524,6 @@ static int usb_bam_probe(struct platform_device *pdev)
 		ctx.is_bam_inactivity[i] = false;
 		init_completion(&info.prod_avail[i]);
 		complete(&info.prod_avail[i]);
-		init_completion(&info.cons_released[i]);
-		complete(&info.cons_released[i]);
 		init_completion(&info.prod_released[i]);
 		complete(&info.prod_released[i]);
 		info.cur_prod_state[i] = IPA_RM_RESOURCE_RELEASED;
