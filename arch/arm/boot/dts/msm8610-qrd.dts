@@ -65,11 +65,11 @@
 			interrupts = <81 0x2>;
 			vdd-supply = <&pm8110_l19>;
 			vio-supply = <&pm8110_l14>;
-			kionix,min_interval = <5>;
-			kionix,init_interval = <200>;
-			kionix,axis_map_x = <1>;
-			kionix,axis_map_y = <0>;
-			kionix,axis_map_z = <2>;
+			kionix,min-interval = <5>;
+			kionix,init-interval = <200>;
+			kionix,axis-map-x = <1>;
+			kionix,axis-map-y = <0>;
+			kionix,axis-map-z = <2>;
 			kionix,g-range = <2>;
 			kionix,negate-x;
 			kionix,negate-y;
