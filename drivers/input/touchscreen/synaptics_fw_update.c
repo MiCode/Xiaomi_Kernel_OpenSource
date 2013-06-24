@@ -52,6 +52,14 @@
 #define BLOCK_NUMBER_OFFSET 0
 #define BLOCK_DATA_OFFSET 2
 
+#define RMI4_INFO_MAX_LEN	200
+
+#define RMI4_STORE_TS_INFO(buf, id, rev, fw_ver) \
+		snprintf(buf, RMI4_INFO_MAX_LEN, \
+			"controller\t= synaptics\n" \
+			"model\t\t= %d rev %d\n" \
+			"fw_ver\t\t= %d\n", id, rev, fw_ver)
+
 enum falsh_config_area {
 	UI_CONFIG_AREA = 0x00,
 	PERM_CONFIG_AREA = 0x01,
@@ -244,6 +252,7 @@ struct synaptics_rmi4_fwu_handle {
 	struct workqueue_struct *fwu_workqueue;
 	struct delayed_work fwu_work;
 	char firmware_name[NAME_BUFFER_SIZE];
+	char *ts_info;
 };
 
 static struct synaptics_rmi4_fwu_handle *fwu;
@@ -264,6 +273,26 @@ static unsigned int extract_uint_be(const unsigned char *ptr)
 			(unsigned int)ptr[2] * 0x100 +
 			(unsigned int)ptr[1] * 0x10000 +
 			(unsigned int)ptr[0] * 0x1000000;
+}
+
+static void synaptics_rmi4_update_debug_info(void)
+{
+	unsigned char pkg_id[4];
+	unsigned int build_id;
+	struct synaptics_rmi4_device_info *rmi;
+	/* read device package id */
+	fwu->fn_ptr->read(fwu->rmi4_data,
+				fwu->f01_fd.query_base_addr + 17,
+				pkg_id,
+				sizeof(pkg_id));
+	rmi = &(fwu->rmi4_data->rmi4_mod_info);
+
+	build_id = (unsigned int)rmi->build_id[0] +
+			(unsigned int)rmi->build_id[1] * 0x100 +
+			(unsigned int)rmi->build_id[2] * 0x10000;
+
+	RMI4_STORE_TS_INFO(fwu->ts_info, pkg_id[1] << 8 | pkg_id[0],
+		pkg_id[3] << 8 | pkg_id[2], build_id);
 }
 
 static void parse_header(struct image_header *header,
@@ -1360,6 +1389,8 @@ int synaptics_fw_updater(unsigned char *fw_data)
 	retval = fwu_start_reflash();
 	fwu->rmi4_data->fw_updating = false;
 
+	synaptics_rmi4_update_debug_info();
+
 	return retval;
 }
 EXPORT_SYMBOL(synaptics_fw_updater);
@@ -1659,6 +1690,26 @@ static ssize_t fwu_sysfs_package_id_show(struct device *dev,
 		(pkg_id[3] << 8) | pkg_id[2]);
 }
 
+static int synaptics_rmi4_debug_dump_info(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", fwu->ts_info);
+
+	return 0;
+}
+
+static int debugfs_dump_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, synaptics_rmi4_debug_dump_info,
+			inode->i_private);
+}
+
+static const struct file_operations debug_dump_info_fops = {
+	.owner		= THIS_MODULE,
+	.open		= debugfs_dump_info_open,
+	.read		= seq_read,
+	.release	= single_release,
+};
+
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 		unsigned char intr_mask)
 {
@@ -1737,6 +1788,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	int retval;
 	unsigned char attr_count;
 	struct pdt_properties pdt_props;
+	struct dentry *temp;
 
 	fwu = kzalloc(sizeof(*fwu), GFP_KERNEL);
 	if (!fwu) {
@@ -1821,6 +1873,25 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 
+	temp = debugfs_create_file("dump_info", S_IRUSR | S_IWUSR,
+			fwu->rmi4_data->dir, fwu->rmi4_data,
+			&debug_dump_info_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Failed to create debugfs dump info file\n",
+			__func__);
+		retval = PTR_ERR(temp);
+		goto exit_remove_attrs;
+	}
+
+	fwu->ts_info = kzalloc(RMI4_INFO_MAX_LEN, GFP_KERNEL);
+	if (!fwu->ts_info) {
+		dev_err(&rmi4_data->i2c_client->dev, "Not enough memory\n");
+		goto exit_free_ts_info;
+	}
+
+	synaptics_rmi4_update_debug_info();
+
 #ifdef INSIDE_FIRMWARE_UPDATE
 	fwu->fwu_workqueue = create_singlethread_workqueue("fwu_workqueue");
 	INIT_DELAYED_WORK(&fwu->fwu_work, synaptics_rmi4_fwu_work);
@@ -1832,7 +1903,8 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	init_completion(&remove_complete);
 
 	return 0;
-
+exit_free_ts_info:
+	debugfs_remove(temp);
 exit_remove_attrs:
 for (attr_count--; attr_count >= 0; attr_count--) {
 	sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
