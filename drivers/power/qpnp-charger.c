@@ -328,6 +328,7 @@ struct qpnp_chg_chip {
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_adc_tm_chip		*adc_tm_dev;
 };
 
 
@@ -918,7 +919,7 @@ qpnp_bat_if_adc_measure_work(struct work_struct *work)
 	struct qpnp_chg_chip *chip = container_of(work,
 				struct qpnp_chg_chip, adc_measure_work);
 
-	if (qpnp_adc_tm_channel_measure(&chip->adc_param))
+	if (qpnp_adc_tm_channel_measure(chip->adc_tm_dev, &chip->adc_param))
 		pr_err("request ADC error\n");
 }
 
@@ -2346,7 +2347,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		qpnp_chg_set_appropriate_vbatdet(chip);
 	}
 
-	if (qpnp_adc_tm_channel_measure(&chip->adc_param))
+	if (qpnp_adc_tm_channel_measure(chip->adc_tm_dev, &chip->adc_param))
 		pr_err("request ADC error\n");
 
 	power_supply_changed(&chip->batt_psy);
@@ -2999,6 +3000,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	if (rc) {
 		/* Select BAT_THM as default BPD scheme */
 		chip->bpd_detection = BPD_TYPE_BAT_THM;
+		rc = 0;
 	} else {
 		chip->bpd_detection = get_bpd(bpd);
 		if (chip->bpd_detection < 0) {
@@ -3009,9 +3011,11 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 
 	/* Look up JEITA compliance parameters if cool and warm temp provided */
 	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
-		rc = qpnp_adc_tm_is_ready();
-		if (rc) {
-			pr_err("tm not ready %d\n", rc);
+		chip->adc_tm_dev = qpnp_get_adc_tm(chip->dev, "chg");
+		if (IS_ERR(chip->adc_tm_dev)) {
+			rc = PTR_ERR(chip->adc_tm_dev);
+			if (rc != -EPROBE_DEFER)
+				pr_err("adc-tm not ready, defer probe\n");
 			return rc;
 		}
 
@@ -3358,7 +3362,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		chip->adc_param.channel = LR_MUX1_BATT_THERM;
 
 		if (get_prop_batt_present(chip)) {
-			rc = qpnp_adc_tm_channel_measure(&chip->adc_param);
+			rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+							&chip->adc_param);
 			if (rc) {
 				pr_err("request ADC error %d\n", rc);
 				goto fail_chg_enable;
@@ -3418,7 +3423,8 @@ qpnp_charger_remove(struct spmi_device *spmi)
 	struct qpnp_chg_chip *chip = dev_get_drvdata(&spmi->dev);
 	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
 						&& chip->batt_present) {
-		qpnp_adc_tm_disable_chan_meas(&chip->adc_param);
+		qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev,
+							&chip->adc_param);
 	}
 	cancel_work_sync(&chip->adc_measure_work);
 	cancel_delayed_work_sync(&chip->eoc_work);
