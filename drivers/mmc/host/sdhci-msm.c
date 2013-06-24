@@ -2310,6 +2310,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct mmc_ios	curr_ios = host->mmc->ios;
 	u32 sup_clock, ddr_clock;
+	bool curr_pwrsave;
 
 	if (!clock) {
 		sdhci_msm_prepare_clocks(host, false);
@@ -2320,6 +2321,22 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	rc = sdhci_msm_prepare_clocks(host, true);
 	if (rc)
 		return;
+
+	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			  CORE_CLK_PWRSAVE);
+	if ((msm_host->clk_rate > 400000) &&
+	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				| CORE_CLK_PWRSAVE,
+				host->ioaddr + CORE_VENDOR_SPEC);
+	/*
+	 * Disable pwrsave for a newly added card if doesn't allow clock
+	 * gating.
+	 */
+	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_CLK_PWRSAVE,
+				host->ioaddr + CORE_VENDOR_SPEC);
 
 	sup_clock = sdhci_msm_get_sup_clk_rate(host, clock);
 	if ((curr_ios.timing == MMC_TIMING_UHS_DDR50) ||
