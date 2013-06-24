@@ -35,7 +35,7 @@
  */
 #define PM8XXX_LPG_V0_PWM_CHANNELS	8
 #define PM8XXX_LPG_V1_PWM_CHANNELS	6
-#define PM8XXX_LPG_CTL_REGS		7
+#define PM8XXX_LPG_CTL_REGS		8
 
 /* PM8XXX PWM */
 #define SSBI_REG_ADDR_PWM1_CTRL1	0x88
@@ -66,6 +66,7 @@
 #define SSBI_REG_ADDR_LPG_LUT_CFG0	0x145
 #define SSBI_REG_ADDR_LPG_LUT_CFG1	0x146
 #define SSBI_REG_ADDR_LPG_TEST		0x147
+#define SSBI_REG_ADDR_LPG_CTL_7		0x14D
 
 /* LPG Control 0 */
 #define PM8XXX_PWM_1KHZ_COUNT_MASK	0xF0
@@ -126,6 +127,7 @@
 
 #define PM8XXX_PWM_PAUSE_ENABLE_HIGH		0x02
 #define PM8XXX_PWM_SIZE_9_BIT			0x01
+#define PM8XXX_PWM_SIZE_7_BIT			0x04
 
 /* LPG Control 6 */
 #define PM8XXX_PWM_PAUSE_COUNT_LO_MASK		0xFC
@@ -369,17 +371,22 @@ static int pm8xxx_pwm_enable(struct pwm_device *pwm)
 }
 
 static void pm8xxx_pwm_calc_period(unsigned int period_us,
-				   struct pm8xxx_pwm_period *period)
+				   struct pwm_device *pwm)
 {
 	int	n, m, clk, div;
 	int	best_m, best_div, best_clk;
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
+	struct	pm8xxx_pwm_period *period = &pwm->period;
+
+	if (pwm->banks == PM_PWM_BANK_LO)
+		n = 7;
+	else
+		n = 6;
 
 	/* PWM Period / N */
 	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
-		period_n = (period_us * NSEC_PER_USEC) >> 6;
-		n = 6;
+		period_n = (period_us * NSEC_PER_USEC) >> n;
 	} else {
 		period_n = (period_us >> 9) * NSEC_PER_USEC;
 		n = 9;
@@ -458,6 +465,9 @@ static int pm8xxx_pwm_change_table(struct pwm_device *pwm, int duty_pct[],
 	int	rc = 0;
 
 	pwm_size = (pwm->pwm_lpg_ctl[5] & PM8XXX_PWM_SIZE_9_BIT) ? 9 : 6;
+	if (pwm->period.pwm_size == 7)
+		pwm_size = 7;
+
 	max_pwm_value = (1 << pwm_size) - 1;
 	for (i = 0; i < len; i++) {
 		if (raw_value)
@@ -512,9 +522,16 @@ static void pm8xxx_pwm_save_period(struct pwm_device *pwm)
 			PM8XXX_LPG_PWM_PREDIVIDE_MASK | PM8XXX_LPG_PWM_M_MASK;
 		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[4], mask, val);
 
-		val = (pwm->period.pwm_size > 6) ? PM8XXX_PWM_SIZE_9_BIT : 0;
-		mask = PM8XXX_PWM_SIZE_9_BIT;
-		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[5], mask, val);
+		if (pwm->period.pwm_size == 7) {
+			val = PM8XXX_PWM_SIZE_7_BIT;
+			mask = PM8XXX_PWM_SIZE_7_BIT;
+			pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[7], mask, val);
+		} else {
+			val = (pwm->period.pwm_size > 6) ?
+					PM8XXX_PWM_SIZE_9_BIT : 0;
+			mask = PM8XXX_PWM_SIZE_9_BIT;
+			pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[5], mask, val);
+		}
 	} else {
 		val = ((pwm->period.clk + 1) << PM8XXX_PWM_CLK_SEL_SHIFT)
 			& PM8XXX_PWM_CLK_SEL_MASK;
@@ -639,8 +656,18 @@ static int pm8xxx_lpg_pwm_write(struct pwm_device *pwm, int start, int end)
 {
 	int	i, rc;
 
+	if (end == 7) {
+		rc = pm8xxx_writeb(pwm->chip->dev->parent,
+				SSBI_REG_ADDR_LPG_CTL_7,
+				pwm->pwm_lpg_ctl[end]);
+		if (rc) {
+			pr_err("pm8xxx_writeb(): rc=%d (PWM Ctl[7])\n", rc);
+			return rc;
+		}
+	}
+
 	/* Write in reverse way so 0 would be the last */
-	for (i = end - 1; i >= start; i--) {
+	for (i = end - 2; i >= start; i--) {
 		rc = pm8xxx_writeb(pwm->chip->dev->parent,
 				   SSBI_REG_ADDR_LPG_CTL(i),
 				   pwm->pwm_lpg_ctl[i]);
@@ -788,7 +815,7 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	}
 
 	if (pwm->pwm_period != period_us) {
-		pm8xxx_pwm_calc_period(period_us, period);
+		pm8xxx_pwm_calc_period(period_us, pwm);
 		pm8xxx_pwm_save_period(pwm);
 		pwm->pwm_period = period_us;
 	}
@@ -801,7 +828,7 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 				PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
 
 		pm8xxx_pwm_bank_sel(pwm);
-		rc = pm8xxx_lpg_pwm_write(pwm, 1, 6);
+		rc = pm8xxx_lpg_pwm_write(pwm, 1, 7);
 	} else {
 		rc = pm8xxx_pwm_write(pwm);
 	}
@@ -851,7 +878,7 @@ int pwm_enable(struct pwm_device *pwm)
 			 * PWM mode.
 			 */
 			if (pwm->chip->is_pwm_enable_sync_workaround_needed)
-				rc = pm8xxx_lpg_pwm_write(pwm, 3, 4);
+				rc = pm8xxx_lpg_pwm_write(pwm, 3, 5);
 
 		} else {
 			pm8xxx_pwm_enable(pwm);
@@ -921,7 +948,7 @@ int pm8xxx_pwm_config_period(struct pwm_device *pwm,
 
 	if (pwm_chip->is_lpg_supported) {
 		pm8xxx_pwm_bank_sel(pwm);
-		rc = pm8xxx_lpg_pwm_write(pwm, 4, 6);
+		rc = pm8xxx_lpg_pwm_write(pwm, 4, 7);
 	} else {
 		rc = pm8xxx_pwm_write(pwm);
 	}
@@ -965,7 +992,7 @@ int pm8xxx_pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1],
 				PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
 		pm8xxx_pwm_bank_sel(pwm);
-		rc = pm8xxx_lpg_pwm_write(pwm, 1, 6);
+		rc = pm8xxx_lpg_pwm_write(pwm, 1, 7);
 	} else {
 		rc = pm8xxx_pwm_write(pwm);
 	}
@@ -996,7 +1023,6 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int idx_len, int pause_lo, int pause_hi, int flags)
 {
 	struct pm8xxx_pwm_lut	lut;
-	struct pm8xxx_pwm_period *period;
 	int	len;
 	int	rc;
 
@@ -1032,7 +1058,6 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		return -EINVAL;
 	}
 
-	period = &pwm->period;
 	mutex_lock(&pwm->chip->pwm_mutex);
 
 	if (flags & PM_PWM_BANK_HI)
@@ -1052,7 +1077,7 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 	}
 
 	if (pwm->pwm_period != period_us) {
-		pm8xxx_pwm_calc_period(period_us, period);
+		pm8xxx_pwm_calc_period(period_us, pwm);
 		pm8xxx_pwm_save_period(pwm);
 		pwm->pwm_period = period_us;
 	}
