@@ -1322,7 +1322,7 @@ int synaptics_fw_updater(unsigned char *fw_data)
 		return -ENODEV;
 
 	fwu->rmi4_data->fw_updating = true;
-	if (fwu->rmi4_data->touch_stopped == true) {
+	if (fwu->rmi4_data->suspended == true) {
 		fwu->rmi4_data->fw_updating = false;
 		dev_err(&fwu->rmi4_data->i2c_client->dev,
 			"Cannot start fw upgrade while device is in suspend\n");
