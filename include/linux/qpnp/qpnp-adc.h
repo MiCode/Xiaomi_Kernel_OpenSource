@@ -143,6 +143,9 @@ enum qpnp_iadc_channels {
 /* Structure device for qpnp vadc */
 struct qpnp_vadc_chip;
 
+/* Structure device for qpnp iadc */
+struct qpnp_iadc_chip;
+
 /**
  * enum qpnp_adc_decimation_type - Sampling rate supported.
  * %DECIMATION_TYPE1: 512
@@ -1436,44 +1439,59 @@ static inline int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
 			|| defined(CONFIG_SENSORS_QPNP_ADC_CURRENT_MODULE)
 /**
  * qpnp_iadc_read() - Performs ADC read on the current channel.
+ * @dev:	Structure device for qpnp iadc
  * @channel:	Input channel to perform the ADC read.
  * @result:	Current across rsense in mA.
+ * @return:	0 on success.
  */
-int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
+int32_t qpnp_iadc_read(struct qpnp_iadc_chip *dev,
+				enum qpnp_iadc_channels channel,
 				struct qpnp_iadc_result *result);
 /**
  * qpnp_iadc_get_rsense() - Reads the RDS resistance value from the
 			trim registers.
+ * @dev:	Structure device for qpnp iadc
  * @rsense:	RDS resistance in nOhms.
+ * @return:	0 on success.
  */
-int32_t qpnp_iadc_get_rsense(int32_t *rsense);
+int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *dev, int32_t *rsense);
 /**
  * qpnp_iadc_get_gain_and_offset() - Performs gain calibration
  *				over 17.8571mV and offset over selected
  *				channel. Channel can be internal rsense,
  *				external rsense and alternate lead pair.
+ * @dev:	Structure device for qpnp iadc
  * @result:	result structure where the gain and offset is stored of
  *		type qpnp_iadc_calib.
+ * @return:	0 on success.
  */
-int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result);
+int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_chip *dev,
+					struct qpnp_iadc_calib *result);
 /**
- * qpnp_iadc_is_ready() - Clients can use this API to check if the
- *			  device is ready to use.
- * @result:	0 on success and -EPROBE_DEFER when probe for the device
- *		has not occured.
+ * qpnp_get_iadc() - Clients need to register with the iadc with the
+ *		corresponding device instance it wants to read the channels.
+ *		Read the bindings document on how to pass the phandle for
+ *		the corresponding vadc driver to register with.
+ * @dev:	Clients device structure
+ * @name:	Corresponding client's DT parser name. Read the DT bindings
+ *		document on how to register with the iadc
+ * @struct qpnp_iadc_chip * - On success returns the iadc device structure
+ *		pointer used everytime client makes an ADC request.
  */
-int32_t qpnp_iadc_is_ready(void);
+struct qpnp_iadc_chip *qpnp_get_iadc(struct device *dev, const char *name);
 /**
  * qpnp_iadc_vadc_sync_read() - Performs synchronous VADC and IADC read.
  *		The api is to be used only by the BMS to perform
  *		simultaneous VADC and IADC measurement for battery voltage
  *		and current.
+ * @dev:	Structure device for qpnp iadc
  * @i_channel:	Input battery current channel to perform the IADC read.
  * @i_result:	Current across the rsense in mA.
  * @v_channel:	Input battery voltage channel to perform VADC read.
  * @v_result:	Voltage on the vbatt channel with units in mV.
+ * @return:	0 on success.
  */
-int32_t qpnp_iadc_vadc_sync_read(
+int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *dev,
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result);
 /**
@@ -1481,31 +1499,60 @@ int32_t qpnp_iadc_vadc_sync_read(
  *		IADC. The offset and gain values are programmed in the trim
  *		registers. The offset and the gain can be retrieved using
  *		qpnp_iadc_get_gain_and_offset
+ * @dev:	Structure device for qpnp iadc
  * @batfet_closed: batfet is opened or closed. The IADC chooses proper
  *			channel (internal/external) based on batfet status
  *			for calibration.
  * RETURNS:	0 on success.
  */
-int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed);
-int32_t qpnp_iadc_comp_result(int64_t *result);
+int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *dev,
+						bool batfet_closed);
+/**
+ * qpnp_iadc_comp_result() - Compensates the result of the current based on
+ *		the gain and offset co-effients and rsense parameters.
+ * @dev:	Structure device for qpnp iadc
+ * @result:	Current value to perform the compensation.
+ * @return:	0 on success.
+ */
+int32_t qpnp_iadc_comp_result(struct qpnp_iadc_chip *dev, int64_t *result);
+/**
+ * qpnp_iadc_skip_calibration() - Clients can use this API to ask the driver
+ *				to skip iadc calibrations
+ * @dev:	Structure device for qpnp iadc
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_skip_calibration(struct qpnp_iadc_chip *dev);
+/**
+ * qpnp_iadc_resume_calibration() - Clients can use this API to ask the driver
+ *				to resume iadc calibrations
+ * @dev:	Structure device for qpnp iadc
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_resume_calibration(struct qpnp_iadc_chip *dev);
 #else
-static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
-						struct qpnp_iadc_result *result)
+static inline int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
+	enum qpnp_iadc_channels channel, struct qpnp_iadc_result *result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_get_rsense(int32_t *rsense)
+static inline int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *iadc,
+							int32_t *rsense)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib
-									*result)
+static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_chip *iadc,
+				struct qpnp_iadc_calib *result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_is_ready(void)
-{ return -ENXIO; }
-static inline int32_t qpnp_iadc_vadc_sync_read(
+static inline struct qpnp_iadc_chip *qpnp_get_iadc(struct device *dev,
+							const char *name)
+{ return ERR_PTR(-ENXIO); }
+static inline int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed)
+static inline int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
+							bool batfet_closed)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_comp_result(int64_t *result, int32_t sign)
+static inline int32_t qpnp_iadc_comp_result(struct qpnp_iadc_chip *iadc,
+						int64_t *result, int32_t sign)
 { return -ENXIO; }
 #endif
 
@@ -1557,20 +1604,6 @@ int32_t qpnp_adc_tm_disable_chan_meas(struct qpnp_adc_tm_btm_param *param);
  *		has not occured.
  */
 int32_t	qpnp_adc_tm_is_ready(void);
-/**
- * qpnp_iadc_skip_calibration() - Clients can use this API to ask the driver
- *				to skip iadc calibrations
- * @result:	0 on success and -EPROBE_DEFER when probe for the device
- *		has not occured.
- */
-int qpnp_iadc_skip_calibration(void);
-/**
- * qpnp_iadc_resume_calibration() - Clients can use this API to ask the driver
- *				to resume iadc calibrations
- * @result:	0 on success and -EPROBE_DEFER when probe for the device
- *		has not occured.
- */
-int qpnp_iadc_resume_calibration(void);
 #else
 static inline int32_t qpnp_adc_tm_usbid_configure(
 			struct qpnp_adc_tm_btm_param *param)
@@ -1583,10 +1616,6 @@ static inline int32_t qpnp_adc_tm_channel_measure(
 static inline int32_t qpnp_adc_tm_disable_chan_meas(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
-{ return -ENXIO; }
-static inline int qpnp_iadc_skip_calibration(void)
-{ return -ENXIO; }
-static inline int qpnp_iadc_resume_calibration(void);
 { return -ENXIO; }
 #endif
 
