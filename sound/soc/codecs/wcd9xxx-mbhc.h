@@ -43,6 +43,7 @@ enum mbhc_cal_type {
 /* Data used by MBHC */
 struct mbhc_internal_cal_data {
 	u16 dce_z;
+	u16 dce_nsc_cs_z;
 	u16 dce_mb;
 	u16 sta_z;
 	u16 sta_mb;
@@ -59,6 +60,7 @@ struct mbhc_internal_cal_data {
 	u16 v_no_mic;
 	s16 v_inval_ins_low;
 	s16 v_inval_ins_high;
+	u16 v_cs_ins_h;
 };
 
 enum wcd9xxx_mbhc_plug_type {
@@ -81,6 +83,12 @@ enum wcd9xxx_micbias_num {
 enum wcd9xx_mbhc_micbias_enable_bits {
 	MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
+};
+
+enum wcd9xx_mbhc_cs_enable_bits {
+	MBHC_CS_ENABLE_POLLING,
+	MBHC_CS_ENABLE_INSERTION,
+	MBHC_CS_ENABLE_REMOVAL,
 };
 
 enum wcd9xxx_mbhc_state {
@@ -210,6 +218,7 @@ struct wcd9xxx_mbhc_config {
 	unsigned long micbias_enable_flags;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	unsigned long cs_enable_flags;
 };
 
 struct wcd9xxx_cfilt_mode {
