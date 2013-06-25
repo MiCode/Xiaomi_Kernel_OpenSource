@@ -42,6 +42,10 @@ static const struct afe_clk_cfg lpass_clk_cfg_default = {
 };
 enum {
 	STATUS_PORT_STARTED, /* track if AFE port has started */
+	/* track AFE Tx port status for bi-directional transfers */
+	STATUS_TX_PORT,
+	/* track AFE Rx port status for bi-directional transfers */
+	STATUS_RX_PORT,
 	STATUS_MAX
 };
 
@@ -70,8 +74,9 @@ struct msm_dai_q6_mi2s_dai_data {
 };
 
 struct msm_dai_q6_auxpcm_dai_data {
+	/* BITMAP to track Rx and Tx port usage count */
+	DECLARE_BITMAP(auxpcm_port_status, STATUS_MAX);
 	struct mutex rlock; /* auxpcm dev resource lock */
-	int rcnt; /* auxpcm dev resource usage count */
 	u16 rx_pid; /* AUXPCM RX AFE port ID */
 	u16 tx_pid; /* AUXPCM TX AFE port ID */
 	struct afe_clk_cfg clk_cfg; /* hold LPASS clock configuration */
@@ -116,7 +121,8 @@ static int msm_dai_q6_auxpcm_hw_params(
 
 	mutex_lock(&aux_dai_data->rlock);
 
-	if (aux_dai_data->rcnt) {
+	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
+	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
 		/* AUXPCM DAI in use */
 		if (dai_data->rate != params_rate(params)) {
 			dev_err(dai->dev, "%s: rate mismatch of running DAI\n",
@@ -190,30 +196,41 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	mutex_lock(&aux_dai_data->rlock);
 
-	if (aux_dai_data->rcnt == 0) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just return\n",
+	if (!(test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
+	      test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status))) {
+		dev_dbg(dai->dev, "%s(): dai->id %d PCM ports already closed\n",
 				__func__, dai->id);
-		mutex_unlock(&aux_dai_data->rlock);
-		return;
+		goto exit;
 	}
 
-	aux_dai_data->rcnt--;
-
-	if (aux_dai_data->rcnt > 0) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d\n",
-			__func__, dai->id, aux_dai_data->rcnt);
-		mutex_unlock(&aux_dai_data->rlock);
-		return;
-	} else if (aux_dai_data->rcnt < 0) {
-		dev_err(dai->dev, "%s(): ERROR: dai->id %d aux_pcm_count = %d < 0\n",
-			__func__, dai->id, aux_dai_data->rcnt);
-		aux_dai_data->rcnt = 0;
-		mutex_unlock(&aux_dai_data->rlock);
-		return;
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status))
+			clear_bit(STATUS_TX_PORT,
+				  aux_dai_data->auxpcm_port_status);
+		else {
+			dev_dbg(dai->dev, "%s(): PCM_TX port already closed\n",
+				__func__);
+			goto exit;
+		}
+	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status))
+			clear_bit(STATUS_RX_PORT,
+				  aux_dai_data->auxpcm_port_status);
+		else {
+			dev_dbg(dai->dev, "%s(): PCM_RX port already closed\n",
+				__func__);
+			goto exit;
+		}
+	}
+	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
+	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
+		dev_dbg(dai->dev, "%s(): cannot shutdown PCM ports\n",
+			__func__);
+		goto exit;
 	}
 
-	dev_dbg(dai->dev, "%s: dai->id = %d aux_pcm_count = %d\n", __func__,
-		dai->id, aux_dai_data->rcnt);
+	dev_dbg(dai->dev, "%s: dai->id = %d closing PCM AFE ports\n",
+			__func__, dai->id);
 
 	lpass_pcm_src_clk = (struct afe_clk_cfg *) &aux_dai_data->clk_cfg;
 
@@ -234,7 +251,9 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	lpass_pcm_oe_clk.clk_val1 = 0;
 	afe_set_lpass_clock(aux_dai_data->rx_pid, &lpass_pcm_oe_clk);
 
+exit:
 	mutex_unlock(&aux_dai_data->rlock);
+	return;
 }
 
 static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
@@ -254,32 +273,39 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	mutex_lock(&aux_dai_data->rlock);
 
-	if (aux_dai_data->rcnt == 2) { /* xrun case ? */
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just return.\n",
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (test_bit(STATUS_TX_PORT,
+				aux_dai_data->auxpcm_port_status)) {
+			dev_dbg(dai->dev, "%s(): PCM_TX port already ON\n",
+				__func__);
+			goto exit;
+		} else
+			set_bit(STATUS_TX_PORT,
+				  aux_dai_data->auxpcm_port_status);
+	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (test_bit(STATUS_RX_PORT,
+				aux_dai_data->auxpcm_port_status)) {
+			dev_dbg(dai->dev, "%s(): PCM_RX port already ON\n",
+				__func__);
+			goto exit;
+		} else
+			set_bit(STATUS_RX_PORT,
+				  aux_dai_data->auxpcm_port_status);
+	}
+	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) &&
+	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
+		dev_dbg(dai->dev, "%s(): PCM ports already set\n", __func__);
+		goto exit;
+	}
+
+	dev_dbg(dai->dev, "%s: dai->id:%d  opening afe ports\n",
 			__func__, dai->id);
-		mutex_unlock(&aux_dai_data->rlock);
-		return 0;
-	} else if (aux_dai_data->rcnt > 2) {
-		dev_err(dai->dev, "%s(): ERROR: dai->id %d aux_pcm_count = %d > 2\n",
-			__func__, dai->id, aux_dai_data->rcnt);
-		mutex_unlock(&aux_dai_data->rlock);
-		return 0;
-	}
-
-	aux_dai_data->rcnt++;
-	if (aux_dai_data->rcnt == 2)  {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d after increment\n",
-				__func__, dai->id, aux_dai_data->rcnt);
-		mutex_unlock(&aux_dai_data->rlock);
-		return 0;
-	}
-
-	dev_dbg(dai->dev, "%s:dai->id:%d  aux_pcm_count = %d. opening afe\n",
-		__func__, dai->id, aux_dai_data->rcnt);
 
 	rc = afe_q6_interface_prepare();
-	if (IS_ERR_VALUE(rc))
+	if (IS_ERR_VALUE(rc)) {
 		dev_err(dai->dev, "fail to open AFE APR\n");
+		goto fail;
+	}
 
 	/*
 	 * For AUX PCM Interface the below sequence of clk
@@ -300,8 +326,8 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	} else {
 		dev_err(dai->dev, "%s: Invalid AUX PCM rate %d\n", __func__,
 			dai_data->rate);
-		mutex_unlock(&aux_dai_data->rlock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto fail;
 	}
 
 	memcpy(lpass_pcm_src_clk, &lpass_clk_cfg_default,
@@ -338,8 +364,15 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	afe_open(aux_dai_data->rx_pid, &dai_data->port_config, dai_data->rate);
 	afe_open(aux_dai_data->tx_pid, &dai_data->port_config, dai_data->rate);
+	goto exit;
 
 fail:
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+		clear_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status);
+	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		clear_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status);
+
+exit:
 	mutex_unlock(&aux_dai_data->rlock);
 	return rc;
 }
@@ -382,25 +415,22 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 
 	aux_dai_data = dev_get_drvdata(dai->dev);
 
-	if (aux_dai_data->rcnt == 0) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. clean up and return\n",
-			__func__, dai->id);
-		goto done;
-	}
-
 	dev_dbg(dai->dev, "%s(): dai->id %d closing afe\n",
 		__func__, dai->id);
 
-	rc = afe_close(aux_dai_data->rx_pid); /* can block */
-	if (IS_ERR_VALUE(rc))
-		dev_err(dai->dev, "fail to close AUX PCM RX AFE port\n");
-
-	rc = afe_close(aux_dai_data->tx_pid);
-	if (IS_ERR_VALUE(rc))
-		dev_err(dai->dev, "fail to close AUX PCM TX AFE port\n");
+	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
+	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
+		rc = afe_close(aux_dai_data->rx_pid); /* can block */
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AUXPCM RX AFE port\n");
+		rc = afe_close(aux_dai_data->tx_pid);
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AUXPCM TX AFE port\n");
+		clear_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status);
+		clear_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status);
+	}
 
 	lpass_pcm_src_clk = (struct afe_clk_cfg *) &aux_dai_data->clk_cfg;
-
 	lpass_pcm_src_clk->clk_val1 = 0;
 	afe_set_lpass_clock(aux_dai_data->rx_pid, lpass_pcm_src_clk);
 	afe_set_lpass_clock(aux_dai_data->tx_pid, lpass_pcm_src_clk);
@@ -410,7 +440,6 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 	lpass_pcm_oe_clk.clk_val1 = 0;
 	afe_set_lpass_clock(aux_dai_data->rx_pid, &lpass_pcm_oe_clk);
 
-done:
 	return 0;
 }
 
