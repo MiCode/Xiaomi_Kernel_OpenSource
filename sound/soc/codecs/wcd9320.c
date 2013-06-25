@@ -1050,7 +1050,7 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 				    0x07, rate);
 		/* Set the static gain offset */
 		if (comp == COMPANDER_1
-			&& buck_mv == WCD9XXX_CDC_BUCK_MV_2P15) {
+			&& buck_mv == WCD9XXX_CDC_BUCK_MV_1P8) {
 			snd_soc_update_bits(codec,
 					TAIKO_A_CDC_COMP0_B4_CTL + (comp * 8),
 					0x80, 0x80);
