@@ -1,0 +1,83 @@
+MSM PCIe
+
+MSM PCI express root complex
+
+Required properties:
+  - compatible: should be "qcom,msm-pcie"
+  - cell-index: defines root complex ID.
+  - qcom,ctrl-amt: Number of controllers.
+  - #address-cells: Should provide a value of 0.
+  - reg: should contain PCIe register maps.
+  - reg-names: indicates various resources passed to driver by name.
+		Should be "parf", "dm_core", "elbi", "conf", "bars", "phy".
+		These correspond to different modules within the PCIe core.
+  - interrupts: Should be in the format <0 1 2> and it is an index to the
+		interrupt-map that contains PCIe related interrupts.
+  - #interrupt-cells: Should provide a value of 1.
+  - #interrupt-map-mask: should provide a value of 0xffffffff.
+  - interrupt-map:  Must create mapping for the number of interrupts
+		    that are defined in above interrupts property.
+		    For PCIe device node, it should define 13 mappings for
+		    the corresponding PCIe interrupts supporting the specification.
+  - interrupt-names: indicates interrupts passed to driver by name.
+		     Should be "int_msi", "int_a", "int_b", "int_c", "int_d",
+		     "int_pls_pme", "int_pme_legacy", "int_pls_err",
+		     "int_aer_legacy", "int_pls_link_up",
+		     "int_pls_link_down", "int_bridge_flush_n", "int_wake"
+		     These correspond to the standard PCIe specification to support
+		     MSIs, virtual IRQ's (INT#), link state notifications.
+  - perst-gpio: PERST GPIO specified by PCIe spec.
+  - wake-gpio: WAKE GPIO specified by PCIe spec.
+  - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
+  - <supply-name>-supply: phandle to the regulator device tree node.
+    Refer to the schematics for the corresponding voltage regulators.
+    vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
+    vreg-3.3-supply: phandle to the analog supply for the PCIe controller.
+    vreg-0.9-supply: phandle to the analog supply for the PCIe controller.
+
+Example:
+
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
+		cell-index = <0>;
+		qcom,ctrl-amt = <1>;
+		#address-cells = <0>;
+		reg = <0xfc520000 0x2000>,
+		      <0xfc526000 0x1000>,
+		      <0xff000000 0x1000>,
+		      <0xff001000 0x1000>,
+		      <0xff100000 0x1000>,
+		      <0xff200000 0xe00000>;
+		reg-names = "parf", "dm_core", "elbi",
+				"conf", "bars";
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 243 0
+				1 &intc 0 244 0
+				2 &intc 0 245 0
+				3 &intc 0 247 0
+				4 &intc 0 248 0
+				5 &intc 0 249 0
+				6 &intc 0 250 0
+				7 &intc 0 251 0
+				8 &intc 0 252 0
+				9 &intc 0 253 0
+				10 &intc 0 254 0
+				11 &intc 0 255 0
+				12 &msmgpio 69 0x2>;
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n",
+				"int_wake";
+		perst-gpio = <&msmgpio 70 0>;
+		wake-gpio = <&msmgpio 69 0>;
+		clkreq-gpio = <&msmgpio 68 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pma8084_l12>;
+		vreg-0.9-supply = <&pma8084_l4>;
+		vreg-3.3-supply = <&wlan_vreg>;
+	};

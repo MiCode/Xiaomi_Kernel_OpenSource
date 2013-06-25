@@ -15,30 +15,4 @@
 
 #include <linux/types.h>
 
-/* gpios */
-enum msm_pcie_gpio {
-	MSM_PCIE_GPIO_RST_N,
-	MSM_PCIE_GPIO_PWR_EN,
-	MSM_PCIE_MAX_GPIO
-};
-
-/* gpio info structure */
-struct msm_pcie_gpio_info_t {
-	char      *name;
-	uint32_t   num;
-	uint32_t   on;
-};
-
-/* msm pcie platfrom data */
-struct msm_pcie_platform {
-	struct msm_pcie_gpio_info_t  *gpio;
-
-	uint32_t                      axi_addr;
-	uint32_t                      axi_size;
-	uint32_t                      wake_n;
-	uint32_t                      vreg_n;
-	uint32_t                      parf_deemph;
-	uint32_t                      parf_swing;
-};
-
 #endif
