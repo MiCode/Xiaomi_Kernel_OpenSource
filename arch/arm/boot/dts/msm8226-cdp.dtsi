@@ -260,8 +260,12 @@
 				qcom,mode-ctrl = <0x60>;
 				qcom,pwm-channel = <0>;
 				qcom,start-idx = <1>;
-				qcom,duty-pcts = [00 00 00 00 64
-						 64 00 00 00 00];
+				qcom,ramp-step-ms = <120>;
+				qcom,duty-pcts = [00 00 00 00 00
+						  00 00 00 00 00
+						  50 00 00 00 00
+						  00 00 00 00 00
+						  00];
 				qcom,use-blink;
 			};
 		};
@@ -282,8 +286,12 @@
 				qcom,source-sel = <10>;
 				qcom,pwm-channel = <5>;
 				qcom,start-idx = <1>;
-				qcom,duty-pcts = [00 00 00 00 64
-						 64 00 00 00 00];
+				qcom,ramp-step-ms = <120>;
+				qcom,duty-pcts = [00 00 00 00 00
+						  00 00 00 00 00
+						  50 00 00 00 00
+						  00 00 00 00 00
+						  00];
 				qcom,use-blink;
 			};
 		};
