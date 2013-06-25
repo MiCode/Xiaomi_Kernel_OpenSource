@@ -573,7 +573,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
 	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 
-	if (mdss_mdp_rev == MDSS_MDP_HW_REV_102)
+	if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
 		mdss_v2_intf_off =  0xEC00;
 
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
