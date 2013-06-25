@@ -4284,9 +4284,14 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			apr_reset(c->apr_q6_mvm);
 			c->apr_q6_mvm = NULL;
 
+			/* clean up memory handle */
+			c->cal_mem_handle = 0;
+
 			/* Sub-system restart is applicable to all sessions. */
-			for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			for (i = 0; i < MAX_VOC_SESSIONS; i++) {
 				c->voice[i].mvm_handle = 0;
+				c->voice[i].shmem_info.mem_handle = 0;
+			}
 		}
 		return 0;
 	}
