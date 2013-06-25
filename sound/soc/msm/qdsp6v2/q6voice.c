@@ -95,7 +95,6 @@ static int voice_alloc_and_map_cal_mem(struct voice_data *v);
 static int voice_alloc_and_map_oob_mem(struct voice_data *v);
 
 static struct voice_data *voice_get_session_by_idx(int idx);
-static int voice_get_idx_for_session(u32 session_id);
 
 static u16 voice_get_mvm_handle(struct voice_data *v)
 {
@@ -240,7 +239,7 @@ static struct voice_data *voice_get_session(u32 session_id)
 	return v;
 }
 
-static int voice_get_idx_for_session(u32 session_id)
+int voice_get_idx_for_session(u32 session_id)
 {
 	int idx = 0;
 

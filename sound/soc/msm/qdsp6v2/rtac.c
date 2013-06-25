@@ -24,7 +24,7 @@
 #include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/apr_audio-v2.h>
-
+#include <q6voice.h>
 #include "audio_acdb.h"
 
 
@@ -352,13 +352,13 @@ void rtac_remove_voice(u32 cvs_handle)
 	return;
 }
 
-static int get_voice_index_cvs(u32 cvs_handle)
+static u32 get_voice_session_id_cvs(u32 cvs_handle)
 {
 	u32 i;
 
 	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
 		if (rtac_voice_data.voice[i].cvs_handle == cvs_handle)
-			return i;
+			return voice_session_id[i];
 	}
 
 	pr_err("%s: No voice index for CVS handle %d found returning 0\n",
@@ -366,13 +366,13 @@ static int get_voice_index_cvs(u32 cvs_handle)
 	return 0;
 }
 
-static int get_voice_index_cvp(u32 cvp_handle)
+static u32 get_voice_session_id_cvp(u32 cvp_handle)
 {
 	u32 i;
 
 	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
 		if (rtac_voice_data.voice[i].cvp_handle == cvp_handle)
-			return i;
+			return voice_session_id[i];
 	}
 
 	pr_err("%s: No voice index for CVP handle %d found returning 0\n",
@@ -383,9 +383,11 @@ static int get_voice_index_cvp(u32 cvp_handle)
 static int get_voice_index(u32 mode, u32 handle)
 {
 	if (mode == RTAC_CVP)
-		return get_voice_index_cvp(handle);
+		return voice_get_idx_for_session(
+			get_voice_session_id_cvp(handle));
 	if (mode == RTAC_CVS)
-		return get_voice_index_cvs(handle);
+		return voice_get_idx_for_session(
+			get_voice_session_id_cvs(handle));
 
 	pr_err("%s: Invalid mode %d, returning 0\n",
 	       __func__, mode);
@@ -847,8 +849,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		payload_size);
 	voice_params.src_svc = 0;
 	voice_params.src_domain = APR_DOMAIN_APPS;
-	voice_params.src_port = voice_session_id[
-					get_voice_index(mode, dest_port)];
+	voice_params.src_port = get_voice_index(mode, dest_port);
 	voice_params.dest_svc = 0;
 	voice_params.dest_domain = APR_DOMAIN_MODEM;
 	voice_params.dest_port = (u16)dest_port;
