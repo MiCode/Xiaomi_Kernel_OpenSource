@@ -200,7 +200,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	int ret;
 
 	pr_debug("%s: Connect workqueue started", __func__);
-	usb_bam_reset_complete();
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (d->func_type == USB_FUNC_MBIM) {
@@ -268,17 +267,18 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			}
 		}
 	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
-	ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
-	if (ret) {
-		pr_err("usb_bam_connect (src) failed: err:%d\n", ret);
-		return;
+		usb_bam_reset_complete();
+		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
+		if (ret) {
+			pr_err("usb_bam_connect (src) failed: err:%d\n", ret);
+			return;
+		}
+		ret = usb_bam_connect(d->dst_connection_idx, &d->dst_pipe_idx);
+		if (ret) {
+			pr_err("usb_bam_connect (dst) failed: err:%d\n", ret);
+			return;
+		}
 	}
-	ret = usb_bam_connect(d->dst_connection_idx, &d->dst_pipe_idx);
-	if (ret) {
-		pr_err("usb_bam_connect (dst) failed: err:%d\n", ret);
-		return;
-	}
-}
 
 	if (!port->port_usb) {
 		pr_err("port_usb is NULL");
