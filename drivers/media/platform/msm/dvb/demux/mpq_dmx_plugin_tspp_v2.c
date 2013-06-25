@@ -86,6 +86,9 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->demod_input_max_bitrate = 96;
 	caps->memory_input_max_bitrate = 80;
 
+	/* TSIF reports 7 bytes STC at unit of 27MHz */
+	caps->max_stc = 0x00FFFFFFFFFFFFFF;
+
 	return 0;
 }
 
