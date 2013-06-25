@@ -468,7 +468,7 @@ int ipa_bridge_init(void)
 {
 	int i;
 
-	ipa_ctx->smem_pipe_mem = smem_alloc(SMEM_BAM_PIPE_MEMORY,
+	ipa_ctx->smem_pipe_mem = smem_alloc2(SMEM_BAM_PIPE_MEMORY,
 			IPA_SMEM_PIPE_MEM_SZ);
 	if (!ipa_ctx->smem_pipe_mem) {
 		IPAERR("smem alloc failed\n");
