@@ -28,6 +28,7 @@
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smem.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
@@ -84,6 +85,7 @@ static void __init apq8084_early_memory(void)
  */
 void __init apq8084_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_clock_init(&msm8084_clock_init_data);

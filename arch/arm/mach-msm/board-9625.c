@@ -39,6 +39,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include "board-dt.h"
 #include <mach/msm_bus_board.h>
+#include <mach/msm_smem.h>
 #include "clock.h"
 #include "modem_notifier.h"
 #include "lpm_resources.h"
@@ -231,6 +232,7 @@ static void __init msm9625_init_buses(void)
  */
 void __init msm9625_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();

@@ -39,6 +39,7 @@
 #include "smd_private.h"
 #include "smd_rpc_sym.h"
 #include "modem_notifier.h"
+#include "smem_private.h"
 
 #define DEBUG
 #undef DEBUG
@@ -2005,7 +2006,7 @@ static int smem_log_initialize(void)
 	return ret;
 }
 
-static int smd_module_init_notifier(struct notifier_block *this,
+static int smem_module_init_notifier(struct notifier_block *this,
 				    unsigned long code,
 				    void *_cmd)
 {
@@ -2016,12 +2017,12 @@ static int smd_module_init_notifier(struct notifier_block *this,
 }
 
 static struct notifier_block nb = {
-	.notifier_call = smd_module_init_notifier,
+	.notifier_call = smem_module_init_notifier,
 };
 
 static int __init smem_log_init(void)
 {
-	return smd_module_init_notifier_register(&nb);
+	return smem_module_init_notifier_register(&nb);
 }
 
 
