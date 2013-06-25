@@ -49,7 +49,7 @@ struct ion_iommu_priv_data {
 
 #define MAX_VMAP_RETRIES 10
 
-static const unsigned int orders[] = {8, 4, 0};
+static const unsigned int orders[] = {9, 8, 4, 0};
 static const int num_orders = ARRAY_SIZE(orders);
 
 struct page_info {
