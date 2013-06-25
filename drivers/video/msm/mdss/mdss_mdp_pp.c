@@ -3329,6 +3329,14 @@ static int is_valid_calib_addr(void *addr)
 				ret = 1;
 		else if (ptr >= 0x3200 || ptr == 0x100)
 				ret = 1;
+		else if (ptr == 0x104 || ptr == 0x614 || ptr == 0x714 ||
+			ptr == 0x814 || ptr == 0x914 || ptr == 0xa14)
+				ret = 1;
+		else if (ptr == 0x618 || ptr == 0x718 || ptr == 0x818 ||
+				 ptr == 0x918 || ptr == 0xa18)
+				ret = 1;
+		else if (ptr == 0x2234 || ptr == 0x1e34 || ptr == 0x2634)
+				ret = 1;
 	}
 end:
 	return ret;
