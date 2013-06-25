@@ -35,6 +35,13 @@
 			reg = <25>;
 		};
 
+		qcom,ion-heap@22 { /* adsp heap */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <22>;
+			qcom,heap-align = <0x1000>;
+			linux,contiguous-region = <&adsp_mem>;
+		};
+
 		qcom,ion-heap@27 { /* QSECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
