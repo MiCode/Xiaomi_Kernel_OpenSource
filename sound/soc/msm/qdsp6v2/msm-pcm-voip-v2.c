@@ -817,8 +817,15 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 		}
 		voc_register_mvs_cb(voip_process_ul_pkt,
 					voip_process_dl_pkt, prtd);
-		voc_start_voice_call(voc_get_session_id(VOIP_SESSION_NAME));
+		ret = voc_start_voice_call(
+				voc_get_session_id(VOIP_SESSION_NAME));
 
+		if (ret < 0) {
+			pr_err("%s: voc_start_voice_call() failed err %d",
+			       __func__, ret);
+
+			goto done;
+		}
 		prtd->state = VOIP_STARTED;
 	}
 done:
@@ -1132,12 +1139,42 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
 {
+	int rc;
+
+	if (!is_voc_initialized()) {
+		pr_debug("%s: voice module not initialized yet, deferring probe()\n",
+		       __func__);
+
+		rc = -EPROBE_DEFER;
+		goto done;
+	}
+
+	rc = voc_alloc_cal_shared_memory();
+	if (rc == -EPROBE_DEFER) {
+		pr_debug("%s: memory allocation for calibration deferred %d\n",
+			 __func__, rc);
+
+		goto done;
+	} else if (rc < 0) {
+		pr_err("%s: memory allocation for calibration failed %d\n",
+		       __func__, rc);
+	}
+
+	rc = voc_alloc_voip_shared_memory();
+	if (rc < 0) {
+		pr_err("%s: error allocating shared mem err %d\n",
+		       __func__, rc);
+	}
+
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", "msm-voip-dsp");
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_platform(&pdev->dev,
-				   &msm_soc_platform);
+	rc = snd_soc_register_platform(&pdev->dev,
+				       &msm_soc_platform);
+
+done:
+	return rc;
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)
