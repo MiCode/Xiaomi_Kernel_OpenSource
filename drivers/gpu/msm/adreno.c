@@ -3220,20 +3220,15 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned long wait;
+	unsigned long wait = jiffies;
 	unsigned long timeout = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
 	unsigned int rptr;
 
-	/*
-	 * The first time into the loop, wait for 100 msecs and kick wptr again
-	 * to ensure that the hardware has updated correctly.  After that, kick
-	 * it periodically every KGSL_TIMEOUT_PART msecs until the timeout
-	 * expires
-	 */
-
-	wait = jiffies + msecs_to_jiffies(100);
-
 	do {
+		/*
+		 * Wait is "jiffies" first time in the loop to start
+		 * GPU stall detection immediately.
+		 */
 		if (time_after(jiffies, wait)) {
 			/* Check to see if the core is hung */
 			if (adreno_ft_detect(device, regs))
