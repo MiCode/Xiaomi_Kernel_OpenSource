@@ -2352,7 +2352,8 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			}
 			rc = devm_request_irq(chip->dev, chip->batt_pres.irq,
 				qpnp_chg_bat_if_batt_pres_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+				| IRQF_SHARED | IRQF_ONESHOT,
 				"batt-pres", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d batt-pres irq: %d\n",
