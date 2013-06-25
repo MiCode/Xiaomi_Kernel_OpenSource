@@ -70,6 +70,17 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Modem CMD in_busy_1: %d\n"
 		"Modem CMD in_busy_2: %d\n"
 		"DCI CMD Modem in_busy_1: %d\n"
+		"Modem supports STM: %d\n"
+		"LPASS supports STM: %d\n"
+		"RIVA supports STM: %d\n"
+		"Modem STM state: %d\n"
+		"LPASS STM state: %d\n"
+		"RIVA STM state: %d\n"
+		"APPS STM state: %d\n"
+		"Modem STM requested state: %d\n"
+		"LPASS STM requested state: %d\n"
+		"RIVA STM requested state: %d\n"
+		"APPS STM requested state: %d\n"
 		"logging_mode: %d\n"
 		"real_time_mode: %d\n",
 		(unsigned int)driver->smd_data[MODEM_DATA].ch,
@@ -101,6 +112,17 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->smd_cmd[MODEM_DATA].in_busy_1,
 		driver->smd_cmd[MODEM_DATA].in_busy_2,
 		driver->smd_dci_cmd[MODEM_DATA].in_busy_1,
+		driver->peripheral_supports_stm[MODEM_DATA],
+		driver->peripheral_supports_stm[LPASS_DATA],
+		driver->peripheral_supports_stm[WCNSS_DATA],
+		driver->stm_state[MODEM_DATA],
+		driver->stm_state[LPASS_DATA],
+		driver->stm_state[WCNSS_DATA],
+		driver->stm_state[APPS_DATA],
+		driver->stm_state_requested[MODEM_DATA],
+		driver->stm_state_requested[LPASS_DATA],
+		driver->stm_state_requested[WCNSS_DATA],
+		driver->stm_state_requested[APPS_DATA],
 		driver->logging_mode,
 		driver->real_time_mode);
 

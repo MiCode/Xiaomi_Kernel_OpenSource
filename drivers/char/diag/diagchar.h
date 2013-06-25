@@ -89,6 +89,13 @@
 #define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
 #define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
 
+#define NUM_STM_PROCESSORS	4
+
+#define DIAG_STM_MODEM	0x01
+#define DIAG_STM_LPASS	0x02
+#define DIAG_STM_WCNSS	0x04
+#define DIAG_STM_APPS	0x08
+
 /*
  * The status bit masks when received in a signal handler are to be
  * used in conjunction with the peripheral list bit mask to determine the
@@ -230,6 +237,8 @@ struct diag_smd_info {
 	struct work_struct diag_read_smd_work;
 	struct work_struct diag_notify_update_smd_work;
 	int notify_context;
+	struct work_struct diag_general_smd_work;
+	int general_context;
 
 	/*
 	 * Function ptr for function to call to process the data that
@@ -261,6 +270,12 @@ struct diagchar_dev {
 	unsigned int buf_tbl_size;
 	int use_device_tree;
 	int supports_separate_cmdrsp;
+	/* The state requested in the STM command */
+	int stm_state_requested[NUM_STM_PROCESSORS];
+	/* The current STM state */
+	int stm_state[NUM_STM_PROCESSORS];
+	/* Whether or not the peripheral supports STM */
+	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
 	/* DCI related variables */
 	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
 	struct diag_dci_client_tbl *dci_client_tbl;

@@ -46,6 +46,16 @@
 #define MODE_CMD		41
 #define RESET_ID		2
 
+#define STM_CMD_VERSION_OFFSET	4
+#define STM_CMD_MASK_OFFSET	5
+#define STM_CMD_DATA_OFFSET	6
+#define STM_CMD_NUM_BYTES	7
+
+#define STM_RSP_VALID_INDEX		7
+#define STM_RSP_SUPPORTED_INDEX		8
+#define STM_RSP_SMD_COMPLY_INDEX	9
+#define STM_RSP_NUM_BYTES		10
+
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 /* Number of entries in table of buffers */
@@ -763,6 +773,77 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	}
 }
 
+void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type,
+			  uint8_t *rsp_supported, uint8_t *rsp_smd_comply)
+{
+	int status = 0;
+	if (data_type >= MODEM_DATA && data_type <= WCNSS_DATA) {
+		if (driver->peripheral_supports_stm[data_type]) {
+			status = diag_send_stm_state(
+				&driver->smd_cntl[data_type], cmd);
+			if (status == 1)
+				*rsp_smd_comply |= data_mask;
+			*rsp_supported |= data_mask;
+		} else if (driver->smd_cntl[data_type].ch) {
+			*rsp_smd_comply |= data_mask;
+		}
+		if ((*rsp_smd_comply & data_mask) &&
+			(*rsp_supported & data_mask))
+			driver->stm_state[data_type] = cmd;
+
+		driver->stm_state_requested[data_type] = cmd;
+	} else if (data_type == APPS_DATA) {
+		*rsp_supported |= data_mask;
+		*rsp_smd_comply |= data_mask;
+		driver->stm_state[data_type] = cmd;
+		driver->stm_state_requested[data_type] = cmd;
+	}
+}
+
+int diag_process_stm_cmd(unsigned char *buf)
+{
+	uint8_t version = *(buf+STM_CMD_VERSION_OFFSET);
+	uint8_t mask = *(buf+STM_CMD_MASK_OFFSET);
+	uint8_t cmd = *(buf+STM_CMD_DATA_OFFSET);
+	uint8_t rsp_supported = 0;
+	uint8_t rsp_smd_comply = 0;
+	int valid_command = 1;
+	int i;
+
+	/* Check if command is valid */
+	if ((version != 1) || (mask == 0) || (0 != (mask >> 4)) ||
+			(cmd != ENABLE_STM && cmd != DISABLE_STM)) {
+		valid_command = 0;
+	} else {
+		if (mask & DIAG_STM_MODEM)
+			diag_process_stm_mask(cmd, DIAG_STM_MODEM, MODEM_DATA,
+					&rsp_supported, &rsp_smd_comply);
+
+		if (mask & DIAG_STM_LPASS)
+			diag_process_stm_mask(cmd, DIAG_STM_LPASS, LPASS_DATA,
+					&rsp_supported, &rsp_smd_comply);
+
+		if (mask & DIAG_STM_WCNSS)
+			diag_process_stm_mask(cmd, DIAG_STM_WCNSS, WCNSS_DATA,
+					&rsp_supported, &rsp_smd_comply);
+
+		if (mask & DIAG_STM_APPS)
+			diag_process_stm_mask(cmd, DIAG_STM_APPS, APPS_DATA,
+					&rsp_supported, &rsp_smd_comply);
+	}
+
+	for (i = 0; i < STM_CMD_NUM_BYTES; i++)
+		driver->apps_rsp_buf[i] = *(buf+i);
+
+	driver->apps_rsp_buf[STM_RSP_VALID_INDEX] = valid_command;
+	driver->apps_rsp_buf[STM_RSP_SUPPORTED_INDEX] = rsp_supported;
+	driver->apps_rsp_buf[STM_RSP_SMD_COMPLY_INDEX] = rsp_smd_comply;
+
+	encode_rsp_and_send(STM_RSP_NUM_BYTES-1);
+
+	return 0;
+}
+
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	uint16_t subsys_cmd_code;
@@ -838,6 +919,9 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		*(uint32_t *)(driver->apps_rsp_buf+4) = PKT_SIZE;
 		encode_rsp_and_send(7);
 		return 0;
+	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
+		(*(uint16_t *)(buf+2) == 0x020E)) {
+		return diag_process_stm_cmd(buf);
 	}
 	/* Check for Apps Only & get event mask request */
 	else if (!(driver->smd_data[MODEM_DATA].ch) && chk_apps_only() &&
@@ -1592,6 +1676,9 @@ void diag_smd_notify(void *ctxt, unsigned event)
 			/* Notify the clients of the close */
 			diag_dci_notify_client(smd_info->peripheral_mask,
 							DIAG_STATUS_CLOSED);
+		} else if (smd_info->type == SMD_CNTL_TYPE) {
+			diag_cntl_stm_notify(smd_info,
+						CLEAR_PERIPHERAL_STM_STATE);
 		}
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
@@ -1833,20 +1920,27 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 	 * information to the update function.
 	 */
 	smd_info->notify_context = 0;
+	smd_info->general_context = 0;
 	switch (type) {
 	case SMD_DATA_TYPE:
 	case SMD_CMD_TYPE:
 		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
 						diag_clean_reg_fn);
+		INIT_WORK(&(smd_info->diag_general_smd_work),
+						diag_cntl_smd_work_fn);
 		break;
 	case SMD_CNTL_TYPE:
 		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
 						diag_mask_update_fn);
+		INIT_WORK(&(smd_info->diag_general_smd_work),
+						diag_cntl_smd_work_fn);
 		break;
 	case SMD_DCI_TYPE:
 	case SMD_DCI_CMD_TYPE:
 		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
 					diag_update_smd_dci_work_fn);
+		INIT_WORK(&(smd_info->diag_general_smd_work),
+					diag_cntl_smd_work_fn);
 		break;
 	default:
 		pr_err("diag: In %s, unknown type, type: %d\n", __func__, type);
@@ -1931,8 +2025,15 @@ void diagfwd_init(void)
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;
+		driver->peripheral_supports_stm[i] = DISABLE_STM;
+	}
+
+	for (i = 0; i < NUM_STM_PROCESSORS; i++) {
+		driver->stm_state_requested[i] = DISABLE_STM;
+		driver->stm_state[i] = DISABLE_STM;
+	}
 
 	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 		success = diag_smd_constructor(&driver->smd_data[i], i,
