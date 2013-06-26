@@ -720,6 +720,73 @@ static void msm_spi_set_mx_counts(struct msm_spi *dd, u32 n_words)
 	}
 }
 
+static int msm_spi_bam_pipe_disconnect(struct msm_spi *dd,
+						struct msm_spi_bam_pipe  *pipe)
+{
+	int ret = sps_disconnect(pipe->handle);
+	if (ret) {
+		dev_dbg(dd->dev, "%s disconnect bam %s pipe failed\n",
+							__func__, pipe->name);
+		return ret;
+	}
+	return 0;
+}
+
+static int msm_spi_bam_pipe_connect(struct msm_spi *dd,
+		struct msm_spi_bam_pipe  *pipe, struct sps_connect *config)
+{
+	int ret;
+	struct sps_register_event event  = {
+		.mode      = SPS_TRIGGER_WAIT,
+		.options   = SPS_O_EOT,
+		.xfer_done = &dd->transfer_complete,
+	};
+
+	ret = sps_connect(pipe->handle, config);
+	if (ret) {
+		dev_err(dd->dev, "%s: sps_connect(%s:0x%p):%d",
+				__func__, pipe->name, pipe->handle, ret);
+		return ret;
+	}
+
+	ret = sps_register_event(pipe->handle, &event);
+	if (ret) {
+		dev_err(dd->dev, "%s sps_register_event(hndl:0x%p %s):%d",
+				__func__, pipe->handle, pipe->name, ret);
+		msm_spi_bam_pipe_disconnect(dd, pipe);
+		return ret;
+	}
+
+	pipe->teardown_required = true;
+	return 0;
+}
+
+
+static void msm_spi_bam_pipe_flush(struct msm_spi *dd,
+					enum msm_spi_pipe_direction pipe_dir)
+{
+	struct msm_spi_bam_pipe *pipe = (pipe_dir == SPI_BAM_CONSUMER_PIPE) ?
+					(&dd->bam.prod) : (&dd->bam.cons);
+	struct sps_connect           config  = pipe->config;
+	int    ret;
+
+	ret = msm_spi_bam_pipe_disconnect(dd, pipe);
+	if (ret)
+		return;
+
+	ret = msm_spi_bam_pipe_connect(dd, pipe, &config);
+	if (ret)
+		return;
+}
+
+static void msm_spi_bam_flush(struct msm_spi *dd)
+{
+	dev_dbg(dd->dev, "%s flushing bam for recovery\n" , __func__);
+
+	msm_spi_bam_pipe_flush(dd, SPI_BAM_CONSUMER_PIPE);
+	msm_spi_bam_pipe_flush(dd, SPI_BAM_PRODUCER_PIPE);
+}
+
 /**
  * msm_spi_bam_begin_transfer: transfer dd->tx_bytes_remaining bytes
  * using BAM.
@@ -1681,6 +1748,8 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 					msm_dmov_flush(dd->tx_dma_chan, 1);
 					msm_dmov_flush(dd->rx_dma_chan, 1);
 				}
+				if (dd->mode == SPI_BAM_MODE)
+					msm_spi_bam_flush(dd);
 				break;
 		}
 	} while (msm_spi_dm_send_next(dd));
@@ -2312,7 +2381,7 @@ static void msm_spi_bam_pipe_teardown(struct msm_spi *dd,
 	if (!pipe->teardown_required)
 		return;
 
-	sps_disconnect(pipe->handle);
+	msm_spi_bam_pipe_disconnect(dd, pipe);
 	dma_free_coherent(dd->dev, pipe->config.desc.size,
 		pipe->config.desc.base, pipe->config.desc.phys_base);
 	sps_free_endpoint(pipe->handle);
@@ -2325,13 +2394,13 @@ static int msm_spi_bam_pipe_init(struct msm_spi *dd,
 {
 	int rc = 0;
 	struct sps_pipe *pipe_handle;
-	struct sps_register_event event = {0};
 	struct msm_spi_bam_pipe *pipe = (pipe_dir == SPI_BAM_CONSUMER_PIPE) ?
 					(&dd->bam.prod) : (&dd->bam.cons);
 	struct sps_connect *pipe_conf = &pipe->config;
 
+	pipe->name   = (pipe_dir == SPI_BAM_CONSUMER_PIPE) ? "cons" : "prod";
 	pipe->handle = 0;
-	pipe_handle = sps_alloc_endpoint();
+	pipe_handle  = sps_alloc_endpoint();
 	if (!pipe_handle) {
 		dev_err(dd->dev, "%s: Failed to allocate BAM endpoint\n"
 								, __func__);
@@ -2373,32 +2442,16 @@ static int msm_spi_bam_pipe_init(struct msm_spi *dd,
 		rc = -ENOMEM;
 		goto config_err;
 	}
-
+	/* zero descriptor FIFO for convenient debugging of first descs */
 	memset(pipe_conf->desc.base, 0x00, pipe_conf->desc.size);
 
-	rc = sps_connect(pipe_handle, pipe_conf);
-	if (rc) {
-		dev_err(dd->dev, "%s: Failed to connect BAM pipe", __func__);
-		goto connect_err;
-	}
-
-	event.mode      = SPS_TRIGGER_WAIT;
-	event.options   = SPS_O_EOT;
-	event.xfer_done = &dd->transfer_complete;
-	event.user      = (void *)dd;
-	rc = sps_register_event(pipe_handle, &event);
-	if (rc) {
-		dev_err(dd->dev, "%s: Failed to register BAM EOT event",
-			__func__);
-		goto register_err;
-	}
-
 	pipe->handle = pipe_handle;
-	pipe->teardown_required = true;
+	rc = msm_spi_bam_pipe_connect(dd, pipe, pipe_conf);
+	if (rc)
+		goto connect_err;
+
 	return 0;
 
-register_err:
-	sps_disconnect(pipe_handle);
 connect_err:
 	dma_free_coherent(dd->dev, pipe_conf->desc.size,
 		pipe_conf->desc.base, pipe_conf->desc.phys_base);

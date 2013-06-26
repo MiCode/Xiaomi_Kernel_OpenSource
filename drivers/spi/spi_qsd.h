@@ -277,6 +277,7 @@ struct qup_i2c_clk_path_vote {
 };
 
 struct msm_spi_bam_pipe {
+	const char              *name;
 	struct sps_pipe         *handle;
 	struct sps_connect       config;
 	bool                     teardown_required;
