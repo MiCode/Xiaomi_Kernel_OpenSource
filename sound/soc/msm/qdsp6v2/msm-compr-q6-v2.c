@@ -127,6 +127,7 @@ static void compr_event_handler(uint32_t opcode,
 	int i = 0;
 	int time_stamp_flag = 0;
 	int buffer_length = 0;
+	int stop_playback = 0;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
@@ -151,9 +152,15 @@ static void compr_event_handler(uint32_t opcode,
 		/*
 		 * check for underrun
 		 */
+		snd_pcm_stream_lock_irq(substream);
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
-			pr_info("render stopped");
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
+			stop_playback = 1;
+		}
+		snd_pcm_stream_unlock_irq(substream);
+
+		if (stop_playback) {
+			pr_err("underrun! render stopped\n");
 			break;
 		}
 
