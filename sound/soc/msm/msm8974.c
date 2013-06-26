@@ -481,13 +481,12 @@ static void msm8974_liquid_ext_spk_power_amp_off(u32 spk)
 
 		pr_debug("%s Left and right speakers case spk = 0x%08x",
 				  __func__, spk);
-
+		msm8974_ext_spk_pamp &= ~spk;
 		if (!msm8974_ext_spk_pamp) {
 			if (ext_spk_amp_gpio >= 0 &&
 				msm8974_liquid_dock_dev != NULL &&
 				msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(0);
-			msm8974_ext_spk_pamp = 0;
 		}
 
 	} else  {
