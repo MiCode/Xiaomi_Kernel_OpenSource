@@ -358,6 +358,8 @@ EXPORT_SYMBOL(smem_get_entry_no_rlock);
  */
 remote_spinlock_t *smem_get_remote_spinlock(void)
 {
+	if (unlikely(!spinlocks_initialized))
+		init_smem_remote_spinlock();
 	return &remote_spinlock;
 }
 EXPORT_SYMBOL(smem_get_remote_spinlock);
