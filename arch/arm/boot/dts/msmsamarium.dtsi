@@ -796,6 +796,35 @@
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
+
+	qcom,ocmem@fdd00000 {
+		compatible = "qcom,msm-ocmem";
+		reg = <0xfdd00000 0x2000>,
+		      <0xfdd02000 0x2000>,
+		      <0xfe039000 0x400>,
+		      <0xfec00000 0xa0000>;
+		reg-names = "ocmem_ctrl_physical", "dm_ctrl_physical", "br_ctrl_physical", "ocmem_physical";
+		interrupts = <0 76 0 0 77 0>;
+		interrupt-names = "ocmem_irq", "dm_irq";
+		qcom,ocmem-num-regions = <0x3>;
+		qcom,ocmem-num-macros = <0xc>;
+		qcom,resource-type = <0x706d636f>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0xfec00000 0xa0000>;
+
+		partition@0 {
+			reg = <0x0 0x80000>;
+			qcom,ocmem-part-name = "graphics";
+			qcom,ocmem-part-min = <0x80000>;
+		};
+
+		partition@80000 {
+			reg = <0x80000 0x20000>;
+			qcom,ocmem-part-name = "video";
+			qcom,ocmem-part-min = <0x20000>;
+		};
+	};
 };
 
 &gdsc_venus {
