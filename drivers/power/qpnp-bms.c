@@ -135,6 +135,7 @@ struct bms_wakeup_source {
 struct qpnp_bms_chip {
 	struct device			*dev;
 	struct power_supply		bms_psy;
+	bool				bms_psy_registered;
 	struct power_supply		*batt_psy;
 	struct spmi_device		*spmi;
 	u16				base;
@@ -1467,7 +1468,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 
 	if (params->rbatt_mohm != chip->rbatt_mohm) {
 		chip->rbatt_mohm = params->rbatt_mohm;
-		if (chip->bms_psy.name != NULL)
+		if (chip->bms_psy_registered)
 			power_supply_changed(&chip->bms_psy);
 	}
 
@@ -2272,8 +2273,7 @@ done_calculating:
 	}
 	mutex_unlock(&chip->last_soc_mutex);
 
-	if (new_calculated_soc != previous_soc
-			&& chip->bms_psy.name != NULL) {
+	if (new_calculated_soc != previous_soc && chip->bms_psy_registered) {
 		power_supply_changed(&chip->bms_psy);
 		pr_debug("power supply changed\n");
 	} else {
@@ -2307,7 +2307,7 @@ static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 	voltage_based_soc = clamp(voltage_based_soc, 0, 100);
 
 	if (chip->prev_voltage_based_soc != voltage_based_soc
-				&& chip->bms_psy.name != NULL) {
+				&& chip->bms_psy_registered) {
 		power_supply_changed(&chip->bms_psy);
 		pr_debug("power supply changed\n");
 	}
@@ -2514,7 +2514,7 @@ static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
 	} else {
 		pr_debug("unknown voltage notification state: %d\n", state);
 	}
-	if (chip->bms_psy.name != NULL)
+	if (chip->bms_psy_registered)
 		power_supply_changed(&chip->bms_psy);
 }
 
@@ -3805,6 +3805,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto unregister_dc;
 	}
 
+	chip->bms_psy_registered = true;
 	vbatt = 0;
 	rc = get_battery_voltage(&vbatt);
 	if (rc) {
@@ -3819,6 +3820,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	return 0;
 
 unregister_dc:
+	chip->bms_psy_registered = false;
 	power_supply_unregister(&chip->bms_psy);
 error_setup:
 	dev_set_drvdata(&spmi->dev, NULL);
