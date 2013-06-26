@@ -1566,7 +1566,7 @@ static ssize_t transport_store(
 
 	return size;
 }
-static DEVICE_ATTR(transport, S_IRUGO | S_IWUSR, NULL, transport_store);
+static DEVICE_ATTR(transport, S_IWUSR, NULL, transport_store);
 
 static int rmnet_mux_bind(struct usb_configuration *c, struct usb_function *f)
 {
