@@ -89,6 +89,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	buf_event.timestamp = ts->event_time;
 	buf_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	buf_event.input_intf = VFE_PIX_0;
 	pingpong_status = vfe_dev->hw_info->
 		vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
 
