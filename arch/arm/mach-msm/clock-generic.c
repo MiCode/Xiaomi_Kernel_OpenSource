@@ -266,6 +266,12 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	if (rrate != rate)
 		return -EINVAL;
 
+	/*
+	 * For fixed divider clock we don't want to return an error if the
+	 * requested rate matches the achievable rate. So, don't check for
+	 * !d->ops and return an error. __div_round_rate() ensures div ==
+	 * d->div if !d->ops.
+	 */
 	if (div > d->div)
 		rc = d->ops->set_div(d, div);
 	if (rc)
@@ -299,7 +305,7 @@ set_rate_fail:
 static int div_enable(struct clk *c)
 {
 	struct div_clk *d = to_div_clk(c);
-	if (d->ops->enable)
+	if (d->ops && d->ops->enable)
 		return d->ops->enable(d);
 	return 0;
 }
@@ -307,7 +313,7 @@ static int div_enable(struct clk *c)
 static void div_disable(struct clk *c)
 {
 	struct div_clk *d = to_div_clk(c);
-	if (d->ops->disable)
+	if (d->ops && d->ops->disable)
 		return d->ops->disable(d);
 }
 
@@ -315,7 +321,7 @@ static enum handoff div_handoff(struct clk *c)
 {
 	struct div_clk *d = to_div_clk(c);
 
-	if (d->ops->get_div)
+	if (d->ops && d->ops->get_div)
 		d->div = max(d->ops->get_div(d), 1);
 	d->div = max(d->div, 1U);
 	c->rate = clk_get_rate(c->parent) / d->div;
@@ -389,8 +395,13 @@ static int slave_div_set_rate(struct clk *c, unsigned long rate)
 	if (div == d->div)
 		return 0;
 
-	if (d->ops->set_div)
-		rc = d->ops->set_div(d, div);
+	/*
+	 * For fixed divider clock we don't want to return an error if the
+	 * requested rate matches the achievable rate. So, don't check for
+	 * !d->ops and return an error. __slave_div_round_rate() ensures
+	 * div == d->div if !d->ops.
+	 */
+	rc = d->ops->set_div(d, div);
 	if (rc)
 		return rc;
 
