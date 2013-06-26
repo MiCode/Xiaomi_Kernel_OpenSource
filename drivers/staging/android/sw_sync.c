@@ -22,8 +22,7 @@
 #include <linux/module.h>
 #include <linux/syscalls.h>
 #include <linux/uaccess.h>
-
-#include "sw_sync.h"
+#include <linux/sw_sync.h>
 
 static int sw_sync_cmp(u32 a, u32 b)
 {
