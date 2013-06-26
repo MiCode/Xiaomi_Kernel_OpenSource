@@ -200,6 +200,9 @@ struct cpr_regulator {
 	u32		vdd_apc_step_down_limit;
 };
 
+#define CPR_DEBUG_MASK_IRQ	BIT(0)
+#define CPR_DEBUG_MASK_API	BIT(1)
+
 static int cpr_debug_enable;
 static int cpr_enable;
 static struct cpr_regulator *the_cpr;
@@ -207,8 +210,15 @@ static struct cpr_regulator *the_cpr;
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 #define cpr_debug(message, ...) \
 	do { \
-		if (cpr_debug_enable) \
+		if (cpr_debug_enable & CPR_DEBUG_MASK_API) \
 			pr_info(message, ##__VA_ARGS__); \
+	} while (0)
+#define cpr_debug_irq(message, ...) \
+	do { \
+		if (cpr_debug_enable & CPR_DEBUG_MASK_IRQ) \
+			pr_info(message, ##__VA_ARGS__); \
+		else \
+			pr_debug(message, ##__VA_ARGS__); \
 	} while (0)
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
@@ -485,16 +495,16 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				& RBCPR_RESULT0_ERROR_STEPS_MASK;
 	last_volt = cpr_vreg->last_volt[corner];
 
-	cpr_debug("last_volt[corner:%d] = %d uV\n", corner, last_volt);
+	cpr_debug_irq("last_volt[corner:%d] = %d uV\n", corner, last_volt);
 
 	if (dir == UP) {
-		cpr_debug("Up: cpr status = 0x%08x (error_steps=%d)\n",
-			  reg_val, error_steps);
+		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
+			      reg_val, error_steps);
 
 		if (last_volt >= cpr_vreg->ceiling_volt[corner]) {
-			cpr_debug("[corn:%d] @ ceiling: %d >= %d: NACK\n",
-				  corner, last_volt,
-				  cpr_vreg->ceiling_volt[corner]);
+			cpr_debug_irq("[corn:%d] @ ceiling: %d >= %d: NACK\n",
+				      corner, last_volt,
+				      cpr_vreg->ceiling_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			/* Maximize the UP threshold */
@@ -506,17 +516,18 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		}
 
 		if (error_steps > cpr_vreg->vdd_apc_step_up_limit) {
-			cpr_debug("%d is over up-limit(%d): Clamp\n",
-				  error_steps,
-				  cpr_vreg->vdd_apc_step_up_limit);
+			cpr_debug_irq("%d is over up-limit(%d): Clamp\n",
+				      error_steps,
+				      cpr_vreg->vdd_apc_step_up_limit);
 			error_steps = cpr_vreg->vdd_apc_step_up_limit;
 		}
 
 		/* Calculate new voltage */
 		new_volt = last_volt + (error_steps * cpr_vreg->step_volt);
 		if (new_volt > cpr_vreg->ceiling_volt[corner]) {
-			cpr_debug("new_volt(%d) >= ceiling_volt(%d): Clamp\n",
-				  new_volt, cpr_vreg->ceiling_volt[corner]);
+			cpr_debug_irq("new_volt(%d) >= ceiling(%d): Clamp\n",
+				      new_volt,
+				      cpr_vreg->ceiling_volt[corner]);
 			new_volt = cpr_vreg->ceiling_volt[corner];
 		}
 
@@ -542,15 +553,16 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug("UP: -> new_volt = %d uV\n", new_volt);
+		cpr_debug_irq("UP: -> new_volt[corner:%d] = %d uV\n",
+			      corner, new_volt);
 	} else if (dir == DOWN) {
-		cpr_debug("Down: cpr status = 0x%08x (error_steps=%d)\n",
-			  reg_val, error_steps);
+		cpr_debug_irq("Down: cpr status = 0x%08x (error_steps=%d)\n",
+			      reg_val, error_steps);
 
 		if (last_volt <= cpr_vreg->floor_volt[corner]) {
-			cpr_debug("[corn:%d] @ floor: %d <= %d: NACK\n",
-				  corner, last_volt,
-				  cpr_vreg->floor_volt[corner]);
+			cpr_debug_irq("[corn:%d] @ floor: %d <= %d: NACK\n",
+				      corner, last_volt,
+				      cpr_vreg->floor_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			/* Maximize the DOWN threshold */
@@ -571,17 +583,18 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		}
 
 		if (error_steps > cpr_vreg->vdd_apc_step_down_limit) {
-			cpr_debug("%d is over down-limit(%d): Clamp\n",
-				  error_steps,
-				  cpr_vreg->vdd_apc_step_down_limit);
+			cpr_debug_irq("%d is over down-limit(%d): Clamp\n",
+				      error_steps,
+				      cpr_vreg->vdd_apc_step_down_limit);
 			error_steps = cpr_vreg->vdd_apc_step_down_limit;
 		}
 
 		/* Calculte new voltage */
 		new_volt = last_volt - (error_steps * cpr_vreg->step_volt);
 		if (new_volt < cpr_vreg->floor_volt[corner]) {
-			cpr_debug("new_volt(%d) < floor_volt(%d): Clamp\n",
-				  new_volt, cpr_vreg->floor_volt[corner]);
+			cpr_debug_irq("new_volt(%d) < floor(%d): Clamp\n",
+				      new_volt,
+				      cpr_vreg->floor_volt[corner]);
 			new_volt = cpr_vreg->floor_volt[corner];
 		}
 
@@ -601,7 +614,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug("DOWN: -> new_volt = %d uV\n", new_volt);
+		cpr_debug_irq("DOWN: -> new_volt[corner:%d] = %d uV\n",
+			      corner, new_volt);
 	}
 }
 
@@ -613,7 +627,7 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
 	reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
-	cpr_debug("IRQ_STATUS = 0x%02X\n", reg_val);
+	cpr_debug_irq("IRQ_STATUS = 0x%02X\n", reg_val);
 
 	if (!cpr_is_allowed(cpr_vreg)) {
 		reg_val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
@@ -632,7 +646,7 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 		cpr_irq_clr_nack(cpr_vreg);
 	} else if (reg_val & CPR_INT_MID) {
 		/* RBCPR_CTL_SW_AUTO_CONT_ACK_EN is enabled */
-		cpr_debug("IRQ occured for Mid Flag\n");
+		cpr_debug_irq("IRQ occured for Mid Flag\n");
 	} else {
 		pr_err("IRQ occured for unknown flag (0x%08x)\n", reg_val);
 	}
