@@ -1667,13 +1667,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	}
 	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
-	bam_props.virt_addr = ioremap(resource_p->bam_mem_base,
-			resource_p->bam_mem_size);
-	if (!bam_props.virt_addr) {
-		IPAERR(":bam-base ioremap err.\n");
-		result = -EFAULT;
-		goto fail_bam_remap;
-	}
 	bam_props.virt_size = resource_p->bam_mem_size;
 	bam_props.irq = resource_p->bam_irq;
 	bam_props.num_pipes = IPA_NUM_PIPES;
@@ -1685,7 +1678,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	if (result) {
 		IPAERR(":bam register err.\n");
 		result = -ENODEV;
-		goto fail_bam_register;
+		goto fail_init_hw;
 	}
 
 	if (ipa_setup_bam_cfg(resource_p)) {
@@ -2006,18 +1999,12 @@ fail_rt_rule_cache:
 	kmem_cache_destroy(ipa_ctx->flt_rule_cache);
 fail_flt_rule_cache:
 	sps_deregister_bam_device(ipa_ctx->bam_handle);
-fail_bam_register:
-	iounmap(bam_props.virt_addr);
-fail_bam_remap:
 fail_init_hw:
 	iounmap(ipa_ctx->mmio);
 fail_remap:
 	kfree(ipa_ctx);
 	ipa_ctx = NULL;
 fail_mem:
-	/* gate IPA clocks */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-		ipa_disable_clks();
 	return result;
 }
 
@@ -2178,8 +2165,12 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 
 	/* Proceed to real initialization */
 	result = ipa_init(&ipa_res);
-	if (result)
+	if (result) {
 		IPAERR("ipa_init failed\n");
+		/* gate IPA clocks */
+		if (ipa_res.ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_disable_clks();
+	}
 
 	result = device_create_file(&pdev_p->dev,
 			&dev_attr_aggregation_type);
