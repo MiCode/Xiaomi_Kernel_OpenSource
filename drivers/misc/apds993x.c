@@ -269,6 +269,12 @@ static unsigned char apds993x_als_again_bit_tb[] = { 0x00, 0x01, 0x02, 0x03 };
 /*calibration*/
 static int apds993x_cross_talk_val = 0;
 
+/* ALS tuning */
+static int apds993x_ga = 0;
+static int apds993x_coe_b = 0;
+static int apds993x_coe_c = 0;
+static int apds993x_coe_d = 0;
+
 #ifdef ALS_POLLING_ENABLED
 static int apds993x_set_als_poll_delay(struct i2c_client *client, unsigned int val);
 #endif
@@ -606,10 +612,10 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 	int IAC=0;
 
 	/* re-adjust COE_B to avoid 2 decimal point */
-	IAC1 = (ch0data - (APDS993X_COE_B * ch1data) / 100);
+	IAC1 = (ch0data - (apds993x_coe_b * ch1data) / 100);
 	/* re-adjust COE_C and COE_D to void 2 decimal point */
-	IAC2 = ((APDS993X_COE_C * ch0data) / 100 -
-			(APDS993X_COE_D * ch1data) / 100);
+	IAC2 = ((apds993x_coe_c * ch0data) / 100 -
+			(apds993x_coe_d * ch1data) / 100);
 
 	if (IAC1 > IAC2)
 		IAC = IAC1;
@@ -624,11 +630,11 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 	}
 
 	if (data->als_reduce) {
-		luxValue = ((IAC * APDS993X_GA * APDS993X_DF) / 100) * 4 /
+		luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 4 /
 			((apds993x_als_integration_tb[data->als_atime_index] /
 			  100) * apds993x_als_again_tb[data->als_again_index]);
 	} else {
-		luxValue = ((IAC * APDS993X_GA * APDS993X_DF) /100) /
+		luxValue = ((IAC * apds993x_ga * APDS993X_DF) /100) /
 			((apds993x_als_integration_tb[data->als_atime_index] /
 			  100) * apds993x_als_again_tb[data->als_again_index]);
 	}
@@ -2162,6 +2168,35 @@ static int sensor_parse_dt(struct device *dev,
 	}
 	pdata->prox_gain = tmp;
 
+	/* ALS tuning value */
+	rc = of_property_read_u32(np, "avago,als_B", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read apds993x_coe_b\n");
+		return rc;
+	}
+	pdata->als_B = tmp;
+
+	rc = of_property_read_u32(np, "avago,als_C", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read apds993x_coe_c\n");
+		return rc;
+	}
+	pdata->als_C = tmp;
+
+	rc = of_property_read_u32(np, "avago,als_D", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read apds993x_coe_d\n");
+		return rc;
+	}
+	pdata->als_D = tmp;
+
+	rc = of_property_read_u32(np, "avago,ga_value", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read ga_value\n");
+		return rc;
+	}
+	pdata->ga_value = tmp;
+
 	return 0;
 }
 
@@ -2212,6 +2247,11 @@ static int apds993x_probe(struct i2c_client *client,
 	apds993x_ps_hsyteresis_threshold = pdata->prox_hsyteresis_threshold;
 	apds993x_ps_pulse_number = pdata->prox_pulse;
 	apds993x_ps_pgain = pdata->prox_gain;
+
+	apds993x_coe_b = pdata->als_B;
+	apds993x_coe_c = pdata->als_C;
+	apds993x_coe_d = pdata->als_D;
+	apds993x_ga = pdata->ga_value;
 
 	data = kzalloc(sizeof(struct apds993x_data), GFP_KERNEL);
 	if (!data) {
