@@ -416,7 +416,17 @@
 			rpm-channel-name = "rpm_requests";
 			rpm-channel-type = <15>; /* SMD_APPS_RPM */
 			rpm-standalone; /* TODO: remove this after bring up */
-       };
+	};
+
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-venus";
+		reg = <0xfdce0000 0x4000>,
+		      <0xfdc80000 0x400>;
+		reg-names = "wrapper_base", "vbif_base";
+		vdd-supply = <&gdsc_venus>;
+
+		qcom,firmware-name = "venus";
+	};
 };
 
 &gdsc_venus {
