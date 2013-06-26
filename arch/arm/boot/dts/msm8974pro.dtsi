@@ -1,0 +1,138 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi file.
+ */
+
+/include/ "msm8974.dtsi"
+/include/ "msm8974-v2-iommu.dtsi"
+/include/ "msm8974-v2-iommu-domains.dtsi"
+/include/ "msm8974-v2-pm.dtsi"
+
+&soc {
+	android_usb@fe8050c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
+		qcom,android-usb-swfi-latency = <1>;
+	};
+
+	qcom,msm-imem@fe805000 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+	};
+};
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x03030001>;
+
+	/* Updated bus bandwidth requirements */
+	qcom,msm-bus,vectors-KBps =
+		/* Off */
+		<26 512 0 0>, <89 604 0 0>,
+		/* SVS */
+		<26 512 0 2400000>, <89 604 0 3000000>,
+		/* Nominal / SVS */
+		<26 512 0 4656000>, <89 604 0 3000000>,
+		/* Nominal */
+		<26 512 0 4656000>, <89 604 0 5120000>,
+		/* Turbo / Nominal */
+		<26 512 0 7464000>, <89 604 0 5120000>,
+		/* Turbo */
+		<26 512 0 7464000>, <89 604 0 6400000>;
+};
+
+&mdss_mdp {
+	qcom,vbif-settings = <0x0004 0x00000001>;
+
+	qcom,mdss-wb-off = <0x00011100 0x00011500
+			    0x00011900 0x00011D00 0x00012100>;
+	qcom,mdss-intf-off = <0x00012500 0x00012700
+			      0x00012900 0x00012b00>;
+	qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
+	qcom,mdss-has-bwc;
+	qcom,mdss-has-decimation;
+	qcom,mdss-ad-off = <0x0013100 0x00013300>;
+};
+
+&mdss_hdmi_tx {
+	reg =	<0xfd922100 0x370>,
+		<0xfd922500 0x7C>,
+		<0xfc4b8000 0x60F0>;
+	reg-names = "core_physical", "phy_physical", "qfprom_physical";
+};
+
+&msm_vidc {
+	qcom,vidc-ns-map = <0x40000000 0x40000000>;
+	qcom,load-freq-tbl = <979200 465000000>,
+		<783360 465000000>,
+		<489600 266670000>,
+		<244800 133330000>;
+	qcom,reg-presets = <0x80004 0x1>,
+		<0x80070 0x11FFF>,
+		<0x80074 0xA4>,
+		<0x800A8 0x1FFF>,
+		<0x80124 0x3>,
+		<0xE0020 0x5555556>,
+		<0xE0024 0x0>;
+	qcom,bus-ports = <1>;
+	qcom,enc-ocmem-ab-ib = <0 0>,
+		<138000 1034000>,
+		<414000 1034000>,
+		<940000 1034000>,
+		<1880000 2068000>,
+		<3008000 3309000>,
+		<3760000 4136000>,
+		<4468000 2457000>;
+	qcom,dec-ocmem-ab-ib = <0 0>,
+		<176000 519000>,
+		<456000 519000>,
+		<864000 519000>,
+		<1728000 1038000>,
+		<2766000 1661000>,
+		<3456000 2076000>,
+		<3662000 2198000>;
+	qcom,enc-ddr-ab-ib = <0 0>,
+		<120000 302000>,
+		<364000 302000>,
+		<804000 302000>,
+		<1608000 604000>,
+		<2576000 967000>,
+		<4680000 1404000>,
+		<49880000 1496000>;
+	qcom,dec-ddr-ab-ib = <0 0>,
+		<208000 303000>,
+		<536000 303000>,
+		<1012000 303000>,
+		<2024000 606000>,
+		<3240000 970000>,
+		<4048000 1212000>,
+		<4264000 1279000>;
+	qcom,iommu-groups = <&venus_domain_ns &venus_domain_sec_bitstream
+			&venus_domain_sec_pixel &venus_domain_sec_non_pixel>;
+	qcom,iommu-group-buffer-types = <0xfff 0x91 0x42 0x120>;
+	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
+					<0x42 0x2>,
+					<0x120 0x3>;
+};
+
+&krait_pdn {
+	qcom,use-phase-switching;
+};
+
+&tspp {
+	vdd_cx-supply = <&pm8841_s2_corner>;
+};
