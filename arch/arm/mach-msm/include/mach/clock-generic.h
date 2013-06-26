@@ -72,8 +72,6 @@ struct div_clk;
 struct clk_div_ops {
 	int (*set_div)(struct div_clk *clk, int div);
 	int (*get_div)(struct div_clk *clk);
-
-	/* Optional */
 	bool (*is_enabled)(struct div_clk *clk);
 	int (*enable)(struct div_clk *clk);
 	void (*disable)(struct div_clk *clk);
@@ -84,6 +82,7 @@ struct div_clk {
 	unsigned int	min_div;
 	unsigned int	max_div;
 	unsigned long	rate_margin;
+	/* Optional */
 	struct clk_div_ops *ops;
 
 	/* Fields not used by helper function. */
