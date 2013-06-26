@@ -2228,6 +2228,7 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 		pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
 			__func__, ret);
 		msm_ipc_router_free_skb(out_skb_head);
+		return ret;
 	}
 	return 0;
 }
