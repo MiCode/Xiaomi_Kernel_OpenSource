@@ -515,6 +515,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 
 	if (!temp) {
 		pr_err("diag: Invalid buffer in %s\n", __func__);
+		return -ENOMEM;
 	}
 
 	/* This is Pkt request/response transaction */
