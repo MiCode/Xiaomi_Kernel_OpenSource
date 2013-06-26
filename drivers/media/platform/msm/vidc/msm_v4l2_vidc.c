@@ -779,7 +779,7 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 		return 0;
 }
 
-static DEVICE_ATTR(link_name, 0644, msm_vidc_link_name_show, NULL);
+static DEVICE_ATTR(link_name, 0444, msm_vidc_link_name_show, NULL);
 
 static int msm_vidc_probe(struct platform_device *pdev)
 {
