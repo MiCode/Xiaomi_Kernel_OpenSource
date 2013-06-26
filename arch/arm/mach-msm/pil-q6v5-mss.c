@@ -146,7 +146,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	 * run concurrently with either the watchdog bite error handler or the
 	 * SMSM callback, making it safe to unset the flag below.
 	 */
-	init_completion(&drv->stop_ack);
+	INIT_COMPLETION(drv->stop_ack);
 	drv->ignore_errors = false;
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
@@ -234,7 +234,7 @@ static int mss_start(const struct subsys_desc *desc)
 	if (desc->is_not_loadable)
 		return 0;
 
-	init_completion(&drv->stop_ack);
+	INIT_COMPLETION(drv->stop_ack);
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
 		return ret;
@@ -488,6 +488,8 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	}
+
+	init_completion(&drv->stop_ack);
 
 	/* Get the IRQ from the GPIO for registering inbound handler */
 	err_fatal_gpio = of_get_named_gpio(pdev->dev.of_node,
