@@ -175,8 +175,10 @@ static ssize_t open_timeout_show(struct device *dev,
 		if (dev == smd_tty[num_dev].device_ptr)
 			break;
 	}
-	if (num_dev >= MAX_SMD_TTYS)
+	if (num_dev >= MAX_SMD_TTYS) {
 		SMD_TTY_ERR("[%s]: Device Not Found", __func__);
+		return -EINVAL;
+	}
 
 	return snprintf(buf, PAGE_SIZE, "%d\n",
 			smd_tty[num_dev].open_wait);
