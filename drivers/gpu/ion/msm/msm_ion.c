@@ -264,6 +264,9 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 		}
 	}
 
+	if (!outer_cache_op)
+		return -EINVAL;
+
 	outer_cache_op(buff_phys_start + offset,
 		       buff_phys_start + offset + length);
 
