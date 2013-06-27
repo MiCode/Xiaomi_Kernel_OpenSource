@@ -329,6 +329,11 @@ static struct clk_lookup msm_clocks_8092[] = {
 	CLK_DUMMY("",	nidaq_out_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_bcss_axi_clk.c,	"", OFF),
 	CLK_DUMMY("",	bcc_lnb_core_clk.c,	"", OFF),
+
+	/* USB */
+	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("xo", NULL, "msm_otg", OFF),
 };
 
 struct clock_init_data mpq8092_clock_init_data __initdata = {
