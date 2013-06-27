@@ -15,6 +15,7 @@
 
 #include <linux/idr.h>
 #include <linux/pm_qos.h>
+#include <linux/sched.h>
 
 #include "kgsl.h"
 #include "kgsl_mmu.h"
@@ -103,11 +104,10 @@ struct kgsl_functable {
 	   calling the hook */
 	void (*setstate) (struct kgsl_device *device, unsigned int context_id,
 			uint32_t flags);
-	int (*drawctxt_create) (struct kgsl_device *device,
-		struct kgsl_pagetable *pagetable, struct kgsl_context *context,
-		uint32_t *flags);
-	void (*drawctxt_destroy) (struct kgsl_device *device,
-		struct kgsl_context *context);
+	struct kgsl_context *(*drawctxt_create) (struct kgsl_device_private *,
+						uint32_t *flags);
+	void (*drawctxt_detach) (struct kgsl_context *context);
+	void (*drawctxt_destroy) (struct kgsl_context *context);
 	long (*ioctl) (struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
 	int (*setproperty) (struct kgsl_device *device,
@@ -254,31 +254,44 @@ void kgsl_process_events(struct work_struct *work);
 	.ver_minor = DRIVER_VERSION_MINOR
 
 
+/* bits for struct kgsl_context.priv */
+/* the context has been destroyed by userspace and is no longer using the gpu */
+#define KGSL_CONTEXT_DETACHED 0
+/* the context has caused a pagefault */
+#define KGSL_CONTEXT_PAGEFAULT 1
+
 /**
  * struct kgsl_context - Master structure for a KGSL context object
- * @refcount - kref object for reference counting the context
- * @id - integer identifier for the context
- * @dev_priv - pointer to the owning device instance
- * @devctxt - pointer to the device specific context information
- * @reset_status - status indication whether a gpu reset occured and whether
+ * @refcount: kref object for reference counting the context
+ * @id: integer identifier for the context
+ * @priv: in-kernel context flags, use KGSL_CONTEXT_* values
+ * @dev_priv: pointer to the owning device instance
+ * @reset_status: status indication whether a gpu reset occured and whether
  * this context was responsible for causing it
- * @wait_on_invalid_ts - flag indicating if this context has tried to wait on a
+ * @wait_on_invalid_ts: flag indicating if this context has tried to wait on a
  * bad timestamp
- * @timeline - sync timeline used to create fences that can be signaled when a
+ * @timeline: sync timeline used to create fences that can be signaled when a
  * sync_pt timestamp expires
- * @events - list head of pending events for this context
- * @events_list - list node for the list of all contexts that have pending events
+ * @events: list head of pending events for this context
+ * @events_list: list node for the list of all contexts that have pending events
+ * @pid: process that owns this context.
+ * @pagefault: flag set if this context caused a pagefault.
+ * @pagefault_ts: global timestamp of the pagefault, if KGSL_CONTEXT_PAGEFAULT
+ * is set.
  */
 struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
-	struct kgsl_device_private *dev_priv;
-	void *devctxt;
+	pid_t pid;
+	unsigned long priv;
+	struct kgsl_device *device;
+	struct kgsl_pagetable *pagetable;
 	unsigned int reset_status;
 	bool wait_on_invalid_ts;
 	struct sync_timeline *timeline;
 	struct list_head events;
 	struct list_head events_list;
+	unsigned int pagefault_ts;
 };
 
 struct kgsl_process_private {
@@ -429,6 +442,9 @@ kgsl_device_get_drvdata(struct kgsl_device *dev)
 
 void kgsl_context_destroy(struct kref *kref);
 
+int kgsl_context_init(struct kgsl_device_private *, struct kgsl_context
+		*context);
+
 /**
  * kgsl_context_put() - Release context reference count
  * @context: Pointer to the KGSL context to be released
@@ -442,6 +458,22 @@ kgsl_context_put(struct kgsl_context *context)
 	if (context)
 		kref_put(&context->refcount, kgsl_context_destroy);
 }
+
+/**
+ * kgsl_context_detached() - check if a context is detached
+ * @context: the context
+ *
+ * Check if a context has been destroyed by userspace and is only waiting
+ * for reference counts to go away. This check is used to weed out
+ * contexts that shouldn't use the gpu so NULL is considered detached.
+ */
+static inline bool kgsl_context_detached(struct kgsl_context *context)
+{
+	return (context == NULL || test_bit(KGSL_CONTEXT_DETACHED,
+						&context->priv));
+}
+
+
 /**
  * kgsl_context_get() - get a pointer to a KGSL context
  * @device: Pointer to the KGSL device that owns the context
@@ -462,7 +494,10 @@ static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 
 	context = idr_find(&device->context_idr, id);
 
-	if (context)
+	/* Don't return a context that has been detached */
+	if (kgsl_context_detached(context))
+		context = NULL;
+	else
 		kref_get(&context->refcount);
 
 	read_unlock(&device->context_lock);
@@ -489,8 +524,8 @@ static inline struct kgsl_context *kgsl_context_get_owner(
 
 	context = kgsl_context_get(dev_priv->device, id);
 
-	/* Verify that the context belongs to the dev_priv instance */
-	if (context && context->dev_priv != dev_priv) {
+	/* Verify that the context belongs to current calling process. */
+	if (context != NULL && context->pid != dev_priv->process_priv->pid) {
 		kgsl_context_put(context);
 		return NULL;
 	}

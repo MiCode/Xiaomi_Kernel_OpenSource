@@ -13,8 +13,6 @@
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
 
-#include <linux/sched.h>
-
 #include "adreno_pm4types.h"
 #include "a2xx_reg.h"
 
@@ -96,15 +94,10 @@ struct gmem_shadow_t {
 };
 
 struct adreno_context {
-	pid_t pid;
-	char pid_name[TASK_COMM_LEN];
-	unsigned int id;
+	struct kgsl_context base;
 	unsigned int ib_gpu_time_used;
 	uint32_t flags;
-	uint32_t pagefault;
-	unsigned long pagefault_ts;
 	unsigned int type;
-	struct kgsl_pagetable *pagetable;
 	struct kgsl_memdesc gpustate;
 	unsigned int reg_restore[3];
 	unsigned int shader_save[3];
@@ -131,16 +124,15 @@ struct adreno_context {
 	struct kgsl_memdesc constant_load_commands[3];
 	struct kgsl_memdesc cond_execs[4];
 	struct kgsl_memdesc hlsqcontrol_restore_commands[1];
-	struct kgsl_device_private *dev_priv;
 };
 
-int adreno_drawctxt_create(struct kgsl_device *device,
-			struct kgsl_pagetable *pagetable,
-			struct kgsl_context *context,
+
+struct kgsl_context *adreno_drawctxt_create(struct kgsl_device_private *,
 			uint32_t *flags);
 
-void adreno_drawctxt_destroy(struct kgsl_device *device,
-			  struct kgsl_context *context);
+void adreno_drawctxt_detach(struct kgsl_context *context);
+
+void adreno_drawctxt_destroy(struct kgsl_context *context);
 
 void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,

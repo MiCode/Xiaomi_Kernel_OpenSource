@@ -678,6 +678,28 @@ TRACE_EVENT(kgsl_context_detach,
 	)
 );
 
+TRACE_EVENT(kgsl_context_destroy,
+
+	TP_PROTO(struct kgsl_device *device, struct kgsl_context *context),
+
+	TP_ARGS(device, context),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, id)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->id = context->id;
+	),
+
+	TP_printk(
+		"d_name=%s ctx=%u",
+		__get_str(device_name), __entry->id
+	)
+);
+
 TRACE_EVENT(kgsl_mmu_pagefault,
 
 	TP_PROTO(struct kgsl_device *device, unsigned int page,

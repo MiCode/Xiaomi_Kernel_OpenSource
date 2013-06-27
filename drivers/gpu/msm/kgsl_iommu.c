@@ -327,7 +327,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	unsigned int no_page_fault_log = 0;
 	unsigned int curr_context_id = 0;
 	unsigned int curr_global_ts = 0;
-	static struct kgsl_context *context;
+	struct kgsl_context *context;
 
 	ret = get_iommu_unit(dev, &mmu, &iommu_unit);
 	if (ret)
@@ -401,23 +401,16 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	context = kgsl_context_get(device, curr_context_id);
 
 	if (context != NULL) {
-		struct adreno_context *drawctxt = context->devctxt;
-
 		kgsl_sharedmem_readl(&device->memstore, &curr_global_ts,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 			eoptimestamp));
 
-		/*
-		 * Store pagefault's timestamp in adreno context,
-		 * this information will be used in GFT
-		 */
-
-		if (drawctxt != NULL) {
-			drawctxt->pagefault = 1;
-			drawctxt->pagefault_ts = curr_global_ts;
-		}
+		/* save pagefault timestamp for GFT */
+		set_bit(KGSL_CONTEXT_PAGEFAULT, &context->priv);
+		context->pagefault_ts = curr_global_ts;
 
 		kgsl_context_put(context);
+		context = NULL;
 	}
 
 	trace_kgsl_mmu_pagefault(iommu_dev->kgsldev, addr,

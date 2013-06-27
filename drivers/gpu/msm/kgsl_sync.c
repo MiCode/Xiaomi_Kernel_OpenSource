@@ -239,7 +239,7 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 	char ktimeline_name[sizeof(context->timeline->name)] = {};
 	snprintf(ktimeline_name, sizeof(ktimeline_name),
 		"%s_%.15s(%d)-%.15s(%d)-%d",
-		context->dev_priv->device->name,
+		context->device->name,
 		current->group_leader->comm, current->group_leader->pid,
 		current->comm, current->pid, context->id);
 
@@ -250,7 +250,7 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 
 	ktimeline = (struct kgsl_sync_timeline *) context->timeline;
 	ktimeline->last_timestamp = 0;
-	ktimeline->device = context->dev_priv->device;
+	ktimeline->device = context->device;
 	ktimeline->context_id = context->id;
 
 	return 0;

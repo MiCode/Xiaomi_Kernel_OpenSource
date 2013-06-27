@@ -410,29 +410,19 @@ void kgsl_cffdump_user_event(struct kgsl_device *device,
 	cffdump_printline(-1, cff_opcode, op1, op2, op3, op4, op5);
 }
 
-void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
-	struct kgsl_memdesc *memdesc, uint gpuaddr, uint sizebytes,
-	bool clean_cache)
+void kgsl_cffdump_syncmem(struct kgsl_device *device,
+			  struct kgsl_memdesc *memdesc, uint gpuaddr,
+			  uint sizebytes, bool clean_cache)
 {
-	struct kgsl_device *device = dev_priv->device;
 	const void *src;
 
 	if (!device->cff_dump_enable)
 		return;
 
+	BUG_ON(memdesc == NULL);
+
 	total_syncmem += sizebytes;
 
-	if (memdesc == NULL) {
-		struct kgsl_mem_entry *entry;
-		entry = kgsl_sharedmem_find_region(dev_priv->process_priv,
-			gpuaddr, sizebytes);
-		if (entry == NULL) {
-			KGSL_CORE_ERR("did not find mapping "
-				"for gpuaddr: 0x%08x\n", gpuaddr);
-			return;
-		}
-		memdesc = &entry->memdesc;
-	}
 	src = (uint *)kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr);
 	if (memdesc->hostptr == NULL) {
 		KGSL_CORE_ERR(
