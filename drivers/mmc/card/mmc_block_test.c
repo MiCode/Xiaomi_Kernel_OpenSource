@@ -20,7 +20,6 @@
 #include <linux/mmc/host.h>
 #include <linux/delay.h>
 #include <linux/test-iosched.h>
-#include <linux/jiffies.h>
 #include "queue.h"
 
 #define MODULE_NAME "mmc_block_test"
@@ -2169,7 +2168,7 @@ static ssize_t long_sequential_read_test_write(struct file *file,
 		if (ret)
 			break;
 
-		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
+		mtime = ktime_to_ms(mbtd->test_info.test_duration);
 
 		test_pr_info("%s: time is %lu msec, size is %u.%u MiB",
 			__func__, mtime,
@@ -2328,7 +2327,7 @@ static ssize_t long_sequential_write_test_write(struct file *file,
 		if (ret)
 			break;
 
-		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
+		mtime = ktime_to_ms(mbtd->test_info.test_duration);
 		byte_count = mbtd->test_info.test_byte_count;
 
 		test_pr_info("%s: time is %lu msec, size is %lu.%lu MiB",
