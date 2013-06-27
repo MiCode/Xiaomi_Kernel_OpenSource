@@ -88,7 +88,7 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	 */
 	if ((stats.total_time == 0) ||
 		(priv->bin.total_time < FLOOR)) {
-		return 0;
+		return 1;
 	}
 
 	level = devfreq_get_freq_level(devfreq, stats.current_frequency);
@@ -125,8 +125,10 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	 * By setting freq as UINT_MAX we notify the kgsl target function
 	 * to go up one power level without considering the freq value
 	 */
-	if (val < 0)
+	if (val < 0) {
+		*flag = DEVFREQ_FLAG_FAST_HINT;
 		*freq = UINT_MAX;
+	}
 
 	return 0;
 }
