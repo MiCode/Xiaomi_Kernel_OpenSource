@@ -2385,7 +2385,7 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 
 	iris_q_event(radio, IRIS_EVT_NEW_RT_RDS);
 
-	while ((skb->data[len+RDS_OFFSET] != 0x0d) && (len < RX_RT_DATA_LENGTH))
+	while ((skb->data[len+RDS_OFFSET] != 0x0d) && (len < MAX_RT_LENGTH))
 		len++;
 	data = kmalloc(len+RDS_OFFSET, GFP_ATOMIC);
 	if (!data) {
@@ -2397,7 +2397,7 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 	data[1] = skb->data[RDS_PTYPE];
 	data[2] = skb->data[RDS_PID_LOWER];
 	data[3] = skb->data[RDS_PID_HIGHER];
-	data[4] = 0;
+	data[4] = skb->data[RT_A_B_FLAG_OFFSET];
 
 	memcpy(data+RDS_OFFSET, &skb->data[RDS_OFFSET], len);
 	data[len+RDS_OFFSET] = 0x00;
