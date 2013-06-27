@@ -813,7 +813,7 @@
 	};
 
 	qcom,dc-chgpth@1400 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,boost@1500 {
