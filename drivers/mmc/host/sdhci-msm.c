@@ -89,6 +89,9 @@
 #define CORE_TESTBUS_ENA	(1 << 3)
 #define CORE_TESTBUS_SEL2	(1 << 4)
 
+#define CORE_MCI_VERSION	0x050
+#define CORE_VERSION_310	0x10000011
+
 /*
  * Waiting until end of potential AHB access for data:
  * 16 AHB cycles (160ns for 100MHz and 320ns for 50MHz) +
@@ -2153,6 +2156,12 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	u32 value;
 	int ret;
+	u32 version;
+
+	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
+	/* Core version 3.1.0 doesn't need this workaround */
+	if (version == CORE_VERSION_310)
+		return;
 
 	value = readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CTRL);
 	value &= ~(u32)CORE_MCI_DPSM_ENABLE;
