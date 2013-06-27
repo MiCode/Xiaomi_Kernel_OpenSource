@@ -14,7 +14,8 @@
 #include "governor.h"
 
 static int devfreq_performance_func(struct devfreq *df,
-				    unsigned long *freq)
+				    unsigned long *freq,
+				u32 *flag)
 {
 	/*
 	 * target callback should be able to get floor value as

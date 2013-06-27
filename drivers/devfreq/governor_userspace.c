@@ -22,7 +22,8 @@ struct userspace_data {
 	bool valid;
 };
 
-static int devfreq_userspace_func(struct devfreq *df, unsigned long *freq)
+static int devfreq_userspace_func(struct devfreq *df, unsigned long *freq,
+					u32 *flag)
 {
 	struct userspace_data *data = df->data;
 
