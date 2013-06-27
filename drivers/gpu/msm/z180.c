@@ -859,11 +859,30 @@ static int z180_wait(struct kgsl_device *device,
 	return status;
 }
 
-static void
-z180_drawctxt_destroy(struct kgsl_device *device,
-			  struct kgsl_context *context)
+struct kgsl_context *
+z180_drawctxt_create(struct kgsl_device_private *dev_priv,
+			uint32_t *flags)
 {
-	struct z180_device *z180_dev = Z180_DEVICE(device);
+	int ret;
+	struct kgsl_context *context = kzalloc(sizeof(*context), GFP_KERNEL);
+	if (context == NULL)
+		return ERR_PTR(-ENOMEM);
+	ret = kgsl_context_init(dev_priv, context);
+	if (ret != 0) {
+		kfree(context);
+		return ERR_PTR(ret);
+	}
+	return context;
+}
+
+static void
+z180_drawctxt_detach(struct kgsl_context *context)
+{
+	struct kgsl_device *device;
+	struct z180_device *z180_dev;
+
+	device = context->device;
+	z180_dev = Z180_DEVICE(device);
 
 	z180_idle(device);
 
@@ -873,6 +892,12 @@ z180_drawctxt_destroy(struct kgsl_device *device,
 		kgsl_setstate(&device->mmu, KGSL_MEMSTORE_GLOBAL,
 				KGSL_MMUFLAGS_PTUPDATE);
 	}
+}
+
+static void
+z180_drawctxt_destroy(struct kgsl_context *context)
+{
+	kfree(context);
 }
 
 static void z180_power_stats(struct kgsl_device *device,
@@ -941,7 +966,8 @@ static const struct kgsl_functable z180_functable = {
 	.gpuid = z180_gpuid,
 	.irq_handler = z180_irq_handler,
 	/* Optional functions */
-	.drawctxt_create = NULL,
+	.drawctxt_create = z180_drawctxt_create,
+	.drawctxt_detach = z180_drawctxt_detach,
 	.drawctxt_destroy = z180_drawctxt_destroy,
 	.ioctl = NULL,
 	.postmortem_dump = z180_dump,

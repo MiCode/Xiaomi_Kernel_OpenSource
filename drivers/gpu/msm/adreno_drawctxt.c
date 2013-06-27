@@ -134,34 +134,33 @@ void build_quad_vtxbuff(struct adreno_context *drawctxt,
 
 /**
  * adreno_drawctxt_create - create a new adreno draw context
- * @device - KGSL device to create the context on
- * @pagetable - Pagetable for the context
- * @context- Generic KGSL context structure
- * @flags - flags for the context (passed from user space)
+ * @dev_priv: the owner of the context
+ * @flags: flags for the context (passed from user space)
  *
- * Create a new draw context for the 3D core.  Return 0 on success,
- * or error code on failure.
+ * Create and return a new draw context for the 3D core.
  */
-int adreno_drawctxt_create(struct kgsl_device *device,
-			struct kgsl_pagetable *pagetable,
-			struct kgsl_context *context, uint32_t *flags)
+struct kgsl_context *
+adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
+			uint32_t *flags)
 {
 	struct adreno_context *drawctxt;
+	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	int ret;
 
 	drawctxt = kzalloc(sizeof(struct adreno_context), GFP_KERNEL);
-
 	if (drawctxt == NULL)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
-	drawctxt->pid = task_pid_nr(current);
-	strlcpy(drawctxt->pid_name, current->comm, TASK_COMM_LEN);
-	drawctxt->pagetable = pagetable;
+	ret = kgsl_context_init(dev_priv, &drawctxt->base);
+	if (ret != 0) {
+		kfree(drawctxt);
+		return ERR_PTR(ret);
+	}
+
 	drawctxt->bin_base_offset = 0;
-	drawctxt->id = context->id;
-	rb->timestamp[context->id] = 0;
+	rb->timestamp[drawctxt->base.id] = 0;
 
 	*flags &= (KGSL_CONTEXT_PREAMBLE |
 		KGSL_CONTEXT_NO_GMEM_ALLOC |
@@ -192,50 +191,47 @@ int adreno_drawctxt_create(struct kgsl_device *device,
 
 	drawctxt->type =
 		(*flags & KGSL_CONTEXT_TYPE_MASK) >> KGSL_CONTEXT_TYPE_SHIFT;
-	drawctxt->dev_priv = context->dev_priv;
 
 	ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);
 	if (ret)
 		goto err;
 
 	kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(drawctxt->id, ref_wait_ts),
+			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, ref_wait_ts),
 			KGSL_INIT_REFTIMESTAMP);
 	kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(drawctxt->id, ts_cmp_enable), 0);
+			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, ts_cmp_enable),
+			0);
 	kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(drawctxt->id, soptimestamp), 0);
+			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, soptimestamp),
+			0);
 	kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(drawctxt->id, eoptimestamp), 0);
+			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, eoptimestamp),
+			0);
 
-	context->devctxt = drawctxt;
-	return 0;
+	return &drawctxt->base;
 err:
-	kfree(drawctxt);
-	return ret;
+	kgsl_context_put(&drawctxt->base);
+	return ERR_PTR(ret);
 }
 
 /**
- * adreno_drawctxt_destroy - destroy a draw context
- * @device - KGSL device that owns the context
- * @context- Generic KGSL context container for the context
+ * adreno_drawctxt_detach(): detach a context from the GPU
+ * @context: Generic KGSL context container for the context
  *
- * Destroy an existing context.  Return 0 on success or error
- * code on failure.
  */
-
-/* destroy a drawing context */
-
-void adreno_drawctxt_destroy(struct kgsl_device *device,
-			  struct kgsl_context *context)
+void adreno_drawctxt_detach(struct kgsl_context *context)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device;
+	struct adreno_device *adreno_dev;
 	struct adreno_context *drawctxt;
 
-	if (context == NULL || context->devctxt == NULL)
+	if (context == NULL)
 		return;
 
-	drawctxt = context->devctxt;
+	device = context->device;
+	adreno_dev = ADRENO_DEVICE(device);
+	drawctxt = ADRENO_CONTEXT(context);
 	/* deactivate context */
 	if (adreno_dev->drawctxt_active == drawctxt) {
 		/* no need to save GMEM or shader, the context is
@@ -256,9 +252,17 @@ void adreno_drawctxt_destroy(struct kgsl_device *device,
 
 	kgsl_sharedmem_free(&drawctxt->gpustate);
 	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
+}
 
+
+void adreno_drawctxt_destroy(struct kgsl_context *context)
+{
+	struct adreno_context *drawctxt;
+	if (context == NULL)
+		return;
+
+	drawctxt = ADRENO_CONTEXT(context);
 	kfree(drawctxt);
-	context->devctxt = NULL;
 }
 
 /**
@@ -274,10 +278,12 @@ void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 				      struct kgsl_context *context,
 				      unsigned int offset)
 {
-	struct adreno_context *drawctxt = context->devctxt;
+	struct adreno_context *drawctxt;
 
-	if (drawctxt)
-		drawctxt->bin_base_offset = offset;
+	if (context == NULL)
+		return;
+	drawctxt = ADRENO_CONTEXT(context);
+	drawctxt->bin_base_offset = offset;
 }
 
 /**
@@ -316,8 +322,8 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 
 	KGSL_CTXT_INFO(device, "from %d to %d flags %d\n",
 		adreno_dev->drawctxt_active ?
-		adreno_dev->drawctxt_active->id : 0,
-		drawctxt ? drawctxt->id : 0, flags);
+		adreno_dev->drawctxt_active->base.id : 0,
+		drawctxt ? drawctxt->base.id : 0, flags);
 
 	/* Save the old context */
 	adreno_dev->gpudev->ctxt_save(adreno_dev, adreno_dev->drawctxt_active);

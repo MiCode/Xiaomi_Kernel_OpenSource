@@ -25,6 +25,9 @@
 #define ADRENO_DEVICE(device) \
 		KGSL_CONTAINER_OF(device, struct adreno_device, dev)
 
+#define ADRENO_CONTEXT(device) \
+		KGSL_CONTAINER_OF(device, struct adreno_context, base)
+
 #define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
 #define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
 #define ADRENO_CHIPID_MINOR(_id) (((_id) >> 8) & 0xFF)

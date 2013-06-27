@@ -109,7 +109,7 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 	struct kgsl_device *device;
 
 	if (context)
-		device = context->dev_priv->device;
+		device = context->device;
 	else
 		device = (struct kgsl_device *)data;
 
