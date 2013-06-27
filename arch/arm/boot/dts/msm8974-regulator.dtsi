@@ -468,6 +468,7 @@
 		#size-cells = <1>;
 		ranges;
 		qcom,pfm-threshold = <73>;
+		qcom,use-phase-scaling-factor;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";
