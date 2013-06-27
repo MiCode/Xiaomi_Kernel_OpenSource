@@ -1307,6 +1307,8 @@ static enum ecm_ipa_state ecm_ipa_next_state(enum ecm_ipa_state current_state,
 			next_state = ECM_IPA_INITIALIZED;
 		else if (operation == ECM_IPA_CONNECT)
 			next_state = ECM_IPA_CONNECTED_AND_UP;
+		else if (operation == ECM_IPA_CLEANUP)
+			next_state = ECM_IPA_UNLOADED;
 		break;
 	case ECM_IPA_CONNECTED_AND_UP:
 		if (operation == ECM_IPA_STOP)
