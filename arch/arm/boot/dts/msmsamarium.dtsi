@@ -17,6 +17,9 @@
 	compatible = "qcom,msmsamarium";
 	interrupt-parent = <&intc>;
 	soc: soc { };
+	aliases {
+		spi1 = &spi_1;
+	};
 };
 
 /include/ "msmsamarium-ion.dtsi"
@@ -98,6 +101,19 @@
 		      <0xf9999000 0xb000>;
 		reg-names = "bam_mem", "core_mem";
 		interrupts = <0 94 0>;
+	};
+
+	spi_1: spi@f9923000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9923000 0x1000>;
+		interrupts = <0 95 0>;
+		spi-max-frequency = <19200000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 3 0>, /* CLK  */
+			<&msmgpio 1 0>, /* MISO */
+			<&msmgpio 0 0>; /* MOSI */
+		cs-gpios = <&msmgpio 9 0>;
 	};
 
 	qcom,wdt@f9017000 {

@@ -23,3 +23,13 @@
 &uartblsp0dm2{
 	status = "ok";
 };
+
+&spi_1 {
+		ethernet-switch@0 {
+			compatible = "simtec,ks8851";
+			reg = <0>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <75 0>;
+			spi-max-frequency = <19200000>;
+		};
+};
