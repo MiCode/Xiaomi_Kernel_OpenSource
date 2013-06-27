@@ -14,7 +14,8 @@
 #include "governor.h"
 
 static int devfreq_powersave_func(struct devfreq *df,
-				  unsigned long *freq)
+				  unsigned long *freq,
+				u32 *flag)
 {
 	/*
 	 * target callback should be able to get ceiling value as
