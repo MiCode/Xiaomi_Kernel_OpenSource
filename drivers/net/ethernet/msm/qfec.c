@@ -2921,6 +2921,8 @@ static int __devinit qfec_probe(struct platform_device *plat)
 	priv->mii.dev           = dev;
 	priv->mii.mdio_read     = qfec_mdio_read;
 	priv->mii.mdio_write    = qfec_mdio_write;
+	/* initialize mdio clock */
+	priv->mdio_clk    = GMII_ADR_REG_CR_62;
 
 	/* map register regions */
 	ret = qfec_map_resource(
