@@ -1056,6 +1056,8 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 
 	rmi4_pdata->i2c_pull_up = of_property_read_bool(np,
 			"synaptics,i2c-pull-up");
+	rmi4_pdata->power_down_enable = of_property_read_bool(np,
+			"synaptics,power-down");
 	rmi4_pdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
 	rmi4_pdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
 
@@ -2003,7 +2005,7 @@ static int synaptics_rmi4_power_on(struct synaptics_rmi4_data *rmi4_data,
 
 error_reg_en_vcc_i2c:
 	if (rmi4_data->board->i2c_pull_up)
-		reg_set_optimum_mode_check(rmi4_data->vdd, 0);
+		reg_set_optimum_mode_check(rmi4_data->vcc_i2c, 0);
 error_reg_opt_i2c:
 	regulator_disable(rmi4_data->vdd);
 error_reg_en_vdd:
@@ -2592,26 +2594,50 @@ static int synaptics_rmi4_regulator_lpm(struct synaptics_rmi4_data *rmi4_data,
 						bool on)
 {
 	int retval;
+	int load_ua;
 
 	if (on == false)
 		goto regulator_hpm;
 
-	retval = reg_set_optimum_mode_check(rmi4_data->vdd, RMI4_LPM_LOAD_UA);
+	load_ua = rmi4_data->board->power_down_enable ? 0 : RMI4_LPM_LOAD_UA;
+	retval = reg_set_optimum_mode_check(rmi4_data->vdd, load_ua);
 	if (retval < 0) {
 		dev_err(&rmi4_data->i2c_client->dev,
-			"Regulator vcc_ana set_opt failed rc=%d\n",
+			"Regulator vdd_ana set_opt failed rc=%d\n",
 			retval);
 		goto fail_regulator_lpm;
 	}
 
-	if (rmi4_data->board->i2c_pull_up) {
-		retval = reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
-			RMI4_I2C_LPM_LOAD_UA);
-		if (retval < 0) {
+	if (rmi4_data->board->power_down_enable) {
+		retval = regulator_disable(rmi4_data->vdd);
+		if (retval) {
 			dev_err(&rmi4_data->i2c_client->dev,
-				"Regulator vcc_i2c set_opt failed rc=%d\n",
+				"Regulator vdd disable failed rc=%d\n",
 				retval);
 			goto fail_regulator_lpm;
+		}
+	}
+
+	if (rmi4_data->board->i2c_pull_up) {
+		load_ua = rmi4_data->board->power_down_enable ?
+			0 : RMI4_I2C_LPM_LOAD_UA;
+		retval = reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
+			load_ua);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Regulator vcc_i2c set_opt failed " \
+				"rc=%d\n", retval);
+			goto fail_regulator_lpm;
+		}
+
+		if (rmi4_data->board->power_down_enable) {
+			retval = regulator_disable(rmi4_data->vcc_i2c);
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"Regulator vcc_i2c disable failed " \
+					"rc=%d\n", retval);
+				goto fail_regulator_lpm;
+			}
 		}
 	}
 
@@ -2628,6 +2654,16 @@ regulator_hpm:
 		goto fail_regulator_hpm;
 	}
 
+	if (rmi4_data->board->power_down_enable) {
+		retval = regulator_enable(rmi4_data->vdd);
+		if (retval) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Regulator vdd enable failed rc=%d\n",
+				retval);
+			goto fail_regulator_hpm;
+		}
+	}
+
 	if (rmi4_data->board->i2c_pull_up) {
 		retval = reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
 			RMI4_I2C_LOAD_UA);
@@ -2636,6 +2672,26 @@ regulator_hpm:
 				"Regulator vcc_i2c set_opt failed rc=%d\n",
 				retval);
 			goto fail_regulator_hpm;
+		}
+
+		if (rmi4_data->board->power_down_enable) {
+			retval = regulator_enable(rmi4_data->vcc_i2c);
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"Regulator vcc_i2c enable failed " \
+					"rc=%d\n", retval);
+				goto fail_regulator_hpm;
+			}
+		}
+	}
+
+	if (rmi4_data->board->power_down_enable) {
+		retval = synaptics_rmi4_reset_device(rmi4_data);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Failed to issue reset command, rc = %d\n",
+					__func__, retval);
+			return retval;
 		}
 	}
 
