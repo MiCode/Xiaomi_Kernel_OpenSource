@@ -866,6 +866,11 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 	amux_prescaling =
 		vadc->adc->adc_channels[dt_index].chan_path_prescaling;
 
+	if (amux_prescaling >= PATH_SCALING_NONE) {
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
+
 	vadc->adc->amux_prop->chan_prop->offset_gain_numerator =
 		qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
 	vadc->adc->amux_prop->chan_prop->offset_gain_denominator =
@@ -1015,6 +1020,11 @@ int32_t qpnp_vadc_iadc_sync_complete_request(enum qpnp_vadc_channels channel,
 
 	amux_prescaling =
 		vadc->adc->adc_channels[dt_index].chan_path_prescaling;
+
+	if (amux_prescaling >= PATH_SCALING_NONE) {
+		rc = -EINVAL;
+		goto fail;
+	}
 
 	vadc->adc->amux_prop->chan_prop->offset_gain_numerator =
 		qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
