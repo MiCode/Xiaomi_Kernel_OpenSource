@@ -176,7 +176,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_pwrctrl *pwr;
 	int level = -1, i;
 	unsigned long cur_freq;
-	int lubflag = 0;
+	int bus_mod = 0;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -185,20 +185,19 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	profile = &device->pwrscale.profile;
 	pwr = &device->pwrctrl;
 
-	if (flags & DEVFREQ_FLAG_LEAST_UPPER_BOUND)
-		lubflag = 1;
+	if (flags & DEVFREQ_FLAG_FAST_HINT)
+		bus_mod = 1;
 
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 
 	if (*freq > cur_freq && pwr->active_pwrlevel > 0) {
 		/*
-		 * If LUB - Least Upper Bound - is requested
-		 *                 - move up just one level,
+		 * If FAST is requested, move up just one level,
 		 * otherwise - move up until required freq or higher
 		 */
 		level = pwr->active_pwrlevel - 1;
-		if (!lubflag)
+		if (!bus_mod)
 			while (*freq > pwr->pwrlevels[level].gpu_freq
 					&& level > 0)
 				level--;
