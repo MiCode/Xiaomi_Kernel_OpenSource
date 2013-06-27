@@ -559,6 +559,9 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	unsigned int reg_cntl;
 	int code, hi_code, lo_code, code_err_chk, sensor_sw_id = 0, rc = 0;
 
+	if (!tm_sensor || trip < 0 || !temp)
+		return -EINVAL;
+
 	rc = tsens_get_sw_id_mapping(tm_sensor->sensor_hw_num, &sensor_sw_id);
 	if (rc < 0) {
 		pr_err("tsens mapping index not found\n");
@@ -1325,7 +1328,7 @@ static int tsens_calib_sensors(void)
 
 static int get_device_tree_data(struct platform_device *pdev)
 {
-	const struct device_node *of_node = pdev->dev.of_node;
+	struct device_node *of_node = pdev->dev.of_node;
 	struct resource *res_mem = NULL;
 	u32 *tsens_slope_data;
 	u32 *sensor_id;
@@ -1353,8 +1356,13 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	};
 
-	tsens_calib_mode = of_get_property(of_node,
-			"qcom,calib-mode", NULL);
+	rc = of_property_read_string(of_node,
+				"qcom,calib-mode", &tsens_calib_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "missing calib-mode\n");
+		return -ENODEV;
+	}
+
 	if (!strncmp(tsens_calib_mode, "fuse_map1", 9))
 		calib_type = TSENS_CALIB_FUSE_MAP_8974;
 	else if (!strncmp(tsens_calib_mode, "fuse_map2", 9))
