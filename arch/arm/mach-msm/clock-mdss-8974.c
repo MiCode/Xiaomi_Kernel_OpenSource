@@ -854,10 +854,23 @@ static int analog_get_div(struct div_clk *clk)
 	return div;
 }
 
+static void dsi_pll_toggle_lock_detect(void)
+{
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x05);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x04);
+	udelay(1);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x05);
+}
+
 static int dsi_pll_lock_status(void)
 {
 	u32 status;
 	int pll_locked = 0;
+
+	dsi_pll_toggle_lock_detect();
 
 	/* poll for PLL ready status */
 	if (readl_poll_timeout_noirq((mdss_dsi_base +
