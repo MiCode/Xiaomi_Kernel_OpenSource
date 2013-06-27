@@ -13,7 +13,9 @@
 #include <net/ip.h>
 #include <linux/genalloc.h>	/* gen_pool_alloc() */
 #include <linux/io.h>
+#include <linux/ratelimit.h>
 #include "ipa_i.h"
+
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -1382,3 +1384,26 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 	else
 		return 0;
 }
+
+/**
+ * ipa_bam_reg_dump() - Dump selected BAM registers for IPA and DMA-BAM
+ *
+ * Function is rate limited to avoid flooding kernel log buffer
+ */
+void ipa_bam_reg_dump(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
+	if (__ratelimit(&_rs)) {
+		ipa_inc_client_enable_clks();
+		pr_err("IPA BAM START\n");
+		sps_get_bam_debug_info(ipa_ctx->bam_handle, 5, 1048575, 0, 0);
+		sps_get_bam_debug_info(ipa_ctx->bam_handle, 93, 0, 0, 0);
+		pr_err("BAM-DMA BAM START\n");
+		sps_get_bam_debug_info(sps_dma_get_bam_handle(), 5, 1044480,
+				0, 0);
+		sps_get_bam_debug_info(sps_dma_get_bam_handle(), 93, 0, 0, 0);
+		ipa_dec_client_disable_clks();
+	}
+}
+EXPORT_SYMBOL(ipa_bam_reg_dump);
+
