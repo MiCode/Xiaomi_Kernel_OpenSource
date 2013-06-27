@@ -648,6 +648,8 @@ int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid);
 
 int a2_mux_write(enum a2_mux_logical_channel_id lcid, struct sk_buff *skb);
 
+int a2_mux_is_ch_empty(enum a2_mux_logical_channel_id lcid);
+
 int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid);
 
 int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid);
@@ -682,6 +684,11 @@ static inline int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid)
 
 static inline int a2_mux_write(enum a2_mux_logical_channel_id lcid,
 			       struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_is_ch_empty(enum a2_mux_logical_channel_id lcid)
 {
 	return -EPERM;
 }
