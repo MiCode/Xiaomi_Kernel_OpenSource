@@ -21,7 +21,7 @@
 #define SMUX	4
 
 int diagfwd_connect_bridge(int);
-void connect_bridge(int, int);
+void connect_bridge(int, uint8_t);
 int diagfwd_disconnect_bridge(int);
 void diagfwd_bridge_init(int index);
 void diagfwd_bridge_exit(void);
