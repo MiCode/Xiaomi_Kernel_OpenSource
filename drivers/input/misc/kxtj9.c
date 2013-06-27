@@ -144,6 +144,13 @@ static void kxtj9_report_acceleration_data(struct kxtj9_data *tj9)
 	y = le16_to_cpu(acc_data[tj9->pdata.axis_map_y]);
 	z = le16_to_cpu(acc_data[tj9->pdata.axis_map_z]);
 
+	/* 8 bits output mode support */
+	if (!(tj9->ctrl_reg1 & RES_12BIT)) {
+		x <<= 4;
+		y <<= 4;
+		z <<= 4;
+	}
+
 	x >>= tj9->shift;
 	y >>= tj9->shift;
 	z >>= tj9->shift;
