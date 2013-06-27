@@ -461,6 +461,10 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	if (panel->set_backlight)
+		panel->set_backlight(panel, panel->panel_info.bl_max);
+
+	pr_debug("mdp3_ctrl_on dma start\n");
 	if (mfd->fbi->screen_base) {
 		rc = mdp3_session->dma->start(mdp3_session->dma,
 						mdp3_session->intf);
@@ -503,6 +507,9 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
 
 	pr_debug("mdp3_ctrl_off turn panel off\n");
+	if (panel->set_backlight)
+		panel->set_backlight(panel, 0);
+
 	if (panel->event_handler)
 		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF, NULL);
 	if (rc)
@@ -677,6 +684,9 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
 		mdp3_put_img(data);
+
+		if (mfd->fbi->screen_base)
+			mdp3_fbmem_free(mfd);
 	}
 	mutex_unlock(&mdp3_session->lock);
 
