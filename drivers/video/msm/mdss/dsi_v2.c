@@ -26,15 +26,6 @@ static struct dsi_interface dsi_intf;
 static int dsi_off(struct mdss_panel_data *pdata)
 {
 	int rc = 0;
-	if (!panel_common_data || !pdata)
-		return -ENODEV;
-
-	if (dsi_intf.op_mode_config)
-		dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
-
-	pr_debug("panel off commands\n");
-	if (panel_common_data->off)
-		panel_common_data->off(pdata);
 
 	pr_debug("turn off dsi controller\n");
 	if (dsi_intf.off)
@@ -44,11 +35,6 @@ static int dsi_off(struct mdss_panel_data *pdata)
 		pr_err("mdss_dsi_off DSI failed %d\n", rc);
 		return rc;
 	}
-
-	pr_debug("turn off panel power\n");
-	if (panel_common_data->reset)
-		panel_common_data->reset(pdata, 0);
-
 	return rc;
 }
 
@@ -56,13 +42,7 @@ static int dsi_on(struct mdss_panel_data *pdata)
 {
 	int rc = 0;
 
-	pr_debug("dsi_on\n");
-
-	if (!panel_common_data || !pdata)
-		return -ENODEV;
-
-
-	pr_debug("dsi_on DSI controller ont\n");
+	pr_debug("dsi_on DSI controller on\n");
 	if (dsi_intf.on)
 		rc = dsi_intf.on(pdata);
 
@@ -70,17 +50,34 @@ static int dsi_on(struct mdss_panel_data *pdata)
 		pr_err("mdss_dsi_on DSI failed %d\n", rc);
 		return rc;
 	}
-	pr_debug("dsi_on power on panel\n");
-	if (panel_common_data->reset)
-		panel_common_data->reset(pdata, 1);
+	return rc;
+}
+static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
+{
+	int rc = 0;
 
-	pr_debug("dsi_on DSI panel ont\n");
-	if (panel_common_data->on)
-		rc = panel_common_data->on(pdata);
+	pr_debug("dsi_panel_handler enable=%d\n", enable);
+	if (!panel_common_data || !pdata)
+		return -ENODEV;
 
-	if (rc) {
-		pr_err("mdss_dsi_on panel failed %d\n", rc);
-		return rc;
+	if (enable) {
+		if (panel_common_data->reset)
+			panel_common_data->reset(pdata, 1);
+
+		if (panel_common_data->on)
+			rc = panel_common_data->on(pdata);
+
+		if (rc)
+			pr_err("dsi_panel_handler panel on failed %d\n", rc);
+	} else {
+		if (dsi_intf.op_mode_config)
+			dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
+
+		if (panel_common_data->off)
+			panel_common_data->off(pdata);
+
+		if (panel_common_data->reset)
+			panel_common_data->reset(pdata, 0);
 	}
 	return rc;
 }
@@ -96,11 +93,17 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 	}
 
 	switch (event) {
-	case MDSS_EVENT_PANEL_ON:
+	case MDSS_EVENT_UNBLANK:
 		rc = dsi_on(pdata);
 		break;
-	case MDSS_EVENT_PANEL_OFF:
+	case MDSS_EVENT_BLANK:
 		rc = dsi_off(pdata);
+		break;
+	case MDSS_EVENT_PANEL_ON:
+		rc = dsi_panel_handler(pdata, 1);
+		break;
+	case MDSS_EVENT_PANEL_OFF:
+		rc = dsi_panel_handler(pdata, 0);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
