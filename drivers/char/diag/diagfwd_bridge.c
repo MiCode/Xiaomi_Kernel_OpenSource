@@ -35,7 +35,7 @@ struct diag_bridge_dev *diag_bridge;
 /* diagfwd_connect_bridge is called when the USB mdm channel is connected */
 int diagfwd_connect_bridge(int process_cable)
 {
-	int i;
+	uint8_t i;
 
 	pr_debug("diag: in %s\n", __func__);
 
@@ -45,7 +45,7 @@ int diagfwd_connect_bridge(int process_cable)
 	return 0;
 }
 
-void connect_bridge(int process_cable, int index)
+void connect_bridge(int process_cable, uint8_t index)
 {
 	int err;
 
@@ -65,6 +65,12 @@ void connect_bridge(int process_cable, int index)
 		driver->in_busy_smux = 0;
 		diagfwd_connect_smux();
 	} else {
+		if (index >= MAX_HSIC_CH) {
+			pr_err("diag: Invalid hsic channel index %d in %s\n",
+							index, __func__);
+			mutex_unlock(&diag_bridge[index].bridge_mutex);
+			return;
+		}
 		if (diag_hsic[index].hsic_device_enabled &&
 			(driver->logging_mode != MEMORY_DEVICE_MODE ||
 			diag_hsic[index].hsic_data_requested)) {
@@ -74,7 +80,7 @@ void connect_bridge(int process_cable, int index)
 			 * device is not open */
 			if (!diag_hsic[index].hsic_device_opened) {
 				hsic_diag_bridge_ops[index].ctxt =
-							(void *)(index);
+							(void *)(int)(index);
 				err = diag_bridge_open(index,
 						 &hsic_diag_bridge_ops[index]);
 				if (err) {

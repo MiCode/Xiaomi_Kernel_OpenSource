@@ -1480,7 +1480,8 @@ static int diagchar_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type, token_offset = 0;
-	int remote_proc = 0, index;
+	int remote_proc = 0;
+	uint8_t index;
 #ifdef DIAG_DEBUG
 	int length = 0, i;
 #endif
