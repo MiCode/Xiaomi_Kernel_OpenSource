@@ -648,6 +648,8 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 163 0 0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x60000000>;
+		qcom,ea-pc = <0x30>;
 
 		taiko_codec {
 			compatible = "qcom,taiko-slim-pgd";
