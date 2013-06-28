@@ -1,0 +1,31 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,iommu-domains {
+		compatible = "qcom,iommu-domains";
+
+		qcom,iommu-domain1 {
+			label = "lpass_secure";
+			qcom,iommu-contexts = <&lpass_q6_fw>;
+			qcom,virtual-addr-pool = <0x00000000 0x0FFFFFFF
+						  0xF0000000 0x0FFFFFFF>;
+		};
+
+		qcom,iommu-domain2 {
+			label = "lpass_audio";
+			qcom,iommu-contexts = <&lpass_audio_shared
+					       &lpass_core_audio>;
+			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
+		};
+	};
+};

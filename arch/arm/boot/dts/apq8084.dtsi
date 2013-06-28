@@ -22,6 +22,7 @@
 /include/ "msm-gdsc.dtsi"
 /include/ "apq8084-ion.dtsi"
 /include/ "apq8084-iommu.dtsi"
+/include/ "apq8084-iommu-domains.dtsi"
 /include/ "apq8084-smp2p.dtsi"
 /include/ "apq8084-coresight.dtsi"
 /include/ "apq8084-mdss.dtsi"
