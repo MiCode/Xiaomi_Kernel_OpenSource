@@ -79,6 +79,7 @@ struct clk_pair clks[KGSL_MAX_CLKS] = {
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					  int requested_state);
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
+static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 
 /* Update the elapsed time at a particular clock level
  * if the device is active(on_time = true).Otherwise
@@ -643,6 +644,9 @@ static void __force_on(struct kgsl_device *device, int flag, int on)
 		case KGSL_PWRFLAGS_AXI_ON:
 			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 			break;
+		case KGSL_PWRFLAGS_POWER_ON:
+			kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
+			break;
 		}
 		set_bit(flag, &device->pwrctrl.ctrl_flags);
 	} else {
@@ -713,6 +717,20 @@ static int kgsl_pwrctrl_force_bus_on_store(struct device *dev,
 	return __force_on_store(dev, attr, buf, count, KGSL_PWRFLAGS_AXI_ON);
 }
 
+static int kgsl_pwrctrl_force_rail_on_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return __force_on_show(dev, attr, buf, KGSL_PWRFLAGS_POWER_ON);
+}
+
+static int kgsl_pwrctrl_force_rail_on_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	return __force_on_store(dev, attr, buf, count, KGSL_PWRFLAGS_POWER_ON);
+}
+
 DEVICE_ATTR(gpuclk, 0644, kgsl_pwrctrl_gpuclk_show, kgsl_pwrctrl_gpuclk_store);
 DEVICE_ATTR(max_gpuclk, 0644, kgsl_pwrctrl_max_gpuclk_show,
 	kgsl_pwrctrl_max_gpuclk_store);
@@ -749,6 +767,9 @@ DEVICE_ATTR(force_clk_on, 0644,
 DEVICE_ATTR(force_bus_on, 0644,
 	kgsl_pwrctrl_force_bus_on_show,
 	kgsl_pwrctrl_force_bus_on_store);
+DEVICE_ATTR(force_rail_on, 0644,
+	kgsl_pwrctrl_force_rail_on_show,
+	kgsl_pwrctrl_force_rail_on_store);
 
 static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_gpuclk,
@@ -765,6 +786,7 @@ static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_reset_count,
 	&dev_attr_force_clk_on,
 	&dev_attr_force_bus_on,
+	&dev_attr_force_rail_on,
 	NULL
 };
 
@@ -916,6 +938,9 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
+		return;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_POWER_ON,
