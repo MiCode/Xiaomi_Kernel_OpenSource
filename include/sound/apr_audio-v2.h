@@ -6924,6 +6924,11 @@ struct afe_port_cmd_set_aanc_acdb_table {
 /* Dolby DAP topology */
 #define DOLBY_ADM_COPP_TOPOLOGY_ID	0x0001033B
 
+/* RMS value from DSP */
+#define RMS_MODULEID_APPI_PASSTHRU  0x10009011
+#define RMS_PARAM_FIRST_SAMPLE 0x10009012
+#define RMS_PAYLOAD_LEN 4
+
 struct afe_svc_cmd_set_clip_bank_selection {
 	struct apr_hdr hdr;
 	struct afe_svc_cmd_set_param param;

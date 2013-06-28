@@ -30,6 +30,7 @@
 #include <sound/tlv.h>
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
+#include <linux/slab.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "msm-dolby-dap-config.h"
@@ -2588,6 +2589,49 @@ static const struct snd_kcontrol_new dolby_dap_param_end_point_controls[] = {
 	msm_routing_put_dolby_dap_endpoint_control),
 };
 
+int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol) {
+	int rc = 0;
+	char *param_value;
+	int *update_param_value;
+	uint32_t param_length = sizeof(uint32_t);
+	uint32_t param_payload_len = RMS_PAYLOAD_LEN * sizeof(uint32_t);
+	param_value = kzalloc(param_length, GFP_KERNEL);
+	if (!param_value) {
+		pr_err("%s, param memory alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	rc = adm_get_params(SLIMBUS_0_TX,
+			RMS_MODULEID_APPI_PASSTHRU,
+			RMS_PARAM_FIRST_SAMPLE,
+			param_length + param_payload_len,
+			param_value);
+	if (rc) {
+		pr_err("%s: get parameters failed\n", __func__);
+		kfree(param_value);
+		return -EINVAL;
+	}
+	update_param_value = (int *)param_value;
+	ucontrol->value.integer.value[0] = update_param_value[0];
+
+	pr_debug("%s: FROM DSP value[0] 0x%x\n",
+		__func__, update_param_value[0]);
+	kfree(param_value);
+	return 0;
+}
+
+int msm_routing_put_rms_value_control(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	/* not used */
+	return 0;
+}
+
+static const struct snd_kcontrol_new get_rms_controls[] = {
+	SOC_SINGLE_EXT("Get RMS", SND_SOC_NOPM, 0, 0xFFFFFFFF,
+	0, msm_routing_get_rms_value_control,
+	msm_routing_put_rms_value_control),
+};
+
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
@@ -3862,6 +3906,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				ec_ref_rx_mixer_controls,
 			ARRAY_SIZE(ec_ref_rx_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				get_rms_controls,
+			ARRAY_SIZE(get_rms_controls));
 	return 0;
 }
 
