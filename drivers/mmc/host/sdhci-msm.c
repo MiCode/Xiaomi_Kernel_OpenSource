@@ -748,8 +748,7 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
 	if (!of_parse_phandle(np, prop_name, 0)) {
-		dev_err(dev, "No vreg data found for %s\n", vreg_name);
-		ret = -EINVAL;
+		dev_info(dev, "No vreg data found for %s\n", vreg_name);
 		return ret;
 	}
 
@@ -1209,11 +1208,14 @@ static int sdhci_msm_vreg_init_reg(struct device *dev,
 		goto out;
 	}
 
-	/* sanity check */
-	if (!vreg->high_vol_level || !vreg->hpm_uA) {
-		pr_err("%s: %s invalid constraints specified\n",
-		       __func__, vreg->name);
-		ret = -EINVAL;
+	if (regulator_count_voltages(vreg->reg) > 0) {
+		vreg->set_voltage_sup = true;
+		/* sanity check */
+		if (!vreg->high_vol_level || !vreg->hpm_uA) {
+			pr_err("%s: %s invalid constraints specified\n",
+			       __func__, vreg->name);
+			ret = -EINVAL;
+		}
 	}
 
 out:
@@ -1254,12 +1256,13 @@ static int sdhci_msm_vreg_set_voltage(struct sdhci_msm_reg_data *vreg,
 					int min_uV, int max_uV)
 {
 	int ret = 0;
-
-	ret = regulator_set_voltage(vreg->reg, min_uV, max_uV);
-	if (ret) {
-		pr_err("%s: regulator_set_voltage(%s)failed. min_uV=%d,max_uV=%d,ret=%d\n",
+	if (vreg->set_voltage_sup) {
+		ret = regulator_set_voltage(vreg->reg, min_uV, max_uV);
+		if (ret) {
+			pr_err("%s: regulator_set_voltage(%s)failed. min_uV=%d,max_uV=%d,ret=%d\n",
 			       __func__, vreg->name, min_uV, max_uV, ret);
 		}
+	}
 
 	return ret;
 }
