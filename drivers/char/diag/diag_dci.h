@@ -66,6 +66,7 @@ struct diag_dci_client_tbl {
 	int received_logs;
 	int received_events;
 	struct mutex data_mutex;
+	uint8_t real_time;
 };
 
 /* This is used for DCI health stats */
@@ -135,4 +136,6 @@ void create_dci_event_mask_tbl(unsigned char *tbl_buf);
 int diag_dci_clear_event_mask(void);
 int diag_dci_query_event_mask(uint16_t event_id);
 void diag_dci_smd_record_info(int read_bytes);
+uint8_t diag_dci_get_cumulative_real_time(void);
+int diag_dci_set_real_time(int client_id, uint8_t real_time);
 #endif

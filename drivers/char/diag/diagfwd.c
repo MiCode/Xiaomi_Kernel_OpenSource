@@ -1384,6 +1384,8 @@ int diagfwd_connect(void)
 		/* Poll SMD CNTL channels to check for data */
 		diag_smd_notify(&(driver->smd_cntl[i]), SMD_EVENT_DATA);
 	}
+	queue_work(driver->diag_real_time_wq,
+				 &driver->diag_real_time_work);
 
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
@@ -1419,6 +1421,8 @@ int diagfwd_disconnect(void)
 			}
 		}
 	}
+	queue_work(driver->diag_real_time_wq,
+				 &driver->diag_real_time_work);
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
