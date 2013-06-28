@@ -24,14 +24,19 @@
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pwm.h>
-
+#include <linux/clk.h>
+#include <linux/spinlock_types.h>
+#include <linux/kthread.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
-
 #include <mach/hardware.h>
 #include <mach/dma.h>
 
+#include "mdss.h"
+#include "mdss_panel.h"
+#include "mdss_mdp.h"
 #include "mdss_edp.h"
+#include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
 #define VDDA_MIN_UV			1800000	/* uV units */
@@ -39,26 +44,7 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
-static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv);
-static int mdss_edp_get_mmss_cc_base_address(struct mdss_edp_drv_pdata
-		*edp_drv);
-static int mdss_edp_regulator_init(struct mdss_edp_drv_pdata *edp_drv);
 static int mdss_edp_regulator_on(struct mdss_edp_drv_pdata *edp_drv);
-static int mdss_edp_regulator_off(struct mdss_edp_drv_pdata *edp_drv);
-static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv);
-static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv);
-
-static void mdss_edp_edid2pinfo(struct mdss_edp_drv_pdata *edp_drv);
-static void mdss_edp_fill_edid_data(struct mdss_edp_drv_pdata *edp_drv);
-static void mdss_edp_fill_dpcd_data(struct mdss_edp_drv_pdata *edp_drv);
-
-static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv);
-
-static void mdss_edp_config_sync(unsigned char *edp_base);
-static void mdss_edp_config_sw_div(unsigned char *edp_base);
-static void mdss_edp_config_static_mdiv(unsigned char *edp_base);
-static void mdss_edp_enable(unsigned char *edp_base, int enable);
-
 /*
  * Init regulator needed for edp, 8974_l12
  */
@@ -256,79 +242,130 @@ void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
 	}
 }
 
-void mdss_edp_config_sync(unsigned char *edp_base)
+void mdss_edp_config_sync(unsigned char *base)
 {
 	int ret = 0;
 
-	ret = edp_read(edp_base + 0xc); /* EDP_CONFIGURATION_CTRL */
+	ret = edp_read(base + 0xc); /* EDP_CONFIGURATION_CTRL */
 	ret &= ~0x733;
 	ret |= (0x55 & 0x733);
-	edp_write(edp_base + 0xc, ret);
-	edp_write(edp_base + 0xc, 0x55); /* EDP_CONFIGURATION_CTRL */
+	edp_write(base + 0xc, ret);
+	edp_write(base + 0xc, 0x55); /* EDP_CONFIGURATION_CTRL */
 }
 
-static void mdss_edp_config_sw_div(unsigned char *edp_base)
+static void mdss_edp_config_sw_div(unsigned char *base)
 {
-	edp_write(edp_base + 0x14, 0x13b); /* EDP_SOFTWARE_MVID */
-	edp_write(edp_base + 0x18, 0x266); /* EDP_SOFTWARE_NVID */
+	edp_write(base + 0x14, 0x13b); /* EDP_SOFTWARE_MVID */
+	edp_write(base + 0x18, 0x266); /* EDP_SOFTWARE_NVID */
 }
 
-static void mdss_edp_config_static_mdiv(unsigned char *edp_base)
+static void mdss_edp_config_static_mdiv(unsigned char *base)
 {
 	int ret = 0;
 
-	ret = edp_read(edp_base + 0xc); /* EDP_CONFIGURATION_CTRL */
-	edp_write(edp_base + 0xc, ret | 0x2); /* EDP_CONFIGURATION_CTRL */
-	edp_write(edp_base + 0xc, 0x57); /* EDP_CONFIGURATION_CTRL */
+	ret = edp_read(base + 0xc); /* EDP_CONFIGURATION_CTRL */
+	edp_write(base + 0xc, ret | 0x2); /* EDP_CONFIGURATION_CTRL */
+	edp_write(base + 0xc, 0x57); /* EDP_CONFIGURATION_CTRL */
 }
 
-static void mdss_edp_enable(unsigned char *edp_base, int enable)
+static void mdss_edp_enable(unsigned char *base, int enable)
 {
-	edp_write(edp_base + 0x8, 0x0); /* EDP_STATE_CTRL */
-	edp_write(edp_base + 0x8, 0x40); /* EDP_STATE_CTRL */
-	edp_write(edp_base + 0x94, enable); /* EDP_TIMING_ENGINE_EN */
-	edp_write(edp_base + 0x4, enable); /* EDP_MAINLINK_CTRL */
+	edp_write(base + 0x8, 0x0); /* EDP_STATE_CTRL */
+	edp_write(base + 0x8, 0x40); /* EDP_STATE_CTRL */
+	edp_write(base + 0x94, enable); /* EDP_TIMING_ENGINE_EN */
+	edp_write(base + 0x4, enable); /* EDP_MAINLINK_CTRL */
 }
+
+static void mdss_edp_irq_enable(struct mdss_edp_drv_pdata *edp_drv);
+static void mdss_edp_irq_disable(struct mdss_edp_drv_pdata *edp_drv);
 
 int mdss_edp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_edp_drv_pdata *edp_drv = NULL;
-	int i;
+	int ret = 0;
 
-	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
-			panel_data);
-	if (!edp_drv) {
+	if (!pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
 
-	mdss_edp_prepare_clocks(edp_drv);
-	mdss_edp_phy_sw_reset(edp_drv->edp_base);
-	mdss_edp_hw_powerup(edp_drv->edp_base, 1);
-	mdss_edp_pll_configure(edp_drv->edp_base, edp_drv->edid.timing[0].pclk);
-	mdss_edp_clk_enable(edp_drv);
+	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
+			panel_data);
 
-	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
-		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 1);
+	pr_debug("%s:+\n", __func__);
+	if (edp_drv->train_start == 0)
+		edp_drv->train_start++;
 
-	mdss_edp_enable_mainlink(edp_drv->edp_base, 1);
-	mdss_edp_config_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
+	mdss_edp_phy_pll_reset(edp_drv->base);
+	mdss_edp_aux_reset(edp_drv->base);
+	mdss_edp_mainlink_reset(edp_drv->base);
 
-	mdss_edp_phy_misc_cfg(edp_drv->edp_base);
-	mdss_edp_config_sync(edp_drv->edp_base);
-	mdss_edp_config_sw_div(edp_drv->edp_base);
-	mdss_edp_config_static_mdiv(edp_drv->edp_base);
-	mdss_edp_enable(edp_drv->edp_base, 1);
+	ret = mdss_edp_prepare_clocks(edp_drv);
+	if (ret)
+		return ret;
+	mdss_edp_phy_powerup(edp_drv->base, 1);
+
+	mdss_edp_pll_configure(edp_drv->base, edp_drv->edid.timing[0].pclk);
+	mdss_edp_phy_pll_ready(edp_drv->base);
+
+	ret = mdss_edp_clk_enable(edp_drv);
+	if (ret) {
+		mdss_edp_unprepare_clocks(edp_drv);
+		return ret;
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	mdss_edp_aux_ctrl(edp_drv->base, 1);
+
+	mdss_edp_lane_power_ctrl(edp_drv->base,
+				edp_drv->dpcd.max_lane_count, 1);
+	mdss_edp_enable_mainlink(edp_drv->base, 1);
+	mdss_edp_config_clk(edp_drv->base, edp_drv->mmss_cc_base);
+
+	mdss_edp_clock_synchrous(edp_drv->base, 1);
+	mdss_edp_phy_vm_pe_init(edp_drv->base);
+	mdss_edp_config_sync(edp_drv->base);
+	mdss_edp_config_sw_div(edp_drv->base);
+	mdss_edp_config_static_mdiv(edp_drv->base);
 	gpio_set_value(edp_drv->gpio_panel_en, 1);
+	mdss_edp_irq_enable(edp_drv);
 
+	pr_debug("%s:-\n", __func__);
 	return 0;
+}
+
+int mdss_edp_wait4train(struct mdss_panel_data *pdata)
+{
+	struct mdss_edp_drv_pdata *edp_drv = NULL;
+	int ret = 0;
+
+	if (!pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
+			panel_data);
+
+	ret = wait_for_completion_timeout(&edp_drv->train_comp, 100);
+	if (ret <= 0) {
+		pr_err("%s: Link Train timedout\n", __func__);
+		ret = -EINVAL;
+	} else {
+		ret = 0;
+	}
+
+	mdss_edp_enable(edp_drv->base, 1);
+
+	pr_debug("%s:\n", __func__);
+
+	return ret;
 }
 
 int mdss_edp_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_edp_drv_pdata *edp_drv = NULL;
 	int ret = 0;
-	int i;
 
 	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
 				panel_data);
@@ -336,20 +373,26 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+	pr_debug("%s:+\n", __func__);
+
+	mdss_edp_irq_disable(edp_drv);
 
 	gpio_set_value(edp_drv->gpio_panel_en, 0);
 	pwm_disable(edp_drv->bl_pwm);
-	mdss_edp_enable(edp_drv->edp_base, 0);
-	mdss_edp_unconfig_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
-	mdss_edp_enable_mainlink(edp_drv->edp_base, 0);
+	mdss_edp_enable(edp_drv->base, 0);
+	mdss_edp_unconfig_clk(edp_drv->base, edp_drv->mmss_cc_base);
+	mdss_edp_enable_mainlink(edp_drv->base, 0);
 
-	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
-		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 0);
-
+	mdss_edp_lane_power_ctrl(edp_drv->base,
+				edp_drv->dpcd.max_lane_count, 0);
 	mdss_edp_clk_disable(edp_drv);
-	mdss_edp_hw_powerup(edp_drv->edp_base, 0);
+	mdss_edp_phy_powerup(edp_drv->base, 0);
 	mdss_edp_unprepare_clocks(edp_drv);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
+	mdss_edp_aux_ctrl(edp_drv->base, 0);
+
+	pr_debug("%s:-\n", __func__);
 	return ret;
 }
 
@@ -362,6 +405,9 @@ static int mdss_edp_event_handler(struct mdss_panel_data *pdata,
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
 		rc = mdss_edp_on(pdata);
+		break;
+	case MDSS_EVENT_PANEL_ON:
+		rc = mdss_edp_wait4train(pdata);
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_edp_off(pdata);
@@ -382,19 +428,30 @@ static void mdss_edp_edid2pinfo(struct mdss_edp_drv_pdata *edp_drv)
 	pinfo = &edp_drv->panel_data.panel_info;
 
 	pinfo->clk_rate = dp->pclk;
+	pr_debug("%s: pclk=%d\n", __func__, pinfo->clk_rate);
 
 	pinfo->xres = dp->h_addressable + dp->h_border * 2;
 	pinfo->yres = dp->v_addressable + dp->v_border * 2;
+
+	pr_debug("%s: x=%d y=%d\n", __func__, pinfo->xres, pinfo->yres);
 
 	pinfo->lcdc.h_back_porch = dp->h_blank - dp->h_fporch \
 		- dp->h_sync_pulse;
 	pinfo->lcdc.h_front_porch = dp->h_fporch;
 	pinfo->lcdc.h_pulse_width = dp->h_sync_pulse;
 
+	pr_debug("%s: hporch= %d %d %d\n", __func__,
+		pinfo->lcdc.h_back_porch, pinfo->lcdc.h_front_porch,
+		pinfo->lcdc.h_pulse_width);
+
 	pinfo->lcdc.v_back_porch = dp->v_blank - dp->v_fporch \
 		- dp->v_sync_pulse;
 	pinfo->lcdc.v_front_porch = dp->v_fporch;
 	pinfo->lcdc.v_pulse_width = dp->v_sync_pulse;
+
+	pr_debug("%s: vporch= %d %d %d\n", __func__,
+		pinfo->lcdc.v_back_porch, pinfo->lcdc.v_front_porch,
+		pinfo->lcdc.v_pulse_width);
 
 	pinfo->type = EDP_PANEL;
 	pinfo->pdest = DISPLAY_1;
@@ -415,9 +472,9 @@ static int __devexit mdss_edp_remove(struct platform_device *pdev)
 
 	gpio_free(edp_drv->gpio_panel_en);
 	mdss_edp_regulator_off(edp_drv);
-	iounmap(edp_drv->edp_base);
+	iounmap(edp_drv->base);
 	iounmap(edp_drv->mmss_cc_base);
-	edp_drv->edp_base = NULL;
+	edp_drv->base = NULL;
 
 	return 0;
 }
@@ -458,11 +515,18 @@ static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv)
 		return -ENOMEM;
 	}
 
-	edp_drv->edp_base = ioremap(res->start, resource_size(res));
-	if (!edp_drv->edp_base) {
+	edp_drv->base_size = resource_size(res);
+	edp_drv->base = ioremap(res->start, resource_size(res));
+	if (!edp_drv->base) {
 		pr_err("%s: Unable to remap EDP resources",  __func__);
 		return -ENOMEM;
 	}
+
+	pr_debug("%s: drv=%x base=%x size=%x\n", __func__,
+		(int)edp_drv, (int)edp_drv->base, edp_drv->base_size);
+
+	mdss_debug_register_base("edp",
+			edp_drv->base, edp_drv->base_size);
 
 	return 0;
 }
@@ -488,52 +552,202 @@ static int mdss_edp_get_mmss_cc_base_address(struct mdss_edp_drv_pdata
 	return 0;
 }
 
-static void mdss_edp_fill_edid_data(struct mdss_edp_drv_pdata *edp_drv)
+static void mdss_edp_video_ready(struct mdss_edp_drv_pdata *edp_drv)
 {
-	struct edp_edid *edid = &edp_drv->edid;
-
-	edid->id_name[0] = 'A';
-	edid->id_name[0] = 'U';
-	edid->id_name[0] = 'O';
-	edid->id_name[0] = 0;
-	edid->id_product = 0x305D;
-	edid->version = 1;
-	edid->revision = 4;
-	edid->ext_block_cnt = 0;
-	edid->video_digital = 0x5;
-	edid->color_depth = 6;
-	edid->dpm = 0;
-	edid->color_format = 0;
-	edid->timing[0].pclk = 138500000;
-	edid->timing[0].h_addressable = 1920;
-	edid->timing[0].h_blank = 160;
-	edid->timing[0].v_addressable = 1080;
-	edid->timing[0].v_blank = 30;
-	edid->timing[0].h_fporch = 48;
-	edid->timing[0].h_sync_pulse = 32;
-	edid->timing[0].v_sync_pulse = 14;
-	edid->timing[0].v_fporch = 8;
-	edid->timing[0].width_mm =  256;
-	edid->timing[0].height_mm = 144;
-	edid->timing[0].h_border = 0;
-	edid->timing[0].v_border = 0;
-	edid->timing[0].interlaced = 0;
-	edid->timing[0].stereo = 0;
-	edid->timing[0].sync_type = 1;
-	edid->timing[0].sync_separate = 1;
-	edid->timing[0].vsync_pol = 0;
-	edid->timing[0].hsync_pol = 0;
+	pr_debug("%s: edp_video_ready\n", __func__);
 
 }
 
-static void mdss_edp_fill_dpcd_data(struct mdss_edp_drv_pdata *edp_drv)
+static int edp_event_thread(void *data)
 {
-	struct dpcd_cap *cap = &edp_drv->dpcd;
+	struct mdss_edp_drv_pdata *ep;
+	unsigned long flag;
+	u32 todo = 0;
 
-	cap->max_lane_count = 2;
-	cap->max_link_clk = 270;
+	ep = (struct mdss_edp_drv_pdata *)data;
+
+	while (1) {
+		wait_event(ep->event_q, (ep->event_pndx != ep->event_gndx));
+		spin_lock_irqsave(&ep->event_lock, flag);
+		if (ep->event_pndx == ep->event_gndx) {
+			spin_unlock_irqrestore(&ep->event_lock, flag);
+			break;
+		}
+		todo = ep->event_todo_list[ep->event_gndx];
+		ep->event_todo_list[ep->event_gndx++] = 0;
+		ep->event_gndx %= HPD_EVENT_MAX;
+		spin_unlock_irqrestore(&ep->event_lock, flag);
+
+		pr_debug("%s: todo=%x\n", __func__, todo);
+
+		if (todo == 0)
+			continue;
+
+		if (todo & EV_EDID_READ)
+			mdss_edp_edid_read(ep, 0);
+
+		if (todo & EV_DPCD_CAP_READ)
+			mdss_edp_dpcd_cap_read(ep);
+
+		if (todo & EV_DPCD_STATUS_READ)
+			mdss_edp_dpcd_status_read(ep);
+
+		if (todo & EV_LINK_TRAIN) {
+			INIT_COMPLETION(ep->train_comp);
+			mdss_edp_link_train(ep);
+		}
+
+		if (todo & EV_VIDEO_READY)
+			mdss_edp_video_ready(ep);
+	}
+
+	return 0;
 }
 
+static void edp_send_events(struct mdss_edp_drv_pdata *ep, u32 events)
+{
+	spin_lock(&ep->event_lock);
+	ep->event_todo_list[ep->event_pndx++] = events;
+	ep->event_pndx %= HPD_EVENT_MAX;
+	wake_up(&ep->event_q);
+	spin_unlock(&ep->event_lock);
+}
+
+irqreturn_t edp_isr(int irq, void *ptr)
+{
+	struct mdss_edp_drv_pdata *ep = (struct mdss_edp_drv_pdata *)ptr;
+	unsigned char *base = ep->base;
+	u32 isr1, isr2, mask1, mask2;
+	u32 ack;
+
+	isr1 = edp_read(base + 0x308);
+	isr2 = edp_read(base + 0x30c);
+
+	mask1 = isr1 & EDP_INTR_MASK1;
+	mask2 = isr2 & EDP_INTR_MASK2;
+
+	isr1 &= ~mask1;	/* remove masks bit */
+	isr2 &= ~mask2;
+
+	pr_debug("%s: isr=%x mask=%x isr2=%x mask2=%x\n",
+			__func__, isr1, mask1, isr2, mask2);
+
+	ack = isr1 & EDP_INTR_STATUS1;
+	ack <<= 1;	/* ack bits */
+	ack |= mask1;
+	edp_write(base + 0x308, ack);
+
+	ack = isr2 & EDP_INTR_STATUS2;
+	ack <<= 1;	/* ack bits */
+	ack |= mask2;
+	edp_write(base + 0x30c, ack);
+
+	if (isr1 & EDP_INTR_HPD) {
+		isr1 &= ~EDP_INTR_HPD;	/* clear */
+		if (ep->train_start)
+			edp_send_events(ep, EV_LINK_TRAIN);
+	}
+
+	if (isr2 & EDP_INTR_READY_FOR_VIDEO)
+		edp_send_events(ep, EV_VIDEO_READY);
+
+	if (isr1 && ep->aux_cmd_busy) {
+		/* clear EDP_AUX_TRANS_CTRL */
+		edp_write(base + 0x318, 0);
+		/* read EDP_INTERRUPT_TRANS_NUM */
+		ep->aux_trans_num = edp_read(base + 0x310);
+
+		if (ep->aux_cmd_i2c)
+			edp_aux_i2c_handler(ep, isr1);
+		else
+			edp_aux_native_handler(ep, isr1);
+	}
+
+	return IRQ_HANDLED;
+}
+
+struct mdss_hw mdss_edp_hw = {
+	.hw_ndx = MDSS_HW_EDP,
+	.ptr = NULL,
+	.irq_handler = edp_isr,
+};
+
+static void mdss_edp_irq_enable(struct mdss_edp_drv_pdata *edp_drv)
+{
+	edp_write(edp_drv->base + 0x308, EDP_INTR_MASK1);
+	edp_write(edp_drv->base + 0x30c, EDP_INTR_MASK2);
+
+	mdss_enable_irq(&mdss_edp_hw);
+}
+
+static void mdss_edp_irq_disable(struct mdss_edp_drv_pdata *edp_drv)
+{
+	edp_write(edp_drv->base + 0x308, 0x0);
+	edp_write(edp_drv->base + 0x30c, 0x0);
+
+	mdss_disable_irq(&mdss_edp_hw);
+}
+
+static int mdss_edp_irq_setup(struct mdss_edp_drv_pdata *edp_drv)
+{
+	int ret = 0;
+
+
+	edp_drv->gpio_panel_hpd = of_get_named_gpio_flags(
+			edp_drv->pdev->dev.of_node, "gpio-panel-hpd", 0,
+			&edp_drv->hpd_flags);
+
+	if (!gpio_is_valid(edp_drv->gpio_panel_hpd)) {
+		pr_err("%s gpio_panel_hpd %d is not valid ", __func__,
+				edp_drv->gpio_panel_hpd);
+		return -ENODEV;
+	}
+
+	ret = gpio_request(edp_drv->gpio_panel_hpd, "edp_hpd_irq_gpio");
+	if (ret) {
+		pr_err("%s unable to request gpio_panel_hpd %d", __func__,
+				edp_drv->gpio_panel_hpd);
+		return -ENODEV;
+	}
+
+	ret = gpio_tlmm_config(GPIO_CFG(
+					edp_drv->gpio_panel_hpd,
+					1,
+					GPIO_CFG_INPUT,
+					GPIO_CFG_NO_PULL,
+					GPIO_CFG_2MA),
+					GPIO_CFG_ENABLE);
+	if (ret) {
+		pr_err("%s: unable to config tlmm = %d\n", __func__,
+				edp_drv->gpio_panel_hpd);
+		gpio_free(edp_drv->gpio_panel_hpd);
+		return -ENODEV;
+	}
+
+	ret = gpio_direction_input(edp_drv->gpio_panel_hpd);
+	if (ret) {
+		pr_err("%s unable to set direction for gpio_panel_hpd %d",
+				__func__, edp_drv->gpio_panel_hpd);
+		return -ENODEV;
+	}
+
+	mdss_edp_hw.ptr = (void *)(edp_drv);
+
+	if (mdss_register_irq(&mdss_edp_hw))
+		pr_err("%s: mdss_register_irq failed.\n", __func__);
+
+
+	return 0;
+}
+
+
+static void mdss_edp_event_setup(struct mdss_edp_drv_pdata *ep)
+{
+	init_waitqueue_head(&ep->event_q);
+	spin_lock_init(&ep->event_lock);
+
+	kthread_run(edp_event_thread, (void *)ep, "mdss_edp_hpd");
+}
 
 static int __devinit mdss_edp_probe(struct platform_device *pdev)
 {
@@ -554,6 +768,7 @@ static int __devinit mdss_edp_probe(struct platform_device *pdev)
 	edp_drv->pdev = pdev;
 	edp_drv->pdev->id = 1;
 	edp_drv->clk_on = 0;
+	edp_drv->train_start = 0; /* no link train yet */
 
 	ret = mdss_edp_get_base_address(edp_drv);
 	if (ret)
@@ -579,8 +794,38 @@ static int __devinit mdss_edp_probe(struct platform_device *pdev)
 	if (ret)
 		goto edp_free_gpio_panel_en;
 
-	mdss_edp_fill_edid_data(edp_drv);
-	mdss_edp_fill_dpcd_data(edp_drv);
+	mdss_edp_irq_setup(edp_drv);
+
+	mdss_edp_aux_init(edp_drv);
+
+	mdss_edp_event_setup(edp_drv);
+
+	/* need mdss clock to receive irq */
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	/* only need aux and ahb clock for aux channel */
+	mdss_edp_prepare_aux_clocks(edp_drv);
+	mdss_edp_aux_clk_enable(edp_drv);
+	mdss_edp_phy_pll_reset(edp_drv->base);
+	mdss_edp_aux_reset(edp_drv->base);
+	mdss_edp_mainlink_reset(edp_drv->base);
+	mdss_edp_phy_powerup(edp_drv->base, 1);
+	mdss_edp_aux_ctrl(edp_drv->base, 1);
+
+	mdss_edp_irq_enable(edp_drv);
+
+	mdss_edp_edid_read(edp_drv, 0);
+	mdss_edp_dpcd_cap_read(edp_drv);
+
+	mdss_edp_irq_disable(edp_drv);
+
+	mdss_edp_aux_ctrl(edp_drv->base, 0);
+	mdss_edp_aux_clk_disable(edp_drv);
+	mdss_edp_phy_powerup(edp_drv->base, 0);
+	mdss_edp_unprepare_aux_clocks(edp_drv);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
 	mdss_edp_device_register(edp_drv);
 
 	return 0;
@@ -594,7 +839,7 @@ edp_clk_deinit:
 mmss_cc_base_unmap:
 	iounmap(edp_drv->mmss_cc_base);
 edp_base_unmap:
-	iounmap(edp_drv->edp_base);
+	iounmap(edp_drv->base);
 probe_err:
 	return ret;
 
