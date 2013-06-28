@@ -1285,14 +1285,90 @@ static struct platform_driver msm_cpu_pm_snoc_client_driver = {
 	},
 };
 
+#ifdef CONFIG_ARM_LPAE
+static int msm_pm_idmap_add_pmd(pud_t *pud, unsigned long addr,
+				unsigned long end, unsigned long prot)
+{
+	pmd_t *pmd;
+	unsigned long next;
 
-static int __init msm_pm_setup_saved_state(void)
+	if (pud_none_or_clear_bad(pud) || (pud_val(*pud) & L_PGD_SWAPPER)) {
+		pmd = pmd_alloc_one(&init_mm, addr);
+		if (!pmd)
+			return -ENOMEM;
+
+		pud_populate(&init_mm, pud, pmd);
+		pmd += pmd_index(addr);
+	} else {
+		pmd = pmd_offset(pud, addr);
+	}
+
+	do {
+		next = pmd_addr_end(addr, end);
+		*pmd = __pmd((addr & PMD_MASK) | prot);
+		flush_pmd_entry(pmd);
+	} while (pmd++, addr = next, addr != end);
+
+	return 0;
+}
+#else   /* !CONFIG_ARM_LPAE */
+static int msm_pm_idmap_add_pmd(pud_t *pud, unsigned long addr,
+				unsigned long end, unsigned long prot)
+{
+	pmd_t *pmd = pmd_offset(pud, addr);
+
+	addr = (addr & PMD_MASK) | prot;
+	pmd[0] = __pmd(addr);
+	addr += SECTION_SIZE;
+	pmd[1] = __pmd(addr);
+	flush_pmd_entry(pmd);
+
+	return 0;
+}
+#endif  /* CONFIG_ARM_LPAE */
+
+static int msm_pm_idmap_add_pud(pgd_t *pgd, unsigned long addr,
+					unsigned long end,
+					unsigned long prot)
+{
+	pud_t *pud = pud_offset(pgd, addr);
+	unsigned long next;
+	int ret;
+
+	do {
+		next = pud_addr_end(addr, end);
+		ret = msm_pm_idmap_add_pmd(pud, addr, next, prot);
+		if (ret)
+			return ret;
+	} while (pud++, addr = next, addr != end);
+
+	return 0;
+}
+
+static int msm_pm_add_idmap(pgd_t *pgd, unsigned long addr,
+						unsigned long end,
+						unsigned long prot)
+{
+	unsigned long next;
+	int ret;
+
+	pgd += pgd_index(addr);
+	do {
+		next = pgd_addr_end(addr, end);
+		ret = msm_pm_idmap_add_pud(pgd, addr, next, prot);
+		if (ret)
+			return ret;
+	} while (pgd++, addr = next, addr != end);
+
+	return 0;
+}
+
+static int msm_pm_setup_pagetable(void)
 {
 	pgd_t *pc_pgd;
-	pmd_t *pmd;
-	unsigned long pmdval;
 	unsigned long exit_phys;
-	dma_addr_t temp_phys;
+	unsigned long end;
+	int ret;
 
 	/* Page table for cores to come back up safely. */
 	pc_pgd = pgd_alloc(&init_mm);
@@ -1301,12 +1377,33 @@ static int __init msm_pm_setup_saved_state(void)
 
 	exit_phys = virt_to_phys(msm_pm_collapse_exit);
 
-	pmd = pmd_offset(pud_offset(pc_pgd + pgd_index(exit_phys),exit_phys),
-					exit_phys);
-	pmdval = (exit_phys & PGDIR_MASK) |
-		     PMD_TYPE_SECT | PMD_SECT_AP_WRITE;
-	pmd[0] = __pmd(pmdval);
-	pmd[1] = __pmd(pmdval + (1 << (PGDIR_SHIFT - 1)));
+	/*
+	 * Make the (hopefully) reasonable assumption that the code size of
+	 * msm_pm_collapse_exit won't be more than a section in size
+	 */
+	end = exit_phys + SECTION_SIZE;
+
+	ret = msm_pm_add_idmap(pc_pgd, exit_phys, end,
+					PMD_TYPE_SECT | PMD_SECT_AP_WRITE);
+
+	if (ret)
+		return ret;
+
+	msm_pm_pc_pgd = virt_to_phys(pc_pgd);
+	clean_caches((unsigned long)&msm_pm_pc_pgd, sizeof(msm_pm_pc_pgd),
+		     virt_to_phys(&msm_pm_pc_pgd));
+
+	return 0;
+}
+
+static int __init msm_pm_setup_saved_state(void)
+{
+	int ret;
+	dma_addr_t temp_phys;
+
+	ret = msm_pm_setup_pagetable();
+	if (ret)
+		return ret;
 
 	msm_saved_state = dma_zalloc_coherent(NULL, CPU_SAVED_STATE_SIZE *
 						num_possible_cpus(),
@@ -1321,19 +1418,6 @@ static int __init msm_pm_setup_saved_state(void)
 	 * or endian problems.
 	 */
 	msm_saved_state_phys = (unsigned long)temp_phys;
-
-
-	/* It is remotely possible that the code in msm_pm_collapse_exit()
-	 * which turns on the MMU with this mapping is in the
-	 * next even-numbered megabyte beyond the
-	 * start of msm_pm_collapse_exit().
-	 * Map this megabyte in as well.
-	 */
-	pmd[2] = __pmd(pmdval + (2 << (PGDIR_SHIFT - 1)));
-	flush_pmd_entry(pmd);
-	msm_pm_pc_pgd = virt_to_phys(pc_pgd);
-	clean_caches((unsigned long)&msm_pm_pc_pgd, sizeof(msm_pm_pc_pgd),
-		     virt_to_phys(&msm_pm_pc_pgd));
 
 	return 0;
 }
