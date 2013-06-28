@@ -266,11 +266,12 @@
 		qcom,dp-manual-pullup;
 
 		qcom,msm-bus,name = "usb";
-		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
-				<87 512 60000 960000>;
+				<87 512 60000 960000>,
+				<87 512 6000  6000>;
 	};
 
 	android_usb@fe8050c8 {
