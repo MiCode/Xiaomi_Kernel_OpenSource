@@ -439,12 +439,12 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 
 	/* Wait for the response */
 	if (!timeout_ms) {
-		rc = wait_event_interruptible(txn_handle->wait_q,
-				(txn_handle->resp_received ||
-				 handle->handle_reset ||
-				(txn_handle->send_stat < 0)));
+		wait_event(txn_handle->wait_q,
+			   (txn_handle->resp_received ||
+			    handle->handle_reset ||
+			   (txn_handle->send_stat < 0)));
 	} else {
-		rc = wait_event_interruptible_timeout(txn_handle->wait_q,
+		rc = wait_event_timeout(txn_handle->wait_q,
 				(txn_handle->resp_received ||
 				handle->handle_reset ||
 				(txn_handle->send_stat < 0)),
