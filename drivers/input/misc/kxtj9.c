@@ -756,7 +756,10 @@ static int kxtj9_parse_dt(struct device *dev,
 
 	kxtj9_pdata->negate_z = of_property_read_bool(np, "kionix,negate-z");
 
-	kxtj9_pdata->res_12bit = of_property_read_bool(np, "kionix,res-12bit");
+	if (of_property_read_bool(np, "kionix,res-12bit"))
+		kxtj9_pdata->res_ctl = RES_12BIT;
+	else
+		kxtj9_pdata->res_ctl = RES_8BIT;
 
 	return 0;
 }
@@ -834,7 +837,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, tj9);
 
-	tj9->ctrl_reg1 = tj9->pdata.res_12bit | tj9->pdata.g_range;
+	tj9->ctrl_reg1 = tj9->pdata.res_ctl | tj9->pdata.g_range;
 	tj9->last_poll_interval = tj9->pdata.init_interval;
 
 	if (client->irq) {
