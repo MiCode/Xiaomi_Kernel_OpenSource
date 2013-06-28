@@ -393,4 +393,7 @@ void ion_page_pool_free(struct ion_page_pool *, struct page *);
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 			  int nr_to_scan);
 
+int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
+			int (*f)(struct ion_heap *heap, void *data));
+
 #endif /* _ION_PRIV_H */
