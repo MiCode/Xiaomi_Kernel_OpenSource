@@ -232,6 +232,7 @@ static struct workqueue_struct *bam_mux_tx_workqueue;
 /* A2 power collaspe */
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
 #define ENABLE_DISCONNECT_ACK	0x1
+#define SHUTDOWN_TIMEOUT_MS	500
 static void toggle_apps_ack(void);
 static void reconnect_to_bam(void);
 static void disconnect_to_bam(void);
@@ -272,6 +273,7 @@ static int need_delayed_ul_vote;
 static int power_management_only_mode;
 static int in_ssr;
 static int ssr_skipped_disconnect;
+static struct completion shutdown_completion;
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -1066,6 +1068,7 @@ static void rx_switch_to_interrupt_mode(void)
 		goto fail;
 	}
 	polling_mode = 0;
+	complete_all(&shutdown_completion);
 	release_wakelock();
 
 	/* handle any rx packets before interrupt was enabled */
@@ -1266,6 +1269,7 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 					" not disabled\n", __func__, ret);
 				break;
 			}
+			INIT_COMPLETION(shutdown_completion);
 			grab_wakelock();
 			polling_mode = 1;
 			/*
@@ -1745,6 +1749,14 @@ static void disconnect_to_bam(void)
 	struct list_head *node;
 	struct rx_pkt_info *info;
 	unsigned long flags;
+	unsigned long time_remaining;
+
+	time_remaining = wait_for_completion_timeout(&shutdown_completion,
+			msecs_to_jiffies(SHUTDOWN_TIMEOUT_MS));
+	if (time_remaining == 0) {
+		pr_err("%s: shutdown completion timed out\n", __func__);
+		ssrestart_check();
+	}
 
 	bam_connection_is_active = 0;
 
@@ -2365,6 +2377,8 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	init_completion(&ul_wakeup_ack_completion);
 	init_completion(&bam_connection_completion);
 	init_completion(&dfab_unvote_completion);
+	init_completion(&shutdown_completion);
+	complete_all(&shutdown_completion);
 	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
 	INIT_DELAYED_WORK(&queue_rx_work, queue_rx_work_func);
 	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
