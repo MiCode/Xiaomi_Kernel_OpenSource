@@ -466,6 +466,7 @@ struct msm_usb_host_platform_data {
 	unsigned int dock_connect_irq;
 	bool use_sec_phy;
 	bool no_selective_suspend;
+	int resume_gpio;
 };
 
 /**
