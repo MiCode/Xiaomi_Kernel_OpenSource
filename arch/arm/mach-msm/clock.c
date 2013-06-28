@@ -577,8 +577,6 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	if (clk->parent == parent)
 		goto out;
 	rc = clk->ops->set_parent(clk, parent);
-	if (!rc)
-		clk->parent = parent;
 out:
 	mutex_unlock(&clk->prepare_lock);
 
