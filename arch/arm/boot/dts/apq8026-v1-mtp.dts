@@ -12,7 +12,7 @@
 
 
 /dts-v1/;
-/include/ "apq8026.dtsi"
+/include/ "apq8026-v1.dtsi"
 /include/ "msm8226-mtp.dtsi"
 
 / {
