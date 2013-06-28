@@ -1,0 +1,42 @@
+Qualcomm MSM Clock controller
+
+Qualcomm MSM Clock controller devices contain PLLs, root clock generators
+and other clocking hardware blocks that provide stable, low power clocking to
+hardware blocks on Qualcomm SOCs. The clock controller device node lists the
+power supplies needed to be scaled using the vdd_*-supply property.
+
+Minor differences between hardware revisions are handled in code by re-using
+the compatible string to indicate the revision.
+
+Required properties:
+- compatible:		Must be one of "qcom,gcc-<target>",
+			"qcom,mmsscc-<target>", "qcom,debugcc-<target>" or
+			"qcom,lpasscc-<target>". <target> is the name of the
+			Qualcomm SoC.
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Currently,
+			there is one expected base: "cc_base"
+
+Optional properties:
+- vdd_dig-supply:	The digital logic rail supply.
+- #clock_cells:		If this device will also be providing controllable
+			clocks, the clock_cells property needs to be specified.
+			This will allow the common clock device tree framework
+			to recognize _this_ device node as a clock provider.
+
+Example:
+	clock_rpm: qcom,rpmcc@fc4000000 {
+		compatible = "qcom,rpmcc-8974";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8841_s2_corner>;
+		#clock-cells = <1>;
+	};
