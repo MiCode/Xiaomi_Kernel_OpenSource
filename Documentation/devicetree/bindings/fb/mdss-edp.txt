@@ -20,6 +20,7 @@ Required properties
 						specific platforms.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+- gpio-panel-hpd :			gpio pin use for edp hpd
 
 Example:
 	mdss_edp: qcom,mdss_edp@fd923400 {
@@ -32,6 +33,8 @@ Example:
 		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
 		qcom,panel-pwm-period = <53>;
 		status = "disable";
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		gpio-panel-hpd = <&msmgpio 102 0>;
 	};
 
 

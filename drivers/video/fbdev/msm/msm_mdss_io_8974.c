@@ -457,30 +457,84 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 
 }
 
-/* EDP phy configuration settings */
-void mdss_edp_phy_sw_reset(unsigned char *edp_base)
+void mdss_edp_timing_engine_ctrl(unsigned char *edp_base, int enable)
 {
-	/* phy sw reset */
-	edp_write(edp_base + 0x74, 0x100); /* EDP_PHY_CTRL */
-	wmb();
-	usleep(1);
-	edp_write(edp_base + 0x74, 0x000); /* EDP_PHY_CTRL */
-	wmb();
-	usleep(1);
-
-	/* phy PLL sw reset */
-	edp_write(edp_base + 0x74, 0x001); /* EDP_PHY_CTRL */
-	wmb();
-	usleep(1);
-	edp_write(edp_base + 0x74, 0x000); /* EDP_PHY_CTRL */
-	wmb();
-	usleep(1);
+	/* should eb last reg to program */
+	edp_write(edp_base + 0x94, enable); /* EDP_TIMING_ENGINE_EN */
 }
 
-void mdss_edp_hw_powerup(unsigned char *edp_base, int enable)
+void mdss_edp_mainlink_ctrl(unsigned char *edp_base, int enable)
 {
-	int ret = 0;
+	edp_write(edp_base + 0x04, enable); /* EDP_MAINLINK_CTRL */
+}
 
+void mdss_edp_mainlink_reset(unsigned char *edp_base)
+{
+	edp_write(edp_base + 0x04, 0x02); /* EDP_MAINLINK_CTRL */
+	usleep(1000);
+	edp_write(edp_base + 0x04, 0); /* EDP_MAINLINK_CTRL */
+}
+
+void mdss_edp_aux_reset(unsigned char *edp_base)
+{
+	/*reset AUX */
+	edp_write(edp_base + 0x300, BIT(1)); /* EDP_AUX_CTRL */
+	usleep(1000);
+	edp_write(edp_base + 0x300, 0); /* EDP_AUX_CTRL */
+}
+
+void mdss_edp_aux_ctrl(unsigned char *edp_base, int enable)
+{
+	u32 data;
+
+	data = edp_read(edp_base + 0x300);
+	if (enable)
+		data |= 0x01;
+	else
+		data |= ~0x01;
+	edp_write(edp_base + 0x300, data); /* EDP_AUX_CTRL */
+}
+
+void mdss_edp_phy_pll_reset(unsigned char *edp_base)
+{
+	/* EDP_PHY_CTRL */
+	edp_write(edp_base + 0x74, 0x005); /* bit 0, 2 */
+	usleep(1000);
+	edp_write(edp_base + 0x74, 0x000); /* EDP_PHY_CTRL */
+}
+
+int mdss_edp_phy_pll_ready(unsigned char *edp_base)
+{
+	int cnt;
+	u32 status;
+
+	cnt = 10;
+	while (cnt--) {
+		status = edp_read(edp_base + 0x6c0);
+		if (status & 0x01)
+			break;
+		usleep(100);
+	}
+
+	if (cnt == 0) {
+		pr_err("%s: PLL NOT ready\n", __func__);
+		return 0;
+	} else
+		return 1;
+}
+
+int mdss_edp_phy_ready(unsigned char *edp_base)
+{
+	u32 status;
+
+	status = edp_read(edp_base + 0x598);
+	status &= 0x01;
+
+	return status;
+}
+
+void mdss_edp_phy_powerup(unsigned char *edp_base, int enable)
+{
 	if (enable) {
 		/* EDP_PHY_EDPPHY_GLB_PD_CTL */
 		edp_write(edp_base + 0x52c, 0x3f);
@@ -488,9 +542,6 @@ void mdss_edp_hw_powerup(unsigned char *edp_base, int enable)
 		edp_write(edp_base + 0x528, 0x1);
 		/* EDP_PHY_PLL_UNIPHY_PLL_GLB_CFG */
 		edp_write(edp_base + 0x620, 0xf);
-		/* EDP_AUX_CTRL */
-		ret = edp_read(edp_base + 0x300);
-		edp_write(edp_base + 0x300, ret | 0x1);
 	} else {
 		/* EDP_PHY_EDPPHY_GLB_PD_CTL */
 		edp_write(edp_base + 0x52c, 0xc0);
@@ -527,7 +578,7 @@ void mdss_edp_pll_configure(unsigned char *edp_base, int rate)
 		edp_write(edp_base + 0x620, 0x7);
 		edp_write(edp_base + 0x620, 0xf);
 
-	} else if (rate == 138500000) {
+	} else if (rate == 138530000) {
 		edp_write(edp_base + 0x664, 0x5); /* UNIPHY_PLL_LKDET_CFG2 */
 		edp_write(edp_base + 0x600, 0x1); /* UNIPHY_PLL_REFCLK_CFG */
 		edp_write(edp_base + 0x638, 0x36); /* UNIPHY_PLL_SDM_CFG0 */
@@ -558,7 +609,7 @@ void mdss_edp_pll_configure(unsigned char *edp_base, int rate)
 		edp_write(edp_base + 0x620, 0x7); /* UNIPHY_PLL_GLB_CFG */
 		edp_write(edp_base + 0x620, 0xf); /* UNIPHY_PLL_GLB_CFG */
 	} else {
-		pr_err("%s: Unknown configuration rate\n", __func__);
+		pr_err("%s: rate=%d is NOT supported\n", __func__, rate);
 	}
 }
 
@@ -598,22 +649,20 @@ void mdss_edp_enable_mainlink(unsigned char *edp_base, int enable)
 	}
 }
 
-void mdss_edp_enable_lane_bist(unsigned char *edp_base, int lane, int enable)
+void mdss_edp_lane_power_ctrl(unsigned char *edp_base, int max_lane, int up)
 {
-	unsigned char *addr_ln_bist_cfg, *addr_ln_pd_ctrl;
+	int i, off;
+	u32 data;
+
+	if (up)
+		data = 0;	/* power up */
+	else
+		data = 0x7;	/* power down */
 
 	/* EDP_PHY_EDPPHY_LNn_PD_CTL */
-	addr_ln_pd_ctrl = edp_base + 0x404 + (0x40 * lane);
-	/* EDP_PHY_EDPPHY_LNn_BIST_CFG0 */
-	addr_ln_bist_cfg = edp_base + 0x408 + (0x40 * lane);
-
-	if (enable) {
-		edp_write(addr_ln_pd_ctrl, 0x0);
-		edp_write(addr_ln_bist_cfg, 0x10);
-
-	} else {
-		edp_write(addr_ln_pd_ctrl, 0xf);
-		edp_write(addr_ln_bist_cfg, 0x10);
+	for (i = 0; i < max_lane; i++) {
+		off = 0x40 * i;
+		edp_write(edp_base + 0x404 + off , data);
 	}
 }
 
@@ -668,12 +717,47 @@ mdss_edp_clk_err:
 	return -EPERM;
 }
 
-
-void mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
+int mdss_edp_aux_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
 {
+	int ret;
+
+	if (clk_set_rate(edp_drv->aux_clk, 19200000) < 0)
+		pr_err("%s: aux_clk - clk_set_rate failed\n",
+					__func__);
+
+	ret = clk_enable(edp_drv->aux_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable aux clk\n", __func__);
+		goto c2;
+	}
+
+	ret = clk_enable(edp_drv->ahb_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable ahb clk\n", __func__);
+		goto c1;
+	}
+
+	return 0;
+c1:
+	clk_disable(edp_drv->aux_clk);
+c2:
+	return ret;
+
+}
+
+void mdss_edp_aux_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
+{
+	clk_disable(edp_drv->aux_clk);
+	clk_disable(edp_drv->ahb_clk);
+}
+
+int mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
+{
+	int ret;
+
 	if (edp_drv->clk_on) {
 		pr_info("%s: edp clks are already ON\n", __func__);
-		return;
+		return 0;
 	}
 
 	if (clk_set_rate(edp_drv->aux_clk, 19200000) < 0)
@@ -688,12 +772,39 @@ void mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
 		pr_err("%s: link_clk - clk_set_rate failed\n",
 					__func__);
 
-	clk_enable(edp_drv->aux_clk);
-	clk_enable(edp_drv->pixel_clk);
-	clk_enable(edp_drv->ahb_clk);
-	clk_enable(edp_drv->link_clk);
+	ret = clk_enable(edp_drv->aux_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable aux clk\n", __func__);
+		goto c4;
+	}
+	ret = clk_enable(edp_drv->pixel_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable pixel clk\n", __func__);
+		goto c3;
+	}
+	ret = clk_enable(edp_drv->ahb_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable ahb clk\n", __func__);
+		goto c2;
+	}
+	ret = clk_enable(edp_drv->link_clk);
+	if (ret) {
+		pr_err("%s: Failed to enable link clk\n", __func__);
+		goto c1;
+	}
 
 	edp_drv->clk_on = 1;
+
+	return 0;
+
+c1:
+	clk_disable(edp_drv->ahb_clk);
+c2:
+	clk_disable(edp_drv->pixel_clk);
+c3:
+	clk_disable(edp_drv->aux_clk);
+c4:
+	return ret;
 }
 
 void mdss_edp_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
@@ -711,12 +822,69 @@ void mdss_edp_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
 	edp_drv->clk_on = 0;
 }
 
-void mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
+int mdss_edp_prepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv)
 {
-	clk_prepare(edp_drv->aux_clk);
-	clk_prepare(edp_drv->pixel_clk);
-	clk_prepare(edp_drv->ahb_clk);
-	clk_prepare(edp_drv->link_clk);
+	int ret;
+
+	ret = clk_prepare(edp_drv->aux_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare aux clk\n", __func__);
+		goto c2;
+	}
+	ret = clk_prepare(edp_drv->ahb_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare ahb clk\n", __func__);
+		goto c1;
+	}
+
+	return 0;
+c1:
+	clk_unprepare(edp_drv->aux_clk);
+c2:
+	return ret;
+
+}
+
+void mdss_edp_unprepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv)
+{
+	clk_unprepare(edp_drv->aux_clk);
+	clk_unprepare(edp_drv->ahb_clk);
+}
+
+int mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
+{
+	int ret;
+
+	ret = clk_prepare(edp_drv->aux_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare aux clk\n", __func__);
+		goto c4;
+	}
+	ret = clk_prepare(edp_drv->pixel_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare pixel clk\n", __func__);
+		goto c3;
+	}
+	ret = clk_prepare(edp_drv->ahb_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare ahb clk\n", __func__);
+		goto c2;
+	}
+	ret = clk_prepare(edp_drv->link_clk);
+	if (ret) {
+		pr_err("%s: Failed to prepare link clk\n", __func__);
+		goto c1;
+	}
+
+	return 0;
+c1:
+	clk_unprepare(edp_drv->ahb_clk);
+c2:
+	clk_unprepare(edp_drv->pixel_clk);
+c3:
+	clk_unprepare(edp_drv->aux_clk);
+c4:
+	return ret;
 }
 
 void mdss_edp_unprepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
@@ -775,14 +943,29 @@ void mdss_edp_unconfig_clk(unsigned char *edp_base,
 	mdss_edp_enable_pixel_clk(edp_base, mmss_cc_base, 0);
 }
 
-void mdss_edp_phy_misc_cfg(unsigned char *edp_base)
+void mdss_edp_clock_synchrous(unsigned char *edp_base, int sync)
+{
+	u32 data;
+
+	/* EDP_MISC1_MISC0 */
+	data = edp_read(edp_base + 0x02c);
+
+	if (sync)
+		data |= 0x01;
+	else
+		data &= ~0x01;
+
+	/* EDP_MISC1_MISC0 */
+	edp_write(edp_base + 0x2c, data);
+}
+
+/* voltage mode and pre emphasis cfg */
+void mdss_edp_phy_vm_pe_init(unsigned char *edp_base)
 {
 	/* EDP_PHY_EDPPHY_GLB_VM_CFG0 */
-	edp_write(edp_base + 0x510, 0x3);
+	edp_write(edp_base + 0x510, 0x3);	/* vm only */
 	/* EDP_PHY_EDPPHY_GLB_VM_CFG1 */
 	edp_write(edp_base + 0x514, 0x64);
 	/* EDP_PHY_EDPPHY_GLB_MISC9 */
 	edp_write(edp_base + 0x518, 0x6c);
-	/* EDP_MISC1_MISC0 */
-	edp_write(edp_base + 0x2c, 0x1);
 }
