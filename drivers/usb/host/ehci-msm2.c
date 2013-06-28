@@ -25,7 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-#include <linux/wakelock.h>
+#include <linux/pm_wakeup.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 
@@ -63,7 +63,7 @@ struct msm_hcd {
 	bool					pmic_gpio_dp_irq_enabled;
 	uint32_t				pmic_gpio_int_cnt;
 	atomic_t				pm_usage_cnt;
-	struct wake_lock			wlock;
+	struct wakeup_source			ws;
 	struct work_struct			phy_susp_fail_work;
 	int					async_irq;
 	bool					async_irq_enabled;
@@ -684,7 +684,7 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		enable_irq_wake(mhcd->async_irq);
 		enable_irq(mhcd->async_irq);
 	}
-	wake_unlock(&mhcd->wlock);
+	pm_relax(mhcd->dev);
 
 	dev_info(mhcd->dev, "EHCI USB in low power mode\n");
 
@@ -717,7 +717,7 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	}
 	spin_unlock_irqrestore(&mhcd->wakeup_lock, flags);
 
-	wake_lock(&mhcd->wlock);
+	pm_stay_awake(mhcd->dev);
 
 	/* Vote for TCXO when waking up the phy */
 	if (!IS_ERR(mhcd->xo_clk)) {
@@ -802,7 +802,7 @@ static irqreturn_t msm_async_irq(int irq, void *data)
 	dev_dbg(mhcd->dev, "%s: hsusb host remote wakeup interrupt cnt: %u\n",
 			__func__, mhcd->async_int_cnt);
 
-	wake_lock(&mhcd->wlock);
+	pm_stay_awake(mhcd->dev);
 
 	spin_lock(&mhcd->wakeup_lock);
 	if (mhcd->async_irq_enabled) {
@@ -833,7 +833,7 @@ static irqreturn_t msm_ehci_host_wakeup_irq(int irq, void *data)
 			__func__, mhcd->pmic_gpio_int_cnt);
 
 
-	wake_lock(&mhcd->wlock);
+	pm_stay_awake(mhcd->dev);
 
 	if (mhcd->pmic_gpio_dp_irq_enabled) {
 		mhcd->pmic_gpio_dp_irq_enabled = 0;
@@ -1308,8 +1308,8 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 		msm_ehci_vbus_power(mhcd, 1);
 
 	device_init_wakeup(&pdev->dev, 1);
-	wake_lock_init(&mhcd->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
-	wake_lock(&mhcd->wlock);
+	wakeup_source_init(&mhcd->ws, dev_name(&pdev->dev));
+	pm_stay_awake(mhcd->dev);
 	INIT_WORK(&mhcd->phy_susp_fail_work, msm_ehci_phy_susp_fail_work);
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
@@ -1404,7 +1404,7 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 	msm_ehci_init_vddcx(mhcd, 0);
 
 	msm_ehci_init_clocks(mhcd, 0);
-	wake_lock_destroy(&mhcd->wlock);
+	wakeup_source_trash(&mhcd->ws);
 	iounmap(hcd->regs);
 	usb_put_hcd(hcd);
 
