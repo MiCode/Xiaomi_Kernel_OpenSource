@@ -13,6 +13,7 @@
 /dts-v1/;
 /include/ "msm8226-v2.dtsi"
 /include/ "msm8226-qrd.dtsi"
+/include/ "dsi-panel-nt35590-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226v2 QRD";
@@ -25,3 +26,9 @@
 		      <205 0x20000>;
 };
 
+&soc {
+	qcom,mdss_dsi_nt35590_720p_video {
+		status = "ok";
+		qcom,mdss-pan-bl-ctrl = "bl_ctrl_dcs";
+	};
+};
