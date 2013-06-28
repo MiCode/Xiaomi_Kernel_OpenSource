@@ -336,6 +336,8 @@ static void __iomem *virt_bases[N_BASES];
 #define USB_HS_AHB_CBCR                          0x0488
 #define SDCC1_APPS_CBCR                          0x04C4
 #define SDCC1_AHB_CBCR                           0x04C8
+#define SDCC1_CDCCAL_SLEEP_CBCR                  0x04E4
+#define SDCC1_CDCCAL_FF_CBCR                     0x04E8
 #define SDCC2_APPS_CBCR                          0x0504
 #define SDCC2_AHB_CBCR                           0x0508
 #define SDCC3_APPS_CBCR                          0x0544
@@ -2312,6 +2314,28 @@ static struct branch_clk gcc_sdcc1_apps_clk = {
 		.dbg_name = "gcc_sdcc1_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sdcc1_apps_clk.c),
+	},
+};
+
+static struct branch_clk gcc_sdcc1_cdccal_ff_clk = {
+	.cbcr_reg = SDCC1_CDCCAL_FF_CBCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &cxo_clk_src.c,
+		.dbg_name = "gcc_sdcc1_cdccal_ff_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sdcc1_cdccal_ff_clk.c),
+	},
+};
+
+static struct branch_clk gcc_sdcc1_cdccal_sleep_clk = {
+	.cbcr_reg = SDCC1_CDCCAL_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_sdcc1_cdccal_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sdcc1_cdccal_sleep_clk.c),
 	},
 };
 
@@ -4432,6 +4456,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_usb30_master_clk.c,		GCC_BASE, 0x0050},
 	{&gcc_blsp2_qup3_i2c_apps_clk.c,	GCC_BASE, 0x00b4},
 	{&gcc_usb_hsic_system_clk.c,		GCC_BASE, 0x0059},
+	{&gcc_sdcc1_cdccal_sleep_clk.c,		GCC_BASE, 0x006a},
+	{&gcc_sdcc1_cdccal_ff_clk.c,		GCC_BASE, 0x006b},
 	{&gcc_blsp2_uart3_apps_clk.c,		GCC_BASE, 0x00b5},
 	{&gcc_usb_hsic_io_cal_clk.c,		GCC_BASE, 0x005b},
 	{&gcc_ce2_axi_clk.c,			GCC_BASE, 0x0141},
@@ -4956,6 +4982,8 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 
 	CLK_LOOKUP("iface_clk", gcc_sdcc1_ahb_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("core_clk", gcc_sdcc1_apps_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("sleep_clk", gcc_sdcc1_cdccal_sleep_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("cal_clk", gcc_sdcc1_cdccal_ff_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk", gcc_sdcc2_ahb_clk.c, "msm_sdcc.2"),
 	CLK_LOOKUP("core_clk", gcc_sdcc2_apps_clk.c, "msm_sdcc.2"),
 	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, "msm_sdcc.3"),
