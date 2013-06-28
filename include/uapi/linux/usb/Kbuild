@@ -7,5 +7,6 @@ header-y += functionfs.h
 header-y += g_printer.h
 header-y += gadgetfs.h
 header-y += midi.h
+header-y += msm_ext_chg.h
 header-y += tmc.h
 header-y += video.h
