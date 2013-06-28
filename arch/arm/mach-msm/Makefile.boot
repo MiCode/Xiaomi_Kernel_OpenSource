@@ -86,10 +86,12 @@ endif
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-sim.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-mtp.dtb
-        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-qrd-evt.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-qrd-dvt.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-mtp.dtb
-        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-qrd-evt.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-qrd-dvt.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-qrd.dtb
