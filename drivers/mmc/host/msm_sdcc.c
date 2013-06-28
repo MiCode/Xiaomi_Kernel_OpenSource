@@ -1656,6 +1656,13 @@ static void msmsdcc_sg_stop(struct msmsdcc_host *host)
 	sg_miter_stop(&host->pio.sg_miter);
 }
 
+static inline void msmsdcc_clear_pio_irq_mask(struct msmsdcc_host *host)
+{
+	writel_relaxed(readl_relaxed(host->base + MMCIMASK0) & ~MCI_IRQ_PIO,
+			host->base + MMCIMASK0);
+	mb();
+}
+
 static irqreturn_t
 msmsdcc_pio_irq(int irq, void *dev_id)
 {
@@ -1668,7 +1675,7 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 
 	spin_lock(&host->lock);
 
-	if (!atomic_read(&host->clks_on)) {
+	if (!atomic_read(&host->clks_on) || !host->curr.data) {
 		spin_unlock(&host->lock);
 		return IRQ_NONE;
 	}
@@ -1719,25 +1726,19 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 	msmsdcc_sg_stop(host);
 	local_irq_restore(flags);
 
+	if (!host->curr.xfer_remain) {
+		msmsdcc_clear_pio_irq_mask(host);
+		goto out_unlock;
+	}
+
 	if (status & MCI_RXACTIVE && host->curr.xfer_remain < MCI_FIFOSIZE) {
 		writel_relaxed((readl_relaxed(host->base + MMCIMASK0) &
-				(~(MCI_IRQ_PIO))) | MCI_RXDATAAVLBLMASK,
-				host->base + MMCIMASK0);
-		if (!host->curr.xfer_remain) {
-			/*
-			 * back to back write to MASK0 register don't need
-			 * synchronization delay.
-			 */
-			writel_relaxed((readl_relaxed(host->base + MMCIMASK0) &
-				(~(MCI_IRQ_PIO))) | 0, host->base + MMCIMASK0);
-		}
-		mb();
-	} else if (!host->curr.xfer_remain) {
-		writel_relaxed((readl_relaxed(host->base + MMCIMASK0) &
-				(~(MCI_IRQ_PIO))) | 0, host->base + MMCIMASK0);
+					~MCI_IRQ_PIO) | MCI_RXDATAAVLBLMASK,
+					host->base + MMCIMASK0);
 		mb();
 	}
 
+out_unlock:
 	spin_unlock(&host->lock);
 
 	return IRQ_HANDLED;
@@ -1831,6 +1832,7 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 			msmsdcc_sps_exit_curr_xfer(host);
 		}
 		else if (host->curr.data) { /* Non DMA */
+			msmsdcc_clear_pio_irq_mask(host);
 			msmsdcc_reset_and_restore(host);
 			msmsdcc_stop_data(host);
 			msmsdcc_request_end(host, cmd->mrq);
@@ -2002,6 +2004,7 @@ msmsdcc_irq(int irq, void *dev_id)
 					/* Stop current SPS transfer */
 					msmsdcc_sps_exit_curr_xfer(host);
 				} else {
+					msmsdcc_clear_pio_irq_mask(host);
 					msmsdcc_reset_and_restore(host);
 					if (host->curr.data)
 						msmsdcc_stop_data(host);
@@ -5380,6 +5383,7 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 				/* Stop current SPS transfer */
 				msmsdcc_sps_exit_curr_xfer(host);
 			} else {
+				msmsdcc_clear_pio_irq_mask(host);
 				msmsdcc_reset_and_restore(host);
 				msmsdcc_stop_data(host);
 				if (mrq->data && mrq->data->stop)
