@@ -209,7 +209,7 @@
 #define POWER_STAGE_WA			BIT(2)
 
 struct qpnp_chg_irq {
-	unsigned int		irq;
+	int		irq;
 	unsigned long		disabled;
 };
 
