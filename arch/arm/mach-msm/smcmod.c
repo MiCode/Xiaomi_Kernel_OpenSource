@@ -28,7 +28,6 @@
 #include <linux/printk.h>
 #include <linux/msm_ion.h>
 #include <asm/smcmod.h>
-#include <asm/cacheflush.h>
 #include <mach/scm.h>
 
 static DEFINE_MUTEX(ioctl_lock);
@@ -92,41 +91,6 @@ struct smcmod_msg_digest_scm_req {
 	uint32_t output_size;
 	uint8_t verify;
 } __packed;
-
-static void smcmod_inv_range(unsigned long start, unsigned long end)
-{
-	uint32_t cacheline_size;
-	uint32_t ctr;
-
-	/* get cache line size */
-	asm volatile("mrc p15, 0, %0, c0, c0, 1" : "=r" (ctr));
-	cacheline_size =  4 << ((ctr >> 16) & 0xf);
-
-	/* invalidate the range */
-	start = round_down(start, cacheline_size);
-	end = round_up(end, cacheline_size);
-	while (start < end) {
-		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
-			 : "memory");
-		start += cacheline_size;
-	}
-	mb();
-	isb();
-}
-
-/*
- * FIXME:
- * scm_call will no longer flush the entire cache before calling into the secure
- * world. Until individual buffers in this driver can be flushed, flush the
- * entire cache before calling into scm_call.
- */
-int smcmod_scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
-		void *resp_buf, size_t resp_len)
-{
-	flush_cache_all();
-	outer_flush_all();
-	return scm_call(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf, resp_len);
-}
 
 static int smcmod_ion_fd_to_phys(int32_t fd, struct ion_client *ion_clientp,
 	struct ion_handle **ion_handlep, uint32_t *phys_addrp, size_t *sizep)
@@ -249,9 +213,17 @@ static int smcmod_send_buf_cmd(struct smcmod_buf_req *reqp)
 		}
 	}
 
+	/* No need to flush the cache lines for the command buffer here,
+	 * because the buffer will be flushed by scm_call.
+	 */
+
 	/* call scm function to switch to secure world */
-	reqp->return_val = smcmod_scm_call(reqp->service_id, reqp->command_id,
+	reqp->return_val = scm_call(reqp->service_id, reqp->command_id,
 		cmd_vaddrp, reqp->cmd_len, resp_vaddrp, reqp->resp_len);
+
+	/* The cache lines for the response buffer have already been
+	 * invalidated by scm_call before returning.
+	 */
 
 buf_cleanup:
 	/* if the client and handle(s) are valid, free them */
@@ -370,45 +342,36 @@ static int smcmod_send_cipher_cmd(struct smcmod_cipher_req *reqp)
 		goto buf_cleanup;
 	}
 
+	/* Only the scm_req structure will be flushed by scm_call,
+	 * so we must flush the cache for the input ion buffers here.
+	 */
+	msm_ion_do_cache_op(ion_clientp, ion_key_handlep, NULL,
+		scm_req.key_size, ION_IOC_CLEAN_CACHES);
+	msm_ion_do_cache_op(ion_clientp, ion_iv_handlep, NULL,
+		scm_req.init_vector_size, ION_IOC_CLEAN_CACHES);
+
+	/* For decrypt, cipher text is input, otherwise it's plain text. */
+	if (reqp->operation)
+		msm_ion_do_cache_op(ion_clientp, ion_cipher_handlep, NULL,
+			scm_req.cipher_text_size, ION_IOC_CLEAN_CACHES);
+	else
+		msm_ion_do_cache_op(ion_clientp, ion_plain_handlep, NULL,
+			scm_req.plain_text_size, ION_IOC_CLEAN_CACHES);
+
 	/* call scm function to switch to secure world */
-	reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
+	reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
 		SMCMOD_CRYPTO_CMD_CIPHER, &scm_req,
 		sizeof(scm_req), NULL, 0);
 
+	/* Invalidate the output buffer, since it's not done by scm_call */
+
 	/* for decrypt, plain text is the output, otherwise it's cipher text */
-	if (reqp->operation) {
-		void *vaddrp = NULL;
-
-		/* map the plain text region to get the virtual address */
-		vaddrp = ion_map_kernel(ion_clientp, ion_plain_handlep);
-		if (IS_ERR_OR_NULL(vaddrp)) {
-			ret = -EINVAL;
-			goto buf_cleanup;
-		}
-
-		/* invalidate the range */
-		smcmod_inv_range((unsigned long)vaddrp,
-			(unsigned long)(vaddrp + scm_req.plain_text_size));
-
-		/* unmap the mapped area */
-		ion_unmap_kernel(ion_clientp, ion_plain_handlep);
-	} else {
-		void *vaddrp = NULL;
-
-		/* map the cipher text region to get the virtual address */
-		vaddrp = ion_map_kernel(ion_clientp, ion_cipher_handlep);
-		if (IS_ERR_OR_NULL(vaddrp)) {
-			ret = -EINVAL;
-			goto buf_cleanup;
-		}
-
-		/* invalidate the range */
-		smcmod_inv_range((unsigned long)vaddrp,
-			(unsigned long)(vaddrp + scm_req.cipher_text_size));
-
-		/* unmap the mapped area */
-		ion_unmap_kernel(ion_clientp, ion_cipher_handlep);
-	}
+	if (reqp->operation)
+		msm_ion_do_cache_op(ion_clientp, ion_plain_handlep, NULL,
+			scm_req.plain_text_size, ION_IOC_INV_CACHES);
+	else
+		msm_ion_do_cache_op(ion_clientp, ion_cipher_handlep, NULL,
+			scm_req.cipher_text_size, ION_IOC_INV_CACHES);
 
 buf_cleanup:
 	/* if the client and handles are valid, free them */
@@ -439,7 +402,6 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 	struct ion_handle *ion_input_handlep = NULL;
 	struct ion_handle *ion_output_handlep = NULL;
 	size_t size = 0;
-	void *vaddrp = NULL;
 
 	if (IS_ERR_OR_NULL(reqp))
 		return -EINVAL;
@@ -507,34 +469,31 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 		goto buf_cleanup;
 	}
 
+	/* Only the scm_req structure will be flushed by scm_call,
+	 * so we must flush the cache for the input ion buffers here.
+	 */
+	msm_ion_do_cache_op(ion_clientp, ion_key_handlep, NULL,
+		scm_req.key_size, ION_IOC_CLEAN_CACHES);
+	msm_ion_do_cache_op(ion_clientp, ion_input_handlep, NULL,
+		scm_req.input_size, ION_IOC_CLEAN_CACHES);
+
 	/* call scm function to switch to secure world */
 	if (reqp->fixed_block)
-		reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
+		reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
 			SMCMOD_CRYPTO_CMD_MSG_DIGEST_FIXED,
 			&scm_req,
 			sizeof(scm_req),
 			NULL, 0);
 	else
-		reqp->return_val = smcmod_scm_call(SMCMOD_SVC_CRYPTO,
+		reqp->return_val = scm_call(SMCMOD_SVC_CRYPTO,
 			SMCMOD_CRYPTO_CMD_MSG_DIGEST,
 			&scm_req,
 			sizeof(scm_req),
 			NULL, 0);
 
-
-	/* map the output region to get the virtual address */
-	vaddrp = ion_map_kernel(ion_clientp, ion_output_handlep);
-	if (IS_ERR_OR_NULL(vaddrp)) {
-		ret = -EINVAL;
-		goto buf_cleanup;
-	}
-
-	/* invalidate the range */
-	smcmod_inv_range((unsigned long)vaddrp,
-		(unsigned long)(vaddrp + scm_req.output_size));
-
-	/* unmap the mapped area */
-	ion_unmap_kernel(ion_clientp, ion_output_handlep);
+	/* Invalidate the output buffer, since it's not done by scm_call */
+	msm_ion_do_cache_op(ion_clientp, ion_output_handlep, NULL,
+		scm_req.output_size, ION_IOC_INV_CACHES);
 
 buf_cleanup:
 	/* if the client and handles are valid, free them */
