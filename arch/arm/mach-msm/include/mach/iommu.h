@@ -197,8 +197,10 @@ enum dump_reg {
 	DUMP_REG_FSR,
 	DUMP_REG_FSYNR0,
 	DUMP_REG_FSYNR1,
-	DUMP_REG_TTBR0,
-	DUMP_REG_TTBR1,
+	DUMP_REG_TTBR0_0,
+	DUMP_REG_TTBR0_1,
+	DUMP_REG_TTBR1_0,
+	DUMP_REG_TTBR1_1,
 	DUMP_REG_SCTLR,
 	DUMP_REG_ACTLR,
 	DUMP_REG_PRRR,
@@ -216,6 +218,7 @@ struct dump_regs_tbl {
 	unsigned long key;
 	const char *name;
 	int offset;
+	int must_be_present;
 };
 extern struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
 
