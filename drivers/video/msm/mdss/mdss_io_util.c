@@ -213,7 +213,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			}
 			msleep(in_vreg[i].pre_on_sleep);
 			rc = regulator_set_optimum_mode(in_vreg[i].vreg,
-				in_vreg[i].peak_current);
+				in_vreg[i].enable_load);
 			if (rc < 0) {
 				DEV_ERR("%pS->%s: %s set opt m fail\n",
 					__builtin_return_address(0), __func__,
@@ -233,7 +233,8 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		for (i = num_vreg-1; i >= 0; i--)
 			if (regulator_is_enabled(in_vreg[i].vreg)) {
 				msleep(in_vreg[i].pre_off_sleep);
-				regulator_set_optimum_mode(in_vreg[i].vreg, 0);
+				regulator_set_optimum_mode(in_vreg[i].vreg,
+					in_vreg[i].disable_load);
 				regulator_disable(in_vreg[i].vreg);
 				msleep(in_vreg[i].post_off_sleep);
 			}
@@ -241,12 +242,13 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 	return rc;
 
 disable_vreg:
-	regulator_set_optimum_mode(in_vreg[i].vreg, 0);
+	regulator_set_optimum_mode(in_vreg[i].vreg, in_vreg[i].disable_load);
 
 vreg_set_opt_mode_fail:
 	for (i--; i >= 0; i--) {
 		msleep(in_vreg[i].pre_off_sleep);
-		regulator_set_optimum_mode(in_vreg[i].vreg, 0);
+		regulator_set_optimum_mode(in_vreg[i].vreg,
+			in_vreg[i].disable_load);
 		regulator_disable(in_vreg[i].vreg);
 		msleep(in_vreg[i].post_off_sleep);
 	}
