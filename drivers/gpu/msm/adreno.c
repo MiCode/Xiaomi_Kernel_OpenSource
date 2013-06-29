@@ -123,20 +123,7 @@ static struct adreno_device device_3d0 = {
 #define LONG_IB_DETECT_REG_INDEX_START 1
 #define LONG_IB_DETECT_REG_INDEX_END 5
 
-unsigned int ft_detect_regs[FT_DETECT_REGS_COUNT] = {
-	A3XX_RBBM_STATUS,
-	REG_CP_RB_RPTR,   /* LONG_IB_DETECT_REG_INDEX_START */
-	REG_CP_IB1_BASE,
-	REG_CP_IB1_BUFSZ,
-	REG_CP_IB2_BASE,
-	REG_CP_IB2_BUFSZ, /* LONG_IB_DETECT_REG_INDEX_END */
-	0,
-	0,
-	0,
-	0,
-	0,
-	0
-};
+unsigned int ft_detect_regs[FT_DETECT_REGS_COUNT];
 
 /*
  * This is the master list of all GPU cores that are supported by this
@@ -730,6 +717,7 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 					phys_addr_t pt_val,
 					int num_iommu_units, uint32_t flags)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	phys_addr_t ttbr0_val;
 	unsigned int reg_pt_val;
 	unsigned int *cmds = cmds_orig;
@@ -759,7 +747,9 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 				 * WAIT_FOR_ME
 				 */
 				cmds += adreno_wait_reg_eq(cmds,
-				A3XX_CP_WFI_PEND_CTR, 1, 0xFFFFFFFF, 0xF);
+					adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_WFI_PEND_CTR),
+					1, 0xFFFFFFFF, 0xF);
 
 				/* set the iommu lock bit */
 				*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
@@ -1142,6 +1132,17 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->pfp_jt_idx = adreno_gpulist[i].pfp_jt_idx;
 	adreno_dev->pfp_jt_addr = adreno_gpulist[i].pfp_jt_addr;
 	adreno_dev->gpulist_index = i;
+	/*
+	 * Initialize uninitialzed gpu registers, only needs to be done once
+	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
+	 */
+	for (i = 0; i < ADRENO_REG_REGISTER_MAX; i++) {
+		if (adreno_dev->gpudev->reg_offsets->offset_0 != i &&
+			!adreno_dev->gpudev->reg_offsets->offsets[i]) {
+			adreno_dev->gpudev->reg_offsets->offsets[i] =
+						ADRENO_REG_UNUSED;
+		}
+	}
 }
 
 static struct platform_device_id adreno_id_table[] = {
@@ -1702,6 +1703,7 @@ static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	int i;
 
 	if (KGSL_STATE_DUMP_AND_FT != device->state)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
@@ -1743,9 +1745,21 @@ static int adreno_init(struct kgsl_device *device)
 
 	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = 0;
 
-	/* Assign correct RBBM status register to hang detect regs
-	 */
-	ft_detect_regs[0] = adreno_dev->gpudev->reg_rbbm_status;
+	/* Initialize ft detection register offsets */
+	ft_detect_regs[0] = adreno_getreg(adreno_dev,
+						ADRENO_REG_RBBM_STATUS);
+	ft_detect_regs[1] = adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_RB_RPTR);
+	ft_detect_regs[2] = adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_IB1_BASE);
+	ft_detect_regs[3] = adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_IB1_BUFSZ);
+	ft_detect_regs[4] = adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_IB2_BASE);
+	ft_detect_regs[5] = adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_IB2_BUFSZ);
+	for (i = 6; i < FT_DETECT_REGS_COUNT; i++)
+		ft_detect_regs[i] = 0;
 
 	adreno_perfcounter_init(device);
 
@@ -2095,7 +2109,7 @@ static void adreno_setup_ft_data(struct kgsl_device *device,
 	ft_data->start_of_replay_cmds = 0xFFFFFFFF;
 	ft_data->replay_for_snapshot = 0xFFFFFFFF;
 
-	adreno_regread(device, REG_CP_IB1_BASE, &ft_data->ib1);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ft_data->ib1);
 
 	kgsl_sharedmem_readl(&device->memstore, &ft_data->context_id,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
@@ -2931,7 +2945,7 @@ int adreno_idle(struct kgsl_device *device)
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
 	kgsl_cffdump_regpoll(device,
-		adreno_dev->gpudev->reg_rbbm_status << 2,
+		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
 		0x00000000, 0x80000000);
 
 retry:
@@ -2944,8 +2958,8 @@ retry:
 	wait_time_part = jiffies + msecs_to_jiffies(KGSL_TIMEOUT_PART);
 
 	while (time_before(jiffies, wait_time)) {
-		adreno_regread(device, adreno_dev->gpudev->reg_rbbm_status,
-			&rbbm_status);
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
+					&rbbm_status);
 		if (adreno_is_a2xx(adreno_dev)) {
 			if (rbbm_status == 0x110)
 				return 0;
@@ -2990,9 +3004,8 @@ static bool is_adreno_rbbm_status_idle(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* Is the core idle? */
-	adreno_regread(device,
-		adreno_dev->gpudev->reg_rbbm_status,
-		&reg_rbbm_status);
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
+				&reg_rbbm_status);
 
 	if (adreno_is_a2xx(adreno_dev)) {
 		if (reg_rbbm_status == 0x110)
@@ -3354,9 +3367,11 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 		if (adreno_is_a2xx(adreno_dev)) {
 			unsigned int rptr;
-			adreno_regread(device, REG_CP_RB_RPTR, &rptr);
+			adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
+						&rptr);
 			if (rptr != adreno_dev->ringbuffer.wptr)
-				adreno_regwrite(device, REG_CP_RB_WPTR,
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_CP_RB_WPTR,
 					adreno_dev->ringbuffer.wptr);
 		}
 
