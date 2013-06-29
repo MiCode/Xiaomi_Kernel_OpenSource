@@ -30,6 +30,7 @@
 #include "clock-rpm.h"
 #include "clock-voter.h"
 #include "clock.h"
+#include "clock-alpha-pll.h"
 
 enum {
 	GCC_BASE,
@@ -1655,6 +1656,35 @@ static DEFINE_CLK_VOTER(qcrypto_ce1_clk_src, &ce1_clk_src.c, 171430000);
 
 static DEFINE_CLK_MEASURE(a7_m_clk);
 
+static struct alpha_pll_masks alpha_pll_masks_20nm_p = {
+	.lock_mask = BIT(31),
+	.update_mask = BIT(22),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
+	.alpha_en_mask = BIT(24),
+};
+
+static struct alpha_pll_vco_tbl alpha_pll_vco_20nm_p[] = {
+	VCO(3,  250000000,  500000000),
+	VCO(2,  500000000, 1000000000),
+	VCO(1, 1000000000, 1500000000),
+	VCO(0, 1500000000, 2000000000),
+};
+
+static struct alpha_pll_clk a7sspll = {
+	.masks = &alpha_pll_masks_20nm_p,
+	.base = &virt_bases[APCS_ACC_BASE],
+	.vco_tbl = alpha_pll_vco_20nm_p,
+	.num_vco = ARRAY_SIZE(alpha_pll_vco_20nm_p),
+	.c = {
+		.parent = &xo_a_clk.c,
+		.dbg_name = "a7sspll",
+		.ops = &clk_ops_alpha_pll,
+		VDD_DIG_FMAX_MAP2(LOW, 1000000000, NOMINAL, 2000000000),
+		CLK_INIT(a7sspll.c),
+	},
+};
+
 #ifdef CONFIG_DEBUG_FS
 
 struct measure_mux_entry {
@@ -1896,7 +1926,9 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	/* PLLS */
 	CLK_LOOKUP("",	gpll0.c,	""),
 	CLK_LOOKUP("",	gpll1.c,	""),
-	CLK_LOOKUP("",  gpll0_ao.c,     ""),
+
+	CLK_LOOKUP("clk-1", gpll0_ao.c, "f9010008.qcom,clock-a7"),
+	CLK_LOOKUP("clk-5", a7sspll.c, "f9010008.qcom,clock-a7"),
 
 	/* PIL-LPASS */
 	CLK_LOOKUP("xo",          cxo_pil_lpass_clk.c, "fe200000.qcom,lpass"),
@@ -2166,8 +2198,8 @@ static void __init msmkrypton_clock_post_init(void)
 #define APCS_GCC_PHYS		0xF9011000
 #define APCS_GCC_SIZE		0x1C
 
-#define APCS_ACC_PHYS		0xF9008000
-#define APCS_ACC_SIZE		0x40
+#define APCS_ACC_PHYS		0xF9008018
+#define APCS_ACC_SIZE		0x28
 
 static void __init msmkrypton_clock_pre_init(void)
 {
