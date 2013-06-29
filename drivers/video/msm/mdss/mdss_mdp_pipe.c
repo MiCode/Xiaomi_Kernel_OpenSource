@@ -87,7 +87,7 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 {
 	if (!bitmap_empty(smp, SMP_MB_CNT)) {
 		if (write)
-			mdss_mdp_smp_mmb_set(MDSS_MDP_SMP_CLIENT_UNUSED, smp);
+			mdss_mdp_smp_mmb_set(0, smp);
 		bitmap_andnot(mdss_mdp_smp_mmb_pool, mdss_mdp_smp_mmb_pool,
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
@@ -552,20 +552,15 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
-				u32 *ftch_id, u32 type, u32 num_base, u32 len)
+int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
+	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 type,
+	u32 num_base, u32 len)
 {
-	struct mdss_mdp_pipe *head;
 	u32 i;
-	int rc = 0;
 
-	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_pipe) *
-			len, GFP_KERNEL);
-
-	if (!head) {
-		pr_err("unable to setup pipe type=%d :devm_kzalloc fail\n",
-			type);
-		return -ENOMEM;
+	if (!head || !mdata) {
+		pr_err("unable to setup pipe type=%d: invalid input\n", type);
+		return -EINVAL;
 	}
 
 	for (i = 0; i < len; i++) {
@@ -576,27 +571,7 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
 		head[i].base = mdata->mdp_base + offsets[i];
 	}
 
-	switch (type) {
-
-	case MDSS_MDP_PIPE_TYPE_VIG:
-		mdata->vig_pipes = head;
-		break;
-
-	case MDSS_MDP_PIPE_TYPE_RGB:
-		mdata->rgb_pipes = head;
-		break;
-
-	case MDSS_MDP_PIPE_TYPE_DMA:
-		mdata->dma_pipes = head;
-		break;
-
-	default:
-		pr_err("Invalid pipe type=%d\n", type);
-		rc = -EINVAL;
-		break;
-	}
-
-	return rc;
+	return 0;
 }
 
 static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
