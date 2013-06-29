@@ -309,7 +309,7 @@
 			qcom,cdc-reset-gpio = <&msmgpio 72 0>;
 
 			cdc-vdd-buck-supply = <&pm8226_s4>;
-			qcom,cdc-vdd-buck-voltage = <2100000 2100000>;
+			qcom,cdc-vdd-buck-voltage = <1800000 2150000>;
 			qcom,cdc-vdd-buck-current = <650000>;
 
 			cdc-vdd-h-supply = <&pm8226_l6>;
