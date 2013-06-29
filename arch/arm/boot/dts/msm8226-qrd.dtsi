@@ -15,6 +15,7 @@
 &soc {
 	serial@f991f000 {
 		status = "ok";
+		qcom,cont-splash-enabled;
 	};
 
 	i2c@f9927000 { /* BLSP1 QUP5 */
