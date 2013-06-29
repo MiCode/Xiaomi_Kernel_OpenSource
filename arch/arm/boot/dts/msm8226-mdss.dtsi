@@ -62,14 +62,54 @@
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
-		qcom,supply-names = "vdd", "vddio", "vdda";
-		qcom,supply-min-voltage-level = <2800000 1800000 1200000>;
-		qcom,supply-max-voltage-level = <2800000 1800000 1200000>;
-		qcom,supply-peak-current = <150000 100000 100000>;
-		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,platform-reset-gpio = <&msmgpio 25 1>;
+		qcom,platform-te-gpio = <&msmgpio 24 0>;
+		qcom,platform-strength-ctrl = [ff 06];
+		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
+		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+			00 00 00 00 05 00 00 01 97
+			00 00 00 00 0a 00 00 01 97
+			00 00 00 00 0f 00 00 01 97
+			00 c0 00 00 00 00 00 01 bb];
+		qcom,platform-reset-sequence = <1 20 0 1 1 20>;
+		qcom,platform-supply-entry1 {
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2800000>;
+			qcom,supply-max-voltage = <2800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <0>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <0>;
+		};
+		qcom,platform-supply-entry2 {
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <0>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <0>;
+		};
+		qcom,platform-supply-entry3 {
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <1200000>;
+			qcom,supply-max-voltage = <1200000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <0>;
+		};
 	};
 
 	qcom,mdss_wb_panel {
