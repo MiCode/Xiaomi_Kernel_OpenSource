@@ -131,15 +131,9 @@ Required properties:
 
 * msm-auxpcm
 
-[First Level Nodes]
-
 Required properties:
 
- - compatible :                           "qcom,msm-auxpcm-resource"
-
- - qcom,msm-cpudai-auxpcm-clk:            clock for auxpcm. The first value is
-                                          for 8khz mode, the second is for
-                                          16khz
+ - compatible :                           "qcom,msm-auxpcm-dev"
 
  - qcom,msm-cpudai-auxpcm-mode:           mode information. The first value is
                                           for 8khz mode, the second is for
@@ -174,16 +168,10 @@ Required properties:
                                           first value is for 8khz mode, the
                                           second is for auxpcm
 
-[Second Level Nodes]
-
-Required Properties:
-
- - qcom,msm-auxpcm-dev-id:                This property specifies the device
-                                          port id.
-                                          For Rx device, the port id is 4106
-                                          and for Tx device, the port id is 4107
-
- - compatible:                            "qcom,msm-auxpcm-dev"
+ - qcom,msm-auxpcm-interface:             name of AUXPCM interface "primary"
+                                          indicates primary AUXPCM interface
+                                          "secondary" indicates secondary
+                                          AUXPCM interface
 
 * msm-pcm-hostless
 
@@ -378,37 +366,17 @@ Example:
 		};
 	};
 
-        qcom,msm-auxpcm {
-                compatible = "qcom,msm-auxpcm-resource";
-                qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
-                qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
-                qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
-                qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
-                qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
-                qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
-                qcom,msm-cpudai-auxpcm-data = <0>, <0>;
-                qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
-
-                qcom,msm-prim-auxpcm-rx {
-                        qcom,msm-auxpcm-dev-id = <4106>;
-                        compatible = "qcom,msm-auxpcm-dev";
-                };
-
-                qcom,msm-prim-auxpcm-tx {
-                        qcom,msm-auxpcm-dev-id = <4107>;
-                        compatible = "qcom,msm-auxpcm-dev";
-                };
-
-		qcom,msm-sec-auxpcm-rx {
-			qcom,msm-auxpcm-dev-id = <4108>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
-
-		qcom,msm-sec-auxpcm-tx {
-			qcom,msm-auxpcm-dev-id = <4109>;
-			compatible = "qcom,msm-auxpcm-dev";
-		};
-        };
+	qcom,msm-pri-auxpcm {
+		qcom,msm-cpudai-auxpcm-mode = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "primary";
+		compatible = "qcom,msm-auxpcm-dev";
+	};
 
         qcom,msm-pcm-hostless {
                 compatible = "qcom,msm-pcm-hostless";
