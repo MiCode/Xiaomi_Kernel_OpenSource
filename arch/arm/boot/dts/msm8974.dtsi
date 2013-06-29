@@ -1518,8 +1518,15 @@
 		reg = <0xf995d000 0x1000>,
 			<0xf9944000 0x19000>;
 		reg-names = "core_mem", "bam_mem";
-		interrupts = <0 113 0>, <0 239 0>;
-		interrupt-names = "core_irq", "bam_irq";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart7>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 113 0
+				1 &intc 0 239 0
+				2 &msmgpio 42 0>;
 
 		qcom,bam-tx-ep-pipe-index = <0>;
 		qcom,bam-rx-ep-pipe-index = <1>;

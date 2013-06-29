@@ -2835,7 +2835,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	struct resource *core_resource;
 	struct resource *bam_resource;
 	struct resource *resource;
-	int core_irqres, bam_irqres;
+	int core_irqres, bam_irqres, wakeup_irqres;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 
 	if (pdev->dev.of_node) {
@@ -2894,6 +2894,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 					IORESOURCE_MEM, "bam_mem");
 		core_irqres = platform_get_irq_byname(pdev, "core_irq");
 		bam_irqres = platform_get_irq_byname(pdev, "bam_irq");
+		wakeup_irqres = platform_get_irq_byname(pdev, "wakeup_irq");
 
 		if (!core_resource) {
 			pr_err("Invalid core HSUART Resources.\n");
@@ -2913,6 +2914,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 			pr_err("Invalid bam irqres Resources.\n");
 			return -ENXIO;
 		}
+		if (!wakeup_irqres)
+			pr_debug("Wakeup irq not specified.\n");
 
 		uport->mapbase = core_resource->start;
 
@@ -2933,6 +2936,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 		uport->irq = core_irqres;
 		msm_uport->bam_irq = bam_irqres;
+		pdata->wakeup_irq = wakeup_irqres;
 
 		msm_uport->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 		if (!msm_uport->bus_scale_table) {
