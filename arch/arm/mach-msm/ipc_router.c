@@ -95,9 +95,9 @@ if (msm_ipc_router_debug_mask & R2R_RAW_HDR) \
 #define NTFY(x...) do { } while (0)
 #endif
 
-#define IPC_ROUTER_LOG_EVENT_ERROR      0x10
-#define IPC_ROUTER_LOG_EVENT_TX         0x11
-#define IPC_ROUTER_LOG_EVENT_RX         0x12
+#define IPC_ROUTER_LOG_EVENT_ERROR      0x00
+#define IPC_ROUTER_LOG_EVENT_TX         0x01
+#define IPC_ROUTER_LOG_EVENT_RX         0x02
 
 static LIST_HEAD(control_ports);
 static DECLARE_RWSEM(control_ports_lock_lha5);
@@ -1798,7 +1798,7 @@ static void do_read_data(struct work_struct *work)
 #if defined(DEBUG)
 		if (msm_ipc_router_debug_mask & SMEM_LOG) {
 			smem_log_event((SMEM_LOG_PROC_ID_APPS |
-				SMEM_LOG_RPC_ROUTER_EVENT_BASE |
+				SMEM_LOG_IPC_ROUTER_EVENT_BASE |
 				IPC_ROUTER_LOG_EVENT_RX),
 				(hdr->src_node_id << 24) |
 				(hdr->src_port_id & 0xffffff),
@@ -2117,7 +2117,7 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 #if defined(DEBUG)
 	if (msm_ipc_router_debug_mask & SMEM_LOG) {
 		smem_log_event((SMEM_LOG_PROC_ID_APPS |
-			SMEM_LOG_RPC_ROUTER_EVENT_BASE |
+			SMEM_LOG_IPC_ROUTER_EVENT_BASE |
 			IPC_ROUTER_LOG_EVENT_TX),
 			(hdr->src_node_id << 24) |
 			(hdr->src_port_id & 0xffffff),
