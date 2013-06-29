@@ -96,4 +96,10 @@ static inline struct kpss_core_clk *to_kpss_core_clk(struct clk *c)
 extern struct clk_ops clk_ops_kpss_cpu;
 extern struct clk_ops clk_ops_kpss_l2;
 
+extern struct kpss_core_clk krait0_clk;
+extern struct kpss_core_clk krait1_clk;
+extern struct kpss_core_clk krait2_clk;
+extern struct kpss_core_clk krait3_clk;
+extern struct kpss_core_clk l2_clk;
+
 #endif

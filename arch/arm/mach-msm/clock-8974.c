@@ -32,6 +32,7 @@
 #include "clock-voter.h"
 #include "clock-mdss-8974.h"
 #include "clock.h"
+#include "clock-krait.h"
 
 enum {
 	GCC_BASE,
@@ -4453,12 +4454,6 @@ static struct branch_clk q6ss_ahbm_clk = {
 	},
 };
 
-static DEFINE_CLK_MEASURE(l2_m_clk);
-static DEFINE_CLK_MEASURE(krait0_m_clk);
-static DEFINE_CLK_MEASURE(krait1_m_clk);
-static DEFINE_CLK_MEASURE(krait2_m_clk);
-static DEFINE_CLK_MEASURE(krait3_m_clk);
-
 #ifdef CONFIG_DEBUG_FS
 
 struct measure_mux_entry {
@@ -4641,11 +4636,11 @@ struct measure_mux_entry measure_mux[] = {
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
 
-	{&krait0_m_clk,				APCS_BASE, M_ACPU0},
-	{&krait1_m_clk,				APCS_BASE, M_ACPU1},
-	{&krait2_m_clk,				APCS_BASE, M_ACPU2},
-	{&krait3_m_clk,				APCS_BASE, M_ACPU3},
-	{&l2_m_clk,				APCS_BASE, M_L2},
+	{&krait0_clk.c,				APCS_BASE, M_ACPU0},
+	{&krait1_clk.c,				APCS_BASE, M_ACPU1},
+	{&krait2_clk.c,				APCS_BASE, M_ACPU2},
+	{&krait3_clk.c,				APCS_BASE, M_ACPU3},
+	{&l2_clk.c,				APCS_BASE, M_L2},
 
 	{&dummy_clk,				N_BASES,   0x0000},
 };
@@ -5437,12 +5432,6 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fdf30018.hwevent"),
 
 	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fdf30018.hwevent"),
-
-	CLK_LOOKUP("l2_m_clk",		l2_m_clk,     ""),
-	CLK_LOOKUP("krait0_m_clk",	krait0_m_clk, ""),
-	CLK_LOOKUP("krait1_m_clk",	krait1_m_clk, ""),
-	CLK_LOOKUP("krait2_m_clk",	krait2_m_clk, ""),
-	CLK_LOOKUP("krait3_m_clk",	krait3_m_clk, ""),
 
 	/* DSI PLL clocks */
 	CLK_LOOKUP("",		dsi_vco_clk_8974.c,                  ""),

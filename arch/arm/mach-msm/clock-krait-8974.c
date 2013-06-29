@@ -305,7 +305,7 @@ static DEFINE_VDD_REGS_INIT(vdd_l2, 1);
  *   Krait/L2 properly.
  * - Implement AVS requirement.
  */
-static struct kpss_core_clk krait0_clk = {
+struct kpss_core_clk krait0_clk = {
 	.id	= 0,
 	.avs_tbl = &avs_table,
 	.c = {
@@ -317,7 +317,7 @@ static struct kpss_core_clk krait0_clk = {
 	},
 };
 
-static struct kpss_core_clk krait1_clk = {
+struct kpss_core_clk krait1_clk = {
 	.id	= 1,
 	.avs_tbl = &avs_table,
 	.c = {
@@ -329,7 +329,7 @@ static struct kpss_core_clk krait1_clk = {
 	},
 };
 
-static struct kpss_core_clk krait2_clk = {
+struct kpss_core_clk krait2_clk = {
 	.id	= 2,
 	.avs_tbl = &avs_table,
 	.c = {
@@ -341,7 +341,7 @@ static struct kpss_core_clk krait2_clk = {
 	},
 };
 
-static struct kpss_core_clk krait3_clk = {
+struct kpss_core_clk krait3_clk = {
 	.id	= 3,
 	.avs_tbl = &avs_table,
 	.c = {
@@ -353,7 +353,7 @@ static struct kpss_core_clk krait3_clk = {
 	},
 };
 
-static struct kpss_core_clk l2_clk = {
+struct kpss_core_clk l2_clk = {
 	.cp15_iaddr = 0x0500,
 	.c = {
 		.parent = &l2_pri_mux_clk.c,
