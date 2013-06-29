@@ -12,21 +12,41 @@ Required properties:
 - vdda-supply:				Phandle for vreg regulator device node.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+- qcom,platform-regulator-settings:	An array of length 7 that specifies the PHY
+					regulator settings.
+- qcom,platform-strength-ctrl:		An array of length 2 that specifies the PHY
+					strengthCtrl settings.
+- qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
+					BIST ctrl settings.
+- qcom,platform-lane-config:		An array of length 45 that specifies the PHY
+					lane configuration settings.
 
 Optional properties:
 - label:		        	A string used to describe the controller used.
-- qcom,supply-names:			A list of strings that lists the names of the
-					regulator supplies.
-- qcom,supply-min-voltage-level:	A list that specifies minimum voltage level
-					of supply(ies) mentioned above. This list maps
-					in the order of the supply names listed above.
-- qcom,supply-max-voltage-level:	A list that specifies maximum voltage level of
-					supply(ies) mentioned above. This list maps in
-					the order of the supply names listed above.
-- qcom,supply-peak-current:		A list that specifies the peak current that will
-					be drawn from the supply(ies) mentioned above. This
-					list maps in the order of the supply names listed above.
 
+- qcom,platform-supply-entry<1..n>:	A node that lists the elements of the supply. There
+					can be more than one instance of this binding,
+					in which case the entry would be appended with
+					the supply entry index.
+					e.g. qcom,platform-supply-entry1
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
+- qcom,platform-reset-gpio:		Specifies the panel reset gpio.
+- qcom,platform-te-gpio:		Specifies the gpio used for TE.
+- qcom,platform-reset-sequence:		An array that lists the
+					sequence of reset gpio values and sleeps
+					Each command will have the format defined
+					as below:
+					--> Reset GPIO value
+					--> Sleep value (in ms)
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -37,9 +57,50 @@ Example:
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
-		qcom,supply-names = "vdd", "vddio", "vdda";
-		qcom,supply-min-voltage-level = <2800000 1800000 1200000>;
-		qcom,supply-max-voltage-level = <2800000 1800000 1200000>;
-		qcom,supply-peak-current = <150000 100000 100000>;
+		qcom,platform-strength-ctrl = [ff 06];
+		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
+		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+			00 00 00 00 05 00 00 01 97
+			00 00 00 00 0a 00 00 01 97
+			00 00 00 00 0f 00 00 01 97
+			00 c0 00 00 00 00 00 01 bb];
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,platform-reset-gpio = <&msmgpio 25 1>;
+		qcom,platform-te-gpio = <&msmgpio 24 0>;
+		qcom,platform-enable-gpio = <&msmgpio 58 1>;
+		qcom,platform-reset-sequence = <1 25 0 20 1 10>;
+		qcom,platform-supply-entry1 {
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2800000>;
+			qcom,supply-max-voltage = <2800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <20>;
+		};
+		qcom,platform-supply-entry2 {
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <30>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <30>;
+		};
+		qcom,platform-supply-entry3 {
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <1200000>;
+			qcom,supply-max-voltage = <1200000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-on-sleep = <0>;
+			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-pre-off-sleep = <0>;
+			qcom,supply-post-off-sleep = <30>;
+		};
         };
