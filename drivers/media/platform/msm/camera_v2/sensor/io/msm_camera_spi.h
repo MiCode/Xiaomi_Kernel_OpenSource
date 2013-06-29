@@ -43,9 +43,9 @@ int32_t msm_camera_spi_read(struct msm_camera_i2c_client *client,
 	enum msm_camera_i2c_data_type data_type);
 
 int32_t msm_camera_spi_read_seq(struct msm_camera_i2c_client *client,
-	uint32_t addr, uint8_t *data, uint16_t num_byte);
+	uint32_t addr, uint8_t *data, uint32_t num_byte);
 
 int32_t msm_camera_spi_query_id(struct msm_camera_i2c_client *client,
-	uint32_t addr, uint8_t *data, uint16_t num_byte);
+	uint32_t addr, uint8_t *data, uint32_t num_byte);
 
 #endif
