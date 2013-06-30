@@ -999,7 +999,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	 */
 
 	if (!atomic_read(&mbim->online)) {
-		pr_info("usb cable is not connected\n");
+		pr_warning("usb cable is not connected\n");
 		return -ENOTCONN;
 	}
 
@@ -1563,6 +1563,7 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_mbim	*mbim = func_to_mbim(f);
 
+	pr_debug("unbinding mbim");
 	bam_data_destroy(mbim->port_num);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);

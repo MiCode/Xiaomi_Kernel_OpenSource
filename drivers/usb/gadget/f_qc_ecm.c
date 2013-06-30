@@ -399,7 +399,7 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
 		PEER_PERIPHERAL_TO_USB, 0);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
-		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
+		pr_err("usb_bam_get_connection_idx failed\n");
 		return ret;
 	}
 	ret = bam_data_connect(&dev->bam_port, 0, dev->xport,
@@ -482,6 +482,7 @@ static int ecm_qc_setup(struct usb_function *f,
 	/* composite driver infrastructure handles everything except
 	 * CDC class messages; interface activation uses set_alt().
 	 */
+	pr_debug("Enter\n");
 	switch ((ctrl->bRequestType << 8) | ctrl->bRequest) {
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_SET_ETHERNET_PACKET_FILTER:
@@ -541,8 +542,10 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	/* Control interface has only altsetting 0 */
 	if (intf == ecm->ctrl_id) {
-		if (alt != 0)
+		if (alt != 0) {
+			pr_warning("fail, alt setting is not 0\n");
 			goto fail;
+		}
 
 		if (ecm->notify->driver_data) {
 			VDBG(cdev, "reset ecm control %d\n", intf);
@@ -732,8 +735,10 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	ecm_qc_union_desc.bMasterInterface0 = status;
 
 	status = usb_interface_id(c, f);
-	if (status < 0)
+	if (status < 0) {
+		pr_debug("no more interface IDs can be allocated\n");
 		goto fail;
+	}
 
 	ecm->data_id = status;
 
@@ -745,15 +750,19 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 
 	/* allocate instance-specific endpoints */
 	ep = usb_ep_autoconfig(cdev->gadget, &ecm_qc_fs_in_desc);
-	if (!ep)
+	if (!ep) {
+		pr_debug("can not allocate endpoint (fs_in)\n");
 		goto fail;
+	}
 
 	ecm->port.in_ep = ep;
 	ep->driver_data = cdev;	/* claim */
 
 	ep = usb_ep_autoconfig(cdev->gadget, &ecm_qc_fs_out_desc);
-	if (!ep)
+	if (!ep) {
+		pr_debug("can not allocate endpoint (fs_out)\n");
 		goto fail;
+	}
 
 	ecm->port.out_ep = ep;
 	ep->driver_data = cdev;	/* claim */
@@ -763,8 +772,10 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	 * profiles (wireless handsets) no longer treat it as optional.
 	 */
 	ep = usb_ep_autoconfig(cdev->gadget, &ecm_qc_fs_notify_desc);
-	if (!ep)
+	if (!ep) {
+		pr_debug("can not allocate endpoint (fs_notify)\n");
 		goto fail;
+	}
 	ecm->notify = ep;
 	ep->driver_data = cdev;	/* claim */
 
@@ -772,8 +783,10 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 
 	/* allocate notification request and buffer */
 	ecm->notify_req = usb_ep_alloc_request(ep, GFP_KERNEL);
-	if (!ecm->notify_req)
+	if (!ecm->notify_req) {
+		pr_debug("can not allocate notification request\n");
 		goto fail;
+	}
 	ecm->notify_req->buf = kmalloc(ECM_QC_STATUS_BYTECOUNT, GFP_KERNEL);
 	if (!ecm->notify_req->buf)
 		goto fail;
@@ -891,7 +904,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 		return status;
 	}
 
-	pr_debug("data transport type is %s", xport_name);
+	pr_debug("data transport type is %s\n", xport_name);
 
 	/* maybe allocate device-global string IDs */
 	if (ecm_qc_string_defs[0].id == 0) {

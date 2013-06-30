@@ -359,8 +359,10 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		 * SSUSB: RAM11, 12, 13 are used for BAM FIFOs
 		 */
 		bam = pipe_connect->bam_type;
-		if (bam < 0)
+		if (bam < 0) {
+			pr_err("%s: invalid bam name\n", __func__);
 			goto free_sps_endpoint;
+		}
 
 		if (bam == HSUSB_BAM)
 			ram1_value = 0x4;
@@ -524,7 +526,7 @@ static int connect_pipe_ipa(u8 idx,
 
 	ret = sps_get_config(*pipe, sps_connection);
 	if (ret) {
-		pr_err("%s: tx get config failed %d\n", __func__, ret);
+		pr_err("%s: tx get config failed %d\n", __func__ , ret);
 		goto free_sps_endpoints;
 	}
 
@@ -675,8 +677,8 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 	pdata = ctx.usb_bam_pdev->dev.platform_data;
 
 	if (pipe_connect->enabled) {
-		pr_debug("%s: connection %d was already established\n",
-			__func__, idx);
+		pr_warning("%s: connection %d was already established\n"
+				   , __func__, idx);
 		return 0;
 	}
 
@@ -701,7 +703,7 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 		pr_err("%s: pipe connection[%d] failure\n", __func__, idx);
 		return ret;
 	}
-
+	pr_debug("%s: pipe connection[%d] success\n", __func__, idx);
 	pipe_connect->enabled = 1;
 	spin_lock(&usb_bam_lock);
 	ctx.pipes_enabled_per_bam[pipe_connect->bam_type] += 1;
@@ -1528,7 +1530,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			mutex_unlock(&info.suspend_resume_mutex);
 		return ret;
 	}
-
+	pr_debug("%s: pipe connection success\n", __func__);
 	spin_lock(&usb_bam_lock);
 	pipe_connect->enabled = 1;
 	pipe_connect->suspended = 0;
@@ -1557,7 +1559,7 @@ int usb_bam_client_ready(bool ready)
 {
 	spin_lock(&usb_bam_peer_handshake_info_lock);
 	if (peer_handshake_info.client_ready == ready) {
-		pr_debug("%s: client state is already %d\n",
+		pr_warning("%s: client state is already %d\n",
 			__func__, ready);
 		spin_unlock(&usb_bam_peer_handshake_info_lock);
 		return 0;
@@ -1575,7 +1577,11 @@ int usb_bam_client_ready(bool ready)
 		spin_lock(&usb_bam_peer_handshake_info_lock);
 		peer_handshake_info.pending_work++;
 		spin_unlock(&usb_bam_peer_handshake_info_lock);
+		pr_debug("%s: enters pending_work\n",
+			__func__);
 	}
+	pr_debug("%s: success\n",
+			__func__);
 
 	return 0;
 }
@@ -1871,7 +1877,7 @@ static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
 		pr_err("%s: sps_set_config() failed %d\n", __func__, ret);
 		return ret;
 	}
-
+	pr_debug("%s: success", __func__);
 	return 0;
 }
 
@@ -1950,7 +1956,8 @@ int usb_bam_disconnect_pipe(u8 idx)
 	else
 		ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
 	spin_unlock(&usb_bam_lock);
-
+	pr_debug("%s: success disconnecting pipe %d\n",
+			 __func__, idx);
 	return 0;
 }
 
@@ -2116,6 +2123,7 @@ int usb_bam_a2_reset(bool to_reconnect)
 			}
 		}
 	}
+	pr_debug("%s: pipes disconnection success\n", __func__);
 	/* Reset A2 (USB/HSIC) BAM */
 	if (bam != -1 && sps_device_reset(ctx.h_bam[bam]))
 		pr_err("%s: BAM reset failed\n", __func__);
@@ -2136,6 +2144,7 @@ int usb_bam_a2_reset(bool to_reconnect)
 			}
 		}
 	}
+	pr_debug("%s: pipes disconnection success\n", __func__);
 
 	return ret;
 }
@@ -2150,7 +2159,7 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 	switch (sps_cb_case) {
 	case SPS_CALLBACK_BAM_TIMER_IRQ:
 
-		pr_debug("%s:recieved SPS_CALLBACK_BAM_TIMER_IRQ\n", __func__);
+		pr_debug("%s: recieved SPS_CALLBACK_BAM_TIMER_IRQ\n", __func__);
 
 		spin_lock(&usb_bam_lock);
 
@@ -2184,7 +2193,7 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 
 		break;
 	default:
-		pr_debug("%s:received sps_cb_case=%d\n", __func__,
+		pr_debug("%s: received sps_cb_case=%d\n", __func__,
 			(int)sps_cb_case);
 	}
 }

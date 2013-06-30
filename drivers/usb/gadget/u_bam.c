@@ -730,8 +730,10 @@ static void gbam_disconnect_work(struct work_struct *w)
 			container_of(w, struct gbam_port, disconnect_w);
 	struct bam_ch_info *d = &port->data_ch;
 
-	if (!test_bit(BAM_CH_OPENED, &d->flags))
+	if (!test_bit(BAM_CH_OPENED, &d->flags)) {
+		pr_err("%s: Bam channel is not opened\n", __func__);
 		return;
+	}
 
 	msm_bam_dmux_close(d->id);
 	clear_bit(BAM_CH_OPENED, &d->flags);
@@ -770,8 +772,10 @@ static void gbam_connect_work(struct work_struct *w)
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
-	if (!test_bit(BAM_CH_READY, &d->flags))
+	if (!test_bit(BAM_CH_READY, &d->flags)) {
+		pr_err("%s: Bam channel is not ready\n", __func__);
 		return;
+	}
 
 	ret = msm_bam_dmux_open(d->id, port, gbam_notify);
 	if (ret) {

@@ -603,6 +603,7 @@ rndis_qc_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	/* composite driver infrastructure handles everything except
 	 * CDC class messages; interface activation uses set_alt().
 	 */
+	pr_debug("%s: Enter\n", __func__);
 	switch ((ctrl->bRequestType << 8) | ctrl->bRequest) {
 
 	/* RNDIS uses the CDC command encapsulation mechanism to implement
@@ -1024,8 +1025,10 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	struct f_rndis_qc	*rndis;
 	int		status;
 
-	if (!can_support_rndis_qc(c) || !ethaddr)
+	if (!can_support_rndis_qc(c) || !ethaddr) {
+		pr_debug("%s: invalid argument\n", __func__);
 		return -EINVAL;
+	}
 
 	/* setup RNDIS itself */
 	status = rndis_init();
@@ -1034,7 +1037,7 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	status = rndis_qc_bam_setup();
 	if (status) {
-		pr_err("bam setup failed");
+		pr_err("%s: bam setup failed\n", __func__);
 		return status;
 	}
 
@@ -1066,8 +1069,11 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	/* allocate and initialize one new instance */
 	status = -ENOMEM;
 	rndis = kzalloc(sizeof *rndis, GFP_KERNEL);
-	if (!rndis)
+	if (!rndis) {
+		pr_err("%s: fail allocate and initialize new instance\n",
+			   __func__);
 		goto fail;
+	}
 
 	memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
 	rndis->vendorID = vendorID;

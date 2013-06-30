@@ -955,7 +955,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
 
 	if (!atomic_read(&dev->online)) {
-		pr_debug("%s: usb cable is not connected\n", __func__);
+		pr_warning("%s: usb cable is not connected\n", __func__);
 		return -ENOTCONN;
 	}
 
@@ -963,6 +963,8 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_SEND_ENCAPSULATED_COMMAND:
+		pr_debug("%s: USB_CDC_SEND_ENCAPSULATED_COMMAND\n"
+				 , __func__);
 		ret = w_length;
 		req->complete = frmnet_cmd_complete;
 		req->context = dev;
@@ -971,9 +973,12 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_GET_ENCAPSULATED_RESPONSE:
-		if (w_value)
+		pr_debug("%s: USB_CDC_GET_ENCAPSULATED_RESPONSE\n", __func__);
+		if (w_value) {
+			pr_err("%s: invalid w_value = %04x",
+				   __func__ , w_value);
 			goto invalid;
-		else {
+		} else {
 			unsigned len;
 			struct rmnet_ctrl_pkt *cpkt;
 
@@ -1001,6 +1006,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+		pr_debug("%s: USB_CDC_REQ_SET\n", __func__);
 		if (dev->port.notify_modem) {
 			port_num = rmnet_ports[dev->port_num].ctrl_xport_num;
 			dev->port.notify_modem(&dev->port, port_num, w_value);
@@ -1037,7 +1043,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_ep			*ep;
 	struct usb_composite_dev	*cdev = c->cdev;
 	int				ret = -ENODEV;
-
+	pr_debug("%s: start binding\n", __func__);
 	dev->ifc_id = usb_interface_id(c, f);
 	if (dev->ifc_id < 0) {
 		pr_err("%s: unable to allocate ifc id, err:%d",
@@ -1088,9 +1094,11 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	ret = -ENOMEM;
 	f->fs_descriptors = usb_copy_descriptors(rmnet_fs_function);
 
-	if (!f->fs_descriptors)
+	if (!f->fs_descriptors) {
+		pr_err("%s: no descriptors,usb_copy descriptors(fs)failed\n",
+			__func__);
 		goto fail;
-
+	}
 	if (gadget_is_dualspeed(cdev->gadget)) {
 		rmnet_hs_in_desc.bEndpointAddress =
 				rmnet_fs_in_desc.bEndpointAddress;
@@ -1102,8 +1110,11 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(rmnet_hs_function);
 
-		if (!f->hs_descriptors)
+		if (!f->hs_descriptors) {
+			pr_err("%s: no hs_descriptors,usb_copy descriptors(hs)failed\n",
+			__func__);
 			goto fail;
+		}
 	}
 
 	if (gadget_is_superspeed(cdev->gadget)) {
@@ -1117,8 +1128,11 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 		/* copy descriptors, and track endpoint copies */
 		f->ss_descriptors = usb_copy_descriptors(rmnet_ss_function);
 
-		if (!f->ss_descriptors)
+		if (!f->ss_descriptors) {
+			pr_err("%s: no ss_descriptors,usb_copy descriptors(ss)failed\n",
+			__func__);
 			goto fail;
+		}
 	}
 
 	pr_debug("%s: RmNet(%d) %s Speed, IN:%s OUT:%s\n",
