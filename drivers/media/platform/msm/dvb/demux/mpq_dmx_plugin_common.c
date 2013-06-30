@@ -692,6 +692,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 			memset(feed, 0, sizeof(*feed));
 			feed->sdmx_filter_handle = SDMX_INVALID_FILTER_HANDLE;
 			feed->mpq_demux = mpq_demux;
+			feed->session_id = 0;
 		}
 
 		/*
@@ -3776,8 +3777,10 @@ int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed)
 	}
 
 init_mpq_feed_end:
-	if (!ret)
+	if (!ret) {
 		mpq_demux->num_active_feeds++;
+		mpq_feed->session_id++;
+	}
 	mutex_unlock(&mpq_demux->mutex);
 	return ret;
 }
@@ -4525,19 +4528,14 @@ raw_filter_check_flags:
 static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
 {
 	int i;
-	int j;
 	int sdmx_filters;
 	struct sdmx_filter_status *sts;
 	struct mpq_feed *mpq_feed;
+	u8 mpq_feed_idx;
 
 	sdmx_filters = mpq_demux->sdmx_filter_count;
 	for (i = 0; i < sdmx_filters; i++) {
-		/*
-		 * MPQ_TODO: review lookup optimization
-		 * Can have the related mpq_feed index already associated with
-		 * the filter status.
-		 */
-		sts = &mpq_demux->filters_status[i];
+		sts = &mpq_demux->sdmx_filters_state.status[i];
 		MPQ_DVB_DBG_PRINT(
 			"%s: Filter: handle=%d, status=0x%x, errors=0x%x\n",
 			__func__, sts->filter_handle, sts->status_indicators,
@@ -4548,16 +4546,13 @@ static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
 		MPQ_DVB_DBG_PRINT("%s: Data fill count=%d (write=%d)\n",
 			__func__, sts->data_fill_count, sts->data_write_offset);
 
-		for (j = 0; j < MPQ_MAX_DMX_FILES; j++) {
-			mpq_feed = &mpq_demux->feeds[j];
-			if ((mpq_feed->dvb_demux_feed->state == DMX_STATE_GO) &&
-				(sts->filter_handle ==
-					mpq_feed->sdmx_filter_handle) &&
-				(!mpq_feed->secondary_feed))
-				break;
-		}
-
-		if (j == MPQ_MAX_DMX_FILES)
+		mpq_feed_idx = mpq_demux->sdmx_filters_state.mpq_feed_idx[i];
+		mpq_feed = &mpq_demux->feeds[mpq_feed_idx];
+		if ((mpq_feed->dvb_demux_feed->state != DMX_STATE_GO) ||
+			(sts->filter_handle != mpq_feed->sdmx_filter_handle) ||
+			mpq_feed->secondary_feed ||
+			(mpq_demux->sdmx_filters_state.session_id[i] !=
+			 mpq_feed->session_id))
 			continue;
 
 		if (sts->error_indicators & SDMX_FILTER_ERR_MD_BUF_FULL)
@@ -4636,9 +4631,14 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 		if ((mpq_feed->sdmx_filter_handle != SDMX_INVALID_FILTER_HANDLE)
 			&& (mpq_feed->dvb_demux_feed->state == DMX_STATE_GO)
 			&& (!mpq_feed->secondary_feed)) {
-			sts = &mpq_demux->filters_status[filter_index];
+			sts = mpq_demux->sdmx_filters_state.status +
+				filter_index;
 			mpq_sdmx_prepare_filter_status(mpq_demux, sts,
 				mpq_feed);
+			mpq_demux->sdmx_filters_state.mpq_feed_idx[filter_index]
+				 = i;
+			mpq_demux->sdmx_filters_state.session_id[filter_index] =
+				mpq_feed->session_id;
 			filter_index++;
 		}
 	}
@@ -4662,7 +4662,8 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 	prev_fill_count = fill_count;
 	sdmx_res = sdmx_process(mpq_demux->sdmx_session_handle, flags, input,
 		&fill_count, &read_offset, &errors, &status,
-		mpq_demux->sdmx_filter_count, mpq_demux->filters_status);
+		mpq_demux->sdmx_filter_count,
+		mpq_demux->sdmx_filters_state.status);
 
 	process_end_time = current_kernel_time();
 	bytes_read = prev_fill_count - fill_count;
