@@ -802,7 +802,7 @@ static int tspp_clock_start(struct tspp_device *device)
 
 		if (device->tsif_vreg) {
 			regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		}
 
@@ -818,7 +818,7 @@ static int tspp_clock_start(struct tspp_device *device)
 		clk_disable_unprepare(device->tsif_pclk);
 		if (device->tsif_vreg) {
 			regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		}
 
@@ -848,7 +848,7 @@ static void tspp_clock_stop(struct tspp_device *device)
 
 	if (device->tsif_vreg) {
 		rc = regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc)
 			pr_err("Unable to set CX voltage.\n");
@@ -2945,7 +2945,7 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 
 		/* Set an initial voltage and enable the regulator */
 		rc = regulator_set_voltage(device->tsif_vreg,
-					RPM_REGULATOR_CORNER_SVS_SOC,
+					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to set CX voltage.\n");
