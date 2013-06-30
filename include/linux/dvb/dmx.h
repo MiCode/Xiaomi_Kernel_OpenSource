@@ -570,6 +570,9 @@ typedef struct dmx_caps {
 	/* Max bitrate from single memory input. Mbit/sec */
 	int memory_input_max_bitrate;
 
+	/* Max possible value of STC reported by demux, in 27MHz */
+	__u64 max_stc;
+
 	struct dmx_buffer_requirement section;
 
 	/* For PES not sent to decoder */
