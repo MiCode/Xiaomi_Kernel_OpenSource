@@ -21,6 +21,14 @@
 #include <media/v4l2-subdev.h>
 #include "msm_sd.h"
 
+/* hw version info:
+  31:28  Major version
+  27:16  Minor version
+  15:0   Revision bits
+**/
+#define CPP_HW_VERSION_1_1_0  0x10010000
+#define CPP_HW_VERSION_1_1_1  0x10010001
+
 #define MAX_ACTIVE_CPP_INSTANCE 8
 #define MAX_CPP_PROCESSING_FRAME 2
 #define MAX_CPP_V4l2_EVENTS 30
