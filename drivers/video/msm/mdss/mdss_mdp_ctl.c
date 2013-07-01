@@ -1635,9 +1635,13 @@ int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
 
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 {
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-		return MDSS_MDP_REG_CTL_LAYER(mixer->num);
-	else
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
+			return MDSS_MDP_CTL_X_LAYER_5;
+		else
+			return MDSS_MDP_REG_CTL_LAYER(mixer->num);
+	} else {
 		return MDSS_MDP_REG_CTL_LAYER(mixer->num +
-				MDSS_MDP_INTF_MAX_LAYERMIXER);
+				MDSS_MDP_INTF_LAYERMIXER3);
+	}
 }
