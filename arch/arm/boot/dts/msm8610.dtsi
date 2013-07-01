@@ -518,16 +518,17 @@
 		interrupts = <0 98 0>, <0 238 0>;
 		spi-max-frequency = <50000000>;
 
-		gpios = <&msmgpio 89 0>, /* CLK  */
-			<&msmgpio 87 0>, /* MISO */
-			<&msmgpio 86 0>; /* MOSI */
-		cs-gpios = <&msmgpio 88 0>;
+		qcom,gpio-mosi = <&msmgpio 86 0>;
+		qcom,gpio-miso = <&msmgpio 87 0>;
+		qcom,gpio-clk  = <&msmgpio 89 0>;
+		qcom,gpio-cs0  = <&msmgpio 88 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <18>;
 		qcom,bam-producer-pipe-index = <19>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,pronto@fb21b000 {
