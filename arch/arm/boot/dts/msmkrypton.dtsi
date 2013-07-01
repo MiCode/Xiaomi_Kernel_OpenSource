@@ -17,6 +17,10 @@
 	compatible = "qcom,msmkrypton";
 	interrupt-parent = <&intc>;
 
+	aliases {
+		spi6 = &spi_6;
+	};
+
 	soc: soc { };
 };
 
@@ -140,18 +144,27 @@
 	};
 
 	spi_6: spi@f9928000 { /* BLSP1 QUP6 */
-		cell-index = <0>;
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg = <0xf9928000 0x1000>;
-		interrupts = <0 100 0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9928000 0x1000>,
+		      <0xf9904000 0x19000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 100 0>, <0 238 0>;
 		spi-max-frequency = <19200000>;
 
-		gpios = <&msmgpio 23 0>, /* CLK  */
-		<&msmgpio 21 0>, /* MISO */
-		<&msmgpio 20 0>; /* MOSI */
-		cs-gpios = <&msmgpio 22 0>;
+		qcom,gpio-mosi = <&msmgpio 20 0>;
+		qcom,gpio-miso = <&msmgpio 21 0>;
+		qcom,gpio-clk  = <&msmgpio 23 0>;
+		qcom,gpio-cs0  = <&msmgpio 22 0>;
+
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <22>;
+		qcom,bam-producer-pipe-index = <23>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,ipc-spinlock@fd484000 {
