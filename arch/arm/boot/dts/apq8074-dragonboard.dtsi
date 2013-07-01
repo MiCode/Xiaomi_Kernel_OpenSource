@@ -207,6 +207,12 @@
 			"MIC BIAS4 External", "Digital Mic5",
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
+
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 74 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 75 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 76 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 77 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
 	};
 
 	qcom,pronto@fb21b000 {
