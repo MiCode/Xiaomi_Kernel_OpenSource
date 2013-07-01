@@ -1859,6 +1859,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	case MSMFB_OVERLAY_PLAY_ENABLE:
 		if (!copy_from_user(&val, argp, sizeof(val))) {
 			mdp5_data->overlay_play_enable = val;
+			ret = 0;
 		} else {
 			pr_err("OVERLAY_PLAY_ENABLE failed (%d)\n", ret);
 			ret = -EFAULT;
