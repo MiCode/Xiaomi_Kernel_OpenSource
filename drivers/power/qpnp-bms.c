@@ -280,6 +280,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 };
 
@@ -1411,6 +1412,21 @@ static int get_prop_bms_charge_counter_shadow(struct qpnp_bms_chip *chip)
 static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
 {
 	return chip->fcc_mah * 1000;
+}
+
+/* Returns the current full charge in uAh */
+static int get_prop_bms_charge_full(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	struct qpnp_vadc_result result;
+
+	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+	if (rc) {
+		pr_err("Unable to read battery temperature\n");
+		return rc;
+	}
+
+	return calculate_fcc(chip, (int)result.physical);
 }
 
 static int calculate_delta_time(unsigned long *time_stamp, int *delta_time_s)
@@ -2984,6 +3000,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = get_prop_bms_charge_full(chip);
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		val->intval = chip->charge_cycles;

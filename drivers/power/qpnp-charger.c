@@ -1066,6 +1066,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
@@ -1245,6 +1246,22 @@ get_prop_full_design(struct qpnp_chg_chip *chip)
 	return 0;
 }
 
+static int
+get_prop_charge_full(struct qpnp_chg_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->bms_psy) {
+		chip->bms_psy->get_property(chip->bms_psy,
+			  POWER_SUPPLY_PROP_CHARGE_FULL, &ret);
+		return ret.intval;
+	} else {
+		pr_debug("No BMS supply registered return 0\n");
+	}
+
+	return 0;
+}
+
 #define DEFAULT_CAPACITY	50
 static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
@@ -1379,6 +1396,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_full_design(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = get_prop_charge_full(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = !(chip->charging_disabled);
