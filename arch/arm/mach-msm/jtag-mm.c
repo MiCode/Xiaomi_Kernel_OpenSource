@@ -787,6 +787,9 @@ static int __devinit jtag_mm_probe(struct platform_device *pdev)
 	static uint32_t count;
 	struct device *dev = &pdev->dev;
 
+	if (msm_jtag_fuse_apps_access_disabled())
+		return -EPERM;
+
 	cpu = count;
 	count++;
 
