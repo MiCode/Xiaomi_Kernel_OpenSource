@@ -224,12 +224,16 @@ int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 	case MHL_WRITE_STAT:
 		if (req->offset == MHL_STATUS_REG_LINK_MODE) {
 			if (req->payload.data[0]
-			    & MHL_STATUS_PATH_ENABLED)
+			    & MHL_STATUS_PATH_ENABLED) {
 				/* Enable TMDS output */
 				mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
-			else
+				if (mhl_ctrl->devcap_state == MHL_DEVCAP_ALL)
+					mhl_drive_hpd(mhl_ctrl, HPD_UP);
+			} else {
 				/* Disable TMDS output */
 				mhl_tmds_ctrl(mhl_ctrl, TMDS_DISABLE);
+				mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
+			}
 		}
 		break;
 	case MHL_READ_DEVCAP:
@@ -245,8 +249,9 @@ int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 				pr_debug("%s: devcap pow bit unset\n",
 					 __func__);
 			break;
-		case DEVCAP_OFFSET_MHL_VERSION:
-		case DEVCAP_OFFSET_INT_STAT_SIZE:
+		case DEVCAP_OFFSET_RESERVED:
+			mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
+			mhl_drive_hpd(mhl_ctrl, HPD_UP);
 			break;
 		}
 		break;
