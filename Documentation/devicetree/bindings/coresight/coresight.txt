@@ -21,6 +21,7 @@ Required properties:
 	"qcom,coresight-csr" for coresight csr device,
 	"arm,coresight-cti" for coresight cti devices,
 	"qcom,coresight-hwevent" for coresight hardware event devices
+	"arm,coresight-fuse" for coresight fuse device,
 - reg : physical base address and length of the register set(s) of the component
 - reg-names : names corresponding to each reg property value. The reg-names that
 	need to be used with corresponding compatible string for a coresight device
@@ -68,6 +69,10 @@ Required properties:
 			"<ss-mux>" - physical base address of hardware event mux
 				control registers where <ss-mux> is subsystem mux it
 				represents
+	- for coresight fuse device:
+		compatible : should be "arm,coresight-fuse"
+		reg-names  : should be:
+			"fuse-base" - physical base address of fuse registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -235,4 +240,14 @@ Examples:
 		coresight-nr-inports = <0>;
 
 		qcom,hwevent-clks = "core_mmss_clk";
+	};
+
+	fuse: fuse@fc4be024 {
+		compatible = "arm,coresight-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+
+		coresight-id = <30>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
 	};
