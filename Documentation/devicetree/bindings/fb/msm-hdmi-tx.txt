@@ -10,14 +10,16 @@ Required properties:
 - hpd-5v-supply: phandle to the 5V regulator device tree node.
 - core-vdda-supply: phandle to the HDMI vdda regulator device tree node.
 - core-vcc-supply: phandle to the HDMI vcc regulator device tree node.
-- qcom,hdmi-tx-supply-names: a list of strings that map in order
+- qcom,supply-names: a list of strings that map in order
   to the list of supplies.
-- qcom,hdmi-tx-min-voltage-level: specifies minimum voltage level
+- qcom,min-voltage-level: specifies minimum voltage (uV) level
   of supply(ies) mentioned above.
-- qcom,hdmi-tx-max-voltage-level: specifies maximum voltage level
+- qcom,max-voltage-level: specifies maximum voltage (uV) level
   of supply(ies) mentioned above.
-- qcom,hdmi-tx-peak-current: specifies the peak current that will be
-  drawn from the supply(ies) mentioned above.
+- qcom,enable-load: specifies the current (uA) that will be
+  drawn from the enabled supply(ies) mentioned above.
+- qcom,disable-load: specifies the current (uA) that will be
+  drawn from the disabled supply(ies) mentioned above.
 
 - qcom,hdmi-tx-cec: gpio for Consumer Electronics Control (cec) line.
 - qcom,hdmi-tx-ddc-clk: gpio for Display Data Channel (ddc) clock line.
@@ -52,10 +54,11 @@ Example:
 		hpd-5v-supply = <&pm8941_mvs2>;
 		core-vdda-supply = <&pm8941_l12>;
 		core-vcc-supply = <&pm8941_s3>;
-		qcom,hdmi-tx-supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
-		qcom,hdmi-tx-min-voltage-level = <0 0 1800000 1800000>;
-		qcom,hdmi-tx-max-voltage-level = <0 0 1800000 1800000>;
-		qcom,hdmi-tx-peak-current = <0 0 1800000 0>;
+		qcom,supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
+		qcom,min-voltage-level = <0 0 1800000 1800000>;
+		qcom,max-voltage-level = <0 0 1800000 1800000>;
+		qcom,enable-load = <0 0 1800000 0>;
+		qcom,disable-load = <0 0 0 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
