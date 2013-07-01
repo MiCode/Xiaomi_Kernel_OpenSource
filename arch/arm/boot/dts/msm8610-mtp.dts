@@ -116,6 +116,17 @@
 			bosch,oversample = <3>;
 			bosch,period = <1000>;
 		};
+
+		mma8x5x@1d {
+			reg = <0x1d>;
+			compatible = "fsl,mma8x5x";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <81 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			fsl,irq-gpio = <&msmgpio 81 0x00>;
+			fsl,sensors-position = <5>;
+		};
 	};
 
 	gen-vkeys {
