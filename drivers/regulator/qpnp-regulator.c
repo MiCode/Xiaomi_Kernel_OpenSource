@@ -1535,7 +1535,9 @@ static int __devinit qpnp_regulator_probe(struct spmi_device *spmi)
 			&(pdata->init_data), vreg, spmi->dev.of_node);
 	if (IS_ERR(vreg->rdev)) {
 		rc = PTR_ERR(vreg->rdev);
-		vreg_err(vreg, "regulator_register failed, rc=%d\n", rc);
+		if (rc != -EPROBE_DEFER)
+			vreg_err(vreg, "regulator_register failed, rc=%d\n",
+				rc);
 		goto cancel_ocp_work;
 	}
 
@@ -1547,7 +1549,7 @@ cancel_ocp_work:
 	if (vreg->ocp_irq)
 		cancel_delayed_work_sync(&vreg->ocp_work);
 bail:
-	if (rc)
+	if (rc && rc != -EPROBE_DEFER)
 		vreg_err(vreg, "probe failed, rc=%d\n", rc);
 
 	kfree(vreg->rdesc.name);
