@@ -28,5 +28,6 @@
 &soc {
         qcom,mdss_dsi_nt35590_720p_video {
                 status = "ok";
+		qcom,cont-splash-enabled;
         };
 };
