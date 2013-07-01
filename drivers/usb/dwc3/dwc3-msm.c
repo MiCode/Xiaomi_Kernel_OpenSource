@@ -2270,8 +2270,11 @@ static void dwc3_id_work(struct work_struct *w)
 			__func__, ret);
 
 		if (mdwc->pmic_id_irq) {
+			unsigned long flags;
+			local_irq_save(flags);
 			/* ID may have changed while IRQ disabled; update it */
 			mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+			local_irq_restore(flags);
 			enable_irq(mdwc->pmic_id_irq);
 		}
 
