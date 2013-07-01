@@ -125,6 +125,7 @@ struct mpu3050_sensor {
 	u32    poll_interval;
 	u32    dlpf_index;
 	u32    enable_gpio;
+	u32    enable;
 };
 
 struct sensor_regulator {
@@ -299,10 +300,42 @@ static ssize_t mpu3050_attr_set_polling_rate(struct device *dev,
 	return size;
 }
 
+/**
+ *  Set/get enable function is just needed by sensor HAL.
+ *  Normally, the open function does all the initialization
+ *  and power work. And close undo that open does.
+ *  Just keeping the function simple.
+ */
+
+static ssize_t mpu3050_attr_set_enable(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct mpu3050_sensor *sensor = dev_get_drvdata(dev);
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+	sensor->enable = (u32)val;
+
+	return count;
+}
+
+static ssize_t mpu3050_attr_get_enable(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct mpu3050_sensor *sensor = dev_get_drvdata(dev);
+
+	return snprintf(buf, 4, "%d\n", sensor->enable);
+}
+
 static struct device_attribute attributes[] = {
 	__ATTR(pollrate_ms, 0664,
 		mpu3050_attr_get_polling_rate,
 		mpu3050_attr_set_polling_rate),
+	__ATTR(enable, 0664,
+		mpu3050_attr_get_enable,
+		mpu3050_attr_set_enable),
 };
 
 static int create_sysfs_interfaces(struct device *dev)
