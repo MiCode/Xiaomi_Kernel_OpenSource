@@ -147,7 +147,7 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 	 * Increment the refcount to avoid freeing the context while
 	 * cancelling its events
 	 */
-	kref_get(&context->refcount);
+	_kgsl_context_get(context);
 
 	/* Remove ourselves from the master pending list */
 	list_del_init(&context->events_list);
@@ -324,7 +324,7 @@ void kgsl_process_events(struct work_struct *work)
 		 * Increment the refcount to make sure that the list_del_init
 		 * is called with a valid context's list
 		 */
-		kref_get(&context->refcount);
+		_kgsl_context_get(context);
 		/*
 		 * If kgsl_timestamp_expired_context returns 0 then it no longer
 		 * has any pending events and can be removed from the list

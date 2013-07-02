@@ -506,6 +506,20 @@ static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 }
 
 /**
+* _kgsl_context_get() - lightweight function to just increment the ref count
+* @context: Pointer to the KGSL context
+*
+* Get a reference to the specified KGSL context structure. This is a
+* lightweight way to just increase the refcount on a known context rather than
+* walking through kgsl_context_get and searching the iterator
+*/
+static inline void _kgsl_context_get(struct kgsl_context *context)
+{
+	if (context)
+		kref_get(&context->refcount);
+}
+
+/**
  * kgsl_context_get_owner() - get a pointer to a KGSL context in a specific
  * process
  * @dev_priv: Pointer to the process struct
