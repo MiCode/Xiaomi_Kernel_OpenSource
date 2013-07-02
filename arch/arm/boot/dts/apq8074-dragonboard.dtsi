@@ -525,22 +525,7 @@
 };
 
 &spi_epm {
-	epm-adc@0 {
-		compatible = "cy,epm-adc-cy8c5568lti-114";
-		reg = <0>;
-		interrupt-parent = <&msmgpio>;
-		spi-max-frequency = <960000>;
-		qcom,channels = <31>;
-		qcom,gain = <50 50 50 50 50 100 50 50 50 50
-				50 50 50 50 100 50 50 50 50 100
-				50 50 50 100 50 50 50 1 1 1
-				1>;
-		qcom,rsense = <40 10 10 25 10 1000 75 25 10 25
-				33 500 200 10 500 100 33 200 25 100
-				75 500 50 200 5 5 3 1 1 1
-				1>;
-		qcom,channel-type = <0xf0000000>;
-	};
+	status = "disabled";
 };
 
 &spmi_bus {
