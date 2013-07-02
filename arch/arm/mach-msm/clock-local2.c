@@ -210,7 +210,7 @@ static long rcg_clk_round_rate(struct clk *c, unsigned long rate)
 }
 
 /* Return the nth supported frequency for a given clock. */
-static int rcg_clk_list_rate(struct clk *c, unsigned n)
+static long rcg_clk_list_rate(struct clk *c, unsigned n)
 {
 	struct rcg_clk *rcg = to_rcg_clk(c);
 
@@ -459,7 +459,7 @@ static unsigned long branch_clk_get_rate(struct clk *c)
 	return clk_get_rate(c->parent);
 }
 
-static int branch_clk_list_rate(struct clk *c, unsigned n)
+static long branch_clk_list_rate(struct clk *c, unsigned n)
 {
 	int level, fmax = 0, rate;
 	struct branch_clk *branch = to_branch_clk(c);
@@ -934,7 +934,7 @@ static struct clk *cam_mux_clk_get_parent(struct clk *c)
 	return ERR_PTR(-EPERM);
 }
 
-static int cam_mux_clk_list_rate(struct clk *c, unsigned n)
+static long cam_mux_clk_list_rate(struct clk *c, unsigned n)
 {
 	struct cam_mux_clk *mux = to_cam_mux_clk(c);
 	int i;

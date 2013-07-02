@@ -579,7 +579,7 @@ static long rcg_clk_round_rate(struct clk *c, unsigned long rate)
 }
 
 /* Return the nth supported frequency for a given clock. */
-static int rcg_clk_list_rate(struct clk *c, unsigned n)
+static long rcg_clk_list_rate(struct clk *c, unsigned n)
 {
 	struct rcg_clk *rcg = to_rcg_clk(c);
 
@@ -944,7 +944,7 @@ static long cdiv_clk_round_rate(struct clk *c, unsigned long rate)
 	return rate > to_cdiv_clk(c)->max_div ? -EPERM : rate;
 }
 
-static int cdiv_clk_list_rate(struct clk *c, unsigned n)
+static long cdiv_clk_list_rate(struct clk *c, unsigned n)
 {
 	return n > to_cdiv_clk(c)->max_div ? -ENXIO : n;
 }
