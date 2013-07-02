@@ -197,6 +197,14 @@ config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
 
+config MAXIMUM_CURRENT_THROTTLING
+	tristate "CPU current throttling driver"
+	help
+	  Say Y to enable maximum current throttling.
+	  The maximum current throttling driver enables application to
+	  turn on/off CPU based current throttling by setting the
+	  credit/upper limit in the CPU registers.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
