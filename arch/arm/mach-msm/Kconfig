@@ -528,6 +528,7 @@ config ARCH_MSMSAMARIUM
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
+	select QMI_ENCDEC
 endmenu
 
 choice
