@@ -1241,7 +1241,7 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 
 static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 {
-	struct mdss_mdp_data data;
+	struct mdss_mdp_data *buf;
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
 	struct mdss_overlay_private *mdp5_data;
@@ -1271,8 +1271,6 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	memset(&data, 0, sizeof(data));
-
 	bpp = fbi->var.bits_per_pixel / 8;
 	offset = fbi->var.xoffset * bpp +
 		 fbi->var.yoffset * fbi->fix.line_length;
@@ -1289,18 +1287,6 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pan_display_error;
 	}
 
-	if (is_mdss_iommu_attached()) {
-		if (!mfd->iova) {
-			pr_err("mfd iova is zero\n");
-			goto pan_display_error;
-		}
-		data.p[0].addr = mfd->iova;
-	} else
-		data.p[0].addr = fbi->fix.smem_start;
-
-	data.p[0].addr += offset;
-	data.p[0].len = fbi->fix.smem_len - offset;
-	data.num_planes = 1;
 
 	ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe, MDSS_MDP_MIXER_MUX_LEFT);
 	if (ret) {
@@ -1312,12 +1298,22 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		pr_err("unable to map base pipe\n");
 		goto pan_display_error;
 	}
-	ret = mdss_mdp_pipe_queue_data(pipe, &data);
-	mdss_mdp_pipe_unmap(pipe);
-	if (ret) {
-		pr_err("unable to queue data\n");
-		goto pan_display_error;
+
+	buf = &pipe->back_buf;
+	if (is_mdss_iommu_attached()) {
+		if (!mfd->iova) {
+			pr_err("mfd iova is zero\n");
+			goto pan_display_error;
+		}
+		buf->p[0].addr = mfd->iova;
+	} else {
+		buf->p[0].addr = fbi->fix.smem_start;
 	}
+
+	buf->p[0].addr += offset;
+	buf->p[0].len = fbi->fix.smem_len - offset;
+	buf->num_planes = 1;
+	mdss_mdp_pipe_unmap(pipe);
 
 	if (fbi->var.xres > MAX_MIXER_WIDTH || mfd->split_display) {
 		ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe,
@@ -1330,12 +1326,8 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			pr_err("unable to map right base pipe\n");
 			goto pan_display_error;
 		}
-		ret = mdss_mdp_pipe_queue_data(pipe, &data);
+		pipe->back_buf = *buf;
 		mdss_mdp_pipe_unmap(pipe);
-		if (ret) {
-			pr_err("unable to queue right data\n");
-			goto pan_display_error;
-		}
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
 
