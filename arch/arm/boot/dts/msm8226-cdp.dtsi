@@ -114,8 +114,6 @@
 
 &sdcc1 {
 	vdd-supply = <&pm8226_l17>;
-	qcom,vdd-always-on;
-	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <800 500000>;
 
@@ -140,8 +138,6 @@
 
 &sdhc_1 {
 	vdd-supply = <&pm8226_l17>;
-	qcom,vdd-always-on;
-	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <800 500000>;
 
