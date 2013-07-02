@@ -141,6 +141,8 @@ void mdp3_irq_enable(int type);
 void mdp3_irq_disable(int type);
 void mdp3_irq_disable_nosync(int type);
 int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb);
+void mdp3_irq_register(void);
+void mdp3_irq_deregister(void);
 int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate, int client);
 int mdp3_clk_enable(int enable);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
