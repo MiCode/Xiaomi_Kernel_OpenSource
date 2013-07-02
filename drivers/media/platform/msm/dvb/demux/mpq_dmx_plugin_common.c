@@ -1635,7 +1635,17 @@ static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
 			__func__, ret);
 		goto failed_unmap_metadata_buf;
 	}
-	metadata_buff_desc->base_addr = (void *)temp;
+
+	/*
+	 * NOTE: the following casting to u32 must be done
+	 * as long as TZ does not support LPAE. Once TZ supports
+	 * LPAE SDMX interface needs to be updated accordingly.
+	 */
+	if (temp > 0xFFFFFFFF)
+		MPQ_DVB_ERR_PRINT(
+			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
+			__func__, &temp);
+	metadata_buff_desc->base_addr = (void *)(u32)temp;
 
 	dvb_ringbuffer_init(&feed->metadata_buf, metadata_buff_base,
 		SDMX_METADATA_BUFFER_SIZE);
@@ -2273,7 +2283,16 @@ static int mpq_sdmx_dvr_buffer_desc(struct mpq_demux *mpq_demux,
 		return ret;
 	}
 
-	buf_desc->base_addr = (void *)phys_addr;
+	/*
+	 * NOTE: the following casting to u32 must be done
+	 * as long as TZ does not support LPAE. Once TZ supports
+	 * LPAE SDMX interface needs to be updated accordingly.
+	 */
+	if (phys_addr > 0xFFFFFFFF)
+		MPQ_DVB_ERR_PRINT(
+			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
+			__func__, &phys_addr);
+	buf_desc->base_addr = (void *)(u32)phys_addr;
 	buf_desc->size = rbuf->size;
 
 	return 0;
@@ -3405,8 +3424,19 @@ static int mpq_sdmx_get_buffer_chunks(struct mpq_demux *mpq_demux,
 
 	sg = sg_ptr->sgl;
 	for (i = 0; i < sg_ptr->nents; i++) {
+		/*
+		 * NOTE: the following casting to u32 must be done
+		 * as long as TZ does not support LPAE. Once TZ supports
+		 * LPAE SDMX interface needs to be updated accordingly.
+		 */
+		if (sg_dma_address(sg) > 0xFFFFFFFF)
+			MPQ_DVB_ERR_PRINT(
+				"%s: WARNNING - physical address %pa is larger than 32bits!\n",
+				__func__, &sg_dma_address(sg));
+
 		buff_chunks[i].base_addr =
-			(void *)sg_dma_address(sg);
+			(void *)(u32)sg_dma_address(sg);
+
 		if (sg->length > actual_buff_size)
 			chunk_size = actual_buff_size;
 		else
