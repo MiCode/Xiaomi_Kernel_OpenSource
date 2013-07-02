@@ -25,7 +25,7 @@ struct msm_tspp_platform_data {
 
 struct tspp_data_descriptor {
 	void *virt_base;   /* logical address of the actual data */
-	u32 phys_base;     /* physical address of the actual data */
+	phys_addr_t phys_base; /* physical address of the actual data */
 	u32 size;          /* size of buffer in bytes */
 	int id;            /* unique identifier */
 	void *user;        /* user-defined data */
@@ -33,9 +33,9 @@ struct tspp_data_descriptor {
 
 typedef void (tspp_notifier)(int channel_id, void *user);
 typedef void* (tspp_allocator)(int channel_id, u32 size,
-	u32 *phys_base, void *user);
+	phys_addr_t *phys_base, void *user);
 typedef void (tspp_memfree)(int channel_id, u32 size,
-	void *virt_base, u32 phys_base, void *user);
+	void *virt_base, phys_addr_t phys_base, void *user);
 
 /* Kernel API functions */
 int tspp_open_stream(u32 dev, u32 channel_id,

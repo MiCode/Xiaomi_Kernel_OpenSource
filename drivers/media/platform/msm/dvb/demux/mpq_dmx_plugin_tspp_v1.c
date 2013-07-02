@@ -195,7 +195,7 @@ static struct
 } mpq_dmx_tspp_info;
 
 static void *tspp_mem_allocator(int channel_id, u32 size,
-				u32 *phys_base, void *user)
+				phys_addr_t *phys_base, void *user)
 {
 	void *virt_addr = NULL;
 	int i = TSPP_GET_TSIF_NUM(channel_id);
@@ -218,7 +218,7 @@ static void *tspp_mem_allocator(int channel_id, u32 size,
 }
 
 static void tspp_mem_free(int channel_id, u32 size,
-			void *virt_base, u32 phys_base, void *user)
+			void *virt_base, phys_addr_t phys_base, void *user)
 {
 	int i = TSPP_GET_TSIF_NUM(channel_id);
 
@@ -372,7 +372,18 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 
 	buff_start_addr_phys =
 		mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
-	input.base_addr = (void *)buff_start_addr_phys;
+
+	/*
+	 * NOTE: the following casting to u32 must be done
+	 * as long as TZ does not support LPAE. Once TZ supports
+	 * LPAE SDMX interface needs to be updated accordingly.
+	 */
+	if (buff_start_addr_phys > 0xFFFFFFFF)
+		MPQ_DVB_ERR_PRINT(
+			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
+			__func__, &buff_start_addr_phys);
+
+	input.base_addr = (void *)(u32)buff_start_addr_phys;
 	input.size = mpq_dmx_tspp_info.tsif[tsif].buffer_count *
 		TSPP_DESCRIPTOR_SIZE;
 
@@ -381,7 +392,7 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 			"%s: SDMX Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
 			__func__, aggregate_count, aggregate_len,
 			(unsigned int)input.base_addr,
-			buff_current_addr_phys - buff_start_addr_phys);
+			(int)(buff_current_addr_phys - buff_start_addr_phys));
 
 		mpq_sdmx_process(mpq_demux, &input, aggregate_len,
 			buff_current_addr_phys - buff_start_addr_phys,
