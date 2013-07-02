@@ -140,7 +140,7 @@ static void mmc_bus_shutdown(struct device *dev)
 		return;
 	}
 
-	if (drv->shutdown)
+	if (dev->driver && drv->shutdown)
 		drv->shutdown(card);
 
 	if (host->bus_ops->shutdown) {
