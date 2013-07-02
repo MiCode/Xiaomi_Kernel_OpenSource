@@ -504,6 +504,26 @@ static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
 }
 
 /**
+ * adreno_context_timestamp() - Return the last queued timestamp for the context
+ * @k_ctxt: Pointer to the KGSL context to query
+ * @rb: Pointer to the ringbuffer structure for the GPU
+ *
+ * Return the last queued context for the given context. This is used to verify
+ * that incoming requests are not using an invalid (unsubmitted) timestamp
+ */
+static inline int adreno_context_timestamp(struct kgsl_context *k_ctxt,
+		struct adreno_ringbuffer *rb)
+{
+	if (k_ctxt) {
+		struct adreno_context *a_ctxt = ADRENO_CONTEXT(k_ctxt);
+
+		if (a_ctxt->flags & CTXT_FLAGS_PER_CONTEXT_TS)
+			return a_ctxt->timestamp;
+	}
+	return rb->global_ts;
+}
+
+/**
  * adreno_encode_istore_size - encode istore size in CP format
  * @adreno_dev - The 3D device.
  *

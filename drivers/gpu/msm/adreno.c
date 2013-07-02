@@ -906,8 +906,7 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	adreno_ringbuffer_issuecmds(device, adreno_ctx, KGSL_CMD_FLAGS_PMODE,
 			&link[0], sizedwords);
 
-	kgsl_mmu_disable_clk_on_ts(&device->mmu,
-		rb->timestamp[KGSL_MEMSTORE_GLOBAL], true);
+	kgsl_mmu_disable_clk_on_ts(&device->mmu, rb->global_ts, true);
 	kgsl_context_put(context);
 }
 
@@ -1723,7 +1722,6 @@ static int __devexit adreno_remove(struct platform_device *pdev)
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	int i;
 
 	if (KGSL_STATE_DUMP_AND_FT != device->state)
@@ -1763,8 +1761,6 @@ static int adreno_init(struct kgsl_device *device)
 		(adreno_dev->pfp_fw_version >=
 		adreno_gpulist[adreno_dev->gpulist_index].sync_lock_pfp_ver))
 		device->mmu.flags |= KGSL_MMU_FLAGS_IOMMU_SYNC;
-
-	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = 0;
 
 	/* Initialize ft detection register offsets */
 	ft_detect_regs[0] = adreno_getreg(adreno_dev,
@@ -1953,20 +1949,16 @@ static void adreno_mark_context_status(struct kgsl_device *device,
 static int _set_max_ts(int id, void *ptr, void *data)
 {
 	struct kgsl_device *device = data;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	struct kgsl_context *context = ptr;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
 
-	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG) {
+	if (drawctxt && drawctxt->flags & CTXT_FLAGS_GPU_HANG) {
 		kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id,
-			soptimestamp),
-			rb->timestamp[context->id]);
+			soptimestamp), drawctxt->timestamp);
 		kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id,
-			eoptimestamp),
-			rb->timestamp[context->id]);
+			eoptimestamp), drawctxt->timestamp);
 	}
 
 	return 0;
@@ -2678,7 +2670,6 @@ adreno_ft(struct kgsl_device *device,
 	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned int timestamp;
 
 	/*
 	 * If GPU FT is turned off do not run FT.
@@ -2695,8 +2686,8 @@ adreno_ft(struct kgsl_device *device,
 	"Bad context_id: %u, global_eop: 0x%x\n",
 	ft_data->ib1, ft_data->context_id, ft_data->global_eop);
 
-	timestamp = rb->timestamp[KGSL_MEMSTORE_GLOBAL];
-	KGSL_FT_INFO(device, "Last issued global timestamp: %x\n", timestamp);
+	KGSL_FT_INFO(device, "Last issued global timestamp: %x\n",
+			rb->global_ts);
 
 	/* We may need to replay commands multiple times based on whether
 	 * multiple contexts hang the GPU */
@@ -2728,11 +2719,9 @@ adreno_ft(struct kgsl_device *device,
 			adreno_dev->drawctxt_active->base.pagetable;
 	else
 		device->mmu.hwpagetable = device->mmu.defaultpagetable;
-	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = timestamp;
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-			eoptimestamp),
-			rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+			eoptimestamp), rb->global_ts);
 
 	/* switch to NULL ctxt */
 	if (adreno_dev->drawctxt_active != NULL)
@@ -3419,7 +3408,7 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 	if (is_adreno_rbbm_status_idle(device) &&
 		(kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED)
-		== rb->timestamp[KGSL_MEMSTORE_GLOBAL])) {
+		 == rb->global_ts)) {
 
 		/*
 		 * On A2XX if the RPTR != WPTR and the device is idle, then
@@ -3588,7 +3577,7 @@ static int _check_pending_timestamp(struct kgsl_device *device,
 	if (context_id == KGSL_CONTEXT_INVALID)
 		return -EINVAL;
 
-	ts_issued = adreno_dev->ringbuffer.timestamp[context_id];
+	ts_issued = adreno_context_timestamp(context, &adreno_dev->ringbuffer);
 
 	if (timestamp_cmp(timestamp, ts_issued) <= 0)
 		return 0;
@@ -3631,8 +3620,6 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	unsigned int wait;
 	int ts_compare = 1;
 	int io, ret = -ETIMEDOUT;
-
-	/* Get out early if the context has already been destroyed */
 
 	if (context_id == KGSL_CONTEXT_INVALID) {
 		KGSL_DRV_WARN(device, "context was detached");
@@ -3771,9 +3758,9 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 	switch (type) {
 	case KGSL_TIMESTAMP_QUEUED: {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
-		timestamp = rb->timestamp[context_id];
+		timestamp = adreno_context_timestamp(context,
+				&adreno_dev->ringbuffer);
 		break;
 	}
 	case KGSL_TIMESTAMP_CONSUMED:
