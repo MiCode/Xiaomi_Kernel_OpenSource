@@ -1757,6 +1757,10 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 			return -EPERM;
 		ret = mdss_misr_crc_set(mdata, &metadata->data.misr_request);
 		break;
+	case metadata_op_wb_format:
+		ret = mdss_mdp_wb_set_format(mfd,
+				metadata->data.mixer_cfg.writeback_format);
+		break;
 	default:
 		pr_warn("unsupported request to MDP META IOCTL\n");
 		ret = -EINVAL;
@@ -1797,6 +1801,9 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		if (!mfd->panel_power_on)
 			return -EPERM;
 		ret = mdss_misr_crc_get(mdata, &metadata->data.misr_request);
+		break;
+	case metadata_op_wb_format:
+		ret = mdss_mdp_wb_get_format(mfd, &metadata->data.mixer_cfg);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");

@@ -579,6 +579,10 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
 					       u32 return_type);
 
+int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format);
+int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
+					struct mdp_mixer_cfg *mixer_cfg);
+
 #define mfd_to_mdp5_data(mfd) (mfd->mdp.private1)
 #define mfd_to_mdata(mfd) (((struct mdss_overlay_private *)\
 				(mfd->mdp.private1))->mdata)
