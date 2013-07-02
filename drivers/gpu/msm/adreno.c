@@ -820,6 +820,27 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 	return cmds - cmds_orig;
 }
 
+/**
+ * adreno_use_default_setstate() - Use CPU instead of the GPU to manage the mmu?
+ * @adreno_dev: the device
+ *
+ * In many cases it is preferable to poke the iommu or gpummu directly rather
+ * than using the GPU command stream. If we are idle or trying to go to a low
+ * power state, using the command stream will be slower and asynchronous, which
+ * needlessly complicates the power state transitions. Additionally,
+ * the hardware simulators do not support command stream MMU operations so
+ * the command stream can never be used if we are capturing CFF data.
+ *
+ */
+static bool adreno_use_default_setstate(struct adreno_device *adreno_dev)
+{
+	return (adreno_isidle(&adreno_dev->dev) ||
+		adreno_dev->drawctxt_active == NULL ||
+		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
+		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
+		adreno_dev->dev.cff_dump_enable);
+}
+
 static void adreno_iommu_setstate(struct kgsl_device *device,
 					unsigned int context_id,
 					uint32_t flags)
@@ -834,10 +855,7 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	struct adreno_context *adreno_ctx = NULL;
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
-	if (!adreno_dev->drawctxt_active ||
-		KGSL_STATE_ACTIVE != device->state ||
-		!atomic_read(&device->active_cnt) ||
-		device->cff_dump_enable) {
+	if (adreno_use_default_setstate(adreno_dev)) {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
 		return;
 	}
@@ -917,7 +935,7 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 	 * writes For CFF dump we must idle and use the registers so that it is
 	 * easier to filter out the mmu accesses from the dump
 	 */
-	if (!device->cff_dump_enable && adreno_dev->drawctxt_active) {
+	if (!adreno_use_default_setstate(adreno_dev)) {
 		context = kgsl_context_get(device, context_id);
 		if (context == NULL)
 			return;
