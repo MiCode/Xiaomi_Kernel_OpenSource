@@ -176,4 +176,11 @@
 			qcom,irq-no-suspend;
 		};
 	};
+
+	qcom,bam_dmux@fc834000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0xfc834000 0x7000>;
+		interrupts = <0 29 1>;
+		qcom,rx-ring-size = <64>;
+	};
 };
