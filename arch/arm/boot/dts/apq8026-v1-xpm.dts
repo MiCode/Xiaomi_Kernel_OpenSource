@@ -10,15 +10,13 @@
  * GNU General Public License for more details.
  */
 
-/*
- * Only 8026-specific property overrides should be placed inside this
- * file. Device definitions should be placed inside the msm8226.dtsi
- * file.
- */
 
-/include/ "msm8226.dtsi"
+/dts-v1/;
+/include/ "apq8026-v1.dtsi"
+/include/ "msm8226-cdp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8026";
-	compatible = "qcom,apq8026";
+	model = "Qualcomm APQ 8026 XPM";
+	compatible = "qcom,apq8026-xpm", "qcom,apq8026", "qcom,xpm";
+	qcom,msm-id = <199 14 0>;
 };
