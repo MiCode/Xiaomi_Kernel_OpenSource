@@ -367,12 +367,12 @@ int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 			   (rb->sizedwords << 2));
 
 	if (adreno_is_a2xx(adreno_dev)) {
-		adreno_regwrite(device, REG_CP_RB_WPTR_BASE,
+		kgsl_regwrite(device, REG_CP_RB_WPTR_BASE,
 			(rb->memptrs_desc.gpuaddr
 			+ GSL_RB_MEMPTRS_WPTRPOLL_OFFSET));
 
 		/* setup WPTR delay */
-		adreno_regwrite(device, REG_CP_RB_WPTR_DELAY,
+		kgsl_regwrite(device, REG_CP_RB_WPTR_DELAY,
 			0 /*0x70000010 */);
 	}
 
@@ -412,33 +412,33 @@ int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 
 	if (adreno_is_a3xx(adreno_dev)) {
 		/* enable access protection to privileged registers */
-		adreno_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
 
 		/* RBBM registers */
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_0, 0x63000040);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_1, 0x62000080);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_2, 0x600000CC);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_3, 0x60000108);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_4, 0x64000140);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_5, 0x66000400);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0, 0x63000040);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_1, 0x62000080);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_2, 0x600000CC);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_3, 0x60000108);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_4, 0x64000140);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_5, 0x66000400);
 
 		/* CP registers */
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_6, 0x65000700);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_7, 0x610007D8);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_8, 0x620007E0);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_9, 0x61001178);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_A, 0x64001180);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_6, 0x65000700);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_7, 0x610007D8);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_8, 0x620007E0);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_9, 0x61001178);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_A, 0x64001180);
 
 		/* RB registers */
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_B, 0x60003300);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_B, 0x60003300);
 
 		/* VBIF registers */
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_C, 0x6B00C000);
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_C, 0x6B00C000);
 	}
 
 	if (adreno_is_a2xx(adreno_dev)) {
 		/* explicitly clear all cp interrupts */
-		adreno_regwrite(device, REG_CP_INT_ACK, 0xFFFFFFFF);
+		kgsl_regwrite(device, REG_CP_INT_ACK, 0xFFFFFFFF);
 	}
 
 	/* setup scratch/timestamp */
@@ -453,9 +453,9 @@ int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
 	if (adreno_is_a305(adreno_dev) || adreno_is_a305c(adreno_dev) ||
 		adreno_is_a320(adreno_dev))
-		adreno_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x000E0602);
+		kgsl_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x000E0602);
 	else if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
-		adreno_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x003E2008);
+		kgsl_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x003E2008);
 
 	rb->wptr = 0;
 
@@ -531,7 +531,7 @@ void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
 
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		if (adreno_is_a200(adreno_dev))
-			adreno_regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
+			kgsl_regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
 
 		rb->flags &= ~KGSL_FLAGS_STARTED;
 	}

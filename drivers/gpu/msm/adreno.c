@@ -1043,9 +1043,9 @@ a2xx_getchipid(struct kgsl_device *device)
 	if (pdata->chipid != 0)
 		return pdata->chipid;
 
-	adreno_regread(device, REG_RBBM_PERIPHID1, &coreid);
-	adreno_regread(device, REG_RBBM_PERIPHID2, &majorid);
-	adreno_regread(device, REG_RBBM_PATCH_RELEASE, &revid);
+	kgsl_regread(device, REG_RBBM_PERIPHID1, &coreid);
+	kgsl_regread(device, REG_RBBM_PERIPHID2, &majorid);
+	kgsl_regread(device, REG_RBBM_PATCH_RELEASE, &revid);
 
 	/*
 	* adreno 22x gpus are indicated by coreid 2,
@@ -3138,6 +3138,7 @@ uint8_t *adreno_convertaddr(struct kgsl_device *device, phys_addr_t pt_base,
 	return memdesc ? kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr) : NULL;
 }
 
+
 /**
  * adreno_read - General read function to read adreno device memory
  * @device - Pointer to the GPU device struct (for adreno device)
@@ -3170,7 +3171,7 @@ static void adreno_read(struct kgsl_device *device, void *base,
  * @offsetwords - Word (4 Bytes) offset to the register to be read
  * @value - Value read from device register
  */
-void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
+static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	unsigned int *value)
 {
 	adreno_read(device, device->reg_virt, offsetwords, value,
@@ -3190,7 +3191,8 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 					device->shader_mem_len);
 }
 
-void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+static void adreno_regwrite(struct kgsl_device *device,
+				unsigned int offsetwords,
 				unsigned int value)
 {
 	unsigned int *reg;
@@ -3396,7 +3398,7 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
 		if (ft_detect_regs[i] == 0)
 			continue;
-		adreno_regread(device, ft_detect_regs[i],
+		kgsl_regread(device, ft_detect_regs[i],
 			&curr_reg_val[i]);
 	}
 
