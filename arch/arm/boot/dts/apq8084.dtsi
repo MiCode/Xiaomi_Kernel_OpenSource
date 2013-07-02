@@ -244,7 +244,7 @@
 
 	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x0dc00000 0x2000000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x0d200000 0x02c00000>; /* Address and Size of Hole */
 	};
 
 	qcom,ipc-spinlock@fd484000 {
