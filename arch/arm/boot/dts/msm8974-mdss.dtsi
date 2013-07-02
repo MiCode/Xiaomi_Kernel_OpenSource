@@ -41,6 +41,7 @@
 		qcom,mdss-intf-off = <0x00021100 0x00021300
 					   0x00021500 0x00021700>;
 
+		qcom,mdss-has-wfd-blk;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>,
 				     <0x00F0 0x00000030>,
