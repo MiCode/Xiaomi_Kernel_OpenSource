@@ -40,7 +40,10 @@ struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
 	u8 active; /* track if this backend is enabled */
 	unsigned long fe_sessions; /* Front-end sessions */
-	unsigned long port_sessions; /* track Tx BE ports -> Rx BE */
+	u64 port_sessions; /* track Tx BE ports -> Rx BE
+			    * number of BE should not exceed
+			    * the size of this field
+			    */
 	unsigned int  sample_rate;
 	unsigned int  channel;
 	unsigned int  format;
@@ -975,7 +978,8 @@ static int msm_routing_get_port_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 	(struct soc_mixer_control *)kcontrol->private_value;
 
-	if (test_bit(mc->shift, &msm_bedais[mc->reg].port_sessions))
+	if (test_bit(mc->shift,
+		(unsigned long *)&msm_bedais[mc->reg].port_sessions))
 		ucontrol->value.integer.value[0] = 1;
 	else
 		ucontrol->value.integer.value[0] = 0;
@@ -992,19 +996,19 @@ static int msm_routing_put_port_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pr_debug("%s: reg %x shift %x val %ld\n", __func__, mc->reg,
+	pr_debug("%s: reg 0x%x shift 0x%x val %ld\n", __func__, mc->reg,
 		mc->shift, ucontrol->value.integer.value[0]);
 
 	if (ucontrol->value.integer.value[0]) {
 		afe_loopback(1, msm_bedais[mc->reg].port_id,
 			    msm_bedais[mc->shift].port_id);
 		set_bit(mc->shift,
-		&msm_bedais[mc->reg].port_sessions);
+		(unsigned long *)&msm_bedais[mc->reg].port_sessions);
 	} else {
 		afe_loopback(0, msm_bedais[mc->reg].port_id,
 			    msm_bedais[mc->shift].port_id);
 		clear_bit(mc->shift,
-		&msm_bedais[mc->reg].port_sessions);
+		(unsigned long *)&msm_bedais[mc->reg].port_sessions);
 	}
 
 	return 1;
