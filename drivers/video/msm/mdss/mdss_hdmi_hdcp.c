@@ -895,6 +895,7 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 	struct delayed_work *dw = to_delayed_work(work);
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = container_of(dw,
 		struct hdmi_hdcp_ctrl, hdcp_auth_work);
+	struct dss_io_data *io;
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -906,6 +907,11 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 			HDCP_STATE_NAME);
 		return;
 	}
+
+	io = hdcp_ctrl->init_data.core_io;
+	/* Enabling Software DDC */
+	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+				HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
 	rc = hdmi_hdcp_authentication_part1(hdcp_ctrl);
 	if (rc) {
@@ -920,6 +926,10 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 			HDCP_STATE_NAME);
 		goto error;
 	}
+	/* Disabling software DDC before going into part3 to make sure
+	 * there is no Arbitratioon between software and hardware for DDC */
+	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+				HDMI_DDC_ARBITRATION) | (BIT(4)));
 
 error:
 	/*
