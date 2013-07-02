@@ -22,3 +22,8 @@
 	model = "Qualcomm APQ 8026";
 	compatible = "qcom,apq8026";
 };
+
+&tsens {
+	qcom,sensors = <4>;
+	qcom,slope = <2901 2846 3038 2955>;
+};
