@@ -439,6 +439,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	mdp3_irq_register();
+
 	rc = mdp3_ctrl_dma_init(mfd, mdp3_session->dma);
 	if (rc) {
 		pr_err("dma init failed\n");
@@ -503,6 +505,8 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	if (rc)
 		pr_err("fail to stop the MDP3 dma\n");
+
+	mdp3_irq_deregister();
 
 	pr_debug("mdp3_ctrl_off stop dsi panel and controller\n");
 	panel = mdp3_session->panel;
