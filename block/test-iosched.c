@@ -784,9 +784,9 @@ int test_iosched_start_test(struct test_info *t_info)
 		test_pr_info("%s: Waiting for the test completion", __func__);
 
 		wait_event(ptd->wait_q, ptd->test_state == TEST_COMPLETED);
-		t_info->test_duration = ptd->test_info.test_duration;
-		t_info->test_byte_count = ptd->test_info.test_byte_count;
 		del_timer_sync(&ptd->timeout_timer);
+
+		memcpy(t_info, &ptd->test_info, sizeof(struct test_info));
 
 		ret = check_test_result(ptd);
 		if (ret) {
