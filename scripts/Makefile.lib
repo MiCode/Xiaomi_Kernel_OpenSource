@@ -241,6 +241,13 @@ quiet_cmd_gzip = GZIP    $@
 cmd_gzip = (cat $(filter-out FORCE,$^) | gzip -n -f -9 > $@) || \
 	(rm -f $@ ; false)
 
+# Minigzip
+# ---------------------------------------------------------------------------
+
+quiet_cmd_minigzip = MINGZIP $@
+cmd_minigzip = (cat $(filter-out FORCE,$^) | minigzip -c -9 > $@) || \
+	(rm -f $@ ; false)
+
 # DTC
 # ---------------------------------------------------------------------------
 

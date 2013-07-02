@@ -119,7 +119,7 @@ static char *vidmem;
 static int vidport;
 static int lines, cols;
 
-#ifdef CONFIG_KERNEL_GZIP
+#if defined(CONFIG_KERNEL_GZIP) || defined(CONFIG_KERNEL_MINIGZIP)
 #include "../../../../lib/decompress_inflate.c"
 #endif
 

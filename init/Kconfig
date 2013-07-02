@@ -100,6 +100,9 @@ config LOCALVERSION_AUTO
 config HAVE_KERNEL_GZIP
 	bool
 
+config HAVE_KERNEL_MINIGZIP
+	bool
+
 config HAVE_KERNEL_BZIP2
 	bool
 
@@ -118,7 +121,7 @@ config HAVE_KERNEL_LZ4
 choice
 	prompt "Kernel compression mode"
 	default KERNEL_GZIP
-	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_BZIP2 || HAVE_KERNEL_LZMA || HAVE_KERNEL_XZ || HAVE_KERNEL_LZO || HAVE_KERNEL_LZ4
+	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_MINIGZIP || HAVE_KERNEL_BZIP2 || HAVE_KERNEL_LZMA || HAVE_KERNEL_XZ || HAVE_KERNEL_LZO || HAVE_KERNEL_LZ4
 	help
 	  The linux kernel is a kind of self-extracting executable.
 	  Several compression algorithms are available, which differ
@@ -143,6 +146,19 @@ config KERNEL_GZIP
 	help
 	  The old and tried gzip compression. It provides a good balance
 	  between compression ratio and decompression speed.
+
+config KERNEL_MINIGZIP
+	bool "Minigzip"
+	depends on HAVE_KERNEL_MINIGZIP
+	help
+	  Use minigzip to compress the bzImage. This is very similar to gzip
+	  but uses the zlib library to compress, rather than the very old version
+	  of zlib inside the gzip codebase. This is used for Android kernels
+	  so that the same version of the deflate() algorithm is used when
+	  building the kernel and constructing diffs with OTA applypatch, which
+	  uncompresses sections of files that it detects are gzipped before computing
+	  the diffs. If the versions of deflate() are out of alignment the binary
+	  diffs tend to be very large.
 
 config KERNEL_BZIP2
 	bool "Bzip2"
