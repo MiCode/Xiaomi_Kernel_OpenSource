@@ -328,6 +328,16 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	/* Save the old context */
 	adreno_dev->gpudev->ctxt_save(adreno_dev, adreno_dev->drawctxt_active);
 
+	/* Put the old instance of the active drawctxt */
+	if (adreno_dev->drawctxt_active) {
+		kgsl_context_put(&adreno_dev->drawctxt_active->base);
+		adreno_dev->drawctxt_active = NULL;
+	}
+
+	/* Get a refcount to the new instance */
+	if (drawctxt)
+		_kgsl_context_get(&drawctxt->base);
+
 	/* Set the new context */
 	adreno_dev->gpudev->ctxt_restore(adreno_dev, drawctxt);
 	adreno_dev->drawctxt_active = drawctxt;
