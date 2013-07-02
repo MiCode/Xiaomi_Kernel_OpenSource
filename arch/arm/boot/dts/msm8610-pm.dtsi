@@ -22,10 +22,10 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 07 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
 	};
 
 	qcom,spm@f9099000 {
@@ -39,11 +39,11 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 07 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
-	};
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
+		};
 
 	qcom,spm@f90a9000 {
 		compatible = "qcom,spm-v2";
@@ -73,10 +73,10 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 07 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
 	};
 
 	qcom,spm@f9012000 {
@@ -95,10 +95,10 @@
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,pfm-port = <0x2>;
-		qcom,saw2-spm-cmd-ret = [00 03 00 7b 0f];
+		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-pc = [00 32 b0 10 e0 d0 6b c0 42 f0
-				11 07 01 b0 4e c0 d0 12 e0 6b 50 02 32
-				50 f0 7b 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
+				11 07 01 b0 50 4e 02 02 c0 d0 12 e0 6b 02 32
+				50 f0 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
 	};
 
 	qcom,lpm-resources {
