@@ -27,10 +27,12 @@
 #include <mach/socinfo.h>
 #include <mach/clk-provider.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_smd.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
 #include "platsmp.h"
+#include "modem_notifier.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
@@ -102,6 +104,8 @@ static void __init msmsamarium_early_memory(void)
 void __init msmsamarium_add_drivers(void)
 {
 	msm_smem_init();
+	msm_init_modem_notifier_list();
+	msm_smd_init();
 	msm_clock_init(&msm_dummy_clock_init_data);
 }
 
