@@ -2852,8 +2852,8 @@ fail_protect_mem:
 	venus_hfi_disable_clks(device);
 fail_enable_clks:
 	subsystem_put(device->resources.fw.cookie);
-	device->resources.fw.cookie = NULL;
 fail_load_fw:
+	device->resources.fw.cookie = NULL;
 	venus_hfi_iommu_detach(device);
 fail_iommu_attach:
 	return rc;
