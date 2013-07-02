@@ -137,7 +137,7 @@
 			reg = <0x3>;
 			qcom,name = "l2";
 			qcom,local-resource-type;
-			qcom,init-value = "l2_cache_retention";
+			qcom,init-value = "l2_cache_active";
 		};
 	};
 
