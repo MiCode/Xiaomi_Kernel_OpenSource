@@ -1557,7 +1557,7 @@ static const char *chg_to_string(enum dwc3_chg_type chg_type)
 	case DWC3_DCP_CHARGER:		return "USB_DCP_CHARGER";
 	case DWC3_CDP_CHARGER:		return "USB_CDP_CHARGER";
 	case DWC3_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
-	case DWC3_UNSUPPORTED_CHARGER:	return "INVALID_CHARGER";
+	case DWC3_FLOATED_CHARGER:	return "USB_FLOATED_CHARGER";
 	default:			return "UNKNOWN_CHARGER";
 	}
 }
@@ -1571,6 +1571,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, chg_work.work);
 	bool is_dcd = false, tmout, vout;
+	static bool dcd;
 	unsigned long delay;
 
 	dev_dbg(mdwc->dev, "chg detection work\n");
@@ -1586,19 +1587,15 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		is_dcd = dwc3_chg_check_dcd(mdwc);
 		tmout = ++mdwc->dcd_retries == DWC3_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
+			if (is_dcd)
+				dcd = true;
+			else
+				dcd = false;
 			dwc3_chg_disable_dcd(mdwc);
+			usleep_range(1000, 1200);
 			if (dwc3_chg_det_check_linestate(mdwc)) {
-				dwc3_chg_enable_primary_det(mdwc);
-				usleep_range(1000, 1200);
-				vout = dwc3_chg_det_check_output(mdwc);
-				if (!vout)
-					mdwc->charger.chg_type =
-						DWC3_UNSUPPORTED_CHARGER;
-				else
-					mdwc->charger.chg_type =
+				mdwc->charger.chg_type =
 						DWC3_PROPRIETARY_CHARGER;
-				dwc3_msm_write_reg(mdwc->base,
-						CHARGING_DET_CTRL_REG, 0x0);
 				mdwc->chg_state = USB_CHG_STATE_DETECTED;
 				delay = 0;
 				break;
@@ -1617,7 +1614,15 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			delay = DWC3_CHG_SECONDARY_DET_TIME;
 			mdwc->chg_state = USB_CHG_STATE_PRIMARY_DONE;
 		} else {
-			mdwc->charger.chg_type = DWC3_SDP_CHARGER;
+			/*
+			 * Detect floating charger only if propreitary
+			 * charger detection is enabled.
+			 */
+			if (!dcd && prop_chg_detect)
+				mdwc->charger.chg_type =
+						DWC3_FLOATED_CHARGER;
+			else
+				mdwc->charger.chg_type = DWC3_SDP_CHARGER;
 			mdwc->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
