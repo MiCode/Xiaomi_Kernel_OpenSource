@@ -2160,6 +2160,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	u8 i = 0;
 	bool reset_bam;
 	enum usb_bam bam;
+	u32 addr;
 
 	ctx.max_connections = 0;
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -2176,9 +2177,11 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	}
 
 	rc = of_property_read_u32(node, "qcom,usb-bam-fifo-baseaddr",
-		&pdata->usb_bam_fifo_baseaddr);
+			&addr);
 	if (rc)
 		pr_debug("%s: Invalid usb base address property\n", __func__);
+	else
+		pdata->usb_bam_fifo_baseaddr = addr;
 
 	pdata->ignore_core_reset_ack = of_property_read_bool(node,
 		"qcom,ignore-core-reset-ack");
