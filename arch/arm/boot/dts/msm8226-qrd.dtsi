@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+/include/ "dsi-panel-nt35596-1080p-video.dtsi"
 /include/ "msm8226-camera-sensor-qrd.dtsi"
 
 &soc {
@@ -31,6 +32,33 @@
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
 		};
+		focaltech@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			vcc_i2c-supply = <&pm8226_lvs1>;
+			focaltech,family-id = <0x55>;
+			focaltech,reset-gpio = <&msmgpio 16 0x00>;
+			focaltech,irq-gpio = <&msmgpio 17 0x00>;
+			focaltech,display-coords = <0 0 1080 1920>;
+			focaltech,panel-coords = <0 0 1080 2000>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <1080>;
+		qcom,disp-maxy = <1920>;
+		qcom,panel-maxx = <1080>;
+		qcom,panel-maxy = <2080>;
+		qcom,key-codes = <139 102 158>;
+		qcom,y-offset = <0>;
 	};
 
 	gpio_keys {
