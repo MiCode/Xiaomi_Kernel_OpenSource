@@ -561,6 +561,7 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 	caps->max_bitrate = 144;
 	caps->demod_input_max_bitrate = 72;
 	caps->memory_input_max_bitrate = 72;
+	caps->num_cipher_ops = 0;
 
 	/* TSIF reports 3 bytes STC at unit of 27MHz/256 */
 	caps->max_stc = (u64)0xFFFFFF * 256;
