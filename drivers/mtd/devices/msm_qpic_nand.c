@@ -694,7 +694,7 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	dma_addr_t dma_addr_param_info = 0;
 	struct onfi_param_page *onfi_param_page_ptr;
 	struct msm_nand_flash_onfi_data data;
-	uint32_t onfi_signature;
+	uint32_t onfi_signature = 0;
 
 	/* SPS command/data descriptors */
 	uint32_t total_cnt = 13;
