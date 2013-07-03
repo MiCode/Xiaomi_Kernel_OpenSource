@@ -519,6 +519,15 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
+	{
+		.gpio      = 81,		/* EPM enable */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_epm_config,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
@@ -614,12 +623,6 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE] = &gpio_spi_config,
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
-		},
-	},
-	{
-		.gpio      = 81,		/* EPM enable */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_epm_config,
 		},
 	},
 };
@@ -1240,8 +1243,12 @@ void __init msm_8974_init_gpiomux(void)
 		msm_gpiomux_install(msm8974_pri_pri_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_pri_pri_auxpcm_configs));
 
-	msm_gpiomux_install(msm8974_sec_auxpcm_configs,
+	if (of_board_is_cdp())
+		msm_gpiomux_install(msm8974_sec_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_sec_auxpcm_configs));
+	else
+		msm_gpiomux_install(msm_epm_configs,
+				ARRAY_SIZE(msm_epm_configs));
 
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
