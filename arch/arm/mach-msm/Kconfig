@@ -531,6 +531,7 @@ config ARCH_MSMSAMARIUM
 	select CPU_V7
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_SCM
+	select MSM_PIL
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select MSM_SPM_V2
