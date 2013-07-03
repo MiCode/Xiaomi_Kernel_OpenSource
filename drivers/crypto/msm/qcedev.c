@@ -1937,7 +1937,7 @@ static int qcedev_probe(struct platform_device *pdev)
 	rc = misc_register(&podev->miscdevice);
 	qce_hw_support(podev->qce, &podev->ce_support);
 	if (podev->ce_support.bam) {
-		podev->platform_support.ce_shared = podev->ce_support.is_shared;
+		podev->platform_support.ce_shared = 0;
 		podev->platform_support.shared_ce_resource = 0;
 		podev->platform_support.hw_key_support =
 						podev->ce_support.hw_key;
