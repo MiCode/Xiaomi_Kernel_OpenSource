@@ -789,8 +789,16 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 				driver->write_ptr_svc->buf = buf;
 				err = usb_diag_write(driver->legacy_ch,
 						driver->write_ptr_svc);
-			} else
-				err = -1;
+				/* Free the buffer if write failed */
+				if (err) {
+					diagmem_free(driver,
+						     (unsigned char *)driver->
+						     write_ptr_svc,
+						     POOL_TYPE_WRITE_STRUCT);
+				}
+			} else {
+				err = -ENOMEM;
+			}
 		} else if ((data_type >= MODEM_DATA) &&
 				(data_type <= WCNSS_DATA)) {
 			write_ptr->buf = buf;
@@ -1762,6 +1770,9 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 	}
 #endif
 	if (!found_it) {
+		if (driver->logging_mode != USB_MODE)
+			pr_debug("diag: freeing buffer when not in usb mode\n");
+
 		diagmem_free(driver, (unsigned char *)buf,
 						POOL_TYPE_HDLC);
 		diagmem_free(driver, (unsigned char *)diag_write_ptr,

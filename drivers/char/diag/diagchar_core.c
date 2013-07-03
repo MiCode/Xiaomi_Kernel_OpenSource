@@ -131,12 +131,8 @@ void diag_drain_work_fn(struct work_struct *work)
 	mutex_lock(&driver->diagchar_mutex);
 	if (buf_hdlc) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
-		if (err) {
-			/*Free the buffer right away if write failed */
+		if (err)
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-			diagmem_free(driver, (unsigned char *)driver->
-				 write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
-		}
 		buf_hdlc = NULL;
 #ifdef DIAG_DEBUG
 		pr_debug("diag: Number of bytes written "
@@ -1818,10 +1814,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	if (HDLC_OUT_BUF_SIZE - driver->used <= (2*payload_size) + 3) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
-			/*Free the buffer right away if write failed */
-			if (driver->logging_mode == USB_MODE)
-				diagmem_free(driver, (unsigned char *)driver->
-					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1846,10 +1838,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		 (unsigned int)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
-			/*Free the buffer right away if write failed */
-			if (driver->logging_mode == USB_MODE)
-				diagmem_free(driver, (unsigned char *)driver->
-					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1871,10 +1859,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	if (pkt_type == DATA_TYPE_RESPONSE) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
-			/*Free the buffer right away if write failed */
-			if (driver->logging_mode == USB_MODE)
-				diagmem_free(driver, (unsigned char *)driver->
-					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
