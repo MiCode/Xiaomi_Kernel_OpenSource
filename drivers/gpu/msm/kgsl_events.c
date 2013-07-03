@@ -60,7 +60,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 		return -EINVAL;
 
 	if (id != KGSL_MEMSTORE_GLOBAL) {
-		context = idr_find(&device->context_idr, id);
+		context = kgsl_context_get(device, id);
 		if (context == NULL)
 			return -EINVAL;
 	}
@@ -76,12 +76,15 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	if (timestamp_cmp(cur_ts, ts) >= 0) {
 		trace_kgsl_fire_event(id, ts, 0);
 		cb(device, priv, id, ts);
+		kgsl_context_put(context);
 		return 0;
 	}
 
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
-	if (event == NULL)
+	if (event == NULL) {
+		kgsl_context_put(context);
 		return -ENOMEM;
+	}
 
 	/*
 	 * Increase the active count on the device to avoid going into power
@@ -89,6 +92,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	 */
 	ret = kgsl_active_count_get_light(device);
 	if (ret < 0) {
+		kgsl_context_put(context);
 		kfree(event);
 		return ret;
 	}
@@ -101,10 +105,6 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	event->created = jiffies;
 
 	trace_kgsl_register_event(id, ts);
-
-	/* inc refcount to avoid race conditions in cleanup */
-	if (context)
-		kgsl_context_get(context);
 
 	/* Add the event to either the owning context or the global list */
 
@@ -147,7 +147,7 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 	 * Increment the refcount to avoid freeing the context while
 	 * cancelling its events
 	 */
-	kgsl_context_get(context);
+	kref_get(&context->refcount);
 
 	/* Remove ourselves from the master pending list */
 	list_del_init(&context->events_list);
@@ -324,7 +324,7 @@ void kgsl_process_events(struct work_struct *work)
 		 * Increment the refcount to make sure that the list_del_init
 		 * is called with a valid context's list
 		 */
-		kgsl_context_get(context);
+		kref_get(&context->refcount);
 		/*
 		 * If kgsl_timestamp_expired_context returns 0 then it no longer
 		 * has any pending events and can be removed from the list
