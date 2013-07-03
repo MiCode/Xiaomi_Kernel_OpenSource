@@ -30,6 +30,7 @@ static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
+static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -92,6 +93,11 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
 	}
+}
+
+static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp)
+{
+	return bitmap_weight(smp, SMP_MB_CNT) == 0;
 }
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
@@ -227,6 +233,8 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
+		if (__mdss_mdp_pipe_smp_mmb_is_empty(pipe->smp_map[i].reserved))
+			continue;
 		mdss_mdp_smp_mmb_amend(pipe->smp_map[i].allocated,
 			pipe->smp_map[i].reserved);
 		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
@@ -708,10 +716,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
-
-		mdss_mdp_smp_alloc(pipe);
 	}
 
+	mdss_mdp_smp_alloc(pipe);
 	ret = mdss_mdp_src_addr_setup(pipe, src_data);
 	if (ret) {
 		pr_err("addr setup error for pnum=%d\n", pipe->num);
