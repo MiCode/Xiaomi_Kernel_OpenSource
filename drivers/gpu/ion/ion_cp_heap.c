@@ -203,8 +203,7 @@ static void ion_on_last_free(struct ion_heap *heap)
 }
 
 /**
- * Protects memory if heap is unsecured heap. Also ensures that we are in
- * the correct FMEM state if this heap is a reusable heap.
+ * Protects memory if heap is unsecured heap.
  * Must be called with heap->lock locked.
  */
 static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
@@ -244,8 +243,7 @@ out:
 }
 
 /**
- * Unprotects memory if heap is secure heap. Also ensures that we are in
- * the correct FMEM state if this heap is a reusable heap.
+ * Unprotects memory if heap is secure heap.
  * Must be called with heap->lock locked.
  */
 static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
