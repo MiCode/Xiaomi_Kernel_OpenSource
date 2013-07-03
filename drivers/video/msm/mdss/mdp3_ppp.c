@@ -898,8 +898,8 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	struct blit_req_list *req;
 	int i, rc;
 
-	req = mdp3_ppp_next_req(&ppp_stat->req_q);
 	mutex_lock(&ppp_stat->config_ppp_mutex);
+	req = mdp3_ppp_next_req(&ppp_stat->req_q);
 
 	mdp3_iommu_enable(MDP3_CLIENT_PPP);
 	mdp3_ppp_turnon(mfd, 1);
