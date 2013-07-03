@@ -606,6 +606,12 @@ struct mdp_calib_config_data {
 	uint32_t data;
 };
 
+struct mdp_calib_config_buffer {
+	uint32_t ops;
+	uint32_t size;
+	uint32_t *buffer;
+};
+
 #define MDSS_MAX_BL_BRIGHTNESS 255
 #define AD_BL_LIN_LEN (MDSS_MAX_BL_BRIGHTNESS + 1)
 
@@ -697,6 +703,7 @@ enum {
 	mdp_op_ad_cfg,
 	mdp_op_ad_input,
 	mdp_op_calib_mode,
+	mdp_op_calib_buffer,
 	mdp_op_max,
 };
 
@@ -724,6 +731,7 @@ struct msmfb_mdp_pp {
 		struct mdss_ad_init_cfg ad_init_cfg;
 		struct mdss_calib_cfg mdss_calib_cfg;
 		struct mdss_ad_input ad_input;
+		struct mdp_calib_config_buffer calib_buffer;
 	} data;
 };
 
