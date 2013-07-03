@@ -45,9 +45,17 @@
  * new Data Rx and DCI Rx channels
  */
 #define F_DIAG_REQ_RSP_CHANNEL		0x10
+/* Denotes we support diag over stm */
+#define F_DIAG_OVER_STM			0x02
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
+
+#define ENABLE_STM	1
+#define DISABLE_STM	0
+
+#define UPDATE_PERIPHERAL_STM_STATE	1
+#define CLEAR_PERIPHERAL_STM_STATE	2
 
 struct cmd_code_range {
 	uint16_t cmd_code_lo;
@@ -117,11 +125,19 @@ struct diag_ctrl_msg_diagmode {
 	uint32_t event_stale_timer_val;
 } __packed;
 
+struct diag_ctrl_msg_stm {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint8_t  control_data;
+} __packed;
+
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
 void diag_notify_ctrl_update_fn(struct work_struct *work);
 void diag_clean_reg_fn(struct work_struct *work);
+void diag_cntl_smd_work_fn(struct work_struct *work);
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd);
 void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
@@ -129,4 +145,8 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 void diag_update_proc_vote(uint16_t proc, uint8_t vote);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time);
 void diag_real_time_work_fn(struct work_struct *work);
+int diag_send_stm_state(struct diag_smd_info *smd_info,
+				uint8_t stm_control_data);
+void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action);
+
 #endif

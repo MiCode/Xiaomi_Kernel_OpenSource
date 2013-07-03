@@ -40,6 +40,55 @@ void diag_clean_reg_fn(struct work_struct *work)
 	smd_info->notify_context = 0;
 }
 
+void diag_cntl_smd_work_fn(struct work_struct *work)
+{
+	struct diag_smd_info *smd_info = container_of(work,
+						struct diag_smd_info,
+						diag_general_smd_work);
+
+	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+		return;
+
+	if (smd_info->general_context == UPDATE_PERIPHERAL_STM_STATE) {
+		if (driver->peripheral_supports_stm[smd_info->peripheral] ==
+								ENABLE_STM) {
+			int status = 0;
+			int index = smd_info->peripheral;
+			status = diag_send_stm_state(smd_info,
+				(uint8_t)(driver->stm_state_requested[index]));
+			if (status == 1)
+				driver->stm_state[index] =
+					driver->stm_state_requested[index];
+		}
+	}
+	smd_info->general_context = 0;
+}
+
+void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
+{
+	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+		return;
+
+	if (action == CLEAR_PERIPHERAL_STM_STATE)
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								DISABLE_STM;
+}
+
+static void process_stm_feature(struct diag_smd_info *smd_info,
+			      uint8_t feature_mask)
+{
+	if (feature_mask & F_DIAG_OVER_STM) {
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								ENABLE_STM;
+		smd_info->general_context = UPDATE_PERIPHERAL_STM_STATE;
+		queue_work(driver->diag_cntl_wq,
+				&(smd_info->diag_general_smd_work));
+	} else {
+		driver->peripheral_supports_stm[smd_info->peripheral] =
+								DISABLE_STM;
+	}
+}
+
 /* Process the data read from the smd control channel */
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd)
@@ -120,8 +169,9 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			uint8_t feature_mask = 0;
 			int feature_mask_len = *(int *)(buf+8);
 			if (feature_mask_len > 0) {
+				int periph = smd_info->peripheral;
 				feature_mask = *(uint8_t *)(buf+12);
-				if (smd_info->peripheral == MODEM_DATA)
+				if (periph == MODEM_DATA)
 					driver->log_on_demand_support =
 						feature_mask &
 					F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
@@ -132,13 +182,16 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				 */
 				if (driver->supports_separate_cmdrsp &&
 					(feature_mask & F_DIAG_REQ_RSP_CHANNEL))
-					driver->separate_cmdrsp
-						[smd_info->peripheral] =
+					driver->separate_cmdrsp[periph] =
 							ENABLE_SEPARATE_CMDRSP;
 				else
-					driver->separate_cmdrsp
-						[smd_info->peripheral] =
+					driver->separate_cmdrsp[periph] =
 							DISABLE_SEPARATE_CMDRSP;
+				if (feature_mask_len > 1) {
+					feature_mask = *(uint8_t *)(buf+13);
+					process_stm_feature(smd_info,
+								feature_mask);
+				}
 			}
 			flag = 1;
 		} else if (type != DIAG_CTRL_MSG_REG) {
@@ -296,6 +349,56 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	}
 
 	mutex_unlock(&driver->diag_cntl_mutex);
+}
+
+int diag_send_stm_state(struct diag_smd_info *smd_info,
+			  uint8_t stm_control_data)
+{
+	struct diag_ctrl_msg_stm stm_msg;
+	int msg_size = sizeof(struct diag_ctrl_msg_stm);
+	int retry_count = 0;
+	int wr_size = 0;
+	int success = 0;
+
+	if (!smd_info || (smd_info->type != SMD_CNTL_TYPE) ||
+		(driver->peripheral_supports_stm[smd_info->peripheral] ==
+								DISABLE_STM)) {
+		return -EINVAL;
+	}
+
+	if (smd_info->ch) {
+		stm_msg.ctrl_pkt_id = 21;
+		stm_msg.ctrl_pkt_data_len = 5;
+		stm_msg.version = 1;
+		stm_msg.control_data = stm_control_data;
+		while (retry_count < 3) {
+			wr_size = smd_write(smd_info->ch, &stm_msg, msg_size);
+			if (wr_size == -ENOMEM) {
+				/*
+				 * The smd channel is full. Delay while
+				 * smd processes existing data and smd
+				 * has memory become available. The delay
+				 * of 10000 was determined empirically as
+				 * best value to use.
+				 */
+				retry_count++;
+				usleep_range(10000, 10000);
+			} else {
+				success = 1;
+				break;
+			}
+		}
+		if (wr_size != msg_size) {
+			pr_err("diag: In %s, proc %d fail STM update %d, tried %d",
+				__func__, smd_info->peripheral, wr_size,
+				msg_size);
+			success = 0;
+		}
+	} else {
+		pr_err("diag: In %s, ch invalid, STM update on proc %d\n",
+				__func__, smd_info->peripheral);
+	}
+	return success;
 }
 
 static int diag_smd_cntl_probe(struct platform_device *pdev)

@@ -44,6 +44,9 @@
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
 
+#include <linux/coresight-stm.h>
+#include <linux/kernel.h>
+
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
@@ -1797,6 +1800,21 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		ret = -EFAULT;
 		goto fail_free_copy;
 	}
+	if (driver->stm_state[APPS_DATA] &&
+		(pkt_type >= DATA_TYPE_EVENT && pkt_type <= DATA_TYPE_LOG)) {
+		int stm_size = 0;
+
+		stm_size = stm_log_inv_ts(OST_ENTITY_DIAG, 0, buf_copy,
+						payload_size);
+
+		if (stm_size == 0)
+			pr_debug("diag: In %s, stm_log_inv_ts returned size of 0\n",
+				__func__);
+
+		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+		return 0;
+	}
+
 #ifdef DIAG_DEBUG
 	printk(KERN_DEBUG "data is -->\n");
 	for (i = 0; i < payload_size; i++)
