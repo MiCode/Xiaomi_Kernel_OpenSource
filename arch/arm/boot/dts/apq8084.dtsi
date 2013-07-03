@@ -296,6 +296,13 @@
 
 		qcom,firmware-name = "venus";
 	};
+
+	ufs1: ufshc@0xfc598000 {
+		compatible = "jedec,ufs-1.1";
+		reg = <0xfc598000 0x800>;
+		interrupts = <0 28 0>;
+		status = "disabled";
+	};
 };
 
 /include/ "msm-pma8084.dtsi"
