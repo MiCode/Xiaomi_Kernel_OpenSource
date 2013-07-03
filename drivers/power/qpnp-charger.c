@@ -98,6 +98,7 @@
 #define BOOST_VSET				0x41
 #define BOOST_ENABLE_CONTROL			0x46
 #define COMP_OVR1				0xEA
+#define BAT_IF_BTC_CTRL				0x49
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 
@@ -222,6 +223,7 @@ struct qpnp_chg_regulator {
  * @dc_present:			present status of dc
  * @batt_present:		present status of battery
  * @use_default_batt_values:	flag to report default battery properties
+ * @btc_disabled		Flag to disable btc (disables hot and cold irqs)
  * @max_voltage_mv:		the max volts the batt should be charged up to
  * @min_voltage_mv:		min battery voltage before turning the FET on
  * @max_bat_chg_current:	maximum battery charge current in mA
@@ -234,6 +236,8 @@ struct qpnp_chg_regulator {
  * @safe_current:		battery safety current setting
  * @maxinput_usb_ma:		Maximum Input current USB
  * @maxinput_dc_ma:		Maximum Input current DC
+ * @hot_batt_p			Hot battery threshold setting
+ * @cold_batt_p			Cold battery threshold setting
  * @warm_bat_decidegc		Warm battery temperature in degree Celsius
  * @cool_bat_decidegc		Cool battery temperature in degree Celsius
  * @revision:			PMIC revision
@@ -276,6 +280,7 @@ struct qpnp_chg_chip {
 	bool				dc_present;
 	bool				batt_present;
 	bool				charging_disabled;
+	bool				btc_disabled;
 	bool				use_default_batt_values;
 	bool				duty_cycle_100p;
 	unsigned int			bpd_detection;
@@ -293,6 +298,8 @@ struct qpnp_chg_chip {
 	int				term_current;
 	unsigned int			maxinput_usb_ma;
 	unsigned int			maxinput_dc_ma;
+	unsigned int			hot_batt_p;
+	unsigned int			cold_batt_p;
 	unsigned int			warm_bat_decidegc;
 	unsigned int			cool_bat_decidegc;
 	unsigned int			safe_current;
@@ -334,7 +341,21 @@ static const char * const bpd_label[] = {
 	[BPD_TYPE_BAT_THM_BAT_ID] = "bpd_thm_id",
 };
 
-static inline int
+enum btc_type {
+	HOT_THD_25_PCT = 25,
+	HOT_THD_35_PCT = 35,
+	COLD_THD_70_PCT = 70,
+	COLD_THD_80_PCT = 80,
+};
+
+static u8 btc_value[] = {
+	[HOT_THD_25_PCT] = 0x0,
+	[HOT_THD_35_PCT] = BIT(0),
+	[COLD_THD_70_PCT] = 0x0,
+	[COLD_THD_80_PCT] = BIT(1),
+};
+
+	static inline int
 get_bpd(const char *name)
 {
 	int i = 0;
@@ -1414,6 +1435,38 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	}
 
 	return 0;
+}
+
+#define BTC_CONFIG_ENABLED	BIT(7)
+#define BTC_COLD		BIT(1)
+#define BTC_HOT			BIT(0)
+static int
+qpnp_chg_bat_if_configure_btc(struct qpnp_chg_chip *chip)
+{
+	u8 btc_cfg = 0, mask = 0;
+
+	/* Do nothing if battery peripheral not present */
+	if (!chip->bat_if_base)
+		return 0;
+
+	if ((chip->hot_batt_p == HOT_THD_25_PCT)
+			|| (chip->hot_batt_p == HOT_THD_35_PCT)) {
+		btc_cfg |= btc_value[chip->hot_batt_p];
+		mask |= BTC_HOT;
+	}
+
+	if ((chip->cold_batt_p == COLD_THD_70_PCT) ||
+			(chip->cold_batt_p == COLD_THD_80_PCT)) {
+		btc_cfg |= btc_value[chip->cold_batt_p];
+		mask |= BTC_COLD;
+	}
+
+	if (chip->btc_disabled)
+		mask |= BTC_CONFIG_ENABLED;
+
+	return qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_BTC_CTRL,
+			mask, btc_cfg, 1);
 }
 
 #define QPNP_CHG_VINMIN_MIN_MV		3400
@@ -2637,6 +2690,8 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	OF_PROP_READ(chip, warm_bat_decidegc, "warm-bat-decidegc", rc, 1);
 	OF_PROP_READ(chip, cool_bat_decidegc, "cool-bat-decidegc", rc, 1);
 	OF_PROP_READ(chip, tchg_mins, "tchg-mins", rc, 1);
+	OF_PROP_READ(chip, hot_batt_p, "batt-hot-percentage", rc, 1);
+	OF_PROP_READ(chip, cold_batt_p, "batt-cold-percentage", rc, 1);
 	if (rc)
 		return rc;
 
@@ -2668,6 +2723,10 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 		if (rc)
 			return rc;
 	}
+
+	/* Get the btc-disabled property */
+	chip->btc_disabled = of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,btc-disabled");
 
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
@@ -2991,6 +3050,11 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				goto fail_chg_enable;
 			}
 		}
+	}
+	rc = qpnp_chg_bat_if_configure_btc(chip);
+	if (rc) {
+		pr_err("failed to configure btc %d\n", rc);
+		goto unregister_batt;
 	}
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);

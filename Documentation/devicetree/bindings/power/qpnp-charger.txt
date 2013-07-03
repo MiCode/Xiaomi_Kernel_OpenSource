@@ -65,6 +65,15 @@ Parent node optional properties:
 					detection, "bpd_thm_id" selects both.
 					If the property is not set, the temperatue pin will
 					be used.
+- qcom,btc-disabled:			If flag is set battery hot and cold monitoring is
+					disabled in hardware. This monitoring is turned on
+					by default.
+- qcom,batt-hot-percent:		Specify a supported hot threshold percentage.
+					Supported thresholds: 25% and 35%. If none is specified
+					hardware defaults will be used.
+- qcom,batt-cold-percent:		Specify a supported cold threshold percentage.
+					Supported thresholds: 70% and 80%. If none is specified
+					hardware defaults will be used.
 - otg-parent-supply			Specify a phandle to a parent supply regulator
 					for the OTG regulator.
 - boost-parent-supply			Specify a phandle to a parent supply regulator
@@ -182,6 +191,9 @@ Example:
 		qcom,warm-bat-mv = <4100>;
 		qcom,ibatmax-cool-ma = <350>;
 		qcom,vbatdet-delta-mv = <60>;
+		qcom,batt-hot-percent = <25>;
+		qcom,batt-cold-percent = <85>;
+		qcom,btc-disabled = <0>;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
