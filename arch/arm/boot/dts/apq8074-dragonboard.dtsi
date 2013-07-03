@@ -191,10 +191,10 @@
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
-			"AMIC5", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Analog Mic6",
-			"AMIC6", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Analog Mic7",
+			"AMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Analog Mic6",
+			"AMIC6", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Analog Mic7",
 			"DMIC1", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS3 External",
@@ -208,11 +208,14 @@
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
 
+
 		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 74 0>;
 		qcom,prim-auxpcm-gpio-sync = <&msmgpio 75 0>;
 		qcom,prim-auxpcm-gpio-din  = <&msmgpio 76 0>;
 		qcom,prim-auxpcm-gpio-dout = <&msmgpio 77 0>;
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
+
+		qcom,cdc-micbias2-headset-only;
 	};
 
 	qcom,pronto@fb21b000 {
@@ -297,8 +300,17 @@
 
 &slim_msm {
 	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
+
+		/* If boot isn't available, vph_pwr_vreg can be used instead */
+		cdc-vdd-spkdrv-supply = <&pm8941_boost>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 	};
 };
 
