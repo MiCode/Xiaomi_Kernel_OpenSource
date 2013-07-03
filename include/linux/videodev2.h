@@ -703,6 +703,7 @@ struct v4l2_buffer {
 #define V4L2_QCOM_BUF_FLAG_IDRFRAME	0x20000	/* Image is a IDR-frame */
 #define V4L2_QCOM_BUF_FLAG_DECODEONLY 0x40000
 #define V4L2_QCOM_BUF_DATA_CORRUPT 0x80000
+#define V4L2_QCOM_BUF_DROP_FRAME 0x100000
 
 /*
  *	O V E R L A Y   P R E V I E W
