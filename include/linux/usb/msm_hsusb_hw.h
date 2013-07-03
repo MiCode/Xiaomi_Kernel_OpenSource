@@ -82,6 +82,7 @@
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
 #define PHY_IDHV_INTEN          (1 << 8) /* PHY ID HV interrupt */
 #define PHY_OTGSESSVLDHV_INTEN  (1 << 9) /* PHY Session Valid HV int. */
+#define PHY_CLAMP_DPDMSE_EN	(1 << 21) /* PHY mpm DP DM clamp enable */
 
 #define STS_PCI                 (1 << 2) /* R/WC - Port Change Detect */
 #define STS_URI                 (1 << 6) /* R/WC - RESET recv'd */
