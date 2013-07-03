@@ -950,7 +950,7 @@ static void armv7_pmnc_dump_regs(struct arm_pmu *cpu_pmu)
 }
 #endif
 
-static void armv7pmu_enable_event(struct perf_event *event, int cpu)
+static void armv7pmu_enable_event(struct perf_event *event)
 {
 	unsigned long flags;
 	struct hw_perf_event *hwc = &event->hw;
@@ -990,7 +990,7 @@ static void armv7pmu_enable_event(struct perf_event *event, int cpu)
 	armv7_pmnc_enable_intens(idx);
 
 	/* Restore prev val */
-	armv7pmu_write_counter(idx, prev_count & 0xffffffff);
+	armv7pmu_write_counter(event, prev_count & 0xffffffff);
 
 	/*
 	 * Enable counter

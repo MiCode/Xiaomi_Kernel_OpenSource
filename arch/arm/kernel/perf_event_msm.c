@@ -242,7 +242,7 @@ static unsigned armv7_scorpion_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 
 static int msm_scorpion_map_event(struct perf_event *event)
 {
-	return map_cpu_event(event, &armv7_scorpion_perf_map,
+	return armpmu_map_event(event, &armv7_scorpion_perf_map,
 			&armv7_scorpion_perf_cache_map, 0xfffff);
 }
 
@@ -725,7 +725,6 @@ static struct arm_pmu scorpion_pmu = {
 
 static struct arm_pmu *__init armv7_scorpion_pmu_init(void)
 {
-	scorpion_pmu.id		= ARM_PERF_PMU_ID_SCORPION;
 	scorpion_pmu.name	= "ARMv7 Scorpion";
 	scorpion_pmu.num_events	= armv7_read_num_pmnc_events();
 	scorpion_pmu.pmu.attr_groups	= msm_l1_pmu_attr_grps;
@@ -738,7 +737,6 @@ static struct arm_pmu *__init armv7_scorpion_pmu_init(void)
 
 static struct arm_pmu *__init armv7_scorpionmp_pmu_init(void)
 {
-	scorpion_pmu.id		= ARM_PERF_PMU_ID_SCORPIONMP;
 	scorpion_pmu.name	= "ARMv7 Scorpion-MP";
 	scorpion_pmu.num_events	= armv7_read_num_pmnc_events();
 	scorpion_pmu.pmu.attr_groups	= msm_l1_pmu_attr_grps;

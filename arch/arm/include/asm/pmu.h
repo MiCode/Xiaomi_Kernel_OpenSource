@@ -32,6 +32,10 @@ enum arm_pmu_type {
  *	interrupt and passed the address of the low level handler,
  *	and can be used to implement any platform specific handling
  *	before or after calling it.
+ * @request_pmu_irq: an optional handler in case the platform wants
+ *	to use a percpu IRQ API call. e.g. request_percpu_irq
+ * @free_pmu_irq: an optional handler in case the platform wants
+ *	to use a percpu IRQ API call. e.g. free_percpu_irq
  * @runtime_resume: an optional handler which will be called by the
  *	runtime PM framework following a call to pm_runtime_get().
  *	Note that if pm_runtime_get() is called more than once in
@@ -46,6 +50,8 @@ enum arm_pmu_type {
 struct arm_pmu_platdata {
 	irqreturn_t (*handle_irq)(int irq, void *dev,
 				  irq_handler_t pmu_handler);
+	int	(*request_pmu_irq)(int irq, irq_handler_t *irq_h, void *dev_id);
+	void	(*free_pmu_irq)(int irq, void *dev_id);
 	int (*runtime_resume)(struct device *dev);
 	int (*runtime_suspend)(struct device *dev);
 };
@@ -84,6 +90,8 @@ struct arm_pmu {
 	u64		max_period;
 	struct platform_device	*plat_device;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
+	int		(*request_pmu_irq)(int irq, irq_handler_t *irq_h, void *dev_id);
+	void		(*free_pmu_irq)(int irq, void *dev_id);
 	void		(*enable)(struct perf_event *event);
 	void		(*disable)(struct perf_event *event);
 	int		(*get_event_idx)(struct pmu_hw_events *hw_events,
@@ -115,10 +123,14 @@ int armpmu_event_set_period(struct perf_event *event);
 
 int armpmu_map_event(struct perf_event *event,
 		     const unsigned (*event_map)[PERF_COUNT_HW_MAX],
-		     const unsigned (*cache_map)[PERF_COUNT_HW_CACHE_MAX]
+		     unsigned (*cache_map)[PERF_COUNT_HW_CACHE_MAX]
 						[PERF_COUNT_HW_CACHE_OP_MAX]
 						[PERF_COUNT_HW_CACHE_RESULT_MAX],
 		     u32 raw_event_mask);
+
+int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler);
+
+void cpu_pmu_free_irq(struct arm_pmu *cpu_pmu);
 
 #endif /* CONFIG_HW_PERF_EVENTS */
 

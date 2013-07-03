@@ -23,8 +23,7 @@
  */
 static char *descriptions =
 	"0  msm: perf: add debug patch logging framework\n"
-	"1  Perf: Restore counter after powercollapse for generic ARM PMU's\n"
-	"11 ARM: dts: msm: add perf-events support for msm8x10, msm8x12\n"
+	"1  Perf: port perf-events to 3.10 kernel\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
