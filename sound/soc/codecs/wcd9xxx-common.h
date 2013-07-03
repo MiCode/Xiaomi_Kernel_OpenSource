@@ -74,6 +74,9 @@ extern void wcd9xxx_clsh_fsm(struct snd_soc_codec *codec,
 extern void wcd9xxx_clsh_init(struct wcd9xxx_clsh_cdc_data *clsh,
 			      struct wcd9xxx_resmgr *resmgr);
 
+extern void wcd9xxx_clsh_imped_config(struct snd_soc_codec *codec,
+				  int imped);
+
 enum wcd9xxx_codec_event {
 	WCD9XXX_CODEC_EVENT_CODEC_UP = 0,
 };
