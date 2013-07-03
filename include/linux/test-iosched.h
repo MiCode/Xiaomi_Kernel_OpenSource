@@ -144,7 +144,7 @@ struct test_info {
 	check_test_result_fn *check_test_result_fn;
 	post_test_fn *post_test_fn;
 	get_test_case_str_fn *get_test_case_str_fn;
-	unsigned long test_duration;
+	ktime_t test_duration;
 	get_rq_disk_fn *get_rq_disk_fn;
 	void *data;
 	unsigned long test_byte_count;

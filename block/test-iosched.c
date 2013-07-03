@@ -101,8 +101,8 @@ void check_test_completion(void)
 		goto exit;
 	}
 
-	ptd->test_info.test_duration = jiffies -
-				ptd->test_info.test_duration;
+	ptd->test_info.test_duration = ktime_sub(ktime_get(),
+				ptd->test_info.test_duration);
 
 	test_pr_info("%s: Test is completed, test_count=%d, reinsert_count=%d,",
 			__func__, ptd->test_count, ptd->reinsert_count);
@@ -774,7 +774,7 @@ int test_iosched_start_test(struct test_info *t_info)
 			goto error;
 		}
 
-		ptd->test_info.test_duration = jiffies;
+		ptd->test_info.test_duration = ktime_get();
 		ret = run_test(ptd);
 		if (ret) {
 			test_pr_err("%s: failed to run the test\n", __func__);
