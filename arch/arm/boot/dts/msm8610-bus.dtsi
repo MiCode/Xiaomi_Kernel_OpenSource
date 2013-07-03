@@ -934,9 +934,9 @@
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <0>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
-			qcom,prio-lvl = <1>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,prio-lvl = <0>;
 		};
 
 		mas-mss-proc {
