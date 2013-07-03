@@ -93,6 +93,7 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	struct clk *new_parent = NULL;
 	int rc = 0, i;
 	unsigned long new_par_curr_rate;
+	unsigned long flags;
 
 	for (i = 0; i < mux->num_parents; i++) {
 		if (clk_round_rate(mux->parents[i].src, rate) == rate) {
@@ -108,8 +109,16 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	 * same and the parent might temporarily turn off while switching
 	 * rates.
 	 */
-	if (mux->safe_sel >= 0)
+	if (mux->safe_sel >= 0) {
+		/*
+		 * Some mux implementations might switch to/from a low power
+		 * parent as part of their disable/enable ops. Grab the
+		 * enable lock to avoid racing with these implementations.
+		 */
+		spin_lock_irqsave(&c->lock, flags);
 		rc = mux->ops->set_mux_sel(mux, mux->safe_sel);
+		spin_unlock_irqrestore(&c->lock, flags);
+	}
 	if (rc)
 		return rc;
 
