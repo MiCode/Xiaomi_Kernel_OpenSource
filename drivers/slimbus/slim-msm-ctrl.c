@@ -30,12 +30,6 @@
 #define MSM_SLIM_NAME	"msm_slim_ctrl"
 #define SLIM_ROOT_FREQ 24576000
 
-#define QC_MFGID_LSB	0x2
-#define QC_MFGID_MSB	0x17
-#define QC_CHIPID_SL	0x10
-#define QC_DEVID_SAT1	0x3
-#define QC_DEVID_SAT2	0x4
-#define QC_DEVID_PGD	0x5
 #define QC_MSM_DEVS	5
 
 /* Manager registers */

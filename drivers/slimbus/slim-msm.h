@@ -50,6 +50,13 @@
 #define MSM_SLIM_NPORTS			24
 #define MSM_SLIM_NCHANS			32
 
+#define QC_MFGID_LSB	0x2
+#define QC_MFGID_MSB	0x17
+#define QC_CHIPID_SL	0x10
+#define QC_DEVID_SAT1	0x3
+#define QC_DEVID_SAT2	0x4
+#define QC_DEVID_PGD	0x5
+
 #define SLIM_MSG_ASM_FIRST_WORD(l, mt, mc, dt, ad) \
 		((l) | ((mt) << 5) | ((mc) << 8) | ((dt) << 15) | ((ad) << 16))
 
@@ -198,6 +205,11 @@ struct msm_slim_qmi {
 	struct work_struct		ssr_up;
 };
 
+struct msm_slim_pdata {
+	u32 apps_pipes;
+	u32 eapc;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
@@ -240,6 +252,7 @@ struct msm_slim_ctrl {
 	u32			ver;
 	struct work_struct	slave_notify;
 	struct msm_slim_qmi	qmi;
+	struct msm_slim_pdata	pdata;
 };
 
 struct msm_sat_chan {
