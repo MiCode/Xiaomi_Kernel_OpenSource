@@ -130,7 +130,7 @@ struct test_request {
  * @check_test_result_fn: Test specific test result checking
  *			callback
  * @get_test_case_str_fn: Test specific function to get the test name
- * @test_duration:	A jiffies value saved for timing
+ * @test_duration:	A ktime value saved for timing
  *			calculations
  * @data:		Test specific private data
  * @test_byte_count:	Total number of bytes dispatched in
@@ -263,4 +263,6 @@ extern struct test_data *test_get_test_data(void);
 void test_iosched_add_urgent_req(struct test_request *test_rq);
 
 int test_is_req_urgent(struct request *rq);
+
+void check_test_completion(void);
 #endif /* _LINUX_TEST_IOSCHED_H */
