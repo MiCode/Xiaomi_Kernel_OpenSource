@@ -161,24 +161,61 @@ static int clock_debug_hwcg_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(clock_hwcg_fops, clock_debug_hwcg_get,
 			NULL, "%llu\n");
 
+static void clock_print_fmax_by_level(struct seq_file *m, int level)
+{
+	struct clk *clock = m->private;
+	struct clk_vdd_class *vdd_class = clock->vdd_class;
+	int off, i, vdd_level, nregs = vdd_class->num_regulators;
+
+	vdd_level = find_vdd_level(clock, clock->rate);
+
+	seq_printf(m, "%2s%10lu", vdd_level == level ? "[" : "",
+		clock->fmax[level]);
+	for (i = 0; i < nregs; i++) {
+		off = nregs*level + i;
+		if (vdd_class->vdd_uv)
+			seq_printf(m, "%10u", vdd_class->vdd_uv[off]);
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10u", vdd_class->vdd_ua[off]);
+	}
+
+	if (vdd_level == level)
+		seq_puts(m, "]");
+	seq_puts(m, "\n");
+}
+
 static int fmax_rates_show(struct seq_file *m, void *unused)
 {
 	struct clk *clock = m->private;
-	int level = 0;
+	struct clk_vdd_class *vdd_class = clock->vdd_class;
+	int level = 0, i, nregs = vdd_class->num_regulators;
+	char reg_name[10];
 
 	int vdd_level = find_vdd_level(clock, clock->rate);
 	if (vdd_level < 0) {
 		seq_printf(m, "could not find_vdd_level for %s, %ld\n",
-			   clock->dbg_name, clock->rate);
+			clock->dbg_name, clock->rate);
 		return 0;
 	}
-	for (level = 0; level < clock->num_fmax; level++) {
-		if (vdd_level == level)
-			seq_printf(m, "[%lu] ", clock->fmax[level]);
-		else
-			seq_printf(m, "%lu ", clock->fmax[level]);
+
+	seq_printf(m, "%12s", "");
+	for (i = 0; i < nregs; i++) {
+		snprintf(reg_name, ARRAY_SIZE(reg_name), "reg %d", i);
+		seq_printf(m, "%10s", reg_name);
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10s", "");
+	}
+
+	seq_printf(m, "\n%12s", "freq");
+	for (i = 0; i < nregs; i++) {
+		seq_printf(m, "%10s", "uV");
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10s", "uA");
 	}
 	seq_printf(m, "\n");
+
+	for (level = 0; level < clock->num_fmax; level++)
+		clock_print_fmax_by_level(m, level);
 
 	return 0;
 }
