@@ -871,7 +871,7 @@ static int mdp3_histogram_collect(struct mdp3_session_data *session,
 
 	ret = session->dma->get_histo(session->dma);
 	if (ret) {
-		pr_err("mdp3_histogram_collect error = %d\n", ret);
+		pr_debug("mdp3_histogram_collect error = %d\n", ret);
 		return ret;
 	}
 
@@ -1069,6 +1069,7 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 	lut_config.lut_enable = 7;
 	lut_config.lut_sel = mdp3_session->lut_sel;
 	lut_config.lut_position = 0;
+	lut_config.lut_dirty = true;
 	lut.color0_lut = r;
 	lut.color1_lut = g;
 	lut.color2_lut = b;
