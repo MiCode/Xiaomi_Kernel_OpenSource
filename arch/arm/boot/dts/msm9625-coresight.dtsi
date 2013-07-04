@@ -257,4 +257,14 @@
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 	};
+
+	fuse: fuse@fc4be024 {
+		compatible = "arm,coresight-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+
+		coresight-id = <21>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
+	};
 };
