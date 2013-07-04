@@ -240,6 +240,7 @@ static void __iomem *virt_bases[N_BASES];
 #define                 GFX3D_CMD_RCGR	    0x4000
 #define               OXILI_GFX3D_CBCR	    0x4028
 #define                OXILI_GFX3D_BCR	    0x4030
+#define                 GMEM_GFX3D_BCR	    0x4040
 #define                  OXILI_AHB_BCR	    0x4044
 #define                 OXILI_AHB_CBCR	    0x403C
 #define                   AHB_CMD_RCGR	    0x5000
@@ -2147,6 +2148,7 @@ static struct branch_clk csi_ahb_clk = {
 
 static struct branch_clk csi_vfe_clk = {
 	.cbcr_reg = CSI_VFE_CBCR,
+	.bcr_reg = CSI_VFE_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2217,6 +2219,7 @@ static struct branch_clk dsi_pclk_clk = {
 
 static struct branch_clk gmem_gfx3d_clk = {
 	.cbcr_reg = GMEM_GFX3D_CBCR,
+	.bcr_reg = GMEM_GFX3D_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2358,6 +2361,7 @@ static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 
 static struct branch_clk oxili_ahb_clk = {
 	.cbcr_reg = OXILI_AHB_CBCR,
+	.bcr_reg = OXILI_AHB_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2369,6 +2373,7 @@ static struct branch_clk oxili_ahb_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
+	.bcr_reg = OXILI_GFX3D_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2381,6 +2386,7 @@ static struct branch_clk oxili_gfx3d_clk = {
 
 static struct branch_clk vfe_clk = {
 	.cbcr_reg = VFE_CBCR,
+	.bcr_reg = VFE_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2393,6 +2399,7 @@ static struct branch_clk vfe_clk = {
 
 static struct branch_clk vfe_ahb_clk = {
 	.cbcr_reg = VFE_AHB_CBCR,
+	.bcr_reg = VFE_AHB_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2404,6 +2411,7 @@ static struct branch_clk vfe_ahb_clk = {
 
 static struct branch_clk vfe_axi_clk = {
 	.cbcr_reg = VFE_AXI_CBCR,
+	.bcr_reg = VFE_AXI_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	 /* FIXME: Remove this once simulation is fixed. */
@@ -3133,6 +3141,15 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c, "fd404000.qcom,qcrypto"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c, "fd404000.qcom,qcrypto"),
 	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,     "fd404000.qcom,qcrypto"),
+
+	/* GDSC clocks */
+	CLK_LOOKUP("core_clk", vfe_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("iface_clk", vfe_ahb_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("bus_clk",  vfe_axi_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("csi_clk",  csi_vfe_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
+	CLK_LOOKUP("iface_clk", oxili_ahb_clk.c, "fd8c4034.qcom,gdsc"),
+	CLK_LOOKUP("mem_clk", gmem_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
 };
 
 static struct clk_lookup msm_clocks_8610_rumi[] = {
