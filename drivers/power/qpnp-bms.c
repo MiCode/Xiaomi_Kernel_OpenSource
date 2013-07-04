@@ -3419,7 +3419,7 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->first_time_calc_uuc = 1;
 }
 
-#define SPMI_SETUP_IRQ(irq_name)					\
+#define SPMI_FIND_IRQ(chip, irq_name)					\
 do {									\
 	chip->irq_name##_irq.irq = spmi_get_irq_byname(chip->spmi,	\
 					resource, #irq_name);		\
@@ -3427,6 +3427,18 @@ do {									\
 		pr_err("Unable to get " #irq_name " irq\n");		\
 		return -ENXIO;						\
 	}								\
+} while (0)
+
+static int bms_find_irqs(struct qpnp_bms_chip *chip,
+			struct spmi_resource *resource)
+{
+	SPMI_FIND_IRQ(chip, sw_cc_thr);
+	SPMI_FIND_IRQ(chip, ocv_thr);
+	return 0;
+}
+
+#define SPMI_REQUEST_IRQ(chip, rc, irq_name)				\
+do {									\
 	rc = devm_request_irq(chip->dev, chip->irq_name##_irq.irq,	\
 			bms_##irq_name##_irq_handler,			\
 			IRQF_TRIGGER_RISING, #irq_name, chip);		\
@@ -3436,14 +3448,13 @@ do {									\
 	}								\
 } while (0)
 
-static int bms_setup_irqs(struct qpnp_bms_chip *chip,
-			struct spmi_resource *resource)
+static int bms_request_irqs(struct qpnp_bms_chip *chip)
 {
 	int rc;
 
-	SPMI_SETUP_IRQ(sw_cc_thr);
+	SPMI_REQUEST_IRQ(chip, rc, sw_cc_thr);
 	enable_irq_wake(chip->sw_cc_thr_irq.irq);
-	SPMI_SETUP_IRQ(ocv_thr);
+	SPMI_REQUEST_IRQ(chip, rc, ocv_thr);
 	enable_irq_wake(chip->ocv_thr_irq.irq);
 	return 0;
 }
@@ -3495,9 +3506,9 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 
 		if (type == BMS_BMS_TYPE && subtype == BMS_BMS1_SUBTYPE) {
 			chip->base = resource->start;
-			rc = bms_setup_irqs(chip, spmi_resource);
+			rc = bms_find_irqs(chip, spmi_resource);
 			if (rc) {
-				pr_err("Could not register irqs\n");
+				pr_err("Could not find irqs\n");
 				return rc;
 			}
 		} else if (type == BMS_IADC_TYPE
@@ -3830,6 +3841,12 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	if (rc) {
 		pr_err("error reading vbat_sns adc channel = %d, rc = %d\n",
 						VBAT_SNS, rc);
+		goto unregister_dc;
+	}
+
+	rc = bms_request_irqs(chip);
+	if (rc) {
+		pr_err("error requesting bms irqs, rc = %d\n", rc);
 		goto unregister_dc;
 	}
 
