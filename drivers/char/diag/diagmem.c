@@ -25,19 +25,19 @@ mempool_t *diag_pools_array[NUM_MEMORY_POOLS];
 void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 {
 	void *buf = NULL;
+	unsigned long flags;
 	int index;
 
+	spin_lock_irqsave(&driver->diag_mem_lock, flags);
 	index = 0;
 	if (pool_type == POOL_TYPE_COPY) {
 		if (driver->diagpool) {
-			mutex_lock(&driver->diagmem_mutex);
 			if ((driver->count < driver->poolsize) &&
 				(size <= driver->itemsize)) {
 				atomic_add(1, (atomic_t *)&driver->count);
 				buf = mempool_alloc(driver->diagpool,
 								 GFP_ATOMIC);
 			}
-			mutex_unlock(&driver->diagmem_mutex);
 		}
 	} else if (pool_type == POOL_TYPE_HDLC) {
 		if (driver->diag_hdlc_pool) {
@@ -102,14 +102,17 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 		}
 #endif
 	}
+	spin_unlock_irqrestore(&driver->diag_mem_lock, flags);
 	return buf;
 }
 
 void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 {
 	int index;
+	unsigned long flags;
 	index = 0;
 
+	spin_lock_irqsave(&driver->diag_mem_lock, flags);
 	if (driver->diagpool) {
 		if (driver->count == 0 && driver->ref_count == 0) {
 			mempool_destroy(driver->diagpool);
@@ -182,12 +185,18 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 		}
 	}
 #endif
+	spin_unlock_irqrestore(&driver->diag_mem_lock, flags);
 }
 
 void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 {
 	int index;
+	unsigned long flags;
 
+	if (!buf)
+		return;
+
+	spin_lock_irqsave(&driver->diag_mem_lock, flags);
 	index = 0;
 	if (pool_type == POOL_TYPE_COPY) {
 		if (driver->diagpool != NULL && driver->count > 0) {
@@ -252,13 +261,13 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 			__func__, pool_type);
 
 	}
-
+	spin_unlock_irqrestore(&driver->diag_mem_lock, flags);
 	diagmem_exit(driver, pool_type);
 }
 
 void diagmem_init(struct diagchar_dev *driver)
 {
-	mutex_init(&driver->diagmem_mutex);
+	spin_lock_init(&driver->diag_mem_lock);
 
 	if (driver->count == 0) {
 		driver->diagpool = mempool_create_kmalloc_pool(
