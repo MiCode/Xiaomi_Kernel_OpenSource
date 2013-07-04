@@ -859,6 +859,12 @@
 		qcom,bam-pipe-pair = <2>;
 	};
 
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
+
 	jtag_mm: jtagmm@fc332000 {
 		compatible = "qcom,jtag-mm";
 		reg = <0xfc332000 0x1000>,
