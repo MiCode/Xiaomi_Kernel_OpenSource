@@ -1187,8 +1187,11 @@ static int smux_handle_rx_open_ack(struct smux_pkt_t *pkt)
 			enable_powerdown = 1;
 
 		ch->local_state = SMUX_LCH_LOCAL_OPENED;
-		if (ch->remote_state == SMUX_LCH_REMOTE_OPENED)
+		if (ch->remote_state == SMUX_LCH_REMOTE_OPENED) {
 			schedule_notify(lcid, SMUX_CONNECTED, NULL);
+			if (!(list_empty(&ch->tx_queue)))
+				list_channel(ch);
+		}
 		ret = 0;
 	} else if (ch->remote_mode == SMUX_LCH_MODE_REMOTE_LOOPBACK) {
 		SMUX_DBG("smux: Remote loopback OPEN ACK received\n");
