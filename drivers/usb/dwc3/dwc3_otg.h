@@ -114,7 +114,8 @@ struct dwc3_ext_xceiv {
 	void	(*notify_ext_events)(struct usb_otg *otg,
 					enum dwc3_ext_events ext_event);
 	/* for block reset USB core */
-	void	(*ext_block_reset)(bool core_reset);
+	void	(*ext_block_reset)(struct dwc3_ext_xceiv *ext_xceiv,
+					bool core_reset);
 };
 
 /* for external transceiver driver */
