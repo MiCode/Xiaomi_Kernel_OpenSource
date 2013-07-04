@@ -920,11 +920,53 @@ static int mdp3_bl_scale_config(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdp3_csc_config(struct mdp3_session_data *session,
+					struct mdp_csc_cfg_data *data)
+{
+	struct mdp3_dma_color_correct_config config;
+	struct mdp3_dma_ccs ccs;
+	int ret = -EINVAL;
+
+	if (!data->csc_data.csc_mv || !data->csc_data.csc_pre_bv ||
+		!data->csc_data.csc_post_bv || !data->csc_data.csc_pre_lv ||
+			!data->csc_data.csc_post_lv) {
+		pr_err("%s : Invalid csc vectors", __func__);
+		return -EINVAL;
+	}
+
+	session->cc_vect_sel = (session->cc_vect_sel + 1) % 2;
+
+	config.ccs_enable = 1;
+	config.ccs_sel = session->cc_vect_sel;
+	config.pre_limit_sel = session->cc_vect_sel;
+	config.post_limit_sel = session->cc_vect_sel;
+	config.pre_bias_sel = session->cc_vect_sel;
+	config.post_bias_sel = session->cc_vect_sel;
+	config.ccs_dirty = true;
+
+	ccs.mv = data->csc_data.csc_mv;
+	ccs.pre_bv = data->csc_data.csc_pre_bv;
+	ccs.post_bv = data->csc_data.csc_post_bv;
+	ccs.pre_lv = data->csc_data.csc_pre_lv;
+	ccs.post_lv = data->csc_data.csc_post_lv;
+
+	mutex_lock(&session->lock);
+	ret = session->dma->config_ccs(session->dma, &config, &ccs);
+	mutex_unlock(&session->lock);
+	return ret;
+}
+
 static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 					void __user *argp)
 {
 	int ret = -EINVAL;
 	struct msmfb_mdp_pp mdp_pp;
+	struct mdp3_session_data *mdp3_session;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EINVAL;
+
+	mdp3_session = mfd->mdp.private1;
 
 	ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
 	if (ret)
@@ -935,6 +977,11 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 		ret = mdp3_bl_scale_config(mfd, (struct mdp_bl_scale_data *)
 						&mdp_pp.data.bl_scale_data);
 		break;
+	case mdp_op_csc_cfg:
+		ret = mdp3_csc_config(mdp3_session,
+						&(mdp_pp.data.csc_cfg_data));
+		break;
+
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
 		ret = -EINVAL;
