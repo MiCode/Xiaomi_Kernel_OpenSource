@@ -523,8 +523,15 @@ static void ep_prime_timer_func(unsigned long data)
 	int n = hw_ep_bit(mEp->num, mEp->dir);
 	unsigned long flags;
 
-
 	spin_lock_irqsave(mEp->lock, flags);
+
+	if (_udc && (!_udc->vbus_active || _udc->suspended)) {
+		pr_debug("ep%d%s prime timer when vbus_active=%d,suspend=%d\n",
+			mep->num, mep->dir ? "IN" : "OUT",
+			_udc->vbus_active, _udc->suspended);
+		goto out;
+	}
+
 	if (!hw_cread(CAP_ENDPTPRIME, BIT(n)))
 		goto out;
 
@@ -845,6 +852,9 @@ __acquires(mEp->lock)
 
 	if (mEp == NULL)
 		return -EINVAL;
+
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 
 	hw_ep_flush(mEp->ci, mEp->num, mEp->dir);
 
@@ -1544,8 +1554,6 @@ static int ep_disable(struct usb_ep *ep)
 
 	/* only internal SW should disable ctrl endpts */
 
-	del_timer(&mEp->prime_timer);
-	mEp->prime_timer_count = 0;
 	direction = mEp->dir;
 	do {
 		retval |= _ep_nuke(mEp);
@@ -1792,8 +1800,6 @@ static void ep_fifo_flush(struct usb_ep *ep)
 
 	spin_lock_irqsave(mEp->lock, flags);
 
-	del_timer(&mEp->prime_timer);
-	mEp->prime_timer_count = 0;
 	/*
 	 * _ep_nuke() takes care of flushing the endpoint.
 	 * some function drivers expect udc to retire all
