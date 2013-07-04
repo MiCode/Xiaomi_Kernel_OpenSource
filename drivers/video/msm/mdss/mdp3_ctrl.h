@@ -50,6 +50,7 @@ struct mdp3_session_data {
 	int histo_status;
 	struct mutex histo_lock;
 	int lut_sel;
+	int cc_vect_sel;
 };
 
 int mdp3_ctrl_init(struct msm_fb_data_type *mfd);

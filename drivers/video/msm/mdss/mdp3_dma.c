@@ -380,107 +380,96 @@ static int mdp3_dmap_lut_config(struct mdp3_dma *dma,
 	return 0;
 }
 
+static void mdp3_ccs_update(struct mdp3_dma *dma)
+{
+	u32 cc_config;
+	int updated = 0;
+
+	cc_config = MDP3_REG_READ(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG);
+
+	if (dma->ccs_config.ccs_dirty) {
+		cc_config &= DMA_CCS_CONFIG_MASK;
+		if (dma->ccs_config.ccs_enable)
+			cc_config |= BIT(3);
+		else
+			cc_config &= ~BIT(3);
+		cc_config |= dma->ccs_config.ccs_sel << 5;
+		cc_config |= dma->ccs_config.pre_bias_sel << 6;
+		cc_config |= dma->ccs_config.post_bias_sel << 7;
+		cc_config |= dma->ccs_config.pre_limit_sel << 8;
+		cc_config |= dma->ccs_config.post_limit_sel << 9;
+		dma->ccs_config.ccs_dirty = false;
+		updated = 1;
+	}
+
+	if (dma->lut_config.lut_dirty) {
+		cc_config &= DMA_LUT_CONFIG_MASK;
+		cc_config |= dma->lut_config.lut_enable;
+		cc_config |= dma->lut_config.lut_position << 4;
+		cc_config |= dma->lut_config.lut_sel << 10;
+		dma->lut_config.lut_dirty = false;
+		updated = 1;
+	}
+	if (updated)
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
+}
+
 static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
 			struct mdp3_dma_color_correct_config *config,
 			struct mdp3_dma_ccs *ccs)
 {
 	int i;
-	u32 cc_config, addr;
+	u32 addr;
 
-	cc_config = MDP3_REG_READ(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG);
-	cc_config &= DMA_CCS_CONFIG_MASK;
-	cc_config |= BIT(3);
-	cc_config |= config->ccs_sel << 5;
-	cc_config |= config->pre_bias_sel << 6;
-	cc_config |= config->post_bias_sel << 7;
-	cc_config |= config->pre_limit_sel << 8;
-	cc_config |= config->post_limit_sel << 9;
+	if (!ccs)
+		return -EINVAL;
 
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
-
-	if (config->ccs_enable && ccs) {
-		if (ccs->mv1) {
-			addr = MDP3_REG_DMA_P_CSC_MV1;
-			for (i = 0; i < 9; i++) {
-				MDP3_REG_WRITE(addr, ccs->mv1[i]);
-				addr += 4;
-			}
-		}
-
-		if (ccs->mv2) {
+	if (config->ccs_enable) {
+		addr = MDP3_REG_DMA_P_CSC_MV1;
+		if (config->ccs_sel)
 			addr = MDP3_REG_DMA_P_CSC_MV2;
-			for (i = 0; i < 9; i++) {
-				MDP3_REG_WRITE(addr, ccs->mv2[i]);
-				addr += 4;
-			}
+		for (i = 0; i < 9; i++) {
+			MDP3_REG_WRITE(addr, ccs->mv[i]);
+			addr += 4;
 		}
 
-		if (ccs->pre_bv1) {
-			addr = MDP3_REG_DMA_P_CSC_PRE_BV1;
-			for (i = 0; i < 3; i++) {
-				MDP3_REG_WRITE(addr, ccs->pre_bv1[i]);
-				addr += 4;
-			}
-		}
-
-		if (ccs->pre_bv2) {
+		addr = MDP3_REG_DMA_P_CSC_PRE_BV1;
+		if (config->pre_bias_sel)
 			addr = MDP3_REG_DMA_P_CSC_PRE_BV2;
-			for (i = 0; i < 3; i++) {
-				MDP3_REG_WRITE(addr, ccs->pre_bv2[i]);
-				addr += 4;
-			}
+		for (i = 0; i < 3; i++) {
+			MDP3_REG_WRITE(addr, ccs->pre_bv[i]);
+			addr += 4;
 		}
 
-		if (ccs->post_bv1) {
-			addr = MDP3_REG_DMA_P_CSC_POST_BV1;
-			for (i = 0; i < 3; i++) {
-				MDP3_REG_WRITE(addr, ccs->post_bv1[i]);
-				addr += 4;
-			}
-		}
-
-		if (ccs->post_bv2) {
+		addr = MDP3_REG_DMA_P_CSC_POST_BV1;
+		if (config->post_bias_sel)
 			addr = MDP3_REG_DMA_P_CSC_POST_BV2;
-			for (i = 0; i < 3; i++) {
-				MDP3_REG_WRITE(addr, ccs->post_bv2[i]);
-				addr += 4;
-			}
+		for (i = 0; i < 3; i++) {
+			MDP3_REG_WRITE(addr, ccs->post_bv[i]);
+			addr += 4;
 		}
 
-		if (ccs->pre_lv1) {
-			addr = MDP3_REG_DMA_P_CSC_PRE_LV1;
-			for (i = 0; i < 6; i++) {
-				MDP3_REG_WRITE(addr, ccs->pre_lv1[i]);
-				addr += 4;
-			}
-		}
-
-		if (ccs->pre_lv2) {
+		addr = MDP3_REG_DMA_P_CSC_PRE_LV1;
+		if (config->pre_limit_sel)
 			addr = MDP3_REG_DMA_P_CSC_PRE_LV2;
-			for (i = 0; i < 6; i++) {
-				MDP3_REG_WRITE(addr, ccs->pre_lv2[i]);
-				addr += 4;
-			}
+		for (i = 0; i < 6; i++) {
+			MDP3_REG_WRITE(addr, ccs->pre_lv[i]);
+			addr += 4;
 		}
 
-		if (ccs->post_lv1) {
-			addr = MDP3_REG_DMA_P_CSC_POST_LV1;
-			for (i = 0; i < 6; i++) {
-				MDP3_REG_WRITE(addr, ccs->post_lv1[i]);
-				addr += 4;
-			}
-		}
-
-		if (ccs->post_lv2) {
+		addr = MDP3_REG_DMA_P_CSC_POST_LV1;
+		if (config->post_limit_sel)
 			addr = MDP3_REG_DMA_P_CSC_POST_LV2;
-			for (i = 0; i < 6; i++) {
-				MDP3_REG_WRITE(addr, ccs->post_lv2[i]);
-				addr += 4;
-			}
+		for (i = 0; i < 6; i++) {
+			MDP3_REG_WRITE(addr, ccs->post_lv[i]);
+			addr += 4;
 		}
 	}
-
 	dma->ccs_config = *config;
+
+	if (dma->output_config.out_sel != MDP3_DMA_OUTPUT_SEL_DSI_CMD)
+		mdp3_ccs_update(dma);
+
 	return 0;
 }
 
@@ -528,8 +517,10 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)buf);
 	dma->source_config.buf = buf;
-	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+		mdp3_ccs_update(dma);
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 1);
+	}
 
 	if (!intf->active) {
 		pr_debug("mdp3_dmap_update start interface\n");
