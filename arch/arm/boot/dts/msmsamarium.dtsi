@@ -177,6 +177,40 @@
 		};
 	};
 
+	android_usb@fe8050c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
+		qcom,android-usb-swfi-latency = <1>;
+	};
+
+	usb_otg: usb@f9a55000 {
+		compatible = "qcom,hsusb-otg";
+		status = "disabled";
+
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+		HSUSB_VDDCX-supply = "";
+		HSUSB_1p8-supply = "";
+		HSUSB_3p3-supply = "";
+		qcom,vdd-voltage-level = <1 5 7>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-phy-init-seq =
+			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>,
+				<87 512 6000  6000>;
+	};
+
 	qcom,bam_dmux@fc834000 {
 		compatible = "qcom,bam_dmux";
 		reg = <0xfc834000 0x7000>;
