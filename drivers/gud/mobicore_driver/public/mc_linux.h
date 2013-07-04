@@ -43,6 +43,10 @@
 
 #include "version.h"
 
+#ifndef __KERNEL__
+#include <stdint.h>
+#endif
+
 #define MC_ADMIN_DEVNODE	"mobicore"
 #define MC_USER_DEVNODE		"mobicore-user"
 
