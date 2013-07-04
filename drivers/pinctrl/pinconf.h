@@ -115,3 +115,9 @@ static inline void pinconf_generic_dump_group(struct pinctrl_dev *pctldev,
 }
 
 #endif
+
+#if defined(CONFIG_GENERIC_PINCONF) && defined(CONFIG_OF)
+int pinconf_generic_parse_dt_config(struct device_node *np,
+				    unsigned long **configs,
+				    unsigned int *nconfigs);
+#endif
