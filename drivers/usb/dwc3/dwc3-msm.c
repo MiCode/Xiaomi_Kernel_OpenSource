@@ -2221,9 +2221,9 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 
 static void dwc3_init_adc_work(struct work_struct *w);
 
-static void dwc3_ext_notify_online(int on)
+static void dwc3_ext_notify_online(void *ctx, int on)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = ctx;
 	bool notify_otg = false;
 
 	if (!mdwc) {
@@ -2271,7 +2271,7 @@ static void dwc3_id_work(struct work_struct *w)
 			disable_irq(mdwc->pmic_id_irq);
 
 		ret = usb_ext->notify(usb_ext->ctxt, mdwc->id_state,
-				      dwc3_ext_notify_online);
+				      dwc3_ext_notify_online, mdwc);
 		dev_dbg(mdwc->dev, "%s: external handler returned %d\n",
 			__func__, ret);
 

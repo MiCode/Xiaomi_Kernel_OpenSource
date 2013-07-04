@@ -496,7 +496,7 @@ struct msm_hsic_peripheral_platform_data {
 /**
  * struct usb_ext_notification: event notification structure
  * @notify: pointer to client function to call when ID event is detected.
- *          The last parameter is provided by driver to be called back when
+ *          The function parameter is provided by driver to be called back when
  *          external client indicates it is done using the USB. This function
  *          should return 0 if handled successfully, otherise an error code.
  * @ctxt: client-specific context pointer
@@ -510,7 +510,7 @@ struct msm_hsic_peripheral_platform_data {
  * called with the online parameter set to false.
  */
 struct usb_ext_notification {
-	int (*notify)(void *, int, void (*)(int online));
+	int (*notify)(void *, int, void (*)(void *, int online), void *);
 	void *ctxt;
 };
 #ifdef CONFIG_USB_BAM
