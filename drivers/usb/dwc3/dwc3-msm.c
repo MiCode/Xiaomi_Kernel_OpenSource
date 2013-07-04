@@ -34,6 +34,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/qpnp-misc.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
@@ -165,7 +166,7 @@ struct dwc3_msm_req_complete {
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
-	u32 resource_size;
+	struct resource *io_res;
 	int dbm_num_eps;
 	u8 ep_num_mapping[DBM_MAX_EPS];
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
@@ -2400,47 +2401,68 @@ static int dwc3_msm_ext_chg_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t
-dwc3_msm_ext_chg_write(struct file *file, const char __user *ubuf,
-				size_t size, loff_t *pos)
+static long
+dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct dwc3_msm *mdwc = context;
-	char kbuf[16];
+	struct msm_usb_chg_info info = {0};
+	int ret = 0, val;
 
-	memset(kbuf, 0x00, sizeof(kbuf));
-	if (copy_from_user(&kbuf, ubuf, min_t(size_t, sizeof(kbuf) - 1, size)))
-		return -EFAULT;
+	switch (cmd) {
+	case MSM_USB_EXT_CHG_INFO:
+		info.chg_block_type = USB_CHG_BLOCK_QSCRATCH;
+		info.page_offset = (context->io_res->start +
+				QSCRATCH_REG_OFFSET) & ~PAGE_MASK;
+		/*
+		 * The charger block register address space is only
+		 * 512 bytes.  But mmap() works on PAGE granularity.
+		 */
+		info.length = PAGE_SIZE;
 
-	pr_debug("%s: buf = %s\n", __func__, kbuf);
-
-	if (!strncmp(kbuf, "enable", 6)) {
-		pr_info("%s: on\n", __func__);
-		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
-			pm_runtime_get_sync(mdwc->dev);
+		if (copy_to_user((void __user *)arg, &info, sizeof(info))) {
+			pr_err("%s: copy to user failed\n\n", __func__);
+			ret = -EFAULT;
+		}
+		break;
+	case MSM_USB_EXT_CHG_BLOCK_LPM:
+		if (get_user(val, (int __user *)arg)) {
+			pr_err("%s: get_user failed\n\n", __func__);
+			ret = -EFAULT;
+			break;
+		}
+		pr_debug("%s: LPM block request %d\n", __func__, val);
+		if (val) { /* block LPM */
+			if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
+				pm_runtime_get_sync(mdwc->dev);
+			} else {
+				mdwc->ext_chg_active = false;
+				complete(&mdwc->ext_chg_wait);
+				ret = -ENODEV;
+			}
 		} else {
 			mdwc->ext_chg_active = false;
 			complete(&mdwc->ext_chg_wait);
-			return -ENODEV;
+			pm_runtime_put(mdwc->dev);
 		}
-	} else if (!strncmp(kbuf, "disable", 7)) {
-		pr_info("%s: off\n", __func__);
-		mdwc->ext_chg_active = false;
-		complete(&mdwc->ext_chg_wait);
-		pm_runtime_put(mdwc->dev);
-	} else {
-		return -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
 	}
 
-	return size;
+	return ret;
 }
 
 static int dwc3_msm_ext_chg_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	struct dwc3_msm *mdwc = context;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	int ret;
 
-	pr_debug("%s: size = %lu %x\n", __func__, vsize, (int) vma->vm_pgoff);
+	if (vma->vm_pgoff != 0 || vsize > PAGE_SIZE)
+		return -EINVAL;
 
+	vma->vm_pgoff = __phys_to_pfn(mdwc->io_res->start +
+				QSCRATCH_REG_OFFSET);
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	ret = io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -2465,7 +2487,7 @@ static int dwc3_msm_ext_chg_release(struct inode *inode, struct file *file)
 static const struct file_operations dwc3_msm_ext_chg_fops = {
 	.owner = THIS_MODULE,
 	.open = dwc3_msm_ext_chg_open,
-	.write = dwc3_msm_ext_chg_write,
+	.unlocked_ioctl = dwc3_msm_ext_chg_ioctl,
 	.mmap = dwc3_msm_ext_chg_mmap,
 	.release = dwc3_msm_ext_chg_release,
 };
@@ -2799,7 +2821,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
-	msm->resource_size = resource_size(res);
+	msm->io_res = res; /* used to calculate chg block offset */
 
 	if (of_property_read_u32(node, "qcom,dwc-hsphy-init",
 						&msm->hsphy_init_seq))
