@@ -427,6 +427,22 @@
 		};
 	};
 
+	rpm-regulator-ldoa25 {
+		compatible = "qcom,rpm-regulator-smd-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <25>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l25 {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8226_l25";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
 	rpm-regulator-ldoa26 {
 		compatible = "qcom,rpm-regulator-smd-resource";
 		qcom,resource-name = "ldoa";
