@@ -161,12 +161,19 @@ static irqreturn_t mdp3_irq_handler(int irq, void *ptr)
 {
 	int i = 0;
 	struct mdp3_hw_resource *mdata = (struct mdp3_hw_resource *)ptr;
-	u32 mdp_interrupt = MDP3_REG_READ(MDP3_REG_INTR_STATUS);
+	u32 mdp_interrupt = 0;
 
+	spin_lock(&mdata->irq_lock);
+	if (!mdata->irq_mask) {
+		pr_err("spurious interrupt\n");
+		spin_unlock(&mdata->irq_lock);
+		return IRQ_HANDLED;
+	}
+
+	mdp_interrupt = MDP3_REG_READ(MDP3_REG_INTR_STATUS);
 	MDP3_REG_WRITE(MDP3_REG_INTR_CLEAR, mdp_interrupt);
 	pr_debug("mdp3_irq_handler irq=%d\n", mdp_interrupt);
 
-	spin_lock(&mdata->irq_lock);
 	mdp_interrupt &= mdata->irq_mask;
 
 	while (mdp_interrupt && i < MDP3_MAX_INTR) {
@@ -183,7 +190,6 @@ static irqreturn_t mdp3_irq_handler(int irq, void *ptr)
 void mdp3_irq_enable(int type)
 {
 	unsigned long flag;
-	int irqEnabled = 0;
 
 	pr_debug("mdp3_irq_enable type=%d\n", type);
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
@@ -193,11 +199,10 @@ void mdp3_irq_enable(int type)
 		spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 		return;
 	}
-	irqEnabled = mdp3_res->irq_mask;
+
 	mdp3_res->irq_mask |= BIT(type);
 	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
-	if (!irqEnabled)
-		enable_irq(mdp3_res->irq);
+
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
 
@@ -220,8 +225,6 @@ void mdp3_irq_disable_nosync(int type)
 	if (mdp3_res->irq_ref_count[type] == 0) {
 		mdp3_res->irq_mask &= ~BIT(type);
 		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
-		if (!mdp3_res->irq_mask)
-			disable_irq_nosync(mdp3_res->irq);
 	}
 }
 
@@ -229,7 +232,7 @@ int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb)
 {
 	unsigned long flag;
 
-	pr_debug("interrupt %d callback n", type);
+	pr_debug("interrupt %d callback\n", type);
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
 	if (cb)
 		mdp3_res->callbacks[type] = *cb;
@@ -238,6 +241,30 @@ int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb)
 
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 	return 0;
+}
+
+void mdp3_irq_register(void)
+{
+	unsigned long flag;
+
+	pr_debug("mdp3_irq_register\n");
+	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
+	enable_irq(mdp3_res->irq);
+	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
+}
+
+void mdp3_irq_deregister(void)
+{
+	unsigned long flag;
+
+	pr_debug("mdp3_irq_deregister\n");
+	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
+	memset(mdp3_res->irq_ref_count, 0, sizeof(u32) * MDP3_MAX_INTR);
+	mdp3_res->irq_mask = 0;
+	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, 0);
+	MDP3_REG_WRITE(MDP3_REG_INTR_CLEAR, 0xfffffff);
+	disable_irq_nosync(mdp3_res->irq);
+	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
 
 static int mdp3_bus_scale_register(void)
