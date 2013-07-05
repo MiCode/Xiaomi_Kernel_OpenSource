@@ -571,6 +571,8 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 		goto err_smem;
 	}
 
+	scm_pas_init(MSM_BUS_MASTER_SPS);
+
 	ret = devm_request_irq(&pdev->dev, drv->irq, gss_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, "gss_a5_wdog", drv);
 	if (ret < 0)

@@ -30,6 +30,7 @@
 #include <mach/scm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -471,6 +472,8 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		desc->ops = &pil_lpass_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
 
 	ret = pil_desc_init(desc);
 	if (ret)

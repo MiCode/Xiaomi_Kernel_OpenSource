@@ -25,6 +25,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
+#include <mach/msm_bus_board.h>
 
 #include "modem_notifier.h"
 #include "peripheral-loader.h"
@@ -489,6 +490,8 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_ramdump;
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
 
 	ret = devm_request_irq(&pdev->dev, drv->irq, modem_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, "modem_watchdog", drv);

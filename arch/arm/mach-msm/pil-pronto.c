@@ -31,6 +31,7 @@
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -503,6 +504,8 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->cxo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->cxo))
 		return PTR_ERR(drv->cxo);
+
+	scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
 
 	ret = pil_desc_init(desc);
 	if (ret)
