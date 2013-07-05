@@ -255,9 +255,14 @@ int pas_supported(enum pas_id id)
 }
 EXPORT_SYMBOL(pas_supported);
 
-static int __init scm_pas_init(void)
+void scm_pas_init(enum msm_bus_fabric_master_type id)
 {
 	int i, rate;
+	static int is_inited;
+
+	if (is_inited)
+		return;
+
 	for (i = 0; i < NUM_CLKS; i++) {
 		scm_clocks[i] = clk_get_sys("scm", scm_clock_names[i]);
 		if (IS_ERR(scm_clocks[i]))
@@ -268,20 +273,14 @@ static int __init scm_pas_init(void)
 	rate = clk_round_rate(scm_clocks[CORE_CLK_SRC], 1);
 	clk_set_rate(scm_clocks[CORE_CLK_SRC], rate);
 
-	if (soc_class_is_msm8974() || cpu_is_msm8226() || cpu_is_msm8610()) {
-		scm_pas_bw_tbl[0].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
-		scm_pas_bw_tbl[1].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
-	} else {
-		if (!IS_ERR(scm_clocks[BUS_CLK]))
-			clk_set_rate(scm_clocks[BUS_CLK], 64000000);
-		else
-			pr_warn("unable to get bus clock\n");
-	}
+	scm_pas_bw_tbl[0].vectors[0].src = id;
+	scm_pas_bw_tbl[1].vectors[0].src = id;
+
+	clk_set_rate(scm_clocks[BUS_CLK], 64000000);
 
 	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
 	if (!scm_perf_client)
 		pr_warn("unable to register bus client\n");
 
-	return 0;
+	is_inited = 1;
 }
-module_init(scm_pas_init);
