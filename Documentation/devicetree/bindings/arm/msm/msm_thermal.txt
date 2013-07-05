@@ -85,19 +85,19 @@ Example:
 		qcom,core-control-mask = <7>;
 		qcom,pmic-sw-mode-temp = <90>;
 		qcom,pmic-sw-mode-temp-hysteresis = <80>;
-		qcom,pmic-sw-mode-regs = "vdd_dig";
+		qcom,pmic-sw-mode-regs = "vdd-dig";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
-		vdd_dig-supply=<&pm8841_s2_floor_corner>
+		vdd-dig-supply=<&pm8841_s2_floor_corner>
 
 		qcom,vdd-dig-rstr{
-			qcom,vdd-rstr-reg = "vdd_dig";
+			qcom,vdd-rstr-reg = "vdd-dig";
 			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
 			qcom,min-level = <1>; /* No Request */
 		};
 
 		qcom,vdd-apps-rstr{
-			qcom,vdd-rstr-reg = "vdd_apps";
+			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <1881600 1958400 2265600>;
 			qcom,freq-req;
 		};
