@@ -71,9 +71,7 @@
 /* Returns true if KMEM region is uncached */
 
 #define IS_MEM_UNCACHED(_t) \
-  ((_t == DRM_KGSL_GEM_TYPE_KMEM_NOCACHE) || \
-   (_t == DRM_KGSL_GEM_TYPE_KMEM) || \
-   (TYPE_IS_MEM(_t) && (_t & DRM_KGSL_GEM_CACHE_WCOMBINE)))
+	(((_t & DRM_KGSL_GEM_TYPE_MEM_MASK) == DRM_KGSL_GEM_TYPE_KMEM_NOCACHE))
 
 /* Returns true if memory type is secure */
 
@@ -129,6 +127,13 @@ struct drm_kgsl_gem_object {
 
 	int bound;
 	int lockpid;
+
+	/*
+	 * Userdata to indicate
+	 * Last operation done READ/WRITE
+	 * Last user of this memory CPU/GPU
+	 */
+	uint32_t user_pdata;
 	/* Put these here to avoid allocing all the time */
 	struct drm_kgsl_gem_object_wait_list_entry
 	wait_entries[DRM_KGSL_HANDLE_WAIT_ENTRIES];
@@ -167,6 +172,7 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	struct scatterlist *s;
 	int index;
 	int result = 0;
+	int mem_flags = 0;
 
 	/* Return if the memory is already allocated */
 
@@ -263,9 +269,13 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 
 		priv->memdesc.pagetable = priv->pagetable;
 
+		if (!IS_MEM_UNCACHED(priv->type))
+			mem_flags = ION_FLAG_CACHED;
+
 		priv->ion_handle = ion_alloc(kgsl_drm_ion_client,
 				obj->size * priv->bufcount, PAGE_SIZE,
-				ION_HEAP(ION_IOMMU_HEAP_ID), 0);
+				ION_HEAP(ION_IOMMU_HEAP_ID), mem_flags);
+
 		if (IS_ERR_OR_NULL(priv->ion_handle)) {
 			DRM_ERROR(
 				"Unable to allocate ION IOMMU memory handle\n");
@@ -1094,6 +1104,120 @@ kgsl_gem_get_bufcount_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
+int kgsl_gem_set_userdata(struct drm_device *dev, void *data,
+			  struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_userdata *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	priv->user_pdata =  args->priv_data;
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
+}
+
+int kgsl_gem_get_userdata(struct drm_device *dev, void *data,
+			  struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_userdata *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	args->priv_data =  priv->user_pdata;
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
+}
+
+int kgsl_gem_cache_ops(struct drm_device *dev, void *data,
+			  struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_cache_ops *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+	unsigned int cache_op = 0;
+	int ret = 0;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+
+	if (!kgsl_gem_memory_allocated(obj)) {
+		DRM_ERROR("Object isn't allocated,can't perform Cache ops.\n");
+		ret = -EPERM;
+		goto done;
+	}
+
+	priv = obj->driver_private;
+
+	if (IS_MEM_UNCACHED(priv->type))
+		goto done;
+
+	switch (args->flags) {
+	case DRM_KGSL_GEM_CLEAN_CACHES:
+		cache_op = ION_IOC_CLEAN_CACHES;
+		break;
+	case DRM_KGSL_GEM_INV_CACHES:
+		cache_op = ION_IOC_INV_CACHES;
+		break;
+	case DRM_KGSL_GEM_CLEAN_INV_CACHES:
+		cache_op = ION_IOC_CLEAN_INV_CACHES;
+		break;
+	default:
+		DRM_ERROR("Invalid Cache operation\n");
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if ((obj->size != args->length)) {
+		DRM_ERROR("Invalid buffer size ");
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_ion_do_cache_op(kgsl_drm_ion_client, priv->ion_handle,
+			args->vaddr, args->length, cache_op);
+
+	if (ret)
+		DRM_ERROR("Cache operation failed\n");
+
+done:
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
+}
+
 int
 kgsl_gem_set_active_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *file_priv)
@@ -1561,6 +1685,9 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_GLOCK_HANDLES_INFO,
 				kgsl_gem_get_glock_handles_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_ACTIVE, kgsl_gem_set_active_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_USERDATA, kgsl_gem_set_userdata, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_USERDATA, kgsl_gem_get_userdata, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_CACHE_OPS, kgsl_gem_cache_ops, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_LOCK_HANDLE,
 				  kgsl_gem_lock_handle_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_UNLOCK_HANDLE,

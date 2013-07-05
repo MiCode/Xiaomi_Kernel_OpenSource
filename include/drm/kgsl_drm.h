@@ -24,6 +24,10 @@
 #define DRM_KGSL_GEM_SET_GLOCK_HANDLES_INFO 0x11
 #define DRM_KGSL_GEM_GET_GLOCK_HANDLES_INFO 0x12
 #define DRM_KGSL_GEM_GET_BUFCOUNT 0x13
+#define DRM_KGSL_GEM_SET_USERDATA 0x14
+#define DRM_KGSL_GEM_GET_USERDATA 0x15
+#define DRM_KGSL_GEM_CACHE_OPS 0x16
+
 
 
 #define DRM_IOCTL_KGSL_GEM_CREATE \
@@ -101,6 +105,17 @@ struct drm_kgsl_gem_glockinfo)
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_GLOCK_HANDLES_INFO, \
 struct drm_kgsl_gem_glockinfo)
 
+#define DRM_IOCTL_KGSL_GEM_SET_USERDATA \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_SET_USERDATA, \
+struct drm_kgsl_gem_userdata)
+
+#define DRM_IOCTL_KGSL_GEM_GET_USERDATA \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_USERDATA, \
+struct drm_kgsl_gem_userdata)
+
+#define DRM_IOCTL_KGSL_GEM_CACHE_OPS \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CACHE_OPS, \
+struct drm_kgsl_gem_cache_ops)
 
 
 /* Maximum number of sub buffers per GEM object */
@@ -131,12 +146,14 @@ struct drm_kgsl_gem_glockinfo)
 /* Secure memory */
 
 /* Caching controls */
-#define DRM_KGSL_GEM_CACHE_NONE      0x000000
-#define DRM_KGSL_GEM_CACHE_WCOMBINE  0x100000
-#define DRM_KGSL_GEM_CACHE_WTHROUGH  0x200000
-#define DRM_KGSL_GEM_CACHE_WBACK     0x400000
-#define DRM_KGSL_GEM_CACHE_WBACKWA   0x800000
-#define DRM_KGSL_GEM_CACHE_MASK      0xF00000
+#define DRM_KGSL_GEM_CACHE_NONE        0x000000
+#define DRM_KGSL_GEM_CLEAN_CACHES      0x100000
+#define DRM_KGSL_GEM_INV_CACHES        0x200000
+#define DRM_KGSL_GEM_CLEAN_INV_CACHES  0x400000
+#define DRM_KGSL_GEM_CACHE_MASK        0xF00000
+
+
+
 
 /* FD based objects */
 #define DRM_KGSL_GEM_TYPE_FD_FBMEM   0x1000000
@@ -233,6 +250,18 @@ struct drm_kgsl_gem_get_ion_fd {
 struct drm_kgsl_gem_create_from_ion {
 	uint32_t ion_fd;
 	uint32_t handle;
+};
+
+struct drm_kgsl_gem_userdata {
+	uint32_t priv_data;
+	uint32_t handle;
+};
+
+struct drm_kgsl_gem_cache_ops {
+	uint32_t flags;
+	uint32_t handle;
+	void *vaddr;
+	uint32_t length;
 };
 
 #endif
