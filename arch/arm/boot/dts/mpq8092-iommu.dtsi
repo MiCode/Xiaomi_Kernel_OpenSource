@@ -229,3 +229,7 @@
 		interrupts = <0 302 0>;
 	};
 };
+
+&vcap_iommu {
+	status = "ok";
+};
