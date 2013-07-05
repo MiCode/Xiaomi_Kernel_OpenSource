@@ -2,6 +2,9 @@
  *  mma8x5x.c - Linux kernel modules for 3-Axis Orientation/Motion
  *  Detection Sensor MMA8451/MMA8452/MMA8453
  *
+ *  Copyright (c) 2013, The Linux Foundation. All Rights Reserved.
+ *  Linux Foundation chooses to take subject only to the GPLv2 license
+ *  terms, and distributes only under these terms.
  *  Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,23 +21,16 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
+#include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/i2c.h>
-#include <linux/pm.h>
-#include <linux/mutex.h>
 #include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/hwmon-sysfs.h>
-#include <linux/err.h>
-#include <linux/hwmon.h>
+#include <linux/i2c.h>
 #include <linux/input-polldev.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of_gpio.h>
 
-#define MMA8X5X_I2C_ADDR	0x1D
+#define ACCEL_INPUT_DEV_NAME		"accelerometer"
 #define MMA8451_ID			0x1A
 #define MMA8452_ID			0x2A
 #define MMA8453_ID			0x3A
@@ -151,6 +147,8 @@ struct mma8x5x_data {
 	int position;
 	u8 chip_id;
 	int mode;
+	int int_pin;
+	u32 int_flags;
 };
 /* Addresses scanned */
 static const unsigned short normal_i2c[] = {0x1c, 0x1d, I2C_CLIENT_END};
@@ -391,7 +389,8 @@ static ssize_t mma8x5x_enable_store(struct device *dev,
 				MMA8X5X_CTRL_REG1, val|0x01);
 		if (!ret) {
 			pdata->active = MMA_ACTIVED;
-			printk(KERN_INFO "mma enable setting active\n");
+			dev_dbg(dev,
+				"%s:mma enable setting active.\n", __func__);
 		}
 	} else if (enable == 0  && pdata->active == MMA_ACTIVED) {
 		val = i2c_smbus_read_byte_data(client, MMA8X5X_CTRL_REG1);
@@ -399,7 +398,8 @@ static ssize_t mma8x5x_enable_store(struct device *dev,
 			MMA8X5X_CTRL_REG1, val & 0xFE);
 		if (!ret) {
 			pdata->active = MMA_STANDBY;
-			printk(KERN_INFO "mma enable setting inactive\n");
+			dev_dbg(dev,
+				"%s:mma enable setting inactive.\n", __func__);
 		}
 	}
 	mutex_unlock(&pdata->data_lock);
@@ -458,11 +458,36 @@ static int mma8x5x_detect(struct i2c_client *client,
 	chip_id = i2c_smbus_read_byte_data(client, MMA8X5X_WHO_AM_I);
 	if (!mma8x5x_check_id(chip_id))
 		return -ENODEV;
-	printk(KERN_INFO "check %s i2c address 0x%x\n",
-		mma8x5x_id2name(chip_id), client->addr);
+	dev_dbg(&client->dev, "%s,check %s i2c address 0x%x.\n",
+		__func__, mma8x5x_id2name(chip_id), client->addr);
 	strlcpy(info->type, "mma8x5x", I2C_NAME_SIZE);
 	return 0;
 }
+
+static int mma8x5x_parse_dt(struct device *dev, struct mma8x5x_data *data)
+{
+	int rc;
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+
+	data->int_pin = of_get_named_gpio_flags(np, "fsl,irq-gpio",
+				0, &data->int_flags);
+	if (data->int_pin < 0) {
+		dev_err(dev, "Unable to read irq-gpio\n");
+		return data->int_pin;
+	}
+
+	rc = of_property_read_u32(np, "fsl,sensors-position", &temp_val);
+	if (!rc)
+		data->position = temp_val;
+	else {
+		dev_err(dev, "Unable to read sensors-position\n");
+		return rc;
+	}
+
+	return 0;
+}
+
 static int __devinit mma8x5x_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
@@ -500,11 +525,22 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "alloc data memory error!\n");
 		goto err_out;
 	}
+
+	if (client->dev.of_node) {
+		result = mma8x5x_parse_dt(&client->dev, pdata);
+		if (result)
+			return result;
+	} else {
+		pdata->position = CONFIG_SENSORS_MMA_POSITION;
+		pdata->int_pin = -1;
+		pdata->int_flags = 0;
+	}
+
 	/* Initialize the MMA8X5X chip */
 	pdata->client = client;
 	pdata->chip_id = chip_id;
 	pdata->mode = MODE_2G;
-	pdata->position = CONFIG_SENSORS_MMA_POSITION;
+
 	mutex_init(&pdata->data_lock);
 	i2c_set_clientdata(client, pdata);
 	/* Initialize the MMA8X5X chip */
@@ -522,7 +558,7 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 	poll_dev->poll_interval_max = POLL_INTERVAL_MAX;
 	poll_dev->private = pdata;
 	idev = poll_dev->input;
-	idev->name = "accelerometer";
+	idev->name = ACCEL_INPUT_DEV_NAME;
 	idev->uniq = mma8x5x_id2name(pdata->chip_id);
 	idev->id.bustype = BUS_I2C;
 	idev->evbit[0] = BIT_MASK(EV_ABS);
@@ -541,7 +577,10 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 		result = -EINVAL;
 		goto err_create_sysfs;
 	}
-	printk(KERN_INFO "mma8x5x device driver probe successfully\n");
+	dev_info(&client->dev,
+		"%s:mma8x5x device driver probe successfully, position =%d\n",
+		__func__, pdata->position);
+
 	return 0;
 err_create_sysfs:
 	input_unregister_polled_device(pdata->poll_dev);
@@ -626,7 +665,7 @@ static int __init mma8x5x_init(void)
 
 	res = i2c_add_driver(&mma8x5x_driver);
 	if (res < 0) {
-		printk(KERN_INFO "add mma8x5x i2c driver failed\n");
+		pr_info("%s:add mma8x5x i2c driver failed\n", __func__);
 		return -ENODEV;
 	}
 	return res;
