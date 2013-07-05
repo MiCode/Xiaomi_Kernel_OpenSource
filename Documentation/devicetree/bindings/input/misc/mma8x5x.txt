@@ -1,0 +1,39 @@
+Freescale MMA8x5x 3-Axis Orientation/Motion Detection Sensor series
+(MMA8451/MMA8452/MMA8453/MMA8652/MMA8653)
+
+The Freescale 3-Axis Orientation/Motion Detection Sensor is
+connected to host processor via i2c.
+The sensor can be polling for acceleration data or configure to
+generates interrupts when a motion is detected.
+
+Required properties:
+
+ - compatible		: should be "fsl,mma8x5x"
+ - reg			: i2c slave address of the device
+ - vdd-supply : power supply needed to power up the device.
+ - vio-supply	: power supply needed for device IO and to pullup i2c bus.
+ - fsl,sensors-position	: select from 0 to 7 depends on how the sensor is
+				 mounting on the board, this will decide how the 3-axis reading
+				 of data will be translated to X/Y/Z axis of acceleration data.
+
+Optional properties:
+ Sensor can work on polling mode or interrupt mode, following interrupt
+ is required if the sensor need to work on interrupt mode.
+ - interrupt-parent	: parent of interrupt.
+ - interrupts		: sensor signal interrupt to indicate new data ready or
+				 a motion is detected.
+ - fsl,irq-gpio	: First irq gpio which is to provide interrupts to host, same
+				 as "interrupts" node. It will also contain active low or active
+				 high information.
+
+Example:
+	fsl@1c {
+		compatible = "fsl,mma8x5x";
+		reg = <0x1c>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <81 0x2>;
+		vdd-supply = <&pm8110_l19>;
+		vio-supply = <&pm8110_l14>;
+		fsl,sensors-position = <5>;
+		fsl,irq-gpio = <&msmgpio 0x81 0x02>;
+	};
