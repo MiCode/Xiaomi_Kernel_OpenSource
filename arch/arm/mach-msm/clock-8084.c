@@ -444,6 +444,9 @@ static struct clk_lookup msm_clocks_8084[] = {
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc342000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc343000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc344000.cti", OFF),
+
+	CLK_DUMMY("iface_clk", gcc_prng_ahb_clk.c,
+					"f9bff000.qcom,msm-rng", OFF),
 };
 
 struct clock_init_data msm8084_clock_init_data __initdata = {
