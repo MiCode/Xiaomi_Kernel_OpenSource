@@ -930,9 +930,9 @@ static int msm_routing_lsm_mux_put(struct snd_kcontrol *kcontrol,
 		 ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0]) {
 		lsm_mux_slim_port = ucontrol->value.integer.value[0];
-		snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
+		snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
 	} else {
-		snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
+		snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
 		lsm_mux_slim_port = ucontrol->value.integer.value[0];
 	}
 

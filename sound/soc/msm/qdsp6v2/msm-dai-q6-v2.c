@@ -425,6 +425,11 @@ static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {
 	.shutdown	= msm_dai_q6_auxpcm_shutdown,
 };
 
+static const struct snd_soc_component_driver
+	msm_dai_q6_aux_pcm_dai_component = {
+	.name		= "msm-auxpcm-dev",
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_dai = {
 	.playback = {
 		.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
@@ -905,7 +910,7 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
 	kfree(dai_data);
-	snd_soc_unregister_dai(dai->dev);
+	snd_soc_unregister_component(dai->dev);
 
 	return 0;
 }
@@ -1195,7 +1200,9 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, dai_data);
 	pdev->dev.platform_data = (void *) auxpcm_pdata;
 
-	rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_aux_pcm_dai);
+	rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_q6_aux_pcm_dai_component,
+			&msm_dai_q6_aux_pcm_dai, 1);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: auxpcm dai reg failed, rc=%d\n",
 				__func__, rc);
@@ -1220,7 +1227,7 @@ static int msm_auxpcm_dev_remove(struct platform_device *pdev)
 
 	dai_data = dev_get_drvdata(&pdev->dev);
 
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 
 	mutex_destroy(&dai_data->rlock);
 	kfree(dai_data);
@@ -1409,7 +1416,7 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 			  mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask);
 	}
 	kfree(mi2s_dai_data);
-	snd_soc_unregister_dai(dai->dev);
+	snd_soc_unregister_component(dai->dev);
 	return 0;
 }
 
@@ -1867,6 +1874,9 @@ rtn:
 	return rc;
 }
 
+static const struct snd_soc_component_driver msm_q6_mi2s_dai_component = {
+	.name		= "msm-dai-q6-mi2s",
+};
 static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 {
 	struct msm_dai_q6_mi2s_dai_data *dai_data;
@@ -1951,7 +1961,9 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (IS_ERR_VALUE(rc))
 		goto free_dai;
 
-	rc = snd_soc_register_dai(&pdev->dev, mi2s_dai);
+	rc = snd_soc_register_component(&pdev->dev, &msm_q6_mi2s_dai_component,
+	mi2s_dai, 1);
+
 	if (IS_ERR_VALUE(rc))
 		goto err_register;
 	return 0;
@@ -1970,9 +1982,13 @@ rtn:
 
 static int msm_dai_q6_mi2s_dev_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
+
+static const struct snd_soc_component_driver msm_dai_q6_component = {
+	.name		= "msm-dai-q6-dev",
+};
 
 static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 {
@@ -1995,58 +2011,62 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	switch (id) {
 	case SLIMBUS_0_RX:
 	case SLIMBUS_2_RX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					  &msm_dai_q6_slimbus_rx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_slimbus_rx_dai, 1);
 		break;
 	case SLIMBUS_0_TX:
 	case SLIMBUS_2_TX:
 	case SLIMBUS_5_TX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					  &msm_dai_q6_slimbus_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_slimbus_tx_dai, 1);
 		break;
 	case SLIMBUS_1_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					  &msm_dai_q6_slimbus_1_rx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_slimbus_1_rx_dai, 1);
 		break;
 	case SLIMBUS_1_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					  &msm_dai_q6_slimbus_1_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_slimbus_1_tx_dai, 1);
 		break;
 	case INT_BT_SCO_RX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					&msm_dai_q6_bt_sco_rx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_bt_sco_rx_dai, 1);
 		break;
 	case INT_BT_SCO_TX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					&msm_dai_q6_bt_sco_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_bt_sco_tx_dai, 1);
 		break;
 	case INT_FM_RX:
-		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_fm_rx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_fm_rx_dai, 1);
 		break;
 	case INT_FM_TX:
-		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_fm_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+										&msm_dai_q6_fm_tx_dai, 1);
 		break;
 	case RT_PROXY_DAI_001_RX:
 	case RT_PROXY_DAI_002_RX:
-		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_rx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_afe_rx_dai, 1);
 		break;
 	case RT_PROXY_DAI_001_TX:
 	case RT_PROXY_DAI_002_TX:
-		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_afe_tx_dai, 1);
 		break;
 	case VOICE_PLAYBACK_TX:
 	case VOICE2_PLAYBACK_TX:
-		rc = snd_soc_register_dai(&pdev->dev,
-					&msm_dai_q6_voice_playback_tx_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_voice_playback_tx_dai, 1);
 		break;
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
-		rc = snd_soc_register_dai(&pdev->dev,
-						&msm_dai_q6_incall_record_dai);
+		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
+		&msm_dai_q6_incall_record_dai, 1);
 		break;
 
 	default:
@@ -2059,7 +2079,7 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 
 static int msm_dai_q6_dev_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
 

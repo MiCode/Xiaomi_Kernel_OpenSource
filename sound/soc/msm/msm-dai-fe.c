@@ -48,6 +48,10 @@ static struct snd_soc_dai_ops msm_fe_Multimedia_dai_ops = {
 	.startup	= multimedia_startup,
 };
 
+static const struct snd_soc_component_driver msm_fe_dai_component = {
+	.name		= "msm-dai-fe",
+};
+
 static struct snd_soc_dai_driver msm_fe_dais[] = {
 	{
 		.playback = {
@@ -774,13 +778,13 @@ static int msm_fe_dai_dev_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n", __func__,
 		dev_name(&pdev->dev));
-	return snd_soc_register_dais(&pdev->dev, msm_fe_dais,
-		ARRAY_SIZE(msm_fe_dais));
+	return snd_soc_register_component(&pdev->dev, &msm_fe_dai_component,
+		msm_fe_dais, ARRAY_SIZE(msm_fe_dais));
 }
 
 static int msm_fe_dai_dev_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
 
