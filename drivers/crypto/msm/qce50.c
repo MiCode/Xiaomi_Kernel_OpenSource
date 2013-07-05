@@ -3725,7 +3725,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	qce_dma_map_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
 			(areq->src == areq->dst) ? DMA_BIDIRECTIONAL :
 							DMA_TO_DEVICE);
-	/* cipher + mac output  for encryption    */
+	/* cipher output  for encryption    */
 	if (areq->src != areq->dst) {
 		if (pce_dev->ce_sps.minor_version == 0)
 			/*
@@ -3806,7 +3806,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		if (_qce_sps_add_data((uint32_t)pce_dev->phy_iv_in, ivsize,
 					&pce_dev->ce_sps.in_transfer))
 			goto bad;
-		if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->cryptlen,
+		if (_qce_sps_add_sg_data(pce_dev, areq->src, q_req->cryptlen,
 					&pce_dev->ce_sps.in_transfer))
 			goto bad;
 		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
@@ -3818,7 +3818,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 				(ivsize + areq->assoclen),
 				&pce_dev->ce_sps.out_transfer))
 			goto bad;
-		if (_qce_sps_add_sg_data(pce_dev, areq->dst, areq->cryptlen,
+		if (_qce_sps_add_sg_data(pce_dev, areq->dst, q_req->cryptlen,
 					&pce_dev->ce_sps.out_transfer))
 			goto bad;
 
