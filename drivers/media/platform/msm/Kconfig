@@ -2,4 +2,25 @@
 # MSM camera configuration
 #
 
+comment "Qualcomm MSM Camera And Video"
+
+menuconfig MSM_CAMERA
+	bool "Qualcomm MSM camera and video capture support"
+	depends on ARCH_MSM && VIDEO_V4L2 && I2C
+	default y
+	help
+	  Say Y here to enable selecting the video adapters for
+	  Qualcomm msm camera and video encoding
+
+config MSM_CAMERA_DEBUG
+	bool "Qualcomm MSM camera debugging with printk"
+	depends on MSM_CAMERA
+	default n
+	help
+	  Enable printk() debug for msm camera
+
+if MSM_CAMERA
+source "drivers/media/platform/msm/camera_v1/Kconfig"
+endif # MSM_CAMERA
+
 source "drivers/media/platform/msm/dvb/Kconfig"
