@@ -1056,4 +1056,98 @@
 			label = "lpass_core_cb_2";
 		};
 	};
+
+	vcap_iommu: qcom,iommu@fdfb6000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfdfb6000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 315 0>;
+		qcom,needs-alt-core-clk;
+		label = "vcap_iommu";
+		status = "disabled";
+		qcom,msm-bus,name = "vcap_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<48 512 0 0>,
+			<48 512 0 1000>;
+
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0A
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2514
+					0x2540
+					0x256c
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2008
+					0x200c>;
+
+		qcom,iommu-bfb-data = <0x0ff
+					0x00000004
+					0x00000008
+					0x0
+					0x0
+					0x00000008
+					0x00000028
+					0x0
+					0x001000
+					0x001000
+					0x003008
+					0x0
+					0x0
+					0x0>;
+
+		qcom,iommu-ctx@fdfbe000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdfbe000 0x1000>;
+			interrupts = <0 313 0>;
+			qcom,iommu-ctx-sids = <0>;
+			label = "vcap_cb0";
+		};
+
+		qcom,iommu-ctx@fdfbf000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdfbf000 0x1000>;
+			interrupts = <0 313 0>;
+			qcom,iommu-ctx-sids = <1>;
+			label = "vcap_cb1";
+		};
+
+		qcom,iommu-ctx@fdfc0000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdfc0000 0x1000>;
+			interrupts = <0 313 0>;
+			qcom,iommu-ctx-sids = <>;
+			label = "vcap_cb2";
+		};
+	};
 };
