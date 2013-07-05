@@ -30,14 +30,19 @@
 #include "msm.h"
 #include "msm_vpe.h"
 
+#ifdef CONFIG_MSM_CAMERA_DEBUG
+#define D(fmt, args...) pr_debug("msm_vpe: " fmt, ##args)
+#else
+#define D(fmt, args...) do {} while (0)
+#endif
+
 static int vpe_enable(uint32_t);
 static int vpe_disable(void);
 static int vpe_update_scaler(struct msm_pp_crop *pcrop);
 struct vpe_ctrl_type *vpe_ctrl;
 static atomic_t vpe_init_done = ATOMIC_INIT(0);
 
-static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
-	struct msm_mctl_pp_frame_info *pp_frame_info);
+static int msm_vpe_do_pp(struct msm_mctl_pp_frame_info *pp_frame_info);
 
 static long long vpe_do_div(long long num, long long den)
 {
@@ -57,8 +62,7 @@ static int vpe_start(void)
 	msm_camera_io_dump(vpe_ctrl->vpebase + 0x50400, 0x10);
 
 	/* this triggers the operation. */
-	msm_camera_io_w(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
-	wmb();
+	msm_camera_io_w_mb(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
 	return 0;
 }
 
@@ -72,7 +76,7 @@ void vpe_reset_state_variables(void)
 static void vpe_config_axi_default(void)
 {
 	msm_camera_io_w(0x25, vpe_ctrl->vpebase + VPE_AXI_ARB_2_OFFSET);
-	CDBG("%s: yaddr %ld cbcraddr %ld", __func__,
+	D("%s: yaddr %ld cbcraddr %ld", __func__,
 		 vpe_ctrl->out_y_addr, vpe_ctrl->out_cbcr_addr);
 	if (!vpe_ctrl->out_y_addr || !vpe_ctrl->out_cbcr_addr)
 		return;
@@ -81,7 +85,6 @@ static void vpe_config_axi_default(void)
 	/* for video  CbCr address */
 	msm_camera_io_w(vpe_ctrl->out_cbcr_addr,
 		vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
-
 }
 
 static int vpe_reset(void)
@@ -92,7 +95,7 @@ static int vpe_reset(void)
 
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
-		CDBG("%s: VPE already disabled.", __func__);
+		D("%s: VPE already disabled.", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return rc;
 	}
@@ -101,7 +104,7 @@ static int vpe_reset(void)
 	vpe_reset_state_variables();
 	vpe_version = msm_camera_io_r(
 			vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
-	CDBG("vpe_version = 0x%x\n", vpe_version);
+	D("vpe_version = 0x%x\n", vpe_version);
 	/* disable all interrupts.*/
 	msm_camera_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	/* clear all pending interrupts*/
@@ -139,13 +142,13 @@ static int msm_vpe_cfg_update(void *pinfo)
 	rot_flag = msm_camera_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
-		CDBG("%s: Crop info in2_w = %d, in2_h = %d "
+		D("%s: Crop info in2_w = %d, in2_h = %d "
 			"out2_w = %d out2_h = %d\n",
 			__func__, pcrop->src_w, pcrop->src_h,
 			pcrop->dst_w, pcrop->dst_h);
 		rc = vpe_update_scaler(pcrop);
 	}
-	CDBG("return rc = %d rot_flag = %d\n", rc, rot_flag);
+	D("return rc = %d rot_flag = %d\n", rc, rot_flag);
 	rc |= rot_flag;
 
 	return rc;
@@ -200,7 +203,7 @@ static int vpe_operation_config(uint32_t *p)
 		vpe_ctrl->out_w = w;
 		vpe_ctrl->out_h = h;
 	}
-	CDBG("%s: out_w=%d, out_h=%d", __func__, vpe_ctrl->out_w,
+	D("%s: out_w=%d, out_h=%d", __func__, vpe_ctrl->out_w,
 		vpe_ctrl->out_h);
 	return 0;
 }
@@ -239,7 +242,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	out_ROI_width = pcrop->dst_w;
 	out_ROI_height = pcrop->dst_h;
 
-	CDBG("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
+	D("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
 		src_ROI_width, src_ROI_height, out_ROI_width,
 		out_ROI_height);
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
@@ -249,12 +252,12 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	src_x = pcrop->src_x;
 	src_y = pcrop->src_y;
 
-	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
+	D("src_x = %d, src_y=%d.\n", src_x, src_y);
 
 	src_xy = src_y*(1<<16) + src_x;
 	msm_camera_io_w(src_xy, vpe_ctrl->vpebase +
 			VPE_SRC_XY_OFFSET);
-	CDBG("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
+	D("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
 
 	/* decide whether to use FIR or M/N for scaling */
 	if ((out_ROI_width == 1 && src_ROI_width < 4) ||
@@ -387,9 +390,9 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	} else if (scale_unit_sel_y == 1) /* M over N scalar   */
 		phase_init_y = 0;
 
-	CDBG("phase step x = %d, step y = %d.\n",
+	D("phase step x = %d, step y = %d.\n",
 		 phase_step_x, phase_step_y);
-	CDBG("phase init x = %d, init y = %d.\n",
+	D("phase init x = %d, init y = %d.\n",
 		 phase_init_x, phase_init_y);
 
 	msm_camera_io_w(phase_step_x, vpe_ctrl->vpebase +
@@ -416,24 +419,40 @@ int msm_vpe_is_busy(void)
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	return busy;
 }
+
 static int msm_send_frame_to_vpe(void)
 {
 	int rc = 0;
 	unsigned long flags;
+	unsigned long srcP0, srcP1, outP0, outP1;
+	struct msm_mctl_pp_frame_info *frame = vpe_ctrl->pp_frame_info;
 
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
-	msm_camera_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
-			  vpe_ctrl->pp_frame_info->src_frame.sp.y_off),
-			vpe_ctrl->vpebase + VPE_SRCP0_ADDR_OFFSET);
-	msm_camera_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
-			  vpe_ctrl->pp_frame_info->src_frame.sp.cbcr_off),
-			vpe_ctrl->vpebase + VPE_SRCP1_ADDR_OFFSET);
-	msm_camera_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
-			  vpe_ctrl->pp_frame_info->dest_frame.sp.y_off),
-			vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
-	msm_camera_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
-			  vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off),
-			vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
+	if (frame->src_frame.num_planes > 1) {
+		srcP0 = vpe_ctrl->pp_frame_info->src_frame.mp[0].phy_addr +
+			vpe_ctrl->pp_frame_info->src_frame.mp[0].data_offset;
+		srcP1 = vpe_ctrl->pp_frame_info->src_frame.mp[1].phy_addr +
+			vpe_ctrl->pp_frame_info->src_frame.mp[1].data_offset;
+		outP0 = vpe_ctrl->pp_frame_info->dest_frame.mp[0].phy_addr +
+			vpe_ctrl->pp_frame_info->dest_frame.mp[0].data_offset;
+		outP1 = vpe_ctrl->pp_frame_info->dest_frame.mp[1].phy_addr +
+			vpe_ctrl->pp_frame_info->dest_frame.mp[1].data_offset;
+	} else {
+		srcP0 = vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
+			vpe_ctrl->pp_frame_info->src_frame.sp.y_off;
+		srcP1 = vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
+			vpe_ctrl->pp_frame_info->src_frame.sp.cbcr_off;
+		outP0 = vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
+			vpe_ctrl->pp_frame_info->dest_frame.sp.y_off;
+		outP1 = vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
+			vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off;
+	}
+
+	msm_camera_io_w(srcP0, vpe_ctrl->vpebase + VPE_SRCP0_ADDR_OFFSET);
+	msm_camera_io_w(srcP1, vpe_ctrl->vpebase + VPE_SRCP1_ADDR_OFFSET);
+	msm_camera_io_w(outP0, vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
+	msm_camera_io_w(outP1, vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
+
 	vpe_ctrl->state = VPE_STATE_ACTIVE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	vpe_start();
@@ -443,27 +462,33 @@ static int msm_send_frame_to_vpe(void)
 static void vpe_send_outmsg(void)
 {
 	unsigned long flags;
-	struct msm_vpe_resp rp;
-	memset(&rp, 0, sizeof(rp));
+	struct v4l2_event v4l2_evt;
+	struct msm_queue_cmd *event_qcmd;
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
 		pr_err("%s VPE is in IDLE state. Ignore the ack msg", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return;
 	}
-	rp.type = vpe_ctrl->pp_frame_info->pp_frame_cmd.path;
-	rp.extdata = (void *)vpe_ctrl->pp_frame_info;
-	rp.extlen = sizeof(*vpe_ctrl->pp_frame_info);
-	vpe_ctrl->state = VPE_STATE_INIT;   /* put it back to idle. */
+	event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_ATOMIC);
+	atomic_set(&event_qcmd->on_heap, 1);
+	event_qcmd->command = (void *)vpe_ctrl->pp_frame_info;
 	vpe_ctrl->pp_frame_info = NULL;
+	vpe_ctrl->state = VPE_STATE_INIT;   /* put it back to idle. */
+
+	/* Enqueue the event payload. */
+	msm_enqueue(&vpe_ctrl->eventData_q, &event_qcmd->list_eventdata);
+	/* Now queue the event. */
+	v4l2_evt.type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_MCTL_PP_EVENT;
+	v4l2_evt.id = 0;
+	v4l2_event_queue(vpe_ctrl->subdev.devnode, &v4l2_evt);
+
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-	v4l2_subdev_notify(&vpe_ctrl->subdev,
-		NOTIFY_VPE_MSG_EVT, (void *)&rp);
 }
 
 static void vpe_do_tasklet(unsigned long data)
 {
-	CDBG("%s: irq_status = 0x%x",
+	D("%s: irq_status = 0x%x",
 		   __func__, vpe_ctrl->irq_status);
 	if (vpe_ctrl->irq_status & 0x1)
 		vpe_send_outmsg();
@@ -478,7 +503,7 @@ static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 	msm_camera_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
 				VPE_INTR_CLEAR_OFFSET);
 	msm_camera_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
-	CDBG("%s: vpe_parse_irq =0x%x.\n", __func__, vpe_ctrl->irq_status);
+	D("%s: vpe_parse_irq =0x%x.\n", __func__, vpe_ctrl->irq_status);
 	tasklet_schedule(&vpe_tasklet);
 	return IRQ_HANDLED;
 }
@@ -492,7 +517,7 @@ int vpe_enable(uint32_t clk_rate)
 {
 	int rc = 0;
 	unsigned long flags = 0;
-	CDBG("%s", __func__);
+	D("%s", __func__);
 	/* don't change the order of clock and irq.*/
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state != VPE_STATE_IDLE) {
@@ -536,10 +561,10 @@ int vpe_disable(void)
 {
 	int rc = 0;
 	unsigned long flags = 0;
-	CDBG("%s", __func__);
+	D("%s", __func__);
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
-		CDBG("%s: VPE already disabled", __func__);
+		D("%s: VPE already disabled", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return rc;
 	}
@@ -559,8 +584,7 @@ int vpe_disable(void)
 	return rc;
 }
 
-static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
-			struct msm_mctl_pp_frame_info *pp_frame_info)
+static int msm_vpe_do_pp(struct msm_mctl_pp_frame_info *pp_frame_info)
 {
 	int rc = 0;
 	unsigned long flags;
@@ -577,7 +601,7 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
 	vpe_ctrl->pp_frame_info = pp_frame_info;
 	msm_vpe_cfg_update(
 		&vpe_ctrl->pp_frame_info->pp_frame_cmd.crop);
-	CDBG("%s Sending frame idx %d id %d to VPE ", __func__,
+	D("%s Sending frame idx %d id %d to VPE ", __func__,
 		pp_frame_info->src_frame.buf_idx,
 		pp_frame_info->src_frame.frame_id);
 	rc = msm_send_frame_to_vpe();
@@ -590,7 +614,7 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd,
 		struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
-	CDBG("%s:begin", __func__);
+	D("%s:begin", __func__);
 	if (atomic_read(&vpe_init_done)) {
 		pr_err("%s: VPE has been initialized", __func__);
 		return -EBUSY;
@@ -604,7 +628,7 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd,
 	}
 	v4l2_set_subdev_hostdata(sd, mctl);
 	spin_lock_init(&vpe_ctrl->lock);
-	CDBG("%s:end", __func__);
+	D("%s:end", __func__);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vpe_subdev_init);
@@ -646,84 +670,310 @@ void msm_vpe_subdev_release(void)
 }
 EXPORT_SYMBOL(msm_vpe_subdev_release);
 
-static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
-			unsigned int subdev_cmd, void *arg)
+static int msm_vpe_process_vpe_cmd(struct msm_vpe_cfg_cmd *vpe_cmd)
 {
-	struct msm_mctl_pp_params *vpe_params;
-	struct msm_mctl_pp_cmd *cmd;
 	int rc = 0;
 
-	if (subdev_cmd == VIDIOC_MSM_VPE_INIT) {
+	switch (vpe_cmd->cmd_type) {
+	case VPE_CMD_RESET:
+		rc = vpe_reset();
+		break;
+
+	case VPE_CMD_OPERATION_MODE_CFG: {
+		struct msm_vpe_op_mode_cfg op_mode_cfg;
+		if (sizeof(struct msm_vpe_op_mode_cfg) != vpe_cmd->length) {
+			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(struct msm_vpe_op_mode_cfg));
+			rc = -EINVAL;
+			break;
+		}
+		COPY_FROM_USER(rc, &op_mode_cfg, (void __user *)vpe_cmd->value,
+			sizeof(op_mode_cfg));
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		vpe_cmd->value = (void *)&op_mode_cfg;
+		rc = vpe_operation_config(vpe_cmd->value);
+		break;
+		}
+
+	case VPE_CMD_INPUT_PLANE_CFG: {
+		struct msm_vpe_input_plane_cfg input_cfg;
+		if (sizeof(struct msm_vpe_input_plane_cfg) != vpe_cmd->length) {
+			pr_err("%s: mismatch cmd = %d, len = %d, expected = %d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(struct msm_vpe_input_plane_cfg));
+			rc = -EINVAL;
+			break;
+		}
+		COPY_FROM_USER(rc, &input_cfg, (void __user *)vpe_cmd->value,
+			sizeof(input_cfg));
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		vpe_cmd->value = (void *)&input_cfg;
+		vpe_input_plane_config(vpe_cmd->value);
+		break;
+		}
+
+	case VPE_CMD_OUTPUT_PLANE_CFG: {
+		struct msm_vpe_output_plane_cfg output_cfg;
+		if (sizeof(struct msm_vpe_output_plane_cfg) !=
+			vpe_cmd->length) {
+			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(struct msm_vpe_output_plane_cfg));
+				rc = -EINVAL;
+				break;
+		}
+		COPY_FROM_USER(rc, &output_cfg, (void __user *)vpe_cmd->value,
+			sizeof(output_cfg));
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		vpe_cmd->value = (void *)&output_cfg;
+		vpe_output_plane_config(vpe_cmd->value);
+		break;
+		}
+
+	case VPE_CMD_SCALE_CFG_TYPE:{
+		struct msm_vpe_scaler_cfg scaler_cfg;
+		if (sizeof(struct msm_vpe_scaler_cfg) != vpe_cmd->length) {
+			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(struct msm_vpe_scaler_cfg));
+			rc = -EINVAL;
+			break;
+		}
+		COPY_FROM_USER(rc, &scaler_cfg, (void __user *)vpe_cmd->value,
+			sizeof(scaler_cfg));
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		vpe_cmd->value = (void *)&scaler_cfg;
+		vpe_update_scale_coef(vpe_cmd->value);
+		break;
+		}
+
+	case VPE_CMD_ZOOM: {
+		struct msm_mctl_pp_frame_info *zoom;
+		zoom = kmalloc(sizeof(struct msm_mctl_pp_frame_info),
+				GFP_ATOMIC);
+		if (!zoom) {
+			pr_err("%s Not enough memory ", __func__);
+			rc = -ENOMEM;
+			break;
+		}
+
+		if (sizeof(zoom->pp_frame_cmd) != vpe_cmd->length) {
+			pr_err("%s: size mismatch id=%d, len=%d, expected=%d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(zoom->pp_frame_cmd));
+			rc = -EINVAL;
+			kfree(zoom);
+			break;
+		}
+		COPY_FROM_USER(rc, &zoom->pp_frame_cmd,
+			(void __user *)vpe_cmd->value,
+			sizeof(zoom->pp_frame_cmd));
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			kfree(zoom);
+			break;
+		}
+
+		zoom->user_cmd = vpe_cmd->cmd_type;
+		zoom->p_mctl = v4l2_get_subdev_hostdata(&vpe_ctrl->subdev);
+		D("%s: src=0x%x, dest=0x%x,cookie=0x%x,action=0x%x,path=0x%x",
+			__func__, zoom->pp_frame_cmd.src_buf_handle,
+			zoom->pp_frame_cmd.dest_buf_handle,
+			zoom->pp_frame_cmd.cookie,
+			zoom->pp_frame_cmd.vpe_output_action,
+			zoom->pp_frame_cmd.path);
+		rc = msm_mctl_pp_get_vpe_buf_info(zoom);
+		if (rc < 0) {
+			pr_err("%s Error getting buffer info from mctl rc = %d",
+				__func__, rc);
+			kfree(zoom);
+			break;
+		}
+		rc = msm_vpe_do_pp(zoom);
+		break;
+		}
+
+	case VPE_CMD_ENABLE: {
+		struct msm_vpe_clock_rate clk_rate;
+		int turbo_mode;
+		if (sizeof(struct msm_vpe_clock_rate) != vpe_cmd->length) {
+			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%d",
+				__func__, vpe_cmd->cmd_type, vpe_cmd->length,
+				sizeof(struct msm_vpe_clock_rate));
+			rc = -EINVAL;
+			break;
+		}
+		if (copy_from_user(&clk_rate, (void __user *)vpe_cmd->value,
+			sizeof(struct msm_vpe_clock_rate))) {
+			pr_err("%s:clk_rate copy failed", __func__);
+			return -EFAULT;
+		}
+		turbo_mode = (int)clk_rate.rate;
+		rc = turbo_mode ? vpe_enable(VPE_TURBO_MODE_CLOCK_RATE) :
+				vpe_enable(VPE_NORMAL_MODE_CLOCK_RATE);
+		break;
+		}
+
+	case VPE_CMD_DISABLE:
+		rc = vpe_disable();
+		break;
+
+	default:
+		break;
+	}
+
+	return rc;
+}
+
+static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
+			unsigned int cmd, void *arg)
+{
+	struct msm_vpe_cfg_cmd *vpe_cmd;
+	int rc = 0;
+
+	switch (cmd) {
+	case VIDIOC_MSM_VPE_INIT: {
 		struct msm_cam_media_controller *mctl =
 			(struct msm_cam_media_controller *)arg;
 		msm_vpe_subdev_init(sd, mctl);
-	} else if (subdev_cmd == VIDIOC_MSM_VPE_RELEASE) {
+		break;
+		}
+
+	case VIDIOC_MSM_VPE_RELEASE:
 		msm_vpe_subdev_release();
-	} else if (subdev_cmd == VIDIOC_MSM_VPE_CFG) {
-		vpe_params = (struct msm_mctl_pp_params *)arg;
-		cmd = vpe_params->cmd;
-		switch (cmd->id) {
-		case VPE_CMD_INIT:
-		case VPE_CMD_DEINIT:
-			break;
-		case VPE_CMD_RESET:
-			rc = vpe_reset();
-			break;
-		case VPE_CMD_OPERATION_MODE_CFG:
-			rc = vpe_operation_config(cmd->value);
-			break;
-		case VPE_CMD_INPUT_PLANE_CFG:
-			vpe_input_plane_config(cmd->value);
-			break;
-		case VPE_CMD_OUTPUT_PLANE_CFG:
-			vpe_output_plane_config(cmd->value);
-			break;
-		case VPE_CMD_SCALE_CFG_TYPE:
-			vpe_update_scale_coef(cmd->value);
-			break;
-		case VPE_CMD_ZOOM: {
-			rc = msm_vpe_do_pp(cmd,
-			(struct msm_mctl_pp_frame_info *)vpe_params->data);
+		break;
+
+	case MSM_CAM_V4L2_IOCTL_CFG_VPE: {
+		vpe_cmd = (struct msm_vpe_cfg_cmd *)arg;
+		rc = msm_vpe_process_vpe_cmd(vpe_cmd);
+		if (rc < 0) {
+			pr_err("%s Error processing VPE cmd %d ",
+				__func__, vpe_cmd->cmd_type);
 			break;
 		}
-		case VPE_CMD_ENABLE: {
-			struct msm_vpe_clock_rate *clk_rate = cmd->value;
-			int turbo_mode = (int)clk_rate->rate;
-			rc = turbo_mode ?
-				vpe_enable(VPE_TURBO_MODE_CLOCK_RATE) :
-				vpe_enable(VPE_NORMAL_MODE_CLOCK_RATE);
-			break;
+		break;
 		}
-		case VPE_CMD_DISABLE:
-			rc = vpe_disable();
-			break;
-		case VPE_CMD_INPUT_PLANE_UPDATE:
-		case VPE_CMD_FLUSH:
-		default:
-			break;
+
+	case MSM_CAM_V4L2_IOCTL_GET_EVENT_PAYLOAD: {
+		struct msm_device_queue *queue = &vpe_ctrl->eventData_q;
+		struct msm_queue_cmd *event_qcmd;
+		struct msm_mctl_pp_event_info pp_event_info;
+		struct msm_mctl_pp_frame_info *pp_frame_info;
+		struct msm_camera_v4l2_ioctl_t *v4l2_ioctl = arg;
+
+		event_qcmd = msm_dequeue(queue, list_eventdata);
+		if (!event_qcmd) {
+			pr_err("%s No events in the queue", __func__);
+			return -EFAULT;
 		}
-		CDBG("%s: end, id = %d, rc = %d", __func__, cmd->id, rc);
+		pp_frame_info = event_qcmd->command;
+		pp_event_info.event = MCTL_PP_EVENT_CMD_ACK;
+		pp_event_info.ack.cmd = pp_frame_info->user_cmd;
+		pp_event_info.ack.status = 0;
+		pp_event_info.ack.cookie = pp_frame_info->pp_frame_cmd.cookie;
+		D("%s Sending payload %d %d %d", __func__,
+			pp_event_info.ack.cmd, pp_event_info.ack.status,
+			pp_event_info.ack.cookie);
+		if (copy_to_user((void __user *)v4l2_ioctl->ioctl_ptr,
+			&pp_event_info,
+			sizeof(struct msm_mctl_pp_event_info)))
+			pr_err("%s EVENTPAYLOAD Copy to user failed ",
+				__func__);
+		kfree(pp_frame_info);
+		kfree(event_qcmd);
+		break;
+		}
+
+	default:
+		break;
 	}
 	return rc;
 }
 
+int msm_vpe_subdev_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	D("%s E\n", __func__);
+	return v4l2_event_subscribe(fh, sub, VPE_SUBDEV_MAX_EVENTS);
+}
+
+int msm_vpe_subdev_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	D("%s E\n", __func__);
+	return v4l2_event_unsubscribe(fh, sub);
+}
+
 static const struct v4l2_subdev_core_ops msm_vpe_subdev_core_ops = {
 	.ioctl = msm_vpe_subdev_ioctl,
+	.subscribe_event = msm_vpe_subdev_subscribe_event,
+	.unsubscribe_event = msm_vpe_subdev_unsubscribe_event,
 };
 
 static const struct v4l2_subdev_ops msm_vpe_subdev_ops = {
 	.core = &msm_vpe_subdev_core_ops,
 };
 
-static const struct v4l2_subdev_internal_ops msm_vpe_internal_ops;
+static int msm_vpe_subdev_open(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct vpe_ctrl_type *vpe_ctrl = v4l2_get_subdevdata(sd);
+	/* Only one client of VPE allowed. */
+	if (atomic_read(&vpe_ctrl->active) != 0) {
+		pr_err("%s already opened\n", __func__);
+		return -EINVAL;
+	}
 
-static int vpe_probe(struct platform_device *pdev)
+	D("%s E ", __func__);
+	atomic_inc(&vpe_ctrl->active);
+	return 0;
+}
+
+static int msm_vpe_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct vpe_ctrl_type *vpe_ctrl = v4l2_get_subdevdata(sd);
+	if (atomic_read(&vpe_ctrl->active) == 0) {
+		pr_err("%s already closed\n", __func__);
+		return -EINVAL;
+	}
+
+	D("%s E ", __func__);
+	/* Drain the payload queue. */
+	msm_queue_drain(&vpe_ctrl->eventData_q, list_eventdata);
+	atomic_dec(&vpe_ctrl->active);
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops msm_vpe_internal_ops = {
+	.open = msm_vpe_subdev_open,
+	.close = msm_vpe_subdev_close,
+};
+
+static int msm_vpe_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-	CDBG("%s: device id = %d\n", __func__, pdev->id);
+	D("%s: device id = %d\n", __func__, pdev->id);
 	vpe_ctrl = kzalloc(sizeof(struct vpe_ctrl_type), GFP_KERNEL);
 	if (!vpe_ctrl) {
-		pr_err("%s: no enough memory\n", __func__);
+		pr_err("%s: not enough memory\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -733,6 +983,13 @@ static int vpe_probe(struct platform_device *pdev)
 	vpe_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(vpe_ctrl->subdev.name, sizeof(vpe_ctrl->subdev.name), "vpe");
 	platform_set_drvdata(pdev, &vpe_ctrl->subdev);
+
+	media_entity_init(&vpe_ctrl->subdev.entity, 0, NULL, 0);
+	vpe_ctrl->subdev.entity.type = MEDIA_ENT_T_DEVNODE_V4L;
+	vpe_ctrl->subdev.entity.group_id = VPE_DEV;
+	vpe_ctrl->subdev.entity.name = vpe_ctrl->subdev.name;
+
+	vpe_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 
 	vpe_ctrl->vpemem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "vpe");
@@ -769,17 +1026,22 @@ static int vpe_probe(struct platform_device *pdev)
 
 	disable_irq(vpe_ctrl->vpeirq->start);
 
+	atomic_set(&vpe_ctrl->active, 0);
 	vpe_ctrl->pdev = pdev;
 	msm_cam_register_subdev_node(&vpe_ctrl->subdev, VPE_DEV, pdev->id);
+	vpe_ctrl->subdev.entity.revision = vpe_ctrl->subdev.devnode->num;
+	msm_queue_init(&vpe_ctrl->eventData_q, "ackevents");
+
 	return 0;
 
 vpe_no_resource:
+	pr_err("%s: VPE Probe failed.\n", __func__);
 	kfree(vpe_ctrl);
 	return 0;
 }
 
-struct platform_driver vpe_driver = {
-	.probe = vpe_probe,
+struct platform_driver msm_vpe_driver = {
+	.probe = msm_vpe_probe,
 	.driver = {
 		.name = MSM_VPE_DRV_NAME,
 		.owner = THIS_MODULE,
@@ -788,9 +1050,15 @@ struct platform_driver vpe_driver = {
 
 static int __init msm_vpe_init_module(void)
 {
-	return platform_driver_register(&vpe_driver);
+	return platform_driver_register(&msm_vpe_driver);
+}
+
+static void __exit msm_vpe_exit_module(void)
+{
+	platform_driver_unregister(&msm_vpe_driver);
 }
 
 module_init(msm_vpe_init_module);
+module_exit(msm_vpe_exit_module);
 MODULE_DESCRIPTION("VPE driver");
 MODULE_LICENSE("GPL v2");

@@ -454,7 +454,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 					image_mode, fbuf,
 					&frame_id, 1);
 				D("%s mctl node buf done %d\n", __func__, 0);
-				return -EINVAL;
+				return rc;
 			} else {
 			  pr_err("%s Invalid instance, dropping buffer\n",
 				  __func__);

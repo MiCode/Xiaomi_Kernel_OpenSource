@@ -39,10 +39,15 @@
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
 
-#define ERR_USER_COPY(to) pr_debug("%s(%d): copy %s user\n", \
+#define ERR_USER_COPY(to) pr_err("%s(%d): copy %s user\n", \
 				__func__, __LINE__, ((to) ? "to" : "from"))
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
 #define ERR_COPY_TO_USER() ERR_USER_COPY(1)
+
+#define COPY_FROM_USER(error, dest, src, size) \
+	(error = (copy_from_user(dest, src, size) ? -EFAULT : 0))
+#define COPY_TO_USER(error, dest, src, size) \
+	(error = (copy_to_user(dest, src, size) ? -EFAULT : 0))
 
 #define MSM_CSIPHY_DRV_NAME "msm_csiphy"
 #define MSM_CSID_DRV_NAME "msm_csid"
@@ -102,6 +107,7 @@ enum msm_cam_subdev_type {
 		qcmd = list_first_entry(&__q->list,   \
 			struct msm_queue_cmd, member);	\
 			list_del_init(&qcmd->member);	 \
+			kfree(qcmd->command);		\
 			free_qcmd(qcmd);		\
 	 };			  \
 	spin_unlock_irqrestore(&__q->lock, flags);	\
@@ -147,7 +153,6 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_MSG_COMP_STATS, /* arg = struct msm_stats_buf */
 	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
 	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
-	NOTIFY_VPE_MSG_EVT,
 	NOTIFY_PCLK_CHANGE, /* arg = pclk */
 	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
 	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
@@ -206,6 +211,7 @@ struct msm_mctl_pp_frame_info {
 	struct msm_pp_frame src_frame;
 	struct msm_pp_frame dest_frame;
 	struct msm_mctl_pp_frame_cmd pp_frame_cmd;
+	struct msm_cam_media_controller *p_mctl;
 };
 
 struct msm_mctl_pp_ctrl {
@@ -587,6 +593,10 @@ int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam);
 long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
 		unsigned int cmd, unsigned long evt);
+int msm_mctl_pp_get_vpe_buf_info(struct msm_mctl_pp_frame_info *zoom);
+void msm_queue_init(struct msm_device_queue *queue, const char *name);
+void msm_enqueue(struct msm_device_queue *queue, struct list_head *entry);
+void msm_drain_eventq(struct msm_device_queue *queue);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

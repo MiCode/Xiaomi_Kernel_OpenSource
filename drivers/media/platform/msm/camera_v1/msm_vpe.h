@@ -79,8 +79,8 @@
 #define VPE_DEFAULT_SCALE_CONFIG      0x3c
 
 #define VPE_NORMAL_MODE_CLOCK_RATE   150000000
-#define VPE_TURBO_MODE_CLOCK_RATE   200000000
-
+#define VPE_TURBO_MODE_CLOCK_RATE    200000000
+#define VPE_SUBDEV_MAX_EVENTS        30
 
 /**************************************************/
 /*********** End of command id ********************/
@@ -119,6 +119,8 @@ struct vpe_ctrl_type {
 	struct regulator *fs_vpe;
 	struct clk	*vpe_clk[2];
 	struct msm_mctl_pp_frame_info *pp_frame_info;
+	atomic_t active;
+	struct msm_device_queue eventData_q; /*V4L2 Event Payload Queue*/
 };
 
 /*
