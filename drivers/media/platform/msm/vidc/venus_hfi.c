@@ -1030,6 +1030,7 @@ static int venus_hfi_sys_set_idle_message(struct venus_hfi_device *device,
 static int venus_hfi_core_init(void *device)
 {
 	struct hfi_cmd_sys_init_packet pkt;
+	struct hfi_cmd_sys_get_property_packet version_pkt;
 	int rc = 0;
 	struct venus_hfi_device *dev;
 
@@ -1088,6 +1089,10 @@ static int venus_hfi_core_init(void *device)
 		rc = -ENOTEMPTY;
 		goto err_core_init;
 	}
+	rc = create_pkt_cmd_sys_image_version(&version_pkt);
+	if (rc || venus_hfi_iface_cmdq_write(dev, &version_pkt))
+		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w");
+
 	return rc;
 err_core_init:
 	disable_irq_nosync(dev->hal_data->irq);

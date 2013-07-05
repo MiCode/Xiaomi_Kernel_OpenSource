@@ -197,6 +197,10 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_SYS_COMMON_START + 0x003)
 #define HFI_PROPERTY_SYS_IDLE_INDICATOR         \
 	(HFI_PROPERTY_SYS_COMMON_START + 0x004)
+#define  HFI_PROPERTY_SYS_CODEC_POWER_PLANE_CTRL     \
+	(HFI_PROPERTY_SYS_COMMON_START + 0x005)
+#define  HFI_PROPERTY_SYS_IMAGE_VERSION    \
+	(HFI_PROPERTY_SYS_COMMON_START + 0x006)
 
 #define HFI_PROPERTY_PARAM_COMMON_START	\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
@@ -615,6 +619,11 @@ struct hfi_resource_ocmem_requirement_info {
 	struct hfi_resource_ocmem_requirement rg_requirements[1];
 };
 
+struct hfi_property_sys_image_version_info_type {
+	u32 string_size;
+	u8  str_image_version[1];
+};
+
 struct hfi_venc_config_advanced {
 	u8 pipe2d;
 	u8 hw_mode;
@@ -703,6 +712,7 @@ struct hfi_mvc_buffer_lauout_descp_type {
 #define HFI_MSG_SYS_SESSION_INIT_DONE	(HFI_MSG_SYS_COMMON_START + 0x6)
 #define HFI_MSG_SYS_SESSION_END_DONE	(HFI_MSG_SYS_COMMON_START + 0x7)
 #define HFI_MSG_SYS_IDLE		(HFI_MSG_SYS_COMMON_START + 0x8)
+#define HFI_MSG_SYS_PROPERTY_INFO	(HFI_MSG_SYS_COMMON_START + 0xA)
 
 #define HFI_MSG_SESSION_COMMON_START		\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET +	\
