@@ -429,8 +429,6 @@ static int __devinit pil_mss_loadable_init(struct modem_data *drv,
 	mba_desc->dev = &pdev->dev;
 	mba_desc->ops = &pil_msa_mba_ops;
 	mba_desc->owner = THIS_MODULE;
-	mba_desc->proxy_timeout = PROXY_TIMEOUT_MS;
-	mba_desc->proxy_unvote_irq = clk_ready;
 
 	ret = pil_desc_init(mba_desc);
 	if (ret)

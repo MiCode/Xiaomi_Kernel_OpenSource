@@ -292,25 +292,6 @@ struct pil_reset_ops pil_msa_pbl_ops = {
 	.shutdown = pil_msa_pbl_shutdown,
 };
 
-static int pil_msa_mba_make_proxy_votes(struct pil_desc *pil)
-{
-	int ret;
-	struct mba_data *drv = container_of(pil, struct mba_data, desc);
-
-	ret = clk_prepare_enable(drv->xo);
-	if (ret) {
-		dev_err(pil->dev, "Failed to enable XO\n");
-		return ret;
-	}
-	return 0;
-}
-
-static void pil_msa_mba_remove_proxy_votes(struct pil_desc *pil)
-{
-	struct mba_data *drv = container_of(pil, struct mba_data, desc);
-	clk_disable_unprepare(drv->xo);
-}
-
 static int pil_msa_mba_init_image(struct pil_desc *pil,
 				  const u8 *metadata, size_t size)
 {
@@ -400,8 +381,6 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 
 struct pil_reset_ops pil_msa_mba_ops = {
 	.init_image = pil_msa_mba_init_image,
-	.proxy_vote = pil_msa_mba_make_proxy_votes,
-	.proxy_unvote = pil_msa_mba_remove_proxy_votes,
 	.verify_blob = pil_msa_mba_verify_blob,
 	.auth_and_reset = pil_msa_mba_auth,
 };
