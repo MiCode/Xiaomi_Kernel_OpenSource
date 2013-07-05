@@ -301,6 +301,10 @@
 #define SND_SOC_COMP_ORDER_LATE		1
 #define SND_SOC_COMP_ORDER_LAST		2
 
+/* DAI Link Host Mode Support */
+#define SND_SOC_DAI_LINK_NO_HOST		0x1
+#define SND_SOC_DAI_LINK_OPT_HOST		0x2
+
 /*
  * Bias levels
  *
@@ -652,6 +656,7 @@ struct snd_soc_pcm_stream {
 	unsigned int channels_min;	/* min channels */
 	unsigned int channels_max;	/* max channels */
 	unsigned int sig_bits;		/* number of bits of content */
+	const char *aif_name;	/* DAPM AIF widget name */
 };
 
 /* SoC audio ops */
@@ -934,6 +939,9 @@ struct snd_soc_dai_link {
 
 	/* This DAI link can route to other DAI links at runtime (Frontend)*/
 	unsigned int dynamic:1;
+
+	/* This DAI can support no host IO (no pcm data is copied to from host) */
+	unsigned int no_host_mode:2;
 
 	/* pmdown_time is ignored at stop */
 	unsigned int ignore_pmdown_time:1;
