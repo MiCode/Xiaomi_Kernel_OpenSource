@@ -605,11 +605,12 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	memcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req);
-	if (ret < 0)
+	if (ret < 0) {
+		qsee_disable_clock_vote(data, CLK_SFPB);
 		return ret;
-	else
-		app_id = ret;
+	}
 
+	app_id = ret;
 	if (app_id) {
 		pr_debug("App id %d (%s) already exists\n", app_id,
 			(char *)(req.app_name));
