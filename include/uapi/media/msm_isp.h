@@ -59,6 +59,8 @@
 #define MSG_ID_OUTPUT_PRIMARY           40
 #define MSG_ID_OUTPUT_SECONDARY         41
 #define MSG_ID_STATS_COMPOSITE          42
+#define MSG_ID_OUTPUT_TERTIARY1         43
+
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -326,6 +328,9 @@ struct msm_mctl_pp_frame_cmd {
 #define VFE_OUTPUTS_RAW			BIT(8)
 #define VFE_OUTPUTS_JPEG_AND_THUMB	BIT(9)
 #define VFE_OUTPUTS_THUMB_AND_JPEG	BIT(10)
+#define VFE_OUTPUTS_RDI0	BIT(11)
+
+
 
 struct msm_frame_info {
 	uint32_t image_mode;

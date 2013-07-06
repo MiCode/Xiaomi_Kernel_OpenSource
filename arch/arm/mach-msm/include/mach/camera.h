@@ -94,6 +94,7 @@ enum vfe_resp_msg {
 	VFE_MSG_V2X_CAPTURE,
 	VFE_MSG_OUTPUT_PRIMARY,
 	VFE_MSG_OUTPUT_SECONDARY,
+	VFE_MSG_OUTPUT_TERTIARY1,
 };
 
 enum vpe_resp_msg {
