@@ -50,6 +50,11 @@
 		reg = <0xfe807800 0x1000>; /* Address and size of IMEM */
 	};
 
+	qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x02000000 0x06000000>; /* Address and Size of Hole */
+	};
+
 	timer@f9020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
