@@ -899,7 +899,7 @@ static struct acpu_level acpu_freq_tbl_2p3g_pvs6[] __initdata = {
 	{ 0, { 0 } }
 };
 
-static struct acpu_level acpu_freq_tbl_v3_pvs0[] __initdata = {
+static struct acpu_level acpu_freq_tbl_pro_pvs0[] __initdata = {
 	{ 1, {  300000, PLL_0, 0,   0 },  L2(0),  800000, 999 },
 	{ 0, {  345600, HFPLL, 2,  36 },  L2(1),  800000, 999 },
 	{ 1, {  422400, HFPLL, 2,  44 },  L2(2),  800000, 999 },
@@ -971,17 +971,48 @@ static struct pvs_table pvs_v2[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[2][5] = { acpu_freq_tbl_2p2g_pvs5, sizeof(acpu_freq_tbl_2p2g_pvs5) },
 	[2][6] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
 	[2][7] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
+};
 
-	/* 8974v3 Bringup */
-	[3][0] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][1] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][2] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][3] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][4] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][5] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][6] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
-	[3][7] = { acpu_freq_tbl_v3_pvs0, sizeof(acpu_freq_tbl_v3_pvs0) },
+static struct pvs_table pvs_pro[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+	/* Not used by 8974Pro */
+	[0][0] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][1] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][2] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][3] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][4] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][5] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][6] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[0][7] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
 
+	/* 8974Pro AB Bringup */
+	[1][0] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][1] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][2] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][3] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][4] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][5] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][6] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[1][7] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+
+	/* Not used by 8974Pro */
+	[2][0] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][1] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][2] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][3] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][4] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][5] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][6] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[2][7] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+
+	/* 8974Pro Bringup */
+	[3][0] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][1] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][2] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][3] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][4] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][5] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][6] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
+	[3][7] = { acpu_freq_tbl_pro_pvs0, sizeof(acpu_freq_tbl_pro_pvs0) },
 };
 
 static struct msm_bus_scale_pdata bus_scale_data __initdata = {
@@ -1004,6 +1035,11 @@ static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.stby_khz = 300000,
 };
 
+static void __init apply_pro_bringup_workaround(void)
+{
+	acpuclk_8974_params.pvs_tables = pvs_pro;
+}
+
 static void __init apply_v1_l2_workaround(void)
 {
 	static struct l2_level resticted_l2_tbl[] __initdata = {
@@ -1023,9 +1059,13 @@ static void __init apply_v1_l2_workaround(void)
 	acpuclk_8974_params.l2_freq_tbl_size = sizeof(resticted_l2_tbl);
 }
 
+#define cpu_is_msm8974pro() (cpu_is_msm8974pro_aa() || cpu_is_msm8974pro_ab() \
+			     || cpu_is_msm8974pro_ac())
+
 static int __init acpuclk_8974_probe(struct platform_device *pdev)
 {
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1
+	    && cpu_is_msm8974()) {
 		acpuclk_8974_params.pvs_tables = pvs_v1;
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v1;
 		bus_scale_data.usecase = bw_level_tbl_v1;
@@ -1042,6 +1082,9 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 		if (SOCINFO_VERSION_MINOR(socinfo_get_version()) < 2)
 			apply_v1_l2_workaround();
 	}
+
+	if (cpu_is_msm8974pro())
+		apply_pro_bringup_workaround();
 
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
 }
