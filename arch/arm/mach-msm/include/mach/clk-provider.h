@@ -168,12 +168,23 @@ void __clk_post_reparent(struct clk *c, struct clk *old, unsigned long *flags);
 int msm_clock_register(struct clk_lookup *table, size_t size);
 
 extern struct clk dummy_clk;
+extern struct clk_ops clk_ops_dummy;
 
 #define CLK_DUMMY(clk_name, clk_id, clk_dev, flags) { \
 	.con_id = clk_name, \
 	.dev_id = clk_dev, \
 	.clk = &dummy_clk, \
 	}
+
+#define DEFINE_CLK_DUMMY(name, _rate) \
+	static struct fixed_clk name = { \
+		.c = { \
+			.dbg_name = #name, \
+			.rate = _rate, \
+			.ops = &clk_ops_dummy, \
+			CLK_INIT(name.c), \
+		}, \
+	};
 
 #define CLK_LOOKUP(con, c, dev) { .con_id = con, .clk = &c, .dev_id = dev }
 
