@@ -85,8 +85,10 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 				int vfe_msg)
 {
 	int image_mode;
+	uint32_t vfe_output_mode = pmctl->vfe_output_mode;
+	vfe_output_mode &= ~(VFE_OUTPUTS_RDI0|VFE_OUTPUTS_RDI1);
 	if (vfe_msg == VFE_MSG_OUTPUT_PRIMARY) {
-		switch (pmctl->vfe_output_mode) {
+		switch (vfe_output_mode) {
 		case VFE_OUTPUTS_MAIN_AND_PREVIEW:
 		case VFE_OUTPUTS_MAIN_AND_VIDEO:
 		case VFE_OUTPUTS_MAIN_AND_THUMB:
@@ -110,7 +112,7 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 			break;
 		}
 	} else if (vfe_msg == VFE_MSG_OUTPUT_SECONDARY) {
-		switch (pmctl->vfe_output_mode) {
+		switch (vfe_output_mode) {
 		case VFE_OUTPUTS_MAIN_AND_PREVIEW:
 		case VFE_OUTPUTS_VIDEO_AND_PREVIEW:
 			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
@@ -137,14 +139,15 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 			break;
 		}
 	} else if (vfe_msg == VFE_MSG_OUTPUT_TERTIARY1) {
-		switch (pmctl->vfe_output_mode) {
-		case VFE_OUTPUTS_RDI0:
-			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
-			break;
-		default:
+		if (pmctl->vfe_output_mode & VFE_OUTPUTS_RDI0)
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_RDI;
+		else
 			image_mode = -1;
-			break;
-		}
+	} else if (vfe_msg == VFE_MSG_OUTPUT_TERTIARY2) {
+		if (pmctl->vfe_output_mode & VFE_OUTPUTS_RDI1)
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_RDI1;
+		else
+			image_mode = -1;
 	} else
 		image_mode = -1;
 
@@ -343,6 +346,10 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 			case MSG_ID_OUTPUT_TERTIARY1:
 				msgid = VFE_MSG_OUTPUT_TERTIARY1;
 				break;
+			case MSG_ID_OUTPUT_TERTIARY2:
+				msgid = VFE_MSG_OUTPUT_TERTIARY2;
+				break;
+
 			default:
 				pr_err("%s: Invalid VFE output id: %d\n",
 					   __func__, isp_output->output_id);
@@ -686,6 +693,7 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	case CMD_AXI_START:
 	case CMD_AXI_STOP:
 	case CMD_AXI_CFG_TERT1:
+	case CMD_AXI_CFG_TERT2:
 		/* Dont need to pass buffer information.
 		 * subdev will get the buffer from media
 		 * controller free queue.

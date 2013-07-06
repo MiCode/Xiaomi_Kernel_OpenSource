@@ -668,6 +668,10 @@ static int msm_vidbuf_get_path(u32 extendedmode)
 		return OUTPUT_TYPE_S;
 	case MSM_V4L2_EXT_CAPTURE_MODE_VIDEO:
 		return OUTPUT_TYPE_V;
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI:
+		return OUTPUT_TYPE_R;
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI1:
+		return OUTPUT_TYPE_R1;
 	case MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT:
 	case MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW:
 	default:
@@ -817,10 +821,6 @@ static int msm_open(struct file *f)
 			break;
 	}
 
-	server_q_idx = msm_find_free_queue();
-	if (server_q_idx < 0)
-		return server_q_idx;
-
 	/* if no instance is available, return error */
 	if (i == MSM_DEV_INST_MAX) {
 		mutex_unlock(&pcam->vid_lock);
@@ -843,6 +843,10 @@ static int msm_open(struct file *f)
 	pcam->use_count++;
 	D("%s use_count %d\n", __func__, pcam->use_count);
 	if (pcam->use_count == 1) {
+		server_q_idx = msm_find_free_queue();
+		if (server_q_idx < 0)
+			return server_q_idx;
+
 		rc = msm_server_begin_session(pcam, server_q_idx);
 		if (rc < 0) {
 			pr_err("%s error starting server session ", __func__);
