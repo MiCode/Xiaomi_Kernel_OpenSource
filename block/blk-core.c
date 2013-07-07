@@ -2196,10 +2196,8 @@ struct request *blk_peek_request(struct request_queue *q)
 			 * not be passed by new incoming requests
 			 */
 			rq->cmd_flags |= REQ_STARTED;
-			if (rq->cmd_flags & REQ_URGENT) {
-				WARN_ON(q->dispatched_urgent);
+			if (rq->cmd_flags & REQ_URGENT)
 				q->dispatched_urgent = true;
-			}
 			trace_block_rq_issue(q, rq);
 		}
 
