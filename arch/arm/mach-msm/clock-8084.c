@@ -5520,7 +5520,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
 
 	/* RCG source clocks */
-	CLK_LOOKUP("",	ufs_axi_clk_src.c,	""),
 	CLK_LOOKUP("",	usb30_master_clk_src.c,	""),
 	CLK_LOOKUP("",	usb30_sec_master_clk_src.c,	""),
 	CLK_LOOKUP("",	usb_hsic_ahb_clk_src.c,	""),
@@ -5644,7 +5643,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_sdcc4_apps_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_spss_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sys_noc_ufs_axi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_sys_noc_usb3_axi_clk.c,	""),
 	CLK_LOOKUP("mem_iface_clk",	gcc_sys_noc_usb3_axi_clk.c,
 						"f9304000.qcom,usbbam"),
@@ -5654,14 +5652,20 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_tsif_ref_clk.c,	""),
 
 	/* UFS clocks */
-	CLK_LOOKUP("",	gcc_ufs_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_rx_cfg_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_rx_symbol_0_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_rx_symbol_1_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_tx_cfg_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_tx_symbol_0_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ufs_tx_symbol_1_clk.c,	""),
+	CLK_LOOKUP("bus_clk", gcc_sys_noc_ufs_axi_clk.c, "fc598000.ufshc"),
+	CLK_LOOKUP("iface_clk", gcc_ufs_ahb_clk.c,       "fc598000.ufshc"),
+	CLK_LOOKUP("core_clk", gcc_ufs_axi_clk.c,        "fc598000.ufshc"),
+	CLK_LOOKUP("core_clk_src", ufs_axi_clk_src.c, "fc598000.ufshc"),
+	CLK_LOOKUP("rx_lane0_sync_clk", gcc_ufs_rx_symbol_0_clk.c,
+							"fc598000.ufshc"),
+	CLK_LOOKUP("rx_lane1_sync_clk", gcc_ufs_rx_symbol_1_clk.c,
+							"fc598000.ufshc"),
+	CLK_LOOKUP("tx_lane0_sync_clk", gcc_ufs_tx_symbol_0_clk.c,
+							"fc598000.ufshc"),
+	CLK_LOOKUP("tx_lane1_sync_clk", gcc_ufs_tx_symbol_1_clk.c,
+							"fc598000.ufshc"),
+	CLK_LOOKUP("tx_iface_clk", gcc_ufs_tx_cfg_clk.c, "fc597000.ufsphy"),
+	CLK_LOOKUP("rx_iface_clk", gcc_ufs_rx_cfg_clk.c, "fc597000.ufsphy"),
 
 	/* USB clocks */
 	CLK_LOOKUP("xo",   cxo_dwc3_clk.c, "msm_dwc3"),
