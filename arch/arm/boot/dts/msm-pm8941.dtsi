@@ -199,6 +199,7 @@
 			qcom,warm-bat-mv = <4100>;
 			qcom,ibatmax-cool-ma = <350>;
 			qcom,vbatdet-delta-mv = <100>;
+			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
 
 			qcom,chgr@1000 {
