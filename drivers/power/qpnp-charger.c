@@ -296,6 +296,8 @@ struct qpnp_chg_chip {
 	unsigned int			cool_bat_mv;
 	unsigned int			resume_delta_mv;
 	int				term_current;
+	int				soc_resume_limit;
+	bool				resuming_charging;
 	unsigned int			maxinput_usb_ma;
 	unsigned int			maxinput_dc_ma;
 	unsigned int			hot_batt_p;
@@ -757,6 +759,23 @@ qpnp_chg_vbatdet_set(struct qpnp_chg_chip *chip, int vbatdet_mv)
 }
 
 static void
+qpnp_chg_set_appropriate_vbatdet(struct qpnp_chg_chip *chip)
+{
+	if (chip->bat_is_cool)
+		qpnp_chg_vbatdet_set(chip, chip->cool_bat_mv
+			- chip->resume_delta_mv);
+	else if (chip->bat_is_warm)
+		qpnp_chg_vbatdet_set(chip, chip->warm_bat_mv
+			- chip->resume_delta_mv);
+	else if (chip->resuming_charging)
+		qpnp_chg_vbatdet_set(chip, chip->max_voltage_mv
+			+ chip->resume_delta_mv);
+	else
+		qpnp_chg_vbatdet_set(chip, chip->max_voltage_mv
+			- chip->resume_delta_mv);
+}
+
+static void
 qpnp_arb_stop_work(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
@@ -955,6 +974,10 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 	power_supply_changed(chip->usb_psy);
 	if (chip->dc_chgpth_base)
 		power_supply_changed(&chip->dc_psy);
+	if (chip->resuming_charging) {
+		chip->resuming_charging = false;
+		qpnp_chg_set_appropriate_vbatdet(chip);
+	}
 	qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
 
 	return IRQ_HANDLED;
@@ -1295,6 +1318,16 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
 			  POWER_SUPPLY_PROP_CAPACITY, &ret);
+		if (get_prop_batt_status(chip) == POWER_SUPPLY_STATUS_FULL
+				&& !chip->resuming_charging
+				&& !chip->charging_disabled
+				&& chip->soc_resume_limit
+				&& ret.intval <= chip->soc_resume_limit) {
+			pr_debug("resuming charging at %d%% soc\n", ret.intval);
+			chip->resuming_charging = true;
+			qpnp_chg_set_appropriate_vbatdet(chip);
+			qpnp_chg_charge_en(chip, !chip->charging_disabled);
+		}
 		if (ret.intval == 0) {
 			if (!qpnp_chg_is_usb_chg_plugged_in(chip)
 				&& !qpnp_chg_is_usb_chg_plugged_in(chip))
@@ -1671,20 +1704,6 @@ qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
 		qpnp_chg_vddmax_set(chip, chip->warm_bat_mv);
 	else
 		qpnp_chg_vddmax_set(chip, chip->max_voltage_mv);
-}
-
-static void
-qpnp_chg_set_appropriate_vbatdet(struct qpnp_chg_chip *chip)
-{
-	if (chip->bat_is_cool)
-		qpnp_chg_vbatdet_set(chip, chip->cool_bat_mv
-			- chip->resume_delta_mv);
-	else if (chip->bat_is_warm)
-		qpnp_chg_vbatdet_set(chip, chip->warm_bat_mv
-			- chip->resume_delta_mv);
-	else
-		qpnp_chg_vbatdet_set(chip, chip->max_voltage_mv
-			- chip->resume_delta_mv);
 }
 
 static void
@@ -2129,7 +2148,16 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		chip->bat_is_cool = bat_cool;
 		chip->bat_is_warm = bat_warm;
 
-		/* set appropriate voltages and currents */
+		if (bat_cool || bat_warm)
+			chip->resuming_charging = false;
+
+		/**
+		 * set appropriate voltages and currents.
+		 *
+		 * Note that when the battery is hot or cold, the charger
+		 * driver will not resume with SoC. Only vbatdet is used to
+		 * determine resume of charging.
+		 */
 		qpnp_chg_set_appropriate_vddmax(chip);
 		qpnp_chg_set_appropriate_battery_current(chip);
 		qpnp_chg_set_appropriate_vbatdet(chip);
@@ -2692,6 +2720,8 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	OF_PROP_READ(chip, tchg_mins, "tchg-mins", rc, 1);
 	OF_PROP_READ(chip, hot_batt_p, "batt-hot-percentage", rc, 1);
 	OF_PROP_READ(chip, cold_batt_p, "batt-cold-percentage", rc, 1);
+	OF_PROP_READ(chip, soc_resume_limit, "resume-soc", rc, 1);
+
 	if (rc)
 		return rc;
 
