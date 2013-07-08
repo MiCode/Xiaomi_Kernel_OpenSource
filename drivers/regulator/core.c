@@ -4381,6 +4381,8 @@ regulator_register(const struct regulator_desc *regulator_desc,
 
 	mutex_unlock(&regulator_list_mutex);
 	rdev_init_debugfs(rdev);
+	rdev->proxy_consumer = regulator_proxy_consumer_register(dev,
+							config->of_node);
 	kfree(config);
 	return rdev;
 
@@ -4424,6 +4426,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 			regulator_disable(rdev->supply);
 		regulator_put(rdev->supply);
 	}
+	regulator_proxy_consumer_unregister(rdev->proxy_consumer);
 	mutex_lock(&regulator_list_mutex);
 	debugfs_remove_recursive(rdev->debugfs);
 	flush_work(&rdev->disable_work.work);
