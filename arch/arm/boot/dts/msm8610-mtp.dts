@@ -171,7 +171,7 @@
 
 		cdc-vdda-h-supply = <&pm8110_l6>;
 		qcom,cdc-vdda-h-voltage = <1800000 1800000>;
-		qcom,cdc-vdda-h-current = <250000>;
+		qcom,cdc-vdda-h-current = <25000>;
 
 		cdc-vdd-px-supply = <&pm8110_l6>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;

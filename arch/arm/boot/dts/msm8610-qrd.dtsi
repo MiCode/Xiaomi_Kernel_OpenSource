@@ -124,51 +124,6 @@
 		};
 	};
 
-	i2c@f9927000  {
-                        msm8x10_wcd_codec@0d{
-                        compatible = "qcom,msm8x10-wcd-i2c";
-                        reg = <0x0d>;
-                        cdc-vdda-cp-supply = <&pm8110_s4>;
-                        qcom,cdc-vdda-cp-voltage = <2150000 2150000>;
-                        qcom,cdc-vdda-cp-current = <650000>;
-
-                        cdc-vdda-h-supply = <&pm8110_l6>;
-                        qcom,cdc-vdda-h-voltage = <1800000 1800000>;
-                        qcom,cdc-vdda-h-current = <250000>;
-
-                        cdc-vdd-px-supply = <&pm8110_l6>;
-                        qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-                        qcom,cdc-vdd-px-current = <10000>;
-
-                        cdc-vdd-1p2v-supply = <&pm8110_l4>;
-                        qcom,cdc-vdd-1p2v-voltage = <1200000 1200000>;
-                        qcom,cdc-vdd-1p2v-current = <5000>;
-
-                        cdc-vdd-mic-bias-supply = <&pm8110_l20>;
-                        qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
-                        qcom,cdc-vdd-mic-bias-current = <25000>;
-
-                        qcom,cdc-micbias-cfilt-sel = <0x0>;
-                        qcom,cdc-micbias-cfilt-mv = <1800000>;
-                        qcom,cdc-mclk-clk-rate = <12288000>;
-                };
-
-                msm8x10_wcd_codec@77{
-                        compatible = "qcom,msm8x10-wcd-i2c";
-                        reg = <0x77>;
-                };
-
-                msm8x10_wcd_codec@66{
-                        compatible = "qcom,msm8x10-wcd-i2c";
-                        reg = <0x66>;
-                };
-
-                msm8x10_wcd_codec@55{
-                        compatible = "qcom,msm8x10-wcd-i2c";
-                        reg = <0x55>;
-                };
-	};
-
     sound {
         qcom,audio-routing =
             "RX_BIAS", "MCLK",
@@ -178,6 +133,58 @@
             "AMIC1", "MIC BIAS Internal1",
             "AMIC2", "MIC BIAS Internal2";
     };
+};
+
+&i2c_cdc  {
+	msm8x10_wcd_codec@0d{
+		compatible = "qcom,msm8x10-wcd-i2c";
+		reg = <0x0d>;
+		cdc-vdda-cp-supply = <&pm8110_s4>;
+		qcom,cdc-vdda-cp-voltage = <1800000 2150000>;
+		qcom,cdc-vdda-cp-current = <650000>;
+
+		cdc-vdda-h-supply = <&pm8110_l6>;
+		qcom,cdc-vdda-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdda-h-current = <25000>;
+
+		cdc-vdd-px-supply = <&pm8110_l6>;
+		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-px-current = <10000>;
+
+		cdc-vdd-1p2v-supply = <&pm8110_l4>;
+		qcom,cdc-vdd-1p2v-voltage = <1200000 1200000>;
+		qcom,cdc-vdd-1p2v-current = <5000>;
+
+		cdc-vdd-mic-bias-supply = <&pm8110_l20>;
+		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
+		qcom,cdc-vdd-mic-bias-current = <25000>;
+
+		qcom,cdc-micbias-cfilt-sel = <0x0>;
+		qcom,cdc-micbias-cfilt-mv = <1800000>;
+		qcom,cdc-mclk-clk-rate = <12288000>;
+
+		qcom,cdc-static-supplies = "cdc-vdda-h",
+						"cdc-vdd-px",
+						"cdc-vdd-1p2v";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdda-cp",
+						"cdc-vdd-mic-bias";
+	};
+
+	msm8x10_wcd_codec@77{
+		compatible = "qcom,msm8x10-wcd-i2c";
+		reg = <0x77>;
+	};
+
+	msm8x10_wcd_codec@66{
+		compatible = "qcom,msm8x10-wcd-i2c";
+		reg = <0x66>;
+	};
+
+	msm8x10_wcd_codec@55{
+		compatible = "qcom,msm8x10-wcd-i2c";
+		reg = <0x55>;
+	};
 };
 
 &spmi_bus {
