@@ -2229,7 +2229,8 @@ out:
 	return err;
 }
 
-#define BAM_APPS_PIPE_LOCK_GRP 0
+#define BAM_APPS_PIPE_LOCK_GRP0 0
+#define BAM_APPS_PIPE_LOCK_GRP1 1
 /*
  * This function allocates, configures, connects an end point and
  * also registers event notification for an end point. It also allocates
@@ -2273,7 +2274,13 @@ static int msm_nand_init_endpoint(struct msm_nand_info *info,
 	}
 
 	sps_config->options = SPS_O_AUTO_ENABLE | SPS_O_DESC_DONE;
-	sps_config->lock_group = BAM_APPS_PIPE_LOCK_GRP;
+
+	if (pipe_index == SPS_DATA_PROD_PIPE_INDEX ||
+			pipe_index == SPS_DATA_CONS_PIPE_INDEX)
+		sps_config->lock_group = BAM_APPS_PIPE_LOCK_GRP0;
+	else if (pipe_index == SPS_CMD_CONS_PIPE_INDEX)
+		sps_config->lock_group = BAM_APPS_PIPE_LOCK_GRP1;
+
 	/*
 	 * Descriptor FIFO is a cyclic FIFO. If SPS_MAX_DESC_NUM descriptors
 	 * are allowed to be submitted before we get any ack for any of them,
