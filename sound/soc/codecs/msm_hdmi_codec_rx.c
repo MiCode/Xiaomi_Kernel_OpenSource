@@ -113,7 +113,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		channel_allocation);
 
 	codec_data->hdmi_ops.audio_info_setup(codec_data->hdmi_core_pdev,
-			num_channels, channel_allocation,
+			params_rate(params), num_channels, channel_allocation,
 			level_shift, down_mix);
 
 	return 0;
