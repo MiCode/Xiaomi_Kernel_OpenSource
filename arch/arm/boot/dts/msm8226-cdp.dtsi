@@ -227,6 +227,16 @@
 	status = "ok";
 };
 
+&sdcc3 {
+	qcom,sup-voltages = <1800 1800>;
+	status = "disabled";
+};
+
+&sdhc_3 {
+	qcom,sup-voltages = <1800 1800>;
+	status = "disabled";
+};
+
 &spmi_bus {
 	qcom,pm8226@0 {
 		qcom,leds@a100 {
