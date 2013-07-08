@@ -71,6 +71,18 @@ config SCSI_UFSHCD_PLATFORM
 
 	  If unsure, say N.
 
+config SCSI_UFS_MSM
+	bool "MSM specific hooks to UFS controller platform driver"
+	depends on SCSI_UFSHCD_PLATFORM && ARCH_MSM
+	help
+	  This selects the MSM specific additions to UFSHCD platform driver.
+	  UFS host on MSM needs some vendor specific configuration before
+	  accessing the hardware which includes PHY configuration and vendor
+	  specific registers.
+
+	  Select this if you have UFS controller on MSM chipset.
+	  If unsure, say N.
+
 config SCSI_UFS_TEST
 	tristate "Universal Flash Storage host controller driver unit-tests"
 	depends on SCSI_UFSHCD && IOSCHED_TEST

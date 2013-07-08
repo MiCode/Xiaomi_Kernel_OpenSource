@@ -376,6 +376,7 @@ static int ufshcd_pltfrm_remove(struct platform_device *pdev)
 
 static const struct of_device_id ufs_of_match[] = {
 	{ .compatible = "jedec,ufs-1.1"},
+	{ .compatible = "qcom,ufshc", .data = (void *)&ufs_hba_msm_vops, },
 	{},
 };
 

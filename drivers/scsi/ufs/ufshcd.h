@@ -528,7 +528,7 @@ static inline bool ufshcd_can_autobkops_during_suspend(struct ufs_hba *hba)
  */
 static inline void ufshcd_rmwl(struct ufs_hba *hba, u32 mask, u32 val, u32 reg)
 {
-	u32 tmp;
+       u32 tmp;
 
 	tmp = ufshcd_readl(hba, reg);
 	tmp &= ~mask;
@@ -611,6 +611,15 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 {
 	return ufshcd_dme_get_attr(hba, attr_sel, mib_val, DME_PEER);
 }
+
+/* variant specific ops structures */
+#ifdef CONFIG_SCSI_UFS_MSM
+extern const struct ufs_hba_variant_ops ufs_hba_msm_vops;
+#else
+static const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
+	.name = "msm",
+};
+#endif
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
