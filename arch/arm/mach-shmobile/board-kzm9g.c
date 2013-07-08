@@ -33,6 +33,7 @@
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 #include <linux/regulator/fixed.h>
 #include <linux/regulator/machine.h>
 #include <linux/smsc911x.h>
@@ -806,7 +807,7 @@ static void __init kzm_init(void)
 	sh73a0_pm_init();
 }
 
-static void kzm9g_restart(char mode, const char *cmd)
+static void kzm9g_restart(enum reboot_mode mode, const char *cmd)
 {
 #define RESCNT2 IOMEM(0xe6188020)
 	/* Do soft power on reset */

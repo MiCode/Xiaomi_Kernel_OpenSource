@@ -249,7 +249,7 @@ static void msm_restart_prepare(const char *cmd)
 	outer_flush_all();
 }
 
-void msm_restart(char mode, const char *cmd)
+void msm_restart(enum reboot_mode mode, const char *cmd)
 {
 	printk(KERN_NOTICE "Going down for restart now\n");
 

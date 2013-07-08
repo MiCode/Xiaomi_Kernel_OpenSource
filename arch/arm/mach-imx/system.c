@@ -34,7 +34,7 @@ static void __iomem *wdog_base;
 /*
  * Reset the system. It is called by machine_restart().
  */
-void mxc_restart(char mode, const char *cmd)
+void mxc_restart(enum reboot_mode mode, const char *cmd)
 {
 	unsigned int wcr_enable;
 
