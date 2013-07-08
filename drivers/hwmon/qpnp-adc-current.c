@@ -530,6 +530,9 @@ int32_t qpnp_iadc_calibrate_for_trim(void)
 	uint16_t raw_data;
 	uint32_t mode_sel = 0;
 
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
 	mutex_lock(&iadc->adc->adc_lock);
 
 	rc = qpnp_iadc_configure(GAIN_CALIBRATION_17P857MV,
@@ -541,11 +544,22 @@ int32_t qpnp_iadc_calibrate_for_trim(void)
 
 	iadc->adc->calib.gain_raw = raw_data;
 
-	rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP2_CSN2,
+	if (iadc->external_rsense) {
+		/* external offset calculation */
+		rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP_CSN,
 						&raw_data, mode_sel);
-	if (rc < 0) {
-		pr_err("qpnp adc result read failed with %d\n", rc);
-		goto fail;
+		if (rc < 0) {
+			pr_err("qpnp adc result read failed with %d\n", rc);
+			goto fail;
+		}
+	} else {
+		/* internal offset calculation */
+		rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP2_CSN2,
+						&raw_data, mode_sel);
+		if (rc < 0) {
+			pr_err("qpnp adc result read failed with %d\n", rc);
+			goto fail;
+		}
 	}
 
 	iadc->adc->calib.offset_raw = raw_data;
