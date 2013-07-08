@@ -406,6 +406,7 @@
 	qcom,min-fcc-learning-soc = <20>;
 	qcom,min-fcc-ocv-pc = <30>;
 	qcom,min-fcc-learning-samples = <5>;
+	qcom,fcc-resolution = <10>;
 	status = "ok";
 };
 
