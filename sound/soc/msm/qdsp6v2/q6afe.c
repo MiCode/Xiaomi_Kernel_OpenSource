@@ -139,13 +139,13 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x token=%d\n",
 					__func__, data->opcode,
 					payload[0], payload[1], data->token);
-		/* payload[1] contains the error status for response */
-		if (payload[1] != 0) {
-			atomic_set(&this_afe.status, -1);
-			pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
-					__func__, payload[0], payload[1]);
-		}
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
+			/* payload[1] contains the error status for response */
+			if (payload[1] != 0) {
+				atomic_set(&this_afe.status, -1);
+				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+					__func__, payload[0], payload[1]);
+			}
 			switch (payload[0]) {
 			case AFE_PORT_CMD_DEVICE_STOP:
 			case AFE_PORT_CMD_DEVICE_START:
