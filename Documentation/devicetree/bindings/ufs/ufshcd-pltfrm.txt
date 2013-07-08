@@ -4,11 +4,12 @@ UFSHC nodes are defined to describe on-chip UFS host controllers.
 Each UFS controller instance should have its own node.
 
 Required properties:
-- compatible        : compatible list, contains "jedec,ufs-1.1"
+- compatible        : compatible list, contains "jedec,ufs-1.1", "qcom,ufshc"
 - interrupts        : <interrupt mapping for UFS host controller IRQ>
 - reg               : <registers mapping>
 
 Optional properties:
+- ufs-phy               : phandle to UFS PHY node
 - vcc-supply            : phandle to VCC supply regulator node
 - vccq-supply           : phandle to VCCQ supply regulator node
 - vccq2-supply          : phandle to VCCQ2 supply regulator node
@@ -39,6 +40,7 @@ Example:
 		reg = <0xfc598000 0x800>;
 		interrupts = <0 28 0>;
 
+		ufs-phy = <&ufsphy>;
 		vcc-supply = <&xxx_reg1>;
 		vcc-supply-1p8;
 		vccq-supply = <&xxx_reg2>;

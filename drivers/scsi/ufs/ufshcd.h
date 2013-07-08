@@ -327,6 +327,23 @@ struct ufs_hba {
 #define ufshcd_readl(hba, reg)	\
 	readl((hba)->mmio_base + (reg))
 
+/**
+ * ufshcd_rmwl - read modify write into a register
+ * @hba - per adapter instance
+ * @mask - mask to apply on read value
+ * @val - actual value to write
+ * @reg - register address
+ */
+static inline void ufshcd_rmwl(struct ufs_hba *hba, u32 mask, u32 val, u32 reg)
+{
+	u32 tmp;
+
+	tmp = ufshcd_readl(hba, reg);
+	tmp &= ~mask;
+	tmp |= (val & mask);
+	ufshcd_writel(hba, tmp, reg);
+}
+
 int ufshcd_alloc_host(struct device *, struct ufs_hba **);
 int ufshcd_init(struct ufs_hba * , void __iomem * , unsigned int);
 void ufshcd_remove(struct ufs_hba *);
@@ -400,4 +417,12 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 	return ufshcd_dme_get_attr(hba, attr_sel, mib_val, DME_PEER);
 }
 
+/* variant specific ops structures */
+#ifdef CONFIG_SCSI_UFS_MSM
+extern const struct ufs_hba_variant_ops ufs_hba_msm_vops;
+#else
+static const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
+	.name = "msm",
+};
+#endif
 #endif /* End of Header */
