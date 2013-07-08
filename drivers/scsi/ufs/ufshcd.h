@@ -857,6 +857,15 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_tx == FASTAUTO_MODE);
 }
 
+/* variant specific ops structures */
+#ifdef CONFIG_SCSI_UFS_MSM
+extern const struct ufs_hba_variant_ops ufs_hba_msm_vops;
+#else
+static const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
+	.name = "msm",
+};
+#endif
+
 /* Expose Query-Request API */
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, bool *flag_res);
