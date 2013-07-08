@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,8 @@ struct msm_hdmi_audio_edid_blk {
 
 struct msm_hdmi_audio_codec_ops {
 	int (*audio_info_setup)(struct platform_device *pdev,
-		u32 num_of_channels, u32 channel_allocation, u32 level_shift,
+		u32 sample_rate, u32 num_of_channels,
+		u32 channel_allocation, u32 level_shift,
 		bool down_mix);
 	int (*get_audio_edid_blk) (struct platform_device *pdev,
 		struct msm_hdmi_audio_edid_blk *blk);
