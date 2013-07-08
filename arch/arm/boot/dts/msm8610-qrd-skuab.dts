@@ -21,3 +21,20 @@
 	qcom,msm-id = <147 0>, <165 0>, <161 0>, <162 0>,
 				  <163 0>, <164 0>, <166 0>;
 };
+
+&soc {
+    sound {
+        qcom,model = "msm8x10-skuab-snd-card";
+
+        qcom,audio-routing =
+            "RX_BIAS", "MCLK",
+            "INT_LDO_H", "MCLK",
+            "Lineout amp", "LINEOUT",
+            "MIC BIAS Internal1", "Handset Mic",
+            "MIC BIAS Internal2", "Headset Mic",
+            "AMIC1", "MIC BIAS Internal1",
+            "AMIC2", "MIC BIAS Internal2";
+
+        qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
+    };
+};
