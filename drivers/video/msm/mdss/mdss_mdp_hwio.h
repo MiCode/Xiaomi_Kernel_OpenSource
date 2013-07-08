@@ -235,6 +235,7 @@ enum mdss_mdp_sspp_chroma_samp_type {
 
 #define MDSS_MDP_NUM_REG_MIXERS 3
 #define MDSS_MDP_NUM_WB_MIXERS 2
+#define MDSS_MDP_CTL_X_LAYER_5 0x24
 
 enum mdss_mdp_mixer_intf_index {
 	MDSS_MDP_INTF_LAYERMIXER0,
