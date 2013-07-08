@@ -4101,6 +4101,8 @@ add_dev:
 
 	mutex_unlock(&regulator_list_mutex);
 	rdev_init_debugfs(rdev);
+	rdev->proxy_consumer = regulator_proxy_consumer_register(dev,
+							config->of_node);
 	return rdev;
 
 out:
@@ -4141,6 +4143,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 
 	if (rdev->supply)
 		regulator_put(rdev->supply);
+	regulator_proxy_consumer_unregister(rdev->proxy_consumer);
 	mutex_lock(&regulator_list_mutex);
 	debugfs_remove_recursive(rdev->debugfs);
 	flush_work(&rdev->disable_work.work);

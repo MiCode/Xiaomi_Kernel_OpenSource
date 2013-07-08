@@ -18,6 +18,7 @@
 #include <linux/device.h>
 #include <linux/notifier.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/proxy-consumer.h>
 
 struct regmap;
 struct regulator_dev;
@@ -308,6 +309,7 @@ struct regulator_dev {
 
 	struct regulator_enable_gpio *ena_pin;
 	unsigned int ena_gpio_state:1;
+	struct proxy_consumer *proxy_consumer;
 };
 
 struct regulator_dev *
