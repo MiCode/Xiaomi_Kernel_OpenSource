@@ -1511,10 +1511,16 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 
 	rc = mdss_mdp_smp_setup(mdata, data[0], data[1]);
 
-	if (rc)
+	if (rc) {
 		pr_err("unable to setup smp data\n");
+		return rc;
+	}
 
-	return rc;
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-smp-mb-per-pipe", data);
+	mdata->smp_mb_per_pipe = (!rc ? data[0] : 0);
+
+	return 0;
 }
 
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)

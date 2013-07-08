@@ -89,6 +89,7 @@ struct mdss_data_type {
 
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
+	u32 smp_mb_per_pipe;
 
 	u32 rot_block_size;
 
