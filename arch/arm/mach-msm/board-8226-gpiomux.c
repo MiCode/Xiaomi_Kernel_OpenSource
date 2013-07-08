@@ -468,6 +468,91 @@ static struct msm_gpiomux_config usb_otg_sw_configs[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+static struct gpiomux_setting sdc3_clk_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdc3_cmd_data_0_3_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdc3_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting sdc3_data_1_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm8226_sdc3_configs[] __initdata = {
+	{
+		/* DAT3 */
+		.gpio      = 39,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* DAT2 */
+		.gpio      = 40,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* DAT1 */
+		.gpio      = 41,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_data_1_suspend_cfg,
+		},
+	},
+	{
+		/* DAT0 */
+		.gpio      = 42,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* CMD */
+		.gpio      = 43,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* CLK */
+		.gpio      = 44,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_clk_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+};
+
+static void msm_gpiomux_sdc3_install(void)
+{
+	msm_gpiomux_install(msm8226_sdc3_configs,
+			    ARRAY_SIZE(msm8226_sdc3_configs));
+}
+#else
+static void msm_gpiomux_sdc3_install(void) {}
+#endif /* CONFIG_MMC_MSM_SDC3_SUPPORT */
+
 void __init msm8226_init_gpiomux(void)
 {
 	int rc;
@@ -500,4 +585,6 @@ void __init msm8226_init_gpiomux(void)
 	if (of_board_is_cdp() || of_board_is_mtp() || of_board_is_xpm())
 		msm_gpiomux_install(usb_otg_sw_configs,
 					ARRAY_SIZE(usb_otg_sw_configs));
+
+	msm_gpiomux_sdc3_install();
 }
