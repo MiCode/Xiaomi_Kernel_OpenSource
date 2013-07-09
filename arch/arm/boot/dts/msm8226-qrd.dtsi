@@ -180,7 +180,7 @@
 &sdcc2 {
 	vdd-supply = <&pm8226_l18>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <9000 800000>;
+	qcom,vdd-current-level = <9000 400000>;
 
 	vdd-io-supply = <&pm8226_l21>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
@@ -196,7 +196,7 @@
 
 	qcom,xpc;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-	qcom,current-limit = <600>;
+	qcom,current-limit = <400>;
 
 	#address-cells = <0>;
 	interrupt-parent = <&sdcc2>;
@@ -215,7 +215,7 @@
 &sdhc_2 {
 	vdd-supply = <&pm8226_l18>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <9000 800000>;
+	qcom,vdd-current-level = <9000 400000>;
 
 	vdd-io-supply = <&pm8226_l21>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
