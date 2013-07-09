@@ -519,6 +519,7 @@ static long msm_private_ioctl(struct file *file, void *fh,
 	struct msm_session *session;
 	unsigned int session_id;
 	unsigned int stream_id;
+	unsigned long spin_flags = 0;
 
 	event_data = (struct msm_v4l2_event_data *)
 		((struct v4l2_event *)arg)->u.data;
@@ -564,9 +565,13 @@ static long msm_private_ioctl(struct file *file, void *fh,
 			break;
 		}
 
+		spin_lock_irqsave(&(session->command_ack_q.lock),
+		   spin_flags);
 		ret_cmd->event = *(struct v4l2_event *)arg;
 		msm_enqueue(&cmd_ack->command_q, &ret_cmd->list);
 		wake_up(&cmd_ack->wait);
+		spin_unlock_irqrestore(&(session->command_ack_q.lock),
+		   spin_flags);
 	}
 		break;
 
