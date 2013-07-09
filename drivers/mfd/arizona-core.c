@@ -330,6 +330,21 @@ err_fll:
 		return err;
 }
 
+static int arizona_soft_reset(struct arizona *arizona)
+{
+	int ret;
+
+	ret = regmap_write(arizona->regmap, ARIZONA_SOFTWARE_RESET, 0);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to reset device: %d\n", ret);
+		goto err;
+	}
+	msleep(1);
+
+err:
+	return ret;
+}
+
 #ifdef CONFIG_PM_RUNTIME
 static int arizona_runtime_resume(struct device *dev)
 {
@@ -345,6 +360,12 @@ static int arizona_runtime_resume(struct device *dev)
 	}
 
 	regcache_cache_only(arizona->regmap, false);
+
+	if (arizona->rev == 3 && arizona->type == WM5110) {
+		ret = arizona_soft_reset(arizona);
+		if (ret != 0)
+			goto err;
+	}
 
 	switch (arizona->type) {
 	case WM5102:
@@ -957,13 +978,9 @@ int arizona_dev_init(struct arizona *arizona)
 	if (!arizona->pdata.reset) {
 		regcache_mark_dirty(arizona->regmap);
 
-		ret = regmap_write(arizona->regmap, ARIZONA_SOFTWARE_RESET, 0);
-		if (ret != 0) {
-			dev_err(dev, "Failed to reset device: %d\n", ret);
+		ret = arizona_soft_reset(arizona);
+		if (ret != 0)
 			goto err_reset;
-		}
-
-		msleep(1);
 
 		ret = regcache_sync(arizona->regmap);
 		if (ret != 0) {
