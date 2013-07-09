@@ -1000,13 +1000,23 @@ static struct msm_camera_i2c_reg_conf hi256_svga_settings[] = {
 	{0x30, 0x06},
 	{0x31, 0x40},
 	{0x03, 0x20},
-	{0x88, 0x05},
-	{0x89, 0x7e},
-	{0x8a, 0x40},
+	{0x88, 0x01},
+	{0x89, 0x5f},
+	{0x8a, 0x90},
 	{0x03, 0x20},
 	{0x10, 0x9c},
 	{0x03, 0x22},
 	{0x10, 0xe9},
+};
+
+static struct msm_camera_i2c_reg_conf hi256_sleep_settings[] = {
+	{0x03, 0x00},
+	{0x01, 0xf1},
+	{0x03, 0x02},
+	{0x55, 0x10},
+	{0x01, 0xf1},
+	{0x01, 0xf3},
+	{0x01, 0xf1},
 };
 
 
@@ -1071,6 +1081,13 @@ static void hi256_i2c_write_table(struct msm_sensor_ctrl_t *s_ctrl,
 		table++;
 	}
 
+}
+
+static int32_t hi256_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	hi256_i2c_write_table(s_ctrl, &hi256_sleep_settings[0],
+		ARRAY_SIZE(hi256_sleep_settings));
+	return msm_sensor_power_down(s_ctrl);
 }
 
 static int32_t hi256_platform_probe(struct platform_device *pdev)
@@ -1393,7 +1410,7 @@ int32_t hi256_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 static struct msm_sensor_fn_t hi256_sensor_func_tbl = {
 	.sensor_config = hi256_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
-	.sensor_power_down = msm_sensor_power_down,
+	.sensor_power_down = hi256_sensor_power_down,
 	.sensor_match_id = hi256_sensor_match_id,
 };
 
