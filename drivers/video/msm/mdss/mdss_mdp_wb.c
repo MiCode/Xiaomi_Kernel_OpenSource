@@ -601,6 +601,12 @@ int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 	case MDP_ARGB_8888:
 		dst_format = WB_FORMAT_ARGB_8888;
 		break;
+	case MDP_BGRA_8888:
+		dst_format = WB_FORMAT_BGRA_8888;
+		break;
+	case MDP_BGRX_8888:
+		dst_format = WB_FORMAT_BGRX_8888;
+		break;
 	case MDP_Y_CBCR_H2V2_VENUS:
 		dst_format = WB_FORMAT_NV12;
 		break;
@@ -632,6 +638,12 @@ int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format)
 		break;
 	case WB_FORMAT_ARGB_8888:
 		ctl->dst_format = MDP_ARGB_8888;
+		break;
+	case WB_FORMAT_BGRA_8888:
+		ctl->dst_format = MDP_BGRA_8888;
+		break;
+	case WB_FORMAT_BGRX_8888:
+		ctl->dst_format = MDP_BGRX_8888;
 		break;
 	case WB_FORMAT_NV12:
 		ctl->dst_format = MDP_Y_CBCR_H2V2_VENUS;
