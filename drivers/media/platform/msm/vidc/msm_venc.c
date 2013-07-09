@@ -2095,6 +2095,8 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
 	inst->prop.fps = 15;
 	inst->capability.pixelprocess_capabilities = 0;
+	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	return rc;
 }
 
