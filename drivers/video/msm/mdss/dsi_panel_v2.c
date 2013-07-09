@@ -620,6 +620,7 @@ static int dsi_panel_parse_other(struct platform_device *pdev,
 	const char *pdest;
 	u32 tmp;
 	int rc;
+	bool cont_splash_enabled = false;
 
 	pdest = of_get_property(pdev->dev.of_node,
 				"qcom,mdss-pan-dest", NULL);
@@ -641,6 +642,17 @@ static int dsi_panel_parse_other(struct platform_device *pdev,
 		"qcom,mdss-pan-underflow-clr", &tmp);
 	panel_data->panel_info.lcdc.underflow_clr = (!rc ? tmp : 0xff);
 
+	cont_splash_enabled = of_property_read_bool(pdev->dev.of_node,
+		"qcom,cont-splash-enabled");
+	if (!cont_splash_enabled) {
+		pr_debug("%s:%d Continuous splash flag not found.\n",
+				__func__, __LINE__);
+		panel_data->panel_info.cont_splash_enabled = 0;
+	} else {
+		pr_debug("%s:%d Continuous splash flag enabled.\n",
+				__func__, __LINE__);
+		panel_data->panel_info.cont_splash_enabled = 1;
+	}
 	return rc;
 }
 
