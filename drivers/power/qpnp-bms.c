@@ -28,8 +28,8 @@
 #include <linux/mfd/pm8xxx/batterydata-lib.h>
 
 /* BMS Register Offsets */
-#define BMS1_REVISION1			0x0
-#define BMS1_REVISION2			0x1
+#define REVISION1			0x0
+#define REVISION2			0x1
 #define BMS1_STATUS1			0x8
 #define BMS1_MODE_CTL			0X40
 /* Coulomb counter clear registers */
@@ -72,6 +72,8 @@
 
 /* IADC Channel Select */
 #define IADC1_BMS_ADC_CH_SEL_CTL	0x48
+#define IADC1_BMS_ADC_INT_RSNSN_CTL	0x49
+#define IADC1_BMS_FAST_AVG_EN		0x5B
 
 /* Configuration for saving of shutdown soc/iavg */
 #define IGNORE_SOC_TEMP_DECIDEG		50
@@ -144,6 +146,10 @@ struct qpnp_bms_chip {
 
 	u8				revision1;
 	u8				revision2;
+
+	u8				iadc_bms_revision1;
+	u8				iadc_bms_revision2;
+
 	int				battery_present;
 	int				battery_status;
 	bool				new_battery;
@@ -2990,6 +2996,8 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 	}
 }
 
+#define CALIB_WRKARND_DIG_MAJOR_MAX		0x03
+
 static void battery_insertion_check(struct qpnp_bms_chip *chip)
 {
 	bool present = is_battery_present(chip);
@@ -3486,7 +3494,11 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 	return 0;
 }
 
-#define ADC_CH_SEL_MASK			0x7
+#define ADC_CH_SEL_MASK				0x7
+#define ADC_INT_RSNSN_CTL_MASK			0x3
+#define ADC_INT_RSNSN_CTL_VALUE_EXT_RENSE	0x2
+#define FAST_AVG_EN_MASK			0x80
+#define FAST_AVG_EN_VALUE_EXT_RSENSE		0x80
 static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 {
 	u8 iadc_channel_select;
@@ -3554,6 +3566,34 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 		pr_debug("rds_rsense = %d nOhm, saved as %d uOhm\n",
 					rds_rsense_nohm, chip->r_sense_uohm);
 	}
+	/* prevent shorting of leads by IADC_BMS when external Rsense is used */
+	if (chip->use_external_rsense) {
+		if (chip->iadc_bms_revision2 > CALIB_WRKARND_DIG_MAJOR_MAX) {
+			rc = qpnp_masked_write_iadc(chip,
+					IADC1_BMS_ADC_INT_RSNSN_CTL,
+					ADC_INT_RSNSN_CTL_MASK,
+					ADC_INT_RSNSN_CTL_VALUE_EXT_RENSE);
+			if (rc) {
+				pr_err("Unable to set batfet config %x to %x: %d\n",
+					IADC1_BMS_ADC_INT_RSNSN_CTL,
+					ADC_INT_RSNSN_CTL_VALUE_EXT_RENSE, rc);
+				return rc;
+			}
+		} else {
+			/* In older PMICS use FAST_AVG_EN register bit 7 */
+			rc = qpnp_masked_write_iadc(chip,
+					IADC1_BMS_FAST_AVG_EN,
+					FAST_AVG_EN_MASK,
+					FAST_AVG_EN_VALUE_EXT_RSENSE);
+			if (rc) {
+				pr_err("Unable to set batfet config %x to %x: %d\n",
+					IADC1_BMS_FAST_AVG_EN,
+					FAST_AVG_EN_VALUE_EXT_RSENSE, rc);
+				return rc;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -3660,19 +3700,35 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	}
 
 	rc = qpnp_read_wrapper(chip, &chip->revision1,
-			chip->base + BMS1_REVISION1, 1);
+			chip->base + REVISION1, 1);
 	if (rc) {
 		pr_err("error reading version register %d\n", rc);
 		goto error_read;
 	}
 
 	rc = qpnp_read_wrapper(chip, &chip->revision2,
-			chip->base + BMS1_REVISION2, 1);
+			chip->base + REVISION2, 1);
 	if (rc) {
 		pr_err("Error reading version register %d\n", rc);
 		goto error_read;
 	}
 	pr_debug("BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
+
+	rc = qpnp_read_wrapper(chip, &chip->iadc_bms_revision2,
+			chip->iadc_base + REVISION2, 1);
+	if (rc) {
+		pr_err("Error reading version register %d\n", rc);
+		goto error_read;
+	}
+
+	rc = qpnp_read_wrapper(chip, &chip->iadc_bms_revision1,
+			chip->iadc_base + REVISION1, 1);
+	if (rc) {
+		pr_err("Error reading version register %d\n", rc);
+		goto error_read;
+	}
+	pr_debug("IADC_BMS version: %hhu.%hhu\n",
+			chip->iadc_bms_revision2, chip->iadc_bms_revision1);
 
 	rc = bms_read_properties(chip);
 	if (rc) {
