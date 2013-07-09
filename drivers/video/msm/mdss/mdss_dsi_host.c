@@ -1209,6 +1209,8 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	u32 dsi_ctrl, data;
 	int video_mode;
+	u32 left_dsi_ctrl = 0;
+	bool left_ctrl_restore = false;
 
 	if (ctrl->shared_pdata.broadcast_enable) {
 		if (ctrl->ndx == DSI_CTRL_0) {
@@ -1221,13 +1223,15 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (ctrl->shared_pdata.broadcast_enable) {
 		if ((ctrl->ndx == DSI_CTRL_1)
 		  && (left_ctrl_pdata != NULL)) {
-			dsi_ctrl = MIPI_INP(left_ctrl_pdata->ctrl_base
+			left_dsi_ctrl = MIPI_INP(left_ctrl_pdata->ctrl_base
 								+ 0x0004);
-			video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+			video_mode =
+				left_dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
 			if (video_mode) {
-				data = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+				data = left_dsi_ctrl | 0x04; /* CMD_MODE_EN */
 				MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
 						data);
+				left_ctrl_restore = true;
 			}
 		}
 	}
@@ -1245,6 +1249,10 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	mdss_dsi_cmds2buf_tx(ctrl, cmds, cnt);
+
+	if (left_ctrl_restore)
+		MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
+					left_dsi_ctrl); /*restore */
 
 	if (video_mode)
 		MIPI_OUTP((ctrl->ctrl_base) + 0x0004,
@@ -1280,6 +1288,45 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsi_buf *tp, *rp;
 	int no_max_pkt_size;
 	char cmd;
+	u32 dsi_ctrl, data;
+	int video_mode;
+	u32 left_dsi_ctrl = 0;
+	bool left_ctrl_restore = false;
+
+	if (ctrl->shared_pdata.broadcast_enable) {
+		if (ctrl->ndx == DSI_CTRL_0) {
+			pr_debug("%s: Broadcast mode. 1st ctrl\n",
+				 __func__);
+			return 0;
+		}
+	}
+
+	if (ctrl->shared_pdata.broadcast_enable) {
+		if ((ctrl->ndx == DSI_CTRL_1)
+		  && (left_ctrl_pdata != NULL)) {
+			left_dsi_ctrl = MIPI_INP(left_ctrl_pdata->ctrl_base
+								+ 0x0004);
+			video_mode = left_dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+			if (video_mode) {
+				data = left_dsi_ctrl | 0x04; /* CMD_MODE_EN */
+				MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
+						data);
+				left_ctrl_restore = true;
+			}
+		}
+	}
+
+	/* turn on cmd mode
+	* for video mode, do not send cmds more than
+	* one pixel line, since it only transmit it
+	* during BLLP.
+	*/
+	dsi_ctrl = MIPI_INP((ctrl->ctrl_base) + 0x0004);
+	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+	if (video_mode) {
+		data = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x0004, data);
+	}
 
 	no_max_pkt_size = rx_flags & CMD_REQ_NO_MAX_PKT_SIZE;
 	if (no_max_pkt_size)
@@ -1377,6 +1424,13 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		pr_debug("%s: Unknown cmd received\n", __func__);
 		break;
 	}
+
+	if (left_ctrl_restore)
+		MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
+					left_dsi_ctrl); /*restore */
+	if (video_mode)
+		MIPI_OUTP((ctrl->ctrl_base) + 0x0004,
+					dsi_ctrl); /* restore */
 
 	return rp->len;
 }
