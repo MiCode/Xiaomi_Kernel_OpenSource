@@ -982,6 +982,92 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
+static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
+{
+	int ret = -ENOMEM, dom;
+	void *virt = NULL;
+	unsigned long phys = 0;
+	size_t size;
+	u32 yres = mfd->fbi->var.yres_virtual;
+
+	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
+
+	if (mfd->index != 0) {
+		mfd->fbi->screen_base = virt;
+		mfd->fbi->fix.smem_start = phys;
+		mfd->fbi->fix.smem_len = 0;
+		return 0;
+	}
+
+	mdp3_res->ion_handle = ion_alloc(mdp3_res->ion_client, size,
+					SZ_1M,
+					ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->ion_handle)) {
+		virt = ion_map_kernel(mdp3_res->ion_client,
+					mdp3_res->ion_handle);
+		if (IS_ERR(virt)) {
+			pr_err("%s map kernel error\n", __func__);
+			goto ion_map_kernel_err;
+		}
+
+		ret = ion_phys(mdp3_res->ion_client, mdp3_res->ion_handle,
+				&phys, &size);
+		if (ret) {
+			pr_err("%s ion_phys error\n", __func__);
+			goto ion_map_phys_err;
+		}
+	} else {
+		pr_err("%s ion alloc fail\n", __func__);
+		mdp3_res->ion_handle = NULL;
+		return -ENOMEM;
+	}
+
+	dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
+
+	ret = ion_map_iommu(mdp3_res->ion_client, mdp3_res->ion_handle,
+			dom, 0, SZ_4K, 0, &mfd->iova,
+			(unsigned long *)&size, 0, 0);
+
+	if (ret) {
+		pr_err("%s map IOMMU error\n", __func__);
+		goto ion_map_phys_err;
+	}
+
+	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
+			size, virt, phys, mfd->index);
+
+	mfd->fbi->screen_base = virt;
+	mfd->fbi->fix.smem_start = phys;
+	mfd->fbi->fix.smem_len = size;
+	return 0;
+
+ion_map_phys_err:
+	ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
+ion_map_kernel_err:
+	ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
+	mdp3_res->ion_handle = NULL;
+	return -ENOMEM;
+}
+
+void mdp3_fbmem_free(struct msm_fb_data_type *mfd)
+{
+	pr_info("mdp3_fbmem_free\n");
+	if (mdp3_res->ion_handle) {
+		int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
+
+		ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
+		ion_unmap_iommu(mdp3_res->ion_client,  mdp3_res->ion_handle,
+				dom, 0);
+		ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
+		mdp3_res->ion_handle = NULL;
+		mfd->fbi->screen_base = 0;
+		mfd->fbi->fix.smem_start = 0;
+		mfd->fbi->fix.smem_len = 0;
+		mfd->iova = 0;
+	}
+}
+
 struct mdp3_dma *mdp3_get_dma_pipe(int capability)
 {
 	int i;
@@ -1023,6 +1109,7 @@ static int mdp3_probe(struct platform_device *pdev)
 	static struct msm_mdp_interface mdp3_interface = {
 	.init_fnc = mdp3_init,
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
+	.fb_mem_alloc_fnc = mdp3_fbmem_alloc,
 	.fb_stride = mdp3_fb_stride,
 	};
 

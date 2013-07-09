@@ -110,6 +110,7 @@ struct mdp3_hw_resource {
 	struct ion_client *ion_client;
 	struct mdp3_iommu_domain_map *domains;
 	struct mdp3_iommu_ctx_map *iommu_contexts;
+	struct ion_handle *ion_handle;
 
 	struct mdp3_dma dma[MDP3_DMA_MAX];
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];
@@ -150,6 +151,7 @@ int mdp3_put_img(struct mdp3_img_data *data);
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
 int mdp3_iommu_enable(int client);
 int mdp3_iommu_disable(int client);
+void mdp3_fbmem_free(struct msm_fb_data_type *mfd);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
