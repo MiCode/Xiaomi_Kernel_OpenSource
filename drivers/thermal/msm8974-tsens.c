@@ -77,6 +77,9 @@
 
 #define TSENS_EEPROM_8X10_1(n)		((n) + 0x1a4)
 #define TSENS_EEPROM_8X10_1_OFFSET	8
+#define TSENS_EEPROM_8X10_2(n)		((n) + 0x1a8)
+#define TSENS_EEPROM_8X10_SPARE_1(n)	((n) + 0xd8)
+#define TSENS_EEPROM_8X10_SPARE_2(n)	((n) + 0xdc)
 
 /* TSENS calibration Mask data */
 #define TSENS_BASE1_MASK		0xff
@@ -207,6 +210,8 @@
 #define TSENS_8X10_TSENS_CAL_SEL	0x70000000
 #define TSENS1_8X10_POINT1_MASK		0x3f
 #define TSENS1_8X10_POINT2_MASK		0xfc0
+#define TSENS_8X10_REDUN_SEL_MASK	0x6000000
+#define TSENS_8X10_REDUN_SEL_SHIFT	25
 
 #define TSENS_BIT_APPEND		0x3
 #define TSENS_CAL_DEGC_POINT1		30
@@ -723,17 +728,30 @@ static int tsens_calib_8x10_sensors(void)
 	int i, tsens_base0_data = 0, tsens0_point1 = 0, tsens1_point1 = 0;
 	int tsens0_point2 = 0, tsens1_point2 = 0;
 	int tsens_base1_data = 0, tsens_calibration_mode = 0;
-	uint32_t calib_data[2];
+	uint32_t calib_data[2], calib_redun_sel;
 	uint32_t calib_tsens_point1_data[2], calib_tsens_point2_data[2];
 
 	if (tmdev->calibration_less_mode)
 		goto calibration_less_mode;
 
-	calib_data[0] = readl_relaxed(
+	calib_redun_sel = readl_relaxed(
+			TSENS_EEPROM_8X10_2(tmdev->tsens_calib_addr));
+	calib_redun_sel = calib_redun_sel & TSENS_8X10_REDUN_SEL_MASK;
+	calib_redun_sel >>= TSENS_8X10_REDUN_SEL_SHIFT;
+	pr_debug("calib_redun_sel:%x\n", calib_redun_sel);
+
+	if (calib_redun_sel == TSENS_QFPROM_BACKUP_SEL) {
+		calib_data[0] = readl_relaxed(
+			TSENS_EEPROM_8X10_SPARE_1(tmdev->tsens_calib_addr));
+		calib_data[1] = readl_relaxed(
+			TSENS_EEPROM_8X10_SPARE_2(tmdev->tsens_calib_addr));
+	} else {
+		calib_data[0] = readl_relaxed(
 			TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr));
-	calib_data[1] = readl_relaxed(
-		(TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr) +
+		calib_data[1] = readl_relaxed(
+			(TSENS_EEPROM_8X10_1(tmdev->tsens_calib_addr) +
 					TSENS_EEPROM_8X10_1_OFFSET));
+	}
 
 	tsens_calibration_mode = (calib_data[0] & TSENS_8X10_TSENS_CAL_SEL)
 			>> TSENS_8X10_CAL_SEL_SHIFT;
