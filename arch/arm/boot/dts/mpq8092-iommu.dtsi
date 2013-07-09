@@ -212,3 +212,7 @@
 				0x10
 				0x0>;
 };
+
+&vpu_iommu {
+	status = "ok";
+};
