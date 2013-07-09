@@ -40,7 +40,7 @@
 		qcom,mdss-pan-dsi-mdp-tr = <0x0>;/*todo*/
 		qcom,mdss-pan-dsi-dma-tr = <0x04>;
 		qcom,mdss-pan-dsi-frame-rate = <60>;
-		qcom,panel-phy-regulatorSettings =[09 08 05 00 20 03];
+		qcom,panel-phy-regulatorSettings =[02 08 05 00 20 03];
 		qcom,panel-phy-timingSettings = [5D 12 0C  00 33 39
 						 10 16 15  03 04 00];
 		qcom,panel-phy-strengthCtrl = [ff 06];
