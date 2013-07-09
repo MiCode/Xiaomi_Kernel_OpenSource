@@ -21,6 +21,7 @@
 		spi0 = &spi_0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		sdhc3 = &sdhc_3; /* SDC3 SDIO slot */
 	};
 
 	memory {
@@ -758,6 +759,95 @@
 				<81 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
+
+		status = "disabled";
+	};
+
+	sdcc3: qcom,sdcc@f9864000 {
+		cell-index = <3>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9864000 0x800>,
+			<0xf9864800 0x100>,
+			<0xf9844000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+
+		qcom,bus-width = <4>;
+		gpios = <&msmgpio 44 0>, /* CLK */
+			<&msmgpio 43 0>, /* CMD */
+			<&msmgpio 42 0>, /* DATA0 */
+			<&msmgpio 41 0>, /* DATA1 */
+			<&msmgpio 40 0>, /* DATA2 */
+			<&msmgpio 39 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
+
+		qcom,msm-bus,name = "sdcc3";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
+				<79 512 1600 3200>,    /* 400 KB/s*/
+				<79 512 80000 160000>, /* 20 MB/s */
+				<79 512 100000 200000>, /* 25 MB/s */
+				<79 512 200000 400000>, /* 50 MB/s */
+				<79 512 400000 800000>, /* 100 MB/s */
+				<79 512 400000 800000>, /* 200 MB/s */
+				<79 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc3>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 127 0
+			      1 &intc 0 223 0
+			      2 &msmgpio 41 0x8>;
+		interrupt-names = "core_irq", "bam_irq", "sdiowakeup_irq";
+
+		status = "disabled";
+	};
+
+	sdhc_3: sdhci@f9864900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9864900 0x11c>, <0xf9864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		qcom,bus-width = <4>;
+		gpios = <&msmgpio 44 0>, /* CLK */
+			<&msmgpio 43 0>, /* CMD */
+			<&msmgpio 42 0>, /* DATA0 */
+			<&msmgpio 41 0>, /* DATA1 */
+			<&msmgpio 40 0>, /* DATA2 */
+			<&msmgpio 39 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
+
+		qcom,msm-bus,name = "sdhc3";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
+				<79 512 1600 3200>,    /* 400 KB/s*/
+				<79 512 80000 160000>, /* 20 MB/s */
+				<79 512 100000 200000>, /* 25 MB/s */
+				<79 512 200000 400000>, /* 50 MB/s */
+				<79 512 400000 800000>, /* 100 MB/s */
+				<79 512 400000 800000>, /* 200 MB/s */
+				<79 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+
+		#address-cells = <0>;
+		interrupt-parent = <&sdhc_3>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 127 0
+			      1 &intc 0 224 0
+			      2 &msmgpio 41 0x8>;
+		interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
 
 		status = "disabled";
 	};
