@@ -210,7 +210,7 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	struct msm_dai_q6_hdmi_dai_data *dai_data;
 	const struct snd_kcontrol_new *kcontrol;
 	int rc = 0;
-
+	struct snd_soc_dapm_route intercon;
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_hdmi_dai_data),
 		GFP_KERNEL);
 
@@ -231,6 +231,29 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	rc = snd_ctl_add(dai->card->snd_card,
 					 snd_ctl_new1(kcontrol, dai_data));
 
+	memset(&intercon, 0 , sizeof(intercon));
+	if (!rc && dai && dai->driver) {
+		if (dai->driver->playback.stream_name &&
+			dai->driver->playback.aif_name) {
+			dev_dbg(dai->dev, "%s add route for widget %s",
+				   __func__, dai->driver->playback.stream_name);
+			intercon.source = dai->driver->playback.aif_name;
+			intercon.sink = dai->driver->playback.stream_name;
+			dev_dbg(dai->dev, "%s src %s sink %s\n",
+				   __func__, intercon.source, intercon.sink);
+			snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+		}
+		if (dai->driver->capture.stream_name &&
+		   dai->driver->capture.aif_name) {
+			dev_dbg(dai->dev, "%s add route for widget %s",
+				   __func__, dai->driver->capture.stream_name);
+			intercon.sink = dai->driver->capture.aif_name;
+			intercon.source = dai->driver->capture.stream_name;
+			dev_dbg(dai->dev, "%s src %s sink %s\n",
+				   __func__, intercon.source, intercon.sink);
+			snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+		}
+	}
 	return rc;
 }
 
@@ -264,6 +287,8 @@ static struct snd_soc_dai_ops msm_dai_q6_hdmi_ops = {
 
 static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 	.playback = {
+		.stream_name = "HDMI Playback",
+		.aif_name = "HDMI",
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
 		 SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
