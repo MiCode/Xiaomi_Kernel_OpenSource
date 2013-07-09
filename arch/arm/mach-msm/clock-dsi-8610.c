@@ -192,7 +192,7 @@ static enum handoff dsi_pll_vco_handoff(struct clk *c)
 	status = readl_relaxed(dsi_base + DSI_DSIPHY_PLL_CTRL_0);
 	if (!status & DSI_PLL_RDY_BIT) {
 		pr_err("DSI PLL not ready\n");
-		clk_disable(dsi_ahb_clk);
+		clk_disable_unprepare(dsi_ahb_clk);
 		return HANDOFF_DISABLED_CLK;
 	}
 
@@ -370,35 +370,19 @@ static enum handoff dsi_dsiclk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
-int dsi_prepare(struct clk *clk)
-{
-	return clk_prepare(dsi_ahb_clk);
-}
-
-void dsi_unprepare(struct clk *clk)
-{
-	clk_unprepare(dsi_ahb_clk);
-}
-
 struct clk_ops clk_ops_dsi_dsiclk = {
-	.prepare = dsi_prepare,
-	.unprepare = dsi_unprepare,
 	.set_rate = dsi_dsiclk_set_rate,
 	.round_rate = dsi_dsiclk_round_rate,
 	.handoff = dsi_dsiclk_handoff,
 };
 
 struct clk_ops clk_ops_dsi_byteclk = {
-	.prepare = dsi_prepare,
-	.unprepare = dsi_unprepare,
 	.set_rate = dsi_byteclk_set_rate,
 	.round_rate = dsi_byteclk_round_rate,
 	.handoff = dsi_byteclk_handoff,
 };
 
 struct clk_ops clk_ops_dsi_vco = {
-	.prepare = dsi_prepare,
-	.unprepare = dsi_unprepare,
 	.enable = dsi_pll_vco_enable,
 	.disable = dsi_pll_vco_disable,
 	.set_rate = dsi_pll_vco_set_rate,
