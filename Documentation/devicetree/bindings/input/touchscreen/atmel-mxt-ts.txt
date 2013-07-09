@@ -35,6 +35,8 @@ Optional property:
 					needed during wakeup.
  - atmel,no-force-update	: flag that signifies whether force configuration
 					update is applicable or not
+ - atmel,no-lpm-support		: flag that signifies whether low power mode is
+					supported or not on this platform
 
 Example:
 	i2c@f9966000 {
