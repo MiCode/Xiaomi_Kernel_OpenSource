@@ -65,6 +65,7 @@ static void __iomem *msm_tmr0_base;
 #ifdef CONFIG_MSM_DLOAD_MODE
 static int in_panic;
 static void *dload_mode_addr;
+static bool dload_mode_enabled;
 
 /* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
@@ -90,7 +91,13 @@ static void set_dload_mode(int on)
 		__raw_writel(on ? 0xCE14091A : 0,
 		       dload_mode_addr + sizeof(unsigned int));
 		mb();
+		dload_mode_enabled = on;
 	}
+}
+
+static bool get_dload_mode(void)
+{
+	return dload_mode_enabled;
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -115,6 +122,11 @@ static int dload_set(const char *val, struct kernel_param *kp)
 }
 #else
 #define set_dload_mode(x) do {} while (0)
+
+static bool get_dload_mode(void)
+{
+	return false;
+}
 #endif
 
 void msm_set_restart_mode(int mode)
@@ -130,7 +142,7 @@ static void __msm_power_off(int lower_pshold)
 	set_dload_mode(0);
 #endif
 	pm8xxx_reset_pwr_off(0);
-	qpnp_pon_system_pwr_off(0);
+	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
 	if (lower_pshold) {
 		if (!use_restart_v2())
@@ -211,7 +223,12 @@ static void msm_restart_prepare(const char *cmd)
 #endif
 
 	pm8xxx_reset_pwr_off(1);
-	qpnp_pon_system_pwr_off(1);
+
+	/* Hard reset the PMIC unless memory contents must be maintained. */
+	if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+	else
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
