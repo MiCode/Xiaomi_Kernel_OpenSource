@@ -306,9 +306,10 @@ static int diagchar_close(struct inode *inode, struct file *file)
 
 	mutex_lock(&driver->diagchar_mutex);
 	driver->ref_count--;
-	/* On Client exit, try to destroy all 3 pools */
+	/* On Client exit, try to destroy all 4 pools */
 	diagmem_exit(driver, POOL_TYPE_COPY);
 	diagmem_exit(driver, POOL_TYPE_HDLC);
+	diagmem_exit(driver, POOL_TYPE_USER);
 	diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
 	for (i = 0; i < driver->num_clients; i++) {
 		if (NULL != diagpriv_data && diagpriv_data->pid ==
@@ -1527,11 +1528,14 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = copy_from_user(user_space_data, buf + 4, payload_size);
 		if (err) {
 			pr_alert("diag: copy failed for DCI data\n");
+			diagmem_free(driver, user_space_data, POOL_TYPE_USER);
+			user_space_data = NULL;
 			return DIAG_DCI_SEND_DATA_FAIL;
 		}
 		err = diag_process_dci_transaction(user_space_data,
 							payload_size);
 		diagmem_free(driver, user_space_data, POOL_TYPE_USER);
+		user_space_data = NULL;
 		return err;
 	}
 	if (pkt_type == CALLBACK_DATA_TYPE) {
@@ -1542,16 +1546,19 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			return -EBADMSG;
 		}
 
+		mutex_lock(&driver->diagchar_mutex);
 		buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
 		if (!buf_copy) {
 			driver->dropped_count++;
+			mutex_unlock(&driver->diagchar_mutex);
 			return -ENOMEM;
 		}
 
 		err = copy_from_user(buf_copy, buf + 4, payload_size);
 		if (err) {
 			pr_err("diag: copy failed for user space data\n");
-			return -EIO;
+			ret = -EIO;
+			goto fail_free_copy;
 		}
 		/* Check for proc_type */
 		remote_proc = diag_get_remote(*(int *)buf_copy);
@@ -1560,8 +1567,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			wait_event_interruptible(driver->wait_q,
 				 (driver->in_busy_pktdata == 0));
 			ret = diag_process_apps_pkt(buf_copy, payload_size);
-			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-			return ret;
+			goto fail_free_copy;
 		}
 		/* The packet is for the remote processor */
 		token_offset = 4;
@@ -1574,20 +1580,20 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							1 + payload_size);
 		send.terminate = 1;
 
-		mutex_lock(&driver->diagchar_mutex);
+
 		if (!buf_hdlc)
 			buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
 							POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
 			ret = -ENOMEM;
-			goto fail_free_hdlc;
+			driver->used = 0;
+			goto fail_free_copy;
 		}
 		if (HDLC_OUT_BUF_SIZE < (2 * payload_size) + 3) {
 			pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
 					((2*payload_size) + 3));
 			driver->dropped_count++;
 			ret = -EBADMSG;
-			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			goto fail_free_hdlc;
 		}
 		enc.dest = buf_hdlc + driver->used;
@@ -1652,13 +1658,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			}
 		}
 #endif
-		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-		diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-		buf_copy = NULL;
-		buf_hdlc = NULL;
-		driver->used = 0;
-		mutex_unlock(&driver->diagchar_mutex);
-		return ret;
+		goto fail_free_hdlc;
 	}
 	if (pkt_type == USER_SPACE_DATA_TYPE) {
 		user_space_data = diagmem_alloc(driver, payload_size,
@@ -1672,6 +1672,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		if (err) {
 			pr_err("diag: copy failed for user space data\n");
 			diagmem_free(driver, user_space_data, POOL_TYPE_USER);
+			user_space_data = NULL;
 			return -EIO;
 		}
 		/* Check for proc_type */
@@ -1690,6 +1691,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 				pr_alert("diag: mask request Invalid\n");
 				diagmem_free(driver, user_space_data,
 							POOL_TYPE_USER);
+				user_space_data = NULL;
 				return -EFAULT;
 			}
 		}
@@ -1767,6 +1769,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							err);
 					diagmem_free(driver, user_space_data,
 								POOL_TYPE_USER);
+					user_space_data = NULL;
 					return err;
 				}
 			}
@@ -1777,6 +1780,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			diag_process_hdlc((void *)
 				(user_space_data + token_offset), payload_size);
 		diagmem_free(driver, user_space_data, POOL_TYPE_USER);
+		user_space_data = NULL;
 		return 0;
 	}
 
@@ -1788,9 +1792,11 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		return -EBADMSG;
 	}
 
+	mutex_lock(&driver->diagchar_mutex);
 	buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
 	if (!buf_copy) {
 		driver->dropped_count++;
+		mutex_unlock(&driver->diagchar_mutex);
 		return -ENOMEM;
 	}
 
@@ -1834,13 +1840,13 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			length++;
 	}
 #endif
-	mutex_lock(&driver->diagchar_mutex);
 	if (!buf_hdlc)
 		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
 						 POOL_TYPE_HDLC);
 	if (!buf_hdlc) {
 		ret = -ENOMEM;
-		goto fail_free_hdlc;
+		driver->used = 0;
+		goto fail_free_copy;
 	}
 	if (HDLC_OUT_BUF_SIZE < (2*payload_size) + 3) {
 		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
@@ -1853,7 +1859,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
 			/*Free the buffer right away if write failed */
-			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
@@ -1866,7 +1871,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							 POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
 			ret = -ENOMEM;
-			goto fail_free_hdlc;
+			goto fail_free_copy;
 		}
 	}
 
@@ -1882,7 +1887,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
 			/*Free the buffer right away if write failed */
-			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
@@ -1895,7 +1899,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							 POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
 			ret = -ENOMEM;
-			goto fail_free_hdlc;
+			goto fail_free_copy;
 		}
 		enc.dest = buf_hdlc + driver->used;
 		enc.dest_last = (void *)(buf_hdlc + driver->used +
@@ -1908,7 +1912,6 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
 			/*Free the buffer right away if write failed */
-			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
@@ -1920,6 +1923,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	}
 
 	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+	buf_copy = NULL;
 	mutex_unlock(&driver->diagchar_mutex);
 	if (!timer_in_progress)	{
 		timer_in_progress = 1;
@@ -1928,14 +1932,18 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	return 0;
 
 fail_free_hdlc:
+	diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 	buf_hdlc = NULL;
 	driver->used = 0;
 	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+	buf_copy = NULL;
 	mutex_unlock(&driver->diagchar_mutex);
 	return ret;
 
 fail_free_copy:
 	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+	buf_copy = NULL;
+	mutex_unlock(&driver->diagchar_mutex);
 	return ret;
 }
 
