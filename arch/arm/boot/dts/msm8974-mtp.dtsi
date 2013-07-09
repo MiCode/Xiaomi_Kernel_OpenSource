@@ -665,21 +665,6 @@
 	};
 };
 
-&pm8841_mpps {
-
-	mpp@a000 { /* MPP 1 */
-	};
-
-	mpp@a100 { /* MPP 2 */
-	};
-
-	mpp@a200 { /* MPP 3 */
-	};
-
-	mpp@a300 { /* MPP 4 */
-	};
-};
-
 &slim_msm {
 	taiko_codec {
 		qcom,cdc-micbias1-ext-cap;
