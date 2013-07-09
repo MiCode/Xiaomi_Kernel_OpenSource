@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,9 +36,9 @@ struct sps_map {
 
 	/* Resource parameters */
 	u32 config;	 /* Configuration (stream) identifier */
-	u32 desc_base;	 /* Physical address of descriptor FIFO */
+	phys_addr_t desc_base;	 /* Physical address of descriptor FIFO */
 	u32 desc_size;	 /* Size (bytes) of descriptor FIFO */
-	u32 data_base;	 /* Physical address of data FIFO */
+	phys_addr_t data_base;	 /* Physical address of data FIFO */
 	u32 data_size;	 /* Size (bytes) of data FIFO */
 
 };

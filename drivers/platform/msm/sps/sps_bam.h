@@ -50,6 +50,10 @@ enum bam_pipe_irq {
 	BAM_PIPE_IRQ_ERROR = 0x00000010,
 	/* End-Of-Transfer */
 	BAM_PIPE_IRQ_EOT = 0x00000020,
+	/* Pipe RESET unsuccessful */
+	BAM_PIPE_IRQ_RST_ERROR = 0x00000040,
+	/* Errorneous Hresponse by AHB MASTER */
+	BAM_PIPE_IRQ_HRESP_ERROR = 0x00000080,
 };
 
 /* Halt Type */

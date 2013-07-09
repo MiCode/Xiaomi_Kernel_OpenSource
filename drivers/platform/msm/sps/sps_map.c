@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,16 +96,16 @@ int sps_map_find(struct sps_connect *connect)
 	 */
 	desc = spsi_get_mem_ptr(map->desc_base);
 	if (desc == NULL) {
-		SPS_ERR("sps:Cannot get virt addr for I/O buffer: 0x%x",
-			map->desc_base);
+		SPS_ERR("sps:Cannot get virt addr for I/O buffer: %pa\n",
+			&map->desc_base);
 		return SPS_ERROR;
 	}
 
 	if (map->data_size > 0 && map->data_base != SPS_ADDR_INVALID) {
 		data = spsi_get_mem_ptr(map->data_base);
 		if (data == NULL) {
-			SPS_ERR("sps:Can't get virt addr for I/O buffer: 0x%x",
-				map->data_base);
+			SPS_ERR("sps:Can't get virt addr for I/O buffer: %pa",
+				&map->data_base);
 			return SPS_ERROR;
 		}
 	} else {

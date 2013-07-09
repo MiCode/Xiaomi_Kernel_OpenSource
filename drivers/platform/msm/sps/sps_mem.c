@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include "sps_bam.h"
 #include "spsi.h"
 
-static u32 iomem_phys;
+static phys_addr_t iomem_phys;
 static void *iomem_virt;
 static u32 iomem_size;
 static u32 iomem_offset;
@@ -40,7 +40,7 @@ static u32 total_free;
  * Translate physical to virtual address
  *
  */
-void *spsi_get_mem_ptr(u32 phys_addr)
+void *spsi_get_mem_ptr(phys_addr_t phys_addr)
 {
 	void *virt = NULL;
 
@@ -49,8 +49,8 @@ void *spsi_get_mem_ptr(u32 phys_addr)
 		virt = (u8 *) iomem_virt + (phys_addr - iomem_phys);
 	} else {
 		virt = phys_to_virt(phys_addr);
-		SPS_ERR("sps:spsi_get_mem_ptr.invalid phys addr=0x%x.",
-			phys_addr);
+		SPS_ERR("sps:spsi_get_mem_ptr.invalid phys addr=0x%pa.",
+			&phys_addr);
 	}
 	return virt;
 }
@@ -59,9 +59,9 @@ void *spsi_get_mem_ptr(u32 phys_addr)
  * Allocate I/O (pipe) memory
  *
  */
-u32 sps_mem_alloc_io(u32 bytes)
+phys_addr_t sps_mem_alloc_io(u32 bytes)
 {
-	u32 phys_addr = SPS_ADDR_INVALID;
+	phys_addr_t phys_addr = SPS_ADDR_INVALID;
 	u32 virt_addr = 0;
 
 	virt_addr = gen_pool_alloc(pool, bytes);
@@ -74,8 +74,8 @@ u32 sps_mem_alloc_io(u32 bytes)
 		return SPS_ADDR_INVALID;
 	}
 
-	SPS_DBG2("sps:sps_mem_alloc_io.phys=0x%x.virt=0x%x.size=0x%x.",
-		phys_addr, virt_addr, bytes);
+	SPS_DBG2("sps:sps_mem_alloc_io.phys=%pa.virt=0x%x.size=0x%x.",
+		&phys_addr, virt_addr, bytes);
 
 	return phys_addr;
 }
@@ -84,15 +84,15 @@ u32 sps_mem_alloc_io(u32 bytes)
  * Free I/O memory
  *
  */
-void sps_mem_free_io(u32 phys_addr, u32 bytes)
+void sps_mem_free_io(phys_addr_t phys_addr, u32 bytes)
 {
 	u32 virt_addr = 0;
 
 	iomem_offset = phys_addr - iomem_phys;
 	virt_addr = (u32) iomem_virt + iomem_offset;
 
-	SPS_DBG2("sps:sps_mem_free_io.phys=0x%x.virt=0x%x.size=0x%x.",
-		phys_addr, virt_addr, bytes);
+	SPS_DBG2("sps:sps_mem_free_io.phys=%pa.virt=0x%x.size=0x%x.",
+		&phys_addr, virt_addr, bytes);
 
 	gen_pool_free(pool, virt_addr, bytes);
 	total_free += bytes;
@@ -102,7 +102,7 @@ void sps_mem_free_io(u32 phys_addr, u32 bytes)
  * Initialize driver memory module
  *
  */
-int sps_mem_init(u32 pipemem_phys_base, u32 pipemem_size)
+int sps_mem_init(phys_addr_t pipemem_phys_base, u32 pipemem_size)
 {
 	int res;
 
@@ -125,8 +125,8 @@ int sps_mem_init(u32 pipemem_phys_base, u32 pipemem_size)
 		}
 
 		iomem_offset = 0;
-		SPS_DBG("sps:sps_mem_init.iomem_phys=0x%x,iomem_virt=0x%x.",
-			iomem_phys, (u32) iomem_virt);
+		SPS_DBG("sps:sps_mem_init.iomem_phys=%pa,iomem_virt=0x%x.",
+			&iomem_phys, (u32) iomem_virt);
 	}
 
 	pool = gen_pool_create(min_alloc_order, nid);

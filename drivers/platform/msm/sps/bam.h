@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@ struct bam_pipe_parameters {
 	enum bam_pipe_dir dir;
 	enum bam_pipe_mode mode;
 	enum bam_write_nwd write_nwd;
-	u32 desc_base;	/* Physical address of descriptor FIFO */
+	phys_addr_t desc_base;	/* Physical address of descriptor FIFO */
 	u32 desc_size;	/* Size (bytes) of descriptor FIFO */
 	u32 lock_group;	/* The lock group this pipe belongs to */
 	enum bam_stream_mode stream_mode;
@@ -81,7 +81,7 @@ struct bam_pipe_parameters {
 	/* The following are only valid if mode is BAM2BAM */
 	u32 peer_phys_addr;
 	u32 peer_pipe;
-	u32 data_base;	/* Physical address of data FIFO */
+	phys_addr_t data_base;	/* Physical address of data FIFO */
 	u32 data_size;	/* Size (bytes) of data FIFO */
 };
 
@@ -139,12 +139,14 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask);
  *
  * @version - return BAM hardware version
  *
+ * @ee - BAM execution environment index
+ *
  * @num_pipes - return number of pipes
  *
  * @return 0 on success, negative value on error
  *
  */
-int bam_check(void *base, u32 *version, u32 *num_pipes);
+int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes);
 
 /**
  * Disable a BAM device
@@ -157,6 +159,17 @@ int bam_check(void *base, u32 *version, u32 *num_pipes);
  *
  */
 void bam_exit(void *base, u32 ee);
+
+/**
+ * This function prints BAM register content
+ * including TEST_BUS and PIPE register content.
+ *
+ * @base - BAM virtual base address.
+ *
+ * @ee - BAM execution environment index
+ */
+void bam_output_register_content(void *base, u32 ee);
+
 
 /**
  * Get BAM IRQ source and clear global IRQ status
@@ -177,6 +190,7 @@ void bam_exit(void *base, u32 ee);
  */
 u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 				enum sps_callback_case *cb_case);
+
 
 /**
  * Initialize a BAM pipe
