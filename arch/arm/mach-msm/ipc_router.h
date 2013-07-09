@@ -160,6 +160,8 @@ void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule);
 
 void msm_ipc_sync_default_sec_rule(void *rule);
 
+int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout);
+
 #if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT
 extern void *msm_ipc_load_default_node(void);
 

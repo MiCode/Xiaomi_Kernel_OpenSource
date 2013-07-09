@@ -2266,6 +2266,48 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 }
 
 /**
+ * msm_ipc_router_rx_data_wait() - Wait for new message destined to a local port.
+ * @port_ptr: Pointer to the local port
+ * @timeout: < 0 timeout indicates infinite wait till a message arrives.
+ *	     > 0 timeout indicates the wait time.
+ *	     0 indicates that we do not wait.
+ * @return: 0 if there are pending messages to read,
+ *	    standard Linux error code otherwise.
+ *
+ * Checks for the availability of messages that are destined to a local port.
+ * If no messages are present then waits as per @timeout.
+ */
+int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout)
+{
+	int ret = 0;
+
+	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	while (list_empty(&port_ptr->port_rx_q)) {
+		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+		if (timeout < 0) {
+			ret = wait_event_interruptible(
+					port_ptr->port_rx_wait_q,
+					!list_empty(&port_ptr->port_rx_q));
+			if (ret)
+				return ret;
+		} else if (timeout > 0) {
+			timeout = wait_event_interruptible_timeout(
+					port_ptr->port_rx_wait_q,
+					!list_empty(&port_ptr->port_rx_q),
+					timeout);
+			if (timeout < 0)
+				return -EFAULT;
+		}
+		if (timeout == 0)
+			return -ENOMSG;
+		mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	}
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+
+	return ret;
+}
+
+/**
  * msm_ipc_router_recv_from() - Recieve messages destined to a local port.
  * @port_ptr: Pointer to the local port
  * @data : Pointer to the socket buffer head
@@ -2274,7 +2316,7 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
  *	     > 0 timeout indicates the wait time.
  *	     0 indicates that we do not wait.
  * @return: = Number of bytes read(On successful read operation).
- *	    = 0 (If there are no pending messages and timeout is 0).
+ *	    = -ENOMSG (If there are no pending messages and timeout is 0).
  *	    = -EINVAL (If either of the arguments, port_ptr or data is invalid)
  *	    = -EFAULT (If there are no pending messages when timeout is > 0
  *	      and the wait_event_interruptible_timeout has returned value > 0)
@@ -2303,28 +2345,10 @@ int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
 	}
 
 	*data = NULL;
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
-	while (list_empty(&port_ptr->port_rx_q)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
-		if (timeout < 0) {
-			ret = wait_event_interruptible(
-					port_ptr->port_rx_wait_q,
-					!list_empty(&port_ptr->port_rx_q));
-			if (ret)
-				return ret;
-		} else if (timeout > 0) {
-			timeout = wait_event_interruptible_timeout(
-					port_ptr->port_rx_wait_q,
-					!list_empty(&port_ptr->port_rx_q),
-					timeout);
-			if (timeout < 0)
-				return -EFAULT;
-		}
-		if (timeout == 0)
-			return 0;
-		mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
-	}
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+
+	ret = msm_ipc_router_rx_data_wait(port_ptr, timeout);
+	if (ret)
+		return ret;
 
 	ret = msm_ipc_router_read(port_ptr, data, 0);
 	if (ret <= 0 || !(*data))
@@ -2358,12 +2382,10 @@ int msm_ipc_router_read_msg(struct msm_ipc_port *port_ptr,
 
 	ret = msm_ipc_router_recv_from(port_ptr, &in_skb_head, src, 0);
 
-	if (ret == 0)
-		return -ENOMSG;
-
 	if (ret < 0) {
-		pr_err("%s: msm_ipc_router_recv_from failed - ret: %d\n",
-			__func__, ret);
+		if (ret != -ENOMSG)
+			pr_err("%s: msm_ipc_router_recv_from failed - ret: %d\n",
+				__func__, ret);
 		return ret;
 	}
 
