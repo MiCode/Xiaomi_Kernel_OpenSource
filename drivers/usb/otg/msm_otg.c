@@ -1099,6 +1099,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
 
+	if (motg->pdata->delay_lpm_hndshk_on_disconnect)
+		msm_bam_notify_lpm_resume();
+
 	disable_irq(motg->irq);
 	wake_lock(&motg->wlock);
 
