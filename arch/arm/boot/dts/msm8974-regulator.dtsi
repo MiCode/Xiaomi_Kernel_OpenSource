@@ -13,48 +13,44 @@
 
 /* QPNP controlled regulators: */
 
-&spmi_bus {
+&pm8941_lsid1 {
+	pm8941_boost: regulator@a000 {
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		qcom,enable-time = <500>;
+		status = "okay";
+	};
 
-	qcom,pm8941@1 {
+	pm8941_mvs1: regulator@8300 {
+		parent-supply = <&pm8941_chg_otg>;
+		qcom,enable-time = <1000>;
+		qcom,pull-down-enable = <1>;
+		interrupts = <0x1 0x83 0x2>;
+		interrupt-names = "ocp";
+		qcom,ocp-enable = <1>;
+		qcom,ocp-max-retries = <10>;
+		qcom,ocp-retry-delay = <30>;
+		qcom,soft-start-enable = <1>;
+		qcom,vs-soft-start-strength = <0>;
+		qcom,hpm-enable = <1>;
+		qcom,auto-mode-enable = <0>;
+		status = "okay";
+	};
 
-		pm8941_boost: regulator@a000 {
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			qcom,enable-time = <500>;
-			status = "okay";
-		};
-
-		pm8941_mvs1: regulator@8300 {
-			parent-supply = <&pm8941_chg_otg>;
-			qcom,enable-time = <1000>;
-			qcom,pull-down-enable = <1>;
-			interrupts = <0x1 0x83 0x2>;
-			interrupt-names = "ocp";
-			qcom,ocp-enable = <1>;
-			qcom,ocp-max-retries = <10>;
-			qcom,ocp-retry-delay = <30>;
-			qcom,soft-start-enable = <1>;
-			qcom,vs-soft-start-strength = <0>;
-			qcom,hpm-enable = <1>;
-			qcom,auto-mode-enable = <0>;
-			status = "okay";
-		};
-
-		pm8941_mvs2: regulator@8400 {
-			parent-supply = <&pm8941_boost>;
-			qcom,enable-time = <1000>;
-			qcom,pull-down-enable = <1>;
-			interrupts = <0x1 0x84 0x2>;
-			interrupt-names = "ocp";
-			qcom,ocp-enable = <1>;
-			qcom,ocp-max-retries = <10>;
-			qcom,ocp-retry-delay = <30>;
-			qcom,soft-start-enable = <1>;
-			qcom,vs-soft-start-strength = <0>;
-			qcom,hpm-enable = <1>;
-			qcom,auto-mode-enable = <0>;
-			status = "okay";
-		};
+	pm8941_mvs2: regulator@8400 {
+		parent-supply = <&pm8941_boost>;
+		qcom,enable-time = <1000>;
+		qcom,pull-down-enable = <1>;
+		interrupts = <0x1 0x84 0x2>;
+		interrupt-names = "ocp";
+		qcom,ocp-enable = <1>;
+		qcom,ocp-max-retries = <10>;
+		qcom,ocp-retry-delay = <30>;
+		qcom,soft-start-enable = <1>;
+		qcom,vs-soft-start-strength = <0>;
+		qcom,hpm-enable = <1>;
+		qcom,auto-mode-enable = <0>;
+		status = "okay";
 	};
 };
 
