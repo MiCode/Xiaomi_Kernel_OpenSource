@@ -642,6 +642,8 @@ static void diag_function_unbind(struct usb_configuration *c,
 	if (ctxt->ch && ctxt->ch->priv_usb == ctxt)
 		ctxt->ch->priv_usb = NULL;
 	list_del(&ctxt->list_item);
+	/* Free any pending USB requests from last session */
+	free_reqs(ctxt);
 	kfree(ctxt);
 }
 
