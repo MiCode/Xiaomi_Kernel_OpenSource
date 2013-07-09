@@ -165,6 +165,7 @@ struct mhl_tx_ctrl {
 	bool tx_powered_off;
 	uint8_t dwnstream_hpd;
 	bool mhl_det_discon;
+	bool irq_req_done;
 };
 
 int mhl_i2c_reg_read(struct i2c_client *client,
