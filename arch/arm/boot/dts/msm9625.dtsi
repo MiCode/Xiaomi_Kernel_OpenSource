@@ -163,7 +163,6 @@
 		qcom,hsusb-otg-otg-control = <1>;
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-lpm-on-dev-suspend;
-		qcom,hsusb-otg-clk-always-on-workaround;
 		qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect;
 		qcom,hsusb-otg-delay-lpm;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
