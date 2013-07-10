@@ -36,6 +36,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/cdev.h>
@@ -196,7 +197,6 @@ struct dwc3_msm {
 	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
-	struct wake_lock	wlock;
 	struct dwc3_charger	charger;
 	struct usb_phy		*otg_xceiv;
 	struct delayed_work	chg_work;
@@ -1801,7 +1801,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	dwc3_ssusb_config_vddcx(mdwc, 0);
 	if (!host_bus_suspend && !dcp)
 		dwc3_hsusb_config_vddcx(mdwc, 0);
-	wake_unlock(&mdwc->wlock);
+	pm_relax(mdwc->dev);
 	atomic_set(&mdwc->in_lpm, 1);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
@@ -1829,7 +1829,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	wake_lock(&mdwc->wlock);
+	pm_stay_awake(mdwc->dev);
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -2951,8 +2951,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
 	}
 
-	wake_lock_init(&msm->wlock, WAKE_LOCK_SUSPEND, "msm_dwc3");
-	wake_lock(&msm->wlock);
+	device_init_wakeup(msm->dev, 1);
+	pm_stay_awake(msm->dev);
 	dwc3_debugfs_init(msm);
 
 	return 0;
@@ -3025,7 +3025,7 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 		regulator_disable(msm->vbus_otg);
 
 	pm_runtime_disable(msm->dev);
-	wake_lock_destroy(&msm->wlock);
+	device_init_wakeup(msm->dev, 0);
 
 	dwc3_hsusb_ldo_enable(msm, 0);
 	dwc3_hsusb_ldo_init(msm, 0);
