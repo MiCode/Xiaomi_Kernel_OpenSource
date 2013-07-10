@@ -742,6 +742,16 @@ int genlock_get_fd_handle(struct genlock_handle *handle)
 
 	fd_install(ret, lock->file);
 
+	/*
+	 * Taking a reference for lock file.
+	 * This is required as now we have two file descriptor
+	 * pointing to same file. If one FD is closed, lock file
+	 * will be closed. Taking this reference will make sure
+	 * that file doesn't get close. This refrence will go
+	 * when client will call close on this FD.
+	 */
+	fget(ret);
+
 	return ret;
 }
 EXPORT_SYMBOL(genlock_get_fd_handle);
