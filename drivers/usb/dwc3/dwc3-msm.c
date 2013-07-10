@@ -2367,7 +2367,12 @@ static void dwc3_init_adc_work(struct work_struct *w)
 static ssize_t adc_enable_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", context->id_adc_detect ?
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (!mdwc)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", mdwc->id_adc_detect ?
 						"enabled" : "disabled");
 }
 
@@ -2375,13 +2380,18 @@ static ssize_t adc_enable_store(struct device *dev,
 		struct device_attribute *attr, const char
 		*buf, size_t size)
 {
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (!mdwc)
+		return -EINVAL;
+
 	if (!strnicmp(buf, "enable", 6)) {
-		if (!context->id_adc_detect)
-			dwc3_init_adc_work(&context->init_adc_work.work);
+		if (!mdwc->id_adc_detect)
+			dwc3_init_adc_work(&mdwc->init_adc_work.work);
 		return size;
 	} else if (!strnicmp(buf, "disable", 7)) {
 		qpnp_adc_tm_usbid_end();
-		context->id_adc_detect = false;
+		mdwc->id_adc_detect = false;
 		return size;
 	}
 
