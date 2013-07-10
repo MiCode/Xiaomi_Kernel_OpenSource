@@ -540,7 +540,7 @@ int msm_ep_unconfig(struct usb_ep *ep);
 int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
 	u8 dst_pipe_idx);
 
-void msm_dwc3_restart_usb_session(void);
+void msm_dwc3_restart_usb_session(struct usb_gadget *gadget);
 
 int msm_register_usb_ext_notification(struct usb_ext_notification *info);
 #else
@@ -560,7 +560,7 @@ static inline int msm_ep_unconfig(struct usb_ep *ep)
 	return -ENODEV;
 }
 
-static inline void msm_dwc3_restart_usb_session(void)
+static inline void msm_dwc3_restart_usb_session(struct usb_gadget *gadget)
 {
 	return;
 }
