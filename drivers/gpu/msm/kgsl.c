@@ -550,7 +550,7 @@ kgsl_context_detach(struct kgsl_context *context)
 	 * detached, to avoid possibly freeing memory while
 	 * it is still in use by the GPU.
 	 */
-	kgsl_cancel_events_ctxt(device, context);
+	kgsl_context_cancel_events(device, context);
 
 	kgsl_context_put(context);
 }
@@ -1549,9 +1549,11 @@ static long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 }
 
 static void kgsl_freemem_event_cb(struct kgsl_device *device,
-	void *priv, u32 id, u32 timestamp)
+	void *priv, u32 id, u32 timestamp, u32 type)
 {
 	struct kgsl_mem_entry *entry = priv;
+
+	/* Free the memory for all event types */
 	trace_kgsl_mem_timestamp_free(device, entry, id, timestamp, 0);
 	kgsl_mem_entry_put(entry);
 }
