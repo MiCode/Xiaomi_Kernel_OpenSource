@@ -781,7 +781,7 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 	return rc;
 }
 
-#define SLEW_RATE 2994
+#define SLEW_RATE 2395
 static int krait_voltage_increase(struct krait_power_vreg *from,
 							int vmax)
 {
