@@ -170,17 +170,32 @@ kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
 	kobject_put(&private->kobj);
 }
 
-void
-kgsl_process_init_sysfs(struct kgsl_process_private *private)
+/**
+ * kgsl_process_init_sysfs() - Initialize and create sysfs files for a process
+ *
+ * @device: Pointer to kgsl device struct
+ * @private: Pointer to the structure for the process
+ *
+ * @returns: 0 on success, error code otherwise
+ *
+ * kgsl_process_init_sysfs() is called at the time of creating the
+ * process struct when a process opens the kgsl device for the first time.
+ * This function creates the sysfs files for the process.
+ */
+int
+kgsl_process_init_sysfs(struct kgsl_device *device,
+		struct kgsl_process_private *private)
 {
 	unsigned char name[16];
-	int i, ret;
+	int i, ret = 0;
 
 	snprintf(name, sizeof(name), "%d", private->pid);
 
-	if (kobject_init_and_add(&private->kobj, &ktype_mem_entry,
-		kgsl_driver.prockobj, name))
-		return;
+	ret = kobject_init_and_add(&private->kobj, &ktype_mem_entry,
+		kgsl_driver.prockobj, name);
+
+	if (ret)
+		return ret;
 
 	for (i = 0; i < ARRAY_SIZE(mem_stats); i++) {
 		/* We need to check the value of sysfs_create_file, but we
@@ -191,6 +206,7 @@ kgsl_process_init_sysfs(struct kgsl_process_private *private)
 		ret = sysfs_create_file(&private->kobj,
 			&mem_stats[i].max_attr.attr);
 	}
+	return ret;
 }
 
 static int kgsl_drv_memstat_show(struct device *dev,

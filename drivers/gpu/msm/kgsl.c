@@ -812,7 +812,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	list_del(&private->list);
 	mutex_unlock(&kgsl_driver.process_mutex);
 
-	if (private->kobj.ktype)
+	if (private->kobj.state_in_sysfs)
 		kgsl_process_uninit_sysfs(private);
 	if (private->debug_root)
 		debugfs_remove_recursive(private->debug_root);
@@ -926,21 +926,23 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 
 		pt_name = task_tgid_nr(current);
 		private->pagetable = kgsl_mmu_getpagetable(mmu, pt_name);
-		if (private->pagetable == NULL) {
-			mutex_unlock(&private->process_private_mutex);
-			kgsl_put_process_private(cur_dev_priv->device,
-						private);
-			return NULL;
-		}
+		if (private->pagetable == NULL)
+			goto error;
 	}
 
-	kgsl_process_init_sysfs(private);
-	kgsl_process_init_debugfs(private);
+	if (kgsl_process_init_sysfs(cur_dev_priv->device, private))
+		goto error;
+	if (kgsl_process_init_debugfs(private))
+		goto error;
 
 done:
 	mutex_unlock(&private->process_private_mutex);
-
 	return private;
+
+error:
+	mutex_unlock(&private->process_private_mutex);
+	kgsl_put_process_private(cur_dev_priv->device, private);
+	return NULL;
 }
 
 int kgsl_close_device(struct kgsl_device *device)
