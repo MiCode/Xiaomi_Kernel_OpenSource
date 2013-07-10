@@ -331,6 +331,8 @@ static int mport_tsif[] = {MASTER_PORT_TSIF,};
 static int mport_bam_dma[] = {MASTER_PORT_BAM_DMA,};
 static int mport_blsp_2[] = {MASTER_PORT_BLSP_2,};
 static int mport_usb_hsic[] = {MASTER_PORT_USB_HSIC,};
+static int mport_usb_hs1[] = {MASTER_PORT_USB_HS1,};
+static int mport_usb_hs2[] = {MASTER_PORT_USB_HS2,};
 static int mport_blsp_1[] = {MASTER_PORT_BLSP_1,};
 static int mport_pnoc_cfg[] = {MASTER_PORT_PNOC_CFG,};
 static int mport_qpic[] = {MASTER_PORT_QPIC,};
@@ -724,6 +726,22 @@ static struct msm_bus_node_info periph_noc_info[] = {
 		.num_tiers = ARRAY_SIZE(tier2),
 		.buswidth = 8,
 		.mas_hw_id = MAS_USB_HSIC,
+	},
+	{
+		.id = MSM_BUS_MASTER_USB_HS,
+		.masterp = mport_usb_hs1,
+		.num_mports = ARRAY_SIZE(mport_usb_hs1),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+		.buswidth = 8,
+	},
+	{
+		.id = MSM_BUS_MASTER_USB_HS2,
+		.masterp = mport_usb_hs2,
+		.num_mports = ARRAY_SIZE(mport_usb_hs2),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+		.buswidth = 8,
 	},
 	{
 		.id = MSM_BUS_MASTER_BLSP_1,
