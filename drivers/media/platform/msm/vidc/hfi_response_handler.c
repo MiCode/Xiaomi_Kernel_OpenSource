@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/interrupt.h>
+#include <mach/msm_smem.h>
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"
@@ -1089,6 +1090,44 @@ static void hfi_process_session_get_seq_hdr_done(
 	callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
 
+void hfi_process_sys_property_info(
+		struct hfi_property_sys_image_version_info_type *pkt)
+{
+	int i = 0;
+	u32 smem_block_size = 0;
+	u8 *smem_table_ptr;
+	char version[256];
+	const u32 smem_image_index_venus = 14 * 128;
+
+	if (!pkt || !pkt->string_size) {
+		dprintk(VIDC_ERR, "%s: invalid param\n", __func__);
+		return;
+	}
+
+	if (pkt->string_size < sizeof(version)) {
+		/*
+		 * The version string returned by firmware includes null
+		 * characters at the start and in between. Replace the null
+		 * characters with space, to print the version info.
+		 */
+		for (i = 0; i < pkt->string_size; i++) {
+			if (pkt->str_image_version[i] != '\0')
+				version[i] = pkt->str_image_version[i];
+			else
+				version[i] = ' ';
+		}
+		version[i] = '\0';
+		dprintk(VIDC_INFO, "F/W version: %s\n", version);
+	}
+
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
+						&smem_block_size);
+	if (smem_table_ptr &&
+		((smem_image_index_venus + 128) <= smem_block_size))
+		memcpy(smem_table_ptr + smem_image_index_venus,
+			   (u8 *)pkt->str_image_version, 128);
+}
+
 u32 hfi_process_msg_packet(
 		msm_vidc_callback callback, u32 device_id,
 		struct vidc_hal_msg_pkt_hdr *msg_hdr)
@@ -1120,6 +1159,11 @@ u32 hfi_process_msg_packet(
 		hfi_process_session_init_done(callback, device_id,
 			(struct hfi_msg_sys_session_init_done_packet *)
 					msg_hdr);
+		break;
+	case HFI_MSG_SYS_PROPERTY_INFO:
+		hfi_process_sys_property_info(
+		   (struct hfi_property_sys_image_version_info_type *)
+			msg_hdr);
 		break;
 	case HFI_MSG_SYS_SESSION_END_DONE:
 		hfi_process_session_end_done(callback, device_id,

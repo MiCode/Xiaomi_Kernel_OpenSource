@@ -89,4 +89,7 @@ int create_pkt_cmd_session_set_property(
 
 int create_pkt_ssr_cmd(enum hal_ssr_trigger_type type,
 		struct hfi_cmd_sys_test_ssr_packet *pkt);
+
+int create_pkt_cmd_sys_image_version(
+		struct hfi_cmd_sys_get_property_packet *pkt);
 #endif
