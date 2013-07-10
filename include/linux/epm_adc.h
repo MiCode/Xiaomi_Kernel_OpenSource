@@ -97,6 +97,10 @@ struct epm_chan_properties {
 	uint32_t gain;
 };
 
+struct epm_marker_level {
+	uint8_t		level;
+};
+
 #ifdef __KERNEL__
 struct epm_adc_platform_data {
 	struct epm_chan_properties *channel;
@@ -120,6 +124,18 @@ struct epm_adc_platform_data {
 
 #define EPM_ADC_DEINIT		_IOR(EPM_ADC_IOCTL_CODE, 3,	\
 					     uint32_t)
+
+#define EPM_MARKER1_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 90,	\
+						uint32_t)
+
+#define EPM_MARKER1_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 91,	\
+						uint32_t)
+
+#define EPM_MARKER2_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 95,	\
+						uint32_t)
+
+#define EPM_MARKER2_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 92,	\
+						uint32_t)
 
 #define EPM_PSOC_ADC_INIT		_IOR(EPM_ADC_IOCTL_CODE, 4, \
 					struct epm_psoc_init_resp)
