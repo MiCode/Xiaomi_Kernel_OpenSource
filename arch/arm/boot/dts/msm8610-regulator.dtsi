@@ -77,6 +77,8 @@
 		qcom,cpr-fuse-redun-bp-scheme = <25>;
 		qcom,cpr-fuse-redun-target-quot = <32 12 0>;
 		qcom,cpr-fuse-redun-ro-sel = <44 26 29>;
+
+		qcom,cpr-enable;
 	};
 };
 
