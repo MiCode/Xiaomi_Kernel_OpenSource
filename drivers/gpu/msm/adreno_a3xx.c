@@ -13,6 +13,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/ratelimit.h>
 #include <mach/socinfo.h>
 
 #include "kgsl.h"
@@ -3022,6 +3023,8 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const char *err = "";
+	/* Limit to 10 messages every 5 seconds */
+	static DEFINE_RATELIMIT_STATE(ratelimit_state, 5 * HZ, 10);
 
 	switch (bit) {
 	case A3XX_INT_RBBM_AHB_ERROR: {
@@ -3033,8 +3036,8 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 		 * Return the word address of the erroring register so that it
 		 * matches the register specification
 		 */
-
-		KGSL_DRV_CRIT(device,
+		if (!__ratelimit(&ratelimit_state))
+			KGSL_DRV_CRIT(device,
 			"RBBM | AHB bus error | %s | addr=%x | ports=%x:%x\n",
 			reg & (1 << 28) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2, (reg >> 20) & 0x3,
@@ -3059,34 +3062,17 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A3XX_INT_VFD_ERROR:
 		err = "VFD: Out of bounds access";
 		break;
-	case A3XX_INT_CP_T0_PACKET_IN_IB:
-		err = "ringbuffer TO packet in IB interrupt";
-		break;
-	case A3XX_INT_CP_OPCODE_ERROR:
-		err = "ringbuffer opcode error interrupt";
-		break;
-	case A3XX_INT_CP_RESERVED_BIT_ERROR:
-		err = "ringbuffer reserved bit error interrupt";
-		break;
-	case A3XX_INT_CP_HW_FAULT:
-		err = "ringbuffer hardware fault";
-		break;
-	case A3XX_INT_CP_REG_PROTECT_FAULT:
-		err = "ringbuffer protected mode error interrupt";
-		break;
-	case A3XX_INT_CP_AHB_ERROR_HALT:
-		err = "ringbuffer AHB error interrupt";
-		break;
-	case A3XX_INT_MISC_HANG_DETECT:
-		err = "MISC: GPU hang detected";
-		break;
 	case A3XX_INT_UCHE_OOB_ACCESS:
 		err = "UCHE:  Out of bounds access";
 		break;
 	}
 
-	KGSL_DRV_CRIT(device, "%s\n", err);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	/*
+	 * Limit error interrupt reporting to prevent
+	 * kernel logs causing watchdog timeout
+	 */
+	if (!__ratelimit(&ratelimit_state))
+		KGSL_DRV_CRIT(device, "%s\n", err);
 }
 
 static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
@@ -3098,6 +3084,48 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 
 	/* Schedule work to free mem and issue ibs */
 	queue_work(device->work_queue, &device->ts_expired_ws);
+}
+
+/**
+ * a3xx_fatal_err_callback -  Routine for GPU fatal interrupts
+ * @adreno_dev: adreno device ptr
+ * @bit: interrupt bit
+ */
+static void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	const char *err = "";
+
+	switch (bit) {
+	case A3XX_INT_CP_OPCODE_ERROR:
+		err = "ringbuffer opcode error interrupt";
+		break;
+	case A3XX_INT_CP_RESERVED_BIT_ERROR:
+		err = "ringbuffer reserved bit error interrupt";
+		break;
+	case A3XX_INT_CP_T0_PACKET_IN_IB:
+		err = "ringbuffer TO packet in IB interrupt";
+		break;
+	case A3XX_INT_CP_HW_FAULT:
+		err = "ringbuffer hardware fault";
+		break;
+	case A3XX_INT_CP_REG_PROTECT_FAULT:
+		err = "ringbuffer protected mode error interrupt";
+		break;
+	case A3XX_INT_CP_AHB_ERROR_HALT:
+		err = "ringbuffer AHB error interrupt";
+		break;
+	case A3XX_INT_MISC_HANG_DETECT:
+		if (!adreno_dev->hang_intr_en)
+			return;
+		err = "stall interrupt";
+		break;
+	}
+
+	KGSL_DRV_CRIT(device, "%s\n", err);
+	if ((!device->mmu.fault) &&
+		(adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE))
+		adreno_fatal_err_work(adreno_dev);
 }
 
 /**
@@ -3399,23 +3427,25 @@ static struct {
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 5 - RBBM_ATB_BUS_OVERFLOW */
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 6 - RBBM_VFD_ERROR */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 7 - CP_SW */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 8 - CP_T0_PACKET_IN_IB */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 9 - CP_OPCODE_ERROR */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 10 - CP_RESERVED_BIT_ERROR */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),/* 8 - CP_T0_PACKET_IN_IB */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),/* 9 - CP_OPCODE_ERROR */
+	/* 10 - CP_RESERVED_BIT_ERROR */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 11 - CP_HW_FAULT */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 12 - CP_DMA */
 	A3XX_IRQ_CALLBACK(a3xx_cp_callback),   /* 13 - CP_IB2_INT */
 	A3XX_IRQ_CALLBACK(a3xx_cp_callback),   /* 14 - CP_IB1_INT */
 	A3XX_IRQ_CALLBACK(a3xx_cp_callback),   /* 15 - CP_RB_INT */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 16 - CP_REG_PROTECT_FAULT */
+	/* 16 - CP_REG_PROTECT_FAULT */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),
 	A3XX_IRQ_CALLBACK(NULL),	       /* 17 - CP_RB_DONE_TS */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 18 - CP_VS_DONE_TS */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 19 - CP_PS_DONE_TS */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 20 - CP_CACHE_FLUSH_TS */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 21 - CP_AHB_ERROR_FAULT */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),/* 21 - CP_AHB_ERROR_FAULT */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 22 - Unused */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 23 - Unused */
-	A3XX_IRQ_CALLBACK(NULL),	       /* 24 - MISC_HANG_DETECT */
+	A3XX_IRQ_CALLBACK(a3xx_fatal_err_callback),/* 24 - MISC_HANG_DETECT */
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 25 - UCHE_OOB_ACCESS */
 	/* 26 to 31 - Unused */
 };
@@ -3451,14 +3481,27 @@ static irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static void a3xx_irq_control(struct adreno_device *adreno_dev, int state)
+/**
+ * a3xx_irq_init() -  Routine to init a3xx irq
+ * @adreno_dev: adreno device ptr
+ */
+static void a3xx_irq_init(struct adreno_device *adreno_dev)
+{
+	if (adreno_hang_intr_supported(adreno_dev)) {
+		adreno_dev->intr_mask = (A3XX_INT_MASK |
+			(1 << A3XX_INT_MISC_HANG_DETECT));
+		adreno_dev->hang_intr_en = 1;
+	} else
+		adreno_dev->intr_mask = A3XX_INT_MASK;
+
+}
+
+static void a3xx_irq_control(struct adreno_device *adreno_dev,
+							 unsigned int mask)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (state)
-		kgsl_regwrite(device, A3XX_RBBM_INT_0_MASK, A3XX_INT_MASK);
-	else
-		kgsl_regwrite(device, A3XX_RBBM_INT_0_MASK, 0);
+	kgsl_regwrite(device, A3XX_RBBM_INT_0_MASK, mask);
 }
 
 static unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
@@ -3857,8 +3900,11 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 
 	/* Turn on hang detection - this spews a lot of useful information
 	 * into the RBBM registers on a hang */
-
-	kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+	if (adreno_is_a330v2(adreno_dev))
+		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+			(1 << 31) | 0xFFFF);
+	else
+		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
 			(1 << 16) | 0xFFF);
 
 	/* Enable 64-byte cacheline size. HW Default is 32-byte (0x000000E0). */
@@ -4260,6 +4306,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
 	.irq_pending = a3xx_irq_pending,
+	.irq_init = a3xx_irq_init,
 	.busy_cycles = a3xx_busy_cycles,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,

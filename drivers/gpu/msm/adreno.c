@@ -120,6 +120,7 @@ static struct adreno_device device_3d0 = {
 	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
 	.fast_hang_detect = 1,
 	.long_ib_detect = 1,
+	.intr_mask = 0xFFFFFFFF,
 };
 
 /* This set of registers are used for Hang detection
@@ -1699,6 +1700,9 @@ static int adreno_init(struct kgsl_device *device)
 
 	adreno_perfcounter_init(device);
 
+	if (adreno_dev->gpudev->irq_init)
+		adreno_dev->gpudev->irq_init(adreno_dev);
+
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
 
@@ -1766,8 +1770,9 @@ static int adreno_start(struct kgsl_device *device)
 	/* Start the GPU */
 	adreno_dev->gpudev->start(adreno_dev);
 
+	kgsl_atomic_set(&adreno_dev->hang_intr_set, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-	device->ftbl->irqctrl(device, 1);
+	device->ftbl->irqctrl(device, adreno_dev->intr_mask);
 
 	status = adreno_ringbuffer_start(&adreno_dev->ringbuffer);
 	if (status)
@@ -2228,8 +2233,9 @@ int adreno_soft_reset(struct kgsl_device *device)
 	adreno_dev->gpudev->start(adreno_dev);
 
 	/* Enable IRQ */
+	kgsl_atomic_set(&adreno_dev->hang_intr_set, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-	device->ftbl->irqctrl(device, 1);
+	device->ftbl->irqctrl(device, adreno_dev->intr_mask);
 
 	/*
 	 * Restart the ringbuffer - we can go down the warm start path because
@@ -2968,6 +2974,52 @@ static int _ft_long_ib_detect_show(struct device *dev,
 				(adreno_dev->long_ib_detect ? 1 : 0));
 }
 
+/**
+ * _ft_hang_intr_status_store() -  Routine to configure GPU
+ * hang interrupt
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ */
+static int _ft_hang_intr_status_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	int ret = 0;
+
+	if (adreno_dev == NULL)
+		return 0;
+
+	mutex_lock(&adreno_dev->dev.mutex);
+	if (adreno_hang_intr_supported(adreno_dev))
+		ret = _ft_sysfs_store(buf, count, &adreno_dev->hang_intr_en);
+	mutex_unlock(&adreno_dev->dev.mutex);
+
+	return ret;
+
+}
+
+/**
+ * _ft_hang_intr_status_show() -  Routine to show GPU hang
+ * interrupt enable status
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ */
+static int _ft_hang_intr_status_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	if (adreno_dev == NULL)
+		return 0;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", (adreno_dev->hang_intr_en &&
+			(adreno_hang_intr_supported(adreno_dev))) ? 1 : 0);
+
+}
 
 #define FT_DEVICE_ATTR(name) \
 	DEVICE_ATTR(name, 0644,	_ ## name ## _show, _ ## name ## _store);
@@ -2976,6 +3028,7 @@ FT_DEVICE_ATTR(ft_policy);
 FT_DEVICE_ATTR(ft_pagefault_policy);
 FT_DEVICE_ATTR(ft_fast_hang_detect);
 FT_DEVICE_ATTR(ft_long_ib_detect);
+FT_DEVICE_ATTR(ft_hang_intr_status);
 
 
 const struct device_attribute *ft_attr_list[] = {
@@ -2983,6 +3036,7 @@ const struct device_attribute *ft_attr_list[] = {
 	&dev_attr_ft_pagefault_policy,
 	&dev_attr_ft_fast_hang_detect,
 	&dev_attr_ft_long_ib_detect,
+	&dev_attr_ft_hang_intr_status,
 	NULL,
 };
 
@@ -3146,6 +3200,10 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 	unsigned int rptr;
 
 	do {
+
+		if (kgsl_atomic_read(&adreno_dev->hang_intr_set))
+			return -ETIMEDOUT;
+
 		/*
 		 * Wait is "jiffies" first time in the loop to start
 		 * GPU stall detection immediately.
@@ -3196,6 +3254,9 @@ retry:
 			return 0;
 
 		/* Dont wait for timeout, detect hang faster.  */
+		if (kgsl_atomic_read(&adreno_dev->hang_intr_set))
+			goto err;
+
 		if (time_after(jiffies, wait_time_part)) {
 			wait_time_part = jiffies +
 				msecs_to_jiffies(KGSL_TIMEOUT_PART);
@@ -3673,16 +3734,8 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 				fast_hang_detected = 0;
 		}
 
-		if (fast_hang_detected) {
-			KGSL_FT_ERR(device,
-				"Proc %s, ctxt_id %d ts %d triggered fault tolerance"
-				" on global ts %d\n",
-				pid_name, context ? context->id : 0,
-				(kgsl_readtimestamp(device, context,
-				KGSL_TIMESTAMP_RETIRED) + 1),
-				curr_global_ts + 1);
+		if (fast_hang_detected)
 			return 1;
-		}
 
 		if (curr_context != NULL) {
 
@@ -4054,10 +4107,10 @@ static void adreno_power_stats(struct kgsl_device *device,
 	}
 }
 
-void adreno_irqctrl(struct kgsl_device *device, int state)
+void adreno_irqctrl(struct kgsl_device *device, unsigned int mask)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	adreno_dev->gpudev->irq_control(adreno_dev, state);
+	adreno_dev->gpudev->irq_control(adreno_dev, mask);
 }
 
 static unsigned int adreno_gpuid(struct kgsl_device *device,
