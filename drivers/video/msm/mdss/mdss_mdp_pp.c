@@ -2902,7 +2902,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			goto error;
 		}
 		ad->ad_data_mode = MDSS_AD_INPUT_AMBIENT;
-
+		pr_debug("ambient = %d", input->in.amb_light);
 		ad->ad_data = input->in.amb_light;
 		ad->calc_itr = ad->cfg.stab_itr;
 		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
@@ -2916,6 +2916,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			goto error;
 		}
 		ad->ad_data_mode = MDSS_AD_INPUT_STRENGTH;
+		pr_debug("strength = %d", input->in.strength);
 		ad->ad_data = input->in.strength;
 		ad->calc_itr = ad->cfg.stab_itr;
 		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
