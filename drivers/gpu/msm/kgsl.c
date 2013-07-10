@@ -564,7 +564,7 @@ kgsl_context_detach(struct kgsl_context *context)
 	 * detached, to avoid possibly freeing memory while
 	 * it is still in use by the GPU.
 	 */
-	kgsl_cancel_events_ctxt(device, context);
+	kgsl_context_cancel_events(device, context);
 
 	kgsl_context_put(context);
 }
@@ -1560,9 +1560,11 @@ static long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 }
 
 static void kgsl_freemem_event_cb(struct kgsl_device *device,
-	void *priv, u32 id, u32 timestamp)
+	void *priv, u32 id, u32 timestamp, u32 type)
 {
 	struct kgsl_mem_entry *entry = priv;
+
+	/* Free the memory for all event types */
 	trace_kgsl_mem_timestamp_free(device, entry, id, timestamp, 0);
 	kgsl_mem_entry_put(entry);
 }
@@ -2626,21 +2628,23 @@ struct kgsl_genlock_event_priv {
 };
 
 /**
- * kgsl_genlock_event_cb - Event callback for a genlock timestamp event
- * @device - The KGSL device that expired the timestamp
- * @priv - private data for the event
- * @context_id - the context id that goes with the timestamp
- * @timestamp - the timestamp that triggered the event
+ * kgsl_genlock_event_cb() - Event callback for a genlock timestamp event
+ * @device: The KGSL device that expired the timestamp
+ * @priv: private data for the event
+ * @context_id: the context id that goes with the timestamp
+ * @timestamp: the timestamp that triggered the event
+ * @type: Type of event that signaled the callback
  *
  * Release a genlock lock following the expiration of a timestamp
  */
 
 static void kgsl_genlock_event_cb(struct kgsl_device *device,
-	void *priv, u32 context_id, u32 timestamp)
+	void *priv, u32 context_id, u32 timestamp, u32 type)
 {
 	struct kgsl_genlock_event_priv *ev = priv;
 	int ret;
 
+	/* Signal the lock for every event type */
 	ret = genlock_lock(ev->handle, GENLOCK_UNLOCK, 0, 0);
 	if (ret)
 		KGSL_CORE_ERR("Error while unlocking genlock: %d\n", ret);

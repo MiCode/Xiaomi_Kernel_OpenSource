@@ -472,7 +472,8 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
  * Return - void
  */
 static void kgsl_iommu_clk_disable_event(struct kgsl_device *device, void *data,
-					unsigned int id, unsigned int ts)
+					unsigned int id, unsigned int ts,
+					u32 type)
 {
 	struct kgsl_mmu *mmu = data;
 	struct kgsl_iommu *iommu = mmu->priv;
