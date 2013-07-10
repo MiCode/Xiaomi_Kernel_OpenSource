@@ -589,6 +589,9 @@ int qpnp_pin_config(int gpio, struct qpnp_pin_cfg *param)
 	}
 	mutex_unlock(&qpnp_pin_chips_lock);
 
+	if (!q_spec)
+		return -ENODEV;
+
 	rc = _qpnp_pin_config(q_chip, q_spec, param);
 
 	return rc;
@@ -1225,6 +1228,8 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		if (!res) {
 			dev_err(&spmi->dev, "%s: node %s is missing has no base address definition\n",
 				__func__, d_node->of_node->full_name);
+			rc = -EINVAL;
+			goto err_probe;
 		}
 
 		rc = of_property_read_u32(d_node->of_node,
