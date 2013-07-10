@@ -120,7 +120,6 @@ struct raw_soc_params {
 
 struct fcc_sample {
 	int fcc_new;
-	int batt_temp;
 	int chargecycles;
 };
 
@@ -262,8 +261,6 @@ struct qpnp_bms_chip {
 	int				fcc_new_batt_temp;
 	uint16_t			charge_cycles;
 	u8				charge_increase;
-	int				fcc_new_sysfs;
-	int				fcc_update_complete;
 	int				fcc_resolution;
 	bool				battery_removed;
 	struct bms_irq			sw_cc_thr_irq;
@@ -294,44 +291,6 @@ static int discard_backup_fcc_data(struct qpnp_bms_chip *chip);
 static void backup_charge_cycle(struct qpnp_bms_chip *chip);
 
 static bool bms_reset;
-static int min_fcc_cycles = -EINVAL;
-static int last_fcc_update_count;
-static int battery_removed;
-
-static int
-bms_ro_ops_set(const char *val, const struct kernel_param *kp)
-{
-	return -EINVAL;
-}
-
-static int
-bms_last_fcc_count_set(const char *val, const struct kernel_param *kp)
-{
-	int rc;
-
-	if (battery_removed) {
-		last_fcc_update_count = 0;
-		return 0;
-	}
-	rc = param_set_int(val, kp);
-	if (rc)
-		pr_err("Failed to set last_fcc_update_count rc=%d\n", rc);
-
-	return rc;
-}
-
-static struct kernel_param_ops bms_ro_param_ops = {
-	.set = bms_ro_ops_set,
-	.get = param_get_int,
-};
-static struct kernel_param_ops bms_last_fcc_count_param_ops = {
-	.set = bms_last_fcc_count_set,
-	.get = param_get_int,
-};
-module_param_cb(min_fcc_cycles, &bms_ro_param_ops, &min_fcc_cycles, 0644);
-module_param_cb(battery_removed, &bms_ro_param_ops, &battery_removed, 0644);
-module_param_cb(last_fcc_update_count, &bms_last_fcc_count_param_ops,
-						&last_fcc_update_count, 0644);
 
 static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 			u16 base, int count)
@@ -3106,123 +3065,6 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
-static ssize_t fcc_data_set(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t count)
-{
-	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-	static int i;
-	int fcc_new = 0, rc;
-
-	if (chip->fcc_update_complete) {
-		pr_debug("Invalid FCC update\n");
-		return count;
-	}
-
-	i %= chip->min_fcc_learning_samples;
-	rc = sscanf(buf, "%d", &fcc_new);
-	if (rc != 1)
-		return -EINVAL;
-	chip->fcc_learning_samples[i].fcc_new = fcc_new;
-	pr_debug("Rcvd: [%d] fcc_new=%d\n", i, fcc_new);
-	i++;
-
-	return count;
-}
-
-static ssize_t fcc_data_get(struct device *dev, struct device_attribute *attr,
-								char *buf)
-{
-	int count = 0;
-	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-
-	count = snprintf(buf, PAGE_SIZE, "%d", chip->fcc_new_sysfs);
-	pr_debug("Sent: fcc_new=%d\n", chip->fcc_new_sysfs);
-	chip->fcc_update_complete = 1;
-
-	return count;
-}
-
-static ssize_t fcc_temp_set(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t count)
-{
-	static int i;
-	int batt_temp = 0, rc;
-	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-
-	if (chip->fcc_update_complete)
-		return count;
-
-	i %= chip->min_fcc_learning_samples;
-	rc = sscanf(buf, "%d", &batt_temp);
-	if (rc != 1)
-		return -EINVAL;
-	chip->fcc_learning_samples[i].batt_temp = batt_temp;
-	pr_debug("Rcvd: [%d] batt_temp=%d\n", i, batt_temp);
-	i++;
-
-	return count;
-}
-
-static ssize_t fcc_chgcyl_set(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t count)
-{
-	static int i;
-	int chargecycle = 0, rc;
-	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-
-	if (chip->fcc_update_complete)
-		return count;
-
-	i %= chip->min_fcc_learning_samples;
-	rc = sscanf(buf, "%d", &chargecycle);
-	if (rc != 1)
-		return -EINVAL;
-	chip->fcc_learning_samples[i].chargecycles = chargecycle;
-	pr_debug("Rcvd: [%d] chargecycle=%d\n", i, chargecycle);
-	i++;
-
-	return count;
-}
-
-static ssize_t fcc_list_get(struct device *dev, struct device_attribute *attr,
-								char *buf)
-{
-	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-	struct fcc_sample *ft;
-	int i = 0, j, count = 0;
-
-	if (last_fcc_update_count < chip->min_fcc_learning_samples)
-		i = last_fcc_update_count;
-	else
-		i = chip->min_fcc_learning_samples;
-
-	for (j = 0; j < i; j++) {
-		ft = &chip->fcc_learning_samples[j];
-		count += snprintf(buf + count, PAGE_SIZE - count,
-			"%d %d %d\n", ft->fcc_new, ft->chargecycles,
-			ft->batt_temp);
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR(fcc_data, 0664, fcc_data_get, fcc_data_set);
-static DEVICE_ATTR(fcc_temp, 0664, NULL, fcc_temp_set);
-static DEVICE_ATTR(fcc_chgcyl, 0664, NULL, fcc_chgcyl_set);
-static DEVICE_ATTR(fcc_list, 0664, fcc_list_get, NULL);
-
-static struct attribute *fcc_attrs[] = {
-	&dev_attr_fcc_data.attr,
-	&dev_attr_fcc_temp.attr,
-	&dev_attr_fcc_chgcyl.attr,
-	&dev_attr_fcc_list.attr,
-	NULL
-};
-
-static const struct attribute_group fcc_attr_group = {
-	.attrs = fcc_attrs,
-};
-
 #define OCV_USE_LIMIT_EN		BIT(7)
 static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,
 					int low_voltage_threshold,
@@ -3497,7 +3339,6 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 		pr_debug("min-fcc-soc=%d, min-fcc-pc=%d, min-fcc-cycles=%d\n",
 			chip->min_fcc_learning_soc, chip->min_fcc_ocv_pc,
 			chip->min_fcc_learning_samples);
-		min_fcc_cycles = chip->min_fcc_learning_samples;
 	}
 
 	pr_debug("dts data: r_sense_uohm:%d, v_cutoff_uv:%d, max_v:%d\n",
@@ -3890,13 +3731,6 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 				pr_err("Unable to restore FCC-learning data\n");
 			else
 				attempt_learning_new_fcc(chip);
-
-			rc = sysfs_create_group(&spmi->dev.kobj,
-							&fcc_attr_group);
-			if (rc) {
-				pr_err("Unable to create sysfs entries\n");
-				goto error_setup;
-			}
 		}
 	}
 
