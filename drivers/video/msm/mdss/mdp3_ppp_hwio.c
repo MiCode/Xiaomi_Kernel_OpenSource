@@ -57,6 +57,8 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 	int64_t Od;
 	int64_t Odprime;
 	int64_t Oreq;
+	int64_t init_phase_temp;
+	int64_t delta;
 	uint32_t mult;
 
 	/*
@@ -149,7 +151,24 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 				Oreq = (Osprime & int_mask) - one;
 
 				/* calculate initial phase */
-				init_phase = (int)((Osprime - Oreq) >> 4);
+				init_phase_temp = Osprime - Oreq;
+				delta = ((int64_t) (org) << PQF_PLUS_4) - Oreq;
+				init_phase_temp -= delta;
+
+				/* limit to valid range before the left shift */
+				delta = (init_phase_temp & (1LL << 63)) ?
+						4 : -4;
+				delta <<= PQF_PLUS_4;
+				while (abs((int)(init_phase_temp >>
+							PQF_PLUS_4)) > 4)
+					init_phase_temp += delta;
+
+				/*
+				 * right shift to account for extra bits of
+				 * precision
+				 */
+				init_phase = (int)(init_phase_temp >> 4);
+
 			}
 		} else {
 			/*
@@ -181,7 +200,18 @@ static int mdp_calc_scale_params(uint32_t org, uint32_t dim_in,
 			Oreq = (Osprime & int_mask) - one;
 
 			/* calculate initial phase */
-			init_phase = (int)((Osprime - Oreq) >> 4);
+			init_phase_temp = Osprime - Oreq;
+			delta = ((int64_t) (org) << PQF_PLUS_4) - Oreq;
+			init_phase_temp -= delta;
+
+			/* limit to valid range before the left shift */
+			delta = (init_phase_temp & (1LL << 63)) ? 4 : -4;
+			delta <<= PQF_PLUS_4;
+			while (abs((int)(init_phase_temp >> PQF_PLUS_4)) > 4)
+				init_phase_temp += delta;
+
+			/* right shift to account for extra bits of precision */
+			init_phase = (int)(init_phase_temp >> 4);
 		}
 	}
 
