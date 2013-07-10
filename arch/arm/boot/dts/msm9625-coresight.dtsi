@@ -16,6 +16,8 @@
 		reg = <0xfc322000 0x1000>,
 		      <0xfc37c000 0x3000>;
 		reg-names = "tmc-base", "bam-base";
+		interrupts = <0 166 0>;
+		interrupt-names = "byte-cntr-irq";
 
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x20000>; /* 128K EBI1 buffer */
