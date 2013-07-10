@@ -30,6 +30,7 @@ static char *descriptions =
 	" 5 msm: perf: initialise krait perf L2 counter enables\n"
 	" 6 msm: perf: clean up duplicate constraint events\n"
 	" 7 Perf: Add L1 counters to tracepoints\n"
+	" 8 Perf: Make per-process counters configurable\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
