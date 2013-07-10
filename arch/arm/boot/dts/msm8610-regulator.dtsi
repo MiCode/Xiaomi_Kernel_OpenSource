@@ -197,6 +197,7 @@
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
+			regulator-always-on;
 			status = "okay";
 		};
 	};
