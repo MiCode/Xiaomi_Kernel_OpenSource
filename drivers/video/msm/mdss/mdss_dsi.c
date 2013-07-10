@@ -360,13 +360,13 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 				__func__, rc);
 			goto error;
 		}
-		mp->vreg_config[i].peak_current = val_array[i];
+		mp->vreg_config[i].enable_load = val_array[i];
 
 		pr_debug("%s: %s min=%d, max=%d, pc=%d\n", __func__,
 			mp->vreg_config[i].vreg_name,
 			mp->vreg_config[i].min_voltage,
 			mp->vreg_config[i].max_voltage,
-			mp->vreg_config[i].peak_current);
+			mp->vreg_config[i].enable_load);
 	}
 
 	devm_kfree(dev, val_array);
