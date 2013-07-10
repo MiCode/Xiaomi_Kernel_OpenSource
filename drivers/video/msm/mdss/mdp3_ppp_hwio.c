@@ -331,7 +331,39 @@ bool check_if_rgb(int color)
 	return rgb;
 }
 
-static uint8_t *mdp_adjust_rot_addr(struct ppp_blit_op *iBuf,
+uint8_t *mdp_bg_adjust_rot_addr(struct ppp_blit_op *iBuf,
+	uint8_t *addr, uint32_t bpp, uint32_t uv)
+{
+	uint32_t dest_ystride = iBuf->bg.prop.width * bpp;
+	uint32_t h_slice = 1, min_val;
+
+	if (uv && ((iBuf->bg.color_fmt == MDP_Y_CBCR_H2V2) ||
+		(iBuf->bg.color_fmt == MDP_Y_CRCB_H2V2)))
+		h_slice = 2;
+
+	if (((iBuf->mdp_op & MDPOP_ROT90) == MDPOP_ROT90) ^
+		((iBuf->mdp_op & MDPOP_LR) == MDPOP_LR)) {
+		min_val = (iBuf->bg.roi.width + iBuf->bg.roi.x) % 16;
+		if (!min_val)
+			min_val = 16;
+		addr +=
+		    (iBuf->bg.roi.width -
+			    MIN(min_val, iBuf->bg.roi.width)) * bpp;
+	}
+	if ((iBuf->mdp_op & MDPOP_UD) == MDPOP_UD) {
+		min_val = (iBuf->bg.roi.height + iBuf->bg.roi.y) % 16;
+		if (!min_val)
+			min_val = 16;
+		addr +=
+			((iBuf->bg.roi.height -
+			MIN(min_val, iBuf->bg.roi.height))/h_slice) *
+			dest_ystride;
+	}
+
+	return addr;
+}
+
+uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
 	uint8_t *addr, uint32_t bpp, uint32_t uv)
 {
 	uint32_t dest_ystride = iBuf->dst.prop.width * bpp;
@@ -378,8 +410,10 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 		img->p0 += (x + y * ALIGN(width, 32)) * bpp;
 	else
 		img->p0 += (x + y * width) * bpp;
-	if (layer != 0)
-		img->p0 = mdp_adjust_rot_addr(blit_op, img->p0, bpp, 0);
+	if (layer == 1)
+		img->p0 = mdp_bg_adjust_rot_addr(blit_op, img->p0, bpp, 0);
+	else if (layer == 2)
+		img->p0 = mdp_dst_adjust_rot_addr(blit_op, img->p0, bpp, 0);
 
 	if (img->p1) {
 		/*
@@ -394,8 +428,14 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 		else
 			img->p1 += ((x / h_slice) * h_slice +
 			((y == 0) ? 0 : ((y + 1) / v_slice - 1) * width)) * bpp;
-		if (layer != 0)
-			img->p1 = mdp_adjust_rot_addr(blit_op, img->p1, bpp, 1);
+
+		if (layer == 1) {
+			img->p0 = mdp_bg_adjust_rot_addr(blit_op,
+					img->p0, bpp, 0);
+		} else if (layer == 2) {
+			img->p0 = mdp_dst_adjust_rot_addr(blit_op,
+					img->p0, bpp, 0);
+		}
 	}
 }
 
@@ -1044,7 +1084,6 @@ int config_ppp_blend(struct ppp_blit_op *blit_op,
 	}
 
 	if (*pppop_reg_ptr & PPP_OP_BLEND_ON) {
-		blit_op->bg = blit_op->dst;
 		config_ppp_background(&blit_op->bg);
 
 		if (blit_op->dst.color_fmt == MDP_YCRYCB_H2V1) {
@@ -1152,9 +1191,11 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 		blit_op->dst.p1 = NULL;
 	}
 
+	blit_op->bg = blit_op->dst;
 	/* Jumping from Y-Plane to Chroma Plane */
 	/* first pixel addr calculation */
 	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice, sh_slice, 0);
+	mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice, dh_slice, 1);
 	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice, dh_slice, 2);
 
 	config_ppp_scale(blit_op, &ppp_operation_reg);
