@@ -178,6 +178,8 @@ struct clk {
 	spinlock_t lock;
 	unsigned prepare_count;
 	struct mutex prepare_lock;
+
+	struct dentry *clk_dir;
 };
 
 #define CLK_INIT(name) \
