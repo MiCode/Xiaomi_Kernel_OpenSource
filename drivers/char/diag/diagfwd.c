@@ -494,32 +494,12 @@ void diag_read_smd_work_fn(struct work_struct *work)
 	diag_smd_send_req(smd_info);
 }
 
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static void diag_mem_dev_mode_ready_update(int index, int hsic_updated)
-{
-	if (hsic_updated) {
-		unsigned long flags;
-		spin_lock_irqsave(&driver->hsic_ready_spinlock, flags);
-		driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-		spin_unlock_irqrestore(&driver->hsic_ready_spinlock, flags);
-	} else {
-		driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-	}
-}
-#else
-static void diag_mem_dev_mode_ready_update(int index, int hsic_updated)
-{
-	(void) hsic_updated;
-	driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-}
-#endif
 int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 {
 	int i, err = 0, index;
 	index = 0;
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		int hsic_updated = 0;
 		if (data_type == APPS_DATA) {
 			for (i = 0; i < driver->buf_tbl_size; i++)
 				if (driver->buf_tbl[i].length == 0) {
@@ -540,7 +520,6 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
 			unsigned long flags;
 			int foundIndex = -1;
-			hsic_updated = 1;
 			index = data_type - HSIC_DATA;
 			spin_lock_irqsave(&diag_hsic[index].hsic_spinlock,
 									flags);
@@ -573,8 +552,8 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 						 driver->logging_process_id)
 				break;
 		if (i < driver->num_clients) {
-			diag_mem_dev_mode_ready_update(i, hsic_updated);
 			pr_debug("diag: wake up logging process\n");
+			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 			wake_up_interruptible(&driver->wait_q);
 		} else
 			return -EINVAL;
@@ -582,7 +561,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		if ((data_type >= MODEM_DATA) && (data_type <= WCNSS_DATA)) {
 			driver->smd_data[data_type].in_busy_1 = 0;
 			driver->smd_data[data_type].in_busy_2 = 0;
-			queue_work(driver->diag_wq,
+			queue_work(driver->smd_data[data_type].wq,
 				&(driver->smd_data[data_type].
 							diag_read_smd_work));
 			if (data_type == MODEM_DATA &&
@@ -1439,7 +1418,7 @@ void diag_reset_smd_data(int queue)
 		driver->smd_data[i].in_busy_2 = 0;
 		if (queue)
 			/* Poll SMD data channels to check for data */
-			queue_work(driver->diag_wq,
+			queue_work(driver->smd_data[i].wq,
 				&(driver->smd_data[i].diag_read_smd_work));
 	}
 
@@ -1549,17 +1528,22 @@ static int diagfwd_check_buf_match(int num_channels,
 	for (i = 0; i < num_channels; i++) {
 		if (buf == (void *)data[i].buf_in_1) {
 			data[i].in_busy_1 = 0;
-			queue_work(driver->diag_wq,
-				&(data[i].diag_read_smd_work));
 			found_it = 1;
 			break;
 		} else if (buf == (void *)data[i].buf_in_2) {
 			data[i].in_busy_2 = 0;
-			queue_work(driver->diag_wq,
-				&(data[i].diag_read_smd_work));
 			found_it = 1;
 			break;
 		}
+	}
+
+	if (found_it) {
+		if (data[i].type == SMD_DATA_TYPE)
+			queue_work(data[i].wq,
+					&(data[i].diag_read_smd_work));
+		else
+			queue_work(driver->diag_wq,
+					&(data[i].diag_read_smd_work));
 	}
 
 	return found_it;
@@ -1734,8 +1718,12 @@ void diag_smd_notify(void *ctxt, unsigned event)
 			diag_dci_try_activate_wakeup_source(smd_info->ch);
 		queue_work(driver->diag_dci_wq,
 				&(smd_info->diag_read_smd_work));
-	} else
+	} else if (smd_info->type == SMD_DATA_TYPE) {
+		queue_work(smd_info->wq,
+				&(smd_info->diag_read_smd_work));
+	} else {
 		queue_work(driver->diag_wq, &(smd_info->diag_read_smd_work));
+	}
 }
 
 static int diag_smd_probe(struct platform_device *pdev)
@@ -1863,8 +1851,10 @@ int device_supports_separate_cmdrsp(void)
 
 void diag_smd_destructor(struct diag_smd_info *smd_info)
 {
-	if (smd_info->type == SMD_DATA_TYPE)
+	if (smd_info->type == SMD_DATA_TYPE) {
 		wake_lock_destroy(&smd_info->nrt_lock.read_lock);
+		destroy_workqueue(smd_info->wq);
+	}
 
 	if (smd_info->ch)
 		smd_close(smd_info->ch);
@@ -1934,6 +1924,29 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 				goto err;
 			kmemleak_not_leak(smd_info->write_ptr_2);
 		}
+	}
+
+	/* The smd data type needs separate work queues for reads */
+	if (type == SMD_DATA_TYPE) {
+		switch (peripheral) {
+		case MODEM_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_modem_data_read_wq");
+			break;
+		case LPASS_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_lpass_data_read_wq");
+			break;
+		case WCNSS_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_wcnss_data_read_wq");
+			break;
+		default:
+			smd_info->wq = NULL;
+			break;
+		}
+	} else {
+		smd_info->wq = NULL;
 	}
 
 	INIT_WORK(&(smd_info->diag_read_smd_work), diag_read_smd_work_fn);
