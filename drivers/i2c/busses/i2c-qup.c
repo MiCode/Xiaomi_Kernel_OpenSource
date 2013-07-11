@@ -1385,7 +1385,8 @@ qup_i2c_probe(struct platform_device *pdev)
 	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qup_phys_addr");
 	if (!qup_mem) {
-		dev_err(&pdev->dev, "no qup mem resource?\n");
+		dev_err(&pdev->dev,
+			"platform_get_resource_byname(qup_phys_addr) failed\n");
 		ret = -ENODEV;
 		goto get_res_failed;
 	}
@@ -1655,11 +1656,22 @@ get_res_failed:
 	return ret;
 }
 
+static void qup_i2c_mem_release(struct platform_device *pdev, const char *name)
+{
+	struct resource *res =
+		platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+
+	if (res)
+		release_mem_region(res->start, resource_size(res));
+	else
+		dev_dbg(&pdev->dev,
+			"platform_get_resource_byname(%s) failed\n", name);
+}
+
 static int __devexit
 qup_i2c_remove(struct platform_device *pdev)
 {
-	struct qup_i2c_dev	*dev = platform_get_drvdata(pdev);
-	struct resource		*qup_mem, *gsbi_mem;
+	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 
 	/* Grab mutex to ensure ongoing transaction is over */
 	mutex_lock(&dev->mlock);
@@ -1693,14 +1705,11 @@ qup_i2c_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	if (!(dev->pdata->use_gsbi_shared_mode)) {
-		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"gsbi_qup_i2c_addr");
-		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
-	}
-	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"qup_phys_addr");
-	release_mem_region(qup_mem->start, resource_size(qup_mem));
+	if (!(dev->pdata->use_gsbi_shared_mode))
+		qup_i2c_mem_release(pdev, "gsbi_qup_i2c_addr");
+
+	qup_i2c_mem_release(pdev, "qup_phys_addr");
+
 	if (dev->dev->of_node)
 		kfree(dev->pdata);
 	kfree(dev);
