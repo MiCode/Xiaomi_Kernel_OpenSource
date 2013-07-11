@@ -1377,6 +1377,8 @@ void voc_disable_dtmf_det_on_active_sessions(void);
 int voc_alloc_cal_shared_memory(void);
 int voc_alloc_voip_shared_memory(void);
 int is_voc_initialized(void);
+int voc_register_vocproc_vol_table(void);
+int voc_deregister_vocproc_vol_table(void);
 
 uint32_t voc_get_session_id(char *name);
 
