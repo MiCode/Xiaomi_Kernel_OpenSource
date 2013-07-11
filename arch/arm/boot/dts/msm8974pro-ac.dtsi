@@ -158,8 +158,8 @@
 	};
 
 	qcom,msm-thermal {
-		vdd_dig-supply = <&pma8084_s2_floor_corner>;
-		vdd_gfx-supply = <&pma8084_s7_floor_corner>;
+		vdd-dig-supply = <&pma8084_s2_floor_corner>;
+		vdd-gfx-supply = <&pma8084_s7_floor_corner>;
 	};
 
 	qcom,lpm-resources {
