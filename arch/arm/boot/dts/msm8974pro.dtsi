@@ -20,6 +20,7 @@
 /include/ "msm8974-v2-iommu.dtsi"
 /include/ "msm8974-v2-iommu-domains.dtsi"
 /include/ "msm8974-v2-pm.dtsi"
+/include/ "msm8974pro-ion.dtsi"
 
 &soc {
 	android_usb@fe8050c8 {
@@ -176,4 +177,8 @@
 	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
 					<0x42 0x2>,
 					<0x120 0x3>;
+};
+
+&memory_hole {
+	qcom,memblock-remove = <0x05400000 0xab00000>; /* Address and size of the hole */
 };
