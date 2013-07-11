@@ -33,6 +33,7 @@ static char *descriptions =
 	"8  Perf: Add cortex A7 perf support\n"
 	"9  ARM: dts: msm: add perf-events support for msm8226\n"
 	"10 Perf: Fix counts across power collapse\n"
+	"11 ARM: dts: msm: add perf-events support for msm8x10, msm8x12\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
