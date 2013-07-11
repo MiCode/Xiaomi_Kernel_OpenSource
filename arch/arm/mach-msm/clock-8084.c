@@ -392,6 +392,7 @@ static struct clk_lookup msm_clocks_8084[] = {
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc321000.funnel", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc322000.funnel", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc345000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc355000.funnel", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc36c000.funnel", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc302000.stm", OFF),
 
@@ -402,6 +403,7 @@ static struct clk_lookup msm_clocks_8084[] = {
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc321000.funnel", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc322000.funnel", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc345000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc355000.funnel", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc36c000.funnel", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc302000.stm", OFF),
 };
