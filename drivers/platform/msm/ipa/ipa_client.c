@@ -45,7 +45,7 @@ static int ipa_disable_data_path(u32 clnt_hdl)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		ipa_write_reg(ipa_ctx->mmio,
 				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 1);
-		usleep(IPA_PKT_FLUSH_TO_US);
+		udelay(IPA_PKT_FLUSH_TO_US);
 		if (IPA_CLIENT_IS_CONS(ep->client) &&
 				ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
 				ep->cfg.aggr.aggr_time_limit)
