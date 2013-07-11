@@ -1478,7 +1478,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		k_stream_buff_info.buffer_info =
 			kzalloc(k_stream_buff_info.num_buffs *
 			sizeof(struct msm_cpp_buffer_info_t), GFP_KERNEL);
-		if (!k_stream_buff_info.buffer_info) {
+		if (ZERO_OR_NULL_PTR(k_stream_buff_info.buffer_info)) {
 			pr_err("%s:%d: malloc error\n", __func__, __LINE__);
 			kfree(u_stream_buff_info);
 			mutex_unlock(&cpp_dev->mutex);
