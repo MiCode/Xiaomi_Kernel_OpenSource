@@ -373,8 +373,8 @@ static int configure_ipa_header_block(void)
 		/* Add a header entry for USB */
 		res = add_eth_hdrs(USB_ETH_HDR_NAME_IPV4,
 				   USB_ETH_HDR_NAME_IPV6,
-				   teth_ctx->mac_addresses.host_pc_mac_addr,
-				   teth_ctx->mac_addresses.device_mac_addr);
+				   teth_ctx->mac_addresses.device_mac_addr,
+				   teth_ctx->mac_addresses.host_pc_mac_addr);
 		if (res) {
 			TETH_ERR("Failed adding USB Ethernet header\n");
 			goto bail;
@@ -384,8 +384,8 @@ static int configure_ipa_header_block(void)
 		/* Add a header entry for A2 */
 		res = add_eth_hdrs(A2_ETH_HDR_NAME_IPV4,
 				   A2_ETH_HDR_NAME_IPV6,
-				   teth_ctx->mac_addresses.device_mac_addr,
-				   teth_ctx->mac_addresses.host_pc_mac_addr);
+				   teth_ctx->mac_addresses.host_pc_mac_addr,
+				   teth_ctx->mac_addresses.device_mac_addr);
 		if (res) {
 			TETH_ERR("Failed adding A2 Ethernet header\n");
 			goto bail;
