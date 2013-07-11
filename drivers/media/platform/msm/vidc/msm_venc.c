@@ -1761,7 +1761,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
 			vui_timing_info.enable = 1;
 			vui_timing_info.fixed_frame_rate = cfr;
-			vui_timing_info.time_scale = inst->prop.fps;
+			vui_timing_info.time_scale = NSEC_PER_SEC;
 		}
 
 		pdata = &vui_timing_info;
