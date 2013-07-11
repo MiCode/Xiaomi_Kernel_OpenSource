@@ -101,6 +101,8 @@
 #define BOOST_ENABLE_CONTROL			0x46
 #define COMP_OVR1				0xEA
 #define BAT_IF_BTC_CTRL				0x49
+#define USB_OCP_THR				0x52
+#define USB_OCP_CLR				0x53
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 
@@ -143,6 +145,11 @@
 #define BAT_THM_EN			BIT(1)
 #define BAT_ID_EN			BIT(0)
 #define BOOST_PWR_EN			BIT(7)
+#define OCP_CLR_BIT			BIT(7)
+#define OCP_THR_MASK			0x03
+#define OCP_THR_900_MA			0x02
+#define OCP_THR_500_MA			0x01
+#define OCP_THR_200_MA			0x00
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -268,6 +275,7 @@ struct qpnp_chg_chip {
 	u16				misc_base;
 	u16				freq_base;
 	struct qpnp_chg_irq		usbin_valid;
+	struct qpnp_chg_irq		usb_ocp;
 	struct qpnp_chg_irq		dcin_valid;
 	struct qpnp_chg_irq		chg_gone;
 	struct qpnp_chg_irq		chg_fastchg;
@@ -979,6 +987,32 @@ qpnp_chg_usb_chg_gone_irq_handler(int irq, void *_chip)
 		schedule_delayed_work(&chip->arb_stop_work,
 			msecs_to_jiffies(ARB_STOP_WORK_MS));
 	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t
+qpnp_chg_usb_usb_ocp_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_chg_chip *chip = _chip;
+	int rc;
+
+	pr_debug("usb-ocp triggered\n");
+
+	rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + USB_OCP_CLR,
+			OCP_CLR_BIT,
+			OCP_CLR_BIT, 1);
+	if (rc)
+		pr_err("Failed to clear OCP bit rc = %d\n", rc);
+
+	/* force usb ovp fet off */
+	rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
+			USB_OTG_EN_BIT,
+			USB_OTG_EN_BIT, 1);
+	if (rc)
+		pr_err("Failed to turn off usb ovp rc = %d\n", rc);
 
 	return IRQ_HANDLED;
 }
@@ -2632,6 +2666,27 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 				return rc;
 			}
 
+			if ((subtype == SMBBP_USB_CHGPTH_SUBTYPE) ||
+				(subtype == SMBCL_USB_CHGPTH_SUBTYPE)) {
+				chip->usb_ocp.irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "usb-ocp");
+				if (chip->usb_ocp.irq < 0) {
+					pr_err("Unable to get usbin irq\n");
+					return rc;
+				}
+				rc = devm_request_irq(chip->dev,
+					chip->usb_ocp.irq,
+					qpnp_chg_usb_usb_ocp_irq_handler,
+					IRQF_TRIGGER_RISING, "usb-ocp", chip);
+				if (rc < 0) {
+					pr_err("Can't request %d usb-ocp: %d\n",
+							chip->usb_ocp.irq, rc);
+					return rc;
+				}
+
+				enable_irq_wake(chip->usb_ocp.irq);
+			}
+
 			enable_irq_wake(chip->usbin_valid.irq);
 			enable_irq_wake(chip->chg_gone.irq);
 			break;
@@ -2887,6 +2942,16 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			chip->usb_chgpth_base + USB_CHG_GONE_REV_BST,
 			0xFF,
 			0x80, 1);
+
+		if ((subtype == SMBBP_USB_CHGPTH_SUBTYPE) ||
+			(subtype == SMBCL_USB_CHGPTH_SUBTYPE)) {
+			rc = qpnp_chg_masked_write(chip,
+				chip->usb_chgpth_base + USB_OCP_THR,
+				OCP_THR_MASK,
+				OCP_THR_900_MA, 1);
+			if (rc)
+				pr_err("Failed to configure OCP rc = %d\n", rc);
+		}
 
 		break;
 	case SMBB_DC_CHGPTH_SUBTYPE:
