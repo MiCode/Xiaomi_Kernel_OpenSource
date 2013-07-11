@@ -18,6 +18,7 @@
 #include <linux/videodev2.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/iopoll.h>
 #include <media/msmb_isp.h>
 
 #include "msm_ispif.h"
@@ -37,6 +38,9 @@
 #define ISPIF_INTF_CMD_DISABLE_FRAME_BOUNDARY 0x00
 #define ISPIF_INTF_CMD_ENABLE_FRAME_BOUNDARY  0x01
 #define ISPIF_INTF_CMD_DISABLE_IMMEDIATELY    0x02
+
+#define ISPIF_TIMEOUT_SLEEP_US                1000
+#define ISPIF_TIMEOUT_ALL_US                500000
 
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
@@ -645,6 +649,7 @@ static int msm_ispif_stop_frame_boundary(struct ispif_device *ispif,
 	uint16_t cid_mask = 0;
 	uint32_t intf_addr;
 	enum msm_ispif_vfe_intf vfe_intf;
+	uint32_t stop_flag = 0;
 
 	BUG_ON(!ispif);
 	BUG_ON(!params);
@@ -697,10 +702,12 @@ static int msm_ispif_stop_frame_boundary(struct ispif_device *ispif,
 			goto end;
 		}
 
-		/* todo_bug_fix? very bad. use readl_poll_timeout */
-		while ((msm_camera_io_r(ispif->base + intf_addr) & 0xF) != 0xF)
-			CDBG("%s: Wait for %d Idle\n", __func__,
-				params->entries[i].intftype);
+		rc = readl_poll_timeout(ispif->base + intf_addr, stop_flag,
+					(stop_flag & 0xF) == 0xF,
+					ISPIF_TIMEOUT_SLEEP_US,
+					ISPIF_TIMEOUT_ALL_US);
+		if (rc < 0)
+			goto end;
 
 		/* disable CIDs in CID_MASK register */
 		msm_ispif_enable_intf_cids(ispif, params->entries[i].intftype,
