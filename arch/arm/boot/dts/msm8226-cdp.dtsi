@@ -416,10 +416,6 @@
 	};
 };
 
-&usb_otg_sw {
-	status = "okay";
-};
-
 &pm8226_vadc {
 	chan@14 {
 		label = "pa_therm0";
