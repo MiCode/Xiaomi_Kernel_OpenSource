@@ -128,6 +128,15 @@
 		status = "disabled";
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>,
+		      <0xfe803000 0xd000>,
+			  <0xfe805000 0x1000>;
+		interrupts = <0 94 0>;
+	};
+
 	spi_6: spi@f9928000 { /* BLSP1 QUP6 */
 		cell-index = <0>;
 		compatible = "qcom,spi-qup-v2";
