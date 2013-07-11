@@ -127,7 +127,7 @@
 	interrupt-names = "core_irq", "async_irq", "pmic_id_irq";
 
 	qcom,hsusb-otg-mode = <3>;
-	vbus_otg-supply = <&usb_otg_sw>;
+	vbus_otg-supply = <&pm8226_chg_otg>;
 };
 
 &sdcc1 {
@@ -450,10 +450,6 @@
 
 &pm8226_chg {
 	qcom,charging-disabled;
-};
-
-&usb_otg_sw {
-	status = "okay";
 };
 
 &slim_msm {

@@ -141,8 +141,18 @@
 							"bat-fet-on",
 							"vcp-on",
 							"psi";
-
 			};
+
+			pm8226_chg_boost: qcom,boost@1500 {
+				status = "disabled";
+				reg = <0x1500 0x100>;
+				interrupts =	<0x0 0x15 0x0>,
+						<0x0 0x15 0x1>;
+
+				interrupt-names =	"boost-pwr-ok",
+							"limit-error";
+			};
+
 
 			pm8226_chg_otg: qcom,usb-chgpth@1300 {
 				status = "disabled";
@@ -156,16 +166,6 @@
 							"usbin-valid",
 							"chg-gone",
 							"usb-ocp";
-			};
-
-			pm8226_chg_boost: qcom,boost@1500 {
-				status = "disabled";
-				reg = <0x1500 0x100>;
-				interrupts =	<0x0 0x15 0x0>,
-						<0x0 0x15 0x1>;
-
-				interrupt-names =	"boost-pwr-ok",
-							"limit-error";
 			};
 
 			qcom,chg-misc@1600 {
