@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 ARM Limited
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@ enum l2x0_perf_types {
 
 #define L2X0_NUM_COUNTERS			2
 static struct arm_pmu l2x0_pmu;
+static struct arm_pmu *l2x0_pmu_addr = &l2x0_pmu;
 
 static u32 l2x0pmu_max_event_id = 0xf;
 
@@ -159,15 +160,19 @@ static u32 l2x0pmu_disable_counter(int idx)
 	return oldcfg;
 }
 
-static u32 l2x0pmu_read_counter(int idx)
+static u32 l2x0pmu_read_counter(struct perf_event *event)
 {
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	u32 val = readl_relaxed(COUNTER_ADDR(idx));
 
 	return val;
 }
 
-static void l2x0pmu_write_counter(int idx, u32 val)
+static void l2x0pmu_write_counter(struct perf_event *event, u32 val)
 {
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	/*
 	 * L2X0 counters can only be written to when they are disabled.
 	 * As perf core does not disable counters before writing to them
@@ -178,12 +183,12 @@ static void l2x0pmu_write_counter(int idx, u32 val)
 	l2x0pmu_write_cfg(cfg, idx);
 }
 
-static int counter_is_saturated(int idx)
+static int counter_is_saturated(struct perf_event *event)
 {
-	return l2x0pmu_read_counter(idx) == 0xFFFFFFFF;
+	return l2x0pmu_read_counter(event) == 0xFFFFFFFF;
 }
 
-static void l2x0pmu_start(void)
+static void l2x0pmu_start(struct arm_pmu *l2_pmu)
 {
 	unsigned long flags;
 	u32 val;
@@ -203,7 +208,7 @@ static void l2x0pmu_start(void)
 	raw_spin_unlock_irqrestore(&l2x0pmu_hw_events.pmu_lock, flags);
 }
 
-static void l2x0pmu_stop(void)
+static void l2x0pmu_stop(struct arm_pmu *l2_pmu)
 {
 	unsigned long flags;
 	u32 val;
@@ -222,22 +227,26 @@ static void l2x0pmu_stop(void)
 	raw_spin_unlock_irqrestore(&l2x0pmu_hw_events.pmu_lock, flags);
 }
 
-static void l2x0pmu_enable(struct hw_perf_event *event, int idx, int cpu)
+static void l2x0pmu_enable(struct perf_event *event)
 {
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	unsigned long flags;
 	u32 cfg;
 
 	raw_spin_lock_irqsave(&l2x0pmu_hw_events.pmu_lock, flags);
 
-	cfg = (event->config_base << L2X0_EVENT_CNT_CFG_SHIFT) &
+	cfg = (hwc->config_base << L2X0_EVENT_CNT_CFG_SHIFT) &
 						L2X0_EVENT_CNT_CFG_MASK;
 	l2x0pmu_enable_counter(cfg, idx);
 
 	raw_spin_unlock_irqrestore(&l2x0pmu_hw_events.pmu_lock, flags);
 }
 
-static void l2x0pmu_disable(struct hw_perf_event *event, int idx)
+static void l2x0pmu_disable(struct perf_event *event)
 {
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&l2x0pmu_hw_events.pmu_lock, flags);
@@ -246,7 +255,7 @@ static void l2x0pmu_disable(struct hw_perf_event *event, int idx)
 }
 
 static int l2x0pmu_get_event_idx(struct pmu_hw_events *events,
-					struct hw_perf_event *hwc)
+					struct perf_event *event)
 {
 	int idx;
 
@@ -277,7 +286,7 @@ static irqreturn_t l2x0pmu_handle_irq(int irq, void *dev)
 		struct perf_event *event = l2x0pmu_hw_events.events[idx];
 		struct hw_perf_event *hwc;
 
-		if (!counter_is_saturated(idx))
+		if (!counter_is_saturated(event))
 			continue;
 
 		status = IRQ_HANDLED;
@@ -290,12 +299,12 @@ static irqreturn_t l2x0pmu_handle_irq(int irq, void *dev)
 		 * here so the hardware is in sync with what the framework
 		 * expects.
 		 */
-		l2x0pmu_write_counter(idx, 0);
+		l2x0pmu_write_counter(event, 0);
 
-		armpmu_event_update(event, hwc, idx);
+		armpmu_event_update(event);
 		data.period = event->hw.last_period;
 
-		if (!armpmu_event_set_period(event, hwc, idx))
+		if (!armpmu_event_set_period(event))
 			continue;
 
 		if (perf_event_overflow(event, &data, regs))
@@ -333,23 +342,21 @@ static int l2x0pmu_map_event(struct perf_event *event)
 }
 
 static int
-arm_l2_pmu_generic_request_irq(int irq, irq_handler_t *handle_irq)
+arm_l2_pmu_generic_request_irq(int irq, irq_handler_t *handle_irq, void *dev_id)
 {
 	return request_irq(irq, *handle_irq,
 			IRQF_DISABLED | IRQF_NOBALANCING,
-			"arm-l2-armpmu", NULL);
+			"arm-l2-armpmu", &l2x0_pmu_addr);
 }
 
 static void
-arm_l2_pmu_generic_free_irq(int irq)
+arm_l2_pmu_generic_free_irq(int irq, void *dev_id)
 {
 	if (irq >= 0)
-		free_irq(irq, NULL);
+		free_irq(irq, &l2x0_pmu_addr);
 }
 
 static struct arm_pmu l2x0_pmu = {
-	.id		= ARM_PERF_PMU_ID_L2X0,
-	.type		= ARM_PMU_DEVICE_L2CC,
 	.name		= "msm-l2",
 	.start		= l2x0pmu_start,
 	.stop		= l2x0pmu_stop,
@@ -366,6 +373,8 @@ static struct arm_pmu l2x0_pmu = {
 	.pmu.attr_groups = arm_l2_pmu_attr_grps,
 	.request_pmu_irq = arm_l2_pmu_generic_request_irq,
 	.free_pmu_irq	= arm_l2_pmu_generic_free_irq,
+	.request_irq    = cpu_pmu_request_irq,
+	.free_irq       = cpu_pmu_free_irq,
 };
 
 static int l2x0pmu_device_probe(struct platform_device *pdev)
@@ -382,7 +391,7 @@ static int l2x0pmu_device_probe(struct platform_device *pdev)
 	pr_info("L2CC PMU device found. DEBUG_CTRL: %x\n", debug);
 
 	/* Get value of dynamically allocated PMU type. */
-	if (!armpmu_register(&l2x0_pmu, "msm-l2", -1))
+	if (!armpmu_register(&l2x0_pmu, -1))
 		pmu_type = l2x0_pmu.pmu.type;
 	else {
 		pr_err("l2x0_pmu registration failed\n");
