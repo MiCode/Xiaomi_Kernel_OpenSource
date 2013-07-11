@@ -1280,7 +1280,7 @@ struct cal_mem {
 	void *buf;
 };
 
-#define MAX_VOC_SESSIONS 4
+#define MAX_VOC_SESSIONS 5
 
 struct common_data {
 	/* these default values are for all devices */
@@ -1336,18 +1336,22 @@ enum {
 #define VOC_PATH_FULL 1
 #define VOC_PATH_VOLTE_PASSIVE 2
 #define VOC_PATH_VOICE2_PASSIVE 3
+#define VOC_PATH_QCHAT_PASSIVE 4
 
 #define MAX_SESSION_NAME_LEN 32
 #define VOICE_SESSION_NAME  "Voice session"
 #define VOIP_SESSION_NAME   "VoIP session"
 #define VOLTE_SESSION_NAME  "VoLTE session"
 #define VOICE2_SESSION_NAME "Voice2 session"
+#define QCHAT_SESSION_NAME  "QCHAT session"
 
 #define VOICE2_SESSION_VSID_STR "10DC1000"
+#define QCHAT_SESSION_VSID_STR "10803000"
 #define VOICE_SESSION_VSID  0x10C01000
 #define VOICE2_SESSION_VSID 0x10DC1000
 #define VOLTE_SESSION_VSID  0x10C02000
 #define VOIP_SESSION_VSID   0x10004000
+#define QCHAT_SESSION_VSID  0x10803000
 #define ALL_SESSION_VSID    0xFFFFFFFF
 
 /* called  by alsa driver */
