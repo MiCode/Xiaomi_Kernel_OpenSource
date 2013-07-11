@@ -1570,6 +1570,8 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (IS_ERR_OR_NULL(pdata->bus_scale_table)) {
 		ret = PTR_ERR(pdata->bus_scale_table);
+		if (!ret)
+			ret = -EINVAL;
 		goto err;
 	}
 
