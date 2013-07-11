@@ -3710,6 +3710,12 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 		goto error_read;
 	}
 
+	mutex_init(&chip->bms_output_lock);
+	mutex_init(&chip->last_ocv_uv_mutex);
+	mutex_init(&chip->vbat_monitor_mutex);
+	mutex_init(&chip->soc_invalidation_mutex);
+	mutex_init(&chip->last_soc_mutex);
+
 	warm_reset = qpnp_pon_is_warm_reset();
 	rc = warm_reset;
 	if (rc < 0)
@@ -3766,12 +3772,6 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 	}
 
 	bms_initialize_constants(chip);
-
-	mutex_init(&chip->bms_output_lock);
-	mutex_init(&chip->last_ocv_uv_mutex);
-	mutex_init(&chip->vbat_monitor_mutex);
-	mutex_init(&chip->soc_invalidation_mutex);
-	mutex_init(&chip->last_soc_mutex);
 
 	wakeup_source_init(&chip->soc_wake_source.source, "qpnp_soc_wake");
 	wake_lock_init(&chip->low_voltage_wake_lock, WAKE_LOCK_SUSPEND,
