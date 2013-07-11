@@ -368,8 +368,6 @@ uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
 {
 	uint32_t dest_ystride = iBuf->dst.prop.width * bpp;
 	uint32_t h_slice = 1;
-	if (0)
-		return 0;
 
 	if (uv && ((iBuf->dst.color_fmt == MDP_Y_CBCR_H2V2) ||
 		(iBuf->dst.color_fmt == MDP_Y_CRCB_H2V2)))
@@ -382,16 +380,10 @@ uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
 			    MIN(16, iBuf->dst.roi.width)) * bpp;
 	}
 	if ((iBuf->mdp_op & MDPOP_UD) == MDPOP_UD) {
-		if (1) {
-			addr +=
-				((iBuf->dst.roi.height -
-				MIN(16, iBuf->dst.roi.height))/h_slice) *
-				dest_ystride;
-		} else {
-			addr +=
-			(iBuf->dst.roi.width -
-				MIN(16, iBuf->dst.roi.width)) * bpp;
-		}
+		addr +=
+			((iBuf->dst.roi.height -
+			MIN(16, iBuf->dst.roi.height))/h_slice) *
+			dest_ystride;
 	}
 
 	return addr;
