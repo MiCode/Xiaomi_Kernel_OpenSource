@@ -188,9 +188,14 @@ static void a2_mux_write_done(void *dev, struct sk_buff *skb)
 		      __func__, skb);
 		netif_wake_queue(dev);
 	}
-	if (a2_mux_is_ch_empty(a2_mux_lcid_by_ch_id[wwan_ptr->ch_id]))
-		ipa_rm_inactivity_timer_release_resource(
-			ipa_rm_resource_by_ch_id[wwan_ptr->ch_id]);
+	if (a2_mux_is_ch_empty(a2_mux_lcid_by_ch_id[wwan_ptr->ch_id])) {
+		if (ipa_emb_ul_pipes_empty())
+			ipa_rm_inactivity_timer_release_resource(
+				ipa_rm_resource_by_ch_id[wwan_ptr->ch_id]);
+		else
+			pr_err("%s: ch=%d empty but UL desc FIFOs not empty\n",
+					__func__, wwan_ptr->ch_id);
+	}
 	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 }
 
