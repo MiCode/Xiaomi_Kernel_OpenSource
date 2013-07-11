@@ -71,6 +71,9 @@
 			regulator-max-microvolt = <1050000>;
 			status = "okay";
 			compatible = "qcom,rpm-regulator-smd";
+			proxy-supply = <&pm8841_s1_ao>;
+			qcom,proxy-consumer-voltage = <1050000 1050000>;
+			qcom,proxy-consumer-enable;
 		};
 		pm8841_s1_so: regulator-s1-so {
 			regulator-name = "8841_s1_so";
@@ -98,6 +101,9 @@
 			qcom,use-voltage-corner;
 			compatible = "qcom,rpm-regulator-smd";
 			qcom,consumer-supplies = "vdd_dig", "";
+			proxy-supply = <&pm8841_s2_corner>;
+			qcom,proxy-consumer-voltage = <7 7>;
+			qcom,proxy-consumer-enable;
 		};
 		pm8841_s2_corner_ao: regulator-s2-corner-ao {
 			regulator-name = "8841_s2_corner_ao";
@@ -300,6 +306,9 @@
 		pm8941_l12: regulator-l12 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			proxy-supply = <&pm8941_l12>;
+			qcom,proxy-consumer-enable;
 			status = "okay";
 		};
 		pm8941_l12_ao: regulator-l12-ao {
