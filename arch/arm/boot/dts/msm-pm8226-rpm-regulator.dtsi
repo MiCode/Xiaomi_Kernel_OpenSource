@@ -198,7 +198,7 @@
 		regulator-l8 {
 			compatible = "qcom,rpm-regulator-smd";
 			regulator-name = "8226_l8";
-			qcom,set = <1>;
+			qcom,set = <3>;
 			status = "disabled";
 		};
 	};
