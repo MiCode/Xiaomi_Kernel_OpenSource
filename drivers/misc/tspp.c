@@ -617,8 +617,8 @@ static void tspp_sps_complete_tlet(unsigned long data)
 				break;
 
 			if (iovec.addr != channel->waiting->sps.phys_base)
-				pr_err("tspp: buffer mismatch 0x%08x",
-					channel->waiting->sps.phys_base);
+				pr_err("tspp: buffer mismatch %pa",
+					&channel->waiting->sps.phys_base);
 
 			complete = 1;
 			channel->waiting->state = TSPP_BUF_STATE_DATA;
