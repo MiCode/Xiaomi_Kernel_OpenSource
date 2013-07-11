@@ -175,8 +175,14 @@ struct epm_get_gpio_buffer_resp {
 							     uint32_t)
 
 #define EPM_PSOC_GPIO_BUFFER_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 17,	\
-								uint32_t)
+					struct epm_gpio_buffer_request)
 
 #define EPM_PSOC_GET_GPIO_BUFFER_DATA	_IOWR(EPM_ADC_IOCTL_CODE, 18,	\
+					struct epm_get_gpio_buffer_resp)
+
+#define EPM_PSOC_PAUSE_CONVERSION_REQUEST _IOWR(EPM_ADC_IOCTL_CODE, 19,	\
+								uint32_t)
+
+#define EPM_PSOC_UNPAUSE_CONVERSION_REQUEST _IOWR(EPM_ADC_IOCTL_CODE, 20, \
 								uint32_t)
 #endif /* _UAPI_EPM_ADC_H */
