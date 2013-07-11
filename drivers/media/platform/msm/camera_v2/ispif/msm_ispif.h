@@ -58,5 +58,7 @@ struct ispif_device {
 	enum msm_ispif_state_t ispif_state;
 	struct msm_ispif_vfe_info vfe_info;
 	struct clk *ahb_clk;
+	struct completion reset_complete[VFE_MAX];
+	uint32_t hw_num_isps;
 };
 #endif
