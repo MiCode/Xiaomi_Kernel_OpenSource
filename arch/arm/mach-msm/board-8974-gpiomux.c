@@ -183,8 +183,9 @@ static struct gpiomux_setting gpio_epm_config = {
 
 static struct gpiomux_setting gpio_epm_marker_config = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv  = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_HIGH,
 };
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
