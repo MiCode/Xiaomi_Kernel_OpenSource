@@ -46,6 +46,7 @@
 #define POLL_STOP_TIME		200
 #define INPUT_FUZZ			32
 #define INPUT_FLAT			32
+#define INPUT_DATA_DIVIDER	16
 #define MODE_CHANGE_DELAY_MS	100
 
 #define MMA8X5X_STATUS_ZYXDR	0x08
@@ -256,9 +257,9 @@ static int mma8x5x_data_convert(struct mma8x5x_data *pdata,
 			data[i] += rawdata[j] *
 				mma8x5x_position_setting[position][i][j];
 	}
-	axis_data->x = data[0];
-	axis_data->y = data[1];
-	axis_data->z = data[2];
+	axis_data->x = data[0]/INPUT_DATA_DIVIDER;
+	axis_data->y = data[1]/INPUT_DATA_DIVIDER;
+	axis_data->z = data[2]/INPUT_DATA_DIVIDER;
 	return 0;
 }
 static int mma8x5x_check_id(int id)
