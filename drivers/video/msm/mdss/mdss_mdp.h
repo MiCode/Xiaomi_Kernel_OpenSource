@@ -237,7 +237,7 @@ struct mdss_mdp_format_params {
 	u8 unpack_count;	/* 0 = 1 component, 1 = 2 component ... */
 	u8 bpp;
 	u8 alpha_enable;	/*  source has alpha */
-
+	u8 tile;
 	u8 bits[MAX_PLANES];
 	u8 element[MAX_PLANES];
 };
