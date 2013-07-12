@@ -1404,7 +1404,8 @@ void __init msm_8974_init_gpiomux(void)
 	if (of_board_is_cdp())
 		msm_gpiomux_install(msm8974_sec_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_sec_auxpcm_configs));
-	else
+	else if (of_board_is_liquid() || of_board_is_fluid() ||
+						of_board_is_mtp())
 		msm_gpiomux_install(msm_epm_configs,
 				ARRAY_SIZE(msm_epm_configs));
 
