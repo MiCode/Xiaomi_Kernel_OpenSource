@@ -17,12 +17,15 @@
 #define CTX_OFFSET 0x8000
 
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
+#define GET_GLOBAL_REG_L(reg, base) (readll_relaxed((base) + (reg)))
 #define GET_CTX_REG(reg, base, ctx) \
 	(readl_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
 #define GET_CTX_REG_L(reg, base, ctx) \
 	(readll_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
 
 #define SET_GLOBAL_REG(reg, base, val)	writel_relaxed((val), ((base) + (reg)))
+#define SET_GLOBAL_REG_L(reg, base, val) \
+	(writell_relaxed((val), ((base) + (reg))))
 
 #define SET_CTX_REG(reg, base, ctx, val) \
 	writel_relaxed((val), \
@@ -88,7 +91,7 @@ do { \
 #define SET_IDR1(b, N, v)        SET_GLOBAL_REG(IDR1, (b), (v))
 #define SET_IDR2(b, N, v)        SET_GLOBAL_REG(IDR2, (b), (v))
 #define SET_IDR7(b, N, v)        SET_GLOBAL_REG(IDR7, (b), (v))
-#define SET_GFAR(b, v)           SET_GLOBAL_REG(GFAR, (b), (v))
+#define SET_GFAR(b, v)           SET_GLOBAL_REG_L(GFAR, (b), (v))
 #define SET_GFSR(b, v)           SET_GLOBAL_REG(GFSR, (b), (v))
 #define SET_GFSRRESTORE(b, v)    SET_GLOBAL_REG(GFSRRESTORE, (b), (v))
 #define SET_GFSYNR0(b, v)        SET_GLOBAL_REG(GFSYNR0, (b), (v))
@@ -127,7 +130,7 @@ do { \
 #define GET_IDR1(b, N)           GET_GLOBAL_REG(IDR1, (b))
 #define GET_IDR2(b, N)           GET_GLOBAL_REG(IDR2, (b))
 #define GET_IDR7(b, N)           GET_GLOBAL_REG(IDR7, (b))
-#define GET_GFAR(b)              GET_GLOBAL_REG(GFAR, (b))
+#define GET_GFAR(b)              GET_GLOBAL_REG_L(GFAR, (b))
 #define GET_GFSR(b)              GET_GLOBAL_REG(GFSR, (b))
 #define GET_GFSRRESTORE(b)       GET_GLOBAL_REG(GFSRRESTORE, (b))
 #define GET_GFSYNR0(b)           GET_GLOBAL_REG(GFSYNR0, (b))
@@ -1003,7 +1006,7 @@ do { \
 #define IDR2		(0x0028)
 #define IDR7		(0x003C)
 #define GFAR		(0x0040)
-#define GFSR		(0x0044)
+#define GFSR		(0x0048)
 #define GFSRRESTORE	(0x004C)
 #define GFSYNR0		(0x0050)
 #define GFSYNR1		(0x0054)
