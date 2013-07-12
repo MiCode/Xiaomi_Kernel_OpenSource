@@ -246,8 +246,6 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
-static struct dwc3_msm *context;
-
 static struct usb_ext_notification *usb_ext;
 
 /**
@@ -2568,7 +2566,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, msm);
-	context = msm;
 	msm->dev = &pdev->dev;
 
 	INIT_LIST_HEAD(&msm->req_complete_list);
