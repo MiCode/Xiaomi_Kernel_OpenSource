@@ -168,31 +168,6 @@ enum msm8x10_wcd_micbias_num {
 	MSM8X10_WCD_MICBIAS1 = 0,
 };
 
-struct msm8x10_wcd_mbhc_config {
-	struct snd_soc_jack *headset_jack;
-	struct snd_soc_jack *button_jack;
-	bool read_fw_bin;
-	/*
-	 * void* calibration contains:
-	 *  struct msm8x10_wcd_mbhc_general_cfg generic;
-	 *  struct msm8x10_wcd_mbhc_plug_detect_cfg plug_det;
-	 *  struct msm8x10_wcd_mbhc_plug_type_cfg plug_type;
-	 *  struct msm8x10_wcd_mbhc_btn_detect_cfg btn_det;
-	 *  struct msm8x10_wcd_mbhc_imped_detect_cfg imped_det;
-	 * Note: various size depends on btn_det->num_btn
-	 */
-	void *calibration;
-	enum msm8x10_wcd_micbias_num micbias;
-	int (*mclk_cb_fn) (struct snd_soc_codec*, int, bool);
-	unsigned int mclk_rate;
-	unsigned int gpio;
-	unsigned int gpio_irq;
-	int gpio_level_insert;
-	bool detect_extn_cable;
-	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
-	bool (*swap_gnd_mic) (struct snd_soc_codec *);
-};
-
 enum msm8x10_wcd_pm_state {
 	MSM8X10_WCD_PM_SLEEPABLE,
 	MSM8X10_WCD_PM_AWAKE,
@@ -226,6 +201,6 @@ struct msm8x10_wcd {
 extern int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
 			     bool dapm);
 extern int msm8x10_wcd_hs_detect(struct snd_soc_codec *codec,
-			   struct msm8x10_wcd_mbhc_config *mbhc_cfg);
+			struct wcd9xxx_mbhc_config *mbhc_cfg);
 
 #endif
