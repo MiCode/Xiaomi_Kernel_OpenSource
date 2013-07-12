@@ -48,6 +48,7 @@ static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
 	[MDP_Y_CRCB_H2V2] = true,
 	[MDP_Y_CBCR_H2V2] = true,
 	[MDP_Y_CBCR_H2V2_ADRENO] = true,
+	[MDP_Y_CBCR_H2V2_VENUS] = true,
 	[MDP_YCRYCB_H2V1] = true,
 	[MDP_Y_CBCR_H2V1] = true,
 	[MDP_Y_CRCB_H2V1] = true,
@@ -402,6 +403,11 @@ static void mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 		blit_op->src.p1 =
 			(void *) ((uint32_t) blit_op->src.p0 +
 				ALIGN((ALIGN(req->src.width, 32) *
+				ALIGN(req->src.height, 32)), 4096));
+	else if (blit_op->src.color_fmt == MDP_Y_CBCR_H2V2_VENUS)
+		blit_op->src.p1 =
+			(void *) ((uint32_t) blit_op->src.p0 +
+				ALIGN((ALIGN(req->src.width, 128) *
 				ALIGN(req->src.height, 32)), 4096));
 	else
 		blit_op->src.p1 = (void *) ((uint32_t) blit_op->src.p0 +

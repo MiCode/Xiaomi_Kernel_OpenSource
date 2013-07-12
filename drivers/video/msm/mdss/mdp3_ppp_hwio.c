@@ -376,6 +376,8 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 
 	if (img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO && layer == 0)
 		img->p0 += (x + y * ALIGN(width, 32)) * bpp;
+	else if (img->color_fmt == MDP_Y_CBCR_H2V2_VENUS && layer == 0)
+		img->p0 += (x + y * ALIGN(width, 128)) * bpp;
 	else
 		img->p0 += (x + y * width) * bpp;
 	if (layer != 0)
@@ -386,7 +388,8 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 		 * MDP_Y_CBCR_H2V2/MDP_Y_CRCB_H2V2 cosite for now
 		 * we need to shift x direction same as y dir for offsite
 		 */
-		if (img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO
+		if ((img->color_fmt == MDP_Y_CBCR_H2V2_ADRENO ||
+				img->color_fmt == MDP_Y_CBCR_H2V2_VENUS)
 							&& layer == 0)
 			img->p1 += ((x / h_slice) * h_slice + ((y == 0) ? 0 :
 			(((y + 1) / v_slice - 1) * (ALIGN(width/2, 32) * 2))))
@@ -678,6 +681,7 @@ void ppp_edge_rep_chroma_pixel(struct ppp_blit_op *blit_op,
 
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V2_ADRENO:
+	case MDP_Y_CBCR_H2V2_VENUS:
 	case MDP_Y_CRCB_H2V2:
 		er->chroma_interp_point_left = er->luma_interp_point_left >> 1;
 		er->chroma_interp_point_right =
@@ -716,6 +720,7 @@ void ppp_edge_rep_chroma_pixel(struct ppp_blit_op *blit_op,
 			break;
 		case MDP_Y_CBCR_H2V2:
 		case MDP_Y_CBCR_H2V2_ADRENO:
+		case MDP_Y_CBCR_H2V2_VENUS:
 		case MDP_Y_CRCB_H2V2:
 			/*
 			 * cosite in horizontal dir, and offsite in vertical dir
@@ -1107,6 +1112,7 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	switch (blit_op->src.color_fmt) {
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V2_ADRENO:
+	case MDP_Y_CBCR_H2V2_VENUS:
 	case MDP_Y_CRCB_H2V2:
 		sh_slice = sv_slice = 2;
 		break;
@@ -1134,6 +1140,10 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 		blit_op->src.stride0 = ALIGN(blit_op->src.prop.width, 32) *
 			ppp_bpp(blit_op->src.color_fmt);
 		blit_op->src.stride1 = 2 * ALIGN(blit_op->src.prop.width/2, 32);
+	} else if (blit_op->src.color_fmt == MDP_Y_CBCR_H2V2_VENUS) {
+		blit_op->src.stride0 = ALIGN(blit_op->src.prop.width, 128)  *
+			ppp_bpp(blit_op->src.color_fmt);
+		blit_op->src.stride1 = blit_op->src.stride0;
 	} else {
 		blit_op->src.stride0 = blit_op->src.prop.width *
 			ppp_bpp(blit_op->src.color_fmt);
