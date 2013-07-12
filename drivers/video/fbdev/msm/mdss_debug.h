@@ -16,30 +16,35 @@
 
 #include "mdss.h"
 
-#define MISR_POLL_SLEEP			2000
-#define MISR_POLL_TIMEOUT		32000
-#define MISR_CRC_BATCH_SIZE		32
-#define MISR_CRC_BATCH_CFG		0x101
+#define MISR_POLL_SLEEP		2000
+#define MISR_POLL_TIMEOUT	32000
+#define MISR_CRC_BATCH_CFG	0x101
 
 #ifdef CONFIG_DEBUG_FS
 int mdss_debugfs_init(struct mdss_data_type *mdata);
 int mdss_debugfs_remove(struct mdss_data_type *mdata);
 int mdss_debug_register_base(const char *name, void __iomem *base,
 				    size_t max_offset);
-int mdss_misr_crc_set(struct mdss_data_type *mdata, struct mdp_misr *req);
-int mdss_misr_crc_get(struct mdss_data_type *mdata, struct mdp_misr *resp);
+int mdss_misr_set(struct mdss_data_type *mdata, struct mdp_misr *req,
+			struct mdss_mdp_ctl *ctl);
+int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
+			struct mdss_mdp_ctl *ctl);
 void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id);
 #else
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
 static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
 { return 0; }
 static inline int mdss_debug_register_base(const char *name, void __iomem *base,
-			     size_t max_offset) { return 0; }
-static inline int mdss_misr_crc_set(struct mdss_data_type *mdata,
-		      struct mdp_misr *reg) { return 0; }
-static inline int mdss_misr_crc_get(struct mdss_data_type *mdata,
-		      struct mdp_misr *resp) { return 0; }
+					size_t max_offset) { return 0; }
+static inline int mdss_misr_set(struct mdss_data_type *mdata,
+					struct mdp_misr *req,
+					struct mdss_mdp_ctl *ctl)
+{ return 0; }
+static inline int mdss_misr_get(struct mdss_data_type *mdata,
+					struct mdp_misr *resp,
+					struct mdss_mdp_ctl *ctl)
+{ return 0; }
 static inline void mdss_misr_crc_collect(struct mdss_data_type *mdata,
-			   int block_id) { }
+						int block_id) { }
 #endif
 #endif /* MDSS_DEBUG_H */
