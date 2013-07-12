@@ -18,7 +18,12 @@
 		ranges;
 		reg = <0xfda64000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 67 0>;
+		interrupts = <0 67 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,needs-alt-core-clk;
 		label = "jpeg_iommu";
 		status = "disabled";
@@ -114,7 +119,12 @@
 		ranges;
 		reg = <0xfd928000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 73 0>;
+		interrupts = <0 73 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <1>;
 		label = "mdp_iommu";
 		qcom,msm-bus,name = "mdp_ebi";
@@ -219,7 +229,12 @@
 		reg = <0xfdc84000 0x10000
 		       0xfdce0004 0x4>;
 		reg-names = "iommu_base", "clk_base";
-		interrupts = <0 45 0>;
+		interrupts = <0 45 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <0>;
 		qcom,needs-alt-core-clk;
 		label = "venus_iommu";
@@ -336,7 +351,12 @@
 		ranges;
 		reg = <0xfdb10000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 38 0>;
+		interrupts = <0 38 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		label = "kgsl_iommu";
 		qcom,msm-bus,name = "kgsl_ebi";
 		qcom,msm-bus,num-cases = <2>;
@@ -426,7 +446,12 @@
 		ranges;
 		reg = <0xfda44000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 62 0>;
+		interrupts = <0 62 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,needs-alt-core-clk;
 		label = "vfe_iommu";
 		qcom,msm-bus,name = "vfe_ebi";
@@ -528,7 +553,12 @@
 		ranges;
 		reg = <0xf9bc4000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 153 0>;
+		interrupts = <0 153 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <8>;
 		label = "copss_iommu";
 		qcom,msm-bus,name = "copss_ebi";
@@ -688,7 +718,12 @@
 		ranges;
 		reg = <0xfdee4000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 147 0>;
+		interrupts = <0 147 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <7>;
 		label = "vpu_iommu";
 		qcom,msm-bus,name = "vpu_ebi";
@@ -822,7 +857,12 @@
 		ranges;
 		reg = <0xfe054000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 202 0>;
+		interrupts = <0 202 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <2>;
 		label = "lpass_qdsp_iommu";
 		qcom,msm-bus,name = "lpass_qdsp_ebi";
@@ -951,7 +991,12 @@
 		ranges;
 		reg = <0xfe064000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 166 0>;
+		interrupts = <0 166 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,iommu-secure-id = <6>;
 		label = "lpass_core_iommu";
 		qcom,msm-bus,name = "lpass_core_ebi";
@@ -1072,7 +1117,12 @@
 		ranges;
 		reg = <0xfdfb6000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 315 0>;
+		interrupts = <0 315 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,needs-alt-core-clk;
 		label = "vcap_iommu";
 		status = "disabled";
@@ -1166,7 +1216,12 @@
 		ranges;
 		reg = <0xfc734000 0x10000>;
 		reg-names = "iommu_base";
-		interrupts = <0 279 0>;
+		interrupts = <0 279 0>,
+				<0 229 0>, <0 231 0>,
+				<0 230 0>, <0 232 0>;
+		interrupt-names = "pmon",
+				"global_cfg_NS_irq", "global_client_NS_irq",
+				"global_cfg_S_irq", "global_client_S_irq";
 		qcom,needs-alt-core-clk;
 		label = "bcast_iommu";
 		status = "disabled";

@@ -282,6 +282,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	struct msm_iommu_drvdata *drvdata;
 	struct resource *r;
 	int ret, needs_alt_core_clk;
+	int global_cfg_irq, global_client_irq;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -368,6 +369,35 @@ static int msm_iommu_probe(struct platform_device *pdev)
 			}
 		}
 	}
+
+	global_cfg_irq =
+		platform_get_irq_byname(pdev, "global_cfg_NS_irq");
+	if (global_cfg_irq > 0) {
+		ret = devm_request_threaded_irq(&pdev->dev, global_cfg_irq,
+				NULL,
+				msm_iommu_global_fault_handler,
+				IRQF_ONESHOT | IRQF_SHARED |
+				IRQF_TRIGGER_RISING,
+				"msm_iommu_global_cfg_irq", pdev);
+		if (ret < 0)
+			pr_err("Request Global CFG IRQ %d failed with ret=%d\n",
+					global_cfg_irq, ret);
+	}
+
+	global_client_irq =
+		platform_get_irq_byname(pdev, "global_client_NS_irq");
+	if (global_client_irq > 0) {
+		ret = devm_request_threaded_irq(&pdev->dev, global_client_irq,
+				NULL,
+				msm_iommu_global_fault_handler,
+				IRQF_ONESHOT | IRQF_SHARED |
+				IRQF_TRIGGER_RISING,
+				"msm_iommu_global_client_irq", pdev);
+		if (ret < 0)
+			pr_err("Request Global Client IRQ %d failed with ret=%d\n",
+					global_client_irq, ret);
+	}
+
 	return 0;
 }
 

@@ -1002,6 +1002,75 @@ static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
 	print_ctx_regs(regs);
 }
 
+static void print_global_regs(void __iomem *base, unsigned int gfsr)
+{
+	pr_err("GFAR    = %016llx\n", GET_GFAR(base));
+
+	pr_err("GFSR    = %08x [%s%s%s%s%s%s%s%s%s%s]\n", gfsr,
+			(gfsr & 0x01) ? "ICF " : "",
+			(gfsr & 0x02) ? "USF " : "",
+			(gfsr & 0x04) ? "SMCF " : "",
+			(gfsr & 0x08) ? "UCBF " : "",
+			(gfsr & 0x10) ? "UCIF " : "",
+			(gfsr & 0x20) ? "CAF " : "",
+			(gfsr & 0x40) ? "EF " : "",
+			(gfsr & 0x80) ? "PF " : "",
+			(gfsr & 0x40000000) ? "SS " : "",
+			(gfsr & 0x80000000) ? "MULTI " : "");
+
+	pr_err("GFSYNR0	= %08x\n", GET_GFSYNR0(base));
+	pr_err("GFSYNR1	= %08x\n", GET_GFSYNR1(base));
+	pr_err("GFSYNR2	= %08x\n", GET_GFSYNR2(base));
+}
+
+irqreturn_t msm_iommu_global_fault_handler(int irq, void *dev_id)
+{
+	struct platform_device *pdev = dev_id;
+	struct msm_iommu_drvdata *drvdata;
+	unsigned int gfsr;
+	int ret;
+
+	mutex_lock(&msm_iommu_lock);
+	BUG_ON(!pdev);
+
+	drvdata = dev_get_drvdata(&pdev->dev);
+	BUG_ON(!drvdata);
+
+	if (!drvdata->ctx_attach_count) {
+		pr_err("Unexpected IOMMU global fault !!\n");
+		pr_err("name = %s\n", drvdata->name);
+		pr_err("Power is OFF. Can't read global fault information\n");
+		ret = IRQ_HANDLED;
+		goto fail;
+	}
+
+	if (drvdata->sec_id != -1) {
+		pr_err("NON-secure interrupt from secure %s\n", drvdata->name);
+		ret = IRQ_HANDLED;
+		goto fail;
+	}
+
+	ret = __enable_clocks(drvdata);
+	if (ret) {
+		ret = IRQ_NONE;
+		goto fail;
+	}
+
+	gfsr = GET_GFSR(drvdata->base);
+	if (gfsr) {
+		pr_err("Unexpected %s global fault !!\n", drvdata->name);
+		print_global_regs(drvdata->base, gfsr);
+		SET_GFSR(drvdata->base, gfsr);
+		ret = IRQ_HANDLED;
+	} else
+		ret = IRQ_NONE;
+
+	__disable_clocks(drvdata);
+fail:
+	mutex_unlock(&msm_iommu_lock);
+	return ret;
+}
+
 irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 {
 	struct platform_device *pdev = dev_id;
