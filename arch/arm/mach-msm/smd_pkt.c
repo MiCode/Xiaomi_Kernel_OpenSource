@@ -1028,6 +1028,13 @@ static int __init smd_pkt_init(void)
 	int i;
 	int r;
 
+	if (ARRAY_SIZE(smd_ch_name) != NUM_SMD_PKT_PORTS ||
+			ARRAY_SIZE(smd_ch_edge) != NUM_SMD_PKT_PORTS ||
+			ARRAY_SIZE(smd_pkt_dev_name) != NUM_SMD_PKT_PORTS) {
+		pr_err("%s: mismatch in number of ports\n", __func__);
+		BUG();
+	}
+
 	r = alloc_chrdev_region(&smd_pkt_number,
 			       0,
 			       NUM_SMD_PKT_PORTS,
