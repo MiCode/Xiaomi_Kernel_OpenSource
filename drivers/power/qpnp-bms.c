@@ -64,11 +64,10 @@
 /* Extra bms registers */
 #define SOC_STORAGE_REG			0xB0
 #define IAVG_STORAGE_REG		0xB1
-#define BMS_BATT_REMOVED_REG		0xB2
-#define BMS1_BMS_DATA_REG_3		0xB3
-#define CHARGE_INCREASE_STORAGE		0xB4
-#define FCC_BATT_TEMP_STORAGE		0xB5
-#define FCC_STORAGE_LSB			0xBC /* LSB=0xBC, MSB=0xBD */
+#define BMS_FCC_COUNT			0xB2
+#define BMS_FCC_BASE_REG		0xB3 /* FCC updates - 0xB3 to 0xB7 */
+#define BMS_CHGCYL_BASE_REG		0xB8 /* FCC chgcyl - 0xB8 to 0xBC */
+#define CHARGE_INCREASE_STORAGE		0xBD
 #define CHARGE_CYCLE_STORAGE_LSB	0xBE /* LSB=0xBE, MSB=0xBF */
 
 /* IADC Channel Select */
@@ -84,8 +83,11 @@
 #define IAVG_SAMPLES 16
 
 /* FCC learning constants */
+#define MAX_FCC_CYCLES				5
 #define DELTA_FCC_PERCENT                       5
 #define VALID_FCC_CHGCYL_RANGE                  50
+#define CHGCYL_RESOLUTION			20
+#define FCC_DEFAULT_TEMP			250
 
 #define QPNP_BMS_DEV_NAME "qcom,qpnp-bms"
 
@@ -116,7 +118,7 @@ struct raw_soc_params {
 	int		last_good_ocv_uv;
 };
 
-struct fcc_data {
+struct fcc_sample {
 	int fcc_new;
 	int batt_temp;
 	int chargecycles;
@@ -244,7 +246,8 @@ struct qpnp_bms_chip {
 	int				ocv_low_threshold_uv;
 	unsigned long			last_recalc_time;
 
-	struct fcc_data			*fcc_table;
+	struct fcc_sample		*fcc_learning_samples;
+	u8				fcc_sample_count;
 	int				enable_fcc_learning;
 	int				min_fcc_learning_soc;
 	int				min_fcc_ocv_pc;
@@ -261,6 +264,8 @@ struct qpnp_bms_chip {
 	u8				charge_increase;
 	int				fcc_new_sysfs;
 	int				fcc_update_complete;
+	int				fcc_resolution;
+	bool				battery_removed;
 	struct bms_irq			sw_cc_thr_irq;
 	struct bms_irq			ocv_thr_irq;
 };
@@ -284,6 +289,9 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 };
+
+static int discard_backup_fcc_data(struct qpnp_bms_chip *chip);
+static void backup_charge_cycle(struct qpnp_bms_chip *chip);
 
 static bool bms_reset;
 static int min_fcc_cycles = -EINVAL;
@@ -871,6 +879,19 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	chip->last_cc_uah = INT_MIN;
 	chip->last_ocv_temp = batt_temp;
 	chip->prev_batt_terminal_uv = 0;
+	if (chip->enable_fcc_learning) {
+		chip->adjusted_fcc_temp_lut = NULL;
+		chip->fcc_new_mah = -EINVAL;
+		/* reset the charge-cycle and charge-increase registers */
+		chip->charge_increase = 0;
+		chip->charge_cycles = 0;
+		backup_charge_cycle(chip);
+		/* discard all the FCC learnt data and reset the local table */
+		discard_backup_fcc_data(chip);
+		memset(chip->fcc_learning_samples, 0,
+			chip->min_fcc_learning_samples *
+				sizeof(struct fcc_sample));
+	}
 }
 
 #define OCV_RAW_UNINITIALIZED	0xFFFF
@@ -2624,26 +2645,85 @@ static void readjust_fcc_table(struct qpnp_bms_chip *chip)
 	kfree(old);
 }
 
-
-static void backup_fcc_new(struct qpnp_bms_chip *chip)
+static int read_fcc_data_from_backup(struct qpnp_bms_chip *chip)
 {
-	int rc = 0;
-	u8 temp = 0;
+	int rc, i;
+	u8 fcc = 0, chgcyl = 0;
 
-	if (chip->fcc_new_mah > 0) {
-		rc = qpnp_write_wrapper(chip, (u8 *)&chip->fcc_new_mah,
-					chip->base + FCC_STORAGE_LSB, 2);
-		if (rc)
-			pr_err("Unable to backup new_fcc\n");
-
-		temp = chip->fcc_new_batt_temp / 10;
-		rc = qpnp_write_wrapper(chip, &temp,
-				chip->base + FCC_BATT_TEMP_STORAGE, 1);
-		if (rc)
-			pr_err("Unable to backup fcc temp.\n");
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
+		rc = qpnp_read_wrapper(chip, &fcc,
+			chip->base + BMS_FCC_BASE_REG + i, 1);
+		rc |= qpnp_read_wrapper(chip, &chgcyl,
+			chip->base + BMS_CHGCYL_BASE_REG + i, 1);
+		if (rc) {
+			pr_err("Unable to read FCC data\n");
+			return rc;
+		}
+		if (fcc == 0 || (fcc == 0xFF && chgcyl == 0xFF)) {
+			/* FCC invalid/not present */
+			chip->fcc_learning_samples[i].fcc_new = 0;
+			chip->fcc_learning_samples[i].chargecycles = 0;
+		} else {
+			/* valid FCC data */
+			chip->fcc_sample_count++;
+			chip->fcc_learning_samples[i].fcc_new =
+						fcc * chip->fcc_resolution;
+			chip->fcc_learning_samples[i].chargecycles =
+						chgcyl * CHGCYL_RESOLUTION;
+		}
 	}
+
+	return 0;
 }
 
+static int discard_backup_fcc_data(struct qpnp_bms_chip *chip)
+{
+	int rc = 0, i;
+	u8 temp_u8 = 0;
+
+	chip->fcc_sample_count = 0;
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
+		rc = qpnp_write_wrapper(chip, &temp_u8,
+			chip->base + BMS_FCC_BASE_REG + i, 1);
+		rc |= qpnp_write_wrapper(chip, &temp_u8,
+			chip->base + BMS_CHGCYL_BASE_REG + i, 1);
+		if (rc) {
+			pr_err("Unable to clear FCC data\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static void
+average_fcc_samples_and_readjust_fcc_table(struct qpnp_bms_chip *chip)
+{
+	int i, temp_fcc_avg = 0, temp_fcc_delta = 0, new_fcc_avg = 0;
+	struct fcc_sample *ft;
+
+	for (i = 0; i < chip->min_fcc_learning_samples; i++)
+		temp_fcc_avg += chip->fcc_learning_samples[i].fcc_new;
+
+	temp_fcc_avg /= chip->min_fcc_learning_samples;
+	temp_fcc_delta = div_u64(temp_fcc_avg * DELTA_FCC_PERCENT, 100);
+
+	/* fix the fcc if its an outlier i.e. > 5% of the average */
+	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
+		ft = &chip->fcc_learning_samples[i];
+		if (abs(ft->fcc_new - temp_fcc_avg) > temp_fcc_delta)
+			new_fcc_avg += temp_fcc_avg;
+		else
+			new_fcc_avg += ft->fcc_new;
+	}
+	new_fcc_avg /= chip->min_fcc_learning_samples;
+
+	chip->fcc_new_mah = new_fcc_avg;
+	chip->fcc_new_batt_temp = FCC_DEFAULT_TEMP;
+	pr_info("FCC update: New fcc_mah=%d, fcc_batt_temp=%d\n",
+				new_fcc_avg, FCC_DEFAULT_TEMP);
+	readjust_fcc_table(chip);
+}
 
 static void backup_charge_cycle(struct qpnp_bms_chip *chip)
 {
@@ -2651,7 +2731,7 @@ static void backup_charge_cycle(struct qpnp_bms_chip *chip)
 
 	if (chip->charge_increase >= 0) {
 		rc = qpnp_write_wrapper(chip, &chip->charge_increase,
-				chip->base + CHARGE_INCREASE_STORAGE, 1);
+			chip->base + CHARGE_INCREASE_STORAGE, 1);
 		if (rc)
 			pr_err("Unable to backup charge_increase\n");
 	}
@@ -2664,9 +2744,31 @@ static void backup_charge_cycle(struct qpnp_bms_chip *chip)
 	}
 }
 
-static void restore_fcc_data(struct qpnp_bms_chip *chip)
+static bool chargecycles_in_range(struct qpnp_bms_chip *chip)
 {
-	int rc = 0;
+	int i, min_cycle, max_cycle, valid_range;
+
+	/* find the smallest and largest charge cycle */
+	max_cycle = min_cycle = chip->fcc_learning_samples[0].chargecycles;
+	for (i = 1; i < chip->min_fcc_learning_samples; i++) {
+		if (min_cycle > chip->fcc_learning_samples[i].chargecycles)
+			min_cycle = chip->fcc_learning_samples[i].chargecycles;
+		if (max_cycle < chip->fcc_learning_samples[i].chargecycles)
+			max_cycle = chip->fcc_learning_samples[i].chargecycles;
+	}
+
+	/* check if chargecyles are in range to continue with FCC update */
+	valid_range = DIV_ROUND_UP(VALID_FCC_CHGCYL_RANGE,
+					CHGCYL_RESOLUTION) * CHGCYL_RESOLUTION;
+	if (abs(max_cycle - min_cycle) > valid_range)
+		return false;
+
+	return true;
+}
+
+static int read_chgcycle_data_from_backup(struct qpnp_bms_chip *chip)
+{
+	int rc;
 	uint16_t temp_u16 = 0;
 	u8 temp_u8 = 0;
 
@@ -2680,25 +2782,18 @@ static void restore_fcc_data(struct qpnp_bms_chip *chip)
 	if (!rc && temp_u16 != 0xFFFF)
 		chip->charge_cycles = temp_u16;
 
-	rc = qpnp_read_wrapper(chip, (u8 *)&temp_u16,
-				chip->base + FCC_STORAGE_LSB, 2);
-	if (!rc && temp_u16 != 0xFFFF) {
-		chip->fcc_new_mah = temp_u16;
-	} else {
-		pr_debug("Backed-up FCC not initialized, FCC not updated\n");
-		return;
-	}
+	return rc;
+}
 
-	rc = qpnp_read_wrapper(chip, &temp_u8,
-				chip->base + FCC_BATT_TEMP_STORAGE, 1);
-	if (!rc && temp_u8 != 0xFF) {
-		chip->fcc_new_batt_temp = (s8)temp_u8 * 10;
-	} else {
-		pr_debug("Backed-up temp. not initialized, FCC not updated\n");
-		return;
-	}
-	/* readjust the FCC table if fcc and temp are valid */
-	readjust_fcc_table(chip);
+static void
+attempt_learning_new_fcc(struct qpnp_bms_chip *chip)
+{
+	pr_debug("Total FCC sample count=%d\n", chip->fcc_sample_count);
+
+	/* update FCC if we have the required samples */
+	if ((chip->fcc_sample_count == chip->min_fcc_learning_samples) &&
+						chargecycles_in_range(chip))
+		average_fcc_samples_and_readjust_fcc_table(chip);
 }
 
 static int calculate_real_soc(struct qpnp_bms_chip *chip,
@@ -2712,82 +2807,80 @@ static int calculate_real_soc(struct qpnp_bms_chip *chip,
 	return ((rc_uah - cc_uah) * 100) / fcc_uah;
 }
 
-static void update_fcc_table_for_temp(struct qpnp_bms_chip *chip,
-						int batt_temp_final)
-{
-	int i, fcc_t1, fcc_t2, fcc_final;
-	struct fcc_data *ft;
+#define MAX_U8_VALUE		((u8)(~0U))
 
-	/* Interpolate all the FCC entries to the same temperature */
-	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
-		ft = &chip->fcc_table[i];
-		if (ft->batt_temp == batt_temp_final)
-			continue;
-		fcc_t1 = interpolate_fcc(chip->fcc_temp_lut, ft->batt_temp);
-		fcc_t2 = interpolate_fcc(chip->fcc_temp_lut, batt_temp_final);
-		fcc_final = (ft->fcc_new / fcc_t1) * fcc_t2;
-		ft->fcc_new = fcc_final;
-		ft->batt_temp = batt_temp_final;
+static int backup_new_fcc(struct qpnp_bms_chip *chip, int fcc_mah,
+							int chargecycles)
+{
+	int rc, min_cycle, i;
+	u8 fcc_new, chgcyl, pos = 0;
+	struct fcc_sample *ft;
+
+	if ((fcc_mah > (chip->fcc_resolution * MAX_U8_VALUE)) ||
+		(chargecycles > (CHGCYL_RESOLUTION * MAX_U8_VALUE))) {
+		pr_warn("FCC/Chgcyl beyond storage limit. FCC=%d, chgcyl=%d\n",
+							fcc_mah, chargecycles);
+		return -EINVAL;
 	}
+
+	if (chip->fcc_sample_count == chip->min_fcc_learning_samples) {
+		/* search best location - oldest entry */
+		min_cycle = chip->fcc_learning_samples[0].chargecycles;
+		for (i = 1; i < chip->min_fcc_learning_samples; i++) {
+			if (min_cycle >
+				chip->fcc_learning_samples[i].chargecycles)
+				pos = i;
+		}
+	} else {
+		/* find an empty location */
+		for (i = 0; i < chip->min_fcc_learning_samples; i++) {
+			ft = &chip->fcc_learning_samples[i];
+			if (ft->fcc_new == 0 || (ft->fcc_new == 0xFF &&
+						ft->chargecycles == 0xFF)) {
+				pos = i;
+				break;
+			}
+		}
+		chip->fcc_sample_count++;
+	}
+	chip->fcc_learning_samples[pos].fcc_new = fcc_mah;
+	chip->fcc_learning_samples[pos].chargecycles = chargecycles;
+
+	fcc_new = DIV_ROUND_UP(fcc_mah, chip->fcc_resolution);
+	rc = qpnp_write_wrapper(chip, (u8 *)&fcc_new,
+			chip->base + BMS_FCC_BASE_REG + pos, 1);
+	if (rc)
+		return rc;
+
+	chgcyl = DIV_ROUND_UP(chargecycles, CHGCYL_RESOLUTION);
+	rc = qpnp_write_wrapper(chip, (u8 *)&chgcyl,
+			chip->base + BMS_CHGCYL_BASE_REG + pos, 1);
+	if (rc)
+		return rc;
+
+	pr_debug("Backup new FCC: fcc_new=%d, chargecycle=%d, pos=%d\n",
+						fcc_new, chgcyl, pos);
+
+	return rc;
 }
 
 static void update_fcc_learning_table(struct qpnp_bms_chip *chip,
-		int fcc_uah, int new_fcc_uah, int chargecycles, int batt_temp)
+			int new_fcc_uah, int chargecycles, int batt_temp)
 {
-	int i, count, new_fcc_avg = 0, temp_fcc_avg = 0, temp_fcc_delta = 0;
-	struct fcc_data *ft;
+	int rc, fcc_default, fcc_temp;
 
-	count = last_fcc_update_count % chip->min_fcc_learning_samples;
-	ft = &chip->fcc_table[count];
-	ft->fcc_new = chip->fcc_new_sysfs = new_fcc_uah;
-	ft->batt_temp = batt_temp;
-	ft->chargecycles = chargecycles;
-	last_fcc_update_count++;
-	/* update userspace */
-	sysfs_notify(&chip->dev->kobj, NULL, "fcc_data");
+	/* convert the fcc at batt_temp to new fcc at FCC_DEFAULT_TEMP */
+	fcc_default = calculate_fcc(chip, FCC_DEFAULT_TEMP) / 1000;
+	fcc_temp = calculate_fcc(chip, batt_temp) / 1000;
+	new_fcc_uah = (new_fcc_uah / fcc_temp) * fcc_default;
 
-	pr_debug("Updated fcc table. new_fcc=%d, chargecycle=%d, temp=%d fcc_update_count=%d\n",
-		new_fcc_uah, chargecycles, batt_temp, last_fcc_update_count);
-
-	if (last_fcc_update_count < chip->min_fcc_learning_samples) {
-		pr_debug("Not enough FCC samples. Current count = %d\n",
-						last_fcc_update_count);
-		return; /* Not enough samples to update fcc */
+	rc = backup_new_fcc(chip, new_fcc_uah / 1000, chargecycles);
+	if (rc) {
+		pr_err("Unable to backup new FCC\n");
+		return;
 	}
-
-	/* reject entries if they are > 50 chargecycles apart */
-	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
-		if ((chip->fcc_table[i].chargecycles + VALID_FCC_CHGCYL_RANGE)
-							< chargecycles) {
-			pr_debug("Charge cycle too old (> %d cycles apart)\n",
-							VALID_FCC_CHGCYL_RANGE);
-			return; /* Samples old, > 50 cycles apart*/
-		}
-	}
-	/* update the fcc table for temperature difference*/
-	update_fcc_table_for_temp(chip, batt_temp);
-
-	for (i = 0; i < chip->min_fcc_learning_samples; i++)
-		temp_fcc_avg += chip->fcc_table[i].fcc_new;
-
-	temp_fcc_avg /= chip->min_fcc_learning_samples;
-	temp_fcc_delta = div_u64(temp_fcc_avg * DELTA_FCC_PERCENT, 100);
-
-	/* fix the fcc if its an outlier i.e. > 5% of the average */
-	for (i = 0; i < chip->min_fcc_learning_samples; i++) {
-		ft = &chip->fcc_table[i];
-		if (abs(ft->fcc_new - temp_fcc_avg) > temp_fcc_delta)
-			ft->fcc_new = temp_fcc_avg;
-		new_fcc_avg += ft->fcc_new;
-	}
-	new_fcc_avg /= chip->min_fcc_learning_samples;
-
-	chip->fcc_new_mah = new_fcc_avg / 1000;
-	chip->fcc_new_batt_temp = batt_temp;
-	pr_info("FCC update: New fcc_mah=%d, fcc_batt_temp=%d\n",
-					new_fcc_avg, batt_temp);
-	readjust_fcc_table(chip);
-	backup_fcc_new(chip);
+	/* check if FCC can be updated */
+	attempt_learning_new_fcc(chip);
 }
 
 static bool is_new_fcc_valid(int new_fcc_uah, int fcc_uah)
@@ -2841,8 +2934,8 @@ static void fcc_learning_config(struct qpnp_bms_chip *chip, bool start)
 			chip->start_cc_uah, chip->end_cc_uah, new_fcc_uah);
 
 		if (is_new_fcc_valid(new_fcc_uah, fcc_uah))
-			update_fcc_learning_table(chip, fcc_uah,
-				new_fcc_uah, chip->charge_cycles, batt_temp);
+			update_fcc_learning_table(chip, new_fcc_uah,
+					chip->charge_cycles, batt_temp);
 	}
 }
 
@@ -3029,7 +3122,7 @@ static ssize_t fcc_data_set(struct device *dev, struct device_attribute *attr,
 	rc = sscanf(buf, "%d", &fcc_new);
 	if (rc != 1)
 		return -EINVAL;
-	chip->fcc_table[i].fcc_new = fcc_new;
+	chip->fcc_learning_samples[i].fcc_new = fcc_new;
 	pr_debug("Rcvd: [%d] fcc_new=%d\n", i, fcc_new);
 	i++;
 
@@ -3063,7 +3156,7 @@ static ssize_t fcc_temp_set(struct device *dev, struct device_attribute *attr,
 	rc = sscanf(buf, "%d", &batt_temp);
 	if (rc != 1)
 		return -EINVAL;
-	chip->fcc_table[i].batt_temp = batt_temp;
+	chip->fcc_learning_samples[i].batt_temp = batt_temp;
 	pr_debug("Rcvd: [%d] batt_temp=%d\n", i, batt_temp);
 	i++;
 
@@ -3084,7 +3177,7 @@ static ssize_t fcc_chgcyl_set(struct device *dev, struct device_attribute *attr,
 	rc = sscanf(buf, "%d", &chargecycle);
 	if (rc != 1)
 		return -EINVAL;
-	chip->fcc_table[i].chargecycles = chargecycle;
+	chip->fcc_learning_samples[i].chargecycles = chargecycle;
 	pr_debug("Rcvd: [%d] chargecycle=%d\n", i, chargecycle);
 	i++;
 
@@ -3095,7 +3188,7 @@ static ssize_t fcc_list_get(struct device *dev, struct device_attribute *attr,
 								char *buf)
 {
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
-	struct fcc_data *ft;
+	struct fcc_sample *ft;
 	int i = 0, j, count = 0;
 
 	if (last_fcc_update_count < chip->min_fcc_learning_samples)
@@ -3104,7 +3197,7 @@ static ssize_t fcc_list_get(struct device *dev, struct device_attribute *attr,
 		i = chip->min_fcc_learning_samples;
 
 	for (j = 0; j < i; j++) {
-		ft = &chip->fcc_table[j];
+		ft = &chip->fcc_learning_samples[j];
 		count += snprintf(buf + count, PAGE_SIZE - count,
 			"%d %d %d\n", ft->fcc_new, ft->chargecycles,
 			ft->batt_temp);
@@ -3213,10 +3306,19 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 		}
 	}
 
-	pr_debug("shutdown_soc = %d shutdown_iavg = %d shutdown_soc_invalid = %d\n",
+	/* read the SOC storage to determine if there was a battery removal */
+	rc = qpnp_read_wrapper(chip, &temp, chip->base + SOC_STORAGE_REG, 1);
+	if (!rc) {
+		if (temp == SOC_INVALID)
+			chip->battery_removed = true;
+	}
+
+
+	pr_debug("shutdown_soc = %d shutdown_iavg = %d shutdown_soc_invalid = %d, battery_removed = %d\n",
 			chip->shutdown_soc,
 			chip->shutdown_iavg_ma,
-			chip->shutdown_soc_invalid);
+			chip->shutdown_soc_invalid,
+			chip->battery_removed);
 }
 
 static irqreturn_t bms_ocv_thr_irq_handler(int irq, void *_chip)
@@ -3325,6 +3427,12 @@ do {									\
 	}								\
 } while (0)
 
+#define SPMI_PROP_READ_BOOL(chip_prop, qpnp_spmi_property)		\
+do {									\
+	chip->chip_prop = of_property_read_bool(chip->spmi->dev.of_node,\
+				"qcom," qpnp_spmi_property);		\
+} while (0)
+
 static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 {
 	int rc;
@@ -3371,8 +3479,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
 
-	chip->enable_fcc_learning = of_property_read_bool(
-		chip->spmi->dev.of_node, "qcom,enable-fcc-learning");
+	SPMI_PROP_READ_BOOL(enable_fcc_learning, "enable-fcc-learning");
 	if (chip->enable_fcc_learning) {
 		SPMI_PROP_READ(min_fcc_learning_soc,
 				"min-fcc-learning-soc", rc);
@@ -3380,8 +3487,13 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 				"min-fcc-ocv-pc", rc);
 		SPMI_PROP_READ(min_fcc_learning_samples,
 				"min-fcc-learning-samples", rc);
-		chip->fcc_table = kzalloc((sizeof(struct fcc_data) *
-			chip->min_fcc_learning_samples), GFP_KERNEL);
+		SPMI_PROP_READ(fcc_resolution,
+				"fcc-resolution", rc);
+		if (chip->min_fcc_learning_samples > MAX_FCC_CYCLES)
+			chip->min_fcc_learning_samples = MAX_FCC_CYCLES;
+		chip->fcc_learning_samples = devm_kzalloc(&chip->spmi->dev,
+				(sizeof(struct fcc_sample) *
+				chip->min_fcc_learning_samples), GFP_KERNEL);
 		pr_debug("min-fcc-soc=%d, min-fcc-pc=%d, min-fcc-cycles=%d\n",
 			chip->min_fcc_learning_soc, chip->min_fcc_ocv_pc,
 			chip->min_fcc_learning_samples);
@@ -3662,28 +3774,6 @@ static int setup_die_temp_monitoring(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
-static void check_battery_removal(struct qpnp_bms_chip *chip)
-{
-	int rc;
-	u8 temp = 0;
-
-	/* check if battery was removed at PON */
-	rc = qpnp_read_wrapper(chip, &temp,
-				chip->base + BMS_BATT_REMOVED_REG, 1);
-	if (temp == 0xFF) {
-		pr_debug("New battery inserted at PON\n");
-		temp = battery_removed = 1;
-		rc = qpnp_write_wrapper(chip, &temp,
-				chip->base + BMS_BATT_REMOVED_REG, 1);
-		if (rc)
-			pr_err("Unable to set BMS_BATT_REMOVED_REG\n");
-	} else {
-		if (rc)
-			pr_err("Unable to read BMS_BATT_REMOVED_REG\n");
-		battery_removed = 0;
-	}
-}
-
 static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
@@ -3786,19 +3876,32 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	read_shutdown_soc_and_iavg(chip);
 
 	if (chip->enable_fcc_learning) {
-		restore_fcc_data(chip);
-		rc = sysfs_create_group(&spmi->dev.kobj, &fcc_attr_group);
-		if (rc) {
-			pr_err("Unable to create sysfs entries\n");
-			goto error_setup;
+		if (chip->battery_removed) {
+			rc = discard_backup_fcc_data(chip);
+			if (rc)
+				pr_err("Could not discard backed-up FCC data\n");
+		} else {
+			rc = read_chgcycle_data_from_backup(chip);
+			if (rc)
+				pr_err("Unable to restore charge-cycle data\n");
+
+			rc = read_fcc_data_from_backup(chip);
+			if (rc)
+				pr_err("Unable to restore FCC-learning data\n");
+			else
+				attempt_learning_new_fcc(chip);
+
+			rc = sysfs_create_group(&spmi->dev.kobj,
+							&fcc_attr_group);
+			if (rc) {
+				pr_err("Unable to create sysfs entries\n");
+				goto error_setup;
+			}
 		}
 	}
 
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
-
-	check_battery_removal(chip);
-
 
 	rc = setup_vbat_monitoring(chip);
 	if (rc < 0) {
