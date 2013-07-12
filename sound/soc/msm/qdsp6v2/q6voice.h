@@ -1309,6 +1309,11 @@ struct common_data {
 	struct voice_data voice[MAX_VOC_SESSIONS];
 };
 
+struct voice_session_itr {
+	int cur_idx;
+	int session_idx;
+};
+
 void voc_register_mvs_cb(ul_cb_fn ul_cb,
 			dl_cb_fn dl_cb,
 			void *private_data);
@@ -1349,6 +1354,7 @@ enum {
 #define VOLTE_SESSION_VSID  0x10C02000
 #define VOIP_SESSION_VSID   0x10004000
 #define ALL_SESSION_VSID    0xFFFFFFFF
+#define VSID_MAX            ALL_SESSION_VSID
 
 /* called  by alsa driver */
 int voc_set_pp_enable(uint32_t session_id, uint32_t module_id,
