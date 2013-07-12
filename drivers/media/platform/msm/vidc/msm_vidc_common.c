@@ -69,6 +69,20 @@ static bool is_turbo_requested(struct msm_vidc_core *core,
 	return false;
 }
 
+static bool is_thumbnail_session(struct msm_vidc_inst *inst)
+{
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		int rc = 0;
+		struct v4l2_control ctrl = {
+			.id = V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE
+		};
+		rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+		if (!rc && ctrl.value)
+			return true;
+	}
+	return false;
+}
+
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
 {
@@ -83,7 +97,9 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 		if (inst->session_type == type &&
 			inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
-			num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
+			if (!is_thumbnail_session(inst))
+				num_mbs_per_sec += NUM_MBS_PER_SEC(
+					inst->prop.height,
 					inst->prop.width, inst->prop.fps);
 		}
 		mutex_unlock(&inst->lock);
