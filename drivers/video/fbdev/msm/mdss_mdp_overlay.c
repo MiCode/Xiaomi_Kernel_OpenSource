@@ -1986,7 +1986,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 
 	if (!mfd->panel_info->cont_splash_enabled) {
 		rc = mdss_mdp_overlay_start(mfd);
-		if (!IS_ERR_VALUE(rc) && (mfd->panel_info->type != DTV_PANEL))
+		if (!IS_ERR_VALUE(rc) && (mfd->panel_info->type != DTV_PANEL) &&
+			(mfd->panel_info->type != WRITEBACK_PANEL))
 			rc = mdss_mdp_overlay_kickoff(mfd);
 	} else {
 		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
