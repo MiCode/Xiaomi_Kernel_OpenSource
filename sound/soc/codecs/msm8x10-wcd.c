@@ -61,6 +61,7 @@
 #define MAX_MSM8X10_WCD_DEVICE	4
 #define CODEC_DT_MAX_PROP_SIZE	40
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH 64
+#define HELICON_MCLK_CLK_9P6MHZ				9600000
 
 enum {
 	MSM8X10_WCD_I2C_TOP_LEVEL = 0,
@@ -163,10 +164,11 @@ struct msm8x10_wcd_priv {
 	bool mclk_enabled;
 	bool clock_active;
 	bool config_mode_active;
-	bool mbhc_polling_active;
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	/* resmgr module */
 	struct wcd9xxx_resmgr resmgr;
+	/* mbhc module */
+	struct wcd9xxx_mbhc mbhc;
 };
 
 static unsigned short rx_digital_gain_reg[] = {
@@ -2630,7 +2632,7 @@ static void msm8x10_wcd_codec_init_reg(struct snd_soc_codec *codec)
 }
 
 int msm8x10_wcd_hs_detect(struct snd_soc_codec *codec,
-		    struct msm8x10_wcd_mbhc_config *mbhc_cfg)
+		    struct wcd9xxx_mbhc_config *mbhc_cfg)
 {
 	return 0;
 }
@@ -2770,7 +2772,6 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd_priv->bandgap_type = MSM8X10_WCD_BANDGAP_OFF;
 	msm8x10_wcd_priv->clock_active = false;
 	msm8x10_wcd_priv->config_mode_active = false;
-	msm8x10_wcd_priv->mbhc_polling_active = false;
 
 	registered_codec = codec;
 	adsp_state_notifier =
