@@ -14,8 +14,7 @@
 #define __SSM_H_
 
 #define MAX_APP_NAME_SIZE	32
-#define MODE_INFO_MAX_SIZE	4
-#define ENC_MODE_MAX_SIZE	(100 + MODE_INFO_MAX_SIZE)
+#define ENC_MODE_MAX_SIZE	200
 
 /* tzapp response.*/
 enum tz_response {
@@ -30,35 +29,20 @@ enum tz_commands {
 	KEY_EXCHANGE = 11,
 };
 
-/* Command list for QSEOS.*/
-enum qceos_cmd_id {
-	APP_START_COMMAND = 0x01,
-	APP_SHUTDOWN_COMMAND,
-	APP_LOOKUP_COMMAND,
-	CLIENT_SEND_DATA_COMMAND = 0x6,
-	QSEOS_CMD_MAX = 0xEFFFFFFF,
-};
-
 /* MODEM/SSM command list.*/
 enum ssm_ipc_req {
-	SSM_MTOA_KEY_EXCHANGE = 0x0000AAAA,
-	SSM_ATOM_KEY_STATUS,
+	SSM_IPC_MIN = 0x0000AAAB,
 	SSM_ATOM_MODE_UPDATE,
-	SSM_MTOA_MODE_UPDATE_STATUS,
-	SSM_MTOA_PREV_INVALID,
-	SSM_ATOM_PREV_INVALID,
-	SSM_ATOM_SET_DEFAULT_MODE,
+	SSM_MTOA_MODE_UPDATE_STATUS = SSM_IPC_MIN + 4,
 	SSM_INVALID_REQ,
 };
 
 /* OEM reuest commands list.*/
 enum oem_req {
 	SSM_READY,
-	SSM_GET_APP_ID,
 	SSM_MODE_INFO_READY,
 	SSM_SET_MODE,
 	SSM_GET_MODE_STATUS,
-	SSM_SET_DEFAULT_MODE,
 	SSM_INVALID,
 };
 
@@ -67,33 +51,6 @@ enum modem_mode_status {
 	SUCCESS,
 	RETRY,
 	FAILED = -1,
-};
-
-__packed struct load_app {
-	uint32_t cmd_id;
-	uint32_t mdt_len;
-	uint32_t img_len;
-	uint32_t phy_addr;
-	char     app_name[MAX_APP_NAME_SIZE];
-};
-
-/* Stop tzapp reuest.*/
-__packed struct scm_shutdown_req {
-	uint32_t cmd_id;
-	uint32_t app_id;
-};
-
-/* Common tzos response.*/
-__packed struct scm_resp {
-	uint32_t result;
-	enum tz_response resp_type;
-	unsigned int data;
-};
-
-/* tzos request.*/
-__packed struct check_app_req {
-	uint32_t cmd_id;
-	char     app_name[MAX_APP_NAME_SIZE];
 };
 
 /* tzapp encode mode reuest.*/
@@ -123,38 +80,11 @@ __packed struct tzapp_get_mode_info_rsp {
 	long status;
 };
 
-/* tzos key exchange request.*/
-__packed struct ssm_keyexchg_req {
-	uint32_t ssid;
-	void *address;
-	uint32_t length;
-	uint32_t *status;
-};
-
-/* tzos common request.*/
-__packed struct common_req {
-	uint32_t cmd_id;
-	uint32_t app_id;
-	void *req_ptr;
-	uint32_t req_len;
-	void *resp_ptr;
-	uint32_t resp_len;
-};
-
-/* tzos common response.*/
-__packed struct common_resp {
-	uint32_t result;
-	uint32_t type;
-	uint32_t data;
-};
-
 /* Modem/SSM packet format.*/
 struct ssm_common_msg {
-	unsigned long pktlen;
-	unsigned long replaynum;
 	enum ssm_ipc_req ipc_req;
-	unsigned long msg_len;
-	char *msg;
+	int err_code;
+
 };
 
 #endif
