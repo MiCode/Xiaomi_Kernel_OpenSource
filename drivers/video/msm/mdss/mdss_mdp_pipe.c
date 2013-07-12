@@ -173,7 +173,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	} else if (mdata->has_decimation && pipe->src_fmt->is_yuv) {
 		ps.num_planes = 2;
 		ps.ystride[0] = pipe->src.w >> pipe->horz_deci;
-		ps.ystride[1] = pipe->src.h >> pipe->vert_deci;
+		ps.ystride[1] = ps.ystride[0];
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
 			pipe->src.w, pipe->src.h, &ps, 0);
