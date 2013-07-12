@@ -1278,6 +1278,7 @@ static int q6_hfi_load_fw(void *dev)
 	if (!device)
 		return -EINVAL;
 
+	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc adsp_fw load start");
 	if (!device->resources.fw.cookie)
 		device->resources.fw.cookie = subsystem_get("adsp");
 
@@ -1307,6 +1308,7 @@ static int q6_hfi_load_fw(void *dev)
 		goto fail_iommu_attach;
 	}
 
+	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc adsp_fw load end");
 	return rc;
 
 fail_iommu_attach:
@@ -1316,6 +1318,7 @@ fail_apr_register:
 	subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_subsystem_get:
+	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc adsp_fw load end");
 	return rc;
 }
 

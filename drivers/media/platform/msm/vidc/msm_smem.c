@@ -90,8 +90,12 @@ static int get_device_address(struct smem_client *smem_client,
 		dprintk(VIDC_DBG,
 				"Calling ion_map_iommu - domain: %d, partition: %d\n",
 				domain, partition);
+		trace_msm_smem_buffer_iommu_op_start("MAP", domain, partition,
+			align, *iova, *buffer_size);
 		rc = ion_map_iommu(clnt, hndl, domain, partition, align,
 				0, iova, buffer_size, 0, 0);
+		trace_msm_smem_buffer_iommu_op_end("MAP", domain, partition,
+			align, *iova, *buffer_size);
 	} else {
 		dprintk(VIDC_DBG, "Using physical memory address\n");
 		rc = ion_phys(clnt, hndl, iova, (size_t *)buffer_size);
@@ -129,7 +133,12 @@ static void put_device_address(struct smem_client *smem_client,
 		dprintk(VIDC_DBG,
 				"Calling ion_unmap_iommu - domain: %d, parition: %d\n",
 				domain_num, partition_num);
+
+		trace_msm_smem_buffer_iommu_op_start("UNMAP", domain_num,
+				partition_num, 0, 0, 0);
 		ion_unmap_iommu(clnt, hndl, domain_num, partition_num);
+		trace_msm_smem_buffer_iommu_op_end("UNMAP", domain_num,
+				partition_num, 0, 0, 0);
 	}
 	if (flags & SMEM_SECURE) {
 		if (msm_ion_unsecure_buffer(clnt, hndl))
@@ -221,6 +230,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	if (flags & SMEM_SECURE)
 		heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 
+	trace_msm_smem_buffer_ion_op_start("ALLOC", (u32)buffer_type,
+		heap_mask, size, align, flags, map_kernel);
 	hndl = ion_alloc(client->clnt, size, align, heap_mask, flags);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR,
@@ -229,6 +240,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		rc = -ENOMEM;
 		goto fail_shared_mem_alloc;
 	}
+	trace_msm_smem_buffer_ion_op_end("ALLOC", (u32)buffer_type,
+		heap_mask, size, align, flags, map_kernel);
 	mem->mem_type = client->mem_type;
 	mem->smem_priv = hndl;
 	mem->flags = flags;
@@ -293,8 +306,14 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 			mem->smem_priv, domain, partition, mem->flags);
 	if (mem->kvaddr)
 		ion_unmap_kernel(client->clnt, mem->smem_priv);
-	if (mem->smem_priv)
+	if (mem->smem_priv) {
+		trace_msm_smem_buffer_ion_op_start("FREE",
+				(u32)mem->buffer_type, -1, mem->size, -1,
+				mem->flags, -1);
 		ion_free(client->clnt, mem->smem_priv);
+		trace_msm_smem_buffer_ion_op_end("FREE", (u32)mem->buffer_type,
+			-1, mem->size, -1, mem->flags, -1);
+	}
 }
 
 static void *ion_new_client(void)

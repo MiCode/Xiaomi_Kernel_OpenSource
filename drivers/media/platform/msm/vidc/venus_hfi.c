@@ -3662,6 +3662,9 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR,
 		"Failed to protect memory , rc is :%d, response : %d\n",
 		rc, resp);
+	trace_venus_hfi_var_done(
+		memprot.cp_start, memprot.cp_size,
+		memprot.cp_nonpixel_start, memprot.cp_nonpixel_size);
 	return rc;
 }
 
@@ -3792,6 +3795,8 @@ static int venus_hfi_load_fw(void *dev)
 		return -EINVAL;
 	}
 
+	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc venus_fw load start");
+
 	rc = venus_hfi_iommu_attach(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to attach iommu\n");
@@ -3840,6 +3845,7 @@ static int venus_hfi_load_fw(void *dev)
 		}
 	}
 
+	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 fail_protect_mem:
 	mutex_lock(&device->clk_pwr_lock);
@@ -3857,6 +3863,7 @@ fail_load_fw:
 fail_enable_gdsc:
 	venus_hfi_iommu_detach(device);
 fail_iommu_attach:
+	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 }
 

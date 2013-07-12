@@ -11,6 +11,7 @@
  *
  */
 
+#define CREATE_TRACE_POINTS
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 
