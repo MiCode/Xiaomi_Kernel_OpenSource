@@ -42,6 +42,7 @@
 		atmel,display-coords = <0 0 480 800>;
 		atmel,i2c-pull-up;
 		atmel,no-force-update;
+		atmel,no-lpm-support;
 		atmel,cfg_1 {
 			atmel,family-id = <0x81>;
 			atmel,variant-id = <0x15>;
