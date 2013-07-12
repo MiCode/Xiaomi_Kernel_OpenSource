@@ -1337,7 +1337,9 @@ static enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_HEVC:
 		codec = HAL_VIDEO_CODEC_HEVC;
 		break;
-
+	case V4L2_PIX_FMT_HEVC_HYBRID:
+		codec = HAL_VIDEO_CODEC_HEVC_HYBRID;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Wrong codec: %d\n", fourcc);
 		codec = HAL_UNUSED_CODEC;
