@@ -1192,19 +1192,23 @@ invalid_op_error:
 }
 
 /* Remove the request from eviction lists */
-static void cancel_restore(struct ocmem_req *e_handle,
-				struct ocmem_req *req)
+static void cancel_restore(struct ocmem_req *req)
 {
-	struct ocmem_eviction_data *edata = e_handle->edata;
+	struct ocmem_eviction_data *edata;
 
-	if (!edata || !req)
+	if (!req)
+		return;
+
+	edata = req->eviction_info;
+
+	if (!edata)
 		return;
 
 	if (list_empty(&edata->req_list))
 		return;
 
 	list_del_init(&req->eviction_list);
-	req->e_handle = NULL;
+	req->eviction_info = NULL;
 
 	return;
 }
@@ -1499,8 +1503,8 @@ int process_free(int id, struct ocmem_handle *handle)
 	}
 
 	/* Remove the request from any restore lists */
-	if (req->e_handle)
-		cancel_restore(req->e_handle, req);
+	if (req->eviction_info)
+		cancel_restore(req);
 
 	/* Remove the request from any pending opreations */
 	if (TEST_STATE(req, R_ENQUEUED)) {
@@ -1747,12 +1751,7 @@ int process_shrink(int id, struct ocmem_handle *handle, unsigned long size)
 		goto shrink_fail;
 	}
 
-	if (!req->e_handle) {
-		pr_err("Unable to find evicting request\n");
-		goto shrink_fail;
-	}
-
-	edata = req->e_handle->edata;
+	edata = req->eviction_info;
 
 	if (!edata) {
 		pr_err("Unable to find eviction data\n");
@@ -1905,7 +1904,7 @@ static int __evict_common(struct ocmem_eviction_data *edata,
 						&e_req->eviction_list,
 						&edata->req_list);
 					atomic_inc(&edata->pending);
-					e_req->e_handle = req;
+					e_req->eviction_info = edata;
 				}
 			}
 		} else {
@@ -2037,7 +2036,7 @@ static int __restore_common(struct ocmem_eviction_data *edata)
 		pr_debug("ocmem: restoring evicted request %p\n",
 							req);
 		req->edata = NULL;
-		req->e_handle = NULL;
+		req->eviction_info = NULL;
 		req->op = SCHED_ALLOCATE;
 		inc_ocmem_stat(zone_of(req), NR_RESTORES);
 		sched_enqueue(req);
@@ -2076,8 +2075,11 @@ int process_restore(int id)
 	struct ocmem_eviction_data *edata = evictions[id];
 	int rc = 0;
 
-	if (!edata)
+	if (!edata) {
+		pr_err("Client %s invoked restore without any eviction\n",
+					get_name(id));
 		return -EINVAL;
+	}
 
 	mutex_lock(&free_mutex);
 	rc = __restore_common(edata);
