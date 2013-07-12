@@ -62,7 +62,7 @@
 			qcom,vinmin-mv = <4200>;
 			qcom,vbatdet-mv = <4100>;
 			qcom,ibatmax-ma = <1500>;
-			qcom,ibatterm-ma = <200>;
+			qcom,ibatterm-ma = <100>;
 			qcom,ibatsafe-ma = <1500>;
 			qcom,thermal-mitigation = <1500 700 600 325>;
 			qcom,vbatdet-delta-mv = <350>;
