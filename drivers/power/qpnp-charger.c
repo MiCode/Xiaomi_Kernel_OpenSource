@@ -1143,7 +1143,7 @@ qpnp_power_get_property_mains(struct power_supply *psy,
 		val->intval = qpnp_chg_is_dc_chg_plugged_in(chip);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = chip->maxinput_dc_ma;
+		val->intval = chip->maxinput_dc_ma * 1000;
 		break;
 	default:
 		return -EINVAL;
