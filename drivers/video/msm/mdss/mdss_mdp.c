@@ -1047,6 +1047,55 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	}
 }
 
+static ssize_t mdss_mdp_show_capabilities(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mdss_data_type *mdata = dev_get_drvdata(dev);
+	size_t len = PAGE_SIZE;
+	int cnt = 0;
+
+#define SPRINT(fmt, ...) \
+		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
+
+	SPRINT("mdp_version=5 hw_rev=%d\n", mdata->mdp_rev);
+	SPRINT("rgb_pipes=%d\n", mdata->nrgb_pipes);
+	SPRINT("vig_pipes=%d\n", mdata->nvig_pipes);
+	SPRINT("dma_pipes=%d\n", mdata->ndma_pipes);
+	SPRINT("smp_count=%d\n", mdata->smp_mb_cnt);
+	SPRINT("smp_size=%d\n", mdata->smp_mb_size);
+	SPRINT("max downscale ratio=%d\n", MAX_DOWNSCALE_RATIO);
+	SPRINT("max upscale ratio=%d\n", MAX_UPSCALE_RATIO);
+	SPRINT("features:");
+	if (mdata->has_bwc)
+		SPRINT(" bwc");
+	if (mdata->has_decimation)
+		SPRINT(" decimation");
+	SPRINT("\n");
+
+	return cnt;
+}
+
+static DEVICE_ATTR(caps, S_IRUGO, mdss_mdp_show_capabilities, NULL);
+
+static struct attribute *mdp_fs_attrs[] = {
+	&dev_attr_caps.attr,
+	NULL
+};
+
+static struct attribute_group mdp_fs_attr_group = {
+	.attrs = mdp_fs_attrs
+};
+
+static int mdss_mdp_register_sysfs(struct mdss_data_type *mdata)
+{
+	struct device *dev = &mdata->pdev->dev;
+	int rc;
+
+	rc = sysfs_create_group(&dev->kobj, &mdp_fs_attr_group);
+
+	return rc;
+}
+
 static int mdss_mdp_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -1152,6 +1201,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	if (!pm_runtime_enabled(&pdev->dev))
 		mdss_mdp_footswitch_ctrl(mdata, true);
+
+	rc = mdss_mdp_register_sysfs(mdata);
+	if (rc)
+		pr_err("unable to register mdp sysfs nodes\n");
 
 	rc = mdss_fb_register_mdp_instance(&mdp5);
 	if (rc)
