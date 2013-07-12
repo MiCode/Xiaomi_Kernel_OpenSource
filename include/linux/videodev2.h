@@ -403,6 +403,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_DIVX      v4l2_fourcc('D', 'I', 'V', 'X') /* DIVX        */
 #define V4L2_PIX_FMT_VP8 v4l2_fourcc('V', 'P', '8', '0') /* ON2 VP8 stream */
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C') /* for HEVC stream */
+#define V4L2_PIX_FMT_HEVC_HYBRID v4l2_fourcc('H', 'V', 'C', 'H')
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
