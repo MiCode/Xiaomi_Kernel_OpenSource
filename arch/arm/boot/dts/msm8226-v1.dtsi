@@ -17,3 +17,8 @@
  */
 
 /include/ "msm8226.dtsi"
+
+&tsens {
+	qcom,sensors = <4>;
+	qcom,slope = <2901 2846 3038 2955>;
+};
