@@ -26,6 +26,7 @@
 #include <linux/pm_qos.h>
 #include <linux/hrtimer.h>
 #include <linux/power_supply.h>
+#include <linux/cdev.h>
 /*
  * The following are bit fields describing the usb_request.udc_priv word.
  * These bit fields are set by function drivers that wish to queue
@@ -347,6 +348,7 @@ struct msm_otg {
 	struct clk *phy_reset_clk;
 	struct clk *core_clk;
 	long core_clk_rate;
+	struct resource *io_res;
 	void __iomem *regs;
 #define ID		0
 #define B_SESS_VLD	1
@@ -434,6 +436,14 @@ struct msm_otg {
 	unsigned int online;
 	unsigned int host_mode;
 	unsigned int current_max;
+
+	dev_t ext_chg_dev;
+	struct cdev ext_chg_cdev;
+	struct class *ext_chg_class;
+	struct device *ext_chg_device;
+	bool ext_chg_opened;
+	bool ext_chg_active;
+	struct completion ext_chg_wait;
 };
 
 struct ci13xxx_platform_data {
