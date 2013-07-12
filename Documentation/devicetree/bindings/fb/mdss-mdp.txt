@@ -131,6 +131,9 @@ Optional properties:
 				restricted for a source surface pipe. If this
 				property is not specified, no such restriction
 				would be applied.
+- qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
+				linear format. The value tells the GPU highest memory
+				 bank bit used.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
