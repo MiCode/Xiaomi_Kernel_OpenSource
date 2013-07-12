@@ -2767,13 +2767,6 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	chip->duty_cycle_100p = of_property_read_bool(
 					chip->spmi->dev.of_node,
 					"qcom,duty-cycle-100p");
-	if (chip->duty_cycle_100p) {
-		rc = qpnp_buck_set_100_duty_cycle_enable(chip, 1);
-		if (rc) {
-			pr_err("failed to enable duty cycle %d\n", rc);
-			return rc;
-		}
-	}
 
 	/* Get the fake-batt-values property */
 	chip->use_default_batt_values =
@@ -2938,6 +2931,16 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				chip->buck_base + BUCK_TEST_SMBC_MODES,
 				0xFF,
 				0x80, 1);
+
+			if (chip->duty_cycle_100p) {
+				rc = qpnp_buck_set_100_duty_cycle_enable(chip,
+						1);
+				if (rc) {
+					pr_err("failed to set duty cycle %d\n",
+						rc);
+					goto fail_chg_enable;
+				}
+			}
 
 			break;
 		case SMBB_BAT_IF_SUBTYPE:
