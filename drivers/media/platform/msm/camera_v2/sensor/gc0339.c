@@ -490,6 +490,11 @@ int32_t gc0339_config(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 
+		if (conf_array.addr_type == MSM_CAMERA_I2C_WORD_ADDR
+			|| conf_array.data_type == MSM_CAMERA_I2C_WORD_DATA
+			|| !conf_array.size)
+			break;
+
 		reg_setting = kzalloc(conf_array.size *
 			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
 		if (!reg_setting) {
