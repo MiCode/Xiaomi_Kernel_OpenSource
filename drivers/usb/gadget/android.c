@@ -57,7 +57,6 @@
 #include "u_data_hsic.c"
 #include "u_ctrl_hsuart.c"
 #include "u_data_hsuart.c"
-#include "f_serial.c"
 #include "f_ccid.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
@@ -1349,6 +1348,13 @@ static struct android_usb_function qdss_function = {
 };
 
 /* SERIAL */
+#define MAX_SERIAL_INSTANCES 4
+struct serial_function_config {
+	int instances_on;
+	struct usb_function *f_serial[MAX_SERIAL_INSTANCES];
+	struct usb_function_instance *f_serial_inst[MAX_SERIAL_INSTANCES];
+};
+
 static char serial_transports[32];	/*enabled FSERIAL ports - "tty[,sdio]"*/
 static ssize_t serial_transports_store(
 		struct device *device, struct device_attribute *attr,
@@ -1387,9 +1393,32 @@ static struct device_attribute *serial_function_attributes[] = {
 					&dev_attr_serial_xport_names,
 					NULL };
 
+static int serial_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	struct serial_function_config *config;
+
+	config = kzalloc(sizeof(struct serial_function_config), GFP_KERNEL);
+	if (!config)
+		return -ENOMEM;
+
+	f->config = config;
+
+	return 0;
+}
+
 static void serial_function_cleanup(struct android_usb_function *f)
 {
-	gserial_cleanup();
+	int i;
+	struct serial_function_config *config = f->config;
+
+	gport_cleanup();
+	for (i = 0; i < config->instances_on; i++) {
+		usb_put_function(config->f_serial[i]);
+		usb_put_function_instance(config->f_serial_inst[i]);
+	}
+	kfree(f->config);
+	f->config = NULL;
 }
 
 static int serial_function_bind_config(struct android_usb_function *f,
@@ -1399,6 +1428,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 	char buf[32], *b, xport_name_buf[32], *tb;
 	int err = -1, i;
 	static int serial_initialized = 0, ports = 0;
+	struct serial_function_config *config = f->config;
 
 	if (serial_initialized)
 		goto bind_config;
@@ -1422,6 +1452,10 @@ static int serial_function_bind_config(struct android_usb_function *f,
 				goto out;
 			}
 			ports++;
+			if (ports >= MAX_SERIAL_INSTANCES) {
+				pr_err("serial: max ports reached '%s'", name);
+				goto out;
+			}
 		}
 	}
 	err = gport_setup(c);
@@ -1430,13 +1464,41 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		goto out;
 	}
 
+	for (i = 0; i < ports; i++) {
+		config->f_serial_inst[i] = usb_get_function_instance("gser");
+		if (IS_ERR(config->f_serial_inst[i])) {
+			err = PTR_ERR(config->f_serial_inst[i]);
+			goto err_gser_usb_get_function_instance;
+		}
+		config->f_serial[i] = usb_get_function(config->f_serial_inst[i]);
+		if (IS_ERR(config->f_serial[i])) {
+			err = PTR_ERR(config->f_serial[i]);
+			goto err_gser_usb_get_function;
+		}
+	}
+	config->instances_on = ports;
+
 bind_config:
 	for (i = 0; i < ports; i++) {
-		err = gser_bind_config(c, i);
+		err = usb_add_function(c, config->f_serial[i]);
 		if (err) {
-			pr_err("serial: bind_config failed for port %d", i);
-			goto out;
+			pr_err("Could not bind gser%u config\n", i);
+			goto err_gser_usb_add_function;
 		}
+	}
+	return 0;
+
+err_gser_usb_add_function:
+	while (i-- > 0)
+		usb_remove_function(c, config->f_serial[i]);
+
+	return err;
+
+err_gser_usb_get_function_instance:
+	while (i-- > 0) {
+		usb_put_function(config->f_serial[i]);
+err_gser_usb_get_function:
+		usb_put_function_instance(config->f_serial_inst[i]);
 	}
 
 out:
@@ -1445,6 +1507,7 @@ out:
 
 static struct android_usb_function serial_function = {
 	.name		= "serial",
+	.init		= serial_function_init,
 	.cleanup	= serial_function_cleanup,
 	.bind_config	= serial_function_bind_config,
 	.attributes	= serial_function_attributes,

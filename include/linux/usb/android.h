@@ -44,4 +44,9 @@ static inline int tcm_bind_config(struct usb_configuration *c)
 }
 #endif
 
+extern int gport_setup(struct usb_configuration *c);
+extern void gport_cleanup(void);
+extern int gserial_init_port(int port_num, const char *name,
+					const char *port_name);
+
 #endif	/* __LINUX_USB_ANDROID_H */

@@ -870,6 +870,7 @@ config USB_G_PRINTER
 config USB_G_ANDROID
 	boolean "Android Composite Gadget"
 	select USB_F_ACM
+	select USB_F_SERIAL
 	select USB_LIBCOMPOSITE
 	select USB_U_SERIAL
 	help
