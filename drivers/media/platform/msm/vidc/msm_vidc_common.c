@@ -744,6 +744,15 @@ static void handle_ebd(enum command_response cmd, void *data)
 	vb = response->clnt_data;
 	inst = (struct msm_vidc_inst *)response->session_id;
 	if (vb) {
+		vb->v4l2_planes[0].bytesused = response->input_done.filled_len;
+		vb->v4l2_planes[0].data_offset = response->input_done.offset;
+		if (vb->v4l2_planes[0].data_offset > vb->v4l2_planes[0].length)
+			dprintk(VIDC_ERR, "Error: data_offset overflow\n");
+		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
+			dprintk(VIDC_ERR, "Error: buffer overflow\n");
+		if ((u8 *)vb->v4l2_planes[0].m.userptr !=
+			response->input_done.packet_buffer)
+			dprintk(VIDC_ERR, "Error: unexpected buffer address\n");
 		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
@@ -1905,10 +1914,19 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		memset(&frame_data, 0 , sizeof(struct vidc_frame_data));
 		frame_data.alloc_len = vb->v4l2_planes[0].length;
 		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
+		frame_data.offset = vb->v4l2_planes[0].data_offset;
 		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
 		frame_data.timestamp = time_usec;
 		frame_data.flags = 0;
 		frame_data.clnt_data = (u32)vb;
+		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+			(frame_data.filled_len > frame_data.alloc_len ||
+			frame_data.offset > frame_data.alloc_len)) {
+			dprintk(VIDC_ERR,
+				"Buffer will overflow, not queueing it\n");
+			rc = -EINVAL;
+			goto err_bad_input;
+		}
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			frame_data.buffer_type = HAL_BUFFER_INPUT;
 			if (vb->v4l2_buf.flags & V4L2_BUF_FLAG_EOS) {
@@ -1927,8 +1945,11 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				V4L2_QCOM_BUF_TIMESTAMP_INVALID)
 				frame_data.timestamp = LLONG_MAX;
 			dprintk(VIDC_DBG,
-				"Sending etb to hal: Alloc: %d :filled: %d\n",
-				frame_data.alloc_len, frame_data.filled_len);
+				"Sending etb to hal: device_addr: 0x%x"
+				"Alloc: %d, filled: %d, offset: %d\n",
+				frame_data.device_addr,
+				frame_data.alloc_len, frame_data.filled_len,
+				frame_data.offset);
 			rc = call_hfi_op(hdev, session_etb, (void *)
 					inst->session, &frame_data);
 			if (!rc)
@@ -1981,6 +2002,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			rc = -EINVAL;
 		}
 	}
+err_bad_input:
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to queue buffer\n");
 err_no_mem:
