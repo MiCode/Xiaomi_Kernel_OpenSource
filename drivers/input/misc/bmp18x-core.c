@@ -441,7 +441,7 @@ static ssize_t set_enable(struct device *dev,
 		mutex_unlock(&data->lock);
 
 	}
-	return success;
+	return count;
 }
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
 				show_enable, set_enable);
@@ -573,7 +573,7 @@ __devinit int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus)
 	int err = 0;
 
 	if (pdata && pdata->init_hw) {
-		err = pdata->init_hw();
+		err = pdata->init_hw(data_bus);
 		if (err) {
 			printk(KERN_ERR "%s: init_hw failed!\n",
 				BMP18X_NAME);
@@ -633,7 +633,7 @@ exit_free:
 	kfree(data);
 exit:
 	if (pdata && pdata->deinit_hw)
-		pdata->deinit_hw();
+		pdata->deinit_hw(data_bus);
 	return err;
 }
 EXPORT_SYMBOL(bmp18x_probe);
@@ -655,9 +655,9 @@ EXPORT_SYMBOL(bmp18x_remove);
 int bmp18x_disable(struct device *dev)
 {
 	struct bmp18x_platform_data *pdata = dev->platform_data;
-
+	struct bmp18x_data *data = dev_get_drvdata(dev);
 	if (pdata && pdata->deinit_hw)
-		pdata->deinit_hw();
+		pdata->deinit_hw(&data->data_bus);
 
 	return 0;
 }
@@ -666,9 +666,9 @@ EXPORT_SYMBOL(bmp18x_disable);
 int bmp18x_enable(struct device *dev)
 {
 	struct bmp18x_platform_data *pdata = dev->platform_data;
-
+	struct bmp18x_data *data = dev_get_drvdata(dev);
 	if (pdata && pdata->init_hw)
-		return pdata->init_hw();
+		return pdata->init_hw(&data->data_bus);
 
 	return 0;
 }

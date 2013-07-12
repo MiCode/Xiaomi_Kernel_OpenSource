@@ -1,0 +1,35 @@
+Bosch BMP18x-series altimeter driver
+
+Required properties:
+
+ - compatible			: Should be "bosch,bmp180".
+ - reg					: i2c slave address of the device.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vddio-supply		: Digital IO power supply needed for IO and I2C.
+ - bosch,chip-id		: Chip id for the bmp18x altimeter sensor.
+ - bosch,oversample	: Sensor default oversampling value.
+				Default oversampling value to be used at startup.
+				Value range is 0-3 with rising sensitivity.
+ - bosch,period	: Temperature measurement period (milliseconds).
+				Set to zero if unsure.
+
+Optional properties:
+
+ - bosch,sw-oversample	: Boolean to enable software oversampling if
+				this property is defined. Only take effect when
+				default_oversampling is 3.
+
+Example:
+	i2c@f9925000 {
+		bmp180@77 {
+			status = "okay";
+			reg = <0x77>;
+			compatible = "bosch,bmp180";
+			vdd-supply = <&pm8110_l19>;
+			vddio-supply = <&pm8110_l14>;
+			bosch,chip-id = <0x55>;
+			bosch,oversample = <3>;
+			bosch,period = <1000>;
+			bosch,sw-oversample;
+		};
+	};
