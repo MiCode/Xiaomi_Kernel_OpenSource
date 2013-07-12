@@ -1656,7 +1656,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 
 static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = container_of(charger, struct dwc3_msm, charger);
 
 	if (start == false) {
 		dev_dbg(mdwc->dev, "canceling charging detection work\n");
@@ -2395,25 +2395,27 @@ static DEVICE_ATTR(adc_enable, S_IRUGO | S_IWUSR, adc_enable_show,
 
 static int dwc3_msm_ext_chg_open(struct inode *inode, struct file *file)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc =
+		container_of(inode->i_cdev, struct dwc3_msm, ext_chg_cdev);
 
 	pr_debug("dwc3-msm ext chg open\n");
-
+	file->private_data = mdwc;
 	mdwc->ext_chg_opened = true;
+
 	return 0;
 }
 
 static long
 dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = file->private_data;
 	struct msm_usb_chg_info info = {0};
 	int ret = 0, val;
 
 	switch (cmd) {
 	case MSM_USB_EXT_CHG_INFO:
 		info.chg_block_type = USB_CHG_BLOCK_QSCRATCH;
-		info.page_offset = (context->io_res->start +
+		info.page_offset = (mdwc->io_res->start +
 				QSCRATCH_REG_OFFSET) & ~PAGE_MASK;
 		/*
 		 * The charger block register address space is only
@@ -2456,7 +2458,7 @@ dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int dwc3_msm_ext_chg_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = file->private_data;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	int ret;
 
@@ -2477,7 +2479,7 @@ static int dwc3_msm_ext_chg_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int dwc3_msm_ext_chg_release(struct inode *inode, struct file *file)
 {
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = file->private_data;
 
 	pr_debug("dwc3-msm ext chg release\n");
 
