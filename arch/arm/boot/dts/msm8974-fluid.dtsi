@@ -271,7 +271,7 @@
 			qcom,ctrl-delay-us = <0>;
 			qcom,boost-curr-lim = <3>;
 			qcom,cp-sel = <0>;
-			qcom,switch-freq = <2>;
+			qcom,switch-freq = <11>;
 			qcom,ovp-val = <2>;
 			qcom,num-strings = <1>;
 			qcom,id = <0>;
