@@ -343,8 +343,8 @@ static inline void dwc3_msm_write_readback(void *base, u32 offset,
 	tmp &= mask;		/* clear other bits */
 
 	if (tmp != val)
-		dev_err(context->dev, "%s: write: %x to QSCRATCH: %x FAILED\n",
-						__func__, val, offset);
+		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
+			__func__, val, offset);
 }
 
 /**
@@ -1058,10 +1058,9 @@ int msm_register_usb_ext_notification(struct usb_ext_notification *info)
 EXPORT_SYMBOL(msm_register_usb_ext_notification);
 
 /* HSPHY */
-static int dwc3_hsusb_config_vddcx(int high)
+static int dwc3_hsusb_config_vddcx(struct dwc3_msm *dwc, int high)
 {
 	int min_vol, max_vol, ret;
-	struct dwc3_msm *dwc = context;
 
 	max_vol = dwc->vdd_high_vol_level;
 	min_vol = high ? dwc->vdd_low_vol_level : dwc->vdd_no_vol_level;
@@ -1077,10 +1076,9 @@ static int dwc3_hsusb_config_vddcx(int high)
 	return ret;
 }
 
-static int dwc3_hsusb_ldo_init(int init)
+static int dwc3_hsusb_ldo_init(struct dwc3_msm *dwc, int init)
 {
 	int rc = 0;
-	struct dwc3_msm *dwc = context;
 
 	if (!init) {
 		regulator_set_voltage(dwc->hsusb_1p8, 0, USB_HSPHY_1P8_VOL_MAX);
@@ -1121,10 +1119,9 @@ devote_3p3:
 	return rc;
 }
 
-static int dwc3_hsusb_ldo_enable(int on)
+static int dwc3_hsusb_ldo_enable(struct dwc3_msm *dwc, int on)
 {
 	int rc = 0;
-	struct dwc3_msm *dwc = context;
 
 	dev_dbg(dwc->dev, "reg (%s)\n", on ? "HPM" : "LPM");
 
@@ -1182,10 +1179,9 @@ put_1p8_lpm:
 }
 
 /* SSPHY */
-static int dwc3_ssusb_config_vddcx(int high)
+static int dwc3_ssusb_config_vddcx(struct dwc3_msm *dwc, int high)
 {
 	int min_vol, max_vol, ret;
-	struct dwc3_msm *dwc = context;
 
 	max_vol = dwc->vdd_high_vol_level;
 	min_vol = high ? dwc->vdd_low_vol_level : dwc->vdd_no_vol_level;
@@ -1201,10 +1197,9 @@ static int dwc3_ssusb_config_vddcx(int high)
 }
 
 /* 3.3v supply not needed for SS PHY */
-static int dwc3_ssusb_ldo_init(int init)
+static int dwc3_ssusb_ldo_init(struct dwc3_msm *dwc, int init)
 {
 	int rc = 0;
-	struct dwc3_msm *dwc = context;
 
 	if (!init) {
 		regulator_set_voltage(dwc->ssusb_1p8, 0, USB_SSPHY_1P8_VOL_MAX);
@@ -1224,12 +1219,11 @@ static int dwc3_ssusb_ldo_init(int init)
 	return rc;
 }
 
-static int dwc3_ssusb_ldo_enable(int on)
+static int dwc3_ssusb_ldo_enable(struct dwc3_msm *dwc, int on)
 {
 	int rc = 0;
-	struct dwc3_msm *dwc = context;
 
-	dev_dbg(context->dev, "reg (%s)\n", on ? "HPM" : "LPM");
+	dev_dbg(dwc->dev, "reg (%s)\n", on ? "HPM" : "LPM");
 
 	if (!on)
 		goto disable_regulators;
@@ -1293,10 +1287,9 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *msm, int on)
 	return 0;
 }
 
-static int dwc3_msm_link_clk_reset(bool assert)
+static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 {
 	int ret = 0;
-	struct dwc3_msm *mdwc = context;
 
 	if (assert) {
 		/* Using asynchronous block reset to the hardware */
@@ -1428,19 +1421,18 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	msm->qscratch_ctl_val = dwc3_msm_read_reg(msm->base, QSCRATCH_CTRL_REG);
 }
 
-static void dwc3_msm_block_reset(bool core_reset)
+static void dwc3_msm_block_reset(struct dwc3_ext_xceiv *xceiv, bool core_reset)
 {
-
-	struct dwc3_msm *mdwc = context;
+	struct dwc3_msm *mdwc = container_of(xceiv, struct dwc3_msm, ext_xceiv);
 	int ret  = 0;
 
 	if (core_reset) {
-		ret = dwc3_msm_link_clk_reset(1);
+		ret = dwc3_msm_link_clk_reset(mdwc, 1);
 		if (ret)
 			return;
 
 		usleep_range(1000, 1200);
-		ret = dwc3_msm_link_clk_reset(0);
+		ret = dwc3_msm_link_clk_reset(mdwc, 0);
 		if (ret)
 			return;
 
@@ -1796,12 +1788,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
 							!host_bus_suspend)
-		dwc3_hsusb_ldo_enable(0);
+		dwc3_hsusb_ldo_enable(mdwc, 0);
 
-	dwc3_ssusb_ldo_enable(0);
-	dwc3_ssusb_config_vddcx(0);
+	dwc3_ssusb_ldo_enable(mdwc, 0);
+	dwc3_ssusb_config_vddcx(mdwc, 0);
 	if (!host_bus_suspend && !dcp)
-		dwc3_hsusb_config_vddcx(0);
+		dwc3_hsusb_config_vddcx(mdwc, 0);
 	wake_unlock(&mdwc->wlock);
 	atomic_set(&mdwc->in_lpm, 1);
 
@@ -1861,13 +1853,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
 							!host_bus_suspend)
-		dwc3_hsusb_ldo_enable(1);
+		dwc3_hsusb_ldo_enable(mdwc, 1);
 
-	dwc3_ssusb_ldo_enable(1);
-	dwc3_ssusb_config_vddcx(1);
+	dwc3_ssusb_ldo_enable(mdwc, 1);
+	dwc3_ssusb_config_vddcx(mdwc, 1);
 
 	if (!host_bus_suspend && !dcp)
-		dwc3_hsusb_config_vddcx(1);
+		dwc3_hsusb_config_vddcx(mdwc, 1);
 
 	clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
@@ -2671,25 +2663,25 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_ref_clk;
 	}
 
-	ret = dwc3_ssusb_config_vddcx(1);
+	ret = dwc3_ssusb_config_vddcx(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "ssusb vddcx configuration failed\n");
 		goto disable_ref_clk;
 	}
 
-	ret = regulator_enable(context->ssusb_vddcx);
+	ret = regulator_enable(msm->ssusb_vddcx);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to enable the ssusb vddcx\n");
 		goto unconfig_ss_vddcx;
 	}
 
-	ret = dwc3_ssusb_ldo_init(1);
+	ret = dwc3_ssusb_ldo_init(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "ssusb vreg configuration failed\n");
 		goto disable_ss_vddcx;
 	}
 
-	ret = dwc3_ssusb_ldo_enable(1);
+	ret = dwc3_ssusb_ldo_enable(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "ssusb vreg enable failed\n");
 		goto free_ss_ldo_init;
@@ -2703,25 +2695,25 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_ss_ldo;
 	}
 
-	ret = dwc3_hsusb_config_vddcx(1);
+	ret = dwc3_hsusb_config_vddcx(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
 		goto disable_ss_ldo;
 	}
 
-	ret = regulator_enable(context->hsusb_vddcx);
+	ret = regulator_enable(msm->hsusb_vddcx);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to enable the hsusb vddcx\n");
 		goto unconfig_hs_vddcx;
 	}
 
-	ret = dwc3_hsusb_ldo_init(1);
+	ret = dwc3_hsusb_ldo_init(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
 		goto disable_hs_vddcx;
 	}
 
-	ret = dwc3_hsusb_ldo_enable(1);
+	ret = dwc3_hsusb_ldo_enable(msm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
 		goto free_hs_ldo_init;
@@ -2963,21 +2955,21 @@ put_psupply:
 	if (msm->usb_psy.dev)
 		power_supply_unregister(&msm->usb_psy);
 disable_hs_ldo:
-	dwc3_hsusb_ldo_enable(0);
+	dwc3_hsusb_ldo_enable(msm, 0);
 free_hs_ldo_init:
-	dwc3_hsusb_ldo_init(0);
+	dwc3_hsusb_ldo_init(msm, 0);
 disable_hs_vddcx:
-	regulator_disable(context->hsusb_vddcx);
+	regulator_disable(msm->hsusb_vddcx);
 unconfig_hs_vddcx:
-	dwc3_hsusb_config_vddcx(0);
+	dwc3_hsusb_config_vddcx(msm, 0);
 disable_ss_ldo:
-	dwc3_ssusb_ldo_enable(0);
+	dwc3_ssusb_ldo_enable(msm, 0);
 free_ss_ldo_init:
-	dwc3_ssusb_ldo_init(0);
+	dwc3_ssusb_ldo_init(msm, 0);
 disable_ss_vddcx:
-	regulator_disable(context->ssusb_vddcx);
+	regulator_disable(msm->ssusb_vddcx);
 unconfig_ss_vddcx:
-	dwc3_ssusb_config_vddcx(0);
+	dwc3_ssusb_config_vddcx(msm, 0);
 disable_ref_clk:
 	clk_disable_unprepare(msm->ref_clk);
 disable_utmi_clk:
@@ -3027,14 +3019,14 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 	pm_runtime_disable(msm->dev);
 	wake_lock_destroy(&msm->wlock);
 
-	dwc3_hsusb_ldo_enable(0);
-	dwc3_hsusb_ldo_init(0);
+	dwc3_hsusb_ldo_enable(msm, 0);
+	dwc3_hsusb_ldo_init(msm, 0);
 	regulator_disable(msm->hsusb_vddcx);
-	dwc3_hsusb_config_vddcx(0);
-	dwc3_ssusb_ldo_enable(0);
-	dwc3_ssusb_ldo_init(0);
+	dwc3_hsusb_config_vddcx(msm, 0);
+	dwc3_ssusb_ldo_enable(msm, 0);
+	dwc3_ssusb_ldo_init(msm, 0);
 	regulator_disable(msm->ssusb_vddcx);
-	dwc3_ssusb_config_vddcx(0);
+	dwc3_ssusb_config_vddcx(msm, 0);
 	clk_disable_unprepare(msm->core_clk);
 	clk_disable_unprepare(msm->iface_clk);
 	clk_disable_unprepare(msm->sleep_clk);
