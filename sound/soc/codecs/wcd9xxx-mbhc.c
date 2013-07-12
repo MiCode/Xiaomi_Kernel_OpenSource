@@ -220,11 +220,15 @@ static void wcd9xxx_start_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	pr_debug("%s: leave\n", __func__);
 }
 
-/* called under codec_resource_lock acquisition */
-static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
+/*
+ * called under codec_resource_lock acquisition
+ * return old status
+ */
+static bool __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 				     int vddio_switch, bool restartpolling,
 				     bool checkpolling)
 {
+	bool ret;
 	int cfilt_k_val;
 	bool override;
 	struct snd_soc_codec *codec;
@@ -234,9 +238,11 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 
 	if (mbhc->micbias_enable) {
 		pr_debug("%s: micbias is already on\n", __func__);
-		return;
+		ret = mbhc->mbhc_micbias_switched;
+		return ret;
 	}
 
+	ret = mbhc->mbhc_micbias_switched;
 	if (vddio_switch && !mbhc->mbhc_micbias_switched &&
 	    (!checkpolling || mbhc->polling_active)) {
 		if (restartpolling)
@@ -343,11 +349,13 @@ static void __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 		mbhc->mbhc_micbias_switched = false;
 		pr_debug("%s: VDDIO switch disabled\n", __func__);
 	}
+
+	return ret;
 }
 
 static void wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc, int vddio_switch)
 {
-	return __wcd9xxx_switch_micbias(mbhc, vddio_switch, true, true);
+	__wcd9xxx_switch_micbias(mbhc, vddio_switch, true, true);
 }
 
 static s16 wcd9xxx_get_current_v(struct wcd9xxx_mbhc *mbhc,
@@ -1124,10 +1132,15 @@ static int wcd9xxx_hphl_status(struct wcd9xxx_mbhc *mbhc)
 /*
  * wcd9xxx_find_plug_type : Find out and return the best plug type with given
  *			    list of wcd9xxx_mbhc_detect structure.
+ * param mbhc wcd9xxx_mbhc structure
+ * param dt collected measurements
+ * param size array size of dt
+ * param event_state mbhc->event_state when dt is collected
  */
 static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
-		       struct wcd9xxx_mbhc_detect *dt, const int size)
+		       struct wcd9xxx_mbhc_detect *dt, const int size,
+		       unsigned long event_state)
 {
 	int i;
 	int ch;
@@ -1139,6 +1152,8 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 	    WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 	const s16 hs_max = plug_type->v_hs_max;
 	const s16 no_mic = plug_type->v_no_mic;
+
+	pr_debug("%s: event_state 0x%lx\n", __func__, event_state);
 
 	for (i = 0, d = dt, ch = 0; i < size; i++, d++) {
 		vdce = wcd9xxx_codec_sta_dce_v(mbhc, true, d->dce);
@@ -1181,7 +1196,10 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			goto exit;
 		}
 	}
-	if (ch != size && ch > 0) {
+
+	if (event_state & (1 << MBHC_EVENT_PA_HPHL)) {
+		pr_debug("%s: HPHL PA was ON\n", __func__);
+	} else if (ch != size && ch > 0) {
 		pr_debug("%s: Invalid, inconsistent HPHL\n", __func__);
 		type = PLUG_TYPE_INVALID;
 		goto exit;
@@ -1221,12 +1239,18 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		     maxv))
 			type = PLUG_TYPE_GND_MIC_SWAP;
 	}
-	if (((type == PLUG_TYPE_HEADSET || type == PLUG_TYPE_HEADPHONE) &&
-	    ch != size) || (type == PLUG_TYPE_GND_MIC_SWAP && ch)) {
-		pr_debug("%s: Invalid, not fully inserted, TYPE %d\n",
-		    __func__, type);
-		type = PLUG_TYPE_INVALID;
+
+	/* if HPHL PA was on, we cannot use hphl status */
+	if (!(event_state & (1UL << MBHC_EVENT_PA_HPHL))) {
+		if (((type == PLUG_TYPE_HEADSET ||
+		      type == PLUG_TYPE_HEADPHONE) && ch != size) ||
+		    (type == PLUG_TYPE_GND_MIC_SWAP && ch)) {
+			pr_debug("%s: Invalid, not fully inserted, TYPE %d\n",
+				 __func__, type);
+			type = PLUG_TYPE_INVALID;
+		}
 	}
+
 	if (type == PLUG_TYPE_HEADSET && dvddio) {
 		if ((dvddio->_vdces > hs_max) ||
 		    (dvddio->_vdces > minv + WCD9XXX_THRESHOLD_MIC_THRESHOLD)) {
@@ -1294,6 +1318,7 @@ static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 {
 	int i;
+	bool vddioon;
 	struct wcd9xxx_mbhc_plug_type_cfg *plug_type_ptr;
 	struct wcd9xxx_mbhc_detect rt[NUM_DCE_PLUG_INS_DETECT];
 	enum wcd9xxx_mbhc_plug_type type = PLUG_TYPE_INVALID;
@@ -1307,6 +1332,13 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 
 	/* GND and MIC swap detection requires at least 2 rounds of DCE */
 	BUG_ON(NUM_DCE_PLUG_INS_DETECT < 2);
+
+	/*
+	 * There are chances vddio switch is on and cfilt voltage is adjusted
+	 * to vddio voltage even after plug type removal reported.
+	 */
+	vddioon = __wcd9xxx_switch_micbias(mbhc, 0, false, false);
+	pr_debug("%s: vddio switch was %s\n", __func__, vddioon ? "on" : "off");
 
 	plug_type_ptr =
 	    WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
@@ -1350,7 +1382,11 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 			wcd9xxx_codec_hphr_gnd_switch(codec, false);
 	}
 
-	type = wcd9xxx_find_plug_type(mbhc, rt, ARRAY_SIZE(rt));
+	if (vddioon)
+		__wcd9xxx_switch_micbias(mbhc, 1, false, false);
+
+	type = wcd9xxx_find_plug_type(mbhc, rt, ARRAY_SIZE(rt),
+				      mbhc->event_state);
 
 	pr_debug("%s: leave\n", __func__);
 	return type;
