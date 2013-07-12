@@ -56,3 +56,60 @@
 		qcom,cdc-us-euro-gpios;
 	};
 };
+
+&spmi_bus {
+	qcom,pm8226@0 {
+		qcom,leds@a300 {
+			status = "disabled";
+		};
+
+		qcom,leds@a500 {
+			status = "disabled";
+		};
+	};
+};
+
+&pm8226_mpps {
+	mpp@a300 { /* MPP 4 */
+		/* camera2_id */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* camera_id */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+};
+
+&pm8226_vadc {
+	chan@13 {
+		label = "camera2_id";
+		reg = <0x13>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@15 {
+		label = "camera_id";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
