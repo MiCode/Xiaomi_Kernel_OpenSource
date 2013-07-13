@@ -3200,6 +3200,13 @@ static int msm_spi_suspend(struct device *device)
 		if (!dd)
 			goto suspend_exit;
 		msm_spi_pm_suspend_runtime(device);
+
+		/*
+		 * set the device's runtime PM status to 'suspended'
+		 */
+		pm_runtime_disable(device);
+		pm_runtime_set_suspended(device);
+		pm_runtime_enable(device);
 	}
 suspend_exit:
 	return 0;
