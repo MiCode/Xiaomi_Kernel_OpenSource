@@ -17,6 +17,7 @@
 		      <0xfd924000 0x1000>;
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
 
 		qcom,max-clk-rate = <320000000>;
 
