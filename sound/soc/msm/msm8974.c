@@ -133,6 +133,9 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
+	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
+			    1 << MBHC_CS_ENABLE_INSERTION |
+			    1 << MBHC_CS_ENABLE_REMOVAL),
 };
 
 struct msm_auxpcm_gpio {
