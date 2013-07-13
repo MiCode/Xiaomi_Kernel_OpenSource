@@ -1286,9 +1286,9 @@
 				<1 618 0 800>;
         };
 
-	qseecom: qcom,qseecom@7f00000 {
+	qseecom: qcom,qseecom@7b00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x7f00000 0x500000>;
+		reg = <0x7b00000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <1>;
@@ -1519,7 +1519,7 @@
 
         memory_hole: qcom,msm-mem-hole {
                 compatible = "qcom,msm-mem-hole";
-                qcom,memblock-remove = <0x7f00000 0x8000000>; /* Address and Size of Hole */
+                qcom,memblock-remove = <0x7b00000 0x8400000>; /* Address and Size of Hole */
         };
 
 	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
