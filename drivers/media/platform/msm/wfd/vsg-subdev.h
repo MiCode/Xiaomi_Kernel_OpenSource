@@ -59,7 +59,7 @@ struct vsg_context {
 	struct vsg_buf_info	free_queue, busy_queue;
 	struct vsg_msg_ops vmops;
 	/* All time related values below in nanosecs */
-	int64_t frame_interval, max_frame_interval;
+	int64_t frame_interval, max_frame_interval, frame_interval_variance;
 	struct workqueue_struct *work_queue;
 	struct hrtimer threshold_timer;
 	struct mutex mutex;
@@ -90,9 +90,11 @@ struct vsg_encode_work {
 /* Time related arguments for frame interval ioctls are always in nanosecs*/
 #define VSG_SET_FRAME_INTERVAL _IOW(VSG_MAGIC_IOCTL, 9, int64_t *)
 #define VSG_GET_FRAME_INTERVAL _IOR(VSG_MAGIC_IOCTL, 10, int64_t *)
-#define VSG_SET_MAX_FRAME_INTERVAL _IOW(VSG_MAGIC_IOCTL, 11, int64_t *)
-#define VSG_GET_MAX_FRAME_INTERVAL _IOR(VSG_MAGIC_IOCTL, 12, int64_t *)
-#define VSG_SET_MODE _IOW(VSG_MAGIC_IOCTL, 13, enum vsg_modes *)
+#define VSG_SET_FRAME_INTERVAL_VARIANCE _IOW(VSG_MAGIC_IOCTL, 11, int64_t *)
+#define VSG_GET_FRAME_INTERVAL_VARIANCE _IOR(VSG_MAGIC_IOCTL, 12, int64_t *)
+#define VSG_SET_MAX_FRAME_INTERVAL _IOW(VSG_MAGIC_IOCTL, 13, int64_t *)
+#define VSG_GET_MAX_FRAME_INTERVAL _IOR(VSG_MAGIC_IOCTL, 14, int64_t *)
+#define VSG_SET_MODE _IOW(VSG_MAGIC_IOCTL, 15, enum vsg_modes *)
 
 extern int vsg_init(struct v4l2_subdev *sd, u32 val);
 extern long vsg_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);

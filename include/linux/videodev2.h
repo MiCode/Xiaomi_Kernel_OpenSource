@@ -766,7 +766,8 @@ struct v4l2_captureparm {
 #define V4L2_CAP_QCOM_FRAMESKIP	0x2000	/*  frame skipping is supported */
 
 struct v4l2_qcom_frameskip {
-	__u64		maxframeinterval;
+	__u64		   maxframeinterval;
+	__u8		   fpsvariance;
 };
 
 struct v4l2_outputparm {
