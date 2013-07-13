@@ -277,11 +277,12 @@ static void cpr_ctl_modify(struct cpr_regulator *cpr_vreg, u32 mask, u32 value)
 	cpr_masked_write(cpr_vreg, REG_RBCPR_CTL, mask, value);
 }
 
-static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg)
+static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg, int corner)
 {
 	u32 val;
 
-	if (cpr_is_allowed(cpr_vreg))
+	if (cpr_is_allowed(cpr_vreg) &&
+	    (cpr_vreg->ceiling_volt[corner] > cpr_vreg->floor_volt[corner]))
 		val = RBCPR_CTL_LOOP_EN;
 	else
 		val = 0;
@@ -379,7 +380,7 @@ static int cpr_enable_param_set(const char *val, const struct kernel_param *kp)
 			cpr_ctl_disable(the_cpr);
 			cpr_irq_clr(the_cpr);
 			cpr_corner_restore(the_cpr, the_cpr->corner);
-			cpr_ctl_enable(the_cpr);
+			cpr_ctl_enable(the_cpr, the_cpr->corner);
 		} else {
 			cpr_ctl_disable(the_cpr);
 			cpr_irq_set(the_cpr, 0);
@@ -692,7 +693,7 @@ static int cpr_regulator_enable(struct regulator_dev *rdev)
 	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->corner) {
 		cpr_irq_clr(cpr_vreg);
 		cpr_corner_switch(cpr_vreg, cpr_vreg->corner);
-		cpr_ctl_enable(cpr_vreg);
+		cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
 	}
 	mutex_unlock(&cpr_vreg->cpr_mutex);
 
@@ -758,7 +759,7 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->vreg_enabled) {
 		cpr_irq_clr(cpr_vreg);
 		cpr_corner_switch(cpr_vreg, corner);
-		cpr_ctl_enable(cpr_vreg);
+		cpr_ctl_enable(cpr_vreg, corner);
 	}
 
 	cpr_vreg->corner = corner;
@@ -807,7 +808,7 @@ static int cpr_resume(struct cpr_regulator *cpr_vreg)
 	cpr_irq_clr(cpr_vreg);
 
 	enable_irq(cpr_vreg->cpr_irq);
-	cpr_ctl_enable(cpr_vreg);
+	cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
 
 	return 0;
 }
