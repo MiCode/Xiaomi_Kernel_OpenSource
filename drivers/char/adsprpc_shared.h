@@ -19,6 +19,7 @@
 #define FASTRPC_IOCTL_INVOKE  _IOWR('R', 1, struct fastrpc_ioctl_invoke)
 #define FASTRPC_IOCTL_MMAP    _IOWR('R', 2, struct fastrpc_ioctl_mmap)
 #define FASTRPC_IOCTL_MUNMAP  _IOWR('R', 3, struct fastrpc_ioctl_munmap)
+#define FASTRPC_IOCTL_INVOKE_FD  _IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
 
@@ -92,6 +93,11 @@ struct fastrpc_ioctl_invoke {
 	uint32_t handle;	/* remote handle */
 	uint32_t sc;		/* scalars describing the data */
 	remote_arg_t *pra;	/* remote arguments list */
+};
+
+struct fastrpc_ioctl_invoke_fd {
+	struct fastrpc_ioctl_invoke inv;
+	int *fds;		/* fd list */
 };
 
 struct fastrpc_ioctl_munmap {
