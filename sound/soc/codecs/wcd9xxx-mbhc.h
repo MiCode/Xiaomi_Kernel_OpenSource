@@ -291,6 +291,7 @@ struct wcd9xxx_mbhc {
 	bool micbias_enable;
 	int (*micbias_enable_cb) (struct snd_soc_codec*,  bool);
 
+	bool impedance_detect;
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;
 
@@ -363,7 +364,8 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		      struct snd_soc_codec *codec,
 		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
 		      const struct wcd9xxx_mbhc_cb *mbhc_cb,
-		      int rco_clk_rate);
+		      int rco_clk_rate,
+		      bool impedance_det_en);
 void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc);
 void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
