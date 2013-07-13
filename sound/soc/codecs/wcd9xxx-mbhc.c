@@ -799,8 +799,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			pr_debug("%s: Enabling micbias\n", __func__);
 			mbhc->micbias_enable_cb(mbhc->codec, true);
 		}
-
-		wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
+		if (mbhc->impedance_detect)
+			wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
@@ -3938,7 +3938,8 @@ int wcd9xxx_mbhc_get_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		      struct snd_soc_codec *codec,
 		      int (*micbias_enable_cb) (struct snd_soc_codec*,  bool),
-		      const struct wcd9xxx_mbhc_cb *mbhc_cb, int rco_clk_rate)
+		      const struct wcd9xxx_mbhc_cb *mbhc_cb, int rco_clk_rate,
+		      bool impedance_det_en)
 {
 	int ret;
 	void *core;
@@ -3964,6 +3965,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->micbias_enable_cb = micbias_enable_cb;
 	mbhc->rco_clk_rate = rco_clk_rate;
 	mbhc->mbhc_cb = mbhc_cb;
+	mbhc->impedance_detect = impedance_det_en;
 
 	if (mbhc->headset_jack.jack == NULL) {
 		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,
