@@ -301,6 +301,7 @@ struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
 	pid_t pid;
+	struct kgsl_device_private *dev_priv;
 	unsigned long priv;
 	struct kgsl_device *device;
 	struct kgsl_pagetable *pagetable;
