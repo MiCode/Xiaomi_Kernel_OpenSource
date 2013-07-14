@@ -133,6 +133,7 @@ static DEFINE_SPINLOCK(mdss_lock);
 struct mdss_hw *mdss_irq_handlers[MDSS_MAX_HW_BLK];
 
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
+static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata);
 static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev);
@@ -908,6 +909,18 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	} else {
 		pr_warn("mdss mdata not initialized\n");
 	}
+}
+
+static void mdss_mdp_shutdown(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	if (!mdata)
+		return;
+
+	pr_debug("display shutdown\n");
+
+	mdss_mdp_suspend_sub(mdata);
 }
 
 static int mdss_mdp_probe(struct platform_device *pdev)
@@ -1782,7 +1795,7 @@ static struct platform_driver mdss_mdp_driver = {
 	.remove = mdss_mdp_remove,
 	.suspend = mdss_mdp_suspend,
 	.resume = mdss_mdp_resume,
-	.shutdown = NULL,
+	.shutdown = mdss_mdp_shutdown,
 	.driver = {
 		/*
 		 * Driver name must match the device name added in
