@@ -3907,10 +3907,14 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	 * this gives enough time for the engine to start moving and oddly
 	 * provides better hang detection results than just going the full
 	 * KGSL_TIMEOUT_PART right off the bat. The exception to this rule
-	 * is if msecs happens to be < 100ms then just use the full timeout
+	 * is if msecs happens to be < 100ms then just use 20ms or the msecs,
+	 * whichever is larger because anything less than 20 is unreliable
 	 */
 
-	wait = 100;
+	if (msecs == 0 || msecs >= 100)
+		wait = 100;
+	else
+		wait = (msecs > 20) ? msecs : 20;
 
 	do {
 		long status;
