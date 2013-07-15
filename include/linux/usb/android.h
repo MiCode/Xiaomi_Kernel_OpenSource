@@ -49,4 +49,8 @@ extern void gport_cleanup(void);
 extern int gserial_init_port(int port_num, const char *name,
 					const char *port_name);
 
+int acm_port_setup(struct usb_configuration *c);
+void acm_port_cleanup(void);
+int acm_init_port(int port_num, const char *name);
+
 #endif	/* __LINUX_USB_ANDROID_H */
