@@ -217,4 +217,21 @@
 		interrupts = <0 29 1>;
 		qcom,rx-ring-size = <64>;
 	};
+
+	spmi_bus: qcom,spmi@fc4c0000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xfc4cf000 0x1000>,
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
+		reg-names = "core", "intr", "cnfg";
+		interrupts = <0 190 0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ee = <0>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		qcom,not-wakeup;     /* Needed until MPM is fully configured. */
+	};
 };
