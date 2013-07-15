@@ -170,7 +170,7 @@ static void soc_pcm_apply_msb(struct snd_pcm_substream *substream,
 /*
  * stream event, send event to FE and all active BEs.
  */
-int soc_dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
+int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
 	int dir, const char *stream, int event)
 {
 	struct snd_soc_dpcm_params *dpcm_params;
@@ -833,7 +833,7 @@ static inline int be_connect(struct snd_soc_pcm_runtime *fe,
 {
 	struct snd_soc_dpcm_params *dpcm_params;
 
-	if (!fe->dpcm[stream].runtime) {
+	if (!fe->dpcm[stream].runtime && !fe->fe_compr) {
 		dev_err(fe->dev, "%s no runtime\n", fe->dai_link->name);
 		return -ENODEV;
 	}
@@ -1063,7 +1063,7 @@ static int be_add_new(struct snd_soc_pcm_runtime *fe, int stream,
 			}
 
 			/* don't connect if FE is not running */
-			if (!fe->dpcm[stream].runtime)
+			if (!fe->dpcm[stream].runtime && !fe->fe_compr)
 				continue;
 
 			/* newly connected FE and BE */
@@ -1340,11 +1340,11 @@ static int soc_dpcm_fe_dai_shutdown(struct snd_pcm_substream *substream)
 	dpcm_be_dai_shutdown(fe, substream->stream);
 	/* run the stream event for each BE */
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_STOP);
 	else
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_STOP);
 
@@ -1729,11 +1729,11 @@ int soc_dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 
 	/* run the stream event for each BE */
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_START);
 	else
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_START);
 
@@ -1861,11 +1861,11 @@ static int dpcm_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 
 	/* run the stream event for each BE */
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
 	else
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
 
@@ -1917,11 +1917,11 @@ static int dpcm_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 	/* run the stream event for each BE */
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
 	else
-		soc_dpcm_dapm_stream_event(fe, stream,
+		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
 
