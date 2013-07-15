@@ -1005,7 +1005,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * PHY retention and collapse can not happen with VDP_SRC enabled.
 	 */
 	if (motg->caps & ALLOW_PHY_RETENTION && !device_bus_suspend && !dcp &&
-		 (!host_bus_suspend || motg->caps & ALLOW_HOST_PHY_RETENTION)) {
+		 (!host_bus_suspend || ((motg->caps & ALLOW_HOST_PHY_RETENTION)
+		&& (pdata->dpdm_pulldown_added || !(portsc & PORTSC_CCS))))) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL) {
 			/* Enable PHY HV interrupts to wake MPM/Link */
@@ -1034,7 +1035,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	}
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
-	if (!host_bus_suspend || (motg->caps & ALLOW_HOST_PHY_RETENTION)) {
+	if (!host_bus_suspend || ((motg->caps & ALLOW_HOST_PHY_RETENTION) &&
+		(pdata->dpdm_pulldown_added || !(portsc & PORTSC_CCS)))) {
 		if (!IS_ERR(motg->xo_clk)) {
 			clk_disable_unprepare(motg->xo_clk);
 			motg->lpm_flags |= XO_SHUTDOWN;
@@ -4056,6 +4058,37 @@ unreg_chrdev:
 	return ret;
 }
 
+static ssize_t dpdm_pulldown_enable_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct msm_otg *motg = the_msm_otg;
+	struct msm_otg_platform_data *pdata = motg->pdata;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", pdata->dpdm_pulldown_added ?
+							"enabled" : "disabled");
+}
+
+static ssize_t dpdm_pulldown_enable_store(struct device *dev,
+		struct device_attribute *attr, const char
+		*buf, size_t size)
+{
+	struct msm_otg *motg = the_msm_otg;
+	struct msm_otg_platform_data *pdata = motg->pdata;
+
+	if (!strnicmp(buf, "enable", 6)) {
+		pdata->dpdm_pulldown_added = true;
+		return size;
+	} else if (!strnicmp(buf, "disable", 7)) {
+		pdata->dpdm_pulldown_added = false;
+		return size;
+	}
+
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(dpdm_pulldown_enable, S_IRUGO | S_IWUSR,
+		dpdm_pulldown_enable_show, dpdm_pulldown_enable_store);
+
 struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -4482,6 +4515,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 		if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
 			motg->caps |= ALLOW_HOST_PHY_RETENTION;
+			device_create_file(&pdev->dev,
+					&dev_attr_dpdm_pulldown_enable);
 	}
 
 	if (motg->pdata->enable_lpm_on_dev_suspend)
@@ -4616,6 +4651,10 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	usb_set_transceiver(NULL);
 	free_irq(motg->irq, motg);
 
+	if ((motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) &&
+		(motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int))
+			device_remove_file(&pdev->dev,
+					&dev_attr_dpdm_pulldown_enable);
 	if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
 		motg->pdata->mpm_otgsessvld_int)
 		msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
