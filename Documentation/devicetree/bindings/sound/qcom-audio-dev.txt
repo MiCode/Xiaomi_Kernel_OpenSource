@@ -39,6 +39,12 @@ Required properties:
 
  - compatible : "qcom,msm-compr-dsp"
 
+* msm-compress-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compress-dsp"
+
 * msm-voip-dsp
 
 Required properties:
@@ -256,6 +262,10 @@ Example:
 
         qcom,msm-compr-dsp {
                 compatible = "qcom,msm-compr-dsp";
+        };
+
+        qcom,msm-compress-dsp {
+                compatible = "qcom,msm-compress-dsp";
         };
 
         qcom,msm-voip-dsp {
