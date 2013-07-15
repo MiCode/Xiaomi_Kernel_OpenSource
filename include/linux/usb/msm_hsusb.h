@@ -228,6 +228,8 @@ enum usb_vdd_value {
  *              interrupt threshold (ITC), when log2_itc is
  *              between 1 to 7.
  * @l1_supported: enable link power management support.
+ * @dpdm_pulldown_added: Indicates whether pull down resistors are
+		connected on data lines or not.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -255,6 +257,7 @@ struct msm_otg_platform_data {
 	const char *mhl_dev_name;
 	int log2_itc;
 	bool l1_supported;
+	bool dpdm_pulldown_added;
 };
 
 /* phy related flags */
