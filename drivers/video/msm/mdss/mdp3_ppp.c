@@ -995,14 +995,14 @@ int mdp3_ppp_parse_req(void __user *p,
 		if (req->cur_rel_fen_fd < 0) {
 			pr_err("%s: get_unused_fd_flags failed\n", __func__);
 			rc  = -ENOMEM;
-			goto parse_err_2;
+			goto parse_err_1;
 		}
 		sync_fence_install(req->cur_rel_fence, req->cur_rel_fen_fd);
 		rc = copy_to_user(req_list_header->sync.rel_fen_fd,
 			&req->cur_rel_fen_fd, sizeof(int));
 		if (rc) {
 			pr_err("%s:copy_to_user failed\n", __func__);
-			goto parse_err_3;
+			goto parse_err_2;
 		}
 	} else {
 		fence = req->cur_rel_fence;
@@ -1023,12 +1023,8 @@ int mdp3_ppp_parse_req(void __user *p,
 	}
 	return 0;
 
-parse_err_3:
-	put_unused_fd(req->cur_rel_fen_fd);
 parse_err_2:
-	sync_fence_put(req->cur_rel_fence);
-	req->cur_rel_fence = NULL;
-	req->cur_rel_fen_fd = 0;
+	put_unused_fd(req->cur_rel_fen_fd);
 parse_err_1:
 	for (i--; i >= 0; i--) {
 		mdp3_put_img(&req->src_data[i]);
