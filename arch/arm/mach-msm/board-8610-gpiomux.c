@@ -511,6 +511,62 @@ static struct msm_gpiomux_config sd_card_det[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting interrupt_gpio_active = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting interrupt_gpio_suspend_pullup = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting interrupt_gpio_suspend_pulldown = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm_interrupt_configs[] __initdata = {
+	{
+		.gpio = 77,	/* NFC_IRQ */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pullup,
+		},
+	},
+	{
+		.gpio = 78,	/*ETH_INT */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pullup,
+		},
+	},
+	{
+		.gpio = 80,	/*ALSP_INT */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pullup,
+		},
+	},
+	{
+		.gpio = 81,	/*ACCEL_INT1 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pulldown,
+		},
+	},
+	{
+		.gpio = 82,	/*ACCEL_INT2 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pulldown,
+		},
+	},
+};
+
 void __init msm8610_init_gpiomux(void)
 {
 	int rc;
@@ -539,4 +595,7 @@ void __init msm8610_init_gpiomux(void)
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 	msm_gpiomux_install(msm_gpio_int_configs,
 			ARRAY_SIZE(msm_gpio_int_configs));
+	if (of_board_is_qrd())
+		msm_gpiomux_install(msm_interrupt_configs,
+			ARRAY_SIZE(msm_interrupt_configs));
 }
