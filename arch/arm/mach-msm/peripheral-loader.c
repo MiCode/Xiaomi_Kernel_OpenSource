@@ -252,6 +252,7 @@ static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
 	struct pil_desc *desc = dev_id;
 	struct pil_priv *priv = desc->priv;
 
+	pil_info(desc, "Power/Clock ready interrupt received\n");
 	if (!desc->priv->unvoted_flag) {
 		desc->priv->unvoted_flag = 1;
 		__pil_proxy_unvote(priv);
