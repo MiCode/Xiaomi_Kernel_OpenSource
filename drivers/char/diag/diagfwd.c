@@ -69,6 +69,13 @@ uint16_t wrap_count;
 void encode_rsp_and_send(int buf_length)
 {
 	struct diag_smd_info *data = &(driver->smd_data[MODEM_DATA]);
+
+	if (buf_length > APPS_BUF_SIZE) {
+		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
+					__func__, buf_length, APPS_BUF_SIZE);
+		return;
+	}
+
 	send.state = DIAG_STATE_START;
 	send.pkt = driver->apps_rsp_buf;
 	send.last = (void *)(driver->apps_rsp_buf + buf_length);
@@ -1315,10 +1322,12 @@ void diag_send_error_rsp(int index)
 {
 	int i;
 
-	if (index > 490) {
-		pr_err("diag: error response too huge, aborting\n");
+	/* -1 to accomodate the first byte 0x13 */
+	if (index > APPS_BUF_SIZE-1) {
+		pr_err("diag: cannot send err rsp, huge length: %d\n", index);
 		return;
 	}
+
 	driver->apps_rsp_buf[0] = 0x13; /* error code 13 */
 	for (i = 0; i < index; i++)
 		driver->apps_rsp_buf[i+1] = *(driver->hdlc_buf+i);
