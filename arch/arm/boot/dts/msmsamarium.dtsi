@@ -246,3 +246,5 @@
 		qcom,not-wakeup;     /* Needed until MPM is fully configured. */
 	};
 };
+
+/include/ "msm-pma8084.dtsi"
