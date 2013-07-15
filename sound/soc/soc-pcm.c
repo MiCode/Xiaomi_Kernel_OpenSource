@@ -50,7 +50,7 @@ static const struct snd_pcm_hardware no_host_hardware = {
 };
 
 /* DPCM stream event, send event to FE and all active BEs. */
-static int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
+int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
 	int event)
 {
 	struct snd_soc_dpcm *dpcm;
@@ -736,6 +736,11 @@ static int dpcm_be_connect(struct snd_soc_pcm_runtime *fe,
 {
 	struct snd_soc_dpcm *dpcm;
 
+	if (!fe->dpcm[stream].runtime && !fe->fe_compr) {
+		dev_err(fe->dev, "%s no runtime\n", fe->dai_link->name);
+		return -ENODEV;
+	}
+
 	/* only add new dpcms */
 	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be) {
 		if (dpcm->be == be && dpcm->fe == fe)
@@ -980,7 +985,7 @@ static int dpcm_add_paths(struct snd_soc_pcm_runtime *fe, int stream,
 			continue;
 
 		/* don't connect if FE is not running */
-		if (!fe->dpcm[stream].runtime)
+		if (!fe->dpcm[stream].runtime && !fe->fe_compr)
 			continue;
 
 		/* newly connected FE and BE */
@@ -1686,6 +1691,7 @@ static int dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 
 	/* run the stream event for each BE */
 	dpcm_dapm_stream_event(fe, stream, SND_SOC_DAPM_STREAM_START);
+
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
 
 out:
