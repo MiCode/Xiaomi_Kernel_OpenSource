@@ -215,4 +215,17 @@
 
 &vpu_iommu {
 	status = "ok";
+
+	interrupts = <0 300 0>;
+	vpu_cb_0: qcom,iommu-ctx@fdeec000 {
+		interrupts = <0 302 0>;
+	};
+
+	vpu_cb_1: qcom,iommu-ctx@fdeed000 {
+		interrupts = <0 302 0>;
+	};
+
+	vpu_cb_2: qcom,iommu-ctx@fdeee000 {
+		interrupts = <0 302 0>;
+	};
 };
