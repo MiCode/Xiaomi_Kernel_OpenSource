@@ -2027,6 +2027,8 @@ const struct drm_ioctl_desc i915_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(I915_GEM_ACCESS_USERDATA, i915_gem_access_userdata,
 							DRM_UNLOCKED|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(I915_SET_CSC, intel_configure_csc, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(I915_SET_PLANE_ALPHA, i915_set_plane_alpha, \
+							DRM_AUTH|DRM_UNLOCKED),
 };
 
 int i915_max_ioctl = ARRAY_SIZE(i915_ioctls);
