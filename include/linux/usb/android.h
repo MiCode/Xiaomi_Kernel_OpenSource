@@ -46,4 +46,8 @@ extern void gserial_dun_w_softap_enable(bool enable);
 extern bool gserial_is_dun_w_softap_active(void);
 
 
+int acm_port_setup(struct usb_configuration *c);
+void acm_port_cleanup(void);
+int acm_init_port(int port_num, const char *name);
+
 #endif	/* __LINUX_USB_ANDROID_H */
