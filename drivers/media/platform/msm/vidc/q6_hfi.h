@@ -20,6 +20,15 @@
 
 #define Q6_IFACEQ_QUEUE_SIZE (8 * 1024)
 
+/* client to Q6 communication path : forward path */
+#define VIDEO_HFI_CMD_ID  0x00012ECC
+
+/* Q6 to client ACK msg: reverse path*/
+#define VIDEO_HFI_MSG_ID  0x00012ECD
+
+/* Q6 to client event notifications */
+#define VIDEO_HFI_EVT_ID  0x00012ECE
+
 struct q6_resources {
 	struct msm_vidc_fw fw;
 };
