@@ -401,7 +401,7 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	struct smq_invoke_buf *list;
 	struct fastrpc_buf *pbuf = ibuf, *obufs = 0;
 	struct smq_phy_page *pages;
-	struct ion_handle **handles;
+	struct ion_handle **handles = NULL;
 	void *args;
 	int i, rlen, size, used, inh, bufs = 0, err = 0;
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
@@ -798,7 +798,7 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 	struct fastrpc_device *dev = 0;
 	struct smq_invoke_ctx *ctx = 0;
 	struct fastrpc_buf obuf, *abufs = 0, *b;
-	struct ion_handle **handles;
+	struct ion_handle **handles = NULL;
 	int interrupted = 0;
 	uint32_t sc;
 	int i, bufs, nbufs = 0, err = 0;
