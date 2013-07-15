@@ -4554,7 +4554,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		}
 	}
 
-	wcd9xxx_resmgr_post_ssr(&tapan->resmgr);
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80, 0x80);
 
@@ -4566,6 +4565,8 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: bad pdata\n", __func__);
 
 	tapan_slim_interface_init_reg(codec);
+
+	wcd9xxx_resmgr_post_ssr(&tapan->resmgr);
 
 	wcd9xxx_mbhc_deinit(&tapan->mbhc);
 
