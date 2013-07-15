@@ -13,7 +13,6 @@
 /dts-v1/;
 /include/ "msm8226-v2.dtsi"
 /include/ "msm8226-qrd.dtsi"
-/include/ "msm8226-camera-sensor-cdp.dtsi"
 /include/ "dsi-panel-hx8394a-720p-video.dtsi"
 
 / {
