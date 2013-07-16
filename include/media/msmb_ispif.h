@@ -23,6 +23,7 @@ enum msm_ispif_intftype {
 	INTF_MAX
 };
 #define MAX_PARAM_ENTRIES (INTF_MAX * 2)
+#define MAX_CID_CH	8
 
 #define PIX0_MASK (1 << PIX0)
 #define PIX1_MASK (1 << PIX1)
