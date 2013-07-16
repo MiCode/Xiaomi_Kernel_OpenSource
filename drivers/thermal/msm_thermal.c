@@ -1509,7 +1509,7 @@ static int probe_vdd_rstr(struct device_node *node,
 				goto read_node_fail;
 		}
 
-		rails[i].curr_level = 0;
+		rails[i].curr_level = -1;
 		rails[i].reg = NULL;
 		i++;
 	}
