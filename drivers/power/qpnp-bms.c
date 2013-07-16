@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
-#include <linux/mfd/pm8xxx/batterydata-lib.h>
+#include <linux/batterydata-lib.h>
 
 /* BMS Register Offsets */
 #define BMS1_REVISION1			0x0
