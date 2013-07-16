@@ -45,16 +45,19 @@ struct voice_init {
 /* Stream information payload structure */
 struct stream_data {
 	uint32_t stream_mute;
+	uint32_t stream_mute_ramp_duration_ms;
 };
 
 /* Device information payload structure */
 struct device_data {
-	uint32_t volume; /* in index */
 	uint32_t dev_mute;
 	uint32_t sample;
 	uint32_t enabled;
 	uint32_t dev_id;
 	uint32_t port_id;
+	uint32_t volume_step_value;
+	uint32_t volume_ramp_duration_ms;
+	uint32_t dev_mute_ramp_duration_ms;
 };
 
 struct voice_dev_route_state {
@@ -588,6 +591,8 @@ struct vss_istream_cmd_create_passive_control_session_t {
 #define VSS_IVOLUME_MUTE_ON		1
 
 #define DEFAULT_MUTE_RAMP_DURATION	500
+#define DEFAULT_VOLUME_RAMP_DURATION	20
+#define MAX_RAMP_DURATION		5000
 
 struct vss_ivolume_cmd_mute_v2_t {
 	uint16_t direction;
@@ -902,7 +907,7 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 
 #define VSS_IVOCPROC_CMD_SET_VP3_DATA			0x000110EB
 
-#define VSS_IVOCPROC_CMD_SET_RX_VOLUME_INDEX		0x000110EE
+#define VSS_IVOLUME_CMD_SET_STEP			0x000112C2
 
 #define VSS_IVOCPROC_CMD_ENABLE				0x000100C6
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
@@ -1036,6 +1041,25 @@ struct vss_ivocproc_cmd_set_volume_index_t {
 	 */
 } __packed;
 
+struct vss_ivolume_cmd_set_step_t {
+	uint16_t direction;
+	/*
+	* The direction field sets the direction to apply the volume command.
+	* The supported values:
+	* #VSS_IVOLUME_DIRECTION_RX
+	*/
+	uint32_t value;
+	/*
+	* Volume step used to find the corresponding linear volume and
+	* the best match index in the registered volume calibration table.
+	*/
+	uint16_t ramp_duration_ms;
+	/*
+	* Volume change ramp duration in milliseconds.
+	* The supported values: 0 to 5000.
+	*/
+} __packed;
+
 struct vss_ivocproc_cmd_set_device_v2_t {
 	uint16_t tx_port_id;
 	/*
@@ -1141,6 +1165,11 @@ struct cvp_set_vp3_data_cmd {
 struct cvp_set_rx_volume_index_cmd {
 	struct apr_hdr hdr;
 	struct vss_ivocproc_cmd_set_volume_index_t cvp_set_vol_idx;
+} __packed;
+
+struct cvp_set_rx_volume_step_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivolume_cmd_set_step_t cvp_set_vol_step;
 } __packed;
 
 struct cvp_register_dev_cfg_cmd {
@@ -1285,8 +1314,10 @@ struct cal_mem {
 struct common_data {
 	/* these default values are for all devices */
 	uint32_t default_mute_val;
-	uint32_t default_vol_val;
 	uint32_t default_sample_val;
+	uint32_t default_vol_step_val;
+	uint32_t default_vol_ramp_duration_ms;
+	uint32_t default_mute_ramp_duration_ms;
 
 	/* APR to MVM in the Q6 */
 	void *apr_q6_mvm;
@@ -1370,9 +1401,12 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode);
 int voc_set_rxtx_port(uint32_t session_id,
 		      uint32_t dev_port_id,
 		      uint32_t dev_type);
-int voc_set_rx_vol_index(uint32_t session_id, uint32_t dir, uint32_t voc_idx);
-int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute);
-int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute);
+int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
+			uint32_t ramp_duration);
+int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
+		    uint32_t ramp_duration);
+int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute,
+			   uint32_t ramp_duration);
 int voc_get_rx_device_mute(uint32_t session_id);
 int voc_disable_cvp(uint32_t session_id);
 int voc_enable_cvp(uint32_t session_id);
