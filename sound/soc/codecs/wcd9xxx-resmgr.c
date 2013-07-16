@@ -33,6 +33,7 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include "wcd9xxx-resmgr.h"
+#include "msm8x10_wcd_registers.h"
 
 static char wcd9xxx_event_string[][64] = {
 	"WCD9XXX_EVENT_INVALID",
@@ -168,7 +169,9 @@ static void wcd9xxx_enable_bg_mbhc(struct wcd9xxx_resmgr *resmgr)
 	 * mclk should be off or clk buff source souldn't be VBG
 	 * Let's turn off mclk always
 	 */
-	WARN_ON(snd_soc_read(codec, WCD9XXX_A_CLK_BUFF_EN2) & (1 << 2));
+	if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+		WARN_ON(snd_soc_read(codec, WCD9XXX_A_CLK_BUFF_EN2) & (1 << 2));
+
 	wcd9xxx_enable_bg(resmgr);
 	/* Notify bandgap mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_POST_BG_MBHC_ON);
@@ -188,11 +191,13 @@ static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
 		wcd9xxx_resmgr_notifier_call(resmgr,
 					     WCD9XXX_EVENT_PRE_MCLK_OFF);
 	/* Disable clock */
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x04, 0x00);
-	usleep_range(50, 50);
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x02);
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x00);
-	usleep_range(50, 50);
+	if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON) {
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x04, 0x00);
+		usleep_range(50, 50);
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x02);
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x00);
+		usleep_range(50, 50);
+	}
 	/* Notify */
 	if (resmgr->clk_type == WCD9XXX_CLK_RCO)
 		wcd9xxx_resmgr_notifier_call(resmgr,
@@ -375,8 +380,10 @@ void wcd9xxx_resmgr_enable_rx_bias(struct wcd9xxx_resmgr *resmgr, u32 enable)
 	}
 }
 
-int wcd9xxx_resmgr_enable_config_mode(struct snd_soc_codec *codec, int enable)
+int wcd9xxx_resmgr_enable_config_mode(struct wcd9xxx_resmgr *resmgr, int enable)
 {
+	struct snd_soc_codec *codec = resmgr->codec;
+
 	pr_debug("%s: enable = %d\n", __func__, enable);
 	if (enable) {
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x10, 0);
@@ -388,10 +395,20 @@ int wcd9xxx_resmgr_enable_config_mode(struct snd_soc_codec *codec, int enable)
 		usleep_range(10, 10);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_TEST, 0x80, 0);
 		usleep_range(10000, 10000);
-		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x08, 0x08);
+		if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+			snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1,
+					0x08, 0x08);
+		else
+			snd_soc_update_bits(codec,
+					MSM8X10_WCD_A_CDC_TOP_CLK_CTL,
+					0x20, 0x20);
 	} else {
 		snd_soc_update_bits(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x1, 0);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0);
+		if (resmgr->codec_type == WCD9XXX_CDC_TYPE_HELICON)
+			snd_soc_update_bits(codec,
+					MSM8X10_WCD_A_CDC_TOP_CLK_CTL,
+					0x20, 0x00);
 	}
 
 	return 0;
@@ -403,38 +420,60 @@ static void wcd9xxx_enable_clock_block(struct wcd9xxx_resmgr *resmgr,
 	struct snd_soc_codec *codec = resmgr->codec;
 
 	pr_debug("%s: config_mode = %d\n", __func__, config_mode);
+
 	/* transit to RCO requires mclk off */
-	WARN_ON(snd_soc_read(codec, WCD9XXX_A_CLK_BUFF_EN2) & (1 << 2));
+	if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+		WARN_ON(snd_soc_read(codec, WCD9XXX_A_CLK_BUFF_EN2) & (1 << 2));
+
 	if (config_mode) {
 		/* Notify */
 		wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_RCO_ON);
 		/* enable RCO and switch to it */
-		wcd9xxx_resmgr_enable_config_mode(codec, 1);
-		snd_soc_write(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
+		wcd9xxx_resmgr_enable_config_mode(resmgr, 1);
+		if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+			snd_soc_write(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
 		usleep_range(1000, 1000);
 	} else {
 		/* Notify */
 		wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_MCLK_ON);
 		/* switch to MCLK */
-		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x08, 0x00);
+		if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON) {
+			snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1,
+				0x08, 0x00);
+		} else {
+			snd_soc_update_bits(codec,
+					MSM8X10_WCD_A_CDC_CLK_PDM_CTL,
+					0x03, 0x03);
+			snd_soc_update_bits(codec,
+					MSM8X10_WCD_A_CDC_TOP_CLK_CTL,
+					0x0f, 0x0d);
+		}
 		/* if RCO is enabled, switch from it */
 		if (snd_soc_read(codec, WCD9XXX_A_RC_OSC_FREQ) & 0x80) {
-			snd_soc_write(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
-			wcd9xxx_resmgr_enable_config_mode(codec, 0);
+			if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+				snd_soc_write(codec, WCD9XXX_A_CLK_BUFF_EN2,
+							  0x02);
+			wcd9xxx_resmgr_enable_config_mode(resmgr, 0);
 		}
 		/* clk source to ext clk and clk buff ref to VBG */
-		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x0C, 0x04);
+		if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON)
+			snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1,
+				0x0C, 0x04);
 	}
 
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x01, 0x01);
-	/* sleep time required by codec hardware to enable clock buffer */
-	usleep_range(1000, 1200);
-
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x00);
-
-	/* on MCLK */
-	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x04, 0x04);
-	snd_soc_update_bits(codec, WCD9XXX_A_CDC_CLK_MCLK_CTL, 0x01, 0x01);
+	if (resmgr->codec_type != WCD9XXX_CDC_TYPE_HELICON) {
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x01, 0x01);
+		/* sleep required by codec hardware to enable clock buffer */
+		usleep_range(1000, 1200);
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x00);
+		/* on MCLK */
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x04, 0x04);
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_CLK_MCLK_CTL,
+				0x01, 0x01);
+	} else {
+		snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_CLK_MCLK_CTL,
+				0x01, 0x01);
+	}
 	usleep_range(50, 50);
 
 	/* Notify */
@@ -493,7 +532,7 @@ void wcd9xxx_resmgr_get_clk_block(struct wcd9xxx_resmgr *resmgr,
 					       WCD9XXX_A_RC_OSC_FREQ) & 0x80));
 			/* disable clock block */
 			wcd9xxx_disable_clock_block(resmgr);
-			/* switch to RCO */
+			/* switch to MCLK */
 			wcd9xxx_enable_clock_block(resmgr, 0);
 			resmgr->clk_type = WCD9XXX_CLK_MCLK;
 		}
@@ -799,7 +838,8 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
 			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
-			struct wcd9xxx_reg_address *reg_addr)
+			struct wcd9xxx_reg_address *reg_addr,
+			enum wcd9xxx_cdc_type cdc_type)
 {
 	WARN(ARRAY_SIZE(wcd9xxx_event_string) != WCD9XXX_EVENT_LAST + 1,
 	     "Event string table isn't up to date!, %d != %d\n",
@@ -807,6 +847,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 
 	resmgr->bandgap_type = WCD9XXX_BANDGAP_OFF;
 	resmgr->codec = codec;
+	resmgr->codec_type = cdc_type;
 	/* This gives access of core handle to lock/unlock suspend */
 	resmgr->core_res = core_res;
 	resmgr->pdata = pdata;
