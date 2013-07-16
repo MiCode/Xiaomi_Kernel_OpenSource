@@ -366,8 +366,9 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 {
 	const u8 *b = NULL;
 	u32 ndx, check_sum, print_len;
-	int block_size = 0x80;
+	int block_size;
 	int i, status;
+	int retry_cnt = 0;
 	struct hdmi_tx_ddc_data ddc_data;
 	b = edid_buf;
 
@@ -376,6 +377,9 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 		return -EINVAL;
 	}
 
+read_retry:
+	block_size = 0x80;
+	status = 0;
 	do {
 		DEV_DBG("EDID: reading block(%d) with block-size=%d\n",
 			block, block_size);
@@ -422,6 +426,10 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 				ndx, ndx+3,
 				b[ndx+0], b[ndx+1], b[ndx+2], b[ndx+3]);
 		status = -EPROTO;
+		if (retry_cnt++ < 3) {
+			DEV_DBG("Retrying reading EDID %d time\n", retry_cnt);
+			goto read_retry;
+		}
 		goto error;
 	}
 
