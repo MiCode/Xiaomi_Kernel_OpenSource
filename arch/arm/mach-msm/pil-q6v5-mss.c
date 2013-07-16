@@ -346,8 +346,8 @@ static int __devinit pil_mss_loadable_init(struct modem_data *drv,
 		return clk_ready;
 
 	mba = devm_kzalloc(&pdev->dev, sizeof(*mba), GFP_KERNEL);
-	if (IS_ERR(mba))
-		return PTR_ERR(mba);
+	if (!mba)
+		return -ENOMEM;
 	drv->mba = mba;
 
 	q6 = pil_q6v5_init(pdev);
