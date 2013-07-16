@@ -30,8 +30,10 @@ struct nfc_device {
 };
 
 enum ehandler_mode {
-	UNSOLICITED_READ_MODE = 0,
-	SOLICITED_READ_MODE
+	UNSOLICITED_MODE = 0,
+	SOLICITED_MODE,
+	UNSOLICITED_FTM_RAW_MODE,
+	SOLICITED_FTM_RAW_MODE
 };
 
 enum ekernel_logging_mode {
@@ -43,9 +45,9 @@ enum ekernel_logging_mode {
 	LEVEL_5
 };
 
-struct DeviceMode {
+struct devicemode {
 	enum ehandler_mode	handle_flavour;
-} tDeviceMode;
+} tdevicemode;
 
 #define NFC_DRIVER_NAME			"nfc-nci"
 #define NFC_I2C_DRIVER_NAME		"NCI NFC I2C Interface",
