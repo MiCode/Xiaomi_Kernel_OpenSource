@@ -258,6 +258,17 @@ static void wcd9xxx_start_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	pr_debug("%s: leave\n", __func__);
 }
 
+static int __wcd9xxx_resmgr_get_k_val(struct wcd9xxx_mbhc *mbhc,
+		unsigned int cfilt_mv)
+{
+	if (mbhc->mbhc_cb &&
+			mbhc->mbhc_cb->get_cdc_type() ==
+					WCD9XXX_CDC_TYPE_HELICON)
+		return 0x18;
+
+	return wcd9xxx_resmgr_get_k_val(mbhc->resmgr, cfilt_mv);
+}
+
 /*
  * called under codec_resource_lock acquisition
  * return old status
@@ -291,7 +302,7 @@ static bool __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 			wcd9xxx_turn_onoff_override(codec, true);
 		/* Adjust threshold if Mic Bias voltage changes */
 		if (d->micb_mv != VDDIO_MICBIAS_MV) {
-			cfilt_k_val = wcd9xxx_resmgr_get_k_val(mbhc->resmgr,
+			cfilt_k_val = __wcd9xxx_resmgr_get_k_val(mbhc,
 							      VDDIO_MICBIAS_MV);
 			usleep_range(10000, 10000);
 			snd_soc_update_bits(codec,
@@ -343,7 +354,7 @@ static bool __wcd9xxx_switch_micbias(struct wcd9xxx_mbhc *mbhc,
 		/* Reprogram thresholds */
 		if (d->micb_mv != VDDIO_MICBIAS_MV) {
 			cfilt_k_val =
-			    wcd9xxx_resmgr_get_k_val(mbhc->resmgr,
+			    __wcd9xxx_resmgr_get_k_val(mbhc,
 						     d->micb_mv);
 			snd_soc_update_bits(codec,
 					mbhc->mbhc_bias_regs.cfilt_val,
@@ -488,34 +499,36 @@ static void wcd9xxx_codec_switch_cfilt_mode(struct wcd9xxx_mbhc *mbhc,
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	struct wcd9xxx_cfilt_mode cfilt_mode;
-	u8 reg_mode_val, cur_mode_val;
 
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->switch_cfilt_mode) {
 		cfilt_mode = mbhc->mbhc_cb->switch_cfilt_mode(mbhc, fast);
-		reg_mode_val = cfilt_mode.reg_mode_val;
-		cur_mode_val = cfilt_mode.cur_mode_val;
 	} else {
 		if (fast)
-			reg_mode_val = WCD9XXX_CFILT_FAST_MODE;
+			cfilt_mode.reg_mode_val = WCD9XXX_CFILT_FAST_MODE;
 		else
-			reg_mode_val = WCD9XXX_CFILT_SLOW_MODE;
+			cfilt_mode.reg_mode_val = WCD9XXX_CFILT_SLOW_MODE;
 
-		cur_mode_val =
+		cfilt_mode.reg_mask = 0x40;
+		cfilt_mode.cur_mode_val =
 		    snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl) & 0x40;
 	}
-	if (cur_mode_val != reg_mode_val) {
+
+	if (cfilt_mode.cur_mode_val
+			!= cfilt_mode.reg_mode_val) {
 		if (mbhc->polling_active)
 			wcd9xxx_pause_hs_polling(mbhc);
 		snd_soc_update_bits(codec,
 				    mbhc->mbhc_bias_regs.cfilt_ctl,
-				    0x40, reg_mode_val);
+					cfilt_mode.reg_mask,
+					cfilt_mode.reg_mode_val);
 		if (mbhc->polling_active)
 			wcd9xxx_start_hs_polling(mbhc);
 		pr_debug("%s: CFILT mode change (%x to %x)\n", __func__,
-			cur_mode_val, reg_mode_val);
+			cfilt_mode.cur_mode_val,
+			cfilt_mode.reg_mode_val);
 	} else {
 		pr_debug("%s: CFILT Value is already %x\n",
-			 __func__, cur_mode_val);
+			 __func__, cfilt_mode.cur_mode_val);
 	}
 }
 
@@ -578,6 +591,18 @@ static void wcd9xxx_get_mbhc_micbias_regs(struct wcd9xxx_mbhc *mbhc,
 {
 	unsigned int cfilt;
 	struct wcd9xxx_pdata *pdata = mbhc->resmgr->pdata;
+
+	if (mbhc->mbhc_cb &&
+			mbhc->mbhc_cb->get_cdc_type() ==
+					WCD9XXX_CDC_TYPE_HELICON) {
+		micbias_regs->mbhc_reg = WCD9XXX_A_MICB_1_MBHC;
+		micbias_regs->int_rbias = WCD9XXX_A_MICB_1_INT_RBIAS;
+		micbias_regs->ctl_reg = WCD9XXX_A_MICB_1_CTL;
+		micbias_regs->cfilt_val = WCD9XXX_A_MICB_CFILT_1_VAL;
+		micbias_regs->cfilt_ctl = WCD9XXX_A_MICB_CFILT_1_CTL;
+		mbhc->mbhc_data.micb_mv = 1800;
+		return;
+	}
 
 	switch (mbhc->mbhc_cfg->micbias) {
 	case MBHC_MICBIAS1:
@@ -837,8 +862,10 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			pr_debug("%s: Enabling micbias\n", __func__);
 			mbhc->micbias_enable_cb(mbhc->codec, true);
 		}
+
 		if (mbhc->impedance_detect)
 			wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
+
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
@@ -883,8 +910,8 @@ static s16 scale_v_micb_vddio(struct wcd9xxx_mbhc *mbhc, int v, bool tovddio)
 {
 	int r;
 	int vddio_k, mb_k;
-	vddio_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, VDDIO_MICBIAS_MV);
-	mb_k = wcd9xxx_resmgr_get_k_val(mbhc->resmgr, mbhc->mbhc_data.micb_mv);
+	vddio_k = __wcd9xxx_resmgr_get_k_val(mbhc, VDDIO_MICBIAS_MV);
+	mb_k = __wcd9xxx_resmgr_get_k_val(mbhc, mbhc->mbhc_data.micb_mv);
 	if (tovddio)
 		r = v * (vddio_k + 4) / (mb_k + 4);
 	else
@@ -1797,12 +1824,12 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
 	if (snd_soc_read(codec, WCD9XXX_A_CDC_MBHC_B1_CTL) & 0x4) {
 		/* called by interrupt */
 		if (!is_clk_active(codec)) {
-			wcd9xxx_resmgr_enable_config_mode(codec, 1);
+			wcd9xxx_resmgr_enable_config_mode(mbhc->resmgr, 1);
 			snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
 					0x06, 0);
 			usleep_range(generic->t_shutdown_plug_rem,
 					generic->t_shutdown_plug_rem);
-			wcd9xxx_resmgr_enable_config_mode(codec, 0);
+			wcd9xxx_resmgr_enable_config_mode(mbhc->resmgr, 0);
 		} else
 			snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
 					0x06, 0);
@@ -3493,9 +3520,14 @@ static void wcd9xxx_mbhc_setup(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x78,
 			    btn_det->mbhc_nsc << 3);
 
-	if (mbhc->resmgr->reg_addr->micb_4_mbhc)
-		snd_soc_update_bits(codec, mbhc->resmgr->reg_addr->micb_4_mbhc,
-				    0x03, MBHC_MICBIAS2);
+	if (mbhc->mbhc_cb &&
+			mbhc->mbhc_cb->get_cdc_type() !=
+					WCD9XXX_CDC_TYPE_HELICON) {
+		if (mbhc->resmgr->reg_addr->micb_4_mbhc)
+			snd_soc_update_bits(codec,
+					mbhc->resmgr->reg_addr->micb_4_mbhc,
+					0x03, MBHC_MICBIAS2);
+	}
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x02, 0x02);
 
@@ -3798,6 +3830,14 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 	else
 		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
 		0x40, WCD9XXX_CFILT_FAST_MODE);
+
+	/*
+	 * If codec has specific clock gating for MBHC,
+	 * remove the clock gate
+	 */
+	if (mbhc->mbhc_cb &&
+			mbhc->mbhc_cb->enable_clock_gate)
+		mbhc->mbhc_cb->enable_clock_gate(mbhc->codec, true);
 
 	if (!mbhc->mbhc_cfg->read_fw_bin)
 		rc = wcd9xxx_init_and_calibrate(mbhc);
