@@ -34,8 +34,8 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/msmb_camera.h>
-#include <media/msmb_pproc.h>
 #include <media/msmb_generic_buf_mgr.h>
+#include <media/msmb_pproc.h>
 #include "msm_cpp.h"
 #include "msm_isp_util.h"
 #include "msm_camera_io_util.h"
@@ -1563,20 +1563,26 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = 0;
 		break;
 	}
-	case VIDIOC_MSM_CPP_SEND_BUF_DONE: {
-		struct msm_buf_mngr_info buff_mgr_info;
-		rc = (copy_from_user(&buff_mgr_info,
+	case VIDIOC_MSM_CPP_QUEUE_BUF: {
+		struct msm_pproc_queue_buf_info queue_buf_info;
+		rc = (copy_from_user(&queue_buf_info,
 				(void __user *)ioctl_ptr->ioctl_ptr,
-				sizeof(struct msm_buf_mngr_info)) ?
+				sizeof(struct msm_pproc_queue_buf_info)) ?
 				-EFAULT : 0);
 		if (rc) {
 			ERR_COPY_FROM_USER();
 			break;
 		}
 
-		rc = msm_cpp_buffer_ops(cpp_dev,
-			VIDIOC_MSM_BUF_MNGR_BUF_DONE,
-			&buff_mgr_info);
+		if (queue_buf_info.is_buf_dirty) {
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_PUT_BUF,
+				&queue_buf_info.buff_mgr_info);
+		} else {
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_BUF_DONE,
+				&queue_buf_info.buff_mgr_info);
+		}
 		if (rc < 0) {
 			pr_err("error in buf done\n");
 			rc = -EINVAL;
