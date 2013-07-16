@@ -529,7 +529,7 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 	return 0;
 }
 
-int32_t qpnp_iadc_calibrate_for_trim(void)
+int32_t qpnp_iadc_calibrate_for_trim(bool batfet_closed)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint8_t rslt_lsb, rslt_msb;
@@ -551,7 +551,14 @@ int32_t qpnp_iadc_calibrate_for_trim(void)
 
 	iadc->adc->calib.gain_raw = raw_data;
 
-	if (iadc->external_rsense) {
+	/*
+	 * there is a features in the BMS where if the batfet is opened
+	 * the BMS reads from INTERNAL_RSENSE (channel 0) actually go to
+	 * OFFSET_CALIBRATION_CSP_CSN (channel 5). Hence if batfet is opened
+	 * we have to calibrate based on OFFSET_CALIBRATION_CSP_CSN even for
+	 * internal rsense.
+	 */
+	if (!batfet_closed || iadc->external_rsense) {
 		/* external offset calculation */
 		rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP_CSN,
 						&raw_data, mode_sel);
@@ -628,7 +635,7 @@ static void qpnp_iadc_work(struct work_struct *work)
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int rc = 0;
 
-	rc = qpnp_iadc_calibrate_for_trim();
+	rc = qpnp_iadc_calibrate_for_trim(true);
 	if (rc)
 		pr_debug("periodic IADC calibration failed\n");
 	else
@@ -723,9 +730,8 @@ static int32_t qpnp_check_pmic_temp(void)
 		die_temp_offset = -die_temp_offset;
 
 	if (die_temp_offset > QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
-		iadc->die_temp =
-			result_pmic_therm.physical;
-		rc = qpnp_iadc_calibrate_for_trim();
+		iadc->die_temp = result_pmic_therm.physical;
+		rc = qpnp_iadc_calibrate_for_trim(true);
 		if (rc)
 			pr_err("periodic IADC calibration failed\n");
 	}
@@ -1015,7 +1021,7 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	}
 	iadc->iadc_initialized = true;
 
-	rc = qpnp_iadc_calibrate_for_trim();
+	rc = qpnp_iadc_calibrate_for_trim(true);
 	if (rc)
 		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
 	schedule_delayed_work(&iadc->iadc_work,

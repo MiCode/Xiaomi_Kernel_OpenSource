@@ -2327,7 +2327,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
 	} else {
-		qpnp_iadc_calibrate_for_trim();
+		qpnp_iadc_calibrate_for_trim(true);
 		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
