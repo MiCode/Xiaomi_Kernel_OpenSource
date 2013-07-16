@@ -1513,7 +1513,8 @@ static void slim_add_ch(struct slim_controller *ctrl, struct slim_ich *slc)
 	for (j = *len - 1; j > i; j--)
 		arr[j] = arr[j - 1];
 	arr[i] = slc;
-	ctrl->sched.usedslots += sl;
+	if (!ctrl->allocbw)
+		ctrl->sched.usedslots += sl;
 
 	return;
 }
@@ -2619,7 +2620,8 @@ static void slim_chan_changes(struct slim_device *sb, bool revert)
 				u32 sl = slc->seglen << slc->rootexp;
 				if (slc->coeff == SLIM_COEFF_3)
 					sl *= 3;
-				ctrl->sched.usedslots -= sl;
+				if (!ctrl->allocbw)
+					ctrl->sched.usedslots -= sl;
 				slim_remove_ch(ctrl, slc);
 				slc->state = SLIM_CH_DEFINED;
 			}
@@ -2640,7 +2642,8 @@ static void slim_chan_changes(struct slim_device *sb, bool revert)
 		if (revert || slc->def > 0) {
 			if (slc->coeff == SLIM_COEFF_3)
 				sl *= 3;
-			ctrl->sched.usedslots += sl;
+			if (!ctrl->allocbw)
+				ctrl->sched.usedslots += sl;
 			if (revert)
 				slc->def++;
 			slc->state = SLIM_CH_ACTIVE;
@@ -2734,7 +2737,8 @@ int slim_reconfigure_now(struct slim_device *sb)
 		u32 sl = slc->seglen << slc->rootexp;
 		if (slc->coeff == SLIM_COEFF_3)
 			sl *= 3;
-		ctrl->sched.usedslots -= sl;
+		if (!ctrl->allocbw)
+			ctrl->sched.usedslots -= sl;
 		slc->state = SLIM_CH_PENDING_REMOVAL;
 	}
 	list_for_each_entry(pch, &sb->mark_suspend, pending) {
