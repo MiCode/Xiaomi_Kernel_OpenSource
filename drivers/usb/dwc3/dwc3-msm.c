@@ -213,6 +213,7 @@ struct dwc3_msm {
 	struct power_supply	*ext_vbus_psy;
 	unsigned int		online;
 	unsigned int		host_mode;
+	unsigned int		voltage_max;
 	unsigned int		current_max;
 	unsigned int		vdd_no_vol_level;
 	unsigned int		vdd_low_vol_level;
@@ -2119,6 +2120,9 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		val->intval = mdwc->host_mode;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = mdwc->voltage_max;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = mdwc->current_max;
 		break;
@@ -2166,6 +2170,9 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		mdwc->online = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		mdwc->voltage_max = val->intval;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		mdwc->current_max = val->intval;
 		break;
@@ -2206,6 +2213,20 @@ static void dwc3_msm_external_power_changed(struct power_supply *psy)
 	power_supply_changed(&mdwc->usb_psy);
 }
 
+static int
+dwc3_msm_property_is_writeable(struct power_supply *psy,
+				enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 
 static char *dwc3_msm_pm_power_supplied_to[] = {
 	"battery",
@@ -2214,6 +2235,7 @@ static char *dwc3_msm_pm_power_supplied_to[] = {
 static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
@@ -2878,6 +2900,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->usb_psy.set_property = dwc3_msm_power_set_property_usb;
 		mdwc->usb_psy.external_power_changed =
 					dwc3_msm_external_power_changed;
+		mdwc->usb_psy.property_is_writeable =
+				dwc3_msm_property_is_writeable;
 
 		ret = power_supply_register(&pdev->dev, &mdwc->usb_psy);
 		if (ret < 0) {
