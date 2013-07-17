@@ -3693,20 +3693,6 @@ static irqreturn_t udc_irq(void)
 }
 
 /**
- * udc_release: driver release function
- * @dev: device
- *
- * Currently does nothing
- */
-static void udc_release(struct device *dev)
-{
-	trace("%p", dev);
-
-	if (dev == NULL)
-		err("EINVAL");
-}
-
-/**
  * udc_probe: parent probe must call this to initialize UDC
  * @dev:  parent device
  * @regs: registers base address
@@ -3753,12 +3739,6 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	if (pdata)
 		udc->gadget.usb_core_id = pdata->usb_core_id;
 
-	dev_set_name(&udc->gadget.dev, "gadget");
-	udc->gadget.dev.dma_mask = dev->dma_mask;
-	udc->gadget.dev.coherent_dma_mask = dev->coherent_dma_mask;
-	udc->gadget.dev.parent   = dev;
-	udc->gadget.dev.release  = udc_release;
-
 	if (udc->udc_driver->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
 		udc->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 		if (udc->transceiver == NULL) {
@@ -3786,28 +3766,24 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 			goto put_transceiver;
 	}
 
-	retval = device_register(&udc->gadget.dev);
-	if (retval) {
-		put_device(&udc->gadget.dev);
-		goto put_transceiver;
-	}
-
-#ifdef CONFIG_USB_GADGET_DEBUG_FILES
-	retval = dbg_create_files(&udc->gadget.dev);
-#endif
-	if (retval)
-		goto unreg_device;
-
 	if (udc->transceiver) {
 		retval = otg_set_peripheral(udc->transceiver->otg,
 						&udc->gadget);
 		if (retval)
-			goto remove_dbg;
+			goto put_transceiver;
 	}
 
 	retval = usb_add_gadget_udc(dev, &udc->gadget);
 	if (retval)
 		goto remove_trans;
+
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
+	retval = dbg_create_files(&udc->gadget.dev);
+	if (retval) {
+		pr_err("Registering sysfs files for debug failed!!!!\n");
+		goto del_udc;
+	}
+#endif
 
 	pm_runtime_no_callbacks(&udc->gadget.dev);
 	pm_runtime_enable(&udc->gadget.dev);
@@ -3818,17 +3794,13 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	_udc = udc;
 	return retval;
 
+del_udc:
+	usb_del_gadget_udc(&udc->gadget);
 remove_trans:
 	if (udc->transceiver)
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
 
 	err("error = %i", retval);
-remove_dbg:
-#ifdef CONFIG_USB_GADGET_DEBUG_FILES
-	dbg_remove_files(&udc->gadget.dev);
-#endif
-unreg_device:
-	device_unregister(&udc->gadget.dev);
 put_transceiver:
 	if (udc->transceiver)
 		usb_put_phy(udc->transceiver);
@@ -3866,7 +3838,6 @@ static void udc_remove(void)
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 	dbg_remove_files(&udc->gadget.dev);
 #endif
-	device_unregister(&udc->gadget.dev);
 
 	kfree(udc);
 	_udc = NULL;
