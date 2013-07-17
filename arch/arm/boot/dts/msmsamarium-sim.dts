@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msmsamarium.dtsi"
+/include/ "msm-pmi8962.dtsi"
 
 / {
 	model = "Qualcomm MSM SAMARIUM SIM";
@@ -56,4 +57,51 @@
 
 &usb_otg {
 	status = "ok";
+};
+
+&spmi_bus {
+	qcom,pmi8962@3 {
+		pmi8962_boost_byp: regulator@a000 {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,force-type = <0x1f 0x01>;
+			status = "ok";
+		};
+	};
+};
+
+&pma8084_l9 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l10 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l13 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l17 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l20 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l21 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l22 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l23 {
+	parent-supply = <&pmi8962_boost_byp>;
+};
+
+&pma8084_l24 {
+	parent-supply = <&pmi8962_boost_byp>;
 };
