@@ -1150,4 +1150,117 @@
 			label = "vcap_cb2";
 		};
 	};
+
+	bcast_iommu: qcom,iommu@fc734000{
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfc734000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 279 0>;
+		qcom,needs-alt-core-clk;
+		label = "bcast_iommu";
+		status = "disabled";
+
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0A
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2050
+					0x2514
+					0x2540
+					0x256c
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2008
+					0x200c
+					0x2010
+					0x2014
+					0x2018
+					0x201c
+					0x2020>;
+
+		qcom,iommu-bfb-data = <0xffffffff
+					0x1
+					0x0000004
+					0x0000004
+					0x0
+					0x0
+					0x000055
+					0x0000d9
+					0x0
+					0x000aa00
+					0x0004200
+					0x000e821
+					0x0
+					0x0
+					0x0
+					0x0
+					0x0
+					0x0
+					0x0
+					0x0>;
+
+		qcom,iommu-ctx@fc73c000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfc73c000 0x1000>;
+			interrupts = <0 276 0>;
+			qcom,iommu-ctx-sids = <0 1 2 3 4 5 6 7
+						8 9 10 11 12 13 14 15
+						16 17 18 19 20 21 22 23
+						24 25 26 27 28 29 30 31>;
+			label = "bcast_cb0_hlos";
+		};
+
+		qcom,iommu-ctx@fc73d000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfc73d000 0x1000>;
+			interrupts = <0 276 0>;
+			qcom,iommu-ctx-sids = <32 33 34 35 36 37 38 39
+						40 41 42 43 44 45 46 47
+						48 49 50 51 52 53 54 55
+						56 57 58 59 60 61 62>;
+			label = "bcast_cb1_cpz";
+		};
+
+		qcom,iommu-ctx@fc73e000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfc73e000 0x1000>;
+			interrupts = <0 276 0>;
+			qcom,iommu-ctx-sids = <63>;
+			label = "bcast_cb2_demod";
+		};
+
+		qcom,iommu-ctx@fc73f000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfc73f000 0x1000>;
+			interrupts = <0 276 0>;
+			qcom,iommu-ctx-sids = <>;
+			label = "bcast_cb3_apz";
+		};
+	};
 };

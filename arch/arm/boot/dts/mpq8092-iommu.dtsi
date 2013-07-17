@@ -283,3 +283,7 @@
 &vcap_iommu {
 	status = "ok";
 };
+
+&bcast_iommu {
+	status = "ok";
+};
