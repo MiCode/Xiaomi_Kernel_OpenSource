@@ -920,6 +920,7 @@ void dwc3_gadget_exit(struct dwc3 *dwc);
 
 void dwc3_gadget_restart(struct dwc3 *dwc);
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
+int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
 extern int dwc3_get_device_id(void);
 extern void dwc3_put_device_id(int id);
