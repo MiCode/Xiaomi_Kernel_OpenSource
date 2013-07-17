@@ -19,6 +19,8 @@
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
+		status = "disabled";
+
 		qcom,max-clk-rate = <320000000>;
 
 		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
