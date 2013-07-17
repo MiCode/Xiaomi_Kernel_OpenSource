@@ -3462,7 +3462,6 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	/* bind gadget */
 	driver->driver.bus     = NULL;
 	udc->gadget.dev.driver = &driver->driver;
-	udc->softconnect = 1;
 
 	spin_unlock_irqrestore(udc->lock, flags);
 	pm_runtime_get_sync(&udc->gadget.dev);
