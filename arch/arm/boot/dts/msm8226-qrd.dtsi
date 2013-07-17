@@ -98,7 +98,7 @@
 			compatible = "micrel,ks8851";
 			reg = <3>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <0 115 0>;
+			interrupts = <115 0x8>;
 			spi-max-frequency = <4800000>;
 			rst-gpio = <&msmgpio 114 0>;
 			vdd-io-supply = <&pm8226_lvs1>;
