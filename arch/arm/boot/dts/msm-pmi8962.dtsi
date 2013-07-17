@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	qcom,pmi8962@2 {
+		spmi-slave-container;
+		reg = <2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmi8962_mpps: mpps {
+			compatible = "qcom,qpnp-pin";
+			label = "pmi8962-mpp";
+			spmi-dev-container;
+			gpio-controller;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#gpio-cells = <2>;
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+
+		pmi8962_gpios: gpios {
+			compatible = "qcom,qpnp-pin";
+			label = "pmi8962-gpio";
+			spmi-dev-container;
+			gpio-controller;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#gpio-cells = <2>;
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+	};
+
+	qcom,pmi8962@3 {
+		spmi-slave-container;
+		reg = <3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		regulator@a000 {
+			regulator-name = "8962_boost_byp";
+			reg = <0xa000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+	};
+};
