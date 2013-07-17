@@ -296,24 +296,13 @@ abort_dequeue:
 static long set_default_properties(struct venc_inst *inst)
 {
 	struct v4l2_control ctrl = {0};
-	int rc;
 
 	/* Set the IDR period as 1.  The venus core doesn't give
 	 * the sps/pps for I-frames, only IDR. */
 	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD;
 	ctrl.value = 1;
-	rc = msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
-	if (rc)
-		WFD_MSG_WARN("Failed to set IDR period\n");
 
-	/* Set the default rc mode to VBR/VFR, client can change later */
-	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL;
-	ctrl.value = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR;
-	rc = msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
-	if (rc)
-		WFD_MSG_WARN("Failed to set rc mode\n");
-
-	return 0;
+	return msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
 }
 
 static int subscribe_events(struct venc_inst *inst)
