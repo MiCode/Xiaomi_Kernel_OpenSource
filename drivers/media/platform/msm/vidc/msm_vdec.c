@@ -665,8 +665,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		if (inst->in_reconfig == true) {
-			inst->prop.height = inst->reconfig_height;
-			inst->prop.width = inst->reconfig_width;
+			inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
+			inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
 			rc = msm_vidc_check_session_supported(inst);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -674,13 +674,13 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				goto exit;
 			}
 		}
-		f->fmt.pix_mp.height = inst->prop.height;
-		f->fmt.pix_mp.width = inst->prop.width;
-		stride = inst->prop.width;
-		scanlines = inst->prop.height;
+		f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
+		f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
+		stride = inst->prop.width[CAPTURE_PORT];
+		scanlines = inst->prop.height[CAPTURE_PORT];
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
+		frame_sz.width = inst->prop.width[CAPTURE_PORT];
+		frame_sz.height = inst->prop.height[CAPTURE_PORT];
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
 		rc = msm_comm_try_get_bufreqs(inst);
@@ -704,7 +704,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			case V4L2_PIX_FMT_NV12:
 				call_hfi_op(hdev, get_stride_scanline,
 					COLOR_FMT_NV12,
-					inst->prop.width, inst->prop.height,
+					inst->prop.width[CAPTURE_PORT],
+					inst->prop.height[CAPTURE_PORT],
 					&stride, &scanlines);
 				break;
 			default:
@@ -744,9 +745,9 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				(__u16)scanlines;
 		} else {
 			f->fmt.pix_mp.plane_fmt[0].bytesperline =
-				(__u16)inst->prop.width;
+				(__u16)inst->prop.width[CAPTURE_PORT];
 			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-				(__u16)inst->prop.height;
+				(__u16)inst->prop.height[CAPTURE_PORT];
 		}
 	} else {
 		dprintk(VIDC_ERR,
@@ -831,10 +832,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
 		inst->fmts[fmt->type] = fmt;
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
+		frame_sz.width = inst->prop.width[CAPTURE_PORT];
+		frame_sz.height = inst->prop.height[CAPTURE_PORT];
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
 		ret = msm_comm_try_set_prop(inst,
@@ -874,8 +879,10 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		inst->prop.width = f->fmt.pix_mp.width;
-		inst->prop.height = f->fmt.pix_mp.height;
+		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -900,8 +907,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
+		frame_sz.width = inst->prop.width[OUTPUT_PORT];
+		frame_sz.height = inst->prop.height[OUTPUT_PORT];
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
 			fmt->get_frame_size(0, inst->capability.height.max,
@@ -1079,6 +1086,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct vb2_buf_entry *temp;
 	struct list_head *ptr, *next;
 	inst->in_reconfig = false;
+	if (inst->capability.pixelprocess_capabilities &
+		HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY)
+		rc = msm_vidc_check_scaling_supported(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "H/w scaling is not in valid range");
+		return -EINVAL;
+	}
 	rc = msm_comm_set_scratch_buffers(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1296,8 +1310,10 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	}
 	inst->fmts[OUTPUT_PORT] = &vdec_formats[1];
 	inst->fmts[CAPTURE_PORT] = &vdec_formats[0];
-	inst->prop.height = DEFAULT_HEIGHT;
-	inst->prop.width = DEFAULT_WIDTH;
+	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
+	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
+	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
+	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
 	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;

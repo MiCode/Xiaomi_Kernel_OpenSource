@@ -14,6 +14,7 @@
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/kernel.h>
 #include <asm/div64.h>
 #include <mach/subsystem_restart.h>
 
@@ -81,6 +82,16 @@ static bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return false;
 }
 
+static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
+{
+	int height, width;
+	height = max(inst->prop.height[CAPTURE_PORT],
+		inst->prop.height[OUTPUT_PORT]);
+	width = max(inst->prop.width[CAPTURE_PORT],
+		inst->prop.width[OUTPUT_PORT]);
+	return NUM_MBS_PER_SEC(height, width, inst->prop.fps);
+}
+
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
 {
@@ -96,9 +107,8 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 			inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
 			if (!is_thumbnail_session(inst))
-				num_mbs_per_sec += NUM_MBS_PER_SEC(
-					inst->prop.height,
-					inst->prop.width, inst->prop.fps);
+				num_mbs_per_sec +=
+					msm_comm_get_mbs_per_sec(inst);
 		}
 		mutex_unlock(&inst->lock);
 	}
@@ -429,6 +439,8 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			inst->capability.height = session_init_done->height;
 			inst->capability.frame_rate =
 				session_init_done->frame_rate;
+			inst->capability.scale_x = session_init_done->scale_x;
+			inst->capability.scale_y = session_init_done->scale_y;
 			inst->capability.capability_set = true;
 		} else {
 			dprintk(VIDC_ERR,
@@ -477,8 +489,8 @@ static void handle_event_change(enum command_response cmd, void *data)
 			inst->reconfig_width = event_notify->width;
 			inst->in_reconfig = true;
 		} else {
-			inst->prop.height = event_notify->height;
-			inst->prop.width = event_notify->width;
+			inst->prop.height[CAPTURE_PORT] = event_notify->height;
+			inst->prop.width[CAPTURE_PORT] = event_notify->width;
 		}
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
@@ -1404,8 +1416,8 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 				temp->state < MSM_VIDC_STOP_DONE) {
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d\n",
 					temp->session_type,
-					temp->prop.width,
-					temp->prop.height,
+					temp->prop.width[CAPTURE_PORT],
+					temp->prop.height[CAPTURE_PORT],
 					temp->prop.fps);
 		}
 		mutex_unlock(&temp->lock);
@@ -1419,6 +1431,7 @@ static int msm_vidc_load_resources(int flipped_state,
 	u32 ocmem_sz = 0;
 	struct hfi_device *hdev;
 	int num_mbs_per_sec = 0;
+	int height, width;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1452,9 +1465,13 @@ static int msm_vidc_load_resources(int flipped_state,
 		goto exit;
 	}
 	if (inst->core->resources.has_ocmem) {
-		ocmem_sz = get_ocmem_requirement(inst->prop.height,
-						inst->prop.width);
 		mutex_lock(&inst->core->sync_lock);
+		height = max(inst->prop.height[CAPTURE_PORT],
+			inst->prop.height[OUTPUT_PORT]);
+		width = max(inst->prop.width[CAPTURE_PORT],
+			inst->prop.width[OUTPUT_PORT]);
+		ocmem_sz = get_ocmem_requirement(
+			height, width);
 		rc = msm_comm_scale_bus(inst->core, inst->session_type,
 					OCMEM_MEM);
 		mutex_unlock(&inst->core->sync_lock);
@@ -2621,6 +2638,70 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 	return 0;
 }
 
+int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
+{
+	u32 x_min, x_max, y_min, y_max;
+	u32 input_height, input_width, output_height, output_width;
+
+	if (!inst->capability.scale_x.min || !inst->capability.scale_x.max ||
+			!inst->capability.scale_y.min ||
+			!inst->capability.scale_y.max) {
+		dprintk(VIDC_ERR, "%s : Invalid scaling ratios",
+				__func__);
+		return -ENOTSUPP;
+	}
+	x_min = (1<<16)/inst->capability.scale_x.min;
+	y_min = (1<<16)/inst->capability.scale_y.min;
+	x_max = inst->capability.scale_x.max >> 16;
+	y_max = inst->capability.scale_y.max >> 16;
+
+	input_height = inst->prop.height[OUTPUT_PORT];
+	input_width = inst->prop.width[OUTPUT_PORT];
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+
+	if (!input_height || !input_width || !output_height || !output_width) {
+		dprintk(VIDC_ERR,
+			"Invalid : Input Height = %d Width = %d"
+			" Output Height = %d Width = %d",
+			input_height, input_width, output_height,
+			output_width);
+		return -ENOTSUPP;
+	}
+
+	if (input_height > output_height) {
+		if (input_height/output_height > x_min) {
+			dprintk(VIDC_ERR,
+				"Unsupported Height Downscale ratio %d Vs %d",
+				input_height/output_height, x_min);
+			return -ENOTSUPP;
+		}
+	} else {
+		if (input_height/output_height > x_max) {
+			dprintk(VIDC_ERR,
+				"Unsupported Height Upscale ratio %d Vs %d",
+				input_height/output_height, x_max);
+			return -ENOTSUPP;
+		}
+	}
+	if (input_width > output_width) {
+		if (input_width/output_width > y_min) {
+			dprintk(VIDC_ERR,
+				"Unsupported Width Downscale ratio %d Vs %d",
+				input_width/output_width, y_min);
+			return -ENOTSUPP;
+		}
+	} else {
+		if (input_width/output_width > y_max) {
+			dprintk(VIDC_ERR,
+				"Unsupported Width Upscale ratio %d Vs %d",
+				input_width/output_width, y_max);
+			return -ENOTSUPP;
+		}
+	}
+	return 0;
+}
+
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;
@@ -2633,19 +2714,20 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	}
 	capability = &inst->capability;
 	hdev = inst->core->device;
-
 	rc = msm_vidc_load_supported(inst);
 	if (!rc && inst->capability.capability_set) {
 		rc = call_hfi_op(hdev, capability_check,
 			inst->fmts[OUTPUT_PORT]->fourcc,
-			inst->prop.width, &capability->width.max,
+			inst->prop.width[CAPTURE_PORT], &capability->width.max,
 			&capability->height.max);
 
-		if (!rc && (inst->prop.height * inst->prop.width >
+		if (!rc && (inst->prop.height[CAPTURE_PORT]
+			* inst->prop.width[CAPTURE_PORT] >
 			capability->width.max * capability->height.max)) {
 			dprintk(VIDC_ERR,
 			"Unsupported WxH = (%u)x(%u), Max supported is - (%u)x(%u)",
-			inst->prop.width, inst->prop.height,
+			inst->prop.width[CAPTURE_PORT],
+			inst->prop.height[CAPTURE_PORT],
 			capability->width.max, capability->height.max);
 			rc = -ENOTSUPP;
 		}
