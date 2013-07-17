@@ -1219,6 +1219,14 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		goto ERROR1;
 	}
 
+	if ((new_frame->msg_len == 0) ||
+		(new_frame->msg_len > MSM_CPP_MAX_FRAME_LENGTH)) {
+		pr_err("%s:%d: Invalid frame len:%d\n", __func__,
+			__LINE__, new_frame->msg_len);
+		rc = -EINVAL;
+		goto ERROR1;
+	}
+
 	cpp_frame_msg = kzalloc(sizeof(uint32_t)*new_frame->msg_len,
 		GFP_KERNEL);
 	if (!cpp_frame_msg) {
@@ -1380,7 +1388,10 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		pr_err("ioctl_ptr is null\n");
 		return -EINVAL;
 	}
-
+	if (cpp_dev == NULL) {
+		pr_err("cpp_dev is null\n");
+		return -EINVAL;
+	}
 	mutex_lock(&cpp_dev->mutex);
 	CPP_DBG("E cmd: %d\n", cmd);
 	switch (cmd) {
@@ -1396,8 +1407,16 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE: {
 		if (cpp_dev->is_firmware_loaded == 0) {
-			kfree(cpp_dev->fw_name_bin);
-			cpp_dev->fw_name_bin = NULL;
+			if (cpp_dev->fw_name_bin != NULL) {
+				kfree(cpp_dev->fw_name_bin);
+				cpp_dev->fw_name_bin = NULL;
+			}
+			if ((ioctl_ptr->len == 0) ||
+				(ioctl_ptr->len > MSM_CPP_MAX_FW_NAME_LEN)) {
+				pr_err("ioctl_ptr->len is 0\n");
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
 			cpp_dev->fw_name_bin = kzalloc(ioctl_ptr->len+1,
 				GFP_KERNEL);
 			if (!cpp_dev->fw_name_bin) {
@@ -1406,13 +1425,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
-
 			if (ioctl_ptr->ioctl_ptr == NULL) {
 				pr_err("ioctl_ptr->ioctl_ptr=NULL\n");
-				return -EINVAL;
-			}
-			if (ioctl_ptr->len == 0) {
-				pr_err("ioctl_ptr->len is 0\n");
+				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
 			rc = (copy_from_user(cpp_dev->fw_name_bin,
@@ -1426,11 +1441,6 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 			*(cpp_dev->fw_name_bin+ioctl_ptr->len) = '\0';
-			if (cpp_dev == NULL) {
-				pr_err("cpp_dev is null\n");
-				return -EINVAL;
-			}
-
 			disable_irq(cpp_dev->irq->start);
 			cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
 			enable_irq(cpp_dev->irq->start);
