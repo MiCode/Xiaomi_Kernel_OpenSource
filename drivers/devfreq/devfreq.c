@@ -459,7 +459,7 @@ static void *find_governor_data(struct devfreq_dev_profile *profile,
 		return NULL;
 
 	for (i = 0; i < profile->num_governor_data; i++) {
-		if (!strncmp(governor_name, profile->governor_data[i].name,
+		if (strncmp(governor_name, profile->governor_data[i].name,
 			     DEVFREQ_NAME_LEN) == 0) {
 			data = profile->governor_data[i].data;
 			break;
