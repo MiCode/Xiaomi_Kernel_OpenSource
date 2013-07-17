@@ -1465,6 +1465,13 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			return -EINVAL;
 		}
 
+		if (u_stream_buff_info->num_buffs == 0) {
+			pr_err("%s:%d: Invalid number of buffers\n", __func__,
+				__LINE__);
+			kfree(u_stream_buff_info);
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
 		k_stream_buff_info.num_buffs = u_stream_buff_info->num_buffs;
 		k_stream_buff_info.identity = u_stream_buff_info->identity;
 
