@@ -206,7 +206,7 @@ static int mfd_emmc_probe_slot(struct sdhci_pci_slot *slot)
 {
 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE;
 	slot->host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC |
-				  MMC_CAP2_HC_ERASE_SZ;
+				  MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY;
 	return 0;
 }
 
@@ -269,7 +269,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 {
 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE |
 				 MMC_CAP_HW_RESET;
-	slot->host->mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
+	slot->host->mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY;
 	slot->hw_reset = sdhci_pci_int_hw_reset;
 	return 0;
 }

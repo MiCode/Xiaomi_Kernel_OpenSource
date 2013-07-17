@@ -117,7 +117,7 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
-	.caps2   = MMC_CAP2_HC_ERASE_SZ,
+	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 };
 
