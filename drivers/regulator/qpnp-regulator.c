@@ -56,6 +56,7 @@ enum qpnp_regulator_logical_type {
 	QPNP_REGULATOR_LOGICAL_TYPE_VS,
 	QPNP_REGULATOR_LOGICAL_TYPE_BOOST,
 	QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS,
+	QPNP_REGULATOR_LOGICAL_TYPE_BOOST_BYP,
 };
 
 enum qpnp_regulator_type {
@@ -64,6 +65,7 @@ enum qpnp_regulator_type {
 	QPNP_REGULATOR_TYPE_VS			= 0x05,
 	QPNP_REGULATOR_TYPE_BOOST		= 0x1B,
 	QPNP_REGULATOR_TYPE_FTS			= 0x1C,
+	QPNP_REGULATOR_TYPE_BOOST_BYP		= 0x1F,
 };
 
 enum qpnp_regulator_subtype {
@@ -94,6 +96,7 @@ enum qpnp_regulator_subtype {
 	QPNP_REGULATOR_SUBTYPE_OTG		= 0x11,
 	QPNP_REGULATOR_SUBTYPE_5V_BOOST		= 0x01,
 	QPNP_REGULATOR_SUBTYPE_FTS_CTL		= 0x08,
+	QPNP_REGULATOR_SUBTYPE_BB_2A		= 0x01,
 };
 
 enum qpnp_common_regulator_registers {
@@ -118,6 +121,10 @@ enum qpnp_vs_registers {
 
 enum qpnp_boost_registers {
 	QPNP_BOOST_REG_CURRENT_LIMIT		= 0x4A,
+};
+
+enum qpnp_boost_byp_registers {
+	QPNP_BOOST_BYP_REG_CURRENT_LIMIT	= 0x4B,
 };
 
 /* Used for indexing into ctrl_reg.  These are offets from 0x40 */
@@ -300,6 +307,10 @@ static struct qpnp_voltage_range boost_ranges[] = {
 	VOLTAGE_RANGE(0, 4000000, 4000000, 5550000, 50000),
 };
 
+static struct qpnp_voltage_range boost_byp_ranges[] = {
+	VOLTAGE_RANGE(0, 2500000, 2500000, 5200000, 50000),
+};
+
 static struct qpnp_voltage_set_points pldo_set_points = SET_POINTS(pldo_ranges);
 static struct qpnp_voltage_set_points nldo1_set_points
 					= SET_POINTS(nldo1_ranges);
@@ -312,6 +323,8 @@ static struct qpnp_voltage_set_points ftsmps_set_points
 					= SET_POINTS(ftsmps_ranges);
 static struct qpnp_voltage_set_points boost_set_points
 					= SET_POINTS(boost_ranges);
+static struct qpnp_voltage_set_points boost_byp_set_points
+					= SET_POINTS(boost_byp_ranges);
 static struct qpnp_voltage_set_points none_set_points;
 
 static struct qpnp_voltage_set_points *all_set_points[] = {
@@ -322,6 +335,7 @@ static struct qpnp_voltage_set_points *all_set_points[] = {
 	&smps_set_points,
 	&ftsmps_set_points,
 	&boost_set_points,
+	&boost_byp_set_points,
 };
 
 /* Determines which label to add to a debug print statement. */
@@ -690,9 +704,10 @@ static int qpnp_regulator_boost_set_voltage(struct regulator_dev *rdev,
 static int qpnp_regulator_boost_get_voltage(struct regulator_dev *rdev)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
+	struct qpnp_voltage_range *range = &vreg->set_points->range[0];
 	int voltage_sel = vreg->ctrl_reg[QPNP_COMMON_IDX_VOLTAGE_SET];
 
-	return boost_ranges[0].step_uV * voltage_sel + boost_ranges[0].min_uV;
+	return range->step_uV * voltage_sel + range->min_uV;
 }
 
 static int qpnp_regulator_common_list_voltage(struct regulator_dev *rdev,
@@ -901,7 +916,8 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 	    || type == QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS)
 		uV = qpnp_regulator_common_get_voltage(rdev);
 
-	if (type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST)
+	if (type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST_BYP)
 		uV = qpnp_regulator_boost_get_voltage(rdev);
 
 	if (type == QPNP_REGULATOR_LOGICAL_TYPE_SMPS
@@ -981,6 +997,10 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 			mode_label, pc_enable_label, pc_mode_label);
 		break;
 	case QPNP_REGULATOR_LOGICAL_TYPE_BOOST:
+		pr_info("%s %-11s: %s, v=%7d uV\n",
+			action_label, vreg->rdesc.name, enable_label, uV);
+		break;
+	case QPNP_REGULATOR_LOGICAL_TYPE_BOOST_BYP:
 		pr_info("%s %-11s: %s, v=%7d uV\n",
 			action_label, vreg->rdesc.name, enable_label, uV);
 		break;
@@ -1087,6 +1107,7 @@ static const struct qpnp_regulator_mapping supported_regulators[] = {
 	QPNP_VREG_MAP(VS,    OTG,      0, INF, VS,     vs,     none,        0),
 	QPNP_VREG_MAP(BOOST, 5V_BOOST, 0, INF, BOOST,  boost,  boost,       0),
 	QPNP_VREG_MAP(FTS,   FTS_CTL,  0, INF, FTSMPS, ftsmps, ftsmps, 100000),
+	QPNP_VREG_MAP(BOOST_BYP, BB_2A, 0, INF, BOOST_BYP, boost, boost_byp, 0),
 };
 
 static int qpnp_regulator_match(struct qpnp_regulator *vreg)
@@ -1224,13 +1245,17 @@ static int qpnp_regulator_init_registers(struct qpnp_regulator *vreg,
 	}
 
 	/* Set boost current limit. */
-	if (type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST
+	if ((type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST_BYP)
 		&& pdata->boost_current_limit
 			!= QPNP_BOOST_CURRENT_LIMIT_HW_DEFAULT) {
 		reg = pdata->boost_current_limit;
 		mask = QPNP_BOOST_CURRENT_LIMIT_MASK;
 		rc = qpnp_vreg_masked_read_write(vreg,
-			QPNP_BOOST_REG_CURRENT_LIMIT, reg, mask);
+			(type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST
+				? QPNP_BOOST_REG_CURRENT_LIMIT
+				: QPNP_BOOST_BYP_REG_CURRENT_LIMIT),
+			reg, mask);
 		if (rc) {
 			vreg_err(vreg, "spmi write failed, rc=%d\n", rc);
 			return rc;
