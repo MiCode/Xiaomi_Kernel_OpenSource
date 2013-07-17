@@ -80,34 +80,6 @@ void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	mdss_dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
 }
 
-/*
- * acquire ctrl->mutex first
- */
-void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
-{
-	mutex_lock(&ctrl->mutex);
-	if (enable) {
-		if (ctrl->clk_cnt == 0) {
-			mdss_dsi_enable_bus_clocks(ctrl);
-			mdss_dsi_prepare_clocks(ctrl);
-			mdss_dsi_clk_enable(ctrl);
-		}
-		ctrl->clk_cnt++;
-	} else {
-		if (ctrl->clk_cnt) {
-			ctrl->clk_cnt--;
-			if (ctrl->clk_cnt == 0) {
-				mdss_dsi_clk_disable(ctrl);
-				mdss_dsi_unprepare_clocks(ctrl);
-				mdss_dsi_disable_bus_clocks(ctrl);
-			}
-		}
-	}
-	pr_debug("%s: ctrl ndx=%d enabled=%d clk_cnt=%d\n",
-			__func__, ctrl->ndx, enable, ctrl->clk_cnt);
-	mutex_unlock(&ctrl->mutex);
-}
-
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 {
 	if (enable == 0) {
