@@ -4058,6 +4058,9 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	}
 	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 
+	wcd9xxx_regmgr_cond_register(resmgr, 1 << WCD9XXX_COND_HPH_MIC |
+					     1 << WCD9XXX_COND_HPH);
+
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 
@@ -4082,6 +4085,9 @@ EXPORT_SYMBOL_GPL(wcd9xxx_mbhc_init);
 void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 {
 	void *cdata = mbhc->codec->control_data;
+
+	wcd9xxx_regmgr_cond_deregister(mbhc->resmgr, 1 << WCD9XXX_COND_HPH_MIC |
+						     1 << WCD9XXX_COND_HPH);
 
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_RELEASE, mbhc);
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_POTENTIAL, mbhc);
