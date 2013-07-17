@@ -18,9 +18,6 @@
 
 #define VSYNC_EXPIRE_TICK 4
 
-#define START_THRESHOLD 4
-#define CONTINUE_THRESHOLD 4
-
 #define MAX_SESSIONS 2
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
@@ -43,13 +40,6 @@ struct mdss_mdp_cmd_ctx {
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
 	struct work_struct clk_work;
-
-	/* te config */
-	u8 tear_check;
-	u16 height;	/* panel height */
-	u16 vporch;	/* vertical porches */
-	u16 start_threshold;
-	u32 vclk_line;	/* vsync clock per line */
 };
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
@@ -98,96 +88,86 @@ exit:
 	return cnt;
 }
 
-/*
- * TE configuration:
- * dsi byte clock calculated base on 70 fps
- * around 14 ms to complete a kickoff cycle if te disabled
- * vclk_line base on 60 fps
- * write is faster than read
- * init == start == rdptr
- */
-static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
-			struct mdss_mdp_cmd_ctx *ctx, int enable)
-{
-	u32 cfg;
 
-	cfg = BIT(19); /* VSYNC_COUNTER_EN */
-	if (ctx->tear_check)
-		cfg |= BIT(20);	/* VSYNC_IN_EN */
-	cfg |= ctx->vclk_line;
+static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_ctl *ctl,
+				      struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_pp_tear_check *te;
+	struct mdss_panel_info *pinfo;
+	u32 vsync_clk_speed_hz, total_lines, vclks_line, cfg;
+
+	if (IS_ERR_OR_NULL(ctl->panel_data)) {
+		pr_err("no panel data\n");
+		return -ENODEV;
+	}
+
+	pinfo = &ctl->panel_data->panel_info;
+	te = &ctl->panel_data->panel_info.te;
+
+	mdss_mdp_vsync_clk_enable(1);
+
+	vsync_clk_speed_hz =
+		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_VSYNC);
+
+	total_lines = mdss_panel_get_vtotal(pinfo);
+
+	total_lines *= pinfo->mipi.frame_rate;
+
+	vclks_line = (total_lines) ? vsync_clk_speed_hz / total_lines : 0;
+
+	cfg = BIT(19);
+	if (pinfo->mipi.hw_vsync_mode)
+		cfg |= BIT(20);
+
+	if (te->refx100)
+		vclks_line = vclks_line * pinfo->mipi.frame_rate *
+			100 / te->refx100;
+	else {
+		pr_warn("refx100 cannot be zero! Use 6000 as default\n");
+		vclks_line = vclks_line * pinfo->mipi.frame_rate *
+			100 / 6000;
+	}
+
+	cfg |= vclks_line;
+
+	pr_debug("%s: yres=%d vclks=%x height=%d init=%d rd=%d start=%d ",
+		__func__, pinfo->yres, vclks_line, te->sync_cfg_height,
+		 te->vsync_init_val, te->rd_ptr_irq, te->start_pos);
+	pr_debug("thrd_start =%d thrd_cont=%d\n",
+		te->sync_threshold_start, te->sync_threshold_continue);
 
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC, cfg);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT,
-				0xfff0); /* set to verh height */
-
+				te->sync_cfg_height);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_VSYNC_INIT_VAL,
-						ctx->height);
-
+				te->vsync_init_val);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_RD_PTR_IRQ,
-						ctx->height + 1);
-
+				te->rd_ptr_irq);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_START_POS,
-						ctx->height);
-
+				te->start_pos);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_THRESH,
-		   (CONTINUE_THRESHOLD << 16) | (ctx->start_threshold));
-
-	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_TEAR_CHECK_EN, enable);
+				((te->sync_threshold_continue << 16) |
+				 te->sync_threshold_start));
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_TEAR_CHECK_EN,
+				te->tear_check_en);
 	return 0;
 }
 
-static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_ctl *ctl, int enable)
+static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_mdp_cmd_ctx *ctx = ctl->priv_data;
-	struct mdss_panel_info *pinfo;
 	struct mdss_mdp_mixer *mixer;
-
-	pinfo = &ctl->panel_data->panel_info;
-
-	if (pinfo->mipi.vsync_enable && enable) {
-		u32 mdp_vsync_clk_speed_hz, total_lines;
-
-		mdss_mdp_vsync_clk_enable(1);
-
-		mdp_vsync_clk_speed_hz =
-		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_VSYNC);
-		pr_debug("%s: vsync_clk_rate=%d\n", __func__,
-					mdp_vsync_clk_speed_hz);
-
-		if (mdp_vsync_clk_speed_hz == 0) {
-			pr_err("can't get clk speed\n");
-			return -EINVAL;
-		}
-
-		ctx->tear_check = pinfo->mipi.hw_vsync_mode;
-		ctx->height = pinfo->yres;
-		ctx->vporch = pinfo->lcdc.v_back_porch +
-				    pinfo->lcdc.v_front_porch +
-				    pinfo->lcdc.v_pulse_width;
-
-		ctx->start_threshold = START_THRESHOLD;
-
-		total_lines = ctx->height + ctx->vporch;
-		total_lines *= pinfo->mipi.frame_rate;
-		ctx->vclk_line = mdp_vsync_clk_speed_hz / total_lines;
-
-		pr_debug("%s: fr=%d tline=%d vcnt=%d thold=%d vrate=%d\n",
-			__func__, pinfo->mipi.frame_rate, total_lines,
-				ctx->vclk_line, ctx->start_threshold,
-				mdp_vsync_clk_speed_hz);
-	} else {
-		enable = 0;
-	}
-
+	int rc = 0;
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
-	if (mixer)
-		mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, enable);
-
+	if (mixer) {
+		rc = mdss_mdp_cmd_tearcheck_cfg(ctl, mixer);
+		if (rc)
+			goto err;
+	}
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 	if (mixer)
-		mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, enable);
-
-	return 0;
+		rc = mdss_mdp_cmd_tearcheck_cfg(ctl, mixer);
+ err:
+	return rc;
 }
 
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
@@ -557,7 +537,8 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
 				   mdss_mdp_cmd_pingpong_done, ctl);
 
-	ret = mdss_mdp_cmd_tearcheck_setup(ctl, 1);
+	ret = mdss_mdp_cmd_tearcheck_setup(ctl);
+
 	if (ret) {
 		pr_err("tearcheck setup failed\n");
 		return ret;
