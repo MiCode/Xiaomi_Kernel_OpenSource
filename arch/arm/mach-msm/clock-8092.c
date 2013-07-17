@@ -307,6 +307,9 @@ static struct clk_lookup msm_clocks_8092[] = {
 	CLK_DUMMY("iface_clk", NULL, "fdfb6000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk", NULL, "fdfb6000.qcom,iommu", OFF),
 	CLK_DUMMY("alt_core_clk", NULL, "fdfb6000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk", NULL, "fc734000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk", NULL, "fc734000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "fc734000.qcom,iommu", OFF),
 	/* BCSS broadcast */
 	CLK_DUMMY("",	bcc_dem_core_b_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	adc_01_clk_src.c,	"", OFF),
