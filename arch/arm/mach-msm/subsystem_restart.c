@@ -503,8 +503,10 @@ static int subsys_start(struct subsys_device *subsys)
 	if (ret)
 		return ret;
 
-	if (subsys->desc->is_not_loadable)
+	if (subsys->desc->is_not_loadable) {
+		subsys_set_state(subsys, SUBSYS_ONLINE);
 		return 0;
+	}
 
 	ret = wait_for_err_ready(subsys);
 	if (ret)
