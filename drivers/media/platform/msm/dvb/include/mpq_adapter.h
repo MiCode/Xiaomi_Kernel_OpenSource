@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,24 @@ struct dmx_framing_packet_info {
 
 	/** STC value attached to first TS packet holding the pattern */
 	u64 stc;
+
+	/*
+	 * Number of TS packets with Transport Error Indicator (TEI)
+	 * found while constructing the frame.
+	 */
+	__u32 transport_error_indicator_counter;
+
+	/* Number of continuity errors found while constructing the frame */
+	__u32 continuity_error_counter;
+
+	/*
+	 * Number of dropped bytes due to insufficient buffer space,
+	 * since last reported frame.
+	 */
+	__u32 ts_dropped_bytes;
+
+	/* Total number of TS packets holding the frame */
+	__u32 ts_packets_num;
 };
 
 struct dmx_pes_packet_info {

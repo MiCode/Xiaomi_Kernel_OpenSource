@@ -466,6 +466,12 @@ void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux)
 		&mpq_demux->decoder_ts_errors);
 
 	debugfs_create_u32(
+		"decoder_cc_errors",
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		mpq_demux->demux.dmx.debugfs_demux_dir,
+		&mpq_demux->decoder_cc_errors);
+
+	debugfs_create_u32(
 		"sdmx_process_count",
 		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
@@ -1457,6 +1463,7 @@ static int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	mpq_demux->decoder_out_interval_sum = 0;
 	mpq_demux->decoder_out_interval_max = 0;
 	mpq_demux->decoder_ts_errors = 0;
+	mpq_demux->decoder_cc_errors = 0;
 
 	return 0;
 
@@ -2346,6 +2353,14 @@ static void mpq_dmx_decoder_frame_closure(struct mpq_demux *mpq_demux,
 		meta_data.info.framing.pattern_type =
 			feed_data->last_framing_match_type;
 		meta_data.info.framing.stc = feed_data->last_framing_match_stc;
+		meta_data.info.framing.continuity_error_counter =
+			feed_data->continuity_errs;
+		meta_data.info.framing.transport_error_indicator_counter =
+			feed_data->tei_errs;
+		meta_data.info.framing.ts_dropped_bytes =
+			feed_data->ts_dropped_bytes;
+		meta_data.info.framing.ts_packets_num =
+			feed_data->ts_packets_num;
 
 		mpq_streambuffer_get_buffer_handle(stream_buffer,
 			0, /* current write buffer handle */
@@ -2644,6 +2659,7 @@ static int mpq_dmx_process_video_packet_framing(
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
+	mpq_demux->decoder_cc_errors += feed_data->continuity_errs;
 
 	/* Need to back-up the PTS information of the very first frame */
 	if (feed_data->first_pts_dts_copy) {
@@ -2788,6 +2804,15 @@ static int mpq_dmx_process_video_packet_framing(
 				feed_data->last_framing_match_type;
 			meta_data.info.framing.stc =
 				feed_data->last_framing_match_stc;
+			meta_data.info.framing.continuity_error_counter =
+				feed_data->continuity_errs;
+			meta_data.info.framing.
+				transport_error_indicator_counter =
+				 feed_data->tei_errs;
+			meta_data.info.framing.ts_dropped_bytes =
+				feed_data->ts_dropped_bytes;
+			meta_data.info.framing.ts_packets_num =
+				feed_data->ts_packets_num;
 
 			mpq_streambuffer_get_buffer_handle(
 				stream_buffer,
@@ -3052,6 +3077,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
+	mpq_demux->decoder_cc_errors += feed_data->continuity_errs;
 
 	if (mpq_streambuffer_data_write(
 				stream_buffer,
