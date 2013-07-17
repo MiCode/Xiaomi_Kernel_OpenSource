@@ -134,6 +134,7 @@ struct wcd9xxx_resmgr {
 	struct wcd9xxx_mbhc *mbhc;
 
 	unsigned long cond_flags;
+	unsigned long cond_avail_flags;
 	struct list_head update_bit_cond_h;
 	struct mutex update_bit_cond_lock;
 
@@ -227,6 +228,10 @@ enum wcd9xxx_resmgr_cond {
 	WCD9XXX_COND_HPH = 0x01, /* Headphone */
 	WCD9XXX_COND_HPH_MIC = 0x02, /* Microphone on the headset */
 };
+void wcd9xxx_regmgr_cond_register(struct wcd9xxx_resmgr *resmgr,
+				  unsigned long condbits);
+void wcd9xxx_regmgr_cond_deregister(struct wcd9xxx_resmgr *resmgr,
+				    unsigned long condbits);
 int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 				       enum wcd9xxx_resmgr_cond cond,
 				       unsigned short reg, int shift,
