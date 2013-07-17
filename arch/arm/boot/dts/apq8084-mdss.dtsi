@@ -49,6 +49,7 @@
                 qcom,mdss-pingpong-off = <0x00012F00 0x00013000 0x00013100
 					  0x00013200>;
 		qcom,mdss-ad-off = <0x0013500 0x00013700 0x00013900>;
+		qcom,mdss-highest-bank-bit = <0x3>;
 
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
