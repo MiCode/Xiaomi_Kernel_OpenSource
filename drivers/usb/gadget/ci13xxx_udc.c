@@ -3387,9 +3387,10 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 	return 0;
 }
 
-static int ci13xxx_start(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *));
-static int ci13xxx_stop(struct usb_gadget_driver *driver);
+static int ci13xxx_start(struct usb_gadget *gadget,
+			 struct usb_gadget_driver *driver);
+static int ci13xxx_stop(struct usb_gadget *gadget,
+			struct usb_gadget_driver *driver);
 
 /**
  * Device operations part of the API to the USB controller hardware,
@@ -3401,20 +3402,19 @@ static const struct usb_gadget_ops usb_gadget_ops = {
 	.wakeup		= ci13xxx_wakeup,
 	.vbus_draw	= ci13xxx_vbus_draw,
 	.pullup		= ci13xxx_pullup,
-	.start		= ci13xxx_start,
-	.stop		= ci13xxx_stop,
+	.udc_start	= ci13xxx_start,
+	.udc_stop	= ci13xxx_stop,
 };
 
 /**
  * ci13xxx_start: register a gadget driver
+ * @gadget: our gadget
  * @driver: the driver being registered
- * @bind: the driver's bind callback
  *
- * Check ci13xxx_start() at <linux/usb/gadget.h> for details.
  * Interrupts are enabled here.
  */
-static int ci13xxx_start(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *))
+static int ci13xxx_start(struct usb_gadget *gadget,
+			 struct usb_gadget_driver *driver)
 {
 	struct ci13xxx *udc = _udc;
 	unsigned long flags;
@@ -3425,7 +3425,6 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 	trace("%p", driver);
 
 	if (driver             == NULL ||
-	    bind               == NULL ||
 	    driver->setup      == NULL ||
 	    driver->disconnect == NULL)
 		return -EINVAL;
@@ -3521,7 +3520,6 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 
 	spin_unlock_irqrestore(udc->lock, flags);
 	pm_runtime_get_sync(&udc->gadget.dev);
-	retval = bind(&udc->gadget);                /* MAY SLEEP */
 	spin_lock_irqsave(udc->lock, flags);
 
 	if (retval) {
@@ -3564,7 +3562,8 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
  *
  * Check usb_gadget_unregister_driver() at "usb_gadget.h" for details
  */
-static int ci13xxx_stop(struct usb_gadget_driver *driver)
+static int ci13xxx_stop(struct usb_gadget *gadget,
+			struct usb_gadget_driver *driver)
 {
 	struct ci13xxx *udc = _udc;
 	unsigned long i, flags;
@@ -3761,7 +3760,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	udc->gadget.dev.release  = udc_release;
 
 	if (udc->udc_driver->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
-		udc->transceiver = usb_get_transceiver();
+		udc->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 		if (udc->transceiver == NULL) {
 			retval = -ENODEV;
 			goto free_udc;
@@ -3820,10 +3819,8 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	return retval;
 
 remove_trans:
-	if (udc->transceiver) {
+	if (udc->transceiver)
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
-		usb_put_transceiver(udc->transceiver);
-	}
 
 	err("error = %i", retval);
 remove_dbg:
@@ -3834,7 +3831,7 @@ unreg_device:
 	device_unregister(&udc->gadget.dev);
 put_transceiver:
 	if (udc->transceiver)
-		usb_put_transceiver(udc->transceiver);
+		usb_put_phy(udc->transceiver);
 free_udc:
 	kfree(udc);
 	_udc = NULL;
@@ -3864,7 +3861,7 @@ static void udc_remove(void)
 
 	if (udc->transceiver) {
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
-		usb_put_transceiver(udc->transceiver);
+		usb_put_phy(udc->transceiver);
 	}
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 	dbg_remove_files(&udc->gadget.dev);
