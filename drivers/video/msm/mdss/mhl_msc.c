@@ -236,6 +236,8 @@ int mhl_msc_clear(struct mhl_tx_ctrl *mhl_ctrl)
 int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req)
 {
+	bool dongle_pwr_en = false;
+
 	switch (req->command) {
 	case MHL_WRITE_STAT:
 		if (req->offset == MHL_STATUS_REG_LINK_MODE) {
@@ -243,8 +245,13 @@ int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			    & MHL_STATUS_PATH_ENABLED) {
 				/* Enable TMDS output */
 				mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
-				if (mhl_ctrl->devcap_state == MHL_DEVCAP_ALL)
-					mhl_drive_hpd(mhl_ctrl, HPD_UP);
+				if (mhl_ctrl->devcap_state == MHL_DEVCAP_ALL) {
+					dongle_pwr_en = mhl_ctrl->devcap[
+						   MHL_DEV_CATEGORY_OFFSET] &
+						MHL_DEV_CATEGORY_POW_BIT;
+					if (dongle_pwr_en)
+						mhl_drive_hpd(mhl_ctrl, HPD_UP);
+				}
 			} else {
 				/* Disable TMDS output */
 				mhl_tmds_ctrl(mhl_ctrl, TMDS_DISABLE);
