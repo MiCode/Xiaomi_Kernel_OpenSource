@@ -1996,7 +1996,7 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 		if (atomic_read(&data->st_enabled) == 0)
 			break;
 
-		pm_runtime_put(&data->client->adapter->dev);
+		pm_runtime_put(data->client->adapter->dev.parent);
 		atomic_set(&data->st_enabled, 0);
 		complete(&data->st_completion);
 		mxt_interrupt(data->client->irq, data);
@@ -2015,8 +2015,9 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 		}
 		INIT_COMPLETION(data->st_completion);
 		INIT_COMPLETION(data->st_powerdown);
-		atomic_set(&data->st_pending_irqs, 0);
 		atomic_set(&data->st_enabled, 1);
+		synchronize_irq(data->client->irq);
+		atomic_set(&data->st_pending_irqs, 0);
 		break;
 	default:
 		dev_err(&data->client->dev, "unsupported value: %lu\n", value);
