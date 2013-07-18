@@ -202,11 +202,13 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 		if (temp_data->iteration != 0) {
 			bytes_written = scnprintf(
 				buf + bytes_in_buf, bytes_remaining,
-				"i %-20ld\t"
-				"s %-20d\t"
-				"t %-20s\n",
+				"i %-10ld\t"
+				"s %-10d\t"
+				"c %-10d\t"
+				"t %-15s\n",
 				temp_data->iteration,
 				temp_data->data_size,
+				temp_data->ch_type,
 				temp_data->time_stamp);
 			bytes_in_buf += bytes_written;
 			bytes_remaining -= bytes_written;
