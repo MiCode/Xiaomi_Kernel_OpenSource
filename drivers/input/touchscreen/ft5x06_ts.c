@@ -82,6 +82,7 @@
 #define FT_ERASE_PANEL_REG	0x63
 #define FT_FW_START_REG		0xBF
 
+#define FT_STATUS_NUM_TP_MASK	0x0F
 
 #define FT_VTG_MIN_UV		2600000
 #define FT_VTG_MAX_UV		3300000
@@ -329,6 +330,7 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 {
 	struct ts_event *event = &data->event;
+	int num_points;
 	int ret, i;
 	u8 buf[POINT_READ_BUF] = { 0 };
 	u8 pointid = FT_MAX_ID;
@@ -342,7 +344,9 @@ static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 	memset(event, 0, sizeof(struct ts_event));
 
 	event->touch_point = 0;
-	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
+	num_points = buf[2] & FT_STATUS_NUM_TP_MASK;
+
+	for (i = 0; i < num_points; i++) {
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
