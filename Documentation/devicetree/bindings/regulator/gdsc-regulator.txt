@@ -20,6 +20,9 @@ Optional properties:
 		     branch control registers asserted.
  - qcom,skip-logic-collapse: Presence denotes a requirement to leave power to
                              the core's logic enabled.
+ - qcom,support-hw-trigger: Presence denotes a hardware feature to switch
+			    on/off this regulator based on internal HW signals
+			    to save more power.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

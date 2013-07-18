@@ -51,6 +51,7 @@ struct gdsc {
 	bool			toggle_periph;
 	bool			toggle_logic;
 	bool			resets_asserted;
+	bool			support_hw_trigger;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -71,6 +72,12 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
+		if (regval & HW_CONTROL_MASK) {
+			dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
+				 sc->rdesc.name);
+			return -EBUSY;
+		}
+
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
@@ -120,6 +127,12 @@ static int gdsc_disable(struct regulator_dev *rdev)
 
 	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
+		if (regval & HW_CONTROL_MASK) {
+			dev_warn(&rdev->dev, "Invalid disable while %s is under HW control\n",
+				 sc->rdesc.name);
+			return -EBUSY;
+		}
+
 		regval |= SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
@@ -138,10 +151,94 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	return ret;
 }
 
+static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
+{
+	struct gdsc *sc = rdev_get_drvdata(rdev);
+	uint32_t regval;
+
+	if (!sc->support_hw_trigger)
+		return REGULATOR_MODE_NORMAL;
+
+	regval = readl_relaxed(sc->gdscr);
+	if (regval & HW_CONTROL_MASK)
+		return REGULATOR_MODE_FAST;
+	return REGULATOR_MODE_NORMAL;
+}
+
+static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
+{
+	struct gdsc *sc = rdev_get_drvdata(rdev);
+	uint32_t regval;
+	int ret;
+
+	if (!sc->support_hw_trigger) {
+		dev_err(&rdev->dev, "hw collapse not available\n");
+		return -ENODEV;
+	}
+
+	regval = readl_relaxed(sc->gdscr);
+
+	/*
+	 * HW control can only be enable/disabled when SW_COLLAPSE
+	 * indicates on.
+	 */
+	if (regval & SW_COLLAPSE_MASK) {
+		dev_err(&rdev->dev, "can't enable hw collapse now\n");
+		return -EBUSY;
+	}
+
+	switch (mode) {
+	case REGULATOR_MODE_FAST:
+		/* Turn on HW trigger mode */
+		regval |= HW_CONTROL_MASK;
+		writel_relaxed(regval, sc->gdscr);
+		/*
+		 * There may be a race with internal HW trigger signal,
+		 * that will result in GDSC going through a power down and
+		 * up cycle.  In case HW trigger signal is controlled by
+		 * firmware that also poll same status bits as we do, FW
+		 * might read an 'on' status before the GDSC can finish
+		 * power cycle.  We wait 1us before returning to ensure
+		 * FW can't immediately poll the status bit.
+		 */
+		mb();
+		udelay(1);
+		break;
+
+	case REGULATOR_MODE_NORMAL:
+		/* Turn off HW trigger mode */
+		regval &= ~HW_CONTROL_MASK;
+		writel_relaxed(regval, sc->gdscr);
+		/*
+		 * There may be a race with internal HW trigger signal,
+		 * that will result in GDSC going through a power down and
+		 * up cycle.  If we poll too early, status bit will
+		 * indicate 'on' before the GDSC can finish the power cycle.
+		 * Account for this case by waiting 1us before polling.
+		 */
+		mb();
+		udelay(1);
+		ret = readl_tight_poll_timeout(sc->gdscr, regval,
+					regval & PWR_ON_MASK, TIMEOUT_US);
+		if (ret) {
+			dev_err(&rdev->dev, "%s set_mode timed out\n",
+				sc->rdesc.name);
+			return ret;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct regulator_ops gdsc_ops = {
 	.is_enabled = gdsc_is_enabled,
 	.enable = gdsc_enable,
 	.disable = gdsc_disable,
+	.set_mode = gdsc_set_mode,
+	.get_mode = gdsc_get_mode,
 };
 
 static int gdsc_probe(struct platform_device *pdev)
@@ -166,6 +263,9 @@ static int gdsc_probe(struct platform_device *pdev)
 	if (of_get_property(pdev->dev.of_node, "parent-supply", NULL))
 		init_data->supply_regulator = "parent";
 
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
+	init_data->constraints.valid_modes_mask |= REGULATOR_MODE_NORMAL
+						| REGULATOR_MODE_FAST;
 	ret = of_property_read_string(pdev->dev.of_node, "regulator-name",
 				      &sc->rdesc.name);
 	if (ret)
@@ -232,6 +332,8 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->toggle_periph = !retain_periph;
 	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
 						"qcom,skip-logic-collapse");
+	sc->support_hw_trigger = of_property_read_bool(pdev->dev.of_node,
+						    "qcom,support-hw-trigger");
 	if (!sc->toggle_logic) {
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
