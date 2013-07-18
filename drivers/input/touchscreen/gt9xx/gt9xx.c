@@ -45,6 +45,8 @@
 
 #include "gt9xx.h"
 
+#include <linux/of_gpio.h>
+
 #if GTP_ICS_SLOT_REPORT
 #include <linux/input/mt.h>
 #endif
@@ -1021,21 +1023,27 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 		return -EINVAL;
 	}
 
-	config_data = devm_kzalloc(&client->dev,
+	if (ts->pdata->gtp_cfg_len) {
+		config_data = ts->pdata->config_data;
+		ts->config_data = ts->pdata->config_data;
+		ts->gtp_cfg_len = ts->pdata->gtp_cfg_len;
+	} else {
+		config_data = devm_kzalloc(&client->dev,
 			GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH,
-			GFP_KERNEL);
-	if (!config_data) {
-		dev_err(&client->dev,
-				"Not enough memory for panel config data\n");
-		return -ENOMEM;
-	}
+				GFP_KERNEL);
+		if (!config_data) {
+			dev_err(&client->dev,
+					"Not enough memory for panel config data\n");
+			return -ENOMEM;
+		}
 
-	ts->config_data = config_data;
-	config_data[0] = GTP_REG_CONFIG_DATA >> 8;
-	config_data[1] = GTP_REG_CONFIG_DATA & 0xff;
-	memset(&config_data[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
-	memcpy(&config_data[GTP_ADDR_LENGTH], send_cfg_buf[sensor_id],
-			ts->gtp_cfg_len);
+		ts->config_data = config_data;
+		config_data[0] = GTP_REG_CONFIG_DATA >> 8;
+		config_data[1] = GTP_REG_CONFIG_DATA & 0xff;
+		memset(&config_data[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
+		memcpy(&config_data[GTP_ADDR_LENGTH], send_cfg_buf[sensor_id],
+				ts->gtp_cfg_len);
+	}
 
 #if GTP_CUSTOM_CFG
 	config_data[RESOLUTION_LOC] =
@@ -1352,6 +1360,122 @@ exit_free_inputdev:
 	return ret;
 }
 
+static int goodix_ts_get_dt_coords(struct device *dev, char *name,
+				struct goodix_ts_platform_data *pdata)
+{
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	int rc;
+	u32 coords[GOODIX_COORDS_ARR_SIZE];
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	rc = of_property_read_u32_array(np, name, coords,
+		GOODIX_COORDS_ARR_SIZE);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
+
+	if (!strcmp(name, "goodix,panel-coords")) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (!strcmp(name, "goodix,display-coords")) {
+		pdata->x_min = coords[0];
+		pdata->y_min = coords[1];
+		pdata->x_max = coords[2];
+		pdata->y_max = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int goodix_parse_dt(struct device *dev,
+			struct goodix_ts_platform_data *pdata)
+{
+	int rc;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+	u32 temp_val, num_buttons;
+	u32 button_map[MAX_BUTTONS];
+
+	rc = goodix_ts_get_dt_coords(dev, "goodix,panel-coords", pdata);
+	if (rc && (rc != -EINVAL))
+		return rc;
+
+	rc = goodix_ts_get_dt_coords(dev, "goodix,display-coords", pdata);
+	if (rc)
+		return rc;
+
+	pdata->i2c_pull_up = of_property_read_bool(np,
+						"goodix,i2c-pull-up");
+
+	pdata->no_force_update = of_property_read_bool(np,
+						"goodix,no-force-update");
+	/* reset, irq gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios",
+				0, &pdata->reset_gpio_flags);
+	if (pdata->reset_gpio < 0)
+		return pdata->reset_gpio;
+
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "interrupt-gpios",
+				0, &pdata->irq_gpio_flags);
+	if (pdata->irq_gpio < 0)
+		return pdata->irq_gpio;
+
+	rc = of_property_read_u32(np, "goodix,family-id", &temp_val);
+	if (!rc)
+		pdata->family_id = temp_val;
+	else
+		return rc;
+
+	prop = of_find_property(np, "goodix,button-map", NULL);
+	if (prop) {
+		num_buttons = prop->length / sizeof(temp_val);
+		if (num_buttons > MAX_BUTTONS)
+			return -EINVAL;
+
+		rc = of_property_read_u32_array(np,
+			"goodix,button-map", button_map,
+			num_buttons);
+		if (rc) {
+			dev_err(dev, "Unable to read key codes\n");
+			return rc;
+		}
+	}
+
+	prop = of_find_property(np, "goodix,cfg-data", &pdata->gtp_cfg_len);
+	if (prop && prop->value) {
+		pdata->config_data = devm_kzalloc(dev,
+			GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH, GFP_KERNEL);
+		if (!pdata->config_data) {
+			dev_err(dev, "Not enough memory for panel config data\n");
+			return -ENOMEM;
+		}
+
+		pdata->config_data[0] = GTP_REG_CONFIG_DATA >> 8;
+		pdata->config_data[1] = GTP_REG_CONFIG_DATA & 0xff;
+		memset(&pdata->config_data[GTP_ADDR_LENGTH], 0,
+					GTP_CONFIG_MAX_LENGTH);
+		memcpy(&pdata->config_data[GTP_ADDR_LENGTH],
+				prop->value, pdata->gtp_cfg_len);
+	} else {
+		dev_err(dev,
+			"Unable to get configure data, default will be used.\n");
+		pdata->gtp_cfg_len = 0;
+	}
+
+	return 0;
+}
 /*******************************************************
 Function:
 	I2c probe.
@@ -1366,15 +1490,37 @@ Output:
 static int goodix_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
+	struct goodix_ts_platform_data *pdata;
 	struct goodix_ts_data *ts;
 	u16 version_info;
 	int ret;
 
 	dev_dbg(&client->dev, "GTP I2C Address: 0x%02x\n", client->addr);
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev,
+			sizeof(struct goodix_ts_platform_data), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev,
+				"GTP Failed to allocate memory for pdata\n");
+			return -ENOMEM;
+		}
+
+		ret = goodix_parse_dt(&client->dev, pdata);
+		if (ret)
+			return ret;
+	} else {
+		pdata = client->dev.platform_data;
+	}
+
+	if (!pdata) {
+		dev_err(&client->dev, "GTP invalid pdata\n");
+		return -EINVAL;
+	}
 
 #if GTP_ESD_PROTECT
 	i2c_connect_client = client;
 #endif
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "GTP I2C not supported\n");
 		return -ENODEV;
@@ -1388,7 +1534,8 @@ static int goodix_ts_probe(struct i2c_client *client,
 
 	memset(ts, 0, sizeof(*ts));
 	ts->client = client;
-	/* For kernel 2.6.39 later we spin_lock_init(&ts->irq_lock)
+	ts->pdata = pdata;
+	/* For 2.6.39 & later use spin_lock_init(&ts->irq_lock)
 	 * For 2.6.39 & before, use ts->irq_lock = SPIN_LOCK_UNLOCKED
 	 */
 	spin_lock_init(&ts->irq_lock);
@@ -1476,6 +1623,10 @@ exit_free_irq:
 exit_free_inputdev:
 	kfree(ts->config_data);
 exit_free_io_port:
+	if (gpio_is_valid(pdata->reset_gpio))
+		gpio_free(pdata->reset_gpio);
+	if (gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
 exit_power_off:
 	i2c_set_clientdata(client, NULL);
 	kfree(ts);
@@ -1757,6 +1908,11 @@ static const struct i2c_device_id goodix_ts_id[] = {
 	{ }
 };
 
+static struct of_device_id goodix_match_table[] = {
+	{ .compatible = "goodix,gt9xx", },
+	{ },
+};
+
 static struct i2c_driver goodix_ts_driver = {
 	.probe      = goodix_ts_probe,
 	.remove     = goodix_ts_remove,
@@ -1768,6 +1924,7 @@ static struct i2c_driver goodix_ts_driver = {
 	.driver = {
 		.name     = GTP_I2C_NAME,
 		.owner    = THIS_MODULE,
+		.of_match_table = goodix_match_table,
 	},
 };
 

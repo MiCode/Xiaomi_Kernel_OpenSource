@@ -19,6 +19,7 @@ est	ESTeem Wireless Modems
 focaltech Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
+goodix	Goodix. Ltd.
 gef	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 hp	Hewlett Packard
 ibm	International Business Machines (IBM)
