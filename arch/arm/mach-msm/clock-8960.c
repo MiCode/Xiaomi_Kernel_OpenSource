@@ -1547,7 +1547,7 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_END
 };
 
-static CLK_SDC(sdc1_clk, 1, 6,  52000000, 104000000);
+static CLK_SDC(sdc1_clk, 1, 6,  52000000, 208000000);
 static CLK_SDC(sdc2_clk, 2, 5,  52000000, 104000000);
 static CLK_SDC(sdc3_clk, 3, 4, 104000000, 208000000);
 static CLK_SDC(sdc4_clk, 4, 3,  33000000,  67000000);
