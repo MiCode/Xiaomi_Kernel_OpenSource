@@ -81,7 +81,9 @@ Optional properties for MPP LED:
 - qcom,source-sel: select power source, default 1 (enabled)
 - qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
 - qcom,mode: mode the led should operate in, options "pwm", "lpg" and "manual"
+- qcom,vin-ctrl: select input source, supported values are 0 to 3
 - qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
+- qcom,min-brightness - Lowest possible brightness supported on this LED other than 0.
 
 Required properties for PWM mode only:
 - qcom,pwm-channel: pwm channel the led will operate on
@@ -136,6 +138,8 @@ Example:
 			qcom,id = <6>;
 			qcom,source-sel = <1>;
 			qcom,mode-ctrl = <0x10>;
+			qcom,vin-ctrl = <0x03>;
+			qcom,min-brightness = <20>;
 		};
 	};
 

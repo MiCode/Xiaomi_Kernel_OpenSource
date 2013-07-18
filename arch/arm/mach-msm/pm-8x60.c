@@ -1367,7 +1367,7 @@ static int msm_pm_setup_pagetable(void)
 	end = exit_phys + SECTION_SIZE;
 
 	ret = msm_pm_add_idmap(pc_pgd, exit_phys, end,
-					PMD_TYPE_SECT | PMD_SECT_AP_WRITE);
+			PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_AF);
 
 	if (ret)
 		return ret;

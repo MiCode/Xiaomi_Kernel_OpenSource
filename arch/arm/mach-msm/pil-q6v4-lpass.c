@@ -26,6 +26,7 @@
 #include <mach/subsystem_notif.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "smd_private.h"
 #include "sysmon.h"
@@ -355,6 +356,8 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->riva_notif_hdle);
 		goto err_notif_riva;
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
 
 	drv->modem_notif_hdle = subsys_notif_register_notifier("modem", &mnb);
 	if (IS_ERR(drv->modem_notif_hdle)) {

@@ -575,3 +575,34 @@ int ipa_bridge_teardown(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 	return 0;
 }
 EXPORT_SYMBOL(ipa_bridge_teardown);
+
+bool ipa_emb_ul_pipes_empty(void)
+{
+	struct sps_pipe *emb_ipa_ul =
+		ipa_ctx->sys[IPA_A5_LAN_WAN_OUT].ep->ep_hdl;
+	struct sps_pipe *emb_ipa_to_dma =
+		bridge[IPA_BRIDGE_TYPE_EMBEDDED].pipe[IPA_UL_FROM_IPA].pipe;
+	struct sps_pipe *emb_dma_to_a2 =
+		bridge[IPA_BRIDGE_TYPE_EMBEDDED].pipe[IPA_UL_TO_A2].pipe;
+	u32 emb_ipa_ul_empty;
+	u32 emb_ipa_to_dma_empty;
+	u32 emb_dma_to_a2_empty;
+
+	if (sps_is_pipe_empty(emb_ipa_ul, &emb_ipa_ul_empty)) {
+		IPAERR("emb_ip_ul pipe empty check fail\n");
+		return false;
+	}
+
+	if (sps_is_pipe_empty(emb_ipa_to_dma, &emb_ipa_to_dma_empty)) {
+		IPAERR("emb_ipa_to_dma pipe empty check fail\n");
+		return false;
+	}
+
+	if (sps_is_pipe_empty(emb_dma_to_a2, &emb_dma_to_a2_empty)) {
+		IPAERR("emb_dma_to_a2 pipe empty check fail\n");
+		return false;
+	}
+
+	return emb_ipa_ul_empty && emb_ipa_to_dma_empty && emb_dma_to_a2_empty;
+}
+EXPORT_SYMBOL(ipa_emb_ul_pipes_empty);

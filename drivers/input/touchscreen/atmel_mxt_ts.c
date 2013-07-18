@@ -393,6 +393,9 @@ struct mxt_data {
 	bool update_cfg;
 	const char *fw_name;
 	bool no_force_update;
+	bool lpm_support;
+	bool regs_enabled;
+
 #if defined(CONFIG_SECURE_TOUCH)
 	atomic_t st_enabled;
 	atomic_t st_pending_irqs;
@@ -2158,6 +2161,11 @@ static int mxt_power_on(struct mxt_data *data, bool on)
 	if (on == false)
 		goto power_off;
 
+	if (data->regs_enabled) {
+		dev_dbg(&data->client->dev, "regs are already enabled\n");
+		return 0;
+	}
+
 	rc = reg_set_optimum_mode_check(data->vcc_ana, MXT_ACTIVE_LOAD_UA);
 	if (rc < 0) {
 		dev_err(&data->client->dev,
@@ -2206,6 +2214,8 @@ static int mxt_power_on(struct mxt_data *data, bool on)
 		}
 	}
 
+	data->regs_enabled = true;
+
 	msleep(130);
 
 	return 0;
@@ -2226,6 +2236,12 @@ error_reg_en_vcc_ana:
 	return rc;
 
 power_off:
+
+	if (!data->regs_enabled) {
+		dev_dbg(&data->client->dev, "regs are already disabled\n");
+		return 0;
+	}
+
 	reg_set_optimum_mode_check(data->vcc_ana, 0);
 	regulator_disable(data->vcc_ana);
 	if (data->pdata->digital_pwr_regulator) {
@@ -2236,6 +2252,9 @@ power_off:
 		reg_set_optimum_mode_check(data->vcc_i2c, 0);
 		regulator_disable(data->vcc_i2c);
 	}
+
+	data->regs_enabled = false;
+
 	msleep(50);
 	return 0;
 }
@@ -2435,8 +2454,9 @@ static int mxt_suspend(struct device *dev)
 	struct input_dev *input_dev = data->input_dev;
 	int error;
 
-	mutex_lock(&input_dev->mutex);
+	disable_irq(data->irq);
 
+	mutex_lock(&input_dev->mutex);
 	if (input_dev->users) {
 		error = mxt_stop(data);
 		if (error < 0) {
@@ -2444,16 +2464,24 @@ static int mxt_suspend(struct device *dev)
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
-
 	}
 
 	mutex_unlock(&input_dev->mutex);
+	mxt_release_all(data);
 
 	/* put regulators in low power mode */
-	error = mxt_regulator_lpm(data, true);
-	if (error < 0) {
-		dev_err(dev, "failed to enter low power mode\n");
-		return error;
+	if (data->lpm_support) {
+		error = mxt_regulator_lpm(data, true);
+		if (error < 0) {
+			dev_err(dev, "failed to enter low power mode\n");
+			return error;
+		}
+	} else {
+		error = mxt_power_on(data, false);
+		if (error < 0) {
+			dev_err(dev, "failed to disable regulators\n");
+			return error;
+		}
 	}
 
 	return 0;
@@ -2466,12 +2494,24 @@ static int mxt_resume(struct device *dev)
 	struct input_dev *input_dev = data->input_dev;
 	int error;
 
-	/* put regulators in high power mode */
-	error = mxt_regulator_lpm(data, false);
-	if (error < 0) {
-		dev_err(dev, "failed to enter high power mode\n");
-		return error;
+	/* put regulators back in active power mode */
+	if (data->lpm_support) {
+		error = mxt_regulator_lpm(data, false);
+		if (error < 0) {
+			dev_err(dev, "failed to enter high power mode\n");
+			return error;
+		}
+	} else {
+		error = mxt_power_on(data, true);
+		if (error < 0) {
+			dev_err(dev, "failed to enable regulators\n");
+			return error;
+		}
+		mxt_power_on_delay(data);
 	}
+
+	mxt_write_object(data, MXT_GEN_COMMAND_T6, MXT_COMMAND_RESET, 1);
+	mxt_reset_delay(data);
 
 	mutex_lock(&input_dev->mutex);
 
@@ -2494,6 +2534,8 @@ static int mxt_resume(struct device *dev)
 	}
 
 	mutex_unlock(&input_dev->mutex);
+
+	enable_irq(data->irq);
 
 	return 0;
 }
@@ -2671,6 +2713,9 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 
 	pdata->no_force_update = of_property_read_bool(np,
 						"atmel,no-force-update");
+
+	pdata->no_lpm_support = of_property_read_bool(np,
+					"atmel,no-lpm-support");
 
 	/* reset, irq gpio info */
 	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
@@ -2877,6 +2922,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	data->input_dev = input_dev;
 	data->pdata = pdata;
 	data->no_force_update = pdata->no_force_update;
+	data->lpm_support = !pdata->no_lpm_support;
 
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);

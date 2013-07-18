@@ -140,8 +140,20 @@ Subnode properties:
 - qcom,mdss-mixer-swap: A boolean property that indicates if the mixer muxes
 			 need to be swapped based on the target panel.
 			 By default the property is not defined.
+- qcom,mdss-fb-split:	 Array of splitted framebuffer size. There should
+			 be only two values in this property. The values
+			 correspond to the left and right size respectively.
+			 MDP muxes two mixer output together before sending to
+			 the panel interface and these values are used to set
+			 each mixer width, so the sum of these two values
+			 should be equal to the panel x-resolution.
 
-
+			 Note that if the sum of two values is not equal to
+			 x-resolution or this subnode itself is not defined
+			 in device tree there are two cases: 1)split is not
+			 enabled if framebuffer size is less than max mixer
+			 width; 2) the defaut even split is enabled if frambuffer
+			 size is greater than max mixer width.
 
 Example:
 	qcom,mdss_mdp@fd900000 {
@@ -187,6 +199,7 @@ Example:
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
 			qcom,mdss-mixer-swap;
+			qcom,mdss-fb-split = <480 240>
 		};
 	};
 

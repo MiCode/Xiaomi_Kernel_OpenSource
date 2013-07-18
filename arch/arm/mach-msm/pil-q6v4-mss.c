@@ -24,6 +24,7 @@
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "smd_private.h"
 #include "peripheral-loader.h"
@@ -461,6 +462,8 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 			dev_name(&pdev->dev), drv);
 	if (ret)
 		goto err_irq;
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
 
 	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
 			smsm_state_cb, drv);

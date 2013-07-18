@@ -42,6 +42,7 @@
 		atmel,display-coords = <0 0 480 800>;
 		atmel,i2c-pull-up;
 		atmel,no-force-update;
+		atmel,no-lpm-support;
 		atmel,cfg_1 {
 			atmel,family-id = <0x81>;
 			atmel,variant-id = <0x15>;
@@ -222,9 +223,13 @@
 				qcom,default-state = "on";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
-				qcom,source-sel = <1>;
+				qcom,source-sel = <8>;
 				qcom,mode-ctrl = <0x10>;
-				qcom,mode = "manual";
+				qcom,pwm-channel = <0>;
+				qcom,pwm-us = <14>;
+				qcom,vin-ctrl = <0x03>;
+				qcom,mode = "pwm";
+				qcom,min-brightness = <19>;
 			};
 		};
 	};
@@ -242,8 +247,6 @@
 
 &sdhc_1 {
 	vdd-supply = <&pm8110_l17>;
-	qcom,vdd-always-on;
-	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 400000>;
 

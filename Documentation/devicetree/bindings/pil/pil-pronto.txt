@@ -13,6 +13,8 @@ Required properties:
 - interrupts: WCNSS to Apps watchdog bite interrupt
 - vdd_pronto_pll-supply: regulator to supply pronto pll.
 - qcom,firmware-name: Base name of the firmware image. Ex. "wcnss"
+
+Optional properties:
 - qcom,gpio-err-fatal: GPIO used by the wcnss to indicate error fatal to the Apps.
 - qcom,gpio-err-ready: GPIO used by the wcnss to indicate error ready to the Apps.
 - qcom,gpio-proxy-unvote: GPIO used by the wcnss to trigger proxy unvoting in

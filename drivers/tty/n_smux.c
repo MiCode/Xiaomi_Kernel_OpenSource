@@ -297,6 +297,8 @@ static const char * const smux_events[] = {
 	[SMUX_HIGH_WM_HIT] = "HIGH_WM_HIT",
 	[SMUX_RX_RETRY_HIGH_WM_HIT] = "RX_RETRY_HIGH_WM_HIT",
 	[SMUX_RX_RETRY_LOW_WM_HIT] = "RX_RETRY_LOW_WM_HIT",
+	[SMUX_LOCAL_CLOSED] = "LOCAL_CLOSED",
+	[SMUX_REMOTE_CLOSED] = "REMOTE_CLOSED",
 };
 
 static const char * const smux_local_state[] = {
@@ -553,6 +555,8 @@ static void smux_lch_purge(void)
 
 	/* Close all ports */
 	for (i = 0 ; i < SMUX_NUM_LOGICAL_CHANNELS; i++) {
+		union notifier_metadata meta;
+		int send_disconnect = 0;
 		ch = &smux_lch[i];
 		SMUX_DBG("smux: %s: cleaning up lcid %d\n", __func__, i);
 
@@ -563,14 +567,19 @@ static void smux_lch_purge(void)
 		smux_purge_ch_tx_queue(ch, 1);
 		spin_unlock(&ch->tx_lock_lhb2);
 
+		meta.disconnected.is_ssr = smux.in_reset;
 		/* Notify user of disconnect and reset channel state */
 		if (ch->local_state == SMUX_LCH_LOCAL_OPENED ||
 			ch->local_state == SMUX_LCH_LOCAL_CLOSING) {
-			union notifier_metadata meta;
-
-			meta.disconnected.is_ssr = smux.in_reset;
-			schedule_notify(ch->lcid, SMUX_DISCONNECTED, &meta);
+			schedule_notify(ch->lcid, SMUX_LOCAL_CLOSED, &meta);
+			send_disconnect = 1;
 		}
+		if (ch->remote_state != SMUX_LCH_REMOTE_CLOSED) {
+			schedule_notify(ch->lcid, SMUX_REMOTE_CLOSED, &meta);
+			send_disconnect = 1;
+		}
+		if (send_disconnect)
+			schedule_notify(ch->lcid, SMUX_DISCONNECTED, &meta);
 
 		ch->local_state = SMUX_LCH_LOCAL_CLOSED;
 		ch->remote_state = SMUX_LCH_REMOTE_CLOSED;
@@ -857,6 +866,10 @@ static int schedule_notify(uint8_t lcid, int event,
 
 	IPC_LOG_STR("smux: %s ch:%d\n", event_to_str(event), lcid);
 	ch = &smux_lch[lcid];
+	if (!ch->notify) {
+		SMUX_DBG("%s: [%d]lcid notify fn is NULL\n", __func__, lcid);
+		return ret;
+	}
 	notify_handle = kzalloc(sizeof(struct smux_notify_handle),
 						GFP_ATOMIC);
 	if (!notify_handle) {
@@ -1235,6 +1248,7 @@ static int smux_handle_close_ack(struct smux_pkt_t *pkt)
 				SMUX_LCH_LOCAL_CLOSING,
 				SMUX_LCH_LOCAL_CLOSED);
 		ch->local_state = SMUX_LCH_LOCAL_CLOSED;
+		schedule_notify(lcid, SMUX_LOCAL_CLOSED, &meta_disconnected);
 		if (ch->remote_state == SMUX_LCH_REMOTE_CLOSED)
 			schedule_notify(lcid, SMUX_DISCONNECTED,
 				&meta_disconnected);
@@ -1422,6 +1436,7 @@ static int smux_handle_rx_close_cmd(struct smux_pkt_t *pkt)
 			}
 		}
 
+		schedule_notify(lcid, SMUX_REMOTE_CLOSED, &meta_disconnected);
 		if (ch->local_state == SMUX_LCH_LOCAL_CLOSED)
 			schedule_notify(lcid, SMUX_DISCONNECTED,
 				&meta_disconnected);
@@ -2360,8 +2375,11 @@ static void smux_purge_ch_tx_queue(struct smux_lch_t *ch, int is_ssr)
 		union notifier_metadata meta_disconnected;
 
 		meta_disconnected.disconnected.is_ssr = smux.in_reset;
-		schedule_notify(ch->lcid, SMUX_DISCONNECTED,
+		schedule_notify(ch->lcid, SMUX_LOCAL_CLOSED,
 			&meta_disconnected);
+		if (ch->remote_state == SMUX_LCH_REMOTE_CLOSED)
+			schedule_notify(ch->lcid, SMUX_DISCONNECTED,
+				&meta_disconnected);
 	}
 }
 
@@ -3089,11 +3107,15 @@ int msm_smux_set_ch_option(uint8_t lcid, uint32_t set, uint32_t clear)
  *
  * @returns 0 for success, <0 otherwise
  *
- * A channel must be fully closed (either not previously opened or
- * msm_smux_close() has been called and the SMUX_DISCONNECTED has been
- * received.
+ * The local channel state must be closed (either not previously
+ * opened or msm_smux_close() has been called and the SMUX_LOCAL_CLOSED
+ * notification has been received).
  *
- * One the remote side is opened, the client will receive a SMUX_CONNECTED
+ * If open is called before the SMUX_LOCAL_CLOSED has been received,
+ * then the function will return -EAGAIN and the client will need to
+ * retry the open later.
+ *
+ * Once the remote side is opened, the client will receive a SMUX_CONNECTED
  * event.
  */
 int msm_smux_open(uint8_t lcid, void *priv,
@@ -3170,7 +3192,8 @@ out:
  * @returns 0 for success, <0 otherwise
  *
  * Once the close event has been acknowledge by the remote side, the client
- * will receive a SMUX_DISCONNECTED notification.
+ * will receive an SMUX_LOCAL_CLOSED notification.  If the remote side is also
+ * closed, then an SMUX_DISCONNECTED notification will also be sent.
  */
 int msm_smux_close(uint8_t lcid)
 {

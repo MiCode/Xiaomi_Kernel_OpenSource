@@ -569,7 +569,92 @@ static int32_t msm_sensor_init_gpio_pin_tbl(struct device_node *of_node,
 		CDBG("%s qcom,gpio-reset %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY]);
 	}
-	return rc;
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vio", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vio invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-vio %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-vio failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vana", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vana invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-vana %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-vana failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vdig", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vdig invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VDIG] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-vdig %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VDIG]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-vdig failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vaf", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vaf invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VAF] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-vaf %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VAF]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-vaf failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-af-pwdm", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-af-pwdm invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_AF_PWDM] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-af-pwdm %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_AF_PWDM]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-af-pwdm failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+	return 0;
 
 ERROR:
 	kfree(gconf->gpio_num_info);
@@ -1162,6 +1247,15 @@ static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 	return;
 }
 
+static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
+			void __user *argp)
+{
+	/* TO-DO: Need to set AF status register address and expected value
+	We need to check the AF status in the sensor register and
+	set the status in the *status variable accordingly*/
+	return 0;
+}
+
 static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -1174,6 +1268,8 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG:
 		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+	case VIDIOC_MSM_SENSOR_GET_AF_STATUS:
+		return msm_sensor_get_af_status(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_RELEASE:
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;

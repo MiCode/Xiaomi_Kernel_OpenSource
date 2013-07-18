@@ -923,8 +923,12 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 			pr_err("Invalid channel fast average setup\n");
 			return -EINVAL;
 		}
-		calibration_param = of_get_property(child,
-				"qcom,calibration-type", NULL);
+		rc = of_property_read_string(child, "qcom,calibration-type",
+							&calibration_param);
+		if (rc) {
+			pr_err("Invalid calibration type\n");
+			return -EINVAL;
+		}
 		if (!strncmp(calibration_param, "absolute", 8))
 			calib_type = CALIB_ABSOLUTE;
 		else if (!strncmp(calibration_param, "ratiometric", 11))

@@ -42,7 +42,7 @@ static int clk_rpmrs_get_rate(struct rpm_clk *r)
 	int rc;
 	struct msm_rpm_iv_pair iv = { .id = r->rpm_status_id, };
 	rc = msm_rpm_get_status(&iv, 1);
-	return (rc < 0) ? rc : iv.value * r->factor;
+	return (rc < 0) ? rc : iv.value * 1000;
 }
 
 static int clk_rpmrs_handoff(struct rpm_clk *r)
@@ -54,7 +54,7 @@ static int clk_rpmrs_handoff(struct rpm_clk *r)
 		return rc;
 
 	if (!r->branch)
-		r->c.rate = iv.value * r->factor;
+		r->c.rate = iv.value * 1000;
 
 	return 0;
 }
@@ -122,7 +122,7 @@ static void to_active_sleep_khz(struct rpm_clk *r, unsigned long rate,
 			unsigned long *active_khz, unsigned long *sleep_khz)
 {
 	/* Convert the rate (hz) to khz */
-	*active_khz = DIV_ROUND_UP(rate, r->factor);
+	*active_khz = DIV_ROUND_UP(rate, 1000);
 
 	/*
 	 * Active-only clocks don't care what the rate is during sleep. So,

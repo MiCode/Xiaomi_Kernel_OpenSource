@@ -1187,6 +1187,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	void *pdata = NULL;
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hfi_device *hdev;
+	struct hal_extradata_enable extra;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1728,14 +1729,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				!!(inst->flags & VIDC_SECURE));
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
-	{
-		struct hal_extradata_enable extra;
 		property_id = HAL_PARAM_INDEX_EXTRADATA;
 		extra.index = msm_comm_get_hal_extradata_index(ctrl->val);
 		extra.enable = 1;
 		pdata = &extra;
 		break;
-	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO:
 	{
 		struct v4l2_ctrl *rc_mode;
@@ -1761,7 +1759,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
 			vui_timing_info.enable = 1;
 			vui_timing_info.fixed_frame_rate = cfr;
-			vui_timing_info.time_scale = inst->prop.fps;
+			vui_timing_info.time_scale = NSEC_PER_SEC;
 		}
 
 		pdata = &vui_timing_info;
@@ -1877,7 +1875,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
-	inst->prop.fps = 30;
+	inst->prop.fps = 15;
 	return rc;
 }
 

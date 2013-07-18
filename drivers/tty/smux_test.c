@@ -194,6 +194,8 @@ struct smux_mock_callback {
 	int event_high_wm;
 	int event_rx_retry_high_wm;
 	int event_rx_retry_low_wm;
+	int event_local_closed;
+	int event_remote_closed;
 
 	/* TIOCM changes */
 	int event_tiocm;
@@ -249,6 +251,8 @@ static void mock_cb_data_reset(struct smux_mock_callback *cb)
 	cb->event_high_wm = 0;
 	cb->event_rx_retry_high_wm = 0;
 	cb->event_rx_retry_low_wm = 0;
+	cb->event_local_closed = 0;
+	cb->event_remote_closed = 0;
 	cb->event_tiocm = 0;
 	cb->tiocm_meta.tiocm_old = 0;
 	cb->tiocm_meta.tiocm_new = 0;
@@ -311,6 +315,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		"\tevent_high_wm=%d\n"
 		"\tevent_rx_retry_high_wm=%d\n"
 		"\tevent_rx_retry_low_wm=%d\n"
+		"\tevent_local_closed=%d\n"
+		"\tevent_remote_closed=%d\n"
 		"\tevent_tiocm=%d\n"
 		"\tevent_read_done=%d\n"
 		"\tevent_read_failed=%d\n"
@@ -329,6 +335,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		cb->event_high_wm,
 		cb->event_rx_retry_high_wm,
 		cb->event_rx_retry_low_wm,
+		cb->event_local_closed,
+		cb->event_remote_closed,
 		cb->event_tiocm,
 		cb->event_read_done,
 		cb->event_read_failed,
@@ -464,6 +472,22 @@ static void smux_mock_cb(void *priv, int event, const void *metadata)
 		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_tiocm;
 		cb_data_ptr->tiocm_meta = *(struct smux_meta_tiocm *)metadata;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
+		break;
+
+	case SMUX_LOCAL_CLOSED:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_local_closed;
+		cb_data_ptr->event_disconnected_ssr =
+			((struct smux_meta_disconnected *)metadata)->is_ssr;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
+		break;
+
+	case SMUX_REMOTE_CLOSED:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_remote_closed;
+		cb_data_ptr->event_disconnected_ssr =
+			((struct smux_meta_disconnected *)metadata)->is_ssr;
 		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
@@ -609,13 +633,18 @@ static int smux_ut_basic_core(char *buf, int max,
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -783,13 +812,18 @@ static int smux_ut_ssr_remote_open(char *buf, int max)
 
 		/* verify SSR events */
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, 5*HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, 10*HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 1);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		mock_cb_data_reset(&cb_data);
 
 		/* close port */
@@ -894,6 +928,8 @@ static int smux_ut_ssr_remote_rx_buff_retry(char *buf, int max)
 			break;
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 1);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		mock_cb_data_reset(&cb_data);
 
 		/* close port */
@@ -1272,13 +1308,18 @@ static int smux_ut_tiocm(char *buf, int max, const char *name)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -1442,13 +1483,18 @@ static int smux_ut_local_wm(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -1552,13 +1598,18 @@ static int smux_ut_local_smuxld_receive_buf(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -1884,13 +1935,18 @@ static int smux_ut_local_get_rx_buff_retry(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -2010,13 +2066,18 @@ static int smux_ut_local_get_rx_buff_retry_auto(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 
@@ -2139,13 +2200,18 @@ static int smux_ut_remote_tx_stop(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		while (cb_data.cb_count < 3) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		UT_ASSERT_INT(cb_data.cb_count, ==, 3);
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		UT_ASSERT_INT(cb_data.event_local_closed, ==, 1);
+		UT_ASSERT_INT(cb_data.event_remote_closed, ==, 1);
 		break;
 	}
 

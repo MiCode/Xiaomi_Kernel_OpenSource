@@ -46,6 +46,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("mem_clk", bimc_msmbus_clk.c, "msm_bimc", OFF),
 	CLK_DUMMY("mem_a_clk", bimc_msmbus_a_clk.c, "msm_bimc", OFF),
 	CLK_DUMMY("mem_clk", bimc_acpu_a_clk.c, "", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	"msm_sps", OFF),
 
 	CLK_DUMMY("clktype", gcc_imem_axi_clk         , "drivername", OFF),
 	CLK_DUMMY("clktype", gcc_imem_cfg_ahb_clk     , "drivername", OFF),

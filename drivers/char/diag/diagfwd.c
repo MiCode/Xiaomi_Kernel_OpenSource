@@ -390,9 +390,17 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 			(smd_info->type == SMD_DATA_TYPE))
 		buf = smd_info->buf_in_2;
 
+	if (!buf && (smd_info->type == SMD_DCI_TYPE ||
+					smd_info->type == SMD_DCI_CMD_TYPE))
+		diag_dci_try_deactivate_wakeup_source(smd_info->ch);
+
 	if (smd_info->ch && buf) {
 		temp_buf = buf;
 		pkt_len = smd_cur_packet_size(smd_info->ch);
+
+		if (pkt_len == 0 && (smd_info->type == SMD_DCI_TYPE ||
+					smd_info->type == SMD_DCI_CMD_TYPE))
+			diag_dci_try_deactivate_wakeup_source(smd_info->ch);
 
 		while (pkt_len && (pkt_len != total_recd)) {
 			loop_count++;
@@ -412,7 +420,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				} else {
 					pr_debug("diag: In %s, return from wait_event ch closed\n",
 						__func__);
-					return;
+					goto fail_return;
 				}
 			}
 			total_recd += r;
@@ -425,13 +433,13 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				} else {
 					pr_err("diag: In %s, SMD sending in packets more than %d bytes\n",
 						__func__, MAX_IN_BUF_SIZE);
-					return;
+					goto fail_return;
 				}
 			}
 			if (pkt_len < r) {
 				pr_err("diag: In %s, SMD sending incorrect pkt\n",
 					__func__);
-				return;
+				goto fail_return;
 			}
 			if (pkt_len > r) {
 				pr_debug("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
@@ -462,6 +470,13 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
 			chk_logging_wakeup();
 	}
+	return;
+
+fail_return:
+	if (smd_info->type == SMD_DCI_TYPE ||
+					smd_info->type == SMD_DCI_CMD_TYPE)
+		diag_dci_try_deactivate_wakeup_source(smd_info->ch);
+	return;
 }
 
 void diag_read_smd_work_fn(struct work_struct *work)
@@ -1705,10 +1720,12 @@ void diag_smd_notify(void *ctxt, unsigned event)
 	wake_up(&driver->smd_wait_q);
 
 	if (smd_info->type == SMD_DCI_TYPE ||
-		smd_info->type == SMD_DCI_CMD_TYPE)
+					smd_info->type == SMD_DCI_CMD_TYPE) {
+		if (event == SMD_EVENT_DATA)
+			diag_dci_try_activate_wakeup_source(smd_info->ch);
 		queue_work(driver->diag_dci_wq,
 				&(smd_info->diag_read_smd_work));
-	else
+	} else
 		queue_work(driver->diag_wq, &(smd_info->diag_read_smd_work));
 }
 

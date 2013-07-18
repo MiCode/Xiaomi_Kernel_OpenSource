@@ -218,15 +218,15 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 
 void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
 
-int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
-	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
-	void *owner);
+void kgsl_signal_event(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int timestamp,
+		unsigned int type);
+
+void kgsl_signal_events(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int type);
 
 void kgsl_cancel_events(struct kgsl_device *device,
 	void *owner);
-
-void kgsl_cancel_events_ctxt(struct kgsl_device *device,
-	struct kgsl_context *context);
 
 extern const struct dev_pm_ops kgsl_pm_ops;
 

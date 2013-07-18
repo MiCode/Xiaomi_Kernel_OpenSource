@@ -77,6 +77,7 @@ struct mxt_platform_data {
 	int *key_codes;
 	bool need_calibration;
 	bool no_force_update;
+	bool no_lpm_support;
 	u8 bl_addr;
 
 	u8(*read_chg) (void);

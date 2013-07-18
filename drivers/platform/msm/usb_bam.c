@@ -140,6 +140,7 @@ struct usb_bam_ipa_handshake_info {
 	int bus_suspend;
 	bool disconnected;
 	bool in_lpm[MAX_BAMS];
+	bool pending_lpm;
 
 	int (*wake_cb)(void *);
 	void *wake_param;
@@ -634,15 +635,25 @@ static void usb_bam_resume_core(enum usb_bam cur_bam)
 static void usb_bam_start_lpm(bool disconnect)
 {
 	struct usb_phy *trans = usb_get_transceiver();
+
 	BUG_ON(trans == NULL);
-		pr_debug("%s: Going to LPM\n", __func__);
+
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
+
 	info.lpm_wait_handshake[HSUSB_BAM] = false;
 	info.lpm_wait_pipes = 0;
+
 	if (disconnect)
 		pm_runtime_put_noidle(trans->dev);
-	spin_unlock(&usb_bam_ipa_handshake_info_lock);
-	pm_runtime_suspend(trans->dev);
+
+	if (info.pending_lpm) {
+		info.pending_lpm = 0;
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+		pr_debug("%s: Going to LPM\n", __func__);
+		pm_runtime_suspend(trans->dev);
+	} else
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+
 }
 
 int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
@@ -1438,6 +1449,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			info.lpm_wait_handshake[HSUSB_BAM] = true;
 			info.connect_complete = 0;
 			info.disconnected = 0;
+			info.pending_lpm = 0;
 			info.lpm_wait_pipes = 1;
 			info.bus_suspend = 0;
 			info.cons_stopped = 0;
@@ -1998,8 +2010,18 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			ipa_rm_notify_completion(IPA_RM_RESOURCE_RELEASED,
 				ipa_rm_resource_cons[cur_bam]);
 		}
-		pr_debug("%s Ended disconnect sequence\n", __func__);
-		usb_bam_start_lpm(1);
+
+		if (cur_bam == HSUSB_BAM) {
+			/*
+			 * Currently we have for HSUSB BAM only one consumer
+			 * pipe. Therefore ending disconnect sequence and
+			 * starting hsusb lpm. This limitation will be changed
+			 * in future patch.
+			 */
+			pr_debug("%s Ended disconnect sequence\n", __func__);
+			usb_bam_start_lpm(1);
+		}
+
 		mutex_unlock(&info.suspend_resume_mutex);
 		return 0;
 	}
@@ -2629,10 +2651,12 @@ bool msm_bam_lpm_ok(void)
 {
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	if (info.lpm_wait_handshake[HSUSB_BAM] || info.lpm_wait_pipes) {
+		info.pending_lpm = 1;
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_err("%s: Scheduling LPM for later\n", __func__);
 		return 0;
 	} else {
+		info.pending_lpm = 0;
 		info.in_lpm[HSUSB_BAM] = true;
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_err("%s: Going to LPM now\n", __func__);
@@ -2640,6 +2664,16 @@ bool msm_bam_lpm_ok(void)
 	}
 }
 EXPORT_SYMBOL(msm_bam_lpm_ok);
+
+void msm_bam_notify_lpm_resume()
+{
+	/*
+	 * If core was resumed from lpm, just clear the
+	 * pending indication, in case it is set.
+	*/
+	info.pending_lpm = 0;
+}
+EXPORT_SYMBOL(msm_bam_notify_lpm_resume);
 
 static int usb_bam_remove(struct platform_device *pdev)
 {

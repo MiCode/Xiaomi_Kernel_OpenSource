@@ -44,6 +44,8 @@
 #define HAL_BUFFERFLAG_READONLY         0x00000200
 #define HAL_BUFFERFLAG_ENDOFSUBFRAME    0x00000400
 #define HAL_BUFFERFLAG_EOSEQ            0x00200000
+#define HAL_BUFFERFLAG_DROP_FRAME       0x20000000
+
 
 #define HAL_DEBUG_MSG_LOW				0x00000001
 #define HAL_DEBUG_MSG_MEDIUM			0x00000002
@@ -172,6 +174,8 @@ enum hal_property {
 	HAL_PARAM_VENC_H264_VUI_TIMING_INFO,
 	HAL_PARAM_VENC_H264_GENERATE_AUDNAL,
 	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
+	HAL_PARAM_BUFFER_ALLOC_MODE,
+	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
 };
 
 enum hal_domain {
@@ -858,6 +862,16 @@ enum hal_event_type {
 	HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES,
 	HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES,
 	HAL_UNUSED_SEQCHG = 0x10000000,
+};
+
+enum buffer_mode_type {
+	HAL_BUFFER_MODE_STATIC = 0x00000000,
+	HAL_BUFFER_MODE_RING,
+};
+
+struct hal_buffer_alloc_mode {
+	enum hal_buffer buffer_type;
+	enum buffer_mode_type buffer_mode;
 };
 
 /* HAL Response */

@@ -36,7 +36,6 @@ struct qseecom_send_cmd_req {
 	unsigned int resp_len; /* in/out */
 };
 
-
 /*
  * struct qseecom_ion_fd_info - ion fd handle data information
  * @fd - ion handle to some memory allocated in user space
@@ -62,6 +61,7 @@ struct qseecom_send_modfd_cmd_req {
 	unsigned int resp_len; /* in/out */
 	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD];
 };
+
 /*
  * struct qseecom_listener_send_resp_req - signal to continue the send_cmd req.
  * Used as a trigger from HLOS service to notify QSEECOM that it's done with its
@@ -157,6 +157,27 @@ struct qseecom_is_es_activated_req {
 	int is_activated; /* out */
 };
 
+enum qseecom_buffer_protection {
+	QSEOS_UNPROTECTED_BUFFER,
+	QSEOS_PROTECT_BUFFER,
+	QSEOS_UNPROTECT_PROTECTED_BUFFER,
+};
+
+/*
+ * struct qseecom_send_modfd_resp - for send command ioctl request
+ * @req_len - command buffer length
+ * @req_buf - command buffer
+ * @ifd_data_fd - ion handle to memory allocated in user space
+ * @cmd_buf_offset - command buffer offset
+ */
+struct qseecom_send_modfd_listener_resp {
+	void *resp_buf_ptr; /* in */
+	unsigned int resp_len; /* in */
+	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD]; /* in */
+	enum qseecom_buffer_protection protection_mode; /* in */
+};
+
+
 #define QSEECOM_IOC_MAGIC    0x97
 
 
@@ -220,4 +241,9 @@ struct qseecom_is_es_activated_req {
 #define QSEECOM_IOCTL_IS_ES_ACTIVATED_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 20, struct qseecom_is_es_activated_req)
 
+#define QSEECOM_IOCTL_SEND_MODFD_RESP \
+	_IOWR(QSEECOM_IOC_MAGIC, 21, struct qseecom_send_modfd_listener_resp)
+
+#define QSEECOM_IOCTL_UNPROTECT_BUF \
+	_IOWR(QSEECOM_IOC_MAGIC, 22, int)
 #endif /* __QSEECOM_H_ */

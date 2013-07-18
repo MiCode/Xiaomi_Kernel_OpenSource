@@ -31,6 +31,7 @@
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -83,9 +84,6 @@ struct pronto_data {
 	bool restart_inprogress;
 	bool crash;
 	struct delayed_work cancel_vote_work;
-	int irq;
-	unsigned int err_fatal_irq;
-	int force_stop_gpio;
 	struct ramdump_device *ramdump_dev;
 };
 
@@ -308,7 +306,7 @@ static void restart_wcnss(struct pronto_data *drv)
 
 static irqreturn_t wcnss_err_fatal_intr_handler(int irq, void *dev_id)
 {
-	struct pronto_data *drv = dev_id;
+	struct pronto_data *drv = subsys_to_drv(dev_id);
 
 	pr_err("Fatal error on the wcnss.\n");
 
@@ -326,11 +324,11 @@ static irqreturn_t wcnss_err_fatal_intr_handler(int irq, void *dev_id)
 
 static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 {
-	struct pronto_data *drv = dev_id;
+	struct pronto_data *drv = subsys_to_drv(dev_id);
 
 	drv->crash = true;
 
-	disable_irq_nosync(drv->irq);
+	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 
 	if (drv->restart_inprogress) {
 		pr_err("Ignoring wcnss bite irq, restart in progress\n");
@@ -380,7 +378,7 @@ static int wcnss_powerup(const struct subsys_desc *subsys)
 			return ret;
 	}
 	drv->restart_inprogress = false;
-	enable_irq(drv->irq);
+	enable_irq(drv->subsys_desc.wdog_bite_irq);
 	schedule_delayed_work(&drv->cancel_vote_work, msecs_to_jiffies(5000));
 
 	return 0;
@@ -392,7 +390,7 @@ static void crash_shutdown(const struct subsys_desc *subsys)
 
 	pr_err("wcnss crash shutdown %d\n", drv->crash);
 	if (!drv->crash)
-		gpio_set_value(drv->force_stop_gpio, 1);
+		gpio_set_value(subsys->force_stop_gpio, 1);
 }
 
 static int wcnss_ramdump(int enable, const struct subsys_desc *subsys)
@@ -410,26 +408,13 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	struct pronto_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
-	int ret, err_fatal_gpio, irq;
+	int ret;
 	uint32_t regval;
-
-	int clk_ready = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,gpio-proxy-unvote", 0);
-	if (clk_ready < 0)
-		return clk_ready;
-
-	clk_ready = gpio_to_irq(clk_ready);
-	if (clk_ready < 0)
-		return clk_ready;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
-
-	drv->irq = platform_get_irq(pdev, 0);
-	if (drv->irq < 0)
-		return drv->irq;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu_base");
 	drv->base = devm_request_and_ioremap(&pdev->dev, res);
@@ -452,27 +437,9 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	err_fatal_gpio = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,gpio-err-fatal", 0);
-	if (err_fatal_gpio < 0)
-		return err_fatal_gpio;
-
-	irq = gpio_to_irq(err_fatal_gpio);
-	if (irq < 0)
-		return irq;
-
-	drv->err_fatal_irq = irq;
-
-	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,gpio-force-stop", 0);
-	if (drv->force_stop_gpio < 0)
-		return drv->force_stop_gpio;
-
-
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
-	desc->proxy_unvote_irq = clk_ready;
 
 	if (pas_supported(PAS_WCNSS) > 0) {
 		desc->ops = &pil_pronto_ops_trusted;
@@ -504,6 +471,8 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->cxo))
 		return PTR_ERR(drv->cxo);
 
+	scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+
 	ret = pil_desc_init(desc);
 	if (ret)
 		return ret;
@@ -517,17 +486,8 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.crash_shutdown = crash_shutdown;
 	drv->subsys_desc.start = pronto_start;
 	drv->subsys_desc.stop = pronto_stop;
-
-	ret = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,gpio-err-ready", 0);
-	if (ret < 0)
-		return ret;
-
-	ret = gpio_to_irq(ret);
-	if (ret < 0)
-		return ret;
-
-	drv->subsys_desc.err_ready_irq = ret;
+	drv->subsys_desc.err_fatal_handler = wcnss_err_fatal_intr_handler;
+	drv->subsys_desc.wdog_bite_handler = wcnss_wdog_bite_irq_hdlr;
 
 	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
 
@@ -535,19 +495,6 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->subsys)) {
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
-	}
-
-	ret = devm_request_irq(&pdev->dev, drv->irq, wcnss_wdog_bite_irq_hdlr,
-			IRQF_TRIGGER_HIGH, "wcnss_wdog", drv);
-	if (ret < 0)
-		goto err_irq;
-
-	ret = devm_request_irq(&pdev->dev, drv->err_fatal_irq,
-			wcnss_err_fatal_intr_handler,
-			IRQF_TRIGGER_RISING, "pil-pronto", drv);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to register SMP2P err fatal handler!\n");
-		goto err_irq;
 	}
 
 	drv->ramdump_dev = create_ramdump_device("pronto", &pdev->dev);
