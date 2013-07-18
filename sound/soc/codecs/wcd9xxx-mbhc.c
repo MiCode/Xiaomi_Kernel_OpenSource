@@ -1014,7 +1014,7 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	 * These will be released by wcd9xxx_cleanup_hs_polling
 	 */
 	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
-	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_AUDIO_MODE);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
 	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
@@ -3805,7 +3805,13 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	mutex_lock(&codec->mutex);
 
 	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
-	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+	/*
+	 * Fast(mbhc) mode bandagap doesn't need to be enabled explicitly
+	 * since fast mode is set by MBHC hardware when override is on.
+	 * Enable bandgap mode to avoid unnecessary RCO disable and enable
+	 * during clock source change.
+	 */
+	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_AUDIO_MODE);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
 	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
