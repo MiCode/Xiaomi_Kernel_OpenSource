@@ -125,6 +125,8 @@
 #define CPR_FUSE_RO_SEL_BITS		3
 #define CPR_FUSE_RO_SEL_BITS_MASK	((1<<CPR_FUSE_RO_SEL_BITS)-1)
 
+#define CPR_FUSE_MIN_QUOT_DIFF		100
+
 #define BYTES_PER_FUSE_ROW		8
 
 enum voltage_change_dir {
@@ -1209,6 +1211,29 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	if (!cpr_vreg->cpr_fuse_bits) {
 		cpr_vreg->cpr_fuse_disable = 1;
 		pr_err("cpr_fuse_bits = 0: set cpr_fuse_disable = 1\n");
+	} else {
+		/* Check if the target quotients are too close together */
+		int *quot = cpr_vreg->cpr_fuse_target_quot;
+		bool valid_fuse = true;
+
+		if ((quot[CPR_CORNER_TURBO] > quot[CPR_CORNER_NORMAL]) &&
+		    (quot[CPR_CORNER_NORMAL] > quot[CPR_CORNER_SVS])) {
+			if ((quot[CPR_CORNER_TURBO] -
+			     quot[CPR_CORNER_NORMAL])
+					<= CPR_FUSE_MIN_QUOT_DIFF)
+				valid_fuse = false;
+			else if ((quot[CPR_CORNER_NORMAL] -
+				  quot[CPR_CORNER_SVS])
+					<= CPR_FUSE_MIN_QUOT_DIFF)
+				valid_fuse = false;
+		} else {
+			valid_fuse = false;
+		}
+
+		if (!valid_fuse) {
+			cpr_vreg->cpr_fuse_disable = 1;
+			pr_err("invalid quotient values\n");
+		}
 	}
 
 	return 0;
