@@ -1315,7 +1315,7 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 		return -ENODEV;
 
 	if (param->threshold_notification == NULL) {
-		pr_err("No notification for high/low temp??\n");
+		pr_debug("No notification for high/low temp??\n");
 		return -EINVAL;
 	}
 
