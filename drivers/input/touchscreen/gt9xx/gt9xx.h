@@ -46,8 +46,6 @@ struct goodix_ts_platform_data {
 	u32 irq_gpio_flags;
 	int reset_gpio;
 	u32 reset_gpio_flags;
-	int ldo_en_gpio;
-	u32 ldo_en_gpio_flags;
 	u32 family_id;
 	u32 x_max;
 	u32 y_max;
@@ -59,6 +57,8 @@ struct goodix_ts_platform_data {
 	u32 panel_maxy;
 	bool no_force_update;
 	bool i2c_pull_up;
+	int gtp_cfg_len;
+	u8 *config_data;
 };
 struct goodix_ts_data {
 	spinlock_t irq_lock;
