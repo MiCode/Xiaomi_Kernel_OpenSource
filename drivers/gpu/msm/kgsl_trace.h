@@ -262,29 +262,6 @@ TRACE_EVENT(kgsl_pwrlevel,
 	)
 );
 
-TRACE_EVENT(kgsl_mpdcvs,
-
-	TP_PROTO(struct kgsl_device *device, unsigned int state),
-
-	TP_ARGS(device, state),
-
-	TP_STRUCT__entry(
-		__string(device_name, device->name)
-		__field(unsigned int, state)
-	),
-
-	TP_fast_assign(
-		__assign_str(device_name, device->name);
-		__entry->state = state;
-	),
-
-	TP_printk(
-		"d_name=%s %s",
-		__get_str(device_name),
-		__entry->state ? "BUSY" : "IDLE"
-	)
-);
-
 TRACE_EVENT(kgsl_gpubusy,
 	TP_PROTO(struct kgsl_device *device, unsigned int busy,
 		unsigned int elapsed),
