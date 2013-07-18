@@ -7,7 +7,11 @@ Required property:
   - compatible: should be "qcom,msm_sps"
 
 Optional properties:
-  - reg: offset and size of the register set in the memory map
+  - reg: offset and size for the memory mapping, including maps for
+    BAM DMA BAM, BAM DMA peripheral, pipe memory and reserved memory.
+  - reg-names: indicates various resources passed to driver (via reg
+    property) by name. "reg-names" examples are "bam_mem", "core_mem"
+    , "pipe_mem" and "res_mem".
   - interrupts: IRQ line
   - qcom,device-type: specify the device configuration of BAM DMA and
     pipe memory. Can be one of
