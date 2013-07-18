@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/msm_mdp.h>
+#include <linux/memblock.h>
 
 #include <mach/iommu_domains.h>
 #include <mach/event_timer.h>
@@ -45,6 +46,7 @@ static atomic_t ov_active_panels = ATOMIC_INIT(0);
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
+static int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd);
 
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
@@ -2361,7 +2363,6 @@ int mdss_panel_register_done(struct mdss_panel_data *pdata)
 	if (pdata->panel_info.cont_splash_enabled) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdss_mdp_footswitch_ctrl_splash(1);
-		mdss_mdp_ctl_splash_start(pdata);
 	}
 	return 0;
 }
@@ -2454,8 +2455,48 @@ init_fail:
 	return rc;
 }
 
+static __ref int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd)
+{
+	struct platform_device *pdev = mfd->pdev;
+	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
+	int len = 0, rc = 0;
+	u32 offsets[2];
+
+	of_find_property(pdev->dev.of_node, "qcom,memblock-reserve", &len);
+
+	if (len < 1) {
+		pr_debug("mem reservation for splash screen fb not present\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	len = len/sizeof(u32);
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,memblock-reserve", offsets, len);
+	if (rc) {
+		pr_debug("Error reading mem reserve settings for fb\n");
+		goto error;
+	}
+
+	if (!memblock_is_reserved(offsets[0])) {
+		pr_debug("failed to reserve memory for fb splash\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	mdp5_mdata->splash_mem_addr = offsets[0];
+	mdp5_mdata->splash_mem_size = offsets[1];
+	pr_debug("memaddr=%x size=%x\n", mdp5_mdata->splash_mem_addr,
+		mdp5_mdata->splash_mem_size);
+
+error:
+	return rc;
+}
+
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 {
+	int rc = 0;
 	struct platform_device *pdev = mfd->pdev;
 	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
 
@@ -2466,5 +2507,13 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 			pdev->name);
 	}
 
-	return 0;
+	rc = mdss_mdp_overlay_splash_parse_dt(mfd);
+	if (rc && mfd->panel_info->cont_splash_enabled) {
+		pr_err("No rsvd mem found in DT for splash screen\n");
+	} else {
+		pr_debug("Mem reservation not reqd if cont splash diasbled\n");
+		rc = 0;
+	}
+
+	return rc;
 }
