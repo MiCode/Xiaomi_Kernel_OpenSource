@@ -267,7 +267,8 @@ unsigned get_head_word_access(volatile void __iomem *half_channel)
 int is_word_access_ch(unsigned ch_type)
 {
 	if (ch_type == SMD_APPS_RPM || ch_type == SMD_MODEM_RPM ||
-		ch_type == SMD_QDSP_RPM || ch_type == SMD_WCNSS_RPM)
+		ch_type == SMD_QDSP_RPM || ch_type == SMD_WCNSS_RPM ||
+		ch_type == SMD_TZ_RPM)
 		return 1;
 	else
 		return 0;
