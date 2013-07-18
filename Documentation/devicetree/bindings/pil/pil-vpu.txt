@@ -1,0 +1,25 @@
+* Qualcomm Video Processing Unit Subsystem Peripheral Image Loader
+
+pil-vpu is a peripheral image loading (PIL) driver. It is used for loading
+vpu firmware images for video processing into memory and preparing the subsystem's
+processor to execute code. It is also used for shutting down the processor when
+it's not needed.
+
+Required properties:
+- compatible: "pil-vpu"
+- reg: offset and length of the register set for the device.
+- reg-names: names of the bases for the above registers. "maple_csr_base".
+- vdd-supply: regulator to supply vpu.
+- qcom,firmware-name: Base name of the firmware image. Ex. "vpu"
+
+Example:
+
+	qcom,vpu@fde0b000{
+		compatible = "qcom,pil-vpu";
+		reg = <0xfde0b000 0x80>;
+		reg-names = "maple_csr_base";
+		vdd-supply = <&gdsc_vpu>;
+
+		qcom,firmware-name = "vpu";
+	};
+
