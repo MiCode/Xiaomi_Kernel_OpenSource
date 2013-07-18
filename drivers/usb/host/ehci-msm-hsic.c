@@ -1878,6 +1878,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 					&pdata->strobe_pad_offset);
 	of_property_read_u32(node, "hsic,data-pad-offset",
 					&pdata->data_pad_offset);
+	of_property_read_u32(node, "hsic,reset-delay",
+					&pdata->reset_delay);
 	of_property_read_u32(node, "hsic,log2-itc",
 					&pdata->log2_irq_thresh);
 	if (pdata->log2_irq_thresh > 6)
@@ -1980,6 +1982,9 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		mehci->ehci.reset_sof_bug = 1;
 		mehci->ehci.resume_sof_bug = 1;
 	}
+
+	if (pdata->reset_delay)
+		mehci->ehci.reset_delay = pdata->reset_delay;
 
 	mehci->ehci.pool_64_bit_align = pdata->pool_64_bit_align;
 	mehci->enable_hbm = pdata->enable_hbm;

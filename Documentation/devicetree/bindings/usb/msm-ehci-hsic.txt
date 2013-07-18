@@ -73,6 +73,11 @@ Optional properties :
   programs the CERR  to 3 by default. When this flag is true, CERR is set to
   zero and transaction errors are ignored.
 
+- hsic,reset-delay: If present then add the given delay time (ms) between
+  the reset and enumeration. Since some devices might take more than 100ms
+  for initialization when receiving the bus reset, add delay to avoid the
+  problem that enmueration is before device initialization done.
+
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
     - qcom,msm_bus,name
