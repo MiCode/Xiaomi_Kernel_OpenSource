@@ -40,6 +40,7 @@ enum msm_bus_perf_setting {
 enum cci_i2c_master_t {
 	MASTER_0,
 	MASTER_1,
+	MASTER_MAX,
 };
 
 struct msm_camera_slave_info {
