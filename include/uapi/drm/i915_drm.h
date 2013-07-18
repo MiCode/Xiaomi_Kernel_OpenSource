@@ -224,6 +224,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_REG_READ		0x31
 #define DRM_I915_GET_RESET_STATS	0x32
 #define DRM_I915_GEM_USERPTR		0x33
+#define DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	0x37
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -275,6 +276,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_REG_READ			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_REG_READ, struct drm_i915_reg_read)
 #define DRM_IOCTL_I915_GET_RESET_STATS		DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GET_RESET_STATS, struct drm_i915_reset_stats)
 #define DRM_IOCTL_I915_GEM_USERPTR			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GEM_USERPTR, struct drm_i915_gem_userptr)
+#define DRM_IOCTL_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	\
+	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2, \
+	struct drm_i915_enable_plane_reserved_reg_bit_2)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -1064,6 +1068,12 @@ struct drm_i915_gem_userptr {
 	 * Object handles are nonzero.
 	 */
 	__u32 handle;
+};
+
+struct drm_i915_enable_plane_reserved_reg_bit_2 {
+	__u32 enable;
+	int plane;
+	int crtc_id;
 };
 
 #endif /* _UAPI_I915_DRM_H_ */

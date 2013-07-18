@@ -12368,6 +12368,58 @@ int intel_modeset_vga_set_state(struct drm_device *dev, bool state)
 	return 0;
 }
 
+int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
+					struct drm_file *file)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_enable_plane_reserved_reg_bit_2 *rrb = data;
+	u32 enable = rrb->enable;
+	u32 val, reg1, reg2;
+	u32 pipe_id;
+
+	/* Added this code for making pipe generalization in HSW */
+	struct drm_mode_object *drmmode_obj;
+	struct intel_crtc *crtc;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return -ENODEV;
+
+	drmmode_obj = drm_mode_object_find(dev, rrb->crtc_id,
+			DRM_MODE_OBJECT_CRTC);
+
+	if (!drmmode_obj) {
+		DRM_ERROR("no such CRTC id\n");
+		return -EINVAL;
+	}
+
+	crtc = to_intel_crtc(obj_to_crtc(drmmode_obj));
+	pipe_id = crtc->pipe;
+
+	reg1 = SPRSURF(pipe_id);
+	reg2 = SPRSURFLIVE(pipe_id);
+
+	if (enable) {
+		/* Program bit enable if it was requested */
+		val = I915_READ(reg1);
+		val |= SURF_RESERVED_REG_BIT_2_ENABLE;
+		I915_WRITE(reg1, val);
+
+		val = I915_READ(reg2);
+		val |= SURF_RESERVED_REG_BIT_2_ENABLE;
+		I915_WRITE(reg2, val);
+	} else {
+		/* Clear the older rrb setting */
+		val = I915_READ(reg1);
+		val &= ~SURF_RESERVED_REG_BIT_2_ENABLE;
+		I915_WRITE(reg1, val);
+
+		val = I915_READ(reg2);
+		val &= ~SURF_RESERVED_REG_BIT_2_ENABLE;
+		I915_WRITE(reg2, val);
+	}
+	return 0;
+}
+
 struct intel_display_error_state {
 
 	u32 power_well_driver;

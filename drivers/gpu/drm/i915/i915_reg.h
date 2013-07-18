@@ -3601,6 +3601,9 @@ enum punit_power_well {
 #define   PIPECONF_FORCE_BORDER	(1<<25)
 #define   PIPECONF_INTERLACE_MASK	(7 << 21)
 #define   PIPECONF_INTERLACE_MASK_HSW	(3 << 21)
+
+#define SURF_RESERVED_REG_BIT_2_ENABLE	(1<<2)
+
 /* Note that pre-gen3 does not support interlaced display directly. Panel
  * fitting must be disabled on pre-ilk for interlaced. */
 #define   PIPECONF_PROGRESSIVE			(0 << 21)
