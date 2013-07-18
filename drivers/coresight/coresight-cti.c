@@ -107,22 +107,37 @@ static int cti_enable(struct cti_drvdata *drvdata)
 	return 0;
 }
 
-static void __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
+static int __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
+	int ret;
+
+	if (drvdata->refcnt == 0) {
+		ret = cti_enable(drvdata);
+		if (ret)
+			return ret;
+	}
 
 	CTI_UNLOCK(drvdata);
 
 	ctien = cti_readl(drvdata, CTIINEN(trig));
+	if (ctien & (0x1 << ch))
+		goto out;
 	cti_writel(drvdata, (ctien | 0x1 << ch), CTIINEN(trig));
 
 	CTI_LOCK(drvdata);
+
+	drvdata->refcnt++;
+	return 0;
+out:
+	CTI_LOCK(drvdata);
+	return 0;
 }
 
 int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 {
 	struct cti_drvdata *drvdata;
-	int ret = 0;
+	int ret;
 
 	if (IS_ERR_OR_NULL(cti))
 		return -EINVAL;
@@ -134,36 +149,43 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	drvdata = to_cti_drvdata(cti);
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			goto err;
-	}
-	drvdata->refcnt++;
-
-	__cti_map_trigin(drvdata, trig, ch);
-err:
+	ret = __cti_map_trigin(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_map_trigin);
 
-static void __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
+static int __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
+	int ret;
+
+	if (drvdata->refcnt == 0) {
+		ret = cti_enable(drvdata);
+		if (ret)
+			return ret;
+	}
 
 	CTI_UNLOCK(drvdata);
 
 	ctien = cti_readl(drvdata, CTIOUTEN(trig));
+	if (ctien & (0x1 << ch))
+		goto out;
 	cti_writel(drvdata, (ctien | 0x1 << ch), CTIOUTEN(trig));
 
 	CTI_LOCK(drvdata);
+
+	drvdata->refcnt++;
+	return 0;
+out:
+	CTI_LOCK(drvdata);
+	return 0;
 }
 
 int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 {
 	struct cti_drvdata *drvdata;
-	int ret = 0;
+	int ret;
 
 	if (IS_ERR_OR_NULL(cti))
 		return -EINVAL;
@@ -175,15 +197,7 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	drvdata = to_cti_drvdata(cti);
 
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			goto err;
-	}
-	drvdata->refcnt++;
-
-	__cti_map_trigout(drvdata, trig, ch);
-err:
+	ret = __cti_map_trigout(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
@@ -193,9 +207,11 @@ static void cti_disable(struct cti_drvdata *drvdata)
 {
 	CTI_UNLOCK(drvdata);
 
-	cti_writel(drvdata, 0x1, CTICONTROL);
+	cti_writel(drvdata, 0x0, CTICONTROL);
 
 	CTI_LOCK(drvdata);
+
+	clk_disable_unprepare(drvdata->clk);
 }
 
 static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
@@ -205,9 +221,19 @@ static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_UNLOCK(drvdata);
 
 	ctien = cti_readl(drvdata, CTIINEN(trig));
+	if (!(ctien & (0x1 << ch)))
+		goto out;
 	cti_writel(drvdata, (ctien & ~(0x1 << ch)), CTIINEN(trig));
 
 	CTI_LOCK(drvdata);
+
+	if (drvdata->refcnt == 1)
+		cti_disable(drvdata);
+	drvdata->refcnt--;
+	return;
+out:
+	CTI_LOCK(drvdata);
+	return;
 }
 
 void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
@@ -224,13 +250,8 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	mutex_lock(&drvdata->mutex);
 	__cti_unmap_trigin(drvdata, trig, ch);
-
-	if (drvdata->refcnt == 1)
-		cti_disable(drvdata);
-	drvdata->refcnt--;
 	mutex_unlock(&drvdata->mutex);
 
-	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigin);
 
@@ -241,9 +262,19 @@ static void __cti_unmap_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_UNLOCK(drvdata);
 
 	ctien = cti_readl(drvdata, CTIOUTEN(trig));
+	if (!(ctien & (0x1 << ch)))
+		goto out;
 	cti_writel(drvdata, (ctien & ~(0x1 << ch)), CTIOUTEN(trig));
 
 	CTI_LOCK(drvdata);
+
+	if (drvdata->refcnt == 1)
+		cti_disable(drvdata);
+	drvdata->refcnt--;
+	return;
+out:
+	CTI_LOCK(drvdata);
+	return;
 }
 
 void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
@@ -260,13 +291,7 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	mutex_lock(&drvdata->mutex);
 	__cti_unmap_trigout(drvdata, trig, ch);
-
-	if (drvdata->refcnt == 1)
-		cti_disable(drvdata);
-	drvdata->refcnt--;
 	mutex_unlock(&drvdata->mutex);
-
-	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigout);
 
