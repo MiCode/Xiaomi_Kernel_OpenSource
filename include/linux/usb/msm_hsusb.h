@@ -438,6 +438,7 @@ struct msm_otg {
 	struct power_supply usb_psy;
 	unsigned int online;
 	unsigned int host_mode;
+	unsigned int voltage_max;
 	unsigned int current_max;
 
 	dev_t ext_chg_dev;

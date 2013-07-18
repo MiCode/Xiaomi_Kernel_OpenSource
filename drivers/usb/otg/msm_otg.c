@@ -3605,8 +3605,11 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 		else
 			val->intval = POWER_SUPPLY_SCOPE_DEVICE;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = motg->voltage_max;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-			val->intval = motg->current_max;
+		val->intval = motg->current_max;
 		break;
 	/* Reflect USB enumeration */
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -3637,6 +3640,9 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		motg->online = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		motg->voltage_max = val->intval;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		motg->current_max = val->intval;
 		break;
@@ -3657,6 +3663,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		return 1;
 	default:
@@ -3673,6 +3680,7 @@ static char *otg_pm_power_supplied_to[] = {
 static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_TYPE,
