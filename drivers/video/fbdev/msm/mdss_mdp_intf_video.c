@@ -16,6 +16,8 @@
 #include <linux/iopoll.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/bootmem.h>
+#include <linux/memblock.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -576,138 +578,13 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
-static struct splash_pipe_cfg splash_pipes[MDSS_MDP_MAX_SSPP];
-
-int mdss_mdp_scan_cont_splash(void)
-{
-	u32 off;
-	u32  data, height = 0, width = 0;
-	int i, j, total = 0;
-	u32 bits;
-	struct splash_pipe_cfg *sp;
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	sp = splash_pipes;
-	for (i = 0; i < MDSS_MDP_MAX_SSPP; i++, sp++) {
-		off = MDSS_MDP_REG_SSPP_OFFSET(i) + MDSS_MDP_REG_SSPP_SRC_SIZE;
-		data = MDSS_MDP_REG_READ(off);
-		pr_debug("i=%d: addr=%x hw=%x\n", i, (int)off, (int)data);
-
-		if (data == 0)
-			continue;
-		height = data;
-		height >>= 16;
-		height &= 0x0ffff;
-		width = data & 0x0ffff;
-		sp->width = width;
-		sp->height = height;
-		total++;
-	}
-	off = MDSS_MDP_REG_CTL_OFFSET(0);	/* control 0 only */
-	for (i = 0; i < MDSS_MDP_INTF_MAX_LAYERMIXER; i++) {
-		data = MDSS_MDP_REG_READ(off);
-		pr_debug("i=%d: addr=%x hw=%x\n", i, (int)off, (int)data);
-
-		for (j = 0; j < MDSS_MDP_MAX_SSPP; j++) {
-			bits = data & 0x07;
-			if (bits)
-				splash_pipes[j].mixer = i;
-			data >>= 3;
-		}
-		off += 4;
-	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-
-	pr_debug("total=%d\n", total);
-
-	return total;
-}
-
-int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
-{
-	void *virt = NULL;
-	unsigned long fb_addr = 0;
-	unsigned long *fb_addr_va;
-	unsigned long  off;
-	u32 height, width, bpp, flush;
-	size_t size;
-	static struct ion_handle *ihdl;
-	struct ion_client *iclient = mdss_get_ionclient();
-	static ion_phys_addr_t phys;
-	int i;
-	struct splash_pipe_cfg *sp;
-
-	sp = splash_pipes;
-
-	width = 0;
-	height = 0;
-	for (i = 0; i < 8; i++, sp++) {
-		if (sp->width == 0)
-			continue;
-		width += sp->width;	/* aggregated */
-		height = sp->height;
-		off = MDSS_MDP_REG_SSPP_OFFSET(i) +
-		MDSS_MDP_REG_SSPP_SRC0_ADDR;
-		fb_addr = MDSS_MDP_REG_READ(off);
-	}
-
-	bpp        = 3;
-	size = PAGE_ALIGN(height * width * bpp);
-	pr_debug("splash_height=%d splash_width=%d Buffer size=%d fb=%x\n",
-			height, width, size, (int)fb_addr);
-
-	ihdl = ion_alloc(iclient, size, SZ_1M,
-			ION_HEAP(ION_QSECOM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(ihdl)) {
-		pr_err("unable to alloc fbmem from ion (%p)\n", ihdl);
-		return -ENOMEM;
-	}
-
-	pdata->panel_info.splash_ihdl = ihdl;
-
-	virt = ion_map_kernel(iclient, ihdl);
-	ion_phys(iclient, ihdl, &phys, &size);
-
-	if (MDSS_LPAE_CHECK(phys)) {
-		pr_err("Phys mem %pa >4Gb cannot be used w/o IOMMU\n", &phys);
-		pdata->panel_info.splash_ihdl = NULL;
-		ion_free(iclient, ihdl);
-		return -ERANGE;
-	}
-
-	pr_debug("%s %d Allocating %u bytes at 0x%lx (%pa phys)\n",
-			__func__, __LINE__, size,
-			(unsigned long int)virt, &phys);
-
-	fb_addr_va = (unsigned long *)ioremap(fb_addr, size);
-	memcpy(virt, fb_addr_va, size);
-	iounmap(fb_addr_va);
-
-	sp = splash_pipes;
-	flush = 0;
-	for (i = 0; i < 8; i++, sp++) {
-		if (sp->width == 0)
-			continue;
-		off = MDSS_MDP_REG_SSPP_OFFSET(i) +
-			MDSS_MDP_REG_SSPP_SRC0_ADDR;
-		MDSS_MDP_REG_WRITE(off, phys);
-		flush |= (1 << i);	/* pipe bit */
-		flush |= (4 << sp->mixer); /* mixer bit */
-	}
-
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_CTL_FLUSH + MDSS_MDP_REG_CTL_OFFSET(0),
-					flush);
-
-	return 0;
-}
-
 int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 {
-	struct ion_client *iclient = mdss_get_ionclient();
 	struct mdss_panel_data *pdata;
 	int ret = 0, off;
 	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
 	int mdss_v2_intf_off = 0;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 
 	off = 0;
 
@@ -733,7 +610,12 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 			mdss_v2_intf_off, 0);
 	/* wait for 1 VSYNC for the pipe to be unstaged */
 	msleep(20);
-	ion_free(iclient, pdata->panel_info.splash_ihdl);
+
+	/* Give back the reserved memory to the system */
+	memblock_free(mdp5_data->splash_mem_addr, mdp5_data->splash_mem_size);
+	free_bootmem_late(mdp5_data->splash_mem_addr,
+				 mdp5_data->splash_mem_size);
+
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
 			NULL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
