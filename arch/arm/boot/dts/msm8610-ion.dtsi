@@ -38,14 +38,14 @@
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x0bf00000 0x1A00000>;
+			qcom,memory-fixed = <0x0c500000 0x1300000>;
 		};
 
 		qcom,ion-heap@26 { /* MODEM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <26>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x08000000 0x3F00000>;
+			qcom,memory-fixed = <0x08800000 0x3d00000>;
 		};
 
 	};
