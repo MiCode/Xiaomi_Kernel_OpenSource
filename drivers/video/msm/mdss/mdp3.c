@@ -959,6 +959,21 @@ int mdp3_iommu_disable(int client)
 	return rc;
 }
 
+int mdp3_iommu_is_attached(int client)
+{
+	struct mdp3_iommu_ctx_map *context_map;
+	int context = MDP3_IOMMU_CTX_DMA_0;
+
+	if (!mdp3_res->iommu_contexts)
+		return 0;
+
+	if (client == MDP3_CLIENT_PPP)
+		context = MDP3_IOMMU_CTX_PPP_0;
+
+	context_map = mdp3_res->iommu_contexts + context;
+	return context_map->attached;
+}
+
 static int mdp3_init(struct msm_fb_data_type *mfd)
 {
 	int rc;
@@ -982,6 +997,66 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
+void mdp3_fbmem_clear(void)
+{
+	if (mdp3_res->ion_handle && mdp3_res->virt) {
+		pr_debug("mdp3_fbmem_clear\n");
+		memset(mdp3_res->virt, 0, mdp3_res->size);
+	}
+}
+
+static int mdp3_alloc(size_t size, void **virt, unsigned long *phys)
+{
+	int ret = 0;
+
+	if (mdp3_res->ion_handle) {
+		pr_debug("memory already alloc\n");
+		*virt = mdp3_res->virt;
+		*phys = mdp3_res->phys;
+		return 0;
+	}
+
+	mdp3_res->ion_handle = ion_alloc(mdp3_res->ion_client, size,
+					SZ_1M,
+					ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->ion_handle)) {
+		*virt = ion_map_kernel(mdp3_res->ion_client,
+					mdp3_res->ion_handle);
+		if (IS_ERR(*virt)) {
+			pr_err("map kernel error\n");
+			goto ion_map_kernel_err;
+		}
+
+		ret = ion_phys(mdp3_res->ion_client, mdp3_res->ion_handle,
+				phys, &size);
+		if (ret) {
+			pr_err("%s ion_phys error\n", __func__);
+			goto ion_map_phys_err;
+		}
+
+		mdp3_res->virt = *virt;
+		mdp3_res->phys = *phys;
+		mdp3_res->size = size;
+	} else {
+		pr_err("%s ion alloc fail\n", __func__);
+		mdp3_res->ion_handle = NULL;
+		return -ENOMEM;
+	}
+
+	return 0;
+
+ion_map_phys_err:
+	ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
+ion_map_kernel_err:
+	ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
+	mdp3_res->ion_handle = NULL;
+	mdp3_res->virt = NULL;
+	mdp3_res->phys = 0;
+	mdp3_res->size = 0;
+	return -ENOMEM;
+}
+
 static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENOMEM, dom;
@@ -999,28 +1074,10 @@ static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
 		return 0;
 	}
 
-	mdp3_res->ion_handle = ion_alloc(mdp3_res->ion_client, size,
-					SZ_1M,
-					ION_HEAP(ION_QSECOM_HEAP_ID), 0);
-
-	if (!IS_ERR_OR_NULL(mdp3_res->ion_handle)) {
-		virt = ion_map_kernel(mdp3_res->ion_client,
-					mdp3_res->ion_handle);
-		if (IS_ERR(virt)) {
-			pr_err("%s map kernel error\n", __func__);
-			goto ion_map_kernel_err;
-		}
-
-		ret = ion_phys(mdp3_res->ion_client, mdp3_res->ion_handle,
-				&phys, &size);
-		if (ret) {
-			pr_err("%s ion_phys error\n", __func__);
-			goto ion_map_phys_err;
-		}
-	} else {
-		pr_err("%s ion alloc fail\n", __func__);
-		mdp3_res->ion_handle = NULL;
-		return -ENOMEM;
+	ret = mdp3_alloc(size, &virt, &phys);
+	if (ret) {
+		pr_err("fail to allocate fb memory\n");
+		return ret;
 	}
 
 	dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
@@ -1031,10 +1088,10 @@ static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
 
 	if (ret) {
 		pr_err("%s map IOMMU error\n", __func__);
-		goto ion_map_phys_err;
+		goto ion_map_iommu_err;
 	}
 
-	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
+	pr_debug("allocating %u bytes at %p (%lx phys) for fb %d\n",
 			size, virt, phys, mfd->index);
 
 	mfd->fbi->screen_base = virt;
@@ -1042,17 +1099,19 @@ static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
 	mfd->fbi->fix.smem_len = size;
 	return 0;
 
-ion_map_phys_err:
+ion_map_iommu_err:
 	ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
-ion_map_kernel_err:
 	ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
 	mdp3_res->ion_handle = NULL;
+	mdp3_res->virt = NULL;
+	mdp3_res->phys = 0;
+	mdp3_res->size = 0;
 	return -ENOMEM;
 }
 
 void mdp3_fbmem_free(struct msm_fb_data_type *mfd)
 {
-	pr_info("mdp3_fbmem_free\n");
+	pr_debug("mdp3_fbmem_free\n");
 	if (mdp3_res->ion_handle) {
 		int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
 
@@ -1061,6 +1120,9 @@ void mdp3_fbmem_free(struct msm_fb_data_type *mfd)
 				dom, 0);
 		ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
 		mdp3_res->ion_handle = NULL;
+		mdp3_res->virt = NULL;
+		mdp3_res->phys = 0;
+		mdp3_res->size = 0;
 		mfd->fbi->screen_base = 0;
 		mfd->fbi->fix.smem_start = 0;
 		mfd->fbi->fix.smem_len = 0;
@@ -1103,6 +1165,130 @@ static int mdp3_fb_mem_get_iommu_domain(void)
 	return mdp3_res->domains[MDP3_IOMMU_DOMAIN].domain_idx;
 }
 
+int mdp3_continuous_splash_copy(struct mdss_panel_data *pdata)
+{
+	unsigned long splash_phys, phys;
+	void *splash_virt, *virt;
+	u32 height, width, rgb_size, stride;
+	size_t size;
+	int rc;
+
+	rgb_size = MDP3_REG_READ(MDP3_REG_DMA_P_SIZE);
+	stride = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_Y_STRIDE);
+	stride = stride & 0x3FFF;
+	splash_phys = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
+
+	height = (rgb_size >> 16) & 0xffff;
+	width  = rgb_size & 0xffff;
+	size = PAGE_ALIGN(height * stride * 2);
+	pr_debug("splash_height=%d splash_width=%d Buffer size=%d\n",
+		height, width, size);
+
+	rc = mdp3_alloc(size, &virt, &phys);
+	if (rc) {
+		pr_err("fail to allocate memory for continuous splash image\n");
+		return rc;
+	}
+
+	splash_virt = ioremap(splash_phys, stride * height);
+	memcpy(virt, splash_virt, stride * height);
+	iounmap(splash_virt);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, phys);
+
+	return 0;
+}
+
+static int mdp3_is_display_on(struct mdss_panel_data *pdata)
+{
+	int rc = 0;
+	u32 status;
+
+	mdp3_clk_update(MDP3_CLK_AHB, 1);
+	mdp3_clk_update(MDP3_CLK_CORE, 1);
+
+	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
+		status = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_EN);
+		rc = status & 0x1;
+	} else {
+		status = MDP3_REG_READ(MDP3_REG_DMA_P_START);
+		rc = status & 01;
+	}
+
+	mdp3_clk_update(MDP3_CLK_AHB, 0);
+	mdp3_clk_update(MDP3_CLK_CORE, 0);
+	return rc;
+}
+
+static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
+{
+	struct mdss_panel_info *panel_info = &pdata->panel_info;
+	int ab, ib, rc;
+
+	pr_debug("mdp3__continuous_splash_on\n");
+
+	rc = mdp3_clk_enable(1);
+	if (rc) {
+		pr_err("fail to enable clk\n");
+		return rc;
+	}
+
+	ab = panel_info->xres * panel_info->yres * 4;
+	ab *= panel_info->mipi.frame_rate;
+	ib = (ab * 3) / 2;
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, ib);
+	if (rc) {
+		pr_err("fail to request bus bandwidth\n");
+		goto splash_on_err;
+	}
+
+	rc = mdp3_ppp_init();
+	if (rc) {
+		pr_err("ppp init failed\n");
+		goto splash_on_err;
+	}
+
+	rc = mdp3_continuous_splash_copy(pdata);
+	if (rc) {
+		pr_err("fail to copy continuous splash image\n");
+		goto splash_on_err;
+	}
+
+	mdp3_irq_register();
+
+	if (pdata->event_handler) {
+		rc = pdata->event_handler(pdata, MDSS_EVENT_CONT_SPLASH_BEGIN,
+					NULL);
+		if (rc) {
+			pr_err("MDSS_EVENT_CONT_SPLASH_BEGIN event fail\n");
+			goto splash_on_err;
+		}
+	}
+
+	if (panel_info->type == MIPI_VIDEO_PANEL)
+		mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_DSI_VIDEO].active = 1;
+	else
+		mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_DSI_CMD].active = 1;
+	return 0;
+
+splash_on_err:
+	mdp3_clk_enable(0);
+	return rc;
+}
+
+static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
+{
+	int rc = 0;
+
+	if (pdata->panel_info.cont_splash_enabled) {
+		if (!mdp3_is_display_on(pdata)) {
+			pr_err("continuous splash, but bootloader is not\n");
+			return 0;
+		}
+		rc = mdp3_continuous_splash_on(pdata);
+	}
+	return rc;
+}
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1110,6 +1296,7 @@ static int mdp3_probe(struct platform_device *pdev)
 	.init_fnc = mdp3_init,
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
 	.fb_mem_alloc_fnc = mdp3_fbmem_alloc,
+	.panel_register_done = mdp3_panel_register_done,
 	.fb_stride = mdp3_fb_stride,
 	};
 
