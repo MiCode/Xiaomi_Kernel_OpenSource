@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-/include/ "msm8974-v2-2.dtsi"
+/include/ "msm8974-v2.2.dtsi"
 /include/ "msm8974-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974v2 CDP";
+	model = "Qualcomm MSM 8974v2.2 CDP";
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
 	qcom,msm-id = <126 1 0x20002>,
 		      <185 1 0x20002>,
