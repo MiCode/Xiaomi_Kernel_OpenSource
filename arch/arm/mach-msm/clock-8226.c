@@ -3616,6 +3616,13 @@ static void __init msm8226_clock_post_init(void)
 	 */
 	clk_prepare_enable(&xo_a_clk.c);
 
+	/*
+	 * Handoff will override the prepare enable count as well as the rate
+	 * Set them again.
+	 */
+	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
+
 	/* Set an initial rate (fmax at nominal) on the MMSSNOC AXI clock */
 	clk_set_rate(&axi_clk_src.c, 200000000);
 
@@ -3693,6 +3700,9 @@ static void __init msm8226_clock_pre_init(void)
 	if (IS_ERR(vdd_sr2_pll.regulator[1]))
 		panic("clock-8226: Unable to get the vdd_sr2_dig regulator!");
 
+
+	enable_rpm_scaling();
+
 	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
 	 * source. Sleep set vote is 0.
@@ -3700,8 +3710,7 @@ static void __init msm8226_clock_pre_init(void)
 	 * access mmss clock controller registers.
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
-
-	enable_rpm_scaling();
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	reg_init();
 
