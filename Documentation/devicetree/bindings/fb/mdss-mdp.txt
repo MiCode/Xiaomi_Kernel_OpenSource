@@ -166,6 +166,8 @@ Optional properties:
 				offsets as well (i.e. the first mixer offset
 				corresponds to the same pathway as the first
 				AD offset).
+- qcom,mdss-has-wb-ad: Boolean property to indicate assertive display feature
+				support on write back framebuffer.
 - qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
 			writeback wfd block in MDSS as opposed to writeback
 			block that is shared between rotator and wfd.

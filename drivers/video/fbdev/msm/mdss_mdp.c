@@ -1977,6 +1977,9 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
 	if (mdata->nad_cfgs > mdata->nmixers_intf)
 		return -EINVAL;
 
+	mdata->has_wb_ad = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-wb-ad");
+
 	ad_offsets = kzalloc(sizeof(u32) * mdata->nad_cfgs, GFP_KERNEL);
 	if (!ad_offsets) {
 		pr_err("no mem assigned: kzalloc fail\n");
