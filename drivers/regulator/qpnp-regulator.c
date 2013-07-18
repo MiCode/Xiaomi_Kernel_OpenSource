@@ -189,15 +189,44 @@ enum qpnp_common_control_register_index {
  */
 #define VOLTAGE_UNKNOWN 1
 
+/**
+ * struct qpnp_voltage_range - regulator set point voltage mapping description
+ * @min_uV:		Minimum programmable output voltage resulting from
+ *			set point register value 0x00
+ * @max_uV:		Maximum programmable output voltage
+ * @step_uV:		Output voltage increase resulting from the set point
+ *			register value increasing by 1
+ * @set_point_min_uV:	Minimum allowed voltage
+ * @set_point_max_uV:	Maximum allowed voltage.  This may be tweaked in order
+ *			to pick which range should be used in the case of
+ *			overlapping set points.
+ * @n_voltages:		Number of preferred voltage set points present in this
+ *			range
+ * @range_sel:		Voltage range register value corresponding to this range
+ *
+ * The following relationships must be true for the values used in this struct:
+ * (max_uV - min_uV) % step_uV == 0
+ * (set_point_min_uV - min_uV) % step_uV == 0*
+ * (set_point_max_uV - min_uV) % step_uV == 0*
+ * n_voltages = (set_point_max_uV - set_point_min_uV) / step_uV + 1
+ *
+ * *Note, set_point_min_uV == set_point_max_uV == 0 is allowed in order to
+ * specify that the voltage range has meaning, but is not preferred.
+ */
 struct qpnp_voltage_range {
 	int					min_uV;
 	int					max_uV;
 	int					step_uV;
 	int					set_point_min_uV;
+	int					set_point_max_uV;
 	unsigned				n_voltages;
 	u8					range_sel;
 };
 
+/*
+ * The ranges specified in the qpnp_voltage_set_points struct must be listed
+ * so that range[i].set_point_max_uV < range[i+1].set_point_min_uV.
+ */
 struct qpnp_voltage_set_points {
 	struct qpnp_voltage_range		*range;
 	int					count;
@@ -251,12 +280,13 @@ struct qpnp_regulator {
 		.hpm_min_load	= _hpm_min_load, \
 	}
 
-#define VOLTAGE_RANGE(_range_sel, _min_uV, _set_point_min_uV, _max_uV, \
-			_step_uV) \
+#define VOLTAGE_RANGE(_range_sel, _min_uV, _set_point_min_uV, \
+			_set_point_max_uV, _max_uV, _step_uV) \
 	{ \
 		.min_uV			= _min_uV, \
-		.set_point_min_uV	= _set_point_min_uV, \
 		.max_uV			= _max_uV, \
+		.set_point_min_uV	= _set_point_min_uV, \
+		.set_point_max_uV	= _set_point_max_uV, \
 		.step_uV		= _step_uV, \
 		.range_sel		= _range_sel, \
 	}
@@ -275,40 +305,43 @@ struct qpnp_regulator {
  * properties to hold.
  */
 static struct qpnp_voltage_range pldo_ranges[] = {
-	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 12500),
-	VOLTAGE_RANGE(3, 1500000, 1550000, 3075000, 25000),
-	VOLTAGE_RANGE(4, 1750000, 3100000, 4900000, 50000),
+	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 1537500, 12500),
+	VOLTAGE_RANGE(3, 1500000, 1550000, 3075000, 3075000, 25000),
+	VOLTAGE_RANGE(4, 1750000, 3100000, 4900000, 4900000, 50000),
 };
 
 static struct qpnp_voltage_range nldo1_ranges[] = {
-	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 12500),
+	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 1537500, 12500),
 };
 
 static struct qpnp_voltage_range nldo2_ranges[] = {
-	VOLTAGE_RANGE(1,  375000,  375000,  768750,  6250),
-	VOLTAGE_RANGE(2,  750000,  775000, 1537500, 12500),
+	VOLTAGE_RANGE(0,  375000,       0,       0, 1537500, 12500),
+	VOLTAGE_RANGE(1,  375000,  375000,  768750,  768750,  6250),
+	VOLTAGE_RANGE(2,  750000,  775000, 1537500, 1537500, 12500),
 };
 
 static struct qpnp_voltage_range nldo3_ranges[] = {
-	VOLTAGE_RANGE(0,  375000,  375000, 1537500, 12500),
+	VOLTAGE_RANGE(0,  375000,  375000, 1537500, 1537500, 12500),
+	VOLTAGE_RANGE(1,  375000,       0,       0, 1537500, 12500),
+	VOLTAGE_RANGE(2,  750000,       0,       0, 1537500, 12500),
 };
 
 static struct qpnp_voltage_range smps_ranges[] = {
-	VOLTAGE_RANGE(0,  375000,  375000, 1562500, 12500),
-	VOLTAGE_RANGE(1, 1550000, 1575000, 3125000, 25000),
+	VOLTAGE_RANGE(0,  375000,  375000, 1562500, 1562500, 12500),
+	VOLTAGE_RANGE(1, 1550000, 1575000, 3125000, 3125000, 25000),
 };
 
 static struct qpnp_voltage_range ftsmps_ranges[] = {
-	VOLTAGE_RANGE(0,       0,  350000, 1275000,  5000),
-	VOLTAGE_RANGE(1,       0, 1280000, 2040000, 10000),
+	VOLTAGE_RANGE(0,       0,  350000, 1275000, 1275000,  5000),
+	VOLTAGE_RANGE(1,       0, 1280000, 2040000, 2040000, 10000),
 };
 
 static struct qpnp_voltage_range boost_ranges[] = {
-	VOLTAGE_RANGE(0, 4000000, 4000000, 5550000, 50000),
+	VOLTAGE_RANGE(0, 4000000, 4000000, 5550000, 5550000, 50000),
 };
 
 static struct qpnp_voltage_range boost_byp_ranges[] = {
-	VOLTAGE_RANGE(0, 2500000, 2500000, 5200000, 50000),
+	VOLTAGE_RANGE(0, 2500000, 2500000, 5200000, 5650000, 50000),
 };
 
 static struct qpnp_voltage_set_points pldo_set_points = SET_POINTS(pldo_ranges);
@@ -559,12 +592,12 @@ static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 {
 	struct qpnp_voltage_range *range;
 	int uV = min_uV;
-	int lim_min_uV, lim_max_uV, i, range_id;
+	int lim_min_uV, lim_max_uV, i, range_id, range_max_uV;
 
 	/* Check if request voltage is outside of physically settable range. */
 	lim_min_uV = vreg->set_points->range[0].set_point_min_uV;
 	lim_max_uV =
-		vreg->set_points->range[vreg->set_points->count - 1].max_uV;
+	  vreg->set_points->range[vreg->set_points->count - 1].set_point_max_uV;
 
 	if (uV < lim_min_uV && max_uV >= lim_min_uV)
 		uV = lim_min_uV;
@@ -577,9 +610,12 @@ static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 	}
 
 	/* Find the range which uV is inside of. */
-	for (i = vreg->set_points->count - 1; i > 0; i--)
-		if (uV > vreg->set_points->range[i - 1].max_uV)
+	for (i = vreg->set_points->count - 1; i > 0; i--) {
+		range_max_uV = vreg->set_points->range[i - 1].set_point_max_uV;
+		if (uV > range_max_uV && range_max_uV > 0)
 			break;
+	}
+
 	range_id = i;
 	range = &vreg->set_points->range[range_id];
 	*range_sel = range->range_sel;
@@ -1642,9 +1678,11 @@ static void qpnp_regulator_set_point_init(void)
 		temp = 0;
 		for (j = 0; j < all_set_points[i]->count; j++) {
 			all_set_points[i]->range[j].n_voltages
-				= (all_set_points[i]->range[j].max_uV
+				= (all_set_points[i]->range[j].set_point_max_uV
 				 - all_set_points[i]->range[j].set_point_min_uV)
 				   / all_set_points[i]->range[j].step_uV + 1;
+			if (all_set_points[i]->range[j].set_point_max_uV == 0)
+				all_set_points[i]->range[j].n_voltages = 0;
 			temp += all_set_points[i]->range[j].n_voltages;
 		}
 		all_set_points[i]->n_voltages = temp;
