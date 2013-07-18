@@ -43,7 +43,7 @@
 
 		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
 					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
-		qcom,pvs-corner-ceiling-slow = <1155000 1160000 1275000>;
+		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
 		qcom,pvs-corner-ceiling-nom  = <1050000 1075000 1200000>;
 		qcom,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
