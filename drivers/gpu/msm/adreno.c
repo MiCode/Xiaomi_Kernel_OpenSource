@@ -23,8 +23,6 @@
 #include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
-#include <mach/msm_dcvs.h>
-#include <mach/msm_dcvs_scm.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -1281,172 +1279,6 @@ done:
 
 }
 
-static struct msm_dcvs_core_info *adreno_of_get_dcvs(struct device_node *parent)
-{
-	struct device_node *node, *child;
-	struct msm_dcvs_core_info *info = NULL;
-	int count = 0;
-	int ret = -EINVAL;
-
-	node = adreno_of_find_subnode(parent, "qcom,dcvs-core-info");
-	if (node == NULL)
-		return ERR_PTR(-EINVAL);
-
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-
-	if (info == NULL) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n", sizeof(*info));
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	for_each_child_of_node(node, child)
-		count++;
-
-	info->power_param.num_freq = count;
-
-	info->freq_tbl = kzalloc(info->power_param.num_freq *
-			sizeof(struct msm_dcvs_freq_entry),
-			GFP_KERNEL);
-
-	if (info->freq_tbl == NULL) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n",
-			info->power_param.num_freq *
-			sizeof(struct msm_dcvs_freq_entry));
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	for_each_child_of_node(node, child) {
-		unsigned int index;
-
-		if (adreno_of_read_property(child, "reg", &index))
-			goto err;
-
-		if (index >= info->power_param.num_freq) {
-			KGSL_CORE_ERR("DCVS freq entry %d is out of range\n",
-				index);
-			continue;
-		}
-
-		if (adreno_of_read_property(child, "qcom,freq",
-			&info->freq_tbl[index].freq))
-			goto err;
-
-		if (adreno_of_read_property(child, "qcom,voltage",
-			&info->freq_tbl[index].voltage))
-			info->freq_tbl[index].voltage = 0;
-
-		if (adreno_of_read_property(child, "qcom,is_trans_level",
-			&info->freq_tbl[index].is_trans_level))
-			info->freq_tbl[index].is_trans_level = 0;
-
-		if (adreno_of_read_property(child, "qcom,active-energy-offset",
-			&info->freq_tbl[index].active_energy_offset))
-			info->freq_tbl[index].active_energy_offset = 0;
-
-		if (adreno_of_read_property(child, "qcom,leakage-energy-offset",
-			&info->freq_tbl[index].leakage_energy_offset))
-			info->freq_tbl[index].leakage_energy_offset = 0;
-	}
-
-	if (adreno_of_read_property(node, "qcom,num-cores", &info->num_cores))
-		goto err;
-
-	info->sensors = kzalloc(info->num_cores *
-			sizeof(int),
-			GFP_KERNEL);
-
-	for (count = 0; count < info->num_cores; count++) {
-		if (adreno_of_read_property(node, "qcom,sensors",
-			&(info->sensors[count])))
-			goto err;
-	}
-
-	if (adreno_of_read_property(node, "qcom,core-core-type",
-		&info->core_param.core_type))
-		goto err;
-
-	if (adreno_of_read_property(node, "qcom,algo-disable-pc-threshold",
-		&info->algo_param.disable_pc_threshold))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-em-win-size-min-us",
-		&info->algo_param.em_win_size_min_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-em-win-size-max-us",
-		&info->algo_param.em_win_size_max_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-em-max-util-pct",
-		&info->algo_param.em_max_util_pct))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-group-id",
-		&info->algo_param.group_id))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-max-freq-chg-time-us",
-		&info->algo_param.max_freq_chg_time_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-slack-mode-dynamic",
-		&info->algo_param.slack_mode_dynamic))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-slack-weight-thresh-pct",
-		&info->algo_param.slack_weight_thresh_pct))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-slack-time-min-us",
-		&info->algo_param.slack_time_min_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-slack-time-max-us",
-		&info->algo_param.slack_time_max_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-ss-win-size-min-us",
-		&info->algo_param.ss_win_size_min_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-ss-win-size-max-us",
-		&info->algo_param.ss_win_size_max_us))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-ss-util-pct",
-		&info->algo_param.ss_util_pct))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-ss-no-corr-below-freq",
-		&info->algo_param.ss_no_corr_below_freq))
-		goto err;
-
-	if (adreno_of_read_property(node, "qcom,energy-active-coeff-a",
-		&info->energy_coeffs.active_coeff_a))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-active-coeff-b",
-		&info->energy_coeffs.active_coeff_b))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-active-coeff-c",
-		&info->energy_coeffs.active_coeff_c))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-leakage-coeff-a",
-		&info->energy_coeffs.leakage_coeff_a))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-leakage-coeff-b",
-		&info->energy_coeffs.leakage_coeff_b))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-leakage-coeff-c",
-		&info->energy_coeffs.leakage_coeff_c))
-		goto err;
-	if (adreno_of_read_property(node, "qcom,energy-leakage-coeff-d",
-		&info->energy_coeffs.leakage_coeff_d))
-		goto err;
-
-	if (adreno_of_read_property(node, "qcom,power-current-temp",
-		&info->power_param.current_temp))
-		goto err;
-
-	return info;
-
-err:
-	if (info)
-		kfree(info->freq_tbl);
-
-	kfree(info);
-
-	return ERR_PTR(ret);
-}
-
 static int adreno_of_get_iommu(struct device_node *parent,
 	struct kgsl_device_platform_data *pdata)
 {
@@ -1588,12 +1420,6 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 		goto err;
 	}
 
-	pdata->core_info = adreno_of_get_dcvs(pdev->dev.of_node);
-	if (IS_ERR_OR_NULL(pdata->core_info)) {
-		ret = PTR_ERR(pdata->core_info);
-		goto err;
-	}
-
 	ret = adreno_of_get_iommu(pdev->dev.of_node, pdata);
 	if (ret)
 		goto err;
@@ -1606,10 +1432,6 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 
 err:
 	if (pdata) {
-		if (pdata->core_info)
-			kfree(pdata->core_info->freq_tbl);
-		kfree(pdata->core_info);
-
 		if (pdata->iommu_data)
 			kfree(pdata->iommu_data->iommu_ctxs);
 
