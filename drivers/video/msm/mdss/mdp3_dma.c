@@ -829,19 +829,14 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	return ret;
 }
 
-int mdp3_dma_init(struct mdp3_dma *dma,
-		struct mdp3_dma_source *source_config,
-		struct mdp3_dma_output_config *output_config)
+int mdp3_dma_init(struct mdp3_dma *dma)
 {
 	int ret = 0;
 
 	pr_debug("mdp3_dma_init\n");
 	switch (dma->dma_sel) {
 	case MDP3_DMA_P:
-		ret = mdp3_dmap_config(dma, source_config, output_config);
-		if (ret < 0)
-			return ret;
-
+		dma->dma_config = mdp3_dmap_config;
 		dma->config_cursor = mdp3_dmap_cursor_config;
 		dma->config_ccs = mdp3_dmap_ccs_config;
 		dma->config_histo = mdp3_dmap_histo_config;
@@ -855,10 +850,7 @@ int mdp3_dma_init(struct mdp3_dma *dma,
 		dma->stop = mdp3_dma_stop;
 		break;
 	case MDP3_DMA_S:
-		ret = mdp3_dmas_config(dma, source_config, output_config);
-		if (ret < 0)
-			return ret;
-
+		dma->dma_config = mdp3_dmas_config;
 		dma->config_cursor = NULL;
 		dma->config_ccs = NULL;
 		dma->config_histo = NULL;
@@ -1029,10 +1021,9 @@ int dsi_cmd_stop(struct mdp3_intf *intf)
 	return 0;
 }
 
-int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
+int mdp3_intf_init(struct mdp3_intf *intf)
 {
-	int ret = 0;
-	switch (cfg->type) {
+	switch (intf->cfg.type) {
 	case MDP3_DMA_OUTPUT_SEL_LCDC:
 		intf->config = lcdc_config;
 		intf->start = lcdc_start;
@@ -1052,16 +1043,5 @@ int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
 	default:
 		return -EINVAL;
 	}
-
-	intf->active = false;
-	if (intf->config)
-		ret = intf->config(intf, cfg);
-
-	if (ret) {
-		pr_err("MDP interface initialization failed\n");
-		return ret;
-	}
-
-	intf->cfg = *cfg;
 	return 0;
 }

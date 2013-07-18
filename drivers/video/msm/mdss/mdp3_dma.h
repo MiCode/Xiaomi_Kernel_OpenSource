@@ -250,6 +250,10 @@ struct mdp3_dma {
 	int histo_state;
 	struct mdp3_dma_histogram_data histo_data;
 
+	int (*dma_config)(struct mdp3_dma *dma,
+			struct mdp3_dma_source *source_config,
+			struct mdp3_dma_output_config *output_config);
+
 	int (*start)(struct mdp3_dma *dma, struct mdp3_intf *intf);
 
 	int (*stop)(struct mdp3_dma *dma, struct mdp3_intf *intf);
@@ -323,11 +327,9 @@ struct mdp3_intf {
 	int (*stop)(struct mdp3_intf *intf);
 };
 
-int mdp3_dma_init(struct mdp3_dma *dma,
-		struct mdp3_dma_source *source_config,
-		struct mdp3_dma_output_config *output_config);
+int mdp3_dma_init(struct mdp3_dma *dma);
 
-int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg);
+int mdp3_intf_init(struct mdp3_intf *intf);
 
 void mdp3_dma_callback_enable(struct mdp3_dma *dma, int type);
 
