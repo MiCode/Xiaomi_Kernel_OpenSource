@@ -21,14 +21,6 @@
 };
 /include/ "msm-pm8941.dtsi"
 
-&pma8084_vadc {
-	status = "disabled";
-};
-
-&pma8084_adc_tm {
-	status = "disabled";
-};
-
 &pm8941_lsid0 {
 	qcom,power-on@800 {
 		status = "disabled";
