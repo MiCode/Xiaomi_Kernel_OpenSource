@@ -351,7 +351,11 @@ static int mdp3_ctrl_intf_init(struct msm_fb_data_type *mfd,
 		cfg.dsi_cmd.dsi_cmd_tg_intf_sel = 0;
 	} else
 		return -EINVAL;
-	rc = mdp3_intf_init(intf, &cfg);
+
+	if (intf->config)
+		rc = intf->config(intf, &cfg);
+	else
+		rc = -EINVAL;
 	return rc;
 }
 
@@ -390,7 +394,10 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 					(MDP3_DMA_OUTPUT_COMP_BITS_8 << 2)|
 					MDP3_DMA_OUTPUT_COMP_BITS_8;
 
-	rc = mdp3_dma_init(dma, &sourceConfig, &outputConfig);
+	if (dma->dma_config)
+		rc = dma->dma_config(dma, &sourceConfig, &outputConfig);
+	else
+		rc = -EINVAL;
 	return rc;
 }
 
@@ -410,6 +417,11 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp3_session->lock);
 	if (mdp3_session->status) {
 		pr_debug("fb%d is on already", mfd->index);
+		goto on_error;
+	}
+
+	if (mdp3_session->intf->active) {
+		pr_debug("continuous splash screen, initialized already\n");
 		goto on_error;
 	}
 
@@ -460,6 +472,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		pr_err("display interface init failed\n");
 		goto on_error;
 	}
+
+	mdp3_fbmem_clear();
 
 	if (panel->set_backlight)
 		panel->set_backlight(panel, panel->panel_info.bl_max);
@@ -671,6 +685,12 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
+	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
+		pr_debug("continuous splash screen, IOMMU not attached\n");
+		mdp3_ctrl_off(mfd);
+		mdp3_ctrl_on(mfd);
+	}
+
 	mutex_lock(&mdp3_session->lock);
 
 	data = mdp3_bufq_pop(&mdp3_session->bufq_in);
@@ -713,6 +733,12 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	if (!mdp3_session->status) {
 		pr_err("mdp3_ctrl_pan_display, display off!\n");
 		return;
+	}
+
+	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
+		pr_debug("continuous splash screen, IOMMU not attached\n");
+		mdp3_ctrl_off(mfd);
+		mdp3_ctrl_on(mfd);
 	}
 
 	mutex_lock(&mdp3_session->lock);
@@ -1217,10 +1243,21 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 		goto init_done;
 	}
 
+	rc = mdp3_dma_init(mdp3_session->dma);
+	if (rc) {
+		pr_err("fail to init dma\n");
+		goto init_done;
+	}
+
 	intf_type = mdp3_ctrl_get_intf_type(mfd);
 	mdp3_session->intf = mdp3_get_display_intf(intf_type);
 	if (!mdp3_session->intf) {
 		rc = -ENODEV;
+		goto init_done;
+	}
+	rc = mdp3_intf_init(mdp3_session->intf);
+	if (rc) {
+		pr_err("fail to init interface\n");
 		goto init_done;
 	}
 

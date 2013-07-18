@@ -163,7 +163,20 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
 
-	if (enable) {
+	if (enable == 2) {
+		dsi_panel_power(1);
+		gpio_request(panel_private->rst_gpio, "panel_reset");
+		if (gpio_is_valid(panel_private->disp_en_gpio)) {
+			gpio_request(panel_private->disp_en_gpio,
+					"panel_enable");
+		}
+		if (gpio_is_valid(panel_private->video_mode_gpio)) {
+			gpio_request(panel_private->video_mode_gpio,
+					"panel_video_mdoe");
+		}
+		if (gpio_is_valid(panel_private->te_gpio))
+			gpio_request(panel_private->te_gpio, "panel_te");
+	} else if (enable == 1) {
 		dsi_panel_power(1);
 		gpio_request(panel_private->rst_gpio, "panel_reset");
 		gpio_set_value(panel_private->rst_gpio, 1);
