@@ -2891,6 +2891,7 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	if (client->addr != HELICON_CORE_0_I2C_ADDR)
 		goto rtn;
 
+	dev_set_name(&client->dev, "%s", MSM8X10_CODEC_NAME);
 	dev = &client->dev;
 	if (client->dev.of_node) {
 		dev_dbg(&client->dev, "%s:Platform data from device tree\n",
