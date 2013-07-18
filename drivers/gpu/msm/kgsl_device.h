@@ -201,9 +201,9 @@ struct kgsl_device {
 	uint32_t requested_state;
 
 	atomic_t active_cnt;
-	struct completion suspend_gate;
 
 	wait_queue_head_t wait_queue;
+	wait_queue_head_t active_cnt_wq;
 	struct workqueue_struct *work_queue;
 	struct device *parentdev;
 	struct completion ft_gate;
@@ -254,7 +254,6 @@ void kgsl_process_events(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
-	.suspend_gate = COMPLETION_INITIALIZER((_dev).suspend_gate),\
 	.ft_gate = COMPLETION_INITIALIZER((_dev).ft_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
@@ -266,6 +265,7 @@ void kgsl_process_events(struct work_struct *work);
 	.events = LIST_HEAD_INIT((_dev).events),\
 	.events_pending_list = LIST_HEAD_INIT((_dev).events_pending_list), \
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
+	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
 	.state = KGSL_STATE_INIT,\
 	.ver_major = DRIVER_VERSION_MAJOR,\
