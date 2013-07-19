@@ -81,8 +81,8 @@ static void dcc_poll_locked(void)
 		);
 		if (rch >= 0) {
 			ch = rch;
-			tty_insert_flip_string(g_dcc_tty, &ch, 1);
-			tty_flip_buffer_push(g_dcc_tty);
+			tty_insert_flip_string(g_dcc_tty->port, &ch, 1);
+			tty_flip_buffer_push(g_dcc_tty->port);
 		}
 	}
 
