@@ -25,6 +25,14 @@
 
 #include "audio_acdb.h"
 
+enum {
+	AFE_RX_CAL,
+	AFE_TX_CAL,
+	AFE_AANC_TX_CAL,
+	MAX_AFE_CAL_TYPES
+};
+
+
 struct afe_ctl {
 	void *apr;
 	atomic_t state;
@@ -39,8 +47,8 @@ struct afe_ctl {
 	void *rx_private_data;
 	uint32_t mmap_handle;
 
-	struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
-	atomic_t mem_map_cal_handles[MAX_AUDPROC_TYPES];
+	struct acdb_cal_block afe_cal_addr[MAX_AFE_CAL_TYPES];
+	atomic_t mem_map_cal_handles[MAX_AFE_CAL_TYPES];
 	atomic_t mem_map_cal_index;
 	u16 dtmf_gen_rx_portid;
 	struct afe_spkr_prot_calib_get_resp calib_data;
@@ -94,7 +102,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		pr_debug("q6afe: reset event = %d %d apr[%p]\n",
 			data->reset_event, data->reset_proc, this_afe.apr);
 
-		for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
+		for (i = 0; i < MAX_AFE_CAL_TYPES; i++) {
 			this_afe.afe_cal_addr[i].cal_paddr = 0;
 			this_afe.afe_cal_addr[i].cal_size = 0;
 		}
@@ -384,7 +392,7 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	u32 handle;
 
 	pr_debug("%s: path %d\n", __func__, path);
-	if (path == AANC_TX_CAL) {
+	if (path == AFE_AANC_TX_CAL) {
 		get_aanc_cal(&cal_block);
 	} else {
 		get_afe_cal(path, &cal_block);
@@ -600,10 +608,10 @@ void afe_send_cal(u16 port_id)
 
 	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX) {
 		afe_send_cal_spkr_prot_tx(port_id);
-		afe_send_cal_block(TX_CAL, port_id);
+		afe_send_cal_block(AFE_TX_CAL, port_id);
 	} else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX) {
 		afe_send_cal_spkr_prot_rx(port_id);
-		afe_send_cal_block(RX_CAL, port_id);
+		afe_send_cal_block(AFE_RX_CAL, port_id);
 	}
 }
 
@@ -1149,7 +1157,7 @@ static int afe_aanc_start(uint16_t tx_port_id, uint16_t rx_port_id)
 			__func__, ret);
 		goto fail_cmd;
 	}
-	afe_send_cal_block(AANC_TX_CAL, tx_port_id);
+	afe_send_cal_block(AFE_AANC_TX_CAL, tx_port_id);
 
 fail_cmd:
 	return ret;
