@@ -1,0 +1,47 @@
+Krait Voltage regulators in the PMIC
+
+In certain MSMs the CPUs are powered using a single supply powered by PMIC ganged regulators
+operating in different phases. The krait-regulator-pmic node represents the gang leader and its
+associated control, power stage and frequency peripherals.
+
+[First Level Nodes]
+Required properties:
+- compatible:			Must be "qcom,krait-regulator-pmic".
+- spmi-dev-container:	        Specifies that all the device nodes specified
+				within this node should have their resources coalesced into a
+				single spmi_device.  This is used to specify all SPMI peripherals
+				that logically make up the gang leader.
+ - #address-cells:		The number of cells dedicated to represent an address
+				This must be set to '1'.
+ - #size-cells:			The number of cells dedicated to represent address
+				space range of a peripheral. This must be set to '1'.
+
+[Second Level Nodes]
+Required properties:
+- reg:             Specifies the SPMI address and size for this peripheral.
+There must be exactly three subnodes qcom,ctl qcom,ps and qcom,freq representing control,
+power stage and frequency SPMI peripherals respectively of the gang leader.
+
+Example:
+		krait_regulator_pmic: qcom,krait-regulator-pmic {
+			spmi-dev-container;
+			compatible = "qcom,krait-regulator-pmic";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,ctl@2000 {
+				status = "disabled";
+				reg = <0x2000 0x100>;
+			};
+
+			qcom,ps@2100 {
+				status = "disabled";
+				reg = <0x2100 0x100>;
+			};
+
+			qcom,freq@2200 {
+				status = "disabled";
+				reg = <0x2200 0x100>;
+			};
+		};
