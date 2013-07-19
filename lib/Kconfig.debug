@@ -1290,6 +1290,13 @@ config ASYNC_RAID6_TEST
 
 	  If unsure, say N.
 
+config PANIC_ON_DATA_CORRUPTION
+	bool "Cause a Kernel Panic When Data Corruption is detected"
+	help
+	 Select this option to upgrade warnings for potentially
+	 recoverable data corruption scenarios to system-halting panics,
+	 for easier detection and debug.
+
 source "samples/Kconfig"
 
 source "lib/Kconfig.kgdb"
