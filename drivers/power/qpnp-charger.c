@@ -3471,66 +3471,6 @@ static int qpnp_chg_suspend(struct device *dev)
 	return rc;
 }
 
-static int
-qpnp_chg_ops_set(const char *val, const struct kernel_param *kp)
-{
-	return -EINVAL;
-}
-
-#define MAX_LEN_VADC	10
-static int
-qpnp_chg_usb_in_get(char *val, const struct kernel_param *kp)
-{
-	int rc;
-	struct qpnp_vadc_result results;
-
-	rc = qpnp_vadc_is_ready();
-	if (rc)
-		return rc;
-
-	rc = qpnp_vadc_read(USBIN, &results);
-	if (rc) {
-		pr_err("Unable to read vchg rc=%d\n", rc);
-		return 0;
-	}
-	rc = snprintf(val, MAX_LEN_VADC, "%lld\n", results.physical);
-
-	return rc;
-}
-
-static int
-qpnp_chg_vchg_get(char *val, const struct kernel_param *kp)
-{
-	int rc;
-	struct qpnp_vadc_result results;
-
-	rc = qpnp_vadc_is_ready();
-	if (rc)
-		return rc;
-
-	rc = qpnp_vadc_read(VCHG_SNS, &results);
-	if (rc) {
-		pr_err("Unable to read vchg rc=%d\n", rc);
-		return 0;
-	}
-	rc = snprintf(val, MAX_LEN_VADC, "%lld\n", results.physical);
-
-	return rc;
-}
-
-static struct kernel_param_ops usb_in_uv_param_ops = {
-	.set = qpnp_chg_ops_set,
-	.get = qpnp_chg_usb_in_get,
-};
-
-static struct kernel_param_ops vchg_uv_param_ops = {
-	.set = qpnp_chg_ops_set,
-	.get = qpnp_chg_vchg_get,
-};
-
-module_param_cb(usb_in_uv, &usb_in_uv_param_ops, NULL, 0644);
-module_param_cb(vchg_uv, &vchg_uv_param_ops, NULL, 0644);
-
 static const struct dev_pm_ops qpnp_chg_pm_ops = {
 	.resume		= qpnp_chg_resume,
 	.suspend	= qpnp_chg_suspend,
