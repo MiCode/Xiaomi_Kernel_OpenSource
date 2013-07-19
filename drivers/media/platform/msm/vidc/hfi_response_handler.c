@@ -1230,7 +1230,7 @@ u32 hfi_process_msg_packet(
 			hfi_msg_sys_session_abort_done_packet*) msg_hdr);
 		break;
 	default:
-		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
+		dprintk(VIDC_DBG, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
 		break;
 	}
 	return rc;
