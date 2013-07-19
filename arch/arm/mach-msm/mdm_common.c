@@ -97,8 +97,6 @@ struct mdm_device {
 	struct work_struct mdm_status_work;
 	struct work_struct sfr_reason_work;
 
-	struct notifier_block mdm_panic_blk;
-
 	int ssr_started_internally;
 };
 
@@ -526,13 +524,12 @@ static int mdm_modem_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int mdm_panic_prep(struct notifier_block *this,
-				unsigned long event, void *ptr)
+static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
 {
 	int i;
 	struct mdm_modem_drv *mdm_drv;
-	struct mdm_device *mdev =
-		container_of(this, struct mdm_device, mdm_panic_blk);
+	struct mdm_device *mdev = container_of(mdm_subsys, struct mdm_device,
+								 mdm_subsys);
 
 	mdm_drv = &mdev->mdm_data;
 
@@ -553,7 +550,6 @@ static int mdm_panic_prep(struct notifier_block *this,
 		if (mdm_drv && mdm_ops->atomic_reset_mdm_cb)
 			mdm_ops->atomic_reset_mdm_cb(mdm_drv);
 	}
-	return NOTIFY_DONE;
 }
 
 static irqreturn_t mdm_status_change(int irq, void *dev_id)
@@ -771,6 +767,7 @@ static void mdm_modem_initialize_data(struct platform_device *pdev,
 	mdev->mdm_subsys.ramdump = mdm_subsys_ramdumps;
 	mdev->mdm_subsys.powerup = mdm_subsys_powerup;
 	mdev->mdm_subsys.name = mdev->subsys_name;
+	mdev->mdm_subsys.crash_shutdown = mdm_crash_shutdown;
 
 	memset((void *)&mdev->misc_device, 0,
 		   sizeof(struct miscdevice));
@@ -783,12 +780,6 @@ static void mdm_modem_initialize_data(struct platform_device *pdev,
 	mdev->misc_device.minor	= MISC_DYNAMIC_MINOR;
 	mdev->misc_device.name	= mdev->device_name;
 	mdev->misc_device.fops	= &mdm_modem_fops;
-
-	memset((void *)&mdev->mdm_panic_blk, 0,
-		   sizeof(struct notifier_block));
-	mdev->mdm_panic_blk.notifier_call  = mdm_panic_prep;
-	atomic_notifier_chain_register(&panic_notifier_list,
-				   &mdev->mdm_panic_blk);
 
 	/* MDM2AP_ERRFATAL */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
