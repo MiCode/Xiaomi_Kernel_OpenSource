@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm MSM SAMARIUM SIM";
 	compatible = "qcom,msmsamarium-sim", "qcom,msmsamarium", "qcom,sim";
-	qcom,msm-id = <195 0 0>;
+	qcom,msm-id = <195 16 0>;
 };
 
 &uartblsp0dm2{
