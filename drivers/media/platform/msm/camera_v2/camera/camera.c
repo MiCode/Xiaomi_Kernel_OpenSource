@@ -353,6 +353,7 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 
 set_fmt_fail:
 	kzfree(sp->vb2_q.drv_priv);
+	sp->vb2_q.drv_priv = NULL;
 	return rc;
 }
 
