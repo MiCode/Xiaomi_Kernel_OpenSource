@@ -35,6 +35,7 @@
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
+			synaptics,power-down;
 		};
 	};
 
