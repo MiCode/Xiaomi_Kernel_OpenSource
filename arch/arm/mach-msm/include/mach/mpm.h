@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,5 +162,24 @@ static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 static inline void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle) {}
 static inline void msm_mpm_exit_sleep(bool from_idle) {}
 static inline void __init of_mpm_init(struct device_node *node) {}
+#endif
+#ifdef CONFIG_MSM_MPM_OF
+/** msm_mpm_suspend_prepare() - Called at prepare_late() op during suspend
+ *
+ *
+ *  When called the MPM driver checks if the wakeup interrupts can be monitored
+ *  by MPM hardware and program them accordingly. If wake up interrupts cannot
+ *  be monitored then it disallows system low power modes.
+ */
+void msm_mpm_suspend_prepare(void);
+/** msm_mpm_suspend_wake - Called during wake() op in suspend.
+ *
+ *  When called MPM drivers sets the vote for system low power modes depending
+ *  on the active interrupts.
+ */
+void msm_mpm_suspend_wake(void);
+#else
+static inline void msm_mpm_suspend_prepare(void){}
+static inline void msm_mpm_suspend_wake(void) {}
 #endif
 #endif /* __ARCH_ARM_MACH_MSM_MPM_H */
