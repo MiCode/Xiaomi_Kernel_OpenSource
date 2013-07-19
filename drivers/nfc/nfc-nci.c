@@ -27,7 +27,6 @@
 #include <linux/regulator/consumer.h>
 #include "nfc-nci.h"
 
-
 struct qca199x_platform_data {
 	unsigned int irq_gpio;
 	unsigned int dis_gpio;
@@ -62,6 +61,7 @@ struct qca199x_dev {
 	bool irq_enabled;
 	spinlock_t irq_enabled_lock;
 	unsigned int count_irq;
+	enum	nfcc_state	state;
 };
 
 /*
@@ -69,6 +69,12 @@ struct qca199x_dev {
  * IOCTL NFC_KERNEL_LOGGING_MODE.
  */
 static int logging_level;
+/*
+ * FTM-RAW-I2C RD/WR MODE
+ */
+static struct	devicemode	device_mode;
+static int	ftm_raw_write_mode;
+static int	ftm_werr_code;
 
 static void qca199x_init_stat(struct qca199x_dev *qca199x_dev)
 {
@@ -104,7 +110,6 @@ static irqreturn_t qca199x_dev_irq_handler(int irq, void *dev_id)
 	struct qca199x_dev *qca199x_dev = dev_id;
 	unsigned long flags;
 
-
 	spin_lock_irqsave(&qca199x_dev->irq_enabled_lock, flags);
 	qca199x_dev->count_irq++;
 	spin_unlock_irqrestore(&qca199x_dev->irq_enabled_lock, flags);
@@ -119,7 +124,6 @@ static unsigned int nfc_poll(struct file *filp, poll_table *wait)
 	unsigned int mask = 0;
 	unsigned long flags;
 
-
 	poll_wait(filp, &qca199x_dev->read_wq, wait);
 
 	spin_lock_irqsave(&qca199x_dev->irq_enabled_lock, flags);
@@ -129,17 +133,33 @@ static unsigned int nfc_poll(struct file *filp, poll_table *wait)
 	}
 	spin_unlock_irqrestore(&qca199x_dev->irq_enabled_lock, flags);
 
-
 	return mask;
+}
+
+/*
+ * ONLY for FTM-RAW-I2C Mode
+ * Required to instigate a read, which comes from DT layer. This means we need
+ * to spoof an interrupt and send a wake up event.
+ */
+void ftm_raw_trigger_read(struct qca199x_dev *qca199x_dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&qca199x_dev->irq_enabled_lock, flags);
+	qca199x_dev->count_irq++;
+	spin_unlock_irqrestore(&qca199x_dev->irq_enabled_lock, flags);
+	wake_up(&qca199x_dev->read_wq);
 }
 
 static ssize_t nfc_read(struct file *filp, char __user *buf,
 					size_t count, loff_t *offset)
 {
 	struct qca199x_dev *qca199x_dev = filp->private_data;
-	unsigned char tmp[MAX_BUFFER_SIZE];
+	unsigned char tmp[MAX_BUFFER_SIZE], rd_byte;
 	unsigned char len[PAYLOAD_HEADER_LENGTH];
 	int total, length, ret;
+	int ftm_rerr_code;
+	enum ehandler_mode dmode;
 
 	total = 0;
 	length = 0;
@@ -147,6 +167,36 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 		count = MAX_BUFFER_SIZE;
 
 	mutex_lock(&qca199x_dev->read_mutex);
+	dmode = device_mode.handle_flavour;
+	/* FTM-RAW-I2C RD/WR MODE - Special Case */
+	if ((dmode == UNSOLICITED_FTM_RAW_MODE) ||
+		(dmode == SOLICITED_FTM_RAW_MODE)) {
+		/* READ */
+		if ((ftm_raw_write_mode == 0) && (ftm_werr_code == 0)) {
+			ftm_rerr_code = i2c_master_recv(qca199x_dev->client,
+						&rd_byte, 1);
+			if (ftm_rerr_code == 0x1)
+				ftm_rerr_code = 0;
+			tmp[0] = (unsigned char)ftm_rerr_code;
+			tmp[1] = rd_byte;
+			total  = 2;
+			ret = copy_to_user(buf, tmp, total);
+		}
+		/* WRITE */
+		else if ((ftm_raw_write_mode == 1) || (ftm_werr_code != 0)) {
+			tmp[0] = (unsigned char)ftm_werr_code;
+			total = 1;
+			ret = copy_to_user(buf, tmp, total);
+		} else {
+			/* Invalid case */
+			total = 0;
+			ret = copy_to_user(buf, tmp, total);
+		}
+		mutex_unlock(&qca199x_dev->read_mutex);
+		goto done;
+	}
+
+	/* NORMAL NCI Behaviour */
 	/* Read the header */
 	ret = i2c_master_recv(qca199x_dev->client, len, PAYLOAD_HEADER_LENGTH);
 	if (ret != PAYLOAD_HEADER_LENGTH)
@@ -174,7 +224,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 err:
 	if (ret < 0)
 		mutex_unlock(&qca199x_dev->read_mutex);
-
+done:
 	return total;
 }
 
@@ -183,7 +233,8 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 {
 	struct qca199x_dev *qca199x_dev = filp->private_data;
 	char tmp[MAX_BUFFER_SIZE];
-	int ret;
+	int ret = 0;
+	enum ehandler_mode dmode;
 
 	if (count > MAX_BUFFER_SIZE) {
 		dev_err(&qca199x_dev->client->dev, "out of memory\n");
@@ -195,10 +246,39 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 		return -EFAULT;
 	}
 	mutex_lock(&qca199x_dev->read_mutex);
-	ret = i2c_master_send(qca199x_dev->client, tmp, count);
+	dmode = device_mode.handle_flavour;
+	/* FTM-DIRECT-I2C RD/WR MODE */
+	/* This is a special FTM-i2c mode case,where tester is not using NCI */
+	if ((dmode == UNSOLICITED_FTM_RAW_MODE) ||
+		(dmode == SOLICITED_FTM_RAW_MODE)) {
+		/* Read From Register */
+		if (count == 1) {
+			ftm_raw_write_mode = 0;
+			ret = i2c_master_send(qca199x_dev->client, tmp, count);
+			if (ret == 1)
+				ftm_werr_code = 0;
+			else
+				ftm_werr_code = ret;
+			ftm_raw_trigger_read(qca199x_dev);
+		}
+		/* Write to Register */
+		if (count == 2) {
+			ftm_raw_write_mode = 1;
+			ret = i2c_master_send(qca199x_dev->client, tmp, count);
+			if (ret == 2)
+				ftm_werr_code = 0;
+			else
+				ftm_werr_code = ret;
+			ftm_raw_trigger_read(qca199x_dev);
+		}
+	} else {
+		/* NORMAL NCI behaviour - NB :
+		We can be in FTM mode here also */
+		ret = i2c_master_send(qca199x_dev->client, tmp, count);
+	}
 	if (ret != count) {
 		dev_err(&qca199x_dev->client->dev,
-			"NFC: failed to write %d\n", ret);
+		"NFC: failed to write %d\n", ret);
 		ret = -EIO;
 	}
 	mutex_unlock(&qca199x_dev->read_mutex);
@@ -225,7 +305,7 @@ static int nfc_open(struct inode *inode, struct file *filp)
 /*
  * Wake/Sleep Mode
  */
-int nfcc_wake(int level, struct nfc_info *info)
+int nfcc_wake(int level, struct file *filp)
 {
 	int r = 0;
 	unsigned char raw_nci_sleep[] = {0x2F, 0x03, 0x00};
@@ -233,32 +313,32 @@ int nfcc_wake(int level, struct nfc_info *info)
 	unsigned char raw_nci_wake[]  = {0x10, 0x0F};
 	unsigned short	slave_addr	=	0xE;
 	unsigned short	curr_addr;
+	struct qca199x_dev *qca199x_dev = filp->private_data;
 
-	struct i2c_client *client = info->i2c_dev;
-
-	dev_dbg(&client->dev, "nfcc_wake: %s: info: %p\n", __func__, info);
+	dev_dbg(&qca199x_dev->client->dev, "nfcc_wake: %s: info: %p\n",
+			__func__, qca199x_dev);
 
 	if (level == NFCC_SLEEP) {
-		r = nfc_i2c_write(client, &raw_nci_sleep[0],
+		r = i2c_master_send(qca199x_dev->client, &raw_nci_sleep[0],
 						sizeof(raw_nci_sleep));
 
+		r = sizeof(raw_nci_sleep);
 		if (r != sizeof(raw_nci_sleep))
 			return -EMSGSIZE;
-		info->state = NFCC_STATE_NORMAL_SLEEP;
+		qca199x_dev->state = NFCC_STATE_NORMAL_SLEEP;
 	} else {
-		curr_addr = client->addr;
-		client->addr = slave_addr;
-		r = nfc_i2c_write(client, &raw_nci_wake[0],
+		curr_addr = qca199x_dev->client->addr;
+		qca199x_dev->client->addr = slave_addr;
+		r = nfc_i2c_write(qca199x_dev->client, &raw_nci_wake[0],
 						sizeof(raw_nci_wake));
 		/* Restore original NFCC slave I2C address */
-		client->addr = curr_addr;
-
-		if (r != sizeof(raw_nci_sleep))
+		qca199x_dev->client->addr = curr_addr;
+		r = sizeof(raw_nci_wake);
+		if (r != sizeof(raw_nci_wake))
 			return -EMSGSIZE;
-
-		info->state = NFCC_STATE_NORMAL_WAKE;
+		qca199x_dev->state = NFCC_STATE_NORMAL_WAKE;
 	}
-	msleep(20);
+
 	return r;
 }
 
@@ -284,47 +364,98 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 {
 	int r = 0;
 	struct qca199x_dev *qca199x_dev = filp->private_data;
-	struct nfc_info *info = container_of(filp->private_data,
-					       struct nfc_info, miscdev);
-
-	struct i2c_client *client = info->i2c_dev;
-
-	r = gpio_request(qca199x_dev->dis_gpio, "nfc_reset_gpio");
-	if (r) {
-		dev_err(&client->dev, "unable to request gpio [%d]\n",
-				qca199x_dev->dis_gpio);
-			goto err_req;
-	}
-	gpio_set_value(qca199x_dev->dis_gpio, 0);
-	r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
-	if (r) {
-		dev_err(&client->dev, "unable to set direction for gpio [%d]\n",
-				qca199x_dev->irq_gpio);
-			goto err_req;
-	}
 
 	if (arg == 0) {
 		gpio_set_value(qca199x_dev->dis_gpio, 0);
-		msleep(20);
+		r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
+		if (r) {
+			dev_err(&qca199x_dev->client->dev,
+					"unable to set direction for gpio [%d]\n",
+					qca199x_dev->dis_gpio);
+			goto err_req;
+		}
+		gpio_set_value(qca199x_dev->dis_gpio, 0);
 	} else if (arg == 1) {
+		gpio_set_value(qca199x_dev->dis_gpio, 0);
+		r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
+		if (r) {
+			dev_err(&qca199x_dev->client->dev,
+					"unable to set direction for gpio [%d]\n",
+					qca199x_dev->dis_gpio);
+			goto err_req;
+		}
 		gpio_set_value(qca199x_dev->dis_gpio, 1);
-		msleep(20);
 	} else if (arg == 2) {
 		msleep(20);
 	} else if (arg == 3) {
 		msleep(20);
 	} else if (arg == 4) {
-		nfcc_wake(NFCC_WAKE, info);
-		msleep(20);
+		nfcc_wake(NFCC_WAKE, filp);
 	} else if (arg == 5) {
-		nfcc_wake(NFCC_SLEEP, info);
-		msleep(20);
+		nfcc_wake(NFCC_SLEEP, filp);
 	} else {
 		r = -ENOIOCTLCMD;
 	}
 
 err_req:
 	return r;
+}
+
+
+/*
+ * Inside nfc_ioctl_nfcc_mode
+ *
+ * @brief   nfc_ioctl_nfcc_mode
+ *
+ * (arg = 0) ; NORMAL_MODE - Standard mode, unsolicited read behaviour
+ * (arg = 1) ; SOLICITED_MODE - As above but reads are solicited from User Land
+ * (arg = 2) ; UNSOLICITED_FTM_RAW MODE - NORMAL_MODE but messages from FTM and
+ *             not NCI Host.
+ * (arg = 2) ; SOLICITED_FTM_RAW_MODE - As SOLICITED_MODE but messages from FTM
+ *             and not NCI Host.
+ *
+ *
+ *
+ */
+int nfc_ioctl_nfcc_mode(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int retval = 0;
+
+	static unsigned short nci_addr;
+	struct qca199x_dev *qca199x_dev = filp->private_data;
+	struct qca199x_platform_data *platform_data;
+
+	platform_data = qca199x_dev->client->dev.platform_data;
+
+	if (arg == 0) {
+		device_mode.handle_flavour = UNSOLICITED_MODE;
+		qca199x_dev->client->addr = NCI_I2C_SLAVE;
+		/* enable interrupts again */
+		qca199x_enable_irq(qca199x_dev);
+	} else if (arg == 1) {
+		device_mode.handle_flavour = SOLICITED_MODE;
+		qca199x_dev->client->addr = qca199x_dev->client->addr;
+		/* enable interrupts again */
+		qca199x_enable_irq(qca199x_dev);
+	} else if (arg == 2) {
+		device_mode.handle_flavour = UNSOLICITED_FTM_RAW_MODE;
+		nci_addr = qca199x_dev->client->addr;
+		/* replace with new client slave address*/
+		qca199x_dev->client->addr = 0xE;
+		/* We also need to disable interrupts */
+		qca199x_disable_irq(qca199x_dev);
+	} else if (arg == 3) {
+		device_mode.handle_flavour = SOLICITED_FTM_RAW_MODE;
+		nci_addr = qca199x_dev->client->addr;
+		/* replace with new client slave address*/
+		qca199x_dev->client->addr = 0xE;
+		/* We also need to disable interrupts */
+		qca199x_disable_irq(qca199x_dev);
+	} else {
+		device_mode.handle_flavour = UNSOLICITED_MODE;
+		qca199x_dev->client->addr = NCI_I2C_SLAVE;
+	}
+	return retval;
 }
 
 /*
@@ -371,6 +502,7 @@ static long nfc_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 		nfc_ioctl_power_states(pfile, cmd, arg);
 		break;
 	case NFCC_MODE:
+		nfc_ioctl_nfcc_mode(pfile, cmd, arg);
 		break;
 	case NFC_KERNEL_LOGGING_MODE:
 		nfc_ioctl_kernel_logging(arg, pfile);
@@ -447,66 +579,75 @@ int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 	unsigned char raw_s73[]			= {0x73, 0x02};
 	unsigned char raw_slave1_rd		= {0x0};
 	unsigned char raw_1P8_PAD_CFG_CLK_REQ[]	= {0xA5, 0x1};
-	unsigned char buf[4];
+	unsigned char raw_1P8_PAD_CFG_PWR_REQ[]	= {0xA7, 0x1};
+	unsigned char buf = 0;
 
-	/* Set I2C address to enable configuration of QCA1990 */
 	client->addr = curr_addr;
-	RAW(s73, 0x02);
+	r = i2c_master_send(client, &buf, 1);
+	buf = 0;
+	r = i2c_master_recv(client, &buf, 1);
+	if (0x10 != (0x10 & buf)) {
+		RAW(s73, 0x02);
 
-	r = nfc_i2c_write(client, &raw_s73[0], sizeof(raw_s73));
-	usleep(1000);
-	RAW(1p8_CONTROL_011, XTAL_CLOCK | 0x01);
+		r = nfc_i2c_write(client, &raw_s73[0], sizeof(raw_s73));
+		usleep(1000);
+		RAW(1p8_CONTROL_011, XTAL_CLOCK | 0x01);
 
-	r = nfc_i2c_write(client, &raw_1p8_CONTROL_011[0],
+		r = nfc_i2c_write(client, &raw_1p8_CONTROL_011[0],
 						sizeof(raw_1p8_CONTROL_011));
-	usleep(1000);
-	RAW(1P8_CONTROL_010, (0x8));
-	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-					sizeof(raw_1P8_CONTROL_010));
-
-	usleep(10000);  /* 10ms wait */
-	RAW(1P8_CONTROL_010, (0xC));
-	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-					sizeof(raw_1P8_CONTROL_010));
-	usleep(100);  /* 100uS wait */
-	RAW(1P8_X0_0B0, (FREQ_SEL_19));
-	r = nfc_i2c_write(client, &raw_1P8_X0_0B0[0], sizeof(raw_1P8_X0_0B0));
-	usleep(1000);
-
-	/* PWR_EN = 1 */
-	RAW(1P8_CONTROL_010, (0xd));
-	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+		usleep(1000);
+		RAW(1P8_CONTROL_010, (0x8));
+		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
 						sizeof(raw_1P8_CONTROL_010));
-	usleep(20000);  /* 20ms wait */
-	/* LS_EN = 1 */
-	RAW(1P8_CONTROL_010, 0xF);
-	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-						sizeof(raw_1P8_CONTROL_010));
-	usleep(20000);  /* 20ms wait */
 
-	/* Enable the PMIC clock */
-	RAW(1P8_PAD_CFG_CLK_REQ, (0x1));
-	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_CLK_REQ[0],
+		usleep(10000);  /* 10ms wait */
+		RAW(1P8_CONTROL_010, (0xC));
+		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+					sizeof(raw_1P8_CONTROL_010));
+		usleep(100);  /* 100uS wait */
+		RAW(1P8_X0_0B0, (FREQ_SEL_19));
+		r = nfc_i2c_write(client, &raw_1P8_X0_0B0[0],
+						sizeof(raw_1P8_X0_0B0));
+		usleep(1000);
+
+		/* PWR_EN = 1 */
+		RAW(1P8_CONTROL_010, (0xd));
+		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+						sizeof(raw_1P8_CONTROL_010));
+		usleep(20000);  /* 20ms wait */
+		/* LS_EN = 1 */
+		RAW(1P8_CONTROL_010, 0xF);
+		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+						sizeof(raw_1P8_CONTROL_010));
+		usleep(20000);  /* 20ms wait */
+
+		/* Enable the PMIC clock */
+		RAW(1P8_PAD_CFG_CLK_REQ, (0x1));
+		r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_CLK_REQ[0],
 					  sizeof(raw_1P8_PAD_CFG_CLK_REQ));
-	usleep(1000);
+		usleep(1000);
 
-	RAW(slave2, 0x10);
-	r = nfc_i2c_write(client, &raw_slave2[0], sizeof(raw_slave2));
-	usleep(1000);
-	{
-		r = i2c_master_send(client, buf, 1);
-		memset(buf, 0xAA, sizeof(buf));
-		r = i2c_master_recv(client, buf, 1);
+		RAW(1P8_PAD_CFG_PWR_REQ, (0x1));
+		r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_PWR_REQ[0],
+					  sizeof(raw_1P8_PAD_CFG_PWR_REQ));
+		usleep(1000);
+
+		RAW(slave2, 0x10);
+		r = nfc_i2c_write(client, &raw_slave2[0], sizeof(raw_slave2));
+		usleep(1000);
+
+		RAW(slave1, NCI_I2C_SLAVE);
+		r = nfc_i2c_write(client, &raw_slave1[0], sizeof(raw_slave1));
+		usleep(1000);
+
+		/* QCA199x NFCC CPU should now boot... */
+		r = i2c_master_recv(client, &raw_slave1_rd, 1);
+		/* Talk on NCI slave address NCI_I2C_SLAVE 0x2C*/
+		client->addr = NCI_I2C_SLAVE;
+		r = 0;
+	} else {
+		r = 1;
 	}
-	RAW(slave1, NCI_I2C_SLAVE);
-	r = nfc_i2c_write(client, &raw_slave1[0], sizeof(raw_slave1));
-	usleep(1000);
-
-	/* QCA199x NFCC CPU should now boot... */
-	r = i2c_master_recv(client, &raw_slave1_rd, 1);
-	/* Talk on NCI slave address NCI_I2C_SLAVE 0x2C*/
-	client->addr = NCI_I2C_SLAVE;
-
 	return r;
 }
 
@@ -623,6 +764,9 @@ static int qca199x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "dis gpio not provided\n");
 		goto err_irq;
 	}
+	gpio_set_value(qca199x_dev->dis_gpio, 1);
+	msleep(20);
+	gpio_set_value(qca199x_dev->dis_gpio, 0);
 
 	nfc_clk  = clk_get(&client->dev, "ref_clk");
 
@@ -640,7 +784,7 @@ static int qca199x_probe(struct i2c_client *client,
 		r = gpio_request(platform_data->ven_gpio, "nfc_ven_gpio");
 		if (r) {
 			dev_err(&client->dev, "unable to request gpio [%d]\n",
-						platform_data->irq_gpio);
+						platform_data->ven_gpio);
 			goto err_ven_gpio;
 		}
 		r = gpio_direction_input(platform_data->ven_gpio);
@@ -648,7 +792,7 @@ static int qca199x_probe(struct i2c_client *client,
 
 			dev_err(&client->dev,
 			"unable to set direction for gpio [%d]\n",
-						platform_data->irq_gpio);
+						platform_data->ven_gpio);
 			goto err_ven_gpio;
 		}
 
@@ -681,7 +825,12 @@ static int qca199x_probe(struct i2c_client *client,
 	/* request irq.  The irq is set whenever the chip has data available
 	* for reading.  It is cleared when all data has been read.
 	*/
-	nfcc_initialise(client, platform_data->reg);
+	device_mode.handle_flavour = UNSOLICITED_MODE;
+	r = nfcc_initialise(client, platform_data->reg);
+	if (r) {
+		dev_err(&client->dev, "nfc-nci probe: request nfcc initialise failed\n");
+		goto err_nfcc_init_failed;
+	}
 
 	qca199x_dev->irq_enabled = true;
 	r = request_irq(client->irq, qca199x_dev_irq_handler,
@@ -697,6 +846,7 @@ static int qca199x_probe(struct i2c_client *client,
 		 __func__);
 	return 0;
 
+err_nfcc_init_failed:
 err_request_irq_failed:
 	misc_deregister(&qca199x_dev->qca199x_device);
 err_misc_register:
