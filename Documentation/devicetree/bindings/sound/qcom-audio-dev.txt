@@ -665,6 +665,7 @@ Optional Properties:
 - qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
 - qcom,cdc-lineout-spkr-gpios : GPIO which controls external PAs to enable Lineout1/2 speaker
 - qcom,cdc-vdd-spkr-gpios : GPIO which controls PA for VDD speaker
+- qcom,headset-jack-type-NC: Set if the headset jack type is NC (Normally Closed)
 
 Example:
 
