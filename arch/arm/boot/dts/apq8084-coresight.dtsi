@@ -133,6 +133,70 @@
 		coresight-child-ports = <7>;
 	};
 
+	etm0: etm@fc34c000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc34c000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <10>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <0>;
+
+		qcom,pc-save;
+		qcom,round-robin;
+	};
+
+	etm1: etm@fc34d000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc34d000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <11>;
+		coresight-name = "coresight-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <1>;
+
+		qcom,pc-save;
+		qcom,round-robin;
+	};
+
+	etm2: etm@fc34e000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc34e000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <12>;
+		coresight-name = "coresight-etm2";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <2>;
+
+		qcom,pc-save;
+		qcom,round-robin;
+	};
+
+	etm3: etm@fc34f000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc34f000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <13>;
+		coresight-name = "coresight-etm3";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <3>;
+
+		qcom,pc-save;
+		qcom,round-robin;
+	};
+
 	csr: csr@fc301000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0xfc301000 0x1000>;
