@@ -388,22 +388,30 @@ static void android_work(struct work_struct *data)
 	}
 }
 
-static void android_enable(struct android_dev *dev)
+static int android_enable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_configuration *conf;
+	int err = 0;
 
 	if (WARN_ON(!dev->disable_depth))
-		return;
+		return err;
 
 	if (--dev->disable_depth == 0) {
 
-		list_for_each_entry(conf, &dev->configs, list_item)
-			usb_add_config(cdev, &conf->usb_config,
+		list_for_each_entry(conf, &dev->configs, list_item) {
+			err = usb_add_config(cdev, &conf->usb_config,
 						android_bind_config);
-
+			if (err < 0) {
+				pr_err("%s: usb_add_config failed : err: %d\n",
+						__func__, err);
+				return err;
+			}
+		}
 		usb_gadget_connect(cdev->gadget);
 	}
+
+	return err;
 }
 
 static void android_disable(struct android_dev *dev)
@@ -2130,7 +2138,18 @@ android_bind_enabled_functions(struct android_dev *dev,
 	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
 		ret = f_holder->f->bind_config(f_holder->f, c);
 		if (ret) {
-			pr_err("%s: %s failed", __func__, f_holder->f->name);
+			pr_err("%s: %s failed\n", __func__, f_holder->f->name);
+			while (!list_empty(&c->functions)) {
+				struct usb_function		*f;
+
+				f = list_first_entry(&c->functions,
+					struct usb_function, list);
+				list_del(&f->list);
+				if (f->unbind)
+					f->unbind(c, f);
+			}
+			if (c->unbind)
+				c->unbind(c);
 			return ret;
 		}
 	}
@@ -2347,7 +2366,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	int enabled = 0;
 	bool audio_enabled = false;
 	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
-
+	int err = 0;
 
 	if (!cdev)
 		return -ENODEV;
@@ -2382,7 +2401,14 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 			}
 		if (audio_enabled)
 			msleep(100);
-		android_enable(dev);
+		err = android_enable(dev);
+		if (err < 0) {
+			pr_err("%s: android_enable failed\n", __func__);
+			dev->connected = 0;
+			dev->enabled = false;
+			mutex_unlock(&dev->mutex);
+			return size;
+		}
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
 		android_disable(dev);
