@@ -3934,6 +3934,13 @@ intel_dp_init_panel_power_sequencer(struct drm_device *dev,
 	intel_dp->panel_power_down_delay = get_delay(t10);
 	intel_dp->panel_power_cycle_delay = get_delay(t11_t12);
 #undef get_delay
+	/* Currrently the delays are set at 200ms.
+	 * It is a very conservative value. EDP panel can
+	 * come up within 100ms. Hard coding it to 100ms for now.
+	 * TODO : Work with IAFW team and get it programmed correctly.
+	 */
+	intel_dp->panel_power_up_delay = 100;
+	intel_dp->backlight_off_delay = 100;
 
 	DRM_DEBUG_KMS("panel power up delay %d, power down delay %d, power cycle delay %d\n",
 		      intel_dp->panel_power_up_delay, intel_dp->panel_power_down_delay,
