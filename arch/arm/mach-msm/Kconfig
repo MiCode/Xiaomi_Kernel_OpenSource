@@ -306,6 +306,10 @@ config ARCH_APQ8084
 	select MEMORY_HOLE_CARVEOUT
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select QMI_ENCDEC
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select MSM_RPM_SMD
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
