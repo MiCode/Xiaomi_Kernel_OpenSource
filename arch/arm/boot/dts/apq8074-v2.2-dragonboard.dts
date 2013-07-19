@@ -1,0 +1,22 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "apq8074-v2.2.dtsi"
+/include/ "apq8074-dragonboard.dtsi"
+
+/ {
+	model = "Qualcomm APQ 8074v2.2 DRAGONBOARD";
+	compatible = "qcom,apq8074-dragonboard", "qcom,apq8074", "qcom,dragonboard";
+	qcom,msm-id = <184 10 0x20002>;
+};

@@ -101,7 +101,10 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	msm8974-v2.0-1-mtp.dtb \
 	apq8074-v2.0-1-cdp.dtb \
 	apq8074-v2.0-1-liquid.dtb \
-	apq8074-v2.0-1-dragonboard.dtb
+	apq8074-v2.0-1-dragonboard.dtb \
+	apq8074-v2.2-cdp.dtb \
+	apq8074-v2.2-liquid.dtb \
+	apq8074-v2.2-dragonboard.dtb
 dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 	msm9625-v1-mtp.dtb \
 	msm9625-v1-rumi.dtb \
