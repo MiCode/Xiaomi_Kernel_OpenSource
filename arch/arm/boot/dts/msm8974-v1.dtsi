@@ -65,6 +65,7 @@
 /* CoreSight */
 &tmc_etr {
 	qcom,reset-flush-race;
+	qcom,byte-cntr-absent;
 };
 
 &stm {
