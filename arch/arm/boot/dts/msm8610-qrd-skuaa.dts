@@ -40,3 +40,8 @@
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
 };
+
+&pm8110_bms {
+	status = "ok";
+	qcom,batt-type = <5>;
+};
