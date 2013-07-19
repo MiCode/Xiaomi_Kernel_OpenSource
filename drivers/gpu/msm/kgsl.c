@@ -498,7 +498,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	kref_init(&context->refcount);
 	context->device = dev_priv->device;
 	context->pagetable = dev_priv->process_priv->pagetable;
-
+	context->dev_priv = dev_priv;
 	context->pid = dev_priv->process_priv->pid;
 
 	ret = kgsl_sync_timeline_create(context);
@@ -986,7 +986,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		if (context == NULL)
 			break;
 
-		if (context->pid == private->pid)
+		if (context->dev_priv == dev_priv)
 			kgsl_context_detach(context);
 
 		next = next + 1;
