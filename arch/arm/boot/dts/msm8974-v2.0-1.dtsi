@@ -17,3 +17,20 @@
  */
 
 /include/ "msm8974-v2.dtsi"
+
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_mdss {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
+};

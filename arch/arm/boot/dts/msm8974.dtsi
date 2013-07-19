@@ -1643,17 +1643,11 @@
 
 &gdsc_venus {
 	qcom,clock-names = "core_clk";
-	qcom,skip-logic-collapse;
-	qcom,retain-periph;
-	qcom,retain-mem;
 	status = "ok";
 };
 
 &gdsc_mdss {
 	qcom,clock-names = "core_clk", "lut_clk";
-	qcom,skip-logic-collapse;
-	qcom,retain-periph;
-	qcom,retain-mem;
 	status = "ok";
 };
 
@@ -1670,8 +1664,6 @@
 
 &gdsc_oxili_gx {
 	qcom,clock-names = "core_clk";
-	qcom,retain-mem;
-	qcom,retain-periph;
 	status = "ok";
 };
 
