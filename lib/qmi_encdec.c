@@ -88,6 +88,7 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 			      void *out_c_struct,
 			      void *in_buf, uint32_t in_buf_len,
 			      int dec_level);
+static struct elem_info *skip_to_next_elem(struct elem_info *ei_array);
 
 /**
  * qmi_calc_max_msg_len() - Calculate the maximum length of a QMI message
@@ -132,6 +133,53 @@ static int qmi_calc_max_msg_len(struct elem_info *ei_array,
 }
 
 /**
+ * qmi_calc_min_msg_len() - Calculate the minimum length of a QMI message
+ * @ei_array: Struct info array describing the structure.
+ * @level: Level to identify the depth of the nested structures.
+ *
+ * @return: expected minimum length of the QMI message or 0 on failure.
+ */
+static int qmi_calc_min_msg_len(struct elem_info *ei_array,
+				int level)
+{
+	int min_msg_len = 0;
+	struct elem_info *temp_ei = ei_array;
+
+	if (!ei_array)
+		return min_msg_len;
+
+	while (temp_ei->data_type != QMI_EOTI) {
+		/* Optional elements do not count in minimum length */
+		if (temp_ei->data_type == QMI_OPT_FLAG) {
+			temp_ei = skip_to_next_elem(temp_ei);
+			continue;
+		}
+
+		if (temp_ei->data_type == QMI_DATA_LEN) {
+			min_msg_len += (temp_ei->elem_size == sizeof(uint8_t) ?
+					sizeof(uint8_t) : sizeof(uint16_t));
+			temp_ei++;
+			continue;
+		} else if (temp_ei->data_type == QMI_STRUCT) {
+			min_msg_len += qmi_calc_min_msg_len(temp_ei->ei_array,
+							    (level + 1));
+			temp_ei++;
+		} else {
+			min_msg_len += (temp_ei->elem_len * temp_ei->elem_size);
+			temp_ei++;
+		}
+
+		/*
+		 * Type & Length info. not prepended for elements in the
+		 * nested structure.
+		 */
+		if (level == 1)
+			min_msg_len += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
+	}
+	return min_msg_len;
+}
+
+/**
  * qmi_verify_max_msg_len() - Verify the maximum length of a QMI message
  * @desc: Pointer to structure descriptor.
  *
@@ -168,12 +216,28 @@ int qmi_kernel_encode(struct msg_desc *desc,
 		      void *in_c_struct)
 {
 	int enc_level = 1;
-	int ret, calc_max_msg_len;
+	int ret, calc_max_msg_len, calc_min_msg_len;
 
-	if (!desc || !desc->ei_array)
+	if (!desc)
 		return -EINVAL;
 
-	if (!out_buf || !in_c_struct)
+	/* Check the possibility of a zero length QMI message */
+	if (!in_c_struct) {
+		calc_min_msg_len = qmi_calc_min_msg_len(desc->ei_array, 1);
+		if (calc_min_msg_len) {
+			pr_err("%s: Calc. len %d != 0, but NULL in_c_struct\n",
+				__func__, calc_min_msg_len);
+			return -EINVAL;
+		} else {
+			return 0;
+		}
+	}
+
+	/*
+	 * Not a zero-length message. Ensure the output buffer and
+	 * element information array are not NULL.
+	 */
+	if (!out_buf || !desc->ei_array)
 		return -EINVAL;
 
 	if (desc->max_msg_len < out_buf_len)

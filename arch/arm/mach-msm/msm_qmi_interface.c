@@ -311,7 +311,10 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	void *encoded_req;
 
 	if (!handle || !handle->dest_info ||
-	    !req_desc || !req || !resp_desc || !resp)
+	    !req_desc || !resp_desc || !resp)
+		return -EINVAL;
+
+	if ((!req && req_len) || (!req_len && req))
 		return -EINVAL;
 
 	mutex_lock(&handle->handle_lock);
