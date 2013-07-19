@@ -81,9 +81,16 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 #define PRONTO_PMU_SPARE_OFFSET       0x1088
 
-#define PRONTO_PMU_GDSCR_OFFSET       0x0024
-#define PRONTO_PMU_GDSCR_SW_COLLAPSE  BIT(0)
-#define PRONTO_PMU_GDSCR_HW_CTRL      BIT(1)
+#define PRONTO_PMU_COM_GDSCR_OFFSET       0x0024
+#define PRONTO_PMU_COM_GDSCR_SW_COLLAPSE  BIT(0)
+#define PRONTO_PMU_COM_GDSCR_HW_CTRL      BIT(1)
+
+#define PRONTO_PMU_WLAN_BCR_OFFSET         0x0050
+#define PRONTO_PMU_WLAN_BCR_BLK_ARES       BIT(0)
+
+#define PRONTO_PMU_WLAN_GDSCR_OFFSET       0x0054
+#define PRONTO_PMU_WLAN_GDSCR_SW_COLLAPSE  BIT(0)
+
 
 #define PRONTO_PMU_CBCR_OFFSET        0x0008
 #define PRONTO_PMU_CBCR_CLK_EN        BIT(0)
@@ -117,6 +124,9 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 #define MSM_PRONTO_PLL_BASE				0xfb21b1c0
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
+
+#define MSM_PRONTO_TXP_PHY_ABORT        0xfb080488
+#define MSM_PRONTO_BRDG_ERR_SRC         0xfb080fb0
 
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
 
@@ -296,6 +306,8 @@ static struct {
 	void __iomem *pronto_ccpu_base;
 	void __iomem *pronto_saw2_base;
 	void __iomem *pronto_pll_base;
+	void __iomem *wlan_tx_phy_aborts;
+	void __iomem *wlan_brdg_err_source;
 	void __iomem *fiq_reg;
 	int	ssr_boot;
 	int	nv_downloaded;
@@ -435,14 +447,14 @@ EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
 void wcnss_pronto_log_debug_regs(void)
 {
 	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
-	u32 reg = 0;
+	u32 reg = 0, reg2 = 0;
 
 
 	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_SPARE_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s:  PRONTO_PMU_SPARE %08x\n", __func__, reg);
 
-	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_GDSCR_OFFSET;
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_COM_GDSCR_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	reg >>= 31;
 
@@ -451,7 +463,8 @@ void wcnss_pronto_log_debug_regs(void)
 				__func__);
 		return;
 	}
-	reg &= ~(PRONTO_PMU_GDSCR_SW_COLLAPSE | PRONTO_PMU_GDSCR_HW_CTRL);
+	reg &= ~(PRONTO_PMU_COM_GDSCR_SW_COLLAPSE
+			| PRONTO_PMU_COM_GDSCR_HW_CTRL);
 	writel_relaxed(reg, reg_addr);
 
 	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_CBCR_OFFSET;
@@ -556,6 +569,26 @@ void wcnss_pronto_log_debug_regs(void)
 	writel_relaxed(reg, tst_ctrl_addr);
 	reg = readl_relaxed(tst_addr);
 	pr_info_ratelimited("%s:  CTRL SEL CFG1 testbus %08x\n", __func__, reg);
+
+
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_WLAN_BCR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_WLAN_GDSCR_OFFSET;
+	reg2 = readl_relaxed(reg_addr);
+
+	if ((reg & PRONTO_PMU_WLAN_BCR_BLK_ARES) ||
+			(reg2 & PRONTO_PMU_WLAN_GDSCR_SW_COLLAPSE)) {
+		pr_info_ratelimited("%s:  Cannot log, wlan domain is power collapsed\n",
+				__func__);
+		return;
+	}
+
+	reg = readl_relaxed(penv->wlan_tx_phy_aborts);
+	pr_info_ratelimited("%s: WLAN_TX_PHY_ABORTS %08x\n", __func__, reg);
+
+	reg = readl_relaxed(penv->wlan_brdg_err_source);
+	pr_info_ratelimited("%s: WLAN_BRDG_ERR_SOURCE %08x\n", __func__, reg);
 
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
@@ -1716,6 +1749,21 @@ wcnss_trigger_config(struct platform_device *pdev)
 			goto fail_ioremap6;
 		}
 
+		penv->wlan_tx_phy_aborts =  ioremap(MSM_PRONTO_TXP_PHY_ABORT,
+					SZ_8);
+		if (!penv->wlan_tx_phy_aborts) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wlan TX PHY failed\n", __func__);
+			goto fail_ioremap7;
+		}
+		penv->wlan_brdg_err_source =  ioremap(MSM_PRONTO_BRDG_ERR_SRC,
+							SZ_8);
+		if (!penv->wlan_brdg_err_source) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wlan BRDG ERR failed\n", __func__);
+			goto fail_ioremap8;
+		}
+
 	}
 
 	/* trigger initialization of the WCNSS */
@@ -1732,6 +1780,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 fail_pil:
 	if (penv->riva_ccu_base)
 		iounmap(penv->riva_ccu_base);
+	if (penv->wlan_brdg_err_source)
+		iounmap(penv->wlan_brdg_err_source);
+fail_ioremap8:
+	if (penv->wlan_tx_phy_aborts)
+		iounmap(penv->wlan_tx_phy_aborts);
+fail_ioremap7:
 	if (penv->pronto_pll_base)
 		iounmap(penv->pronto_pll_base);
 fail_ioremap6:
