@@ -35,6 +35,16 @@
 #define INVALID_COPP_ID 0xFF
 #define ADM_GET_PARAMETER_LENGTH 350
 
+
+enum {
+	ADM_RX_AUDPROC_CAL,
+	ADM_TX_AUDPROC_CAL,
+	ADM_RX_AUDVOL_CAL,
+	ADM_TX_AUDVOL_CAL,
+	ADM_CUSTOM_TOP_CAL,
+	ADM_MAX_CAL_TYPES
+};
+
 struct adm_ctl {
 	void *apr;
 	atomic_t copp_id[AFE_MAX_PORTS];
@@ -48,10 +58,7 @@ struct adm_ctl {
 	struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
 
-/* 0 - (MAX_AUDPROC_TYPES -1):				audproc handles */
-/* (MAX_AUDPROC_TYPES -1) - (2 * MAX_AUDPROC_TYPES -1):	audvol handles */
-/* + 1 for custom ADM topology */
-	atomic_t mem_map_cal_handles[(2 * MAX_AUDPROC_TYPES) + 1];
+	atomic_t mem_map_cal_handles[ADM_MAX_CAL_TYPES];
 	atomic_t mem_map_cal_index;
 
 	int set_custom_topology;
@@ -626,7 +633,7 @@ void send_adm_custom_topology(int port_id)
 
 	if (this_adm.set_custom_topology) {
 		/* specific index 4 for adm topology memory */
-		atomic_set(&this_adm.mem_map_cal_index, 4);
+		atomic_set(&this_adm.mem_map_cal_index, ADM_CUSTOM_TOP_CAL);
 
 		/* Only call this once */
 		this_adm.set_custom_topology = 0;
@@ -656,7 +663,8 @@ void send_adm_custom_topology(int port_id)
 	adm_top.hdr.opcode = ADM_CMD_ADD_TOPOLOGIES;
 	adm_top.payload_addr_lsw = cal_block.cal_paddr;
 	adm_top.payload_addr_msw = 0;
-	adm_top.mem_map_handle = atomic_read(&this_adm.mem_map_cal_handles[4]);
+	adm_top.mem_map_handle =
+		atomic_read(&this_adm.mem_map_cal_handles[ADM_CUSTOM_TOP_CAL]);
 	adm_top.payload_size = cal_block.cal_size;
 
 	atomic_set(&this_adm.copp_stat[index], 0);
