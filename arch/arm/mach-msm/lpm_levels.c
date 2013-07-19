@@ -16,19 +16,60 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/mutex.h>
+#include <linux/cpu.h>
 #include <linux/of.h>
 #include <mach/mpm.h>
-#include "lpm_resources.h"
 #include "pm.h"
 #include "rpm-notifier.h"
-
+#include "spm.h"
+#include "idle.h"
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
 	MSM_LPM_LVL_DBG_IDLE_LIMITS = BIT(1),
 };
 
-#define MAX_STR_LEN 30
+enum {
+	MSM_SCM_L2_ON = 0,
+	MSM_SCM_L2_OFF = 1,
+	MSM_SCM_L2_GDHS = 3,
+};
+
+struct msm_rpmrs_level {
+	enum msm_pm_sleep_mode sleep_mode;
+	uint32_t l2_cache;
+	bool available;
+	uint32_t latency_us;
+	uint32_t steady_state_power;
+	uint32_t energy_overhead;
+	uint32_t time_overhead_us;
+};
+
+struct lpm_lookup_table {
+	uint32_t modes;
+	const char *mode_name;
+};
+
+static void msm_lpm_level_update(void);
+
+static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
+				unsigned long action, void *hcpu);
+
+static struct notifier_block __refdata msm_lpm_cpu_nblk = {
+	.notifier_call = msm_lpm_cpu_callback,
+};
+
+static uint32_t allowed_l2_mode;
+static uint32_t sysfs_dbg_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+static uint32_t default_l2_mode;
+
+static bool no_l2_saw;
+
+static ssize_t msm_lpm_levels_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count);
 
 static int msm_lpm_lvl_dbg_msk;
 
@@ -39,9 +80,54 @@ module_param_named(
 static struct msm_rpmrs_level *msm_lpm_levels;
 static int msm_lpm_level_count;
 
-static DEFINE_PER_CPU(uint32_t , msm_lpm_sleep_time);
-static DEFINE_PER_CPU(int , lpm_permitted_level);
-static DEFINE_PER_CPU(struct atomic_notifier_head, lpm_notify_head);
+static struct kobj_attribute lpm_l2_kattr = __ATTR(l2,  S_IRUGO|S_IWUSR,\
+		msm_lpm_levels_attr_show, msm_lpm_levels_attr_store);
+
+static struct attribute *lpm_levels_attr[] = {
+	&lpm_l2_kattr.attr,
+	NULL,
+};
+
+static struct attribute_group lpm_levels_attr_grp = {
+	.attrs = lpm_levels_attr,
+};
+
+/* SYSFS */
+static ssize_t msm_lpm_levels_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct kernel_param kp;
+	int rc;
+
+	kp.arg = &sysfs_dbg_l2_mode;
+
+	rc = param_get_uint(buf, &kp);
+
+	if (rc > 0) {
+		strlcat(buf, "\n", PAGE_SIZE);
+		rc++;
+	}
+
+	return rc;
+}
+
+static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct kernel_param kp;
+	unsigned int temp;
+	int rc;
+
+	kp.arg = &temp;
+	rc = param_set_uint(buf, &kp);
+	if (rc)
+		return rc;
+
+	sysfs_dbg_l2_mode = temp;
+	msm_lpm_level_update();
+
+	return count;
+}
 
 static int msm_pm_get_sleep_mode_value(struct device_node *node,
 			const char *key, uint32_t *sleep_mode_val)
@@ -74,8 +160,7 @@ static int msm_pm_get_sleep_mode_value(struct device_node *node,
 	if (!ret) {
 		ret = -EINVAL;
 		for (i = 0; i < ARRAY_SIZE(pm_sm_lookup); i++) {
-			if (!strncmp(mode_name, pm_sm_lookup[i].mode_name,
-				MAX_STR_LEN)) {
+			if (!strcmp(mode_name, pm_sm_lookup[i].mode_name)) {
 				*sleep_mode_val = pm_sm_lookup[i].modes;
 				ret = 0;
 				break;
@@ -85,16 +170,61 @@ static int msm_pm_get_sleep_mode_value(struct device_node *node,
 	return ret;
 }
 
+static int msm_lpm_set_l2_mode(int sleep_mode)
+{
+	int lpm = sleep_mode;
+	int rc = 0;
+
+	if (no_l2_saw)
+		goto bail_set_l2_mode;
+
+	msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
+
+	switch (sleep_mode) {
+	case MSM_SPM_L2_MODE_POWER_COLLAPSE:
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
+		break;
+	case MSM_SPM_L2_MODE_GDHS:
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_GDHS);
+		break;
+	case MSM_SPM_L2_MODE_RETENTION:
+	case MSM_SPM_L2_MODE_DISABLED:
+		break;
+	default:
+		lpm = MSM_SPM_L2_MODE_DISABLED;
+		break;
+	}
+
+	rc = msm_spm_l2_set_low_power_mode(lpm, true);
+
+	if (rc) {
+		if (rc == -ENXIO)
+			WARN_ON_ONCE(1);
+		else
+			pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
+			__func__, lpm, rc);
+	}
+
+bail_set_l2_mode:
+	return rc;
+}
+
 static void msm_lpm_level_update(void)
 {
-	unsigned int lpm_level;
+	int lpm_level;
 	struct msm_rpmrs_level *level = NULL;
+	uint32_t max_l2_mode;
+	static DEFINE_MUTEX(lpm_lock);
+
+	mutex_lock(&lpm_lock);
+
+	max_l2_mode = min(allowed_l2_mode, sysfs_dbg_l2_mode);
 
 	for (lpm_level = 0; lpm_level < msm_lpm_level_count; lpm_level++) {
 		level = &msm_lpm_levels[lpm_level];
-		level->available =
-			!msm_lpm_level_beyond_limit(&level->rs_limits);
+		level->available = !(level->l2_cache > max_l2_mode);
 	}
+	mutex_unlock(&lpm_lock);
 }
 
 int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
@@ -102,13 +232,7 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 {
 	int ret = 0;
 	int debug_mask;
-	struct msm_rpmrs_limits *l = (struct msm_rpmrs_limits *)limits;
-	struct msm_lpm_sleep_data sleep_data;
-
-	sleep_data.limits = limits;
-	sleep_data.kernel_sleep = __get_cpu_var(msm_lpm_sleep_time);
-	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
-		MSM_LPM_STATE_ENTER, &sleep_data);
+	uint32_t l2 = *(uint32_t *)limits;
 
 	if (from_idle)
 		debug_mask = msm_lpm_lvl_dbg_msk &
@@ -118,19 +242,20 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 			MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
 
 	if (debug_mask)
-		pr_info("%s(): pxo:%d l2:%d mem:0x%x(0x%x) dig:0x%x(0x%x)\n",
-				__func__, l->pxo, l->l2_cache,
-				l->vdd_mem_lower_bound,
-				l->vdd_mem_upper_bound,
-				l->vdd_dig_lower_bound,
-				l->vdd_dig_upper_bound);
+		pr_info("%s(): l2:%d", __func__, l2);
 
-	ret = msm_lpmrs_enter_sleep(sclk_count, l, from_idle, notify_rpm);
+	ret = msm_lpm_set_l2_mode(l2);
+
 	if (ret) {
-		pr_warn("%s() LPM resources failed to enter sleep\n",
-				__func__);
-		goto bail;
+		if (ret == -ENXIO)
+			ret = 0;
+		else {
+			pr_warn("%s(): Failed to set L2 SPM Mode %d",
+					__func__, l2);
+			goto bail;
+		}
 	}
+
 	if (notify_rpm) {
 		ret = msm_rpm_enter_sleep(debug_mask);
 		if (ret) {
@@ -138,6 +263,8 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 					__func__, ret);
 			goto bail;
 		}
+
+		msm_mpm_enter_sleep(sclk_count, from_idle);
 	}
 bail:
 	return ret;
@@ -147,60 +274,18 @@ static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 		bool notify_rpm, bool collapsed)
 {
 
-	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
-				from_idle, notify_rpm, collapsed);
-	if (notify_rpm)
+	msm_lpm_set_l2_mode(default_l2_mode);
+
+	if (notify_rpm) {
+		msm_mpm_exit_sleep(from_idle);
 		msm_rpm_exit_sleep();
-	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
-			MSM_LPM_STATE_EXIT, NULL);
+	}
 }
 
 void msm_lpm_show_resources(void)
 {
 	/* TODO */
 	return;
-}
-
-uint32_t msm_pm_get_pxo(struct msm_rpmrs_limits *limits)
-{
-	return limits->pxo;
-}
-
-uint32_t msm_pm_get_l2_cache(struct msm_rpmrs_limits *limits)
-{
-	return limits->l2_cache;
-}
-
-uint32_t msm_pm_get_vdd_mem(struct msm_rpmrs_limits *limits)
-{
-	return limits->vdd_mem_upper_bound;
-}
-
-uint32_t msm_pm_get_vdd_dig(struct msm_rpmrs_limits *limits)
-{
-	return limits->vdd_dig_upper_bound;
-}
-
-static bool lpm_level_permitted(int cur_level_count)
-{
-	if (__get_cpu_var(lpm_permitted_level) == msm_lpm_level_count + 1)
-		return true;
-	return (__get_cpu_var(lpm_permitted_level) == cur_level_count);
-}
-
-int msm_lpm_register_notifier(int cpu, int level_iter,
-			struct notifier_block *nb, bool is_latency_measure)
-{
-	per_cpu(lpm_permitted_level, cpu) = level_iter;
-	return atomic_notifier_chain_register(&per_cpu(lpm_notify_head,
-			cpu), nb);
-}
-
-int msm_lpm_unregister_notifier(int cpu, struct notifier_block *nb)
-{
-	per_cpu(lpm_permitted_level, cpu) = msm_lpm_level_count + 1;
-	return atomic_notifier_chain_unregister(&per_cpu(lpm_notify_head, cpu),
-				nb);
 }
 
 s32 msm_cpuidle_get_deep_idle_latency(void)
@@ -225,17 +310,26 @@ s32 msm_cpuidle_get_deep_idle_latency(void)
 	}
 	return best->latency_us - 1;
 }
-static bool msm_lpm_irqs_detectable(struct msm_rpmrs_limits *limits,
-		bool irqs_detectable, bool gpio_detectable)
+
+static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
+	unsigned long action, void *hcpu)
 {
-	if (!limits->irqs_detectable)
-		return irqs_detectable;
-
-	if (!limits->gpio_detectable)
-		return gpio_detectable;
-
-	return true;
-
+	switch (action) {
+	case CPU_UP_PREPARE:
+	case CPU_UP_PREPARE_FROZEN:
+		allowed_l2_mode = default_l2_mode;
+		msm_lpm_level_update();
+		break;
+	case CPU_DEAD_FROZEN:
+	case CPU_DEAD:
+	case CPU_UP_CANCELED:
+	case CPU_UP_CANCELED_FROZEN:
+		if (num_online_cpus() == 1)
+			allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+		msm_lpm_level_update();
+		break;
+	}
+	return NOTIFY_OK;
 }
 
 static void *msm_lpm_lowest_limits(bool from_idle,
@@ -244,23 +338,14 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 {
 	unsigned int cpu = smp_processor_id();
 	struct msm_rpmrs_level *best_level = NULL;
+	uint32_t best_level_pwr = 0;
 	uint32_t pwr;
 	int i;
-	int best_level_iter = msm_lpm_level_count + 1;
-	bool irqs_detect = false;
-	bool gpio_detect = false;
 	bool modify_event_timer;
 	uint32_t next_wakeup_us = time_param->sleep_us;
 
 	if (!msm_lpm_levels)
 		return NULL;
-
-	msm_lpm_level_update();
-
-	if (sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) {
-		irqs_detect = msm_mpm_irqs_detectable(from_idle);
-		gpio_detect = msm_mpm_gpio_irqs_detectable(from_idle);
-	}
 
 	for (i = 0; i < msm_lpm_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_lpm_levels[i];
@@ -293,11 +378,6 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 		if (next_wakeup_us <= level->time_overhead_us)
 			continue;
 
-		if ((sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) &&
-			!msm_lpm_irqs_detectable(&level->rs_limits,
-				irqs_detect, gpio_detect))
-				continue;
-
 		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
 			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
 			if (!cpu && msm_rpm_waiting_for_ack())
@@ -318,12 +398,10 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 			pwr += level->energy_overhead / next_wakeup_us;
 		}
 
-		if (!best_level || best_level->rs_limits.power[cpu] >= pwr) {
+		if (!best_level || (best_level_pwr >= pwr)) {
 
-			level->rs_limits.latency_us[cpu] = level->latency_us;
-			level->rs_limits.power[cpu] = pwr;
 			best_level = level;
-			best_level_iter = i;
+			best_level_pwr = pwr;
 			if (power)
 				*power = pwr;
 			if (modify_event_timer &&
@@ -336,31 +414,77 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 				time_param->modified_time_us = 0;
 		}
 	}
-	if (best_level && !lpm_level_permitted(best_level_iter))
-		best_level = NULL;
-	else
-		per_cpu(msm_lpm_sleep_time, cpu) =
-			time_param->modified_time_us ?
-			time_param->modified_time_us : time_param->sleep_us;
 
-	return best_level ? &best_level->rs_limits : NULL;
+	return best_level ? &best_level->l2_cache : NULL;
 }
-
-static struct lpm_test_platform_data lpm_test_pdata;
-
-static struct platform_device msm_lpm_test_device = {
-	.name		= "lpm_test",
-	.id		= -1,
-	.dev		= {
-		.platform_data = &lpm_test_pdata,
-	},
-};
 
 static struct msm_pm_sleep_ops msm_lpm_ops = {
 	.lowest_limits = msm_lpm_lowest_limits,
 	.enter_sleep = msm_lpm_enter_sleep,
 	.exit_sleep = msm_lpm_exit_sleep,
 };
+
+static int msm_lpm_get_l2_cache_value(struct device_node *node,
+			char *key, uint32_t *l2_val)
+{
+	int i;
+	struct lpm_lookup_table l2_mode_lookup[] = {
+		{MSM_SPM_L2_MODE_POWER_COLLAPSE, "l2_cache_pc"},
+		{MSM_SPM_L2_MODE_GDHS, "l2_cache_gdhs"},
+		{MSM_SPM_L2_MODE_RETENTION, "l2_cache_retention"},
+		{MSM_SPM_L2_MODE_DISABLED, "l2_cache_active"}
+	};
+	const char *l2_str;
+	int ret;
+
+	ret = of_property_read_string(node, key, &l2_str);
+	if (!ret) {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(l2_mode_lookup); i++) {
+			if (!strcmp(l2_str, l2_mode_lookup[i].mode_name)) {
+				*l2_val = l2_mode_lookup[i].modes;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+static int __devinit msm_lpm_levels_sysfs_add(void)
+{
+	struct kobject *module_kobj = NULL;
+	struct kobject *low_power_kobj = NULL;
+	int rc = 0;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: cannot find kobject for module %s\n",
+			__func__, KBUILD_MODNAME);
+		rc = -ENOENT;
+		goto resource_sysfs_add_exit;
+	}
+
+	low_power_kobj = kobject_create_and_add(
+				"enable_low_power", module_kobj);
+	if (!low_power_kobj) {
+		pr_err("%s: cannot create kobject\n", __func__);
+		rc = -ENOMEM;
+		goto resource_sysfs_add_exit;
+	}
+
+	rc = sysfs_create_group(low_power_kobj, &lpm_levels_attr_grp);
+resource_sysfs_add_exit:
+	if (rc) {
+		if (low_power_kobj) {
+			sysfs_remove_group(low_power_kobj,
+						&lpm_levels_attr_grp);
+			kobject_del(low_power_kobj);
+		}
+	}
+
+	return rc;
+}
 
 static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 {
@@ -372,7 +496,6 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 	int ret = 0;
 	uint32_t num_levels = 0;
 	int idx = 0;
-	unsigned int m_cpu = 0;
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
@@ -392,49 +515,11 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 			goto fail;
 		level->sleep_mode = val;
 
-		key = "qcom,xo";
-		ret = msm_lpm_get_xo_value(node, key, &val);
-		if (ret)
-			goto fail;
-		level->rs_limits.pxo = val;
-
 		key = "qcom,l2";
 		ret = msm_lpm_get_l2_cache_value(node, key, &val);
 		if (ret)
 			goto fail;
-		level->rs_limits.l2_cache = val;
-
-		key = "qcom,vdd-dig-upper-bound";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->rs_limits.vdd_dig_upper_bound = val;
-
-		key = "qcom,vdd-dig-lower-bound";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->rs_limits.vdd_dig_lower_bound = val;
-
-		key = "qcom,vdd-mem-upper-bound";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->rs_limits.vdd_mem_upper_bound = val;
-
-		key = "qcom,vdd-mem-lower-bound";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->rs_limits.vdd_mem_lower_bound = val;
-
-		key = "qcom,gpio-detectable";
-		level->rs_limits.gpio_detectable =
-				of_property_read_bool(node, key);
-
-		key = "qcom,irqs-detectable";
-		level->rs_limits.irqs_detectable =
-				of_property_read_bool(node, key);
+		level->l2_cache = val;
 
 		key = "qcom,latency-us";
 		ret = of_property_read_u32(node, key, &val);
@@ -463,22 +548,33 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 		level->available = true;
 	}
 
+	node = pdev->dev.of_node;
+	key = "qcom,no-l2-saw";
+	no_l2_saw = of_property_read_bool(node, key);
+
 	msm_lpm_levels = levels;
 	msm_lpm_level_count = idx;
 
-	lpm_test_pdata.msm_lpm_test_levels = msm_lpm_levels;
-	lpm_test_pdata.msm_lpm_test_level_count = msm_lpm_level_count;
-	key = "qcom,use-qtimer";
-	lpm_test_pdata.use_qtimer =
-			of_property_read_bool(pdev->dev.of_node, key);
+	if (num_online_cpus() == 1)
+		allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
 
-	for_each_possible_cpu(m_cpu)
-		per_cpu(lpm_permitted_level, m_cpu) =
-					msm_lpm_level_count + 1;
+	/* Do the following two steps only if L2 SAW is present */
+	if (!no_l2_saw) {
+		key = "qcom,default-l2-state";
+		if (msm_lpm_get_l2_cache_value(node, key, &default_l2_mode))
+			goto fail;
 
-	platform_device_register(&msm_lpm_test_device);
+		if (msm_lpm_levels_sysfs_add())
+			goto fail;
+		register_hotcpu_notifier(&msm_lpm_cpu_nblk);
+		msm_pm_set_l2_flush_flag(0);
+	} else {
+		msm_pm_set_l2_flush_flag(1);
+		default_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+	}
+
+	msm_lpm_level_update();
 	msm_pm_set_sleep_ops(&msm_lpm_ops);
-
 	return 0;
 fail:
 	pr_err("%s: Error in name %s key %s\n", __func__, node->full_name, key);
