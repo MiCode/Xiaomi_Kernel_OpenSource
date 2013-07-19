@@ -1601,6 +1601,13 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		return ret;
 
+	/* Supprt only MDP register read/write and
+	exit_dcm in DCM state*/
+	if (mfd->dcm_state == DCM_ENTER &&
+			(mdp_pp.op != mdp_op_calib_buffer &&
+			mdp_pp.op != mdp_op_calib_dcm_state))
+		return -EPERM;
+
 	switch (mdp_pp.op) {
 	case mdp_op_pa_cfg:
 		ret = mdss_mdp_pa_config(mdp5_data->ctl,
@@ -1680,6 +1687,9 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_calib_config_buffer(
 				(struct mdp_calib_config_buffer *)
 				 &mdp_pp.data.calib_buffer, &copyback);
+		break;
+	case mdp_op_calib_dcm_state:
+		ret = mdss_fb_dcm(mfd, mdp_pp.data.calib_dcm.dcm_state);
 		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
