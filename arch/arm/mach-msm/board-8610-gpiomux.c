@@ -531,7 +531,8 @@ void __init msm8610_init_gpiomux(void)
 	}
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
-	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
+	msm_gpiomux_install_nowrite(msm_lcd_configs,
+				ARRAY_SIZE(msm_lcd_configs));
 	msm_gpiomux_install(msm_keypad_configs,
 				ARRAY_SIZE(msm_keypad_configs));
 	msm_gpiomux_install(sd_card_det, ARRAY_SIZE(sd_card_det));
