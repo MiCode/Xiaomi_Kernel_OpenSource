@@ -586,6 +586,74 @@ static int qpnp_regulator_common_disable(struct regulator_dev *rdev)
 	return rc;
 }
 
+/*
+ * Returns 1 if the voltage can be set in the current range, 0 if the voltage
+ * cannot be set in the current range, or errno if an error occurred.
+ */
+static int qpnp_regulator_select_voltage_same_range(struct qpnp_regulator *vreg,
+		int min_uV, int max_uV, int *range_sel, int *voltage_sel,
+		unsigned *selector)
+{
+	struct qpnp_voltage_range *range = NULL;
+	int uV = min_uV;
+	int i;
+
+	*range_sel = vreg->ctrl_reg[QPNP_COMMON_IDX_VOLTAGE_RANGE];
+
+	for (i = 0; i < vreg->set_points->count; i++) {
+		if (vreg->set_points->range[i].range_sel == *range_sel) {
+			range = &vreg->set_points->range[i];
+			break;
+		}
+	}
+
+	if (!range) {
+		/* Unknown range */
+		return 0;
+	}
+
+	if (uV < range->min_uV && max_uV >= range->min_uV)
+		uV = range->min_uV;
+
+	if (uV < range->min_uV || uV > range->max_uV) {
+		/* Current range doesn't support the requested voltage. */
+		return 0;
+	}
+
+	/*
+	 * Force uV to be an allowed set point by applying a ceiling function to
+	 * the uV value.
+	 */
+	*voltage_sel = DIV_ROUND_UP(uV - range->min_uV, range->step_uV);
+	uV = *voltage_sel * range->step_uV + range->min_uV;
+
+	if (uV > max_uV) {
+		/*
+		 * No set point in the current voltage range is within the
+		 * requested min_uV to max_uV range.
+		 */
+		return 0;
+	}
+
+	*selector = 0;
+	for (i = 0; i < vreg->set_points->count; i++) {
+		if (uV >= vreg->set_points->range[i].set_point_min_uV
+		    && uV <= vreg->set_points->range[i].set_point_max_uV) {
+			*selector +=
+			    (uV - vreg->set_points->range[i].set_point_min_uV)
+				/ vreg->set_points->range[i].step_uV;
+			break;
+		} else {
+			*selector += vreg->set_points->range[i].n_voltages;
+		}
+	}
+
+	if (*selector >= vreg->set_points->n_voltages)
+		return 0;
+
+	return 1;
+}
+
 static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 		int min_uV, int max_uV, int *range_sel, int *voltage_sel,
 		unsigned *selector)
@@ -651,9 +719,16 @@ static int qpnp_regulator_common_set_voltage(struct regulator_dev *rdev,
 	int rc, range_sel, voltage_sel;
 	u8 buf[2];
 
-	rc = qpnp_regulator_select_voltage(vreg, min_uV, max_uV, &range_sel,
-		&voltage_sel, selector);
-	if (rc) {
+	/*
+	 * Favor staying in the current voltage range if possible.  This avoids
+	 * voltage spikes that occur when changing the voltage range.
+	 */
+	rc = qpnp_regulator_select_voltage_same_range(vreg, min_uV, max_uV,
+		&range_sel, &voltage_sel, selector);
+	if (rc == 0)
+		rc = qpnp_regulator_select_voltage(vreg, min_uV, max_uV,
+			&range_sel, &voltage_sel, selector);
+	if (rc < 0) {
 		vreg_err(vreg, "could not set voltage, rc=%d\n", rc);
 		return rc;
 	}
