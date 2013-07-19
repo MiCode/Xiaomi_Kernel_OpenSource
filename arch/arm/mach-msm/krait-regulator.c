@@ -30,6 +30,7 @@
 #include <linux/debugfs.h>
 #include <linux/syscore_ops.h>
 #include <mach/msm_iomap.h>
+#include "krait-regulator-pmic.h"
 
 #include "spm.h"
 #include "pm.h"
@@ -474,16 +475,18 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	}
 
 	/* First check if the coeff is low for PFM mode */
-	if (load_total <= pvreg->pfm_threshold && n_online == 1) {
+	if (load_total <= pvreg->pfm_threshold
+			&& n_online == 1
+			&& krait_pmic_is_ready()) {
 		if (!pvreg->pfm_mode) {
 			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
 			if (rc) {
 				pr_err("%s PFM en failed load_t %d rc = %d\n",
 					from->name, load_total, rc);
 				return rc;
-			} else {
-				pvreg->pfm_mode = true;
 			}
+			krait_pmic_post_pfm_entry();
+			pvreg->pfm_mode = true;
 		}
 		return rc;
 	}
@@ -495,10 +498,10 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 			pr_err("%s PFM exit failed load %d rc = %d\n",
 				from->name, coeff_total, rc);
 			return rc;
-		} else {
-			pvreg->pfm_mode = false;
-			udelay(PWM_SETTLING_TIME_US);
 		}
+		pvreg->pfm_mode = false;
+		krait_pmic_post_pwm_entry();
+		udelay(PWM_SETTLING_TIME_US);
 	}
 
 	/* calculate phases */
