@@ -57,6 +57,7 @@ enum qpnp_regulator_logical_type {
 	QPNP_REGULATOR_LOGICAL_TYPE_BOOST,
 	QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS,
 	QPNP_REGULATOR_LOGICAL_TYPE_BOOST_BYP,
+	QPNP_REGULATOR_LOGICAL_TYPE_LN_LDO,
 };
 
 enum qpnp_regulator_type {
@@ -83,6 +84,7 @@ enum qpnp_regulator_subtype {
 	QPNP_REGULATOR_SUBTYPE_P300		= 0x0A,
 	QPNP_REGULATOR_SUBTYPE_P600		= 0x0B,
 	QPNP_REGULATOR_SUBTYPE_P1200		= 0x0C,
+	QPNP_REGULATOR_SUBTYPE_LN		= 0x10,
 	QPNP_REGULATOR_SUBTYPE_LV_P50		= 0x28,
 	QPNP_REGULATOR_SUBTYPE_LV_P150		= 0x29,
 	QPNP_REGULATOR_SUBTYPE_LV_P300		= 0x2A,
@@ -326,6 +328,11 @@ static struct qpnp_voltage_range nldo3_ranges[] = {
 	VOLTAGE_RANGE(2,  750000,       0,       0, 1537500, 12500),
 };
 
+static struct qpnp_voltage_range ln_ldo_ranges[] = {
+	VOLTAGE_RANGE(1,  690000,  690000, 1110000, 1110000, 60000),
+	VOLTAGE_RANGE(0, 1380000, 1380000, 2220000, 2220000, 120000),
+};
+
 static struct qpnp_voltage_range smps_ranges[] = {
 	VOLTAGE_RANGE(0,  375000,  375000, 1562500, 1562500, 12500),
 	VOLTAGE_RANGE(1, 1550000, 1575000, 3125000, 3125000, 25000),
@@ -351,6 +358,8 @@ static struct qpnp_voltage_set_points nldo2_set_points
 					= SET_POINTS(nldo2_ranges);
 static struct qpnp_voltage_set_points nldo3_set_points
 					= SET_POINTS(nldo3_ranges);
+static struct qpnp_voltage_set_points ln_ldo_set_points
+					= SET_POINTS(ln_ldo_ranges);
 static struct qpnp_voltage_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct qpnp_voltage_set_points ftsmps_set_points
 					= SET_POINTS(ftsmps_ranges);
@@ -365,6 +374,7 @@ static struct qpnp_voltage_set_points *all_set_points[] = {
 	&nldo1_set_points,
 	&nldo2_set_points,
 	&nldo3_set_points,
+	&ln_ldo_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
 	&boost_set_points,
@@ -1024,6 +1034,7 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 
 	if (type == QPNP_REGULATOR_LOGICAL_TYPE_SMPS
 	    || type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_LN_LDO
 	    || type == QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS)
 		uV = qpnp_regulator_common_get_voltage(rdev);
 
@@ -1096,6 +1107,15 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 			action_label, vreg->rdesc.name, enable_label, uV,
 			mode_label, pc_enable_label, pc_mode_label);
 		break;
+	case QPNP_REGULATOR_LOGICAL_TYPE_LN_LDO:
+		mode_reg = vreg->ctrl_reg[QPNP_COMMON_IDX_MODE];
+		pc_mode_label[0] =
+		     mode_reg & QPNP_COMMON_MODE_BYPASS_MASK ? 'B' : '_';
+
+		pr_info("%s %-11s: %s, v=%7d uV, alt_mode=%s\n",
+			action_label, vreg->rdesc.name, enable_label, uV,
+			pc_mode_label);
+		break;
 	case QPNP_REGULATOR_LOGICAL_TYPE_VS:
 		mode_reg = vreg->ctrl_reg[QPNP_COMMON_IDX_MODE];
 		pc_mode_label[0] =
@@ -1155,6 +1175,16 @@ static struct regulator_ops qpnp_ldo_ops = {
 	.enable_time		= qpnp_regulator_common_enable_time,
 };
 
+static struct regulator_ops qpnp_ln_ldo_ops = {
+	.enable			= qpnp_regulator_common_enable,
+	.disable		= qpnp_regulator_common_disable,
+	.is_enabled		= qpnp_regulator_common_is_enabled,
+	.set_voltage		= qpnp_regulator_common_set_voltage,
+	.get_voltage		= qpnp_regulator_common_get_voltage,
+	.list_voltage		= qpnp_regulator_common_list_voltage,
+	.enable_time		= qpnp_regulator_common_enable_time,
+};
+
 static struct regulator_ops qpnp_vs_ops = {
 	.enable			= qpnp_regulator_vs_enable,
 	.disable		= qpnp_regulator_common_disable,
@@ -1205,6 +1235,7 @@ static const struct qpnp_regulator_mapping supported_regulators[] = {
 	QPNP_VREG_MAP(LDO,   P300,     0, INF, LDO,    ldo,    pldo,    10000),
 	QPNP_VREG_MAP(LDO,   P600,     0, INF, LDO,    ldo,    pldo,    10000),
 	QPNP_VREG_MAP(LDO,   P1200,    0, INF, LDO,    ldo,    pldo,    10000),
+	QPNP_VREG_MAP(LDO,   LN,       0, INF, LN_LDO, ln_ldo, ln_ldo,      0),
 	QPNP_VREG_MAP(LDO,   LV_P50,   0, INF, LDO,    ldo,    pldo,     5000),
 	QPNP_VREG_MAP(LDO,   LV_P150,  0, INF, LDO,    ldo,    pldo,    10000),
 	QPNP_VREG_MAP(LDO,   LV_P300,  0, INF, LDO,    ldo,    pldo,    10000),
@@ -1346,8 +1377,9 @@ static int qpnp_regulator_init_registers(struct qpnp_regulator *vreg,
 		       pdata->pin_ctrl_hpm & QPNP_COMMON_MODE_FOLLOW_AWAKE_MASK;
 	}
 
-	if (type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
-	    && pdata->bypass_mode_enable != QPNP_REGULATOR_USE_HW_DEFAULT) {
+	if ((type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_LN_LDO)
+	      && pdata->bypass_mode_enable != QPNP_REGULATOR_USE_HW_DEFAULT) {
 		ctrl_reg[QPNP_COMMON_IDX_MODE] &=
 			~QPNP_COMMON_MODE_BYPASS_MASK;
 		ctrl_reg[QPNP_COMMON_IDX_MODE] |=
