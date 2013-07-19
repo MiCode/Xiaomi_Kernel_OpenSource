@@ -65,6 +65,7 @@ do {									\
 #define CSR_QDSSPWRREQIGNORE	(0x060)
 #define CSR_QDSSSPARE		(0x064)
 #define CSR_IPCAT		(0x068)
+#define CSR_BYTECNTVAL		(0x06C)
 
 #define BLKSIZE_256		0
 #define BLKSIZE_512		1
@@ -158,6 +159,19 @@ int coresight_csr_hwctrl_set(phys_addr_t addr, uint32_t val)
 	return ret;
 }
 EXPORT_SYMBOL(coresight_csr_hwctrl_set);
+
+void coresight_csr_set_byte_cntr(uint32_t count)
+{
+	struct csr_drvdata *drvdata = csrdrvdata;
+
+	CSR_UNLOCK(drvdata);
+
+	csr_writel(drvdata, count, CSR_BYTECNTVAL);
+	mb();
+
+	CSR_LOCK(drvdata);
+}
+EXPORT_SYMBOL(coresight_csr_set_byte_cntr);
 
 static int __devinit csr_probe(struct platform_device *pdev)
 {
