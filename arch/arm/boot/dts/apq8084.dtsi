@@ -164,6 +164,37 @@
 		qcom,scl-gpio = <&msmgpio 11 0>;
 	};
 
+	qcom,usbbam@f9304000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9304000 0x5000>,
+		      <0xf92f880c 0x4>;
+		reg-names = "ssusb", "qscratch_ram1_reg";
+		interrupts = <0 132 0>;
+		interrupt-names = "ssusb";
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-bam-fifo-baseaddr = <0x00000000 0xf9200000>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
+
+		qcom,pipe0 {
+			label = "ssusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,bam-type = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37C000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9304000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-size = <0x1800>;
+			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+			qcom,reset-bam-on-connect;
+		};
+	};
+
 	usb3: qcom,ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
