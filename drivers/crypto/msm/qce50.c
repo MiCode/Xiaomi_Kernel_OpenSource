@@ -188,12 +188,7 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	min_rev = (rev & CRYPTO_CORE_MINOR_REV_MASK) >> CRYPTO_CORE_MINOR_REV;
 	step_rev = (rev & CRYPTO_CORE_STEP_REV_MASK) >> CRYPTO_CORE_STEP_REV;
 
-	if ((maj_rev != 0x05) || (min_rev > 0x02) || (step_rev > 0x02)) {
-		pr_err("Unknown Qualcomm crypto device at 0x%x, rev %d.%d.%d\n",
-			pce_dev->phy_iobase, maj_rev, min_rev, step_rev);
-		return -EIO;
-	};
-	if ((min_rev > 0)  && (step_rev != 0)) {
+	if (maj_rev != 0x05) {
 		pr_err("Unknown Qualcomm crypto device at 0x%x, rev %d.%d.%d\n",
 			pce_dev->phy_iobase, maj_rev, min_rev, step_rev);
 		return -EIO;
