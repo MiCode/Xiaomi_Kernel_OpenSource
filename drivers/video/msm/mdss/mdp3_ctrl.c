@@ -475,9 +475,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 
 	mdp3_fbmem_clear();
 
-	if (panel->set_backlight)
-		panel->set_backlight(panel, panel->panel_info.bl_max);
-
 	pr_debug("mdp3_ctrl_on dma start\n");
 	if (mfd->fbi->screen_base) {
 		rc = mdp3_session->dma->start(mdp3_session->dma,
@@ -520,18 +517,16 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
 
-	pr_debug("mdp3_ctrl_off turn panel off\n");
-	if (panel->set_backlight)
-		panel->set_backlight(panel, 0);
+	rc = mdp3_session->dma->stop(mdp3_session->dma, mdp3_session->intf);
+	if (rc)
+		pr_debug("fail to stop the MDP3 dma\n");
 
 	if (panel->event_handler)
 		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF, NULL);
 	if (rc)
 		pr_err("fail to turn off the panel\n");
 
-	rc = mdp3_session->dma->stop(mdp3_session->dma, mdp3_session->intf);
-	if (rc)
-		pr_err("fail to stop the MDP3 dma\n");
+
 
 	mdp3_irq_deregister();
 
