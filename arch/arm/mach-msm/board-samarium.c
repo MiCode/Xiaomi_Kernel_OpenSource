@@ -44,6 +44,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",	USB_HS_SYSTEM_CLK, "msm_otg", OFF),
 	CLK_DUMMY("iface_clk",	USB_HS_AHB_CLK,    "msm_otg", OFF),
 	CLK_DUMMY("xo",         CXO_OTG_CLK,       "msm_otg", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	"msm_sps", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
