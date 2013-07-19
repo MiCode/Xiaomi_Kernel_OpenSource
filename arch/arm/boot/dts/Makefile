@@ -104,7 +104,16 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	apq8074-v2.0-1-dragonboard.dtb \
 	apq8074-v2.2-cdp.dtb \
 	apq8074-v2.2-liquid.dtb \
-	apq8074-v2.2-dragonboard.dtb
+	apq8074-v2.2-dragonboard.dtb \
+	msm8974-v2.2-cdp.dtb \
+	msm8974-v2.2-fluid.dtb \
+	msm8974-v2.2-liquid.dtb \
+	msm8974-v2.2-mtp.dtb \
+	msm8974pro-ab-cdp.dtb \
+	msm8974pro-ab-fluid.dtb \
+	msm8974pro-ab-liquid.dtb \
+	msm8974pro-ab-mtp.dtb \
+	msm8974pro-ac-mtp.dtb
 dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 	msm9625-v1-mtp.dtb \
 	msm9625-v1-rumi.dtb \
@@ -113,6 +122,7 @@ dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 	msm9625-v2.1-mtp.dtb \
 	msm9625-v2.1-cdp.dtb
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
+	msm8226-fluid.dtb \
 	msm8226-v1-cdp.dtb \
 	msm8226-v1-mtp.dtb \
 	msm8226-v1-qrd-evt.dtb \
@@ -133,6 +143,8 @@ dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	apq8026-v2-cdp.dtb \
 	apq8026-v2-mtp.dtb
 dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
+	msm8610-cdp.dtb \
+	msm8610-mtp.dtb \
 	msm8610-sim.dtb \
 	msm8610-qrd-skuaa.dtb \
 	msm8610-qrd-skuab.dtb
