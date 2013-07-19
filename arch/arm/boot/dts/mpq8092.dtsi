@@ -291,6 +291,10 @@
 	status = "ok";
 };
 
+&gdsc_vpu {
+	status = "ok";
+};
+
 &gdsc_oxili_gx {
 	status = "ok";
 };

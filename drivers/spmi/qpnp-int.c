@@ -578,11 +578,14 @@ int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 	unsigned long hwirq, busno;
 	int irq;
 
+	if (!spec || !spmi_ctrl)
+		return -EINVAL;
+
 	pr_debug("spec slave = %u per = %u irq = %u\n",
 					spec->slave, spec->per, spec->irq);
 
 	busno = spmi_ctrl->nr;
-	if (!spec || !spmi_ctrl || busno >= QPNPINT_MAX_BUSSES)
+	if (busno >= QPNPINT_MAX_BUSSES)
 		return -EINVAL;
 
 	hwirq = qpnpint_encode_hwirq(spec);

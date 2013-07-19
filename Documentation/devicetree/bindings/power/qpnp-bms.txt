@@ -13,6 +13,11 @@ device is to enabled:
 		to determine whether the BMS is using an internal or external
 		rsense to accumulate the Coulomb Counter and read current.
 
+Additionally, an optional subnode may be included:
+- qcom,battery-data : A phandle to a node containing the available batterydata
+		profiles. See the batterydata bindings documentation for more
+		details.
+
 Parent node required properties:
 - compatible : should be "qcom,qpnp-bms" for the BM driver.
 - qcom,r-sense-uohm : sensor resistance in in micro-ohms.
@@ -77,6 +82,10 @@ Parent node required properties:
 			number of the FCC measurement cycles required to
 			generate an FCC update. This is applicable only
 			if the FCC learning is enabled.
+- qcom,fcc-resolution:	An integer which defines the fcc resolution used
+			for storing the FCC(mAh) in the 8-bit BMS register.
+			For example - A value of 10 indicates:
+			FCC value (in mAh) = (8-bit register value) * 10.
 
 Parent node optional properties:
 - qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
@@ -138,6 +147,7 @@ pm8941_bms: qcom,bms {
 	qcom,high-ocv-correction-limit-uv = <50>;
 	qcom,hold-soc-est = <3>;
 	qcom,tm-temp-margin = <5000>;
+	qcom,battery-data = <&mtp_batterydata>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;

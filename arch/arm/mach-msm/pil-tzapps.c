@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/err.h>
 
 #include <mach/subsystem_restart.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -97,6 +98,9 @@ static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 		pil_desc_release(desc);
 		return PTR_ERR(drv->subsys);
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
+
 	return 0;
 }
 

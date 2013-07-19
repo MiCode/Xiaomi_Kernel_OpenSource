@@ -271,8 +271,9 @@
 			<37 71>;
 	};
 
-	qcom,pm-8x60 {
+	qcom,pm-8x60@fe805664 {
 		compatible = "qcom,pm-8x60";
+		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_ext";
 		qcom,use-sync-timer;
 	};

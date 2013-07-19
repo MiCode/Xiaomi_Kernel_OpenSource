@@ -558,70 +558,62 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vmpm");
 	if (!res) {
 		pr_err("%s(): Missing RPM memory resource\n", __func__);
-		goto fail;
+		return -EINVAL;
 	}
 
 	dev->mpm_request_reg_base = devm_request_and_ioremap(&pdev->dev, res);
 
 	if (!dev->mpm_request_reg_base) {
 		pr_err("%s(): Unable to iomap\n", __func__);
-		goto fail;
+		return -EADDRNOTAVAIL;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ipc");
 	if (!res) {
 		pr_err("%s(): Missing GCC memory resource\n", __func__);
-		goto failed_irq_get;
+		return -EINVAL;
 	}
 
 	dev->mpm_apps_ipc_reg = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
+	if (!dev->mpm_apps_ipc_reg) {
+		pr_err("%s(): Unable to iomap IPC register\n", __func__);
+		return -EADDRNOTAVAIL;
+	}
 
 	if (of_property_read_u32(pdev->dev.of_node,
 				"qcom,ipc-bit-offset", &offset)) {
 		pr_info("%s(): Cannot read ipc bit offset\n", __func__);
-		goto failed_free_irq;
+		return -EINVAL ;
 	}
 
 	dev->mpm_apps_ipc_val = (1 << offset);
-
-	if (!dev->mpm_apps_ipc_reg)
-		goto failed_irq_get;
 
 	dev->mpm_ipc_irq = platform_get_irq(pdev, 0);
 
 	if (dev->mpm_ipc_irq == -ENXIO) {
 		pr_info("%s(): Cannot find IRQ resource\n", __func__);
-		goto failed_irq_get;
+		return -ENXIO;
 	}
-	ret = request_irq(dev->mpm_ipc_irq, msm_mpm_irq,
+	ret = devm_request_irq(&pdev->dev, dev->mpm_ipc_irq, msm_mpm_irq,
 			IRQF_TRIGGER_RISING, pdev->name, msm_mpm_irq);
 
 	if (ret) {
 		pr_info("%s(): request_irq failed errno: %d\n", __func__, ret);
-		goto failed_irq_get;
+		return ret;
 	}
 	ret = irq_set_irq_wake(dev->mpm_ipc_irq, 1);
 
 	if (ret) {
 		pr_err("%s: failed to set wakeup irq %u: %d\n",
 			__func__, dev->mpm_ipc_irq, ret);
-		goto failed_irq_get;
+		return ret;
 
 	}
 	msm_mpm_initialized |= MSM_MPM_DEVICE_PROBED;
 
 	return 0;
 
-failed_free_irq:
-	free_irq(dev->mpm_ipc_irq, msm_mpm_irq);
-failed_irq_get:
-	if (dev->mpm_apps_ipc_reg)
-		devm_iounmap(&pdev->dev, dev->mpm_apps_ipc_reg);
-	if (dev->mpm_request_reg_base)
-		devm_iounmap(&pdev->dev, dev->mpm_request_reg_base);
-fail:
-	return -EINVAL;
 }
 
 static inline int __init mpm_irq_domain_linear_size(struct irq_domain *d)

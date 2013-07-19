@@ -24,13 +24,13 @@
 	};
 
 	qcom,sdcc@f9824000 {
-		status = "disabled";
                 qcom,clk-rates = <400000 19200000>;
+		status = "ok";
         };
 
         qcom,sdcc@f98a4000 {
-		status = "disabled";
                 qcom,clk-rates = <400000 19200000>;
+		status = "ok";
         };
 
 	qcom,sps@f998000 {

@@ -203,6 +203,7 @@ static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
 
 	/* The write of the data to the HSIC bridge is complete */
 	diag_hsic[index].in_busy_hsic_write = 0;
+	wake_up_interruptible(&driver->wait_q);
 
 	if (!diag_hsic[index].hsic_ch) {
 		pr_err("DIAG in %s: hsic_ch == 0, ch = %d\n", __func__, index);

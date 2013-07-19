@@ -113,4 +113,9 @@ config OF_CORESIGHT
 	help
 	  OpenFirmware CoreSight accessors
 
+config OF_BATTERYDATA
+	def_bool y
+	help
+	  OpenFirmware BatteryData accessors
+
 endmenu # OF

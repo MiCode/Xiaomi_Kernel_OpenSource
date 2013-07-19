@@ -24,6 +24,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/scm.h>
 #include <mach/ramdump.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -392,6 +393,8 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
 	}
+
+	scm_pas_init(MSM_BUS_MASTER_SPS);
 
 	ret = devm_request_irq(&pdev->dev, drv->irq, lpass_wdog_bite_irq,
 			       IRQF_TRIGGER_RISING, "lpass_wdog", drv);

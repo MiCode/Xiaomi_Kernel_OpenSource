@@ -670,6 +670,7 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params);
 
 void ipa_bam_reg_dump(void);
+bool ipa_emb_ul_pipes_empty(void);
 
 #else /* CONFIG_IPA */
 
@@ -1111,6 +1112,11 @@ static inline int teth_bridge_set_aggr_params(struct teth_aggr_params
 static inline void ipa_bam_reg_dump(void)
 {
 	return;
+}
+
+static inline bool ipa_emb_ul_pipes_empty(void)
+{
+	return false;
 }
 
 #endif /* CONFIG_IPA*/

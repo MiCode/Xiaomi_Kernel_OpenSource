@@ -1453,19 +1453,25 @@ drop:
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 			driver->smd_dci[i].in_busy_1 = 0;
-			if (driver->smd_dci[i].ch)
+			if (driver->smd_dci[i].ch) {
+				diag_dci_try_deactivate_wakeup_source(
+						driver->smd_dci[i].ch);
 				queue_work(driver->diag_dci_wq,
 				&(driver->smd_dci[i].diag_read_smd_work));
+			}
 		}
 		if (driver->supports_separate_cmdrsp) {
 			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
 				if (!driver->separate_cmdrsp[i])
 					continue;
 				driver->smd_dci_cmd[i].in_busy_1 = 0;
-				if (driver->smd_dci_cmd[i].ch)
+				if (driver->smd_dci_cmd[i].ch) {
+					diag_dci_try_deactivate_wakeup_source(
+						driver->smd_dci_cmd[i].ch);
 					queue_work(driver->diag_dci_wq,
 						&(driver->smd_dci_cmd[i].
 							diag_read_smd_work));
+				}
 			}
 		}
 		goto exit;
@@ -1620,10 +1626,11 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			if (diag_hsic[index].hsic_ch && (payload_size > 0)) {
 				/* wait sending mask updates
 				 * if HSIC ch not ready */
-				if (diag_hsic[index].in_busy_hsic_write)
+				while (diag_hsic[index].in_busy_hsic_write) {
 					wait_event_interruptible(driver->wait_q,
 						(diag_hsic[index].
 						 in_busy_hsic_write != 1));
+				}
 				diag_hsic[index].in_busy_hsic_write = 1;
 				diag_hsic[index].in_busy_hsic_read_on_device =
 									0;
@@ -1732,10 +1739,11 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			if (diag_hsic[index].hsic_ch) {
 				/* wait sending mask updates
 				 * if HSIC ch not ready */
-				if (diag_hsic[index].in_busy_hsic_write)
+				while (diag_hsic[index].in_busy_hsic_write) {
 					wait_event_interruptible(driver->wait_q,
 						(diag_hsic[index].
 						 in_busy_hsic_write != 1));
+				}
 				diag_hsic[index].in_busy_hsic_write = 1;
 				diag_hsic[index].in_busy_hsic_read_on_device =
 									0;

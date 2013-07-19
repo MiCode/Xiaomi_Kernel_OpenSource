@@ -62,10 +62,11 @@
 			qcom,vinmin-mv = <4200>;
 			qcom,vbatdet-mv = <4100>;
 			qcom,ibatmax-ma = <1500>;
-			qcom,ibatterm-ma = <200>;
+			qcom,ibatterm-ma = <100>;
 			qcom,ibatsafe-ma = <1500>;
 			qcom,thermal-mitigation = <1500 700 600 325>;
 			qcom,vbatdet-delta-mv = <350>;
+			qcom,resume-soc = <99>;
 			qcom,tchg-mins = <150>;
 
 			qcom,chgr@1000 {
@@ -608,6 +609,13 @@
 			reg = <0xc000 0x100>;
 			label = "vibrator";
 			status = "disabled";
+		};
+
+		pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
 		};
 	};
 };

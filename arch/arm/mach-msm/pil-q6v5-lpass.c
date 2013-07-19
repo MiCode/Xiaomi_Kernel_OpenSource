@@ -30,6 +30,7 @@
 #include <mach/scm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
+#include <mach/msm_bus_board.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -47,13 +48,10 @@ struct lpass_data {
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
-	int wdog_irq;
 	struct work_struct work;
 	void *wcnss_notif_hdle;
 	void *modem_notif_hdle;
 	int crash_shutdown;
-	unsigned int err_fatal_irq;
-	int force_stop_gpio;
 };
 
 #define subsys_to_drv(d) container_of(d, struct lpass_data, subsys_desc)
@@ -278,7 +276,7 @@ static void adsp_fatal_fn(struct work_struct *work)
 
 static irqreturn_t adsp_err_fatal_intr_handler (int irq, void *dev_id)
 {
-	struct lpass_data *drv = dev_id;
+	struct lpass_data *drv = subsys_to_drv(dev_id);
 
 	/* Ignore if we're the one that set the force stop bit in the outbound
 	 * entry
@@ -338,7 +336,7 @@ static int adsp_shutdown(const struct subsys_desc *subsys)
 	/* The write needs to go through before the q6 is shutdown. */
 	mb();
 	pil_shutdown(&drv->q6->desc);
-	disable_irq_nosync(drv->wdog_irq);
+	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 
 	pr_debug("ADSP is Down\n");
 	adsp_set_state("OFFLINE");
@@ -350,7 +348,7 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 	int ret = 0;
 	ret = pil_boot(&drv->q6->desc);
-	enable_irq(drv->wdog_irq);
+	enable_irq(drv->subsys_desc.wdog_bite_irq);
 
 	pr_debug("ADSP is back online\n");
 	adsp_set_state("ONLINE");
@@ -372,15 +370,15 @@ static void adsp_crash_shutdown(const struct subsys_desc *subsys)
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 
 	drv->crash_shutdown = 1;
-	gpio_set_value(drv->force_stop_gpio, 1);
+	gpio_set_value(subsys->force_stop_gpio, 1);
 	send_q6_nmi();
 }
 
 static irqreturn_t adsp_wdog_bite_irq(int irq, void *dev_id)
 {
-	struct lpass_data *drv = dev_id;
+	struct lpass_data *drv = subsys_to_drv(dev_id);
 
-	disable_irq_nosync(drv->wdog_irq);
+	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 	schedule_work(&drv->work);
 
 	return IRQ_HANDLED;
@@ -405,33 +403,12 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	struct q6v5_data *q6;
 	struct pil_desc *desc;
 	struct resource *res;
-	int ret, gpio_clk_ready;
+	int ret;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
-
-	drv->wdog_irq = platform_get_irq(pdev, 0);
-	if (drv->wdog_irq < 0)
-		return drv->wdog_irq;
-
-	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
-					    "qcom,gpio-err-fatal", 0));
-	if (ret < 0)
-		return ret;
-	drv->err_fatal_irq = ret;
-
-	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
-					    "qcom,gpio-proxy-unvote", 0));
-	if (ret < 0)
-		return ret;
-	gpio_clk_ready = ret;
-
-	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
-						"qcom,gpio-force-stop", 0);
-	if (drv->force_stop_gpio < 0)
-		return drv->force_stop_gpio;
 
 	q6 = pil_q6v5_init(pdev);
 	if (IS_ERR(q6))
@@ -441,7 +418,6 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	desc = &q6->desc;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;
-	desc->proxy_unvote_irq = gpio_clk_ready;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
 	q6->restart_reg = devm_request_and_ioremap(&pdev->dev, res);
@@ -472,6 +448,8 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
+	scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+
 	ret = pil_desc_init(desc);
 	if (ret)
 		return ret;
@@ -485,6 +463,8 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.crash_shutdown = adsp_crash_shutdown;
 	drv->subsys_desc.start = lpass_start;
 	drv->subsys_desc.stop = lpass_stop;
+	drv->subsys_desc.err_fatal_handler = adsp_err_fatal_intr_handler;
+	drv->subsys_desc.wdog_bite_handler = adsp_wdog_bite_irq;
 
 	INIT_WORK(&drv->work, adsp_fatal_fn);
 
@@ -499,18 +479,6 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
 	}
-
-	ret = devm_request_irq(&pdev->dev, drv->wdog_irq, adsp_wdog_bite_irq,
-			IRQF_TRIGGER_RISING, dev_name(&pdev->dev), drv);
-	if (ret)
-		goto err_irq;
-
-	ret = devm_request_irq(&pdev->dev, drv->err_fatal_irq,
-				adsp_err_fatal_intr_handler,
-				IRQF_TRIGGER_RISING,
-				dev_name(&pdev->dev), drv);
-	if (ret)
-		goto err_irq;
 
 	drv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
 	if (IS_ERR(drv->wcnss_notif_hdle)) {
@@ -544,7 +512,6 @@ err_kobj:
 err_notif_modem:
 	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
 err_notif_wcnss:
-err_irq:
 	subsys_unregister(drv->subsys);
 err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);

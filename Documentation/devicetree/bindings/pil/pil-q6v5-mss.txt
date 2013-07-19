@@ -15,13 +15,6 @@ Required properties:
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
-- qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
-- qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
-- qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
-  the apps.
-- qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
-- qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
-		      to the apps.
 
 Optional properties:
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.
@@ -35,6 +28,13 @@ Optional properties:
 - qcom,is-not-loadable: Boolean- Present if the image does not need to
 			be loaded.
 - qcom,pil-self-auth: Boolean- True if authentication is required.
+- qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
+- qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
+- qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
+  the apps.
+- qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
+- qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
+		      to the apps.
 
 Example:
 	qcom,mss@fc880000 {

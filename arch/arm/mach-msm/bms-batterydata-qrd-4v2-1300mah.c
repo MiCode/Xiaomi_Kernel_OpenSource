@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mfd/pm8xxx/batterydata-lib.h>
+#include <linux/batterydata-lib.h>
 
 static struct single_row_lut fcc_temp = {
 	.x = {-20, 0, 25, 40, 60},

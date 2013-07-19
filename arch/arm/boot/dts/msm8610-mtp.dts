@@ -42,6 +42,7 @@
 		atmel,display-coords = <0 0 480 800>;
 		atmel,i2c-pull-up;
 		atmel,no-force-update;
+		atmel,no-lpm-support;
 		atmel,cfg_1 {
 			atmel,family-id = <0x81>;
 			atmel,variant-id = <0x15>;
@@ -104,6 +105,27 @@
 			invn,gpio-int = <&msmgpio 84 0x2>;
 			invn,gpio-en = <&pm8110_gpios 2 0x2>;
 			invn,poll-interval = <200>;
+		};
+
+		bmp180@77 {
+			reg = <0x77>;
+			compatible = "bosch,bmp18x";
+			vdd-supply = <&pm8110_l19>;
+			vddio-supply = <&pm8110_l14>;
+			bosch,chip-id = <0x55>;
+			bosch,oversample = <3>;
+			bosch,period = <1000>;
+		};
+
+		mma8x5x@1d {
+			reg = <0x1d>;
+			compatible = "fsl,mma8x5x";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <81 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			fsl,irq-gpio = <&msmgpio 81 0x00>;
+			fsl,sensors-position = <5>;
 		};
 	};
 
@@ -239,9 +261,13 @@
 				qcom,default-state = "on";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
-				qcom,source-sel = <1>;
+				qcom,source-sel = <8>;
 				qcom,mode-ctrl = <0x10>;
-				qcom,mode = "manual";
+				qcom,pwm-channel = <0>;
+				qcom,pwm-us = <14>;
+				qcom,vin-ctrl = <0x03>;
+				qcom,mode = "pwm";
+				qcom,min-brightness = <19>;
 			};
 		};
 	};
@@ -259,8 +285,6 @@
 
 &sdhc_1 {
 	vdd-supply = <&pm8110_l17>;
-	qcom,vdd-always-on;
-	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 400000>;
 

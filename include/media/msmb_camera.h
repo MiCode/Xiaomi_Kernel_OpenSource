@@ -39,6 +39,13 @@
 
 #define MSM_MAX_CAMERA_SENSORS  5
 
+/* The below macro is defined to put an upper limit on maximum
+ * number of buffer requested per stream. In case of extremely
+ * large value for number of buffer due to data structure corruption
+ * we return error to avoid integer overflow. This value may be
+ * configured in future*/
+#define MSM_CAMERA_MAX_STREAM_BUF 40
+
 /* featur base */
 #define MSM_CAMERA_FEATURE_BASE     0x00010000
 #define MSM_CAMERA_FEATURE_SHUTDOWN (MSM_CAMERA_FEATURE_BASE + 1)

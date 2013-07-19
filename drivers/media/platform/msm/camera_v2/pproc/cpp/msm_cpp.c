@@ -34,8 +34,8 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/msmb_camera.h>
-#include <media/msmb_pproc.h>
 #include <media/msmb_generic_buf_mgr.h>
+#include <media/msmb_pproc.h>
 #include "msm_cpp.h"
 #include "msm_isp_util.h"
 #include "msm_camera_io_util.h"
@@ -182,7 +182,7 @@ static struct msm_cpp_buff_queue_info_t *msm_cpp_get_buff_queue_entry(
 
 static unsigned long msm_cpp_get_phy_addr(struct cpp_device *cpp_dev,
 	struct msm_cpp_buff_queue_info_t *buff_queue_info, uint32_t buff_index,
-	uint8_t native_buff)
+	uint8_t native_buff, int *fd)
 {
 	unsigned long phy_add = 0;
 	struct list_head *buff_head;
@@ -196,6 +196,7 @@ static unsigned long msm_cpp_get_phy_addr(struct cpp_device *cpp_dev,
 	list_for_each_entry_safe(buff, save, buff_head, entry) {
 		if (buff->map_info.buff_info.index == buff_index) {
 			phy_add = buff->map_info.phy_addr;
+			*fd = buff->map_info.buff_info.fd;
 			break;
 		}
 	}
@@ -279,7 +280,7 @@ static void msm_cpp_dequeue_buffer_info(struct cpp_device *cpp_dev,
 
 static unsigned long msm_cpp_fetch_buffer_info(struct cpp_device *cpp_dev,
 	struct msm_cpp_buffer_info_t *buffer_info, uint32_t session_id,
-	uint32_t stream_id)
+	uint32_t stream_id, int *fd)
 {
 	unsigned long phy_addr = 0;
 	struct msm_cpp_buff_queue_info_t *buff_queue_info;
@@ -294,10 +295,11 @@ static unsigned long msm_cpp_fetch_buffer_info(struct cpp_device *cpp_dev,
 	}
 
 	phy_addr = msm_cpp_get_phy_addr(cpp_dev, buff_queue_info,
-		buffer_info->index, native_buff);
+		buffer_info->index, native_buff, fd);
 	if ((phy_addr == 0) && (native_buff)) {
 		phy_addr = msm_cpp_queue_buffer_info(cpp_dev, buff_queue_info,
 			buffer_info);
+		*fd = buffer_info->fd;
 	}
 	return phy_addr;
 }
@@ -1196,6 +1198,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
 	uint8_t fw_version_1_2_x = 0;
+	int in_fd;
 
 	int i = 0;
 	if (!new_frame) {
@@ -1233,15 +1236,13 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	in_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->input_buffer_info,
 		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF));
+		(new_frame->identity & 0xFFFF), &in_fd);
 	if (!in_phyaddr) {
 		pr_err("error gettting input physical address\n");
 		rc = -EINVAL;
 		goto ERROR2;
 	}
 
-	memset(&new_frame->output_buffer_info[0], 0,
-		sizeof(struct msm_cpp_buffer_info_t));
 	memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 	buff_mgr_info.session_id = ((new_frame->identity >> 16) & 0xFFFF);
 	buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
@@ -1256,7 +1257,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->output_buffer_info[0],
 		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF));
+		(new_frame->identity & 0xFFFF),
+		&new_frame->output_buffer_info[0].fd);
 	if (!out_phyaddr0) {
 		pr_err("error gettting output physical address\n");
 		rc = -EINVAL;
@@ -1286,7 +1288,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->output_buffer_info[1],
 			((new_frame->duplicate_identity >> 16) & 0xFFFF),
-			(new_frame->duplicate_identity & 0xFFFF));
+			(new_frame->duplicate_identity & 0xFFFF),
+			&new_frame->output_buffer_info[1].fd);
 		if (!out_phyaddr1) {
 			pr_err("error gettting output physical address\n");
 			rc = -EINVAL;
@@ -1464,10 +1467,18 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		k_stream_buff_info.num_buffs = u_stream_buff_info->num_buffs;
 		k_stream_buff_info.identity = u_stream_buff_info->identity;
+
+		if (k_stream_buff_info.num_buffs > MSM_CAMERA_MAX_STREAM_BUF) {
+			pr_err("%s:%d: unexpected large num buff requested\n",
+				__func__, __LINE__);
+			kfree(u_stream_buff_info);
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
 		k_stream_buff_info.buffer_info =
 			kzalloc(k_stream_buff_info.num_buffs *
 			sizeof(struct msm_cpp_buffer_info_t), GFP_KERNEL);
-		if (!k_stream_buff_info.buffer_info) {
+		if (ZERO_OR_NULL_PTR(k_stream_buff_info.buffer_info)) {
 			pr_err("%s:%d: malloc error\n", __func__, __LINE__);
 			kfree(u_stream_buff_info);
 			mutex_unlock(&cpp_dev->mutex);
@@ -1550,6 +1561,33 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		while (cpp_dev->cpp_open_cnt != 0)
 			cpp_close_node(sd, NULL);
 		rc = 0;
+		break;
+	}
+	case VIDIOC_MSM_CPP_QUEUE_BUF: {
+		struct msm_pproc_queue_buf_info queue_buf_info;
+		rc = (copy_from_user(&queue_buf_info,
+				(void __user *)ioctl_ptr->ioctl_ptr,
+				sizeof(struct msm_pproc_queue_buf_info)) ?
+				-EFAULT : 0);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+
+		if (queue_buf_info.is_buf_dirty) {
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_PUT_BUF,
+				&queue_buf_info.buff_mgr_info);
+		} else {
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_BUF_DONE,
+				&queue_buf_info.buff_mgr_info);
+		}
+		if (rc < 0) {
+			pr_err("error in buf done\n");
+			rc = -EINVAL;
+		}
+
 		break;
 	}
 	}

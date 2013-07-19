@@ -757,6 +757,7 @@ int msm_jpeg_start(struct msm_jpeg_device *pgmn_dev, void * __user arg)
 	wmb();
 	rc = msm_jpeg_ioctl_hw_cmds(pgmn_dev, arg);
 	wmb();
+	pgmn_dev->state = MSM_JPEG_EXECUTING;
 	JPEG_DBG("%s:%d]", __func__, __LINE__);
 	return rc;
 }
@@ -768,15 +769,21 @@ int msm_jpeg_ioctl_reset(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_ctrl_cmd ctrl_cmd;
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
-	if (copy_from_user(&ctrl_cmd, arg, sizeof(ctrl_cmd))) {
-		JPEG_PR_ERR("%s:%d] failed\n", __func__, __LINE__);
-		return -EFAULT;
-	}
 
+	if (pgmn_dev->state == MSM_JPEG_INIT) {
+		if (copy_from_user(&ctrl_cmd, arg, sizeof(ctrl_cmd))) {
+			JPEG_PR_ERR("%s:%d] failed\n", __func__, __LINE__);
+			return -EFAULT;
+		}
 	pgmn_dev->op_mode = ctrl_cmd.type;
 
 	rc = msm_jpeg_core_reset(pgmn_dev, pgmn_dev->op_mode, pgmn_dev->base,
 		resource_size(pgmn_dev->mem));
+	} else {
+		JPEG_PR_ERR("%s:%d] JPEG not been initialized Wrong state\n",
+			__func__, __LINE__);
+		rc = -1;
+	}
 	return rc;
 }
 
@@ -804,6 +811,7 @@ long __msm_jpeg_ioctl(struct msm_jpeg_device *pgmn_dev,
 
 	case MSM_JPEG_IOCTL_STOP:
 		rc = msm_jpeg_ioctl_hw_cmds(pgmn_dev, (void __user *) arg);
+		pgmn_dev->state = MSM_JPEG_STOPPED;
 		break;
 
 	case MSM_JPEG_IOCTL_START:
