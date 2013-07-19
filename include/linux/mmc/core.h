@@ -212,4 +212,6 @@ struct device_node;
 extern u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max);
 extern int mmc_of_parse_voltage(struct device_node *np, u32 *mask);
 
+extern int mmc_busy_wait(struct mmc_host *host);
+
 #endif /* LINUX_MMC_CORE_H */
