@@ -76,7 +76,7 @@
 			vdd-supply = <&pm8110_l19>;
 			vio-supply = <&pm8110_l14>;
 			fsl,irq-gpio = <&msmgpio 81 0x00>;
-			fsl,sensors-position = <5>;
+			fsl,sensors-position = <1>;
 		};
 	};
 
