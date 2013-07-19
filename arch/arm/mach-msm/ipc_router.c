@@ -1013,6 +1013,7 @@ static int msm_ipc_router_send_server_list(uint32_t node_id,
 		return -EINVAL;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_NEW_SERVER;
 
 	for (i = 0; i < SRV_HASH_SIZE; i++) {
@@ -1241,6 +1242,7 @@ static int msm_ipc_router_send_remove_client(struct comm_mode_info *mode_info,
 	mode = mode_info->mode;
 	xprt_info = mode_info->xprt_info;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
 	msg.cli.node_id = node_id;
 	msg.cli.port_id = port_id;
@@ -1295,6 +1297,7 @@ static void cleanup_rmt_server(struct msm_ipc_router_xprt_info *xprt_info,
 	D("Remove server %08x:%08x - %08x:%08x",
 	   server->name.service, server->name.instance,
 	   rport_ptr->node_id, rport_ptr->port_id);
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -1313,6 +1316,7 @@ static void cleanup_rmt_ports(struct msm_ipc_router_xprt_info *xprt_info,
 	union rr_control_msg ctl;
 	int j;
 
+	memset(&ctl, 0, sizeof(ctl));
 	for (j = 0; j < RP_HASH_SIZE; j++) {
 		list_for_each_entry_safe(rport_ptr, tmp_rport_ptr,
 				&rt_entry->remote_port_list[j], list) {
@@ -1847,7 +1851,7 @@ static void do_read_data(struct work_struct *work)
 process_done:
 		if (resume_tx) {
 			union rr_control_msg msg;
-
+			memset(&msg, 0, sizeof(msg));
 			msg.cmd = IPC_ROUTER_CTRL_CMD_RESUME_TX;
 			msg.cli.node_id = resume_tx_node_id;
 			msg.cli.port_id = resume_tx_port_id;
@@ -1900,6 +1904,7 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 		return -EINVAL;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_NEW_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -1948,6 +1953,7 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 		return -ENODEV;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -2433,6 +2439,7 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		up_write(&local_ports_lock_lha2);
 
 		if (port_ptr->type == SERVER_PORT) {
+			memset(&msg, 0, sizeof(msg));
 			msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 			msg.srv.service = port_ptr->port_name.service;
 			msg.srv.instance = port_ptr->port_name.instance;
