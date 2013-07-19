@@ -149,6 +149,7 @@ struct mhl_tx_ctrl {
 	uint16_t devcap_state;
 	uint8_t status[2];
 	uint8_t path_en_state;
+	uint8_t tmds_en_state;
 	void *hdmi_mhl_ops;
 	struct work_struct mhl_msc_send_work;
 	struct list_head list_cmd;
