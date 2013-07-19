@@ -857,6 +857,26 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	return ret;
 }
 
+static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
+{
+	struct mdss_panel_info *pinfo;
+	int ret = 0;
+
+	pr_debug("%s:\n", __func__);
+
+	pinfo = &pdata->panel_info;
+	ret = msm_dsi_regulator_enable();
+	if (ret) {
+		pr_err("%s: DSI power on failed\n", __func__);
+		return ret;
+	}
+
+	msm_dsi_ahb_ctrl(1);
+	msm_dsi_prepare_clocks();
+	msm_dsi_clk_enable();
+	return 0;
+}
+
 static int __devinit msm_dsi_probe(struct platform_device *pdev)
 {
 	struct dsi_interface intf;
@@ -925,6 +945,7 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	dsi_host_private->dis_dev = pdev->dev;
 	intf.on = msm_dsi_on;
 	intf.off = msm_dsi_off;
+	intf.cont_on = msm_dsi_cont_on;
 	intf.op_mode_config = msm_dsi_op_mode_config;
 	intf.tx = msm_dsi_cmds_tx;
 	intf.rx = msm_dsi_cmds_rx;
