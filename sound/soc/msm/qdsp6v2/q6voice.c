@@ -377,6 +377,12 @@ static bool is_other_session_active(u32 session_id)
 	return ret;
 }
 
+static bool is_voice_app_id(u32 session_id)
+{
+	return (((session_id & APP_ID_MASK) >> APP_ID_SHIFT) ==
+						VSID_APP_CS_VOICE);
+}
+
 static void init_session_id(void)
 {
 	common.voice[VOC_PATH_PASSIVE].session_id = VOICE_SESSION_VSID;
@@ -4109,27 +4115,36 @@ uint8_t voc_get_tty_mode(uint32_t session_id)
 
 int voc_set_pp_enable(uint32_t session_id, uint32_t module_id, uint32_t enable)
 {
-	struct voice_data *v = voice_get_session(session_id);
+	struct voice_data *v = NULL;
 	int ret = 0;
+	struct voice_session_itr itr;
 
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+	voice_itr_init(&itr, session_id);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v != NULL) {
+			if (!(is_voice_app_id(v->session_id) ||
+			      is_volte_session(v->session_id)))
+				continue;
 
-		return -EINVAL;
-	}
+			mutex_lock(&v->lock);
+			if (module_id == MODULE_ID_VOICE_MODULE_ST)
+				v->st_enable = enable;
 
-	mutex_lock(&v->lock);
-	if (module_id == MODULE_ID_VOICE_MODULE_ST)
-		v->st_enable = enable;
-
-	if (v->voc_state == VOC_RUN) {
-		if (module_id == MODULE_ID_VOICE_MODULE_ST)
-			ret = voice_send_set_pp_enable_cmd(v,
+			if (v->voc_state == VOC_RUN) {
+				if (module_id ==
+				    MODULE_ID_VOICE_MODULE_ST)
+					ret = voice_send_set_pp_enable_cmd(v,
 						MODULE_ID_VOICE_MODULE_ST,
 						enable);
+			}
+			mutex_unlock(&v->lock);
+		} else {
+			pr_err("%s: invalid session_id 0x%x\n", __func__,
+								session_id);
+			ret =  -EINVAL;
+			break;
+		}
 	}
-
-	mutex_unlock(&v->lock);
 
 	return ret;
 }

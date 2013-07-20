@@ -1391,6 +1391,17 @@ enum {
 #define ALL_SESSION_VSID    0xFFFFFFFF
 #define VSID_MAX            ALL_SESSION_VSID
 
+#define APP_ID_MASK         0x3F000
+#define APP_ID_SHIFT		12
+enum vsid_app_type {
+	VSID_APP_NONE = 0,
+	VSID_APP_CS_VOICE = 1,
+	VSID_APP_IMS = 2, /* IMS voice services covering VoLTE etc */
+	VSID_APP_QCHAT = 3,
+	VSID_APP_VOIP = 4, /* VoIP on AP HLOS without modem processor */
+	VSID_APP_MAX,
+};
+
 /* called  by alsa driver */
 int voc_set_pp_enable(uint32_t session_id, uint32_t module_id,
 		      uint32_t enable);
