@@ -664,7 +664,7 @@ struct clk_ops clk_ops_pll_acpu_vote = {
 	.handoff = pll_acpu_vote_clk_handoff,
 };
 
-static void __init __set_fsm_mode(void __iomem *mode_reg,
+static void __set_fsm_mode(void __iomem *mode_reg,
 					u32 bias_count, u32 lock_count)
 {
 	u32 regval = readl_relaxed(mode_reg);
@@ -688,7 +688,7 @@ static void __init __set_fsm_mode(void __iomem *mode_reg,
 	writel_relaxed(regval, mode_reg);
 }
 
-void __init __configure_pll(struct pll_config *config,
+void __configure_pll(struct pll_config *config,
 		struct pll_config_regs *regs, u32 ena_fsm_mode)
 {
 	u32 regval;
@@ -729,7 +729,7 @@ void __init __configure_pll(struct pll_config *config,
 	writel_relaxed(regval, PLL_CONFIG_REG(regs));
 }
 
-void __init configure_sr_pll(struct pll_config *config,
+void configure_sr_pll(struct pll_config *config,
 		struct pll_config_regs *regs, u32 ena_fsm_mode)
 {
 	__configure_pll(config, regs, ena_fsm_mode);
@@ -737,7 +737,7 @@ void __init configure_sr_pll(struct pll_config *config,
 		__set_fsm_mode(PLL_MODE_REG(regs), 0x1, 0x8);
 }
 
-void __init configure_sr_hpm_lp_pll(struct pll_config *config,
+void configure_sr_hpm_lp_pll(struct pll_config *config,
 		struct pll_config_regs *regs, u32 ena_fsm_mode)
 {
 	__configure_pll(config, regs, ena_fsm_mode);
