@@ -499,10 +499,13 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 	return 0;
 }
 
+#define IADC_CENTER	0xC000
+#define IADC_READING_RESOLUTION_N	542535
+#define IADC_READING_RESOLUTION_D	100000
 static int32_t qpnp_convert_raw_offset_voltage(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	uint32_t num = 0;
+	s64 numerator;
 
 	if ((iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw) == 0) {
 		pr_err("raw offset errors! raw_gain:0x%x and raw_offset:0x%x\n",
@@ -510,12 +513,16 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 		return -EINVAL;
 	}
 
-	iadc->adc->calib.offset_uv = 0;
+	numerator = iadc->adc->calib.offset_raw - IADC_CENTER;
+	numerator *= IADC_READING_RESOLUTION_N;
+	iadc->adc->calib.offset_uv = div_s64(numerator,
+						IADC_READING_RESOLUTION_D);
 
-	num = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
+	numerator = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
+	numerator *= IADC_READING_RESOLUTION_N;
 
-	iadc->adc->calib.gain_uv = (num * QPNP_ADC_GAIN_NV)/
-		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+	iadc->adc->calib.gain_uv = div_s64(numerator,
+						IADC_READING_RESOLUTION_D);
 
 	pr_debug("gain_uv:%d offset_uv:%d\n",
 			iadc->adc->calib.gain_uv, iadc->adc->calib.offset_uv);
