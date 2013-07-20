@@ -34,6 +34,7 @@ static char *descriptions =
 	"9  ARM: dts: msm: add perf-events support for msm8226\n"
 	"10 Perf: Fix counts across power collapse\n"
 	"11 ARM: dts: msm: add perf-events support for msm8x10, msm8x12\n"
+	"12 Perf: Make per-process counters configurable\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
