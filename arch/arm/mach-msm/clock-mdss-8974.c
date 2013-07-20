@@ -2195,7 +2195,7 @@ struct div_clk edp_pixel_clk_src = {
 	},
 };
 
-void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
+void mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 {
 	BUG_ON(ahb_clk == NULL);
 
