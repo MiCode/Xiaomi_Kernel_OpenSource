@@ -84,6 +84,7 @@ static const struct tlmm_field_cfg tlmm_pull_cfgs[] = {
 	{SDC1_HDRV_PULL_CTL, 13}, /* TLMM_PULL_SDC1_CLK  */
 	{SDC1_HDRV_PULL_CTL, 11}, /* TLMM_PULL_SDC1_CMD  */
 	{SDC1_HDRV_PULL_CTL, 9},  /* TLMM_PULL_SDC1_DATA */
+	{SDC1_HDRV_PULL_CTL, 15}, /* TLMM_PULL_SDC1_RCLK  */
 };
 
 /*
