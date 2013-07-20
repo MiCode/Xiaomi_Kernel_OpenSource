@@ -93,7 +93,10 @@ void __init apq8084_add_drivers(void)
 	msm_rpm_driver_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
-	msm_clock_init(&msm8084_clock_init_data);
+	if (of_board_is_rumi())
+		msm_clock_init(&apq8084_rumi_clock_init_data);
+	else
+		msm_clock_init(&apq8084_clock_init_data);
 	tsens_tm_init_driver();
 }
 
