@@ -430,6 +430,8 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			inst->capability.frame_rate =
 				session_init_done->frame_rate;
 			inst->capability.capability_set = true;
+			inst->capability.buffer_mode[CAPTURE_PORT] =
+				session_init_done->alloc_mode_out;
 		} else {
 			dprintk(VIDC_ERR,
 				"Session init response from FW : 0x%x",

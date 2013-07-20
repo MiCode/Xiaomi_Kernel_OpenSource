@@ -532,6 +532,39 @@ enum vidc_status hfi_process_sess_init_done_prop_read(
 			num_properties--;
 			break;
 		}
+		case HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED:
+		{
+			struct hfi_buffer_alloc_mode_supported *prop =
+				(struct hfi_buffer_alloc_mode_supported *)
+				(data_ptr + next_offset);
+			int i;
+			if (prop->buffer_type == HFI_BUFFER_OUTPUT ||
+				prop->buffer_type == HFI_BUFFER_OUTPUT2) {
+				sess_init_done->alloc_mode_out = 0;
+				for (i = 0; i < prop->num_entries; i++) {
+					switch (prop->rg_data[i]) {
+					case HFI_BUFFER_MODE_STATIC:
+						sess_init_done->alloc_mode_out
+						|= HAL_BUFFER_MODE_STATIC;
+						break;
+					case HFI_BUFFER_MODE_DYNAMIC:
+						sess_init_done->alloc_mode_out
+						|= HAL_BUFFER_MODE_DYNAMIC;
+						break;
+					}
+					if (i >= 32) {
+						dprintk(VIDC_ERR,
+						"%s - num_entries: %d from f/w seems suspect\n",
+						__func__, prop->num_entries);
+						break;
+					}
+				}
+			}
+			next_offset += sizeof(*prop) -
+				sizeof(u32) + prop->num_entries * sizeof(u32);
+			num_properties--;
+			break;
+		}
 		default:
 			dprintk(VIDC_DBG,
 				"%s default case - 0x%x", __func__, prop_id);

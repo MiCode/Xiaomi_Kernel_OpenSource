@@ -886,8 +886,9 @@ enum hal_event_type {
 };
 
 enum buffer_mode_type {
-	HAL_BUFFER_MODE_STATIC = 0x00000000,
-	HAL_BUFFER_MODE_RING,
+	HAL_BUFFER_MODE_STATIC = 0x001,
+	HAL_BUFFER_MODE_RING = 0x010,
+	HAL_BUFFER_MODE_DYNAMIC = 0x100,
 };
 
 struct hal_buffer_alloc_mode {
@@ -1032,10 +1033,9 @@ struct vidc_hal_session_init_done {
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;
 	struct hal_nal_stream_format_supported nal_stream_format;
-/*	struct hal_profile_level_supported profile_level;
-	// allocate and released memory for above. */
 	struct hal_intra_refresh intra_refresh;
 	struct hal_seq_header_info seq_hdr_info;
+	enum buffer_mode_type alloc_mode_out;
 };
 
 struct buffer_requirements {
