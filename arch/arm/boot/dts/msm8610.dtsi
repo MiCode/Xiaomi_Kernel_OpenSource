@@ -215,9 +215,10 @@
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
-		HSUSB_VDDCX-supply = <&pm8110_s1>;
+		hsusb_vdd_dig-supply = <&pm8110_s1_corner>;
 		HSUSB_1p8-supply = <&pm8110_l10>;
 		HSUSB_3p3-supply = <&pm8110_l20>;
+		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
 			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
