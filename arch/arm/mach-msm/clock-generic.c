@@ -500,3 +500,45 @@ struct clk_ops clk_ops_slave_div = {
 	.set_rate = slave_div_set_rate,
 	.handoff = div_handoff,
 };
+
+
+/**
+ * External clock
+ * Some clock controllers have input clock signal that come from outside the
+ * clock controller. That input clock signal might then be used as a source for
+ * several clocks inside the clock controller. This external clock
+ * implementation models this input clock signal by just passing on the requests
+ * to the clock's parent, the original external clock source. The driver for the
+ * clock controller should clk_get() the original external clock in the probe
+ * function and set is as a parent to this external clock..
+ */
+
+static long ext_round_rate(struct clk *c, unsigned long rate)
+{
+	return clk_round_rate(c->parent, rate);
+}
+
+static int ext_set_rate(struct clk *c, unsigned long rate)
+{
+	return clk_set_rate(c->parent, rate);
+}
+
+static int ext_set_parent(struct clk *c, struct clk *p)
+{
+	return clk_set_parent(c->parent, p);
+}
+
+static enum handoff ext_handoff(struct clk *c)
+{
+	c->rate = clk_get_rate(c->parent);
+	/* Similar reasoning applied in div_handoff, see comment there. */
+	return HANDOFF_DISABLED_CLK;
+}
+
+struct clk_ops clk_ops_ext = {
+	.handoff = ext_handoff,
+	.round_rate = ext_round_rate,
+	.set_rate = ext_set_rate,
+	.set_parent = ext_set_parent,
+};
+
