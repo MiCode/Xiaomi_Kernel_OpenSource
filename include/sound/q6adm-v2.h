@@ -32,7 +32,7 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params);
 int adm_open(int port, int path, int rate, int mode, int topology,
 				bool perf_mode, uint16_t bits_per_sample);
 
-int adm_dolby_dap_get_params(int port_id, uint32_t module_id, uint32_t param_id,
+int adm_get_params(int port_id, uint32_t module_id, uint32_t param_id,
 			uint32_t params_length, char *params);
 
 int adm_dolby_dap_send_params(int port_id, char *params,
