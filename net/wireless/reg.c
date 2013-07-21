@@ -2304,12 +2304,15 @@ int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 void wiphy_regulatory_register(struct wiphy *wiphy)
 {
+	struct regulatory_request *lr;
+
 	mutex_lock(&reg_mutex);
 
 	if (!reg_dev_ignore_cell_hint(wiphy))
 		reg_num_devs_support_basehint++;
 
-	wiphy_update_regulatory(wiphy, NL80211_REGDOM_SET_BY_CORE);
+	lr = get_last_request();
+	wiphy_update_regulatory(wiphy, lr->initiator);
 
 	mutex_unlock(&reg_mutex);
 }
