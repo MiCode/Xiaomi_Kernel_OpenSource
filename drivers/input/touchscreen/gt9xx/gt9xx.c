@@ -43,6 +43,7 @@
  *                  By Meta, 2013/06/08
  */
 
+#include <linux/regulator/consumer.h>
 #include "gt9xx.h"
 
 #include <linux/of_gpio.h>
@@ -60,6 +61,15 @@
 #define GTP_I2C_ADDRESS_HIGH	0x14
 #define GTP_I2C_ADDRESS_LOW	0x5D
 #define CFG_GROUP_LEN(p_cfg_grp)  (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
+
+#define GOODIX_VTG_MIN_UV	2600000
+#define GOODIX_VTG_MAX_UV	3300000
+#define GOODIX_I2C_VTG_MIN_UV	1800000
+#define GOODIX_I2C_VTG_MAX_UV	1800000
+#define GOODIX_VDD_LOAD_MIN_UA	0
+#define GOODIX_VDD_LOAD_MAX_UA	10000
+#define GOODIX_VIO_LOAD_MIN_UA	0
+#define GOODIX_VIO_LOAD_MAX_UA	10000
 
 #define RESET_DELAY_T3_US	200	/* T3: > 100us */
 #define RESET_DELAY_T4		20	/* T4: > 5ms */
@@ -1360,6 +1370,203 @@ exit_free_inputdev:
 	return ret;
 }
 
+static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
+{
+	return (regulator_count_voltages(reg) > 0) ?
+		regulator_set_optimum_mode(reg, load_uA) : 0;
+}
+
+/**
+ * goodix_power_on - Turn device power ON
+ * @ts: driver private data
+ *
+ * Returns zero on success, else an error.
+ */
+static int goodix_power_on(struct goodix_ts_data *ts)
+{
+	int ret;
+
+	if (!IS_ERR(ts->avdd)) {
+		ret = reg_set_optimum_mode_check(ts->avdd,
+			GOODIX_VDD_LOAD_MAX_UA);
+		if (ret < 0) {
+			dev_err(&ts->client->dev,
+				"Regulator avdd set_opt failed rc=%d\n", ret);
+			goto err_set_opt_avdd;
+		}
+		ret = regulator_enable(ts->avdd);
+		if (ret) {
+			dev_err(&ts->client->dev,
+				"Regulator avdd enable failed ret=%d\n", ret);
+			goto err_enable_avdd;
+		}
+	}
+
+	if (!IS_ERR(ts->vdd)) {
+		ret = regulator_set_voltage(ts->vdd, GOODIX_VTG_MIN_UV,
+					   GOODIX_VTG_MAX_UV);
+		if (ret) {
+			dev_err(&ts->client->dev,
+				"Regulator set_vtg failed vdd ret=%d\n", ret);
+			goto err_set_vtg_vdd;
+		}
+		ret = reg_set_optimum_mode_check(ts->vdd,
+			GOODIX_VDD_LOAD_MAX_UA);
+		if (ret < 0) {
+			dev_err(&ts->client->dev,
+				"Regulator vdd set_opt failed rc=%d\n", ret);
+			goto err_set_opt_vdd;
+		}
+		ret = regulator_enable(ts->vdd);
+		if (ret) {
+			dev_err(&ts->client->dev,
+				"Regulator vdd enable failed ret=%d\n", ret);
+			goto err_enable_vdd;
+		}
+	}
+
+	if (!IS_ERR(ts->vcc_i2c)) {
+		ret = regulator_set_voltage(ts->vcc_i2c, GOODIX_I2C_VTG_MIN_UV,
+					   GOODIX_I2C_VTG_MAX_UV);
+		if (ret) {
+			dev_err(&ts->client->dev,
+				"Regulator set_vtg failed vcc_i2c ret=%d\n",
+				ret);
+			goto err_set_vtg_vcc_i2c;
+		}
+		ret = reg_set_optimum_mode_check(ts->vcc_i2c,
+			GOODIX_VIO_LOAD_MAX_UA);
+		if (ret < 0) {
+			dev_err(&ts->client->dev,
+				"Regulator vcc_i2c set_opt failed rc=%d\n",
+				ret);
+			goto err_set_opt_vcc_i2c;
+		}
+		ret = regulator_enable(ts->vcc_i2c);
+		if (ret) {
+			dev_err(&ts->client->dev,
+				"Regulator vcc_i2c enable failed ret=%d\n",
+				ret);
+			regulator_disable(ts->vdd);
+			goto err_enable_vcc_i2c;
+			}
+	}
+
+	return 0;
+
+err_enable_vcc_i2c:
+err_set_opt_vcc_i2c:
+	if (!IS_ERR(ts->vcc_i2c))
+		regulator_set_voltage(ts->vcc_i2c, 0, GOODIX_I2C_VTG_MAX_UV);
+err_set_vtg_vcc_i2c:
+	if (!IS_ERR(ts->vdd))
+		regulator_disable(ts->vdd);
+err_enable_vdd:
+err_set_opt_vdd:
+	if (!IS_ERR(ts->vdd))
+		regulator_set_voltage(ts->vdd, 0, GOODIX_VTG_MAX_UV);
+err_set_vtg_vdd:
+	if (!IS_ERR(ts->avdd))
+		regulator_disable(ts->avdd);
+err_enable_avdd:
+err_set_opt_avdd:
+	return ret;
+}
+
+/**
+ * goodix_power_off - Turn device power OFF
+ * @ts: driver private data
+ *
+ * Returns zero on success, else an error.
+ */
+static int goodix_power_off(struct goodix_ts_data *ts)
+{
+	int ret;
+
+	if (!IS_ERR(ts->vcc_i2c)) {
+		ret = regulator_set_voltage(ts->vcc_i2c, 0,
+			GOODIX_I2C_VTG_MAX_UV);
+		if (ret < 0)
+			dev_err(&ts->client->dev,
+				"Regulator vcc_i2c set_vtg failed ret=%d\n",
+				ret);
+		ret = regulator_disable(ts->vcc_i2c);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"Regulator vcc_i2c disable failed ret=%d\n",
+				ret);
+	}
+
+	if (!IS_ERR(ts->vdd)) {
+		ret = regulator_set_voltage(ts->vdd, 0, GOODIX_VTG_MAX_UV);
+		if (ret < 0)
+			dev_err(&ts->client->dev,
+				"Regulator vdd set_vtg failed ret=%d\n", ret);
+		ret = regulator_disable(ts->vdd);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"Regulator vdd disable failed ret=%d\n", ret);
+	}
+
+	if (!IS_ERR(ts->avdd)) {
+		ret = regulator_disable(ts->avdd);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"Regulator avdd disable failed ret=%d\n", ret);
+	}
+
+	return 0;
+}
+
+/**
+ * goodix_power_init - Initialize device power
+ * @ts: driver private data
+ *
+ * Returns zero on success, else an error.
+ */
+static int goodix_power_init(struct goodix_ts_data *ts)
+{
+	int ret;
+
+	ts->avdd = regulator_get(&ts->client->dev, "avdd");
+	if (IS_ERR(ts->avdd)) {
+		ret = PTR_ERR(ts->avdd);
+		dev_info(&ts->client->dev,
+			"Regulator get failed avdd ret=%d\n", ret);
+	}
+
+	ts->vdd = regulator_get(&ts->client->dev, "vdd");
+	if (IS_ERR(ts->vdd)) {
+		ret = PTR_ERR(ts->vdd);
+		dev_info(&ts->client->dev,
+			"Regulator get failed vdd ret=%d\n", ret);
+	}
+
+	ts->vcc_i2c = regulator_get(&ts->client->dev, "vcc-i2c");
+	if (IS_ERR(ts->vcc_i2c)) {
+		ret = PTR_ERR(ts->vcc_i2c);
+		dev_info(&ts->client->dev,
+			"Regulator get failed vcc_i2c ret=%d\n", ret);
+	}
+
+	return 0;
+}
+
+/**
+ * goodix_power_deinit - Deinitialize device power
+ * @ts: driver private data
+ *
+ * Returns zero on success, else an error.
+ */
+static int goodix_power_deinit(struct goodix_ts_data *ts)
+{
+	regulator_put(ts->vdd);
+	regulator_put(ts->vcc_i2c);
+	regulator_put(ts->avdd);
+
+	return 0;
+}
+
 static int goodix_ts_get_dt_coords(struct device *dev, char *name,
 				struct goodix_ts_platform_data *pdata)
 {
@@ -1476,6 +1683,7 @@ static int goodix_parse_dt(struct device *dev,
 
 	return 0;
 }
+
 /*******************************************************
 Function:
 	I2c probe.
@@ -1540,8 +1748,19 @@ static int goodix_ts_probe(struct i2c_client *client,
 	 */
 	spin_lock_init(&ts->irq_lock);
 	i2c_set_clientdata(client, ts);
-
 	ts->gtp_rawdiff_mode = 0;
+
+	ret = goodix_power_init(ts);
+	if (ret) {
+		dev_err(&client->dev, "GTP power init failed\n");
+		goto exit_free_client_data;
+	}
+
+	ret = goodix_power_on(ts);
+	if (ret) {
+		dev_err(&client->dev, "GTP power on failed\n");
+		goto exit_deinit_power;
+	}
 
 	ret = gtp_request_io_port(ts);
 	if (ret) {
@@ -1628,6 +1847,10 @@ exit_free_io_port:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
 exit_power_off:
+	goodix_power_off(ts);
+exit_deinit_power:
+	goodix_power_deinit(ts);
+exit_free_client_data:
 	i2c_set_clientdata(client, NULL);
 	kfree(ts);
 	return ret;
@@ -1682,6 +1905,8 @@ static int goodix_ts_remove(struct i2c_client *client)
 		if (gpio_is_valid(ts->pdata->irq_gpio))
 			gpio_free(ts->pdata->irq_gpio);
 
+		goodix_power_off(ts);
+		goodix_power_deinit(ts);
 		i2c_set_clientdata(client, NULL);
 		kfree(ts);
 	}
