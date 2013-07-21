@@ -292,6 +292,7 @@ struct qpnp_chg_chip {
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
 	unsigned int			min_voltage_mv;
+	int				prev_usb_max_ma;
 	int				set_vddmax_mv;
 	int				delta_vddmax_mv;
 	unsigned int			warm_bat_mv;
@@ -966,6 +967,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		if (!usb_present) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
 			chip->chg_done = false;
+			chip->prev_usb_max_ma = -EINVAL;
 		} else {
 			schedule_delayed_work(&chip->eoc_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
@@ -1527,6 +1529,10 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
 		chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
+
+		if (chip->prev_usb_max_ma == ret.intval)
+			goto skip_set_iusb_max;
+
 		if (ret.intval <= 2 && !chip->use_default_batt_values &&
 						get_prop_batt_present(chip)) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
@@ -1541,8 +1547,10 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 				qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
 			}
 		}
+		chip->prev_usb_max_ma = ret.intval;
 	}
 
+skip_set_iusb_max:
 	pr_debug("end of power supply changed\n");
 	power_supply_changed(&chip->batt_psy);
 }
@@ -3000,6 +3008,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
+	chip->prev_usb_max_ma = -EINVAL;
 	chip->dev = &(spmi->dev);
 	chip->spmi = spmi;
 
