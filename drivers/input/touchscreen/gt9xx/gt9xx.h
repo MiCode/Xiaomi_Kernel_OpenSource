@@ -87,6 +87,9 @@ struct goodix_ts_data {
 	u8  fixed_cfg;
 	u8  esd_running;
 	u8  fw_error;
+	struct regulator *avdd;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
 };
 
 extern u16 show_len;
