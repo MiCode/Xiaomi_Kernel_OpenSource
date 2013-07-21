@@ -23,6 +23,7 @@
 #include <linux/sync.h>
 #include <linux/sw_sync.h>
 #include "linux/proc_fs.h"
+#include <linux/delay.h>
 
 #include "mdss_fb.h"
 #include "mdp3_ppp.h"
@@ -30,6 +31,7 @@
 #include "mdp3.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
+#define MDP_RELEASE_BW_TIMEOUT 50
 #define MDP_BLIT_CLK_RATE	200000000
 #define MDP_PPP_MAX_BPP 4
 #define MDP_PPP_DYNAMIC_FACTOR 3
@@ -92,6 +94,9 @@ struct ppp_status {
 	struct sw_sync_timeline *timeline;
 	int timeline_value;
 
+	struct timer_list free_bw_timer;
+	struct work_struct free_bw_work;
+	bool bw_on;
 };
 
 static struct ppp_status *ppp_stat;
@@ -353,6 +358,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	mdp3_clk_set_rate(MDP3_CLK_CORE, rate, MDP3_CLIENT_PPP);
 	mdp3_clk_enable(on_off);
 	mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	ppp_stat->bw_on = on_off;
 	return 0;
 }
 
@@ -754,9 +760,6 @@ int mdp3_ppp_start_blit(struct msm_fb_data_type *mfd,
 				src_data, dst_data);
 	else
 		ret = mdp3_ppp_blit(mfd, req, src_data, dst_data);
-
-	mdp3_put_img(src_data);
-	mdp3_put_img(dst_data);
 	return ret;
 }
 
@@ -892,28 +895,52 @@ void mdp3_ppp_req_pop(struct blit_req_queue *req_q)
 	req_q->pop_idx = (req_q->pop_idx + 1) % MDP3_PPP_MAX_LIST_REQ;
 }
 
+void mdp3_free_fw_timer_func(unsigned long arg)
+{
+	schedule_work(&ppp_stat->free_bw_work);
+}
+
+static void mdp3_free_bw_wq_handler(struct work_struct *work)
+{
+	struct msm_fb_data_type *mfd = ppp_stat->mfd;
+	mutex_lock(&ppp_stat->config_ppp_mutex);
+	if (ppp_stat->bw_on) {
+		mdp3_ppp_turnon(mfd, 0);
+		mdp3_iommu_disable(MDP3_CLIENT_PPP);
+	}
+	mutex_unlock(&ppp_stat->config_ppp_mutex);
+}
+
 static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
 	struct blit_req_list *req;
-	int i, rc;
+	int i, rc = 0;
 
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 	req = mdp3_ppp_next_req(&ppp_stat->req_q);
+	if (!req) {
+		mutex_unlock(&ppp_stat->config_ppp_mutex);
+		return;
+	}
 
-	mdp3_iommu_enable(MDP3_CLIENT_PPP);
-	mdp3_ppp_turnon(mfd, 1);
+	if (!ppp_stat->bw_on) {
+		mdp3_iommu_enable(MDP3_CLIENT_PPP);
+		mdp3_ppp_turnon(mfd, 1);
+	}
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
 		for (i = 0; i < req->count; i++) {
 			if (!(req->req_list[i].flags & MDP_NO_BLIT)) {
 				/* Do the actual blit. */
-				rc = mdp3_ppp_start_blit(mfd,
+				if (!rc) {
+					rc = mdp3_ppp_start_blit(mfd,
 						&(req->req_list[i]),
 						&req->src_data[i],
 						&req->dst_data[i]);
-				if (rc)
-					break;
+				}
+				mdp3_put_img(&req->src_data[i]);
+				mdp3_put_img(&req->dst_data[i]);
 			}
 		}
 		/* Signal to release fence */
@@ -925,8 +952,8 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 			complete(&ppp_stat->pop_q_comp);
 		mutex_unlock(&ppp_stat->req_mutex);
 	}
-	mdp3_ppp_turnon(mfd, 0);
-	mdp3_iommu_disable(MDP3_CLIENT_PPP);
+	mod_timer(&ppp_stat->free_bw_timer, jiffies +
+		msecs_to_jiffies(MDP_RELEASE_BW_TIMEOUT));
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
@@ -1058,10 +1085,14 @@ int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 	}
 
 	INIT_WORK(&ppp_stat->blit_work, mdp3_ppp_blit_wq_handler);
+	INIT_WORK(&ppp_stat->free_bw_work, mdp3_free_bw_wq_handler);
 	init_completion(&ppp_stat->pop_q_comp);
 	spin_lock_init(&ppp_stat->ppp_lock);
 	mutex_init(&ppp_stat->req_mutex);
 	mutex_init(&ppp_stat->config_ppp_mutex);
+	init_timer(&ppp_stat->free_bw_timer);
+	ppp_stat->free_bw_timer.function = mdp3_free_fw_timer_func;
+	ppp_stat->free_bw_timer.data = 0;
 	ppp_stat->busy = false;
 	ppp_stat->mfd = mfd;
 	mdp3_ppp_callback_setup();
