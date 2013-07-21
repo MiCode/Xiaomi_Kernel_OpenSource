@@ -12,17 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm8974-v2-2.dtsi"
-/include/ "msm8974-mtp.dtsi"
+/include/ "msm8974-v2.2.dtsi"
+/include/ "msm8974-liquid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974v2 MTP";
-	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
-	qcom,msm-id = <126 8 0x20002>,
-		      <185 8 0x20002>,
-		      <186 8 0x20002>;
-};
-
-&pm8941_chg {
-	qcom,bpd-detection = "bpd_thm";
+	model = "Qualcomm MSM 8974v2.2 LIQUID";
+	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
+	qcom,msm-id = <126 9 0x20002>,
+		      <185 9 0x20002>,
+		      <186 9 0x20002>;
 };
