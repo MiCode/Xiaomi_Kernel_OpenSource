@@ -2109,7 +2109,7 @@ int usb_bam_a2_reset(bool to_reconnect)
 				reconnect_pipe_idx[i] =
 					pipe_connect->dst_pipe_index;
 
-			bam = pipe_connect->bam_type;
+			bam = (u8)pipe_connect->bam_type;
 			if (bam < 0) {
 				ret = -EINVAL;
 				continue;
