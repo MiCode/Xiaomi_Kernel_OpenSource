@@ -1122,10 +1122,16 @@ static void ehci_hsic_reset_sof_bug_handler(struct usb_hcd *hcd, u32 val)
 	u32 cmd;
 	unsigned long flags;
 	int retries = 0, ret, cnt = RESET_SIGNAL_TIME_USEC;
+	s32 next_latency = 0;
 
-	if (pdata && pdata->swfi_latency)
-		pm_qos_update_request(&mehci->pm_qos_req_dma,
-			pdata->swfi_latency + 1);
+	if (pdata && pdata->swfi_latency) {
+		next_latency = pdata->swfi_latency + 1;
+		pm_qos_update_request(&mehci->pm_qos_req_dma, next_latency);
+		if (pdata->standalone_latency)
+			next_latency = pdata->standalone_latency + 1;
+		else
+			next_latency = PM_QOS_DEFAULT_VALUE;
+	}
 
 	mehci->bus_reset = 1;
 
@@ -1196,9 +1202,8 @@ done:
 	pr_debug("reset completed\n");
 fail:
 	mehci->bus_reset = 0;
-	if (pdata && pdata->swfi_latency)
-		pm_qos_update_request(&mehci->pm_qos_req_dma,
-			PM_QOS_DEFAULT_VALUE);
+	if (next_latency)
+		pm_qos_update_request(&mehci->pm_qos_req_dma, next_latency);
 }
 
 static int ehci_hsic_bus_suspend(struct usb_hcd *hcd)
@@ -1229,8 +1234,18 @@ static int msm_hsic_resume_thread(void *data)
 	int			retry_cnt = 0;
 	int			tight_resume = 0;
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
+	s32 next_latency = 0;
 
 	dbg_log_event(NULL, "Resume RH", 0);
+
+	if (pdata && pdata->swfi_latency) {
+		next_latency = pdata->swfi_latency + 1;
+		pm_qos_update_request(&mehci->pm_qos_req_dma, next_latency);
+		if (pdata->standalone_latency)
+			next_latency = pdata->standalone_latency + 1;
+		else
+			next_latency = PM_QOS_DEFAULT_VALUE;
+	}
 
 	/* keep delay between bus states */
 	if (time_before(jiffies, ehci->next_statechange))
@@ -1238,10 +1253,8 @@ static int msm_hsic_resume_thread(void *data)
 
 	spin_lock_irq(&ehci->lock);
 	if (!HCD_HW_ACCESSIBLE(hcd)) {
-		spin_unlock_irq(&ehci->lock);
 		mehci->resume_status = -ESHUTDOWN;
-		complete(&mehci->rt_completion);
-		return 0;
+		goto exit;
 	}
 
 	if (unlikely(ehci->debug)) {
@@ -1313,13 +1326,7 @@ resume_again:
 				&mehci->timer->gptimer1_ctrl);
 
 			spin_unlock_irq(&ehci->lock);
-			if (pdata && pdata->swfi_latency)
-				pm_qos_update_request(&mehci->pm_qos_req_dma,
-					pdata->swfi_latency + 1);
 			wait_for_completion(&mehci->gpt0_completion);
-			if (pdata && pdata->standalone_latency)
-				pm_qos_update_request(&mehci->pm_qos_req_dma,
-					pdata->standalone_latency + 1);
 			spin_lock_irq(&ehci->lock);
 		} else {
 			dbg_log_event(NULL, "FPR: Tightloop", 0);
@@ -1357,9 +1364,11 @@ resume_again:
 
 	dbg_log_event(NULL, "FPR: RT-Done", 0);
 	mehci->resume_status = 1;
+exit:
 	spin_unlock_irq(&ehci->lock);
-
 	complete(&mehci->rt_completion);
+	if (next_latency)
+		pm_qos_update_request(&mehci->pm_qos_req_dma, next_latency);
 
 	return 0;
 }
