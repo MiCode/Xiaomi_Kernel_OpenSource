@@ -24,6 +24,8 @@
 #include <asm/thread_info.h>
 #include <asm/memory.h>
 #include <asm/cputable.h>
+#include <asm/smp_plat.h>
+#include <asm/suspend.h>
 #include <asm/vdso_datapage.h>
 #include <linux/kbuild.h>
 
@@ -104,5 +106,14 @@ int main(void)
   BLANK();
   DEFINE(TZ_MINWEST,		offsetof(struct timezone, tz_minuteswest));
   DEFINE(TZ_DSTTIME,		offsetof(struct timezone, tz_dsttime));
+#ifdef CONFIG_ARM64_CPU_SUSPEND
+  DEFINE(CPU_SUSPEND_SZ,	sizeof(struct cpu_suspend_ctx));
+  DEFINE(CPU_CTX_SP,		offsetof(struct cpu_suspend_ctx, sp));
+  DEFINE(MPIDR_HASH_MASK,	offsetof(struct mpidr_hash, mask));
+  DEFINE(MPIDR_HASH_SHIFTS,	offsetof(struct mpidr_hash, shift_aff));
+  DEFINE(SLEEP_SAVE_SP_SZ,	sizeof(struct sleep_save_sp));
+  DEFINE(SLEEP_SAVE_SP_PHYS,	offsetof(struct sleep_save_sp, save_ptr_stash_phys));
+  DEFINE(SLEEP_SAVE_SP_VIRT,	offsetof(struct sleep_save_sp, save_ptr_stash));
+#endif
   return 0;
 }
