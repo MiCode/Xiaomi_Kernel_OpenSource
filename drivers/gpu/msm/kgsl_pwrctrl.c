@@ -1595,8 +1595,6 @@ void kgsl_active_count_put(struct kgsl_device *device)
 	kgsl_pwrscale_idle(device);
 
 	if (atomic_dec_and_test(&device->active_cnt)) {
-		INIT_COMPLETION(device->suspend_gate);
-
 		if (device->state == KGSL_STATE_ACTIVE &&
 			device->requested_state == KGSL_STATE_NONE) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
@@ -1605,29 +1603,41 @@ void kgsl_active_count_put(struct kgsl_device *device)
 
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
-
-		complete(&device->suspend_gate);
 	}
 
 	trace_kgsl_active_count(device,
 		(unsigned long) __builtin_return_address(0));
+
+	wake_up(&device->active_cnt_wq);
 }
 EXPORT_SYMBOL(kgsl_active_count_put);
+
+static int _check_active_count(struct kgsl_device *device, int count)
+{
+	/* Return 0 if the active count is greater than the desired value */
+	return atomic_read(&device->active_cnt) > count ? 0 : 1;
+}
 
 /**
  * kgsl_active_count_wait() - Wait for activity to finish.
  * @device: Pointer to a KGSL device
+ * @count: Active count value to wait for
  *
- * Block until all active_cnt users put() their reference.
+ * Block until the active_cnt value hits the desired value
  */
-void kgsl_active_count_wait(struct kgsl_device *device)
+int kgsl_active_count_wait(struct kgsl_device *device, int count)
 {
+	int ret = 0;
+
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (atomic_read(&device->active_cnt) != 0) {
+	if (atomic_read(&device->active_cnt) > count) {
 		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->suspend_gate);
+		ret = wait_event_timeout(device->active_cnt_wq,
+			_check_active_count(device, count), HZ);
 		mutex_lock(&device->mutex);
 	}
+
+	return ret == 0 ? -ETIMEDOUT : 0;
 }
 EXPORT_SYMBOL(kgsl_active_count_wait);
