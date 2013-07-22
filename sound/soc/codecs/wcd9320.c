@@ -2235,7 +2235,53 @@ static const struct snd_kcontrol_new slim_rx_mux[TAIKO_RX_MAX] = {
 			  slim_rx_mux_get, slim_rx_mux_put),
 };
 
-static const struct snd_kcontrol_new aif_cap_mixer[] = {
+static const struct snd_kcontrol_new aif1_cap_mixer[] = {
+	SOC_SINGLE_EXT("SLIM TX1", SND_SOC_NOPM, TAIKO_TX1, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX2", SND_SOC_NOPM, TAIKO_TX2, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX3", SND_SOC_NOPM, TAIKO_TX3, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX4", SND_SOC_NOPM, TAIKO_TX4, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX5", SND_SOC_NOPM, TAIKO_TX5, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX6", SND_SOC_NOPM, TAIKO_TX6, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX7", SND_SOC_NOPM, TAIKO_TX7, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX8", SND_SOC_NOPM, TAIKO_TX8, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX9", SND_SOC_NOPM, TAIKO_TX9, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX10", SND_SOC_NOPM, TAIKO_TX10, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+};
+
+static const struct snd_kcontrol_new aif2_cap_mixer[] = {
+	SOC_SINGLE_EXT("SLIM TX1", SND_SOC_NOPM, TAIKO_TX1, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX2", SND_SOC_NOPM, TAIKO_TX2, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX3", SND_SOC_NOPM, TAIKO_TX3, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX4", SND_SOC_NOPM, TAIKO_TX4, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX5", SND_SOC_NOPM, TAIKO_TX5, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX6", SND_SOC_NOPM, TAIKO_TX6, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX7", SND_SOC_NOPM, TAIKO_TX7, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX8", SND_SOC_NOPM, TAIKO_TX8, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX9", SND_SOC_NOPM, TAIKO_TX9, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX10", SND_SOC_NOPM, TAIKO_TX10, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+};
+
+static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 	SOC_SINGLE_EXT("SLIM TX1", SND_SOC_NOPM, TAIKO_TX1, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX2", SND_SOC_NOPM, TAIKO_TX2, 1, 0,
@@ -5483,13 +5529,13 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("MADINPUT"),
 
 	SND_SOC_DAPM_MIXER("AIF1_CAP Mixer", SND_SOC_NOPM, AIF1_CAP, 0,
-		aif_cap_mixer, ARRAY_SIZE(aif_cap_mixer)),
+		aif1_cap_mixer, ARRAY_SIZE(aif1_cap_mixer)),
 
 	SND_SOC_DAPM_MIXER("AIF2_CAP Mixer", SND_SOC_NOPM, AIF2_CAP, 0,
-		aif_cap_mixer, ARRAY_SIZE(aif_cap_mixer)),
+		aif2_cap_mixer, ARRAY_SIZE(aif2_cap_mixer)),
 
 	SND_SOC_DAPM_MIXER("AIF3_CAP Mixer", SND_SOC_NOPM, AIF3_CAP, 0,
-		aif_cap_mixer, ARRAY_SIZE(aif_cap_mixer)),
+		aif3_cap_mixer, ARRAY_SIZE(aif3_cap_mixer)),
 
 	SND_SOC_DAPM_MUX("SLIM TX1 MUX", SND_SOC_NOPM, TAIKO_TX1, 0,
 		&sb_tx1_mux),
