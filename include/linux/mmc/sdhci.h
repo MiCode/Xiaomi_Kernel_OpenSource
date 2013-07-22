@@ -23,6 +23,11 @@ struct sdhci_next {
 	s32 cookie;
 };
 
+enum sdhci_power_policy {
+	SDHCI_PERFORMANCE_MODE,
+	SDHCI_POWER_SAVE_MODE,
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
@@ -238,10 +243,12 @@ struct sdhci_host {
 
 	unsigned int cpu_dma_latency_us;
 	struct pm_qos_request pm_qos_req_dma;
+	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
 
 	struct sdhci_next next_data;
 	ktime_t data_start_time;
 	struct mutex ios_mutex;
+	enum sdhci_power_policy power_policy;
 
 	unsigned long private[0] ____cacheline_aligned;
 };
