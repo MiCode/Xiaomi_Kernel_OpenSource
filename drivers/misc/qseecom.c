@@ -1047,6 +1047,8 @@ static int qseecom_unprotect_buffer(void __user *argp)
 	ret = msm_ion_unsecure_buffer(qseecom.ion_clnt, ihandle);
 	if (ret)
 		return -EINVAL;
+	if (!IS_ERR_OR_NULL(ihandle))
+		ion_free(qseecom.ion_clnt, ihandle);
 	return 0;
 }
 
