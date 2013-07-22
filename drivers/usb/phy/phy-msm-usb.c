@@ -863,7 +863,8 @@ static void msm_otg_bus_vote(struct msm_otg *motg, enum usb_bus_vote vote)
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	/* Check if target allows min_vote to be same as no_vote */
-	if (vote >= pdata->bus_scale_table->num_usecases)
+	if (pdata->bus_scale_table &&
+	    vote >= pdata->bus_scale_table->num_usecases)
 		vote = USB_NO_PERF_VOTE;
 
 	if (motg->bus_perf_client) {
