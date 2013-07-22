@@ -244,6 +244,7 @@ struct sdhci_host {
 	unsigned int cpu_dma_latency_us;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
+	struct device_attribute pm_qos_tout;
 
 	struct sdhci_next next_data;
 	ktime_t data_start_time;
