@@ -466,6 +466,7 @@ struct msm_hsic_host_platform_data {
 	unsigned data;
 	bool ignore_cal_pad_config;
 	bool phy_sof_workaround;
+	u32 reset_delay;
 	int strobe_pad_offset;
 	int data_pad_offset;
 

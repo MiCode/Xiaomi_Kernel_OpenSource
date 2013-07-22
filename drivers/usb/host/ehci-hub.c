@@ -1229,6 +1229,12 @@ static int ehci_hub_control (
 			} else {
 				ehci_writel(ehci, temp, status_reg);
 			}
+
+			if (ehci->reset_delay) {
+				spin_unlock_irqrestore(&ehci->lock, flags);
+				msleep(ehci->reset_delay);
+				spin_lock_irqsave(&ehci->lock, flags);
+			}
 			break;
 
 		/* For downstream facing ports (these):  one hub port is put
