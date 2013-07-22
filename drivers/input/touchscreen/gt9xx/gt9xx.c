@@ -97,7 +97,10 @@ static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms);
 static void gtp_int_sync(struct goodix_ts_data *ts, int ms);
 static int gtp_i2c_test(struct i2c_client *client);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void goodix_ts_early_suspend(struct early_suspend *h);
 static void goodix_ts_late_resume(struct early_suspend *h);
 #endif
@@ -774,7 +777,7 @@ static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 #endif
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_FB)
 #if GTP_SLIDE_WAKEUP
 /*******************************************************
 Function:
@@ -879,16 +882,12 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 	GTP_DEBUG_FUNC();
 
 #if GTP_POWER_CTRL_SLEEP
-	while (retry++ < 5) {
-		gtp_reset_guitar(ts, 20);
+	gtp_reset_guitar(ts, 20);
 
-		ret = gtp_send_cfg(ts);
-		if (ret > 0) {
-			dev_dbg(&ts->client->dev,
-				"Wakeup sleep send config success.");
-			continue;
-		}
-		dev_dbg(&ts->client->dev, "GTP Wakeup!");
+	ret = gtp_send_cfg(ts);
+	if (ret > 0) {
+		dev_dbg(&ts->client->dev,
+			"Wakeup sleep send config success.");
 		return 1;
 	}
 #else
@@ -929,7 +928,7 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 	dev_err(&ts->client->dev, "GTP wakeup sleep failed.\n");
 	return ret;
 }
-#endif /* !CONFIG_HAS_EARLYSUSPEND */
+#endif /* !CONFIG_HAS_EARLYSUSPEND && !CONFIG_FB*/
 
 /*******************************************************
 Function:
@@ -1799,6 +1798,20 @@ static int goodix_ts_probe(struct i2c_client *client,
 		goto exit_free_inputdev;
 	}
 
+#if defined(CONFIG_FB)
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	ret = fb_register_client(&ts->fb_notif);
+	if (ret)
+		dev_err(&ts->client->dev,
+			"Unable to register fb_notifier: %d\n",
+			ret);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	ts->early_suspend.suspend = goodix_ts_early_suspend;
+	ts->early_suspend.resume = goodix_ts_late_resume;
+	register_early_suspend(&ts->early_suspend);
+#endif
+
 	ts->goodix_wq = create_singlethread_workqueue("goodix_wq");
 	INIT_WORK(&ts->work, goodix_ts_work_func);
 
@@ -1826,6 +1839,13 @@ static int goodix_ts_probe(struct i2c_client *client,
 	init_done = true;
 	return 0;
 exit_free_irq:
+#if defined(CONFIG_FB)
+	if (fb_unregister_client(&ts->fb_notif))
+		dev_err(&client->dev,
+			"Error occurred while unregistering fb_notifier.\n");
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&ts->early_suspend);
+#endif
 	if (ts->use_irq)
 		free_irq(client->irq, ts);
 	else
@@ -1869,7 +1889,11 @@ static int goodix_ts_remove(struct i2c_client *client)
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
 
 	GTP_DEBUG_FUNC();
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_FB)
+	if (fb_unregister_client(&ts->fb_notif))
+		dev_err(&client->dev,
+			"Error occurred while unregistering fb_notifier.\n");
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
 #endif
 
@@ -1914,7 +1938,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_FB)
 /*******************************************************
 Function:
 	Early suspend function.
@@ -1923,11 +1947,9 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void goodix_ts_early_suspend(struct early_suspend *h)
+static void goodix_ts_suspend(struct goodix_ts_data *ts)
 {
-	struct goodix_ts_data *ts;
-	s8 ret = -1;
-	ts = container_of(h, struct goodix_ts_data, early_suspend);
+	int ret = -1;
 
 	GTP_DEBUG_FUNC();
 
@@ -1961,11 +1983,9 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void goodix_ts_late_resume(struct early_suspend *h)
+static void goodix_ts_resume(struct goodix_ts_data *ts)
 {
-	struct goodix_ts_data *ts;
-	s8 ret = -1;
-	ts = container_of(h, struct goodix_ts_data, early_suspend);
+	int ret = -1;
 
 	GTP_DEBUG_FUNC();
 
@@ -1976,7 +1996,7 @@ static void goodix_ts_late_resume(struct early_suspend *h)
 #endif
 
 	if (ret < 0)
-		dev_err(&ts->client->dev, "GTP later resume failed.\n");
+		dev_err(&ts->client->dev, "GTP resume failed.\n");
 
 	if (ts->use_irq)
 		gtp_irq_enable(ts);
@@ -1989,7 +2009,63 @@ static void goodix_ts_late_resume(struct early_suspend *h)
 	gtp_esd_switch(ts->client, SWITCH_ON);
 #endif
 }
+
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct goodix_ts_data *ts =
+		container_of(self, struct goodix_ts_data, fb_notif);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
+			ts && ts->client) {
+		blank = evdata->data;
+		if (*blank == FB_BLANK_UNBLANK)
+			goodix_ts_resume(ts);
+		else if (*blank == FB_BLANK_POWERDOWN)
+			goodix_ts_suspend(ts);
+	}
+
+	return 0;
+}
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+/*******************************************************
+Function:
+	Early suspend function.
+Input:
+	h: early_suspend struct.
+Output:
+	None.
+*******************************************************/
+static void goodix_ts_early_suspend(struct early_suspend *h)
+{
+	struct goodix_ts_data *ts;
+
+	ts = container_of(h, struct goodix_ts_data, early_suspend);
+	goodix_ts_suspend(ts);
+	return;
+}
+
+/*******************************************************
+Function:
+	Late resume function.
+Input:
+	h: early_suspend struct.
+Output:
+	None.
+*******************************************************/
+static void goodix_ts_late_resume(struct early_suspend *h)
+{
+	struct goodix_ts_data *ts;
+
+	ts = container_of(h, struct goodix_ts_data, early_suspend);
+	goodix_ts_late_resume(ts);
+	return;
+}
 #endif
+#endif /* !CONFIG_HAS_EARLYSUSPEND && !CONFIG_FB*/
 
 #if GTP_ESD_PROTECT
 /*******************************************************
