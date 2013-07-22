@@ -99,6 +99,14 @@ module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
 static int mpq_sdmx_debug;
 module_param(mpq_sdmx_debug, int, S_IRUGO | S_IWUSR);
 
+/*
+ * Indicates whether the demux should search for frame boundaries
+ * and notify on video packets on frame-basis or whether to provide
+ * only video PES packet payloads as-is.
+ */
+static int video_framing = 1;
+module_param(video_framing, int, S_IRUGO | S_IWUSR);
+
 /* Global data-structure for managing demux devices */
 static struct
 {
@@ -111,13 +119,6 @@ static struct
 	/* Stream buffers objects used for tunneling to decoders */
 	struct mpq_streambuffer
 		decoder_buffers[MPQ_ADAPTER_MAX_NUM_OF_INTERFACES];
-
-	/*
-	 * Indicates whether the video decoder handles framing
-	 * or we are required to provide framing information
-	 * in the meta-data passed to the decoder.
-	 */
-	int decoder_framing;
 
 	/* Indicates whether secure demux TZ application is available */
 	int secure_demux_app_loaded;
@@ -621,13 +622,6 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 	mpq_dmx_info.ion_client = NULL;
 
 	mpq_dmx_info.secure_demux_app_loaded = 0;
-
-	/*
-	 * TODO: the following should be set based on the decoder:
-	 * 0 means the decoder doesn't handle framing, so framing
-	 * is done by demux. 1 means the decoder handles framing.
-	 */
-	mpq_dmx_info.decoder_framing = 0;
 
 	/* Allocate memory for all MPQ devices */
 	mpq_dmx_info.devices =
@@ -1345,7 +1339,7 @@ static int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	struct mpq_streambuffer *stream_buffer;
 
 	/* get and store framing information if required */
-	if (!mpq_dmx_info.decoder_framing) {
+	if (video_framing) {
 		mpq_dmx_get_pattern_params(
 			mpq_feed->dvb_demux_feed->video_codec,
 			feed_data->patterns, &feed_data->patterns_num);
@@ -2430,7 +2424,6 @@ static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
 
 		mpq_dmx_write_pts_dts(feed_data,
 			&(meta_data.info.pes.pts_dts_info));
-		mpq_dmx_save_pts_dts(feed_data);
 
 		meta_data.packet_type = DMX_PES_PACKET;
 		meta_data.info.pes.stc = feed_data->prev_stc;
@@ -2958,7 +2951,9 @@ static int mpq_dmx_process_video_packet_no_framing(
 
 				mpq_dmx_write_pts_dts(feed_data,
 					&(meta_data.info.pes.pts_dts_info));
-				mpq_dmx_save_pts_dts(feed_data);
+
+				/* Mark that we detected start of new PES */
+				feed_data->first_pts_dts_copy = 1;
 
 				meta_data.packet_type = DMX_PES_PACKET;
 				meta_data.info.pes.stc = feed_data->prev_stc;
@@ -3063,7 +3058,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 
 	/*
 	 * Need to back-up the PTS information
-	 * of the very first PES
+	 * of the start of new PES
 	 */
 	if (feed_data->first_pts_dts_copy) {
 		mpq_dmx_save_pts_dts(feed_data);
@@ -3169,7 +3164,7 @@ int mpq_dmx_process_video_packet(
 		curr_stc *= 256; /* convert from 105.47 KHZ to 27MHz */
 	}
 
-	if (mpq_dmx_info.decoder_framing)
+	if (!video_framing)
 		return mpq_dmx_process_video_packet_no_framing(feed, buf,
 				curr_stc);
 	else
@@ -4911,7 +4906,7 @@ int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
 		event.status = DMX_OK_EOS;
 		if (!feed->secure_mode.is_secured) {
 			if (dvb_dmx_is_video_feed(feed)) {
-				if (mpq_dmx_info.decoder_framing)
+				if (!video_framing)
 					mpq_dmx_decoder_pes_closure(mpq_demux,
 						mpq_feed);
 				else
