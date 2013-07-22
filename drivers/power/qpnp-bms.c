@@ -2328,7 +2328,9 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 
 	bms_stay_awake(&chip->soc_wake_source);
 	mutex_lock(&chip->vbat_monitor_mutex);
-	qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+	if (chip->vbat_monitor_params.state_request !=
+			ADC_TM_HIGH_LOW_THR_DISABLE)
+		qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
 	mutex_unlock(&chip->vbat_monitor_mutex);
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
@@ -2525,9 +2527,10 @@ static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
 	int rc;
 
 	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
-	rc = qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+
+	rc = qpnp_adc_tm_disable_chan_meas(&chip->vbat_monitor_params);
 	if (rc) {
-		pr_err("tm measure failed: %d\n", rc);
+		pr_err("tm disable failed: %d\n", rc);
 		return rc;
 	}
 	if (wake_lock_active(&chip->low_voltage_wake_lock)) {
@@ -2551,11 +2554,6 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 		return -EPROBE_DEFER;
 	}
 
-	if (!is_battery_present(chip)) {
-		pr_debug("no battery inserted, do not setup vbat monitoring\n");
-		return 0;
-	}
-
 	chip->vbat_monitor_params.low_thr = chip->low_voltage_threshold;
 	chip->vbat_monitor_params.high_thr = chip->max_voltage_uv
 							- VBATT_ERROR_MARGIN;
@@ -2567,10 +2565,17 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 	pr_debug("set low thr to %d and high to %d\n",
 			chip->vbat_monitor_params.low_thr,
 			chip->vbat_monitor_params.high_thr);
-	rc = qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
-	if (rc) {
-		pr_err("tm setup failed: %d\n", rc);
-		return rc;
+
+	if (!is_battery_present(chip)) {
+		pr_debug("no battery inserted, do not enable vbat monitoring\n");
+		chip->vbat_monitor_params.state_request =
+			ADC_TM_HIGH_LOW_THR_DISABLE;
+	} else {
+		rc = qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
+		if (rc) {
+			pr_err("tm setup failed: %d\n", rc);
+			return rc;
+		}
 	}
 	pr_debug("setup complete\n");
 	return 0;
