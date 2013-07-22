@@ -1205,7 +1205,7 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		goto exit;
 	}
 
-	for (i = 0, d = dt; i < size; i++, d++) {
+	for (i = 0, dprev = NULL, d = dt; i < size; i++, d++) {
 		if (d->vddio) {
 			dvddio = d;
 			continue;
