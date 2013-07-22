@@ -144,7 +144,7 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x07FFFFFF, vfe_dev->vfe_base + 0xC);
 	/* BUS_CFG */
-	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x3C);
+	msm_camera_io_w(0x00000009, vfe_dev->vfe_base + 0x3C);
 	msm_camera_io_w(0x01000025, vfe_dev->vfe_base + 0x1C);
 	msm_camera_io_w_mb(0x1CFFFFFF, vfe_dev->vfe_base + 0x20);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
