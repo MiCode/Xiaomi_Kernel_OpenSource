@@ -14,8 +14,14 @@
 #ifndef _ARCH_ARM_MACH_MSM_IDLE_H_
 #define _ARCH_ARM_MACH_MSM_IDLE_H_
 
+#ifdef CONFIG_ARM_LPAE
+/* 2 (r13-r14) general purpose registers, 8 32-bits and
+ * 2 64-bits cp15 registers */
+#define CPU_SAVED_STATE_SIZE (4 * 2 + 4 * 8 + 8 * 2)
+#else
 /* 2 general purpose registers (r13-r14), 10 cp15 registers */
 #define CPU_SAVED_STATE_SIZE (4 * 2 + 4 * 10)
+#endif
 
 #define ON	1
 #define OFF	0

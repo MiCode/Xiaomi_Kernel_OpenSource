@@ -153,6 +153,19 @@ ENTRY(msm_pm_collapse)
 
 	PUSH	{r4-r12}
 	stmia   r0!, {r13-r14}
+#ifdef	CONFIG_ARM_LPAE
+	mrc	p15, 0, r1, c1, c0, 0 /* MMU control */
+	mrc	p15, 0, r2, c2, c0, 2 /*TTBCR*/
+	mrc	p15, 0, r3, c3, c0, 0 /* dacr */
+	mrrc	p15, 0, r4, r5, c2 /* TTBR0 */
+	mrrc	p15, 1, r6, r7, c2 /* TTBR1 */
+	mrc	p15, 0, r8, c10, c2, 0 /* MAIR0 */
+	mrc	p15, 0, r9, c10, c2, 1  /* MAIR1 */
+	mrc	p15, 0, r10, c1, c0, 1 /* ACTLR */
+	mrc	p15, 0, r11, c13, c0, 3 /* TPIDRURO */
+	mrc	p15, 0, r12, c13, c0, 1 /* context ID */
+	stmia	r0!, {r1-r12}
+#else
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
 	mrc     p15, 0, r3, c3, c0, 0 /* dacr */
@@ -168,6 +181,7 @@ ENTRY(msm_pm_collapse)
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r9, ip}
 
+#endif
 #if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM)
 	bl      msm_jtag_save_state
 #endif
@@ -298,6 +312,44 @@ ENTRY(msm_pm_collapse_exit)
 	add	r1, r1, r2
 #endif
 
+#ifdef CONFIG_ARM_LPAE
+	ldmdb   r1!, {r2-r13}
+	mcr	p15, 0, r3, c2, c0, 2 /*TTBCR*/
+	mcr     p15, 0, r4, c3, c0, 0 /* dacr */
+	mcrr    p15, 0, r5, r6, c2 /* TTBR0 */
+	mcrr    p15, 1, r7, r8, c2 /* TTBR1 */
+	mcr     p15, 0, r9, c10, c2, 0 /* MAIR0 */
+	mcr     p15, 0, r10, c10, c2, 1 /* MAIR1 */
+	mcr     p15, 0, r11, c1, c0, 1 /* ACTLR */
+	mcr     p15, 0, r12, c13, c0, 3 /* TPIDRURO */
+	mcr     p15, 0, r13, c13, c0, 1 /* context ID */
+	isb
+	ldmdb   r1!, {r13, r14}
+	ldr	r0, =msm_pm_pc_pgd
+	ldr	r4, =msm_pm_collapse_exit
+	adr	r3, msm_pm_collapse_exit
+	add	r0, r0, r3
+	sub	r0, r0, r4
+	ldr	r0, [r0]
+	ldr	r3, [r0]
+	mrrc	p15, 0, r4, r5, c2     /* save current TTBR0 */
+	and	r6, r4, #0x7f /* mask to get TTB flags */
+	mcr	p15, 0, r3, c2, c0, 0 /* temporary switch TTBR0 */
+	isb
+	mcr	p15, 0, r2, c1, c0, 0   /* MMU control */
+	isb
+msm_pm_mapped_pa:
+	/* Switch to virtual */
+	ldr     r2, =msm_pm_pa_to_va
+	mov     pc, r2
+msm_pm_pa_to_va:
+	mcrr    p15, 0, r4, r5, c2	/* restore TTBR0 */
+	isb
+	mcr     p15, 0, r6, c8, c7, 0   /* UTLBIALL */
+	mcr     p15, 0, r6, c7, c5, 6   /* BPIALL */
+	dsb
+	isb
+#else
 	ldmdb   r1!, {r2-r11}
 	mcr     p15, 0, r4, c3, c0, 0 /* dacr */
 	mcr     p15, 0, r3, c2, c0, 0 /* TTBR0 */
@@ -337,6 +389,7 @@ msm_pm_pa_to_va:
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
 	isb
+#endif
 	POP	{r4-r12}
 
 #ifdef CONFIG_ARCH_MSM_KRAIT
