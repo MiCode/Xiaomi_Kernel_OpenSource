@@ -136,7 +136,7 @@ void msm_qdss_csr_disable_flush(void)
 }
 EXPORT_SYMBOL(msm_qdss_csr_disable_flush);
 
-int coresight_csr_hwctrl_set(phys_addr_t addr, uint32_t val)
+int coresight_csr_hwctrl_set(uint64_t addr, uint32_t val)
 {
 	struct csr_drvdata *drvdata = csrdrvdata;
 	int ret = 0;
