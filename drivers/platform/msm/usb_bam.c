@@ -2523,6 +2523,10 @@ static ssize_t usb_bam_store_inactivity_timer(struct device *dev,
 			bam = get_bam_type_from_core_name(bam_name);
 
 			timer = strsep(&bam_str, " ");
+
+			if (!timer)
+				continue;
+
 			sscanf(timer, "%d", &timer_d);
 
 			spin_lock(&usb_bam_lock);
