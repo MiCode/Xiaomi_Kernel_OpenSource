@@ -14,6 +14,7 @@
 
 &venus_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_venus>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
@@ -122,6 +123,7 @@
 
 &jpeg_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_jpeg>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
@@ -191,6 +193,7 @@
 
 &mdp_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_mdss>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
@@ -268,6 +271,8 @@
 
 &kgsl_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_oxili_cx>;
+	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
@@ -377,6 +382,7 @@
 
 &vfe_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_vfe>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
@@ -466,6 +472,7 @@
 
 &vpu_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_vpu>;
 };
 
 &lpass_qdsp_iommu {
