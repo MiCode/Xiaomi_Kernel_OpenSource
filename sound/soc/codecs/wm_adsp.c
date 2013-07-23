@@ -193,23 +193,36 @@ static void wm_adsp_buf_free(struct list_head *list)
 	}
 }
 
-#define WM_ADSP_NUM_FW 4
+#define WM_ADSP_NUM_FW 5
 
-#define WM_ADSP_FW_MBC_VSS 0
-#define WM_ADSP_FW_TX      1
-#define WM_ADSP_FW_TX_SPK  2
-#define WM_ADSP_FW_RX_ANC  3
+#define WM_ADSP_FW_MBC_VSS        0
+#define WM_ADSP_FW_TX             1
+#define WM_ADSP_FW_TX_SPK         2
+#define WM_ADSP_FW_RX_ANC         3
+#define WM_ADSP_FW_EZ2CONTROL     4
 
 static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
-	[WM_ADSP_FW_MBC_VSS] = "MBC/VSS",
-	[WM_ADSP_FW_TX] =      "Tx",
-	[WM_ADSP_FW_TX_SPK] =  "Tx Speaker",
-	[WM_ADSP_FW_RX_ANC] =  "Rx ANC",
+	[WM_ADSP_FW_MBC_VSS] =    "MBC/VSS",
+	[WM_ADSP_FW_TX] =         "Tx",
+	[WM_ADSP_FW_TX_SPK] =     "Tx Speaker",
+	[WM_ADSP_FW_RX_ANC] =     "Rx ANC",
+	[WM_ADSP_FW_EZ2CONTROL] = "Ez2Control",
 };
 
 struct wm_adsp_fw_caps {
 	u32 id;
 	struct snd_codec_desc desc;
+};
+
+static const struct wm_adsp_fw_caps ez2control_caps[] = {
+	{
+		.id = SND_AUDIOCODEC_PCM,
+		.desc = {
+			.max_ch = 1,
+			.sample_rates = SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+	},
 };
 
 static const struct {
@@ -218,10 +231,16 @@ static const struct {
 	int num_caps;
 	const struct wm_adsp_fw_caps *caps;
 } wm_adsp_fw[WM_ADSP_NUM_FW] = {
-	[WM_ADSP_FW_MBC_VSS] = { .file = "mbc-vss" },
-	[WM_ADSP_FW_TX] =      { .file = "tx" },
-	[WM_ADSP_FW_TX_SPK] =  { .file = "tx-spk" },
-	[WM_ADSP_FW_RX_ANC] =  { .file = "rx-anc" },
+	[WM_ADSP_FW_MBC_VSS] =    { .file = "mbc-vss" },
+	[WM_ADSP_FW_TX] =         { .file = "tx" },
+	[WM_ADSP_FW_TX_SPK] =     { .file = "tx-spk" },
+	[WM_ADSP_FW_RX_ANC] =     { .file = "rx-anc" },
+	[WM_ADSP_FW_EZ2CONTROL] = {
+		.file = "ez2-control",
+		.compr_direction = SND_COMPRESS_CAPTURE,
+		.num_caps = ARRAY_SIZE(ez2control_caps),
+		.caps = ez2control_caps,
+	},
 };
 
 struct wm_coeff_ctl_ops {
