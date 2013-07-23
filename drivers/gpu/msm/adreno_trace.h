@@ -29,15 +29,21 @@ TRACE_EVENT(adreno_cmdbatch_queued,
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, queued)
+		__field(unsigned int, flags)
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
 		__entry->timestamp = cmdbatch->timestamp;
 		__entry->queued = queued;
+		__entry->flags = cmdbatch->flags;
 	),
 	TP_printk(
-		"ctx=%u ts=%u queued=%u",
-			__entry->id, __entry->timestamp, __entry->queued
+		"ctx=%u ts=%u queued=%u flags=%s",
+			__entry->id, __entry->timestamp, __entry->queued,
+			__entry->flags ? __print_flags(__entry->flags, "|",
+				{ KGSL_CONTEXT_SYNC, "SYNC" },
+				{ KGSL_CONTEXT_END_OF_FRAME, "EOF" })
+				: "none"
 	)
 );
 
