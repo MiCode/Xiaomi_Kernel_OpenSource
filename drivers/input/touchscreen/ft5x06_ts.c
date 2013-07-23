@@ -490,6 +490,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	char txbuf[2], i;
+	int err;
 
 	if (data->loading_fw) {
 		dev_info(dev, "Firmware loading in process...\n");
@@ -517,18 +518,56 @@ static int ft5x06_ts_suspend(struct device *dev)
 		ft5x06_i2c_write(data->client, txbuf, sizeof(txbuf));
 	}
 
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	} else {
+		err = ft5x06_power_on(data, false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	}
+
 	data->suspended = true;
 
 	return 0;
+
+pwr_off_fail:
+	if (gpio_is_valid(data->pdata->reset_gpio)) {
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
+		msleep(FT_RESET_DLY);
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+	}
+	enable_irq(data->client->irq);
+	return err;
 }
 
 static int ft5x06_ts_resume(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int err;
 
 	if (!data->suspended) {
 		dev_info(dev, "Already in awake state\n");
 		return 0;
+	}
+
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
+	} else {
+		err = ft5x06_power_on(data, true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
 	}
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
