@@ -1278,6 +1278,11 @@ static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
 	{ "Slim2 Capture", NULL, "SYSCLK" },
 	{ "Slim3 Capture", NULL, "SYSCLK" },
 
+	{ "Voice Control CPU", NULL, "Voice Control DSP" },
+	{ "Voice Control DSP", NULL, "DSP3" },
+	{ "Voice Control CPU", NULL, "SYSCLK" },
+	{ "Voice Control DSP", NULL, "SYSCLK" },
+
 	{ "IN1L PGA", NULL, "IN1L" },
 	{ "IN1R PGA", NULL, "IN1R" },
 
@@ -1580,6 +1585,27 @@ static struct snd_soc_dai_driver wm5110_dai[] = {
 			 .formats = WM5110_FORMATS,
 		 },
 		.ops = &arizona_simple_dai_ops,
+	},
+	{
+		.name = "wm5110-cpu-voicectrl",
+		.capture = {
+			.stream_name = "Voice Control CPU",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = WM5110_RATES,
+			.formats = WM5110_FORMATS,
+		},
+		.compress_dai = 1,
+	},
+	{
+		.name = "wm5110-dsp-voicectrl",
+		.capture = {
+			.stream_name = "Voice Control DSP",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = WM5110_RATES,
+			.formats = WM5110_FORMATS,
+		},
 	},
 };
 
