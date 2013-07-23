@@ -198,7 +198,8 @@ static inline int mpq_dmx_get_pattern_params(
 		patterns[1] = dvb_dmx_get_pattern(DMX_IDX_H264_PPS);
 		patterns[2] = dvb_dmx_get_pattern(DMX_IDX_H264_IDR_START);
 		patterns[3] = dvb_dmx_get_pattern(DMX_IDX_H264_NON_IDR_START);
-		*patterns_num = 4;
+		patterns[4] = dvb_dmx_get_pattern(DMX_IDX_H264_SEI);
+		*patterns_num = 5;
 		break;
 
 	case DMX_VIDEO_CODEC_VC1:
