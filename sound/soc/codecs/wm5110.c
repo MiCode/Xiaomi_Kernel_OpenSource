@@ -35,9 +35,20 @@
 
 #define WM5110_NUM_ADSP 4
 
+#define WM5110_DEFAULT_FRAGMENTS       1
+#define WM5110_DEFAULT_FRAGMENT_SIZE   4096
+
+struct wm5110_compr {
+	struct mutex lock;
+
+	struct snd_compr_stream *stream;
+	struct wm_adsp* adsp;
+};
+
 struct wm5110_priv {
 	struct arizona_priv core;
 	struct arizona_fll fll[2];
+	struct wm5110_compr compr_info;
 };
 
 static const struct wm_adsp_region wm5110_dsp1_regions[] = {
@@ -1611,18 +1622,77 @@ static struct snd_soc_dai_driver wm5110_dai[] = {
 
 static int wm5110_open(struct snd_compr_stream *stream)
 {
-	return 0;
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+	struct arizona *arizona = wm5110->core.arizona;
+	int i, ret = 0;
+
+	mutex_lock(&wm5110->compr_info.lock);
+
+	if (wm5110->compr_info.stream) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	for (i = 0; i < WM5110_NUM_ADSP; ++i) {
+		if (wm_adsp_compress_supported(&wm5110->core.adsp[i], stream)) {
+			wm5110->compr_info.adsp = &wm5110->core.adsp[i];
+			break;
+		}
+	}
+
+	if (!wm5110->compr_info.adsp) {
+		dev_err(arizona->dev,
+			"No suitable firmware for compressed stream\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	wm5110->compr_info.stream = stream;
+
+out:
+	mutex_unlock(&wm5110->compr_info.lock);
+
+	return ret;
 }
 
 static int wm5110_free(struct snd_compr_stream *stream)
 {
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+
+	mutex_lock(&wm5110->compr_info.lock);
+
+	wm5110->compr_info.stream = NULL;
+
+	mutex_unlock(&wm5110->compr_info.lock);
+
 	return 0;
 }
 
 static int wm5110_set_params(struct snd_compr_stream *stream,
 			     struct snd_compr_params *params)
 {
-	return 0;
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+	struct arizona *arizona = wm5110->core.arizona;
+	struct wm5110_compr *compr = &wm5110->compr_info;
+	int ret = 0;
+
+	mutex_lock(&compr->lock);
+
+	if (!wm_adsp_format_supported(compr->adsp, stream, params)) {
+		dev_err(arizona->dev,
+			"Invalid params: id:%u, chan:%u,%u, rate:%u format:%u\n",
+			params->codec.id, params->codec.ch_in,
+			params->codec.ch_out, params->codec.sample_rate,
+			params->codec.format);
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&compr->lock);
+
+	return ret;
 }
 
 static int wm5110_get_params(struct snd_compr_stream *stream,
@@ -1651,6 +1721,23 @@ static int wm5110_copy(struct snd_compr_stream *stream, char __user *buf,
 static int wm5110_get_caps(struct snd_compr_stream *stream,
 			   struct snd_compr_caps *caps)
 {
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+
+	mutex_lock(&wm5110->compr_info.lock);
+
+	memset(caps, 0, sizeof(*caps));
+
+	caps->direction = stream->direction;
+	caps->min_fragment_size = WM5110_DEFAULT_FRAGMENT_SIZE;
+	caps->max_fragment_size = WM5110_DEFAULT_FRAGMENT_SIZE;
+	caps->min_fragments = WM5110_DEFAULT_FRAGMENTS;
+	caps->max_fragments = WM5110_DEFAULT_FRAGMENTS;
+
+	wm_adsp_get_caps(wm5110->compr_info.adsp, stream, caps);
+
+	mutex_unlock(&wm5110->compr_info.lock);
+
 	return 0;
 }
 
@@ -1756,6 +1843,8 @@ static int wm5110_probe(struct platform_device *pdev)
 	if (wm5110 == NULL)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, wm5110);
+
+	mutex_init(&wm5110->compr_info.lock);
 
 	wm5110->core.arizona = arizona;
 	wm5110->core.num_inputs = 8;
