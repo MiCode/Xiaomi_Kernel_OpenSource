@@ -461,6 +461,21 @@ err:
 }
 
 /**
+ * adreno_drawctxt_sched() - Schedule a previously blocked context
+ * @device: pointer to a KGSL device
+ * @drawctxt: drawctxt to rechedule
+ *
+ * This function is called by the core when it knows that a previously blocked
+ * context has been unblocked.  The default adreno response is to reschedule the
+ * context on the dispatcher
+ */
+void adreno_drawctxt_sched(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
+}
+
+/**
  * adreno_drawctxt_detach(): detach a context from the GPU
  * @context: Generic KGSL context container for the context
  *
