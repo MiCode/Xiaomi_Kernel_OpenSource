@@ -3385,13 +3385,14 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 
 #define SPMI_PROP_READ(chip_prop, qpnp_spmi_property, retval)		\
 do {									\
+	if (retval)							\
+		break;							\
 	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
 				"qcom," qpnp_spmi_property,		\
 					&chip->chip_prop);		\
 	if (retval) {							\
 		pr_err("Error reading " #qpnp_spmi_property		\
 						" property %d\n", rc);	\
-		return -EINVAL;						\
 	}								\
 } while (0)
 
@@ -3403,7 +3404,7 @@ do {									\
 
 static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 {
-	int rc;
+	int rc = 0;
 
 	SPMI_PROP_READ(r_sense_uohm, "r-sense-uohm", rc);
 	SPMI_PROP_READ(v_cutoff_uv, "v-cutoff-uv", rc);
@@ -3420,17 +3421,6 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ(low_soc_calculate_soc_ms,
 			"low-soc-calculate-soc-ms", rc);
 	SPMI_PROP_READ(calculate_soc_ms, "calculate-soc-ms", rc);
-	chip->use_external_rsense = of_property_read_bool(
-			chip->spmi->dev.of_node,
-			"qcom,use-external-rsense");
-	chip->ignore_shutdown_soc = of_property_read_bool(
-			chip->spmi->dev.of_node,
-			"qcom,ignore-shutdown-soc");
-	chip->use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
-			"qcom,use-voltage-soc");
-	chip->use_ocv_thresholds = of_property_read_bool(
-			chip->spmi->dev.of_node,
-			"qcom,use-ocv-thresholds");
 	SPMI_PROP_READ(high_ocv_correction_limit_uv,
 			"high-ocv-correction-limit-uv", rc);
 	SPMI_PROP_READ(low_ocv_correction_limit_uv,
@@ -3443,6 +3433,18 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			"ocv-voltage-low-threshold-uv", rc);
 	SPMI_PROP_READ(low_voltage_threshold, "low-voltage-threshold", rc);
 	SPMI_PROP_READ(temperature_margin, "tm-temp-margin", rc);
+
+	chip->use_external_rsense = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,use-external-rsense");
+	chip->ignore_shutdown_soc = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,ignore-shutdown-soc");
+	chip->use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
+			"qcom,use-voltage-soc");
+	chip->use_ocv_thresholds = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,use-ocv-thresholds");
 
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
@@ -3465,6 +3467,11 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 		pr_debug("min-fcc-soc=%d, min-fcc-pc=%d, min-fcc-cycles=%d\n",
 			chip->min_fcc_learning_soc, chip->min_fcc_ocv_pc,
 			chip->min_fcc_learning_samples);
+	}
+
+	if (rc) {
+		pr_err("Missing required properties.\n");
+		return rc;
 	}
 
 	pr_debug("dts data: r_sense_uohm:%d, v_cutoff_uv:%d, max_v:%d\n",
