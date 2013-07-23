@@ -533,11 +533,11 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		goto kickoff_fail;
 	}
 
-	ret = wait_for_completion_interruptible_timeout(&comp, KOFF_TIMEOUT);
-	if (ret <= 0) {
+	ret = wait_for_completion_timeout(&comp, KOFF_TIMEOUT);
+	if (ret == 0)
 		WARN(1, "wfd kick off time out=%d ctl=%d", ret, ctl->num);
+	else
 		ret = 0;
-	}
 
 	if (wb && node) {
 		mutex_lock(&wb->lock);
