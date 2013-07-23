@@ -52,7 +52,7 @@ struct ion_iommu_priv_data {
 #define MAX_VMAP_RETRIES 10
 #define BAD_ORDER	-1
 
-static const unsigned int orders[] = {8, 4, 0};
+static const unsigned int orders[] = {9, 8, 4, 0};
 static const int num_orders = ARRAY_SIZE(orders);
 static unsigned int low_gfp_flags = __GFP_HIGHMEM | GFP_KERNEL | __GFP_ZERO;
 static unsigned int high_gfp_flags = (__GFP_HIGHMEM | __GFP_NORETRY
