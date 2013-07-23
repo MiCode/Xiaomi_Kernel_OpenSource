@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2009,2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2009,2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,8 @@
 #ifndef _ARCH_ARM_MACH_MSM_IDLE_H_
 #define _ARCH_ARM_MACH_MSM_IDLE_H_
 
-/* 11 general purpose registers (r4-r14), 10 cp15 registers */
-#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
+/* 2 general purpose registers (r13-r14), 10 cp15 registers */
+#define CPU_SAVED_STATE_SIZE (4 * 2 + 4 * 10)
 
 #define ON	1
 #define OFF	0

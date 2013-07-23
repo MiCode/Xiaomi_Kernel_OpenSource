@@ -151,7 +151,8 @@ ENTRY(msm_pm_collapse)
 	add	r0, r0, r1
 #endif
 
-	stmia   r0!, {r4-r14}
+	PUSH	{r4-r12}
+	stmia   r0!, {r13-r14}
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
 	mrc     p15, 0, r3, c3, c0, 0 /* dacr */
@@ -267,7 +268,8 @@ skip_pc_debug2:
 	mul	r2, r2, r1
 	add	r0, r0, r2
 #endif
-	ldmfd   r0, {r4-r14}		 /* restore registers */
+	ldmfd   r0, {r13-r14}		 /* restore sp and lr */
+	POP 	{r4-r12}		 /* restore r4-r12 registers */
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
 
@@ -310,7 +312,7 @@ ENTRY(msm_pm_collapse_exit)
 	mcr     p15, 0, r10, c13, c0, 3 /* TPIDRURO */
 	mcr     p15, 0, r11, c13, c0, 1 /* context ID */
 	isb
-	ldmdb   r1!, {r4-r14}
+	ldmdb   r1!, {r13-r14}
 	ldr	r0, =msm_pm_pc_pgd
 	ldr	r1, =msm_pm_collapse_exit
 	adr	r3, msm_pm_collapse_exit
@@ -335,6 +337,7 @@ msm_pm_pa_to_va:
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
 	isb
+	POP	{r4-r12}
 
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	mrc	p15, 0, r1, c0, c0, 0
