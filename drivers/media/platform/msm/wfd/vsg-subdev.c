@@ -424,7 +424,8 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 			struct timespec diff = timespec_sub(buf_info->time,
 					context->last_buffer->time);
 			struct timespec temp = ns_to_timespec(
-						context->frame_interval);
+					context->frame_interval -
+					context->frame_interval_variance);
 
 			if (timespec_compare(&diff, &temp) >= 0)
 				push = true;
@@ -633,6 +634,61 @@ static long vsg_get_max_frame_interval(struct v4l2_subdev *sd, void *arg)
 	return 0;
 }
 
+static long vsg_set_frame_interval_variance(struct v4l2_subdev *sd, void *arg)
+{
+	struct vsg_context *context = NULL;
+	int64_t variance;
+
+	if (!arg || !sd) {
+		WFD_MSG_ERR("ERROR, invalid arguments into %s\n", __func__);
+		return -EINVAL;
+	}
+
+	context = (struct vsg_context *)sd->dev_priv;
+	variance = *(int64_t *)arg;
+
+	if (variance < 0 || variance > 100) {
+		WFD_MSG_ERR("ERROR, invalid variance %lld%% into %s\n",
+				variance, __func__);
+		return -EINVAL;
+	} else if (context->mode == VSG_MODE_CFR) {
+		WFD_MSG_ERR("Setting FPS variance not supported in CFR mode\n");
+		return -ENOTSUPP;
+	}
+
+	mutex_lock(&context->mutex);
+
+	/* Convert from percentage to a value in nano seconds */
+	variance *= context->frame_interval;
+	do_div(variance, 100);
+
+	context->frame_interval_variance = variance;
+	mutex_unlock(&context->mutex);
+
+	return 0;
+}
+
+static long vsg_get_frame_interval_variance(struct v4l2_subdev *sd, void *arg)
+{
+	struct vsg_context *context = NULL;
+	int64_t variance;
+
+	if (!arg || !sd) {
+		WFD_MSG_ERR("ERROR, invalid arguments into %s\n", __func__);
+		return -EINVAL;
+	}
+
+	context = (struct vsg_context *)sd->dev_priv;
+
+	mutex_lock(&context->mutex);
+	variance = context->frame_interval_variance * 100;
+	do_div(variance, context->frame_interval);
+	*(int64_t *)arg = variance;
+	mutex_unlock(&context->mutex);
+
+	return 0;
+}
+
 static long vsg_set_mode(struct v4l2_subdev *sd, void *arg)
 {
 	struct vsg_context *context = NULL;
@@ -701,6 +757,12 @@ long vsg_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case VSG_SET_FRAME_INTERVAL:
 		rc = vsg_set_frame_interval(sd, arg);
+		break;
+	case VSG_SET_FRAME_INTERVAL_VARIANCE:
+		rc = vsg_set_frame_interval_variance(sd, arg);
+		break;
+	case VSG_GET_FRAME_INTERVAL_VARIANCE:
+		rc = vsg_get_frame_interval_variance(sd, arg);
 		break;
 	case VSG_GET_MAX_FRAME_INTERVAL:
 		rc = vsg_get_max_frame_interval(sd, arg);
