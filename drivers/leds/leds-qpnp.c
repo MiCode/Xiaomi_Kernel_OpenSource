@@ -378,7 +378,7 @@ struct mpp_config_data {
  *  @second_addr - address of secondary flash to be written
  *  @safety_timer - enable safety timer or watchdog timer
  *  @torch_enable - enable flash LED torch mode
- *  @regulator_get - regulator attached or not
+ *  @flash_reg_get - flash regulator attached or not
  *  @flash_on - flash status, on or off
  *  @flash_boost_reg - boost regulator for flash
  */
@@ -395,7 +395,7 @@ struct flash_config_data {
 	u16	second_addr;
 	bool	safety_timer;
 	bool	torch_enable;
-	bool	regulator_get;
+	bool	flash_reg_get;
 	bool	flash_on;
 	struct regulator *flash_boost_reg;
 };
@@ -681,6 +681,66 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 	return 0;
 }
 
+static int qpnp_flash_regulator_operate(struct qpnp_led_data *led, bool on)
+{
+	int rc, i;
+	struct qpnp_led_data *led_array;
+	bool regulator_on = false;
+
+	led_array = dev_get_drvdata(&led->spmi_dev->dev);
+	if (!led_array) {
+		dev_err(&led->spmi_dev->dev,
+				"Unable to get LED array\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < led->num_leds; i++)
+		regulator_on |= led_array[i].flash_cfg->flash_on;
+
+	if (!on)
+		goto regulator_turn_off;
+
+	if (!regulator_on && !led->flash_cfg->flash_on) {
+		for (i = 0; i < led->num_leds; i++) {
+			if (led_array[i].flash_cfg->flash_reg_get) {
+				rc = regulator_enable(
+					led_array[i].flash_cfg->\
+					flash_boost_reg);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+						"Regulator enable failed(%d)\n",
+									rc);
+					return rc;
+				}
+				led->flash_cfg->flash_on = true;
+			}
+			break;
+		}
+	}
+
+	return 0;
+
+regulator_turn_off:
+	if (regulator_on && led->flash_cfg->flash_on) {
+		for (i = 0; i < led->num_leds; i++) {
+			if (led_array[i].flash_cfg->flash_reg_get) {
+				rc = regulator_disable(led_array[i].flash_cfg->\
+							flash_boost_reg);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+						"Regulator disable failed(%d)\n",
+									rc);
+					return rc;
+				}
+				led->flash_cfg->flash_on = false;
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int qpnp_flash_set(struct qpnp_led_data *led)
 {
 	int rc;
@@ -759,6 +819,14 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				return rc;
 			}
 		} else {
+			rc = qpnp_flash_regulator_operate(led, true);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Flash regulator operate failed(%d)\n",
+					rc);
+				return rc;
+			}
+
 			/* Set flash safety timer */
 			rc = qpnp_led_masked_write(led,
 				FLASH_SAFETY_TIMER(led->base),
@@ -897,6 +965,13 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"Enable reg write failed(%d)\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_flash_regulator_operate(led, false);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Flash regulator operate failed(%d)\n", rc);
 			return rc;
 		}
 	}
@@ -1062,35 +1137,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 static void __qpnp_led_work(struct qpnp_led_data *led,
 				enum led_brightness value)
 {
-	int rc, i;
-	struct qpnp_led_data *led_array;
-
-	if (led->id == QPNP_ID_FLASH1_LED0 || led->id == QPNP_ID_FLASH1_LED1) {
-		if (!led->flash_cfg->flash_on && value > 0) {
-			led_array = dev_get_drvdata(&led->spmi_dev->dev);
-			if (!led_array) {
-				dev_err(&led->spmi_dev->dev,
-					"Unable to unable to get array\n");
-				return;
-			}
-
-			for (i = 0; i < led->num_leds; i++) {
-				if (led_array[i].flash_cfg->regulator_get) {
-					rc = regulator_enable(led_array[i].\
-							flash_cfg->\
-							flash_boost_reg);
-					if (rc) {
-						dev_err(&led->spmi_dev->dev,
-							"Regulator enable" \
-							 "failed(%d)\n",
-							rc);
-						return;
-					}
-				}
-			}
-			led->flash_cfg->flash_on = true;
-		}
-	}
+	int rc;
 
 	mutex_lock(&led->lock);
 
@@ -1134,31 +1181,6 @@ static void __qpnp_led_work(struct qpnp_led_data *led,
 	}
 	mutex_unlock(&led->lock);
 
-	if (led->id == QPNP_ID_FLASH1_LED0 || led->id == QPNP_ID_FLASH1_LED1) {
-		if (led->flash_cfg->flash_on && !value) {
-			led_array = dev_get_drvdata(&led->spmi_dev->dev);
-			if (!led_array) {
-				dev_err(&led->spmi_dev->dev,
-						"Unable to get LED array\n");
-				return;
-			}
-
-			for (i = 0; i < led->num_leds; i++) {
-				if (led_array[i].flash_cfg->regulator_get) {
-					rc = regulator_disable(led_array[i]\
-						.flash_cfg->flash_boost_reg);
-					if (rc) {
-						dev_err(&led->spmi_dev->dev,
-							"Unable to disable" \
-							" regulator(%d)\n",
-							rc);
-						return;
-					}
-				}
-			}
-			led->flash_cfg->flash_on = false;
-		}
-	}
 }
 
 static void qpnp_led_work(struct work_struct *work)
@@ -2380,10 +2402,10 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 					"Regulator get failed(%d)\n", rc);
 				return rc;
 			}
-			led->flash_cfg->regulator_get = true;
+			led->flash_cfg->flash_reg_get = true;
 			*reg_set = true;
 		} else
-			led->flash_cfg->regulator_get = false;
+			led->flash_cfg->flash_reg_get = false;
 	} else if (led->id == QPNP_ID_FLASH1_LED1) {
 		led->flash_cfg->enable_module = FLASH_ENABLE_ALL;
 		led->flash_cfg->current_addr = FLASH_LED_1_CURR(led->base);
@@ -2399,10 +2421,10 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 					"Regulator get failed(%d)\n", rc);
 				return rc;
 			}
-			led->flash_cfg->regulator_get = true;
+			led->flash_cfg->flash_reg_get = true;
 			*reg_set = true;
 		} else
-			led->flash_cfg->regulator_get = false;
+			led->flash_cfg->flash_reg_get = false;
 	} else {
 		dev_err(&led->spmi_dev->dev, "Unknown flash LED name given\n");
 		return -EINVAL;
@@ -3047,7 +3069,7 @@ static int __devexit qpnp_leds_remove(struct spmi_device *spmi)
 			break;
 		case QPNP_ID_FLASH1_LED0:
 		case QPNP_ID_FLASH1_LED1:
-			if (led_array[i].flash_cfg->regulator_get)
+			if (led_array[i].flash_cfg->flash_reg_get)
 				regulator_put(led_array[i].flash_cfg-> \
 							flash_boost_reg);
 			sysfs_remove_group(&led_array[i].cdev.dev->kobj,
