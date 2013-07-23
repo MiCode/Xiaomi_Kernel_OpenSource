@@ -1583,6 +1583,57 @@ static struct snd_soc_dai_driver wm5110_dai[] = {
 	},
 };
 
+static int wm5110_open(struct snd_compr_stream *stream)
+{
+	return 0;
+}
+
+static int wm5110_free(struct snd_compr_stream *stream)
+{
+	return 0;
+}
+
+static int wm5110_set_params(struct snd_compr_stream *stream,
+			     struct snd_compr_params *params)
+{
+	return 0;
+}
+
+static int wm5110_get_params(struct snd_compr_stream *stream,
+			     struct snd_codec *params)
+{
+	return 0;
+}
+
+static int wm5110_trigger(struct snd_compr_stream *stream, int cmd)
+{
+	return 0;
+}
+
+static int wm5110_pointer(struct snd_compr_stream *stream,
+			  struct snd_compr_tstamp *tstamp)
+{
+	return 0;
+}
+
+static int wm5110_copy(struct snd_compr_stream *stream, char __user *buf,
+		       size_t count)
+{
+	return 0;
+}
+
+static int wm5110_get_caps(struct snd_compr_stream *stream,
+			   struct snd_compr_caps *caps)
+{
+	return 0;
+}
+
+static int wm5110_get_codec_caps(struct snd_compr_stream *stream,
+				 struct snd_compr_codec_caps *codec)
+{
+	return 0;
+}
+
 static int wm5110_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wm5110_priv *priv = snd_soc_codec_get_drvdata(codec);
@@ -1652,6 +1703,22 @@ static struct snd_soc_codec_driver soc_codec_dev_wm5110 = {
 	.num_dapm_routes = ARRAY_SIZE(wm5110_dapm_routes),
 };
 
+static struct snd_compr_ops wm5110_compr_ops = {
+	.open = wm5110_open,
+	.free = wm5110_free,
+	.set_params = wm5110_set_params,
+	.get_params = wm5110_get_params,
+	.trigger = wm5110_trigger,
+	.pointer = wm5110_pointer,
+	.copy = wm5110_copy,
+	.get_caps = wm5110_get_caps,
+	.get_codec_caps = wm5110_get_codec_caps,
+};
+
+static struct snd_soc_platform_driver wm5110_compr_platform = {
+	.compr_ops = &wm5110_compr_ops,
+};
+
 static int wm5110_probe(struct platform_device *pdev)
 {
 	struct arizona *arizona = dev_get_drvdata(pdev->dev.parent);
@@ -1712,8 +1779,25 @@ static int wm5110_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_idle(&pdev->dev);
 
-	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wm5110,
+	ret = snd_soc_register_platform(&pdev->dev, &wm5110_compr_platform);
+	if (ret < 0) {
+		dev_err(&pdev->dev,
+			"Failed to register platform: %d\n",
+			ret);
+		goto error;
+	}
+
+	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wm5110,
 				      wm5110_dai, ARRAY_SIZE(wm5110_dai));
+	if (ret < 0) {
+		dev_err(&pdev->dev,
+			"Failed to register codec: %d\n",
+			ret);
+		snd_soc_unregister_platform(&pdev->dev);
+	}
+
+error:
+	return ret;
 }
 
 static int wm5110_remove(struct platform_device *pdev)
