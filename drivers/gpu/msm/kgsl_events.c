@@ -253,7 +253,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	 * Increase the active count on the device to avoid going into power
 	 * saving modes while events are pending
 	 */
-	ret = kgsl_active_count_get_light(device);
+	ret = kgsl_active_count_get(device);
 	if (ret < 0) {
 		kgsl_context_put(context);
 		kfree(event);
