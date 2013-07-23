@@ -727,7 +727,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_FLOATED_CHARGER:
-					dotg->charger_retry_count++;
+					if (dotg->charger_retry_count <
+							max_chgr_retry_count)
+						dotg->charger_retry_count++;
 					/*
 					 * In case of floating charger, if
 					 * retry count equal to max retry count
