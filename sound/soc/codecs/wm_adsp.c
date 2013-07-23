@@ -207,8 +207,16 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_RX_ANC] =  "Rx ANC",
 };
 
-static struct {
+struct wm_adsp_fw_caps {
+	u32 id;
+	struct snd_codec_desc desc;
+};
+
+static const struct {
 	const char *file;
+	int compr_direction;
+	int num_caps;
+	const struct wm_adsp_fw_caps *caps;
 } wm_adsp_fw[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] = { .file = "mbc-vss" },
 	[WM_ADSP_FW_TX] =      { .file = "tx" },
@@ -1746,5 +1754,66 @@ int wm_adsp2_init(struct wm_adsp *adsp, bool dvfs)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(wm_adsp2_init);
+
+bool wm_adsp_compress_supported(const struct wm_adsp* adsp,
+				const struct snd_compr_stream* stream)
+{
+	if (adsp->fw >= 0 && adsp->fw < WM_ADSP_NUM_FW) {
+		if (wm_adsp_fw[adsp->fw].num_caps == 0)
+			return false;
+
+		if (wm_adsp_fw[adsp->fw].compr_direction == stream->direction)
+			return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_compress_supported);
+
+bool wm_adsp_format_supported(const struct wm_adsp *adsp,
+			      const struct snd_compr_stream *stream,
+			      const struct snd_compr_params *params)
+{
+	const struct wm_adsp_fw_caps *caps;
+	int i;
+
+	for (i = 0; i < wm_adsp_fw[adsp->fw].num_caps; i++) {
+		caps = &wm_adsp_fw[adsp->fw].caps[i];
+
+		if (caps->id != params->codec.id)
+			continue;
+
+		if (stream->direction == SND_COMPRESS_PLAYBACK) {
+			if (caps->desc.max_ch < params->codec.ch_out)
+				continue;
+		} else {
+			if (caps->desc.max_ch < params->codec.ch_in)
+				continue;
+		}
+
+		if ((caps->desc.sample_rates & params->codec.sample_rate) &&
+		    (caps->desc.formats & (1 << params->codec.format)))
+			return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_format_supported);
+
+void wm_adsp_get_caps(const struct wm_adsp *adsp,
+		      const struct snd_compr_stream *stream,
+		      struct snd_compr_caps *caps)
+{
+	int i;
+
+	if (wm_adsp_fw[adsp->fw].caps) {
+		for (i = 0; i < wm_adsp_fw[adsp->fw].num_caps; i++)
+			caps->codecs[i] = wm_adsp_fw[adsp->fw].caps[i].id;
+
+		caps->num_codecs = i;
+		caps->direction = wm_adsp_fw[adsp->fw].compr_direction;
+	}
+}
+EXPORT_SYMBOL_GPL(wm_adsp_get_caps);
 
 MODULE_LICENSE("GPL v2");
