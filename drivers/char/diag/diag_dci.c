@@ -54,7 +54,7 @@ unsigned long ws_lock_flags;
 struct diag_dci_data_info *dci_data_smd;
 struct mutex dci_stat_mutex;
 
-void diag_dci_smd_record_info(int read_bytes)
+void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type)
 {
 	static int curr_dci_data_smd;
 	static unsigned long iteration;
@@ -67,13 +67,14 @@ void diag_dci_smd_record_info(int read_bytes)
 	temp_data += curr_dci_data_smd;
 	temp_data->iteration = iteration + 1;
 	temp_data->data_size = read_bytes;
+	temp_data->ch_type = ch_type;
 	diag_get_timestamp(temp_data->time_stamp);
 	curr_dci_data_smd++;
 	iteration++;
 	mutex_unlock(&dci_stat_mutex);
 }
 #else
-void diag_dci_smd_record_info(int read_bytes) { }
+void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type) { }
 #endif
 
 /* Process the data read from the smd dci channel */
@@ -83,7 +84,7 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	int read_bytes, dci_pkt_len, i;
 	uint8_t recv_pkt_cmd_code;
 
-	diag_dci_smd_record_info(recd_bytes);
+	diag_dci_smd_record_info(recd_bytes, (uint8_t)smd_info->type);
 	/* Each SMD read can have multiple DCI packets */
 	read_bytes = 0;
 	while (read_bytes < recd_bytes) {
