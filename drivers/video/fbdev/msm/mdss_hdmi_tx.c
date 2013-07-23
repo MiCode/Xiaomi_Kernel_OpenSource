@@ -193,12 +193,18 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{20480, 247500} } },
 };
 
-static bool is_cea_format(int mode)
+static bool hdmi_tx_is_cea_format(int mode)
 {
-	if ((mode > 0) && (mode < HDMI_EVFRMT_END))
-		return true;
+	bool cea_fmt;
+
+	if ((mode > 0) && (mode <= HDMI_EVFRMT_END))
+		cea_fmt = true;
 	else
-		return false;
+		cea_fmt = false;
+
+	DEV_DBG("%s: %s\n", __func__, cea_fmt ? "Yes" : "No");
+
+	return cea_fmt;
 }
 
 const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
@@ -2211,7 +2217,7 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
-	    is_cea_format(hdmi_ctrl->video_resolution)) {
+	    hdmi_tx_is_cea_format(hdmi_ctrl->video_resolution)) {
 		rc = hdmi_tx_audio_setup(hdmi_ctrl);
 		if (rc) {
 			DEV_ERR("%s: hdmi_msm_audio_setup failed. rc=%d\n",
