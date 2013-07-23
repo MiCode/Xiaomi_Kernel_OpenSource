@@ -548,7 +548,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 {
 	void *buf = NULL, *temp_buf = NULL;
 	int total_recd = 0, r = 0, pkt_len;
-	int loop_count = 0;
+	int loop_count = 0, total_recd_partial = 0;
 	int notify = 0;
 
 	if (!smd_info) {
@@ -590,13 +590,10 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 
 	if (smd_info->ch && buf) {
 		temp_buf = buf;
-		pkt_len = smd_cur_packet_size(smd_info->ch);
+		while ((pkt_len = smd_cur_packet_size(smd_info->ch)) != 0) {
+			total_recd_partial = 0;
 
-		if (pkt_len == 0 && (smd_info->type == SMD_DCI_TYPE ||
-					smd_info->type == SMD_DCI_CMD_TYPE))
-			diag_dci_try_deactivate_wakeup_source(smd_info->ch);
-
-		while (pkt_len && (pkt_len != total_recd)) {
+		while (pkt_len && (pkt_len != total_recd_partial)) {
 			loop_count++;
 			r = smd_read_avail(smd_info->ch);
 			pr_debug("diag: In %s, received pkt %d %d\n",
@@ -618,6 +615,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				}
 			}
 			total_recd += r;
+			total_recd_partial += r;
 			if (total_recd > IN_BUF_SIZE) {
 				if (total_recd < MAX_IN_BUF_SIZE) {
 					pr_err("diag: In %s, SMD sending in packets up to %d bytes\n",
@@ -641,10 +639,17 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				smd_info->peripheral, smd_info->type);
 			}
 
-			/* keep reading for complete packet */
-			smd_read(smd_info->ch, temp_buf, r);
-			temp_buf += r;
+				/* keep reading for complete packet */
+				smd_read(smd_info->ch, temp_buf, r);
+				temp_buf += r;
+			}
+			if (smd_info->type != SMD_CNTL_TYPE)
+				break;
 		}
+		if (pkt_len == 0 && (smd_info->type == SMD_DCI_TYPE ||
+					smd_info->type == SMD_DCI_CMD_TYPE))
+			diag_dci_try_deactivate_wakeup_source(smd_info->ch);
+
 		if (!driver->real_time_mode && smd_info->type == SMD_DATA_TYPE)
 			process_lock_on_read(&smd_info->nrt_lock, pkt_len);
 
