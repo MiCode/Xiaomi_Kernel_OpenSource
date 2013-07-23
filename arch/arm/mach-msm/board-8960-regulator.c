@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -630,15 +630,26 @@ void __init configure_msm8960_power_grid(void)
 	static struct rpm_regulator_init_data *rpm_data;
 	int i;
 
-	if (machine_is_msm8960_cdp()) {
+	if (machine_is_msm8960_cdp() || cpu_is_msm8960ab()) {
 		/* Only modify LVS6 consumers for CDP targets. */
 		for (i = 0; i < ARRAY_SIZE(msm_rpm_regulator_init_data); i++) {
 			rpm_data = &msm_rpm_regulator_init_data[i];
-			if (rpm_data->id == RPM_VREG_ID_PM8921_LVS6) {
+			if (machine_is_msm8960_cdp() &&
+				rpm_data->id == RPM_VREG_ID_PM8921_LVS6) {
 				rpm_data->init_data.consumer_supplies
 					= vreg_consumers_CDP_LVS6;
 				rpm_data->init_data.num_consumer_supplies
 					= ARRAY_SIZE(vreg_consumers_CDP_LVS6);
+			}
+			if (cpu_is_msm8960ab() &&
+				rpm_data->id == RPM_VREG_ID_PM8921_S7) {
+				rpm_data->init_data.constraints.min_uV =
+								1275000;
+				rpm_data->init_data.constraints.max_uV =
+								1275000;
+				rpm_data->init_data.constraints.input_uV =
+								1275000;
+				rpm_data->default_uV = 1275000;
 			}
 		}
 	}
