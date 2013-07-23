@@ -1069,10 +1069,11 @@ void notify_usb_connected(enum usb_bam cur_bam)
 		info.connect_complete = 1;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
-	if (info.cur_cons_state[HSUSB_BAM] == IPA_RM_RESOURCE_GRANTED) {
-		pr_debug("%s: Notify CONS_GRANTED\n", __func__);
+	if (info.cur_cons_state[cur_bam] == IPA_RM_RESOURCE_GRANTED) {
+		pr_debug("%s: Notify %s_CONS_GRANTED\n", __func__,
+			bam_enable_strings[cur_bam]);
 		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
-				 ipa_rm_resource_cons[HSUSB_BAM]);
+				 ipa_rm_resource_cons[cur_bam]);
 	}
 }
 
@@ -1505,7 +1506,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 	ctx.pipes_enabled_per_bam[cur_bam] += 1;
 	spin_unlock(&usb_bam_lock);
-	if (ipa_params->dir == PEER_PERIPHERAL_TO_USB && cur_bam == HSUSB_BAM)
+	if (ipa_params->dir == PEER_PERIPHERAL_TO_USB)
 		notify_usb_connected(cur_bam);
 
 	if (cur_bam == HSUSB_BAM)
