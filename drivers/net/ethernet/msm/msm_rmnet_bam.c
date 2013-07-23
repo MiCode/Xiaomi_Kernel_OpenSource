@@ -720,6 +720,11 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 			break;
 	}
 
+	if (i >= RMNET_DEVICE_COUNT) {
+		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
+		return -ENODEV;
+	}
+
 	p = netdev_priv(netdevs[i]);
 	if (p->in_reset) {
 		p->in_reset = 0;
@@ -775,7 +780,7 @@ static int bam_rmnet_rev_probe(struct platform_device *pdev)
 
 	if (i >= RMNET_REV_DEVICE_COUNT) {
 		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return 0;
+		return -ENODEV;
 	}
 
 	p = netdev_priv(netdevs_rev[i]);
