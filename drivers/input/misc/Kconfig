@@ -704,4 +704,14 @@ config SENSORS_STK3X1X
 	  To compile this driver as a module, choose M here: the
 	  module will be called stk3x1x.
 
+config SENSORS_CAPELLA_CM36283
+	tristate "CM36283 proximity and light sensor"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable the CM36283 Proximity
+	  Sensor with Ambient Light Sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called CM36283.
 endif
