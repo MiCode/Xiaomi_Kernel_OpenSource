@@ -100,11 +100,18 @@ Optional properties:
 - qcom,reset-flush-race : indicates if a race exists between flushing and ddr
 			  being put into self-refresh during watchdog reset
 - qcom,write-64bit : only 64bit data writes supported by stm
-- vdd-supply: phandle to the regulator device tree node. Used for tpiu component
-- qcom,vdd-voltage-level : specifies voltage level for vdd supply. Should be
-			   specified in pairs (min, max) with units being uV
-- qcom,vdd-current-level : specifies current load levels for vdd supply. Should
-			   be specified in paris (lpm, hpm) with units being uA
+- <supply-name>-supply: phandle to the regulator device tree node. The required
+			<supply-name> is "vdd" for SD card and "vdd-io" for SD
+			I/O supply. Used for tpiu component
+- qcom,<supply>-voltage-level : specifies voltage level for vdd supply. Should
+				be specified in pairs (min, max) with units
+				being uV. Here <supply> can be "vdd" for SD card
+				vdd supply or "vdd-io" for SD I/O vdd supply.
+- qcom,<supply>-current-level : specifies current load levels for vdd supply.
+				Should be specified in pairs (lpm, hpm) with
+				units being uA. Here <supply> can be "vdd" for
+				SD card vdd supply or "vdd-io" for SD I/O vdd
+				supply.
 - qcom,seta-gpios : specifies gpios included in set A that are routed to the
 		    mictor connector. Used for tpiu component
 - qcom,seta-gpios-func : active function select for set A gpios
