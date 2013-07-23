@@ -31,6 +31,7 @@ static char *descriptions =
 	" 6 msm: perf: clean up duplicate constraint events\n"
 	" 7 Perf: Add L1 counters to tracepoints\n"
 	" 8 Perf: Make per-process counters configurable\n"
+	" 9 msm: perf: Add L2 support for tracecounters\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

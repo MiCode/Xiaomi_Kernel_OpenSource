@@ -18,54 +18,6 @@
 
 #include <mach/msm-krait-l2-accessors.h>
 
-#define MAX_L2_PERIOD	((1ULL << 32) - 1)
-#define MAX_KRAIT_L2_CTRS 10
-
-#define PMCR_NUM_EV_SHIFT 11
-#define PMCR_NUM_EV_MASK 0x1f
-
-#define L2_EVT_MASK 0xfffff
-
-#define L2_SLAVE_EV_PREFIX 4
-
-#define L2PMCCNTR 0x409
-#define L2PMCCNTCR 0x408
-#define L2PMCCNTSR 0x40A
-#define L2CYCLE_CTR_BIT 31
-#define L2CYCLE_CTR_RAW_CODE 0xfe
-
-#define L2PMOVSR	0x406
-
-#define L2PMCR	0x400
-#define L2PMCR_RESET_ALL	0x6
-#define L2PMCR_GLOBAL_ENABLE	0x1
-#define L2PMCR_GLOBAL_DISABLE	0x0
-
-#define L2PMCNTENSET	0x403
-#define L2PMCNTENCLR	0x402
-
-#define L2PMINTENSET	0x405
-#define L2PMINTENCLR	0x404
-
-#define IA_L2PMXEVCNTCR_BASE	0x420
-#define IA_L2PMXEVTYPER_BASE	0x424
-#define IA_L2PMRESX_BASE	0x410
-#define IA_L2PMXEVFILTER_BASE	0x423
-#define IA_L2PMXEVCNTR_BASE	0x421
-
-/* event format is -e rsRCCG See get_event_desc() */
-
-#define EVENT_PREFIX_MASK	0xf0000
-#define EVENT_REG_MASK		0x0f000
-#define EVENT_GROUPSEL_MASK	0x0000f
-#define	EVENT_GROUPCODE_MASK	0x00ff0
-
-#define EVENT_PREFIX_SHIFT	16
-#define EVENT_REG_SHIFT		12
-#define EVENT_GROUPCODE_SHIFT	4
-
-#define	RESRX_VALUE_EN	0x80000000
-
 /*
  * The L2 PMU is shared between all CPU's, so protect
  * its bitmap access.
@@ -200,13 +152,16 @@ static void set_evfilter_task_mode(int ctr, unsigned int is_slv)
 	set_l2_indirect_reg(filter_reg, filter_val);
 }
 
-static void set_evfilter_sys_mode(int ctr, unsigned int is_slv)
+static void set_evfilter_sys_mode(int ctr, unsigned int is_slv, int cpu,
+		unsigned int is_tracectr)
 {
 	u32 filter_reg = (ctr * 16) + IA_L2PMXEVFILTER_BASE;
 	u32 filter_val = l2_orig_filter_prefix | 0xf;
 
-	if (is_slv)
+	if (is_slv == 1)
 		filter_val = l2_slv_filter_prefix;
+	if (is_tracectr == 1)
+		filter_val = l2_orig_filter_prefix | 1 << cpu;
 
 	set_l2_indirect_reg(filter_reg, filter_val);
 }
@@ -286,6 +241,7 @@ static void krait_l2_enable(struct perf_event *event)
 	struct event_desc evdesc;
 	unsigned long iflags;
 	unsigned int is_slv = 0;
+	unsigned int is_tracectr = 0;
 	unsigned int evt_prefix;
 
 	raw_spin_lock_irqsave(&krait_l2_pmu_hw_events.pmu_lock, iflags);
@@ -299,6 +255,8 @@ static void krait_l2_enable(struct perf_event *event)
 
 	if (evt_prefix == L2_SLAVE_EV_PREFIX)
 		is_slv = 1;
+	else if (evt_prefix == L2_TRACECTR_PREFIX)
+		is_tracectr = 1;
 
 	set_evcntcr(idx);
 
@@ -314,7 +272,7 @@ static void krait_l2_enable(struct perf_event *event)
 	if (event->cpu < 0)
 		set_evfilter_task_mode(idx, is_slv);
 	else
-		set_evfilter_sys_mode(idx, is_slv);
+		set_evfilter_sys_mode(idx, is_slv, event->cpu, is_tracectr);
 
 out:
 	enable_intenset(idx);
@@ -464,6 +422,7 @@ krait_l2_pmu_generic_free_irq(int irq, void *dev_id)
 static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 {
 	u32 evt_type = event->attr.config & L2_EVT_MASK;
+	u8 evt_prefix = (evt_type & EVENT_PREFIX_MASK) >> EVENT_PREFIX_SHIFT;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group = evt_type & 0x0000F;
 	u8 code = (evt_type & 0x00FF0) >> 4;
@@ -472,6 +431,8 @@ static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 	u64 bitmap_t;
 	u32 shift_idx;
 
+	if (evt_prefix == L2_TRACECTR_PREFIX)
+		return err;
 	/*
 	 * Cycle counter collision is detected in
 	 * get_event_idx().
@@ -517,12 +478,15 @@ out:
 static int msm_l2_clear_ev_constraint(struct perf_event *event)
 {
 	u32 evt_type = event->attr.config & L2_EVT_MASK;
+	u8 evt_prefix = (evt_type & EVENT_PREFIX_MASK) >> EVENT_PREFIX_SHIFT;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group =  evt_type & 0x0000F;
 	unsigned long flags;
 	u64 bitmap_t;
 	u32 shift_idx;
 
+	if (evt_prefix == L2_TRACECTR_PREFIX)
+		return 1;
 	raw_spin_lock_irqsave(&l2_pmu_constraints.lock, flags);
 
 	shift_idx = ((reg * 4) + group);
