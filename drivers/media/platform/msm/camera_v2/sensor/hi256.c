@@ -1010,13 +1010,472 @@ static struct msm_camera_i2c_reg_conf hi256_svga_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf hi256_sleep_settings[] = {
+
 	{0x03, 0x00},
 	{0x01, 0xf1},
 	{0x03, 0x02},
 	{0x55, 0x10},
+
 	{0x01, 0xf1},
 	{0x01, 0xf3},
 	{0x01, 0xf1},
+
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_saturation[11][3] = {
+	{
+		{0x03, 0x10},
+		{0x61, 0x1c},
+		{0x62, 0x1c},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x30},
+		{0x62, 0x30},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x44},
+		{0x62, 0x44},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x58},
+		{0x62, 0x58},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x6c},
+		{0x62, 0x6c},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x80},
+		{0x62, 0x80},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0x94},
+		{0x62, 0x94},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0xa8},
+		{0x62, 0xa8},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0xbc},
+		{0x62, 0xbc},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0xd0},
+		{0x62, 0xd0},
+	},
+	{
+		{0x03, 0x10},
+		{0x61, 0xe4},
+		{0x62, 0xe4},
+	},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_contrast[11][3] = {
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x1c},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x30},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x44},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x58},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x6c},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x80},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0x94},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0xa8},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0xbc},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0xd0},
+	},
+	{
+		{0x03, 0x10},
+		{0x13, 0x02},
+		{0x48, 0xe4},
+	},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_sharpness[7][9] = {
+	{
+		{0x03, 0x13},
+		{0x20, 0x00},
+		{0x21, 0x00},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0x00},
+		{0x91, 0x00},
+		{0x94, 0x24},
+		{0x95, 0x65},
+	}, /* SHARPNESS LEVEL 0*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x04},
+		{0x21, 0x03},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0x08},
+		{0x91, 0x08},
+		{0x94, 0x24},
+		{0x95, 0x65},
+	}, /* SHARPNESS LEVEL 1*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x08},
+		{0x21, 0x07},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0x32},
+		{0x91, 0x32},
+		{0x94, 0x04},
+		{0x95, 0x0a},
+	}, /* SHARPNESS LEVEL 2*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x15},
+		{0x21, 0x15},
+		{0x23, 0x09},
+		{0x24, 0x11},
+		{0x90, 0x05},
+		{0x91, 0x05},
+		{0x94, 0x10},
+		{0x95, 0x5a},
+	}, /* SHARPNESS LEVEL 3*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x15},
+		{0x21, 0x15},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0xaf},
+		{0x91, 0xaf},
+		{0x94, 0x24},
+		{0x95, 0x65},
+	}, /* SHARPNESS LEVEL 4*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x20},
+		{0x21, 0x20},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0xdf},
+		{0x91, 0xdf},
+		{0x94, 0x24},
+		{0x95, 0x65},
+	}, /* SHARPNESS LEVEL 5*/
+	{
+		{0x03, 0x13},
+		{0x20, 0x25},
+		{0x21, 0x25},
+		{0x23, 0x04},
+		{0x24, 0x80},
+		{0x90, 0xff},
+		{0x91, 0xff},
+		{0x94, 0x24},
+		{0x95, 0x65},
+	}, /* SHARPNESS LEVEL 6*/
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_iso[7][3] = {
+	/* auto */
+	{
+		{0x03, 0x20},
+		{0x10, 0x9c},
+		{0xb0, 0x18},
+	},
+	/* auto hjt */
+	{
+		{0x03, 0x20},
+		{0x10, 0x9c},
+		{0xb0, 0x18},
+	},
+	/* iso 100 */
+	{
+		{0x03, 0x20},
+		{0x10, 0x0c},
+		{0xb0, 0x1B},
+	},
+	/* iso 200 */
+	{
+		{0x03, 0x20},
+		{0x10, 0x0c},
+		{0xb0, 0x35},
+	},
+	/* iso 400 */
+	{
+		{0x03, 0x20},
+		{0x10, 0x0c},
+		{0xb0, 0x65},
+	},
+	/* iso 800 */
+	{
+		{0x03, 0x20},
+		{0x10, 0x0c},
+		{0xb0, 0x95},
+	},
+	/* iso 1600 */
+	{
+		{0x03, 0x20},
+		{0x10, 0x0c},
+		{0xb0, 0xd0},
+	},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_exposure_compensation[5][2] = {
+	/* -2 */
+	{
+		{0x03, 0x10},
+		{0x40, 0xa4},
+	},
+	/* -1 */
+	{
+		{0x03, 0x10},
+		{0x40, 0x94},
+	},
+	/* 0 */
+	{
+		{0x03, 0x10},
+		{0x40, 0x80},
+	},
+	/* 1 */
+	{
+		{0x03, 0x10},
+		{0x40, 0x14},
+	},
+	/* 2 */
+	{
+		{0x03, 0x10},
+		{0x40, 0x24},
+	},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_antibanding[][2] = {
+	/* OFF */
+	{
+		{0x03, 0x20},
+		{0x10, 0xcc},
+	},
+	/* 50Hz */
+	{
+		{0x03, 0x20},
+		{0x10, 0x9c},
+	},
+	/* 60Hz */
+	{
+		{0x03, 0x20},
+		{0x10, 0x8c},
+	},
+	/* AUTO */
+	{
+		{0x03, 0x20},
+		{0x10, 0xcc},
+	},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_effect_normal[] = {
+	/* normal: */
+	{0x03, 0x20},
+	{0x28, 0xe7},
+	{0x03, 0x10},
+	{0x11, 0x03},
+	{0x12, 0X30},
+	{0x13, 0x0a},
+	{0x44, 0x80},
+	{0x45, 0x80},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_effect_black_white[] = {
+	/* B&W: */
+	{0x03, 0x20},
+	{0x28, 0xe7},
+	{0x03, 0x10},
+	{0x11, 0x03},
+	{0x12, 0x33},
+	{0x13, 0x02},
+	{0x44, 0x80},
+	{0x45, 0x80},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_effect_negative[] = {
+	/* Negative: */
+	{0x03, 0x20},
+	{0x28, 0xe7},
+	{0x03, 0x10},
+	{0x11, 0x03},
+	{0x12, 0x08},
+	{0x13, 0x0a},
+	{0x14, 0x00},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_effect_old_movie[] = {
+	/* Sepia(antique): */
+	{0x03, 0x20},
+	{0x28, 0xe7},
+	{0x03, 0x10},
+	{0x11, 0x03},
+	{0x12, 0x33},
+	{0x13, 0x0a},
+	{0x44, 0x25},
+	{0x45, 0xa6},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_effect_solarize[] = {
+	{0x03, 0x20},
+	{0x28, 0xe7},
+	{0x03, 0x10},
+	{0x11, 0x0b},
+	{0x12, 0x00},
+	{0x13, 0x00},
+	{0x14, 0x00},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_scene_auto[] = {
+	/* <SCENE_auto> */
+	{0x03, 0x20},
+	{0x10, 0x1c},
+	{0x18, 0x38},
+	{0x88, 0x05},
+	{0x89, 0x7e},
+	{0x8a, 0x40},
+	{0x10, 0x9c},
+	{0x18, 0x30},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_scene_portrait[] = {
+	/* <CAMTUNING_SCENE_PORTRAIT> */
+	{0x03, 0x20},
+	{0x10, 0x1c},
+	{0x18, 0x38},
+	{0x88, 0x05},
+	{0x89, 0x7e},
+	{0x8a, 0x40},
+	{0x10, 0x9c},
+	{0x18, 0x30},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_scene_landscape[] = {
+	/* <CAMTUNING_SCENE_LANDSCAPE> */
+	{0x03, 0x20},
+	{0x10, 0x1c},
+	{0x18, 0x38},
+	{0x88, 0x05},
+	{0x89, 0x7e},
+	{0x8a, 0x40},
+	{0x10, 0x9c},
+	{0x18, 0x30},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_scene_night[] = {
+	/* <SCENE_NIGHT> */
+	{0x03, 0x20},
+	{0x10, 0x1c},
+	{0x18, 0x38},
+	{0x88, 0x09},
+	{0x89, 0x27},
+	{0x8a, 0xc0},
+	{0x10, 0x9c},
+	{0x18, 0x30},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_wb_auto[] = {
+	/* Auto: */
+	{0x03, 0x22},
+	{0x11, 0x2e},
+	{0x83, 0x60},
+	{0x84, 0x0a},
+	{0x85, 0x60},
+	{0x86, 0x15},
+	{0x10, 0xfd},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_wb_sunny[] = {
+	/* Sunny: */
+	{0x03, 0x22},
+	{0x11, 0x28},
+	{0x80, 0x33},
+	{0x82, 0x3d},
+	{0x83, 0x2e},
+	{0x84, 0x24},
+	{0x85, 0x43},
+	{0x86, 0x3d},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_wb_cloudy[] = {
+	/* Cloudy: */
+	{0x03, 0x22},
+	{0x11, 0x28},
+	{0x80, 0x49},
+	{0x82, 0x24},
+	{0x83, 0x50},
+	{0x84, 0x45},
+	{0x85, 0x24},
+	{0x86, 0x1E},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_wb_office[] = {
+	/* Office: */
+	{0x03, 0x22},
+	{0x11, 0x28},
+	{0x80, 0x20},
+	{0x82, 0x58},
+	{0x83, 0x27},
+	{0x84, 0x22},
+	{0x85, 0x58},
+	{0x86, 0x52},
+};
+
+static struct msm_camera_i2c_reg_conf HI256_reg_wb_home[] = {
+	/* Home: */
+	{0x03, 0x22},
+	{0x11, 0x28},
+	{0x80, 0x29},
+	{0x82, 0x54},
+	{0x83, 0x2e},
+	{0x84, 0x23},
+	{0x85, 0x58},
+	{0x86, 0x4f},
 };
 
 
@@ -1080,7 +1539,6 @@ static void hi256_i2c_write_table(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		table++;
 	}
-
 }
 
 static int32_t hi256_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
@@ -1142,6 +1600,153 @@ static int32_t hi256_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return -ENODEV;
 	}
 	return rc;
+}
+
+static void hi256_set_stauration(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_saturation[value][0],
+		ARRAY_SIZE(HI256_reg_saturation[value]));
+}
+
+static void hi256_set_contrast(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_contrast[value][0],
+		ARRAY_SIZE(HI256_reg_contrast[value]));
+}
+
+static void hi256_set_sharpness(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	int val = value / 6;
+	pr_debug("%s %d", __func__, value);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_sharpness[val][0],
+		ARRAY_SIZE(HI256_reg_sharpness[val]));
+}
+
+
+static void hi256_set_iso(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_iso[value][0],
+		ARRAY_SIZE(HI256_reg_iso[value]));
+}
+
+static void hi256_set_exposure_compensation(struct msm_sensor_ctrl_t *s_ctrl,
+	int value)
+{
+	int val = (value + 12) / 6;
+	pr_debug("%s %d", __func__, val);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_exposure_compensation[val][0],
+		ARRAY_SIZE(HI256_reg_exposure_compensation[val]));
+}
+
+static void hi256_set_effect(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	switch (value) {
+	case MSM_CAMERA_EFFECT_MODE_OFF: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_normal[0],
+			ARRAY_SIZE(HI256_reg_effect_normal));
+		break;
+	}
+	case MSM_CAMERA_EFFECT_MODE_MONO: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_black_white[0],
+			ARRAY_SIZE(HI256_reg_effect_black_white));
+		break;
+	}
+	case MSM_CAMERA_EFFECT_MODE_NEGATIVE: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_negative[0],
+			ARRAY_SIZE(HI256_reg_effect_negative));
+		break;
+	}
+	case MSM_CAMERA_EFFECT_MODE_SEPIA: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_old_movie[0],
+			ARRAY_SIZE(HI256_reg_effect_old_movie));
+		break;
+	}
+	case MSM_CAMERA_EFFECT_MODE_SOLARIZE: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_solarize[0],
+			ARRAY_SIZE(HI256_reg_effect_solarize));
+		break;
+	}
+	default:
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_effect_normal[0],
+			ARRAY_SIZE(HI256_reg_effect_normal));
+	}
+}
+
+static void hi256_set_antibanding(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	hi256_i2c_write_table(s_ctrl, &HI256_reg_antibanding[value][0],
+		ARRAY_SIZE(HI256_reg_antibanding[value]));
+}
+
+static void hi256_set_scene_mode(struct msm_sensor_ctrl_t *s_ctrl, int value)
+{
+	pr_debug("%s %d", __func__, value);
+	switch (value) {
+	case MSM_CAMERA_SCENE_MODE_OFF: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_scene_auto[0],
+			ARRAY_SIZE(HI256_reg_scene_auto));
+					break;
+	}
+	case MSM_CAMERA_SCENE_MODE_NIGHT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_scene_night[0],
+			ARRAY_SIZE(HI256_reg_scene_night));
+					break;
+	}
+	case MSM_CAMERA_SCENE_MODE_LANDSCAPE: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_scene_landscape[0],
+			ARRAY_SIZE(HI256_reg_scene_landscape));
+					break;
+	}
+	case MSM_CAMERA_SCENE_MODE_PORTRAIT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_scene_portrait[0],
+			ARRAY_SIZE(HI256_reg_scene_portrait));
+					break;
+	}
+	default:
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_scene_auto[0],
+			ARRAY_SIZE(HI256_reg_scene_auto));
+	}
+}
+
+static void hi256_set_white_balance_mode(struct msm_sensor_ctrl_t *s_ctrl,
+	int value)
+{
+	pr_debug("%s %d", __func__, value);
+	switch (value) {
+	case MSM_CAMERA_WB_MODE_AUTO: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_auto[0],
+			ARRAY_SIZE(HI256_reg_wb_auto));
+		break;
+	}
+	case MSM_CAMERA_WB_MODE_INCANDESCENT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_home[0],
+			ARRAY_SIZE(HI256_reg_wb_home));
+		break;
+	}
+	case MSM_CAMERA_WB_MODE_DAYLIGHT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_sunny[0],
+			ARRAY_SIZE(HI256_reg_wb_sunny));
+					break;
+	}
+	case MSM_CAMERA_WB_MODE_FLUORESCENT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_office[0],
+			ARRAY_SIZE(HI256_reg_wb_office));
+					break;
+	}
+	case MSM_CAMERA_WB_MODE_CLOUDY_DAYLIGHT: {
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_cloudy[0],
+			ARRAY_SIZE(HI256_reg_wb_cloudy));
+					break;
+	}
+	default:
+		hi256_i2c_write_table(s_ctrl, &HI256_reg_wb_auto[0],
+		ARRAY_SIZE(HI256_reg_wb_auto));
+	}
 }
 
 int32_t hi256_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
@@ -1395,6 +2000,117 @@ int32_t hi256_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			break;
 		}
+		break;
+	}
+	case CFG_SET_SATURATION: {
+		int32_t sat_lev;
+		if (copy_from_user(&sat_lev, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: Saturation Value is %d", __func__, sat_lev);
+		hi256_set_stauration(s_ctrl, sat_lev);
+		break;
+	}
+	case CFG_SET_CONTRAST: {
+		int32_t con_lev;
+		if (copy_from_user(&con_lev, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: Contrast Value is %d", __func__, con_lev);
+		hi256_set_contrast(s_ctrl, con_lev);
+		break;
+	}
+	case CFG_SET_SHARPNESS: {
+		int32_t shp_lev;
+		if (copy_from_user(&shp_lev, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: Sharpness Value is %d", __func__, shp_lev);
+		hi256_set_sharpness(s_ctrl, shp_lev);
+		break;
+	}
+	case CFG_SET_ISO: {
+		int32_t iso_lev;
+		if (copy_from_user(&iso_lev, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: ISO Value is %d", __func__, iso_lev);
+		hi256_set_iso(s_ctrl, iso_lev);
+		break;
+	}
+	case CFG_SET_EXPOSURE_COMPENSATION: {
+		int32_t ec_lev;
+		if (copy_from_user(&ec_lev, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: Exposure compensation Value is %d",
+			__func__, ec_lev);
+		hi256_set_exposure_compensation(s_ctrl, ec_lev);
+		break;
+	}
+	case CFG_SET_EFFECT: {
+		int32_t effect_mode;
+		if (copy_from_user(&effect_mode, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: Effect mode is %d", __func__, effect_mode);
+		hi256_set_effect(s_ctrl, effect_mode);
+		break;
+	}
+	case CFG_SET_ANTIBANDING: {
+		int32_t antibanding_mode;
+		if (copy_from_user(&antibanding_mode,
+			(void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: anti-banding mode is %d", __func__,
+			antibanding_mode);
+		hi256_set_antibanding(s_ctrl, antibanding_mode);
+		break;
+	}
+	case CFG_SET_BESTSHOT_MODE: {
+		int32_t bs_mode;
+		if (copy_from_user(&bs_mode, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: best shot mode is %d", __func__, bs_mode);
+		hi256_set_scene_mode(s_ctrl, bs_mode);
+		break;
+	}
+	case CFG_SET_WHITE_BALANCE: {
+		int32_t wb_mode;
+		if (copy_from_user(&wb_mode, (void *)cdata->cfg.setting,
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		pr_debug("%s: white balance is %d", __func__, wb_mode);
+		hi256_set_white_balance_mode(s_ctrl, wb_mode);
 		break;
 	}
 	default:
