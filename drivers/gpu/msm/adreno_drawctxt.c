@@ -611,10 +611,8 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
-	KGSL_CTXT_INFO(device, "from %d to %d flags %d\n",
-		adreno_dev->drawctxt_active ?
-		adreno_dev->drawctxt_active->base.id : 0,
-		drawctxt ? drawctxt->base.id : 0, flags);
+	trace_adreno_drawctxt_switch(adreno_dev->drawctxt_active,
+		drawctxt, flags);
 
 	/* Save the old context */
 	ret = adreno_dev->gpudev->ctxt_save(adreno_dev,
