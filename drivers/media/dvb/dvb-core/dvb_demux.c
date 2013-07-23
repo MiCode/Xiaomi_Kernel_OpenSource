@@ -128,6 +128,20 @@ static const struct dvb_dmx_video_patterns h264_non_idr = {
 	DMX_IDX_H264_NON_IDR_START
 };
 
+static const struct dvb_dmx_video_patterns h264_non_access_unit_del = {
+	{0x00, 0x00, 0x01, 0x09},
+	{0xFF, 0xFF, 0xFF, 0x1F},
+	4,
+	DMX_IDX_H264_ACCESS_UNIT_DEL
+};
+
+static const struct dvb_dmx_video_patterns h264_non_sei = {
+	{0x00, 0x00, 0x01, 0x06},
+	{0xFF, 0xFF, 0xFF, 0x1F},
+	4,
+	DMX_IDX_H264_SEI
+};
+
 static const struct dvb_dmx_video_patterns vc1_seq_hdr = {
 	{0x00, 0x00, 0x01, 0x0F},
 	{0xFF, 0xFF, 0xFF, 0xFF},
@@ -1791,6 +1805,12 @@ const struct dvb_dmx_video_patterns *dvb_dmx_get_pattern(u64 dmx_idx_pattern)
 	case DMX_IDX_H264_NON_IDR_START:
 		return &h264_non_idr;
 
+	case DMX_IDX_H264_ACCESS_UNIT_DEL:
+		return &h264_non_access_unit_del;
+
+	case DMX_IDX_H264_SEI:
+		return &h264_non_sei;
+
 	case DMX_IDX_VC1_SEQ_HEADER:
 		return &vc1_seq_hdr;
 
@@ -1909,6 +1929,20 @@ static void dvb_dmx_init_idx_state(struct dvb_demux_feed *feed)
 		  DMX_IDX_H264_FIRST_SPS_FRAME_END))) {
 		feed->patterns[feed->pattern_num] =
 			dvb_dmx_get_pattern(DMX_IDX_H264_NON_IDR_START);
+		feed->pattern_num++;
+	}
+
+	if ((feed->pattern_num < DVB_DMX_MAX_SEARCH_PATTERN_NUM) &&
+		(feed->idx_params.types & DMX_IDX_H264_ACCESS_UNIT_DEL)) {
+		feed->patterns[feed->pattern_num] =
+			dvb_dmx_get_pattern(DMX_IDX_H264_ACCESS_UNIT_DEL);
+		feed->pattern_num++;
+	}
+
+	if ((feed->pattern_num < DVB_DMX_MAX_SEARCH_PATTERN_NUM) &&
+		(feed->idx_params.types & DMX_IDX_H264_SEI)) {
+		feed->patterns[feed->pattern_num] =
+			dvb_dmx_get_pattern(DMX_IDX_H264_SEI);
 		feed->pattern_num++;
 	}
 
