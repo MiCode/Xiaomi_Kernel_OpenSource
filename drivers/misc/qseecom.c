@@ -251,6 +251,12 @@ static struct qseecom_registered_listener_list *__qseecom_find_svc(
 			break;
 	}
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
+
+	if ((entry != NULL) && (entry->svc.listener_id != listener_id)) {
+		pr_err("Service id: %u is not found\n", listener_id);
+		return NULL;
+	}
+
 	return entry;
 }
 
@@ -1273,6 +1279,11 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 	struct qseecom_registered_listener_list *this_lstnr;
 
 	this_lstnr = __qseecom_find_svc(data->listener.id);
+	if (!this_lstnr) {
+		pr_err("Invalid listener ID\n");
+		return -ENODATA;
+	}
+
 	while (1) {
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,
