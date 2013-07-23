@@ -157,6 +157,8 @@ static int of_batterydata_read_single_row_lut(struct device_node *data_node,
 
 #define OF_PROP_READ(property, qpnp_dt_property, node, rc, optional)	\
 do {									\
+	if (rc)								\
+		break;							\
 	rc = of_property_read_u32(node, "qcom," qpnp_dt_property,	\
 					&property);			\
 									\
@@ -166,7 +168,6 @@ do {									\
 	} else if (rc) {						\
 		pr_err("Error reading " #qpnp_dt_property		\
 				" property rc = %d\n", rc);		\
-		return rc;						\
 	}								\
 } while (0)
 
@@ -234,6 +235,8 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 	node = batterydata_container_node;
 	OF_PROP_READ(rpull_up_kohm, "rpull-up-kohm", node, rc, false);
 	OF_PROP_READ(vadc_vdd_uv, "vref-batt-therm", node, rc, false);
+	if (rc)
+		return rc;
 
 	batt_id_kohm = of_batterydata_convert_battery_id_kohm(batt_id_uv,
 					rpull_up_kohm, vadc_vdd_uv);
