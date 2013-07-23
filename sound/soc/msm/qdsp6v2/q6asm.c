@@ -542,6 +542,7 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	}
 
 	apr_deregister(ac->apr);
+	ac->apr = NULL;
 	ac->mmap_apr = NULL;
 	q6asm_session_free(ac);
 	q6asm_mmap_apr_dereg();
@@ -550,6 +551,7 @@ void q6asm_audio_client_free(struct audio_client *ac)
 
 /*done:*/
 	kfree(ac);
+	ac = NULL;
 	return;
 }
 
@@ -1327,6 +1329,11 @@ static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 {
 	pr_debug("%s:pkt_size=%d cmd_flg=%d session=%d\n", __func__, pkt_size,
 		cmd_flg, ac->session);
+	if (ac->apr == NULL) {
+		pr_err("%s: ac->apr is NULL", __func__);
+		return;
+	}
+
 	mutex_lock(&ac->cmd_lock);
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
 				APR_HDR_LEN(sizeof(struct apr_hdr)),\
@@ -1354,6 +1361,10 @@ static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
 				APR_HDR_LEN(sizeof(struct apr_hdr)),\
 				APR_PKT_VER);
+	if (ac->apr == NULL) {
+		pr_err("%s: ac->apr is NULL", __func__);
+		return;
+	}
 	hdr->src_svc = ((struct apr_svc *)ac->apr)->id;
 	hdr->src_domain = APR_DOMAIN_APPS;
 	hdr->dest_svc = APR_SVC_ASM;
@@ -2908,6 +2919,12 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 	int sz = 0;
 	int rc  = 0;
 
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
 	sz = sizeof(struct asm_volume_ctrl_lr_chan_gain);
 	q6asm_add_hdr_async(ac, &lrgain.hdr, sz, TRUE);
 	lrgain.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
@@ -2950,6 +2967,12 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 	int sz = 0;
 	int rc  = 0;
 
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
 	sz = sizeof(struct asm_volume_ctrl_mute_config);
 	q6asm_add_hdr_async(ac, &mute.hdr, sz, TRUE);
 	mute.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
@@ -2990,6 +3013,12 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 	struct asm_volume_ctrl_master_gain vol;
 	int sz = 0;
 	int rc  = 0;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
 
 	sz = sizeof(struct asm_volume_ctrl_master_gain);
 	q6asm_add_hdr_async(ac, &vol.hdr, sz, TRUE);
@@ -3033,6 +3062,12 @@ int q6asm_set_softpause(struct audio_client *ac,
 	struct asm_soft_pause_params softpause;
 	int sz = 0;
 	int rc  = 0;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
 
 	sz = sizeof(struct asm_soft_pause_params);
 	q6asm_add_hdr_async(ac, &softpause.hdr, sz, TRUE);
@@ -3081,6 +3116,12 @@ int q6asm_set_softvolume(struct audio_client *ac,
 	int sz = 0;
 	int rc  = 0;
 
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
 	sz = sizeof(struct asm_soft_step_volume_params);
 	q6asm_add_hdr_async(ac, &softvol.hdr, sz, TRUE);
 	softvol.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
@@ -3126,6 +3167,12 @@ int q6asm_equalizer(struct audio_client *ac, void *eq_p)
 	int i  = 0;
 	int sz = 0;
 	int rc  = 0;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
 
 	if (eq_p == NULL) {
 		pr_err("%s[%d]: Invalid Eq param\n", __func__, ac->session);
