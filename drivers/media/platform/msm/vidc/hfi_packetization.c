@@ -191,7 +191,7 @@ int create_pkt_set_cmd_sys_resource(
 			(struct ocmem_buf *) resource_value;
 
 		pkt->resource_type = HFI_RESOURCE_OCMEM;
-		pkt->size += sizeof(struct hfi_resource_ocmem);
+		pkt->size += sizeof(struct hfi_resource_ocmem) - sizeof(u32);
 		hfioc_mem->size = (u32) ocmem->len;
 		hfioc_mem->mem = (u8 *) ocmem->addr;
 		break;
