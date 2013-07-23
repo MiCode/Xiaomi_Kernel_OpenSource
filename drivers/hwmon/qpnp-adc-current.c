@@ -146,9 +146,10 @@ struct qpnp_iadc_drv {
 	bool					iadc_mode_sel;
 	struct qpnp_iadc_comp			iadc_comp;
 	struct sensor_device_attribute		sens_attr[0];
+	bool					skip_auto_calibrations;
 };
 
-struct qpnp_iadc_drv	*qpnp_iadc;
+static struct qpnp_iadc_drv	*qpnp_iadc;
 
 static int32_t qpnp_iadc_read_reg(uint32_t reg, u8 *data)
 {
@@ -635,13 +636,15 @@ static void qpnp_iadc_work(struct work_struct *work)
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int rc = 0;
 
-	rc = qpnp_iadc_calibrate_for_trim(true);
-	if (rc)
-		pr_debug("periodic IADC calibration failed\n");
-	else
-		schedule_delayed_work(&iadc->iadc_work,
-			round_jiffies_relative(msecs_to_jiffies
-					(QPNP_IADC_CALIB_SECONDS)));
+	if (!iadc->skip_auto_calibrations) {
+		rc = qpnp_iadc_calibrate_for_trim(true);
+		if (rc)
+			pr_debug("periodic IADC calibration failed\n");
+	}
+
+	schedule_delayed_work(&iadc->iadc_work,
+		round_jiffies_relative(msecs_to_jiffies
+				(QPNP_IADC_CALIB_SECONDS)));
 	return;
 }
 
@@ -731,9 +734,11 @@ static int32_t qpnp_check_pmic_temp(void)
 
 	if (die_temp_offset > QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
 		iadc->die_temp = result_pmic_therm.physical;
-		rc = qpnp_iadc_calibrate_for_trim(true);
-		if (rc)
-			pr_err("periodic IADC calibration failed\n");
+		if (!iadc->skip_auto_calibrations) {
+			rc = qpnp_iadc_calibrate_for_trim(true);
+			if (rc)
+				pr_err("IADC calibration failed rc = %d\n", rc);
+		}
 	}
 
 	return rc;
@@ -832,6 +837,30 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result)
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_iadc_get_gain_and_offset);
+
+int qpnp_iadc_skip_calibration(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	iadc->skip_auto_calibrations = true;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_iadc_skip_calibration);
+
+int qpnp_iadc_resume_calibration(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	iadc->skip_auto_calibrations = false;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_iadc_resume_calibration);
 
 int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,

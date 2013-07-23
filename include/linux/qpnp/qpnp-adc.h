@@ -1499,6 +1499,20 @@ int32_t qpnp_adc_tm_disable_chan_meas(struct qpnp_adc_tm_btm_param *param);
  *		has not occured.
  */
 int32_t	qpnp_adc_tm_is_ready(void);
+/**
+ * qpnp_iadc_skip_calibration() - Clients can use this API to ask the driver
+ *				to skip iadc calibrations
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_skip_calibration(void);
+/**
+ * qpnp_iadc_resume_calibration() - Clients can use this API to ask the driver
+ *				to resume iadc calibrations
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int qpnp_iadc_resume_calibration(void);
 #else
 static inline int32_t qpnp_adc_tm_usbid_configure(
 			struct qpnp_adc_tm_btm_param *param)
@@ -1511,6 +1525,10 @@ static inline int32_t qpnp_adc_tm_channel_measure(
 static inline int32_t qpnp_adc_tm_disable_chan_meas(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
+{ return -ENXIO; }
+static inline int qpnp_iadc_skip_calibration(void)
+{ return -ENXIO; }
+static inline int qpnp_iadc_resume_calibration(void);
 { return -ENXIO; }
 #endif
 

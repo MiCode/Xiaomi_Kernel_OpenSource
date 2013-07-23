@@ -47,6 +47,7 @@
 #define BMS1_S1_DELAY_CTL		0x5A
 /* OCV interrupt threshold */
 #define BMS1_OCV_THR0			0x50
+#define BMS1_S2_SAMP_AVG_CTL		0x61
 /* SW CC interrupt threshold */
 #define BMS1_SW_CC_THR0			0xA0
 /* OCV for r registers */
@@ -71,6 +72,7 @@
 #define CHARGE_CYCLE_STORAGE_LSB	0xBE /* LSB=0xBE, MSB=0xBF */
 
 /* IADC Channel Select */
+#define IADC1_BMS_REVISION2		0x01
 #define IADC1_BMS_ADC_CH_SEL_CTL	0x48
 #define IADC1_BMS_ADC_INT_RSNSN_CTL	0x49
 #define IADC1_BMS_FAST_AVG_EN		0x5B
@@ -152,6 +154,7 @@ struct qpnp_bms_chip {
 
 	int				battery_present;
 	int				battery_status;
+	bool				batfet_closed;
 	bool				new_battery;
 	bool				done_charging;
 	bool				last_soc_invalid;
@@ -176,6 +179,7 @@ struct qpnp_bms_chip {
 
 	struct delayed_work		calculate_soc_delayed_work;
 	struct work_struct		recalc_work;
+	struct work_struct		batfet_open_work;
 
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
@@ -745,6 +749,11 @@ static bool is_battery_charging(struct qpnp_bms_chip *chip)
 	return get_battery_status(chip) == POWER_SUPPLY_STATUS_CHARGING;
 }
 
+static bool is_battery_full(struct qpnp_bms_chip *chip)
+{
+	return get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL;
+}
+
 static bool is_battery_present(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
@@ -763,9 +772,22 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 	return false;
 }
 
-static bool is_battery_full(struct qpnp_bms_chip *chip)
+static bool is_batfet_closed(struct qpnp_bms_chip *chip)
 {
-	return get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL;
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the online property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_ONLINE, &ret);
+		return !!ret.intval;
+	}
+
+	/* Default to true if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return true;
 }
 
 static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
@@ -2335,7 +2357,8 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
 	} else {
-		qpnp_iadc_calibrate_for_trim(true);
+		if (!chip->batfet_closed)
+			qpnp_iadc_calibrate_for_trim(true);
 		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
@@ -2909,9 +2932,55 @@ static void fcc_learning_config(struct qpnp_bms_chip *chip, bool start)
 	}
 }
 
+#define MAX_CAL_TRIES	200
+#define MIN_CAL_UA	3000
+static void batfet_open_work(struct work_struct *work)
+{
+	int i;
+	int rc;
+	int result_ua;
+	u8 orig_delay, sample_delay;
+	struct qpnp_bms_chip *chip = container_of(work,
+				struct qpnp_bms_chip,
+				batfet_open_work);
+
+	rc = qpnp_read_wrapper(chip, &orig_delay,
+			chip->base + BMS1_S1_DELAY_CTL, 1);
+
+	sample_delay = 0x0;
+	rc = qpnp_write_wrapper(chip, &sample_delay,
+			chip->base + BMS1_S1_DELAY_CTL, 1);
+
+	/*
+	 * In certain PMICs there is a coupling issue which causes
+	 * bad calibration value that result in a huge battery current
+	 * even when the BATFET is open. Do continious calibrations until
+	 * we hit reasonable cal values which result in low battery current
+	 */
+
+	for (i = 0; (!chip->batfet_closed) && i < MAX_CAL_TRIES; i++) {
+		rc = qpnp_iadc_calibrate_for_trim(false);
+		/*
+		 * Wait 20mS after calibration and before reading battery
+		 * current. The BMS h/w uses calibration values in the
+		 * next sampling of vsense.
+		 */
+		msleep(20);
+		rc |= get_battery_current(chip, &result_ua);
+		if (rc == 0 && abs(result_ua) <= MIN_CAL_UA) {
+			pr_debug("good cal at %d attempt\n", i);
+			break;
+		}
+	}
+	pr_debug("batfet_closed = %d i = %d result_ua = %d\n",
+			chip->batfet_closed, i, result_ua);
+
+	rc = qpnp_write_wrapper(chip, &orig_delay,
+			chip->base + BMS1_S1_DELAY_CTL, 1);
+}
+
 static void charging_began(struct qpnp_bms_chip *chip)
 {
-
 	mutex_lock(&chip->last_soc_mutex);
 	chip->charge_start_tm_sec = 0;
 	chip->catch_up_time_sec = 0;
@@ -3002,6 +3071,27 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 }
 
 #define CALIB_WRKARND_DIG_MAJOR_MAX		0x03
+static void batfet_status_check(struct qpnp_bms_chip *chip)
+{
+	bool batfet_closed;
+
+	if (chip->iadc_bms_revision2 > CALIB_WRKARND_DIG_MAJOR_MAX)
+		return;
+
+	batfet_closed = is_batfet_closed(chip);
+	if (chip->batfet_closed != batfet_closed) {
+		chip->batfet_closed = batfet_closed;
+		if (batfet_closed == false) {
+			/* batfet opened */
+			schedule_work(&chip->batfet_open_work);
+			qpnp_iadc_skip_calibration();
+		} else {
+			/* batfet closed */
+			qpnp_iadc_calibrate_for_trim(true);
+			qpnp_iadc_resume_calibration();
+		}
+	}
+}
 
 static void battery_insertion_check(struct qpnp_bms_chip *chip)
 {
@@ -3037,6 +3127,7 @@ static void qpnp_bms_external_power_changed(struct power_supply *psy)
 								bms_psy);
 
 	battery_insertion_check(chip);
+	batfet_status_check(chip);
 	battery_status_check(chip);
 }
 
@@ -3796,6 +3887,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
 	INIT_WORK(&chip->recalc_work, recalculate_work);
+	INIT_WORK(&chip->batfet_open_work, batfet_open_work);
 
 	read_shutdown_soc_and_iavg(chip);
 
@@ -3833,6 +3925,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	}
 
 	battery_insertion_check(chip);
+	batfet_status_check(chip);
 	battery_status_check(chip);
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
