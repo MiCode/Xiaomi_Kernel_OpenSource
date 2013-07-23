@@ -1421,6 +1421,9 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
  * @cmdbatch: Pointer to the cmdbatch that owns the sync event
  * @context: Pointer to the KGSL context that owns the cmdbatch
  * @timestamp: Pending timestamp for the event
+ * @handle: Pointer to a sync fence handle
+ * @device: Pointer to the KGSL device
+ * @lock: Spin lock to protect the sync event list
  */
 struct kgsl_cmdbatch_sync_event {
 	int type;
@@ -1428,6 +1431,9 @@ struct kgsl_cmdbatch_sync_event {
 	struct kgsl_cmdbatch *cmdbatch;
 	struct kgsl_context *context;
 	unsigned int timestamp;
+	struct kgsl_sync_fence_waiter *handle;
+	struct kgsl_device *device;
+	spinlock_t lock;
 };
 
 /**
@@ -1449,13 +1455,12 @@ void kgsl_cmdbatch_destroy_object(struct kref *kref)
 EXPORT_SYMBOL(kgsl_cmdbatch_destroy_object);
 
 /*
- * This function is called by the GPU event when the sync event timestamp
- * expires
+ * a generic function to retire a pending sync event and (possibly)
+ * kick the dispatcher
  */
-static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
-		u32 id, u32 timestamp, u32 type)
+static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
+	struct kgsl_cmdbatch_sync_event *event)
 {
-	struct kgsl_cmdbatch_sync_event *event = priv;
 	int sched = 0;
 
 	spin_lock(&event->cmdbatch->lock);
@@ -1470,6 +1475,19 @@ static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
 
 	if (sched && device->ftbl->drawctxt_sched)
 		device->ftbl->drawctxt_sched(device, event->cmdbatch->context);
+}
+
+
+/*
+ * This function is called by the GPU event when the sync event timestamp
+ * expires
+ */
+static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
+		u32 id, u32 timestamp, u32 type)
+{
+	struct kgsl_cmdbatch_sync_event *event = priv;
+
+	kgsl_cmdbatch_sync_expire(device, event);
 
 	kgsl_context_put(event->context);
 	kgsl_cmdbatch_put(event->cmdbatch);
@@ -1498,7 +1516,12 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 			kgsl_cancel_event(cmdbatch->device, event->context,
 				event->timestamp, kgsl_cmdbatch_sync_func,
 				event);
-			kgsl_context_put(event->context);
+		} else if (event->type == KGSL_CMD_SYNCPOINT_TYPE_FENCE) {
+			if (kgsl_sync_fence_async_cancel(event->handle)) {
+				list_del(&event->node);
+				kfree(event);
+				kgsl_cmdbatch_put(cmdbatch);
+			}
 		}
 	}
 
@@ -1506,6 +1529,88 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	kgsl_cmdbatch_put(cmdbatch);
 }
 EXPORT_SYMBOL(kgsl_cmdbatch_destroy);
+
+/*
+ * A callback that gets registered with kgsl_sync_fence_async_wait and is fired
+ * when a fence is expired
+ */
+static void kgsl_cmdbatch_sync_fence_func(void *priv)
+{
+	struct kgsl_cmdbatch_sync_event *event = priv;
+
+	spin_lock(&event->lock);
+	kgsl_cmdbatch_sync_expire(event->device, event);
+	kgsl_cmdbatch_put(event->cmdbatch);
+	spin_unlock(&event->lock);
+	kfree(event);
+}
+
+/* kgsl_cmdbatch_add_sync_fence() - Add a new sync fence syncpoint
+ * @device: KGSL device
+ * @cmdbatch: KGSL cmdbatch to add the sync point to
+ * @priv: Private sructure passed by the user
+ *
+ * Add a new fence sync syncpoint to the cmdbatch.
+ */
+static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void *priv)
+{
+	struct kgsl_cmd_syncpoint_fence *sync = priv;
+	struct kgsl_cmdbatch_sync_event *event;
+
+	event = kzalloc(sizeof(*event), GFP_KERNEL);
+
+	if (event == NULL)
+		return -ENOMEM;
+
+	kref_get(&cmdbatch->refcount);
+
+	event->type = KGSL_CMD_SYNCPOINT_TYPE_FENCE;
+	event->cmdbatch = cmdbatch;
+	event->device = device;
+	spin_lock_init(&event->lock);
+
+	/*
+	 * Add it to the list first to account for the possiblity that the
+	 * callback will happen immediately after the call to
+	 * kgsl_sync_fence_async_wait
+	 */
+
+	spin_lock(&cmdbatch->lock);
+	list_add(&event->node, &cmdbatch->synclist);
+	spin_unlock(&cmdbatch->lock);
+
+	/*
+	 * There is a distinct race condition that can occur if the fence
+	 * callback is fired before the function has a chance to return.  The
+	 * event struct would be freed before we could write event->handle and
+	 * hilarity ensued.  Protect against this by protecting the call to
+	 * kgsl_sync_fence_async_wait and the kfree in the callback with a lock.
+	 */
+
+	spin_lock(&event->lock);
+
+	event->handle = kgsl_sync_fence_async_wait(sync->fd,
+		kgsl_cmdbatch_sync_fence_func, event);
+
+
+	if (IS_ERR_OR_NULL(event->handle)) {
+		int ret = PTR_ERR(event->handle);
+
+		spin_lock(&cmdbatch->lock);
+		list_del(&event->node);
+		spin_unlock(&cmdbatch->lock);
+
+		kgsl_cmdbatch_put(cmdbatch);
+		spin_unlock(&event->lock);
+		kfree(event);
+
+		return ret;
+	}
+
+	spin_unlock(&event->lock);
+	return 0;
+}
 
 /* kgsl_cmdbatch_add_sync_timestamp() - Add a new sync point for a cmdbatch
  * @device: KGSL device
@@ -1596,6 +1701,10 @@ static int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP:
 		psize = sizeof(struct kgsl_cmd_syncpoint_timestamp);
 		func = kgsl_cmdbatch_add_sync_timestamp;
+		break;
+	case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
+		psize = sizeof(struct kgsl_cmd_syncpoint_fence);
+		func = kgsl_cmdbatch_add_sync_fence;
 		break;
 	default:
 		KGSL_DRV_ERR(device, "Invalid sync type 0x%x\n", sync->type);
