@@ -35,12 +35,11 @@
 #define ADRENO_CHIPID_PATCH(_id) ((_id) & 0xFF)
 
 /* Flags to control command packet settings */
-#define KGSL_CMD_FLAGS_NONE             0x00000000
-#define KGSL_CMD_FLAGS_PMODE		0x00000001
-#define KGSL_CMD_FLAGS_INTERNAL_ISSUE	0x00000002
-#define KGSL_CMD_FLAGS_GET_INT		0x00000004
-#define KGSL_CMD_FLAGS_PROFILE		0x00000008
-#define KGSL_CMD_FLAGS_EOF	        0x00000100
+#define KGSL_CMD_FLAGS_NONE             0
+#define KGSL_CMD_FLAGS_PMODE		BIT(0)
+#define KGSL_CMD_FLAGS_INTERNAL_ISSUE   BIT(1)
+#define KGSL_CMD_FLAGS_WFI              BIT(2)
+#define KGSL_CMD_FLAGS_PROFILE		BIT(3)
 
 /* Command identifiers */
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
@@ -96,6 +95,10 @@ enum coresight_debug_reg {
 	TRACE_BUS_CTL,
 };
 
+#define ADRENO_SOFT_FAULT 1
+#define ADRENO_HARD_FAULT 2
+#define ADRENO_TIMEOUT_FAULT 3
+
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
  * smaller then this but this size will allow for a larger range of inflight
@@ -110,7 +113,7 @@ enum coresight_debug_reg {
  * @state: Current state of the dispatcher (active or paused)
  * @timer: Timer to monitor the progress of the command batches
  * @inflight: Number of command batch operations pending in the ringbuffer
- * @fault: True if a HW fault was detected
+ * @fault: Non-zero if a fault was detected.
  * @pending: Priority list of contexts waiting to submit command batches
  * @plist_lock: Spin lock to protect the pending queue
  * @cmdqueue: Queue of command batches currently flight
@@ -125,8 +128,9 @@ struct adreno_dispatcher {
 	struct mutex mutex;
 	unsigned int state;
 	struct timer_list timer;
+	struct timer_list fault_timer;
 	unsigned int inflight;
-	int fault;
+	atomic_t fault;
 	struct plist_head pending;
 	spinlock_t plist_lock;
 	struct kgsl_cmdbatch *cmdqueue[ADRENO_DISPATCH_CMDQUEUE_SIZE];
@@ -340,13 +344,16 @@ struct log_field {
 };
 
 /* Fault Tolerance policy flags */
-#define  KGSL_FT_OFF                      BIT(0)
-#define  KGSL_FT_REPLAY                   BIT(1)
-#define  KGSL_FT_SKIPIB                   BIT(2)
-#define  KGSL_FT_SKIPFRAME                BIT(3)
-#define  KGSL_FT_DISABLE                  BIT(4)
-#define  KGSL_FT_TEMP_DISABLE             BIT(5)
-#define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
+#define  KGSL_FT_OFF                      0
+#define  KGSL_FT_REPLAY                   1
+#define  KGSL_FT_SKIPIB                   2
+#define  KGSL_FT_SKIPFRAME                3
+#define  KGSL_FT_DISABLE                  4
+#define  KGSL_FT_TEMP_DISABLE             5
+#define  KGSL_FT_DEFAULT_POLICY (BIT(KGSL_FT_REPLAY) + BIT(KGSL_FT_SKIPIB))
+
+/* This internal bit is used to skip the PM dump on replayed command batches */
+#define  KGSL_FT_SKIP_PMDUMP              31
 
 /* Pagefault policy flags */
 #define KGSL_FT_PAGEFAULT_INT_ENABLE         BIT(0)
@@ -355,6 +362,14 @@ struct log_field {
 #define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    BIT(3)
 #define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     (KGSL_FT_PAGEFAULT_INT_ENABLE + \
 					KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
+
+#define ADRENO_FT_TYPES \
+	{ BIT(KGSL_FT_OFF), "off" }, \
+	{ BIT(KGSL_FT_REPLAY), "replay" }, \
+	{ BIT(KGSL_FT_SKIPIB), "skipib" }, \
+	{ BIT(KGSL_FT_SKIPFRAME), "skipframe" }, \
+	{ BIT(KGSL_FT_DISABLE), "disable" }, \
+	{ BIT(KGSL_FT_TEMP_DISABLE), "temp" }
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
@@ -741,4 +756,31 @@ static inline unsigned int adreno_getreg(struct adreno_device *adreno_dev,
 		return ADRENO_REG_REGISTER_MAX;
 	return adreno_dev->gpudev->reg_offsets->offsets[offset_name];
 }
+
+/**
+ * adreno_gpu_fault() - Return the current state of the GPU
+ * @adreno_dev: A ponter to the adreno_device to query
+ *
+ * Return 0 if there is no fault or positive with the last type of fault that
+ * occurred
+ */
+static inline unsigned int adreno_gpu_fault(struct adreno_device *adreno_dev)
+{
+	smp_rmb();
+	return atomic_read(&adreno_dev->dispatcher.fault);
+}
+
+/**
+ * adreno_set_gpu_fault() - Set the current fault status of the GPU
+ * @adreno_dev: A pointer to the adreno_device to set
+ * @state: fault state to set
+ *
+ */
+static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
+	int state)
+{
+	atomic_set(&adreno_dev->dispatcher.fault, state);
+	smp_wmb();
+}
+
 #endif /*__ADRENO_H */
