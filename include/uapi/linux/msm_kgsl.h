@@ -828,6 +828,12 @@ struct kgsl_cmd_syncpoint_timestamp {
 
 #define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
 
+struct kgsl_cmd_syncpoint_fence {
+	int fd;
+};
+
+#define KGSL_CMD_SYNCPOINT_TYPE_FENCE 1
+
 /**
  * struct kgsl_cmd_syncpoint - Define a sync point for a command batch
  * @type: type of sync point defined here
