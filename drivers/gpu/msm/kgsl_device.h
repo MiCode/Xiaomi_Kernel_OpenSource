@@ -13,6 +13,7 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
+#include <linux/slab.h>
 #include <linux/idr.h>
 #include <linux/pm_qos.h>
 #include <linux/sched.h>
@@ -76,6 +77,7 @@ struct kgsl_device_private;
 struct kgsl_context;
 struct kgsl_power_stats;
 struct kgsl_event;
+struct kgsl_cmdbatch;
 
 struct kgsl_functable {
 	/* Mandatory functions - these functions must be implemented
@@ -87,7 +89,7 @@ struct kgsl_functable {
 	void (*regwrite) (struct kgsl_device *device,
 		unsigned int offsetwords, unsigned int value);
 	int (*idle) (struct kgsl_device *device);
-	unsigned int (*isidle) (struct kgsl_device *device);
+	bool (*isidle) (struct kgsl_device *device);
 	int (*suspend_context) (struct kgsl_device *device);
 	int (*init) (struct kgsl_device *device);
 	int (*start) (struct kgsl_device *device);
@@ -101,9 +103,8 @@ struct kgsl_functable {
 	unsigned int (*readtimestamp) (struct kgsl_device *device,
 		struct kgsl_context *context, enum kgsl_timestamp_type type);
 	int (*issueibcmds) (struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_ibdesc *ibdesc,
-		unsigned int sizedwords, uint32_t *timestamp,
-		unsigned int flags);
+		struct kgsl_context *context, struct kgsl_cmdbatch *cmdbatch,
+		uint32_t *timestamps);
 	int (*setup_pt)(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable);
 	void (*cleanup_pt)(struct kgsl_device *device,
@@ -115,14 +116,15 @@ struct kgsl_functable {
 	void * (*snapshot)(struct kgsl_device *device, void *snapshot,
 		int *remain, int hang);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
+	int (*drain)(struct kgsl_device *device);
 	/* Optional functions - these functions are not mandatory.  The
 	   driver will check that the function pointer is not NULL before
 	   calling the hook */
-	void (*setstate) (struct kgsl_device *device, unsigned int context_id,
+	int (*setstate) (struct kgsl_device *device, unsigned int context_id,
 			uint32_t flags);
 	struct kgsl_context *(*drawctxt_create) (struct kgsl_device_private *,
 						uint32_t *flags);
-	void (*drawctxt_detach) (struct kgsl_context *context);
+	int (*drawctxt_detach) (struct kgsl_context *context);
 	void (*drawctxt_destroy) (struct kgsl_context *context);
 	long (*ioctl) (struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
@@ -155,6 +157,26 @@ struct kgsl_event {
 	unsigned int created;
 };
 
+/**
+ * struct kgsl_cmdbatch - KGSl command descriptor
+ * @context: KGSL context that created the command
+ * @timestamp: Timestamp assigned to the command (currently unused)
+ * @flags: flags
+ * @ibcount: Number of IBs in the command list
+ * @ibdesc: Pointer to the list of IBs
+ * @expires: Point in time when the cmdbatch is considered to be hung
+ * @invalid:  non-zero if the dispatcher determines the command and the owning
+ * context should be invalidated
+ */
+struct kgsl_cmdbatch {
+	struct kgsl_context *context;
+	uint32_t timestamp;
+	uint32_t flags;
+	uint32_t ibcount;
+	struct kgsl_ibdesc *ibdesc;
+	unsigned long expires;
+	int invalid;
+};
 
 struct kgsl_device {
 	struct device *dev;
@@ -190,9 +212,7 @@ struct kgsl_device {
 	struct completion hwaccess_gate;
 	const struct kgsl_functable *ftbl;
 	struct work_struct idle_check_ws;
-	struct work_struct hang_check_ws;
 	struct timer_list idle_timer;
-	struct timer_list hang_timer;
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
 
@@ -206,7 +226,6 @@ struct kgsl_device {
 	wait_queue_head_t active_cnt_wq;
 	struct workqueue_struct *work_queue;
 	struct device *parentdev;
-	struct completion ft_gate;
 	struct dentry *d_debugfs;
 	struct idr context_idr;
 	rwlock_t context_lock;
@@ -233,7 +252,6 @@ struct kgsl_device {
 	int drv_log;
 	int mem_log;
 	int pwr_log;
-	int ft_log;
 	int pm_dump_enable;
 	struct kgsl_pwrscale pwrscale;
 	struct kobject pwrscale_kobj;
@@ -254,11 +272,8 @@ void kgsl_process_events(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
-	.ft_gate = COMPLETION_INITIALIZER((_dev).ft_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
-	.hang_check_ws = __WORK_INITIALIZER((_dev).hang_check_ws,\
-			kgsl_hang_check),\
 	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
 			kgsl_process_events),\
 	.context_idr = IDR_INIT((_dev).context_idr),\
@@ -440,8 +455,6 @@ static inline int kgsl_create_device_workqueue(struct kgsl_device *device)
 	return 0;
 }
 
-
-
 int kgsl_check_timestamp(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp);
 
@@ -597,4 +610,21 @@ static inline void kgsl_cancel_events_timestamp(struct kgsl_device *device,
 {
 	kgsl_signal_event(device, context, timestamp, KGSL_EVENT_CANCELLED);
 }
+
+/**
+ * kgsl_cmdbatch_destroy() - Destroy a command batch structure
+ * @cmdbatch: Pointer to the command batch to destroy
+ *
+ * Destroy and free a command batch
+ */
+static inline void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
+{
+	if (cmdbatch) {
+		kgsl_context_put(cmdbatch->context);
+		kfree(cmdbatch->ibdesc);
+	}
+
+	kfree(cmdbatch);
+}
+
 #endif  /* __KGSL_DEVICE_H */

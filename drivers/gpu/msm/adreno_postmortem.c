@@ -22,6 +22,7 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_pwrctrl.h"
+#include "adreno_trace.h"
 
 #include "a2xx_reg.h"
 #include "a3xx_reg.h"
@@ -459,6 +460,9 @@ int adreno_dump(struct kgsl_device *device, int manual)
 		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ),
 		&cp_ib2_bufsz);
 
+	trace_adreno_gpu_fault(rbbm_status, cp_rb_rptr, cp_rb_wptr,
+			cp_ib1_base, cp_ib1_bufsz, cp_ib2_base, cp_ib2_bufsz);
+
 	/* If postmortem dump is not enabled, dump minimal set and return */
 	if (!device->pm_dump_enable) {
 
@@ -644,5 +648,9 @@ int adreno_dump(struct kgsl_device *device, int manual)
 error_vfree:
 	vfree(rb_copy);
 end:
+	/* Restart the dispatcher after a manually triggered dump */
+	if (manual)
+		adreno_dispatcher_start(adreno_dev);
+
 	return result;
 }

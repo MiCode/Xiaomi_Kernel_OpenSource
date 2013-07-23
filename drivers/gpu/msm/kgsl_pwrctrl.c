@@ -1215,9 +1215,6 @@ void kgsl_idle_check(struct work_struct *work)
 		} else {
 			device->pwrctrl.irq_last = 0;
 		}
-	} else if (device->state & (KGSL_STATE_HUNG |
-					KGSL_STATE_DUMP_AND_FT)) {
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 	}
 
 	mutex_unlock(&device->mutex);
@@ -1273,7 +1270,6 @@ _nap(struct kgsl_device *device)
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 			return -EBUSY;
 		}
-		del_timer_sync(&device->hang_timer);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_NAP);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
@@ -1343,7 +1339,6 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_NAP:
 	case KGSL_STATE_SLEEP:
 		del_timer_sync(&device->idle_timer);
-		del_timer_sync(&device->hang_timer);
 		/* make sure power is on to stop the device*/
 		kgsl_pwrctrl_enable(device);
 		device->ftbl->suspend_context(device);
@@ -1435,8 +1430,6 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 
-		mod_timer(&device->hang_timer,
-			(jiffies + msecs_to_jiffies(KGSL_TIMEOUT_PART)));
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 				device->pwrctrl.pm_qos_latency);
 	case KGSL_STATE_ACTIVE:
@@ -1504,10 +1497,6 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 		return "SLEEP";
 	case KGSL_STATE_SUSPEND:
 		return "SUSPEND";
-	case KGSL_STATE_HUNG:
-		return "HUNG";
-	case KGSL_STATE_DUMP_AND_FT:
-		return "DNR";
 	case KGSL_STATE_SLUMBER:
 		return "SLUMBER";
 	default:
@@ -1539,7 +1528,6 @@ int kgsl_active_count_get(struct kgsl_device *device)
 		(device->state != KGSL_STATE_ACTIVE)) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->hwaccess_gate);
-		wait_for_completion(&device->ft_gate);
 		mutex_lock(&device->mutex);
 
 		/* Stop the idle timer */

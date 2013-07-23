@@ -133,10 +133,10 @@ struct kgsl_mmu_ops {
 	int (*mmu_close) (struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
-	void (*mmu_setstate) (struct kgsl_mmu *mmu,
+	int (*mmu_setstate) (struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		unsigned int context_id);
-	void (*mmu_device_setstate) (struct kgsl_mmu *mmu,
+	int (*mmu_device_setstate) (struct kgsl_mmu *mmu,
 					uint32_t flags);
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	phys_addr_t (*mmu_get_current_ptbase)
@@ -147,6 +147,8 @@ struct kgsl_mmu_ops {
 		(struct kgsl_mmu *mmu, uint32_t ts, bool ts_valid);
 	int (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu, int ctx_id);
+	void (*mmu_disable_clk)
+		(struct kgsl_mmu *mmu);
 	phys_addr_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
@@ -231,7 +233,7 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
-void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
+int kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
 			uint32_t flags);
 int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu,
 					phys_addr_t pt_base);
@@ -260,19 +262,23 @@ static inline phys_addr_t kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
 		return 0;
 }
 
-static inline void kgsl_mmu_setstate(struct kgsl_mmu *mmu,
+static inline int kgsl_mmu_setstate(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pagetable,
 			unsigned int context_id)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_setstate)
-		mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
+		return mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
+
+	return 0;
 }
 
-static inline void kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
+static inline int kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
 						uint32_t flags)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_device_setstate)
-		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+		return mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+
+	return 0;
 }
 
 static inline void kgsl_mmu_stop(struct kgsl_mmu *mmu)
@@ -318,6 +324,12 @@ static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
 		return mmu->mmu_ops->mmu_enable_clk(mmu, ctx_id);
 	else
 		return 0;
+}
+
+static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
+		mmu->mmu_ops->mmu_disable_clk(mmu);
 }
 
 static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
