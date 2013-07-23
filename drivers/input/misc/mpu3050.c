@@ -734,7 +734,6 @@ static int mpu3050_probe(struct i2c_client *client,
 
 	idev->name = "MPU3050";
 	idev->id.bustype = BUS_I2C;
-	idev->dev.parent = &client->dev;
 
 	idev->open = mpu3050_input_open;
 	idev->close = mpu3050_input_close;
