@@ -3245,22 +3245,25 @@ static struct adreno_perfcount_register a3xx_perfcounters_vbif_pwr[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT2_LO },
 };
 
+#define A3XX_PERFCOUNTER_GROUP(name) { a3xx_perfcounters_##name, \
+	ARRAY_SIZE(a3xx_perfcounters_##name), __stringify(name) }
+
 static struct adreno_perfcount_group a3xx_perfcounter_groups[] = {
-	{ a3xx_perfcounters_cp, ARRAY_SIZE(a3xx_perfcounters_cp) },
-	{ a3xx_perfcounters_rbbm, ARRAY_SIZE(a3xx_perfcounters_rbbm) },
-	{ a3xx_perfcounters_pc, ARRAY_SIZE(a3xx_perfcounters_pc) },
-	{ a3xx_perfcounters_vfd, ARRAY_SIZE(a3xx_perfcounters_vfd) },
-	{ a3xx_perfcounters_hlsq, ARRAY_SIZE(a3xx_perfcounters_hlsq) },
-	{ a3xx_perfcounters_vpc, ARRAY_SIZE(a3xx_perfcounters_vpc) },
-	{ a3xx_perfcounters_tse, ARRAY_SIZE(a3xx_perfcounters_tse) },
-	{ a3xx_perfcounters_ras, ARRAY_SIZE(a3xx_perfcounters_ras) },
-	{ a3xx_perfcounters_uche, ARRAY_SIZE(a3xx_perfcounters_uche) },
-	{ a3xx_perfcounters_tp, ARRAY_SIZE(a3xx_perfcounters_tp) },
-	{ a3xx_perfcounters_sp, ARRAY_SIZE(a3xx_perfcounters_sp) },
-	{ a3xx_perfcounters_rb, ARRAY_SIZE(a3xx_perfcounters_rb) },
-	{ a3xx_perfcounters_pwr, ARRAY_SIZE(a3xx_perfcounters_pwr) },
-	{ a3xx_perfcounters_vbif, ARRAY_SIZE(a3xx_perfcounters_vbif) },
-	{ a3xx_perfcounters_vbif_pwr, ARRAY_SIZE(a3xx_perfcounters_vbif_pwr) },
+	A3XX_PERFCOUNTER_GROUP(cp),
+	A3XX_PERFCOUNTER_GROUP(rbbm),
+	A3XX_PERFCOUNTER_GROUP(pc),
+	A3XX_PERFCOUNTER_GROUP(vfd),
+	A3XX_PERFCOUNTER_GROUP(hlsq),
+	A3XX_PERFCOUNTER_GROUP(vpc),
+	A3XX_PERFCOUNTER_GROUP(tse),
+	A3XX_PERFCOUNTER_GROUP(ras),
+	A3XX_PERFCOUNTER_GROUP(uche),
+	A3XX_PERFCOUNTER_GROUP(tp),
+	A3XX_PERFCOUNTER_GROUP(sp),
+	A3XX_PERFCOUNTER_GROUP(rb),
+	A3XX_PERFCOUNTER_GROUP(pwr),
+	A3XX_PERFCOUNTER_GROUP(vbif),
+	A3XX_PERFCOUNTER_GROUP(vbif_pwr),
 };
 
 static struct adreno_perfcounters a3xx_perfcounters = {
@@ -3304,6 +3307,9 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	/* Reserve and start countable 1 in the PWR perfcounter group */
 	adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
 			NULL, PERFCOUNTER_FLAG_KERNEL);
+
+	/* Default performance counter profiling to false */
+	adreno_dev->profile.enabled = false;
 }
 
 /**

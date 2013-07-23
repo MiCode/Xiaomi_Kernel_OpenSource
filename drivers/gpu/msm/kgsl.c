@@ -499,7 +499,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	context->device = dev_priv->device;
 	context->pagetable = dev_priv->process_priv->pagetable;
 	context->dev_priv = dev_priv;
-	context->pid = dev_priv->process_priv->pid;
+	context->pid = task_tgid_nr(current);
+	context->tid = task_pid_nr(current);
 
 	ret = kgsl_sync_timeline_create(context);
 	if (ret)
