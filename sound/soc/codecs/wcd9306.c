@@ -38,6 +38,9 @@
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
 
+#define TAPAN_HPH_PA_SETTLE_COMP_ON 3000
+#define TAPAN_HPH_PA_SETTLE_COMP_OFF 13000
+
 static atomic_t kp_tapan_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
@@ -224,8 +227,8 @@ struct tapan_priv {
 };
 
 static const u32 comp_shift[] = {
-	4, /* Compander 0's clock source is on interpolator 7 */
 	0,
+	1,
 	2,
 };
 
@@ -234,47 +237,44 @@ static const int comp_rx_path[] = {
 	COMPANDER_1,
 	COMPANDER_2,
 	COMPANDER_2,
-	COMPANDER_2,
-	COMPANDER_2,
-	COMPANDER_0,
 	COMPANDER_MAX,
 };
 
 static const struct comp_sample_dependent_params comp_samp_params[] = {
 	{
 		/* 8 Khz */
-		.peak_det_timeout = 0x02,
+		.peak_det_timeout = 0x06,
 		.rms_meter_div_fact = 0x09,
 		.rms_meter_resamp_fact = 0x06,
 	},
 	{
 		/* 16 Khz */
-		.peak_det_timeout = 0x03,
+		.peak_det_timeout = 0x07,
 		.rms_meter_div_fact = 0x0A,
 		.rms_meter_resamp_fact = 0x0C,
 	},
 	{
 		/* 32 Khz */
-		.peak_det_timeout = 0x05,
+		.peak_det_timeout = 0x08,
 		.rms_meter_div_fact = 0x0B,
 		.rms_meter_resamp_fact = 0x1E,
 	},
 	{
 		/* 48 Khz */
-		.peak_det_timeout = 0x05,
+		.peak_det_timeout = 0x09,
 		.rms_meter_div_fact = 0x0B,
 		.rms_meter_resamp_fact = 0x28,
 	},
 	{
 		/* 96 Khz */
-		.peak_det_timeout = 0x06,
+		.peak_det_timeout = 0x0A,
 		.rms_meter_div_fact = 0x0C,
 		.rms_meter_resamp_fact = 0x50,
 	},
 	{
 		/* 192 Khz */
-		.peak_det_timeout = 0x07,
-		.rms_meter_div_fact = 0xD,
+		.peak_det_timeout = 0x0B,
+		.rms_meter_div_fact = 0xC,
 		.rms_meter_resamp_fact = 0xA0,
 	},
 };
@@ -673,6 +673,37 @@ static int tapan_set_compander(struct snd_kcontrol *kcontrol,
 	dev_dbg(codec->dev, "%s: Compander %d enable current %d, new %d\n",
 		 __func__, comp, tapan->comp_enabled[comp], value);
 	tapan->comp_enabled[comp] = value;
+
+	if (comp == COMPANDER_1 &&
+			tapan->comp_enabled[comp] == 1) {
+		/* Wavegen to 5 msec */
+		snd_soc_write(codec, TAPAN_A_RX_HPH_CNP_WG_CTL, 0xDA);
+		snd_soc_write(codec, TAPAN_A_RX_HPH_CNP_WG_TIME, 0x15);
+		snd_soc_write(codec, TAPAN_A_RX_HPH_BIAS_WG_OCP, 0x2A);
+
+		/* Enable Chopper */
+		snd_soc_update_bits(codec,
+			TAPAN_A_RX_HPH_CHOP_CTL, 0x80, 0x80);
+
+		snd_soc_write(codec, TAPAN_A_NCP_DTEST, 0x20);
+		pr_debug("%s: Enabled Chopper and set wavegen to 5 msec\n",
+				__func__);
+	} else if (comp == COMPANDER_1 &&
+			tapan->comp_enabled[comp] == 0) {
+		/* Wavegen to 20 msec */
+		snd_soc_write(codec, TAPAN_A_RX_HPH_CNP_WG_CTL, 0xDB);
+		snd_soc_write(codec, TAPAN_A_RX_HPH_CNP_WG_TIME, 0x58);
+		snd_soc_write(codec, TAPAN_A_RX_HPH_BIAS_WG_OCP, 0x1A);
+
+		/* Disable CHOPPER block */
+		snd_soc_update_bits(codec,
+			TAPAN_A_RX_HPH_CHOP_CTL, 0x80, 0x00);
+
+		snd_soc_write(codec, TAPAN_A_NCP_DTEST, 0x10);
+		pr_debug("%s: Disabled Chopper and set wavegen to 20 msec\n",
+				__func__);
+	}
+
 	return 0;
 }
 
@@ -708,26 +739,52 @@ static int tapan_config_gain_compander(struct snd_soc_codec *codec,
 
 static void tapan_discharge_comp(struct snd_soc_codec *codec, int comp)
 {
-	/* Update RSM to 1, DIVF to 5 */
-	snd_soc_write(codec, TAPAN_A_CDC_COMP0_B3_CTL + (comp * 8), 1);
+	/* Level meter DIV Factor to 5*/
 	snd_soc_update_bits(codec, TAPAN_A_CDC_COMP0_B2_CTL + (comp * 8), 0xF0,
-			    1 << 5);
-	/* Wait for 1ms */
-	usleep_range(1000, 1000);
+			    0x05 << 4);
+	/* RMS meter Sampling to 0x01 */
+	snd_soc_write(codec, TAPAN_A_CDC_COMP0_B3_CTL + (comp * 8), 0x01);
+
+	/* Worst case timeout for compander CnP sleep timeout */
+	usleep_range(3000, 3000);
+}
+
+static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
+	struct snd_soc_codec *codec)
+{
+	int buck_volt = WCD9XXX_CDC_BUCK_UNSUPPORTED;
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = tapan->resmgr.pdata;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
+		if (!strncmp(pdata->regulator[i].name,
+					 WCD9XXX_SUPPLY_BUCK_NAME,
+					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
+			if ((pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_1P8) ||
+				(pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_2P15))
+				buck_volt = pdata->regulator[i].min_uV;
+			break;
+		}
+	}
+	pr_debug("%s: S4 voltage requested is %d\n", __func__, buck_volt);
+	return buck_volt;
 }
 
 static int tapan_config_compander(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *kcontrol, int event)
 {
-	int mask, emask;
-	bool timedout;
-	unsigned long timeout;
+	int mask, enable_mask;
+	u8 rdac5_mux;
 	struct snd_soc_codec *codec = w->codec;
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	const int comp = w->shift;
 	const u32 rate = tapan->comp_fs[comp];
 	const struct comp_sample_dependent_params *comp_params =
 	    &comp_samp_params[rate];
+	enum wcd9xxx_buck_volt buck_mv;
 
 	dev_dbg(codec->dev, "%s: %s event %d compander %d, enabled %d",
 		__func__, w->name, event, comp, tapan->comp_enabled[comp]);
@@ -737,72 +794,105 @@ static int tapan_config_compander(struct snd_soc_dapm_widget *w,
 
 	/* Compander 0 has single channel */
 	mask = (comp == COMPANDER_0 ? 0x01 : 0x03);
-	emask = (comp == COMPANDER_0 ? 0x02 : 0x03);
+	buck_mv = tapan_codec_get_buck_mv(codec);
+
+	rdac5_mux = snd_soc_read(codec, TAPAN_A_CDC_CONN_MISC);
+	rdac5_mux = (rdac5_mux & 0x04) >> 2;
+
+	if (comp == COMPANDER_0) {  /* SPK compander */
+		enable_mask = 0x02;
+	} else if (comp == COMPANDER_1) { /* HPH compander */
+		enable_mask = 0x03;
+	} else if (comp == COMPANDER_2) { /* LO compander */
+
+		if (rdac5_mux == 0) { /* DEM4 */
+
+			/* for LO Stereo SE, enable Compander 2 left
+			 * channel on RX3 interpolator Path and Compander 2
+			 * rigt channel on RX4 interpolator Path.
+			 */
+			enable_mask = 0x03;
+		} else if (rdac5_mux == 1) { /* DEM3_INV */
+
+			/* for LO mono differential only enable Compander 2
+			 * left channel on RX3 interpolator Path.
+			 */
+			enable_mask = 0x02;
+		} else {
+			dev_err(codec->dev, "%s: invalid rdac5_mux val %d",
+					__func__, rdac5_mux);
+			return -EINVAL;
+		}
+	} else {
+		dev_err(codec->dev, "%s: invalid compander %d", __func__, comp);
+		return -EINVAL;
+	}
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Set compander Sample rate */
+		snd_soc_update_bits(codec,
+				    TAPAN_A_CDC_COMP0_FS_CFG + (comp * 8),
+				    0x07, rate);
+		/* Set the static gain offset for HPH Path */
+		if (comp == COMPANDER_1) {
+			if (buck_mv == WCD9XXX_CDC_BUCK_MV_2P15)
+				snd_soc_update_bits(codec,
+					TAPAN_A_CDC_COMP0_B4_CTL + (comp * 8),
+					0x80, 0x00);
+			else
+				snd_soc_update_bits(codec,
+					TAPAN_A_CDC_COMP0_B4_CTL + (comp * 8),
+					0x80, 0x80);
+		}
+		/* Enable RX interpolation path compander clocks */
+		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_RX_B2_CTL,
+				    0x01 << comp_shift[comp],
+				    0x01 << comp_shift[comp]);
+
+		/* Toggle compander reset bits */
+		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_OTHR_RESET_B2_CTL,
+				    0x01 << comp_shift[comp],
+				    0x01 << comp_shift[comp]);
+		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_OTHR_RESET_B2_CTL,
+				    0x01 << comp_shift[comp], 0);
+
 		/* Set gain source to compander */
 		tapan_config_gain_compander(codec, comp, true);
-		/* Enable RX interpolation path clocks */
-		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_RX_B2_CTL,
-				    mask << comp_shift[comp],
-				    mask << comp_shift[comp]);
+
+		/* Compander enable */
+		snd_soc_update_bits(codec, TAPAN_A_CDC_COMP0_B1_CTL +
+				    (comp * 8), enable_mask, enable_mask);
 
 		tapan_discharge_comp(codec, comp);
 
-		/* Clear compander halt */
-		snd_soc_update_bits(codec, TAPAN_A_CDC_COMP0_B1_CTL +
-					   (comp * 8),
-				    1 << 2, 0);
+		/* Set sample rate dependent paramater */
+		snd_soc_write(codec, TAPAN_A_CDC_COMP0_B3_CTL + (comp * 8),
+			      comp_params->rms_meter_resamp_fact);
+		snd_soc_update_bits(codec,
+				    TAPAN_A_CDC_COMP0_B2_CTL + (comp * 8),
+				    0xF0, comp_params->rms_meter_div_fact << 4);
+		snd_soc_update_bits(codec,
+					TAPAN_A_CDC_COMP0_B2_CTL + (comp * 8),
+					0x0F, comp_params->peak_det_timeout);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Disable compander */
+		snd_soc_update_bits(codec,
+				    TAPAN_A_CDC_COMP0_B1_CTL + (comp * 8),
+				    enable_mask, 0x00);
+
 		/* Toggle compander reset bits */
 		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_OTHR_RESET_B2_CTL,
 				    mask << comp_shift[comp],
 				    mask << comp_shift[comp]);
 		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_OTHR_RESET_B2_CTL,
 				    mask << comp_shift[comp], 0);
-		break;
-	case SND_SOC_DAPM_POST_PMU:
-		/* Set sample rate dependent paramater */
-		snd_soc_update_bits(codec,
-				    TAPAN_A_CDC_COMP0_FS_CFG + (comp * 8),
-				    0x07, rate);
-		snd_soc_write(codec, TAPAN_A_CDC_COMP0_B3_CTL + (comp * 8),
-			      comp_params->rms_meter_resamp_fact);
-		snd_soc_update_bits(codec,
-				    TAPAN_A_CDC_COMP0_B2_CTL + (comp * 8),
-				    0x0F, comp_params->peak_det_timeout);
-		snd_soc_update_bits(codec,
-				    TAPAN_A_CDC_COMP0_B2_CTL + (comp * 8),
-				    0xF0, comp_params->rms_meter_div_fact << 4);
-		/* Compander enable */
-		snd_soc_update_bits(codec, TAPAN_A_CDC_COMP0_B1_CTL +
-				    (comp * 8), emask, emask);
-		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		/* Halt compander */
-		snd_soc_update_bits(codec,
-				    TAPAN_A_CDC_COMP0_B1_CTL + (comp * 8),
-				    1 << 2, 1 << 2);
-		/* Wait up to a second for shutdown complete */
-		timeout = jiffies + HZ;
-		do {
-			if ((snd_soc_read(codec,
-					  TAPAN_A_CDC_COMP0_SHUT_DOWN_STATUS +
-					  (comp * 8)) & mask) == mask)
-				break;
-		} while (!(timedout = time_after(jiffies, timeout)));
-		dev_dbg(codec->dev, "%s: Compander %d shutdown %s in %dms\n",
-			 __func__, comp, timedout ? "timedout" : "completed",
-			 jiffies_to_msecs(timeout - HZ - jiffies));
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* Disable compander */
-		snd_soc_update_bits(codec,
-				    TAPAN_A_CDC_COMP0_B1_CTL + (comp * 8),
-				    emask, 0x00);
+
 		/* Turn off the clock for compander in pair */
 		snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_RX_B2_CTL,
 				    mask << comp_shift[comp], 0);
+
 		/* Set gain source to register */
 		tapan_config_gain_compander(codec, comp, false);
 		break;
@@ -2267,6 +2357,7 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	enum wcd9xxx_notify_event e_pre_on, e_post_off;
 	u8 req_clsh_state;
+	u32 pa_settle_time = TAPAN_HPH_PA_SETTLE_COMP_OFF;
 
 	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 	if (w->shift == 5) {
@@ -2282,23 +2373,32 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
+	if (tapan->comp_enabled[COMPANDER_1])
+		pa_settle_time = TAPAN_HPH_PA_SETTLE_COMP_ON;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* Let MBHC module know PA is turning on */
 		wcd9xxx_resmgr_notifier_call(&tapan->resmgr, e_pre_on);
 		break;
-
 	case SND_SOC_DAPM_POST_PMU:
+		dev_dbg(codec->dev, "%s: sleep %d ms after %s PA enable.\n",
+			__func__, pa_settle_time / 1000, w->name);
+		/* Time needed for PA to settle */
+		usleep_range(pa_settle_time, pa_settle_time + 1000);
+
 		wcd9xxx_clsh_fsm(codec, &tapan->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_ENABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
 
-
-		usleep_range(5000, 5010);
 		break;
-
 	case SND_SOC_DAPM_POST_PMD:
+		dev_dbg(codec->dev, "%s: sleep %d ms after %s PA disable.\n",
+			__func__, pa_settle_time / 1000, w->name);
+		/* Time needed for PA to settle */
+		usleep_range(pa_settle_time, pa_settle_time + 1000);
+
 		/* Let MBHC module know PA turned off */
 		wcd9xxx_resmgr_notifier_call(&tapan->resmgr, e_post_off);
 
@@ -2306,10 +2406,6 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_DISABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-
-		dev_dbg(codec->dev, "%s: sleep 10 ms after %s PA disable.\n",
-			 __func__, w->name);
-		usleep_range(5000, 5010);
 		break;
 	}
 	return 0;
@@ -2549,6 +2645,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 MIX1", NULL, "COMP1_CLK"},
 	{"RX2 MIX1", NULL, "COMP1_CLK"},
 	{"RX3 MIX1", NULL, "COMP2_CLK"},
+	{"RX4 MIX1", NULL, "COMP0_CLK"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
@@ -3019,6 +3116,7 @@ static int tapan_set_interpolator_rate(struct snd_soc_dai *dai,
 	u16 rx_mix_1_reg_1, rx_mix_1_reg_2;
 	u16 rx_fs_reg;
 	u8 rx_mix_1_reg_1_val, rx_mix_1_reg_2_val;
+	u8 rdac5_mux;
 	struct snd_soc_codec *codec = dai->codec;
 	struct wcd9xxx_ch *ch;
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
@@ -3035,6 +3133,9 @@ static int tapan_set_interpolator_rate(struct snd_soc_dai *dai,
 		}
 
 		rx_mix_1_reg_1 = TAPAN_A_CDC_CONN_RX1_B1_CTL;
+
+		rdac5_mux = snd_soc_read(codec, TAPAN_A_CDC_CONN_MISC);
+		rdac5_mux = (rdac5_mux & 0x04) >> 2;
 
 		for (j = 0; j < NUM_INTERPOLATORS; j++) {
 			rx_mix_1_reg_2 = rx_mix_1_reg_1 + 1;
@@ -3060,9 +3161,14 @@ static int tapan_set_interpolator_rate(struct snd_soc_dai *dai,
 				snd_soc_update_bits(codec, rx_fs_reg,
 						0xE0, rx_fs_rate_reg_val);
 
-				if (comp_rx_path[j] < COMPANDER_MAX)
-					tapan->comp_fs[comp_rx_path[j]]
-					= compander_fs;
+				if (comp_rx_path[j] < COMPANDER_MAX) {
+					if ((j == 3) && (rdac5_mux == 1))
+						tapan->comp_fs[COMPANDER_0] =
+							compander_fs;
+					else
+						tapan->comp_fs[comp_rx_path[j]]
+							= compander_fs;
+				}
 			}
 			if (j <= 1)
 				rx_mix_1_reg_1 += 3;
@@ -3893,13 +3999,13 @@ static const struct snd_soc_dapm_widget tapan_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("COMP0_CLK", SND_SOC_NOPM, 0, 0,
 		tapan_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, 1, 0,
 		tapan_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY("COMP2_CLK", SND_SOC_NOPM, 2, 0,
 		tapan_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TAPAN_A_MICB_1_CTL, 7, 0,
@@ -4239,12 +4345,11 @@ static const struct tapan_reg_mask_val tapan_reg_defaults[] = {
 	TAPAN_REG_VAL(TAPAN_A_RX_HPH_CHOP_CTL, 0xF4),
 	TAPAN_REG_VAL(TAPAN_A_BIAS_CURR_CTL_2, 0x08),
 	TAPAN_REG_VAL(WCD9XXX_A_BUCK_CTRL_CCL_1, 0x5B),
-	TAPAN_REG_VAL(WCD9XXX_A_BUCK_CTRL_CCL_3, 0x60),
+	TAPAN_REG_VAL(WCD9XXX_A_BUCK_CTRL_CCL_3, 0x6F),
 
 	/* TODO: Check below reg writes conflict with above */
 	/* PROGRAM_THE_0P85V_VBG_REFERENCE = V_0P858V */
 	TAPAN_REG_VAL(TAPAN_A_BIAS_CURR_CTL_2, 0x04),
-	TAPAN_REG_VAL(WCD9XXX_A_BUCK_CTRL_CCL_4, 0x54),
 	TAPAN_REG_VAL(TAPAN_A_RX_HPH_CHOP_CTL, 0x74),
 	TAPAN_REG_VAL(TAPAN_A_RX_BUCK_BIAS1, 0x62),
 
@@ -4414,6 +4519,15 @@ static const struct tapan_reg_mask_val tapan_codec_reg_init_val[] = {
 	{TAPAN_A_CDC_COMP0_B5_CTL, 0x7F, 0x7F},
 	{TAPAN_A_CDC_COMP1_B5_CTL, 0x7F, 0x7F},
 	{TAPAN_A_CDC_COMP2_B5_CTL, 0x7F, 0x7F},
+
+	/*
+	 * Setup wavegen timer to 20msec and disable chopper
+	 * as default. This corresponds to Compander OFF
+	 */
+	{TAPAN_A_RX_HPH_CNP_WG_CTL, 0xFF, 0xDB},
+	{TAPAN_A_RX_HPH_CNP_WG_TIME, 0xFF, 0x58},
+	{TAPAN_A_RX_HPH_BIAS_WG_OCP, 0xFF, 0x1A},
+	{TAPAN_A_RX_HPH_CHOP_CTL, 0xFF, 0x24},
 };
 
 static void tapan_codec_init_reg(struct snd_soc_codec *codec)
@@ -4594,30 +4708,6 @@ static int wcd9xxx_ssr_register(struct wcd9xxx *control,
 	control->post_reset = post_reset_cb;
 	control->ssr_priv = priv;
 	return 0;
-}
-
-static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
-	struct snd_soc_codec *codec)
-{
-	int buck_volt = WCD9XXX_CDC_BUCK_UNSUPPORTED;
-	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
-	struct wcd9xxx_pdata *pdata = tapan->resmgr.pdata;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
-		if (!strncmp(pdata->regulator[i].name,
-					 WCD9XXX_SUPPLY_BUCK_NAME,
-					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
-			if ((pdata->regulator[i].min_uV ==
-					WCD9XXX_CDC_BUCK_MV_1P8) ||
-				(pdata->regulator[i].min_uV ==
-					WCD9XXX_CDC_BUCK_MV_2P15))
-				buck_volt = pdata->regulator[i].min_uV;
-			break;
-		}
-	}
-	pr_debug("%s: S4 voltage requested is %d\n", __func__, buck_volt);
-	return buck_volt;
 }
 
 static int tapan_codec_probe(struct snd_soc_codec *codec)
