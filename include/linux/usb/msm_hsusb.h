@@ -314,6 +314,7 @@ struct msm_otg_platform_data {
  * @pclk: clock struct of iface_clk.
  * @phy_reset_clk: clock struct of phy_clk.
  * @core_clk: clock struct of core_bus_clk.
+ * @sleep_clk: clock struct of sleep_clk for USB PHY.
  * @core_clk_rate: core clk max frequency
  * @regs: ioremapped register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
@@ -350,6 +351,7 @@ struct msm_otg {
 	struct clk *pclk;
 	struct clk *phy_reset_clk;
 	struct clk *core_clk;
+	struct clk *sleep_clk;
 	long core_clk_rate;
 	struct resource *io_res;
 	void __iomem *regs;
