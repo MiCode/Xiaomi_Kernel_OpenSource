@@ -186,6 +186,9 @@ struct vss_unmap_memory_cmd {
 #define VSS_IMVM_CMD_STOP_VOICE				0x00011192
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
 
+#define VSS_IMVM_CMD_PAUSE_VOICE			0x0001137D
+/* No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
+
 #define VSS_ISTREAM_CMD_ATTACH_VOCPROC			0x000110F8
 /**< Wait for APRV2_IBASIC_RSP_RESULT response. */
 
@@ -1569,6 +1572,9 @@ int voc_send_cvp_stop_vocpcm(uint32_t session_id);
 void voc_register_hpcm_evt_cb(hostpcm_cb_fn hostpcm_cb,
 			      void *private_data);
 void voc_deregister_hpcm_evt_cb(void);
+
+int voc_unmap_cal_blocks(void);
+
 uint32_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set, uint16_t port_id);
