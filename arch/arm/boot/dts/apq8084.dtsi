@@ -344,6 +344,12 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 	};
+
+	qcom,msm-rng@f9bff000{
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x200>;
+		qcom,msm-rng-iface-clk;
+	};
 };
 
 &gdsc_venus {
