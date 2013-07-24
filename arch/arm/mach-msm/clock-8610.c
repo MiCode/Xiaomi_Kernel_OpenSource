@@ -2749,7 +2749,7 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_8610[] = {
-	CLK_LOOKUP("xo",	cxo_otg_clk.c, "msm_otg"),
+	CLK_LOOKUP("xo",	cxo_otg_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("xo",	cxo_lpass_pil_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",        cxo_lpm_clk.c, "fc4281d0.qcom,mpm"),
 
@@ -2924,7 +2924,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",           gcc_sdcc1_apps_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",            gcc_sdcc2_ahb_clk.c, "msm_sdcc.2"),
 	CLK_LOOKUP("core_clk",           gcc_sdcc2_apps_clk.c, "msm_sdcc.2"),
-	CLK_LOOKUP("core_clk",      gcc_usb2a_phy_sleep_clk.c, ""),
+	CLK_LOOKUP("sleep_clk",      gcc_usb2a_phy_sleep_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",           gcc_usb_hs_ahb_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("core_clk",        gcc_usb_hs_system_clk.c, "f9a55000.usb"),
 
