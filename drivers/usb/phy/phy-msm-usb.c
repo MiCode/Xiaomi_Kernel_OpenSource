@@ -4276,11 +4276,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			dev_dbg(&pdev->dev, "bus scaling is disabled\n");
 
 		pdev->dev.platform_data = pdata;
-		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
-		if (ret) {
-			dev_err(&pdev->dev, "devices setup failed\n");
-			goto put_sleep_clk;
-		}
 	} else if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		ret = -ENODEV;
@@ -4605,10 +4600,27 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (ret)
 		dev_dbg(&pdev->dev, "fail to setup cdev\n");
 
+	if (pdev->dev.of_node) {
+		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
+		if (ret) {
+			dev_err(&pdev->dev, "devices setup failed\n");
+			goto remove_cdev;
+		}
+	}
+
 	return 0;
 
+remove_cdev:
+	if (!motg->ext_chg_device) {
+		device_destroy(motg->ext_chg_class, motg->ext_chg_dev);
+		cdev_del(&motg->ext_chg_cdev);
+		class_destroy(motg->ext_chg_class);
+		unregister_chrdev_region(motg->ext_chg_dev, 1);
+	}
+	if (psy)
+		power_supply_unregister(psy);
 remove_phy:
-	usb_remove_phy(NULL);
+	usb_remove_phy(&motg->phy);
 free_async_irq:
 	if (motg->async_irq)
 		free_irq(motg->async_irq, motg);
@@ -4689,6 +4701,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_unregister_vbus_sn(0);
+	if (psy)
+		power_supply_unregister(psy);
 	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
