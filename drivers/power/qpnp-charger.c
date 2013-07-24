@@ -2685,8 +2685,11 @@ qpnp_chg_load_battery_data(struct qpnp_chg_chip *chip)
 			return rc;
 		}
 
-		if (batt_data.max_voltage_uv >= 0)
+		if (batt_data.max_voltage_uv >= 0) {
 			chip->max_voltage_mv = batt_data.max_voltage_uv / 1000;
+			chip->safe_voltage_mv = chip->max_voltage_mv
+				+ MAX_DELTA_VDD_MAX_MV;
+		}
 		if (batt_data.iterm_ua >= 0)
 			chip->term_current = batt_data.iterm_ua / 1000;
 	}
