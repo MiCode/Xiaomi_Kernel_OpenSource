@@ -10,13 +10,10 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi file.
+ */
 
-/include/ "apq8074-v2.dtsi"
-/include/ "msm8974-liquid.dtsi"
-
-/ {
-	model = "Qualcomm APQ 8074v2 LIQUID";
-	compatible = "qcom,apq8074-liquid", "qcom,apq8074", "qcom,liquid";
-	qcom,msm-id = <184 9 0x20000>;
-};
+/include/ "msm8974-v2.dtsi"

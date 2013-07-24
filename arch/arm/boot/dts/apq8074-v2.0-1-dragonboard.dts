@@ -12,23 +12,11 @@
 
 /dts-v1/;
 
-/include/ "apq8074-v2.dtsi"
-/include/ "msm8974-cdp.dtsi"
+/include/ "apq8074-v2.0-1.dtsi"
+/include/ "apq8074-dragonboard.dtsi"
 
 / {
-	model = "Qualcomm APQ 8074v2 CDP";
-	compatible = "qcom,apq8074-cdp", "qcom,apq8074", "qcom,cdp";
-	qcom,msm-id = <184 1 0x20000>;
-};
-
-&usb3 {
-	interrupt-parent = <&usb3>;
-	interrupts = <0 1>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0x0 0xffffffff>;
-	interrupt-map = <0x0 0 &intc 0 133 0
-			 0x0 1 &spmi_bus 0x0 0x0 0x9 0x0>;
-	interrupt-names = "hs_phy_irq", "pmic_id_irq";
-
-	qcom,misc-ref = <&pm8941_misc>;
+	model = "Qualcomm APQ 8074v2.0-1 DRAGONBOARD";
+	compatible = "qcom,apq8074-dragonboard", "qcom,apq8074", "qcom,dragonboard";
+	qcom,msm-id = <184 10 0x20000>;
 };
