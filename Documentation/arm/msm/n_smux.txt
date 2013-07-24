@@ -439,6 +439,8 @@ enum {
 	SMUX_TIOCM_UPDATE,
 	SMUX_LOW_WM_HIT,      /* @metadata is NULL */
 	SMUX_HIGH_WM_HIT,     /* @metadata is NULL */
+	SMUX_LOCAL_CLOSED,
+	SMUX_REMOTE_CLOSED,
 };
 
 /*
@@ -459,16 +461,18 @@ Close
 int msm_smux_close(uint32_t lcid)
 
 Closes a logical channel locally and sends a close command to the
-remote host.
+remote host and after receiving the ACK from remote host, the notify
+function will be called with the event SMUX_LOCAL_CLOSED.
 
 If there is pending transmit or receive data, then SMUX_WRITE_FAIL and
 SMUX_READ_FAIL notifications will be made to return ownership of the
 buffers to the client.
 
 Once the remote side of the port has been closed, the notify function
-will be called with the event SMUX_DISCONNECTED and metadata pointing
-to a struct smux_meta_disconnected structure.  After this point, no
-further notifications will be performed.
+will be called with the event SMUX_REMOTE_CLOSED and if the local side
+is also closed, then the SMUX_DISCONNECTED event with metadata pointing
+to a struct smux_meta_disconnected structure is sent to notify function.
+After this point, no further notifications will be performed.
 
 /*
  * Metadata for SMUX_DISCONNECTED notification
@@ -557,9 +561,11 @@ This returns ownership of the read and write buffers to the clients for
 client-appropriate handling.
 
 The sequence of notifications shall be:
-	1) SMUX_DISCONNECTED notification with @metadata->is_ssr == 1
-	2) SMUX_WRITE_FAIL for each packet in TX queue
-	3) SMUX_READ_FAIL for any RX packet in progress
+	1) SMUX_LOCAL_CLOSED notification with @metadata->is_ssr == 1
+	2) SMUX_REMOTE_CLOSED notification with @metadata->is_ssr == 1
+	3) SMUX_DISCONNECTED notification with @metadata->is_ssr == 1
+	4) SMUX_WRITE_FAIL for each packet in TX queue
+	5) SMUX_READ_FAIL for any RX packet in progress
 
 After the completion of the sequence, the client should call msm_smux_close()
 followed by a call to msm_smux_open() to re-open the port.
