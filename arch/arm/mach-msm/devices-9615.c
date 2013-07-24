@@ -1396,8 +1396,8 @@ static struct msm_rpmstats_platform_data msm_rpm_stat_pdata = {
 
 static struct resource msm_rpm_stat_resource[] = {
 	{
-		.start	= 0x0010D204,
-		.end	= 0x0010D204 + SZ_8K,
+		.start	= 0x0010DD04,
+		.end	= 0x0010DD04 + SZ_256,
 		.flags	= IORESOURCE_MEM,
 		.name	= "phys_addr_base"
 	},
