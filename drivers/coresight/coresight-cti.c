@@ -295,6 +295,41 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigout);
 
+static void __cti_reset(struct cti_drvdata *drvdata)
+{
+	int trig;
+
+	if (!drvdata->refcnt)
+		return;
+
+	CTI_UNLOCK(drvdata);
+
+	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
+		cti_writel(drvdata, 0, CTIINEN(trig));
+		cti_writel(drvdata, 0, CTIOUTEN(trig));
+	}
+
+	CTI_LOCK(drvdata);
+
+	cti_disable(drvdata);
+	drvdata->refcnt = 0;
+}
+
+void coresight_cti_reset(struct coresight_cti *cti)
+{
+	struct cti_drvdata *drvdata;
+
+	if (IS_ERR_OR_NULL(cti))
+		return;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	__cti_reset(drvdata);
+	mutex_unlock(&drvdata->mutex);
+}
+EXPORT_SYMBOL(coresight_cti_reset);
+
 struct coresight_cti *coresight_cti_get(const char *name)
 {
 	struct coresight_cti *cti;
@@ -387,6 +422,24 @@ static ssize_t cti_store_unmap_trigout(struct device *dev,
 }
 static DEVICE_ATTR(unmap_trigout, S_IWUSR, NULL, cti_store_unmap_trigout);
 
+static ssize_t cti_store_reset(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	if (!val)
+		return -EINVAL;
+
+	coresight_cti_reset(&drvdata->cti);
+	return size;
+}
+static DEVICE_ATTR(reset, S_IWUSR, NULL, cti_store_reset);
+
 static ssize_t cti_show_trigin(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
@@ -456,6 +509,7 @@ static struct attribute *cti_attrs[] = {
 	&dev_attr_map_trigout.attr,
 	&dev_attr_unmap_trigin.attr,
 	&dev_attr_unmap_trigout.attr,
+	&dev_attr_reset.attr,
 	&dev_attr_show_trigin.attr,
 	&dev_attr_show_trigout.attr,
 	NULL,
