@@ -308,7 +308,7 @@ struct diagchar_dev {
 	mempool_t *diag_hdlc_pool;
 	mempool_t *diag_user_pool;
 	mempool_t *diag_write_struct_pool;
-	struct mutex diagmem_mutex;
+	spinlock_t diag_mem_lock;
 	int count;
 	int count_hdlc_pool;
 	int count_user_pool;
