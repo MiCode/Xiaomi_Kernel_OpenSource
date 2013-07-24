@@ -130,6 +130,28 @@ static bool voice_itr_get_next_session(struct voice_session_itr *itr,
 	return ret;
 }
 
+static bool voice_is_valid_session_id(uint32_t session_id)
+{
+	bool ret = false;
+
+	switch (session_id) {
+	case VOICE_SESSION_VSID:
+	case VOICE2_SESSION_VSID:
+	case VOLTE_SESSION_VSID:
+	case VOIP_SESSION_VSID:
+	case QCHAT_SESSION_VSID:
+	case ALL_SESSION_VSID:
+		ret = true;
+		break;
+	default:
+		pr_err("%s: Invalid session_id : %x\n", __func__, session_id);
+
+		break;
+	}
+
+	return ret;
+}
+
 static u16 voice_get_mvm_handle(struct voice_data *v)
 {
 	if (v == NULL) {
@@ -2989,6 +3011,22 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	v->music_info.force = 1;
 	voice_cvs_stop_playback(v);
 	voice_cvs_stop_record(v);
+	/* If voice call is active during VoLTE, SRVCC happens.
+	   Start recording on voice session if recording started during VoLTE.
+	 */
+	if (is_volte_session(v->session_id) &&
+	    ((common.voice[VOC_PATH_PASSIVE].voc_state == VOC_RUN) ||
+	     (common.voice[VOC_PATH_PASSIVE].voc_state == VOC_CHANGE))) {
+		if (v->rec_info.rec_enable) {
+			voice_cvs_start_record(
+				&common.voice[VOC_PATH_PASSIVE],
+				v->rec_info.rec_mode);
+			common.srvcc_rec_flag = true;
+
+			pr_debug("%s: switch recording, srvcc_rec_flag %d\n",
+				 __func__, common.srvcc_rec_flag);
+		}
+	}
 	/* send stop voice cmd */
 	voice_send_stop_voice_cmd(v);
 
@@ -3561,17 +3599,35 @@ fail:
 	return ret;
 }
 
-int voc_start_record(uint32_t port_id, uint32_t set)
+int voc_start_record(uint32_t port_id, uint32_t set, uint32_t session_id)
 {
 	int ret = 0;
 	int rec_mode = 0;
 	u16 cvs_handle;
-	int i, rec_set = 0;
+	int rec_set = 0;
+	struct voice_session_itr itr;
+	struct voice_data *v = NULL;
 
-	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
-		struct voice_data *v = &common.voice[i];
-		pr_debug("%s: i:%d port_id: %d, set: %d\n",
-			__func__, i, port_id, set);
+	/* check if session_id is valid */
+	if (!voice_is_valid_session_id(session_id)) {
+		pr_err("%s: Invalid session id:%u\n", __func__,
+		       session_id);
+
+		return -EINVAL;
+	}
+
+	voice_itr_init(&itr, session_id);
+	pr_debug("%s: session_id:%u\n", __func__, session_id);
+
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v == NULL) {
+			pr_err("%s: v is NULL, sessionid:%u\n", __func__,
+				session_id);
+
+			break;
+		}
+		pr_debug("%s: port_id: %d, set: %d, v: %p\n",
+			 __func__, port_id, set, v);
 
 		mutex_lock(&v->lock);
 		rec_mode = v->rec_info.rec_mode;
@@ -3579,13 +3635,11 @@ int voc_start_record(uint32_t port_id, uint32_t set)
 		if (set) {
 			if ((v->rec_route_state.ul_flag != 0) &&
 				(v->rec_route_state.dl_flag != 0)) {
-				pr_debug("%s: i=%d, rec mode already set.\n",
-					__func__, i);
+				pr_debug("%s: rec mode already set.\n",
+					__func__);
+
 				mutex_unlock(&v->lock);
-				if (i < MAX_VOC_SESSIONS)
-					continue;
-				else
-					return 0;
+				continue;
 			}
 
 			if (port_id == VOICE_RECORD_TX) {
@@ -3615,13 +3669,10 @@ int voc_start_record(uint32_t port_id, uint32_t set)
 		} else {
 			if ((v->rec_route_state.ul_flag == 0) &&
 				(v->rec_route_state.dl_flag == 0)) {
-				pr_debug("%s: i=%d, rec already stops.\n",
-					__func__, i);
+				pr_debug("%s: rec already stops.\n",
+					__func__);
 				mutex_unlock(&v->lock);
-				if (i < MAX_VOC_SESSIONS)
-					continue;
-				else
-					return 0;
+				continue;
 			}
 
 			if (port_id == VOICE_RECORD_TX) {
@@ -3650,8 +3701,8 @@ int voc_start_record(uint32_t port_id, uint32_t set)
 				}
 			}
 		}
-		pr_debug("%s: i=%d, mode =%d, set =%d\n", __func__,
-			i, rec_mode, rec_set);
+		pr_debug("%s: mode =%d, set =%d\n", __func__,
+			 rec_mode, rec_set);
 		cvs_handle = voice_get_cvs_handle(v);
 
 		if (cvs_handle != 0) {
@@ -3659,6 +3710,18 @@ int voc_start_record(uint32_t port_id, uint32_t set)
 				ret = voice_cvs_start_record(v, rec_mode);
 			else
 				ret = voice_cvs_stop_record(v);
+		}
+
+		/* During SRVCC, recording will switch from VoLTE session to
+		   voice session.
+		   Then stop recording, need to stop recording on voice session.
+		 */
+		if ((!rec_set) && common.srvcc_rec_flag) {
+			pr_debug("%s, srvcc_rec_flag:%d\n",  __func__,
+				 common.srvcc_rec_flag);
+
+			voice_cvs_stop_record(&common.voice[VOC_PATH_PASSIVE]);
+			common.srvcc_rec_flag = false;
 		}
 
 		/* Cache the value */
@@ -4590,6 +4653,9 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 				c->voice[i].shmem_info.mem_handle = 0;
 			}
 		}
+		/* clean up srvcc rec flag */
+		c->srvcc_rec_flag = false;
+
 		return 0;
 	}
 

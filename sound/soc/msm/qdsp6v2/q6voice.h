@@ -1338,6 +1338,8 @@ struct common_data {
 	struct dtmf_driver_info dtmf_info;
 
 	struct voice_data voice[MAX_VOC_SESSIONS];
+
+	bool srvcc_rec_flag;
 };
 
 struct voice_session_itr {
@@ -1438,7 +1440,7 @@ int voc_deregister_vocproc_vol_table(void);
 uint32_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set, uint16_t port_id);
-int voc_start_record(uint32_t port_id, uint32_t set);
+int voc_start_record(uint32_t port_id, uint32_t set, uint32_t session_id);
 int voice_get_idx_for_session(u32 session_id);
 
 #endif
