@@ -20,7 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
-#include <linux/mfd/wcd9xxx/wcd9320_registers.h>
+#include <uapi/linux/mfd/wcd9xxx/wcd9320_registers.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
