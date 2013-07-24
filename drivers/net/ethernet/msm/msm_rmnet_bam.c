@@ -55,7 +55,7 @@ module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 #define DBG2(x...) DBG(DEBUG_MASK_LVL2, x)
 
 /* Configure device instances */
-#define RMNET_DEVICE_COUNT (8)
+#define RMNET_DEVICE_COUNT  9
 
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
@@ -85,6 +85,7 @@ struct rmnet_private {
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
 	uint8_t in_reset;
+	struct platform_driver *bam_pdev;
 };
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -400,6 +401,14 @@ static int __rmnet_open(struct net_device *dev)
 			DBG0("%s: ch=%d failed with rc %d\n",
 					__func__, p->ch_id, r);
 			return -ENODEV;
+		}
+
+		r = platform_driver_register(p->bam_pdev);
+		if (r) {
+			pr_err("%s: bam pdev registration failed n=%d rc=%d\n",
+					__func__, p->ch_id, r);
+			msm_bam_dmux_close(p->ch_id);
+			return r;
 		}
 	}
 
@@ -871,8 +880,13 @@ static int __init rmnet_init(void)
 #endif
 
 	for (n = 0; n < RMNET_DEVICE_COUNT; n++) {
+		const char *dev_name = "rmnet%d";
+
+		if (n == BAM_DMUX_USB_RMNET_0)
+			dev_name = "rmnet_usb%d";
+
 		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   "rmnet%d", rmnet_setup);
+				   dev_name, rmnet_setup);
 
 		if (!dev) {
 			pr_err("%s: no memory for netdev %d\n", __func__, n);
@@ -931,13 +945,7 @@ static int __init rmnet_init(void)
 									n);
 		bam_rmnet_drivers[n].driver.name = tempname;
 		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_drivers[n]);
-		if (ret) {
-			pr_err("%s: registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			netdevs[n] = NULL;
-			goto error;
-		}
+		p->bam_pdev = &bam_rmnet_drivers[n];
 	}
 	/*Support for new rmnet ports */
 	for (n = 0; n < RMNET_REV_DEVICE_COUNT; n++) {
@@ -983,13 +991,7 @@ static int __init rmnet_init(void)
 					(n+BAM_DMUX_DATA_REV_RMNET_0));
 		bam_rmnet_rev_drivers[n].driver.name = tempname;
 		bam_rmnet_rev_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_rev_drivers[n]);
-		if (ret) {
-			pr_err("%s: new rev driver registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			netdevs_rev[n] = NULL;
-			goto error;
-		}
+		p->bam_pdev = &bam_rmnet_rev_drivers[n];
 	}
 	return 0;
 
