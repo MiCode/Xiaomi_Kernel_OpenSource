@@ -1398,10 +1398,55 @@ static int a2xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a2xx_drawctxt_detach(struct adreno_context *drawctxt)
+{
+	kgsl_sharedmem_free(&drawctxt->gpustate);
+	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
+}
+
+static int a2xx_drawctxt_save(struct adreno_device *adreno_dev,
+			struct adreno_context *context);
+
+static int a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
+			struct adreno_context *context);
+
+static int a2xx_drawctxt_draw_workaround(struct adreno_device *adreno_dev,
+					struct adreno_context *context);
+
+static const struct adreno_context_ops a225_preamble_ctx_ops = {
+	.restore = adreno_context_restore,
+	.draw_workaround = a2xx_drawctxt_draw_workaround,
+};
+
+static const struct adreno_context_ops a225_legacy_ctx_ops = {
+	.save = a2xx_drawctxt_save,
+	.restore = a2xx_drawctxt_restore,
+	.draw_workaround = a2xx_drawctxt_draw_workaround,
+	.detach = a2xx_drawctxt_detach,
+};
+
+static const struct adreno_context_ops a2xx_legacy_ctx_ops = {
+	.save = a2xx_drawctxt_save,
+	.restore = a2xx_drawctxt_restore,
+	.detach = a2xx_drawctxt_detach,
+};
+
+
 static int a2xx_drawctxt_create(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt)
 {
 	int ret;
+
+	if (drawctxt->flags & CTXT_FLAGS_PREAMBLE
+	   && drawctxt->flags & CTXT_FLAGS_NOGMEMALLOC) {
+		drawctxt->ops = (adreno_is_a225(adreno_dev))
+			?  &a225_preamble_ctx_ops : &adreno_preamble_ctx_ops;
+
+		return 0;
+	}
+
+	drawctxt->ops = (adreno_is_a225(adreno_dev))
+			?  &a225_legacy_ctx_ops : &a2xx_legacy_ctx_ops;
 
 	/*
 	 * Allocate memory for the GPU state and the context commands.
@@ -1510,12 +1555,6 @@ static int a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	int ret;
 
-	if (context == NULL || (context->flags & CTXT_FLAGS_BEING_DESTROYED))
-		return 0;
-
-	if (context->state == ADRENO_CONTEXT_STATE_INVALID)
-		return 0;
-
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
 		kgsl_cffdump_syncmem(context->base.device, &context->gpustate,
 			context->reg_save[1],
@@ -1600,40 +1639,14 @@ static int a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 			struct adreno_context *context)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int cmds[5];
-	int ret = 0;
+	int ret;
 
-	if (context == NULL) {
-		/* No context - set the default pagetable and thats it */
-		unsigned int id;
-		/*
-		 * If there isn't a current context, the kgsl_mmu_setstate
-		 * will use the CPU path so we don't need to give
-		 * it a valid context id.
-		 */
-		id = (adreno_dev->drawctxt_active != NULL)
-			? adreno_dev->drawctxt_active->base.id
-			: KGSL_CONTEXT_INVALID;
-		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable,
-				  id);
-		return 0;
-	}
-
-	cmds[0] = cp_nop_packet(1);
-	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
-	cmds[3] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
-	cmds[4] = context->base.id;
-	ret = adreno_ringbuffer_issuecmds(device, context, KGSL_CMD_FLAGS_NONE,
-					cmds, 5);
+	ret = adreno_context_restore(adreno_dev, context);
 	if (ret)
 		return ret;
 
-	kgsl_mmu_setstate(&device->mmu, context->base.proc_priv->pagetable,
-			context->base.id);
-
-	/* restore gmem.
+	/*
+	 *  restore gmem.
 	 *  (note: changes shader. shader must not already be restored.)
 	 */
 	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
@@ -1692,6 +1705,7 @@ static int a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	}
 
 	if (adreno_is_a20x(adreno_dev)) {
+		unsigned int cmds[2];
 		cmds[0] = cp_type3_packet(CP_SET_BIN_BASE_OFFSET, 1);
 		cmds[1] = context->bin_base_offset;
 		ret = adreno_ringbuffer_issuecmds(device, context,
@@ -2296,9 +2310,6 @@ struct adreno_gpudev adreno_a2xx_gpudev = {
 	.reg_offsets = &a2xx_reg_offsets,
 
 	.ctxt_create = a2xx_drawctxt_create,
-	.ctxt_save = a2xx_drawctxt_save,
-	.ctxt_restore = a2xx_drawctxt_restore,
-	.ctxt_draw_workaround = a2xx_drawctxt_draw_workaround,
 	.irq_handler = a2xx_irq_handler,
 	.irq_control = a2xx_irq_control,
 	.irq_pending = a2xx_irq_pending,
