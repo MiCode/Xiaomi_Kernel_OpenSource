@@ -35,16 +35,22 @@ static void msm_bus_assign_iids(struct msm_bus_fabric_registration
 		if (!fabreg->info[i].gateway) {
 			fabreg->info[i].priv_id = fabid + fabreg->info[i].id;
 			if (fabreg->info[i].id < SLAVE_ID_KEY) {
-				WARN(fabreg->info[i].id >= MSM_BUS_MASTER_LAST,
-					"id %d exceeds array size!\n",
-					fabreg->info[i].id);
+				if (fabreg->info[i].id >= MSM_BUS_MASTER_LAST) {
+					WARN(1, "id %d exceeds array size!\n",
+						fabreg->info[i].id);
+					continue;
+				}
+
 				master_iids[fabreg->info[i].id] =
 					fabreg->info[i].priv_id;
 			} else {
-				WARN((fabreg->info[i].id - SLAVE_ID_KEY) >=
-					(MSM_BUS_SLAVE_LAST - SLAVE_ID_KEY),
-					"id %d exceeds array size!\n",
-					fabreg->info[i].id);
+				if ((fabreg->info[i].id - SLAVE_ID_KEY) >=
+					(MSM_BUS_SLAVE_LAST - SLAVE_ID_KEY)) {
+					WARN(1, "id %d exceeds array size!\n",
+						fabreg->info[i].id);
+					continue;
+				}
+
 				slave_iids[fabreg->info[i].id - (SLAVE_ID_KEY)]
 					= fabreg->info[i].priv_id;
 			}
