@@ -2647,6 +2647,11 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 	struct qseecom_dev_handle *data = file->private_data;
 	void __user *argp = (void __user *) arg;
 
+	if (!data) {
+		pr_err("Invalid/uninitialized device handle\n");
+		return -EINVAL;
+	}
+
 	if (data->abort) {
 		pr_err("Aborting qseecom driver\n");
 		return -ENODEV;
