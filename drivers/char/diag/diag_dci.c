@@ -459,6 +459,7 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 	if ((read_len + 9) >= USER_SPACE_DATA) {
 		pr_err("diag: dci: Invalid length while forming dci pkt in %s",
 								__func__);
+		mutex_unlock(&driver->dci_mutex);
 		return -EIO;
 	}
 
