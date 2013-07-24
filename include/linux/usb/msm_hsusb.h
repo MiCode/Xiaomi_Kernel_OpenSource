@@ -229,7 +229,10 @@ enum usb_vdd_value {
  *              between 1 to 7.
  * @l1_supported: enable link power management support.
  * @dpdm_pulldown_added: Indicates whether pull down resistors are
-		connected on data lines or not.
+ *		connected on data lines or not.
+ * @vddmin_gpio: dedictaed gpio in the platform that is used
+ *		for pullup the D+ line in case of bus suspend
+ *		with phy retention.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -258,6 +261,7 @@ struct msm_otg_platform_data {
 	int log2_itc;
 	bool l1_supported;
 	bool dpdm_pulldown_added;
+	int vddmin_gpio;
 };
 
 /* phy related flags */

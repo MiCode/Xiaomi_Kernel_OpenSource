@@ -21,6 +21,8 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
@@ -1011,6 +1013,11 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		/* DP DM HV interrupts are used for bus resume from XO off */
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		phy_ctrl_val |= PHY_CLAMP_DPDMSE_EN;
+		if (motg->caps & ALLOW_PHY_RETENTION && pdata->vddmin_gpio) {
+			phy_ctrl_val &= ~PHY_RETEN;
+			motg->lpm_flags |= PHY_RETENTIONED;
+			gpio_direction_output(pdata->vddmin_gpio, 1);
+		}
 		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
 	}
 
@@ -1148,13 +1155,16 @@ static int msm_otg_resume(struct msm_otg *motg)
 		msm_hsusb_config_vddcx(1);
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		phy_ctrl_val |= PHY_RETEN;
-		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
+			!motg->device_bus_suspend)
 			/* Disable PHY HV interrupts */
 			phy_ctrl_val &=
 				~(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
 		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN);
 		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
+		if (pdata->vddmin_gpio && motg->device_bus_suspend)
+			gpio_direction_input(pdata->vddmin_gpio);
 	} else if (motg->device_bus_suspend) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN);
@@ -1611,6 +1621,7 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 {
 	struct msm_otg *motg = container_of(otg->phy, struct msm_otg, phy);
 	struct msm_otg_platform_data *pdata = motg->pdata;
+	int ret;
 
 	if (!otg->gadget)
 		return;
@@ -1630,6 +1641,22 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 			msm_otg_bus_vote(motg, USB_MAX_PERF_VOTE);
 
 		usb_gadget_vbus_connect(otg->gadget);
+
+		/*
+		 * Request VDD min gpio, if need to support VDD
+		 * minimazation during peripheral bus suspend.
+		 */
+		if (pdata->vddmin_gpio) {
+			ret = gpio_request(pdata->vddmin_gpio,
+				"MSM_OTG_VDD_MIN_GPIO");
+			if (ret < 0) {
+				dev_err(otg->phy->dev,
+					"gpio req failed for vdd min:%d\n",
+						ret);
+				pdata->vddmin_gpio = 0;
+			}
+		}
+
 	} else {
 		dev_dbg(otg->phy->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(otg->gadget);
@@ -1637,6 +1664,9 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		msm_otg_bus_vote(motg, USB_MIN_PERF_VOTE);
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_UNDEFINED);
+
+		if (pdata->vddmin_gpio)
+			gpio_free(pdata->vddmin_gpio);
 	}
 }
 
@@ -4102,6 +4132,7 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_otg_platform_data *pdata;
 	int len = 0;
+	int res_gpio;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -4156,6 +4187,11 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 	pdata->l1_supported = of_property_read_bool(node,
 				"qcom,hsusb-l1-supported");
+
+	res_gpio = of_get_named_gpio(node, "qcom,hsusb-otg-vddmin-gpio", 0);
+	if (res_gpio < 0)
+		res_gpio = 0;
+	pdata->vddmin_gpio = res_gpio;
 
 	return pdata;
 }

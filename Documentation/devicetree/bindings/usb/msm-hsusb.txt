@@ -86,6 +86,10 @@ Optional properties :
 	for detection of dp line transition during VDD minimization.
 - qcom,hsusb-otg-dmsehv-int: If present, indicates mpm interrupt to be configured
 	for detection of dm line transition during VDD minimization.
+- qcom,hsusb-otg-vddmin-gpio = If present, indicates a gpio that will be used
+	to supply voltage to the D+ line during VDD minimization and peripheral
+	bus suspend. If not exists, then VDD minimization will not be allowed
+	during peripheral bus suspend.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -119,6 +123,7 @@ Example HSUSB OTG controller device node :
 		qcom,msm_bus,vectors =
 				<87 512 0 0>,
 				<87 512 60000000 960000000>;
+		qcom,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
 	};
 
 MSM HSUSB EHCI controller
