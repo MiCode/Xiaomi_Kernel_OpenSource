@@ -280,11 +280,6 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
-		if (pipe->is_fg) {
-			ab_total = 0;
-			ib_total = 0;
-			max_clk_rate = 0;
-		}
 
 		if (mdss_mdp_perf_calc_pipe(pipe, &perf))
 			continue;
@@ -1207,7 +1202,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_pipe *pipe;
 	u32 off, blend_op, blend_stage;
-	u32 mixercfg = 0, blend_color_out = 0, bgalpha = 0;
+	u32 mixercfg = 0, blend_color_out = 0, bg_alpha_enable = 0;
+	u32 fg_alpha = 0, bg_alpha = 0;
 	int stage, secure = 0;
 
 	if (!mixer)
@@ -1227,7 +1223,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 			mixercfg = 1 << (3 * pipe->num);
 		}
 		if (pipe->src_fmt->alpha_enable)
-			bgalpha = 1;
+			bg_alpha_enable = 1;
 		secure = pipe->flags & MDP_SECURE_OVERLAY_SESSION;
 	}
 
@@ -1244,48 +1240,79 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		blend_stage = stage - MDSS_MDP_STAGE_0;
 		off = MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
 
-		if (pipe->is_fg) {
-			bgalpha = 0;
-			if (!secure)
-				mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+		blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
+			    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
+		fg_alpha = pipe->alpha;
+		bg_alpha = 0xFF - pipe->alpha;
+		/* keep fg alpha */
+		blend_color_out |= 1 << (blend_stage + 1);
+
+		switch (pipe->blend_op) {
+		case BLEND_OP_OPAQUE:
 
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
-			/* keep fg alpha */
-			blend_color_out |= 1 << (blend_stage + 1);
 
-			pr_debug("pnum=%d stg=%d alpha=IS_FG\n", pipe->num,
+			pr_debug("pnum=%d stg=%d op=OPAQUE\n", pipe->num,
 					stage);
-		} else if (pipe->src_fmt->alpha_enable) {
-			bgalpha = 0;
-			blend_op = (MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL |
-				    MDSS_MDP_BLEND_BG_INV_ALPHA);
-			/* keep fg alpha */
-			blend_color_out |= 1 << (blend_stage + 1);
+			break;
 
-			pr_debug("pnum=%d stg=%d alpha=FG PIXEL\n", pipe->num,
+		case BLEND_OP_PREMULTIPLIED:
+			if (pipe->src_fmt->alpha_enable) {
+				blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
+					    MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL);
+				if (fg_alpha != 0xff) {
+					bg_alpha = fg_alpha;
+					blend_op |=
+						MDSS_MDP_BLEND_BG_MOD_ALPHA |
+						MDSS_MDP_BLEND_BG_INV_MOD_ALPHA;
+				} else {
+					blend_op |= MDSS_MDP_BLEND_BG_INV_ALPHA;
+				}
+			}
+			pr_debug("pnum=%d stg=%d op=PREMULTIPLIED\n", pipe->num,
 					stage);
-		} else if (bgalpha) {
-			blend_op = (MDSS_MDP_BLEND_BG_ALPHA_BG_PIXEL |
-				    MDSS_MDP_BLEND_FG_ALPHA_BG_PIXEL |
-				    MDSS_MDP_BLEND_FG_INV_ALPHA);
-			/* keep bg alpha */
-			pr_debug("pnum=%d stg=%d alpha=BG_PIXEL\n", pipe->num,
+			break;
+
+		case BLEND_OP_COVERAGE:
+			if (pipe->src_fmt->alpha_enable) {
+				blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_PIXEL |
+					    MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL);
+				if (fg_alpha != 0xff) {
+					bg_alpha = fg_alpha;
+					blend_op |=
+					       MDSS_MDP_BLEND_FG_MOD_ALPHA |
+					       MDSS_MDP_BLEND_FG_INV_MOD_ALPHA |
+					       MDSS_MDP_BLEND_BG_MOD_ALPHA |
+					       MDSS_MDP_BLEND_BG_INV_MOD_ALPHA;
+				} else {
+					blend_op |= MDSS_MDP_BLEND_BG_INV_ALPHA;
+				}
+			}
+			pr_debug("pnum=%d stg=%d op=COVERAGE\n", pipe->num,
 					stage);
-		} else {
+			break;
+
+		default:
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
-			pr_debug("pnum=%d stg=%d alpha=CONST\n", pipe->num,
+			pr_debug("pnum=%d stg=%d op=NONE\n", pipe->num,
 					stage);
+			break;
 		}
+
+		if (!pipe->src_fmt->alpha_enable && bg_alpha_enable)
+			blend_color_out = 0;
 
 		mixercfg |= stage << (3 * pipe->num);
 
+		pr_debug("stg=%d op=%x fg_alpha=%x bg_alpha=%x\n", stage,
+					blend_op, fg_alpha, bg_alpha);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_FG_ALPHA,
-				   pipe->alpha);
+				   fg_alpha);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_BG_ALPHA,
-				   0xFF - pipe->alpha);
+				   bg_alpha);
 	}
 
 	if (mixer->cursor_enabled)

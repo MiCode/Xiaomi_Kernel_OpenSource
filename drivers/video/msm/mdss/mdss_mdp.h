@@ -333,6 +333,7 @@ struct mdss_mdp_pipe {
 	u8 mixer_stage;
 	u8 is_fg;
 	u8 alpha;
+	u8 blend_op;
 	u8 overfetch_disable;
 	u32 transp;
 
