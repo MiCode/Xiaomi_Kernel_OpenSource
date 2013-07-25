@@ -2436,6 +2436,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 					lock = &inst->bufq[CAPTURE_PORT].lock;
 				else
 					lock = &inst->bufq[OUTPUT_PORT].lock;
+				temp->vb->v4l2_planes[0].bytesused = 0;
 				mutex_lock(lock);
 				vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
 				mutex_unlock(lock);
