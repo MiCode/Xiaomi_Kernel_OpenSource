@@ -35,11 +35,8 @@ struct synaptics_rmi4_capacitance_button_map {
  * struct synaptics_rmi4_platform_data - rmi4 platform data
  * @x_flip: x flip flag
  * @y_flip: y flip flag
- * @i2c_pull_up: pull up i2c bus with regulator
- * @power_down_enable: enable complete regulator shutdown in suspend
  * @irq_gpio: attention interrupt gpio
  * @irq_flags: flags used by the irq
- * @reset_flags: flags used by reset line
  * @reset_gpio: reset gpio
  * @panel_x: panel maximum values on the x
  * @panel_y: panel maximum values on the y
@@ -50,7 +47,6 @@ struct synaptics_rmi4_platform_data {
 	bool x_flip;
 	bool y_flip;
 	bool i2c_pull_up;
-	bool power_down_enable;
 	unsigned irq_gpio;
 	u32 irq_flags;
 	u32 reset_flags;
