@@ -952,6 +952,7 @@
 			cell-id = <2048>;
 			label = "fab_mmss_noc";
 			qcom,masterp = <1>;
+			qcom,gateway;
 			qcom,qport = <1>;
 			qcom,buswidth = <8>;
 			qcom,ws = <10000>;
