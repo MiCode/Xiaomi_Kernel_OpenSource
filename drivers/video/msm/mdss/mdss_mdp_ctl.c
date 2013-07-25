@@ -1337,7 +1337,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		 * writeback block
 		*/
 		head[len] = head[len - 1];
-		head[len].num = -1;
+		head[len].num = head[len - 1].num;
 	}
 	mdata->ctl_off = head;
 
