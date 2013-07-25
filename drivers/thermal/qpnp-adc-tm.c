@@ -191,6 +191,7 @@ struct qpnp_adc_tm_drv {
 	struct qpnp_adc_drv		*adc;
 	bool				adc_tm_initialized;
 	int				max_channels_available;
+	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_adc_tm_sensor	sensor[0];
 };
 
@@ -873,7 +874,8 @@ static int qpnp_adc_tm_get_trip_temp(struct thermal_zone_device *thermal,
 		return -EINVAL;
 	}
 
-	rc = qpnp_adc_tm_scale_voltage_therm_pu2(reg, &result);
+	rc = qpnp_adc_tm_scale_voltage_therm_pu2(adc_tm->vadc_dev, reg,
+								&result);
 	if (rc < 0) {
 		pr_err("Failed to lookup the therm thresholds\n");
 		return rc;
@@ -913,7 +915,7 @@ static int qpnp_adc_tm_set_trip_temp(struct thermal_zone_device *thermal,
 
 	pr_debug("requested a high - %d and low - %d with trip - %d\n",
 			tm_config.high_thr_temp, tm_config.low_thr_temp, trip);
-	rc = qpnp_adc_tm_scale_therm_voltage_pu2(&tm_config);
+	rc = qpnp_adc_tm_scale_therm_voltage_pu2(adc_tm->vadc_dev, &tm_config);
 	if (rc < 0) {
 		pr_err("Failed to lookup the adc-tm thresholds\n");
 		return rc;
@@ -1282,10 +1284,12 @@ static int qpnp_adc_read_temp(struct thermal_zone_device *thermal,
 			     unsigned long *temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm_sensor = thermal->devdata;
+	struct qpnp_adc_tm_drv *adc_tm = qpnp_adc_tm;
 	struct qpnp_vadc_result result;
 	int rc = 0;
 
-	rc = qpnp_vadc_read(adc_tm_sensor->vadc_channel_num, &result);
+	rc = qpnp_vadc_read(adc_tm->vadc_dev,
+				adc_tm_sensor->vadc_channel_num, &result);
 	if (rc)
 		return rc;
 
@@ -1362,7 +1366,7 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 		ADC_OP_MEASUREMENT_INTERVAL << QPNP_OP_MODE_SHIFT;
 	adc_tm->adc->amux_prop->chan_prop->meas_interval1 =
 						ADC_MEAS1_INTERVAL_1S;
-	adc_tm_rscale_fn[scale_type].chan(param,
+	adc_tm_rscale_fn[scale_type].chan(adc_tm->vadc_dev, param,
 			&adc_tm->adc->amux_prop->chan_prop->low_thr,
 			&adc_tm->adc->amux_prop->chan_prop->high_thr);
 	adc_tm->adc->amux_prop->chan_prop->tm_channel_select =
@@ -1550,6 +1554,14 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 	if (adc_tm->adc->adc_low_thr_irq < 0) {
 		pr_err("Invalid irq\n");
 		rc = -ENXIO;
+		goto fail;
+	}
+
+	adc_tm->vadc_dev = qpnp_get_vadc(&spmi->dev, "adc_tm");
+	if (IS_ERR(adc_tm->vadc_dev)) {
+		rc = PTR_ERR(adc_tm->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc property missing, rc=%d\n", rc);
 		goto fail;
 	}
 

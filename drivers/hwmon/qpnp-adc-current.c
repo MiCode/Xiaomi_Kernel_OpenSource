@@ -145,6 +145,7 @@ struct qpnp_iadc_drv {
 	struct mutex				iadc_vadc_lock;
 	bool					iadc_mode_sel;
 	struct qpnp_iadc_comp			iadc_comp;
+	struct qpnp_vadc_chip			*vadc_dev;
 	struct sensor_device_attribute		sens_attr[0];
 	bool					skip_auto_calibrations;
 };
@@ -723,7 +724,7 @@ static int32_t qpnp_check_pmic_temp(void)
 	int64_t die_temp_offset;
 	int rc = 0;
 
-	rc = qpnp_vadc_read(DIE_TEMP, &result_pmic_therm);
+	rc = qpnp_vadc_read(iadc->vadc_dev, DIE_TEMP, &result_pmic_therm);
 	if (rc < 0)
 		return rc;
 
@@ -882,7 +883,7 @@ int32_t qpnp_iadc_vadc_sync_read(
 
 	iadc->iadc_mode_sel = true;
 
-	rc = qpnp_vadc_iadc_sync_request(v_channel);
+	rc = qpnp_vadc_iadc_sync_request(iadc->vadc_dev, v_channel);
 	if (rc) {
 		pr_err("Configuring VADC failed\n");
 		goto fail;
@@ -893,7 +894,7 @@ int32_t qpnp_iadc_vadc_sync_read(
 		pr_err("Configuring IADC failed\n");
 	/* Intentional fall through to release VADC */
 
-	rc = qpnp_vadc_iadc_sync_complete_request(v_channel,
+	rc = qpnp_vadc_iadc_sync_complete_request(iadc->vadc_dev, v_channel,
 							v_result);
 	if (rc)
 		pr_err("Releasing VADC failed\n");
@@ -1002,6 +1003,14 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_get_devicetree_data(spmi, iadc->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
+		goto fail;
+	}
+
+	iadc->vadc_dev = qpnp_get_vadc(&spmi->dev, "iadc");
+	if (IS_ERR(iadc->vadc_dev)) {
+		rc = PTR_ERR(iadc->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc property missing, rc=%d\n", rc);
 		goto fail;
 	}
 
