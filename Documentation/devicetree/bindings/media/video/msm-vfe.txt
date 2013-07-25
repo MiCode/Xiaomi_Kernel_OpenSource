@@ -8,9 +8,13 @@ Required properties:
 - reg : offset and length of the register set for the device
     for the vfe operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
+    - "vfe" - Required.
+    - "vfe_vbif" - Optional for "vfe32". Required for "vfe40".
+    - "tcsr" - Optional for "vfe32". Required for "vfe40".
 - interrupts : should contain the vfe interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
+    - "vfe" - Required.
 - vdd-supply: phandle to GDSC regulator controlling VFE core.
 
 Example:
