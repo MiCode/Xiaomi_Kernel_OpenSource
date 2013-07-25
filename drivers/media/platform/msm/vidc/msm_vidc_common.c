@@ -770,12 +770,12 @@ static void handle_ebd(enum command_response cmd, void *data)
 		vb->v4l2_planes[0].bytesused = response->input_done.filled_len;
 		vb->v4l2_planes[0].data_offset = response->input_done.offset;
 		if (vb->v4l2_planes[0].data_offset > vb->v4l2_planes[0].length)
-			dprintk(VIDC_ERR, "Error: data_offset overflow\n");
+			dprintk(VIDC_INFO, "data_offset overflow length\n");
 		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
-			dprintk(VIDC_ERR, "Error: buffer overflow\n");
+			dprintk(VIDC_INFO, "bytesused overflow length\n");
 		if ((u8 *)vb->v4l2_planes[0].m.userptr !=
 			response->input_done.packet_buffer)
-			dprintk(VIDC_ERR, "Error: unexpected buffer address\n");
+			dprintk(VIDC_INFO, "Unexpected buffer address\n");
 		vb->v4l2_buf.flags = 0;
 		empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
 		if (empty_buf_done) {
