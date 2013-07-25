@@ -90,16 +90,17 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 			continue;
 
 		rc = regulator_set_optimum_mode(r[i], ua[lvl_base + i]);
-		if (rc < 0)
+		rc = rc > 0 ? 0 : rc;
+		if (rc)
 			goto set_mode_fail;
 	}
 	if (vdd_class->set_vdd && !vdd_class->num_regulators)
 		rc = vdd_class->set_vdd(vdd_class, level);
 
-	if (rc < 0)
+	if (!rc)
 		vdd_class->cur_level = level;
 
-	return 0;
+	return rc;
 
 set_mode_fail:
 	regulator_set_voltage(r[i], uv[vdd_class->cur_level * n_reg + i],
