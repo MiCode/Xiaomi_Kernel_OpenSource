@@ -49,6 +49,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define MAX_QCA_REG		(116)
 
 static int nfc_i2c_write(struct i2c_client *client, u8 *buf, int len);
+static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr);
 
 struct qca199x_dev {
 	wait_queue_head_t read_wq;
@@ -167,6 +168,8 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 		count = MAX_BUFFER_SIZE;
 
 	mutex_lock(&qca199x_dev->read_mutex);
+	memset(tmp, 0, sizeof(tmp));
+	memset(len, 0, sizeof(len));
 	dmode = device_mode.handle_flavour;
 	/* FTM-RAW-I2C RD/WR MODE - Special Case */
 	if ((dmode == UNSOLICITED_FTM_RAW_MODE) ||
@@ -199,20 +202,25 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 	/* NORMAL NCI Behaviour */
 	/* Read the header */
 	ret = i2c_master_recv(qca199x_dev->client, len, PAYLOAD_HEADER_LENGTH);
-	if (ret != PAYLOAD_HEADER_LENGTH)
+	if (ret != PAYLOAD_HEADER_LENGTH) {
+		total = 0;
 		goto err;
+	}
 	length = len[PAYLOAD_HEADER_LENGTH - 1];
-
+	if (length == 0)
+		total = 0;
 	/** make sure full packet fits in the buffer **/
 	if ((length > 0) && ((length + PAYLOAD_HEADER_LENGTH) <= count)) {
 		/* Read the packet */
 		ret = i2c_master_recv(qca199x_dev->client, tmp, (length +
 			PAYLOAD_HEADER_LENGTH));
-		if (ret < 0)
+		if (ret < 0) {
+			total = 0;
 			goto err;
+		}
 		total = (length + PAYLOAD_HEADER_LENGTH);
 	}
-	mutex_unlock(&qca199x_dev->read_mutex);
+
 	if (total > 0) {
 		if ((total > count) || copy_to_user(buf, tmp, total)) {
 			dev_err(&qca199x_dev->client->dev,
@@ -221,6 +229,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			total = -EFAULT;
 		}
 	}
+	mutex_unlock(&qca199x_dev->read_mutex);
 err:
 	if (ret < 0)
 		mutex_unlock(&qca199x_dev->read_mutex);
@@ -375,6 +384,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 			goto err_req;
 		}
 		gpio_set_value(qca199x_dev->dis_gpio, 0);
+		msleep(20);
 	} else if (arg == 1) {
 		gpio_set_value(qca199x_dev->dis_gpio, 0);
 		r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
@@ -385,12 +395,20 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 			goto err_req;
 		}
 		gpio_set_value(qca199x_dev->dis_gpio, 1);
+		usleep(1000);
 	} else if (arg == 2) {
-		msleep(20);
+		r = nfcc_initialise(qca199x_dev->client, 0xE);
+		if (r) {
+			dev_err(&qca199x_dev->client->dev,
+					"nfc-nci probe: request nfcc initialise failed\n");
+			goto err_req;
+		}
 	} else if (arg == 3) {
 		msleep(20);
 	} else if (arg == 4) {
+		mutex_lock(&qca199x_dev->read_mutex);
 		nfcc_wake(NFCC_WAKE, filp);
+		mutex_unlock(&qca199x_dev->read_mutex);
 	} else if (arg == 5) {
 		nfcc_wake(NFCC_SLEEP, filp);
 	} else {
@@ -568,7 +586,7 @@ static int nfc_i2c_write(struct i2c_client *client, u8 *buf, int len)
 	return r;
 }
 
-int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
+static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 {
 	int r = 0;
 	unsigned char raw_1p8_CONTROL_011[]	= {0x11, XTAL_CLOCK};
@@ -764,9 +782,9 @@ static int qca199x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "dis gpio not provided\n");
 		goto err_irq;
 	}
-	gpio_set_value(qca199x_dev->dis_gpio, 1);
+	gpio_set_value(platform_data->dis_gpio, 1);/* HPD */
 	msleep(20);
-	gpio_set_value(qca199x_dev->dis_gpio, 0);
+	gpio_set_value(platform_data->dis_gpio, 0);/* ULPM */
 
 	nfc_clk  = clk_get(&client->dev, "ref_clk");
 
