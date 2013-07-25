@@ -43,6 +43,9 @@
 #include <linux/gpio.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_OF
+#include <linux/of_gpio.h>
+#endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -1794,6 +1797,95 @@ static void stk3x1x_late_resume(struct early_suspend *h)
 #endif	//#ifdef CONFIG_HAS_EARLYSUSPEND
 
 
+#ifdef CONFIG_OF
+static int stk3x1x_parse_dt(struct device *dev,
+			struct stk3x1x_platform_data *pdata)
+{
+	int rc;
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+
+	pdata->int_pin = of_get_named_gpio_flags(np, "stk,irq-gpio",
+				0, &pdata->int_flags);
+	if (pdata->int_pin < 0) {
+		dev_err(dev, "Unable to read irq-gpio\n");
+		return pdata->int_pin;
+	}
+
+	rc = of_property_read_u32(np, "stk,transmittance", &temp_val);
+	if (!rc)
+		pdata->transmittance = temp_val;
+	else {
+		dev_err(dev, "Unable to read transmittance\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,state-reg", &temp_val);
+	if (!rc)
+		pdata->state_reg = temp_val;
+	else {
+		dev_err(dev, "Unable to read state-reg\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,psctrl-reg", &temp_val);
+	if (!rc)
+		pdata->psctrl_reg = (u8)temp_val;
+	else {
+		dev_err(dev, "Unable to read psctrl-reg\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,alsctrl-reg", &temp_val);
+	if (!rc)
+		pdata->alsctrl_reg = (u8)temp_val;
+	else {
+		dev_err(dev, "Unable to read alsctrl-reg\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,ledctrl-reg", &temp_val);
+	if (!rc)
+		pdata->ledctrl_reg = (u8)temp_val;
+	else {
+		dev_err(dev, "Unable to read ledctrl-reg\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,wait-reg", &temp_val);
+	if (!rc)
+		pdata->wait_reg = (u8)temp_val;
+	else {
+		dev_err(dev, "Unable to read wait-reg\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,ps-thdh", &temp_val);
+	if (!rc)
+		pdata->ps_thd_h = (u16)temp_val;
+	else {
+		dev_err(dev, "Unable to read ps-thdh\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(np, "stk,ps-thdl", &temp_val);
+	if (!rc)
+		pdata->ps_thd_l = (u16)temp_val;
+	else {
+		dev_err(dev, "Unable to read ps-thdl\n");
+		return rc;
+	}
+
+	return 0;
+}
+#else
+static int stk3x1x_parse_dt(struct device *dev,
+			struct stk3x1x_platform_data *pdata)
+{
+	return -ENODEV;
+}
+#endif /* !CONFIG_OF */
+
 static int stk3x1x_probe(struct i2c_client *client,
                         const struct i2c_device_id *id)
 {
@@ -1827,20 +1919,33 @@ static int stk3x1x_probe(struct i2c_client *client,
 #ifdef STK_POLL_PS
 	wake_lock_init(&ps_data->ps_nosuspend_wl,WAKE_LOCK_SUSPEND, "stk_nosuspend_wakelock");
 #endif
-	if(client->dev.platform_data != NULL)
-	{
-		plat_data = client->dev.platform_data;
-		ps_data->als_transmittance = plat_data->transmittance;
-		ps_data->int_pin = plat_data->int_pin;
-		if(ps_data->als_transmittance == 0)
-		{
-			printk(KERN_ERR "%s: Please set als_transmittance in platform data\n", __func__);
-			goto err_als_input_allocate;
+	if (client->dev.of_node) {
+		plat_data = devm_kzalloc(&client->dev,
+			sizeof(struct stk3x1x_platform_data), GFP_KERNEL);
+		if (!plat_data) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			return -ENOMEM;
 		}
+
+		err = stk3x1x_parse_dt(&client->dev, plat_data);
+		dev_err(&client->dev,
+			"%s: stk3x1x_parse_dt ret=%d\n", __func__, err);
+		if (err)
+			return err;
+	} else
+		plat_data = client->dev.platform_data;
+
+	if (!plat_data) {
+		dev_err(&client->dev,
+			"%s: no stk3x1x platform data!\n", __func__);
+		goto err_als_input_allocate;
 	}
-	else
-	{
-		printk(KERN_ERR "%s: no stk3x1x platform data!\n", __func__);
+	ps_data->als_transmittance = plat_data->transmittance;
+	ps_data->int_pin = plat_data->int_pin;
+
+	if (ps_data->als_transmittance == 0) {
+		dev_err(&client->dev,
+			"%s: Please set als_transmittance\n", __func__);
 		goto err_als_input_allocate;
 	}
 
@@ -2001,11 +2106,17 @@ static const struct i2c_device_id stk_ps_id[] =
 };
 MODULE_DEVICE_TABLE(i2c, stk_ps_id);
 
+static struct of_device_id stk_match_table[] = {
+	{ .compatible = "stk,stk3x1x", },
+	{ },
+};
+
 static struct i2c_driver stk_ps_driver =
 {
     .driver = {
         .name = DEVICE_NAME,
 		.owner = THIS_MODULE,
+		.of_match_table = stk_match_table,
     },
     .probe = stk3x1x_probe,
     .remove = stk3x1x_remove,
