@@ -740,6 +740,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdcp_init_data.qfprom_io =
 			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
 		hdcp_init_data.mutex = &hdmi_ctrl->mutex;
+		hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 		hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
 		hdcp_init_data.workq = hdmi_ctrl->workq;
 		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
