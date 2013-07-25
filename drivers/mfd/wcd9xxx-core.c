@@ -470,7 +470,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 	found = wcd9xxx_check_codec_type(wcd9xxx, &version);
 	if (!found) {
 		ret = -ENODEV;
-		goto err_irq;
+		goto err;
 	} else {
 		wcd9xxx->codec_type = found;
 		wcd9xxx->version = version;
