@@ -43,7 +43,7 @@
 #define WLED_HIGH_POLE_CAP_REG(base)		(base + 0x58)
 #define WLED_CURR_SINK_MASK		0xE0
 #define WLED_CURR_SINK_SHFT		0x05
-#define WLED_SWITCH_FREQ_MASK		0x02
+#define WLED_SWITCH_FREQ_MASK		0x0F
 #define WLED_OVP_VAL_MASK		0x03
 #define WLED_OVP_VAL_BIT_SHFT		0x00
 #define WLED_BOOST_LIMIT_MASK		0x07
@@ -78,7 +78,7 @@
 #define WLED_BOOST_LIM_DEFAULT		0x03
 #define WLED_CP_SEL_DEFAULT		0x00
 #define WLED_CTRL_DLY_DEFAULT		0x00
-#define WLED_SWITCH_FREQ_DEFAULT	0x02
+#define WLED_SWITCH_FREQ_DEFAULT	0x0B
 
 #define FLASH_SAFETY_TIMER(base)	(base + 0x40)
 #define FLASH_MAX_CURR(base)		(base + 0x41)
@@ -237,14 +237,6 @@ enum wled_ovp_threshold {
 	WLED_OVP_32V,
 	WLED_OVP_29V,
 	WLED_OVP_37V,
-};
-
-/* switch frquency */
-enum wled_switch_freq {
-	WLED_800kHz = 0,
-	WLED_960kHz,
-	WLED_1600kHz,
-	WLED_3200kHz,
 };
 
 enum flash_headroom {
@@ -1312,11 +1304,12 @@ static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
 	}
 
 	/* program switch frequency */
-	rc = qpnp_led_masked_write(led, WLED_SWITCHING_FREQ_REG(led->base),
+	rc = qpnp_led_masked_write(led,
+		WLED_SWITCHING_FREQ_REG(led->base),
 		WLED_SWITCH_FREQ_MASK, led->wled_cfg->switch_freq);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
-				"WLED switch freq reg write failed(%d)\n", rc);
+			"WLED switch freq reg write failed(%d)\n", rc);
 		return rc;
 	}
 
