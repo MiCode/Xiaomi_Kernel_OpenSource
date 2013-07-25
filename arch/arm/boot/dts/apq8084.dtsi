@@ -335,6 +335,18 @@
 		qcom,firmware-name = "venus";
 	};
 
+	qcom,lpass@fe200000 {
+		compatible = "qcom,pil-q6v5-lpass";
+		reg = <0xfe200000 0x00100>,
+		      <0xfd485100 0x00010>,
+		      <0xfc4016c0 0x00004>;
+		reg-names = "qdsp6_base", "halt_base", "restart_reg";
+		vdd_cx-supply = <&pma8084_s2_corner>;
+		interrupts = <0 162 1>;
+
+		qcom,firmware-name = "adsp";
+	};
+
 	ufs1: ufshc@0xfc598000 {
 		compatible = "jedec,ufs-1.1";
 		reg = <0xfc598000 0x800>;
