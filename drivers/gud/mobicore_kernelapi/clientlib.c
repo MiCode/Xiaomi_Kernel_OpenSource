@@ -299,7 +299,7 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 			{
 				session->device_id,
 				*uuid,
-				(uint32_t)wsm->phys_addr,
+				(uint32_t)(wsm->phys_addr) & 0xFFF,
 				wsm->handle,
 				len
 			}
