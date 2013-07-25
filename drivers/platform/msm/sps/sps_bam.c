@@ -445,6 +445,10 @@ int sps_bam_disable(struct sps_bam *dev)
 	if ((dev->props.manage & SPS_BAM_MGR_DEVICE_REMOTE)) {
 		/* No, so just mark it disabled */
 		dev->state &= ~BAM_STATE_ENABLED;
+		if ((dev->state & BAM_STATE_IRQ) && (dev->props.irq > 0)) {
+			free_irq(dev->props.irq, dev);
+			dev->state &= ~BAM_STATE_IRQ;
+		}
 		return 0;
 	}
 
