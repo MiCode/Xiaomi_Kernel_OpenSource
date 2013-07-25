@@ -62,9 +62,14 @@ struct bam_data_port {
 
 	struct work_struct		connect_w;
 	struct work_struct		disconnect_w;
+	struct work_struct		suspend_w;
+	struct work_struct		resume_w;
 };
 
 struct bam_data_port *bam2bam_data_ports[BAM2BAM_DATA_N_PORTS];
+
+static void bam2bam_data_suspend_work(struct work_struct *w);
+static void bam2bam_data_resume_work(struct work_struct *w);
 
 /*------------data_path----------------------------*/
 
@@ -351,6 +356,8 @@ static int bam2bam_data_port_alloc(int portno)
 
 	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
 	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
+	INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
+	INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
 
 	/* data ch */
 	d = &port->data_ch;
@@ -578,12 +585,8 @@ void bam_data_suspend(u8 port_num)
 	d = &port->data_ch;
 
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
-	usb_bam_register_wake_cb(d->dst_connection_idx, bam_data_wake_cb, port);
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		usb_bam_register_start_stop_cbs(bam_data_start, bam_data_stop,
-									port);
-		usb_bam_suspend(&d->ipa_params);
-	}
+
+	queue_work(bam_data_wq, &port->suspend_w);
 }
 
 void bam_data_resume(u8 port_num)
@@ -596,6 +599,34 @@ void bam_data_resume(u8 port_num)
 	d = &port->data_ch;
 
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
+
+	queue_work(bam_data_wq, &port->resume_w);
+}
+
+static void bam2bam_data_suspend_work(struct work_struct *w)
+{
+	struct bam_data_port *port =
+			container_of(w, struct bam_data_port, suspend_w);
+	struct bam_data_ch_info *d = &port->data_ch;
+
+	pr_debug("%s: suspend work started\n", __func__);
+
+	usb_bam_register_wake_cb(d->dst_connection_idx, bam_data_wake_cb, port);
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		usb_bam_register_start_stop_cbs(bam_data_start, bam_data_stop,
+									port);
+		usb_bam_suspend(&d->ipa_params);
+	}
+}
+
+static void bam2bam_data_resume_work(struct work_struct *w)
+{
+	struct bam_data_port *port =
+			container_of(w, struct bam_data_port, resume_w);
+	struct bam_data_ch_info *d = &port->data_ch;
+
+	pr_debug("%s: resume work started\n", __func__);
+
 	usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)
 		usb_bam_resume(&d->ipa_params);
