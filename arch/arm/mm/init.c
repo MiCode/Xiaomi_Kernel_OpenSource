@@ -734,6 +734,46 @@ static void __init free_highpages(void)
 #endif
 }
 
+#define MLK(b, t) b, t, ((t) - (b)) >> 10
+#define MLM(b, t) b, t, ((t) - (b)) >> 20
+#define MLK_ROUNDUP(b, t) b, t, DIV_ROUND_UP(((t) - (b)), SZ_1K)
+
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+void print_vmalloc_lowmem_info(void)
+{
+	int i;
+	void *va_start, *va_end;
+
+	printk(KERN_NOTICE
+		"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+		MLM(VMALLOC_START, VMALLOC_END));
+
+	for (i = meminfo.nr_banks - 1; i >= 0; i--) {
+		if (!meminfo.bank[i].highmem) {
+			va_start = __va(meminfo.bank[i].start);
+			va_end = __va(meminfo.bank[i].start +
+						meminfo.bank[i].size);
+			printk(KERN_NOTICE
+			 "	    lowmem : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+			MLM((unsigned long)va_start, (unsigned long)va_end));
+		}
+		if (i && ((meminfo.bank[i-1].start + meminfo.bank[i-1].size) !=
+			   meminfo.bank[i].start)) {
+			if (meminfo.bank[i-1].start + meminfo.bank[i-1].size
+				   <= MAX_HOLE_ADDRESS) {
+				va_start = __va(meminfo.bank[i-1].start
+						+ meminfo.bank[i-1].size);
+				va_end = __va(meminfo.bank[i].start);
+				printk(KERN_NOTICE
+				"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+					   MLM((unsigned long)va_start,
+						   (unsigned long)va_end));
+			}
+		}
+	}
+}
+#endif
+
 /*
  * mem_init() marks the free areas in the mem_map and tells us how much
  * memory is free.  This is done after various parts of the system have
@@ -814,10 +854,6 @@ void __init mem_init(void)
 		reserved_pages << (PAGE_SHIFT-10),
 		totalhigh_pages << (PAGE_SHIFT-10));
 
-#define MLK(b, t) b, t, ((t) - (b)) >> 10
-#define MLM(b, t) b, t, ((t) - (b)) >> 20
-#define MLK_ROUNDUP(b, t) b, t, DIV_ROUND_UP(((t) - (b)), SZ_1K)
-
 	printk(KERN_NOTICE "Virtual kernel memory layout:\n"
 			"    vector  : 0x%08lx - 0x%08lx   (%4ld kB)\n"
 #ifdef CONFIG_ARM_USE_USER_ACCESSIBLE_TIMERS
@@ -827,20 +863,7 @@ void __init mem_init(void)
 			"    DTCM    : 0x%08lx - 0x%08lx   (%4ld kB)\n"
 			"    ITCM    : 0x%08lx - 0x%08lx   (%4ld kB)\n"
 #endif
-			"    fixmap  : 0x%08lx - 0x%08lx   (%4ld kB)\n"
-			"    vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n"
-			"    lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n"
-#ifdef CONFIG_HIGHMEM
-			"    pkmap   : 0x%08lx - 0x%08lx   (%4ld MB)\n"
-#endif
-#ifdef CONFIG_MODULES
-			"    modules : 0x%08lx - 0x%08lx   (%4ld MB)\n"
-#endif
-			"      .text : 0x%p" " - 0x%p" "   (%4d kB)\n"
-			"      .init : 0x%p" " - 0x%p" "   (%4d kB)\n"
-			"      .data : 0x%p" " - 0x%p" "   (%4d kB)\n"
-			"       .bss : 0x%p" " - 0x%p" "   (%4d kB)\n",
-
+			"    fixmap  : 0x%08lx - 0x%08lx   (%4ld kB)\n",
 			MLK(UL(CONFIG_VECTORS_BASE), UL(CONFIG_VECTORS_BASE) +
 				(PAGE_SIZE)),
 #ifdef CONFIG_ARM_USE_USER_ACCESSIBLE_TIMERS
@@ -852,25 +875,39 @@ void __init mem_init(void)
 			MLK(DTCM_OFFSET, (unsigned long) dtcm_end),
 			MLK(ITCM_OFFSET, (unsigned long) itcm_end),
 #endif
-			MLK(FIXADDR_START, FIXADDR_TOP),
-			MLM(VMALLOC_START, VMALLOC_END),
-			MLM(PAGE_OFFSET, (unsigned long)high_memory),
+			MLK(FIXADDR_START, FIXADDR_TOP));
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	print_vmalloc_lowmem_info();
+#else
+	printk(KERN_NOTICE
+		   "    vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n"
+		   "    lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+		   MLM(VMALLOC_START, VMALLOC_END),
+		   MLM(PAGE_OFFSET, (unsigned long)high_memory));
+#endif
 #ifdef CONFIG_HIGHMEM
-			MLM(PKMAP_BASE, (PKMAP_BASE) + (LAST_PKMAP) *
+	printk(KERN_NOTICE
+		   "    pkmap   : 0x%08lx - 0x%08lx   (%4ld MB)\n"
+#endif
+#ifdef CONFIG_MODULES
+		   "    modules : 0x%08lx - 0x%08lx   (%4ld MB)\n"
+#endif
+		   "      .text : 0x%p" " - 0x%p" "   (%4d kB)\n"
+		   "      .init : 0x%p" " - 0x%p" "   (%4d kB)\n"
+		   "      .data : 0x%p" " - 0x%p" "   (%4d kB)\n"
+		   "       .bss : 0x%p" " - 0x%p" "   (%4d kB)\n",
+#ifdef CONFIG_HIGHMEM
+		   MLM(PKMAP_BASE, (PKMAP_BASE) + (LAST_PKMAP) *
 				(PAGE_SIZE)),
 #endif
 #ifdef CONFIG_MODULES
-			MLM(MODULES_VADDR, MODULES_END),
+		   MLM(MODULES_VADDR, MODULES_END),
 #endif
 
-			MLK_ROUNDUP(_text, _etext),
-			MLK_ROUNDUP(__init_begin, __init_end),
-			MLK_ROUNDUP(_sdata, _edata),
-			MLK_ROUNDUP(__bss_start, __bss_stop));
-
-#undef MLK
-#undef MLM
-#undef MLK_ROUNDUP
+		   MLK_ROUNDUP(_text, _etext),
+		   MLK_ROUNDUP(__init_begin, __init_end),
+		   MLK_ROUNDUP(_sdata, _edata),
+		   MLK_ROUNDUP(__bss_start, __bss_stop));
 
 	/*
 	 * Check boundaries twice: Some fundamental inconsistencies can
@@ -878,7 +915,7 @@ void __init mem_init(void)
 	 */
 #ifdef CONFIG_MMU
 	BUILD_BUG_ON(TASK_SIZE				> MODULES_VADDR);
-	BUG_ON(TASK_SIZE 				> MODULES_VADDR);
+	BUG_ON(TASK_SIZE				> MODULES_VADDR);
 #endif
 
 #ifdef CONFIG_HIGHMEM
@@ -897,6 +934,9 @@ void __init mem_init(void)
 	}
 }
 
+#undef MLK
+#undef MLM
+#undef MLK_ROUNDUP
 void free_initmem(void)
 {
 	unsigned long reclaimed_initmem;
