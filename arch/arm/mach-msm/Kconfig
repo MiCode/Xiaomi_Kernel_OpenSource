@@ -522,6 +522,7 @@ config ARCH_MSMSAMARIUM
 	select ARM_GIC
 	select CPU_V7
 	select MSM_SCM
+	select MSM_PIL
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select MSM_SPM_V2
