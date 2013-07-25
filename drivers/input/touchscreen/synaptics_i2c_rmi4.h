@@ -85,9 +85,12 @@ struct synaptics_rmi4_fn_desc {
 	unsigned char cmd_base_addr;
 	unsigned char ctrl_base_addr;
 	unsigned char data_base_addr;
-	unsigned char intr_src_count;
+	unsigned char intr_src_count:3;
+	unsigned char reserved_b3_b4:2;
+	unsigned char version:2;
+	unsigned char reserved_b7:1;
 	unsigned char fn_number;
-};
+} __packed;
 
 /*
  * synaptics_rmi4_fn_full_addr - full 16-bit base addresses
@@ -232,6 +235,8 @@ struct synaptics_rmi4_data {
 	bool fw_updating;
 	bool suspended;
 	wait_queue_head_t wait;
+	bool stay_awake;
+	bool staying_awake;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);
 	int (*i2c_write)(struct synaptics_rmi4_data *pdata, unsigned short addr,
