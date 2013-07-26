@@ -25,6 +25,7 @@
 /include/ "msm-gdsc.dtsi"
 /include/ "msmsamarium-ion.dtsi"
 /include/ "msmsamarium-smp2p.dtsi"
+/include/ "msmsamarium-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -228,6 +229,13 @@
 		};
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone; /* TODO: remove this after bring up */
+	};
+
 	android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfe8050c8 0xc8>;
@@ -283,7 +291,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup;     /* Needed until MPM is fully configured. */
 	};
 
 	tsens: tsens@fc4a8000 {
