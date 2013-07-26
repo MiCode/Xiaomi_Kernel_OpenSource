@@ -62,8 +62,9 @@ module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 
 #define DEVICE_ID_INVALID   -1
 
-#define DEVICE_INACTIVE      0
+#define DEVICE_INACTIVE      2
 #define DEVICE_ACTIVE        1
+#define DEVICE_UNINITIALIZED 0
 
 #define HEADROOM_FOR_BAM   8 /* for mux header */
 #define HEADROOM_FOR_QOS    8
@@ -394,7 +395,7 @@ static int __rmnet_open(struct net_device *dev)
 
 	DBG0("[%s] __rmnet_open()\n", dev->name);
 
-	if (!p->device_up) {
+	if (p->device_up == DEVICE_UNINITIALIZED) {
 		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
 
 		if (r < 0) {
@@ -436,7 +437,7 @@ static int __rmnet_close(struct net_device *dev)
 	struct rmnet_private *p = netdev_priv(dev);
 	int rc = 0;
 
-	if (p->device_up) {
+	if (p->device_up == DEVICE_ACTIVE) {
 		/* do not close rmnet port once up,  this causes
 		   remote side to hang if tried to open again */
 		p->device_up = DEVICE_INACTIVE;
@@ -906,6 +907,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -971,6 +973,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n+BAM_DMUX_DATA_REV_RMNET_0;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 
