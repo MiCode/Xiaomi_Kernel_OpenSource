@@ -209,6 +209,26 @@ TRACE_EVENT(adreno_drawctxt_wait_done,
 	)
 );
 
+TRACE_EVENT(adreno_drawctxt_switch,
+	TP_PROTO(struct adreno_context *oldctx,
+		struct adreno_context *newctx,
+		unsigned int flags),
+	TP_ARGS(oldctx, newctx, flags),
+	TP_STRUCT__entry(
+		__field(unsigned int, oldctx)
+		__field(unsigned int, newctx)
+		__field(unsigned int, flags)
+	),
+	TP_fast_assign(
+		__entry->oldctx = oldctx ? oldctx->base.id : 0;
+		__entry->newctx = newctx ? newctx->base.id : 0;
+	),
+	TP_printk(
+		"oldctx=%u newctx=%u flags=%X",
+			__entry->oldctx, __entry->newctx, flags
+	)
+);
+
 TRACE_EVENT(adreno_gpu_fault,
 	TP_PROTO(unsigned int ctx, unsigned int ts,
 		unsigned int status, unsigned int rptr, unsigned int wptr,
