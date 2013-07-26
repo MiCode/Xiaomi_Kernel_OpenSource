@@ -57,8 +57,6 @@
 
 #include "hbm.c"
 
-#define DRIVER_DESC "Qualcomm EHCI Host Controller using HSIC"
-
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
@@ -117,8 +115,6 @@ struct msm_hsic_hcd {
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned		enable_hbm:1;
 };
-
-static const char hcd_name[] = "ehci-msm";
 
 struct msm_hsic_hcd *__mehci;
 
@@ -1252,10 +1248,10 @@ static int msm_hsic_resume_thread(void *data)
 	}
 
 	if (unlikely(ehci->debug)) {
-		if (!dbgp_reset_prep())
+		if (!dbgp_reset_prep(hcd))
 			ehci->debug = NULL;
 		else
-			dbgp_external_startup();
+			dbgp_external_startup(hcd);
 	}
 
 	/* at least some APM implementations will try to deliver
@@ -1441,23 +1437,57 @@ static int ehci_msm_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 	return ehci_urb_enqueue(hcd, urb, mem_flags);
 }
 
-static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
-	.flags			= HCD_OLD_ENUM,
+static struct hc_driver msm_hsic_driver = {
+	.description		= hcd_name,
+	.product_desc		= "Qualcomm EHCI Host Controller using HSIC",
+	.hcd_priv_size		= sizeof(struct msm_hsic_hcd),
+
+	/*
+	 * generic hardware linkage
+	 */
+	.irq			= msm_hsic_irq,
+	.flags			= HCD_USB2 | HCD_MEMORY | HCD_OLD_ENUM,
 
 	.reset			= ehci_hsic_reset,
-	.extra_priv_size	= sizeof(struct msm_hsic_hcd),
-	.irq			= msm_hsic_irq,
+	.start			= ehci_run,
+
+	.stop			= ehci_stop,
+	.shutdown		= ehci_shutdown,
+
+	/*
+	 * managing i/o requests and associated device resources
+	 */
 	.urb_enqueue		= ehci_msm_urb_enqueue,
+	.urb_dequeue		= ehci_urb_dequeue,
+	.endpoint_disable	= ehci_endpoint_disable,
+	.endpoint_reset		= ehci_endpoint_reset,
+	.clear_tt_buffer_complete	 = ehci_clear_tt_buffer_complete,
+
+	/*
+	 * scheduling support
+	 */
+	.get_frame_number	= ehci_get_frame,
+
+	/*
+	 * root hub support
+	 */
+	.hub_status_data	= ehci_hub_status_data,
+	.hub_control		= ehci_hub_control,
+	.relinquish_port	= ehci_relinquish_port,
+	.port_handed_over	= ehci_port_handed_over,
+
+	/*
+	 * PM support
+	 */
 	.bus_suspend		= ehci_hsic_bus_suspend,
 	.bus_resume		= ehci_hsic_bus_resume,
+
 	.log_urb		= dbg_log_event,
 	.dump_regs		= dump_hsic_regs,
 
 	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
 	.reset_sof_bug_handler	= ehci_hsic_reset_sof_bug_handler,
 };
-
-static struct hc_driver __read_mostly ehci_msm_hsic_hc_driver;
 
 static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 {
@@ -1913,7 +1943,7 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (pdev->dev.parent)
 		pm_runtime_get_sync(pdev->dev.parent);
 
-	hcd = usb_create_hcd(&ehci_msm_hsic_hc_driver, &pdev->dev,
+	hcd = usb_create_hcd(&msm_hsic_driver, &pdev->dev,
 				dev_name(&pdev->dev));
 	if (!hcd) {
 		dev_err(&pdev->dev, "Unable to create HCD\n");
@@ -2343,21 +2373,3 @@ static struct platform_driver ehci_msm_hsic_driver = {
 		.of_match_table = hsic_host_dt_match,
 	},
 };
-
-static int __init ehci_msm_hsic_init(void)
-{
-	if (usb_disabled())
-		return -ENODEV;
-
-	pr_info("%s: " DRIVER_DESC "\n", hcd_name);
-
-	ehci_init_driver(&ehci_msm_hsic_hc_driver, &ehci_msm_hsic_overrides);
-	return platform_driver_register(&ehci_msm_hsic_driver);
-}
-module_init(ehci_msm_hsic_init);
-
-static void __exit ehci_msm_hsic_cleanup(void)
-{
-	platform_driver_unregister(&ehci_msm_hsic_driver);
-}
-module_exit(ehci_msm_hsic_cleanup);
