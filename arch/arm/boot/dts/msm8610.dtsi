@@ -173,13 +173,17 @@
 	qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
 		qcom,vidc-ns-map = <0x40000000 0x40000000>;
-		qcom,iommu-groups = <&q6_domain_ns>;
-		qcom,iommu-group-buffer-types = <0xfff>;
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,hfi = "q6";
 		qcom,max-hw-load = <108000>; /* 720p @ 30 * 1 */
-	};
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&q6_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0xfff>;
+			};
+		};
+};
 
 	qcom,usbbam@f9a44000 {
 		compatible = "qcom,usb-bam-msm";

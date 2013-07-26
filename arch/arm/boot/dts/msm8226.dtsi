@@ -182,11 +182,23 @@
 			<103000 134000>,
 			<268000 348000>,
 			<505000 657000>;
-		qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
-		qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-			<0x1fe 0x2>;
+			<0x2 0x2>,
+			<0x1f0 0x3>;
 		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x1ff>,
+							<0x200>;
+			};
+
+			qcom,domain-cp {
+				qcom,vidc-domain-phandle = <&venus_domain_cp>;
+				qcom,vidc-partition-buffer-types = <0x2>,
+							<0x1f1>;
+			};
+		};
 	};
 
 	qcom,wfd {
