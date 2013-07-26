@@ -1223,23 +1223,6 @@ void ehci_init_driver(struct hc_driver *drv,
 		drv->hcd_priv_size += over->extra_priv_size;
 		if (over->reset)
 			drv->reset = over->reset;
-		if (over->irq)
-			drv->irq = over->irq;
-		if (over->urb_enqueue)
-			drv->urb_enqueue = over->urb_enqueue;
-		if (over->bus_suspend)
-			drv->bus_suspend = over->bus_suspend;
-		if (over->bus_resume)
-			drv->bus_resume = over->bus_resume;
-		if (over->start)
-			drv->start = over->start;
-		if (over->log_urb)
-			drv->log_urb = over->log_urb;
-		if (over->set_autosuspend_delay) {
-			drv->set_autosuspend_delay =
-				over->set_autosuspend_delay;
-		}
-		drv->flags |= over->flags;
 	}
 }
 EXPORT_SYMBOL_GPL(ehci_init_driver);
