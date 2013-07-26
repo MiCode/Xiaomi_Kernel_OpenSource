@@ -29,6 +29,7 @@
 #include <linux/err.h>
 #include <linux/pm_wakeup.h>
 #include <linux/pm_runtime.h>
+#include <linux/dma-mapping.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
@@ -70,7 +71,6 @@ struct msm_hcd {
 	struct regulator			*hsusb_1p8;
 	struct regulator			*vbus;
 	struct msm_xo_voter			*xo_handle;
-	bool					async_int;
 	bool					vbus_on;
 	atomic_t				in_lpm;
 	int					pmic_gpio_dp_irq;
@@ -711,6 +711,7 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 			dev_err(mhcd->dev, "%s failed to devote for TCXO %d\n",
 								__func__, ret);
 	}
+	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 
 	msm_ehci_config_vddcx(mhcd, 0);
 
@@ -821,14 +822,9 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 
 skip_phy_resume:
 
+	set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 	usb_hcd_resume_root_hub(hcd);
 	atomic_set(&mhcd->in_lpm, 0);
-
-	if (mhcd->async_int) {
-		mhcd->async_int = false;
-		pm_runtime_put_noidle(mhcd->dev);
-		enable_irq(hcd->irq);
-	}
 
 	if (atomic_read(&mhcd->pm_usage_cnt)) {
 		atomic_set(&mhcd->pm_usage_cnt, 0);
@@ -840,21 +836,6 @@ skip_phy_resume:
 	return 0;
 }
 #endif
-
-static irqreturn_t msm_ehci_irq(struct usb_hcd *hcd)
-{
-	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
-
-	if (atomic_read(&mhcd->in_lpm)) {
-		dev_dbg(mhcd->dev, "phy async intr\n");
-		disable_irq_nosync(hcd->irq);
-		mhcd->async_int = true;
-		pm_runtime_get(mhcd->dev);
-		return IRQ_HANDLED;
-	}
-
-	return ehci_irq(hcd);
-}
 
 static irqreturn_t msm_async_irq(int irq, void *data)
 {
@@ -1087,7 +1068,6 @@ static int ehci_debugfs_init(struct msm_hcd *mhcd)
 static const struct ehci_driver_overrides ehci_msm2_overrides __initdata = {
 	.reset			= msm_ehci_reset,
 	.extra_priv_size	= sizeof(struct msm_hcd),
-	.irq			= msm_ehci_irq,
 };
 
 static struct hc_driver __read_mostly ehci_msm2_hc_driver;
