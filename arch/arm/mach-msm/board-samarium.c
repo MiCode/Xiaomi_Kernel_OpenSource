@@ -28,11 +28,14 @@
 #include <mach/clk-provider.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
+#include "spm.h"
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
 #include "platsmp.h"
 #include "modem_notifier.h"
+#include "pm.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("xo",          cxo_pil_lpass_clk, "fe200000.qcom,lpass", OFF),
@@ -134,6 +137,9 @@ void __init msmsamarium_add_drivers(void)
 	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
+	msm_rpm_driver_init();
+	msm_pm_sleep_status_init();
+	msm_spm_device_init();
 	msm_clock_init(&msm_dummy_clock_init_data);
 	tsens_tm_init_driver();
 }
