@@ -30,7 +30,10 @@ static const char *const pmic_names[] = {
 	"PM8841",
 	"PM8019",
 	"PM8226",
-	"PM8110"
+	"PM8110",
+	"PMA8084",
+	"PMI8962",
+	"PMD9635",
 };
 
 static struct of_device_id qpnp_revid_match_table[] = {
