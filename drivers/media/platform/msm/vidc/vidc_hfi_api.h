@@ -177,6 +177,7 @@ enum hal_property {
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
 	HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC,
+	HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY,
 };
 
 enum hal_domain {
@@ -793,6 +794,10 @@ struct hal_h264_vui_timing_info {
 };
 
 struct hal_h264_vui_bitstream_restrc {
+	u32 enable;
+};
+
+struct hal_preserve_text_quality {
 	u32 enable;
 };
 

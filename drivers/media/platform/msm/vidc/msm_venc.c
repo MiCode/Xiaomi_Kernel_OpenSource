@@ -37,6 +37,7 @@
 #define B_FRAME_QP 30
 #define MAX_INTRA_REFRESH_MBS 300
 #define MAX_NUM_B_FRAMES 4
+
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 #define CODING V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_CODING_EFFICIENCY
 #define BITSTREAM_RESTRICT_ENABLED \
@@ -732,6 +733,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = BITSTREAM_RESTRICT_ENABLED,
 		.cluster = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY,
+		.name = "Preserve Text Qualty",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_DISABLED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_ENABLED,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_DISABLED,
+		.cluster = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1248,6 +1259,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_h264_vui_timing_info vui_timing_info;
 	struct hal_quantization_range qp_range;
 	struct hal_h264_vui_bitstream_restrc vui_bitstream_restrict;
+	struct hal_preserve_text_quality preserve_text_quality;
 	u32 property_id = 0, property_val = 0;
 	void *pdata = NULL;
 	struct v4l2_ctrl *temp_ctrl = NULL;
@@ -1891,6 +1903,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC;
 		vui_bitstream_restrict.enable = ctrl->val;
 		pdata = &vui_bitstream_restrict;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY:
+		property_id = HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY;
+		preserve_text_quality.enable = ctrl->val;
+		pdata = &preserve_text_quality;
 		break;
 	default:
 		rc = -ENOTSUPP;
