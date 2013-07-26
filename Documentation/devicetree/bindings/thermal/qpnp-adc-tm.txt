@@ -27,6 +27,12 @@ Optional properties:
 		crosses a set threshold, read temperature and enable/set trip types supported
 		by the thermal framework.
 
+Client required property:
+- qcom,<consumer name>-adc_tm : The phandle to the corresponding adc_tm device.
+			The consumer name passed to the driver when calling
+			qpnp_get_adc_tm() is used to associate the client
+			with the corresponding device.
+
 Channel nodes
 NOTE: Atleast one Channel node is required.
 
@@ -96,6 +102,12 @@ Required properties:
 - qcom,btm-channel-number : There are 5 BTM channels. The BTM channel numbers are statically
 			    allocated to the corresponding channel node.
 - qcom,adc_tm-vadc : phandle to the corresponding VADC device to read the ADC channels.
+
+Client device example:
+/* Add to the clients node that needs the ADC_TM channel A/D */
+client_node {
+	qcom,client-adc_tm = <&pm8941_adc_tm>;
+};
 
 Example:
 	/* Main Node */

@@ -204,6 +204,7 @@ struct dwc3_msm {
 	int			pmic_id_irq;
 	struct work_struct	id_work;
 	struct qpnp_adc_tm_btm_param	adc_param;
+	struct qpnp_adc_tm_chip *adc_tm_dev;
 	struct delayed_work	init_adc_work;
 	bool			id_adc_detect;
 	u8			dcd_retries;
@@ -2356,7 +2357,7 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 	dwc3_id_work(&mdwc->id_work);
 
 	/* re-arm ADC interrupt */
-	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
+	qpnp_adc_tm_usbid_configure(mdwc->adc_tm_dev, &mdwc->adc_param);
 }
 
 static void dwc3_init_adc_work(struct work_struct *w)
@@ -2365,10 +2366,14 @@ static void dwc3_init_adc_work(struct work_struct *w)
 							init_adc_work.work);
 	int ret;
 
-	ret = qpnp_adc_tm_is_ready();
-	if (ret == -EPROBE_DEFER) {
-		queue_delayed_work(system_nrt_wq, to_delayed_work(w),
+	mdwc->adc_tm_dev = qpnp_get_adc_tm(mdwc->dev, "dwc_usb3-adc_tm");
+	if (IS_ERR(mdwc->adc_tm_dev)) {
+		if (PTR_ERR(mdwc->adc_tm_dev) == -EPROBE_DEFER)
+			queue_delayed_work(system_nrt_wq, to_delayed_work(w),
 					msecs_to_jiffies(100));
+		else
+			mdwc->adc_tm_dev = NULL;
+
 		return;
 	}
 
@@ -2379,7 +2384,7 @@ static void dwc3_init_adc_work(struct work_struct *w)
 	mdwc->adc_param.btm_ctx = mdwc;
 	mdwc->adc_param.threshold_notification = dwc3_adc_notification;
 
-	ret = qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
+	ret = qpnp_adc_tm_usbid_configure(mdwc->adc_tm_dev, &mdwc->adc_param);
 	if (ret) {
 		dev_err(mdwc->dev, "%s: request ADC error %d\n", __func__, ret);
 		return;
@@ -2414,7 +2419,7 @@ static ssize_t adc_enable_store(struct device *dev,
 			dwc3_init_adc_work(&mdwc->init_adc_work.work);
 		return size;
 	} else if (!strnicmp(buf, "disable", 7)) {
-		qpnp_adc_tm_usbid_end();
+		qpnp_adc_tm_usbid_end(mdwc->adc_tm_dev);
 		mdwc->id_adc_detect = false;
 		return size;
 	}
@@ -3044,7 +3049,7 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 	}
 
 	if (mdwc->id_adc_detect)
-		qpnp_adc_tm_usbid_end();
+		qpnp_adc_tm_usbid_end(mdwc->adc_tm_dev);
 	if (dwc3_debugfs_root)
 		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (mdwc->otg_xceiv) {

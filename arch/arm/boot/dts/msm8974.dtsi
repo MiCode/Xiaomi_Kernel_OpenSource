@@ -897,6 +897,7 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,dwc-hsphy-init = <0x00D191A4>;
 		qcom,misc-ref = <&pm8941_misc>;
+		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
