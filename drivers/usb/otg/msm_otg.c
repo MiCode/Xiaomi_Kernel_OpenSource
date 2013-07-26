@@ -4292,11 +4292,27 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto put_core_clk;
 	}
 
+	/*
+	 * On few platforms USB PHY is fed with sleep clk.
+	 * Hence don't fail probe.
+	 */
+	motg->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
+	if (IS_ERR(motg->sleep_clk)) {
+		dev_dbg(&pdev->dev, "failed to get sleep_clk\n");
+	} else {
+		ret = clk_prepare_enable(motg->sleep_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "%s failed to vote sleep_clk%d\n",
+							__func__, ret);
+			goto put_pclk;
+		}
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "failed to get platform resource mem\n");
 		ret = -ENODEV;
-		goto put_pclk;
+		goto disable_sleep_clk;
 	}
 
 	motg->io_res = res;
@@ -4304,7 +4320,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (!motg->regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENOMEM;
-		goto put_pclk;
+		goto disable_sleep_clk;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
 
@@ -4603,6 +4619,9 @@ free_xo_handle:
 		msm_xo_put(motg->xo_handle);
 free_regs:
 	iounmap(motg->regs);
+disable_sleep_clk:
+	if (!IS_ERR(motg->sleep_clk))
+		clk_disable_unprepare(motg->sleep_clk);
 put_pclk:
 	clk_put(motg->pclk);
 put_core_clk:
@@ -4697,6 +4716,10 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	} else {
 		msm_xo_put(motg->xo_handle);
 	}
+
+	if (!IS_ERR(motg->sleep_clk))
+		clk_disable_unprepare(motg->sleep_clk);
+
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
 	msm_hsusb_ldo_init(motg, 0);
 	regulator_disable(hsusb_vdd);
