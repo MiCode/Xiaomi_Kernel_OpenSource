@@ -2,6 +2,7 @@
  *  stk3x1x.c - Linux kernel modules for sensortek stk301x, stk321x and stk331x
  *  proximity/ambient light sensor
  *
+ *  Copyright (c) 2013, The Linux Foundation. All Rights Reserved.
  *  Copyright (C) 2012 Lex Hsieh / sensortek <lex_hsieh@sitronix.com.tw> or
  *   <lex_hsieh@sensortek.com.tw>
  *
@@ -9,6 +10,9 @@
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
  *  (at your option) any later version.
+ *
+ *  Linux Foundation chooses to take subject only to the GPLv2 license
+ *  terms, and distributes only under these terms.
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
 #include <linux/fs.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -842,10 +846,11 @@ static ssize_t stk_als_lux_store(struct device *dev, struct device_attribute *at
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 16, &value);
+	ret = kstrtoul(buf, 16, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
     mutex_lock(&ps_data->io_lock);
@@ -875,10 +880,11 @@ static ssize_t stk_als_transmittance_store(struct device *dev, struct device_att
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
 	mutex_lock(&ps_data->io_lock);
@@ -899,10 +905,11 @@ static ssize_t stk_als_delay_store(struct device *dev, struct device_attribute *
     uint64_t value = 0;
 	int ret;
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
-	ret = strict_strtoull(buf, 10, &value);
+	ret = kstrtoull(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoull failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoull failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
 #ifdef STK_DEBUG_PRINTF
@@ -1045,10 +1052,11 @@ static ssize_t stk_ps_offset_store(struct device *dev, struct device_attribute *
 	int ret;
 	uint16_t offset;
 
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
 	if(value > 65535)
@@ -1097,10 +1105,11 @@ static ssize_t stk_ps_distance_store(struct device *dev, struct device_attribute
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
     mutex_lock(&ps_data->io_lock);
@@ -1142,10 +1151,11 @@ static ssize_t stk_ps_code_thd_l_store(struct device *dev, struct device_attribu
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
     mutex_lock(&ps_data->io_lock);
@@ -1182,10 +1192,11 @@ static ssize_t stk_ps_code_thd_h_store(struct device *dev, struct device_attribu
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
     mutex_lock(&ps_data->io_lock);
@@ -1226,10 +1237,11 @@ static ssize_t stk_als_lux_thd_l_store(struct device *dev, struct device_attribu
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 	unsigned long value = 0;
 	int ret;
-	ret = strict_strtoul(buf, 10, &value);
+	ret = kstrtoul(buf, 10, &value);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
     mutex_lock(&ps_data->io_lock);
@@ -1343,9 +1355,10 @@ static ssize_t stk_recv_store(struct device *dev, struct device_attribute *attr,
 	int32_t recv_data;
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
 
-	if((ret = strict_strtoul(buf, 16, &value)) < 0)
-	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+	ret = kstrtoul(buf, 16, &value);
+	if (ret < 0) {
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
 	recv_data = i2c_smbus_read_byte_data(ps_data->client,value);
@@ -1370,14 +1383,17 @@ static ssize_t stk_send_store(struct device *dev, struct device_attribute *attr,
 
 	for (i = 0; i < 2; i++)
 		token[i] = strsep((char **)&buf, " ");
-	if((ret = strict_strtoul(token[0], 16, (unsigned long *)&(addr))) < 0)
-	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+	ret = kstrtoul(token[0], 16, (unsigned long *)&(addr));
+	if (ret < 0) {
+
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
-	if((ret = strict_strtoul(token[1], 16, (unsigned long *)&(cmd))) < 0)
-	{
-		printk(KERN_ERR "%s:strict_strtoul failed, ret=0x%x\n", __func__, ret);
+	ret = kstrtoul(token[1], 16, (unsigned long *)&(cmd));
+	if (ret < 0) {
+		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
 		return ret;
 	}
 	printk(KERN_INFO "%s: write reg 0x%x=0x%x\n", __func__, addr, cmd);
