@@ -45,3 +45,10 @@
 	status = "ok";
 	qcom,batt-type = <5>;
 };
+
+&pm8110_vadc {
+	chan@30 {
+		label = "batt_therm";
+		qcom,scale-function = <7>;
+	};
+};
