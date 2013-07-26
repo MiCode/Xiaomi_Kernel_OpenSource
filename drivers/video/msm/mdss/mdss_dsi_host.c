@@ -1764,6 +1764,14 @@ void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	if (req == NULL)
 		goto need_lock;
 
+	/*
+	 * mdss interrupt is generated in mdp core clock domain
+	 * mdp clock need to be enabled to receive dsi interrupt
+	 * also, axi bus bandwidth need since dsi controller will
+	 * fetch dcs commands from axi bus
+	 */
+	mdss_bus_bandwidth_ctrl(1);
+
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 	mdss_dsi_clk_ctrl(ctrl, 1);
 
@@ -1773,6 +1781,7 @@ void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		mdss_dsi_cmdlist_tx(ctrl, req);
 
 	mdss_dsi_clk_ctrl(ctrl, 0);
+	mdss_bus_bandwidth_ctrl(0);
 
 need_lock:
 
