@@ -54,6 +54,8 @@
 #define CTXT_FLAGS_SKIP_EOF             BIT(15)
 /* Context no fault tolerance */
 #define CTXT_FLAGS_NO_FAULT_TOLERANCE  BIT(16)
+/* Force the preamble for the next submission */
+#define CTXT_FLAGS_FORCE_PREAMBLE      BIT(17)
 
 /* Symbolic table for the adreno draw context type */
 #define ADRENO_DRAWCTXT_TYPES \
