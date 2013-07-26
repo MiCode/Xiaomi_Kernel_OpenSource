@@ -59,7 +59,7 @@
 
 			qcom,vddmax-mv = <4200>;
 			qcom,vddsafe-mv = <4230>;
-			qcom,vinmin-mv = <4200>;
+			qcom,vinmin-mv = <4300>;
 			qcom,vbatdet-mv = <4100>;
 			qcom,ibatmax-ma = <1500>;
 			qcom,ibatterm-ma = <100>;
