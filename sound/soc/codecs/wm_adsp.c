@@ -1835,4 +1835,53 @@ void wm_adsp_get_caps(const struct wm_adsp *adsp,
 }
 EXPORT_SYMBOL_GPL(wm_adsp_get_caps);
 
+static int wm_adsp_read_data_block(struct wm_adsp* adsp, int mem_type,
+				   unsigned int mem_addr,
+				   unsigned int num_words,
+				   u32* data)
+{
+	struct wm_adsp_region const *region = wm_adsp_find_region(adsp,
+								  mem_type);
+	unsigned int i, reg;
+	int ret;
+
+	if (!region)
+		return -EINVAL;
+
+	reg = wm_adsp_region_to_reg(region, mem_addr);
+
+	ret = regmap_raw_read(adsp->regmap, reg, data,
+			      sizeof(*data) * num_words);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < num_words; ++i)
+		data[i] = be32_to_cpu(data[i]) & 0x00ffffffu;
+
+	return 0;
+}
+
+static int wm_adsp_read_data_word(struct wm_adsp* adsp, int mem_type,
+				  unsigned int mem_addr, u32* data)
+{
+	return wm_adsp_read_data_block(adsp, mem_type, mem_addr, 1, data);
+}
+
+static int wm_adsp_write_data_word(struct wm_adsp* adsp, int mem_type,
+				   unsigned int mem_addr, u32 data)
+{
+	struct wm_adsp_region const *region = wm_adsp_find_region(adsp,
+								  mem_type);
+	unsigned int reg;
+
+	if (!region)
+		return -EINVAL;
+
+	reg = wm_adsp_region_to_reg(region, mem_addr);
+
+	data = cpu_to_be32(data & 0x00ffffffu);
+
+	return regmap_raw_write(adsp->regmap, reg, &data, sizeof(data));
+}
+
 MODULE_LICENSE("GPL v2");
