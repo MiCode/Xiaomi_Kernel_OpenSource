@@ -192,10 +192,5 @@ __packed struct qseecom_key_max_count_query_irsp {
 	uint32_t max_key_count;
 };
 
-struct key_id_info {
-	uint32_t	ce_hw;
-	uint32_t	pipe;
-	bool		flags;
-};
 
 #endif /* __QSEECOMI_H_ */
