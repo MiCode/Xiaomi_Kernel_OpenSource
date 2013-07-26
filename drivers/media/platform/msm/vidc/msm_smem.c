@@ -500,8 +500,13 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 	struct smem_client *client = clt;
 	struct iommu_set *iommu_group_set = &client->res->iommu_group_set;
 	int i;
+	int j;
 	bool is_secure = (flags & SMEM_SECURE);
 	struct iommu_info *iommu_map;
+	if (!domain_num || !partition_num) {
+		dprintk(VIDC_DBG, "passed null to get domain partition!");
+		return -EINVAL;
+	}
 
 	*domain_num = -1;
 	*partition_num = -1;
@@ -512,14 +517,14 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 
 	for (i = 0; i < iommu_group_set->count; i++) {
 		iommu_map = &iommu_group_set->iommu_maps[i];
-		if ((iommu_map->is_secure == is_secure) &&
-			(iommu_map->buffer_type & buffer_type)) {
-			*domain_num = iommu_map->domain;
-			*partition_num = 0;
-			if ((buffer_type & HAL_BUFFER_INTERNAL_CMD_QUEUE) &&
-				(iommu_map->npartitions == 2))
-				*partition_num = 1;
-			break;
+		if (iommu_map->is_secure == is_secure) {
+			for (j = 0; j < iommu_map->npartitions; j++) {
+				if (iommu_map->buffer_type[j] & buffer_type) {
+					*domain_num = iommu_map->domain;
+					*partition_num = j;
+					break;
+				}
+			}
 		}
 	}
 	dprintk(VIDC_DBG, "domain: %d, partition: %d found!\n",
