@@ -103,6 +103,7 @@ Sub node required properties:
 
 			qcom,usb-chgpth:
 			 - usbin-valid
+			 - usb-ocp (only for SMBBP and SMBCL)
 
 			qcom,chgr:
 			 - chg-done
@@ -149,6 +150,9 @@ Sub node required properties:
 			 - coarse-det-usb:	Coarse detect interrupt triggers
 						at low voltage on USB_IN.
 			 - chg-gone:		Triggers on VCHG line.
+			 - usb-ocp		Triggers on over current conditions when
+						reverse boosting. (Only available on
+						SMBCL and SMBBP devices).
 
 			qcom,dc-chgpth:
 			 - dcin-valid:		Indicates a valid DC charger
