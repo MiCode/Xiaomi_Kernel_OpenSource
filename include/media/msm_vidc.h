@@ -28,7 +28,7 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *a);
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *a);
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b);
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b);
-int msm_vidc_release_buf(void *instance, struct v4l2_buffer *b);
+int msm_vidc_release_buffers(void *instance, int buffer_type);
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i);
