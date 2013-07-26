@@ -32,6 +32,7 @@ static int profile_table[] = {
 		HFI_H264_PROFILE_CONSTRAINED_BASE,
 	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
 		HFI_H264_PROFILE_CONSTRAINED_HIGH,
+	[ilog2(HAL_VPX_PROFILE_VERSION_1)] = HFI_VPX_PROFILE_VERSION_1,
 };
 
 static int entropy_mode[] = {

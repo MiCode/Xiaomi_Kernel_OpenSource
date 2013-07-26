@@ -595,6 +595,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS: return "Intra Refresh AIR MBS";
 	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF: return "Intra Refresh AIR REF";
 	case V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS: return "Intra Refresh CIR MBS";
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+		return "VP8 Profile Level";
 
 	/* CAMERA controls */
 	/* Keep the order of the 'case's the same as in videodev2.h! */
