@@ -135,6 +135,7 @@
 		qcom,high-ocv-correction-limit-uv = <50>;
 		qcom,hold-soc-est = <3>;
 		qcom,bms-vadc = <&pm8941_vadc>;
+		qcom,bms-iadc = <&pm8941_iadc>;
 
 		qcom,bms-iadc@3800 {
 			reg = <0x3800 0x100>;

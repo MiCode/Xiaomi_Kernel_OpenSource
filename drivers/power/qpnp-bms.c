@@ -276,6 +276,7 @@ struct qpnp_bms_chip {
 	struct bms_irq			sw_cc_thr_irq;
 	struct bms_irq			ocv_thr_irq;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_iadc_chip		*iadc_dev;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -515,13 +516,13 @@ static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 	return result_uv;
 }
 
-static s64 cc_reverse_adjust_for_gain(s64 uv)
+static s64 cc_reverse_adjust_for_gain(struct qpnp_bms_chip *chip, s64 uv)
 {
 	struct qpnp_iadc_calib calibration;
 	int gain;
 	s64 result_uv;
 
-	qpnp_iadc_get_gain_and_offset(&calibration);
+	qpnp_iadc_get_gain_and_offset(chip->iadc_dev, &calibration);
 	gain = (int)calibration.gain_raw - (int)calibration.offset_raw;
 
 	pr_debug("reverse adjusting_uv = %lld\n", uv);
@@ -544,7 +545,7 @@ static int convert_vsense_to_uv(struct qpnp_bms_chip *chip,
 {
 	struct qpnp_iadc_calib calibration;
 
-	qpnp_iadc_get_gain_and_offset(&calibration);
+	qpnp_iadc_get_gain_and_offset(chip->iadc_dev, &calibration);
 	return cc_adjust_for_gain(cc_reading_to_uv(reading),
 			calibration.gain_raw - calibration.offset_raw);
 }
@@ -587,7 +588,7 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 	temp_current = div_s64((vsense_uv * 1000000LL),
 				(int)chip->r_sense_uohm);
 
-	rc = qpnp_iadc_comp_result(&temp_current);
+	rc = qpnp_iadc_comp_result(chip->iadc_dev, &temp_current);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
 
@@ -814,7 +815,8 @@ static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 		}
 		*vbat_uv = (int)v_result.physical;
 	} else {
-		rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
+		rc = qpnp_iadc_vadc_sync_read(chip->iadc_dev,
+					iadc_channel, &i_result,
 					VBAT_SNS, &v_result);
 		if (rc) {
 			pr_err("adc sync read failed with rc: %d\n", rc);
@@ -1055,7 +1057,7 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc,
 		return *software_counter;
 	}
 
-	qpnp_iadc_get_gain_and_offset(&calibration);
+	qpnp_iadc_get_gain_and_offset(chip->iadc_dev, &calibration);
 	pr_debug("%scc = %lld, die_temp = %lld\n",
 			cc_type == SHDW_CC ? "shdw_" : "",
 			cc, result.physical);
@@ -1065,7 +1067,7 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc,
 					- calibration.offset_raw);
 	cc_pvh = cc_uv_to_pvh(cc_voltage_uv);
 	cc_uah = div_s64(cc_pvh, chip->r_sense_uohm);
-	rc = qpnp_iadc_comp_result(&cc_uah);
+	rc = qpnp_iadc_comp_result(chip->iadc_dev, &cc_uah);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
 	if (clear_cc == RESET) {
@@ -2132,9 +2134,9 @@ static void configure_soc_wakeup(struct qpnp_bms_chip *chip,
 		target_cc_uah = CC_STEP_INCREMENT_UAH;
 	}
 	iadc_comp_factor = 100000;
-	qpnp_iadc_comp_result(&iadc_comp_factor);
+	qpnp_iadc_comp_result(chip->iadc_dev, &iadc_comp_factor);
 	target_cc_uah = div64_s64(target_cc_uah * 100000, iadc_comp_factor);
-	target_cc_uah = cc_reverse_adjust_for_gain(target_cc_uah);
+	target_cc_uah = cc_reverse_adjust_for_gain(chip, target_cc_uah);
 	cc_raw_64 = convert_cc_uah_to_raw(chip, target_cc_uah);
 	cc_raw = convert_s64_to_s36(cc_raw_64);
 
@@ -2359,7 +2361,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 		soc = calculate_soc_from_voltage(chip);
 	} else {
 		if (!chip->batfet_closed)
-			qpnp_iadc_calibrate_for_trim(true);
+			qpnp_iadc_calibrate_for_trim(chip->iadc_dev, true);
 		rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM,
 								&result);
 		if (rc) {
@@ -2961,7 +2963,7 @@ static void batfet_open_work(struct work_struct *work)
 	 */
 
 	for (i = 0; (!chip->batfet_closed) && i < MAX_CAL_TRIES; i++) {
-		rc = qpnp_iadc_calibrate_for_trim(false);
+		rc = qpnp_iadc_calibrate_for_trim(chip->iadc_dev, false);
 		/*
 		 * Wait 20mS after calibration and before reading battery
 		 * current. The BMS h/w uses calibration values in the
@@ -3086,11 +3088,11 @@ static void batfet_status_check(struct qpnp_bms_chip *chip)
 		if (batfet_closed == false) {
 			/* batfet opened */
 			schedule_work(&chip->batfet_open_work);
-			qpnp_iadc_skip_calibration();
+			qpnp_iadc_skip_calibration(chip->iadc_dev);
 		} else {
 			/* batfet closed */
-			qpnp_iadc_calibrate_for_trim(true);
-			qpnp_iadc_resume_calibration();
+			qpnp_iadc_calibrate_for_trim(chip->iadc_dev, true);
+			qpnp_iadc_resume_calibration(chip->iadc_dev);
 		}
 	}
 }
@@ -3683,7 +3685,7 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 			chip->software_shdw_cc_uah = 0;
 		}
 
-		rc = qpnp_iadc_get_rsense(&rds_rsense_nohm);
+		rc = qpnp_iadc_get_rsense(chip->iadc_dev, &rds_rsense_nohm);
 		if (rc) {
 			pr_err("Unable to read RDS resistance value from IADC; rc = %d\n",
 								rc);
@@ -3803,10 +3805,11 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto error_read;
 	}
 
-	rc = qpnp_iadc_is_ready();
-	if (rc) {
-		pr_info("iadc not ready: %d, deferring probe\n", rc);
-		rc = -EPROBE_DEFER;
+	chip->iadc_dev = qpnp_get_iadc(&(spmi->dev), "bms");
+	if (IS_ERR(chip->iadc_dev)) {
+		rc = PTR_ERR(chip->iadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("iadc property missing, rc=%d\n", rc);
 		goto error_read;
 	}
 

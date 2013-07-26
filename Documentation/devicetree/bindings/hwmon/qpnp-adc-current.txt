@@ -24,6 +24,12 @@ Optional properties:
 Channel node
 NOTE: Atleast one Channel node is required.
 
+Client required property:
+- qcom,<consumer name>-iadc : The phandle to the corresponding iadc device.
+			The consumer name passed to the driver when calling
+			qpnp_get_iadc() is used to associate the client
+			with the corresponding device.
+
 Required properties:
 - label : Channel name used for sysfs entry.
 - reg : AMUX channel number.
@@ -113,3 +119,9 @@ Example:
                                 qcom,fast-avg-setup = <0>;
                         };
 	};
+
+Client device example:
+/* Add to the clients node that needs the IADC */
+client_node {
+	qcom,client-iadc = <&pm8941_iadc>;
+};
