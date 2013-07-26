@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_rpcrouter.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -646,7 +646,7 @@ struct msm_rpc_endpoint *msm_rpcrouter_create_local_endpoint(dev_t dev)
 int msm_rpcrouter_destroy_local_endpoint(struct msm_rpc_endpoint *ept)
 {
 	int rc;
-	union rr_control_msg msg;
+	union rr_control_msg msg = { 0 };
 	struct msm_rpc_reply *reply, *reply_tmp;
 	unsigned long flags;
 	struct rpcrouter_xprt_info *xprt_info;
@@ -781,7 +781,7 @@ static void handle_server_restart(struct rr_server *server,
 static int process_control_msg(struct rpcrouter_xprt_info *xprt_info,
 			       union rr_control_msg *msg, int len)
 {
-	union rr_control_msg ctl;
+	union rr_control_msg ctl = { 0 };
 	struct rr_server *server;
 	struct rr_remote_endpoint *r_ept;
 	int rc = 0;
@@ -1212,7 +1212,7 @@ packet_complete:
 done:
 
 	if (hdr.confirm_rx) {
-		union rr_control_msg msg;
+		union rr_control_msg msg = { 0 };
 
 		msg.cmd = RPCROUTER_CTRL_CMD_RESUME_TX;
 		msg.cli.pid = hdr.dst_pid;
@@ -2071,7 +2071,7 @@ int msm_rpc_register_server(struct msm_rpc_endpoint *ept,
 			    uint32_t prog, uint32_t vers)
 {
 	int rc;
-	union rr_control_msg msg;
+	union rr_control_msg msg = { 0 };
 	struct rr_server *server;
 	struct rpcrouter_xprt_info *xprt_info;
 
