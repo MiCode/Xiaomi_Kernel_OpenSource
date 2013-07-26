@@ -573,7 +573,8 @@ static void pil_parse_devicetree(struct pil_desc *desc)
 {
 	int clk_ready = 0;
 
-	if (of_find_property(desc->dev->of_node,
+	if (desc->ops->proxy_unvote &&
+		of_find_property(desc->dev->of_node,
 				"qcom,gpio-proxy-unvote",
 				NULL)) {
 		clk_ready = of_get_named_gpio(desc->dev->of_node,
@@ -780,7 +781,7 @@ int pil_desc_init(struct pil_desc *desc)
 		 "Invalid proxy unvote callback or a proxy timeout of 0"
 		 " was specified or no proxy unvote IRQ was specified.\n");
 
-	if (desc->proxy_unvote_irq > 0 && desc->ops->proxy_unvote) {
+	if (desc->proxy_unvote_irq) {
 		ret = request_threaded_irq(desc->proxy_unvote_irq,
 				  NULL,
 				  proxy_unvote_intr_handler,
