@@ -52,10 +52,10 @@ static int __init check_for_compat(unsigned long node)
 int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 		int depth, void *data)
 {
-	unsigned int *memory_remove_prop;
-	unsigned long memory_remove_prop_length;
-	unsigned int *memory_reserve_prop;
-	unsigned long memory_reserve_prop_length;
+	const unsigned int *memory_remove_prop;
+	int memory_remove_prop_length;
+	const unsigned int *memory_reserve_prop;
+	int memory_reserve_prop_length;
 	unsigned int memory_size;
 	unsigned int memory_start;
 	unsigned int num_holes = 0;
