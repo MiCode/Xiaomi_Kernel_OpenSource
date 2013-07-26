@@ -3251,6 +3251,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("xo",                 cxo_otg_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",   gcc_usb_hs_ahb_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c, "f9a55000.usb"),
+	CLK_LOOKUP("sleep_clk", gcc_usb2a_phy_sleep_clk.c, "f9a55000.usb"),
 
 	/* SPS CLOCKS */
 	CLK_LOOKUP("dfab_clk",            pnoc_sps_clk.c, "f9984000.qcom,sps"),
@@ -3308,10 +3309,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 
 	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, "msm_sdcc.3"),
 	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, "msm_sdcc.3"),
-
-	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "msm_dwc3"),
-	CLK_LOOKUP("ref_clk", diff_clk.c, "msm_dwc3"),
-
 
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_a_clk.c, ""),
