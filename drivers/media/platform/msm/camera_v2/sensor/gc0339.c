@@ -33,6 +33,18 @@ static struct msm_sensor_ctrl_t gc0339_s_ctrl;
 static struct msm_sensor_power_setting gc0339_power_setting[] = {
 
 	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_RESET,
+		.config_val = GPIO_OUT_LOW,
+		.delay = 0,
+	},
+	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_STANDBY,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 0,
+	},
+	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VIO,
 		.config_val = 0,
@@ -51,12 +63,6 @@ static struct msm_sensor_power_setting gc0339_power_setting[] = {
 		.delay = 0,
 	},
 	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_STANDBY,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 0,
-	},
-	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
 		.config_val = 24000000,
@@ -67,18 +73,6 @@ static struct msm_sensor_power_setting gc0339_power_setting[] = {
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 0,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_LOW,
-		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
@@ -223,6 +217,12 @@ int32_t gc0339_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			goto power_up_failed;
 		}
 	}
+
+	s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
+		s_ctrl->sensor_i2c_client,
+		0xfc,
+		0x10, MSM_CAMERA_I2C_BYTE_DATA);
+
 	if (s_ctrl->func_tbl->sensor_match_id)
 		rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
 	else
@@ -297,6 +297,11 @@ int32_t gc0339_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 			s_ctrl->sensor_i2c_client, MSM_CCI_RELEASE);
 	}
 
+	s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
+		s_ctrl->sensor_i2c_client,
+		0xfc,
+		0x01, MSM_CAMERA_I2C_BYTE_DATA);
+
 	for (index = (power_setting_array->size - 1); index >= 0; index--) {
 		CDBG("%s index %d\n", __func__, index);
 		power_setting = &power_setting_array->power_setting[index];
@@ -356,10 +361,7 @@ int32_t gc0339_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t chipid = 0;
-	s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
-				s_ctrl->sensor_i2c_client,
-				0xfc,
-				0x10, MSM_CAMERA_I2C_BYTE_DATA);
+
 	rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
 			s_ctrl->sensor_i2c_client,
 			s_ctrl->sensordata->slave_info->sensor_id_reg_addr,
