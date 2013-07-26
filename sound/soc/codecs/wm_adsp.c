@@ -209,9 +209,92 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EZ2CONTROL] = "Ez2Control",
 };
 
+struct wm_adsp_buffer_region_def {
+       unsigned int mem_type;
+       unsigned int base_offset;
+       unsigned int size_offset;
+};
+
 struct wm_adsp_fw_caps {
 	u32 id;
 	struct snd_codec_desc desc;
+	int num_host_regions;
+	struct wm_adsp_buffer_region_def *host_region_defs;
+};
+
+struct wm_adsp_system_config_xm_hdr {
+	__be32 sys_enable;
+	__be32 fw_id;
+	__be32 fw_rev;
+	__be32 boot_status;
+	__be32 watchdog;
+	__be32 dma_buffer_size;
+	__be32 rdma[6];
+	__be32 wdma[8];
+	__be32 build_job_name[3];
+	__be32 build_job_number;
+};
+
+struct wm_adsp_alg_xm_struct {
+	__be32 magic;
+	__be32 smoothing;
+	__be32 threshold;
+	__be32 host_buf_ptr;
+	__be32 start_seq;
+	__be32 high_water_mark;
+	__be32 low_water_mark;
+	__be64 smoothed_power;
+};
+
+struct wm_adsp_host_buffer {
+	__be32 X_buf_base;
+	__be32 X_buf_size;
+	__be32 X_buf_base2;
+	__be32 X_buf_size2;
+	__be32 Y_buf_base;
+	__be32 Y_buf_size;
+	__be32 high_water_mark;
+	__be32 low_water_mark;
+	__be32 next_write_index;
+	__be32 next_read_index;
+	__be32 overflow;
+	__be32 state;
+	__be32 wrapped;
+	__be32 requested_rewind;
+	__be32 applied_rewind;
+};
+
+#define WM_ADSP_DATA_WORD_SIZE         3
+#define WM_ADSP_ALG_XM_STRUCT_MAGIC    0x58b90c
+
+#define ADSP2_SYSTEM_CONFIG_XM_PTR \
+	(offsetof(struct wmfw_adsp2_id_hdr, xm) / sizeof(__be32))
+
+#define WM_ADSP_ALG_XM_PTR \
+	(sizeof(struct wm_adsp_system_config_xm_hdr) / sizeof(__be32))
+
+#define HOST_BUFFER_FIELD(field) \
+	(offsetof(struct wm_adsp_host_buffer, field) / sizeof(__be32))
+
+#define ALG_XM_FIELD(field) \
+	(offsetof(struct wm_adsp_alg_xm_struct, field) / sizeof(__be32))
+
+struct wm_adsp_buffer_region_def ez2control_regions[] = {
+	{
+		.mem_type = WMFW_ADSP2_XM,
+		.base_offset = HOST_BUFFER_FIELD(X_buf_base),
+		.size_offset = HOST_BUFFER_FIELD(X_buf_size),
+	},
+	{
+		.mem_type = WMFW_ADSP2_XM,
+		.base_offset = HOST_BUFFER_FIELD(X_buf_base2),
+		.size_offset = HOST_BUFFER_FIELD(X_buf_size2),
+	},
+	{
+		.mem_type = WMFW_ADSP2_YM,
+		.base_offset = HOST_BUFFER_FIELD(Y_buf_base),
+		.size_offset = HOST_BUFFER_FIELD(Y_buf_size),
+	},
 };
 
 static const struct wm_adsp_fw_caps ez2control_caps[] = {
@@ -222,6 +305,8 @@ static const struct wm_adsp_fw_caps ez2control_caps[] = {
 			.sample_rates = SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
+		.num_host_regions = ARRAY_SIZE(ez2control_regions),
+		.host_region_defs = ez2control_regions,
 	},
 };
 
@@ -1883,5 +1968,131 @@ static int wm_adsp_write_data_word(struct wm_adsp* adsp, int mem_type,
 
 	return regmap_raw_write(adsp->regmap, reg, &data, sizeof(data));
 }
+
+static inline unsigned int wm_adsp_words_to_samps(const struct wm_adsp *adsp,
+						  unsigned int words)
+{
+	return (words * WM_ADSP_DATA_WORD_SIZE) / adsp->sample_size;
+}
+
+static inline int wm_adsp_host_buffer_read(struct wm_adsp *adsp,
+					   unsigned int field_offset, u32* data)
+{
+	return wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
+				      adsp->host_buf_ptr + field_offset, data);
+}
+
+static int wm_adsp_populate_buffer_regions(struct wm_adsp *adsp)
+{
+	int i, ret;
+	u32 size;
+	u32 cumulative_samps = 0;
+	struct wm_adsp_buffer_region_def *host_region_defs =
+		wm_adsp_fw[adsp->fw].caps->host_region_defs;
+	struct wm_adsp_buffer_region *region;
+
+	for (i = 0; i < wm_adsp_fw[adsp->fw].caps->num_host_regions; ++i) {
+		region = &adsp->host_regions[i];
+
+		region->offset_samps = cumulative_samps;
+		region->mem_type = host_region_defs[i].mem_type;
+
+		ret = wm_adsp_host_buffer_read(adsp,
+					       host_region_defs[i].base_offset,
+					       &region->base_addr);
+		if (ret < 0)
+			return ret;
+
+		ret = wm_adsp_host_buffer_read(adsp,
+					       host_region_defs[i].size_offset,
+					       &size);
+		if (ret < 0)
+			return ret;
+
+		cumulative_samps += wm_adsp_words_to_samps(adsp, size);
+
+		region->cumulative_samps = cumulative_samps;
+	}
+
+	return 0;
+}
+
+int wm_adsp_stream_alloc(struct wm_adsp* adsp,
+			 const struct snd_compr_params *params)
+{
+	unsigned int size;
+
+	switch (params->codec.format) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		adsp->sample_size = 2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (!adsp->host_regions) {
+		size = wm_adsp_fw[adsp->fw].caps->num_host_regions *
+		       sizeof(*adsp->host_regions);
+		adsp->host_regions = kzalloc(size, GFP_KERNEL);
+
+		if (!adsp->host_regions)
+			return -ENOMEM;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_alloc);
+
+int wm_adsp_stream_free(struct wm_adsp* adsp)
+{
+	if (adsp->host_regions) {
+		kfree(adsp->host_regions);
+		adsp->host_regions = NULL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_free);
+
+int wm_adsp_stream_start(struct wm_adsp *adsp)
+{
+	u32 xm_base, magic;
+	int ret;
+
+	ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
+				     ADSP2_SYSTEM_CONFIG_XM_PTR, &xm_base);
+	if (ret < 0)
+		return ret;
+
+	ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
+				     xm_base + WM_ADSP_ALG_XM_PTR +
+				     ALG_XM_FIELD(magic),
+				     &magic);
+	if (ret < 0)
+		return ret;
+
+	if (magic != WM_ADSP_ALG_XM_STRUCT_MAGIC)
+		return -EINVAL;
+
+	ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
+				     xm_base + WM_ADSP_ALG_XM_PTR +
+				     ALG_XM_FIELD(host_buf_ptr),
+				     &adsp->host_buf_ptr);
+	if (ret < 0)
+		return ret;
+
+	ret = wm_adsp_host_buffer_read(adsp,
+				       HOST_BUFFER_FIELD(low_water_mark),
+				       &adsp->low_water_mark);
+	if (ret < 0)
+		return ret;
+
+	ret = wm_adsp_populate_buffer_regions(adsp);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_start);
 
 MODULE_LICENSE("GPL v2");

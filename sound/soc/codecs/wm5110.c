@@ -1679,6 +1679,8 @@ static int wm5110_free(struct snd_compr_stream *stream)
 
 	wm5110->compr_info.stream = NULL;
 
+	wm_adsp_stream_free(wm5110->compr_info.adsp);
+
 	mutex_unlock(&wm5110->compr_info.lock);
 
 	return 0;
@@ -1702,8 +1704,12 @@ static int wm5110_set_params(struct snd_compr_stream *stream,
 			params->codec.ch_out, params->codec.sample_rate,
 			params->codec.format);
 		ret = -EINVAL;
+		goto out;
 	}
 
+	ret = wm_adsp_stream_alloc(compr->adsp, params);
+
+out:
 	mutex_unlock(&compr->lock);
 
 	return ret;
@@ -1717,7 +1723,26 @@ static int wm5110_get_params(struct snd_compr_stream *stream,
 
 static int wm5110_trigger(struct snd_compr_stream *stream, int cmd)
 {
-	return 0;
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+	int ret = 0;
+
+	mutex_lock(&wm5110->compr_info.lock);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+		ret = wm_adsp_stream_start(wm5110->compr_info.adsp);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&wm5110->compr_info.lock);
+
+	return ret;
 }
 
 static int wm5110_pointer(struct snd_compr_stream *stream,
