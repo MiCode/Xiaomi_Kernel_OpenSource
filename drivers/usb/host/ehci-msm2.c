@@ -22,6 +22,7 @@
  * along with this program; if not, you can find it at http://www.fsf.org
  */
 
+#include <linux/uaccess.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -922,6 +923,8 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 	return 0;
 }
 
+static int (*ehci_bus_resume_func)(struct usb_hcd *hcd);
+
 static int msm_ehci_bus_resume_with_gpio(struct usb_hcd *hcd)
 {
 	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
@@ -929,7 +932,8 @@ static int msm_ehci_bus_resume_with_gpio(struct usb_hcd *hcd)
 
 	gpio_direction_output(mhcd->resume_gpio, 1);
 
-	ret = ehci_bus_resume(hcd);
+	/* call ehci_bus_resume from ehci-hcd library */
+	ret = ehci_bus_resume_func(hcd);
 
 	gpio_direction_output(mhcd->resume_gpio, 0);
 
@@ -1340,7 +1344,9 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 				mhcd->resume_gpio, ret);
 			mhcd->resume_gpio = 0;
 		} else {
-			msm_hc2_driver.bus_resume =
+			/* to override ehci_bus_resume from ehci-hcd library */
+			ehci_bus_resume_func = ehci_msm2_hc_driver.bus_resume;
+			ehci_msm2_hc_driver.bus_resume =
 				msm_ehci_bus_resume_with_gpio;
 		}
 	}
