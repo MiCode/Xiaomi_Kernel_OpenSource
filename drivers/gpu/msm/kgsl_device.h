@@ -278,6 +278,7 @@ struct kgsl_device {
 	struct work_struct ts_expired_ws;
 	struct list_head events;
 	struct list_head events_pending_list;
+	unsigned int events_last_timestamp;
 	s64 on_time;
 
 	/* Postmortem Control switches */
