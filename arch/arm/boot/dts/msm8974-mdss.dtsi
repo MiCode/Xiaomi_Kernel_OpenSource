@@ -160,7 +160,7 @@
 		qcom,supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
 		qcom,min-voltage-level = <0 0 1800000 1800000>;
 		qcom,max-voltage-level = <0 0 1800000 1800000>;
-		qcom,enable-load = <0 0 1800000 0>;
+		qcom,enable-load = <0 0 300000 0>;
 		qcom,disable-load = <0 0 0 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
