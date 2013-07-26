@@ -403,6 +403,7 @@
 			hsic,ignore-cal-pad-config;
 			hsic,strobe-pad-offset = <0x2050>;
 			hsic,data-pad-offset = <0x2054>;
+			qcom,phy-susp-sof-workaround;
 
 			qcom,msm-bus,name = "hsic";
 			qcom,msm-bus,num-cases = <2>;
