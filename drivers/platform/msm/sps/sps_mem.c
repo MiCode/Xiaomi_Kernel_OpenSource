@@ -109,7 +109,7 @@ int sps_mem_init(phys_addr_t pipemem_phys_base, u32 pipemem_size)
 	/* 2^8=128. The desc-fifo and data-fifo minimal allocation. */
 	int min_alloc_order = 8;
 
-	if ((d_type == 0) || (d_type == 2)) {
+	if ((d_type == 0) || (d_type == 2) || imem) {
 		iomem_phys = pipemem_phys_base;
 		iomem_size = pipemem_size;
 
@@ -136,7 +136,7 @@ int sps_mem_init(phys_addr_t pipemem_phys_base, u32 pipemem_size)
 		return -ENOMEM;
 	}
 
-	if ((d_type == 0) || (d_type == 2)) {
+	if ((d_type == 0) || (d_type == 2) || imem) {
 		res = gen_pool_add(pool, (u32) iomem_virt, iomem_size, nid);
 		if (res)
 			return res;

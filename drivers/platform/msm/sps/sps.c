@@ -81,6 +81,7 @@ static struct sps_drv *sps;
 
 u32 d_type;
 bool enhd_pipe;
+bool imem;
 
 static void sps_device_de_init(void);
 
@@ -2430,13 +2431,16 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	if (resource) {
+		imem = true;
 		sps->pipemem_phys_base = resource->start;
 		sps->pipemem_size = resource_size(resource);
 		SPS_DBG("sps:pipemem.base=0x%x,size=0x%x.",
 			sps->pipemem_phys_base,
 			sps->pipemem_size);
-	} else
+	} else {
+		imem = false;
 		SPS_DBG("sps:No pipe memory on this target.\n");
+	}
 
 	resource  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (resource) {

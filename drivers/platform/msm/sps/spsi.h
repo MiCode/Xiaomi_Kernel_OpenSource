@@ -50,6 +50,7 @@
 
 extern u32 d_type;
 extern bool enhd_pipe;
+extern bool imem;
 
 #ifdef CONFIG_DEBUG_FS
 extern u8 debugfs_record_enabled;
