@@ -515,17 +515,6 @@ config USB_DWC3_OMAP
 # LAST -- dummy/emulated controller
 #
 
-config USB_MSM_72K
-	tristate "MSM 72K Device Controller"
-	depends on ARCH_MSM
-	select USB_GADGET_DUALSPEED
-	help
-	   USB gadget driver for Qualcomm MSM 72K architecture.
-
-	   Say "y" to link the driver statically, or "m" to build a
-	   dynamically linked module called "msm72k" and force all
-	   gadget drivers to also be dynamically linked.
-
 config USB_DUMMY_HCD
 	tristate "Dummy HCD (DEVELOPMENT)"
 	depends on USB=y || (USB=m && USB_GADGET=m)
