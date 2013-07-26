@@ -78,6 +78,8 @@
 
 #define KGSL_MEMFREE_HIST_SIZE	((int)(PAGE_SIZE * 2))
 
+#define KGSL_MAX_NUMIBS 100000
+
 struct kgsl_memfree_hist_elem {
 	unsigned int pid;
 	unsigned int gpuaddr;

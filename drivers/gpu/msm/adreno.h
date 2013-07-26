@@ -440,6 +440,8 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 void adreno_dispatcher_schedule(struct kgsl_device *device);
 void adreno_dispatcher_pause(struct adreno_device *adreno_dev);
+void adreno_dispatcher_queue_context(struct kgsl_device *device,
+	struct adreno_context *drawctxt);
 int adreno_reset(struct kgsl_device *device);
 
 int adreno_ft_init_sysfs(struct kgsl_device *device);
