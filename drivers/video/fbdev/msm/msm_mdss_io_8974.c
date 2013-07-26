@@ -40,6 +40,14 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
+	ctrl_pdata->mdp_core_clk = clk_get(dev, "mdp_core_clk");
+	if (IS_ERR(ctrl_pdata->mdp_core_clk)) {
+		rc = PTR_ERR(ctrl_pdata->mdp_core_clk);
+		pr_err("%s: Unable to get mdp core clk. rc=%d\n",
+			__func__, rc);
+		goto mdss_dsi_clk_err;
+	}
+
 	ctrl_pdata->ahb_clk = clk_get(dev, "iface_clk");
 	if (IS_ERR(ctrl_pdata->ahb_clk)) {
 		rc = PTR_ERR(ctrl_pdata->ahb_clk);
@@ -101,6 +109,8 @@ void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
 		clk_put(ctrl_pdata->axi_clk);
 	if (ctrl_pdata->ahb_clk)
 		clk_put(ctrl_pdata->ahb_clk);
+	if (ctrl_pdata->mdp_core_clk)
+		clk_put(ctrl_pdata->mdp_core_clk);
 }
 
 #define PREF_DIV_RATIO 27
@@ -186,9 +196,17 @@ int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
 
+	rc = clk_prepare_enable(ctrl_pdata->mdp_core_clk);
+	if (rc) {
+		pr_err("%s: failed to enable mdp_core_clock. rc=%d\n",
+							 __func__, rc);
+		goto error;
+	}
+
 	rc = clk_prepare_enable(ctrl_pdata->ahb_clk);
 	if (rc) {
 		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
+		clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
 		goto error;
 	}
 
@@ -196,6 +214,7 @@ int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	if (rc) {
 		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
 		clk_disable_unprepare(ctrl_pdata->ahb_clk);
+		clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
 		goto error;
 	}
 
@@ -207,6 +226,7 @@ void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	clk_disable_unprepare(ctrl_pdata->axi_clk);
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
+	clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
 }
 
 static int mdss_dsi_clk_prepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
