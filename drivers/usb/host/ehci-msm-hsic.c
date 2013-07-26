@@ -1881,6 +1881,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 
 	pdata->phy_sof_workaround = of_property_read_bool(node,
 					"qcom,phy-sof-workaround");
+	pdata->phy_susp_sof_workaround = of_property_read_bool(node,
+					"qcom,phy-susp-sof-workaround");
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
 					"hsic,ignore-cal-pad-config");
 	of_property_read_u32(node, "hsic,strobe-pad-offset",
@@ -1987,9 +1989,13 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	spin_lock_init(&mehci->wakeup_lock);
 
 	if (pdata->phy_sof_workaround) {
+		/* Enable ALL workarounds related to PHY SOF bugs */
 		mehci->ehci.susp_sof_bug = 1;
 		mehci->ehci.reset_sof_bug = 1;
 		mehci->ehci.resume_sof_bug = 1;
+	} else if (pdata->phy_susp_sof_workaround) {
+		/* Only SUSP SOF hardware bug exists, rest all not present */
+		mehci->ehci.susp_sof_bug = 1;
 	}
 
 	if (pdata->reset_delay)
