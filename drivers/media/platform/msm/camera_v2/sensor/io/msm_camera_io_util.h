@@ -18,6 +18,9 @@
 #include <mach/camera2.h>
 #include <media/msm_cam_sensor.h>
 
+#define NO_SET_RATE -1
+#define INIT_RATE -2
+
 void msm_camera_io_w(u32 data, void __iomem *addr);
 void msm_camera_io_w_mb(u32 data, void __iomem *addr);
 u32 msm_camera_io_r(void __iomem *addr);
