@@ -1616,15 +1616,6 @@ static int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* Parse AUXPCM info from DT */
-	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
-					msm_auxpcm_gpio_name);
-	if (ret) {
-		dev_err(&pdev->dev,
-		"%s: Auxpcm pin data parse failed\n", __func__);
-		goto err;
-	}
-
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -1662,6 +1653,26 @@ static int msm8226_asoc_machine_probe(struct platform_device *pdev)
 			"qcom, cdc-mclk-gpios", pdev->dev.of_node->full_name,
 			pdata->mclk_gpio);
 		ret = -ENODEV;
+		goto err;
+	}
+	ret = msm8226_prepare_codec_mclk(card);
+	if (ret)
+		goto err;
+
+	mutex_init(&cdc_mclk_mutex);
+	ret = snd_soc_register_card(card);
+	if (ret) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
+			ret);
+		goto err;
+	}
+
+	/* Parse AUXPCM info from DT */
+	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
+					msm_auxpcm_gpio_name);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"%s: Auxpcm pin data parse failed\n", __func__);
 		goto err;
 	}
 
@@ -1705,18 +1716,6 @@ static int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
 					"qcom,headset-jack-type-NO");
 	msm8226_setup_hs_jack(pdev, pdata);
-
-	ret = msm8226_prepare_codec_mclk(card);
-	if (ret)
-		goto err_lineout_spkr;
-
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
-			ret);
-		goto err_lineout_spkr;
-	}
-	mutex_init(&cdc_mclk_mutex);
 
 	ret = of_property_read_string(pdev->dev.of_node,
 			"qcom,prim-auxpcm-gpio-set", &auxpcm_pri_gpio_set);
