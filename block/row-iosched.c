@@ -396,7 +396,6 @@ static void row_add_request(struct request_queue *q,
 				"added urgent request (total on queue=%d)",
 				rqueue->nr_req);
 			rq->cmd_flags |= REQ_URGENT;
-			WARN_ON(rqueue->nr_req > 1);
 			rd->pending_urgent_rq = rq;
 		}
 	} else
