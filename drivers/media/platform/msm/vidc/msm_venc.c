@@ -87,6 +87,14 @@ static const char *const h263_profile[] = {
 	"High Latency",
 };
 
+static const char *const vp8_profile_level[] = {
+	"Unused",
+	"0.0",
+	"1.0",
+	"2.0",
+	"3.0",
+};
+
 static const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
@@ -125,7 +133,8 @@ enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_INTRA_REFRESH = 1 << 7,
 	MSM_VENC_CTRL_CLUSTER_BITRATE = 1 << 8,
 	MSM_VENC_CTRL_CLUSTER_TIMING = 1 << 9,
-	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 10,
+	MSM_VENC_CTRL_CLUSTER_VP8_PROFILE_LEVEL = 1 << 10,
+	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 11,
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -360,6 +369,21 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.qmenu = h263_level,
 		.cluster = MSM_VENC_CTRL_CLUSTER_H263_PROFILE_LEVEL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
+		.name = "VP8 Profile Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
+		),
+		.qmenu = vp8_profile_level,
+		.cluster = MSM_VENC_CTRL_CLUSTER_VP8_PROFILE_LEVEL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
@@ -1171,6 +1195,21 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
+			return HAL_VPX_PROFILE_VERSION_0;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
+			return HAL_VPX_PROFILE_VERSION_1;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
+			return HAL_VPX_PROFILE_VERSION_2;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
+			return HAL_VPX_PROFILE_VERSION_3;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
+			return HAL_VPX_PROFILE_UNUSED;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -1475,6 +1514,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		profile_level.profile = venc_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE,
 				ctrl->val);
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+		property_id =
+			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.profile = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
+				ctrl->val);
+		profile_level.level = HAL_VPX_PROFILE_UNUSED;
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
