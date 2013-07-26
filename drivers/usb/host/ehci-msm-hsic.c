@@ -45,15 +45,17 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 #include <linux/pm_qos.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/msm_bus.h>
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>
-#include "hbm.c"
 
 #include "ehci.h"
+
+#include "hbm.c"
 
 #define DRIVER_DESC "Qualcomm EHCI Host Controller using HSIC"
 
@@ -1097,7 +1099,6 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
 
-	ehci_port_power(ehci, 1);
 	return 0;
 }
 

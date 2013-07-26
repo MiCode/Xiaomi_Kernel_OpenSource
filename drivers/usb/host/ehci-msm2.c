@@ -938,7 +938,6 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
 
-	ehci_port_power(ehci, 1);
 	return 0;
 }
 
