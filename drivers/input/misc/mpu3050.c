@@ -302,9 +302,6 @@ static ssize_t mpu3050_attr_set_polling_rate(struct device *dev,
 
 /**
  *  Set/get enable function is just needed by sensor HAL.
- *  Normally, the open function does all the initialization
- *  and power work. And close undo that open does.
- *  Just keeping the function simple.
  */
 
 static ssize_t mpu3050_attr_set_enable(struct device *dev,
@@ -316,8 +313,25 @@ static ssize_t mpu3050_attr_set_enable(struct device *dev,
 
 	if (kstrtoul(buf, 10, &val))
 		return -EINVAL;
-	sensor->enable = (u32)val;
-
+	sensor->enable = (u32)val == 0 ? 0 : 1;
+	if (sensor->enable) {
+		pm_runtime_get_sync(sensor->dev);
+		gpio_set_value(sensor->enable_gpio, 1);
+		if (sensor->use_poll)
+			schedule_delayed_work(&sensor->input_work,
+				msecs_to_jiffies(sensor->poll_interval));
+		else
+			i2c_smbus_write_byte_data(sensor->client,
+					MPU3050_INT_CFG,
+					MPU3050_ACTIVE_LOW |
+					MPU3050_OPEN_DRAIN |
+					MPU3050_RAW_RDY_EN);
+	} else {
+		if (sensor->use_poll)
+			cancel_delayed_work_sync(&sensor->input_work);
+		gpio_set_value(sensor->enable_gpio, 0);
+		pm_runtime_put(sensor->dev);
+	}
 	return count;
 }
 
@@ -792,14 +806,8 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 		goto err_input_cleanup;
 	}
 
-	if (sensor->use_poll)
-		schedule_delayed_work(&sensor->input_work,
-				msecs_to_jiffies(sensor->poll_interval));
-	else
-		i2c_smbus_write_byte_data(sensor->client, MPU3050_INT_CFG,
-				MPU3050_ACTIVE_LOW |
-				MPU3050_OPEN_DRAIN |
-				MPU3050_RAW_RDY_EN);
+	pm_runtime_enable(&client->dev);
+	pm_runtime_set_autosuspend_delay(&client->dev, MPU3050_AUTO_DELAY);
 
 	return 0;
 
