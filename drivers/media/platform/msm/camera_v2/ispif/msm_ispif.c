@@ -86,11 +86,6 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	long timeout = 0;
 	struct clk *reset_clk[ARRAY_SIZE(ispif_8974_reset_clk_info)];
 
-	if (ispif->csid_version < CSID_VERSION_V30) {
-		/* currently reset is done only for 8974 */
-		return 0;
-	}
-
 	rc = msm_cam_clk_enable(&ispif->pdev->dev,
 		ispif_8974_reset_clk_info, reset_clk,
 		ARRAY_SIZE(ispif_8974_reset_clk_info), 1);
@@ -832,7 +827,7 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 
 		ispif_process_irq(ispif, out, VFE0);
 	}
-	if (ispif->vfe_info.num_vfe > 1) {
+	if (ispif->hw_num_isps > 1) {
 		if (out[VFE1].ispifIrqStatus0 & RESET_DONE_IRQ)
 			complete(&ispif->reset_complete[VFE1]);
 
@@ -926,7 +921,13 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		pr_err("%s: ahb_clk enable failed", __func__);
 		goto error_ahb;
 	}
-	msm_ispif_reset_hw(ispif);
+
+	if (of_device_is_compatible(ispif->pdev->dev.of_node,
+				    "qcom,ispif-v3.0")) {
+		/* currently HW reset is implemented for 8974 only */
+		msm_ispif_reset_hw(ispif);
+	}
+
 	rc = msm_ispif_reset(ispif);
 	if (rc == 0) {
 		ispif->ispif_state = ISPIF_POWER_UP;
