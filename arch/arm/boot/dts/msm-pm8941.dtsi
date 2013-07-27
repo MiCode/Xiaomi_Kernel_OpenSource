@@ -1252,6 +1252,7 @@
 		reg = <0xd300 0x100>;
 		label = "flash";
 		flash_boost-supply = <&pm8941_chg_boost>;
+		torch_boost-supply = <&pm8941_boost>;
 	};
 
 	qcom,leds@d400 {
