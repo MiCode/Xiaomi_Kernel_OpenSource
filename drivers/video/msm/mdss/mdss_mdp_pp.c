@@ -2003,6 +2003,10 @@ int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
 	u32 offset, disp_num, dspp_num = 0;
 	uint16_t *tbl_off;
 	struct mdp_gamut_cfg_data local_cfg;
+	uint16_t *r_tbl[MDP_GAMUT_TABLE_NUM];
+	uint16_t *g_tbl[MDP_GAMUT_TABLE_NUM];
+	uint16_t *b_tbl[MDP_GAMUT_TABLE_NUM];
+
 
 	if (!ctl)
 		return -EINVAL;
@@ -2030,22 +2034,67 @@ int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
 		offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
 			  MDSS_MDP_REG_DSPP_GAMUT_BASE;
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			r_tbl[i] = kzalloc(
+				sizeof(uint16_t) * config->tbl_size[i],
+				GFP_KERNEL);
+			if (!r_tbl[i]) {
+				pr_err("%s: alloc failed\n", __func__);
+				goto gamut_config_exit;
+			}
 			for (j = 0; j < config->tbl_size[i]; j++)
-				config->r_tbl[i][j] =
+				r_tbl[i][j] =
 					(u16)MDSS_MDP_REG_READ(offset);
 			offset += 4;
+			ret = copy_to_user(config->r_tbl[i], r_tbl[i],
+				     sizeof(uint16_t) * config->tbl_size[i]);
+			kfree(r_tbl[i]);
+			if (ret) {
+				pr_err("%s: copy tbl to usr failed\n",
+					__func__);
+				goto gamut_config_exit;
+			}
 		}
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			g_tbl[i] = kzalloc(
+				sizeof(uint16_t) * config->tbl_size[i],
+				GFP_KERNEL);
+			if (!g_tbl[i]) {
+				pr_err("%s: alloc failed\n", __func__);
+				goto gamut_config_exit;
+			}
 			for (j = 0; j < config->tbl_size[i]; j++)
-				config->g_tbl[i][j] =
+				g_tbl[i][j] =
 					(u16)MDSS_MDP_REG_READ(offset);
 			offset += 4;
+			ret = copy_to_user(config->g_tbl[i], g_tbl[i],
+				     sizeof(uint16_t) * config->tbl_size[i]);
+			kfree(g_tbl[i]);
+			if (ret) {
+				pr_err("%s: copy tbl to usr failed\n",
+					__func__);
+				goto gamut_config_exit;
+			}
 		}
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			b_tbl[i] = kzalloc(
+				sizeof(uint16_t) * config->tbl_size[i],
+				GFP_KERNEL);
+			if (!b_tbl[i]) {
+				pr_err("%s: alloc failed\n", __func__);
+				goto gamut_config_exit;
+			}
 			for (j = 0; j < config->tbl_size[i]; j++)
-				config->b_tbl[i][j] =
+				b_tbl[i][j] =
 					(u16)MDSS_MDP_REG_READ(offset);
 			offset += 4;
+			ret = copy_to_user(config->b_tbl[i], b_tbl[i],
+				     sizeof(uint16_t) * config->tbl_size[i]);
+			kfree(b_tbl[i]);
+			if (ret) {
+				pr_err("%s: copy tbl to usr failed\n",
+					__func__);
+				goto gamut_config_exit;
+			}
 		}
 		*copyback = 1;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
