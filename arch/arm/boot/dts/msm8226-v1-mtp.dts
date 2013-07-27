@@ -23,3 +23,10 @@
 		      <198 8 0>,
 		      <205 8 0>;
 };
+
+&cci {
+	/* Rotate rear camera to 0 degrees */
+	qcom,camera@6f {
+	qcom,mount-angle = <0>;
+	};
+};
