@@ -33,6 +33,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/input.h>
 #include "wcd9320.h"
 #include "wcd9306.h"
 #include "wcd9xxx-mbhc.h"
@@ -4006,6 +4007,15 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 				       &mbhc->button_jack);
 		if (ret) {
 			pr_err("Failed to create new jack\n");
+			return ret;
+		}
+
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_0,
+				       KEY_MEDIA);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-0\n",
+				__func__);
 			return ret;
 		}
 
