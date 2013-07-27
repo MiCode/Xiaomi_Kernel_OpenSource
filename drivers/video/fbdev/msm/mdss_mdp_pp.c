@@ -2568,13 +2568,13 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 			if (ret)
 				goto hist_collect_exit;
 		}
+		if (hist->bin_cnt != HIST_V_SIZE) {
+			pr_err("User not expecting size %d output",
+							HIST_V_SIZE);
+			ret = -EINVAL;
+			goto hist_collect_exit;
+		}
 		if (hist_cnt > 1) {
-			if (hist->bin_cnt != HIST_V_SIZE) {
-				pr_err("User not expecting size %d output",
-								HIST_V_SIZE);
-				ret = -EINVAL;
-				goto hist_collect_exit;
-			}
 			hist_concat = kmalloc(HIST_V_SIZE * sizeof(u32),
 								GFP_KERNEL);
 			if (!hist_concat) {
@@ -2638,13 +2638,14 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 			if (ret)
 				goto hist_collect_exit;
 		}
+		if (pipe_cnt != 0 &&
+			(hist->bin_cnt != (HIST_V_SIZE * pipe_cnt))) {
+			pr_err("User not expecting size %d output",
+						pipe_cnt * HIST_V_SIZE);
+			ret = -EINVAL;
+			goto hist_collect_exit;
+		}
 		if (pipe_cnt > 1) {
-			if (hist->bin_cnt != (HIST_V_SIZE * pipe_cnt)) {
-				pr_err("User not expecting size %d output",
-							pipe_cnt * HIST_V_SIZE);
-				ret = -EINVAL;
-				goto hist_collect_exit;
-			}
 			hist_concat = kmalloc(HIST_V_SIZE * pipe_cnt *
 						sizeof(u32), GFP_KERNEL);
 			if (!hist_concat) {
