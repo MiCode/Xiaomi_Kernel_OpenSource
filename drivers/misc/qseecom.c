@@ -890,8 +890,8 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	data->type = QSEECOM_SECURE_SERVICE;
 
 	switch (req.cmd_id) {
-	case QSEE_RPMB_PROVISION_KEY_COMMAND:
-	case QSEE_RPMB_ERASE_COMMAND:
+	case QSEOS_RPMB_PROVISION_KEY_COMMAND:
+	case QSEOS_RPMB_ERASE_COMMAND:
 		if (__qseecom_process_rpmb_svc_cmd(data, &req,
 				&send_svc_ireq))
 			return -EINVAL;
