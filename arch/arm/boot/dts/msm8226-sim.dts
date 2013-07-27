@@ -12,7 +12,6 @@
 
 /dts-v1/;
 /include/ "msm8226.dtsi"
-/include/ "msm8226-camera.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226 Simulator";
