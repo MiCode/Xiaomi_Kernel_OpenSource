@@ -47,6 +47,7 @@ Optional properties for flash:
 - qcom,default-state:  default state of the led, should be "on" or "off"
 - qcom,torch-enable: set flash led to torch mode
 - flash_boost-supply: SMBB regulator for LED flash mode
+- torch_boost-supply: SMBB regulator for LED torch mode
 
 RGB Led is a tri-colored led, Red, Blue & Green.
 
@@ -222,6 +223,7 @@ Example:
 			compatible = "qcom,leds-qpnp";
 			status = "okay";
 			flash_boost-supply = <&pm8941_chg_boost>;
+			torch_boost-supply = <&pm8941_boost>;
 			qcom,flash_0 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
