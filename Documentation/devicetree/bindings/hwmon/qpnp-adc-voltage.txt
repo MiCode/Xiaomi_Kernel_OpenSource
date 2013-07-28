@@ -20,6 +20,9 @@ Required properties:
 Channel nodes
 NOTE: Atleast one Channel node is required.
 
+Optional properties:
+- qcom,vadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
 			The consumer name passed to the driver when calling
