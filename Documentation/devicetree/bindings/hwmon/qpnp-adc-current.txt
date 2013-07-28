@@ -20,6 +20,7 @@ Required properties:
 Optional properties:
 - qcom,rsense : Use this property when external rsense should be used
 		for current calculation and specify the units in nano-ohms.
+- qcom,iadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
 
 Channel node
 NOTE: Atleast one Channel node is required.
