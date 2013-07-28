@@ -57,6 +57,7 @@ extern struct clock_init_data msm8226_rumi_clock_init_data;
 extern struct clock_init_data apq8084_clock_init_data;
 extern struct clock_init_data apq8084_rumi_clock_init_data;
 extern struct clock_init_data mpq8092_clock_init_data;
+extern struct clock_init_data mpq8092_rumi_clock_init_data;
 extern struct clock_init_data msmkrypton_clock_init_data;
 extern struct clock_init_data msmsamarium_clock_init_data;
 extern struct clock_init_data msmsamarium_rumi_clock_init_data;

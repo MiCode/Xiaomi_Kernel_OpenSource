@@ -104,7 +104,10 @@ void __init mpq8092_add_drivers(void)
 	msm_rpm_driver_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
-	msm_clock_init(&mpq8092_clock_init_data);
+	if (of_board_is_rumi())
+		msm_clock_init(&mpq8092_rumi_clock_init_data);
+	else
+		msm_clock_init(&mpq8092_clock_init_data);
 }
 
 
