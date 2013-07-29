@@ -1740,6 +1740,7 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
 	struct synaptics_rmi4_fn *fhandler;
+	struct synaptics_rmi4_fn *next_fhandler;
 	struct synaptics_rmi4_device_info *rmi;
 
 	rmi = &(rmi4_data->rmi4_mod_info);
@@ -1753,7 +1754,8 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	if (!list_empty(&rmi->support_fn_list)) {
-		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
+		list_for_each_entry_safe(fhandler, next_fhandler,
+					&rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
 				synaptics_rmi4_f1a_kfree(fhandler);
 			else
@@ -2042,6 +2044,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	unsigned char attr_count;
 	struct synaptics_rmi4_f1a_handle *f1a;
 	struct synaptics_rmi4_fn *fhandler;
+	struct synaptics_rmi4_fn *next_fhandler;
 	struct synaptics_rmi4_data *rmi4_data;
 	struct synaptics_rmi4_device_info *rmi;
 	struct synaptics_rmi4_platform_data *platform_data =
@@ -2338,7 +2341,8 @@ err_enable_irq:
 
 err_register_input:
 	if (!list_empty(&rmi->support_fn_list)) {
-		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
+		list_for_each_entry_safe(fhandler, next_fhandler,
+					&rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
 				synaptics_rmi4_f1a_kfree(fhandler);
 			else
@@ -2379,6 +2383,7 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 {
 	unsigned char attr_count;
 	struct synaptics_rmi4_fn *fhandler;
+	struct synaptics_rmi4_fn *next_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = i2c_get_clientdata(client);
 	struct synaptics_rmi4_device_info *rmi;
 
@@ -2402,7 +2407,8 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 	input_unregister_device(rmi4_data->input_dev);
 
 	if (!list_empty(&rmi->support_fn_list)) {
-		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
+		list_for_each_entry_safe(fhandler, next_fhandler,
+					&rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
 				synaptics_rmi4_f1a_kfree(fhandler);
 			else
