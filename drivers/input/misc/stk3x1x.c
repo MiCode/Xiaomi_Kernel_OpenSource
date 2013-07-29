@@ -43,6 +43,7 @@
 #include <linux/gpio.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/regulator/consumer.h>
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #endif
@@ -172,6 +173,12 @@
 #define ALS_NAME "lightsensor-level"
 #define PS_NAME "proximity"
 
+/* POWER SUPPLY VOLTAGE RANGE */
+#define STK3X1X_VDD_MIN_UV	2000000
+#define STK3X1X_VDD_MAX_UV	3300000
+#define STK3X1X_VIO_MIN_UV	1750000
+#define STK3X1X_VIO_MAX_UV	1950000
+
 struct stk3x1x_data {
 	struct i2c_client *client;
 #if (!defined(STK_POLL_PS) || !defined(STK_POLL_ALS))
@@ -208,6 +215,9 @@ struct stk3x1x_data {
     struct work_struct stk_als_work;
 	struct workqueue_struct *stk_als_wq;
 #endif
+	struct regulator *vdd;
+	struct regulator *vio;
+	bool power_enabled;
 };
 
 #if( !defined(CONFIG_STK_PS_ALS_USE_CHANGE_THRESHOLD))
@@ -1796,6 +1806,116 @@ static void stk3x1x_late_resume(struct early_suspend *h)
 }
 #endif	//#ifdef CONFIG_HAS_EARLYSUSPEND
 
+static int stk3x1x_power_on(struct stk3x1x_data *data, bool on)
+{
+	int ret = 0;
+
+	if (!on && data->power_enabled) {
+		ret = regulator_disable(data->vdd);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vdd disable failed ret=%d\n", ret);
+			return ret;
+		}
+
+		ret = regulator_disable(data->vio);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vio disable failed ret=%d\n", ret);
+			regulator_enable(data->vdd);
+		}
+	} else if (on && !data->power_enabled) {
+
+		ret = regulator_enable(data->vdd);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vdd enable failed ret=%d\n", ret);
+			return ret;
+		}
+
+		ret = regulator_enable(data->vio);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vio enable failed ret=%d\n", ret);
+			regulator_disable(data->vdd);
+		}
+	} else {
+		dev_warn(&data->client->dev,
+				"Power on=%d. enabled=%d\n",
+				on, data->power_enabled);
+	}
+
+	return ret;
+}
+
+static int stk3x1x_power_init(struct stk3x1x_data *data, bool on)
+{
+	int ret;
+
+	if (!on) {
+		if (regulator_count_voltages(data->vdd) > 0)
+			regulator_set_voltage(data->vdd,
+					0, STK3X1X_VDD_MAX_UV);
+
+		regulator_put(data->vdd);
+
+		if (regulator_count_voltages(data->vio) > 0)
+			regulator_set_voltage(data->vio,
+					0, STK3X1X_VIO_MAX_UV);
+
+		regulator_put(data->vio);
+	} else {
+		data->vdd = regulator_get(&data->client->dev, "vdd");
+		if (IS_ERR(data->vdd)) {
+			ret = PTR_ERR(data->vdd);
+			dev_err(&data->client->dev,
+				"Regulator get failed vdd ret=%d\n", ret);
+			return ret;
+		}
+
+		if (regulator_count_voltages(data->vdd) > 0) {
+			ret = regulator_set_voltage(data->vdd,
+					STK3X1X_VDD_MIN_UV,
+					STK3X1X_VDD_MAX_UV);
+			if (ret) {
+				dev_err(&data->client->dev,
+					"Regulator set failed vdd ret=%d\n",
+					ret);
+				goto reg_vdd_put;
+			}
+		}
+
+		data->vio = regulator_get(&data->client->dev, "vio");
+		if (IS_ERR(data->vio)) {
+			ret = PTR_ERR(data->vio);
+			dev_err(&data->client->dev,
+				"Regulator get failed vio ret=%d\n", ret);
+			goto reg_vdd_set;
+		}
+
+		if (regulator_count_voltages(data->vio) > 0) {
+			ret = regulator_set_voltage(data->vio,
+					STK3X1X_VIO_MIN_UV,
+					STK3X1X_VIO_MAX_UV);
+			if (ret) {
+				dev_err(&data->client->dev,
+				"Regulator set failed vio ret=%d\n", ret);
+				goto reg_vio_put;
+			}
+		}
+	}
+
+	return 0;
+
+reg_vio_put:
+	regulator_put(data->vio);
+reg_vdd_set:
+	if (regulator_count_voltages(data->vdd) > 0)
+		regulator_set_voltage(data->vdd, 0, STK3X1X_VDD_MAX_UV);
+reg_vdd_put:
+	regulator_put(data->vdd);
+	return ret;
+}
 
 #ifdef CONFIG_OF
 static int stk3x1x_parse_dt(struct device *dev,
@@ -2018,6 +2138,14 @@ static int stk3x1x_probe(struct i2c_client *client,
 		goto err_stk3x1x_setup_irq;
 #endif
 
+	err = stk3x1x_power_init(ps_data, true);
+	if (err)
+		goto err_power_init;
+
+	err = stk3x1x_power_on(ps_data, true);
+	if (err)
+		goto err_power_on;
+
 	err = stk3x1x_init_all_setting(client, plat_data);
 	if(err < 0)
 		goto err_init_all_setting;
@@ -2031,6 +2159,10 @@ static int stk3x1x_probe(struct i2c_client *client,
 	return 0;
 
 err_init_all_setting:
+	stk3x1x_power_on(ps_data, false);
+err_power_on:
+	stk3x1x_power_init(ps_data, false);
+err_power_init:
 #ifndef STK_POLL_PS
 	free_irq(ps_data->irq, ps_data);
 	gpio_free(plat_data->int_pin);
