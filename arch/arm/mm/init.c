@@ -898,11 +898,21 @@ void free_initmem(void)
 	free_reserved_area(&__tcm_start, &__tcm_end, 0, "TCM link");
 #endif
 
+#ifdef CONFIG_STRICT_MEMORY_RWX
+	poison_init_mem((char *)__arch_info_begin,
+		__init_end - (char *)__arch_info_begin);
+	reclaimed_initmem = free_reserved_area(
+				PAGE_ALIGN((unsigned long)&__arch_info_begin),
+				((unsigned long)&__init_end)&PAGE_MASK, 0,
+				"unused kernel");
+	totalram_pages += reclaimed_initmem;
+#else
 	poison_init_mem(__init_begin, __init_end - __init_begin);
 	if (!machine_is_integrator() && !machine_is_cintegrator()) {
 		reclaimed_initmem = free_initmem_default(0);
 		totalram_pages += reclaimed_initmem;
 	}
+#endif
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD
