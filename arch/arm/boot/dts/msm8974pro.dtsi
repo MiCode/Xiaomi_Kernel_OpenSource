@@ -171,12 +171,28 @@
 		<3240000 970000>,
 		<4048000 1212000>,
 		<4264000 1279000>;
-	qcom,iommu-groups = <&venus_domain_ns &venus_domain_sec_bitstream
-			&venus_domain_sec_pixel &venus_domain_sec_non_pixel>;
-	qcom,iommu-group-buffer-types = <0xfff 0x91 0x42 0x120>;
 	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
 					<0x42 0x2>,
 					<0x120 0x3>;
+	qcom,vidc-iommu-domains {
+		qcom,domain-ns {
+			qcom,vidc-domain-phandle = <&venus_domain_ns>;
+			qcom,vidc-partition-buffer-types = <0x1ff>,
+							<0x200>;
+		};
+		qcom,domain-sec-bs {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+			qcom,vidc-partition-buffer-types = <0x91>;
+		};
+		qcom,domain-sec-px {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+			qcom,vidc-partition-buffer-types = <0x42>;
+		};
+		qcom,domain-sec-np {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+			qcom,vidc-partition-buffer-types = <0x120>;
+		};
+	};
 };
 
 &memory_hole {
