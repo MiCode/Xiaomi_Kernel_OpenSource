@@ -19,7 +19,7 @@
 #include <media/msm_cam_sensor.h>
 #include "msm_sd.h"
 
-#define MAX_LED_TRIGGERS 2
+#define MAX_LED_TRIGGERS 3
 
 struct msm_led_flash_ctrl_t;
 
@@ -38,10 +38,14 @@ struct msm_led_flash_ctrl_t {
 	struct msm_sd_subdev msm_sd;
 	struct platform_device *pdev;
 	struct msm_flash_fn_t *func_tbl;
-	const char *led_trigger_name[MAX_LED_TRIGGERS];
-	struct led_trigger *led_trigger[MAX_LED_TRIGGERS];
-	uint32_t op_current[MAX_LED_TRIGGERS];
+	const char *flash_trigger_name[MAX_LED_TRIGGERS];
+	struct led_trigger *flash_trigger[MAX_LED_TRIGGERS];
+	uint32_t flash_op_current[MAX_LED_TRIGGERS];
+	const char *torch_trigger_name;
+	struct led_trigger *torch_trigger;
+	uint32_t torch_op_current;
 	void *data;
+	uint32_t num_sources;
 };
 
 int32_t msm_led_flash_create_v4lsubdev(struct platform_device *pdev,
