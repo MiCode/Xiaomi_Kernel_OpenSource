@@ -50,6 +50,7 @@
 #include "dwc3_otg.h"
 #include "core.h"
 #include "gadget.h"
+#include "debug.h"
 
 /* ADC threshold values */
 static int adc_low_threshold = 700;
@@ -140,6 +141,7 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
 #define QSCRATCH_CTRL_REG      (QSCRATCH_REG_OFFSET + 0x04)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
+#define QSCRATCH_RAM1_REG	(QSCRATCH_REG_OFFSET + 0x0C)
 #define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
 #define PARAMETER_OVERRIDE_X_REG (QSCRATCH_REG_OFFSET + 0x14)
 #define CHARGING_DET_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x18)
@@ -156,6 +158,8 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define SS_CR_PROTOCOL_CAP_DATA_REG (QSCRATCH_REG_OFFSET + 0x48)
 #define SS_CR_PROTOCOL_READ_REG     (QSCRATCH_REG_OFFSET + 0x4C)
 #define SS_CR_PROTOCOL_WRITE_REG    (QSCRATCH_REG_OFFSET + 0x50)
+#define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
+#define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -407,6 +411,37 @@ retry:
 	}
 
 	return ioread32(base + SS_CR_PROTOCOL_DATA_OUT_REG);
+}
+
+/**
+ * Dump all QSCRATCH registers.
+ *
+ */
+static void dwc3_msm_dump_phy_info(struct dwc3_msm *mdwc)
+{
+
+	dbg_print_reg("SSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_CTRL_REG));
+	dbg_print_reg("HSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						HS_PHY_CTRL_REG));
+	dbg_print_reg("QSCRATCH_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_CTRL_REG));
+	dbg_print_reg("QSCRATCH_GENERAL_CFG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_GENERAL_CFG));
+	dbg_print_reg("PARAMETER_OVERRIDE_X_REG", dwc3_msm_read_reg(mdwc->base,
+						PARAMETER_OVERRIDE_X_REG));
+	dbg_print_reg("HS_PHY_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
+						HS_PHY_IRQ_STAT_REG));
+	dbg_print_reg("SS_PHY_PARAM_CTRL_1", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_PARAM_CTRL_1));
+	dbg_print_reg("SS_PHY_PARAM_CTRL_2", dwc3_msm_read_reg(mdwc->base,
+						SS_PHY_PARAM_CTRL_2));
+	dbg_print_reg("QSCRATCH_RAM1_REG", dwc3_msm_read_reg(mdwc->base,
+						QSCRATCH_RAM1_REG));
+	dbg_print_reg("PWR_EVNT_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
+						PWR_EVNT_IRQ_STAT_REG));
+	dbg_print_reg("PWR_EVNT_IRQ_MASK_REG", dwc3_msm_read_reg(mdwc->base,
+						PWR_EVNT_IRQ_MASK_REG));
 }
 
 /**
@@ -1431,6 +1466,21 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 		dwc3_msm_read_reg(mdwc->base, QSCRATCH_CTRL_REG);
 }
 
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	switch (event) {
+	case DWC3_CONTROLLER_ERROR_EVENT:
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_ERROR_EVENT received\n");
+		dwc3_msm_dump_phy_info(mdwc);
+		break;
+	default:
+		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
+		break;
+	}
+}
+
 static void dwc3_msm_block_reset(struct dwc3_ext_xceiv *xceiv, bool core_reset)
 {
 	struct dwc3_msm *mdwc = container_of(xceiv, struct dwc3_msm, ext_xceiv);
@@ -2072,7 +2122,7 @@ const struct file_operations dwc3_connect_fops = {
 
 static struct dentry *dwc3_debugfs_root;
 
-static void dwc3_debugfs_init(struct dwc3_msm *mdwc)
+static void dwc3_msm_debugfs_init(struct dwc3_msm *mdwc)
 {
 	dwc3_debugfs_root = debugfs_create_dir("msm_dwc3", NULL);
 
@@ -2892,6 +2942,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
+	dwc3_set_notifier(&dwc3_msm_notify_event);
 	/* usb_psy required only for vbus_notifications or charging support */
 	if (mdwc->ext_xceiv.otg_capability ||
 			!mdwc->charger.charging_disabled) {
@@ -2990,7 +3041,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
-	dwc3_debugfs_init(mdwc);
+	dwc3_msm_debugfs_init(mdwc);
 
 	return 0;
 
