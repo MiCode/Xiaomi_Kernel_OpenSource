@@ -5712,6 +5712,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	/* CoreSight clocks */
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc326000.tmc"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc320000.tpiu"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc324000.replicator"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc325000.tmc"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc323000.funnel"),
@@ -5742,6 +5743,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fd828018.hwevent"),
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc320000.tpiu"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc324000.replicator"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc325000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc323000.funnel"),
