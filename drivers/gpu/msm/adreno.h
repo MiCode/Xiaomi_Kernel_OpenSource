@@ -371,8 +371,7 @@ struct log_field {
 #define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     BIT(1)
 #define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   BIT(2)
 #define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    BIT(3)
-#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     (KGSL_FT_PAGEFAULT_INT_ENABLE + \
-					KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
+#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     KGSL_FT_PAGEFAULT_INT_ENABLE
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
