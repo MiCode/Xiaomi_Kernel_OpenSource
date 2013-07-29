@@ -81,6 +81,11 @@ Parent node optional properties:
 - qcom,resume-soc			Capacity in percent at which charging should resume
 					when a fully charged battery drops below this level.
 - qcom,chg-vadc				Corresponding VADC device's phandle.
+- qcom,pmic-revid			The phandle to the revid node of the pmic on which charger
+					peripheral is present. This property is a must on PMIC chips
+					that exhibit inaccuracies in battery current readings. This
+					phandle is used to check the version of the PMIC and apply
+					necessary software workarounds.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
@@ -205,6 +210,7 @@ Example:
 		qcom,btc-disabled = <0>;
 		qcom,chg-vadc = <&pm8941_vadc>;
 		qcom,chg-adc_tm = <&pm8941_adc_tm>;
+		qcom,pmic-revid = <&pm8941_revid>;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
