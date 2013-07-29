@@ -293,15 +293,66 @@ err_invalid_input:
 	return temp;
 }
 
+static inline void populate_buf_info(struct buffer_info *binfo,
+			struct v4l2_buffer *b, u32 i)
+{
+	binfo->type = b->type;
+	binfo->fd[i] = b->m.planes[i].reserved[0];
+	binfo->buff_off[i] = b->m.planes[i].reserved[1];
+	binfo->size[i] = b->m.planes[i].length;
+	binfo->uvaddr[i] = b->m.planes[i].m.userptr;
+	binfo->device_addr[i] = 0;
+	binfo->handle[i] = NULL;
+}
+
+static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
+		struct v4l2_plane *p, enum hal_buffer buffer_type)
+{
+	struct msm_smem *handle = NULL;
+	handle = msm_smem_user_to_kernel(inst->mem_client,
+				p->reserved[0],
+				p->reserved[1],
+				buffer_type);
+	if (!handle) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to get device buffer address\n", __func__);
+		return NULL;
+	}
+	if (msm_smem_cache_operations(inst->mem_client, handle,
+			SMEM_CACHE_CLEAN))
+		dprintk(VIDC_WARN,
+			"CACHE Clean failed: %d, %d, %d\n",
+				p->reserved[0],
+				p->reserved[1],
+				p->length);
+	return handle;
+}
+
+static inline enum hal_buffer get_hal_buffer_type(
+		struct msm_vidc_inst *inst, struct v4l2_buffer *b)
+{
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			return HAL_BUFFER_INPUT;
+		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+			return HAL_BUFFER_OUTPUT;
+	} else {
+		/* FIXME in the future.  See comment in msm_comm_get_\
+		 * domain_partition. Same problem here. */
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			return HAL_BUFFER_OUTPUT;
+		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+			return HAL_BUFFER_INPUT;
+	}
+	return -EINVAL;
+}
 
 int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 {
-	struct msm_smem *handle = NULL;
-	struct buffer_info *binfo;
-	struct buffer_info *temp;
+	struct buffer_info *binfo = NULL;
+	struct buffer_info *temp = NULL;
 	int plane = 0;
 	int i, rc = 0;
-	enum hal_buffer buffer_type;
 
 	if (!b || !inst) {
 		dprintk(VIDC_ERR, "%s: invalid input\n", __func__);
@@ -340,74 +391,45 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			dprintk(VIDC_DBG,
 				"This memory region has already been prepared\n");
 			rc = -EINVAL;
-			kfree(binfo);
 			goto exit;
-		}
-		if (inst->session_type == MSM_VIDC_DECODER) {
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-				buffer_type = HAL_BUFFER_INPUT;
-			else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
-				buffer_type = HAL_BUFFER_OUTPUT;
-		} else {
-			/* FIXME in the future.  See comment in msm_comm_get_\
-			 * domain_partition. Same problem here. */
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-				buffer_type = HAL_BUFFER_OUTPUT;
-			else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
-				buffer_type = HAL_BUFFER_INPUT;
 		}
 
 		temp = get_same_fd_buffer(&inst->registered_bufs,
 				b->m.planes[i].reserved[0], &plane);
 
 		if (temp) {
-			binfo->type = b->type;
-			binfo->fd[i] = b->m.planes[i].reserved[0];
-			binfo->buff_off[i] = b->m.planes[i].reserved[1];
-			binfo->size[i] = b->m.planes[i].length;
-			binfo->uvaddr[i] = b->m.planes[i].m.userptr;
+			populate_buf_info(binfo, b, i);
 			binfo->device_addr[i] =
 			temp->handle[plane]->device_addr + binfo->buff_off[i];
-			binfo->handle[i] = NULL;
+			b->m.planes[i].m.userptr = binfo->device_addr[i];
 		} else {
-			handle = msm_smem_user_to_kernel(inst->mem_client,
-					b->m.planes[i].reserved[0],
-					b->m.planes[i].reserved[1],
-					buffer_type);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to get device buffer address\n");
-				kfree(binfo);
+			populate_buf_info(binfo, b, i);
+			binfo->handle[i] =
+				map_buffer(inst, &b->m.planes[i],
+					get_hal_buffer_type(inst, b));
+			if (!binfo->handle[i]) {
+				rc = -EINVAL;
 				goto exit;
 			}
-			binfo->type = b->type;
-			binfo->fd[i] = b->m.planes[i].reserved[0];
-			binfo->buff_off[i] = b->m.planes[i].reserved[1];
-			binfo->size[i] = b->m.planes[i].length;
-			binfo->uvaddr[i] = b->m.planes[i].m.userptr;
 			binfo->device_addr[i] =
-				handle->device_addr + binfo->buff_off[i];
-			binfo->handle[i] = handle;
+				binfo->handle[i]->device_addr +
+				binfo->buff_off[i];
+			b->m.planes[i].m.userptr =
+				binfo->device_addr[i];
 			dprintk(VIDC_DBG, "Registering buffer: %d, %d, %d\n",
 					b->m.planes[i].reserved[0],
 					b->m.planes[i].reserved[1],
 					b->m.planes[i].length);
-			rc = msm_smem_cache_operations(inst->mem_client,
-				binfo->handle[i], SMEM_CACHE_CLEAN);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"CACHE Clean failed: %d, %d, %d\n",
-					b->m.planes[i].reserved[0],
-					b->m.planes[i].reserved[1],
-					b->m.planes[i].length);
 		}
-		b->m.planes[i].m.userptr = binfo->device_addr[i];
 	}
 	binfo->num_planes = b->length;
 	list_add_tail(&binfo->list, &inst->registered_bufs);
+	return 0;
 exit:
+	kfree(binfo);
 	return rc;
 }
+
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
