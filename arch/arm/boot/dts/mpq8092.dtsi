@@ -229,6 +229,15 @@
 		qcom,current-limit = <800>;
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		reg-names = "bam_mem", "core_mem";
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+	};
+
 	sata: sata@fc580000 {
 		compatible = "qcom,msm-ahci";
 		reg = <0xfc580000 0x17c>;
