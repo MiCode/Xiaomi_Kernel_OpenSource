@@ -501,7 +501,8 @@ int msm_jpeg_input_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 		(int) buf_cmd.vaddr, buf_cmd.y_len);
 
 	buf_p->y_buffer_addr    = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
-		buf_cmd.y_len + buf_cmd.cbcr_len + buf_cmd.pln2_len,
+		buf_cmd.y_len + buf_cmd.cbcr_len +
+		buf_cmd.pln2_len + buf_cmd.offset,
 		&buf_p->file, &buf_p->handle, pgmn_dev->domain_num) +
 		buf_cmd.offset + buf_cmd.y_off;
 	buf_p->y_len          = buf_cmd.y_len;
