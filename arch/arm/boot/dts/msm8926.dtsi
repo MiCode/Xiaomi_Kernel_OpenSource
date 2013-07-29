@@ -77,3 +77,7 @@
 	qcom,sensors = <6>;
 	qcom,slope = <2901 2846 3038 2955 2901 2846>;
 };
+
+&msmgpio {
+	ngpio = <120>;
+};
