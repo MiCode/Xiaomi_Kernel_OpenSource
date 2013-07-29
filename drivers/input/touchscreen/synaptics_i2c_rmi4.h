@@ -70,7 +70,7 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
-#define NAME_BUFFER_SIZE 128
+#define NAME_BUFFER_SIZE 256
 
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
