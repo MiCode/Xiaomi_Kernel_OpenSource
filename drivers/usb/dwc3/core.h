@@ -653,6 +653,7 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+#define DWC3_CONTROLLER_ERROR_EVENT			0
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -801,6 +802,7 @@ struct dwc3 {
 
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	bool			softconnect;
+	void (*notify_event) (struct dwc3 *, unsigned);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -992,5 +994,9 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 void dwc3_gadget_restart(struct dwc3 *dwc);
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
+
+extern void dwc3_set_notifier(
+		void (*notify) (struct dwc3 *dwc3, unsigned event));
+extern void dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */
