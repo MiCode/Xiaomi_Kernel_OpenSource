@@ -131,3 +131,5 @@
 		status = "disabled";
 	};
 };
+
+/include/ "msm8916-regulator.dtsi"
