@@ -52,6 +52,7 @@
 
 #define MSM8X10_WCD_I2S_MASTER_MODE_MASK	0x08
 #define MSM8X10_DINO_CODEC_BASE_ADDR		0xFE043000
+#define MSM8X10_DINO_CODEC_REG_SIZE		0x200
 #define MSM8x10_TLMM_CDC_PULL_CTL			0xFD512050
 #define HELICON_CORE_0_I2C_ADDR				0x0d
 #define HELICON_CORE_1_I2C_ADDR				0x77
@@ -211,20 +212,23 @@ static int get_i2c_msm8x10_wcd_device_info(u16 reg,
 	return rtn;
 }
 
-static int msm8x10_wcd_abh_write_device(u16 reg, u8 *value, u32 bytes)
+static int msm8x10_wcd_abh_write_device(struct msm8x10_wcd *msm8x10_wcd,
+					u16 reg, u8 *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
-	iowrite32(temp, ioremap(MSM8X10_DINO_CODEC_BASE_ADDR + offset, 4));
+
+	iowrite32(temp, (msm8x10_wcd->pdino_base+offset));
 	return 0;
 }
 
-static int msm8x10_wcd_abh_read_device(u16 reg, u32 bytes, u8 *value)
+static int msm8x10_wcd_abh_read_device(struct msm8x10_wcd *msm8x10_wcd,
+					u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
-	temp = ioread32(ioremap(MSM8X10_DINO_CODEC_BASE_ADDR +
-				      offset, 4));
+
+	temp = ioread32((msm8x10_wcd->pdino_base+offset));
 	*value = (u8)temp;
 	return 0;
 }
@@ -341,7 +345,7 @@ static int msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
 	if (MSM8X10_WCD_IS_HELICON_REG(reg))
 		ret = msm8x10_wcd_i2c_read(reg, 1, &temp);
 	else if (MSM8X10_WCD_IS_DINO_REG(reg))
-		ret = msm8x10_wcd_abh_read_device(reg, 1, &temp);
+		ret = msm8x10_wcd_abh_read_device(msm8x10_wcd, reg, 1, &temp);
 	mutex_unlock(&msm8x10_wcd->io_lock);
 	*val = temp;
 	return ret;
@@ -358,7 +362,7 @@ static int msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd, u16  reg,
 	if (MSM8X10_WCD_IS_HELICON_REG(reg))
 		ret = msm8x10_wcd_i2c_write(reg, 1, &val);
 	else if (MSM8X10_WCD_IS_DINO_REG(reg))
-		ret = msm8x10_wcd_abh_write_device(reg, &val, 1);
+		ret = msm8x10_wcd_abh_write_device(msm8x10_wcd, reg, &val, 1);
 	mutex_unlock(&msm8x10_wcd->io_lock);
 
 	return ret;
@@ -2626,45 +2630,52 @@ static struct notifier_block adsp_state_notifier_block = {
 
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
-	struct msm8x10_wcd_priv *msm8x10_wcd;
+	struct msm8x10_wcd_priv *msm8x10_wcd_priv;
+	struct msm8x10_wcd *msm8x10_wcd;
 	int i;
 	dev_dbg(codec->dev, "%s()\n", __func__);
 
-	msm8x10_wcd = kzalloc(sizeof(struct msm8x10_wcd_priv), GFP_KERNEL);
-	if (!msm8x10_wcd) {
+	msm8x10_wcd_priv = kzalloc(sizeof(struct msm8x10_wcd_priv), GFP_KERNEL);
+	if (!msm8x10_wcd_priv) {
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
 	}
 
 	for (i = 0 ; i < NUM_DECIMATORS; i++) {
-		tx_hpf_work[i].msm8x10_wcd = msm8x10_wcd;
+		tx_hpf_work[i].msm8x10_wcd = msm8x10_wcd_priv;
 		tx_hpf_work[i].decimator = i + 1;
 		INIT_DELAYED_WORK(&tx_hpf_work[i].dwork,
 			tx_hpf_corner_freq_callback);
 	}
 
 	codec->control_data = dev_get_drvdata(codec->dev);
-	snd_soc_codec_set_drvdata(codec, msm8x10_wcd);
-	msm8x10_wcd->codec = codec;
+	snd_soc_codec_set_drvdata(codec, msm8x10_wcd_priv);
+	msm8x10_wcd_priv->codec = codec;
+
+	/* map digital codec registers once */
+	msm8x10_wcd = codec->control_data;
+	msm8x10_wcd->pdino_base = ioremap(MSM8X10_DINO_CODEC_BASE_ADDR,
+					  MSM8X10_DINO_CODEC_REG_SIZE);
+
 	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
-	msm8x10_wcd->on_demand_list[ON_DEMAND_CP].supply =
+	msm8x10_wcd_priv->on_demand_list[ON_DEMAND_CP].supply =
 				wcd8x10_wcd_codec_find_regulator(
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_CP]);
-	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_CP].ref, 0);
-	msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].supply =
+	atomic_set(&msm8x10_wcd_priv->on_demand_list[ON_DEMAND_CP].ref, 0);
+	msm8x10_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply =
 				wcd8x10_wcd_codec_find_regulator(
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
-	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
-	msm8x10_wcd->mclk_enabled = false;
-	msm8x10_wcd->bandgap_type = MSM8X10_WCD_BANDGAP_OFF;
-	msm8x10_wcd->clock_active = false;
-	msm8x10_wcd->config_mode_active = false;
-	msm8x10_wcd->mbhc_polling_active = false;
-	mutex_init(&msm8x10_wcd->codec_resource_lock);
+	atomic_set(&msm8x10_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+	msm8x10_wcd_priv->mclk_enabled = false;
+	msm8x10_wcd_priv->bandgap_type = MSM8X10_WCD_BANDGAP_OFF;
+	msm8x10_wcd_priv->clock_active = false;
+	msm8x10_wcd_priv->config_mode_active = false;
+	msm8x10_wcd_priv->mbhc_polling_active = false;
+	mutex_init(&msm8x10_wcd_priv->codec_resource_lock);
 
 	registered_codec = codec;
 	adsp_state_notifier =
@@ -2681,11 +2692,18 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 
 static int msm8x10_wcd_codec_remove(struct snd_soc_codec *codec)
 {
-	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
-	msm8x10_wcd->on_demand_list[ON_DEMAND_CP].supply = NULL;
-	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_CP].ref, 0);
-	msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
-	atomic_set(&msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+	struct msm8x10_wcd_priv *pwcd_priv = snd_soc_codec_get_drvdata(codec);
+	struct msm8x10_wcd *msm8x10_wcd = pwcd_priv->codec->control_data;
+
+	pwcd_priv->on_demand_list[ON_DEMAND_CP].supply = NULL;
+	atomic_set(&pwcd_priv->on_demand_list[ON_DEMAND_CP].ref, 0);
+	pwcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
+	atomic_set(&pwcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+
+	/* cleanup resmgr */
+	wcd9xxx_resmgr_deinit(&pwcd_priv->resmgr);
+
+	iounmap(msm8x10_wcd->pdino_base);
 	return 0;
 }
 
@@ -2833,25 +2851,41 @@ static void msm8x10_wcd_disable_supplies(struct msm8x10_wcd *msm8x10,
 
 static int msm8x10_wcd_pads_config(void)
 {
+	void __iomem *ppull = ioremap(MSM8x10_TLMM_CDC_PULL_CTL, 4);
 	/* Set I2C pads as pull up and rest of pads as no pull */
-	iowrite32(0x03C00000, ioremap(MSM8x10_TLMM_CDC_PULL_CTL, 4));
+	iowrite32(0x03C00000, ppull);
 	usleep_range(100, 200);
+
+	iounmap(ppull);
 	return 0;
 }
 
 
 static int msm8x10_wcd_clk_init(void)
 {
+	void __iomem *pdig1 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR, 4);
+	void __iomem *pdig2 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_M, 4);
+	void __iomem *pdig3 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_N, 4);
+	void __iomem *pdig4 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_D, 4);
+	void __iomem *pdig5 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4);
+	void __iomem *pdig6 = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
 	/* Div-2 */
-	iowrite32(0x3, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CFG_RCGR, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_M, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_N, 4));
-	iowrite32(0x0, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_D, 4));
+	iowrite32(0x3, pdig1);
+	iowrite32(0x0, pdig2);
+	iowrite32(0x0, pdig3);
+	iowrite32(0x0, pdig4);
 	/* Digital codec clock enable */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
+	iowrite32(0x1, pdig5);
 	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
+	iowrite32(0x1, pdig6);
 	usleep_range(100, 200);
+
+	iounmap(pdig1);
+	iounmap(pdig2);
+	iounmap(pdig3);
+	iounmap(pdig4);
+	iounmap(pdig5);
+	iounmap(pdig6);
 	return 0;
 }
 
