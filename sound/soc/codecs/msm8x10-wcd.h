@@ -231,6 +231,7 @@ struct msm8x10_wcd {
 	bool irq_level_high[MSM8X10_WCD_NUM_IRQS];
 	int num_irqs;
 	u32 mclk_rate;
+	char __iomem *pdino_base;
 };
 
 extern int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
