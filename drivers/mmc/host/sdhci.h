@@ -632,6 +632,9 @@ struct sdhci_ops {
 	void    (*card_event)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void	(*check_power_status)(struct sdhci_host *host, u32 req_type);
+	int	(*config_auto_tuning_cmd)(struct sdhci_host *host,
+					  bool enable,
+					  u32 type);
 	void	(*dump_vendor_regs)(struct sdhci_host *host);
 	void	(*voltage_switch)(struct sdhci_host *host);
 	int	(*select_drive_strength)(struct sdhci_host *host,
