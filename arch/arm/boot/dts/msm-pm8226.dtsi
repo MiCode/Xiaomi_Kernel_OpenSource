@@ -85,6 +85,12 @@
 			qcom,tchg-mins = <150>;
 			qcom,chg-vadc = <&pm8226_vadc>;
 			qcom,chg-adc_tm = <&pm8226_adc_tm>;
+			qcom,ibatmax-warm-ma = <350>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,ibatmax-cool-ma = <350>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
