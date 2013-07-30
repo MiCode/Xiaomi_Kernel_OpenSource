@@ -83,13 +83,15 @@ struct pronto_data {
 	struct regulator *vreg;
 	bool restart_inprogress;
 	bool crash;
-	struct delayed_work cancel_vote_work;
 	struct ramdump_device *ramdump_dev;
+	int xo_mode;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
 {
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	int ret;
 
 	ret = regulator_enable(drv->vreg);
@@ -102,6 +104,13 @@ static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
 		dev_err(pil->dev, "failed to enable cxo\n");
 		goto err_clk;
 	}
+	if (pdev && pwlanconfig) {
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON, &drv->xo_mode);
+		wcnss_set_iris_xo_mode(drv->xo_mode);
+		if (ret)
+			pr_err("Failed to execute wcnss_wlan_power\n");
+	}
 	return 0;
 err_clk:
 	regulator_disable(drv->vreg);
@@ -112,8 +121,18 @@ err:
 static void pil_pronto_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+
 	regulator_disable(drv->vreg);
 	clk_disable_unprepare(drv->cxo);
+	if (pdev && pwlanconfig) {
+		/* Temporary workaround as pronto sends interrupt that
+		 * it is capable of voting for it's resources too early. */
+		msleep(20);
+		wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_OFF, NULL);
+	}
 }
 
 static int pil_pronto_reset(struct pil_desc *pil)
@@ -342,46 +361,26 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void wcnss_post_bootup(struct work_struct *work)
-{
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-
-	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF, NULL);
-}
-
 static int wcnss_shutdown(const struct subsys_desc *subsys)
 {
 	struct pronto_data *drv = subsys_to_drv(subsys);
 
 	pil_shutdown(&drv->desc);
-	flush_delayed_work(&drv->cancel_vote_work);
-	wcnss_flush_delayed_boot_votes();
-
 	return 0;
 }
 
 static int wcnss_powerup(const struct subsys_desc *subsys)
 {
 	struct pronto_data *drv = subsys_to_drv(subsys);
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-	int    ret = -1;
+	int ret;
 
-	if (pdev && pwlanconfig)
-		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_ON, NULL);
-	if (!ret) {
-		msleep(1000);
-		ret = pil_boot(&drv->desc);
-		if (ret)
-			return ret;
-	}
+	ret = pil_boot(&drv->desc);
+	if (ret)
+		return ret;
+
 	drv->restart_inprogress = false;
 	enable_irq(drv->subsys_desc.wdog_bite_irq);
-	schedule_delayed_work(&drv->cancel_vote_work, msecs_to_jiffies(5000));
-
-	return 0;
+	return ret;
 }
 
 static void crash_shutdown(const struct subsys_desc *subsys)
@@ -488,8 +487,6 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.stop = pronto_stop;
 	drv->subsys_desc.err_fatal_handler = wcnss_err_fatal_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = wcnss_wdog_bite_irq_hdlr;
-
-	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {

@@ -685,21 +685,6 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 	}
 }
 
-static void wcnss_post_bootup(struct work_struct *work)
-{
-	if (do_not_cancel_vote == 1) {
-		pr_info("%s: Keeping APPS vote for Iris & WCNSS\n", __func__);
-		return;
-	}
-
-	pr_info("%s: Cancel APPS vote for Iris & WCNSS\n", __func__);
-
-	/* Since WCNSS is up, cancel any APPS vote for Iris & WCNSS VREGs  */
-	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
-		WCNSS_WLAN_SWITCH_OFF, NULL);
-
-}
-
 static int
 wcnss_pronto_gpios_config(struct device *dev, bool enable)
 {
@@ -764,21 +749,10 @@ wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 	penv->smd_channel_ready = 1;
 
 	pr_info("%s: SMD ctrl channel up\n", __func__);
-
-	/* Schedule a work to do any post boot up activity */
-	INIT_DELAYED_WORK(&penv->wcnss_work, wcnss_post_bootup);
-	schedule_delayed_work(&penv->wcnss_work, msecs_to_jiffies(10000));
-
 	return 0;
 }
 
-void wcnss_flush_delayed_boot_votes()
-{
-	flush_delayed_work(&penv->wcnss_work);
-}
-EXPORT_SYMBOL(wcnss_flush_delayed_boot_votes);
-
-static int 
+static int
 wcnss_wlan_ctrl_remove(struct platform_device *pdev)
 {
 	if (penv)
@@ -967,6 +941,12 @@ int wcnss_xo_auto_detect_enabled(void)
 {
 	return (has_autodetect_xo == 1 ? 1 : 0);
 }
+
+void wcnss_set_iris_xo_mode(int iris_xo_mode_set)
+{
+	penv->iris_xo_mode_set = iris_xo_mode_set;
+}
+EXPORT_SYMBOL(wcnss_set_iris_xo_mode);
 
 int wcnss_wlan_iris_xo_mode(void)
 {
@@ -1680,15 +1660,6 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail_gpio_res;
 	}
 
-	/* power up the WCNSS */
-	ret = wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
-					WCNSS_WLAN_SWITCH_ON,
-					&penv->iris_xo_mode_set);
-	if (ret) {
-		dev_err(&pdev->dev, "WCNSS Power-up failed.\n");
-		goto fail_power;
-	}
-
 	/* allocate resources */
 	penv->mmio_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"wcnss_mmio");
@@ -1833,9 +1804,6 @@ fail_ioremap2:
 fail_ioremap:
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
-	wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
-				WCNSS_WLAN_SWITCH_OFF, NULL);
-fail_power:
 	if (has_pronto_hw)
 		wcnss_pronto_gpios_config(&pdev->dev, false);
 	else

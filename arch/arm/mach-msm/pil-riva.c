@@ -91,8 +91,8 @@ struct riva_data {
 	int rst_in_progress;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
-	struct delayed_work cancel_work;
 	struct ramdump_device *ramdump_dev;
+	int xo_mode;
 };
 
 static bool cxo_is_needed(struct riva_data *drv)
@@ -105,6 +105,8 @@ static bool cxo_is_needed(struct riva_data *drv)
 static int pil_riva_make_proxy_vote(struct pil_desc *pil)
 {
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	int ret;
 
 	ret = regulator_enable(drv->pll_supply);
@@ -117,6 +119,14 @@ static int pil_riva_make_proxy_vote(struct pil_desc *pil)
 		dev_err(pil->dev, "failed to enable xo\n");
 		goto err_clk;
 	}
+	if (pdev && pwlanconfig) {
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON, &drv->xo_mode);
+		wcnss_set_iris_xo_mode(drv->xo_mode);
+		if (ret)
+			pr_err("Failed to execute wcnss_wlan_power\n");
+	}
+
 	return 0;
 err_clk:
 	regulator_disable(drv->pll_supply);
@@ -127,8 +137,18 @@ err:
 static void pil_riva_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+
 	regulator_disable(drv->pll_supply);
 	clk_disable_unprepare(drv->xo);
+	if (pdev && pwlanconfig) {
+		/* Temporary workaround as riva sends interrupt that
+		 * it is capable of voting for it's resources too early. */
+		msleep(20);
+		wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_OFF, NULL);
+	}
 }
 
 static int pil_riva_reset(struct pil_desc *pil)
@@ -358,14 +378,6 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void riva_post_bootup(struct work_struct *work)
-{
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-
-	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF, NULL);
-}
-
 static int riva_start(const struct subsys_desc *desc)
 {
 	struct riva_data *drv;
@@ -388,8 +400,6 @@ static int riva_shutdown(const struct subsys_desc *desc)
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
 	pil_shutdown(&drv->pil_desc);
-	flush_delayed_work(&drv->cancel_work);
-	wcnss_flush_delayed_boot_votes();
 	disable_irq_nosync(drv->irq);
 
 	return 0;
@@ -398,20 +408,15 @@ static int riva_shutdown(const struct subsys_desc *desc)
 static int riva_powerup(const struct subsys_desc *desc)
 {
 	struct riva_data *drv;
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-	int ret = 0;
+	int ret;
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
-	if (pdev && pwlanconfig) {
-		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_ON, NULL);
-		if (!ret)
-			pil_boot(&drv->pil_desc);
-	}
+	ret = pil_boot(&drv->pil_desc);
+	if (ret)
+		return ret;
+
 	drv->rst_in_progress = 0;
 	enable_irq(drv->irq);
-	schedule_delayed_work(&drv->cancel_work, msecs_to_jiffies(5000));
 
 	return ret;
 }
@@ -520,8 +525,6 @@ static int pil_riva_probe(struct platform_device *pdev)
 	drv->subsys_desc.powerup = riva_powerup;
 	drv->subsys_desc.ramdump = riva_ramdump;
 	drv->subsys_desc.crash_shutdown = riva_crash_shutdown;
-
-	INIT_DELAYED_WORK(&drv->cancel_work, riva_post_bootup);
 
 	drv->ramdump_dev = create_ramdump_device("riva", &pdev->dev);
 	if (!drv->ramdump_dev) {

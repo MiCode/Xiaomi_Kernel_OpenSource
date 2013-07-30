@@ -56,6 +56,7 @@ void wcnss_unregister_thermal_mitigation(
 				void (*tm_notify)(struct device *dev, int));
 struct platform_device *wcnss_get_platform_device(void);
 struct wcnss_wlan_config *wcnss_get_wlan_config(void);
+void wcnss_set_iris_xo_mode(int iris_xo_mode_set);
 int wcnss_wlan_power(struct device *dev,
 				struct wcnss_wlan_config *cfg,
 				enum wcnss_opcode opcode,
@@ -63,7 +64,6 @@ int wcnss_wlan_power(struct device *dev,
 int wcnss_req_power_on_lock(char *driver_name);
 int wcnss_free_power_on_lock(char *driver_name);
 unsigned int wcnss_get_serial_number(void);
-void wcnss_flush_delayed_boot_votes(void);
 void wcnss_allow_suspend(void);
 void wcnss_prevent_suspend(void);
 int wcnss_hardware_type(void);
