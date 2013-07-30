@@ -473,8 +473,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
-	mdp3_fbmem_clear();
-
 	pr_debug("mdp3_ctrl_on dma start\n");
 	if (mfd->fbi->screen_base) {
 		rc = mdp3_session->dma->start(mdp3_session->dma,
@@ -684,6 +682,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		mdp3_ctrl_off(mfd);
 		mdp3_ctrl_on(mfd);
+		mdp3_free();
 	}
 
 	mutex_lock(&mdp3_session->lock);
@@ -699,9 +698,6 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
 		mdp3_put_img(data);
-
-		if (mfd->fbi->screen_base)
-			mdp3_fbmem_free(mfd);
 	}
 	mutex_unlock(&mdp3_session->lock);
 
