@@ -1,0 +1,49 @@
+Summit smb349 battery charger
+
+SMB349 is a single-cell battery charger. It can charge
+the battery and power the system via the USB/AC adapter input.
+
+The smb349 interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "qcom,smb349-charger".
+- reg:				The device 7-bit I2C address.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,chg-valid-gpio		GPIO which indicates the charger presence.
+				This GPIO is connected to the SYSOK pin.
+- qcom,fastchg-current-max-ma Fast Charging current in mA. Supported range is
+				from 1000mA to 4000mA.
+- qcom,chg-autonomous-mode	This is a bool property and it indicates that the
+				charger is configured for autonomous operation and
+				does not require any software configuration.
+- qcom,enable-chg-type-detection This is bool property and it indicates
+				if charger detection is supported by this
+				driver.
+- qcom,disable-apsd		This is a bool property which disables Automatic
+				power source detection (apsd). If this is set
+				charger detection is done by DCIN UV irq.
+- qcom,charger-disabled	This is a bool property which disables charging.
+
+- qcom,reload-smb-config	This is a bool property to indicate if the
+				smb register configuration needs to be reloaded
+				when the charger is removed.
+- qcom,bms-psy-name		This is a string and it points to the bms
+				power supply name.
+
+Example:
+	i2c@f9967000 {
+		smb349-charger@1b {
+			compatible = "qcom,smb349-charger";
+			reg = <0x1b>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <48 0x0>;
+			qcom,chg-valid-gpio = <&msm_gpio 13 0x00>;
+			qcom,fastchg-current-max-ma = <3500>;
+			qcom,chg-autonomous-mode;
+			qcom,bms-psy-name = "bms";
+		};
+	};
