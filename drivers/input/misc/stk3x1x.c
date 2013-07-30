@@ -1425,14 +1425,13 @@ static ssize_t stk_send_store(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-
 static struct device_attribute als_enable_attribute = __ATTR(enable,0664,stk_als_enable_show,stk_als_enable_store);
 static struct device_attribute als_lux_attribute = __ATTR(lux,0664,stk_als_lux_show,stk_als_lux_store);
 static struct device_attribute als_code_attribute = __ATTR(code, 0444, stk_als_code_show, NULL);
 static struct device_attribute als_transmittance_attribute = __ATTR(transmittance,0664,stk_als_transmittance_show,stk_als_transmittance_store);
-static struct device_attribute als_poll_delay_attribute = __ATTR(delay,0664,stk_als_delay_show,stk_als_delay_store);
+static struct device_attribute als_poll_delay_attribute =
+	__ATTR(poll_delay, 0664, stk_als_delay_show, stk_als_delay_store);
 static struct device_attribute als_ir_code_attribute = __ATTR(ircode,0444,stk_als_ir_code_show,NULL);
-
 
 static struct attribute *stk_als_attrs [] =
 {
@@ -1446,7 +1445,6 @@ static struct attribute *stk_als_attrs [] =
 };
 
 static struct attribute_group stk_als_attribute_group = {
-	.name = "driver",
 	.attrs = stk_als_attrs,
 };
 
@@ -1478,7 +1476,6 @@ static struct attribute *stk_ps_attrs [] =
 };
 
 static struct attribute_group stk_ps_attribute_group = {
-	.name = "driver",
 	.attrs = stk_ps_attrs,
 };
 
