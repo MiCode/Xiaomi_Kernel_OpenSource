@@ -430,7 +430,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				topology, false,
+				topology, perf_mode,
 				bits_per_sample);
 
 			payload.copp_ids[payload.num_copps++] =
