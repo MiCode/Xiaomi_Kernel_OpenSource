@@ -353,6 +353,12 @@
 		reg = <0xf9bff000 0x200>;
 		qcom,msm-rng-iface-clk;
 	};
+
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
 };
 
 &gdsc_venus {
