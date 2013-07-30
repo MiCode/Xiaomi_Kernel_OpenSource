@@ -90,6 +90,7 @@
 #define CORE_HC_MCLK_SEL_DFLT	(2 << 8)
 #define CORE_HC_MCLK_SEL_HS400	(3 << 8)
 #define CORE_HC_MCLK_SEL_MASK	(3 << 8)
+#define CORE_HC_AUTO_CMD21_EN	(1 << 6)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
 #define CORE_HC_SELECT_IN_EN	(1 << 18)
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
@@ -270,6 +271,8 @@ struct sdhci_msm_host {
 	bool tuning_done;
 	bool calibration_done;
 	u8 saved_tuning_phase;
+	bool en_auto_cmd21;
+	struct device_attribute auto_cmd21_attr;
 };
 
 enum vdd_io_level {
@@ -310,6 +313,93 @@ static inline int msm_dll_poll_ck_out_en(struct sdhci_host *host,
 				CORE_DLL_CONFIG) & CORE_CK_OUT_EN);
 	}
 out:
+	return rc;
+}
+
+/*
+ * Enable CDR to track changes of DAT lines and adjust sampling
+ * point according to voltage/temperature variations
+ */
+static int msm_enable_cdr_cm_sdc4_dll(struct sdhci_host *host)
+{
+	int rc = 0;
+	u32 config;
+
+	config = readl_relaxed(host->ioaddr + CORE_DLL_CONFIG);
+	config |= CORE_CDR_EN;
+	config &= ~(CORE_CDR_EXT_EN | CORE_CK_OUT_EN);
+	writel_relaxed(config, host->ioaddr + CORE_DLL_CONFIG);
+
+	rc = msm_dll_poll_ck_out_en(host, 0);
+	if (rc)
+		goto err;
+
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG) |
+			CORE_CK_OUT_EN), host->ioaddr + CORE_DLL_CONFIG);
+
+	rc = msm_dll_poll_ck_out_en(host, 1);
+	if (rc)
+		goto err;
+	goto out;
+err:
+	pr_err("%s: %s: failed\n", mmc_hostname(host->mmc), __func__);
+out:
+	return rc;
+}
+
+static ssize_t store_auto_cmd21(struct device *dev, struct device_attribute
+				*attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u32 tmp;
+	unsigned long flags;
+
+	if (!kstrtou32(buf, 0, &tmp)) {
+		spin_lock_irqsave(&host->lock, flags);
+		msm_host->en_auto_cmd21 = !!tmp;
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
+	return count;
+}
+
+static ssize_t show_auto_cmd21(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", msm_host->en_auto_cmd21);
+}
+
+/* MSM auto-tuning handler */
+static int sdhci_msm_config_auto_tuning_cmd(struct sdhci_host *host,
+					    bool enable,
+					    u32 type)
+{
+	int rc = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u32 val = 0;
+
+	if (!msm_host->en_auto_cmd21)
+		return 0;
+
+	if (type == MMC_SEND_TUNING_BLOCK_HS200)
+		val = CORE_HC_AUTO_CMD21_EN;
+	else
+		return 0;
+
+	if (enable) {
+		rc = msm_enable_cdr_cm_sdc4_dll(host);
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
+			       val, host->ioaddr + CORE_VENDOR_SPEC);
+	} else {
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			       ~val, host->ioaddr + CORE_VENDOR_SPEC);
+	}
 	return rc;
 }
 
@@ -2304,6 +2394,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
+	.config_auto_tuning_cmd = sdhci_msm_config_auto_tuning_cmd,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
@@ -2613,6 +2704,19 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto remove_max_bus_bw_file;
 	}
+
+	msm_host->auto_cmd21_attr.show = show_auto_cmd21;
+	msm_host->auto_cmd21_attr.store = store_auto_cmd21;
+	sysfs_attr_init(&msm_host->auto_cmd21_attr.attr);
+	msm_host->auto_cmd21_attr.attr.name = "enable_auto_cmd21";
+	msm_host->auto_cmd21_attr.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(&pdev->dev, &msm_host->auto_cmd21_attr);
+	if (ret) {
+		pr_err("%s: %s: failed creating auto-cmd21 attr: %d\n",
+		       mmc_hostname(host->mmc), __func__, ret);
+		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
+	}
+
 	/* Successful initialization */
 	goto out;
 
