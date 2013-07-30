@@ -4589,7 +4589,7 @@ static void tapan_codec_specific_cal_setup(struct snd_soc_codec *codec,
 					   struct wcd9xxx_mbhc *mbhc)
 {
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
-			    0x0C, 0x04);
+			    0x04, 0x04);
 	snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0xE0, 0xE0);
 }
 
