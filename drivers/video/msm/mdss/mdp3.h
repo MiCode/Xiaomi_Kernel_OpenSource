@@ -155,9 +155,7 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
 int mdp3_iommu_enable(int client);
 int mdp3_iommu_disable(int client);
 int mdp3_iommu_is_attached(int client);
-void mdp3_fbmem_free(struct msm_fb_data_type *mfd);
-void mdp3_fbmem_clear(void);
-
+void mdp3_free(void);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
