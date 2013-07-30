@@ -292,7 +292,7 @@ static int32_t msm_cci_write_i2c_queue(struct cci_device *cci_dev,
 static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
-	uint32_t rc = 0;
+	int32_t rc = 0;
 	uint32_t val = 0;
 	int32_t read_words = 0, exp_words = 0;
 	int32_t index = 0, first_byte = 0;
