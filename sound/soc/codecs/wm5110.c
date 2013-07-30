@@ -1684,6 +1684,15 @@ static int wm5110_open(struct snd_compr_stream *stream)
 		goto out;
 	}
 
+	ret = irq_set_irq_wake(arizona->irq, 1);
+	if (ret) {
+		dev_err(arizona->dev,
+			"Failed to set DSP IRQ to wake source: %d\n",
+			ret);
+		arizona_free_irq(arizona, ARIZONA_IRQ_DSP_IRQ1, wm5110);
+		goto out;
+	}
+
 	wm5110->compr_info.stream = stream;
 out:
 	mutex_unlock(&wm5110->compr_info.lock);
@@ -1699,6 +1708,7 @@ static int wm5110_free(struct snd_compr_stream *stream)
 
 	mutex_lock(&wm5110->compr_info.lock);
 
+	irq_set_irq_wake(arizona->irq, 0);
 	arizona_free_irq(arizona, ARIZONA_IRQ_DSP_IRQ1, wm5110);
 
 	wm5110->compr_info.stream = NULL;
