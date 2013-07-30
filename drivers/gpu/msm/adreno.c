@@ -202,8 +202,6 @@ static const struct {
 		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
 };
 
-static bool adreno_isidle(struct kgsl_device *device);
-
 /**
  * adreno_perfcounter_init: Reserve kernel performance counters
  * @device: device to configure
@@ -2350,7 +2348,7 @@ int adreno_soft_reset(struct kgsl_device *device)
  * Return true if the GPU hardware is idle and there are no commands pending in
  * the ringbuffer
  */
-static bool adreno_isidle(struct kgsl_device *device)
+bool adreno_isidle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int rptr;
