@@ -242,6 +242,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_panel_info *pinfo = NULL;
 	int fps = DEFAULT_FRAME_RATE;
 	u32 v_total;
 	int i;
@@ -252,22 +253,21 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	*clk_rate = 0;
 
 	if (!mixer->rotator_mode) {
-		int is_writeback = false;
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
 			fps = mdss_panel_get_framerate(pinfo);
 			v_total = mdss_panel_get_vtotal(pinfo);
 
 			if (pinfo->type == WRITEBACK_PANEL)
-				is_writeback = true;
+				pinfo = NULL;
 		} else {
 			v_total = mixer->height;
-
-			is_writeback = true;
 		}
 		*clk_rate = mixer->width * v_total * fps;
-		if (is_writeback) {
+		if (pinfo && pinfo->lcdc.v_back_porch < MDP_MIN_VBP)
+			*clk_rate = MDSS_MDP_CLK_FUDGE_FACTOR(*clk_rate);
+
+		if (!pinfo) {
 			/* perf for bus writeback */
 			*bus_ab_quota = fps * mixer->width * mixer->height * 3;
 			*bus_ab_quota >>= MDSS_MDP_BUS_FACTOR_SHIFT;
