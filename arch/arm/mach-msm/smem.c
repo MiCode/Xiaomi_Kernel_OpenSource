@@ -923,8 +923,17 @@ bool smem_initialized_check(void)
 									true);
 	if (version_array == NULL)
 		goto failed;
-	if (version_array[MODEM_SBL_VERSION_INDEX] != SMEM_VERSION << 16)
+
+	/*
+	 * The Modem SBL is now the Master SBL version and is required to
+	 * pre-initialize SMEM and fill in any necessary configuration
+	 * structures.  Without the extra configuration data, the SMEM driver
+	 * cannot be properly initialized.
+	 */
+	if (version_array[MODEM_SBL_VERSION_INDEX] != SMEM_VERSION << 16) {
+		pr_err("%s: SBL version not correct\n", __func__);
 		goto failed;
+	}
 
 	is_inited = 1;
 	checked = 1;
@@ -935,7 +944,8 @@ failed:
 	is_inited = 0;
 	checked = 1;
 	spin_unlock_irqrestore(&smem_init_check_lock, flags);
-	LOG_ERR("%s: bootloader failure detected, shared memory not inited\n",
+	LOG_ERR(
+		"%s: shared memory needs to be initialized by SBL before booting\n",
 								__func__);
 	return is_inited;
 }
