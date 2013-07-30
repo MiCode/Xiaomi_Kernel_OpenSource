@@ -74,6 +74,24 @@ static void fault_detect_read(struct kgsl_device *device)
 	}
 }
 
+/*
+ * Check to see if the device is idle and that the global timestamp is up to
+ * date
+ */
+static inline bool _isidle(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int ts;
+
+	ts = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
+
+	if (adreno_isidle(device) == true &&
+		(ts >= adreno_dev->ringbuffer.global_ts))
+		return true;
+
+	return false;
+}
+
 /**
  * fault_detect_read_compare() - Read the fault detect registers and compare
  * them to the current value
@@ -86,6 +104,10 @@ static int fault_detect_read_compare(struct kgsl_device *device)
 {
 	int i, ret = 0;
 	unsigned int ts;
+
+	/* Check to see if the device is idle - if so report no hang */
+	if (_isidle(device) == true)
+		ret = 1;
 
 	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
 		unsigned int val;
