@@ -917,13 +917,13 @@ static int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	prcgr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
 
 	spdev = pdev;
+	mutex_init(&cdc_mclk_mutex);
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
 		goto err;
 	}
-	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&mclk_rsc_ref, 0);
 	return 0;
 err:
