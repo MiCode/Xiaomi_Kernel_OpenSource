@@ -23,6 +23,8 @@ struct msm_thermal_data {
 	uint32_t freq_control_mask;
 	int32_t core_limit_temp_degC;
 	int32_t core_temp_hysteresis_degC;
+	int32_t hotplug_temp_degC;
+	int32_t hotplug_temp_hysteresis_degC;
 	uint32_t core_control_mask;
 	int32_t vdd_rstr_temp_degC;
 	int32_t vdd_rstr_temp_hyst_degC;
