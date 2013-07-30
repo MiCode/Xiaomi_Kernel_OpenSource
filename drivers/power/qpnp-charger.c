@@ -3637,16 +3637,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				0xff,
 				0x00, 1);
 
-			rc = qpnp_chg_masked_write(chip,
-				chip->buck_base + SEC_ACCESS,
-				0xFF,
-				0xA5, 1);
-
-			rc = qpnp_chg_masked_write(chip,
-				chip->buck_base + BUCK_TEST_SMBC_MODES,
-				0xFF,
-				0x80, 1);
-
 			if (chip->duty_cycle_100p) {
 				rc = qpnp_buck_set_100_duty_cycle_enable(chip,
 						1);
