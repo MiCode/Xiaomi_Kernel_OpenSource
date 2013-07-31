@@ -820,7 +820,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	char panel_cfg[MDSS_MAX_PANEL_LEN];
 	struct resource *mdss_dsi_mres;
 	const char *ctrl_name;
-	static struct mdss_panel_common_pdata vendor_pdata;
 	bool cmd_cfg_cont_splash = true;
 
 	if (!mdss_is_ready()) {
@@ -920,13 +919,13 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	cmd_cfg_cont_splash = mdss_panel_get_boot_cfg() ? true : false;
 
-	rc = mdss_dsi_panel_init(dsi_pan_node, &vendor_pdata);
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
 		goto error_pan_node;
 	}
 
-	rc = dsi_panel_device_register(dsi_pan_node, &vendor_pdata,
+	rc = dsi_panel_device_register(dsi_pan_node, ctrl_pdata,
 				       cmd_cfg_cont_splash);
 	if (rc) {
 		pr_err("%s: dsi panel dev reg failed\n", __func__);
@@ -1027,26 +1026,26 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 }
 
 int dsi_panel_device_register(struct device_node *pan_node,
-			      struct mdss_panel_common_pdata *panel_data,
+				struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 			      bool cmd_cfg_cont_splash)
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
 	u32 tmp[9];
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	bool dynamic_fps;
 	bool cont_splash_enabled = false;
 	const char *data;
 
-	mipi  = &panel_data->panel_info.mipi;
+	mipi  = &(pinfo->mipi);
 
-	panel_data->panel_info.type =
+	pinfo->type =
 		((mipi->mode == DSI_VIDEO_MODE)
 			? MIPI_VIDEO_PANEL : MIPI_CMD_PANEL);
 
-	rc = mdss_dsi_clk_div_config(&panel_data->panel_info, mipi->frame_rate);
+	rc = mdss_dsi_clk_div_config(pinfo, mipi->frame_rate);
 	if (rc) {
 		pr_err("%s: unable to initialize the clk dividers\n", __func__);
 		return rc;
@@ -1060,11 +1059,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	}
 
 	ctrl_pdev = of_find_device_by_node(dsi_ctrl_np);
-	ctrl_pdata = platform_get_drvdata(ctrl_pdev);
-	if (!ctrl_pdata) {
-		pr_err("%s: no dsi ctrl driver data\n", __func__);
-		return -EINVAL;
-	}
 
 	rc = mdss_dsi_regulator_init(ctrl_pdev);
 	if (rc) {
@@ -1080,8 +1074,8 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			__func__, __LINE__);
 		return -EINVAL;
 	}
-	(panel_data->panel_info.mipi.dsi_phy_db)->strength[0] = data[0];
-	(panel_data->panel_info.mipi.dsi_phy_db)->strength[1] = data[1];
+	pinfo->mipi.dsi_phy_db.strength[0] = data[0];
+	pinfo->mipi.dsi_phy_db.strength[1] = data[1];
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-regulator-settings", &len);
@@ -1091,7 +1085,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EINVAL;
 	}
 	for (i = 0; i < len; i++) {
-		(panel_data->panel_info.mipi.dsi_phy_db)->regulator[i]
+		pinfo->mipi.dsi_phy_db.regulator[i]
 			= data[i];
 	}
 
@@ -1103,7 +1097,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EINVAL;
 	}
 	for (i = 0; i < len; i++) {
-		(panel_data->panel_info.mipi.dsi_phy_db)->bistCtrl[i]
+		pinfo->mipi.dsi_phy_db.bistctrl[i]
 			= data[i];
 	}
 
@@ -1115,7 +1109,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EINVAL;
 	}
 	for (i = 0; i < len; i++) {
-		(panel_data->panel_info.mipi.dsi_phy_db)->laneCfg[i] =
+		pinfo->mipi.dsi_phy_db.lanecfg[i] =
 			data[i];
 	}
 
@@ -1125,25 +1119,25 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	dynamic_fps = of_property_read_bool(pan_node,
 					  "qcom,mdss-dsi-pan-enable-dynamic-fps");
 	if (dynamic_fps) {
-		panel_data->panel_info.dynamic_fps = true;
+		pinfo->dynamic_fps = true;
 		data = of_get_property(pan_node,
 					  "qcom,mdss-dsi-pan-fps-update", NULL);
 		if (data) {
 			if (!strcmp(data, "dfps_suspend_resume_mode")) {
-				panel_data->panel_info.dfps_update =
+				pinfo->dfps_update =
 						DFPS_SUSPEND_RESUME_MODE;
 				pr_debug("%s: dfps mode: suspend/resume\n",
 								__func__);
 			} else if (!strcmp(data,
 					    "dfps_immediate_clk_mode")) {
-				panel_data->panel_info.dfps_update =
+				pinfo->dfps_update =
 						DFPS_IMMEDIATE_CLK_UPDATE_MODE;
 				pr_debug("%s: dfps mode: Immediate clk\n",
 								__func__);
 			} else {
 				pr_debug("%s: dfps to default mode\n",
 								__func__);
-				panel_data->panel_info.dfps_update =
+				pinfo->dfps_update =
 						DFPS_SUSPEND_RESUME_MODE;
 				pr_debug("%s: dfps mode: suspend/resume\n",
 								__func__);
@@ -1151,13 +1145,11 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		} else {
 			pr_debug("%s: dfps update mode not configured\n",
 								__func__);
-				panel_data->panel_info.dynamic_fps =
-								false;
+				pinfo->dynamic_fps = false;
 				pr_debug("%s: dynamic FPS disabled\n",
 								__func__);
 		}
-		panel_data->panel_info.new_fps =
-				panel_data->panel_info.mipi.frame_rate;
+		pinfo->new_fps = pinfo->mipi.frame_rate;
 	}
 
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
@@ -1190,7 +1182,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		}
 	}
 
-	if (panel_data->panel_info.type == MIPI_CMD_PANEL) {
+	if (pinfo->type == MIPI_CMD_PANEL) {
 		ctrl_pdata->disp_te_gpio = of_get_named_gpio
 			(ctrl_pdev->dev.of_node, "qcom,platform-te-gpio", 0);
 		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio))
@@ -1263,27 +1255,13 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	}
 
 	if (mdss_dsi_retrieve_ctrl_resources(ctrl_pdev,
-					     panel_data->panel_info.pdest,
+					     pinfo->pdest,
 					     ctrl_pdata)) {
 		pr_err("%s: unable to get Dsi controller res\n", __func__);
 		return -EPERM;
 	}
 
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
-
-	ctrl_pdata->on_cmds = panel_data->on_cmds;
-	ctrl_pdata->off_cmds = panel_data->off_cmds;
-
-	memcpy(&((ctrl_pdata->panel_data).panel_info),
-				&(panel_data->panel_info),
-				       sizeof(struct mdss_panel_info));
-
-	ctrl_pdata->panel_data.set_backlight = panel_data->bl_fnc;
-	ctrl_pdata->bklt_ctrl = panel_data->panel_info.bklt_ctrl;
-	ctrl_pdata->pwm_pmic_gpio = panel_data->panel_info.pwm_pmic_gpio;
-	ctrl_pdata->pwm_period = panel_data->panel_info.pwm_period;
-	ctrl_pdata->pwm_lpg_chan = panel_data->panel_info.pwm_lpg_chan;
-	ctrl_pdata->bklt_max = panel_data->panel_info.bl_max;
 
 	if (ctrl_pdata->bklt_ctrl == BL_PWM)
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
@@ -1294,7 +1272,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	 */
 
 	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
-	ctrl_pdata->byte_clk_rate = panel_data->panel_info.clk_rate / 8;
+	ctrl_pdata->byte_clk_rate = pinfo->clk_rate / 8;
 	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
@@ -1336,10 +1314,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return rc;
 	}
 
-	ctrl_pdata->on = panel_data->on;
-	ctrl_pdata->off = panel_data->off;
-
-	if (panel_data->panel_info.pdest == DISPLAY_1) {
+	if (pinfo->pdest == DISPLAY_1) {
 		mdss_debug_register_base("dsi0",
 			ctrl_pdata->ctrl_base, ctrl_pdata->reg_size);
 		ctrl_pdata->ndx = 0;
