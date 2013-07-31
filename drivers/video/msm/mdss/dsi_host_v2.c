@@ -1070,6 +1070,27 @@ static struct device_node *dsi_find_panel_of_node(
 	return dsi_pan_node;
 }
 
+static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable)
+{
+	u32 bitclk_rate = 0, byteclk_rate = 0, pclk_rate = 0, dsiclk_rate = 0;
+
+	pr_debug("%s:\n", __func__);
+
+	if (enable) {
+		msm_dsi_ahb_ctrl(1);
+		msm_dsi_cal_clk_rate(pdata, &bitclk_rate, &dsiclk_rate,
+					&byteclk_rate, &pclk_rate);
+		msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, dsiclk_rate,
+					byteclk_rate, pclk_rate);
+		msm_dsi_clk_enable();
+	} else {
+		msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
+		msm_dsi_clk_disable();
+		msm_dsi_ahb_ctrl(0);
+	}
+	return 0;
+}
+
 static int __devinit msm_dsi_probe(struct platform_device *pdev)
 {
 	struct dsi_interface intf;
@@ -1188,6 +1209,7 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	intf.on = msm_dsi_on;
 	intf.off = msm_dsi_off;
 	intf.cont_on = msm_dsi_cont_on;
+	intf.clk_ctrl = msm_dsi_clk_ctrl;
 	intf.op_mode_config = msm_dsi_op_mode_config;
 	intf.tx = msm_dsi_cmds_tx;
 	intf.rx = msm_dsi_cmds_rx;
