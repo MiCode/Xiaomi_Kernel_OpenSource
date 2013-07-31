@@ -48,6 +48,9 @@ static struct snd_soc_jack hs_jack;
 static struct platform_device *spdev;
 static int ext_spk_amp_gpio = -1;
 
+/* pointers for digital codec register mappings */
+static void __iomem *pcbcr;
+static void __iomem *prcgr;
 
 /*
  * There is limitation for the clock root selection from
@@ -160,10 +163,9 @@ static void msm8x10_enable_ext_spk_power_amp(u32 on)
 
 static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
 {
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
+	iowrite32(0x1, pcbcr);
 	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
-
+	iowrite32(0x1, prcgr);
 	return 0;
 
 }
@@ -801,6 +803,9 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	pcbcr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4);
+	prcgr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
+
 	spdev = pdev;
 	ret = snd_soc_register_card(card);
 	if (ret) {
@@ -823,6 +828,9 @@ static int __devexit msm8x10_asoc_machine_remove(struct platform_device *pdev)
 		gpio_free(ext_spk_amp_gpio);
 	snd_soc_unregister_card(card);
 	mutex_destroy(&cdc_mclk_mutex);
+
+	iounmap(pcbcr);
+	iounmap(prcgr);
 	return 0;
 }
 
