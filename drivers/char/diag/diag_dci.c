@@ -209,9 +209,16 @@ void extract_dci_events(unsigned char *buf)
 		event_id_packet = *(uint16_t *)(buf + temp_len);
 		event_id = event_id_packet & 0x0FFF; /* extract 12 bits */
 		if (event_id_packet & 0x8000) {
+			/* The packet has the two smallest byte of the
+			 * timestamp
+			 */
 			timestamp_len = 2;
-			memset(timestamp, 0, 8);
 		} else {
+			/* The packet has the full timestamp. The first event
+			 * will always have full timestamp. Save it in the
+			 * timestamp buffer and use it for subsequent events if
+			 * necessary.
+			 */
 			timestamp_len = 8;
 			memcpy(timestamp, buf + temp_len + 2, timestamp_len);
 		}
