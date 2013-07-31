@@ -17,6 +17,7 @@
 #include <linux/stat.h>
 
 #include "mdss_hdmi_hdcp.h"
+#include "video/msm_hdmi_hdcp_mgr.h"
 
 #define HDCP_STATE_NAME (hdcp_state_name(hdcp_ctrl->hdcp_state))
 
@@ -31,7 +32,11 @@
 #define HDCP_KEYS_STATE_RESERVED	7
 
 struct hdmi_hdcp_ctrl {
+	u32 auth_retries;
+	u32 tp_msgid;
 	enum hdmi_hdcp_state hdcp_state;
+	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
+	struct HDCP_V2V1_MSG_TOPOLOGY current_tp;
 	struct delayed_work hdcp_auth_work;
 	struct work_struct hdcp_int_work;
 	struct completion r0_checked;
@@ -194,7 +199,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	bool is_match;
 	bool stale_an = false;
 	struct dss_io_data *io;
-	u8 aksv[5], bksv[5];
+	u8 aksv[5], *bksv = NULL;
 	u8 an[8];
 	u8 bcaps;
 	struct hdmi_tx_ddc_data ddc_data;
@@ -214,6 +219,8 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		rc = -EINVAL;
 		goto error;
 	}
+
+	bksv = hdcp_ctrl->current_tp.bksv;
 
 	io = hdcp_ctrl->init_data.core_io;
 
@@ -606,11 +613,12 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 	int rc, cnt, i;
 	struct hdmi_tx_ddc_data ddc_data;
-	u32 timeout_count, down_stream_devices;
+	u32 timeout_count, down_stream_devices = 0;
+	u32 repeater_cascade_depth = 0;
 	u8 buf[0xFF];
-	u8 ksv_fifo[5 * 127];
+	u8 *ksv_fifo = NULL;
 	u8 bcaps;
-	u16 bstatus, max_devs_exceeded, max_cascade_exceeded;
+	u16 bstatus, max_devs_exceeded = 0, max_cascade_exceeded = 0;
 	u32 link0_status;
 	u32 ksv_bytes;
 	struct dss_io_data *io;
@@ -628,10 +636,13 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		goto error;
 	}
 
+	ksv_fifo = hdcp_ctrl->current_tp.ksv_list;
+
 	io = hdcp_ctrl->init_data.core_io;
 
 	memset(buf, 0, sizeof(buf));
-	memset(ksv_fifo, 0, sizeof(ksv_fifo));
+	memset(ksv_fifo, 0,
+		sizeof(hdcp_ctrl->current_tp.ksv_list));
 
 	/* Read BCAPS at offset 0x40 */
 	memset(&ddc_data, 0, sizeof(ddc_data));
@@ -651,6 +662,10 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	}
 	DEV_DBG("%s: %s: BCAPS=%02x (%s)\n", __func__, HDCP_STATE_NAME, bcaps,
 		(bcaps & BIT(6)) ? "repeater" : "no repeater");
+
+	/* receiver (0), repeater (1) */
+	hdcp_ctrl->current_tp.ds_type =
+		(bcaps & BIT(6)) >> 6 ? DS_REPEATER : DS_RECEIVER;
 
 	/* if REPEATER (Bit 6), perform Part2 Authentication */
 	if (!(bcaps & BIT(6))) {
@@ -716,6 +731,9 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		rc = -EINVAL;
 		goto error;
 	}
+
+	/* Cascaded repeater depth */
+	repeater_cascade_depth = (bstatus >> 8) & 0x7;
 
 	/*
 	 * HDCP Compliance 1B-05:
@@ -866,8 +884,45 @@ error:
 	else
 		DEV_INFO("%s: %s: Authentication Part II successful\n",
 			__func__, HDCP_STATE_NAME);
+
+	/* Update topology information */
+	hdcp_ctrl->current_tp.dev_count = down_stream_devices;
+	hdcp_ctrl->current_tp.max_cascade_exceeded = max_cascade_exceeded;
+	hdcp_ctrl->current_tp.max_dev_exceeded = max_devs_exceeded;
+	hdcp_ctrl->current_tp.depth = repeater_cascade_depth;
+
 	return rc;
 } /* hdmi_hdcp_authentication_part2 */
+
+static void hdmi_hdcp_cache_topology(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	memcpy((void *)&hdcp_ctrl->cached_tp,
+		(void *) &hdcp_ctrl->current_tp,
+		sizeof(hdcp_ctrl->cached_tp));
+}
+
+static void hdmi_hdcp_notify_topology(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	char a[16], b[16];
+	char *envp[] = {
+		[0] = "HDCP_MGR_EVENT=MSG_READY",
+		[1] = a,
+		[2] = b,
+		NULL,
+	};
+
+	snprintf(envp[1], 16, "%d", (int)DOWN_CHECK_TOPOLOGY);
+	snprintf(envp[2], 16, "%d", (int)HDCP_V1_TX);
+	kobject_uevent_env(hdcp_ctrl->init_data.sysfs_kobj, KOBJ_CHANGE, envp);
+
+	DEV_DBG("%s Event Sent: %s msgID = %s srcID = %s\n", __func__,
+			envp[0], envp[1], envp[2]);
+}
 
 static void hdmi_hdcp_int_work(struct work_struct *work)
 {
@@ -928,7 +983,7 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 		goto error;
 	}
 	/* Disabling software DDC before going into part3 to make sure
-	 * there is no Arbitratioon between software and hardware for DDC */
+	 * there is no Arbitration between software and hardware for DDC */
 	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
 				HDMI_DDC_ARBITRATION) | (BIT(4)));
 
@@ -941,10 +996,14 @@ error:
 	 */
 	mutex_lock(hdcp_ctrl->init_data.mutex);
 	if (HDCP_STATE_AUTHENTICATING == hdcp_ctrl->hdcp_state) {
-		if (rc)
+		if (rc) {
 			hdcp_ctrl->hdcp_state = HDCP_STATE_AUTH_FAIL;
-		else
+		} else {
 			hdcp_ctrl->hdcp_state = HDCP_STATE_AUTHENTICATED;
+			hdcp_ctrl->auth_retries = 0;
+			hdmi_hdcp_cache_topology(hdcp_ctrl);
+			hdmi_hdcp_notify_topology(hdcp_ctrl);
+		}
 		mutex_unlock(hdcp_ctrl->init_data.mutex);
 
 		/* Notify HDMI Tx controller of the result */
@@ -989,10 +1048,38 @@ int hdmi_hdcp_authenticate(void *input)
 	return 0;
 } /* hdmi_hdcp_authenticate */
 
+/*
+ * Only retries defined times then abort current authenticating process
+ * Send check_topology message to notify any hdcpmanager's client of non-
+ * hdcp authenticated data link so the client can tear down any active secure
+ * playback.
+ * Reduce hdcp link to regular hdmi data link with hdcp disabled so any
+ * un-secure like UI & menu still can be sent over HDMI and display.
+ */
+#define AUTH_RETRIES_TIME (30)
+static int hdmi_msm_if_abort_reauth(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	int ret = 0;
+
+	if (!hdcp_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (++hdcp_ctrl->auth_retries == AUTH_RETRIES_TIME) {
+		hdmi_hdcp_off(hdcp_ctrl);
+		hdcp_ctrl->auth_retries = 0;
+		ret = -ERANGE;
+	}
+
+	return ret;
+}
+
 int hdmi_hdcp_reauthenticate(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
 	struct dss_io_data *io;
+	u32 ret = 0;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1001,11 +1088,17 @@ int hdmi_hdcp_reauthenticate(void *input)
 
 	io = hdcp_ctrl->init_data.core_io;
 
-
 	if (HDCP_STATE_AUTH_FAIL != hdcp_ctrl->hdcp_state) {
 		DEV_DBG("%s: %s: invalid state. returning\n", __func__,
 			HDCP_STATE_NAME);
 		return 0;
+	}
+
+	ret = hdmi_msm_if_abort_reauth(hdcp_ctrl);
+
+	if (ret) {
+		DEV_ERR("%s: abort reauthentication!\n", __func__);
+		return ret;
 	}
 
 	/*
@@ -1042,7 +1135,7 @@ int hdmi_hdcp_reauthenticate(void *input)
 	queue_delayed_work(hdcp_ctrl->init_data.workq,
 		&hdcp_ctrl->hdcp_auth_work, HZ/2);
 
-	return 0;
+	return ret;
 } /* hdmi_hdcp_reauthenticate */
 
 void hdmi_hdcp_off(void *input)
@@ -1192,10 +1285,76 @@ static ssize_t hdmi_hdcp_sysfs_rda_status(struct device *dev,
 	return ret;
 } /* hdmi_hdcp_sysfs_rda_hdcp*/
 
+static ssize_t hdmi_hdcp_sysfs_rda_tp(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct hdmi_hdcp_ctrl *hdcp_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+
+	if (!hdcp_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (hdcp_ctrl->tp_msgid) {
+	case DOWN_CHECK_TOPOLOGY:
+	case DOWN_REQUEST_TOPOLOGY:
+		buf[MSG_ID_IDX]   = hdcp_ctrl->tp_msgid;
+		buf[RET_CODE_IDX] = HDCP_AUTHED;
+		ret = HEADER_LEN;
+
+		memcpy(buf + HEADER_LEN, &hdcp_ctrl->cached_tp,
+			sizeof(struct HDCP_V2V1_MSG_TOPOLOGY));
+
+		ret += sizeof(struct HDCP_V2V1_MSG_TOPOLOGY);
+
+		/* clear the flag once data is read back to user space*/
+		hdcp_ctrl->tp_msgid = -1;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+} /* hdmi_hdcp_sysfs_rda_tp*/
+
+static ssize_t hdmi_hdcp_sysfs_wta_tp(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int msgid = 0;
+	ssize_t ret = count;
+	struct hdmi_hdcp_ctrl *hdcp_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+
+	if (!hdcp_ctrl || !buf) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	msgid = buf[0];
+
+	switch (msgid) {
+	case DOWN_CHECK_TOPOLOGY:
+	case DOWN_REQUEST_TOPOLOGY:
+		hdcp_ctrl->tp_msgid = msgid;
+		break;
+	/* more cases added here */
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_hpd */
+
 static DEVICE_ATTR(status, S_IRUGO, hdmi_hdcp_sysfs_rda_status, NULL);
+static DEVICE_ATTR(tp, S_IRUGO | S_IWUSR, hdmi_hdcp_sysfs_rda_tp,
+	hdmi_hdcp_sysfs_wta_tp);
+
 
 static struct attribute *hdmi_hdcp_fs_attrs[] = {
 	&dev_attr_status.attr,
+	&dev_attr_tp.attr,
 	NULL,
 };
 
