@@ -38,6 +38,36 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting hsic_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting hsic_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config apq8084_hsic_configs[] = {
+	{
+		.gpio = 134,               /*HSIC_STROBE */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+	{
+		.gpio = 135,               /* HSIC_DATA */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+};
+
 void __init apq8084_init_gpiomux(void)
 {
 	int rc;
@@ -49,4 +79,6 @@ void __init apq8084_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(apq8084_hsic_configs,
+			ARRAY_SIZE(apq8084_hsic_configs));
 }
