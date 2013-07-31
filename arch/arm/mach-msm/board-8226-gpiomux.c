@@ -57,7 +57,7 @@ static struct gpiomux_setting synaptics_reset_act_cfg = {
 
 static struct gpiomux_setting synaptics_reset_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_6MA,
+	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
 

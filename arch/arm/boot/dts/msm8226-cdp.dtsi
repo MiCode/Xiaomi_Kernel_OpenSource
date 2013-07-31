@@ -36,6 +36,7 @@
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
+			synaptics,disable-gpios;
 		};
 	};
 
