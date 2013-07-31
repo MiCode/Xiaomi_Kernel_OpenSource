@@ -912,6 +912,8 @@
 		interrupts = <0 99 0>;
 		qcom,i2c-bus-freq = <384000>;
 		qcom,i2c-src-freq = <19200000>;
+		qcom,sda-gpio = <&msmgpio 18 0>;
+		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
 	qcom,acpuclk@f9011050 {
