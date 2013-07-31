@@ -31,3 +31,7 @@
 		qcom,cont-splash-enabled;
         };
 };
+
+&pm8226_bms {
+        qcom,use-external-rsense;
+};
