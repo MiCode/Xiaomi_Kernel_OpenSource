@@ -24,13 +24,15 @@
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/qpnp-int.h>
+#include <mach/clk-provider.h>
+#include <mach/msm_smem.h>
+#include <mach/msm_smd.h>
+
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
-#include <mach/clk-provider.h>
-#include <mach/msm_smem.h>
-#include <mach/msm_smd.h>
+#include <linux/regulator/qpnp-regulator.h>
 
 #include "board-dt.h"
 #include "clock.h"
@@ -101,6 +103,8 @@ void __init mpq8092_add_drivers(void)
 	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
+	qpnp_regulator_init();
+	msm_clock_init(&mpq8092_clock_init_data);
 }
 
 
@@ -112,7 +116,6 @@ static void __init mpq8092_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	mpq8092_init_gpiomux();
-	msm_clock_init(&mpq8092_clock_init_data);
 	board_dt_populate(adata);
 	mpq8092_add_drivers();
 }
