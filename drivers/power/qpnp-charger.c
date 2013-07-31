@@ -338,6 +338,7 @@ struct qpnp_chg_chip {
 	struct work_struct		adc_disable_work;
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
+	struct work_struct		soc_check_work;
 	struct wake_lock		eoc_wake_lock;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
@@ -1079,6 +1080,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		} else {
 			schedule_delayed_work(&chip->eoc_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+			schedule_work(&chip->soc_check_work);
 		}
 
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
@@ -1139,11 +1141,13 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 
 	if (chip->dc_present ^ dc_present) {
 		chip->dc_present = dc_present;
-		if (!dc_present)
+		if (!dc_present) {
 			chip->chg_done = false;
-		else
+		} else {
 			schedule_delayed_work(&chip->eoc_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+			schedule_work(&chip->soc_check_work);
+		}
 		power_supply_changed(&chip->dc_psy);
 		power_supply_changed(&chip->batt_psy);
 	}
@@ -1568,19 +1572,26 @@ static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
 {
 	union power_supply_propval ret = {0,};
+	int battery_status, charger_in;
 
 	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
 		return DEFAULT_CAPACITY;
 
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
-			  POWER_SUPPLY_PROP_CAPACITY, &ret);
-		if (get_prop_batt_status(chip) == POWER_SUPPLY_STATUS_FULL
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		battery_status = get_prop_batt_status(chip);
+		charger_in = qpnp_chg_is_usb_chg_plugged_in(chip) ||
+			qpnp_chg_is_dc_chg_plugged_in(chip);
+
+		if (battery_status != POWER_SUPPLY_STATUS_CHARGING
+				&& charger_in
 				&& !chip->resuming_charging
 				&& !chip->charging_disabled
 				&& chip->soc_resume_limit
 				&& ret.intval <= chip->soc_resume_limit) {
-			pr_debug("resuming charging at %d%% soc\n", ret.intval);
+			pr_debug("resuming charging at %d%% soc\n",
+					ret.intval);
 			chip->resuming_charging = true;
 			qpnp_chg_set_appropriate_vbatdet(chip);
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
@@ -2357,7 +2368,7 @@ qpnp_eoc_work(struct work_struct *work)
 		}
 	} else {
 		pr_debug("not charging\n");
-			goto stop_eoc;
+		goto stop_eoc;
 	}
 
 	schedule_delayed_work(&chip->eoc_work,
@@ -2367,6 +2378,15 @@ qpnp_eoc_work(struct work_struct *work)
 stop_eoc:
 	count = 0;
 	wake_unlock(&chip->eoc_wake_lock);
+}
+
+static void
+qpnp_chg_soc_check_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip, soc_check_work);
+
+	get_prop_capacity(chip);
 }
 
 #define HYSTERISIS_DECIDEGC 20
@@ -3742,6 +3762,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		WAKE_LOCK_SUSPEND, "qpnp-chg-eoc-lock");
 	INIT_DELAYED_WORK(&chip->eoc_work, qpnp_eoc_work);
 	INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
+	INIT_WORK(&chip->soc_check_work, qpnp_chg_soc_check_work);
 
 	if (chip->dc_chgpth_base) {
 		chip->dc_psy.name = "qpnp-dc";
