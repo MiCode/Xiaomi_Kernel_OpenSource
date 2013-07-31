@@ -3310,7 +3310,7 @@ static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 static int set_battery_data(struct qpnp_bms_chip *chip)
 {
 	int64_t battery_id;
-	int rc;
+	int rc, dt_data = false;
 	struct bms_battery_data *batt_data;
 	struct device_node *node;
 
@@ -3346,6 +3346,10 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 			batt_data->rbatt_sf_lut = kzalloc(
 					sizeof(struct sf_lut), GFP_KERNEL);
 
+			batt_data->max_voltage_uv = -1;
+			batt_data->cutoff_uv = -1;
+			batt_data->iterm_ua = -1;
+
 			rc = of_batterydata_read_data(node,
 					batt_data, battery_id);
 			if (rc) {
@@ -3355,6 +3359,8 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 				kfree(batt_data->rbatt_sf_lut);
 				kfree(batt_data);
 				batt_data = &palladium_1500_data;
+			} else {
+				dt_data = true;
 			}
 		} else {
 			pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
@@ -3374,11 +3380,11 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	chip->flat_ocv_threshold_uv = batt_data->flat_ocv_threshold_uv;
 
 	/* Override battery properties if specified in the battery profile */
-	if (batt_data->max_voltage_uv >= 0)
+	if (batt_data->max_voltage_uv >= 0 && dt_data)
 		chip->max_voltage_uv = batt_data->max_voltage_uv;
-	if (batt_data->cutoff_uv >= 0)
+	if (batt_data->cutoff_uv >= 0 && dt_data)
 		chip->v_cutoff_uv = batt_data->cutoff_uv;
-	if (batt_data->iterm_ua >= 0)
+	if (batt_data->iterm_ua >= 0 && dt_data)
 		chip->chg_term_ua = batt_data->iterm_ua;
 
 	if (chip->pc_temp_ocv_lut == NULL) {
