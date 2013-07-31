@@ -24,7 +24,6 @@
 #include "dsi_host_v2.h"
 
 struct msm_dsi_io_private {
-	struct regulator *vdda_vreg;
 	struct clk *dsi_byte_clk;
 	struct clk *dsi_esc_clk;
 	struct clk *dsi_pixel_clk;
@@ -51,7 +50,7 @@ void msm_dsi_ahb_ctrl(int enable)
 	}
 }
 
-int msm_dsi_io_init(struct platform_device *dev)
+int msm_dsi_io_init(struct platform_device *pdev, struct dss_module_power *mp)
 {
 	int rc;
 
@@ -64,25 +63,29 @@ int msm_dsi_io_init(struct platform_device *dev)
 		}
 	}
 
-	rc = msm_dsi_clk_init(dev);
+	rc = msm_dsi_clk_init(pdev);
 	if (rc) {
 		pr_err("fail to initialize DSI clock\n");
 		return rc;
 	}
 
-	rc = msm_dsi_regulator_init(dev);
+	rc = msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
+						mp->num_vreg, 1);
 	if (rc) {
 		pr_err("fail to initialize DSI regulator\n");
 		return rc;
 	}
+
 	return 0;
 }
 
-void msm_dsi_io_deinit(void)
+void msm_dsi_io_deinit(struct platform_device *pdev,
+				 struct dss_module_power *mp)
 {
 	if (dsi_io_private) {
 		msm_dsi_clk_deinit();
-		msm_dsi_regulator_deinit();
+		msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
+					mp->num_vreg, 0);
 		kfree(dsi_io_private);
 		dsi_io_private = NULL;
 	}
@@ -240,61 +243,6 @@ int msm_dsi_clk_disable(void)
 
 	dsi_io_private->msm_dsi_clk_on = 0;
 	return 0;
-}
-
-int msm_dsi_regulator_init(struct platform_device *dev)
-{
-	int ret = 0;
-
-	dsi_io_private->vdda_vreg = devm_regulator_get(&dev->dev, "vdda");
-	if (IS_ERR(dsi_io_private->vdda_vreg)) {
-		ret = PTR_ERR(dsi_io_private->vdda_vreg);
-		pr_err("could not get vdda 8110_l4, ret=%d\n", ret);
-		return ret;
-	}
-
-	ret = regulator_set_voltage(dsi_io_private->vdda_vreg, DSI_VDDA_VOLTAGE,
-					DSI_VDDA_VOLTAGE);
-	if (ret)
-		pr_err("vdd_io_vreg->set_voltage failed, ret=%d\n", ret);
-
-	return ret;
-}
-
-void msm_dsi_regulator_deinit(void)
-{
-	if (!IS_ERR(dsi_io_private->vdda_vreg)) {
-		devm_regulator_put(dsi_io_private->vdda_vreg);
-		dsi_io_private->vdda_vreg = NULL;
-	}
-}
-
-int msm_dsi_regulator_enable(void)
-{
-	int ret;
-
-	ret = regulator_enable(dsi_io_private->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to enable regulator.\n", __func__);
-		return ret;
-	}
-	msleep(20); /*per DSI controller spec*/
-	return ret;
-}
-
-int msm_dsi_regulator_disable(void)
-{
-	int ret;
-
-	ret = regulator_disable(dsi_io_private->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to disable regulator.\n", __func__);
-		return ret;
-	}
-	wmb();
-	msleep(20); /*per DSI controller spec*/
-
-	return ret;
 }
 
 static void msm_dsi_phy_strength_init(unsigned char *ctrl_base,

@@ -16,7 +16,7 @@ ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o
 endif
 
-dsi-v2-objs = dsi_v2.o dsi_host_v2.o dsi_io_v2.o dsi_panel_v2.o
+dsi-v2-objs = dsi_v2.o dsi_host_v2.o dsi_io_v2.o
 obj-$(CONFIG_FB_MSM_MDSS) += dsi-v2.o
 
 mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o
