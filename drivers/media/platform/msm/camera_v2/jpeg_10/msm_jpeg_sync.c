@@ -25,6 +25,7 @@
 #define JPEG_REG_SIZE 0x308
 #define JPEG_DEV_CNT 3
 #define JPEG_DEC_ID 2
+#define UINT32_MAX (0xFFFFFFFFU)
 
 inline void msm_jpeg_q_init(char const *name, struct msm_jpeg_q *q_p)
 {
@@ -677,13 +678,19 @@ int msm_jpeg_ioctl_hw_cmds(struct msm_jpeg_device *pgmn_dev,
 	void * __user arg)
 {
 	int is_copy_to_user;
-	int len;
+	uint32_t len;
 	uint32_t m;
 	struct msm_jpeg_hw_cmds *hw_cmds_p;
 	struct msm_jpeg_hw_cmd *hw_cmd_p;
 
 	if (copy_from_user(&m, arg, sizeof(m))) {
 		JPEG_PR_ERR("%s:%d] failed\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	if ((m == 0) || (m > ((UINT32_MAX - sizeof(struct msm_jpeg_hw_cmds)) /
+		sizeof(struct msm_jpeg_hw_cmd)))) {
+		JPEG_PR_ERR("%s:%d] m_cmds out of range\n", __func__, __LINE__);
 		return -EFAULT;
 	}
 
