@@ -104,3 +104,7 @@ obj-$(CONFIG_SND_SOC_MSM8X10) += snd-soc-msm8x10.o
 #for APQ 8084 sound card driver
 snd-soc-apq8084-objs := apq8084.o
 obj-$(CONFIG_SND_SOC_APQ8084) += snd-soc-apq8084.o
+
+#for MSM SAMARIUM sound card driver
+snd-soc-msmsamarium-objs := msmsamarium.o
+obj-$(CONFIG_SND_SOC_MSMSAMARIUM) += snd-soc-msmsamarium.o

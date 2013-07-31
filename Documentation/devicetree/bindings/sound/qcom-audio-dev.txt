@@ -697,3 +697,46 @@ sound {
 	qcom,cdc-lineout-spkr-gpios = <&pm8226_gpios 2 0>;
 	qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 3 0>;
 };
+
+* MSMSAMARIUM ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msmsamarium-audio-tapan"
+
+Required properties:
+- compatible : "qcom,msmsamarium-audio-tapan"
+- qcom,model : The user-visible name of this sound card.
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,cdc-mclk-gpios : GPIO on which mclk signal is comming.
+
+Example:
+
+sound {
+	compatible = "qcom,msmsamarium-audio-tapan";
+	qcom,model = "msmsamarium-tapan-snd-card";
+	qcom,tapan-mclk-clk-freq = <9600000>;
+	audio-routing =
+		"RX_BIAS", "MCLK",
+		"LDO_H", "MCLK",
+		"SPK_OUT", "MCLK",
+		"AMIC1", "MIC BIAS1 Internal1",
+		"MIC BIAS1 Internal1", "Handset Mic",
+		"AMIC2", "MIC BIAS2 External",
+		"MIC BIAS2 External", "Headset Mic",
+		"AMIC3", "MIC BIAS2 External",
+		"MIC BIAS2 External", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS2 External",
+		"MIC BIAS2 External", "ANCLeft Headset Mic",
+		"DMIC1", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic1",
+		"DMIC2", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic2",
+		"DMIC3", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic3",
+		"DMIC4", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic4",
+};
