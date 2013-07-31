@@ -998,7 +998,6 @@ static void ngd_adsp_down(struct work_struct *work)
 		container_of(qmi, struct msm_slim_ctrl, qmi);
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
-	int i;
 
 	ngd_slim_enable(dev, false);
 	/* disconnect BAM pipes */
@@ -1007,14 +1006,9 @@ static void ngd_adsp_down(struct work_struct *work)
 	if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
 		dev->use_tx_msgqs = MSM_MSGQ_DOWN;
 	msm_slim_sps_exit(dev, false);
-	mutex_lock(&ctrl->m_ctrl);
 	/* device up should be called again after SSR */
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list)
-		sbdev->notified = false;
-	/* invalidate logical addresses */
-	for (i = 0; i < ctrl->num_dev; i++)
-		ctrl->addrt[i].valid = false;
-	mutex_unlock(&ctrl->m_ctrl);
+		slim_report_absent(sbdev);
 	pr_info("SLIM ADSP SSR (DOWN) done");
 }
 
