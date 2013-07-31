@@ -3309,7 +3309,8 @@ fail:
 	return -EINVAL;
 }
 
-static int voice_send_stream_mute_cmd(struct voice_data *v)
+static int voice_send_stream_mute_cmd(struct voice_data *v, uint16_t direction,
+				     uint16_t mute_flag, uint32_t ramp_duration)
 {
 	struct cvs_set_mute_cmd cvs_mute_cmd;
 	int ret = 0;
@@ -3337,10 +3338,9 @@ static int voice_send_stream_mute_cmd(struct voice_data *v)
 	cvs_mute_cmd.hdr.dest_port = voice_get_cvs_handle(v);
 	cvs_mute_cmd.hdr.token = 0;
 	cvs_mute_cmd.hdr.opcode = VSS_IVOLUME_CMD_MUTE_V2;
-	cvs_mute_cmd.cvs_set_mute.direction = VSS_IVOLUME_DIRECTION_TX;
-	cvs_mute_cmd.cvs_set_mute.mute_flag = v->stream_tx.stream_mute;
-	cvs_mute_cmd.cvs_set_mute.ramp_duration_ms =
-				v->stream_tx.stream_mute_ramp_duration_ms;
+	cvs_mute_cmd.cvs_set_mute.direction = direction;
+	cvs_mute_cmd.cvs_set_mute.mute_flag = mute_flag;
+	cvs_mute_cmd.cvs_set_mute.ramp_duration_ms = ramp_duration;
 
 	v->cvs_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(common.apr_q6_cvs, (uint32_t *) &cvs_mute_cmd);
@@ -3996,6 +3996,13 @@ int voc_enable_cvp(uint32_t session_id)
 						VSS_IVOLUME_DIRECTION_RX,
 						VSS_IVOLUME_MUTE_ON,
 						DEFAULT_MUTE_RAMP_DURATION);
+			/* Send unmute cmd as the TX stream
+			 * might be muted previously
+			 */
+			voice_send_stream_mute_cmd(v,
+						VSS_IVOLUME_DIRECTION_TX,
+						VSS_IVOLUME_MUTE_OFF,
+						DEFAULT_MUTE_RAMP_DURATION);
 		} else if (v->lch_mode == VOICE_LCH_STOP) {
 			pr_debug("%s: TX and RX mute OFF\n", __func__);
 
@@ -4010,7 +4017,10 @@ int voc_enable_cvp(uint32_t session_id)
 			/* Reset lch mode when VOICE_LCH_STOP is recieved */
 			v->lch_mode = 0;
 			/* Apply cached mute setting */
-			voice_send_stream_mute_cmd(v);
+			voice_send_stream_mute_cmd(v,
+				VSS_IVOLUME_DIRECTION_TX,
+				v->stream_tx.stream_mute,
+				v->stream_tx.stream_mute_ramp_duration_ms);
 		} else {
 			pr_debug("%s: Mute commands not sent for lch_mode=%d\n",
 				 __func__, v->lch_mode);
@@ -4090,7 +4100,10 @@ int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 								ramp_duration;
 			if (is_voc_state_active(v->voc_state) &&
 				(v->lch_mode == 0))
-				ret = voice_send_stream_mute_cmd(v);
+				ret = voice_send_stream_mute_cmd(v,
+				VSS_IVOLUME_DIRECTION_TX,
+				v->stream_tx.stream_mute,
+				v->stream_tx.stream_mute_ramp_duration_ms);
 			mutex_unlock(&v->lock);
 		} else {
 			pr_err("%s: invalid session_id 0x%x\n", __func__,
@@ -4576,7 +4589,10 @@ int voc_start_voice_call(uint32_t session_id)
 		if (ret < 0)
 			pr_err("voice volume failed\n");
 
-		ret = voice_send_stream_mute_cmd(v);
+		ret = voice_send_stream_mute_cmd(v,
+				VSS_IVOLUME_DIRECTION_TX,
+				v->stream_tx.stream_mute,
+				v->stream_tx.stream_mute_ramp_duration_ms);
 		if (ret < 0)
 			pr_err("voice mute failed\n");
 
