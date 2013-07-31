@@ -1058,6 +1058,8 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,i2c-pull-up");
 	rmi4_pdata->power_down_enable = of_property_read_bool(np,
 			"synaptics,power-down");
+	rmi4_pdata->disable_gpios = of_property_read_bool(np,
+			"synaptics,disable-gpios");
 	rmi4_pdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
 	rmi4_pdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
 
@@ -2022,6 +2024,85 @@ power_off:
 	return 0;
 }
 
+static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
+					bool on)
+{
+	int retval = 0;
+
+	if (on) {
+		if (gpio_is_valid(rmi4_data->board->irq_gpio)) {
+			/* configure touchscreen irq gpio */
+			retval = gpio_request(rmi4_data->board->irq_gpio,
+				"rmi4_irq_gpio");
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"unable to request gpio [%d]\n",
+					rmi4_data->board->irq_gpio);
+				goto err_irq_gpio_req;
+			}
+			retval = gpio_direction_input(rmi4_data->board->\
+				irq_gpio);
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"unable to set direction for gpio " \
+					"[%d]\n", rmi4_data->board->irq_gpio);
+				goto err_irq_gpio_dir;
+			}
+		} else {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"irq gpio not provided\n");
+			goto err_irq_gpio_req;
+		}
+
+		if (gpio_is_valid(rmi4_data->board->reset_gpio)) {
+			/* configure touchscreen reset out gpio */
+			retval = gpio_request(rmi4_data->board->reset_gpio,
+					"rmi4_reset_gpio");
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"unable to request gpio [%d]\n",
+					rmi4_data->board->reset_gpio);
+				goto err_irq_gpio_dir;
+			}
+
+			retval = gpio_direction_output(rmi4_data->board->\
+				reset_gpio, 1);
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"unable to set direction for gpio " \
+					"[%d]\n", rmi4_data->board->reset_gpio);
+				goto err_reset_gpio_dir;
+			}
+
+			gpio_set_value(rmi4_data->board->reset_gpio, 0);
+			usleep(RMI4_GPIO_SLEEP_LOW_US);
+			gpio_set_value(rmi4_data->board->reset_gpio, 1);
+			msleep(RESET_DELAY);
+		} else
+			synaptics_rmi4_reset_command(rmi4_data);
+
+		return 0;
+	} else {
+		if (rmi4_data->board->disable_gpios) {
+			if (gpio_is_valid(rmi4_data->board->irq_gpio))
+				gpio_free(rmi4_data->board->irq_gpio);
+			if (gpio_is_valid(rmi4_data->board->reset_gpio))
+				gpio_free(rmi4_data->board->reset_gpio);
+		}
+
+		return 0;
+	}
+
+err_reset_gpio_dir:
+	if (gpio_is_valid(rmi4_data->board->reset_gpio))
+		gpio_free(rmi4_data->board->reset_gpio);
+err_irq_gpio_dir:
+	if (gpio_is_valid(rmi4_data->board->irq_gpio))
+		gpio_free(rmi4_data->board->irq_gpio);
+err_irq_gpio_req:
+	return retval;
+}
+
  /**
  * synaptics_rmi4_probe()
  *
@@ -2151,51 +2232,11 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_power_device;
 	}
 
-	if (gpio_is_valid(platform_data->irq_gpio)) {
-		/* configure touchscreen irq gpio */
-		retval = gpio_request(platform_data->irq_gpio, "rmi4_irq_gpio");
-		if (retval) {
-			dev_err(&client->dev, "unable to request gpio [%d]\n",
-						platform_data->irq_gpio);
-			goto err_irq_gpio_req;
-		}
-		retval = gpio_direction_input(platform_data->irq_gpio);
-		if (retval) {
-			dev_err(&client->dev,
-				"unable to set direction for gpio [%d]\n",
-				platform_data->irq_gpio);
-			goto err_irq_gpio_dir;
-		}
-	} else {
-		dev_err(&client->dev, "irq gpio not provided\n");
-		goto err_irq_gpio_req;
+	retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
+	if (retval < 0) {
+		dev_err(&client->dev, "Failed to configure gpios\n");
+		goto err_gpio_config;
 	}
-
-	if (gpio_is_valid(platform_data->reset_gpio)) {
-		/* configure touchscreen reset out gpio */
-		retval = gpio_request(platform_data->reset_gpio,
-				"rmi4_reset_gpio");
-		if (retval) {
-			dev_err(&client->dev, "unable to request gpio [%d]\n",
-						platform_data->reset_gpio);
-			goto err_irq_gpio_dir;
-		}
-
-		retval = gpio_direction_output(platform_data->reset_gpio, 1);
-		if (retval) {
-			dev_err(&client->dev,
-				"unable to set direction for gpio [%d]\n",
-				platform_data->reset_gpio);
-			goto err_reset_gpio_dir;
-		}
-
-		gpio_set_value(platform_data->reset_gpio, 0);
-		usleep(RMI4_GPIO_SLEEP_LOW_US);
-		gpio_set_value(platform_data->reset_gpio, 1);
-		msleep(RESET_DELAY);
-	} else
-		synaptics_rmi4_reset_command(rmi4_data);
-
 
 	init_waitqueue_head(&rmi4_data->wait);
 	mutex_init(&(rmi4_data->rmi4_io_ctrl_mutex));
@@ -2205,7 +2246,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 				"%s: Failed to query device\n",
 				__func__);
-		goto err_reset_gpio_dir;
+		goto err_free_gpios;
 	}
 
 	input_set_abs_params(rmi4_data->input_dev,
@@ -2348,13 +2389,12 @@ err_register_input:
 			kfree(fhandler);
 		}
 	}
-err_reset_gpio_dir:
-	if (gpio_is_valid(platform_data->reset_gpio))
-		gpio_free(platform_data->reset_gpio);
-err_irq_gpio_dir:
-	if (gpio_is_valid(platform_data->irq_gpio))
-		gpio_free(platform_data->irq_gpio);
-err_irq_gpio_req:
+err_free_gpios:
+	if (gpio_is_valid(rmi4_data->board->reset_gpio))
+		gpio_free(rmi4_data->board->reset_gpio);
+	if (gpio_is_valid(rmi4_data->board->irq_gpio))
+		gpio_free(rmi4_data->board->irq_gpio);
+err_gpio_config:
 	synaptics_rmi4_power_on(rmi4_data, false);
 err_power_device:
 	synaptics_rmi4_regulator_configure(rmi4_data, false);
@@ -2685,16 +2725,6 @@ regulator_hpm:
 		}
 	}
 
-	if (rmi4_data->board->power_down_enable) {
-		retval = synaptics_rmi4_reset_device(rmi4_data);
-		if (retval < 0) {
-			dev_err(&rmi4_data->i2c_client->dev,
-				"%s: Failed to issue reset command, rc = %d\n",
-					__func__, retval);
-			return retval;
-		}
-	}
-
 	return 0;
 
 fail_regulator_lpm:
@@ -2755,6 +2785,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		return 0;
 	}
 
+	if (rmi4_data->board->disable_gpios) {
+		retval = synaptics_rmi4_gpio_configure(rmi4_data, false);
+		if (retval < 0) {
+			dev_err(dev, "failed to put gpios in suspend state\n");
+			return retval;
+		}
+	}
 	rmi4_data->suspended = true;
 
 	return 0;
@@ -2780,6 +2817,14 @@ static int synaptics_rmi4_resume(struct device *dev)
 		return 0;
 	}
 
+	if (rmi4_data->board->disable_gpios) {
+		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
+		if (retval < 0) {
+			dev_err(dev, "failed to put gpios in active state\n");
+			return retval;
+		}
+	}
+
 	retval = synaptics_rmi4_regulator_lpm(rmi4_data, false);
 	if (retval < 0) {
 		dev_err(dev, "failed to enter active power mode\n");
@@ -2789,6 +2834,17 @@ static int synaptics_rmi4_resume(struct device *dev)
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	rmi4_data->touch_stopped = false;
 	synaptics_rmi4_irq_enable(rmi4_data, true);
+
+	if (rmi4_data->board->power_down_enable ||
+			rmi4_data->board->disable_gpios) {
+		retval = synaptics_rmi4_reset_device(rmi4_data);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Failed to issue reset command, " \
+				"rc = %d\n", __func__, retval);
+			return retval;
+		}
+	}
 
 	rmi4_data->suspended = false;
 
