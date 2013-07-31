@@ -566,6 +566,7 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
 }
 
 #ifdef CONFIG_MMU
+#ifdef CONFIG_KUSER_HELPERS
 /*
  * The vectors page is always readable from user space for the
  * atomic helpers. Insert it into the gate_vma so that it is visible
@@ -598,10 +599,14 @@ int in_gate_area_no_mm(unsigned long addr)
 {
 	return in_gate_area(NULL, addr);
 }
+#define is_gate_vma(vma)	((vma) = &gate_vma)
+#else
+#define is_gate_vma(vma)	0
+#endif
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	if (vma == &gate_vma)
+	if (is_gate_vma(vma))
 		return "[vectors]";
 	else if (vma->vm_mm && vma->vm_start == vma->vm_mm->context.sigpage)
 		return "[sigpage]";
