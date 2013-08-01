@@ -11,7 +11,7 @@
  */
 
 &soc  {
-	qcom,dsi_v2_truly_wvga_video {
+	qcom,dsi_v2_truly_wvga_cmd {
 		compatible = "qcom,dsi-panel-v2";
 		label = "Truly WVGA command mode dsi panel";
 		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
