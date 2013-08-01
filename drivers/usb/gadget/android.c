@@ -40,6 +40,7 @@
 #include "f_audio_source.c"
 #endif
 #include "f_mass_storage.c"
+#define USB_ETH_RNDIS y
 #include "f_diag.c"
 #include "f_qdss.c"
 #include "f_rmnet_smd.c"
@@ -60,7 +61,6 @@
 #include "f_ccid.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
-#define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
 #include "f_qc_ecm.c"
@@ -848,6 +848,12 @@ out:
 	return err;
 }
 
+static void rmnet_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	frmnet_unbind_config();
+}
+
 static ssize_t rmnet_transports_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -897,6 +903,7 @@ static struct android_usb_function rmnet_function = {
 	.name		= "rmnet",
 	.cleanup	= rmnet_function_cleanup,
 	.bind_config	= rmnet_function_bind_config,
+	.unbind_config	= rmnet_function_unbind_config,
 	.attributes	= rmnet_function_attributes,
 };
 
