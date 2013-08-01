@@ -62,10 +62,6 @@
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 	};
 
-	qcom,mdss_dsi_toshiba_720p_video {
-		qcom,rst-gpio = <&pma8084_gpios 20 0>;
-	};
-
 	gpio_keys {
 		camera_snapshot {
 			gpios = <&pma8084_gpios 3 0x1>;
