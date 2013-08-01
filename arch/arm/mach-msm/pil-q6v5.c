@@ -57,6 +57,18 @@
 #define QDSS_BHS_ON			BIT(21)
 #define QDSS_LDO_BYP			BIT(22)
 
+/* QDSP6v55 parameters */
+#define QDSP6v55_LDO_ON                 BIT(26)
+#define QDSP6v55_LDO_BYP                BIT(25)
+#define QDSP6v55_BHS_ON                 BIT(24)
+#define QDSP6v55_CLAMP_WL               BIT(21)
+#define L1IU_SLP_NRET_N                 BIT(15)
+#define L1DU_SLP_NRET_N                 BIT(14)
+#define L2PLRU_SLP_NRET_N               BIT(13)
+
+#define HALT_CHECK_MAX_LOOPS            (200)
+#define QDSP6SS_XO_CBCR                 (0x0038)
+
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 {
 	int ret;
@@ -146,7 +158,7 @@ void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base)
 }
 EXPORT_SYMBOL(pil_q6v5_halt_axi_port);
 
-void pil_q6v5_shutdown(struct pil_desc *pil)
+static void __pil_q6v5_shutdown(struct pil_desc *pil)
 {
 	u32 val;
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
@@ -178,9 +190,19 @@ void pil_q6v5_shutdown(struct pil_desc *pil)
 	val &= ~QDSS_BHS_ON;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 }
+
+void pil_q6v5_shutdown(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	if (drv->qdsp6v55)
+		/* Subsystem driver expected to halt bus and assert reset */
+		return;
+	else
+		__pil_q6v5_shutdown(pil);
+}
 EXPORT_SYMBOL(pil_q6v5_shutdown);
 
-int pil_q6v5_reset(struct pil_desc *pil)
+static int __pil_q6v5_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	u32 val;
@@ -233,6 +255,91 @@ int pil_q6v5_reset(struct pil_desc *pil)
 
 	return 0;
 }
+
+static int q6v55_branch_clk_enable(struct q6v5_data *drv)
+{
+	u32 val, count;
+	void __iomem *cbcr_reg = drv->reg_base + QDSP6SS_XO_CBCR;
+
+	val = readl_relaxed(cbcr_reg);
+	val |= 0x1;
+	writel_relaxed(val, cbcr_reg);
+
+	for (count = HALT_CHECK_MAX_LOOPS; count > 0; count--) {
+		val = readl_relaxed(cbcr_reg);
+		if (!(val & BIT(31)))
+			return 0;
+		udelay(1);
+	}
+
+	dev_err(drv->desc.dev, "Failed to enable xo branch clock.\n");
+	return -EINVAL;
+}
+
+static int __pil_q6v55_reset(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	u32 val, i;
+
+	/* Assert resets, stop core */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
+	val |= (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA | Q6SS_STOP_CORE);
+	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
+
+	/* BHS require xo cbcr to be enabled */
+	i = q6v55_branch_clk_enable(drv);
+	if (i)
+		return i;
+
+	/* Enable power block headswitch, and wait for it to stabilize */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+	val |= QDSP6v55_BHS_ON;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+	mb();
+	udelay(1);
+	val |= QDSP6v55_LDO_BYP;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+	/* Turn on memories. */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+	val |= 0xFFF00;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+	/* Turn on L2 banks 1 at a time */
+	for (i = 0; i <= 7; i++) {
+		val |= BIT(i);
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+	}
+
+	/* Remove word line clamp */
+	val &= ~QDSP6v55_CLAMP_WL;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+	/* Remove IO clamp */
+	val &= ~Q6SS_CLAMP_IO;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+	/* Bring core out of reset */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
+	val &= ~(Q6SS_CORE_ARES | Q6SS_STOP_CORE);
+	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
+
+	/* Turn on core clock */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_GFMUX_CTL);
+	val |= Q6SS_CLK_ENA;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_GFMUX_CTL);
+
+	return 0;
+}
+
+int pil_q6v5_reset(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	if (drv->qdsp6v55)
+		return __pil_q6v55_reset(pil);
+	else
+		return __pil_q6v5_reset(pil);
+}
 EXPORT_SYMBOL(pil_q6v5_reset);
 
 struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
@@ -256,6 +363,11 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 					  resource_size(res));
 	if (!drv->axi_halt_base)
 		return ERR_PTR(-ENOMEM);
+
+	drv->qdsp6v55 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,pil-q6v55-mss");
+	drv->qdsp6v55 |= of_device_is_compatible(pdev->dev.of_node,
+						"qcom,pil-q6v55-lpass");
 
 	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
