@@ -308,4 +308,12 @@
 		reg = <0xfc000000 0x1a0000>;
 		qcom,start-offset = <0x190010>;
 	};
+
+	qcom,rpm-master-stats@fc428150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0xfc428150 0x3200>;
+		qcom,masters = "APSS", "MPSS", "LPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <2560>;
+	};
 };
