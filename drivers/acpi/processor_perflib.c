@@ -37,6 +37,8 @@
 #include <asm/cpufeature.h>
 #endif
 
+#define X86_ATOM_ARCH_SLM              (0x37)
+
 #define PREFIX "ACPI: "
 
 #define ACPI_PROCESSOR_CLASS		"processor"
@@ -659,7 +661,7 @@ int acpi_processor_preregister_performance(
 		goto err_ret;
 
 	/*
-	 * Now that we have _PSD data from all CPUs, lets setup P-state 
+	 * Now that we have _PSD data from all CPUs, lets setup P-state
 	 * domain info.
 	 */
 	for_each_possible_cpu(i) {
@@ -684,6 +686,14 @@ int acpi_processor_preregister_performance(
 			pr->performance->shared_type = CPUFREQ_SHARED_TYPE_HW;
 		else if (pdomain->coord_type == DOMAIN_COORD_TYPE_SW_ANY)
 			pr->performance->shared_type = CPUFREQ_SHARED_TYPE_ANY;
+
+		/* hard code the cpufreq policy to ensure that SW coordination
+		 * is in place; on 2CMP SLM systems, the HW cannot arbitrate and
+		 * hence SW coordination is neccessary!
+		*/
+		if (boot_cpu_data.x86_model == X86_ATOM_ARCH_SLM)
+			pr->performance->shared_type = CPUFREQ_SHARED_TYPE_ALL;
+
 
 		for_each_possible_cpu(j) {
 			if (i == j)
@@ -725,7 +735,7 @@ int acpi_processor_preregister_performance(
 			if (match_pdomain->domain != pdomain->domain)
 				continue;
 
-			match_pr->performance->shared_type = 
+			match_pr->performance->shared_type =
 					pr->performance->shared_type;
 			cpumask_copy(match_pr->performance->shared_cpu_map,
 				     pr->performance->shared_cpu_map);
