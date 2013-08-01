@@ -227,8 +227,8 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
 
 	ehci_dbg(ehci, "suspend root hub\n");
 
-	if (time_before (jiffies, ehci->next_statechange))
-		msleep(5);
+	if (time_before_eq(jiffies, ehci->next_statechange))
+		usleep_range(10000, 10000);
 
 	/* stop the schedules */
 	ehci_quiesce(ehci);
@@ -370,8 +370,8 @@ static int __maybe_unused ehci_bus_resume(struct usb_hcd *hcd)
 	int			i;
 	unsigned long		resume_needed = 0;
 
-	if (time_before (jiffies, ehci->next_statechange))
-		msleep(5);
+	if (time_before_eq(jiffies, ehci->next_statechange))
+		usleep_range(10000, 10000);
 	spin_lock_irq (&ehci->lock);
 	if (!HCD_HW_ACCESSIBLE(hcd) || ehci->shutdown)
 		goto shutdown;
