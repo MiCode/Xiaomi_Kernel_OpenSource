@@ -361,6 +361,14 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	struct mdp3_dma_output_config outputConfig;
 	struct mdp3_dma_source sourceConfig;
 	int frame_rate = mfd->panel_info->mipi.frame_rate;
+	int vbp, vfp, vspw;
+	int vtotal, vporch;
+
+	vbp = panel_info->lcdc.v_back_porch;
+	vfp = panel_info->lcdc.v_front_porch;
+	vspw = panel_info->lcdc.v_pulse_width;
+	vporch = vbp + vfp + vspw;
+	vtotal = vporch + panel_info->yres;
 
 	fix = &fbi->fix;
 	var = &fbi->var;
@@ -372,8 +380,9 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	sourceConfig.y = 0;
 	sourceConfig.stride = fix->line_length;
 	sourceConfig.buf = (void *)mfd->iova;
+	sourceConfig.vporch = vporch;
 	sourceConfig.vsync_count =
-		MDP_VSYNC_CLK_RATE / (frame_rate * sourceConfig.width);
+		MDP_VSYNC_CLK_RATE / (frame_rate * vtotal);
 
 	outputConfig.dither_en = 0;
 	outputConfig.out_sel = mdp3_ctrl_get_intf_type(mfd);
