@@ -2995,8 +2995,12 @@ skip_dma_resources:
 	msm_spi_calculate_fifo_size(dd);
 	if (dd->use_dma) {
 		rc = dd->dma_init(dd);
-		if (rc)
-			goto err_probe_dma;
+		if (rc) {
+			dev_err(&pdev->dev,
+				"%s: failed to init DMA. Disabling DMA mode\n",
+				__func__);
+			dd->use_dma = 0;
+		}
 	}
 
 	msm_spi_register_init(dd);
@@ -3058,9 +3062,8 @@ err_probe_reg_master:
 	pm_runtime_disable(&pdev->dev);
 err_probe_irq:
 err_probe_state:
-	if (dd->dma_teardown)
+	if (dd->use_dma && dd->dma_teardown)
 		dd->dma_teardown(dd);
-err_probe_dma:
 err_probe_gsbi:
 	if (pclk_enabled)
 		clk_disable_unprepare(dd->pclk);
