@@ -1274,17 +1274,6 @@ drop:
 						data->write_ptr_1->length);
 					data->in_busy_1 = 0;
 				}
-				if (data->in_busy_2 == 1) {
-					num_data++;
-					/*Copy the length of data being passed*/
-					COPY_USER_SPACE_OR_EXIT(buf+ret,
-						(data->write_ptr_2->length), 4);
-					/*Copy the actual data being passed*/
-					COPY_USER_SPACE_OR_EXIT(buf+ret,
-						*(data->buf_in_2),
-						data->write_ptr_2->length);
-					data->in_busy_2 = 0;
-				}
 			}
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
