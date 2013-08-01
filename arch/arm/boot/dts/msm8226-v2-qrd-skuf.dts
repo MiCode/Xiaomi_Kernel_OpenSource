@@ -56,6 +56,52 @@
 		qcom,cdc-vdd-spkr-gpios;
 		qcom,cdc-us-euro-gpios;
 	};
+
+	tp_power: regulator-tp {
+		compatible = "regulator-fixed";
+		regulator-name = "tp_power";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&msmgpio 15 0>;
+		startup-delay-us = <20000>;
+		enable-active-high;
+	};
+
+	i2c@f9927000 {
+		goodix@5d {
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2008>;
+			reset-gpios = <&msmgpio 16 0x00>;
+			interrupt-gpios = <&msmgpio 17 0x00>;
+			avdd-supply = <&tp_power>;
+			goodix,panel-coords = <0 0 720 1200>;
+			goodix,display-coords = <0 0 720 1080>;
+			goodix,button-map= <158 102 139>;
+			goodix,family-id = <0x0>;
+			goodix,cfg-data = [
+			41 D0 02 00 05 0A 05 01 01 08
+			12 58 50 41 03 05 00 00 00 00
+			00 00 00 00 00 00 00 8C 2E 0E
+			28 24 73 13 00 00 00 83 03 1D
+			40 02 00 00 00 03 64 32 00 00
+			00 1A 38 94 C0 02 00 00 00 04
+			9E 1C 00 8D 20 00 7A 26 00 6D
+			2C 00 60 34 00 60 10 38 68 00
+			F0 50 35 FF FF 27 00 00 00 00
+			00 01 1B 14 0C 14 00 00 01 00
+			00 00 00 00 00 00 00 00 00 00
+			00 00 02 04 06 08 0A 0C 0E 10
+			12 14 16 18 1A 1C FF FF FF FF
+			FF FF FF FF FF FF FF FF FF FF
+			FF FF 00 02 04 06 08 0A 0C 0F
+			10 12 13 14 16 18 1C 1D 1E 1F
+			20 21 22 24 26 28 29 2A FF FF
+			FF FF FF FF FF FF FF 22 22 22
+			22 22 22 FF 07 01];
+		};
+	};
 };
 
 &spmi_bus {
