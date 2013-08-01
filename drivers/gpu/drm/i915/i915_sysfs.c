@@ -74,6 +74,37 @@ out:
 }
 
 static ssize_t
+show_forcewake(struct device *kdev, struct device_attribute *attr, char *buf)
+{
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	return snprintf(buf, PAGE_SIZE, "%x\n", dev_priv->uncore.forcewake_count);
+}
+
+static ssize_t
+forcewake_store(struct device *kdev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 val;
+	ssize_t ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val)
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
+	else
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
+	return count;
+}
+
+static ssize_t
 show_rc6_mask(struct device *kdev, struct device_attribute *attr, char *buf)
 {
 	struct drm_minor *dminor = dev_to_drm_minor(kdev);
@@ -108,12 +139,15 @@ show_rc6pp_ms(struct device *kdev, struct device_attribute *attr, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%u\n", rc6pp_residency);
 }
 
+static DEVICE_ATTR(forcewake, S_IRUSR | S_IWUSR, show_forcewake,
+		   forcewake_store);
 static DEVICE_ATTR(rc6_enable, S_IRUGO, show_rc6_mask, NULL);
 static DEVICE_ATTR(rc6_residency_ms, S_IRUGO, show_rc6_ms, NULL);
 static DEVICE_ATTR(rc6p_residency_ms, S_IRUGO, show_rc6p_ms, NULL);
 static DEVICE_ATTR(rc6pp_residency_ms, S_IRUGO, show_rc6pp_ms, NULL);
 
 static struct attribute *rc6_attrs[] = {
+	&dev_attr_forcewake.attr,
 	&dev_attr_rc6_enable.attr,
 	&dev_attr_rc6_residency_ms.attr,
 	&dev_attr_rc6p_residency_ms.attr,
