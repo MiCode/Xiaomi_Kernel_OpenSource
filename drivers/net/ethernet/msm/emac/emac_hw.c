@@ -362,6 +362,31 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 	return retval;
 }
 
+int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed)
+{
+	int retval;
+	u16 lpa, stat1000;
+
+	retval = emac_read_phy_reg(hw, MII_LPA, &lpa);
+	retval |= emac_read_phy_reg(hw, MII_STAT1000, &stat1000);
+	if (retval)
+		return retval;
+
+	*speed = EMAC_LINK_SPEED_10_HALF;
+	if (lpa & LPA_10FULL)
+		*speed = EMAC_LINK_SPEED_10_FULL;
+	else if (lpa & LPA_10HALF)
+		*speed = EMAC_LINK_SPEED_10_HALF;
+	else if (lpa & LPA_100FULL)
+		*speed = EMAC_LINK_SPEED_100_FULL;
+	else if (lpa & LPA_100HALF)
+		*speed = EMAC_LINK_SPEED_100_HALF;
+	else if (stat1000 & LPA_1000FULL)
+		*speed = EMAC_LINK_SPEED_1GB_FULL;
+
+	return 0;
+}
+
 /* INTR */
 void emac_hw_enable_intr(struct emac_hw *hw)
 {
@@ -514,66 +539,59 @@ void emac_hw_config_mac_ctrl(struct emac_hw *hw)
 }
 
 /* Wake On LAN (WOL) */
-int emac_hw_config_wol(struct emac_hw *hw, u32 wufc)
+void emac_hw_config_wol(struct emac_hw *hw, u32 wufc)
 {
 	u32 wol = 0;
 
-	wol |= WK_FRAME_EN;
 	/* turn on magic packet event */
 	if (wufc & EMAC_WOL_MAGIC)
-		wol |= MG_FRAME_EN | MG_FRAME_PME;
+		wol |= MG_FRAME_EN | MG_FRAME_PME | WK_FRAME_EN;
 
 	/* turn on link up event */
 	if (wufc & EMAC_WOL_PHY)
 		wol |=  LK_CHG_EN | LK_CHG_PME;
 
 	emac_reg_w32(hw, EMAC, EMAC_WOL_CTRL0, wol);
-	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, 0, WOL_EN);
 	wmb();
-
-	return 0;
 }
 
 /* Power Management */
-int emac_hw_config_pow_save(struct emac_hw *hw, u32 speed, bool wol_en,
-			    bool tx_en, bool rx_en)
+void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed,
+			     bool wol_en, bool rx_en)
 {
 	u32 dma_mas, mac;
 
 	dma_mas = emac_reg_r32(hw, EMAC, EMAC_DMA_MAS_CTRL);
-	dma_mas &= ~MASTER_CTRL_CLK_SEL_DIS;
+	dma_mas &= ~LPW_CLK_SEL;
+	dma_mas |= LPW_STATE;
 
 	mac = emac_reg_r32(hw, EMAC, EMAC_MAC_CTRL);
-	mac = (mac & ~SPEED_BMSK) |
-		(((u32)emac_mac_speed_1000 << SPEED_SHFT) & SPEED_BMSK);
-
 	mac &= ~(FULLD | RXEN | TXEN);
+	mac = (mac & ~SPEED_BMSK) |
+	  (((u32)emac_mac_speed_10_100 << SPEED_SHFT) & SPEED_BMSK);
 
 	if (wol_en) {
 		if (rx_en)
 			mac |= (RXEN | BROAD_EN);
 
-		if (tx_en)
-			mac |= TXEN;
-
-		if (EMAC_LINK_SPEED_1GB_FULL == speed) {
+		/* If WOL is enabled, set link speed/duplex for mac */
+		if (EMAC_LINK_SPEED_1GB_FULL == speed)
 			mac = (mac & ~SPEED_BMSK) |
-				(((u32)emac_mac_speed_1000 << SPEED_SHFT) &
-				SPEED_BMSK);
-		}
-		if ((EMAC_LINK_SPEED_10_FULL == speed) ||
-		    (EMAC_LINK_SPEED_100_FULL == speed) ||
-		    (EMAC_LINK_SPEED_1GB_FULL == speed))
-			mac |= FULLD;
+			  (((u32)emac_mac_speed_1000 << SPEED_SHFT) &
+			   SPEED_BMSK);
 
+		if (EMAC_LINK_SPEED_10_FULL == speed ||
+		    EMAC_LINK_SPEED_100_FULL == speed ||
+		    EMAC_LINK_SPEED_1GB_FULL == speed)
+			mac |= FULLD;
 	} else {
-		dma_mas |= MASTER_CTRL_CLK_SEL_DIS;
+		/* select lower clock speed if WOL is disabled */
+		dma_mas |= LPW_CLK_SEL;
 	}
+
 	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL, dma_mas);
 	emac_reg_w32(hw, EMAC, EMAC_MAC_CTRL, mac);
 	wmb();
-
-	return 0;
 }
 
 /* Config descriptor rings */
@@ -915,8 +933,8 @@ void emac_hw_start_mac(struct emac_hw *hw)
 	emac_reg_w32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1, csr1);
 	emac_reg_w32(hw, EMAC, EMAC_MAC_CTRL, mac);
 
-	/* clear all interrupts, set interrupt read clear */
-	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL, INT_RD_CLR_EN);
+	/* enable interrupt read clear, low power sleep mode and normal state */
+	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL, (INT_RD_CLR_EN | LPW_MODE));
 
 	if (CHK_HW_FLAG(PTP_EN)) {
 		if (hw->link_speed == EMAC_LINK_SPEED_1GB_FULL)
@@ -929,6 +947,8 @@ void emac_hw_start_mac(struct emac_hw *hw)
 
 	emac_reg_update32(hw, EMAC, EMAC_ATHR_HEADER_CTRL,
 			  (HEADER_ENABLE | HEADER_CNT_EN), 0);
+
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, 0, WOL_EN);
 	wmb();
 }
 

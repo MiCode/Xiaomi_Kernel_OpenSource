@@ -19,6 +19,9 @@
 #define DEV_REV_NUM_BMSK                                       0xff0000
 #define DEV_REV_NUM_SHFT                                             16
 #define INT_RD_CLR_EN                                            0x4000
+#define LPW_CLK_SEL                                                0x80
+#define LPW_STATE                                                  0x20
+#define LPW_MODE                                                   0x10
 #define SOFT_RST                                                    0x1
 
 /* EMAC_MDIO_CTRL */

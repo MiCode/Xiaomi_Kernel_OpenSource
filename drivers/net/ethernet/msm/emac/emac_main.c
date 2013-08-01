@@ -21,6 +21,7 @@
 #include <linux/ipv6.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/tcp.h>
 #include <linux/io.h>
 
@@ -53,6 +54,7 @@ module_param_named(msglvl, msm_emac_msglvl, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int emac_up(struct emac_adapter *adpt);
 static void emac_down(struct emac_adapter *adpt, u32 ctrl);
 static irqreturn_t emac_interrupt(int irq, void *data);
+static irqreturn_t emac_wol_interrupt(int irq, void *data);
 
 /* EMAC HW has an issue with interrupt assignment because of which
    following receive rss queue to interrupt mapping is used.
@@ -62,7 +64,7 @@ static irqreturn_t emac_interrupt(int irq, void *data);
    core2       3
    core3       x (unsigned)
 */
-static struct emac_irq_info emac_irq[EMAC_NUM_CORE_IRQ] = {
+static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 	{ 0, "emac_core0_irq", emac_interrupt, EMAC_INT_STATUS,
 	  EMAC_INT_MASK, IMR_NORMAL_MASK | RX_PKT_INT1, NULL, NULL },
 	{ 0, "emac_core1_irq", emac_interrupt, EMAC_INT1_STATUS,
@@ -71,6 +73,8 @@ static struct emac_irq_info emac_irq[EMAC_NUM_CORE_IRQ] = {
 	  EMAC_INT2_MASK, RX_PKT_INT3, NULL, NULL },
 	{ 0, "emac_core3_irq", emac_interrupt, EMAC_INT3_STATUS,
 	  EMAC_INT3_MASK, 0, NULL, NULL },
+	{ 0, "emac_wol_irq", emac_wol_interrupt, 0,
+	  0, 0, NULL, NULL },
 };
 
 static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
@@ -828,6 +832,15 @@ static int emac_start_xmit(struct sk_buff *skb,
 }
 
 /* ISR */
+static irqreturn_t emac_wol_interrupt(int irq, void *data)
+{
+	struct emac_irq_info *irq_info = data;
+	struct emac_adapter *adpt = irq_info->adpt;
+
+	emac_dbg(adpt, wol, "EMAC wol interrupt received\n");
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t emac_interrupt(int irq, void *data)
 {
 	struct emac_irq_info *irq_info = data;
@@ -1387,16 +1400,20 @@ static int emac_up(struct emac_adapter *adpt)
 		}
 	}
 
-	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+	for (i = 0; i < EMAC_NUM_IRQ; i++) {
 		struct emac_irq_info *irq_info = &adpt->irq_info[i];
+		if (irq_info->irq == 0)
+			continue;
+
 		retval = request_irq(irq_info->irq, irq_info->handler,
 				     0, irq_info->name, irq_info);
 		if (retval) {
 			emac_err(adpt, "Unable to allocate interrupt %d: %d\n",
 				 irq_info->irq, retval);
 			while (--i >= 0)
-				free_irq(adpt->irq_info[i].irq,
-					 &adpt->irq_info[i]);
+				if (adpt->irq_info[i].irq)
+					free_irq(adpt->irq_info[i].irq,
+						 &adpt->irq_info[i]);
 			goto err_request_irq;
 		}
 	}
@@ -1436,8 +1453,10 @@ static void emac_down(struct emac_adapter *adpt, u32 ctrl)
 
 	emac_disable_intr(adpt);
 	emac_napi_disable_all(adpt);
-	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
-		free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
+
+	for (i = 0; i < EMAC_NUM_IRQ; i++)
+		if (adpt->irq_info[i].irq)
+			free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
 
 	for (i = 0; i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
@@ -1449,6 +1468,7 @@ static void emac_down(struct emac_adapter *adpt, u32 ctrl)
 	if (ctrl & EMAC_HW_CTRL_RESET_MAC)
 		emac_hw_reset_mac(hw);
 
+	pm_runtime_put_noidle(netdev->dev.parent);
 	adpt->hw.link_speed = EMAC_LINK_SPEED_UNKNOWN;
 	emac_clean_all_tx_queues(adpt);
 	emac_clean_all_rx_queues(adpt);
@@ -1468,6 +1488,9 @@ static int emac_open(struct net_device *netdev)
 		emac_err(adpt, "error in emac_alloc_all_rtx_descriptor\n");
 		goto err_alloc_rtx;
 	}
+
+	pm_runtime_set_active(netdev->dev.parent);
+	pm_runtime_enable(netdev->dev.parent);
 
 	retval = emac_up(adpt);
 	if (retval)
@@ -1491,6 +1514,7 @@ static int emac_close(struct net_device *netdev)
 	while (CHK_AND_SET_ADPT_FLAG(STATE_RESETTING))
 		msleep(20); /* Reset might take few 10s of ms */
 
+	pm_runtime_disable(netdev->dev.parent);
 	if (!CHK_ADPT_FLAG(STATE_DOWN))
 		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 	else
@@ -1711,19 +1735,20 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 	emac_check_phy_link(hw, &hw->link_speed, &hw->link_up);
 	link_desc = emac_get_link_speed_desc(hw->link_speed);
 
-	if (!hw->link_up && time_after(adpt->link_jiffies, jiffies))
-		SET_ADPT_FLAG(TASK_LSC_REQ);
-
 	if (hw->link_up) {
 		if (netif_carrier_ok(netdev))
 			goto link_task_done;
 
+		pm_runtime_get_sync(netdev->dev.parent);
 		emac_info(adpt, timer, "NIC Link is Up %s\n", link_desc);
 
 		emac_hw_start_mac(hw);
 		netif_carrier_on(netdev);
 		netif_wake_queue(netdev);
 	} else {
+		if (time_after(adpt->link_jiffies, jiffies))
+			SET_ADPT_FLAG(TASK_LSC_REQ);
+
 		/* only continue if link was up previously */
 		if (!netif_carrier_ok(netdev))
 			goto link_task_done;
@@ -1734,7 +1759,11 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 		netif_carrier_off(netdev);
 
 		emac_hw_stop_mac(hw);
+		pm_runtime_put_sync(netdev->dev.parent);
 	}
+
+	/* link state transition, kick timer */
+	mod_timer(&adpt->emac_timer, jiffies);
 
 link_task_done:
 	CLI_ADPT_FLAG(STATE_RESETTING);
@@ -1761,6 +1790,9 @@ static void emac_timer_routine(unsigned long data)
 {
 	struct emac_adapter *adpt = (struct emac_adapter *)data;
 	unsigned long delay;
+
+	if (pm_runtime_status_suspended(adpt->netdev->dev.parent))
+		return;
 
 	/* poll faster when waiting for link */
 	if (CHK_ADPT_FLAG(TASK_LSC_REQ))
@@ -1963,17 +1995,53 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 		emac_ptp_init(hw);
 }
 
-#ifdef CONFIG_PM
-static int emac_shutdown_internal(struct platform_device *pdev, bool *wakeup)
+#ifdef CONFIG_PM_RUNTIME
+static int emac_runtime_suspend(struct device *device)
 {
+	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 	u32 wufc = adpt->wol;
-	u16 lpa, i;
+
+	/* clear phy interrupt */
+	emac_hw_ack_phy_intr(hw);
+
+	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
+				!!(wufc & EMAC_WOL_MAGIC));
+	return 0;
+}
+
+static int emac_runtime_idle(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+
+	/* schedule to enter runtime suspend state if the link does
+	   not come back up within the specified time
+	*/
+	pm_schedule_suspend(netdev->dev.parent,
+			    jiffies_to_msecs(EMAC_TRY_LINK_TIMEOUT));
+	return -EBUSY;
+}
+#endif /* CONFIG_PM_RUNTIME */
+
+#ifdef CONFIG_PM_SLEEP
+static int emac_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+	u32 wufc = adpt->wol;
+	u16 i;
 	u32 speed, adv_speed;
-	bool link_up;
+	bool link_up = false;
 	int retval = 0;
+
+	/* cannot suspend if WOL is disabled */
+	if (!adpt->irq_info[EMAC_WOL_IRQ].irq)
+		return -EPERM;
 
 	netif_device_detach(netdev);
 	if (netif_running(netdev)) {
@@ -1989,25 +2057,15 @@ static int emac_shutdown_internal(struct platform_device *pdev, bool *wakeup)
 	emac_check_phy_link(hw, &speed, &link_up);
 
 	if (link_up) {
-		retval = emac_read_phy_reg(hw, MII_LPA, &lpa);
-		if (retval)
-			return retval;
-
 		adv_speed = EMAC_LINK_SPEED_10_HALF;
-		if (lpa & LPA_10FULL)
-			adv_speed = EMAC_LINK_SPEED_10_FULL;
-		else if (lpa & LPA_10HALF)
-			adv_speed = EMAC_LINK_SPEED_10_HALF;
-		else if (lpa & LPA_100FULL)
-			adv_speed = EMAC_LINK_SPEED_100_FULL;
-		else if (lpa & LPA_100HALF)
-			adv_speed = EMAC_LINK_SPEED_100_HALF;
+		emac_hw_get_lpa_speed(hw, &adv_speed);
 
 		retval = emac_setup_phy_link(hw, adv_speed, true,
 					     !hw->disable_fc_autoneg);
 		if (retval)
 			return retval;
 
+		link_up = false;
 		for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
 			retval = emac_check_phy_link(hw, &speed, &link_up);
 			if ((!retval) && link_up)
@@ -2016,41 +2074,28 @@ static int emac_shutdown_internal(struct platform_device *pdev, bool *wakeup)
 			/* link can take upto few seconds to come up */
 			msleep(100);
 		}
-	} else {
-		speed = EMAC_LINK_SPEED_10_HALF;
-		link_up = false;
 	}
+
+	if (!link_up)
+		speed = EMAC_LINK_SPEED_10_HALF;
+
 	hw->link_speed = speed;
 	hw->link_up = link_up;
-
-	retval = emac_hw_config_wol(hw, wufc);
-	if (retval)
-		return retval;
 
 	/* clear phy interrupt */
 	retval = emac_hw_ack_phy_intr(hw);
 	if (retval)
 		return retval;
 
-	retval = emac_hw_config_pow_save(hw, adpt->hw.link_speed,
-			(wufc ? true : false), false,
-			(wufc & EMAC_WOL_MAGIC ? true : false));
-	if (retval)
-		return retval;
-
-	*wakeup = wufc ? true : false;
+	emac_hw_config_wol(hw, wufc);
+	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
+				!!(wufc & EMAC_WOL_MAGIC));
 	return 0;
 }
 
-static int emac_suspend(struct platform_device *pdev, pm_message_t state)
+static int emac_resume(struct device *device)
 {
-	bool wakeup;
-
-	return emac_shutdown_internal(pdev, &wakeup);
-}
-
-static int emac_resume(struct platform_device *pdev)
-{
+	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
@@ -2063,10 +2108,7 @@ static int emac_resume(struct platform_device *pdev)
 	if (retval)
 		return retval;
 
-	retval = emac_hw_config_wol(hw, 0);
-	if (retval)
-		return retval;
-
+	emac_hw_config_wol(hw, 0);
 	if (netif_running(netdev)) {
 		retval = emac_up(adpt);
 		if (retval)
@@ -2090,11 +2132,16 @@ static int emac_get_resources(struct platform_device *pdev,
 	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588"};
 
 	/* get irqs */
-	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+	for (i = 0; i < EMAC_NUM_IRQ; i++) {
 		struct emac_irq_info *irq_info = &adpt->irq_info[i];
 		retval = platform_get_irq_byname(pdev, irq_info->name);
-		if (retval < 0)
-			goto err_res;
+		if (retval < 0) {
+			/* If WOL IRQ is not specified, WOL is disabled */
+			if (i == EMAC_WOL_IRQ)
+				continue;
+			else
+				return retval;
+		}
 
 		irq_info->irq = retval;
 	}
@@ -2186,6 +2233,7 @@ static int emac_probe(struct platform_device *pdev)
 		adpt->irq_info[i].adpt = adpt;
 		adpt->irq_info[i].rxque = &adpt->rx_queue[i];
 	}
+	adpt->irq_info[EMAC_WOL_IRQ].adpt = adpt;
 
 	hw->phy_addr = 0;
 	adpt->tstamp_en = true;
@@ -2301,16 +2349,25 @@ static int emac_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops emac_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(
+		emac_suspend,
+		emac_resume
+	)
+	SET_RUNTIME_PM_OPS(
+		emac_runtime_suspend,
+		NULL,
+		emac_runtime_idle
+	)
+};
+
 static struct platform_driver emac_platform_driver = {
 	.probe   = emac_probe,
 	.remove  = __devexit_p(emac_remove),
-#ifdef CONFIG_PM
-	.suspend = emac_suspend,
-	.resume  = emac_resume,
-#endif
 	.driver = {
 		.owner = THIS_MODULE,
-		.name	= "msm_emac"
+		.name	= "msm_emac",
+		.pm = &emac_pm_ops,
 	},
 };
 

@@ -40,12 +40,13 @@ extern int emac_setup_phy_link(struct emac_hw *hw, u32 speed,
 extern int emac_setup_phy_link_speed(struct emac_hw *hw, u32 speed,
 				     bool autoneg, bool fc);
 extern int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up);
+extern int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed);
 extern int emac_hw_ack_phy_intr(struct emac_hw *hw);
 extern int emac_hw_init_phy(struct emac_hw *hw);
 extern int emac_hw_reset_phy(struct emac_hw *hw);
 
-extern int emac_hw_config_pow_save(struct emac_hw *hw, u32 speed, bool wol_en,
-				   bool tx_en, bool rx_en);
+extern void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed, bool wol_en,
+				    bool rx_en);
 /* MAC */
 extern void emac_hw_enable_intr(struct emac_hw *hw);
 extern void emac_hw_disable_intr(struct emac_hw *hw);
@@ -54,7 +55,7 @@ extern void emac_hw_clear_mc_addr(struct emac_hw *hw);
 
 extern void emac_hw_config_mac_ctrl(struct emac_hw *hw);
 extern void emac_hw_config_rss(struct emac_hw *hw);
-extern int emac_hw_config_wol(struct emac_hw *hw, u32 wufc);
+extern void emac_hw_config_wol(struct emac_hw *hw, u32 wufc);
 extern int emac_hw_config_fc(struct emac_hw *hw);
 
 extern void emac_hw_reset_mac(struct emac_hw *hw);
