@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc  {
 	qcom,dsi_v2_truly_wvga_video {
 		compatible = "qcom,dsi-panel-v2";
 		label = "Truly WVGA command mode dsi panel";
