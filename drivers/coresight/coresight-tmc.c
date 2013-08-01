@@ -1300,7 +1300,7 @@ static ssize_t tmc_etr_store_byte_cntr_value(struct device *dev,
 		return -EINVAL;
 	if ((drvdata->size / 8) < val)
 		return -EINVAL;
-	if (drvdata->size % (val * 8) != 0)
+	if (val && drvdata->size % (val * 8) != 0)
 		return -EINVAL;
 
 	drvdata->byte_cntr_value = val;
