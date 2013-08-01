@@ -94,6 +94,12 @@
 	regulator-name = "8941_smbb_otg";
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&pm8941_mvs1>;
+	qcom,misc-ref = <&pm8941_misc>;
+	dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+};
+
 /* Correct PM8941 local slave ID 0 to use global SID 4 for all interrupts. */
 &pm8941_lsid0 {
 	qcom,temp-alarm@2400 {
