@@ -19,7 +19,11 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
+#ifndef CONFIG_MSM_KGSL_CFF_DUMP
 #define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+#else
+#define KGSL_IOMMU_GLOBAL_MEM_BASE      (0x09F00000 - SZ_4M)
+#endif
 #define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
 
 #define KGSL_MMU_ALIGN_MASK     (~((1 << PAGE_SHIFT) - 1))

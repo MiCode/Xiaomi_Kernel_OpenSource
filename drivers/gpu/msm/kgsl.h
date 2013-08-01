@@ -49,7 +49,7 @@
 #ifndef CONFIG_MSM_KGSL_CFF_DUMP
 #define KGSL_PAGETABLE_BASE	0x10000000
 #else
-#define KGSL_PAGETABLE_BASE	0xE0000000
+#define KGSL_PAGETABLE_BASE	SZ_4M
 #endif
 
 /* Extra accounting entries needed in the pagetable */
