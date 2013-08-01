@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ enum qdss_state {
 	USB_QDSS_CTRL_WRITE_DONE,
 };
 
+#ifdef CONFIG_USB_G_ANDROID
 struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 	void (*notify)(void *, unsigned, struct qdss_request *,
 		struct usb_qdss_ch *));
@@ -51,5 +52,43 @@ int usb_qdss_read(struct usb_qdss_ch *ch, struct qdss_request *d_req);
 int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req);
 int usb_qdss_ctrl_write(struct usb_qdss_ch *ch, struct qdss_request *d_req);
 int usb_qdss_ctrl_read(struct usb_qdss_ch *ch, struct qdss_request *d_req);
+#else
+static inline struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
+	void (*n)(void *, u32, struct qdss_request *, struct usb_qdss_ch *))
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int usb_qdss_read(struct usb_qdss_ch *c, struct qdss_request *d)
+{
+	return -ENODEV;
+}
+
+static inline int usb_qdss_write(struct usb_qdss_ch *c, struct qdss_request *d)
+{
+	return -ENODEV;
+}
+
+static inline int usb_qdss_ctrl_write(struct usb_qdss_ch *c,
+		struct qdss_request *d)
+{
+	return -ENODEV;
+}
+
+static inline int usb_qdss_ctrl_read(struct usb_qdss_ch *c,
+		struct qdss_request *d)
+{
+	return -ENODEV;
+}
+static inline int usb_qdss_alloc_req(struct usb_qdss_ch *c, int n_wr, int n_rd)
+{
+	return -ENODEV;
+}
+
+
+static inline void usb_qdss_close(struct usb_qdss_ch *ch) { }
+
+static inline void usb_qdss_free_req(struct usb_qdss_ch *ch) { }
+#endif
 
 #endif
