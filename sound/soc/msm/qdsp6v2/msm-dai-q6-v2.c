@@ -100,6 +100,38 @@ static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
 
+static int msm_dai_q6_dai_add_route(struct snd_soc_dai *dai)
+{
+	struct snd_soc_dapm_route intercon;
+
+	if (!dai || !dai->driver) {
+			pr_err("%s Invalid params\n", __func__);
+			return -EINVAL;
+	}
+	memset(&intercon, 0 , sizeof(intercon));
+	if (dai->driver->playback.stream_name &&
+		dai->driver->playback.aif_name) {
+		dev_dbg(dai->dev, "%s add route for widget %s",
+				__func__, dai->driver->playback.stream_name);
+		intercon.source = dai->driver->playback.aif_name;
+		intercon.sink = dai->driver->playback.stream_name;
+		dev_dbg(dai->dev, "%s src %s sink %s\n",
+				__func__, intercon.source, intercon.sink);
+		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+	}
+	if (dai->driver->capture.stream_name &&
+		dai->driver->capture.aif_name) {
+		dev_dbg(dai->dev, "%s add route for widget %s",
+				__func__, dai->driver->capture.stream_name);
+		intercon.sink = dai->driver->capture.aif_name;
+		intercon.source = dai->driver->capture.stream_name;
+		dev_dbg(dai->dev, "%s src %s sink %s\n",
+				__func__, intercon.source, intercon.sink);
+		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+	}
+	return 0;
+}
+
 static int msm_dai_q6_auxpcm_hw_params(
 				struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
@@ -418,6 +450,18 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static int msm_dai_q6_aux_pcm_probe(struct snd_soc_dai *dai)
+{
+	int rc = 0;
+
+	if (!dai || !dai->dev) {
+		pr_err("%s Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	rc = msm_dai_q6_dai_add_route(dai);
+	return rc;
+}
+
 static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {
 	.prepare	= msm_dai_q6_auxpcm_prepare,
 	.trigger	= msm_dai_q6_auxpcm_trigger,
@@ -430,25 +474,57 @@ static const struct snd_soc_component_driver
 	.name		= "msm-auxpcm-dev",
 };
 
-static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_dai = {
-	.playback = {
-		.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.channels_min = 1,
-		.channels_max = 1,
-		.rate_max = 16000,
-		.rate_min = 8000,
+static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_dai[] = {
+	{
+		.playback = {
+			.stream_name = "AUX PCM Playback",
+			.aif_name = "AUX_PCM_RX",
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_max = 16000,
+			.rate_min = 8000,
+		},
+		.capture = {
+			.stream_name = "AUX PCM Capture",
+			.aif_name = "AUX_PCM_TX",
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_max = 16000,
+			.rate_min = 8000,
+		},
+		.ops = &msm_dai_q6_auxpcm_ops,
+		.probe = msm_dai_q6_aux_pcm_probe,
+		.remove = msm_dai_q6_dai_auxpcm_remove,
 	},
-	.capture = {
-		.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.channels_min = 1,
-		.channels_max = 1,
-		.rate_max = 16000,
-		.rate_min = 8000,
-	},
-	.ops = &msm_dai_q6_auxpcm_ops,
-	.remove = msm_dai_q6_dai_auxpcm_remove,
+	{
+	 .playback = {
+		 .stream_name = "AUX PCM Sec Playback",
+		 .aif_name = "SEC_AUX_PCM_RX",
+		 .rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+		 .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		 .channels_min = 1,
+		 .channels_max = 1,
+		 .rate_max = 16000,
+		 .rate_min = 8000,
+	 },
+	 .capture = {
+		 .stream_name = "AUX PCM Sec Capture",
+		 .aif_name = "SEC_AUX_PCM_TX",
+		 .rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+		 .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		 .channels_min = 1,
+		 .channels_max = 1,
+		 .rate_max = 16000,
+		 .rate_min = 8000,
+	 },
+	 .ops = &msm_dai_q6_auxpcm_ops,
+	 .probe = msm_dai_q6_aux_pcm_probe,
+	 .remove = msm_dai_q6_dai_auxpcm_remove,
+ }
 };
 
 static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
@@ -880,13 +956,11 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
 	int rc = 0;
-	struct snd_soc_dapm_route intercon;
 
-	if (!dai || !dai->dev || !dai->driver) {
+	if (!dai || !dai->dev) {
 		pr_err("%s Invalid params\n", __func__);
 		return -EINVAL;
 	}
-	memset(&intercon, 0 , sizeof(intercon));
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data), GFP_KERNEL);
 
@@ -897,26 +971,7 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 	} else
 		dev_set_drvdata(dai->dev, dai_data);
 
-	if (dai->driver->playback.stream_name &&
-		dai->driver->playback.aif_name) {
-		dev_dbg(dai->dev, "%s add route for widget %s",
-			   __func__, dai->driver->playback.stream_name);
-		intercon.source = dai->driver->playback.aif_name;
-		intercon.sink = dai->driver->playback.stream_name;
-		dev_dbg(dai->dev, "%s src %s sink %s\n",
-			   __func__, intercon.source, intercon.sink);
-		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
-	}
-	if (dai->driver->capture.stream_name &&
-	   dai->driver->capture.aif_name) {
-		dev_dbg(dai->dev, "%s add route for widget %s",
-			   __func__, dai->driver->capture.stream_name);
-		intercon.sink = dai->driver->capture.aif_name;
-		intercon.source = dai->driver->capture.stream_name;
-		dev_dbg(dai->dev, "%s src %s sink %s\n",
-			   __func__, intercon.source, intercon.sink);
-		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
-	}
+	rc = msm_dai_q6_dai_add_route(dai);
 	return rc;
 }
 
@@ -1132,7 +1187,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata;
 	uint32_t val_array[RATE_MAX_NUM_OF_AUX_PCM_RATES];
 	const char *intf_name;
-	int rc = 0;
+	int rc = 0, i = 0;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_auxpcm_dai_data),
 			   GFP_KERNEL);
@@ -1245,10 +1300,12 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 		dai_data->rx_pid = AFE_PORT_ID_PRIMARY_PCM_RX;
 		dai_data->tx_pid = AFE_PORT_ID_PRIMARY_PCM_TX;
 		pdev->id = MSM_DAI_PRI_AUXPCM_DT_DEV_ID;
+		i = 0;
 	} else if (!strncmp(intf_name, "secondary", sizeof("secondary"))) {
 		dai_data->rx_pid = AFE_PORT_ID_SECONDARY_PCM_RX;
 		dai_data->tx_pid = AFE_PORT_ID_SECONDARY_PCM_TX;
 		pdev->id = MSM_DAI_SEC_AUXPCM_DT_DEV_ID;
+		i = 1;
 	} else {
 		dev_err(&pdev->dev, "%s: invalid DT intf name %s\n",
 			__func__, intf_name);
@@ -1264,7 +1321,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 
 	rc = snd_soc_register_component(&pdev->dev,
 			&msm_dai_q6_aux_pcm_dai_component,
-			&msm_dai_q6_aux_pcm_dai, 1);
+			&msm_dai_q6_aux_pcm_dai[i], 1);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: auxpcm dai reg failed, rc=%d\n",
 				__func__, rc);
