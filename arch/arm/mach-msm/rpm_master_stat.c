@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,7 +170,7 @@ static int msm_rpm_master_stats_file_open(struct inode *inode,
 	}
 
 	prvdata->len = 0;
-	prvdata->nomasters = pdata->nomasters;
+	prvdata->nomasters = pdata->num_masters;
 	prvdata->master_names = pdata->masters;
 	prvdata->platform_data = pdata;
 	return 0;
@@ -223,7 +223,7 @@ static struct platform_driver msm_rpm_master_stats_driver = {
 	.probe	= msm_rpm_master_stats_probe,
 	.remove = __devexit_p(msm_rpm_master_stats_remove),
 	.driver = {
-		.name = "msm_rpm_master_stat",
+		.name = "msm_rpm_master_stats",
 		.owner = THIS_MODULE,
 	},
 };
