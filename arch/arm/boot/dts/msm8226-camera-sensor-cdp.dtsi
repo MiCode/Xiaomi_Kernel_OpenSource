@@ -31,6 +31,13 @@
 		qcom,cci-master = <0>;
 	};
 
+	actuator1: qcom,actuator@36 {
+		cell-index = <1>;
+		reg = <0x36>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+	};
+
 	qcom,camera@6f {
 		compatible = "qcom,ov8825";
 		reg = <0x6f>;
@@ -75,6 +82,7 @@
 		qcom,slave-id = <0x20 0x0016 0x0135>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
+		qcom,actuator-src = <&actuator1>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "imx135";
 		cam_vdig-supply = <&pm8226_l5>;
