@@ -233,38 +233,30 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 		bytes_in_buf += bytes_written;
 		bytes_remaining -= bytes_written;
 #endif
-		if (driver->dci_device) {
-			bytes_written = scnprintf(buf+bytes_in_buf,
-						  bytes_remaining,
-				"dci power active, relax: %lu, %lu\n",
-				driver->dci_device->power.wakeup->active_count,
-				driver->dci_device->power.wakeup->relax_count);
-			bytes_in_buf += bytes_written;
-			bytes_remaining -= bytes_written;
-		}
-		if (driver->dci_cmd_device) {
-			bytes_written = scnprintf(buf+bytes_in_buf,
-						  bytes_remaining,
-				"dci cmd power active, relax: %lu, %lu\n",
-				driver->dci_cmd_device->power.wakeup->
-						  active_count,
-				driver->dci_cmd_device->power.wakeup->
-						  relax_count);
-			bytes_in_buf += bytes_written;
-			bytes_remaining -= bytes_written;
-		}
+		bytes_written = scnprintf(buf+bytes_in_buf,
+					  bytes_remaining,
+					  "dci power: active, relax: %lu, %lu\n",
+					  driver->diag_dev->power.wakeup->
+						active_count,
+					  driver->diag_dev->
+						power.wakeup->relax_count);
+		bytes_in_buf += bytes_written;
+		bytes_remaining -= bytes_written;
+
 	}
 	temp_data += diag_dbgfs_dci_data_index;
 	for (i = diag_dbgfs_dci_data_index; i < DIAG_DCI_DEBUG_CNT; i++) {
 		if (temp_data->iteration != 0) {
 			bytes_written = scnprintf(
 				buf + bytes_in_buf, bytes_remaining,
-				"i %-10ld\t"
-				"s %-10d\t"
-				"c %-10d\t"
+				"i %-5ld\t"
+				"s %-5d\t"
+				"p %-5d\t"
+				"c %-5d\t"
 				"t %-15s\n",
 				temp_data->iteration,
 				temp_data->data_size,
+				temp_data->peripheral,
 				temp_data->ch_type,
 				temp_data->time_stamp);
 			bytes_in_buf += bytes_written;
@@ -446,7 +438,8 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
 		driver->diagpool,
 		diag_pools_array[POOL_COPY_IDX],
 		driver->count,
@@ -458,7 +451,10 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		driver->count_user_pool,
 		driver->diag_write_struct_pool,
 		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool);
+		driver->count_write_struct_pool,
+		driver->diag_dci_pool,
+		diag_pools_array[POOL_DCI_IDX],
+		driver->count_dci_pool);
 
 	for (i = 0; i < MAX_HSIC_CH; i++) {
 		if (!diag_hsic[i].hsic_inited)
@@ -506,7 +502,8 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
 		driver->diagpool,
 		diag_pools_array[POOL_COPY_IDX],
 		driver->count,
@@ -518,7 +515,10 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		driver->count_user_pool,
 		driver->diag_write_struct_pool,
 		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool);
+		driver->count_write_struct_pool,
+		driver->diag_dci_pool,
+		diag_pools_array[POOL_DCI_IDX],
+		driver->count_dci_pool);
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 

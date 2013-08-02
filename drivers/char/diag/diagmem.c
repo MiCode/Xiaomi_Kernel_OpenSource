@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,16 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				 (atomic_t *)&driver->count_write_struct_pool);
 				buf = mempool_alloc(
 				driver->diag_write_struct_pool, GFP_ATOMIC);
+			}
+		}
+	} else if (pool_type == POOL_TYPE_DCI) {
+		if (driver->diag_dci_pool) {
+			if ((driver->count_dci_pool < driver->poolsize_dci) &&
+				(size <= driver->itemsize_dci)) {
+				atomic_add(1,
+					(atomic_t *)&driver->count_dci_pool);
+				buf = mempool_alloc(driver->diag_dci_pool,
+								GFP_ATOMIC);
 			}
 		}
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -155,6 +165,16 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 			pr_err("diag: Unable to destroy STRUCT mempool");
 		}
 	}
+
+	if (driver->diag_dci_pool) {
+		if (driver->count_dci_pool == 0 && driver->ref_count == 0) {
+			mempool_destroy(driver->diag_dci_pool);
+			driver->diag_dci_pool = NULL;
+		} else if (driver->ref_count == 0 && pool_type ==
+							POOL_TYPE_ALL) {
+				pr_err("diag: Unable to destroy DCI mempool");
+		}
+	}
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	for (index = 0; index < MAX_HSIC_CH; index++) {
 		if (diag_hsic[index].diag_hsic_pool &&
@@ -231,6 +251,15 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 		} else
 			pr_err("diag: Attempt to free up DIAG driver USB structure mempool which is already free %d ",
 					driver->count_write_struct_pool);
+	} else if (pool_type == POOL_TYPE_DCI) {
+		if (driver->diag_dci_pool != NULL &&
+			driver->count_dci_pool > 0) {
+				mempool_free(buf, driver->diag_dci_pool);
+				atomic_add(-1,
+					(atomic_t *)&driver->count_dci_pool);
+		} else
+			pr_err("diag: Attempt to free up DIAG driver DCI mempool which is already free %d ",
+					driver->count_dci_pool);
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	} else if (pool_type == POOL_TYPE_HSIC ||
 				pool_type == POOL_TYPE_HSIC_2) {
@@ -294,6 +323,12 @@ void diagmem_init(struct diagchar_dev *driver)
 						driver->diag_write_struct_pool;
 	}
 
+	if (driver->count_dci_pool == 0) {
+		driver->diag_dci_pool = mempool_create_kmalloc_pool(
+			driver->poolsize_dci, driver->itemsize_dci);
+		diag_pools_array[POOL_DCI_IDX] = driver->diag_dci_pool;
+	}
+
 	if (!driver->diagpool)
 		pr_err("diag: Cannot allocate diag mempool\n");
 
@@ -305,6 +340,10 @@ void diagmem_init(struct diagchar_dev *driver)
 
 	if (!driver->diag_write_struct_pool)
 		pr_err("diag: Cannot allocate diag USB struct mempool\n");
+
+	if (!driver->diag_dci_pool)
+		pr_err("diag: Cannot allocate diag DCI mempool\n");
+
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
