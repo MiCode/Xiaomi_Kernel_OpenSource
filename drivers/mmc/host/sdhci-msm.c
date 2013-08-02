@@ -46,6 +46,11 @@
 #define CORE_POWER		0x0
 #define CORE_SW_RST		(1 << 7)
 
+#define CORE_MCI_VERSION	0x050
+#define CORE_TESTBUS_CONFIG	0x0CC
+#define CORE_TESTBUS_ENA	(1 << 3)
+#define CORE_SDCC_DEBUG_REG	0x124
+
 #define CORE_PWRCTL_STATUS	0xDC
 #define CORE_PWRCTL_MASK	0xE0
 #define CORE_PWRCTL_CLEAR	0xE4
@@ -78,6 +83,16 @@
 #define CORE_VENDOR_SPEC	0x10C
 #define CORE_CLK_PWRSAVE	(1 << 1)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
+
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
+
+#define CORE_MCI_DATA_CNT 0x30
+#define CORE_MCI_STATUS 0x34
+#define CORE_MCI_FIFO_CNT 0x44
+
+#define CORE_TESTBUS_SEL2_BIT	4
+#define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
 
 /* 8KB descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
@@ -1878,6 +1893,61 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 
 }
 
+#define MAX_TEST_BUS 20
+
+void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int tbsel, tbsel2;
+	int i, index = 0;
+	u32 test_bus_val = 0;
+	u32 debug_reg[MAX_TEST_BUS] = {0};
+
+	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
+	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
+		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
+		readl_relaxed(msm_host->core_mem + CORE_MCI_FIFO_CNT),
+		readl_relaxed(msm_host->core_mem + CORE_MCI_STATUS));
+	pr_info("DLL cfg:  0x%08x | DLL sts:  0x%08x | SDCC ver: 0x%08x\n",
+		readl_relaxed(host->ioaddr + CORE_DLL_CONFIG),
+		readl_relaxed(host->ioaddr + CORE_DLL_STATUS),
+		readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION));
+	pr_info("Vndr func: 0x%08x | Vndr adma err : addr0: 0x%08x addr1: 0x%08x\n",
+		readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC),
+		readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_ADMA_ERR_ADDR0),
+		readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_ADMA_ERR_ADDR1));
+
+	/*
+	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
+	 * of CORE_TESTBUS_CONFIG register.
+	 *
+	 * To select test bus 0 to 7 use tbsel and to select any test bus
+	 * above 7 use (tbsel2 | tbsel) to get the test bus number. For eg,
+	 * to select test bus 14, write 0x1E to CORE_TESTBUS_CONFIG register
+	 * i.e., tbsel2[7:4] = 0001, tbsel[2:0] = 110.
+	 */
+	for (tbsel2 = 0; tbsel2 < 3; tbsel2++) {
+		for (tbsel = 0; tbsel < 8; tbsel++) {
+			if (index >= MAX_TEST_BUS)
+				break;
+			test_bus_val = (tbsel2 << CORE_TESTBUS_SEL2_BIT) |
+					tbsel | CORE_TESTBUS_ENA;
+			writel_relaxed(test_bus_val,
+				msm_host->core_mem + CORE_TESTBUS_CONFIG);
+			debug_reg[index++] = readl_relaxed(msm_host->core_mem +
+							CORE_SDCC_DEBUG_REG);
+		}
+	}
+	for (i = 0; i < MAX_TEST_BUS; i = i + 4)
+		pr_info(" Test bus[%d to %d]: 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				i, i + 3, debug_reg[i], debug_reg[i+1],
+				debug_reg[i+2], debug_reg[i+3]);
+	/* Disable test bus */
+	writel_relaxed(~CORE_TESTBUS_ENA, msm_host->core_mem +
+			CORE_TESTBUS_CONFIG);
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
@@ -1887,6 +1957,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.set_clock = sdhci_msm_set_clock,
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
+	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
