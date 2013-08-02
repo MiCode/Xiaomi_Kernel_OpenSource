@@ -451,6 +451,8 @@ void kgsl_cffdump_syncmem(struct kgsl_device *device,
 	if (sizebytes > 0)
 		cffdump_printline(-1, CFF_OP_WRITE_MEM, gpuaddr, *(uint *)src,
 			0, 0, 0);
+	/* Unmap memory since kgsl_gpuaddr_to_vaddr was called */
+	kgsl_memdesc_unmap(memdesc);
 }
 
 void kgsl_cffdump_setmem(struct kgsl_device *device,
