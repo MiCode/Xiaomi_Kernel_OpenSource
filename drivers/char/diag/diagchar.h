@@ -412,5 +412,6 @@ extern int wrap_enabled;
 extern uint16_t wrap_count;
 
 void diag_get_timestamp(char *time_str);
+int diag_find_polling_reg(int i);
 
 #endif
