@@ -17,6 +17,7 @@
  */
 
 /include/ "msm8226.dtsi"
+/include/ "msm8226-v1-pm.dtsi"
 
 &tsens {
 	qcom,sensors = <4>;
