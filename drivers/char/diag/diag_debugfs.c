@@ -350,19 +350,21 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 			"i: %3d, cmd_code: %4x, subsys_id: %4x, "
 			"client: %2d, cmd_code_lo: %4x, "
-			"cmd_code_hi: %4x, process_id: %5d\n",
+			"cmd_code_hi: %4x, process_id: %5d %s\n",
 			i,
 			driver->table[i].cmd_code,
 			driver->table[i].subsys_id,
 			driver->table[i].client_id,
 			driver->table[i].cmd_code_lo,
 			driver->table[i].cmd_code_hi,
-			driver->table[i].process_id);
+			driver->table[i].process_id,
+			(diag_find_polling_reg(i) ? "<- Polling cmd reg" : ""));
 
 		bytes_in_buffer += bytes_written;
 
 		/* Check if there is room to add another table entry */
 		bytes_remaining = buf_size - bytes_in_buffer;
+
 		if (bytes_remaining < bytes_written)
 			break;
 	}
