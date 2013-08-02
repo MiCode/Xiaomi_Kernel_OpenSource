@@ -17,6 +17,7 @@
  */
 
 /include/ "msm8226.dtsi"
+/include/ "msm8226-v2-pm.dtsi"
 
 &pm8226_l3 {
 	regulator-min-microvolt = <750000>;
