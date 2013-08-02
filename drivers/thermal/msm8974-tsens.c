@@ -81,6 +81,12 @@
 #define TSENS_EEPROM_8X10_SPARE_1(n)	((n) + 0xd8)
 #define TSENS_EEPROM_8X10_SPARE_2(n)	((n) + 0xdc)
 
+#define TSENS_9900_EEPROM(n)			((n) + 0xd0)
+#define TSENS_9900_EEPROM_REDUNDANCY_SEL(n)	((n) + 0x1c4)
+#define TSENS_9900_EEPROM_BACKUP_REGION(n)	((n) + 0x440)
+#define TSENS_9900_CALIB_ADDR_RANGE	4
+
+
 /* TSENS calibration Mask data */
 #define TSENS_BASE1_MASK		0xff
 #define TSENS0_POINT1_MASK		0x3f00
@@ -213,6 +219,39 @@
 #define TSENS_8X10_REDUN_SEL_MASK	0x6000000
 #define TSENS_8X10_REDUN_SEL_SHIFT	25
 
+#define TSENS0_9900_POINT1_SHIFT	19
+#define TSENS2_9900_POINT1_SHIFT	12
+#define TSENS3_9900_POINT1_SHIFT	24
+#define TSENS4_9900_POINT1_SHIFT	6
+#define TSENS5_9900_POINT1_SHIFT	18
+#define TSENS_9900_BASE1_MASK		0xff
+#define TSENS0_9900_POINT1_MASK		0x1f80000
+#define TSENS1_9900_POINT1_MASK		0x3f
+#define TSENS2_9900_POINT1_MASK		0x3f000
+#define TSENS3_9900_POINT1_MASK		0x3f000000
+#define TSENS4_9900_POINT1_MASK		0xfc0
+#define TSENS5_9900_POINT1_MASK		0xfc0000
+#define TSENS6_9900_POINT1_MASK		0x3f
+
+#define TSENS_9900_BASE2_SHIFT		8
+#define TSENS0_9900_POINT2_SHIFT	25
+#define TSENS1_9900_POINT2_SHIFT	6
+#define TSENS2_9900_POINT2_SHIFT	18
+#define TSENS4_9900_POINT2_SHIFT	12
+#define TSENS5_9900_POINT2_SHIFT	24
+#define TSENS6_9900_POINT2_SHIFT	6
+#define TSENS_9900_BASE2_MASK		0xff00
+#define TSENS0_9900_POINT2_MASK		0x7e000000
+#define TSENS1_9900_POINT2_MASK		0xfc0
+#define TSENS2_9900_POINT2_MASK		0xfc0000
+#define TSENS3_9900_POINT2_MASK		0x3f
+#define TSENS4_9900_POINT2_MASK		0x3f000
+#define TSENS5_9900_POINT2_MASK		0x3f000000
+#define TSENS6_9900_POINT2_MASK		0xfc0
+
+#define TSENS_9900_CAL_SEL_SHIFT	16
+#define TSENS_9900_TSENS_CAL_SEL	0x00070000
+
 #define TSENS_BIT_APPEND		0x3
 #define TSENS_CAL_DEGC_POINT1		30
 #define TSENS_CAL_DEGC_POINT2		120
@@ -233,10 +272,15 @@
 #define TSENS_QFPROM_BACKUP_REDUN_SEL	0xe0000000
 #define TSENS_QFPROM_BACKUP_REDUN_SHIFT	29
 
+#define TSENS_QFPROM_BACKUP_9900_REDUN_SEL	0x07000000
+#define TSENS_QFPROM_BACKUP_9900_REDUN_SHIFT	24
+
+
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
 	TSENS_CALIB_FUSE_MAP_8X26,
 	TSENS_CALIB_FUSE_MAP_8X10,
+	TSENS_CALIB_FUSE_MAP_9900,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -1327,6 +1371,279 @@ compute_intercept_slope:
 	return 0;
 }
 
+static int tsens_calib_9900_sensors(void)
+{
+	int i, tsens_base1_data = 0, tsens0_point1 = 0, tsens1_point1 = 0;
+	int tsens2_point1 = 0, tsens3_point1 = 0, tsens4_point1 = 0;
+	int tsens5_point1 = 0, tsens6_point1 = 0, tsens0_point2 = 0;
+	int tsens1_point2 = 0, tsens2_point2 = 0, tsens3_point2 = 0;
+	int tsens4_point2 = 0, tsens5_point2 = 0, tsens6_point2 = 0;
+	int tsens_base2_data = 0, tsens_calibration_mode = 0;
+	uint32_t calib_data[4], calib_redun_sel, calib_data_backup[4];
+	uint32_t calib_tsens_point1_data[7], calib_tsens_point2_data[7];
+
+	if (tmdev->calibration_less_mode)
+		goto calibration_less_mode;
+
+	calib_redun_sel = readl_relaxed(
+		TSENS_9900_EEPROM_REDUNDANCY_SEL(tmdev->tsens_calib_addr));
+	calib_redun_sel = calib_redun_sel & TSENS_QFPROM_BACKUP_9900_REDUN_SEL;
+	calib_redun_sel >>= TSENS_QFPROM_BACKUP_9900_REDUN_SHIFT;
+	pr_debug("calib_redun_sel:%x\n", calib_redun_sel);
+
+	if (calib_redun_sel == TSENS_QFPROM_BACKUP_SEL) {
+		for (i = 0; i < TSENS_9900_CALIB_ADDR_RANGE; i++) {
+			calib_data_backup[i] = readl_relaxed(
+				(TSENS_9900_EEPROM_BACKUP_REGION(
+					tmdev->tsens_calib_addr))
+				+ (i * TSENS_SN_ADDR_OFFSET));
+		pr_debug("backup calib raw data row%d:0x%x\n",
+			i, calib_data_backup[i]);
+		}
+
+		tsens_calibration_mode = (calib_data_backup[0] &
+			TSENS_9900_TSENS_CAL_SEL) >> TSENS_9900_CAL_SEL_SHIFT;
+		pr_debug("backup calib mode:%x\n", tsens_calibration_mode);
+
+		if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB)
+				|| (tsens_calibration_mode ==
+				TSENS_TWO_POINT_CALIB) ||
+				(tsens_calibration_mode ==
+				TSENS_ONE_POINT_CALIB_OPTION_2)) {
+			tsens_base1_data = (calib_data_backup[0] &
+				TSENS_9900_BASE1_MASK);
+			tsens0_point1 = (calib_data_backup[0] &
+				TSENS0_9900_POINT1_MASK) >>
+				TSENS0_9900_POINT1_SHIFT;
+			tsens1_point1 = (calib_data_backup[1] &
+				TSENS1_9900_POINT1_MASK);
+			tsens2_point1 = (calib_data_backup[1] &
+				TSENS2_9900_POINT1_MASK) >>
+				TSENS2_9900_POINT1_SHIFT;
+			tsens3_point1 = (calib_data_backup[1] &
+				TSENS3_9900_POINT1_MASK) >>
+				TSENS3_9900_POINT1_SHIFT;
+			tsens4_point1 = (calib_data_backup[2] &
+				TSENS4_9900_POINT1_MASK) >>
+				TSENS4_9900_POINT1_SHIFT;
+			tsens5_point1 = (calib_data_backup[2] &
+				TSENS5_9900_POINT1_MASK) >>
+				TSENS5_9900_POINT1_SHIFT;
+			tsens6_point1 = (calib_data_backup[3] &
+				TSENS6_9900_POINT1_MASK);
+		} else
+			goto calibration_less_mode;
+
+		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+			tsens_base2_data = (calib_data_backup[0] &
+				TSENS_9900_BASE2_MASK) >>
+				TSENS_9900_BASE2_SHIFT;
+			tsens0_point2 = (calib_data_backup[0] &
+				TSENS0_9900_POINT2_MASK) >>
+				TSENS0_9900_POINT2_SHIFT;
+			tsens1_point2 = (calib_data_backup[1] &
+				TSENS1_9900_POINT2_MASK)>>
+				TSENS1_9900_POINT2_SHIFT;
+			tsens2_point2 = (calib_data_backup[1] &
+				TSENS2_9900_POINT2_MASK) >>
+				TSENS2_9900_POINT2_SHIFT;
+			tsens3_point2 = (calib_data_backup[2] &
+				TSENS3_9900_POINT2_MASK);
+			tsens4_point2 = (calib_data_backup[2] &
+				TSENS4_9900_POINT2_MASK) >>
+				TSENS4_9900_POINT2_SHIFT;
+			tsens5_point2 = (calib_data_backup[2] &
+				TSENS5_9900_POINT2_MASK) >>
+				TSENS5_9900_POINT2_SHIFT;
+			tsens6_point2 = (calib_data_backup[3] &
+				TSENS6_9900_POINT2_MASK) >>
+				TSENS6_9900_POINT2_SHIFT;
+		}
+	} else {
+		for (i = 0; i < TSENS_9900_CALIB_ADDR_RANGE; i++) {
+			calib_data[i] = readl_relaxed(
+				(TSENS_9900_EEPROM(tmdev->tsens_calib_addr))
+					+ (i * TSENS_SN_ADDR_OFFSET));
+		pr_debug("calib raw data row%d:0x%x\n", i , calib_data[i]);
+		}
+
+		tsens_calibration_mode = (calib_data[0] &
+			TSENS_9900_TSENS_CAL_SEL) >> TSENS_9900_CAL_SEL_SHIFT;
+		pr_debug("calib mode:%x\n", tsens_calibration_mode);
+
+		if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB) ||
+			(tsens_calibration_mode ==
+					TSENS_ONE_POINT_CALIB_OPTION_2) ||
+			(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
+			tsens_base1_data = (calib_data[0] &
+				TSENS_9900_BASE1_MASK);
+			tsens0_point1 = (calib_data[0] &
+				TSENS0_9900_POINT1_MASK) >>
+				TSENS0_9900_POINT1_SHIFT;
+			tsens1_point1 = (calib_data[1] &
+				TSENS1_9900_POINT1_MASK);
+			tsens2_point1 = (calib_data[1] &
+				TSENS2_9900_POINT1_MASK) >>
+				TSENS2_9900_POINT1_SHIFT;
+			tsens3_point1 = (calib_data[1] &
+				TSENS3_9900_POINT1_MASK) >>
+				TSENS3_9900_POINT1_SHIFT;
+			tsens4_point1 = (calib_data[2] &
+				TSENS4_9900_POINT1_MASK) >>
+				TSENS4_9900_POINT1_SHIFT;
+			tsens5_point1 = (calib_data[2] &
+				TSENS5_9900_POINT1_MASK) >>
+				TSENS5_9900_POINT1_SHIFT;
+			tsens6_point1 = (calib_data[3] &
+				TSENS6_9900_POINT1_MASK);
+		} else
+			goto calibration_less_mode;
+
+		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+			tsens_base2_data = (calib_data[0] &
+				TSENS_9900_BASE2_MASK) >>
+				TSENS_9900_BASE2_SHIFT;
+			tsens0_point2 = (calib_data[0] &
+				TSENS0_9900_POINT2_MASK) >>
+				TSENS0_9900_POINT2_SHIFT;
+			tsens1_point2 = (calib_data[1] &
+				TSENS1_9900_POINT2_MASK) >>
+				TSENS1_9900_POINT2_SHIFT;
+			tsens2_point2 = (calib_data[1] &
+				TSENS2_9900_POINT2_MASK)>>
+				TSENS2_9900_POINT2_SHIFT;
+			tsens3_point2 = (calib_data[2] &
+				TSENS3_9900_POINT2_MASK);
+			tsens4_point2 = (calib_data[2] &
+				TSENS4_9900_POINT2_MASK) >>
+				TSENS4_9900_POINT2_SHIFT;
+			tsens5_point2 = (calib_data[2] &
+				TSENS5_9900_POINT2_MASK) >>
+				TSENS5_9900_POINT2_SHIFT;
+			tsens6_point2 = (calib_data[3] &
+				TSENS6_9900_POINT2_MASK) >>
+				TSENS6_9900_POINT2_SHIFT;
+		}
+
+		if (tsens_calibration_mode == 0) {
+calibration_less_mode:
+			pr_debug("TSENS is calibrationless mode\n");
+			for (i = 0; i < tmdev->tsens_num_sensor; i++)
+				calib_tsens_point2_data[i] = 780;
+			calib_tsens_point1_data[0] = 502;
+			calib_tsens_point1_data[1] = 509;
+			calib_tsens_point1_data[2] = 503;
+			calib_tsens_point1_data[3] = 509;
+			calib_tsens_point1_data[4] = 505;
+			calib_tsens_point1_data[5] = 509;
+			calib_tsens_point1_data[6] = 507;
+			goto compute_intercept_slope;
+		}
+	}
+
+	if (tsens_calibration_mode == TSENS_ONE_POINT_CALIB) {
+		calib_tsens_point1_data[0] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens0_point1;
+		calib_tsens_point1_data[1] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens1_point1;
+		calib_tsens_point1_data[2] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens2_point1;
+		calib_tsens_point1_data[3] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens3_point1;
+		calib_tsens_point1_data[4] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens4_point1;
+		calib_tsens_point1_data[5] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens5_point1;
+		calib_tsens_point1_data[6] =
+			(((tsens_base1_data) << 2) | TSENS_BIT_APPEND)
+							+ tsens6_point1;
+	}
+
+	if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
+			(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
+		pr_debug("one point calibration calculation\n");
+		calib_tsens_point1_data[0] =
+			((((tsens_base1_data) + tsens0_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[1] =
+			((((tsens_base1_data) + tsens1_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[2] =
+			((((tsens_base1_data) + tsens2_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[3] =
+			((((tsens_base1_data) + tsens3_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[4] =
+			((((tsens_base1_data) + tsens4_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[5] =
+			((((tsens_base1_data) + tsens5_point1) << 2) |
+						TSENS_BIT_APPEND);
+		calib_tsens_point1_data[6] =
+			((((tsens_base1_data) + tsens6_point1) << 2) |
+						TSENS_BIT_APPEND);
+	}
+
+	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+		pr_debug("two point calibration calculation\n");
+		calib_tsens_point2_data[0] =
+			(((tsens_base2_data + tsens0_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[1] =
+			(((tsens_base2_data + tsens1_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[2] =
+			(((tsens_base2_data + tsens2_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[3] =
+			(((tsens_base2_data + tsens3_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[4] =
+			(((tsens_base2_data + tsens4_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[5] =
+			(((tsens_base2_data + tsens5_point2) << 2) |
+					TSENS_BIT_APPEND);
+		calib_tsens_point2_data[6] =
+			(((tsens_base2_data + tsens6_point2) << 2) |
+					TSENS_BIT_APPEND);
+	}
+
+compute_intercept_slope:
+	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+		int32_t num = 0, den = 0;
+		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
+		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
+		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
+			i, tmdev->sensor[i].calib_data_point1,
+			tmdev->sensor[i].calib_data_point2);
+		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)/
+				temp_120_degc - temp_30_degc (x2 - x1) */
+			num = tmdev->sensor[i].calib_data_point2 -
+					tmdev->sensor[i].calib_data_point1;
+			num *= tmdev->tsens_factor;
+			den = TSENS_CAL_DEGC_POINT2 - TSENS_CAL_DEGC_POINT1;
+			tmdev->sensor[i].slope_mul_tsens_factor = num/den;
+		}
+		tmdev->sensor[i].offset = (tmdev->sensor[i].calib_data_point1 *
+			tmdev->tsens_factor) - (TSENS_CAL_DEGC_POINT1 *
+				tmdev->sensor[i].slope_mul_tsens_factor);
+		pr_debug("offset:%d\n", tmdev->sensor[i].offset);
+		INIT_WORK(&tmdev->sensor[i].work, notify_uspace_tsens_fn);
+		tmdev->prev_reading_avail = false;
+	}
+
+	return 0;
+}
+
 static int tsens_calib_sensors(void)
 {
 	int rc = 0;
@@ -1340,6 +1657,8 @@ static int tsens_calib_sensors(void)
 		rc = tsens_calib_8x26_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_8X10)
 		rc = tsens_calib_8x10_sensors();
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_9900)
+		rc = tsens_calib_9900_sensors();
 	else
 		rc = -ENODEV;
 
@@ -1389,6 +1708,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 		calib_type = TSENS_CALIB_FUSE_MAP_8X26;
 	else if (!strncmp(tsens_calib_mode, "fuse_map3", 9))
 		calib_type = TSENS_CALIB_FUSE_MAP_8X10;
+	else if (!strncmp(tsens_calib_mode, "fuse_map4", 9))
+		calib_type = TSENS_CALIB_FUSE_MAP_9900;
 	else {
 		pr_err("%s: Invalid calibration property\n", __func__);
 		return -EINVAL;
