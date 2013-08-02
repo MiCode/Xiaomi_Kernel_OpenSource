@@ -44,6 +44,8 @@
 
 extern unsigned int dci_max_reg;
 extern unsigned int dci_max_clients;
+extern unsigned char dci_cumulative_log_mask[DCI_LOG_MASK_SIZE];
+extern unsigned char dci_cumulative_event_mask[DCI_EVENT_MASK_SIZE];
 extern struct mutex dci_health_mutex;
 
 struct dci_pkt_req_tracking_tbl {
@@ -61,6 +63,17 @@ struct diag_dci_client_tbl {
 	unsigned char *dci_data;
 	int data_len;
 	int total_capacity;
+	/* Buffer that each client owns for sending data */
+	unsigned char *dci_apps_buffer;
+	/* Pointer to buffer currently aggregating data in.
+	 * May point to dci_apps_buffer or buffer from
+	 * dci memory pool
+	 */
+	unsigned char *dci_apps_data;
+	int dci_apps_tbl_size;
+	struct diag_write_device *dci_apps_tbl;
+	int apps_data_len;
+	int apps_in_busy_1;
 	int dropped_logs;
 	int dropped_events;
 	int received_logs;
@@ -112,6 +125,8 @@ int diag_dci_init(void);
 void diag_dci_exit(void);
 void diag_update_smd_dci_work_fn(struct work_struct *);
 void diag_dci_notify_client(int peripheral_mask, int data);
+int dci_apps_write(struct diag_dci_client_tbl *entry);
+void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes);
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
@@ -125,14 +140,14 @@ void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask);
 void clear_client_dci_cumulative_log_mask(int client_index);
 int diag_send_dci_log_mask(smd_channel_t *ch);
-void extract_dci_log(unsigned char *buf);
+void extract_dci_log(unsigned char *buf, int data_source);
 int diag_dci_clear_log_mask(void);
 int diag_dci_query_log_mask(uint16_t log_code);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
 void clear_client_dci_cumulative_event_mask(int client_index);
 int diag_send_dci_event_mask(smd_channel_t *ch);
-void extract_dci_events(unsigned char *buf);
+void extract_dci_events(unsigned char *buf, int data_source);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
 int diag_dci_clear_event_mask(void);
 int diag_dci_query_event_mask(uint16_t event_id);

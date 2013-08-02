@@ -394,7 +394,8 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
 		driver->diagpool,
 		diag_pools_array[POOL_COPY_IDX],
 		driver->count,
@@ -406,7 +407,10 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		driver->count_user_pool,
 		driver->diag_write_struct_pool,
 		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool);
+		driver->count_write_struct_pool,
+		driver->diag_dci_pool,
+		diag_pools_array[POOL_DCI_IDX],
+		driver->count_dci_pool);
 
 	for (i = 0; i < MAX_HSIC_CH; i++) {
 		if (!diag_hsic[i].hsic_inited)
@@ -452,7 +456,8 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
 		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n",
+		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
+		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
 		driver->diagpool,
 		diag_pools_array[POOL_COPY_IDX],
 		driver->count,
@@ -464,7 +469,10 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		driver->count_user_pool,
 		driver->diag_write_struct_pool,
 		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool);
+		driver->count_write_struct_pool,
+		driver->diag_dci_pool,
+		diag_pools_array[POOL_DCI_IDX],
+		driver->count_dci_pool);
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 

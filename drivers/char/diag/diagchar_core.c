@@ -70,6 +70,10 @@ static unsigned int poolsize_user = 8;  /*Number of items in the mempool */
 /* for write structure buffer */
 static unsigned int itemsize_write_struct = 20; /*Size of item in the mempool */
 static unsigned int poolsize_write_struct = 10;/* Num of items in the mempool */
+/* For the dci memory pool */
+static unsigned int itemsize_dci = 8192; /*Size of item in the mempool */
+static unsigned int poolsize_dci = 10;  /*Number of items in the mempool */
+static unsigned int dci_apps_tbl_size = 11;
 /* This is the max number of user-space clients supported at initialization*/
 static unsigned int max_clients = 15;
 static unsigned int threshold_client_limit = 30;
@@ -140,7 +144,50 @@ void diag_drain_work_fn(struct work_struct *work)
 #endif
 		driver->used = 0;
 	}
+
 	mutex_unlock(&driver->diagchar_mutex);
+
+	if (driver->num_dci_client > 0) {
+		int i;
+		struct diag_dci_client_tbl *entry = NULL;
+
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+			entry = &(driver->dci_client_tbl[i]);
+			if (!entry || entry->client == NULL)
+				continue;
+			mutex_lock(&entry->data_mutex);
+			if (entry->apps_data_len > 0) {
+				err = dci_apps_write(entry);
+				entry->dci_apps_data = NULL;
+				entry->apps_data_len = 0;
+				if (entry->apps_in_busy_1 == 0) {
+					entry->dci_apps_data =
+							entry->dci_apps_buffer;
+					entry->apps_in_busy_1 = 1;
+				} else {
+					entry->dci_apps_data =
+						diagmem_alloc(driver,
+							driver->itemsize_dci,
+							POOL_TYPE_DCI);
+				}
+
+				if (!entry->dci_apps_data)
+					pr_err_ratelimited("diag: In %s, Not able to acquire a buffer. Reduce data rate.\n",
+						__func__);
+			}
+			mutex_unlock(&entry->data_mutex);
+		}
+	}
+}
+
+void check_drain_timer(void)
+{
+	int ret = 0;
+
+	if (!timer_in_progress) {
+		timer_in_progress = 1;
+		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
+	}
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -302,11 +349,12 @@ static int diagchar_close(struct inode *inode, struct file *file)
 
 	mutex_lock(&driver->diagchar_mutex);
 	driver->ref_count--;
-	/* On Client exit, try to destroy all 4 pools */
+	/* On Client exit, try to destroy all 5 pools */
 	diagmem_exit(driver, POOL_TYPE_COPY);
 	diagmem_exit(driver, POOL_TYPE_HDLC);
 	diagmem_exit(driver, POOL_TYPE_USER);
 	diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
+	diagmem_exit(driver, POOL_TYPE_DCI);
 	for (i = 0; i < driver->num_clients; i++) {
 		if (NULL != diagpriv_data && diagpriv_data->pid ==
 						driver->client_map[i].pid) {
@@ -547,6 +595,71 @@ inline uint16_t diag_get_remote_device_mask(void) { return 0; }
 inline int diag_copy_remote(char __user *buf, size_t count, int *pret,
 			    int *pnum_data) { return 0; }
 #endif
+
+static int diag_copy_dci(char __user *buf, size_t count,
+			struct diag_dci_client_tbl *entry, int *pret)
+{
+	int total_data_len = 0;
+	int ret = 0;
+	int exit_stat = 1;
+	int i;
+
+	if (!buf || !entry || !pret)
+		return exit_stat;
+
+	ret = *pret;
+
+	/* Place holder for total data length */
+	ret += 4;
+
+	mutex_lock(&entry->data_mutex);
+	/* Copy the apps data */
+	for (i = 0; i < entry->dci_apps_tbl_size; i++) {
+		if (entry->dci_apps_tbl[i].buf != NULL) {
+			if (copy_to_user(buf+ret,
+				(void *)(entry->dci_apps_tbl[i].buf),
+				entry->dci_apps_tbl[i].length)) {
+					goto drop;
+			}
+			ret += entry->dci_apps_tbl[i].length;
+			total_data_len += entry->dci_apps_tbl[i].length;
+drop:
+			if (entry->dci_apps_tbl[i].buf ==
+						entry->dci_apps_buffer) {
+				entry->apps_in_busy_1 = 0;
+			} else {
+				diagmem_free(driver, entry->dci_apps_tbl[i].buf,
+								POOL_TYPE_DCI);
+			}
+			entry->dci_apps_tbl[i].buf = NULL;
+			entry->dci_apps_tbl[i].length = 0;
+		}
+	}
+
+	/* Copy the smd data */
+	if (entry->data_len > 0) {
+		COPY_USER_SPACE_OR_EXIT(buf+ret, *(entry->dci_data),
+							entry->data_len);
+		total_data_len += entry->data_len;
+		entry->data_len = 0;
+	}
+
+	if (total_data_len > 0) {
+		/* Copy the total data length */
+		COPY_USER_SPACE_OR_EXIT(buf+4, total_data_len, 4);
+		ret -= 4;
+	} else {
+		pr_debug("diag: In %s, Trying to copy ZERO bytes, total_data_len: %d\n",
+			__func__, total_data_len);
+	}
+
+	exit_stat = 0;
+exit:
+	*pret = ret;
+	mutex_unlock(&entry->data_mutex);
+
+	return exit_stat;
+}
 
 int diag_command_reg(unsigned long ioarg)
 {
@@ -947,9 +1060,25 @@ long diagchar_ioctl(struct file *filp,
 					dci_client_tbl[i].dci_event_mask);
 				driver->dci_client_tbl[i].data_len = 0;
 				driver->dci_client_tbl[i].dci_data =
-					 kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+					kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 				driver->dci_client_tbl[i].total_capacity =
 								 IN_BUF_SIZE;
+				driver->dci_client_tbl[i].dci_apps_buffer =
+					kzalloc(driver->itemsize_dci,
+					GFP_KERNEL);
+				driver->dci_client_tbl[i].dci_apps_data = NULL;
+				driver->dci_client_tbl[i].apps_data_len = 0;
+				driver->dci_client_tbl[i].apps_in_busy_1 = 0;
+				driver->dci_client_tbl[i].dci_apps_tbl_size =
+				(dci_apps_tbl_size < driver->poolsize_dci + 1) ?
+				(driver->poolsize_dci + 1) : dci_apps_tbl_size;
+
+				driver->dci_client_tbl[i].dci_apps_tbl =
+					kzalloc(driver->dci_client_tbl[i].
+					dci_apps_tbl_size *
+					sizeof(struct diag_write_device),
+					GFP_KERNEL);
+
 				driver->dci_client_tbl[i].dropped_logs = 0;
 				driver->dci_client_tbl[i].dropped_events = 0;
 				driver->dci_client_tbl[i].received_logs = 0;
@@ -972,8 +1101,13 @@ long diagchar_ioctl(struct file *filp,
 		if (i == DCI_CLIENT_INDEX_INVALID) {
 			result = DIAG_DCI_NOT_SUPPORTED;
 		} else {
+			struct diag_dci_client_tbl *entry;
+			driver->num_dci_client--;
+			entry = &(driver->dci_client_tbl[i]);
 			/* clear respective cumulative log masks */
 			clear_client_dci_cumulative_log_mask(i);
+			/* send updated mask to userspace clients */
+			diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 			/* send updated log mask to peripherals */
 			result =
 			diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
@@ -983,6 +1117,8 @@ long diagchar_ioctl(struct file *filp,
 			}
 			/* clear respective cumulative event masks */
 			clear_client_dci_cumulative_event_mask(i);
+			/* send updated mask to userspace clients */
+			diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 			/* send updated event mask to peripherals */
 			result =
 			diag_send_dci_event_mask(
@@ -992,17 +1128,38 @@ long diagchar_ioctl(struct file *filp,
 				return result;
 			}
 			result = i;
+			mutex_lock(&entry->data_mutex);
+			for (i = 0; i < entry->dci_apps_tbl_size; i++) {
+				if (entry->dci_apps_tbl[i].buf != NULL &&
+					(entry->dci_apps_tbl[i].buf !=
+					entry->dci_apps_buffer)) {
+					diagmem_free(driver,
+						entry->dci_apps_tbl[i].buf,
+						POOL_TYPE_DCI);
+				}
+				entry->dci_apps_tbl[i].buf = NULL;
+				entry->dci_apps_tbl[i].length = 0;
+			}
+			entry->dci_apps_tbl_size = 0;
+			entry->dci_apps_data = NULL;
+			entry->apps_data_len = 0;
+			entry->apps_in_busy_1 = 0;
+			mutex_unlock(&entry->data_mutex);
+
 			/* Delete this process from DCI table */
 			for (i = 0; i < dci_max_reg; i++)
 				if (driver->req_tracking_tbl[i].pid ==
 					 current->tgid)
 					driver->req_tracking_tbl[i].pid = 0;
-			driver->dci_client_tbl[result].client = NULL;
-			kfree(driver->dci_client_tbl[result].dci_data);
-			driver->dci_client_tbl[result].dci_data = NULL;
-			mutex_destroy(&driver->dci_client_tbl[result].
-								data_mutex);
-			driver->num_dci_client--;
+
+			kfree(entry->dci_apps_tbl);
+			entry->dci_apps_tbl = NULL;
+			kfree(entry->dci_apps_buffer);
+			entry->dci_apps_buffer = NULL;
+			entry->client = NULL;
+			kfree(entry->dci_data);
+			entry->dci_data = NULL;
+			mutex_destroy(&entry->data_mutex);
 			if (driver->num_dci_client == 0) {
 				diag_update_proc_vote(DIAG_PROC_DCI, VOTE_DOWN);
 			} else {
@@ -1016,6 +1173,7 @@ long diagchar_ioctl(struct file *filp,
 		mutex_unlock(&driver->dci_mutex);
 		break;
 	case DIAG_IOCTL_DCI_SUPPORT:
+		support_list |= DIAG_CON_APSS;
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 			if (driver->smd_dci[i].ch)
 				support_list |=
@@ -1370,27 +1528,46 @@ drop:
 		goto exit;
 	}
 
+	if (driver->data_ready[index] & DCI_EVENT_MASKS_TYPE) {
+		/*Copy the type of data being passed*/
+		data_type = driver->data_ready[index] & DCI_EVENT_MASKS_TYPE;
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+4, driver->num_dci_client, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+8, *(dci_cumulative_event_mask),
+							DCI_EVENT_MASK_SIZE);
+		driver->data_ready[index] ^= DCI_EVENT_MASKS_TYPE;
+		goto exit;
+	}
+
+	if (driver->data_ready[index] & DCI_LOG_MASKS_TYPE) {
+		/*Copy the type of data being passed*/
+		data_type = driver->data_ready[index] & DCI_LOG_MASKS_TYPE;
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+4, driver->num_dci_client, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+8, *(dci_cumulative_log_mask),
+							DCI_LOG_MASK_SIZE);
+		driver->data_ready[index] ^= DCI_LOG_MASKS_TYPE;
+		goto exit;
+	}
+
 	if (driver->data_ready[index] & DCI_DATA_TYPE) {
 		/* Copy the type of data being passed */
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
+		driver->data_ready[index] ^= DCI_DATA_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* check the current client and copy its data */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
 			entry = &(driver->dci_client_tbl[i]);
-			if (entry && entry->client) {
-				if (current->tgid == entry->client->tgid) {
-					mutex_lock(&entry->data_mutex);
-					COPY_USER_SPACE_OR_EXIT(buf+4,
-							entry->data_len, 4);
-					COPY_USER_SPACE_OR_EXIT(buf+8,
-					*(entry->dci_data), entry->data_len);
-					entry->data_len = 0;
-					mutex_unlock(&entry->data_mutex);
-					break;
-				}
+			if (entry && entry->client &&
+				(current->tgid == entry->client->tgid)) {
+				/* Copy the DCI data to userspace */
+				exit_stat = diag_copy_dci(buf, count, entry,
+									&ret);
+				if (exit_stat == 1)
+					goto exit;
+				break;
 			}
 		}
-		driver->data_ready[index] ^= DCI_DATA_TYPE;
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 			driver->smd_dci[i].in_busy_1 = 0;
 			if (driver->smd_dci[i].ch) {
@@ -1457,9 +1634,11 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		return -EBADMSG;
 	}
 #ifdef CONFIG_DIAG_OVER_USB
-	if (((pkt_type != DCI_DATA_TYPE) && (driver->logging_mode == USB_MODE)
-				&& (!driver->usb_connected)) ||
-				(driver->logging_mode == NO_LOGGING_MODE)) {
+	if (driver->logging_mode == NO_LOGGING_MODE ||
+		(((pkt_type != DCI_DATA_TYPE) ||
+		((pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) == 0))
+		&& (driver->logging_mode == USB_MODE) &&
+			(!driver->usb_connected))) {
 		/*Drop the diag payload */
 		return -EIO;
 	}
@@ -1740,26 +1919,49 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		return -EBADMSG;
 	}
 
-	mutex_lock(&driver->diagchar_mutex);
 	buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
 	if (!buf_copy) {
 		driver->dropped_count++;
-		mutex_unlock(&driver->diagchar_mutex);
 		return -ENOMEM;
 	}
 
 	err = copy_from_user(buf_copy, buf + 4, payload_size);
 	if (err) {
 		printk(KERN_INFO "diagchar : copy_from_user failed\n");
-		ret = -EFAULT;
-		goto fail_free_copy;
+		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+		buf_copy = NULL;
+		return -EFAULT;
 	}
+
+	if (pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) {
+		int data_type = pkt_type &
+				(DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT);
+		diag_process_apps_dci_read_data(data_type, buf_copy,
+								payload_size);
+
+		if (pkt_type & DATA_TYPE_DCI_LOG)
+			pkt_type ^= DATA_TYPE_DCI_LOG;
+		else
+			pkt_type ^= DATA_TYPE_DCI_EVENT;
+
+		/*
+		 * If the data is not headed for normal processing or the usb
+		 * is unplugged and we are in usb mode
+		 */
+		if ((pkt_type != DATA_TYPE_LOG && pkt_type != DATA_TYPE_EVENT)
+			|| ((driver->logging_mode == USB_MODE) &&
+			(!driver->usb_connected))) {
+			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+			return 0;
+		}
+	}
+
 	if (driver->stm_state[APPS_DATA] &&
 		(pkt_type >= DATA_TYPE_EVENT && pkt_type <= DATA_TYPE_LOG)) {
 		int stm_size = 0;
 
 		stm_size = stm_log_inv_ts(OST_ENTITY_DIAG, 0, buf_copy,
-						payload_size);
+			payload_size);
 
 		if (stm_size == 0)
 			pr_debug("diag: In %s, stm_log_inv_ts returned size of 0\n",
@@ -1788,6 +1990,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			length++;
 	}
 #endif
+	mutex_lock(&driver->diagchar_mutex);
 	if (!buf_hdlc)
 		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
 						 POOL_TYPE_HDLC);
@@ -1861,10 +2064,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
 	buf_copy = NULL;
 	mutex_unlock(&driver->diagchar_mutex);
-	if (!timer_in_progress)	{
-		timer_in_progress = 1;
-		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
-	}
+
+	check_drain_timer();
+
 	return 0;
 
 fail_free_hdlc:
@@ -2089,6 +2291,8 @@ static int __init diagchar_init(void)
 		driver->poolsize_user = poolsize_user;
 		driver->itemsize_write_struct = itemsize_write_struct;
 		driver->poolsize_write_struct = poolsize_write_struct;
+		driver->itemsize_dci = itemsize_dci;
+		driver->poolsize_dci = poolsize_dci;
 		driver->num_clients = max_clients;
 		driver->logging_mode = USB_MODE;
 		driver->socket_process = NULL;

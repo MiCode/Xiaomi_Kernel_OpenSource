@@ -13,25 +13,32 @@
 #ifndef DIAGCHAR_SHARED
 #define DIAGCHAR_SHARED
 
-#define MSG_MASKS_TYPE			1
-#define LOG_MASKS_TYPE			2
-#define EVENT_MASKS_TYPE		4
-#define PKT_TYPE			8
-#define DEINIT_TYPE			16
-#define USER_SPACE_DATA_TYPE		32
-#define DCI_DATA_TYPE			64
-#define CALLBACK_DATA_TYPE		128
+#define MSG_MASKS_TYPE		0x00000001
+#define LOG_MASKS_TYPE		0x00000002
+#define EVENT_MASKS_TYPE	0x00000004
+#define PKT_TYPE		0x00000008
+#define DEINIT_TYPE		0x00000010
+#define USER_SPACE_DATA_TYPE	0x00000020
+#define DCI_DATA_TYPE		0x00000040
+#define CALLBACK_DATA_TYPE	0x00000080
+#define DCI_LOG_MASKS_TYPE	0x00000100
+#define DCI_EVENT_MASKS_TYPE	0x00000200
+
 #define USB_MODE			1
 #define MEMORY_DEVICE_MODE		2
 #define NO_LOGGING_MODE			3
 #define UART_MODE			4
 #define SOCKET_MODE			5
 #define CALLBACK_MODE			6
+
 /* different values that go in for diag_data_type */
+
 #define DATA_TYPE_EVENT         	0
 #define DATA_TYPE_F3            	1
 #define DATA_TYPE_LOG           	2
 #define DATA_TYPE_RESPONSE      	3
+#define DATA_TYPE_DCI_LOG		0x00000100
+#define DATA_TYPE_DCI_EVENT		0x00000200
 
 /* Different IOCTL values */
 #define DIAG_IOCTL_COMMAND_REG  	0

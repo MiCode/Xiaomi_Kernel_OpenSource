@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_wakeup.h>
 #include <linux/spinlock.h>
+#include <linux/ratelimit.h>
 #include <asm/current.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
@@ -77,6 +78,32 @@ void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type)
 void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type) { }
 #endif
 
+/* Process the data read from apps userspace client */
+void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes)
+{
+	uint8_t cmd_code;
+
+	if (!buf) {
+		pr_err_ratelimited("diag: In %s, Null buf pointer\n", __func__);
+		return;
+	}
+
+	if (data_type != DATA_TYPE_DCI_LOG && data_type != DATA_TYPE_DCI_EVENT)
+		pr_err("diag: In %s, unsupported data_type: 0x%x\n",
+				__func__, (unsigned int)data_type);
+
+	cmd_code = *(uint8_t *)buf;
+
+	if (cmd_code == LOG_CMD_CODE) {
+		extract_dci_log(buf, APPS_DATA);
+	} else if (cmd_code == EVENT_CMD_CODE) {
+		extract_dci_events(buf, APPS_DATA);
+	} else {
+		pr_err("diag: In %s, unsupported command code: 0x%x, not log or event\n",
+			__func__, cmd_code);
+	}
+}
+
 /* Process the data read from the smd dci channel */
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes)
@@ -97,9 +124,9 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 		 DUMP_PREFIX_ADDRESS, 16, 1, buf, 5 + dci_pkt_len, 1); */
 		recv_pkt_cmd_code = *(uint8_t *)(buf+4);
 		if (recv_pkt_cmd_code == LOG_CMD_CODE)
-			extract_dci_log(buf+4);
+			extract_dci_log(buf+4, smd_info->peripheral);
 		else if (recv_pkt_cmd_code == EVENT_CMD_CODE)
-			extract_dci_events(buf+4);
+			extract_dci_events(buf+4, smd_info->peripheral);
 		else
 			extract_dci_pkt_rsp(smd_info, buf); /* pkt response */
 		read_bytes += 5 + dci_pkt_len;
@@ -122,6 +149,60 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	}
 
 	return 0;
+}
+
+static int process_dci_apps_buffer(struct diag_dci_client_tbl *entry,
+				   uint16_t data_len)
+{
+	int ret = 0;
+	int err = 0;
+
+	if (!entry) {
+		err = -EINVAL;
+		return err;
+	}
+
+	if (!entry->dci_apps_data) {
+		if (entry->apps_in_busy_1 == 0) {
+			entry->dci_apps_data = entry->dci_apps_buffer;
+			entry->apps_in_busy_1 = 1;
+		} else {
+			entry->dci_apps_data = diagmem_alloc(driver,
+				driver->itemsize_dci,
+				POOL_TYPE_DCI);
+		}
+		entry->apps_data_len = 0;
+		if (!entry->dci_apps_data) {
+			ret = -ENOMEM;
+			return ret;
+		}
+	}
+
+	/* If the data will not fit into the buffer */
+	if ((int)driver->itemsize_dci - entry->apps_data_len <= data_len) {
+		err = dci_apps_write(entry);
+		if (err) {
+			ret = -EIO;
+			return ret;
+		}
+		entry->dci_apps_data = NULL;
+		entry->apps_data_len = 0;
+		if (entry->apps_in_busy_1 == 0) {
+			entry->dci_apps_data = entry->dci_apps_buffer;
+			entry->apps_in_busy_1 = 1;
+		} else {
+			entry->dci_apps_data = diagmem_alloc(driver,
+				driver->itemsize_dci,
+				POOL_TYPE_DCI);
+		}
+
+		if (!entry->dci_apps_data) {
+			ret = -ENOMEM;
+			return ret;
+		}
+	}
+
+	return ret;
 }
 
 void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
@@ -189,7 +270,97 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 	}
 }
 
-void extract_dci_events(unsigned char *buf)
+static void copy_dci_event_from_apps(uint8_t *event_data,
+					unsigned int total_event_len,
+					struct diag_dci_client_tbl *entry)
+{
+	int ret = 0;
+	unsigned int total_length = 4 + total_event_len;
+
+	if (!event_data) {
+		pr_err_ratelimited("diag: In %s, event_data null pointer\n",
+			__func__);
+		return;
+	}
+
+	if (!entry) {
+		pr_err_ratelimited("diag: In %s, entry null pointer\n",
+			__func__);
+		return;
+	}
+
+	mutex_lock(&dci_health_mutex);
+	mutex_lock(&entry->data_mutex);
+
+	ret = process_dci_apps_buffer(entry, total_length);
+
+	if (ret != 0) {
+		if (ret == -ENOMEM)
+			pr_err_ratelimited("diag: In %s, DCI event drop, ret: %d. Reduce data rate.\n",
+				__func__, ret);
+		else
+			pr_err_ratelimited("diag: In %s, DCI event drop, ret: %d\n",
+				__func__, ret);
+		entry->dropped_events++;
+		mutex_unlock(&entry->data_mutex);
+		mutex_unlock(&dci_health_mutex);
+		return;
+	}
+
+	entry->received_events++;
+	*(int *)(entry->dci_apps_data+entry->apps_data_len) = DCI_EVENT_TYPE;
+	memcpy(entry->dci_apps_data + entry->apps_data_len + 4, event_data,
+							total_event_len);
+	entry->apps_data_len += total_length;
+
+	mutex_unlock(&entry->data_mutex);
+	mutex_unlock(&dci_health_mutex);
+
+	check_drain_timer();
+
+	return;
+}
+
+static void copy_dci_event_from_smd(uint8_t *event_data, int data_source,
+					unsigned int total_event_len,
+					struct diag_dci_client_tbl *entry)
+{
+	(void) data_source;
+
+	if (!event_data) {
+		pr_err_ratelimited("diag: In %s, event_data null pointer\n",
+			__func__);
+		return;
+	}
+
+	if (!entry) {
+		pr_err_ratelimited("diag: In %s, entry null pointer\n",
+			__func__);
+		return;
+	}
+
+	mutex_lock(&dci_health_mutex);
+	mutex_lock(&entry->data_mutex);
+
+	if (DCI_CHK_CAPACITY(entry, 4 + total_event_len)) {
+		pr_err("diag: In %s, DCI event drop\n", __func__);
+		entry->dropped_events++;
+		mutex_unlock(&entry->data_mutex);
+		mutex_unlock(&dci_health_mutex);
+		return;
+	}
+	entry->received_events++;
+	*(int *)(entry->dci_data+entry->data_len) = DCI_EVENT_TYPE;
+	/* 4 bytes for DCI_EVENT_TYPE */
+	memcpy(entry->dci_data + entry->data_len + 4, event_data,
+						total_event_len);
+	entry->data_len += 4 + total_event_len;
+
+	mutex_unlock(&entry->data_mutex);
+	mutex_unlock(&dci_health_mutex);
+}
+
+void extract_dci_events(unsigned char *buf, int data_source)
 {
 	uint16_t event_id, event_id_packet, length, temp_len;
 	uint8_t *event_mask_ptr, byte_mask, payload_len, payload_len_field;
@@ -263,40 +434,143 @@ void extract_dci_events(unsigned char *buf)
 				entry = &(driver->dci_client_tbl[i]);
 				event_mask_ptr = entry->dci_event_mask +
 								 byte_index;
-				mutex_lock(&dci_health_mutex);
-				mutex_lock(&entry->data_mutex);
 				if (*event_mask_ptr & byte_mask) {
 					/* copy to client buffer */
-					if (DCI_CHK_CAPACITY(entry,
-							 4 + total_event_len)) {
-						pr_err("diag: DCI event drop\n");
-						driver->dci_client_tbl[i].
-							dropped_events++;
-						mutex_unlock(
-							&entry->data_mutex);
-						mutex_unlock(
-							&dci_health_mutex);
-						break;
+					if (data_source == APPS_DATA) {
+						copy_dci_event_from_apps(
+							event_data,
+							total_event_len,
+							entry);
+					} else {
+						copy_dci_event_from_smd(
+							event_data,
+							data_source,
+							total_event_len,
+							entry);
 					}
-					driver->dci_client_tbl[i].
-							received_events++;
-					*(int *)(entry->dci_data+
-					entry->data_len) = DCI_EVENT_TYPE;
-					/* 4 bytes for DCI_EVENT_TYPE */
-					memcpy(entry->dci_data +
-						entry->data_len + 4, event_data
-						, total_event_len);
-					entry->data_len += 4 + total_event_len;
 				}
-				mutex_unlock(&entry->data_mutex);
-				mutex_unlock(&dci_health_mutex);
 			}
 		}
 		temp_len += 2 + timestamp_len + payload_len_field + payload_len;
 	}
 }
 
-void extract_dci_log(unsigned char *buf)
+int dci_apps_write(struct diag_dci_client_tbl *entry)
+{
+	int i, j;
+	int err = -ENOMEM;
+	int found_it = 0;
+
+	if (!entry) {
+		pr_err("diag: In %s, null dci client entry pointer\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	/* Make sure we have a buffer and there is data in it */
+	if (!entry->dci_apps_data || entry->apps_data_len <= 0) {
+		pr_err("diag: In %s, Invalid dci apps data info, dci_apps_data: 0x%x, apps_data_len: %d\n",
+			__func__, (unsigned int)entry->dci_apps_data,
+			entry->apps_data_len);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < entry->dci_apps_tbl_size; i++) {
+		if (entry->dci_apps_tbl[i].buf == NULL) {
+			entry->dci_apps_tbl[i].buf = entry->dci_apps_data;
+			entry->dci_apps_tbl[i].length = entry->apps_data_len;
+			err = 0;
+			for (j = 0; j < driver->num_clients; j++) {
+				if (driver->client_map[j].pid ==
+							entry->client->tgid) {
+					driver->data_ready[j] |= DCI_DATA_TYPE;
+					break;
+				}
+			}
+			wake_up_interruptible(&driver->wait_q);
+			found_it = 1;
+			break;
+		}
+	}
+
+	if (!found_it)
+		pr_err_ratelimited("diag: In %s, Apps DCI data table full. Reduce data rate.\n",
+					__func__);
+
+	return err;
+}
+
+static void copy_dci_log_from_apps(unsigned char *buf,
+					struct diag_dci_client_tbl *entry)
+{
+	int ret = 0;
+	uint16_t log_length = 0;
+	uint16_t total_length = 4 + log_length;
+
+	if (!buf || !entry)
+		return;
+
+	log_length = *(uint16_t *)(buf + 2);
+
+	mutex_lock(&dci_health_mutex);
+	mutex_lock(&entry->data_mutex);
+
+	ret = process_dci_apps_buffer(entry, total_length);
+
+	if (ret != 0) {
+		if (ret == -ENOMEM)
+			pr_err_ratelimited("diag: In %s, DCI log drop, ret: %d. Reduce data rate.\n",
+				__func__, ret);
+		else
+			pr_err_ratelimited("diag: In %s, DCI log drop, ret: %d\n",
+				__func__, ret);
+		entry->dropped_logs++;
+		mutex_unlock(&entry->data_mutex);
+		mutex_unlock(&dci_health_mutex);
+		return;
+	}
+
+	entry->received_logs++;
+	*(int *)(entry->dci_apps_data+entry->apps_data_len) = DCI_LOG_TYPE;
+	memcpy(entry->dci_apps_data + entry->apps_data_len + 4, buf + 4,
+								log_length);
+	entry->apps_data_len += total_length;
+
+	mutex_unlock(&entry->data_mutex);
+	mutex_unlock(&dci_health_mutex);
+
+	check_drain_timer();
+
+	return;
+}
+
+static void copy_dci_log_from_smd(unsigned char *buf, int data_source,
+					struct diag_dci_client_tbl *entry)
+{
+	uint16_t log_length = *(uint16_t *)(buf + 2);
+	(void)data_source;
+
+	mutex_lock(&dci_health_mutex);
+	mutex_lock(&entry->data_mutex);
+
+	if (DCI_CHK_CAPACITY(entry, 4 + log_length)) {
+		pr_err_ratelimited("diag: In %s, DCI log drop\n", __func__);
+		entry->dropped_logs++;
+		mutex_unlock(&entry->data_mutex);
+		mutex_unlock(&dci_health_mutex);
+		return;
+	}
+
+	entry->received_logs++;
+	*(int *)(entry->dci_data+entry->data_len) = DCI_LOG_TYPE;
+	memcpy(entry->dci_data + entry->data_len + 4, buf + 4, log_length);
+	entry->data_len += 4 + log_length;
+
+	mutex_unlock(&entry->data_mutex);
+	mutex_unlock(&dci_health_mutex);
+}
+
+void extract_dci_log(unsigned char *buf, int data_source)
 {
 	uint16_t log_code, item_num;
 	uint8_t equip_id, *log_mask_ptr, byte_mask;
@@ -324,32 +598,17 @@ void extract_dci_log(unsigned char *buf)
 			if (!log_mask_ptr)
 				return;
 			log_mask_ptr = log_mask_ptr + byte_offset;
-			mutex_lock(&dci_health_mutex);
-			mutex_lock(&entry->data_mutex);
 			if (*log_mask_ptr & byte_mask) {
 				pr_debug("\t log code %x needed by client %d",
 					 log_code, entry->client->tgid);
 				/* copy to client buffer */
-				if (DCI_CHK_CAPACITY(entry,
-						 4 + *(uint16_t *)(buf + 2))) {
-						pr_err("diag: DCI log drop\n");
-						driver->dci_client_tbl[i].
-								dropped_logs++;
-						mutex_unlock(
-							&entry->data_mutex);
-						mutex_unlock(
-							&dci_health_mutex);
-						return;
+				if (data_source == APPS_DATA) {
+					copy_dci_log_from_apps(buf, entry);
+				} else {
+					copy_dci_log_from_smd(buf, data_source,
+									entry);
 				}
-				driver->dci_client_tbl[i].received_logs++;
-				*(int *)(entry->dci_data+entry->data_len) =
-								DCI_LOG_TYPE;
-				memcpy(entry->dci_data + entry->data_len + 4,
-					    buf + 4, *(uint16_t *)(buf + 2));
-				entry->data_len += 4 + *(uint16_t *)(buf + 2);
 			}
-			mutex_unlock(&entry->data_mutex);
-			mutex_unlock(&dci_health_mutex);
 		}
 	}
 }
@@ -366,12 +625,7 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	int ret;
 	int index = smd_info->peripheral;
 
-	/* Update the peripheral(s) with the dci log and event masks */
-
-	/* If the cntl channel is not up, we can't update logs and events */
-	if (!driver->smd_cntl[index].ch)
-		return;
-
+	/* Update apps and peripheral(s) with the dci log and event masks */
 	memset(dirty_bits, 0, 16 * sizeof(uint8_t));
 
 	/*
@@ -402,8 +656,14 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	}
 	mutex_unlock(&dci_log_mask_mutex);
 
+	/* Send updated mask to userspace clients */
+	diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
+	/* Send updated log mask to peripherals */
 	ret = diag_send_dci_log_mask(driver->smd_cntl[index].ch);
 
+	/* Send updated event mask to userspace clients */
+	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
+	/* Send updated event mask to peripheral */
 	ret = diag_send_dci_event_mask(driver->smd_cntl[index].ch);
 
 	smd_info->notify_context = 0;
@@ -692,6 +952,8 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
+		/* send updated mask to userspace clients */
+		diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 		/* send updated mask to peripherals */
 		ret = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
@@ -763,6 +1025,8 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
+		/* send updated mask to userspace clients */
+		diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 		/* send updated mask to peripherals */
 		ret = diag_send_dci_event_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else {
@@ -1290,6 +1554,7 @@ void diag_dci_exit(void)
 	if (driver->dci_client_tbl) {
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
 			kfree(driver->dci_client_tbl[i].dci_data);
+			kfree(driver->dci_client_tbl[i].dci_apps_data);
 			mutex_destroy(&driver->dci_client_tbl[i].data_mutex);
 		}
 	}
@@ -1343,6 +1608,9 @@ int diag_dci_clear_log_mask()
 		}
 	}
 	mutex_unlock(&dci_log_mask_mutex);
+	/* send updated mask to userspace clients */
+	diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
+	/* Send updated mask to peripherals */
 	err = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 	return err;
 }
@@ -1369,6 +1637,9 @@ int diag_dci_clear_event_mask()
 			*(update_ptr + j) |= *(event_mask_ptr + j);
 	}
 	mutex_unlock(&dci_event_mask_mutex);
+	/* send updated mask to userspace clients */
+	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
+	/* Send updated mask to peripherals */
 	err = diag_send_dci_event_mask(driver->smd_cntl[MODEM_DATA].ch);
 	return err;
 }
