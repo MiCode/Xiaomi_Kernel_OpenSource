@@ -1932,7 +1932,6 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 	ret = apr_send_pkt(common.apr_q6_cvs, (uint32_t *) &cvs_reg_cal_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d registering CVS cal\n", __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvs_wait,
@@ -1940,7 +1939,6 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -1997,7 +1995,6 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 	ret = apr_send_pkt(common.apr_q6_cvs, (uint32_t *) &cvs_dereg_cal_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d de-registering CVS cal\n", __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvs_wait,
@@ -2005,7 +2002,6 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command  timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2069,7 +2065,6 @@ static int voice_send_cvp_register_dev_cfg_cmd(struct voice_data *v)
 	if (ret < 0) {
 		pr_err("%s: Error %d registering CVP dev cfg cal\n",
 		       __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2077,7 +2072,6 @@ static int voice_send_cvp_register_dev_cfg_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2137,7 +2131,6 @@ static int voice_send_cvp_deregister_dev_cfg_cmd(struct voice_data *v)
 	if (ret < 0) {
 		pr_err("%s: Error %d de-registering CVP dev cfg cal\n",
 		       __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2145,7 +2138,6 @@ static int voice_send_cvp_deregister_dev_cfg_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2212,7 +2204,6 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 	ret = apr_send_pkt(common.apr_q6_cvp, (uint32_t *) &cvp_reg_cal_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d registering CVP cal\n", __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2220,7 +2211,6 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2277,7 +2267,6 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 	ret = apr_send_pkt(common.apr_q6_cvp, (uint32_t *) &cvp_dereg_cal_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d de-registering CVP cal\n", __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2285,7 +2274,6 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2355,7 +2343,6 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 			   (uint32_t *) &cvp_reg_vol_cal_cmd);
 	if (ret < 0) {
 		pr_err("%s: Error %d registering CVP vol cal\n", __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2363,7 +2350,6 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
@@ -2423,7 +2409,6 @@ static int voice_send_cvp_deregister_vol_cal_cmd(struct voice_data *v)
 	if (ret < 0) {
 		pr_err("%s: Error %d de-registering CVP vol cal\n",
 		       __func__, ret);
-		ret = -EINVAL;
 		goto done;
 	}
 	ret = wait_event_timeout(v->cvp_wait,
@@ -2431,7 +2416,6 @@ static int voice_send_cvp_deregister_vol_cal_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Command timeout\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 
