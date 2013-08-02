@@ -344,3 +344,10 @@
 	mpp@a300 { /* MPP 4 */
 	};
 };
+
+&pm8110_vadc {
+	chan@30 {
+		label = "batt_therm";
+		qcom,scale-function = <6>;
+	};
+};
