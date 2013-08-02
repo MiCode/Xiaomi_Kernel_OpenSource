@@ -181,27 +181,47 @@ struct kgsl_memdesc {
 	struct device *dev;
 };
 
-/* List of different memory entry types */
-
+/*
+ * List of different memory entry types. The usermem enum
+ * starts at 0, which we use for allocated memory, so 1 is
+ * added to the enum values.
+ */
 #define KGSL_MEM_ENTRY_KERNEL 0
-#define KGSL_MEM_ENTRY_PMEM   1
-#define KGSL_MEM_ENTRY_ASHMEM 2
-#define KGSL_MEM_ENTRY_USER   3
-#define KGSL_MEM_ENTRY_ION    4
-#define KGSL_MEM_ENTRY_MAX    5
+#define KGSL_MEM_ENTRY_PMEM (KGSL_USER_MEM_TYPE_PMEM + 1)
+#define KGSL_MEM_ENTRY_ASHMEM (KGSL_USER_MEM_TYPE_ASHMEM + 1)
+#define KGSL_MEM_ENTRY_USER (KGSL_USER_MEM_TYPE_ADDR + 1)
+#define KGSL_MEM_ENTRY_ION (KGSL_USER_MEM_TYPE_ION + 1)
+#define KGSL_MEM_ENTRY_MAX (KGSL_USER_MEM_TYPE_MAX + 1)
 
+/* symbolic table for trace and debugfs */
+#define KGSL_MEM_TYPES \
+	{ KGSL_MEM_ENTRY_KERNEL, "gpumem" }, \
+	{ KGSL_MEM_ENTRY_PMEM, "pmem" }, \
+	{ KGSL_MEM_ENTRY_ASHMEM, "ashmem" }, \
+	{ KGSL_MEM_ENTRY_USER, "usermem" }, \
+	{ KGSL_MEM_ENTRY_ION, "ion" }
+
+/*
+ * struct kgsl_mem_entry - a userspace memory allocation
+ * @refcount: reference count. Currently userspace can only
+ *  hold a single reference count, but the kernel may hold more.
+ * @memdesc: description of the memory
+ * @priv_data: type-specific data, such as the dma-buf attachment pointer.
+ * @node: rb_node for the gpu address lookup rb tree
+ * @id: idr index for this entry, can be used to find memory that does not have
+ *  a valid GPU address.
+ * @priv: back pointer to the process that owns this memory
+ * @pending_free: if !0, userspace requested that his memory be freed, but there
+ *  are still references to it.
+ * @dev_priv: back pointer to the device file that created this entry.
+ */
 struct kgsl_mem_entry {
 	struct kref refcount;
 	struct kgsl_memdesc memdesc;
-	int memtype;
 	void *priv_data;
 	struct rb_node node;
 	unsigned int id;
-	unsigned int context_id;
-	/* back pointer to private structure under whose context this
-	* allocation is made */
 	struct kgsl_process_private *priv;
-	/* Initialized to 0, set to 1 when entry is marked for freeing */
 	int pending_free;
 	struct kgsl_device_private *dev_priv;
 };

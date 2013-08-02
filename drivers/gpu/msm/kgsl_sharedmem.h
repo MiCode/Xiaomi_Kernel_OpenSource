@@ -110,6 +110,21 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 	return 0;
 }
 
+/*
+ * kgsl_memdesc_usermem_type - return buffer type
+ * @memdesc - the memdesc
+ *
+ * Returns a KGSL_MEM_ENTRY_* value for this buffer, which
+ * identifies if was allocated by us, or imported from
+ * another allocator.
+ */
+static inline unsigned int
+kgsl_memdesc_usermem_type(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->flags & KGSL_MEMFLAGS_USERMEM_MASK)
+		>> KGSL_MEMFLAGS_USERMEM_SHIFT;
+}
+
 static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 {
 	/*

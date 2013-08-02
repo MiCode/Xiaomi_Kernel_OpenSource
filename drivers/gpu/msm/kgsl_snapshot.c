@@ -401,7 +401,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 	}
 
 	/* We can't freeze external memory, because we don't own it */
-	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL) {
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_USERMEM_MASK) {
 		KGSL_DRV_ERR(device,
 			"Only internal GPU buffers can be frozen\n");
 		goto err_put;

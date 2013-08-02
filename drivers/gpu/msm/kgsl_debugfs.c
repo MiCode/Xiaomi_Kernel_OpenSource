@@ -120,18 +120,19 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&memfree_hist_fops);
 }
 
-static const char * const memtype_strings[] = {
-	"gpumem",
-	"pmem",
-	"ashmem",
-	"usermap",
-	"ion",
+struct type_entry {
+	int type;
+	const char *str;
 };
+
+static const struct type_entry memtypes[] = { KGSL_MEM_TYPES };
 
 static const char *memtype_str(int memtype)
 {
-	if (memtype < ARRAY_SIZE(memtype_strings))
-		return memtype_strings[memtype];
+	int i;
+	for (i = 0; i < ARRAY_SIZE(memtypes); i++)
+		if (memtypes[i].type == memtype)
+			return memtypes[i].str;
 	return "unknown";
 }
 
@@ -175,7 +176,8 @@ static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
 			(unsigned long *)(uintptr_t) m->gpuaddr,
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
-			memtype_str(entry->memtype), usage, m->sglen);
+			memtype_str(kgsl_memdesc_usermem_type(m)),
+			usage, m->sglen);
 }
 
 static int process_mem_print(struct seq_file *s, void *unused)
