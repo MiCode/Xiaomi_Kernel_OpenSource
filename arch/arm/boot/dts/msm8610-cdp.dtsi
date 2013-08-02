@@ -143,7 +143,11 @@
 			"MIC BIAS External", "Handset Mic",
 			"MIC BIAS Internal2", "Headset Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS Internal2";
+			"AMIC2", "MIC BIAS Internal2",
+			"MIC BIAS External", "Digital Mic1",
+			"MIC BIAS External", "Digital Mic2",
+			"DMIC1", "MIC BIAS External",
+			"DMIC2", "MIC BIAS External";
 		qcom,headset-jack-type-NC;
     };
 };
