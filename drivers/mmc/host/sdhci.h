@@ -310,6 +310,7 @@ struct sdhci_ops {
 #define REQ_IO_HIGH	(1 << 3)
 	void    (*card_event)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
+	void	(*dump_vendor_regs)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
