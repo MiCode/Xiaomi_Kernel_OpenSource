@@ -17,3 +17,4 @@
  */
 
 /include/ "msm8610.dtsi"
+/include/ "msm8610-v2-pm.dtsi"
