@@ -1396,7 +1396,10 @@ static int msm8x10_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 	switch (decimator) {
 	case 1:
 	case 2:
-			adc_dmic_sel = 0x0;
+			if ((dec_mux == 3) || (dec_mux == 4))
+				adc_dmic_sel = 0x1;
+			else
+				adc_dmic_sel = 0x0;
 		break;
 	default:
 		dev_err(codec->dev, "%s: Invalid Decimator = %u\n",
