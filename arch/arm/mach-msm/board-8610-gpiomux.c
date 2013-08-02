@@ -631,6 +631,28 @@ static struct msm_gpiomux_config msm_interrupt_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_cdc_dmic_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_4MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+
+static struct msm_gpiomux_config msm_cdc_dmic_configs[] __initdata = {
+	{
+		.gpio = 100,	/* DMIC CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_cdc_dmic_cfg,
+		},
+	},
+	{
+		.gpio = 101,	/* DMIC DATA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_cdc_dmic_cfg,
+		},
+	},
+};
+
 void __init msm8610_init_gpiomux(void)
 {
 	int rc;
@@ -668,4 +690,7 @@ void __init msm8610_init_gpiomux(void)
 		msm_gpiomux_install(msm_non_qrd_configs,
 			ARRAY_SIZE(msm_non_qrd_configs));
 	}
+	if (of_board_is_cdp())
+		msm_gpiomux_install(msm_cdc_dmic_configs,
+			ARRAY_SIZE(msm_cdc_dmic_configs));
 }
