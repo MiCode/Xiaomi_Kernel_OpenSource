@@ -102,7 +102,7 @@ struct msm8226_asoc_mach_data {
 	int mclk_gpio;
 	u32 mclk_freq;
 	struct msm_auxpcm_ctrl *auxpcm_ctrl;
-	u32 us_euro_gpio;
+	int us_euro_gpio;
 };
 
 #define GPIO_NAME_INDEX 0
