@@ -132,7 +132,7 @@
 		qcom,lpm-level@2 {
 			reg = <0x2>;
 			qcom,mode = "pc";
-			qcom,l2 = "l2_cache_retention";
+			qcom,l2 = "l2_cache_gdhs";
 			qcom,latency-us = <20000>;
 			qcom,ss-power = <138>;
 			qcom,energy-overhead = <1208400>;
