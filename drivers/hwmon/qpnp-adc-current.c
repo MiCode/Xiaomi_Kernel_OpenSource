@@ -1067,8 +1067,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 			GFP_KERNEL);
 	if (!adc_qpnp) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
-		rc = -ENOMEM;
-		goto fail;
+		return -ENOMEM;
 	}
 
 	iadc->dev = &(spmi->dev);
@@ -1077,7 +1076,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_get_devicetree_data(spmi, iadc->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
-		goto fail;
+		return rc;
 	}
 
 	iadc->vadc_dev = qpnp_get_vadc(&spmi->dev, "iadc");
@@ -1085,7 +1084,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 		rc = PTR_ERR(iadc->vadc_dev);
 		if (rc != -EPROBE_DEFER)
 			pr_err("vadc property missing, rc=%d\n", rc);
-		goto fail;
+		return rc;
 	}
 
 	mutex_init(&iadc->adc->adc_lock);
