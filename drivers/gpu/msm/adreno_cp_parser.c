@@ -188,6 +188,58 @@ static int adreno_ib_add_range(struct kgsl_device *device,
 }
 
 /*
+ * ib_save_mip_addresses() - Find mip addresses
+ * @device: Device on which the IB is running
+ * @pkt: Pointer to the packet in IB
+ * @ptbase: The pagetable on which IB is mapped
+ * @ib_obj_list: List in which any objects found are added
+ *
+ * Returns 0 on success else error code
+ */
+static int ib_save_mip_addresses(struct kgsl_device *device, unsigned int *pkt,
+		phys_addr_t ptbase, struct adreno_ib_object_list *ib_obj_list)
+{
+	int ret = 0;
+	int num_levels = (pkt[1] >> 22) & 0x03FF;
+	int i;
+	unsigned int *hostptr;
+	struct kgsl_mem_entry *ent;
+	unsigned int block, type;
+	int unitsize = 0;
+
+	block = (pkt[1] >> 19) & 0x07;
+	type = pkt[2] & 0x03;
+
+	if (type == 0)
+		unitsize = load_state_unit_sizes[block][0];
+	else
+		unitsize = load_state_unit_sizes[block][1];
+
+	if (3 == block && 1 == type) {
+		ent = kgsl_get_mem_entry(device, ptbase, pkt[2] & 0xFFFFFFFC,
+					(num_levels * unitsize) << 2);
+		if (!ent)
+			return -EINVAL;
+
+		hostptr = (unsigned int *)kgsl_gpuaddr_to_vaddr(&ent->memdesc,
+				pkt[2] & 0xFFFFFFFC);
+		if (!hostptr) {
+			kgsl_mem_entry_put(ent);
+			return -EINVAL;
+		}
+		for (i = 0; i < num_levels; i++) {
+			ret = adreno_ib_add_range(device, ptbase, hostptr[i],
+				0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+			if (ret < 0)
+				break;
+		}
+		kgsl_memdesc_unmap(&ent->memdesc);
+		kgsl_mem_entry_put(ent);
+	}
+	return ret;
+}
+
+/*
  * ib_parse_load_state() - Parse load state packet
  * @device: Device on which the IB is running
  * @pkt: Pointer to the packet in IB
@@ -247,31 +299,7 @@ static int ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 			return ret;
 	}
 	/* get the mip addresses */
-	if (3 == block && 1 == type) {
-		int num_levels = (pkt[1] >> 22) & 0x03FF;
-		int i;
-		unsigned int *hostptr;
-		struct kgsl_mem_entry *ent;
-
-		ent = kgsl_get_mem_entry(device, ptbase, pkt[2] & 0xFFFFFFFC,
-					(num_levels * unitsize) << 2);
-		if (!ent)
-			return -EINVAL;
-
-		hostptr = (unsigned int *)kgsl_gpuaddr_to_vaddr(&ent->memdesc,
-				pkt[2] & 0xFFFFFFFC);
-		if (!hostptr) {
-			kgsl_mem_entry_put(ent);
-			return -EINVAL;
-		}
-		for (i = 0; i < num_levels; i++) {
-			ret = adreno_ib_add_range(device, ptbase, hostptr[i],
-				0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-			if (ret < 0)
-				break;
-		}
-		kgsl_mem_entry_put(ent);
-	}
+	ret = ib_save_mip_addresses(device, pkt, ptbase, ib_obj_list);
 	return ret;
 }
 
@@ -720,6 +748,7 @@ static int adreno_ib_find_objs(struct kgsl_device *device,
 	ret = ib_add_type0_entries(device, ptbase, ib_obj_list,
 				&ib_parse_vars);
 done:
+	kgsl_memdesc_unmap(&entry->memdesc);
 	kgsl_mem_entry_put(entry);
 	return ret;
 }

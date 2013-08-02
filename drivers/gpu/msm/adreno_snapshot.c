@@ -602,5 +602,12 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		KGSL_DRV_ERR(device, "GPU snapshot froze %dKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
+	/*
+	 * Queue a work item that will save the IB data in snapshot into
+	 * static memory to prevent loss of data due to overwriting of
+	 * memory
+	 */
+	queue_work(device->work_queue, &device->snapshot_obj_ws);
+
 	return snapshot;
 }

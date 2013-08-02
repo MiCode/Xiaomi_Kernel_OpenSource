@@ -150,7 +150,8 @@ struct kgsl_memdesc_ops {
 	int (*vmfault)(struct kgsl_memdesc *, struct vm_area_struct *,
 		       struct vm_fault *);
 	void (*free)(struct kgsl_memdesc *memdesc);
-	int (*map_kernel_mem)(struct kgsl_memdesc *);
+	int (*map_kernel)(struct kgsl_memdesc *);
+	void (*unmap_kernel)(struct kgsl_memdesc *);
 };
 
 /* Internal definitions for memdesc->priv */
@@ -282,10 +283,16 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 static inline void *kgsl_memdesc_map(struct kgsl_memdesc *memdesc)
 {
 	if (memdesc->hostptr == NULL && memdesc->ops &&
-		memdesc->ops->map_kernel_mem)
-		memdesc->ops->map_kernel_mem(memdesc);
+		memdesc->ops->map_kernel)
+		memdesc->ops->map_kernel(memdesc);
 
 	return memdesc->hostptr;
+}
+
+static inline void kgsl_memdesc_unmap(struct kgsl_memdesc *memdesc)
+{
+	if (memdesc->ops && memdesc->ops->unmap_kernel)
+		memdesc->ops->unmap_kernel(memdesc);
 }
 
 static inline uint8_t *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
