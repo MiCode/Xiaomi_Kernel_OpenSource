@@ -31,6 +31,7 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
+#include <linux/wakelock.h>
 
 /* QPNP IADC register definition */
 #define QPNP_IADC_REVISION1				0x0
@@ -48,6 +49,7 @@
 #define QPNP_STATUS1_MEAS_INTERVAL_EN_STS		BIT(2)
 #define QPNP_STATUS1_REQ_STS				BIT(1)
 #define QPNP_STATUS1_EOC				BIT(0)
+#define QPNP_STATUS1_REQ_STS_EOC_MASK			0x3
 #define QPNP_STATUS2					0x9
 #define QPNP_STATUS2_CONV_SEQ_STATE_SHIFT		4
 #define QPNP_STATUS2_FIFO_NOT_EMPTY_FLAG		BIT(1)
@@ -110,8 +112,9 @@
 #define QPNP_IADC_DATA0					0x60
 #define QPNP_IADC_DATA1					0x61
 
-#define QPNP_ADC_CONV_TIME_MIN				8000
-#define QPNP_ADC_CONV_TIME_MAX				8200
+#define QPNP_ADC_CONV_TIME_MIN				2000
+#define QPNP_ADC_CONV_TIME_MAX				2100
+#define QPNP_ADC_ERR_COUNT				20
 
 #define QPNP_ADC_GAIN_NV				17857
 #define QPNP_OFFSET_CALIBRATION_SHORT_CADC_LEADS_IDEAL	0
@@ -135,6 +138,7 @@ struct qpnp_iadc_comp {
 };
 
 struct qpnp_iadc_chip {
+	struct device				*dev;
 	struct qpnp_adc_drv			*adc;
 	int32_t					rsense;
 	bool					external_rsense;
@@ -147,8 +151,9 @@ struct qpnp_iadc_chip {
 	struct qpnp_iadc_comp			iadc_comp;
 	struct qpnp_vadc_chip			*vadc_dev;
 	struct work_struct			trigger_completion_work;
-	struct sensor_device_attribute		sens_attr[0];
 	bool					skip_auto_calibrations;
+	bool					iadc_poll_eoc;
+	struct sensor_device_attribute		sens_attr[0];
 };
 
 LIST_HEAD(qpnp_iadc_device_list);
@@ -426,6 +431,8 @@ static int32_t qpnp_iadc_configure(struct qpnp_iadc_chip *iadc,
 {
 	u8 qpnp_iadc_mode_reg = 0, qpnp_iadc_ch_sel_reg = 0;
 	u8 qpnp_iadc_conv_req = 0, qpnp_iadc_dig_param_reg = 0;
+	u8 status1 = 0;
+	uint32_t count = 0;
 	int32_t rc = 0;
 
 	qpnp_iadc_ch_sel_reg = channel;
@@ -473,7 +480,8 @@ static int32_t qpnp_iadc_configure(struct qpnp_iadc_chip *iadc,
 		return rc;
 	}
 
-	INIT_COMPLETION(iadc->adc->adc_rslt_completion);
+	if (!iadc->iadc_poll_eoc)
+		INIT_COMPLETION(iadc->adc->adc_rslt_completion);
 
 	rc = qpnp_iadc_enable(iadc, true);
 	if (rc)
@@ -485,23 +493,43 @@ static int32_t qpnp_iadc_configure(struct qpnp_iadc_chip *iadc,
 		return rc;
 	}
 
-	rc = wait_for_completion_timeout(&iadc->adc->adc_rslt_completion,
-				QPNP_ADC_COMPLETION_TIMEOUT);
-	if (!rc) {
-		u8 status1 = 0;
-		rc = qpnp_iadc_read_reg(iadc, QPNP_STATUS1, &status1);
-		if (rc < 0)
-			return rc;
-		status1 &= (QPNP_STATUS1_REQ_STS | QPNP_STATUS1_EOC);
-		if (status1 == QPNP_STATUS1_EOC)
-			pr_debug("End of conversion status set\n");
-		else {
-			rc = qpnp_iadc_status_debug(iadc);
-			if (rc < 0) {
-				pr_err("status1 read failed with %d\n", rc);
+	if (iadc->iadc_poll_eoc) {
+		while (status1 != QPNP_STATUS1_EOC) {
+			rc = qpnp_iadc_read_reg(iadc, QPNP_STATUS1, &status1);
+			if (rc < 0)
+				return rc;
+			status1 &= QPNP_STATUS1_REQ_STS_EOC_MASK;
+			usleep_range(QPNP_ADC_CONV_TIME_MIN,
+					QPNP_ADC_CONV_TIME_MAX);
+			count++;
+			if (count > QPNP_ADC_ERR_COUNT) {
+				pr_err("retry error exceeded\n");
+				rc = qpnp_iadc_status_debug(iadc);
+				if (rc < 0)
+					pr_err("IADC status debug failed\n");
+				rc = -EINVAL;
 				return rc;
 			}
-			return -EINVAL;
+		}
+	} else {
+		rc = wait_for_completion_timeout(
+				&iadc->adc->adc_rslt_completion,
+				QPNP_ADC_COMPLETION_TIMEOUT);
+		if (!rc) {
+			rc = qpnp_iadc_read_reg(iadc, QPNP_STATUS1, &status1);
+			if (rc < 0)
+				return rc;
+			status1 &= QPNP_STATUS1_REQ_STS_EOC_MASK;
+			if (status1 == QPNP_STATUS1_EOC)
+				pr_debug("End of conversion status set\n");
+			else {
+				rc = qpnp_iadc_status_debug(iadc);
+				if (rc < 0) {
+					pr_err("status debug failed %d\n", rc);
+					return rc;
+				}
+				return -EINVAL;
+			}
 		}
 	}
 
@@ -555,6 +583,11 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 		return -EPROBE_DEFER;
 
 	mutex_lock(&iadc->adc->adc_lock);
+
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("acquiring iadc eoc wakelock\n");
+		pm_stay_awake(iadc->dev);
+	}
 
 	rc = qpnp_iadc_configure(iadc, GAIN_CALIBRATION_17P857MV,
 						&raw_data, mode_sel);
@@ -639,6 +672,10 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 		goto fail;
 	}
 fail:
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("releasing iadc eoc wakelock\n");
+		pm_relax(iadc->dev);
+	}
 	mutex_unlock(&iadc->adc->adc_lock);
 	return rc;
 }
@@ -786,6 +823,11 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 
 	mutex_lock(&iadc->adc->adc_lock);
 
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("acquiring iadc eoc wakelock\n");
+		pm_stay_awake(iadc->dev);
+	}
+
 	rc = qpnp_iadc_configure(iadc, channel, &raw_data, mode_sel);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
@@ -820,6 +862,10 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 
 	result->result_ua = (int32_t) result_current;
 fail:
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("releasing iadc eoc wakelock\n");
+		pm_relax(iadc->dev);
+	}
 	mutex_unlock(&iadc->adc->adc_lock);
 
 	return rc;
@@ -883,6 +929,11 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 
 	mutex_lock(&iadc->iadc_vadc_lock);
 
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("acquiring iadc eoc wakelock\n");
+		pm_stay_awake(iadc->dev);
+	}
+
 	rc = qpnp_check_pmic_temp(iadc);
 	if (rc) {
 		pr_err("PMIC die temp check failed\n");
@@ -909,6 +960,10 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 fail:
 	iadc->iadc_mode_sel = false;
 
+	if (iadc->iadc_poll_eoc) {
+		pr_debug("releasing iadc eoc wakelock\n");
+		pm_relax(iadc->dev);
+	}
 	mutex_unlock(&iadc->iadc_vadc_lock);
 
 	return rc;
@@ -999,6 +1054,7 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
+	iadc->dev = &(spmi->dev);
 	iadc->adc = adc_qpnp;
 
 	rc = qpnp_adc_get_devicetree_data(spmi, iadc->adc);
@@ -1026,14 +1082,18 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		iadc->external_rsense = true;
 	}
 
-	rc = devm_request_irq(&spmi->dev, iadc->adc->adc_irq_eoc,
-				qpnp_iadc_isr,
-	IRQF_TRIGGER_RISING, "qpnp_iadc_interrupt", iadc);
-	if (rc) {
-		dev_err(&spmi->dev, "failed to request adc irq\n");
-		return rc;
-	} else
-		enable_irq_wake(iadc->adc->adc_irq_eoc);
+	iadc->iadc_poll_eoc = of_property_read_bool(node,
+						"qcom,iadc-poll-eoc");
+	if (!iadc->iadc_poll_eoc) {
+		rc = devm_request_irq(&spmi->dev, iadc->adc->adc_irq_eoc,
+				qpnp_iadc_isr, IRQF_TRIGGER_RISING,
+				"qpnp_iadc_interrupt", iadc);
+		if (rc) {
+			dev_err(&spmi->dev, "failed to request adc irq\n");
+			return rc;
+		} else
+			enable_irq_wake(iadc->adc->adc_irq_eoc);
+	}
 
 	rc = qpnp_iadc_init_hwmon(iadc, spmi);
 	if (rc) {
@@ -1062,6 +1122,9 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_iadc_calibrate_for_trim(iadc, true);
 	if (rc)
 		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
+
+	if (iadc->iadc_poll_eoc)
+		device_init_wakeup(iadc->dev, 1);
 
 	schedule_delayed_work(&iadc->iadc_work,
 			round_jiffies_relative(msecs_to_jiffies
@@ -1093,6 +1156,8 @@ static int __devexit qpnp_iadc_remove(struct spmi_device *spmi)
 		i++;
 	}
 	hwmon_device_unregister(iadc->iadc_hwmon);
+	if (iadc->iadc_poll_eoc)
+		pm_relax(iadc->dev);
 	dev_set_drvdata(&spmi->dev, NULL);
 
 	return 0;
