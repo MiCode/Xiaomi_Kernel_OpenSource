@@ -277,6 +277,8 @@ struct kgsl_device {
 	 * dumped
 	 */
 	struct list_head snapshot_obj_list;
+	/* List of IB's to be dumped */
+	struct list_head snapshot_cp_list;
 
 	/* Logging levels */
 	int cmd_log;
@@ -504,6 +506,7 @@ const char *kgsl_pwrstate_to_str(unsigned int state);
 int kgsl_device_snapshot_init(struct kgsl_device *device);
 int kgsl_device_snapshot(struct kgsl_device *device, int hang);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
+void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
 static inline struct kgsl_device_platform_data *
 kgsl_device_get_drvdata(struct kgsl_device *dev)

@@ -22,6 +22,7 @@
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
+#include "adreno_cp_parser.h"
 
 /* Placeholder for the list of memory objects frozen after a hang */
 
@@ -32,6 +33,14 @@ struct kgsl_snapshot_object {
 	unsigned int offset;
 	int type;
 	struct kgsl_mem_entry *entry;
+	struct list_head node;
+};
+
+/* Placeholder for list of ib objects that contain all objects in that IB */
+
+struct kgsl_snapshot_cp_obj {
+	struct adreno_ib_object_list *ib_obj_list;
+	unsigned int ptbase;
 	struct list_head node;
 };
 
@@ -260,6 +269,12 @@ static int kgsl_snapshot_dump_object(struct kgsl_device *device,
 	struct kgsl_snapshot_gpu_object header;
 	int ret;
 
+	if (kgsl_memdesc_map(&obj->entry->memdesc) == NULL) {
+		KGSL_DRV_ERR(device, "Unable to map GPU buffer %X\n",
+				obj->gpuaddr);
+		return 0;
+	}
+
 	sect.magic = SNAPSHOT_SECTION_MAGIC;
 	sect.id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT;
 
@@ -309,6 +324,32 @@ static void kgsl_snapshot_put_object(struct kgsl_device *device,
 	kfree(obj);
 }
 
+/*
+ * ksgl_snapshot_find_object() - Return the snapshot object pointer
+ * for given address range
+ * @device: the device that is being snapshotted
+ * @ptbase: the pagetable base of the object to search
+ * @gpuaddr: The gpu address of the object to search
+ * @size: the size of the object (may not always be the size of the region)
+ *
+ * Return the object pointer if found else NULL
+ */
+struct kgsl_snapshot_object *kgsl_snapshot_find_object(
+			struct kgsl_device *device,
+			phys_addr_t ptbase, unsigned int gpuaddr,
+			unsigned int size)
+{
+	struct kgsl_snapshot_object *obj = NULL;
+	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
+		if (obj->ptbase != ptbase)
+			continue;
+		if ((gpuaddr >= obj->gpuaddr) &&
+			((gpuaddr + size) <= (obj->gpuaddr + obj->size)))
+			return obj;
+	}
+	return NULL;
+}
+
 /* ksgl_snapshot_have_object - Return 1 if the object has been processed
  *@device - the device that is being snapshotted
  * @ptbase - the pagetable base of the object to freeze
@@ -355,6 +396,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 	struct kgsl_snapshot_object *obj;
 	int offset;
 	int ret = -EINVAL;
+	unsigned int mem_type;
 
 	if (!gpuaddr)
 		return 0;
@@ -371,6 +413,18 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL) {
 		KGSL_DRV_ERR(device,
 			"Only internal GPU buffers can be frozen\n");
+		goto err_put;
+	}
+	/*
+	 * Do not save texture and render targets in snapshot,
+	 * they can be just too big
+	 */
+	mem_type = (entry->memdesc.flags & KGSL_MEMTYPE_MASK) >>
+		KGSL_MEMTYPE_SHIFT;
+	if (KGSL_MEMTYPE_TEXTURE == mem_type ||
+		KGSL_MEMTYPE_EGL_SURFACE == mem_type ||
+		KGSL_MEMTYPE_EGL_IMAGE == mem_type) {
+		ret = 0;
 		goto err_put;
 	}
 
@@ -399,19 +453,22 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 
 	/* If the buffer is already on the list, skip it */
 	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
-		if (obj->gpuaddr == gpuaddr && obj->ptbase == ptbase) {
-			/* If the size is different, use the bigger size */
-			if (obj->size < size)
-				obj->size = size;
+		/* combine the range with existing object if they overlap */
+		if (obj->ptbase == ptbase && obj->type == type &&
+			kgsl_addr_range_overlap(obj->gpuaddr, obj->size,
+				gpuaddr, size)) {
+			unsigned int end1 = obj->gpuaddr + obj->size;
+			unsigned int end2 = gpuaddr + size;
+			if (obj->gpuaddr > gpuaddr)
+				obj->gpuaddr = gpuaddr;
+			if (end1 > end2)
+				obj->size = end1 - obj->gpuaddr;
+			else
+				obj->size = end2 - obj->gpuaddr;
+			obj->offset = obj->gpuaddr - entry->memdesc.gpuaddr;
 			ret = 0;
 			goto err_put;
 		}
-	}
-
-	if (kgsl_memdesc_map(&entry->memdesc) == NULL) {
-		KGSL_DRV_ERR(device, "Unable to map GPU buffer %X\n",
-				gpuaddr);
-		goto err_put;
 	}
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
@@ -635,6 +692,32 @@ struct kgsl_snapshot_attribute {
 		size_t count);
 };
 
+/*
+ * kgsl_snapshot_process_ib_obj_list() - Go through the list of IB's which need
+ * to be dumped for snapshot and move them to the global snapshot list so
+ * they will get dumped when the global list is dumped
+ * @device: device being snapshotted
+ */
+static void kgsl_snapshot_process_ib_obj_list(struct kgsl_device *device)
+{
+	struct kgsl_snapshot_cp_obj *obj, *obj_temp;
+	struct adreno_ib_object *ib_obj;
+	int i;
+
+	list_for_each_entry_safe(obj, obj_temp, &device->snapshot_cp_list,
+			node) {
+		for (i = 0; i < obj->ib_obj_list->num_objs; i++) {
+			ib_obj = &(obj->ib_obj_list->obj_list[i]);
+			kgsl_snapshot_get_object(device, obj->ptbase,
+				ib_obj->gpuaddr, ib_obj->size,
+				ib_obj->snapshot_obj_type);
+		}
+		list_del(&obj->node);
+		adreno_ib_destroy_obj_list(obj->ib_obj_list);
+		kfree(obj);
+	}
+}
+
 #define to_snapshot_attr(a) \
 container_of(a, struct kgsl_snapshot_attribute, attr)
 
@@ -668,6 +751,8 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 
 	if (ret == 0)
 		goto done;
+
+	kgsl_snapshot_process_ib_obj_list(device);
 
 	list_for_each_entry(obj, &device->snapshot_obj_list, node)
 		kgsl_snapshot_dump_object(device, obj, &itr);
@@ -827,6 +912,7 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 	device->snapshot_faultcount = 0;
 
 	INIT_LIST_HEAD(&device->snapshot_obj_list);
+	INIT_LIST_HEAD(&device->snapshot_cp_list);
 
 	ret = kobject_init_and_add(&device->snapshot_kobj, &ktype_snapshot,
 		&device->dev->kobj, "snapshot");
@@ -875,3 +961,29 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 	device->snapshot_faultcount = 0;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot_close);
+
+/*
+ * kgsl_snapshot_add_ib_obj_list() - Add a IB object list to the snapshot
+ * object list
+ * @device: the device that is being snapshotted
+ * @ib_obj_list: The IB list that has objects required to execute an IB
+ * @num_objs: Number of IB objects
+ * @ptbase: The pagetable base in which the IB is mapped
+ *
+ * Adds a new IB to the list of IB objects maintained when getting snapshot
+ * Returns 0 on success else -ENOMEM on error
+ */
+int kgsl_snapshot_add_ib_obj_list(struct kgsl_device *device,
+	phys_addr_t ptbase,
+	struct adreno_ib_object_list *ib_obj_list)
+{
+	struct kgsl_snapshot_cp_obj *obj;
+
+	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	if (!obj)
+		return -ENOMEM;
+	obj->ib_obj_list = ib_obj_list;
+	obj->ptbase = ptbase;
+	list_add(&obj->node, &device->snapshot_cp_list);
+	return 0;
+}

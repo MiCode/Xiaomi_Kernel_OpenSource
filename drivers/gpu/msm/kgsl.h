@@ -332,4 +332,22 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 	kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
+/*
+ * kgsl_addr_range_overlap() - Checks if 2 ranges overlap
+ * @gpuaddr1: Start of first address range
+ * @size1: Size of first address range
+ * @gpuaddr2: Start of second address range
+ * @size2: Size of second address range
+ *
+ * Function returns true if the 2 given address ranges overlap
+ * else false
+ */
+static inline bool kgsl_addr_range_overlap(unsigned int gpuaddr1,
+		unsigned int size1,
+		unsigned int gpuaddr2, unsigned int size2)
+{
+	return !(((gpuaddr1 + size1) < gpuaddr2) ||
+		(gpuaddr1 > (gpuaddr2 + size2)));
+}
+
 #endif /* __KGSL_H */
