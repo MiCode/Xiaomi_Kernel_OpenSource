@@ -17,6 +17,13 @@
 };
 
 &soc {
+	ext_5v_vreg: regulator-tps61256 {
+		compatible = "regulator-fixed";
+		regulator-name = "ext_5v_boost";
+		gpio = <&pma8084_gpios 1 0>;
+		startup-delay-us = <500>;
+		enable-active-high;
+	};
 };
 
 &blsp1_uart1{
@@ -26,6 +33,13 @@
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 		/* 5 V Boost regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>; 		/* Output low initially */
+		qcom,vin-sel = <0>; 		/* VPH = battery voltage */
+		qcom,src-sel = <0>; 		/* Constant */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c100 { /* GPIO 2 */
