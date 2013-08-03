@@ -101,7 +101,7 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	io_data->len = resource_size(res);
+	io_data->len = (u32)resource_size(res);
 	io_data->base = ioremap(res->start, io_data->len);
 	if (!io_data->base) {
 		DEV_ERR("%pS->%s: '%s' ioremap failed\n",

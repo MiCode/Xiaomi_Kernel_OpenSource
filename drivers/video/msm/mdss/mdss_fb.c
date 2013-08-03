@@ -804,9 +804,10 @@ static struct fb_ops mdss_fb_ops = {
 static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 {
 	void *virt = NULL;
-	unsigned long phys = 0;
+	phys_addr_t phys = 0;
 	size_t size = 0;
 	struct platform_device *pdev = mfd->pdev;
+	int rc = 0;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid device node\n");
@@ -835,11 +836,19 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 	}
 
 	phys = memory_pool_node_paddr(virt);
+	if (MDSS_LPAE_CHECK(phys)) {
+		pr_warn("fb mem phys %pa > 4GB is not supported.\n", &phys);
+		free_contiguous_memory(virt);
+		return -ERANGE;
+	}
 
-	msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
+	rc = msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
 					    &mfd->iova);
-	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
-		 size, virt, phys, mfd->index);
+	if (rc)
+		pr_warn("Cannot map fb_mem %pa to IOMMU. rc=%d\n", &phys, rc);
+
+	pr_info("allocating 0x%x bytes at %p (%pa phys) for fb %d\n",
+		 size, virt, &phys, mfd->index);
 
 	mfd->fbi->screen_base = virt;
 	mfd->fbi->fix.smem_start = phys;

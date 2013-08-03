@@ -1464,7 +1464,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 					  (dma_addr_t) mfd->cursor_buf_phys);
 			pr_err("unable to map cursor buffer to iommu(%d)\n",
 			       ret);
-			return -ENOMEM;
+			return ret;
 		}
 	}
 
@@ -1487,16 +1487,26 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				   (img->dy << 16) | img->dx);
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
-		int calpha_en, transp_en, alpha, size, cursor_addr;
+		int calpha_en, transp_en, alpha, size;
+		u32 cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
-		if (ret)
+		if (ret) {
+			pr_err("copy_from_user error. rc=%d\n", ret);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 			return ret;
+		}
 
-		if (is_mdss_iommu_attached())
+		if (is_mdss_iommu_attached()) {
 			cursor_addr = mfd->cursor_buf_iova;
-		else
+		} else {
+			if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
+				pr_err("can't access phy mem >4GB w/o iommu\n");
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+				return -ERANGE;
+			}
 			cursor_addr = mfd->cursor_buf_phys;
+		}
 
 		if (img->bg_color == 0xffffffff)
 			transp_en = 0;
