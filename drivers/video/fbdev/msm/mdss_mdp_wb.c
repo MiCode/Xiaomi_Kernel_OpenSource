@@ -102,16 +102,23 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 			rc = ion_map_iommu(iclient, ihdl,
 					   mdss_get_iommu_domain(domain),
 					   0, SZ_4K, 0,
-					   (unsigned long *) &img->addr,
+					   &img->addr,
 					   (unsigned long *) &img->len,
 					   0, 0);
 		} else {
+			if (MDSS_LPAE_CHECK(mdss_wb_mem)) {
+				pr_err("Can't use phys mem %pa>4Gb w/o IOMMU\n",
+					&mdss_wb_mem);
+				ion_free(iclient, ihdl);
+				return NULL;
+			}
+
 			img->addr = mdss_wb_mem;
 			img->len = img_size;
 		}
 
-		pr_debug("ihdl=%p virt=%p phys=0x%lx iova=0x%x size=%u\n",
-			 ihdl, videomemory, mdss_wb_mem, img->addr, img_size);
+		pr_debug("ihdl=%p virt=%p phys=0x%pa iova=0x%pa size=%u\n",
+			 ihdl, videomemory, &mdss_wb_mem, &img->addr, img_size);
 	}
 	return &mdss_wb_buffer;
 }
