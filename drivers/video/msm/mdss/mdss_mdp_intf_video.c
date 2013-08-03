@@ -531,6 +531,13 @@ int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
 	virt = ion_map_kernel(iclient, ihdl);
 	ion_phys(iclient, ihdl, &phys, &size);
 
+	if (MDSS_LPAE_CHECK(phys)) {
+		pr_err("Phys mem %pa >4Gb cannot be used w/o IOMMU\n", &phys);
+		pdata->panel_info.splash_ihdl = NULL;
+		ion_free(iclient, ihdl);
+		return -ERANGE;
+	}
+
 	pr_debug("%s %d Allocating %u bytes at 0x%lx (%pa phys)\n",
 			__func__, __LINE__, size,
 			(unsigned long int)virt, &phys);
