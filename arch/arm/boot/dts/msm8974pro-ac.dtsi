@@ -46,6 +46,7 @@
 
 	tpiu@fc318000 {
 		vdd-supply = <&pma8084_l21>;
+		vdd-io-supply = <&pma8084_l13>;
 	};
 
 	qcom,mdss_dsi@fd922800 {
