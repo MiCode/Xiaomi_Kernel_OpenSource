@@ -52,6 +52,11 @@
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
+#define OVERFETCH_DISABLE_TOP		BIT(0)
+#define OVERFETCH_DISABLE_BOTTOM	BIT(1)
+#define OVERFETCH_DISABLE_LEFT		BIT(2)
+#define OVERFETCH_DISABLE_RIGHT		BIT(3)
+
 #ifdef MDSS_MDP_DEBUG_REG
 static inline void mdss_mdp_reg_write(u32 addr, u32 val)
 {

@@ -458,8 +458,16 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pr_debug("Unintended blend_op %d on layer with no alpha plane\n",
 			pipe->blend_op);
 
-	pipe->overfetch_disable = fmt->is_yuv &&
-			!(pipe->flags & MDP_SOURCE_ROTATED_90);
+	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90)) {
+		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
+
+		if (!(pipe->flags & MDSS_MDP_DUAL_PIPE) ||
+				(pipe->flags & MDSS_MDP_RIGHT_MIXER))
+			pipe->overfetch_disable |= OVERFETCH_DISABLE_RIGHT;
+		pr_debug("overfetch flags=%x\n", pipe->overfetch_disable);
+	} else {
+		pipe->overfetch_disable = 0;
+	}
 
 	req->id = pipe->ndx;
 	pipe->req_data = *req;
