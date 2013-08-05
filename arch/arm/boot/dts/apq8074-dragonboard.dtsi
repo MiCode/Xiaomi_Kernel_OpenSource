@@ -569,10 +569,10 @@
 			qcom,default-state = "on";
 			qcom,max-current = <20>;
 			qcom,ctrl-delay-us = <0>;
-			qcom,boost-curr-lim = <3>;
+			qcom,boost-curr-lim = <2>;
 			qcom,cp-sel = <0>;
-			qcom,switch-freq = <2>;
-			qcom,ovp-val = <1>;
+			qcom,switch-freq = <0>;
+			qcom,ovp-val = <0>;
 			qcom,num-strings = <1>;
 			qcom,id = <0>;
 		};
