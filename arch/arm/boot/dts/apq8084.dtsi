@@ -419,10 +419,18 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
-	ufs1: ufshc@0xfc598000 {
+	ufs1: ufshc@0xfc594000 {
 		compatible = "jedec,ufs-1.1";
 		reg = <0xfc594000 0x800>;
 		interrupts = <0 28 0>;
+
+		vcc-supply = <&pma8084_l19>;
+		vccq-supply = <&pma8084_l3>;
+		vccq2-supply = <&pma8084_s4>;
+		vcc-max-microamp = <460000>;
+		vccq-max-microamp = <200000>;
+		vccq2-max-microamp = <145000>;
+
 		status = "disabled";
 	};
 
