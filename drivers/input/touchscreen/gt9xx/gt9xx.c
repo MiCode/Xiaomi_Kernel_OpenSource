@@ -1949,7 +1949,7 @@ Output:
 *******************************************************/
 static void goodix_ts_suspend(struct goodix_ts_data *ts)
 {
-	int ret = -1;
+	int ret = -1, i;
 
 	GTP_DEBUG_FUNC();
 
@@ -1965,6 +1965,13 @@ static void goodix_ts_suspend(struct goodix_ts_data *ts)
 		gtp_irq_disable(ts);
 	else
 		hrtimer_cancel(&ts->timer);
+
+	for (i = 0; i < GTP_MAX_TOUCH; i++)
+		gtp_touch_up(ts, i);
+
+	input_report_key(ts->input_dev, BTN_TOUCH, 0);
+	input_sync(ts->input_dev);
+
 	ret = gtp_enter_sleep(ts);
 #endif
 	if (ret < 0)
