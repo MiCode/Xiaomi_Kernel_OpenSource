@@ -5973,6 +5973,16 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk", gcc_lpass_q6_axi_clk.c, "fe054000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", gcc_lpass_mport_axi_clk.c,
 							"fe064000.qcom,iommu"),
+
+	CLK_LOOKUP("core_clk", vpu_vdp_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("maple_clk", vpu_maple_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("cpp_clk", camss_vfe_cpp_clk.c, "fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core0_clk", camss_vfe_vfe0_clk.c, "fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core1_clk", camss_vfe_vfe1_clk.c, "fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4024.qcom,gdsc"),
+
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
