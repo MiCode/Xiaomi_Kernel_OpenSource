@@ -84,6 +84,9 @@
 #define PHY_IDHV_INTEN          (1 << 8) /* PHY ID HV interrupt */
 #define PHY_OTGSESSVLDHV_INTEN  (1 << 9) /* PHY Session Valid HV int. */
 #define PHY_CLAMP_DPDMSE_EN	(1 << 21) /* PHY mpm DP DM clamp enable */
+#define PHY_POR_BIT_MASK	BIT(0)
+#define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
+#define PHY_POR_DEASSERT	(0 << 0) /* USB2 28nm PHY POR DEASSERT */
 
 #define STS_PCI                 (1 << 2) /* R/WC - Port Change Detect */
 #define STS_URI                 (1 << 6) /* R/WC - RESET recv'd */
