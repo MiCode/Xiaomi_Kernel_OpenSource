@@ -499,7 +499,7 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 		pr_debug("Image decimation h=%d v=%d\n",
 				pipe->horz_deci, pipe->vert_deci);
 
-	img_size = (height << 16) | width;
+
 	src_size = (pipe->src.h << 16) | pipe->src.w;
 	src_xy = (pipe->src.y << 16) | pipe->src.x;
 	dst_size = (pipe->dst.h << 16) | pipe->dst.w;
@@ -510,9 +510,25 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 		    (pipe->src_planes.ystride[3] << 16);
 
 	if (pipe->overfetch_disable) {
-		img_size = src_size;
-		src_xy = 0;
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_BOTTOM) {
+			height = pipe->src.h;
+			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_TOP))
+				height += pipe->src.y;
+		}
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_RIGHT) {
+			width = pipe->src.w;
+			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT))
+				width += pipe->src.x;
+		}
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
+			src_xy &= ~0xFFFF;
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
+			src_xy &= ~(0xFFFF << 16);
+
+		pr_debug("overfetch w=%d/%d h=%d/%d src_xy=0x%08x\n", width,
+			pipe->img_width, height, pipe->img_height, src_xy);
 	}
+	img_size = (height << 16) | width;
 
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_IMG_SIZE, img_size);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE, src_size);
@@ -632,9 +648,17 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	if (ret)
 		return ret;
 
-	if (pipe->overfetch_disable)
-		mdss_mdp_data_calc_offset(data, pipe->src.x, pipe->src.y,
+	if (pipe->overfetch_disable) {
+		u32 x = 0, y = 0;
+
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
+			x = pipe->src.x;
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
+			y = pipe->src.y;
+
+		mdss_mdp_data_calc_offset(data, x, y,
 			&pipe->src_planes, pipe->src_fmt);
+	}
 
 	/* planar format expects YCbCr, swap chroma planes if YCrCb */
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_102 &&
