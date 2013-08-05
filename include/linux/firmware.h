@@ -48,11 +48,33 @@ int request_firmware_nowait(
 int request_firmware_direct(const struct firmware **fw, const char *name,
 			    struct device *device);
 
+int request_firmware_into_buf(const char *name, struct device *device,
+			    phys_addr_t dest_addr, size_t dest_size,
+			    void * (*map_fw_mem)(phys_addr_t phys,
+						 size_t size),
+			    void (*unmap_fw_mem)(void *virt));
+int request_firmware_nowait_into_buf(
+	struct module *module, bool uevent,
+	const char *name, struct device *device, gfp_t gfp, void *context,
+	void (*cont)(const struct firmware *fw, void *context),
+	phys_addr_t dest_addr, size_t dest_size,
+	void * (*map_fw_mem)(phys_addr_t phys, size_t size),
+	void (*unmap_fw_mem)(void *virt));
 void release_firmware(const struct firmware *fw);
 #else
 static inline int request_firmware(const struct firmware **fw,
 				   const char *name,
 				   struct device *device)
+{
+	return -EINVAL;
+}
+static inline int request_firmware_into_buf(const char *name,
+					  struct device *device,
+					  phys_addr_t dest_addr,
+					  size_t dest_size,
+					  void * (*map_fw_mem)(phys_addr_t phys,
+							       size_t size),
+					  void (*unmap_fw_mem)(void *virt))
 {
 	return -EINVAL;
 }
@@ -63,7 +85,16 @@ static inline int request_firmware_nowait(
 {
 	return -EINVAL;
 }
-
+static inline int request_firmware_nowait_into_buf(
+	struct module *module, bool uevent,
+	const char *name, struct device *device, gfp_t gfp, void *context,
+	void (*cont)(const struct firmware *fw, void *context),
+	phys_addr_t dest_addr, size_t dest_size,
+	void * (*map_fw_mem)(phys_addr_t phys, size_t size),
+	void (*unmap_fw_mem)(void *virt))
+{
+	return -EINVAL;
+}
 static inline void release_firmware(const struct firmware *fw)
 {
 }
