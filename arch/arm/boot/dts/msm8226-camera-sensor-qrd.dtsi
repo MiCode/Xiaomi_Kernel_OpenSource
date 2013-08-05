@@ -437,7 +437,7 @@
 		qcom,gpio-set-tbl-delay = <1000 4000>;
 		qcom,csi-lane-assign = <0x4320>;
 		qcom,csi-lane-mask = <0x3>;
-		qcom,sensor-position = <0>;
+		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
