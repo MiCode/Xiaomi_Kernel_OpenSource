@@ -591,10 +591,10 @@ static unsigned int krait_power_get_mode(struct regulator_dev *rdev)
 	return kvreg->mode;
 }
 
-static int switch_to_using_hs(struct krait_power_vreg *kvreg)
+static void __switch_to_using_bhs(void *info)
 {
-	if (kvreg->mode == HS_MODE)
-		return 0;
+	struct krait_power_vreg *kvreg = info;
+
 	/* enable bhs */
 	if (version > KPSS_VERSION_2P0) {
 		krait_masked_write(kvreg, APC_PWR_GATE_MODE,
@@ -648,21 +648,18 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 
 	kvreg->mode = HS_MODE;
 	pr_debug("%s using BHS\n", kvreg->name);
-	return 0;
 }
 
-static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
+static void __switch_to_using_ldo(void *info)
 {
-	if (kvreg->mode == LDO_MODE
-		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
-		return 0;
+	struct krait_power_vreg *kvreg = info;
 
 	/*
 	 * if the krait is in ldo mode and a voltage change is requested on the
 	 * ldo switch to using hs before changing ldo voltage
 	 */
 	if (kvreg->mode == LDO_MODE)
-		switch_to_using_hs(kvreg);
+		__switch_to_using_bhs(kvreg);
 
 	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
 	if (version > KPSS_VERSION_2P0) {
@@ -701,7 +698,25 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 
 	kvreg->mode = LDO_MODE;
 	pr_debug("%s using LDO\n", kvreg->name);
-	return 0;
+}
+
+static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
+{
+	if (kvreg->mode == LDO_MODE
+		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
+		return 0;
+
+	return smp_call_function_single(kvreg->cpu_num,
+			__switch_to_using_ldo, kvreg, 1);
+}
+
+static int switch_to_using_bhs(struct krait_power_vreg *kvreg)
+{
+	if (kvreg->mode == HS_MODE)
+		return 0;
+
+	return smp_call_function_single(kvreg->cpu_num,
+			__switch_to_using_bhs, kvreg, 1);
 }
 
 static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
@@ -772,7 +787,7 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 				return rc;
 			}
 		} else {
-			rc = switch_to_using_hs(kvreg);
+			rc = switch_to_using_bhs(kvreg);
 			if (rc < 0) {
 				pr_err("could not switch %s to hs rc = %d\n",
 							kvreg->name, rc);
