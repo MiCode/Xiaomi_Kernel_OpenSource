@@ -320,7 +320,7 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 	wmb();
 }
 
-void msm_dsi_set_tx_power_mode(int mode)
+void dsi_set_tx_power_mode(int mode)
 {
 	u32 data;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
