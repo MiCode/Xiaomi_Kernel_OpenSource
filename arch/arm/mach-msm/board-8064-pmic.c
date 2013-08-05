@@ -453,6 +453,7 @@ apq8064_pm8921_chg_pdata = {
 	.thermal_mitigation	= apq8064_pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(apq8064_pm8921_therm_mitigation),
 	.rconn_mohm		= 18,
+	.enable_tcxo_warmup_delay = true,
 };
 
 static struct pm8xxx_ccadc_platform_data

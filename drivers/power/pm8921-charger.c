@@ -298,6 +298,7 @@ struct pm8921_chg_chip {
 	bool				disable_aicl;
 	int				usb_type;
 	bool				disable_chg_rmvl_wrkarnd;
+	bool				enable_tcxo_warmup_delay;
 	struct msm_xo_voter		*voter;
 };
 
@@ -4030,12 +4031,16 @@ err_out:
 	return -EINVAL;
 }
 
+#define TCXO_WARMUP_DELAY_MS	4
 static void pm8921_chg_force_19p2mhz_clk(struct pm8921_chg_chip *chip)
 {
 	int err;
 	u8 temp;
 
 	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_ON);
+	if (chip->enable_tcxo_warmup_delay)
+		msleep(TCXO_WARMUP_DELAY_MS);
+
 	temp  = 0xD1;
 	err = pm_chg_write(chip, CHG_TEST, temp);
 	if (err) {
@@ -4104,6 +4109,9 @@ static void pm8921_chg_set_hw_clk_switching(struct pm8921_chg_chip *chip)
 	u8 temp;
 
 	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_ON);
+	if (chip->enable_tcxo_warmup_delay)
+		msleep(TCXO_WARMUP_DELAY_MS);
+
 	temp  = 0xD1;
 	err = pm_chg_write(chip, CHG_TEST, temp);
 	if (err) {
@@ -4782,6 +4790,7 @@ static int pm8921_charger_probe(struct platform_device *pdev)
 	chip->thermal_mitigation = pdata->thermal_mitigation;
 	chip->thermal_levels = pdata->thermal_levels;
 	chip->disable_chg_rmvl_wrkarnd = pdata->disable_chg_rmvl_wrkarnd;
+	chip->enable_tcxo_warmup_delay = pdata->enable_tcxo_warmup_delay;
 
 	chip->cold_thr = pdata->cold_thr;
 	chip->hot_thr = pdata->hot_thr;
