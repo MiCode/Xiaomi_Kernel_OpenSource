@@ -181,6 +181,9 @@ Sub node optional properties:
 			 - regulator-name:	A string used as a descriptive name
 						for the boost regulator.
 
+			qcom,batfet:
+			 - regulator-name:	A string used as a descriptive name
+						for the batfet regulator.
 Example:
 	pm8941-chg {
 		spmi-dev-container;
@@ -307,6 +310,10 @@ In regulator specific device tree file:
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-name = "8941_smbb_boost";
+	};
+
+	&pm8941_chg_batif  {
+		regulator-name = "batfet";
 	};
 
 	&pm8941_chg_otg {
