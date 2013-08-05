@@ -549,19 +549,21 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	u32 cbcr_val;
 	unsigned long irq_flags;
 	struct branch_clk *branch = to_branch_clk(c);
-	int ret = 0;
+	int delay_us = 0, ret = 0;
 
 	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
 	cbcr_val = readl_relaxed(CBCR_REG(branch));
 	switch (flags) {
 	case CLKFLAG_RETAIN_PERIPH:
 		cbcr_val |= BIT(13);
+		delay_us = 1;
 		break;
 	case CLKFLAG_NORETAIN_PERIPH:
 		cbcr_val &= ~BIT(13);
 		break;
 	case CLKFLAG_RETAIN_MEM:
 		cbcr_val |= BIT(14);
+		delay_us = 1;
 		break;
 	case CLKFLAG_NORETAIN_MEM:
 		cbcr_val &= ~BIT(14);
@@ -570,17 +572,11 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 		ret = -EINVAL;
 	}
 	writel_relaxed(cbcr_val, CBCR_REG(branch));
-	/*
-	 * 8974v2.2 has a requirement that writes to set bits 13 and 14 are
-	 * separated by at least 2 bus cycles. Cover one of these cycles by
-	 * performing an extra write here. The other cycle is covered by the
-	 * read-modify-write design of this function.
-	 */
-	writel_relaxed(cbcr_val, CBCR_REG(branch));
-	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
-
-	/* Make sure write is issued before returning. */
+	/* Make sure power is enabled before returning. */
 	mb();
+	udelay(delay_us);
+
+	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
 
 	return ret;
 }
