@@ -387,10 +387,12 @@
 };
 
 &gdsc_venus_core0 {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &gdsc_venus_core1 {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
