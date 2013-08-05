@@ -170,10 +170,28 @@ static int a4xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static const struct adreno_vbif_data a420_vbif[] = {
+	{ A4XX_VBIF_ABIT_SORT, 0x0001001F },
+	{ A4XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
+	{ A4XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000001 },
+	{ A4XX_VBIF_IN_RD_LIM_CONF0, 0x18181818 },
+	{ A4XX_VBIF_IN_RD_LIM_CONF1, 0x00000018 },
+	{ A4XX_VBIF_IN_WR_LIM_CONF0, 0x18181818 },
+	{ A4XX_VBIF_IN_WR_LIM_CONF1, 0x00000018 },
+	{ A4XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003 },
+	{0, 0},
+};
+
+const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
+	{ adreno_is_a420, a420_vbif },
+};
+
 static void a4xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	adreno_vbif_start(device, a4xx_vbif_platforms,
+			ARRAY_SIZE(a4xx_vbif_platforms));
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A4XX_RBBM_GPU_BUSY_MASKED, 0xFFFFFFFF);
 

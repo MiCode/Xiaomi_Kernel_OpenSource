@@ -3562,13 +3562,8 @@ unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-struct a3xx_vbif_data {
-	unsigned int reg;
-	unsigned int val;
-};
-
 /* VBIF registers start after 0x3000 so use 0x0 as end of list marker */
-static struct a3xx_vbif_data a305_vbif[] = {
+static const struct adreno_vbif_data a305_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
 	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x10101010 },
@@ -3587,7 +3582,7 @@ static struct a3xx_vbif_data a305_vbif[] = {
 	{0, 0},
 };
 
-static struct a3xx_vbif_data a305b_vbif[] = {
+static const struct adreno_vbif_data a305b_vbif[] = {
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00181818 },
 	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00181818 },
 	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000018 },
@@ -3597,7 +3592,7 @@ static struct a3xx_vbif_data a305b_vbif[] = {
 	{0, 0},
 };
 
-static struct a3xx_vbif_data a305c_vbif[] = {
+static const struct adreno_vbif_data a305c_vbif[] = {
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00101010 },
 	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00101010 },
 	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000010 },
@@ -3610,7 +3605,7 @@ static struct a3xx_vbif_data a305c_vbif[] = {
 	{0, 0},
 };
 
-static struct a3xx_vbif_data a320_vbif[] = {
+static const struct adreno_vbif_data a320_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
 	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x10101010 },
@@ -3632,7 +3627,7 @@ static struct a3xx_vbif_data a320_vbif[] = {
 	{0, 0},
 };
 
-static struct a3xx_vbif_data a330_vbif[] = {
+static const struct adreno_vbif_data a330_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818 },
 	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x00001818 },
@@ -3664,7 +3659,7 @@ static struct a3xx_vbif_data a330_vbif[] = {
  * Most of the VBIF registers on 8974v2 have the correct values at power on, so
  * we won't modify those if we don't need to
  */
-static struct a3xx_vbif_data a330v2_vbif[] = {
+static const struct adreno_vbif_data a330v2_vbif[] = {
 	/* Enable 1k sort */
 	{ A3XX_VBIF_ABIT_SORT, 0x0001003F },
 	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
@@ -3676,10 +3671,7 @@ static struct a3xx_vbif_data a330v2_vbif[] = {
 	{0, 0},
 };
 
-static struct {
-	int(*devfunc)(struct adreno_device *);
-	struct a3xx_vbif_data *vbif;
-} a3xx_vbif_platforms[] = {
+const struct adreno_vbif_platform a3xx_vbif_platforms[] = {
 	{ adreno_is_a305, a305_vbif },
 	{ adreno_is_a305c, a305c_vbif },
 	{ adreno_is_a320, a320_vbif },
@@ -3891,22 +3883,9 @@ static void a3xx_protect_init(struct kgsl_device *device)
 static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct a3xx_vbif_data *vbif = NULL;
-	int i;
 
-	for (i = 0; i < ARRAY_SIZE(a3xx_vbif_platforms); i++) {
-		if (a3xx_vbif_platforms[i].devfunc(adreno_dev)) {
-			vbif = a3xx_vbif_platforms[i].vbif;
-			break;
-		}
-	}
-
-	BUG_ON(vbif == NULL);
-
-	while (vbif->reg != 0) {
-		kgsl_regwrite(device, vbif->reg, vbif->val);
-		vbif++;
-	}
+	adreno_vbif_start(device, a3xx_vbif_platforms,
+			ARRAY_SIZE(a3xx_vbif_platforms));
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A3XX_RBBM_GPU_BUSY_MASKED, 0xFFFFFFFF);
