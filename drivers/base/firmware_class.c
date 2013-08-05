@@ -111,6 +111,7 @@ static inline long firmware_loading_timeout(void)
 #define FW_OPT_FALLBACK		0
 #endif
 #define FW_OPT_NO_WARN	(1U << 3)
+#define FW_OPT_NOCACHE	(1U << 4)
 
 struct firmware_cache {
 	/* firmware_buf instance will be added into the below list */
@@ -1048,6 +1049,14 @@ _request_firmware_prepare(struct firmware **firmware_p, struct fw_desc *desc)
 		return 0; /* assigned */
 	}
 
+	if (desc->opt_flags & FW_OPT_NOCACHE) {
+		buf = __allocate_fw_buf(desc->name, NULL);
+		if (!buf)
+			return -ENOMEM;
+		firmware->priv = buf;
+		return 1;
+	}
+
 	ret = fw_lookup_and_allocate_buf(desc->name, &fw_cache, &buf);
 
 	/*
@@ -1087,15 +1096,19 @@ static int assign_firmware_buf(struct firmware *fw, struct device *device,
 	 * device may has been deleted already, but the problem
 	 * should be fixed in devres or driver core.
 	 */
-	/* don't cache firmware handled without uevent */
-	if (device && (opt_flags & FW_OPT_UEVENT))
+	/* don't cache firmware handled without uevent, or when explicitly
+	 * disabled
+	 */
+	if (device && (opt_flags & FW_OPT_UEVENT)
+	    && !(opt_flags & FW_OPT_NOCACHE))
 		fw_add_devm_name(device, buf->fw_id);
 
 	/*
 	 * After caching firmware image is started, let it piggyback
 	 * on request firmware.
 	 */
-	if (buf->fwc->state == FW_LOADER_START_CACHE) {
+	if (!(opt_flags & FW_OPT_NOCACHE)
+	    && (buf->fwc->state == FW_LOADER_START_CACHE)) {
 		if (fw_cache_piggyback_on_request(buf->fw_id))
 			kref_get(&buf->ref);
 	}
@@ -1275,7 +1288,8 @@ int
 _request_firmware_nowait(
 	struct module *module, bool uevent,
 	const char *name, struct device *device, gfp_t gfp, void *context,
-	void (*cont)(const struct firmware *fw, void *context))
+	void (*cont)(const struct firmware *fw, void *context),
+	bool nocache)
 {
 	struct fw_desc *desc;
 
@@ -1294,6 +1308,8 @@ _request_firmware_nowait(
 		desc->opt_flags |= FW_OPT_UEVENT;
 	else
 		desc->opt_flags |= FW_OPT_USERHELPER;
+	if (nocache)
+		desc->opt_flags |= FW_OPT_NOCACHE;
 
 	if (!try_module_get(module)) {
 		kfree(desc);
@@ -1336,7 +1352,7 @@ request_firmware_nowait(
 	void (*cont)(const struct firmware *fw, void *context))
 {
 	return _request_firmware_nowait(module, uevent, name, device, gfp,
-					context, cont);
+					context, cont, false);
 }
 EXPORT_SYMBOL(request_firmware_nowait);
 
