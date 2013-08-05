@@ -35,6 +35,7 @@
 #ifndef __LINUX_REGULATOR_CONSUMER_H_
 #define __LINUX_REGULATOR_CONSUMER_H_
 
+#include <linux/types.h>
 #include <linux/compiler.h>
 
 struct device;
