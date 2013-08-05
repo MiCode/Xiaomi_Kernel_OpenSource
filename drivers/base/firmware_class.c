@@ -144,6 +144,18 @@ struct fw_name_devm {
 	char name[];
 };
 
+struct fw_desc {
+	struct work_struct work;
+	const struct firmware **firmware_p;
+	const char *name;
+	struct device *device;
+	bool uevent;
+	bool nowait;
+	struct module *module;
+	void *context;
+	void (*cont)(const struct firmware *fw, void *context);
+};
+
 #define to_fwbuf(d) container_of(d, struct firmware_buf, ref)
 
 #define	FW_LOADER_NO_CACHE	0
@@ -252,6 +264,10 @@ static void __fw_free_buf(struct kref *ref)
 static void fw_free_buf(struct firmware_buf *buf)
 {
 	struct firmware_cache *fwc = buf->fwc;
+	if (!fwc) {
+		kfree(buf);
+		return;
+	}
 	spin_lock(&fwc->lock);
 	if (!kref_put(&buf->ref, __fw_free_buf))
 		spin_unlock(&fwc->lock);
@@ -797,29 +813,29 @@ static void firmware_class_timeout_work(struct work_struct *work)
 }
 
 static struct firmware_priv *
-fw_create_instance(struct firmware *firmware, const char *fw_name,
-		   struct device *device, bool uevent, bool nowait)
+fw_create_instance(struct firmware *firmware, struct fw_desc *desc)
 {
 	struct firmware_priv *fw_priv;
 	struct device *f_dev;
 
 	fw_priv = kzalloc(sizeof(*fw_priv), GFP_KERNEL);
 	if (!fw_priv) {
-		dev_err(device, "%s: kmalloc failed\n", __func__);
+		dev_err(desc->device, "%s: kmalloc failed\n", __func__);
 		fw_priv = ERR_PTR(-ENOMEM);
 		goto exit;
 	}
 
-	fw_priv->nowait = nowait;
+	fw_priv->nowait = desc->nowait;
 	fw_priv->fw = firmware;
+
 	INIT_DELAYED_WORK(&fw_priv->timeout_work,
 		firmware_class_timeout_work);
 
 	f_dev = &fw_priv->dev;
 
 	device_initialize(f_dev);
-	dev_set_name(f_dev, "%s", fw_name);
-	f_dev->parent = device;
+	dev_set_name(f_dev, "%s", desc->name);
+	f_dev->parent = desc->device;
 	f_dev->class = &firmware_class;
 exit:
 	return fw_priv;
@@ -883,17 +899,16 @@ err_put_dev:
 }
 
 static int fw_load_from_user_helper(struct firmware *firmware,
-				    const char *name, struct device *device,
-				    bool uevent, bool nowait, long timeout)
+				    struct fw_desc *desc, long timeout)
 {
 	struct firmware_priv *fw_priv;
 
-	fw_priv = fw_create_instance(firmware, name, device, uevent, nowait);
+	fw_priv = fw_create_instance(firmware, desc);
 	if (IS_ERR(fw_priv))
 		return PTR_ERR(fw_priv);
 
 	fw_priv->buf = firmware->priv;
-	return _request_firmware_load(fw_priv, uevent, timeout);
+	return _request_firmware_load(fw_priv, desc->uevent, timeout);
 }
 #else /* CONFIG_FW_LOADER_USER_HELPER */
 static inline int
@@ -934,8 +949,7 @@ static int sync_cached_firmware_buf(struct firmware_buf *buf)
  * or a negative error code
  */
 static int
-_request_firmware_prepare(struct firmware **firmware_p, const char *name,
-			  struct device *device)
+_request_firmware_prepare(struct firmware **firmware_p, struct fw_desc *desc)
 {
 	struct firmware *firmware;
 	struct firmware_buf *buf;
@@ -943,17 +957,18 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 
 	*firmware_p = firmware = kzalloc(sizeof(*firmware), GFP_KERNEL);
 	if (!firmware) {
-		dev_err(device, "%s: kmalloc(struct firmware) failed\n",
+		dev_err(desc->device, "%s: kmalloc(struct firmware) failed\n",
 			__func__);
 		return -ENOMEM;
 	}
 
-	if (fw_get_builtin_firmware(firmware, name)) {
-		dev_dbg(device, "firmware: using built-in firmware %s\n", name);
+	if (fw_get_builtin_firmware(firmware, desc->name)) {
+		dev_dbg(desc->device, "firmware: using built-in firmware %s\n",
+			desc->name);
 		return 0; /* assigned */
 	}
 
-	ret = fw_lookup_and_allocate_buf(name, &fw_cache, &buf);
+	ret = fw_lookup_and_allocate_buf(desc->name, &fw_cache, &buf);
 
 	/*
 	 * bind with 'buf' now to avoid warning in failure path
@@ -1010,45 +1025,42 @@ static int assign_firmware_buf(struct firmware *fw, struct device *device)
 }
 
 /* called from request_firmware() and request_firmware_work_func() */
-static int
-_request_firmware(const struct firmware **firmware_p, const char *name,
-		  struct device *device, bool uevent, bool nowait)
+static int _request_firmware(struct fw_desc *desc)
 {
 	struct firmware *fw;
 	long timeout;
 	int ret;
 
-	if (!firmware_p)
+	if (!desc->firmware_p)
 		return -EINVAL;
 
-	ret = _request_firmware_prepare(&fw, name, device);
+	ret = _request_firmware_prepare(&fw, desc);
 	if (ret <= 0) /* error or already assigned */
 		goto out;
 
 	ret = 0;
 	timeout = firmware_loading_timeout();
-	if (nowait) {
+	if (desc->nowait) {
 		timeout = usermodehelper_read_lock_wait(timeout);
 		if (!timeout) {
-			dev_dbg(device, "firmware: %s loading timed out\n",
-				name);
+			dev_dbg(desc->device, "firmware: %s loading timed out\n",
+				desc->name);
 			ret = -EBUSY;
 			goto out;
 		}
 	} else {
 		ret = usermodehelper_read_trylock();
 		if (WARN_ON(ret)) {
-			dev_err(device, "firmware: %s will not be loaded\n",
-				name);
+			dev_err(desc->device, "firmware: %s will not be loaded\n",
+				desc->name);
 			goto out;
 		}
 	}
 
-	if (!fw_get_filesystem_firmware(device, fw->priv))
-		ret = fw_load_from_user_helper(fw, name, device,
-					       uevent, nowait, timeout);
+	if (!fw_get_filesystem_firmware(desc->device, fw->priv))
+		ret = fw_load_from_user_helper(fw, desc, timeout);
 	if (!ret)
-		ret = assign_firmware_buf(fw, device);
+		ret = assign_firmware_buf(fw, desc->device);
 
 	usermodehelper_read_unlock();
 
@@ -1058,7 +1070,7 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		fw = NULL;
 	}
 
-	*firmware_p = fw;
+	*desc->firmware_p = fw;
 	return ret;
 }
 
@@ -1086,7 +1098,14 @@ int
 request_firmware(const struct firmware **firmware_p, const char *name,
                  struct device *device)
 {
-	return _request_firmware(firmware_p, name, device, true, false);
+	struct fw_desc desc;
+
+	desc.firmware_p = firmware_p;
+	desc.name = name;
+	desc.device = device;
+	desc.uevent = true;
+	desc.nowait = false;
+	return _request_firmware(&desc);
 }
 
 /**
@@ -1103,31 +1122,51 @@ void release_firmware(const struct firmware *fw)
 }
 
 /* Async support */
-struct firmware_work {
-	struct work_struct work;
-	struct module *module;
-	const char *name;
-	struct device *device;
-	void *context;
-	void (*cont)(const struct firmware *fw, void *context);
-	bool uevent;
-};
-
 static void request_firmware_work_func(struct work_struct *work)
 {
-	struct firmware_work *fw_work;
 	const struct firmware *fw;
+	struct fw_desc *desc;
 
-	fw_work = container_of(work, struct firmware_work, work);
+	desc = container_of(work, struct fw_desc, work);
+	desc->firmware_p = &fw;
+	_request_firmware(desc);
+	desc->cont(fw, desc->context);
+	put_device(desc->device); /* taken in request_firmware_nowait() */
 
-	_request_firmware(&fw, fw_work->name, fw_work->device,
-			  fw_work->uevent, true);
-	fw_work->cont(fw, fw_work->context);
-	put_device(fw_work->device); /* taken in request_firmware_nowait() */
-
-	module_put(fw_work->module);
-	kfree(fw_work);
+	module_put(desc->module);
+	kfree(desc);
 }
+
+int
+_request_firmware_nowait(
+	struct module *module, bool uevent,
+	const char *name, struct device *device, gfp_t gfp, void *context,
+	void (*cont)(const struct firmware *fw, void *context))
+{
+	struct fw_desc *desc;
+
+	desc = kzalloc(sizeof(struct fw_desc), gfp);
+	if (!desc)
+		return -ENOMEM;
+
+	desc->module = module;
+	desc->name = name;
+	desc->device = device;
+	desc->context = context;
+	desc->cont = cont;
+	desc->uevent = uevent;
+
+	if (!try_module_get(module)) {
+		kfree(desc);
+		return -EFAULT;
+	}
+
+	get_device(desc->device);
+	INIT_WORK(&desc->work, request_firmware_work_func);
+	schedule_work(&desc->work);
+	return 0;
+}
+
 
 /**
  * request_firmware_nowait - asynchronous version of request_firmware
@@ -1158,28 +1197,9 @@ request_firmware_nowait(
 	const char *name, struct device *device, gfp_t gfp, void *context,
 	void (*cont)(const struct firmware *fw, void *context))
 {
-	struct firmware_work *fw_work;
 
-	fw_work = kzalloc(sizeof (struct firmware_work), gfp);
-	if (!fw_work)
-		return -ENOMEM;
-
-	fw_work->module = module;
-	fw_work->name = name;
-	fw_work->device = device;
-	fw_work->context = context;
-	fw_work->cont = cont;
-	fw_work->uevent = uevent;
-
-	if (!try_module_get(module)) {
-		kfree(fw_work);
-		return -EFAULT;
-	}
-
-	get_device(fw_work->device);
-	INIT_WORK(&fw_work->work, request_firmware_work_func);
-	schedule_work(&fw_work->work);
-	return 0;
+	return _request_firmware_nowait(module, uevent, name, device, gfp,
+					context, cont, false);
 }
 
 /**
