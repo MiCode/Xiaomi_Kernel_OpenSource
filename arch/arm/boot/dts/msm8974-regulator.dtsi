@@ -560,6 +560,10 @@
 	regulator-name = "8941_smbb_boost";
 };
 
+&pm8941_chg_batif  {
+	regulator-name = "batfet";
+};
+
 &pm8941_chg_otg {
 	regulator-name = "8941_smbb_otg";
 };
