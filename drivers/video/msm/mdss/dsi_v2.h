@@ -235,4 +235,6 @@ int dsi_short_read2_resp(struct dsi_buf *rp);
 
 int dsi_long_read_resp(struct dsi_buf *rp);
 
+void dsi_set_tx_power_mode(int mode);
+
 #endif /* MDSS_DSI_H */
