@@ -32,7 +32,6 @@
 #define SHOW_PROGRESS
 #define MAX_FIRMWARE_ID_LEN 10
 #define FORCE_UPDATE false
-#define DO_LOCKDOWN false
 #define INSIDE_FIRMWARE_UPDATE
 
 #define FW_IMAGE_OFFSET 0x100
@@ -1760,7 +1759,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -1802,7 +1801,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -1837,7 +1836,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -2156,7 +2155,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 
 	fwu->initialized = true;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	fwu->initialized = true;
 	fwu->polling_mode = false;
 
