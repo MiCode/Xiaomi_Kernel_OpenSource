@@ -22,6 +22,7 @@ Optional property:
  - synaptics,panel-y		: panel y dimension
  - synaptics,fw-image-name	: name of firmware .img file in /etc/firmware
  - synaptics,power-down		: fully power down regulators in suspend
+ - synaptics,do-lockdown	: perform one time lockdown procedure
 
 Example:
 	i2c@f9927000 { /* BLSP1 QUP5 */

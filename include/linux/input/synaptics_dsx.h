@@ -52,6 +52,7 @@ struct synaptics_rmi4_platform_data {
 	bool i2c_pull_up;
 	bool power_down_enable;
 	bool disable_gpios;
+	bool do_lockdown;
 	unsigned irq_gpio;
 	u32 irq_flags;
 	u32 reset_flags;
