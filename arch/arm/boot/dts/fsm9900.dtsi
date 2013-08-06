@@ -101,4 +101,53 @@
 		qcom,ipi-ping;
 	};
 
+	i2c@f9966000 { /* BLSP-2 QUP-4 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9966000 0x500>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 103 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <100000000>;
+		qcom,sda-gpio = <&msmgpio 38 0>;
+		qcom,scl-gpio = <&msmgpio 39 0>;
+		qcom,master-id = <84>;
+	};
+
+	i2c@f9967000 { /* BLSP-2 QUP-5 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0Xf9967000 0x500>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 105 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <10000000>;
+		qcom,sda-gpio = <&msmgpio 137 0>;
+		qcom,scl-gpio = <&msmgpio 141 0>;
+		qcom,master-id = <84>;
+		status = "disabled";
+	};
+
+
+	i2c@f9924000 { /* BLSP-1 QUP-2 */
+		cell-index = <1>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9924000 0x500>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 96 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <100000000>;
+		qcom,sda-gpio = <&msmgpio 6 0>;
+		qcom,scl-gpio = <&msmgpio 7 0>;
+		qcom,master-id = <86>;
+	};
 };
