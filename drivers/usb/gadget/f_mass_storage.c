@@ -2764,6 +2764,97 @@ static inline void fsg_common_put(struct fsg_common *common)
 	kref_put(&common->ref, fsg_common_release);
 }
 
+/*
+ * This function creates device entry for LUN and its related paramters.
+*/
+static int create_lun_device(struct fsg_common *common,
+				struct usb_composite_dev *cdev,
+				struct fsg_config *cfg,
+				int add_lun_index)
+{
+	struct usb_gadget *gadget = cdev->gadget;
+	struct fsg_lun *curlun = common->luns;
+	struct fsg_lun_config *lcfg = cfg->luns;
+	int rc = 0, i;
+	int nluns = cfg->nluns;
+
+	/*
+	 * Check if index is non-zero, increment current lun_config
+	 * and cur_lun pointers.
+	 */
+	if (add_lun_index) {
+		lcfg++;
+		curlun++;
+	}
+
+	for (i = add_lun_index; i < nluns; ++i, ++curlun, ++lcfg) {
+		curlun->cdrom = !!lcfg->cdrom;
+		curlun->ro = lcfg->cdrom || lcfg->ro;
+		curlun->initially_ro = curlun->ro;
+		curlun->removable = lcfg->removable;
+		curlun->nofua = lcfg->nofua;
+		curlun->dev.release = fsg_lun_release;
+		curlun->dev.parent = &gadget->dev;
+		/* curlun->dev.driver = &fsg_driver.driver; XXX */
+		dev_set_drvdata(&curlun->dev, &common->filesem);
+		dev_set_name(&curlun->dev, "lun%d", i);
+
+		rc = device_register(&curlun->dev);
+		if (rc) {
+			pr_err("failed to register LUN%d: %d\n", i, rc);
+			common->nluns = i;
+			put_device(&curlun->dev);
+			goto error_release;
+		}
+
+		rc = device_create_file(&curlun->dev,
+					curlun->cdrom
+				      ? &dev_attr_ro_cdrom
+				      : &dev_attr_ro);
+		if (rc)
+			goto error_luns;
+
+		rc = device_create_file(&curlun->dev,
+					curlun->removable
+				      ? &dev_attr_file
+				      : &dev_attr_file_nonremovable);
+		if (rc)
+			goto error_luns;
+
+		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
+		if (rc)
+			goto error_luns;
+
+#ifdef CONFIG_USB_MSC_PROFILING
+		rc = device_create_file(&curlun->dev, &dev_attr_perf);
+		if (rc)
+			pr_err("failed to create perf sysfs node:%d\n", rc);
+#endif
+		if (lcfg->filename) {
+			rc = fsg_lun_open(curlun, lcfg->filename);
+			if (rc) {
+				pr_err("failed to open lun file.\n");
+				goto error_luns;
+			}
+		} else if (!curlun->removable && !curlun->cdrom) {
+			ERROR(common, "no file given for LUN%d\n", i);
+			rc = -EINVAL;
+			goto error_luns;
+		}
+	}
+
+	common->nluns = nluns;
+	return rc;
+
+error_luns:
+	common->nluns = i;
+error_release:
+	common->state = FSG_STATE_TERMINATED;
+	fsg_common_release(&common->ref);
+
+	return rc;
+}
+
 static struct fsg_common *fsg_common_init(struct fsg_common *common,
 					  struct usb_composite_dev *cdev,
 					  struct fsg_config *cfg)
@@ -2771,7 +2862,6 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	struct usb_gadget *gadget = cdev->gadget;
 	struct fsg_buffhd *bh;
 	struct fsg_lun *curlun;
-	struct fsg_lun_config *lcfg;
 	int nluns, i, rc;
 	char *pathbuf;
 
@@ -2817,7 +2907,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	 * Create the LUNs, open their backing files, and register the
 	 * LUN devices in sysfs.
 	 */
-	curlun = kcalloc(nluns, sizeof(*curlun), GFP_KERNEL);
+	curlun = kcalloc(FSG_MAX_LUNS, sizeof(*curlun), GFP_KERNEL);
 	if (unlikely(!curlun)) {
 		rc = -ENOMEM;
 		goto error_release;
@@ -2825,59 +2915,9 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	common->luns = curlun;
 
 	init_rwsem(&common->filesem);
-
-	for (i = 0, lcfg = cfg->luns; i < nluns; ++i, ++curlun, ++lcfg) {
-		curlun->cdrom = !!lcfg->cdrom;
-		curlun->ro = lcfg->cdrom || lcfg->ro;
-		curlun->initially_ro = curlun->ro;
-		curlun->removable = lcfg->removable;
-		curlun->nofua = lcfg->nofua;
-		curlun->dev.release = fsg_lun_release;
-		curlun->dev.parent = &gadget->dev;
-		/* curlun->dev.driver = &fsg_driver.driver; XXX */
-		dev_set_drvdata(&curlun->dev, &common->filesem);
-		dev_set_name(&curlun->dev, "lun%d", i);
-
-		rc = device_register(&curlun->dev);
-		if (rc) {
-			INFO(common, "failed to register LUN%d: %d\n", i, rc);
-			common->nluns = i;
-			put_device(&curlun->dev);
-			goto error_release;
-		}
-
-		rc = device_create_file(&curlun->dev,
-					curlun->cdrom
-				      ? &dev_attr_ro_cdrom
-				      : &dev_attr_ro);
-		if (rc)
-			goto error_luns;
-		rc = device_create_file(&curlun->dev,
-					curlun->removable
-				      ? &dev_attr_file
-				      : &dev_attr_file_nonremovable);
-		if (rc)
-			goto error_luns;
-		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
-		if (rc)
-			goto error_luns;
-#ifdef CONFIG_USB_MSC_PROFILING
-		rc = device_create_file(&curlun->dev, &dev_attr_perf);
-		if (rc)
-			dev_err(&gadget->dev, "failed to create sysfs entry:"
-				"(dev_attr_perf) error: %d\n", rc);
-#endif
-		if (lcfg->filename) {
-			rc = fsg_lun_open(curlun, lcfg->filename);
-			if (rc)
-				goto error_luns;
-		} else if (!curlun->removable && !curlun->cdrom) {
-			ERROR(common, "no file given for LUN%d\n", i);
-			rc = -EINVAL;
-			goto error_luns;
-		}
-	}
-	common->nluns = nluns;
+	rc = create_lun_device(common, cdev, cfg, 0);
+	if (rc != 0)
+		goto error;
 
 	/* Data buffers cyclic list */
 	bh = common->buffhds;
@@ -2958,12 +2998,11 @@ buffhds_first_it:
 
 	return common;
 
-error_luns:
-	common->nluns = i + 1;
 error_release:
 	common->state = FSG_STATE_TERMINATED;	/* The thread is dead */
 	/* Call fsg_common_release() directly, ref might be not initialised. */
 	fsg_common_release(&common->ref);
+error:
 	return ERR_PTR(rc);
 }
 
@@ -3236,4 +3275,28 @@ fsg_common_from_params(struct fsg_common *common,
 	struct fsg_config cfg;
 	fsg_config_from_params(&cfg, params);
 	return fsg_common_init(common, cdev, &cfg);
+}
+
+/*
+ * This API allows to add luns devices when MSC is being enabled.
+ */
+static int fsg_add_lun(struct fsg_common *common,
+			struct usb_composite_dev *cdev,
+			struct fsg_config *cfg,
+			int add_luns)
+{
+	int nluns, rc = 0;
+	int total_luns;
+
+	if (add_luns) {
+		nluns = common->nluns;
+		total_luns = nluns + add_luns;
+		pr_debug("total_luns:%d\n", total_luns);
+		cfg->nluns = total_luns;
+		rc = create_lun_device(common, cdev, cfg, nluns);
+		if (rc)
+			pr_err("Failed device lun creation.\n");
+	}
+
+	return rc;
 }
