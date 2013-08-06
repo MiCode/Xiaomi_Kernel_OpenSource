@@ -3281,9 +3281,10 @@ static int qseecom_probe(struct platform_device *pdev)
 			}
 			rc = scm_call(SCM_SVC_TZSCHEDULER, 1, &req, sizeof(req),
 							&resp, sizeof(resp));
-			if (rc) {
-				pr_err("Failed to send secapp region info %d\n",
-									rc);
+			if (rc || (resp.result != QSEOS_RESULT_SUCCESS)) {
+				pr_err("send secapp reg fail %d resp.res %d\n",
+							rc, resp.result);
+				rc = -EINVAL;
 				goto err;
 			}
 		}
