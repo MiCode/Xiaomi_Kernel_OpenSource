@@ -168,7 +168,8 @@ size_t ion_heap_freelist_size(struct ion_heap *heap)
 	return size;
 }
 
-size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
+static size_t _ion_heap_freelist_drain(struct ion_heap *heap, size_t size,
+				bool skip_pools)
 {
 	struct ion_buffer *buffer, *tmp;
 	size_t total_drained = 0;
@@ -186,11 +187,23 @@ size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
 		list_del(&buffer->list);
 		ion_buffer_destroy(buffer);
 		heap->free_list_size -= buffer->size;
+		if (skip_pools)
+			buffer->flags |= ION_FLAG_FREED_FROM_SHRINKER;
 		total_drained += buffer->size;
 	}
 	rt_mutex_unlock(&heap->lock);
 
 	return total_drained;
+}
+
+size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
+{
+	return _ion_heap_freelist_drain(heap, size, false);
+}
+
+size_t ion_heap_freelist_drain_from_shrinker(struct ion_heap *heap, size_t size)
+{
+	return _ion_heap_freelist_drain(heap, size, true);
 }
 
 int ion_heap_deferred_free(void *data)
