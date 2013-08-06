@@ -114,6 +114,7 @@ struct eeprom_map_t {
 
 struct eeprom_memory_map_t {
 	struct eeprom_map_t page;
+	struct eeprom_map_t pageen;
 	struct eeprom_map_t poll;
 	struct eeprom_map_t mem;
 };
