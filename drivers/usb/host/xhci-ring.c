@@ -1084,7 +1084,9 @@ static void handle_set_deq_completion(struct xhci_hcd *xhci,
 		case COMP_TRB_ERR:
 			xhci_warn(xhci, "WARN Set TR Deq Ptr cmd invalid because "
 					"of stream ID configuration\n");
-			break;
+			if (!(xhci->quirks & XHCI_TR_DEQ_ERR_QUIRK))
+				break;
+			/* Treat TRB_ERROR same as CTX_STATE */
 		case COMP_CTX_STATE:
 			xhci_warn(xhci, "WARN Set TR Deq Ptr cmd failed due "
 					"to incorrect slot or ep state.\n");
