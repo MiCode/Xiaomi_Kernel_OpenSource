@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,6 +196,7 @@ int msm_mercury_evt_get(struct msm_mercury_device *pmercury_dev,
 	int rc = 0;
 
 	MCR_DBG("(%d)%s() Enter\n", __LINE__, __func__);
+	memset(&ctrl_cmd, 0, sizeof(ctrl_cmd));
 	ctrl_cmd.type = (uint32_t)msm_mercury_q_wait(&pmercury_dev->evt_q);
 
 	rc = copy_to_user(arg, &ctrl_cmd, sizeof(ctrl_cmd));
