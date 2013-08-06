@@ -594,9 +594,18 @@ static void msm_isp_axi_stream_enable_cfg(
 			stream_info->state == RESUME_PENDING)
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 1);
-		else
+		else {
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 0);
+			/* Issue a reg update for Raw Snapshot Case
+			 * since we dont have reg update ack
+			*/
+			if (stream_info->stream_src == CAMIF_RAW ||
+				stream_info->stream_src == IDEAL_RAW) {
+				vfe_dev->hw_info->vfe_ops.core_ops.
+				reg_update(vfe_dev);
+			}
+		}
 	}
 
 	if (stream_info->state == START_PENDING)
@@ -1078,11 +1087,17 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 
 		stream_info->state = STOP_PENDING;
-		if (stream_info->stream_type == BURST_STREAM &&
-			stream_info->runtime_num_burst_capture == 0) {
-			/*Configure AXI writemasters to stop immediately
-			 *since for burst case, write masters already skip
-			 *all frames.
+		if (stream_info->stream_src == CAMIF_RAW ||
+			stream_info->stream_src == IDEAL_RAW) {
+			/* We dont get reg update IRQ for raw snapshot
+			 * so frame skip cant be ocnfigured
+			*/
+			wait_for_complete = 1;
+		} else if (stream_info->stream_type == BURST_STREAM &&
+				stream_info->runtime_num_burst_capture == 0) {
+			/* Configure AXI writemasters to stop immediately
+			 * since for burst case, write masters already skip
+			 * all frames.
 			 */
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
@@ -1090,7 +1105,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			wait_for_complete = 1;
 		}
 	}
-
 	if (wait_for_complete) {
 		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
 		if (rc < 0) {
