@@ -407,6 +407,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		break;
 	}
 
+	sof_event.input_intf = frame_src;
 	sof_event.frame_id = vfe_dev->axi_data.src_info[frame_src].frame_id;
 	sof_event.timestamp = ts->event_time;
 	sof_event.mono_timestamp = ts->buf_time;
@@ -787,6 +788,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			 * other ISP hardware is still processing the frame.
 			 */
 			if (rc == 0) {
+				buf_event.input_intf =
+					SRC_TO_INTF(stream_info->stream_src);
 				buf_event.frame_id = frame_id;
 				buf_event.timestamp = ts->buf_time;
 				buf_event.u.buf_done.session_id =
