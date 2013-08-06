@@ -67,6 +67,7 @@ static u64 zcache_zbud_alloc_fail;
 static u64 zcache_pool_pages;
 static u64 zcache_evict_zpages;
 static u64 zcache_evict_filepages;
+static u64 zcache_inactive_pages_refused;
 static u64 zcache_reclaim_fail;
 static atomic_t zcache_stored_pages = ATOMIC_INIT(0);
 
@@ -496,6 +497,17 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 
 	struct zcache_pool *zpool = zcache.pools[pool_id];
 
+	/*
+	 * Zcache will be ineffective if the compressed memory pool is full with
+	 * compressed inactive file pages and most of them will never be used
+	 * again.
+	 * So we refuse to compress pages that are not from active file list.
+	 */
+	if (!PageWasActive(page)) {
+		zcache_inactive_pages_refused++;
+		return;
+	}
+
 	if (zcache_is_full()) {
 		zcache_pool_limit_hit++;
 		if (zbud_reclaim_page(zpool->pool, 8)) {
@@ -587,6 +599,7 @@ static int zcache_load_page(int pool_id, struct cleancache_filekey key,
 	/* update stats */
 	atomic_dec(&zcache_stored_pages);
 	zcache_pool_pages = zbud_get_pool_size(zpool->pool);
+	SetPageWasActive(page);
 	return ret;
 }
 
@@ -872,6 +885,8 @@ static int __init zcache_debugfs_init(void)
 			&zcache_evict_filepages);
 	debugfs_create_u64("reclaim_fail", S_IRUGO, zcache_debugfs_root,
 			&zcache_reclaim_fail);
+	debugfs_create_u64("inactive_pages_refused", S_IRUGO,
+			zcache_debugfs_root, &zcache_inactive_pages_refused);
 	return 0;
 }
 
