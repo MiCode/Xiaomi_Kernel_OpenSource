@@ -37,6 +37,9 @@
 #define DSI_PHY_PHYS		0xFD922A00
 #define DSI_PHY_SIZE		0x000000D4
 
+#define EDP_PHY_PHYS		0xFD923A00
+#define EDP_PHY_SIZE		0x000000D4
+
 #define HDMI_PHY_PHYS		0xFD922500
 #define HDMI_PHY_SIZE		0x0000007C
 
@@ -153,6 +156,7 @@ static long vco_cached_rate;
 static unsigned char *mdss_dsi_base;
 static unsigned char *gdsc_base;
 static struct clk *mdss_ahb_clk;
+static unsigned char *mdss_edp_base;
 
 static void __iomem *hdmi_phy_base;
 static void __iomem *hdmi_phy_pll_base;
@@ -1669,6 +1673,459 @@ struct div_clk byte_clk_src_8974 = {
 	},
 };
 
+static inline struct edp_pll_vco_clk *to_edp_vco_clk(struct clk *clk)
+{
+	return container_of(clk, struct edp_pll_vco_clk, c);
+}
+
+static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
+{
+	struct edp_pll_vco_clk *vco = to_edp_vco_clk(c);
+	int rc = 0;
+
+	pr_debug("%s: vco_rate=%d\n", __func__, (int)vco_rate);
+
+	rc = mdss_ahb_clk_enable(1);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		rc =  -EINVAL;
+	}
+	if (vco_rate == 810000000) {
+		DSS_REG_W(mdss_edp_base, 0x0c, 0x18);
+		/* UNIPHY_PLL_LKDET_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x64, 0x05);
+		/* UNIPHY_PLL_REFCLK_CFG */
+		DSS_REG_W(mdss_edp_base, 0x00, 0x00);
+		/* UNIPHY_PLL_SDM_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x38, 0x36);
+		/* UNIPHY_PLL_SDM_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x3c, 0x69);
+		/* UNIPHY_PLL_SDM_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x40, 0xff);
+		/* UNIPHY_PLL_SDM_CFG3 */
+		DSS_REG_W(mdss_edp_base, 0x44, 0x2f);
+		/* UNIPHY_PLL_SDM_CFG4 */
+		DSS_REG_W(mdss_edp_base, 0x48, 0x00);
+		/* UNIPHY_PLL_SSC_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x4c, 0x80);
+		/* UNIPHY_PLL_SSC_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x50, 0x00);
+		/* UNIPHY_PLL_SSC_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x54, 0x00);
+		/* UNIPHY_PLL_SSC_CFG3 */
+		DSS_REG_W(mdss_edp_base, 0x58, 0x00);
+		/* UNIPHY_PLL_CAL_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x6c, 0x0a);
+		/* UNIPHY_PLL_CAL_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x74, 0x01);
+		/* UNIPHY_PLL_CAL_CFG6 */
+		DSS_REG_W(mdss_edp_base, 0x84, 0x5a);
+		/* UNIPHY_PLL_CAL_CFG7 */
+		DSS_REG_W(mdss_edp_base, 0x88, 0x0);
+		/* UNIPHY_PLL_CAL_CFG8 */
+		DSS_REG_W(mdss_edp_base, 0x8c, 0x60);
+		/* UNIPHY_PLL_CAL_CFG9 */
+		DSS_REG_W(mdss_edp_base, 0x90, 0x0);
+		/* UNIPHY_PLL_CAL_CFG10 */
+		DSS_REG_W(mdss_edp_base, 0x94, 0x2a);
+		/* UNIPHY_PLL_CAL_CFG11 */
+		DSS_REG_W(mdss_edp_base, 0x98, 0x3);
+		/* UNIPHY_PLL_LKDET_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x5c, 0x10);
+		/* UNIPHY_PLL_LKDET_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x60, 0x1a);
+		/* UNIPHY_PLL_POSTDIV1_CFG */
+		DSS_REG_W(mdss_edp_base, 0x04, 0x00);
+		/* UNIPHY_PLL_POSTDIV3_CFG */
+		DSS_REG_W(mdss_edp_base, 0x28, 0x00);
+	} else if (vco_rate == 1350000000) {
+		/* UNIPHY_PLL_LKDET_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x64, 0x05);
+		/* UNIPHY_PLL_REFCLK_CFG */
+		DSS_REG_W(mdss_edp_base, 0x00, 0x01);
+		/* UNIPHY_PLL_SDM_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x38, 0x36);
+		/* UNIPHY_PLL_SDM_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x3c, 0x62);
+		/* UNIPHY_PLL_SDM_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x40, 0x00);
+		/* UNIPHY_PLL_SDM_CFG3 */
+		DSS_REG_W(mdss_edp_base, 0x44, 0x28);
+		/* UNIPHY_PLL_SDM_CFG4 */
+		DSS_REG_W(mdss_edp_base, 0x48, 0x00);
+		/* UNIPHY_PLL_SSC_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x4c, 0x80);
+		/* UNIPHY_PLL_SSC_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x50, 0x00);
+		/* UNIPHY_PLL_SSC_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x54, 0x00);
+		/* UNIPHY_PLL_SSC_CFG3 */
+		DSS_REG_W(mdss_edp_base, 0x58, 0x00);
+		/* UNIPHY_PLL_CAL_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x6c, 0x0a);
+		/* UNIPHY_PLL_CAL_CFG2 */
+		DSS_REG_W(mdss_edp_base, 0x74, 0x01);
+		/* UNIPHY_PLL_CAL_CFG6 */
+		DSS_REG_W(mdss_edp_base, 0x84, 0x5a);
+		/* UNIPHY_PLL_CAL_CFG7 */
+		DSS_REG_W(mdss_edp_base, 0x88, 0x0);
+		/* UNIPHY_PLL_CAL_CFG8 */
+		DSS_REG_W(mdss_edp_base, 0x8c, 0x60);
+		/* UNIPHY_PLL_CAL_CFG9 */
+		DSS_REG_W(mdss_edp_base, 0x90, 0x0);
+		/* UNIPHY_PLL_CAL_CFG10 */
+		DSS_REG_W(mdss_edp_base, 0x94, 0x46);
+		/* UNIPHY_PLL_CAL_CFG11 */
+		DSS_REG_W(mdss_edp_base, 0x98, 0x5);
+		/* UNIPHY_PLL_LKDET_CFG0 */
+		DSS_REG_W(mdss_edp_base, 0x5c, 0x10);
+		/* UNIPHY_PLL_LKDET_CFG1 */
+		DSS_REG_W(mdss_edp_base, 0x60, 0x1a);
+		/* UNIPHY_PLL_POSTDIV1_CFG */
+		DSS_REG_W(mdss_edp_base, 0x04, 0x00);
+		/* UNIPHY_PLL_POSTDIV3_CFG */
+		DSS_REG_W(mdss_edp_base, 0x28, 0x00);
+	} else {
+		pr_err("%s: rate=%d is NOT supported\n", __func__,
+					(int)vco_rate);
+		vco_rate = 0;
+		rc =  -EINVAL;
+	}
+
+	DSS_REG_W(mdss_edp_base, 0x20, 0x01); /* UNIPHY_PLL_GLB_CFG */
+	udelay(100);
+	DSS_REG_W(mdss_edp_base, 0x20, 0x05); /* UNIPHY_PLL_GLB_CFG */
+	udelay(100);
+	DSS_REG_W(mdss_edp_base, 0x20, 0x07); /* UNIPHY_PLL_GLB_CFG */
+	udelay(100);
+	DSS_REG_W(mdss_edp_base, 0x20, 0x0f); /* UNIPHY_PLL_GLB_CFG */
+	udelay(100);
+	mdss_ahb_clk_enable(0);
+
+	vco->rate = vco_rate;
+
+	return rc;
+}
+
+static int edp_pll_ready_poll(void)
+{
+	int cnt;
+	u32 status;
+
+	/* ahb clock should be enabled by caller */
+	cnt = 100;
+	while (cnt--) {
+		udelay(100);
+		status = DSS_REG_R(mdss_edp_base, 0xc0);
+		status &= 0x01;
+		if (status)
+			break;
+	}
+	pr_debug("%s: cnt=%d status=%d\n", __func__, cnt, (int)status);
+
+	if (status)
+		return 1;
+
+	pr_err("%s: PLL NOT ready\n", __func__);
+	return 0;
+}
+
+static int edp_vco_enable(struct clk *c)
+{
+	int i, ready;
+	int rc = 0;
+
+	if (!mdss_gdsc_enabled()) {
+		pr_err("%s: mdss GDSC is not enabled\n", __func__);
+		return -EPERM;
+	}
+
+	/* called from enable, irq disable. can not call clk_prepare */
+	rc = clk_enable(mdss_ahb_clk);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	for (i = 0; i < 3; i++) {
+		ready = edp_pll_ready_poll();
+		if (ready)
+			break;
+		DSS_REG_W(mdss_edp_base, 0x20, 0x01); /* UNIPHY_PLL_GLB_CFG */
+		udelay(100);
+		DSS_REG_W(mdss_edp_base, 0x20, 0x05); /* UNIPHY_PLL_GLB_CFG */
+		udelay(100);
+		DSS_REG_W(mdss_edp_base, 0x20, 0x07); /* UNIPHY_PLL_GLB_CFG */
+		udelay(100);
+		DSS_REG_W(mdss_edp_base, 0x20, 0x0f); /* UNIPHY_PLL_GLB_CFG */
+		udelay(100);
+	}
+	clk_disable(mdss_ahb_clk);
+
+	if (ready) {
+		pr_debug("%s: EDP PLL locked\n", __func__);
+		return 0;
+	}
+
+	pr_err("%s: EDP PLL failed to lock\n", __func__);
+	return  -EINVAL;
+}
+
+static void edp_vco_disable(struct clk *c)
+{
+	int rc = 0;
+
+	if (!mdss_gdsc_enabled()) {
+		pr_err("%s: mdss GDSC is not enabled\n", __func__);
+		return;
+	}
+
+	/* called from unprepare which is not atomic */
+	rc = mdss_ahb_clk_enable(1);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		return;
+	}
+
+	DSS_REG_W(mdss_edp_base, 0x20, 0x00);
+
+	mdss_ahb_clk_enable(0);
+
+	pr_debug("%s: EDP PLL Disabled\n", __func__);
+	return;
+}
+
+static unsigned long edp_vco_get_rate(struct clk *c)
+{
+	struct edp_pll_vco_clk *vco = to_edp_vco_clk(c);
+	u32 pll_status, div2;
+	int rc;
+
+	rc = mdss_ahb_clk_enable(1);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+	if (vco->rate == 0) {
+		pll_status = DSS_REG_R(mdss_edp_base, 0xc0);
+		if (pll_status & 0x01) {
+			div2 = DSS_REG_R(mdss_edp_base, 0x24);
+			if (div2 & 0x01)
+				vco->rate = 1350000000;
+			else
+				vco->rate = 810000000;
+		}
+	}
+	mdss_ahb_clk_enable(0);
+
+	pr_debug("%s: rate=%d\n", __func__, (int)vco->rate);
+
+	return vco->rate;
+}
+
+static long edp_vco_round_rate(struct clk *c, unsigned long rate)
+{
+	struct edp_pll_vco_clk *vco = to_edp_vco_clk(c);
+	unsigned long rrate = -ENOENT;
+	unsigned long *lp;
+
+	lp = vco->rate_list;
+	while (*lp) {
+		rrate = *lp;
+		if (rate <= rrate)
+			break;
+		lp++;
+	}
+
+	pr_debug("%s: rrate=%d\n", __func__, (int)rrate);
+
+	return rrate;
+}
+
+static int edp_vco_prepare(struct clk *c)
+{
+	struct edp_pll_vco_clk *vco = to_edp_vco_clk(c);
+
+	pr_debug("%s: rate=%d\n", __func__, (int)vco->rate);
+
+	return edp_vco_set_rate(c, vco->rate);
+}
+
+static void edp_vco_unprepare(struct clk *c)
+{
+	struct edp_pll_vco_clk *vco = to_edp_vco_clk(c);
+
+	pr_debug("%s: rate=%d\n", __func__, (int)vco->rate);
+
+	edp_vco_disable(c);
+}
+
+static int edp_pll_lock_status(void)
+{
+	u32 status;
+	int pll_locked = 0;
+	int rc;
+
+	rc = mdss_ahb_clk_enable(1);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+	/* poll for PLL ready status */
+	if (readl_poll_timeout_noirq((mdss_edp_base + 0xc0),
+			status, ((status & BIT(0)) == 1),
+			PLL_POLL_MAX_READS, PLL_POLL_TIMEOUT_US)) {
+		pr_debug("%s: EDP PLL status=%x failed to Lock\n",
+				__func__, status);
+		pll_locked = 0;
+	} else {
+		pll_locked = 1;
+	}
+	mdss_ahb_clk_enable(0);
+
+	return pll_locked;
+}
+
+static enum handoff edp_vco_handoff(struct clk *c)
+{
+	enum handoff ret = HANDOFF_DISABLED_CLK;
+
+	if (edp_pll_lock_status()) {
+		c->rate = edp_vco_get_rate(c);
+		ret = HANDOFF_ENABLED_CLK;
+	}
+
+	pr_debug("%s: done, ret=%d\n", __func__, ret);
+	return ret;
+}
+
+/* edp vco rate */
+static unsigned long edp_vco_rate_list[] = {
+		810000000, 1350000000, 0};
+
+struct clk_ops edp_vco_clk_ops = {
+	.enable = edp_vco_enable,
+	.set_rate = edp_vco_set_rate,
+	.get_rate = edp_vco_get_rate,
+	.round_rate = edp_vco_round_rate,
+	.prepare = edp_vco_prepare,
+	.unprepare = edp_vco_unprepare,
+	.handoff = edp_vco_handoff,
+};
+
+struct edp_pll_vco_clk edp_vco_clk = {
+	.ref_clk_rate = 19200000,
+	.rate = 0,
+	.rate_list = edp_vco_rate_list,
+	.c = {
+		.dbg_name = "edp_vco_clk",
+		.ops = &edp_vco_clk_ops,
+		CLK_INIT(edp_vco_clk.c),
+	},
+};
+
+static unsigned long edp_mainlink_get_rate(struct clk *c)
+{
+	struct div_clk *mclk = to_div_clk(c);
+	struct clk *pclk;
+	unsigned long rate = 0;
+
+	pclk = clk_get_parent(c);
+
+	if (pclk->ops->get_rate) {
+		rate = pclk->ops->get_rate(pclk);
+		rate /= mclk->data.div;
+	}
+
+	pr_debug("%s: rate=%d div=%d\n", __func__, (int)rate, mclk->data.div);
+
+	return rate;
+}
+
+static struct clk_ops edp_mainlink_clk_src_ops;
+static struct clk_div_ops fixed_5div_ops; /* null ops */
+
+struct div_clk edp_mainlink_clk_src = {
+	.ops = &fixed_5div_ops,
+	.data = {
+		.div = 5,
+	},
+	.c = {
+		.parent = &edp_vco_clk.c,
+		.dbg_name = "edp_mainlink_clk_src",
+		.ops = &edp_mainlink_clk_src_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(edp_mainlink_clk_src.c),
+	}
+};
+
+
+static struct clk_ops edp_pixel_clk_ops;
+
+/*
+ * this rate is from pll to clock controller
+ * output from pll to CC has two possibilities
+ * 1: if mainlink rate is 270M, then 675M
+ * 2: if mainlink rate is 162M, then 810M
+ */
+static int edp_pixel_set_div(struct div_clk *clk, int div)
+{
+	int rc = 0;
+
+	rc = mdss_ahb_clk_enable(1);
+	if (rc) {
+		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	pr_debug("%s: div=%d\n", __func__, div);
+	DSS_REG_W(mdss_edp_base, 0x24, (div - 1)); /* UNIPHY_PLL_POSTDIV2_CFG */
+
+	mdss_ahb_clk_enable(0);
+	return 0;
+}
+
+static int edp_pixel_get_div(struct div_clk *clk)
+{
+	int div = 0;
+
+	if (mdss_ahb_clk_enable(1)) {
+		pr_debug("%s: Failed to enable mdss ahb clock\n", __func__);
+		return 1;
+	}
+	div = DSS_REG_R(mdss_edp_base, 0x24); /* UNIPHY_PLL_POSTDIV2_CFG */
+	div &= 0x01;
+	pr_debug("%s: div=%d\n", __func__, div);
+	mdss_ahb_clk_enable(0);
+	return div + 1;
+}
+
+static struct clk_div_ops edp_pixel_ops = {
+	.set_div = edp_pixel_set_div,
+	.get_div = edp_pixel_get_div,
+};
+
+struct div_clk edp_pixel_clk_src = {
+	.data = {
+		.max_div = 2,
+		.min_div = 1,
+	},
+	.ops = &edp_pixel_ops,
+	.c = {
+		.parent = &edp_vco_clk.c,
+		.dbg_name = "edp_pixel_clk_src",
+		.ops = &edp_pixel_clk_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(edp_pixel_clk_src.c),
+	},
+};
+
 void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 {
 	BUG_ON(ahb_clk == NULL);
@@ -1691,6 +2148,10 @@ void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 	if (!hdmi_phy_pll_base)
 		pr_err("%s: unable to ioremap hdmi phy pll base", __func__);
 
+	mdss_edp_base = ioremap(EDP_PHY_PHYS, EDP_PHY_SIZE);
+	if (!mdss_edp_base)
+		pr_err("%s: unable to remap edp base", __func__);
+
 	pixel_clk_src_ops = clk_ops_slave_div;
 	pixel_clk_src_ops.prepare = div_prepare;
 
@@ -1702,5 +2163,11 @@ void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 
 	byte_mux_clk_ops = clk_ops_gen_mux;
 	byte_mux_clk_ops.prepare = mux_prepare;
-}
 
+	edp_mainlink_clk_src_ops = clk_ops_div;
+	edp_mainlink_clk_src_ops.get_parent = clk_get_parent;
+	edp_mainlink_clk_src_ops.get_rate = edp_mainlink_get_rate;
+
+	edp_pixel_clk_ops = clk_ops_slave_div;
+	edp_pixel_clk_ops.prepare = div_prepare;
+}

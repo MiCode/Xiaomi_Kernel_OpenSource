@@ -541,7 +541,8 @@ static void __iomem *virt_bases[N_BASES];
 #define gpll1_hsic_source_val 4
 #define cxo_lpass_source_val 0
 #define gpll0_lpass_source_val 5
-#define edppll_270_mm_source_val 4
+#define edp_mainlink_mm_source_val 4
+#define edp_pixel_mm_source_val 5
 #define edppll_350_mm_source_val 4
 #define dsipll_750_mm_source_val 1
 #define dsipll0_byte_mm_source_val 1
@@ -582,6 +583,17 @@ static void __iomem *virt_bases[N_BASES];
 	{ \
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_mm_source_val), \
+	}
+
+#define F_EDP(f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
 		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
@@ -3181,40 +3193,42 @@ static struct rcg_clk edpaux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_edplink_clk[] = {
-	F_MDSS(162000000, edppll_270,   2,   0,   0),
-	F_MDSS(270000000, edppll_270,  11,   0,   0),
+	F_EDP(162000000, edp_mainlink,  1,   0,   0),
+	F_EDP(270000000, edp_mainlink,  1,   0,   0),
 	F_END
 };
 
 static struct rcg_clk edplink_clk_src = {
 	.cmd_rcgr_reg = EDPLINK_CMD_RCGR,
-	.set_rate = set_rate_hid,
 	.freq_tbl = ftbl_mdss_edplink_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "edplink_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_rcg_edp,
 		VDD_DIG_FMAX_MAP2(LOW, 135000000, NOMINAL, 270000000),
 		CLK_INIT(edplink_clk_src.c),
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_edppixel_clk[] = {
-	F_MDSS(138500000, edppll_350,   2,   0,   0),
-	F_MDSS(350000000, edppll_350,  11,   0,   0),
+static struct clk_freq_tbl edp_pixel_freq_tbl[] = {
+	{
+		.src_clk = &edp_pixel_clk_src.c,
+		.div_src_val = BVAL(10, 8, edp_pixel_mm_source_val)
+				| BVAL(4, 0, 0),
+	},
 	F_END
 };
 
 static struct rcg_clk edppixel_clk_src = {
 	.cmd_rcgr_reg = EDPPIXEL_CMD_RCGR,
 	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_mdss_edppixel_clk,
-	.current_freq = &rcg_dummy_freq,
+	.current_freq = edp_pixel_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &edp_pixel_clk_src.c,
 		.dbg_name = "edppixel_clk_src",
-		.ops = &clk_ops_rcg_mnd,
+		.ops = &clk_ops_edppixel,
 		VDD_DIG_FMAX_MAP2(LOW, 175000000, NOMINAL, 350000000),
 		CLK_INIT(edppixel_clk_src.c),
 	},
