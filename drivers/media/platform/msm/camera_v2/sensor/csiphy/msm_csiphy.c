@@ -423,7 +423,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 				__LINE__, csi_lane_params);
 			return -EINVAL;
 		}
-		csi_lane_mask = csi_lane_params->csi_lane_mask;
+		csi_lane_mask = (csi_lane_params->csi_lane_mask & 0x1F);
 
 		CDBG("%s csiphy_params, lane assign %x mask = %x\n",
 			__func__,
@@ -436,7 +436,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] &=
 			~(csi_lane_mask);
 		i = 0;
-		while (csi_lane_mask & 0x1F) {
+		while (csi_lane_mask) {
 			if (csi_lane_mask & 0x1) {
 				msm_camera_io_w(0x0, csiphy_dev->base +
 					MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
@@ -507,7 +507,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 				__LINE__, csi_lane_params);
 			return -EINVAL;
 		}
-		csi_lane_mask = csi_lane_params->csi_lane_mask;
+		csi_lane_mask = (csi_lane_params->csi_lane_mask & 0x1F);
 
 		CDBG("%s csiphy_params, lane assign %x mask = %x\n",
 			__func__,
@@ -520,7 +520,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] &=
 			~(csi_lane_mask);
 		i = 0;
-		while (csi_lane_mask & 0x1F) {
+		while (csi_lane_mask) {
 			if (csi_lane_mask & 0x1) {
 				msm_camera_io_w(0x0, csiphy_dev->base +
 					MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
