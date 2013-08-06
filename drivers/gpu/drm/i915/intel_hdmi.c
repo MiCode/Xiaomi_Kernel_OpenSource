@@ -1437,7 +1437,7 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 			   DRM_MODE_CONNECTOR_HDMIA);
 	drm_connector_helper_add(connector, &intel_hdmi_connector_helper_funcs);
 
-	connector->interlace_allowed = 1;
+	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
 	connector->stereo_allowed = 1;
 
