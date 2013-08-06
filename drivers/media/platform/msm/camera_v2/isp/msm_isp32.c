@@ -24,7 +24,7 @@
 
 #define VFE32_BURST_LEN 2
 #define VFE32_UB_SIZE 1024
-#define VFE32_EQUAL_SLICE_UB 204
+#define VFE32_EQUAL_SLICE_UB 198
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
 #define VFE32_RDI_BASE(idx) (idx ? 0x734 + 0x4 * (idx - 1) : 0x06FC)
 #define VFE32_XBAR_BASE(idx) (0x40 + 0x4 * (idx / 4))
@@ -149,6 +149,7 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w_mb(0x1CFFFFFF, vfe_dev->vfe_base + 0x20);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
 	msm_camera_io_w_mb(0x1FFFFFFF, vfe_dev->vfe_base + 0x28);
+
 }
 
 static void msm_vfe32_process_reset_irq(struct vfe_device *vfe_dev,
@@ -852,13 +853,13 @@ static void msm_vfe32_stats_cfg_ub(struct vfe_device *vfe_dev)
 	int i;
 	uint32_t ub_offset = VFE32_UB_SIZE;
 	uint32_t ub_size[VFE32_NUM_STATS_TYPE] = {
-		64, /*MSM_ISP_STATS_BG*/
-		64, /*MSM_ISP_STATS_BF*/
-		16, /*MSM_ISP_STATS_AWB*/
-		8,  /*MSM_ISP_STATS_RS*/
+		107, /*MSM_ISP_STATS_BG*/
+		92, /*MSM_ISP_STATS_BF*/
+		2, /*MSM_ISP_STATS_AWB*/
+		7,  /*MSM_ISP_STATS_RS*/
 		16, /*MSM_ISP_STATS_CS*/
-		16, /*MSM_ISP_STATS_IHIST*/
-		16, /*MSM_ISP_STATS_BHIST*/
+		2, /*MSM_ISP_STATS_IHIST*/
+		7, /*MSM_ISP_STATS_BHIST*/
 	};
 
 	for (i = 0; i < VFE32_NUM_STATS_TYPE; i++) {
