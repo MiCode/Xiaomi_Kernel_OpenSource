@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -264,14 +264,22 @@ static int lcdc_sharp_panel_off(struct platform_device *pdev)
 
 static void lcdc_sharp_panel_set_backlight(struct msm_fb_data_type *mfd)
 {
-	int bl_level;
+	int bl_level, rc;
+	static bool is_pwm_enabled;
 
 	bl_level = mfd->bl_level;
 
 #ifdef CONFIG_PMIC8058_PWM
 	if (bl_pwm) {
 		pwm_config(bl_pwm, DUTY_LEVEL * bl_level, PWM_PERIOD);
-		pwm_enable(bl_pwm);
+		if (is_pwm_enabled) {
+			pwm_disable(bl_pwm);
+			is_pwm_enabled = 0;
+		}
+
+		rc = pwm_enable(bl_pwm);
+		if (!rc)
+			is_pwm_enabled = 1;
 	}
 #endif
 }

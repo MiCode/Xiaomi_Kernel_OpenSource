@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@
 #ifdef CONFIG_PMIC8058_PWM
 static struct pwm_device *bl_pwm0;
 static struct pwm_device *bl_pwm1;
+static int is_pwm0_enabled;
+static int is_pwm1_enabled;
 
 /* for samsung panel 300hz was the minimum freq where flickering wasnt
  * observed as the screen was dimmed
@@ -70,15 +72,29 @@ static void lcdc_samsung_panel_set_backlight(struct msm_fb_data_type *mfd)
 	}
 
 	if (bl_pwm0) {
+		if (is_pwm0_enabled) {
+			pwm_disable(bl_pwm0);
+			is_pwm0_enabled = 0;
+		}
+
 		ret = pwm_enable(bl_pwm0);
 		if (ret)
 			printk(KERN_ERR "pwm_enable on pwm 0 failed %d\n", ret);
+		else
+			is_pwm0_enabled = 1;
 	}
 
 	if (bl_pwm1) {
+		if (is_pwm1_enabled) {
+			pwm_disable(bl_pwm1);
+			is_pwm1_enabled = 0;
+		}
+
 		ret = pwm_enable(bl_pwm1);
 		if (ret)
 			printk(KERN_ERR "pwm_enable on pwm 1 failed %d\n", ret);
+		else
+			is_pwm1_enabled = 1;
 	}
 #endif
 

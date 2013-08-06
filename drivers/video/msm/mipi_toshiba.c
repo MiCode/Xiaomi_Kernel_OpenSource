@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -253,6 +253,7 @@ static void mipi_toshiba_set_backlight(struct msm_fb_data_type *mfd)
 {
 	int ret;
 	static int bklight_pwm_cfg;
+	static bool is_pwm_enabled;
 
 	if (bklight_pwm_cfg == 0) {
 		mipi_bklight_pwm_cfg();
@@ -267,12 +268,19 @@ static void mipi_toshiba_set_backlight(struct msm_fb_data_type *mfd)
 			return;
 		}
 		if (mfd->bl_level) {
+			if (is_pwm_enabled) {
+				pwm_disable(bl_lpm);
+				is_pwm_enabled = 0;
+			}
 			ret = pwm_enable(bl_lpm);
 			if (ret)
 				pr_err("pwm enable/disable on lpm failed"
 					"for bl %d\n",	mfd->bl_level);
+			else
+				is_pwm_enabled = 1;
 		} else {
 			pwm_disable(bl_lpm);
+			is_pwm_enabled = 0;
 		}
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ static int lvds_chimei_panel_off(struct platform_device *pdev)
 static void lvds_chimei_set_backlight(struct msm_fb_data_type *mfd)
 {
 	int ret;
+	static bool is_pwm_enabled;
 
 	pr_debug("%s: back light level %d\n", __func__, mfd->bl_level);
 
@@ -49,12 +50,20 @@ static void lvds_chimei_set_backlight(struct msm_fb_data_type *mfd)
 			return;
 		}
 		if (mfd->bl_level) {
+			if (is_pwm_enabled) {
+				pwm_disable(bl_lpm);
+				is_pwm_enabled = 0;
+			}
+
 			ret = pwm_enable(bl_lpm);
 			if (ret)
 				pr_err("pwm enable/disable on lpm failed"
 					"for bl %d\n",	mfd->bl_level);
+			else
+				is_pwm_enabled = 1;
 		} else {
 			pwm_disable(bl_lpm);
+			is_pwm_enabled = 0;
 		}
 	}
 }

@@ -179,6 +179,7 @@ struct pm8xxx_led_data {
 	struct mutex		lock;
 	struct pwm_device	*pwm_dev;
 	int			pwm_channel;
+	boot			is_pwm_enabled;
 	u32			pwm_period_us;
 	struct pm8xxx_pwm_duty_cycles *pwm_duty_cycles;
 	struct wled_config_data *wled_cfg;
@@ -417,9 +418,17 @@ static int pm8xxx_led_pwm_work(struct pm8xxx_led_data *led)
 		if (led->cdev.brightness) {
 			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1,
 				led->cdev.brightness);
+			if (led->is_pwm_enabled) {
+				pwm_disable(led->pwm_dev);
+				led->is_pwm_enabled = 0;
+			}
+
 			rc = pwm_enable(led->pwm_dev);
+			if (!rc)
+				led->is_pwm_enabled = 1;
 		} else {
 			pwm_disable(led->pwm_dev);
+			led->is_pwm_enabled = 0;
 			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1,
 				led->cdev.brightness);
 		}

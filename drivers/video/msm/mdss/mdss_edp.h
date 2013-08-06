@@ -264,6 +264,7 @@ struct mdss_edp_drv_pdata {
 
 	/* backlight */
 	struct pwm_device *bl_pwm;
+	bool is_pwm_enabled;
 	int lpg_channel;
 	int pwm_period;
 

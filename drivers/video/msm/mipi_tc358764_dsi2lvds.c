@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,7 +216,9 @@ static struct dsi_buf d2l_tx_buf;
 static struct dsi_buf d2l_rx_buf;
 static int led_pwm;
 static struct pwm_device *bl_pwm;
+static bool is_bl_pwm_enabled;
 static struct pwm_device *tn_pwm;
+static bool is_tn_pwm_enabled;
 static int bl_level;
 static u32 d2l_gpio_out_mask;
 static u32 d2l_gpio_out_val;
@@ -482,6 +484,11 @@ static int mipi_d2l_set_backlight_level(struct pwm_device *pwm, int level)
 		return ret;
 	}
 
+	if (is_bl_pwm_enabled) {
+		pwm_disable(pwm);
+		is_bl_pwm_enabled = 0;
+	}
+
 	ret = pwm_enable(pwm);
 	if (ret) {
 		pr_err("%s: pwm_enable() failed err=%d\n",
@@ -489,6 +496,7 @@ static int mipi_d2l_set_backlight_level(struct pwm_device *pwm, int level)
 		return ret;
 	}
 
+	is_bl_pwm_enabled = 1;
 	return 0;
 }
 
@@ -512,6 +520,11 @@ static int mipi_d2l_set_tn_clk(struct pwm_device *pwm, u32 usec)
 		return ret;
 	}
 
+	if (is_tn_pwm_enabled) {
+		pwm_disabled(pwm);
+		is_tn_pwm_enabled = 0;
+	}
+
 	ret = pwm_enable(pwm);
 	if (ret) {
 		pr_err("%s: pwm_enable() failed err=%d\n",
@@ -519,6 +532,7 @@ static int mipi_d2l_set_tn_clk(struct pwm_device *pwm, u32 usec)
 		return ret;
 	}
 
+	is_bl_pwm_enabled = 1;
 	return 0;
 }
 

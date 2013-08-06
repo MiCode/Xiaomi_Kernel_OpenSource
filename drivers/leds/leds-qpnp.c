@@ -310,6 +310,7 @@ struct pwm_config_data {
 	int	*old_duty_pcts;
 	u8	mode;
 	u8	default_mode;
+	bool	pwm_enabled;
 	bool use_blink;
 	bool blinking;
 };
@@ -1226,15 +1227,19 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 			return rc;
 		}
 
-		rc = pwm_enable(led->rgb_cfg->pwm_cfg->pwm_dev);
-		if (rc < 0) {
-			dev_err(&led->spmi_dev->dev, "pwm enable failed\n");
-			return rc;
+		if (led->rgb_cfg->pwm_cfg->pwm_enabled) {
+			pwm_disable(led->rgb_cfg->pwm_cfg->pwm_dev);
+			led->rgb_cfg->pwm_cfg->pwm_enabled = 0;
 		}
+
+		rc = pwm_enable(led->rgb_cfg->pwm_cfg->pwm_dev);
+		if (!rc)
+			led->rgb_cfg->pwm_cfg->pwm_enabled = 1;
 	} else {
 		led->rgb_cfg->pwm_cfg->mode =
 			led->rgb_cfg->pwm_cfg->default_mode;
 		pwm_disable(led->rgb_cfg->pwm_cfg->pwm_dev);
+		led->rgb_cfg->pwm_cfg->pwm_enabled = 0;
 		rc = qpnp_led_masked_write(led,
 			RGB_LED_EN_CTL(led->base),
 			led->rgb_cfg->enable, RGB_LED_DISABLE);
@@ -1602,7 +1607,7 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 				return -EINVAL;
 			}
 			rc = pwm_lut_config(pwm_cfg->pwm_dev,
-				PM_PWM_PERIOD_MIN, /* ignored by hardware */
+				PM_PWM_PERIOD_MIN,
 				pwm_cfg->duty_cycles->duty_pcts,
 				pwm_cfg->lut_params);
 			if (rc < 0) {

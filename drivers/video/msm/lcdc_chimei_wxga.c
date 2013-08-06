@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ static int led_pwm;		/* pm8058 gpio 24, channel 0 */
 static int led_en;		/* pm8058 gpio 1 */
 static int lvds_pwr_down;	/* msm gpio 30 */
 static int chimei_bl_level = 1;
-
+static int is_pwm_enabled;
 
 static void lcdc_chimei_set_backlight(int level)
 {
@@ -50,12 +50,19 @@ static void lcdc_chimei_set_backlight(int level)
 			return;
 		}
 
+		if (is_pwm_enabled) {
+			pwm_disable(bl_pwm);
+			is_pwm_enabled = 0;
+		}
+
 		ret = pwm_enable(bl_pwm);
 		if (ret) {
 			pr_err("%s: pwm_enable on pwm failed %d\n",
 					__func__, ret);
 			return;
 		}
+
+		is_pwm_enabled = 1;
 	}
 
 	chimei_bl_level = level;
