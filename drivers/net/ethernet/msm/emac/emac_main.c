@@ -17,14 +17,17 @@
 #include <linux/if_ether.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_net.h>
+#include <linux/of_gpio.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/tcp.h>
-#include <linux/io.h>
 
 #include "emac.h"
 #include "emac_hw.h"
@@ -1423,9 +1426,6 @@ static int emac_up(struct emac_adapter *adpt)
 	emac_hw_config_mac(hw);
 	emac_config_rss(adpt);
 
-	for (i = 0; i < adpt->num_rxques; i++)
-		emac_refresh_rx_buffer(&adpt->rx_queue[i]);
-
 	for (i = 0; i < EMAC_NUM_GPIO; i++) {
 		struct emac_gpio_info *gpio_info = &adpt->gpio_info[i];
 		retval = gpio_request(gpio_info->gpio, gpio_info->name);
@@ -1456,6 +1456,9 @@ static int emac_up(struct emac_adapter *adpt)
 		}
 	}
 
+	for (i = 0; i < adpt->num_rxques; i++)
+		emac_refresh_rx_buffer(&adpt->rx_queue[i]);
+
 	emac_napi_enable_all(adpt);
 	emac_enable_intr(adpt);
 
@@ -1473,7 +1476,6 @@ err_request_irq:
 	for (i = 0; i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
 err_request_gpio:
-	emac_clean_all_rx_queues(adpt);
 	return retval;
 }
 
@@ -2198,19 +2200,61 @@ static int emac_get_resources(struct platform_device *pdev,
 	u8 i;
 	struct resource *res;
 	struct net_device *netdev = adpt->netdev;
-	void *reg_base[NUM_EMAC_REG_BASES] = { 0 };
+	struct emac_irq_info *irq_info;
+	struct emac_gpio_info *gpio_info;
+	struct device_node *node = pdev->dev.of_node;
 	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588",
 					      "emac_qserdes", "emac_sgmii_phy"};
+	const void *maddr;
+
+	if (!node)
+		return -ENODEV;
+
+	/* get id */
+	retval = of_property_read_u32(node, "cell-index", &pdev->id);
+	if (retval)
+		return retval;
+
+	/* get time stamp enable flag */
+	adpt->tstamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
+
+	/* get phy address on MDIO bus */
+	retval = of_property_read_u32(node, "phy-addr", &adpt->hw.phy_addr);
+	if (retval)
+		return retval;
+
+	/* get phy mode */
+	retval = of_get_phy_mode(node);
+	if (retval < 0)
+		return retval;
+
+	adpt->phy_mode = retval;
+
+	/* get gpios */
+	for (i = 0; i < EMAC_NUM_GPIO; i++) {
+		gpio_info = &adpt->gpio_info[i];
+		retval = of_get_named_gpio(node, gpio_info->name, 0);
+		if (retval < 0)
+			return retval;
+
+		gpio_info->gpio = retval;
+	}
+
+	/* get mac address */
+	maddr = of_get_mac_address(node);
+	if (!maddr)
+		return -ENODEV;
+
+	memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
 
 	/* get irqs */
 	for (i = 0; i < EMAC_NUM_IRQ; i++) {
-		struct emac_irq_info *irq_info = &adpt->irq_info[i];
-
 		/* SGMII_PHY IRQ is only required if phy_mode is "sgmii" */
 		if ((i == EMAC_SGMII_PHY_IRQ) &&
 		    (adpt->phy_mode != PHY_INTERFACE_MODE_SGMII))
 				continue;
 
+		irq_info = &adpt->irq_info[i];
 		retval = platform_get_irq_byname(pdev, irq_info->name);
 		if (retval < 0) {
 			/* If WOL IRQ is not specified, WOL is disabled */
@@ -2243,8 +2287,8 @@ static int emac_get_resources(struct platform_device *pdev,
 			break;
 		}
 
-		reg_base[i] = ioremap(res->start, resource_size(res));
-		if (!reg_base[i]) {
+		adpt->hw.reg_addr[i] = ioremap(res->start, resource_size(res));
+		if (!adpt->hw.reg_addr[i]) {
 			emac_err(adpt, "can't remap %s\n", res_name[i]);
 			retval = -ENOMEM;
 			break;
@@ -2252,17 +2296,13 @@ static int emac_get_resources(struct platform_device *pdev,
 	}
 
 	if (retval) {
-		while (i--)
-			if (reg_base[i])
-				iounmap(reg_base[i]);
+		while (--i >= 0)
+			if (adpt->hw.reg_addr[i])
+				iounmap(adpt->hw.reg_addr[i]);
 	} else {
-		for (i = 0; i < NUM_EMAC_REG_BASES; i++)
-			adpt->hw.reg_addr[i] = reg_base[i];
-
 		netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
 	}
 
-err_res:
 	return retval;
 }
 
@@ -2320,9 +2360,6 @@ static int emac_probe(struct platform_device *pdev)
 	adpt->irq_info[EMAC_WOL_IRQ].adpt = adpt;
 	adpt->irq_info[EMAC_SGMII_PHY_IRQ].adpt = adpt;
 
-	hw->phy_addr = 0;
-	adpt->tstamp_en = true;
-	adpt->phy_mode = 0;
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
 		goto err_res;
@@ -2366,8 +2403,7 @@ static int emac_probe(struct platform_device *pdev)
 		goto err_phy_link;
 
 	/* set mac address */
-	emac_hw_get_mac_addr(hw, hw->mac_perm_addr);
-	memcpy(adpt->hw.mac_addr, hw->mac_perm_addr, netdev->addr_len);
+	memcpy(hw->mac_addr, hw->mac_perm_addr, netdev->addr_len);
 	memcpy(netdev->dev_addr, adpt->hw.mac_addr, netdev->addr_len);
 	emac_hw_set_mac_addr(hw, hw->mac_addr);
 
@@ -2447,6 +2483,13 @@ static const struct dev_pm_ops emac_pm_ops = {
 	)
 };
 
+static struct of_device_id emac_dt_match[] = {
+	{
+		.compatible = "qcom,emac",
+	},
+	{}
+};
+
 static struct platform_driver emac_platform_driver = {
 	.probe   = emac_probe,
 	.remove  = __devexit_p(emac_remove),
@@ -2454,6 +2497,7 @@ static struct platform_driver emac_platform_driver = {
 		.owner = THIS_MODULE,
 		.name	= "msm_emac",
 		.pm = &emac_pm_ops,
+		.of_match_table = emac_dt_match,
 	},
 };
 
