@@ -346,14 +346,14 @@
 						<0x0 0x40 0x6>,
 						<0x0 0x40 0x7>;
 
-				interrupt-names = "vsense_for_r",
-						  "vsense_avg",
-						  "sw_cc_thr",
-						  "ocv_thr",
-						  "charge_begin",
-						  "good_ocv",
+				interrupt-names = "cc_thr",
 						  "ocv_for_r",
-						  "cc_thr";
+						  "good_ocv",
+						  "charge_begin",
+						  "ocv_thr",
+						  "sw_cc_thr",
+						  "vsense_avg",
+						  "vsense_for_r";
 			};
 		};
 
