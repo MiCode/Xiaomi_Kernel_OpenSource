@@ -30,6 +30,14 @@
 #include "devices.h"
 #include "platsmp.h"
 
+static struct of_dev_auxdata fsm9900_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
+			"msm_sdcc.2", NULL),
+	{}
+};
+
 void __init fsm9900_reserve(void)
 {
 }
@@ -59,6 +67,10 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",  NULL,           "f9824900.sdhci_msm", OFF),
 	CLK_DUMMY("core_clk",   NULL,           "f98a4900.sdhci_msm", OFF),
 	CLK_DUMMY("iface_clk",  NULL,           "f98a4900.sdhci_msm", OFF),
+	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
+	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
+	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
+	CLK_DUMMY("iface_clk",	SDC2_P_CLK,	"msm_sdcc.2", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -85,11 +97,13 @@ static void __init fsm9900_map_io(void)
 
 void __init fsm9900_init(void)
 {
+	struct of_dev_auxdata *adata = fsm9900_auxdata_lookup;
+
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	fsm9900_init_gpiomux();
-	board_dt_populate(NULL);
+	board_dt_populate(adata);
 	fsm9900_add_drivers();
 }
 
