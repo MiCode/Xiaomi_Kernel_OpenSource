@@ -179,6 +179,7 @@
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pm8941_flash0 &pm8941_flash1>;
+		qcom,torch-source = <&pm8941_torch>;
 	};
 
 	cci: qcom,cci@fda0C000 {
