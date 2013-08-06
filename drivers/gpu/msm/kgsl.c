@@ -940,9 +940,10 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 			 * tries to put it while we are detaching
 			 */
 
-			_kgsl_context_get(context);
-			kgsl_context_detach(context);
-			kgsl_context_put(context);
+			if (_kgsl_context_get(context)) {
+				kgsl_context_detach(context);
+				kgsl_context_put(context);
+			}
 		}
 
 		next = next + 1;
@@ -1738,10 +1739,21 @@ static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 	if (cmdbatch == NULL)
 		return ERR_PTR(-ENOMEM);
 
+	/*
+	 * Increase the reference count on the context so it doesn't disappear
+	 * during the lifetime of this command batch
+	 */
+
+	if (!_kgsl_context_get(context)) {
+		kfree(cmdbatch);
+		return ERR_PTR(-EINVAL);
+	}
+
 	if (!(flags & KGSL_CONTEXT_SYNC)) {
 		cmdbatch->ibdesc = kzalloc(sizeof(*cmdbatch->ibdesc) * numibs,
 			GFP_KERNEL);
 		if (cmdbatch->ibdesc == NULL) {
+			kgsl_context_put(context);
 			kfree(cmdbatch);
 			return ERR_PTR(-ENOMEM);
 		}
@@ -1755,12 +1767,6 @@ static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 	cmdbatch->ibcount = (flags & KGSL_CONTEXT_SYNC) ? 0 : numibs;
 	cmdbatch->context = context;
 	cmdbatch->flags = flags & ~KGSL_CONTEXT_SUBMIT_IB_LIST;
-
-	/*
-	 * Increase the reference count on the context so it doesn't disappear
-	 * during the lifetime of this command batch
-	 */
-	_kgsl_context_get(context);
 
 	return cmdbatch;
 }

@@ -293,7 +293,10 @@ int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 	/* Needs to hold the device mutex */
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	_kgsl_context_get(context);
+	if (!_kgsl_context_get(context)) {
+		ret = -EINVAL;
+		goto done;
+	}
 
 	trace_adreno_drawctxt_wait_start(KGSL_MEMSTORE_GLOBAL, timestamp);
 
@@ -632,8 +635,10 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	}
 
 	/* Get a refcount to the new instance */
-	if (drawctxt)
-		_kgsl_context_get(&drawctxt->base);
+	if (drawctxt) {
+		if (!_kgsl_context_get(&drawctxt->base))
+			return -EINVAL;
+	}
 
 	/* Set the new context */
 	ret = adreno_dev->gpudev->ctxt_restore(adreno_dev, drawctxt);

@@ -592,8 +592,18 @@ static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 static inline int _kgsl_context_get(struct kgsl_context *context)
 {
 	int ret = 0;
-	if (context)
+
+	if (context) {
 		ret = kref_get_unless_zero(&context->refcount);
+		/*
+		 * We shouldn't realistically fail kref_get_unless_zero unless
+		 * we did something really dumb so make the failure both public
+		 * and painful
+		 */
+
+		WARN_ON(!ret);
+	}
+
 	return ret;
 }
 

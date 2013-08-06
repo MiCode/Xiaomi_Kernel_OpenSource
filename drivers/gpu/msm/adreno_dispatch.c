@@ -223,9 +223,10 @@ static void  dispatcher_queue_context(struct adreno_device *adreno_dev,
 
 	if (plist_node_empty(&drawctxt->pending)) {
 		/* Get a reference to the context while it sits on the list */
-		_kgsl_context_get(&drawctxt->base);
-		trace_dispatch_queue_context(drawctxt);
-		plist_add(&drawctxt->pending, &dispatcher->pending);
+		if (_kgsl_context_get(&drawctxt->base)) {
+			trace_dispatch_queue_context(drawctxt);
+			plist_add(&drawctxt->pending, &dispatcher->pending);
+		}
 	}
 
 	spin_unlock(&dispatcher->plist_lock);

@@ -429,15 +429,17 @@ void kgsl_process_events(struct work_struct *work)
 		 * Increment the refcount to make sure that the list_del_init
 		 * is called with a valid context's list
 		 */
-		_kgsl_context_get(context);
-		/*
-		 * If kgsl_timestamp_expired_context returns 0 then it no longer
-		 * has any pending events and can be removed from the list
-		 */
+		if (_kgsl_context_get(context)) {
+			/*
+			 * If kgsl_timestamp_expired_context returns 0 then it
+			 * no longer has any pending events and can be removed
+			 * from the list
+			 */
 
-		if (kgsl_process_context_events(device, context) == 0)
-			list_del_init(&context->events_list);
-		kgsl_context_put(context);
+			if (kgsl_process_context_events(device, context) == 0)
+				list_del_init(&context->events_list);
+			kgsl_context_put(context);
+		}
 	}
 
 	mutex_unlock(&device->mutex);
