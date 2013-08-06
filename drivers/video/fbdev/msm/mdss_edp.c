@@ -216,11 +216,17 @@ void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
 		return;
 	}
 
+	if (edp_drv->is_pwm_enabled) {
+		pwm_disable(edp_drv->bl_pwm);
+		edp_drv->is_pwm_enabled = 0;
+	}
+
 	ret = pwm_enable(edp_drv->bl_pwm);
 	if (ret) {
 		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
 		return;
 	}
+	edp_drv->is_pwm_enabled = 1;
 }
 
 void mdss_edp_config_sync(unsigned char *base)
@@ -360,6 +366,7 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 
 	gpio_set_value(edp_drv->gpio_panel_en, 0);
 	pwm_disable(edp_drv->bl_pwm);
+	edp_drv->is_pwm_enabled = 0;
 	mdss_edp_enable(edp_drv->base, 0);
 	mdss_edp_unconfig_clk(edp_drv->base, edp_drv->mmss_cc_base);
 	mdss_edp_enable_mainlink(edp_drv->base, 0);
