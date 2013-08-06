@@ -226,4 +226,49 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
 		status = "disable";
 	};
+
+	qcom,sps@0xfe204000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xfe204000 0x15000>,
+		<0xfe223000 0xb000>;
+		interrupts = <0 94 0>;
+	};
+
+	qcom,qcrypto@fd400000 {
+		compatible = "qcom,qcrypto";
+		reg = <0xfd400000 0x20000>,
+			<0xfd404000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 109 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <0>;
+	};
+
+	qcom,qcrypto@fd440000 {
+		compatible = "qcom,qcrypto";
+		reg = <0xfd440000 0x20000>,
+			<0xfd444000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 110 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <1>;
+	};
+	qcom,qcota@fe140000 {
+		compatible = "qcom,qcota";
+		reg = <0xfe140000 0x20000>,
+			<0xfe144000 0x8000>;
+			reg-names = "crypto-base","crypto-bam-base";
+			interrupts = <0 111 0>;
+			qcom,bam-pipe-pair = <1>;
+			qcom,ce-hw-instance = <2>;
+	};
+	qcom,qcota@fe100000 {
+		compatible = "qcom,qcota";
+		reg = <0xfe100000 0x20000>,
+			<0xfe104000 0x8000>;
+			reg-names = "crypto-base","crypto-bam-base";
+			interrupts = <0 112 0>;
+			qcom,bam-pipe-pair = <1>;
+			qcom,ce-hw-instance = <3>;
+	};
 };
