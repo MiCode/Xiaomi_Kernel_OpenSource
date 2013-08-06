@@ -71,6 +71,31 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
 	CLK_DUMMY("iface_clk",	SDC2_P_CLK,	"msm_sdcc.2", OFF),
+	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+
+	CLK_DUMMY("core_clk",     NULL,	        "fd400000.qcom,qcrypto", OFF),
+	CLK_DUMMY("iface_clk",    NULL,	        "fd400000.qcom,qcrypto", OFF),
+	CLK_DUMMY("bus_clk",      NULL,	        "fd400000.qcom,qcrypto", OFF),
+	CLK_DUMMY("core_clk_src", NULL,	        "fd400000.qcom,qcrypto", OFF),
+
+	CLK_DUMMY("core_clk",     NULL,         "fd440000.qcom,qcrypto", OFF),
+	CLK_DUMMY("iface_clk",    NULL,         "fd440000.qcom,qcrypto", OFF),
+	CLK_DUMMY("bus_clk",      NULL,         "fd440000.qcom,qcrypto", OFF),
+	CLK_DUMMY("core_clk_src", NULL,         "fd440000.qcom,qcrypto", OFF),
+
+	CLK_DUMMY("core_clk",     NULL,         "fe140000.qcom,qcota", OFF),
+	CLK_DUMMY("iface_clk",    NULL,         "fe140000.qcom,qctoa", OFF),
+	CLK_DUMMY("bus_clk",      NULL,         "fe140000.qcom,qcota", OFF),
+	CLK_DUMMY("core_clk_src", NULL,         "fe140000.qcom,qcota", OFF),
+
+	CLK_DUMMY("core_clk",     NULL,         "fe100000.qcom,qcota", OFF),
+	CLK_DUMMY("iface_clk",    NULL,         "fe100000.qcom,qcota", OFF),
+	CLK_DUMMY("bus_clk",      NULL,         "fe100000.qcom,qcota", OFF),
+	CLK_DUMMY("core_clk_src", NULL,         "fe100000.qcom,qcota", OFF),
+
+	CLK_DUMMY("dma_bam_pclk", NULL,         "msm_sps",             OFF),
+	CLK_DUMMY("dfab_clk",     NULL,         "msm_sps",             OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
