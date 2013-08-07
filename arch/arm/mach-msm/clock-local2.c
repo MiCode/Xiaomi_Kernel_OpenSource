@@ -738,34 +738,64 @@ enum handoff pixel_rcg_handoff(struct clk *clk)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static long round_rate_pixel(struct clk *clk, unsigned long rate)
+{
+	int frac_num[] = {3, 2, 4, 1};
+	int frac_den[] = {8, 9, 9, 1};
+	int delta = 100000;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(frac_num); i++) {
+		unsigned long request = (rate * frac_den[i]) / frac_num[i];
+		unsigned long src_rate;
+
+		src_rate = clk_round_rate(clk->parent, request);
+		if ((src_rate < (request - delta)) ||
+			(src_rate > (request + delta)))
+			continue;
+
+		return (src_rate * frac_num[i]) / frac_den[i];
+	}
+
+	return -EINVAL;
+}
+
+
 static int set_rate_pixel(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk *pll = clk->parent;
-	unsigned long source_rate, div;
 	struct clk_freq_tbl *pixel_freq = rcg->current_freq;
-	int rc;
+	int frac_num[] = {3, 2, 4, 1};
+	int frac_den[] = {8, 9, 9, 1};
+	int delta = 100000;
+	int i, rc;
 
-	if (rate == 0)
-		return -EINVAL;
+	for (i = 0; i < ARRAY_SIZE(frac_num); i++) {
+		unsigned long request = (rate * frac_den[i]) / frac_num[i];
+		unsigned long src_rate;
 
-	rc = clk_set_rate(pll, rate);
-	if (rc)
-		return rc;
+		src_rate = clk_round_rate(clk->parent, request);
+		if ((src_rate < (request - delta)) ||
+			(src_rate > (request + delta)))
+			continue;
 
-	source_rate = clk_round_rate(pll, rate);
-	if ((2 * source_rate) % rate)
-		return -EINVAL;
+		rc =  clk_set_rate(clk->parent, src_rate);
+		if (rc)
+			return rc;
 
-	div = ((2 * source_rate)/rate) - 1;
-	if (div > CFG_RCGR_DIV_MASK)
-		return -EINVAL;
-
-	pixel_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
-	pixel_freq->div_src_val |= BVAL(4, 0, div);
-	set_rate_mnd(rcg, pixel_freq);
-
-	return 0;
+		pixel_freq->div_src_val &= ~BM(4, 0);
+		if (frac_den[i] == frac_num[i]) {
+			pixel_freq->m_val = 0;
+			pixel_freq->n_val = 0;
+		} else {
+			pixel_freq->m_val = frac_num[i];
+			pixel_freq->n_val = ~(frac_den[i] - frac_num[i]);
+			pixel_freq->d_val = ~frac_den[i];
+		}
+		set_rate_mnd(rcg, pixel_freq);
+		return 0;
+	}
+	return -EINVAL;
 }
 
 /*
@@ -969,7 +999,7 @@ struct clk_ops clk_ops_pixel = {
 	.enable = rcg_clk_prepare,
 	.set_rate = set_rate_pixel,
 	.list_rate = rcg_clk_list_rate,
-	.round_rate = rcg_clk_round_rate,
+	.round_rate = round_rate_pixel,
 	.handoff = pixel_rcg_handoff,
 };
 

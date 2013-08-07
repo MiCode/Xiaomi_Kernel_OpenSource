@@ -1798,68 +1798,6 @@ static struct rcg_clk jpeg0_clk_src = {
 	},
 };
 
-struct clk_ops clk_ops_pixel_clock;
-
-static long round_rate_pixel(struct clk *clk, unsigned long rate)
-{
-	int frac_num[] = {3, 2, 4, 1};
-	int frac_den[] = {8, 9, 9, 1};
-	int delta = 100000;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(frac_num); i++) {
-		unsigned long request = (rate * frac_den[i]) / frac_num[i];
-		unsigned long src_rate;
-
-		src_rate = clk_round_rate(clk->parent, request);
-		if ((src_rate < (request - delta)) ||
-			(src_rate > (request + delta)))
-			continue;
-
-		return (src_rate * frac_num[i]) / frac_den[i];
-	}
-
-	return -EINVAL;
-}
-
-
-static int set_rate_pixel(struct clk *clk, unsigned long rate)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk_freq_tbl *pixel_freq = rcg->current_freq;
-	int frac_num[] = {3, 2, 4, 1};
-	int frac_den[] = {8, 9, 9, 1};
-	int delta = 100000;
-	int i, rc;
-
-	for (i = 0; i < ARRAY_SIZE(frac_num); i++) {
-		unsigned long request = (rate * frac_den[i]) / frac_num[i];
-		unsigned long src_rate;
-
-		src_rate = clk_round_rate(clk->parent, request);
-		if ((src_rate < (request - delta)) ||
-			(src_rate > (request + delta)))
-			continue;
-
-		rc =  clk_set_rate(clk->parent, src_rate);
-		if (rc)
-			return rc;
-
-		pixel_freq->div_src_val &= ~BM(4, 0);
-		if (frac_den[i] == frac_num[i]) {
-			pixel_freq->m_val = 0;
-			pixel_freq->n_val = 0;
-		} else {
-			pixel_freq->m_val = frac_num[i];
-			pixel_freq->n_val = ~(frac_den[i] - frac_num[i]);
-			pixel_freq->d_val = ~frac_den[i];
-		}
-		set_rate_mnd(rcg, pixel_freq);
-		return 0;
-	}
-	return -EINVAL;
-}
-
 static struct clk_freq_tbl pixel_freq_tbl[] = {
 	{
 		.src_clk = &pixel_clk_src_8226.c,
@@ -3719,10 +3657,6 @@ static void __init msm8226_clock_pre_init(void)
 		cpp_clk_src.c.fmax = camss_vfe_cpp_fmax_v2;
 		vfe0_clk_src.c.fmax = camss_vfe_vfe0_fmax_v2;
 	}
-
-	clk_ops_pixel_clock = clk_ops_pixel;
-	clk_ops_pixel_clock.set_rate = set_rate_pixel;
-	clk_ops_pixel_clock.round_rate = round_rate_pixel;
 
 	/*
 	 * MDSS needs the ahb clock and needs to init before we register the
