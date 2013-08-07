@@ -3259,7 +3259,8 @@ static void pp_ad_calc_worker(struct work_struct *work)
 				pr_debug("calc bl = %d", bl);
 				ad->last_str |= bl << 16;
 				mutex_lock(&ad->mfd->bl_lock);
-				mdss_fb_set_backlight(ad->mfd, bl);
+				if (ad->mfd->bl_level)
+					mdss_fb_set_backlight(ad->mfd, bl);
 				mutex_unlock(&ad->mfd->bl_lock);
 			}
 			pr_debug("calc_str = %d, calc_itr %d",
