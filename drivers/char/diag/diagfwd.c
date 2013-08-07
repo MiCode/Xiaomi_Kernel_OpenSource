@@ -123,6 +123,8 @@ int chk_config_get_id(void)
 	if (driver->use_device_tree) {
 		if (machine_is_msm8974())
 			return MSM8974_TOOLS_ID;
+		else if (machine_is_apq8074())
+			return APQ8074_TOOLS_ID;
 		else
 			return 0;
 	} else {
