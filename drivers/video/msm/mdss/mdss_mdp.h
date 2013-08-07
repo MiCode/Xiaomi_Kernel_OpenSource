@@ -361,7 +361,6 @@ struct mdss_mdp_writeback_arg {
 };
 
 struct mdss_overlay_private {
-	int vsync_pending;
 	ktime_t vsync_time;
 	int borderfill_enable;
 	int overlay_play_enable;
