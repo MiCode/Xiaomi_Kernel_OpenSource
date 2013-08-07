@@ -784,6 +784,64 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+int mdp3_validate_start_req(struct mdp_histogram_start_req *req)
+{
+	if (req->frame_cnt >= MDP_HISTOGRAM_FRAME_COUNT_MAX) {
+		pr_err("%s invalid req frame_cnt\n", __func__);
+		return -EINVAL;
+	}
+	if (req->bit_mask >= MDP_HISTOGRAM_BIT_MASK_MAX) {
+		pr_err("%s invalid req bit mask\n", __func__);
+		return -EINVAL;
+	}
+	if (req->block != MDP_BLOCK_DMA_P ||
+		req->num_bins != MDP_HISTOGRAM_BIN_NUM) {
+		pr_err("mdp3_histogram_start invalid request\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int mdp3_validate_scale_config(struct mdp_bl_scale_data *data)
+{
+	if (data->scale > MDP_HISTOGRAM_BL_SCALE_MAX) {
+		pr_err("%s invalid bl_scale\n", __func__);
+		return -EINVAL;
+	}
+	if (data->min_lvl > MDP_HISTOGRAM_BL_LEVEL_MAX) {
+		pr_err("%s invalid bl_min_lvl\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int mdp3_validate_csc_data(struct mdp_csc_cfg_data *data)
+{
+	int i;
+	for (i = 0; i < 9; i++) {
+		if (data->csc_data.csc_mv[i] >=
+				MDP_HISTOGRAM_CSC_MATRIX_MAX)
+			return -EINVAL;
+	}
+	for (i = 0; i < 3; i++) {
+		if (data->csc_data.csc_pre_bv[i] >=
+				MDP_HISTOGRAM_CSC_VECTOR_MAX)
+			return -EINVAL;
+		if (data->csc_data.csc_post_bv[i] >=
+				MDP_HISTOGRAM_CSC_VECTOR_MAX)
+			return -EINVAL;
+	}
+	for (i = 0; i < 6; i++) {
+		if (data->csc_data.csc_pre_lv[i] >=
+				MDP_HISTOGRAM_CSC_VECTOR_MAX)
+			return -EINVAL;
+		if (data->csc_data.csc_post_lv[i] >=
+				MDP_HISTOGRAM_CSC_VECTOR_MAX)
+			return -EINVAL;
+	}
+	return 0;
+}
+
 static int mdp3_histogram_start(struct mdp3_session_data *session,
 					struct mdp_histogram_start_req *req)
 {
@@ -791,11 +849,10 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 	struct mdp3_dma_histogram_config histo_config;
 
 	pr_debug("mdp3_histogram_start\n");
-	if (req->block != MDP_BLOCK_DMA_P ||
-		req->num_bins != MDP_HISTOGRAM_BIN_NUM) {
-		pr_err("mdp3_histogram_start invalid request\n");
-		return -EINVAL;
-	}
+
+	ret = mdp3_validate_start_req(req);
+	if (ret)
+		return ret;
 
 	if (!session->dma->histo_op ||
 		!session->dma->config_histo) {
@@ -995,10 +1052,20 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 
 	switch (mdp_pp.op) {
 	case mdp_bl_scale_cfg:
+		ret = mdp3_validate_scale_config(&mdp_pp.data.bl_scale_data);
+		if (ret) {
+			pr_err("%s: invalid scale config\n", __func__);
+			break;
+		}
 		ret = mdp3_bl_scale_config(mfd, (struct mdp_bl_scale_data *)
 						&mdp_pp.data.bl_scale_data);
 		break;
 	case mdp_op_csc_cfg:
+		ret = mdp3_validate_csc_data(&(mdp_pp.data.csc_cfg_data));
+		if (ret) {
+			pr_err("%s: invalid csc data\n", __func__);
+			break;
+		}
 		ret = mdp3_csc_config(mdp3_session,
 						&(mdp_pp.data.csc_cfg_data));
 		break;
