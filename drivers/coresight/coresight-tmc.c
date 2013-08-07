@@ -154,7 +154,7 @@ struct tmc_drvdata {
 	bool			aborting;
 	char			*reg_buf;
 	char			*buf;
-	unsigned long		paddr;
+	phys_addr_t		paddr;
 	void __iomem		*vaddr;
 	uint32_t		size;
 	struct mutex		usb_lock;
@@ -273,8 +273,9 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, bamdata->data_fifo.phys_base, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
+	tmc_writel(drvdata, (uint32_t)bamdata->data_fifo.phys_base, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)bamdata->data_fifo.phys_base) >> 32)
+		   & 0xFF, TMC_DBAHI);
 	tmc_writel(drvdata, 0x103, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
@@ -470,8 +471,9 @@ static void __tmc_etr_enable_to_mem(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, drvdata->paddr, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
+	tmc_writel(drvdata, (uint32_t)drvdata->paddr, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)drvdata->paddr) >> 32) & 0xFF,
+		   TMC_DBAHI);
 	tmc_writel(drvdata, 0x1133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
