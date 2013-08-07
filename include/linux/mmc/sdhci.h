@@ -258,6 +258,8 @@ struct sdhci_host {
 	ktime_t data_start_time;
 	enum sdhci_power_policy power_policy;
 
+	u32 auto_cmd_err_sts;
+
 	unsigned long private[0] ____cacheline_aligned;
 };
 #endif /* LINUX_MMC_SDHCI_H */
