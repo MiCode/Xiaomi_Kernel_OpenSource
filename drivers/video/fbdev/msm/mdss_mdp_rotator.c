@@ -74,14 +74,14 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 
 	mixer = mdss_mdp_wb_mixer_alloc(1);
 	if (!mixer) {
-		pr_err("wb mixer alloc failed\n");
+		pr_debug("wb mixer alloc failed\n");
 		return NULL;
 	}
 
 	pipe = mdss_mdp_pipe_alloc_dma(mixer);
 	if (!pipe) {
 		mdss_mdp_wb_mixer_destroy(mixer);
-		pr_err("dma pipe allocation failed\n");
+		pr_debug("dma pipe allocation failed\n");
 	}
 
 	return pipe;
@@ -134,6 +134,7 @@ static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
 
 static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 {
+	int rc;
 	if (rot->pipe) {
 		pr_debug("reusing existing session=%d\n", rot->pipe->num);
 		mdss_mdp_rotator_busy_wait(rot);
@@ -153,12 +154,19 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 					       struct mdss_mdp_rotator_session,
 					       head);
 
-			pr_debug("wait for rotator pipe=%d\n", tmp->pipe->num);
-			mdss_mdp_rotator_busy_wait(tmp);
+			rc = mdss_mdp_rotator_busy_wait(tmp);
+			list_del(&tmp->head);
+			if (rc) {
+				pr_err("no pipe attached to session=%d\n",
+					tmp->session_id);
+				return rc;
+			} else {
+				pr_debug("waited for rotator pipe=%d\n",
+					  tmp->pipe->num);
+			}
 			rot->pipe = tmp->pipe;
 			tmp->pipe = NULL;
 
-			list_del(&tmp->head);
 			list_add_tail(&rot->head, &rotator_queue);
 		} else {
 			pr_err("no available rotator pipes\n");
