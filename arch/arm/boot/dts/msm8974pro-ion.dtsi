@@ -24,7 +24,7 @@
 			compatible = "qcom,msm-ion-reserve";
 			reg = <26>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x08000000 0x5000000>;
+			qcom,memory-fixed = <0x08000000 0x5100000>;
 		};
 	};
 };
