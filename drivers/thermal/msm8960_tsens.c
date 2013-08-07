@@ -138,6 +138,7 @@ enum tsens_trip_type {
 #define TSENS_CNTL_RESUME_MASK				0xfffffff9
 #define TSENS_8960_SENSOR_MASK				0xf8
 #define TSENS_8064_SENSOR_MASK				0x3ff8
+#define TSENS_8064_MAX_INT_MASK_EN			(true)
 #define TSENS_8064_MAX_LIMIT_TEMP			135
 
 static int tsens_status_cntl_start;
@@ -730,6 +731,7 @@ static int tsens_resume(struct device *dev)
 {
 	unsigned int reg_cntl = 0, reg_cfg = 0, reg_sensor_mask = 0;
 	unsigned int reg_status_cntl = 0, reg_thr_data = 0, i = 0;
+	bool max_interrupt_mask_en = TSENS_8064_MAX_INT_MASK_EN;
 
 	pr_debug("%s\n", __func__);
 
@@ -749,8 +751,13 @@ static int tsens_resume(struct device *dev)
 					<< TSENS_SENSOR0_SHIFT);
 		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
 		reg_status_cntl = readl_relaxed(TSENS_8064_STATUS_CNTL);
-		reg_status_cntl &= ~TSENS_MAX_STATUS_MASK;
+		reg_status_cntl = max_interrupt_mask_en ?
+			(reg_status_cntl | TSENS_MAX_STATUS_MASK) :
+			(reg_status_cntl & ~TSENS_MAX_STATUS_MASK);
 		writel_relaxed(reg_status_cntl, TSENS_8064_STATUS_CNTL);
+		pr_debug("%s: max_int_mask_en=%d tsens_status_cntl=0x%x\n",
+				__func__, max_interrupt_mask_en,
+				readl_relaxed(TSENS_8064_STATUS_CNTL));
 	}
 
 	reg_cfg = readl_relaxed(TSENS_8960_CONFIG_ADDR);
@@ -811,6 +818,7 @@ static void tsens_hw_init(void)
 	unsigned int reg_cntl = 0, reg_cfg = 0, reg_thr = 0;
 	unsigned int reg_status_cntl = 0;
 	unsigned int max_limit_thr = TSENS_MAX_LIMIT_TH;
+	bool max_interrupt_mask_en = TSENS_8064_MAX_INT_MASK_EN;
 
 	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
 	writel_relaxed(reg_cntl | TSENS_SW_RST, TSENS_CNTL_ADDR);
@@ -852,21 +860,28 @@ static void tsens_hw_init(void)
 		reg_status_cntl = readl_relaxed(TSENS_8064_STATUS_CNTL);
 		reg_status_cntl |= TSENS_LOWER_STATUS_CLR |
 			TSENS_UPPER_STATUS_CLR | TSENS_MIN_STATUS_MASK;
-		reg_status_cntl &= ~TSENS_MAX_STATUS_MASK;
+
+		reg_status_cntl = max_interrupt_mask_en ?
+			(reg_status_cntl | TSENS_MAX_STATUS_MASK) :
+			(reg_status_cntl & ~TSENS_MAX_STATUS_MASK);
+
 		writel_relaxed(reg_status_cntl, TSENS_8064_STATUS_CNTL);
 		reg_cntl |= TSENS_EN;
 		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
-		pr_debug("%s: tsens_status_cntl=0x%x\n",
-				__func__,
+		pr_debug("%s: max_int_mask_en=%d tsens_status_cntl=0x%x\n",
+				__func__, max_interrupt_mask_en,
 				readl_relaxed(TSENS_8064_STATUS_CNTL));
 
 		reg_cfg = readl_relaxed(TSENS_8960_CONFIG_ADDR);
 		reg_cfg = (reg_cfg & ~TSENS_8960_CONFIG_MASK) |
 			(TSENS_8960_CONFIG << TSENS_8960_CONFIG_SHIFT);
 		writel_relaxed(reg_cfg, TSENS_8960_CONFIG_ADDR);
+
 		/* set max limit threshold for sensor7 */
-		max_limit_thr =
+		if (!max_interrupt_mask_en) {
+			max_limit_thr =
 			tsens_tz_degC_to_code(TSENS_8064_MAX_LIMIT_TEMP, 7);
+		}
 	}
 
 	reg_thr |= (TSENS_LOWER_LIMIT_TH << TSENS_THRESHOLD_LOWER_LIMIT_SHIFT) |
