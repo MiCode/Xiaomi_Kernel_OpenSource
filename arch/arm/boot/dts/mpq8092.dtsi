@@ -271,6 +271,11 @@
 			qcom,ocmem-part-min = <0x55000>;
 		};
 	};
+
+	memory_hole: qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x0d200000 0x02c00000>; /* Address and Size of Hole */
+	};
 };
 
 &gdsc_venus {
