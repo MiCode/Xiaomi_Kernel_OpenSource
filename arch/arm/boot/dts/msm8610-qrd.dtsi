@@ -26,8 +26,6 @@
  * };
  */
 
-/include/ "msm8610.dtsi"
-
 &soc {
 	i2c@f9923000{
 		focaltech@38{

@@ -10,19 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msm8610.dtsi"
-/include/ "dsi-v2-panel-truly-wvga-video.dtsi"
-/include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8610 MTP";
-	compatible = "qcom,msm8610-mtp", "qcom,msm8610", "qcom,mtp";
-	qcom,msm-id = <147 8 0>, <165 8 0>, <161 8 0>, <162 8 0>,
-		      <163 8 0>, <164 8 0>, <166 8 0>;
-};
-
 &soc {
 	serial@f991e000 {
 		status = "ok";
@@ -88,44 +75,6 @@
 				00 00 00 00
 				];
 			};
-		};
-	};
-
-	i2c@f9925000 {
-		mpu3050@68 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "okay";
-			reg = <0x68>;
-			compatible = "invn,mpu3050";
-			interrupt-parent = <&msmgpio>;
-			interrupts = <84 0x2>;
-			vlogic-supply = <&pm8110_l14>;
-			vdd-supply = <&pm8110_l19>;
-			invn,gpio-int = <&msmgpio 84 0x2>;
-			invn,gpio-en = <&pm8110_gpios 2 0x2>;
-			invn,poll-interval = <200>;
-		};
-
-		bmp180@77 {
-			reg = <0x77>;
-			compatible = "bosch,bmp18x";
-			vdd-supply = <&pm8110_l19>;
-			vddio-supply = <&pm8110_l14>;
-			bosch,chip-id = <0x55>;
-			bosch,oversample = <3>;
-			bosch,period = <1000>;
-		};
-
-		mma8x5x@1d {
-			reg = <0x1d>;
-			compatible = "fsl,mma8x5x";
-			interrupt-parent = <&msmgpio>;
-			interrupts = <81 0x2>;
-			vdd-supply = <&pm8110_l19>;
-			vio-supply = <&pm8110_l14>;
-			fsl,irq-gpio = <&msmgpio 81 0x00>;
-			fsl,sensors-position = <5>;
 		};
 	};
 
@@ -302,7 +251,7 @@
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
-	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
@@ -323,7 +272,7 @@
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
-	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
@@ -345,16 +294,13 @@
 &pm8110_chg {
 	status = "ok";
 	qcom,charging-disabled;
+	qcom,use-default-batt-values;
 
 	qcom,chgr@1000 {
 		status = "ok";
 	};
 
 	qcom,buck@1100 {
-		status = "ok";
-	};
-
-	qcom,bat-if@1200 {
 		status = "ok";
 	};
 
@@ -403,6 +349,51 @@
 	};
 };
 
-&pm8110_bms {
-	status = "ok";
+/* CoreSight */
+&tpiu {
+	qcom,seta-gpios = <&msmgpio 4 0>,
+			  <&msmgpio 5 0>,
+			  <&msmgpio 6 0>,
+			  <&msmgpio 7 0>,
+			  <&msmgpio 22 0>,
+			  <&msmgpio 23 0>,
+			  <&msmgpio 24 0>,
+			  <&msmgpio 25 0>,
+			  <&msmgpio 26 0>,
+			  <&msmgpio 27 0>,
+			  <&msmgpio 28 0>,
+			  <&msmgpio 29 0>,
+			  <&msmgpio 30 0>,
+			  <&msmgpio 31 0>,
+			  <&msmgpio 94 0>,
+			  <&msmgpio 95 0>,
+			  <&msmgpio 96 0>,
+			  <&msmgpio 97 0>;
+	qcom,seta-gpios-func = <9 9 8 11 2 2 2 2 2 2 3 2 3 3 4 4 4 4>;
+	qcom,seta-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,seta-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,seta-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+
+	qcom,setb-gpios = <&msmgpio 8 0>,
+			  <&msmgpio 10 0>,
+			  <&msmgpio 11 0>,
+			  <&msmgpio 13 0>,
+			  <&msmgpio 14 0>,
+			  <&msmgpio 15 0>,
+			  <&msmgpio 16 0>,
+			  <&msmgpio 17 0>,
+			  <&msmgpio 18 0>,
+			  <&msmgpio 19 0>,
+			  <&msmgpio 20 0>,
+			  <&msmgpio 21 0>,
+			  <&msmgpio 42 0>,
+			  <&msmgpio 80 0>,
+			  <&msmgpio 81 0>,
+			  <&msmgpio 82 0>,
+			  <&msmgpio 83 0>,
+			  <&msmgpio 84 0>;
+	qcom,setb-gpios-func = <10 8 8 6 9 9 9 9 9 9 9 9 5 7 7 8 8 8>;
+	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
 };
