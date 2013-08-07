@@ -20,6 +20,8 @@
 #include <asm/pci_x86.h>
 #include <asm/setup.h>
 
+#include <linux/module.h>
+
 unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
 				PCI_PROBE_MMCONF;
 
@@ -80,6 +82,7 @@ struct pci_ops pci_root_ops = {
  * configuration space.
  */
 DEFINE_RAW_SPINLOCK(pci_config_lock);
+EXPORT_SYMBOL(pci_config_lock);
 
 static int can_skip_ioresource_align(const struct dmi_system_id *d)
 {
