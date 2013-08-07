@@ -3,6 +3,8 @@ Qualcomm MDSS EDP
 MDSS EDP is a edp driver which supports panels that are compatable with
 VESA EDP display interface specification.
 
+One should also configure the gpio that drives the pwm to the external backlight.
+
 Required properties
 - compatible :				Must be "qcom,mdss-edp".
 - reg :						Offset and length of the register set for the

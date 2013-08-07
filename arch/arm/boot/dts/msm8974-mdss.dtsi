@@ -187,7 +187,6 @@
 		reg-names = "edp_base", "mmss_cc_base";
 		vdda-supply = <&pm8941_l12>;
 		gpio-panel-en = <&msmgpio 58 0>;
-		gpio-panel-pwm = <&pm8941_gpios 36 0>;
 		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
 		qcom,panel-pwm-period = <53>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
