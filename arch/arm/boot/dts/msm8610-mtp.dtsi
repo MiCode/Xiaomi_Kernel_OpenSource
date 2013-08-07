@@ -10,19 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msm8610.dtsi"
-/include/ "dsi-v2-panel-truly-wvga-video.dtsi"
-/include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8610 MTP";
-	compatible = "qcom,msm8610-mtp", "qcom,msm8610", "qcom,mtp";
-	qcom,msm-id = <147 8 0>, <165 8 0>, <161 8 0>, <162 8 0>,
-		      <163 8 0>, <164 8 0>, <166 8 0>;
-};
-
 &soc {
 	serial@f991e000 {
 		status = "ok";
