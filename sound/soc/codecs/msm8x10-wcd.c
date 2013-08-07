@@ -1910,6 +1910,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR PA", NULL, "DAC1"},
 	{"DAC1", NULL, "CP"},
 
+	/* Clocks for playback path */
+	{"DAC1", NULL, "EAR CLK"},
+	{"HPHL DAC", NULL, "HPHL CLK"},
+	{"HPHR DAC", NULL, "HPHR CLK"},
+	{"SPK DAC", NULL, "SPK CLK"},
+	{"LINEOUT DAC", NULL, "LINEOUT CLK"},
+
 	/* Headset (RX MIX1 and RX MIX2) */
 	{"HEADPHONE", NULL, "HPHL"},
 	{"HEADPHONE", NULL, "HPHR"},
@@ -2335,6 +2342,17 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 		5, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX3 CHAIN", MSM8X10_WCD_A_CDC_RX3_B6_CTL,
 		5, 0, NULL, 0),
+
+	SND_SOC_DAPM_SUPPLY("HPHR CLK", MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
+		0, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("HPHL CLK", MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
+		1, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("EAR CLK", MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
+		2, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("LINEOUT CLK", MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
+		3, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("SPK CLK", MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
+		4, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX("RX1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx_mix1_inp1_mux),
