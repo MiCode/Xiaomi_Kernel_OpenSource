@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@ void rtac_remove_voice(u32 cvs_handle) {}
 void rtac_set_voice_handle(u32 mode, void *handle) {}
 bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
 		u32 payload_size) {return false; }
+int rtac_clear_mapping(uint32_t cal_type) {return false; }
 
 #else
 
@@ -122,6 +123,8 @@ struct mutex			rtac_adm_apr_mutex;
 struct mutex			rtac_asm_apr_mutex;
 struct mutex			rtac_voice_mutex;
 struct mutex			rtac_voice_apr_mutex;
+
+int rtac_clear_mapping(uint32_t cal_type) {return false; }
 
 static int rtac_open(struct inode *inode, struct file *f)
 {
