@@ -126,7 +126,13 @@ const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 	}
 } /* hdmi_pm_name */
 
-static u8 hdmi_tx_avi_iframe_lut[][20] = {
+static DEFINE_MUTEX(avi_iframe_lut_lock);
+#define NUM_MODES_AVI 20
+#define SET_ITC_BIT(byte)  (byte | 0x80)
+#define CLR_ITC_BIT(byte)  (byte & 0x7F)
+#define CONFIG_CN_BITS(bits, byte)  ((byte & ~(0x03 << 4)) | (bits << 4))
+
+static u8 hdmi_tx_avi_iframe_lut[][NUM_MODES_AVI] = {
 	{0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10}, /*00*/
@@ -192,6 +198,55 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{9408, 247500}, {10240, 247500}, {18816, 247500},
 		{20480, 247500} } },
 };
+
+/* To statically config ITC bit from sysfs attribute */
+static int hdmi_tx_config_itc_bit(int itc)
+{
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		if (itc == 0)
+			hdmi_tx_avi_iframe_lut[2][loop] =
+				CLR_ITC_BIT(hdmi_tx_avi_iframe_lut[2][loop]);
+		if (itc == 1)
+			hdmi_tx_avi_iframe_lut[2][loop] =
+				SET_ITC_BIT(hdmi_tx_avi_iframe_lut[2][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
+
+/* To configure CN0_1 bits from sysfs attribute */
+static int hdmi_tx_config_cn_bits(int cns)
+{
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		hdmi_tx_avi_iframe_lut[4][loop] =
+			CONFIG_CN_BITS(cns, hdmi_tx_avi_iframe_lut[4][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
+
 
 static bool hdmi_tx_is_cea_format(int mode)
 {
@@ -544,6 +599,58 @@ static ssize_t hdmi_tx_sysfs_rda_product_description(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_rda_product_description */
 
+static ssize_t hdmi_tx_sysfs_wta_avi_itc(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int err = 0;
+	int itc = 0, rc = 0;
+
+	rc = kstrtoint(buf, 10, &itc);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (itc == 0 || itc == 1) {
+		if (hdmi_tx_config_itc_bit(itc))
+			ret = err;
+		else
+			DEV_DBG("%s: '%d is configured'!\n", __func__, itc);
+	} else {
+		DEV_ERR("%s: unknown ITC '%d', should be either 0 or 1\n",
+				__func__, itc);
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_avi_itc */
+
+static ssize_t hdmi_tx_sysfs_wta_avi_cn0_1(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int err = 0;
+	int cns = 0, rc = 0;
+
+	rc = kstrtoint(buf, 10, &cns);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (cns == 0 || cns == 1 || cns == 2 || cns == 3) {
+		if (hdmi_tx_config_cn_bits(cns))
+			ret = err;
+		else
+			DEV_DBG("%s: '%d is configured'!\n", __func__, cns);
+	} else {
+		DEV_ERR("%s: unknown CN '%d' should be either 0 or 1, 2 ,3\n",
+				__func__, cns);
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_avi_cn0_1 */
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
 	hdmi_tx_sysfs_wta_hpd);
@@ -552,12 +659,16 @@ static DEVICE_ATTR(vendor_name, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
 	hdmi_tx_sysfs_rda_product_description,
 	hdmi_tx_sysfs_wta_product_description);
+static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
+static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn0_1);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_vendor_name.attr,
 	&dev_attr_product_description.attr,
+	&dev_attr_avi_itc.attr,
+	&dev_attr_avi_cn0_1.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
