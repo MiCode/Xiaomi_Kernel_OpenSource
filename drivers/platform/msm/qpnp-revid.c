@@ -13,6 +13,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/err.h>
+#include <linux/qpnp-revid.h>
 
 #define REVID_REVISION1	0x0
 #define REVID_REVISION2	0x1
@@ -36,6 +38,15 @@ static const char *const pmic_names[] = {
 	"PMD9635",
 };
 
+struct revid_chip {
+	struct list_head	link;
+	struct device_node	*dev_node;
+	struct pmic_revid_data	data;
+};
+
+static LIST_HEAD(revid_chips);
+static DEFINE_MUTEX(revid_chips_lock);
+
 static struct of_device_id qpnp_revid_match_table[] = {
 	{ .compatible = QPNP_REVID_DEV_NAME },
 	{}
@@ -53,6 +64,35 @@ static u8 qpnp_read_byte(struct spmi_device *spmi, u16 addr)
 	}
 	return val;
 }
+
+/**
+ * get_revid_data - Return the revision information of PMIC
+ * @dev_node: Pointer to the revid peripheral of the PMIC for which
+ *		revision information is seeked
+ *
+ * CONTEXT: Should be called in non atomic context
+ *
+ * RETURNS: pointer to struct pmic_revid_data filled with the information
+ *		about the PMIC revision
+ */
+struct pmic_revid_data *get_revid_data(struct device_node *dev_node)
+{
+	struct revid_chip *revid_chip;
+
+	if (!dev_node)
+		return ERR_PTR(-EINVAL);
+
+	mutex_lock(&revid_chips_lock);
+	list_for_each_entry(revid_chip, &revid_chips, link) {
+		if (dev_node == revid_chip->dev_node) {
+			mutex_unlock(&revid_chips_lock);
+			return &revid_chip->data;
+		}
+	}
+	mutex_unlock(&revid_chips_lock);
+	return ERR_PTR(-EINVAL);
+}
+EXPORT_SYMBOL(get_revid_data);
 
 #define PM8941_PERIPHERAL_SUBTYPE	0x01
 #define PM8226_PERIPHERAL_SUBTYPE	0x04
@@ -94,6 +134,7 @@ static int __devinit qpnp_revid_probe(struct spmi_device *spmi)
 	u8 option1, option2, option3, option4;
 	struct resource *resource;
 	char pmic_string[PMIC_STRING_MAXLENGTH] = {'\0'};
+	struct revid_chip *revid_chip;
 
 	resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!resource) {
@@ -113,6 +154,23 @@ static int __devinit qpnp_revid_probe(struct spmi_device *spmi)
 
 	pmic_subtype = qpnp_read_byte(spmi, resource->start + REVID_SUBTYPE);
 	pmic_status = qpnp_read_byte(spmi, resource->start + REVID_STATUS1);
+
+	revid_chip = devm_kzalloc(&spmi->dev, sizeof(struct revid_chip),
+						GFP_KERNEL);
+	if (!revid_chip)
+		return -ENOMEM;
+
+	revid_chip->dev_node = spmi->dev.of_node;
+	revid_chip->data.rev1 = rev1;
+	revid_chip->data.rev2 = rev2;
+	revid_chip->data.rev3 = rev3;
+	revid_chip->data.rev4 = rev4;
+	revid_chip->data.pmic_subtype = pmic_subtype;
+	revid_chip->data.pmic_type = pmic_type;
+
+	mutex_lock(&revid_chips_lock);
+	list_add(&revid_chip->link, &revid_chips);
+	mutex_unlock(&revid_chips_lock);
 
 	option1 = pmic_status & 0x3;
 	option2 = (pmic_status >> 2) & 0x3;
