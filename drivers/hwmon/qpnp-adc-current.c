@@ -325,59 +325,243 @@ static int32_t qpnp_iadc_read_conversion_result(struct qpnp_iadc_chip *iadc,
 	return 0;
 }
 
-static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
+#define QPNP_IADC_PM8941_3_1_REV2	3
+#define QPNP_IADC_PM8941_3_1_REV3	2
+#define QPNP_IADC_PM8026_1_REV2		1
+#define QPNP_IADC_PM8026_1_REV3		2
+#define QPNP_IADC_PM8026_2_REV2		4
+#define QPNP_IADC_PM8026_2_REV3		2
+#define QPNP_IADC_PM8110_1_REV2		2
+#define QPNP_IADC_PM8110_1_REV3		2
+
+#define QPNP_IADC_REV_ID_8941_3_1	1
+#define QPNP_IADC_REV_ID_8026_1_0	2
+#define QPNP_IADC_REV_ID_8026_2_0	3
+#define QPNP_IADC_REV_ID_8110_1_0	4
+
+static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
+						int32_t *version)
+{
+	if ((iadc->iadc_comp.revision_dig_major ==
+			QPNP_IADC_PM8941_3_1_REV2) &&
+			(iadc->iadc_comp.revision_ana_minor ==
+			QPNP_IADC_PM8941_3_1_REV3))
+		*version = QPNP_IADC_REV_ID_8941_3_1;
+	else if ((iadc->iadc_comp.revision_dig_major ==
+			QPNP_IADC_PM8026_1_REV2) &&
+			(iadc->iadc_comp.revision_ana_minor ==
+			QPNP_IADC_PM8026_1_REV3))
+		*version = QPNP_IADC_REV_ID_8026_1_0;
+	else if ((iadc->iadc_comp.revision_dig_major ==
+			QPNP_IADC_PM8026_2_REV2) &&
+			(iadc->iadc_comp.revision_ana_minor ==
+			QPNP_IADC_PM8026_2_REV3))
+		*version = QPNP_IADC_REV_ID_8026_2_0;
+	else if ((iadc->iadc_comp.revision_dig_major ==
+			QPNP_IADC_PM8110_1_REV2) &&
+			(iadc->iadc_comp.revision_ana_minor ==
+			QPNP_IADC_PM8110_1_REV3))
+		*version = QPNP_IADC_REV_ID_8110_1_0;
+	else
+		*version = -EINVAL;
+
+	return;
+}
+
+#define QPNP_COEFF_1					969000
+#define QPNP_COEFF_2					32
+#define QPNP_COEFF_3_TYPEA				1700000
+#define QPNP_COEFF_3_TYPEB				1000000
+#define QPNP_COEFF_4					100
+#define QPNP_COEFF_5					15000
+#define QPNP_COEFF_6					100000
+#define QPNP_COEFF_7					21700
+#define QPNP_COEFF_8					100000000
+#define QPNP_COEFF_9					38
+#define QPNP_COEFF_10					40
+#define QPNP_COEFF_11					7
+#define QPNP_COEFF_12					11
+#define QPNP_COEFF_13					37
+#define QPNP_COEFF_14					39
+#define QPNP_COEFF_15					9
+#define QPNP_COEFF_16					11
+#define QPNP_COEFF_17					851200
+#define QPNP_COEFF_18					296500
+#define QPNP_COEFF_19					222400
+#define QPNP_COEFF_20					813800
+#define QPNP_COEFF_21					1059100
+#define QPNP_COEFF_22					5000000
+#define QPNP_COEFF_23					3722500
+#define QPNP_COEFF_24					84
+
+static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 							int64_t die_temp)
 {
-	int64_t temp_var = 0, sign_coeff = 0, sys_gain_coeff = 0, old;
+	int64_t temp_var = 0, sys_gain_coeff = 0, old;
+	int32_t coeff_a = 0, coeff_b = 0;
+	int32_t version;
+
+	qpnp_temp_comp_version_check(iadc, &version);
+	if (version == -EINVAL)
+		return 0;
 
 	old = *result;
 	*result = *result * 1000000;
 
-	if (comp.revision_dig_major == QPNP_IADC_VER_3_1) {
-		/* revision 3.1 */
-		if (comp.sys_gain > 127)
-			sys_gain_coeff = -QPNP_COEFF_6 * (comp.sys_gain - 128);
-		else
-			sys_gain_coeff = QPNP_COEFF_6 * comp.sys_gain;
-	} else if (comp.revision_dig_major != QPNP_IADC_VER_3_0) {
-		/* unsupported revision, do not compensate */
-		*result = old;
-		return 0;
+	if (iadc->iadc_comp.sys_gain > 127)
+		sys_gain_coeff = -QPNP_COEFF_6 *
+				(iadc->iadc_comp.sys_gain - 128);
+	else
+		sys_gain_coeff = QPNP_COEFF_6 *
+				iadc->iadc_comp.sys_gain;
+
+	switch (version) {
+	case QPNP_IADC_REV_ID_8941_3_1:
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				coeff_a = QPNP_COEFF_2;
+				coeff_b = -QPNP_COEFF_3_TYPEA;
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_5;
+					coeff_b = QPNP_COEFF_6;
+				} else {
+					/* discharge */
+					coeff_a = -QPNP_COEFF_7;
+					coeff_b = QPNP_COEFF_6;
+				}
+			}
+			break;
+		case COMP_ID_TSMC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				coeff_a = QPNP_COEFF_2;
+				coeff_b = -QPNP_COEFF_3_TYPEB;
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_5;
+					coeff_b = QPNP_COEFF_6;
+				} else {
+					/* discharge */
+					coeff_a = -QPNP_COEFF_7;
+					coeff_b = QPNP_COEFF_6;
+				}
+			}
+			break;
+		}
+		break;
+	case QPNP_IADC_REV_ID_8026_1_0:
+		/* pm8026 rev 1.0 */
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_9;
+					coeff_b = -QPNP_COEFF_17;
+				} else {
+					coeff_a = QPNP_COEFF_10;
+					coeff_b = QPNP_COEFF_18;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = -QPNP_COEFF_11;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = -QPNP_COEFF_17;
+					coeff_b = -QPNP_COEFF_19;
+				}
+			}
+			break;
+		case COMP_ID_TSMC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_13;
+					coeff_b = -QPNP_COEFF_20;
+				} else {
+					coeff_a = QPNP_COEFF_14;
+					coeff_b = QPNP_COEFF_21;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = -QPNP_COEFF_15;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = -QPNP_COEFF_12;
+					coeff_b = -QPNP_COEFF_19;
+				}
+			}
+			break;
+		}
+		break;
+	case QPNP_IADC_REV_ID_8110_1_0:
+		/* pm8110 rev 1.0 */
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_24;
+					coeff_b = -QPNP_COEFF_22;
+				} else {
+					coeff_a = QPNP_COEFF_24;
+					coeff_b = -QPNP_COEFF_23;
+				}
+			}
+			break;
+		case COMP_ID_SMIC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = QPNP_COEFF_24;
+					coeff_b = -QPNP_COEFF_22;
+				} else {
+					coeff_a = QPNP_COEFF_24;
+					coeff_b = -QPNP_COEFF_23;
+				}
+			}
+			break;
+		}
+		break;
+	default:
+	case QPNP_IADC_REV_ID_8026_2_0:
+		/* pm8026 rev 1.0 */
+		coeff_a = 0;
+		coeff_b = 0;
+		break;
 	}
 
-	if (!comp.ext_rsense) {
+	temp_var = (coeff_a * die_temp) + coeff_b;
+	temp_var = div64_s64(temp_var, QPNP_COEFF_4);
+	temp_var = 1000000 * (1000000 - temp_var);
+
+	if (!iadc->iadc_comp.ext_rsense) {
 		/* internal rsense */
-		switch (comp.id) {
-		case COMP_ID_TSMC:
-			temp_var = ((QPNP_COEFF_2 * die_temp) -
-						QPNP_COEFF_3_TYPEB);
-		break;
-		case COMP_ID_GF:
-		default:
-			temp_var = ((QPNP_COEFF_2 * die_temp) -
-						QPNP_COEFF_3_TYPEA);
-		break;
-		}
-		temp_var = div64_s64(temp_var, QPNP_COEFF_4);
-		if (comp.revision_dig_major == QPNP_IADC_VER_3_0)
-			temp_var = QPNP_COEFF_1 * (1000000 - temp_var);
-		else if (comp.revision_dig_major == QPNP_IADC_VER_3_1)
-			temp_var = 1000000 * (1000000 - temp_var);
 		*result = div64_s64(*result * 1000000, temp_var);
 	}
 
-	sign_coeff = *result < 0 ? QPNP_COEFF_7 : QPNP_COEFF_5;
-	if (comp.ext_rsense) {
-		/* external rsense and current charging */
-		temp_var = div64_s64((-sign_coeff * die_temp) + QPNP_COEFF_8,
-						QPNP_COEFF_4);
-		temp_var = 1000000000 - temp_var;
-		if (comp.revision_dig_major == QPNP_IADC_VER_3_1) {
-			sys_gain_coeff = (1000000 +
-				div64_s64(sys_gain_coeff, QPNP_COEFF_4));
-			temp_var = div64_s64(temp_var * sys_gain_coeff,
-				1000000000);
-		}
+	if (iadc->iadc_comp.ext_rsense) {
+		/* external rsense */
+		sys_gain_coeff = (1000000 +
+			div64_s64(sys_gain_coeff, QPNP_COEFF_4));
+		temp_var = div64_s64(temp_var * sys_gain_coeff,
+			1000000000);
 		*result = div64_s64(*result, temp_var);
 	}
 	pr_debug("%lld compensated into %lld\n", old, *result);
@@ -387,7 +571,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 
 int32_t qpnp_iadc_comp_result(struct qpnp_iadc_chip *iadc, int64_t *result)
 {
-	return qpnp_iadc_comp(result, iadc->iadc_comp, iadc->die_temp);
+	return qpnp_iadc_comp(result, iadc, iadc->die_temp);
 }
 EXPORT_SYMBOL(qpnp_iadc_comp_result);
 
@@ -581,8 +765,6 @@ static int32_t qpnp_convert_raw_offset_voltage(struct qpnp_iadc_chip *iadc)
 }
 
 #define IADC_IDEAL_RAW_GAIN	3291
-#define QPNP_IADC_PM8026_REV2	0x4
-#define QPNP_IADC_PM8026_REV3	0x2
 int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 							bool batfet_closed)
 {
@@ -641,8 +823,9 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 		goto fail;
 	}
 
-	if (iadc->iadc_comp.revision_dig_major == QPNP_IADC_PM8026_REV2
-		&& iadc->iadc_comp.revision_ana_minor == QPNP_IADC_PM8026_REV3)
+	if (iadc->iadc_comp.revision_dig_major == QPNP_IADC_PM8026_2_REV2
+		&& iadc->iadc_comp.revision_ana_minor ==
+						QPNP_IADC_PM8026_2_REV3)
 		iadc->adc->calib.gain_raw =
 			iadc->adc->calib.offset_raw + IADC_IDEAL_RAW_GAIN;
 
