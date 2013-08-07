@@ -21,6 +21,7 @@
 
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x20000>; /* 128K EBI1 buffer */
+		qcom,memory-size = <0x20000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
