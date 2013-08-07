@@ -622,26 +622,11 @@ enum qpnp_comp_scheme_type {
 	COMP_ID_NUM,
 };
 
-enum qpnp_iadc_rev {
-	QPNP_IADC_VER_3_0 = 0x1,
-	QPNP_IADC_VER_3_1 = 0x3,
-};
-
 #define QPNP_VBAT_SNS_COEFF_1_TYPEA				3000
 #define QPNP_VBAT_SNS_COEFF_2_TYPEA				45810000
 #define QPNP_VBAT_SNS_COEFF_3					100000
 #define QPNP_VBAT_SNS_COEFF_1_TYPEB				3500
 #define QPNP_VBAT_SNS_COEFF_2_TYPEB				80000000
-
-#define QPNP_COEFF_1					969000
-#define QPNP_COEFF_2					34
-#define QPNP_COEFF_3_TYPEA				1700000
-#define QPNP_COEFF_3_TYPEB				1000000
-#define QPNP_COEFF_4					100
-#define QPNP_COEFF_5					15000
-#define QPNP_COEFF_6					100000
-#define QPNP_COEFF_7					21700
-#define QPNP_COEFF_8					100000000
 
 /**
  * struct qpnp_adc_tm_config - Represent ADC Thermal Monitor configuration.
