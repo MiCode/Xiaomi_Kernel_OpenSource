@@ -81,6 +81,10 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 		return rc;
 
 	switch (stream_cfg_cmd->output_format) {
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_YVYU:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
@@ -167,6 +171,10 @@ static uint32_t msm_isp_axi_get_plane_size(
 	uint32_t size = 0;
 	struct msm_vfe_axi_plane_cfg *plane_cfg = stream_info->plane_cfg;
 	switch (stream_info->output_format) {
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_YVYU:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
