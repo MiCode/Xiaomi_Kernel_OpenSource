@@ -98,7 +98,7 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 	       sdhci_readl(host, SDHCI_INT_ENABLE),
 	       sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
 	pr_info(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
-	       sdhci_readw(host, SDHCI_AUTO_CMD_ERR),
+		host->auto_cmd_err_sts,
 	       sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
 	pr_info(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
 	       sdhci_readl(host, SDHCI_CAPABILITIES),
@@ -2580,6 +2580,7 @@ static bool sdhci_request_done(struct sdhci_host *host)
 		sdhci_led_deactivate(host);
 
 	host->mrqs_done[i] = NULL;
+	host->auto_cmd_err_sts = 0;
 
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
@@ -2687,7 +2688,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 			host->cmd->error = -EILSEQ;
 
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR) {
-			auto_cmd_status = sdhci_readw(host, SDHCI_AUTO_CMD_ERR);
+			auto_cmd_status = host->auto_cmd_err_sts;
+			pr_err("%s: %s: AUTO CMD err sts 0x%08x\n",
+				mmc_hostname(host->mmc), __func__, auto_cmd_status);
 			if (auto_cmd_status & (SDHCI_AUTO_CMD12_NOT_EXEC |
 					       SDHCI_AUTO_CMD_INDEX_ERR |
 					       SDHCI_AUTO_CMD_ENDBIT_ERR))
@@ -2920,6 +2923,9 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	}
 
 	do {
+		if (intmask & SDHCI_INT_AUTO_CMD_ERR)
+			host->auto_cmd_err_sts = sdhci_readw(host,
+					SDHCI_AUTO_CMD_ERR);
 		/* Clear selected interrupts. */
 		mask = intmask & (SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK |
 				  SDHCI_INT_BUS_POWER);

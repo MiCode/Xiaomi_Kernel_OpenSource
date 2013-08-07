@@ -601,6 +601,8 @@ struct sdhci_host {
 
 	enum sdhci_power_policy power_policy;
 
+	u32 auto_cmd_err_sts;
+
 	unsigned long private[0] ____cacheline_aligned;
 };
 
