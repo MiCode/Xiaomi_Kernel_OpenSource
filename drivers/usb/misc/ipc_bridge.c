@@ -563,6 +563,7 @@ ipc_bridge_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 	dev->udev = usb_get_dev(interface_to_usbdev(intf));
 	dev->intf = intf;
+	spin_lock_init(&dev->lock);
 	init_completion(&dev->write_done);
 	init_waitqueue_head(&dev->read_wait_q);
 	INIT_LIST_HEAD(&dev->rx_list);
