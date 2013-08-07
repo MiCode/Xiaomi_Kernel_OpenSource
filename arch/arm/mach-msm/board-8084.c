@@ -36,6 +36,7 @@
 #include "devices.h"
 #include "platsmp.h"
 #include "modem_notifier.h"
+#include "pm.h"
 
 static struct memtype_reserve apq8084_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -91,6 +92,7 @@ void __init apq8084_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	if (of_board_is_rumi())
