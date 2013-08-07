@@ -61,6 +61,9 @@ struct kgsl_dma_buf_meta {
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
+static void
+kgsl_put_process_private(struct kgsl_device *device,
+			 struct kgsl_process_private *private);
 /**
  * kgsl_trace_issueibcmds() - Call trace_issueibcmds by proxy
  * device: KGSL device
@@ -434,6 +437,13 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	}
 
 	kref_init(&context->refcount);
+	/*
+	 * Get a refernce to the process private so its not destroyed, until
+	 * the context is destroyed. This will also prevent the pagetable
+	 * from being destroyed
+	 */
+	if (!kref_get_unless_zero(&dev_priv->process_priv->refcount))
+		goto fail_free_id;
 	context->device = dev_priv->device;
 	context->pagetable = dev_priv->process_priv->pagetable;
 	context->dev_priv = dev_priv;
@@ -527,6 +537,8 @@ kgsl_context_destroy(struct kref *kref)
 	}
 	write_unlock(&device->context_lock);
 	kgsl_sync_timeline_destroy(context);
+	kgsl_put_process_private(device,
+				context->dev_priv->process_priv);
 
 	device->ftbl->drawctxt_destroy(context);
 }
