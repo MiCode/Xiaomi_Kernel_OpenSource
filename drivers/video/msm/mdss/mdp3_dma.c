@@ -503,7 +503,7 @@ static int mdp3_dmap_histo_config(struct mdp3_dma *dma,
 			struct mdp3_dma_histogram_config *histo_config)
 {
 	unsigned long flag;
-	u32 histo_bit_mask, histo_control;
+	u32 histo_bit_mask = 0, histo_control = 0;
 	u32 histo_isr_mask = MDP3_DMA_P_HIST_INTR_HIST_DONE_BIT |
 			MDP3_DMA_P_HIST_INTR_RESET_DONE_BIT;
 
