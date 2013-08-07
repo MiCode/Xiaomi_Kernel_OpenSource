@@ -67,6 +67,8 @@ static inline struct mux_clk *to_mux_clk(struct clk *c)
 	return container_of(c, struct mux_clk, c);
 }
 
+int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p);
+
 extern struct clk_ops clk_ops_gen_mux;
 
 /* ==================== Divider clock ==================== */
@@ -153,5 +155,81 @@ static struct ext_clk clk_name = {		\
 		CLK_INIT(clk_name.c),		\
 	}					\
 }
+
+/* ==================== Mux Div clock ==================== */
+
+struct mux_div_clk;
+
+/*
+ * struct mux_div_ops
+ * the enable and disable ops are optional.
+ */
+
+struct mux_div_ops {
+	int (*set_src_div)(struct mux_div_clk *, u32 src_sel, u32 div);
+	void (*get_src_div)(struct mux_div_clk *, u32 *src_sel, u32 *div);
+	int (*enable)(struct mux_div_clk *);
+	void (*disable)(struct mux_div_clk *);
+	bool (*is_enabled)(struct mux_div_clk *);
+};
+
+/*
+ * struct mux_div_clk - combined mux/divider clock
+ * @priv
+		parameters needed by ops
+ * @safe_freq
+		when switching rates from A to B, the mux div clock will
+		instead switch from A -> safe_freq -> B. This allows the
+		mux_div clock to change rates while enabled, even if this
+		behavior is not supported by the parent clocks.
+
+		If changing the rate of parent A also causes the rate of
+		parent B to change, then safe_freq must be defined.
+
+		safe_freq is expected to have a source clock which is always
+		on and runs at only one rate.
+ * @parents
+		list of parents and mux indicies
+ * @ops
+		function pointers for hw specific operations
+ * @src_sel
+		the mux index which will be used if the clock is enabled.
+ */
+
+struct mux_div_clk {
+	/* Required parameters */
+	struct mux_div_ops		*ops;
+	struct div_data			data;
+	struct clk_src			*parents;
+	u32				num_parents;
+
+	struct clk			c;
+
+	/* Internal */
+	u32				src_sel;
+
+	/* Optional parameters */
+	void				*priv;
+	void __iomem			*base;
+	u32				div_mask;
+	u32				div_offset;
+	u32				div_shift;
+	u32				src_mask;
+	u32				src_offset;
+	u32				src_shift;
+	u32				en_mask;
+	u32				en_offset;
+
+	u32				safe_div;
+	struct clk			*safe_parent;
+	unsigned long			safe_freq;
+};
+
+static inline struct mux_div_clk *to_mux_div_clk(struct clk *clk)
+{
+	return container_of(clk, struct mux_div_clk, c);
+}
+
+extern struct clk_ops clk_ops_mux_div_clk;
 
 #endif

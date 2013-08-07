@@ -22,13 +22,13 @@
 
 /* ==================== Mux clock ==================== */
 
-static int parent_to_src_sel(struct mux_clk *mux, struct clk *p)
+int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p)
 {
 	int i;
 
-	for (i = 0; i < mux->num_parents; i++) {
-		if (mux->parents[i].src == p)
-			return mux->parents[i].sel;
+	for (i = 0; i < num_parents; i++) {
+		if (parents[i].src == p)
+			return parents[i].sel;
 	}
 
 	return -EINVAL;
@@ -37,7 +37,7 @@ static int parent_to_src_sel(struct mux_clk *mux, struct clk *p)
 static int mux_set_parent(struct clk *c, struct clk *p)
 {
 	struct mux_clk *mux = to_mux_clk(c);
-	int sel = parent_to_src_sel(mux, p);
+	int sel = parent_to_src_sel(mux->parents, mux->num_parents, p);
 	struct clk *old_parent;
 	int rc = 0, i;
 	unsigned long flags;
@@ -147,7 +147,8 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 set_par_fail:
 	clk_set_rate(new_parent, new_par_curr_rate);
 set_rate_fail:
-	WARN(mux->ops->set_mux_sel(mux, parent_to_src_sel(mux, c->parent)),
+	WARN(mux->ops->set_mux_sel(mux,
+		parent_to_src_sel(mux->parents, mux->num_parents, c->parent)),
 		"Set rate failed for %s. Also in bad state!\n", c->dbg_name);
 	return rc;
 }
@@ -187,7 +188,8 @@ static enum handoff mux_handoff(struct clk *c)
 	struct mux_clk *mux = to_mux_clk(c);
 
 	c->rate = clk_get_rate(c->parent);
-	mux->safe_sel = parent_to_src_sel(mux, mux->safe_parent);
+	mux->safe_sel = parent_to_src_sel(mux->parents, mux->num_parents,
+							mux->safe_parent);
 
 	if (mux->en_mask && mux->ops && mux->ops->is_enabled)
 		return mux->ops->is_enabled(mux)
@@ -491,3 +493,238 @@ struct clk_ops clk_ops_ext = {
 	.set_parent = ext_set_parent,
 };
 
+
+/* ==================== Mux_div clock ==================== */
+
+static int mux_div_clk_enable(struct clk *c)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+
+	if (md->ops->enable)
+		return md->ops->enable(md);
+	return 0;
+}
+
+static void mux_div_clk_disable(struct clk *c)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+
+	if (md->ops->disable)
+		return md->ops->disable(md);
+}
+
+static long __mux_div_round_rate(struct clk *c, unsigned long rate,
+	struct clk **best_parent, int *best_div, unsigned long *best_prate)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+	unsigned int i;
+	unsigned long rrate, best = 0, _best_div = 0, _best_prate = 0;
+	struct clk *_best_parent = 0;
+
+	for (i = 0; i < md->num_parents; i++) {
+		int div;
+		unsigned long prate;
+
+		rrate = __div_round_rate(&md->data, rate, md->parents[i].src,
+				&div, &prate);
+
+		if (is_better_rate(rate, best, rrate)) {
+			best = rrate;
+			_best_div = div;
+			_best_prate = prate;
+			_best_parent = md->parents[i].src;
+		}
+
+		if (rate <= rrate && rrate <= rate + md->data.rate_margin)
+			break;
+	}
+
+	if (best_div)
+		*best_div = _best_div;
+	if (best_prate)
+		*best_prate = _best_prate;
+	if (best_parent)
+		*best_parent = _best_parent;
+
+	if (best)
+		return best;
+	return -EINVAL;
+}
+
+static long mux_div_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	return __mux_div_round_rate(c, rate, NULL, NULL, NULL);
+}
+
+/* requires enable lock to be held */
+static int __set_src_div(struct mux_div_clk *md, struct clk *parent, u32 div)
+{
+	u32 rc = 0, src_sel;
+
+	src_sel = parent_to_src_sel(md->parents, md->num_parents, parent);
+	/*
+	 * If the clock is disabled, don't change to the new settings until
+	 * the clock is reenabled
+	 */
+	if (md->c.count)
+		rc = md->ops->set_src_div(md, src_sel, div);
+	if (!rc) {
+		md->data.div = div;
+		md->src_sel = src_sel;
+	}
+
+	return rc;
+}
+
+static int set_src_div(struct mux_div_clk *md, struct clk *parent, u32 div)
+{
+	unsigned long flags;
+	u32 rc;
+
+	spin_lock_irqsave(&md->c.lock, flags);
+	rc = __set_src_div(md, parent, div);
+	spin_unlock_irqrestore(&md->c.lock, flags);
+
+	return rc;
+}
+
+/* Must be called after handoff to ensure parent clock rates are initialized */
+static int safe_parent_init_once(struct clk *c)
+{
+	unsigned long rrate;
+	u32 best_div;
+	struct clk *best_parent;
+	struct mux_div_clk *md = to_mux_div_clk(c);
+
+	if (IS_ERR(md->safe_parent))
+		return -EINVAL;
+	if (!md->safe_freq || md->safe_parent)
+		return 0;
+
+	rrate = __mux_div_round_rate(c, md->safe_freq, &best_parent,
+			&best_div, NULL);
+
+	if (rrate == md->safe_freq) {
+		md->safe_div = best_div;
+		md->safe_parent = best_parent;
+	} else {
+		md->safe_parent = ERR_PTR(-EINVAL);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+	unsigned long flags, rrate;
+	unsigned long new_prate, old_prate;
+	struct clk *old_parent, *new_parent;
+	u32 new_div, old_div;
+	int rc;
+
+	rc = safe_parent_init_once(c);
+	if (rc)
+		return rc;
+
+	rrate = __mux_div_round_rate(c, rate, &new_parent, &new_div,
+							&new_prate);
+	if (rrate != rate)
+		return -EINVAL;
+
+	old_parent = c->parent;
+	old_div = md->data.div;
+	old_prate = clk_get_rate(c->parent);
+
+	/* Refer to the description of safe_freq in clock-generic.h */
+	if (md->safe_freq)
+		rc = set_src_div(md, md->safe_parent, md->safe_div);
+
+	else if (new_parent == old_parent && new_div >= old_div) {
+		/*
+		 * If both the parent_rate and divider changes, there may be an
+		 * intermediate frequency generated. Ensure this intermediate
+		 * frequency is less than both the new rate and previous rate.
+		 */
+		rc = set_src_div(md, old_parent, new_div);
+	}
+	if (rc)
+		return rc;
+
+	rc = clk_set_rate(new_parent, new_prate);
+	if (rc) {
+		pr_err("failed to set %s to %ld\n",
+			new_parent->dbg_name, new_prate);
+		goto err_set_rate;
+	}
+
+	rc = __clk_pre_reparent(c, new_parent, &flags);
+	if (rc)
+		goto err_pre_reparent;
+
+	/* Set divider and mux src atomically */
+	rc = __set_src_div(md, new_parent, new_div);
+	if (rc)
+		goto err_set_src_div;
+
+	c->parent = new_parent;
+
+	__clk_post_reparent(c, old_parent, &flags);
+	return 0;
+
+err_set_src_div:
+	/* Not switching to new_parent, so disable it */
+	__clk_post_reparent(c, new_parent, &flags);
+err_pre_reparent:
+	rc = clk_set_rate(old_parent, old_prate);
+	WARN(rc, "%s: error changing parent (%s) rate to %ld\n",
+		c->dbg_name, old_parent->dbg_name, old_prate);
+err_set_rate:
+	rc = set_src_div(md, old_parent, old_div);
+	WARN(rc, "%s: error changing back to original div (%d) and parent (%s)\n",
+		c->dbg_name, old_div, old_parent->dbg_name);
+
+	return rc;
+}
+
+static struct clk *mux_div_clk_get_parent(struct clk *c)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+	u32 i, div, src_sel;
+
+	md->ops->get_src_div(md, &src_sel, &div);
+
+	md->data.div = div;
+	md->src_sel = src_sel;
+
+	for (i = 0; i < md->num_parents; i++) {
+		if (md->parents[i].sel == src_sel)
+			return md->parents[i].src;
+	}
+
+	return NULL;
+}
+
+static enum handoff mux_div_clk_handoff(struct clk *c)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+	unsigned long parent_rate;
+
+	parent_rate = clk_get_rate(c->parent);
+	c->rate = parent_rate / md->data.div;
+
+	if (!md->ops->is_enabled)
+		return HANDOFF_DISABLED_CLK;
+	if (md->ops->is_enabled(md))
+		return HANDOFF_ENABLED_CLK;
+	return HANDOFF_DISABLED_CLK;
+}
+
+struct clk_ops clk_ops_mux_div_clk = {
+	.enable = mux_div_clk_enable,
+	.disable = mux_div_clk_disable,
+	.set_rate = mux_div_clk_set_rate,
+	.round_rate = mux_div_clk_round_rate,
+	.get_parent = mux_div_clk_get_parent,
+	.handoff = mux_div_clk_handoff,
+};
