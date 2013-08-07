@@ -3905,8 +3905,10 @@ static int bms_request_irqs(struct qpnp_bms_chip *chip)
 	int rc;
 
 	SPMI_REQUEST_IRQ(chip, rc, sw_cc_thr);
+	disable_bms_irq(&chip->sw_cc_thr_irq);
 	enable_irq_wake(chip->sw_cc_thr_irq.irq);
 	SPMI_REQUEST_IRQ(chip, rc, ocv_thr);
+	disable_bms_irq(&chip->ocv_thr_irq);
 	enable_irq_wake(chip->ocv_thr_irq.irq);
 	return 0;
 }
