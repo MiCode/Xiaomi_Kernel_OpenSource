@@ -58,11 +58,13 @@ static struct reserve_info mpq8092_reserve_info __initdata = {
 static void __init mpq8092_early_memory(void)
 {
 	reserve_info = &mpq8092_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, mpq8092_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, mpq8092_reserve_table);
 }
 
 static void __init mpq8092_dt_reserve(void)
 {
+	reserve_info = &mpq8092_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, mpq8092_reserve_table);
 	msm_reserve();
 }
 
