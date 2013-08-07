@@ -51,6 +51,12 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-voice"
 
+* msm-voice-host-pcm
+
+Required properties:
+
+ - compatible : "qcom,msm-voice-host-pcm"
+
 * msm-stub-codec
 
 Required properties:
@@ -245,6 +251,10 @@ Example:
 
         qcom,msm-voip-dsp {
                 compatible = "qcom,msm-voip-dsp";
+        };
+
+        qcom,msm-voice-host-pcm {
+                compatible = "qcom,msm-voice-host-pcm";
         };
 
         qcom,msm-stub-codec {
