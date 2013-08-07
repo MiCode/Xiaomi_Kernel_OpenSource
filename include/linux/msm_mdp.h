@@ -134,6 +134,7 @@ enum {
 	MDP_XRGB_8888_TILE,	/* XRGB 8888 in tile format */
 	MDP_XBGR_8888_TILE,	/* XBGR 8888 in tile format */
 	MDP_BGRX_8888_TILE,	/* BGRX 8888 in tile format */
+	MDP_YCBYCR_H2V1,  /* YCbYCr interleave */
 	MDP_IMGTYPE_LIMIT,
 	MDP_RGB_BORDERFILL,	/* border fill pipe */
 	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
