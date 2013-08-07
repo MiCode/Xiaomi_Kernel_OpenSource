@@ -1219,12 +1219,10 @@ static void adreno_dispatcher_work(struct work_struct *work)
 		 * pointers and continue processing the queue
 		 */
 
-		if (!kgsl_context_detached(cmdbatch->context))
-			retired = kgsl_readtimestamp(device, cmdbatch->context,
+		retired = kgsl_readtimestamp(device, cmdbatch->context,
 				KGSL_TIMESTAMP_RETIRED);
 
-		if (kgsl_context_detached(cmdbatch->context) ||
-			(timestamp_cmp(cmdbatch->timestamp, retired) <= 0)) {
+		if ((timestamp_cmp(cmdbatch->timestamp, retired) <= 0)) {
 
 			/*
 			 * If the cmdbatch in question had faulted announce its

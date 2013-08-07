@@ -2644,14 +2644,6 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 	unsigned int timestamp = 0;
 	unsigned int id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
 
-	/*
-	 * If the context is detached we are in a race with
-	 * the context being destroyed by userspace so bail.
-	 */
-	if (context && kgsl_context_detached(context)) {
-		KGSL_DRV_WARN(device, "context was detached");
-		return timestamp;
-	}
 	switch (type) {
 	case KGSL_TIMESTAMP_QUEUED: {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
