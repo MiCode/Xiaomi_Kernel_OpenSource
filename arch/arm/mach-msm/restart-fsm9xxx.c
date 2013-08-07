@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 void fsm_restart(char mode, const char *cmd)
 {
 	pr_notice("Going down for restart now\n");
-	msleep(3000);
+	mdelay(3000);
 
 	/* Configure FEMTO_GPIO_PS_HOLD as a general purpose output */
 	if (gpio_tlmm_config(GPIO_CFG(FEMTO_GPIO_PS_HOLD, 0,
@@ -37,6 +37,6 @@ void fsm_restart(char mode, const char *cmd)
 	/* Now set it low to power cycle the entire board */
 	gpio_set_value(FEMTO_GPIO_PS_HOLD, 0);
 
-	msleep(10000);
+	mdelay(10000);
 	pr_err("Restarting has failed\n");
 }
