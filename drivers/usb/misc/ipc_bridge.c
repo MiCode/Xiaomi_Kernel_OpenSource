@@ -644,6 +644,12 @@ static void ipc_bridge_disconnect(struct usb_interface *intf)
 	usb_kill_urb(dev->inturb);
 	usb_kill_urb(dev->readurb);
 
+	/*
+	 * The readurb may not be active at the time of
+	 * unlink.  Wake up the reader explicitly before
+	 * unregistering the platform device.
+	 */
+	wake_up(&dev->read_wait_q);
 	platform_device_unregister(dev->pdev);
 	WARN_ON(dev->opened);
 
