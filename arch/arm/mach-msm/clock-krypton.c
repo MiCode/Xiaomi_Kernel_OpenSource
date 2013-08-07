@@ -1833,6 +1833,8 @@ static struct clk_lookup msm_clocks_krypton[] = {
 								"msm_sps"),
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
 
+	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9924000.i2c"),
+	CLK_LOOKUP("core_clk", gcc_blsp1_qup2_i2c_apps_clk.c, "f9924000.i2c"),
 
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991f000.serial"),
 	CLK_LOOKUP("core_clk", gcc_blsp1_uart3_apps_clk.c, "f991f000.serial"),
