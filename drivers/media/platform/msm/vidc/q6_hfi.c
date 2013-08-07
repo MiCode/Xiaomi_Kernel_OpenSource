@@ -21,6 +21,8 @@
 #include "q6_hfi.h"
 #include "vidc_hfi_api.h"
 
+
+#if defined(CONFIG_MSM_QDSP6_APR) || defined(CONFIG_MSM_QDSP6_APRV2)
 static struct hal_device_data hal_ctxt;
 
 static int write_queue(void *info, u8 *packet)
@@ -1374,3 +1376,16 @@ err_hfi_init:
 	return rc;
 }
 
+#else
+int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
+		struct msm_vidc_platform_resources *res,
+		hfi_cmd_response_callback callback)
+{
+	return -ENODEV;
+}
+
+void q6_hfi_delete_device(void *device)
+{
+	/* Nothing to do! */
+}
+#endif
