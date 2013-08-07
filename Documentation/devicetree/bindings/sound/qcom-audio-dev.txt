@@ -452,6 +452,11 @@ Optional properties:
 Required properties:
 - compatible : "qcom,apq8074-audio-taiko"
 
+* APQ8084 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,apq8084-audio-taiko"
+
 Example:
 
 sound {
