@@ -156,6 +156,7 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
 	int i;
 
 	if (pdata == NULL) {
@@ -178,6 +179,7 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
 		for (i = 0; i < MDSS_DSI_RST_SEQ_LEN; ++i) {
@@ -187,6 +189,13 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		}
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+
+		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
+			if (pinfo->mode_gpio_state == MODE_GPIO_HIGH)
+				gpio_set_value((ctrl_pdata->mode_gpio), 1);
+			else if (pinfo->mode_gpio_state == MODE_GPIO_LOW)
+				gpio_set_value((ctrl_pdata->mode_gpio), 0);
+		}
 		if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 			pr_debug("%s: Panel Not properly turned OFF\n",
 						__func__);
@@ -706,6 +715,16 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		pinfo->mipi.dma_trigger =
 					DSI_CMD_TRIGGER_SW;
 	}
+	data = of_get_property(np, "qcom,mdss-dsi-panel-mode-gpio-state", &tmp);
+	if (data) {
+		if (!strcmp(data, "high"))
+			pinfo->mode_gpio_state = MODE_GPIO_HIGH;
+		else if (!strcmp(data, "low"))
+			pinfo->mode_gpio_state = MODE_GPIO_LOW;
+	} else {
+		pinfo->mode_gpio_state = MODE_GPIO_NOT_VALID;
+	}
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-frame-rate", &tmp);
 	pinfo->mipi.frame_rate = (!rc ? tmp : 60);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-clock-rate", &tmp);

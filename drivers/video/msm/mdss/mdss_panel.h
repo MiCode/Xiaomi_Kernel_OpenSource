@@ -64,6 +64,12 @@ enum {
 	MDSS_PANEL_INTF_HDMI,
 };
 
+enum {
+	MODE_GPIO_NOT_VALID = 0,
+	MODE_GPIO_HIGH,
+	MODE_GPIO_LOW,
+};
+
 #define MDSS_MAX_PANEL_LEN      256
 #define MDSS_INTF_MAX_NAME_LEN 5
 struct mdss_panel_intf {
@@ -263,6 +269,7 @@ struct mdss_panel_info {
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
+	u32 mode_gpio_state;
 
 	u32 cont_splash_enabled;
 	struct ion_handle *splash_ihdl;
