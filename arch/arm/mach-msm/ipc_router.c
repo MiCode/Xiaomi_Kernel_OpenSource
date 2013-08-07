@@ -1906,6 +1906,7 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	ctl.srv.port_id = port_ptr->this_port.port_id;
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
+	broadcast_ctl_msg_locally(&ctl);
 	spin_lock_irqsave(&port_ptr->port_lock, flags);
 	port_ptr->type = SERVER_PORT;
 	port_ptr->mode_info.mode = MULTI_LINK_MODE;
@@ -1957,6 +1958,7 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 				      port_ptr->this_port.port_id);
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
+	broadcast_ctl_msg_locally(&ctl);
 	spin_lock_irqsave(&port_ptr->port_lock, flags);
 	port_ptr->type = CLIENT_PORT;
 	spin_unlock_irqrestore(&port_ptr->port_lock, flags);
