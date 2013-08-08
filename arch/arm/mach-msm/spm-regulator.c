@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/string.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -313,13 +314,38 @@ static int qpnp_fts2_init_voltage(struct spm_vreg *vreg)
 
 static int qpnp_fts2_init_mode(struct spm_vreg *vreg)
 {
+	const char *mode_name;
 	int rc;
 
-	rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
-		vreg->spmi_base_addr + QPNP_FTS2_REG_MODE, &vreg->init_mode, 1);
-	if (rc)
-		dev_err(&vreg->spmi_dev->dev, "%s: could not read mode register, rc=%d\n",
-			__func__, rc);
+	rc = of_property_read_string(vreg->spmi_dev->dev.of_node, "qcom,mode",
+					&mode_name);
+	if (!rc) {
+		if (strcmp("pwm", mode_name) == 0) {
+			vreg->init_mode = QPNP_FTS2_MODE_PWM;
+		} else if (strcmp("auto", mode_name) == 0) {
+			vreg->init_mode = QPNP_FTS2_MODE_AUTO;
+		} else {
+			dev_err(&vreg->spmi_dev->dev, "%s: unknown regulator mode: %s\n",
+				__func__, mode_name);
+			return -EINVAL;
+		}
+
+		rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl,
+			vreg->spmi_dev->sid,
+			vreg->spmi_base_addr + QPNP_FTS2_REG_MODE,
+			&vreg->init_mode, 1);
+		if (rc)
+			dev_err(&vreg->spmi_dev->dev, "%s: could not write mode register, rc=%d\n",
+				__func__, rc);
+	} else {
+		rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl,
+			vreg->spmi_dev->sid,
+			vreg->spmi_base_addr + QPNP_FTS2_REG_MODE,
+			&vreg->init_mode, 1);
+		if (rc)
+			dev_err(&vreg->spmi_dev->dev, "%s: could not read mode register, rc=%d\n",
+				__func__, rc);
+	}
 
 	return rc;
 }
