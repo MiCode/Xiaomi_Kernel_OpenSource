@@ -10,26 +10,15 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msmsamarium.dtsi"
-
 / {
-	model = "Qualcomm MSM SAMARIUM RUMI";
-	compatible = "qcom,msmsamarium-rumi", "qcom,msmsamarium", "qcom,rumi";
-	qcom,msm-id = <195 15 0>;
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
 };
 
-&blsp1_uart2{
+&soc {
+};
+
+&blsp1_uart1{
 	status = "ok";
-};
-
-&spi_1 {
-		ethernet-switch@0 {
-			compatible = "simtec,ks8851";
-			reg = <0>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <75 0>;
-			spi-max-frequency = <19200000>;
-		};
 };

@@ -157,7 +157,8 @@ dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
 	fsm9900-sim.dtb
 dtb-$(CONFIG_ARCH_MSMKRYPTON) += msmkrypton-sim.dtb
 dtb-$(CONFIG_ARCH_MSMSAMARIUM) += msmsamarium-sim.dtb \
-	msmsamarium-rumi.dtb
+	msmsamarium-rumi.dtb \
+	msmsamarium-cdp.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb
 dtb-$(CONFIG_ARCH_MVEBU) += armada-370-db.dtb \
 	armada-370-mirabox.dtb \

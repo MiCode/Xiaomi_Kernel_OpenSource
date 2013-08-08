@@ -21,7 +21,7 @@
 	qcom,msm-id = <195 16 0>;
 };
 
-&uartblsp0dm2{
+&blsp1_uart2{
 	status = "ok";
 };
 

@@ -13,23 +13,11 @@
 /dts-v1/;
 
 /include/ "msmsamarium.dtsi"
+/include/ "msmsamarium-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM SAMARIUM RUMI";
-	compatible = "qcom,msmsamarium-rumi", "qcom,msmsamarium", "qcom,rumi";
-	qcom,msm-id = <195 15 0>;
+	model = "Qualcomm MSM SAMARIUM CDP";
+	compatible = "qcom,msmsamarium-cdp", "qcom,msmsamarium", "qcom,cdp";
+	qcom,msm-id = <195 1 0>;
 };
 
-&blsp1_uart2{
-	status = "ok";
-};
-
-&spi_1 {
-		ethernet-switch@0 {
-			compatible = "simtec,ks8851";
-			reg = <0>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <75 0>;
-			spi-max-frequency = <19200000>;
-		};
-};
