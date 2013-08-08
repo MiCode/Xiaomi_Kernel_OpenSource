@@ -266,6 +266,45 @@ static const struct file_operations irq_spurious_proc_fops = {
 	.release	= single_release,
 };
 
+static int irq_wake_depth_proc_show(struct seq_file *m, void *v)
+{
+	struct irq_desc *desc = irq_to_desc((long) m->private);
+
+	seq_printf(m, "wake_depth %u\n", desc->wake_depth);
+	return 0;
+}
+
+static int irq_wake_depth_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, irq_wake_depth_proc_show, PDE_DATA(inode));
+}
+
+static const struct file_operations irq_wake_depth_proc_fops = {
+	.open		= irq_wake_depth_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int irq_disable_depth_proc_show(struct seq_file *m, void *v)
+{
+	struct irq_desc *desc = irq_to_desc((long) m->private);
+
+	seq_printf(m, "disable_depth %u\n", desc->depth);
+	return 0;
+}
+
+static int irq_disable_depth_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, irq_disable_depth_proc_show, PDE_DATA(inode));
+}
+
+static const struct file_operations irq_disable_depth_proc_fops = {
+	.open		= irq_disable_depth_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 #define MAX_NAMELEN 128
 
 static int name_unique(unsigned int irq, struct irqaction *new_action)
@@ -341,6 +380,10 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
 
 	proc_create_data("spurious", 0444, desc->dir,
 			 &irq_spurious_proc_fops, (void *)(long)irq);
+	proc_create_data("disable_depth", 0444, desc->dir,
+			 &irq_disable_depth_proc_fops, (void *)(long)irq);
+	proc_create_data("wake_depth", 0444, desc->dir,
+			 &irq_wake_depth_proc_fops, (void *)(long)irq);
 }
 
 void unregister_irq_proc(unsigned int irq, struct irq_desc *desc)
