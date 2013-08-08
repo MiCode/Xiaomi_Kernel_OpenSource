@@ -894,11 +894,19 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	int ret, i, count = 0;
 	int fault, first = 0;
 	bool pagefault = false;
-	BUG_ON(dispatcher->inflight == 0);
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
 		return 0;
+	/*
+	 * Return early if no command inflight - can happen on
+	 * false hang detects
+	 */
+	if (dispatcher->inflight == 0) {
+		KGSL_DRV_WARN(device,
+		"dispatcher_do_fault with 0 inflight commands\n");
+		return 0;
+	}
 
 	/* Turn off all the timers */
 	del_timer_sync(&dispatcher->timer);
@@ -1314,6 +1322,13 @@ static void adreno_dispatcher_work(struct work_struct *work)
 		break;
 	}
 
+	/*
+	 * Call the dispatcher fault routine here so the fault bit gets cleared
+	 * when no commands are in dispatcher but fault bit is set. This can
+	 * happen on false hang detects
+	 */
+	if (dispatcher_do_fault(device))
+		goto done;
 	/*
 	 * Decrement the active count to 0 - this will allow the system to go
 	 * into suspend even if there are queued command batches
