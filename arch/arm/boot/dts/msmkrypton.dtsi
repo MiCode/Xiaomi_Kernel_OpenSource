@@ -264,6 +264,12 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 		rpm-standalone = <1>;
 	};
+
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
 };
 
 /include/ "msm-pmd9635.dtsi"
