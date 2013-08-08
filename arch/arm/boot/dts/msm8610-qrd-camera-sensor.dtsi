@@ -18,7 +18,7 @@
                 qcom,slave-id = <0x40 0x04 0xc0>;
                 qcom,csiphy-sd-index = <0>;
                 qcom,csid-sd-index = <0>;
-                qcom,mount-angle = <270>;
+                qcom,mount-angle = <90>;
                 qcom,sensor-name = "hi256";
                 cam_vdig-supply = <&pm8110_l2>;
                 cam_vana-supply = <&pm8110_l19>;
