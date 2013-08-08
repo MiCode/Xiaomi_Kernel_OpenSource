@@ -221,6 +221,8 @@ struct fbc_panel_info {
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
+	u32 physical_width;
+	u32 physical_height;
 	u32 bpp;
 	u32 type;
 	u32 wait_cycle;

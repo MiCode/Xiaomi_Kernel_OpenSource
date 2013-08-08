@@ -510,6 +510,12 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	}
 	panel_data->panel_info.yres = (!rc ? tmp : 480);
 
+	rc = of_property_read_u32(np,
+		"qcom,mdss-pan-physical-width-dimension", &tmp);
+	panel_data->panel_info.physical_width = (!rc ? tmp : 0);
+	rc = of_property_read_u32(np,
+		"qcom,mdss-pan-physical-height-dimension", &tmp);
+	panel_data->panel_info.physical_height = (!rc ? tmp : 0);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-left-border", &tmp);
 	panel_data->panel_info.lcdc.xres_pad = (!rc ? tmp : 0);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-right-border", &tmp);
