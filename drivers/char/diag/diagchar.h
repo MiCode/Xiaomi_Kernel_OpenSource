@@ -362,9 +362,12 @@ struct diagchar_dev {
 	struct work_struct diag_drain_work;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t *msg_masks;
+	uint8_t msg_status;
 	uint8_t *log_masks;
+	uint8_t log_status;
 	int log_masks_length;
 	uint8_t *event_masks;
+	uint8_t event_status;
 	uint8_t log_on_demand_support;
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
