@@ -45,6 +45,9 @@
 #define TAPAN_VDD_CX_OPTIMAL_UA 10000
 #define TAPAN_VDD_CX_SLEEP_UA 2000
 
+/* RX_HPH_CNP_WG_TIME increases by 0.24ms */
+#define TAPAN_WG_TIME_FACTOR_US  240
+
 static struct regulator *tapan_codec_find_regulator(
 	struct snd_soc_codec *codec,
 	const char *name);
@@ -96,6 +99,12 @@ enum tapan_codec_type {
 };
 
 static enum tapan_codec_type codec_ver;
+
+/*
+ * Multiplication factor to compute impedance on Tapan
+ * This is computed from (Vx / (m*Ical)) = (10mV/(180*30uA))
+ */
+#define TAPAN_ZDET_MUL_FACTOR 1852
 
 enum {
 	AIF1_PB = 0,
@@ -251,6 +260,12 @@ struct tapan_priv {
 
 	/* pointers to regulators required for chargepump */
 	struct regulator *cp_regulators[CP_REG_MAX];
+
+	/*
+	 * list used to save/restore registers at start and
+	 * end of impedance measurement
+	 */
+	struct list_head reg_save_restore;
 };
 
 static const u32 comp_shift[] = {
@@ -4917,6 +4932,255 @@ enum wcd9xxx_cdc_type tapan_get_cdc_type(void)
 	return WCD9XXX_CDC_TYPE_TAPAN;
 }
 
+static void wcd9xxx_prepare_hph_pa(struct wcd9xxx_mbhc *mbhc,
+				   struct list_head *lh)
+{
+	int i;
+	struct snd_soc_codec *codec = mbhc->codec;
+	u32 delay;
+
+	const struct wcd9xxx_reg_mask_val reg_set_paon[] = {
+		{WCD9XXX_A_CDC_CLSH_B1_CTL, 0x0F, 0x00},
+		{WCD9XXX_A_RX_HPH_CHOP_CTL, 0xFF, 0xA4},
+		{WCD9XXX_A_RX_HPH_OCP_CTL, 0xFF, 0x67},
+		{WCD9XXX_A_RX_HPH_L_TEST, 0x1, 0x0},
+		{WCD9XXX_A_RX_HPH_R_TEST, 0x1, 0x0},
+		{WCD9XXX_A_RX_HPH_BIAS_WG_OCP, 0xFF, 0x1A},
+		{WCD9XXX_A_RX_HPH_CNP_WG_CTL, 0xFF, 0xDB},
+		{WCD9XXX_A_RX_HPH_CNP_WG_TIME, 0xFF, 0x2A},
+		{TAPAN_A_CDC_CONN_RX2_B2_CTL, 0xFF, 0x10},
+		{WCD9XXX_A_CDC_CLK_OTHR_CTL, 0xFF, 0x05},
+		{WCD9XXX_A_CDC_RX1_B6_CTL, 0xFF, 0x81},
+		{WCD9XXX_A_CDC_CLK_RX_B1_CTL, 0x03, 0x03},
+		{WCD9XXX_A_RX_HPH_L_GAIN, 0xFF, 0x2C},
+		{WCD9XXX_A_CDC_RX2_B6_CTL, 0xFF, 0x81},
+		{WCD9XXX_A_RX_HPH_R_GAIN, 0xFF, 0x2C},
+		{WCD9XXX_A_BUCK_CTRL_CCL_4, 0xFF, 0x50},
+		{WCD9XXX_A_BUCK_CTRL_VCL_1, 0xFF, 0x08},
+		{WCD9XXX_A_BUCK_CTRL_CCL_1, 0xFF, 0x5B},
+		{WCD9XXX_A_NCP_CLK, 0xFF, 0x9C},
+		{WCD9XXX_A_NCP_CLK, 0xFF, 0xFC},
+		{WCD9XXX_A_BUCK_MODE_3, 0xFF, 0xCE},
+		{WCD9XXX_A_BUCK_CTRL_CCL_3, 0xFF, 0x6B},
+		{WCD9XXX_A_BUCK_CTRL_CCL_3, 0xFF, 0x6F},
+		{TAPAN_A_RX_BUCK_BIAS1, 0xFF, 0x62},
+		{TAPAN_A_RX_HPH_BIAS_PA, 0xFF, 0x7A},
+		{TAPAN_A_CDC_CLK_RDAC_CLK_EN_CTL, 0xFF, 0x02},
+		{TAPAN_A_CDC_CLK_RDAC_CLK_EN_CTL, 0xFF, 0x06},
+		{WCD9XXX_A_RX_COM_BIAS, 0xFF, 0x80},
+		{WCD9XXX_A_BUCK_MODE_3, 0xFF, 0xC6},
+		{WCD9XXX_A_BUCK_MODE_4, 0xFF, 0xE6},
+		{WCD9XXX_A_BUCK_MODE_5, 0xFF, 0x02},
+		{WCD9XXX_A_BUCK_MODE_1, 0xFF, 0xA1},
+		/* Delay 1ms */
+		{WCD9XXX_A_NCP_EN, 0xFF, 0xFF},
+		/* Delay 1ms */
+		{WCD9XXX_A_BUCK_MODE_5, 0xFF, 0x03},
+		{WCD9XXX_A_BUCK_MODE_5, 0xFF, 0x7B},
+		{WCD9XXX_A_CDC_CLSH_B1_CTL, 0xFF, 0xE6},
+		{WCD9XXX_A_RX_HPH_L_DAC_CTL, 0xFF, 0x40},
+		{WCD9XXX_A_RX_HPH_L_DAC_CTL, 0xFF, 0xC0},
+		{WCD9XXX_A_RX_HPH_R_DAC_CTL, 0xFF, 0x40},
+		{WCD9XXX_A_RX_HPH_R_DAC_CTL, 0xFF, 0xC0},
+		{WCD9XXX_A_NCP_STATIC, 0xFF, 0x08},
+		{WCD9XXX_A_RX_HPH_L_DAC_CTL, 0x03, 0x01},
+		{WCD9XXX_A_RX_HPH_R_DAC_CTL, 0x03, 0x01},
+	};
+
+	/*
+	 * Configure PA in class-AB, -18dB gain,
+	 * companding off, OCP off, Chopping ON
+	 */
+	for (i = 0; i < ARRAY_SIZE(reg_set_paon); i++) {
+		/*
+		 * Some of the codec registers like BUCK_MODE_1
+		 * and NCP_EN requires 1ms wait time for them
+		 * to take effect. Other register writes for
+		 * PA configuration do not require any wait time.
+		 */
+		if (reg_set_paon[i].reg == WCD9XXX_A_BUCK_MODE_1 ||
+		    reg_set_paon[i].reg == WCD9XXX_A_NCP_EN)
+			delay = 1000;
+		else
+			delay = 0;
+		wcd9xxx_soc_update_bits_push(codec, lh,
+					     reg_set_paon[i].reg,
+					     reg_set_paon[i].mask,
+					     reg_set_paon[i].val, delay);
+	}
+	pr_debug("%s: PAs are prepared\n", __func__);
+	return;
+}
+
+static int wcd9xxx_enable_static_pa(struct wcd9xxx_mbhc *mbhc, bool enable)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+	int wg_time = snd_soc_read(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME) *
+				   TAPAN_WG_TIME_FACTOR_US;
+	/*
+	 * Tapan requires additional time to enable PA.
+	 * It is observed during experiments that we need
+	 * an additional wait time about 0.35 times of
+	 * the WG_TIME
+	 */
+	wg_time += (int) (wg_time * 35) / 100;
+
+	snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CNP_EN, 0x30,
+			    enable ? 0x30 : 0x0);
+	/* Wait for wave gen time to avoid pop noise */
+	usleep_range(wg_time, wg_time + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	pr_debug("%s: PAs are %s as static mode (wg_time %d)\n", __func__,
+		 enable ? "enabled" : "disabled", wg_time);
+	return 0;
+}
+
+static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
+			    enum mbhc_impedance_detect_stages stage)
+{
+
+	int ret = 0;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	const int mux_wait_us = 25;
+
+	switch (stage) {
+
+	case PRE_MEAS:
+		INIT_LIST_HEAD(&tapan->reg_save_restore);
+		/* Configure PA */
+		wcd9xxx_prepare_hph_pa(mbhc, &tapan->reg_save_restore);
+
+#define __wr(reg, mask, value)						  \
+	do {								  \
+		ret = wcd9xxx_soc_update_bits_push(codec,		  \
+						   &tapan->reg_save_restore, \
+						   reg, mask, value, 0);  \
+		if (ret < 0)						  \
+			return ret;					  \
+	} while (0)
+
+		/* Setup MBHC */
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_1, 0x7F, 0x40);
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
+		__wr(WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0xFF, 0x78);
+		__wr(WCD9XXX_A_TX_7_MBHC_EN, 0xFF, 0xEC);
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B4_CTL, 0xFF, 0x45);
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B5_CTL, 0xFF, 0x80);
+
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x0A);
+		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x2);
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x02);
+
+		/* Enable Impedance Detection */
+		__wr(WCD9XXX_A_MBHC_HPH, 0xFF, 0xC8);
+
+		/*
+		 * CnP setup for 0mV
+		 * Route static data as input to noise shaper
+		 */
+		__wr(TAPAN_A_CDC_RX1_B3_CTL, 0xFF, 0x02);
+		__wr(TAPAN_A_CDC_RX2_B3_CTL, 0xFF, 0x02);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_TEST,
+				    0x02, 0x00);
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_R_TEST,
+				    0x02, 0x00);
+
+		/* Reset the HPHL static data pointer */
+		__wr(TAPAN_A_CDC_RX1_B2_CTL, 0xFF, 0x00);
+		/* Four consecutive writes to set 0V as static data input */
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
+
+		/* Reset the HPHR static data pointer */
+		__wr(TAPAN_A_CDC_RX2_B2_CTL, 0xFF, 0x00);
+		/* Four consecutive writes to set 0V as static data input */
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
+
+		/* Enable the HPHL and HPHR PA */
+		wcd9xxx_enable_static_pa(mbhc, true);
+		break;
+	case POST_MEAS:
+		/* Turn off ICAL */
+		snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_2, 0xF0);
+
+		wcd9xxx_enable_static_pa(mbhc, false);
+
+		/*
+		 * Setup CnP wavegen to ramp to the desired
+		 * output using a 40ms ramp
+		 */
+
+		/* CnP wavegen current to 0.5uA */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_BIAS_WG_OCP, 0x1A);
+		/* Set the current division ratio to 2000 */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_CNP_WG_CTL, 0xDF);
+		/* Set the wavegen timer to max (60msec) */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME, 0xA0);
+		/* Set the CnP reference current to sc_bias */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x6D);
+
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B2_CTL, 0x00);
+		/* Four consecutive writes to set -10mV as static data input */
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x1F);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x19);
+		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0xAA);
+
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B2_CTL, 0x00);
+		/* Four consecutive writes to set -10mV as static data input */
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x1F);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x19);
+		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0xAA);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_TEST,
+				    0x02, 0x02);
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_R_TEST,
+				    0x02, 0x02);
+		/* Enable the HPHL and HPHR PA and wait for 60mS */
+		wcd9xxx_enable_static_pa(mbhc, true);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				    0x7F, 0x40);
+		usleep_range(mux_wait_us,
+				mux_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case PA_DISABLE:
+		wcd9xxx_enable_static_pa(mbhc, false);
+		wcd9xxx_restore_registers(codec, &tapan->reg_save_restore);
+		break;
+	}
+#undef __wr
+
+	return ret;
+}
+
+static void tapan_compute_impedance(s16 *l, s16 *r, uint32_t *zl, uint32_t *zr)
+{
+	int zln, zld;
+	int zrn, zrd;
+	int rl = 0, rr = 0;
+
+	zln = (l[1] - l[0]) * TAPAN_ZDET_MUL_FACTOR;
+	zld = (l[2] - l[0]);
+	if (zld)
+		rl = zln / zld;
+
+	zrn = (r[1] - r[0]) * TAPAN_ZDET_MUL_FACTOR;
+	zrd = (r[2] - r[0]);
+	if (zrd)
+		rr = zrn / zrd;
+
+	*zl = rl;
+	*zr = rr;
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = tapan_enable_mux_bias_block,
 	.cfilt_fast_mode = tapan_put_cfilt_fast_mode,
@@ -4926,6 +5190,8 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.select_cfilt = tapan_select_cfilt,
 	.free_irq = tapan_free_irq,
 	.get_cdc_type = tapan_get_cdc_type,
+	.setup_zdet = tapan_setup_zdet,
+	.compute_impedance = tapan_compute_impedance,
 };
 
 int tapan_hs_detect(struct snd_soc_codec *codec,
@@ -5000,7 +5266,8 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		rco_clk_rate = TAPAN_MCLK_CLK_9P6MHZ;
 
 	ret = wcd9xxx_mbhc_init(&tapan->mbhc, &tapan->resmgr, codec, NULL,
-				&mbhc_cb, rco_clk_rate, false);
+				&mbhc_cb, rco_clk_rate,
+				TAPAN_CDC_ZDET_SUPPORTED);
 	if (ret)
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 	else
@@ -5203,7 +5470,8 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		rco_clk_rate = TAPAN_MCLK_CLK_9P6MHZ;
 
 	ret = wcd9xxx_mbhc_init(&tapan->mbhc, &tapan->resmgr, codec, NULL,
-				&mbhc_cb, rco_clk_rate, false);
+				&mbhc_cb, rco_clk_rate,
+				TAPAN_CDC_ZDET_SUPPORTED);
 
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
