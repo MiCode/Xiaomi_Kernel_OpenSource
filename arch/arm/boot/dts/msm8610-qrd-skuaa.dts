@@ -39,6 +39,10 @@
 
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
+
+	qcom,dsi_v2_hx8379a_wvga_video {
+		qcom,cont-splash-enabled;
+	};
 };
 
 &pm8110_bms {
