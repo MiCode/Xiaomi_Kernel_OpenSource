@@ -79,20 +79,32 @@ static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(bus_bw_lock);
 
-#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
-	{						\
-		.src = MSM_BUS_MASTER_MDP_PORT0,	\
-		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
-		.ab = (ab_val),				\
-		.ib = (ib_val),				\
+#define MDP_BUS_VECTOR_ENTRY(src_val, dst_val, ab_val, ib_val)	\
+	{							\
+		.src = (src_val),				\
+		.dst = (dst_val),				\
+		.ab = (ab_val),					\
+		.ib = (ib_val),					\
 	}
+#define MDP_BUS_USECASE_CNT 3
+#define MDP_BUS_NUM_PATH_CNT 2
+#define SZ_37_5M (37500000 * 8)
 
 static struct msm_bus_vectors mdp_bus_vectors[] = {
-	MDP_BUS_VECTOR_ENTRY(0, 0),
-	MDP_BUS_VECTOR_ENTRY(SZ_128M, SZ_256M),
-	MDP_BUS_VECTOR_ENTRY(SZ_256M, SZ_512M),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_MDP_PORT0, MSM_BUS_SLAVE_EBI_CH0,
+				 0, 0),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_SPDM, MSM_BUS_SLAVE_IMEM_CFG,
+				 0, 0),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_MDP_PORT0, MSM_BUS_SLAVE_EBI_CH0,
+				 SZ_128M, SZ_256M),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_SPDM, MSM_BUS_SLAVE_IMEM_CFG,
+				 0, SZ_37_5M),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_MDP_PORT0, MSM_BUS_SLAVE_EBI_CH0,
+				 SZ_256M, SZ_512M),
+	MDP_BUS_VECTOR_ENTRY(MSM_BUS_MASTER_SPDM, MSM_BUS_SLAVE_IMEM_CFG,
+				 0, SZ_37_5M),
 };
-static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
+static struct msm_bus_paths mdp_bus_usecases[MDP_BUS_USECASE_CNT];
 static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 	.usecase = mdp_bus_usecases,
 	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
@@ -325,8 +337,9 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 		int i;
 
 		for (i = 0; i < bus_pdata->num_usecases; i++) {
-			mdp_bus_usecases[i].num_paths = 1;
-			mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
+			mdp_bus_usecases[i].num_paths = MDP_BUS_NUM_PATH_CNT;
+			mdp_bus_usecases[i].vectors =
+				&mdp_bus_vectors[i * MDP_BUS_NUM_PATH_CNT];
 		}
 
 		mdata->bus_hdl = msm_bus_scale_register_client(bus_pdata);
