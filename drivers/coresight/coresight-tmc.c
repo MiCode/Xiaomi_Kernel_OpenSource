@@ -1451,14 +1451,17 @@ static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
 
 	if (!drvdata->byte_cntr_present) {
 		dev_info(&pdev->dev, "Byte Counter feature absent\n");
-		return 0;
+		goto out;
 	}
 
 	drvdata->byte_cntr_irq = platform_get_irq_byname(pdev,
 							"byte-cntr-irq");
 	if (drvdata->byte_cntr_irq < 0) {
+		/* Even though this is an error condition, we do not fail
+		 * the probe as the byte counter feature is optional
+		 */
 		dev_err(&pdev->dev, "Byte-cntr-irq not specified\n");
-		return 0;
+		goto err;
 	}
 	ret = devm_request_irq(&pdev->dev, drvdata->byte_cntr_irq,
 			tmc_etr_byte_cntr_irq,
@@ -1466,7 +1469,7 @@ static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
 			node_name, drvdata);
 	if (ret) {
 		dev_err(&pdev->dev, "Request irq failed\n");
-		return ret;
+		goto err;
 	}
 	init_waitqueue_head(&drvdata->wq);
 	node_size += strlen(node_name);
@@ -1477,10 +1480,14 @@ static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
 	ret = tmc_etr_byte_cntr_dev_register(drvdata);
 	if (ret) {
 		dev_err(&pdev->dev, "Byte cntr node not registered\n");
-		return ret;
+		goto err;
 	}
 	dev_info(&pdev->dev, "Byte Counter feature enabled\n");
 	return 0;
+err:
+	drvdata->byte_cntr_present = false;
+out:
+	return ret;
 }
 
 static void tmc_etr_byte_cntr_exit(struct tmc_drvdata *drvdata)
