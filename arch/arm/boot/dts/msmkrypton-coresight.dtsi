@@ -219,4 +219,16 @@
 		coresight-name = "coresight-cti-cpu";
 		coresight-nr-inports = <0>;
 	};
+
+	hwevent: hwevent@f9011038 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0xf9011038 0x80>,
+		      <0xfd4ab160 0x80>,
+		      <0xfc401600 0x80>;
+		reg-names = "apcs-mux", "ppss-mux", "gcc-mux";
+
+		coresight-id = <20>;
+		coresight-name = "coresight-hwevent";
+		coresight-nr-inports = <0>;
+	};
 };
