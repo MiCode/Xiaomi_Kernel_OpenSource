@@ -1041,7 +1041,7 @@ int mdp3_put_img(struct mdp3_img_data *data)
 	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
 
 	 if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
-		pr_info("mdp3_put_img fb mem buf=0x%x\n", data->addr);
+		pr_info("mdp3_put_img fb mem buf=0x%pa\n", &data->addr);
 		fput_light(data->srcp_file, data->p_need);
 		data->srcp_file = NULL;
 	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
@@ -1059,11 +1059,12 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data)
 	struct file *file;
 	int ret = -EINVAL;
 	int fb_num;
-	unsigned long *start, *len;
+	unsigned long *len;
+	dma_addr_t *start;
 	struct ion_client *iclient = mdp3_res->ion_client;
 	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
 
-	start = (unsigned long *) &data->addr;
+	start = &data->addr;
 	len = (unsigned long *) &data->len;
 	data->flags = img->flags;
 	data->p_need = 0;
@@ -1118,8 +1119,8 @@ done:
 		data->addr += img->offset;
 		data->len -= img->offset;
 
-		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
-			 data->srcp_ihdl, data->addr, data->len);
+		pr_debug("mem=%d ihdl=%p buf=0x%pa len=0x%x\n", img->memory_id,
+			 data->srcp_ihdl, &data->addr, data->len);
 	} else {
 		mdp3_put_img(data);
 		return -EINVAL;
@@ -1194,7 +1195,7 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
-static int mdp3_alloc(size_t size, void **virt, unsigned long *phys)
+static int mdp3_alloc(size_t size, void **virt, dma_addr_t *phys)
 {
 	int ret = 0;
 
@@ -1335,7 +1336,8 @@ static int mdp3_fb_mem_get_iommu_domain(void)
 
 int mdp3_continuous_splash_copy(struct mdss_panel_data *pdata)
 {
-	unsigned long splash_phys, phys;
+	unsigned long splash_phys;
+	dma_addr_t phys;
 	void *splash_virt, *virt;
 	u32 height, width, rgb_size, stride;
 	size_t size;
