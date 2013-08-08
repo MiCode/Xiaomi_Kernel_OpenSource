@@ -158,10 +158,11 @@ static void event_handler(uint32_t opcode,
 		if (atomic_read(&prtd->in_count) <= prtd->periods)
 			atomic_inc(&prtd->in_count);
 		wake_up(&the_locks.read_wait);
-		if (prtd->mmap_flag
-			&& q6asm_is_cpu_buf_avail_nolock(OUT,
-				prtd->audio_client,
-				&size, &idx))
+		if (prtd->mmap_flag &&
+		    q6asm_is_cpu_buf_avail_nolock(OUT, prtd->audio_client,
+				&size, &idx) &&
+		    (substream->runtime->status->state ==
+		     SNDRV_PCM_STATE_RUNNING))
 			q6asm_read_nolock(prtd->audio_client);
 		break;
 	}
