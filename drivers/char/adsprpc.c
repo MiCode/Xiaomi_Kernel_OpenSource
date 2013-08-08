@@ -406,7 +406,8 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	int i, rlen, size, used, inh, bufs = 0, err = 0;
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
-	unsigned long iova, len;
+	unsigned long len;
+	dma_addr_t iova;
 
 	list = smq_invoke_buf_start(rpra, sc);
 	pages = smq_phy_page_start(sc, list);
@@ -460,7 +461,7 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 		}
 		list[i].num = 1;
 		pages[list[i].pgidx].addr =
-			buf_page_start((void *)(pbuf->phys +
+			buf_page_start((void *)(unsigned long)(pbuf->phys +
 						 (pbuf->size - rlen)));
 		pages[list[i].pgidx].size =
 			buf_page_size(pra[i].buf.len);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +98,7 @@ static int check_overlap(struct hlist_head *ptype,
 static int msm_pmem_table_add(struct hlist_head *ptype,
 	struct msm_pmem_info *info, struct ion_client *client, int domain_num)
 {
-	unsigned long paddr;
+	dma_addr_t paddr;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	unsigned long kvstart;
 	struct file *file;
@@ -133,8 +133,8 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 		goto out3;
 	}
 
-	CDBG("%s: type %d, active flag %d, paddr 0x%lx, vaddr 0x%lx\n",
-		__func__, info->type, info->active, paddr,
+	CDBG("%s: type %d, active flag %d, paddr 0x%pa, vaddr 0x%lx\n",
+		__func__, info->type, info->active, &paddr,
 		(unsigned long)info->vaddr);
 
 	INIT_HLIST_NODE(&region->list);

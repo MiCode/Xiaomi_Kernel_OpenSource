@@ -113,10 +113,10 @@ extern int msm_iommu_map_contig_buffer(phys_addr_t phys,
 				unsigned long size,
 				unsigned long align,
 				unsigned long cached,
-				unsigned long *iova_val);
+				dma_addr_t *iova_val);
 
 
-extern void msm_iommu_unmap_contig_buffer(unsigned long iova,
+extern void msm_iommu_unmap_contig_buffer(dma_addr_t iova,
 					unsigned int domain_no,
 					unsigned int partition_no,
 					unsigned long size);
@@ -178,13 +178,13 @@ static inline int msm_iommu_map_contig_buffer(phys_addr_t phys,
 				unsigned long size,
 				unsigned long align,
 				unsigned long cached,
-				unsigned long *iova_val)
+				dma_addr_t *iova_val)
 {
 	*iova_val = phys;
 	return 0;
 }
 
-static inline void msm_iommu_unmap_contig_buffer(unsigned long iova,
+static inline void msm_iommu_unmap_contig_buffer(dma_addr_t iova,
 					unsigned int domain_no,
 					unsigned int partition_no,
 					unsigned long size)

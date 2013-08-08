@@ -25,7 +25,7 @@ struct mdp_buf_info {
 	u32 fd;
 	u32 offset;
 	u32 kvaddr;
-	u32 paddr;
+	dma_addr_t paddr;
 };
 
 struct mdp_prop {

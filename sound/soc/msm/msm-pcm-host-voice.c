@@ -439,7 +439,7 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd,
 {
 	int result;
 	int mem_len;
-	unsigned long paddr;
+	dma_addr_t paddr;
 	void *kvptr;
 	int ion_mem_reqd = 0;
 	bool create_mem = false;

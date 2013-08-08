@@ -667,7 +667,7 @@ static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 
 	*mregion = *(struct mem_region *)arg;
 	populate_planes(planes, inst->num_input_planes,
-			mregion->paddr, mregion->size);
+			(void *)mregion->paddr, mregion->size);
 
 	buf = (struct v4l2_buffer) {
 		.index = get_list_len(&inst->registered_input_bufs),
@@ -778,7 +778,7 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 
 	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
 			domain, partition, align_req, 0,
-			(unsigned long *)&mregion->paddr, &size, 0, 0);
+			&mregion->paddr, &size, 0, 0);
 	if (rc) {
 		WFD_MSG_ERR("Failed to map into iommu\n");
 		goto venc_map_iommu_map_fail;
@@ -826,7 +826,7 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 	if (mregion->paddr) {
 		ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
 				domain, partition);
-		mregion->paddr = NULL;
+		mregion->paddr = 0;
 	}
 
 	if (!IS_ERR_OR_NULL(mregion->kvaddr)) {
@@ -886,7 +886,7 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	}
 
 	populate_planes(planes, inst->num_output_planes,
-			mregion->paddr, mregion->size);
+			(void *)mregion->paddr, mregion->size);
 
 	buf = (struct v4l2_buffer) {
 		.index = get_list_len(&inst->registered_output_bufs),
@@ -1321,7 +1321,7 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 	struct mem_region *mregion = NULL;
 	unsigned long size = 0, align_req = 0, flags = 0;
 	int domain = 0, partition = 0, rc = 0;
-	void *paddr = NULL;
+	dma_addr_t paddr = 0;
 	struct venc_inst *inst = NULL;
 
 	if (!sd) {
@@ -1367,10 +1367,10 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 
 	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
 			domain, partition, align_req, 0,
-			(unsigned long *)&paddr, &size, 0, 0);
+			&paddr, &size, 0, 0);
 	if (rc) {
 		WFD_MSG_ERR("Failed to get physical addr %d\n", rc);
-		paddr = NULL;
+		paddr = 0;
 		goto venc_map_bad_align;
 	} else if (size < mregion->size) {
 		WFD_MSG_ERR("Failed to map enough memory\n");
@@ -1427,7 +1427,7 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 	if (mregion->paddr) {
 		ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
 			domain, partition);
-		mregion->paddr = NULL;
+		mregion->paddr = 0;
 	}
 
 	if (inst->secure)

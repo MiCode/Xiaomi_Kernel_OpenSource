@@ -938,7 +938,7 @@ static void __msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
 static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 	struct ion_client *client, int domain_num)
 {
-	unsigned long paddr = 0;
+	dma_addr_t paddr = 0;
 	unsigned long len = 0;
 	int i = 0, j = 0;
 

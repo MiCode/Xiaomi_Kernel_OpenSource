@@ -1861,7 +1861,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 		   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->recon_buffer_ion_handle[i],
-				&phy_addr, &ion_len);
+				(ion_phys_addr_t *)&phy_addr, &ion_len);
 			if (rc) {
 				ERR("%s():get_ION_kernel physical addr fail\n",
 					__func__);
@@ -1878,7 +1878,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 					VIDEO_MAIN_POOL,
 					SZ_4K,
 					0,
-					(unsigned long *)&iova,
+					(dma_addr_t *)&iova,
 					(unsigned long *)&buffer_size,
 					0, 0);
 			if (rc || !iova) {

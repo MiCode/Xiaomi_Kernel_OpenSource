@@ -190,7 +190,7 @@ struct msm_vpe_tasklet_queue_cmd {
 
 struct msm_vpe_buffer_map_info_t {
 	unsigned long len;
-	unsigned long phy_addr;
+	dma_addr_t phy_addr;
 	struct ion_handle *ion_handle;
 	struct msm_vpe_buffer_info_t buff_info;
 };

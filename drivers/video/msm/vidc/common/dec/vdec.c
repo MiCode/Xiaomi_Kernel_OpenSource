@@ -929,7 +929,7 @@ static u32 vid_dec_set_meta_buffers(struct video_client_ctx *client_ctx,
 		   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->meta_buffer_ion_handle,
-				(unsigned long *) (&(vcd_meta_buffer->
+				(ion_phys_addr_t *) (&(vcd_meta_buffer->
 				physical_addr)), &len);
 			if (rc) {
 				ERR("%s():get_ION_kernel physical addr fail\n",
@@ -943,7 +943,7 @@ static u32 vid_dec_set_meta_buffers(struct video_client_ctx *client_ctx,
 			rc = ion_map_iommu(client_ctx->user_ion_client,
 				client_ctx->meta_buffer_ion_handle,
 				VIDEO_DOMAIN, VIDEO_MAIN_POOL,
-				SZ_4K, 0, (unsigned long *)&iova,
+				SZ_4K, 0, (dma_addr_t *)&iova,
 				(unsigned long *)&buffer_size,
 				0, 0);
 			if (rc || !iova) {
@@ -985,7 +985,7 @@ static u32 vid_dec_set_meta_buffers(struct video_client_ctx *client_ctx,
 		if (res_trk_get_core_type() == (u32)VCD_CORE_720P) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->meta_buffer_iommu_ion_handle,
-				(unsigned long *) (&(vcd_meta_buffer->
+				(dma_addr_t *) (&(vcd_meta_buffer->
 				physical_addr_iommu)), &len_iommu);
 			if (rc) {
 				ERR("%s():get_ION_kernel physical addr fail\n",
@@ -999,7 +999,7 @@ static u32 vid_dec_set_meta_buffers(struct video_client_ctx *client_ctx,
 			rc = ion_map_iommu(client_ctx->user_ion_client,
 				client_ctx->meta_buffer_iommu_ion_handle,
 				VIDEO_DOMAIN, VIDEO_MAIN_POOL,
-				SZ_4K, 0, (unsigned long *)&iova_iommu,
+				SZ_4K, 0, (dma_addr_t *)&iova_iommu,
 				(unsigned long *)&buffer_size_iommu,
 				0, 0);
 			if (rc || !iova_iommu) {
@@ -1133,7 +1133,7 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 		   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
-				(unsigned long *) (&(vcd_h264_mv_buffer->
+				(dma_addr_t *) (&(vcd_h264_mv_buffer->
 				physical_addr)), &len);
 			if (rc) {
 				ERR("%s():get_ION_kernel physical addr fail\n",
@@ -1147,7 +1147,7 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 			rc = ion_map_iommu(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle,
 					VIDEO_DOMAIN, VIDEO_MAIN_POOL,
-					SZ_4K, 0, (unsigned long *)&iova,
+					SZ_4K, 0, (dma_addr_t *)&iova,
 					(unsigned long *)&buffer_size,
 					0, 0);
 			if (rc || !iova) {
@@ -2082,7 +2082,7 @@ static long vid_dec_ioctl(struct file *file,
 			kernel_vaddr = ker_vaddr;
 			rc = ion_phys(client_ctx->user_ion_client,
 					client_ctx->seq_hdr_ion_handle,
-					&phy_addr, &ion_len);
+					(ion_phys_addr_t *)&phy_addr, &ion_len);
 			if (rc) {
 				ERR("%s():get_ION_kernel physical addr fail\n",
 						 __func__);

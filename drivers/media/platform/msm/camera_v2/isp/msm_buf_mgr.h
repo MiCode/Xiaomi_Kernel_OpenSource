@@ -40,7 +40,7 @@ enum msm_isp_buffer_flush_t {
 
 struct msm_isp_buffer_mapped_info {
 	unsigned long len;
-	unsigned long paddr;
+	dma_addr_t paddr;
 	struct ion_handle *handle;
 };
 

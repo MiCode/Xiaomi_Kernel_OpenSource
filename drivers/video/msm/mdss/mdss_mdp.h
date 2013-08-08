@@ -243,7 +243,7 @@ struct mdss_mdp_plane_sizes {
 };
 
 struct mdss_mdp_img_data {
-	u32 addr;
+	dma_addr_t addr;
 	u32 len;
 	u32 flags;
 	int p_need;

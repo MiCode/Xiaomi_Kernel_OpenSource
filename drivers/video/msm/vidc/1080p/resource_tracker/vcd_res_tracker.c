@@ -79,7 +79,7 @@ static void *res_trk_pmem_map
 				VIDEO_FIRMWARE_POOL,
 				SZ_4K,
 				0,
-				&iova,
+				(dma_addr_t *)&iova,
 				&buffer_size,
 				0, 0);
 		if (ret || !iova) {
