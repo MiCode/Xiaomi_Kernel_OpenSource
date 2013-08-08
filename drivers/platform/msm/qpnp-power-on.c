@@ -84,9 +84,13 @@
 #define QPNP_PON_RESET_TYPE_MAX			0xF
 #define PON_S1_COUNT_MAX			0xF
 #define PON_REASON_MAX				8
+#define QPNP_PON_MIN_DBC_US			(USEC_PER_SEC / 64)
+#define QPNP_PON_MAX_DBC_US			(USEC_PER_SEC * 2)
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 #define QPNP_PON_REV_B				0x01
+
+#define QPNP_PON_BUFFER_SIZE			9
 
 enum pon_type {
 	PON_KPDPWR,
@@ -117,6 +121,7 @@ struct qpnp_pon {
 	int num_pon_config;
 	u16 base;
 	struct delayed_work bark_work;
+	u32 dbc;
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -160,6 +165,68 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 			"Unable to write to addr=%x, rc(%d)\n", addr, rc);
 	return rc;
 }
+
+static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
+{
+	int rc = 0;
+	u32 delay_reg;
+
+	mutex_lock(&pon->pon_input->mutex);
+	if (delay == pon->dbc)
+		goto unlock;
+
+	if (delay < QPNP_PON_MIN_DBC_US)
+		delay = QPNP_PON_MIN_DBC_US;
+	else if (delay > QPNP_PON_MAX_DBC_US)
+		delay = QPNP_PON_MAX_DBC_US;
+
+	delay_reg = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
+	delay_reg = ilog2(delay_reg);
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon->base),
+					QPNP_PON_DBC_DELAY_MASK, delay_reg);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to set PON debounce\n");
+		goto unlock;
+	}
+
+	pon->dbc = delay;
+
+unlock:
+	mutex_unlock(&pon->pon_input->mutex);
+	return rc;
+}
+
+static ssize_t qpnp_pon_dbc_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+
+	return snprintf(buf, QPNP_PON_BUFFER_SIZE, "%d\n", pon->dbc);
+}
+
+static ssize_t qpnp_pon_dbc_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	unsigned long value;
+	int rc;
+
+	if (size > QPNP_PON_BUFFER_SIZE)
+		return -EINVAL;
+
+	rc = kstrtoul(buf, 10, &value);
+	if (rc)
+		return rc;
+
+	rc = qpnp_pon_set_dbc(pon, value);
+	if (rc < 0)
+		return rc;
+
+	return size;
+}
+
+static DEVICE_ATTR(debounce_us, 0664, qpnp_pon_dbc_show, qpnp_pon_dbc_store);
 
 /**
  * qpnp_pon_system_pwr_off - Configure system-reset PMIC for shutdown or reset
@@ -1047,24 +1114,6 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	pr_info("PMIC@SID%d Power-on reason: %s\n", pon->spmi->sid,
 			index ? qpnp_pon_reason[index - 1] : "Unknown");
 
-	rc = of_property_read_u32(pon->spmi->dev.of_node,
-				"qcom,pon-dbc-delay", &delay);
-	if (rc) {
-		if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read debounce delay\n");
-			return rc;
-		}
-	} else {
-		delay = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
-		delay = ilog2(delay);
-		rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon->base),
-						QPNP_PON_DBC_DELAY_MASK, delay);
-		if (rc) {
-			dev_err(&spmi->dev, "Unable to set PON debounce\n");
-			return rc;
-		}
-	}
-
 	/* program s3 debounce */
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,s3-debounce", &s3_debounce);
@@ -1103,12 +1152,33 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	rc = of_property_read_u32(pon->spmi->dev.of_node,
+				"qcom,pon-dbc-delay", &delay);
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&spmi->dev, "Unable to read debounce delay\n");
+			return rc;
+		}
+	} else {
+		rc = qpnp_pon_set_dbc(pon, delay);
+		if (rc)
+			return rc;
+	}
+
+	rc = device_create_file(&spmi->dev, &dev_attr_debounce_us);
+	if (rc) {
+		dev_err(&spmi->dev, "sys file creation failed\n");
+		return rc;
+	}
+
 	return rc;
 }
 
 static int qpnp_pon_remove(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
+
+	device_remove_file(&spmi->dev, &dev_attr_debounce_us);
 
 	cancel_delayed_work_sync(&pon->bark_work);
 
