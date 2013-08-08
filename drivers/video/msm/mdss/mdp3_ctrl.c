@@ -88,20 +88,11 @@ static int mdp3_bufq_count(struct mdp3_buffer_queue *bufq)
 	return bufq->count;
 }
 
-static void mdp3_dispatch_vsync(struct work_struct *work)
-{
-	struct mdp3_session_data *mdp3_session;
-	mdp3_session = container_of(work, struct mdp3_session_data, vsync_work);
-	if (mdp3_session && mdp3_session->mfd)
-		sysfs_notify(&mdp3_session->mfd->fbi->dev->kobj, NULL,
-				"vsync_event");
-}
-
 void vsync_notify_handler(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 	session->vsync_time = ktime_get();
-	schedule_work(&session->vsync_work);
+	sysfs_notify_dirent(session->vsync_event_sd);
 }
 
 static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
@@ -1230,7 +1221,6 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	}
 	memset(mdp3_session, 0, sizeof(struct mdp3_session_data));
 	mutex_init(&mdp3_session->lock);
-	INIT_WORK(&mdp3_session->vsync_work, mdp3_dispatch_vsync);
 	mutex_init(&mdp3_session->histo_lock);
 	mdp3_session->dma = mdp3_get_dma_pipe(MDP3_DMA_CAP_ALL);
 	if (!mdp3_session->dma) {
@@ -1275,6 +1265,14 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
+		goto init_done;
+	}
+
+	mdp3_session->vsync_event_sd = sysfs_get_dirent(dev->kobj.sd, NULL,
+							"vsync_event");
+	if (!mdp3_session->vsync_event_sd) {
+		pr_err("vsync_event sysfs lookup failed\n");
+		rc = -ENODEV;
 		goto init_done;
 	}
 

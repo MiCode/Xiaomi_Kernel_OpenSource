@@ -363,6 +363,7 @@ struct mdss_mdp_writeback_arg {
 
 struct mdss_overlay_private {
 	ktime_t vsync_time;
+	struct sysfs_dirent *vsync_event_sd;
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
@@ -375,7 +376,6 @@ struct mdss_overlay_private {
 	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
-	struct work_struct vsync_work;
 	bool mixer_swap;
 };
 
