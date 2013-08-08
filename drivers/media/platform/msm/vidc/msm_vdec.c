@@ -293,7 +293,7 @@ static u32 get_frame_size_nv12(int plane,
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
-	return (width * height * 3/2)/4;
+	return (width * height * 3/2)/2;
 }
 
 struct msm_vidc_format vdec_formats[] = {
