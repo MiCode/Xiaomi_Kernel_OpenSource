@@ -131,10 +131,10 @@ struct msm_fb_data_type {
 	struct disp_info_type_suspend suspend;
 
 	struct ion_handle *ihdl;
-	unsigned long iova;
+	dma_addr_t iova;
 	void *cursor_buf;
-	unsigned long cursor_buf_phys;
-	unsigned long cursor_buf_iova;
+	phys_addr_t cursor_buf_phys;
+	dma_addr_t cursor_buf_iova;
 
 	u32 ext_bl_ctrl;
 	u32 calib_mode;
@@ -195,7 +195,7 @@ static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 	}
 }
 
-int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
+int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num);
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
 void mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data);
