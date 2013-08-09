@@ -55,18 +55,12 @@
 			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
 			qcom,memory-reservation-size = <0x314000>;
 		};
+
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x06400000 0x2000000>;
-		};
-		qcom,ion-heap@26 { /* MODEM PIL HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <26>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x08400000 0x4E00000>;
-
+			qcom,memory-fixed = <0x0dc00000 0x1900000>;
 		};
 
 	};
