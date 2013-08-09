@@ -1625,7 +1625,7 @@ static struct snd_soc_dai_driver wm5110_dai[] = {
 static irqreturn_t adsp2_irq(int irq, void *data)
 {
 	struct wm5110_priv *wm5110 = data;
-	int ret;
+	int ret, avail;
 
 	mutex_lock(&wm5110->compr_info.lock);
 
@@ -1638,6 +1638,10 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 	}
 
 	wm5110->compr_info.total_copied += ret;
+
+	avail = wm_adsp_stream_avail(wm5110->compr_info.adsp);
+	if (avail > WM5110_DEFAULT_FRAGMENT_SIZE)
+		snd_compr_fragment_elapsed(wm5110->compr_info.stream);
 
 out:
 	mutex_unlock(&wm5110->compr_info.lock);
@@ -1769,13 +1773,34 @@ static int wm5110_trigger(struct snd_compr_stream *stream, int cmd)
 static int wm5110_pointer(struct snd_compr_stream *stream,
 			  struct snd_compr_tstamp *tstamp)
 {
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+
+	mutex_lock(&wm5110->compr_info.lock);
+	tstamp->byte_offset = 0;
+	tstamp->copied_total = wm5110->compr_info.total_copied;
+	mutex_unlock(&wm5110->compr_info.lock);
+
 	return 0;
 }
 
 static int wm5110_copy(struct snd_compr_stream *stream, char __user *buf,
 		       size_t count)
 {
-	return 0;
+	struct snd_soc_pcm_runtime *rtd = stream->private_data;
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
+	int ret;
+
+	mutex_lock(&wm5110->compr_info.lock);
+
+	if (stream->direction == SND_COMPRESS_PLAYBACK)
+		ret = -EINVAL;
+	else
+		ret = wm_adsp_stream_read(wm5110->compr_info.adsp, buf, count);
+
+	mutex_unlock(&wm5110->compr_info.lock);
+
+	return ret;
 }
 
 static int wm5110_get_caps(struct snd_compr_stream *stream,

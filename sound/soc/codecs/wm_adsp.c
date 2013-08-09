@@ -2350,4 +2350,56 @@ int wm_adsp_stream_capture(struct wm_adsp *adsp)
 }
 EXPORT_SYMBOL_GPL(wm_adsp_stream_capture);
 
+int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
+{
+	int avail, to_end;
+
+	if (!adsp->running)
+		return -EIO;
+
+	avail = CIRC_CNT(adsp->capt_buf.head,
+			 adsp->capt_buf.tail,
+			 adsp->capt_buf_size);
+	to_end = CIRC_CNT_TO_END(adsp->capt_buf.head,
+				 adsp->capt_buf.tail,
+				 adsp->capt_buf_size);
+
+	if (avail < count)
+		count = avail;
+
+	if (count > to_end) {
+		if (copy_to_user(buf,
+				 adsp->capt_buf.buf +
+				 adsp->capt_buf.tail,
+				 to_end))
+			return -EFAULT;
+		if (copy_to_user(buf + to_end, adsp->capt_buf.buf,
+				 count - to_end))
+			return -EFAULT;
+	} else {
+		if (copy_to_user(buf,
+				 adsp->capt_buf.buf +
+				 adsp->capt_buf.tail,
+				 count))
+			return -EFAULT;
+	}
+
+	adsp->capt_buf.tail += count;
+	adsp->capt_buf.tail &= adsp->capt_buf_size - 1;
+
+	if (adsp->buffer_drain_pending)
+		wm_adsp_stream_capture(adsp);
+
+	return count;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_read);
+
+int wm_adsp_stream_avail(const struct wm_adsp *adsp)
+{
+	return CIRC_CNT(adsp->capt_buf.head,
+			adsp->capt_buf.tail,
+			adsp->capt_buf_size);
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_avail);
+
 MODULE_LICENSE("GPL v2");

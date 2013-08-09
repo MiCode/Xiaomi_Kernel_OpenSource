@@ -121,5 +121,8 @@ extern int wm_adsp_stream_alloc(struct wm_adsp* adsp,
 extern int wm_adsp_stream_free(struct wm_adsp* adsp);
 extern int wm_adsp_stream_start(struct wm_adsp *adsp);
 extern int wm_adsp_stream_capture(struct wm_adsp *adsp);
+extern int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf,
+			       size_t count);
+extern int wm_adsp_stream_avail(const struct wm_adsp *adsp);
 
 #endif
