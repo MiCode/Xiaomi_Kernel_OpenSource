@@ -13,6 +13,7 @@
 #ifndef __WM_ADSP_H
 #define __WM_ADSP_H
 
+#include <linux/circ_buf.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/compress_driver.h>
@@ -70,7 +71,12 @@ struct wm_adsp {
 	u32 low_water_mark;
 
 	int sample_size;
+	u32 *raw_capt_buf;
+	int raw_buf_samps;
+	struct circ_buf capt_buf;
+	int capt_buf_size;
 	struct wm_adsp_buffer_region *host_regions;
+	bool buffer_drain_pending;
 
 	struct list_head ctl_list;
 
@@ -114,5 +120,6 @@ extern int wm_adsp_stream_alloc(struct wm_adsp* adsp,
 				const struct snd_compr_params *params);
 extern int wm_adsp_stream_free(struct wm_adsp* adsp);
 extern int wm_adsp_stream_start(struct wm_adsp *adsp);
+extern int wm_adsp_stream_capture(struct wm_adsp *adsp);
 
 #endif
