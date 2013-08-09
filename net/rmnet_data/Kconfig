@@ -1,0 +1,29 @@
+#
+# RMNET Data and MAP driver
+#
+
+menuconfig RMNET_DATA
+	depends on NETDEVICES
+	bool "RmNet Data and MAP driver"
+	---help---
+	  If you say Y here, then the rmnet_data module will be statically
+	  compiled into the kernel. The rmnet data module provides MAP
+	  functionality for embedded and bridged traffic.
+if RMNET_DATA
+
+config RMNET_DATA_FC
+	bool "RmNet Data Flow Control"
+	depends on NET_SCHED && NET_SCH_PRIO
+	---help---
+	  Say Y here if you want RmNet data to handle in-band flow control and
+	  ioctl based flow control. This depends on net scheduler and prio queue
+	  capability being present in the kernel. In-band flow control requires
+	  MAP protocol be used.
+config RMNET_DATA_DEBUG_PKT
+	bool "Packet Debug Logging"
+	---help---
+	  Say Y here if you want RmNet data to be able to log packets in main
+	  system log. This should not be enabled on production builds as it can
+	  impact system performance. Note that simply enabling it here will not
+	  enable the logging; it must be enabled at run-time as well.
+endif # RMNET_DATA
