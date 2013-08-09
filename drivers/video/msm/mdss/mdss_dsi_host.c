@@ -25,6 +25,8 @@
 #include "mdss.h"
 #include "mdss_dsi.h"
 
+#define VSYNC_PERIOD 17
+
 static struct mdss_dsi_ctrl_pdata *left_ctrl_pdata;
 
 static struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
@@ -766,6 +768,8 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 
 	pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
 
+	ctrl_pdata->panel_mode = pinfo->mode;
+
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
 		if (pinfo->pulse_mode_hsa_he)
@@ -1135,6 +1139,8 @@ int mdss_dsi_cmd_reg_tx(u32 data,
 	return 4;
 }
 
+static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl);
+
 static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					struct dsi_buf *tp);
 
@@ -1147,7 +1153,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsi_buf *tp;
 	struct dsi_cmd_desc *cm;
 	struct dsi_ctrl_hdr *dchdr;
-	int len, tot = 0;
+	int len, wait, tot = 0;
 
 	tp = &ctrl->tx_buf;
 	mdss_dsi_buf_init(tp);
@@ -1164,6 +1170,9 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		tot += len;
 		if (dchdr->last) {
 			tp->data = tp->start; /* begin of buf */
+
+			wait = mdss_dsi_wait4video_eng_busy(ctrl);
+
 			mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 			len = mdss_dsi_cmd_dma_tx(ctrl, tp);
 			if (IS_ERR_VALUE(len)) {
@@ -1172,7 +1181,8 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					__func__,  cmds->payload[0]);
 				return -EINVAL;
 			}
-			if (dchdr->wait)
+
+			if (!wait || dchdr->wait > VSYNC_PERIOD)
 				usleep(dchdr->wait * 1000);
 
 			mdss_dsi_buf_init(tp);
@@ -1357,6 +1367,9 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			rp->len = 0;
 			goto end;
 		}
+
+		mdss_dsi_wait4video_eng_busy(ctrl);
+
 		mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 		ret = mdss_dsi_cmd_dma_tx(ctrl, tp);
 		if (IS_ERR_VALUE(ret)) {
@@ -1376,6 +1389,8 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		rp->len = 0;
 		goto end;
 	}
+
+	mdss_dsi_wait4video_eng_busy(ctrl);
 
 	mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 	/* transmit read comamnd to client */
@@ -1541,7 +1556,6 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	return rlen;
 }
 
-#define VSYNC_PERIOD 17
 
 void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -1567,11 +1581,21 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 }
 
-static void mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
+static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	mdss_dsi_wait4video_done(ctrl);
-	/* delay 4 ms to skip BLLP */
-	usleep(4000);
+	int ret = 0;
+
+	if (ctrl->panel_mode == DSI_CMD_MODE)
+		return ret;
+
+	if (ctrl->ctrl_state & CTRL_STATE_MDP_ACTIVE) {
+		mdss_dsi_wait4video_done(ctrl);
+		/* delay 4 ms to skip BLLP */
+		usleep(4000);
+		ret = 1;
+	}
+
+	return ret;
 }
 
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -1638,7 +1662,6 @@ void mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 {
 	struct dcs_cmd_req *req;
-	u32 data;
 
 	mutex_lock(&ctrl->cmd_mutex);
 	req = mdss_dsi_cmdlist_get(ctrl);
@@ -1646,25 +1669,13 @@ void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	/* make sure dsi_cmd_mdp is idle */
 	mdss_dsi_cmd_mdp_busy(ctrl);
 
+	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
+
 	if (req == NULL)
 		goto need_lock;
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 	mdss_dsi_clk_ctrl(ctrl, 1);
-
-	data = MIPI_INP((ctrl->ctrl_base) + 0x0004);
-	if (data & 0x02) {
-		/* video mode, make sure video engine is busy
-		 * so dcs command will be sent at start of BLLP
-		 */
-		mdss_dsi_wait4video_eng_busy(ctrl);
-	} else {
-		/* command mode */
-		if (!from_mdp) { /* cmdlist_put */
-			/* make sure dsi_cmd_mdp is idle */
-			mdss_dsi_cmd_mdp_busy(ctrl);
-		}
-	}
 
 	if (req->flags & CMD_REQ_RX)
 		mdss_dsi_cmdlist_rx(ctrl, req);
