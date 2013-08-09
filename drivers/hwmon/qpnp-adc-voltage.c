@@ -1365,21 +1365,6 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 	}
 	mutex_init(&vadc->adc->adc_lock);
 
-	vadc->vadc_poll_eoc = of_property_read_bool(node,
-						"qcom,vadc-poll-eoc");
-	if (!vadc->vadc_poll_eoc) {
-		rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq_eoc,
-				qpnp_vadc_isr, IRQF_TRIGGER_RISING,
-				"qpnp_vadc_interrupt", vadc);
-		if (rc) {
-			dev_err(&spmi->dev,
-			"failed to request adc irq with error %d\n", rc);
-			return rc;
-		} else {
-			enable_irq_wake(vadc->adc->adc_irq_eoc);
-		}
-	}
-
 	rc = qpnp_vadc_init_hwmon(vadc, spmi);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to initialize qpnp hwmon adc\n");
@@ -1416,11 +1401,24 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 	}
 
 	INIT_WORK(&vadc->trigger_completion_work, qpnp_vadc_work);
-	if (vadc->vadc_poll_eoc)
+
+	vadc->vadc_poll_eoc = of_property_read_bool(node,
+						"qcom,vadc-poll-eoc");
+	if (!vadc->vadc_poll_eoc) {
+		rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq_eoc,
+				qpnp_vadc_isr, IRQF_TRIGGER_RISING,
+				"qpnp_vadc_interrupt", vadc);
+		if (rc) {
+			dev_err(&spmi->dev,
+			"failed to request adc irq with error %d\n", rc);
+			goto err_setup;
+		} else {
+			enable_irq_wake(vadc->adc->adc_irq_eoc);
+		}
+	} else
 		device_init_wakeup(vadc->dev, 1);
 
 	vadc->vadc_iadc_sync_lock = false;
-
 	dev_set_drvdata(&spmi->dev, vadc);
 	list_add(&vadc->list, &qpnp_vadc_device_list);
 
