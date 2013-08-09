@@ -492,6 +492,7 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 
 	q_alg = container_of(alg, struct qcrypto_alg, cipher_alg);
+	ctx->flags = 0;
 
 	/* update context with ptr to cp */
 	ctx->cp = q_alg->cp;
@@ -517,6 +518,8 @@ static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
 	/* update context with ptr to cp */
 	sha_ctx->cp = q_alg->cp;
 	sha_ctx->sg = NULL;
+	sha_ctx->flags = 0;
+
 	sha_ctx->tmp_tbuf = kzalloc(SHA_MAX_BLOCK_SIZE +
 					SHA_MAX_DIGEST_SIZE, GFP_KERNEL);
 	if (sha_ctx->tmp_tbuf == NULL) {
