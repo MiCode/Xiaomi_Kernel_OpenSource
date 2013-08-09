@@ -286,6 +286,7 @@ header-y += msm_audio_sbc.h
 header-y += msm_ipc.h
 header-y += msm_charm.h
 header-y += msm_rmnet.h
+header-y += rmnet_data.h
 header-y += mtio.h
 header-y += n_r3964.h
 header-y += nbd.h
