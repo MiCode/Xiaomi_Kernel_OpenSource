@@ -19,6 +19,14 @@
 /include/ "msm8226.dtsi"
 /include/ "msm8226-v2-pm.dtsi"
 
+/ {
+	qcom,msm-id = <145 0x20000>,
+		      <158 0x20000>,
+		      <159 0x20000>,
+		      <198 0x20000>,
+		      <205 0x20000>;
+};
+
 &pm8226_l3 {
 	regulator-min-microvolt = <750000>;
 	regulator-max-microvolt = <1287500>;

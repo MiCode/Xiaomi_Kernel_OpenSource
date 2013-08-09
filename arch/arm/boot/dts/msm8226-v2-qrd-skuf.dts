@@ -19,11 +19,6 @@
 	model = "Qualcomm MSM 8226v2 QRD";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,skuf", "qcom,qrd";
 	qcom,board-id = <0xb 0x2>;
-	qcom,msm-id = <145 0x20000>,
-		      <158 0x20000>,
-		      <159 0x20000>,
-		      <198 0x20000>,
-		      <205 0x20000>;
 };
 
 &soc {

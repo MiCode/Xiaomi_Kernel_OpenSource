@@ -18,7 +18,6 @@
 	model = "Qualcomm MSM 8926 QRD SKUG";
 	compatible = "qcom,msm8926-qrd", "qcom,msm8926", "qcom,qrd";
 	qcom,board-id = <11 5>;
-	qcom,msm-id = <200 0>;
 };
 
 &qrd_batterydata {
