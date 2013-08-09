@@ -39,7 +39,7 @@ Flash is used primarily as a camera or video flash.
 
 Optional properties for flash:
 - qcom,headroom: headroom to use, mV
-- qcom,duration: duration of the flash, ms
+- qcom,duration: duration of the flash and torch, 10ms - 1280ms for flash and 2s - 33s for torch
 - qcom,clamp-curr: current to clamp at, mA
 - qcom,startup-dly: delay before flashing after flash executed, us
 - qcom,saftey-timer: include for safety timer use, otherwise watchdog timer will be used
