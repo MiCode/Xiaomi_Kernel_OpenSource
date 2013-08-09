@@ -41,6 +41,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("mem_clk",  BOOT_ROM_AHB_CLK, "fc880000.qcom,mss", OFF),
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991e000.serial", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991e000.serial", OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
