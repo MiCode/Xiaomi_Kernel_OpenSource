@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,8 @@ void diag_hdlc_encode(struct diag_send_desc_type *src_desc,
 		      struct diag_hdlc_dest_type *enc);
 
 int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc);
+
+int crc_check(uint8_t *buf, uint16_t len);
 
 #define ESC_CHAR     0x7D
 #define ESC_MASK     0x20
