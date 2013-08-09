@@ -290,6 +290,14 @@ config ARM_USER_ACCESSIBLE_TIMER_BASE
 	 timer counter page should be mapped by the kernel.  User-space apps
 	 will read directly from the page at this address.
 
+config ARCH_RANDOM
+	bool "SOC specific random number generation"
+	help
+	 Allow the kernel to use an architecture specific implementation for
+	 random number generation
+
+	 If unsure, say N
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
