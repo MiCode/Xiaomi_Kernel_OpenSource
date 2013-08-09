@@ -101,6 +101,6 @@
 	};
 
 	qcom,dsi_v2_otm8018b_fwvga_video {
-		status = "ok";
+		qcom,cont-splash-enabled;
 	};
 };
