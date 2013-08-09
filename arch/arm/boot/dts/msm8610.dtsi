@@ -15,6 +15,14 @@
 / {
 	model = "Qualcomm MSM 8610";
 	compatible = "qcom,msm8610";
+	qcom,msm-id = <147 0>,
+		      <165 0>,
+		      <161 0>,
+		      <162 0>,
+		      <163 0>,
+		      <164 0>,
+		      <166 0>;
+
 	interrupt-parent = <&intc>;
 
 	memory {
