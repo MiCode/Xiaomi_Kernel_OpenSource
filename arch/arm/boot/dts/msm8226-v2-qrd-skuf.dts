@@ -167,8 +167,20 @@
 	};
 };
 
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	/include/ "batterydata-qrd-4v35-2500mah.dtsi"
+};
+
 &pm8226_bms {
-        qcom,use-external-rsense;
+	qcom,use-external-rsense;
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8226_chg {
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &pm8226_iadc {
