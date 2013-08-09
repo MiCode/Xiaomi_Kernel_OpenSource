@@ -65,7 +65,7 @@
 
 
 /* PIL proxy vote timeout */
-#define VENUS_PROXY_TIMEOUT				10000
+#define VENUS_PROXY_TIMEOUT				2000
 
 /* Poll interval in uS */
 #define POLL_INTERVAL_US				50
