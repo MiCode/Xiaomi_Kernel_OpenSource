@@ -956,7 +956,8 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 			__print_ctx_regs(drvdata->base, ctx_drvdata->num, fsr);
 		}
 
-		SET_FSR(drvdata->base, ctx_drvdata->num, fsr);
+		if (ret != -EBUSY)
+			SET_FSR(drvdata->base, ctx_drvdata->num, fsr);
 		ret = IRQ_HANDLED;
 	} else
 		ret = IRQ_NONE;
