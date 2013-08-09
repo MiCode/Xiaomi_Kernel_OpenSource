@@ -19,7 +19,6 @@
 #include "kgsl_sharedmem.h"
 
 /*default log levels is error for everything*/
-#define KGSL_LOG_LEVEL_DEFAULT 3
 #define KGSL_LOG_LEVEL_MAX     7
 
 struct dentry *kgsl_debugfs_dir;
@@ -180,13 +179,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;
 
-	device->cmd_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ctxt_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->drv_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->mem_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->pwr_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ft_log = KGSL_LOG_LEVEL_DEFAULT;
-
 	debugfs_create_file("log_level_cmd", 0644, device->d_debugfs, device,
 			    &cmd_log_fops);
 	debugfs_create_file("log_level_ctxt", 0644, device->d_debugfs, device,
@@ -215,7 +207,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 			    &pm_regs_enabled_fops);
 	debugfs_create_file("ib_enabled", 0644, pm_d_debugfs, device,
 				    &pm_ib_enabled_fops);
-	device->pm_dump_enable = 0;
 	debugfs_create_file("enable", 0644, pm_d_debugfs, device,
 				    &pm_enabled_fops);
 
