@@ -622,12 +622,6 @@ enum qpnp_comp_scheme_type {
 	COMP_ID_NUM,
 };
 
-#define QPNP_VBAT_SNS_COEFF_1_TYPEA				3000
-#define QPNP_VBAT_SNS_COEFF_2_TYPEA				45810000
-#define QPNP_VBAT_SNS_COEFF_3					100000
-#define QPNP_VBAT_SNS_COEFF_1_TYPEB				3500
-#define QPNP_VBAT_SNS_COEFF_2_TYPEB				80000000
-
 /**
  * struct qpnp_adc_tm_config - Represent ADC Thermal Monitor configuration.
  * @channel: ADC channel for which thermal monitoring is requested.
