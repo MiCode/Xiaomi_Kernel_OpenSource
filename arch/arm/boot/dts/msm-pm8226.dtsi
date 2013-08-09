@@ -875,6 +875,7 @@
 				linux,name = "led:flash_torch";
 				qcom,current = <120>;
 				qcom,torch-enable;
+				qcom,duration = <12>;
 			};
                 };
 	};
