@@ -29,10 +29,13 @@
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smem.h>
+#include <mach/msm_smd.h>
 
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
+#include "modem_notifier.h"
 
 static struct memtype_reserve mpq8092_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -87,6 +90,20 @@ static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 	{}
 };
 
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
+void __init mpq8092_add_drivers(void)
+{
+	msm_smem_init();
+	msm_init_modem_notifier_list();
+	msm_smd_init();
+}
+
+
 static void __init mpq8092_init(void)
 {
 	struct of_dev_auxdata *adata = mpq8092_auxdata_lookup;
@@ -97,6 +114,7 @@ static void __init mpq8092_init(void)
 	mpq8092_init_gpiomux();
 	msm_clock_init(&mpq8092_clock_init_data);
 	board_dt_populate(adata);
+	mpq8092_add_drivers();
 }
 
 static const char *mpq8092_dt_match[] __initconst = {
