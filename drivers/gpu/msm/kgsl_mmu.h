@@ -202,7 +202,7 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *hwpagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
-	int fault;
+	atomic_t fault;
 	unsigned long pt_base;
 	unsigned long pt_size;
 	bool pt_per_process;
