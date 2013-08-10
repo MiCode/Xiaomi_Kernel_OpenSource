@@ -923,7 +923,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * get activity while we are trying to dump the state of the system
 	 */
 
-	if (fault == ADRENO_TIMEOUT_FAULT) {
+	if (fault & ADRENO_TIMEOUT_FAULT) {
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
 		reg |= (1 << 27) | (1 << 28);
 		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, reg);
@@ -1015,7 +1015,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * Clear the replay bit and move on to the next policy level
 	 */
 
-	if (fault == ADRENO_HARD_FAULT)
+	if (fault & ADRENO_HARD_FAULT)
 		clear_bit(KGSL_FT_REPLAY, &(cmdbatch->fault_policy));
 
 	/*
@@ -1024,7 +1024,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * because we won't see this cmdbatch again
 	 */
 
-	if (fault == ADRENO_TIMEOUT_FAULT)
+	if (fault & ADRENO_TIMEOUT_FAULT)
 		bitmap_zero(&cmdbatch->fault_policy, BITS_PER_LONG);
 
 	/*
@@ -1111,6 +1111,8 @@ replay:
 
 	ret = adreno_reset(device);
 	mutex_unlock(&device->mutex);
+	/* if any other fault got in until reset then ignore */
+	fault = atomic_xchg(&dispatcher->fault, 0);
 
 	/* If adreno_reset() fails then what hope do we have for the future? */
 	BUG_ON(ret);

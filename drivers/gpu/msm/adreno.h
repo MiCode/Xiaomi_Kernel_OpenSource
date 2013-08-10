@@ -95,9 +95,9 @@ enum coresight_debug_reg {
 	TRACE_BUS_CTL,
 };
 
-#define ADRENO_SOFT_FAULT 1
-#define ADRENO_HARD_FAULT 2
-#define ADRENO_TIMEOUT_FAULT 3
+#define ADRENO_SOFT_FAULT BIT(0)
+#define ADRENO_HARD_FAULT BIT(1)
+#define ADRENO_TIMEOUT_FAULT BIT(2)
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
@@ -782,7 +782,8 @@ static inline unsigned int adreno_gpu_fault(struct adreno_device *adreno_dev)
 static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	int state)
 {
-	atomic_set(&adreno_dev->dispatcher.fault, state);
+	/* only set the fault bit w/o overwriting other bits */
+	atomic_add(state, &adreno_dev->dispatcher.fault);
 	smp_wmb();
 }
 
