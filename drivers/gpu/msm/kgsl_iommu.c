@@ -433,7 +433,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE) {
 		/* turn off GPU IRQ so we don't get faults from it too */
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-		adreno_dispatcher_irq_fault(device);
+		adreno_set_gpu_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
+		adreno_dispatcher_schedule(device);
 		ret = -EBUSY;
 	}
 done:

@@ -98,6 +98,7 @@ enum coresight_debug_reg {
 #define ADRENO_SOFT_FAULT BIT(0)
 #define ADRENO_HARD_FAULT BIT(1)
 #define ADRENO_TIMEOUT_FAULT BIT(2)
+#define ADRENO_IOMMU_PAGE_FAULT BIT(3)
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
