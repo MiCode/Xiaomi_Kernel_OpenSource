@@ -24,6 +24,7 @@
 #include <linux/of_spmi.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
+#include <linux/syscore_ops.h>
 #include <mach/qpnp-int.h>
 #include "spmi-dbgfs.h"
 
@@ -126,9 +127,12 @@ struct spmi_pmic_arb_dev {
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 };
 
+static struct spmi_pmic_arb_dev *the_pmic_arb;
+
 static u32 pmic_arb_read(struct spmi_pmic_arb_dev *dev, u32 offset)
 {
 	u32 val = readl_relaxed(dev->base + offset);
+
 	pr_debug("address 0x%p, val 0x%x\n", dev->base + offset, val);
 	return val;
 }
@@ -485,7 +489,7 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 }
 
 static irqreturn_t
-periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
+periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 {
 	u16 ppid = get_peripheral_id(pmic_arb, apid);
 	void __iomem *intr = pmic_arb->intr;
@@ -511,10 +515,12 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 	/* Read the peripheral specific interrupt bits */
 	status = readl_relaxed(intr + SPMI_PIC_IRQ_STATUS(apid));
 
-	/* Clear the peripheral interrupts */
-	writel_relaxed(status, intr + SPMI_PIC_IRQ_CLEAR(apid));
-	/* Interrupt needs to be cleared/acknowledged before exiting ISR */
-	mb();
+	if (!show) {
+		/* Clear the peripheral interrupts */
+		writel_relaxed(status, intr + SPMI_PIC_IRQ_CLEAR(apid));
+		/* Irq needs to be cleared/acknowledged before exiting ISR */
+		mb();
+	}
 
 	dev_dbg(pmic_arb->dev,
 		"interrupt, apid:0x%x, sid:0x%x, pid:0x%x, intr:0x%x\n",
@@ -528,14 +534,20 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 				.per = pid,
 				.irq = i,
 			};
-			qpnpint_handle_irq(&pmic_arb->controller, &irq_spec);
+			if (show)
+				qpnpint_show_irq(&pmic_arb->controller,
+								&irq_spec);
+			else
+				qpnpint_handle_irq(&pmic_arb->controller,
+								&irq_spec);
 		}
 	}
 	return IRQ_HANDLED;
 }
 
 /* Peripheral interrupt handler */
-static irqreturn_t pmic_arb_periph_irq(int irq, void *dev_id)
+static irqreturn_t
+__pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = dev_id;
 	void __iomem *intr = pmic_arb->intr;
@@ -556,13 +568,30 @@ static irqreturn_t pmic_arb_periph_irq(int irq, void *dev_id)
 		for (j = 0; status && j < 32; ++j, status >>= 1) {
 			if (status & 0x1) {
 				u8 id = (i * 32) + j;
-				ret |= periph_interrupt(pmic_arb, id);
+
+				ret |= periph_interrupt(pmic_arb, id, show);
 			}
 		}
 	}
 
 	return ret;
 }
+
+static irqreturn_t pmic_arb_periph_irq(int irq, void *dev_id)
+{
+	return __pmic_arb_periph_irq(irq, dev_id, false);
+}
+
+static void spmi_pmic_arb_resume(void)
+{
+	if (qpnpint_show_resume_irq())
+		__pmic_arb_periph_irq(the_pmic_arb->pic_irq,
+						the_pmic_arb, true);
+}
+
+static struct syscore_ops spmi_pmic_arb_syscore_ops = {
+	.resume = spmi_pmic_arb_resume,
+};
 
 /* Callback to register an APID for specific slave/peripheral */
 static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
@@ -765,6 +794,9 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 
 	pr_debug("PMIC Arb Version 0x%x\n",
 			pmic_arb_read(pmic_arb, PMIC_ARB_VERSION));
+
+	the_pmic_arb = pmic_arb;
+	register_syscore_ops(&spmi_pmic_arb_syscore_ops);
 
 	return 0;
 
