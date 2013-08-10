@@ -168,6 +168,22 @@ struct debugfs_files {
 };
 #endif
 
+/**
+ * struct ufs_clk_info - UFS clock related info
+ * @list: list headed by hba->clk_list_head
+ * @clk: clock node
+ * @name: clock name
+ * @max_freq: maximum frequency supported by the clock
+ * @enabled: variable to check against multiple enable/disable
+ */
+struct ufs_clk_info {
+	struct list_head list;
+	struct clk *clk;
+	const char *name;
+	u32 max_freq;
+	bool enabled;
+};
+
 #define PRE_CHANGE      0
 #define POST_CHANGE     1
 /**
@@ -233,6 +249,7 @@ struct ufs_hba_variant_ops {
  * @dev_cmd: ufs device management command information
  * @auto_bkops_enabled: to track whether bkops is enabled in device
  * @vreg_info: UFS device voltage regulator information
+ * @clk_list_head: UFS host controller clocks list node head
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
  */
@@ -294,6 +311,7 @@ struct ufs_hba {
 
 	bool auto_bkops_enabled;
 	struct ufs_vreg_info vreg_info;
+	struct list_head clk_list_head;
 
 #ifdef CONFIG_DEBUG_FS
 	struct ufs_stats ufs_stats;
