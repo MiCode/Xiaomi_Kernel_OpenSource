@@ -508,7 +508,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	++ctx_drvdata->attach_count;
 
 	if (ctx_drvdata->attach_count > 1)
-		goto unlock;
+		goto already_attached;
 
 	if (!list_empty(&ctx_drvdata->attached_elm)) {
 		ret = -EBUSY;
@@ -540,6 +540,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	ctx_drvdata->attached_domain = domain;
 
+already_attached:
 	mutex_unlock(&msm_iommu_lock);
 
 	msm_iommu_attached(dev->parent);
