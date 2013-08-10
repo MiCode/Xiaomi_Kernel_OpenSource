@@ -184,6 +184,8 @@ static inline int adreno_dispatcher_requeue_cmdbatch(
 	if (kgsl_context_detached(&drawctxt->base) ||
 		drawctxt->state == ADRENO_CONTEXT_STATE_INVALID) {
 		mutex_unlock(&drawctxt->mutex);
+		/* get rid of this cmdbatch since the context is bad */
+		kgsl_cmdbatch_destroy(cmdbatch);
 		return -EINVAL;
 	}
 
