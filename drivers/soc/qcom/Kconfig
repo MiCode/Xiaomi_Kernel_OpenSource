@@ -247,6 +247,14 @@ config QCOM_SECURE_BUFFER
 	 use this memory and no unauthorized access is made to the
 	 buffer
 
+config QCOM_EARLY_RANDOM
+        bool "Initialize random pool very early"
+        help
+          The standard random pool may not initialize until late in the boot
+          process which means that any calls to get random numbers before then
+          may not be truly random. Select this option to make an early call
+          to get some random data to put in the pool. If unsure, say N.
+
 config MSM_SMEM
 	depends on ARCH_QCOM
 	depends on REMOTE_SPINLOCK_MSM
