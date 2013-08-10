@@ -667,7 +667,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
-	int ret;
+	int ret = 0;
 	int is_secure;
 
 	mutex_lock(&msm_iommu_lock);
@@ -675,41 +675,46 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	priv = domain->priv;
 	if (!priv || !dev) {
 		ret = -EINVAL;
-		goto fail;
+		goto unlock;
 	}
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
 	if (!iommu_drvdata || !ctx_drvdata) {
 		ret = -EINVAL;
-		goto fail;
+		goto unlock;
 	}
+
+	++ctx_drvdata->attach_count;
+
+	if (ctx_drvdata->attach_count > 1)
+		goto already_attached;
 
 	if (!list_empty(&ctx_drvdata->attached_elm)) {
 		ret = -EBUSY;
-		goto fail;
+		goto unlock;
 	}
 
 	list_for_each_entry(tmp_drvdata, &priv->list_attached, attached_elm)
 		if (tmp_drvdata == ctx_drvdata) {
 			ret = -EBUSY;
-			goto fail;
+			goto unlock;
 		}
 
 	is_secure = iommu_drvdata->sec_id != -1;
 
 	ret = __enable_regulators(iommu_drvdata);
 	if (ret)
-		goto fail;
+		goto unlock;
 
 	ret = apply_bus_vote(iommu_drvdata, 1);
 	if (ret)
-		goto fail;
+		goto unlock;
 
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret) {
 		__disable_regulators(iommu_drvdata);
-		goto fail;
+		goto unlock;
 	}
 
 	/* We can only do this once */
@@ -724,7 +729,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			if (ret) {
 				__disable_regulators(iommu_drvdata);
 				__disable_clocks(iommu_drvdata);
-				goto fail;
+				goto unlock;
 			}
 		}
 		program_iommu_bfb_settings(iommu_drvdata->base,
@@ -743,11 +748,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ctx_drvdata->attached_domain = domain;
 	++iommu_drvdata->ctx_attach_count;
 
+already_attached:
 	mutex_unlock(&msm_iommu_lock);
 
 	msm_iommu_attached(dev->parent);
 	return ret;
-fail:
+unlock:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
@@ -766,16 +772,22 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
 	if (!priv || !dev)
-		goto fail;
+		goto unlock;
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
 	if (!iommu_drvdata || !ctx_drvdata || !ctx_drvdata->attached_domain)
-		goto fail;
+		goto unlock;
+
+	--ctx_drvdata->attach_count;
+	BUG_ON(ctx_drvdata->attach_count < 0);
+
+	if (ctx_drvdata->attach_count > 0)
+		goto unlock;
 
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret)
-		goto fail;
+		goto unlock;
 
 	is_secure = iommu_drvdata->sec_id != -1;
 
@@ -803,7 +815,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	ctx_drvdata->attached_domain = NULL;
 	BUG_ON(iommu_drvdata->ctx_attach_count == 0);
 	--iommu_drvdata->ctx_attach_count;
-fail:
+unlock:
 	mutex_unlock(&msm_iommu_lock);
 }
 
