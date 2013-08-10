@@ -256,6 +256,18 @@
 		#interrupt-cells = <3>;
 	};
 
+	slim_msm: slim@fe1af000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xfe1af000 0x35000>,
+		      <0xfe184000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x60000000>;
+		qcom,ea-pc = <0xb0>;
+	};
+
 	i2c_0: i2c@f9925000 { /* BLSP1 QUP3 */
 		cell-index = <0>;
 		compatible = "qcom,i2c-qup";
