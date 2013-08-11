@@ -53,3 +53,23 @@ Example:
 		clock-names = "core_clk", "ref_clk", "iface_clk";
 		max-clock-frequency-hz = <100000000 19200000 0>;
 	};
+
+For UFS host controller in MSM platform following clocks are required -
+    Controller clock source -
+        "core_clk_src", max-clock-frequency-hz = 200MHz
+
+    Controller System clock branch:
+        "core_clk" - Controller core clock
+
+    AHB/AXI interface clocks:
+        "iface_clk" - AHB interface clock
+        "bus_clk" - AXI bus master clock
+
+    PHY to controller symbol synchronization clocks:
+        "rx_lane0_sync_clk" - RX Lane 0
+        "rx_lane1_sync_clk" - RX Lane 1
+        "tx_lane0_sync_clk" - TX Lane 0
+        "tx_lane1_sync_clk" - TX Lane 1
+
+    Optional reference clock input to UFS device
+        "ref_clk", max-clock-frequency-hz = 19.2MHz
