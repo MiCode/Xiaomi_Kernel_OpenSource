@@ -289,8 +289,9 @@ struct adm_param_data_v5 {
 	 */
 } __packed;
 
-/* Defined specifically for in-band use, includes params */
-struct adm_cmd_set_pp_params_inband_v5 {
+/* set customized mixing on matrix mixer */
+#define ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5                        0x00010344
+struct adm_cmd_set_pspd_mtmx_strtr_params_v5 {
 	struct apr_hdr hdr;
 	/* LSW of parameter data payload address.*/
 	u32		payload_addr_lsw;
@@ -304,10 +305,30 @@ struct adm_cmd_set_pp_params_inband_v5 {
 	/* message or in shared memory. This is used for parsing the */
 	/* parameter payload. */
 	u32		payload_size;
-	/* Parameters passed for in band payload */
-	struct adm_param_data_v5	params;
+	u16		direction;
+	u16		sessionid;
+	u16		deviceid;
+	u16		reserved;
 } __packed;
 
+/* Defined specifically for in-band use, includes params */
+struct adm_cmd_set_pp_params_inband_v5 {
+	struct apr_hdr hdr;
+	/* LSW of parameter data payload address.*/
+	u32             payload_addr_lsw;
+	/* MSW of parameter data payload address.*/
+	u32             payload_addr_msw;
+	/* Memory map handle returned by ADM_CMD_SHARED_MEM_MAP_REGIONS */
+	/* command. If mem_map_handle is zero implies the message is in */
+	/* the payload */
+	u32             mem_map_handle;
+	/* Size in bytes of the variable payload accompanying this */
+	/* message or in shared memory. This is used for parsing the */
+	/* parameter payload. */
+	u32             payload_size;
+	/* Parameters passed for in band payload */
+	struct adm_param_data_v5        params;
+} __packed;
 
 /* Returns the status and COPP ID to an #ADM_CMD_DEVICE_OPEN_V5 command.
  */
@@ -6928,6 +6949,17 @@ struct afe_port_cmd_set_aanc_acdb_table {
 #define RMS_MODULEID_APPI_PASSTHRU  0x10009011
 #define RMS_PARAM_FIRST_SAMPLE 0x10009012
 #define RMS_PAYLOAD_LEN 4
+
+/* Customized mixing in matix mixer */
+#define MTMX_MODULE_ID_DEFAULT_CHMIXER  0x00010341
+#define DEFAULT_CHMIXER_PARAM_ID_COEFF  0x00010342
+#define CUSTOM_STEREO_PAYLOAD_SIZE	9
+#define CUSTOM_STEREO_CMD_PARAM_SIZE	24
+#define CUSTOM_STEREO_NUM_OUT_CH	0x0002
+#define CUSTOM_STEREO_NUM_IN_CH		0x0002
+#define CUSTOM_STEREO_INDEX_PARAM	0x0002
+#define Q14_GAIN_ZERO_POINT_FIVE	0x2000
+#define Q14_GAIN_UNITY			0x4000
 
 struct afe_svc_cmd_set_clip_bank_selection {
 	struct apr_hdr hdr;

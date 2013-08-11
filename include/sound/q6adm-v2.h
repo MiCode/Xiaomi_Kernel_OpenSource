@@ -62,4 +62,7 @@ void adm_set_multi_ch_map(char *channel_map);
 
 void adm_get_multi_ch_map(char *channel_map);
 
+int adm_set_stereo_to_custom_stereo(int port_id, unsigned int session_id,
+				    char *params, uint32_t params_length);
+
 #endif /* __Q6_ADM_V2_H__ */

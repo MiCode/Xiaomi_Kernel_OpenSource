@@ -280,6 +280,78 @@ fail_cmd:
 	return ret;
 }
 
+int adm_set_stereo_to_custom_stereo(int port_id, unsigned int session_id,
+				    char *params, uint32_t params_length)
+{
+	struct adm_cmd_set_pspd_mtmx_strtr_params_v5 *adm_params = NULL;
+	int sz, rc = 0, index = afe_get_port_index(port_id);
+
+	pr_debug("%s\n", __func__);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d port_id %#x\n", __func__, index,
+			port_id);
+		return -EINVAL;
+	}
+	sz = sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5) +
+		params_length;
+	adm_params = kzalloc(sz, GFP_KERNEL);
+	if (!adm_params) {
+		pr_err("%s, adm params memory alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	memcpy(((u8 *)adm_params +
+		sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5)),
+		params, params_length);
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.pkt_size = sz;
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params->hdr.token = port_id;
+	adm_params->hdr.opcode = ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5;
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+	adm_params->payload_size = params_length;
+	/* direction RX as 0 */
+	adm_params->direction = 0;
+	/* session id for this cmd to be applied on */
+	adm_params->sessionid = session_id;
+	/* valid COPP id for LPCM */
+	adm_params->deviceid = atomic_read(&this_adm.copp_id[index]);
+	adm_params->reserved = 0;
+	pr_debug("%s: deviceid %d, session_id %d, src_port %d, dest_port %d\n",
+		__func__, adm_params->deviceid, adm_params->sessionid,
+		adm_params->hdr.src_port, adm_params->hdr.dest_port);
+	atomic_set(&this_adm.copp_stat[index], 0);
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (rc < 0) {
+		pr_err("%s: Set params failed port = %#x\n",
+			__func__, port_id);
+		rc = -EINVAL;
+		goto set_stereo_to_custom_stereo_return;
+	}
+	/* Wait for the callback */
+	rc = wait_event_timeout(this_adm.wait[index],
+		atomic_read(&this_adm.copp_stat[index]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: Set params timed out port = %#x\n", __func__,
+			port_id);
+		rc = -EINVAL;
+		goto set_stereo_to_custom_stereo_return;
+	}
+	rc = 0;
+set_stereo_to_custom_stereo_return:
+	kfree(adm_params);
+	return rc;
+}
+
 int adm_dolby_dap_send_params(int port_id, char *params, uint32_t params_length)
 {
 	struct adm_cmd_set_pp_params_v5	*adm_params = NULL;
@@ -543,6 +615,12 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 					rtac_make_adm_callback(payload,
 						data->payload_size);
 				}
+				break;
+			case ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5:
+				pr_debug("%s:ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5\n",
+					__func__);
+				atomic_set(&this_adm.copp_stat[index], 1);
+				wake_up(&this_adm.wait[index]);
 				break;
 			default:
 				pr_err("%s: Unknown Cmd: 0x%x\n", __func__,
