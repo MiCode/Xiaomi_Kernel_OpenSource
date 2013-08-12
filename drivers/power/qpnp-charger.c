@@ -950,8 +950,10 @@ qpnp_chg_buck_vchg_loop_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
 
-	if (chip->bat_if_base)
+	if (chip->bat_if_base) {
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -980,11 +982,16 @@ qpnp_chg_vbatdet_lo_irq_handler(int irq, void *_chip)
 		qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	}
 
+	pr_debug("psy changed usb_psy\n");
 	power_supply_changed(chip->usb_psy);
-	if (chip->dc_chgpth_base)
+	if (chip->dc_chgpth_base) {
+		pr_debug("psy changed dc_psy\n");
 		power_supply_changed(&chip->dc_psy);
-	if (chip->bat_if_base)
+	}
+	if (chip->bat_if_base) {
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -1074,6 +1081,7 @@ qpnp_chg_bat_if_batt_temp_irq_handler(int irq, void *_chip)
 	batt_temp_good = qpnp_chg_is_batt_temp_ok(chip);
 	pr_debug("batt-temp triggered: %d\n", batt_temp_good);
 
+	pr_debug("psy changed batt_psy\n");
 	power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
 }
@@ -1089,7 +1097,9 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 
 	if (chip->batt_present ^ batt_present) {
 		chip->batt_present = batt_present;
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+		pr_debug("psy changed usb_psy\n");
 		power_supply_changed(chip->usb_psy);
 
 		if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
@@ -1124,7 +1134,9 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			schedule_work(&chip->soc_check_work);
 		}
+		pr_debug("psy changed dc_psy\n");
 		power_supply_changed(&chip->dc_psy);
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
 	}
 
@@ -1147,11 +1159,16 @@ qpnp_chg_chgr_chg_failed_irq_handler(int irq, void *_chip)
 	if (rc)
 		pr_err("Failed to write chg_fail clear bit!\n");
 
-	if (chip->bat_if_base)
+	if (chip->bat_if_base) {
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+	}
+	pr_debug("psy changed usb_psy\n");
 	power_supply_changed(chip->usb_psy);
-	if (chip->dc_chgpth_base)
+	if (chip->dc_chgpth_base) {
+		pr_debug("psy changed dc_psy\n");
 		power_supply_changed(&chip->dc_psy);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -1163,8 +1180,10 @@ qpnp_chg_chgr_chg_trklchg_irq_handler(int irq, void *_chip)
 	pr_debug("TRKL IRQ triggered\n");
 
 	chip->chg_done = false;
-	if (chip->bat_if_base)
+	if (chip->bat_if_base) {
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -1182,11 +1201,19 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 
 	pr_debug("FAST_CHG IRQ triggered\n");
 	chip->chg_done = false;
-	if (chip->bat_if_base)
+	if (chip->bat_if_base) {
+		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+	}
+
+	pr_debug("psy changed usb_psy\n");
 	power_supply_changed(chip->usb_psy);
-	if (chip->dc_chgpth_base)
+
+	if (chip->dc_chgpth_base) {
+		pr_debug("psy changed dc_psy\n");
 		power_supply_changed(&chip->dc_psy);
+	}
+
 	if (chip->resuming_charging) {
 		chip->resuming_charging = false;
 		qpnp_chg_set_appropriate_vbatdet(chip);
@@ -1681,6 +1708,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 skip_set_iusb_max:
 	pr_debug("end of power supply changed\n");
+	pr_debug("psy changed batt_psy\n");
 	power_supply_changed(&chip->batt_psy);
 }
 
@@ -2325,6 +2353,7 @@ qpnp_eoc_work(struct work_struct *work)
 				pr_info("End of Charging\n");
 				qpnp_chg_charge_en(chip, 0);
 				chip->chg_done = true;
+				pr_debug("psy changed batt_psy\n");
 				power_supply_changed(&chip->batt_psy);
 				qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
 				goto stop_eoc;
@@ -2531,6 +2560,7 @@ qpnp_dc_power_set_property(struct power_supply *psy,
 		return -EINVAL;
 	}
 
+	pr_debug("psy changed dc_psy\n");
 	power_supply_changed(&chip->dc_psy);
 	return rc;
 }
@@ -2569,6 +2599,7 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 		return -EINVAL;
 	}
 
+	pr_debug("psy changed batt_psy\n");
 	power_supply_changed(&chip->batt_psy);
 	return rc;
 }
