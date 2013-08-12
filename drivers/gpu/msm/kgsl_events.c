@@ -334,11 +334,7 @@ void kgsl_cancel_event(struct kgsl_device *device, struct kgsl_context *context,
 		void *priv)
 {
 	struct kgsl_event *event;
-	struct list_head *head;
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	head = _get_list_head(device, context);
+	struct list_head *head = _get_list_head(device, context);
 
 	event = _find_event(device, head, timestamp, func, priv);
 

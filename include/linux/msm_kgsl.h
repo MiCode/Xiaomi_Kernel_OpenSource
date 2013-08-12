@@ -23,7 +23,6 @@
 #define KGSL_CONTEXT_END_OF_FRAME	0x00000100
 
 #define KGSL_CONTEXT_NO_FAULT_TOLERANCE 0x00000200
-#define KGSL_CONTEXT_SYNC               0x00000400
 /* bits [12:15] are reserved for future use */
 #define KGSL_CONTEXT_TYPE_MASK          0x01F00000
 #define KGSL_CONTEXT_TYPE_SHIFT         20
@@ -286,7 +285,7 @@ struct kgsl_device_waittimestamp_ctxtid {
 #define IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID \
 	_IOW(KGSL_IOC_TYPE, 0x7, struct kgsl_device_waittimestamp_ctxtid)
 
-/* DEPRECATED: issue indirect commands to the GPU.
+/* issue indirect commands to the GPU.
  * drawctxt_id must have been created with IOCTL_KGSL_DRAWCTXT_CREATE
  * ibaddr and sizedwords must specify a subset of a buffer created
  * with IOCTL_KGSL_SHAREDMEM_FROM_PMEM
@@ -294,9 +293,6 @@ struct kgsl_device_waittimestamp_ctxtid {
  * timestamp is a returned counter value which can be passed to
  * other ioctls to determine when the commands have been executed by
  * the GPU.
- *
- * This fucntion is deprecated - consider using IOCTL_KGSL_SUBMIT_COMMANDS
- * instead
  */
 struct kgsl_ringbuffer_issueibcmds {
 	unsigned int drawctxt_id;
@@ -810,71 +806,6 @@ struct kgsl_gpumem_sync_cache_bulk {
 
 #define IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK \
 	_IOWR(KGSL_IOC_TYPE, 0x3C, struct kgsl_gpumem_sync_cache_bulk)
-
-/*
- * struct kgsl_cmd_syncpoint_timestamp
- * @context_id: ID of a KGSL context
- * @timestamp: GPU timestamp
- *
- * This structure defines a syncpoint comprising a context/timestamp pair. A
- * list of these may be passed by IOCTL_KGSL_SUBMIT_COMMANDS to define
- * dependencies that must be met before the command can be submitted to the
- * hardware
- */
-struct kgsl_cmd_syncpoint_timestamp {
-	unsigned int context_id;
-	unsigned int timestamp;
-};
-
-#define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
-
-/**
- * struct kgsl_cmd_syncpoint - Define a sync point for a command batch
- * @type: type of sync point defined here
- * @priv: Pointer to the type specific buffer
- * @size: Size of the type specific buffer
- *
- * This structure contains pointers defining a specific command sync point.
- * The pointer and size should point to a type appropriate structure.
- */
-struct kgsl_cmd_syncpoint {
-	int type;
-	void __user *priv;
-	unsigned int size;
-};
-
-/**
- * struct kgsl_submit_commands - Argument to IOCTL_KGSL_SUBMIT_COMMANDS
- * @context_id: KGSL context ID that owns the commands
- * @flags:
- * @cmdlist: User pointer to a list of kgsl_ibdesc structures
- * @numcmds: Number of commands listed in cmdlist
- * @synclist: User pointer to a list of kgsl_cmd_syncpoint structures
- * @numsyncs: Number of sync points listed in synclist
- * @timestamp: On entry the a user defined timestamp, on exist the timestamp
- * assigned to the command batch
- *
- * This structure specifies a command to send to the GPU hardware.  This is
- * similar to kgsl_issueibcmds expect that it doesn't support the legacy way to
- * submit IB lists and it adds sync points to block the IB until the
- * dependencies are satisified.  This entry point is the new and preferred way
- * to submit commands to the GPU.
- */
-
-struct kgsl_submit_commands {
-	unsigned int context_id;
-	unsigned int flags;
-	struct kgsl_ibdesc __user *cmdlist;
-	unsigned int numcmds;
-	struct kgsl_cmd_syncpoint __user *synclist;
-	unsigned int numsyncs;
-	unsigned int timestamp;
-/* private: reserved for future use */
-	unsigned int __pad[4];
-};
-
-#define IOCTL_KGSL_SUBMIT_COMMANDS \
-	_IOWR(KGSL_IOC_TYPE, 0x3D, struct kgsl_submit_commands)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM

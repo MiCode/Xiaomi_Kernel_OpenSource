@@ -14,7 +14,6 @@
 #include <linux/fb.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/list.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
@@ -1399,263 +1398,30 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 	return result;
 }
 
-/*
- * KGSL command batch management
- * A command batch is a single submission from userland.  The cmdbatch
- * encapsulates everything about the submission : command buffers, flags and
- * sync points.
- *
- * Sync points are events that need to expire before the
- * cmdbatch can be queued to the hardware. For each sync point a
- * kgsl_cmdbatch_sync_event struct is created and added to a list in the
- * cmdbatch. There can be multiple types of events both internal ones (GPU
- * events) and external triggers. As the events expire the struct is deleted
- * from the list. The GPU will submit the command batch as soon as the list
- * goes empty indicating that all the sync points have been met.
- */
-
-/**
- * struct kgsl_cmdbatch_sync_event
- * @type: Syncpoint type
- * @node: Local list node for the cmdbatch sync point list
- * @cmdbatch: Pointer to the cmdbatch that owns the sync event
- * @context: Pointer to the KGSL context that owns the cmdbatch
- * @timestamp: Pending timestamp for the event
- */
-struct kgsl_cmdbatch_sync_event {
-	int type;
-	struct list_head node;
-	struct kgsl_cmdbatch *cmdbatch;
-	struct kgsl_context *context;
-	unsigned int timestamp;
-};
-
-/**
- * kgsl_cmdbatch_destroy_object() - Destroy a cmdbatch object
- * @kref: Pointer to the kref structure for this object
- *
- * Actually destroy a command batch object.  Called from kgsl_cmdbatch_put
- */
-void kgsl_cmdbatch_destroy_object(struct kref *kref)
-{
-	struct kgsl_cmdbatch *cmdbatch = container_of(kref,
-		struct kgsl_cmdbatch, refcount);
-
-	kgsl_context_put(cmdbatch->context);
-	kfree(cmdbatch->ibdesc);
-
-	kfree(cmdbatch);
-}
-EXPORT_SYMBOL(kgsl_cmdbatch_destroy_object);
-
-/*
- * This function is called by the GPU event when the sync event timestamp
- * expires
- */
-static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
-		u32 id, u32 timestamp, u32 type)
-{
-	struct kgsl_cmdbatch_sync_event *event = priv;
-	int sched = 0;
-
-	spin_lock(&event->cmdbatch->lock);
-	list_del(&event->node);
-	sched = list_empty(&event->cmdbatch->synclist) ? 1 : 0;
-	spin_unlock(&event->cmdbatch->lock);
-
-	/*
-	 * if this is the last event in the list then tell
-	 * the GPU device that the cmdbatch can be submitted
-	 */
-
-	if (sched && device->ftbl->drawctxt_sched)
-		device->ftbl->drawctxt_sched(device, event->cmdbatch->context);
-
-	kgsl_context_put(event->context);
-	kgsl_cmdbatch_put(event->cmdbatch);
-
-	kfree(event);
-}
-
-/**
- * kgsl_cmdbatch_destroy() - Destroy a cmdbatch structure
- * @cmdbatch: Pointer to the command batch object to destroy
- *
- * Start the process of destroying a command batch.  Cancel any pending events
- * and decrement the refcount.
- */
-void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
-{
-	struct kgsl_cmdbatch_sync_event *event, *tmp;
-
-	spin_lock(&cmdbatch->lock);
-
-	/* Delete any pending sync points for this command batch */
-	list_for_each_entry_safe(event, tmp, &cmdbatch->synclist, node) {
-
-		if (event->type == KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP) {
-			/* Cancel the event if it still exists */
-			kgsl_cancel_event(cmdbatch->device, event->context,
-				event->timestamp, kgsl_cmdbatch_sync_func,
-				event);
-			kgsl_context_put(event->context);
-		}
-	}
-
-	spin_unlock(&cmdbatch->lock);
-	kgsl_cmdbatch_put(cmdbatch);
-}
-EXPORT_SYMBOL(kgsl_cmdbatch_destroy);
-
-/* kgsl_cmdbatch_add_sync_timestamp() - Add a new sync point for a cmdbatch
- * @device: KGSL device
- * @cmdbatch: KGSL cmdbatch to add the sync point to
- * @priv: Private sructure passed by the user
- *
- * Add a new sync point timestamp event to the cmdbatch.
- */
-static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
-		struct kgsl_cmdbatch *cmdbatch, void *priv)
-{
-	struct kgsl_cmd_syncpoint_timestamp *sync = priv;
-	struct kgsl_context *context = kgsl_context_get(cmdbatch->device,
-		sync->context_id);
-	struct kgsl_cmdbatch_sync_event *event;
-	int ret = -EINVAL;
-
-	if (context == NULL)
-		return -EINVAL;
-
-	/* Sanity check - you can't create a sync point on your own context */
-	if (context == cmdbatch->context) {
-		KGSL_DRV_ERR(device,
-			"Cannot create a sync point on your own context %d\n",
-			context->id);
-		goto done;
-	}
-
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
-	if (event == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	kref_get(&cmdbatch->refcount);
-
-	event->type = KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP;
-	event->cmdbatch = cmdbatch;
-	event->context = context;
-	event->timestamp = sync->timestamp;
-
-	spin_lock(&cmdbatch->lock);
-	list_add(&event->node, &cmdbatch->synclist);
-	spin_unlock(&cmdbatch->lock);
-
-	mutex_lock(&device->mutex);
-	kgsl_active_count_get(device);
-	ret = kgsl_add_event(device, context->id, sync->timestamp,
-		kgsl_cmdbatch_sync_func, event, NULL);
-	kgsl_active_count_put(device);
-	mutex_unlock(&device->mutex);
-
-	if (ret) {
-		spin_lock(&cmdbatch->lock);
-		list_del(&event->node);
-		spin_unlock(&cmdbatch->lock);
-
-		kgsl_cmdbatch_put(cmdbatch);
-		kfree(event);
-	}
-
-done:
-	if (ret)
-		kgsl_context_put(context);
-
-	return ret;
-}
-
-/**
- * kgsl_cmdbatch_add_sync() - Add a sync point to a command batch
- * @device: Pointer to the KGSL device struct for the GPU
- * @cmdbatch: Pointer to the cmdbatch
- * @sync: Pointer to the user-specified struct defining the syncpoint
- *
- * Create a new sync point in the cmdbatch based on the user specified
- * parameters
- */
-static int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
-	struct kgsl_cmdbatch *cmdbatch,
-	struct kgsl_cmd_syncpoint *sync)
-{
-	void *priv;
-	int ret, psize;
-	int (*func)(struct kgsl_device *device, struct kgsl_cmdbatch *cmdbatch,
-			void *priv);
-
-	switch (sync->type) {
-	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP:
-		psize = sizeof(struct kgsl_cmd_syncpoint_timestamp);
-		func = kgsl_cmdbatch_add_sync_timestamp;
-		break;
-	default:
-		KGSL_DRV_ERR(device, "Invalid sync type 0x%x\n", sync->type);
-		return -EINVAL;
-	}
-
-	if (sync->size != psize) {
-		KGSL_DRV_ERR(device, "Invalid sync size %d\n", sync->size);
-		return -EINVAL;
-	}
-
-	priv = kzalloc(sync->size, GFP_KERNEL);
-	if (priv == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(priv, sync->priv, sync->size)) {
-		kfree(priv);
-		return -EFAULT;
-	}
-
-	ret = func(device, cmdbatch, priv);
-	kfree(priv);
-
-	return ret;
-}
-
 /**
  * kgsl_cmdbatch_create() - Create a new cmdbatch structure
- * @device: Pointer to a KGSL device struct
  * @context: Pointer to a KGSL context struct
  * @numibs: Number of indirect buffers to make room for in the cmdbatch
  *
  * Allocate an new cmdbatch structure and add enough room to store the list of
  * indirect buffers
  */
-static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int flags,
-		unsigned int numibs)
+struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_context *context,
+	int numibs)
 {
 	struct kgsl_cmdbatch *cmdbatch = kzalloc(sizeof(*cmdbatch), GFP_KERNEL);
 	if (cmdbatch == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	if (!(flags & KGSL_CONTEXT_SYNC)) {
-		cmdbatch->ibdesc = kzalloc(sizeof(*cmdbatch->ibdesc) * numibs,
-			GFP_KERNEL);
-		if (cmdbatch->ibdesc == NULL) {
-			kfree(cmdbatch);
-			return ERR_PTR(-ENOMEM);
-		}
+	cmdbatch->ibdesc = kzalloc(sizeof(*cmdbatch->ibdesc) * numibs,
+		GFP_KERNEL);
+	if (cmdbatch->ibdesc == NULL) {
+		kfree(cmdbatch);
+		return ERR_PTR(-ENOMEM);
 	}
 
-	kref_init(&cmdbatch->refcount);
-	INIT_LIST_HEAD(&cmdbatch->synclist);
-	spin_lock_init(&cmdbatch->lock);
-
-	cmdbatch->device = device;
-	cmdbatch->ibcount = (flags & KGSL_CONTEXT_SYNC) ? 0 : numibs;
+	cmdbatch->ibcount = numibs;
 	cmdbatch->context = context;
-	cmdbatch->flags = flags & ~KGSL_CONTEXT_SUBMIT_IB_LIST;
 
 	/*
 	 * Increase the reference count on the context so it doesn't disappear
@@ -1684,22 +1450,15 @@ static bool _kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
 	for (i = 0; i < cmdbatch->ibcount; i++) {
 		if (cmdbatch->ibdesc[i].sizedwords == 0) {
 			KGSL_DRV_ERR(dev_priv->device,
-				"invalid size ctx %d ib(%d) %X/%X\n",
-				cmdbatch->context->id, i,
-				cmdbatch->ibdesc[i].gpuaddr,
-				cmdbatch->ibdesc[i].sizedwords);
-
+				"IB verification failed: Invalid size\n");
 			return false;
 		}
 
 		if (!kgsl_mmu_gpuaddr_in_range(private->pagetable,
 			cmdbatch->ibdesc[i].gpuaddr)) {
 			KGSL_DRV_ERR(dev_priv->device,
-				"Invalid address ctx %d ib(%d) %X/%X\n",
-				cmdbatch->context->id, i,
-				cmdbatch->ibdesc[i].gpuaddr,
-				cmdbatch->ibdesc[i].sizedwords);
-
+				"IB verification failed: invalid address 0x%X\n",
+				cmdbatch->ibdesc[i].gpuaddr);
 			return false;
 		}
 	}
@@ -1709,19 +1468,16 @@ static bool _kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
 
 /**
  * _kgsl_cmdbatch_create_legacy() - Create a cmdbatch from a legacy ioctl struct
- * @device: Pointer to the KGSL device struct for the GPU
  * @context: Pointer to the KGSL context that issued the command batch
  * @param: Pointer to the kgsl_ringbuffer_issueibcmds struct that the user sent
  *
  * Create a command batch from the legacy issueibcmds format.
  */
 static struct kgsl_cmdbatch *_kgsl_cmdbatch_create_legacy(
-		struct kgsl_device *device,
 		struct kgsl_context *context,
 		struct kgsl_ringbuffer_issueibcmds *param)
 {
-	struct kgsl_cmdbatch *cmdbatch =
-		kgsl_cmdbatch_create(device, context, param->flags, 1);
+	struct kgsl_cmdbatch *cmdbatch = kgsl_cmdbatch_create(context, 1);
 
 	if (IS_ERR(cmdbatch))
 		return cmdbatch;
@@ -1736,64 +1492,31 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create_legacy(
 
 /**
  * _kgsl_cmdbatch_create() - Create a cmdbatch from a ioctl struct
- * @device: Pointer to the KGSL device struct for the GPU
+ * @device: Pointer to the KGSL device for the GPU
  * @context: Pointer to the KGSL context that issued the command batch
- * @flags: Flags passed in from the user command
- * @cmdlist: Pointer to the list of commands from the user
- * @numcmds: Number of commands in the list
- * @synclist: Pointer to the list of syncpoints from the user
- * @numsyncs: Number of syncpoints in the list
+ * @param: Pointer to the kgsl_ringbuffer_issueibcmds struct that the user sent
  *
  * Create a command batch from the standard issueibcmds format sent by the user.
  */
-static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
+struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 		struct kgsl_context *context,
-		unsigned int flags,
-		unsigned int cmdlist, unsigned int numcmds,
-		unsigned int synclist, unsigned int numsyncs)
+		struct kgsl_ringbuffer_issueibcmds *param)
 {
 	struct kgsl_cmdbatch *cmdbatch =
-		kgsl_cmdbatch_create(device, context, flags, numcmds);
-	int ret = 0;
+		kgsl_cmdbatch_create(context, param->numibs);
 
 	if (IS_ERR(cmdbatch))
 		return cmdbatch;
 
-	if (!(flags & KGSL_CONTEXT_SYNC)) {
-		if (copy_from_user(cmdbatch->ibdesc, (void __user *) cmdlist,
-			sizeof(struct kgsl_ibdesc) * numcmds)) {
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-
-	if (synclist && numsyncs) {
-		struct kgsl_cmd_syncpoint sync;
-		void  __user *uptr = (void __user *) synclist;
-		int i;
-
-		for (i = 0; i < numsyncs; i++) {
-			memset(&sync, 0, sizeof(sync));
-
-			if (copy_from_user(&sync, uptr, sizeof(sync))) {
-				ret = -EFAULT;
-				break;
-			}
-
-			ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
-
-			if (ret)
-				break;
-
-			uptr += sizeof(sync);
-		}
-	}
-
-done:
-	if (ret) {
+	if (copy_from_user(cmdbatch->ibdesc, (void *)param->ibdesc_addr,
+		sizeof(struct kgsl_ibdesc) * param->numibs)) {
+		KGSL_DRV_ERR(device,
+			"Unable to copy the IB userspace commands\n");
 		kgsl_cmdbatch_destroy(cmdbatch);
-		return ERR_PTR(ret);
+		return ERR_PTR(-EFAULT);
 	}
+
+	cmdbatch->flags = param->flags & ~KGSL_CONTEXT_SUBMIT_IB_LIST;
 
 	return cmdbatch;
 }
@@ -1807,14 +1530,12 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_cmdbatch *cmdbatch;
 	long result = -EINVAL;
 
-	/* The legacy functions don't support synchronization commands */
-	if (param->flags & KGSL_CONTEXT_SYNC)
-		return -EINVAL;
-
-	/* Get the context */
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
-	if (context == NULL)
+	if (context == NULL) {
+		KGSL_DRV_ERR(device,
+			"Could not find context %d\n", param->drawctxt_id);
 		goto done;
+	}
 
 	if (param->flags & KGSL_CONTEXT_SUBMIT_IB_LIST) {
 		/*
@@ -1822,13 +1543,15 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		 * submission
 		 */
 
-		if (param->numibs == 0 || param->numibs > KGSL_MAX_NUMIBS)
+		if (param->numibs == 0 || param->numibs > 100000) {
+			KGSL_DRV_ERR(device,
+				"Invalid number of IBs %d\n", param->numibs);
 			goto done;
+		}
 
-		cmdbatch = _kgsl_cmdbatch_create(device, context, param->flags,
-				param->ibdesc_addr, param->numibs, 0, 0);
+		cmdbatch = _kgsl_cmdbatch_create(device, context, param);
 	} else
-		cmdbatch = _kgsl_cmdbatch_create_legacy(device, context, param);
+		cmdbatch = _kgsl_cmdbatch_create_legacy(context, param);
 
 	if (IS_ERR(cmdbatch)) {
 		result = PTR_ERR(cmdbatch);
@@ -1836,56 +1559,10 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	/* Run basic sanity checking on the command */
-	if (!_kgsl_cmdbatch_verify(dev_priv, cmdbatch))
+	if (!_kgsl_cmdbatch_verify(dev_priv, cmdbatch)) {
+		KGSL_DRV_ERR(device, "Unable to verify the IBs\n");
 		goto free_cmdbatch;
-
-	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		cmdbatch, &param->timestamp);
-
-free_cmdbatch:
-	if (result)
-		kgsl_cmdbatch_destroy(cmdbatch);
-
-done:
-	kgsl_context_put(context);
-	return result;
-}
-
-static long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
-				      unsigned int cmd, void *data)
-{
-	struct kgsl_submit_commands *param = data;
-	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch;
-
-	long result = -EINVAL;
-
-	/* The number of IBs are completely ignored for sync commands */
-	if (!(param->flags & KGSL_CONTEXT_SYNC)) {
-		if (param->numcmds == 0 || param->numcmds > KGSL_MAX_NUMIBS)
-			return -EINVAL;
-	} else if (param->numcmds != 0) {
-		KGSL_DEV_ERR_ONCE(device,
-			"Commands specified with the SYNC flag.  They will be ignored\n");
 	}
-
-	context = kgsl_context_get_owner(dev_priv, param->context_id);
-	if (context == NULL)
-		return -EINVAL;
-
-	cmdbatch = _kgsl_cmdbatch_create(device, context, param->flags,
-		(unsigned int) param->cmdlist, param->numcmds,
-		(unsigned int) param->synclist, param->numsyncs);
-
-	if (IS_ERR(cmdbatch)) {
-		result = PTR_ERR(cmdbatch);
-		goto done;
-	}
-
-	/* Run basic sanity checking on the command */
-	if (!_kgsl_cmdbatch_verify(dev_priv, cmdbatch))
-		goto free_cmdbatch;
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
 		cmdbatch, &param->timestamp);
@@ -3146,8 +2823,6 @@ static const struct {
 			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_RINGBUFFER_ISSUEIBCMDS,
 			kgsl_ioctl_rb_issueibcmds, 0),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_SUBMIT_COMMANDS,
-			kgsl_ioctl_submit_commands, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP,
 			kgsl_ioctl_cmdstream_readtimestamp,
 			KGSL_IOCTL_LOCK),
