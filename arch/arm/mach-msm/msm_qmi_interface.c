@@ -160,6 +160,10 @@ static void handle_resume_tx(struct work_struct *work)
 		msg_id = ((struct qmi_header *)pend_txn->enc_data)->msg_id;
 		kfree(pend_txn->enc_data);
 		if (ret < 0) {
+			pr_err("%s: Sending transaction %d from port %d failed",
+				__func__, pend_txn->txn_id,
+				((struct msm_ipc_port *)handle->src_port)->
+							this_port.port_id);
 			if (pend_txn->type == QMI_ASYNC_TXN) {
 				pend_txn->resp_cb(pend_txn->handle,
 						msg_id, pend_txn->resp,
@@ -171,10 +175,6 @@ static void handle_resume_tx(struct work_struct *work)
 				pend_txn->send_stat = ret;
 				wake_up(&pend_txn->wait_q);
 			}
-			pr_err("%s: Sending transaction %d from port %d failed",
-				__func__, pend_txn->txn_id,
-				((struct msm_ipc_port *)handle->src_port)->
-							this_port.port_id);
 		} else {
 			list_del(&pend_txn->list);
 			list_add_tail(&pend_txn->list, &handle->txn_list);
