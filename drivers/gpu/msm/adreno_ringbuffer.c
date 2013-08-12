@@ -620,6 +620,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (profile_ready)
 		total_sizedwords += 6;   /* space for pre_ib and post_ib */
 
+	/* Add space for the power on shader fixup if we need it */
+	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP)
+		total_sizedwords += 5;
+
 	ringcmds = adreno_ringbuffer_allocspace(rb, drawctxt, total_sizedwords);
 
 	if (IS_ERR(ringcmds))
@@ -637,6 +641,18 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu, cp_nop_packet(1));
 		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu,
 				KGSL_CMD_INTERNAL_IDENTIFIER);
+	}
+
+	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
+		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu, cp_nop_packet(1));
+		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu,
+				KGSL_PWRON_FIXUP_IDENTIFIER);
+		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu,
+			CP_HDR_INDIRECT_BUFFER_PFD);
+		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu,
+			adreno_dev->pwron_fixup.gpuaddr);
+		GSL_RB_WRITE(rb->device, ringcmds, rcmd_gpu,
+			adreno_dev->pwron_fixup_dwords);
 	}
 
 	/* Add any IB required for profiling if it is enabled */
@@ -1125,6 +1141,15 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	if (test_bit(CMDBATCH_FLAG_WFI, &cmdbatch->priv))
 		flags = KGSL_CMD_FLAGS_WFI;
+
+	/*
+	 * For some targets, we need to execute a dummy shader operation after a
+	 * power collapse
+	 */
+
+	if (test_and_clear_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv) &&
+		test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
+		flags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
 
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
