@@ -53,6 +53,20 @@
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 
+		qcom,vbif-settings = <0x004 0x00000001>,
+				     <0x0B0 0x00080808>,
+				     <0x0B4 0x08000808>,
+				     <0x0B8 0x00080808>,
+				     <0x0BC 0x00000808>,
+				     <0x0C0 0x10000000>,
+				     <0x0C4 0x00100000>,
+				     <0x0C8 0x10000000>,
+				     <0x0CC 0x00000000>,
+				     <0x070 0x00013FFF>,
+				     <0x074 0x000000A4>,
+				     <0x0A8 0x00003FFF>,
+				     <0x124 0x00000003>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
