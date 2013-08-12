@@ -400,7 +400,6 @@ void adreno_coresight_remove(struct platform_device *pdev);
 int adreno_coresight_init(struct platform_device *pdev);
 
 int adreno_idle(struct kgsl_device *device);
-bool adreno_isidle(struct kgsl_device *device);
 
 void adreno_shadermem_regread(struct kgsl_device *device,
 						unsigned int offsetwords,
