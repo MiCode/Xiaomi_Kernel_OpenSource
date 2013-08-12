@@ -730,46 +730,42 @@ TRACE_EVENT(kgsl_regwrite,
 );
 
 TRACE_EVENT(kgsl_register_event,
-		TP_PROTO(unsigned int id, unsigned int timestamp, void *func),
-		TP_ARGS(id, timestamp, func),
+		TP_PROTO(unsigned int id, unsigned int timestamp),
+		TP_ARGS(id, timestamp),
 		TP_STRUCT__entry(
 			__field(unsigned int, id)
 			__field(unsigned int, timestamp)
-			__field(void *, func)
 		),
 		TP_fast_assign(
 			__entry->id = id;
 			__entry->timestamp = timestamp;
-			__entry->func = func;
 		),
 		TP_printk(
-			"ctx=%u ts=%u cb=%pF",
-			__entry->id, __entry->timestamp, __entry->func)
+			"ctx=%u ts=%u",
+			__entry->id, __entry->timestamp)
 );
 
 TRACE_EVENT(kgsl_fire_event,
 		TP_PROTO(unsigned int id, unsigned int ts,
-			unsigned int type, unsigned int age, void *func),
-		TP_ARGS(id, ts, type, age, func),
+			unsigned int type, unsigned int age),
+		TP_ARGS(id, ts, type, age),
 		TP_STRUCT__entry(
 			__field(unsigned int, id)
 			__field(unsigned int, ts)
 			__field(unsigned int, type)
 			__field(unsigned int, age)
-			__field(void *, func)
 		),
 		TP_fast_assign(
 			__entry->id = id;
 			__entry->ts = ts;
 			__entry->type = type;
 			__entry->age = age;
-			__entry->func = func;
 		),
 		TP_printk(
-			"ctx=%u ts=%u type=%s age=%u cb=%pF",
+			"ctx=%u ts=%u type=%s age=%u",
 			__entry->id, __entry->ts,
 			__print_symbolic(__entry->type, KGSL_EVENT_TYPES),
-			__entry->age, __entry->func)
+			__entry->age)
 );
 
 TRACE_EVENT(kgsl_active_count,
