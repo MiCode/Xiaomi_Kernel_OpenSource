@@ -421,6 +421,13 @@ struct ufs_uic_err_reg_hist {
 	ktime_t tstamp[UIC_ERR_REG_HIST_LENGTH];
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *tag_stats;
+};
+#endif
+
 /**
  * struct ufs_stats - keeps usage/err statistics
  * @hibern8_exit_cnt: Counter to keep track of number of exits,
@@ -434,6 +441,11 @@ struct ufs_uic_err_reg_hist {
  * @dme_err: tracks dme errors
  */
 struct ufs_stats {
+#ifdef CONFIG_DEBUG_FS
+	u64 *tag_stats;
+	struct mutex lock;
+	bool enabled;
+#endif
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
 	struct ufs_uic_err_reg_hist pa_err;
@@ -488,6 +500,8 @@ struct ufs_stats {
  * @dev_cmd: ufs device management command information
  * @last_dme_cmd_tstamp: time stamp of the last completed DME command
  * @auto_bkops_enabled: to track whether bkops is enabled in device
+ * @ufs_stats: ufshcd statistics to be used via debugfs
+ * @debugfs_files: debugfs files associated with the ufs stats
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -629,6 +643,11 @@ struct ufs_hba {
 	/* Keeps information of the UFS device connected to this host */
 	struct ufs_dev_info dev_info;
 	bool auto_bkops_enabled;
+
+#ifdef CONFIG_DEBUG_FS
+	struct debugfs_files debugfs_files;
+#endif
+
 	struct ufs_vreg_info vreg_info;
 	struct list_head clk_list_head;
 

@@ -44,6 +44,28 @@
 #include "ufshcd.h"
 #include "ufs_quirks.h"
 #include "unipro.h"
+#include "debugfs.h"
+
+#ifdef CONFIG_DEBUG_FS
+#define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
+	do {							\
+		if (hba->ufs_stats.enabled) {			\
+			mutex_lock(&hba->ufs_stats.lock);	\
+			hba->ufs_stats.tag_stats[tag]++;	\
+			mutex_unlock(&hba->ufs_stats.lock);	\
+		}						\
+	} while (0);
+
+#define UFSDBG_ADD_DEBUGFS(hba)		ufsdbg_add_debugfs(hba);
+
+#define UFSDBG_REMOVE_DEBUGFS(hba)	ufsdbg_remove_debugfs(hba);
+
+#else
+#define UFSHCD_UPDATE_TAG_STATS(hba, tag)	do {} while (0);
+#define UFSDBG_ADD_DEBUGFS(hba)		do {} while (0);
+#define UFSDBG_REMOVE_DEBUGFS(hba)		do {} while (0);
+
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
@@ -1749,6 +1771,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	UFSHCD_UPDATE_TAG_STATS(hba, task_tag)
 	/* Make sure that doorbell is committed immediately */
 	wmb();
 	ufshcd_add_command_trace(hba, task_tag, "send");
@@ -7989,6 +8012,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	ufshcd_set_ufs_dev_active(hba);
 
 	async_schedule(ufshcd_async_scan, hba);
+
+	UFSDBG_ADD_DEBUGFS(hba);
+
 	ufshcd_add_sysfs_nodes(hba);
 
 	return 0;
@@ -7999,6 +8025,7 @@ exit_gating:
 	ufshcd_exit_clk_gating(hba);
 out_disable:
 	hba->is_irq_enabled = false;
+	UFSDBG_REMOVE_DEBUGFS(hba)
 	ufshcd_hba_exit(hba);
 out_error:
 	return err;
