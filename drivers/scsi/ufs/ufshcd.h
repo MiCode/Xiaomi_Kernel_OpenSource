@@ -333,6 +333,19 @@ struct ufs_init_prefetch {
 	u32 icc_level;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct ufs_stats {
+	u64 *tag_stats;
+	struct mutex lock;
+	bool enabled;
+};
+
+struct debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *tag_stats;
+};
+#endif
+
 /**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
@@ -378,6 +391,8 @@ struct ufs_init_prefetch {
  * @dev_cmd: ufs device management command information
  * @last_dme_cmd_tstamp: time stamp of the last completed DME command
  * @auto_bkops_enabled: to track whether bkops is enabled in device
+ * @ufs_stats: ufshcd statistics to be used via debugfs
+ * @debugfs_files: debugfs files associated with the ufs stats
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -503,6 +518,12 @@ struct ufs_hba {
 	/* Keeps information of the UFS device connected to this host */
 	struct ufs_dev_info dev_info;
 	bool auto_bkops_enabled;
+
+#ifdef CONFIG_DEBUG_FS
+	struct ufs_stats ufs_stats;
+	struct debugfs_files debugfs_files;
+#endif
+
 	struct ufs_vreg_info vreg_info;
 	struct list_head clk_list_head;
 
