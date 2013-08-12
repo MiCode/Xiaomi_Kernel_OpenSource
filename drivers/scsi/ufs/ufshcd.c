@@ -42,6 +42,28 @@
 
 #include "ufshcd.h"
 #include "unipro.h"
+#include "debugfs.h"
+
+#ifdef CONFIG_DEBUG_FS
+#define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
+	do {							\
+		if (hba->ufs_stats.enabled) {			\
+			mutex_lock(&hba->ufs_stats.lock);	\
+			hba->ufs_stats.tag_stats[tag]++;	\
+			mutex_unlock(&hba->ufs_stats.lock);	\
+		}						\
+	} while (0);
+
+#define UFSDBG_ADD_DEBUGFS(hba)		ufsdbg_add_debugfs(hba);
+
+#define UFSDBG_REMOVE_DEBUGFS(hba)	ufsdbg_remove_debugfs(hba);
+
+#else
+#define UFSHCD_UPDATE_TAG_STATS(hba, tag)	do {} while (0);
+#define UFSDBG_ADD_DEBUGFS(hba)		do {} while (0);
+#define UFSDBG_REMOVE_DEBUGFS(hba)		do {} while (0);
+
+#endif
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
@@ -785,6 +807,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	UFSHCD_UPDATE_TAG_STATS(hba, task_tag)
 }
 
 /**
@@ -5569,6 +5592,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	async_schedule(ufshcd_async_scan, hba);
 
+	UFSDBG_ADD_DEBUGFS(hba)
+
 	return 0;
 
 out_remove_scsi_host:
@@ -5578,6 +5603,7 @@ exit_gating:
 out_disable:
 	hba->is_irq_enabled = false;
 	scsi_host_put(host);
+	UFSDBG_REMOVE_DEBUGFS(hba)
 	ufshcd_hba_exit(hba);
 out_error:
 	return err;
