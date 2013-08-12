@@ -1819,13 +1819,17 @@ static int adreno_stop(struct kgsl_device *device)
  */
 int adreno_reset(struct kgsl_device *device)
 {
-	int ret = 0;
+	int ret = -EINVAL;
+	struct kgsl_mmu *mmu = &device->mmu;
 
-	/* Try soft reset first */
-	if (adreno_soft_reset(device) != 0) {
-		KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
-
-		/* If it failed, then pull the power */
+	/* Try soft reset first, for non mmu fault case only */
+	if (!atomic_read(&mmu->fault)) {
+		ret = adreno_soft_reset(device);
+		if (ret)
+			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+	}
+	if (ret) {
+		/* If soft reset failed or skipped, then pull the power */
 		ret = adreno_stop(device);
 		if (ret)
 			return ret;

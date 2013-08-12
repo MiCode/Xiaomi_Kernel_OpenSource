@@ -1105,10 +1105,6 @@ replay:
 	/* Reset the GPU */
 	mutex_lock(&device->mutex);
 
-	/* resume the MMU if it is stalled */
-	if (pagefault && device->mmu.mmu_ops->mmu_pagefault_resume != NULL)
-		device->mmu.mmu_ops->mmu_pagefault_resume(&device->mmu);
-
 	ret = adreno_reset(device);
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */
