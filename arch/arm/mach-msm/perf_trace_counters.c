@@ -106,7 +106,7 @@ int __init init_tracecounters(void)
 	dir = debugfs_create_dir("perf_debug_tp", NULL);
 	if (!dir)
 		return -ENOMEM;
-	file = debugfs_create_file("enabled", 0777, dir,
+	file = debugfs_create_file("enabled", 0660, dir,
 		&value, &fops_perftp);
 	if (!file) {
 		debugfs_remove(dir);
