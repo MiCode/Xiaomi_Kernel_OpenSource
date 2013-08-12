@@ -152,6 +152,19 @@ struct ufs_dev_cmd {
 	struct ufs_query query;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct ufs_stats {
+	u64 *tag_stats;
+	struct mutex lock;
+	bool enabled;
+};
+
+struct debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *tag_stats;
+};
+#endif
+
 /**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
@@ -190,6 +203,8 @@ struct ufs_dev_cmd {
  * @saved_uic_err: sticky UIC error mask
  * @dev_cmd: ufs device management command information
  * @auto_bkops_enabled: to track whether bkops is enabled in device
+ * @ufs_stats: ufshcd statistics to be used via debugfs
+ * @debugfs_files: debugfs files associated with the ufs stats
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -246,6 +261,11 @@ struct ufs_hba {
 	struct ufs_dev_cmd dev_cmd;
 
 	bool auto_bkops_enabled;
+
+#ifdef CONFIG_DEBUG_FS
+	struct ufs_stats ufs_stats;
+	struct debugfs_files debugfs_files;
+#endif
 };
 
 #define ufshcd_writel(hba, val, reg)	\
