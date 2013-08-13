@@ -31,6 +31,8 @@
 #define QPNP_LPG_CHANNEL_BASE	"qpnp-lpg-channel-base"
 #define QPNP_LPG_LUT_BASE	"qpnp-lpg-lut-base"
 
+#define QPNP_PWM_MODE_ONLY_SUB_TYPE	0x0B
+
 /* LPG Control for LPG_PATTERN_CONFIG */
 #define QPNP_RAMP_DIRECTION_SHIFT	4
 #define QPNP_RAMP_DIRECTION_MASK	0x10
@@ -51,9 +53,12 @@
 #define QPNP_SET_PWM_CLK_SUB_TYPE(val, clk, pwm_size) \
 do { \
 	val = (clk + 1) & QPNP_PWM_FREQ_CLK_SELECT_MASK_SUB_TYPE; \
-	val |= ((pwm_size > 6 ? QPNP_PWM_SIZE_9_BIT_SUB_TYPE : 0) << \
-		QPNP_PWM_SIZE_SHIFT_SUB_TYPE) & QPNP_PWM_SIZE_MASK_SUB_TYPE; \
+	val |= (((pwm_size > 6 ? QPNP_PWM_SIZE_9_BIT_SUB_TYPE : 0) << \
+		QPNP_PWM_SIZE_SHIFT_SUB_TYPE) & QPNP_PWM_SIZE_MASK_SUB_TYPE); \
 } while (0)
+
+#define QPNP_GET_PWM_SIZE_SUB_TYPE(reg) ((reg & QPNP_PWM_SIZE_MASK_SUB_TYPE) \
+				>> QPNP_PWM_SIZE_SHIFT_SUB_TYPE)
 
 #define QPNP_PWM_SIZE_SHIFT			4
 #define QPNP_PWM_SIZE_MASK			0x30
@@ -361,6 +366,9 @@ static int qpnp_set_control(bool pwm_hi, bool pwm_lo, bool pwm_out,
 #define QPNP_DISABLE_LPG_MODE		qpnp_set_control(0, 0, 0, 0, 1)
 #define QPNP_IS_PWM_CONFIG_SELECTED(val) (val & QPNP_PWM_SRC_SELECT_MASK)
 
+#define QPNP_ENABLE_PWM_MODE_ONLY_SUB_TYPE			0x80
+#define QPNP_DISABLE_PWM_MODE_ONLY_SUB_TYPE			0x0
+#define QPNP_PWM_MODE_ONLY_ENABLE_DISABLE_MASK_SUB_TYPE	0x80
 
 static inline void qpnp_convert_to_lut_flags(int *flags,
 				struct qpnp_lut_config *l_config)
@@ -581,14 +589,16 @@ static void qpnp_lpg_save_period(struct pwm_device *pwm)
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	struct qpnp_pwm_config	*pwm_config = &pwm->pwm_config;
 
-	if (chip->sub_type == 0x0B)
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
 		QPNP_SET_PWM_CLK_SUB_TYPE(val, pwm_config->period.clk,
 				pwm_config->period.pwm_size);
-	else
+		mask = QPNP_PWM_SIZE_MASK_SUB_TYPE |
+				QPNP_PWM_FREQ_CLK_SELECT_MASK_SUB_TYPE;
+	} else {
 		QPNP_SET_PWM_CLK(val, pwm_config->period.clk,
 				pwm_config->period.pwm_size);
-
-	mask = QPNP_PWM_SIZE_MASK | QPNP_PWM_FREQ_CLK_SELECT_MASK;
+		mask = QPNP_PWM_SIZE_MASK | QPNP_PWM_FREQ_CLK_SELECT_MASK;
+	}
 
 	qpnp_lpg_save(&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK],
 							mask, val);
@@ -612,9 +622,14 @@ static int qpnp_lpg_save_pwm_value(struct pwm_device *pwm)
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	int rc;
 
-	pwm_size = QPNP_GET_PWM_SIZE(
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE)
+		pwm_size = QPNP_GET_PWM_SIZE_SUB_TYPE(
+			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) ?
+				QPNP_MAX_PWM_BIT_SIZE : QPNP_MIN_PWM_BIT_SIZE;
+	else
+		pwm_size = QPNP_GET_PWM_SIZE(
 			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) +
-			QPNP_MIN_PWM_BIT_SIZE;
+				QPNP_MIN_PWM_BIT_SIZE;
 
 	max_pwm_value = (1 << pwm_size) - 1;
 
@@ -643,13 +658,14 @@ static int qpnp_lpg_save_pwm_value(struct pwm_device *pwm)
 	if (rc)
 		return rc;
 
-	if (chip->sub_type == 0x0B) {
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
 		value = QPNP_PWM_SYNC_VALUE & QPNP_PWM_SYNC_MASK;
 		rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
 			chip->spmi_dev->sid,
 			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 			SPMI_LPG_PWM_SYNC), &value, 1);
 	}
+
 	return rc;
 }
 
@@ -709,6 +725,9 @@ static int qpnp_configure_pwm_control(struct pwm_device *pwm)
 	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value, mask;
+
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE)
+		return 0;
 
 	value = QPNP_ENABLE_PWM_CONTROL;
 
@@ -1007,14 +1026,24 @@ static int qpnp_lpg_configure_pwm_state(struct pwm_device *pwm,
 	u8			value, mask;
 	int			rc;
 
-	if (state == QPNP_PWM_ENABLE)
-		value = qpnp_enable_pwm_mode(&pwm->pwm_config);
-	else
-		value = QPNP_DISABLE_PWM_MODE;
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
+		if (state == QPNP_PWM_ENABLE)
+			value = QPNP_ENABLE_PWM_MODE_ONLY_SUB_TYPE;
+		else
+			value = QPNP_DISABLE_PWM_MODE_ONLY_SUB_TYPE;
 
-	mask = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
-		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
-					QPNP_PWM_EN_RAMP_GEN_MASK;
+		mask = QPNP_PWM_MODE_ONLY_ENABLE_DISABLE_MASK_SUB_TYPE;
+	} else {
+		if (state == QPNP_PWM_ENABLE)
+			value = qpnp_enable_pwm_mode(&pwm->pwm_config);
+		else
+			value = QPNP_DISABLE_PWM_MODE;
+
+		mask = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
+			QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
+				QPNP_PWM_EN_RAMP_GEN_MASK;
+	}
+
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
@@ -1164,7 +1193,8 @@ static int _pwm_enable(struct pwm_device *pwm)
 	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	if (QPNP_IS_PWM_CONFIG_SELECTED(
-		chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL])) {
+		chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]) ||
+			chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED) {
 		rc = qpnp_lpg_configure_pwm_state(pwm, QPNP_PWM_ENABLE);
 	} else if (!(chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED)) {
 			rc = qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_ENABLE);
@@ -1329,7 +1359,8 @@ void pwm_disable(struct pwm_device *pwm)
 
 	if (pwm_config->in_use) {
 		if (QPNP_IS_PWM_CONFIG_SELECTED(
-			chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL])) {
+			chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]) ||
+				chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED) {
 			rc = qpnp_lpg_configure_pwm_state(pwm,
 						QPNP_PWM_DISABLE);
 		} else if (!(chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED)) {
