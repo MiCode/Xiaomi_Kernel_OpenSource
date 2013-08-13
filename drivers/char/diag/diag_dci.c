@@ -95,9 +95,9 @@ void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes)
 	cmd_code = *(uint8_t *)buf;
 
 	if (cmd_code == LOG_CMD_CODE) {
-		extract_dci_log(buf, APPS_DATA);
+		extract_dci_log(buf, recd_bytes, APPS_DATA);
 	} else if (cmd_code == EVENT_CMD_CODE) {
-		extract_dci_events(buf, APPS_DATA);
+		extract_dci_events(buf, recd_bytes, APPS_DATA);
 	} else {
 		pr_err("diag: In %s, unsupported command code: 0x%x, not log or event\n",
 			__func__, cmd_code);
@@ -117,18 +117,34 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	while (read_bytes < recd_bytes) {
 		/* read actual length of dci pkt */
 		dci_pkt_len = *(uint16_t *)(buf+2);
+
+		/* Check if the length of the current packet is lesser than the
+		 * remaining bytes in the received buffer. This includes space
+		 * for the Start byte (1), Version byte (1), length bytes (2)
+		 * and End byte (1)
+		 */
+		if ((dci_pkt_len+5) > (recd_bytes-read_bytes)) {
+			pr_err("diag: Invalid length in %s, len: %d, dci_pkt_len: %d",
+					__func__, recd_bytes, dci_pkt_len);
+			diag_dci_try_deactivate_wakeup_source(smd_info->ch);
+			return 0;
+		}
 		/* process one dci packet */
 		pr_debug("diag: bytes read = %d, single dci pkt len = %d\n",
 			read_bytes, dci_pkt_len);
 		/* print_hex_dump(KERN_DEBUG, "Single DCI packet :",
 		 DUMP_PREFIX_ADDRESS, 16, 1, buf, 5 + dci_pkt_len, 1); */
 		recv_pkt_cmd_code = *(uint8_t *)(buf+4);
-		if (recv_pkt_cmd_code == LOG_CMD_CODE)
-			extract_dci_log(buf+4, smd_info->peripheral);
-		else if (recv_pkt_cmd_code == EVENT_CMD_CODE)
-			extract_dci_events(buf+4, smd_info->peripheral);
-		else
-			extract_dci_pkt_rsp(smd_info, buf); /* pkt response */
+		if (recv_pkt_cmd_code == LOG_CMD_CODE) {
+			/* Don't include the 4 bytes for command code */
+			extract_dci_log(buf + 4, recd_bytes - 4,
+					smd_info->peripheral);
+		} else if (recv_pkt_cmd_code == EVENT_CMD_CODE) {
+			/* Don't include the 4 bytes for command code */
+			extract_dci_events(buf + 4, recd_bytes - 4,
+					   smd_info->peripheral);
+		} else
+			extract_dci_pkt_rsp(smd_info, buf, recd_bytes);
 		read_bytes += 5 + dci_pkt_len;
 		buf += 5 + dci_pkt_len; /* advance to next DCI pkt */
 	}
@@ -205,7 +221,8 @@ static int process_dci_apps_buffer(struct diag_dci_client_tbl *entry,
 	return ret;
 }
 
-void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
+void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf,
+									int len)
 {
 	int i = 0, index = -1, cmd_code_len = 1;
 	int curr_client_pid = 0, write_len;
@@ -216,8 +233,19 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 	recv_pkt_cmd_code = *(uint8_t *)(buf+4);
 	if (recv_pkt_cmd_code != DCI_PKT_RSP_CODE)
 		cmd_code_len = 4; /* delayed response */
-	write_len = (int)(*(uint16_t *)(buf+2)) - cmd_code_len;
 
+	/* Skip the Start(1) and the version(1) bytes */
+	write_len = (int)(*(uint16_t *)(buf+2));
+	/* Check if the length embedded in the packet is correct.
+	 * Include the start (1), version (1), length (2) and the end
+	 * (1) bytes while checking. Total = 5 bytes
+	 */
+	if ((write_len <= 0) && ((write_len+5) > len)) {
+		pr_err("diag: Invalid length in %s, len: %d, write_len: %d",
+						__func__, len, write_len);
+		return;
+	}
+	write_len -= cmd_code_len;
 	pr_debug("diag: len = %d\n", write_len);
 	/* look up DCI client with tag */
 	for (i = 0; i < dci_max_reg; i++) {
@@ -360,7 +388,7 @@ static void copy_dci_event_from_smd(uint8_t *event_data, int data_source,
 	mutex_unlock(&dci_health_mutex);
 }
 
-void extract_dci_events(unsigned char *buf, int data_source)
+void extract_dci_events(unsigned char *buf, int len, int data_source)
 {
 	uint16_t event_id, event_id_packet, length, temp_len;
 	uint8_t *event_mask_ptr, byte_mask, payload_len, payload_len_field;
@@ -374,8 +402,10 @@ void extract_dci_events(unsigned char *buf, int data_source)
 		pr_err("diag: Incoming dci event length is invalid\n");
 		return;
 	}
-	temp_len = 0;
-	buf = buf + 3; /* start of event series */
+	/* Move directly to the start of the event series. 1 byte for
+	 * event code and 2 bytes for the length field.
+	 */
+	temp_len = 3;
 	while (temp_len < (length - 1)) {
 		event_id_packet = *(uint16_t *)(buf + temp_len);
 		event_id = event_id_packet & 0x0FFF; /* extract 12 bits */
@@ -416,6 +446,22 @@ void extract_dci_events(unsigned char *buf, int data_source)
 			memcpy(event_data + 12, buf + temp_len + 2 +
 						timestamp_len, payload_len);
 		}
+
+		/* Before copying the data to userspace, check if we are still
+		 * within the buffer limit. This is an error case, don't count
+		 * it towards the health statistics.
+		 *
+		 * Here, the offset of 2 bytes(uint16_t) is for the
+		 * event_id_packet length
+		 */
+		temp_len += sizeof(uint16_t) + timestamp_len +
+						payload_len_field + payload_len;
+		if (temp_len > len) {
+			pr_err("diag: Invalid length in %s, len: %d, read: %d",
+						__func__, len, temp_len);
+			return;
+		}
+
 		/* 2 bytes for the event id & timestamp len is hard coded to 8,
 		   as individual events have full timestamp */
 		*(uint16_t *)(event_data) = 10 +
@@ -451,7 +497,6 @@ void extract_dci_events(unsigned char *buf, int data_source)
 				}
 			}
 		}
-		temp_len += 2 + timestamp_len + payload_len_field + payload_len;
 	}
 }
 
@@ -500,17 +545,26 @@ int dci_apps_write(struct diag_dci_client_tbl *entry)
 	return err;
 }
 
-static void copy_dci_log_from_apps(unsigned char *buf,
+static void copy_dci_log_from_apps(unsigned char *buf, int len,
 					struct diag_dci_client_tbl *entry)
 {
 	int ret = 0;
-	uint16_t log_length = 0;
-	uint16_t total_length = 4 + log_length;
+	uint16_t log_length, total_length = 0;
 
 	if (!buf || !entry)
 		return;
 
 	log_length = *(uint16_t *)(buf + 2);
+	total_length = 4 + log_length;
+
+	/* Check if we are within the len. The check should include the
+	 * first 4 bytes for the Cmd Code(2) and the length bytes (2)
+	 */
+	if (total_length > len) {
+		pr_err("diag: Invalid length in %s, log_len: %d, len: %d",
+				__func__, log_length, len);
+		return;
+	}
 
 	mutex_lock(&dci_health_mutex);
 	mutex_lock(&entry->data_mutex);
@@ -544,11 +598,20 @@ static void copy_dci_log_from_apps(unsigned char *buf,
 	return;
 }
 
-static void copy_dci_log_from_smd(unsigned char *buf, int data_source,
+static void copy_dci_log_from_smd(unsigned char *buf, int len, int data_source,
 					struct diag_dci_client_tbl *entry)
 {
 	uint16_t log_length = *(uint16_t *)(buf + 2);
 	(void)data_source;
+
+	/* Check if we are within the len. The check should include the
+	 * first 4 bytes for the Log code(2) and the length bytes (2)
+	 */
+	if ((log_length + sizeof(uint16_t) + 2) > len) {
+		pr_err("diag: Invalid length in %s, log_len: %d, len: %d",
+				__func__, log_length, len);
+		return;
+	}
 
 	mutex_lock(&dci_health_mutex);
 	mutex_lock(&entry->data_mutex);
@@ -570,14 +633,24 @@ static void copy_dci_log_from_smd(unsigned char *buf, int data_source,
 	mutex_unlock(&dci_health_mutex);
 }
 
-void extract_dci_log(unsigned char *buf, int data_source)
+void extract_dci_log(unsigned char *buf, int len, int data_source)
 {
 	uint16_t log_code, item_num;
 	uint8_t equip_id, *log_mask_ptr, byte_mask;
-	unsigned int i, byte_index, byte_offset = 0;
+	unsigned int i, byte_index, byte_offset = 0, read_bytes = 0;
 	struct diag_dci_client_tbl *entry;
 
+	/* The first six bytes for the incoming log packet contains
+	 * Command code (2), the length of the packet (2) and the length
+	 * of the log (2)
+	 */
 	log_code = *(uint16_t *)(buf + 6);
+	read_bytes += sizeof(uint16_t) + 6;
+	if (read_bytes > len) {
+		pr_err("diag: Invalid length in %s, len: %d, read: %d",
+						__func__, len, read_bytes);
+		return;
+	}
 	equip_id = LOG_GET_EQUIP_ID(log_code);
 	item_num = LOG_GET_ITEM_NUM(log_code);
 	byte_index = item_num/8 + 2;
@@ -592,22 +665,22 @@ void extract_dci_log(unsigned char *buf, int data_source)
 
 	/* parse through log mask table of each client and check mask */
 	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-		if (driver->dci_client_tbl[i].client) {
-			entry = &(driver->dci_client_tbl[i]);
-			log_mask_ptr = entry->dci_log_mask;
-			if (!log_mask_ptr)
-				return;
-			log_mask_ptr = log_mask_ptr + byte_offset;
-			if (*log_mask_ptr & byte_mask) {
-				pr_debug("\t log code %x needed by client %d",
-					 log_code, entry->client->tgid);
-				/* copy to client buffer */
-				if (data_source == APPS_DATA) {
-					copy_dci_log_from_apps(buf, entry);
-				} else {
-					copy_dci_log_from_smd(buf, data_source,
-									entry);
-				}
+		if (!driver->dci_client_tbl[i].client)
+			continue;
+		entry = &(driver->dci_client_tbl[i]);
+		log_mask_ptr = entry->dci_log_mask;
+		if (!log_mask_ptr)
+			return;
+		log_mask_ptr = log_mask_ptr + byte_offset;
+		if (*log_mask_ptr & byte_mask) {
+			pr_debug("\t log code %x needed by client %d",
+				 log_code, entry->client->tgid);
+			/* copy to client buffer */
+			if (data_source == APPS_DATA) {
+				copy_dci_log_from_apps(buf, len, entry);
+			} else {
+				copy_dci_log_from_smd(buf, len, data_source,
+								entry);
 			}
 		}
 	}
