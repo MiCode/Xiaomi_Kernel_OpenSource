@@ -126,6 +126,7 @@ SMSC HSIC HUB
 
 Required properties :
 - compatible : should be "qcom,hsic-smsc-hub"
+- smsc,model-id : should be either <3503> or <4604> depending on hub model
 - smsc,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
   in Documentation/devicetree/bindings/gpio/gpio.txt.
   Required "gpio-name" is "reset" and optionally - "refclk", "int".
@@ -137,6 +138,7 @@ Required properties :
 Example SMSC HSIC HUB :
 	hsic_hub {
 		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <4604>;
 		ranges;
 		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
 		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;

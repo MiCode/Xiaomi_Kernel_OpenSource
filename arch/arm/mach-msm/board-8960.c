@@ -75,7 +75,7 @@
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
 
-#include <linux/smsc3503.h>
+#include <linux/smsc_hub.h>
 #include <linux/msm_ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
