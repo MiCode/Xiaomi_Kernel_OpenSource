@@ -217,7 +217,7 @@ struct msm_nand_sps_info {
  */
 struct flash_identification {
 	uint32_t flash_id;
-	uint32_t density;
+	uint64_t density;
 	uint32_t widebus;
 	uint32_t pagesize;
 	uint32_t blksize;
@@ -2115,7 +2115,7 @@ int msm_nand_scan(struct mtd_info *mtd)
 			supported_flash->oobsize = flashdev->pagesize >> 5;
 		}
 		supported_flash->flash_id = flash_id;
-		supported_flash->density = flashdev->chipsize << 20;
+		supported_flash->density = ((uint64_t)flashdev->chipsize) << 20;
 	}
 
 	if (dev_found) {
