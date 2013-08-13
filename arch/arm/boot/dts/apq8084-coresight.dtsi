@@ -17,8 +17,6 @@
 		      <0xfc37c000 0x3000>;
 		reg-names = "tmc-base", "bam-base";
 
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 		qcom,memory-size = <0x100000>;
 
 		coresight-id = <0>;
