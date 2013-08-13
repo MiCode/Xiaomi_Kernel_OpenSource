@@ -4354,7 +4354,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 
 	*rc = qce_enable_clk(pce_dev);
 	if (*rc)
-		goto err;
+		goto err_enable_clk;
 
 	if (_probe_ce_engine(pce_dev)) {
 		*rc = -ENXIO;
@@ -4363,12 +4363,17 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	*rc = 0;
 
 	qce_init_ce_cfg_val(pce_dev);
-	qce_sps_init(pce_dev);
+	*rc  = qce_sps_init(pce_dev);
+	if (*rc)
+		goto err;
 	qce_setup_ce_sps_data(pce_dev);
 	qce_disable_clk(pce_dev);
 
 	return pce_dev;
 err:
+	qce_disable_clk(pce_dev);
+
+err_enable_clk:
 	__qce_deinit_clk(pce_dev);
 
 err_mem:
