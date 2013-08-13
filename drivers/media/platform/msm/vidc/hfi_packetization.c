@@ -1160,6 +1160,19 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_PARAM_VDEC_CONCEAL_COLOR:
+	{
+		struct hfi_conceal_color *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VDEC_CONCEAL_COLOR;
+		hfi = (struct hfi_conceal_color *) &pkt->rg_property_data[1];
+		if (hfi)
+			hfi->conceal_color =
+				((struct hfi_conceal_color *) pdata)->
+				conceal_color;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	case HAL_CONFIG_VPE_OPERATIONS:
 		break;
 	case HAL_PARAM_VENC_INTRA_REFRESH:
