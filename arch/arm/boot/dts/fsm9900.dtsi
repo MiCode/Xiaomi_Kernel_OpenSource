@@ -78,8 +78,6 @@
 		compatible = "qcom,cache_dump";
 		qcom,l1-dump-size = <0x100000>;
 		qcom,l2-dump-size = <0x500000>;
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x600000>; /* 6M EBI1 buffer */
 	};
 
 	qcom,ion {
