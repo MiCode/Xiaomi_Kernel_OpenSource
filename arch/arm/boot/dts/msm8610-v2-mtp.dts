@@ -19,8 +19,7 @@
 / {
 	model = "Qualcomm MSM 8610v2 MTP";
 	compatible = "qcom,msm8610-mtp", "qcom,msm8610", "qcom,mtp";
-	qcom,msm-id = <147 8 0x10001>, <165 8 0x10001>, <161 8 0x10001>, <162 8 0x10001>,
-		      <163 8 0x10001>, <164 8 0x10001>, <166 8 0x10001>;
+	qcom,board-id = <8 0>;
 };
 
 
