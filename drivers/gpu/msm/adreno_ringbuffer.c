@@ -548,6 +548,28 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
 
+	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
+		return -EINVAL;
+
+	rb->global_ts++;
+
+	/* If this is a internal IB, use the global timestamp for it */
+	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
+		timestamp = rb->global_ts;
+		context_id = KGSL_MEMSTORE_GLOBAL;
+	} else {
+		context_id = drawctxt->base.id;
+	}
+
+	/*
+	 * Note that we cannot safely take drawctxt->mutex here without
+	 * potential mutex inversion with device->mutex which is held
+	 * here. As a result, any other code that accesses this variable
+	 * must also use device->mutex.
+	 */
+	if (drawctxt)
+		drawctxt->internal_timestamp = rb->global_ts;
+
 	/*
 	 * If in stream ib profiling is enabled and there are counters
 	 * assigned, then space needs to be reserved for profiling.  This
@@ -559,20 +581,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	profile_ready = !adreno_is_a2xx(adreno_dev) &&
 		adreno_profile_assignments_ready(&adreno_dev->profile) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE);
-
-	/* The global timestamp always needs to be incremented */
-	rb->global_ts++;
-
-	/* If this is a internal IB, use the global timestamp for it */
-	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
-		timestamp = rb->global_ts;
-		context_id = KGSL_MEMSTORE_GLOBAL;
-	} else {
-		context_id = drawctxt->base.id;
-	}
-
-	if (drawctxt)
-		drawctxt->internal_timestamp = rb->global_ts;
 
 	/* reserve space to temporarily turn off protected mode
 	*  error checking if needed

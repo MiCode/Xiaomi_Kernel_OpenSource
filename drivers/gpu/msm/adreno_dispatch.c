@@ -173,9 +173,9 @@ done:
  *
  * Failure to submit a command to the ringbuffer isn't the fault of the command
  * being submitted so if a failure happens, push it back on the head of the the
- * context queue to be reconsidered again
+ * context queue to be reconsidered again unless the context got detached.
  */
-static inline void adreno_dispatcher_requeue_cmdbatch(
+static inline int adreno_dispatcher_requeue_cmdbatch(
 		struct adreno_context *drawctxt, struct kgsl_cmdbatch *cmdbatch)
 {
 	unsigned int prev;
@@ -184,7 +184,7 @@ static inline void adreno_dispatcher_requeue_cmdbatch(
 	if (kgsl_context_detached(&drawctxt->base) ||
 		drawctxt->state == ADRENO_CONTEXT_STATE_INVALID) {
 		mutex_unlock(&drawctxt->mutex);
-		return;
+		return -EINVAL;
 	}
 
 	prev = drawctxt->cmdqueue_head - 1;
@@ -205,6 +205,7 @@ static inline void adreno_dispatcher_requeue_cmdbatch(
 	/* Reset the command queue head to reflect the newly requeued change */
 	drawctxt->cmdqueue_head = prev;
 	mutex_unlock(&drawctxt->mutex);
+	return 0;
 }
 
 /**
@@ -283,7 +284,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	if (ret) {
 		dispatcher->inflight--;
 		KGSL_DRV_ERR(device,
-			"Unable to submit command to the ringbuffer\n");
+			"Unable to submit command to the ringbuffer %d\n", ret);
 		return ret;
 	}
 
@@ -381,8 +382,10 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		 * conditions improve
 		 */
 		if (ret) {
-			adreno_dispatcher_requeue_cmdbatch(drawctxt, cmdbatch);
-			requeued = 1;
+			ret = adreno_dispatcher_requeue_cmdbatch(drawctxt,
+				cmdbatch);
+			if (!ret)
+				requeued = 1;
 			break;
 		}
 		count++;
@@ -657,16 +660,19 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 			mutex_unlock(&drawctxt->mutex);
 			return (ret == 0) ? -ETIMEDOUT : (int) ret;
 		}
+	}
+	/*
+	 * Account for the possiblity that the context got invalidated
+	 * while we were sleeping
+	 */
 
-		/*
-		 * Account for the possiblity that the context got invalidated
-		 * while we were sleeping
-		 */
-
-		if (drawctxt->state == ADRENO_CONTEXT_STATE_INVALID) {
-			mutex_unlock(&drawctxt->mutex);
-			return -EDEADLK;
-		}
+	if (drawctxt->state == ADRENO_CONTEXT_STATE_INVALID) {
+		mutex_unlock(&drawctxt->mutex);
+		return -EDEADLK;
+	}
+	if (kgsl_context_detached(&drawctxt->base)) {
+		mutex_unlock(&drawctxt->mutex);
+		return -EINVAL;
 	}
 
 	ret = get_timestamp(drawctxt, cmdbatch, timestamp);

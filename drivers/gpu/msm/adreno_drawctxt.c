@@ -534,6 +534,13 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	}
 
 	mutex_unlock(&drawctxt->mutex);
+	/*
+	 * internal_timestamp is set in adreno_ringbuffer_addcmds,
+	 * which holds the device mutex. The entire context destroy
+	 * process requires the device mutex as well. But lets
+	 * make sure we notice if the locking changes.
+	 */
+	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	/* Wait for the last global timestamp to pass before continuing */
 	ret = adreno_drawctxt_wait_global(adreno_dev, context,
