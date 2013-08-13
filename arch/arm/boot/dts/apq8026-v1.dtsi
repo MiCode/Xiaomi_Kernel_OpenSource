@@ -21,6 +21,8 @@
 / {
 	model = "Qualcomm APQ 8026";
 	compatible = "qcom,apq8026";
+	qcom,msm-id = <199 0>,
+		      <219 0x20000>;
 };
 
 &tsens {
