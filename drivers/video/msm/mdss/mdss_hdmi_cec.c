@@ -22,6 +22,7 @@
 
 /* Reference: HDMI 1.4a Specification section 7.1 */
 #define RETRANSMIT_MAX_NUM	5
+#define MAX_OPERAND_SIZE	15
 
 /*
  * Ref. HDMI 1.4a: Supplement-1 CEC Section 6, 7
@@ -30,7 +31,7 @@ struct hdmi_cec_msg {
 	u8 sender_id;
 	u8 recvr_id;
 	u8 opcode;
-	u8 operand[15];
+	u8 operand[MAX_OPERAND_SIZE];
 	u8 frame_size;
 	u8 retransmit;
 };
@@ -738,6 +739,10 @@ static ssize_t hdmi_wta_cec_msg(struct device *dev,
 	}
 	spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 
+	if (msg->frame_size > MAX_OPERAND_SIZE) {
+		DEV_ERR("%s: msg frame too big!\n", __func__);
+		return -EINVAL;
+	}
 	rc = hdmi_cec_msg_send(cec_ctrl, msg);
 	if (rc) {
 		DEV_ERR("%s: hdmi_cec_msg_send failed\n", __func__);
