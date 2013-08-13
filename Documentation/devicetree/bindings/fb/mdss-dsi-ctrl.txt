@@ -12,6 +12,7 @@ Required properties:
 - vdda-supply:				Phandle for vreg regulator device node.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+- qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
 - qcom,platform-regulator-settings:	An array of length 7 that specifies the PHY
 					regulator settings.
 - qcom,platform-strength-ctrl:		An array of length 2 that specifies the PHY
@@ -69,6 +70,7 @@ Example:
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&msmgpio 25 1>;
 		qcom,platform-te-gpio = <&msmgpio 24 0>;
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
