@@ -366,6 +366,16 @@ int mdss_register_panel(struct platform_device *pdev,
 struct mdss_panel_cfg *mdss_panel_intf_type(int intf_val);
 
 /**
+ * mdss_panel_get_boot_cfg() - checks if bootloader config present
+ *
+ * Function returns true if bootloader has configured the parameters
+ * for primary controller and panel config data.
+ *
+ * returns true if bootloader configured, else false
+ */
+int mdss_panel_get_boot_cfg(void);
+
+/**
  * mdss_is_ready() - checks if mdss is probed and ready
  *
  * Checks if mdss resources have been initialized
