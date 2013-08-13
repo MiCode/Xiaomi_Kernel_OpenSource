@@ -802,6 +802,8 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
 {
 	int i;
+	uint8_t num_stats_type =
+		vfe_dev->hw_info->stats_hw_info->num_stats_type;
 	struct msm_vfe_error_info *error_info = &vfe_dev->error_info;
 	static DEFINE_RATELIMIT_STATE(rs,
 		DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
@@ -825,7 +827,7 @@ void msm_isp_process_error_info(struct vfe_device *vfe_dev)
 				error_info->stream_framedrop_count[i] = 0;
 			}
 		}
-		for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+		for (i = 0; i < num_stats_type; i++) {
 			if (error_info->stats_framedrop_count[i] != 0 &&
 				__ratelimit(&rs_stats)) {
 				pr_err("%s: Stats stream[%d]: dropped %d frames\n",
