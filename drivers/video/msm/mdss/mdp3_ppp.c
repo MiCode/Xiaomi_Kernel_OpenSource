@@ -344,7 +344,7 @@ void mdp3_ppp_kickoff(void)
 int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 {
 	struct mdss_panel_info *panel_info = mfd->panel_info;
-	int ab = 0, ib = 0;
+	uint64_t ab = 0, ib = 0;
 	int rate = 0;
 
 	if (on_off) {
