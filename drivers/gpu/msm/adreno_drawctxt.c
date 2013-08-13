@@ -353,6 +353,18 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	/* Clear the pending queue */
 	mutex_lock(&drawctxt->mutex);
 
+	/*
+	 * set the timestamp to the last value since the context is invalidated
+	 * and we want the pending events for this context to go away
+	 */
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
+			drawctxt->timestamp);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
+			drawctxt->timestamp);
+
 	while (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
 		struct kgsl_cmdbatch *cmdbatch =
 			drawctxt->cmdqueue[drawctxt->cmdqueue_head];
@@ -545,6 +557,14 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	/* Wait for the last global timestamp to pass before continuing */
 	ret = adreno_drawctxt_wait_global(adreno_dev, context,
 		drawctxt->internal_timestamp, 10 * 1000);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
+			drawctxt->timestamp);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
+			drawctxt->timestamp);
 
 	adreno_profile_process_results(device);
 
