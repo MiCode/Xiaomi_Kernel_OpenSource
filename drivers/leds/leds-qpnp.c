@@ -259,8 +259,10 @@ enum led_mode {
 };
 
 static u8 wled_debug_regs[] = {
+	/* brightness registers */
+	0x40, 0x41, 0x42, 0x43, 0x44, 0x45,
 	/* common registers */
-	0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4d, 0x4e, 0x4f,
+	0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
 	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
 	/* LED1 */
 	0x60, 0x61, 0x62, 0x63, 0x66,
@@ -1384,7 +1386,7 @@ static void qpnp_led_turn_off(struct qpnp_led_data *led)
 static int qpnp_wled_init(struct qpnp_led_data *led)
 {
 	int rc, i;
-	u8 num_wled_strings;
+	u8 num_wled_strings, val = 0;
 
 	num_wled_strings = led->wled_cfg->num_strings;
 
@@ -1456,10 +1458,10 @@ static int qpnp_wled_init(struct qpnp_led_data *led)
 
 	/* program current sink */
 	if (led->wled_cfg->cs_out_en) {
+		for (i = 0; i < led->wled_cfg->num_strings; i++)
+			val |= 1 << i;
 		rc = qpnp_led_masked_write(led, WLED_CURR_SINK_REG(led->base),
-			WLED_CURR_SINK_MASK,
-			(((1 << led->wled_cfg->num_strings) - 1)
-			<< WLED_CURR_SINK_SHFT));
+			WLED_CURR_SINK_MASK, (val << WLED_CURR_SINK_SHFT));
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"WLED curr sink reg write failed(%d)\n", rc);
