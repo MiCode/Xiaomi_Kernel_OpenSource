@@ -86,6 +86,7 @@
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&pm8941_gpios 19 1>;
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
 		qcom,platform-reset-sequence = <1 20 0 200 1 20 2>;
@@ -141,6 +142,7 @@
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
