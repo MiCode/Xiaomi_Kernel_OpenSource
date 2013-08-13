@@ -23,6 +23,10 @@ Required properties:
  - focaltech,display-coords : display coordinates in pixels. It is a four
 				tuple consisting of min x, min y, max x and
 				max y values
+ - focaltech,name	: name of the controller
+ - focaltech,group-id	: group id of this device
+ - focaltech,hard-reset-delay-ms : hard reset delay in ms
+ - focaltech,soft-reset-delay-ms : soft reset delay in ms
 
 Optional properties:
 
@@ -33,21 +37,43 @@ Optional properties:
  - focaltech,no-force-update : to specify force update is allowed
  - focaltech,button-map : button map of key codes. The number
 				of key codes depend on panel
-
+ - focaltech,fw-name	: specify the firmware file name
+ - focaltech,fw-delay-aa-ms : specify the "aa" delay in ms for firmware upgrade
+ - focaltech,fw-delay-55-ms : specify the "55" delay in ms for firmware upgrade
+ - focaltech,fw-upgrade-id1 : specify the upgrade id1 for firmware upgrade
+ - focaltech,fw-upgrade-id2 : specify the upgrade id2 for firmware upgrade
+ - focaltech,fw-delay-readid-ms : specify the read id delay in ms for firmware upgrade
+ - focaltech,fw-delay-era-flsh-ms : specify the erase flash delay in ms for firmware upgrade
+ - focaltech,fw-auto-cal	: specify whether calibration is needed after firmware upgrade
 Example:
-	i2c@f9924000 {
-		ft5x06_ts@38 {
+	i2c@f9923000{
+		focaltech@38{
 			compatible = "focaltech,5x06";
 			reg = <0x38>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <61 0x2>;
-			vdd-supply = <&pm8941_l22>;
-			vcc_i2c-supply = <&pm8941_s3>;
-			focaltech,reset-gpio = <&msmgpio 60 0x00>;
-			focaltech,irq-gpio = <&msmgpio 61 0x00>;
-			focaltech,panel-coords = <0 0 480 800>;
+			interrupts = <1 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vcc_i2c-supply = <&pm8110_l14>;
+			focaltech,name = "ft6x06";
+			focaltech,family-id = <0x06>;
+			focaltech,reset-gpio = <&msmgpio 0 0x00>;
+			focaltech,irq-gpio = <&msmgpio 1 0x00>;
 			focaltech,display-coords = <0 0 480 800>;
-			focaltech,button-map= <158 102 139 217>;
-			focaltech,family-id = <0x0a>;
+			focaltech,panel-coords = <0 0 480 800>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay = <20>;
+			focaltech,soft-reset-delay = <150>;
+			focaltech,num-max-touches = <2>;
+			focaltech,fw-name = "ft_8610_qrd_fw.bin";
+			focaltech,fw-delay-aa-ms = <100>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x79>;
+			focaltech,fw-upgrade-id2 = <0x08>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
 		};
 	};

@@ -37,6 +37,7 @@
 			interrupts = <1 0x2>;
 			vdd-supply = <&pm8110_l19>;
 			vcc_i2c-supply = <&pm8110_l14>;
+			focaltech,name = "ft6x06";
 			focaltech,family-id = <0x06>;
 			focaltech,reset-gpio = <&msmgpio 0 0x00>;
 			focaltech,irq-gpio = <&msmgpio 1 0x00>;
@@ -45,6 +46,17 @@
 			focaltech,button-map= <139 102 158>;
 			focaltech,no-force-update;
 			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <20>;
+			focaltech,soft-reset-delay-ms = <150>;
+			focaltech,num-max-touches = <2>;
+			focaltech,fw-name = "ft_8610_qrd_fw.bin";
+			focaltech,fw-delay-aa-ms = <100>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x79>;
+			focaltech,fw-upgrade-id2 = <0x08>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
 		};
 	};
 
