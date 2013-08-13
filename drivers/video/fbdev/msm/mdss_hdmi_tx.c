@@ -493,7 +493,7 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -508,7 +508,8 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 8) ? 8 : ret;
 
-	memset(hdmi_ctrl->spd_vendor_name, 0, 8);
+	sz = sizeof(hdmi_ctrl->spd_vendor_name);
+	memset(hdmi_ctrl->spd_vendor_name, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -522,6 +523,7 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_vendor_name[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_vendor_name);
 
@@ -549,7 +551,7 @@ static ssize_t hdmi_tx_sysfs_rda_vendor_name(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -564,7 +566,8 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 16) ? 16 : ret;
 
-	memset(hdmi_ctrl->spd_product_description, 0, 16);
+	sz = sizeof(hdmi_ctrl->spd_product_description);
+	memset(hdmi_ctrl->spd_product_description, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -578,6 +581,7 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_product_description[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_product_description);
 
