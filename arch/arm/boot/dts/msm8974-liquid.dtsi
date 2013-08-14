@@ -24,9 +24,9 @@
 		status = "ok";
 	};
 
-	qcom,mdss_edp@fd923400 {
-		status = "ok";
-	};
+        qcom,mdss_mdp@fd900000 {
+                qcom,mdss-pref-prim-intf = "edp";
+        };
 
 	i2c@f9967000 {
 		battery@b {

@@ -189,7 +189,6 @@
 		gpio-panel-pwm = <&pm8941_gpios 36 0>;
 		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
 		qcom,panel-pwm-period = <53>;
-		status = "disable";
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		gpio-panel-hpd = <&msmgpio 102 0>;
 	};
