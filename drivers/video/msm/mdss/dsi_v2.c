@@ -139,8 +139,7 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct device_node *np = pdev->dev.of_node;
-	int rc = 0, i = 0;
-	u32 tmp[9];
+	int rc = 0;
 
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(np,
 		"qcom,platform-enable-gpio", 0);
@@ -199,15 +198,6 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 					ctrl_pdata->disp_te_gpio);
 		}
 	}
-
-	rc = of_property_read_u32_array(np,
-		"qcom,platform-reset-sequence", tmp, MDSS_DSI_RST_SEQ_LEN);
-	if (rc)
-		pr_err("%s:%d, unable to read gpio reset sequence\n",
-						__func__, __LINE__);
-	else
-		for (i = 0; i < MDSS_DSI_RST_SEQ_LEN; ++i)
-			ctrl_pdata->rst_seq[i] = tmp[i];
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(np,
 					"qcom,platform-reset-gpio", 0);

@@ -24,6 +24,7 @@ struct panel_id {
 };
 
 #define DEFAULT_FRAME_RATE	60
+#define MDSS_DSI_RST_SEQ_LEN	10
 
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
@@ -285,6 +286,8 @@ struct mdss_panel_info {
 	u32 frame_count;
 	u32 is_3d_panel;
 	u32 out_format;
+	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
+	u32 rst_seq_len;
 	u32 vic; /* video identification code */
 	int bklt_ctrl;	/* backlight ctrl */
 	int pwm_pmic_gpio;
