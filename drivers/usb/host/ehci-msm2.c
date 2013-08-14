@@ -819,6 +819,9 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 		return 0;
 	}
 
+	/* Handles race with Async interrupt */
+	disable_irq(hcd->irq);
+
 	if (mhcd->pmic_gpio_dp_irq_enabled) {
 		disable_irq_wake(mhcd->pmic_gpio_dp_irq);
 		disable_irq_nosync(mhcd->pmic_gpio_dp_irq);
@@ -892,6 +895,7 @@ skip_phy_resume:
 		pm_runtime_put_noidle(mhcd->dev);
 	}
 
+	enable_irq(hcd->irq);
 	dev_info(mhcd->dev, "EHCI USB exited from low power mode\n");
 
 	return 0;
