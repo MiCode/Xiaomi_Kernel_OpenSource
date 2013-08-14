@@ -1,0 +1,130 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>,
+			<0xfd924000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys";
+		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
+
+		qcom,max-clk-rate = <320000000>;
+		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600>;
+		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200>;
+		qcom,mdss-pipe-dma-off = <0x00002A00>;
+		qcom,mdss-pipe-vig-fetch-id = <1 4>;
+		qcom,mdss-pipe-rgb-fetch-id = <16 17>;
+		qcom,mdss-pipe-dma-fetch-id = <10>;
+		qcom,mdss-smp-data = <12 8192>;
+
+		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800>;
+		qcom,mdss-mixer-intf-off = <0x00003200 0x00003600>;
+		qcom,mdss-mixer-wb-off = <0x00003E00>;
+		qcom,mdss-dspp-off = <0x00004600 0x00004A00>;
+		qcom,mdss-wb-off = <0x00011100 0x00011500 0x00011900>;
+		qcom,mdss-intf-off = <0x00012700>;
+
+		qcom,mdss-has-wfd-blk;
+		qcom,vbif-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>,
+				     <0x00F0 0x00000030>,
+				     <0x0124 0x00000001>,
+				     <0x0178 0x00000FFF>,
+				     <0x017C 0x0FFF0FFF>,
+				     <0x0160 0x22222222>,
+				     <0x0164 0x00002222>;
+		qcom,mdp-settings = <0x02E0 0x000000E9>,
+				    <0x02E4 0x00000055>,
+				    <0x03AC 0xC0000CCC>,
+				    <0x03B4 0xC0000CCC>,
+				    <0x03BC 0x00CCCCCC>,
+				    <0x04A8 0x0CCCC0C0>,
+				    <0x04B0 0xCCCCC0C0>,
+				    <0x04B8 0xCCCCC000>;
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+			qcom,memory-reservation-type = "EBI1";
+			qcom,memory-reservation-size = <0x800000>;
+		};
+
+		mdss_fb1: qcom,mdss_fb_wfd {
+			cell-index = <1>;
+			compatible = "qcom,mdss-fb";
+		};
+	};
+
+	mdss_dsi0: qcom,mdss_dsi@fd922800 {
+		compatible = "qcom,mdss-dsi-ctrl";
+		label = "MDSS DSI CTRL->0";
+		cell-index = <0>;
+		reg = <0xfd922800 0x600>;
+		vdd-supply = <&pma8084_l22>;
+		vddio-supply = <&pma8084_l12>;
+		vdda-supply = <&pma8084_l2>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,platform-reset-gpio = <&msmgpio 20 1>;
+		qcom,platform-enable-gpio = <&msmgpio 82 1>;
+		qcom,platform-reset-sequence = <1 20 0 200 1 20 2>;
+		qcom,platform-strength-ctrl = [ff 06];
+		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
+		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+			00 00 00 00 05 00 00 01 97
+			00 00 00 00 0a 00 00 01 97
+			00 00 00 00 0f 00 00 01 97
+			00 c0 00 00 00 00 00 01 bb];
+		qcom,platform-supply-entry1 {
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <3000000>;
+				qcom,supply-max-voltage = <3000000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+		};
+		qcom,platform-supply-entry2 {
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+		};
+		qcom,platform-supply-entry3 {
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+		};
+	};
+
+	qcom,mdss_wb_panel {
+		compatible = "qcom,mdss_wb";
+		qcom,mdss_pan_res = <1920 1080>;
+		qcom,mdss_pan_bpp = <24>;
+		qcom,mdss-fb-map = <&mdss_fb1>;
+	};
+};

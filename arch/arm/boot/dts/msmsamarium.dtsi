@@ -22,6 +22,7 @@
 	};
 };
 
+/include/ "msm-gdsc.dtsi"
 /include/ "msmsamarium-ion.dtsi"
 /include/ "msmsamarium-smp2p.dtsi"
 
@@ -295,3 +296,4 @@
 
 /include/ "msm-pma8084.dtsi"
 /include/ "msmsamarium-regulator.dtsi"
+/include/ "msmsamarium-mdss.dtsi"
