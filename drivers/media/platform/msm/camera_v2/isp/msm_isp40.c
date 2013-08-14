@@ -701,8 +701,9 @@ static void msm_vfe40_clear_framedrop(struct vfe_device *vfe_dev,
 static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
 {
-	int bpp, bpp_reg = 0;
-	uint32_t io_format_reg;
+	int bpp, bpp_reg = 0, pack_reg = 0;
+	enum msm_isp_pack_fmt pack_fmt = 0;
+	uint32_t io_format_reg; /*io format register bit*/
 	bpp = msm_isp_get_bit_per_pixel(io_format);
 
 	switch (bpp) {
@@ -716,6 +717,35 @@ static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 		bpp_reg = 1 << 1;
 		break;
 	}
+
+	if (stream_src == IDEAL_RAW) {
+		/*use io_format(v4l2_pix_fmt) to get pack format*/
+		pack_fmt = msm_isp_get_pack_format(io_format);
+		switch (pack_fmt) {
+		case QCOM:
+			pack_reg = 0x0;
+			break;
+		case MIPI:
+			pack_reg = 0x1;
+			break;
+		case DPCM6:
+			pack_reg = 0x2;
+			break;
+		case DPCM8:
+			pack_reg = 0x3;
+			break;
+		case PLAIN8:
+			pack_reg = 0x4;
+			break;
+		case PLAIN16:
+			pack_reg = 0x5;
+			break;
+		default:
+			pr_err("%s: invalid pack fmt!\n", __func__);
+			return;
+		}
+	}
+
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
 	switch (stream_src) {
 	case PIX_ENCODER:
@@ -726,7 +756,7 @@ static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 		break;
 	case IDEAL_RAW:
 		io_format_reg &= 0xFFFFFFC8;
-		io_format_reg |= bpp_reg << 4;
+		io_format_reg |= bpp_reg << 4 | pack_reg;
 		break;
 	case RDI_INTF_0:
 	case RDI_INTF_1:
