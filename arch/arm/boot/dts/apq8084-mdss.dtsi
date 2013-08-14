@@ -120,7 +120,6 @@
 		vdda-supply = <&pma8084_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 
-		qcom,platform-reset-sequence = <1 20 0 200 1 20 2>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
