@@ -1028,7 +1028,7 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
-	qcom,msm-mem-hole {
+	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
 		qcom,memblock-remove = <0x08400000 0x4000000
 					0x0d200000 0x2300000
