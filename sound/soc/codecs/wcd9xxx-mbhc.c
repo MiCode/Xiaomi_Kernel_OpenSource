@@ -182,6 +182,8 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 				    uint32_t *zr);
 static s16 wcd9xxx_get_current_v(struct wcd9xxx_mbhc *mbhc,
 				 const enum wcd9xxx_current_v_idx idx);
+static void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z);
+static void wcd9xxx_mbhc_calc_thres(struct wcd9xxx_mbhc *mbhc);
 
 static bool wcd9xxx_mbhc_polling(struct wcd9xxx_mbhc *mbhc)
 {
@@ -973,6 +975,7 @@ static short __wcd9xxx_codec_sta_dce(struct wcd9xxx_mbhc *mbhc, int dce,
 	if (noreldetection)
 		wcd9xxx_turn_onoff_rel_detection(codec, false);
 
+	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x0);
 	/* Turn on the override */
 	if (!override_bypass)
 		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x4, 0x4);
@@ -982,6 +985,8 @@ static short __wcd9xxx_codec_sta_dce(struct wcd9xxx_mbhc *mbhc, int dce,
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x4);
 		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x8,
 				    0x0);
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2,
+				    0x2);
 		usleep_range(mbhc->mbhc_data.t_sta_dce,
 			     mbhc->mbhc_data.t_sta_dce);
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x4);
@@ -993,6 +998,8 @@ static short __wcd9xxx_codec_sta_dce(struct wcd9xxx_mbhc *mbhc, int dce,
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x2);
 		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x8,
 				    0x0);
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2,
+				    0x2);
 		usleep_range(mbhc->mbhc_data.t_sta_dce,
 			     mbhc->mbhc_data.t_sta_dce);
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x2);
@@ -1055,6 +1062,10 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 	struct snd_soc_codec *codec = mbhc->codec;
 	short bias_value;
 	u8 cfilt_mode;
+	s16 reg;
+	int change;
+	struct wcd9xxx_mbhc_btn_detect_cfg *btn_det;
+	s16 sta_z = 0, dce_z = 0;
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
@@ -1063,6 +1074,8 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 		pr_err("%s: Error, no calibration exists\n", __func__);
 		return -ENODEV;
 	}
+
+	btn_det = WCD9XXX_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
 
 	/*
 	 * Request BG and clock.
@@ -1102,13 +1115,47 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 
-	if (!is_cs_enable)
-		wcd9xxx_calibrate_hs_polling(mbhc);
-
 	/* don't flip override */
 	bias_value = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.cfilt_ctl, cfilt_mode);
 	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_HPH, 0x13, 0x00);
+
+	/* recalibrate dce_z and sta_z */
+	reg = snd_soc_read(codec, WCD9XXX_A_CDC_MBHC_B1_CTL);
+	change = snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x78,
+				     btn_det->mbhc_nsc << 3);
+	wcd9xxx_get_z(mbhc, &dce_z, &sta_z);
+	if (change)
+		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, reg);
+	if (dce_z && sta_z) {
+		pr_debug("%s: sta_z 0x%x -> 0x%x, dce_z 0x%x -> 0x%x\n",
+			 __func__,
+			 mbhc->mbhc_data.sta_z, sta_z & 0xffff,
+			 mbhc->mbhc_data.dce_z, dce_z & 0xffff);
+		mbhc->mbhc_data.dce_z = dce_z;
+		mbhc->mbhc_data.sta_z = sta_z;
+		wcd9xxx_mbhc_calc_thres(mbhc);
+		wcd9xxx_calibrate_hs_polling(mbhc);
+	} else {
+		pr_warn("%s: failed get new dce_z/sta_z 0x%x/0x%x\n", __func__,
+			dce_z, sta_z);
+	}
+
+	if (is_cs_enable) {
+		/* recalibrate dce_nsc_cs_z */
+		reg = snd_soc_read(mbhc->codec, WCD9XXX_A_CDC_MBHC_B1_CTL);
+		snd_soc_update_bits(mbhc->codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
+				    0x78, WCD9XXX_MBHC_NSC_CS << 3);
+		wcd9xxx_get_z(mbhc, &dce_z, NULL);
+		snd_soc_write(mbhc->codec, WCD9XXX_A_CDC_MBHC_B1_CTL, reg);
+		if (dce_z) {
+			pr_debug("%s: dce_nsc_cs_z 0x%x -> 0x%x\n", __func__,
+				 mbhc->mbhc_data.dce_nsc_cs_z, dce_z & 0xffff);
+			mbhc->mbhc_data.dce_nsc_cs_z = dce_z;
+		} else {
+			pr_debug("%s: failed get new dce_nsc_cs_z\n", __func__);
+		}
+	}
 
 	return bias_value;
 }
@@ -2946,9 +2993,10 @@ static int wcd9xxx_get_button_mask(const int btn)
 	return mask;
 }
 
-void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
+static void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
 {
 	s16 reg0, reg1;
+	int change;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
@@ -2959,16 +3007,21 @@ void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.mbhc_reg, 1 << 7, 0);
 
 	/* Disconnect override from micbias */
-	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 0);
+	change = snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4,
+				     1 << 0);
 	usleep_range(1000, 1000 + 1000);
-	*sta_z = wcd9xxx_codec_sta_dce(mbhc, 0, false);
-	*dce_z = wcd9xxx_codec_sta_dce(mbhc, 1, false);
+	if (sta_z)
+		*sta_z = wcd9xxx_codec_sta_dce(mbhc, 0, false);
+	if (dce_z)
+		*dce_z = wcd9xxx_codec_sta_dce(mbhc, 1, false);
 
 	pr_debug("%s: sta_z 0x%x, dce_z 0x%x\n", __func__, *sta_z & 0xFFFF,
 		 *dce_z & 0xFFFF);
 
 	/* Connect override from micbias */
-	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 4);
+	if (change)
+		snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4,
+				    1 << 4);
 	/* Disable pull down micbias to ground */
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.mbhc_reg, reg1);
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.ctl_reg, reg0);
@@ -3740,6 +3793,11 @@ ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 		      p->dce_z, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_z));
 	n += scnprintf(buffer + n, size - n, "dce_mb = %x(%dmv)\n",
 		       p->dce_mb, wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_mb));
+	n += scnprintf(buffer + n, size - n, "dce_nsc_cs_z = %x(%dmv)\n",
+		      p->dce_nsc_cs_z,
+		      __wcd9xxx_codec_sta_dce_v(mbhc, 1, p->dce_nsc_cs_z,
+						p->dce_nsc_cs_z,
+						VDDIO_MICBIAS_MV));
 	n += scnprintf(buffer + n, size - n, "sta_z = %x(%dmv)\n",
 		       p->sta_z, wcd9xxx_codec_sta_dce_v(mbhc, 0, p->sta_z));
 	n += scnprintf(buffer + n, size - n, "sta_mb = %x(%dmv)\n",
