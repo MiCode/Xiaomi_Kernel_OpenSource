@@ -463,6 +463,11 @@ static void qdss_disable(struct usb_function *f)
 	pr_debug("qdss_disable\n");
 
 	spin_lock_irqsave(&qdss->lock, flags);
+	if (!qdss->usb_connected) {
+		spin_unlock_irqrestore(&qdss->lock, flags);
+		return;
+	}
+
 	qdss->usb_connected = 0;
 	spin_unlock_irqrestore(&qdss->lock, flags);
 
@@ -521,6 +526,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (gadget->speed != USB_SPEED_SUPER &&
 		gadget->speed != USB_SPEED_HIGH) {
 			pr_err("qdss_st_alt: qdss supportes HS or SS only\n");
+			ret = -EINVAL;
 			goto fail;
 	}
 
