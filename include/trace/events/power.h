@@ -90,6 +90,40 @@ TRACE_EVENT(cpu_frequency_switch_end,
 	TP_printk("cpu_id=%lu", (unsigned long)__entry->cpu_id)
 );
 
+DECLARE_EVENT_CLASS(set,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+			unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load),
+
+	TP_STRUCT__entry(
+	    __field(u32, cpu_id)
+	    __field(unsigned long, currfreq)
+	    __field(unsigned long, load)
+	),
+
+	TP_fast_assign(
+	    __entry->cpu_id = (u32) cpu_id;
+	    __entry->currfreq = currfreq;
+	    __entry->load = load;
+	),
+
+	TP_printk("cpu=%u currfreq=%lu load=%lu",
+	      __entry->cpu_id, __entry->currfreq,
+	      __entry->load)
+);
+
+DEFINE_EVENT(set, cpufreq_sampling_event,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+		unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load)
+);
+
+DEFINE_EVENT(set, cpufreq_freq_synced,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+		unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load)
+);
+
 TRACE_EVENT(machine_suspend,
 
 	TP_PROTO(unsigned int state),
