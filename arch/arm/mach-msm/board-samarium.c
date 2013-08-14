@@ -35,6 +35,12 @@
 #include "modem_notifier.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("xo",          cxo_pil_lpass_clk, "fe200000.qcom,lpass", OFF),
+	CLK_DUMMY("core_clk",          q6ss_xo_clk, "fe200000.qcom,lpass", OFF),
+	CLK_DUMMY("bus_clk",  gcc_lpass_q6_axi_clk, "fe200000.qcom,lpass", OFF),
+	CLK_DUMMY("iface_clk", q6ss_ahb_lfabif_clk, "fe200000.qcom,lpass", OFF),
+	CLK_DUMMY("reg_clk",         q6ss_ahbm_clk, "fe200000.qcom,lpass", OFF),
+
 	CLK_DUMMY("core_clk",  venus_vcodec0_clk,  "fdce0000.qcom,venus", OFF),
 	CLK_DUMMY("iface_clk", venus_ahb_clk,      "fdce0000.qcom,venus", OFF),
 	CLK_DUMMY("bus_clk",   venus_axi_clk,      "fdce0000.qcom,venus", OFF),
