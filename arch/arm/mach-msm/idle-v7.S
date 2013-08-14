@@ -20,7 +20,6 @@
 #include <asm/assembler.h>
 
 #include "idle.h"
-#include "idle-macros.S"
 
 #ifdef CONFIG_MSM_SCM
 #define SCM_SVC_BOOT 0x1
@@ -29,49 +28,12 @@
 #endif
 
 ENTRY(msm_arch_idle)
-#ifdef CONFIG_ARCH_MSM_KRAIT
-	mrc 	p15, 0, r0, c0, c0, 0
-	bic	r1, r0, #0xff
-	movw	r2, #0x0400
-	movt	r2, #0x511F
-	movw	r3, #0x0600
-	movt	r3, #0x510F
-	cmp	r2, r1
-	cmpne	r3, r1
-	bne	go_wfi
-
-	mrs	r0, cpsr
-	cpsid	if
-
-	mrc	p15, 7, r1, c15, c0, 5
-	bic	r2, r1, #0x20000
-	mcr	p15, 7, r2, c15, c0, 5
-	isb
-
-go_wfi:
 	wfi
-	bne	wfi_done
-	mcr	p15, 7, r1, c15, c0, 5
-	isb
-	msr	cpsr_c, r0
+	bx	lr
+ENDPROC(msm_arch_idle)
 
-wfi_done:
-	bx	lr
-#else
-	wfi
-#ifdef CONFIG_ARCH_MSM8X60
-	mrc	p14, 1, r1, c1, c5, 4 /* read ETM PDSR to clear sticky bit */
-	mrc     p14, 0, r1, c1, c5, 4 /* read DBG PRSR to clear sticky bit */
-	isb
-#endif
-	bx	lr
-#endif
 ENTRY(msm_pm_pc_hotplug)
 	stmfd	sp!, {lr}
-#if defined(CONFIG_MSM_FIQ_SUPPORT)
-	cpsid   f
-#endif
-
 #if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM)
 	bl      msm_jtag_save_state
 #endif
@@ -102,19 +64,6 @@ skip_hp_debug1:
 	ldr	r1, =SCM_CMD_TERMINATE_PC
 	ldr	r2, =SCM_CMD_CORE_HOTPLUGGED
 	bl	scm_call_atomic1
-#else
-	mrc     p15, 0, r3, c1, c0, 0    /* read current CR    */
-	bic     r0, r3, #(1 << 2)        /* clear dcache bit   */
-	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
-	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
-	isb
-	wfi
-	mcr     p15, 0, r3, c1, c0, 0    /* restore d/i cache  */
-	isb
-#endif
-
-#if defined(CONFIG_MSM_FIQ_SUPPORT)
-	cpsie   f
 #endif
 	mrc	p15, 0, r0, c0, c0, 5 /* MPIDR */
 	and	r0, r0, #15              /* what CPU am I                  */
@@ -137,10 +86,6 @@ skip_hp_debug2:
 	bx      lr
 
 ENTRY(msm_pm_collapse)
-#if defined(CONFIG_MSM_FIQ_SUPPORT)
-	cpsid   f
-#endif
-
 	ldr     r0, =msm_saved_state	/* address of msm_saved_state ptr */
 	ldr	r0, [r0]		/* load ptr */
 #if (NR_CPUS >= 2)
@@ -155,10 +100,6 @@ ENTRY(msm_pm_collapse)
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
 	mrc     p15, 0, r3, c3, c0, 0 /* dacr */
-#ifdef CONFIG_ARCH_MSM_SCORPION
-	/* This instruction is not valid for non scorpion processors */
-	mrc     p15, 3, r4, c15, c0, 3 /* L2CR1 is the L2 cache control reg 1 */
-#endif
 	mrc     p15, 0, r5, c10, c2, 0 /* PRRR */
 	mrc     p15, 0, r6, c10, c2, 1 /* NMRR */
 	mrc     p15, 0, r7, c1, c0, 1 /* ACTLR */
@@ -215,26 +156,6 @@ skip_pc_debug1:
 	ldr	r2, =msm_pm_flush_l2_flag
 	ldr	r2, [r2]
 	bl	scm_call_atomic1
-#else
-	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
-	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
-	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
-	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
-	isb
-
-	SUSPEND_8x25_L2
-	SET_SMP_COHERENCY OFF
-	wfi
-	DELAY_8x25 300
-
-	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
-	isb
-	ENABLE_8x25_L2 /* enable only l2, no need to restore the reg back */
-	SET_SMP_COHERENCY ON
-#endif
-
-#if defined(CONFIG_MSM_FIQ_SUPPORT)
-	cpsie   f
 #endif
 	mrc	p15, 0, r0, c0, c0, 5 /* MPIDR */
 	and	r0, r0, #15              /* what CPU am I                  */
@@ -273,15 +194,6 @@ skip_pc_debug2:
 	bx      lr
 
 ENTRY(msm_pm_collapse_exit)
-#if 0 /* serial debug */
-	mov     r0, #0x80000016
-	mcr     p15, 0, r0, c15, c2, 4
-	mov     r0, #0xA9000000
-	add     r0, r0, #0x00A00000 /* UART1 */
-	/*add     r0, r0, #0x00C00000*/ /* UART3 */
-	mov     r1, #'A'
-	str     r1, [r0, #0x00C]
-#endif
 	ldr     r1, =msm_saved_state_phys
 	ldr     r2, =msm_pm_collapse_exit
 	adr     r3, msm_pm_collapse_exit
@@ -300,10 +212,6 @@ ENTRY(msm_pm_collapse_exit)
 	ldmdb   r1!, {r2-r11}
 	mcr     p15, 0, r4, c3, c0, 0 /* dacr */
 	mcr     p15, 0, r3, c2, c0, 0 /* TTBR0 */
-#ifdef CONFIG_ARCH_MSM_SCORPION
-	/* This instruction is not valid for non scorpion processors */
-	mcr     p15, 3, r5, c15, c0, 3 /* L2CR1 */
-#endif
 	mcr     p15, 0, r6, c10, c2, 0 /* PRRR */
 	mcr     p15, 0, r7, c10, c2, 1 /* NMRR */
 	mcr     p15, 0, r8, c1, c0, 1 /* ACTLR */
@@ -346,9 +254,6 @@ msm_pm_pa_to_va:
 	mrceq	p15, 7, r3, c15, c0, 2
 	biceq	r3, r3, #0x400
 	mcreq	p15, 7, r3, c15, c0, 2
-#else
-	RESUME_8x25_L2
-	SET_SMP_COHERENCY ON
 #endif
 
 	ldr	r1, =msm_pm_enable_l2_fn
@@ -427,18 +332,6 @@ msm_saved_state_phys:
 msm_pm_boot_vector:
 	.space  4 * NR_CPUS
 
-	.globl target_type
-target_type:
-	.long  0x0
-
-	.globl apps_power_collapse
-apps_power_collapse:
-	.long 0x0
-
-	.globl l2x0_base_addr
-l2x0_base_addr:
-	.long 0x0
-
 	.globl msm_pc_debug_counters_phys
 msm_pc_debug_counters_phys:
 	.long 0x0
@@ -467,12 +360,3 @@ msm_pm_flush_l2_fn:
 msm_pm_flush_l2_flag:
 	.long 0x1
 
-/*
- * Save & restore l2x0 registers while system is entering and resuming
- * from Power Collapse.
- * 1. aux_ctrl_save (0x0)
- * 2. data_latency_ctrl (0x4)
- * 3. prefetch control (0x8)
- */
-l2x0_saved_ctrl_reg_val:
-	.space 4 * 3
