@@ -223,7 +223,7 @@ struct krait_power_vreg {
 	int				cpu_num;
 	int				coeff1;
 	int				coeff2;
-	bool				online;
+	bool				reg_en;
 	int				online_at_probe;
 };
 
@@ -373,7 +373,7 @@ static int get_coeff_total(struct krait_power_vreg *from)
 		phase_scaling_factor = pvreg->efuse_phase_scaling_factor;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 
 		if (kvreg->mode == LDO_MODE) {
@@ -415,7 +415,7 @@ static int num_online(struct pmic_gang_vreg *pvreg)
 	struct krait_power_vreg *kvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (kvreg->online)
+		if (kvreg->reg_en)
 			online_total++;
 	}
 	return online_total;
@@ -428,7 +428,7 @@ static int get_total_load(struct krait_power_vreg *from)
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 		load_total += kvreg->load;
 	}
@@ -568,7 +568,7 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	kvreg->load = load_uA;
-	if (!kvreg->online) {
+	if (!kvreg->reg_en) {
 		mutex_unlock(&pvreg->krait_power_vregs_lock);
 		return kvreg->mode;
 	}
@@ -775,7 +775,7 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 	int rc = 0;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 		if (kvreg->uV <= kvreg->ldo_threshold_uV
 			&& kvreg->uV - kvreg->ldo_delta_uV + kvreg->headroom_uV
@@ -874,7 +874,7 @@ static int get_vmax(struct pmic_gang_vreg *pvreg)
 	struct krait_power_vreg *kvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 
 		v = kvreg->uV;
@@ -945,7 +945,7 @@ static int krait_power_set_voltage(struct regulator_dev *rdev,
 	}
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	if (!kvreg->online) {
+	if (!kvreg->reg_en) {
 		kvreg->uV = min_uV;
 		mutex_unlock(&pvreg->krait_power_vregs_lock);
 		return 0;
@@ -961,7 +961,7 @@ static int krait_power_is_enabled(struct regulator_dev *rdev)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
 
-	return kvreg->online;
+	return kvreg->reg_en;
 }
 
 static int krait_power_enable(struct regulator_dev *rdev)
@@ -972,7 +972,7 @@ static int krait_power_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	__krait_power_mdd_enable(kvreg, true);
-	kvreg->online = true;
+	kvreg->reg_en = true;
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
 		goto en_err;
@@ -993,7 +993,7 @@ static int krait_power_disable(struct regulator_dev *rdev)
 	int rc;
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	kvreg->online = false;
+	kvreg->reg_en = false;
 
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
