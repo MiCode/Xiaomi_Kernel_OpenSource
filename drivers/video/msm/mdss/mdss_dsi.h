@@ -194,8 +194,6 @@ struct dsi_clk_desc {
 
 #define MDSS_DSI_LEN 8 /* 4 x 4 - 6 - 2, bytes dcs header+crc-align  */
 
-#define MDSS_DSI_RST_SEQ_LEN 6
-
 struct dsi_buf {
 	u32 *hdr;	/* dsi host header */
 	char *start;	/* buffer start addr */
@@ -346,7 +344,6 @@ struct mdss_dsi_ctrl_pdata {
 	u32 pclk_rate;
 	u32 byte_clk_rate;
 	struct dss_module_power power_data;
-	int rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
 
