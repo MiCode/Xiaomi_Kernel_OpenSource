@@ -418,6 +418,7 @@
 &gdsc_oxili_gx {
 	qcom,clock-names = "core_clk";
 	status = "ok";
+	parent-supply = <&pma8084_s6>;
 };
 
 &gdsc_oxili_cx {
