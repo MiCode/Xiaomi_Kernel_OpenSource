@@ -61,14 +61,6 @@
 			status = "okay";
 		};
 
-		pma8084_s8: regulator@2900 {
-			regulator-min-microvolt = <1050000>;
-			regulator-max-microvolt = <1050000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			status = "okay";
-		};
-
 		pma8084_s12: regulator@3500 {
 			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <900000>;
@@ -322,3 +314,23 @@
 	};
 };
 
+&rpm_bus {
+	rpm-regulator-smpa8 {
+		status = "okay";
+		pma8084_s8: regulator-s8 {
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1050000>;
+			status = "okay";
+		};
+
+		pma8084_s8_corner: regulator-s8-corner {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8084_s8_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,consumer-supplies = "vdd_dig", "";
+			qcom,use-voltage-corner;
+		 };
+	};
+};
