@@ -1081,7 +1081,8 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		chip->usb_present = usb_present;
 		if (!usb_present) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
-			chip->chg_done = false;
+			if (!qpnp_chg_is_dc_chg_plugged_in(chip))
+				chip->chg_done = false;
 			chip->prev_usb_max_ma = -EINVAL;
 		} else {
 			schedule_delayed_work(&chip->eoc_work,
@@ -1150,7 +1151,7 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 
 	if (chip->dc_present ^ dc_present) {
 		chip->dc_present = dc_present;
-		if (!dc_present) {
+		if (!dc_present && !qpnp_chg_is_usb_chg_plugged_in(chip)) {
 			chip->chg_done = false;
 		} else {
 			schedule_delayed_work(&chip->eoc_work,
