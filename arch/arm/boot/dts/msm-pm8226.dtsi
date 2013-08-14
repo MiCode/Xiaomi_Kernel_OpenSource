@@ -22,7 +22,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		qcom,revid@100 {
+		pm8226_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
@@ -85,6 +85,7 @@
 			qcom,tchg-mins = <150>;
 			qcom,chg-vadc = <&pm8226_vadc>;
 			qcom,chg-adc_tm = <&pm8226_adc_tm>;
+			qcom,pmic-revid = <&pm8226_revid>;
 			qcom,ibatmax-warm-ma = <350>;
 			qcom,warm-bat-decidegc = <450>;
 			qcom,warm-bat-mv = <4100>;
