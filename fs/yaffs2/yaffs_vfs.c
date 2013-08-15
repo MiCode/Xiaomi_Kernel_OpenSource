@@ -56,6 +56,7 @@
 #include <linux/cleancache.h>
 #include <linux/workqueue.h>
 #include <linux/writeback.h>
+#include <linux/seq_file.h>
 
 #include <asm/div64.h>
 
@@ -2472,138 +2473,90 @@ static struct file_system_type yaffs2_fs_type = {
 
 static struct proc_dir_entry *my_proc_entry;
 
-static char *yaffs_dump_dev_part0(char *buf, struct yaffs_dev *dev)
+static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 {
 	struct yaffs_param *param = &dev->param;
-	buf += sprintf(buf, "start_block........... %d\n", param->start_block);
-	buf += sprintf(buf, "end_block............. %d\n", param->end_block);
-	buf += sprintf(buf, "total_bytes_per_chunk. %d\n",
-			param->total_bytes_per_chunk);
-	buf += sprintf(buf, "use_nand_ecc.......... %d\n",
-			param->use_nand_ecc);
-	buf += sprintf(buf, "no_tags_ecc........... %d\n", param->no_tags_ecc);
-	buf += sprintf(buf, "is_yaffs2............. %d\n", param->is_yaffs2);
-	buf += sprintf(buf, "inband_tags........... %d\n", param->inband_tags);
-	buf += sprintf(buf, "empty_lost_n_found.... %d\n",
-			param->empty_lost_n_found);
-	buf += sprintf(buf, "disable_lazy_load..... %d\n",
-			param->disable_lazy_load);
-	buf += sprintf(buf, "refresh_period........ %d\n",
-			param->refresh_period);
-	buf += sprintf(buf, "n_caches.............. %d\n", param->n_caches);
-	buf += sprintf(buf, "n_reserved_blocks..... %d\n",
-			param->n_reserved_blocks);
-	buf += sprintf(buf, "always_check_erased... %d\n",
-			param->always_check_erased);
-
-	return buf;
+	seq_printf(m, "start_block........... %d\n", param->start_block);
+	seq_printf(m, "end_block............. %d\n", param->end_block);
+	seq_printf(m, "total_bytes_per_chunk. %d\n",
+		param->total_bytes_per_chunk);
+	seq_printf(m, "use_nand_ecc.......... %d\n",
+		param->use_nand_ecc);
+	seq_printf(m, "no_tags_ecc........... %d\n", param->no_tags_ecc);
+	seq_printf(m, "is_yaffs2............. %d\n", param->is_yaffs2);
+	seq_printf(m, "inband_tags........... %d\n", param->inband_tags);
+	seq_printf(m, "empty_lost_n_found.... %d\n",
+		param->empty_lost_n_found);
+	seq_printf(m, "disable_lazy_load..... %d\n",
+		param->disable_lazy_load);
+	seq_printf(m, "refresh_period........ %d\n",
+		param->refresh_period);
+	seq_printf(m, "n_caches.............. %d\n", param->n_caches);
+	seq_printf(m, "n_reserved_blocks..... %d\n",
+		param->n_reserved_blocks);
+	seq_printf(m, "always_check_erased... %d\n",
+		param->always_check_erased);
 }
 
-static char *yaffs_dump_dev_part1(char *buf, struct yaffs_dev *dev)
+static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 {
-	buf +=
-	    sprintf(buf, "data_bytes_per_chunk.. %d\n",
-		    dev->data_bytes_per_chunk);
-	buf += sprintf(buf, "chunk_grp_bits........ %d\n", dev->chunk_grp_bits);
-	buf += sprintf(buf, "chunk_grp_size........ %d\n", dev->chunk_grp_size);
-	buf +=
-	    sprintf(buf, "n_erased_blocks....... %d\n", dev->n_erased_blocks);
-	buf +=
-	    sprintf(buf, "blocks_in_checkpt..... %d\n", dev->blocks_in_checkpt);
-	buf += sprintf(buf, "\n");
-	buf += sprintf(buf, "n_tnodes.............. %d\n", dev->n_tnodes);
-	buf += sprintf(buf, "n_obj................. %d\n", dev->n_obj);
-	buf += sprintf(buf, "n_free_chunks......... %d\n", dev->n_free_chunks);
-	buf += sprintf(buf, "\n");
-	buf += sprintf(buf, "n_page_writes......... %u\n", dev->n_page_writes);
-	buf += sprintf(buf, "n_page_reads.......... %u\n", dev->n_page_reads);
-	buf += sprintf(buf, "n_erasures............ %u\n", dev->n_erasures);
-	buf += sprintf(buf, "n_gc_copies........... %u\n", dev->n_gc_copies);
-	buf += sprintf(buf, "all_gcs............... %u\n", dev->all_gcs);
-	buf +=
-	    sprintf(buf, "passive_gc_count...... %u\n", dev->passive_gc_count);
-	buf +=
-	    sprintf(buf, "oldest_dirty_gc_count. %u\n",
-		    dev->oldest_dirty_gc_count);
-	buf += sprintf(buf, "n_gc_blocks........... %u\n", dev->n_gc_blocks);
-	buf += sprintf(buf, "bg_gcs................ %u\n", dev->bg_gcs);
-	buf +=
-	    sprintf(buf, "n_retired_writes...... %u\n", dev->n_retired_writes);
-	buf +=
-	    sprintf(buf, "n_retired_blocks...... %u\n", dev->n_retired_blocks);
-	buf += sprintf(buf, "n_ecc_fixed........... %u\n", dev->n_ecc_fixed);
-	buf += sprintf(buf, "n_ecc_unfixed......... %u\n", dev->n_ecc_unfixed);
-	buf +=
-	    sprintf(buf, "n_tags_ecc_fixed...... %u\n", dev->n_tags_ecc_fixed);
-	buf +=
-	    sprintf(buf, "n_tags_ecc_unfixed.... %u\n",
-		    dev->n_tags_ecc_unfixed);
-	buf += sprintf(buf, "cache_hits............ %u\n", dev->cache_hits);
-	buf +=
-	    sprintf(buf, "n_deleted_files....... %u\n", dev->n_deleted_files);
-	buf +=
-	    sprintf(buf, "n_unlinked_files...... %u\n", dev->n_unlinked_files);
-	buf += sprintf(buf, "refresh_count......... %u\n", dev->refresh_count);
-	buf += sprintf(buf, "n_bg_deletions........ %u\n", dev->n_bg_deletions);
-
-	return buf;
+	seq_printf(m, "data_bytes_per_chunk.. %d\n", dev->data_bytes_per_chunk);
+	seq_printf(m, "chunk_grp_bits........ %d\n", dev->chunk_grp_bits);
+	seq_printf(m, "chunk_grp_size........ %d\n", dev->chunk_grp_size);
+	seq_printf(m, "n_erased_blocks....... %d\n", dev->n_erased_blocks);
+	seq_printf(m, "blocks_in_checkpt..... %d\n", dev->blocks_in_checkpt);
+	seq_puts(m, "\n");
+	seq_printf(m, "n_tnodes.............. %d\n", dev->n_tnodes);
+	seq_printf(m, "n_obj................. %d\n", dev->n_obj);
+	seq_printf(m, "n_free_chunks......... %d\n", dev->n_free_chunks);
+	seq_puts(m, "\n");
+	seq_printf(m, "n_page_writes......... %u\n", dev->n_page_writes);
+	seq_printf(m, "n_page_reads.......... %u\n", dev->n_page_reads);
+	seq_printf(m, "n_erasures............ %u\n", dev->n_erasures);
+	seq_printf(m, "n_gc_copies........... %u\n", dev->n_gc_copies);
+	seq_printf(m, "all_gcs............... %u\n", dev->all_gcs);
+	seq_printf(m, "passive_gc_count...... %u\n", dev->passive_gc_count);
+	seq_printf(m, "oldest_dirty_gc_count. %u\n",
+			dev->oldest_dirty_gc_count);
+	seq_printf(m, "n_gc_blocks........... %u\n", dev->n_gc_blocks);
+	seq_printf(m, "bg_gcs................ %u\n", dev->bg_gcs);
+	seq_printf(m, "n_retired_writes...... %u\n", dev->n_retired_writes);
+	seq_printf(m, "n_retired_blocks...... %u\n", dev->n_retired_blocks);
+	seq_printf(m, "n_ecc_fixed........... %u\n", dev->n_ecc_fixed);
+	seq_printf(m, "n_ecc_unfixed......... %u\n", dev->n_ecc_unfixed);
+	seq_printf(m, "n_tags_ecc_fixed...... %u\n", dev->n_tags_ecc_fixed);
+	seq_printf(m, "n_tags_ecc_unfixed.... %u\n", dev->n_tags_ecc_unfixed);
+	seq_printf(m, "cache_hits............ %u\n", dev->cache_hits);
+	seq_printf(m, "n_deleted_files....... %u\n", dev->n_deleted_files);
+	seq_printf(m, "n_unlinked_files...... %u\n", dev->n_unlinked_files);
+	seq_printf(m, "refresh_count......... %u\n", dev->refresh_count);
+	seq_printf(m, "n_bg_deletions........ %u\n", dev->n_bg_deletions);
 }
 
-static int yaffs_proc_read(char *page,
-			   char **start,
-			   off_t offset, int count, int *eof, void *data)
+static int yaffs_proc_show(struct seq_file *m, void *v)
 {
-	struct list_head *item;
-	char *buf = page;
-	int step = offset;
+	struct yaffs_linux_context *dc;
 	int n = 0;
 
-	/* Get proc_file_read() to step 'offset' by one on each sucessive call.
-	 * We use 'offset' (*ppos) to indicate where we are in dev_list.
-	 * This also assumes the user has posted a read buffer large
-	 * enough to hold the complete output; but that's life in /proc.
-	 */
-
-	*(int *)start = 1;
-
 	/* Print header first */
-	if (step == 0)
-		buf += sprintf(buf, "YAFFS built:" __DATE__ " " __TIME__ "\n");
-	else if (step == 1)
-		buf += sprintf(buf, "\n");
-	else {
-		step -= 2;
+	seq_printf(m, "YAFFS built:" __DATE__ " " __TIME__ "\n");
+	seq_puts(m, "\n");
 
-		mutex_lock(&yaffs_context_lock);
+	mutex_lock(&yaffs_context_lock);
+	/* Locate and print the Nth entry.  Order N-squared but N is small. */
+	list_for_each_entry(dc, &yaffs_context_list, context_list) {
+		struct yaffs_dev *dev = dc->dev;
 
-		/* Locate and print the Nth entry.  Order N-squared but N is small. */
-		list_for_each(item, &yaffs_context_list) {
-			struct yaffs_linux_context *dc =
-			    list_entry(item, struct yaffs_linux_context,
-				       context_list);
-			struct yaffs_dev *dev = dc->dev;
-
-			if (n < (step & ~1)) {
-				n += 2;
-				continue;
-			}
-			if ((step & 1) == 0) {
-				buf +=
-				    sprintf(buf, "\nDevice %d \"%s\"\n", n,
-					    dev->param.name);
-				buf = yaffs_dump_dev_part0(buf, dev);
-			} else {
-				buf = yaffs_dump_dev_part1(buf, dev);
-                        }
-
-			break;
-		}
-		mutex_unlock(&yaffs_context_lock);
+		seq_printf(m, "\nDevice %d \"%s\"\n", n,
+			    dev->param.name);
+		yaffs_dump_dev_part0(m, dev);
+		yaffs_dump_dev_part1(m, dev);
+		n++;
 	}
+	mutex_unlock(&yaffs_context_lock);
 
-	return buf - page < count ? buf - page : count;
+	return 0;
 }
-
 
 /**
  * Set the verbosity of the warnings and error messages.
@@ -2647,8 +2600,8 @@ static struct {
 };
 
 #define MAX_MASK_NAME_LENGTH 40
-static int yaffs_proc_write_trace_options(struct file *file, const char *buf,
-					  unsigned long count, void *data)
+static ssize_t yaffs_proc_write_trace_options(struct file *file,
+		const char __user *buf, size_t count)
 {
 	unsigned rg = 0, mask_bitfield;
 	char *end;
@@ -2743,11 +2696,24 @@ static int yaffs_proc_write_trace_options(struct file *file, const char *buf,
 	return count;
 }
 
-static int yaffs_proc_write(struct file *file, const char *buf,
-			    unsigned long count, void *data)
+static ssize_t yaffs_proc_write(struct file *file, const char __user *buf,
+			    size_t count, loff_t *off)
 {
-	return yaffs_proc_write_trace_options(file, buf, count, data);
+	return yaffs_proc_write_trace_options(file, buf, count);
 }
+
+static int yaffs_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, yaffs_proc_show, NULL);
+}
+
+static const struct file_operations yaffs_proc_fops = {
+	.open		= yaffs_proc_open,
+	.read		= seq_read,
+	.write		= yaffs_proc_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 /* Stuff to handle installation of file systems */
 struct file_system_to_install {
@@ -2777,14 +2743,9 @@ static int __init init_yaffs_fs(void)
 	mutex_init(&yaffs_context_lock);
 
 	/* Install the proc_fs entries */
-	my_proc_entry = create_proc_entry("yaffs",
-					  S_IRUGO | S_IFREG, YPROC_ROOT);
-
-	if (my_proc_entry) {
-		my_proc_entry->write_proc = yaffs_proc_write;
-		my_proc_entry->read_proc = yaffs_proc_read;
-		my_proc_entry->data = NULL;
-	} else {
+	my_proc_entry = proc_create("yaffs", S_IRUGO | S_IFREG, YPROC_ROOT,
+			&yaffs_proc_fops);
+	if (!my_proc_entry) {
 		return -ENOMEM;
         }
 
