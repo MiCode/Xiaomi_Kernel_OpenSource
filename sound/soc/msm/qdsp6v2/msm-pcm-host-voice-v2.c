@@ -263,9 +263,10 @@ static struct tap_point *hpcm_get_tappoint_data(char *pcm_id,
 						struct hpcm_drv *prtd)
 {
 	struct tap_point *tp = NULL;
-	size_t size = strlen(pcm_id);
+	size_t size = 0;
 
 	if (pcm_id) {
+		size = strlen(pcm_id);
 		/* Check for Voice DAI */
 		if (strnstr(pcm_id, VOICE_TX_CAPTURE_DAI_ID, size)) {
 			tp = &prtd->session[VOICE_INDEX].tx_tap_point;
@@ -676,6 +677,13 @@ void hpcm_notify_evt_processing(uint8_t *data, char *session,
 		tmd = &prtd->mixer_conf.rx;
 	}
 
+	if (tp == NULL || tmd == NULL) {
+		pr_err("%s: tp = %x or tmd = %x is null\n", __func__,
+		       (uint32_t)tp, (uint32_t)tmd);
+
+		return;
+	}
+
 	if (notify_evt->notify_mask & VSS_IVPCM_NOTIFY_MASK_OUTPUT_BUFFER) {
 		hpcm_copy_capture_data_to_queue(&tp->capture_dai_data,
 						notify_evt->filled_out_size);
@@ -862,6 +870,13 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	sess_name = hpcm_get_sess_name(prtd->mixer_conf.sess_indx);
 	dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
 
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is NULL\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
 	wake_up(&dai_data->queue_wait);
 	mutex_lock(&prtd->lock);
 
@@ -932,6 +947,13 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 
 	int count = frames_to_bytes(runtime, frames);
 
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
 	ret = wait_event_interruptible_timeout(dai_data->queue_wait,
 				(!list_empty(&dai_data->free_queue) ||
 				dai_data->state == HPCM_STOPPED),
@@ -962,6 +984,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		pr_err("%s: playback copy  was interrupted\n", __func__);
 	}
 
+done:
 	return  ret;
 }
 
@@ -976,6 +999,13 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	struct hpcm_drv *prtd = runtime->private_data;
 	struct dai_data *dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
 	unsigned long dsp_flags;
+
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
 
 	count = frames_to_bytes(runtime, frames);
 
@@ -1016,6 +1046,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		ret = -ERESTARTSYS;
 	}
 
+done:
 	return ret;
 }
 
@@ -1040,13 +1071,24 @@ static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 	struct dai_data *dai_data = NULL;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct hpcm_drv *prtd = runtime->private_data;
+	snd_pcm_uframes_t ret;
 
 	dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
+
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = 0;
+		goto done;
+	}
 
 	if (dai_data->pcm_irq_pos >= dai_data->pcm_size)
 		dai_data->pcm_irq_pos = 0;
 
-	return bytes_to_frames(runtime, (dai_data->pcm_irq_pos));
+	ret = bytes_to_frames(runtime, (dai_data->pcm_irq_pos));
+
+done:
+	return ret;
 }
 
 static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -1056,6 +1098,13 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct hpcm_drv *prtd = runtime->private_data;
 	struct dai_data *dai_data =
 			hpcm_get_dai_data(substream->pcm->id, prtd);
+
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
 
 	pr_debug("%s, %s\n", __func__, substream->pcm->id);
 
@@ -1074,6 +1123,8 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		ret = -EINVAL;
 		break;
 	}
+
+done:
 	return ret;
 }
 
@@ -1087,18 +1138,25 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s, %s\n", __func__, substream->pcm->id);
 	mutex_lock(&prtd->lock);
 
-	/*
-	 * Register event notify processing callback in prepare instead of
-	 * init() as q6voice module's init() can be called at a later point
-	 */
-	voc_register_hpcm_evt_cb(hpcm_notify_evt_processing, &hpcm_drv);
-
 	dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
+
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
 	dai_data->pcm_size  = snd_pcm_lib_buffer_bytes(substream);
 	dai_data->pcm_count = snd_pcm_lib_period_bytes(substream);
 	dai_data->pcm_irq_pos = 0;
 	dai_data->pcm_buf_pos = 0;
 	dai_data->state = HPCM_PREPARED;
+
+	/* Register event notify processing callback in prepare instead of
+	 * init() as q6voice module's init() can be called at a later point
+	 */
+	voc_register_hpcm_evt_cb(hpcm_notify_evt_processing, &hpcm_drv);
 
 	ret = hpcm_start_vocpcm(substream->pcm->id, prtd,
 				hpcm_get_tappoint_data(substream->pcm->id,
@@ -1182,6 +1240,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	pr_debug("%s, %s\n", __func__, substream->pcm->id);
 	mutex_lock(&prtd->lock);
 
+	dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
+
+	if (dai_data == NULL) {
+		pr_err("%s, dai_data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
 	runtime->hw = msm_pcm_hardware;
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
@@ -1209,7 +1276,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		goto done;
 	}
 
-	dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
 	dai_data->substream = substream;
 	runtime->private_data = prtd;
 
