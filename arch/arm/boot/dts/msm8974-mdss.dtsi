@@ -193,3 +193,5 @@
 		gpio-panel-hpd = <&msmgpio 102 0>;
 	};
 };
+
+/include/ "msm8974-mdss-panels.dtsi"
