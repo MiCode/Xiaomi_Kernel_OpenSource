@@ -571,6 +571,10 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	kgsl_sharedmem_free(&drawctxt->gpustate);
 	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
 
+	/* wake threads waiting to submit commands from this context */
+	wake_up_interruptible_all(&drawctxt->waiting);
+	wake_up_interruptible_all(&drawctxt->wq);
+
 	return ret;
 }
 
