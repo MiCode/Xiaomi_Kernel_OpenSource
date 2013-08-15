@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-toshiba-720p-video.dtsi"
-/include/ "dsi-panel-orise-720p-video.dtsi"
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor-cdp.dtsi"
 
