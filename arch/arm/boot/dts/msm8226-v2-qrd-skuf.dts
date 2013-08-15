@@ -171,3 +171,7 @@
 &pm8226_chg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&pm8226_iadc {
+	qcom,rsense = <10000000>;
+};
