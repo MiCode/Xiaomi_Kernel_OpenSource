@@ -31,6 +31,8 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 #include <linux/uaccess.h>
+#include <linux/suspend.h>
+#include <linux/rwsem.h>
 #include <linux/mfd/pm8xxx/misc.h>
 
 #include <mach/msm_smd.h>
@@ -1344,6 +1346,7 @@ static void wcnss_send_version_req(struct work_struct *worker)
 	return;
 }
 
+static DECLARE_RWSEM(wcnss_pm_sem);
 
 static void wcnss_nvbin_dnld(void)
 {
@@ -1359,12 +1362,14 @@ static void wcnss_nvbin_dnld(void)
 	const struct firmware *nv = NULL;
 	struct device *dev = &penv->pdev->dev;
 
+	down_read(&wcnss_pm_sem);
+
 	ret = request_firmware(&nv, NVBIN_FILE, dev);
 
 	if (ret || !nv || !nv->data || !nv->size) {
 		pr_err("wcnss: %s: request_firmware failed for %s\n",
 			__func__, NVBIN_FILE);
-		return;
+		goto out;
 	}
 
 	/*
@@ -1456,6 +1461,9 @@ err_dnld:
 err_free_nv:
 	/* release firmware */
 	release_firmware(nv);
+
+out:
+	up_read(&wcnss_pm_sem);
 
 	return;
 }
@@ -1590,7 +1598,25 @@ nv_download:
 	return;
 }
 
+static int wcnss_pm_notify(struct notifier_block *b,
+			unsigned long event, void *p)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		down_write(&wcnss_pm_sem);
+		break;
 
+	case PM_POST_SUSPEND:
+		up_write(&wcnss_pm_sem);
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block wcnss_pm_notifier = {
+	.notifier_call = wcnss_pm_notify,
+};
 
 static int
 wcnss_trigger_config(struct platform_device *pdev)
@@ -2034,7 +2060,7 @@ static int __init wcnss_wlan_init(void)
 	platform_driver_register(&wcnss_wlan_driver);
 	platform_driver_register(&wcnss_wlan_ctrl_driver);
 	platform_driver_register(&wcnss_ctrl_driver);
-
+	register_pm_notifier(&wcnss_pm_notifier);
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 	ret = wcnss_prealloc_init();
 	if (ret < 0)
@@ -2049,17 +2075,16 @@ static void __exit wcnss_wlan_exit(void)
 	if (penv) {
 		if (penv->pil)
 			subsystem_put(penv->pil);
-
-
 		penv = NULL;
 	}
 
-	platform_driver_unregister(&wcnss_ctrl_driver);
-	platform_driver_unregister(&wcnss_wlan_ctrl_driver);
-	platform_driver_unregister(&wcnss_wlan_driver);
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 	wcnss_prealloc_deinit();
 #endif
+	unregister_pm_notifier(&wcnss_pm_notifier);
+	platform_driver_unregister(&wcnss_ctrl_driver);
+	platform_driver_unregister(&wcnss_wlan_ctrl_driver);
+	platform_driver_unregister(&wcnss_wlan_driver);
 }
 
 module_init(wcnss_wlan_init);
