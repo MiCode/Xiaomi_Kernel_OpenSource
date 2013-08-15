@@ -598,7 +598,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	mutex_lock(&drawctxt->mutex);
 
-	if (drawctxt->flags & CTXT_FLAGS_BEING_DESTROYED) {
+	if (kgsl_context_detached(&drawctxt->base)) {
 		mutex_unlock(&drawctxt->mutex);
 		return -EINVAL;
 	}
