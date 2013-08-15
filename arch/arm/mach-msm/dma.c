@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/dma.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2010, 2012, 2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -31,8 +31,10 @@
 
 enum {
 	CLK_DIS,
+	CLK_ENABLING,
+	CLK_EN,
 	CLK_TO_BE_DIS,
-	CLK_EN
+	CLK_DISABLING
 };
 
 struct msm_dmov_ci_conf {
@@ -62,8 +64,8 @@ struct msm_dmov_conf {
 	struct list_head staged_commands[MSM_DMOV_CHANNEL_COUNT];
 	struct list_head ready_commands[MSM_DMOV_CHANNEL_COUNT];
 	struct list_head active_commands[MSM_DMOV_CHANNEL_COUNT];
-	struct mutex lock;
-	spinlock_t list_lock;
+	struct mutex clock_lock;
+	spinlock_t lock;
 	unsigned int irq;
 	struct clk *clk;
 	struct clk *pclk;
@@ -165,16 +167,16 @@ static struct msm_dmov_conf dmov_conf[] = {
 	{
 		.crci_conf = adm0_crci_conf,
 		.chan_conf = adm0_chan_conf,
-		.lock = __MUTEX_INITIALIZER(dmov_conf[0].lock),
-		.list_lock = __SPIN_LOCK_UNLOCKED(dmov_list_lock),
+		.clock_lock = __MUTEX_INITIALIZER(dmov_conf[0].clock_lock),
+		.lock = __SPIN_LOCK_UNLOCKED(dmov_lock),
 		.clk_ctl = CLK_DIS,
 		.work = __DELAYED_WORK_INITIALIZER(dmov_conf[0].work,
 				msm_dmov_clock_work, 0),
 	}, {
 		.crci_conf = adm1_crci_conf,
 		.chan_conf = adm1_chan_conf,
-		.lock = __MUTEX_INITIALIZER(dmov_conf[1].lock),
-		.list_lock = __SPIN_LOCK_UNLOCKED(dmov_list_lock),
+		.clock_lock = __MUTEX_INITIALIZER(dmov_conf[1].clock_lock),
+		.lock = __SPIN_LOCK_UNLOCKED(dmov_lock),
 		.clk_ctl = CLK_DIS,
 		.work = __DELAYED_WORK_INITIALIZER(dmov_conf[1].work,
 				msm_dmov_clock_work, 0),
@@ -185,8 +187,8 @@ static struct msm_dmov_conf dmov_conf[] = {
 	{
 		.crci_conf = NULL,
 		.chan_conf = NULL,
-		.lock = __MUTEX_INITIALIZER(dmov_conf[0].lock),
-		.list_lock = __SPIN_LOCK_UNLOCKED(dmov_list_lock),
+		.clock_lock = __MUTEX_INITIALIZER(dmov_conf[0].clock_lock),
+		.lock = __SPIN_LOCK_UNLOCKED(dmov_lock),
 		.clk_ctl = CLK_DIS,
 		.work = __DELAYED_WORK_INITIALIZER(dmov_conf[0].work,
 				msm_dmov_clock_work, 0),
@@ -270,13 +272,21 @@ static void msm_dmov_clock_work(struct work_struct *work)
 	struct msm_dmov_conf *conf =
 		container_of(to_delayed_work(work), struct msm_dmov_conf, work);
 	int adm = DMOV_IRQ_TO_ADM(conf->irq);
-	mutex_lock(&conf->lock);
+	unsigned long irq_flags;
+
+	mutex_lock(&conf->clock_lock);
+	spin_lock_irqsave(&conf->lock, irq_flags);
 	if (conf->clk_ctl == CLK_TO_BE_DIS) {
 		BUG_ON(conf->channel_active);
+		conf->clk_ctl = CLK_DISABLING;
+		spin_unlock_irqrestore(&conf->lock, irq_flags);
 		msm_dmov_clk_off(adm);
-		conf->clk_ctl = CLK_DIS;
+		spin_lock_irqsave(&conf->lock, irq_flags);
+		if (conf->clk_ctl == CLK_DISABLING)
+			conf->clk_ctl = CLK_DIS;
 	}
-	mutex_unlock(&conf->lock);
+	spin_unlock_irqrestore(&conf->lock, irq_flags);
+	mutex_unlock(&conf->clock_lock);
 }
 
 enum {
@@ -302,7 +312,7 @@ static struct msm_dmov_cmd *start_ready_cmd(unsigned ch, int adm)
 	if (!dmov_conf[adm].channel_active)
 		enable_irq(dmov_conf[adm].irq);
 	dmov_conf[adm].channel_active |= BIT(ch);
-	PRINT_IO("msm dmov enqueue command, %x, ch %d\n", cmd->cmdptr, ch);
+	PRINT_IO("start_ready_cmd, %x, ch %d\n", cmd->cmdptr, ch);
 	writel_relaxed(cmd->cmdptr, DMOV_REG(DMOV_CMD_PTR(ch), adm));
 
 	return cmd;
@@ -316,37 +326,86 @@ static void msm_dmov_enqueue_cmd_ext_work(struct work_struct *work)
 	unsigned status;
 	unsigned long flags;
 	int adm = DMOV_ID_TO_ADM(id);
-	int ch = DMOV_ID_TO_CHAN(id);
+	int ch = 0;
 
-	mutex_lock(&dmov_conf[adm].lock);
-	if (dmov_conf[adm].clk_ctl == CLK_DIS) {
-		status = msm_dmov_clk_on(adm);
-		if (status != 0)
-			goto error;
+	mutex_lock(&dmov_conf[adm].clock_lock);
+	/*No spin_lock is required for the condition check below*/
+	BUG_ON(dmov_conf[adm].clk_ctl != CLK_ENABLING);
+	status = msm_dmov_clk_on(adm);
+	if (status != 0) {
+		PRINT_ERROR("ADM: Unexpected clock failure at dma.c:%d/%s()!\n",
+			__LINE__, __func__);
+		goto error;
 	}
+
+	spin_lock_irqsave(&dmov_conf[adm].lock, flags);
+
 	dmov_conf[adm].clk_ctl = CLK_EN;
 
-	spin_lock_irqsave(&dmov_conf[adm].list_lock, flags);
+	for (ch = 0; ch < MSM_DMOV_CHANNEL_COUNT; ch++) {
+		while (!list_empty(&dmov_conf[adm].staged_commands[ch])) {
+			cmd = list_entry(dmov_conf[adm].staged_commands[ch].
+						next, typeof(*cmd), list);
+			list_del(&cmd->list);
+			list_add_tail(&cmd->list, &dmov_conf[adm].
+					ready_commands[ch]);
+		}
+		if (!list_empty(&dmov_conf[adm].ready_commands[ch])) {
+			status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch), adm));
+			if (status & DMOV_STATUS_CMD_PTR_RDY) {
+				PRINT_IO("msm_dmov_enqueue_cmd(%d),"\
+						" start command, status %x\n",
+						id, status);
+				cmd = start_ready_cmd(ch, adm);
+				/*
+				 * We added something to the ready list,
+				 * and still hold the list lock.
+				 * Thus, no need to check for cmd == NULL
+				 */
+				if (cmd->toflush) {
+					int flush = (cmd->toflush == GRACEFUL) ?
+							1 << 31 : 0;
+					writel_relaxed(flush,
+						DMOV_REG(DMOV_FLUSH0(ch), adm));
+				}
+			} else {
+				if (list_empty(&dmov_conf[adm].
+						active_commands[ch]))
+					PRINT_ERROR("msm_dmov_enqueue_cmd_ext"\
+						"(%d), stalled, status %x\n",
+						id, status);
+				PRINT_IO("msm_dmov_enqueue_cmd(%d),"\
+					"enqueue command, status "
+					"%x\n", id, status);
+			}
+		}
+	}
+	spin_unlock_irqrestore(&dmov_conf[adm].lock, flags);
+error:
+	mutex_unlock(&dmov_conf[adm].clock_lock);
+}
 
-	cmd = list_entry(dmov_conf[adm].staged_commands[ch].next, typeof(*cmd),
-			 list);
-	list_del(&cmd->list);
-	list_add_tail(&cmd->list, &dmov_conf[adm].ready_commands[ch]);
+void msm_dmov_enqueue_cmd_ext_atomic(unsigned id, struct msm_dmov_cmd *cmd)
+{
+	unsigned int status;
+	int adm = DMOV_ID_TO_ADM(id);
+	int ch = DMOV_ID_TO_CHAN(id);
+
 	status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch), adm));
 	if (status & DMOV_STATUS_CMD_PTR_RDY) {
 		PRINT_IO("msm_dmov_enqueue_cmd(%d), start command, status %x\n",
 			id, status);
-		cmd = start_ready_cmd(ch, adm);
-		/*
-		 * We added something to the ready list, and still hold the
-		 * list lock. Thus, no need to check for cmd == NULL
-		 */
-		if (cmd->toflush) {
-			int flush = (cmd->toflush == GRACEFUL) ? 1 << 31 : 0;
-			writel_relaxed(flush, DMOV_REG(DMOV_FLUSH0(ch), adm));
-		}
+		if (cmd->exec_func)
+			cmd->exec_func(cmd);
+		list_add_tail(&cmd->list, &dmov_conf[adm].active_commands[ch]);
+		if (!dmov_conf[adm].channel_active)
+			enable_irq(dmov_conf[adm].irq);
+		dmov_conf[adm].channel_active |= BIT(ch);
+		PRINT_IO("msm dmov enqueue command, %x, ch %d\n", cmd->cmdptr,
+				ch);
+		writel_relaxed(cmd->cmdptr, DMOV_REG(DMOV_CMD_PTR(ch), adm));
 	} else {
-		cmd->toflush = 0;
+		list_add_tail(&cmd->list, &dmov_conf[adm].ready_commands[ch]);
 		if (list_empty(&dmov_conf[adm].active_commands[ch]) &&
 		    !list_empty(&dmov_conf[adm].ready_commands[ch]))
 			PRINT_ERROR("msm_dmov_enqueue_cmd_ext(%d), stalled, "
@@ -354,33 +413,58 @@ static void msm_dmov_enqueue_cmd_ext_work(struct work_struct *work)
 		PRINT_IO("msm_dmov_enqueue_cmd(%d), enqueue command, status "
 		    "%x\n", id, status);
 	}
-	if (!dmov_conf[adm].channel_active) {
-		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-		schedule_delayed_work(&dmov_conf[adm].work, (HZ/10));
-	}
-	spin_unlock_irqrestore(&dmov_conf[adm].list_lock, flags);
-error:
-	mutex_unlock(&dmov_conf[adm].lock);
 }
 
-static void __msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
+static void __msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd,
+					int onstack)
 {
 	int adm = DMOV_ID_TO_ADM(id);
 	int ch = DMOV_ID_TO_CHAN(id);
 	unsigned long flags;
+
 	cmd->id = id;
 	cmd->toflush = 0;
 
-	spin_lock_irqsave(&dmov_conf[adm].list_lock, flags);
-	list_add_tail(&cmd->list, &dmov_conf[adm].staged_commands[ch]);
-	queue_work(dmov_conf[adm].cmd_wq, &cmd->work);
-	spin_unlock_irqrestore(&dmov_conf[adm].list_lock, flags);
+	spin_lock_irqsave(&dmov_conf[adm].lock, flags);
+	switch (dmov_conf[adm].clk_ctl) {
+	case CLK_DIS:
+	case CLK_DISABLING:
+		if (onstack)
+			INIT_WORK_ONSTACK(&cmd->work,
+			msm_dmov_enqueue_cmd_ext_work);
+		else
+			INIT_WORK(&cmd->work,
+			msm_dmov_enqueue_cmd_ext_work);
+		list_add_tail(&cmd->list, &dmov_conf[adm].staged_commands[ch]);
+		dmov_conf[adm].clk_ctl = CLK_ENABLING;
+		queue_work(dmov_conf[adm].cmd_wq, &cmd->work);
+		break;
+
+	case CLK_ENABLING:
+		list_add_tail(&cmd->list, &dmov_conf[adm].staged_commands[ch]);
+		break;
+
+	case CLK_EN:
+		msm_dmov_enqueue_cmd_ext_atomic(id, cmd);
+		break;
+
+	case CLK_TO_BE_DIS:
+		cancel_delayed_work(&dmov_conf[adm].work);
+		dmov_conf[adm].clk_ctl = CLK_EN;
+		msm_dmov_enqueue_cmd_ext_atomic(id, cmd);
+		break;
+
+	default:
+		PRINT_ERROR("ADM%d: Invalid CLK State.\n", adm);
+		BUG_ON(dmov_conf[adm].clk_ctl);
+	}
+
+	spin_unlock_irqrestore(&dmov_conf[adm].lock, flags);
 }
 
 void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 {
-	INIT_WORK(&cmd->work, msm_dmov_enqueue_cmd_ext_work);
-	__msm_dmov_enqueue_cmd_ext(id, cmd);
+	__msm_dmov_enqueue_cmd_ext(id, cmd, 0);
 }
 EXPORT_SYMBOL(msm_dmov_enqueue_cmd_ext);
 
@@ -388,8 +472,7 @@ void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
 {
 	/* Disable callback function (for backwards compatibility) */
 	cmd->exec_func = NULL;
-	INIT_WORK(&cmd->work, msm_dmov_enqueue_cmd_ext_work);
-	__msm_dmov_enqueue_cmd_ext(id, cmd);
+	__msm_dmov_enqueue_cmd_ext(id, cmd, 0);
 }
 EXPORT_SYMBOL(msm_dmov_enqueue_cmd);
 
@@ -401,7 +484,7 @@ void msm_dmov_flush(unsigned int id, int graceful)
 	int flush = graceful ? DMOV_FLUSH_TYPE : 0;
 	struct msm_dmov_cmd *cmd;
 
-	spin_lock_irqsave(&dmov_conf[adm].list_lock, irq_flags);
+	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 	/* XXX not checking if flush cmd sent already */
 	if (!list_empty(&dmov_conf[adm].active_commands[ch])) {
 		PRINT_IO("msm_dmov_flush(%d), send flush cmd\n", id);
@@ -409,8 +492,10 @@ void msm_dmov_flush(unsigned int id, int graceful)
 	}
 	list_for_each_entry(cmd, &dmov_conf[adm].staged_commands[ch], list)
 		cmd->toflush = graceful ? GRACEFUL : NONGRACEFUL;
+	list_for_each_entry(cmd, &dmov_conf[adm].ready_commands[ch], list)
+		cmd->toflush = graceful ? GRACEFUL : NONGRACEFUL;
 	/* spin_unlock_irqrestore has the necessary barrier */
-	spin_unlock_irqrestore(&dmov_conf[adm].list_lock, irq_flags);
+	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 }
 EXPORT_SYMBOL(msm_dmov_flush);
 
@@ -427,7 +512,8 @@ dmov_exec_cmdptr_complete_func(struct msm_dmov_cmd *_cmd,
 			       unsigned int result,
 			       struct msm_dmov_errdata *err)
 {
-	struct msm_dmov_exec_cmdptr_cmd *cmd = container_of(_cmd, struct msm_dmov_exec_cmdptr_cmd, dmov_cmd);
+	struct msm_dmov_exec_cmdptr_cmd *cmd =
+		container_of(_cmd, struct msm_dmov_exec_cmdptr_cmd, dmov_cmd);
 	cmd->result = result;
 	if (result != 0x80000002 && err)
 		memcpy(&cmd->err, err, sizeof(struct msm_dmov_errdata));
@@ -446,16 +532,17 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr)
 	cmd.dmov_cmd.exec_func = NULL;
 	cmd.id = id;
 	cmd.result = 0;
-	INIT_WORK_ONSTACK(&cmd.dmov_cmd.work, msm_dmov_enqueue_cmd_ext_work);
 	init_completion(&cmd.complete);
 
-	__msm_dmov_enqueue_cmd_ext(id, &cmd.dmov_cmd);
+	__msm_dmov_enqueue_cmd_ext(id, &cmd.dmov_cmd, 1);
 	wait_for_completion_io(&cmd.complete);
 
 	if (cmd.result != 0x80000002) {
-		PRINT_ERROR("dmov_exec_cmdptr(%d): ERROR, result: %x\n", id, cmd.result);
+		PRINT_ERROR("dmov_exec_cmdptr(%d): ERROR, result: %x\n",
+			id, cmd.result);
 		PRINT_ERROR("dmov_exec_cmdptr(%d):  flush: %x %x %x %x\n",
-			id, cmd.err.flush[0], cmd.err.flush[1], cmd.err.flush[2], cmd.err.flush[3]);
+			id, cmd.err.flush[0], cmd.err.flush[1],
+			cmd.err.flush[2], cmd.err.flush[3]);
 		return -EIO;
 	}
 	PRINT_FLOW("dmov_exec_cmdptr(%d, %x) done\n", id, cmdptr);
@@ -486,17 +573,17 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 	struct msm_dmov_cmd *cmd;
 	int adm = DMOV_IRQ_TO_ADM(irq);
 
-	mutex_lock(&dmov_conf[adm].lock);
+	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 	/* read and clear isr */
 	int_status = readl_relaxed(DMOV_REG(DMOV_ISR, adm));
 	PRINT_FLOW("msm_datamover_irq_handler: DMOV_ISR %x\n", int_status);
 
-	spin_lock_irqsave(&dmov_conf[adm].list_lock, irq_flags);
 	while (int_status) {
 		mask = int_status & -int_status;
 		ch = fls(mask) - 1;
 		id = DMOV_CHAN_ADM_TO_ID(ch, adm);
-		PRINT_FLOW("msm_datamover_irq_handler %08x %08x id %d\n", int_status, mask, id);
+		PRINT_FLOW("msm_datamover_irq_handler %08x %08x id %d\n",
+				int_status, mask, id);
 		int_status &= ~mask;
 		ch_status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch), adm));
 		if (!(ch_status & DMOV_STATUS_RSLT_VALID)) {
@@ -508,8 +595,9 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 			valid = 1;
 			ch_result = readl_relaxed(DMOV_REG(DMOV_RSLT(ch), adm));
 			if (list_empty(&dmov_conf[adm].active_commands[ch])) {
-				PRINT_ERROR("msm_datamover_irq_handler id %d, got result "
-					"with no active command, status %x, result %x\n",
+				PRINT_ERROR("msm_datamover_irq_handler id %d,"\
+					" got result with no active command,"
+					" status %x, result %x\n",
 					id, ch_status, ch_result);
 				cmd = NULL;
 			} else {
@@ -517,26 +605,33 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 					active_commands[ch].next, typeof(*cmd),
 					list);
 			}
-			PRINT_FLOW("msm_datamover_irq_handler id %d, status %x, result %x\n", id, ch_status, ch_result);
+			PRINT_FLOW("msm_datamover_irq_handler id %d, status"\
+				" %x, result %x\n", id, ch_status, ch_result);
 			if (ch_result & DMOV_RSLT_DONE) {
-				PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n",
-					id, ch_status);
-				PRINT_IO("msm_datamover_irq_handler id %d, got result "
-					"for %p, result %x\n", id, cmd, ch_result);
+				PRINT_FLOW("msm_datamover_irq_handler id %d,"\
+					" status %x\n",	id, ch_status);
+				PRINT_IO("msm_datamover_irq_handler id %d,"\
+						" got result for %p,"
+					" result %x\n", id, cmd, ch_result);
 				if (cmd) {
 					list_del(&cmd->list);
-					cmd->complete_func(cmd, ch_result, NULL);
+					cmd->complete_func(cmd, ch_result,
+								 NULL);
 				}
 			}
 			if (ch_result & DMOV_RSLT_FLUSH) {
 				struct msm_dmov_errdata errdata;
 
 				fill_errdata(&errdata, ch, adm);
-				PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
-				PRINT_FLOW("msm_datamover_irq_handler id %d, flush, result %x, flush0 %x\n", id, ch_result, errdata.flush[0]);
+				PRINT_FLOW("msm_datamover_irq_handler id %d,"\
+					" status %x\n", id, ch_status);
+				PRINT_FLOW("msm_datamover_irq_handler id %d,"\
+					" flush, result %x,flush0 %x\n", id,
+					ch_result, errdata.flush[0]);
 				if (cmd) {
 					list_del(&cmd->list);
-					cmd->complete_func(cmd, ch_result, &errdata);
+					cmd->complete_func(cmd, ch_result,
+								&errdata);
 				}
 			}
 			if (ch_result & DMOV_RSLT_ERROR) {
@@ -544,30 +639,47 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 
 				fill_errdata(&errdata, ch, adm);
 
-				PRINT_ERROR("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
-				PRINT_ERROR("msm_datamover_irq_handler id %d, error, result %x, flush0 %x\n", id, ch_result, errdata.flush[0]);
+				PRINT_ERROR("msm_datamover_irq_handler id %d,"\
+						" status %x\n", id, ch_status);
+				PRINT_ERROR("msm_datamover_irq_handler id %d,"\
+					" error, result %x, flush0 %x\n",
+					id, ch_result, errdata.flush[0]);
 				if (cmd) {
 					list_del(&cmd->list);
-					cmd->complete_func(cmd, ch_result, &errdata);
+					cmd->complete_func(cmd, ch_result,
+								&errdata);
 				}
-				/* this does not seem to work, once we get an error */
-				/* the datamover will no longer accept commands */
+				/* this does not seem to work, once we get an
+				 * error. the datamover will no longer accept
+				 * commands
+				 */
 				writel_relaxed(0, DMOV_REG(DMOV_FLUSH0(ch),
 					       adm));
 			}
 			rmb();
 			ch_status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch),
 						  adm));
-			PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
-			if (ch_status & DMOV_STATUS_CMD_PTR_RDY)
-				start_ready_cmd(ch, adm);
+			PRINT_FLOW("msm_datamover_irq_handler id %d, status"\
+					" %x\n", id, ch_status);
+			if (ch_status & DMOV_STATUS_CMD_PTR_RDY) {
+				cmd = start_ready_cmd(ch, adm);
+
+				if (cmd != NULL) {
+					if (cmd->toflush) {
+						int flush = (cmd->toflush ==
+							GRACEFUL) ? 1 << 31 : 0;
+						writel_relaxed(flush,
+						DMOV_REG(DMOV_FLUSH0(ch), adm));
+					}
+				}
+			}
 		} while (ch_status & DMOV_STATUS_RSLT_VALID);
 		if (list_empty(&dmov_conf[adm].active_commands[ch]) &&
-		    list_empty(&dmov_conf[adm].ready_commands[ch]))
+				list_empty(&dmov_conf[adm].ready_commands[ch]))
 			dmov_conf[adm].channel_active &= ~(1U << ch);
-		PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
+		PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id,
+			ch_status);
 	}
-	spin_unlock_irqrestore(&dmov_conf[adm].list_lock, irq_flags);
 
 	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
@@ -575,7 +687,7 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 		schedule_delayed_work(&dmov_conf[adm].work, (HZ/10));
 	}
 
-	mutex_unlock(&dmov_conf[adm].lock);
+	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 	return valid ? IRQ_HANDLED : IRQ_NONE;
 }
 
@@ -583,13 +695,21 @@ static int msm_dmov_suspend_late(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	int adm = (pdev->id >= 0) ? pdev->id : 0;
-	mutex_lock(&dmov_conf[adm].lock);
+	unsigned long irq_flags;
+
+	mutex_lock(&dmov_conf[adm].clock_lock);
+	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 	if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS) {
 		BUG_ON(dmov_conf[adm].channel_active);
+		dmov_conf[adm].clk_ctl = CLK_DISABLING;
+		spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 		msm_dmov_clk_off(adm);
-		dmov_conf[adm].clk_ctl = CLK_DIS;
+		spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
+		if (dmov_conf[adm].clk_ctl == CLK_DISABLING)
+			dmov_conf[adm].clk_ctl = CLK_DIS;
 	}
-	mutex_unlock(&dmov_conf[adm].lock);
+	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
+	mutex_unlock(&dmov_conf[adm].clock_lock);
 	return 0;
 }
 
@@ -611,7 +731,7 @@ static int msm_dmov_runtime_idle(struct device *dev)
 	return 0;
 }
 
-static struct dev_pm_ops msm_dmov_dev_pm_ops = {
+static const struct dev_pm_ops msm_dmov_dev_pm_ops = {
 	.runtime_suspend = msm_dmov_runtime_suspend,
 	.runtime_resume = msm_dmov_runtime_resume,
 	.runtime_idle = msm_dmov_runtime_idle,
@@ -686,6 +806,7 @@ static int msm_dmov_probe(struct platform_device *pdev)
 		platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	struct resource *mres =
 		platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	char wq_name[12];
 
 	if (pdata) {
 		dmov_conf[adm].sd = pdata->sd;
@@ -704,15 +825,16 @@ static int msm_dmov_probe(struct platform_device *pdev)
 	if (!dmov_conf[adm].base)
 		return -ENOMEM;
 
-	dmov_conf[adm].cmd_wq = alloc_ordered_workqueue("dmov%d_wq", 0, adm);
+	snprintf(wq_name, sizeof(wq_name), "dmov%d_wq", adm);
+	dmov_conf[adm].cmd_wq = alloc_workqueue(wq_name, WQ_CPU_INTENSIVE, 1);
 	if (!dmov_conf[adm].cmd_wq) {
 		PRINT_ERROR("Couldn't allocate ADM%d workqueue.\n", adm);
 		ret = -ENOMEM;
 		goto out_map;
 	}
 
-	ret = request_threaded_irq(dmov_conf[adm].irq, NULL, msm_dmov_isr,
-				   IRQF_ONESHOT, "msmdatamover", NULL);
+	ret = request_irq(dmov_conf[adm].irq, msm_dmov_isr,
+		0, "msmdatamover", NULL);
 	if (ret) {
 		PRINT_ERROR("Requesting ADM%d irq %d failed\n", adm,
 			dmov_conf[adm].irq);
