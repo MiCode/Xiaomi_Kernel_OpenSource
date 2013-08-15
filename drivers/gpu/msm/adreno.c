@@ -40,6 +40,9 @@
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
+/* Number of times to try hard reset */
+#define NUM_TIMES_RESET_RETRY 5
+
 /* Adreno MH arbiter config*/
 #define ADRENO_CFG_MHARB \
 	(0x10 \
@@ -1830,6 +1833,7 @@ int adreno_reset(struct kgsl_device *device)
 {
 	int ret = -EINVAL;
 	struct kgsl_mmu *mmu = &device->mmu;
+	int i = 0;
 
 	/* Try soft reset first, for non mmu fault case only */
 	if (!atomic_read(&mmu->fault)) {
@@ -1838,16 +1842,28 @@ int adreno_reset(struct kgsl_device *device)
 			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
 	}
 	if (ret) {
-		/* If soft reset failed or skipped, then pull the power */
-		ret = adreno_stop(device);
-		if (ret)
-			return ret;
+		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+			/* If soft reset failed/skipped, then pull the power */
+			ret = adreno_stop(device);
+			if (ret) {
+				msleep(20);
+				continue;
+			}
 
-		ret = adreno_start(device);
+			ret = adreno_start(device);
 
-		if (ret)
-			return ret;
+			if (ret) {
+				msleep(20);
+				continue;
+			}
+			break;
+		}
 	}
+	if (ret)
+		return ret;
+
+	if (0 != i)
+		KGSL_DRV_WARN(device, "Device hard reset tried %d tries\n", i);
 
 	/*
 	 * If active_cnt is non-zero then the system was active before
