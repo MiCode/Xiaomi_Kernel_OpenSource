@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc  {
 	qcom,dsi_v2_otm8018b_fwvga_video {
 		compatible = "qcom,dsi-panel-v2";
 		label = "OTM8018B FWVGA video mode dsi panel";
