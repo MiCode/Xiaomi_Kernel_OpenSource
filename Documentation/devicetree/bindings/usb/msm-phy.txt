@@ -1,0 +1,57 @@
+MSM USB PHY transceivers
+
+HSUSB PHY
+
+Required properties:
+ - compatible: Should be "qcom,usb-hsphy"
+ - reg: Address and length of the register set for the device
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required "supply-name" examples are:
+	"vdd" : vdd supply for HSPHY digital circuit operation
+	"vdda18" : 1.8v supply for HSPHY
+	"vdda33" : 3.3v supply for HSPHY
+ - qcom,vdd-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner
+
+Optional properties:
+ - qcom,hsphy-init: Init value used to override HSPHY parameters into
+   QSCRATCH register. This 32-bit value represents parameters as follows:
+		bits 0-5   PARAMETER_OVERRIDE_A
+		bits 6-12  PARAMETER_OVERRIDE_B
+		bits 13-19 PARAMETER_OVERRIDE_C
+		bits 20-25 PARAMETER_OVERRIDE_D
+ - qcom,ext-vbus-id: If present then PHY does not handle VBUS and ID changes.
+
+Example:
+	hsphy@f9200000 {
+		compatible = "qcom,usb-hsphy";
+		reg = <0xf9200000 0xfc000>;
+		qcom,hsphy-init = <0x00D191A4>;
+		vdd-supply = <&pm8841_s2_corner>;
+		vdda18-supply = <&pm8941_l6>;
+		vdda33-supply = <&pm8941_l24>;
+		qcom,vdd-voltage-level = <1 5 7>;
+	};
+
+SSUSB PHY
+
+Required properties:
+ - compatible: Should be "qcom,usb-ssphy"
+ - reg: Address and length of the register set for the device
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required "supply-name" examples are:
+	"vdd" : vdd supply for SSPHY digital circuit operation
+	"vdda18" : 1.8v high-voltage analog supply for SSPHY
+ - qcom,vdd-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner
+
+Example:
+	ssphy@f9200000 {
+		compatible = "qcom,usb-ssphy";
+		reg = <0xf9200000 0xfc000>;
+		vdd-supply = <&pm8841_s2_corner>;
+		vdda18-supply = <&pm8941_l6>;
+		qcom,vdd-voltage-level = <1 5 7>;
+	};

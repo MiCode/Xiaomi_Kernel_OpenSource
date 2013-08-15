@@ -220,6 +220,26 @@ config USB_MSM_STANDARD_ACA
 	  are only possible with Standard ACA.  Select this feature if the
 	  board is intended to support only Standard ACA.
 
+config USB_MSM_HSPHY
+	tristate "MSM HSUSB PHY Driver"
+	select USB_OTG_UTILS
+	default USB_DWC3_MSM
+	help
+	  Enable this to support the High-speed USB transceiver on MSM chips.
+	  This driver supports the PHY which uses the QSCRATCH-based register
+	  set for its control sequences, normally paired with newer DWC3-based
+	  SuperSpeed controllers.
+
+config USB_MSM_SSPHY
+	tristate "MSM SSUSB PHY Driver"
+	select USB_OTG_UTILS
+	default USB_DWC3_MSM
+	help
+	  Enable this to support the SuperSpeed USB transceiver on MSM chips.
+	  This driver supports the PHY which uses the QSCRATCH-based register
+	  set for its control sequences, normally paired with newer DWC3-based
+	  SuperSpeed controllers.
+
 config USB_MV_OTG
 	tristate "Marvell USB OTG support"
 	depends on USB_EHCI_MV && USB_MV_UDC && PM_RUNTIME
