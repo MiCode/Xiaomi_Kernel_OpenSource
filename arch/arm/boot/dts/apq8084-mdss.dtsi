@@ -67,6 +67,17 @@
 				     <0x0A8 0x00003FFF>,
 				     <0x124 0x00000003>;
 
+		qcom,mdp-settings = <0x02E0 0x000000FA>,
+				    <0x02E4 0x00000055>,
+				    <0x03AC 0xC0000CCC>,
+				    <0x03B4 0xC0000CCC>,
+				    <0x03BC 0x00CCCCCC>,
+				    <0x03C4 0x000000CC>,
+				    <0x04A8 0x0CCCC0C0>,
+				    <0x04B0 0xCCCCC0C0>,
+				    <0x04B8 0xCCCCC0C0>,
+				    <0x04D0 0x00CCC000>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
