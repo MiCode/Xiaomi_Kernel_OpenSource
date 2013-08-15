@@ -730,7 +730,8 @@ static void cmdbatch_skip_ib(struct kgsl_cmdbatch *cmdbatch, unsigned int base)
 	for (i = 0; i < cmdbatch->ibcount; i++) {
 		if (cmdbatch->ibdesc[i].gpuaddr == base) {
 			cmdbatch->ibdesc[i].sizedwords = 0;
-			return;
+			if (base)
+				return;
 		}
 	}
 }
@@ -1062,7 +1063,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		set_bit(KGSL_FT_SKIPIB, &cmdbatch->fault_recovery);
 
 		for (i = 0; i < count; i++) {
-			if (replay[i] != NULL)
+			if (replay[i] != NULL &&
+				replay[i]->context->id == cmdbatch->context->id)
 				cmdbatch_skip_ib(replay[i], base);
 		}
 
