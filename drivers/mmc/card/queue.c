@@ -94,13 +94,7 @@ static int mmc_queue_thread(void *d)
 			/*
 			 * Current request becomes previous request
 			 * and vice versa.
-			 * In case of special requests, current request
-			 * has been finished. Do not assign it to previous
-			 * request.
 			 */
-			if (cmd_flags & MMC_REQ_SPECIAL_MASK)
-				mq->mqrq_cur->req = NULL;
-
 			mq->mqrq_prev->brq.mrq.data = NULL;
 			mq->mqrq_prev->req = NULL;
 			tmp = mq->mqrq_prev;

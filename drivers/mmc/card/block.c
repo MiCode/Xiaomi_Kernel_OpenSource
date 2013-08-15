@@ -2689,6 +2689,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	mmc_blk_write_packing_control(mq, req);
 
 	mq->flags &= ~MMC_QUEUE_NEW_REQUEST;
+	mq->flags &= ~MMC_QUEUE_URGENT_REQUEST;
 	if (req && req->cmd_flags & REQ_DISCARD) {
 		/* complete ongoing async transfer before issuing discard */
 		if (card->host->areq)
@@ -2721,8 +2722,7 @@ out:
 	 */
 	if ((!req && !(mq->flags & MMC_QUEUE_NEW_REQUEST)) ||
 			((mq->flags & MMC_QUEUE_URGENT_REQUEST) &&
-				!(mq->mqrq_cur->req->cmd_flags & REQ_URGENT)) ||
-	     (req && (req->cmd_flags & MMC_REQ_SPECIAL_MASK))) {
+			 !(mq->mqrq_cur->req->cmd_flags & REQ_URGENT))) {
 		if (mmc_card_need_bkops(card))
 			mmc_start_bkops(card, false);
 		/*

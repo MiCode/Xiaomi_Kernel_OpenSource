@@ -756,6 +756,8 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 							host->areq);
 					context_info->is_done_rcv = false;
 					break; /* return err */
+				} else {
+					mmc_host_clk_release(host);
 				}
 				err = host->areq->update_interrupted_req(
 						host->card, host->areq);
