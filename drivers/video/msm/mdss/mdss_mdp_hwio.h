@@ -116,6 +116,7 @@ enum mdss_mdp_ctl_index {
 #define MDSS_MDP_REG_CTL_FLUSH				0x018
 #define MDSS_MDP_REG_CTL_START				0x01C
 #define MDSS_MDP_REG_CTL_PACK_3D			0x020
+#define MDSS_MDP_REG_CTL_SW_RESET			0x030
 
 #define MDSS_MDP_CTL_OP_VIDEO_MODE		(0 << 17)
 #define MDSS_MDP_CTL_OP_CMD_MODE		(1 << 17)
