@@ -1600,15 +1600,6 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* Parse AUXPCM info from DT */
-	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
-					msm_auxpcm_gpio_name);
-	if (ret) {
-		dev_err(&pdev->dev,
-		"%s: Auxpcm pin data parse failed\n", __func__);
-		goto err;
-	}
-
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -1649,6 +1640,34 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
+					"qcom,headset-jack-type-NO");
+
+	mutex_init(&cdc_mclk_mutex);
+
+	ret = msm8226_prepare_codec_mclk(card);
+	if (ret)
+		goto err;
+
+
+	ret = snd_soc_register_card(card);
+	if (ret == -EPROBE_DEFER)
+		goto err;
+	else if (ret) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
+			ret);
+		goto err;
+	}
+
+	/* Parse AUXPCM info from DT */
+	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
+					msm_auxpcm_gpio_name);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"%s: Auxpcm pin data parse failed\n", __func__);
+		goto err;
+	}
+
 	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,cdc-vdd-spkr-gpios", 0);
 	if (vdd_spkr_gpio < 0) {
@@ -1686,21 +1705,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		}
 	}
 
-	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
-					"qcom,headset-jack-type-NO");
 	msm8226_setup_hs_jack(pdev, pdata);
-
-	ret = msm8226_prepare_codec_mclk(card);
-	if (ret)
-		goto err_lineout_spkr;
-
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
-			ret);
-		goto err_lineout_spkr;
-	}
-	mutex_init(&cdc_mclk_mutex);
 
 	ret = of_property_read_string(pdev->dev.of_node,
 			"qcom,prim-auxpcm-gpio-set", &auxpcm_pri_gpio_set);
@@ -1747,6 +1752,7 @@ err:
 		gpio_free(pdata->mclk_gpio);
 		pdata->mclk_gpio = 0;
 	}
+	mutex_destroy(&cdc_mclk_mutex);
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }

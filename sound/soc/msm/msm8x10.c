@@ -463,9 +463,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	ret = snd_soc_jack_new(codec, "Headset Jack",
 			SND_JACK_HEADSET, &hs_jack);
-	if (ret) {
+	if (ret)
 		pr_err("%s: Failed to create headset jack\n", __func__);
-	}
 
 	return ret;
 }
@@ -885,19 +884,35 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	mutex_init(&cdc_mclk_mutex);
 	pcbcr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4);
+	if (!pcbcr) {
+		ret = -ENOMEM;
+		goto err1;
+	}
 	prcgr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
-
+	if (!prcgr) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+	atomic_set(&mclk_rsc_ref, 0);
 	spdev = pdev;
+
 	ret = snd_soc_register_card(card);
-	if (ret) {
+	if (ret == -EPROBE_DEFER)
+		goto err1;
+	else if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
-		goto err;
+		goto err1;
 	}
-	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&mclk_rsc_ref, 0);
 	return 0;
+err1:
+	mutex_destroy(&cdc_mclk_mutex);
+	if (pcbcr)
+		iounmap(pcbcr);
+	if (prcgr)
+		iounmap(prcgr);
 err:
 	return ret;
 }
