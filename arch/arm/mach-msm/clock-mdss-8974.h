@@ -67,5 +67,11 @@ extern struct div_clk byte_clk_src_8226;
 
 extern struct div_clk edp_mainlink_clk_src;
 extern struct div_clk edp_pixel_clk_src;
+extern struct dsi_pll_vco_clk dsi_vco_clk_8084;
+extern struct div_clk analog_postdiv_clk_8084;
+extern struct div_clk indirect_path_div2_clk_8084;
+extern struct div_clk pixel_clk_src_8084;
+extern struct mux_clk byte_mux_8084;
+extern struct div_clk byte_clk_src_8084;
 
 #endif
