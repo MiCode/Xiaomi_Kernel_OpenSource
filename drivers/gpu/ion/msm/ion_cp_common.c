@@ -286,7 +286,7 @@ int ion_cp_secure_buffer(struct ion_buffer *buffer, int version, void *data,
 		goto out_unlock;
 	}
 
-	if (atomic_read(&buf->secure_cnt)) {
+	if (atomic_read(&buf->secure_cnt) && !buf->ignore_check) {
 		if (buf->version != version || buf->data != data) {
 			pr_err("%s: Trying to re-secure buffer with different values",
 				__func__);
