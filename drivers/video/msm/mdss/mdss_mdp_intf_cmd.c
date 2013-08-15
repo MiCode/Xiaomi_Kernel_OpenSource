@@ -43,13 +43,13 @@ struct mdss_mdp_cmd_ctx {
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
 	struct work_struct clk_work;
-
 	/* te config */
 	u8 tear_check;
 	u16 height;	/* panel height */
 	u16 vporch;	/* vertical porches */
 	u16 start_threshold;
 	u32 vclk_line;	/* vsync clock per line */
+	struct mdss_panel_recovery recovery;
 };
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
@@ -264,6 +264,31 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	spin_unlock(&ctx->clk_lock);
 }
 
+static void mdss_mdp_cmd_underflow_recovery(void *data)
+{
+	struct mdss_mdp_cmd_ctx *ctx = data;
+	unsigned long flags;
+
+	if (!data) {
+		pr_err("%s: invalid ctx\n", __func__);
+		return;
+	}
+
+	if (!ctx->ctl)
+		return;
+	spin_lock_irqsave(&ctx->clk_lock, flags);
+	if (ctx->koff_cnt) {
+		mdss_mdp_ctl_reset(ctx->ctl);
+		pr_debug("%s: intf_num=%d\n", __func__,
+					ctx->ctl->intf_num);
+		ctx->koff_cnt--;
+		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+						ctx->pp_num);
+		complete_all(&ctx->pp_comp);
+	}
+	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+}
+
 static void mdss_mdp_cmd_pingpong_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
@@ -471,7 +496,8 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	/*
 	 * tx dcs command if had any
 	 */
-	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF, NULL);
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF,
+						(void *)&ctx->recovery);
 
 	mdss_mdp_cmd_clk_on(ctx);
 
@@ -586,6 +612,9 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	mutex_init(&ctx->clk_mtx);
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
+
+	ctx->recovery.fxn = mdss_mdp_cmd_underflow_recovery;
+	ctx->recovery.data = ctx;
 
 	pr_debug("%s: ctx=%p num=%d mixer=%d\n", __func__,
 				ctx, ctx->pp_num, mixer->num);
