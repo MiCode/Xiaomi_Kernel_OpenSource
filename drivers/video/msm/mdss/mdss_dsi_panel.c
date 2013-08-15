@@ -735,39 +735,6 @@ error:
 	return -EINVAL;
 }
 
-static int __devinit mdss_dsi_panel_probe(struct platform_device *pdev)
-{
-	int rc = 0;
-	static struct mdss_panel_common_pdata vendor_pdata;
-	static const char *panel_name;
-
-	pr_debug("%s:%d, debug info", __func__, __LINE__);
-	if (!pdev->dev.of_node)
-		return -ENODEV;
-
-	panel_name = of_get_property(pdev->dev.of_node,
-		"qcom,mdss-dsi-panel-name", NULL);
-	if (!panel_name)
-		pr_info("%s:%d, panel name not specified\n",
-						__func__, __LINE__);
-	else
-		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
-
-	rc = mdss_panel_parse_dt(pdev->dev.of_node, &vendor_pdata);
-	if (rc)
-		return rc;
-
-	vendor_pdata.on = mdss_dsi_panel_on;
-	vendor_pdata.off = mdss_dsi_panel_off;
-	vendor_pdata.bl_fnc = mdss_dsi_panel_bl_ctrl;
-
-	rc = dsi_panel_device_register(pdev->dev.of_node, &vendor_pdata, true);
-	if (rc)
-		return rc;
-
-	return 0;
-}
-
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_panel_common_pdata *vendor_pdata)
 {
@@ -799,22 +766,3 @@ int mdss_dsi_panel_init(struct device_node *node,
 
 	return 0;
 }
-
-static const struct of_device_id mdss_dsi_panel_match[] = {
-	{.compatible = "qcom,mdss-dsi-panel"},
-	{}
-};
-
-static struct platform_driver this_driver = {
-	.probe  = mdss_dsi_panel_probe,
-	.driver = {
-		.name   = "dsi_panel",
-		.of_match_table = mdss_dsi_panel_match,
-	},
-};
-
-static int __init mdss_dsi_pan_init(void)
-{
-	return platform_driver_register(&this_driver);
-}
-module_init(mdss_dsi_pan_init);
