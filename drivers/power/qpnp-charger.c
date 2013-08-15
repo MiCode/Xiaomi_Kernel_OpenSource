@@ -97,6 +97,7 @@
 #define USB_CHG_GONE_REV_BST			0xED
 #define BUCK_VCHG_OV				0x77
 #define BUCK_TEST_SMBC_MODES			0xE6
+#define BUCK_CTRL_TRIM1				0xF1
 #define SEC_ACCESS				0xD0
 #define BAT_IF_VREF_BAT_THM_CTRL		0x4A
 #define BAT_IF_BPD_CTRL				0x48
@@ -309,6 +310,7 @@ struct qpnp_chg_chip {
 	int				prev_usb_max_ma;
 	int				set_vddmax_mv;
 	int				delta_vddmax_mv;
+	u8				trim_center;
 	unsigned int			warm_bat_mv;
 	unsigned int			cool_bat_mv;
 	unsigned int			resume_delta_mv;
@@ -1047,6 +1049,72 @@ qpnp_chg_usb_usb_ocp_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+#define QPNP_CHG_VDDMAX_MIN		3400
+#define QPNP_CHG_V_MIN_MV		3240
+#define QPNP_CHG_V_MAX_MV		4500
+#define QPNP_CHG_V_STEP_MV		10
+#define QPNP_CHG_BUCK_TRIM1_STEP	10
+#define QPNP_CHG_BUCK_VDD_TRIM_MASK	0xF0
+static int
+qpnp_chg_vddmax_and_trim_set(struct qpnp_chg_chip *chip,
+		int voltage, int trim_mv)
+{
+	int rc, trim_set;
+	u8 vddmax = 0, trim = 0;
+
+	if (voltage < QPNP_CHG_VDDMAX_MIN
+			|| voltage > QPNP_CHG_V_MAX_MV) {
+		pr_err("bad mV=%d asked to set\n", voltage);
+		return -EINVAL;
+	}
+
+	vddmax = (voltage - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
+	rc = qpnp_chg_write(chip, &vddmax, chip->chgr_base + CHGR_VDD_MAX, 1);
+	if (rc) {
+		pr_err("Failed to write vddmax: %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_masked_write(chip,
+		chip->buck_base + SEC_ACCESS,
+		0xFF,
+		0xA5, 1);
+	if (rc) {
+		pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+		return rc;
+	}
+	trim_set = clamp((int)chip->trim_center
+			+ (trim_mv / QPNP_CHG_BUCK_TRIM1_STEP),
+			0, 0xF);
+	trim = (u8)trim_set << 4;
+	rc = qpnp_chg_masked_write(chip,
+		chip->buck_base + BUCK_CTRL_TRIM1,
+		QPNP_CHG_BUCK_VDD_TRIM_MASK,
+		trim, 1);
+	if (rc) {
+		pr_err("Failed to write buck trim1: %d\n", rc);
+		return rc;
+	}
+	pr_debug("voltage=%d+%d setting vddmax: %02x, trim: %02x\n",
+			voltage, trim_mv, vddmax, trim);
+	return 0;
+}
+
+/* JEITA compliance logic */
+static void
+qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
+{
+	if (chip->bat_is_cool)
+		qpnp_chg_vddmax_and_trim_set(chip, chip->cool_bat_mv,
+				chip->delta_vddmax_mv);
+	else if (chip->bat_is_warm)
+		qpnp_chg_vddmax_and_trim_set(chip, chip->warm_bat_mv,
+				chip->delta_vddmax_mv);
+	else
+		qpnp_chg_vddmax_and_trim_set(chip, chip->max_voltage_mv,
+				chip->delta_vddmax_mv);
+}
+
 #define ENUM_T_STOP_BIT		BIT(0)
 static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
@@ -1066,11 +1134,19 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
 		if (!usb_present) {
+			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
+				chip->delta_vddmax_mv = 0;
+				qpnp_chg_set_appropriate_vddmax(chip);
+			}
 			qpnp_chg_usb_suspend_enable(chip, 1);
 			if (!qpnp_chg_is_dc_chg_plugged_in(chip))
 				chip->chg_done = false;
 			chip->prev_usb_max_ma = -EINVAL;
 		} else {
+			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
+				chip->delta_vddmax_mv = 0;
+				qpnp_chg_set_appropriate_vddmax(chip);
+			}
 			schedule_delayed_work(&chip->eoc_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			schedule_work(&chip->soc_check_work);
@@ -1138,8 +1214,14 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 	if (chip->dc_present ^ dc_present) {
 		chip->dc_present = dc_present;
 		if (!dc_present && !qpnp_chg_is_usb_chg_plugged_in(chip)) {
+			chip->delta_vddmax_mv = 0;
+			qpnp_chg_set_appropriate_vddmax(chip);
 			chip->chg_done = false;
 		} else {
+			if (!qpnp_chg_is_usb_chg_plugged_in(chip)) {
+				chip->delta_vddmax_mv = 0;
+				qpnp_chg_set_appropriate_vddmax(chip);
+			}
 			schedule_delayed_work(&chip->eoc_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			schedule_work(&chip->soc_check_work);
@@ -1926,9 +2008,6 @@ static int qpnp_chg_tchg_max_set(struct qpnp_chg_chip *chip, int minutes)
 			QPNP_CHG_TCHG_MASK, temp, 1);
 }
 
-#define QPNP_CHG_V_MIN_MV	3240
-#define QPNP_CHG_V_MAX_MV	4500
-#define QPNP_CHG_V_STEP_MV	10
 static int
 qpnp_chg_vddsafe_set(struct qpnp_chg_chip *chip, int voltage)
 {
@@ -1943,25 +2022,6 @@ qpnp_chg_vddsafe_set(struct qpnp_chg_chip *chip, int voltage)
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
 	return qpnp_chg_write(chip, &temp,
 		chip->chgr_base + CHGR_VDD_SAFE, 1);
-}
-
-#define QPNP_CHG_VDDMAX_MIN	3400
-static int
-qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
-{
-	u8 temp = 0;
-
-	if (voltage < QPNP_CHG_VDDMAX_MIN
-			|| voltage > QPNP_CHG_V_MAX_MV) {
-		pr_err("bad mV=%d asked to set\n", voltage);
-		return -EINVAL;
-	}
-	chip->set_vddmax_mv = voltage + chip->delta_vddmax_mv;
-
-	temp = (chip->set_vddmax_mv - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
-
-	pr_debug("voltage=%d setting %02x\n", chip->set_vddmax_mv, temp);
-	return qpnp_chg_write(chip, &temp, chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
 #define BOOST_MIN_UV	4200000
@@ -2004,18 +2064,6 @@ qpnp_boost_vget_uv(struct qpnp_chg_chip *chip)
 	}
 
 	return BOOST_MIN_UV + ((boost_reg - BOOST_MIN) * BOOST_STEP_UV);
-}
-
-/* JEITA compliance logic */
-static void
-qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
-{
-	if (chip->bat_is_cool)
-		qpnp_chg_vddmax_set(chip, chip->cool_bat_mv);
-	else if (chip->bat_is_warm)
-		qpnp_chg_vddmax_set(chip, chip->warm_bat_mv);
-	else
-		qpnp_chg_vddmax_set(chip, chip->max_voltage_mv);
 }
 
 static void
@@ -2333,22 +2381,23 @@ static struct regulator_ops qpnp_chg_batfet_vreg_ops = {
 	.is_enabled		= qpnp_chg_regulator_batfet_is_enabled,
 };
 
-#define MIN_DELTA_MV_TO_INCREASE_VDD_MAX	13
-#define MAX_DELTA_VDD_MAX_MV			30
+#define MIN_DELTA_MV_TO_INCREASE_VDD_MAX	8
+#define MAX_DELTA_VDD_MAX_MV			80
+#define VDD_MAX_CENTER_OFFSET			4
 static void
 qpnp_chg_adjust_vddmax(struct qpnp_chg_chip *chip, int vbat_mv)
 {
 	int delta_mv, closest_delta_mv, sign;
 
-	delta_mv = chip->max_voltage_mv - vbat_mv;
+	delta_mv = chip->max_voltage_mv - VDD_MAX_CENTER_OFFSET - vbat_mv;
 	if (delta_mv > 0 && delta_mv < MIN_DELTA_MV_TO_INCREASE_VDD_MAX) {
 		pr_debug("vbat is not low enough to increase vdd\n");
 		return;
 	}
 
 	sign = delta_mv > 0 ? 1 : -1;
-	closest_delta_mv = ((delta_mv + sign * QPNP_CHG_V_STEP_MV / 2)
-			/ QPNP_CHG_V_STEP_MV) * QPNP_CHG_V_STEP_MV;
+	closest_delta_mv = ((delta_mv + sign * QPNP_CHG_BUCK_TRIM1_STEP / 2)
+			/ QPNP_CHG_BUCK_TRIM1_STEP) * QPNP_CHG_BUCK_TRIM1_STEP;
 	pr_debug("max_voltage = %d, vbat_mv = %d, delta_mv = %d, closest = %d\n",
 			chip->max_voltage_mv, vbat_mv,
 			delta_mv, closest_delta_mv);
@@ -2445,6 +2494,8 @@ qpnp_eoc_work(struct work_struct *work)
 		} else {
 			if (count == CONSECUTIVE_COUNT) {
 				pr_info("End of Charging\n");
+				chip->delta_vddmax_mv = 0;
+				qpnp_chg_set_appropriate_vddmax(chip);
 				chip->chg_done = true;
 				qpnp_chg_charge_en(chip, 0);
 				/* sleep for a second before enabling */
@@ -3238,11 +3289,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed setting  min_voltage rc=%d\n", rc);
 			return rc;
 		}
-		rc = qpnp_chg_vddmax_set(chip, chip->max_voltage_mv);
-		if (rc) {
-			pr_debug("failed setting max_voltage rc=%d\n", rc);
-			return rc;
-		}
 		rc = qpnp_chg_vddsafe_set(chip, chip->safe_voltage_mv);
 		if (rc) {
 			pr_debug("failed setting safe_voltage rc=%d\n", rc);
@@ -3302,6 +3348,15 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed to enable IR drop comp rc=%d\n", rc);
 			return rc;
 		}
+
+		rc = qpnp_chg_read(chip, &chip->trim_center,
+				chip->buck_base + BUCK_CTRL_TRIM1, 1);
+		if (rc) {
+			pr_debug("failed to read trim center rc=%d\n", rc);
+			return rc;
+		}
+		chip->trim_center >>= 4;
+		pr_debug("trim center = %02x\n", chip->trim_center);
 		break;
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
