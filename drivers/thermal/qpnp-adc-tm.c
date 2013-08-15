@@ -1324,15 +1324,6 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t qpnp_adc_tm_isr(int irq, void *data)
-{
-	struct qpnp_adc_tm_chip *chip = data;
-
-	complete(&chip->adc->adc_rslt_completion);
-
-	return IRQ_HANDLED;
-}
-
 static int qpnp_adc_read_temp(struct thermal_zone_device *thermal,
 			     unsigned long *temp)
 {
@@ -1618,17 +1609,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		if (rc != -EPROBE_DEFER)
 			pr_err("vadc property missing, rc=%d\n", rc);
 		goto fail;
-	}
-
-	rc = devm_request_irq(&spmi->dev, chip->adc->adc_irq_eoc,
-				qpnp_adc_tm_isr, IRQF_TRIGGER_RISING,
-				"qpnp_adc_tm_interrupt", chip);
-	if (rc) {
-		dev_err(&spmi->dev,
-			"failed to request adc irq with error %d\n", rc);
-		goto fail;
-	} else {
-		enable_irq_wake(chip->adc->adc_irq_eoc);
 	}
 
 	rc = devm_request_irq(&spmi->dev, chip->adc->adc_high_thr_irq,
