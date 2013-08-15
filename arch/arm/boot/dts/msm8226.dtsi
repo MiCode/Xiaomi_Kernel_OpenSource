@@ -331,13 +331,9 @@
 			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 			qcom,cdc-vdd-px-current = <25000>;
 
-			cdc-vdd-a-1p2v-supply = <&pm8226_l4>;
-			qcom,cdc-vdd-a-1p2v-voltage = <1200000 1200000>;
-			qcom,cdc-vdd-a-1p2v-current = <10000>;
-
 			cdc-vdd-cx-supply = <&pm8226_l4>;
 			qcom,cdc-vdd-cx-voltage = <1200000 1200000>;
-			qcom,cdc-vdd-cx-current = <10000>;
+			qcom,cdc-vdd-cx-current = <2000>;
 
 			cdc-vdd-buckhelper-supply = <&pm8226_l25>;
 			qcom,cdc-vdd-buckhelper-voltage = <1775000 2125000>;
@@ -345,7 +341,6 @@
 
 			qcom,cdc-static-supplies = "cdc-vdd-h",
 						   "cdc-vdd-px",
-						   "cdc-vdd-a-1p2v",
 						   "cdc-vdd-cx";
 
 			qcom,cdc-cp-supplies = "cdc-vdd-buck",
