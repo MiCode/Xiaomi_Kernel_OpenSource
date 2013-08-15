@@ -94,7 +94,7 @@ void msm_qdss_csr_enable_bam_to_usb(void)
 	csr_writel(drvdata, usbbamctrl, CSR_USBBAMCTRL);
 
 	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
-	usbflshctrl = (usbflshctrl & ~0x3FFFC) | (0x1000 << 2);
+	usbflshctrl = (usbflshctrl & ~0x3FFFC) | (0xFFFF << 2);
 	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
 	usbflshctrl |= 0x2;
 	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
