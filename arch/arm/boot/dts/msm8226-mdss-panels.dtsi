@@ -10,28 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/include/ "msm8226-v1.dtsi"
-/include/ "msm8226-qrd.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8226 QRD";
-	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
-	qcom,msm-id = <145 11 0>,
-		      <158 11 0>,
-		      <159 11 0>,
-		      <198 11 0>,
-		      <205 11 0>,
-		      <220 11 0>,
-		      <221 11 0>,
-		      <222 11 0>,
-		      <223 11 0>;
-};
-
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
-};
-
-&dsi_nt35590_720_vid {
-	qcom,cont-splash-enabled;
-};
+/include/ "dsi-panel-hx8394a-720p-video.dtsi"
+/include/ "dsi-panel-nt35590-720p-video.dtsi"
+/include/ "dsi-panel-nt35521-720p-video.dtsi"
+/include/ "dsi-panel-nt35596-1080p-video.dtsi"
+/include/ "dsi-panel-nt35590-720p-cmd.dtsi"
