@@ -607,4 +607,5 @@ int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 #define mfd_to_wb(mfd) (((struct mdss_overlay_private *)\
 				(mfd->mdp.private1))->wb)
 
+int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl);
 #endif /* MDSS_MDP_H */
