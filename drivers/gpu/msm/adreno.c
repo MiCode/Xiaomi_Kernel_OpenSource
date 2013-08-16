@@ -211,6 +211,9 @@ static const struct {
 	{ ADRENO_REV_A305C, 3, 0, 5, 0x20,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
+	{ ADRENO_REV_A420, 4, 2, 0, ANY_ID,
+		"a420_pm4.fw", "a420_pfp.fw", &adreno_a4xx_gpudev,
+		512, 0, 2, (SZ_1M + SZ_512K), NO_VER, NO_VER },
 };
 
 /**
@@ -247,10 +250,8 @@ static void adreno_perfcounter_start(struct adreno_device *adreno_dev)
 	struct adreno_perfcount_group *group;
 	unsigned int i, j;
 
-	/* perfcounter start does nothing on a2xx */
-	if (adreno_is_a2xx(adreno_dev))
+	if (NULL == counters)
 		return;
-
 	/* group id iter */
 	for (i = 0; i < counters->group_count; i++) {
 		group = &(counters->groups[i]);
@@ -2299,7 +2300,7 @@ static bool adreno_hw_isidle(struct kgsl_device *device)
 	if (adreno_is_a2xx(adreno_dev)) {
 		if (reg_rbbm_status == 0x110)
 			return true;
-	} else if (adreno_is_a3xx(adreno_dev)) {
+	} else if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev)) {
 		if (!(reg_rbbm_status & 0x80000000))
 			return true;
 	}
@@ -2416,7 +2417,7 @@ int adreno_idle(struct kgsl_device *device)
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (adreno_is_a3xx(adreno_dev))
+	if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev))
 		kgsl_cffdump_regpoll(device,
 			adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
 			0x00000000, 0x80000000);

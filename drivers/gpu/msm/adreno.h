@@ -86,6 +86,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A320 = 320,
 	ADRENO_REV_A330 = 330,
 	ADRENO_REV_A305B = 335,
+	ADRENO_REV_A420 = 420,
 };
 
 enum coresight_debug_reg {
@@ -266,6 +267,7 @@ enum adreno_regs {
 	ADRENO_REG_CP_IB2_BASE,
 	ADRENO_REG_CP_IB2_BUFSZ,
 	ADRENO_REG_CP_TIMESTAMP,
+	ADRENO_REG_CP_ME_RAM_RADDR,
 	ADRENO_REG_SCRATCH_ADDR,
 	ADRENO_REG_SCRATCH_UMSK,
 	ADRENO_REG_SCRATCH_REG2,
@@ -279,8 +281,10 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_INT_0_STATUS,
 	ADRENO_REG_RBBM_AHB_ERROR_STATUS,
 	ADRENO_REG_RBBM_PM_OVERRIDE2,
-	ADRENO_REG_VPC_VPC_DEBUG_RAM_SEL,
-	ADRENO_REG_VPC_VPC_DEBUG_RAM_READ,
+	ADRENO_REG_RBBM_AHB_CMD,
+	ADRENO_REG_RBBM_INT_CLEAR_CMD,
+	ADRENO_REG_VPC_DEBUG_RAM_SEL,
+	ADRENO_REG_VPC_DEBUG_RAM_READ,
 	ADRENO_REG_VSC_PIPE_DATA_ADDRESS_0,
 	ADRENO_REG_VSC_PIPE_DATA_LENGTH_7,
 	ADRENO_REG_VSC_SIZE_ADDRESS,
@@ -308,7 +312,7 @@ enum adreno_regs {
  * offset array we need to know if an offset value is correctly defined to 0
  */
 struct adreno_reg_offsets {
-	unsigned int *offsets;
+	unsigned int *const offsets;
 	enum adreno_regs offset_0;
 };
 
@@ -320,7 +324,7 @@ struct adreno_gpudev {
 	 * These registers are in a different location on different devices,
 	 * so define them in the structure and use them as variables.
 	 */
-	struct adreno_reg_offsets *reg_offsets;
+	const struct adreno_reg_offsets *reg_offsets;
 	/* keeps track of when we need to execute the draw workaround code */
 	int ctx_switches_since_last_draw;
 
@@ -390,6 +394,7 @@ struct log_field {
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
+extern struct adreno_gpudev adreno_a4xx_gpudev;
 
 /* A2XX register sets defined in adreno_a2xx.c */
 extern const unsigned int a200_registers[];
@@ -408,6 +413,10 @@ extern const unsigned int a3xx_hlsq_registers_count;
 
 extern const unsigned int a330_registers[];
 extern const unsigned int a330_registers_count;
+
+/* A4XX register set defined in adreno_a4xx.c */
+extern const unsigned int a4xx_registers[];
+extern const unsigned int a4xx_registers_count;
 
 extern unsigned int ft_detect_regs[];
 
@@ -525,7 +534,7 @@ static inline int adreno_is_a2xx(struct adreno_device *adreno_dev)
 
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
-	return (adreno_dev->gpurev >= 300);
+	return ((adreno_dev->gpurev >= 300) && (adreno_dev->gpurev < 400));
 }
 
 static inline int adreno_is_a305(struct adreno_device *adreno_dev)
@@ -557,6 +566,12 @@ static inline int adreno_is_a330v2(struct adreno_device *adreno_dev)
 {
 	return ((adreno_dev->gpurev == ADRENO_REV_A330) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chip_id) > 0));
+}
+
+
+static inline int adreno_is_a4xx(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev >= 400);
 }
 
 static inline int adreno_rb_ctxtswitch(unsigned int *cmd)

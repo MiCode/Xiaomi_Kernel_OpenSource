@@ -649,14 +649,16 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		drawctxt, flags);
 
 	/* Save the old context */
-	ret = adreno_dev->gpudev->ctxt_save(adreno_dev,
-		adreno_dev->drawctxt_active);
+	if (adreno_dev->gpudev->ctxt_save) {
+		ret = adreno_dev->gpudev->ctxt_save(adreno_dev,
+			adreno_dev->drawctxt_active);
 
-	if (ret) {
-		KGSL_DRV_ERR(device,
-			"Error in GPU context %d save: %d\n",
-			adreno_dev->drawctxt_active->base.id, ret);
-		return ret;
+		if (ret) {
+			KGSL_DRV_ERR(device,
+				"Error in GPU context %d save: %d\n",
+				adreno_dev->drawctxt_active->base.id, ret);
+			return ret;
+		}
 	}
 
 	/* Put the old instance of the active drawctxt */
