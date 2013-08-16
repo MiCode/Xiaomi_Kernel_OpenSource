@@ -3252,6 +3252,7 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcount_register *reg;
+	int i;
 
 	/* Special cases */
 	if (group == KGSL_PERFCOUNTER_GROUP_PWR)
@@ -3283,6 +3284,17 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		adreno_dev->gpudev->perfcounters->groups[group].reg_count))
 		return -EINVAL;
 
+	/*
+	 * check whether the countable is valid or not by matching it against
+	 * the list on invalid countables
+	 */
+	if (adreno_dev->gpudev->invalid_countables) {
+		struct adreno_invalid_countables invalid_countable =
+		adreno_dev->gpudev->invalid_countables[group];
+		for (i = 0; i < invalid_countable.num_countables; i++)
+			if (countable == invalid_countable.countables[i])
+				return -EACCES;
+	}
 	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
 
 	/* Select the desired perfcounter */

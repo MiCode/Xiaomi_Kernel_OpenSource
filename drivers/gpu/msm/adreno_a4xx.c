@@ -653,6 +653,62 @@ static struct adreno_perfcounters a4xx_perfcounters = {
 	ARRAY_SIZE(a4xx_perfcounter_groups),
 };
 
+/*
+ * On A4xx a number of perfcounters are un-usable. The following defines the
+ * array of countables that do not work and should not be used
+ */
+static const unsigned int pc_invalid_countables[] = {
+	PC_INSTANCES, PC_VERTEX_HITS, PC_GENERATED_FIBERS, PC_GENERATED_WAVES,
+};
+
+static unsigned int vfd_invalid_countables[] = {
+	VFD_VPC_BYPASS_TRANS, VFD_UPPER_SHADER_FIBERS, VFD_LOWER_SHADER_FIBERS,
+};
+
+static const unsigned int hlsq_invalid_countables[] = {
+	HLSQ_SP_VS_STAGE_CONSTANT, HLSQ_SP_VS_STAGE_INSTRUCTIONS,
+	HLSQ_SP_FS_STAGE_CONSTANT, HLSQ_SP_FS_STAGE_INSTRUCTIONS,
+	HLSQ_FS_STAGE_16_WAVES, HLSQ_FS_STAGE_32_WAVES, HLSQ_FS_STAGE_64_WAVES,
+	HLSQ_VS_STAGE_16_WAVES, HLSQ_VS_STAGE_32_WAVES,
+};
+
+static const unsigned int uche_invalid_countables[] = {
+	UCHE_READ_REQUESTS_MARB, UCHE_READ_REQUESTS_SP,
+	UCHE_WRITE_REQUESTS_MARB, UCHE_WRITE_REQUESTS_SP,
+	UCHE_WRITE_REQUESTS_VPC
+};
+
+static const unsigned int tp_invalid_countables[] = {
+	TP_OUTPUT_TEXELS_POINT, TP_OUTPUT_TEXELS_BILINEAR, TP_OUTPUT_TEXELS_MIP,
+	TP_OUTPUT_TEXELS_ANISO, TP_OUTPUT_TEXELS_OPS16, TP_OUTPUT_TEXELS_OPS32,
+	TP_ZERO_LOD, TP_LATENCY, TP_LATENCY_TRANS,
+};
+
+static const unsigned int sp_invalid_countables[] = {
+	SP_FS_STAGE_BARY_INSTRUCTIONS,
+};
+
+static const unsigned int rb_invalid_countables[] = {
+	RB_VALID_SAMPLES, RB_Z_FAIL, RB_S_FAIL,
+};
+
+static const unsigned int ccu_invalid_countables[] = {
+	CCU_VBIF_STALL, CCU_VBIF_LATENCY_CYCLES, CCU_VBIF_LATENCY_SAMPLES,
+	CCU_Z_READ, CCU_Z_WRITE, CCU_C_READ, CCU_C_WRITE,
+};
+
+static const struct adreno_invalid_countables
+	a4xx_perfctr_invalid_countables[KGSL_PERFCOUNTER_GROUP_MAX] = {
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(pc, PC),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(vfd, VFD),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(hlsq, HLSQ),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(tp, TP),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(sp, SP),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(rb, RB),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(ccu, CCU),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(uche, UCHE),
+};
+
 struct adreno_gpudev adreno_a4xx_gpudev = {
 	.reg_offsets = &a4xx_reg_offsets,
 	.perfcounters = &a4xx_perfcounters,
@@ -667,4 +723,5 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.start = a4xx_start,
 	.perfcounter_enable = a3xx_perfcounter_enable,
 	.perfcounter_read = a3xx_perfcounter_read,
+	.invalid_countables = a4xx_perfctr_invalid_countables,
 };
