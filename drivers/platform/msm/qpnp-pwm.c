@@ -418,14 +418,15 @@ static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 addr,
  * (PWM Period / N) = (Pre-divide * Clock Period) * 2^m
  */
 static void qpnp_lpg_calc_period(unsigned int period_us,
-				   struct qpnp_pwm_config *pwm_conf)
+				   struct pwm_device *pwm)
 {
 	int		n, m, clk, div;
 	int		best_m, best_div, best_clk;
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
-	int		id = pwm_conf->channel_id;
-	struct pwm_period_config *period = &pwm_conf->period;
+	int		id = pwm->pwm_config.channel_id;
+	struct qpnp_lpg_chip *chip = pwm->chip;
+	struct pwm_period_config *period = &pwm->pwm_config.period;
 
 	/* PWM Period / N */
 	if (qpnp_check_gpled_lpg_channel(id))
@@ -481,15 +482,14 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 			n += 1;
 			best_m -= 1;
 		}
-	} else {
-		if (n == 6 && best_m >= 3) {
+	} else if (n == 6) {
+		if (best_m >= 3) {
 			n += 3;
 			best_m -= 3;
-		} else {
-			if (n == 6) {
-				n += best_m;
-				best_m -= best_m;
-			}
+		} else if (best_m >= 1 &&
+				chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE) {
+			n += 1;
+			best_m -= 1;
 		}
 	}
 
@@ -1075,7 +1075,7 @@ static int _pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	period = &pwm_config->period;
 
 	if (pwm_config->pwm_period != period_us) {
-		qpnp_lpg_calc_period(period_us, pwm_config);
+		qpnp_lpg_calc_period(period_us, pwm);
 		qpnp_lpg_save_period(pwm);
 		pwm_config->pwm_period = period_us;
 	}
@@ -1131,7 +1131,7 @@ static int _pwm_lut_config(struct pwm_device *pwm, int period_us,
 	period = &pwm_config->period;
 
 	if (pwm_config->pwm_period != period_us) {
-		qpnp_lpg_calc_period(period_us, pwm_config);
+		qpnp_lpg_calc_period(period_us, pwm);
 		qpnp_lpg_save_period(pwm);
 		pwm_config->pwm_period = period_us;
 	}
