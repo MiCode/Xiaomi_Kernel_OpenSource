@@ -107,7 +107,7 @@ extern u16 total_len;
 #define GTP_DRIVER_SEND_CFG		1
 #define GTP_HAVE_TOUCH_KEY		1
 #define GTP_POWER_CTRL_SLEEP	0
-#define GTP_ICS_SLOT_REPORT	0
+#define GTP_ICS_SLOT_REPORT	1
 
 /* auto updated by .bin file as default */
 #define GTP_AUTO_UPDATE			0
