@@ -13,7 +13,11 @@ device is to enabled:
 		to determine whether the BMS is using an internal or external
 		rsense to accumulate the Coulomb Counter and read current.
 
-Additionally, an optional subnode may be included:
+Additionally, optional subnodes may be included:
+- qcom,batt-pres-status : A subnode with a register address for the SMBB
+		battery interface's BATT_PRES_STATUS register. If this node is
+		added, then the BMS will try to detect offmode battery removal
+		via the battery interface's offmode battery removal circuit.
 - qcom,battery-data : A phandle to a node containing the available batterydata
 		profiles. See the batterydata bindings documentation for more
 		details.
@@ -75,8 +79,8 @@ Parent node required properties:
 - qcom,min-fcc-learning-soc: An interger value which defines the minimum SOC
 			to start FCC learning. This is applicable only if
 			FCC learning is enabled.
-- qcom,min-fcc-ocv-pc:	An interger value which defines the minimum PC-lookup(OCV)
-			to start FCC learning. This is applicable only if
+- qcom,min-fcc-ocv-pc:	An interger value which defines the minimum PC-lookup
+			(OCV) to start FCC learning. This is applicable only if
 			FCC learning is enabled.
 - qcom,min-fcc-learning-samples: An interger value which defines the minimum
 			number of the FCC measurement cycles required to
@@ -103,14 +107,19 @@ Parent node optional properties:
 - qcom,use-ocv-thresholds : A boolean that controls whether BMS will take
 			new OCVs only between the defined thresholds.
 - qcom,enable-fcc-learning: A boolean that defines if FCC learning is enabled.
-- qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring measurements
-		and receive notifications for die_temperature, vbatt.
+- qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+			measurements and receive notifications for
+			die_temperature and vbatt.
 
+qcom,batt-pres-status node required properties:
+- reg : offset and length of the PMIC SMBB battery interface BATT_PRES_STATUS
+		register.
 
-All sub node required properties:
+qcom,bms-iadc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
 
 qcom,bms-bms node required properties:
+- reg : offset and length of the PMIC peripheral register map.
 - interrupts : the interrupt mappings.
 		The format should be
 		<slave-id peripheral-id interrupt-number>.
@@ -155,6 +164,10 @@ pm8941_bms: qcom,bms {
 	qcom,bms-vadc = <&pm8941_vadc>;
 	qcom,bms-iadc = <&pm8941_iadc>;
 	qcom,bms-adc_tm = <&pm8941_adc_tm>;
+
+	qcom,batt-pres-status@1208 {
+		reg = <0x1208 0x1>;
+	}
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;
