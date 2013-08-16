@@ -383,9 +383,12 @@ static void hpcm_free_allocated_mem(struct hpcm_drv *prtd)
 
 	if (paddr) {
 		msm_audio_ion_free(prtd->ion_client, sess->ion_handle);
+		prtd->ion_client = NULL;
+		sess->ion_handle = NULL;
 		msm_audio_ion_free(sess->tp_mem_table.client,
 				   sess->tp_mem_table.handle);
-
+		sess->tp_mem_table.client = NULL;
+		sess->tp_mem_table.handle = NULL;
 		sess->sess_paddr = 0;
 		sess->sess_kvaddr = 0;
 		sess->ion_handle = 0;
@@ -487,6 +490,8 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 		pr_err("%s: msm_audio_ion_alloc error, rc = %d\n",
 			__func__, result);
 		msm_audio_ion_free(prtd->ion_client, sess->ion_handle);
+		prtd->ion_client = NULL;
+		sess->ion_handle = NULL;
 		sess->sess_paddr = 0;
 		sess->sess_kvaddr = 0;
 		ret = -ENOMEM;

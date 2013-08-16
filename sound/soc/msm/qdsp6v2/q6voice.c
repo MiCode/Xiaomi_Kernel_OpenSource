@@ -5198,6 +5198,8 @@ static int voice_free_oob_shared_mem(void)
 
 	rc = msm_audio_ion_free(v->shmem_info.sh_buf.client,
 				v->shmem_info.sh_buf.handle);
+	v->shmem_info.sh_buf.client = NULL;
+	v->shmem_info.sh_buf.handle = NULL;
 	if (rc < 0) {
 		pr_err("%s: Error:%d freeing memory\n", __func__, rc);
 

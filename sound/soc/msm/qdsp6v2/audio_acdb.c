@@ -1009,6 +1009,8 @@ static int deregister_memory(void)
 			acdb_data.col_data[i] = NULL;
 		}
 		msm_audio_ion_free(acdb_data.ion_client, acdb_data.ion_handle);
+		acdb_data.ion_client = NULL;
+		acdb_data.ion_handle = NULL;
 		mutex_unlock(&acdb_data.acdb_mutex);
 	}
 	return 0;
@@ -1056,8 +1058,6 @@ static int register_memory(void)
 
 	return result;
 err_ion_handle:
-	msm_audio_ion_free(acdb_data.ion_client, acdb_data.ion_handle);
-
 	atomic64_set(&acdb_data.mem_len, 0);
 	mutex_unlock(&acdb_data.acdb_mutex);
 	return result;
