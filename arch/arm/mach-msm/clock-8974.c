@@ -4422,7 +4422,7 @@ enum {
 	M_L2,
 };
 
-struct measure_mux_entry measure_mux[] = {
+static struct measure_mux_entry measure_mux[] = {
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
 	{&gcc_blsp2_qup1_i2c_apps_clk.c,	GCC_BASE, 0x00ab},
 	{&gcc_blsp2_qup3_spi_apps_clk.c,	GCC_BASE, 0x00b3},

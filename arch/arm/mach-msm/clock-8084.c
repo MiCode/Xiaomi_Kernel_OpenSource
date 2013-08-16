@@ -5011,7 +5011,7 @@ enum {
 	M_L2,
 };
 
-struct measure_mux_entry measure_mux[] = {
+static struct measure_mux_entry measure_mux[] = {
 	{&gcc_sys_noc_usb3_axi_clk.c,		GCC_BASE, 0x0001},
 	{&gcc_sys_noc_usb3_sec_axi_clk.c,	GCC_BASE, 0x0007},
 	{&gcc_periph_noc_usb_hsic_ahb_clk.c,	GCC_BASE, 0x0013},
