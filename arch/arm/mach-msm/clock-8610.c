@@ -3146,7 +3146,6 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk", vfe_clk.c,	"fd8c36a4.qcom,gdsc"),
 	CLK_LOOKUP("iface_clk", vfe_ahb_clk.c,	"fd8c36a4.qcom,gdsc"),
 	CLK_LOOKUP("bus_clk",  vfe_axi_clk.c,	"fd8c36a4.qcom,gdsc"),
-	CLK_LOOKUP("csi_clk",  csi_vfe_clk.c,	"fd8c36a4.qcom,gdsc"),
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
 	CLK_LOOKUP("iface_clk", oxili_ahb_clk.c, "fd8c4034.qcom,gdsc"),
 	CLK_LOOKUP("mem_clk", gmem_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
