@@ -40,6 +40,7 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
 #include <linux/debugfs.h>
+#include <mach/rpm-regulator.h>
 
 #define MSM_USB_BASE (hcd->regs)
 
@@ -76,6 +77,7 @@ struct msm_hcd {
 	int					wakeup_int_cnt;
 	bool					wakeup_irq_enabled;
 	int					wakeup_irq;
+	enum usb_vdd_type			vdd_type;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -96,26 +98,87 @@ static inline struct usb_hcd *mhcd_to_hcd(struct msm_hcd *mhcd)
 #define HSUSB_PHY_1P8_VOL_MAX		1800000 /* uV */
 #define HSUSB_PHY_1P8_HPM_LOAD		50000	/* uA */
 
+#define HSUSB_PHY_VDD_DIG_VOL_NONE	0	/* uV */
 #define HSUSB_PHY_VDD_DIG_VOL_MIN	1045000	/* uV */
 #define HSUSB_PHY_VDD_DIG_VOL_MAX	1320000	/* uV */
 #define HSUSB_PHY_VDD_DIG_LOAD		49360	/* uA */
 
+#define HSUSB_PHY_SUSP_DIG_VOL_P50  500000
+#define HSUSB_PHY_SUSP_DIG_VOL_P75  750000
+enum hsusb_vdd_value {
+	VDD_MIN_NONE = 0,
+	VDD_MIN_P50,
+	VDD_MIN_P75,
+	VDD_MIN_OP,
+	VDD_MAX_OP,
+	VDD_VAL_MAX_OP,
+};
+
+static int hsusb_vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX_OP] = {
+		{   /* VDD_CX CORNER Voting */
+			[VDD_MIN_NONE]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN_P50]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN_P75]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN_OP]	= RPM_VREG_CORNER_NOMINAL,
+			[VDD_MAX_OP]	= RPM_VREG_CORNER_HIGH,
+		},
+		{   /* VDD_CX Voltage Voting */
+			[VDD_MIN_NONE]	= HSUSB_PHY_VDD_DIG_VOL_NONE,
+			[VDD_MIN_P50]	= HSUSB_PHY_SUSP_DIG_VOL_P50,
+			[VDD_MIN_P75]	= HSUSB_PHY_SUSP_DIG_VOL_P75,
+			[VDD_MIN_OP]	= HSUSB_PHY_VDD_DIG_VOL_MIN,
+			[VDD_MAX_OP]	= HSUSB_PHY_VDD_DIG_VOL_MAX,
+		},
+};
+
 static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 {
 	int ret = 0;
+	int none_vol, min_vol, max_vol;
+	u32 tmp[5];
+	int len = 0;
 
-	if (!init)
+	if (!init) {
+		none_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE];
+		max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
 		goto disable_reg;
-
-	mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev, "HSUSB_VDDCX");
-	if (IS_ERR(mhcd->hsusb_vddcx)) {
-		dev_err(mhcd->dev, "unable to get ehci vddcx\n");
-		return PTR_ERR(mhcd->hsusb_vddcx);
 	}
 
-	ret = regulator_set_voltage(mhcd->hsusb_vddcx,
-			HSUSB_PHY_VDD_DIG_VOL_MIN,
-			HSUSB_PHY_VDD_DIG_VOL_MAX);
+	mhcd->vdd_type = VDDCX_CORNER;
+	mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev, "hsusb_vdd_dig");
+	if (IS_ERR(mhcd->hsusb_vddcx)) {
+		mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev,
+							"HSUSB_VDDCX");
+		if (IS_ERR(mhcd->hsusb_vddcx)) {
+			dev_err(mhcd->dev, "unable to get ehci vddcx\n");
+			return PTR_ERR(mhcd->hsusb_vddcx);
+		}
+		mhcd->vdd_type = VDDCX;
+	}
+
+	if (mhcd->dev->of_node) {
+		of_get_property(mhcd->dev->of_node,
+				"qcom,vdd-voltage-level",
+				&len);
+		if (len == sizeof(tmp)) {
+			of_property_read_u32_array(mhcd->dev->of_node,
+					"qcom,vdd-voltage-level",
+					tmp, len/sizeof(*tmp));
+			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE] = tmp[0];
+			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P50] = tmp[1];
+			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P75] = tmp[2];
+			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP] = tmp[3];
+			hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP] = tmp[4];
+		} else {
+			dev_dbg(mhcd->dev, "Use default vdd config\n");
+		}
+	}
+
+	none_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE];
+	min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP];
+	max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
+
+	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
 		dev_err(mhcd->dev, "unable to set the voltage"
 				"for ehci vddcx\n");
@@ -143,8 +206,7 @@ disable_reg:
 reg_enable_err:
 	regulator_set_optimum_mode(mhcd->hsusb_vddcx, 0);
 reg_optimum_mode_err:
-	regulator_set_voltage(mhcd->hsusb_vddcx, 0,
-				HSUSB_PHY_VDD_DIG_VOL_MIN);
+	regulator_set_voltage(mhcd->hsusb_vddcx, none_vol, max_vol);
 	return ret;
 
 }
@@ -194,24 +256,22 @@ put_3p3_lpm:
 }
 
 #ifdef CONFIG_PM_SLEEP
-#define HSUSB_PHY_SUSP_DIG_VOL_P50  500000
-#define HSUSB_PHY_SUSP_DIG_VOL_P75  750000
 static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 {
 	struct msm_usb_host_platform_data *pdata;
-	int max_vol = HSUSB_PHY_VDD_DIG_VOL_MAX;
+	int max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
 	int min_vol;
 	int ret;
 
 	pdata = mhcd->dev->platform_data;
 
 	if (high)
-		min_vol = HSUSB_PHY_VDD_DIG_VOL_MIN;
+		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP];
 	else if (pdata && pdata->dock_connect_irq &&
 			!irq_read_line(pdata->dock_connect_irq))
-		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P75;
+		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P75];
 	else
-		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P50;
+		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P50];
 
 	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
