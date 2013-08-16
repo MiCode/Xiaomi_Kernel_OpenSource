@@ -32,6 +32,15 @@
 #include "boot_stats.h"
 
 #define BUILD_ID_LENGTH 32
+#define SMEM_IMAGE_VERSION_BLOCKS_COUNT 32
+#define SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE 128
+#define SMEM_IMAGE_VERSION_SIZE 4096
+#define SMEM_IMAGE_VERSION_NAME_SIZE 75
+#define SMEM_IMAGE_VERSION_NAME_OFFSET 3
+#define SMEM_IMAGE_VERSION_VARIANT_SIZE 20
+#define SMEM_IMAGE_VERSION_VARIANT_OFFSET 75
+#define SMEM_IMAGE_VERSION_OEM_SIZE 32
+#define SMEM_IMAGE_VERSION_OEM_OFFSET 96
 
 enum {
 	HW_PLATFORM_UNKNOWN = 0,
@@ -421,6 +430,7 @@ static enum msm_cpu cpu_of_id[] = {
 };
 
 static enum msm_cpu cur_cpu;
+static int current_image;
 
 static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
@@ -501,6 +511,11 @@ uint32_t socinfo_get_pmic_die_revision(void)
 	return socinfo ?
 		(socinfo->v1.format >= 7 ? socinfo->v7.pmic_die_revision : 0)
 		: 0;
+}
+
+static char *socinfo_get_image_version_base_address(void)
+{
+	return smem_alloc(SMEM_IMAGE_VERSION_TABLE, SMEM_IMAGE_VERSION_SIZE);
 }
 
 static uint32_t socinfo_get_format(void)
@@ -829,6 +844,80 @@ msm_get_pmic_die_revision(struct device *dev,
 			 socinfo_get_pmic_die_revision());
 }
 
+static ssize_t
+msm_get_image_version(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	char *string_address;
+
+	string_address = socinfo_get_image_version_base_address();
+	if (string_address == NULL) {
+		pr_err("%s : Failed to get image version base address",
+				__func__);
+		return snprintf(buf, SMEM_IMAGE_VERSION_NAME_SIZE, "Unknown");
+	}
+	string_address += current_image * SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE;
+	string_address += SMEM_IMAGE_VERSION_NAME_OFFSET;
+	return snprintf(buf, SMEM_IMAGE_VERSION_NAME_SIZE, "%-.75s",
+			string_address);
+}
+
+static ssize_t
+msm_store_image_type(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int ret, digit;
+
+	ret = kstrtoint(buf, 10, &digit);
+	if (ret)
+		return ret;
+	if (0 <= digit && digit < SMEM_IMAGE_VERSION_BLOCKS_COUNT)
+		current_image = digit;
+	else
+		current_image = 0;
+	return count;
+}
+
+static ssize_t
+msm_get_image_variant(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	char *string_address;
+
+	string_address = socinfo_get_image_version_base_address();
+	if (string_address == NULL) {
+		pr_err("%s : Failed to get image version base address",
+				__func__);
+		return snprintf(buf, SMEM_IMAGE_VERSION_VARIANT_SIZE,
+		"Unknown");
+	}
+	string_address += current_image * SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE;
+	string_address += SMEM_IMAGE_VERSION_VARIANT_OFFSET;
+	return snprintf(buf, SMEM_IMAGE_VERSION_VARIANT_SIZE, "%-.20s",
+			string_address);
+}
+
+static ssize_t
+msm_get_image_crm_version(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	char *string_address;
+
+	string_address = socinfo_get_image_version_base_address();
+	if (string_address == NULL) {
+		pr_err("%s : Failed to get image version base address",
+				__func__);
+		return snprintf(buf, SMEM_IMAGE_VERSION_OEM_SIZE, "Unknown");
+	}
+	string_address += current_image * SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE;
+	string_address += SMEM_IMAGE_VERSION_OEM_OFFSET;
+	return snprintf(buf, SMEM_IMAGE_VERSION_OEM_SIZE, "%-.32s\n",
+			string_address);
+}
+
 static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
@@ -902,6 +991,18 @@ static struct device_attribute msm_soc_attr_pmic_die_revision =
 	__ATTR(pmic_die_revision, S_IRUGO,
 			msm_get_pmic_die_revision, NULL);
 
+static struct device_attribute image_version =
+	__ATTR(image_version, S_IRUGO | S_IWUSR,
+			msm_get_image_version, msm_store_image_type);
+
+static struct device_attribute image_variant =
+	__ATTR(image_variant, S_IRUGO,
+			msm_get_image_variant, NULL);
+
+static struct device_attribute image_crm_version =
+	__ATTR(image_crm_version, S_IRUGO,
+			msm_get_image_crm_version, NULL);
+
 static struct sysdev_class soc_sysdev_class = {
 	.name = "soc",
 };
@@ -956,6 +1057,9 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	uint32_t legacy_format = socinfo_get_format();
 
 	device_create_file(msm_soc_device, &msm_soc_attr_vendor);
+	device_create_file(msm_soc_device, &image_version);
+	device_create_file(msm_soc_device, &image_variant);
+	device_create_file(msm_soc_device, &image_crm_version);
 
 	switch (legacy_format) {
 	case 8:
