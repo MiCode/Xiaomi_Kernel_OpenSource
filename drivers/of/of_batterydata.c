@@ -244,9 +244,17 @@ static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 {
 	int64_t resistor_value_kohm, denom;
 
+	if (batt_id_uv == 0) {
+		/* vadc not correct or batt id line grounded, report 0 kohms */
+		return 0;
+	}
 	/* calculate the battery id resistance reported via ADC */
 	denom = div64_s64(vadc_vdd * 1000000LL, batt_id_uv) - 1000000LL;
 
+	if (denom == 0) {
+		/* batt id connector might be open, return 0 kohms */
+		return 0;
+	}
 	resistor_value_kohm = div64_s64(rpull_up * 1000000LL + denom/2, denom);
 
 	pr_debug("batt id voltage = %d, resistor value = %lld\n",
