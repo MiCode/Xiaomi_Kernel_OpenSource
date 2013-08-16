@@ -36,6 +36,38 @@
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
+&soc {
+	i2c@f9927000 { /* BLSP1 QUP5 */
+		focaltech@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			vcc_i2c-supply = <&pm8226_lvs1>;
+			focaltech,family-id = <0x13>;
+			focaltech,reset-gpio = <&msmgpio 16 0x00>;
+			focaltech,irq-gpio = <&msmgpio 17 0x00>;
+			focaltech,display-coords = <0 0 540 960>;
+			focaltech,panel-coords = <0 0 540 1046>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1404>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_ssd2080m_720_vid>;
 };
