@@ -335,6 +335,7 @@ struct qpnp_chg_chip {
 	uint32_t			flags;
 	struct qpnp_adc_tm_btm_param	adc_param;
 	struct work_struct		adc_measure_work;
+	struct work_struct		adc_disable_work;
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
 	struct wake_lock		eoc_wake_lock;
@@ -958,6 +959,15 @@ qpnp_bat_if_adc_measure_work(struct work_struct *work)
 		pr_err("request ADC error\n");
 }
 
+static void
+qpnp_bat_if_adc_disable_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip, adc_disable_work);
+
+	qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev, &chip->adc_param);
+}
+
 static irqreturn_t
 qpnp_chg_buck_vchg_loop_irq_handler(int irq, void *_chip)
 {
@@ -1110,8 +1120,7 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 			schedule_work(&chip->adc_measure_work);
 		} else if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
 				&& !batt_present) {
-			qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev,
-					&chip->adc_param);
+			schedule_work(&chip->adc_disable_work);
 			pr_debug("disabling vadc notifications\n");
 		}
 	}
@@ -3735,6 +3744,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 		INIT_WORK(&chip->adc_measure_work,
 			qpnp_bat_if_adc_measure_work);
+		INIT_WORK(&chip->adc_measure_work,
+			qpnp_bat_if_adc_disable_work);
 	}
 
 	wake_lock_init(&chip->eoc_wake_lock,
