@@ -23,6 +23,7 @@
 #include <linux/spmi.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 
 #define WLED_MOD_EN_REG(base, n)	(base + 0x60 + n*0x10)
@@ -43,6 +44,7 @@
 #define WLED_HIGH_POLE_CAP_REG(base)		(base + 0x58)
 #define WLED_CURR_SINK_MASK		0xE0
 #define WLED_CURR_SINK_SHFT		0x05
+#define WLED_DISABLE_ALL_SINKS		0x00
 #define WLED_SWITCH_FREQ_MASK		0x0F
 #define WLED_OVP_VAL_MASK		0x03
 #define WLED_OVP_VAL_BIT_SHFT		0x00
@@ -58,6 +60,8 @@
 #define WLED_CTL_DLY_STEP		200
 #define WLED_CTL_DLY_MAX		1400
 #define WLED_MAX_CURR			25
+#define WLED_NO_CURRENT			0x00
+#define WLED_OVP_DELAY			1000
 #define WLED_MSB_MASK			0x0F
 #define WLED_MAX_CURR_MASK		0x1F
 #define WLED_OP_FDBCK_MASK		0x07
@@ -72,6 +76,9 @@
 
 #define WLED_SYNC_VAL			0x07
 #define WLED_SYNC_RESET_VAL		0x00
+
+#define PMIC_VER_8026			0x04
+#define PMIC_VERSION_REG		0x0105
 
 #define WLED_DEFAULT_STRINGS		0x01
 #define WLED_DEFAULT_OVP_VAL		0x02
@@ -335,6 +342,7 @@ struct wled_config_data {
 	u8	ctrl_delay_us;
 	u8	switch_freq;
 	u8	op_fdbck;
+	u8	pmic_version;
 	bool	dig_mod_gen_en;
 	bool	cs_out_en;
 };
@@ -509,16 +517,86 @@ static void qpnp_dump_regs(struct qpnp_led_data *led, u8 regs[], u8 array_size)
 	pr_debug("===== %s LED register dump end =====\n", led->cdev.name);
 }
 
+static int qpnp_wled_sync(struct qpnp_led_data *led)
+{
+	int rc;
+	u8 val;
+
+	/* sync */
+	val = WLED_SYNC_VAL;
+	rc = spmi_ext_register_writel(led->spmi_dev->ctrl, led->spmi_dev->sid,
+		WLED_SYNC_REG(led->base), &val, 1);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+				"WLED set sync reg failed(%d)\n", rc);
+		return rc;
+	}
+
+	val = WLED_SYNC_RESET_VAL;
+	rc = spmi_ext_register_writel(led->spmi_dev->ctrl, led->spmi_dev->sid,
+		WLED_SYNC_REG(led->base), &val, 1);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+				"WLED reset sync reg failed(%d)\n", rc);
+		return rc;
+	}
+	return 0;
+}
+
 static int qpnp_wled_set(struct qpnp_led_data *led)
 {
 	int rc, duty, level;
-	u8 val, i, num_wled_strings;
+	u8 val, i, num_wled_strings, sink_val;
+
+	num_wled_strings = led->wled_cfg->num_strings;
 
 	level = led->cdev.brightness;
 
 	if (level > WLED_MAX_LEVEL)
 		level = WLED_MAX_LEVEL;
 	if (level == 0) {
+		for (i = 0; i < num_wled_strings; i++) {
+			rc = qpnp_led_masked_write(led,
+				WLED_FULL_SCALE_REG(led->base, i),
+				WLED_MAX_CURR_MASK, WLED_NO_CURRENT);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Write max current failure (%d)\n",
+					rc);
+				return rc;
+			}
+		}
+
+		rc = qpnp_wled_sync(led);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"WLED sync failed(%d)\n", rc);
+			return rc;
+		}
+
+		rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+			led->spmi_dev->sid, WLED_CURR_SINK_REG(led->base),
+			&sink_val, 1);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"WLED read sink reg failed(%d)\n", rc);
+			return rc;
+		}
+
+		if (led->wled_cfg->pmic_version == PMIC_VER_8026) {
+			val = WLED_DISABLE_ALL_SINKS;
+			rc = spmi_ext_register_writel(led->spmi_dev->ctrl,
+				led->spmi_dev->sid,
+				WLED_CURR_SINK_REG(led->base), &val, 1);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"WLED write sink reg failed(%d)\n", rc);
+				return rc;
+			}
+
+			usleep(WLED_OVP_DELAY);
+		}
+
 		val = WLED_BOOST_OFF;
 		rc = spmi_ext_register_writel(led->spmi_dev->ctrl,
 			led->spmi_dev->sid, WLED_MOD_CTRL_REG(led->base),
@@ -528,6 +606,35 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 				"WLED write ctrl reg failed(%d)\n", rc);
 			return rc;
 		}
+
+		for (i = 0; i < num_wled_strings; i++) {
+			rc = qpnp_led_masked_write(led,
+				WLED_FULL_SCALE_REG(led->base, i),
+				WLED_MAX_CURR_MASK, led->max_current);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Write max current failure (%d)\n",
+					rc);
+				return rc;
+			}
+		}
+
+		rc = qpnp_wled_sync(led);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"WLED sync failed(%d)\n", rc);
+			return rc;
+		}
+
+		rc = spmi_ext_register_writel(led->spmi_dev->ctrl,
+			led->spmi_dev->sid, WLED_CURR_SINK_REG(led->base),
+			&sink_val, 1);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"WLED write sink reg failed(%d)\n", rc);
+			return rc;
+		}
+
 	} else {
 		val = WLED_BOOST_ON;
 		rc = spmi_ext_register_writel(led->spmi_dev->ctrl,
@@ -541,8 +648,6 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 	}
 
 	duty = (WLED_MAX_DUTY_CYCLE * level) / WLED_MAX_LEVEL;
-
-	num_wled_strings = led->wled_cfg->num_strings;
 
 	/* program brightness control registers */
 	for (i = 0; i < num_wled_strings; i++) {
@@ -565,22 +670,9 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 		}
 	}
 
-	/* sync */
-	val = WLED_SYNC_VAL;
-	rc = spmi_ext_register_writel(led->spmi_dev->ctrl, led->spmi_dev->sid,
-		WLED_SYNC_REG(led->base), &val, 1);
+	rc = qpnp_wled_sync(led);
 	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-				"WLED set sync reg failed(%d)\n", rc);
-		return rc;
-	}
-
-	val = WLED_SYNC_RESET_VAL;
-	rc = spmi_ext_register_writel(led->spmi_dev->ctrl, led->spmi_dev->sid,
-		WLED_SYNC_REG(led->base), &val, 1);
-	if (rc) {
-		dev_err(&led->spmi_dev->dev,
-				"WLED reset sync reg failed(%d)\n", rc);
+		dev_err(&led->spmi_dev->dev, "WLED sync failed(%d)\n", rc);
 		return rc;
 	}
 	return 0;
@@ -2485,6 +2577,13 @@ static int qpnp_get_config_wled(struct qpnp_led_data *led,
 	if (!led->wled_cfg) {
 		dev_err(&led->spmi_dev->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
+	}
+
+	rc = spmi_ext_register_readl(led->spmi_dev->ctrl, led->spmi_dev->sid,
+		PMIC_VERSION_REG, &led->wled_cfg->pmic_version, 1);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Unable to read pmic ver, rc(%d)\n", rc);
 	}
 
 	led->wled_cfg->num_strings = WLED_DEFAULT_STRINGS;
