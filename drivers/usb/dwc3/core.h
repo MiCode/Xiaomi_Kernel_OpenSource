@@ -659,6 +659,10 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_ERROR_EVENT			0
 #define DWC3_CONTROLLER_RESET_EVENT			1
 #define DWC3_CONTROLLER_POST_RESET_EVENT		2
+#define DWC3_CORE_PM_PREPARE_EVENT			3
+#define DWC3_CORE_PM_COMPLETE_EVENT			4
+#define DWC3_CORE_PM_SUSPEND_EVENT			5
+#define DWC3_CORE_PM_RESUME_EVENT			6
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -1063,6 +1067,6 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
 extern void dwc3_set_notifier(
 		void (*notify) (struct dwc3 *dwc3, unsigned event));
-extern void dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
+extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */
