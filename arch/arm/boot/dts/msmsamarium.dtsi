@@ -393,6 +393,11 @@
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
+
+	qcom,tz-log@fe800734 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe800734 0x1000>;
+	};
 };
 
 &gdsc_venus {
