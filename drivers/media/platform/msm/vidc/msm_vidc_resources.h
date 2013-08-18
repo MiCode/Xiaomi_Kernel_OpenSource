@@ -63,6 +63,30 @@ struct buffer_usage_set {
 	u32 count;
 };
 
+struct regulator_info {
+	struct regulator *regulator;
+	bool has_hw_power_collapse;
+	char *name;
+};
+
+struct regulator_set {
+	struct regulator_info *regulator_tbl;
+	u32 count;
+};
+
+struct venus_clock {
+	const char *name;
+	struct clk *clk;
+	struct load_freq_table *load_freq_tbl;
+	u32 count; /* == has_scaling iff count != 0 */
+	bool has_sw_power_collapse;
+};
+
+struct venus_clock_set {
+	struct venus_clock *clock_tbl;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	uint32_t fw_base_addr;
 	uint32_t register_base;
@@ -77,6 +101,8 @@ struct msm_vidc_platform_resources {
 	bool has_ocmem;
 	uint32_t max_load;
 	struct platform_device *pdev;
+	struct regulator_set regulator_set;
+	struct venus_clock_set clock_set;
 };
 
 static inline int is_iommu_present(struct msm_vidc_platform_resources *res)

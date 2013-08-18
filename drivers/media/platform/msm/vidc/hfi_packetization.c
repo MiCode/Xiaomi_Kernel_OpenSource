@@ -265,6 +265,25 @@ int create_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
 	return rc;
 }
 
+int create_pkt_cmd_sys_power_control(
+	struct hfi_cmd_sys_set_property_packet *pkt, u32 enable)
+{
+	struct hfi_enable *hfi;
+	if (!pkt) {
+		dprintk(VIDC_ERR, "No input packet\n");
+		return -EINVAL;
+	}
+
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct hfi_enable) + sizeof(u32);
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_CODEC_POWER_PLANE_CTRL;
+	hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+	hfi->enable = enable;
+	return 0;
+}
+
 static u32 get_hfi_buffer(int hal_buffer)
 {
 	u32 buffer;

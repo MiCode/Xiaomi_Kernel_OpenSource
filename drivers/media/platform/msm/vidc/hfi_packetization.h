@@ -26,6 +26,9 @@ int create_pkt_cmd_sys_idle_indicator(
 		struct hfi_cmd_sys_set_property_packet *pkt,
 		u32 enable);
 
+int create_pkt_cmd_sys_power_control(
+	struct hfi_cmd_sys_set_property_packet *pkt, u32 enable);
+
 int create_pkt_set_cmd_sys_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr,
