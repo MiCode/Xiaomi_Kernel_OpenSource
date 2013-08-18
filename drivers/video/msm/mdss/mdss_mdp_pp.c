@@ -3331,7 +3331,7 @@ static int is_valid_calib_addr(void *addr)
 	unsigned int ptr;
 	ptr = (unsigned int) addr;
 	/* if request is outside the MDP reg-map or is not aligned 4 */
-	if (ptr == 0x0 || ptr > 0x5138 || ptr % 0x4)
+	if (ptr > 0x5138 || ptr % 0x4)
 		goto end;
 	if (ptr >= 0x100 && ptr <= 0x5138) {
 		/* if ptr is in dspp range */
@@ -3386,7 +3386,8 @@ static int is_valid_calib_addr(void *addr)
 				ret = 1;
 		else if (ptr == 0x2234 || ptr == 0x1e34 || ptr == 0x2634)
 				ret = 1;
-	}
+	} else if (ptr == 0x0)
+		ret = 1;
 end:
 	return ret;
 }
