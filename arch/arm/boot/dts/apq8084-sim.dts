@@ -172,6 +172,10 @@
 	qcom,skip-charger-detection;
 };
 
+&ufsphy1 {
+	status = "ok";
+};
+
 &ufs1 {
 	status = "ok";
 };
