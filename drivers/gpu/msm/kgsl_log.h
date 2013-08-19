@@ -103,6 +103,15 @@ KGSL_LOG_ERR(_dev->dev, _dev->pwr_log, fmt, ##args)
 #define KGSL_PWR_CRIT(_dev, fmt, args...) \
 KGSL_LOG_CRIT(_dev->dev, _dev->pwr_log, fmt, ##args)
 
+#define KGSL_FT_INFO(_dev, fmt, args...) \
+KGSL_LOG_INFO(_dev->dev, _dev->ft_log, fmt, ##args)
+#define KGSL_FT_WARN(_dev, fmt, args...) \
+KGSL_LOG_WARN(_dev->dev, _dev->ft_log, fmt, ##args)
+#define KGSL_FT_ERR(_dev, fmt, args...) \
+KGSL_LOG_ERR(_dev->dev, _dev->ft_log, fmt, ##args)
+#define KGSL_FT_CRIT(_dev, fmt, args...) \
+KGSL_LOG_CRIT(_dev->dev, _dev->ft_log, fmt, ##args)
+
 /* Core error messages - these are for core KGSL functions that have
    no device associated with them (such as memory) */
 

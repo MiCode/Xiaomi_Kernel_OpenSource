@@ -45,6 +45,5 @@ struct z180_device {
 };
 
 int z180_dump(struct kgsl_device *, int);
-int z180_idle(struct kgsl_device *);
 
 #endif /* __Z180_H */

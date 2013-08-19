@@ -27,6 +27,7 @@
 
 struct kgsl_device;
 struct kgsl_device_private;
+struct adreno_ft_data;
 
 #define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
 struct kgsl_rbmemptrs {
@@ -98,11 +99,10 @@ adreno_get_rptr(struct adreno_ringbuffer *rb)
 
 int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
-				struct kgsl_cmdbatch *cmdbatch,
-				uint32_t *timestamp);
-
-int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_cmdbatch *cmdbatch);
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int numibs,
+				uint32_t *timestamp,
+				unsigned int flags);
 
 int adreno_ringbuffer_init(struct kgsl_device *device);
 
@@ -123,6 +123,13 @@ unsigned int adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
+
+void adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
+				struct adreno_ft_data *ft_data);
+
+void
+adreno_ringbuffer_restore(struct adreno_ringbuffer *rb, unsigned int *rb_buff,
+			int num_rb_contents);
 
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 						struct adreno_context *context,
