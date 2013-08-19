@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/err.h>
 #include <linux/file.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -281,66 +280,4 @@ void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
 void kgsl_sync_timeline_destroy(struct kgsl_context *context)
 {
 	sync_timeline_destroy(context->timeline);
-}
-
-static void kgsl_sync_callback(struct sync_fence *fence,
-	struct sync_fence_waiter *waiter)
-{
-	struct kgsl_sync_fence_waiter *kwaiter =
-		(struct kgsl_sync_fence_waiter *) waiter;
-	kwaiter->func(kwaiter->priv);
-	sync_fence_put(kwaiter->fence);
-	kfree(kwaiter);
-}
-
-struct kgsl_sync_fence_waiter *kgsl_sync_fence_async_wait(int fd,
-	void (*func)(void *priv), void *priv)
-{
-	struct kgsl_sync_fence_waiter *kwaiter;
-	struct sync_fence *fence;
-	int status;
-
-	fence = sync_fence_fdget(fd);
-	if (fence == NULL)
-		return ERR_PTR(-EINVAL);
-
-	/* create the waiter */
-	kwaiter = kzalloc(sizeof(*kwaiter), GFP_ATOMIC);
-	if (kwaiter == NULL) {
-		sync_fence_put(fence);
-		return ERR_PTR(-ENOMEM);
-	}
-	kwaiter->fence = fence;
-	kwaiter->priv = priv;
-	kwaiter->func = func;
-	sync_fence_waiter_init((struct sync_fence_waiter *) kwaiter,
-		kgsl_sync_callback);
-
-	/* if status then error or signaled */
-	status = sync_fence_wait_async(fence,
-		(struct sync_fence_waiter *) kwaiter);
-	if (status) {
-		kfree(kwaiter);
-		sync_fence_put(fence);
-		if (status < 0)
-			kwaiter = ERR_PTR(status);
-		else
-			kwaiter = NULL;
-	}
-
-	return kwaiter;
-}
-
-int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *kwaiter)
-{
-	if (kwaiter == NULL)
-		return 0;
-
-	if (sync_fence_cancel_async(kwaiter->fence,
-		(struct sync_fence_waiter *) kwaiter) == 0) {
-		sync_fence_put(kwaiter->fence);
-		kfree(kwaiter);
-		return 1;
-	}
-	return 0;
 }
