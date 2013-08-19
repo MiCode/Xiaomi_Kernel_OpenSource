@@ -2679,7 +2679,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		/* If they are doing then complain once */
 		dev_WARN_ONCE(device->dev, 1,
 			"IOCTL_KGSL_DEVICE_WAITTIMESTAMP is deprecated\n");
-		return -EINVAL;
+		return -ENOTTY;
 	}
 
 	/* Return -EINVAL if the context has been detached */
