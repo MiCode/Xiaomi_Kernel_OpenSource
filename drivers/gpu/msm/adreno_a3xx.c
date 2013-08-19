@@ -2596,7 +2596,7 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 
 		/* Clear the error */
 		kgsl_regwrite(device, A3XX_RBBM_AHB_CMD, (1 << 3));
-		goto done;
+		return;
 	}
 	case A3XX_INT_RBBM_REG_TIMEOUT:
 		err = "RBBM: AHB register timeout";
@@ -2637,15 +2637,10 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A3XX_INT_UCHE_OOB_ACCESS:
 		err = "UCHE:  Out of bounds access";
 		break;
-	default:
-		return;
 	}
+
 	KGSL_DRV_CRIT(device, "%s\n", err);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-
-done:
-	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_dispatcher_irq_fault(device);
 }
 
 static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)

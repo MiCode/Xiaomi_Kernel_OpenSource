@@ -114,6 +114,18 @@ static struct adreno_device device_3d0 = {
 	.long_ib_detect = 1,
 };
 
+/* This set of registers are used for Hang detection
+ * If the values of these registers are same after
+ * KGSL_TIMEOUT_PART time, GPU hang is reported in
+ * kernel log.
+ * *****ALERT******ALERT********ALERT*************
+ * Order of registers below is important, registers
+ * from LONG_IB_DETECT_REG_INDEX_START to
+ * LONG_IB_DETECT_REG_INDEX_END are used in long ib detection.
+ */
+#define LONG_IB_DETECT_REG_INDEX_START 1
+#define LONG_IB_DETECT_REG_INDEX_END 5
+
 unsigned int ft_detect_regs[FT_DETECT_REGS_COUNT];
 
 /*
@@ -1710,9 +1722,6 @@ static int adreno_start(struct kgsl_device *device)
 				(device->pwrctrl.gpu_cx &&
 				regulator_is_enabled(device->pwrctrl.gpu_cx)));
 
-	/* Clear any GPU faults that might have been left over */
-	adreno_set_gpu_fault(adreno_dev, 0);
-
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
 
@@ -1821,34 +1830,28 @@ static int adreno_stop(struct kgsl_device *device)
  */
 int adreno_reset(struct kgsl_device *device)
 {
-	int ret = 0;
+	int ret;
 
 	/* Try soft reset first */
-	if (adreno_soft_reset(device) != 0) {
-		KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+	if (adreno_soft_reset(device) == 0)
+		return 0;
 
-		/* If it failed, then pull the power */
-		ret = adreno_stop(device);
-		if (ret)
-			return ret;
+	/* If it failed, then pull the power */
+	ret = adreno_stop(device);
+	if (ret)
+		return ret;
 
-		ret = adreno_start(device);
+	ret = adreno_start(device);
 
-		if (ret)
-			return ret;
+	if (ret == 0) {
+		/*
+		 * If active_cnt is non-zero then the system was active before
+		 * going into a reset - put it back in that state
+		 */
+
+		if (atomic_read(&device->active_cnt))
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 	}
-
-	/*
-	 * If active_cnt is non-zero then the system was active before
-	 * going into a reset - put it back in that state
-	 */
-
-	if (atomic_read(&device->active_cnt))
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
-
-	/* Set the page table back to the default page table */
-	kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable,
-			KGSL_MEMSTORE_GLOBAL);
 
 	return ret;
 }
@@ -2307,13 +2310,6 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Stop the ringbuffer */
 	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
 
-	if (kgsl_pwrctrl_isenabled(device))
-		device->ftbl->irqctrl(device, 0);
-
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-
-	adreno_set_gpu_fault(adreno_dev, 0);
-
 	/* Delete the idle timer */
 	del_timer_sync(&device->idle_timer);
 
@@ -2395,19 +2391,11 @@ int adreno_idle(struct kgsl_device *device)
 			0x110, 0x110);
 
 	while (time_before(jiffies, wait)) {
-		/*
-		 * If we fault, stop waiting and return an error. The dispatcher
-		 * will clean up the fault from the work queue, but we need to
-		 * make sure we don't block it by waiting for an idle that
-		 * will never come.
-		 */
-
-		if (adreno_gpu_fault(adreno_dev) != 0)
-			return -EDEADLK;
-
 		if (adreno_isidle(device))
 			return 0;
 	}
+
+	kgsl_postmortem_dump(device, 0);
 
 	return -ETIMEDOUT;
 }

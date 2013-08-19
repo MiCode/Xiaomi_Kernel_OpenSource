@@ -160,12 +160,8 @@ struct kgsl_event {
 /**
  * struct kgsl_cmdbatch - KGSl command descriptor
  * @context: KGSL context that created the command
- * @timestamp: Timestamp assigned to the command
+ * @timestamp: Timestamp assigned to the command (currently unused)
  * @flags: flags
- * @priv: Internal flags
- * @fault_policy: Internal policy describing how to handle this command in case
- * of a fault
- * @fault_recovery: recovery actions actually tried for this batch
  * @ibcount: Number of IBs in the command list
  * @ibdesc: Pointer to the list of IBs
  * @expires: Point in time when the cmdbatch is considered to be hung
@@ -176,26 +172,10 @@ struct kgsl_cmdbatch {
 	struct kgsl_context *context;
 	uint32_t timestamp;
 	uint32_t flags;
-	unsigned long priv;
-	unsigned long fault_policy;
-	unsigned long fault_recovery;
 	uint32_t ibcount;
 	struct kgsl_ibdesc *ibdesc;
 	unsigned long expires;
 	int invalid;
-};
-
-/**
- * enum kgsl_cmdbatch_priv - Internal cmdbatch flags
- * @CMDBATCH_FLAG_SKIP - skip the entire command batch
- * @CMDBATCH_FLAG_FORCE_PREAMBLE - Force the preamble on for the cmdbatch
- * @CMDBATCH_FLAG_WFI - Force wait-for-idle for the submission
- */
-
-enum kgsl_cmdbatch_priv {
-	CMDBATCH_FLAG_SKIP = 0,
-	CMDBATCH_FLAG_FORCE_PREAMBLE,
-	CMDBATCH_FLAG_WFI,
 };
 
 struct kgsl_device {
