@@ -364,8 +364,12 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 0);
 
 	regulator_disable(drvdata->reg);
-	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
 	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
+	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
+
+	regulator_disable(drvdata->reg_io);
+	tpiu_reg_set_voltage(drvdata->reg_io, 0, drvdata->reg_high_io);
+	tpiu_reg_set_optimum_mode(drvdata->reg_io, 0);
 }
 
 static void tpiu_disable(struct coresight_device *csdev)
