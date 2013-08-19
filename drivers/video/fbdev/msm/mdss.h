@@ -95,7 +95,6 @@ struct mdss_data_type {
 	unsigned long min_mdp_clk;
 
 	u32 res_init;
-	u32 bus_hdl;
 
 	u32 highest_bank_bit;
 	u32 smp_mb_cnt;
@@ -103,6 +102,11 @@ struct mdss_data_type {
 	u32 smp_mb_per_pipe;
 
 	u32 rot_block_size;
+
+	u32 axi_port_cnt;
+	u32 curr_bw_uc_idx;
+	u32 bus_hdl;
+	struct msm_bus_scale_pdata *bus_scale_table;
 
 	struct mdss_hw_settings *hw_settings;
 
@@ -133,7 +137,6 @@ struct mdss_data_type {
 	struct mdss_iommu_map_type *iommu_map;
 
 	struct mdss_debug_inf debug_inf;
-	int current_bus_idx;
 	bool mixer_switched;
 	struct mdss_panel_cfg pan_cfg;
 };
