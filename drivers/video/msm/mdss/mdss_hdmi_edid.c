@@ -446,13 +446,17 @@ error:
 	return status;
 } /* hdmi_edid_read_block */
 
+#define EDID_BLK_LEN 128
+#define EDID_DTD_LEN 18
 static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 	u8 type, u8 *len)
 {
 	/* the start of data block collection, start of Video Data Block */
 	u32 offset = start_offset;
-	u32 end_dbc_offset = in_buf[2];
+	u32 dbc_offset = in_buf[2];
 
+	if (dbc_offset >= EDID_BLK_LEN - EDID_DTD_LEN)
+		return NULL;
 	*len = 0;
 
 	/*
@@ -461,14 +465,15 @@ static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 	 * * edid buffer 1, byte 2 being 0 menas no non-DTD/DATA block
 	 *   collection present and no DTD data present.
 	 */
-	if ((end_dbc_offset == 0) || (end_dbc_offset == 4)) {
+	if ((dbc_offset == 0) || (dbc_offset == 4)) {
 		DEV_WARN("EDID: no DTD or non-DTD data present\n");
 		return NULL;
 	}
 
-	while (offset < end_dbc_offset) {
+	while (offset < dbc_offset) {
 		u8 block_len = in_buf[offset] & 0x1F;
-		if ((in_buf[offset] >> 5) == type) {
+		if ((offset + block_len <= dbc_offset) &&
+		    (in_buf[offset] >> 5) == type) {
 			*len = block_len;
 			DEV_DBG("%s: EDID: block=%d found @ 0x%x w/ len=%d\n",
 				__func__, type, offset, block_len);
