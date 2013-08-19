@@ -1278,7 +1278,7 @@
 					0x0
 					0x0>;
 
-		qcom,iommu-ctx@fc73c000 {
+		bcast_cb0_hlos: qcom,iommu-ctx@fc73c000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfc73c000 0x1000>;
 			interrupts = <0 276 0>;
@@ -1289,7 +1289,7 @@
 			label = "bcast_cb0_hlos";
 		};
 
-		qcom,iommu-ctx@fc73d000 {
+		bcast_cb1_cpz: qcom,iommu-ctx@fc73d000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfc73d000 0x1000>;
 			interrupts = <0 276 0>;
@@ -1300,7 +1300,7 @@
 			label = "bcast_cb1_cpz";
 		};
 
-		qcom,iommu-ctx@fc73e000 {
+		bcast_cb2_demod: qcom,iommu-ctx@fc73e000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfc73e000 0x1000>;
 			interrupts = <0 276 0>;
@@ -1308,7 +1308,7 @@
 			label = "bcast_cb2_demod";
 		};
 
-		qcom,iommu-ctx@fc73f000 {
+		bcast_cb3_apz: qcom,iommu-ctx@fc73f000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfc73f000 0x1000>;
 			interrupts = <0 276 0>;

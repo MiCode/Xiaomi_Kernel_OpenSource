@@ -27,5 +27,32 @@
 			qcom,virtual-addr-pool = <0x1000000 0x3f000000>;
 			qcom,secure-domain;
 		};
+
+		bcast_domain_hlos: qcom,iommu-domain3 {
+			label = "bcast_hlos";
+			qcom,iommu-contexts = <&bcast_cb0_hlos>;
+			qcom,virtual-addr-pool = <0x00001000 0x70000000
+						  0x80000000 0x80000000>;
+		};
+
+		bcast_domain_cpz: qcom,iommu-domain4 {
+			label = "bcast_cpz";
+			qcom,iommu-contexts = <&bcast_cb1_cpz>;
+			qcom,virtual-addr-pool = <0x00001000 0x80000000>;
+			qcom,secure-domain;
+		};
+
+		bcast_domain_demod: qcom,iommu-domain5 {
+			label = "bcast_demod";
+			qcom,iommu-contexts = <&bcast_cb2_demod>;
+			qcom,virtual-addr-pool = <0x00000000 0x80000000>;
+		};
+
+		bcast_domain_apz: qcom,iommu-domain6 {
+			label = "bcast_apz";
+			qcom,iommu-contexts = <&bcast_cb3_apz>;
+			qcom,virtual-addr-pool = <0x00001000 0x80000000>;
+			qcom,secure-domain;
+		};
 	};
 };
