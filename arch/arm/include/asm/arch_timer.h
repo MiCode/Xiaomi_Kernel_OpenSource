@@ -90,7 +90,7 @@ static inline u64 arch_counter_get_cntpct_cp15(void)
 	return cval;
 }
 
-static inline u64 arch_counter_get_cntvct_cp15(void)
+static notrace inline u64 arch_counter_get_cntvct_cp15(void)
 {
 	u64 cval;
 

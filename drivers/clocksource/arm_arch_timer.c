@@ -377,7 +377,7 @@ static u64 arch_counter_get_cntpct_mem(void)
 	return ((u64) pct_hi << 32) | pct_lo;
 }
 
-static u64 arch_counter_get_cntvct_mem(void)
+static notrace u64 arch_counter_get_cntvct_mem(void)
 {
 	u32 vct_lo, vct_hi, tmp_hi;
 
