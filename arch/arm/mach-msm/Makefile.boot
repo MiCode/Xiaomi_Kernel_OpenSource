@@ -109,6 +109,7 @@ endif
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-mtp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-qrd.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8926-qrd-skug.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v1-qrd-skuf.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-v2-qrd-skuf.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= apq8026-v1-xpm.dtb
