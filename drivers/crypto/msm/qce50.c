@@ -804,12 +804,17 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 			}
 			/* write xts du size */
 			pce = cmdlistinfo->encr_xts_du_size;
-			if (!(creq->flags & QCRYPTO_CTX_XTS_MASK))
-				pce->data = creq->cryptlen;
-			else
+			switch (creq->flags & QCRYPTO_CTX_XTS_MASK) {
+			case QCRYPTO_CTX_XTS_DU_SIZE_512B:
 				pce->data = min((unsigned int)QCE_SECTOR_SIZE,
 						creq->cryptlen);
-
+			case QCRYPTO_CTX_XTS_DU_SIZE_1KB:
+				pce->data =
+					min((unsigned int)QCE_SECTOR_SIZE * 2,
+					creq->cryptlen);
+			default:
+				pce->data = creq->cryptlen;
+			}
 		}
 		if (creq->mode !=  QCE_MODE_ECB) {
 			if (creq->mode ==  QCE_MODE_XTS)
@@ -1454,15 +1459,22 @@ static int _ce_setup_cipher_direct(struct qce_device *pce_dev,
 						(i * sizeof(uint32_t)));
 			}
 			/* write xts du size */
-			if (use_pipe_key == true)
-				writel_relaxed(min((uint32_t)QCE_SECTOR_SIZE,
-						creq->cryptlen),
-						pce_dev->iobase +
-						CRYPTO_ENCR_XTS_DU_SIZE_REG);
-			else
-				writel_relaxed(creq->cryptlen ,
-						pce_dev->iobase +
-						CRYPTO_ENCR_XTS_DU_SIZE_REG);
+			switch (creq->flags & QCRYPTO_CTX_XTS_MASK) {
+			case QCRYPTO_CTX_XTS_DU_SIZE_512B:
+				writel_relaxed(
+					min((uint32_t)QCE_SECTOR_SIZE,
+					creq->cryptlen), pce_dev->iobase +
+					CRYPTO_ENCR_XTS_DU_SIZE_REG);
+			case QCRYPTO_CTX_XTS_DU_SIZE_1KB:
+				writel_relaxed(
+					min((uint32_t)(QCE_SECTOR_SIZE * 2),
+					creq->cryptlen), pce_dev->iobase +
+					CRYPTO_ENCR_XTS_DU_SIZE_REG);
+			default:
+				writel_relaxed(creq->cryptlen,
+					pce_dev->iobase +
+					CRYPTO_ENCR_XTS_DU_SIZE_REG);
+			}
 		}
 		if (creq->mode !=  QCE_MODE_ECB) {
 			if (creq->mode ==  QCE_MODE_XTS)
