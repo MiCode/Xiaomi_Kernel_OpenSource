@@ -1482,7 +1482,14 @@ void adreno_dispatcher_start(struct adreno_device *adreno_dev)
 
 	dispatcher->state = ADRENO_DISPATCHER_ACTIVE;
 
-	/* Schedule the work loop to get things going */
+	/*
+	 * Schedule the work loop to start sending submissions again.
+	 * Note that in many cases it is the dispatcher that prompted the
+	 * GPU to turn back so it may appear to be redundant to schedule
+	 * again but it is hard to figure out exactly who is responsible for
+	 * starting the power so we will take on the extra redundancy for now.
+	 * It doesn't appear to hurt anything.
+	 */
 	adreno_dispatcher_schedule(&adreno_dev->dev);
 }
 
@@ -1498,8 +1505,6 @@ void adreno_dispatcher_stop(struct adreno_device *adreno_dev)
 
 	del_timer_sync(&dispatcher->timer);
 	del_timer_sync(&dispatcher->fault_timer);
-
-	dispatcher->state = ADRENO_DISPATCHER_PAUSE;
 }
 
 /**
