@@ -124,7 +124,6 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		j++;
 		lane_mask >>= 1;
 	}
-	msleep(20);
 	return rc;
 }
 
