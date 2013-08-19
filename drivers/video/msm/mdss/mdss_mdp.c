@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -82,31 +82,10 @@ static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(bus_bw_lock);
 static DEFINE_MUTEX(mdp_iommu_lock);
 
-#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
-	{						\
-		.src = MSM_BUS_MASTER_MDP_PORT0,	\
-		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
-		.ab = (ab_val),				\
-		.ib = (ib_val),				\
-	}
-
-static struct msm_bus_vectors mdp_bus_vectors[] = {
-	MDP_BUS_VECTOR_ENTRY(0, 0),
-	MDP_BUS_VECTOR_ENTRY(SZ_128M, SZ_256M),
-	MDP_BUS_VECTOR_ENTRY(SZ_256M, SZ_512M),
-};
-static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
-
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
 	{"edp", MDSS_PANEL_INTF_EDP},
 	{"hdmi", MDSS_PANEL_INTF_HDMI},
-};
-
-static struct msm_bus_scale_pdata mdp_bus_scale_table = {
-	.usecase = mdp_bus_usecases,
-	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
-	.name = "mdss_mdp",
 };
 
 struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
@@ -156,6 +135,7 @@ static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
@@ -332,23 +312,17 @@ EXPORT_SYMBOL(mdss_disable_irq_nosync);
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
 	if (!mdata->bus_hdl) {
-		struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
-		int i;
-
-		for (i = 0; i < bus_pdata->num_usecases; i++) {
-			mdp_bus_usecases[i].num_paths = 1;
-			mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
-		}
-
-		mdata->bus_hdl = msm_bus_scale_register_client(bus_pdata);
-		if (!mdata->bus_hdl) {
-			pr_err("not able to get bus scale\n");
-			return -ENOMEM;
+		mdata->bus_hdl =
+			msm_bus_scale_register_client(mdata->bus_scale_table);
+		if (IS_ERR_VALUE(mdata->bus_hdl)) {
+			pr_err("bus_client register failed\n");
+			return -EINVAL;
 		}
 
 		pr_debug("register bus_hdl=%x\n", mdata->bus_hdl);
 	}
-	return 0;
+
+	return mdss_mdp_bus_scale_set_quota(AB_QUOTA, IB_QUOTA);
 }
 
 static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
@@ -361,7 +335,7 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 
 int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 {
-	int bus_idx;
+	int new_uc_idx;
 
 	if (mdss_res->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
@@ -369,32 +343,50 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 	}
 
 	if ((ab_quota | ib_quota) == 0) {
-		bus_idx = 0;
+		new_uc_idx = 0;
 	} else {
-		int num_cases = mdp_bus_scale_table.num_usecases;
+		int i;
 		struct msm_bus_vectors *vect = NULL;
+		struct msm_bus_scale_pdata *bw_table =
+			mdss_res->bus_scale_table;
+		unsigned long size;
 
-		bus_idx = (mdss_res->current_bus_idx % (num_cases - 1)) + 1;
-
-		vect = mdp_bus_scale_table.usecase[mdss_res->current_bus_idx].
-			vectors;
-
-		/* avoid performing updates for small changes */
-		if ((ALIGN(ab_quota, SZ_64M) == ALIGN(vect->ab, SZ_64M)) &&
-			(ALIGN(ib_quota, SZ_64M) == ALIGN(vect->ib, SZ_64M))) {
-			pr_debug("skip bus scaling, no change in vectors\n");
-			return 0;
+		if (!bw_table || !mdss_res->axi_port_cnt) {
+			pr_err("invalid input\n");
+			return -EINVAL;
 		}
 
-		vect = mdp_bus_scale_table.usecase[bus_idx].vectors;
-		vect->ab = ab_quota;
-		vect->ib = ib_quota;
+		size = SZ_64M / mdss_res->axi_port_cnt;
 
-		pr_debug("bus scale idx=%d ab=%llu ib=%llu\n", bus_idx,
-				vect->ab, vect->ib);
+		ab_quota = div_u64(ab_quota, mdss_res->axi_port_cnt);
+		ib_quota = div_u64(ib_quota, mdss_res->axi_port_cnt);
+
+		new_uc_idx = (mdss_res->curr_bw_uc_idx %
+			(bw_table->num_usecases - 1)) + 1;
+
+		for (i = 0; i < mdss_res->axi_port_cnt; i++) {
+			vect = &bw_table->usecase[mdss_res->curr_bw_uc_idx].
+				vectors[i];
+
+			/* avoid performing updates for small changes */
+			if ((ALIGN(ab_quota, size) == ALIGN(vect->ab, size)) &&
+			    (ALIGN(ib_quota, size) == ALIGN(vect->ib, size))) {
+				pr_debug("skip bus scaling, no changes\n");
+				return 0;
+			}
+
+			vect = &bw_table->usecase[new_uc_idx].vectors[i];
+			vect->ab = ab_quota;
+			vect->ib = ib_quota;
+
+			pr_debug("uc_idx=%d path_idx=%d ab=%llu ib=%llu\n",
+				new_uc_idx, i, vect->ab, vect->ib);
+		}
 	}
-	mdss_res->current_bus_idx = bus_idx;
-	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, bus_idx);
+	mdss_res->curr_bw_uc_idx = new_uc_idx;
+
+	return msm_bus_scale_client_update_request(mdss_res->bus_hdl,
+		new_uc_idx);
 }
 
 static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
@@ -654,7 +646,7 @@ void mdss_bus_bandwidth_ctrl(int enable)
 		} else {
 			pm_runtime_get_sync(&mdata->pdev->dev);
 			msm_bus_scale_client_update_request(
-				mdata->bus_hdl, mdata->current_bus_idx);
+				mdata->bus_hdl, mdata->curr_bw_uc_idx);
 			if (!mdata->handoff_pending)
 				mdss_iommu_attach(mdata);
 		}
@@ -1218,7 +1210,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to register bus scaling\n");
 		goto probe_done;
 	}
-	mdss_mdp_bus_scale_set_quota(AB_QUOTA, IB_QUOTA);
 
 	rc = mdss_mdp_debug_init(mdata);
 	if (rc) {
@@ -1555,6 +1546,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	if (rc) {
 		pr_err("%s: Error in panel override:rc=[%d]\n",
 		       __func__, rc);
+		return rc;
+	}
+
+	rc = mdss_mdp_parse_dt_bus_scale(pdev);
+	if (rc) {
+		pr_err("Error in device tree : bus scale\n");
 		return rc;
 	}
 
@@ -2084,6 +2081,31 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
 
 parse_done:
 	kfree(ad_offsets);
+	return rc;
+}
+
+static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
+{
+	int rc;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-bus,num-paths",
+		&mdata->axi_port_cnt);
+	if (rc) {
+		pr_err("Error. qcom,msm-bus,num-paths prop not found.rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	mdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (IS_ERR_OR_NULL(mdata->bus_scale_table)) {
+		rc = PTR_ERR(mdata->bus_scale_table);
+		if (!rc)
+			rc = -EINVAL;
+		pr_err("msm_bus_cl_get_pdata failed. rc=%d\n", rc);
+		mdata->bus_scale_table = NULL;
+	}
+
 	return rc;
 }
 
