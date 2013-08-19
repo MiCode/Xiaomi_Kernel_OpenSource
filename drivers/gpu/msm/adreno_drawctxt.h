@@ -201,9 +201,6 @@ int adreno_drawctxt_detach(struct kgsl_context *context);
 
 void adreno_drawctxt_destroy(struct kgsl_context *context);
 
-void adreno_drawctxt_sched(struct kgsl_device *device,
-		struct kgsl_context *context);
-
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags);
