@@ -642,21 +642,46 @@ static struct msm_cam_clk_info cci_clk_info[] = {
 	{"cci_clk", -1},
 };
 
-static int32_t msm_cci_init(struct v4l2_subdev *sd)
+static int32_t msm_cci_init(struct v4l2_subdev *sd,
+	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	int rc = 0;
 	struct cci_device *cci_dev;
+	enum cci_i2c_master_t master;
 	cci_dev = v4l2_get_subdevdata(sd);
-	CDBG("%s line %d\n", __func__, __LINE__);
 
-	if (!cci_dev) {
-		pr_err("%s cci device NULL\n", __func__);
+	if (!cci_dev || !c_ctrl) {
+		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
+			__LINE__, cci_dev, c_ctrl);
 		rc = -ENOMEM;
 		return rc;
 	}
 
 	if (cci_dev->ref_count++) {
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
+		master = c_ctrl->cci_info->cci_i2c_master;
+		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
+		if (master < MASTER_MAX) {
+			mutex_lock(&cci_dev->cci_master_info[master].mutex);
+			/* Set reset pending flag to TRUE */
+			cci_dev->cci_master_info[master].reset_pending = TRUE;
+			/* Set proper mask to RESET CMD address */
+			if (master == MASTER_0)
+				msm_camera_io_w(CCI_M0_RESET_RMSK,
+					cci_dev->base + CCI_RESET_CMD_ADDR);
+			else
+				msm_camera_io_w(CCI_M1_RESET_RMSK,
+					cci_dev->base + CCI_RESET_CMD_ADDR);
+			/* wait for reset done irq */
+			rc = wait_for_completion_interruptible_timeout(
+				&cci_dev->cci_master_info[master].
+				reset_complete,
+				CCI_TIMEOUT);
+			if (rc <= 0)
+				pr_err("%s:%d wait failed %d\n", __func__,
+					__LINE__, rc);
+			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
+		}
 		return 0;
 	}
 
@@ -699,6 +724,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 		cci_dev->base + CCI_IRQ_CLEAR_0_ADDR);
 	msm_camera_io_w(0x1, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	cci_dev->cci_state = CCI_STATE_ENABLED;
+
 	return 0;
 
 reset_complete_failed:
@@ -709,6 +735,7 @@ clk_enable_failed:
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
 request_gpio_failed:
+	cci_dev->ref_count--;
 	return rc;
 }
 
@@ -724,7 +751,7 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	}
 
 	if (--cci_dev->ref_count) {
-		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
+		CDBG("%s ref_count Exit %d\n", __func__, cci_dev->ref_count);
 		return 0;
 	}
 
@@ -737,6 +764,7 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 		cci_dev->cci_gpio_tbl_size, 0);
 
 	cci_dev->cci_state = CCI_STATE_DISABLED;
+
 	return 0;
 }
 
@@ -748,7 +776,7 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		cci_ctrl->cmd);
 	switch (cci_ctrl->cmd) {
 	case MSM_CCI_INIT:
-		rc = msm_cci_init(sd);
+		rc = msm_cci_init(sd, cci_ctrl);
 		break;
 	case MSM_CCI_RELEASE:
 		rc = msm_cci_release(sd);
