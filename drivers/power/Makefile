@@ -59,6 +59,7 @@ obj-$(CONFIG_ISL9519_CHARGER)   += isl9519q.o
 obj-$(CONFIG_SMB349_CHARGER)   += smb349.o
 obj-$(CONFIG_SMB349_USB_CHARGER)   += smb349-charger.o
 obj-$(CONFIG_SMB350_CHARGER)   += smb350_charger.o
+obj-$(CONFIG_SMB135X_CHARGER)   += smb135x-charger.o
 obj-$(CONFIG_PM8058_FIX_USB)    += pm8058_usb_fix.o
 obj-$(CONFIG_BATTERY_QCIBAT)    += qci_battery.o
 obj-$(CONFIG_BATTERY_BQ27520)	+= bq27520_fuelgauger.o
