@@ -1,0 +1,15 @@
+#
+# MSM Broadcast subsystem drivers
+#
+
+config TSPP2
+	depends on ARCH_MPQ8092
+	tristate "TSPP2 (Transport Stream Packet Processor v2) Support"
+	---help---
+	Transport Stream Packet Processor v2 is used to offload the
+	processing of MPEG transport streams from the main processor.
+	It is used to process incoming transport streams from TSIF or memory
+	input, to supports use-cases such as transport stream live play,
+	playback from memory and recording.
+	This can also be compiled as a loadable module.
+
