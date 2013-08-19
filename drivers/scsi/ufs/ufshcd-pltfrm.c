@@ -350,6 +350,9 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 
 	ufshcd_init_lanes_per_dir(hba);
 
+	if (!dev->dma_mask)
+		dev->dma_mask = &dev->coherent_dma_mask;
+
 	err = ufshcd_init(hba, mmio_base, irq);
 	if (err) {
 		dev_err(dev, "Initialization failed\n");
