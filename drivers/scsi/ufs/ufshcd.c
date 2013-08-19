@@ -3686,6 +3686,30 @@ out_error:
 EXPORT_SYMBOL(ufshcd_alloc_host);
 
 /**
+ * ufshcd_set_dma_mask - Set dma mask based on the controller
+ *			 addressing capability
+ * @hba: per adapter instance
+ *
+ * Returns 0 for success, non-zero for failure
+ */
+static int ufshcd_set_dma_mask(struct ufs_hba *hba)
+{
+	int err;
+
+	if (hba->capabilities & MASK_64_ADDRESSING_SUPPORT) {
+		if (!dma_set_mask(hba->dev, DMA_BIT_MASK(64))) {
+			dma_set_coherent_mask(hba->dev, DMA_BIT_MASK(64));
+			return 0;
+		}
+	}
+	err = dma_set_mask(hba->dev, DMA_BIT_MASK(32));
+	if (!err)
+		dma_set_coherent_mask(hba->dev, DMA_BIT_MASK(32));
+
+	return err;
+}
+
+/**
  * ufshcd_init - Driver initialization routine
  * @hba: per-adapter instance
  * @mmio_base: base register address
@@ -3723,6 +3747,12 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Get Interrupt bit mask per version */
 	hba->intr_mask = ufshcd_get_intr_mask(hba);
+
+	err = ufshcd_set_dma_mask(hba);
+	if (err) {
+		dev_err(hba->dev, "set dma mask failed\n");
+		goto out_disable;
+	}
 
 	/* Allocate memory for host memory space */
 	err = ufshcd_memory_alloc(hba);
