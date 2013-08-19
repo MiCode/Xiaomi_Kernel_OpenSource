@@ -21,6 +21,15 @@
 
 		status = "disabled";
 
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_mdp";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>, <23 512 0 0>,
+			<22 512 0 6400000>, <23 512 0 6400000>,
+			<22 512 0 6400000>, <23 512 0 6400000>;
+
 		qcom,max-clk-rate = <320000000>;
 
 		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
