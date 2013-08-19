@@ -1551,7 +1551,6 @@ static struct clk_freq_tbl ftbl_mmss_mmssnoc_axi_clk[] = {
 	F_END,
 };
 
-static struct branch_clk mmss_mmssnoc_axi_clk;
 static struct rcg_clk axi_clk_src = {
 	.cmd_rcgr_reg = AXI_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1563,7 +1562,6 @@ static struct rcg_clk axi_clk_src = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000),
 		CLK_INIT(axi_clk_src.c),
-		.depends = &mmss_mmssnoc_axi_clk.c
 	},
 };
 
@@ -2265,6 +2263,7 @@ static struct branch_clk mdp_ahb_clk = {
 	},
 };
 
+static struct branch_clk mmss_mmssnoc_axi_clk;
 static struct branch_clk mdp_axi_clk = {
 	.cbcr_reg = MDP_AXI_CBCR,
 	.base = &virt_bases[MMSS_BASE],
@@ -2275,6 +2274,7 @@ static struct branch_clk mdp_axi_clk = {
 		.dbg_name = "mdp_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -2330,6 +2330,7 @@ static struct branch_clk mmss_mmssnoc_axi_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &axi_clk_src.c,
 		.dbg_name = "mmss_mmssnoc_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mmssnoc_axi_clk.c),
@@ -2345,6 +2346,7 @@ static struct branch_clk mmss_s0_axi_clk = {
 		.dbg_name = "mmss_s0_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_s0_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -2421,6 +2423,7 @@ static struct branch_clk vfe_axi_clk = {
 		.dbg_name = "vfe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vfe_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
