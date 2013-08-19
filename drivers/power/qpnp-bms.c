@@ -3766,6 +3766,15 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 				return rc;
 			}
 		}
+	} else {
+		rc = qpnp_masked_write_iadc(chip,
+				IADC1_BMS_ADC_INT_RSNSN_CTL,
+				ADC_INT_RSNSN_CTL_MASK, 0x0);
+		if (rc) {
+			pr_err("Unable to set batfet config %x to %x: %d\n",
+				IADC1_BMS_ADC_INT_RSNSN_CTL, 0x0, rc);
+			return rc;
+		}
 	}
 
 	return 0;
