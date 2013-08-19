@@ -1237,8 +1237,15 @@ static void adreno_dispatcher_work(struct work_struct *work)
 			 * successful completion to the world
 			 */
 
-			if (cmdbatch->fault_recovery != 0)
+			if (cmdbatch->fault_recovery != 0) {
+				struct adreno_context *drawctxt =
+					ADRENO_CONTEXT(cmdbatch->context);
+
+				/* Mark the context as faulted and recovered */
+				set_bit(ADRENO_CONTEXT_FAULT, &drawctxt->priv);
+
 				_print_recovery(device, cmdbatch);
+			}
 
 			trace_adreno_cmdbatch_retired(cmdbatch,
 				dispatcher->inflight - 1);

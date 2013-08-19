@@ -2643,6 +2643,15 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	if (drawctxt->state == ADRENO_CONTEXT_STATE_INVALID)
 		ret = -EDEADLK;
 
+	/*
+	 * Return -EPROTO if the device has faulted since the last time we
+	 * checked.  Userspace uses this as a marker for performing post
+	 * fault activities
+	 */
+
+	if (!ret && test_and_clear_bit(ADRENO_CONTEXT_FAULT, &drawctxt->priv))
+		ret = -EPROTO;
+
 	return ret;
 }
 

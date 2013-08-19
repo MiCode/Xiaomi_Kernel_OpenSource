@@ -116,6 +116,7 @@ struct gmem_shadow_t {
  *			NOTE: guarded by device->mutex, not drawctxt->mutex!
  * @state: Current state of the context
  * @flags: Bitfield controlling behavior of the context
+ * @priv: Internal flags
  * @type: Context type (GL, CL, RS)
  * @mutex: Mutex to protect the cmdqueue
  * @pagetable: Pointer to the GPU pagetable for the context
@@ -154,6 +155,7 @@ struct adreno_context {
 	unsigned int internal_timestamp;
 	int state;
 	uint32_t flags;
+	unsigned long priv;
 	unsigned int type;
 	struct mutex mutex;
 	struct kgsl_memdesc gpustate;
@@ -194,6 +196,14 @@ struct adreno_context {
 	int queued;
 };
 
+/**
+ * enum adreno_context_priv - Private flags for an adreno draw context
+ * @ADRENO_CONTEXT_FAULT - set if the context has faulted (and recovered)
+ */
+
+enum adreno_context_priv {
+	ADRENO_CONTEXT_FAULT = 0,
+};
 
 struct kgsl_context *adreno_drawctxt_create(struct kgsl_device_private *,
 			uint32_t *flags);
