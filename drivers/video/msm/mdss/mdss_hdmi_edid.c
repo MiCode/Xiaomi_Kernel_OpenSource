@@ -677,7 +677,7 @@ static u32 hdmi_edid_extract_ieee_reg_id(struct hdmi_edid_ctrl *edid_ctrl,
 	}
 
 	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3, &len);
-	if (vsd == NULL)
+	if (vsd == NULL || len < 8)
 		return 0;
 
 	DEV_DBG("%s: EDID: VSD PhyAddr=%04x, MaxTMDS=%dMHz\n", __func__,
