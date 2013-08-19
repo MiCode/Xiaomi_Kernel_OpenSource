@@ -3839,16 +3839,32 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 			mbhc->mbhc_cb->enable_clock_gate)
 		mbhc->mbhc_cb->enable_clock_gate(mbhc->codec, true);
 
-	if (!mbhc->mbhc_cfg->read_fw_bin)
+	if (!mbhc->mbhc_cfg->read_fw_bin ||
+	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_fw)) {
 		rc = wcd9xxx_init_and_calibrate(mbhc);
-	else
-		schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
-				      usecs_to_jiffies(FW_READ_TIMEOUT));
+	} else {
+		if (!mbhc->mbhc_fw)
+			schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
+					     usecs_to_jiffies(FW_READ_TIMEOUT));
+		else
+			pr_debug("%s: Skipping to read mbhc fw, 0x%p\n",
+				 __func__, mbhc->mbhc_fw);
+	}
 
 	pr_debug("%s: leave %d\n", __func__, rc);
 	return rc;
 }
 EXPORT_SYMBOL(wcd9xxx_mbhc_start);
+
+void wcd9xxx_mbhc_stop(struct wcd9xxx_mbhc *mbhc)
+{
+	if (mbhc->mbhc_fw) {
+		cancel_delayed_work_sync(&mbhc->mbhc_firmware_dwork);
+		release_firmware(mbhc->mbhc_fw);
+		mbhc->mbhc_fw = NULL;
+	}
+}
+EXPORT_SYMBOL(wcd9xxx_mbhc_stop);
 
 static enum wcd9xxx_micbias_num
 wcd9xxx_event_to_micbias(const enum wcd9xxx_notify_event event)
@@ -4585,9 +4601,6 @@ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 
 	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT, mbhc);
 	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT, mbhc);
-
-	if (mbhc->mbhc_fw)
-		release_firmware(mbhc->mbhc_fw);
 
 	wcd9xxx_resmgr_unregister_notifier(mbhc->resmgr, &mbhc->nblock);
 
