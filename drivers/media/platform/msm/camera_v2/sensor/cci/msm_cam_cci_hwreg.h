@@ -15,7 +15,7 @@
 
 #define CCI_HW_VERSION_ADDR                                         0x00000000
 #define CCI_RESET_CMD_ADDR                                          0x00000004
-#define CCI_RESET_CMD_RMSK                                          0xcf73f3f7
+#define CCI_RESET_CMD_RMSK                                          0x0f73f3f7
 #define CCI_M0_RESET_RMSK                                                0x3F1
 #define CCI_M1_RESET_RMSK                                              0x3F001
 #define CCI_QUEUE_START_ADDR                                        0x00000008
