@@ -372,8 +372,12 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 	clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 
 	regulator_disable(drvdata->reg);
-	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
 	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
+	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
+
+	regulator_disable(drvdata->reg_io);
+	tpiu_reg_set_voltage(drvdata->reg_io, 0, drvdata->reg_high_io);
+	tpiu_reg_set_optimum_mode(drvdata->reg_io, 0);
 }
 
 static void tpiu_disable(struct coresight_device *csdev)
