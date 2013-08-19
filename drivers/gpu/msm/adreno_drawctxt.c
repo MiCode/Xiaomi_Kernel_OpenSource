@@ -678,7 +678,7 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	if (ret) {
 		KGSL_DRV_ERR(device,
 			"Error in GPU context %d restore: %d\n",
-			drawctxt->base.id, ret);
+			drawctxt ? drawctxt->base.id : 0, ret);
 		return ret;
 	}
 

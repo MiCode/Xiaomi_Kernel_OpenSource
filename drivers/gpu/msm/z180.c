@@ -512,7 +512,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, 0);
 error:
 	kgsl_trace_issueibcmds(device, context->id, cmdbatch,
-		*timestamp, cmdbatch->flags, result, 0);
+		*timestamp, cmdbatch ? cmdbatch->flags : 0, result, 0);
 
 	kgsl_active_count_put(device);
 

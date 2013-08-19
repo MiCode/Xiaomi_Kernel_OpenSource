@@ -186,8 +186,8 @@ struct adreno_context {
 
 	/* Dispatcher */
 	struct kgsl_cmdbatch *cmdqueue[ADRENO_CONTEXT_CMDQUEUE_SIZE];
-	int cmdqueue_head;
-	int cmdqueue_tail;
+	unsigned int cmdqueue_head;
+	unsigned int cmdqueue_tail;
 
 	struct plist_node pending;
 	wait_queue_head_t wq;
