@@ -79,6 +79,7 @@
 		qcom,cpr-fuse-redun-ro-sel = <44 26 29>;
 
 		qcom,cpr-enable;
+		qcom,use-tz-api;
 	};
 };
 
