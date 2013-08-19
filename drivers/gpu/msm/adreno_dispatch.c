@@ -323,6 +323,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
  * @drawctxt: Pointer to the adreno context to dispatch commands from
  *
  * Dequeue and send a burst of commands from the specified context to the GPU
+ * Returns postive if the context needs to be put back on the pending queue
+ * 0 if the context is empty or detached and negative on error
  */
 static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt)
@@ -384,52 +386,29 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		 * conditions improve
 		 */
 		if (ret) {
-			ret = adreno_dispatcher_requeue_cmdbatch(drawctxt,
-				cmdbatch);
-			if (!ret)
-				requeued = 1;
+			requeued = adreno_dispatcher_requeue_cmdbatch(drawctxt,
+				cmdbatch) ? 0 : 1;
 			break;
 		}
+
 		count++;
 	}
 
 	/*
-	 * If the context successfully submitted commands, then
-	 * unconditionally put it back on the queue to be considered the
-	 * next time around. This might seem a little wasteful but it is
-	 * reasonable to think that a busy context will stay busy.
+	 * If the context successfully submitted commands there will be room
+	 * in the context queue so wake up any snoozing threads that want to
+	 * submit commands
 	 */
 
-	if (count || requeued) {
-		dispatcher_queue_context(adreno_dev, drawctxt);
-
-		/*
-		 * If we submitted something there will be room in the
-		 * context queue so ping the context wait queue on the
-		 * chance that the context is snoozing
-		 */
-
+	if (count)
 		wake_up_interruptible_all(&drawctxt->wq);
-	}
-
-	/* Return the number of command batches processed */
-	if (count > 0)
-		return count;
 
 	/*
-	 * If we didn't process anything because of a stall or an error
-	 * return -1 so the issuecmds loop knows that we shouldn't
-	 * keep trying to process it
+	 * Return positive if the context submitted commands or if we figured
+	 * out that we need to requeue due to a pending sync or error.
 	 */
 
-	return requeued ? -1 : 0;
-}
-
-static void plist_move(struct plist_head *old, struct plist_head *new)
-{
-	plist_head_init(new);
-	list_splice_tail(&old->node_list, &new->node_list);
-	plist_head_init(old);
+	return (count || requeued) ? 1 : 0;
 }
 
 /**
@@ -442,18 +421,16 @@ static void plist_move(struct plist_head *old, struct plist_head *new)
 static int _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct plist_head tmp;
 	struct adreno_context *drawctxt, *next;
+	struct plist_head requeue;
+	int ret;
 
 	/* Leave early if the dispatcher isn't in a happy state */
 	if ((dispatcher->state != ADRENO_DISPATCHER_ACTIVE) ||
 		adreno_gpu_fault(adreno_dev) != 0)
 			return 0;
 
-	/* Copy the current context list to a temporary list */
-	spin_lock(&dispatcher->plist_lock);
-	plist_move(&dispatcher->pending, &tmp);
-	spin_unlock(&dispatcher->plist_lock);
+	plist_head_init(&requeue);
 
 	/* Try to fill the ringbuffer as much as possible */
 	while (dispatcher->inflight < _dispatcher_inflight) {
@@ -463,24 +440,18 @@ static int _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 			adreno_gpu_fault(adreno_dev) != 0)
 			break;
 
-		/*
-		 * We have to get the spin lock here to protect the nodes, not
-		 * the list
-		 */
-
 		spin_lock(&dispatcher->plist_lock);
 
-		if (plist_head_empty(&tmp)) {
+		if (plist_head_empty(&dispatcher->pending)) {
 			spin_unlock(&dispatcher->plist_lock);
 			break;
 		}
 
 		/* Get the next entry on the list */
-		drawctxt = plist_first_entry(&tmp, struct adreno_context,
-			pending);
+		drawctxt = plist_first_entry(&dispatcher->pending,
+			struct adreno_context, pending);
 
-		/* Remove it from the list */
-		plist_del(&drawctxt->pending, &tmp);
+		plist_del(&drawctxt->pending, &dispatcher->pending);
 
 		spin_unlock(&dispatcher->plist_lock);
 
@@ -490,21 +461,44 @@ static int _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 			continue;
 		}
 
-		dispatcher_context_sendcmds(adreno_dev, drawctxt);
-		kgsl_context_put(&drawctxt->base);
+		ret = dispatcher_context_sendcmds(adreno_dev, drawctxt);
+
+		if (ret > 0) {
+			spin_lock(&dispatcher->plist_lock);
+
+			/*
+			 * Check to seen if the context had been requeued while
+			 * we were processing it (probably by another thread
+			 * pushing commands). If it has then we don't need to
+			 * bother with it but do a put to make sure the
+			 * reference counting stays accurate.  If the node is
+			 * empty then we will put it on the requeue list and not
+			 * touch the refcount since we already hold it from the
+			 * first time it went on the list.
+			 */
+
+			if (plist_node_empty(&drawctxt->pending))
+				plist_add(&drawctxt->pending, &requeue);
+			else
+				kgsl_context_put(&drawctxt->base);
+
+			spin_unlock(&dispatcher->plist_lock);
+		} else {
+			/*
+			 * If the context doesn't need be requeued put back the
+			 * refcount
+			 */
+
+			kgsl_context_put(&drawctxt->base);
+		}
 	}
 
-	/* Requeue any remaining contexts for the next go around */
+	/* Put all the requeued contexts back on the master list */
 
 	spin_lock(&dispatcher->plist_lock);
 
-	plist_for_each_entry_safe(drawctxt, next, &tmp, pending) {
-		int prio = drawctxt->pending.prio;
-
-		/* Reset the context node */
-		plist_node_init(&drawctxt->pending, prio);
-
-		/* And put it back in the master list */
+	plist_for_each_entry_safe(drawctxt, next, &requeue, pending) {
+		plist_del(&drawctxt->pending, &requeue);
 		plist_add(&drawctxt->pending, &dispatcher->pending);
 	}
 
