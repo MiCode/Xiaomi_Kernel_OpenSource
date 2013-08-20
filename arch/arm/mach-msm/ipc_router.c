@@ -458,7 +458,7 @@ static void *msm_ipc_router_skb_to_buf(struct sk_buff_head *skb_head,
 	return buf;
 }
 
-static void msm_ipc_router_free_skb(struct sk_buff_head *skb_head)
+void msm_ipc_router_free_skb(struct sk_buff_head *skb_head)
 {
 	struct sk_buff *temp_skb;
 
@@ -2299,6 +2299,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	if (!port_ptr) {
 		pr_err("%s: Local port %d not present\n", __func__, port_id);
 		up_read(&local_ports_lock_lha2);
+		pkt->pkt_fragment_q = NULL;
 		release_pkt(pkt);
 		return -ENODEV;
 	}
@@ -2501,6 +2502,8 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 
 	ret = msm_ipc_router_write_pkt(src, rport_ptr, pkt);
 	up_read(&routing_table_lock_lha3);
+	if (ret < 0)
+		pkt->pkt_fragment_q = NULL;
 	release_pkt(pkt);
 
 	return ret;
@@ -2520,11 +2523,10 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 	}
 
 	ret = msm_ipc_router_send_to(src, out_skb_head, dest);
-	if (ret == -EAGAIN)
-		return ret;
 	if (ret < 0) {
-		pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
-			__func__, ret);
+		if (ret != -EAGAIN)
+			pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
+				__func__, ret);
 		msm_ipc_router_free_skb(out_skb_head);
 		return ret;
 	}
