@@ -1887,6 +1887,7 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
 	 * During a signal voltage level switch, the clock must be gated
 	 * for 5 ms according to the SD spec
 	 */
+	host->card_clock_off = true;
 	clock = host->ios.clock;
 	host->ios.clock = 0;
 	mmc_set_ios(host);
@@ -1897,6 +1898,9 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
 		 * sent CMD11, so a power cycle is required anyway
 		 */
 		err = -EAGAIN;
+		host->ios.clock = clock;
+		mmc_set_ios(host);
+		host->card_clock_off = false;
 		goto power_cycle;
 	}
 
@@ -1905,6 +1909,7 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
 	host->ios.clock = clock;
 	mmc_set_ios(host);
 
+	host->card_clock_off = false;
 	/* Wait for at least 1 ms according to spec */
 	mmc_delay(1);
 
