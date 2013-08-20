@@ -2114,10 +2114,18 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 		mb();
 
 	} else if (!enable && atomic_read(&msm_host->clks_on)) {
-		pr_debug("%s: request to disable clocks\n",
-				mmc_hostname(host->mmc));
 		sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 		mb();
+		/*
+		 * During 1.8V signal switching the clock source must
+		 * still be ON as it requires accessing SDHC
+		 * registers (SDHCi host control2 register bit 3 must
+		 * be written and polled after stopping the SDCLK).
+		 */
+		if (host->mmc->card_clock_off)
+			return 0;
+		pr_debug("%s: request to disable clocks\n",
+				mmc_hostname(host->mmc));
 		if (!IS_ERR_OR_NULL(msm_host->sleep_clk))
 			clk_disable_unprepare(msm_host->sleep_clk);
 		if (!IS_ERR_OR_NULL(msm_host->ff_clk))

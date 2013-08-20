@@ -440,6 +440,11 @@ struct mmc_host {
 	struct io_latency_state io_lat_s;
 #endif
 
+	/*
+	 * Set to 1 to just stop the SDCLK to the card without
+	 * actually disabling the clock from it's source.
+	 */
+	bool			card_clock_off;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
