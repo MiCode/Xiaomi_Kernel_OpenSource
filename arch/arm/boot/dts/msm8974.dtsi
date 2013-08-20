@@ -2104,7 +2104,7 @@
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0xf9304000>;
 			qcom,dst-bam-pipe-index = <2>;
-			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-offset = <0xf2000>;
 			qcom,data-fifo-size = <0x1800>;
 			qcom,descriptor-fifo-offset = <0xf4000>;
 			qcom,descriptor-fifo-size = <0x1400>;
