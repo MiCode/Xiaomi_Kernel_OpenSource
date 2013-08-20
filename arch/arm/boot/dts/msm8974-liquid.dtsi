@@ -120,6 +120,7 @@
 			interrupts = <61 0x2>;
 			vdd_ana-supply = <&pm8941_l22>;
 			vcc_i2c-supply = <&pm8941_s3>;
+			atmel,i2cmode-gpio = <&msmgpio 59 0x00>;
 			atmel,reset-gpio = <&msmgpio 60 0x00>;
 			atmel,irq-gpio = <&msmgpio 61 0x00>;
 			atmel,panel-coords = <0 0 1080 1920>;
