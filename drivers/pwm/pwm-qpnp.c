@@ -198,7 +198,14 @@ do { \
 #define qpnp_check_gpled_lpg_channel(id) \
 	(id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START && \
 	id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
+
 #define QPNP_PWM_LUT_NOT_SUPPORTED	0x1
+
+/* Supported PWM sizes */
+#define QPNP_PWM_SIZE_6_BIT		6
+#define QPNP_PWM_SIZE_7_BIT		7
+#define QPNP_PWM_SIZE_8_BIT		8
+#define QPNP_PWM_SIZE_9_BIT		9
 
 /* LPG revisions */
 enum qpnp_lpg_revision {
@@ -294,6 +301,7 @@ struct _qpnp_pwm_config {
 	int				pwm_value;
 	int				pwm_duty;
 	struct pwm_period_config	period;
+	int				force_pwm_size;
 };
 
 /* Public facing structure */
@@ -428,6 +436,7 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
 	int		id = chip->channel_id;
+	int		force_pwm_size = chip->pwm_config.force_pwm_size;
 	struct pwm_period_config *period = &chip->pwm_config.period;
 
 	/* PWM Period / N */
@@ -444,6 +453,15 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 		else
 			n = 9;
 		period_n = (period_us >> n) * NSEC_PER_USEC;
+	}
+
+	if (force_pwm_size != 0) {
+		if (n < force_pwm_size)
+			period_n = period_n >> (force_pwm_size - n);
+		else
+			period_n = period_n << (n - force_pwm_size);
+		n = force_pwm_size;
+		pr_info("LPG channel '%d' pwm size is forced to=%d\n", id, n);
 	}
 
 	min_err = last_err = (unsigned)(-1);
@@ -479,19 +497,21 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 	}
 
 	/* Adapt to optimal pwm size, the higher the resolution the better */
-	if (qpnp_check_gpled_lpg_channel(id)) {
-		if (n == 7 && best_m >= 1) {
-			n += 1;
-			best_m -= 1;
-		}
-	} else if (n == 6) {
-		if (best_m >= 3) {
-			n += 3;
-			best_m -= 3;
-		} else if (best_m >= 1 &&
+	if (!force_pwm_size) {
+		if (qpnp_check_gpled_lpg_channel(id)) {
+			if (n == 7 && best_m >= 1) {
+				n += 1;
+				best_m -= 1;
+			}
+		} else if (n == 6) {
+			if (best_m >= 3) {
+				n += 3;
+				best_m -= 3;
+			} else if (best_m >= 1 &&
 				chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE) {
-			n += 1;
-			best_m -= 1;
+				n += 1;
+				best_m -= 1;
+			}
 		}
 	}
 
@@ -1609,6 +1629,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	struct device_node	*of_node = spmi->dev.of_node;
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	struct qpnp_lut_config	*lut_config = &lpg_config->lut_config;
+	int			force_pwm_size = 0;
 
 	rc = of_property_read_u32(of_node, "qcom,channel-id",
 				&chip->channel_id);
@@ -1618,6 +1639,27 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		goto out;
 	}
 
+	/*
+	 * For cetrain LPG channels PWM size can be forced. So that
+	 * for every requested pwm period closest pwm frequency is
+	 * selected in qpnp_lpg_calc_period() for the forced pwm size.
+	 */
+	rc = of_property_read_u32(of_node, "qcom,force-pwm-size",
+				&force_pwm_size);
+	if (qpnp_check_gpled_lpg_channel(chip->channel_id)) {
+		if (!(force_pwm_size == QPNP_PWM_SIZE_7_BIT ||
+				force_pwm_size == QPNP_PWM_SIZE_8_BIT))
+			force_pwm_size = 0;
+	} else if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
+		if (!(force_pwm_size == QPNP_PWM_SIZE_6_BIT ||
+				force_pwm_size == QPNP_PWM_SIZE_9_BIT))
+			force_pwm_size = 0;
+	} else if (!(force_pwm_size == QPNP_PWM_SIZE_6_BIT ||
+				force_pwm_size == QPNP_PWM_SIZE_7_BIT ||
+				force_pwm_size == QPNP_PWM_SIZE_9_BIT))
+			force_pwm_size = 0;
+
+	chip->pwm_config.force_pwm_size = force_pwm_size;
 	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
 					QPNP_LPG_CHANNEL_BASE);
 	if (!res) {
