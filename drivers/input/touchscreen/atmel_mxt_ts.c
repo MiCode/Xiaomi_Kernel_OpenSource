@@ -2190,7 +2190,8 @@ static void mxt_input_close(struct input_dev *dev)
 	if (data->state == APPMODE) {
 		error = mxt_stop(data);
 		if (error < 0)
-			dev_err(&data->client->dev, "mxt_stop failed in input_close\n");
+			dev_err(&data->client->dev,
+				"mxt_stop failed in input_close\n");
 	}
 }
 
@@ -2207,11 +2208,31 @@ static int mxt_power_on(struct mxt_data *data, bool on)
 	if (on == false)
 		goto power_off;
 
+	if (gpio_is_valid(data->pdata->i2cmode_gpio)) {
+		/* pull up i2cmode gpio */
+		rc = gpio_request(data->pdata->i2cmode_gpio,
+							"mxt_i2cmode_gpio");
+		if (rc) {
+			dev_err(&data->client->dev,
+						"unable to request gpio [%d]\n",
+						data->pdata->i2cmode_gpio);
+			return rc;
+		}
+
+		rc = gpio_direction_output(data->pdata->i2cmode_gpio, 1);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"unable to set direction for gpio [%d]\n",
+				data->pdata->i2cmode_gpio);
+			goto error_i2cmode_gpio_req;
+		}
+	}
+
 	rc = reg_set_optimum_mode_check(data->vcc_ana, MXT_ACTIVE_LOAD_UA);
 	if (rc < 0) {
 		dev_err(&data->client->dev,
 			"Regulator vcc_ana set_opt failed rc=%d\n", rc);
-		return rc;
+		goto error_i2cmode_gpio_req;
 	}
 
 	rc = regulator_enable(data->vcc_ana);
@@ -2272,6 +2293,10 @@ error_reg_opt_vcc_dig:
 	regulator_disable(data->vcc_ana);
 error_reg_en_vcc_ana:
 	reg_set_optimum_mode_check(data->vcc_ana, 0);
+error_i2cmode_gpio_req:
+	/* pull down i2cmode gpio */
+	if (gpio_is_valid(data->pdata->i2cmode_gpio))
+		gpio_free(data->pdata->i2cmode_gpio);
 	return rc;
 
 power_off:
@@ -2287,6 +2312,10 @@ power_off:
 	}
 
 	msleep(50);
+	/* pull down i2cmode gpio */
+	if (gpio_is_valid(data->pdata->i2cmode_gpio))
+		gpio_free(data->pdata->i2cmode_gpio);
+
 	return 0;
 }
 
@@ -2760,7 +2789,8 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 	pdata->no_lpm_support = of_property_read_bool(np,
 					"atmel,no-lpm-support");
 
-	/* reset, irq gpio info */
+	/* i2c mode, reset, irq gpio info */
+	pdata->i2cmode_gpio = of_get_named_gpio(np, "atmel,i2cmode-gpio", 0);
 	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
 				0, &pdata->reset_gpio_flags);
 	pdata->irq_gpio = of_get_named_gpio_flags(np, "atmel,irq-gpio",
@@ -3189,6 +3219,9 @@ static int mxt_remove(struct i2c_client *client)
 
 	if (gpio_is_valid(data->pdata->irq_gpio))
 		gpio_free(data->pdata->irq_gpio);
+
+	if (gpio_is_valid(data->pdata->i2cmode_gpio))
+		gpio_free(data->pdata->i2cmode_gpio);
 
 	kfree(data->object_table);
 	kfree(data);

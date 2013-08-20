@@ -260,6 +260,18 @@ static struct gpiomux_setting atmel_int_sus_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting atmel_i2cmode_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting atmel_i2cmode_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting taiko_reset = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -294,6 +306,13 @@ static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 };
 
 static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
+	{
+		.gpio      = 59,		/* TOUCH I2C Mode */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &atmel_i2cmode_act_cfg,
+			[GPIOMUX_SUSPENDED] = &atmel_i2cmode_sus_cfg,
+		},
+	},
 	{
 		.gpio      = 60,		/* TOUCH RESET */
 		.settings = {
