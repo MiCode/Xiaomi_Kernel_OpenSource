@@ -41,19 +41,13 @@ static struct msm_dsi_io_private *dsi_io_private;
 void msm_dsi_ahb_ctrl(int enable)
 {
 	if (enable) {
-		if (dsi_io_private->msm_dsi_ahb_clk_on) {
-			pr_debug("ahb clks already ON\n");
-			return;
-		}
-		clk_enable(dsi_io_private->dsi_ahb_clk);
-		dsi_io_private->msm_dsi_ahb_clk_on = 1;
+		dsi_io_private->msm_dsi_ahb_clk_on++;
+		if (dsi_io_private->msm_dsi_ahb_clk_on == 1)
+			clk_enable(dsi_io_private->dsi_ahb_clk);
 	} else {
-		if (dsi_io_private->msm_dsi_ahb_clk_on == 0) {
-			pr_debug("ahb clk already OFF\n");
-			return;
-		}
-		clk_disable(dsi_io_private->dsi_ahb_clk);
-		dsi_io_private->msm_dsi_ahb_clk_on = 0;
+		dsi_io_private->msm_dsi_ahb_clk_on--;
+		if (dsi_io_private->msm_dsi_ahb_clk_on == 0)
+			clk_disable(dsi_io_private->dsi_ahb_clk);
 	}
 }
 
