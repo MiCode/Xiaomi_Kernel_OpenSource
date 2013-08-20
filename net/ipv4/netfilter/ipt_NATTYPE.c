@@ -37,7 +37,7 @@
 #include <linux/tcp.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
-#include <net/netfilter/nf_nat_rule.h>
+#include <net/netfilter/nf_nat.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ipt_NATTYPE.h>
 #include <linux/atomic.h>
@@ -62,7 +62,7 @@ struct ipt_nattype {
 	unsigned long timeout_value;
 	unsigned int nattype_cookie;
 	unsigned short proto;		/* Protocol: TCP or UDP */
-	struct nf_nat_ipv4_range range;	/* LAN side source information */
+	struct nf_nat_range range;	/* LAN side source information */
 	unsigned short nat_port;	/* Routed NAT port */
 	unsigned int dest_addr;	/* Original egress packets dst addr */
 	unsigned short dest_port;/* Original egress packets destination port */
@@ -84,7 +84,7 @@ static void nattype_nte_debug_print(const struct ipt_nattype *nte,
 {
 	DEBUGP("%p: %s - proto[%d], src[%pI4:%d], nat[<x>:%d], dest[%pI4:%d]\n",
 		nte, s, nte->proto,
-		&nte->range.min_ip, ntohs(nte->range.min.all),
+		&nte->range.min_addr.ip, ntohs(nte->range.min.all),
 		ntohs(nte->nat_port),
 		&nte->dest_addr, ntohs(nte->dest_port));
 }
@@ -234,16 +234,16 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
 	 * Since we always keep min/max values the same,
 	 * just compare the min values.
 	 */
-	if (n1->range.min_ip != n2->range.min_ip) {
-		DEBUGP("nattype_compare: r.min_ip mismatch: %pI4:%pI4\n",
-		       &n1->range.min_ip, &n2->range.min_ip);
+	if (n1->range.min_addr.ip != n2->range.min_addr.ip) {
+		DEBUGP("nattype_compare: r.min_addr.ip mismatch: %pI4:%pI4\n",
+		       &n1->range.min_addr.ip, &n2->range.min_addr.ip);
 		return false;
 	}
 
-	if (n1->range.min.all != n2->range.min.all) {
+	if (n1->range.min_addr.all != n2->range.min_addr.all) {
 		DEBUGP("nattype_compare: r.min mismatch: %d:%d\n",
-				ntohs(n1->range.min.all),
-				ntohs(n2->range.min.all));
+				ntohs(n1->range.min_addr.all),
+				ntohs(n2->range.min_addr.all));
 		return false;
 	}
 
@@ -284,7 +284,7 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 	list_for_each_entry(nte, &nattype_list, list) {
 		struct nf_conn *ct;
 		enum ip_conntrack_info ctinfo;
-		struct nf_nat_ipv4_range newrange;
+		struct nf_nat_range newrange;
 		unsigned int ret;
 
 		if (!nattype_packet_in_match(nte, skb, par->targinfo))
@@ -318,7 +318,7 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 		 * Expand the ingress conntrack to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
-		       ct, ctinfo, &newrange.min_ip,
+		       ct, ctinfo, &newrange.min_addr.ip,
 		       ntohs(newrange.min.all));
 		ct->nattype_entry = (unsigned long)nte;
 		ret = nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
@@ -412,22 +412,22 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	nte->proto = iph->protocol;
 	nte->nat_port = nat_port;
 	nte->dest_addr = iph->daddr;
-	nte->range.min_ip = iph->saddr;
-	nte->range.max_ip = nte->range.min_ip;
+	nte->range.min_addr.ip = iph->saddr;
+	nte->range.max_addr.ip = nte->range.min_addr.ip;
 
 	/* netfilter NATTYPE
 	 * TOOD: Would it be better to get this information from the
 	 * conntrack instead of the headers.
 	 */
 	if (iph->protocol == IPPROTO_TCP) {
-		nte->range.min.tcp.port =
+		nte->range.min_proto.tcp.port =
 					((struct tcphdr *)protoh)->source;
-		nte->range.max.tcp.port = nte->range.min.tcp.port;
+		nte->range.max_proto.tcp.port = nte->range.min_proto.tcp.port;
 		nte->dest_port = ((struct tcphdr *)protoh)->dest;
 	} else if (iph->protocol == IPPROTO_UDP) {
-		nte->range.min.udp.port =
+		nte->range.min_proto.udp.port =
 					((struct udphdr *)protoh)->source;
-		nte->range.max.udp.port = nte->range.min.udp.port;
+		nte->range.max_proto.udp.port = nte->range.min_proto.udp.port;
 		nte->dest_port = ((struct udphdr *)protoh)->dest;
 	}
 	nte->range.flags = (NF_NAT_RANGE_MAP_IPS |
