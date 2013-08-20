@@ -447,6 +447,10 @@
 		reg-names = "fuse-base";
 	};
 
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
