@@ -2020,6 +2020,8 @@ const struct drm_ioctl_desc i915_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(I915_GEM_USERPTR, i915_gem_userptr_ioctl, DRM_UNLOCKED|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(I915_ENABLE_PLANE_RESERVED_REG_BIT_2,
 		i915_enable_plane_reserved_reg_bit_2, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(I915_GEM_ACCESS_USERDATA, i915_gem_access_userdata,
+							DRM_UNLOCKED|DRM_RENDER_ALLOW),
 };
 
 int i915_max_ioctl = ARRAY_SIZE(i915_ioctls);
