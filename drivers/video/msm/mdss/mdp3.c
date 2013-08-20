@@ -1290,7 +1290,13 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 			return 0;
 		}
 		rc = mdp3_continuous_splash_on(pdata);
+	} else {
+		if (mdp3_is_display_on(pdata)) {
+			pr_err("lk continuous splash, but kerenl not\n");
+			rc = mdp3_continuous_splash_on(pdata);
+		}
 	}
+
 	return rc;
 }
 
