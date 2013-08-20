@@ -83,6 +83,7 @@
 #define CHGR_USB_USB_SUSP			0x47
 #define CHGR_USB_USB_OTG_CTL			0x48
 #define CHGR_USB_ENUM_T_STOP			0x4E
+#define CHGR_USB_TRIM				0xF1
 #define CHGR_CHG_TEMP_THRESH			0x66
 #define CHGR_BAT_IF_PRES_STATUS			0x08
 #define CHGR_STATUS				0x09
@@ -676,6 +677,48 @@ qpnp_chg_idcmax_set(struct qpnp_chg_chip *chip, int mA)
 	pr_debug("current=%d setting 0x%x\n", mA, dc);
 	rc = qpnp_chg_write(chip, &dc,
 		chip->dc_chgpth_base + CHGR_I_MAX_REG, 1);
+
+	return rc;
+}
+
+static int
+qpnp_chg_iusb_trim_get(struct qpnp_chg_chip *chip)
+{
+	int rc = 0;
+	u8 trim_reg;
+
+	rc = qpnp_chg_read(chip, &trim_reg,
+			chip->usb_chgpth_base + CHGR_USB_TRIM, 1);
+	if (rc) {
+		pr_err("failed to read USB_TRIM rc=%d\n", rc);
+		return 0;
+	}
+
+	return trim_reg;
+}
+
+static int
+qpnp_chg_iusb_trim_set(struct qpnp_chg_chip *chip, int trim)
+{
+	int rc = 0;
+
+	rc = qpnp_chg_masked_write(chip,
+		chip->usb_chgpth_base + SEC_ACCESS,
+		0xFF,
+		0xA5, 1);
+	if (rc) {
+		pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_masked_write(chip,
+		chip->usb_chgpth_base + CHGR_USB_TRIM,
+		0xFF,
+		trim, 1);
+	if (rc) {
+		pr_err("failed to write USB TRIM rc=%d\n", rc);
+		return rc;
+	}
 
 	return rc;
 }
@@ -1364,6 +1407,7 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 	case POWER_SUPPLY_PROP_WARM_TEMP:
@@ -1476,6 +1520,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -1499,7 +1544,11 @@ static char *pm_batt_supplied_to[] = {
 static int charger_monitor;
 module_param(charger_monitor, int, 0644);
 
+static int ext_ovp_present;
+module_param(ext_ovp_present, int, 0444);
+
 #define USB_WALL_THRESHOLD_MA	500
+#define OVP_USB_WALL_THRESHOLD_MA	200
 static int
 qpnp_power_get_property_mains(struct power_supply *psy,
 				  enum power_supply_property psp,
@@ -1837,8 +1886,12 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 			if (((ret.intval / 1000) > USB_WALL_THRESHOLD_MA)
 					&& (charger_monitor ||
 					!chip->charger_monitor_checked)) {
-				qpnp_chg_iusbmax_set(chip,
+				if (!ext_ovp_present)
+					qpnp_chg_iusbmax_set(chip,
 						USB_WALL_THRESHOLD_MA);
+				else
+					qpnp_chg_iusbmax_set(chip,
+						OVP_USB_WALL_THRESHOLD_MA);
 			} else {
 				qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
 			}
@@ -1932,6 +1985,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 		val->intval = qpnp_chg_usb_iusbmax_get(chip) * 1000;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
+		val->intval = qpnp_chg_iusb_trim_get(chip);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		val->intval = qpnp_chg_vinmin_get(chip) * 1000;
@@ -3032,6 +3088,9 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 		qpnp_chg_iusbmax_set(chip, val->intval / 1000);
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
+		qpnp_chg_iusb_trim_set(chip, val->intval);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		qpnp_chg_vinmin_set(chip, val->intval / 1000);
 		break;
@@ -3743,6 +3802,9 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	/* Get the btc-disabled property */
 	chip->btc_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,btc-disabled");
+
+	ext_ovp_present = of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,ext-ovp-present");
 
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
