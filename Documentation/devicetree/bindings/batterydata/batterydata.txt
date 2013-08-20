@@ -22,7 +22,10 @@ Profile data node required properties:
 - qcom,v-cutoff-uv : The cutoff voltage of the battery at which the device
 			should shutdown gracefully.
 - qcom,chg-term-ua : The termination charging current of the battery.
-- qcom,batt-id-kohm : The battery id resistance of the battery.
+- qcom,batt-id-kohm : The battery id resistance of the battery. It can be
+			used as an array which could support multiple IDs for one battery
+			module when the ID resistance of some battery modules goes across
+			several ranges.
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
