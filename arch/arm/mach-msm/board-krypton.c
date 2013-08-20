@@ -68,6 +68,12 @@ void __init msmkrypton_add_drivers(void)
 	msm_clock_init(&msmkrypton_clock_init_data);
 }
 
+void __init msmkrypton_reserve(void)
+{
+	reserve_info = &msmkrypton_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msmkrypton_reserve_table);
+	msm_reserve();
+}
 static void __init msmkrypton_early_memory(void)
 {
 	reserve_info = &msmkrypton_reserve_info;
@@ -98,6 +104,7 @@ DT_MACHINE_START(MSMKRYPTON_DT, "Qualcomm MSM Krypton (Flattened Device Tree)")
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msmkrypton_init,
 	.dt_compat = msmkrypton_dt_match,
+	.reserve = msmkrypton_reserve,
 	.init_very_early = msmkrypton_early_memory,
 	.restart = msm_restart,
 MACHINE_END
