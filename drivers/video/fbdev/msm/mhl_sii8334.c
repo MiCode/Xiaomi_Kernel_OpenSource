@@ -1458,7 +1458,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 	static struct regulator *reg_8941_l02;
 	static struct regulator *reg_8941_smps3a;
 	static struct regulator *reg_8941_vdda;
-	int rc;
+	int rc = -EINVAL;
 
 	pr_debug("%s\n", __func__);
 	if (!reg_8941_l24) {
