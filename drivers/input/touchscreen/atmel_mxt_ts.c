@@ -319,8 +319,9 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 
 #define MXT_COORDS_ARR_SIZE	4
 
-#define MXT_DEBUGFS_DIR		"atmel_mxt_ts"
-#define MXT_DEBUGFS_FILE	"object"
+#define MXT_DEBUGFS_DIR	"ts_debug"
+#define MXT_DEBUGFS_FILE_OBJ	"object"
+#define MXT_DEBUGFS_FILE_SUSPEND	"suspend"
 
 struct mxt_info {
 	u8 family_id;
@@ -2620,6 +2621,32 @@ static const struct dev_pm_ops mxt_pm_ops = {
 };
 #endif
 
+static int mxt_debug_suspend_set(void *_data, u64 val)
+{
+	struct mxt_data *data = _data;
+
+	if (val)
+		mxt_suspend(&data->client->dev);
+	else
+		mxt_resume(&data->client->dev);
+
+	return 0;
+}
+
+static int mxt_debug_suspend_get(void *_data, u64 *val)
+{
+	struct mxt_data *data = _data;
+
+	mutex_lock(&data->input_dev->mutex);
+	*val = data->dev_sleep;
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, mxt_debug_suspend_get,
+			mxt_debug_suspend_set, "%lld\n");
+
 static int mxt_debugfs_object_show(struct seq_file *m, void *v)
 {
 	struct mxt_data *data = m->private;
@@ -2676,12 +2703,21 @@ static void mxt_debugfs_init(struct mxt_data *data)
 	debug_base = debugfs_create_dir(MXT_DEBUGFS_DIR, NULL);
 	if (IS_ERR_OR_NULL(debug_base))
 		pr_err("atmel_mxt_ts: Failed to create debugfs dir\n");
-	if (IS_ERR_OR_NULL(debugfs_create_file(MXT_DEBUGFS_FILE,
+	if (IS_ERR_OR_NULL(debugfs_create_file(MXT_DEBUGFS_FILE_OBJ,
 					       0444,
 					       debug_base,
 					       data,
 					       &mxt_object_fops))) {
 		pr_err("atmel_mxt_ts: Failed to create object file\n");
+		debugfs_remove_recursive(debug_base);
+	}
+
+	if (IS_ERR_OR_NULL(debugfs_create_file(MXT_DEBUGFS_FILE_SUSPEND,
+					       0664,
+					       debug_base,
+					       data,
+					       &debug_suspend_fops))) {
+		pr_err("atmel_mxt_ts: Failed to create suspend file\n");
 		debugfs_remove_recursive(debug_base);
 	}
 }
