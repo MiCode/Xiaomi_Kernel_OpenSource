@@ -1173,6 +1173,11 @@ int mdp3_continuous_splash_copy(struct mdss_panel_data *pdata)
 	size_t size;
 	int rc;
 
+	if (pdata->panel_info.type != MIPI_VIDEO_PANEL) {
+		pr_debug("cmd mode panel, no need to copy splash image\n");
+		return 0;
+	}
+
 	rgb_size = MDP3_REG_READ(MDP3_REG_DMA_P_SIZE);
 	stride = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_Y_STRIDE);
 	stride = stride & 0x3FFF;
@@ -1210,8 +1215,8 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 		status = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_EN);
 		rc = status & 0x1;
 	} else {
-		status = MDP3_REG_READ(MDP3_REG_DMA_P_START);
-		rc = status & 01;
+		status = MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG);
+		rc = status & 0x80000;
 	}
 
 	mdp3_clk_update(MDP3_CLK_AHB, 0);

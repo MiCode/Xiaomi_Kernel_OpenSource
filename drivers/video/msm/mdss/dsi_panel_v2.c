@@ -189,13 +189,21 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (enable == 2) {
 		dsi_panel_power(1);
 		gpio_request(panel_private->rst_gpio, "panel_reset");
+		gpio_set_value(panel_private->rst_gpio, 1);
 		if (gpio_is_valid(panel_private->disp_en_gpio)) {
 			gpio_request(panel_private->disp_en_gpio,
 					"panel_enable");
+			gpio_set_value(panel_private->disp_en_gpio, 1);
 		}
 		if (gpio_is_valid(panel_private->video_mode_gpio)) {
 			gpio_request(panel_private->video_mode_gpio,
 					"panel_video_mdoe");
+			if (pdata->panel_info.mipi.mode == DSI_VIDEO_MODE)
+				gpio_set_value(panel_private->video_mode_gpio,
+						1);
+			else
+				gpio_set_value(panel_private->video_mode_gpio,
+						0);
 		}
 		if (gpio_is_valid(panel_private->te_gpio))
 			gpio_request(panel_private->te_gpio, "panel_te");
