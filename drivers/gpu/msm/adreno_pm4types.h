@@ -179,6 +179,9 @@
 
 #define CP_EXEC_CL 0x31
 
+/* (A4x) save PM4 stream pointers to execute upon a visible draw */
+#define CP_SET_DRAW_STATE 0x43
+
 #define CP_LOADSTATE_DSTOFFSET_SHIFT 0x00000000
 #define CP_LOADSTATE_STATESRC_SHIFT 0x00000010
 #define CP_LOADSTATE_STATEBLOCKID_SHIFT 0x00000013
