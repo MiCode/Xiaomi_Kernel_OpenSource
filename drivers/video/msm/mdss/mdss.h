@@ -118,6 +118,7 @@ struct mdss_data_type {
 	void *video_intf;
 	u32 nintf;
 
+	u32 pp_bus_hdl;
 	struct mdss_ad_info *ad_cfgs;
 	u32 nad_cfgs;
 	struct workqueue_struct *ad_calc_wq;

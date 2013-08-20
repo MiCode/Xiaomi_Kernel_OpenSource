@@ -25,6 +25,7 @@
 
 #include <mach/iommu_domains.h>
 #include <mach/event_timer.h>
+#include <mach/msm_bus.h>
 
 #include "mdss.h"
 #include "mdss_debug.h"
@@ -36,6 +37,9 @@
 #define BORDERFILL_NDX	0x0BF000BF
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
+
+#define PP_CLK_CFG_OFF 0
+#define PP_CLK_CFG_ON 1
 
 static atomic_t ov_active_panels = ATOMIC_INIT(0);
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
@@ -1779,11 +1783,19 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 	struct mdp_histogram_start_req hist_req;
 	u32 block;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	u32 pp_bus_handle;
+	static int req = -1;
 
 	switch (cmd) {
 	case MSMFB_HISTOGRAM_START:
 		if (!mfd->panel_power_on)
 			return -EPERM;
+
+		pp_bus_handle = mdss_mdp_get_mdata()->pp_bus_hdl;
+		req = msm_bus_scale_client_update_request(pp_bus_handle,
+				PP_CLK_CFG_ON);
+		if (req)
+			pr_err("Updated pp_bus_scale failed, ret = %d", req);
 
 		ret = copy_from_user(&hist_req, argp, sizeof(hist_req));
 		if (ret)
@@ -1797,7 +1809,15 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
+		pp_bus_handle = mdss_mdp_get_mdata()->pp_bus_hdl;
 		ret = mdss_mdp_histogram_stop(mdp5_data->ctl, block);
+		if (!req) {
+			req = msm_bus_scale_client_update_request(pp_bus_handle,
+				 PP_CLK_CFG_OFF);
+			if (req)
+				pr_err("Updated pp_bus_scale failed, ret = %d",
+					req);
+		}
 		break;
 
 	case MSMFB_HISTOGRAM:
