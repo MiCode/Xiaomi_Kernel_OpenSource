@@ -639,7 +639,7 @@ static int mdp3_dmap_histo_get(struct mdp3_dma *dma)
 		return ret;
 
 	if (dma->histo_state != MDP3_DMA_HISTO_STATE_READY) {
-		pr_err("mdp3_dmap_histo_get after dma shut down\n");
+		pr_debug("mdp3_dmap_histo_get after dma shut down\n");
 		return -EPERM;
 	}
 
@@ -701,9 +701,6 @@ static int mdp3_dmap_histo_reset(struct mdp3_dma *dma)
 {
 	unsigned long flag;
 	int ret;
-
-	if (dma->histo_state == MDP3_DMA_HISTO_STATE_START)
-		return -EINVAL;
 
 	spin_lock_irqsave(&dma->histo_lock, flag);
 
