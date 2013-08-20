@@ -42,6 +42,13 @@
 #define TAPAN_HPH_PA_SETTLE_COMP_ON 3000
 #define TAPAN_HPH_PA_SETTLE_COMP_OFF 13000
 
+#define TAPAN_VDD_CX_OPTIMAL_UA 10000
+#define TAPAN_VDD_CX_SLEEP_UA 2000
+
+static struct regulator *tapan_codec_find_regulator(
+	struct snd_soc_codec *codec,
+	const char *name);
+
 static atomic_t kp_tapan_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
@@ -2988,6 +2995,28 @@ static void tapan_shutdown(struct snd_pcm_substream *substream,
 	}
 }
 
+static void tapan_set_vdd_cx_current(struct snd_soc_codec *codec,
+			int current_uA)
+{
+	struct regulator *cx_regulator;
+	int ret;
+
+	cx_regulator  = tapan_codec_find_regulator(codec,
+				"cdc-vdd-cx");
+
+	if (!cx_regulator) {
+		dev_err(codec->dev, "%s: Regulator %s not defined\n",
+			__func__, "cdc-vdd-cx-supply");
+		return;
+	}
+
+	ret = regulator_set_optimum_mode(cx_regulator, current_uA);
+	if (ret < 0)
+		dev_err(codec->dev,
+			"%s: Failed to set vdd_cx current to %d\n",
+			__func__, current_uA);
+}
+
 int tapan_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 {
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
@@ -2997,6 +3026,7 @@ int tapan_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 
 	WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 	if (mclk_enable) {
+		tapan_set_vdd_cx_current(codec, TAPAN_VDD_CX_OPTIMAL_UA);
 		wcd9xxx_resmgr_get_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 		wcd9xxx_resmgr_get_clk_block(&tapan->resmgr, WCD9XXX_CLK_MCLK);
@@ -3005,6 +3035,8 @@ int tapan_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 		wcd9xxx_resmgr_put_clk_block(&tapan->resmgr, WCD9XXX_CLK_MCLK);
 		wcd9xxx_resmgr_put_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		/* Set the vdd cx power rail sleep mode current */
+		tapan_set_vdd_cx_current(codec, TAPAN_VDD_CX_SLEEP_UA);
 	}
 	WCD9XXX_BG_CLK_UNLOCK(&tapan->resmgr);
 
