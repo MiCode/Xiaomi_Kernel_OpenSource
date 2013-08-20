@@ -126,6 +126,16 @@ enum {
 	ON_DEMAND_SUPPLIES_MAX,
 };
 
+/*
+ * The delay list is per codec HW specification.
+ * Please add delay in the list in the future instead
+ * of magic number
+ */
+enum {
+	CODEC_DELAY_1_MS = 1000,
+	CODEC_DELAY_1_1_MS  = 1100,
+};
+
 struct hpf_work {
 	struct msm8x10_wcd_priv *msm8x10_wcd;
 	u32 decimator;
@@ -1148,13 +1158,8 @@ static const char * const dec_mux_text[] = {
 	"ZERO", "ADC1", "ADC2", "DMIC1", "DMIC2"
 };
 
-static const char * const anc_mux_text[] = {
-	"ZERO", "ADC1", "ADC2", "ADC3", "ADC4", "ADC5", "ADC6", "ADC_MB",
-		"RSVD_1", "DMIC1", "DMIC2", "DMIC3", "DMIC4", "DMIC5", "DMIC6"
-};
-
-static const char * const anc1_fb_mux_text[] = {
-	"ZERO", "EAR_HPH_L", "EAR_LINE_1",
+static const char * const adc2_mux_text[] = {
+	"ZERO", "INP2", "INP3"
 };
 
 static const char * const iir1_inp1_text[] = {
@@ -1212,6 +1217,9 @@ static const struct soc_enum rx_rdac4_enum  =
 	SOC_ENUM_SINGLE(MSM8X10_WCD_A_CDC_CONN_LO_DAC_CTL, 0, 3,
 	rx_rdac4_text);
 
+static const struct soc_enum adc2_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(adc2_mux_text), adc2_mux_text);
+
 static const struct snd_kcontrol_new rx_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX1 MIX1 INP1 Mux", rx_mix1_inp1_chain_enum);
 
@@ -1241,6 +1249,9 @@ static const struct snd_kcontrol_new rx2_mix2_inp1_mux =
 
 static const struct snd_kcontrol_new rx_dac4_mux =
 	SOC_DAPM_ENUM("RDAC4 MUX Mux", rx_rdac4_enum);
+
+static const struct snd_kcontrol_new tx_adc2_mux =
+	SOC_DAPM_ENUM("ADC2 MUX Mux", adc2_enum);
 
 static int msm8x10_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -1370,7 +1381,8 @@ static int msm8x10_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 	if (w->reg == MSM8X10_WCD_A_TX_1_EN)
 		init_bit_shift = 7;
-	else if (w->reg == MSM8X10_WCD_A_TX_2_EN)
+	else if ((w->reg == MSM8X10_WCD_A_TX_2_EN) ||
+		 (w->reg == MSM8X10_WCD_A_TX_3_EN))
 		init_bit_shift = 6;
 	else {
 		dev_err(codec->dev, "%s: Error, invalid adc register\n",
@@ -1383,9 +1395,11 @@ static int msm8x10_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		msm8x10_wcd_codec_enable_adc_block(codec, 1);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
+		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
+		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x10_wcd_codec_enable_adc_block(codec, 0);
@@ -1930,9 +1944,14 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DEC2 MUX", "ADC2", "ADC2"},
 	{"DEC2 MUX", NULL, "CDC_CONN"},
 
+	{"ADC2", NULL, "ADC2 MUX"},
+	{"ADC2 MUX", "INP2", "ADC2_INP2"},
+	{"ADC2 MUX", "INP3", "ADC2_INP3"},
+
 	/* ADC Connections */
 	{"ADC1", NULL, "AMIC1"},
-	{"ADC2", NULL, "AMIC2"},
+	{"ADC2_INP2", NULL, "AMIC2"},
+	{"ADC2_INP3", NULL, "AMIC3"},
 
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC1", "DEC1 MUX"},
@@ -2406,9 +2425,17 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC_E("ADC1", NULL, MSM8X10_WCD_A_TX_1_EN, 7, 0,
 		msm8x10_wcd_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_ADC_E("ADC2", NULL, MSM8X10_WCD_A_TX_2_EN, 7, 0,
+	SND_SOC_DAPM_ADC_E("ADC2_INP2", NULL, MSM8X10_WCD_A_TX_2_EN, 7, 0,
 		msm8x10_wcd_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC2_INP3", NULL, MSM8X10_WCD_A_TX_3_EN, 7, 0,
+		msm8x10_wcd_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MIXER("ADC2", SND_SOC_NOPM, 0, 0, NULL, 0),
+
+	SND_SOC_DAPM_MUX("ADC2 MUX", SND_SOC_NOPM, 0, 0,
+		&tx_adc2_mux),
 
 	SND_SOC_DAPM_MICBIAS("MIC BIAS External", MSM8X10_WCD_A_MICB_1_CTL,
 			     7, 0),
