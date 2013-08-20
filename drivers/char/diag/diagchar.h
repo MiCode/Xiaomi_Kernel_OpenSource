@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mempool.h>
 #include <linux/mutex.h>
+#include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
@@ -302,7 +303,7 @@ struct diagchar_dev {
 	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
 	/* DCI related variables */
 	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
-	struct diag_dci_client_tbl *dci_client_tbl;
+	struct list_head dci_client_list;
 	int dci_tag;
 	int dci_client_id;
 	struct mutex dci_mutex;
