@@ -378,10 +378,14 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 		msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
 	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
 	if (ret != total_len) {
-		if (ret < 0 && ret != -EAGAIN)
-			pr_err("%s: Send_to failure %d\n", __func__, ret);
-		else if (ret >= 0)
+		if (ret < 0) {
+			if (ret != -EAGAIN)
+				pr_err("%s: Send_to failure %d\n",
+							__func__, ret);
+			msm_ipc_router_free_skb(msg);
+		} else if (ret >= 0) {
 			ret = -EFAULT;
+		}
 	}
 
 out_sendmsg:
