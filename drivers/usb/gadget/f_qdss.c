@@ -395,6 +395,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 		}
 	}
+	dwc3_tx_fifo_resize_request(qdss->data, true);
 
 	return 0;
 fail:
@@ -406,8 +407,11 @@ fail:
 
 static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 {
+	struct f_qdss  *qdss = func_to_qdss(f);
+
 	pr_debug("qdss_unbind\n");
 
+	dwc3_tx_fifo_resize_request(qdss->data, false);
 	clear_eps(f);
 	clear_desc(c->cdev->gadget, f);
 }

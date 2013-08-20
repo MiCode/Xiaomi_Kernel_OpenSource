@@ -52,6 +52,10 @@ Optional properties :
 - qcom,dwc_usb3-adc_tm: Corresponding ADC_TM device's phandle to set recurring
 		measurements on USB_ID channel when using ADC and receive
 		notifications for set thresholds.
+- qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
+		TX fifo allocation in bytes
+- qcom,dwc-usb3-msm-qdss-tx-fifo-size: If present, represent RAM size available
+		for TX fifo allocation in QDSS composition
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -76,6 +80,8 @@ Example MSM USB3.0 controller device node :
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,dwc-hsphy-init = <0x00D195A4>;
 		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;

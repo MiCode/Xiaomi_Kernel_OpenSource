@@ -563,6 +563,7 @@ static inline void msm_hw_bam_disable(bool bam_disable)
 #ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
 	u8 dst_pipe_idx);
 
@@ -584,6 +585,12 @@ static inline int msm_ep_config(struct usb_ep *ep)
 static inline int msm_ep_unconfig(struct usb_ep *ep)
 {
 	return -ENODEV;
+}
+
+static inline void dwc3_tx_fifo_resize_request(
+					struct usb_ep *ep, bool qdss_enable)
+{
+	return;
 }
 
 static inline void msm_dwc3_restart_usb_session(struct usb_gadget *gadget)
