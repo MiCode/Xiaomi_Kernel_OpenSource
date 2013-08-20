@@ -72,7 +72,6 @@ static int msm_bus_get_iid(int id)
 		slave_iids[id - SLAVE_ID_KEY]), id);
 }
 
-
 static struct msm_bus_board_algorithm msm_bus_id_algo = {
 	.get_iid = msm_bus_get_iid,
 	.assign_iids = msm_bus_assign_iids,
@@ -91,4 +90,13 @@ void msm_bus_board_init(struct msm_bus_fabric_registration *pdata)
 		msm_bus_id_algo.board_nfab = NFAB_MSM8610;
 
 	pdata->board_algo = &msm_bus_id_algo;
+}
+
+void msm_bus_board_set_nfab(struct msm_bus_fabric_registration *pdata,
+	int nfab)
+{
+	if (nfab <= 0)
+		return;
+
+	msm_bus_id_algo.board_nfab = nfab;
 }

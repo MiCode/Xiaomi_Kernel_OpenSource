@@ -14,7 +14,8 @@ cell-id:		A 32 bit integer unique per bus per chipset. The IDs
 label:			Bus name
 qcom,fabclk-dual:	Dual set (active/sleep) bus clock name
 qcom,fabclk-active:	Active set bus clock name
-
+qcom,nfab:		An integer property which specifies the total number
+			of buses on the chipset.
 
 The following properties are optional as a bus might not support
 these features:
@@ -132,6 +133,7 @@ Example:
 		qcom,qos-freq = <4800>;
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
+		qcom,nfab = <6>;
 
 		mas-gfx3d {
 			cell-id = <26>;

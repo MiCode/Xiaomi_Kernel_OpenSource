@@ -468,6 +468,26 @@ err:
 	return NULL;
 }
 
+void msm_bus_of_get_nfab(struct platform_device *pdev,
+		struct msm_bus_fabric_registration *pdata)
+{
+	struct device_node *of_node;
+	int ret, nfab = 0;
+
+	if (!pdev) {
+		pr_err("Error: Null platform device\n");
+		return;
+	}
+
+	of_node = pdev->dev.of_node;
+	ret = of_property_read_u32(of_node, "qcom,nfab",
+		&nfab);
+	if (!ret)
+		pr_debug("Fab_of: Read number of buses: %u\n", nfab);
+
+	msm_bus_board_set_nfab(pdata, nfab);
+}
+
 struct msm_bus_fabric_registration
 	*msm_bus_of_get_fab_data(struct platform_device *pdev)
 {

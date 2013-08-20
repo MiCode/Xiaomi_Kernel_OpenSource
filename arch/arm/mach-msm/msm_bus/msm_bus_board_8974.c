@@ -2012,3 +2012,12 @@ void msm_bus_board_init(struct msm_bus_fabric_registration *pdata)
 {
 	pdata->board_algo = &msm_bus_board_algo;
 }
+
+void msm_bus_board_set_nfab(struct msm_bus_fabric_registration *pdata,
+	int nfab)
+{
+	if (nfab <= 0)
+		return;
+
+	msm_bus_board_algo.board_nfab = nfab;
+}

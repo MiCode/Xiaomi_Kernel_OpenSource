@@ -770,6 +770,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 		}
 		msm_bus_board_init(pdata);
 		fabric->fabdev.id = pdata->id;
+		msm_bus_of_get_nfab(pdev, pdata);
 	} else {
 		pdata = (struct msm_bus_fabric_registration *)pdev->
 			dev.platform_data;
