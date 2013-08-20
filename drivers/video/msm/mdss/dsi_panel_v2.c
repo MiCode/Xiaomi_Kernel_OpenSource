@@ -143,6 +143,29 @@ int dsi_panel_power(int enable)
 	return 0;
 }
 
+static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc backlight_cmd = {
+	DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1), led_pwm1};
+
+static void dsi_panel_bklt_dcs(struct mdss_panel_data *pdata, int level)
+{
+	struct mipi_panel_info *mipi;
+
+	mipi  = &pdata->panel_info.mipi;
+
+	pr_debug("%s: dcs level=%d\n", __func__, level);
+
+	led_pwm1[1] = (unsigned char)level;
+
+	if (DSI_VIDEO_MODE == mipi->mode) {
+		dsi_set_tx_power_mode(0);
+		dsi_cmds_tx_v2(pdata, &panel_private->dsi_panel_tx_buf,
+					&backlight_cmd,
+					1);
+		dsi_set_tx_power_mode(1);
+	}
+}
+
 void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
 	if (pdata == NULL) {
@@ -231,6 +254,10 @@ static void dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		switch (panel_private->bl_ctrl) {
 		case BL_WLED:
 			led_trigger_event(bl_led_trigger, bl_level);
+			break;
+
+		case BL_DCS_CMD:
+			dsi_panel_bklt_dcs(pdata, bl_level);
 			break;
 
 		default:
@@ -605,8 +632,11 @@ static int dsi_panel_parse_backlight(struct platform_device *pdev,
 		led_trigger_register_simple("bkl-trigger", &bl_led_trigger);
 		pr_debug("%s: SUCCESS-> WLED TRIGGER register\n", __func__);
 		*bl_ctrl = BL_WLED;
+	} else if ((bl_ctrl_type) && (!strncmp(bl_ctrl_type,
+				"bl_ctrl_dcs", 11))) {
+		pr_debug("%s: SUCCESS-> DCS COMMAND register\n", __func__);
+		*bl_ctrl = BL_DCS_CMD;
 	}
-
 	rc = of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,mdss-pan-bl-levels", res, 2);
 	panel_data->panel_info.bl_min = (!rc ? res[0] : 0);
