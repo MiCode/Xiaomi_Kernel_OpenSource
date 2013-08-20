@@ -2662,7 +2662,6 @@ static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
 struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			struct platform_device *pdev, struct msm_spi *dd)
 {
-	int i;
 	struct msm_spi_platform_data *pdata;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -2723,10 +2722,6 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			pdata->use_bam = false;
 		}
 	}
-
-	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
-		dd->cs_gpios[i].valid = (dd->cs_gpios[i].gpio_num >= 0);
-
 	return pdata;
 }
 
@@ -2832,9 +2827,11 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 						i + ARRAY_SIZE(spi_rsrcs));
 			dd->cs_gpios[i].gpio_num = resource ?
 							resource->start : -1;
-			dd->cs_gpios[i].valid = 0;
 		}
 	}
+
+	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
+		dd->cs_gpios[i].valid = 0;
 
 	dd->pdata = pdata;
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
