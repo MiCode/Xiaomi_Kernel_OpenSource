@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_carveout_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -132,6 +132,9 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 		ret_value = ioremap_cached(buffer->priv_phys, buffer->size);
 	else
 		ret_value = ioremap(buffer->priv_phys, buffer->size);
+
+	if (ret_value == NULL)
+		return ERR_PTR(-ENOMEM);
 
 	return ret_value;
 }
