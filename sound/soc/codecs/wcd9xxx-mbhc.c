@@ -67,6 +67,7 @@
 #define HS_DETECT_PLUG_INERVAL_MS 100
 #define SWCH_REL_DEBOUNCE_TIME_MS 50
 #define SWCH_IRQ_DEBOUNCE_TIME_US 5000
+#define BTN_RELEASE_DEBOUNCE_TIME_MS 25
 
 #define GND_MIC_SWAP_THRESHOLD 2
 #define OCP_ATTEMPT 1
@@ -854,6 +855,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		} else if (jack_type == SND_JACK_HEADSET) {
 			mbhc->polling_active = BUTTON_POLLING_SUPPORTED;
 			mbhc->current_plug = PLUG_TYPE_HEADSET;
+			mbhc->update_z = true;
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = PLUG_TYPE_HIGH_HPH;
 		}
@@ -2838,12 +2840,11 @@ static irqreturn_t wcd9xxx_mech_plug_detect_irq(int irq, void *data)
 	return r;
 }
 
-static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
+static int wcd9xxx_is_false_press(struct wcd9xxx_mbhc *mbhc)
 {
-	int i;
 	s16 mb_v;
+	int i = 0;
 	int r = 0;
-	const int dces = NUM_DCE_PLUG_DETECT;
 	const s16 v_ins_hu =
 	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_INS_HU);
 	const s16 v_ins_h =
@@ -2852,9 +2853,16 @@ static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
 	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_HU);
 	const s16 v_b1_h =
 	    wcd9xxx_get_current_v(mbhc, WCD9XXX_CURRENT_V_B1_H);
+	const unsigned long timeout =
+	    jiffies + msecs_to_jiffies(BTN_RELEASE_DEBOUNCE_TIME_MS);
 
-	for (i = 0; i < dces; i++) {
-		usleep_range(10000, 10000);
+	while (time_before(jiffies, timeout)) {
+		/*
+		 * This function needs to run measurements just few times during
+		 * release debounce time.  Make 1ms interval to avoid
+		 * unnecessary excessive measurements.
+		 */
+		usleep_range(1000, 1000 + WCD9XXX_USLEEP_RANGE_MARGIN_US);
 		if (i == 0) {
 			mb_v = wcd9xxx_codec_sta_dce(mbhc, 0, true);
 			pr_debug("%s: STA[0]: %d,%d\n", __func__, mb_v,
@@ -2872,6 +2880,7 @@ static int wcd9xxx_is_fake_press(struct wcd9xxx_mbhc *mbhc)
 				break;
 			}
 		}
+		i++;
 	}
 
 	return r;
@@ -2955,11 +2964,29 @@ void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
 	*sta_z = wcd9xxx_codec_sta_dce(mbhc, 0, false);
 	*dce_z = wcd9xxx_codec_sta_dce(mbhc, 1, false);
 
+	pr_debug("%s: sta_z 0x%x, dce_z 0x%x\n", __func__, *sta_z & 0xFFFF,
+		 *dce_z & 0xFFFF);
+
 	/* Connect override from micbias */
 	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 4);
 	/* Disable pull down micbias to ground */
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.mbhc_reg, reg1);
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.ctl_reg, reg0);
+}
+
+void wcd9xxx_update_z(struct wcd9xxx_mbhc *mbhc)
+{
+	const u16 sta_z = mbhc->mbhc_data.sta_z;
+	const u16 dce_z = mbhc->mbhc_data.dce_z;
+
+	wcd9xxx_get_z(mbhc, &mbhc->mbhc_data.dce_z, &mbhc->mbhc_data.sta_z);
+	pr_debug("%s: sta_z 0x%x,dce_z 0x%x -> sta_z 0x%x,dce_z 0x%x\n",
+		 __func__, sta_z & 0xFFFF, dce_z & 0xFFFF,
+		 mbhc->mbhc_data.sta_z & 0xFFFF,
+		 mbhc->mbhc_data.dce_z & 0xFFFF);
+
+	wcd9xxx_mbhc_calc_thres(mbhc);
+	wcd9xxx_calibrate_hs_polling(mbhc);
 }
 
 /*
@@ -3042,6 +3069,9 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
 
+	dce_z = mbhc->mbhc_data.dce_z;
+	sta_z = mbhc->mbhc_data.sta_z;
+
 	/* Measure scaled HW STA */
 	dce[0] = wcd9xxx_read_dce_result(codec);
 	sta = wcd9xxx_read_sta_result(codec);
@@ -3054,7 +3084,10 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 		} else {
 			pr_debug("%s: Button is released without resume",
 				 __func__);
-			wcd9xxx_get_z(mbhc, &dce_z, &sta_z);
+			if (mbhc->update_z) {
+				wcd9xxx_update_z(mbhc);
+				mbhc->update_z = false;
+			}
 			stamv = __wcd9xxx_codec_sta_dce_v(mbhc, 0, sta, sta_z,
 						mbhc->mbhc_data.micb_mv);
 			if (vddio)
@@ -3077,7 +3110,10 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 	     meas++)
 		dce[meas] = wcd9xxx_codec_sta_dce(mbhc, 1, false);
 
-	wcd9xxx_get_z(mbhc, &dce_z, &sta_z);
+	if (mbhc->update_z) {
+		wcd9xxx_update_z(mbhc);
+		mbhc->update_z = false;
+	}
 
 	stamv = __wcd9xxx_codec_sta_dce_v(mbhc, 0, sta, sta_z,
 					  mbhc->mbhc_data.micb_mv);
@@ -3167,6 +3203,7 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 {
 	int ret;
+	bool waitdebounce = true;
 	struct wcd9xxx_mbhc *mbhc = data;
 
 	pr_debug("%s: enter\n", __func__);
@@ -3181,7 +3218,7 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 			wcd9xxx_jack_report(mbhc, &mbhc->button_jack, 0,
 					    mbhc->buttons_pressed);
 		} else {
-			if (wcd9xxx_is_fake_press(mbhc)) {
+			if (wcd9xxx_is_false_press(mbhc)) {
 				pr_debug("%s: Fake button press interrupt\n",
 					 __func__);
 			} else {
@@ -3200,6 +3237,7 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 					wcd9xxx_jack_report(mbhc,
 						      &mbhc->button_jack,
 						      0, mbhc->buttons_pressed);
+					waitdebounce = false;
 				}
 			}
 		}
@@ -3209,7 +3247,8 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 
 	wcd9xxx_calibrate_hs_polling(mbhc);
 
-	msleep(SWCH_REL_DEBOUNCE_TIME_MS);
+	if (waitdebounce)
+		msleep(SWCH_REL_DEBOUNCE_TIME_MS);
 	wcd9xxx_start_hs_polling(mbhc);
 
 	pr_debug("%s: leave\n", __func__);
