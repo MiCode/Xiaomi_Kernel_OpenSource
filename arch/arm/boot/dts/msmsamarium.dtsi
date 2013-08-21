@@ -342,6 +342,11 @@
 	};
 };
 
+&gdsc_venus {
+	qcom,clock-names = "core_clk";
+	status = "ok";
+};
+
 /include/ "msm-pma8084.dtsi"
 /include/ "msmsamarium-regulator.dtsi"
 /include/ "msmsamarium-mdss.dtsi"
