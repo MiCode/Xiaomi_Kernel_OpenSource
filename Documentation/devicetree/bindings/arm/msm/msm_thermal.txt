@@ -28,11 +28,21 @@ Optional properties
 			core can be used for freq control.
 - qcom,core-limit-temp: Threshold temperature to start shutting down cores
 			in degC
-- qcom,core-temp-hysterisis: Degrees C below which the cores will be brought
+- qcom,core-temp-hysteresis: Degrees C below which the cores will be brought
 			online in sequence.
 - qcom,core-control-mask: The cpu mask that will be used to determine if a
 			core can be controlled or not. A mask of 0 indicates
 			the feature is disabled.
+- qcom,hotplug-temp: Threshold temperature to start shutting down cores
+			in degC. This will be used when polling based
+			core control is disabled. The difference between hotplug-temp
+			and core-limit-temp is that core-limit-temp is used during
+			early boot prior to thermal_sys being available for hotplug.
+- qcom,hotplug-temp-hysteresis: Degrees C below which thermal will not force the
+			cores to be offlined. Cores can be brought online if needed.
+- qcpm,cpu-sensors:     List of type names in thermal zone device struct which maps
+			to cpu0, cpu1, cpu2, cpu3 in sequence depending on how many
+			cpus there are.
 - qcom,vdd-restriction-temp: When temperature is below this threshold, will
 			enable vdd restriction which will set higher voltage on
 			key voltage rails, in degC.
@@ -81,8 +91,12 @@ Example:
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0xf>
 		qcom,core-limit-temp = <90>;
-		qcom,core-temp-hysterisis = <10>;
+		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <7>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor6",
+				"tsens_tz_sensor7", "tsens_tz_sensor8";
 		qcom,pmic-sw-mode-temp = <90>;
 		qcom,pmic-sw-mode-temp-hysteresis = <80>;
 		qcom,pmic-sw-mode-regs = "vdd-dig";
