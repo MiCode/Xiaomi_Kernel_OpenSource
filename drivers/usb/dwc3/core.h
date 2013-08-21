@@ -163,7 +163,10 @@
 
 /* Global Configuration Register */
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
+#define DWC3_GCTL_PWRDNSCALEMASK (0xFFF80000)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
+#define DWC3_GCTL_SOFITPSYNC	(1 << 10)
+#define DWC3_GCTL_U2EXIT_LFPS	(1 << 2)
 #define DWC3_GCTL_RAMCLKSEL(x)	(((x) & DWC3_GCTL_CLK_MASK) << 6)
 #define DWC3_GCTL_CLK_BUS	(0)
 #define DWC3_GCTL_CLK_PIPE	(1)
@@ -644,6 +647,8 @@ struct dwc3_scratchpad_array {
 };
 
 #define DWC3_CONTROLLER_ERROR_EVENT			0
+#define DWC3_CONTROLLER_RESET_EVENT			1
+#define DWC3_CONTROLLER_POST_RESET_EVENT		2
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0

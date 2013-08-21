@@ -63,6 +63,9 @@ module_param(tx_fifo_resize_enable, bool, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(tx_fifo_resize_enable,
 			"Enable allocating Tx fifo for endpoints");
 
+static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend);
+static void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
+
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
  * @dwc: pointer to our context structure
@@ -322,6 +325,16 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param)
 {
 	u32		timeout = 500;
 	u32		reg;
+	bool hsphy_suspend_enabled;
+	int ret;
+
+	/* Commands to controller will work only if PHY is not suspended */
+	hsphy_suspend_enabled = (dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0)) &
+						DWC3_GUSB2PHYCFG_SUSPHY);
+
+	/* Disable suspend of the USB2 PHY */
+	if (hsphy_suspend_enabled)
+		dwc3_gadget_usb2_phy_suspend(dwc, false);
 
 	dwc3_writel(dwc->regs, DWC3_DGCMDPAR, param);
 	dwc3_writel(dwc->regs, DWC3_DGCMD, cmd | DWC3_DGCMD_CMDACT);
@@ -331,7 +344,8 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param)
 		if (!(reg & DWC3_DGCMD_CMDACT)) {
 			dev_vdbg(dwc->dev, "Command Complete --> %d\n",
 					DWC3_DGCMD_STATUS(reg));
-			return 0;
+			ret = 0;
+			break;
 		}
 
 		/*
@@ -339,10 +353,18 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param)
 		 * interrupt context.
 		 */
 		timeout--;
-		if (!timeout)
-			return -ETIMEDOUT;
+		if (!timeout) {
+			ret = -ETIMEDOUT;
+			break;
+		}
 		udelay(1);
 	} while (1);
+
+	/* Enable suspend of the USB2 PHY */
+	if (hsphy_suspend_enabled)
+		dwc3_gadget_usb2_phy_suspend(dwc, true);
+
+	return ret;
 }
 
 int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
@@ -351,11 +373,21 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 	struct dwc3_ep		*dep = dwc->eps[ep];
 	u32			timeout = 500;
 	u32			reg;
+	bool hsphy_suspend_enabled;
+	int ret;
 
 	dev_vdbg(dwc->dev, "%s: cmd '%s' params %08x %08x %08x\n",
 			dep->name,
 			dwc3_gadget_ep_cmd_string(cmd), params->param0,
 			params->param1, params->param2);
+
+	/* Commands to controller will work only if PHY is not suspended */
+	hsphy_suspend_enabled = (dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0)) &
+						DWC3_GUSB2PHYCFG_SUSPHY);
+
+	/* Disable suspend of the USB2 PHY */
+	if (hsphy_suspend_enabled)
+		dwc3_gadget_usb2_phy_suspend(dwc, false);
 
 	dwc3_writel(dwc->regs, DWC3_DEPCMDPAR0(ep), params->param0);
 	dwc3_writel(dwc->regs, DWC3_DEPCMDPAR1(ep), params->param1);
@@ -374,9 +406,10 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 			 * event. Hence return error in this case.
 			 */
 			if (reg & 0x2000)
-				return -EAGAIN;
+				ret = -EAGAIN;
 			else
-				return 0;
+				ret = 0;
+			break;
 		}
 
 		/*
@@ -384,11 +417,19 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		 * interrupt context.
 		 */
 		timeout--;
-		if (!timeout)
-			return -ETIMEDOUT;
+		if (!timeout) {
+			ret = -ETIMEDOUT;
+			break;
+		}
 
 		udelay(1);
 	} while (1);
+
+	/* Enable suspend of the USB2 PHY */
+	if (hsphy_suspend_enabled)
+		dwc3_gadget_usb2_phy_suspend(dwc, true);
+
+	return ret;
 }
 
 dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
@@ -1677,6 +1718,9 @@ void dwc3_gadget_restart(struct dwc3 *dwc)
 		reg |= DWC3_DCTL_HIRD_THRES(28);
 
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+
+		dwc3_gadget_usb2_phy_suspend(dwc, true);
+		dwc3_gadget_usb3_phy_suspend(dwc, true);
 	}
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
@@ -2854,8 +2898,8 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
-		dwc3_gadget_usb2_phy_suspend(dwc, false);
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		dwc3_gadget_usb2_phy_suspend(dwc, true);
+		dwc3_gadget_usb3_phy_suspend(dwc, true);
 	}
 
 	ret = device_register(&dwc->gadget.dev);
