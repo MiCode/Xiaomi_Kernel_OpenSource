@@ -5897,6 +5897,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("core_clk_src", mdp_clk_src.c, "fd900000.qcom,mdss_mdp"),
+	CLK_LOOKUP("mdp_core_clk", mdss_mdp_clk.c, "fd922800.qcom,mdss_dsi"),
+	CLK_LOOKUP("mdp_core_clk", mdss_mdp_clk.c, "fd922e00.qcom,mdss_dsi"),
 	CLK_LOOKUP("core_clk", mdss_esc0_clk.c, "fd922800.qcom,mdss_dsi"),
 	CLK_LOOKUP("core_clk", mdss_esc1_clk.c, "fd922e00.qcom,mdss_dsi"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd922800.qcom,mdss_dsi"),
