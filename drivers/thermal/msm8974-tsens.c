@@ -664,6 +664,15 @@ static void tsens_scheduler_fn(struct work_struct *work)
 			lower_thr = true;
 		}
 		if (upper_thr || lower_thr) {
+			unsigned long temp;
+			enum thermal_trip_type trip =
+					THERMAL_TRIP_CONFIGURABLE_LOW;
+
+			if (upper_thr)
+				trip = THERMAL_TRIP_CONFIGURABLE_HI;
+			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
+
 			/* Notify user space */
 			queue_work(tm->tsens_wq, &tm->sensor[i].work);
 			rc = tsens_get_sw_id_mapping(
