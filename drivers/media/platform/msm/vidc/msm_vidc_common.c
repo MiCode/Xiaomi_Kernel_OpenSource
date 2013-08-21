@@ -526,8 +526,15 @@ static void handle_load_resource_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response)
+	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
+		if (response->status) {
+			dprintk(VIDC_ERR,
+				"Load resource response from FW : 0x%x",
+				response->status);
+			msm_comm_generate_session_error(inst);
+		}
+	}
 	else
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for load resource\n");
