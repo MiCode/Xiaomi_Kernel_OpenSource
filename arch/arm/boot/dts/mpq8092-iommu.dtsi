@@ -156,6 +156,7 @@
 	status = "ok";
 	vdd-supply = <&gdsc_venus>;
 
+	vdd-supply = <&gdsc_venus>;
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2514
 				0x2540
