@@ -22,8 +22,9 @@
  * future strings.
  */
 static char *descriptions =
-	"0  msm: perf: add debug patch logging framework\n"
-	"1  Perf: port perf-events to 3.10 kernel\n"
+	" 0 msm: perf: add debug patch logging framework\n"
+	" 1 Perf: port perf-events to 3.10 kernel\n"
+	" 2 Perf: keep events across hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

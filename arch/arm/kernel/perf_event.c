@@ -563,6 +563,7 @@ static void armpmu_init(struct arm_pmu *armpmu)
 	armpmu->pmu.start = armpmu_start;
 	armpmu->pmu.stop = armpmu_stop;
 	armpmu->pmu.read = armpmu_read;
+	armpmu->pmu.events_across_hotplug = 1;
 }
 
 int armpmu_register(struct arm_pmu *armpmu, int type)
