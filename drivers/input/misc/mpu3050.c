@@ -320,15 +320,19 @@ static ssize_t mpu3050_attr_set_enable(struct device *dev,
 		if (sensor->use_poll)
 			schedule_delayed_work(&sensor->input_work,
 				msecs_to_jiffies(sensor->poll_interval));
-		else
+		else {
 			i2c_smbus_write_byte_data(sensor->client,
 					MPU3050_INT_CFG,
 					MPU3050_ACTIVE_LOW |
 					MPU3050_OPEN_DRAIN |
 					MPU3050_RAW_RDY_EN);
+			enable_irq(sensor->client->irq);
+		}
 	} else {
 		if (sensor->use_poll)
 			cancel_delayed_work_sync(&sensor->input_work);
+		else
+			disable_irq(sensor->client->irq);
 		gpio_set_value(sensor->enable_gpio, 0);
 		pm_runtime_put(sensor->dev);
 	}
@@ -448,6 +452,7 @@ static void mpu3050_set_power_mode(struct i2c_client *client, u8 val)
 		mpu3050_config_regulator(client, 1);
 		udelay(10);
 		gpio_set_value(sensor->enable_gpio, 1);
+		msleep(60);
 	}
 
 	value = i2c_smbus_read_byte_data(client, MPU3050_PWR_MGM);
@@ -709,7 +714,6 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	}
 
 	mpu3050_set_power_mode(client, 1);
-	msleep(10);
 
 	ret = i2c_smbus_read_byte_data(client, MPU3050_CHIP_ID_REG);
 	if (ret < 0) {
@@ -864,6 +868,10 @@ static int __devexit mpu3050_remove(struct i2c_client *client)
 static int mpu3050_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
+	struct mpu3050_sensor *sensor = i2c_get_clientdata(client);
+
+	if (!sensor->use_poll)
+		disable_irq(client->irq);
 
 	mpu3050_set_power_mode(client, 0);
 
@@ -879,9 +887,12 @@ static int mpu3050_suspend(struct device *dev)
 static int mpu3050_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
+	struct mpu3050_sensor *sensor = i2c_get_clientdata(client);
 
 	mpu3050_set_power_mode(client, 1);
-	msleep(100);  /* wait for gyro chip resume */
+
+	if (!sensor->use_poll)
+		enable_irq(client->irq);
 
 	return 0;
 }
