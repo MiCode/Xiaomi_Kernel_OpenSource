@@ -1108,6 +1108,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	bool hpd_disabled = false;
 	bool changed = false;
 	u32 hpd_event_bits;
+	char *envp[] = {"hdcp_hpd", NULL};
 
 	mutex_lock(&mode_config->mutex);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
@@ -1160,6 +1161,11 @@ static void i915_hotplug_work_func(struct work_struct *work)
 
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);
+
+	/* HDCPD needs a uevent, every time when there is a hotplug */
+	kobject_uevent_env(&dev_priv->dev->primary->kdev->kobj,
+		KOBJ_CHANGE, envp);
+
 }
 
 static void intel_hpd_irq_uninstall(struct drm_i915_private *dev_priv)
