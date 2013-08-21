@@ -160,3 +160,7 @@
 		qcom,fast-avg-setup = <0>;
 	};
 };
+
+&pm8226_iadc {
+	qcom,rsense = <10000000>;
+};
