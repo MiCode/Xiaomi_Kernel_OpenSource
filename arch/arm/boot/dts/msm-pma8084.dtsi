@@ -814,5 +814,28 @@
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
+
+		krait_regulator_pmic: qcom,krait-regulator-pmic@2900 {
+			spmi-dev-container;
+			compatible = "qcom,krait-regulator-pmic";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,ctl@2900 {
+				reg = <0x2900 0x100>;
+				status = "disabled";
+			};
+
+			qcom,ps@2a00 {
+				reg = <0x2a00 0x100>;
+				status = "disabled";
+			};
+
+			qcom,freq@2b00 {
+				reg = <0x2b00 0x100>;
+				status = "disabled";
+			};
+		};
 	};
 };

@@ -238,5 +238,28 @@
 				reg = <0x2b00 0x100>;
 			};
 		};
+
+		krait_regulator_pmic: qcom,krait-regulator-pmic@2000 {
+			spmi-dev-container;
+			compatible = "qcom,krait-regulator-pmic";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,ctl@2000 {
+				status = "disabled";
+				reg = <0x2000 0x100>;
+			};
+
+			qcom,ps@2100 {
+				status = "disabled";
+				reg = <0x2100 0x100>;
+			};
+
+			qcom,freq@2200 {
+				status = "disabled";
+				reg = <0x2200 0x100>;
+			};
+		};
 	};
 };
