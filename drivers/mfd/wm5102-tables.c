@@ -74,6 +74,9 @@ static const struct reg_default wm5102_revb_patch[] = {
 	{ 0x35E, 0x000C },
 	{ 0x2D4, 0x0000 },
 	{ 0x80, 0x0000 },
+	{ 0x46C, 0xC01 },
+	{ 0x46E, 0xC01 },
+	{ 0x470, 0xC01 },
 };
 
 /* We use a function so we can use ARRAY_SIZE() */
