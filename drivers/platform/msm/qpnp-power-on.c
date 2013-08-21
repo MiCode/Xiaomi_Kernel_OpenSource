@@ -1111,8 +1111,11 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	index = ffs(pon_sts);
 	if ((index > PON_REASON_MAX) || (index < 0))
 		index = 0;
-	pr_info("PMIC@SID%d Power-on reason: %s\n", pon->spmi->sid,
-			index ? qpnp_pon_reason[index - 1] : "Unknown");
+
+	cold_boot = !qpnp_pon_is_warm_reset();
+	pr_info("PMIC@SID%d Power-on reason: %s and '%s' boot\n",
+		pon->spmi->sid, index ? qpnp_pon_reason[index - 1] :
+		"Unknown", cold_boot ? "cold" : "warm");
 
 	/* program s3 debounce */
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
