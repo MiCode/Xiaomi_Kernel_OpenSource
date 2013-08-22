@@ -28,12 +28,14 @@
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>
-#include <asm/mach-types.h>
-#include <linux/cm36283.h>
-#include <asm/setup.h>
+#include <linux/regulator/consumer.h>
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
+#include <linux/cm36283.h>
+
+#include <asm/uaccess.h>
+#include <asm/mach-types.h>
+#include <asm/setup.h>
 
 #define D(x...) pr_info(x)
 
@@ -44,6 +46,12 @@
 #define CONTROL_INT_ISR_REPORT        0x00
 #define CONTROL_ALS                   0x01
 #define CONTROL_PS                    0x02
+
+/* POWER SUPPLY VOLTAGE RANGE */
+#define CM36283_VDD_MIN_UV	2700000
+#define CM36283_VDD_MAX_UV	3300000
+#define CM36283_VI2C_MIN_UV	1750000
+#define CM36283_VI2C_MAX_UV	1950000
 
 static int record_init_fail = 0;
 static void sensor_irq_do_work(struct work_struct *work);
@@ -93,6 +101,9 @@ struct cm36283_info {
 
 	uint16_t ls_cmd;
 	uint8_t record_clear_int_fail;
+
+	struct regulator *vdd;
+	struct regulator *vio;
 };
 struct cm36283_info *lp_info;
 int fLevel=-1;
@@ -1623,6 +1634,135 @@ static int control_and_report( struct cm36283_info *lpi, uint8_t mode, uint16_t 
   return ret;
 }
 
+static int cm36283_power_set(struct cm36283_info *info, bool on)
+{
+	int rc;
+
+	if (on) {
+		info->vdd = regulator_get(&info->i2c_client->dev, "vdd");
+		if (IS_ERR(info->vdd)) {
+			rc = PTR_ERR(info->vdd);
+			dev_err(&info->i2c_client->dev,
+				"Regulator get failed vdd rc=%d\n", rc);
+			goto err_vdd_get;
+		}
+
+		if (regulator_count_voltages(info->vdd) > 0) {
+			rc = regulator_set_voltage(info->vdd,
+					CM36283_VDD_MIN_UV, CM36283_VDD_MAX_UV);
+			if (rc) {
+				dev_err(&info->i2c_client->dev,
+					"Regulator set failed vdd rc=%d\n", rc);
+				goto err_vdd_set_vtg;
+			}
+		}
+
+		info->vio = regulator_get(&info->i2c_client->dev, "vio");
+		if (IS_ERR(info->vio)) {
+			rc = PTR_ERR(info->vio);
+			dev_err(&info->i2c_client->dev,
+				"Regulator get failed vio rc=%d\n", rc);
+			goto err_vio_get;
+		}
+
+		if (regulator_count_voltages(info->vio) > 0) {
+			rc = regulator_set_voltage(info->vio,
+				CM36283_VI2C_MIN_UV, CM36283_VI2C_MAX_UV);
+			if (rc) {
+				dev_err(&info->i2c_client->dev,
+				"Regulator set failed vio rc=%d\n", rc);
+				goto err_vio_set_vtg;
+			}
+		}
+
+		rc = regulator_enable(info->vdd);
+		if (rc) {
+			dev_err(&info->i2c_client->dev,
+				"Regulator vdd enable failed rc=%d\n", rc);
+			goto err_vdd_ena;
+		}
+
+		rc = regulator_enable(info->vio);
+		if (rc) {
+			dev_err(&info->i2c_client->dev,
+				"Regulator vio enable failed rc=%d\n", rc);
+			goto err_vio_ena;
+		}
+
+	} else {
+		rc = regulator_disable(info->vdd);
+		if (rc) {
+			dev_err(&info->i2c_client->dev,
+				"Regulator vdd disable failed rc=%d\n", rc);
+			return rc;
+		}
+		if (regulator_count_voltages(info->vdd) > 0)
+			regulator_set_voltage(info->vdd, 0, CM36283_VDD_MAX_UV);
+
+		regulator_put(info->vdd);
+
+		rc = regulator_disable(info->vio);
+		if (rc) {
+			dev_err(&info->i2c_client->dev,
+				"Regulator vio disable failed rc=%d\n", rc);
+			return rc;
+		}
+		if (regulator_count_voltages(info->vio) > 0)
+			regulator_set_voltage(info->vio, 0,
+					CM36283_VI2C_MAX_UV);
+
+		regulator_put(info->vio);
+	}
+
+	return 0;
+
+err_vio_ena:
+	regulator_disable(info->vdd);
+err_vdd_ena:
+	if (regulator_count_voltages(info->vio) > 0)
+		regulator_set_voltage(info->vio, 0, CM36283_VI2C_MAX_UV);
+err_vio_set_vtg:
+	regulator_put(info->vio);
+err_vio_get:
+	if (regulator_count_voltages(info->vdd) > 0)
+		regulator_set_voltage(info->vdd, 0, CM36283_VDD_MAX_UV);
+err_vdd_set_vtg:
+	regulator_put(info->vdd);
+err_vdd_get:
+	return rc;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int cm36283_suspend(struct device *dev)
+{
+	struct cm36283_info *lpi = lp_info;
+
+	if (lpi->als_enable) {
+		lightsensor_disable(lpi);
+		lpi->als_enable = 1;
+	}
+	cm36283_power_set(lpi, 0);
+
+	return 0;
+}
+
+static int cm36283_resume(struct device *dev)
+{
+	struct cm36283_info *lpi = lp_info;
+
+	cm36283_power_set(lpi, 1);
+
+	if (lpi->als_enable) {
+		cm36283_setup(lpi);
+		lightsensor_setup(lpi);
+		psensor_setup(lpi);
+		lightsensor_enable(lpi);
+	}
+	return 0;
+}
+#endif
+
+static UNIVERSAL_DEV_PM_OPS(cm36283_pm, cm36283_suspend, cm36283_resume, NULL);
 
 static const struct i2c_device_id cm36283_i2c_id[] = {
 	{CM36283_I2C_NAME, 0},
@@ -1635,6 +1775,7 @@ static struct i2c_driver cm36283_driver = {
 	.driver = {
 		.name = CM36283_I2C_NAME,
 		.owner = THIS_MODULE,
+		.pm = &cm36283_pm,
 	},
 };
 
