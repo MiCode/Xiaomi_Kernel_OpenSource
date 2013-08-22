@@ -2163,9 +2163,9 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case MSMFB_OVERLAY_COMMIT:
-		mdss_fb_wait_for_fence(mfd);
+		mdss_fb_wait_for_fence(&(mfd->mdp_sync_pt_data));
 		ret = mfd->mdp.kickoff_fnc(mfd, NULL);
-		mdss_fb_signal_timeline(mfd);
+		mdss_fb_signal_timeline(&(mfd->mdp_sync_pt_data));
 		break;
 	case MSMFB_METADATA_SET:
 		ret = copy_from_user(&metadata, argp, sizeof(metadata));
@@ -2346,6 +2346,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 	mdp5_interface->panel_register_done = mdss_panel_register_done;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;
+	mdp5_interface->get_sync_fnc = NULL;
 
 	mdp5_data = kmalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
 	if (!mdp5_data) {
