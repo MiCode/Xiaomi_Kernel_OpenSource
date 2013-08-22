@@ -52,6 +52,7 @@
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
 		vdda-supply = <&pma8084_l2>;
+		qcom,platform-reset-gpio = <&pma8084_gpios 20 0>;
 	};
 
 	qcom,mdss_dsi@fd922e00 {
