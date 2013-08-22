@@ -40,6 +40,7 @@
 #include <mach/trace_msm_low_power.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include <mach/msm_bus.h>
+#include <mach/mpm.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
 #include <asm/pgtable.h>
@@ -1132,9 +1133,22 @@ void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops)
 		pm_sleep_ops = *ops;
 }
 
+static int msm_suspend_prepare(void)
+{
+	msm_mpm_suspend_prepare();
+	return 0;
+}
+
+static void msm_suspend_wake(void)
+{
+	msm_mpm_suspend_wake();
+}
+
 static const struct platform_suspend_ops msm_pm_ops = {
 	.enter = msm_pm_enter,
 	.valid = suspend_valid_only_mem,
+	.prepare_late = msm_suspend_prepare,
+	.wake = msm_suspend_wake,
 };
 
 static int __devinit msm_pm_snoc_client_probe(struct platform_device *pdev)

@@ -42,7 +42,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
-		ngpio = <145>;
+		ngpio = <146>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
 	};
@@ -87,6 +87,14 @@
 
 		qcom,bus-width = <4>;
 		status = "disabled";
+	};
+
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		reg-names = "bam_mem", "core_mem";
+		interrupts = <0 94 0>;
 	};
 
 	qcom,wdt@f9017000 {
@@ -217,4 +225,36 @@
 		interrupts = <0 29 1>;
 		qcom,rx-ring-size = <64>;
 	};
+
+	spmi_bus: qcom,spmi@fc4c0000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xfc4cf000 0x1000>,
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
+		reg-names = "core", "intr", "cnfg";
+		interrupts = <0 190 0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ee = <0>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		qcom,not-wakeup;     /* Needed until MPM is fully configured. */
+	};
+
+	tsens: tsens@fc4a8000 {
+		compatible = "qcom,msm-tsens";
+		reg = <0xfc4a8000 0x2000>,
+		      <0xfc4bc000 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		qcom,sensors = <11>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+				3200 3200>;
+		qcom,calib-mode = "fuse_map1";
+	};
 };
+
+/include/ "msm-pma8084.dtsi"
+/include/ "msmsamarium-regulator.dtsi"

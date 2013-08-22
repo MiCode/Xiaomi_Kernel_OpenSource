@@ -56,6 +56,19 @@ static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
 		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST);
+		/*
+		 * Allow ITP generated off of ref clk based counter instead
+		 * of UTMI/ULPI clk based counter, when superspeed only is
+		 * active so that UTMI/ULPI can be suspened.
+		 */
+		reg |= DWC3_GCTL_SOFITPSYNC;
+		/*
+		 * Set this bit so that device attempts three more times at SS,
+		 * even if it failed previously to operate in SS mode.
+		 */
+		reg |= DWC3_GCTL_U2RSTECN;
+		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
+		reg |= DWC3_GCTL_PWRDNSCALE(2);
 		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 	}
 }
@@ -126,6 +139,14 @@ static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
 		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
 		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_DEVICE);
+		/*
+		 * Set this bit so that device attempts three more times at SS,
+		 * even if it failed previously to operate in SS mode.
+	 */
+		reg |= DWC3_GCTL_U2RSTECN;
+		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
+		reg |= DWC3_GCTL_PWRDNSCALE(2);
+		reg &= ~(DWC3_GCTL_SOFITPSYNC);
 		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 	}
 }
@@ -727,7 +748,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_FLOATED_CHARGER:
-					dotg->charger_retry_count++;
+					if (dotg->charger_retry_count <
+							max_chgr_retry_count)
+						dotg->charger_retry_count++;
 					/*
 					 * In case of floating charger, if
 					 * retry count equal to max retry count
@@ -804,7 +827,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				 */
 				dev_dbg(phy->dev, "enter lpm as\n"
 					"unable to start A-device\n");
-				phy->state = OTG_STATE_UNDEFINED;
+				phy->state = OTG_STATE_A_IDLE;
 				pm_runtime_put_sync(phy->dev);
 				return;
 			}
@@ -845,7 +868,8 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	 * OCFG[1] - HNPCap = 0
 	 * OCFG[0] - SRPCap = 0
 	 */
-	dwc3_writel(dotg->regs, DWC3_OCFG, 0x4);
+	if (ext_xceiv && !ext_xceiv->otg_capability)
+		dwc3_writel(dotg->regs, DWC3_OCFG, 0x4);
 
 	/*
 	 * OCTL[6] - PeriMode = 1
@@ -857,7 +881,8 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	 * OCTL[0] - HstSetHNPEn = 0
 	 */
 	if (!once) {
-		dwc3_writel(dotg->regs, DWC3_OCTL, 0x40);
+		if (ext_xceiv && !ext_xceiv->otg_capability)
+			dwc3_writel(dotg->regs, DWC3_OCTL, 0x40);
 		once++;
 	}
 

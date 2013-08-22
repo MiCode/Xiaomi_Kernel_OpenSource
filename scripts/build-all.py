@@ -46,8 +46,8 @@ make_command = ["vmlinux", "modules", "dtbs"]
 make_env = os.environ
 make_env.update({
         'ARCH': 'arm',
-        'CROSS_COMPILE': 'arm-none-linux-gnueabi-',
         'KCONFIG_NOTIMESTAMP': 'true' })
+make_env.setdefault('CROSS_COMPILE', 'arm-none-linux-gnueabi-')
 all_options = {}
 
 def error(msg):

@@ -39,6 +39,7 @@
 		label = "pm8941_tz";
 		qcom,channel-num = <8>;
 		qcom,threshold-set = <0>;
+		qcom,temp_alarm-vadc = <&pm8941_vadc>;
 	};
 
 	qcom,power-on@800 {
@@ -100,6 +101,7 @@
 		qcom,min-clock-period = <1000>;
 		qcom,max-clock-period = <160000>;
 		qcom,sample-rate = <4>;
+		qcom,bsi-vadc = <&pm8941_vadc>;
 	};
 
 	pm8941_coincell: qcom,coincell@2800 {
@@ -132,6 +134,9 @@
 		qcom,low-ocv-correction-limit-uv = <100>;
 		qcom,high-ocv-correction-limit-uv = <50>;
 		qcom,hold-soc-est = <3>;
+		qcom,bms-vadc = <&pm8941_vadc>;
+		qcom,bms-iadc = <&pm8941_iadc>;
+		qcom,bms-adc_tm = <&pm8941_adc_tm>;
 
 		qcom,bms-iadc@3800 {
 			reg = <0x3800 0x100>;
@@ -200,6 +205,8 @@
 		qcom,vbatdet-delta-mv = <100>;
 		qcom,resume-soc = <99>;
 		qcom,tchg-mins = <150>;
+		qcom,chg-vadc = <&pm8941_vadc>;
+		qcom,chg-adc_tm = <&pm8941_adc_tm>;
 
 		qcom,chgr@1000 {
 			status = "disabled";
@@ -564,6 +571,7 @@
 		interrupt-names = "eoc-int-en-set";
 		qcom,adc-bit-resolution = <15>;
 		qcom,adc-vdd-reference = <1800>;
+		qcom,vadc-poll-eoc;
 
 		chan@0 {
 			label = "usb_in";
@@ -806,6 +814,8 @@
 		interrupt-names = "eoc-int-en-set";
 		qcom,adc-bit-resolution = <16>;
 		qcom,adc-vdd-reference = <1800>;
+		qcom,iadc-vadc = <&pm8941_vadc>;
+		qcom,iadc-poll-eoc;
 
 		chan@0 {
 			label = "internal_rsense";
@@ -832,6 +842,7 @@
 					"low-thr-en-set";
 		qcom,adc-bit-resolution = <15>;
 		qcom,adc-vdd-reference = <1800>;
+		qcom,adc_tm-vadc = <&pm8941_vadc>;
 
 		/* Channel Node */
 		chan@b9 {
@@ -1243,6 +1254,7 @@
 		reg = <0xd300 0x100>;
 		label = "flash";
 		flash_boost-supply = <&pm8941_chg_boost>;
+		torch_boost-supply = <&pm8941_boost>;
 	};
 
 	qcom,leds@d400 {
@@ -1329,6 +1341,12 @@
 		label = "wled";
 	};
 
+	qcom,leds@e200 {
+		compatible = "qcom,leds-qpnp";
+		reg = <0xe200 0x100>;
+		label = "kpdbl";
+	};
+
 	pwm@b100 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xb100 0x100>,
@@ -1391,5 +1409,37 @@
 		      <0xb042 0x7e>;
 		reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 		qcom,channel-id = <7>;
+	};
+
+	pwm@e400 {
+		compatible = "qcom,qpnp-pwm";
+		reg = <0xe400 0x100>,
+		      <0xe342 0x1e>;
+		reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+		qcom,channel-id = <8>;
+	};
+
+	pwm@e500 {
+		compatible = "qcom,qpnp-pwm";
+		reg = <0xe500 0x100>,
+		      <0xe342 0x1e>;
+		reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+		qcom,channel-id = <9>;
+	};
+
+	pwm@e600 {
+		compatible = "qcom,qpnp-pwm";
+		reg = <0xe600 0x100>,
+		      <0xe342 0x1e>;
+		reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+		qcom,channel-id = <10>;
+	};
+
+	pwm@e700 {
+		compatible = "qcom,qpnp-pwm";
+		reg = <0xe700 0x100>,
+		      <0xe342 0x1e>;
+		reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+		qcom,channel-id = <11>;
 	};
 };

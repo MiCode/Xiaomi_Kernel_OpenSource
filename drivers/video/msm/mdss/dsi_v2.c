@@ -82,6 +82,25 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 	return rc;
 }
 
+static int dsi_splash_on(struct mdss_panel_data *pdata)
+{
+	int rc = 0;
+
+	pr_debug("%s:\n", __func__);
+
+	if (panel_common_data->reset)
+		panel_common_data->reset(pdata, 2);
+
+	if (dsi_intf.cont_on)
+		rc = dsi_intf.cont_on(pdata);
+
+	if (rc) {
+		pr_err("mdss_dsi_on DSI failed %d\n", rc);
+		return rc;
+	}
+	return rc;
+}
+
 static int dsi_event_handler(struct mdss_panel_data *pdata,
 				int event, void *arg)
 {
@@ -104,6 +123,9 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = dsi_panel_handler(pdata, 0);
+		break;
+	case MDSS_EVENT_CONT_SPLASH_BEGIN:
+		rc = dsi_splash_on(pdata);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

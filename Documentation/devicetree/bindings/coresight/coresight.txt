@@ -118,6 +118,12 @@ Optional properties:
 - qcom,setb-gpios-pull : active pull configuration for set B gpios
 - qcom,setb-gpios-dir : active direction for set B gpios
 - qcom,hwevent-clks : list of clocks required by hardware event driver
+- qcom,byte-cntr-absent : specifies if the byte counter feature is absent on
+			  the device. Only relevant in case of tmc-etr device.
+- interrupts : <a b c> where a is 0 or 1 depending on if the interrupt is
+		spi/ppi, b is the interrupt number and c is the mask,
+- interrupt-names : a list of strings that map in order to the list of
+		    interrupts specified in the 'interrupts' property.
 
 Examples:
 
@@ -127,6 +133,11 @@ Examples:
 		reg = <0xfc322000 0x1000>,
 		      <0xfc37c000 0x3000>;
 		reg-names = "tmc-base", "bam-base";
+
+		interrupts = <0 166 0>;
+		interrupt-names = "byte-cntr-irq";
+
+		qcom,byte-cntr-absent;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";

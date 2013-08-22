@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -524,6 +524,7 @@ static struct msm_bus_node_info sys_noc_info[] = {
 		.mode = NOC_QOS_MODE_FIXED,
 		.qport = qports_ipa,
 		.mas_hw_id = MAS_IPA,
+		.hw_sel = MSM_BUS_NOC,
 	},
 	{
 		.id = MSM_BUS_MASTER_QDSS_ETR,

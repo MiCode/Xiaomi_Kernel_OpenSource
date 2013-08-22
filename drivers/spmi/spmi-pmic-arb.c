@@ -101,6 +101,9 @@ enum pmic_arb_cmd_op_code {
 #define PMIC_ARB_APID_MASK		0xFF
 #define PMIC_ARB_PPID_MASK		0xFFF
 
+/* interrupt enable bit */
+#define SPMI_PIC_ACC_ENABLE_BIT		BIT(0)
+
 /**
  * base - base address of the PMIC Arbiter core registers.
  * intr - base address of the SPMI interrupt control registers
@@ -434,8 +437,10 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
-	if (!status) {
-		writel_relaxed(0x1, pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
+		status = status | SPMI_PIC_ACC_ENABLE_BIT;
+		writel_relaxed(status,
+				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 		/* Interrupt needs to be enabled before returning to caller */
 		wmb();
 	}
@@ -467,8 +472,11 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
-	if (status) {
-		writel_relaxed(0x0, pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+	if (status & SPMI_PIC_ACC_ENABLE_BIT) {
+		/* clear the enable bit and write */
+		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
+		writel_relaxed(status,
+				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 		/* Interrupt needs to be disabled before returning to caller */
 		wmb();
 	}
@@ -480,7 +488,7 @@ static irqreturn_t
 periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 {
 	u16 ppid = get_peripheral_id(pmic_arb, apid);
-	void __iomem *base = pmic_arb->intr;
+	void __iomem *intr = pmic_arb->intr;
 	u8 sid = (ppid >> 8) & 0x0F;
 	u8 pid = ppid & 0xFF;
 	u32 status;
@@ -491,11 +499,20 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 		/* return IRQ_NONE; */
 	}
 
+	status = readl_relaxed(intr + SPMI_PIC_ACC_ENABLE(apid));
+	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
+		/*
+		 * All interrupts from this peripheral are disabled
+		 * don't bother calling the qpnpint handler
+		 */
+		return IRQ_HANDLED;
+	}
+
 	/* Read the peripheral specific interrupt bits */
-	status = readl_relaxed(base + SPMI_PIC_IRQ_STATUS(apid));
+	status = readl_relaxed(intr + SPMI_PIC_IRQ_STATUS(apid));
 
 	/* Clear the peripheral interrupts */
-	writel_relaxed(status, base + SPMI_PIC_IRQ_CLEAR(apid));
+	writel_relaxed(status, intr + SPMI_PIC_IRQ_CLEAR(apid));
 	/* Interrupt needs to be cleared/acknowledged before exiting ISR */
 	mb();
 

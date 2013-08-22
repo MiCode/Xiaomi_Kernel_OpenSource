@@ -557,7 +557,7 @@ int msm_routing_get_dolby_dap_param_to_get_control(
 		return -ENOMEM;
 	}
 	if (DOLBY_PARAM_ID_VER == dolby_dap_params_get.param_id) {
-		rc = adm_dolby_dap_get_params(dolby_dap_params_get.port_id,
+		rc = adm_get_params(dolby_dap_params_get.port_id,
 						DOLBY_BUNDLE_MODULE_ID,
 						DOLBY_PARAM_ID_VER,
 						params_length +
@@ -575,7 +575,7 @@ int msm_routing_get_dolby_dap_param_to_get_control(
 			params_length = (dolby_dap_params_length[i] +
 						DOLBY_PARAM_PAYLOAD_SIZE) *
 						sizeof(uint32_t);
-			rc = adm_dolby_dap_get_params(
+			rc = adm_get_params(
 						dolby_dap_params_get.port_id,
 						DOLBY_BUNDLE_MODULE_ID,
 						dolby_dap_params_id[i],
@@ -652,7 +652,7 @@ int msm_routing_get_dolby_dap_param_visualizer_control(
 	}
 	offset = 0;
 	params_length = length * sizeof(uint32_t);
-	rc = adm_dolby_dap_get_params(dolby_dap_params_states.port_id,
+	rc = adm_get_params(dolby_dap_params_states.port_id,
 					DOLBY_BUNDLE_MODULE_ID,
 					DOLBY_PARAM_ID_VCBG,
 					params_length + param_payload_len,
@@ -664,7 +664,7 @@ int msm_routing_get_dolby_dap_param_visualizer_control(
 	}
 
 	offset = length * sizeof(uint32_t);
-	rc = adm_dolby_dap_get_params(dolby_dap_params_states.port_id,
+	rc = adm_get_params(dolby_dap_params_states.port_id,
 					DOLBY_BUNDLE_MODULE_ID,
 					DOLBY_PARAM_ID_VCBE,
 					params_length + param_payload_len,

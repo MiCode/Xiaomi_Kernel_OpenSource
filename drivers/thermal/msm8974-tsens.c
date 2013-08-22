@@ -564,7 +564,7 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	unsigned int reg_cntl;
 	int code, hi_code, lo_code, code_err_chk, sensor_sw_id = 0, rc = 0;
 
-	if (!tm_sensor || trip < 0 || !temp)
+	if (!tm_sensor || trip < 0)
 		return -EINVAL;
 
 	rc = tsens_get_sw_id_mapping(tm_sensor->sensor_hw_num, &sensor_sw_id);

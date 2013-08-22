@@ -130,11 +130,11 @@ static ssize_t hwevent_store_setreg(struct device *dev,
 {
 	struct hwevent_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	void *hwereg;
-	phys_addr_t addr;
-	uint32_t val;
+	unsigned long long addr;
+	unsigned long val;
 	int ret, i;
 
-	if (sscanf(buf, "%x %x", &addr, &val) != 2)
+	if (sscanf(buf, "%llx %lx", &addr, &val) != 2)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -153,7 +153,7 @@ static ssize_t hwevent_store_setreg(struct device *dev,
 					      drvdata->hmux[i].end -
 					      drvdata->hmux[i].start);
 			if (!hwereg) {
-				dev_err(dev, "unable to map address 0x%x\n",
+				dev_err(dev, "unable to map address 0x%llx\n",
 					addr);
 				ret = -ENOMEM;
 				goto err;

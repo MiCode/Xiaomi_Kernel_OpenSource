@@ -48,6 +48,12 @@ static struct snd_soc_jack hs_jack;
 static struct platform_device *spdev;
 static int ext_spk_amp_gpio = -1;
 
+/* pointers for digital codec register mappings */
+static void __iomem *pcbcr;
+static void __iomem *prcgr;
+
+static int msm_sec_mi2s_rx_ch = 1;
+static int msm_pri_mi2s_tx_ch = 1;
 
 /*
  * There is limitation for the clock root selection from
@@ -160,10 +166,9 @@ static void msm8x10_enable_ext_spk_power_amp(u32 on)
 
 static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
 {
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4));
+	iowrite32(0x1, pcbcr);
 	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4));
-
+	iowrite32(0x1, prcgr);
 	return 0;
 
 }
@@ -178,6 +183,109 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = 48000;
 
 	return 0;
+}
+
+static int msm_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s(): channel:%d\n", __func__, msm_pri_mi2s_tx_ch);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_sec_mi2s_rx_ch;
+
+	return 0;
+}
+
+static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s(), channel:%d\n", __func__, msm_pri_mi2s_tx_ch);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_pri_mi2s_tx_ch;
+
+	return 0;
+}
+
+
+static const char *const btsco_rate_text[] = {"8000", "16000"};
+static const struct soc_enum msm_btsco_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
+};
+static const char *const sec_mi2s_rx_ch_text[] = {"One", "Two"};
+static const char *const pri_mi2s_tx_ch_text[] = {"One", "Two"};
+
+static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_btsco_rate  = %d", __func__, msm_btsco_rate);
+
+	ucontrol->value.integer.value[0] = msm_btsco_rate;
+	return 0;
+}
+
+static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 8000:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	case 16000:
+		msm_btsco_rate = BTSCO_RATE_16KHZ;
+		break;
+	default:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	}
+
+	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
+	return 0;
+}
+
+static int msm_sec_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_sec_mi2s_rx_ch  = %d\n", __func__,
+		 msm_sec_mi2s_rx_ch);
+	ucontrol->value.integer.value[0] = msm_sec_mi2s_rx_ch - 1;
+	return 0;
+}
+
+static int msm_sec_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_sec_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_sec_mi2s_rx_ch = %d\n", __func__,
+		 msm_sec_mi2s_rx_ch);
+	return 1;
+}
+
+static int msm_pri_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_pri_mi2s_tx_ch  = %d\n", __func__,
+		 msm_pri_mi2s_tx_ch);
+	ucontrol->value.integer.value[0] = msm_pri_mi2s_tx_ch - 1;
+	return 0;
+}
+
+static int msm_pri_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_pri_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_pri_mi2s_tx_ch = %d\n", __func__, msm_pri_mi2s_tx_ch);
+	return 1;
 }
 
 static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -318,6 +426,20 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
+static const struct soc_enum msm_snd_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, sec_mi2s_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(2, pri_mi2s_tx_ch_text),
+};
+
+static const struct snd_kcontrol_new msm_snd_controls[] = {
+	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
+		     msm_btsco_rate_get, msm_btsco_rate_put),
+	SOC_ENUM_EXT("MI2S_RX Channels", msm_snd_enum[0],
+			msm_sec_mi2s_rx_ch_get, msm_sec_mi2s_rx_ch_put),
+	SOC_ENUM_EXT("MI2S_TX Channels", msm_snd_enum[1],
+			msm_pri_mi2s_tx_ch_get, msm_pri_mi2s_tx_ch_put),
+};
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 
@@ -333,6 +455,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_enable_pin(dapm, "Lineout amp");
 	snd_soc_dapm_sync(dapm);
+
+	ret = snd_soc_add_codec_controls(codec, msm_snd_controls,
+					 ARRAY_SIZE(msm_snd_controls));
+	if (ret < 0)
+		return ret;
 
 	ret = snd_soc_jack_new(codec, "Headset Jack",
 			SND_JACK_HEADSET, &hs_jack);
@@ -587,12 +714,12 @@ static struct snd_soc_dai_link msm8x10_dai[] = {
 		.stream_name = "Secondary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.1",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm8x10-wcd-i2c-core.5-000d",
+		.codec_name     = MSM8X10_CODEC_NAME,
 		.codec_dai_name = "msm8x10_wcd_i2s_rx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
 		.init = &msm_audrx_init,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_rx_be_hw_params_fixup,
 		.ops = &msm8x10_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -601,11 +728,11 @@ static struct snd_soc_dai_link msm8x10_dai[] = {
 		.stream_name = "Primary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm8x10-wcd-i2c-core.5-000d",
+		.codec_name     = MSM8X10_CODEC_NAME,
 		.codec_dai_name = "msm8x10_wcd_i2s_tx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_tx_be_hw_params_fixup,
 		.ops = &msm8x10_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -758,6 +885,9 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	pcbcr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CBCR, 4);
+	prcgr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
+
 	spdev = pdev;
 	ret = snd_soc_register_card(card);
 	if (ret) {
@@ -780,6 +910,9 @@ static int __devexit msm8x10_asoc_machine_remove(struct platform_device *pdev)
 		gpio_free(ext_spk_amp_gpio);
 	snd_soc_unregister_card(card);
 	mutex_destroy(&cdc_mclk_mutex);
+
+	iounmap(pcbcr);
+	iounmap(prcgr);
 	return 0;
 }
 

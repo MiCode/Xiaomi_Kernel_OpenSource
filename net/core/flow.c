@@ -423,6 +423,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
 	if (!fc->percpu)
 		return -ENOMEM;
 
+	get_online_cpus();
 	for_each_online_cpu(i) {
 		if (flow_cache_cpu_prepare(fc, i))
 			goto err;
@@ -431,6 +432,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
 		.notifier_call = flow_cache_cpu,
 	};
 	register_hotcpu_notifier(&fc->hotcpu_notifier);
+	put_online_cpus();
 
 	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
 		    (unsigned long) fc);
@@ -440,6 +442,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
 	return 0;
 
 err:
+	put_online_cpus();
 	for_each_possible_cpu(i) {
 		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
 		kfree(fcp->hash_table);

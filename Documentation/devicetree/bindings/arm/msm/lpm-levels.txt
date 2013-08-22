@@ -3,10 +3,8 @@
 The application processor in MSM can do a variety of C-States for low power
 management. These C-States are invoked by the CPUIdle framework when the core
 becomes idle. But based on the time available until the next scheduled wakeup,
-the system can do a combination of low power modes of different resources -
-L2, XO, Vdd Dig and Vdd Mem. The combination is captured in the device tree as
-lpm-level. The units for voltage are dependent on the PMIC used on the target
-and are in uV.
+the system can do several low power modes. The combination is captured in the
+device tree as lpm-level.
 
 The required nodes for lpm-levels are:
 
@@ -20,20 +18,11 @@ The required nodes for lpm-levels are:
 		"retention" - Retention
 		"pc_suspend" - Suspended Power Collapse
 		"pc_no_xo_shutdown" - Power Collapse with no XO shutdown
-- qcom,xo: The state of XO clock. Values are "xo_on" and "xo_off"
 - qcom,l2: The state of L2 cache. Values are:
 		"l2_cache_pc" - L2 cache in power collapse
 		"l2_cache_retenetion" - L2 cache in retention
 		"l2_cache_gdhs" - L2 cache in GDHS
 		"l2_cache_active" - L2 cache in active mode
-- qcom,vdd-mem-upper-bound: The upper bound value of mem voltage in uV
-- qcom,vdd-mem-lower-bound: The lower bound value of mem voltage in uV
-- qcom,vdd-dig-upper-bound: The upper bound value of dig voltage in uV
-                            or an RBCPR (Rapid Bridge Core Power Reduction)
-                            corner voltage.
-- qcom,vdd-dig-lower-bound: The lower bound value of dig voltage in uV
-                            or an RBCPR (Rapid Bridge Core Power Reduction)
-                            corner voltage.
 - qcom,latency-us: The latency in handling the interrupt if this level was
 	chosen, in uSec
 - qcom,ss-power: The steady state power expelled when the processor is in this
@@ -42,29 +31,18 @@ The required nodes for lpm-levels are:
 	in mWatts.uSec
 - qcom,time-overhead: The time spent in entering and exiting this level in uS
 
-Optional properties
-- qcom,irqs-detectable: The field indicates whether the IRQs are detectable by
-			the GIC controller when entering a low power mode.
-- qcom,gpio-detectable: The field indicates whether the GPIOs can be detected
-			by the GPIO interrupt controller during a given low
-			power mode.
-- qcom,use-qtimer: Indicates whether the target uses the synchronized QTimer.
+The optional nodes for lpm-levels are :
+-  qcom,no-l2-saw: Indicates if this target has an L2 SAW (SPM and AVS wrapper).
+-  qcom,default-l2-state: Indicates what the default low power state of the L2 SAW should be. This property is used only when there is an L2 SAW.
 
 Example:
 
 qcom,lpm-levels {
-	qcom,use-qtimer;
+	qcom,no-l2-saw;
 	qcom,lpm-level@0 {
 		reg = <0>;
 		qcom,mode = "wfi";
-		qcom,xo = "xo_on";
 		qcom,l2 = "l2_cache_active";
-		qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-		qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-		qcom,vdd-dig-upper-bound = <5>; /* MAX */
-		qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
-		qcom,irqs-detectable;
-		qcom,gpio-detectable;
 		qcom,latency-us = <100>;
 		qcom,ss-power = <650>;
 		qcom,energy-overhead = <801>;

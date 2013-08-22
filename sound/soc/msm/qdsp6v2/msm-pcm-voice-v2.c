@@ -51,7 +51,7 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 
 	.fifo_size =            0,
 };
-static int is_volte(struct msm_voice *pvolte)
+static bool is_volte(struct msm_voice *pvolte)
 {
 	if (pvolte == &voice_info[VOLTE_SESSION_INDEX])
 		return true;
@@ -59,9 +59,17 @@ static int is_volte(struct msm_voice *pvolte)
 		return false;
 }
 
-static int is_voice2(struct msm_voice *pvoice2)
+static bool is_voice2(struct msm_voice *pvoice2)
 {
 	if (pvoice2 == &voice_info[VOICE2_SESSION_INDEX])
+		return true;
+	else
+		return false;
+}
+
+static bool is_qchat(struct msm_voice *pqchat)
+{
+	if (pqchat == &voice_info[QCHAT_SESSION_INDEX])
 		return true;
 	else
 		return false;
@@ -75,6 +83,8 @@ static uint32_t get_session_id(struct msm_voice *pvoc)
 		session_id = voc_get_session_id(VOLTE_SESSION_NAME);
 	else if (is_voice2(pvoc))
 		session_id = voc_get_session_id(VOICE2_SESSION_NAME);
+	else if (is_qchat(pvoc))
+		session_id = voc_get_session_id(QCHAT_SESSION_NAME);
 	else
 		session_id = voc_get_session_id(VOICE_SESSION_NAME);
 
@@ -119,6 +129,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	} else if (!strncmp("Voice2", substream->pcm->id, 6)) {
 		voice = &voice_info[VOICE2_SESSION_INDEX];
 		pr_debug("%s: Open Voice2 Substream Id=%s\n",
+			 __func__, substream->pcm->id);
+	} else if (!strncmp("QCHAT", substream->pcm->id, 5)) {
+		voice = &voice_info[QCHAT_SESSION_INDEX];
+		pr_debug("%s: Open QCHAT Substream Id=%s\n",
 			 __func__, substream->pcm->id);
 	} else {
 		voice = &voice_info[VOICE_SESSION_INDEX];
@@ -442,23 +456,14 @@ static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
 	int st_enable = ucontrol->value.integer.value[0];
+	uint32_t session_id = ucontrol->value.integer.value[1];
 
-	pr_debug("%s: st enable=%d\n", __func__, st_enable);
+	pr_debug("%s: st enable=%d session_id=%#x\n", __func__, st_enable,
+		 session_id);
 
-	voc_set_pp_enable(voc_get_session_id(VOICE_SESSION_NAME),
+	voc_set_pp_enable(session_id,
 			  MODULE_ID_VOICE_MODULE_ST, st_enable);
-	voc_set_pp_enable(voc_get_session_id(VOICE2_SESSION_NAME),
-			  MODULE_ID_VOICE_MODULE_ST, st_enable);
 
-	return 0;
-}
-
-static int msm_voice_slowtalk_get(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] =
-		voc_get_pp_enable(voc_get_session_id(VOICE_SESSION_NAME),
-				MODULE_ID_VOICE_MODULE_ST);
 	return 0;
 }
 
@@ -471,8 +476,8 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 				NULL, msm_voice_gain_put),
 	SOC_ENUM_EXT("TTY Mode", msm_tty_mode_enum[0], msm_voice_tty_mode_get,
 				msm_voice_tty_mode_put),
-	SOC_SINGLE_EXT("Slowtalk Enable", SND_SOC_NOPM, 0, 1, 0,
-				msm_voice_slowtalk_get, msm_voice_slowtalk_put),
+	SOC_SINGLE_MULTI_EXT("Slowtalk Enable", SND_SOC_NOPM, 0, VSID_MAX, 0, 2,
+				NULL, msm_voice_slowtalk_put),
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {

@@ -683,6 +683,18 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = perf_level,
 		.step = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB,
+		.name = "Intra Refresh CIR MBS",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = MAX_INTRA_REFRESH_MBS,
+		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_INTRA_REFRESH,
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1641,8 +1653,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		air_ref = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF);
 		cir_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS);
 
-		property_id =
-			HAL_PARAM_VENC_INTRA_REFRESH;
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
+
 		intra_refresh.air_mbs = ctrl->val;
 		intra_refresh.mode = ir_mode->val;
 		intra_refresh.air_ref = air_ref->val;
@@ -1658,8 +1670,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS);
 		cir_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS);
 
-		property_id =
-			HAL_PARAM_VENC_INTRA_REFRESH;
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
+
 		intra_refresh.air_ref = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
 		intra_refresh.mode = ir_mode->val;
@@ -1676,13 +1688,28 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS);
 		air_ref = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF);
 
-		property_id =
-			HAL_PARAM_VENC_INTRA_REFRESH;
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
 		intra_refresh.cir_mbs = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
 		intra_refresh.air_ref = air_ref->val;
 		intra_refresh.mode = ir_mode->val;
+
+		pdata = &intra_refresh;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB: {
+		struct v4l2_ctrl *air_mbs, *air_ref;
+
+		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS);
+		air_ref = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF);
+
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
+
+		intra_refresh.cir_mbs = ctrl->val;
+		intra_refresh.air_mbs = air_mbs->val;
+		intra_refresh.air_ref = air_ref->val;
+		intra_refresh.mode = HAL_INTRA_REFRESH_CYCLIC;
 
 		pdata = &intra_refresh;
 		break;

@@ -13,6 +13,12 @@
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor-liquid.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
+};
+
 &soc {
 	serial@f991e000 {
 		status = "ok";
@@ -369,6 +375,7 @@
 
 	hsic_hub {
 		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <3503>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -397,6 +404,7 @@
 			hsic,ignore-cal-pad-config;
 			hsic,strobe-pad-offset = <0x2050>;
 			hsic,data-pad-offset = <0x2054>;
+			qcom,phy-susp-sof-workaround;
 
 			qcom,msm-bus,name = "hsic";
 			qcom,msm-bus,num-cases = <2>;

@@ -388,6 +388,8 @@ struct mpq_feed {
  * successive video frames output, exposed in debugfs.
  * @decoder_ts_errors: Counter for number of decoder packets with TEI bit
  * set, exposed in debugfs.
+ * @decoder_cc_errors: Counter for number of decoder packets with continuity
+ * counter errors, exposed in debugfs.
  * @sdmx_process_count: Total number of times sdmx_process is called.
  * @sdmx_process_time_sum: Total time sdmx_process takes.
  * @sdmx_process_time_average: Average time sdmx_process takes.
@@ -445,6 +447,7 @@ struct mpq_demux {
 	u32 decoder_out_interval_average;
 	u32 decoder_out_interval_max;
 	u32 decoder_ts_errors;
+	u32 decoder_cc_errors;
 	u32 sdmx_process_count;
 	u32 sdmx_process_time_sum;
 	u32 sdmx_process_time_average;

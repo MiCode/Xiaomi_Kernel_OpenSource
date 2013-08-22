@@ -83,6 +83,9 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
+	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
+			    1 << MBHC_CS_ENABLE_INSERTION |
+			    1 << MBHC_CS_ENABLE_REMOVAL),
 };
 
 struct msm_auxpcm_gpio {
@@ -788,7 +791,7 @@ void *def_tapan_mbhc_cal(void)
 	S(c[1], 124);
 	S(nc, 1);
 	S(n_meas, 5);
-	S(mbhc_nsc, 11);
+	S(mbhc_nsc, 10);
 	S(n_btn_meas, 1);
 	S(n_btn_con, 2);
 	S(num_btn, WCD9XXX_MBHC_DEF_BUTTONS);
@@ -1145,6 +1148,22 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		/* This dailink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
+	},
+	{
+		.name = "VoLTE",
+		.stream_name = "VoLTE",
+		.cpu_dai_name   = "VoLTE",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_VOLTE,
 	},
 	/* Backend BT/FM DAI Links */
 	{

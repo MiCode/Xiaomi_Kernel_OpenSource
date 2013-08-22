@@ -333,6 +333,7 @@ struct mdss_mdp_pipe {
 	u8 mixer_stage;
 	u8 is_fg;
 	u8 alpha;
+	u8 blend_op;
 	u8 overfetch_disable;
 	u32 transp;
 
@@ -363,6 +364,7 @@ struct mdss_mdp_writeback_arg {
 struct mdss_overlay_private {
 	int vsync_pending;
 	ktime_t vsync_time;
+	struct sysfs_dirent *vsync_event_sd;
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
@@ -375,7 +377,6 @@ struct mdss_overlay_private {
 	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
-	struct work_struct vsync_work;
 	bool mixer_swap;
 };
 
@@ -578,6 +579,10 @@ int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
 					       u32 return_type);
+
+int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format);
+int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
+					struct mdp_mixer_cfg *mixer_cfg);
 
 #define mfd_to_mdp5_data(mfd) (mfd->mdp.private1)
 #define mfd_to_mdata(mfd) (((struct mdss_overlay_private *)\

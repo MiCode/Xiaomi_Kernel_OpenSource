@@ -328,6 +328,10 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 
 		pr_debug("%s: num planes :%c\n", __func__,
 					user_fmt->num_planes);
+		/*num_planes need to bound checked, otherwise for loop
+		can execute forever */
+		if (WARN_ON(user_fmt->num_planes > VIDEO_MAX_PLANES))
+			return -EINVAL;
 		for (i = 0; i < user_fmt->num_planes; i++)
 			pr_debug("%s: plane size[%d]\n", __func__,
 					user_fmt->plane_sizes[i]);
@@ -349,6 +353,7 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 
 set_fmt_fail:
 	kzfree(sp->vb2_q.drv_priv);
+	sp->vb2_q.drv_priv = NULL;
 	return rc;
 }
 

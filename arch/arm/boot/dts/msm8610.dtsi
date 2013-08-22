@@ -173,13 +173,17 @@
 	qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
 		qcom,vidc-ns-map = <0x40000000 0x40000000>;
-		qcom,iommu-groups = <&q6_domain_ns>;
-		qcom,iommu-group-buffer-types = <0xfff>;
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,hfi = "q6";
-		qcom,max-hw-load = <108000>; /* 720p @ 30 * 1 */
-	};
+		qcom,max-hw-load = <244800>; /* 1080p @ 30 * 1 */
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&q6_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0xfff>;
+			};
+		};
+};
 
 	qcom,usbbam@f9a44000 {
 		compatible = "qcom,usb-bam-msm";
@@ -215,9 +219,10 @@
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
-		HSUSB_VDDCX-supply = <&pm8110_s1>;
+		hsusb_vdd_dig-supply = <&pm8110_s1_corner>;
 		HSUSB_1p8-supply = <&pm8110_l10>;
 		HSUSB_3p3-supply = <&pm8110_l20>;
+		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
 			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
@@ -253,6 +258,8 @@
 		interrupt-names = "core_irq", "bam_irq";
 
 		vdd-supply = <&pm8110_l17>;
+		qcom,vdd-always-on;
+		qcom,vdd-lpm-sup;
 		qcom,vdd-voltage-level = <2900000 2900000>;
 		qcom,vdd-current-level = <9000 400000>;
 
@@ -419,7 +426,7 @@
 
 	qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x07b00000 0x6400000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x08800000 0x5600000>; /* Address and Size of Hole */
 	};
 
 	qcom,wdt@f9017000 {
@@ -517,16 +524,17 @@
 		interrupts = <0 98 0>, <0 238 0>;
 		spi-max-frequency = <50000000>;
 
-		gpios = <&msmgpio 89 0>, /* CLK  */
-			<&msmgpio 87 0>, /* MISO */
-			<&msmgpio 86 0>; /* MOSI */
-		cs-gpios = <&msmgpio 88 0>;
+		qcom,gpio-mosi = <&msmgpio 86 0>;
+		qcom,gpio-miso = <&msmgpio 87 0>;
+		qcom,gpio-clk  = <&msmgpio 89 0>;
+		qcom,gpio-cs0  = <&msmgpio 88 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <18>;
 		qcom,bam-producer-pipe-index = <19>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,pronto@fb21b000 {
@@ -802,9 +810,9 @@
 		interrupts = <0 29 1>;
 	};
 
-	qcom,qseecom@7B00000 {
+	qcom,qseecom@da00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x7B00000 0x500000>;
+		reg = <0xda00000 0x100000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <0>;

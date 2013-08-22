@@ -13,6 +13,10 @@ Required properties:
 - qcom,flash-source : Should contain array of phandles to flash source nodes.
     - pm8941_flash0 pm8941_flash1
 
+Optional properties:
+-qcom,torch-source : Should contain phandle to torch source node.
+    -pm8941_torch
+
 Example:
 
 qcom,camera-led-flash {
@@ -20,4 +24,5 @@ qcom,camera-led-flash {
 	compatible = "qcom,camera-led-flash";
 	qcom,flash-type = <1>;
 	qcom,flash-source = <&pm8941_flash0 &pm8941_flash1>;
+	qcom,torch-source = <&pm8941_torch>;
 };

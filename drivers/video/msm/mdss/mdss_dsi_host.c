@@ -44,6 +44,14 @@ struct mdss_hw mdss_dsi1_hw = {
 
 void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (ctrl->shared_pdata.broadcast_enable)
+		if (ctrl->panel_data.panel_info.pdest
+					== DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			left_ctrl_pdata = ctrl;
+		}
+
 	if (ctrl->panel_data.panel_info.pdest == DISPLAY_1) {
 		mdss_dsi0_hw.ptr = (void *)(ctrl);
 		ctrl->dsi_hw = &mdss_dsi0_hw;
@@ -70,34 +78,6 @@ void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	mutex_init(&ctrl->cmd_mutex);
 	mdss_dsi_buf_alloc(&ctrl->tx_buf, SZ_4K);
 	mdss_dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
-}
-
-/*
- * acquire ctrl->mutex first
- */
-void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
-{
-	mutex_lock(&ctrl->mutex);
-	if (enable) {
-		if (ctrl->clk_cnt == 0) {
-			mdss_dsi_enable_bus_clocks(ctrl);
-			mdss_dsi_prepare_clocks(ctrl);
-			mdss_dsi_clk_enable(ctrl);
-		}
-		ctrl->clk_cnt++;
-	} else {
-		if (ctrl->clk_cnt) {
-			ctrl->clk_cnt--;
-			if (ctrl->clk_cnt == 0) {
-				mdss_dsi_clk_disable(ctrl);
-				mdss_dsi_unprepare_clocks(ctrl);
-				mdss_dsi_disable_bus_clocks(ctrl);
-			}
-		}
-	}
-	pr_debug("%s: ctrl ndx=%d enabled=%d clk_cnt=%d\n",
-			__func__, ctrl->ndx, enable, ctrl->clk_cnt);
-	mutex_unlock(&ctrl->mutex);
 }
 
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
@@ -861,13 +841,6 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 	else
 		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x3C, 0x14000000);
 
-	if (ctrl_pdata->shared_pdata.broadcast_enable)
-		if (pdata->panel_info.pdest == DISPLAY_1) {
-			pr_debug("%s: Broadcast mode enabled.\n",
-				 __func__);
-			left_ctrl_pdata = ctrl_pdata;
-		}
-
 	data = 0;
 	if (pinfo->te_sel)
 		data |= BIT(31);
@@ -1184,11 +1157,21 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		dchdr = &cm->dchdr;
 		mdss_dsi_buf_reserve(tp, len);
 		len = mdss_dsi_cmd_dma_add(tp, cm);
+		if (!len) {
+			pr_err("%s: failed to call cmd_dma_add\n", __func__);
+			return -EINVAL;
+		}
 		tot += len;
 		if (dchdr->last) {
 			tp->data = tp->start; /* begin of buf */
 			mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
-			mdss_dsi_cmd_dma_tx(ctrl, tp);
+			len = mdss_dsi_cmd_dma_tx(ctrl, tp);
+			if (IS_ERR_VALUE(len)) {
+				mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
+				pr_err("%s: failed to call cmd_dma_tx for cmd = 0x%x\n",
+					__func__,  cmds->payload[0]);
+				return -EINVAL;
+			}
 			if (dchdr->wait)
 				usleep(dchdr->wait * 1000);
 
@@ -1208,7 +1191,7 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct dsi_cmd_desc *cmds, int cnt)
 {
 	u32 dsi_ctrl, data;
-	int video_mode;
+	int video_mode, ret = 0;
 	u32 left_dsi_ctrl = 0;
 	bool left_ctrl_restore = false;
 
@@ -1248,7 +1231,12 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		MIPI_OUTP((ctrl->ctrl_base) + 0x0004, data);
 	}
 
-	mdss_dsi_cmds2buf_tx(ctrl, cmds, cnt);
+	ret = mdss_dsi_cmds2buf_tx(ctrl, cmds, cnt);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s: failed to call\n",
+			__func__);
+		cnt = -EINVAL;
+	}
 
 	if (left_ctrl_restore)
 		MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
@@ -1284,7 +1272,7 @@ static struct dsi_cmd_desc pkt_size_cmd = {
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_cmd_desc *cmds, int rlen, u32 rx_flags)
 {
-	int cnt, len, diff, pkt_size;
+	int cnt, len, diff, pkt_size, ret = 0;
 	struct dsi_buf *tp, *rp;
 	int no_max_pkt_size;
 	char cmd;
@@ -1361,19 +1349,44 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		/* packet size need to be set at every read */
 		pkt_size = len;
 		max_pktsize[0] = pkt_size;
-		mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 		mdss_dsi_buf_init(tp);
-		mdss_dsi_cmd_dma_add(tp, &pkt_size_cmd);
-		mdss_dsi_cmd_dma_tx(ctrl, tp);
+		ret = mdss_dsi_cmd_dma_add(tp, &pkt_size_cmd);
+		if (!ret) {
+			pr_err("%s: failed to call\n",
+				__func__);
+			rp->len = 0;
+			goto end;
+		}
+		mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
+		ret = mdss_dsi_cmd_dma_tx(ctrl, tp);
+		if (IS_ERR_VALUE(ret)) {
+			mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
+			pr_err("%s: failed to call\n",
+				__func__);
+			rp->len = 0;
+			goto end;
+		}
 		pr_debug("%s: Max packet size sent\n", __func__);
+	}
+	mdss_dsi_buf_init(tp);
+	ret = mdss_dsi_cmd_dma_add(tp, cmds);
+	if (!ret) {
+		pr_err("%s: failed to call cmd_dma_add for cmd = 0x%x\n",
+			__func__,  cmds->payload[0]);
+		rp->len = 0;
+		goto end;
 	}
 
 	mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
-	mdss_dsi_buf_init(tp);
-	mdss_dsi_cmd_dma_add(tp, cmds);
-
 	/* transmit read comamnd to client */
-	mdss_dsi_cmd_dma_tx(ctrl, tp);
+	ret = mdss_dsi_cmd_dma_tx(ctrl, tp);
+	if (IS_ERR_VALUE(ret)) {
+		mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
+		pr_err("%s: failed to call\n",
+			__func__);
+		rp->len = 0;
+		goto end;
+	}
 	/*
 	 * once cmd_dma_done interrupt received,
 	 * return data from client is ready and stored
@@ -1405,7 +1418,7 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	switch (cmd) {
 	case DTYPE_ACK_ERR_RESP:
 		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
-		break;
+		rp->len = 0;
 	case DTYPE_GEN_READ1_RESP:
 	case DTYPE_DCS_READ1_RESP:
 		mdss_dsi_short_read1_resp(rp);
@@ -1421,10 +1434,10 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		rp->len -= diff; /* align bytes */
 		break;
 	default:
-		pr_debug("%s: Unknown cmd received\n", __func__);
-		break;
+		pr_warning("%s:Invalid response cmd\n", __func__);
+		rp->len = 0;
 	}
-
+end:
 	if (left_ctrl_restore)
 		MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
 					left_dsi_ctrl); /*restore */
@@ -1440,7 +1453,7 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					struct dsi_buf *tp)
 {
-	int len;
+	int len, ret = 0;
 	int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 	char *bp;
 	unsigned long size, addr;
@@ -1485,16 +1498,18 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);	/* trigger */
 	wmb();
 
-	if (!wait_for_completion_timeout(&ctrl->dma_comp,
-				msecs_to_jiffies(DMA_TX_TIMEOUT))) {
-		pr_err("%s: dma timeout error\n", __func__);
-	}
+	ret = wait_for_completion_timeout(&ctrl->dma_comp,
+				msecs_to_jiffies(DMA_TX_TIMEOUT));
+	if (ret == 0)
+		ret = -ETIMEDOUT;
+	else
+		ret = tp->len;
 
 	if (is_mdss_iommu_attached())
 		msm_iommu_unmap_contig_buffer(addr,
 			mdss_get_iommu_domain(domain), 0, size);
 
-	return tp->len;
+	return ret;
 }
 
 static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,

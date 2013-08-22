@@ -282,9 +282,9 @@ config ARCH_MSM8974
 	select QMI_ENCDEC
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select MSM_ULTRASOUND_B
-	select MSM_LPM_TEST
 	select MSM_RPM_LOG
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
+	select KRAIT_REGULATOR
 
 config ARCH_APQ8084
 	bool "APQ8084"
@@ -307,6 +307,10 @@ config ARCH_APQ8084
 	select MEMORY_HOLE_CARVEOUT
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select QMI_ENCDEC
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select MSM_RPM_SMD
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
@@ -430,6 +434,7 @@ config ARCH_MSMKRYPTON
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
 	select MEMORY_HOLE_CARVEOUT
+	select QMI_ENCDEC
 
 config ARCH_MSM8610
 	bool "MSM8610"
@@ -517,6 +522,7 @@ config ARCH_MSMSAMARIUM
 	select ARM_GIC
 	select CPU_V7
 	select MSM_SCM
+	select MSM_PIL
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select MSM_SPM_V2
@@ -2173,12 +2179,12 @@ config MSM_SPM_REGULATOR
 config MSM_SMCMOD
 	tristate "Secure Monitor Call (SMC) Module"
 	default n
-	depends on (ARCH_FSM9XXX && ION && ION_MSM && MSM_SCM)
+	depends on (ION && ION_MSM && MSM_SCM)
 	help
 	  Enable support for smcmod driver. This driver provides a mechanism
 	  to execute the Secure Monitor Call (SMC) to switch from non-secure
-	  to secure execution in the fsm9xxx targets. This module utilizes Ion
-	  for buffer management.
+	  to secure execution in the fsm9xxx and msm8x26 targets. This module
+	  utilizes Ion for buffer management.
 
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart"
@@ -3056,4 +3062,11 @@ config WALL_CLK_SYSFS
 	 Support the wallclk directory in sysfs filesystem to enable the
 	 wall clock simulation and read the current SFN.
 
+config KRAIT_REGULATOR
+	bool "Support Kraits powered via ganged regulators in the pmic"
+	help
+	 Certain MSMs have the Krait CPUs powered via a single supply
+	 line from the PMIC. This supply line is powered by multiple
+	 regulators running in ganged mode inside the PMIC. Enable
+	 this option to support such configurations.
 endif

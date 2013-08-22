@@ -794,11 +794,13 @@ static bool is_mhl_powered(void *mhl_ctx)
 void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 {
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+
 	if (on) {
 		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, BIT4);
-		mhl_drive_hpd(mhl_ctrl, HPD_UP);
+		mhl_ctrl->tmds_en_state = true;
 	} else {
 		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, 0x00);
+		mhl_ctrl->tmds_en_state = false;
 	}
 }
 

@@ -247,16 +247,22 @@ static int mdp3_dma_sync_config(struct mdp3_dma *dma,
 	pr_debug("mdp3_dma_sync_config\n");
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
-		sync_config = (source_config->height - 1) << 21;
+		int porch = source_config->vporch;
+		int height = source_config->height;
+		int vtotal = height + porch;
+		sync_config = vtotal << 21;
 		sync_config |= source_config->vsync_count;
 		sync_config |= BIT(19);
 		sync_config |= BIT(20);
 
 		MDP3_REG_WRITE(MDP3_REG_SYNC_CONFIG_0 + dma_sel, sync_config);
 		MDP3_REG_WRITE(MDP3_REG_VSYNC_SEL, 0x024);
-		MDP3_REG_WRITE(MDP3_REG_PRIMARY_VSYNC_INIT_VAL + dma_sel, 0);
-		MDP3_REG_WRITE(MDP3_REG_SYNC_THRESH_0 + dma_sel, 0x00100000);
-		MDP3_REG_WRITE(MDP3_REG_PRIMARY_START_P0S + dma_sel, 0x0);
+		MDP3_REG_WRITE(MDP3_REG_PRIMARY_VSYNC_INIT_VAL + dma_sel,
+				height);
+		MDP3_REG_WRITE(MDP3_REG_PRIMARY_RD_PTR_IRQ, 0x5);
+		MDP3_REG_WRITE(MDP3_REG_SYNC_THRESH_0 + dma_sel, (4 << 16 | 2));
+		MDP3_REG_WRITE(MDP3_REG_PRIMARY_START_P0S + dma_sel, porch);
+		MDP3_REG_WRITE(MDP3_REG_TEAR_CHECK_EN, 0x1);
 	}
 	return 0;
 }
@@ -291,7 +297,7 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 	 * the default 16 for MDP hang issue workaround
 	 */
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x20);
-	MDP3_REG_WRITE(MDP3_REG_PRIMARY_RD_PTR_IRQ, 0x10);
+
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
@@ -497,7 +503,7 @@ static int mdp3_dmap_histo_config(struct mdp3_dma *dma,
 			struct mdp3_dma_histogram_config *histo_config)
 {
 	unsigned long flag;
-	u32 histo_bit_mask, histo_control;
+	u32 histo_bit_mask = 0, histo_control = 0;
 	u32 histo_isr_mask = MDP3_DMA_P_HIST_INTR_HIST_DONE_BIT |
 			MDP3_DMA_P_HIST_INTR_RESET_DONE_BIT;
 
@@ -530,7 +536,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	pr_debug("mdp3_dmap_update\n");
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
-		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
+		cb_type = MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
 		if (intf->active)
 			wait_for_completion_killable(&dma->dma_comp);
 	}
@@ -553,7 +559,8 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 
 	mdp3_dma_callback_enable(dma, cb_type);
 	pr_debug("mdp3_dmap_update wait for vsync_comp in\n");
-	wait_for_completion_killable(&dma->vsync_comp);
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO)
+		wait_for_completion_killable(&dma->vsync_comp);
 	pr_debug("mdp3_dmap_update wait for vsync_comp out\n");
 	return 0;
 }
@@ -565,7 +572,7 @@ static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
-		cb_type |= MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
+		cb_type = MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
 		if (intf->active)
 			wait_for_completion_killable(&dma->dma_comp);
 	}
@@ -586,7 +593,8 @@ static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
 
 	mdp3_dma_callback_enable(dma, cb_type);
-	wait_for_completion_killable(&dma->vsync_comp);
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO)
+		wait_for_completion_killable(&dma->vsync_comp);
 	return 0;
 }
 
@@ -631,7 +639,7 @@ static int mdp3_dmap_histo_get(struct mdp3_dma *dma)
 		return ret;
 
 	if (dma->histo_state != MDP3_DMA_HISTO_STATE_READY) {
-		pr_err("mdp3_dmap_histo_get after dma shut down\n");
+		pr_debug("mdp3_dmap_histo_get after dma shut down\n");
 		return -EPERM;
 	}
 
@@ -693,9 +701,6 @@ static int mdp3_dmap_histo_reset(struct mdp3_dma *dma)
 {
 	unsigned long flag;
 	int ret;
-
-	if (dma->histo_state == MDP3_DMA_HISTO_STATE_START)
-		return -EINVAL;
 
 	spin_lock_irqsave(&dma->histo_lock, flag);
 
@@ -829,19 +834,14 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	return ret;
 }
 
-int mdp3_dma_init(struct mdp3_dma *dma,
-		struct mdp3_dma_source *source_config,
-		struct mdp3_dma_output_config *output_config)
+int mdp3_dma_init(struct mdp3_dma *dma)
 {
 	int ret = 0;
 
 	pr_debug("mdp3_dma_init\n");
 	switch (dma->dma_sel) {
 	case MDP3_DMA_P:
-		ret = mdp3_dmap_config(dma, source_config, output_config);
-		if (ret < 0)
-			return ret;
-
+		dma->dma_config = mdp3_dmap_config;
 		dma->config_cursor = mdp3_dmap_cursor_config;
 		dma->config_ccs = mdp3_dmap_ccs_config;
 		dma->config_histo = mdp3_dmap_histo_config;
@@ -855,10 +855,7 @@ int mdp3_dma_init(struct mdp3_dma *dma,
 		dma->stop = mdp3_dma_stop;
 		break;
 	case MDP3_DMA_S:
-		ret = mdp3_dmas_config(dma, source_config, output_config);
-		if (ret < 0)
-			return ret;
-
+		dma->dma_config = mdp3_dmas_config;
 		dma->config_cursor = NULL;
 		dma->config_ccs = NULL;
 		dma->config_histo = NULL;
@@ -1029,10 +1026,9 @@ int dsi_cmd_stop(struct mdp3_intf *intf)
 	return 0;
 }
 
-int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
+int mdp3_intf_init(struct mdp3_intf *intf)
 {
-	int ret = 0;
-	switch (cfg->type) {
+	switch (intf->cfg.type) {
 	case MDP3_DMA_OUTPUT_SEL_LCDC:
 		intf->config = lcdc_config;
 		intf->start = lcdc_start;
@@ -1052,16 +1048,5 @@ int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
 	default:
 		return -EINVAL;
 	}
-
-	intf->active = false;
-	if (intf->config)
-		ret = intf->config(intf, cfg);
-
-	if (ret) {
-		pr_err("MDP interface initialization failed\n");
-		return ret;
-	}
-
-	intf->cfg = *cfg;
 	return 0;
 }

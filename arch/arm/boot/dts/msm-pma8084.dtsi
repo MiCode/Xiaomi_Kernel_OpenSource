@@ -77,6 +77,7 @@
 			interrupts = <0x0 0x24 0x0>;
 			label = "pma8084_tz";
 			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pma8084_vadc>;
 		};
 
 		qcom,coincell@2800 {
@@ -263,6 +264,7 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
 
 			chan@8 {
 				label = "die_temp";
@@ -322,6 +324,7 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pma8084_vadc>;
 		};
 
 		qcom,rtc {

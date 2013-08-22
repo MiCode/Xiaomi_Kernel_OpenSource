@@ -189,5 +189,6 @@
 		qcom,panel-pwm-period = <53>;
 		status = "disable";
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		gpio-panel-hpd = <&msmgpio 102 0>;
 	};
 };

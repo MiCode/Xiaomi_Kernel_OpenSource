@@ -298,6 +298,7 @@ struct pm8921_chg_chip {
 	bool				disable_aicl;
 	int				usb_type;
 	bool				disable_chg_rmvl_wrkarnd;
+	struct msm_xo_voter		*voter;
 };
 
 /* user space parameter to limit usb current */
@@ -4034,6 +4035,7 @@ static void pm8921_chg_force_19p2mhz_clk(struct pm8921_chg_chip *chip)
 	int err;
 	u8 temp;
 
+	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_ON);
 	temp  = 0xD1;
 	err = pm_chg_write(chip, CHG_TEST, temp);
 	if (err) {
@@ -4092,6 +4094,8 @@ static void pm8921_chg_force_19p2mhz_clk(struct pm8921_chg_chip *chip)
 		pr_err("Error %d writing %d to addr %d\n", err, temp, CHG_TEST);
 		return;
 	}
+
+	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_OFF);
 }
 
 static void pm8921_chg_set_hw_clk_switching(struct pm8921_chg_chip *chip)
@@ -4099,6 +4103,7 @@ static void pm8921_chg_set_hw_clk_switching(struct pm8921_chg_chip *chip)
 	int err;
 	u8 temp;
 
+	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_ON);
 	temp  = 0xD1;
 	err = pm_chg_write(chip, CHG_TEST, temp);
 	if (err) {
@@ -4112,6 +4117,7 @@ static void pm8921_chg_set_hw_clk_switching(struct pm8921_chg_chip *chip)
 		pr_err("Error %d writing %d to addr %d\n", err, temp, CHG_TEST);
 		return;
 	}
+	msm_xo_mode_vote(chip->voter, MSM_XO_MODE_OFF);
 }
 
 #define VREF_BATT_THERM_FORCE_ON	BIT(7)
@@ -4800,6 +4806,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->ibatmax_max_adj_ma = find_ibat_max_adj_ma(
 					chip->max_bat_chg_current);
 
+	chip->voter = msm_xo_get(MSM_XO_TCXO_D0, "pm8921_charger");
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
 		pr_err("couldn't init hardware rc=%d\n", rc);

@@ -33,15 +33,31 @@ Optional properties:
   request by different video encoder usecases.
 - qcom,dec-ddr-ab-ib : list of bus vectors(ab, ib pair) for ddr bandwidth
   request by different video decoder usecases.
-- qcom,iommu-groups : list of IOMMU groups to be used.  Groups are defined as
-  phandles in <target>-iommu-domains.dtsi (e.g msm8974-v1-iommu-domains.dtsi)
-- qcom,iommu-group-buffer-types : bitmap of buffer types that can be mapped into
-  the corresponding IOMMU group. Buffer types are defined within the vidc driver
-  by "enum hal_buffer" in msm_smem.h
 - qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
   (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
   as "enum cp_mem_usage" in include/linux/msm_ion.h
 - qcom,has-ocmem: indicate the target has ocmem if this property exists
+- qcom,vidc-iommu-domains: node containing individual domain nodes, each with:
+	- a unique domain name for the domain node (e.g vidc,domain-ns)
+	- qcom,vidc-domain-phandle: phandle for the domain as defined in
+	  <target>-iommu-domains.dtsi (e.g msm8974-v1-iommu-domains.dtsi)
+	- qcom,vidc-partition-buffer-types: bitmap of buffer types that can
+	  be mapped into each IOMMU domain partition.  There must be exactly
+	  one buffer bitmap per partition in the domain, with order of the
+	  bitmaps to be the same as the order of the respective partitions.
+	- Buffer types are defined as the following:
+	  input = 0x1
+	  output = 0x2
+	  output2 = 0x2
+	  extradata input = 0x4
+	  extradata output = 0x8
+	  extradata output2 = 0x8
+	  internal scratch = 0x10
+	  internal scratch1 = 0x20
+	  internal scratch2 = 0x40
+	  internal persist = 0x80
+	  internal persist1 = 0x100
+	  internal cmd queue = 0x200
 
 Example:
 
@@ -71,9 +87,20 @@ Example:
 			<60000 664950>;
 		qcom,dec-ddr-ab-ib = <0 0>,
 			<110000 909000>;
-		qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
-		qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x1ff>,
+							<0x200>;
+			};
+
+			qcom,domain-cp {
+				qcom,vidc-domain-phandle = <&venus_domain_cp>;
+				qcom,vidc-partition-buffer-types = <0x2>,
+							<0x1f1>;
+			};
+		};
 	};

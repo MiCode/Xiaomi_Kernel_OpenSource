@@ -21,14 +21,12 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <linux/smsc3503.h>
+#include <linux/smsc_hub.h>
 #include <linux/module.h>
 #include <mach/msm_xo.h>
 
-#define SMSC3503_I2C_ADDR 0x08
-#define SMSC_GSBI_I2C_BUS_ID 10
-static const unsigned short normal_i2c[] = {
-SMSC3503_I2C_ADDR, I2C_CLIENT_END };
+static unsigned short normal_i2c[] = {
+0, I2C_CLIENT_END };
 
 struct hsic_hub {
 	struct device *dev;
@@ -111,6 +109,22 @@ static inline int hsic_hub_clear_bits(struct i2c_client *client, u8 reg,
 	return i2c_smbus_write_byte_data(client, reg, (ret & ~value));
 }
 
+static int smsc4604_send_connect_cmd(struct i2c_client *client)
+{
+	u8 buf[3];
+
+	buf[0] = 0xAA;
+	buf[1] = 0x55;
+	buf[2] = 0x00;
+
+	if (i2c_master_send(client, buf, 3) != 3) {
+		dev_err(&client->dev, "%s: i2c send failed\n", __func__);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int i2c_hsic_hub_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -118,21 +132,37 @@ static int i2c_hsic_hub_probe(struct i2c_client *client,
 				     I2C_FUNC_SMBUS_WORD_DATA))
 		return -EIO;
 
-	/* CONFIG_N bit in SP_ILOCK register has to be set before changing
-	 * other registers to change default configuration of hsic hub.
-	 */
-	hsic_hub_set_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+	switch (smsc_hub->pdata->model_id) {
+	case SMSC3503_ID:
+		/*
+		 * CONFIG_N bit in SP_ILOCK register has to be set before
+		 * changing other registers to change default configuration
+		 * of hsic hub.
+		 */
+		hsic_hub_set_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
 
-	/* Can change default configuartion like VID,PID, strings etc
-	 * by writing new values to hsic hub registers.
-	 */
-	hsic_hub_write_word_data(client, SMSC3503_VENDORID, 0x05C6);
+		/*
+		 * Can change default configuartion like VID,PID,
+		 * strings etc by writing new values to hsic hub registers
+		 */
+		hsic_hub_write_word_data(client, SMSC3503_VENDORID, 0x05C6);
 
-	/* CONFIG_N bit in SP_ILOCK register has to be cleared for new
-	 * values in registers to be effective after writing to
-	 * other registers.
-	 */
-	hsic_hub_clear_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+		/*
+		 * CONFIG_N bit in SP_ILOCK register has to be cleared
+		 * for new values in registers to be effective after
+		 * writing to other registers.
+		 */
+		hsic_hub_clear_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+		break;
+	case SMSC4604_ID:
+		/*
+		 * SMSC4604 requires an I2C attach command to be issued
+		 * if I2C bus is connected
+		 */
+		return smsc4604_send_connect_cmd(client);
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -318,6 +348,8 @@ reg_optimum_mode_fail:
 struct smsc_hub_platform_data *msm_hub_dt_to_pdata(
 				struct platform_device *pdev)
 {
+	int rc;
+	u32 temp_val;
 	struct device_node *node = pdev->dev.of_node;
 	struct smsc_hub_platform_data *pdata;
 
@@ -325,6 +357,14 @@ struct smsc_hub_platform_data *msm_hub_dt_to_pdata(
 	if (!pdata) {
 		dev_err(&pdev->dev, "unable to allocate platform data\n");
 		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_u32(node, "smsc,model-id", &temp_val);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to read smsc,model-id\n");
+		return ERR_PTR(rc);
+	} else {
+		pdata->model_id = temp_val;
 	}
 
 	pdata->hub_reset = of_get_named_gpio(node, "smsc,reset-gpio", 0);
@@ -399,17 +439,12 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	}
 
 	gpio_direction_output(pdata->hub_reset, 0);
-	/* Hub reset should be asserted for minimum 2microsec
+	/*
+	 * Hub reset should be asserted for minimum 2microsec
 	 * before deasserting.
 	 */
 	udelay(5);
 	gpio_direction_output(pdata->hub_reset, 1);
-
-	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to add child node, ret=%d\n", ret);
-		goto uninit_gpio;
-	}
 
 	if (!IS_ERR(smsc_hub->hub_vbus_reg)) {
 		ret = regulator_enable(smsc_hub->hub_vbus_reg);
@@ -436,14 +471,39 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	memset(&i2c_info, 0, sizeof(struct i2c_board_info));
 	strlcpy(i2c_info.type, "i2c_hsic_hub", I2C_NAME_SIZE);
 
+	/* 250ms delay is required for SMSC4604 HUB to get I2C up */
+	msleep(250);
+
+	/* Assign I2C slave address per SMSC model */
+	switch (pdata->model_id) {
+	case SMSC3503_ID:
+		normal_i2c[0] = SMSC3503_I2C_ADDR;
+		break;
+	case SMSC4604_ID:
+		normal_i2c[0] = SMSC4604_I2C_ADDR;
+		break;
+	default:
+		dev_err(&pdev->dev, "unsupported SMSC model-id\n");
+		i2c_put_adapter(i2c_adap);
+		i2c_del_driver(&hsic_hub_driver);
+		goto uninit_gpio;
+	}
+
 	smsc_hub->client = i2c_new_probed_device(i2c_adap, &i2c_info,
 						   normal_i2c, NULL);
 	i2c_put_adapter(i2c_adap);
-	if (!smsc_hub->client)
-		dev_err(&pdev->dev, "failed to connect to smsc_hub"
-			 "through I2C\n");
 
 i2c_add_fail:
+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add child node, ret=%d\n", ret);
+		goto uninit_gpio;
+	}
+
+	if (!smsc_hub->client)
+		dev_err(&pdev->dev,
+			"failed to connect to smsc_hub through I2C\n");
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 

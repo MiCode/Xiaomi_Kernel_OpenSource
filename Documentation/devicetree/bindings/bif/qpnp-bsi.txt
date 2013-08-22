@@ -49,6 +49,7 @@ Optional properties:
 - qcom,vref-microvolts:   Reference voltage used for BCL divider circuit in
                            microvolts.  If no value is specified, then
                            1800000 uV is assumed.
+- qcom,bsi-vadc:	  Corresponding VADC device phandle.
 
 All properties specified within for the BIF framework can also be used. These
 properties can be found in bif.txt.
@@ -86,6 +87,7 @@ Example:
 				qcom,channel-num = <0x31>;
 				qcom,pullup-ohms = <100000>;
 				qcom,vref-microvolts = <1800000>;
+				qcom,bsi-vadc = <&pm8941_vadc>;
 			};
 		};
 	};

@@ -724,6 +724,7 @@ static struct edge_to_pid edge_to_pids[] = {
 	[SMD_MODEM_RPM] = {SMD_MODEM, SMD_RPM},
 	[SMD_QDSP_RPM] = {SMD_Q6, SMD_RPM},
 	[SMD_WCNSS_RPM] = {SMD_WCNSS, SMD_RPM},
+	[SMD_TZ_RPM] = {SMD_TZ, SMD_RPM},
 };
 
 struct restart_notifier_block {

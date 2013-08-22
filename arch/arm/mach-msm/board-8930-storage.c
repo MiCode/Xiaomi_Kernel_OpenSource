@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,13 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.lpm_uA = 9000,
 		.hpm_uA = 200000, /* 200mA */
 	},
+	/* SDCC2 : SDIO slot connected */
+	[SDCC2] = {
+		.name = "sdc_vdd",
+		.high_vol_level = 1800000,
+		.low_vol_level = 1800000,
+		.hpm_uA = 200000, /* 200mA */
+	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd",
@@ -94,7 +101,7 @@ static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
 		 * during sleep.
 		 */
 		.lpm_uA = 2000,
-	}
+	},
 };
 
 static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
@@ -102,6 +109,10 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
 		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC1],
+	},
+	/* SDCC2 : SDIO card slot connected */
+	[SDCC2] = {
+		.vdd_data = &mmc_vdd_reg_data[SDCC2],
 	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
@@ -170,6 +181,15 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
 };
 
+static struct msm_mmc_gpio sdc2_gpio[] = {
+	{92, "sdc2_dat_3"},
+	{91, "sdc2_dat_2"},
+	{90, "sdc2_dat_1"},
+	{89, "sdc2_dat_0"},
+	{97, "sdc2_cmd"},
+	{98, "sdc2_clk"}
+};
+
 static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.on = sdc1_pad_pull_on_cfg,
@@ -207,9 +227,20 @@ static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
+static struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC2] = {
+		.gpio = sdc2_gpio,
+		.size = ARRAY_SIZE(sdc2_gpio),
+	},
+};
+
 static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pad_data = &mmc_pad_data[SDCC1],
+	},
+	[SDCC2] = {
+		.is_gpio = true,
+		.gpio_data = &mmc_gpio_data[SDCC2],
 	},
 	[SDCC3] = {
 		.pad_data = &mmc_pad_data[SDCC3],
@@ -245,6 +276,23 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 	.uhs_caps2	= MMC_CAP2_HS200_1_8V_SDR,
+};
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static unsigned int sdc2_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data msm8960_sdc2_data = {
+	.ocr_mask       = MMC_VDD_165_195 | MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table  = sdc2_sup_clk_rates,
+	.sup_clk_cnt    = ARRAY_SIZE(sdc2_sup_clk_rates),
+	.vreg_data      = &mmc_slot_vreg_data[SDCC2],
+	.pin_data       = &mmc_slot_pin_data[SDCC2],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(90),
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 #endif
 
@@ -299,6 +347,10 @@ void __init msm8930_init_mmc(void)
 					       MMC_CAP_UHS_DDR50);
 	/* SDC1 : eMMC card connected */
 	msm_add_sdcc(1, &msm8960_sdc1_data);
+#endif
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	/* SDC2: SDIO slot for WLAN */
+	msm_add_sdcc(2, &msm8960_sdc2_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/*

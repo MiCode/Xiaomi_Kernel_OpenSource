@@ -381,7 +381,7 @@ void q6_hfi_delete_device(void *device)
 }
 
 static inline void q6_hfi_add_apr_hdr(struct q6_hfi_device *dev,
-			struct apr_hdr *hdr, u32 pkt_size, u32 opcode)
+			struct apr_hdr *hdr, u32 pkt_size)
 {
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(sizeof(struct apr_hdr)),
@@ -394,7 +394,7 @@ static inline void q6_hfi_add_apr_hdr(struct q6_hfi_device *dev,
 	hdr->dest_port = 0;
 	hdr->pkt_size  = pkt_size;
 	hdr->token = 0;
-	hdr->opcode = opcode;
+	hdr->opcode = VIDEO_HFI_CMD_ID;
 }
 
 static int q6_hfi_apr_callback(struct apr_client_data *data, void *priv)
@@ -496,7 +496,7 @@ static int q6_hfi_core_init(void *device)
 		goto err_core_init;
 	}
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr), HFI_CMD_SYS_INIT);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	rc = create_pkt_cmd_sys_init(&apr.pkt, HFI_VIDEO_ARCH_OX);
 	if (rc) {
@@ -529,22 +529,6 @@ static int q6_hfi_core_release(void *device)
 	return 0;
 }
 
-static int q6_hfi_core_pc_prep(void *device)
-{
-	(void) device;
-
-	/* Q6 does not support core_pc_prep*/
-	return 0;
-}
-
-static int q6_hfi_core_ping(void *device)
-{
-	(void) device;
-
-	/* Q6 does not support cmd_sys_ping */
-	return 0;
-}
-
 static void *q6_hfi_session_init(void *device, u32 session_id,
 	enum hal_domain session_type, enum hal_video_codec codec_type)
 {
@@ -567,8 +551,7 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 		new_session->is_decoder = 1;
 	new_session->device = dev;
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-				   HFI_CMD_SYS_SESSION_INIT);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	if (create_pkt_cmd_sys_session_init(&apr.pkt, (u32)new_session,
 					session_type, codec_type)) {
@@ -605,7 +588,7 @@ static int q6_hal_send_session_cmd(void *sess,
 	}
 	dev = session->device;
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr), pkt_type);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	rc = create_pkt_cmd_session_cmd(&apr.pkt, pkt_type, (u32)session);
 	if (rc) {
@@ -670,8 +653,7 @@ static int q6_hfi_session_set_buffers(void *sess,
 		return 0;
 	apr = (struct q6_apr_cmd_session_set_buffers_packet *)packet;
 
-	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE,
-			HFI_CMD_SESSION_SET_BUFFERS);
+	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_set_buffers(&apr->pkt,
 			(u32)session, buffer_info);
@@ -713,8 +695,7 @@ static int q6_hfi_session_release_buffers(void *sess,
 
 	apr = (struct q6_apr_cmd_session_release_buffer_packet *) packet;
 
-	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE,
-					   HFI_CMD_SESSION_RELEASE_BUFFERS);
+	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_release_buffers(&apr->pkt,
 					(u32)session, buffer_info);
@@ -788,8 +769,7 @@ static int q6_hfi_session_etb(void *sess,
 
 	if (session->is_decoder) {
 		struct q6_apr_cmd_session_empty_buffer_compressed_packet apr;
-		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-					   HFI_CMD_SESSION_EMPTY_BUFFER);
+		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 		rc = create_pkt_cmd_session_etb_decoder(&apr.pkt,
 					(u32)session, input_frame);
@@ -811,8 +791,7 @@ static int q6_hfi_session_etb(void *sess,
 	} else {
 		struct
 		q6_apr_cmd_session_empty_buffer_uncompressed_plane0_packet apr;
-		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-				   HFI_CMD_SESSION_EMPTY_BUFFER);
+		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 		rc =  create_pkt_cmd_session_etb_encoder(&apr.pkt,
 					(u32)session, input_frame);
@@ -848,8 +827,7 @@ static int q6_hfi_session_ftb(void *sess,
 	}
 	dev = session->device;
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-				   HFI_CMD_SESSION_FILL_BUFFER);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	rc = create_pkt_cmd_session_ftb(&apr.pkt, (u32)session, output_frame);
 	if (rc) {
@@ -886,8 +864,7 @@ static int q6_hfi_session_parse_seq_hdr(void *sess,
 
 	apr = (struct q6_apr_cmd_session_parse_sequence_header_packet *) packet;
 
-	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE,
-			   HFI_CMD_SESSION_PARSE_SEQUENCE_HEADER);
+	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_parse_seq_header(&apr->pkt,
 					(u32)session, seq_hdr);
@@ -925,8 +902,7 @@ static int q6_hfi_session_get_seq_hdr(void *sess,
 
 	apr = (struct q6_apr_cmd_session_get_sequence_header_packet *) packet;
 
-	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE,
-				   HFI_CMD_SESSION_GET_SEQUENCE_HEADER);
+	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_get_seq_hdr(&apr->pkt, (u32)session,
 						seq_hdr);
@@ -960,8 +936,7 @@ static int q6_hfi_session_get_buf_req(void *sess)
 	}
 	dev = session->device;
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-				   HFI_CMD_SESSION_GET_PROPERTY);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	rc = create_pkt_cmd_session_get_buf_req(&apr.pkt, (u32)session);
 	if (rc) {
@@ -993,8 +968,7 @@ static int q6_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 	}
 	dev = session->device;
 
-	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr),
-				   HFI_CMD_SESSION_FLUSH);
+	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 	rc = create_pkt_cmd_session_flush(&apr.pkt, (u32)session, flush_mode);
 	if (rc) {
@@ -1031,8 +1005,7 @@ static int q6_hfi_session_set_property(void *sess,
 	dev = session->device;
 	dprintk(VIDC_DBG, "in set_prop,with prop id: 0x%x", ptype);
 
-	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE,
-				 HFI_CMD_SESSION_SET_PROPERTY);
+	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_set_property(&apr->pkt,
 				(u32)session, ptype, pdata);
@@ -1177,51 +1150,12 @@ static int q6_hfi_session_get_property(void *sess,
 	return 0;
 }
 
-static int q6_hfi_scale_clocks(void *dev, int load)
-{
-	(void)dev;
-	(void)load;
-
-	/* Q6 does not support clocks scaling */
-	return 0;
-}
-
-static int q6_hfi_scale_bus(void *dev, int load,
-			enum session_type type, enum mem_type mtype)
-{
-	(void)dev;
-	(void)load;
-	(void)type;
-	(void)mtype;
-
-	/* Q6 does not support bus scaling */
-	return 0;
-
-}
-
 static int q6_hfi_unset_ocmem(void *dev)
 {
 	(void)dev;
 
 	/* Q6 does not support ocmem */
 	return -EINVAL;
-}
-
-static int q6_hfi_alloc_ocmem(void *dev, unsigned long size)
-{
-	(void)dev;
-	(void)size;
-
-	/* Q6 does not support ocmem */
-	return 0;
-}
-
-static int q6_hfi_free_ocmem(void *dev)
-{
-	(void)dev;
-
-	/* Q6 does not support ocmem */
-	return 0;
 }
 
 static int q6_hfi_iommu_get_domain_partition(void *dev, u32 flags,
@@ -1373,14 +1307,6 @@ static void q6_hfi_unload_fw(void *hfi_device_data)
 	}
 }
 
-static int q6_hfi_get_fw_info(void *dev, enum fw_info info)
-{
-	(void)dev;
-	(void)info;
-
-	return 0;
-}
-
 static int q6_hfi_get_stride_scanline(int color_fmt,
 	int width, int height, int *stride, int *scanlines) {
 	*stride = VENUS_Y_STRIDE(color_fmt, width);
@@ -1392,8 +1318,6 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 {
 	hdev->core_init = q6_hfi_core_init;
 	hdev->core_release = q6_hfi_core_release;
-	hdev->core_pc_prep = q6_hfi_core_pc_prep;
-	hdev->core_ping = q6_hfi_core_ping;
 	hdev->session_init = q6_hfi_session_init;
 	hdev->session_end = q6_hfi_session_end;
 	hdev->session_abort = q6_hfi_session_abort;
@@ -1414,15 +1338,10 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_flush = q6_hfi_session_flush;
 	hdev->session_set_property = q6_hfi_session_set_property;
 	hdev->session_get_property = q6_hfi_session_get_property;
-	hdev->scale_clocks = q6_hfi_scale_clocks;
-	hdev->scale_bus = q6_hfi_scale_bus;
 	hdev->unset_ocmem = q6_hfi_unset_ocmem;
-	hdev->alloc_ocmem = q6_hfi_alloc_ocmem;
-	hdev->free_ocmem = q6_hfi_free_ocmem;
 	hdev->iommu_get_domain_partition = q6_hfi_iommu_get_domain_partition;
 	hdev->load_fw = q6_hfi_load_fw;
 	hdev->unload_fw = q6_hfi_unload_fw;
-	hdev->get_fw_info = q6_hfi_get_fw_info;
 	hdev->get_stride_scanline = q6_hfi_get_stride_scanline;
 }
 

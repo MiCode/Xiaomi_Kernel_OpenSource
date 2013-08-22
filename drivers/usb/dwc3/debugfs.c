@@ -972,6 +972,28 @@ void dbg_setup(u8 ep_num, const struct usb_ctrlrequest *req)
 }
 
 /**
+ * dbg_print_reg: prints a reg value
+ * @name:   reg name
+ * @reg: reg value to be printed
+ */
+void dbg_print_reg(const char *name, int reg)
+{
+	unsigned long flags;
+
+	write_lock_irqsave(&dbg_dwc3_data.lck, flags);
+
+	scnprintf(dbg_dwc3_data.buf[dbg_dwc3_data.idx], DBG_DATA_MSG,
+		  "%s = 0x%08x\n", name, reg);
+
+	dbg_inc(&dbg_dwc3_data.idx);
+
+	write_unlock_irqrestore(&dbg_dwc3_data.lck, flags);
+
+	if (dbg_dwc3_data.tty != 0)
+		pr_notice("%s = 0x%08x\n", name, reg);
+}
+
+/**
  * store_events: configure if events are going to be also printed to console
  *
  */

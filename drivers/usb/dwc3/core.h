@@ -163,7 +163,10 @@
 
 /* Global Configuration Register */
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
+#define DWC3_GCTL_PWRDNSCALEMASK (0xFFF80000)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
+#define DWC3_GCTL_SOFITPSYNC	(1 << 10)
+#define DWC3_GCTL_U2EXIT_LFPS	(1 << 2)
 #define DWC3_GCTL_RAMCLKSEL(x)	(((x) & DWC3_GCTL_CLK_MASK) << 6)
 #define DWC3_GCTL_CLK_BUS	(0)
 #define DWC3_GCTL_CLK_PIPE	(1)
@@ -643,6 +646,9 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+#define DWC3_CONTROLLER_ERROR_EVENT			0
+#define DWC3_CONTROLLER_RESET_EVENT			1
+#define DWC3_CONTROLLER_POST_RESET_EVENT		2
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -771,6 +777,7 @@ struct dwc3 {
 
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	bool			softconnect;
+	void (*notify_event) (struct dwc3 *, unsigned);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -920,7 +927,11 @@ void dwc3_gadget_exit(struct dwc3 *dwc);
 
 void dwc3_gadget_restart(struct dwc3 *dwc);
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
+int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
+extern void dwc3_set_notifier(
+		void (*notify) (struct dwc3 *dwc3, unsigned event));
+extern void dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
 extern int dwc3_get_device_id(void);
 extern void dwc3_put_device_id(int id);
 

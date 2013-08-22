@@ -233,6 +233,7 @@ static struct workqueue_struct *bam_mux_tx_workqueue;
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
 #define ENABLE_DISCONNECT_ACK	0x1
 #define SHUTDOWN_TIMEOUT_MS	500
+#define UL_WAKEUP_TIMEOUT_MS	2000
 static void toggle_apps_ack(void);
 static void reconnect_to_bam(void);
 static void disconnect_to_bam(void);
@@ -1582,6 +1583,12 @@ static int ssrestart_check(void)
 {
 	int ret = 0;
 
+	if (in_global_reset) {
+		DMUX_LOG_KERR("%s: modem timeout: already in SSR\n",
+			__func__);
+		return 1;
+	}
+
 	DMUX_LOG_KERR("%s: modem timeout: BAM DMUX disabled for SSR\n",
 								__func__);
 	in_global_reset = 1;
@@ -1663,7 +1670,8 @@ static void ul_wakeup(void)
 	if (wait_for_ack) {
 		BAM_DMUX_LOG("%s waiting for previous ack\n", __func__);
 		ret = wait_for_completion_timeout(
-					&ul_wakeup_ack_completion, HZ);
+					&ul_wakeup_ack_completion,
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 		wait_for_ack = 0;
 		if (unlikely(ret == 0) && ssrestart_check()) {
 			mutex_unlock(&wakeup_lock);
@@ -1674,14 +1682,16 @@ static void ul_wakeup(void)
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	power_vote(1);
 	BAM_DMUX_LOG("%s waiting for wakeup ack\n", __func__);
-	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, HZ);
+	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion,
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout wakeup ack\n", __func__);
 		return;
 	}
 	BAM_DMUX_LOG("%s waiting completion\n", __func__);
-	ret = wait_for_completion_timeout(&bam_connection_completion, HZ);
+	ret = wait_for_completion_timeout(&bam_connection_completion,
+					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout power on\n", __func__);
@@ -1751,11 +1761,15 @@ static void disconnect_to_bam(void)
 	unsigned long flags;
 	unsigned long time_remaining;
 
-	time_remaining = wait_for_completion_timeout(&shutdown_completion,
-			msecs_to_jiffies(SHUTDOWN_TIMEOUT_MS));
-	if (time_remaining == 0) {
-		pr_err("%s: shutdown completion timed out\n", __func__);
-		ssrestart_check();
+	if (!in_global_reset) {
+		time_remaining = wait_for_completion_timeout(
+				&shutdown_completion,
+				msecs_to_jiffies(SHUTDOWN_TIMEOUT_MS));
+		if (time_remaining == 0) {
+			DMUX_LOG_KERR("%s: shutdown completion timed out\n",
+					__func__);
+			ssrestart_check();
+		}
 	}
 
 	bam_connection_is_active = 0;
@@ -2221,6 +2235,11 @@ static void msm9615_bam_init(void)
 static void toggle_apps_ack(void)
 {
 	static unsigned int clear_bit; /* 0 = set the bit, else clear bit */
+
+	if (in_global_reset) {
+		BAM_DMUX_LOG("%s: skipped due to SSR\n", __func__);
+		return;
+	}
 
 	BAM_DMUX_LOG("%s: apps ack %d->%d\n", __func__,
 			clear_bit & 0x1, ~clear_bit & 0x1);

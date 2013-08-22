@@ -394,9 +394,7 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
-void mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
 void mdss_dsi_controller_cfg(int enable,
@@ -412,8 +410,6 @@ int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 int mdss_dsi_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);

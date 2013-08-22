@@ -98,6 +98,7 @@ if (msm_ipc_router_debug_mask & R2R_RAW_HDR) \
 #define IPC_ROUTER_LOG_EVENT_ERROR      0x00
 #define IPC_ROUTER_LOG_EVENT_TX         0x01
 #define IPC_ROUTER_LOG_EVENT_RX         0x02
+#define IPC_ROUTER_DUMMY_DEST_NODE	0xFFFFFFFF
 
 static LIST_HEAD(control_ports);
 static DECLARE_RWSEM(control_ports_lock_lha5);
@@ -926,7 +927,8 @@ static void msm_ipc_router_destroy_server(struct msm_ipc_server *server,
 
 static int msm_ipc_router_send_control_msg(
 		struct msm_ipc_router_xprt_info *xprt_info,
-		union rr_control_msg *msg)
+		union rr_control_msg *msg,
+		uint32_t dst_node_id)
 {
 	struct rr_packet *pkt;
 	struct sk_buff *ipc_rtr_pkt;
@@ -986,7 +988,10 @@ static int msm_ipc_router_send_control_msg(
 	hdr->src_port_id = IPC_ROUTER_ADDRESS;
 	hdr->confirm_rx = 0;
 	hdr->size = sizeof(*msg);
-	hdr->dst_node_id = xprt_info->remote_node_id;
+	if (hdr->type == IPC_ROUTER_CTRL_CMD_RESUME_TX)
+		hdr->dst_node_id = dst_node_id;
+	else
+		hdr->dst_node_id = xprt_info->remote_node_id;
 	hdr->dst_port_id = IPC_ROUTER_ADDRESS;
 	skb_queue_tail(pkt_fragment_q, ipc_rtr_pkt);
 	pkt->pkt_fragment_q = pkt_fragment_q;
@@ -1013,6 +1018,7 @@ static int msm_ipc_router_send_server_list(uint32_t node_id,
 		return -EINVAL;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_NEW_SERVER;
 
 	for (i = 0; i < SRV_HASH_SIZE; i++) {
@@ -1030,7 +1036,7 @@ static int msm_ipc_router_send_server_list(uint32_t node_id,
 				ctl.srv.port_id =
 					server_port->server_addr.port_id;
 				msm_ipc_router_send_control_msg(xprt_info,
-								&ctl);
+					&ctl, IPC_ROUTER_DUMMY_DEST_NODE);
 			}
 		}
 	}
@@ -1131,7 +1137,8 @@ static int broadcast_ctl_msg(union rr_control_msg *ctl)
 
 	down_read(&xprt_info_list_lock_lha5);
 	list_for_each_entry(xprt_info, &xprt_info_list, list) {
-		msm_ipc_router_send_control_msg(xprt_info, ctl);
+		msm_ipc_router_send_control_msg(xprt_info, ctl,
+					IPC_ROUTER_DUMMY_DEST_NODE);
 	}
 	up_read(&xprt_info_list_lock_lha5);
 
@@ -1149,7 +1156,8 @@ static int relay_ctl_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	down_read(&xprt_info_list_lock_lha5);
 	list_for_each_entry(fwd_xprt_info, &xprt_info_list, list) {
 		if (xprt_info->xprt->link_id != fwd_xprt_info->xprt->link_id)
-			msm_ipc_router_send_control_msg(fwd_xprt_info, ctl);
+			msm_ipc_router_send_control_msg(fwd_xprt_info, ctl,
+						IPC_ROUTER_DUMMY_DEST_NODE);
 	}
 	up_read(&xprt_info_list_lock_lha5);
 
@@ -1241,6 +1249,7 @@ static int msm_ipc_router_send_remove_client(struct comm_mode_info *mode_info,
 	mode = mode_info->mode;
 	xprt_info = mode_info->xprt_info;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
 	msg.cli.node_id = node_id;
 	msg.cli.port_id = port_id;
@@ -1250,7 +1259,8 @@ static int msm_ipc_router_send_remove_client(struct comm_mode_info *mode_info,
 		list_for_each_entry(tmp_xprt_info, &xprt_info_list, list) {
 			if (tmp_xprt_info != xprt_info)
 				continue;
-			msm_ipc_router_send_control_msg(tmp_xprt_info, &msg);
+			msm_ipc_router_send_control_msg(tmp_xprt_info, &msg,
+						IPC_ROUTER_DUMMY_DEST_NODE);
 			break;
 		}
 		up_read(&xprt_info_list_lock_lha5);
@@ -1295,6 +1305,7 @@ static void cleanup_rmt_server(struct msm_ipc_router_xprt_info *xprt_info,
 	D("Remove server %08x:%08x - %08x:%08x",
 	   server->name.service, server->name.instance,
 	   rport_ptr->node_id, rport_ptr->port_id);
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -1313,6 +1324,7 @@ static void cleanup_rmt_ports(struct msm_ipc_router_xprt_info *xprt_info,
 	union rr_control_msg ctl;
 	int j;
 
+	memset(&ctl, 0, sizeof(ctl));
 	for (j = 0; j < RP_HASH_SIZE; j++) {
 		list_for_each_entry_safe(rport_ptr, tmp_rport_ptr,
 				&rt_entry->remote_port_list[j], list) {
@@ -1494,7 +1506,8 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	/* Send a reply HELLO message */
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_HELLO;
-	rc = msm_ipc_router_send_control_msg(xprt_info, &ctl);
+	rc = msm_ipc_router_send_control_msg(xprt_info, &ctl,
+						IPC_ROUTER_DUMMY_DEST_NODE);
 	if (rc < 0) {
 		pr_err("%s: Error sending reply HELLO message\n", __func__);
 		return rc;
@@ -1747,7 +1760,6 @@ static void do_read_data(struct work_struct *work)
 	struct msm_ipc_port *port_ptr;
 	struct sk_buff *head_skb;
 	struct msm_ipc_router_remote_port *rport_ptr;
-	uint32_t resume_tx, resume_tx_node_id, resume_tx_port_id;
 
 	struct msm_ipc_router_xprt_info *xprt_info =
 		container_of(work,
@@ -1810,10 +1822,6 @@ static void do_read_data(struct work_struct *work)
 #endif
 #endif
 
-		resume_tx = hdr->confirm_rx;
-		resume_tx_node_id = hdr->dst_node_id;
-		resume_tx_port_id = hdr->dst_port_id;
-
 		down_read(&local_ports_lock_lha2);
 		port_ptr = msm_ipc_router_lookup_local_port(hdr->dst_port_id);
 		if (!port_ptr) {
@@ -1821,7 +1829,7 @@ static void do_read_data(struct work_struct *work)
 				hdr->dst_port_id);
 			up_read(&local_ports_lock_lha2);
 			release_pkt(pkt);
-			goto process_done;
+			return;
 		}
 
 		down_read(&routing_table_lock_lha3);
@@ -1837,26 +1845,13 @@ static void do_read_data(struct work_struct *work)
 					hdr->src_port_id);
 				up_read(&routing_table_lock_lha3);
 				up_read(&local_ports_lock_lha2);
-				goto process_done;
+				release_pkt(pkt);
+				return;
 			}
 		}
 		up_read(&routing_table_lock_lha3);
 		post_pkt_to_port(port_ptr, pkt, 0);
 		up_read(&local_ports_lock_lha2);
-
-process_done:
-		if (resume_tx) {
-			union rr_control_msg msg;
-
-			msg.cmd = IPC_ROUTER_CTRL_CMD_RESUME_TX;
-			msg.cli.node_id = resume_tx_node_id;
-			msg.cli.port_id = resume_tx_port_id;
-
-			RR("x RESUME_TX id=%d:%08x\n",
-			   msg.cli.node_id, msg.cli.port_id);
-			msm_ipc_router_send_control_msg(xprt_info, &msg);
-		}
-
 	}
 	return;
 
@@ -1900,6 +1895,7 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 		return -EINVAL;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_NEW_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -1948,6 +1944,7 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 		return -ENODEV;
 	}
 
+	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
 	ctl.srv.instance = server->name.instance;
@@ -2233,11 +2230,56 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 	return 0;
 }
 
+/**
+ * msm_ipc_router_send_resume_tx() - Send Resume_Tx message
+ * @data: Pointer to received data packet that has confirm_rx bit set
+ *
+ * @return: On success, number of bytes transferred is returned, else
+ *	    standard linux error code is returned.
+ *
+ * This function sends the Resume_Tx event to the remote node that
+ * sent the data with confirm_rx field set. In case of a multi-hop
+ * scenario also, this function makes sure that the destination node_id
+ * to which the resume_tx event should reach is right.
+ */
+static int msm_ipc_router_send_resume_tx(void *data)
+{
+	union rr_control_msg msg;
+	struct rr_header *hdr = (struct rr_header *)data;
+	struct msm_ipc_routing_table_entry *rt_entry;
+	int ret;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.cmd = IPC_ROUTER_CTRL_CMD_RESUME_TX;
+	msg.cli.node_id = hdr->dst_node_id;
+	msg.cli.port_id = hdr->dst_port_id;
+	down_read(&routing_table_lock_lha3);
+	rt_entry = lookup_routing_table(hdr->src_node_id);
+	if (!rt_entry) {
+		pr_err("%s: %d Node is not present",
+				__func__, hdr->src_node_id);
+		up_read(&routing_table_lock_lha3);
+		return -ENODEV;
+	}
+	RR("x RESUME_TX id=%d:%08x\n",
+			msg.cli.node_id, msg.cli.port_id);
+	ret = msm_ipc_router_send_control_msg(rt_entry->xprt_info, &msg,
+						hdr->src_node_id);
+	up_read(&routing_table_lock_lha3);
+	if (ret < 0)
+		pr_err("%s: Send Resume_Tx Failed SRC_NODE: %d SRC_PORT: %d DEST_NODE: %d",
+			__func__, hdr->dst_node_id, hdr->dst_port_id,
+			hdr->src_node_id);
+
+	return ret;
+}
+
 int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 			struct sk_buff_head **data,
 			size_t buf_len)
 {
 	struct rr_packet *pkt;
+	struct sk_buff *head_skb;
 	int ret;
 
 	if (!port_ptr || !data)
@@ -2259,8 +2301,15 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 		wake_unlock(&port_ptr->port_rx_wake_lock);
 	*data = pkt->pkt_fragment_q;
 	ret = pkt->length;
-	kfree(pkt);
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	kfree(pkt);
+	head_skb = skb_peek(*data);
+	if (!head_skb) {
+		pr_err("%s: Socket Buffer not found", __func__);
+		return -EFAULT;
+	}
+	if (((struct rr_header *)(head_skb->data))->confirm_rx)
+		msm_ipc_router_send_resume_tx((void *)(head_skb->data));
 
 	return ret;
 }
@@ -2433,6 +2482,7 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		up_write(&local_ports_lock_lha2);
 
 		if (port_ptr->type == SERVER_PORT) {
+			memset(&msg, 0, sizeof(msg));
 			msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 			msg.srv.service = port_ptr->port_name.service;
 			msg.srv.instance = port_ptr->port_name.instance;

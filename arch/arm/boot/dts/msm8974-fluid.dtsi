@@ -14,6 +14,12 @@
 /include/ "msm8974-camera-sensor-fluid.dtsi"
 /include/ "msm8974-leds.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
+};
+
 &soc {
 	serial@f991e000 {
 		status = "ok";
@@ -263,11 +269,11 @@
 			qcom,default-state = "on";
 			qcom,max-current = <25>;
 			qcom,ctrl-delay-us = <0>;
-			qcom,boost-curr-lim = <3>;
+			qcom,boost-curr-lim = <5>;
 			qcom,cp-sel = <0>;
-			qcom,switch-freq = <2>;
+			qcom,switch-freq = <11>;
 			qcom,ovp-val = <2>;
-			qcom,num-strings = <1>;
+			qcom,num-strings = <3>;
 			qcom,id = <0>;
 		};
 	};

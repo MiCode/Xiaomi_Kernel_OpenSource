@@ -385,6 +385,12 @@ static int __init init_cpaccess_sysfs(void)
 	}
 
 	sema_init(&cp_sem, 1);
+
+	/*
+	 * Make the target instruction writeable when built as a module
+	 */
+	set_memory_rw((unsigned long)&cpaccess_dummy_inst & PAGE_MASK, 1);
+
 	return 0;
 
 exit1:

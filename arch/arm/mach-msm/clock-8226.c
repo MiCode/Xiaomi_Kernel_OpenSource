@@ -3251,6 +3251,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("xo",                 cxo_otg_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",   gcc_usb_hs_ahb_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c, "f9a55000.usb"),
+	CLK_LOOKUP("sleep_clk", gcc_usb2a_phy_sleep_clk.c, "f9a55000.usb"),
 
 	/* SPS CLOCKS */
 	CLK_LOOKUP("dfab_clk",            pnoc_sps_clk.c, "f9984000.qcom,sps"),
@@ -3308,10 +3309,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 
 	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, "msm_sdcc.3"),
 	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, "msm_sdcc.3"),
-
-	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "msm_dwc3"),
-	CLK_LOOKUP("ref_clk", diff_clk.c, "msm_dwc3"),
-
 
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_a_clk.c, ""),
@@ -3392,11 +3389,17 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6d.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6a.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "20.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6f.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "90.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6d.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6a.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "20.qcom,camera"),
+
+	/* eeprom clocks */
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6c.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6c.qcom,eeprom"),
 
 	/* CCI clocks */
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,
@@ -3612,6 +3615,13 @@ static void __init msm8226_clock_post_init(void)
 	 */
 	clk_prepare_enable(&xo_a_clk.c);
 
+	/*
+	 * Handoff will override the prepare enable count as well as the rate
+	 * Set them again.
+	 */
+	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
+
 	/* Set an initial rate (fmax at nominal) on the MMSSNOC AXI clock */
 	clk_set_rate(&axi_clk_src.c, 200000000);
 
@@ -3689,6 +3699,9 @@ static void __init msm8226_clock_pre_init(void)
 	if (IS_ERR(vdd_sr2_pll.regulator[1]))
 		panic("clock-8226: Unable to get the vdd_sr2_dig regulator!");
 
+
+	enable_rpm_scaling();
+
 	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
 	 * source. Sleep set vote is 0.
@@ -3696,8 +3709,7 @@ static void __init msm8226_clock_pre_init(void)
 	 * access mmss clock controller registers.
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
-
-	enable_rpm_scaling();
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	reg_init();
 

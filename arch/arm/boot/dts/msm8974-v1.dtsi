@@ -65,6 +65,7 @@
 /* CoreSight */
 &tmc_etr {
 	qcom,reset-flush-race;
+	qcom,byte-cntr-absent;
 };
 
 &stm {
@@ -146,4 +147,21 @@
 
 &usb_otg {
 	qcom,hsusb-otg-pnoc-errata-fix;
+};
+
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_mdss {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
 };

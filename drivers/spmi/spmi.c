@@ -363,21 +363,27 @@ EXPORT_SYMBOL_GPL(spmi_register_board_info);
 static inline int
 spmi_cmd(struct spmi_controller *ctrl, u8 opcode, u8 sid)
 {
-	BUG_ON(!ctrl || !ctrl->cmd);
+	if (!ctrl || !ctrl->cmd || ctrl->dev.type != &spmi_ctrl_type)
+		return -EINVAL;
+
 	return ctrl->cmd(ctrl, opcode, sid);
 }
 
 static inline int spmi_read_cmd(struct spmi_controller *ctrl,
 				u8 opcode, u8 sid, u16 addr, u8 bc, u8 *buf)
 {
-	BUG_ON(!ctrl || !ctrl->read_cmd);
+	if (!ctrl || !ctrl->read_cmd || ctrl->dev.type != &spmi_ctrl_type)
+		return -EINVAL;
+
 	return ctrl->read_cmd(ctrl, opcode, sid, addr, bc, buf);
 }
 
 static inline int spmi_write_cmd(struct spmi_controller *ctrl,
 				u8 opcode, u8 sid, u16 addr, u8 bc, u8 *buf)
 {
-	BUG_ON(!ctrl || !ctrl->write_cmd);
+	if (!ctrl || !ctrl->write_cmd || ctrl->dev.type != &spmi_ctrl_type)
+		return -EINVAL;
+
 	return ctrl->write_cmd(ctrl, opcode, sid, addr, bc, buf);
 }
 

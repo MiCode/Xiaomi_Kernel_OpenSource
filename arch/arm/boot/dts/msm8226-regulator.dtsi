@@ -43,7 +43,7 @@
 
 		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
 					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
-		qcom,pvs-corner-ceiling-slow = <1155000 1160000 1275000>;
+		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
 		qcom,pvs-corner-ceiling-nom  = <1050000 1075000 1200000>;
 		qcom,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
@@ -482,14 +482,10 @@
 	regulator-name = "8226_smbbp_boost";
 };
 
-&soc {
-	usb_otg_sw: regulator-ncp380 {
-		compatible = "regulator-fixed";
-		regulator-name = "usb_otg_sw";
-		gpio = <&msmgpio 67 0>;
-		parent-supply = <&pm8226_chg_boost>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		status = "disabled";
-	};
+&pm8226_chg {
+	otg-parent-supply = <&pm8226_chg_boost>;
+};
+
+&pm8226_chg_otg {
+	regulator-name = "8226_smbbp_otg";
 };

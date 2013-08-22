@@ -67,8 +67,8 @@ static inline void dump_sleep_params(struct mc_flags *flags)
 	MCDRV_DBG(mcd, "MobiCore IDLE=%d!", flags->schedule);
 	MCDRV_DBG(mcd,
 		  "MobiCore Request Sleep=%d!", flags->sleep_mode.SleepReq);
-	MCDRV_DBG(mcd, "MobiCore Sleep Ready=%d!",
-		  flags->sleep_mode.ReadyToSleep);
+	MCDRV_DBG(mcd,
+		  "MobiCore Sleep Ready=%d!", flags->sleep_mode.ReadyToSleep);
 }
 
 static int mc_suspend_notifier(struct notifier_block *nb,

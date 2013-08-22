@@ -19,6 +19,7 @@ est	ESTeem Wireless Modems
 focaltech Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
+goodix	Goodix. Ltd.
 gef	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 hp	Hewlett Packard
 ibm	International Business Machines (IBM)
@@ -42,6 +43,7 @@ realtek Realtek Semiconductor Corp.
 samsung	Samsung Semiconductor
 sbs	Smart Battery System
 schindler	Schindler
+stk	Sensortek Technology Corporation.(formerly Sitronix Technology Co., Ltd.)
 shinetech	Shine Tech Corporation, Ltd.
 sil	Silicon Image
 simtek

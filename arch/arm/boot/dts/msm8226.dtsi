@@ -182,11 +182,23 @@
 			<103000 134000>,
 			<268000 348000>,
 			<505000 657000>;
-		qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
-		qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-			<0x1fe 0x2>;
+			<0x2 0x2>,
+			<0x1f0 0x3>;
 		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x1ff>,
+							<0x200>;
+			};
+
+			qcom,domain-cp {
+				qcom,vidc-domain-phandle = <&venus_domain_cp>;
+				qcom,vidc-partition-buffer-types = <0x2>,
+							<0x1f1>;
+			};
+		};
 	};
 
 	qcom,wfd {
@@ -275,10 +287,9 @@
 				<87 512 6000  6000>;
 	};
 
-	android_usb@fe8050c8 {
+	android_usb: android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfe8050c8 0xc8>;
-		qcom,android-usb-cdrom;
 		qcom,android-usb-swfi-latency = <1>;
 	};
 
@@ -1017,9 +1028,11 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
-	qcom,msm-mem-hole {
+	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x6400000 0x9b00000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x08400000 0x4000000
+					0x0d200000 0x2300000
+					0x0fa00000 0x500000>; /* Address and Size of Hole */
 	};
 
 	tsens: tsens@fc4a8000 {
@@ -1072,16 +1085,17 @@
 		interrupts = <0 95 0>, <0 238 0>;
 		spi-max-frequency = <19200000>;
 
-		gpios = <&msmgpio 3 0>, /* CLK  */
-			<&msmgpio 1 0>, /* MISO */
-			<&msmgpio 0 0>; /* MOSI */
-		cs-gpios = <&msmgpio 22 0>;
+		qcom,gpio-mosi = <&msmgpio 0 0>;
+		qcom,gpio-miso = <&msmgpio 1 0>;
+		qcom,gpio-clk  = <&msmgpio 3 0>;
+		qcom,gpio-cs0  = <&msmgpio 22 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <12>;
 		qcom,bam-producer-pipe-index = <13>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,bam_dmux@fc834000 {

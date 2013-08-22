@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-/include/ "apq8074-v2.dtsi"
-/include/ "apq8074-dragonboard.dtsi"
+/include/ "apq8074-v2.2.dtsi"
+/include/ "msm8974-liquid.dtsi"
 
 / {
-	model = "Qualcomm APQ 8074v2 DRAGONBOARD";
-	compatible = "qcom,apq8074-dragonboard", "qcom,apq8074", "qcom,dragonboard";
-	qcom,msm-id = <184 10 0x20000>;
+	model = "Qualcomm APQ 8074v2.2 LIQUID";
+	compatible = "qcom,apq8074-liquid", "qcom,apq8074", "qcom,liquid";
+	qcom,msm-id = <184 9 0x20002>;
 };

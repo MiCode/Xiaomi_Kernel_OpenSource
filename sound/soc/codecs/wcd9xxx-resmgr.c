@@ -652,15 +652,17 @@ done:
 	return rc;
 }
 
-void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
-				      enum wcd9xxx_resmgr_cond cond)
+static void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
+					     enum wcd9xxx_resmgr_cond cond)
 {
 	struct list_head *l;
 	struct wcd9xxx_resmgr_cond_entry *e;
 	bool set;
 
 	pr_debug("%s: enter\n", __func__);
-	set = !!test_bit(cond, &resmgr->cond_flags);
+	/* update bit if cond isn't available or cond is set */
+	set = !test_bit(cond, &resmgr->cond_avail_flags) ||
+	      !!test_bit(cond, &resmgr->cond_flags);
 	list_for_each(l, &resmgr->update_bit_cond_h) {
 		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
 		if (e->cond == cond)
@@ -670,6 +672,44 @@ void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
 					    << e->shift);
 	}
 	pr_debug("%s: leave\n", __func__);
+}
+
+/*
+ * wcd9xxx_regmgr_cond_register : notify resmgr conditions in the condbits are
+ *				  avaliable and notified.
+ * condbits : contains bitmask of enum wcd9xxx_resmgr_cond
+ */
+void wcd9xxx_regmgr_cond_register(struct wcd9xxx_resmgr *resmgr,
+				  unsigned long condbits)
+{
+	unsigned int cond;
+
+	for_each_set_bit(cond, &condbits, BITS_PER_BYTE * sizeof(condbits)) {
+		mutex_lock(&resmgr->update_bit_cond_lock);
+		WARN(test_bit(cond, &resmgr->cond_avail_flags),
+		     "Condition 0x%0x is already registered\n", cond);
+		set_bit(cond, &resmgr->cond_avail_flags);
+		wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
+		mutex_unlock(&resmgr->update_bit_cond_lock);
+		pr_debug("%s: Condition 0x%x is registered\n", __func__, cond);
+	}
+}
+
+void wcd9xxx_regmgr_cond_deregister(struct wcd9xxx_resmgr *resmgr,
+				    unsigned long condbits)
+{
+	unsigned int cond;
+
+	for_each_set_bit(cond, &condbits, BITS_PER_BYTE * sizeof(condbits)) {
+		mutex_lock(&resmgr->update_bit_cond_lock);
+		WARN(!test_bit(cond, &resmgr->cond_avail_flags),
+		     "Condition 0x%0x isn't registered\n", cond);
+		clear_bit(cond, &resmgr->cond_avail_flags);
+		wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
+		mutex_unlock(&resmgr->update_bit_cond_lock);
+		pr_debug("%s: Condition 0x%x is deregistered\n", __func__,
+			 cond);
+	}
 }
 
 void wcd9xxx_resmgr_cond_update_cond(struct wcd9xxx_resmgr *resmgr,

@@ -198,6 +198,7 @@ struct dsi_panel_common_pdata {
 struct dsi_interface {
 	int (*on)(struct mdss_panel_data *pdata);
 	int (*off)(struct mdss_panel_data *pdata);
+	int (*cont_on)(struct mdss_panel_data *pdata);
 	void (*op_mode_config)(int mode, struct mdss_panel_data *pdata);
 	int (*tx)(struct mdss_panel_data *pdata,
 		struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt);
@@ -233,5 +234,7 @@ int dsi_short_read1_resp(struct dsi_buf *rp);
 int dsi_short_read2_resp(struct dsi_buf *rp);
 
 int dsi_long_read_resp(struct dsi_buf *rp);
+
+void dsi_set_tx_power_mode(int mode);
 
 #endif /* MDSS_DSI_H */

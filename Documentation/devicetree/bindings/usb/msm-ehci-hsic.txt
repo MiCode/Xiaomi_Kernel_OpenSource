@@ -39,7 +39,11 @@ Optional properties :
 - hsic,data-pad-offset : Offset of TLMM register for configuring HSIC
   DATA GPIO PAD.
 - qcom,phy-sof-workaround : If present then HSIC PHY has h/w BUGs related to
-  SOFs. Software workarounds are required for the same.
+  SOFs. All the relevant software workarounds are required for the same during
+  suspend, reset and resume.
+- qcom,phy-susp-sof-workaround : If present then HSIC PHY has h/w BUG related to
+  SOFs while entering SUSPEND. Relevant software workaround is required for the same
+  during SUSPEND only.
 - qcom,pool-64-bit-align: If present then the pool's memory will be aligned
   to 64 bits
 - qcom,enable_hbm: if present host bus manager is enabled.
@@ -72,6 +76,11 @@ Optional properties :
   When CERR is programmed to zero, hw ignores transaction failures. ECHI stack
   programs the CERR  to 3 by default. When this flag is true, CERR is set to
   zero and transaction errors are ignored.
+
+- hsic,reset-delay: If present then add the given delay time (ms) between
+  the reset and enumeration. Since some devices might take more than 100ms
+  for initialization when receiving the bus reset, add delay to avoid the
+  problem that enmueration is before device initialization done.
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
@@ -117,6 +126,7 @@ SMSC HSIC HUB
 
 Required properties :
 - compatible : should be "qcom,hsic-smsc-hub"
+- smsc,model-id : should be either <3503> or <4604> depending on hub model
 - smsc,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
   in Documentation/devicetree/bindings/gpio/gpio.txt.
   Required "gpio-name" is "reset" and optionally - "refclk", "int".
@@ -128,6 +138,7 @@ Required properties :
 Example SMSC HSIC HUB :
 	hsic_hub {
 		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <4604>;
 		ranges;
 		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
 		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;

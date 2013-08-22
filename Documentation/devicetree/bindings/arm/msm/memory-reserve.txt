@@ -26,12 +26,13 @@ range is not affected. Any driver needing to remove a block of memory should
 add the appropriate binding:
 
 Required parameters:
-- qcom,memblock-remove: base and size of block to be removed
+- qcom,memblock-remove: array of the base and size of blocks to be removed
 
 	qcom,a-driver {
 		compatible = "qcom,a-driver";
-		/* Remove 4MB at 0x200000*/
-		qcom,memblock-remove = <0x200000 0x400000>;
+		/* Remove 4MB at 0x200000 and 2MB at 0x800000*/
+		qcom,memblock-remove = <0x200000 0x400000
+					0x800000 0x200000>;
 	};
 
 In order to ensure memory is only reserved when a driver is actually enabled,

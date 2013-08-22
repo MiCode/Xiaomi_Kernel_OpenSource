@@ -37,6 +37,7 @@ Optional properties:
 - qcom,default-temp:   Specifies the default temperature in millicelcius to use
 			if no ADC channel is present to read the real time
 			temperature.
+- qcom,temp_alarm-vadc: Corresponding VADC device's phandle.
 
 Note, if a given optional qcom,* binding is not present, then the default
 hardware state for that feature will be maintained.
@@ -61,6 +62,7 @@ Example:
 			label = "pm8941_tz";
 			qcom,channel-num = <8>;
 			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8941_vadc>;
 		};
 	};
 };

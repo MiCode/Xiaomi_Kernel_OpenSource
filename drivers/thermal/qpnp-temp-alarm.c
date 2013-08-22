@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@ struct qpnp_tm_chip {
 	enum qpnp_vadc_channels		adc_channel;
 	u16				base_addr;
 	bool				allow_software_override;
+	struct qpnp_vadc_chip		*vadc_dev;
 };
 
 /* Delay between TEMP_STAT IRQ going high and status value changing in ms. */
@@ -160,7 +161,7 @@ static int qpnp_tm_update_temp(struct qpnp_tm_chip *chip)
 	struct qpnp_vadc_result adc_result;
 	int rc;
 
-	rc = qpnp_vadc_read(chip->adc_channel, &adc_result);
+	rc = qpnp_vadc_read(chip->vadc_dev, chip->adc_channel, &adc_result);
 	if (!rc)
 		chip->temperature = adc_result.physical;
 	else
@@ -543,9 +544,12 @@ static int __devinit qpnp_tm_probe(struct spmi_device *spmi)
 				__func__, chip->adc_channel);
 		} else {
 			chip->adc_type = QPNP_TM_ADC_QPNP_ADC;
-			rc = qpnp_vadc_is_ready();
-			if (rc) {
-				/* Probe retry, do not print an error message */
+			chip->vadc_dev = qpnp_get_vadc(&spmi->dev,
+							"temp_alarm");
+			if (IS_ERR(chip->vadc_dev)) {
+				rc = PTR_ERR(chip->vadc_dev);
+				if (rc != -EPROBE_DEFER)
+					pr_err("vadc property missing\n");
 				goto err_cancel_work;
 			}
 		}

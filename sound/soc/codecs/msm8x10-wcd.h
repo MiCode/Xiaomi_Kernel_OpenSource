@@ -32,6 +32,7 @@
 #define MSM8X10_DINO_LPASS_DIGCODEC_CBCR			0xFE02C014
 #define MSM8X10_DINO_LPASS_DIGCODEC_AHB_CBCR			0xFE02C018
 
+#define MSM8X10_CODEC_NAME "msm8x10_wcd_codec"
 
 #define MSM8X10_WCD_IS_DINO_REG(reg) \
 	(((reg >= 0x400) && (reg <= 0x5FF)) ? 1 : 0)
@@ -230,6 +231,7 @@ struct msm8x10_wcd {
 	bool irq_level_high[MSM8X10_WCD_NUM_IRQS];
 	int num_irqs;
 	u32 mclk_rate;
+	char __iomem *pdino_base;
 };
 
 extern int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
