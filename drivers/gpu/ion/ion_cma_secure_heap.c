@@ -34,10 +34,6 @@
 #define ION_CMA_ALLOCATE_FAILED NULL
 
 struct ion_secure_cma_buffer_info {
-	/*
-	 * This needs to come first for compatibility with the secure buffer API
-	 */
-	struct ion_cp_buffer secure;
 	dma_addr_t phys;
 	struct sg_table *table;
 	bool is_cached;
@@ -460,8 +456,6 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 	ion_secure_cma_get_sgtable(sheap->dev,
 			info->table, info->phys, len);
 
-	info->secure.buffer = info->phys;
-
 	/* keep this for memory release */
 	buffer->priv_virt = info;
 	dev_dbg(sheap->dev, "Allocate buffer %p\n", buffer);
@@ -498,17 +492,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	if (buf) {
 		int ret;
 
-		buf->secure.want_delayed_unsecure = 0;
-		atomic_set(&buf->secure.secure_cnt, 0);
-		mutex_init(&buf->secure.lock);
-		buf->secure.is_secure = 1;
-		buf->secure.ignore_check = true;
-
-		/*
-		 * make sure the size is set before trying to secure
-		 */
-		buffer->size = len;
-		ret = ion_cp_secure_buffer(buffer, ION_CP_V2, 0, 0);
+		ret = msm_ion_secure_table(buf->table, 0, 0, true);
 		if (ret) {
 			/*
 			 * Don't treat the secure buffer failing here as an
@@ -532,7 +516,7 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
 
 	dev_dbg(sheap->dev, "Release buffer %p\n", buffer);
-	ion_cp_unsecure_buffer(buffer, 1);
+	msm_ion_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
 	/* release memory */
@@ -642,8 +626,6 @@ static struct ion_heap_ops ion_secure_cma_ops = {
 	.map_kernel = ion_secure_cma_map_kernel,
 	.unmap_kernel = ion_secure_cma_unmap_kernel,
 	.print_debug = ion_secure_cma_print_debug,
-	.secure_buffer = ion_cp_secure_buffer,
-	.unsecure_buffer = ion_cp_unsecure_buffer,
 };
 
 struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data)

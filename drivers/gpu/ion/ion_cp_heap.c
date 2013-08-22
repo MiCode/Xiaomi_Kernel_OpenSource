@@ -100,6 +100,19 @@ enum {
 	HEAP_PROTECTED = 1,
 };
 
+/*  SCM related code for locking down memory for content protection */
+
+#define SCM_CP_LOCK_CMD_ID	0x1
+#define SCM_CP_PROTECT		0x1
+#define SCM_CP_UNPROTECT	0x0
+
+struct cp_lock_msg {
+	unsigned int start;
+	unsigned int end;
+	unsigned int permission_type;
+	unsigned char lock;
+} __attribute__ ((__packed__));
+
 #define DMA_ALLOC_TRIES	5
 
 static int allocate_heap_memory(struct ion_heap *heap)
@@ -734,8 +747,6 @@ static struct ion_heap_ops cp_heap_ops = {
 	.print_debug = ion_cp_print_debug,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
-	.secure_buffer = ion_cp_secure_buffer,
-	.unsecure_buffer = ion_cp_unsecure_buffer,
 };
 
 struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
@@ -832,4 +843,53 @@ void ion_cp_heap_get_base(struct ion_heap *heap, unsigned long *base,
 	*size = cp_heap->total_size;
 }
 
+static int ion_cp_protect_mem_v1(unsigned int phy_base, unsigned int size,
+			      unsigned int permission_type)
+{
+	struct cp_lock_msg cmd;
+	cmd.start = phy_base;
+	cmd.end = phy_base + size;
+	cmd.permission_type = permission_type;
+	cmd.lock = SCM_CP_PROTECT;
+
+	return scm_call(SCM_SVC_MP, SCM_CP_LOCK_CMD_ID,
+			&cmd, sizeof(cmd), NULL, 0);
+}
+
+static int ion_cp_unprotect_mem_v1(unsigned int phy_base, unsigned int size,
+				unsigned int permission_type)
+{
+	struct cp_lock_msg cmd;
+	cmd.start = phy_base;
+	cmd.end = phy_base + size;
+	cmd.permission_type = permission_type;
+	cmd.lock = SCM_CP_UNPROTECT;
+
+	return scm_call(SCM_SVC_MP, SCM_CP_LOCK_CMD_ID,
+			&cmd, sizeof(cmd), NULL, 0);
+}
+
+int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
+			      unsigned int permission_type, int version,
+			      void *data)
+{
+	switch (version) {
+	case ION_CP_V1:
+		return ion_cp_protect_mem_v1(phy_base, size, permission_type);
+	default:
+		return -EINVAL;
+	}
+}
+
+int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
+			      unsigned int permission_type, int version,
+			      void *data)
+{
+	switch (version) {
+	case ION_CP_V1:
+		return ion_cp_unprotect_mem_v1(phy_base, size, permission_type);
+	default:
+		return -EINVAL;
+	}
+}
 
