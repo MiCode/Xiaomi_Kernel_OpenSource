@@ -23,15 +23,16 @@
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/dma-mapping.h>
 #include <mach/scm.h>
 #include <mach/msm_cache_dump.h>
-#include <mach/memory.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_memory_dump.h>
 
 #define L2_DUMP_OFFSET 0x14
 
-static unsigned long msm_cache_dump_addr;
+static dma_addr_t msm_cache_dump_addr;
+static void *msm_cache_dump_vaddr;
 
 /*
  * These should not actually be dereferenced. There's no
@@ -76,7 +77,6 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		unsigned long buf;
 		unsigned long size;
 	} l1_cache_data;
-	void *temp;
 	u32 l1_size, l2_size;
 	unsigned long total_size;
 
@@ -102,19 +102,20 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 	};
 
 	total_size = l1_size + l2_size;
-	msm_cache_dump_addr = allocate_contiguous_ebi_nomap(total_size, SZ_4K);
+	msm_cache_dump_vaddr = (void *) dma_alloc_coherent(&pdev->dev,
+					total_size, &msm_cache_dump_addr,
+					GFP_KERNEL);
 
-	if (!msm_cache_dump_addr) {
+	if (!msm_cache_dump_vaddr) {
 		pr_err("%s: Could not get memory for cache dumping\n",
 			__func__);
 		return -ENOMEM;
 	}
 
-	temp = ioremap(msm_cache_dump_addr, total_size);
-	memset(temp, 0xFF, total_size);
+	memset(msm_cache_dump_vaddr, 0xFF, total_size);
 	/* Clean caches before sending buffer to TZ */
-	clean_caches((unsigned long) temp, total_size, msm_cache_dump_addr);
-	iounmap(temp);
+	clean_caches((unsigned long) msm_cache_dump_vaddr, total_size,
+			msm_cache_dump_addr);
 
 	l1_cache_data.buf = msm_cache_dump_addr;
 	l1_cache_data.size = l1_size;
@@ -126,8 +127,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		pr_err("%s: could not register L1 buffer ret = %d.\n",
 			__func__, ret);
 
-	l1_dump = (struct l1_cache_dump *)msm_cache_dump_addr;
-	l2_dump = (struct l2_cache_dump *)(msm_cache_dump_addr + l1_size);
+	l1_dump = (struct l1_cache_dump *)(uint32_t)msm_cache_dump_addr;
+	l2_dump = (struct l2_cache_dump *)(uint32_t)(msm_cache_dump_addr
+								+ l1_size);
 
 #if defined(CONFIG_MSM_CACHE_DUMP_ON_PANIC)
 	l1_cache_data.buf = msm_cache_dump_addr + l1_size;
