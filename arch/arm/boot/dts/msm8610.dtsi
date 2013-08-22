@@ -929,7 +929,7 @@
 };
 
 &gdsc_vfe {
-	qcom,clock-names = "core_clk", "iface_clk", "bus_clk", "csi_clk";
+	qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
 	qcom,skip-logic-collapse;
 	qcom,retain-periph;
 	qcom,retain-mem;
