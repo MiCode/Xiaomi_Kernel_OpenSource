@@ -751,7 +751,7 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
-		teth_bridge_disconnect();
+		teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
 	}
 }
 
@@ -816,7 +816,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		ret = teth_bridge_init(&usb_notify_cb, &priv);
+		ret = teth_bridge_init(&usb_notify_cb, &priv,
+				IPA_CLIENT_USB_PROD);
 		if (ret) {
 			pr_err("%s:teth_bridge_init() failed\n", __func__);
 			return;
@@ -846,6 +847,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
 		connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;
 		connect_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
+		connect_params.client_type = IPA_CLIENT_USB_PROD;
 		ret = teth_bridge_connect(&connect_params);
 		if (ret) {
 			pr_err("%s:teth_bridge_connect() failed\n", __func__);

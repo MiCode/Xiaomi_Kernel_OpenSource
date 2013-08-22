@@ -436,6 +436,10 @@ enum a2_mux_logical_channel_id {
 	A2_MUX_WWAN_6,
 	A2_MUX_WWAN_7,
 	A2_MUX_TETHERED_0,
+	A2_MUX_RESERVED_9,
+	A2_MUX_MULTI_RMNET_10,
+	A2_MUX_MULTI_RMNET_11,
+	A2_MUX_MULTI_RMNET_12,
 	A2_MUX_NUM_CHANNELS
 };
 
@@ -457,11 +461,13 @@ enum teth_tethering_mode {
  * @ipa_usb_pipe_hdl:	IPA to USB pipe handle, returned from ipa_connect()
  * @usb_ipa_pipe_hdl:	USB to IPA pipe handle, returned from ipa_connect()
  * @tethering_mode:	Rmnet or MBIM
+ * @ipa_client_type:    IPA "client" name (IPA_CLIENT_USB#_PROD)
  */
 struct teth_bridge_connect_params {
 	u32 ipa_usb_pipe_hdl;
 	u32 usb_ipa_pipe_hdl;
 	enum teth_tethering_mode tethering_mode;
+	enum ipa_client_type client_type;
 };
 
 #ifdef CONFIG_IPA
@@ -654,20 +660,22 @@ int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid);
 
 int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid);
 
-int a2_mux_get_tethered_client_handles(enum a2_mux_logical_channel_id lcid,
+int a2_mux_get_client_handles(enum a2_mux_logical_channel_id lcid,
 		unsigned int *clnt_cons_handle,
 		unsigned int *clnt_prod_handle);
 
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
-int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr);
+int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
+		enum ipa_client_type client);
 
-int teth_bridge_disconnect(void);
+int teth_bridge_disconnect(enum ipa_client_type client);
 
 int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
-int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params);
+int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
+		enum ipa_client_type client);
 
 void ipa_bam_reg_dump(void);
 bool ipa_emb_ul_pipes_empty(void);
@@ -706,7 +714,7 @@ static inline int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid)
 	return -EPERM;
 }
 
-static inline int a2_mux_get_tethered_client_handles(
+static inline int a2_mux_get_client_handles(
 	enum a2_mux_logical_channel_id lcid, unsigned int *clnt_cons_handle,
 	unsigned int *clnt_prod_handle)
 {
@@ -1087,12 +1095,13 @@ static inline int ipa_rm_inactivity_timer_release_resource(
  * Tethering bridge (Rmnetm / MBIM)
  */
 static inline int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr,
-				   void **private_data_ptr)
+				   void **private_data_ptr,
+				   enum ipa_client_type client)
 {
 	return -EPERM;
 }
 
-static inline int teth_bridge_disconnect(void)
+static inline int teth_bridge_disconnect(enum ipa_client_type client)
 {
 	return -EPERM;
 }
@@ -1103,8 +1112,9 @@ static inline int teth_bridge_connect(struct teth_bridge_connect_params
 	return -EPERM;
 }
 
-static inline int teth_bridge_set_aggr_params(struct teth_aggr_params
-					      *aggr_params)
+static inline int teth_bridge_set_aggr_params(
+				struct teth_aggr_params *aggr_params,
+				enum ipa_client_type client)
 {
 	return -EPERM;
 }

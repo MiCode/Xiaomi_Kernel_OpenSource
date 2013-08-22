@@ -678,7 +678,7 @@ int mbim_configure_params(void)
 	aggr_params.ul.max_transfer_size_byte =
 			mbim_ntb_parameters.dwNtbOutMaxSize;
 
-	ret = teth_bridge_set_aggr_params(&aggr_params);
+	ret = teth_bridge_set_aggr_params(&aggr_params, IPA_CLIENT_USB_PROD);
 	if (ret)
 		pr_err("%s: teth_bridge_set_aggr_params failed\n", __func__);
 

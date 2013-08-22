@@ -96,8 +96,11 @@ enum ipa_client_type {
 	IPA_CLIENT_PROD,
 	IPA_CLIENT_HSIC1_PROD = IPA_CLIENT_PROD,
 	IPA_CLIENT_HSIC2_PROD,
+	IPA_CLIENT_USB2_PROD = IPA_CLIENT_HSIC2_PROD,
 	IPA_CLIENT_HSIC3_PROD,
+	IPA_CLIENT_USB3_PROD = IPA_CLIENT_HSIC3_PROD,
 	IPA_CLIENT_HSIC4_PROD,
+	IPA_CLIENT_USB4_PROD = IPA_CLIENT_HSIC4_PROD,
 	IPA_CLIENT_HSIC5_PROD,
 	IPA_CLIENT_USB_PROD,
 	IPA_CLIENT_A5_WLAN_AMPDU_PROD,
@@ -110,8 +113,11 @@ enum ipa_client_type {
 	IPA_CLIENT_CONS,
 	IPA_CLIENT_HSIC1_CONS = IPA_CLIENT_CONS,
 	IPA_CLIENT_HSIC2_CONS,
+	IPA_CLIENT_USB2_CONS = IPA_CLIENT_HSIC2_CONS,
 	IPA_CLIENT_HSIC3_CONS,
+	IPA_CLIENT_USB3_CONS = IPA_CLIENT_HSIC3_CONS,
 	IPA_CLIENT_HSIC4_CONS,
+	IPA_CLIENT_USB4_CONS = IPA_CLIENT_HSIC4_CONS,
 	IPA_CLIENT_HSIC5_CONS,
 	IPA_CLIENT_USB_CONS,
 	IPA_CLIENT_A2_EMBEDDED_CONS,
@@ -885,16 +891,35 @@ struct teth_aggr_capabilities {
 	struct teth_aggr_params_link prot_caps[0];
 };
 
+/**
+ * struct teth_ioc_set_bridge_mode
+ * @link_protocol: link protocol (IP / Ethernet)
+ * @lcid: logical channel number
+ */
+struct teth_ioc_set_bridge_mode {
+	enum teth_link_protocol_type link_protocol;
+	uint16_t lcid;
+};
+
+/**
+ * struct teth_ioc_set_aggr_params
+ * @aggr_params: Aggregation parmeters
+ * @lcid: logical channel number
+ */
+struct teth_ioc_aggr_params {
+	struct teth_aggr_params aggr_params;
+	uint16_t lcid;
+};
 
 #define TETH_BRIDGE_IOC_SET_BRIDGE_MODE _IOW(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE, \
-				enum teth_link_protocol_type)
+				struct teth_ioc_set_bridge_mode *)
 #define TETH_BRIDGE_IOC_SET_AGGR_PARAMS _IOW(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_SET_AGGR_PARAMS, \
-				struct teth_aggr_params *)
+				struct teth_ioc_aggr_params *)
 #define TETH_BRIDGE_IOC_GET_AGGR_PARAMS _IOR(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_GET_AGGR_PARAMS, \
-				struct teth_aggr_params *)
+				struct teth_ioc_aggr_params *)
 #define TETH_BRIDGE_IOC_GET_AGGR_CAPABILITIES _IOWR(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_GET_AGGR_CAPABILITIES, \
 				struct teth_aggr_capabilities *)

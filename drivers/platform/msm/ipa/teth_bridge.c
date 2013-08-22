@@ -44,10 +44,10 @@
 #define A2_ETH_HDR_NAME_IPV4  "a2_bridge_ipv4"
 #define A2_ETH_HDR_NAME_IPV6  "a2_bridge_ipv6"
 
-#define USB_TO_A2_RT_TBL_NAME_IPV4 "usb_a2_rt_tbl_ipv4"
-#define A2_TO_USB_RT_TBL_NAME_IPV4 "a2_usb_rt_tbl_ipv4"
-#define USB_TO_A2_RT_TBL_NAME_IPV6 "usb_a2_rt_tbl_ipv6"
-#define A2_TO_USB_RT_TBL_NAME_IPV6 "a2_usb_rt_tbl_ipv6"
+#define USB_TO_A2_RT_TBL_NAME_IPV4 "usb_a2_rt_ipv4"
+#define A2_TO_USB_RT_TBL_NAME_IPV4 "a2_usb_rt_ipv4"
+#define USB_TO_A2_RT_TBL_NAME_IPV6 "usb_a2_rt_ipv6"
+#define A2_TO_USB_RT_TBL_NAME_IPV6 "a2_usb_rt_ipv6"
 
 #define MBIM_HEADER_NAME "mbim_header"
 #define TETH_DEFAULT_AGGR_TIME_LIMIT 1
@@ -68,6 +68,29 @@
 #define TETH_TOTAL_RT_ENTRIES_IP 3
 #define TETH_TOTAL_FLT_ENTRIES_IP 2
 #define TETH_IP_FAMILIES 2
+
+#define METADATA_SHFT 16
+#define METADATA_MASK 0x00FF0000
+
+#define TETH_NUM_CHANNELS 4
+
+/**
+ * enum teth_init_status - bridge initialization state
+ *			(NOT_INITIALIZED / INITIALIZED/ ERROR)
+ */
+enum teth_init_status {
+	TETH_NOT_INITIALIZED,
+	TETH_INITIALIZED,
+	TETH_INITIALIZATION_ERROR,
+};
+
+/**
+ * enum teth_ch_type - channel type (Embedded or Tethered)
+ */
+enum teth_ch_type {
+	TETH_EMBEDDED_CH,
+	TETH_TETHERED_CH,
+};
 
 /**
  * struct mac_addresses_type - store host PC and device MAC addresses
@@ -100,29 +123,63 @@ struct stats {
 };
 
 /**
+ * struct hw_bridge_work_wrap - wrapper for the channel number which is sent
+ * when using a workqueue
+ * @work: used by the workqueue
+ * @lcid: logic channel number
+ */
+struct hw_bridge_work_wrap {
+	struct work_struct comp_hw_bridge_work;
+	u16 lcid;
+};
+
+/**
+ * struct teth_bridge_ctx - Tethering bridge driver context information
+ * @usb_ipa_pipe_hdl: USB to IPA pipe handle
+ * @ipa_usb_pipe_hdl: IPA to USB pipe handle
+ * @is_connected: is the tethered bridge connected ?
+ * @link_protocol: IP / Ethernet
+ * @is_hw_bridge_complete: is HW bridge setup ?
+ * @aggr_params: aggregation parmeters
+ * @aggr_params_known: are the aggregation parameters known ?
+ * @hw_bridge_work_wrap: used for setting up the HW bridge using a workqueue
+ * @comp_hw_bridge_in_progress: true when the HW bridge setup is in progress
+ * @ch_type: Is this channel tethered or embedded ?
+ * @routing_del: array of routing rules handles, one array for IPv4 and one for
+ * IPv6
+ * @filtering_del: array of routing rules handles, one array for IPv4 and one
+ * for IPv6
+ */
+struct logic_ch_info {
+	u32 usb_ipa_pipe_hdl;
+	u32 ipa_usb_pipe_hdl;
+	bool is_connected;
+	enum teth_link_protocol_type link_protocol;
+	bool is_hw_bridge_complete;
+	struct teth_aggr_params aggr_params;
+	bool aggr_params_known;
+	struct hw_bridge_work_wrap hw_bridge_work;
+	bool comp_hw_bridge_in_progress;
+	enum teth_ch_type ch_type;
+	struct ipa_ioc_del_rt_rule *routing_del[TETH_IP_FAMILIES];
+	struct ipa_ioc_del_flt_rule *filtering_del[TETH_IP_FAMILIES];
+};
+
+/**
  * struct teth_bridge_ctx - Tethering bridge driver context information
  * @class: kernel class pointer
  * @dev_num: kernel device number
  * @dev: kernel device struct pointer
  * @cdev: kernel character device struct
- * @usb_ipa_pipe_hdl: USB to IPA pipe handle
- * @ipa_usb_pipe_hdl: IPA to USB pipe handle
  * @a2_ipa_pipe_hdl: A2 to IPA pipe handle
  * @ipa_a2_pipe_hdl: IPA to A2 pipe handle
- * @is_connected: is the tethered bridge connected ?
- * @link_protocol: IP / Ethernet
  * @mac_addresses: Struct which holds host pc and device MAC addresses, relevant
  * in ethernet mode only
- * @is_hw_bridge_complete: is HW bridge setup ?
- * @aggr_params: aggregation parmeters
- * @aggr_params_known: are the aggregation parameters known ?
  * @tethering_mode: Rmnet / MBIM
  * @is_bridge_prod_up: completion object signaled when the bridge producer
  * finished its resource request procedure
  * @is_bridge_prod_down: completion object signaled when the bridge producer
  * finished its resource release procedure
- * @comp_hw_bridge_work: used for setting up the HW bridge using a workqueue
- * @comp_hw_bridge_in_progress: true when the HW bridge setup is in progress
  * @aggr_caps: aggregation capabilities
  * @stats: statistics, how many packets were transmitted using the SW bridge
  * @teth_wq: dedicated workqueue, used for setting up the HW bridge and for
@@ -133,39 +190,37 @@ struct stats {
  * @ipa_a2_hdr_len: IPA to A2 header length, used for configuring the A2
  * endpoint for header removal
  * @hdr_del: array to store the headers handles in order to delete them later
- * @routing_del: array of routing rules handles, one array for IPv4 and one for
- * IPv6
- * @filtering_del: array of routing rules handles, one array for IPv4 and one
- * for IPv6
+ * @ch_info: array of logic_ch_info, used to hold channel information
+ * @logic_ch_num: the total logical channels number
+ * @ch_init_cnt: count the initialized channels
+ * @init_status: bridge initialization state
+ * @init_mutex: for the initialization, connect and disconnect synchronization
+ * @request_resource_mutex: for the teth_request_resource synchronization
+ * @debugfs_lcid: logical channel number for debugfs entries
  */
 struct teth_bridge_ctx {
 	struct class *class;
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev cdev;
-	u32 usb_ipa_pipe_hdl;
-	u32 ipa_usb_pipe_hdl;
 	u32 a2_ipa_pipe_hdl;
 	u32 ipa_a2_pipe_hdl;
-	bool is_connected;
-	enum teth_link_protocol_type link_protocol;
 	struct mac_addresses_type mac_addresses;
-	bool is_hw_bridge_complete;
-	struct teth_aggr_params aggr_params;
-	bool aggr_params_known;
 	enum teth_tethering_mode tethering_mode;
 	struct completion is_bridge_prod_up;
 	struct completion is_bridge_prod_down;
-	struct work_struct comp_hw_bridge_work;
-	bool comp_hw_bridge_in_progress;
 	struct teth_aggr_capabilities *aggr_caps;
 	struct stats stats;
 	struct workqueue_struct *teth_wq;
 	u16 a2_ipa_hdr_len;
 	u16 ipa_a2_hdr_len;
 	struct ipa_ioc_del_hdr *hdr_del;
-	struct ipa_ioc_del_rt_rule *routing_del[TETH_IP_FAMILIES];
-	struct ipa_ioc_del_flt_rule *filtering_del[TETH_IP_FAMILIES];
+	struct logic_ch_info *ch_info;
+	u16 ch_init_cnt;
+	enum teth_init_status init_status;
+	struct mutex init_mutex;
+	struct mutex request_resource_mutex;
+	u16 debugfs_lcid;
 };
 static struct teth_bridge_ctx *teth_ctx;
 
@@ -179,11 +234,13 @@ enum teth_packet_direction {
  * @work: used by the workqueue
  * @skb: pointer to the skb to be sent
  * @dir: direction of send, A2 to USB or USB to A2
+ * @lcid: logical channel number
  */
 struct teth_work {
 	struct work_struct work;
 	struct sk_buff *skb;
 	enum teth_packet_direction dir;
+	enum a2_mux_logical_channel_id lcid;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -191,8 +248,91 @@ struct teth_work {
 static char dbg_buff[TETH_MAX_MSG_LEN];
 #endif
 
+static u16 get_channel_id_from_client_prod(enum ipa_client_type client)
+{
+	TETH_DBG("client_id=%d\n", client);
+	if (client == IPA_CLIENT_USB_PROD)
+		return A2_MUX_TETHERED_0;
+	if (client > IPA_CLIENT_USB_PROD || client <= IPA_CLIENT_PROD) {
+		TETH_ERR("%s: Invalid client type %d\n", __func__, client);
+		return A2_MUX_TETHERED_0;
+	}
+
+	return client - IPA_CLIENT_USB2_PROD + A2_MUX_MULTI_RMNET_10;
+}
+
+static u16 get_cons_client(enum a2_mux_logical_channel_id lcid)
+{
+	TETH_DBG("lcid=%d\n", lcid);
+
+	if (lcid < A2_MUX_TETHERED_0 || lcid >= A2_MUX_NUM_CHANNELS ||
+			lcid == A2_MUX_RESERVED_9) {
+		TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
+		return IPA_CLIENT_USB_CONS;
+	}
+	if (lcid == A2_MUX_TETHERED_0)
+		return IPA_CLIENT_USB_CONS;
+
+	return lcid - A2_MUX_MULTI_RMNET_10 + IPA_CLIENT_USB2_CONS;
+}
+
+static u16 get_prod_client(enum a2_mux_logical_channel_id lcid)
+{
+	TETH_DBG("lcid=%d\n", lcid);
+	if (lcid < A2_MUX_TETHERED_0 || lcid >= A2_MUX_NUM_CHANNELS ||
+				lcid == A2_MUX_RESERVED_9) {
+			TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
+			return IPA_CLIENT_USB_PROD;
+	}
+	if (lcid == A2_MUX_TETHERED_0)
+		return IPA_CLIENT_USB_PROD;
+
+	return lcid - A2_MUX_MULTI_RMNET_10 + IPA_CLIENT_USB2_PROD;
+}
+
+static u16 get_ch_info_idx(enum a2_mux_logical_channel_id lcid)
+{
+	if (lcid < A2_MUX_TETHERED_0 || lcid >= A2_MUX_NUM_CHANNELS ||
+			lcid == A2_MUX_RESERVED_9) {
+			TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
+			return 0;
+	}
+	if (lcid == A2_MUX_TETHERED_0)
+		return 0;
+
+	return lcid - A2_MUX_RESERVED_9;
+}
+
+static int get_completed_ch_num(void)
+{
+	int idx;
+	int cnt = 0;
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		if (teth_ctx->ch_info[idx].is_hw_bridge_complete)
+			cnt++;
+	}
+	TETH_DBG("completed_ch_num=%d\n", cnt);
+
+	return cnt;
+}
+
+static int get_connected_ch_num(void)
+{
+	int idx;
+	int cnt = 0;
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		if (teth_ctx->ch_info[idx].is_connected)
+			cnt++;
+	}
+	TETH_DBG("connected_ch_num=%d\n", cnt);
+
+	return cnt;
+}
+
 /**
- * add_eth_hdrs() - add Ethernet headers to IPA
+ * add_eth_hdrs_internal() - add Ethernet headers to IPA
  * @hdr_name_ipv4: header name for IPv4
  * @hdr_name_ipv6: header name for IPv6
  * @src_mac_addr: source MAC address
@@ -200,7 +340,7 @@ static char dbg_buff[TETH_MAX_MSG_LEN];
  *
  * This function is called only when link protocol is Ethernet
  */
-static int add_eth_hdrs(char *hdr_name_ipv4, char *hdr_name_ipv6,
+static int add_eth_hdrs_internal(char *hdr_name_ipv4, char *hdr_name_ipv6,
 			u8 *src_mac_addr, u8 *dst_mac_addr)
 {
 	int res;
@@ -255,23 +395,54 @@ static int add_eth_hdrs(char *hdr_name_ipv4, char *hdr_name_ipv6,
 	return res;
 }
 
-static int configure_ipa_header_block_internal(u32 usb_ipa_hdr_len,
-					       u32 a2_ipa_hdr_len,
-					       u32 ipa_usb_hdr_len,
+/**
+ * add_eth_hdrs() - add Ethernet headers to IPA
+ * This function is called only when link protocol is Ethernet
+ */
+static int add_eth_hdrs(void)
+{
+	int res;
+
+	/* Add a header entry for USB */
+	res = add_eth_hdrs_internal(USB_ETH_HDR_NAME_IPV4,
+			   USB_ETH_HDR_NAME_IPV6,
+			   teth_ctx->mac_addresses.device_mac_addr,
+			   teth_ctx->mac_addresses.host_pc_mac_addr);
+	if (res) {
+		TETH_ERR("Failed adding USB Ethernet header\n");
+		goto bail;
+	}
+	TETH_DBG("Added USB Ethernet headers (IPv4 / IPv6)\n");
+
+	/* Add a header entry for A2 */
+	res = add_eth_hdrs_internal(A2_ETH_HDR_NAME_IPV4,
+			   A2_ETH_HDR_NAME_IPV6,
+			   teth_ctx->mac_addresses.host_pc_mac_addr,
+			   teth_ctx->mac_addresses.device_mac_addr);
+	if (res) {
+		TETH_ERR("Failed adding A2 Ethernet header\n");
+		goto bail;
+	}
+	TETH_DBG("Added A2 Ethernet headers (IPv4 / IPv6\n");
+bail:
+	return res;
+}
+
+/**
+ * configure_ipa_header_block_a2_internal() - configures IPA end-point registers
+ * (header removal/insertion for IPA<->A2 pipes)
+ * @a2_ipa_hdr_len: Header length in bytes to be added/removed.
+ * @ipa_a2_hdr_len: Header length in bytes to be added/removed.
+ */
+static int configure_ipa_header_block_a2_internal(u32 a2_ipa_hdr_len,
 					       u32 ipa_a2_hdr_len)
 {
 	struct ipa_ep_cfg_hdr hdr_cfg;
 	int res;
 
 	TETH_DBG_FUNC_ENTRY();
-	/* Configure header removal for the USB->IPA pipe and A2->IPA pipe */
+	/* Configure header removal for the A2->IPA pipe */
 	memset(&hdr_cfg, 0, sizeof(hdr_cfg));
-	hdr_cfg.hdr_len = usb_ipa_hdr_len;
-	res = ipa_cfg_ep_hdr(teth_ctx->usb_ipa_pipe_hdl, &hdr_cfg);
-	if (res) {
-		TETH_ERR("Header removal config for USB->IPA pipe failed\n");
-		goto bail;
-	}
 
 	hdr_cfg.hdr_len = a2_ipa_hdr_len;
 	teth_ctx->a2_ipa_hdr_len = a2_ipa_hdr_len;
@@ -281,14 +452,7 @@ static int configure_ipa_header_block_internal(u32 usb_ipa_hdr_len,
 		goto bail;
 	}
 
-	/* Configure header insertion for the IPA->USB pipe and IPA->A2 pipe */
-	hdr_cfg.hdr_len = ipa_usb_hdr_len;
-	res = ipa_cfg_ep_hdr(teth_ctx->ipa_usb_pipe_hdl, &hdr_cfg);
-	if (res) {
-		TETH_ERR("Header insertion config for IPA->USB pipe failed\n");
-		goto bail;
-	}
-
+	/* Configure header insertion for the IPA->A2 pipe */
 	hdr_cfg.hdr_len = ipa_a2_hdr_len;
 	teth_ctx->ipa_a2_hdr_len = ipa_a2_hdr_len;
 	res = ipa_cfg_ep_hdr(teth_ctx->ipa_a2_pipe_hdl, &hdr_cfg);
@@ -302,6 +466,65 @@ bail:
 	return res;
 }
 
+/**
+ * configure_ipa_header_block_usb_internal() - configures IPA end-point
+ * registers (header removal/insertion for IPA<->USB pipes)
+ * @usb_ipa_hdr_len: Header length in bytes to be added/removed.
+ * @ipa_usb_hdr_len: Header length in bytes to be added/removed.
+ * @lcid: logical channel number
+ */
+static int configure_ipa_header_block_usb_internal(u32 usb_ipa_hdr_len,
+					       u32 ipa_usb_hdr_len,
+					       u16 lcid)
+{
+	struct ipa_ep_cfg_hdr hdr_cfg;
+	int res;
+	u16 idx;
+
+	TETH_DBG_FUNC_ENTRY();
+	idx = get_ch_info_idx(lcid);
+
+	TETH_DBG(
+		"Configure header removal for the USB->IPA pipe(lcid=%d). hdr_len=%d, usb_ipa_pipe_hdl=%d\n ",
+		lcid,
+		usb_ipa_hdr_len,
+		teth_ctx->ch_info[idx].usb_ipa_pipe_hdl);
+
+	/* Configure header removal for the USB->IPA pipe */
+	memset(&hdr_cfg, 0, sizeof(hdr_cfg));
+	hdr_cfg.hdr_len = usb_ipa_hdr_len;
+	res = ipa_cfg_ep_hdr(teth_ctx->ch_info[idx].usb_ipa_pipe_hdl,
+			&hdr_cfg);
+	if (res) {
+		TETH_ERR("Header removal config for USB->IPA pipe failed\n");
+		goto bail;
+	}
+
+	TETH_DBG(
+		"Configure header insertion for the IPA->USB pipe(lcid=%d). hdr_len=%d, ipa_usb_pipe_hdl=%d\n ",
+		lcid,
+		ipa_usb_hdr_len,
+		teth_ctx->ch_info[idx].ipa_usb_pipe_hdl);
+
+	/* Configure header insertion for the IPA->USB pipe */
+	hdr_cfg.hdr_len = ipa_usb_hdr_len;
+	res = ipa_cfg_ep_hdr(teth_ctx->ch_info[idx].ipa_usb_pipe_hdl,
+			&hdr_cfg);
+	if (res) {
+		TETH_ERR("Header insertion config for IPA->USB pipe failed\n");
+		goto bail;
+	}
+
+	TETH_DBG_FUNC_EXIT();
+
+bail:
+	return res;
+}
+
+/**
+ * add_mbim_hdr() - add MBIM headers to IPA
+ * This function is called only when link protocol is IP with MBIM aggregation
+ */
 static int add_mbim_hdr(void)
 {
 	int res;
@@ -343,84 +566,151 @@ static int add_mbim_hdr(void)
 }
 
 /**
- * configure_ipa_header_block() - adds headers and configures endpoint registers
- *
- * - For IP link protocol and MBIM aggregation, configure MBIM header
- * - For Ethernet link protocol, configure Ethernet headers
+ * configure_ipa_header_block_ip() - configures endpoint registers for IP
+ * link protocol. If MBIM aggregation add MBIM header.
+ * @lcid: logical channel number
  */
-static int configure_ipa_header_block(void)
+static int configure_ipa_header_block_ip(u16 lcid)
 {
 	int res;
-	u32 hdr_len = 0;
+	u32 usb_ipa_hdr_len = 0;
 	u32 ipa_usb_hdr_len = 0;
+	u32 ipa_a2_hdr_len = 0;
+	u16 idx;
 
 	TETH_DBG_FUNC_ENTRY();
-	if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP) {
+	idx = get_ch_info_idx(lcid);
+
+	if (teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
+			TETH_AGGR_PROTOCOL_MBIM)
+		ipa_usb_hdr_len = 1;
+
+	if (get_completed_ch_num() == 0) {
 		/*
-		 * Create a new header for MBIM stream ID and associate it with
-		 * the IPA->USB routing table
+		 * Create a new header for MBIM stream ID and associate
+		 * it with the IPA->USB routing table
 		 */
-		if (teth_ctx->aggr_params.dl.aggr_prot ==
+		if (teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
 					TETH_AGGR_PROTOCOL_MBIM) {
-			ipa_usb_hdr_len = 1;
+
 			res = add_mbim_hdr();
 			if (res) {
 				TETH_ERR("Failed adding MBIM header\n");
 				goto bail;
 			}
 		}
-	} else if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET) {
-		/* Add a header entry for USB */
-		res = add_eth_hdrs(USB_ETH_HDR_NAME_IPV4,
-				   USB_ETH_HDR_NAME_IPV6,
-				   teth_ctx->mac_addresses.device_mac_addr,
-				   teth_ctx->mac_addresses.host_pc_mac_addr);
+	}
+	/*
+	 * Configure only the tethered pipe, don't need to configure the
+	 * embedded pipes, the a2_service does it (in the connect_to_bam)
+	 */
+	if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
+		res = configure_ipa_header_block_a2_internal(ipa_a2_hdr_len,
+							ipa_a2_hdr_len);
 		if (res) {
-			TETH_ERR("Failed adding USB Ethernet header\n");
+			TETH_ERR(
+				"Configuration of header removal/insertion for A2<->IPA failed\n");
 			goto bail;
 		}
-		TETH_DBG("Added USB Ethernet headers (IPv4 / IPv6)\n");
-
-		/* Add a header entry for A2 */
-		res = add_eth_hdrs(A2_ETH_HDR_NAME_IPV4,
-				   A2_ETH_HDR_NAME_IPV6,
-				   teth_ctx->mac_addresses.host_pc_mac_addr,
-				   teth_ctx->mac_addresses.device_mac_addr);
-		if (res) {
-			TETH_ERR("Failed adding A2 Ethernet header\n");
-			goto bail;
-		}
-		TETH_DBG("Added A2 Ethernet headers (IPv4 / IPv6\n");
-
-		hdr_len = ETH_HLEN;
-		ipa_usb_hdr_len = ETH_HLEN;
 	}
 
-	res = configure_ipa_header_block_internal(hdr_len,
-						  hdr_len,
-						  ipa_usb_hdr_len,
-						  hdr_len);
+	res = configure_ipa_header_block_usb_internal(usb_ipa_hdr_len,
+							  ipa_usb_hdr_len,
+							  lcid);
 	if (res) {
-		TETH_ERR("Configuration of header removal/insertion failed\n");
+		TETH_ERR(
+			"Configuration of header removal/insertion for USB<->IPA failed\n");
 		goto bail;
 	}
+
 	TETH_DBG_FUNC_EXIT();
 bail:
+	return res;
+}
+
+/**
+ * configure_ipa_header_block_ethernet() - add Ethernet headers and configures
+ * endpoint registers for Ethernet link protocol.
+ * @lcid: logical channel number
+ */
+static int configure_ipa_header_block_ethernet(u16 lcid)
+{
+	int res;
+	u32 ipa_usb_hdr_len = ETH_HLEN;
+	u32 ipa_a2_hdr_len = ETH_HLEN;
+	int idx;
+
+	TETH_DBG_FUNC_ENTRY();
+	idx = get_ch_info_idx(lcid);
+
+	res = add_eth_hdrs();
+	if (res) {
+		TETH_ERR("Failed adding Ethernet header\n");
+		goto bail;
+	}
+
+	res = configure_ipa_header_block_a2_internal(ipa_a2_hdr_len,
+						     ipa_a2_hdr_len);
+	if (res) {
+		TETH_ERR(
+			"Configuration of header removal/insertion for A2<->IPA failed\n");
+		goto bail;
+	}
+
+	res = configure_ipa_header_block_usb_internal(ipa_usb_hdr_len,
+						      ipa_usb_hdr_len,
+						      lcid);
+	if (res) {
+		TETH_ERR(
+			"Configuration of header removal/insertion for USB<->IPA failed\n");
+		goto bail;
+	}
+
+	TETH_DBG_FUNC_EXIT();
+bail:
+	return res;
+}
+
+/**
+ * configure_ipa_header_block() - adds headers and configures endpoint registers
+ * @lcid: logical channel number
+ * - For IP link protocol and MBIM aggregation, configure MBIM header
+ * - For Ethernet link protocol, configure Ethernet headers
+ */
+static int configure_ipa_header_block(u16 lcid)
+{
+	u16 idx;
+	int res = -EINVAL;
+
+	TETH_DBG_FUNC_ENTRY();
+	idx = get_ch_info_idx(lcid);
+
+	if (teth_ctx->ch_info[idx].link_protocol ==
+					TETH_LINK_PROTOCOL_IP)
+		res = configure_ipa_header_block_ip(lcid);
+	else if (teth_ctx->ch_info[idx].link_protocol ==
+			TETH_LINK_PROTOCOL_ETHERNET)
+		res = configure_ipa_header_block_ethernet(lcid);
+	TETH_DBG_FUNC_EXIT();
+
 	return res;
 }
 
 static int configure_routing_by_ip(char *hdr_name,
 			    char *rt_tbl_name,
 			    enum ipa_client_type dst,
-			    enum ipa_ip_type ip_address_family)
+			    enum ipa_ip_type ip_address_family,
+			    u16  lcid)
 {
 
 	struct ipa_ioc_add_rt_rule *rt_rule;
 	struct ipa_ioc_get_hdr hdr_info;
 	int res;
 	int idx;
+	int i;
 
 	TETH_DBG_FUNC_ENTRY();
+	i = get_ch_info_idx(lcid);
 	/* Get the header handle */
 	memset(&hdr_info, 0, sizeof(hdr_info));
 	strlcpy(hdr_info.name, hdr_name, IPA_RESOURCE_NAME_MAX);
@@ -447,8 +737,8 @@ static int configure_routing_by_ip(char *hdr_name,
 		TETH_ERR("Failed adding routing rule\n");
 
 	/* Save the routing rule handle in order to delete it later */
-	idx = teth_ctx->routing_del[ip_address_family]->num_hdls++;
-	teth_ctx->routing_del[ip_address_family]->hdl[idx].hdl =
+	idx = teth_ctx->ch_info[i].routing_del[ip_address_family]->num_hdls++;
+	teth_ctx->ch_info[i].routing_del[ip_address_family]->hdl[idx].hdl =
 		rt_rule->rules[0].rt_rule_hdl;
 
 	kfree(rt_rule);
@@ -461,7 +751,8 @@ static int configure_routing(char *hdr_name_ipv4,
 			     char *rt_tbl_name_ipv4,
 			     char *hdr_name_ipv6,
 			     char *rt_tbl_name_ipv6,
-			     enum ipa_client_type dst)
+			     enum ipa_client_type dst,
+			     u16 lcid)
 {
 	int res;
 
@@ -470,7 +761,8 @@ static int configure_routing(char *hdr_name_ipv4,
 	res = configure_routing_by_ip(hdr_name_ipv4,
 				      rt_tbl_name_ipv4,
 				      dst,
-				      IPA_IP_v4);
+				      IPA_IP_v4,
+				      lcid);
 	if (res) {
 		TETH_ERR("Failed adding IPv4 routing table\n");
 		goto bail;
@@ -480,7 +772,8 @@ static int configure_routing(char *hdr_name_ipv4,
 	res = configure_routing_by_ip(hdr_name_ipv6,
 				      rt_tbl_name_ipv6,
 				      dst,
-				      IPA_IP_v6);
+				      IPA_IP_v6,
+				      lcid);
 	if (res) {
 		TETH_ERR("Failed adding IPv6 routing table\n");
 		goto bail;
@@ -492,52 +785,88 @@ bail:
 }
 
 /**
- * configure_ipa_routing_block() - Configure the IPA routing block
- *
- * This function configures IPA for:
- * - Route all packets from USB to A2
- * - Route all packets from A2 to USB
- * - Use the correct headers in Ethernet or MBIM cases
+ * configure_ul_header_routing() - Configure the IPA routing block:
+ * route all packets from pipe #n(taken from lcid) to A2 (USB->A2)
+ * @lcid: logical channel number
+ * @rt_tbl_name_ipv4: IPv4 routing table name
+ * @rt_tbl_name_ipv6: IPv6 routing table name
  */
-static int configure_ipa_routing_block(void)
+static int configure_ul_header_routing(u16 lcid, char *rt_tbl_name_ipv4,
+		     char *rt_tbl_name_ipv6)
 {
+	char hdr_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	char hdr_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
 	int res;
-	char hdr_name_ipv4[IPA_RESOURCE_NAME_MAX];
-	char hdr_name_ipv6[IPA_RESOURCE_NAME_MAX];
-
+	u16 idx;
+	enum ipa_client_type dst;
 	TETH_DBG_FUNC_ENTRY();
-	hdr_name_ipv4[0] = '\0';
-	hdr_name_ipv6[0] = '\0';
+	idx = get_ch_info_idx(lcid);
 
-	/* Configure USB -> A2 routing table */
-	if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET) {
-		strlcpy(hdr_name_ipv4,
-			A2_ETH_HDR_NAME_IPV4,
-			IPA_RESOURCE_NAME_MAX);
-		strlcpy(hdr_name_ipv6,
-			A2_ETH_HDR_NAME_IPV6,
-			IPA_RESOURCE_NAME_MAX);
+	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
+		dst = IPA_CLIENT_A2_EMBEDDED_CONS;
+		if (teth_ctx->ch_info[idx].link_protocol ==
+		   TETH_LINK_PROTOCOL_IP) {
+			snprintf(hdr_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s%d",
+					A2_MUX_HDR_NAME_V4_PREF, lcid);
+			snprintf(hdr_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s%d",
+					A2_MUX_HDR_NAME_V6_PREF, lcid);
+		}
+	} else {
+		dst = IPA_CLIENT_A2_TETHERED_CONS;
+		if (teth_ctx->ch_info[idx].link_protocol ==
+		    TETH_LINK_PROTOCOL_ETHERNET) {
+			strlcpy(hdr_name_ipv4,
+				A2_ETH_HDR_NAME_IPV4,
+				IPA_RESOURCE_NAME_MAX);
+			strlcpy(hdr_name_ipv6,
+				A2_ETH_HDR_NAME_IPV6,
+				IPA_RESOURCE_NAME_MAX);
+		}
 	}
+
 	res = configure_routing(hdr_name_ipv4,
-				USB_TO_A2_RT_TBL_NAME_IPV4,
+				rt_tbl_name_ipv4,
 				hdr_name_ipv6,
-				USB_TO_A2_RT_TBL_NAME_IPV6,
-				IPA_CLIENT_A2_TETHERED_CONS);
+				rt_tbl_name_ipv6,
+				dst,
+				lcid);
 	if (res) {
 		TETH_ERR("USB to A2 routing block configuration failed\n");
 		goto bail;
 	}
+bail:
+	return res;
 
-	/* Configure A2 -> USB routing table */
-	if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET) {
+}
+
+/**
+ * configure_dl_header_routing() - Configure the IPA routing block:
+ * route all incoming packets to the corresponding output pipe (A2->USB)
+ * @lcid: logical channel number
+ * @rt_tbl_name_ipv4: IPv4 routing table name
+ * @rt_tbl_name_ipv6: IPv6 routing table name
+ */
+static int configure_dl_header_routing(u16 lcid,  char *rt_tbl_name_ipv4,
+		     char *rt_tbl_name_ipv6)
+{
+	char hdr_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	char hdr_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	int res;
+	u16 idx;
+	TETH_DBG_FUNC_ENTRY();
+
+	idx = get_ch_info_idx(lcid);
+
+	if (teth_ctx->ch_info[idx].link_protocol ==
+				TETH_LINK_PROTOCOL_ETHERNET) {
 		strlcpy(hdr_name_ipv4,
 			USB_ETH_HDR_NAME_IPV4,
 			IPA_RESOURCE_NAME_MAX);
 		strlcpy(hdr_name_ipv6,
 			USB_ETH_HDR_NAME_IPV6,
 			IPA_RESOURCE_NAME_MAX);
-	} else if (teth_ctx->aggr_params.dl.aggr_prot ==
-						TETH_AGGR_PROTOCOL_MBIM) {
+	} else if (teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
+					TETH_AGGR_PROTOCOL_MBIM) {
 		strlcpy(hdr_name_ipv4,
 			MBIM_HEADER_NAME,
 			IPA_RESOURCE_NAME_MAX);
@@ -545,30 +874,114 @@ static int configure_ipa_routing_block(void)
 			MBIM_HEADER_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	}
+
 	res = configure_routing(hdr_name_ipv4,
-				A2_TO_USB_RT_TBL_NAME_IPV4,
-				hdr_name_ipv6,
-				A2_TO_USB_RT_TBL_NAME_IPV6,
-				IPA_CLIENT_USB_CONS);
+					rt_tbl_name_ipv4,
+					hdr_name_ipv6,
+					rt_tbl_name_ipv6,
+					get_cons_client(lcid),
+					lcid);
+
+	if (res) {
+		TETH_ERR("USB to A2 routing block configuration failed\n");
+		goto bail;
+	}
+bail:
+	return res;
+}
+
+/**
+ * configure_ipa_routing_block() - Configure the IPA routing block
+ * @lcid: logical channel number
+ * This function configures IPA for:
+ * - Route all packets from USB to A2
+ * - Route all packets from A2 to USB
+ * - Use the correct headers in Ethernet or MBIM cases
+ */
+static int configure_ipa_routing_block(u16 lcid)
+{
+	char rt_tbl_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	char rt_tbl_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	int res;
+	u16 idx;
+
+	TETH_DBG_FUNC_ENTRY();
+	idx = get_ch_info_idx(lcid);
+	/* Configure USB -> A2 routing table */
+	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
+		snprintf(rt_tbl_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
+					USB_TO_A2_RT_TBL_NAME_IPV4, lcid);
+		snprintf(rt_tbl_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				USB_TO_A2_RT_TBL_NAME_IPV6, lcid);
+	} else {
+		strlcpy(rt_tbl_name_ipv4,
+			USB_TO_A2_RT_TBL_NAME_IPV4,
+			IPA_RESOURCE_NAME_MAX);
+		strlcpy(rt_tbl_name_ipv6,
+			USB_TO_A2_RT_TBL_NAME_IPV6,
+			IPA_RESOURCE_NAME_MAX);
+	}
+
+	res = configure_ul_header_routing(lcid, rt_tbl_name_ipv4,
+				rt_tbl_name_ipv6);
+
+	if (res) {
+		TETH_ERR("USB to A2 routing block configuration failed\n");
+		goto bail;
+	}
+
+	/* Configure A2 -> USB routing table */
+	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
+		snprintf(rt_tbl_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				A2_TO_USB_RT_TBL_NAME_IPV4, lcid);
+		snprintf(rt_tbl_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				A2_TO_USB_RT_TBL_NAME_IPV6, lcid);
+	} else {
+		strlcpy(rt_tbl_name_ipv4,
+			A2_TO_USB_RT_TBL_NAME_IPV4,
+			IPA_RESOURCE_NAME_MAX);
+		strlcpy(rt_tbl_name_ipv6,
+			A2_TO_USB_RT_TBL_NAME_IPV6,
+			IPA_RESOURCE_NAME_MAX);
+	}
+	res = configure_dl_header_routing(lcid,
+			rt_tbl_name_ipv4,
+			rt_tbl_name_ipv6);
 	if (res) {
 		TETH_ERR("A2 to USB routing block configuration failed\n");
 		goto bail;
 	}
+
 	TETH_DBG_FUNC_EXIT();
 bail:
 	return res;
 }
 
+/**
+ * configure_filtering_by_ip() - Configures IPA filtering block for
+ * address family: IPv4 or IPv6
+ * @rt_tbl_name: routing table name
+ * @src: which "clients" pipe does this rule apply to
+ * @ip_address_family: address family: IPv4 or IPv6
+ * @compare_lcid: whether to use metadata equation to compare the lcid field
+ * @lcid: logical channel number
+ */
 static int configure_filtering_by_ip(char *rt_tbl_name,
 			      enum ipa_client_type src,
-			      enum ipa_ip_type ip_address_family)
+			      enum ipa_ip_type ip_address_family,
+			      bool compare_lcid,
+			      enum a2_mux_logical_channel_id lcid)
 {
 	struct ipa_ioc_add_flt_rule *flt_tbl;
 	struct ipa_ioc_get_rt_tbl rt_tbl_info;
 	int res;
 	int idx;
+	int i;
 
 	TETH_DBG_FUNC_ENTRY();
+	i = get_ch_info_idx(lcid);
+	TETH_DBG("configure filter: routing table: %s src ep(client type):%d\n",
+			rt_tbl_name, src);
 	/* Get the needed routing table handle */
 	rt_tbl_info.ip = ip_address_family;
 	strlcpy(rt_tbl_info.name, rt_tbl_name, IPA_RESOURCE_NAME_MAX);
@@ -592,15 +1005,21 @@ static int configure_filtering_by_ip(char *rt_tbl_name,
 	flt_tbl->num_rules = 1;
 	flt_tbl->rules[0].rule.action = IPA_PASS_TO_ROUTING;
 	flt_tbl->rules[0].rule.rt_tbl_hdl = rt_tbl_info.hdl;
-	flt_tbl->rules[0].rule.attrib.attrib_mask = 0; /* Match all */
+	if (compare_lcid) {
+		flt_tbl->rules[0].rule.attrib.attrib_mask = IPA_FLT_META_DATA;
+		flt_tbl->rules[0].rule.attrib.meta_data = lcid << METADATA_SHFT;
+		flt_tbl->rules[0].rule.attrib.meta_data_mask = METADATA_MASK;
+	} else {
+		flt_tbl->rules[0].rule.attrib.attrib_mask = 0; /* Match all */
+	}
 
 	res = ipa_add_flt_rule(flt_tbl);
 	if (res || flt_tbl->rules[0].status)
 		TETH_ERR("Failed adding filtering table\n");
 
 	/* Save the filtering rule handle in order to delete it later */
-	idx = teth_ctx->filtering_del[ip_address_family]->num_hdls++;
-	teth_ctx->filtering_del[ip_address_family]->hdl[idx].hdl =
+	idx = teth_ctx->ch_info[i].filtering_del[ip_address_family]->num_hdls++;
+	teth_ctx->ch_info[i].filtering_del[ip_address_family]->hdl[idx].hdl =
 		flt_tbl->rules[0].flt_rule_hdl;
 
 	kfree(flt_tbl);
@@ -610,20 +1029,38 @@ bail:
 	return res;
 }
 
+/**
+ * configure_filtering() - Configures IPA filtering block
+ * @rt_tbl_name_ipv4: IPv4 routing table name
+ * @rt_tbl_name_ipv6: IPv6 routing table name
+ * @src: which "clients" pipe does this rule apply to
+ * @compare_lcid: whether to use metadata equation to compare the lcid field
+ * @lcid: logical channel number
+ */
 static int configure_filtering(char *rt_tbl_name_ipv4,
 			char *rt_tbl_name_ipv6,
-			enum ipa_client_type src)
+			enum ipa_client_type src,
+			bool compare_lcid,
+			enum a2_mux_logical_channel_id lcid)
 {
 	int res;
 
 	TETH_DBG_FUNC_ENTRY();
-	res = configure_filtering_by_ip(rt_tbl_name_ipv4, src, IPA_IP_v4);
+	res = configure_filtering_by_ip(rt_tbl_name_ipv4,
+					src,
+					IPA_IP_v4,
+					compare_lcid,
+					lcid);
 	if (res) {
 		TETH_ERR("Failed adding IPv4 filtering table\n");
 		goto bail;
 	}
 
-	res = configure_filtering_by_ip(rt_tbl_name_ipv6, src, IPA_IP_v6);
+	res = configure_filtering_by_ip(rt_tbl_name_ipv6,
+					src,
+					IPA_IP_v6,
+					compare_lcid,
+					lcid);
 	if (res) {
 		TETH_ERR("Failed adding IPv4 filtering table\n");
 		goto bail;
@@ -636,33 +1073,76 @@ bail:
 
 /**
  * configure_ipa_filtering_block() - Configures IPA filtering block
- *
+ * @lcid: logical channel number
  * This function configures IPA for:
  * - Filter all traffic coming from USB to A2 pointing routing table
  * - Filter all traffic coming from A2 to USB pointing routing table
  */
-static int configure_ipa_filtering_block(void)
+static int configure_ipa_filtering_block(u16 lcid)
 {
+	char rt_tbl_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	char rt_tbl_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
+	enum ipa_client_type src;
+	bool compare_lcid;
 	int res;
+	int idx;
 
 	TETH_DBG_FUNC_ENTRY();
+	idx = get_ch_info_idx(lcid);
+	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
+		snprintf(rt_tbl_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
+					USB_TO_A2_RT_TBL_NAME_IPV4, lcid);
+		snprintf(rt_tbl_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				USB_TO_A2_RT_TBL_NAME_IPV6, lcid);
+	} else {
+		strlcpy(rt_tbl_name_ipv4,
+			USB_TO_A2_RT_TBL_NAME_IPV4,
+			IPA_RESOURCE_NAME_MAX);
+		strlcpy(rt_tbl_name_ipv6,
+			USB_TO_A2_RT_TBL_NAME_IPV6,
+			IPA_RESOURCE_NAME_MAX);
+	}
+
 	/* Filter all traffic coming from USB to A2 */
-	res = configure_filtering(USB_TO_A2_RT_TBL_NAME_IPV4,
-				  USB_TO_A2_RT_TBL_NAME_IPV6,
-				  IPA_CLIENT_USB_PROD);
+	res = configure_filtering(rt_tbl_name_ipv4,
+				  rt_tbl_name_ipv6,
+				  get_prod_client(lcid),
+				  false,
+				  lcid);
 	if (res) {
 		TETH_ERR("USB_PROD ep filtering configuration failed\n");
 		goto bail;
 	}
 
 	/* Filter all traffic coming from A2 to USB */
-	res = configure_filtering(A2_TO_USB_RT_TBL_NAME_IPV4,
-				  A2_TO_USB_RT_TBL_NAME_IPV6,
-				  IPA_CLIENT_A2_TETHERED_PROD);
+	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
+		src = IPA_CLIENT_A2_EMBEDDED_PROD;
+		compare_lcid = true;
+		snprintf(rt_tbl_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				A2_TO_USB_RT_TBL_NAME_IPV4, lcid);
+		snprintf(rt_tbl_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
+				A2_TO_USB_RT_TBL_NAME_IPV6, lcid);
+
+	} else {
+		src = IPA_CLIENT_A2_TETHERED_PROD;
+		compare_lcid = false;
+		strlcpy(rt_tbl_name_ipv4,
+			A2_TO_USB_RT_TBL_NAME_IPV4,
+			IPA_RESOURCE_NAME_MAX);
+		strlcpy(rt_tbl_name_ipv6,
+			A2_TO_USB_RT_TBL_NAME_IPV6,
+			IPA_RESOURCE_NAME_MAX);
+	}
+	res = configure_filtering(rt_tbl_name_ipv4,
+				  rt_tbl_name_ipv6,
+				  src,
+				  compare_lcid,
+				  lcid);
 	if (res) {
 		TETH_ERR("A2_PROD filtering configuration failed\n");
 		goto bail;
 	}
+
 	TETH_DBG_FUNC_EXIT();
 bail:
 	return res;
@@ -759,64 +1239,71 @@ static void aggr_prot_to_str(enum teth_aggr_protocol_type aggr_prot,
 
 /**
  * teth_set_aggregation() - set aggregation parameters to IPA
- *
+ * @param lcid: logical channel number
  * The parameters to this function are passed in the context variable ipa_ctx.
  */
-static int teth_set_aggregation(void)
+static int teth_set_aggregation(u16 lcid)
 {
 	int res;
 	char aggr_prot_str[20];
+	u16 idx;
 
 	TETH_DBG_FUNC_ENTRY();
-	if (!teth_ctx->aggr_params_known) {
+	idx = get_ch_info_idx(lcid);
+	if (!teth_ctx->ch_info[idx].aggr_params_known) {
 		TETH_ERR("Aggregation parameters unknown.\n");
 		return -EINVAL;
 	}
 
-	if ((teth_ctx->usb_ipa_pipe_hdl == 0) ||
-	    (teth_ctx->ipa_usb_pipe_hdl == 0))
+	if ((teth_ctx->ch_info[idx].usb_ipa_pipe_hdl == 0) ||
+	    (teth_ctx->ch_info[idx].ipa_usb_pipe_hdl == 0))
 		return 0;
 		/*
 		 * Returning 0 in case pipe handles are 0 becuase aggregation
 		 * params will be set later
 		 */
-
-	if (teth_ctx->aggr_params.ul.aggr_prot == TETH_AGGR_PROTOCOL_MBIM ||
-	    teth_ctx->aggr_params.dl.aggr_prot == TETH_AGGR_PROTOCOL_MBIM) {
-		res = ipa_set_aggr_mode(IPA_MBIM);
-		if (res) {
-			TETH_ERR("ipa_set_aggr_mode() failed\n");
-			goto bail;
-		}
-		res = ipa_set_single_ndp_per_mbim(false);
-		if (res) {
-			TETH_ERR("ipa_set_single_ndp_per_mbim() failed\n");
-			goto bail;
+	if (get_completed_ch_num() == 0) {
+		if (teth_ctx->ch_info[idx].aggr_params.ul.aggr_prot ==
+					TETH_AGGR_PROTOCOL_MBIM ||
+		    teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
+				TETH_AGGR_PROTOCOL_MBIM) {
+			res = ipa_set_aggr_mode(IPA_MBIM);
+			if (res) {
+				TETH_ERR("ipa_set_aggr_mode() failed\n");
+				goto bail;
+			}
+			res = ipa_set_single_ndp_per_mbim(false);
+			if (res) {
+				TETH_ERR(
+					"ipa_set_single_ndp_per_mbim() failed\n");
+				goto bail;
+			}
 		}
 	}
 
-	aggr_prot_to_str(teth_ctx->aggr_params.ul.aggr_prot,
+
+	aggr_prot_to_str(teth_ctx->ch_info[idx].aggr_params.ul.aggr_prot,
 			 aggr_prot_str,
 			 sizeof(aggr_prot_str)-1);
 	TETH_DBG("Setting %s aggregation on UL\n", aggr_prot_str);
-	aggr_prot_to_str(teth_ctx->aggr_params.dl.aggr_prot,
+	aggr_prot_to_str(teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot,
 			 aggr_prot_str,
 			 sizeof(aggr_prot_str)-1);
 	TETH_DBG("Setting %s aggregation on DL\n", aggr_prot_str);
 
 	/* Configure aggregation on UL producer (USB->IPA) */
-	res = teth_set_aggr_per_ep(&teth_ctx->aggr_params.ul,
+	res = teth_set_aggr_per_ep(&teth_ctx->ch_info[idx].aggr_params.ul,
 				   true,
-				   teth_ctx->usb_ipa_pipe_hdl);
+				   teth_ctx->ch_info[idx].usb_ipa_pipe_hdl);
 	if (res) {
 		TETH_ERR("teth_set_aggregation_per_ep() failed\n");
 		goto bail;
 	}
 
 	/* Configure aggregation on DL consumer (IPA->USB) */
-	res = teth_set_aggr_per_ep(&teth_ctx->aggr_params.dl,
+	res = teth_set_aggr_per_ep(&teth_ctx->ch_info[idx].aggr_params.dl,
 				   false,
-				   teth_ctx->ipa_usb_pipe_hdl);
+				   teth_ctx->ch_info[idx].ipa_usb_pipe_hdl);
 	if (res) {
 		TETH_ERR("teth_set_aggregation_per_ep() failed\n");
 		goto bail;
@@ -838,17 +1325,20 @@ static int teth_request_resource(void)
 {
 	int res;
 
+	mutex_lock(&teth_ctx->request_resource_mutex);
 	INIT_COMPLETION(teth_ctx->is_bridge_prod_up);
 	res = ipa_rm_inactivity_timer_request_resource(
 		IPA_RM_RESOURCE_BRIDGE_PROD);
 	if (res < 0) {
-		if (res == -EINPROGRESS)
+		if (res == -EINPROGRESS) {
 			wait_for_completion(&teth_ctx->is_bridge_prod_up);
-		else
-			return res;
+			res = 0;
+		}
+	} else {
+		res = 0;
 	}
-
-	return 0;
+	mutex_unlock(&teth_ctx->request_resource_mutex);
+	return res;
 }
 
 /**
@@ -858,12 +1348,20 @@ static int teth_request_resource(void)
 static void complete_hw_bridge(struct work_struct *work)
 {
 	int res;
+	struct hw_bridge_work_wrap *work_data =
+				container_of(work,
+				struct hw_bridge_work_wrap,
+				comp_hw_bridge_work);
+	u16 ch_info_idx;
 
 	TETH_DBG_FUNC_ENTRY();
-	TETH_DBG("Completing HW bridge in %s mode\n",
-		 (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET) ?
+	ch_info_idx = get_ch_info_idx(work_data->lcid);
+
+	TETH_DBG("Completing HW bridge in %s mode. lcid # %d\n",
+		 (teth_ctx->ch_info[ch_info_idx].link_protocol ==
+				 TETH_LINK_PROTOCOL_ETHERNET) ?
 		 "ETHERNET" :
-		 "IP");
+		 "IP", work_data->lcid);
 
 	res = teth_request_resource();
 	if (res) {
@@ -871,25 +1369,26 @@ static void complete_hw_bridge(struct work_struct *work)
 		goto bail;
 	}
 
-	res = teth_set_aggregation();
+
+	res = teth_set_aggregation(work_data->lcid);
 	if (res) {
 		TETH_ERR("Failed setting aggregation params\n");
 		goto bail;
 	}
 
-	res = configure_ipa_header_block();
+	res = configure_ipa_header_block(work_data->lcid);
 	if (res) {
 		TETH_ERR("Configuration of IPA header block Failed\n");
 		goto bail;
 	}
 
-	res = configure_ipa_routing_block();
+	res = configure_ipa_routing_block(work_data->lcid);
 	if (res) {
 		TETH_ERR("Configuration of IPA routing block Failed\n");
 		goto bail;
 	}
 
-	res = configure_ipa_filtering_block();
+	res = configure_ipa_filtering_block(work_data->lcid);
 	if (res) {
 		TETH_ERR("Configuration of IPA filtering block Failed\n");
 		goto bail;
@@ -905,9 +1404,9 @@ static void complete_hw_bridge(struct work_struct *work)
 		goto bail;
 	}
 
-	teth_ctx->is_hw_bridge_complete = true;
+	teth_ctx->ch_info[ch_info_idx].is_hw_bridge_complete = true;
 bail:
-	teth_ctx->comp_hw_bridge_in_progress = false;
+	teth_ctx->ch_info[ch_info_idx].comp_hw_bridge_in_progress = false;
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 	TETH_DBG_FUNC_EXIT();
 
@@ -925,6 +1424,7 @@ static void mac_addr_to_str(u8 mac_addr[ETH_ALEN],
 
 /**
  * check_to_complete_hw_bridge() - can HW bridge be set up ?
+ * @param lcid: logical channel id
  * @param skb: pointer to socket buffer
  * @param my_mac_addr: pointer to write 'my' extracted MAC address to
  * @param my_mac_addr_known: pointer to update whether 'my' extracted MAC
@@ -937,16 +1437,21 @@ static void mac_addr_to_str(u8 mac_addr[ETH_ALEN],
  * Extracts MAC address from the packet in Ethernet link protocol,
  * Sets up the HW bridge in case all conditions are met.
  */
-static void check_to_complete_hw_bridge(struct sk_buff *skb,
+static void check_to_complete_hw_bridge(u16 lcid,
+					struct sk_buff *skb,
 					u8 *my_mac_addr,
 					bool *my_mac_addr_known,
 					bool *peer_mac_addr_known)
 {
 	bool both_mac_addresses_known;
 	char mac_addr_str[20];
+	u16 idx;
+	struct hw_bridge_work_wrap *work_data;
 
-	if ((teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET) &&
-	    (!(*my_mac_addr_known))) {
+	idx = get_ch_info_idx(lcid);
+
+	if ((teth_ctx->ch_info[idx].link_protocol ==
+		TETH_LINK_PROTOCOL_ETHERNET) && (!(*my_mac_addr_known))) {
 		memcpy(my_mac_addr, &skb->data[ETH_ALEN], ETH_ALEN);
 		mac_addr_to_str(my_mac_addr,
 				mac_addr_str,
@@ -957,12 +1462,15 @@ static void check_to_complete_hw_bridge(struct sk_buff *skb,
 
 	both_mac_addresses_known = *my_mac_addr_known && *peer_mac_addr_known;
 	if ((both_mac_addresses_known ||
-	    (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP)) &&
-	    (!teth_ctx->comp_hw_bridge_in_progress) &&
-	    (teth_ctx->aggr_params_known)) {
-		INIT_WORK(&teth_ctx->comp_hw_bridge_work, complete_hw_bridge);
-		teth_ctx->comp_hw_bridge_in_progress = true;
-		queue_work(teth_ctx->teth_wq, &teth_ctx->comp_hw_bridge_work);
+	    (teth_ctx->ch_info[idx].link_protocol ==
+					TETH_LINK_PROTOCOL_IP)) &&
+	    (!teth_ctx->ch_info[idx].comp_hw_bridge_in_progress) &&
+	    (teth_ctx->ch_info[idx].aggr_params_known)) {
+		work_data = &teth_ctx->ch_info[idx].hw_bridge_work;
+		INIT_WORK(&work_data->comp_hw_bridge_work, complete_hw_bridge);
+		work_data->lcid = lcid;
+		teth_ctx->ch_info[idx].comp_hw_bridge_in_progress = true;
+		queue_work(teth_ctx->teth_wq, &work_data->comp_hw_bridge_work);
 	}
 }
 
@@ -983,7 +1491,7 @@ static void teth_send_skb_work(struct work_struct *work)
 
 	switch (work_data->dir) {
 	case TETH_USB_TO_A2:
-		res = a2_mux_write(A2_MUX_TETHERED_0, work_data->skb);
+		res = a2_mux_write(work_data->lcid, work_data->skb);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
 			goto bail;
@@ -992,7 +1500,8 @@ static void teth_send_skb_work(struct work_struct *work)
 		break;
 
 	case TETH_A2_TO_USB:
-		res = ipa_tx_dp(IPA_CLIENT_USB_CONS, work_data->skb, NULL);
+		res = ipa_tx_dp(get_cons_client(work_data->lcid),
+				work_data->skb, NULL);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
 			goto bail;
@@ -1024,7 +1533,8 @@ bail:
  * collapse, defer the send and return the context to IPA driver. This is
  * important since IPA driver has a single threaded Rx path.
  */
-static void defer_skb_send(struct sk_buff *skb, enum teth_packet_direction dir)
+static void defer_skb_send(struct sk_buff *skb, enum teth_packet_direction dir,
+			enum a2_mux_logical_channel_id lcid)
 {
 	struct teth_work *work = kmalloc(sizeof(struct teth_work), GFP_KERNEL);
 
@@ -1043,6 +1553,7 @@ static void defer_skb_send(struct sk_buff *skb, enum teth_packet_direction dir)
 	INIT_WORK(&work->work, teth_send_skb_work);
 	work->dir = dir;
 	work->skb = skb;
+	work->lcid = lcid;
 	queue_work(teth_ctx->teth_wq, &work->work);
 }
 
@@ -1076,11 +1587,18 @@ static void usb_notify_cb(void *priv,
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
 	int res;
+	u16 lcid;
+	u16 idx;
 
 	switch (evt) {
 	case IPA_RECEIVE:
-		if (!teth_ctx->is_hw_bridge_complete)
+		lcid = (u16)(u32)priv;
+		TETH_DBG("usb_notify_cb: got lcid=%d from private data\n",
+			lcid);
+		idx = get_ch_info_idx(lcid);
+		if (!teth_ctx->ch_info[idx].is_hw_bridge_complete)
 			check_to_complete_hw_bridge(
+				lcid,
 				skb,
 				teth_ctx->mac_addresses.host_pc_mac_addr,
 				&teth_ctx->mac_addresses.host_pc_mac_addr_known,
@@ -1095,7 +1613,7 @@ static void usb_notify_cb(void *priv,
 		if (res < 0) {
 			if (res == -EINPROGRESS) {
 				/* The resource is waking up */
-				defer_skb_send(skb, TETH_USB_TO_A2);
+				defer_skb_send(skb, TETH_USB_TO_A2, lcid);
 			} else {
 				TETH_ERR(
 					"Packet send failure, dropping packet !\n");
@@ -1105,7 +1623,7 @@ static void usb_notify_cb(void *priv,
 				IPA_RM_RESOURCE_BRIDGE_PROD);
 			return;
 		}
-		res = a2_mux_write(A2_MUX_TETHERED_0, skb);
+		res = a2_mux_write(lcid, skb);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
 			dev_kfree_skb(skb);
@@ -1160,11 +1678,20 @@ static void a2_notify_cb(void *user_data,
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
 	int res;
+	u16 idx;
+	u16 lcid;
+	u16 client_id;
 
 	switch (event) {
 	case A2_MUX_RECEIVE:
-		if (!teth_ctx->is_hw_bridge_complete)
+		lcid = (u16)(u32)user_data;
+		TETH_DBG("a2_notify_cb: got lcid=%d from private data\n",
+			lcid);
+		client_id = get_cons_client(lcid);
+		idx = get_ch_info_idx(lcid);
+		if (!teth_ctx->ch_info[idx].is_hw_bridge_complete)
 			check_to_complete_hw_bridge(
+				lcid,
 				skb,
 				teth_ctx->mac_addresses.device_mac_addr,
 				&teth_ctx->mac_addresses.device_mac_addr_known,
@@ -1180,7 +1707,7 @@ static void a2_notify_cb(void *user_data,
 		if (res < 0) {
 			if (res == -EINPROGRESS) {
 				/* The resource is waking up */
-				defer_skb_send(skb, TETH_A2_TO_USB);
+				defer_skb_send(skb, TETH_A2_TO_USB, lcid);
 			} else {
 				TETH_ERR(
 					"Packet send failure, dropping packet !\n");
@@ -1191,7 +1718,7 @@ static void a2_notify_cb(void *user_data,
 			return;
 		}
 
-		res = ipa_tx_dp(IPA_CLIENT_USB_CONS, skb, NULL);
+		res = ipa_tx_dp(client_id, skb, NULL);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
 			dev_kfree_skb(skb);
@@ -1256,17 +1783,16 @@ static void a2_prod_notify_cb(void *notify_cb_data,
 
 	switch (event) {
 	case IPA_RM_RESOURCE_GRANTED:
-		res = a2_mux_get_tethered_client_handles(
-			A2_MUX_TETHERED_0,
-			&teth_ctx->ipa_a2_pipe_hdl,
-			&teth_ctx->a2_ipa_pipe_hdl);
+		res = a2_mux_get_client_handles(
+					A2_MUX_TETHERED_0,
+					&teth_ctx->ipa_a2_pipe_hdl,
+					&teth_ctx->a2_ipa_pipe_hdl);
 		if (res) {
 			TETH_ERR(
-				"a2_mux_get_tethered_client_handles() failed, res = %d\n",
+				"a2_mux_get_client_handles() failed, res = %d\n",
 				res);
 			return;
 		}
-
 		/* Reset the various endpoints configuration */
 		memset(&ipa_ep_cfg, 0, sizeof(ipa_ep_cfg));
 		ipa_ep_cfg.hdr.hdr_len = teth_ctx->ipa_a2_hdr_len;
@@ -1306,66 +1832,93 @@ static void a2_prod_notify_cb(void *notify_cb_data,
 *		-EINVAL - Bad parameter
 *		Other negative value - Failure
 */
-int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr)
+int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
+		enum ipa_client_type client)
 {
 	int res = 0;
 	struct ipa_rm_register_params a2_prod_reg_params;
+	u32 lcid;
+	int idx;
 
 	TETH_DBG_FUNC_ENTRY();
-	if (usb_notify_cb_ptr == NULL) {
+
+	if (usb_notify_cb_ptr == NULL || private_data_ptr == NULL) {
 		TETH_ERR("Bad parameter\n");
-		res = -EINVAL;
-		goto bail;
+		TETH_DBG_FUNC_EXIT();
+		return -EINVAL;
 	}
 
 	*usb_notify_cb_ptr = usb_notify_cb;
-	*private_data_ptr = NULL;
+	lcid = get_channel_id_from_client_prod(client);
+	*private_data_ptr = (void *)lcid;
+	idx = get_ch_info_idx(lcid);
 
-	/* Build IPA Resource manager dependency graph */
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-				    IPA_RM_RESOURCE_USB_CONS);
-	if (res && res != -EINPROGRESS) {
-		TETH_ERR("ipa_rm_add_dependency() failed\n");
+	mutex_lock(&teth_ctx->init_mutex);
+	/*
+	 * Register for A2_PROD resource notifications (only for single rmnet)
+	 * In multi rmnet, the a2_service is responsible for configure the
+	 * ipa<->a2 pipes
+	 */
+	if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
+		a2_prod_reg_params.user_data = NULL;
+		a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+		res = ipa_rm_register(IPA_RM_RESOURCE_A2_PROD,
+					  &a2_prod_reg_params);
+		if (res) {
+			TETH_ERR("ipa_rm_register() failed\n");
+			goto fail;
+		}
+	}
+
+	if (teth_ctx->init_status == TETH_INITIALIZATION_ERROR) {
+		res = -EPERM;
 		goto bail;
 	}
 
+	TETH_DBG("init private data with lcid=%d\n", lcid);
+
+	if (teth_ctx->init_status == TETH_INITIALIZED) {
+		teth_ctx->ch_init_cnt++;
+		res = 0;
+		goto bail;
+	}
+
+	TETH_DBG("first call to init: build dependency graph\n");
+	/* Build IPA Resource manager dependency graph */
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-				    IPA_RM_RESOURCE_A2_CONS);
+					IPA_RM_RESOURCE_USB_CONS);
+	if (res && res != -EINPROGRESS) {
+		TETH_ERR("ipa_rm_add_dependency() failed\n");
+		goto fail;
+	}
+
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+					IPA_RM_RESOURCE_A2_CONS);
 	if (res && res != -EINPROGRESS) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_1;
 	}
 
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
-				    IPA_RM_RESOURCE_A2_CONS);
+					IPA_RM_RESOURCE_A2_CONS);
 	if (res && res != -EINPROGRESS) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_2;
 	}
 
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_A2_PROD,
-				    IPA_RM_RESOURCE_USB_CONS);
+					IPA_RM_RESOURCE_USB_CONS);
 	if (res && res != -EINPROGRESS) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_3;
 	}
 
-	/* Register for A2_PROD resource notifications */
-	a2_prod_reg_params.user_data = NULL;
-	a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
-	res = ipa_rm_register(IPA_RM_RESOURCE_A2_PROD, &a2_prod_reg_params);
-	if (res) {
-		TETH_ERR("ipa_rm_register() failed\n");
-		goto fail_add_dependency_4;
-	}
-
 	/* Return 0 as EINPROGRESS is a valid return value at this point */
+	teth_ctx->init_status = TETH_INITIALIZED;
+	teth_ctx->ch_init_cnt++;
 	res = 0;
 	goto bail;
 
-fail_add_dependency_4:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
-				 IPA_RM_RESOURCE_USB_CONS);
 fail_add_dependency_3:
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 				 IPA_RM_RESOURCE_A2_CONS);
@@ -1375,11 +1928,77 @@ fail_add_dependency_2:
 fail_add_dependency_1:
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
 				 IPA_RM_RESOURCE_USB_CONS);
+fail:
+	teth_ctx->init_status = TETH_INITIALIZATION_ERROR;
 bail:
+	mutex_unlock(&teth_ctx->init_mutex);
 	TETH_DBG_FUNC_EXIT();
 	return res;
 }
 EXPORT_SYMBOL(teth_bridge_init);
+
+static void initialize_ch_info(int idx)
+{
+	teth_ctx->ch_info[idx].usb_ipa_pipe_hdl = 0;
+	teth_ctx->ch_info[idx].ipa_usb_pipe_hdl = 0;
+	teth_ctx->ch_info[idx].is_connected = false;
+	/*
+	 * The first channel(#8) is tethered channel it's and default link
+	 * protocol is Ethernet the other channels are embedded channels -
+	 * only IP is supported
+	 */
+	if (idx == 0) {
+		teth_ctx->ch_info[idx].ch_type = TETH_TETHERED_CH;
+		teth_ctx->ch_info[idx].link_protocol =
+				TETH_LINK_PROTOCOL_ETHERNET;
+	} else {
+		teth_ctx->ch_info[idx].ch_type = TETH_EMBEDDED_CH;
+		teth_ctx->ch_info[idx].link_protocol = TETH_LINK_PROTOCOL_IP;
+	}
+
+	teth_ctx->ch_info[idx].is_hw_bridge_complete = false;
+	memset(&teth_ctx->ch_info[idx].aggr_params, 0,
+			sizeof(teth_ctx->ch_info[idx].aggr_params));
+	teth_ctx->ch_info[idx].aggr_params_known = false;
+	teth_ctx->ch_info[idx].comp_hw_bridge_in_progress = false;
+	teth_ctx->ch_info[idx].hw_bridge_work.lcid = A2_MUX_TETHERED_0;
+
+	memset(teth_ctx->ch_info[idx].routing_del[IPA_IP_v4],
+	       0,
+	       sizeof(struct ipa_ioc_del_rt_rule) +
+	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
+	teth_ctx->ch_info[idx].routing_del[IPA_IP_v4]->ip = IPA_IP_v4;
+	memset(teth_ctx->ch_info[idx].routing_del[IPA_IP_v6],
+	       0,
+	       sizeof(struct ipa_ioc_del_rt_rule) +
+	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
+	teth_ctx->ch_info[idx].routing_del[IPA_IP_v6]->ip = IPA_IP_v6;
+
+	memset(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4],
+	       0,
+	       sizeof(struct ipa_ioc_del_flt_rule) +
+	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
+	teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4]->ip = IPA_IP_v4;
+	memset(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6],
+	       0,
+	       sizeof(struct ipa_ioc_del_flt_rule) +
+	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
+	teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6]->ip = IPA_IP_v6;
+}
+
+/**
+ * initialize_ch_info_arr() - Initialize the ch_info array
+ */
+static void initialize_ch_info_arr(void)
+{
+	int idx;
+	TETH_DBG_FUNC_ENTRY();
+	/* Initialize channel info array*/
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++)
+		initialize_ch_info(idx);
+
+	TETH_DBG_FUNC_EXIT();
+}
 
 /**
  * initialize_context() - Initialize the ipa_ctx struct
@@ -1388,69 +2007,32 @@ static void initialize_context(void)
 {
 	TETH_DBG_FUNC_ENTRY();
 	/* Initialize context variables */
-	teth_ctx->usb_ipa_pipe_hdl = 0;
 	teth_ctx->ipa_a2_pipe_hdl = 0;
 	teth_ctx->a2_ipa_pipe_hdl = 0;
-	teth_ctx->ipa_usb_pipe_hdl = 0;
-	teth_ctx->is_connected = false;
-
-	/* The default link protocol is Ethernet */
-	teth_ctx->link_protocol = TETH_LINK_PROTOCOL_ETHERNET;
 
 	memset(&teth_ctx->mac_addresses, 0, sizeof(teth_ctx->mac_addresses));
-	teth_ctx->is_hw_bridge_complete = false;
-	memset(&teth_ctx->aggr_params, 0, sizeof(teth_ctx->aggr_params));
-	teth_ctx->aggr_params_known = false;
 	teth_ctx->tethering_mode = 0;
 	INIT_COMPLETION(teth_ctx->is_bridge_prod_up);
 	INIT_COMPLETION(teth_ctx->is_bridge_prod_down);
-	teth_ctx->comp_hw_bridge_in_progress = false;
 	memset(&teth_ctx->stats, 0, sizeof(teth_ctx->stats));
 	teth_ctx->a2_ipa_hdr_len = 0;
 	teth_ctx->ipa_a2_hdr_len = 0;
+
 	memset(teth_ctx->hdr_del,
 	       0,
 	       sizeof(struct ipa_ioc_del_hdr) + TETH_TOTAL_HDR_ENTRIES *
 	       sizeof(struct ipa_hdr_del));
-	memset(teth_ctx->routing_del[IPA_IP_v4],
-	       0,
-	       sizeof(struct ipa_ioc_del_rt_rule) +
-	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
-	teth_ctx->routing_del[IPA_IP_v4]->ip = IPA_IP_v4;
-	memset(teth_ctx->routing_del[IPA_IP_v6],
-	       0,
-	       sizeof(struct ipa_ioc_del_rt_rule) +
-	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
-	teth_ctx->routing_del[IPA_IP_v6]->ip = IPA_IP_v6;
-	memset(teth_ctx->filtering_del[IPA_IP_v4],
-	       0,
-	       sizeof(struct ipa_ioc_del_flt_rule) +
-	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
-	teth_ctx->filtering_del[IPA_IP_v4]->ip = IPA_IP_v4;
-	memset(teth_ctx->filtering_del[IPA_IP_v6],
-	       0,
-	       sizeof(struct ipa_ioc_del_flt_rule) +
-	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
-	teth_ctx->filtering_del[IPA_IP_v6]->ip = IPA_IP_v6;
+
+	teth_ctx->ch_init_cnt = 0;
+	teth_ctx->init_status = TETH_NOT_INITIALIZED;
+	teth_ctx->debugfs_lcid = A2_MUX_TETHERED_0;
 
 	TETH_DBG_FUNC_EXIT();
 }
 
-/**
-* teth_bridge_disconnect() - Disconnect tethering bridge module
-*/
-int teth_bridge_disconnect(void)
+static int delete_usb_dependencies(void)
 {
 	int res;
-	struct ipa_rm_register_params a2_prod_reg_params;
-
-	TETH_DBG_FUNC_ENTRY();
-	if (!teth_ctx->is_connected) {
-		TETH_ERR(
-			"Trying to disconnect an already disconnected bridge\n");
-		goto bail;
-	}
-
 	/*
 	 * Delete part of IPA resource manager dependency graph. Only the
 	 * BRIDGE_PROD <-> A2 dependency remains intact
@@ -1470,7 +2052,48 @@ int teth_bridge_disconnect(void)
 	if ((res != 0) && (res != -EINPROGRESS))
 		TETH_ERR(
 			"Failed deleting ipa_rm dependency A2_PROD <-> USB_CONS\n");
+	return res;
+}
 
+static void teardown_hw_bridge(int idx)
+{
+	if (get_completed_ch_num() <= 1) {
+		/* Delete header entries */
+		if (ipa_del_hdr(teth_ctx->hdr_del))
+			TETH_ERR("ipa_del_hdr() failed\n");
+	}
+
+	/* Delete installed routing rules */
+	if (ipa_del_rt_rule(teth_ctx->ch_info[idx].routing_del[IPA_IP_v4]))
+		TETH_ERR("ipa_del_rt_rule() failed\n");
+	if (ipa_del_rt_rule(teth_ctx->ch_info[idx].routing_del[IPA_IP_v6]))
+		TETH_ERR("ipa_del_rt_rule() failed\n");
+
+	/* Delete installed filtering rules */
+	if (ipa_del_flt_rule(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4]))
+		TETH_ERR("ipa_del_flt_rule() failed\n");
+	if (ipa_del_flt_rule(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6]))
+		TETH_ERR("ipa_del_flt_rule() failed\n");
+
+	/*
+	 * Commit all the data to HW, including header, routing and
+	 * filtering blocks, IPv4 and IPv6
+	 */
+	if (ipa_commit_hdr())
+		TETH_ERR("Failed committing delete rules\n");
+}
+
+/**
+* disconnect_first_ch() - any channel disconnect. if last channel disconnects
+* delete  bridge prod dependency from the dependency graph
+*/
+static int disconnect_ch(u16 lcid)
+{
+	int res;
+	struct ipa_rm_register_params a2_prod_reg_params;
+	u16 idx = get_ch_info_idx(lcid);
+
+	TETH_DBG_FUNC_ENTRY();
 	/* Request the BRIDGE_PROD resource, A2 and IPA should power up */
 	res = teth_request_resource();
 	if (res) {
@@ -1479,60 +2102,91 @@ int teth_bridge_disconnect(void)
 	}
 
 	/* Close the channel to A2 */
-	if (a2_mux_close_channel(A2_MUX_TETHERED_0))
-		TETH_ERR("a2_mux_close_channel() failed\n");
-
-	/* Teardown the IPA HW bridge */
-	if (teth_ctx->is_hw_bridge_complete) {
-		/* Delete header entries */
-		if (ipa_del_hdr(teth_ctx->hdr_del))
-			TETH_ERR("ipa_del_hdr() failed\n");
-
-		/* Delete installed routing rules */
-		if (ipa_del_rt_rule(teth_ctx->routing_del[IPA_IP_v4]))
-			TETH_ERR("ipa_del_rt_rule() failed\n");
-		if (ipa_del_rt_rule(teth_ctx->routing_del[IPA_IP_v6]))
-			TETH_ERR("ipa_del_rt_rule() failed\n");
-
-		/* Delete installed filtering rules */
-		if (ipa_del_flt_rule(teth_ctx->filtering_del[IPA_IP_v4]))
-			TETH_ERR("ipa_del_flt_rule() failed\n");
-		if (ipa_del_flt_rule(teth_ctx->filtering_del[IPA_IP_v6]))
-			TETH_ERR("ipa_del_flt_rule() failed\n");
-
-		/*
-		 * Commit all the data to HW, including header, routing and
-		 * filtering blocks, IPv4 and IPv6
-		 */
-		if (ipa_commit_hdr())
-			TETH_ERR("Failed committing headers\n");
-	}
-
-	initialize_context();
+	if (a2_mux_close_channel(lcid))
+		TETH_ERR("a2_mux_close_channel(%d) failed\n", lcid);
+	/* Tear down the IPA HW bridge */
+	if (teth_ctx->ch_info[idx].is_hw_bridge_complete)
+		teardown_hw_bridge(idx);
 
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 
-	/* Delete the last ipa_rm dependency - BRIDGE_PROD <-> A2 */
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-				       IPA_RM_RESOURCE_A2_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
-
 	/* Deregister from A2_PROD notifications */
-	a2_prod_reg_params.user_data = NULL;
-	a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
-	res = ipa_rm_deregister(IPA_RM_RESOURCE_A2_PROD, &a2_prod_reg_params);
-	if (res)
-		TETH_ERR("Failed deregistering from A2_prod notifications.\n");
+	if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
+		a2_prod_reg_params.user_data = NULL;
+		a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+		res = ipa_rm_deregister(IPA_RM_RESOURCE_A2_PROD,
+				&a2_prod_reg_params);
+		if (res)
+			TETH_ERR(
+				"Failed deregistering from A2_prod notifications.\n");
+	}
 
-	teth_ctx->is_connected = false;
+	if (get_connected_ch_num() <= 1) {
+		initialize_context();
+		/* Delete the last ipa_rm dependency - BRIDGE_PROD <-> A2 */
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+					       IPA_RM_RESOURCE_A2_CONS);
+		if ((res != 0) && (res != -EINPROGRESS))
+			TETH_ERR(
+				"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
+	}
+	initialize_ch_info(idx);
+
 bail:
 	TETH_DBG_FUNC_EXIT();
+	return 0;
+}
 
+/**
+* disconnect_first_ch() - First channel disconnect
+*			delete all USB dependencies from the dependency graph
+*/
+static int disconnect_first_ch(u16 lcid)
+{
+	int res;
+
+	TETH_DBG_FUNC_ENTRY();
+	res = delete_usb_dependencies();
+
+	disconnect_ch(lcid);
+
+	teth_ctx->init_status = TETH_NOT_INITIALIZED;
+
+	TETH_DBG_FUNC_EXIT();
+	return 0;
+}
+
+/**
+* teth_bridge_disconnect() - Disconnect tethering bridge module
+*/
+int teth_bridge_disconnect(enum ipa_client_type client)
+{
+	u16 lcid;
+	u16 idx;
+
+	TETH_DBG_FUNC_ENTRY();
+	lcid = get_channel_id_from_client_prod(client);
+	idx = get_ch_info_idx(lcid);
+	if (!teth_ctx->ch_info[idx].is_connected) {
+		TETH_ERR(
+			"Trying to disconnect an already disconnected bridge\n");
+		goto bail;
+	}
+	mutex_lock(&teth_ctx->init_mutex);
+	if (teth_ctx->init_status == TETH_INITIALIZED)
+		disconnect_first_ch(lcid);
+	else
+		disconnect_ch(lcid);
+	teth_ctx->ch_info[idx].is_connected = false;
+	mutex_unlock(&teth_ctx->init_mutex);
+	TETH_DBG("ch #%d is disconnected.\n", lcid);
+
+bail:
+	TETH_DBG_FUNC_EXIT();
 	return 0;
 }
 EXPORT_SYMBOL(teth_bridge_disconnect);
+
 
 /**
 * teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
@@ -1547,21 +2201,36 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
 	int res;
 	struct ipa_ep_cfg ipa_ep_cfg;
+	u16 lcid;
+	u16 idx;
+	struct hw_bridge_work_wrap *work_data;
 
 	TETH_DBG_FUNC_ENTRY();
-	if (teth_ctx->is_connected) {
-		TETH_ERR("Trying to connect an already connected bridge !\n");
-		return -EPERM;
-	}
+
 	if (connect_params == NULL ||
 	    connect_params->ipa_usb_pipe_hdl <= 0 ||
 	    connect_params->usb_ipa_pipe_hdl <= 0 ||
 	    connect_params->tethering_mode >= TETH_TETHERING_MODE_MAX ||
-	    connect_params->tethering_mode < 0)
+	    connect_params->tethering_mode < 0 ||
+	    connect_params->client_type > IPA_CLIENT_USB_PROD ||
+	    connect_params->client_type < IPA_CLIENT_USB2_PROD) {
+		TETH_DBG("Received invalid connect_params.\n");
 		return -EINVAL;
+	}
 
-	teth_ctx->ipa_usb_pipe_hdl = connect_params->ipa_usb_pipe_hdl;
-	teth_ctx->usb_ipa_pipe_hdl = connect_params->usb_ipa_pipe_hdl;
+
+	lcid = get_channel_id_from_client_prod(connect_params->client_type);
+	idx = get_ch_info_idx(lcid);
+
+	if (teth_ctx->ch_info[idx].is_connected) {
+		TETH_ERR("Trying to connect an already connected bridge !\n");
+		return -EPERM;
+	}
+
+	teth_ctx->ch_info[idx].ipa_usb_pipe_hdl =
+		connect_params->ipa_usb_pipe_hdl;
+	teth_ctx->ch_info[idx].usb_ipa_pipe_hdl =
+		connect_params->usb_ipa_pipe_hdl;
 	teth_ctx->tethering_mode = connect_params->tethering_mode;
 
 	res = teth_request_resource();
@@ -1570,37 +2239,50 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 		goto bail;
 	}
 
-	res = a2_mux_open_channel(A2_MUX_TETHERED_0,
-				  NULL,
+	res = a2_mux_open_channel(lcid,
+				  (void *)(u32)lcid,
 				  a2_notify_cb);
 	if (res) {
-		TETH_ERR("a2_mux_open_channel() failed\n");
-		goto bail;
-	}
-
-	res = a2_mux_get_tethered_client_handles(A2_MUX_TETHERED_0,
-						 &teth_ctx->ipa_a2_pipe_hdl,
-						 &teth_ctx->a2_ipa_pipe_hdl);
-	if (res) {
-		TETH_ERR(
-		"a2_mux_get_tethered_client_handles() failed, res = %d\n", res);
+		TETH_ERR("a2_mux_open_channel(%d) failed\n", lcid);
 		goto bail;
 	}
 
 	/* Reset the various endpoints configuration */
 	memset(&ipa_ep_cfg, 0, sizeof(ipa_ep_cfg));
-	ipa_cfg_ep(teth_ctx->ipa_usb_pipe_hdl, &ipa_ep_cfg);
-	ipa_cfg_ep(teth_ctx->usb_ipa_pipe_hdl, &ipa_ep_cfg);
-	ipa_cfg_ep(teth_ctx->ipa_a2_pipe_hdl, &ipa_ep_cfg);
-	ipa_cfg_ep(teth_ctx->a2_ipa_pipe_hdl, &ipa_ep_cfg);
+	ipa_cfg_ep(teth_ctx->ch_info[idx].ipa_usb_pipe_hdl, &ipa_ep_cfg);
+	ipa_cfg_ep(teth_ctx->ch_info[idx].usb_ipa_pipe_hdl, &ipa_ep_cfg);
 
-	teth_ctx->is_connected = true;
+	mutex_lock(&teth_ctx->init_mutex);
+	if (get_connected_ch_num() == 0) {
+		res = a2_mux_get_client_handles(lcid,
+						&teth_ctx->ipa_a2_pipe_hdl,
+						&teth_ctx->a2_ipa_pipe_hdl);
+		if (res) {
+			TETH_ERR(
+			"a2_mux_get_client_handles() failed, res = %d\n", res);
+			mutex_unlock(&teth_ctx->init_mutex);
+			goto bail;
+		}
+		TETH_DBG("get_client_handles success.\n");
+		if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
+			ipa_cfg_ep(teth_ctx->ipa_a2_pipe_hdl, &ipa_ep_cfg);
+			ipa_cfg_ep(teth_ctx->a2_ipa_pipe_hdl, &ipa_ep_cfg);
+		}
+	}
 
-	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
-		teth_ctx->link_protocol = TETH_LINK_PROTOCOL_IP;
+	teth_ctx->ch_info[idx].is_connected = true;
+	TETH_DBG("lcid #%d is connected.\n", lcid);
+	mutex_unlock(&teth_ctx->init_mutex);
 
-	if (teth_ctx->aggr_params_known) {
-		res = teth_set_aggregation();
+
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+		TETH_DBG(
+			"TETH_TETHERING_MODE_MBIM: setting link protocol to IP.\n");
+		teth_ctx->ch_info[idx].link_protocol = TETH_LINK_PROTOCOL_IP;
+	}
+
+	if (teth_ctx->ch_info[idx].aggr_params_known) {
+		res = teth_set_aggregation(lcid);
 		if (res) {
 			TETH_ERR("Failed setting aggregation params\n");
 			goto bail;
@@ -1608,14 +2290,18 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 	}
 
 	/* In case of IP link protocol, complete HW bridge */
-	if ((teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP) &&
-	    (!teth_ctx->comp_hw_bridge_in_progress) &&
-	    (teth_ctx->aggr_params_known) &&
-	    (!teth_ctx->is_hw_bridge_complete)) {
-		INIT_WORK(&teth_ctx->comp_hw_bridge_work, complete_hw_bridge);
-		teth_ctx->comp_hw_bridge_in_progress = true;
-		queue_work(teth_ctx->teth_wq, &teth_ctx->comp_hw_bridge_work);
+	if ((teth_ctx->ch_info[idx].link_protocol ==
+			TETH_LINK_PROTOCOL_IP) &&
+	    (!teth_ctx->ch_info[idx].comp_hw_bridge_in_progress) &&
+	    (teth_ctx->ch_info[idx].aggr_params_known) &&
+	    (!teth_ctx->ch_info[idx].is_hw_bridge_complete)) {
+		work_data = &teth_ctx->ch_info[idx].hw_bridge_work;
+		INIT_WORK(&work_data->comp_hw_bridge_work, complete_hw_bridge);
+		work_data->lcid = lcid;
+		teth_ctx->ch_info[idx].comp_hw_bridge_in_progress = true;
+		queue_work(teth_ctx->teth_wq, &work_data->comp_hw_bridge_work);
 	}
+
 bail:
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 	TETH_DBG_FUNC_EXIT();
@@ -1636,32 +2322,40 @@ static void set_aggr_default_params(struct teth_aggr_params_link *params)
 
 /**
  * teth_set_bridge_mode() - set the link protocol (IP / Ethernet)
+ * @param lcid: logical channel number
  */
-static void teth_set_bridge_mode(enum teth_link_protocol_type link_protocol)
+static void teth_set_bridge_mode(u16 lcid,
+				 enum teth_link_protocol_type link_protocol)
 {
-	teth_ctx->link_protocol = link_protocol;
-	teth_ctx->is_hw_bridge_complete = false;
+	u16 idx = get_ch_info_idx(lcid);
+	teth_ctx->ch_info[idx].link_protocol = link_protocol;
+	teth_ctx->ch_info[idx].is_hw_bridge_complete = false;
 	memset(&teth_ctx->mac_addresses, 0, sizeof(teth_ctx->mac_addresses));
 }
 
 /**
  * teth_bridge_set_aggr_params() - kernel API to set aggregation parameters
+ * @param client: name of the IPA "client"
  * @param aggr_params: aggregation parmeters for uplink and downlink
  *
- * Besides setting the aggregation parameters, the function enforces max tranfer
- * size which is less then 8K and also forbids Ethernet link protocol with MBIM
- * aggregation which is not supported by HW.
+ * Besides setting the aggregation parameters, the function enforces max
+ * transfer size which is less then 8K and also forbids Ethernet link protocol
+ * with MBIM aggregation which is not supported by HW.
  */
-int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
+int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
+		enum ipa_client_type client)
 {
 	int res;
+	u16 idx;
+	u16 lcid;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (!aggr_params) {
 		TETH_ERR("Invalid parameter\n");
 		return -EINVAL;
 	}
-
+	lcid = get_channel_id_from_client_prod(client);
+	idx = get_ch_info_idx(lcid);
 	/*
 	 * In case the requested max transfer size is larger than 8K, set it to
 	 * to the default 8K
@@ -1676,7 +2370,8 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 			TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
 
 	/* Ethernet link protocol and MBIM aggregation is not supported */
-	if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET &&
+	if (teth_ctx->ch_info[idx].link_protocol ==
+			TETH_LINK_PROTOCOL_ETHERNET &&
 	    (aggr_params->dl.aggr_prot == TETH_AGGR_PROTOCOL_MBIM ||
 	     aggr_params->ul.aggr_prot == TETH_AGGR_PROTOCOL_MBIM)) {
 		TETH_ERR("Ethernet with MBIM is not supported.\n");
@@ -1689,14 +2384,14 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 		return res;
 	}
 
-	memcpy(&teth_ctx->aggr_params,
+	memcpy(&teth_ctx->ch_info[idx].aggr_params,
 	       aggr_params,
 	       sizeof(struct teth_aggr_params));
-	set_aggr_default_params(&teth_ctx->aggr_params.dl);
-	set_aggr_default_params(&teth_ctx->aggr_params.ul);
+	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.dl);
+	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.ul);
 
-	teth_ctx->aggr_params_known = true;
-	res = teth_set_aggregation();
+	teth_ctx->ch_info[idx].aggr_params_known = true;
+	res = teth_set_aggregation(lcid);
 	if (res)
 		TETH_ERR("Failed setting aggregation params\n");
 
@@ -1712,7 +2407,10 @@ static long teth_bridge_ioctl(struct file *filp,
 			      unsigned long arg)
 {
 	int res = 0;
-	struct teth_aggr_params aggr_params;
+	struct teth_ioc_aggr_params i_aggr_params;
+	struct teth_ioc_set_bridge_mode bridge_mode_params;
+	struct hw_bridge_work_wrap *work_data;
+	u16 i = 0;
 
 	TETH_DBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
 
@@ -1725,44 +2423,101 @@ static long teth_bridge_ioctl(struct file *filp,
 	switch (cmd) {
 	case TETH_BRIDGE_IOC_SET_BRIDGE_MODE:
 		TETH_DBG("TETH_BRIDGE_IOC_SET_BRIDGE_MODE ioctl called\n");
-		if (teth_ctx->link_protocol != arg)
-			teth_set_bridge_mode(arg);
-		break;
-
-	case TETH_BRIDGE_IOC_SET_AGGR_PARAMS:
-		TETH_DBG("TETH_BRIDGE_IOC_SET_AGGR_PARAMS ioctl called\n");
-		res = copy_from_user(&aggr_params,
-				   (struct teth_aggr_params *)arg,
-				   sizeof(struct teth_aggr_params));
+		res = copy_from_user(&bridge_mode_params,
+				   (struct teth_ioc_set_bridge_mode *)arg,
+				   sizeof(struct teth_ioc_set_bridge_mode));
 		if (res) {
 			TETH_ERR("Error, res = %d\n", res);
 			res = -EFAULT;
 			break;
 		}
+		if (bridge_mode_params.lcid >= A2_MUX_NUM_CHANNELS ||
+				bridge_mode_params.lcid < A2_MUX_WWAN_0) {
+			TETH_ERR("Invalid lcid = %d\n",
+					bridge_mode_params.lcid);
+			res = -EINVAL;
+			break;
+		}
+		i = get_ch_info_idx(bridge_mode_params.lcid);
+		if (teth_ctx->ch_info[i].ch_type == TETH_EMBEDDED_CH &&
+		   bridge_mode_params.link_protocol ==
+		   TETH_LINK_PROTOCOL_ETHERNET) {
+			TETH_ERR(
+				"Invalid link protocol. Ethernet is not supported for multi rmnet\n");
+			res = -EINVAL;
+			break;
+		}
+		if (teth_ctx->ch_info[i].link_protocol !=
+				bridge_mode_params.link_protocol)
+			teth_set_bridge_mode(bridge_mode_params.lcid,
+					bridge_mode_params.link_protocol);
+		break;
 
-		res = teth_bridge_set_aggr_params(&aggr_params);
+	case TETH_BRIDGE_IOC_SET_AGGR_PARAMS:
+		TETH_DBG("TETH_BRIDGE_IOC_SET_AGGR_PARAMS ioctl called\n");
+		res = copy_from_user(&i_aggr_params,
+				   (struct teth_ioc_aggr_params *)arg,
+				   sizeof(struct teth_ioc_aggr_params));
+		if (res) {
+			TETH_ERR("Error, res = %d\n", res);
+			res = -EFAULT;
+			break;
+		}
+		if (i_aggr_params.lcid >= A2_MUX_NUM_CHANNELS ||
+				i_aggr_params.lcid < A2_MUX_WWAN_0) {
+			TETH_ERR("Invalid lcid = %d\n", i_aggr_params.lcid);
+			res = -EINVAL;
+			break;
+		}
+		i = get_ch_info_idx(i_aggr_params.lcid);
+		res = teth_bridge_set_aggr_params(&i_aggr_params.aggr_params,
+				get_prod_client(i_aggr_params.lcid));
 		if (res)
 			break;
 
 		/* In case of IP link protocol, complete HW bridge */
-		if ((teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP) &&
-		    (!teth_ctx->comp_hw_bridge_in_progress) &&
-		    (!teth_ctx->is_hw_bridge_complete)) {
-			INIT_WORK(&teth_ctx->comp_hw_bridge_work,
+		if ((teth_ctx->ch_info[i].link_protocol ==
+				TETH_LINK_PROTOCOL_IP) &&
+		    (!teth_ctx->ch_info[i].comp_hw_bridge_in_progress) &&
+		    (!teth_ctx->ch_info[i].is_hw_bridge_complete)) {
+			work_data = &teth_ctx->ch_info[i].hw_bridge_work;
+			INIT_WORK(&work_data->comp_hw_bridge_work,
 				  complete_hw_bridge);
-			teth_ctx->comp_hw_bridge_in_progress = true;
+			work_data->lcid = i_aggr_params.lcid;
+			teth_ctx->ch_info[i].comp_hw_bridge_in_progress = true;
 			queue_work(teth_ctx->teth_wq,
-				   &teth_ctx->comp_hw_bridge_work);
+					&work_data->comp_hw_bridge_work);
 		}
 		break;
 
 	case TETH_BRIDGE_IOC_GET_AGGR_PARAMS:
 		TETH_DBG("TETH_BRIDGE_IOC_GET_AGGR_PARAMS ioctl called\n");
-		if (copy_to_user((u8 *)arg, (u8 *)&teth_ctx->aggr_params,
-				   sizeof(struct teth_aggr_params))) {
+		/*get the channel number from the ioctl params*/
+		res = copy_from_user(&i_aggr_params,
+				   (struct teth_ioc_aggr_params *)arg,
+				   sizeof(struct teth_ioc_aggr_params));
+		if (res) {
+			TETH_ERR("Error, res = %d\n", res);
 			res = -EFAULT;
 			break;
 		}
+		TETH_DBG("get_aggr_params ioctl for lcid #%d\n",
+				i_aggr_params.lcid);
+		if (i_aggr_params.lcid >= A2_MUX_NUM_CHANNELS ||
+				i_aggr_params.lcid < A2_MUX_WWAN_0) {
+			TETH_ERR("Invalid lcid = %d\n", i_aggr_params.lcid);
+			res = -EINVAL;
+			break;
+		}
+		i = get_ch_info_idx(i_aggr_params.lcid);
+		i_aggr_params.aggr_params = teth_ctx->ch_info[i].aggr_params;
+		if (copy_to_user((u8 *)arg,
+				(u8 *)&i_aggr_params,
+				sizeof(struct teth_ioc_aggr_params))) {
+			res = -EFAULT;
+			break;
+		}
+		TETH_DBG("TETH_BRIDGE_IOC_GET_AGGR_PARAMS ioctl end\n");
 		break;
 
 	case TETH_BRIDGE_IOC_GET_AGGR_CAPABILITIES:
@@ -1847,18 +2602,66 @@ void teth_bridge_get_client_handles(u32 *producer_handle,
 {
 	if (producer_handle == NULL || consumer_handle == NULL)
 		return;
-
-	*producer_handle = teth_ctx->usb_ipa_pipe_hdl;
-	*consumer_handle = teth_ctx->ipa_usb_pipe_hdl;
+	*producer_handle = teth_ctx->ch_info[0].usb_ipa_pipe_hdl;
+	*consumer_handle = teth_ctx->ch_info[0].ipa_usb_pipe_hdl;
 }
 
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *dent;
+static struct dentry *dfile_lcid;
 static struct dentry *dfile_link_protocol;
 static struct dentry *dfile_get_aggr_params;
 static struct dentry *dfile_set_aggr_protocol;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_is_hw_bridge_complete;
+
+static ssize_t teth_debugfs_read_lcid(struct file *file,
+					       char __user *ubuf,
+					       size_t count,
+					       loff_t *ppos)
+{
+	int nbytes;
+
+	nbytes = scnprintf(dbg_buff, TETH_MAX_MSG_LEN, "lcid = %d\n",
+			   teth_ctx->debugfs_lcid);
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
+static ssize_t teth_debugfs_write_lcid(struct file *file,
+					const char __user *ubuf,
+					size_t count,
+					loff_t *ppos)
+{
+	unsigned long missing;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	if (count > 0)
+		dbg_buff[count-1] = '\0';
+
+	if (strcmp(dbg_buff, "8") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_TETHERED_0;
+	} else if (strcmp(dbg_buff, "10") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_RMNET_10;
+	} else if (strcmp(dbg_buff, "11") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_RMNET_11;
+	} else if (strcmp(dbg_buff, "12") == 0) {
+			teth_ctx->debugfs_lcid = A2_MUX_MULTI_RMNET_12;
+	} else {
+		teth_ctx->debugfs_lcid = A2_MUX_TETHERED_0;
+		TETH_ERR("Bad lcid, got %s,\n"
+			 "Use <8, 10-12>.\n", dbg_buff);
+		return count;
+	}
+
+	return count;
+}
 
 static ssize_t teth_debugfs_read_link_protocol(struct file *file,
 					       char __user *ubuf,
@@ -1866,9 +2669,11 @@ static ssize_t teth_debugfs_read_link_protocol(struct file *file,
 					       loff_t *ppos)
 {
 	int nbytes;
+	u16 ch_info_idx;
+	ch_info_idx = get_ch_info_idx(teth_ctx->debugfs_lcid);
 
 	nbytes = scnprintf(dbg_buff, TETH_MAX_MSG_LEN, "Link protocol = %s\n",
-			   (teth_ctx->link_protocol ==
+			   (teth_ctx->ch_info[ch_info_idx].link_protocol ==
 				TETH_LINK_PROTOCOL_ETHERNET) ?
 			   "ETHERNET" :
 			   "IP");
@@ -1904,7 +2709,7 @@ static ssize_t teth_debugfs_write_link_protocol(struct file *file,
 		return count;
 	}
 
-	teth_set_bridge_mode(link_protocol);
+	teth_set_bridge_mode(teth_ctx->debugfs_lcid , link_protocol);
 
 	return count;
 }
@@ -1916,8 +2721,10 @@ static ssize_t teth_debugfs_read_aggr_params(struct file *file,
 {
 	int nbytes = 0;
 	char aggr_str[20];
+	u16 idx;
+	idx = get_ch_info_idx(teth_ctx->debugfs_lcid);
 
-	aggr_prot_to_str(teth_ctx->aggr_params.ul.aggr_prot,
+	aggr_prot_to_str(teth_ctx->ch_info[idx].aggr_params.ul.aggr_prot,
 			 aggr_str,
 			 sizeof(aggr_str)-1);
 	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
@@ -1925,14 +2732,18 @@ static ssize_t teth_debugfs_read_aggr_params(struct file *file,
 	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
 			    "  Aggregation protocol: %s\n",
 			    aggr_str);
-	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
-			    "  Max transfer size [byte]: %d\n",
-			    teth_ctx->aggr_params.ul.max_transfer_size_byte);
-	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
-			    "  Max datagrams: %d\n",
-			    teth_ctx->aggr_params.ul.max_datagrams);
+	nbytes += scnprintf(
+		&dbg_buff[nbytes],
+		TETH_MAX_MSG_LEN - nbytes,
+		"  Max transfer size [byte]: %d\n",
+		teth_ctx->ch_info[idx].aggr_params.ul.max_transfer_size_byte);
+	nbytes += scnprintf(
+			&dbg_buff[nbytes],
+			TETH_MAX_MSG_LEN - nbytes,
+			"  Max datagrams: %d\n",
+			teth_ctx->ch_info[idx].aggr_params.ul.max_datagrams);
 
-	aggr_prot_to_str(teth_ctx->aggr_params.dl.aggr_prot,
+	aggr_prot_to_str(teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot,
 			 aggr_str,
 			 sizeof(aggr_str)-1);
 	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN,
@@ -1940,12 +2751,16 @@ static ssize_t teth_debugfs_read_aggr_params(struct file *file,
 	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
 			    "  Aggregation protocol: %s\n",
 			    aggr_str);
-	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
-			    "  Max transfer size [byte]: %d\n",
-			    teth_ctx->aggr_params.dl.max_transfer_size_byte);
-	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
-			    "  Max datagrams: %d\n",
-			    teth_ctx->aggr_params.dl.max_datagrams);
+	nbytes += scnprintf(
+		&dbg_buff[nbytes],
+		TETH_MAX_MSG_LEN - nbytes,
+		"  Max transfer size [byte]: %d\n",
+		teth_ctx->ch_info[idx].aggr_params.dl.max_transfer_size_byte);
+	nbytes += scnprintf(
+			&dbg_buff[nbytes],
+			TETH_MAX_MSG_LEN - nbytes,
+			"  Max datagrams: %d\n",
+			teth_ctx->ch_info[idx].aggr_params.dl.max_datagrams);
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1957,6 +2772,8 @@ static ssize_t teth_debugfs_set_aggr_protocol(struct file *file,
 	unsigned long missing;
 	enum teth_aggr_protocol_type aggr_prot;
 	int res;
+	u16 idx;
+	idx = get_ch_info_idx(teth_ctx->debugfs_lcid);
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -1968,8 +2785,8 @@ static ssize_t teth_debugfs_set_aggr_protocol(struct file *file,
 	if (count > 0)
 		dbg_buff[count-1] = '\0';
 
-	set_aggr_default_params(&teth_ctx->aggr_params.dl);
-	set_aggr_default_params(&teth_ctx->aggr_params.ul);
+	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.dl);
+	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.ul);
 
 	if (strcmp(dbg_buff, "NONE") == 0) {
 		aggr_prot = TETH_AGGR_PROTOCOL_NONE;
@@ -1983,11 +2800,11 @@ static ssize_t teth_debugfs_set_aggr_protocol(struct file *file,
 		return count;
 	}
 
-	teth_ctx->aggr_params.dl.aggr_prot = aggr_prot;
-	teth_ctx->aggr_params.ul.aggr_prot = aggr_prot;
-	teth_ctx->aggr_params_known = true;
+	teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot = aggr_prot;
+	teth_ctx->ch_info[idx].aggr_params.ul.aggr_prot = aggr_prot;
+	teth_ctx->ch_info[idx].aggr_params_known = true;
 
-	res = teth_set_aggregation();
+	res = teth_set_aggregation(teth_ctx->debugfs_lcid);
 	if (res)
 		TETH_ERR("Failed setting aggregation params\n");
 
@@ -2014,6 +2831,7 @@ static ssize_t teth_debugfs_stats(struct file *file,
 		TETH_MAX_MSG_LEN - nbytes,
 		"SW Tx packets sent during resource wakeup: %lld\n",
 		teth_ctx->stats.num_sw_tx_packets_during_resource_wakeup);
+
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
@@ -2023,8 +2841,10 @@ static ssize_t teth_debugfs_hw_bridge_status(struct file *file,
 					     loff_t *ppos)
 {
 	int nbytes = 0;
+	u16 ch_info_idx;
+	ch_info_idx = get_ch_info_idx(teth_ctx->debugfs_lcid);
 
-	if (teth_ctx->is_hw_bridge_complete)
+	if (teth_ctx->ch_info[ch_info_idx].is_hw_bridge_complete)
 		nbytes += scnprintf(&dbg_buff[nbytes],
 				    TETH_MAX_MSG_LEN - nbytes,
 				   "HW bridge is in use.\n");
@@ -2035,6 +2855,11 @@ static ssize_t teth_debugfs_hw_bridge_status(struct file *file,
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
+
+const struct file_operations teth_lcid_ops = {
+	.read = teth_debugfs_read_lcid,
+	.write = teth_debugfs_write_lcid,
+};
 
 const struct file_operations teth_link_protocol_ops = {
 	.read = teth_debugfs_read_link_protocol,
@@ -2067,6 +2892,12 @@ void teth_debugfs_init(void)
 	if (IS_ERR(dent)) {
 		IPAERR("fail to create folder ipa_teth debug_fs.\n");
 		return;
+	}
+	dfile_lcid = debugfs_create_file("lcid", read_write_mode, dent, 0,
+					&teth_lcid_ops);
+	if (!dfile_lcid || IS_ERR(dfile_lcid)) {
+		IPAERR("fail to create file lcid\n");
+		goto fail;
 	}
 
 	dfile_link_protocol =
@@ -2118,11 +2949,94 @@ fail:
 void teth_debugfs_init(void) {}
 #endif /* CONFIG_DEBUG_FS */
 
-
 static const struct file_operations teth_bridge_drv_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = teth_bridge_ioctl,
 };
+
+static int alloc_del_hnds(void)
+{
+	int idx;
+
+	teth_ctx->hdr_del = kzalloc(sizeof(struct ipa_ioc_del_hdr) +
+					TETH_TOTAL_HDR_ENTRIES *
+					sizeof(struct ipa_hdr_del),
+					GFP_KERNEL);
+	if (!teth_ctx->hdr_del) {
+		TETH_ERR("kzalloc err for hdr_del.\n");
+		return -ENOMEM;
+	}
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		teth_ctx->ch_info[idx].routing_del[IPA_IP_v4] =
+			kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
+				TETH_TOTAL_RT_ENTRIES_IP *
+				sizeof(struct ipa_rt_rule_del),
+				GFP_KERNEL);
+		if (!teth_ctx->ch_info[idx].routing_del[IPA_IP_v4]) {
+			TETH_ERR("kzalloc err for routing_del[IPA_IP_v4].\n");
+			goto fail_alloc_routing_del_ipv4;
+		}
+	}
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		teth_ctx->ch_info[idx].routing_del[IPA_IP_v6] =
+			kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
+				TETH_TOTAL_RT_ENTRIES_IP *
+				sizeof(struct ipa_rt_rule_del),
+				GFP_KERNEL);
+		if (!teth_ctx->ch_info[idx].routing_del[IPA_IP_v6]) {
+			TETH_ERR("kzalloc err for routing_del[IPA_IP_v6].\n");
+			goto fail_alloc_routing_del_ipv6;
+		}
+	}
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4] =
+			kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
+				TETH_TOTAL_FLT_ENTRIES_IP *
+				sizeof(struct ipa_flt_rule_del),
+				GFP_KERNEL);
+		if (!teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4]) {
+			TETH_ERR("kzalloc err.\n");
+			goto fail_alloc_filtering_del_ipv4;
+		}
+	}
+
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++) {
+		teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6] =
+			kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
+				TETH_TOTAL_FLT_ENTRIES_IP *
+				sizeof(struct ipa_flt_rule_del),
+				GFP_KERNEL);
+		if (!teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6]) {
+			TETH_ERR("kzalloc err.\n");
+			goto fail_alloc_filtering_del_ipv6;
+		}
+	}
+
+	return 0;
+
+fail_alloc_filtering_del_ipv6:
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++)
+		kfree(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v6]);
+
+fail_alloc_filtering_del_ipv4:
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++)
+		kfree(teth_ctx->ch_info[idx].filtering_del[IPA_IP_v4]);
+
+fail_alloc_routing_del_ipv6:
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++)
+		kfree(teth_ctx->ch_info[idx].routing_del[IPA_IP_v6]);
+
+fail_alloc_routing_del_ipv4:
+	for (idx = 0; idx < TETH_NUM_CHANNELS; idx++)
+		kfree(teth_ctx->ch_info[idx].routing_del[IPA_IP_v4]);
+
+	kfree(teth_ctx->hdr_del);
+
+	return -ENOMEM;
+}
 
 /**
 * teth_bridge_driver_init() - Initialize tethering bridge driver
@@ -2132,6 +3046,7 @@ int teth_bridge_driver_init(void)
 {
 	int res;
 	struct ipa_rm_create_params bridge_prod_params;
+	res = -ENOMEM;
 
 	TETH_DBG("Tethering bridge driver init\n");
 	teth_ctx = kzalloc(sizeof(*teth_ctx), GFP_KERNEL);
@@ -2140,58 +3055,18 @@ int teth_bridge_driver_init(void)
 		return -ENOMEM;
 	}
 
+	teth_ctx->ch_info =
+		kzalloc(sizeof(struct logic_ch_info)*TETH_NUM_CHANNELS,
+		   GFP_KERNEL);
+	if (!teth_ctx->ch_info) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_channel_info;
+	}
+
 	res = set_aggr_capabilities();
 	if (res) {
 		TETH_ERR("kzalloc err.\n");
 		goto fail_alloc_aggr_caps;
-	}
-
-	res = -ENOMEM;
-	teth_ctx->hdr_del = kzalloc(sizeof(struct ipa_ioc_del_hdr) +
-				    TETH_TOTAL_HDR_ENTRIES *
-				    sizeof(struct ipa_hdr_del),
-				    GFP_KERNEL);
-	if (!teth_ctx->hdr_del) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_hdr_del;
-	}
-
-	teth_ctx->routing_del[IPA_IP_v4] =
-		kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
-			TETH_TOTAL_RT_ENTRIES_IP *
-			sizeof(struct ipa_rt_rule_del),
-			GFP_KERNEL);
-	if (!teth_ctx->routing_del[IPA_IP_v4]) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_routing_del_ipv4;
-	}
-	teth_ctx->routing_del[IPA_IP_v6] =
-		kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
-			TETH_TOTAL_RT_ENTRIES_IP *
-			sizeof(struct ipa_rt_rule_del),
-			GFP_KERNEL);
-	if (!teth_ctx->routing_del[IPA_IP_v6]) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_routing_del_ipv6;
-	}
-
-	teth_ctx->filtering_del[IPA_IP_v4] =
-		kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
-			TETH_TOTAL_FLT_ENTRIES_IP *
-			sizeof(struct ipa_flt_rule_del),
-			GFP_KERNEL);
-	if (!teth_ctx->filtering_del[IPA_IP_v4]) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_filtering_del_ipv4;
-	}
-	teth_ctx->filtering_del[IPA_IP_v6] =
-		kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
-			TETH_TOTAL_FLT_ENTRIES_IP *
-			sizeof(struct ipa_flt_rule_del),
-			GFP_KERNEL);
-	if (!teth_ctx->filtering_del[IPA_IP_v6]) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_filtering_del_ipv6;
 	}
 
 	teth_ctx->class = class_create(THIS_MODULE, TETH_BRIDGE_DRV_NAME);
@@ -2251,7 +3126,16 @@ int teth_bridge_driver_init(void)
 		goto fail_cdev_add;
 	}
 
+	res = alloc_del_hnds();
+	if (res) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_cdev_add;
+	}
+
 	initialize_context();
+	initialize_ch_info_arr();
+	mutex_init(&teth_ctx->request_resource_mutex);
+	mutex_init(&teth_ctx->init_mutex);
 	TETH_DBG("Tethering bridge driver init OK\n");
 
 	return 0;
@@ -2260,18 +3144,10 @@ fail_cdev_add:
 fail_device_create:
 	unregister_chrdev_region(teth_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
-	kfree(teth_ctx->filtering_del[IPA_IP_v6]);
-fail_alloc_filtering_del_ipv6:
-	kfree(teth_ctx->filtering_del[IPA_IP_v4]);
-fail_alloc_filtering_del_ipv4:
-	kfree(teth_ctx->routing_del[IPA_IP_v6]);
-fail_alloc_routing_del_ipv6:
-	kfree(teth_ctx->routing_del[IPA_IP_v4]);
-fail_alloc_routing_del_ipv4:
-	kfree(teth_ctx->hdr_del);
-fail_alloc_hdr_del:
 	kfree(teth_ctx->aggr_caps);
 fail_alloc_aggr_caps:
+	kfree(teth_ctx->ch_info);
+fail_alloc_channel_info:
 	kfree(teth_ctx);
 	teth_ctx = NULL;
 
