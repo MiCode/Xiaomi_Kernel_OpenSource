@@ -1523,6 +1523,7 @@ static void __init map_lowmem(void)
 		vm->flags |= VM_ARM_MTYPE(type);
 		vm->caller = map_lowmem;
 		add_static_vm_early(svm++);
+		mark_vmalloc_reserved_area(vm->addr, vm->size);
 	}
 }
 
