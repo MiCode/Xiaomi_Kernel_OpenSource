@@ -27,12 +27,10 @@
 #include <linux/err.h>
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
-#include <linux/lightsensor.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <asm/mach-types.h>
 #include <linux/cm36283.h>
-#include <linux/capella_cm3602.h>
 #include <asm/setup.h>
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
