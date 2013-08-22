@@ -111,7 +111,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret = 0;
 
-	for (i = 0; i < sc->clock_count; i++) {
+	for (i = sc->clock_count-1; i >= 0; i--) {
 		if (sc->toggle_mem)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
 		if (sc->toggle_periph)
@@ -130,7 +130,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			dev_err(&rdev->dev, "%s disable timed out\n",
 				sc->rdesc.name);
 	} else {
-		for (i = 0; i < sc->clock_count; i++)
+		for (i = sc->clock_count-1; i >= 0; i--)
 			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
 		sc->resets_asserted = true;
 	}
