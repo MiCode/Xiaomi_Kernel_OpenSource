@@ -1304,6 +1304,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_nal_stream_format_supported stream_format;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;/*, prop;*/
+	struct hal_buffer_alloc_mode mode;
 	enum hal_property property_id = 0;
 	u32 property_val = 0;
 	void *pdata = NULL;
@@ -1399,7 +1400,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE:
 	{
-		struct hal_buffer_alloc_mode mode;
 		property_id = HAL_PARAM_BUFFER_ALLOC_MODE;
 		mode.buffer_mode = ctrl->val;
 		mode.buffer_type = HAL_BUFFER_INPUT;
