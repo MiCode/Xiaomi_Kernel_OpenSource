@@ -52,7 +52,7 @@
 				/* Object 6, Instance = 0 */
 				00 00 00 00 00 00
 				/* Object 38, Instance = 0 */
-				1D 02 00 0A 06 0D 00 00
+				1D 03 00 1E 07 0D 00 00
 				/* Object 7, Instance = 0 */
 				20 08 32
 				/* Object 8, Instance = 0 */
@@ -60,7 +60,7 @@
 				/* Object 9, Instance = 0 */
 				83 00 00 13 0B 00 20 32 01 03
 				00 32 05 30 0A 05 0A 00 70 03
-				FC 01 00 36 2F D8 00 00 40 00
+				FC 01 04 2F F8 DC 00 00 40 00
 				00 0A 00 00 02
 				/* Object 18, Instance = 0 */
 				00 00
