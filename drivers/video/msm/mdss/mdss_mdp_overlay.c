@@ -1101,6 +1101,12 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 
 	flgs = rot->flags & MDP_SECURE_OVERLAY_SESSION;
 
+	ret = mdss_mdp_rotator_busy_wait_ex(rot);
+	if (ret) {
+		pr_err("rotator busy wait error\n");
+		return ret;
+	}
+
 	mdss_mdp_overlay_free_buf(&rot->src_buf);
 	ret = mdss_mdp_overlay_get_buf(mfd, &rot->src_buf, &req->data, 1, flgs);
 	if (ret) {
@@ -1116,7 +1122,7 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 		goto dst_buf_fail;
 	}
 
-	ret = mdss_mdp_rotator_queue(rot, &rot->src_buf, &rot->dst_buf);
+	ret = mdss_mdp_rotator_queue(rot);
 	if (ret)
 		pr_err("rotator queue error session id=%x\n", req->id);
 
@@ -2346,7 +2352,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 	mdp5_interface->panel_register_done = mdss_panel_register_done;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;
-	mdp5_interface->get_sync_fnc = NULL;
+	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 
 	mdp5_data = kmalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
 	if (!mdp5_data) {
