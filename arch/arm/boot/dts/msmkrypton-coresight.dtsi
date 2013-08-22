@@ -108,13 +108,13 @@
 		coresight-child-ports = <7>;
 	};
 
-	etm: etm@fc342000 {
+	etm0: etm@fc342000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc342000 0x1000>;
 		reg-names = "etm-base";
 
 		coresight-id = <8>;
-		coresight-name = "coresight-etm";
+		coresight-name = "coresight-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in1>;
