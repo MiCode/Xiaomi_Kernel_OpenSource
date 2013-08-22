@@ -1693,6 +1693,16 @@ static int wm5110_open(struct snd_compr_stream *stream)
 		goto out;
 	}
 
+	ret = regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
+				 ARIZONA_IM_DRC2_SIG_DET_EINT2,
+				 ARIZONA_IM_DRC2_SIG_DET_EINT2);
+	if (ret != 0) {
+		dev_err(arizona->dev,
+			"Failed to unmask DRC2 IRQ for DSP: %d\n",
+			ret);
+		goto out;
+	}
+
 	wm5110->compr_info.stream = stream;
 out:
 	mutex_unlock(&wm5110->compr_info.lock);
@@ -1710,6 +1720,9 @@ static int wm5110_free(struct snd_compr_stream *stream)
 
 	irq_set_irq_wake(arizona->irq, 0);
 	arizona_free_irq(arizona, ARIZONA_IRQ_DSP_IRQ1, wm5110);
+	regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
+			   ARIZONA_IM_DRC2_SIG_DET_EINT2,
+			   0);
 
 	wm5110->compr_info.stream = NULL;
 	wm5110->compr_info.total_copied = 0;
