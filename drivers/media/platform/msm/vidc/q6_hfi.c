@@ -184,7 +184,8 @@ static void q6_hfi_core_work_handler(struct work_struct *work)
 		if (!rc)
 			hfi_process_msg_packet(device->callback,
 				device->device_id,
-				(struct vidc_hal_msg_pkt_hdr *) packet);
+				(struct vidc_hal_msg_pkt_hdr *) packet,
+				&device->sess_head, &device->session_lock);
 	} while (!rc);
 
 	if (rc != -ENODATA)
@@ -483,6 +484,7 @@ static int q6_hfi_core_init(void *device)
 	}
 
 	INIT_LIST_HEAD(&dev->sess_head);
+	mutex_init(&dev->session_lock);
 
 	if (!dev->event_queue.buffer) {
 		rc = q6_init_event_queue(dev);
@@ -566,7 +568,9 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 		rc = -EBADE;
 		goto err_session_init;
 	}
+	mutex_lock(&dev->session_lock);
 	list_add_tail(&new_session->list, &dev->sess_head);
+	mutex_unlock(&dev->session_lock);
 	return new_session;
 
 err_session_init:
@@ -629,7 +633,11 @@ static int q6_hfi_session_clean(void *session)
 	sess_close = session;
 	dprintk(VIDC_DBG, "deleted the session: 0x%x",
 			sess_close->session_id);
+	mutex_lock(&((struct q6_hfi_device *)
+			sess_close->device)->session_lock);
 	list_del(&sess_close->list);
+	mutex_unlock(&((struct q6_hfi_device *)
+			sess_close->device)->session_lock);
 	kfree(sess_close);
 	return 0;
 }
