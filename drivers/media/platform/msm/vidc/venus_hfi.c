@@ -1045,6 +1045,7 @@ static int venus_hfi_core_init(void *device)
 	INIT_LIST_HEAD(&dev->sess_head);
 	mutex_init(&dev->read_lock);
 	mutex_init(&dev->write_lock);
+	mutex_init(&dev->session_lock);
 	venus_hfi_set_registers(dev);
 
 	if (!dev->hal_client) {
@@ -1484,7 +1485,10 @@ static void *venus_hfi_session_init(void *device, u32 session_id,
 	else if (session_type == 2)
 		new_session->is_decoder = 1;
 	new_session->device = dev;
+
+	mutex_lock(&dev->session_lock);
 	list_add_tail(&new_session->list, &dev->sess_head);
+	mutex_unlock(&dev->session_lock);
 
 	if (create_pkt_cmd_sys_session_init(&pkt, (u32)new_session,
 			session_type, codec_type)) {
@@ -1554,7 +1558,11 @@ static int venus_hfi_session_clean(void *session)
 	sess_close = session;
 	dprintk(VIDC_DBG, "deleted the session: 0x%p",
 			sess_close);
+	mutex_lock(&((struct venus_hfi_device *)
+			sess_close->device)->session_lock);
 	list_del(&sess_close->list);
+	mutex_unlock(&((struct venus_hfi_device *)
+			sess_close->device)->session_lock);
 	kfree(sess_close);
 	return 0;
 }
@@ -1985,7 +1993,8 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 		while (!venus_hfi_iface_msgq_read(device, packet)) {
 			rc = hfi_process_msg_packet(device->callback,
 				device->device_id,
-				(struct vidc_hal_msg_pkt_hdr *) packet);
+				(struct vidc_hal_msg_pkt_hdr *) packet,
+				&device->sess_head, &device->session_lock);
 			if (rc == HFI_MSG_EVENT_NOTIFY)
 				venus_hfi_process_msg_event_notify(
 					device, (void *)packet);
