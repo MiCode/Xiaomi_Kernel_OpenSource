@@ -1195,15 +1195,54 @@ static int wcd9xxx_dt_parse_slim_interface_dev_info(struct device *dev,
 	return 0;
 }
 
+static int wcd9xxx_process_supplies(struct device *dev,
+		struct wcd9xxx_pdata *pdata, const char *supply_list,
+		int supply_cnt, bool is_ondemand, int index)
+{
+	int idx, ret = 0;
+	const char *name;
+
+	if (supply_cnt == 0) {
+		dev_dbg(dev, "%s: no supplies defined for %s\n", __func__,
+				supply_list);
+		return 0;
+	}
+
+	for (idx = 0; idx < supply_cnt; idx++) {
+		ret = of_property_read_string_index(dev->of_node,
+						    supply_list, idx,
+						    &name);
+		if (ret) {
+			dev_err(dev, "%s: of read string %s idx %d error %d\n",
+				__func__, supply_list, idx, ret);
+			goto err;
+		}
+
+		dev_dbg(dev, "%s: Found cdc supply %s as part of %s\n",
+				__func__, name, supply_list);
+		ret = wcd9xxx_dt_parse_vreg_info(dev,
+					&pdata->regulator[index + idx],
+					name, is_ondemand);
+		if (ret)
+			goto err;
+	}
+
+	return 0;
+
+err:
+	return ret;
+
+}
+
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
-	int ret, static_cnt, ond_cnt, idx, i;
-	const char *name = NULL;
+	int ret, static_cnt, ond_cnt, cp_supplies_cnt;
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
+	const char *cp_supplies_name = "qcom,cdc-cp-supplies";
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1223,44 +1262,34 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	if (IS_ERR_VALUE(ond_cnt))
 		ond_cnt = 0;
 
-	BUG_ON(static_cnt <= 0 || ond_cnt < 0);
-	if ((static_cnt + ond_cnt) > ARRAY_SIZE(pdata->regulator)) {
+	/* cp-supplies list is an optional property */
+	cp_supplies_cnt = of_property_count_strings(dev->of_node,
+							cp_supplies_name);
+	if (IS_ERR_VALUE(cp_supplies_cnt))
+		cp_supplies_cnt = 0;
+
+	BUG_ON(static_cnt <= 0 || ond_cnt < 0 || cp_supplies_cnt < 0);
+	if ((static_cnt + ond_cnt + cp_supplies_cnt)
+			> ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
 			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
 		goto err;
 	}
 
-	for (idx = 0; idx < static_cnt; idx++) {
-		ret = of_property_read_string_index(dev->of_node,
-						    static_prop_name, idx,
-						    &name);
-		if (ret) {
-			dev_err(dev, "%s: of read string %s idx %d error %d\n",
-				__func__, static_prop_name, idx, ret);
-			goto err;
-		}
+	ret = wcd9xxx_process_supplies(dev, pdata, static_prop_name,
+				static_cnt, false, 0);
+	if (ret)
+		goto err;
 
-		dev_dbg(dev, "%s: Found static cdc supply %s\n", __func__,
-			name);
-		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[idx],
-						 name, false);
-		if (ret)
-			goto err;
-	}
+	ret = wcd9xxx_process_supplies(dev, pdata, ond_prop_name,
+				ond_cnt, true, static_cnt);
+	if (ret)
+		goto err;
 
-	for (i = 0; i < ond_cnt; i++, idx++) {
-		ret = of_property_read_string_index(dev->of_node, ond_prop_name,
-						    i, &name);
-		if (ret)
-			goto err;
-
-		dev_dbg(dev, "%s: Found on-demand cdc supply %s\n", __func__,
-			name);
-		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[idx],
-						 name, true);
-		if (ret)
-			goto err;
-	}
+	ret = wcd9xxx_process_supplies(dev, pdata, cp_supplies_name,
+				cp_supplies_cnt, false, static_cnt + ond_cnt);
+	if (ret)
+		goto err;
 
 	ret = wcd9xxx_dt_parse_micbias_info(dev, &pdata->micbias);
 	if (ret)
