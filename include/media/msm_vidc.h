@@ -11,13 +11,11 @@ enum core_id {
 	MSM_VIDC_CORE_1,      /* for Q6 core */
 	MSM_VIDC_CORES_MAX,
 };
-
 enum session_type {
 	MSM_VIDC_ENCODER = 0,
 	MSM_VIDC_DECODER,
 	MSM_VIDC_MAX_DEVICES,
 };
-
 void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
@@ -72,7 +70,6 @@ struct msm_vidc_concealmb_payload {
 struct msm_vidc_recoverysei_payload {
 	unsigned int flags;
 };
-
 struct msm_vidc_aspect_ratio_payload {
 	unsigned int size;
 	unsigned int version;
@@ -80,17 +77,15 @@ struct msm_vidc_aspect_ratio_payload {
 	unsigned int aspect_width;
 	unsigned int aspect_height;
 };
-
 struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int video_format;
-	bool color_descp;
+	unsigned int color_descp;
 	unsigned int color_primaries;
 	unsigned int transfer_char;
 	unsigned int matrix_coeffs;
 	unsigned int disp_width;
 	unsigned int disp_height;
 };
-
 struct msm_vidc_panscan_window {
 	unsigned int panscan_height_offset;
 	unsigned int panscan_width_offset;
@@ -131,5 +126,4 @@ enum msm_vidc_recovery_sei {
 	FRAME_RECONSTRUCTION_CORRECT = 0x01,
 	FRAME_RECONSTRUCTION_APPROXIMATELY_CORRECT = 0x02,
 };
-
 #endif
