@@ -24,6 +24,7 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9xxx/wcd9306_registers.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
+#include <linux/regulator/consumer.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -189,6 +190,12 @@ static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
 	0,	/* AIF1_CAP */
 };
 
+enum {
+	CP_REG_BUCK = 0,
+	CP_REG_BHELPER,
+	CP_REG_MAX,
+};
+
 struct tapan_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -224,6 +231,9 @@ struct tapan_priv {
 
 	/* class h specific data */
 	struct wcd9xxx_clsh_cdc_data clsh_d;
+
+	/* pointers to regulators required for chargepump */
+	struct regulator *cp_regulators[CP_REG_MAX];
 };
 
 static const u32 comp_shift[] = {
@@ -758,6 +768,9 @@ static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
+		if (pdata->regulator[i].name == NULL)
+			continue;
+
 		if (!strncmp(pdata->regulator[i].name,
 					 WCD9XXX_SUPPLY_BUCK_NAME,
 					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
@@ -768,8 +781,13 @@ static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
 				buck_volt = pdata->regulator[i].min_uV;
 			break;
 		}
+		dev_err(codec->dev,
+				"%s: Failed to find regulator for %s\n",
+				__func__, WCD9XXX_SUPPLY_BUCK_NAME);
 	}
-	pr_debug("%s: S4 voltage requested is %d\n", __func__, buck_volt);
+	dev_dbg(codec->dev,
+			"%s: S4 voltage requested is %d\n",
+			__func__, buck_volt);
 	return buck_volt;
 }
 
@@ -2563,6 +2581,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR PA", NULL, "EAR_PA_MIXER"},
 	{"EAR_PA_MIXER", NULL, "DAC1"},
 	{"DAC1", NULL, "RX_BIAS"},
+	{"DAC1", NULL, "CDC_CP_VDD"},
+
 
 	{"ANC EAR", NULL, "ANC EAR PA"},
 	{"ANC EAR PA", NULL, "EAR_PA_MIXER"},
@@ -2576,10 +2596,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHL", NULL, "HPHL_PA_MIXER"},
 	{"HPHL_PA_MIXER", NULL, "HPHL DAC"},
 	{"HPHL DAC", NULL, "RX_BIAS"},
+	{"HPHL DAC", NULL, "CDC_CP_VDD"},
 
 	{"HPHR", NULL, "HPHR_PA_MIXER"},
 	{"HPHR_PA_MIXER", NULL, "HPHR DAC"},
 	{"HPHR DAC", NULL, "RX_BIAS"},
+	{"HPHR DAC", NULL, "CDC_CP_VDD"},
 
 	{"ANC HEADPHONE", NULL, "ANC HPHL"},
 	{"ANC HEADPHONE", NULL, "ANC HPHR"},
@@ -2641,6 +2663,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"LINEOUT1 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT1 DAC", NULL, "CDC_CP_VDD"},
+	{"LINEOUT2 DAC", NULL, "CDC_CP_VDD"},
 
 	{"RX1 MIX1", NULL, "COMP1_CLK"},
 	{"RX2 MIX1", NULL, "COMP1_CLK"},
@@ -3766,6 +3790,59 @@ static int tapan_codec_enable_anc_ear(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int tapan_codec_chargepump_vdd_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tapan_priv *priv = snd_soc_codec_get_drvdata(codec);
+	int ret = 0, i;
+
+	pr_info("%s: event = %d\n", __func__, event);
+
+
+	if (!priv->cp_regulators[CP_REG_BUCK]
+			&& !priv->cp_regulators[CP_REG_BHELPER]) {
+		pr_err("%s: No power supply defined for ChargePump\n",
+				__func__);
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		for (i = 0; i < CP_REG_MAX ; i++) {
+			if (!priv->cp_regulators[i])
+				continue;
+
+			ret = regulator_enable(priv->cp_regulators[i]);
+			if (ret) {
+				pr_err("%s: CP Regulator enable failed, index = %d\n",
+						__func__, i);
+				continue;
+			} else {
+				pr_debug("%s: Enabled CP regulator, index %d\n",
+					__func__, i);
+			}
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		for (i = 0; i < CP_REG_MAX; i++) {
+			if (!priv->cp_regulators[i])
+				continue;
+
+			ret = regulator_disable(priv->cp_regulators[i]);
+			if (ret) {
+				pr_err("%s: CP Regulator disable failed, index = %d\n",
+						__func__, i);
+				return ret;
+			} else {
+				pr_debug("%s: Disabled CP regulator %d\n",
+						__func__, i);
+			}
+		}
+		break;
+	}
+	return 0;
+}
 
 /* Todo: Have seperate dapm widgets for I2S and Slimbus.
  * Might Need to have callbacks registered only for slimbus
@@ -3880,6 +3957,11 @@ static const struct snd_soc_dapm_widget tapan_dapm_widgets[] = {
 	/* RX Bias */
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
 		tapan_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	/* CDC_CP_VDD */
+	SND_SOC_DAPM_SUPPLY("CDC_CP_VDD", SND_SOC_NOPM, 0, 0,
+		tapan_codec_chargepump_vdd_event, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
 	/*EAR */
@@ -4710,6 +4792,21 @@ static int wcd9xxx_ssr_register(struct wcd9xxx *control,
 	return 0;
 }
 
+static struct regulator *tapan_codec_find_regulator(
+	struct snd_soc_codec *codec,
+	const char *name)
+{
+	int i;
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+
+	for (i = 0; i < core->num_of_supplies; i++) {
+		if (core->supplies[i].supply &&
+			!strcmp(core->supplies[i].supply, name))
+				return core->supplies[i].consumer;
+	}
+	return NULL;
+}
+
 static int tapan_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -4751,6 +4848,11 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		return ret;
 	}
+
+	tapan->cp_regulators[CP_REG_BUCK] = tapan_codec_find_regulator(codec,
+					WCD9XXX_SUPPLY_BUCK_NAME);
+	tapan->cp_regulators[CP_REG_BHELPER] = tapan_codec_find_regulator(codec,
+					"cdc-vdd-buckhelper");
 
 	tapan->clsh_d.buck_mv = tapan_codec_get_buck_mv(codec);
 	/*
@@ -4860,6 +4962,7 @@ err_nomem_slimch:
 static int tapan_codec_remove(struct snd_soc_codec *codec)
 {
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	int index = 0;
 
 	WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 	atomic_set(&kp_tapan_priv, 0);
@@ -4875,6 +4978,9 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 	wcd9xxx_mbhc_deinit(&tapan->mbhc);
 	/* cleanup resmgr */
 	wcd9xxx_resmgr_deinit(&tapan->resmgr);
+
+	for (index = 0; index < CP_REG_MAX; index++)
+		tapan->cp_regulators[index] = NULL;
 
 	kfree(tapan);
 	return 0;
