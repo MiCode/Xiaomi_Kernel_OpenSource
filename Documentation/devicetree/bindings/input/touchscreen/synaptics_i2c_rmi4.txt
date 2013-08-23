@@ -14,6 +14,7 @@ Optional property:
  - vdd-supply		: Analog power supply needed to power device
  - vcc_i2c-supply		: Power source required to pull up i2c bus
  - synaptics,i2c-pull-up	: specify to indicate pull up is needed
+ - synaptics,disable-gpios	: specify to disable gpios in suspend (power saving)
  - synaptics,button-map		: virtual key code mappings to be used
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
