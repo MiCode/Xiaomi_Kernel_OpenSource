@@ -1,0 +1,27 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8610-v2.dtsi"
+/include/ "msm8610-qrd.dtsi"
+/include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
+/include/ "msm8610-qrd-camera-sensor.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8610v2 QRD";
+	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
+	qcom,board-id = <11 1>, <11 0>;
+	qcom,msm-id = <147 0x10001>, <165 0x10001>, <161 0x10001>, <162 0x10001>,
+				  <163 0x10001>, <164 0x10001>, <166 0x10001>;
+};
+
