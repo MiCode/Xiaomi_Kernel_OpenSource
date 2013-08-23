@@ -2,7 +2,9 @@
  *
  * Copyright (C) 2012 Capella Microsystems Inc.
  * Author: Frank Hsieh <pengyueh@gmail.com>
- *                                    
+ *
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -32,6 +34,7 @@
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
 #include <linux/cm36283.h>
+#include <linux/of_gpio.h>
 
 #include <asm/uaccess.h>
 #include <asm/mach-types.h>
@@ -1274,6 +1277,78 @@ static void cm36283_late_resume(struct early_suspend *h)
 }
 #endif
 
+static int cm36283_parse_dt(struct device *dev,
+				struct cm36283_platform_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32	levels[CM36283_LEVELS_SIZE], i;
+	u32 temp_val;
+	int rc;
+
+	rc = of_get_named_gpio_flags(np, "capella,interrupt-gpio",
+			0, NULL);
+	if (rc < 0) {
+		dev_err(dev, "Unable to read interrupt pin number\n");
+		return rc;
+	} else {
+		pdata->intr = rc;
+	}
+
+	rc = of_property_read_u32_array(np, "capella,levels", levels,
+			CM36283_LEVELS_SIZE);
+	if (rc) {
+		dev_err(dev, "Unable to read levels data\n");
+		return rc;
+	} else {
+		for (i = 0; i < CM36283_LEVELS_SIZE; i++)
+			pdata->levels[i] = levels[i];
+	}
+
+	rc = of_property_read_u32(np, "capella,ps_close_thd_set", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_close_thd_set\n");
+		return rc;
+	} else {
+		pdata->ps_close_thd_set = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "capella,ps_away_thd_set", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_away_thd_set\n");
+		return rc;
+	} else {
+		pdata->ps_away_thd_set = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "capella,ls_cmd", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read ls_cmd\n");
+		return rc;
+	} else {
+		pdata->ls_cmd = (u16)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "capella,ps_conf1_val", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_conf1_val\n");
+		return rc;
+	} else {
+		pdata->ps_conf1_val = (u16)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "capella,ps_conf3_val", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_conf3_val\n");
+		return rc;
+	} else {
+		pdata->ps_conf3_val = (u16)temp_val;
+	}
+
+	pdata->polling = of_property_read_bool(np, "capella,use-polling");
+
+	return 0;
+}
+
 static int cm36283_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -1291,12 +1366,29 @@ static int cm36283_probe(struct i2c_client *client,
 	/*D("[CM36283] %s: client->irq = %d\n", __func__, client->irq);*/
 
 	lpi->i2c_client = client;
-	pdata = client->dev.platform_data;
-	if (!pdata) {
-		pr_err("[PS][CM36283 error]%s: Assign platform_data error!!\n",
-			__func__);
-		ret = -EBUSY;
-		goto err_platform_data_null;
+
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Failed to allocate memory for pdata\n");
+			ret = -ENOMEM;
+			goto err_platform_data_null;
+		}
+
+		ret = cm36283_parse_dt(&client->dev, pdata);
+		pdata->slave_addr = client->addr;
+		if (ret) {
+			dev_err(&client->dev, "Failed to get pdata from device tree\n");
+			goto err_parse_dt;
+		}
+	} else {
+		pdata = client->dev.platform_data;
+		if (!pdata) {
+			dev_err(&client->dev, "%s: Assign platform_data error!!\n",
+					__func__);
+			ret = -EBUSY;
+			goto err_platform_data_null;
+		}
 	}
 
 	lpi->irq = client->irq;
@@ -1502,6 +1594,9 @@ err_lightsensor_setup:
 	mutex_destroy(&als_enable_mutex);
 	mutex_destroy(&als_disable_mutex);
 	mutex_destroy(&als_get_adc_mutex);
+err_parse_dt:
+	if (client->dev.of_node && (pdata != NULL))
+		devm_kfree(&client->dev, pdata);
 err_platform_data_null:
 	kfree(lpi);
 	return ret;
@@ -1769,6 +1864,11 @@ static const struct i2c_device_id cm36283_i2c_id[] = {
 	{}
 };
 
+static struct of_device_id cm36283_match_table[] = {
+	{ .compatible = "capella,cm36283",},
+	{ },
+};
+
 static struct i2c_driver cm36283_driver = {
 	.id_table = cm36283_i2c_id,
 	.probe = cm36283_probe,
@@ -1776,6 +1876,7 @@ static struct i2c_driver cm36283_driver = {
 		.name = CM36283_I2C_NAME,
 		.owner = THIS_MODULE,
 		.pm = &cm36283_pm,
+		.of_match_table = cm36283_match_table,
 	},
 };
 

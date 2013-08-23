@@ -120,6 +120,8 @@
 extern unsigned int ps_kparam1;
 extern unsigned int ps_kparam2;
 
+#define CM36283_LEVELS_SIZE		10
+
 struct cm36283_platform_data {
 	int intr;
 	uint16_t levels[10];
@@ -131,6 +133,7 @@ struct cm36283_platform_data {
 	uint16_t ls_cmd;
 	uint16_t ps_conf1_val;
 	uint16_t ps_conf3_val;	
+	bool polling;
 };
 
 #endif
