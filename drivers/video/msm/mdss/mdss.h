@@ -93,6 +93,8 @@ struct mdss_data_type {
 	size_t mdp_reg_size;
 	char __iomem *vbif_base;
 
+	struct mutex reg_lock;
+
 	u32 irq;
 	u32 irq_mask;
 	u32 irq_ena;
