@@ -22,9 +22,14 @@ extern struct clk_ops clk_ops_dsi_pixel_pll;
 
 void mdss_clk_ctrl_pre_init(struct clk *ahb_clk);
 void mdss_clk_ctrl_post_init(void);
-int hdmi_pll_enable(void);
-void hdmi_pll_disable(void);
-int hdmi_pll_set_rate(unsigned long rate);
+
+struct hdmi_pll_vco_clk {
+	unsigned long rate;	/* vco rate */
+	unsigned long *rate_list;
+	bool rate_set;
+
+	struct clk c;
+};
 
 struct edp_pll_vco_clk {
 	unsigned long ref_clk_rate;
@@ -67,5 +72,6 @@ extern struct div_clk byte_clk_src_8226;
 
 extern struct div_clk edp_mainlink_clk_src;
 extern struct div_clk edp_pixel_clk_src;
+extern struct div_clk hdmipll_clk_src;
 
 #endif
