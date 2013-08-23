@@ -316,6 +316,15 @@ int smd_is_pkt_avail(smd_channel_t *ch);
  */
 int __init msm_smd_init(void);
 
+/**
+ * smd_remote_ss_to_edge() - return edge type from remote ss type
+ * @name:	remote subsystem name
+ *
+ * Returns the edge type connected between the local subsystem(APPS)
+ * and remote subsystem @name.
+ */
+int smd_remote_ss_to_edge(const char *name);
+
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -446,6 +455,11 @@ static inline int smd_is_pkt_avail(smd_channel_t *ch)
 static inline int __init msm_smd_init(void)
 {
 	return 0;
+}
+
+static inline int smd_remote_ss_to_edge(const char *name)
+{
+	return -EINVAL;
 }
 #endif
 
