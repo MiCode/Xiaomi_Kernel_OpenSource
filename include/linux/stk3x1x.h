@@ -24,6 +24,7 @@ struct stk3x1x_platform_data {
 	int int_pin;
 	uint32_t transmittance;
 	uint32_t int_flags;
+	bool use_fir;
 };
 
 #endif /* __STK3X1X_H__ */
