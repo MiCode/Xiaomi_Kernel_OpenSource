@@ -226,6 +226,8 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u8 *puc;
 	int ret = 0;
 	u8 la = txn->la;
+	u8 txn_mt;
+	u16 txn_mc = txn->mc;
 	u8 wbuf[SLIM_MSGQ_BUF_LEN];
 
 	if (!pm_runtime_enabled(dev->dev) && dev->state == MSM_CTRL_ASLEEP &&
@@ -402,6 +404,14 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		puc[1] += dev->port_b;
 	}
 	dev->err = 0;
+	/*
+	 * If it's a read txn, it may be freed if a response is received by
+	 * received thread before reaching end of this function.
+	 * mc, mt may have changed to convert standard slimbus code/type to
+	 * satellite user-defined message. Reinitialize again
+	 */
+	txn_mc = txn->mc;
+	txn_mt = txn->mt;
 	dev->wr_comp = &tx_sent;
 	ret = msm_send_msg_buf(dev, pbuf, txn->rl,
 			NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_TX_MSG);
@@ -427,7 +437,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr,
 							dev->ver);
 		dev_err(dev->dev, "TX failed :MC:0x%x,mt:0x%x, ret:%d, ver:%d",
-				txn->mc, txn->mt, ret, dev->ver);
+				txn_mc, txn_mt, ret, dev->ver);
 		conf = readl_relaxed(ngd);
 		stat = readl_relaxed(ngd + NGD_STATUS);
 		rx_msgq = readl_relaxed(ngd + NGD_RX_MSGQ_CFG);
@@ -438,10 +448,10 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		pr_err("conf:0x%x,stat:0x%x,rxmsgq:0x%x", conf, stat, rx_msgq);
 		pr_err("int_stat:0x%x,int_en:0x%x,int_cll:0x%x", int_stat,
 						int_en, int_clr);
-	} else if (txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
-		(txn->mc == SLIM_USR_MC_CONNECT_SRC ||
-		 txn->mc == SLIM_USR_MC_CONNECT_SINK ||
-		 txn->mc == SLIM_USR_MC_DISCONNECT_PORT)) {
+	} else if (txn_mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
+		(txn_mc == SLIM_USR_MC_CONNECT_SRC ||
+		 txn_mc == SLIM_USR_MC_CONNECT_SINK ||
+		 txn_mc == SLIM_USR_MC_DISCONNECT_PORT)) {
 		int timeout;
 		mutex_unlock(&dev->tx_lock);
 		msm_slim_put_ctrl(dev);
@@ -461,7 +471,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	}
 ngd_xfer_err:
 	mutex_unlock(&dev->tx_lock);
-	if (txn->mc != SLIM_USR_MC_REPORT_SATELLITE)
+	if (txn_mc != SLIM_USR_MC_REPORT_SATELLITE)
 		msm_slim_put_ctrl(dev);
 	return ret ? ret : dev->err;
 }
