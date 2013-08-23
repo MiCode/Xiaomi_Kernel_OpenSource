@@ -566,14 +566,17 @@ static LIST_HEAD(smd_ch_list_dsps);
 static LIST_HEAD(smd_ch_list_wcnss);
 static LIST_HEAD(smd_ch_list_rpm);
 
-static unsigned char smd_ch_allocated[64];
+/* 2 total supported tables of channels */
+static unsigned char smd_ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS * 2];
 static struct work_struct probe_work;
 
 static void finalize_channel_close_fn(struct work_struct *work);
 static DECLARE_WORK(finalize_channel_close_work, finalize_channel_close_fn);
 static struct workqueue_struct *channel_close_wq;
 
-static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm);
+#define PRI_ALLOC_TBL 1
+#define SEC_ALLOC_TBL 2
+static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id);
 
 static bool smd_edge_inited(int edge)
 {
@@ -584,26 +587,33 @@ static bool smd_edge_inited(int edge)
    hence use a lock */
 static DEFINE_MUTEX(smd_probe_lock);
 
-static void smd_channel_probe_worker(struct work_struct *work)
+/**
+ * scan_alloc_table - Scans a specified SMD channel allocation table in SMEM for
+ *			newly created channels that need to be made locally
+ *			visable
+ *
+ * @shared: pointer to the table array in SMEM
+ * @smd_ch_allocated: pointer to an array indicating already allocated channels
+ * table_id: identifier for this channel allocation table
+ *
+ * The smd_probe_lock must be locked by the calling function.  Shared and
+ * smd_ch_allocated are assumed to be valid pointers.
+ */
+static void scan_alloc_table(struct smd_alloc_elm *shared,
+				char *smd_ch_allocated,
+				int table_id)
 {
-	struct smd_alloc_elm *shared;
 	unsigned n;
 	uint32_t type;
 
-	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
-
-	if (!shared) {
-		pr_err("%s: allocation table not initialized\n", __func__);
-		return;
-	}
-
-	mutex_lock(&smd_probe_lock);
-	for (n = 0; n < 64; n++) {
+	for (n = 0; n < SMEM_NUM_SMD_STREAM_CHANNELS; n++) {
 		if (smd_ch_allocated[n])
 			continue;
 
-		/* channel should be allocated only if APPS
-		   processor is involved */
+		/*
+		 * channel should be allocated only if APPS processor is
+		 * involved
+		 */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
 		if (type >= ARRAY_SIZE(edge_to_pids) ||
 				edge_to_pids[type].local_pid != SMD_APPS)
@@ -614,15 +624,52 @@ static void smd_channel_probe_worker(struct work_struct *work)
 			continue;
 
 		if (!smd_initialized && !smd_edge_inited(type)) {
-			SMD_INFO("Probe skipping ch %d, edge not inited\n", n);
+			SMD_INFO(
+				"Probe skipping tbl %d, ch %d, edge not inited\n",
+				table_id, n);
 			continue;
 		}
 
-		if (!smd_alloc_channel(&shared[n]))
+		if (!smd_alloc_channel(&shared[n], table_id))
 			smd_ch_allocated[n] = 1;
 		else
-			SMD_INFO("Probe skipping ch %d, not allocated\n", n);
+			SMD_INFO(
+				"Probe skipping tbl %d, ch %d, not allocated\n",
+				table_id, n);
 	}
+}
+
+/**
+ * smd_channel_probe_worker() - Scan for newly created SMD channels and init
+ *				local structures so the channels are visable to
+ *				local clients
+ *
+ * @work: work_struct corresponding to an instance of this function running on
+ *		a workqueue.
+ */
+static void smd_channel_probe_worker(struct work_struct *work)
+{
+	struct smd_alloc_elm *shared;
+
+	shared = smem_find(ID_CH_ALLOC_TBL,
+				sizeof(*shared) * SMEM_NUM_SMD_STREAM_CHANNELS);
+
+	if (!shared) {
+		pr_err("%s: allocation table not initialized\n", __func__);
+		return;
+	}
+
+	mutex_lock(&smd_probe_lock);
+
+	scan_alloc_table(shared, smd_ch_allocated, PRI_ALLOC_TBL);
+
+	shared = smem_find(SMEM_CHANNEL_ALLOC_TBL_2,
+			sizeof(*shared) * SMEM_NUM_SMD_STREAM_CHANNELS);
+	if (shared)
+		scan_alloc_table(shared,
+			&(smd_ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS]),
+			SEC_ALLOC_TBL);
+
 	mutex_unlock(&smd_probe_lock);
 }
 
@@ -1505,15 +1552,41 @@ static int smd_packet_read_from_cb(smd_channel_t *ch, void *data, int len,
 }
 
 #if (defined(CONFIG_MSM_SMD_PKG4) || defined(CONFIG_MSM_SMD_PKG3))
-static int smd_alloc_v2(struct smd_channel *ch)
+/**
+ * smd_alloc_v2() - Init local channel structure with information stored in SMEM
+ *
+ * @ch: pointer to the local structure for this channel
+ * @table_id: the id of the table this channel resides in. 1 = first table, 2 =
+ *		second table, etc
+ * @returns: -EINVAL for failure; 0 for success
+ *
+ * ch must point to an allocated instance of struct smd_channel that is zeroed
+ * out, and has the n and type members already initialized to the correct values
+ */
+static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 {
 	void *buffer;
 	unsigned buffer_sz;
+	unsigned base_id;
+	unsigned fifo_id;
+
+	switch (table_id) {
+	case PRI_ALLOC_TBL:
+		base_id = SMEM_SMD_BASE_ID;
+		fifo_id = SMEM_SMD_FIFO_BASE_ID;
+		break;
+	case SEC_ALLOC_TBL:
+		base_id = SMEM_SMD_BASE_ID_2;
+		fifo_id = SMEM_SMD_FIFO_BASE_ID_2;
+		break;
+	default:
+		SMD_INFO("Invalid table_id:%d passed to smd_alloc\n", table_id);
+		return -EINVAL;
+	}
 
 	if (is_word_access_ch(ch->type)) {
 		struct smd_shared_v2_word_access *shared2;
-		shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n,
-						sizeof(*shared2));
+		shared2 = smem_alloc(base_id + ch->n, sizeof(*shared2));
 		if (!shared2) {
 			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
 			return -EINVAL;
@@ -1522,8 +1595,7 @@ static int smd_alloc_v2(struct smd_channel *ch)
 		ch->recv = &shared2->ch1;
 	} else {
 		struct smd_shared_v2 *shared2;
-		shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n,
-							sizeof(*shared2));
+		shared2 = smem_alloc(base_id + ch->n, sizeof(*shared2));
 		if (!shared2) {
 			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
 			return -EINVAL;
@@ -1533,7 +1605,7 @@ static int smd_alloc_v2(struct smd_channel *ch)
 	}
 	ch->half_ch = get_half_ch_funcs(ch->type);
 
-	buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + ch->n, &buffer_sz);
+	buffer = smem_get_entry(fifo_id + ch->n, &buffer_sz);
 	if (!buffer) {
 		SMD_INFO("smem_get_entry failed\n");
 		return -EINVAL;
@@ -1558,7 +1630,7 @@ static int smd_alloc_v1(struct smd_channel *ch)
 }
 
 #else /* define v1 for older targets */
-static int smd_alloc_v2(struct smd_channel *ch)
+static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 {
 	return -EINVAL;
 }
@@ -1582,7 +1654,16 @@ static int smd_alloc_v1(struct smd_channel *ch)
 
 #endif
 
-static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
+/**
+ * smd_alloc_channel() - Create and init local structures for a newly allocated
+ *			SMD channel
+ *
+ * @alloc_elm: the allocation element stored in SMEM for this channel
+ * @table_id: the id of the table this channel resides in. 1 = first table, 2 =
+ *		seconds table, etc
+ * @returns: -1 for failure; 0 for success
+ */
+static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id)
 {
 	struct smd_channel *ch;
 
@@ -1594,7 +1675,7 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 	ch->n = alloc_elm->cid;
 	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
 
-	if (smd_alloc_v2(ch) && smd_alloc_v1(ch)) {
+	if (smd_alloc_v2(ch, table_id) && smd_alloc_v1(ch)) {
 		kfree(ch);
 		return -1;
 	}
