@@ -179,9 +179,9 @@
 			<0xff 176>, /* o_wcss_apss_smsm_irq */
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
-			<0xff 179>, /* o_wcss_apss_asic_intr
+			<0xff 179>, /* o_wcss_apss_asic_intr */
 			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
-			<0xff 161>, /* lpass_irq_out_spare[4] /
+			<0xff 161>, /* lpass_irq_out_spare[4] */
 			<0xff 162>, /* lpass_irq_out_spare[5]*/
 			<0xff 234>, /* lpass_irq_out_spare[6]*/
 			<0xff 235>, /* lpass_irq_out_spare[7]*/
