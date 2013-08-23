@@ -68,16 +68,17 @@
 #define INT_MASK		0xF
 #define MAX_PHASES		16
 
-#define CORE_DLL_LOCK		(1 << 7)
+#define CORE_DLL_CONFIG		0x100
+#define CORE_CMD_DAT_TRACK_SEL	(1 << 0)
 #define CORE_DLL_EN		(1 << 16)
 #define CORE_CDR_EN		(1 << 17)
 #define CORE_CK_OUT_EN		(1 << 18)
 #define CORE_CDR_EXT_EN		(1 << 19)
 #define CORE_DLL_PDN		(1 << 29)
 #define CORE_DLL_RST		(1 << 30)
-#define CORE_DLL_CONFIG		0x100
-#define CORE_DLL_TEST_CTL	0x104
+
 #define CORE_DLL_STATUS		0x108
+#define CORE_DLL_LOCK		(1 << 7)
 
 #define CORE_VENDOR_SPEC	0x10C
 #define CORE_CLK_PWRSAVE	(1 << 1)
@@ -88,6 +89,36 @@
 #define CORE_HC_SELECT_IN_EN	(1 << 18)
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
 #define CORE_HC_SELECT_IN_MASK	(7 << 19)
+
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
+
+#define CORE_CSR_CDC_CTLR_CFG0		0x130
+#define CORE_SW_TRIG_FULL_CALIB		(1 << 16)
+#define CORE_HW_AUTOCAL_ENA		(1 << 17)
+
+#define CORE_CSR_CDC_CTLR_CFG1		0x134
+#define CORE_CSR_CDC_CAL_TIMER_CFG0	0x138
+#define CORE_TIMER_ENA			(1 << 16)
+
+#define CORE_CSR_CDC_CAL_TIMER_CFG1	0x13C
+#define CORE_CSR_CDC_REFCOUNT_CFG	0x140
+#define CORE_CSR_CDC_COARSE_CAL_CFG	0x144
+#define CORE_CDC_OFFSET_CFG		0x14C
+#define CORE_CSR_CDC_DELAY_CFG		0x150
+#define CORE_CDC_SLAVE_DDA_CFG		0x160
+#define CORE_CSR_CDC_STATUS0		0x164
+#define CORE_CALIBRATION_DONE		(1 << 0)
+
+#define CORE_CDC_ERROR_CODE_MASK	0x7000000
+
+#define CORE_CSR_CDC_GEN_CFG		0x178
+#define CORE_CDC_SWITCH_BYPASS_OFF	(1 << 0)
+#define CORE_CDC_SWITCH_RC_EN		(1 << 1)
+
+#define CORE_DDR_200_CFG		0x184
+#define CORE_CDC_T4_DLY_SEL		(1 << 0)
+#define CORE_START_CDC_TRAFFIC		(1 << 6)
 
 #define CORE_MCI_DATA_CTRL	0x2C
 #define CORE_MCI_DPSM_ENABLE	(1 << 0)
@@ -122,6 +153,8 @@
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
+
+#define INVALID_TUNING_PHASE	-1
 
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
@@ -283,6 +316,7 @@ struct sdhci_msm_host {
 	u32 clk_rate; /* Keeps track of current clock rate that is set */
 	bool tuning_done;
 	bool calibration_done;
+	u8 saved_tuning_phase;
 };
 
 enum vdd_io_level {
@@ -608,6 +642,137 @@ out:
 	return rc;
 }
 
+static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
+{
+	u32 wait_cnt;
+	int ret = 0;
+	int cdc_err = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
+
+	/*
+	 * Retuning in HS400 (DDR mode) will fail, just reset the
+	 * tuning block and restore the saved tuning phase.
+	 */
+	ret = msm_init_cm_dll(host);
+	if (ret)
+		goto out;
+
+	/* Set the selected phase in delay line hw block */
+	ret = msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
+	if (ret)
+		goto out;
+
+	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
+			| CORE_CMD_DAT_TRACK_SEL),
+			host->ioaddr + CORE_DLL_CONFIG);
+
+	/* Write 0 to CDC_T4_DLY_SEL field in VENDOR_SPEC_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			& ~CORE_CDC_T4_DLY_SEL),
+			host->ioaddr + CORE_DDR_200_CFG);
+
+	/* Write 0 to CDC_SWITCH_BYPASS_OFF field in CORE_CSR_CDC_GEN_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
+			& ~CORE_CDC_SWITCH_BYPASS_OFF),
+			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
+
+	/* Write 1 to CDC_SWITCH_RC_EN field in CORE_CSR_CDC_GEN_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
+			| CORE_CDC_SWITCH_RC_EN),
+			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
+
+	/* Write 0 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			& ~CORE_START_CDC_TRAFFIC),
+			host->ioaddr + CORE_DDR_200_CFG);
+
+	/*
+	 * Perform CDC Register Initialization Sequence
+	 *
+	 * CORE_CSR_CDC_CTLR_CFG0	0x11800EC
+	 * CORE_CSR_CDC_CTLR_CFG1	0x3011111
+	 * CORE_CSR_CDC_CAL_TIMER_CFG0	0x1201000
+	 * CORE_CSR_CDC_CAL_TIMER_CFG1	0x4
+	 * CORE_CSR_CDC_REFCOUNT_CFG	0xCB732020
+	 * CORE_CSR_CDC_COARSE_CAL_CFG	0xB19
+	 * CORE_CSR_CDC_DELAY_CFG	0x3AC
+	 * CORE_CDC_OFFSET_CFG		0x0
+	 * CORE_CDC_SLAVE_DDA_CFG	0x16334
+	 */
+
+	writel_relaxed(0x11800EC, host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+	writel_relaxed(0x3011111, host->ioaddr + CORE_CSR_CDC_CTLR_CFG1);
+	writel_relaxed(0x1201000, host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG0);
+	writel_relaxed(0x4, host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG1);
+	writel_relaxed(0xCB732020, host->ioaddr + CORE_CSR_CDC_REFCOUNT_CFG);
+	writel_relaxed(0xB19, host->ioaddr + CORE_CSR_CDC_COARSE_CAL_CFG);
+	writel_relaxed(0x3AC, host->ioaddr + CORE_CSR_CDC_DELAY_CFG);
+	writel_relaxed(0x0, host->ioaddr + CORE_CDC_OFFSET_CFG);
+	writel_relaxed(0x16334, host->ioaddr + CORE_CDC_SLAVE_DDA_CFG);
+
+	/* CDC HW Calibration */
+
+	/* Write 1 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			| CORE_SW_TRIG_FULL_CALIB),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 0 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			& ~CORE_SW_TRIG_FULL_CALIB),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 1 to HW_AUTOCAL_ENA field in CORE_CSR_CDC_CTLR_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
+			| CORE_HW_AUTOCAL_ENA),
+			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
+
+	/* Write 1 to TIMER_ENA field in CORE_CSR_CDC_CAL_TIMER_CFG0 */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			CORE_CSR_CDC_CAL_TIMER_CFG0) | CORE_TIMER_ENA),
+			host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG0);
+
+	mb();
+
+	/* Poll on CALIBRATION_DONE field in CORE_CSR_CDC_STATUS0 to be 1 */
+	wait_cnt = 50;
+	while (!(readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
+			& CORE_CALIBRATION_DONE)) {
+		/* max. wait for 50us sec for CALIBRATION_DONE bit to be set */
+		if (--wait_cnt == 0) {
+			pr_err("%s: %s: CDC Calibration was not completed\n",
+				mmc_hostname(host->mmc), __func__);
+			ret = -ETIMEDOUT;
+			goto out;
+		}
+		/* wait for 1us before polling again */
+		udelay(1);
+	}
+
+	/* Verify CDC_ERROR_CODE field in CORE_CSR_CDC_STATUS0 is 0 */
+	cdc_err = readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
+			& CORE_CDC_ERROR_CODE_MASK;
+	if (cdc_err) {
+		pr_err("%s: %s: CDC Error Code %d\n",
+			mmc_hostname(host->mmc), __func__, cdc_err);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Write 1 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+			| CORE_START_CDC_TRAFFIC),
+			host->ioaddr + CORE_DDR_200_CFG);
+out:
+	pr_debug("%s: Exit %s, ret:%d\n", mmc_hostname(host->mmc),
+			__func__, ret);
+	return ret;
+}
+
 int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	unsigned long flags;
@@ -618,6 +783,8 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int rc;
 	struct mmc_host *mmc = host->mmc;
 	struct mmc_ios	ios = host->mmc->ios;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	/*
 	 * Tuning is required for SDR104, HS200 and HS400 cards and
@@ -630,6 +797,18 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 		return 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
+
+	/* CDCLP533 HW calibration is only required for HS400 mode*/
+	if (msm_host->tuning_done && !msm_host->calibration_done &&
+		(mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
+		rc = sdhci_msm_cdclp533_calibration(host);
+		spin_lock_irqsave(&host->lock, flags);
+		if (!rc)
+			msm_host->calibration_done = true;
+		spin_unlock_irqrestore(&host->lock, flags);
+		goto out;
+	}
+
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (((opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
@@ -705,6 +884,7 @@ retry:
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
 			goto kfree;
+		msm_host->saved_tuning_phase = phase;
 		pr_debug("%s: %s: finally setting the tuning phase to %d\n",
 				mmc_hostname(mmc), __func__, phase);
 	} else {
@@ -719,7 +899,11 @@ retry:
 kfree:
 	kfree(data_buf);
 out:
-	pr_debug("%s: Exit %s\n", mmc_hostname(mmc), __func__);
+	spin_lock_irqsave(&host->lock, flags);
+	if (!rc)
+		msm_host->tuning_done = true;
+	spin_unlock_irqrestore(&host->lock, flags);
+	pr_debug("%s: Exit %s, err(%d)\n", mmc_hostname(mmc), __func__, rc);
 	return rc;
 }
 
@@ -2472,6 +2656,8 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto ff_clk_disable;
 	}
+
+	msm_host->saved_tuning_phase = INVALID_TUNING_PHASE;
 
 	ret = sdhci_msm_bus_register(msm_host, pdev);
 	if (ret)
