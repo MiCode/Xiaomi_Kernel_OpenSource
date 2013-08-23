@@ -48,6 +48,14 @@ int msm_vidc_wait(void *instance);
 int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
 #endif
+struct msm_vidc_extradata_header {
+	unsigned int size;
+	unsigned int:32; /** Keeping binary compatibility */
+	unsigned int:32; /* with firmware and OpenMAX IL **/
+	unsigned int type; /* msm_vidc_extradata_type */
+	unsigned int data_size;
+	unsigned char data[1];
+};
 struct msm_vidc_interlace_payload {
 	unsigned int format;
 };
