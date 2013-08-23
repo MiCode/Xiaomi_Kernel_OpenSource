@@ -13,58 +13,12 @@
 /dts-v1/;
 
 /include/ "msm8610-v1.dtsi"
-/include/ "msm8610-qrd.dtsi"
+/include/ "msm8610-qrd-skuaa.dtsi"
 /include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
 /include/ "msm8610-qrd-camera-sensor.dtsi"
 
 / {
-	model = "Qualcomm MSM 8610 QRD";
+	model = "Qualcomm MSM 8610v1 QRD SKUAA";
 	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
 	qcom,board-id = <11 1>, <11 0>;
-};
-
-&soc {
-    sound {
-        qcom,model = "msm8x10-skuaa-snd-card";
-
-        qcom,audio-routing =
-            "RX_BIAS", "MCLK",
-            "INT_LDO_H", "MCLK",
-            "Lineout amp", "LINEOUT",
-            "MIC BIAS Internal1", "Handset Mic",
-            "MIC BIAS Internal2", "Headset Mic",
-            "AMIC1", "MIC BIAS Internal1",
-            "AMIC2", "MIC BIAS Internal2";
-
-        qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
-    };
-
-	qcom,dsi_v2_hx8379a_wvga_video {
-		qcom,cont-splash-enabled;
-	};
-};
-
-/ {
-	qrd_batterydata: qcom,battery-data {
-		qcom,rpull-up-kohm = <100>;
-		qcom,vref-batt-therm = <1800000>;
-
-		/include/ "batterydata-qrd-4v2-1300mah.dtsi"
-	};
-};
-
-&pm8110_bms {
-	status = "ok";
-	qcom,battery-data = <&qrd_batterydata>;
-};
-
-&pm8110_chg {
-	qcom,battery-data = <&qrd_batterydata>;
-};
-
-&pm8110_vadc {
-	chan@30 {
-		label = "batt_therm";
-		qcom,scale-function = <7>;
-	};
 };
