@@ -27,5 +27,33 @@
 					       &lpass_core_audio>;
 			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
 		};
+
+		venus_domain_ns: qcom,iommu-domain3 {
+			label = "venus_ns";
+			qcom,iommu-contexts = <&venus_ns>;
+			qcom,virtual-addr-pool = <0x5dc00000 0x7f000000
+						 0xdcc00000 0x1000000>;
+		};
+
+		venus_domain_sec_bitstream: qcom,iommu-domain4 {
+			label = "venus_sec_bitstream";
+			qcom,iommu-contexts = <&venus_sec_bitstream>;
+			qcom,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_pixel: qcom,iommu-domain5 {
+			label = "venus_sec_pixel";
+			qcom,iommu-contexts = <&venus_sec_pixel>;
+			qcom,virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_non_pixel: qcom,iommu-domain6 {
+			label = "venus_sec_non_pixel";
+			qcom,iommu-contexts = <&venus_sec_non_pixel>;
+			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-domain;
+		};
 	};
 };
