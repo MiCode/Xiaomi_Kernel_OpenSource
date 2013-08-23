@@ -95,7 +95,7 @@ static int kpss_div2_get_div(struct div_clk *div)
 
 	spin_lock_irqsave(&kpss_clock_reg_lock, flags);
 	regval = get_l2_indirect_reg(div->offset);
-	val = (regval >> div->shift) && div->mask;
+	val = (regval >> div->shift) & div->mask;
 	regval &= ~(div->mask << div->shift);
 	set_l2_indirect_reg(div->offset, regval);
 	spin_unlock_irqrestore(&kpss_clock_reg_lock, flags);
