@@ -2457,7 +2457,7 @@ static int msm_hs_startup(struct uart_port *uport)
 
 		ret = request_threaded_irq(msm_uport->wakeup.irq, NULL,
 					msm_hs_wakeup_isr,
-					IRQF_TRIGGER_FALLING,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					"msm_hs_wakeup", msm_uport);
 
 		if (unlikely(ret)) {
