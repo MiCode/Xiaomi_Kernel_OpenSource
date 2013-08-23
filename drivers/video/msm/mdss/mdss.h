@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,8 @@ struct mdss_data_type {
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
 	char __iomem *vbif_base;
+
+	struct mutex reg_lock;
 
 	u32 irq;
 	u32 irq_mask;
