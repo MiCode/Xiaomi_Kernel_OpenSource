@@ -313,3 +313,4 @@
 };
 
 /include/ "msm-pmd9635.dtsi"
+/include/ "msmkrypton-regulator.dtsi"
