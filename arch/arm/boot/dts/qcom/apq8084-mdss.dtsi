@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,10 @@
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7 19>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18 22>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+
+		qcom,mdss-pipe-vig-xin-id = <0 4 8 12>;
+		qcom,mdss-pipe-rgb-xin-id = <1 5 9 13>;
+		qcom,mdss-pipe-dma-xin-id = <2 10>;
 
 		qcom,mdss-pipe-rgb-fixed-mmb =	<2 0 1>,
 						<2 2 3>,
