@@ -13,115 +13,12 @@
 /dts-v1/;
 
 /include/ "msm8610-v1.dtsi"
-/include/ "msm8610-qrd.dtsi"
+/include/ "msm8610-qrd-skuab.dtsi"
 /include/ "dsi-v2-panel-otm8018b-fwvga-video.dtsi"
 /include/ "msm8612-qrd-camera-sensor.dtsi"
 
 / {
-	model = "Qualcomm MSM 8610 QRD";
+	model = "Qualcomm MSM 8610v1 QRD SKUAB";
 	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
 	qcom,board-id = <11 3>;
-	qcom,msm-id = <147 0>, <165 0>, <161 0>, <162 0>,
-				  <163 0>, <164 0>, <166 0>;
-};
-
-&soc {
-    sound {
-        qcom,model = "msm8x10-skuab-snd-card";
-
-        qcom,audio-routing =
-            "RX_BIAS", "MCLK",
-            "INT_LDO_H", "MCLK",
-            "Lineout amp", "LINEOUT",
-            "MIC BIAS Internal1", "Handset Mic",
-            "MIC BIAS Internal2", "Headset Mic",
-            "AMIC1", "MIC BIAS Internal1",
-            "AMIC2", "MIC BIAS Internal2";
-
-        qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
-    };
-    i2c@f9923000{
-		focaltech@38{
-			compatible = "focaltech,5x06";
-			reg = <0x38>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <1 0x2>;
-			vdd-supply = <&pm8110_l19>;
-			vcc_i2c-supply = <&pm8110_l14>;
-			focaltech,family-id = <0x06>;
-			focaltech,reset-gpio = <&msmgpio 0 0x00>;
-			focaltech,irq-gpio = <&msmgpio 1 0x00>;
-			focaltech,display-coords = <0 0 480 854>;
-			focaltech,panel-coords = <0 0 480 946>;
-			focaltech,button-map= <139 102 158>;
-			focaltech,no-force-update;
-			focaltech,i2c-pull-up;
-		};
-	};
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "ft5x06_ts";
-		qcom,disp-maxx = <480>;
-		qcom,disp-maxy = <854>;
-		qcom,panel-maxx = <481>;
-		qcom,panel-maxy = <946>;
-		qcom,key-codes = <139 102 158>;
-		qcom,y-offset = <0>;
-	};
-    i2c@f9925000 {
-		fsl@1c {
-			compatible = "fsl,mma8x5x";
-			reg = <0x1c>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <81 0x2>;
-			vdd-supply = <&pm8110_l19>;
-			vio-supply = <&pm8110_l14>;
-			fsl,irq-gpio = <&msmgpio 81 0x00>;
-			fsl,sensors-position = <1>;
-		};
-		stk@48 {
-			compatible = "stk,stk3x1x";
-			reg = <0x48>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <80 0x2>;
-			vdd-supply = <&pm8110_l19>;
-			vio-supply = <&pm8110_l14>;
-			stk,irq-gpio = <&msmgpio 80 0x02>;
-			stk,transmittance = <100>;
-			stk,state-reg = <0x00>;
-			stk,psctrl-reg = <0x71>;
-			stk,alsctrl-reg = <0x3e>;
-			stk,ledctrl-reg = <0xFF>;
-			stk,wait-reg = <0x07>;
-			stk,ps-thdh = <150>;
-			stk,ps-thdl = <100>;
-		};
-	};
-
-	usb@f9a55000 {
-               qcom,hsusb-otg-phy-init-seq =
-                       <0x44 0x80 0x6a 0x81 0x34 0x82 0x23 0x83 0xffffffff>;
-	};
-
-	qcom,dsi_v2_otm8018b_fwvga_video {
-		status = "ok";
-	};
-};
-
-/ {
-	qrd_batterydata: qcom,battery-data {
-		qcom,rpull-up-kohm = <100>;
-		qcom,vref-batt-therm = <1800000>;
-
-		/include/ "batterydata-qrd-4v2-1800mah.dtsi"
-	};
-};
-
-&pm8110_bms {
-	status = "ok";
-	qcom,battery-data = <&qrd_batterydata>;
-};
-
-&pm8110_chg {
-	qcom,battery-data = <&qrd_batterydata>;
 };
