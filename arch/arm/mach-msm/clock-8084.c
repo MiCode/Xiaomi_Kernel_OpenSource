@@ -5638,6 +5638,9 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	CLK_LOOKUP("",	gcc_lpass_mport_axi_clk.c,	""),
 	CLK_LOOKUP("bus_clk",	gcc_lpass_q6_axi_clk.c,	"fe200000.qcom,lpass"),
+	CLK_LOOKUP("core_clk",	dummy_clk,	"fe200000.qcom,lpass"),
+	CLK_LOOKUP("iface_clk",	dummy_clk,	"fe200000.qcom,lpass"),
+	CLK_LOOKUP("reg_clk",	dummy_clk,	"fe200000.qcom,lpass"),
 	CLK_LOOKUP("",	gcc_lpass_sway_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_mmss_vpu_maple_sys_noc_axi_clk.c,	""),
