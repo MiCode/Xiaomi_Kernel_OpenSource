@@ -20,6 +20,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/types.h>
+#include <linux/msm_hdmi.h>
 #include <mach/msm_hdmi_audio_codec.h>
 
 #define REG_DUMP 0
@@ -222,6 +223,77 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{20480, 247500} } },
 };
 
+int register_hdmi_cable_notification(struct hdmi_cable_notify *handler)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct list_head *pos;
+
+	if (!hdmi_tx_hw.ptr) {
+		DEV_WARN("%s: HDMI Tx core not ready\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	if (!handler) {
+		DEV_ERR("%s: Empty handler\n", __func__);
+		return -ENODEV;
+	}
+
+	hdmi_ctrl = (struct hdmi_tx_ctrl *) hdmi_tx_hw.ptr;
+
+	mutex_lock(&hdmi_ctrl->cable_notify_mutex);
+	handler->status = hdmi_ctrl->hpd_state;
+	list_for_each(pos, &hdmi_ctrl->cable_notify_handlers);
+	list_add_tail(&handler->link, pos);
+	mutex_unlock(&hdmi_ctrl->cable_notify_mutex);
+
+	return handler->status;
+} /* register_hdmi_cable_notification */
+
+int unregister_hdmi_cable_notification(struct hdmi_cable_notify *handler)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	if (!hdmi_tx_hw.ptr) {
+		DEV_WARN("%s: HDMI Tx core not ready\n", __func__);
+		return -ENODEV;
+	}
+
+	if (!handler) {
+		DEV_ERR("%s: Empty handler\n", __func__);
+		return -ENODEV;
+	}
+
+	hdmi_ctrl = (struct hdmi_tx_ctrl *) hdmi_tx_hw.ptr;
+
+	mutex_lock(&hdmi_ctrl->cable_notify_mutex);
+	list_del(&handler->link);
+	mutex_unlock(&hdmi_ctrl->cable_notify_mutex);
+
+	return 0;
+} /* unregister_hdmi_cable_notification */
+
+static void hdmi_tx_cable_notify_work(struct work_struct *work)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct hdmi_cable_notify *pos;
+
+	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, cable_notify_work);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid hdmi data\n", __func__);
+		return;
+	}
+
+	mutex_lock(&hdmi_ctrl->cable_notify_mutex);
+	list_for_each_entry(pos, &hdmi_ctrl->cable_notify_handlers, link) {
+		if (pos->status != hdmi_ctrl->hpd_state) {
+			pos->status = hdmi_ctrl->hpd_state;
+			pos->hpd_notify(pos);
+		}
+	}
+	mutex_unlock(&hdmi_ctrl->cable_notify_mutex);
+} /* hdmi_tx_cable_notify_work */
+
 static bool hdmi_tx_is_cea_format(int mode)
 {
 	bool cea_fmt;
@@ -327,6 +399,9 @@ static inline void hdmi_tx_send_cable_notification(
 
 	if (!hdmi_ctrl->pdata.primary && (hdmi_ctrl->sdev.state != val))
 		switch_set_state(&hdmi_ctrl->sdev, val);
+
+	/* Notify all registered modules of cable connection status */
+	schedule_work(&hdmi_ctrl->cable_notify_work);
 } /* hdmi_tx_send_cable_notification */
 
 static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -2835,6 +2910,7 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
 	mutex_destroy(&hdmi_ctrl->lut_lock);
+	mutex_destroy(&hdmi_ctrl->cable_notify_mutex);
 	mutex_destroy(&hdmi_ctrl->mutex);
 
 	hdmi_tx_hw.ptr = NULL;
@@ -2864,6 +2940,10 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_setup_video_mode_lut();
 	mutex_init(&hdmi_ctrl->mutex);
 	mutex_init(&hdmi_ctrl->lut_lock);
+	mutex_init(&hdmi_ctrl->cable_notify_mutex);
+
+	INIT_LIST_HEAD(&hdmi_ctrl->cable_notify_handlers);
+
 	hdmi_ctrl->workq = create_workqueue("hdmi_tx_workq");
 	if (!hdmi_ctrl->workq) {
 		DEV_ERR("%s: hdmi_tx_workq creation failed.\n", __func__);
@@ -2881,8 +2961,9 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->hpd_initialized = false;
 	hdmi_ctrl->hpd_off_pending = false;
 	init_completion(&hdmi_ctrl->hpd_done);
-	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
 
+	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
+	INIT_WORK(&hdmi_ctrl->cable_notify_work, hdmi_tx_cable_notify_work);
 	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
 
 	spin_lock_init(&hdmi_ctrl->hpd_state_lock);
