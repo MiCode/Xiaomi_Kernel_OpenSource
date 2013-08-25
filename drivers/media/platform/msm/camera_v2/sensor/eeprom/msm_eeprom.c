@@ -233,7 +233,7 @@ static int msm_eeprom_alloc_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 				       struct device_node *of)
 {
 	int i, rc = 0;
-	char property[12];
+	char property[14];
 	uint32_t count = 6;
 	struct msm_eeprom_board_info *eb = e_ctrl->eboard_info;
 
