@@ -4840,6 +4840,14 @@ int mpq_sdmx_process(struct mpq_demux *mpq_demux,
 		todo = fill_count > limit ? limit : fill_count;
 		ret = mpq_sdmx_process_buffer(mpq_demux, input, todo,
 			read_offset);
+
+		if (mpq_demux->demux.sw_filter_abort) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: Demuxing from DVR was aborted\n",
+				__func__);
+			return -ENODEV;
+		}
+
 		if (ret > 0) {
 			total_bytes_read += ret;
 			fill_count -= ret;
