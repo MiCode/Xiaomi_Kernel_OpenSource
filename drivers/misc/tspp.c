@@ -285,7 +285,10 @@ static const struct debugfs_entry debugfs_tspp_regs[] = {
 	{"pid_filter_table0",   S_IRUGO | S_IWUSR, TSPP_PID_FILTER_TABLE0},
 	{"pid_filter_table1",   S_IRUGO | S_IWUSR, TSPP_PID_FILTER_TABLE1},
 	{"pid_filter_table2",   S_IRUGO | S_IWUSR, TSPP_PID_FILTER_TABLE2},
-	{"global_performance",  S_IRUGO | S_IWUSR, TSPP_GLOBAL_PERFORMANCE},
+	{"tsp_total_num",       S_IRUGO | S_IWUSR, TSPP_GLOBAL_PERFORMANCE},
+	{"tsp_ignored_num",     S_IRUGO | S_IWUSR, TSPP_GLOBAL_PERFORMANCE + 4},
+	{"tsp_err_ind_num",     S_IRUGO | S_IWUSR, TSPP_GLOBAL_PERFORMANCE + 8},
+	{"tsp_sync_err_num",   S_IRUGO | S_IWUSR, TSPP_GLOBAL_PERFORMANCE + 16},
 	{"pipe_context",        S_IRUGO | S_IWUSR, TSPP_PIPE_CONTEXT},
 	{"pipe_performance",    S_IRUGO | S_IWUSR, TSPP_PIPE_PERFORMANCE},
 	{"data_key",            S_IRUGO | S_IWUSR, TSPP_DATA_KEY}
@@ -881,7 +884,10 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 
 	if (start_hardware) {
 		ctl = TSIF_STS_CTL_EN_IRQ |
-				TSIF_STS_CTL_EN_DM;
+				TSIF_STS_CTL_EN_DM |
+				TSIF_STS_CTL_PACK_AVAIL |
+				TSIF_STS_CTL_OVERFLOW |
+				TSIF_STS_CTL_LOST_SYNC;
 
 		if (tsif_device->clock_inverse)
 			ctl |= TSIF_STS_CTL_INV_CLOCK;
@@ -2628,14 +2634,62 @@ static long tspp_ioctl(struct file *filp,
 /*** debugfs ***/
 static int debugfs_iomem_x32_set(void *data, u64 val)
 {
+	int rc;
+	int clock_started = 0;
+	struct tspp_device *pdev;
+
+	pdev = tspp_find_by_id(0);
+	if (!pdev) {
+		pr_err("%s: can't find device 0\n", __func__);
+		return 0;
+	}
+
+	if (tspp_channels_in_use(pdev) == 0) {
+		rc = tspp_clock_start(pdev);
+		if (rc) {
+			pr_err("%s: tspp_clock_start failed %d\n",
+				__func__, rc);
+			return 0;
+		}
+		clock_started = 1;
+	}
+
 	writel_relaxed(val, data);
 	wmb();
+
+	if (clock_started)
+		tspp_clock_stop(pdev);
 	return 0;
 }
 
 static int debugfs_iomem_x32_get(void *data, u64 *val)
 {
+	int rc;
+	int clock_started = 0;
+	struct tspp_device *pdev;
+
+	pdev = tspp_find_by_id(0);
+	if (!pdev) {
+		pr_err("%s: can't find device 0\n", __func__);
+		*val = 0;
+		return 0;
+	}
+
+	if (tspp_channels_in_use(pdev) == 0) {
+		rc = tspp_clock_start(pdev);
+		if (rc) {
+			pr_err("%s: tspp_clock_start failed %d\n",
+				__func__, rc);
+			*val = 0;
+			return 0;
+		}
+		clock_started = 1;
+	}
+
 	*val = readl_relaxed(data);
+
+	if (clock_started)
+		tspp_clock_stop(pdev);
 	return 0;
 }
 
