@@ -504,9 +504,9 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 
 	sess->tp_mem_table.size = sizeof(struct vss_imemory_table_t);
 
-	pr_debug("%s: data 0x%x phys 0x%x\n", __func__,
+	pr_debug("%s: data 0x%x phys %pa\n", __func__,
 		 (unsigned int) sess->tp_mem_table.data,
-		 sess->tp_mem_table.phys);
+		 &sess->tp_mem_table.phys);
 
 	/* Split 4096 block into four 1024 byte blocks for each dai */
 	txtp->capture_dai_data.vocpcm_ion_buffer.paddr =
