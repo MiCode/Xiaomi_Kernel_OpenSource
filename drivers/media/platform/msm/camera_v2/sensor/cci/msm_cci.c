@@ -651,7 +651,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 	if (rc < 0) {
 		cci_dev->ref_count--;
 		CDBG("%s: request gpio failed\n", __func__);
-		goto clk_enable_failed;
+		goto request_gpio_failed;
 	}
 
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
@@ -676,7 +676,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 			 __func__, __LINE__);
 		if (rc == 0)
 			rc = -ETIMEDOUT;
-		return rc;
+		goto reset_complete_failed;
 	}
 	msm_cci_set_clk_param(cci_dev);
 	msm_camera_io_w(CCI_IRQ_MASK_0_RMSK,
@@ -687,7 +687,14 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 	cci_dev->cci_state = CCI_STATE_ENABLED;
 	return 0;
 
+reset_complete_failed:
+	disable_irq(cci_dev->irq->start);
+	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
+		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 0);
 clk_enable_failed:
+	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
+		cci_dev->cci_gpio_tbl_size, 0);
+request_gpio_failed:
 	return rc;
 }
 
