@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/stat.h>
 
 #include "mdss_hdmi_hdcp.h"
 
@@ -139,6 +140,48 @@ static void reset_hdcp_ddc_failures(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	DEV_DBG("%s: %s: On Exit: HDCP_DDC_STATUS=0x%x, FAIL=%d, NACK0=%d\n",
 		__func__, HDCP_STATE_NAME, hdcp_ddc_status, failure, nack0);
 } /* reset_hdcp_ddc_failures */
+
+static void hdmi_hdcp_hw_ddc_clean(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	struct dss_io_data *io = NULL;
+	u32 hdcp_ddc_status, ddc_hw_status;
+	u32 ddc_xfer_done, ddc_xfer_req, ddc_hw_done;
+	u32 ddc_hw_not_ready;
+	u32 timeout_count;
+
+	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	io = hdcp_ctrl->init_data.core_io;
+	if (!io->base) {
+			DEV_ERR("%s: core io not inititalized\n", __func__);
+			return;
+	}
+
+	if (DSS_REG_R(io, HDMI_DDC_HW_STATUS) != 0) {
+		/* Wait to be clean on DDC HW engine */
+		timeout_count = 100;
+		do {
+			hdcp_ddc_status = DSS_REG_R(io, HDMI_HDCP_DDC_STATUS);
+			ddc_hw_status = DSS_REG_R(io, HDMI_DDC_HW_STATUS);
+			ddc_xfer_done = (hdcp_ddc_status & BIT(10)) ;
+			ddc_xfer_req = (hdcp_ddc_status & BIT(4)) ;
+			ddc_hw_done = (ddc_hw_status & BIT(3)) ;
+			ddc_hw_not_ready = ((ddc_xfer_done != 1) ||
+			(ddc_xfer_req != 0) || (ddc_hw_done != 1));
+
+			DEV_DBG("%s: %s: timeout count(%d):ddc hw%sready\n",
+				__func__, HDCP_STATE_NAME, timeout_count,
+					ddc_hw_not_ready ? " not " : " ");
+			DEV_DBG("hdcp_ddc_status[0x%x], ddc_hw_status[0x%x]\n",
+					hdcp_ddc_status, ddc_hw_status);
+			if (ddc_hw_not_ready)
+				msleep(20);
+			} while (ddc_hw_not_ready && --timeout_count);
+	}
+} /* hdmi_hdcp_hw_ddc_clean */
 
 static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
@@ -853,6 +896,7 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 	struct delayed_work *dw = to_delayed_work(work);
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = container_of(dw,
 		struct hdmi_hdcp_ctrl, hdcp_auth_work);
+	struct dss_io_data *io;
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -864,6 +908,11 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 			HDCP_STATE_NAME);
 		return;
 	}
+
+	io = hdcp_ctrl->init_data.core_io;
+	/* Enabling Software DDC */
+	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+				HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
 	rc = hdmi_hdcp_authentication_part1(hdcp_ctrl);
 	if (rc) {
@@ -878,6 +927,10 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 			HDCP_STATE_NAME);
 		goto error;
 	}
+	/* Disabling software DDC before going into part3 to make sure
+	 * there is no Arbitratioon between software and hardware for DDC */
+	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+				HDMI_DDC_ARBITRATION) | (BIT(4)));
 
 error:
 	/*
@@ -969,6 +1022,9 @@ int hdmi_hdcp_reauthenticate(void *input)
 
 	DSS_REG_W(io, HDMI_HDCP_RESET, BIT(0));
 
+	/* Wait to be clean on DDC HW engine */
+	hdmi_hdcp_hw_ddc_clean(hdcp_ctrl);
+
 	/* Disable encryption and disable the HDCP block */
 	DSS_REG_W(io, HDMI_HDCP_CTRL, 0);
 
@@ -1035,6 +1091,9 @@ void hdmi_hdcp_off(void *input)
 			HDCP_STATE_NAME);
 
 	DSS_REG_W(io, HDMI_HDCP_RESET, BIT(0));
+
+	/* Wait to be clean on DDC HW engine */
+	hdmi_hdcp_hw_ddc_clean(hdcp_ctrl);
 
 	/* Disable encryption and disable the HDCP block */
 	DSS_REG_W(io, HDMI_HDCP_CTRL, 0);
@@ -1113,6 +1172,38 @@ error:
 	return rc;
 } /* hdmi_hdcp_isr */
 
+static ssize_t hdmi_hdcp_sysfs_rda_status(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_hdcp_ctrl *hdcp_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+
+	if (!hdcp_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(hdcp_ctrl->init_data.mutex);
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", hdcp_ctrl->hdcp_state);
+	DEV_DBG("%s: '%d'\n", __func__, hdcp_ctrl->hdcp_state);
+	mutex_unlock(hdcp_ctrl->init_data.mutex);
+
+	return ret;
+} /* hdmi_hdcp_sysfs_rda_hdcp*/
+
+static DEVICE_ATTR(status, S_IRUGO, hdmi_hdcp_sysfs_rda_status, NULL);
+
+static struct attribute *hdmi_hdcp_fs_attrs[] = {
+	&dev_attr_status.attr,
+	NULL,
+};
+
+static struct attribute_group hdmi_hdcp_fs_attr_group = {
+	.name = "hdcp",
+	.attrs = hdmi_hdcp_fs_attrs,
+};
+
 void hdmi_hdcp_deinit(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
@@ -1121,6 +1212,9 @@ void hdmi_hdcp_deinit(void *input)
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+
+	sysfs_remove_group(hdcp_ctrl->init_data.sysfs_kobj,
+				&hdmi_hdcp_fs_attr_group);
 
 	kfree(hdcp_ctrl);
 } /* hdmi_hdcp_deinit */
@@ -1144,6 +1238,12 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 	}
 
 	hdcp_ctrl->init_data = *init_data;
+
+	if (sysfs_create_group(init_data->sysfs_kobj,
+				&hdmi_hdcp_fs_attr_group)) {
+		DEV_ERR("%s: hdcp sysfs group creation failed\n", __func__);
+		goto error;
+	}
 
 	INIT_DELAYED_WORK(&hdcp_ctrl->hdcp_auth_work, hdmi_hdcp_auth_work);
 	INIT_WORK(&hdcp_ctrl->hdcp_int_work, hdmi_hdcp_int_work);

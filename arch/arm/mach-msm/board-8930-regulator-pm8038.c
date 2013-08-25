@@ -99,6 +99,7 @@ VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("mhl_iovcc18",		"0-0039"),
 	REGULATOR_SUPPLY("vdd-io",		"spi0.0"),
 	REGULATOR_SUPPLY("vdd-phy",		"spi0.0"),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.2"),
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8038_l12",		NULL),

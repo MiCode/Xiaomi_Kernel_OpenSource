@@ -55,15 +55,16 @@ module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 #define DBG2(x...) DBG(DEBUG_MASK_LVL2, x)
 
 /* Configure device instances */
-#define RMNET_DEVICE_COUNT (8)
+#define RMNET_DEVICE_COUNT  9
 
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
 
 #define DEVICE_ID_INVALID   -1
 
-#define DEVICE_INACTIVE      0
+#define DEVICE_INACTIVE      2
 #define DEVICE_ACTIVE        1
+#define DEVICE_UNINITIALIZED 0
 
 #define HEADROOM_FOR_BAM   8 /* for mux header */
 #define HEADROOM_FOR_QOS    8
@@ -85,6 +86,7 @@ struct rmnet_private {
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
 	uint8_t in_reset;
+	struct platform_driver *bam_pdev;
 };
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -393,13 +395,21 @@ static int __rmnet_open(struct net_device *dev)
 
 	DBG0("[%s] __rmnet_open()\n", dev->name);
 
-	if (!p->device_up) {
+	if (p->device_up == DEVICE_UNINITIALIZED) {
 		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
 
 		if (r < 0) {
 			DBG0("%s: ch=%d failed with rc %d\n",
 					__func__, p->ch_id, r);
 			return -ENODEV;
+		}
+
+		r = platform_driver_register(p->bam_pdev);
+		if (r) {
+			pr_err("%s: bam pdev registration failed n=%d rc=%d\n",
+					__func__, p->ch_id, r);
+			msm_bam_dmux_close(p->ch_id);
+			return r;
 		}
 	}
 
@@ -427,7 +437,7 @@ static int __rmnet_close(struct net_device *dev)
 	struct rmnet_private *p = netdev_priv(dev);
 	int rc = 0;
 
-	if (p->device_up) {
+	if (p->device_up == DEVICE_ACTIVE) {
 		/* do not close rmnet port once up,  this causes
 		   remote side to hang if tried to open again */
 		p->device_up = DEVICE_INACTIVE;
@@ -711,6 +721,11 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 			break;
 	}
 
+	if (i >= RMNET_DEVICE_COUNT) {
+		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
+		return -ENODEV;
+	}
+
 	p = netdev_priv(netdevs[i]);
 	if (p->in_reset) {
 		p->in_reset = 0;
@@ -766,7 +781,7 @@ static int bam_rmnet_rev_probe(struct platform_device *pdev)
 
 	if (i >= RMNET_REV_DEVICE_COUNT) {
 		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return 0;
+		return -ENODEV;
 	}
 
 	p = netdev_priv(netdevs_rev[i]);
@@ -871,8 +886,13 @@ static int __init rmnet_init(void)
 #endif
 
 	for (n = 0; n < RMNET_DEVICE_COUNT; n++) {
+		const char *dev_name = "rmnet%d";
+
+		if (n == BAM_DMUX_USB_RMNET_0)
+			dev_name = "rmnet_usb%d";
+
 		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   "rmnet%d", rmnet_setup);
+				   dev_name, rmnet_setup);
 
 		if (!dev) {
 			pr_err("%s: no memory for netdev %d\n", __func__, n);
@@ -887,6 +907,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -898,6 +919,7 @@ static int __init rmnet_init(void)
 		if (ret) {
 			pr_err("%s: unable to register netdev"
 				   " %d rc=%d\n", __func__, n, ret);
+			netdevs[n] = NULL;
 			free_netdev(dev);
 			return ret;
 		}
@@ -921,18 +943,16 @@ static int __init rmnet_init(void)
 		bam_rmnet_drivers[n].probe = bam_rmnet_probe;
 		bam_rmnet_drivers[n].remove = bam_rmnet_remove;
 		tempname = kmalloc(BAM_DMUX_CH_NAME_MAX_LEN, GFP_KERNEL);
-		if (tempname == NULL)
-			return -ENOMEM;
+		if (tempname == NULL) {
+			netdevs[n] = NULL;
+			ret = -ENOMEM;
+			goto error;
+		}
 		scnprintf(tempname, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
 									n);
 		bam_rmnet_drivers[n].driver.name = tempname;
 		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_drivers[n]);
-		if (ret) {
-			pr_err("%s: registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			return ret;
-		}
+		p->bam_pdev = &bam_rmnet_drivers[n];
 	}
 	/*Support for new rmnet ports */
 	for (n = 0; n < RMNET_REV_DEVICE_COUNT; n++) {
@@ -953,6 +973,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n+BAM_DMUX_DATA_REV_RMNET_0;
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
+		p->device_up = DEVICE_UNINITIALIZED;
 		spin_lock_init(&p->lock);
 		spin_lock_init(&p->tx_queue_lock);
 
@@ -960,6 +981,7 @@ static int __init rmnet_init(void)
 		if (ret) {
 			pr_err("%s: unable to register rev netdev %d rc=%d\n",
 							__func__, n, ret);
+			netdevs_rev[n] = NULL;
 			free_netdev(dev);
 			return ret;
 		}
@@ -968,20 +990,23 @@ static int __init rmnet_init(void)
 		bam_rmnet_rev_drivers[n].probe = bam_rmnet_rev_probe;
 		bam_rmnet_rev_drivers[n].remove = bam_rmnet_rev_remove;
 		tempname = kmalloc(BAM_DMUX_CH_NAME_MAX_LEN, GFP_KERNEL);
-		if (tempname == NULL)
-			return -ENOMEM;
+		if (tempname == NULL) {
+			netdevs_rev[n] = NULL;
+			ret = -ENOMEM;
+			goto error;
+		}
 		scnprintf(tempname, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
 					(n+BAM_DMUX_DATA_REV_RMNET_0));
 		bam_rmnet_rev_drivers[n].driver.name = tempname;
 		bam_rmnet_rev_drivers[n].driver.owner = THIS_MODULE;
-		ret = platform_driver_register(&bam_rmnet_rev_drivers[n]);
-		if (ret) {
-			pr_err("%s: new rev driver registration failed n=%d rc=%d\n",
-					__func__, n, ret);
-			return ret;
-		}
+		p->bam_pdev = &bam_rmnet_rev_drivers[n];
 	}
 	return 0;
+
+error:
+	unregister_netdev(dev);
+	free_netdev(dev);
+	return ret;
 }
 
 module_init(rmnet_init);

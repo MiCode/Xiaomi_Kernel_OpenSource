@@ -10,15 +10,22 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&soc {
+	qcom,iommu-domains {
+		compatible = "qcom,iommu-domains";
 
-/include/ "msm8974-v2-2.dtsi"
-/include/ "msm8974-cdp.dtsi"
+		venus_domain_ns: qcom,iommu-domain1 {
+			label = "venus_ns";
+			qcom,iommu-contexts = <&venus_ns>;
+			qcom,virtual-addr-pool = <0x40000000 0x3f000000
+						  0x7f000000 0x1000000>;
+		};
 
-/ {
-	model = "Qualcomm MSM 8974v2 CDP";
-	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,msm-id = <126 1 0x20002>,
-		      <185 1 0x20002>,
-		      <186 1 0x20002>;
+		venus_domain_cp: qcom,iommu-domain2 {
+			label = "venus_cp";
+			qcom,iommu-contexts = <&venus_cp>;
+			qcom,virtual-addr-pool = <0x1000000 0x3f000000>;
+			qcom,secure-domain;
+		};
+	};
 };

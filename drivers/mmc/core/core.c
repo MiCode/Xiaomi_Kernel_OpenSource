@@ -731,7 +731,8 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			 * notification before it receives end_io on
 			 * the current
 			 */
-			BUG_ON(pending_is_urgent == true);
+			if (pending_is_urgent)
+				continue; /* wait for done/new/urgent event */
 
 			context_info->is_urgent = false;
 			context_info->is_new_req = false;

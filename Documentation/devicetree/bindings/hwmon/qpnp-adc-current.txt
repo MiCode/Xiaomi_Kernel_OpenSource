@@ -20,9 +20,16 @@ Required properties:
 Optional properties:
 - qcom,rsense : Use this property when external rsense should be used
 		for current calculation and specify the units in nano-ohms.
+- qcom,iadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
 
 Channel node
 NOTE: Atleast one Channel node is required.
+
+Client required property:
+- qcom,<consumer name>-iadc : The phandle to the corresponding iadc device.
+			The consumer name passed to the driver when calling
+			qpnp_get_iadc() is used to associate the client
+			with the corresponding device.
 
 Required properties:
 - label : Channel name used for sysfs entry.
@@ -84,6 +91,8 @@ Required properties:
 			6 : 64
 			7 : 128
 			8 : 256
+- qcom,iadc-vadc : Corresponding phandle of the VADC device to read the die_temperature and set
+		simultaneous voltage and current conversion requests.
 
 Example:
 	/* Main Node */
@@ -97,6 +106,7 @@ Example:
                         qcom,adc-bit-resolution = <16>;
                         qcom,adc-vdd-reference = <1800>;
 			qcom,rsense = <1500>;
+			qcom,iadc-vadc = <&pm8941_vadc>;
 
 			/* Channel Node */
                         chan@0 = {
@@ -110,3 +120,9 @@ Example:
                                 qcom,fast-avg-setup = <0>;
                         };
 	};
+
+Client device example:
+/* Add to the clients node that needs the IADC */
+client_node {
+	qcom,client-iadc = <&pm8941_iadc>;
+};

@@ -134,6 +134,8 @@ static void mpq_get_frame_and_write(struct mpq_dvb_video_inst *dev_inst,
 			case DMX_IDX_H264_SPS:
 			case DMX_IDX_MPEG_SEQ_HEADER:
 			case DMX_IDX_VC1_SEQ_HEADER:
+			case DMX_IDX_H264_ACCESS_UNIT_DEL:
+			case DMX_IDX_H264_SEI:
 				DBG("SPS FOUND\n");
 				frame_found = false;
 				break;

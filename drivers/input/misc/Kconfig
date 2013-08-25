@@ -692,4 +692,16 @@ config SENSORS_MMA_POSITION
 	default "0"
 	help
 	  this provide the sensor position setting , value is between 0~7
+
+config SENSORS_STK3X1X
+	tristate "STK3X1X device driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here you want to enable for the sitronix stk3x1x
+	  light and proximity sensors driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called stk3x1x.
+
 endif

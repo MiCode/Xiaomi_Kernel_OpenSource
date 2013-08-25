@@ -27,10 +27,17 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+#include <linux/power_supply.h>
+#include <linux/regulator/consumer.h>
+#include <linux/workqueue.h>
 #include <asm/hardware/gic.h>
 #include <asm/arch_timer.h>
 #include <mach/gpio.h>
 #include <mach/mpm.h>
+#include <mach/clk.h>
+#include <mach/rpm-regulator-smd.h>
 
 enum {
 	MSM_MPM_GIC_IRQ_DOMAIN,
@@ -74,6 +81,12 @@ static unsigned int msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS];
 #define SCLK_HZ (32768)
 #define ARCH_TIMER_HZ (19200000)
 static struct msm_mpm_device_data msm_mpm_dev_data;
+
+static struct clk *xo_clk;
+static bool xo_enabled;
+static struct workqueue_struct *msm_mpm_wq;
+static struct work_struct msm_mpm_work;
+static struct completion wake_wq;
 
 enum mpm_reg_offsets {
 	MSM_MPM_REG_WAKEUP,
@@ -257,6 +270,8 @@ static int msm_mpm_enable_irq_exclusive(
 		else
 			__clear_bit(d->hwirq, irq_apps);
 
+		if (!wakeset && (msm_mpm_initialized & MSM_MPM_DEVICE_PROBED))
+			complete(&wake_wq);
 	}
 
 	return 0;
@@ -543,6 +558,54 @@ void msm_mpm_exit_sleep(bool from_idle)
 		}
 	}
 }
+static void msm_mpm_sys_low_power_modes(bool allow)
+{
+	if (allow) {
+		if (xo_enabled) {
+			clk_disable_unprepare(xo_clk);
+			xo_enabled = false;
+		}
+	} else {
+		if (!xo_enabled) {
+			/* If we cannot enable XO clock then we want to flag it,
+			 * than having to deal with not being able to wakeup
+			 * from a non-monitorable interrupt
+			 */
+			BUG_ON(clk_prepare_enable(xo_clk));
+			xo_enabled = true;
+		}
+	}
+}
+
+void msm_mpm_suspend_prepare(void)
+{
+	bool allow = msm_mpm_irqs_detectable(false) &&
+		msm_mpm_gpio_irqs_detectable(false);
+	msm_mpm_sys_low_power_modes(allow);
+}
+EXPORT_SYMBOL(msm_mpm_suspend_prepare);
+
+void msm_mpm_suspend_wake(void)
+{
+	bool allow = msm_mpm_irqs_detectable(true) &&
+		msm_mpm_gpio_irqs_detectable(true);
+	msm_mpm_sys_low_power_modes(allow);
+}
+EXPORT_SYMBOL(msm_mpm_suspend_wake);
+
+static void msm_mpm_work_fn(struct work_struct *work)
+{
+	unsigned long flags;
+	while (1) {
+		bool allow;
+		wait_for_completion(&wake_wq);
+		spin_lock_irqsave(&msm_mpm_lock, flags);
+		allow = msm_mpm_irqs_detectable(true) &&
+				msm_mpm_gpio_irqs_detectable(true);
+		spin_unlock_irqrestore(&msm_mpm_lock, flags);
+		msm_mpm_sys_low_power_modes(allow);
+	}
+}
 
 static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 {
@@ -553,6 +616,13 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 	if (msm_mpm_initialized & MSM_MPM_DEVICE_PROBED) {
 		pr_warn("MPM device probed multiple times\n");
 		return 0;
+	}
+
+	xo_clk = devm_clk_get(&pdev->dev, "xo");
+
+	if (IS_ERR(xo_clk)) {
+		pr_err("%s(): Cannot get clk resource for XO\n", __func__);
+		return PTR_ERR(xo_clk);
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vmpm");
@@ -610,10 +680,27 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 		return ret;
 
 	}
+
+	init_completion(&wake_wq);
+
+	INIT_WORK(&msm_mpm_work, msm_mpm_work_fn);
+	msm_mpm_wq = create_singlethread_workqueue("mpm");
+
+	if (msm_mpm_wq)
+		queue_work(msm_mpm_wq, &msm_mpm_work);
+	else  {
+		pr_warn("%s(): Failed to create wq. So voting against XO off",
+				__func__);
+		/* Throw a BUG. Otherwise, its possible that system allows
+		 * XO shutdown when there are non-monitored interrupts are
+		 * pending and cause errors at a later point in time.
+		 */
+		BUG_ON(clk_prepare_enable(xo_clk));
+		xo_enabled = true;
+	}
+
 	msm_mpm_initialized |= MSM_MPM_DEVICE_PROBED;
-
 	return 0;
-
 }
 
 static inline int __init mpm_irq_domain_linear_size(struct irq_domain *d)

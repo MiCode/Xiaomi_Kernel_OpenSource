@@ -94,20 +94,22 @@
 
 	qcom,ispif@fda0A000 {
 		cell-index = <0>;
-		compatible = "qcom,ispif";
+		compatible = "qcom,ispif-v3.0", "qcom,ispif";
 		reg = <0xfda0A000 0x500>,
                       <0xfda00020 0x10>;
 		reg-names = "ispif", "csi_clk_mux";
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
+		qcom,num-isps = <0x2>;
 	};
 
 	qcom,vfe@fda10000 {
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
 		reg = <0xfda10000 0x1000>,
-			<0xfda40000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0xfda40000 0x200>,
+			<0xfd4a8000 0x4>;
+		reg-names = "vfe", "vfe_vbif", "tcsr";
 		interrupts = <0 57 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
@@ -117,8 +119,9 @@
 		cell-index = <1>;
 		compatible = "qcom,vfe40";
 		reg = <0xfda14000 0x1000>,
-			<0xfda40000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0xfda40000 0x200>,
+			<0xfd4a8000 0x4>;
+		reg-names = "vfe", "vfe_vbif", "tcsr";
 		interrupts = <0 58 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
@@ -178,6 +181,7 @@
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pm8941_flash0 &pm8941_flash1>;
+		qcom,torch-source = <&pm8941_torch>;
 	};
 
 	cci: qcom,cci@fda0C000 {
@@ -196,18 +200,42 @@
 		qcom,gpio-tbl-num = <0 1 2 3>;
 		qcom,gpio-tbl-flags = <1 1 1 1>;
 		qcom,gpio-tbl-label = "CCI_I2C_DATA0",
-					"CCI_I2C_CLK0",
-					"CCI_I2C_DATA1",
-					"CCI_I2C_CLK1";
-		qcom,hw-thigh = <78>;
-		qcom,hw-tlow = <114>;
-		qcom,hw-tsu-sto = <28>;
-		qcom,hw-tsu-sta = <28>;
-		qcom,hw-thd-dat = <10>;
-		qcom,hw-thd-sta = <77>;
-		qcom,hw-tbuf = <118>;
-		qcom,hw-scl-stretch-en = <0>;
-		qcom,hw-trdhld = <6>;
-		qcom,hw-tsp = <1>;
+				      "CCI_I2C_CLK0",
+				      "CCI_I2C_DATA1",
+				      "CCI_I2C_CLK1";
+		master0: qcom,cci-master0 {
+			status = "disabled";
+		};
+		master1: qcom,cci-master1 {
+			status = "disabled";
+		};
 	};
+};
+
+&master0 {
+	qcom,hw-thigh = <78>;
+	qcom,hw-tlow = <114>;
+	qcom,hw-tsu-sto = <28>;
+	qcom,hw-tsu-sta = <28>;
+	qcom,hw-thd-dat = <10>;
+	qcom,hw-thd-sta = <77>;
+	qcom,hw-tbuf = <118>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <1>;
+	status = "ok";
+};
+
+&master1 {
+	qcom,hw-thigh = <78>;
+	qcom,hw-tlow = <114>;
+	qcom,hw-tsu-sto = <28>;
+	qcom,hw-tsu-sta = <28>;
+	qcom,hw-thd-dat = <10>;
+	qcom,hw-thd-sta = <77>;
+	qcom,hw-tbuf = <118>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <1>;
+	status = "ok";
 };

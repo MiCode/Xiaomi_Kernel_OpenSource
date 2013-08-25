@@ -385,6 +385,7 @@ kgsl_gem_free_object(struct drm_gem_object *obj)
 	kgsl_gem_free_memory(obj);
 	drm_gem_object_release(obj);
 	kfree(obj->driver_private);
+	kfree(obj);
 }
 
 int

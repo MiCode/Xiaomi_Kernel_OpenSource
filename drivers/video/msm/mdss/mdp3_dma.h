@@ -16,6 +16,12 @@
 
 #include <linux/sched.h>
 
+#define MDP_HISTOGRAM_BL_SCALE_MAX 1024
+#define MDP_HISTOGRAM_BL_LEVEL_MAX 255
+#define MDP_HISTOGRAM_FRAME_COUNT_MAX 0x20
+#define MDP_HISTOGRAM_BIT_MASK_MAX 0x4
+#define MDP_HISTOGRAM_CSC_MATRIX_MAX 0x2000
+#define MDP_HISTOGRAM_CSC_VECTOR_MAX 0x200
 #define MDP_HISTOGRAM_BIN_NUM	32
 #define MDP_LUT_SIZE 256
 
@@ -145,6 +151,7 @@ struct mdp3_dma_source {
 	void *buf;
 	int stride;
 	int vsync_count;
+	int vporch;
 };
 
 struct mdp3_dma_output_config {
@@ -250,6 +257,10 @@ struct mdp3_dma {
 	int histo_state;
 	struct mdp3_dma_histogram_data histo_data;
 
+	int (*dma_config)(struct mdp3_dma *dma,
+			struct mdp3_dma_source *source_config,
+			struct mdp3_dma_output_config *output_config);
+
 	int (*start)(struct mdp3_dma *dma, struct mdp3_intf *intf);
 
 	int (*stop)(struct mdp3_dma *dma, struct mdp3_intf *intf);
@@ -323,11 +334,9 @@ struct mdp3_intf {
 	int (*stop)(struct mdp3_intf *intf);
 };
 
-int mdp3_dma_init(struct mdp3_dma *dma,
-		struct mdp3_dma_source *source_config,
-		struct mdp3_dma_output_config *output_config);
+int mdp3_dma_init(struct mdp3_dma *dma);
 
-int mdp3_intf_init(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg);
+int mdp3_intf_init(struct mdp3_intf *intf);
 
 void mdp3_dma_callback_enable(struct mdp3_dma *dma, int type);
 

@@ -300,7 +300,16 @@ int msm_isp_axi_check_stream_state(
 	struct msm_vfe_axi_stream *stream_info;
 	enum msm_vfe_axi_state valid_state =
 		(stream_cfg_cmd->cmd == START_STREAM) ? INACTIVE : ACTIVE;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM) {
+		return -EINVAL;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])
+		> MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 		spin_lock_irqsave(&stream_info->lock, flags);
@@ -407,6 +416,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		break;
 	}
 
+	sof_event.input_intf = frame_src;
 	sof_event.frame_id = vfe_dev->axi_data.src_info[frame_src].frame_id;
 	sof_event.timestamp = ts->event_time;
 	sof_event.mono_timestamp = ts->buf_time;
@@ -474,6 +484,7 @@ void msm_isp_calculate_bandwidth(
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, i;
+	uint32_t io_format = 0;
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
 
@@ -497,10 +508,20 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_info[HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
 	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
-	if (stream_cfg_cmd->stream_src == CAMIF_RAW ||
-		stream_cfg_cmd->stream_src == IDEAL_RAW)
-			vfe_dev->hw_info->vfe_ops.axi_ops.
-				cfg_io_format(vfe_dev, stream_info);
+	if (stream_info->stream_src < RDI_INTF_0) {
+		io_format = vfe_dev->axi_data.src_info[VFE_PIX_0].input_format;
+		if (stream_info->stream_src == CAMIF_RAW ||
+			stream_info->stream_src == IDEAL_RAW) {
+			if (stream_info->stream_src == CAMIF_RAW &&
+				io_format != stream_info->output_format)
+				pr_warn("%s: Overriding input format\n",
+					__func__);
+
+			io_format = stream_info->output_format;
+		}
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_io_format(
+			vfe_dev, stream_info->stream_src, io_format);
+	}
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
 
@@ -583,9 +604,18 @@ static void msm_isp_axi_stream_enable_cfg(
 			stream_info->state == RESUME_PENDING)
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 1);
-		else
+		else {
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 0);
+			/* Issue a reg update for Raw Snapshot Case
+			 * since we dont have reg update ack
+			*/
+			if (stream_info->stream_src == CAMIF_RAW ||
+				stream_info->stream_src == IDEAL_RAW) {
+				vfe_dev->hw_info->vfe_ops.core_ops.
+				reg_update(vfe_dev);
+			}
+		}
 	}
 
 	if (stream_info->state == START_PENDING)
@@ -767,6 +797,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			 * other ISP hardware is still processing the frame.
 			 */
 			if (rc == 0) {
+				buf_event.input_intf =
+					SRC_TO_INTF(stream_info->stream_src);
 				buf_event.frame_id = frame_id;
 				buf_event.timestamp = ts->buf_time;
 				buf_event.u.buf_done.session_id =
@@ -829,7 +861,16 @@ static void msm_isp_update_camif_output_count(
 	int i;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM) {
+		return;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])
+		> MAX_NUM_STREAM) {
+			return;
+		}
 		stream_info =
 			&axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
@@ -1009,7 +1050,16 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	uint32_t wm_reload_mask = 0x0;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM) {
+		return -EINVAL;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])
+		> MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 		src_state = axi_data->src_info[
@@ -1062,16 +1112,31 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	uint8_t wait_for_complete = 0;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM) {
+		return -EINVAL;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])
+		> MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 
 		stream_info->state = STOP_PENDING;
-		if (stream_info->stream_type == BURST_STREAM &&
-			stream_info->runtime_num_burst_capture == 0) {
-			/*Configure AXI writemasters to stop immediately
-			 *since for burst case, write masters already skip
-			 *all frames.
+		if (stream_info->stream_src == CAMIF_RAW ||
+			stream_info->stream_src == IDEAL_RAW) {
+			/* We dont get reg update IRQ for raw snapshot
+			 * so frame skip cant be ocnfigured
+			*/
+			wait_for_complete = 1;
+		} else if (stream_info->stream_type == BURST_STREAM &&
+				stream_info->runtime_num_burst_capture == 0) {
+			/* Configure AXI writemasters to stop immediately
+			 * since for burst case, write masters already skip
+			 * all frames.
 			 */
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
@@ -1079,7 +1144,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			wait_for_complete = 1;
 		}
 	}
-
 	if (wait_for_complete) {
 		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
 		if (rc < 0) {
@@ -1147,8 +1211,18 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		return -EBUSY;
 	}
 
+	/*num_stream is uint32 and update_info[] bound by MAX_NUM_STREAM*/
+	if (update_cmd->num_streams > MAX_NUM_STREAM) {
+		return -EINVAL;
+	}
+
 	for (i = 0; i < update_cmd->num_streams; i++) {
 		update_info = &update_cmd->update_info[i];
+		/*check array reference bounds*/
+		if (HANDLE_TO_IDX(update_info->stream_handle)
+		 > MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
 		stream_info = &axi_data->stream_info[
 				HANDLE_TO_IDX(update_info->stream_handle)];
 		if (stream_info->state != ACTIVE &&

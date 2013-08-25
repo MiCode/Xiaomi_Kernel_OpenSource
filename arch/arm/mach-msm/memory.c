@@ -308,6 +308,8 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 	unsigned long memory_reserve_prop_length;
 	unsigned int memory_size;
 	unsigned int memory_start;
+	unsigned int num_holes = 0;
+	int i;
 	int ret;
 
 	memory_name_prop = of_get_flat_dt_prop(node,
@@ -358,21 +360,27 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 mem_remove:
 
 	if (memory_remove_prop) {
-		if (memory_remove_prop_length != (2*sizeof(unsigned int))) {
+		if (!memory_remove_prop_length || (memory_remove_prop_length %
+				(2 * sizeof(unsigned int)) != 0)) {
 			WARN(1, "Memory remove malformed\n");
 			goto mem_reserve;
 		}
 
-		memory_start = be32_to_cpu(memory_remove_prop[0]);
-		memory_size = be32_to_cpu(memory_remove_prop[1]);
+		num_holes = memory_remove_prop_length /
+					(2 * sizeof(unsigned int));
 
-		ret = memblock_remove(memory_start, memory_size);
-		if (ret)
-			WARN(1, "Failed to remove memory %x-%x\n",
+		for (i = 0; i < (num_holes * 2); i += 2) {
+			memory_start = be32_to_cpu(memory_remove_prop[i]);
+			memory_size = be32_to_cpu(memory_remove_prop[i+1]);
+
+			ret = memblock_remove(memory_start, memory_size);
+			if (ret)
+				WARN(1, "Failed to remove memory %x-%x\n",
 				memory_start, memory_start+memory_size);
-		else
-			pr_info("Node %s removed memory %x-%x\n", uname,
+			else
+				pr_info("Node %s removed memory %x-%x\n", uname,
 				memory_start, memory_start+memory_size);
+		}
 	}
 
 mem_reserve:
@@ -428,6 +436,8 @@ int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
 	unsigned long memory_remove_prop_length;
 	unsigned long hole_start;
 	unsigned long hole_size;
+	unsigned int num_holes = 0;
+	int i = 0;
 
 	memory_remove_prop = of_get_flat_dt_prop(node,
 						"qcom,memblock-remove",
@@ -441,15 +451,21 @@ int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
 	}
 
 	if (memory_remove_prop) {
-		if (memory_remove_prop_length != (2*sizeof(unsigned int))) {
+		if (!memory_remove_prop_length || (memory_remove_prop_length %
+			(2 * sizeof(unsigned int)) != 0)) {
 			WARN(1, "Memory remove malformed\n");
 			goto out;
 		}
 
-		hole_start = be32_to_cpu(memory_remove_prop[0]);
-		hole_size = be32_to_cpu(memory_remove_prop[1]);
+		num_holes = memory_remove_prop_length /
+					(2 * sizeof(unsigned int));
 
-		adjust_meminfo(hole_start, hole_size);
+		for (i = 0; i < (num_holes * 2); i += 2) {
+			hole_start = be32_to_cpu(memory_remove_prop[i]);
+			hole_size = be32_to_cpu(memory_remove_prop[i+1]);
+
+			adjust_meminfo(hole_start, hole_size);
+		}
 	}
 
 out:

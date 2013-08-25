@@ -627,6 +627,8 @@ static void handle_sys_error(enum command_response cmd, void *data)
 				if (inst->core)
 					hdev = inst->core->device;
 				if (hdev && inst->session) {
+					dprintk(VIDC_DBG,
+					"cleaning up inst: 0x%p", inst);
 					rc = call_hfi_op(hdev, session_clean,
 						(void *) inst->session);
 					if (rc)
@@ -693,10 +695,24 @@ static void handle_session_close(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
+	struct hfi_device *hdev = NULL;
+
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
-		signal_session_msg_receipt(cmd, inst);
+		if (!inst || !inst->core || !inst->core->device) {
+			dprintk(VIDC_ERR, "%s invalid params\n", __func__);
+			return;
+		}
+		hdev = inst->core->device;
+		mutex_lock(&inst->lock);
+		if (inst->session) {
+			dprintk(VIDC_DBG, "cleaning up inst: 0x%p", inst);
+			call_hfi_op(hdev, session_clean,
+				(void *) inst->session);
+		}
 		inst->session = NULL;
+		mutex_unlock(&inst->lock);
+		signal_session_msg_receipt(cmd, inst);
 		show_stats(inst);
 	} else {
 		dprintk(VIDC_ERR,
@@ -737,22 +753,45 @@ static void handle_ebd(enum command_response cmd, void *data)
 	struct msm_vidc_cb_data_done *response = data;
 	struct vb2_buffer *vb;
 	struct msm_vidc_inst *inst;
+	struct vidc_hal_ebd *empty_buf_done;
+
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
 	vb = response->clnt_data;
 	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s Invalid response from vidc_hal\n",
+			__func__);
+		return;
+	}
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = response->input_done.filled_len;
 		vb->v4l2_planes[0].data_offset = response->input_done.offset;
 		if (vb->v4l2_planes[0].data_offset > vb->v4l2_planes[0].length)
-			dprintk(VIDC_ERR, "Error: data_offset overflow\n");
+			dprintk(VIDC_INFO, "data_offset overflow length\n");
 		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
-			dprintk(VIDC_ERR, "Error: buffer overflow\n");
+			dprintk(VIDC_INFO, "bytesused overflow length\n");
 		if ((u8 *)vb->v4l2_planes[0].m.userptr !=
 			response->input_done.packet_buffer)
-			dprintk(VIDC_ERR, "Error: unexpected buffer address\n");
+			dprintk(VIDC_INFO, "Unexpected buffer address\n");
+		vb->v4l2_buf.flags = 0;
+		empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
+		if (empty_buf_done) {
+			if (empty_buf_done->status == VIDC_ERR_NOT_SUPPORTED) {
+				dprintk(VIDC_INFO,
+					"Failed : Unsupported input stream\n");
+				vb->v4l2_buf.flags |=
+					V4L2_QCOM_BUF_INPUT_UNSUPPORTED;
+			}
+			if (empty_buf_done->status == VIDC_ERR_BITSTREAM_ERR) {
+				dprintk(VIDC_INFO,
+					"Failed : Corrupted input stream\n");
+				vb->v4l2_buf.flags |=
+					V4L2_QCOM_BUF_DATA_CORRUPT;
+			}
+		}
 		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);

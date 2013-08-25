@@ -1,0 +1,51 @@
+#
+# Goodix GT9xx Touchscreen driver
+#
+
+config GT9XX_TOUCHPANEL_DRIVER
+	tristate "Goodix GT9xx touchpanel driver"
+	depends on TOUCHSCREEN_GT9XX
+	default n
+	help
+	  This is the main file for touchpanel driver for Goodix GT9xx
+	  touchscreens.
+
+	  Say Y here if you have a Goodix GT9xx touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gt9xx_update.
+
+config GT9XX_TOUCHPANEL_UPDATE
+	tristate "Goodix GT9xx touchpanel auto update support"
+	depends on GT9XX_TOUCHPANEL_DRIVER
+	default n
+	help
+	  This enables support for firmware update for Goodix GT9xx
+	  touchscreens.
+
+	  Say Y here if you have a Goodix GT9xx touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gt9xx_update.
+
+config GT9XX_TOUCHPANEL_DEBUG
+	tristate "Goodix GT9xx Tools for debuging"
+	depends on GT9XX_TOUCHPANEL_DRIVER
+	default n
+	help
+	  This is application debug interface support for Goodix GT9xx
+	  touchscreens.
+
+	  Say Y here if you want to have a Android app debug interface
+	  to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gt9xx_update.

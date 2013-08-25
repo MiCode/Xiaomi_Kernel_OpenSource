@@ -176,6 +176,7 @@ enum hal_property {
 	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
+	HAL_PARAM_VDEC_CONCEAL_COLOR,
 };
 
 enum hal_domain {
@@ -200,7 +201,7 @@ enum hal_video_codec {
 	HAL_VIDEO_CODEC_VP6      = 0x00000400,
 	HAL_VIDEO_CODEC_VP7      = 0x00000800,
 	HAL_VIDEO_CODEC_VP8      = 0x00001000,
-	HAL_VIDEO_CODEC_HEVC     = 0x00010000,
+	HAL_VIDEO_CODEC_HEVC     = 0x00002000,
 	HAL_UNUSED_CODEC = 0x10000000,
 };
 
@@ -936,6 +937,7 @@ struct vidc_hal_ebd {
 	u32 timestamp_hi;
 	u32 timestamp_lo;
 	u32 flags;
+	u32 status;
 	u32 mark_target;
 	u32 mark_data;
 	u32 stats;

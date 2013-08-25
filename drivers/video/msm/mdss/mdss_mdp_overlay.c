@@ -491,6 +491,16 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->is_fg = req->is_fg;
 	pipe->alpha = req->alpha;
 	pipe->transp = req->transp_mask;
+	pipe->blend_op = req->blend_op;
+	if (pipe->blend_op == BLEND_OP_NOT_DEFINED)
+		pipe->blend_op = fmt->alpha_enable ?
+					BLEND_OP_PREMULTIPLIED :
+					BLEND_OP_OPAQUE;
+
+	if (!fmt->alpha_enable && (pipe->blend_op != BLEND_OP_OPAQUE))
+		pr_warn("Unintended blend_op %d on layer with no alpha plane\n",
+			pipe->blend_op);
+
 	pipe->overfetch_disable = fmt->is_yuv &&
 			!(pipe->flags & MDP_SOURCE_ROTATED_90);
 
@@ -595,7 +605,8 @@ exit_fail:
 	mutex_lock(&mfd->lock);
 	if (pipe->play_cnt == 0) {
 		pr_debug("failed for pipe %d\n", pipe->num);
-		list_del(&pipe->used_list);
+		if (!list_empty(&pipe->used_list))
+			list_del_init(&pipe->used_list);
 		mdss_mdp_pipe_destroy(pipe);
 	}
 
@@ -827,20 +838,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 			pipe->params_changed++;
 			buf = &pipe->front_buf;
 		} else if (!pipe->params_changed) {
-			if (pipe->mixer) {
-				if (!mdss_mdp_pipe_is_staged(pipe)) {
-					list_del(&pipe->used_list);
-					list_add(&pipe->cleanup_list,
-						 &mdp5_data->pipes_cleanup);
-				}
+			if (pipe->mixer && !mdss_mdp_pipe_is_staged(pipe) &&
+			    !list_empty(&pipe->used_list)) {
+				list_del_init(&pipe->used_list);
+				list_add(&pipe->cleanup_list,
+					&mdp5_data->pipes_cleanup);
 			}
 			continue;
 		} else if (pipe->front_buf.num_planes) {
 			buf = &pipe->front_buf;
 		} else {
-			pr_warn("pipe queue w/o buffer. unstaging layer\n");
-			pipe->params_changed = 0;
-			mdss_mdp_mixer_pipe_unstage(pipe);
+			pr_warn("pipe queue w/o buffer\n");
 			continue;
 		}
 
@@ -894,9 +902,11 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 				continue;
 			}
 			mutex_lock(&mfd->lock);
-			list_del(&pipe->used_list);
-			list_add(&pipe->cleanup_list,
-				&mdp5_data->pipes_cleanup);
+			if (!list_empty(&pipe->used_list)) {
+				list_del_init(&pipe->used_list);
+				list_add(&pipe->cleanup_list,
+					&mdp5_data->pipes_cleanup);
+			}
 			mutex_unlock(&mfd->lock);
 			mdss_mdp_mixer_pipe_unstage(pipe);
 			mdss_mdp_pipe_unmap(pipe);
@@ -1341,15 +1351,6 @@ pan_display_error:
 	mutex_unlock(&mdp5_data->ov_lock);
 }
 
-static void mdss_mdp_overlay_dispatch_vsync(struct work_struct *work)
-{
-	struct mdss_overlay_private *mdp5_data;
-	mdp5_data = container_of(work, struct mdss_overlay_private, vsync_work);
-	if (mdp5_data->ctl && mdp5_data->ctl->mfd)
-		sysfs_notify(&mdp5_data->ctl->mfd->fbi->dev->kobj, NULL,
-				"vsync_event");
-}
-
 /* function is called in irq context should have minimum processing */
 static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl,
 						ktime_t t)
@@ -1366,7 +1367,7 @@ static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl,
 	pr_debug("vsync on fb%d play_cnt=%d\n", mfd->index, ctl->play_cnt);
 
 	mdp5_data->vsync_time = t;
-	schedule_work(&mdp5_data->vsync_work);
+	sysfs_notify_dirent(mdp5_data->vsync_event_sd);
 }
 
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
@@ -1601,6 +1602,13 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		return ret;
 
+	/* Supprt only MDP register read/write and
+	exit_dcm in DCM state*/
+	if (mfd->dcm_state == DCM_ENTER &&
+			(mdp_pp.op != mdp_op_calib_buffer &&
+			mdp_pp.op != mdp_op_calib_dcm_state))
+		return -EPERM;
+
 	switch (mdp_pp.op) {
 	case mdp_op_pa_cfg:
 		ret = mdss_mdp_pa_config(mdp5_data->ctl,
@@ -1681,6 +1689,9 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 				(struct mdp_calib_config_buffer *)
 				 &mdp_pp.data.calib_buffer, &copyback);
 		break;
+	case mdp_op_calib_dcm_state:
+		ret = mdss_fb_dcm(mfd, mdp_pp.data.calib_dcm.dcm_state);
+		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
 								mdp_pp.op);
@@ -1757,6 +1768,10 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 			return -EPERM;
 		ret = mdss_misr_crc_set(mdata, &metadata->data.misr_request);
 		break;
+	case metadata_op_wb_format:
+		ret = mdss_mdp_wb_set_format(mfd,
+				metadata->data.mixer_cfg.writeback_format);
+		break;
 	default:
 		pr_warn("unsupported request to MDP META IOCTL\n");
 		ret = -EINVAL;
@@ -1797,6 +1812,9 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		if (!mfd->panel_power_on)
 			return -EPERM;
 		ret = mdss_misr_crc_get(mdata, &metadata->data.misr_request);
+		break;
+	case metadata_op_wb_format:
+		ret = mdss_mdp_wb_get_format(mfd, &metadata->data.mixer_cfg);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
@@ -1979,7 +1997,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 
 	if (!mfd->panel_info->cont_splash_enabled) {
 		rc = mdss_mdp_overlay_start(mfd);
-		if (!IS_ERR_VALUE(rc) && (mfd->panel_info->type != DTV_PANEL))
+		if (!IS_ERR_VALUE(rc) && (mfd->panel_info->type != DTV_PANEL) &&
+			(mfd->panel_info->type != WRITEBACK_PANEL))
 			rc = mdss_mdp_overlay_kickoff(mfd);
 	} else {
 		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
@@ -2102,7 +2121,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
-	INIT_WORK(&mdp5_data->vsync_work, mdss_mdp_overlay_dispatch_vsync);
 	mutex_init(&mdp5_data->ov_lock);
 	mdp5_data->hw_refresh = true;
 	mdp5_data->overlay_play_enable = true;
@@ -2122,6 +2140,14 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
+		goto init_fail;
+	}
+
+	mdp5_data->vsync_event_sd = sysfs_get_dirent(dev->kobj.sd, NULL,
+						     "vsync_event");
+	if (!mdp5_data->vsync_event_sd) {
+		pr_err("vsync_event sysfs lookup failed\n");
+		rc = -ENODEV;
 		goto init_fail;
 	}
 

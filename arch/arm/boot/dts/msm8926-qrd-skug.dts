@@ -11,14 +11,12 @@
  */
 
 /dts-v1/;
-
-/include/ "msm8974-v2.dtsi"
-/include/ "msm8974-cdp.dtsi"
+/include/ "msm8926.dtsi"
+/include/ "msm8226-qrd.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974v2 CDP";
-	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,msm-id = <126 1 0x20000>,
-		      <185 1 0x20000>,
-		      <186 1 0x20000>;
+	model = "Qualcomm MSM 8926 QRD SKUG";
+	compatible = "qcom,msm8926-qrd", "qcom,msm8926", "qcom,qrd";
+	qcom,board-id = <11 5>;
+	qcom,msm-id = <200 0>;
 };

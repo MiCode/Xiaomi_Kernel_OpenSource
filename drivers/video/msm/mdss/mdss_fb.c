@@ -111,7 +111,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		return ret;
 	}
 
-	if (notify > NOTIFY_UPDATE_STOP)
+	if (notify > NOTIFY_UPDATE_POWER_OFF)
 		return -EINVAL;
 
 	if (notify == NOTIFY_UPDATE_START) {
@@ -119,12 +119,19 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		ret = wait_for_completion_interruptible_timeout(
 						&mfd->update.comp, 4 * HZ);
 		to_user = mfd->update.value;
-	} else {
+	} else if (notify == NOTIFY_UPDATE_STOP) {
 		INIT_COMPLETION(mfd->no_update.comp);
 		ret = wait_for_completion_interruptible_timeout(
 						&mfd->no_update.comp, 4 * HZ);
 		to_user = mfd->no_update.value;
+	} else {
+		if (mfd->panel_power_on) {
+			INIT_COMPLETION(mfd->power_off_comp);
+			ret = wait_for_completion_interruptible_timeout(
+						&mfd->power_off_comp, 1 * HZ);
+		}
 	}
+
 	if (ret == 0)
 		ret = -ETIMEDOUT;
 	else if (ret > 0)
@@ -267,8 +274,8 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	if (mfd->ref_cnt > 1)
-		mfd->ref_cnt = 1;
+	for (; mfd->ref_cnt > 1; mfd->ref_cnt--)
+		pm_runtime_put(mfd->fbi->dev);
 
 	mdss_fb_release(mfd->fbi, 0);
 }
@@ -566,9 +573,23 @@ static int bl_level_old;
 static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 {
 	u32 temp = *bl_lvl;
+
 	pr_debug("input = %d, scale = %d", temp, mfd->bl_scale);
 	if (temp >= mfd->bl_min_lvl) {
-		/* bl_scale is the numerator of scaling fraction (x/1024)*/
+		if (temp > mfd->panel_info->bl_max) {
+			pr_warn("%s: invalid bl level\n",
+				__func__);
+			temp = mfd->panel_info->bl_max;
+		}
+		if (mfd->bl_scale > 1024) {
+			pr_warn("%s: invalid bl scale\n",
+				__func__);
+			mfd->bl_scale = 1024;
+		}
+		/*
+		 * bl_scale is the numerator of
+		 * scaling fraction (x/1024)
+		 */
 		temp = (temp * mfd->bl_scale) / 1024;
 
 		/*if less than minimum level, use min level*/
@@ -649,6 +670,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	if (!op_enable)
 		return -EPERM;
 
+	if (mfd->dcm_state == DCM_ENTER)
+		return -EPERM;
+
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on && mfd->mdp.on_fnc) {
@@ -690,6 +714,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			else
 				mdss_fb_release_fences(mfd);
 			mfd->op_enable = true;
+			complete(&mfd->power_off_comp);
 		}
 		break;
 	}
@@ -1019,6 +1044,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	mfd->ref_cnt = 0;
 	mfd->panel_power_on = false;
+	mfd->dcm_state = DCM_UNINIT;
 
 	mdss_fb_parse_dt_split(mfd);
 
@@ -1037,6 +1063,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mfd->no_update.timer.data = (unsigned long)mfd;
 	init_completion(&mfd->update.comp);
 	init_completion(&mfd->no_update.comp);
+	init_completion(&mfd->power_off_comp);
 	init_completion(&mfd->commit_comp);
 	init_completion(&mfd->power_set_comp);
 	INIT_WORK(&mfd->commit_work, mdss_fb_commit_wq_handler);
@@ -1083,7 +1110,8 @@ static int mdss_fb_open(struct fb_info *info, int user)
 					   mfd->op_enable);
 		if (result) {
 			pm_runtime_put(info->dev);
-			pr_err("mdss_fb_open: can't turn on display!\n");
+			pr_err("can't turn on fb%d! rc=%d\n", mfd->index,
+				result);
 			return result;
 		}
 	}
@@ -1109,8 +1137,7 @@ static int mdss_fb_release(struct fb_info *info, int user)
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 				       mfd->op_enable);
 		if (ret) {
-			pr_err("can't turn off display attached to fb%d!\n",
-				mfd->index);
+			pr_err("can't turn off fb%d! rc=%d\n", mfd->index, ret);
 			return ret;
 		}
 	}
@@ -1520,6 +1547,58 @@ static int mdss_fb_set_par(struct fb_info *info)
 	}
 
 	return 0;
+}
+
+int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
+{
+	int ret = -EINVAL;
+
+	if (req_state == mfd->dcm_state) {
+		pr_warn("Already in correct DCM state");
+		ret = 0;
+	}
+
+	switch (req_state) {
+	case DCM_UNBLANK:
+		if (mfd->dcm_state == DCM_UNINIT &&
+			!mfd->panel_power_on && mfd->mdp.on_fnc) {
+			ret = mfd->mdp.on_fnc(mfd);
+			if (ret == 0) {
+				mfd->panel_power_on = true;
+				mfd->dcm_state = DCM_UNBLANK;
+			}
+		}
+		break;
+	case DCM_ENTER:
+		if (mfd->dcm_state == DCM_UNBLANK) {
+			/* Keep unblank path available for only
+			DCM operation */
+			mfd->panel_power_on = false;
+			mfd->dcm_state = DCM_ENTER;
+			ret = 0;
+		}
+		break;
+	case DCM_EXIT:
+		if (mfd->dcm_state == DCM_ENTER) {
+			/* Release the unblank path for exit */
+			mfd->panel_power_on = true;
+			mfd->dcm_state = DCM_EXIT;
+			ret = 0;
+		}
+		break;
+	case DCM_BLANK:
+		if ((mfd->dcm_state == DCM_EXIT ||
+			mfd->dcm_state == DCM_UNBLANK) &&
+			mfd->panel_power_on && mfd->mdp.off_fnc) {
+			ret = mfd->mdp.off_fnc(mfd);
+			if (ret == 0) {
+				mfd->panel_power_on = false;
+				mfd->dcm_state = DCM_UNINIT;
+			}
+		}
+		break;
+	}
+	return ret;
 }
 
 static int mdss_fb_cursor(struct fb_info *info, void __user *p)

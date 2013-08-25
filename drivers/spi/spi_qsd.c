@@ -2719,7 +2719,7 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			pdata->use_bam = false;
 		}
 
-		if (pdata->bam_producer_pipe_index) {
+		if (!pdata->bam_producer_pipe_index) {
 			dev_warn(&pdev->dev,
 			"missing qcom,bam-producer-pipe-index entry in device-tree\n");
 			pdata->use_bam = false;
@@ -2919,15 +2919,6 @@ skip_dma_resources:
 		goto err_probe_reqmem;
 	}
 
-	if (pdata && pdata->ver_reg_exists) {
-		enum msm_spi_qup_version ver =
-					msm_spi_get_qup_hw_ver(&pdev->dev, dd);
-		if (dd->qup_ver != ver)
-			dev_warn(&pdev->dev,
-			"%s: HW version different then initially assumed by probe",
-			__func__);
-	}
-
 	if (pdata && pdata->rsl_id) {
 		struct remote_mutex_id rmid;
 		rmid.r_spinlock_id = pdata->rsl_id;
@@ -2986,6 +2977,16 @@ skip_dma_resources:
 	}
 
 	pclk_enabled = 1;
+
+	if (pdata && pdata->ver_reg_exists) {
+		enum msm_spi_qup_version ver =
+					msm_spi_get_qup_hw_ver(&pdev->dev, dd);
+		if (dd->qup_ver != ver)
+			dev_warn(&pdev->dev,
+			"%s: HW version different then initially assumed by probe",
+			__func__);
+	}
+
 	/* GSBI dose not exists on B-family MSM-chips */
 	if (dd->qup_ver != SPI_QUP_VERSION_BFAM) {
 		rc = msm_spi_configure_gsbi(dd, pdev);
@@ -3200,6 +3201,13 @@ static int msm_spi_suspend(struct device *device)
 		if (!dd)
 			goto suspend_exit;
 		msm_spi_pm_suspend_runtime(device);
+
+		/*
+		 * set the device's runtime PM status to 'suspended'
+		 */
+		pm_runtime_disable(device);
+		pm_runtime_set_suspended(device);
+		pm_runtime_enable(device);
 	}
 suspend_exit:
 	return 0;

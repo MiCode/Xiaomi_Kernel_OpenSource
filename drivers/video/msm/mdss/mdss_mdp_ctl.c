@@ -24,7 +24,10 @@
 #define MDSS_MDP_BUS_FACTOR_SHIFT 10
 /* 1.5 bus fudge factor */
 #define MDSS_MDP_BUS_FUDGE_FACTOR_IB(val) (((val) / 2) * 3)
+#define MDSS_MDP_BUS_FUDGE_FACTOR_HIGH_IB(val) (val << 1)
 #define MDSS_MDP_BUS_FUDGE_FACTOR_AB(val) (val << 1)
+#define MDSS_MDP_BUS_FLOOR_BW (3200000000ULL >> MDSS_MDP_BUS_FACTOR_SHIFT)
+
 /* 1.25 clock fudge factor */
 #define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
 
@@ -58,6 +61,74 @@ static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
 		pinfo->clk_rate;
 }
 
+static u32 __mdss_mdp_ctrl_perf_ovrd_helper(struct mdss_mdp_mixer *mixer,
+		u32 *npipe)
+{
+	struct mdss_panel_info *pinfo;
+	struct mdss_mdp_pipe *pipe;
+	u32 mnum, ovrd = 0;
+
+	if (!mixer || !mixer->ctl->panel_data)
+		return 0;
+
+	pinfo = &mixer->ctl->panel_data->panel_info;
+	for (mnum = 0; mnum < MDSS_MDP_MAX_STAGE; mnum++) {
+		pipe = mixer->stage_pipe[mnum];
+		if (pipe && pinfo) {
+			*npipe = *npipe + 1;
+			if ((pipe->src.w >= pipe->src.h) &&
+					(pipe->src.w >= pinfo->xres))
+				ovrd = 1;
+		}
+	}
+
+	return ovrd;
+}
+
+/**
+ * mdss_mdp_ctrl_perf_ovrd() - Determines if performance override is needed
+ * @mdata:	Struct containing references to all MDP5 hardware structures
+ *		and status info such as interupts, target caps etc.
+ * @ab_quota:	Arbitrated bandwidth quota
+ * @ib_quota:	Instantaneous bandwidth quota
+ *
+ * Function calculates the minimum required MDP and BIMC clocks to avoid MDP
+ * underflow during portrait video playback. The calculations are based on the
+ * way MDP fetches (bandwidth requirement) and processes data through
+ * MDP pipeline (MDP clock requirement) based on frame size and scaling
+ * requirements.
+ */
+static void __mdss_mdp_ctrl_perf_ovrd(struct mdss_data_type *mdata,
+	u64 *ab_quota, u64 *ib_quota)
+{
+	struct mdss_mdp_ctl *ctl;
+	u32 i, npipe = 0, ovrd = 0;
+
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
+		if (!ctl->power_on)
+			continue;
+		ovrd |= __mdss_mdp_ctrl_perf_ovrd_helper(
+				ctl->mixer_left, &npipe);
+		ovrd |= __mdss_mdp_ctrl_perf_ovrd_helper(
+				ctl->mixer_right, &npipe);
+	}
+
+	*ab_quota = MDSS_MDP_BUS_FUDGE_FACTOR_AB(*ab_quota);
+	if (npipe > 1)
+		*ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR_HIGH_IB(*ib_quota);
+	else
+		*ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR_IB(*ib_quota);
+
+	if (ovrd && (*ib_quota < MDSS_MDP_BUS_FLOOR_BW)) {
+		*ib_quota = MDSS_MDP_BUS_FLOOR_BW;
+		pr_debug("forcing the BIMC clock to 200 MHz : %llu bytes",
+			*ib_quota);
+	} else {
+		pr_debug("ib quota : %llu bytes", *ib_quota);
+	}
+}
+
 static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 {
 	struct mdss_mdp_ctl *ctl;
@@ -82,16 +153,15 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 		}
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
-		bus_ab_quota = bus_ib_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
-		bus_ab_quota = MDSS_MDP_BUS_FUDGE_FACTOR_AB(bus_ab_quota);
-		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR_IB(bus_ib_quota);
+		bus_ab_quota = bus_ib_quota;
+		__mdss_mdp_ctrl_perf_ovrd(mdata, &bus_ab_quota, &bus_ib_quota);
 		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
-
+		bus_ab_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
 		clk_rate = MDSS_MDP_CLK_FUDGE_FACTOR(clk_rate);
-		pr_debug("update clk rate = %lu\n", clk_rate);
+		pr_debug("update clk rate = %lu HZ\n", clk_rate);
 		mdss_mdp_set_clk_rate(clk_rate);
 	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
@@ -210,11 +280,6 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
-		if (pipe->is_fg) {
-			ab_total = 0;
-			ib_total = 0;
-			max_clk_rate = 0;
-		}
 
 		if (mdss_mdp_perf_calc_pipe(pipe, &perf))
 			continue;
@@ -1137,7 +1202,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_pipe *pipe;
 	u32 off, blend_op, blend_stage;
-	u32 mixercfg = 0, blend_color_out = 0, bgalpha = 0;
+	u32 mixercfg = 0, blend_color_out = 0, bg_alpha_enable = 0;
+	u32 fg_alpha = 0, bg_alpha = 0;
 	int stage, secure = 0;
 
 	if (!mixer)
@@ -1157,7 +1223,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 			mixercfg = 1 << (3 * pipe->num);
 		}
 		if (pipe->src_fmt->alpha_enable)
-			bgalpha = 1;
+			bg_alpha_enable = 1;
 		secure = pipe->flags & MDP_SECURE_OVERLAY_SESSION;
 	}
 
@@ -1174,48 +1240,79 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		blend_stage = stage - MDSS_MDP_STAGE_0;
 		off = MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
 
-		if (pipe->is_fg) {
-			bgalpha = 0;
-			if (!secure)
-				mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+		blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
+			    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
+		fg_alpha = pipe->alpha;
+		bg_alpha = 0xFF - pipe->alpha;
+		/* keep fg alpha */
+		blend_color_out |= 1 << (blend_stage + 1);
+
+		switch (pipe->blend_op) {
+		case BLEND_OP_OPAQUE:
 
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
-			/* keep fg alpha */
-			blend_color_out |= 1 << (blend_stage + 1);
 
-			pr_debug("pnum=%d stg=%d alpha=IS_FG\n", pipe->num,
+			pr_debug("pnum=%d stg=%d op=OPAQUE\n", pipe->num,
 					stage);
-		} else if (pipe->src_fmt->alpha_enable) {
-			bgalpha = 0;
-			blend_op = (MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL |
-				    MDSS_MDP_BLEND_BG_INV_ALPHA);
-			/* keep fg alpha */
-			blend_color_out |= 1 << (blend_stage + 1);
+			break;
 
-			pr_debug("pnum=%d stg=%d alpha=FG PIXEL\n", pipe->num,
+		case BLEND_OP_PREMULTIPLIED:
+			if (pipe->src_fmt->alpha_enable) {
+				blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
+					    MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL);
+				if (fg_alpha != 0xff) {
+					bg_alpha = fg_alpha;
+					blend_op |=
+						MDSS_MDP_BLEND_BG_MOD_ALPHA |
+						MDSS_MDP_BLEND_BG_INV_MOD_ALPHA;
+				} else {
+					blend_op |= MDSS_MDP_BLEND_BG_INV_ALPHA;
+				}
+			}
+			pr_debug("pnum=%d stg=%d op=PREMULTIPLIED\n", pipe->num,
 					stage);
-		} else if (bgalpha) {
-			blend_op = (MDSS_MDP_BLEND_BG_ALPHA_BG_PIXEL |
-				    MDSS_MDP_BLEND_FG_ALPHA_BG_PIXEL |
-				    MDSS_MDP_BLEND_FG_INV_ALPHA);
-			/* keep bg alpha */
-			pr_debug("pnum=%d stg=%d alpha=BG_PIXEL\n", pipe->num,
+			break;
+
+		case BLEND_OP_COVERAGE:
+			if (pipe->src_fmt->alpha_enable) {
+				blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_PIXEL |
+					    MDSS_MDP_BLEND_BG_ALPHA_FG_PIXEL);
+				if (fg_alpha != 0xff) {
+					bg_alpha = fg_alpha;
+					blend_op |=
+					       MDSS_MDP_BLEND_FG_MOD_ALPHA |
+					       MDSS_MDP_BLEND_FG_INV_MOD_ALPHA |
+					       MDSS_MDP_BLEND_BG_MOD_ALPHA |
+					       MDSS_MDP_BLEND_BG_INV_MOD_ALPHA;
+				} else {
+					blend_op |= MDSS_MDP_BLEND_BG_INV_ALPHA;
+				}
+			}
+			pr_debug("pnum=%d stg=%d op=COVERAGE\n", pipe->num,
 					stage);
-		} else {
+			break;
+
+		default:
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
-			pr_debug("pnum=%d stg=%d alpha=CONST\n", pipe->num,
+			pr_debug("pnum=%d stg=%d op=NONE\n", pipe->num,
 					stage);
+			break;
 		}
+
+		if (!pipe->src_fmt->alpha_enable && bg_alpha_enable)
+			blend_color_out = 0;
 
 		mixercfg |= stage << (3 * pipe->num);
 
+		pr_debug("stg=%d op=%x fg_alpha=%x bg_alpha=%x\n", stage,
+					blend_op, fg_alpha, bg_alpha);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_FG_ALPHA,
-				   pipe->alpha);
+				   fg_alpha);
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_BG_ALPHA,
-				   0xFF - pipe->alpha);
+				   bg_alpha);
 	}
 
 	if (mixer->cursor_enabled)
@@ -1337,7 +1434,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		 * writeback block
 		*/
 		head[len] = head[len - 1];
-		head[len].num = -1;
+		head[len].num = head[len - 1].num;
 	}
 	mdata->ctl_off = head;
 

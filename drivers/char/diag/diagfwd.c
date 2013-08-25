@@ -61,14 +61,21 @@ unsigned char diag_debug_buf[1024];
 /* Number of entries in table of buffers */
 static unsigned int buf_tbl_size = 10;
 struct diag_master_table entry;
-struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
-struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 int wrap_enabled;
 uint16_t wrap_count;
 
 void encode_rsp_and_send(int buf_length)
 {
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 	struct diag_smd_info *data = &(driver->smd_data[MODEM_DATA]);
+
+	if (buf_length > APPS_BUF_SIZE) {
+		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
+					__func__, buf_length, APPS_BUF_SIZE);
+		return;
+	}
+
 	send.state = DIAG_STATE_START;
 	send.pkt = driver->apps_rsp_buf;
 	send.last = (void *)(driver->apps_rsp_buf + buf_length);
@@ -237,6 +244,124 @@ void chk_logging_wakeup(void)
 		}
 	}
 }
+int diag_add_hdlc_encoding(struct diag_smd_info *smd_info, void *buf,
+			   int total_recd, uint8_t *encode_buf,
+			   int *encoded_length)
+{
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	struct data_header {
+		uint8_t control_char;
+		uint8_t version;
+		uint16_t length;
+	};
+	struct data_header *header;
+	int header_size = sizeof(struct data_header);
+	uint8_t *end_control_char;
+	uint8_t *payload;
+	uint8_t *temp_buf;
+	uint8_t *temp_encode_buf;
+	int src_pkt_len;
+	int encoded_pkt_length;
+	int max_size;
+	int total_processed = 0;
+	int bytes_remaining;
+	int success = 1;
+
+	temp_buf = buf;
+	temp_encode_buf = encode_buf;
+	bytes_remaining = *encoded_length;
+	while (total_processed < total_recd) {
+		header = (struct data_header *)temp_buf;
+		/* Perform initial error checking */
+		if (header->control_char != CONTROL_CHAR ||
+			header->version != 1) {
+			success = 0;
+			break;
+		}
+		payload = temp_buf + header_size;
+		end_control_char = payload + header->length;
+		if (*end_control_char != CONTROL_CHAR) {
+			success = 0;
+			break;
+		}
+
+		max_size = 2 * header->length + 3;
+		if (bytes_remaining < max_size) {
+			pr_err("diag: In %s, Not enough room to encode remaining data for peripheral: %d, bytes available: %d, max_size: %d\n",
+				__func__, smd_info->peripheral,
+				bytes_remaining, max_size);
+			success = 0;
+			break;
+		}
+
+		/* Prepare for encoding the data */
+		send.state = DIAG_STATE_START;
+		send.pkt = payload;
+		send.last = (void *)(payload + header->length - 1);
+		send.terminate = 1;
+
+		enc.dest = temp_encode_buf;
+		enc.dest_last = (void *)(temp_encode_buf + max_size);
+		enc.crc = 0;
+		diag_hdlc_encode(&send, &enc);
+
+		/* Prepare for next packet */
+		src_pkt_len = (header_size + header->length + 1);
+		total_processed += src_pkt_len;
+		temp_buf += src_pkt_len;
+
+		encoded_pkt_length = (uint8_t *)enc.dest - temp_encode_buf;
+		bytes_remaining -= encoded_pkt_length;
+		temp_encode_buf = enc.dest;
+	}
+
+	*encoded_length = (int)(temp_encode_buf - encode_buf);
+
+	return success;
+}
+
+static int check_bufsize_for_encoding(struct diag_smd_info *smd_info, void *buf,
+					int total_recd)
+{
+	int buf_size = IN_BUF_SIZE;
+	int max_size = 2 * total_recd + 3;
+	unsigned char *temp_buf;
+
+	if (max_size > IN_BUF_SIZE) {
+		if (max_size < MAX_IN_BUF_SIZE) {
+			pr_err("diag: In %s, SMD sending packet of %d bytes that may expand to %d bytes, peripheral: %d\n",
+				__func__, total_recd, max_size,
+				smd_info->peripheral);
+			if (buf == smd_info->buf_in_1_raw) {
+				temp_buf = krealloc(smd_info->buf_in_1,
+							max_size, GFP_KERNEL);
+				if (temp_buf) {
+					smd_info->buf_in_1 = temp_buf;
+					buf_size = max_size;
+				} else {
+					buf_size = 0;
+				}
+			} else {
+				temp_buf = krealloc(smd_info->buf_in_2,
+							max_size, GFP_KERNEL);
+				if (temp_buf) {
+					smd_info->buf_in_2 = temp_buf;
+					buf_size = max_size;
+				} else {
+					buf_size = 0;
+				}
+			}
+		} else {
+			pr_err("diag: In %s, SMD sending packet of size %d. HDCL encoding can expand to more than %d bytes, peripheral: %d. Discarding.\n",
+				__func__, max_size, MAX_IN_BUF_SIZE,
+				smd_info->peripheral);
+			buf_size = 0;
+		}
+	}
+
+	return buf_size;
+}
 
 void process_lock_enabling(struct diag_nrt_wake_lock *lock, int real_time)
 {
@@ -327,7 +452,7 @@ void process_lock_on_copy_complete(struct diag_nrt_wake_lock *lock)
 
 /* Process the data read from the smd data channel */
 int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
-								int total_recd)
+			       int total_recd)
 {
 	struct diag_request *write_ptr_modem = NULL;
 	int *in_busy_ptr = 0;
@@ -345,26 +470,74 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		return 0;
 	}
 
-	if (smd_info->buf_in_1 == buf) {
-		write_ptr_modem = smd_info->write_ptr_1;
-		in_busy_ptr = &smd_info->in_busy_1;
-	} else if (smd_info->buf_in_2 == buf) {
-		write_ptr_modem = smd_info->write_ptr_2;
-		in_busy_ptr = &smd_info->in_busy_2;
-	} else {
-		pr_err("diag: In %s, no match for in_busy_1\n", __func__);
-	}
+	/* If the data is already hdlc encoded */
+	if (!smd_info->encode_hdlc) {
+		if (smd_info->buf_in_1 == buf) {
+			write_ptr_modem = smd_info->write_ptr_1;
+			in_busy_ptr = &smd_info->in_busy_1;
+		} else if (smd_info->buf_in_2 == buf) {
+			write_ptr_modem = smd_info->write_ptr_2;
+			in_busy_ptr = &smd_info->in_busy_2;
+		} else {
+			pr_err("diag: In %s, no match for in_busy_1, peripheral: %d\n",
+				__func__, smd_info->peripheral);
+		}
 
-	if (write_ptr_modem) {
-		write_ptr_modem->length = total_recd;
-		*in_busy_ptr = 1;
-		err = diag_device_write(buf, smd_info->peripheral,
-					write_ptr_modem);
-		if (err) {
-			/* Free up the buffer for future use */
-			*in_busy_ptr = 0;
-			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
-				__func__, err);
+		if (write_ptr_modem) {
+			write_ptr_modem->length = total_recd;
+			*in_busy_ptr = 1;
+			err = diag_device_write(buf, smd_info->peripheral,
+						write_ptr_modem);
+			if (err) {
+				/* Free up the buffer for future use */
+				*in_busy_ptr = 0;
+				pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
+					__func__, err);
+			}
+		}
+	} else {
+		/* The data is raw and needs to be hdlc encoded */
+		if (smd_info->buf_in_1_raw == buf) {
+			write_ptr_modem = smd_info->write_ptr_1;
+			in_busy_ptr = &smd_info->in_busy_1;
+		} else if (smd_info->buf_in_2_raw == buf) {
+			write_ptr_modem = smd_info->write_ptr_2;
+			in_busy_ptr = &smd_info->in_busy_2;
+		} else {
+			pr_err("diag: In %s, no match for in_busy_1, peripheral: %d\n",
+				__func__, smd_info->peripheral);
+		}
+
+		if (write_ptr_modem) {
+			int success = 0;
+			int write_length = 0;
+			unsigned char *write_buf = NULL;
+
+			write_length = check_bufsize_for_encoding(smd_info, buf,
+								total_recd);
+			if (write_length) {
+				write_buf = (buf == smd_info->buf_in_1_raw) ?
+					smd_info->buf_in_1 : smd_info->buf_in_2;
+				success = diag_add_hdlc_encoding(smd_info, buf,
+							total_recd, write_buf,
+							&write_length);
+				if (success) {
+					write_ptr_modem->length = write_length;
+					*in_busy_ptr = 1;
+					err = diag_device_write(write_buf,
+							smd_info->peripheral,
+							write_ptr_modem);
+					if (err) {
+						/*
+						 * Free up the buffer for
+						 * future use
+						 */
+						*in_busy_ptr = 0;
+						pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
+								__func__, err);
+					}
+				}
+			}
 		}
 	}
 
@@ -384,11 +557,32 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		return;
 	}
 
-	if (!smd_info->in_busy_1)
+	/* Determine the buffer to read the data into. */
+	if (smd_info->type == SMD_DATA_TYPE) {
+		/* If the data is raw and not hdlc encoded */
+		if (smd_info->encode_hdlc) {
+			if (!smd_info->in_busy_1)
+				buf = smd_info->buf_in_1_raw;
+			else if (!smd_info->in_busy_2)
+				buf = smd_info->buf_in_2_raw;
+		} else {
+			if (!smd_info->in_busy_1)
+				buf = smd_info->buf_in_1;
+			else if (!smd_info->in_busy_2)
+				buf = smd_info->buf_in_2;
+		}
+	} else if (smd_info->type == SMD_CMD_TYPE) {
+		/* If the data is raw and not hdlc encoded */
+		if (smd_info->encode_hdlc) {
+			if (!smd_info->in_busy_1)
+				buf = smd_info->buf_in_1_raw;
+		} else {
+			if (!smd_info->in_busy_1)
+				buf = smd_info->buf_in_1;
+		}
+	} else if (!smd_info->in_busy_1) {
 		buf = smd_info->buf_in_1;
-	else if (!smd_info->in_busy_2 &&
-			(smd_info->type == SMD_DATA_TYPE))
-		buf = smd_info->buf_in_2;
+	}
 
 	if (!buf && (smd_info->type == SMD_DCI_TYPE ||
 					smd_info->type == SMD_DCI_CMD_TYPE))
@@ -487,32 +681,12 @@ void diag_read_smd_work_fn(struct work_struct *work)
 	diag_smd_send_req(smd_info);
 }
 
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static void diag_mem_dev_mode_ready_update(int index, int hsic_updated)
-{
-	if (hsic_updated) {
-		unsigned long flags;
-		spin_lock_irqsave(&driver->hsic_ready_spinlock, flags);
-		driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-		spin_unlock_irqrestore(&driver->hsic_ready_spinlock, flags);
-	} else {
-		driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-	}
-}
-#else
-static void diag_mem_dev_mode_ready_update(int index, int hsic_updated)
-{
-	(void) hsic_updated;
-	driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
-}
-#endif
 int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 {
 	int i, err = 0, index;
 	index = 0;
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		int hsic_updated = 0;
 		if (data_type == APPS_DATA) {
 			for (i = 0; i < driver->buf_tbl_size; i++)
 				if (driver->buf_tbl[i].length == 0) {
@@ -533,7 +707,6 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
 			unsigned long flags;
 			int foundIndex = -1;
-			hsic_updated = 1;
 			index = data_type - HSIC_DATA;
 			spin_lock_irqsave(&diag_hsic[index].hsic_spinlock,
 									flags);
@@ -566,8 +739,8 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 						 driver->logging_process_id)
 				break;
 		if (i < driver->num_clients) {
-			diag_mem_dev_mode_ready_update(i, hsic_updated);
 			pr_debug("diag: wake up logging process\n");
+			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 			wake_up_interruptible(&driver->wait_q);
 		} else
 			return -EINVAL;
@@ -575,7 +748,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		if ((data_type >= MODEM_DATA) && (data_type <= WCNSS_DATA)) {
 			driver->smd_data[data_type].in_busy_1 = 0;
 			driver->smd_data[data_type].in_busy_2 = 0;
-			queue_work(driver->diag_wq,
+			queue_work(driver->smd_data[data_type].wq,
 				&(driver->smd_data[data_type].
 							diag_read_smd_work));
 			if (data_type == MODEM_DATA &&
@@ -616,8 +789,16 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 				driver->write_ptr_svc->buf = buf;
 				err = usb_diag_write(driver->legacy_ch,
 						driver->write_ptr_svc);
-			} else
-				err = -1;
+				/* Free the buffer if write failed */
+				if (err) {
+					diagmem_free(driver,
+						     (unsigned char *)driver->
+						     write_ptr_svc,
+						     POOL_TYPE_WRITE_STRUCT);
+				}
+			} else {
+				err = -ENOMEM;
+			}
 		} else if ((data_type >= MODEM_DATA) &&
 				(data_type <= WCNSS_DATA)) {
 			write_ptr->buf = buf;
@@ -1315,10 +1496,12 @@ void diag_send_error_rsp(int index)
 {
 	int i;
 
-	if (index > 490) {
-		pr_err("diag: error response too huge, aborting\n");
+	/* -1 to accomodate the first byte 0x13 */
+	if (index > APPS_BUF_SIZE-1) {
+		pr_err("diag: cannot send err rsp, huge length: %d\n", index);
 		return;
 	}
+
 	driver->apps_rsp_buf[0] = 0x13; /* error code 13 */
 	for (i = 0; i < index; i++)
 		driver->apps_rsp_buf[i+1] = *(driver->hdlc_buf+i);
@@ -1430,7 +1613,7 @@ void diag_reset_smd_data(int queue)
 		driver->smd_data[i].in_busy_2 = 0;
 		if (queue)
 			/* Poll SMD data channels to check for data */
-			queue_work(driver->diag_wq,
+			queue_work(driver->smd_data[i].wq,
 				&(driver->smd_data[i].diag_read_smd_work));
 	}
 
@@ -1540,17 +1723,22 @@ static int diagfwd_check_buf_match(int num_channels,
 	for (i = 0; i < num_channels; i++) {
 		if (buf == (void *)data[i].buf_in_1) {
 			data[i].in_busy_1 = 0;
-			queue_work(driver->diag_wq,
-				&(data[i].diag_read_smd_work));
 			found_it = 1;
 			break;
 		} else if (buf == (void *)data[i].buf_in_2) {
 			data[i].in_busy_2 = 0;
-			queue_work(driver->diag_wq,
-				&(data[i].diag_read_smd_work));
 			found_it = 1;
 			break;
 		}
+	}
+
+	if (found_it) {
+		if (data[i].type == SMD_DATA_TYPE)
+			queue_work(data[i].wq,
+					&(data[i].diag_read_smd_work));
+		else
+			queue_work(driver->diag_wq,
+					&(data[i].diag_read_smd_work));
 	}
 
 	return found_it;
@@ -1582,6 +1770,9 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 	}
 #endif
 	if (!found_it) {
+		if (driver->logging_mode != USB_MODE)
+			pr_debug("diag: freeing buffer when not in usb mode\n");
+
 		diagmem_free(driver, (unsigned char *)buf,
 						POOL_TYPE_HDLC);
 		diagmem_free(driver, (unsigned char *)diag_write_ptr,
@@ -1725,8 +1916,12 @@ void diag_smd_notify(void *ctxt, unsigned event)
 			diag_dci_try_activate_wakeup_source(smd_info->ch);
 		queue_work(driver->diag_dci_wq,
 				&(smd_info->diag_read_smd_work));
-	} else
+	} else if (smd_info->type == SMD_DATA_TYPE) {
+		queue_work(smd_info->wq,
+				&(smd_info->diag_read_smd_work));
+	} else {
 		queue_work(driver->diag_wq, &(smd_info->diag_read_smd_work));
+	}
 }
 
 static int diag_smd_probe(struct platform_device *pdev)
@@ -1854,8 +2049,10 @@ int device_supports_separate_cmdrsp(void)
 
 void diag_smd_destructor(struct diag_smd_info *smd_info)
 {
-	if (smd_info->type == SMD_DATA_TYPE)
+	if (smd_info->type == SMD_DATA_TYPE) {
 		wake_lock_destroy(&smd_info->nrt_lock.read_lock);
+		destroy_workqueue(smd_info->wq);
+	}
 
 	if (smd_info->ch)
 		smd_close(smd_info->ch);
@@ -1866,6 +2063,8 @@ void diag_smd_destructor(struct diag_smd_info *smd_info)
 	kfree(smd_info->buf_in_2);
 	kfree(smd_info->write_ptr_1);
 	kfree(smd_info->write_ptr_2);
+	kfree(smd_info->buf_in_1_raw);
+	kfree(smd_info->buf_in_2_raw);
 }
 
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
@@ -1873,6 +2072,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 {
 	smd_info->peripheral = peripheral;
 	smd_info->type = type;
+	smd_info->encode_hdlc = 0;
 	mutex_init(&smd_info->smd_ch_mutex);
 
 	switch (peripheral) {
@@ -1925,6 +2125,58 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 				goto err;
 			kmemleak_not_leak(smd_info->write_ptr_2);
 		}
+		if (driver->supports_apps_hdlc_encoding) {
+			/* In support of hdlc encoding */
+			if (smd_info->buf_in_1_raw == NULL) {
+				smd_info->buf_in_1_raw = kzalloc(IN_BUF_SIZE,
+								GFP_KERNEL);
+				if (smd_info->buf_in_1_raw == NULL)
+					goto err;
+				kmemleak_not_leak(smd_info->buf_in_1_raw);
+			}
+			if (smd_info->buf_in_2_raw == NULL) {
+				smd_info->buf_in_2_raw = kzalloc(IN_BUF_SIZE,
+								GFP_KERNEL);
+				if (smd_info->buf_in_2_raw == NULL)
+					goto err;
+				kmemleak_not_leak(smd_info->buf_in_2_raw);
+			}
+		}
+	}
+
+	if (smd_info->type == SMD_CMD_TYPE &&
+		driver->supports_apps_hdlc_encoding) {
+		/* In support of hdlc encoding */
+		if (smd_info->buf_in_1_raw == NULL) {
+			smd_info->buf_in_1_raw = kzalloc(IN_BUF_SIZE,
+								GFP_KERNEL);
+			if (smd_info->buf_in_1_raw == NULL)
+				goto err;
+			kmemleak_not_leak(smd_info->buf_in_1_raw);
+		}
+	}
+
+	/* The smd data type needs separate work queues for reads */
+	if (type == SMD_DATA_TYPE) {
+		switch (peripheral) {
+		case MODEM_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_modem_data_read_wq");
+			break;
+		case LPASS_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_lpass_data_read_wq");
+			break;
+		case WCNSS_DATA:
+			smd_info->wq = create_singlethread_workqueue(
+						"diag_wcnss_data_read_wq");
+			break;
+		default:
+			smd_info->wq = NULL;
+			break;
+		}
+	} else {
+		smd_info->wq = NULL;
 	}
 
 	INIT_WORK(&(smd_info->diag_read_smd_work), diag_read_smd_work_fn);
@@ -2017,6 +2269,8 @@ err:
 	kfree(smd_info->buf_in_2);
 	kfree(smd_info->write_ptr_1);
 	kfree(smd_info->write_ptr_2);
+	kfree(smd_info->buf_in_1_raw);
+	kfree(smd_info->buf_in_2_raw);
 
 	return 0;
 }
@@ -2039,6 +2293,7 @@ void diagfwd_init(void)
 	driver->buf_tbl_size = (buf_tbl_size < driver->poolsize_hdlc) ?
 				driver->poolsize_hdlc : buf_tbl_size;
 	driver->supports_separate_cmdrsp = device_supports_separate_cmdrsp();
+	driver->supports_apps_hdlc_encoding = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 

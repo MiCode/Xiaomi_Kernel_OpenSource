@@ -17,7 +17,6 @@ msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_DRM) += kgsl_drm.o
 msm_kgsl_core-$(CONFIG_MSM_SCM) += kgsl_pwrscale_trustzone.o
 msm_kgsl_core-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += kgsl_pwrscale_idlestats.o
-msm_kgsl_core-$(CONFIG_MSM_DCVS) += kgsl_pwrscale_msm.o
 msm_kgsl_core-$(CONFIG_SYNC) += kgsl_sync.o
 
 msm_adreno-y += \
@@ -34,7 +33,7 @@ msm_adreno-y += \
 	adreno_a3xx_snapshot.o \
 	adreno.o
 
-msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o
+msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o adreno_profile.o
 
 msm_z180-y += \
 	z180.o \

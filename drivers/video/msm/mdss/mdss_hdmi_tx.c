@@ -193,12 +193,18 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{20480, 247500} } },
 };
 
-static bool is_cea_format(int mode)
+static bool hdmi_tx_is_cea_format(int mode)
 {
-	if ((mode > 0) && (mode < HDMI_EVFRMT_END))
-		return true;
+	bool cea_fmt;
+
+	if ((mode > 0) && (mode <= HDMI_EVFRMT_END))
+		cea_fmt = true;
 	else
-		return false;
+		cea_fmt = false;
+
+	DEV_DBG("%s: %s\n", __func__, cea_fmt ? "Yes" : "No");
+
+	return cea_fmt;
 }
 
 const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
@@ -424,7 +430,7 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -439,7 +445,8 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 8) ? 8 : ret;
 
-	memset(hdmi_ctrl->spd_vendor_name, 0, 8);
+	sz = sizeof(hdmi_ctrl->spd_vendor_name);
+	memset(hdmi_ctrl->spd_vendor_name, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -453,6 +460,7 @@ static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_vendor_name[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_vendor_name);
 
@@ -480,7 +488,7 @@ static ssize_t hdmi_tx_sysfs_rda_vendor_name(struct device *dev,
 static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	ssize_t ret;
+	ssize_t ret, sz;
 	u8 *s = (u8 *) buf;
 	u8 *d = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -495,7 +503,8 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 	ret = strnlen(buf, PAGE_SIZE);
 	ret = (ret > 16) ? 16 : ret;
 
-	memset(hdmi_ctrl->spd_product_description, 0, 16);
+	sz = sizeof(hdmi_ctrl->spd_product_description);
+	memset(hdmi_ctrl->spd_product_description, 0, sz);
 	while (*s) {
 		if (*s & 0x60 && *s ^ 0x7f) {
 			*d = *s;
@@ -509,6 +518,7 @@ static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
 
 		d++;
 	}
+	hdmi_ctrl->spd_product_description[sz - 1] = 0;
 
 	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_product_description);
 
@@ -740,6 +750,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdcp_init_data.qfprom_io =
 			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
 		hdcp_init_data.mutex = &hdmi_ctrl->mutex;
+		hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 		hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
 		hdcp_init_data.workq = hdmi_ctrl->workq;
 		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
@@ -866,13 +877,14 @@ error:
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct dss_io_data *io;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_int_work);
 	if (!hdmi_ctrl || !hdmi_ctrl->hpd_initialized) {
 		DEV_DBG("%s: invalid input\n", __func__);
 		return;
 	}
-
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	DEV_DBG("%s: Got HPD interrupt\n", __func__);
 
 	if (hdmi_ctrl->hpd_state) {
@@ -880,6 +892,9 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 			DEV_ERR("%s: Failed to enable ddc power\n", __func__);
 			return;
 		}
+		/* Enable SW DDC before EDID read */
+		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION ,
+			DSS_REG_R(io, HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
 		hdmi_tx_read_sink_info(hdmi_ctrl);
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 1);
@@ -2206,7 +2221,7 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
-	    is_cea_format(hdmi_ctrl->video_resolution)) {
+	    hdmi_tx_is_cea_format(hdmi_ctrl->video_resolution)) {
 		rc = hdmi_tx_audio_setup(hdmi_ctrl);
 		if (rc) {
 			DEV_ERR("%s: hdmi_msm_audio_setup failed. rc=%d\n",

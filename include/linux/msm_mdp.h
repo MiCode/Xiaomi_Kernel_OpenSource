@@ -87,6 +87,7 @@
 enum {
 	NOTIFY_UPDATE_START,
 	NOTIFY_UPDATE_STOP,
+	NOTIFY_UPDATE_POWER_OFF,
 };
 
 enum {
@@ -404,6 +405,33 @@ struct mdp_overlay_pp_params {
 	struct mdp_hist_lut_data hist_lut_cfg;
 };
 
+/**
+ * enum mdss_mdp_blend_op - Different blend operations set by userspace
+ *
+ * @BLEND_OP_NOT_DEFINED:    No blend operation defined for the layer.
+ * @BLEND_OP_OPAQUE:         Apply a constant blend operation. The layer
+ *                           would appear opaque in case fg plane alpha is
+ *                           0xff.
+ * @BLEND_OP_PREMULTIPLIED:  Apply source over blend rule. Layer already has
+ *                           alpha pre-multiplication done. If fg plane alpha
+ *                           is less than 0xff, apply modulation as well. This
+ *                           operation is intended on layers having alpha
+ *                           channel.
+ * @BLEND_OP_COVERAGE:       Apply source over blend rule. Layer is not alpha
+ *                           pre-multiplied. Apply pre-multiplication. If fg
+ *                           plane alpha is less than 0xff, apply modulation as
+ *                           well.
+ * @BLEND_OP_MAX:            Used to track maximum blend operation possible by
+ *                           mdp.
+ */
+enum mdss_mdp_blend_op {
+	BLEND_OP_NOT_DEFINED = 0,
+	BLEND_OP_OPAQUE,
+	BLEND_OP_PREMULTIPLIED,
+	BLEND_OP_COVERAGE,
+	BLEND_OP_MAX,
+};
+
 struct mdp_overlay {
 	struct msmfb_img src;
 	struct mdp_rect src_rect;
@@ -411,6 +439,7 @@ struct mdp_overlay {
 	uint32_t z_order;	/* stage number */
 	uint32_t is_fg;		/* control alpha & transp */
 	uint32_t alpha;
+	uint32_t blend_op;
 	uint32_t transp_mask;
 	uint32_t flags;
 	uint32_t id;
@@ -612,6 +641,19 @@ struct mdp_calib_config_buffer {
 	uint32_t *buffer;
 };
 
+struct mdp_calib_dcm_state {
+	uint32_t ops;
+	uint32_t dcm_state;
+};
+
+enum {
+	DCM_UNINIT,
+	DCM_UNBLANK,
+	DCM_ENTER,
+	DCM_EXIT,
+	DCM_BLANK,
+};
+
 #define MDSS_MAX_BL_BRIGHTNESS 255
 #define AD_BL_LIN_LEN (MDSS_MAX_BL_BRIGHTNESS + 1)
 
@@ -704,6 +746,7 @@ enum {
 	mdp_op_ad_input,
 	mdp_op_calib_mode,
 	mdp_op_calib_buffer,
+	mdp_op_calib_dcm_state,
 	mdp_op_max,
 };
 
@@ -713,6 +756,8 @@ enum {
 	WB_FORMAT_RGB_888,
 	WB_FORMAT_xRGB_8888,
 	WB_FORMAT_ARGB_8888,
+	WB_FORMAT_BGRA_8888,
+	WB_FORMAT_BGRX_8888,
 	WB_FORMAT_ARGB_8888_INPUT_ALPHA /* Need to support */
 };
 
@@ -732,6 +777,7 @@ struct msmfb_mdp_pp {
 		struct mdss_calib_cfg mdss_calib_cfg;
 		struct mdss_ad_input ad_input;
 		struct mdp_calib_config_buffer calib_buffer;
+		struct mdp_calib_dcm_state calib_dcm;
 	} data;
 };
 

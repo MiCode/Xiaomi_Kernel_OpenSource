@@ -21,6 +21,7 @@
 };
 
 /include/ "mpq8092-iommu.dtsi"
+/include/ "mpq8092-iommu-domains.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "mpq8092-ion.dtsi"
 
@@ -228,6 +229,15 @@
 		qcom,current-limit = <800>;
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		reg-names = "bam_mem", "core_mem";
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+	};
+
 	sata: sata@fc580000 {
 		compatible = "qcom,msm-ahci";
 		reg = <0xfc580000 0x17c>;
@@ -304,6 +314,10 @@
 };
 
 &gdsc_usb_hsic {
+	status = "ok";
+};
+
+&gdsc_vcap {
 	status = "ok";
 };
 

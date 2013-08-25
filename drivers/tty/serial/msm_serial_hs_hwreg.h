@@ -60,6 +60,30 @@ enum msm_hsl_regs {
 	UARTDM_LAST,
 };
 
+enum msm_hs_regs {
+	UART_DM_MR1,
+	UART_DM_MR2,
+	UART_DM_IMR,
+	UART_DM_SR,
+	UART_DM_CR,
+	UART_DM_CSR,
+	UART_DM_IPR,
+	UART_DM_ISR,
+	UART_DM_RX_TOTAL_SNAP,
+	UART_DM_RFWR,
+	UART_DM_TFWR,
+	UART_DM_RF,
+	UART_DM_TF,
+	UART_DM_MISR,
+	UART_DM_DMRX,
+	UART_DM_NCF_TX,
+	UART_DM_DMEN,
+	UART_DM_TXFS,
+	UART_DM_RXFS,
+	UART_DM_RX_TRANS_CTRL,
+	UART_DM_LAST,
+};
+
 #define UARTDM_MR1_ADDR 0x0
 #define UARTDM_MR2_ADDR 0x4
 
@@ -219,70 +243,6 @@ enum msm_hsl_regs {
 #define UARTDM_TX_BAM_ENABLE_BMSK 0x4
 #define UARTDM_RX_BAM_ENABLE_BMSK 0x8
 
-/*
- * Some of the BLSP Based UART Core(v14) existing register offsets
- * are different compare to GSBI based UART Core(v13)
- * Hence add the changed register offsets for UART Core v14
- */
-#ifdef CONFIG_MSM_UARTDM_Core_v14
-
-/* write only register */
-#define UARTDM_CSR_ADDR    0xa0
-
-/* write only register */
-#define UARTDM_TF_ADDR   0x100
-#define UARTDM_TF2_ADDR  0x104
-#define UARTDM_TF3_ADDR  0x108
-#define UARTDM_TF4_ADDR  0x10c
-#define UARTDM_TF5_ADDR  0x110
-#define UARTDM_TF6_ADDR  0x114
-#define UARTDM_TF7_ADDR  0x118
-#define UARTDM_TF8_ADDR  0x11c
-#define UARTDM_TF9_ADDR  0x120
-#define UARTDM_TF10_ADDR 0x124
-#define UARTDM_TF11_ADDR 0x128
-#define UARTDM_TF12_ADDR 0x12c
-#define UARTDM_TF13_ADDR 0x130
-#define UARTDM_TF14_ADDR 0x134
-#define UARTDM_TF15_ADDR 0x138
-#define UARTDM_TF16_ADDR 0x13c
-
-/* write only register */
-#define UARTDM_CR_ADDR 0xa8
-/* write only register */
-#define UARTDM_IMR_ADDR 0xb0
-#define UARTDM_IRDA_ADDR 0xb8
-
-/* Read Only register */
-#define UARTDM_SR_ADDR 0xa4
-
-/* Read Only register */
-#define UARTDM_RF_ADDR   0x140
-#define UARTDM_RF2_ADDR  0x144
-#define UARTDM_RF3_ADDR  0x148
-#define UARTDM_RF4_ADDR  0x14c
-#define UARTDM_RF5_ADDR  0x150
-#define UARTDM_RF6_ADDR  0x154
-#define UARTDM_RF7_ADDR  0x158
-#define UARTDM_RF8_ADDR  0x15c
-#define UARTDM_RF9_ADDR  0x160
-#define UARTDM_RF10_ADDR 0x164
-#define UARTDM_RF11_ADDR 0x168
-#define UARTDM_RF12_ADDR 0x16c
-#define UARTDM_RF13_ADDR 0x170
-#define UARTDM_RF14_ADDR 0x174
-#define UARTDM_RF15_ADDR 0x178
-#define UARTDM_RF16_ADDR 0x17c
-
-/* Read Only register */
-#define UARTDM_MISR_ADDR 0xac
-
-/* Read Only register */
-#define UARTDM_ISR_ADDR 0xb4
-#define UARTDM_RX_TOTAL_SNAP_ADDR 0xbc
-
-#else
-
 /* Register offsets for UART Core v13 */
 
 /* write only register */
@@ -315,7 +275,5 @@ enum msm_hsl_regs {
 /* Read Only register */
 #define UARTDM_ISR_ADDR 0x14
 #define UARTDM_RX_TOTAL_SNAP_ADDR 0x38
-
-#endif
 
 #endif /* MSM_SERIAL_HS_HWREG_H */

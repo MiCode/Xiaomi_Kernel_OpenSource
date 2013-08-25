@@ -20,6 +20,15 @@ Required properties:
 Channel nodes
 NOTE: Atleast one Channel node is required.
 
+Optional properties:
+- qcom,vadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+
+Client required property:
+- qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
+			The consumer name passed to the driver when calling
+			qpnp_get_vadc() is used to associate the client
+			with the corresponding device.
+
 Required properties:
 - label : Channel name used for sysfs entry.
 - reg : AMUX channel number.
@@ -112,6 +121,12 @@ Example:
                                 qcom,fast-avg-setup = <0>;
                         };
 	};
+
+Client device example:
+/* Add to the clients node that needs the VADC channel A/D */
+client_node {
+	qcom,client-vadc = <&pm8941_vadc>;
+};
 
 /* Clients have an option of measuring an analog signal through an MPP.
    MPP block is not part of the VADC block but is an individual PMIC

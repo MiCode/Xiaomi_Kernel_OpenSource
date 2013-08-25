@@ -260,6 +260,7 @@ header-y += mroute6.h
 header-y += msdos_fs.h
 header-y += msg.h
 header-y += msm_adc.h
+header-y += msm_dsps.h
 header-y += msm_ion.h
 header-y += epm_adc.h
 header-y += mtio.h

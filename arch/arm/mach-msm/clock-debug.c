@@ -161,24 +161,61 @@ static int clock_debug_hwcg_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(clock_hwcg_fops, clock_debug_hwcg_get,
 			NULL, "%llu\n");
 
+static void clock_print_fmax_by_level(struct seq_file *m, int level)
+{
+	struct clk *clock = m->private;
+	struct clk_vdd_class *vdd_class = clock->vdd_class;
+	int off, i, vdd_level, nregs = vdd_class->num_regulators;
+
+	vdd_level = find_vdd_level(clock, clock->rate);
+
+	seq_printf(m, "%2s%10lu", vdd_level == level ? "[" : "",
+		clock->fmax[level]);
+	for (i = 0; i < nregs; i++) {
+		off = nregs*level + i;
+		if (vdd_class->vdd_uv)
+			seq_printf(m, "%10u", vdd_class->vdd_uv[off]);
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10u", vdd_class->vdd_ua[off]);
+	}
+
+	if (vdd_level == level)
+		seq_puts(m, "]");
+	seq_puts(m, "\n");
+}
+
 static int fmax_rates_show(struct seq_file *m, void *unused)
 {
 	struct clk *clock = m->private;
-	int level = 0;
+	struct clk_vdd_class *vdd_class = clock->vdd_class;
+	int level = 0, i, nregs = vdd_class->num_regulators;
+	char reg_name[10];
 
 	int vdd_level = find_vdd_level(clock, clock->rate);
 	if (vdd_level < 0) {
 		seq_printf(m, "could not find_vdd_level for %s, %ld\n",
-			   clock->dbg_name, clock->rate);
+			clock->dbg_name, clock->rate);
 		return 0;
 	}
-	for (level = 0; level < clock->num_fmax; level++) {
-		if (vdd_level == level)
-			seq_printf(m, "[%lu] ", clock->fmax[level]);
-		else
-			seq_printf(m, "%lu ", clock->fmax[level]);
+
+	seq_printf(m, "%12s", "");
+	for (i = 0; i < nregs; i++) {
+		snprintf(reg_name, ARRAY_SIZE(reg_name), "reg %d", i);
+		seq_printf(m, "%10s", reg_name);
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10s", "");
+	}
+
+	seq_printf(m, "\n%12s", "freq");
+	for (i = 0; i < nregs; i++) {
+		seq_printf(m, "%10s", "uV");
+		if (vdd_class->vdd_ua)
+			seq_printf(m, "%10s", "uA");
 	}
 	seq_printf(m, "\n");
+
+	for (level = 0; level < clock->num_fmax; level++)
+		clock_print_fmax_by_level(m, level);
 
 	return 0;
 }
@@ -190,6 +227,83 @@ static int fmax_rates_open(struct inode *inode, struct file *file)
 
 static const struct file_operations fmax_rates_fops = {
 	.open		= fmax_rates_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+#define clock_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
+
+static int clock_debug_print_clock(struct clk *c, struct seq_file *m)
+{
+	char *start = "";
+
+	if (!c || !c->prepare_count)
+		return 0;
+
+	clock_debug_output(m, 0, "\t");
+	do {
+		if (c->vdd_class)
+			clock_debug_output(m, 1, "%s%s:%u:%u [%ld, %lu]", start,
+				c->dbg_name, c->prepare_count, c->count,
+				c->rate, c->vdd_class->cur_level);
+		else
+			clock_debug_output(m, 1, "%s%s:%u:%u [%ld]", start,
+				c->dbg_name, c->prepare_count, c->count,
+				c->rate);
+		start = " -> ";
+	} while ((c = clk_get_parent(c)));
+
+	clock_debug_output(m, 1, "\n");
+
+	return 1;
+}
+
+/**
+ * clock_debug_print_enabled_clocks() - Print names of enabled clocks
+ *
+ */
+static void clock_debug_print_enabled_clocks(struct seq_file *m)
+{
+	struct clk_table *table;
+	unsigned long flags;
+	int i, cnt = 0;
+
+	clock_debug_output(m, 0, "Enabled clocks:\n");
+	spin_lock_irqsave(&clk_list_lock, flags);
+	list_for_each_entry(table, &clk_list, node) {
+		for (i = 0; i < table->num_clocks; i++)
+			cnt += clock_debug_print_clock(table->clocks[i].clk, m);
+	}
+	spin_unlock_irqrestore(&clk_list_lock, flags);
+
+	if (cnt)
+		clock_debug_output(m, 0, "Enabled clock count: %d\n", cnt);
+	else
+		clock_debug_output(m, 0, "No clocks enabled.\n");
+}
+
+static int enabled_clocks_show(struct seq_file *m, void *unused)
+{
+	clock_debug_print_enabled_clocks(m);
+	return 0;
+}
+
+static int enabled_clocks_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, enabled_clocks_show, inode->i_private);
+}
+
+static const struct file_operations enabled_clocks_fops = {
+	.open		= enabled_clocks_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= seq_release,
@@ -378,6 +492,10 @@ static int clock_debug_init(void)
 		return -ENOMEM;
 	}
 
+	if (!debugfs_create_file("enabled_clocks", S_IRUGO, debugfs_base, NULL,
+				&enabled_clocks_fops))
+		return -ENOMEM;
+
 	measure = clk_get_sys("debug", "measure");
 	if (IS_ERR(measure))
 		measure = NULL;
@@ -424,55 +542,13 @@ out:
 	return ret;
 }
 
-static int clock_debug_print_clock(struct clk *c)
-{
-	char *start = "";
-
-	if (!c || !c->prepare_count)
-		return 0;
-
-	pr_info("\t");
-	do {
-		if (c->vdd_class)
-			pr_cont("%s%s:%u:%u [%ld, %lu]", start, c->dbg_name,
-				c->prepare_count, c->count, c->rate,
-				c->vdd_class->cur_level);
-		else
-			pr_cont("%s%s:%u:%u [%ld]", start, c->dbg_name,
-				c->prepare_count, c->count, c->rate);
-		start = " -> ";
-	} while ((c = clk_get_parent(c)));
-
-	pr_cont("\n");
-
-	return 1;
-}
-
-/**
- * clock_debug_print_enabled() - Print names of enabled clocks for suspend debug
- *
+/*
  * Print the names of enabled clocks and their parents if debug_suspend is set
  */
 void clock_debug_print_enabled(void)
 {
-	struct clk_table *table;
-	unsigned long flags;
-	int i, cnt = 0;
-
 	if (likely(!debug_suspend))
 		return;
 
-	pr_info("Enabled clocks:\n");
-	spin_lock_irqsave(&clk_list_lock, flags);
-	list_for_each_entry(table, &clk_list, node) {
-		for (i = 0; i < table->num_clocks; i++)
-			cnt += clock_debug_print_clock(table->clocks[i].clk);
-	}
-	spin_unlock_irqrestore(&clk_list_lock, flags);
-
-	if (cnt)
-		pr_info("Enabled clock count: %d\n", cnt);
-	else
-		pr_info("No clocks enabled.\n");
-
+	clock_debug_print_enabled_clocks(NULL);
 }

@@ -191,7 +191,7 @@ int create_pkt_set_cmd_sys_resource(
 			(struct ocmem_buf *) resource_value;
 
 		pkt->resource_type = HFI_RESOURCE_OCMEM;
-		pkt->size += sizeof(struct hfi_resource_ocmem);
+		pkt->size += sizeof(struct hfi_resource_ocmem) - sizeof(u32);
 		hfioc_mem->size = (u32) ocmem->len;
 		hfioc_mem->mem = (u8 *) ocmem->addr;
 		break;
@@ -1157,6 +1157,19 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VENC_IDR_PERIOD;
 		hfi = (struct hfi_idr_period *) &pkt->rg_property_data[1];
 		hfi->idr_period = ((struct hfi_idr_period *) pdata)->idr_period;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	case HAL_PARAM_VDEC_CONCEAL_COLOR:
+	{
+		struct hfi_conceal_color *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VDEC_CONCEAL_COLOR;
+		hfi = (struct hfi_conceal_color *) &pkt->rg_property_data[1];
+		if (hfi)
+			hfi->conceal_color =
+				((struct hfi_conceal_color *) pdata)->
+				conceal_color;
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}

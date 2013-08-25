@@ -98,6 +98,7 @@ struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
+	uint32_t input_format;
 };
 
 struct msm_vfe_rdi_cfg {
@@ -224,6 +225,7 @@ enum msm_vfe_reg_cfg_type {
 	VFE_READ_DMI_16BIT,
 	VFE_READ_DMI_32BIT,
 	VFE_READ_DMI_64BIT,
+	GET_SOC_HW_VER,
 };
 
 struct msm_vfe_cfg_cmd2 {
@@ -347,17 +349,10 @@ struct msm_isp_event_data {
 	struct timeval timestamp;
 	/* Monotonic timestamp since bootup */
 	struct timeval mono_timestamp;
-	/* if pix is a src frame_id is from camif */
+	enum msm_vfe_input_src input_intf;
 	uint32_t frame_id;
 	union {
-		/* START_ACK, STOP_ACK */
-		struct msm_isp_stream_ack stream_ack;
-		/* REG_UPDATE_TRIGGER, bus over flow */
-		enum msm_vfe_input_src input_src;
-		/* stats notify */
 		struct msm_isp_stats_event stats;
-		/* IRQ_VIOLATION, STATS_OVER_FLOW, WM_OVER_FLOW */
-		uint32_t irq_status_mask;
 		struct msm_isp_buf_event buf_done;
 	} u; /* union can have max 52 bytes */
 };

@@ -194,6 +194,15 @@
 			qcom,use-voltage-corner;
 			status = "okay";
 		};
+		pm8019_l10_floor_corner: regulator-l10-floor-corner {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_l10_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+			qcom,always-send-voltage;
+		};
 	};
 
 	rpm-regulator-ldoa11 {

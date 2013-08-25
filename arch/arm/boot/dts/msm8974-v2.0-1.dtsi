@@ -10,15 +10,27 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi file.
+ */
 
-/include/ "msm8974-v2-2.dtsi"
-/include/ "msm8974-fluid.dtsi"
+/include/ "msm8974-v2.dtsi"
 
-/ {
-	model = "Qualcomm MSM 8974v2 FLUID";
-	compatible = "qcom,msm8974-fluid", "qcom,msm8974", "qcom,fluid";
-	qcom,msm-id = <126 3 0x20002>,
-		      <185 3 0x20002>,
-		      <186 3 0x20002>;
+&gdsc_venus {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_mdss {
+	qcom,skip-logic-collapse;
+	qcom,retain-periph;
+	qcom,retain-mem;
+};
+
+&gdsc_oxili_gx {
+	qcom,retain-mem;
+	qcom,retain-periph;
 };

@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
+#include <linux/msm_tsens.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -35,6 +36,10 @@
 #include "modem_notifier.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("xo",                CXO_CLK, "fc880000.qcom,mss", OFF),
+	CLK_DUMMY("bus_clk",   MSS_BIMC_Q6_CLK, "fc880000.qcom,mss", OFF),
+	CLK_DUMMY("iface_clk", MSS_CFG_AHB_CLK, "fc880000.qcom,mss", OFF),
+	CLK_DUMMY("mem_clk",  BOOT_ROM_AHB_CLK, "fc880000.qcom,mss", OFF),
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
@@ -44,6 +49,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",	USB_HS_SYSTEM_CLK, "msm_otg", OFF),
 	CLK_DUMMY("iface_clk",	USB_HS_AHB_CLK,    "msm_otg", OFF),
 	CLK_DUMMY("xo",         CXO_OTG_CLK,       "msm_otg", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	"msm_sps", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -107,6 +114,7 @@ void __init msmsamarium_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_clock_init(&msm_dummy_clock_init_data);
+	tsens_tm_init_driver();
 }
 
 static void __init msmsamarium_map_io(void)

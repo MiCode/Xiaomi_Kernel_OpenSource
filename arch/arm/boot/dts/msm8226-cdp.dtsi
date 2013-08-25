@@ -35,6 +35,7 @@
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
+			synaptics,power-down;
 		};
 	};
 
@@ -75,7 +76,7 @@
 			compatible = "micrel,ks8851";
 			reg = <3>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <0 115 0>;
+			interrupts = <115 0x8>;
 			spi-max-frequency = <4800000>;
 			rst-gpio = <&msmgpio 114 0>;
 			vdd-io-supply = <&pm8226_lvs1>;
@@ -318,7 +319,7 @@
 				qcom,ctrl-delay-us = <0>;
 				qcom,boost-curr-lim = <3>;
 				qcom,cp-sel = <0>;
-				qcom,switch-freq = <2>;
+				qcom,switch-freq = <11>;
 				qcom,ovp-val = <0>;
 				qcom,num-strings = <1>;
 				qcom,id = <0>;
@@ -413,10 +414,6 @@
 	qcom,bat-if@1200 {
 		status = "disabled";
 	};
-};
-
-&usb_otg_sw {
-	status = "okay";
 };
 
 &pm8226_vadc {

@@ -76,12 +76,14 @@
 #define FT_PMODE_HIBERNATE	0x03
 #define FT_FACTORYMODE_VALUE	0x40
 #define FT_WORKMODE_VALUE	0x00
-#define FT_RST_CMD_REG		0xFC
+#define FT_RST_CMD_REG1		0xFC
+#define FT_RST_CMD_REG2		0xBC
 #define FT_READ_ID_REG		0x90
 #define FT_ERASE_APP_REG	0x61
 #define FT_ERASE_PANEL_REG	0x63
 #define FT_FW_START_REG		0xBF
 
+#define FT_STATUS_NUM_TP_MASK	0x0F
 
 #define FT_VTG_MIN_UV		2600000
 #define FT_VTG_MAX_UV		3300000
@@ -97,6 +99,7 @@
 
 #define FT5316_ID		0x0A
 #define FT5306I_ID		0x55
+#define FT6X06_ID		0x06
 
 #define FT_UPGRADE_AA		0xAA
 #define FT_UPGRADE_55		0x55
@@ -133,6 +136,14 @@
 #define FT6208_UPGRADE_READID_DELAY	10
 #define FT6208_UPGRADE_EARSE_DELAY	2000
 
+/*upgrade config of FT6x06*/
+#define FT6X06_UPGRADE_AA_DELAY		100
+#define FT6X06_UPGRADE_55_DELAY		30
+#define FT6X06_UPGRADE_ID_1		0x79
+#define FT6X06_UPGRADE_ID_2		0x08
+#define FT6X06_UPGRADE_READID_DELAY	10
+#define FT6X06_UPGRADE_EARSE_DELAY	2000
+
 #define FT_UPGRADE_INFO(x, y)	do { \
 		x->delay_55 = y##_UPGRADE_55_DELAY; \
 		x->delay_aa = y##_UPGRADE_AA_DELAY; \
@@ -161,7 +172,7 @@
 #define FT_FW_LAST_PKT		0x6ffa
 #define FT_EARSE_DLY_MS		100
 
-#define FT_UPGRADE_LOOP		3
+#define FT_UPGRADE_LOOP		10
 #define FT_CAL_START		0x04
 #define FT_CAL_FIN		0x00
 #define FT_CAL_STORE		0x05
@@ -329,6 +340,7 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 {
 	struct ts_event *event = &data->event;
+	int num_points;
 	int ret, i;
 	u8 buf[POINT_READ_BUF] = { 0 };
 	u8 pointid = FT_MAX_ID;
@@ -342,7 +354,9 @@ static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 	memset(event, 0, sizeof(struct ts_event));
 
 	event->touch_point = 0;
-	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
+	num_points = buf[2] & FT_STATUS_NUM_TP_MASK;
+
+	for (i = 0; i < num_points; i++) {
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
@@ -490,6 +504,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	char txbuf[2], i;
+	int err;
 
 	if (data->loading_fw) {
 		dev_info(dev, "Firmware loading in process...\n");
@@ -517,18 +532,56 @@ static int ft5x06_ts_suspend(struct device *dev)
 		ft5x06_i2c_write(data->client, txbuf, sizeof(txbuf));
 	}
 
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	} else {
+		err = ft5x06_power_on(data, false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	}
+
 	data->suspended = true;
 
 	return 0;
+
+pwr_off_fail:
+	if (gpio_is_valid(data->pdata->reset_gpio)) {
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
+		msleep(FT_RESET_DLY);
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+	}
+	enable_irq(data->client->irq);
+	return err;
 }
 
 static int ft5x06_ts_resume(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int err;
 
 	if (!data->suspended) {
 		dev_info(dev, "Already in awake state\n");
 		return 0;
+	}
+
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
+	} else {
+		err = ft5x06_power_on(data, true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
 	}
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
@@ -536,6 +589,9 @@ static int ft5x06_ts_resume(struct device *dev)
 		msleep(FT_RESET_DLY);
 		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
 	}
+
+	msleep(FT_STARTUP_DLY);
+
 	enable_irq(data->client->irq);
 
 	data->suspended = false;
@@ -635,6 +691,9 @@ static int ft5x06_get_upgrade_info(u8 family_id, struct upgrade_info *info)
 	case FT5316_ID:
 		FT_UPGRADE_INFO(info, FT5316);
 		break;
+	case FT6X06_ID:
+		FT_UPGRADE_INFO(info, FT6X06);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -647,6 +706,7 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 {
 	struct ft5x06_ts_data *ts_data = i2c_get_clientdata(client);
 	struct upgrade_info info;
+	u8 reset_reg;
 	u8 w_buf[FT_MAX_WR_BUF] = {0}, r_buf[FT_MAX_RD_BUF] = {0};
 	u8 pkt_buf[FT_FW_PKT_LEN + FT_FW_PKT_META_LEN];
 	int rc, i, j, temp;
@@ -659,22 +719,27 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < FT_UPGRADE_LOOP; i++) {
-		/* reset - write 0xaa and 0x55 to register 0xfc */
-		ft5x0x_write_reg(client, FT_RST_CMD_REG, FT_UPGRADE_AA);
+	for (i = 0, j = 0; i < FT_UPGRADE_LOOP; i++) {
+		/* reset - write 0xaa and 0x55 to reset register */
+		if (ts_data->family_id == FT6X06_ID)
+			reset_reg = FT_RST_CMD_REG2;
+		else
+			reset_reg = FT_RST_CMD_REG1;
+
+		ft5x0x_write_reg(client, reset_reg, FT_UPGRADE_AA);
 		msleep(info.delay_aa);
 
-		ft5x0x_write_reg(client, FT_RST_CMD_REG, FT_UPGRADE_55);
+		ft5x0x_write_reg(client, reset_reg, FT_UPGRADE_55);
 		msleep(info.delay_55);
 
 		/* Enter upgrade mode */
 		w_buf[0] = FT_UPGRADE_55;
 		w_buf[1] = FT_UPGRADE_AA;
 		do {
-			i++;
+			j++;
 			rc = ft5x06_i2c_write(client, w_buf, 2);
 			msleep(FT_RETRY_DLY);
-		} while (rc <= 0 && i < FT_MAX_TRIES);
+		} while (rc <= 0 && j < FT_MAX_TRIES);
 
 		/* check READ_ID */
 		msleep(info.delay_readid);
@@ -776,6 +841,8 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	w_buf[0] = FT_REG_RESET_FW;
 	ft5x06_i2c_write(client, w_buf, 1);
 	msleep(FT_STARTUP_DLY);
+
+	dev_info(&client->dev, "Firmware upgrade successful\n");
 
 	return 0;
 }

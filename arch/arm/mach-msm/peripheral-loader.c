@@ -252,6 +252,7 @@ static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
 	struct pil_desc *desc = dev_id;
 	struct pil_priv *priv = desc->priv;
 
+	pil_info(desc, "Power/Clock ready interrupt received\n");
 	if (!desc->priv->unvoted_flag) {
 		desc->priv->unvoted_flag = 1;
 		__pil_proxy_unvote(priv);
@@ -282,6 +283,12 @@ static struct pil_seg *pil_init_seg(const struct pil_desc *desc,
 			(unsigned long)phdr->p_paddr,
 			(unsigned long)(phdr->p_paddr + phdr->p_memsz));
 		return ERR_PTR(-EPERM);
+	}
+
+	if (phdr->p_filesz > phdr->p_memsz) {
+		pil_err(desc, "Segment %d: file size (%u) is greater than mem size (%u).\n",
+			num, phdr->p_filesz, phdr->p_memsz);
+		return ERR_PTR(-EINVAL);
 	}
 
 	seg = kmalloc(sizeof(*seg), GFP_KERNEL);
@@ -512,51 +519,29 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 	int ret = 0, count;
 	phys_addr_t paddr;
 	char fw_name[30];
-	const struct firmware *fw = NULL;
-	const u8 *data;
 	int num = seg->num;
 
 	if (seg->filesz) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d",
 				desc->name, num);
-		ret = request_firmware(&fw, fw_name, desc->dev);
-		if (ret) {
-			pil_err(desc, "Failed to locate blob %s\n", fw_name);
+		ret = request_firmware_direct(fw_name, desc->dev, seg->paddr,
+					      seg->filesz);
+		if (ret < 0) {
+			pil_err(desc, "Failed to locate blob %s or blob is too big.\n",
+				fw_name);
 			return ret;
 		}
 
-		if (fw->size != seg->filesz) {
+		if (ret != seg->filesz) {
 			pil_err(desc, "Blob size %u doesn't match %lu\n",
-					fw->size, seg->filesz);
-			ret = -EPERM;
-			goto release_fw;
+					ret, seg->filesz);
+			return -EPERM;
 		}
-	}
-
-	/* Load the segment into memory */
-	count = seg->filesz;
-	paddr = seg->paddr;
-	data = fw ? fw->data : NULL;
-	while (count > 0) {
-		int size;
-		u8 __iomem *buf;
-
-		size = min_t(size_t, IOMAP_SIZE, count);
-		buf = ioremap(paddr, size);
-		if (!buf) {
-			pil_err(desc, "Failed to map memory\n");
-			ret = -ENOMEM;
-			goto release_fw;
-		}
-		memcpy(buf, data, size);
-		iounmap(buf);
-
-		count -= size;
-		paddr += size;
-		data += size;
+		ret = 0;
 	}
 
 	/* Zero out trailing memory */
+	paddr = seg->paddr + seg->filesz;
 	count = seg->sz - seg->filesz;
 	while (count > 0) {
 		int size;
@@ -566,8 +551,7 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 		buf = ioremap(paddr, size);
 		if (!buf) {
 			pil_err(desc, "Failed to map memory\n");
-			ret = -ENOMEM;
-			goto release_fw;
+			return -ENOMEM;
 		}
 		memset(buf, 0, size);
 		iounmap(buf);
@@ -582,8 +566,6 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 			pil_err(desc, "Blob%u failed verification\n", num);
 	}
 
-release_fw:
-	release_firmware(fw);
 	return ret;
 }
 
@@ -591,7 +573,8 @@ static void pil_parse_devicetree(struct pil_desc *desc)
 {
 	int clk_ready = 0;
 
-	if (of_find_property(desc->dev->of_node,
+	if (desc->ops->proxy_unvote &&
+		of_find_property(desc->dev->of_node,
 				"qcom,gpio-proxy-unvote",
 				NULL)) {
 		clk_ready = of_get_named_gpio(desc->dev->of_node,
@@ -798,7 +781,7 @@ int pil_desc_init(struct pil_desc *desc)
 		 "Invalid proxy unvote callback or a proxy timeout of 0"
 		 " was specified or no proxy unvote IRQ was specified.\n");
 
-	if (desc->proxy_unvote_irq > 0 && desc->ops->proxy_unvote) {
+	if (desc->proxy_unvote_irq) {
 		ret = request_threaded_irq(desc->proxy_unvote_irq,
 				  NULL,
 				  proxy_unvote_intr_handler,

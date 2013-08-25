@@ -14,6 +14,12 @@
 #ifndef __LINUX_SMSC3503_H__
 #define __LINUX_SMSC3503_H__
 
+#define SMSC3503_ID	3503
+#define SMSC4604_ID	4604
+#define SMSC3503_I2C_ADDR	0x08
+#define SMSC4604_I2C_ADDR	0x2d
+#define SMSC_GSBI_I2C_BUS_ID	0
+
 /*Serial interface Registers*/
 #define SMSC3503_VENDORID	0x00 /*u16 read*/
 #define SMSC3503_PRODUCTID	0x02 /*u16 read*/
@@ -42,6 +48,7 @@
 #define OCSPINSEL	(1<<5)
 
 struct smsc_hub_platform_data {
+	u32 model_id;
 	int hub_reset;
 	int refclk_gpio;
 	int int_gpio;

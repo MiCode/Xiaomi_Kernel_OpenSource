@@ -27,7 +27,7 @@
 
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
-#define APPS_BUF_SIZE	2000
+#define APPS_BUF_SIZE	4096
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
@@ -217,6 +217,7 @@ struct diag_smd_info {
 	int peripheral;	/* The peripheral this smd channel communicates with */
 	int type;	/* The type of smd channel (data, control, dci) */
 	uint16_t peripheral_mask;
+	int encode_hdlc; /* Whether data is raw and needs to be hdlc encoded */
 
 	smd_channel_t *ch;
 	smd_channel_t *ch_save;
@@ -229,10 +230,15 @@ struct diag_smd_info {
 	unsigned char *buf_in_1;
 	unsigned char *buf_in_2;
 
+	unsigned char *buf_in_1_raw;
+	unsigned char *buf_in_2_raw;
+
 	struct diag_request *write_ptr_1;
 	struct diag_request *write_ptr_2;
 
 	struct diag_nrt_wake_lock nrt_lock;
+
+	struct workqueue_struct *wq;
 
 	struct work_struct diag_read_smd_work;
 	struct work_struct diag_notify_update_smd_work;
@@ -270,6 +276,7 @@ struct diagchar_dev {
 	unsigned int buf_tbl_size;
 	int use_device_tree;
 	int supports_separate_cmdrsp;
+	int supports_apps_hdlc_encoding;
 	/* The state requested in the STM command */
 	int stm_state_requested[NUM_STM_PROCESSORS];
 	/* The current STM state */
@@ -301,7 +308,7 @@ struct diagchar_dev {
 	mempool_t *diag_hdlc_pool;
 	mempool_t *diag_user_pool;
 	mempool_t *diag_write_struct_pool;
-	struct mutex diagmem_mutex;
+	spinlock_t diag_mem_lock;
 	int count;
 	int count_hdlc_pool;
 	int count_user_pool;
@@ -384,7 +391,6 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_mdm;
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-	spinlock_t hsic_ready_spinlock;
 	/* common for all bridges */
 	struct work_struct diag_connect_work;
 	struct work_struct diag_disconnect_work;

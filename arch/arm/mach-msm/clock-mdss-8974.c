@@ -1135,7 +1135,7 @@ error:
 	return rc;
 }
 
-static int vco_enable(struct clk *c)
+static int dsi_pll_enable(struct clk *c)
 {
 	int i, rc = 0;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
@@ -1163,7 +1163,7 @@ static int vco_enable(struct clk *c)
 	return rc;
 }
 
-static void vco_disable(struct clk *c)
+static void dsi_pll_disable(struct clk *c)
 {
 	int rc = 0;
 
@@ -1384,19 +1384,32 @@ static enum handoff vco_handoff(struct clk *c)
 
 static int vco_prepare(struct clk *c)
 {
-	return vco_set_rate(c, vco_cached_rate);
+	int rc = 0;
+
+	if (vco_cached_rate != 0) {
+		rc = vco_set_rate(c, vco_cached_rate);
+		if (rc) {
+			pr_err("%s: vco_set_rate failed. rc=%d\n",
+				__func__, rc);
+			goto error;
+		}
+	}
+
+	rc = dsi_pll_enable(c);
+
+error:
+	return rc;
 }
 
 static void vco_unprepare(struct clk *c)
 {
 	vco_cached_rate = c->rate;
+	dsi_pll_disable(c);
 }
 
 /* Op structures */
 
 static struct clk_ops clk_ops_dsi_vco = {
-	.enable = vco_enable,
-	.disable = vco_disable,
 	.set_rate = vco_set_rate,
 	.round_rate = vco_round_rate,
 	.handoff = vco_handoff,

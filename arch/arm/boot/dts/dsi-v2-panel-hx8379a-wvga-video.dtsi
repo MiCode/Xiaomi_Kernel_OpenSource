@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/ {
+&soc {
 	qcom,dsi_v2_hx8379a_wvga_video {
 		compatible = "qcom,dsi-panel-v2";
 		label = "HX8379A WVGA video mode dsi panel";

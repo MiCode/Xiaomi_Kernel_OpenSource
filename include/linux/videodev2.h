@@ -704,6 +704,7 @@ struct v4l2_buffer {
 #define V4L2_QCOM_BUF_FLAG_DECODEONLY 0x40000
 #define V4L2_QCOM_BUF_DATA_CORRUPT 0x80000
 #define V4L2_QCOM_BUF_DROP_FRAME 0x100000
+#define V4L2_QCOM_BUF_INPUT_UNSUPPORTED 0x200000
 
 /*
  *	O V E R L A Y   P R E V I E W
@@ -767,7 +768,8 @@ struct v4l2_captureparm {
 #define V4L2_CAP_QCOM_FRAMESKIP	0x2000	/*  frame skipping is supported */
 
 struct v4l2_qcom_frameskip {
-	__u64		maxframeinterval;
+	__u64		   maxframeinterval;
+	__u8		   fpsvariance;
 };
 
 struct v4l2_outputparm {
