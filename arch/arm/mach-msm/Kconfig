@@ -2626,7 +2626,7 @@ config MSM_AUDIO_QDSP6V2
 config MSM_ADSP_LOADER
         tristate "ADSP loader support"
         select SND_SOC_MSM_APRV2_INTF
-	depends on MSM_AUDIO_QDSP6V2 && m
+	depends on MSM_AUDIO_QDSP6V2
         help
           Enable ADSP image loader.
 	  The ADSP loader brings ADSP out of reset
