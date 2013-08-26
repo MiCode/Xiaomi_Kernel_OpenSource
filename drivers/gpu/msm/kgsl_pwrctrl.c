@@ -570,7 +570,11 @@ static int kgsl_pwrctrl_gpubusy_show(struct device *dev,
 {
 	int ret;
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	struct kgsl_clk_stats *clkstats = &device->pwrctrl.clk_stats;
+	struct kgsl_clk_stats *clkstats;
+
+	if (device == NULL)
+		return 0;
+	clkstats = &device->pwrctrl.clk_stats;
 	ret = snprintf(buf, PAGE_SIZE, "%7d %7d\n",
 			clkstats->on_time_old, clkstats->elapsed_old);
 	if (!test_bit(KGSL_PWRFLAGS_AXI_ON, &device->pwrctrl.power_flags)) {
@@ -586,10 +590,13 @@ static int kgsl_pwrctrl_gputop_show(struct device *dev,
 {
 	int ret;
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	struct kgsl_clk_stats *clkstats = &device->pwrctrl.clk_stats;
+	struct kgsl_clk_stats *clkstats;
 	int i = 0;
 	char *ptr = buf;
 
+	if (device == NULL)
+		return 0;
+	clkstats = &device->pwrctrl.clk_stats;
 	ret = snprintf(buf, PAGE_SIZE, "%7d %7d ", clkstats->on_time_old,
 					clkstats->elapsed_old);
 	for (i = 0, ptr += ret; i < device->pwrctrl.num_pwrlevels;
@@ -630,6 +637,8 @@ static int kgsl_pwrctrl_reset_count_show(struct device *dev,
 					char *buf)
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	if (device == NULL)
+		return 0;
 	return snprintf(buf, PAGE_SIZE, "%d\n", device->reset_counter);
 }
 
@@ -660,6 +669,8 @@ static int __force_on_show(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	int i = test_bit(flag, &device->pwrctrl.ctrl_flags);
+	if (device == NULL)
+		return 0;
 	return snprintf(buf, PAGE_SIZE, "%d\n", i);
 }
 
