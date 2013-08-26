@@ -170,7 +170,7 @@
 #define MIN_ALS_POLL_DELAY_NS	110000000
 
 #define DEVICE_NAME		"stk_ps"
-#define ALS_NAME "lightsensor-level"
+#define ALS_NAME		"stk3x1x-ls"
 #define PS_NAME "proximity"
 
 /* POWER SUPPLY VOLTAGE RANGE */
