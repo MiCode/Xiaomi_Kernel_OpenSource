@@ -236,6 +236,7 @@ struct ufs_hba_variant_ops {
  * @tm_tag_wq: wait queue for free task management slots
  * @tm_condition: condition variable for task management
  * @tm_slots_in_use: bit map of task management request slots in use
+ * @pwr_done: completion for power mode change
  * @ufshcd_state: UFSHCD states
  * @eh_flags: Error handling flags
  * @intr_mask: Interrupt Mask Bits
@@ -290,6 +291,8 @@ struct ufs_hba {
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
 	unsigned long tm_slots_in_use;
+
+	struct completion *pwr_done;
 
 	u32 ufshcd_state;
 	u32 eh_flags;
