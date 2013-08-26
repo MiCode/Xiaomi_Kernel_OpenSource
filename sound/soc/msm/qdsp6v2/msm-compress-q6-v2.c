@@ -530,17 +530,21 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_STOP\n", __func__);
+		spin_lock_irq(&prtd->lock);
+
 		atomic_set(&prtd->start, 0);
 		if (atomic_read(&prtd->eos)) {
+			pr_debug("%s: interrupt drain and eos wait queues", __func__);
 			prtd->cmd_interrupt = 1;
 			prtd->drain_ready = 1;
 			wake_up(&prtd->drain_wait);
 			wake_up(&prtd->eos_wait);
 			atomic_set(&prtd->eos, 0);
 		}
+
 		/* Issue flush command only if any buffers are left with DSP */
-		spin_lock_irq(&prtd->lock);
 		if (prtd->bytes_received > prtd->copied_total) {
+			pr_debug("issue CMD_FLUSH \n");
 			prtd->cmd_ack = 0;
 			spin_unlock_irq(&prtd->lock);
 			rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
@@ -556,10 +560,13 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		} else
 			spin_unlock_irq(&prtd->lock);
 
+		spin_lock_irq(&prtd->lock);
+		/* only reset if flush was successful */
 		prtd->byte_offset  = 0;
 		prtd->copied_total = 0;
 		prtd->app_pointer  = 0;
 		prtd->bytes_received = 0;
+		spin_unlock_irq(&prtd->lock);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_PUSH\n");
@@ -575,14 +582,17 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_debug("%s: SND_COMPR_TRIGGER_PARTIAL_DRAIN\n", __func__);
 	case SND_COMPR_TRIGGER_DRAIN:
 		pr_debug("%s: SNDRV_COMPRESS_DRAIN\n", __func__);
+		/* Make sure all the data is sent to DSP before sending EOS */
+		spin_lock_irq(&prtd->lock);
+
 		if (!atomic_read(&prtd->start)) {
 			pr_err("%s: stream is not in started state\n",
 				__func__);
+			spin_unlock_irq(&prtd->lock);
 			break;
 		}
+		atomic_set(&prtd->eos, 1);
 
-		/* Make sure all the data is sent to DSP before sending EOS */
-		spin_lock_irq(&prtd->lock);
 		if (prtd->bytes_received > prtd->copied_total) {
 			atomic_set(&prtd->drain, 1);
 			prtd->drain_ready = 0;
@@ -595,24 +605,28 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			spin_unlock_irq(&prtd->lock);
 
 		if (!atomic_read(&prtd->start)) {
-			pr_err("%s: stream is not started\n", __func__);
+			pr_err("%s: stream is not started (interrupted by flush?)\n", __func__);
 			break;
 		}
 
-		if (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN)
-			break;
 
-		atomic_set(&prtd->eos, 1);
-		prtd->cmd_ack = 0;
 		pr_debug("%s: CMD_EOS\n", __func__);
+		prtd->cmd_ack = 0;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+
+		if (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN) {
+			pr_err("PARTIAL DRAIN, do not send EOS now, why!?");
+			break;
+		}
+
 		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(prtd->eos_wait,
 				(prtd->cmd_ack || prtd->cmd_interrupt));
 
 		if (rc < 0)
 			pr_err("%s: EOS cmd interrupted\n", __func__);
-		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait\n", __func__);
+
+		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait for EOS\n", __func__);
 
 		if (prtd->cmd_interrupt)
 			rc = -EINTR;
