@@ -12374,8 +12374,9 @@ int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_enable_plane_reserved_reg_bit_2 *rrb = data;
 	u32 enable = rrb->enable;
-	u32 val, reg1, reg2;
-	u32 pipe_id;
+	u32 val, reg;
+	u32 surface_id;
+	struct intel_plane *intel_plane;
 
 	/* Added this code for making pipe generalization in HSW */
 	struct drm_mode_object *drmmode_obj;
@@ -12384,38 +12385,37 @@ int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -ENODEV;
 
-	drmmode_obj = drm_mode_object_find(dev, rrb->crtc_id,
-			DRM_MODE_OBJECT_CRTC);
+	/* crtc_id is not for Plane*/
+	drmmode_obj = drm_mode_object_find(dev, rrb->plane,
+			DRM_MODE_OBJECT_PLANE);
 
-	if (!drmmode_obj) {
-		DRM_ERROR("no such CRTC id\n");
-		return -EINVAL;
+	if (drmmode_obj) {
+		intel_plane = to_intel_plane(obj_to_plane(drmmode_obj));
+		surface_id = intel_plane->pipe;
+		reg = SPRSURF(surface_id);
+	} else {
+		drmmode_obj = drm_mode_object_find(dev, rrb->plane,
+				DRM_MODE_OBJECT_CRTC);
+		if (drmmode_obj) {
+			crtc = to_intel_crtc(obj_to_crtc(drmmode_obj));
+			surface_id = crtc->plane;
+			reg = DSPSURF(surface_id);
+		} else {
+			DRM_ERROR("no such CRTC id for Plane or Sprite\n");
+			return -EINVAL;
+		}
 	}
-
-	crtc = to_intel_crtc(obj_to_crtc(drmmode_obj));
-	pipe_id = crtc->pipe;
-
-	reg1 = SPRSURF(pipe_id);
-	reg2 = SPRSURFLIVE(pipe_id);
 
 	if (enable) {
 		/* Program bit enable if it was requested */
-		val = I915_READ(reg1);
+		val = I915_READ(reg);
 		val |= SURF_RESERVED_REG_BIT_2_ENABLE;
-		I915_WRITE(reg1, val);
-
-		val = I915_READ(reg2);
-		val |= SURF_RESERVED_REG_BIT_2_ENABLE;
-		I915_WRITE(reg2, val);
+		I915_WRITE(reg, val);
 	} else {
 		/* Clear the older rrb setting */
-		val = I915_READ(reg1);
+		val = I915_READ(reg);
 		val &= ~SURF_RESERVED_REG_BIT_2_ENABLE;
-		I915_WRITE(reg1, val);
-
-		val = I915_READ(reg2);
-		val &= ~SURF_RESERVED_REG_BIT_2_ENABLE;
-		I915_WRITE(reg2, val);
+		I915_WRITE(reg, val);
 	}
 	return 0;
 }
