@@ -146,6 +146,7 @@ static int lightsensor_enable(struct cm36283_info *lpi);
 static int lightsensor_disable(struct cm36283_info *lpi);
 static int initial_cm36283(struct cm36283_info *lpi);
 static void psensor_initial_cmd(struct cm36283_info *lpi);
+static int cm36283_power_set(struct cm36283_info *info, bool on);
 
 int32_t als_kadc;
 
@@ -1619,23 +1620,11 @@ static int cm36283_probe(struct i2c_client *client,
 	mutex_init(&als_disable_mutex);
 	mutex_init(&als_get_adc_mutex);
 
-	ret = lightsensor_setup(lpi);
-	if (ret < 0) {
-		pr_err("[LS][CM36283 error]%s: lightsensor_setup error!!\n",
-			__func__);
-		goto err_lightsensor_setup;
-	}
 
 	mutex_init(&ps_enable_mutex);
 	mutex_init(&ps_disable_mutex);
 	mutex_init(&ps_get_adc_mutex);
 
-	ret = psensor_setup(lpi);
-	if (ret < 0) {
-		pr_err("[PS][CM36283 error]%s: psensor_setup error!!\n",
-			__func__);
-		goto err_psensor_setup;
-	}
 
   //SET LUX STEP FACTOR HERE
   // if adc raw value one step = 5/100 = 1/20 = 0.05 lux
@@ -1665,11 +1654,32 @@ static int cm36283_probe(struct i2c_client *client,
 	}
 	wake_lock_init(&(lpi->ps_wake_lock), WAKE_LOCK_SUSPEND, "proximity");
 
+	ret = cm36283_power_set(lpi, true);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s:cm36283 power on error!\n", __func__);
+		goto err_cm36283_power_on;
+	}
+
 	ret = cm36283_setup(lpi);
 	if (ret < 0) {
 		pr_err("[PS_ERR][CM36283 error]%s: cm36283_setup error!\n", __func__);
 		goto err_cm36283_setup;
 	}
+
+	ret = lightsensor_setup(lpi);
+	if (ret < 0) {
+		pr_err("[LS][CM36283 error]%s: lightsensor_setup error!!\n",
+			__func__);
+		goto err_lightsensor_setup;
+	}
+
+	ret = psensor_setup(lpi);
+	if (ret < 0) {
+		pr_err("[PS][CM36283 error]%s: psensor_setup error!!\n",
+			__func__);
+		goto err_psensor_setup;
+	}
+
 	lpi->cm36283_class = class_create(THIS_MODULE, "optical_sensors");
 	if (IS_ERR(lpi->cm36283_class)) {
 		ret = PTR_ERR(lpi->cm36283_class);
@@ -1725,36 +1735,36 @@ static int cm36283_probe(struct i2c_client *client,
 	if (unlikely(IS_ERR(lpi->ps_dev))) {
 		ret = PTR_ERR(lpi->ps_dev);
 		lpi->ps_dev = NULL;
-		goto err_create_ls_device_file;
+		goto err_create_ps_device;
 	}
 
 	/* register the attributes */
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_adc);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 	ret = device_create_file(lpi->ps_dev,
 		&dev_attr_ps_parameters);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 	/* register the attributes */
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_conf);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 	/* register the attributes */
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_thd);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_hw);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_poll_delay);
 	if (ret)
-		goto err_create_ps_device;
+		goto err_create_ps_device_file;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	lpi->early_suspend.level =
@@ -1771,39 +1781,43 @@ static int cm36283_probe(struct i2c_client *client,
 
 	return ret;
 
-err_create_ps_device:
+err_create_ps_device_file:
 	device_unregister(lpi->ps_dev);
+err_create_ps_device:
 err_create_ls_device_file:
 	device_unregister(lpi->ls_dev);
 err_create_ls_device:
 	class_destroy(lpi->cm36283_class);
 err_create_class:
-err_cm36283_setup:
-	destroy_workqueue(lpi->lp_wq);
-	wake_lock_destroy(&(lpi->ps_wake_lock));
-
-	input_unregister_device(lpi->ls_input_dev);
-	input_free_device(lpi->ls_input_dev);
+	misc_deregister(&psensor_misc);
 	input_unregister_device(lpi->ps_input_dev);
 	input_free_device(lpi->ps_input_dev);
+err_psensor_setup:
+	misc_deregister(&lightsensor_misc);
+	input_unregister_device(lpi->ls_input_dev);
+	input_free_device(lpi->ls_input_dev);
+err_lightsensor_setup:
+err_cm36283_setup:
+	cm36283_power_set(lpi, false);
+err_cm36283_power_on:
+	wake_lock_destroy(&(lpi->ps_wake_lock));
+	destroy_workqueue(lpi->lp_wq);
 err_create_singlethread_workqueue:
 err_lightsensor_update_table:
-	misc_deregister(&psensor_misc);
-err_psensor_setup:
 	mutex_destroy(&CM36283_control_mutex);
-	mutex_destroy(&ps_enable_mutex);
-	mutex_destroy(&ps_disable_mutex);
-	mutex_destroy(&ps_get_adc_mutex);
-	misc_deregister(&lightsensor_misc);
-err_lightsensor_setup:
 	mutex_destroy(&als_enable_mutex);
 	mutex_destroy(&als_disable_mutex);
 	mutex_destroy(&als_get_adc_mutex);
+	mutex_destroy(&ps_enable_mutex);
+	mutex_destroy(&ps_disable_mutex);
+	mutex_destroy(&ps_get_adc_mutex);
 err_parse_dt:
 	if (client->dev.of_node && (pdata != NULL))
 		devm_kfree(&client->dev, pdata);
 err_platform_data_null:
 	kfree(lpi);
+	dev_err(&client->dev, "%s:error exit! ret = %d\n", __func__, ret);
+
 	return ret;
 }
 
