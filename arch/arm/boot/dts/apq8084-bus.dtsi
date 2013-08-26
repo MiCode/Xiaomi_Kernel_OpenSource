@@ -47,12 +47,25 @@
 		mas-mdp-port0 {
 			cell-id = <22>;
 			label = "mas-mdp-port0";
-			qcom,masterp = <3 4>;
+			qcom,masterp = <3>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "NoC";
 			qcom,perm-mode = "Bypass";
 			qcom,mode = "Bypass";
-			qcom,qport = <2 1>;
+			qcom,qport = <2>;
+			qcom,ws = <10000>;
+			qcom,mas-hw-id = <8>;
+		};
+
+		mas-mdp-port1 {
+			cell-id = <23>;
+			label = "mas-mdp-port1";
+			qcom,masterp = <4>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "NoC";
+			qcom,perm-mode = "Bypass";
+			qcom,mode = "Bypass";
+			qcom,qport = <1>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
 		};
