@@ -1114,7 +1114,11 @@ static int fwu_enter_flash_prog(bool force)
 	if (retval < 0)
 		return retval;
 
-	if (f01_device_status.flash_prog) {
+	if (force) {
+		dev_info(&fwu->rmi4_data->i2c_client->dev,
+			"%s: Force to enter flash prog mode\n",
+			__func__);
+	} else if (f01_device_status.flash_prog) {
 		dev_info(&fwu->rmi4_data->i2c_client->dev,
 				"%s: Already in flash prog mode\n",
 				__func__);
@@ -1473,6 +1477,9 @@ static int fwu_do_reflash(void)
 	dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 			"%s: Erase all command written\n",
 			__func__);
+
+	if (fwu->polling_mode)
+		msleep(100);
 
 	retval = fwu_wait_for_idle(ERASE_WAIT_MS);
 	if (retval < 0)
