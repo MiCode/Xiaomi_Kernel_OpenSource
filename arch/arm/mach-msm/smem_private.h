@@ -76,4 +76,21 @@ int smem_module_init_notifier_register(struct notifier_block *nb);
  * @nb: Notifier block to be unregistered
  */
 int smem_module_init_notifier_unregister(struct notifier_block *nb);
+
+/**
+ * smem_get_free_space() - Get the available allocation free space for a
+ *				partition
+ *
+ * @to_proc: remote SMEM host.  Determines the applicable partition
+ * @returns: size in bytes available to allocate
+ *
+ * Helper function for SMD so that SMD only scans the channel allocation
+ * table for a partition when it is reasonably certain that a channel has
+ * actually been created, because scanning can be expensive.  Creating a channel
+ * will consume some of the free space in a partition, so SMD can compare the
+ * last free space size against the current free space size to determine if
+ * a channel may have been created.  SMD can't do this directly, because the
+ * necessary partition internals are restricted to just SMEM.
+ */
+unsigned smem_get_free_space(unsigned to_proc);
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_ */
