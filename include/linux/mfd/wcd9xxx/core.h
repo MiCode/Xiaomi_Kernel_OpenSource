@@ -264,4 +264,16 @@ static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
 	return 0;
 }
 #endif	/* CONFIG_OF */
+static inline void wcd9xxx_reg_update(struct wcd9xxx *core,
+				      unsigned short reg,
+				      u8 mask, u8 val)
+{
+	u8 reg_val;
+
+	if (core) {
+		reg_val = wcd9xxx_reg_read(core, reg);
+		reg_val = (reg_val & ~mask) | (val & mask);
+		wcd9xxx_reg_write(core, reg, reg_val);
+	}
+}
 #endif
