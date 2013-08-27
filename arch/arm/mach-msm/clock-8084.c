@@ -3164,10 +3164,11 @@ static struct branch_clk gcc_usb2b_phy_sleep_clk = {
 	},
 };
 
+/* Allow clk_set_rate on this branch clock */
 static struct branch_clk gcc_usb30_master_clk = {
 	.cbcr_reg = USB30_MASTER_CBCR,
 	.bcr_reg = USB_30_BCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &usb30_master_clk_src.c,
