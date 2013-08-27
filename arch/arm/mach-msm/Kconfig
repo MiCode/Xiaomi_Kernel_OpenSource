@@ -322,6 +322,7 @@ config ARCH_MPQ8092
 	select ARCH_MSM_KRAITMP
 	select GPIO_MSM_V3
 	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
 	select MULTI_IRQ_HANDLER
 	select CPU_V7
 	select MSM_GPIOMUX
