@@ -18,7 +18,6 @@
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
-#include <asm/hardware/gic.h>
 #include <asm/mach/arch.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
