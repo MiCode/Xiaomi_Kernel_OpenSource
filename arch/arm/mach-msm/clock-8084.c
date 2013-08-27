@@ -3360,6 +3360,7 @@ static struct pll_vote_clk mmpll1_clk_src = {
 		.rate = 1167000000,
 		.dbg_name = "mmpll1_pll_clk_src",
 		.ops = &clk_ops_pll_vote,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 1167000000),
 		CLK_INIT(mmpll1_clk_src.c),
 	},
 };
