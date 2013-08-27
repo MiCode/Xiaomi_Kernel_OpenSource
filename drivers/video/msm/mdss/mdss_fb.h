@@ -118,6 +118,7 @@ struct msm_fb_data_type {
 	unsigned long cursor_buf_phys;
 	unsigned long cursor_buf_iova;
 
+	int ext_ad_ctrl;
 	u32 ext_bl_ctrl;
 	u32 calib_mode;
 	u32 bl_level;
