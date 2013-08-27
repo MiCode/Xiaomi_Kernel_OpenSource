@@ -66,6 +66,11 @@
 #define IPA_MAC_ADDR_SIZE  6
 
 /**
+ * max number of mbim stream numbers
+ */
+#define IPA_MBIM_MAX_STREAM_NUM 8
+
+/**
  * the attributes of the rule (routing or filtering)
  */
 #define IPA_FLT_TOS            (1ul << 0)
@@ -910,6 +915,7 @@ struct teth_ioc_aggr_params {
 	struct teth_aggr_params aggr_params;
 	uint16_t lcid;
 };
+
 
 #define TETH_BRIDGE_IOC_SET_BRIDGE_MODE _IOW(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE, \

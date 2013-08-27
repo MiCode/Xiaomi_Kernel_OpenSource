@@ -440,6 +440,14 @@ enum a2_mux_logical_channel_id {
 	A2_MUX_MULTI_RMNET_10,
 	A2_MUX_MULTI_RMNET_11,
 	A2_MUX_MULTI_RMNET_12,
+	A2_MUX_MULTI_MBIM_13,
+	A2_MUX_MULTI_MBIM_14,
+	A2_MUX_MULTI_MBIM_15,
+	A2_MUX_MULTI_MBIM_16,
+	A2_MUX_MULTI_MBIM_17,
+	A2_MUX_MULTI_MBIM_18,
+	A2_MUX_MULTI_MBIM_19,
+	A2_MUX_MULTI_MBIM_20,
 	A2_MUX_NUM_CHANNELS
 };
 
@@ -674,7 +682,7 @@ int teth_bridge_disconnect(enum ipa_client_type client);
 
 int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
-int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
+int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
 		enum ipa_client_type client);
 
 void ipa_bam_reg_dump(void);
@@ -1112,7 +1120,7 @@ static inline int teth_bridge_connect(struct teth_bridge_connect_params
 	return -EPERM;
 }
 
-static inline int teth_bridge_set_aggr_params(
+static inline int teth_bridge_set_mbim_aggr_params(
 				struct teth_aggr_params *aggr_params,
 				enum ipa_client_type client)
 {

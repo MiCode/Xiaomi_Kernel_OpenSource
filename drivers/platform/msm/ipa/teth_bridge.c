@@ -64,7 +64,7 @@
 
 #define TETH_WORKQUEUE_NAME "tethering_bridge_wq"
 
-#define TETH_TOTAL_HDR_ENTRIES 6
+#define TETH_TOTAL_HDR_ENTRIES 8
 #define TETH_TOTAL_RT_ENTRIES_IP 3
 #define TETH_TOTAL_FLT_ENTRIES_IP 2
 #define TETH_IP_FAMILIES 2
@@ -72,7 +72,11 @@
 #define METADATA_SHFT 16
 #define METADATA_MASK 0x00FF0000
 
-#define TETH_NUM_CHANNELS 4
+#define TETH_NUM_CHANNELS 12
+
+#define TETH_METADATA_LEN 4
+
+#define MAX_MBIM_STREAMS 8
 
 /**
  * enum teth_init_status - bridge initialization state
@@ -207,6 +211,7 @@ struct teth_bridge_ctx {
 	u32 ipa_a2_pipe_hdl;
 	struct mac_addresses_type mac_addresses;
 	enum teth_tethering_mode tethering_mode;
+	u16 mbim_stream_id_to_channel_id[IPA_MBIM_MAX_STREAM_NUM];
 	struct completion is_bridge_prod_up;
 	struct completion is_bridge_prod_down;
 	struct teth_aggr_capabilities *aggr_caps;
@@ -522,15 +527,16 @@ bail:
 }
 
 /**
- * add_mbim_hdr() - add MBIM headers to IPA
- * This function is called only when link protocol is IP with MBIM aggregation
+ * add_mbim_hdrl() - Adding a single MBIM hdr according to his stream_id
+ * @mbim_stream_id: The MBIM stream id
  */
-static int add_mbim_hdr(void)
+
+static int add_mbim_hdr(u16 mbim_stream_id)
 {
 	int res;
 	struct ipa_ioc_add_hdr *mbim_hdr;
-	u8 mbim_stream_id = 0;
 	int idx;
+	char mbim_header_name[IPA_RESOURCE_NAME_MAX] = { '\0' };
 
 	TETH_DBG_FUNC_ENTRY();
 	mbim_hdr = kzalloc(sizeof(struct ipa_ioc_add_hdr) +
@@ -543,16 +549,21 @@ static int add_mbim_hdr(void)
 
 	mbim_hdr->commit = 0;
 	mbim_hdr->num_hdrs = 1;
-	strlcpy(mbim_hdr->hdr[0].name, MBIM_HEADER_NAME, IPA_RESOURCE_NAME_MAX);
+	snprintf(mbim_header_name,
+			  IPA_RESOURCE_NAME_MAX,
+			  "%s_%d", MBIM_HEADER_NAME,
+			mbim_stream_id);
+	strlcpy(mbim_hdr->hdr[0].name, mbim_header_name, IPA_RESOURCE_NAME_MAX);
 	memcpy(mbim_hdr->hdr[0].hdr, &mbim_stream_id, sizeof(u8));
 	mbim_hdr->hdr[0].hdr_len = sizeof(u8);
 	mbim_hdr->hdr[0].is_partial = false;
 	res = ipa_add_hdr(mbim_hdr);
 	if (res || mbim_hdr->hdr[0].status) {
-		TETH_ERR("Failed adding MBIM header\n");
+		TETH_ERR("Failed adding MBIM header %d\n", mbim_stream_id);
 		res = -EFAULT;
+		goto bail;
 	} else {
-		TETH_DBG("Added MBIM stream ID header\n");
+		TETH_DBG("Added MBIM stream ID %d header\n", mbim_stream_id);
 	}
 
 	/* Save the header handle in order to delete it later */
@@ -562,6 +573,7 @@ static int add_mbim_hdr(void)
 	kfree(mbim_hdr);
 	TETH_DBG_FUNC_EXIT();
 
+bail:
 	return res;
 }
 
@@ -576,7 +588,7 @@ static int configure_ipa_header_block_ip(u16 lcid)
 	u32 usb_ipa_hdr_len = 0;
 	u32 ipa_usb_hdr_len = 0;
 	u32 ipa_a2_hdr_len = 0;
-	u16 idx;
+	u16 idx, stream_id, num_of_iterations = 1;
 
 	TETH_DBG_FUNC_ENTRY();
 	idx = get_ch_info_idx(lcid);
@@ -592,11 +604,17 @@ static int configure_ipa_header_block_ip(u16 lcid)
 		 */
 		if (teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
 					TETH_AGGR_PROTOCOL_MBIM) {
-
-			res = add_mbim_hdr();
-			if (res) {
-				TETH_ERR("Failed adding MBIM header\n");
-				goto bail;
+			if (teth_ctx->tethering_mode
+					== TETH_TETHERING_MODE_MBIM)
+				num_of_iterations = IPA_MBIM_MAX_STREAM_NUM;
+			for (stream_id = 0; stream_id < num_of_iterations;
+					++stream_id) {
+				res = add_mbim_hdr(stream_id);
+				if (res) {
+					TETH_ERR("adding MBIM header %d fail\n"
+							, stream_id);
+					goto bail;
+				}
 			}
 		}
 	}
@@ -835,8 +853,25 @@ static int configure_ul_header_routing(u16 lcid, char *rt_tbl_name_ipv4,
 		goto bail;
 	}
 bail:
+	TETH_DBG_FUNC_EXIT();
 	return res;
 
+}
+
+/**
+ * find_mbim_stream_id() - mapping between the lcid and the stream_id
+ * @lcid: The logical channel ID
+ */
+
+static s16 find_mbim_stream_id(u16 lcid)
+{
+	int i;
+
+	for (i = 0; i <= IPA_MBIM_MAX_STREAM_NUM; ++i) {
+		if (lcid == teth_ctx->mbim_stream_id_to_channel_id[i])
+			return i;
+	}
+	return -EINVAL;
 }
 
 /**
@@ -852,7 +887,7 @@ static int configure_dl_header_routing(u16 lcid,  char *rt_tbl_name_ipv4,
 	char hdr_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
 	char hdr_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
 	int res;
-	u16 idx;
+	u16 idx, cons_client;
 	TETH_DBG_FUNC_ENTRY();
 
 	idx = get_ch_info_idx(lcid);
@@ -867,19 +902,32 @@ static int configure_dl_header_routing(u16 lcid,  char *rt_tbl_name_ipv4,
 			IPA_RESOURCE_NAME_MAX);
 	} else if (teth_ctx->ch_info[idx].aggr_params.dl.aggr_prot ==
 					TETH_AGGR_PROTOCOL_MBIM) {
-		strlcpy(hdr_name_ipv4,
+		s16 stream_id = 0;
+		if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+			stream_id = find_mbim_stream_id(lcid);
+			if (lcid < 0) {
+				res = -EFAULT;
+				TETH_ERR("Bad ID %d for multi MBIM\n", lcid);
+				goto bail;
+			}
+		}
+		snprintf(hdr_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
 			MBIM_HEADER_NAME,
-			IPA_RESOURCE_NAME_MAX);
-		strlcpy(hdr_name_ipv6,
+			stream_id);
+		snprintf(hdr_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
 			MBIM_HEADER_NAME,
-			IPA_RESOURCE_NAME_MAX);
+			stream_id);
 	}
 
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
+		cons_client = IPA_CLIENT_USB_CONS;
+	else
+		cons_client = get_cons_client(lcid);
 	res = configure_routing(hdr_name_ipv4,
 					rt_tbl_name_ipv4,
 					hdr_name_ipv6,
 					rt_tbl_name_ipv6,
-					get_cons_client(lcid),
+					cons_client,
 					lcid);
 
 	if (res) {
@@ -969,8 +1017,8 @@ bail:
 static int configure_filtering_by_ip(char *rt_tbl_name,
 			      enum ipa_client_type src,
 			      enum ipa_ip_type ip_address_family,
-			      bool compare_lcid,
-			      enum a2_mux_logical_channel_id lcid)
+			      enum a2_mux_logical_channel_id lcid,
+			      enum teth_packet_direction dir)
 {
 	struct ipa_ioc_add_flt_rule *flt_tbl;
 	struct ipa_ioc_get_rt_tbl rt_tbl_info;
@@ -1005,13 +1053,30 @@ static int configure_filtering_by_ip(char *rt_tbl_name,
 	flt_tbl->num_rules = 1;
 	flt_tbl->rules[0].rule.action = IPA_PASS_TO_ROUTING;
 	flt_tbl->rules[0].rule.rt_tbl_hdl = rt_tbl_info.hdl;
-	if (compare_lcid) {
-		flt_tbl->rules[0].rule.attrib.attrib_mask = IPA_FLT_META_DATA;
-		flt_tbl->rules[0].rule.attrib.meta_data = lcid << METADATA_SHFT;
-		flt_tbl->rules[0].rule.attrib.meta_data_mask = METADATA_MASK;
-	} else {
-		flt_tbl->rules[0].rule.attrib.attrib_mask = 0; /* Match all */
+	flt_tbl->rules[0].rule.attrib.attrib_mask = 0; /* Match all */
+	if (teth_ctx->ch_info[i].ch_type == TETH_EMBEDDED_CH) {
+		if (dir == TETH_A2_TO_USB) {
+			flt_tbl->rules[0].rule.attrib.attrib_mask =
+					IPA_FLT_META_DATA;
+			flt_tbl->rules[0].rule.attrib.meta_data =
+					lcid << METADATA_SHFT;
+			flt_tbl->rules[0].rule.attrib.meta_data_mask =
+					METADATA_MASK;
+		} else if (teth_ctx->tethering_mode ==
+				TETH_TETHERING_MODE_MBIM) {
+			s16 stream_id = find_mbim_stream_id(lcid);
+			if (stream_id < 0) {
+				TETH_ERR("logical channel %d error\n",
+								lcid);
+				goto bail;
+			}
+			flt_tbl->rules[0].rule.attrib.attrib_mask =
+					IPA_FLT_META_DATA;
+			flt_tbl->rules[0].rule.attrib.meta_data = stream_id;
+			flt_tbl->rules[0].rule.attrib.meta_data_mask = 0xFF;
+		}
 	}
+
 
 	res = ipa_add_flt_rule(flt_tbl);
 	if (res || flt_tbl->rules[0].status)
@@ -1040,8 +1105,8 @@ bail:
 static int configure_filtering(char *rt_tbl_name_ipv4,
 			char *rt_tbl_name_ipv6,
 			enum ipa_client_type src,
-			bool compare_lcid,
-			enum a2_mux_logical_channel_id lcid)
+			enum a2_mux_logical_channel_id lcid,
+			enum teth_packet_direction dir)
 {
 	int res;
 
@@ -1049,8 +1114,8 @@ static int configure_filtering(char *rt_tbl_name_ipv4,
 	res = configure_filtering_by_ip(rt_tbl_name_ipv4,
 					src,
 					IPA_IP_v4,
-					compare_lcid,
-					lcid);
+					lcid,
+					dir);
 	if (res) {
 		TETH_ERR("Failed adding IPv4 filtering table\n");
 		goto bail;
@@ -1059,8 +1124,8 @@ static int configure_filtering(char *rt_tbl_name_ipv4,
 	res = configure_filtering_by_ip(rt_tbl_name_ipv6,
 					src,
 					IPA_IP_v6,
-					compare_lcid,
-					lcid);
+					lcid,
+					dir);
 	if (res) {
 		TETH_ERR("Failed adding IPv4 filtering table\n");
 		goto bail;
@@ -1083,9 +1148,9 @@ static int configure_ipa_filtering_block(u16 lcid)
 	char rt_tbl_name_ipv4[IPA_RESOURCE_NAME_MAX] = {'\0'};
 	char rt_tbl_name_ipv6[IPA_RESOURCE_NAME_MAX] = {'\0'};
 	enum ipa_client_type src;
-	bool compare_lcid;
 	int res;
 	int idx;
+	u16 prod_client;
 
 	TETH_DBG_FUNC_ENTRY();
 	idx = get_ch_info_idx(lcid);
@@ -1104,11 +1169,12 @@ static int configure_ipa_filtering_block(u16 lcid)
 	}
 
 	/* Filter all traffic coming from USB to A2 */
-	res = configure_filtering(rt_tbl_name_ipv4,
-				  rt_tbl_name_ipv6,
-				  get_prod_client(lcid),
-				  false,
-				  lcid);
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
+		prod_client = IPA_CLIENT_USB_PROD;
+	else
+		prod_client = get_prod_client(lcid);
+	res = configure_filtering(rt_tbl_name_ipv4, rt_tbl_name_ipv6,
+			prod_client, lcid, TETH_USB_TO_A2);
 	if (res) {
 		TETH_ERR("USB_PROD ep filtering configuration failed\n");
 		goto bail;
@@ -1117,7 +1183,6 @@ static int configure_ipa_filtering_block(u16 lcid)
 	/* Filter all traffic coming from A2 to USB */
 	if (teth_ctx->ch_info[idx].ch_type == TETH_EMBEDDED_CH) {
 		src = IPA_CLIENT_A2_EMBEDDED_PROD;
-		compare_lcid = true;
 		snprintf(rt_tbl_name_ipv4, IPA_RESOURCE_NAME_MAX, "%s_%d",
 				A2_TO_USB_RT_TBL_NAME_IPV4, lcid);
 		snprintf(rt_tbl_name_ipv6, IPA_RESOURCE_NAME_MAX, "%s_%d",
@@ -1125,7 +1190,6 @@ static int configure_ipa_filtering_block(u16 lcid)
 
 	} else {
 		src = IPA_CLIENT_A2_TETHERED_PROD;
-		compare_lcid = false;
 		strlcpy(rt_tbl_name_ipv4,
 			A2_TO_USB_RT_TBL_NAME_IPV4,
 			IPA_RESOURCE_NAME_MAX);
@@ -1136,8 +1200,8 @@ static int configure_ipa_filtering_block(u16 lcid)
 	res = configure_filtering(rt_tbl_name_ipv4,
 				  rt_tbl_name_ipv6,
 				  src,
-				  compare_lcid,
-				  lcid);
+				  lcid,
+				  TETH_A2_TO_USB);
 	if (res) {
 		TETH_ERR("A2_PROD filtering configuration failed\n");
 		goto bail;
@@ -1347,12 +1411,13 @@ static int teth_request_resource(void)
  */
 static void complete_hw_bridge(struct work_struct *work)
 {
-	int res;
+	int res, i;
 	struct hw_bridge_work_wrap *work_data =
 				container_of(work,
 				struct hw_bridge_work_wrap,
 				comp_hw_bridge_work);
-	u16 ch_info_idx;
+	u16 ch_info_idx, lcid;
+	int iterations = 1;
 
 	TETH_DBG_FUNC_ENTRY();
 	ch_info_idx = get_ch_info_idx(work_data->lcid);
@@ -1382,18 +1447,25 @@ static void complete_hw_bridge(struct work_struct *work)
 		goto bail;
 	}
 
-	res = configure_ipa_routing_block(work_data->lcid);
-	if (res) {
-		TETH_ERR("Configuration of IPA routing block Failed\n");
-		goto bail;
-	}
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
+		iterations = 8;
+	for (i = 0; i < iterations; ++i) {
+		if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
+			lcid = teth_ctx->mbim_stream_id_to_channel_id[i];
+		else
+			lcid = work_data->lcid;
+		res = configure_ipa_routing_block(lcid);
+		if (res) {
+			TETH_ERR("Configuration of IPA routing block Failed\n");
+			goto bail;
+		}
 
-	res = configure_ipa_filtering_block(work_data->lcid);
-	if (res) {
-		TETH_ERR("Configuration of IPA filtering block Failed\n");
-		goto bail;
+		res = configure_ipa_filtering_block(lcid);
+		if (res) {
+			TETH_ERR("IPA filtering configuration block Failed\n");
+			goto bail;
+		}
 	}
-
 	/*
 	 * Commit all the data to HW, including header, routing and filtering
 	 * blocks, IPv4 and IPv6
@@ -1404,7 +1476,16 @@ static void complete_hw_bridge(struct work_struct *work)
 		goto bail;
 	}
 
-	teth_ctx->ch_info[ch_info_idx].is_hw_bridge_complete = true;
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+		lcid = A2_MUX_MULTI_MBIM_13;
+		for (i = 0; i < iterations; i++, lcid++) {
+			ch_info_idx = get_ch_info_idx(lcid);
+			teth_ctx->ch_info[ch_info_idx].is_hw_bridge_complete
+				= true;
+		}
+	} else {
+		teth_ctx->ch_info[ch_info_idx].is_hw_bridge_complete = true;
+	}
 bail:
 	teth_ctx->ch_info[ch_info_idx].comp_hw_bridge_in_progress = false;
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
@@ -1587,14 +1668,25 @@ static void usb_notify_cb(void *priv,
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
 	int res;
-	u16 lcid;
+	u16 lcid, stream_id = 0;
 	u16 idx;
+
+	TETH_DBG("in usb_notify_cb\n");
 
 	switch (evt) {
 	case IPA_RECEIVE:
-		lcid = (u16)(u32)priv;
+		if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+			/* extract the stream id from the skb */
+			skb_push(skb, TETH_METADATA_LEN);
+			stream_id = ntohl(*((u32 *)skb->data));
+			TETH_DBG("stream_id %d\n", stream_id);
+			skb_pull(skb, TETH_METADATA_LEN);
+			lcid = teth_ctx->
+					mbim_stream_id_to_channel_id[stream_id];
+		} else
+			lcid = (u16)(u32)priv;
 		TETH_DBG("usb_notify_cb: got lcid=%d from private data\n",
-			lcid);
+				lcid);
 		idx = get_ch_info_idx(lcid);
 		if (!teth_ctx->ch_info[idx].is_hw_bridge_complete)
 			check_to_complete_hw_bridge(
@@ -1680,14 +1772,28 @@ static void a2_notify_cb(void *user_data,
 	int res;
 	u16 idx;
 	u16 lcid;
-	u16 client_id;
+	u16 client;
+	struct ipa_tx_meta metadata;
+	TETH_DBG("in a2_notify_cb: event:%d\n", event);
 
 	switch (event) {
 	case A2_MUX_RECEIVE:
+		memset(&metadata, 0, sizeof(metadata));
 		lcid = (u16)(u32)user_data;
 		TETH_DBG("a2_notify_cb: got lcid=%d from private data\n",
 			lcid);
-		client_id = get_cons_client(lcid);
+		if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+			s16 stream_id = find_mbim_stream_id(lcid);
+			if (stream_id < 0) {
+				TETH_ERR("No stream id for lcid %d\n", lcid);
+				return;
+			}
+			client = IPA_CLIENT_USB_CONS;
+			metadata.mbim_stream_id_valid = true;
+			metadata.mbim_stream_id = stream_id;
+		} else {
+			client = get_cons_client(lcid);
+		}
 		idx = get_ch_info_idx(lcid);
 		if (!teth_ctx->ch_info[idx].is_hw_bridge_complete)
 			check_to_complete_hw_bridge(
@@ -1718,7 +1824,7 @@ static void a2_notify_cb(void *user_data,
 			return;
 		}
 
-		res = ipa_tx_dp(client_id, skb, NULL);
+		res = ipa_tx_dp(client, skb, &metadata);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
 			dev_kfree_skb(skb);
@@ -1836,7 +1942,6 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 		enum ipa_client_type client)
 {
 	int res = 0;
-	struct ipa_rm_register_params a2_prod_reg_params;
 	u32 lcid;
 	int idx;
 
@@ -1854,22 +1959,6 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 	idx = get_ch_info_idx(lcid);
 
 	mutex_lock(&teth_ctx->init_mutex);
-	/*
-	 * Register for A2_PROD resource notifications (only for single rmnet)
-	 * In multi rmnet, the a2_service is responsible for configure the
-	 * ipa<->a2 pipes
-	 */
-	if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
-		a2_prod_reg_params.user_data = NULL;
-		a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
-		res = ipa_rm_register(IPA_RM_RESOURCE_A2_PROD,
-					  &a2_prod_reg_params);
-		if (res) {
-			TETH_ERR("ipa_rm_register() failed\n");
-			goto fail;
-		}
-	}
-
 	if (teth_ctx->init_status == TETH_INITIALIZATION_ERROR) {
 		res = -EPERM;
 		goto bail;
@@ -2001,6 +2090,18 @@ static void initialize_ch_info_arr(void)
 }
 
 /**
+ * init_stream_id_to_channel_id_array() -
+		Initialize the stream_id to lcid array
+ */
+void init_stream_id_to_channel_id_array(void)
+{
+	u16 stream, lcid = A2_MUX_MULTI_MBIM_13;
+
+	for (stream = 0; stream < MAX_MBIM_STREAMS; stream++, lcid++)
+		teth_ctx->mbim_stream_id_to_channel_id[stream] = lcid;
+}
+
+/**
  * initialize_context() - Initialize the ipa_ctx struct
  */
 static void initialize_context(void)
@@ -2026,6 +2127,8 @@ static void initialize_context(void)
 	teth_ctx->ch_init_cnt = 0;
 	teth_ctx->init_status = TETH_NOT_INITIALIZED;
 	teth_ctx->debugfs_lcid = A2_MUX_TETHERED_0;
+
+	init_stream_id_to_channel_id_array();
 
 	TETH_DBG_FUNC_EXIT();
 }
@@ -2163,23 +2266,32 @@ int teth_bridge_disconnect(enum ipa_client_type client)
 {
 	u16 lcid;
 	u16 idx;
+	u16 num_of_iteration = 1, i;
 
 	TETH_DBG_FUNC_ENTRY();
-	lcid = get_channel_id_from_client_prod(client);
-	idx = get_ch_info_idx(lcid);
-	if (!teth_ctx->ch_info[idx].is_connected) {
-		TETH_ERR(
-			"Trying to disconnect an already disconnected bridge\n");
-		goto bail;
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+		num_of_iteration = 8;
+		lcid = A2_MUX_MULTI_MBIM_13;
+	} else {
+		lcid = get_channel_id_from_client_prod(client);
 	}
-	mutex_lock(&teth_ctx->init_mutex);
-	if (teth_ctx->init_status == TETH_INITIALIZED)
-		disconnect_first_ch(lcid);
-	else
-		disconnect_ch(lcid);
-	teth_ctx->ch_info[idx].is_connected = false;
-	mutex_unlock(&teth_ctx->init_mutex);
-	TETH_DBG("ch #%d is disconnected.\n", lcid);
+
+	for (i = 0; i < num_of_iteration; i++, lcid++) {
+		idx = get_ch_info_idx(lcid);
+		if (!teth_ctx->ch_info[idx].is_connected) {
+			TETH_ERR(
+				"Trying to disconnect an already disconnected bridge\n");
+			goto bail;
+		}
+		mutex_lock(&teth_ctx->init_mutex);
+		if (teth_ctx->init_status == TETH_INITIALIZED)
+			disconnect_first_ch(lcid);
+		else
+			disconnect_ch(lcid);
+		teth_ctx->ch_info[idx].is_connected = false;
+		mutex_unlock(&teth_ctx->init_mutex);
+		TETH_DBG("ch #%d is disconnected.\n", lcid);
+	}
 
 bail:
 	TETH_DBG_FUNC_EXIT();
@@ -2199,11 +2311,14 @@ EXPORT_SYMBOL(teth_bridge_disconnect);
 */
 int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
-	int res;
+	int res, num_of_iterations = 1, i;
+
 	struct ipa_ep_cfg ipa_ep_cfg;
 	u16 lcid;
 	u16 idx;
 	struct hw_bridge_work_wrap *work_data;
+	enum teth_tethering_mode mode;
+	struct ipa_rm_register_params a2_prod_reg_params;
 
 	TETH_DBG_FUNC_ENTRY();
 
@@ -2218,34 +2333,43 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 		return -EINVAL;
 	}
 
-
-	lcid = get_channel_id_from_client_prod(connect_params->client_type);
-	idx = get_ch_info_idx(lcid);
-
-	if (teth_ctx->ch_info[idx].is_connected) {
-		TETH_ERR("Trying to connect an already connected bridge !\n");
-		return -EPERM;
-	}
-
-	teth_ctx->ch_info[idx].ipa_usb_pipe_hdl =
-		connect_params->ipa_usb_pipe_hdl;
-	teth_ctx->ch_info[idx].usb_ipa_pipe_hdl =
-		connect_params->usb_ipa_pipe_hdl;
 	teth_ctx->tethering_mode = connect_params->tethering_mode;
+	mode = connect_params->tethering_mode;
 
+	if (mode == TETH_TETHERING_MODE_MBIM) {
+		num_of_iterations = 8;
+		lcid = A2_MUX_MULTI_MBIM_13;
+	} else
+		lcid = get_channel_id_from_client_prod(
+				connect_params->client_type);
 	res = teth_request_resource();
 	if (res) {
 		TETH_ERR("request_resource() failed.\n");
 		goto bail;
 	}
+	for (i = 0; i < num_of_iterations; i++, lcid++) {
+		idx = get_ch_info_idx(lcid);
+		if (teth_ctx->ch_info[idx].is_connected) {
+			TETH_ERR(
+				"Trying to connect an already connected bridge\n");
+			return -EPERM;
+		}
 
-	res = a2_mux_open_channel(lcid,
-				  (void *)(u32)lcid,
-				  a2_notify_cb);
-	if (res) {
-		TETH_ERR("a2_mux_open_channel(%d) failed\n", lcid);
-		goto bail;
+		teth_ctx->ch_info[idx].ipa_usb_pipe_hdl =
+			connect_params->ipa_usb_pipe_hdl;
+		teth_ctx->ch_info[idx].usb_ipa_pipe_hdl =
+			connect_params->usb_ipa_pipe_hdl;
+		teth_ctx->tethering_mode = connect_params->tethering_mode;
+
+		res = a2_mux_open_channel(lcid,
+					  (void *)(u32)lcid,
+					  a2_notify_cb);
+		if (res) {
+			TETH_ERR("a2_mux_open_channel(%d) failed\n", lcid);
+			goto bail;
+		}
 	}
+	lcid--;
 
 	/* Reset the various endpoints configuration */
 	memset(&ipa_ep_cfg, 0, sizeof(ipa_ep_cfg));
@@ -2263,31 +2387,62 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 			mutex_unlock(&teth_ctx->init_mutex);
 			goto bail;
 		}
-		TETH_DBG("get_client_handles success.\n");
+		TETH_DBG("ipa_a2_pipe_hdl=0x%x, a2_ipa_pipe_hdl=0x%x\n",
+			teth_ctx->ipa_a2_pipe_hdl,
+			teth_ctx->a2_ipa_pipe_hdl);
 		if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
 			ipa_cfg_ep(teth_ctx->ipa_a2_pipe_hdl, &ipa_ep_cfg);
 			ipa_cfg_ep(teth_ctx->a2_ipa_pipe_hdl, &ipa_ep_cfg);
+
+			/*
+			* Register for A2_PROD resource notifications
+			* (only for single rmnet)
+			* In multi rmnet,
+			* the a2_service is responsible for configure the
+			* ipa<->a2 pipes
+			*/
+			a2_prod_reg_params.user_data = NULL;
+			a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+			res = ipa_rm_register(IPA_RM_RESOURCE_A2_PROD,
+				&a2_prod_reg_params);
+			if (res) {
+				TETH_ERR("ipa_rm_register() failed\n");
+				goto bail;
+			}
 		}
 	}
 
-	teth_ctx->ch_info[idx].is_connected = true;
-	TETH_DBG("lcid #%d is connected.\n", lcid);
+	if (mode == TETH_TETHERING_MODE_MBIM)
+		lcid = A2_MUX_MULTI_MBIM_13;
+	for (i = 0; i < num_of_iterations; i++, lcid++) {
+		idx = get_ch_info_idx(lcid);
+		teth_ctx->ch_info[idx].is_connected = true;
+		TETH_DBG("lcid #%d is connected.\n", lcid);
+	}
+	lcid--;
 	mutex_unlock(&teth_ctx->init_mutex);
 
-
-	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
-		TETH_DBG(
+	if (mode == TETH_TETHERING_MODE_MBIM)
+		lcid = A2_MUX_MULTI_MBIM_13;
+	for (i = 0; i < num_of_iterations; i++, lcid++) {
+		idx = get_ch_info_idx(lcid);
+		if (mode == TETH_TETHERING_MODE_MBIM) {
+			TETH_DBG(
 			"TETH_TETHERING_MODE_MBIM: setting link protocol to IP.\n");
-		teth_ctx->ch_info[idx].link_protocol = TETH_LINK_PROTOCOL_IP;
-	}
+			teth_ctx->ch_info[idx].link_protocol
+					= TETH_LINK_PROTOCOL_IP;
+		}
 
-	if (teth_ctx->ch_info[idx].aggr_params_known) {
-		res = teth_set_aggregation(lcid);
-		if (res) {
-			TETH_ERR("Failed setting aggregation params\n");
-			goto bail;
+
+		if (teth_ctx->ch_info[idx].aggr_params_known) {
+			res = teth_set_aggregation(lcid);
+			if (res) {
+				TETH_ERR("Failed setting aggregation params\n");
+				goto bail;
+			}
 		}
 	}
+	lcid--;
 
 	/* In case of IP link protocol, complete HW bridge */
 	if ((teth_ctx->ch_info[idx].link_protocol ==
@@ -2333,8 +2488,10 @@ static void teth_set_bridge_mode(u16 lcid,
 	memset(&teth_ctx->mac_addresses, 0, sizeof(teth_ctx->mac_addresses));
 }
 
+
+
 /**
- * teth_bridge_set_aggr_params() - kernel API to set aggregation parameters
+ * teth_bridge_set_aggr_params() - set aggregation parameters
  * @param client: name of the IPA "client"
  * @param aggr_params: aggregation parmeters for uplink and downlink
  *
@@ -2342,20 +2499,27 @@ static void teth_set_bridge_mode(u16 lcid,
  * transfer size which is less then 8K and also forbids Ethernet link protocol
  * with MBIM aggregation which is not supported by HW.
  */
-int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
+static int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
 		enum ipa_client_type client)
 {
 	int res;
 	u16 idx;
-	u16 lcid;
+	u16 lcid, i;
+	int num_of_iteration = 1;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (!aggr_params) {
 		TETH_ERR("Invalid parameter\n");
 		return -EINVAL;
 	}
-	lcid = get_channel_id_from_client_prod(client);
-	idx = get_ch_info_idx(lcid);
+
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
+		num_of_iteration = 8;
+		lcid = A2_MUX_MULTI_MBIM_13;
+	} else {
+		lcid = get_channel_id_from_client_prod(client);
+	}
+
 	/*
 	 * In case the requested max transfer size is larger than 8K, set it to
 	 * to the default 8K
@@ -2370,12 +2534,17 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
 			TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
 
 	/* Ethernet link protocol and MBIM aggregation is not supported */
-	if (teth_ctx->ch_info[idx].link_protocol ==
-			TETH_LINK_PROTOCOL_ETHERNET &&
-	    (aggr_params->dl.aggr_prot == TETH_AGGR_PROTOCOL_MBIM ||
-	     aggr_params->ul.aggr_prot == TETH_AGGR_PROTOCOL_MBIM)) {
-		TETH_ERR("Ethernet with MBIM is not supported.\n");
-		return -EINVAL;
+	for (i = 0; i < num_of_iteration; i++, lcid++) {
+		idx = get_ch_info_idx(lcid);
+		if (teth_ctx->ch_info[idx].link_protocol ==
+				TETH_LINK_PROTOCOL_ETHERNET
+				&& (aggr_params->dl.aggr_prot ==
+						TETH_AGGR_PROTOCOL_MBIM
+						|| aggr_params->ul.aggr_prot ==
+						TETH_AGGR_PROTOCOL_MBIM)) {
+			TETH_ERR("Ethernet with MBIM is not supported.\n");
+			return -EINVAL;
+		}
 	}
 
 	res = teth_request_resource();
@@ -2383,24 +2552,46 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
 		TETH_ERR("request_resource() failed.\n");
 		return res;
 	}
+	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
+		lcid = A2_MUX_MULTI_MBIM_13;
+	else
+		lcid = get_channel_id_from_client_prod(client);
+	for (i = 0; i < num_of_iteration; ++i, ++lcid) {
+		idx = get_ch_info_idx(lcid);
+		memcpy(&teth_ctx->ch_info[idx].aggr_params, aggr_params,
+		       sizeof(struct teth_aggr_params));
+		set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.dl);
+		set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.ul);
 
-	memcpy(&teth_ctx->ch_info[idx].aggr_params,
-	       aggr_params,
-	       sizeof(struct teth_aggr_params));
-	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.dl);
-	set_aggr_default_params(&teth_ctx->ch_info[idx].aggr_params.ul);
-
-	teth_ctx->ch_info[idx].aggr_params_known = true;
-	res = teth_set_aggregation(lcid);
-	if (res)
-		TETH_ERR("Failed setting aggregation params\n");
-
+		teth_ctx->ch_info[idx].aggr_params_known = true;
+		res = teth_set_aggregation(lcid);
+		if (res)
+			TETH_ERR(
+			 "Setting aggregation params fail, lcid %d\n", lcid);
+	}
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 	TETH_DBG_FUNC_EXIT();
 
 	return res;
 }
-EXPORT_SYMBOL(teth_bridge_set_aggr_params);
+
+/**
+ * teth_bridge_set_mbim_aggr_params() - Kernel API to set aggregation parameters
+ * for MBIM
+ * @param client: name of the IPA "client"
+ * @param aggr_params: aggregation parmeters for uplink and downlink
+ * Besides setting the aggregation parameters, the function enforces max
+ * transfer size which is less then 8K and also forbids Ethernet link protocol
+ * with MBIM aggregation which is not supported by HW.
+ */
+int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
+	enum ipa_client_type client)
+{
+	teth_ctx->tethering_mode = TETH_TETHERING_MODE_MBIM;
+	return teth_bridge_set_aggr_params(aggr_params, client);
+}
+EXPORT_SYMBOL(teth_bridge_set_mbim_aggr_params);
+
 
 static long teth_bridge_ioctl(struct file *filp,
 			      unsigned int cmd,
@@ -2653,10 +2844,26 @@ static ssize_t teth_debugfs_write_lcid(struct file *file,
 		teth_ctx->debugfs_lcid = A2_MUX_MULTI_RMNET_11;
 	} else if (strcmp(dbg_buff, "12") == 0) {
 			teth_ctx->debugfs_lcid = A2_MUX_MULTI_RMNET_12;
+	} else if (strcmp(dbg_buff, "13") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_13;
+	} else if (strcmp(dbg_buff, "14") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_14;
+	} else if (strcmp(dbg_buff, "15") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_15;
+	} else if (strcmp(dbg_buff, "16") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_16;
+	} else if (strcmp(dbg_buff, "17") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_17;
+	} else if (strcmp(dbg_buff, "18") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_18;
+	} else if (strcmp(dbg_buff, "19") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_19;
+	} else if (strcmp(dbg_buff, "20") == 0) {
+		teth_ctx->debugfs_lcid = A2_MUX_MULTI_MBIM_20;
 	} else {
 		teth_ctx->debugfs_lcid = A2_MUX_TETHERED_0;
 		TETH_ERR("Bad lcid, got %s,\n"
-			 "Use <8, 10-12>.\n", dbg_buff);
+			 "Use <8, 10-20>.\n", dbg_buff);
 		return count;
 	}
 
