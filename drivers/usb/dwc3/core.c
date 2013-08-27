@@ -543,12 +543,30 @@ static int dwc3_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (node) {
-		dwc->usb2_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
-		dwc->usb3_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 1);
+	dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
+	host_only_mode = of_property_read_bool(node, "host-only-mode");
+
+	/* host only mode doesnt use PHY xcvr; define nop ones */
+	if (host_only_mode) {
+		dwc->usb2_phy = devm_kzalloc(&pdev->dev, sizeof(struct usb_phy),
+								GFP_KERNEL);
+		if (!dwc->usb2_phy) {
+			dev_err(&pdev->dev, "unable to allocate dwc3nop phy\n");
+			return -ENOMEM;
+		}
+		dwc->usb3_phy = dwc->usb2_phy;
 	} else {
-		dwc->usb2_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
-		dwc->usb3_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB3);
+		if (node) {
+			dwc->usb2_phy =
+				devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
+			dwc->usb3_phy =
+				devm_usb_get_phy_by_phandle(dev, "usb-phy", 1);
+		} else {
+			dwc->usb2_phy =
+				devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
+			dwc->usb3_phy =
+				devm_usb_get_phy(dev, USB_PHY_TYPE_USB3);
+		}
 	}
 
 	if (IS_ERR(dwc->usb2_phy)) {
@@ -605,9 +623,6 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->maximum_speed = DWC3_DCFG_LOWSPEED;
 	else
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
-
-	dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
-	host_only_mode = of_property_read_bool(node, "host-only-mode");
 
 	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);

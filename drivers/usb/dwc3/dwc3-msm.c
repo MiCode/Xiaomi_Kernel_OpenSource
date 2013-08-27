@@ -2656,6 +2656,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct device	*dev = &pdev->dev;
+	struct usb_phy	*usb2_xceiv;
 	struct dwc3_msm *mdwc;
 	struct resource *res;
 	void __iomem *tcsr;
@@ -2997,13 +2998,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	usb2_xceiv = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 	if (node) {
-
-		/* Register USB2/3 PHYs before DWC3 init */
-		ret = dwc3_otg_register_phys(pdev);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to register dwc3 phys\n");
-			goto put_psupply;
+		/* Register USB PHYs before DWC3 init if DWC3 running as OTG */
+		if (IS_ERR(usb2_xceiv)) {
+			ret = dwc3_otg_register_phys(pdev);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to register dwc3 phys\n");
+				goto put_psupply;
+			}
 		}
 
 		ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -3027,6 +3030,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mdwc->otg_xceiv = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
+	if (IS_ERR(mdwc->otg_xceiv))
+		mdwc->otg_xceiv = NULL;
+
 	/* Register with OTG if present, ignore USB2 OTG using other PHY */
 	if (mdwc->otg_xceiv &&
 			!(mdwc->otg_xceiv->flags & ENABLE_SECONDARY_PHY)) {
