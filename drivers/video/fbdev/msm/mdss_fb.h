@@ -136,6 +136,7 @@ struct msm_fb_data_type {
 	phys_addr_t cursor_buf_phys;
 	dma_addr_t cursor_buf_iova;
 
+	int ext_ad_ctrl;
 	u32 ext_bl_ctrl;
 	u32 calib_mode;
 	u32 bl_level;
