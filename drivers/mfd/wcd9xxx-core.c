@@ -45,6 +45,9 @@
 #define WCD9XXX_I2C_DIGITAL_1	2
 #define WCD9XXX_I2C_DIGITAL_2	3
 
+#define ONDEMAND_REGULATOR true
+#define STATIC_REGULATOR (!ONDEMAND_REGULATOR)
+
 /* Number of return values needs to be checked for each
  * registration of Slimbus of I2C bus for each codec
  */
@@ -1277,17 +1280,18 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	}
 
 	ret = wcd9xxx_process_supplies(dev, pdata, static_prop_name,
-				static_cnt, false, 0);
+				static_cnt, STATIC_REGULATOR, 0);
 	if (ret)
 		goto err;
 
 	ret = wcd9xxx_process_supplies(dev, pdata, ond_prop_name,
-				ond_cnt, true, static_cnt);
+				ond_cnt, ONDEMAND_REGULATOR, static_cnt);
 	if (ret)
 		goto err;
 
 	ret = wcd9xxx_process_supplies(dev, pdata, cp_supplies_name,
-				cp_supplies_cnt, false, static_cnt + ond_cnt);
+				cp_supplies_cnt, ONDEMAND_REGULATOR,
+				static_cnt + ond_cnt);
 	if (ret)
 		goto err;
 
