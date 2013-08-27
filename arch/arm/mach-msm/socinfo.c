@@ -600,6 +600,17 @@ msm_get_platform_subtype(struct device *dev,
 }
 
 static ssize_t
+msm_get_platform_subtype_id(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	uint32_t hw_subtype;
+	hw_subtype = socinfo_get_platform_subtype();
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		hw_subtype);
+}
+
+static ssize_t
 msm_get_pmic_model(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
@@ -719,6 +730,13 @@ static struct device_attribute msm_soc_attr_platform_subtype =
 	__ATTR(platform_subtype, S_IRUGO,
 			msm_get_platform_subtype, NULL);
 
+/* Platform Subtype String is being deprecated. Use Platform
+ * Subtype ID instead.
+ */
+static struct device_attribute msm_soc_attr_platform_subtype_id =
+	__ATTR(platform_subtype_id, S_IRUGO,
+			msm_get_platform_subtype_id, NULL);
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, S_IRUGO,
 			msm_get_pmic_model, NULL);
@@ -782,6 +800,8 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	case 6:
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_platform_subtype);
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_platform_subtype_id);
 	case 5:
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_accessory_chip);
