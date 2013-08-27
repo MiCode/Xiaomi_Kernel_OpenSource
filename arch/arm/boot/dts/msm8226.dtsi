@@ -377,6 +377,18 @@
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
 	};
 
+	sound-9302 {
+		compatible = "qcom,msm8226-audio-tapan";
+		qcom,model = "msm8226-tapan9302-snd-card";
+		qcom,tapan-mclk-clk-freq = <9600000>;
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,tapan-codec-9302;
+	};
+
 	qcom,msm-pcm {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <0>;
