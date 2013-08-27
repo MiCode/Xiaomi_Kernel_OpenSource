@@ -288,6 +288,10 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		pr_err("%s: Invalid bufq\n", __func__);
 		return rc;
 	}
+	if (!bufq->bufq_handle) {
+		pr_err("%s: Invalid bufq handle\n", __func__);
+		return rc;
+	}
 
 	*buf_info = NULL;
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
