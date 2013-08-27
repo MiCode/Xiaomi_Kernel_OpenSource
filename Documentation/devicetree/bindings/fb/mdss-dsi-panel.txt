@@ -116,6 +116,12 @@ Optional properties:
 					0xff = default value.
 - qcom,mdss-dsi-border-color:		Defines the border color value if border is present.
 					0 = default value.
+- qcom,mdss-dsi-pan-enable-dynamic-fps:	Boolean used to enable change in frame rate dynamically.
+- qcom,mdss-dsi-pan-fps-update:		A string that specifies when to change the frame rate.
+					"dfps_suspend_resume_mode"= FPS change request is
+						implemented during suspend/resume.
+					"dfps_immediate_clk_mode" = FPS change request is
+						implemented immediately using DSI clocks.
 - qcom,mdss-dsi-bl-pmic-control-type:	A string that specifies the implementation of backlight
 					control for this panel.
 					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
@@ -315,6 +321,8 @@ Example:
 		qcom,mdss-dsi-off-command = [22 01 00 00 00 00 00];
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-pan-enable-dynamic-fps;
+		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
 		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;

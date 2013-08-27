@@ -106,13 +106,64 @@ void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
 #define PREF_DIV_RATIO 27
 struct dsiphy_pll_divider_config pll_divider_config;
 
-int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
-			    u32 *expected_dsi_pclk)
+int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
+			    int frame_rate)
 {
 	u32 fb_divider, rate, vco;
 	u32 div_ratio = 0;
 	u32 pll_analog_posDiv = 1;
+	u32 h_period, v_period;
+	u32 dsi_pclk_rate;
+	u8 lanes = 0, bpp;
 	struct dsi_clk_mnd_table const *mnd_entry = mnd_table;
+
+	if (panel_info->mipi.data_lane3)
+		lanes += 1;
+	if (panel_info->mipi.data_lane2)
+		lanes += 1;
+	if (panel_info->mipi.data_lane1)
+		lanes += 1;
+	if (panel_info->mipi.data_lane0)
+		lanes += 1;
+
+	switch (panel_info->mipi.dst_format) {
+	case DSI_CMD_DST_FORMAT_RGB888:
+	case DSI_VIDEO_DST_FORMAT_RGB888:
+	case DSI_VIDEO_DST_FORMAT_RGB666_LOOSE:
+		bpp = 3;
+		break;
+	case DSI_CMD_DST_FORMAT_RGB565:
+	case DSI_VIDEO_DST_FORMAT_RGB565:
+		bpp = 2;
+		break;
+	default:
+		bpp = 3;	/* Default format set to RGB888 */
+		break;
+	}
+
+	h_period = mdss_panel_get_htotal(panel_info);
+	v_period = mdss_panel_get_vtotal(panel_info);
+
+	if ((frame_rate !=
+	     panel_info->mipi.frame_rate) ||
+	    (!panel_info->clk_rate)) {
+		h_period += panel_info->lcdc.xres_pad;
+		v_period += panel_info->lcdc.yres_pad;
+
+		if (lanes > 0) {
+			panel_info->clk_rate =
+			((h_period * v_period *
+			  frame_rate * bpp * 8)
+			   / lanes);
+		} else {
+			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
+			panel_info->clk_rate =
+				(h_period * v_period * frame_rate * bpp * 8);
+		}
+	}
+	pll_divider_config.clk_rate = panel_info->clk_rate;
+
+
 	if (pll_divider_config.clk_rate == 0)
 		pll_divider_config.clk_rate = 454000000;
 
@@ -176,8 +227,12 @@ int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 		dsi_pclk.n = mnd_entry->pclk_n;
 		dsi_pclk.d = mnd_entry->pclk_d;
 	}
-	*expected_dsi_pclk = (((pll_divider_config.clk_rate) * lanes)
+	dsi_pclk_rate = (((pll_divider_config.clk_rate) * lanes)
 				      / (8 * bpp));
+
+	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
+		dsi_pclk_rate = 35000000;
+	panel_info->mipi.dsi_pclk_rate = dsi_pclk_rate;
 
 	return 0;
 }
