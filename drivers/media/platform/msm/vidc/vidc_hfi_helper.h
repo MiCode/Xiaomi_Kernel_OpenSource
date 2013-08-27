@@ -105,6 +105,7 @@
 #define HFI_H264_LEVEL_42					0x00002000
 #define HFI_H264_LEVEL_5					0x00004000
 #define HFI_H264_LEVEL_51					0x00008000
+#define HFI_H264_LEVEL_52                                       0x00010000
 
 #define HFI_H263_PROFILE_BASELINE			0x00000001
 

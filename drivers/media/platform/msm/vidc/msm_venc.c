@@ -329,7 +329,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_1,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
 		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
 		.step = 0,
 		.menu_skip_mask = 0,
@@ -1155,6 +1155,8 @@ static inline int venc_v4l2_to_hal(int id, int value)
 			return HAL_H264_LEVEL_5;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
 			return HAL_H264_LEVEL_51;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
+			return HAL_H264_LEVEL_52;
 		default:
 			goto unknown_value;
 		}
