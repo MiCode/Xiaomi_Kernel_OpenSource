@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "#%d: " fmt, __LINE__
 
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -37,20 +37,18 @@
 #define PMIC_ARB_GENI_STATUS		0x0028
 #define PMIC_ARB_PROTOCOL_IRQ_STATUS	(0x700 + 0x820)
 
-/* PMIC Arbiter channel registers */
-#define PMIC_ARB_CMD(N)			(0x0800 + (0x80 * (N)))
-#define PMIC_ARB_CONFIG(N)		(0x0804 + (0x80 * (N)))
-#define PMIC_ARB_STATUS(N)		(0x0808 + (0x80 * (N)))
-#define PMIC_ARB_WDATA0(N)		(0x0810 + (0x80 * (N)))
-#define PMIC_ARB_WDATA1(N)		(0x0814 + (0x80 * (N)))
-#define PMIC_ARB_RDATA0(N)		(0x0818 + (0x80 * (N)))
-#define PMIC_ARB_RDATA1(N)		(0x081C + (0x80 * (N)))
+/* Offset per chnnel-register type */
+#define PMIC_ARB_CMD		(0x00)
+#define PMIC_ARB_CONFIG		(0x04)
+#define PMIC_ARB_STATUS		(0x08)
+#define PMIC_ARB_WDATA0		(0x10)
+#define PMIC_ARB_WDATA1		(0x14)
+#define PMIC_ARB_RDATA0		(0x18)
+#define PMIC_ARB_RDATA1		(0x1C)
 
-/* Interrupt Controller */
-#define SPMI_PIC_OWNER_ACC_STATUS(M, N)	(0x0000 + ((32 * (M)) + (4 * (N))))
-#define SPMI_PIC_ACC_ENABLE(N)		(0x0200 + (4 * (N)))
-#define SPMI_PIC_IRQ_STATUS(N)		(0x0600 + (4 * (N)))
-#define SPMI_PIC_IRQ_CLEAR(N)		(0x0A00 + (4 * (N)))
+/* PMIC Arbiter configuration registers values */
+#define PMIC_ARB_V2_MIN			(0x20010000)
+#define PMIC_ARB_CORE_REGISTERS_OBS	(0x800000)
 
 /* Mapping Table */
 #define SPMI_MAPPING_TABLE_REG(N)	(0x0B00 + (4 * (N)))
@@ -66,6 +64,11 @@
 /* Ownership Table */
 #define SPMI_OWNERSHIP_TABLE_REG(N)	(0x0700 + (4 * (N)))
 #define SPMI_OWNERSHIP_PERIPH2OWNER(X)	((X) & 0x7)
+
+/* PPID, SID, PID */
+#define PMIC_ARB_PERIPH_ID(spmi_addr)		(((spmi_addr) >> 8) & 0xFF)
+#define PMIC_ARB_ADDR_IN_PERIPH(spmi_addr)	((spmi_addr) & 0xFF)
+#define PMIC_ARB_REG_CHNL(chnl_num)		(0x800 + 0x4 * (chnl_num))
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
@@ -98,6 +101,7 @@ enum pmic_arb_cmd_op_code {
 
 /* Maximum number of support PMIC peripherals */
 #define PMIC_ARB_MAX_PERIPHS		256
+#define PMIC_ARB_MAX_CHNL		128
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
 #define PMIC_ARB_MAX_TRANS_BYTES	(8)
@@ -108,52 +112,226 @@ enum pmic_arb_cmd_op_code {
 /* interrupt enable bit */
 #define SPMI_PIC_ACC_ENABLE_BIT		BIT(0)
 
-/**
- * base - base address of the PMIC Arbiter core registers.
- * intr - base address of the SPMI interrupt control registers
+/* lookup channel num, given sid+pid. each sid points to 8bits of pids */
+#define PMIC_ARB_CHNL(pmic_arb, sid, pid) \
+			((pmic_arb)->ppid_2_chnl_tbl[(((sid) << 8) | (pid))])
+
+/*
+ * spmi_pmic_arb_dbg: information used for debugging
+ *
+ * @base_phy   physical address of the core      register space
+ * @rdbase_phy physical address of the observer  register space
+ * @wrbase_phy physical address of the channels  register space
+ * @intr_phy   physical address of the interrupt register space
+ */
+struct spmi_pmic_arb_dbg {
+	phys_addr_t		base_phy;
+	phys_addr_t		rdbase_phy;
+	phys_addr_t		wrbase_phy;
+	phys_addr_t		intr_phy;
+};
+
+struct spmi_pmic_arb_dev;
+
+/*
+ * spmi_pmic_arb_ver: version dependent callbacks.
+ *
+ * @chnl_ofst ocalc ffset per channel. Note that v1 channel is one per EE, and
+ *   v2 channels are one per PMIC peripheral.
+ * @fmt_cmd format formats a GENI/SPMI command.
+ * @owner_acc_status calc offset to PMIC_ARB_SPMI_PIC_OWNERm_ACC_STATUSn on v1,
+ *   and SPMI_PIC_OWNERm_ACC_STATUSn on v2.
+ * @acc_enable calc offset to PMIC_ARB_SPMI_PIC_ACC_ENABLEn on v1,
+ *   and SPMI_PIC_ACC_ENABLEn on v2.
+ * @irq_status calc offset to PMIC_ARB_SPMI_PIC_IRQ_STATUSn on v1,
+ *   and SPMI_PIC_IRQ_STATUSn on v2.
+ * @irq_clear calc offset to PMIC_ARB_SPMI_PIC_IRQ_CLEARn on v,
+ *   and SPMI_PIC_IRQ_CLEARn on v2.
+ */
+struct spmi_pmic_arb_ver {
+	int (*non_data_cmd)(struct spmi_pmic_arb_dev *dev, u8 opc, u8 sid);
+	/* following functions are about phripheral rd/wr */
+	phys_addr_t	(*chnl_ofst)(struct spmi_pmic_arb_dev *dev, u8 sid,
+								u16 addr);
+	u32		(*fmt_cmd)(u8 opc, u8 sid, u16 addr, u8 bc);
+	/* following functions calc offsets to peripheral PIC registers */
+	phys_addr_t	(*owner_acc_status)(u8 m, u8 n);
+	phys_addr_t	(*acc_enable)(u8 n);
+	phys_addr_t	(*irq_status)(u8 n);
+	phys_addr_t	(*irq_clear)(u8 n);
+};
+
+/*
+ * @base base address of the PMIC Arbiter core registers.
+ * @rdbase, @wrbase base address of the PMIC Arbiter read core registers.
+ *     For HW-v1 these are equal to base.
+ *     For HW-v2, the value is the same in eeraly probing, in order to read
+ *     PMIC_ARB_CORE registers, then chnls, and obsrvr are set to
+ *     PMIC_ARB_CORE_REGISTERS and PMIC_ARB_CORE_REGISTERS_OBS respectivly.
+ * @intr base address of the SPMI interrupt control registers
+ * @ppid_2_chnl_tbl lookup table f(SID, Periph-ID) -> channle num
+ * @fmt_cmd formats a command to be set into PMIC_ARBq_CHNLn_CMD
+ * @chnl_ofst calculates offset of the base of a channel reg space
+ * @ee execution environment id
  */
 struct spmi_pmic_arb_dev {
 	struct spmi_controller	controller;
 	struct device		*dev;
 	struct device		*slave;
 	void __iomem		*base;
+	void __iomem		*rdbase;
+	void __iomem		*wrbase;
 	void __iomem		*intr;
 	void __iomem		*cnfg;
+	struct spmi_pmic_arb_dbg dbg;
 	int			pic_irq;
 	bool			allow_wakeup;
 	spinlock_t		lock;
-	u8			owner;
+	u8			ee;
 	u8			channel;
 	u8			min_apid;
 	u8			max_apid;
 	u16			periph_id_map[PMIC_ARB_MAX_PERIPHS];
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
+	const struct spmi_pmic_arb_ver *ver;
+	u8			*ppid_2_chnl_tbl;
 };
 
 static struct spmi_pmic_arb_dev *the_pmic_arb;
 
+static phys_addr_t pmic_arb_chnl_ofst_v1(struct spmi_pmic_arb_dev *dev,
+							u8 sid, u16 addr)
+{
+	return 0x800 + 0x80 * (dev->channel);
+}
+
+static phys_addr_t pmic_arb_chnl_ofst_v2(struct spmi_pmic_arb_dev *dev,
+							u8 sid, u16 addr)
+{
+	char chnl = PMIC_ARB_CHNL(dev, sid, PMIC_ARB_PERIPH_ID(addr));
+	return 0x1000 * (dev->ee) + 0x8000 * (chnl);
+}
+
+static u32 pmic_arb_fmt_cmd_v1(u8 opc, u8 sid, u16 addr, u8 bc)
+{
+	return (opc << 27) | ((sid & 0xF) << 20) | (addr << 4) | (bc & 0x7);
+}
+
+static u32 pmic_arb_fmt_cmd_v2(u8 opc, u8 sid, u16 addr, u8 bc)
+{
+	return (opc << 27) | (PMIC_ARB_ADDR_IN_PERIPH(addr) << 4) | (bc & 0x7);
+}
+
+static phys_addr_t pmic_arb_owner_acc_status_v1(u8 m, u8 n)
+{
+	return 0x20 * (m) + 0x4 * (n);
+}
+
+static phys_addr_t pmic_arb_owner_acc_status_v2(u8 m, u8 n)
+{
+	return 0x100000 + 0x1000 * (m) + 0x4 * (n);
+}
+
+static phys_addr_t pmic_arb_acc_enable_v1(u8 n)
+{
+	return 0x200 + 0x4 * (n);
+}
+
+static phys_addr_t pmic_arb_acc_enable_v2(u8 n)
+{
+	return 0x1000 * (n);
+}
+
+static phys_addr_t pmic_arb_irq_status_v1(u8 n)
+{
+	return 0x600 + 0x4 * (n);
+}
+
+static phys_addr_t pmic_arb_irq_status_v2(u8 n)
+{
+	return 0x4 + 0x1000 * (n);
+}
+
+static phys_addr_t pmic_arb_irq_clear_v1(u8 n)
+{
+	return 0xA00 + 0x4 * (n);
+}
+
+static phys_addr_t pmic_arb_irq_clear_v2(u8 n)
+{
+	return 0x8 + 0x1000 * (n);
+}
+
+static void dbg_io(struct spmi_pmic_arb_dev *dev, const char *name,
+			void *virt, phys_addr_t phys, u32 offset, u32 val)
+{
+	dev_dbg(dev->dev,
+	    "%-10s phy-base:0x%lx phy:0x%lx virt:0x%p ofst:0x%03x val:0x%x\n",
+	    name, (ulong) phys, (ulong) (phys + offset), (virt + offset),
+	    offset,  val);
+}
+
 static u32 pmic_arb_read(struct spmi_pmic_arb_dev *dev, u32 offset)
 {
-	u32 val = readl_relaxed(dev->base + offset);
+	u32 val = readl_relaxed(dev->rdbase + offset);
 
-	pr_debug("address 0x%p, val 0x%x\n", dev->base + offset, val);
+	dbg_io(dev, "spmi-rx", dev->rdbase, dev->dbg.rdbase_phy, offset, val);
 	return val;
 }
 
 static void pmic_arb_write(struct spmi_pmic_arb_dev *dev, u32 offset, u32 val)
 {
-	pr_debug("address 0x%p, val 0x%x\n", dev->base + offset, val);
-	writel_relaxed(val, dev->base + offset);
+	writel_relaxed(val, dev->wrbase + offset);
+	dbg_io(dev, "spmi-tx", dev->wrbase, dev->dbg.wrbase_phy, offset, val);
 }
 
-static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev)
+static void pmic_arb_set_rd_cmd(struct spmi_pmic_arb_dev *dev, u32 offset,
+									u32 val)
+{
+	dbg_io(dev, "set-rd-cmd", dev->rdbase, dev->dbg.rdbase_phy, offset,
+									val);
+	writel_relaxed(val, dev->rdbase + offset);
+}
+
+static void dbg_pic_io(struct spmi_pmic_arb_dev *dev, const char *name,
+			void *virt, phys_addr_t phys, u32 offset, u32 val,
+			u8 sid, u16 pid, u8 apid, const char *desc)
+{
+	dev_dbg(dev->dev,
+	"%-10s phy-base:0x%lx phy:0x%lx virt:0x%p ofst:0x%03x val:0x%x sid:%d pid:0x%x apid:0x%x %s\n",
+	name, (ulong) phys, (ulong) (phys + offset), (virt + offset), offset,
+	val, sid, pid, apid, desc ? desc : "");
+}
+
+static void spmi_pic_acc_en_wr(struct spmi_pmic_arb_dev *dev, u32 val,
+				u8 sid, u16 pid, u8 apid, const char *desc)
+{
+	phys_addr_t ofst = dev->ver->acc_enable(apid);
+	dbg_pic_io(dev, "acc-en-wr", dev->intr, dev->dbg.intr_phy, ofst, val,
+							sid, pid, apid, desc);
+	writel_relaxed(val, dev->intr + ofst);
+}
+
+static u32 spmi_pic_acc_en_rd(struct spmi_pmic_arb_dev *dev,
+				u8 sid, u16 pid, u8 apid, const char *desc)
+{
+	phys_addr_t ofst = dev->ver->acc_enable(apid);
+	u32 val = readl_relaxed(dev->intr + ofst);
+	dbg_pic_io(dev, "acc-en-rd", dev->intr, dev->dbg.intr_phy, ofst, val,
+							sid, pid, apid, desc);
+
+	return val;
+}
+
+static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev,
+					void __iomem *base, u8 sid, u16 addr)
 {
 	u32 status = 0;
 	u32 timeout = PMIC_ARB_TIMEOUT_US;
-	u32 offset = PMIC_ARB_STATUS(dev->channel);
+	u32 offset = dev->ver->chnl_ofst(dev, sid, addr) + PMIC_ARB_STATUS;
 
 	while (timeout--) {
-		status = pmic_arb_read(dev, offset);
+		status = readl_relaxed(base + offset);
 
 		if (status & PMIC_ARB_STATUS_DONE) {
 			if (status & PMIC_ARB_STATUS_DENIED) {
@@ -223,13 +401,42 @@ static void pmic_arb_dbg_dump_regs(struct spmi_pmic_arb_dev *pmic_arb, int ret,
 		ret, msg, irq, geni_stat, geni_ctrl);
 }
 
-/* Non-data command */
-static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
+static int
+pmic_arb_non_data_cmd_v1(struct spmi_pmic_arb_dev *pmic_arb, u8 opc, u8 sid)
 {
-	struct spmi_pmic_arb_dev *pmic_arb = spmi_get_ctrldata(ctrl);
 	unsigned long flags;
 	u32 cmd;
 	int rc;
+	/* sid and addr are don't-care for pmic_arb_chnl_ofst_v1() HW-v1  */
+	phys_addr_t chnl_ofst = pmic_arb_chnl_ofst_v1(pmic_arb, 0, 0);
+
+	opc -= SPMI_CMD_RESET - PMIC_ARB_OP_RESET;
+
+	cmd = (opc << 27) | ((sid & 0xf) << 20);
+
+	spin_lock_irqsave(&pmic_arb->lock, flags);
+	pmic_arb_write(pmic_arb, chnl_ofst + PMIC_ARB_CMD, cmd);
+	/* sid and addr are don't-care for pmic_arb_wait_for_done() HW-v1 */
+	rc = pmic_arb_wait_for_done(pmic_arb, pmic_arb->wrbase, 0, 0);
+	spin_unlock_irqrestore(&pmic_arb->lock, flags);
+
+	if (rc)
+		pmic_arb_dbg_dump_regs(pmic_arb, rc, "cmd");
+	return rc;
+}
+
+/*
+ * currently unsupported by HW
+ */
+static int
+pmic_arb_non_data_cmd_v2(struct spmi_pmic_arb_dev *pmic_arb, u8 opc, u8 sid)
+{
+	return -EOPNOTSUPP;
+}
+
+static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
+{
+	struct spmi_pmic_arb_dev *pmic_arb = spmi_get_ctrldata(ctrl);
 
 	pr_debug("op:0x%x sid:%d\n", opc, sid);
 
@@ -237,19 +444,28 @@ static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 	if (opc < SPMI_CMD_RESET || opc > SPMI_CMD_WAKEUP)
 		return -EINVAL;
 
-	opc -= SPMI_CMD_RESET - PMIC_ARB_OP_RESET;
-
-	cmd = (opc << 27) | ((sid & 0xf) << 20);
-
-	spin_lock_irqsave(&pmic_arb->lock, flags);
-	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
-	rc = pmic_arb_wait_for_done(pmic_arb);
-	spin_unlock_irqrestore(&pmic_arb->lock, flags);
-
-	if (rc)
-		pmic_arb_dbg_dump_regs(pmic_arb, rc, "cmd");
-	return rc;
+	return pmic_arb->ver->non_data_cmd(pmic_arb, opc, sid);
 }
+
+static const struct spmi_pmic_arb_ver spmi_pmic_arb_v1 = {
+	.non_data_cmd		= pmic_arb_non_data_cmd_v1,
+	.chnl_ofst		= pmic_arb_chnl_ofst_v1,
+	.fmt_cmd		= pmic_arb_fmt_cmd_v1,
+	.owner_acc_status	= pmic_arb_owner_acc_status_v1,
+	.acc_enable		= pmic_arb_acc_enable_v1,
+	.irq_status		= pmic_arb_irq_status_v1,
+	.irq_clear		= pmic_arb_irq_clear_v1,
+};
+
+static const struct spmi_pmic_arb_ver spmi_pmic_arb_v2 = {
+	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
+	.chnl_ofst		= pmic_arb_chnl_ofst_v2,
+	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
+	.owner_acc_status	= pmic_arb_owner_acc_status_v2,
+	.acc_enable		= pmic_arb_acc_enable_v2,
+	.irq_status		= pmic_arb_irq_status_v2,
+	.irq_clear		= pmic_arb_irq_clear_v2,
+};
 
 static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 				u8 opc, u8 sid, u16 addr, u8 bc, u8 *buf)
@@ -258,6 +474,7 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 cmd;
 	int rc;
+	phys_addr_t chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr);
 
 	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
 		dev_err(pmic_arb->dev
@@ -265,7 +482,8 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 					, PMIC_ARB_MAX_TRANS_BYTES, bc+1);
 		return  -EINVAL;
 	}
-	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
+	dev_dbg(pmic_arb->dev, "client-rd op:0x%x sid:%d addr:0x%x bc:%d\n",
+							opc, sid, addr, bc + 1);
 
 	/* Check the opcode */
 	if (opc >= 0x60 && opc <= 0x7F)
@@ -277,21 +495,22 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	else
 		return -EINVAL;
 
-	cmd = (opc << 27) | ((sid & 0xf) << 20) | (addr << 4) | (bc & 0x7);
+	cmd = pmic_arb->ver->fmt_cmd(opc, sid, addr, bc);
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
-	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
-	rc = pmic_arb_wait_for_done(pmic_arb);
+
+	pmic_arb_set_rd_cmd(pmic_arb, chnl_ofst + PMIC_ARB_CMD, cmd);
+	rc = pmic_arb_wait_for_done(pmic_arb, pmic_arb->rdbase, sid, addr);
 	if (rc)
 		goto done;
 
 	/* Read from FIFO, note 'bc' is actually number of bytes minus 1 */
-	pa_read_data(pmic_arb, buf, PMIC_ARB_RDATA0(pmic_arb->channel)
-							, min_t(u8, bc, 3));
+	pa_read_data(pmic_arb, buf, chnl_ofst + PMIC_ARB_RDATA0,
+							min_t(u8, bc, 3));
 
 	if (bc > 3)
 		pa_read_data(pmic_arb, buf + 4,
-				PMIC_ARB_RDATA1(pmic_arb->channel), bc - 4);
+				chnl_ofst + PMIC_ARB_RDATA1, bc - 4);
 
 done:
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
@@ -307,6 +526,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 cmd;
 	int rc;
+	phys_addr_t chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr);
 
 	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
 		dev_err(pmic_arb->dev
@@ -314,7 +534,8 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 					, PMIC_ARB_MAX_TRANS_BYTES, bc+1);
 		return  -EINVAL;
 	}
-	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
+	dev_dbg(pmic_arb->dev, "client-wr op:0x%x sid:%d addr:0x%x bc:%d\n",
+							opc, sid, addr, bc + 1);
 
 	/* Check the opcode */
 	if (opc >= 0x40 && opc <= 0x5F)
@@ -328,19 +549,21 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	else
 		return -EINVAL;
 
-	cmd = (opc << 27) | ((sid & 0xf) << 20) | (addr << 4) | (bc & 0x7);
+	cmd = pmic_arb->ver->fmt_cmd(opc, sid, addr, bc);
 
 	/* Write data to FIFOs */
 	spin_lock_irqsave(&pmic_arb->lock, flags);
-	pa_write_data(pmic_arb, buf, PMIC_ARB_WDATA0(pmic_arb->channel)
-							, min_t(u8, bc, 3));
+	pa_write_data(pmic_arb, buf, chnl_ofst + PMIC_ARB_WDATA0,
+							min_t(u8, bc, 3));
+
 	if (bc > 3)
 		pa_write_data(pmic_arb, buf + 4,
-				PMIC_ARB_WDATA1(pmic_arb->channel), bc - 4);
+				chnl_ofst + PMIC_ARB_WDATA1, bc - 4);
 
 	/* Start the transaction */
-	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
-	rc = pmic_arb_wait_for_done(pmic_arb);
+	pmic_arb_write(pmic_arb, chnl_ofst + PMIC_ARB_CMD, cmd);
+
+	rc = pmic_arb_wait_for_done(pmic_arb, pmic_arb->wrbase, sid, addr);
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
 
 	if (rc)
@@ -407,7 +630,7 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 					SPMI_OWNERSHIP_TABLE_REG(apid)));
 
 		/* Check ownership */
-		if (owner != pmic_arb->owner) {
+		if (owner != pmic_arb->ee) {
 			dev_err(pmic_arb->dev, "PPID 0x%x incorrect owner %d\n",
 				ppid, owner);
 			return PMIC_ARB_MAX_PERIPHS;
@@ -462,11 +685,12 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 	}
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
-	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+	status = spmi_pic_acc_en_rd(pmic_arb, spec->slave, spec->per, apid,
+								"pic-en");
 	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
 		status = status | SPMI_PIC_ACC_ENABLE_BIT;
-		writel_relaxed(status,
-				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+		spmi_pic_acc_en_wr(pmic_arb, status, spec->slave, spec->per,
+								apid, "pic-en");
 		/* Interrupt needs to be enabled before returning to caller */
 		wmb();
 	}
@@ -483,7 +707,7 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 status;
 
-	dev_dbg(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
+	dev_err(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
 	if (data < pmic_arb->min_apid || data > pmic_arb->max_apid) {
@@ -497,12 +721,13 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	}
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
-	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+	status = spmi_pic_acc_en_rd(pmic_arb, spec->slave, spec->per, apid,
+								"pic-en");
 	if (status & SPMI_PIC_ACC_ENABLE_BIT) {
 		/* clear the enable bit and write */
 		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
-		writel_relaxed(status,
-				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
+		spmi_pic_acc_en_wr(pmic_arb, status, spec->slave, spec->per,
+								apid, "pic-en");
 		/* Interrupt needs to be disabled before returning to caller */
 		wmb();
 	}
@@ -525,7 +750,7 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 		/* return IRQ_NONE; */
 	}
 
-	status = readl_relaxed(intr + SPMI_PIC_ACC_ENABLE(apid));
+	status = spmi_pic_acc_en_rd(pmic_arb, sid, pid, apid, "isr");
 	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
 		/*
 		 * All interrupts from this peripheral are disabled
@@ -535,11 +760,11 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 	}
 
 	/* Read the peripheral specific interrupt bits */
-	status = readl_relaxed(intr + SPMI_PIC_IRQ_STATUS(apid));
+	status = readl_relaxed(intr + pmic_arb->ver->irq_status(apid));
 
 	if (!show) {
 		/* Clear the peripheral interrupts */
-		writel_relaxed(status, intr + SPMI_PIC_IRQ_CLEAR(apid));
+		writel_relaxed(status, intr + pmic_arb->ver->irq_clear(apid));
 		/* Irq needs to be cleared/acknowledged before exiting ISR */
 		mb();
 	}
@@ -572,8 +797,7 @@ static irqreturn_t
 __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = dev_id;
-	void __iomem *intr = pmic_arb->intr;
-	u8 ee = pmic_arb->owner;
+	u8 ee = pmic_arb->ee;
 	u32 ret = IRQ_NONE;
 	u32 status;
 
@@ -585,7 +809,8 @@ __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 
 	/* Check the accumulated interrupt status */
 	for (i = first; i <= last; ++i) {
-		status = readl_relaxed(intr + SPMI_PIC_OWNER_ACC_STATUS(ee, i));
+		status = readl_relaxed(pmic_arb->intr +
+					pmic_arb->ver->owner_acc_status(ee, i));
 
 		for (j = 0; status && j < 32; ++j, status >>= 1) {
 			if (status & 0x1) {
@@ -638,7 +863,8 @@ static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
 
 		seq_printf(file, "APID 0x%.2x = PPID 0x%.3x. Enabled:%d\n",
 			i, get_peripheral_id(pmic_arb, i),
-			readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(i)));
+			readl_relaxed(pmic_arb->intr +
+						pmic_arb->ver->acc_enable(i)));
 	}
 
 	return 0;
@@ -656,7 +882,7 @@ static const struct file_operations pmic_arb_dfs_fops = {
 	.release	= seq_release,
 };
 
-static int 
+static int
 spmi_pmic_arb_get_property(struct platform_device *pdev, char *pname, u32 *prop)
 {
 	int ret = of_property_read_u32(pdev->dev.of_node, pname, prop);
@@ -675,10 +901,119 @@ static struct qpnp_local_int spmi_pmic_arb_intr_cb = {
 	.register_priv_data = pmic_arb_intr_priv_data,
 };
 
+static int pmic_arb_chnl_tbl_create(struct spmi_pmic_arb_dev *pmic_arb)
+{
+	u8  chnl;
+	/* size: 12bit entries = 4bit SID + 8bit periph ID */
+	u32 tbl_sz = (1 << 12) * sizeof(chnl);
+
+	pmic_arb->ppid_2_chnl_tbl = devm_kzalloc(pmic_arb->dev, tbl_sz,
+								GFP_KERNEL);
+	if (!pmic_arb->ppid_2_chnl_tbl) {
+		dev_err(pmic_arb->dev,
+			"cannot allocate pmic_arb channel table\n");
+		return -ENOMEM;
+	}
+
+	/*
+	 * The PMIC_ARB_REG_CHNL registers are a table mapping channel number
+	 * to SID + PID (PPID). We create an invert of that table here for
+	 * optimization of mapping SID+PID to channel number.
+	 */
+	for (chnl = 0; chnl < PMIC_ARB_MAX_CHNL; ++chnl) {
+		u32 regval = readl_relaxed(pmic_arb->base +
+						PMIC_ARB_REG_CHNL(chnl));
+		u8  sid  = (regval >> 16) & 0xF;
+		u8  pid  = (regval >> 8) & 0xFF;
+
+		if (!regval)
+			continue;
+
+		PMIC_ARB_CHNL(pmic_arb, sid, pid) = chnl;
+	}
+	return 0;
+}
+
+/*
+ * pmic_arb_devm_ioremap: get resource and ioremap it
+ *
+ * @res_name name of resource
+ * @virt input parameter, will be set with the resources mapped virtual adderss
+ * @phys input parameter, if not null, will be set to the resources physical
+ *    address. If null, no-op.
+ */
+static int pmic_arb_devm_ioremap(struct platform_device *pdev,
+		const char *res_name, void __iomem **virt, phys_addr_t *phys)
+{
+	struct resource *mem_res =
+	     platform_get_resource_byname(pdev, IORESOURCE_MEM, res_name);
+
+	if (!mem_res) {
+		dev_err(&pdev->dev, "error missing config of %s reg-space\n",
+								res_name);
+		return -ENODEV;
+	}
+
+	*virt = devm_ioremap(&pdev->dev, mem_res->start,
+							resource_size(mem_res));
+
+	dev_dbg(&pdev->dev,
+		"%s ioremap(phy:0x%lx vir:0x%p len:0x%lx)\n", res_name,
+		(ulong) mem_res->start, *virt, (ulong) resource_size(mem_res));
+
+	if (!virt) {
+		dev_err(&pdev->dev,
+			"error %s ioremap(phy:0x%lx len:0x%lx) failed\n",
+			res_name, (ulong) mem_res->start,
+			(ulong) resource_size(mem_res));
+		return -ENOMEM;
+	}
+
+	if (phys)
+		*phys = mem_res->start;
+
+	return 0;
+}
+
+static int pmic_arb_version_specific_init(struct spmi_pmic_arb_dev *pmic_arb,
+						struct platform_device *pdev)
+{
+	int ret;
+	u32 version;
+
+	version = readl_relaxed(pmic_arb->base + PMIC_ARB_VERSION);
+
+	if (version < PMIC_ARB_V2_MIN) {
+		dev_err(&pdev->dev, "PMIC Arb Version-1 0x%x\n", version);
+		pmic_arb->rdbase	 = pmic_arb->base;
+		pmic_arb->wrbase	 = pmic_arb->base;
+		pmic_arb->dbg.rdbase_phy = pmic_arb->dbg.base_phy;
+		pmic_arb->dbg.wrbase_phy = pmic_arb->dbg.base_phy;
+		pmic_arb->ver		 = &spmi_pmic_arb_v1;
+	} else {
+		dev_err(&pdev->dev, "PMIC Arb Version-2 0x%x\n", version);
+		ret = pmic_arb_chnl_tbl_create(pmic_arb);
+		if (ret)
+			return ret;
+
+		ret = pmic_arb_devm_ioremap(pdev, "obsrvr", &pmic_arb->rdbase,
+						&pmic_arb->dbg.rdbase_phy);
+		if (ret)
+			return ret;
+
+		ret = pmic_arb_devm_ioremap(pdev, "chnls", &pmic_arb->wrbase,
+						&pmic_arb->dbg.wrbase_phy);
+		if (ret)
+			return ret;
+
+		pmic_arb->ver = &spmi_pmic_arb_v2;
+	}
+	return 0;
+}
+
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {
 	struct spmi_pmic_arb_dev *pmic_arb;
-	struct resource *mem_res;
 	u32 cell_index;
 	u32 prop;
 	int ret = 0;
@@ -692,45 +1027,25 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "can not allocate pmic_arb data\n");
 		return -ENOMEM;
 	}
+	pmic_arb->dev = &pdev->dev;
 
-	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core");
-	if (!mem_res) {
-		dev_err(&pdev->dev, "missing base memory resource\n");
-		return -ENODEV;
-	}
+	ret = pmic_arb_devm_ioremap(pdev, "core", &pmic_arb->base,
+						&pmic_arb->dbg.base_phy);
+	if (ret)
+		return ret;
 
-	pmic_arb->base = devm_ioremap(&pdev->dev,
-					mem_res->start, resource_size(mem_res));
-	if (!pmic_arb->base) {
-		dev_err(&pdev->dev, "ioremap of 'base' failed\n");
-		return -ENOMEM;
-	}
+	ret = pmic_arb_version_specific_init(pmic_arb, pdev);
+	if (ret)
+		return ret;
 
-	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intr");
-	if (!mem_res) {
-		dev_err(&pdev->dev, "missing mem resource (interrupts)\n");
-		return -ENODEV;
-	}
+	ret = pmic_arb_devm_ioremap(pdev, "intr", &pmic_arb->intr,
+						&pmic_arb->dbg.intr_phy);
+	if (ret)
+		return ret;
 
-	pmic_arb->intr = devm_ioremap(&pdev->dev,
-					mem_res->start, resource_size(mem_res));
-	if (!pmic_arb->intr) {
-		dev_err(&pdev->dev, "ioremap of 'intr' failed\n");
-		return -ENOMEM;
-	}
-
-	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cnfg");
-	if (!mem_res) {
-		dev_err(&pdev->dev, "missing mem resource (configuration)\n");
-		return -ENODEV;
-	}
-
-	pmic_arb->cnfg = devm_ioremap(&pdev->dev,
-					mem_res->start, resource_size(mem_res));
-	if (!pmic_arb->cnfg) {
-		dev_err(&pdev->dev, "ioremap of 'cnfg' failed\n");
-		return -ENOMEM;
-	}
+	ret = pmic_arb_devm_ioremap(pdev, "cnfg", &pmic_arb->cnfg, NULL);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < ARRAY_SIZE(pmic_arb->mapping_table); ++i)
 		pmic_arb->mapping_table[i] = readl_relaxed(
@@ -757,7 +1072,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-ee", &prop);
 	if (ret)
 		return -ENODEV;
-	pmic_arb->owner = (u8)prop;
+	pmic_arb->ee = (u8)prop;
 
 	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-channel", &prop);
 	if (ret)
@@ -777,7 +1092,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pmic_arb->max_apid = 0;
 	pmic_arb->min_apid = PMIC_ARB_MAX_PERIPHS - 1;
 
-	pmic_arb->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pmic_arb);
 	spmi_set_ctrldata(&pmic_arb->controller, pmic_arb);
 
@@ -813,9 +1127,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	if (spmi_dfs_create_file(&pmic_arb->controller, "mapping",
 					pmic_arb, &pmic_arb_dfs_fops) == NULL)
 		dev_err(&pdev->dev, "error creating 'mapping' debugfs file\n");
-
-	pr_debug("PMIC Arb Version 0x%x\n",
-			pmic_arb_read(pmic_arb, PMIC_ARB_VERSION));
 
 	the_pmic_arb = pmic_arb;
 	register_syscore_ops(&spmi_pmic_arb_syscore_ops);
