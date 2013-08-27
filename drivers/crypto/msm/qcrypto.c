@@ -118,7 +118,6 @@ struct crypto_priv {
 
 	uint32_t ce_lock_count;
 	uint32_t high_bw_req_count;
-	uint32_t low_bw_req_count;
 
 	struct work_struct unlock_ce_ws;
 
@@ -127,6 +126,8 @@ struct crypto_priv {
 	struct timer_list bw_scale_down_timer;
 
 	struct work_struct low_bw_req_ws;
+
+	bool high_bw_req;
 
 };
 
@@ -362,39 +363,31 @@ static void _words_to_byte_stream(uint32_t *iv, unsigned char *b,
 	}
 }
 
-static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req,
-			uint32_t low_bw_req_count)
+static void qcrypto_ce_set_bus(struct crypto_priv *cp, bool high_bw_req)
 {
 	int ret = 0;
 
-	mutex_lock(&qcrypto_sent_bw_req);
-	if (high_bw_req) {
-		if (cp->high_bw_req_count == 0) {
-			ret = qce_enable_clk(cp->qce);
-			if (ret) {
-				pr_err("%s Unable enable clk\n", __func__);
-				mutex_unlock(&qcrypto_sent_bw_req);
-				return;
-			}
-			ret = msm_bus_scale_client_update_request(
-					cp->bus_scale_handle, 1);
-			if (ret) {
-				pr_err("%s Unable to set to high bandwidth\n",
-							__func__);
-				qce_disable_clk(cp->qce);
-				mutex_unlock(&qcrypto_sent_bw_req);
-				return;
-			}
+	if (high_bw_req && cp->high_bw_req == false) {
+		ret = qce_enable_clk(cp->qce);
+		if (ret) {
+			pr_err("%s Unable enable clk\n", __func__);
+			return;
 		}
-		cp->high_bw_req_count++;
-	} else {
-		if (cp->high_bw_req_count == low_bw_req_count) {
+		ret = msm_bus_scale_client_update_request(
+				cp->bus_scale_handle, 1);
+		if (ret) {
+			pr_err("%s Unable to set to high bandwidth\n",
+						__func__);
+			qce_disable_clk(cp->qce);
+			return;
+		}
+		cp->high_bw_req = true;
+	} else if (high_bw_req == false && cp->high_bw_req == true) {
 			ret = msm_bus_scale_client_update_request(
 					cp->bus_scale_handle, 0);
 			if (ret) {
 				pr_err("%s Unable to set to low bandwidth\n",
 							__func__);
-				mutex_unlock(&qcrypto_sent_bw_req);
 				return;
 			}
 			ret = qce_disable_clk(cp->qce);
@@ -405,13 +398,10 @@ static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req,
 				if (ret)
 					pr_err("%s Unable to set to high bandwidth\n",
 							__func__);
-				mutex_unlock(&qcrypto_sent_bw_req);
 				return;
 			}
-			cp->high_bw_req_count = 0;
-		}
+		cp->high_bw_req = false;
 	}
-	mutex_unlock(&qcrypto_sent_bw_req);
 }
 
 static void qcrypto_bw_scale_down_timer_callback(unsigned long data)
@@ -425,19 +415,26 @@ static void qcrypto_bw_scale_down_timer_callback(unsigned long data)
 
 static void qcrypto_ce_bw_scaling_req(struct crypto_priv *cp, bool high_bw_req)
 {
+	mutex_lock(&qcrypto_sent_bw_req);
+
 	if (high_bw_req) {
-		qcrypto_ce_high_bw_req(cp, true, 0);
+		if (cp->high_bw_req_count == 0)
+			qcrypto_ce_set_bus(cp, true);
+		cp->high_bw_req_count++;
 	} else {
-		cp->low_bw_req_count = cp->high_bw_req_count;
-		cp->bw_scale_down_timer.data =
-			(unsigned long)(cp);
-		cp->bw_scale_down_timer.function =
-			qcrypto_bw_scale_down_timer_callback;
-		cp->bw_scale_down_timer.expires = jiffies +
+		cp->high_bw_req_count--;
+		if (cp->high_bw_req_count == 0) {
+			del_timer_sync(&(cp->bw_scale_down_timer));
+			cp->bw_scale_down_timer.data =
+				(unsigned long)(cp);
+			cp->bw_scale_down_timer.expires = jiffies +
 			msecs_to_jiffies(QCRYPTO_HIGH_BANDWIDTH_TIMEOUT);
-		mod_timer(&(cp->bw_scale_down_timer),
-			cp->bw_scale_down_timer.expires);
+			add_timer(&(cp->bw_scale_down_timer));
+		}
 	}
+
+	mutex_unlock(&qcrypto_sent_bw_req);
+
 	return;
 }
 
@@ -446,7 +443,10 @@ static void qcrypto_low_bw_req_work(struct work_struct *work)
 	struct crypto_priv *cp = container_of(work,
 				struct crypto_priv, low_bw_req_ws);
 
-	qcrypto_ce_high_bw_req(cp, false, cp->low_bw_req_count);
+	mutex_lock(&qcrypto_sent_bw_req);
+	if (cp->high_bw_req_count == 0)
+		qcrypto_ce_set_bus(cp, false);
+	mutex_unlock(&qcrypto_sent_bw_req);
 
 	return;
 }
@@ -3709,6 +3709,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	cp->high_bw_req_count = 0;
 	cp->ce_lock_count = 0;
 	cp->high_bw_req_count = 0;
+	cp->high_bw_req = 0;
 
 	if (cp->platform_support.ce_shared)
 		INIT_WORK(&cp->unlock_ce_ws, qcrypto_unlock_ce);
@@ -3876,7 +3877,8 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 
 	init_timer(&(cp->bw_scale_down_timer));
 	INIT_WORK(&cp->low_bw_req_ws, qcrypto_low_bw_req_work);
-
+	cp->bw_scale_down_timer.function =
+				qcrypto_bw_scale_down_timer_callback;
 	return 0;
 err:
 	_qcrypto_remove(pdev);
