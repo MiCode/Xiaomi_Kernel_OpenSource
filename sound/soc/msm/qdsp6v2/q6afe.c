@@ -632,6 +632,72 @@ static void afe_send_cal_spkr_prot_rx(int port_id)
 	}
 }
 
+static int afe_send_hw_delay(u16 port_id, u32 rate)
+{
+	struct hw_delay_entry delay_entry;
+	struct afe_audioif_config_command config;
+	int index = 0;
+	int ret = -EINVAL;
+
+	pr_debug("%s\n", __func__);
+
+	delay_entry.sample_rate = rate;
+	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX)
+		ret = get_hw_delay(TX_CAL, &delay_entry);
+	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
+		ret = get_hw_delay(RX_CAL, &delay_entry);
+
+	if (ret != 0) {
+		pr_warn("%s: Failed to get hw delay info\n", __func__);
+		goto fail_cmd;
+	}
+
+	index = q6audio_get_port_index(port_id);
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
+		goto fail_cmd;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	config.pdata.param_id = AFE_PARAM_ID_DEVICE_HW_DELAY;
+	config.pdata.param_size = sizeof(config.port);
+
+	config.port.hw_delay.delay_in_us = delay_entry.delay_usec;
+	config.port.hw_delay.device_hw_delay_minor_version =
+				AFE_API_VERSION_DEVICE_HW_DELAY;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE hw delay for port %#x failed\n",
+		       __func__, port_id);
+		goto fail_cmd;
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	pr_debug("%s port_id %u rate %u delay_usec %d status %d\n",
+	__func__, port_id, rate, delay_entry.delay_usec, ret);
+	return ret;
+
+}
+
 void afe_send_cal(u16 port_id)
 {
 	pr_debug("%s\n", __func__);
@@ -1248,6 +1314,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		return ret;
 
 	afe_send_cal(port_id);
+	afe_send_hw_delay(port_id, rate);
 
 	/* Start SW MAD module */
 	mad_type = afe_port_get_mad_type(port_id);
