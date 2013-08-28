@@ -33,6 +33,12 @@
 		compatible = "qcom,msm-imem";
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
+
+	qcom,msm-thermal {
+		/delete-property/ qcom,pmic-sw-mode-temp;
+		/delete-property/ qcom,pmic-sw-mode-temp-hysteresis;
+		/delete-property/ qcom,pmic-sw-mode-regs;
+	};
 };
 
 /* GPU overrides */
