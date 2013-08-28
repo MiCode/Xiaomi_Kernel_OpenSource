@@ -45,6 +45,7 @@
 
 #define SYNAPTICS_RMI4_F01 (0x01)
 #define SYNAPTICS_RMI4_F11 (0x11)
+#define SYNAPTICS_RMI4_F12 (0x12)
 #define SYNAPTICS_RMI4_F1A (0x1a)
 #define SYNAPTICS_RMI4_F34 (0x34)
 #define SYNAPTICS_RMI4_F54 (0x54)
@@ -132,6 +133,7 @@ struct synaptics_rmi4_fn {
 	struct list_head link;
 	int data_size;
 	void *data;
+	void *extra;
 };
 
 /*
@@ -217,6 +219,8 @@ struct synaptics_rmi4_data {
 	unsigned char num_of_rx;
 	unsigned char num_of_tx;
 	unsigned char num_of_fingers;
+	unsigned char max_touch_width;
+	unsigned char report_enable;
 	unsigned char intr_mask[MAX_INTR_REGISTERS];
 	unsigned short num_of_intr_regs;
 	unsigned short f01_query_base_addr;
