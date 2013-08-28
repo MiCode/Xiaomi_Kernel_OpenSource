@@ -1218,6 +1218,8 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		 * why we need sk_prot_creator -acme
 		 */
 		sk->sk_prot = sk->sk_prot_creator = prot;
+		sk->sk_dum1 = 0xA5A5A5A5;
+		sk->sk_dum2 = 0xC3C3C3C3;
 		sock_lock_init(sk);
 		sock_net_set(sk, get_net(net));
 		atomic_set(&sk->sk_wmem_alloc, 1);
@@ -1254,6 +1256,8 @@ static void __sk_free(struct sock *sk)
 		put_cred(sk->sk_peer_cred);
 	put_pid(sk->sk_peer_pid);
 	put_net(sock_net(sk));
+	sk->sk_dum1 = 0;
+	sk->sk_dum2 = 0;
 	sk_prot_free(sk->sk_prot_creator, sk);
 }
 

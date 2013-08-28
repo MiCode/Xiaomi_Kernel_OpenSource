@@ -162,6 +162,8 @@ struct sock_common {
 	volatile unsigned char	skc_state;
 	unsigned char		skc_reuse;
 	int			skc_bound_dev_if;
+	int			dummy1;
+	int			dummy2;
 	union {
 		struct hlist_node	skc_bind_node;
 		struct hlist_nulls_node skc_portaddr_node;
@@ -281,6 +283,8 @@ struct sock {
 #define sk_bind_node		__sk_common.skc_bind_node
 #define sk_prot			__sk_common.skc_prot
 #define sk_net			__sk_common.skc_net
+#define sk_dum1			__sk_common.dummy1
+#define sk_dum2			__sk_common.dummy2
 	socket_lock_t		sk_lock;
 	struct sk_buff_head	sk_receive_queue;
 	/*
