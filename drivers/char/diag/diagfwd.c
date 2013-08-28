@@ -389,7 +389,7 @@ void process_lock_on_notify(struct diag_nrt_wake_lock *lock)
 	 * Do not work with ref_count here in case
 	 * of spurious interrupt
 	 */
-	if (lock->enabled)
+	if (lock->enabled && !wake_lock_active(&lock->read_lock))
 		wake_lock(&lock->read_lock);
 	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
 }
