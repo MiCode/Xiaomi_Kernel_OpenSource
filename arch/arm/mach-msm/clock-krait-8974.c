@@ -731,7 +731,7 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	clk_set_rate(&l2_clk.c, clk_round_rate(&l2_clk.c, 1));
 	clk_set_rate(&l2_clk.c, cur_rate);
 	pr_info("L2 @ %lu KHz\n", clk_get_rate(&l2_clk.c) / 1000);
-	for_each_online_cpu(cpu) {
+	for_each_possible_cpu(cpu) {
 		struct clk *c = cpu_clk[cpu];
 		cur_rate = clk_get_rate(c);
 		if (!cur_rate) {
