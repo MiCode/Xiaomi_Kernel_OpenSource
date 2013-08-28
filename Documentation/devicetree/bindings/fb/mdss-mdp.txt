@@ -140,6 +140,7 @@ Bus Scaling Data:
 
 Optional properties:
 - batfet-supply :	Phandle for battery FET regulator device node.
+- vdd-cx-supply :	Phandle for vdd CX regulator device node.
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
 			settings used to setup MDSS QoS for optimum performance.
 			The key used should be offset from "vbif_phys" register
@@ -222,6 +223,7 @@ Example:
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 		batfet-supply = <&pm8941_chg_batif>;
+		vdd-cx-supply = <&pm8841_s2_corner>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
