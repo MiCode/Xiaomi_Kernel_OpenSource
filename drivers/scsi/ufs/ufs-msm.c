@@ -1287,6 +1287,41 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 	return 0;
 }
 
+#define UFS_HW_VER_MAJOR_SHFT	(28)
+#define UFS_HW_VER_MAJOR_MASK	(0x000F << UFS_HW_VER_MAJOR_SHFT)
+#define UFS_HW_VER_MINOR_SHFT	(16)
+#define UFS_HW_VER_MINOR_MASK	(0x0FFF << UFS_HW_VER_MINOR_SHFT)
+#define UFS_HW_VER_STEP_SHFT	(0)
+#define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
+
+/**
+ * msm_ufs_advertise_quirks - advertise the known MSM UFS controller quirks
+ * @hba: host controller instance
+ *
+ * MSM UFS host controller might have some non standard behaviours (quirks)
+ * than what is specified by UFSHCI specification. Advertise all such
+ * quirks to standard UFS host controller driver so standard takes them into
+ * account.
+ */
+static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
+{
+	u32 ver = ufshcd_readl(hba, REG_UFS_HW_VERSION);
+	u8 major;
+	u16 minor, step;
+
+	major = (ver & UFS_HW_VER_MAJOR_MASK) >> UFS_HW_VER_MAJOR_SHFT;
+	minor = (ver & UFS_HW_VER_MINOR_MASK) >> UFS_HW_VER_MINOR_SHFT;
+	step = (ver & UFS_HW_VER_STEP_MASK) >> UFS_HW_VER_STEP_SHFT;
+
+	/*
+	 * Interrupt aggregation and HIBERN8 on UFS HW controller revision 1.1.0
+	 * is broken.
+	 */
+	if ((major == 0x1) && (minor == 0x001) && (step == 0x0000))
+		hba->quirks |= (UFSHCD_QUIRK_BROKEN_INTR_AGGR
+			      | UFSHCD_QUIRK_BROKEN_HIBERN8);
+}
+
 /**
  * msm_ufs_init - bind phy with controller
  * @hba: host controller instance
@@ -1312,6 +1347,8 @@ static int msm_ufs_init(struct ufs_hba *hba)
 	err = msm_ufs_phy_power_on(phy);
 	if (err)
 		hba->priv = NULL;
+
+	msm_ufs_advertise_quirks(hba);
 out:
 	return err;
 }
