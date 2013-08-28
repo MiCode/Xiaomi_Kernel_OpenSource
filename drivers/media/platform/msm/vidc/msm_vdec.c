@@ -197,6 +197,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_ENABLE,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
@@ -243,7 +244,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL,
-		.name = "Encoder Performance Level",
+		.name = "Decoder Performance Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL,
 		.maximum = V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO,
@@ -1558,14 +1559,17 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 			}
 		}
 
+		ret_val = inst->ctrl_handler.error;
+		if (ret_val) {
+			dprintk(VIDC_ERR,
+					"Error adding ctrl (%s) to ctrl handle, %d\n",
+					msm_vdec_ctrls[idx].name,
+					inst->ctrl_handler.error);
+			return ret_val;
+		}
 
 		msm_vdec_ctrls[idx].priv = ctrl;
 	}
-	ret_val = inst->ctrl_handler.error;
-	if (ret_val)
-		dprintk(VIDC_ERR,
-			"Error adding ctrls to ctrl handle, %d\n",
-			inst->ctrl_handler.error);
 
 	/* Construct clusters */
 	for (idx = 1; idx < MSM_VDEC_CTRL_CLUSTER_MAX; ++idx) {

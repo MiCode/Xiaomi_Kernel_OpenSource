@@ -688,6 +688,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED,
 		.default_value =
 			V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED,
+		.step = 1,
 		.cluster = MSM_VENC_CTRL_CLUSTER_TIMING,
 	},
 	{
@@ -696,6 +697,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED,
+		.step = 1,
 		.default_value =
 			V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
 	},
@@ -731,6 +733,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = BITSTREAM_RESTRICT_DISABLED,
 		.maximum = BITSTREAM_RESTRICT_ENABLED,
 		.default_value = BITSTREAM_RESTRICT_ENABLED,
+		.step = 1,
 		.cluster = 0,
 	},
 	{
@@ -741,6 +744,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_ENABLED,
 		.default_value =
 			V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_DISABLED,
+		.step = 1,
 		.cluster = 0,
 	},
 };
@@ -2614,18 +2618,18 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 					msm_venc_ctrls[idx].default_value);
 			}
 		}
-		if (!ctrl) {
+
+		ret_val = inst->ctrl_handler.error;
+		if (ret_val) {
 			dprintk(VIDC_ERR,
-			"Failed to get ctrl for: idx: %d, %d\n",
-			idx, msm_venc_ctrls[idx].id);
+					"Error adding ctrl (%s) to ctrl handle, %d\n",
+					msm_venc_ctrls[idx].name,
+					inst->ctrl_handler.error);
+			return ret_val;
 		}
+
 		msm_venc_ctrls[idx].priv = ctrl;
 	}
-	ret_val = inst->ctrl_handler.error;
-	if (ret_val)
-		dprintk(VIDC_ERR,
-			"CTRL ERR: Error adding ctrls to ctrl handle, %d\n",
-			inst->ctrl_handler.error);
 
 	/* Construct clusters */
 	for (idx = 1; idx < MSM_VENC_CTRL_CLUSTER_MAX; ++idx) {
