@@ -437,6 +437,14 @@ struct ufs_hba {
 	unsigned long tm_condition;
 	unsigned long tm_slots_in_use;
 
+	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
+
+	/* Interrupt aggregation support is broken */
+	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR		(1<<0)
+
+	/* HIBERN8 support is broken */
+	#define UFSHCD_QUIRK_BROKEN_HIBERN8		(1<<1)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
