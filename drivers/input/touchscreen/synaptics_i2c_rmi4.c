@@ -2591,6 +2591,11 @@ static void synaptics_rmi4_early_suspend(struct early_suspend *h)
 			container_of(h, struct synaptics_rmi4_data,
 			early_suspend);
 
+	if (rmi4_data->stay_awake)
+		rmi4_data->staying_awake = true;
+	else
+		rmi4_data->staying_awake = false;
+
 	rmi4_data->touch_stopped = true;
 	wake_up(&rmi4_data->wait);
 	synaptics_rmi4_irq_enable(rmi4_data, false);
@@ -2616,6 +2621,9 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(h, struct synaptics_rmi4_data,
 			early_suspend);
+
+	if (rmi4_data->staying_awake)
+		return;
 
 	if (rmi4_data->full_pm_cycle)
 		synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
@@ -2761,6 +2769,12 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
+	if (rmi4_data->stay_awake) {
+		rmi4_data->staying_awake = true;
+		return 0;
+	} else
+		rmi4_data->staying_awake = false;
+
 	if (rmi4_data->suspended) {
 		dev_info(dev, "Already in suspend state\n");
 		return 0;
@@ -2811,6 +2825,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 {
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
+
+	if (rmi4_data->staying_awake)
+		return 0;
 
 	if (!rmi4_data->suspended) {
 		dev_info(dev, "Already in awake state\n");
