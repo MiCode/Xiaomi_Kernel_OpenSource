@@ -3148,21 +3148,20 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		 */
 		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
 		ad->state |= PP_AD_STATE_DATA;
-		bl = 0;
-		if (MDSS_AD_RUNNING_AUTO_STR(ad) || ad->last_bl == 0) {
-			mutex_lock(&mfd->bl_lock);
-			bl = mfd->bl_level;
-			if (bl != ad->last_bl) {
-				ad->last_bl = bl;
-				ad->calc_itr = ad->cfg.stab_itr;
-				ad->sts |= PP_AD_STS_DIRTY_VSYNC;
-			}
+		mutex_lock(&mfd->bl_lock);
+		bl = mfd->bl_level;
+		pr_debug("dirty data, last_bl = %d ", ad->last_bl);
+		if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) &&
+							(ad->last_bl != bl)) {
+			ad->last_bl = bl;
+			ad->calc_itr = ad->cfg.stab_itr;
+			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 			if (ad->state & PP_AD_STATE_BL_LIN) {
 				bl = ad->bl_lin[bl >> ad->bl_bright_shift];
 				bl = bl << ad->bl_bright_shift;
 			}
-			mutex_unlock(&mfd->bl_lock);
 		}
+		mutex_unlock(&mfd->bl_lock);
 		pp_ad_input_write(ad, bl);
 	}
 
@@ -3206,6 +3205,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			ad->bl_bright_shift = 0;
 			ad->ad_data = 0;
 			ad->ad_data_mode = 0;
+			ad->last_bl = 0;
 			ad->calc_itr = 0;
 			memset(&ad->bl_lin, 0, sizeof(uint32_t) *
 								AD_BL_LIN_LEN);
@@ -3352,6 +3352,7 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off)
 		mdata->ad_cfgs[i].num = i;
 		mdata->ad_cfgs[i].calc_itr = 0;
 		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
+		mdata->ad_cfgs[i].last_bl = 0;
 		mutex_init(&mdata->ad_cfgs[i].lock);
 		mdata->ad_cfgs[i].handle.vsync_handler = pp_ad_vsync_handler;
 		INIT_WORK(&mdata->ad_cfgs[i].calc_work, pp_ad_calc_worker);
