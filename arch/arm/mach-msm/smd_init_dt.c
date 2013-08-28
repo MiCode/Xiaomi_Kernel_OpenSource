@@ -259,7 +259,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 		smd_set_edge_subsys_name(edge, pilstr);
 
 	smd_set_edge_initialized(edge);
-	smd_post_init(0);
+	smd_post_init(0, remote_pid);
 	return 0;
 
 missing_key:
