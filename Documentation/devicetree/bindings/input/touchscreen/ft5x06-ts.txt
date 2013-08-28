@@ -23,30 +23,34 @@ Required properties:
  - focaltech,display-coords : display coordinates in pixels. It is a four
 				tuple consisting of min x, min y, max x and
 				max y values
- - focaltech,name	: name of the controller
  - focaltech,group-id	: group id of this device
+ - focaltech,num-max-touches	 : maximum number of touches supported
  - focaltech,hard-reset-delay-ms : hard reset delay in ms
  - focaltech,soft-reset-delay-ms : soft reset delay in ms
-
-Optional properties:
-
- - focaltech,panel-coords : panel coordinates for the chip in pixels.
-				It is a four tuple consisting of min x,
-				min y, max x and max y values
- - focaltech,i2c-pull-up : to specify pull up is required
- - focaltech,no-force-update : to specify force update is allowed
- - focaltech,button-map : button map of key codes. The number
-				of key codes depend on panel
- - focaltech,fw-name	: specify the firmware file name
- - focaltech,fw-delay-aa-ms : specify the "aa" delay in ms for firmware upgrade
- - focaltech,fw-delay-55-ms : specify the "55" delay in ms for firmware upgrade
+ - focaltech,fw-delay-aa-ms : specify the delay in ms after programming 0xaa
+				register for firmware upgrade
+ - focaltech,fw-delay-55-ms : specify the delay in ms after programming 0x55
+				register for firmware upgrade
  - focaltech,fw-upgrade-id1 : specify the upgrade id1 for firmware upgrade
  - focaltech,fw-upgrade-id2 : specify the upgrade id2 for firmware upgrade
  - focaltech,fw-delay-readid-ms : specify the read id delay in ms for firmware upgrade
  - focaltech,fw-delay-era-flsh-ms : specify the erase flash delay in ms for firmware upgrade
+
+Optional properties:
+
+ - focaltech,name	: name of the controller
+ - focaltech,i2c-pull-up : to specify pull up is required
+ - focaltech,no-force-update : to specify force update is allowed
+ - focaltech,button-map : button map of key codes. The number
+ - focaltech,fw-vkey-support	: specify if virtual keys are supported through firmware
+				of key codes depend on panel
  - focaltech,fw-auto-cal	: specify whether calibration is needed after firmware upgrade
  - focaltech,fw-vkey-support	: specify if virtual keys are supported through firmware
  - focaltech,ignore-id-check : specify ignore family-id check
+ - focaltech,panel-coords : panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values
+ - focaltech,fw-name	: specify the firmware file name
 
 Example:
 	i2c@f9923000{
