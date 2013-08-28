@@ -863,6 +863,18 @@
 				linux,name = "led:flash_1";
 				qcom,current = <625>;
 			};
-		};
+
+			pm8226_torch: qcom,flash_torch {
+				qcom,max-current = <200>;
+				qcom,default-state = "off";
+				linux,default-trigger =
+						"torch_trigger";
+				label = "flash";
+				qcom,id = <1>;
+				linux,name = "led:flash_torch";
+				qcom,current = <120>;
+				qcom,torch-enable;
+			};
+                };
 	};
 };
