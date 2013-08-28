@@ -5086,11 +5086,16 @@ static void tapan_enable_config_rco(struct wcd9xxx *core, bool enable)
 				   0x01, 0x01);
 		usleep_range(50, 50);
 	} else {
-		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN2, 0x04, 0x00);
-		usleep_range(50, 50);
-		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x02);
-		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x00);
-		usleep_range(50, 50);
+		/*
+		 * Disable RC oscillator, reset the registers to their
+		 * default values
+		 */
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_CDC_CLK_MCLK_CTL, 0x00);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_CLK_BUFF_EN1, 0x04);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_RC_OSC_TEST, 0x0A);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_RC_OSC_FREQ, 0x46);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x16);
 	}
 
 }
