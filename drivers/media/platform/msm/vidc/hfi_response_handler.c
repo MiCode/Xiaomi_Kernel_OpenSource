@@ -957,6 +957,7 @@ static void hfi_process_session_ftb_done(
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =
 			pkt->extra_data_buffer;
+		data_done.output_done.buffer_type = HAL_BUFFER_OUTPUT;
 		dprintk(VIDC_DBG, "FBD: Received buf: %p, of len: %d\n",
 				   pkt->packet_buffer, pkt->filled_len);
 	} else if (is_decoder == 1) {

@@ -275,11 +275,17 @@ static u32 get_hfi_buffer(int hal_buffer)
 	case HAL_BUFFER_OUTPUT:
 		buffer = HFI_BUFFER_OUTPUT;
 		break;
+	case HAL_BUFFER_OUTPUT2:
+		buffer = HFI_BUFFER_OUTPUT2;
+		break;
 	case HAL_BUFFER_EXTRADATA_INPUT:
 		buffer = HFI_BUFFER_EXTRADATA_INPUT;
 		break;
 	case HAL_BUFFER_EXTRADATA_OUTPUT:
 		buffer = HFI_BUFFER_EXTRADATA_OUTPUT;
+		break;
+	case HAL_BUFFER_EXTRADATA_OUTPUT2:
+		buffer = HFI_BUFFER_EXTRADATA_OUTPUT2;
 		break;
 	case HAL_BUFFER_INTERNAL_SCRATCH:
 		buffer = HFI_BUFFER_INTERNAL_SCRATCH;

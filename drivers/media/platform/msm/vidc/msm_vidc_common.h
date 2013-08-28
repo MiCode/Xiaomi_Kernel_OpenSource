@@ -31,6 +31,7 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, void *pdata);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
+int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
@@ -46,7 +47,10 @@ struct hal_buffer_requirements *get_buff_req_buffer(
 #define IS_PRIV_CTRL(idx) (\
 		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
+
 int msm_comm_check_scaling_supported(struct msm_vidc_inst *inst);
 int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst);
+enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst);
+enum hal_buffer msm_comm_get_hal_output_buffer(struct msm_vidc_inst *inst);
 
 #endif
