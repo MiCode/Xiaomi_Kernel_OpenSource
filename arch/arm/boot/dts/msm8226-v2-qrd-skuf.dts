@@ -114,6 +114,12 @@
 			status = "disabled";
 		};
 	};
+
+	qcom,pm8226@1 {
+		qcom,leds@d800 {
+			status = "disabled";
+		};
+	};
 };
 
 &pm8226_mpps {
