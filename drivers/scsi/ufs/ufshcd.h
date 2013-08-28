@@ -284,6 +284,14 @@ struct ufs_hba {
 	void *priv;
 	unsigned int irq;
 
+	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
+
+	/* Interrupt aggregation support is broken */
+	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR		(1<<0)
+
+	/* HIBERN8 support is broken */
+	#define UFSHCD_QUIRK_BROKEN_HIBERN8		(1<<1)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 
