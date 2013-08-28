@@ -41,7 +41,7 @@
 #define FT_SUSPEND_LEVEL 1
 #endif
 
-#define FT_DRIVER_VERSION	0x01
+#define FT_DRIVER_VERSION	0x02
 
 #define FT_META_REGS		3
 #define FT_ONE_TCH_LEN		6
@@ -69,6 +69,9 @@
 #define FT_REG_THGROUP		0x80
 #define FT_REG_ECC		0xCC
 #define FT_REG_RESET_FW		0x07
+#define FT_REG_FW_MAJ_VER	0xB1
+#define FT_REG_FW_MIN_VER	0xB2
+#define FT_REG_FW_SUB_MIN_VER	0xB3
 
 /* power register bits*/
 #define FT_PMODE_ACTIVE		0x00
@@ -107,7 +110,12 @@
 
 #define FT_FW_MIN_SIZE		8
 #define FT_FW_MAX_SIZE		32768
-#define FT_FW_FILE_VER(x)	((x)->data[(x)->size - 2])
+
+/* Firmware file is not supporting minor and sub minor so use 0 */
+#define FT_FW_FILE_MAJ_VER(x)	((x)->data[(x)->size - 2])
+#define FT_FW_FILE_MIN_VER(x)	0
+#define FT_FW_FILE_SUB_MIN_VER(x) 0
+
 #define FT_FW_CHECK(x)		\
 	(((x)->data[(x)->size - 8] ^ (x)->data[(x)->size - 6]) == 0xFF \
 	&& (((x)->data[(x)->size - 7] ^ (x)->data[(x)->size - 5]) == 0xFF \
@@ -134,7 +142,8 @@
 
 #define FT_INFO_MAX_LEN		512
 
-#define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_name, fw_ver) \
+#define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_vkey_support, \
+			fw_name, fw_maj, fw_min, fw_sub_min) \
 			snprintf(buf, FT_INFO_MAX_LEN, \
 				"controller\t= focaltech\n" \
 				"model\t\t= 0x%x\n" \
@@ -142,10 +151,12 @@
 				"max_touches\t= %d\n" \
 				"drv_ver\t\t= 0x%x\n" \
 				"group_id\t= 0x%x\n" \
+				"fw_vkey_support\t= %s\n" \
 				"fw_name\t\t= %s\n" \
-				"fw_ver\t\t= 0x%x\n", id, name, \
+				"fw_ver\t\t= %d.%d.%d\n", id, name, \
 				max_tch, FT_DRIVER_VERSION, group_id, \
-				fw_name, fw_ver)
+				fw_vkey_support, fw_name, fw_maj, fw_min, \
+				fw_sub_min)
 
 #define FT_DEBUG_DIR_NAME	"ts_debug"
 
@@ -164,6 +175,7 @@ struct ft5x06_ts_data {
 	char *ts_info;
 	u8 *tch_data;
 	u32 tch_data_len;
+	u8 fw_ver[3];
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -246,6 +258,31 @@ static int ft5x0x_read_reg(struct i2c_client *client, u8 addr, u8 *val)
 	return ft5x06_i2c_read(client, &addr, 1, val, 1);
 }
 
+static void ft5x06_update_fw_ver(struct ft5x06_ts_data *data)
+{
+	struct i2c_client *client = data->client;
+	u8 reg_addr;
+	int err;
+
+	reg_addr = FT_REG_FW_MAJ_VER;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &data->fw_ver[0], 1);
+	if (err < 0)
+		dev_err(&client->dev, "fw major version read failed");
+
+	reg_addr = FT_REG_FW_MIN_VER;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &data->fw_ver[1], 1);
+	if (err < 0)
+		dev_err(&client->dev, "fw minor version read failed");
+
+	reg_addr = FT_REG_FW_SUB_MIN_VER;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &data->fw_ver[2], 1);
+	if (err < 0)
+		dev_err(&client->dev, "fw sub minor version read failed");
+
+	dev_info(&client->dev, "Firmware version = %d.%d.%d\n",
+		data->fw_ver[0], data->fw_ver[1], data->fw_ver[2]);
+}
+
 static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft5x06_ts_data *data = dev_id;
@@ -297,8 +334,10 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 			input_report_abs(ip_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(ip_dev, ABS_MT_POSITION_Y, y);
 			input_report_abs(ip_dev, ABS_MT_PRESSURE, pressure);
-		} else
+		} else {
 			input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 0);
+			input_report_abs(ip_dev, ABS_MT_PRESSURE, 0);
+		}
 	}
 
 	if (update_input) {
@@ -746,7 +785,8 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	const struct firmware *fw = NULL;
 	int rc;
-	u8 val = 0;
+	u8 fw_file_maj, fw_file_min, fw_file_sub_min;
+	bool fw_upgrade = false;
 
 	rc = request_firmware(&fw, data->fw_name, dev);
 	if (rc < 0) {
@@ -761,27 +801,38 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 		goto rel_fw;
 	}
 
-	/* check firmware version */
-	rc = ft5x0x_read_reg(data->client, FT_REG_FW_VER, &val);
-	if (rc < 0) {
-		dev_err(dev, "Get firmware version failed\n");
-		goto rel_fw;
-	}
+	fw_file_maj = FT_FW_FILE_MAJ_VER(fw);
+	fw_file_min = FT_FW_FILE_MIN_VER(fw);
+	fw_file_sub_min = FT_FW_FILE_SUB_MIN_VER(fw);
 
-	if (val == FT_FW_FILE_VER(fw) && !force) {
-		dev_err(dev, "No need to update (0x%x)\n", val);
+	dev_info(dev, "Current firmware: %d.%d.%d", data->fw_ver[0],
+				data->fw_ver[1], data->fw_ver[2]);
+	dev_info(dev, "New firmware: %d.%d.%d", fw_file_maj,
+				fw_file_min, fw_file_sub_min);
+
+	if (force) {
+		fw_upgrade = true;
+	} else if (data->fw_ver[0] == fw_file_maj) {
+			if (data->fw_ver[1] < fw_file_min)
+				fw_upgrade = true;
+			else if (data->fw_ver[2] < fw_file_sub_min)
+				fw_upgrade = true;
+			else
+				dev_info(dev, "No need to upgrade\n");
+	} else
+		dev_info(dev, "Firmware versions do not match\n");
+
+	if (!fw_upgrade) {
+		dev_info(dev, "Exiting fw upgrade...\n");
 		rc = -EFAULT;
 		goto rel_fw;
 	}
-
-	dev_info(dev, "upgrade to fw ver 0x%x from 0x%x\n",
-					FT_FW_FILE_VER(fw), val);
 
 	/* start firmware upgrade */
 	if (FT_FW_CHECK(fw)) {
 		rc = ft5x06_fw_upgrade_start(data->client, fw->data, fw->size);
 		if (rc < 0)
-			dev_err(dev, "update failed (%d)\n", rc);
+			dev_err(dev, "update failed (%d). try later...\n", rc);
 		else if (data->pdata->info.auto_cal)
 			ft5x06_auto_cal(data->client);
 	} else {
@@ -789,9 +840,13 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 		rc = -EIO;
 	}
 
+	ft5x06_update_fw_ver(data);
+
 	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
-			data->pdata->fw_name, FT_FW_FILE_VER(fw));
+			data->pdata->fw_vkey_support ? "yes" : "no",
+			data->pdata->fw_name, data->fw_ver[0],
+			data->fw_ver[1], data->fw_ver[2]);
 rel_fw:
 	release_firmware(fw);
 	return rc;
@@ -818,6 +873,11 @@ static ssize_t ft5x06_update_fw_store(struct device *dev,
 	rc = kstrtoul(buf, 10, &val);
 	if (rc != 0)
 		return rc;
+
+	if (data->suspended) {
+		dev_info(dev, "In suspend state, try again later...\n");
+		return size;
+	}
 
 	mutex_lock(&data->input_dev->mutex);
 	if (!data->loading_fw  && val) {
@@ -1184,6 +1244,9 @@ static int ft5x06_parse_dt(struct device *dev,
 	pdata->info.auto_cal = of_property_read_bool(np,
 					"focaltech,fw-auto-cal");
 
+	pdata->fw_vkey_support = of_property_read_bool(np,
+						"focaltech,fw-vkey-support");
+
 	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
@@ -1478,16 +1541,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
 
-	reg_addr = FT_REG_FW_VER;
-	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
-	if (err < 0)
-		dev_err(&client->dev, "version read failed");
-
-	dev_info(&client->dev, "Firmware version = 0x%x\n", reg_value);
+	ft5x06_update_fw_ver(data);
 
 	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
-			data->pdata->fw_name, reg_value);
+			data->pdata->fw_vkey_support ? "yes" : "no",
+			data->pdata->fw_name, data->fw_ver[0],
+			data->fw_ver[1], data->fw_ver[2]);
 
 #if defined(CONFIG_FB)
 	data->fb_notif.notifier_call = fb_notifier_callback;
