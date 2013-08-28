@@ -353,7 +353,6 @@ static struct branch_clk oxilicx_axi_clk;
 #define GPLL1_N_VAL                                        (0x004C)
 #define GPLL1_USER_CTL                                     (0x0050)
 #define GPLL1_STATUS                                       (0x005C)
-#define PERIPH_NOC_AHB_CBCR                                (0x0184)
 #define NOC_CONF_XPU_AHB_CBCR                              (0x01C0)
 #define MMSS_NOC_CFG_AHB_CBCR                              (0x024C)
 #define MSS_CFG_AHB_CBCR                                   (0x0280)
@@ -1394,17 +1393,6 @@ static struct branch_clk gcc_pdm_xo4_clk = {
 	},
 };
 
-static struct branch_clk gcc_periph_noc_ahb_clk = {
-	.cbcr_reg = PERIPH_NOC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_periph_noc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_periph_noc_ahb_clk.c),
-	},
-};
-
 static struct local_vote_clk gcc_prng_ahb_clk = {
 	.cbcr_reg = PRNG_AHB_CBCR,
 	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -1571,7 +1559,6 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 };
 
 static struct measure_mux_entry measure_mux_GCC[] = {
-	{ &gcc_periph_noc_ahb_clk.c,  GCC_BASE, 0x0010 },
 	{ &gcc_mss_cfg_ahb_clk.c,  GCC_BASE, 0x0030 },
 	{ &gcc_mss_q6_bimc_axi_clk.c,  GCC_BASE, 0x0031 },
 	{ &gcc_usb_hsic_ahb_clk.c,  GCC_BASE, 0x0058 },
