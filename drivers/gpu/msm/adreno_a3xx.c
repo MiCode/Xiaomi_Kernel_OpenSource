@@ -2510,6 +2510,478 @@ static void a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	}
 }
 
+static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
+	0x00000000, 0x302CC300, 0x00000000, 0x302CC304,
+	0x00000000, 0x302CC308, 0x00000000, 0x302CC30C,
+	0x00000000, 0x302CC310, 0x00000000, 0x302CC314,
+	0x00000000, 0x302CC318, 0x00000000, 0x302CC31C,
+	0x00000000, 0x302CC320, 0x00000000, 0x302CC324,
+	0x00000000, 0x302CC328, 0x00000000, 0x302CC32C,
+	0x00000000, 0x302CC330, 0x00000000, 0x302CC334,
+	0x00000000, 0x302CC338, 0x00000000, 0x302CC33C,
+	0x00000000, 0x00000400, 0x00020000, 0x63808003,
+	0x00060004, 0x63828007, 0x000A0008, 0x6384800B,
+	0x000E000C, 0x6386800F, 0x00120010, 0x63888013,
+	0x00160014, 0x638A8017, 0x001A0018, 0x638C801B,
+	0x001E001C, 0x638E801F, 0x00220020, 0x63908023,
+	0x00260024, 0x63928027, 0x002A0028, 0x6394802B,
+	0x002E002C, 0x6396802F, 0x00320030, 0x63988033,
+	0x00360034, 0x639A8037, 0x003A0038, 0x639C803B,
+	0x003E003C, 0x639E803F, 0x00000000, 0x00000400,
+	0x00000003, 0x80D60003, 0x00000007, 0x80D60007,
+	0x0000000B, 0x80D6000B, 0x0000000F, 0x80D6000F,
+	0x00000013, 0x80D60013, 0x00000017, 0x80D60017,
+	0x0000001B, 0x80D6001B, 0x0000001F, 0x80D6001F,
+	0x00000023, 0x80D60023, 0x00000027, 0x80D60027,
+	0x0000002B, 0x80D6002B, 0x0000002F, 0x80D6002F,
+	0x00000033, 0x80D60033, 0x00000037, 0x80D60037,
+	0x0000003B, 0x80D6003B, 0x0000003F, 0x80D6003F,
+	0x00000000, 0x03000000, 0x00000000, 0x00000000,
+};
+
+/**
+ * adreno_a3xx_pwron_fixup_init() - Initalize a special command buffer to run a
+ * post-power collapse shader workaround
+ * @adreno_dev: Pointer to a adreno_device struct
+ *
+ * Some targets require a special workaround shader to be executed after
+ * power-collapse.  Construct the IB once at init time and keep it
+ * handy
+ *
+ * Returns: 0 on success or negative on error
+ */
+int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev)
+{
+	unsigned int *cmds;
+	int count = ARRAY_SIZE(_a3xx_pwron_fixup_fs_instructions);
+	int ret;
+
+	/* Return if the fixup is already in place */
+	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
+		return 0;
+
+	ret = kgsl_allocate_contiguous(&adreno_dev->pwron_fixup, PAGE_SIZE);
+
+	if (ret)
+		return ret;
+
+	adreno_dev->pwron_fixup.flags |= KGSL_MEMFLAGS_GPUREADONLY;
+
+	cmds = adreno_dev->pwron_fixup.hostptr;
+
+	*cmds++ = cp_type0_packet(A3XX_UCHE_CACHE_INVALIDATE0_REG, 2);
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x90000000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
+	*cmds++ = A3XX_RBBM_CLOCK_CTL;
+	*cmds++ = 0xFFFCFFFF;
+	*cmds++ = 0x00010000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_0_REG, 1);
+	*cmds++ = 0x1E000150;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = CP_REG(A3XX_HLSQ_CONTROL_0_REG);
+	*cmds++ = 0x1E000150;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_0_REG, 1);
+	*cmds++ = 0x1E000150;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_1_REG, 1);
+	*cmds++ = 0x00000040;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_2_REG, 1);
+	*cmds++ = 0x80000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_3_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_VS_CONTROL_REG, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_FS_CONTROL_REG, 1);
+	*cmds++ = 0x0D001002;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONST_VSPRESV_RANGE_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONST_FSPRESV_RANGE_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_0_REG, 1);
+	*cmds++ = 0x00401101;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_1_REG, 1);
+	*cmds++ = 0x00000400;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_2_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_3_REG, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_4_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_5_REG, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_NDRANGE_6_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_CONTROL_0_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_CONTROL_1_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_KERNEL_CONST_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_KERNEL_GROUP_X_REG, 1);
+	*cmds++ = 0x00000010;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_KERNEL_GROUP_Y_REG, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_KERNEL_GROUP_Z_REG, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_WG_OFFSET_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_SP_CTRL_REG, 1);
+	*cmds++ = 0x00040000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG0, 1);
+	*cmds++ = 0x0000000A;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG1, 1);
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PARAM_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_4, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_5, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_6, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OUT_REG_7, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_VPC_DST_REG_0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_VPC_DST_REG_1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_VPC_DST_REG_2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_VPC_DST_REG_3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OBJ_OFFSET_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_OBJ_START_REG, 1);
+	*cmds++ = 0x00000004;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_PARAM_REG, 1);
+	*cmds++ = 0x04008001;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_ADDR_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_LENGTH_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG0, 1);
+	*cmds++ = 0x0DB0400A;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG1, 1);
+	*cmds++ = 0x00300402;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_OBJ_OFFSET_REG, 1);
+	*cmds++ = 0x00010000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_OBJ_START_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_PARAM_REG, 1);
+	*cmds++ = 0x04008001;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_ADDR_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_FLAT_SHAD_MODE_REG_0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_FLAT_SHAD_MODE_REG_1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_OUTPUT_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_MRT_REG_0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_MRT_REG_1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_MRT_REG_2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_MRT_REG_3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_IMAGE_OUTPUT_REG_0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_IMAGE_OUTPUT_REG_1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_IMAGE_OUTPUT_REG_2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_IMAGE_OUTPUT_REG_3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_LENGTH_REG, 1);
+	*cmds++ = 0x0000000D;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_CLIP_CNTL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_GB_CLIP_ADJ, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_XOFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_XSCALE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_YOFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_YSCALE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_ZOFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_VPORT_ZSCALE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X4, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y4, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z4, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W4, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_X5, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Y5, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_Z5, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_CL_USER_PLANE_W5, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SU_POINT_MINMAX, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SU_POINT_SIZE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SU_POLY_OFFSET_OFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SU_POLY_OFFSET_SCALE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SU_MODE_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SC_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SC_SCREEN_SCISSOR_TL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SC_SCREEN_SCISSOR_BR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SC_WINDOW_SCISSOR_BR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_SC_WINDOW_SCISSOR_TL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_TSE_DEBUG_ECO, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_PERFCOUNTER1_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_PERFCOUNTER2_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_GRAS_PERFCOUNTER3_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MODE_CONTROL, 1);
+	*cmds++ = 0x00008000;
+	*cmds++ = cp_type0_packet(A3XX_RB_RENDER_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MSAA_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_ALPHA_REFERENCE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_CONTROL0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_CONTROL1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_CONTROL2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_CONTROL3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_INFO0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_INFO1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_INFO2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_INFO3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_BASE0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_BASE1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_BASE2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BUF_BASE3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BLEND_CONTROL0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BLEND_CONTROL1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BLEND_CONTROL2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_MRT_BLEND_CONTROL3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_BLEND_RED, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_BLEND_GREEN, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_BLEND_BLUE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_BLEND_ALPHA, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_CLEAR_COLOR_DW0, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_CLEAR_COLOR_DW1, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_CLEAR_COLOR_DW2, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_CLEAR_COLOR_DW3, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_COPY_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_COPY_DEST_BASE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_COPY_DEST_PITCH, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_COPY_DEST_INFO, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_DEPTH_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_DEPTH_CLEAR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_DEPTH_BUF_INFO, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_DEPTH_BUF_PITCH, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_CLEAR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_BUF_INFO, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_BUF_PITCH, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_REF_MASK, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_STENCIL_REF_MASK_BF, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_LRZ_VSC_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_WINDOW_OFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_SAMPLE_COUNT_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_SAMPLE_COUNT_ADDR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_Z_CLAMP_MIN, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_Z_CLAMP_MAX, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_GMEM_BASE_ADDR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_DEBUG_ECO_CONTROLS_ADDR, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_PERFCOUNTER1_SELECT, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_RB_FRAME_BUFFER_DIMENSION, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 4);
+	*cmds++ = (1 << CP_LOADSTATE_DSTOFFSET_SHIFT) |
+		(0 << CP_LOADSTATE_STATESRC_SHIFT) |
+		(6 << CP_LOADSTATE_STATEBLOCKID_SHIFT) |
+		(1 << CP_LOADSTATE_NUMOFUNITS_SHIFT);
+	*cmds++ = (1 << CP_LOADSTATE_STATETYPE_SHIFT) |
+		(0 << CP_LOADSTATE_EXTSRCADDR_SHIFT);
+	*cmds++ = 0x00400000;
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 4);
+	*cmds++ = (2 << CP_LOADSTATE_DSTOFFSET_SHIFT) |
+		(6 << CP_LOADSTATE_STATEBLOCKID_SHIFT) |
+		(1 << CP_LOADSTATE_NUMOFUNITS_SHIFT);
+	*cmds++ = (1 << CP_LOADSTATE_STATETYPE_SHIFT);
+	*cmds++ = 0x00400220;
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 4);
+	*cmds++ = (6 << CP_LOADSTATE_STATEBLOCKID_SHIFT) |
+		(1 << CP_LOADSTATE_NUMOFUNITS_SHIFT);
+	*cmds++ = (1 << CP_LOADSTATE_STATETYPE_SHIFT);
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 2 + count);
+	*cmds++ = (6 << CP_LOADSTATE_STATEBLOCKID_SHIFT) |
+		(13 << CP_LOADSTATE_NUMOFUNITS_SHIFT);
+	*cmds++ = 0x00000000;
+
+	memcpy(cmds, _a3xx_pwron_fixup_fs_instructions, count << 2);
+
+	cmds += count;
+
+	*cmds++ = cp_type3_packet(CP_EXEC_CL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CL_CONTROL_0_REG, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A3XX_HLSQ_CONTROL_0_REG, 1);
+	*cmds++ = 0x1E000150;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = CP_REG(A3XX_HLSQ_CONTROL_0_REG);
+	*cmds++ = 0x1E000050;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
+	*cmds++ = A3XX_RBBM_CLOCK_CTL;
+	*cmds++ = 0xFFFCFFFF;
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+
+	/*
+	 * Remember the number of dwords in the command buffer for when we
+	 * program the indirect buffer call in the ringbuffer
+	 */
+	adreno_dev->pwron_fixup_dwords =
+		(cmds - (unsigned int *) adreno_dev->pwron_fixup.hostptr);
+
+	/* Mark the flag in ->priv to show that we have the fix */
+	set_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
+	return 0;
+}
+
 static int a3xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
