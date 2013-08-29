@@ -1627,6 +1627,9 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 		msleep(5);
 	}
 
+	/* enable UIC related interrupts */
+	ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
+
 	if (hba->vops && hba->vops->hce_enable_notify)
 		hba->vops->hce_enable_notify(hba, POST_CHANGE);
 
@@ -1642,9 +1645,6 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 static int ufshcd_link_startup(struct ufs_hba *hba)
 {
 	int ret;
-
-	/* enable UIC related interrupts */
-	ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
 
 	if (hba->vops && hba->vops->link_startup_notify)
 		hba->vops->link_startup_notify(hba, PRE_CHANGE);
