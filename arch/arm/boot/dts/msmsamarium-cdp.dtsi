@@ -187,3 +187,52 @@
 		/* SPI ethernet INT_N */
 	};
 };
+
+/* CoreSight */
+&tpiu {
+	qcom,seta-gpios = <&msmgpio 35 0>,
+			  <&msmgpio 36 0>,
+			  <&msmgpio 37 0>,
+			  <&msmgpio 38 0>,
+			  <&msmgpio 39 0>,
+			  <&msmgpio 40 0>,
+			  <&msmgpio 41 0>,
+			  <&msmgpio 42 0>,
+			  <&msmgpio 43 0>,
+			  <&msmgpio 44 0>,
+			  <&msmgpio 45 0>,
+			  <&msmgpio 46 0>,
+			  <&msmgpio 47 0>,
+			  <&msmgpio 48 0>,
+			  <&msmgpio 57 0>,
+			  <&msmgpio 58 0>,
+			  <&msmgpio 59 0>,
+			  <&msmgpio 60 0>;
+	qcom,seta-gpios-func = <3 3 3 3 4 3 3 2 2 2 10 10 9 8 10 10 9 8>;
+	qcom,seta-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,seta-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,seta-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+
+	qcom,setb-gpios = <&msmgpio 15 0>,
+			  <&msmgpio 16 0>,
+			  <&msmgpio 17 0>,
+			  <&msmgpio 18 0>,
+			  <&msmgpio 19 0>,
+			  <&msmgpio 20 0>,
+			  <&msmgpio 21 0>,
+			  <&msmgpio 22 0>,
+			  <&msmgpio 23 0>,
+			  <&msmgpio 24 0>,
+			  <&msmgpio 25 0>,
+			  <&msmgpio 26 0>,
+			  <&msmgpio 27 0>,
+			  <&msmgpio 28 0>,
+			  <&msmgpio 89 0>,
+			  <&msmgpio 90 0>,
+			  <&msmgpio 91 0>,
+			  <&msmgpio 92 0>;
+	qcom,setb-gpios-func = <2 2 2 1 2 2 2 2 3 3 3 4 4 2 2 3 3 3>;
+	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+};
