@@ -125,13 +125,7 @@ static struct adreno_device device_3d0 = {
  * If the values of these registers are same after
  * KGSL_TIMEOUT_PART time, GPU hang is reported in
  * kernel log.
- * *****ALERT******ALERT********ALERT*************
- * Order of registers below is important, registers
- * from LONG_IB_DETECT_REG_INDEX_START to
- * LONG_IB_DETECT_REG_INDEX_END are used in long ib detection.
  */
-#define LONG_IB_DETECT_REG_INDEX_START 1
-#define LONG_IB_DETECT_REG_INDEX_END 5
 
 unsigned int ft_detect_regs[FT_DETECT_REGS_COUNT];
 
@@ -3565,7 +3559,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int curr_reg_val[FT_DETECT_REGS_COUNT];
 	unsigned int fast_hang_detected = 1;
-	unsigned int long_ib_detected = 1;
 	unsigned int i;
 	static unsigned long next_hang_detect_time;
 	static unsigned int prev_global_ts;
@@ -3577,9 +3570,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 	if (!adreno_dev->fast_hang_detect)
 		fast_hang_detected = 0;
-
-	if (!adreno_dev->long_ib_detect)
-		long_ib_detected = 0;
 
 	if (!(adreno_dev->ringbuffer.flags & KGSL_FLAGS_STARTED))
 		return 0;
@@ -3665,17 +3655,8 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 			}
 		}
 		for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
-			if (curr_reg_val[i] != prev_reg_val[i]) {
+			if (curr_reg_val[i] != prev_reg_val[i])
 				fast_hang_detected = 0;
-
-				/* Check for long IB here */
-				if ((i >=
-					LONG_IB_DETECT_REG_INDEX_START)
-					&&
-					(i <=
-					LONG_IB_DETECT_REG_INDEX_END))
-					long_ib_detected = 0;
-			}
 		}
 
 		if (fast_hang_detected) {
@@ -3697,15 +3678,12 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 			pid_name, curr_context->ib_gpu_time_used,
 			curr_global_ts+1);
 
-			if ((long_ib_detected) &&
+			if ((adreno_dev->long_ib_detect) &&
 				(!(curr_context->flags &
-				 CTXT_FLAGS_NO_FAULT_TOLERANCE))) {
-				curr_context->ib_gpu_time_used +=
-					KGSL_TIMEOUT_PART;
-				if (curr_context->ib_gpu_time_used >
-					KGSL_TIMEOUT_LONG_IB_DETECTION) {
-					if (adreno_dev->long_ib_ts !=
-						curr_global_ts) {
+				 CTXT_FLAGS_NO_FAULT_TOLERANCE)) &&
+				(curr_context->ib_gpu_time_used >
+					KGSL_TIMEOUT_LONG_IB_DETECTION) &&
+				(adreno_dev->long_ib_ts != curr_global_ts)) {
 						KGSL_FT_ERR(device,
 						"Proc %s, ctxt_id %d ts %d"
 						"used GPU for %d ms long ib "
@@ -3722,8 +3700,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 						curr_context->ib_gpu_time_used =
 								0;
 						return 1;
-					}
-				}
 			}
 		}
 	} else {
