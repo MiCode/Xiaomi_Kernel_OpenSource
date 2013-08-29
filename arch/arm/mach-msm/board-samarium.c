@@ -77,6 +77,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 
 	/* CoreSight clocks */
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc320000.tpiu", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc324000.replicator", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc325000.tmc", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc323000.funnel", OFF),
@@ -108,6 +109,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk", qdss_clk.c, "fd828018.hwevent", OFF),
 
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc320000.tpiu", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc324000.replicator", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc325000.tmc", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc323000.funnel", OFF),
