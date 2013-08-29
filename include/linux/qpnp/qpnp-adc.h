@@ -615,6 +615,21 @@ enum qpnp_adc_tm_channel_select	{
 	QPNP_ADC_TM_CH_SELECT_NONE
 };
 
+/**
+ * Channel index for the corresponding index to qpnp_adc_tm_channel_selec
+ */
+enum qpnp_adc_tm_channel_num {
+	QPNP_ADC_TM_CHAN0 = 0,
+	QPNP_ADC_TM_CHAN1,
+	QPNP_ADC_TM_CHAN2,
+	QPNP_ADC_TM_CHAN3,
+	QPNP_ADC_TM_CHAN4,
+	QPNP_ADC_TM_CHAN5,
+	QPNP_ADC_TM_CHAN6,
+	QPNP_ADC_TM_CHAN7,
+	QPNP_ADC_TM_CHAN_NONE
+};
+
 enum qpnp_comp_scheme_type {
 	COMP_ID_GF = 0,
 	COMP_ID_SMIC,
