@@ -73,6 +73,25 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng", OFF),
 	CLK_DUMMY("core_clk",	I2C_CLK,	"f9924000.i2c", OFF),
 	CLK_DUMMY("iface_clk",	I2C_P_CLK,	"f9924000.i2c", OFF),
+
+	/* CoreSight clocks */
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc324000.replicator", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc325000.tmc", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc323000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc321000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc322000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc355000.funnel", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fc302000.stm", OFF),
+
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc326000.tmc", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc324000.replicator", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc325000.tmc", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc323000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc321000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc322000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc355000.funnel", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc302000.stm", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
