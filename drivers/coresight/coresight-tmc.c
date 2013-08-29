@@ -45,6 +45,8 @@
 #define tmc_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tmc_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
+#define tmc_readl_no_log(drvdata, off)	__raw_readl_no_log(drvdata->base + off)
+
 #define TMC_LOCK(drvdata)						\
 do {									\
 	mb();								\
@@ -651,7 +653,7 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 	bufp = drvdata->buf;
 	while (1) {
 		for (i = 0; i < memwords; i++) {
-			read_data = tmc_readl(drvdata, TMC_RRD);
+			read_data = tmc_readl_no_log(drvdata, TMC_RRD);
 			if (read_data == 0xFFFFFFFF)
 				goto out;
 			memcpy(bufp, &read_data, BYTES_PER_WORD);
