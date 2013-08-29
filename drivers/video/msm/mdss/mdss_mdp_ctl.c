@@ -908,7 +908,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB888;
 			break;
 		}
-		mdss_mdp_dither_config(ctl, &dither, NULL);
+		mdss_mdp_dither_config(&dither, NULL);
 	}
 
 	return ctl;
