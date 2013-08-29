@@ -18,5 +18,6 @@
 / {
 	model = "Qualcomm APQ 8026v2 CDP";
 	compatible = "qcom,apq8026-cdp", "qcom,apq8026", "qcom,cdp";
-	qcom,msm-id = <199 1 0x20000>;
+	qcom,msm-id = <199 1 0x20000>,
+		      <219 1 0x20000>;
 };

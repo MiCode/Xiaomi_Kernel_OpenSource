@@ -18,5 +18,6 @@
 / {
 	model = "Qualcomm APQ 8026 XPM";
 	compatible = "qcom,apq8026-xpm", "qcom,apq8026", "qcom,xpm";
-	qcom,msm-id = <199 14 0>;
+	qcom,msm-id = <199 14 0>,
+		      <219 14 0>;
 };
