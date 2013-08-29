@@ -287,6 +287,9 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	if (req->flags & MDP_DEINTERLACE) {
 		rot->flags |= MDP_DEINTERLACE;
 		rot->src_rect.h /= 2;
+		rot->src_rect.y /= 2;
+		if (rot->src_rect.y % 2)
+			rot->src_rect.y++;
 	}
 
 	ret = mdss_mdp_rotator_setup(rot);
@@ -583,6 +586,9 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			pipe->img_width /= 2;
 		} else {
 			pipe->src.h /= 2;
+			pipe->src.y /= 2;
+			if (pipe->src.y % 2)
+				pipe->src.y++;
 		}
 	}
 
