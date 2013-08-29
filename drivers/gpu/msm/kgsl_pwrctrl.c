@@ -1442,6 +1442,8 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 	case KGSL_STATE_ACTIVE:
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
+	case KGSL_STATE_INIT:
+		break;
 	default:
 		KGSL_PWR_WARN(device, "unhandled state %s\n",
 				kgsl_pwrstate_to_str(device->state));
@@ -1537,10 +1539,13 @@ int kgsl_active_count_get(struct kgsl_device *device)
 
 	if ((atomic_read(&device->active_cnt) == 0) &&
 		(device->state != KGSL_STATE_ACTIVE)) {
-		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->hwaccess_gate);
-		wait_for_completion(&device->ft_gate);
-		mutex_lock(&device->mutex);
+
+		if (device->state != KGSL_STATE_DUMP_AND_FT) {
+			mutex_unlock(&device->mutex);
+			wait_for_completion(&device->hwaccess_gate);
+			wait_for_completion(&device->ft_gate);
+			mutex_lock(&device->mutex);
+		}
 
 		/* Stop the idle timer */
 		del_timer_sync(&device->idle_timer);
