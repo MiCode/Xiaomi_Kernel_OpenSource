@@ -241,6 +241,12 @@ struct diag_smd_info {
 	unsigned char *buf_in_1_raw;
 	unsigned char *buf_in_2_raw;
 
+	unsigned int buf_in_1_size;
+	unsigned int buf_in_2_size;
+
+	unsigned int buf_in_1_raw_size;
+	unsigned int buf_in_2_raw_size;
+
 	struct diag_request *write_ptr_1;
 	struct diag_request *write_ptr_2;
 

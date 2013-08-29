@@ -56,6 +56,8 @@
 #define STM_RSP_SMD_COMPLY_INDEX	9
 #define STM_RSP_NUM_BYTES		10
 
+#define SMD_DRAIN_BUF_SIZE 4096
+
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 /* Number of entries in table of buffers */
@@ -329,34 +331,34 @@ static int check_bufsize_for_encoding(struct diag_smd_info *smd_info, void *buf,
 	unsigned char *temp_buf;
 
 	if (max_size > IN_BUF_SIZE) {
-		if (max_size < MAX_IN_BUF_SIZE) {
-			pr_err("diag: In %s, SMD sending packet of %d bytes that may expand to %d bytes, peripheral: %d\n",
+		if (max_size > MAX_IN_BUF_SIZE) {
+			pr_err_ratelimited("diag: In %s, SMD sending packet of %d bytes that may expand to %d bytes, peripheral: %d\n",
 				__func__, total_recd, max_size,
 				smd_info->peripheral);
-			if (buf == smd_info->buf_in_1_raw) {
+			max_size = MAX_IN_BUF_SIZE;
+		}
+		if (buf == smd_info->buf_in_1_raw) {
+			/* Only realloc if we need to increase the size */
+			if (smd_info->buf_in_1_size < max_size) {
 				temp_buf = krealloc(smd_info->buf_in_1,
-							max_size, GFP_KERNEL);
+					max_size, GFP_KERNEL);
 				if (temp_buf) {
 					smd_info->buf_in_1 = temp_buf;
-					buf_size = max_size;
-				} else {
-					buf_size = 0;
-				}
-			} else {
-				temp_buf = krealloc(smd_info->buf_in_2,
-							max_size, GFP_KERNEL);
-				if (temp_buf) {
-					smd_info->buf_in_2 = temp_buf;
-					buf_size = max_size;
-				} else {
-					buf_size = 0;
+					smd_info->buf_in_1_size = max_size;
 				}
 			}
+			buf_size = smd_info->buf_in_1_size;
 		} else {
-			pr_err("diag: In %s, SMD sending packet of size %d. HDCL encoding can expand to more than %d bytes, peripheral: %d. Discarding.\n",
-				__func__, max_size, MAX_IN_BUF_SIZE,
-				smd_info->peripheral);
-			buf_size = 0;
+			/* Only realloc if we need to increase the size */
+			if (smd_info->buf_in_2_size < max_size) {
+				temp_buf = krealloc(smd_info->buf_in_2,
+					max_size, GFP_KERNEL);
+				if (temp_buf) {
+					smd_info->buf_in_2 = temp_buf;
+					smd_info->buf_in_2_size = max_size;
+				}
+			}
+			buf_size = smd_info->buf_in_2_size;
 		}
 	}
 
@@ -544,12 +546,96 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 	return 0;
 }
 
+static int diag_smd_resize_buf(struct diag_smd_info *smd_info, void **buf,
+			       unsigned int *buf_size,
+			       unsigned int requested_size)
+{
+	int success = 0;
+	void *temp_buf = NULL;
+	unsigned int new_buf_size = requested_size;
+
+	if (!smd_info)
+		return success;
+
+	if (requested_size <= MAX_IN_BUF_SIZE) {
+		pr_debug("diag: In %s, SMD peripheral: %d sending in packets up to %d bytes\n",
+			__func__, smd_info->peripheral, requested_size);
+	} else {
+		pr_err_ratelimited("diag: In %s, SMD peripheral: %d, Packet size sent: %d, Max size supported (%d) exceeded. Data beyond max size will be lost\n",
+			__func__, smd_info->peripheral, requested_size,
+			MAX_IN_BUF_SIZE);
+		new_buf_size = MAX_IN_BUF_SIZE;
+	}
+
+	/* Only resize if the buffer can be increased in size */
+	if (new_buf_size <= *buf_size) {
+		success = 1;
+		return success;
+	}
+
+	temp_buf = krealloc(*buf, new_buf_size, GFP_KERNEL);
+
+	if (temp_buf) {
+		/* Match the buffer and reset the pointer and size */
+		if (smd_info->encode_hdlc) {
+			/*
+			 * This smd channel is supporting HDLC encoding
+			 * on the apps
+			 */
+			void *temp_hdlc = NULL;
+			if (*buf == smd_info->buf_in_1_raw) {
+				smd_info->buf_in_1_raw = temp_buf;
+				smd_info->buf_in_1_raw_size = new_buf_size;
+				temp_hdlc = krealloc(smd_info->buf_in_1,
+							MAX_IN_BUF_SIZE,
+							GFP_KERNEL);
+				if (temp_hdlc) {
+					smd_info->buf_in_1 = temp_hdlc;
+					smd_info->buf_in_1_size =
+							MAX_IN_BUF_SIZE;
+				}
+			} else if (*buf == smd_info->buf_in_2_raw) {
+				smd_info->buf_in_2_raw = temp_buf;
+				smd_info->buf_in_2_raw_size = new_buf_size;
+				temp_hdlc = krealloc(smd_info->buf_in_2,
+							MAX_IN_BUF_SIZE,
+							GFP_KERNEL);
+				if (temp_hdlc) {
+					smd_info->buf_in_2 = temp_hdlc;
+					smd_info->buf_in_2_size =
+							MAX_IN_BUF_SIZE;
+				}
+			}
+		} else {
+			if (*buf == smd_info->buf_in_1) {
+				smd_info->buf_in_1 = temp_buf;
+				smd_info->buf_in_1_size = new_buf_size;
+			} else if (*buf == smd_info->buf_in_2) {
+				smd_info->buf_in_2 = temp_buf;
+				smd_info->buf_in_2_size = new_buf_size;
+			}
+		}
+		*buf = temp_buf;
+		*buf_size = new_buf_size;
+		success = 1;
+	} else {
+		pr_err_ratelimited("diag: In %s, SMD peripheral: %d. packet size sent: %d, resize to support failed. Data beyond %d will be lost\n",
+			__func__, smd_info->peripheral, requested_size,
+			*buf_size);
+	}
+
+	return success;
+}
+
 void diag_smd_send_req(struct diag_smd_info *smd_info)
 {
 	void *buf = NULL, *temp_buf = NULL;
 	int total_recd = 0, r = 0, pkt_len;
 	int loop_count = 0;
 	int notify = 0;
+	int buf_size = 0;
+	int resize_success = 0;
+	int buf_full = 0;
 
 	if (!smd_info) {
 		pr_err("diag: In %s, no smd info. Not able to read.\n",
@@ -561,27 +647,38 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 	if (smd_info->type == SMD_DATA_TYPE) {
 		/* If the data is raw and not hdlc encoded */
 		if (smd_info->encode_hdlc) {
-			if (!smd_info->in_busy_1)
+			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1_raw;
-			else if (!smd_info->in_busy_2)
+				buf_size = smd_info->buf_in_1_raw_size;
+			} else if (!smd_info->in_busy_2) {
 				buf = smd_info->buf_in_2_raw;
+				buf_size = smd_info->buf_in_2_raw_size;
+			}
 		} else {
-			if (!smd_info->in_busy_1)
+			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1;
-			else if (!smd_info->in_busy_2)
+				buf_size = smd_info->buf_in_1_size;
+			} else if (!smd_info->in_busy_2) {
 				buf = smd_info->buf_in_2;
+				buf_size = smd_info->buf_in_2_size;
+			}
 		}
 	} else if (smd_info->type == SMD_CMD_TYPE) {
 		/* If the data is raw and not hdlc encoded */
 		if (smd_info->encode_hdlc) {
-			if (!smd_info->in_busy_1)
+			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1_raw;
+				buf_size = smd_info->buf_in_1_raw_size;
+			}
 		} else {
-			if (!smd_info->in_busy_1)
+			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1;
+				buf_size = smd_info->buf_in_1_size;
+			}
 		}
 	} else if (!smd_info->in_busy_1) {
 		buf = smd_info->buf_in_1;
+		buf_size = smd_info->buf_in_1_size;
 	}
 
 	if (!buf && (smd_info->type == SMD_DCI_TYPE ||
@@ -589,18 +686,21 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		diag_dci_try_deactivate_wakeup_source(smd_info->ch);
 
 	if (smd_info->ch && buf) {
-		temp_buf = buf;
 		pkt_len = smd_cur_packet_size(smd_info->ch);
 
 		if (pkt_len == 0 && (smd_info->type == SMD_DCI_TYPE ||
 					smd_info->type == SMD_DCI_CMD_TYPE))
 			diag_dci_try_deactivate_wakeup_source(smd_info->ch);
 
+		if (pkt_len > buf_size)
+			resize_success = diag_smd_resize_buf(smd_info, &buf,
+							&buf_size, pkt_len);
+		temp_buf = buf;
 		while (pkt_len && (pkt_len != total_recd)) {
 			loop_count++;
 			r = smd_read_avail(smd_info->ch);
-			pr_debug("diag: In %s, received pkt %d %d\n",
-				__func__, r, total_recd);
+			pr_debug("diag: In %s, SMD peripheral: %d, received pkt %d %d\n",
+				__func__, smd_info->peripheral, r, total_recd);
 			if (!r) {
 				/* Nothing to read from SMD */
 				wait_event(driver->smd_wait_q,
@@ -608,31 +708,19 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 					smd_read_avail(smd_info->ch)));
 				/* If the smd channel is open */
 				if (smd_info->ch) {
-					pr_debug("diag: In %s, return from wait_event\n",
-						__func__);
+					pr_debug("diag: In %s, SMD peripheral: %d, return from wait_event\n",
+						__func__, smd_info->peripheral);
 					continue;
 				} else {
-					pr_debug("diag: In %s, return from wait_event ch closed\n",
-						__func__);
+					pr_debug("diag: In %s, SMD peripheral: %d, return from wait_event ch closed\n",
+						__func__, smd_info->peripheral);
 					goto fail_return;
 				}
 			}
-			total_recd += r;
-			if (total_recd > IN_BUF_SIZE) {
-				if (total_recd < MAX_IN_BUF_SIZE) {
-					pr_err("diag: In %s, SMD sending in packets up to %d bytes\n",
-						__func__, total_recd);
-					buf = krealloc(buf, total_recd,
-						GFP_KERNEL);
-				} else {
-					pr_err("diag: In %s, SMD sending in packets more than %d bytes\n",
-						__func__, MAX_IN_BUF_SIZE);
-					goto fail_return;
-				}
-			}
+
 			if (pkt_len < r) {
-				pr_err("diag: In %s, SMD sending incorrect pkt\n",
-					__func__);
+				pr_err("diag: In %s, SMD peripheral: %d, sending incorrect pkt\n",
+					__func__, smd_info->peripheral);
 				goto fail_return;
 			}
 			if (pkt_len > r) {
@@ -641,17 +729,59 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				smd_info->peripheral, smd_info->type);
 			}
 
-			/* keep reading for complete packet */
-			smd_read(smd_info->ch, temp_buf, r);
-			temp_buf += r;
+			/* Protect from going beyond the end of the buffer */
+			if (total_recd < buf_size) {
+				if (total_recd + r > buf_size) {
+					r = buf_size - total_recd;
+					buf_full = 1;
+				}
+
+				total_recd += r;
+
+				/* Keep reading for complete packet */
+				smd_read(smd_info->ch, temp_buf, r);
+				temp_buf += r;
+			} else {
+				/*
+				 * This block handles the very rare case of a
+				 * packet that is greater in length than what
+				 * we can support. In this case, we
+				 * incrementally drain the remaining portion
+				 * of the packet that will not fit in the
+				 * buffer, so that the entire packet is read
+				 * from the smd.
+				 */
+				int drain_bytes = (r > SMD_DRAIN_BUF_SIZE) ?
+							SMD_DRAIN_BUF_SIZE : r;
+				unsigned char *drain_buf = kzalloc(drain_bytes,
+								GFP_KERNEL);
+				if (drain_buf) {
+					total_recd += drain_bytes;
+					smd_read(smd_info->ch, drain_buf,
+							drain_bytes);
+					kfree(drain_buf);
+				} else {
+					pr_err("diag: In %s, SMD peripheral: %d, unable to allocate drain buffer\n",
+						__func__, smd_info->peripheral);
+					break;
+				}
+			}
 		}
 		if (!driver->real_time_mode && smd_info->type == SMD_DATA_TYPE)
 			process_lock_on_read(&smd_info->nrt_lock, pkt_len);
 
 		if (total_recd > 0) {
 			if (!buf) {
-				pr_err("diag: Out of diagmem for Modem\n");
+				pr_err("diag: In %s, SMD peripheral: %d, Out of diagmem for Modem\n",
+					__func__, smd_info->peripheral);
 			} else if (smd_info->process_smd_read_data) {
+				/*
+				 * If the buffer was totally filled, reset
+				 * total_recd appropriately
+				 */
+				if (buf_full)
+					total_recd = buf_size;
+
 				notify = smd_info->process_smd_read_data(
 						smd_info, buf, total_recd);
 				/* Poll SMD channels to check for data */
@@ -2107,6 +2237,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 		smd_info->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (smd_info->buf_in_1 == NULL)
 			goto err;
+		smd_info->buf_in_1_size = IN_BUF_SIZE;
 		kmemleak_not_leak(smd_info->buf_in_1);
 	}
 
@@ -2124,6 +2255,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			smd_info->buf_in_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 			if (smd_info->buf_in_2 == NULL)
 				goto err;
+			smd_info->buf_in_2_size = IN_BUF_SIZE;
 			kmemleak_not_leak(smd_info->buf_in_2);
 		}
 		if (smd_info->write_ptr_2 == NULL) {
@@ -2141,6 +2273,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 								GFP_KERNEL);
 				if (smd_info->buf_in_1_raw == NULL)
 					goto err;
+				smd_info->buf_in_1_raw_size = IN_BUF_SIZE;
 				kmemleak_not_leak(smd_info->buf_in_1_raw);
 			}
 			if (smd_info->buf_in_2_raw == NULL) {
@@ -2148,6 +2281,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 								GFP_KERNEL);
 				if (smd_info->buf_in_2_raw == NULL)
 					goto err;
+				smd_info->buf_in_2_raw_size = IN_BUF_SIZE;
 				kmemleak_not_leak(smd_info->buf_in_2_raw);
 			}
 		}
@@ -2161,6 +2295,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 								GFP_KERNEL);
 			if (smd_info->buf_in_1_raw == NULL)
 				goto err;
+			smd_info->buf_in_1_raw_size = IN_BUF_SIZE;
 			kmemleak_not_leak(smd_info->buf_in_1_raw);
 		}
 	}
