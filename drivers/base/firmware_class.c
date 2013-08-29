@@ -905,10 +905,6 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 		kobject_uevent(&fw_priv->dev.kobj, KOBJ_ADD);
 	}
 
-	mutex_lock(&fw_lock);
-	list_add(&buf->pending_list, &pending_fw_head);
-	mutex_unlock(&fw_lock);
-
 	wait_for_completion(&buf->completion);
 
 	cancel_delayed_work_sync(&fw_priv->timeout_work);
