@@ -39,7 +39,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
-		qcom,mount-angle = <0>;
+		qcom,mount-angle = <180>;
 		qcom,sensor-name = "ov8825";
 		cam_vdig-supply = <&pm8226_l5>;
 		cam_vana-supply = <&pm8226_l19>;
