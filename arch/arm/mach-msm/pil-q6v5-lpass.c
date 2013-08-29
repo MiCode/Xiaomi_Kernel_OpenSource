@@ -378,9 +378,7 @@ static irqreturn_t adsp_wdog_bite_irq(int irq, void *dev_id)
 {
 	struct lpass_data *drv = subsys_to_drv(dev_id);
 
-	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 	schedule_work(&drv->work);
-
 	return IRQ_HANDLED;
 }
 
