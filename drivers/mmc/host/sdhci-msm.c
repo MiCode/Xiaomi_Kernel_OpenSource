@@ -2324,7 +2324,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 			  CORE_CLK_PWRSAVE);
-	if ((msm_host->clk_rate > 400000) &&
+	if ((clock > 400000) &&
 	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				| CORE_CLK_PWRSAVE,
