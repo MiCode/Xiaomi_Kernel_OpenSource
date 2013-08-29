@@ -166,9 +166,10 @@ static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 
 	spin_lock(&mdss_lock);
 	hw = mdss_irq_handlers[hw_ndx];
+	spin_unlock(&mdss_lock);
+
 	if (hw)
 		rc = hw->irq_handler(irq, hw->ptr);
-	spin_unlock(&mdss_lock);
 
 	return rc;
 }
