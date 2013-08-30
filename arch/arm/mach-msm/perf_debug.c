@@ -38,6 +38,7 @@ static char *descriptions =
 	"13 msm: perf: Add L2 support for tracecounters\n"
 	"14 Perf: keep events across hotplug\n"
 	"15 Perf: bring CPU online if needed when disabling irq\n"
+	"16 Perf: Support sw events across hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
