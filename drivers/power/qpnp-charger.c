@@ -1112,11 +1112,11 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 		pr_debug("psy changed usb_psy\n");
 		power_supply_changed(chip->usb_psy);
 
-		if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
+		if ((chip->cool_bat_decidegc || chip->warm_bat_decidegc)
 						&& batt_present) {
 			pr_debug("enabling vadc notifications\n");
 			schedule_work(&chip->adc_measure_work);
-		} else if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
+		} else if ((chip->cool_bat_decidegc || chip->warm_bat_decidegc)
 				&& !batt_present) {
 			schedule_work(&chip->adc_disable_work);
 			pr_debug("disabling vadc notifications\n");
@@ -3570,7 +3570,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	}
 
 	/* Look up JEITA compliance parameters if cool and warm temp provided */
-	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
+	if (chip->cool_bat_decidegc || chip->warm_bat_decidegc) {
 		chip->adc_tm_dev = qpnp_get_adc_tm(chip->dev, "chg");
 		if (IS_ERR(chip->adc_tm_dev)) {
 			rc = PTR_ERR(chip->adc_tm_dev);
@@ -3911,7 +3911,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 	}
 
-	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
+	if ((chip->cool_bat_decidegc || chip->warm_bat_decidegc)
 							&& chip->bat_if_base) {
 		chip->adc_param.low_temp = chip->cool_bat_decidegc;
 		chip->adc_param.high_temp = chip->warm_bat_decidegc;
@@ -3985,7 +3985,7 @@ static int __devexit
 qpnp_charger_remove(struct spmi_device *spmi)
 {
 	struct qpnp_chg_chip *chip = dev_get_drvdata(&spmi->dev);
-	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
+	if ((chip->cool_bat_decidegc || chip->warm_bat_decidegc)
 						&& chip->batt_present) {
 		qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev,
 							&chip->adc_param);
