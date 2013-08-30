@@ -79,6 +79,23 @@
 			fsl,irq-gpio = <&msmgpio 81 0x00>;
 			fsl,sensors-position = <1>;
 		};
+		stk@48 {
+			compatible = "stk,stk3x1x";
+			reg = <0x48>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <80 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			stk,irq-gpio = <&msmgpio 80 0x02>;
+			stk,transmittance = <100>;
+			stk,state-reg = <0x00>;
+			stk,psctrl-reg = <0x71>;
+			stk,alsctrl-reg = <0x3e>;
+			stk,ledctrl-reg = <0xFF>;
+			stk,wait-reg = <0x07>;
+			stk,ps-thdh = <150>;
+			stk,ps-thdl = <100>;
+		};
 	};
 
 	usb@f9a55000 {
