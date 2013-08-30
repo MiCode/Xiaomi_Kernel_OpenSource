@@ -1376,6 +1376,13 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 	 */
 	memset(&scsi_cmd[1], 0, 5);
 
+	if (shost->report_wlus)
+		/*
+		 * Set "SELECT REPORT" field to 0x2 which will make device to
+		 * report well known logical units along with standard LUs.
+		 */
+		scsi_cmd[2] = 0x2;
+
 	/*
 	 * bytes 6 - 9: length of the command.
 	 */
