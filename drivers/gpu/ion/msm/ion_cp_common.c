@@ -191,7 +191,7 @@ static int __ion_cp_protect_buffer(struct ion_buffer *buffer, int version,
 				version, data);
 
 		if (ret_value) {
-			pr_err("Failed to secure buffer %p, error %d\n",
+			pr_debug("Failed to secure buffer %p, error %d\n",
 				buffer, ret_value);
 			atomic_dec(&buf->secure_cnt);
 		} else {
