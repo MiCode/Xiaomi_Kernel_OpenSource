@@ -3048,6 +3048,8 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 	int status = get_battery_status(chip);
 
 	if (chip->battery_status != status) {
+		pr_debug("status = %d, shadow status = %d\n",
+				status, chip->battery_status);
 		if (status == POWER_SUPPLY_STATUS_CHARGING) {
 			pr_debug("charging started\n");
 			charging_began(chip);
