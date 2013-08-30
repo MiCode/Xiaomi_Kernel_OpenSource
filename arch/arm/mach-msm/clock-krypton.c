@@ -1877,7 +1877,7 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("core_clk", gcc_blsp1_uart5_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp1_uart6_apps_clk.c, ""),
 
-	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
+	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.rng"),
 
 	CLK_LOOKUP("core_clk", gcc_pdm2_clk.c, ""),
 	CLK_LOOKUP("iface_clk", gcc_pdm_ahb_clk.c, ""),
