@@ -23,6 +23,7 @@
 #include <linux/spmi.h>
 #include <linux/rtc.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_batterydata.h>
@@ -143,6 +144,7 @@ struct qpnp_bms_chip {
 	bool				bms_psy_registered;
 	struct power_supply		*batt_psy;
 	struct spmi_device		*spmi;
+	wait_queue_head_t		bms_wait_queue;
 	u16				base;
 	u16				iadc_base;
 
@@ -1682,6 +1684,7 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 #define SOC_CATCHUP_SEC_PER_PERCENT	60
 #define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX / SOC_CATCHUP_SEC_PER_PERCENT)
 #define SOC_CHANGE_PER_SEC		5
+#define REPORT_SOC_WAIT_MS		10000
 static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 {
 	int soc, soc_change;
@@ -1692,6 +1695,18 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	int batt_temp;
 	int rc;
 	bool charging, charging_since_last_report;
+
+	rc = wait_event_interruptible_timeout(chip->bms_wait_queue,
+			chip->calculated_soc != -EINVAL,
+			round_jiffies_relative(msecs_to_jiffies
+			(REPORT_SOC_WAIT_MS)));
+
+	if (rc == 0 && chip->calculated_soc == -EINVAL) {
+		pr_debug("calculate soc timed out\n");
+	} else if (rc == -ERESTARTSYS) {
+		pr_err("Wait for SoC interrupted.\n");
+		return rc;
+	}
 
 	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
 
@@ -2300,6 +2315,7 @@ done_calculating:
 				params.delta_time_s);
 	}
 	mutex_unlock(&chip->last_soc_mutex);
+	wake_up_interruptible(&chip->bms_wait_queue);
 
 	if (new_calculated_soc != previous_soc && chip->bms_psy_registered) {
 		power_supply_changed(&chip->bms_psy);
@@ -3845,6 +3861,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->vbat_monitor_mutex);
 	mutex_init(&chip->soc_invalidation_mutex);
 	mutex_init(&chip->last_soc_mutex);
+	init_waitqueue_head(&chip->bms_wait_queue);
 
 	warm_reset = qpnp_pon_is_warm_reset();
 	rc = warm_reset;
