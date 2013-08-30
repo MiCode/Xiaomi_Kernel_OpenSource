@@ -39,12 +39,14 @@
 #define EXT_CLASS_D_DIS_DELAY 3000
 #define EXT_CLASS_D_DELAY_DELTA 2000
 
+#define CDC_EXT_CLK_RATE 9600000
+#define WCD9XXX_MBHC_DEF_BUTTONS 8
+#define WCD9XXX_MBHC_DEF_RLOADS 5
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static int msm_proxy_rx_ch = 2;
-static struct snd_soc_jack hs_jack;
 static struct platform_device *spdev;
 static int ext_spk_amp_gpio = -1;
 
@@ -54,6 +56,23 @@ static void __iomem *prcgr;
 
 static int msm_sec_mi2s_rx_ch = 1;
 static int msm_pri_mi2s_tx_ch = 1;
+
+static void *def_msm8x10_wcd_mbhc_cal(void);
+static int msm8x10_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+					bool dapm);
+static struct wcd9xxx_mbhc_config mbhc_cfg = {
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.micbias = MBHC_MICBIAS1,
+	.mclk_cb_fn = msm8x10_enable_codec_ext_clk,
+	.mclk_rate = CDC_EXT_CLK_RATE,
+	.gpio = 0,
+	.gpio_irq = 0,
+	.gpio_level_insert = 1,
+	.detect_extn_cable = false,
+	.insert_detect = true,
+	.swap_gnd_mic = NULL,
+};
 
 /*
  * There is limitation for the clock root selection from
@@ -450,6 +469,19 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 	msm8x10_ext_spk_power_amp_init();
+
+	mbhc_cfg.calibration = def_msm8x10_wcd_mbhc_cal();
+	if (mbhc_cfg.calibration) {
+		ret = msm8x10_wcd_hs_detect(codec, &mbhc_cfg);
+		if (ret) {
+			pr_err("%s: msm8x10_wcd_hs_detect failed\n", __func__);
+			goto exit;
+		}
+	} else {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
 	snd_soc_dapm_new_controls(dapm, msm8x10_dapm_widgets,
 				ARRAY_SIZE(msm8x10_dapm_widgets));
 
@@ -461,12 +493,90 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		return ret;
 
-	ret = snd_soc_jack_new(codec, "Headset Jack",
-			SND_JACK_HEADSET, &hs_jack);
-	if (ret)
-		pr_err("%s: Failed to create headset jack\n", __func__);
+exit:
+	if (gpio_is_valid(ext_spk_amp_gpio))
+		gpio_free(ext_spk_amp_gpio);
 
 	return ret;
+}
+
+static void *def_msm8x10_wcd_mbhc_cal(void)
+{
+	void *msm8x10_wcd_cal;
+	struct wcd9xxx_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_low, *btn_high;
+	u8 *n_ready, *n_cic, *gain;
+
+	msm8x10_wcd_cal = kzalloc(WCD9XXX_MBHC_CAL_SIZE(
+						WCD9XXX_MBHC_DEF_BUTTONS,
+						WCD9XXX_MBHC_DEF_RLOADS),
+					GFP_KERNEL);
+	if (!msm8x10_wcd_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_GENERAL_PTR(msm8x10_wcd_cal)->X) = (Y))
+	S(t_ldoh, 100);
+	S(t_bg_fast_settle, 100);
+	S(t_shutdown_plug_rem, 255);
+	S(mbhc_nsa, 2);
+	S(mbhc_navg, 128);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_DET_PTR(msm8x10_wcd_cal)->X) = (Y))
+	S(mic_current, MSM8X10_WCD_PID_MIC_5_UA);
+	S(hph_current, MSM8X10_WCD_PID_MIC_5_UA);
+	S(t_mic_pid, 100);
+	S(t_ins_complete, 250);
+	S(t_ins_retry, 200);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(msm8x10_wcd_cal)->X) = (Y))
+	S(v_no_mic, 30);
+	S(v_hs_max, 1650);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(msm8x10_wcd_cal)->X) = (Y))
+	S(c[0], 62);
+	S(c[1], 124);
+	S(nc, 1);
+	S(n_meas, 5);
+	S(mbhc_nsc, 10);
+	S(n_btn_meas, 1);
+	S(n_btn_con, 2);
+	S(num_btn, WCD9XXX_MBHC_DEF_BUTTONS);
+	S(v_btn_press_delta_sta, 100);
+	S(v_btn_press_delta_cic, 50);
+#undef S
+	btn_cfg = WCD9XXX_MBHC_CAL_BTN_DET_PTR(msm8x10_wcd_cal);
+	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
+	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
+					       MBHC_BTN_DET_V_BTN_HIGH);
+	btn_low[0] = -50;
+	btn_high[0] = 10;
+	btn_low[1] = 11;
+	btn_high[1] = 52;
+	btn_low[2] = 53;
+	btn_high[2] = 94;
+	btn_low[3] = 95;
+	btn_high[3] = 133;
+	btn_low[4] = 134;
+	btn_high[4] = 171;
+	btn_low[5] = 172;
+	btn_high[5] = 208;
+	btn_low[6] = 209;
+	btn_high[6] = 244;
+	btn_low[7] = 245;
+	btn_high[7] = 330;
+	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
+	n_ready[0] = 80;
+	n_ready[1] = 68;
+	n_cic = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_CIC);
+	n_cic[0] = 60;
+	n_cic[1] = 47;
+	gain = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_GAIN);
+	gain[0] = 11;
+	gain[1] = 14;
+
+	return msm8x10_wcd_cal;
 }
 
 static int msm_proxy_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
