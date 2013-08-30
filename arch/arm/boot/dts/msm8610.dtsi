@@ -69,6 +69,15 @@
 		qcom,direct-connect-irqs = <8>;
 	};
 
+	wcd9xxx_intc: wcd9xxx_irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 31 0>;
+		interrupt-names = "cdc-int";
+	};
+
 	qcom,mpm2-sleep-counter@fc4a3000 {
 		compatible = "qcom,mpm2-sleep-counter";
 		reg = <0xfc4a3000 0x1000>;
