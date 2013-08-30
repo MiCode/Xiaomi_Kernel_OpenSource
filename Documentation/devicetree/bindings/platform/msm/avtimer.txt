@@ -1,0 +1,21 @@
+* avtimer
+
+Avtimer provides an interface for clients to enable avtimer block
+on qdsp6. 64 bit AVtimer exposed by qdsp6 is used for audio and video
+stream synchronization during capture and playback usecases.
+
+Required properties:
+- reg : physical address and length of avtimer register
+- reg-names : AVtimer register name
+  Required register resource entries are:
+  "avtimer_lsb_addr" : AVtimer lsb physical address
+  "avtimer_msb_addr" : AVtimer msb physical address
+- compatible : Must be "qcom,avtimer"
+
+Example:
+	qcom,avtimer {
+		compatible = "qcom,avtimer";
+		reg = <0xfe053008 0x4>,
+			<0xfe05300c 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+	};
