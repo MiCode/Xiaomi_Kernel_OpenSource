@@ -22,6 +22,13 @@ enum wcd9xxx_bandgap_type {
 	WCD9XXX_BANDGAP_MBHC_MODE,
 };
 
+enum wcd9xxx_cdc_type {
+	WCD9XXX_CDC_TYPE_INVALID = 0,
+	WCD9XXX_CDC_TYPE_TAIKO,
+	WCD9XXX_CDC_TYPE_TAPAN,
+	WCD9XXX_CDC_TYPE_HELICON,
+};
+
 enum wcd9xxx_clock_type {
 	WCD9XXX_CLK_OFF,
 	WCD9XXX_CLK_RCO,
@@ -147,16 +154,20 @@ struct wcd9xxx_resmgr {
 	 */
 	struct mutex codec_resource_lock;
 	struct mutex codec_bg_clk_lock;
+
+	enum wcd9xxx_cdc_type codec_type;
 };
 
 int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
 			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
-			struct wcd9xxx_reg_address *reg_addr);
+			struct wcd9xxx_reg_address *reg_addr,
+			enum wcd9xxx_cdc_type cdc_type);
 void wcd9xxx_resmgr_deinit(struct wcd9xxx_resmgr *resmgr);
 
-int wcd9xxx_resmgr_enable_config_mode(struct snd_soc_codec *codec, int enable);
+int wcd9xxx_resmgr_enable_config_mode(struct wcd9xxx_resmgr *resmgr,
+				int enable);
 
 void wcd9xxx_resmgr_enable_rx_bias(struct wcd9xxx_resmgr *resmgr, u32 enable);
 void wcd9xxx_resmgr_get_clk_block(struct wcd9xxx_resmgr *resmgr,

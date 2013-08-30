@@ -4880,6 +4880,8 @@ static struct wcd9xxx_cfilt_mode tapan_codec_switch_cfilt_mode(
 
 	cfilt_mode.cur_mode_val =
 		snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl) & 0x30;
+	cfilt_mode.reg_mask = 0x30;
+
 	return cfilt_mode;
 }
 
@@ -4891,8 +4893,15 @@ static void tapan_select_cfilt(struct snd_soc_codec *codec,
 
 static void tapan_free_irq(struct wcd9xxx_mbhc *mbhc)
 {
-	void *cdata = mbhc->codec->control_data;
-	wcd9xxx_free_irq(cdata, WCD9306_IRQ_MBHC_JACK_SWITCH, mbhc);
+	struct wcd9xxx *wcd9xxx = mbhc->codec->control_data;
+	struct wcd9xxx_core_resource *core_res =
+			&wcd9xxx->core_res;
+	wcd9xxx_free_irq(core_res, WCD9306_IRQ_MBHC_JACK_SWITCH, mbhc);
+}
+
+enum wcd9xxx_cdc_type tapan_get_cdc_type(void)
+{
+	return WCD9XXX_CDC_TYPE_TAPAN;
 }
 
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
@@ -4903,6 +4912,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.switch_cfilt_mode = tapan_codec_switch_cfilt_mode,
 	.select_cfilt = tapan_select_cfilt,
 	.free_irq = tapan_free_irq,
+	.get_cdc_type = tapan_get_cdc_type,
 };
 
 int tapan_hs_detect(struct snd_soc_codec *codec,
@@ -5129,7 +5139,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = wcd9xxx_resmgr_init(&tapan->resmgr, codec, core_res, pdata,
-				  &tapan_reg_address);
+				  &tapan_reg_address, WCD9XXX_CDC_TYPE_TAPAN);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		return ret;
