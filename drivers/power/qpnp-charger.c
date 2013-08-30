@@ -340,7 +340,6 @@ struct qpnp_chg_chip {
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
 	struct work_struct		soc_check_work;
-	struct wake_lock		eoc_wake_lock;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_chg_regulator	batfet_vreg;
@@ -1002,11 +1001,9 @@ qpnp_chg_vbatdet_lo_irq_handler(int irq, void *_chip)
 	if (!chip->charging_disabled && (chg_sts & FAST_CHG_ON_IRQ)) {
 		schedule_delayed_work(&chip->eoc_work,
 			msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
-		wake_lock(&chip->eoc_wake_lock);
-		qpnp_chg_disable_irq(&chip->chg_vbatdet_lo);
-	} else {
-		qpnp_chg_charge_en(chip, !chip->charging_disabled);
+		pm_stay_awake(chip->dev);
 	}
+	qpnp_chg_disable_irq(&chip->chg_vbatdet_lo);
 
 	pr_debug("psy changed usb_psy\n");
 	power_supply_changed(chip->usb_psy);
@@ -1243,6 +1240,12 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 	if (chip->resuming_charging) {
 		chip->resuming_charging = false;
 		qpnp_chg_set_appropriate_vbatdet(chip);
+	}
+
+	if (!chip->charging_disabled) {
+		schedule_delayed_work(&chip->eoc_work,
+			msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+		pm_stay_awake(chip->dev);
 	}
 
 	qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
@@ -2373,6 +2376,7 @@ qpnp_chg_adjust_vddmax(struct qpnp_chg_chip *chip, int vbat_mv)
 }
 
 #define CONSECUTIVE_COUNT	3
+#define VBATDET_MAX_ERR_MV	50
 static void
 qpnp_eoc_work(struct work_struct *work)
 {
@@ -2380,10 +2384,12 @@ qpnp_eoc_work(struct work_struct *work)
 	struct qpnp_chg_chip *chip = container_of(dwork,
 				struct qpnp_chg_chip, eoc_work);
 	static int count;
+	static int vbat_low_count;
 	int ibat_ma, vbat_mv, rc = 0;
 	u8 batt_sts = 0, buck_sts = 0, chg_sts = 0;
+	bool vbat_lower_than_vbatdet;
 
-	wake_lock(&chip->eoc_wake_lock);
+	pm_stay_awake(chip->dev);
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 
 	rc = qpnp_chg_read(chip, &batt_sts, INT_RT_STS(chip->bat_if_base), 1);
@@ -2421,11 +2427,24 @@ qpnp_eoc_work(struct work_struct *work)
 		pr_debug("ibat_ma = %d vbat_mv = %d term_current_ma = %d\n",
 				ibat_ma, vbat_mv, chip->term_current);
 
-		if ((!(chg_sts & VBAT_DET_LOW_IRQ)) && (vbat_mv <
-			(chip->max_voltage_mv - chip->resume_delta_mv))) {
-			pr_debug("woke up too early\n");
-			qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
-			goto stop_eoc;
+		vbat_lower_than_vbatdet = !(chg_sts & VBAT_DET_LOW_IRQ);
+		if (vbat_lower_than_vbatdet && vbat_mv <
+				(chip->max_voltage_mv - chip->resume_delta_mv
+				 - VBATDET_MAX_ERR_MV)) {
+			vbat_low_count++;
+			pr_debug("woke up too early vbat_mv = %d, max_mv = %d, resume_mv = %d tolerance_mv = %d low_count = %d\n",
+					vbat_mv, chip->max_voltage_mv,
+					chip->resume_delta_mv,
+					VBATDET_MAX_ERR_MV, vbat_low_count);
+			if (vbat_low_count >= CONSECUTIVE_COUNT) {
+				pr_debug("woke up too early stopping\n");
+				qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
+				goto stop_eoc;
+			} else {
+				goto check_again_later;
+			}
+		} else {
+			vbat_low_count = 0;
 		}
 
 		if (buck_sts & VDD_LOOP_IRQ)
@@ -2444,6 +2463,10 @@ qpnp_eoc_work(struct work_struct *work)
 			if (count == CONSECUTIVE_COUNT) {
 				pr_info("End of Charging\n");
 				qpnp_chg_charge_en(chip, 0);
+				/* sleep for a second before enabling */
+				msleep(2000);
+				qpnp_chg_charge_en(chip,
+						!chip->charging_disabled);
 				chip->chg_done = true;
 				pr_debug("psy changed batt_psy\n");
 				power_supply_changed(&chip->batt_psy);
@@ -2459,13 +2482,15 @@ qpnp_eoc_work(struct work_struct *work)
 		goto stop_eoc;
 	}
 
+check_again_later:
 	schedule_delayed_work(&chip->eoc_work,
 		msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 	return;
 
 stop_eoc:
+	vbat_low_count = 0;
 	count = 0;
-	wake_unlock(&chip->eoc_wake_lock);
+	pm_relax(chip->dev);
 }
 
 static void
@@ -2868,8 +2893,17 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		chip->charging_disabled = !(val->intval);
-		qpnp_chg_charge_en(chip, !chip->charging_disabled);
-		qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+		if (chip->charging_disabled) {
+			/* disable charging */
+			qpnp_chg_charge_en(chip, !chip->charging_disabled);
+			qpnp_chg_force_run_on_batt(chip,
+						chip->charging_disabled);
+		} else {
+			/* enable charging */
+			qpnp_chg_force_run_on_batt(chip,
+					chip->charging_disabled);
+			qpnp_chg_charge_en(chip, !chip->charging_disabled);
+		}
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		qpnp_batt_system_temp_level_set(chip, val->intval);
@@ -3018,7 +3052,7 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 			rc |= devm_request_irq(chip->dev,
 				chip->chg_vbatdet_lo.irq,
 				qpnp_chg_vbatdet_lo_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING,
 				"vbat-det-lo", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d vbat-det-lo: %d\n",
@@ -3874,8 +3908,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			qpnp_bat_if_adc_disable_work);
 	}
 
-	wake_lock_init(&chip->eoc_wake_lock,
-		WAKE_LOCK_SUSPEND, "qpnp-chg-eoc-lock");
 	INIT_DELAYED_WORK(&chip->eoc_work, qpnp_eoc_work);
 	INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
 	INIT_WORK(&chip->soc_check_work, qpnp_chg_soc_check_work);
