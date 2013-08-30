@@ -16,8 +16,8 @@
 /include/ "dsi-panel-nt35521-720p-video.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226 QRD";
-	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
+	model = "Qualcomm MSM 8226v1 QRD";
+	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,skuf", "qcom,qrd";
 	qcom,board-id = <11 2>;
 	qcom,msm-id = <145 0>,
 		      <158 0>,
