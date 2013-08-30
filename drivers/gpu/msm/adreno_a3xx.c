@@ -3248,7 +3248,6 @@ static int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int val = 0;
 	struct adreno_perfcount_register *reg;
 
 	/* Special cases */
@@ -3273,15 +3272,6 @@ static int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	/* Select the desired perfcounter */
 	kgsl_regwrite(device, reg->select, countable);
 
-	if (reg->load_bit < 32) {
-		kgsl_regread(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, &val);
-		val |= (1 << reg->load_bit);
-		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, val);
-	} else {
-		kgsl_regread(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, &val);
-		val  |= (1 << (reg->load_bit - 32));
-		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, val);
-	}
 	return 0;
 }
 
