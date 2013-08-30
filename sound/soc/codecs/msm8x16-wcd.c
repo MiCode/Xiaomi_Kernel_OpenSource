@@ -34,7 +34,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
-#include <mach/subsystem_notif.h>
+#include <soc/qcom/subsystem_notif.h>
 #include "msm8x16-wcd.h"
 #include "msm8916-wcd-irq.h"
 #include "msm8x16_wcd_registers.h"

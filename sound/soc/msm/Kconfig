@@ -213,6 +213,17 @@ config SND_SOC_MSMSAMARIUM
 	select DOLBY_DAP
 	help
 	 To add support for SoC audio on MSMSAMARIUM.
+
+config SND_SOC_MSM8X16
+	tristate "SoC Machine driver for MSM8X16 boards"
+	depends on ARCH_MSM8916
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_MSM8X16_WCD
+	select SND_DYNAMIC_MINORS
+	help
+	 To add support for SoC audio on MSM8X16.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine drivers and the corresponding
