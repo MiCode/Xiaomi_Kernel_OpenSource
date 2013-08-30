@@ -2024,6 +2024,10 @@ unsigned int snd_soc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
 	unsigned int ret;
 
+	if (unlikely(!snd_card_is_online_state(codec->card->snd_card))) {
+		dev_err(codec->dev, "read 0x%02x while offline\n", reg);
+		return -ENODEV;
+	}
 	ret = codec->read(codec, reg);
 	dev_dbg(codec->dev, "read %x => %x\n", reg, ret);
 	trace_snd_soc_reg_read(codec, reg, ret);
@@ -2035,6 +2039,10 @@ EXPORT_SYMBOL_GPL(snd_soc_read);
 unsigned int snd_soc_write(struct snd_soc_codec *codec,
 			   unsigned int reg, unsigned int val)
 {
+	if (unlikely(!snd_card_is_online_state(codec->card->snd_card))) {
+		dev_err(codec->dev, "write 0x%02x while offline\n", reg);
+		return -ENODEV;
+	}
 	dev_dbg(codec->dev, "write %x = %x\n", reg, val);
 	trace_snd_soc_reg_write(codec, reg, val);
 	return codec->write(codec, reg, val);
@@ -3539,6 +3547,17 @@ static void fixup_codec_formats(struct snd_soc_pcm_stream *stream)
 		if (stream->formats & codec_format_map[i])
 			stream->formats |= codec_format_map[i];
 }
+
+/**
+ * snd_soc_card_change_online_state - Mark if soc card is online/offline
+ *
+ * @soc_card : soc_card to mark
+ */
+void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
+{
+	snd_card_change_online_state(soc_card->snd_card, online);
+}
+EXPORT_SYMBOL(snd_soc_card_change_online_state);
 
 /**
  * snd_soc_register_codec - Register a codec with the ASoC core
