@@ -51,3 +51,18 @@
 		qcom,y-offset = <0>;
 	};
 };
+
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	/include/ "batterydata-qrd-4v2-2000mah.dtsi"
+};
+
+&pm8226_bms {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8226_chg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
