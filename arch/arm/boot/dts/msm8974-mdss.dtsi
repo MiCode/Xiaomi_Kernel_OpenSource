@@ -158,7 +158,7 @@
 		qcom,hdmi-tx-supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
 		qcom,hdmi-tx-min-voltage-level = <0 0 1800000 1800000>;
 		qcom,hdmi-tx-max-voltage-level = <0 0 1800000 1800000>;
-		qcom,hdmi-tx-peak-current = <0 0 1800000 0>;
+		qcom,hdmi-tx-peak-current = <0 0 300000 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
