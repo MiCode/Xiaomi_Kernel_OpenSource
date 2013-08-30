@@ -2326,7 +2326,7 @@ EXPORT_SYMBOL_GPL(wm_adsp_stream_free);
 int wm_adsp_stream_start(struct wm_adsp *adsp)
 {
 	u32 xm_base, magic;
-	int ret;
+	int i, ret;
 
 	ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
 				     ADSP2_SYSTEM_CONFIG_XM_PTR, &xm_base);
@@ -2343,12 +2343,22 @@ int wm_adsp_stream_start(struct wm_adsp *adsp)
 	if (magic != WM_ADSP_ALG_XM_STRUCT_MAGIC)
 		return -EINVAL;
 
-	ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
-				     xm_base + WM_ADSP_ALG_XM_PTR +
-				     ALG_XM_FIELD(host_buf_ptr),
-				     &adsp->host_buf_ptr);
-	if (ret < 0)
-		return ret;
+	for (i = 0; i < 5; ++i) {
+		ret = wm_adsp_read_data_word(adsp, WMFW_ADSP2_XM,
+					     xm_base + WM_ADSP_ALG_XM_PTR +
+					     ALG_XM_FIELD(host_buf_ptr),
+					     &adsp->host_buf_ptr);
+		if (ret < 0)
+			return ret;
+
+		if (adsp->host_buf_ptr)
+			break;
+
+		msleep(1);
+	}
+
+	if (!adsp->host_buf_ptr)
+		return -EIO;
 
 	ret = wm_adsp_host_buffer_read(adsp,
 				       HOST_BUFFER_FIELD(low_water_mark),
