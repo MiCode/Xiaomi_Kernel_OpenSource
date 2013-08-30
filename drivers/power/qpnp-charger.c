@@ -288,7 +288,6 @@ struct qpnp_chg_chip {
 	struct qpnp_chg_irq		chg_failed;
 	struct qpnp_chg_irq		chg_vbatdet_lo;
 	struct qpnp_chg_irq		batt_pres;
-	struct qpnp_chg_irq		vchg_loop;
 	struct qpnp_chg_irq		batt_temp_ok;
 	bool				bat_is_cool;
 	bool				bat_is_warm;
@@ -970,19 +969,6 @@ qpnp_bat_if_adc_disable_work(struct work_struct *work)
 	qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev, &chip->adc_param);
 }
 
-static irqreturn_t
-qpnp_chg_buck_vchg_loop_irq_handler(int irq, void *_chip)
-{
-	struct qpnp_chg_chip *chip = _chip;
-
-	if (chip->bat_if_base) {
-		pr_debug("psy changed batt_psy\n");
-		power_supply_changed(&chip->batt_psy);
-	}
-
-	return IRQ_HANDLED;
-}
-
 #define EOC_CHECK_PERIOD_MS	10000
 static irqreturn_t
 qpnp_chg_vbatdet_lo_irq_handler(int irq, void *_chip)
@@ -1250,10 +1236,6 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 	}
 
 	qpnp_chg_enable_irq(&chip->chg_vbatdet_lo);
-	if (chgr_sts & FAST_CHG_ON_IRQ)
-		qpnp_chg_enable_irq(&chip->vchg_loop);
-	else
-		qpnp_chg_disable_irq(&chip->vchg_loop);
 
 	return IRQ_HANDLED;
 }
@@ -3111,24 +3093,6 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 		case SMBB_BUCK_SUBTYPE:
 		case SMBBP_BUCK_SUBTYPE:
 		case SMBCL_BUCK_SUBTYPE:
-			chip->vchg_loop.irq = spmi_get_irq_byname(spmi,
-						spmi_resource, "vchg-loop");
-			if (chip->vchg_loop.irq < 0) {
-				pr_err("Unable to get vchg-loop irq\n");
-				return rc;
-			}
-			rc = devm_request_irq(chip->dev, chip->vchg_loop.irq,
-				qpnp_chg_buck_vchg_loop_irq_handler,
-				IRQF_TRIGGER_RISING,
-				"vchg-loop", chip);
-			if (rc < 0) {
-				pr_err("Can't request %d vchg-loop irq: %d\n",
-						chip->vchg_loop.irq, rc);
-				return rc;
-			}
-
-			enable_irq_wake(chip->vchg_loop.irq);
-			qpnp_chg_disable_irq(&chip->vchg_loop);
 			break;
 
 		case SMBB_USB_CHGPTH_SUBTYPE:
