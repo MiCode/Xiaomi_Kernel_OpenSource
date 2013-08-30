@@ -68,7 +68,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.mclk_rate = CDC_EXT_CLK_RATE,
 	.gpio = 0,
 	.gpio_irq = 0,
-	.gpio_level_insert = 1,
+	.gpio_level_insert = 0,
 	.detect_extn_cable = false,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
@@ -1006,6 +1006,9 @@ static __devinit int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	atomic_set(&mclk_rsc_ref, 0);
+	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
+						"qcom,headset-jack-type-NC");
+
 	spdev = pdev;
 
 	ret = snd_soc_register_card(card);
