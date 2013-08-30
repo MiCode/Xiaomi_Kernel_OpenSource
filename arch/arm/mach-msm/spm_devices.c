@@ -48,18 +48,29 @@ struct msm_spm_vdd_info {
 
 static struct msm_spm_device msm_spm_l2_device;
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_cpu_spm_device);
-
+static bool msm_spm_L2_apcs_master;
 
 static void msm_spm_smp_set_vdd(void *data)
 {
 	struct msm_spm_device *dev;
 	struct msm_spm_vdd_info *info = (struct msm_spm_vdd_info *)data;
 
-	dev = &per_cpu(msm_cpu_spm_device, info->cpu);
+	if (msm_spm_L2_apcs_master)
+		dev = &msm_spm_l2_device;
+	else
+		dev = &per_cpu(msm_cpu_spm_device, info->cpu);
+
 	if (!dev->initialized)
 		return;
+
+	if (msm_spm_L2_apcs_master)
+		get_cpu();
+
 	dev->cpu_vdd = info->vlevel;
 	info->err = msm_spm_drv_set_vdd(&dev->reg_data, info->vlevel);
+
+	if (msm_spm_L2_apcs_master)
+		put_cpu();
 }
 
 /**
@@ -76,7 +87,8 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 	info.vlevel = vlevel;
 	info.err = -ENODEV;
 
-	if ((smp_processor_id() != cpu) && cpu_online(cpu)) {
+	if (!msm_spm_L2_apcs_master && (smp_processor_id() != cpu) &&
+			cpu_online(cpu)) {
 		/**
 		 * We do not want to set the voltage of another core from
 		 * this core, as its possible that we may race the vdd change
@@ -111,7 +123,10 @@ unsigned int msm_spm_get_vdd(unsigned int cpu)
 {
 	struct msm_spm_device *dev;
 
-	dev = &per_cpu(msm_cpu_spm_device, cpu);
+	if (msm_spm_L2_apcs_master)
+		dev = &msm_spm_l2_device;
+	else
+		dev = &per_cpu(msm_cpu_spm_device, cpu);
 	return dev->cpu_vdd;
 }
 EXPORT_SYMBOL(msm_spm_get_vdd);
@@ -293,18 +308,6 @@ void msm_spm_l2_reinit(void)
 EXPORT_SYMBOL(msm_spm_l2_reinit);
 
 /**
- * msm_spm_apcs_set_vdd(): Set Apps processor core sub-system voltage
- * @vlevel: Encoded PMIC data.
- */
-int msm_spm_apcs_set_vdd(unsigned int vlevel)
-{
-	if (!msm_spm_l2_device.initialized)
-		return -ENXIO;
-	return msm_spm_drv_set_vdd(&msm_spm_l2_device.reg_data, vlevel);
-}
-EXPORT_SYMBOL(msm_spm_apcs_set_vdd);
-
-/**
  * msm_spm_apcs_set_phase(): Set number of SMPS phases.
  * phase_cnt: Number of phases to be set active
  */
@@ -468,6 +471,10 @@ static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(node, key, &val);
 		if (!ret)
 			spm_data.pfm_port = val;
+
+		key = "qcom,L2-spm-is-apcs-master";
+		msm_spm_L2_apcs_master =
+			of_property_read_bool(pdev->dev.of_node, key);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {

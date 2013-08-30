@@ -760,7 +760,7 @@ static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
 
 	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
 
-	rc = msm_spm_apcs_set_vdd(setpoint);
+	rc = msm_spm_set_vdd(0, setpoint); /* value of CPU is don't care */
 	if (rc < 0)
 		pr_err("could not set %duV setpt = 0x%x rc = %d\n",
 				uV, setpoint, rc);
