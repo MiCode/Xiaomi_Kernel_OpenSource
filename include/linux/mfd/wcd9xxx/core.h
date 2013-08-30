@@ -188,10 +188,13 @@ struct wcd9xxx {
 			int bytes, void *dest, bool interface_reg);
 	int (*write_dev)(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			int bytes, void *src, bool interface_reg);
+	int (*dev_down)(struct wcd9xxx *wcd9xxx);
 	int (*post_reset)(struct wcd9xxx *wcd9xxx);
 
 	void *ssr_priv;
 	bool slim_device_bootup;
+	/* device down flag by device_down notification */
+	bool device_down;
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
