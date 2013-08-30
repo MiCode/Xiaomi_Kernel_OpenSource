@@ -27,7 +27,6 @@
 #include <linux/i2c.h>
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
-#include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -166,7 +165,6 @@ struct msm8x10_wcd_priv {
 	bool config_mode_active;
 	bool mbhc_polling_active;
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
-	struct mutex codec_resource_lock;
 	/* resmgr module */
 	struct wcd9xxx_resmgr resmgr;
 };
@@ -344,8 +342,8 @@ int msm8x10_wcd_i2c_write(unsigned short reg, int bytes, void *src)
 	return msm8x10_wcd_i2c_write_device(reg, src, bytes);
 }
 
-static int msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
-				u16 reg, unsigned int *val)
+static int __msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
+				unsigned short reg)
 {
 	int ret = -EINVAL;
 	u8 temp;
@@ -357,13 +355,57 @@ static int msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
 	else if (MSM8X10_WCD_IS_DINO_REG(reg))
 		ret = msm8x10_wcd_abh_read_device(msm8x10_wcd, reg, 1, &temp);
 	mutex_unlock(&msm8x10_wcd->io_lock);
-	*val = temp;
+
+	if (ret < 0) {
+		dev_err(msm8x10_wcd->dev,
+				"%s: codec read failed for reg 0x%x\n",
+				__func__, reg);
+		return ret;
+	} else {
+		dev_dbg(msm8x10_wcd->dev, "Read 0x%02x from 0x%x\n",
+				temp, reg);
+	}
+
+	return temp;
+}
+
+int msm8x10_wcd_reg_read(struct wcd9xxx_core_resource *core_res,
+				unsigned short reg)
+{
+	struct msm8x10_wcd *msm8x10_wcd = core_res->parent;
+	return __msm8x10_wcd_reg_read(msm8x10_wcd, reg);
+}
+EXPORT_SYMBOL(msm8x10_wcd_reg_read);
+
+static int __msm8x10_wcd_bulk_read(struct msm8x10_wcd *msm8x10_wcd,
+		unsigned short reg, int count, u8 *buf)
+{
+	int ret = -EINVAL;
+	mutex_lock(&msm8x10_wcd->io_lock);
+	if (MSM8X10_WCD_IS_HELICON_REG(reg))
+		ret = msm8x10_wcd_i2c_read(reg, count, buf);
+	else if (MSM8X10_WCD_IS_DINO_REG(reg))
+		ret = msm8x10_wcd_abh_read_device(msm8x10_wcd, reg,
+						count, buf);
+	mutex_unlock(&msm8x10_wcd->io_lock);
+
+	if (ret < 0)
+		dev_err(msm8x10_wcd->dev,
+				"%s: codec bulk read failed\n", __func__);
 	return ret;
 }
 
+int msm8x10_wcd_bulk_read(struct wcd9xxx_core_resource *core_res,
+			unsigned short reg, int count, u8 *buf)
+{
+	struct msm8x10_wcd *msm8x10_wcd =
+				(struct msm8x10_wcd *) core_res->parent;
+	return __msm8x10_wcd_bulk_read(msm8x10_wcd, reg, count, buf);
+}
+EXPORT_SYMBOL(msm8x10_wcd_bulk_read);
 
-static int msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd, u16  reg,
-				 u8 val)
+static int __msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd,
+			unsigned short reg, u8 val)
 {
 	int ret = -EINVAL;
 
@@ -375,8 +417,25 @@ static int msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd, u16  reg,
 		ret = msm8x10_wcd_abh_write_device(msm8x10_wcd, reg, &val, 1);
 	mutex_unlock(&msm8x10_wcd->io_lock);
 
+	if (ret < 0)
+		dev_err(msm8x10_wcd->dev,
+				"%s: codec write to reg 0x%x failed\n",
+				__func__, reg);
+	else
+		dev_dbg(msm8x10_wcd->dev,
+				"%s: Codec reg 0x%x written with value 0x%x\n",
+				__func__, reg, val);
+
 	return ret;
 }
+
+int msm8x10_wcd_reg_write(struct wcd9xxx_core_resource *core_res,
+	unsigned short reg, u8 val)
+{
+	struct msm8x10_wcd *msm8x10_wcd = core_res->parent;
+	return __msm8x10_wcd_reg_write(msm8x10_wcd, reg, val);
+}
+EXPORT_SYMBOL(msm8x10_wcd_reg_write);
 
 static bool msm8x10_wcd_is_digital_gain_register(unsigned int reg)
 {
@@ -451,7 +510,7 @@ static int msm8x10_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 				reg, ret);
 	}
 
-	return msm8x10_wcd_reg_write(codec->control_data, reg, (u8)value);
+	return __msm8x10_wcd_reg_write(codec->control_data, reg, (u8)value);
 }
 
 static unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec,
@@ -477,7 +536,7 @@ static unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	ret = msm8x10_wcd_reg_read(codec->control_data, reg, &val);
+	val = __msm8x10_wcd_reg_read(codec->control_data, reg);
 	return val;
 }
 
@@ -1796,12 +1855,6 @@ static int msm8x10_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		/* Let MBHC module know PA turned off */
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_off);
 
-		/*
-		 * schedule work is required because at the time HPH PA DAPM
-		 * event callback is called by DAPM framework, CODEC dapm mutex
-		 * would have been locked while snd_soc_jack_report also
-		 * attempts to acquire same lock.
-		 */
 		dev_dbg(codec->dev,
 			"%s: sleep 10 ms after %s PA disable.\n", __func__,
 			w->name);
@@ -2071,7 +2124,7 @@ int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: mclk_enable = %u, dapm = %d\n",
 		__func__, mclk_enable, dapm);
 	if (dapm)
-		MSM8X10_WCD_ACQUIRE_LOCK(msm8x10_wcd->codec_resource_lock);
+		WCD9XXX_BG_CLK_LOCK(&msm8x10_wcd->resmgr);
 	if (mclk_enable) {
 		msm8x10_wcd->mclk_enabled = true;
 		msm8x10_wcd_codec_enable_bandgap(codec,
@@ -2080,8 +2133,7 @@ int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec,
 	} else {
 		if (!msm8x10_wcd->mclk_enabled) {
 			if (dapm)
-				MSM8X10_WCD_RELEASE_LOCK(
-				  msm8x10_wcd->codec_resource_lock);
+				WCD9XXX_BG_CLK_UNLOCK(&msm8x10_wcd->resmgr);
 			dev_err(codec->dev, "Error, MCLK already diabled\n");
 			return -EINVAL;
 		}
@@ -2091,7 +2143,7 @@ int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec,
 						   MSM8X10_WCD_BANDGAP_OFF);
 	}
 	if (dapm)
-		MSM8X10_WCD_RELEASE_LOCK(msm8x10_wcd->codec_resource_lock);
+		WCD9XXX_BG_CLK_UNLOCK(&msm8x10_wcd->resmgr);
 	return 0;
 }
 
@@ -2659,10 +2711,14 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd_priv;
 	struct msm8x10_wcd *msm8x10_wcd;
-	int i;
+	struct wcd9xxx_core_resource *core_res;
+	int i, ret = 0;
+
 	dev_dbg(codec->dev, "%s()\n", __func__);
 
-	msm8x10_wcd_priv = kzalloc(sizeof(struct msm8x10_wcd_priv), GFP_KERNEL);
+	msm8x10_wcd_priv = devm_kzalloc(codec->dev,
+			sizeof(struct msm8x10_wcd_priv), GFP_KERNEL);
+
 	if (!msm8x10_wcd_priv) {
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
@@ -2684,6 +2740,18 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd->pdino_base = ioremap(MSM8X10_DINO_CODEC_BASE_ADDR,
 					  MSM8X10_DINO_CODEC_REG_SIZE);
 
+	/* codec resmgr module init */
+	msm8x10_wcd = codec->control_data;
+	core_res = &msm8x10_wcd->wcd9xxx_res;
+	ret = wcd9xxx_resmgr_init(&msm8x10_wcd_priv->resmgr,
+				codec, core_res, NULL, NULL);
+	if (ret) {
+		dev_err(codec->dev,
+				"%s: wcd9xxx init failed %d\n",
+				__func__, ret);
+		goto exit_probe;
+	}
+
 	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
@@ -2697,12 +2765,12 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x10_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+
 	msm8x10_wcd_priv->mclk_enabled = false;
 	msm8x10_wcd_priv->bandgap_type = MSM8X10_WCD_BANDGAP_OFF;
 	msm8x10_wcd_priv->clock_active = false;
 	msm8x10_wcd_priv->config_mode_active = false;
 	msm8x10_wcd_priv->mbhc_polling_active = false;
-	mutex_init(&msm8x10_wcd_priv->codec_resource_lock);
 
 	registered_codec = codec;
 	adsp_state_notifier =
@@ -2715,13 +2783,16 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 		return -ENOMEM;
 	}
 	return 0;
+
+exit_probe:
+	return ret;
+
 }
 
 static int msm8x10_wcd_codec_remove(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *pwcd_priv = snd_soc_codec_get_drvdata(codec);
 	struct msm8x10_wcd *msm8x10_wcd = pwcd_priv->codec->control_data;
-
 	pwcd_priv->on_demand_list[ON_DEMAND_CP].supply = NULL;
 	atomic_set(&pwcd_priv->on_demand_list[ON_DEMAND_CP].ref, 0);
 	pwcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
@@ -2920,8 +2991,6 @@ static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
 {
 	mutex_init(&msm8x10->io_lock);
 	mutex_init(&msm8x10->xfer_lock);
-	mutex_init(&msm8x10->pm_lock);
-	msm8x10->wlock_holders = 0;
 	msm8x10_wcd_pads_config();
 	msm8x10_wcd_clk_init();
 	return 0;
@@ -2936,6 +3005,7 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	static int device_id;
 	struct device *dev;
 	enum apr_subsys_state q6_state;
+	struct wcd9xxx_core_resource *core_res;
 
 	dev_dbg(&client->dev, "%s(%d):slave addr = 0x%x device_id = %d\n",
 		__func__, __LINE__,  client->addr, device_id);
@@ -2995,8 +3065,8 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	}
 
 	msm8x10->dev = &client->dev;
-	msm8x10->read_dev = msm8x10_wcd_reg_read;
-	msm8x10->write_dev = msm8x10_wcd_reg_write;
+	msm8x10->read_dev = __msm8x10_wcd_reg_read;
+	msm8x10->write_dev = __msm8x10_wcd_reg_write;
 	ret = msm8x10_wcd_init_supplies(msm8x10, pdata);
 	if (ret) {
 		dev_err(&client->dev, "%s: Fail to enable Codec supplies\n",
@@ -3020,15 +3090,24 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 		goto err_supplies;
 	}
 	dev_set_drvdata(&client->dev, msm8x10);
+	core_res = &msm8x10->wcd9xxx_res;
+	wcd9xxx_core_res_init(core_res,
+					MSM8X10_WCD_NUM_IRQS,
+					MSM8X10_WCD_NUM_IRQ_REGS,
+					msm8x10_wcd_reg_read,
+					msm8x10_wcd_reg_write,
+					msm8x10_wcd_bulk_read);
 	ret = snd_soc_register_codec(&client->dev, &soc_codec_dev_msm8x10_wcd,
 				     msm8x10_wcd_i2s_dai,
 				     ARRAY_SIZE(msm8x10_wcd_i2s_dai));
-	if (ret)
+	if (ret) {
 		dev_err(&client->dev,
 			"%s:snd_soc_register_codec failed with error %d\n",
 			__func__, ret);
-	else
+	} else {
+		wcd9xxx_set_intf_type(WCD9XXX_INTERFACE_TYPE_I2C);
 		goto rtn;
+	}
 
 err_supplies:
 	msm8x10_wcd_disable_supplies(msm8x10, pdata);
@@ -3040,7 +3119,6 @@ rtn:
 
 static void msm8x10_wcd_device_exit(struct msm8x10_wcd *msm8x10)
 {
-	mutex_destroy(&msm8x10->pm_lock);
 	mutex_destroy(&msm8x10->io_lock);
 	mutex_destroy(&msm8x10->xfer_lock);
 	kfree(msm8x10);
@@ -3084,6 +3162,7 @@ static int __init msm8x10_wcd_codec_init(void)
 	int ret;
 
 	pr_debug("%s:\n", __func__);
+	wcd9xxx_set_intf_type(WCD9XXX_INTERFACE_TYPE_PROBING);
 	ret = i2c_add_driver(&msm8x10_wcd_i2c_driver);
 	if (ret != 0)
 		pr_err("%s: Failed to add msm8x10 wcd I2C driver - error %d\n",
