@@ -590,7 +590,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * the _addcmds call since it is allocating additional ringbuffer
 	 * command space.
 	 */
-	profile_ready = !adreno_is_a2xx(adreno_dev) &&
+	profile_ready = !adreno_is_a2xx(adreno_dev) && context &&
 		adreno_profile_assignments_ready(&adreno_dev->profile) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE);
 
