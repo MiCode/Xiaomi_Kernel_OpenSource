@@ -86,6 +86,7 @@
 #define CHGR_STATUS				0x09
 #define CHGR_BAT_IF_VCP				0x42
 #define CHGR_BAT_IF_BATFET_CTRL1		0x90
+#define CHGR_BAT_IF_SPARE			0xDF
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_PSTG_CTRL			0x73
 #define CHGR_BUCK_COMPARATOR_OVRIDE_1		0xEB
@@ -342,6 +343,7 @@ struct qpnp_chg_chip {
 	struct wake_lock		eoc_wake_lock;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
+	struct qpnp_chg_regulator	batfet_vreg;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct mutex			jeita_configure_lock;
@@ -2260,6 +2262,63 @@ static struct regulator_ops qpnp_chg_boost_reg_ops = {
 	.list_voltage		= qpnp_chg_regulator_boost_list_voltage,
 };
 
+#define BATFET_LPM_MASK		0xC0
+#define BATFET_LPM		0x40
+#define BATFET_NO_LPM		0x00
+static int
+qpnp_chg_regulator_batfet_enable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc;
+
+	rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_SPARE,
+			BATFET_LPM_MASK, BATFET_NO_LPM, 1);
+	if (rc)
+		pr_err("failed to write to batt_if rc=%d\n", rc);
+	return rc;
+}
+
+static int
+qpnp_chg_regulator_batfet_disable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc;
+
+	rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_SPARE,
+			BATFET_LPM_MASK, BATFET_LPM, 1);
+	if (rc)
+		pr_err("failed to write to batt_if rc=%d\n", rc);
+	return rc;
+}
+
+static int
+qpnp_chg_regulator_batfet_is_enabled(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc;
+	u8 reg;
+
+	rc = qpnp_chg_read(chip, &reg,
+				chip->bat_if_base + CHGR_BAT_IF_SPARE, 1);
+	if (rc) {
+		pr_err("failed to read batt_if rc=%d\n", rc);
+		return rc;
+	}
+
+	if (reg && BATFET_LPM_MASK == BATFET_NO_LPM)
+		return 1;
+
+	return 0;
+}
+
+static struct regulator_ops qpnp_chg_batfet_vreg_ops = {
+	.enable			= qpnp_chg_regulator_batfet_enable,
+	.disable		= qpnp_chg_regulator_batfet_disable,
+	.is_enabled		= qpnp_chg_regulator_batfet_is_enabled,
+};
+
 #define MIN_DELTA_MV_TO_INCREASE_VDD_MAX	13
 #define MAX_DELTA_VDD_MAX_MV			30
 static void
@@ -3249,6 +3308,32 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		if (rc) {
 			pr_debug("failed to force on VREF_BAT_THM rc=%d\n", rc);
 			return rc;
+		}
+
+		init_data = of_get_regulator_init_data(chip->dev,
+					       spmi_resource->of_node);
+
+		if (init_data->constraints.name) {
+			rdesc			= &(chip->batfet_vreg.rdesc);
+			rdesc->owner		= THIS_MODULE;
+			rdesc->type		= REGULATOR_VOLTAGE;
+			rdesc->ops		= &qpnp_chg_batfet_vreg_ops;
+			rdesc->name		= init_data->constraints.name;
+
+			init_data->constraints.valid_ops_mask
+				|= REGULATOR_CHANGE_STATUS;
+
+			chip->batfet_vreg.rdev = regulator_register(rdesc,
+					chip->dev, init_data, chip,
+					spmi_resource->of_node);
+			if (IS_ERR(chip->batfet_vreg.rdev)) {
+				rc = PTR_ERR(chip->batfet_vreg.rdev);
+				chip->batfet_vreg.rdev = NULL;
+				if (rc != -EPROBE_DEFER)
+					pr_err("batfet reg failed, rc=%d\n",
+							rc);
+				return rc;
+			}
 		}
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
