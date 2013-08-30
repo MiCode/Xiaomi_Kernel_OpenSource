@@ -85,6 +85,12 @@ static struct gpiomux_setting gpio_spi_cs_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting gpio_spi_cs_eth_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -197,6 +203,12 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 19,		/* BLSP1 QUP5 I2C_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 22,		/* BLSP1 QUP1 SPI_CS_ETH */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_eth_config,
 		},
 	},
 	{					/*  NFC   */
@@ -555,20 +567,6 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 	},
 	{
 		.gpio = 37, /* CAM1_RST_N */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[4],
-		},
-	},
-	{
-		.gpio = 22, /* CAM1_VDD */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[4],
-		},
-	},
-	{
-		.gpio = 34, /* CAM1 VCM_PWDN */
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
 			[GPIOMUX_SUSPENDED] = &cam_settings[4],
