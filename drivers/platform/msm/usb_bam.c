@@ -2552,7 +2552,7 @@ static int usb_bam_init(int bam_idx)
 
 		ram_resource = platform_get_resource_byname(ctx.usb_bam_pdev,
 			IORESOURCE_MEM, "qscratch_ram1_reg");
-		if (!res) {
+		if (!ram_resource) {
 			dev_err(&ctx.usb_bam_pdev->dev, "Unable to get qscratch\n");
 			ret = -ENODEV;
 			goto free_bam_regs;
