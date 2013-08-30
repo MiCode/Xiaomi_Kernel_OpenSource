@@ -36,12 +36,6 @@
 
 #include "acpuclock.h"
 
-#ifdef CONFIG_DEBUG_FS
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
-#include <asm/div64.h>
-#endif
-
 static DEFINE_MUTEX(l2bw_lock);
 
 static struct clk *cpu_clk[NR_CPUS];
@@ -126,6 +120,7 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	struct cpufreq_freqs freqs;
 	struct cpu_freq *limit = &per_cpu(cpu_freq_info, policy->cpu);
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
+	struct cpufreq_frequency_table *table;
 
 	if (limit->limits_init) {
 		if (new_freq > limit->allowed_max) {
@@ -138,6 +133,12 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 			pr_debug("min: limiting freq to %d\n", new_freq);
 		}
 	}
+
+	/* limits applied above must be in cpufreq table */
+	table = cpufreq_frequency_get_table(policy->cpu);
+	if (cpufreq_frequency_table_target(policy, table, new_freq,
+		CPUFREQ_RELATION_H, &index))
+		return -EINVAL;
 
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
@@ -618,49 +619,6 @@ static int cpufreq_parse_dt(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_FS
-static int msm_cpufreq_show(struct seq_file *m, void *unused)
-{
-	unsigned int i, cpu_freq;
-	uint64_t ib;
-
-	if (!freq_table)
-		return 0;
-
-	seq_printf(m, "%10s%10s", "CPU (KHz)", "L2 (KHz)");
-	if (bus_bw.usecase)
-		seq_printf(m, "%12s", "Mem (MBps)");
-	seq_printf(m, "\n");
-
-	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-		cpu_freq = freq_table[i].frequency;
-		if (cpu_freq == CPUFREQ_ENTRY_INVALID)
-			continue;
-		seq_printf(m, "%10d", cpu_freq);
-		seq_printf(m, "%10d", l2_khz ? l2_khz[i] : cpu_freq);
-		if (bus_bw.usecase) {
-			ib = bus_bw.usecase[i].vectors[0].ib;
-			do_div(ib, 1000000);
-			seq_printf(m, "%12llu", ib);
-		}
-		seq_printf(m, "\n");
-	}
-	return 0;
-}
-
-static int msm_cpufreq_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, msm_cpufreq_show, inode->i_private);
-}
-
-const struct file_operations msm_cpufreq_fops = {
-	.open		= msm_cpufreq_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-#endif
-
 static int __init msm_cpufreq_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -699,13 +657,6 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	is_clk = true;
-
-#ifdef CONFIG_DEBUG_FS
-	if (!debugfs_create_file("msm_cpufreq", S_IRUGO, NULL, NULL,
-		&msm_cpufreq_fops))
-		return -ENOMEM;
-
-#endif
 	return 0;
 }
 
