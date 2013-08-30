@@ -606,6 +606,13 @@ struct ufs_hba {
 	/* HIBERN8 support is broken */
 	#define UFSHCD_QUIRK_BROKEN_HIBERN8			UFS_BIT(8)
 
+	/*
+	 * UFS controller version register (VER) wrongly advertise the version
+	 * as v1.0 though controller implementation is as per UFSHCI v1.1
+	 * specification.
+	 */
+	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1			UFS_BIT(9)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */
