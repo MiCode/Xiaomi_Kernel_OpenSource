@@ -17,6 +17,8 @@
 #ifndef __LINUX_CM36283_H
 #define __LINUX_CM36283_H
 
+#include <linux/bitops.h>
+
 #define CM36283_I2C_NAME "cm36283"
 
 /* Define Slave Address*/
@@ -101,6 +103,19 @@
 #define INT_FLAG_ALS_IF_H            (1<<12)
 #define INT_FLAG_PS_IF_CLOSE         (1<<9)
 #define INT_FLAG_PS_IF_AWAY          (1<<8)  
+
+#define LS_PWR_ON		BIT(0)
+#define PS_PWR_ON		BIT(1)
+
+#define CAPELLA_CM3602_IOCTL_MAGIC 'c'
+#define CAPELLA_CM3602_IOCTL_GET_ENABLED \
+	_IOR(CAPELLA_CM3602_IOCTL_MAGIC, 1, int *)
+#define CAPELLA_CM3602_IOCTL_ENABLE \
+	_IOW(CAPELLA_CM3602_IOCTL_MAGIC, 2, int *)
+
+#define LIGHTSENSOR_IOCTL_MAGIC 'l'
+#define LIGHTSENSOR_IOCTL_GET_ENABLED _IOR(LIGHTSENSOR_IOCTL_MAGIC, 1, int *)
+#define LIGHTSENSOR_IOCTL_ENABLE _IOW(LIGHTSENSOR_IOCTL_MAGIC, 2, int *)
 
 extern unsigned int ps_kparam1;
 extern unsigned int ps_kparam2;
