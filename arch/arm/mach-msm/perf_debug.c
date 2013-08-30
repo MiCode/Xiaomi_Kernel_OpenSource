@@ -26,6 +26,7 @@ static char *descriptions =
 	" 1 Perf: port perf-events to 3.10 kernel\n"
 	" 2 Perf: keep events across hotplug\n"
 	" 3 Perf: bring CPU online if needed when disabling irq\n"
+	" 4 Perf: Support sw events across hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
