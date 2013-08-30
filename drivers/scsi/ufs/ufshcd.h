@@ -445,6 +445,13 @@ struct ufs_hba {
 	/* HIBERN8 support is broken */
 	#define UFSHCD_QUIRK_BROKEN_HIBERN8		(1<<1)
 
+	/*
+	 * UFS controller version register (VER) wrongly advertise the version
+	 * as v1.0 though controller implementation is as per UFSHCI v1.1
+	 * specification.
+	 */
+	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1		(1<<2)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
