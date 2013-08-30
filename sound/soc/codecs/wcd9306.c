@@ -776,28 +776,34 @@ static enum wcd9xxx_buck_volt tapan_codec_get_buck_mv(
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx_pdata *pdata = tapan->resmgr.pdata;
 	int i;
+	bool found_regulator = false;
 
 	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
 		if (pdata->regulator[i].name == NULL)
 			continue;
 
 		if (!strncmp(pdata->regulator[i].name,
-					 WCD9XXX_SUPPLY_BUCK_NAME,
-					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
+			     WCD9XXX_SUPPLY_BUCK_NAME,
+			     sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
+			found_regulator = true;
 			if ((pdata->regulator[i].min_uV ==
-					WCD9XXX_CDC_BUCK_MV_1P8) ||
-				(pdata->regulator[i].min_uV ==
-					WCD9XXX_CDC_BUCK_MV_2P15))
+			     WCD9XXX_CDC_BUCK_MV_1P8) ||
+			    (pdata->regulator[i].min_uV ==
+			     WCD9XXX_CDC_BUCK_MV_2P15))
 				buck_volt = pdata->regulator[i].min_uV;
 			break;
 		}
-		dev_err(codec->dev,
-				"%s: Failed to find regulator for %s\n",
-				__func__, WCD9XXX_SUPPLY_BUCK_NAME);
 	}
-	dev_dbg(codec->dev,
+
+	if (!found_regulator)
+		dev_err(codec->dev,
+			"%s: Failed to find regulator for %s\n",
+			__func__, WCD9XXX_SUPPLY_BUCK_NAME);
+	else
+		dev_dbg(codec->dev,
 			"%s: S4 voltage requested is %d\n",
 			__func__, buck_volt);
+
 	return buck_volt;
 }
 
