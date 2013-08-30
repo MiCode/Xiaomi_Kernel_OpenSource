@@ -2997,6 +2997,33 @@ static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
 	return 0;
 }
 
+static struct intr_data interrupt_table[] = {
+	{MSM8X10_WCD_IRQ_MBHC_INSERTION, true},
+	{MSM8X10_WCD_IRQ_MBHC_POTENTIAL, true},
+	{MSM8X10_WCD_IRQ_MBHC_RELEASE, true},
+	{MSM8X10_WCD_IRQ_MBHC_PRESS, true},
+	{MSM8X10_WCD_IRQ_MBHC_SHORT_TERM, true},
+	{MSM8X10_WCD_IRQ_MBHC_REMOVAL, true},
+	{MSM8X10_WCD_IRQ_MBHC_HS_DET, true},
+	{MSM8X10_WCD_IRQ_RESERVED_0, false},
+	{MSM8X10_WCD_IRQ_PA_STARTUP, false},
+	{MSM8X10_WCD_IRQ_BG_PRECHARGE, false},
+	{MSM8X10_WCD_IRQ_RESERVED_1, false},
+	{MSM8X10_WCD_IRQ_EAR_PA_OCPL_FAULT, false},
+	{MSM8X10_WCD_IRQ_EAR_PA_STARTUP, false},
+	{MSM8X10_WCD_IRQ_SPKR_PA_OCPL_FAULT, false},
+	{MSM8X10_WCD_IRQ_SPKR_CLIP_FAULT, false},
+	{MSM8X10_WCD_IRQ_RESERVED_2, false},
+	{MSM8X10_WCD_IRQ_HPH_L_PA_STARTUP, false},
+	{MSM8X10_WCD_IRQ_HPH_R_PA_STARTUP, false},
+	{MSM8X10_WCD_IRQ_HPH_PA_OCPL_FAULT, false},
+	{MSM8X10_WCD_IRQ_HPH_PA_OCPR_FAULT, false},
+	{MSM8X10_WCD_IRQ_RESERVED_3, false},
+	{MSM8X10_WCD_IRQ_RESERVED_4, false},
+	{MSM8X10_WCD_IRQ_RESERVED_5, false},
+	{MSM8X10_WCD_IRQ_RESERVED_6, false},
+};
+
 static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -3092,12 +3119,25 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 	}
 	dev_set_drvdata(&client->dev, msm8x10);
 	core_res = &msm8x10->wcd9xxx_res;
+	core_res->parent = msm8x10;
+	core_res->dev = msm8x10->dev;
+	core_res->intr_table = interrupt_table;
+	core_res->intr_table_size = ARRAY_SIZE(interrupt_table);
+
 	wcd9xxx_core_res_init(core_res,
 					MSM8X10_WCD_NUM_IRQS,
 					MSM8X10_WCD_NUM_IRQ_REGS,
 					msm8x10_wcd_reg_read,
 					msm8x10_wcd_reg_write,
 					msm8x10_wcd_bulk_read);
+	if (wcd9xxx_core_irq_init(core_res)) {
+		dev_err(msm8x10->dev,
+				"%s: irq initialization failed\n", __func__);
+	} else {
+		dev_info(msm8x10->dev,
+				"%s: irq initialization passed\n", __func__);
+	}
+
 	ret = snd_soc_register_codec(&client->dev, &soc_codec_dev_msm8x10_wcd,
 				     msm8x10_wcd_i2s_dai,
 				     ARRAY_SIZE(msm8x10_wcd_i2s_dai));
