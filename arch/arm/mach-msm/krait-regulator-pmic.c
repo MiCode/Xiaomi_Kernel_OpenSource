@@ -53,7 +53,7 @@
 #define BALANCE_EN_BIT		BIT(7)
 
 #define REG_VS_CTL		0x61
-#define VS_CTL_VAL		0x85
+#define VS_CTL_VAL		0x82
 
 #define REG_GANG_CTL2		0xC1
 #define GANG_EN_BIT		BIT(7)
@@ -67,6 +67,7 @@ struct krait_vreg_pmic_chip {
 	u16			freq_base;
 	u8			ctrl_dig_major;
 	u8			ctrl_dig_minor;
+	bool			unexpected_config;
 };
 
 static struct krait_vreg_pmic_chip *the_chip;
@@ -213,48 +214,85 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 	int rc;
 	int i;
 
-	return 0;
-
 	READ_BYTE(chip, chip->ctrl_base + REG_V_CTL1, val, rc);
 	if (rc)
 		return rc;
-	BUG_ON(val != V_CTL1_VAL);
+	if (val != V_CTL1_VAL) {
+		pr_err("v ctl1 addr = 0x%05x val = 0x%x expected val = 0x%x\n",
+				chip->ctrl_base + REG_V_CTL1, val, V_CTL1_VAL);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_MODE_CTL, val, rc);
 	if (rc)
 		return rc;
 	/* The Auto mode should be off */
-	BUG_ON(val & AUTO_MODE_BIT);
+	if (val & AUTO_MODE_BIT) {
+		pr_err("mode addr = 0x%05x val = 0x%x expect bit 0x%x to be not set\n",
+				chip->ctrl_base + REG_MODE_CTL, val,
+				(u32)AUTO_MODE_BIT);
+		chip->unexpected_config = true;
+	}
 	/* The NPM mode should be on */
-	BUG_ON(!(val & NPM_MODE_BIT));
+	if (!(val & NPM_MODE_BIT)) {
+		pr_err("mode ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
+				chip->ctrl_base + REG_MODE_CTL, val,
+				(u32)NPM_MODE_BIT);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_EN_CTL, val, rc);
 	if (rc)
 		return rc;
 	/* The en bit should be set */
-	BUG_ON(val & EN_BIT);
+	if (!(val & EN_BIT)) {
+		pr_err("en ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
+				chip->ctrl_base + REG_EN_CTL, val,
+				(u32)EN_BIT);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_PD_CTL, val, rc);
 	if (rc)
 		return rc;
-	BUG_ON(val != PD_CTL_VAL);
+	if (val != PD_CTL_VAL) {
+		pr_err("pd ctl addr = 0x%05x val = 0x%x expected val = 0x%x\n",
+				chip->ctrl_base + REG_PD_CTL, val,
+				(u32)PD_CTL_VAL);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_MULTIPHASE_CTL, val, rc);
 	if (rc)
 		return rc;
-	BUG_ON(!(val & MULTIPHASE_EN_BIT));
+	if (!(val & MULTIPHASE_EN_BIT)) {
+		pr_err("multi ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
+				chip->ctrl_base + REG_MULTIPHASE_CTL, val,
+				(u32)MULTIPHASE_EN_BIT);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_PHASE_CTL, val, rc);
 	if (rc)
 		return rc;
-	BUG_ON(!(val & BALANCE_EN_BIT));
+	if (!(val & BALANCE_EN_BIT)) {
+		pr_err("phase ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
+				chip->ctrl_base + REG_PHASE_CTL, val,
+				(u32)BALANCE_EN_BIT);
+		chip->unexpected_config = true;
+	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_VS_CTL, val, rc);
 	if (rc)
 		return rc;
-	BUG_ON(val != VS_CTL_VAL);
+	if (val != VS_CTL_VAL) {
+		pr_err("vs ctl addr = 0x%05x val = 0x%x expected val = 0x%x\n",
+				chip->ctrl_base + REG_VS_CTL, val,
+				(u32)VS_CTL_VAL);
+		chip->unexpected_config = true;
+	}
 
-	for (i = 0; i < GANGED_VREG_COUNT; i++) {
+	for (i = 1; i < GANGED_VREG_COUNT; i++) {
 		READ_BYTE(chip,
 			chip->ctrl_base + i * 0x300 + REG_GANG_CTL2, val, rc);
 		if (rc)
@@ -262,7 +300,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, ctrl gang not enabled\n", i);
-			BUG();
+			chip->unexpected_config = true;
 		}
 	}
 
@@ -274,7 +312,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, ps gang not enabled\n", i);
-			BUG();
+			chip->unexpected_config = true;
 		}
 	}
 
@@ -286,9 +324,10 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, freq gang not enabled\n", i);
-			BUG();
+			chip->unexpected_config = true;
 		}
 	}
+
 	return 0;
 }
 
