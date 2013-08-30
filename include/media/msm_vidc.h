@@ -37,6 +37,7 @@ int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
 int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
 		enum v4l2_buf_type, int *domain, int *partition);
+void *msm_vidc_get_resources(void *instance);
 int msm_vidc_subscribe_event(void *instance,
 		const struct v4l2_event_subscription *sub);
 int msm_vidc_unsubscribe_event(void *instance,

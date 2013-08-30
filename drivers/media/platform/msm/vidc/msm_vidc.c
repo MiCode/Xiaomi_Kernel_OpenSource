@@ -14,12 +14,12 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <media/msm_vidc.h>
+#include <media/msm_smem.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
 #include "msm_vdec.h"
 #include "msm_venc.h"
 #include "msm_vidc_common.h"
-#include "msm_smem.h"
 #include <linux/delay.h>
 #include "vidc_hfi_api.h"
 
@@ -71,6 +71,7 @@ int msm_vidc_poll(void *instance, struct file *filp,
 	poll_wait(filp, &outq->done_wq, wait);
 	return get_poll_flags(inst);
 }
+EXPORT_SYMBOL(msm_vidc_poll);
 
 /* Kernel client alternative for msm_vidc_poll */
 int msm_vidc_wait(void *instance)
@@ -81,6 +82,7 @@ int msm_vidc_wait(void *instance)
 	wait_event(inst->kernel_event_queue, (rc = get_poll_flags(inst)));
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_wait);
 
 int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
 		enum v4l2_buf_type buf_type, int *domain, int *partition)
@@ -93,6 +95,19 @@ int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
 	return msm_comm_get_domain_partition(inst, flags, buf_type, domain,
 		partition);
 }
+EXPORT_SYMBOL(msm_vidc_get_iommu_domain_partition);
+
+void *msm_vidc_get_resources(void *instance)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct msm_vidc_platform_resources *res = NULL;
+
+	if (inst != NULL && inst->core != NULL)
+		res = &inst->core->resources;
+
+	return res;
+}
+EXPORT_SYMBOL(msm_vidc_get_resources);
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {
@@ -107,6 +122,8 @@ int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 		return msm_venc_querycap(instance, cap);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_querycap);
+
 int msm_vidc_s_parm(void *instance,
 		struct v4l2_streamparm *a)
 {
@@ -120,6 +137,8 @@ int msm_vidc_s_parm(void *instance,
 		return msm_venc_s_parm(instance, a);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_s_parm);
+
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -133,6 +152,8 @@ int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 		return msm_venc_enum_fmt(instance, f);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_enum_fmt);
+
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -146,6 +167,8 @@ int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 		return msm_venc_s_fmt(instance, f);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_s_fmt);
+
 int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -159,6 +182,8 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 		return msm_venc_g_fmt(instance, f);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_g_fmt);
+
 int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -172,6 +197,8 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 		return msm_venc_s_ctrl(instance, control);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_s_ctrl);
+
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -185,6 +212,8 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 		return msm_venc_g_ctrl(instance, control);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_g_ctrl);
+
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -198,6 +227,7 @@ int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 		return msm_venc_reqbufs(instance, b);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_reqbufs);
 
 struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 		struct v4l2_buffer *b, int idx, int *plane)
@@ -695,6 +725,7 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 		return msm_venc_prepare_buf(instance, b);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_prepare_buf);
 
 int msm_vidc_release_buffers(void *instance, int buffer_type)
 {
@@ -749,6 +780,7 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 	}
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_release_buffers);
 
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc)
 {
@@ -757,6 +789,7 @@ int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc)
 		return msm_venc_cmd(instance, enc);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_encoder_cmd);
 
 int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
 {
@@ -765,6 +798,7 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
 		return msm_vdec_cmd(instance, dec);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_decoder_cmd);
 
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 {
@@ -849,6 +883,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 err_invalid_buff:
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_qbuf);
 
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 {
@@ -913,6 +948,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_dqbuf);
 
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 {
@@ -927,6 +963,7 @@ int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 		return msm_venc_streamon(instance, i);
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_vidc_streamon);
 
 int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 {
@@ -941,7 +978,7 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 		return msm_venc_streamoff(instance, i);
 	return -EINVAL;
 }
-
+EXPORT_SYMBOL(msm_vidc_streamoff);
 
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 {
@@ -966,6 +1003,8 @@ int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 	fsize->stepwise.step_height = capability->height.step_size;
 	return 0;
 }
+EXPORT_SYMBOL(msm_vidc_enum_framesizes);
+
 static void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
@@ -1033,7 +1072,7 @@ int msm_vidc_subscribe_event(void *inst, const struct v4l2_event_subscription *s
 	rc = v4l2_event_subscribe(&vidc_inst->event_handler, sub, MAX_EVENTS, NULL);
 	return rc;
 }
-
+EXPORT_SYMBOL(msm_vidc_subscribe_event);
 
 int msm_vidc_unsubscribe_event(void *inst, const struct v4l2_event_subscription *sub)
 {
@@ -1046,6 +1085,7 @@ int msm_vidc_unsubscribe_event(void *inst, const struct v4l2_event_subscription 
 	rc = v4l2_event_unsubscribe(&vidc_inst->event_handler, sub);
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_unsubscribe_event);
 
 int msm_vidc_dqevent(void *inst, struct v4l2_event *event)
 {
@@ -1058,6 +1098,7 @@ int msm_vidc_dqevent(void *inst, struct v4l2_event *event)
 	rc = v4l2_event_dequeue(&vidc_inst->event_handler, event, false);
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_dqevent);
 
 void *msm_vidc_open(int core_id, int session_type)
 {
@@ -1165,6 +1206,7 @@ fail_mem_client:
 err_invalid_core:
 	return inst;
 }
+EXPORT_SYMBOL(msm_vidc_open);
 
 static void cleanup_instance(struct msm_vidc_inst *inst)
 {
@@ -1271,3 +1313,5 @@ int msm_vidc_close(void *instance)
 	kfree(inst);
 	return 0;
 }
+EXPORT_SYMBOL(msm_vidc_close);
+
