@@ -45,6 +45,8 @@ Optional properties:
  - focaltech,fw-delay-readid-ms : specify the read id delay in ms for firmware upgrade
  - focaltech,fw-delay-era-flsh-ms : specify the erase flash delay in ms for firmware upgrade
  - focaltech,fw-auto-cal	: specify whether calibration is needed after firmware upgrade
+ - focaltech,fw-vkey-support	: specify if virtual keys are supported through firmware
+
 Example:
 	i2c@f9923000{
 		focaltech@38{
