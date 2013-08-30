@@ -4969,6 +4969,12 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 	else
 		wcd9xxx_mbhc_start(&tapan->mbhc, tapan->mbhc.mbhc_cfg);
+
+	tapan_cleanup_irqs(tapan);
+	ret = tapan_setup_irqs(tapan);
+	if (ret)
+		pr_err("%s: Failed to setup irq: %d\n", __func__, ret);
+
 	mutex_unlock(&codec->mutex);
 	return ret;
 }
