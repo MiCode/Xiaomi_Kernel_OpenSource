@@ -82,6 +82,8 @@ static const u16 touch_key_array[] = {KEY_MENU, KEY_HOMEPAGE, KEY_BACK};
 static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms);
 static void gtp_int_sync(struct goodix_ts_data *ts, int ms);
 static int gtp_i2c_test(struct i2c_client *client);
+static int goodix_power_off(struct goodix_ts_data *ts);
+static int goodix_power_on(struct goodix_ts_data *ts);
 
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
@@ -735,7 +737,7 @@ Input:
 	ts: private data.
 Output:
 	Executive outcomes.
-	1: succeed, otherwise failed.
+	>0: succeed, otherwise failed.
 *******************************************************/
 static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
 {
@@ -746,12 +748,28 @@ static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
 		(u8)GTP_REG_SLEEP, 5};
 
 	ret = gpio_direction_output(ts->pdata->irq_gpio, 0);
+	if (ret)
+		dev_err(&ts->client->dev,
+			"GTP sleep: Cannot reconfig gpio %d.\n",
+			ts->pdata->irq_gpio);
+	if (ts->pdata->enable_power_off) {
+		ret = gpio_direction_output(ts->pdata->reset_gpio, 0);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"GTP sleep: Cannot reconfig gpio %d.\n",
+				ts->pdata->reset_gpio);
+		ret = goodix_power_off(ts);
+		if (ret) {
+			dev_err(&ts->client->dev, "GTP power off failed.\n");
+			return 0;
+		}
+		return 1;
+	}
 	usleep(5000);
 	while (retry++ < GTP_I2C_RETRY_5) {
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
-		if (ret > 0) {
-			dev_dbg(&ts->client->dev,
-				"GTP enter sleep!");
+		if (ret == 1) {
+			dev_dbg(&ts->client->dev, "GTP enter sleep!");
 			return ret;
 		}
 		msleep(20);
@@ -759,7 +777,7 @@ static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
 	dev_err(&ts->client->dev, "GTP send sleep cmd failed.\n");
 	return ret;
 }
-#endif
+#endif /* !GTP_SLIDE_WAKEUP */
 
 /*******************************************************
 Function:
@@ -775,17 +793,36 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 	u8 retry = 0;
 	s8 ret = -1;
 
-#if GTP_POWER_CTRL_SLEEP
-	gtp_reset_guitar(ts, 20);
+	if (ts->pdata->enable_power_off) {
+		ret = gpio_direction_output(ts->pdata->irq_gpio, 0);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"GTP wakeup: Cannot reconfig gpio %d.\n",
+				ts->pdata->irq_gpio);
+		ret = gpio_direction_output(ts->pdata->reset_gpio, 0);
+		if (ret)
+			dev_err(&ts->client->dev,
+				"GTP wakeup: Cannot reconfig gpio %d.\n",
+				ts->pdata->reset_gpio);
+		ret = goodix_power_on(ts);
+		if (ret) {
+			dev_err(&ts->client->dev, "GTP power on failed.\n");
+			return 0;
+		}
 
-	ret = gtp_send_cfg(ts);
-	if (ret > 0) {
+		gtp_reset_guitar(ts, 20);
+
+		ret = gtp_send_cfg(ts);
+		if (ret <= 0) {
+			dev_err(&ts->client->dev,
+				"GTP wakeup sleep failed.\n");
+			return ret;
+		}
+
 		dev_dbg(&ts->client->dev,
-			"Wakeup sleep send config success.");
-		return 1;
-	}
-#else
-	while (retry++ < GTP_I2C_RETRY_10) {
+				"Wakeup sleep send config success.");
+	} else {
+err_retry:
 #if GTP_SLIDE_WAKEUP
 		/* wakeup not by slide */
 		if (doze_status != DOZE_WAKEUP)
@@ -802,7 +839,7 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 		}
 #endif
 		ret = gtp_i2c_test(ts->client);
-		if (ret > 0) {
+		if (ret == 2) {
 			dev_dbg(&ts->client->dev, "GTP wakeup sleep.");
 #if (!GTP_SLIDE_WAKEUP)
 			if (chip_gt9xxs == 0) {
@@ -816,10 +853,10 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 			return ret;
 		}
 		gtp_reset_guitar(ts, 20);
+		if (retry++ < GTP_I2C_RETRY_10)
+			goto err_retry;
+		dev_err(&ts->client->dev, "GTP wakeup sleep failed.\n");
 	}
-#endif
-
-	dev_err(&ts->client->dev, "GTP wakeup sleep failed.\n");
 	return ret;
 }
 #endif /* !CONFIG_HAS_EARLYSUSPEND && !CONFIG_FB*/
@@ -1283,6 +1320,12 @@ static int goodix_power_on(struct goodix_ts_data *ts)
 {
 	int ret;
 
+	if (ts->power_on) {
+		dev_info(&ts->client->dev,
+				"Device already power on\n");
+		return 0;
+	}
+
 	if (!IS_ERR(ts->avdd)) {
 		ret = reg_set_optimum_mode_check(ts->avdd,
 			GOODIX_VDD_LOAD_MAX_UA);
@@ -1349,6 +1392,7 @@ static int goodix_power_on(struct goodix_ts_data *ts)
 			}
 	}
 
+	ts->power_on = true;
 	return 0;
 
 err_enable_vcc_i2c:
@@ -1367,6 +1411,7 @@ err_set_vtg_vdd:
 		regulator_disable(ts->avdd);
 err_enable_avdd:
 err_set_opt_avdd:
+	ts->power_on = false;
 	return ret;
 }
 
@@ -1379,6 +1424,12 @@ err_set_opt_avdd:
 static int goodix_power_off(struct goodix_ts_data *ts)
 {
 	int ret;
+
+	if (!ts->power_on) {
+		dev_info(&ts->client->dev,
+				"Device already power off\n");
+		return 0;
+	}
 
 	if (!IS_ERR(ts->vcc_i2c)) {
 		ret = regulator_set_voltage(ts->vcc_i2c, 0,
@@ -1412,6 +1463,7 @@ static int goodix_power_off(struct goodix_ts_data *ts)
 				"Regulator avdd disable failed ret=%d\n", ret);
 	}
 
+	ts->power_on = false;
 	return 0;
 }
 
@@ -1571,6 +1623,9 @@ static int goodix_parse_dt(struct device *dev,
 
 	pdata->no_force_update = of_property_read_bool(np,
 						"goodix,no-force-update");
+
+	pdata->enable_power_off = of_property_read_bool(np,
+						"goodix,enable-power-off");
 	/* reset, irq gpio info */
 	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios",
 				0, &pdata->reset_gpio_flags);
@@ -1704,6 +1759,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	spin_lock_init(&ts->irq_lock);
 	i2c_set_clientdata(client, ts);
 	ts->gtp_rawdiff_mode = 0;
+	ts->power_on = false;
 
 	ret = gtp_request_io_port(ts);
 	if (ret) {
@@ -1759,6 +1815,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	}
 	input_set_drvdata(ts->input_dev, ts);
 
+	mutex_init(&ts->lock);
 #if defined(CONFIG_FB)
 	ts->fb_notif.notifier_call = fb_notifier_callback;
 	ret = fb_register_client(&ts->fb_notif);
@@ -1810,6 +1867,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	init_done = true;
 	return 0;
 exit_free_irq:
+	mutex_destroy(&ts->lock);
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
 		dev_err(&client->dev,
@@ -1867,6 +1925,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
 #endif
+	mutex_destroy(&ts->lock);
 
 #if GTP_CREATE_WR_NODE
 	uninit_wr_node();
@@ -1920,6 +1979,7 @@ static void goodix_ts_suspend(struct goodix_ts_data *ts)
 {
 	int ret = -1, i;
 
+	mutex_lock(&ts->lock);
 #if GTP_ESD_PROTECT
 	ts->gtp_is_suspend = 1;
 	gtp_esd_switch(ts->client, SWITCH_OFF);
@@ -1940,12 +2000,13 @@ static void goodix_ts_suspend(struct goodix_ts_data *ts)
 
 	ret = gtp_enter_sleep(ts);
 #endif
-	if (ret < 0)
+	if (ret <= 0)
 		dev_err(&ts->client->dev, "GTP early suspend failed.\n");
 	/* to avoid waking up while not sleeping,
 	 * delay 48 + 10ms to ensure reliability
 	 */
 	msleep(58);
+	mutex_unlock(&ts->lock);
 }
 
 /*******************************************************
@@ -1960,13 +2021,14 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 {
 	int ret = -1;
 
+	mutex_lock(&ts->lock);
 	ret = gtp_wakeup_sleep(ts);
 
 #if GTP_SLIDE_WAKEUP
 	doze_status = DOZE_DISABLED;
 #endif
 
-	if (ret < 0)
+	if (ret <= 0)
 		dev_err(&ts->client->dev, "GTP resume failed.\n");
 
 	if (ts->use_irq)
@@ -1979,6 +2041,7 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 	ts->gtp_is_suspend = 0;
 	gtp_esd_switch(ts->client, SWITCH_ON);
 #endif
+	mutex_unlock(&ts->lock);
 }
 
 #if defined(CONFIG_FB)
