@@ -14,7 +14,6 @@
 
 /include/ "msm8610-v2.dtsi"
 /include/ "msm8610-qrd-skuaa.dtsi"
-/include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
 /include/ "msm8610-qrd-camera-sensor.dtsi"
 
 / {

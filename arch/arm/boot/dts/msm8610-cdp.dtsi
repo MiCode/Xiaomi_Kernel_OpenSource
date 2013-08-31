@@ -146,10 +146,6 @@
 			"AMIC2", "MIC BIAS Internal2";
 		qcom,headset-jack-type-NC;
     };
-
-	qcom,dsi_v2_truly_wvga_video {
-		qcom,cont-splash-enabled;
-	};
 };
 
 &i2c_cdc  {
@@ -413,4 +409,20 @@
 	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
 	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_wvga_vid>;
+};
+
+&dsi_truly_wvga_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_truly_wvga_cmd {
+	qcom,cont-splash-enabled;
 };

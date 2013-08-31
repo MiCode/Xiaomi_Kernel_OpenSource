@@ -14,7 +14,6 @@
 
 /include/ "msm8610-v1.dtsi"
 /include/ "msm8610-cdp.dtsi"
-/include/ "dsi-v2-panel-truly-wvga-video.dtsi"
 /include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
 
 / {

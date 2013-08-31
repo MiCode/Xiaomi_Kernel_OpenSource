@@ -27,10 +27,6 @@
 
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
-
-	qcom,dsi_v2_hx8379a_wvga_video {
-		qcom,cont-splash-enabled;
-	};
 };
 
 / {
@@ -56,4 +52,16 @@
 		label = "batt_therm";
 		qcom,scale-function = <7>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_wvga_vid>;
+};
+
+&dsi_hx8379a_wvga_vid {
+	qcom,cont-splash-enabled;
 };
