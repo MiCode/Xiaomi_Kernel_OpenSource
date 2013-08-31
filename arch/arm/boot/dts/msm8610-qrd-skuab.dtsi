@@ -89,10 +89,6 @@
                qcom,hsusb-otg-phy-init-seq =
                        <0x44 0x80 0x6a 0x81 0x34 0x82 0x23 0x83 0xffffffff>;
 	};
-
-	qcom,dsi_v2_otm8018b_fwvga_video {
-		qcom,cont-splash-enabled;
-	};
 };
 
 / {
@@ -111,4 +107,16 @@
 
 &pm8110_chg {
 	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_otm8018b_fwvga_vid>;
+};
+
+&dsi_otm8018b_fwvga_vid {
+	qcom,cont-splash-enabled;
 };
