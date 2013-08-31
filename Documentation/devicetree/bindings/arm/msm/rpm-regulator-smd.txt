@@ -32,6 +32,10 @@ Optional properties:
 - qcom,enable-time:    Time in us to delay after enabling the regulator
 - qcom,hpm-min-load:   Load current in uA which corresponds to the minimum load
 			which requires the regulator to be in high power mode.
+- qcom,apps-only:      Flag which indicates that the regulator only has
+			consumers on the application processor. If this flag
+			is specified, then voltage and current updates are
+			only sent to the RPM if the regulator is enabled.
 
 [Second Level Nodes]
 
@@ -84,6 +88,7 @@ Optional properties:
 				current updates are only sent if the given
 				regulator has also been enabled by a Linux
 				consumer.
+
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
 - qcom,init-enable:            0 = regulator disabled
