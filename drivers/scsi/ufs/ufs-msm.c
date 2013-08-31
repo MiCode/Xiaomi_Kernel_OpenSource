@@ -21,7 +21,9 @@
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
 #include "ufshcd.h"
+#include "unipro.h"
 
+#define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
 #define TX_FSM_HIBERN8          0x1
 #define HBRN8_POLL_TOUT_MS      100
@@ -1065,6 +1067,28 @@ static void msm_ufs_phy_calibrate(struct msm_ufs_phy *phy)
 	mb();
 }
 
+static int msm_ufs_enable_tx_lanes(struct ufs_hba *hba)
+{
+	int err;
+	u32 tx_lanes;
+	u32 val;
+	struct msm_ufs_phy *phy = hba->priv;
+
+	err = ufshcd_dme_get(hba,
+			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &tx_lanes);
+	if (err) {
+		dev_err(hba->dev, "%s: couldn't read PA_CONNECTEDTXDATALANES %d\n",
+				__func__, err);
+		goto out;
+	}
+
+	val = ~(MAX_U32 << tx_lanes);
+	writel_relaxed(val, phy->mmio + UFS_PHY_TX_LANE_ENABLE);
+	mb();
+out:
+	return err;
+}
+
 static int msm_ufs_check_hibern8(struct ufs_hba *hba)
 {
 	int err;
@@ -1254,6 +1278,8 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 	switch (status) {
 	case PRE_CHANGE:
 		msm_ufs_cfg_timers(hba);
+	case POST_CHANGE:
+		msm_ufs_enable_tx_lanes(hba);
 	default:
 		break;
 	}
