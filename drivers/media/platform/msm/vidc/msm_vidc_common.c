@@ -543,10 +543,14 @@ static void handle_event_change(enum command_response cmd, void *data)
 			break;
 		}
 		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
 			inst->reconfig_height = event_notify->height;
 			inst->reconfig_width = event_notify->width;
 			inst->in_reconfig = true;
 		} else {
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
 			inst->prop.height[CAPTURE_PORT] = event_notify->height;
 			inst->prop.width[CAPTURE_PORT] = event_notify->width;
 		}
@@ -2596,6 +2600,67 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 	return;
 }
+
+void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
+{
+	struct buffer_info *binfo = NULL, *dummy = NULL;
+	struct list_head *list = NULL;
+
+	if (inst->buffer_mode_set[CAPTURE_PORT] != HAL_BUFFER_MODE_DYNAMIC)
+		return;
+
+	/*
+	* dynamic buffer mode:- if flush is called during seek
+	* driver should not queue any new buffer it has been holding.
+	*
+	* Each dynamic o/p buffer can have one of following ref_count:
+	* ref_count : 0 - f/w has released reference and sent fbd back.
+	*		  The buffer has been returned back to client.
+	*
+	* ref_count : 1 - f/w is holding reference. f/w may have released
+	*                 fbd as read_only OR fbd is pending. f/w will
+	*		  release reference before sending flush_done.
+	*
+	* ref_count : 2 - f/w is holding reference, f/w has released fbd as
+	*                 read_only, which client has queued back to driver.
+	*                 driver holds this buffer and will queue back
+	*                 only when f/w releases the reference. During
+	*		  flush_done, f/w will release the reference but driver
+	*		  should not queue back the buffer to f/w.
+	*		  Flush all buffers with ref_count 2.
+	*/
+	mutex_lock(&inst->lock);
+	if (!list_empty(&inst->registered_bufs)) {
+		struct v4l2_event buf_event = {0};
+		u32 *ptr = NULL;
+		list = &inst->registered_bufs;
+		list_for_each_entry_safe(binfo, dummy, list, list) {
+			if (binfo &&
+			(binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+			(atomic_read(&binfo->ref_count) == 2)) {
+				atomic_dec(&binfo->ref_count);
+				buf_event.type =
+				V4L2_EVENT_MSM_VIDC_RELEASE_UNQUEUED_BUFFER;
+				ptr = (u32 *)buf_event.u.data;
+				ptr[0] = binfo->fd[0];
+				ptr[1] = binfo->buff_off[0];
+				ptr[2] = binfo->uvaddr[0];
+				ptr[3] = (u32) binfo->timestamp.tv_sec;
+				ptr[4] = (u32) binfo->timestamp.tv_usec;
+				ptr[5] = binfo->v4l2_index;
+				dprintk(VIDC_DBG,
+					"released buffer held in driver before issuing flush: 0x%x fd[0]: %d\n",
+					binfo->device_addr[0], binfo->fd[0]);
+				/*send event to client*/
+				v4l2_event_queue_fh(&inst->event_handler,
+					&buf_event);
+				wake_up(&inst->kernel_event_queue);
+			}
+		}
+	}
+	mutex_unlock(&inst->lock);
+}
+
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 {
 	int rc =  0;
@@ -2671,6 +2736,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
+
+		msm_comm_flush_dynamic_buffers(inst);
+
 		/*Do not send flush in case of session_error */
 		if (!(inst->state == MSM_VIDC_CORE_INVALID &&
 			  core->state != VIDC_CORE_INVALID))
