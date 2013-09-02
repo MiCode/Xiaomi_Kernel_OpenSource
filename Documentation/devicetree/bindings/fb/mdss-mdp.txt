@@ -143,6 +143,11 @@ Optional properties:
 - qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
 				linear format. The value tells the GPU highest memory
 				 bank bit used.
+- qcom,mdss-pipe-rgb-fixed-mmb: Array of indexes describing fixed Memory Macro
+				Blocks (MMBs) for rgb pipes. First value denotes
+				total numbers of MMBs per pipe while values, if
+				any, following first one denotes indexes of MMBs
+				to that RGB pipe.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -190,6 +195,10 @@ Example:
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+		qcom,mdss-pipe-rgb-fixed-mmb =	<2 0 1>,
+						<2 2 3>,
+						<2 4 5>,
+						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
