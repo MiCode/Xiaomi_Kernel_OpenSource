@@ -316,4 +316,13 @@
 		reg-names = "phys_addr_base";
 		qcom,sleep-stats-version = <2>;
 	};
+
+	qcom,rpm-master-stats@fc428150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0xfc428150 0x3200>;
+		qcom,masters = "APSS", "MPSS", "LPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <2560>;
+	};
+
 };
