@@ -1,0 +1,195 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8226-qrd.dtsi"
+
+&soc {
+	sound {
+		qcom,model = "msm8226-tapan-skuf-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"SPK_OUT", "EXT_VDD_SPKR",
+			"Lineout_1 amp", "LINEOUT1",
+			"Lineout_2 amp", "LINEOUT2",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS1 External",
+			"MIC BIAS1 External", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic";
+
+		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+		qcom,cdc-lineout-spkr-gpios = <&pm8226_gpios 2 0>;
+		qcom,cdc-vdd-spkr-gpios;
+		qcom,cdc-us-euro-gpios;
+	};
+
+    sound-9302 {
+          qcom,model = "msm8226-tapan9302-skuf-snd-card";
+
+          qcom,audio-routing =
+              "RX_BIAS", "MCLK",
+              "LDO_H", "MCLK",
+              "SPK_OUT", "MCLK",
+              "SPK_OUT", "EXT_VDD_SPKR",
+              "Lineout_1 amp", "LINEOUT1",
+              "Lineout_2 amp", "LINEOUT2",
+              "AMIC1", "MIC BIAS1 External",
+              "MIC BIAS1 External", "Handset Mic",
+              "AMIC2", "MIC BIAS2 External",
+              "MIC BIAS2 External", "Headset Mic",
+              "AMIC3", "MIC BIAS1 External",
+              "MIC BIAS1 External", "Handset Mic";
+
+		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+		qcom,cdc-lineout-spkr-gpios = <&pm8226_gpios 2 0>;
+		qcom,cdc-vdd-spkr-gpios;
+		qcom,cdc-us-euro-gpios;
+	};
+
+	tp_power: regulator-tp {
+		compatible = "regulator-fixed";
+		regulator-name = "tp_power";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&msmgpio 15 0>;
+		startup-delay-us = <20000>;
+		enable-active-high;
+	};
+
+	i2c@f9927000 {
+		goodix@5d {
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2008>;
+			reset-gpios = <&msmgpio 16 0x00>;
+			interrupt-gpios = <&msmgpio 17 0x00>;
+			avdd-supply = <&tp_power>;
+			goodix,panel-coords = <0 0 720 1200>;
+			goodix,display-coords = <0 0 720 1080>;
+			goodix,button-map= <158 102 139>;
+			goodix,family-id = <0x0>;
+			goodix,cfg-data = [
+			41 D0 02 00 05 0A 35 01 01 0F
+			2D 08 55 32 03 04 00 00 00 00
+			00 00 05 0A 0C 0F 0A 8C 0E 0E
+			30 2E B8 08 00 00 00 83 03 1D
+			00 00 00 00 00 00 00 00 00 00
+			00 2D 62 94 C5 02 05 00 00 04
+			96 30 00 80 39 00 71 42 00 63
+			4D 00 56 5A 00 56 10 38 68 00
+			56 50 35 AA AA 27 00 00 00 00
+			00 01 1B 14 0C 14 00 00 01 00
+			00 00 00 00 00 00 00 00 00 00
+			00 00 02 04 06 08 0A 0C 0E 10
+			12 14 16 18 1A 1C FF FF FF FF
+			FF FF FF FF FF FF FF FF FF FF
+			FF FF 00 02 04 06 08 0A 0C 0F
+			10 12 13 14 16 18 1C 1D 1E 1F
+			20 21 22 24 26 28 29 2A FF FF
+			FF FF FF FF FF FF FF FF FF FF
+			FF FF FF FF 06 01];
+		};
+	};
+};
+
+&spmi_bus {
+	qcom,pm8226@0 {
+		qcom,leds@a300 {
+			status = "disabled";
+		};
+
+		qcom,leds@a500 {
+			status = "disabled";
+		};
+	};
+
+	qcom,pm8226@1 {
+		qcom,leds@d800 {
+			status = "disabled";
+		};
+	};
+};
+
+&pm8226_mpps {
+	mpp@a300 { /* MPP 4 */
+		/* camera2_id */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* camera_id */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+};
+
+&pm8226_vadc {
+	chan@13 {
+		label = "camera2_id";
+		reg = <0x13>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@15 {
+		label = "camera_id";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	/include/ "batterydata-qrd-4v35-2500mah.dtsi"
+};
+
+&pm8226_bms {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8226_chg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35521_720_vid>;
+};
+
+&dsi_nt35521_720_vid {
+	qcom,cont-splash-enabled;
+};
