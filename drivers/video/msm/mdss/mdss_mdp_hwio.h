@@ -500,8 +500,6 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_REG_SMP_ALLOC_W0			0x00180
 #define MDSS_MDP_REG_SMP_ALLOC_R0			0x00230
 
-#define MDSS_MDP_SMP_MMB_BLOCKS			44
-
 #define MDSS_MDP_LP_MISR_SEL			0x450
 #define MDSS_MDP_LP_MISR_CTRL_MDP		0x454
 #define MDSS_MDP_LP_MISR_CTRL_HDMI		0x458
