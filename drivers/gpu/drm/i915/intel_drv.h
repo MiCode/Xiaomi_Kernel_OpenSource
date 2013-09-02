@@ -373,9 +373,15 @@ struct intel_crtc {
 	bool primary_enabled; /* is the primary plane (partially) visible? */
 	bool lowfreq_avail;
 	struct intel_overlay *overlay;
-	struct intel_unpin_work *unpin_work;
 
+	struct intel_unpin_work *unpin_work;
 	atomic_t unpin_work_count;
+
+	struct intel_crtc_vblank_work {
+		struct work_struct work;
+		struct mutex mutex;
+		struct list_head tasks;
+	} vblank_work;
 
 	/* Display surface base address adjustement for pageflips. Note that on
 	 * gen4+ this only adjusts up to a tile, offsets within a tile are
