@@ -1993,11 +1993,18 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	config->fsg.nluns = 1;
 	name[0] = "lun";
 	if (dev->pdata && dev->pdata->cdrom) {
-		config->fsg.nluns = 2;
-		config->fsg.luns[1].cdrom = 1;
-		config->fsg.luns[1].ro = 1;
-		config->fsg.luns[1].removable = 0;
-		name[1] = "lun0";
+		config->fsg.luns[config->fsg.nluns].cdrom = 1;
+		config->fsg.luns[config->fsg.nluns].ro = 1;
+		config->fsg.luns[config->fsg.nluns].removable = 0;
+		name[config->fsg.nluns] = "lun0";
+		config->fsg.nluns++;
+	}
+	if (dev->pdata && dev->pdata->internal_ums) {
+		config->fsg.luns[config->fsg.nluns].cdrom = 0;
+		config->fsg.luns[config->fsg.nluns].ro = 0;
+		config->fsg.luns[config->fsg.nluns].removable = 1;
+		name[config->fsg.nluns] = "lun1";
+		config->fsg.nluns++;
 	}
 
 	config->fsg.luns[0].removable = 1;
@@ -3131,6 +3138,8 @@ static int android_probe(struct platform_device *pdev)
 				&pdata->swfi_latency);
 		pdata->cdrom = of_property_read_bool(pdev->dev.of_node,
 				"qcom,android-usb-cdrom");
+		pdata->internal_ums = of_property_read_bool(pdev->dev.of_node,
+				"qcom,android-usb-internal-ums");
 	} else {
 		pdata = pdev->dev.platform_data;
 	}
