@@ -24,6 +24,7 @@ struct android_usb_platform_data {
 	u32 swfi_latency;
 	u8 usb_core_id;
 	bool cdrom;
+	bool internal_ums;
 };
 
 #ifndef CONFIG_TARGET_CORE
