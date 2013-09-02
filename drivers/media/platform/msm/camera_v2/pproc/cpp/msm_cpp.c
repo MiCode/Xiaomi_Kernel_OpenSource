@@ -1318,7 +1318,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 
 	fw_version_1_2_x = 0;
 	if ((cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_1_1_0) ||
-		(cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_1_1_1))
+		(cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_1_1_1) ||
+		(cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_2_0_0))
 		fw_version_1_2_x = 2;
 
 	for (i = 0; i < num_stripes; i++) {
