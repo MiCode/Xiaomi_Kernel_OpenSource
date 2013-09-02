@@ -3209,7 +3209,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			}
 			break;
 		case FM_TRANS:
-			if (!is_enable_tx_possible(radio) != 0)
+			if (is_enable_tx_possible(radio) != 0)
 				return -EINVAL;
 			radio->mode = FM_TRANS_TURNING_ON;
 			retval = hci_cmd(HCI_FM_ENABLE_TRANS_CMD,
