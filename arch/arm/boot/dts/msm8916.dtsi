@@ -22,6 +22,8 @@
 	soc: soc { };
 };
 
+/include/ "msm8916-ion.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
