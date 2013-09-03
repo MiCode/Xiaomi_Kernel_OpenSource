@@ -1498,7 +1498,14 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	 if ((pdata->reset_on_connect[cur_bam] == true) &&
 	     (ctx.pipes_enabled_per_bam[cur_bam] == 0)) {
 		spin_unlock(&usb_bam_lock);
+
+		if (cur_bam == HSUSB_BAM)
+			msm_hw_bam_disable(1);
+
 		sps_device_reset(ctx.h_bam[cur_bam]);
+
+		if (cur_bam == HSUSB_BAM)
+			msm_hw_bam_disable(0);
 
 		/* On re-connect assume out from lpm for HSIC BAM */
 		if (cur_bam == HSIC_BAM && hsic_host_info.dev &&
