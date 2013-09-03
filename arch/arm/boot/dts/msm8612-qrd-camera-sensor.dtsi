@@ -53,7 +53,7 @@
 		qcom,slave-id = <0x42 0x00 0xc8>;
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <270>;
 		qcom,sensor-name = "skuab_shinetech_gc0339";
 		cam_vdig-supply = <&pm8110_l14>;
 		cam_vana-supply = <&pm8110_l19>;
