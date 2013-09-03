@@ -400,6 +400,30 @@
 	status = "ok";
 };
 
+&gdsc_usb_hsic {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
+};
+
 /include/ "msm-pma8084.dtsi"
 /include/ "msmsamarium-regulator.dtsi"
 /include/ "msmsamarium-mdss.dtsi"
