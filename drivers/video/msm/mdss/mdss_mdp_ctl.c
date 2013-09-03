@@ -1324,7 +1324,13 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		if (!pipe->src_fmt->alpha_enable && bg_alpha_enable)
 			blend_color_out = 0;
 
-		mixercfg |= stage << (3 * pipe->num);
+		if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+			pipe->num == MDSS_MDP_SSPP_RGB3) {
+			/* Add 2 to account for Cursor & Border bits */
+			mixercfg |= stage << ((3 * pipe->num)+2);
+		} else {
+			mixercfg |= stage << (3 * pipe->num);
+		}
 
 		pr_debug("stg=%d op=%x fg_alpha=%x bg_alpha=%x\n", stage,
 					blend_op, fg_alpha, bg_alpha);
