@@ -373,9 +373,9 @@ static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
 #define QPNP_COEFF_3_TYPEA				1700000
 #define QPNP_COEFF_3_TYPEB				1000000
 #define QPNP_COEFF_4					100
-#define QPNP_COEFF_5					15000
+#define QPNP_COEFF_5					15
 #define QPNP_COEFF_6					100000
-#define QPNP_COEFF_7					21700
+#define QPNP_COEFF_7					21
 #define QPNP_COEFF_8					100000000
 #define QPNP_COEFF_9					38
 #define QPNP_COEFF_10					40
@@ -549,19 +549,18 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 
 	temp_var = (coeff_a * die_temp) + coeff_b;
 	temp_var = div64_s64(temp_var, QPNP_COEFF_4);
-	temp_var = 1000000 * (1000000 - temp_var);
+	temp_var = 1000 * (1000000 - temp_var);
 
 	if (!iadc->iadc_comp.ext_rsense) {
 		/* internal rsense */
-		*result = div64_s64(*result * 1000000, temp_var);
+		*result = div64_s64(*result * 1000, temp_var);
 	}
 
 	if (iadc->iadc_comp.ext_rsense) {
 		/* external rsense */
 		sys_gain_coeff = (1000000 +
 			div64_s64(sys_gain_coeff, QPNP_COEFF_4));
-		temp_var = div64_s64(temp_var * sys_gain_coeff,
-			1000000000);
+		temp_var = div64_s64(temp_var * sys_gain_coeff, 1000000);
 		*result = div64_s64(*result * 1000, temp_var);
 	}
 	pr_debug("%lld compensated into %lld\n", old, *result);
