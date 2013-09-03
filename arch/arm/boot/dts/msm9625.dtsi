@@ -316,6 +316,90 @@
 			qcom,descriptor-fifo-size = <0xB30>;
 			qcom,reset-bam-on-connect;
 		};
+
+		qcom,pipe8 {
+			label = "hsusb-ipa-out-1";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <5>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
+
+		qcom,pipe9 {
+			label = "hsusb-ipa-in-1";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <4>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
+
+		qcom,pipe10 {
+			label = "hsusb-ipa-out-2";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <2>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <7>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
+
+		qcom,pipe11 {
+			label = "hsusb-ipa-in-2";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <2>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <6>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
+
+		qcom,pipe12 {
+			label = "hsusb-ipa-out-3";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <3>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <8>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
+
+		qcom,pipe13 {
+			label = "hsusb-ipa-in-3";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <3>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <9>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+			qcom,reset-bam-on-connect;
+		};
 	};
 
 	qcom,nand@f9ac0000 {
