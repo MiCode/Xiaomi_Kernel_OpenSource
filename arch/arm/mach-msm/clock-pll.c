@@ -51,6 +51,9 @@
 				((x)->n_reg))
 #define PLL_CONFIG_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->config_reg)) : \
 				((x)->config_reg))
+#define PLL_CFG_CTL_REG(x) ((x)->base ? (*(x)->base + \
+			(u32)((x)->config_alt_reg)) : ((x)->config_alt_reg))
+
 
 static DEFINE_SPINLOCK(pll_reg_lock);
 
@@ -747,6 +750,21 @@ static void __set_fsm_mode(void __iomem *mode_reg,
 	writel_relaxed(regval, mode_reg);
 }
 
+static void __configure_alt_config(struct pll_alt_config config,
+		struct pll_config_regs *regs)
+{
+	u32 regval;
+
+	regval = readl_relaxed(PLL_CFG_CTL_REG(regs));
+
+	if (config.mask) {
+		regval &= ~config.mask;
+		regval |= config.val;
+	}
+
+	writel_relaxed(regval, PLL_CFG_CTL_REG(regs));
+}
+
 void __configure_pll(struct pll_config *config,
 		struct pll_config_regs *regs, u32 ena_fsm_mode)
 {
@@ -785,7 +803,16 @@ void __configure_pll(struct pll_config *config,
 	/* Select VCO setting */
 	regval &= ~config->vco_mask;
 	regval |= config->vco_val;
+
+	if (config->add_factor_mask) {
+		regval &= ~config->add_factor_mask;
+		regval |= config->add_factor_val;
+	}
+
 	writel_relaxed(regval, PLL_CONFIG_REG(regs));
+
+	if (regs->config_alt_reg)
+		__configure_alt_config(config->alt_cfg, regs);
 }
 
 void configure_sr_pll(struct pll_config *config,
