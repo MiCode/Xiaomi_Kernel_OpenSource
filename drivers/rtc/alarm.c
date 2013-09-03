@@ -455,7 +455,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);
 		if (rtc_current_time + 1 >= rtc_alarm_time) {
 			pr_alarm(SUSPEND, "alarm about to go off\n");
-			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
+			rtc_time_to_tm(0, &rtc_alarm.time);
 			rtc_alarm.enabled = 0;
 			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 
@@ -480,7 +480,7 @@ static int alarm_resume(struct platform_device *pdev)
 
 	pr_alarm(SUSPEND, "alarm_resume(%p)\n", pdev);
 
-	memset(&alarm, 0, sizeof(alarm));
+	rtc_time_to_tm(0, &alarm.time);
 	alarm.enabled = 0;
 	rtc_set_alarm(alarm_rtc_dev, &alarm);
 
