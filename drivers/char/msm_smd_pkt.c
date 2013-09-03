@@ -1583,7 +1583,7 @@ static int __init smd_pkt_init(void)
 				msecs_to_jiffies(SMD_PKT_PROBE_WAIT_TIMEOUT));
 
 	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
-						"smd_pkt");
+						"smd_pkt", 0);
 	return 0;
 }
 

@@ -3414,7 +3414,7 @@ static int __init msm_ipc_router_init(void)
 
 	msm_ipc_router_debug_mask |= SMEM_LOG;
 	ipc_rtr_log_ctxt = ipc_log_context_create(IPC_RTR_LOG_PAGES,
-						  "ipc_router");
+						  "ipc_router", 0);
 	if (!ipc_rtr_log_ctxt)
 		IPC_RTR_ERR("%s: Unable to create IPC logging for IPC RTR",
 			__func__);
