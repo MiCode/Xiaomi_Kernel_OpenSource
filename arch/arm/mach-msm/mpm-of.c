@@ -219,16 +219,12 @@ static inline uint16_t msm_mpm_get_irq_a2m(struct irq_data *d)
 	hlist_for_each_entry(node, elem, &irq_hash[hashfn(d->hwirq)], node) {
 		if ((node->hwirq == d->hwirq)
 				&& (d->domain == node->domain)) {
-			/*
-			 * Update the linux irq mapping. No update required for
-			 * bypass interrupts
-			 */
-			if (node->pin != 0xff)
-				msm_mpm_irqs_m2a[node->pin] = d->irq;
+			/* Update the linux irq mapping */
+			msm_mpm_irqs_m2a[node->pin] = d->irq;
 			break;
 		}
 	}
-	return elem ? node->pin : 0;
+	return node ? node->pin : 0;
 }
 
 static int msm_mpm_enable_irq_exclusive(
