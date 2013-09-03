@@ -294,6 +294,49 @@ void msm_isp_axi_free_comp_mask(struct msm_vfe_axi_shared_data *axi_data,
 	axi_data->num_used_composite_mask--;
 }
 
+int msm_isp_axi_get_bufq_handles(
+		struct vfe_device *vfe_dev,
+		struct msm_vfe_axi_stream *stream_info)
+{
+	int rc = 0;
+
+	if (stream_info->stream_id & ISP_SCRATCH_BUF_BIT) {
+		stream_info->bufq_handle =
+			vfe_dev->buf_mgr->ops->get_bufq_handle(
+		vfe_dev->buf_mgr, stream_info->session_id,
+		stream_info->stream_id & ~ISP_SCRATCH_BUF_BIT);
+		if (stream_info->bufq_handle == 0) {
+			pr_err("%s: Stream 0x%x has no valid buffer queue\n",
+				__func__, (unsigned int)stream_info->stream_id);
+			rc = -EINVAL;
+			return rc;
+		}
+
+		stream_info->bufq_scratch_handle =
+			vfe_dev->buf_mgr->ops->get_bufq_handle(
+		vfe_dev->buf_mgr, stream_info->session_id,
+		stream_info->stream_id);
+		if (stream_info->bufq_scratch_handle == 0) {
+			pr_err("%s: Stream 0x%x has no valid buffer queue\n",
+				__func__, (unsigned int)stream_info->stream_id);
+			rc = -EINVAL;
+			return rc;
+		}
+	} else {
+		stream_info->bufq_handle =
+			vfe_dev->buf_mgr->ops->get_bufq_handle(
+		vfe_dev->buf_mgr, stream_info->session_id,
+		stream_info->stream_id);
+		if (stream_info->bufq_handle == 0) {
+			pr_err("%s: Stream 0x%x has no valid buffer queue\n",
+				__func__, (unsigned int)stream_info->stream_id);
+			rc = -EINVAL;
+			return rc;
+		}
+	}
+	return rc;
+}
+
 int msm_isp_axi_check_stream_state(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd)
@@ -336,16 +379,9 @@ int msm_isp_axi_check_stream_state(
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 
 		if (stream_cfg_cmd->cmd == START_STREAM) {
-			stream_info->bufq_handle =
-				vfe_dev->buf_mgr->ops->get_bufq_handle(
-			vfe_dev->buf_mgr, stream_info->session_id,
-			stream_info->stream_id);
-			if (stream_info->bufq_handle == 0) {
-				pr_err("%s: Stream has no valid buffer queue\n",
-					__func__);
-				rc = -EINVAL;
+			rc = msm_isp_axi_get_bufq_handles(vfe_dev, stream_info);
+			if (rc)
 				break;
-			}
 		}
 	}
 	return rc;
@@ -768,16 +804,25 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	int i, rc = -1;
 	struct msm_isp_buffer *buf = NULL;
 	uint32_t pingpong_bit = 0;
-	uint32_t bufq_handle = stream_info->bufq_handle;
+	uint32_t bufq_handle = 0;
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
+
+	if (stream_info->bufq_scratch_handle && !stream_info->request_frm_num)
+		bufq_handle = stream_info->bufq_scratch_handle;
+	else
+		bufq_handle = stream_info->bufq_handle;
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 			vfe_dev->pdev->id, bufq_handle, &buf);
+
 	if (rc < 0) {
-		vfe_dev->error_info.
-			stream_framedrop_count[stream_idx]++;
+		vfe_dev->error_info.stream_framedrop_count[stream_idx]++;
 		return rc;
 	}
+
+	if (stream_info->bufq_scratch_handle &&
+			bufq_handle == stream_info->bufq_handle)
+		stream_info->request_frm_num--;
 
 	if (buf->num_planes != stream_info->num_planes) {
 		pr_err("%s: Invalid buffer\n", __func__);
@@ -810,6 +855,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 	uint32_t frame_id = vfe_dev->axi_data.
 		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
+	uint32_t buf_src;
 	memset(&buf_event, 0, sizeof(buf_event));
 
 	if (buf && ts) {
@@ -818,7 +864,10 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 		} else {
 			time_stamp = &ts->buf_time;
 		}
-		if (stream_info->buf_divert) {
+		rc = vfe_dev->buf_mgr->ops->get_buf_src(vfe_dev->buf_mgr,
+						buf->bufq_handle, &buf_src);
+		if (stream_info->buf_divert && rc == 0 &&
+				buf_src != MSM_ISP_BUFFER_SRC_SCRATCH) {
 			rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
 				time_stamp, frame_id);
@@ -1326,6 +1375,11 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				stream_info->runtime_output_format =
 					stream_info->output_format;
 			}
+			break;
+		}
+		case UPDATE_STREAM_REQUEST_FRAMES: {
+			stream_info->request_frm_num +=
+				update_info->request_frm_num;
 			break;
 		}
 		default:
