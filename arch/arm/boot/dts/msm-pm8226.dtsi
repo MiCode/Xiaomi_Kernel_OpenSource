@@ -48,11 +48,7 @@
 
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
-				qcom,support-reset = <1>;
 				qcom,pull-up = <1>;
-				qcom,s1-timer = <0>;
-				qcom,s2-timer = <2000>;
-				qcom,s2-type = <1>;
 				linux,code = <114>;
 			};
 
