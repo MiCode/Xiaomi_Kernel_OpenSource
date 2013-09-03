@@ -54,7 +54,6 @@ struct f_rmnet {
 	unsigned long			cpkts_len;
 };
 
-#define NR_RMNET_PORTS	3
 static unsigned int nr_rmnet_ports;
 static unsigned int no_ctrl_smd_ports;
 static unsigned int no_ctrl_qti_ports;
@@ -315,7 +314,7 @@ static int rmnet_gport_setup(void)
 
 	if (no_data_bam_ports || no_data_bam2bam_ports) {
 		ret = gbam_setup(no_data_bam_ports,
-						 no_data_bam2bam_ports);
+				 no_data_bam2bam_ports);
 		if (ret)
 			return ret;
 	}
@@ -414,7 +413,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 		}
 		break;
 	case USB_GADGET_XPORT_QTI:
-		ret = gqti_ctrl_connect(&dev->port);
+		ret = gqti_ctrl_connect(&dev->port, port_num);
 		if (ret) {
 			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
 					__func__, ret);
@@ -486,7 +485,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);
 			if (cxport == USB_GADGET_XPORT_QTI)
-				gqti_ctrl_disconnect(&dev->port);
+				gqti_ctrl_disconnect(&dev->port, port_num);
 			else
 				gsmd_ctrl_disconnect(&dev->port, port_num);
 			return ret;
@@ -516,7 +515,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			pr_err("%s: gether_connect failed: err:%ld\n",
 					__func__, PTR_ERR(net));
 			if (cxport == USB_GADGET_XPORT_QTI)
-				gqti_ctrl_disconnect(&dev->port);
+				gqti_ctrl_disconnect(&dev->port, port_num);
 			else
 				gsmd_ctrl_disconnect(&dev->port, port_num);
 
@@ -550,7 +549,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 		gsmd_ctrl_disconnect(&dev->port, port_num);
 		break;
 	case USB_GADGET_XPORT_QTI:
-		gqti_ctrl_disconnect(&dev->port);
+		gqti_ctrl_disconnect(&dev->port, port_num);
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_ctrl_disconnect(&dev->port, port_num);

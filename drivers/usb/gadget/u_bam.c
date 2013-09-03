@@ -30,7 +30,7 @@
 #include "u_rmnet.h"
 
 #define BAM_N_PORTS	1
-#define BAM2BAM_N_PORTS	3
+#define BAM2BAM_N_PORTS	4
 
 static struct workqueue_struct *gbam_wq;
 static int n_bam_ports;
@@ -39,6 +39,15 @@ static unsigned n_tx_req_queued;
 static unsigned bam_ch_ids[] = { 8 };
 
 static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
+
+static const enum ipa_client_type usb_prod[BAM2BAM_N_PORTS] = {
+	IPA_CLIENT_USB_PROD, IPA_CLIENT_USB2_PROD,
+	IPA_CLIENT_USB3_PROD, IPA_CLIENT_USB4_PROD
+};
+static const enum ipa_client_type usb_cons[BAM2BAM_N_PORTS] = {
+	IPA_CLIENT_USB_CONS, IPA_CLIENT_USB2_CONS,
+	IPA_CLIENT_USB3_CONS, IPA_CLIENT_USB4_CONS
+};
 
 #define BAM_PENDING_LIMIT			220
 #define BAM_MUX_TX_PKT_DROP_THRESHOLD		1000
@@ -751,7 +760,7 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
-		teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
+		teth_bridge_disconnect(d->ipa_params.src_client);
 	}
 }
 
@@ -817,7 +826,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		}
 	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		ret = teth_bridge_init(&usb_notify_cb, &priv,
-				IPA_CLIENT_USB_PROD);
+				d->ipa_params.src_client);
 		if (ret) {
 			pr_err("%s:teth_bridge_init() failed\n", __func__);
 			return;
@@ -825,8 +834,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		d->ipa_params.notify = usb_notify_cb;
 		d->ipa_params.priv = priv;
 		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
-
-		d->ipa_params.client = IPA_CLIENT_USB_PROD;
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
@@ -834,8 +841,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
-
-		d->ipa_params.client = IPA_CLIENT_USB_CONS;
 		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
@@ -847,7 +852,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
 		connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;
 		connect_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
-		connect_params.client_type = IPA_CLIENT_USB_PROD;
+		connect_params.client_type = d->ipa_params.src_client;
 		ret = teth_bridge_connect(&connect_params);
 		if (ret) {
 			pr_err("%s:teth_bridge_connect() failed\n", __func__);
@@ -937,7 +942,8 @@ static void gbam2bam_suspend_work(struct work_struct *w)
 
 	usb_bam_register_wake_cb(d->dst_connection_idx, gbam_wake_cb, port);
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		usb_bam_register_start_stop_cbs(gbam_start, gbam_stop, port);
+		usb_bam_register_start_stop_cbs(d->dst_connection_idx,
+						gbam_start, gbam_stop, port);
 		usb_bam_suspend(&d->ipa_params);
 	}
 }
@@ -1189,6 +1195,8 @@ static int gbam2bam_port_alloc(int portno)
 	/* data ch */
 	d = &port->data_ch;
 	d->port = port;
+	d->ipa_params.src_client = usb_prod[portno];
+	d->ipa_params.dst_client = usb_cons[portno];
 	bam2bam_ports[portno] = port;
 
 	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);
@@ -1443,6 +1451,8 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->dst_connection_idx = dst_connection_idx;
 	} else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		port->gr = gr;
+		d->src_connection_idx = src_connection_idx;
+		d->dst_connection_idx = dst_connection_idx;
 		d->ipa_params.src_pipe = &(d->src_pipe_idx);
 		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
 		d->ipa_params.src_idx = src_connection_idx;
