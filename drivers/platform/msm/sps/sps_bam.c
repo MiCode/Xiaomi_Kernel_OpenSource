@@ -1355,6 +1355,7 @@ int sps_bam_pipe_transfer(struct sps_bam *dev,
 	void *user;
 	int n;
 	int result;
+	struct sps_pipe *pipe = dev->pipes[pipe_index];
 
 	if (transfer->iovec_count == 0) {
 		SPS_ERR("sps:iovec count zero: BAM 0x%x pipe %d\n",
@@ -1362,7 +1363,13 @@ int sps_bam_pipe_transfer(struct sps_bam *dev,
 		return SPS_ERROR;
 	}
 
-	sps_bam_get_free_count(dev, pipe_index, &count);
+	if (!pipe->sys.ack_xfers && pipe->polled) {
+		sps_bam_pipe_get_unused_desc_num(dev, pipe_index,
+					&count);
+		count = pipe->desc_size - count - 1;
+	} else
+		sps_bam_get_free_count(dev, pipe_index, &count);
+
 	if (count < transfer->iovec_count) {
 		SPS_ERR("sps:Insufficient free desc: BAM 0x%x pipe %d: %d\n",
 			BAM_ID(dev), pipe_index, count);
