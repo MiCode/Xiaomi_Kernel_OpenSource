@@ -32,7 +32,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
 #include <linux/input/mt.h>
-#include "synaptics_i2c_rmi4.h"
+#include "synaptics_i2c_rmi4_staging.h"
 
 /* TODO: for multiple device support will need a per-device mutex */
 #define DRIVER_NAME "synaptics_rmi4_i2c"

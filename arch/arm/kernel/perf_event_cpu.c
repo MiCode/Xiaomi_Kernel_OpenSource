@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/cpu_pm.h>
 
 #include <asm/cputype.h>
 #include <asm/irq_regs.h>
@@ -33,6 +34,7 @@
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
 
+static DEFINE_PER_CPU(u32, from_idle);
 static DEFINE_PER_CPU(struct perf_event * [ARMPMU_MAX_HWEVENTS], hw_events);
 static DEFINE_PER_CPU(unsigned long [BITS_TO_LONGS(ARMPMU_MAX_HWEVENTS)], used_mask);
 static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
@@ -65,6 +67,8 @@ EXPORT_SYMBOL_GPL(perf_num_counters);
 #include "perf_event_xscale.c"
 #include "perf_event_v6.c"
 #include "perf_event_v7.c"
+#include "perf_event_msm_krait.c"
+#include "perf_event_msm.c"
 
 static struct pmu_hw_events *cpu_pmu_get_cpu_events(void)
 {
@@ -139,6 +143,7 @@ static void cpu_pmu_init(struct arm_pmu *cpu_pmu)
 		struct pmu_hw_events *events = &per_cpu(cpu_hw_events, cpu);
 		events->events = per_cpu(hw_events, cpu);
 		events->used_mask = per_cpu(used_mask, cpu);
+		events->from_idle = per_cpu(from_idle, cpu);
 		raw_spin_lock_init(&events->pmu_lock);
 	}
 
@@ -173,6 +178,78 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 
 static struct notifier_block __cpuinitdata cpu_pmu_hotplug_notifier = {
 	.notifier_call = cpu_pmu_notify,
+};
+
+static void armpmu_update_counters(void)
+{
+	struct pmu_hw_events *hw_events;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = cpu_pmu->get_hw_events();
+
+	for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+
+		if (!event)
+			continue;
+
+		armpmu_read(event);
+	}
+}
+
+static int cpu_has_active_perf(void)
+{
+	struct pmu_hw_events *hw_events;
+	int enabled;
+
+	if (!cpu_pmu)
+		return 0;
+
+	hw_events = cpu_pmu->get_hw_events();
+	enabled = bitmap_weight(hw_events->used_mask, cpu_pmu->num_events);
+
+	if (enabled)
+		/*Even one event's existence is good enough.*/
+		return 1;
+
+	return 0;
+}
+
+/*TODO: Unify with pending patch from ARM */
+static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
+		void *v)
+{
+	switch (cmd) {
+	case CPU_PM_ENTER:
+		if (cpu_has_active_perf()) {
+			armpmu_update_counters();
+			perf_pmu_disable(&cpu_pmu->pmu);
+		}
+		break;
+
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		if (cpu_has_active_perf() && cpu_pmu->reset) {
+			/*
+			 * Flip this bit so armpmu_enable knows it needs
+			 * to re-enable active counters.
+			 */
+			__get_cpu_var(from_idle) = 1;
+			cpu_pmu->reset(NULL);
+			perf_pmu_enable(&cpu_pmu->pmu);
+		}
+		break;
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_cpu_pm_notifier_block = {
+	.notifier_call = perf_cpu_pm_notifier,
 };
 
 /*
@@ -244,6 +321,25 @@ static int probe_current_pmu(struct arm_pmu *pmu)
 			ret = xscale2pmu_init(pmu);
 			break;
 		}
+	/* Qualcomm CPUs */
+	} else if (implementor == ARM_CPU_IMP_QUALCOMM) {
+		switch (part_number) {
+		case 0x00F0:    /* 8x50 & 7x30*/
+			cpu_pmu = armv7_scorpion_pmu_init();
+			break;
+		case 0x02D0:    /* 8x60 */
+//			fabricmon_pmu_init();
+			cpu_pmu = armv7_scorpionmp_pmu_init();
+//			scorpionmp_l2_pmu_init();
+			break;
+		case 0x0490:    /* 8960 sim */
+		case 0x04D0:    /* 8960 */
+		case 0x06F0:    /* 8064 */
+//			fabricmon_pmu_init();
+			cpu_pmu = armv7_krait_pmu_init();
+//			krait_l2_pmu_init();
+			break;
+		}
 	}
 
 	put_cpu();
@@ -313,10 +409,20 @@ static int __init register_pmu_driver(void)
 	if (err)
 		return err;
 
+	err = cpu_pm_register_notifier(&perf_cpu_pm_notifier_block);
+	if (err)
+		goto err_cpu_pm;
+
 	err = platform_driver_register(&cpu_pmu_driver);
 	if (err)
-		unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
+		goto err_driver;
 
+	return 0;
+
+err_driver:
+	cpu_pm_unregister_notifier(&perf_cpu_pm_notifier_block);
+err_cpu_pm:
+	unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
 	return err;
 }
 device_initcall(register_pmu_driver);

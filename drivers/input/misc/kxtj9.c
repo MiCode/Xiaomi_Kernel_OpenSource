@@ -88,6 +88,7 @@ struct kxtj9_data {
 	struct input_polled_dev *poll_dev;
 #endif
 	unsigned int last_poll_interval;
+	bool	enable;
 	u8 shift;
 	u8 ctrl_reg1;
 	u8 data_ctrl;
@@ -127,6 +128,13 @@ static void kxtj9_report_acceleration_data(struct kxtj9_data *tj9)
 	x = le16_to_cpu(acc_data[tj9->pdata.axis_map_x]);
 	y = le16_to_cpu(acc_data[tj9->pdata.axis_map_y]);
 	z = le16_to_cpu(acc_data[tj9->pdata.axis_map_z]);
+
+	/* 8 bits output mode support */
+	if (!(tj9->ctrl_reg1 & RES_12BIT)) {
+		x <<= 4;
+		y <<= 4;
+		z <<= 4;
+	}
 
 	x >>= tj9->shift;
 	y >>= tj9->shift;
@@ -269,31 +277,21 @@ static int kxtj9_enable(struct kxtj9_data *tj9)
 		}
 	}
 
+	tj9->enable = true;
 	return 0;
 
 fail:
 	kxtj9_device_power_off(tj9);
+	tj9->enable = false;
 	return err;
 }
 
 static void kxtj9_disable(struct kxtj9_data *tj9)
 {
 	kxtj9_device_power_off(tj9);
+	tj9->enable = false;
 }
 
-static int kxtj9_input_open(struct input_dev *input)
-{
-	struct kxtj9_data *tj9 = input_get_drvdata(input);
-
-	return kxtj9_enable(tj9);
-}
-
-static void kxtj9_input_close(struct input_dev *dev)
-{
-	struct kxtj9_data *tj9 = input_get_drvdata(dev);
-
-	kxtj9_disable(tj9);
-}
 
 static void kxtj9_init_input_device(struct kxtj9_data *tj9,
 					      struct input_dev *input_dev)
@@ -321,8 +319,6 @@ static int kxtj9_setup_input_device(struct kxtj9_data *tj9)
 
 	tj9->input_dev = input_dev;
 
-	input_dev->open = kxtj9_input_open;
-	input_dev->close = kxtj9_input_close;
 	input_set_drvdata(input_dev, tj9);
 
 	kxtj9_init_input_device(tj9, input_dev);
@@ -338,6 +334,49 @@ static int kxtj9_setup_input_device(struct kxtj9_data *tj9)
 
 	return 0;
 }
+
+static ssize_t kxtj9_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct kxtj9_data *tj9 = i2c_get_clientdata(client);
+
+	return snprintf(buf, 4, "%d\n", tj9->enable);
+}
+
+static ssize_t kxtj9_enable_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct kxtj9_data *tj9 = i2c_get_clientdata(client);
+	struct input_dev *input_dev = tj9->input_dev;
+	unsigned long data;
+	int error;
+
+	error = kstrtoul(buf, 10, &data);
+	if (error)
+		return error;
+	mutex_lock(&input_dev->mutex);
+	disable_irq(client->irq);
+
+	if (data == 0)
+		kxtj9_disable(tj9);
+	else if (data == 1)
+		kxtj9_enable(tj9);
+	else {
+		dev_err(&tj9->client->dev,
+			"Invalid value of input, input=%ld\n", data);
+	}
+
+	enable_irq(client->irq);
+	mutex_unlock(&input_dev->mutex);
+
+	return count;
+}
+
+static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR|S_IWGRP,
+			kxtj9_enable_show, kxtj9_enable_store);
 
 /*
  * When IRQ mode is selected, we need to provide an interface to allow the user
@@ -396,6 +435,7 @@ static ssize_t kxtj9_set_poll(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(poll, S_IRUGO|S_IWUSR, kxtj9_get_poll, kxtj9_set_poll);
 
 static struct attribute *kxtj9_attributes[] = {
+	&dev_attr_enable.attr,
 	&dev_attr_poll.attr,
 	NULL
 };

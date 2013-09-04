@@ -48,6 +48,82 @@ DEFINE_EVENT(cpu, cpu_frequency,
 	TP_ARGS(frequency, cpu_id)
 );
 
+TRACE_EVENT(cpu_frequency_switch_start,
+
+	TP_PROTO(unsigned int start_freq, unsigned int end_freq,
+		 unsigned int cpu_id),
+
+	TP_ARGS(start_freq, end_freq, cpu_id),
+
+	TP_STRUCT__entry(
+		__field(	u32,		start_freq	)
+		__field(	u32,		end_freq	)
+		__field(	u32,		cpu_id		)
+	),
+
+	TP_fast_assign(
+		__entry->start_freq = start_freq;
+		__entry->end_freq = end_freq;
+		__entry->cpu_id = cpu_id;
+	),
+
+	TP_printk("start=%lu end=%lu cpu_id=%lu",
+		  (unsigned long)__entry->start_freq,
+		  (unsigned long)__entry->end_freq,
+		  (unsigned long)__entry->cpu_id)
+);
+
+TRACE_EVENT(cpu_frequency_switch_end,
+
+	TP_PROTO(unsigned int cpu_id),
+
+	TP_ARGS(cpu_id),
+
+	TP_STRUCT__entry(
+		__field(	u32,		cpu_id		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu_id = cpu_id;
+	),
+
+	TP_printk("cpu_id=%lu", (unsigned long)__entry->cpu_id)
+);
+
+DECLARE_EVENT_CLASS(set,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+			unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load),
+
+	TP_STRUCT__entry(
+	    __field(u32, cpu_id)
+	    __field(unsigned long, currfreq)
+	    __field(unsigned long, load)
+	),
+
+	TP_fast_assign(
+	    __entry->cpu_id = (u32) cpu_id;
+	    __entry->currfreq = currfreq;
+	    __entry->load = load;
+	),
+
+	TP_printk("cpu=%u currfreq=%lu load=%lu",
+	      __entry->cpu_id, __entry->currfreq,
+	      __entry->load)
+);
+
+DEFINE_EVENT(set, cpufreq_sampling_event,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+		unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load)
+);
+
+DEFINE_EVENT(set, cpufreq_freq_synced,
+	TP_PROTO(u32 cpu_id, unsigned long currfreq,
+		unsigned long load),
+	TP_ARGS(cpu_id, currfreq, load)
+);
+
 TRACE_EVENT(machine_suspend,
 
 	TP_PROTO(unsigned int state),

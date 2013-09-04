@@ -1,0 +1,39 @@
+Test IO scheduler
+==================
+
+The test scheduler allows testing a block device by dispatching
+specific requests according to the test case and declare PASS/FAIL
+according to the requests completion error code.
+
+The test IO scheduler implements the no-op scheduler operations, and uses
+them in order to dispatch the non-test requests when no test is running.
+This will allow to keep a normal FS operation in parallel to the test
+capability.
+The test IO scheduler keeps two different queues, one for real-world requests
+(inserted by the FS) and the other for the test requests.
+The test IO scheduler chooses the queue for dispatch requests according to the
+test state (IDLE/RUNNING).
+
+the test IO scheduler is compiled by default as a dynamic module and enabled
+only if CONFIG_DEBUG_FS is defined.
+
+Each block device test utility that would like to use the test-iosched test
+services, should register as a blk_dev_test_type and supply an init and exit
+callbacks. Those callback are called upon selection (or removal) of the
+test-iosched as the active scheduler. From that point the block device test
+can start a test and supply its own callbacks for preparing, running, result
+checking and cleanup of the test.
+
+Each test is exposed via debugfs and can be triggered by writing to
+the debugfs file. In order to add a new test one should expose a new debugfs
+file for the new test.
+
+Selecting IO schedulers
+-----------------------
+Refer to Documentation/block/switching-sched.txt for information on
+selecting an io scheduler on a per-device basis.
+
+
+May 10 2012, maya Erez <merez@codeaurora.org>
+
+

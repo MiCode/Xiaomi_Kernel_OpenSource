@@ -21,6 +21,8 @@
 #include <asm/thread_notify.h>
 #include <asm/tlbflush.h>
 
+#include <mach/msm_rtb.h>
+
 /*
  * On ARMv6, we have the following structure in the Context ID:
  *
@@ -100,6 +102,7 @@ static int contextidr_notifier(struct notifier_block *unused, unsigned long cmd,
 	"	mcr	p15, 0, %0, c13, c0, 1\n"
 	: "=r" (contextidr), "+r" (pid)
 	: "I" (~ASID_MASK));
+	uncached_logk(LOGK_CTXID, (void *)contextidr);
 	isb();
 
 	return NOTIFY_OK;

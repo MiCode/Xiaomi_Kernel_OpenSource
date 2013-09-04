@@ -464,6 +464,17 @@ ENTRY(__turn_mmu_on)
 	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
 	instr_sync
 	mov	r3, r3
+#ifdef CONFIG_ARCH_MSM_KRAIT
+	movw	r3, 0xfc00
+	movt	r3, 0xff00
+	and	r3, r9, r3
+	movw	r4, 0x0400
+	movt 	r4, 0x5100
+	cmp	r3, r4
+	mrceq	p15, 7, r3, c15, c0, 2
+	biceq	r3, r3, #0x400
+	mcreq	p15, 7, r3, c15, c0, 2
+#endif
 	mov	r3, r13
 	mov	pc, r3
 __turn_mmu_on_end:

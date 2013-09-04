@@ -211,6 +211,7 @@ struct ehci_hcd {			/* one per controller */
 	__hc32			*ohci_hcctrl_reg;
 	unsigned		has_hostpc:1;
 	unsigned		has_ppcd:1; /* support per-port change bits */
+	unsigned		pool_64_bit_align:1; /* for 64 bit alignment */
 	u8			sbrn;		/* packed release number */
 
 	/* irq statistics */

@@ -428,6 +428,17 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_JPGL	v4l2_fourcc('J', 'P', 'G', 'L') /* JPEG-Lite */
 #define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1') /* se401 janggu compressed rgb */
 #define V4L2_PIX_FMT_S5C_UYVY_JPG v4l2_fourcc('S', '5', 'C', 'I') /* S5C73M3 interleaved UYVY/JPEG */
+#define V4L2_PIX_FMT_STATS_COMB v4l2_fourcc('S', 'T', 'C', 'M') /* Composite stats */
+
+#define V4L2_PIX_FMT_STATS_AE   v4l2_fourcc('S', 'T', 'A', 'E') /* AEC stats */
+#define V4L2_PIX_FMT_STATS_AF   v4l2_fourcc('S', 'T', 'A', 'F') /* AF stats */
+#define V4L2_PIX_FMT_STATS_AWB  v4l2_fourcc('S', 'T', 'W', 'B') /* AWB stats */
+#define V4L2_PIX_FMT_STATS_IHST v4l2_fourcc('I', 'H', 'S', 'T') /* IHIST stats */
+#define V4L2_PIX_FMT_STATS_CS   v4l2_fourcc('S', 'T', 'C', 'S') /* Column count stats */
+#define V4L2_PIX_FMT_STATS_RS   v4l2_fourcc('S', 'T', 'R', 'S') /* Row count stats */
+#define V4L2_PIX_FMT_STATS_BG   v4l2_fourcc('S', 'T', 'B', 'G') /* Bayer Grid stats */
+#define V4L2_PIX_FMT_STATS_BF   v4l2_fourcc('S', 'T', 'B', 'F') /* Bayer focus stats */
+#define V4L2_PIX_FMT_STATS_BHST v4l2_fourcc('B', 'H', 'S', 'T') /* Bayer hist stats */
 
 /*
  *	F O R M A T   E N U M E R A T I O N
@@ -1470,6 +1481,9 @@ struct v4l2_encoder_cmd {
 	};
 };
 
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000
+#define V4L2_QCOM_BUF_FLAG_EOSEQ  0x8000
+
 /* Decoder commands */
 #define V4L2_DEC_CMD_START       (0)
 #define V4L2_DEC_CMD_STOP        (1)
@@ -1722,6 +1736,12 @@ struct v4l2_streamparm {
 #define V4L2_EVENT_CTRL				3
 #define V4L2_EVENT_FRAME_SYNC			4
 #define V4L2_EVENT_PRIVATE_START		0x08000000
+
+#define V4L2_EVENT_MSM_VIDC_START	{ V4L2_EVENT_PRIVATE_START + 0x00001000}
+#define V4L2_EVENT_MSM_VIDC_FLUSH_DONE	{V4L2_EVENT_PRIVATE_START + 1}
+#define V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED	\
+		{V4L2_EVENT_PRIVATE_START + 2}
+#define V4L2_EVENT_MSM_VIDC_CLOSE_DONE	{V4L2_EVENT_PRIVATE_START + 3}
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {

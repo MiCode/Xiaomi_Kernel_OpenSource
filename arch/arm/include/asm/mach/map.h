@@ -34,6 +34,10 @@ struct map_desc {
 #define MT_MEMORY_ITCM		13
 #define MT_MEMORY_SO		14
 #define MT_MEMORY_DMA_READY	15
+#define MT_MEMORY_R		16
+#define MT_MEMORY_RW		17
+#define MT_MEMORY_RX		18
+#define MT_DEVICE_USER_ACCESSIBLE	19
 
 #ifdef CONFIG_MMU
 extern void iotable_init(struct map_desc *, int);
@@ -54,6 +58,9 @@ extern const struct mem_type *get_mem_type(unsigned int type);
  */
 extern int ioremap_page(unsigned long virt, unsigned long phys,
 			const struct mem_type *mtype);
+
+extern int ioremap_pages(unsigned long virt, unsigned long phys,
+			unsigned long size, const struct mem_type *mtype);
 #else
 #define iotable_init(map,num)	do { } while (0)
 #define vm_reserve_area_early(a,s,c)	do { } while (0)

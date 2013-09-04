@@ -38,4 +38,5 @@ extern void devfreq_interval_update(struct devfreq *devfreq,
 extern int devfreq_add_governor(struct devfreq_governor *governor);
 extern int devfreq_remove_governor(struct devfreq_governor *governor);
 
+extern int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq);
 #endif /* _GOVERNOR_H */

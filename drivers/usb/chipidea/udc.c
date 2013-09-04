@@ -15,6 +15,7 @@
 #include <linux/dmapool.h>
 #include <linux/err.h>
 #include <linux/irqreturn.h>
+#include <linux/ratelimit.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
@@ -27,6 +28,12 @@
 #include "udc.h"
 #include "bits.h"
 #include "debug.h"
+
+#define ATDTW_SET_DELAY		100 /* 100msec delay */
+
+/* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
+static unsigned int streaming;
+module_param(streaming, uint, S_IRUGO | S_IWUSR);
 
 /* control endpoint description */
 static const struct usb_endpoint_descriptor
@@ -80,6 +87,13 @@ static inline int ep_to_bit(struct ci13xxx *ci, int n)
 static int hw_device_state(struct ci13xxx *ci, u32 dma)
 {
 	if (dma) {
+		if (streaming ||
+		    !(ci->platdata->flags & CI13XXX_DISABLE_STREAMING))
+			hw_write(ci, OP_USBMODE, USBMODE_CI_SDIS, 0);
+		else
+			hw_write(ci, OP_USBMODE, USBMODE_CI_SDIS,
+					USBMODE_CI_SDIS);
+
 		hw_write(ci, OP_ENDPTLISTADDR, ~0, dma);
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_write(ci, OP_USBINTR, ~0,
@@ -120,7 +134,6 @@ static int hw_ep_flush(struct ci13xxx *ci, int num, int dir)
  */
 static int hw_ep_disable(struct ci13xxx *ci, int num, int dir)
 {
-	hw_ep_flush(ci, num, dir);
 	hw_write(ci, OP_ENDPTCTRL + num,
 		 dir ? ENDPTCTRL_TXE : ENDPTCTRL_RXE, 0);
 	return 0;
@@ -342,6 +355,8 @@ static void hw_usb_set_address(struct ci13xxx *ci, u8 value)
  */
 static int hw_usb_reset(struct ci13xxx *ci)
 {
+	int delay_count = 10; /* 100 usec delay */
+
 	hw_usb_set_address(ci, 0);
 
 	/* ESS flushes only at end?!? */
@@ -354,8 +369,10 @@ static int hw_usb_reset(struct ci13xxx *ci)
 	hw_write(ci, OP_ENDPTCOMPLETE,  0,  0);
 
 	/* wait until all bits cleared */
-	while (hw_read(ci, OP_ENDPTPRIME, ~0))
-		udelay(10);             /* not RTOS friendly */
+	while (delay_count-- && hw_read(ci, OP_ENDPTPRIME, ~0))
+		udelay(10);
+	if (delay_count < 0)
+		pr_err("ENDPTPRIME is not cleared during bus reset\n");
 
 	/* reset all endpoints ? */
 
@@ -442,6 +459,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		int n = hw_ep_bit(mEp->num, mEp->dir);
 		int tmp_stat;
 		u32 next = mReq->dma & TD_ADDR_MASK;
+		ktime_t start, diff;
 
 		mReqPrev = list_entry(mEp->qh.queue.prev,
 				struct ci13xxx_req, queue);
@@ -452,9 +470,20 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		wmb();
 		if (hw_read(ci, OP_ENDPTPRIME, BIT(n)))
 			goto done;
+		start = ktime_get();
 		do {
 			hw_write(ci, OP_USBCMD, USBCMD_ATDTW, USBCMD_ATDTW);
 			tmp_stat = hw_read(ci, OP_ENDPTSTAT, BIT(n));
+			diff = ktime_sub(ktime_get(), start);
+			/* poll for max. 100ms */
+			if (ktime_to_ms(diff) > ATDTW_SET_DELAY) {
+				if (hw_read(ci, OP_USBCMD, USBCMD_ATDTW))
+					break;
+				printk_ratelimited(KERN_ERR
+				"%s:queue failed ep#%d %s\n",
+				 __func__, mEp->num, mEp->dir ? "IN" : "OUT");
+				return -EAGAIN;
+			}
 		} while (!hw_read(ci, OP_USBCMD, USBCMD_ATDTW));
 		hw_write(ci, OP_USBCMD, USBCMD_ATDTW, 0);
 		if (tmp_stat)
@@ -802,8 +831,11 @@ static int isr_setup_status_phase(struct ci13xxx *ci)
 	struct ci13xxx_ep *mEp;
 
 	mEp = (ci->ep0_dir == TX) ? ci->ep0out : ci->ep0in;
-	ci->status->context = ci;
-	ci->status->complete = isr_setup_status_complete;
+	if (ci->status) {
+		ci->status->context = ci;
+		ci->status->complete = isr_setup_status_complete;
+	} else
+		return -EINVAL;
 
 	retval = _ep_queue(&mEp->ep, ci->status, GFP_ATOMIC);
 

@@ -2,6 +2,7 @@
  * arch/arm/mm/cache-l2x0.c - L210/L220 cache controller support
  *
  * Copyright (C) 2007 ARM Limited
+ * Copyright (c) 2009, 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,6 +35,7 @@ static DEFINE_RAW_SPINLOCK(l2x0_lock);
 static u32 l2x0_way_mask;	/* Bitmask of active ways */
 static u32 l2x0_size;
 static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
+static void pl310_save(void);
 
 /* Aurora don't have the cache ID register available, so we have to
  * pass it though the device tree */
@@ -128,7 +130,7 @@ static inline void l2x0_flush_line(unsigned long addr)
 }
 #endif
 
-static void l2x0_cache_sync(void)
+void l2x0_cache_sync(void)
 {
 	unsigned long flags;
 
@@ -420,6 +422,9 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			ways, cache_id, aux, l2x0_size);
+
+	/* Save the L2X0 contents, as they are not modified else where */
+	pl310_save();
 }
 
 #ifdef CONFIG_OF
@@ -590,8 +595,9 @@ static void __init pl310_of_setup(const struct device_node *np,
 			       l2x0_base + L2X0_ADDR_FILTER_START);
 	}
 }
+#endif
 
-static void __init pl310_save(void)
+static void pl310_save(void)
 {
 	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) &
 		L2X0_CACHE_ID_RTL_MASK;
@@ -690,6 +696,7 @@ static void __init aurora_broadcast_l2_commands(void)
 	isb();
 }
 
+#ifdef CONFIG_OF
 static void __init aurora_of_setup(const struct device_node *np,
 				u32 *aux_val, u32 *aux_mask)
 {
@@ -818,3 +825,15 @@ int __init l2x0_of_init(u32 aux_val, u32 aux_mask)
 	return 0;
 }
 #endif
+
+void l2cc_suspend(void)
+{
+	l2x0_disable();
+	dmb();
+}
+
+void l2cc_resume(void)
+{
+	pl310_resume();
+	dmb();
+}

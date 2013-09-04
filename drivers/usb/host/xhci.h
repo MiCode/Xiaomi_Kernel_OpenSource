@@ -1856,4 +1856,8 @@ struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_hcd *xhci, struct xhci_container
 /* xHCI quirks */
 bool xhci_compliance_mode_recovery_timer_quirk_check(void);
 
+/* EHSET */
+int xhci_submit_single_step_set_feature(struct usb_hcd *hcd, struct urb *urb,
+					int is_setup);
+
 #endif /* __LINUX_XHCI_HCD_H */

@@ -119,6 +119,11 @@ extern void unflatten_device_tree(void);
 extern void early_init_devtree(void *);
 #else /* CONFIG_OF_FLATTREE */
 static inline void unflatten_device_tree(void) {}
+static inline void *of_get_flat_dt_prop(unsigned long node, const char *name,
+				 unsigned long *size) { return NULL; }
+
+static inline int of_flat_dt_is_compatible(unsigned long node,
+				const char *name) { return 0; }
 #endif /* CONFIG_OF_FLATTREE */
 
 #endif /* __ASSEMBLY__ */

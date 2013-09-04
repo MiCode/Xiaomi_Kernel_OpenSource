@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/libata.h>
 #include <linux/ahci_platform.h>
+#include <linux/pm_runtime.h>
 #include "ahci.h"
 
 static void ahci_host_stop(struct ata_host *host);
@@ -216,6 +217,14 @@ static int ahci_probe(struct platform_device *pdev)
 	if (rc)
 		goto pdata_exit;
 
+	rc = pm_runtime_set_active(dev);
+	if (rc) {
+		dev_warn(dev, "Unable to set runtime pm active err=%d\n", rc);
+	} else {
+		pm_runtime_enable(dev);
+		pm_runtime_forbid(dev);
+	}
+
 	return 0;
 pdata_exit:
 	if (pdata && pdata->exit)
@@ -254,6 +263,9 @@ static int ahci_suspend(struct device *dev)
 	u32 ctl;
 	int rc;
 
+	if (pm_runtime_suspended(dev))
+		return 0;
+
 	if (hpriv->flags & AHCI_HFLAG_NO_SUSPEND) {
 		dev_err(dev, "firmware update required for suspend/resume\n");
 		return -EIO;
@@ -282,7 +294,7 @@ static int ahci_suspend(struct device *dev)
 	return 0;
 }
 
-static int ahci_resume(struct device *dev)
+static int ahci_resume_common(struct device *dev)
 {
 	struct ahci_platform_data *pdata = dev_get_platdata(dev);
 	struct ata_host *host = dev_get_drvdata(dev);
@@ -321,9 +333,26 @@ disable_unprepare_clk:
 
 	return rc;
 }
+
+static int ahci_resume(struct device *dev)
+{
+	int rc;
+
+	rc = ahci_resume_common(dev);
+	if (!rc) {
+		pm_runtime_disable(dev);
+		pm_runtime_set_active(dev);
+		pm_runtime_enable(dev);
+	}
+
+	return rc;
+}
 #endif
 
-static SIMPLE_DEV_PM_OPS(ahci_pm_ops, ahci_suspend, ahci_resume);
+static const struct dev_pm_ops ahci_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ahci_suspend, ahci_resume)
+	SET_RUNTIME_PM_OPS(ahci_suspend, ahci_resume_common, NULL)
+};
 
 static const struct of_device_id ahci_of_match[] = {
 	{ .compatible = "snps,spear-ahci", },

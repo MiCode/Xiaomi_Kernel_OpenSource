@@ -277,6 +277,12 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
 #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
 #define virt_addr_valid(kaddr)	((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory)
 
+/*
+ * Set if the architecture speculatively fetches data into cache.
+ */
+#ifndef arch_has_speculative_dfetch
+#define arch_has_speculative_dfetch()	0
+#endif
 #endif
 
 #include <asm-generic/memory_model.h>

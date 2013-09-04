@@ -116,7 +116,7 @@ int arch_update_cpu_topology(void);
 #define SD_MC_INIT (struct sched_domain) {				\
 	.min_interval		= 1,					\
 	.max_interval		= 4,					\
-	.busy_factor		= 64,					\
+	.busy_factor		= 1,					\
 	.imbalance_pct		= 125,					\
 	.cache_nice_tries	= 1,					\
 	.busy_idx		= 2,					\
@@ -160,7 +160,7 @@ int arch_update_cpu_topology(void);
 				| 0*SD_BALANCE_WAKE			\
 				| 1*SD_WAKE_AFFINE			\
 				| 0*SD_SHARE_CPUPOWER			\
-				| 0*SD_SHARE_PKG_RESOURCES		\
+				| 1*SD_SHARE_PKG_RESOURCES		\
 				| 0*SD_SERIALIZE			\
 				| 1*SD_PREFER_SIBLING			\
 				,					\

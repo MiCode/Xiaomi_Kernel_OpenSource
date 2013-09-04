@@ -100,3 +100,12 @@ allocated by dma_alloc_attrs() function from individual pages if it can
 be mapped as contiguous chunk into device dma address space. By
 specifing this attribute the allocated buffer is forced to be contiguous
 also in physical memory.
+
+DMA_ATTR_STRONGLY_ORDERED
+-------------------------
+
+DMA_ATTR_STRONGLY_ORDERED allocates memory with a very restrictive type
+of mapping (no unaligned accesses, no re-ordering, no write merging, no
+buffering, no pre-fetching). This has severe performance penalties and
+should not be used for general purpose DMA allocations. It should only
+be used if one of the restrictions on strongly ordered memory is required.

@@ -1,0 +1,24 @@
+* Qualcomm Atheros mobile chipsets
+
+Required properties:
+    - compatible: Can be "qca,ar6004-sdio" for SDIO device and
+    "qca,ar6004-hsic" for HSIC device. For AR6003, "qca,ar6003-sdio" can be
+    used.
+    - qca,chip-pwd-l-gpios: specify GPIO for CHIP_PWD_L.
+
+Optional Properties:
+    - cell-index: WLAN Hardware index.
+    - qca,pm-enable-gpios: Specify this GPIO if internal PMU needs to be used.
+    - qca,vbatt-supply: Specify this if VBATT is provided through a regulator.
+    - qca,vdd-io-supply: Specify this if VDD-IO is provided through a
+    regulator.
+
+Example:
+
+	wlan0: qca,wlan {
+		cell-index = <0>;
+		compatible = "qca,ar6004-sdio";
+		qca,chip-pwd-l-gpios = <&msmgpio 62 0>;
+		qca,pm-enable-gpios = <&pm8019_gpios 3 0x0>;
+		qca,vdd-io-supply = <&pm8019_l11>;
+	};

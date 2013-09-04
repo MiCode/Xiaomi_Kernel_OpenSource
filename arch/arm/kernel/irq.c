@@ -41,6 +41,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
+#include <asm/perftypes.h>
 
 unsigned long irq_err_count;
 
@@ -66,6 +67,7 @@ void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
+	perf_mon_interrupt_in();
 	irq_enter();
 
 	/*
@@ -82,6 +84,7 @@ void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 
 	irq_exit();
 	set_irq_regs(old_regs);
+	perf_mon_interrupt_out();
 }
 
 /*
@@ -134,8 +137,18 @@ void __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
 #ifdef CONFIG_SPARSE_IRQ
 int __init arch_probe_nr_irqs(void)
 {
-	nr_irqs = machine_desc->nr_irqs ? machine_desc->nr_irqs : NR_IRQS;
-	return nr_irqs;
+	/*
+	 * machine_desc->nr_irqs < 0 is a special case that
+	 * specifies not to preallocate any irq_descs.
+	 */
+	if (machine_desc->nr_irqs < 0) {
+		nr_irqs = 0;
+		return nr_irqs;
+	} else {
+		nr_irqs = machine_desc->nr_irqs ?
+			  machine_desc->nr_irqs : NR_IRQS;
+		return nr_irqs;
+	}
 }
 #endif
 

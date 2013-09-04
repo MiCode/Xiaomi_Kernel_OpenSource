@@ -91,6 +91,8 @@ void __init add_static_vm_early(struct static_vm *svm)
 	void *vaddr;
 
 	vm = &svm->vm;
+	if (vm_area_check_early(vm))
+		return;
 	vm_area_add_early(vm);
 	vaddr = vm->addr;
 
@@ -110,6 +112,14 @@ int ioremap_page(unsigned long virt, unsigned long phys,
 				  __pgprot(mtype->prot_pte));
 }
 EXPORT_SYMBOL(ioremap_page);
+
+int ioremap_pages(unsigned long virt, unsigned long phys, unsigned long size,
+		 const struct mem_type *mtype)
+{
+	return ioremap_page_range(virt, virt + size, phys,
+				  __pgprot(mtype->prot_pte));
+}
+EXPORT_SYMBOL(ioremap_pages);
 
 void __check_vmalloc_seq(struct mm_struct *mm)
 {
@@ -331,11 +341,11 @@ void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
 	return (void __iomem *) (offset + addr);
 }
 
-void __iomem *__arm_ioremap_caller(unsigned long phys_addr, size_t size,
+void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,
 	unsigned int mtype, void *caller)
 {
-	unsigned long last_addr;
- 	unsigned long offset = phys_addr & ~PAGE_MASK;
+	phys_addr_t last_addr;
+	phys_addr_t offset = phys_addr & ~PAGE_MASK;
  	unsigned long pfn = __phys_to_pfn(phys_addr);
 
  	/*
@@ -367,12 +377,12 @@ __arm_ioremap_pfn(unsigned long pfn, unsigned long offset, size_t size,
 }
 EXPORT_SYMBOL(__arm_ioremap_pfn);
 
-void __iomem * (*arch_ioremap_caller)(unsigned long, size_t,
+void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t,
 				      unsigned int, void *) =
 	__arm_ioremap_caller;
 
 void __iomem *
-__arm_ioremap(unsigned long phys_addr, size_t size, unsigned int mtype)
+__arm_ioremap(phys_addr_t phys_addr, size_t size, unsigned int mtype)
 {
 	return arch_ioremap_caller(phys_addr, size, mtype,
 		__builtin_return_address(0));
@@ -387,7 +397,7 @@ EXPORT_SYMBOL(__arm_ioremap);
  * CONFIG_GENERIC_ALLOCATOR for allocating external memory.
  */
 void __iomem *
-__arm_ioremap_exec(unsigned long phys_addr, size_t size, bool cached)
+__arm_ioremap_exec(phys_addr_t phys_addr, size_t size, bool cached)
 {
 	unsigned int mtype;
 

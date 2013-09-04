@@ -16,6 +16,16 @@
 #include <linux/perf_event.h>
 
 /*
+ * Types of PMUs that can be accessed directly and require mutual
+ * exclusion between profiling tools.
+ */
+enum arm_pmu_type {
+	ARM_PMU_DEVICE_CPU	= 0,
+	ARM_PMU_DEVICE_L2	= 1,
+	ARM_NUM_PMU_DEVICES,
+};
+
+/*
  * struct arm_pmu_platdata - ARM PMU platform data
  *
  * @handle_irq: an optional handler which will be called from the
@@ -55,6 +65,8 @@ struct pmu_hw_events {
 	 */
 	unsigned long           *used_mask;
 
+	u32			*from_idle;
+
 	/*
 	 * Hardware lock to serialize accesses to PMU registers. Needed for the
 	 * read/modify/write sequences.
@@ -66,6 +78,11 @@ struct arm_pmu {
 	struct pmu	pmu;
 	cpumask_t	active_irqs;
 	char		*name;
+	int		num_events;
+	atomic_t	active_events;
+	struct mutex	reserve_mutex;
+	u64		max_period;
+	struct platform_device	*plat_device;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
 	void		(*enable)(struct perf_event *event);
 	void		(*disable)(struct perf_event *event);
@@ -81,12 +98,9 @@ struct arm_pmu {
 	int		(*request_irq)(struct arm_pmu *, irq_handler_t handler);
 	void		(*free_irq)(struct arm_pmu *);
 	int		(*map_event)(struct perf_event *event);
-	int		num_events;
-	atomic_t	active_events;
-	struct mutex	reserve_mutex;
-	u64		max_period;
-	struct platform_device	*plat_device;
 	struct pmu_hw_events	*(*get_hw_events)(void);
+	int	(*test_set_event_constraints)(struct perf_event *event);
+	int	(*clear_event_constraints)(struct perf_event *event);
 };
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))
