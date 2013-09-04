@@ -3410,6 +3410,9 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	if (batt_data->iterm_ua >= 0 && dt_data)
 		chip->chg_term_ua = batt_data->iterm_ua;
 
+	if (dt_data)
+		kfree(batt_data);
+
 	if (chip->pc_temp_ocv_lut == NULL) {
 		pr_err("temp ocv lut table is NULL\n");
 		return -EINVAL;
