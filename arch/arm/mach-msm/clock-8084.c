@@ -5188,25 +5188,18 @@ static struct branch_clk mdss_pclk1_clk = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
-	F_MM( 25200000, hdmipll, 1, 0, 0),
-	F_MM( 27000000, hdmipll, 1, 0, 0),
-	F_MM( 27030000, hdmipll, 1, 0, 0),
-	F_MM( 65000000, hdmipll, 1, 0, 0),
-	F_MM( 74250000, hdmipll, 1, 0, 0),
-	F_MM(108000000, hdmipll, 1, 0, 0),
 	F_MM(148500000, hdmipll, 1, 0, 0),
-	F_MM(268500000, hdmipll, 1, 0, 0),
-	F_MM(297000000, hdmipll, 1, 0, 0),
 	F_END
 };
 
 static struct rcg_clk extpclk_clk_src = {
 	.cmd_rcgr_reg = EXTPCLK_CMD_RCGR,
 	.freq_tbl = ftbl_mdss_extpclk_clk,
-	.current_freq = &rcg_dummy_freq,
+	.current_freq = ftbl_mdss_extpclk_clk,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "extpclk_clk_src",
+		.parent = &hdmipll_clk_src.c,
 		.ops = &clk_ops_rcg_hdmi,
 		VDD_DIG_FMAX_MAP2(LOW, 150000000, NOMINAL, 297000000),
 		CLK_INIT(extpclk_clk_src.c),

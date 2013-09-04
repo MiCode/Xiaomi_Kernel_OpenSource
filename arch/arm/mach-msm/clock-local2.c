@@ -1035,6 +1035,38 @@ static int set_rate_pixel(struct clk *clk, unsigned long rate)
  */
 static int rcg_clk_set_rate_hdmi(struct clk *c, unsigned long rate)
 {
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	struct clk_freq_tbl *nf = rcg->freq_tbl;
+	int rc;
+
+	rc = clk_set_rate(nf->src_clk, rate);
+	if (rc < 0)
+		goto out;
+	set_rate_hid(rcg, nf);
+
+	rcg->current_freq = nf;
+out:
+	return rc;
+}
+
+static struct clk *rcg_hdmi_clk_get_parent(struct clk *c)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	struct clk_freq_tbl *freq = rcg->freq_tbl;
+	u32 cmd_rcgr_regval;
+
+	/* Is there a pending configuration? */
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
+	if (cmd_rcgr_regval & CMD_RCGR_CONFIG_DIRTY_MASK)
+		return NULL;
+
+	rcg->current_freq->freq_hz = clk_get_rate(c->parent);
+
+	return freq->src_clk;
+}
+
+static int rcg_clk_set_rate_edp(struct clk *c, unsigned long rate)
+{
 	struct clk_freq_tbl *nf;
 	struct rcg_clk *rcg = to_rcg_clk(c);
 	int rc;
@@ -1272,13 +1304,13 @@ struct clk_ops clk_ops_rcg_hdmi = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
-	.get_parent = rcg_clk_get_parent,
+	.get_parent = rcg_hdmi_clk_get_parent,
 	.list_registers = rcg_hid_clk_list_registers,
 };
 
 struct clk_ops clk_ops_rcg_edp = {
 	.enable = rcg_clk_prepare,
-	.set_rate = rcg_clk_set_rate_hdmi,
+	.set_rate = rcg_clk_set_rate_edp,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
