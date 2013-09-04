@@ -2061,8 +2061,7 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 
 	if (radio->fm_st_rsp.station_rsp.stereo_prg)
 		iris_q_event(radio, IRIS_EVT_STEREO);
-
-	if (radio->fm_st_rsp.station_rsp.mute_mode)
+	else if (radio->fm_st_rsp.station_rsp.stereo_prg == 0)
 		iris_q_event(radio, IRIS_EVT_MONO);
 
 	if (radio->fm_st_rsp.station_rsp.rds_sync_status)
