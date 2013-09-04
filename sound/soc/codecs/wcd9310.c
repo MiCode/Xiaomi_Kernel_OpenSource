@@ -2639,31 +2639,17 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 
 		(*dmic_clk_cnt)++;
-		if (*dmic_clk_cnt == 1) {
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x0);
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x0);
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x0);
+		if (*dmic_clk_cnt == 1)
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
 					dmic_clk_en, dmic_clk_en);
-		}
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 
 		(*dmic_clk_cnt)--;
-		if (*dmic_clk_cnt  == 0) {
+		if (*dmic_clk_cnt  == 0)
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
 					dmic_clk_en, 0);
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x4);
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x4);
-			snd_soc_update_bits(codec,
-					TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x4);
-		}
 		break;
 	}
 	return 0;
@@ -8807,13 +8793,6 @@ static void tabla_codec_init_reg(struct snd_soc_codec *codec)
 				      tabla_2_higher_codec_reg_init_val[i].mask,
 				      tabla_2_higher_codec_reg_init_val[i].val);
 	}
-	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x4);
-	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x4);
-	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x4);
-	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE0, 0x90, 0x90);
-	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE1, 0x8, 0x8);
-	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_DATA0, 0x90, 0x0);
-	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_DATA1, 0x8, 0x0);
 }
 
 static void tabla_update_reg_address(struct tabla_priv *priv)
