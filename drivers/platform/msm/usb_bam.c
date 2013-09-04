@@ -363,10 +363,6 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		 * SSUSB: RAM12, 13 are used for BAM FIFOs
 		 */
 		bam = pipe_connect->bam_type;
-		if (bam < 0) {
-			pr_err("%s: invalid bam name\n", __func__);
-			goto free_sps_endpoint;
-		}
 
 		if (bam == HSUSB_BAM)
 			ram1_value = 0x4;
@@ -2250,7 +2246,8 @@ int usb_bam_a2_reset(bool to_reconnect)
 	struct usb_bam_pipe_connect *pipe_connect;
 	int i;
 	int ret = 0, ret_int;
-	u8 bam = -1;
+	enum usb_bam bam = 0;
+	bool to_reset_bam = false;
 	int reconnect_pipe_idx[ctx.max_connections];
 
 	for (i = 0; i < ctx.max_connections; i++)
@@ -2268,11 +2265,8 @@ int usb_bam_a2_reset(bool to_reconnect)
 				reconnect_pipe_idx[i] =
 					pipe_connect->dst_pipe_index;
 
-			bam = (u8)pipe_connect->bam_type;
-			if (bam < 0) {
-				ret = -EINVAL;
-				continue;
-			}
+			bam = pipe_connect->bam_type;
+			to_reset_bam = true;
 			ret_int = usb_bam_disconnect_pipe(i);
 			if (ret_int) {
 				pr_err("%s: failure to connect pipe %d\n",
@@ -2284,8 +2278,10 @@ int usb_bam_a2_reset(bool to_reconnect)
 	}
 	pr_debug("%s: pipes disconnection success\n", __func__);
 	/* Reset A2 (USB/HSIC) BAM */
-	if (bam != -1 && sps_device_reset(ctx.h_bam[bam]))
-		pr_err("%s: BAM reset failed\n", __func__);
+	if (to_reset_bam) {
+		if (sps_device_reset(ctx.h_bam[bam]))
+			pr_err("%s: BAM reset failed\n", __func__);
+	}
 
 	if (!to_reconnect)
 		return ret;
@@ -2311,7 +2307,7 @@ int usb_bam_a2_reset(bool to_reconnect)
 static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 {
 	int i;
-	enum usb_bam bam;
+	int bam;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct usb_bam_event_info *event_info;
 
@@ -2323,6 +2319,12 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 		spin_lock(&usb_bam_lock);
 
 		bam = get_bam_type_from_core_name((char *)user);
+		if (bam < 0 || bam >= MAX_BAMS) {
+			pr_err("%s: Invalid bam, type=%d ,name=%s\n",
+				__func__, bam, (char *)user);
+			return;
+		}
+
 		ctx.is_bam_inactivity[bam] = true;
 		pr_debug("%s: Incativity happened on bam=%s,%d\n", __func__,
 			(char *)user, bam);
@@ -2365,7 +2367,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	int rc = 0;
 	u8 i = 0;
 	bool reset_bam;
-	enum usb_bam bam;
+	u32 bam;
 	u32 addr;
 
 	ctx.max_connections = 0;
@@ -2432,14 +2434,18 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			}
 		}
 
-		rc = of_property_read_u32(node, "qcom,bam-type",
-			&usb_bam_connections[i].bam_type);
+		rc = of_property_read_u32(node, "qcom,bam-type", &bam);
 		if (rc) {
 			pr_err("%s: bam type is missing in device tree\n",
 				__func__);
 			goto err;
 		}
-		bam = usb_bam_connections[i].bam_type;
+		if (bam >= MAX_BAMS) {
+			pr_err("%s: Invalid bam type %d in device tree\n",
+				__func__, bam);
+			goto err;
+		}
+		usb_bam_connections[i].bam_type = bam;
 
 		rc = of_property_read_u32(node, "qcom,peer-bam",
 			&usb_bam_connections[i].peer_bam);
@@ -2660,7 +2666,7 @@ static ssize_t usb_bam_store_inactivity_timer(struct device *dev,
 	char buf[USB_BAM_MAX_STR_LEN];
 	char *trimmed_buf, *bam_str, *bam_name, *timer;
 	int timer_d;
-	enum usb_bam bam;
+	int bam;
 
 	if (strnstr(buff, "help", USB_BAM_MAX_STR_LEN)) {
 		pr_info("Usage: <bam_name> <ms>,<bam_name> <ms>,...\n");
@@ -2680,6 +2686,11 @@ static ssize_t usb_bam_store_inactivity_timer(struct device *dev,
 		if (bam_str) {
 			bam_name = strsep(&bam_str, " ");
 			bam = get_bam_type_from_core_name(bam_name);
+			if (bam < 0 || bam >= MAX_BAMS) {
+				pr_err("%s: Invalid bam, type=%d ,name=%s\n",
+					__func__, bam, bam_name);
+				return -EINVAL;
+			}
 
 			timer = strsep(&bam_str, " ");
 
@@ -2847,8 +2858,11 @@ int usb_bam_get_connection_idx(const char *core_name, enum peer_bam client,
 	int bam_type;
 
 	bam_type = get_bam_type_from_core_name(core_name);
-	if (bam_type < 0)
+	if (bam_type < 0 || bam_type >= MAX_BAMS) {
+		pr_err("%s: Invalid bam, type=%d, name=%s\n",
+			__func__, bam_type, core_name);
 		return -EINVAL;
+	}
 
 	for (i = 0; i < ctx.max_connections; i++)
 		if (usb_bam_connections[i].bam_type == bam_type &&
