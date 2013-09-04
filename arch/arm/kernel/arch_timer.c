@@ -291,7 +291,7 @@ static int arch_timer_available(void)
 	return 0;
 }
 
-static inline cycle_t counter_get_cntpct_mem(void)
+static inline cycle_t notrace counter_get_cntpct_mem(void)
 {
 	u32 cvall, cvalh, thigh;
 
@@ -304,7 +304,7 @@ static inline cycle_t counter_get_cntpct_mem(void)
 	return ((cycle_t) cvalh << 32) | cvall;
 }
 
-static inline cycle_t counter_get_cntpct_cp15(void)
+static inline cycle_t notrace counter_get_cntpct_cp15(void)
 {
 	u32 cvall, cvalh;
 
@@ -312,7 +312,7 @@ static inline cycle_t counter_get_cntpct_cp15(void)
 	return ((cycle_t) cvalh << 32) | cvall;
 }
 
-static inline cycle_t counter_get_cntvct_mem(void)
+static inline cycle_t notrace counter_get_cntvct_mem(void)
 {
 	u32 cvall, cvalh, thigh;
 
@@ -325,7 +325,7 @@ static inline cycle_t counter_get_cntvct_mem(void)
 	return ((cycle_t) cvalh << 32) | cvall;
 }
 
-static inline cycle_t counter_get_cntvct_cp15(void)
+static inline cycle_t notrace counter_get_cntvct_cp15(void)
 {
 	u32 cvall, cvalh;
 
