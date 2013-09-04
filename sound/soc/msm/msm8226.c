@@ -17,16 +17,20 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
+#include <sound/q6afe-v2.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
+#include <mach/subsystem_notif.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
+#include "qdsp6v2/q6core.h"
+#include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9306.h"
-#include <linux/io.h>
 
 #define DRV_NAME "msm8226-asoc-tapan"
 
@@ -49,6 +53,10 @@
 
 #define LO_1_SPK_AMP   0x1
 #define LO_2_SPK_AMP   0x2
+
+#define ADSP_STATE_READY_TIMEOUT_MS 3000
+
+static void *adsp_state_notifier;
 
 static int msm8226_auxpcm_rate = 8000;
 static atomic_t auxpcm_rsc_ref;
@@ -335,6 +343,9 @@ static const struct snd_soc_dapm_widget msm8226_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+
+	SND_SOC_DAPM_MIC("Analog Mic3", NULL),
+	SND_SOC_DAPM_MIC("Analog Mic4", NULL),
 
 	SND_SOC_DAPM_SPK("Lineout_1 amp", msm8226_ext_spkramp_event),
 	SND_SOC_DAPM_SPK("Lineout_2 amp", msm8226_ext_spkramp_event),
@@ -696,6 +707,107 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
 };
 
+static int msm_afe_set_config(struct snd_soc_codec *codec)
+{
+	int rc;
+	void *config_data;
+
+	pr_debug("%s: enter\n", __func__);
+	config_data = tapan_get_afe_config(codec, AFE_CDC_REGISTERS_CONFIG);
+	rc = afe_set_config(AFE_CDC_REGISTERS_CONFIG, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set codec registers config %d\n",
+			__func__, rc);
+		return rc;
+	}
+	config_data = tapan_get_afe_config(codec, AFE_SLIMBUS_SLAVE_CONFIG);
+	rc = afe_set_config(AFE_SLIMBUS_SLAVE_CONFIG, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set slimbus slave config %d\n", __func__,
+			rc);
+		return rc;
+	}
+	config_data = tapan_get_afe_config(codec, AFE_AANC_VERSION);
+	rc = afe_set_config(AFE_AANC_VERSION, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set AANC version %d\n", __func__,
+			rc);
+		return rc;
+	}
+	return 0;
+}
+
+static void msm_afe_clear_config(void)
+{
+	afe_clear_config(AFE_CDC_REGISTERS_CONFIG);
+	afe_clear_config(AFE_SLIMBUS_SLAVE_CONFIG);
+	afe_clear_config(AFE_AANC_VERSION);
+}
+
+static int  msm8226_adsp_state_callback(struct notifier_block *nb,
+		unsigned long value, void *priv)
+{
+	if (value == SUBSYS_BEFORE_SHUTDOWN) {
+		pr_debug("%s: ADSP is about to shutdown. Clearing AFE config\n",
+			 __func__);
+		msm_afe_clear_config();
+	} else if (value == SUBSYS_AFTER_POWERUP) {
+		pr_debug("%s: ADSP is up\n", __func__);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = msm8226_adsp_state_callback,
+	.priority = -INT_MAX,
+};
+
+static int msm8226_tapan_codec_up(struct snd_soc_codec *codec)
+{
+	int err;
+	unsigned long timeout;
+	int adsp_ready = 0;
+
+	pr_debug("%s\n", __func__);
+	timeout = jiffies +
+		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+
+	do {
+		if (!q6core_is_adsp_ready()) {
+			pr_err("%s: ADSP Audio isn't ready\n", __func__);
+		} else {
+			pr_debug("%s: ADSP Audio is ready\n", __func__);
+			adsp_ready = 1;
+			break;
+		}
+	} while (time_after(timeout, jiffies));
+
+	if (!adsp_ready) {
+		pr_err("%s: timed out waiting for ADSP Audio\n", __func__);
+		return -ETIMEDOUT;
+	}
+
+	err = msm_afe_set_config(codec);
+	if (err)
+		pr_err("%s: Failed to set AFE config. err %d\n",
+			__func__, err);
+	return err;
+}
+
+static int msm8226_tapan_event_cb(struct snd_soc_codec *codec,
+	enum wcd9xxx_codec_event codec_event)
+{
+	switch (codec_event) {
+	case WCD9XXX_CODEC_EVENT_CODEC_UP:
+		return msm8226_tapan_codec_up(codec);
+	default:
+		pr_err("%s: UnSupported codec event %d\n",
+			__func__, codec_event);
+		return -EINVAL;
+	}
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -736,13 +848,37 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
+	err = msm_afe_set_config(codec);
+	if (err) {
+		pr_err("%s: Failed to set AFE config %d\n",
+			__func__, err);
+		return err;
+	}
+
 	/* start mbhc */
 	mbhc_cfg.calibration = def_tapan_mbhc_cal();
-	if (mbhc_cfg.calibration)
+	if (mbhc_cfg.calibration) {
 		err = tapan_hs_detect(codec, &mbhc_cfg);
-	else
+	} else {
 		err = -ENOMEM;
+		goto out;
+	}
 
+	adsp_state_notifier =
+		subsys_notif_register_notifier("adsp",
+			&adsp_state_notifier_block);
+
+	if (!adsp_state_notifier) {
+		pr_err("%s: Failed to register adsp state notifier\n",
+			__func__);
+		err = -EFAULT;
+		goto out;
+	}
+
+	tapan_event_register(msm8226_tapan_event_cb, rtd->codec);
+	return 0;
+
+out:
 	return err;
 }
 
