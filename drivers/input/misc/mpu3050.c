@@ -796,6 +796,7 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 				client->irq, error);
 			goto err_pm_set_suspended;
 		}
+		disable_irq(client->irq);
 	}
 
 	error = input_register_device(idev);
