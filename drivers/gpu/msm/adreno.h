@@ -854,6 +854,19 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
+/**
+ * adreno_clear_gpu_fault() - Clear the GPU fault register
+ * @adreno_dev: A pointer to an adreno_device structure
+ *
+ * Clear the GPU fault status for the adreno device
+ */
+
+static inline void adreno_clear_gpu_fault(struct adreno_device *adreno_dev)
+{
+	atomic_set(&adreno_dev->dispatcher.fault, 0);
+	smp_wmb();
+}
+
 /*
  * adreno_vbif_start() - Program VBIF registers, called in device start
  * @device: Pointer to device whose vbif data is to be programmed
