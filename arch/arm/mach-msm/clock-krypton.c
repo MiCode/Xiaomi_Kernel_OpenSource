@@ -1572,6 +1572,10 @@ static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
 
+static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, 171430000);
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 171430000);
+static DEFINE_CLK_VOTER(qcrypto_ce1_clk_src, &ce1_clk_src.c, 171430000);
+
 static DEFINE_CLK_MEASURE(a7_m_clk);
 
 #ifdef CONFIG_DEBUG_FS
@@ -1898,12 +1902,19 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("core_clk", gcc_ce1_clk.c, "fd400000.qcom,qcedev"),
 	CLK_LOOKUP("iface_clk", gcc_ce1_ahb_clk.c, "fd400000.qcom,qcedev"),
 	CLK_LOOKUP("bus_clk", gcc_ce1_axi_clk.c, "fd400000.qcom,qcedev"),
-	CLK_LOOKUP("core_clk_src", ce1_clk_src.c, "fd400000.qcom,qcedev"),
+	CLK_LOOKUP("core_clk_src", qseecom_ce1_clk_src.c,
+						"fd400000.qcom,qcedev"),
 
 	CLK_LOOKUP("core_clk", gcc_ce1_clk.c, "fd400000.qcom,qcrypto"),
 	CLK_LOOKUP("iface_clk", gcc_ce1_ahb_clk.c, "fd400000.qcom,qcrypto"),
 	CLK_LOOKUP("bus_clk", gcc_ce1_axi_clk.c, "fd400000.qcom,qcrypto"),
-	CLK_LOOKUP("core_clk_src", ce1_clk_src.c, "fd400000.qcom,qcrypto"),
+	CLK_LOOKUP("core_clk_src", qcrypto_ce1_clk_src.c,
+						"fd400000.qcom,qcrypto"),
+
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
+	CLK_LOOKUP("core_clk_src", scm_ce1_clk_src.c,     "scm"),
 
 	/* RPM and voter clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
@@ -2012,6 +2023,8 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("",	gcc_usb30_master_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_mock_utmi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_sleep_clk.c,	""),
+
+	CLK_LOOKUP("",	ce1_clk_src.c,	""),
 };
 
 static void __init reg_init(void)
