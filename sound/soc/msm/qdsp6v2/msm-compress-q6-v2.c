@@ -253,6 +253,35 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 }
 
+static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream)
+{
+	struct snd_compr_runtime *runtime = cstream->runtime;
+	struct msm_compr_audio *prtd = runtime->private_data;
+	struct asm_aac_cfg aac_cfg;
+	int ret = 0;
+
+	switch (prtd->codec) {
+	case FORMAT_MP3:
+		/* no media format block needed */
+		break;
+	case FORMAT_MPEG4_AAC:
+		memset(&aac_cfg, 0x0, sizeof(struct asm_aac_cfg));
+		aac_cfg.aot = AAC_ENC_MODE_EAAC_P;
+		aac_cfg.format = 0x03;
+		aac_cfg.ch_cfg = prtd->num_channels;
+		aac_cfg.sample_rate = prtd->sample_rate;
+		ret = q6asm_media_format_block_aac(prtd->audio_client,
+						&aac_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	default:
+		pr_debug("%s, unsupported format, skip", __func__);
+		break;
+	}
+	return ret;
+}
+
 static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 {
 	struct snd_compr_runtime *runtime = cstream->runtime;
@@ -330,7 +359,13 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	prtd->buffer_paddr = prtd->audio_client->port[dir].buf[0].phys;
 	prtd->buffer_size  = runtime->fragments * runtime->fragment_size;
 
-	return 0;
+	ret = msm_compr_send_media_format_block(cstream);
+
+	if (ret < 0) {
+		pr_err("%s, failed to send media format block\n", __func__);
+	}
+
+	return ret;
 }
 
 static int msm_compr_open(struct snd_compr_stream *cstream)
