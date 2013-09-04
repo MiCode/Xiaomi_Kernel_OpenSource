@@ -141,6 +141,9 @@ struct voip_drv_info {
 	unsigned int pcm_capture_count;
 	unsigned int pcm_capture_irq_pos;       /* IRQ position */
 	unsigned int pcm_capture_buf_pos;       /* position in buffer */
+
+	uint32_t evrc_min_rate;
+	uint32_t evrc_max_rate;
 };
 
 static int voip_get_media_type(uint32_t mode,
@@ -149,10 +152,15 @@ static int voip_get_media_type(uint32_t mode,
 static int voip_get_rate_type(uint32_t mode,
 				uint32_t rate,
 				uint32_t *rate_type);
+static int voip_config_vocoder(struct snd_pcm_substream *substream);
 static int msm_voip_mode_rate_config_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol);
 static int msm_voip_mode_rate_config_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol);
+static int msm_voip_evrc_min_max_rate_config_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol);
+static int msm_voip_evrc_min_max_rate_config_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol);
 
 static struct voip_drv_info voip_info;
 
@@ -262,6 +270,9 @@ static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 			     0, 2, msm_voip_mode_rate_config_get,
 			     msm_voip_mode_rate_config_put),
+	SOC_SINGLE_MULTI_EXT("Voip Evrc Min Max Rate Config", SND_SOC_NOPM,
+			     0, 4, 0, 2, msm_voip_evrc_min_max_rate_config_get,
+			     msm_voip_evrc_min_max_rate_config_put),
 	SOC_SINGLE_EXT("Voip Dtx Mode", SND_SOC_NOPM, 0, 1, 0,
 		       msm_voip_dtx_mode_get, msm_voip_dtx_mode_put),
 };
@@ -772,13 +783,137 @@ done:
 
 	return ret;
 }
-static int msm_pcm_prepare(struct snd_pcm_substream *substream)
+
+static int voip_config_vocoder(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
 	uint32_t media_type = 0;
 	uint32_t rate_type = 0;
+	uint32_t evrc_min_rate_type = 0;
+	uint32_t evrc_max_rate_type = 0;
+
+	if ((runtime->format != FORMAT_SPECIAL) &&
+	    ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB) ||
+	    (prtd->mode == MODE_IS127) || (prtd->mode == MODE_4GV_NB) ||
+	    (prtd->mode == MODE_4GV_WB) || (prtd->mode == MODE_4GV_NW))) {
+		pr_err("%s(): mode:%d and format:%u are not mached\n",
+			__func__, prtd->mode, (uint32_t)runtime->format);
+
+		ret =  -EINVAL;
+		goto done;
+	}
+
+	if ((runtime->format != FORMAT_S16_LE) &&
+	    (prtd->mode == MODE_PCM)) {
+		pr_err("%s(): mode:%d and format:%u are not mached\n",
+			__func__, prtd->mode, (uint32_t)runtime->format);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = voip_get_media_type(prtd->mode,
+				  prtd->play_samp_rate,
+				  &media_type);
+	if (ret < 0) {
+		pr_err("%s(): fail at getting media_type, ret=%d\n",
+			__func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	pr_debug("%s(): media_type=%d\n", __func__, media_type);
+
+	if ((prtd->mode == MODE_PCM) ||
+	    (prtd->mode == MODE_AMR) ||
+	    (prtd->mode == MODE_AMR_WB)) {
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->rate,
+					 &rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting rate_type, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		prtd->rate_type = rate_type;
+		pr_debug("rate_type=%d\n", rate_type);
+
+	} else if ((prtd->mode == MODE_IS127) ||
+		   (prtd->mode == MODE_4GV_NB) ||
+		   (prtd->mode == MODE_4GV_WB) ||
+		   (prtd->mode == MODE_4GV_NW)) {
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->evrc_min_rate,
+					 &evrc_min_rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting min rate, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		if (evrc_min_rate_type == VOC_0_RATE)
+			evrc_min_rate_type = VOC_8_RATE;
+
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->evrc_max_rate,
+					 &evrc_max_rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting max rate, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		if (evrc_max_rate_type == VOC_0_RATE)
+			evrc_max_rate_type = VOC_1_RATE;
+
+		if (evrc_max_rate_type < evrc_min_rate_type) {
+			pr_err("%s(): Invalid EVRC min max rates: %d, %d\n",
+				__func__, evrc_min_rate_type,
+				evrc_max_rate_type);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		pr_debug("%s(): min rate=%d, max rate=%d\n",
+			  __func__, evrc_min_rate_type, evrc_max_rate_type);
+	}
+	if ((prtd->play_samp_rate == 8000) &&
+	    (prtd->cap_samp_rate == 8000))
+		voc_config_vocoder(media_type, rate_type,
+				   VSS_NETWORK_ID_VOIP_NB,
+				   voip_info.dtx_mode,
+				   evrc_min_rate_type,
+				   evrc_max_rate_type);
+	else if ((prtd->play_samp_rate == 16000) &&
+		 (prtd->cap_samp_rate == 16000))
+		voc_config_vocoder(media_type, rate_type,
+				   VSS_NETWORK_ID_VOIP_WB,
+				   voip_info.dtx_mode,
+				   evrc_min_rate_type,
+				   evrc_max_rate_type);
+	else {
+		pr_debug("%s: Invalid rate playback %d, capture %d\n",
+			 __func__, prtd->play_samp_rate,
+			 prtd->cap_samp_rate);
+
+		ret = -EINVAL;
+	}
+done:
+
+	return ret;
+}
+
+static int msm_pcm_prepare(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct voip_drv_info *prtd = runtime->private_data;
 
 	mutex_lock(&prtd->lock);
 
@@ -787,63 +922,19 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		ret = msm_pcm_capture_prepare(substream);
 
-	if ((runtime->format != FORMAT_SPECIAL) &&
-		 ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB) ||
-		 (prtd->mode == MODE_IS127) || (prtd->mode == MODE_4GV_NB) ||
-		 (prtd->mode == MODE_4GV_WB) || (prtd->mode == MODE_4GV_NW))) {
-		pr_err("mode:%d and format:%u are not mached\n",
-			prtd->mode, (uint32_t)runtime->format);
-		ret =  -EINVAL;
-		goto done;
-	}
-
-	if ((runtime->format != FORMAT_S16_LE) &&
-		(prtd->mode == MODE_PCM)) {
-		pr_err("mode:%d and format:%u are not mached\n",
-			prtd->mode, (uint32_t)runtime->format);
-		ret = -EINVAL;
-		goto done;
-	}
-
 	if (prtd->playback_instance && prtd->capture_instance
-				&& (prtd->state != VOIP_STARTED)) {
+	    && (prtd->state != VOIP_STARTED)) {
+		ret = voip_config_vocoder(substream);
+		if (ret < 0) {
+			pr_err("%s(): fail at configuring vocoder for voip, ret=%d\n",
+				__func__, ret);
 
-		ret = voip_get_rate_type(prtd->mode,
-					prtd->rate,
-					&rate_type);
-		if (ret < 0) {
-			pr_err("fail at getting rate_type\n");
-			ret = -EINVAL;
 			goto done;
 		}
-		prtd->rate_type = rate_type;
-		ret = voip_get_media_type(prtd->mode,
-						prtd->play_samp_rate,
-						&media_type);
-		if (ret < 0) {
-			pr_err("fail at getting media_type\n");
-			goto done;
-		}
-		pr_debug(" media_type=%d, rate_type=%d\n", media_type,
-			rate_type);
-		if ((prtd->play_samp_rate == 8000) &&
-					(prtd->cap_samp_rate == 8000))
-			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_NB,
-					voip_info.dtx_mode);
-		else if ((prtd->play_samp_rate == 16000) &&
-					(prtd->cap_samp_rate == 16000))
-			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_WB,
-					voip_info.dtx_mode);
-		else {
-			pr_debug("%s: Invalid rate playback %d, capture %d\n",
-				 __func__, prtd->play_samp_rate,
-				 prtd->cap_samp_rate);
-			goto done;
-		}
+
 		voc_register_mvs_cb(voip_process_ul_pkt,
-					voip_process_dl_pkt, prtd);
+				    voip_process_dl_pkt, prtd);
+
 		ret = voc_start_voice_call(
 				voc_get_session_id(VOIP_SESSION_NAME));
 
@@ -983,6 +1074,35 @@ static int msm_voip_mode_rate_config_put(struct snd_kcontrol *kcontrol,
 
 	pr_debug("%s: mode=%d,rate=%d\n", __func__, voip_info.mode,
 		voip_info.rate);
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+
+static int msm_voip_evrc_min_max_rate_config_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	ucontrol->value.integer.value[0] = voip_info.evrc_min_rate;
+	ucontrol->value.integer.value[1] = voip_info.evrc_max_rate;
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+
+static int msm_voip_evrc_min_max_rate_config_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	voip_info.evrc_min_rate = ucontrol->value.integer.value[0];
+	voip_info.evrc_max_rate = ucontrol->value.integer.value[1];
+
+	pr_debug("%s(): evrc_min_rate=%d,evrc_max_rate=%d\n", __func__,
+		  voip_info.evrc_min_rate, voip_info.evrc_max_rate);
 
 	mutex_unlock(&voip_info.lock);
 
