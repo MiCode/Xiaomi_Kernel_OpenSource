@@ -286,10 +286,10 @@ struct clk_mux_ops mux_reg_ops = {
 /* ==================== Divider clock ==================== */
 
 static long __div_round_rate(struct div_data *data, unsigned long rate,
-	struct clk *parent, unsigned int *best_div)
+	struct clk *parent, unsigned int *best_div, unsigned long *best_prate)
 {
-	unsigned int div, min_div, max_div, rrate_div = 1;
-	unsigned long p_rrate, rrate = 0;
+	unsigned int div, min_div, max_div, _best_div = 1;
+	unsigned long prate, _best_prate = 0, rrate = 0;
 
 	rate = max(rate, 1UL);
 
@@ -297,15 +297,14 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 	max_div = min(data->max_div, (unsigned int) (ULONG_MAX / rate));
 
 	for (div = min_div; div <= max_div; div++) {
-		p_rrate = clk_round_rate(parent, rate * div);
-		if (IS_ERR_VALUE(p_rrate))
+		prate = clk_round_rate(parent, rate * div);
+		if (IS_ERR_VALUE(prate))
 			break;
 
-		p_rrate /= div;
-
-		if (is_better_rate(rate, rrate, p_rrate)) {
-			rrate = p_rrate;
-			rrate_div = div;
+		if (is_better_rate(rate, rrate, prate / div)) {
+			rrate = prate / div;
+			_best_div = div;
+			_best_prate = prate;
 		}
 
 		/*
@@ -315,7 +314,7 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 		 * going to be able to output an even higher rate required
 		 * for a higher divider. So, stop trying higher dividers.
 		 */
-		if (p_rrate < rate)
+		if (prate / div < rate)
 			break;
 
 		if (rrate <= rate + data->rate_margin)
@@ -325,7 +324,9 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 	if (!rrate)
 		return -EINVAL;
 	if (best_div)
-		*best_div = rrate_div;
+		*best_div = _best_div;
+	if (best_prate)
+		*best_prate = _best_prate;
 
 	return rrate;
 }
@@ -334,17 +335,17 @@ static long div_round_rate(struct clk *c, unsigned long rate)
 {
 	struct div_clk *d = to_div_clk(c);
 
-	return __div_round_rate(&d->data, rate, c->parent, NULL);
+	return __div_round_rate(&d->data, rate, c->parent, NULL, NULL);
 }
 
 static int div_set_rate(struct clk *c, unsigned long rate)
 {
 	struct div_clk *d = to_div_clk(c);
 	int div, rc = 0;
-	long rrate, old_prate;
+	long rrate, old_prate, new_prate;
 	struct div_data *data = &d->data;
 
-	rrate = __div_round_rate(data, rate, c->parent, &div);
+	rrate = __div_round_rate(data, rate, c->parent, &div, &new_prate);
 	if (rrate != rate)
 		return -EINVAL;
 
@@ -360,7 +361,7 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 		return rc;
 
 	old_prate = clk_get_rate(c->parent);
-	rc = clk_set_rate(c->parent, rate * div);
+	rc = clk_set_rate(c->parent, new_prate);
 	if (rc)
 		goto set_rate_fail;
 
