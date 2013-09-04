@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ static struct notifier_block msm_rtb_panic_blk = {
 	.notifier_call  = msm_rtb_panic_notifier,
 };
 
-int msm_rtb_event_should_log(enum logk_event_type log_type)
+int notrace msm_rtb_event_should_log(enum logk_event_type log_type)
 {
 	return msm_rtb.initialized && msm_rtb.enabled &&
 		((1 << (log_type & ~LOGTYPE_NOPC)) & msm_rtb.filter);
@@ -203,7 +203,7 @@ static int msm_rtb_get_idx(void)
 }
 #endif
 
-int uncached_logk_pc(enum logk_event_type log_type, void *caller,
+int notrace uncached_logk_pc(enum logk_event_type log_type, void *caller,
 				void *data)
 {
 	int i;
@@ -219,7 +219,7 @@ int uncached_logk_pc(enum logk_event_type log_type, void *caller,
 }
 EXPORT_SYMBOL(uncached_logk_pc);
 
-noinline int uncached_logk(enum logk_event_type log_type, void *data)
+noinline int notrace uncached_logk(enum logk_event_type log_type, void *data)
 {
 	return uncached_logk_pc(log_type, __builtin_return_address(0), data);
 }
