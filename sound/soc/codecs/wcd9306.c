@@ -48,6 +48,12 @@
 /* RX_HPH_CNP_WG_TIME increases by 0.24ms */
 #define TAPAN_WG_TIME_FACTOR_US  240
 
+#define TAPAN_SB_PGD_PORT_RX_BASE   0x40
+#define TAPAN_SB_PGD_PORT_TX_BASE   0x50
+#define TAPAN_REGISTER_START_OFFSET 0x800
+
+#define CODEC_REG_CFG_MINOR_VER 1
+
 static struct regulator *tapan_codec_find_regulator(
 	struct snd_soc_codec *codec,
 	const char *name);
@@ -105,6 +111,54 @@ static enum tapan_codec_type codec_ver;
  * This is computed from (Vx / (m*Ical)) = (10mV/(180*30uA))
  */
 #define TAPAN_ZDET_MUL_FACTOR 1852
+
+static struct afe_param_cdc_reg_cfg audio_reg_cfg[] = {
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_SB_PGD_PORT_TX_BASE),
+		SB_PGD_PORT_TX_WATERMARK_N, 0x1E, 8, 0x1
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_SB_PGD_PORT_TX_BASE),
+		SB_PGD_PORT_TX_ENABLE_N, 0x1, 8, 0x1
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_SB_PGD_PORT_RX_BASE),
+		SB_PGD_PORT_RX_WATERMARK_N, 0x1E, 8, 0x1
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_SB_PGD_PORT_RX_BASE),
+		SB_PGD_PORT_RX_ENABLE_N, 0x1, 8, 0x1
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_A_CDC_ANC1_IIR_B1_CTL),
+		AANC_FF_GAIN_ADAPTIVE, 0x4, 8, 0
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_A_CDC_ANC1_IIR_B1_CTL),
+		AANC_FFGAIN_ADAPTIVE_EN, 0x8, 8, 0
+	},
+	{
+		CODEC_REG_CFG_MINOR_VER,
+		(TAPAN_REGISTER_START_OFFSET + TAPAN_A_CDC_ANC1_GAIN_CTL),
+		AANC_GAIN_CONTROL, 0xFF, 8, 0
+	},
+};
+
+static struct afe_param_cdc_reg_cfg_data tapan_audio_reg_cfg = {
+	.num_registers = ARRAY_SIZE(audio_reg_cfg),
+	.reg_data = audio_reg_cfg,
+};
+
+static struct afe_param_id_cdc_aanc_version tapan_cdc_aanc_version = {
+	.cdc_aanc_minor_version = AFE_API_VERSION_CDC_AANC_VERSION,
+	.aanc_hw_version        = AANC_HW_BLOCK_VERSION_2,
+};
 
 enum {
 	AIF1_PB = 0,
@@ -250,6 +304,8 @@ struct tapan_priv {
 
 	bool spkr_pa_widget_on;
 
+	struct afe_param_cdc_slimbus_slave_cfg slimbus_slave_cfg;
+
 	/* resmgr module */
 	struct wcd9xxx_resmgr resmgr;
 	/* mbhc module */
@@ -266,6 +322,9 @@ struct tapan_priv {
 	 * end of impedance measurement
 	 */
 	struct list_head reg_save_restore;
+
+	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
+					enum wcd9xxx_codec_event);
 };
 
 static const u32 comp_shift[] = {
@@ -2964,6 +3023,9 @@ static bool tapan_is_digital_gain_register(unsigned int reg)
 
 static int tapan_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 {
+
+	int i = 0;
+
 	/* Registers lower than 0x100 are top level registers which can be
 	 * written by the Tapan core driver.
 	 */
@@ -2996,6 +3058,11 @@ static int tapan_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 
 	if (reg == TAPAN_A_MBHC_INSERT_DET_STATUS)
 		return 1;
+
+	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
+		if (audio_reg_cfg[i].reg_logical_addr -
+			TAPAN_REGISTER_START_OFFSET == reg)
+			return 1;
 
 	return 0;
 }
@@ -4822,6 +4889,46 @@ static const struct tapan_reg_mask_val tapan_codec_reg_init_val[] = {
 	{TAPAN_A_RX_HPH_CHOP_CTL, 0xFF, 0x24},
 };
 
+void *tapan_get_afe_config(struct snd_soc_codec *codec,
+			   enum afe_config_type config_type)
+{
+	struct tapan_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	switch (config_type) {
+	case AFE_SLIMBUS_SLAVE_CONFIG:
+		return &priv->slimbus_slave_cfg;
+	case AFE_CDC_REGISTERS_CONFIG:
+		return &tapan_audio_reg_cfg;
+	case AFE_AANC_VERSION:
+		return &tapan_cdc_aanc_version;
+	default:
+		pr_err("%s: Unknown config_type 0x%x\n", __func__, config_type);
+		return NULL;
+	}
+}
+
+static void tapan_init_slim_slave_cfg(struct snd_soc_codec *codec)
+{
+	struct tapan_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct afe_param_cdc_slimbus_slave_cfg *cfg;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	uint64_t eaddr = 0;
+
+	pr_debug("%s\n", __func__);
+	cfg = &priv->slimbus_slave_cfg;
+	cfg->minor_version = 1;
+	cfg->tx_slave_port_offset = 0;
+	cfg->rx_slave_port_offset = 16;
+
+	memcpy(&eaddr, &wcd9xxx->slim->e_addr, sizeof(wcd9xxx->slim->e_addr));
+	/* e-addr is 6-byte elemental address of the device */
+	WARN_ON(sizeof(wcd9xxx->slim->e_addr) != 6);
+	cfg->device_enum_addr_lsw = eaddr & 0xFFFFFFFF;
+	cfg->device_enum_addr_msw = eaddr >> 32;
+
+	pr_debug("%s: slimbus logical address 0x%llx\n", __func__, eaddr);
+}
+
 static void tapan_codec_init_reg(struct snd_soc_codec *codec)
 {
 	u32 i;
@@ -5209,6 +5316,16 @@ void tapan_hs_detect_exit(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(tapan_hs_detect_exit);
 
+void tapan_event_register(
+	int (*machine_event_cb)(struct snd_soc_codec *codec,
+				enum wcd9xxx_codec_event),
+	struct snd_soc_codec *codec)
+{
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	tapan->machine_codec_event_cb = machine_event_cb;
+}
+EXPORT_SYMBOL(tapan_event_register);
+
 static int tapan_device_down(struct wcd9xxx *wcd9xxx)
 {
 	struct snd_soc_codec *codec;
@@ -5277,6 +5394,8 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	ret = tapan_setup_irqs(tapan);
 	if (ret)
 		pr_err("%s: Failed to setup irq: %d\n", __func__, ret);
+
+	tapan->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
 
 	mutex_unlock(&codec->mutex);
 	return ret;
@@ -5523,6 +5642,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 			INIT_LIST_HEAD(&tapan->dai[i].wcd9xxx_ch_list);
 			init_waitqueue_head(&tapan->dai[i].dai_wait);
 		}
+		tapan_init_slim_slave_cfg(codec);
 	}
 
 	if (codec_ver == WCD9306) {
