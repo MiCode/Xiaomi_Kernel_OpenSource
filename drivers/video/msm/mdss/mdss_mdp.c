@@ -1097,8 +1097,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		mdss_mdp_hw.ptr = NULL;
-		mdss_res = NULL;
 		mdss_mdp_pp_term(&pdev->dev);
+		mdss_res = NULL;
 	}
 
 	return rc;
