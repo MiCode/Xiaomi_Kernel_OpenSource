@@ -2590,7 +2590,6 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	u8  dmic_clk_en;
-	u16 dmic_clk_mode;
 	s32 *dmic_clk_cnt;
 	unsigned int dmic;
 	int ret;
@@ -2605,7 +2604,6 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 1:
 	case 2:
 		dmic_clk_en = 0x01;
-		dmic_clk_mode = TABLA_A_CDC_DMIC_CLK0_MODE;
 		dmic_clk_cnt = &(tabla->dmic_1_2_clk_cnt);
 
 		pr_debug("%s() event %d DMIC%d dmic_1_2_clk_cnt %d\n",
@@ -2616,7 +2614,6 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 3:
 	case 4:
 		dmic_clk_en = 0x04;
-		dmic_clk_mode = TABLA_A_CDC_DMIC_CLK1_MODE;
 		dmic_clk_cnt = &(tabla->dmic_3_4_clk_cnt);
 
 		pr_debug("%s() event %d DMIC%d dmic_3_4_clk_cnt %d\n",
@@ -2626,7 +2623,6 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 5:
 	case 6:
 		dmic_clk_en = 0x10;
-		dmic_clk_mode = TABLA_A_CDC_DMIC_CLK2_MODE;
 		dmic_clk_cnt = &(tabla->dmic_5_6_clk_cnt);
 
 		pr_debug("%s() event %d DMIC%d dmic_5_6_clk_cnt %d\n",
@@ -2644,7 +2640,12 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
-			snd_soc_update_bits(codec, dmic_clk_mode, 0x7, 0x0);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x0);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x0);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x0);
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
 					dmic_clk_en, dmic_clk_en);
 		}
@@ -2656,7 +2657,12 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		if (*dmic_clk_cnt  == 0) {
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
 					dmic_clk_en, 0);
-			snd_soc_update_bits(codec, dmic_clk_mode, 0x7, 0x4);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x4);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x4);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x4);
 		}
 		break;
 	}
@@ -8761,15 +8767,6 @@ static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 	/* config DMIC clk to CLK_MODE_1 (3.072Mhz@12.88Mhz mclk) */
 	{TABLA_A_CDC_CLK_DMIC_CTL, 0x2A, 0x2A},
 
-	/* config DMIC Pins to GPIO mode */
-	{TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x4},
-	{TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x4},
-	{TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x4},
-	{TABLA_A_PIN_CTL_OE0, 0x90, 0x90},
-	{TABLA_A_PIN_CTL_OE1, 0x8, 0x8},
-	{TABLA_A_PIN_CTL_DATA0, 0x90, 0x0},
-	{TABLA_A_PIN_CTL_DATA1, 0x8, 0x0},
-
 };
 
 static const struct tabla_reg_mask_val tabla_1_x_codec_reg_init_val[] = {
@@ -8810,6 +8807,13 @@ static void tabla_codec_init_reg(struct snd_soc_codec *codec)
 				      tabla_2_higher_codec_reg_init_val[i].mask,
 				      tabla_2_higher_codec_reg_init_val[i].val);
 	}
+	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK0_MODE, 0x7, 0x4);
+	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK1_MODE, 0x7, 0x4);
+	snd_soc_update_bits(codec, TABLA_A_CDC_DMIC_CLK2_MODE, 0x7, 0x4);
+	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE0, 0x90, 0x90);
+	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE1, 0x8, 0x8);
+	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_DATA0, 0x90, 0x0);
+	snd_soc_update_bits(codec, TABLA_A_PIN_CTL_DATA1, 0x8, 0x0);
 }
 
 static void tabla_update_reg_address(struct tabla_priv *priv)
