@@ -66,6 +66,7 @@
 #define   L2X0_STNDBY_MODE_EN		(1 << 0)
 
 /* Registers shifts and masks */
+#define L2X0_CACHE_ID_REV_MASK		(0x3f)
 #define L2X0_CACHE_ID_PART_MASK		(0xf << 6)
 #define L2X0_CACHE_ID_PART_L210		(1 << 6)
 #define L2X0_CACHE_ID_PART_L310		(3 << 6)
@@ -111,6 +112,8 @@
 #define L2X0_PREFETCH_CTRL_OFFSET_SHIFT		0
 #define L2X0_PREFETCH_CTRL_WRAP8_INC_SHIFT	23
 #define L2X0_PREFETCH_CTRL_WRAP8_SHIFT		30
+
+#define REV_PL310_R2P0				4
 
 #ifndef __ASSEMBLY__
 extern void l2cc_suspend(void);

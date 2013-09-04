@@ -25,6 +25,7 @@
 struct sync_timeline;
 struct sync_pt;
 struct sync_fence;
+struct seq_file;
 
 /**
  * struct sync_timeline_ops - sync object implementation ops
@@ -100,7 +101,7 @@ struct sync_timeline_ops {
 struct sync_timeline {
 	struct kref		kref;
 	const struct sync_timeline_ops	*ops;
-	char			name[32];
+	char			name[64];
 
 	/* protected by child_list_lock */
 	bool			destroyed;
