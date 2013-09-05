@@ -134,7 +134,8 @@ struct qpnp_iadc_comp {
 	bool	ext_rsense;
 	u8	id;
 	u8	sys_gain;
-	u8	revision;
+	u8	revision_dig_major;
+	u8	revision_ana_minor;
 };
 
 struct qpnp_iadc_chip {
@@ -332,13 +333,13 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 	old = *result;
 	*result = *result * 1000000;
 
-	if (comp.revision == QPNP_IADC_VER_3_1) {
+	if (comp.revision_dig_major == QPNP_IADC_VER_3_1) {
 		/* revision 3.1 */
 		if (comp.sys_gain > 127)
 			sys_gain_coeff = -QPNP_COEFF_6 * (comp.sys_gain - 128);
 		else
 			sys_gain_coeff = QPNP_COEFF_6 * comp.sys_gain;
-	} else if (comp.revision != QPNP_IADC_VER_3_0) {
+	} else if (comp.revision_dig_major != QPNP_IADC_VER_3_0) {
 		/* unsupported revision, do not compensate */
 		*result = old;
 		return 0;
@@ -358,9 +359,9 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 		break;
 		}
 		temp_var = div64_s64(temp_var, QPNP_COEFF_4);
-		if (comp.revision == QPNP_IADC_VER_3_0)
+		if (comp.revision_dig_major == QPNP_IADC_VER_3_0)
 			temp_var = QPNP_COEFF_1 * (1000000 - temp_var);
-		else if (comp.revision == QPNP_IADC_VER_3_1)
+		else if (comp.revision_dig_major == QPNP_IADC_VER_3_1)
 			temp_var = 1000000 * (1000000 - temp_var);
 		*result = div64_s64(*result * 1000000, temp_var);
 	}
@@ -371,7 +372,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_comp comp,
 		temp_var = div64_s64((-sign_coeff * die_temp) + QPNP_COEFF_8,
 						QPNP_COEFF_4);
 		temp_var = 1000000000 - temp_var;
-		if (comp.revision == QPNP_IADC_VER_3_1) {
+		if (comp.revision_dig_major == QPNP_IADC_VER_3_1) {
 			sys_gain_coeff = (1000000 +
 				div64_s64(sys_gain_coeff, QPNP_COEFF_4));
 			temp_var = div64_s64(temp_var * sys_gain_coeff,
@@ -401,9 +402,16 @@ static int32_t qpnp_iadc_comp_info(struct qpnp_iadc_chip *iadc)
 	}
 
 	rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_REVISION2,
-						&iadc->iadc_comp.revision);
+					&iadc->iadc_comp.revision_dig_major);
 	if (rc < 0) {
-		pr_err("qpnp adc revision read failed with %d\n", rc);
+		pr_err("qpnp adc revision2 read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_REVISION3,
+					&iadc->iadc_comp.revision_ana_minor);
+	if (rc < 0) {
+		pr_err("qpnp adc revision3 read failed with %d\n", rc);
 		return rc;
 	}
 
@@ -417,9 +425,10 @@ static int32_t qpnp_iadc_comp_info(struct qpnp_iadc_chip *iadc)
 	if (iadc->external_rsense)
 		iadc->iadc_comp.ext_rsense = true;
 
-	pr_debug("fab id = %u, revision = %u, sys gain = %u, external_rsense = %d\n",
+	pr_debug("fab id = %u, revision_dig_major = %u, revision_ana_minor = %u sys gain = %u, external_rsense = %d\n",
 			iadc->iadc_comp.id,
-			iadc->iadc_comp.revision,
+			iadc->iadc_comp.revision_dig_major,
+			iadc->iadc_comp.revision_ana_minor,
 			iadc->iadc_comp.sys_gain,
 			iadc->iadc_comp.ext_rsense);
 	return rc;
@@ -571,6 +580,9 @@ static int32_t qpnp_convert_raw_offset_voltage(struct qpnp_iadc_chip *iadc)
 	return 0;
 }
 
+#define IADC_IDEAL_RAW_GAIN	3291
+#define QPNP_IADC_PM8026_REV2	0x4
+#define QPNP_IADC_PM8026_REV3	0x2
 int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 							bool batfet_closed)
 {
@@ -628,6 +640,11 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 		pr_err("qpnp adc offset/gain calculation failed\n");
 		goto fail;
 	}
+
+	if (iadc->iadc_comp.revision_dig_major == QPNP_IADC_PM8026_REV2
+		&& iadc->iadc_comp.revision_ana_minor == QPNP_IADC_PM8026_REV3)
+		iadc->adc->calib.gain_raw =
+			iadc->adc->calib.offset_raw + IADC_IDEAL_RAW_GAIN;
 
 	pr_debug("raw gain:0x%x, raw offset:0x%x\n",
 		iadc->adc->calib.gain_raw, iadc->adc->calib.offset_raw);
