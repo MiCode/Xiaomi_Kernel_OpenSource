@@ -220,6 +220,7 @@
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 70>,  /* iommu_pmon_nonsecure_irq */
 			<0xff 97>,  /* iommu_nonsecure_irq */
 			<0xff 105>, /* iommu_pmon_nonsecure_irq */
