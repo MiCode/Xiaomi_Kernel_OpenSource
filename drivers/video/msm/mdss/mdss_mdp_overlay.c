@@ -241,6 +241,8 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 
 	if (req->id == MSMFB_NEW_REQUEST) {
 		rot = mdss_mdp_rotator_session_alloc();
+		rot->pid = current->tgid;
+		list_add(&rot->list, &mdp5_data->rot_proc_list);
 
 		if (!rot) {
 			pr_err("unable to allocate rotator session\n");
@@ -439,6 +441,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		mutex_unlock(&mfd->lock);
 		pipe->mixer = mixer;
 		pipe->mfd = mfd;
+		pipe->pid = current->tgid;
 		pipe->play_cnt = 0;
 	} else {
 		pipe = mdss_mdp_pipe_get(mdp5_data->mdata, req->id);
@@ -902,6 +905,7 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 				continue;
 			}
 			mutex_lock(&mfd->lock);
+			pipe->pid = 0;
 			if (!list_empty(&pipe->used_list)) {
 				list_del_init(&pipe->used_list);
 				list_add(&pipe->cleanup_list,
@@ -952,6 +956,10 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 		if (rot) {
 			mdss_mdp_overlay_free_buf(&rot->src_buf);
 			mdss_mdp_overlay_free_buf(&rot->dst_buf);
+
+			rot->pid = 0;
+			if (!list_empty(&rot->list))
+				list_del_init(&rot->list);
 			ret = mdss_mdp_rotator_release(rot);
 		}
 	} else {
@@ -964,18 +972,31 @@ done:
 	return ret;
 }
 
-static int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
+/**
+ * mdss_mdp_overlay_release_all() - release any overlays associated with fb dev
+ * @mfd:	Msm frame buffer structure associated with fb device
+ *
+ * Release any resources allocated by calling process, this can be called
+ * on fb_release to release any overlays/rotator sessions left open.
+ */
+static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_rotator_session *rot, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 unset_ndx = 0;
 	int cnt = 0;
+	int pid = current->tgid;
+
+	pr_debug("releasing all resources for fb%d pid=%d\n", mfd->index, pid);
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
-		unset_ndx |= pipe->ndx;
-		cnt++;
+		if (pipe->pid == pid) {
+			unset_ndx |= pipe->ndx;
+			cnt++;
+		}
 	}
 
 	if (cnt == 0 && !list_empty(&mdp5_data->pipes_cleanup)) {
@@ -994,6 +1015,14 @@ static int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 
 	if (cnt)
 		mfd->mdp.kickoff_fnc(mfd);
+
+	list_for_each_entry_safe(rot, tmp, &mdp5_data->rot_proc_list, list) {
+		if (rot->pid == pid) {
+			if (!list_empty(&rot->list))
+				list_del_init(&rot->list);
+			mdss_mdp_rotator_release(rot);
+		}
+	}
 
 	return 0;
 }
@@ -2016,6 +2045,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	int rc;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_mixer *mixer;
+	int need_cleanup;
 
 	if (!mfd)
 		return -ENODEV;
@@ -2043,18 +2073,13 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	if (mixer)
 		mixer->cursor_enabled = 0;
 
-	if (!mfd->ref_cnt) {
-		mdss_mdp_overlay_release_all(mfd);
-	} else {
-		int need_cleanup;
-		mutex_lock(&mfd->lock);
-		need_cleanup = !list_empty(&mdp5_data->pipes_cleanup);
-		mutex_unlock(&mfd->lock);
+	mutex_lock(&mfd->lock);
+	need_cleanup = !list_empty(&mdp5_data->pipes_cleanup);
+	mutex_unlock(&mfd->lock);
 
-		if (need_cleanup) {
-			pr_debug("cleaning up some pipes\n");
-			mdss_mdp_overlay_kickoff(mfd);
-		}
+	if (need_cleanup) {
+		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
+		mdss_mdp_overlay_kickoff(mfd);
 	}
 
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl);
@@ -2099,6 +2124,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	mdp5_interface->on_fnc = mdss_mdp_overlay_on;
 	mdp5_interface->off_fnc = mdss_mdp_overlay_off;
+	mdp5_interface->release_fnc = __mdss_mdp_overlay_release_all;
 	mdp5_interface->do_histogram = NULL;
 	mdp5_interface->cursor_update = mdss_mdp_hw_cursor_update;
 	mdp5_interface->dma_fnc = mdss_mdp_overlay_pan_display;
@@ -2115,6 +2141,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
+	INIT_LIST_HEAD(&mdp5_data->rot_proc_list);
 	mutex_init(&mdp5_data->ov_lock);
 	mdp5_data->hw_refresh = true;
 	mdp5_data->overlay_play_enable = true;
