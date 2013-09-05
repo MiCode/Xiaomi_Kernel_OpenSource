@@ -2719,7 +2719,7 @@ static void intel_crtc_unpin_work_fn(struct intel_crtc *crtc, void *obj)
 	mutex_unlock(&dev->struct_mutex);
 }
 
-static void
+void
 intel_crtc_queue_unpin(struct intel_crtc *crtc,
 		       struct drm_i915_gem_object *obj)
 {

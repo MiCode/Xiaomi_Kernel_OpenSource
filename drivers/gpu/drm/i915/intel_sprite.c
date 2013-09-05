@@ -543,6 +543,16 @@ ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 		key->flags = I915_SET_COLORKEY_NONE;
 }
 
+static u32
+ivb_current_surface(struct drm_plane *plane)
+{
+	struct intel_plane *intel_plane;
+
+	intel_plane = to_intel_plane(plane);
+
+	return SPRSURFLIVE(intel_plane->pipe);
+}
+
 static void
 ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_framebuffer *fb,
@@ -809,6 +819,35 @@ static bool colorkey_enabled(struct intel_plane *intel_plane)
 	return key.flags != I915_SET_COLORKEY_NONE;
 }
 
+static u32
+ilk_current_surface(struct drm_plane *plane)
+{
+	struct intel_plane *intel_plane;
+
+	intel_plane = to_intel_plane(plane);
+
+	return DVSSURFLIVE(intel_plane->pipe);
+}
+
+static void
+intel_plane_queue_unpin(struct intel_plane *plane,
+			struct drm_i915_gem_object *obj)
+{
+	/*
+	 * If the surface is currently being scanned out, we need to
+	 * wait until the next vblank event latches in the new base address
+	 * before we unpin it, or we may end up displaying the wrong data.
+	 * However, if the old object isn't currently 'live', we can just
+	 * unpin right away.
+	 */
+	if (plane->current_surface(&plane->base) != i915_gem_obj_ggtt_offset(obj)) {
+		intel_unpin_fb_obj(obj);
+		return;
+	}
+
+	intel_crtc_queue_unpin(to_intel_crtc(plane->base.crtc), obj);
+}
+
 static int
 intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		   struct drm_framebuffer *fb, int crtc_x, int crtc_y,
@@ -1044,20 +1083,8 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
-	if (old_obj) {
-		/*
-		 * It's fairly common to simply update the position of
-		 * an existing object.  In that case, we don't need to
-		 * wait for vblank to avoid ugliness, we only need to
-		 * do the pin & ref bookkeeping.
-		 */
-		if (old_obj != obj && intel_crtc->active)
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
-
-		mutex_lock(&dev->struct_mutex);
-		intel_unpin_fb_obj(old_obj);
-		mutex_unlock(&dev->struct_mutex);
-	}
+	if (old_obj)
+		intel_plane_queue_unpin(intel_plane, old_obj);
 
 	return 0;
 }
@@ -1088,16 +1115,12 @@ intel_disable_plane(struct drm_plane *plane)
 			intel_post_enable_primary(plane->crtc);
 	}
 
+	mutex_lock(&dev->struct_mutex);
 	if (intel_plane->obj) {
-		if (intel_crtc->active)
-			intel_wait_for_vblank(dev, intel_plane->pipe);
-
-		mutex_lock(&dev->struct_mutex);
-		intel_unpin_fb_obj(intel_plane->obj);
-		mutex_unlock(&dev->struct_mutex);
-
+		intel_plane_queue_unpin(intel_plane, intel_plane->obj);
 		intel_plane->obj = NULL;
 	}
+	mutex_unlock(&dev->struct_mutex);
 
 	return 0;
 }
@@ -1256,6 +1279,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		intel_plane->disable_plane = ilk_disable_plane;
 		intel_plane->update_colorkey = ilk_update_colorkey;
 		intel_plane->get_colorkey = ilk_get_colorkey;
+		intel_plane->current_surface = ilk_current_surface;
 
 		if (IS_GEN6(dev)) {
 			plane_formats = snb_plane_formats;
@@ -1289,6 +1313,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 			intel_plane->disable_plane = ivb_disable_plane;
 			intel_plane->update_colorkey = ivb_update_colorkey;
 			intel_plane->get_colorkey = ivb_get_colorkey;
+			intel_plane->current_surface = ivb_current_surface;
 
 			plane_formats = snb_plane_formats;
 			num_plane_formats = ARRAY_SIZE(snb_plane_formats);
