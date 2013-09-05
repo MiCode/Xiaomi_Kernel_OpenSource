@@ -79,12 +79,32 @@ static const struct reg_default wm5102_revb_patch[] = {
 	{ 0x470, 0xC01 },
 };
 
+int wm5102_apply_patch(struct arizona *arizona,
+		       const struct reg_default *wm5102_patch,
+		       const int patch_size)
+{
+	int i, ret;
+
+	for (i = 0; i < patch_size; i++) {
+		ret = regmap_write(arizona->regmap, wm5102_patch[i].reg,
+				   wm5102_patch[i].def);
+		if (ret != 0) {
+			dev_err(arizona->dev, "Failed to write %x = %x: %d\n",
+				wm5102_patch[i].reg, wm5102_patch[i].def, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wm5102_apply_patch);
+
 /* We use a function so we can use ARRAY_SIZE() */
 int wm5102_patch(struct arizona *arizona)
 {
 	const struct reg_default *wm5102_patch;
 	int ret = 0;
-	int i, patch_size;
+	int patch_size;
 
 	switch (arizona->rev) {
 	case 0:
@@ -99,16 +119,7 @@ int wm5102_patch(struct arizona *arizona)
 
 	regcache_cache_bypass(arizona->regmap, true);
 
-	for (i = 0; i < patch_size; i++) {
-		ret = regmap_write(arizona->regmap, wm5102_patch[i].reg,
-				   wm5102_patch[i].def);
-		if (ret != 0) {
-			dev_err(arizona->dev, "Failed to write %x = %x: %d\n",
-				wm5102_patch[i].reg, wm5102_patch[i].def, ret);
-			goto out;
-		}
-	}
-
+	ret = wm5102_apply_patch(arizona, wm5102_patch, patch_size);
 out:
 	regcache_cache_bypass(arizona->regmap, false);
 	return ret;

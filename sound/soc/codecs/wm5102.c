@@ -585,9 +585,8 @@ static int wm5102_sysclk_ev(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
-	struct regmap *regmap = codec->control_data;
 	const struct reg_default *patch = NULL;
-	int i, patch_size;
+	int patch_size;
 
 	switch (arizona->rev) {
 	case 0:
@@ -603,9 +602,7 @@ static int wm5102_sysclk_ev(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		if (patch)
-			for (i = 0; i < patch_size; i++)
-				regmap_write_async(regmap, patch[i].reg,
-						   patch[i].def);
+			wm5102_apply_patch(arizona, patch, patch_size);
 		break;
 
 	default:
