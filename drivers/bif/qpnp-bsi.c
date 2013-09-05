@@ -170,7 +170,7 @@ static const struct qpnp_bsi_tau qpnp_bsi_tau_period = {
 #define QPNP_BSI_DEFAULT_VID_REF_UV	1800000
 
 /* These have units of tau_bif. */
-#define QPNP_BSI_MAX_TRANSMIT_CYCLES	36
+#define QPNP_BSI_MAX_TRANSMIT_CYCLES	46
 #define QPNP_BSI_MIN_RECEIVE_CYCLES	24
 #define QPNP_BSI_MAX_BUS_QUERY_CYCLES	17
 
