@@ -479,7 +479,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		qcom,pfm-threshold = <73>;
+		qcom,pfm-threshold = <76>;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";
