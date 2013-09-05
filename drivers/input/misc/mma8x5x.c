@@ -43,7 +43,7 @@
 #define POLL_INTERVAL		100 /* msecs */
 
 /* if sensor is standby ,set POLL_STOP_TIME to slow down the poll */
-#define POLL_STOP_TIME		200
+#define POLL_STOP_TIME		10000
 #define INPUT_FUZZ			32
 #define INPUT_FLAT			32
 #define INPUT_DATA_DIVIDER	16
