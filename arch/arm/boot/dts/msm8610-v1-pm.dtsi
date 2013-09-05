@@ -24,7 +24,7 @@
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
 		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
 	};
 
@@ -41,7 +41,7 @@
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
 		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
 		};
 
@@ -58,7 +58,7 @@
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
 				0b 94 5b 80 10 06 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 07 60 3b 76 76
 				0b 94 5b 80 10 06 26 30 0f];
 	};
 
@@ -75,7 +75,7 @@
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
 		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 07 60 3b 76 76
 				0b 94 5b 80 10 26 30 0f];
 	};
 
