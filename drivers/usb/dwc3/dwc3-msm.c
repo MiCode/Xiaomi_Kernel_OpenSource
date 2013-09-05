@@ -2275,6 +2275,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_dwc3_gdsc;
 	}
 
+	clk_set_rate(mdwc->xo_clk, 19200000);
 	ret = clk_prepare_enable(mdwc->xo_clk);
 	if (ret) {
 		dev_err(&pdev->dev, "%s failed to vote for TCXO buffer%d\n",
@@ -2301,6 +2302,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mdwc->iface_clk);
 		goto disable_core_clk;
 	}
+	clk_set_rate(mdwc->iface_clk, 125000000);
 	clk_prepare_enable(mdwc->iface_clk);
 
 	mdwc->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
@@ -2309,6 +2311,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mdwc->sleep_clk);
 		goto disable_iface_clk;
 	}
+	clk_set_rate(mdwc->sleep_clk, 32000);
 	clk_prepare_enable(mdwc->sleep_clk);
 
 	mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "sleep_a_clk");
@@ -2325,6 +2328,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mdwc->utmi_clk);
 		goto disable_sleep_a_clk;
 	}
+	clk_set_rate(mdwc->utmi_clk, 19200000);
 	clk_prepare_enable(mdwc->utmi_clk);
 
 	mdwc->ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
@@ -2333,6 +2337,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mdwc->ref_clk);
 		goto disable_utmi_clk;
 	}
+	clk_set_rate(mdwc->ref_clk, 19200000);
 	clk_prepare_enable(mdwc->ref_clk);
 
 	mdwc->id_state = mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
