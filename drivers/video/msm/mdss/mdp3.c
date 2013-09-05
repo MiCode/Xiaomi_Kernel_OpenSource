@@ -997,14 +997,6 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
-void mdp3_fbmem_clear(void)
-{
-	if (mdp3_res->ion_handle && mdp3_res->virt) {
-		pr_debug("mdp3_fbmem_clear\n");
-		memset(mdp3_res->virt, 0, mdp3_res->size);
-	}
-}
-
 static int mdp3_alloc(size_t size, void **virt, unsigned long *phys)
 {
 	int ret = 0;
@@ -1057,76 +1049,16 @@ ion_map_kernel_err:
 	return -ENOMEM;
 }
 
-static int mdp3_fbmem_alloc(struct msm_fb_data_type *mfd)
-{
-	int ret = -ENOMEM, dom;
-	void *virt = NULL;
-	unsigned long phys = 0;
-	size_t size;
-	u32 yres = mfd->fbi->var.yres_virtual;
-
-	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
-
-	if (mfd->index != 0) {
-		mfd->fbi->screen_base = virt;
-		mfd->fbi->fix.smem_start = phys;
-		mfd->fbi->fix.smem_len = 0;
-		return 0;
-	}
-
-	ret = mdp3_alloc(size, &virt, &phys);
-	if (ret) {
-		pr_err("fail to allocate fb memory\n");
-		return ret;
-	}
-
-	dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
-
-	ret = ion_map_iommu(mdp3_res->ion_client, mdp3_res->ion_handle,
-			dom, 0, SZ_4K, 0, &mfd->iova,
-			(unsigned long *)&size, 0, 0);
-
-	if (ret) {
-		pr_err("%s map IOMMU error\n", __func__);
-		goto ion_map_iommu_err;
-	}
-
-	pr_debug("allocating %u bytes at %p (%lx phys) for fb %d\n",
-			size, virt, phys, mfd->index);
-
-	mfd->fbi->screen_base = virt;
-	mfd->fbi->fix.smem_start = phys;
-	mfd->fbi->fix.smem_len = size;
-	return 0;
-
-ion_map_iommu_err:
-	ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
-	ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
-	mdp3_res->ion_handle = NULL;
-	mdp3_res->virt = NULL;
-	mdp3_res->phys = 0;
-	mdp3_res->size = 0;
-	return -ENOMEM;
-}
-
-void mdp3_fbmem_free(struct msm_fb_data_type *mfd)
+void mdp3_free(void)
 {
 	pr_debug("mdp3_fbmem_free\n");
 	if (mdp3_res->ion_handle) {
-		int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN)->domain_idx;
-
 		ion_unmap_kernel(mdp3_res->ion_client, mdp3_res->ion_handle);
-		ion_unmap_iommu(mdp3_res->ion_client,  mdp3_res->ion_handle,
-				dom, 0);
 		ion_free(mdp3_res->ion_client, mdp3_res->ion_handle);
 		mdp3_res->ion_handle = NULL;
 		mdp3_res->virt = NULL;
 		mdp3_res->phys = 0;
 		mdp3_res->size = 0;
-		mfd->fbi->screen_base = 0;
-		mfd->fbi->fix.smem_start = 0;
-		mfd->fbi->fix.smem_len = 0;
-		mfd->iova = 0;
 	}
 }
 
@@ -1185,7 +1117,7 @@ int mdp3_continuous_splash_copy(struct mdss_panel_data *pdata)
 
 	height = (rgb_size >> 16) & 0xffff;
 	width  = rgb_size & 0xffff;
-	size = PAGE_ALIGN(height * stride * 2);
+	size = PAGE_ALIGN(height * stride);
 	pr_debug("splash_height=%d splash_width=%d Buffer size=%d\n",
 		height, width, size);
 
@@ -1306,7 +1238,6 @@ static int mdp3_probe(struct platform_device *pdev)
 	static struct msm_mdp_interface mdp3_interface = {
 	.init_fnc = mdp3_init,
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
-	.fb_mem_alloc_fnc = mdp3_fbmem_alloc,
 	.panel_register_done = mdp3_panel_register_done,
 	.fb_stride = mdp3_fb_stride,
 	};
