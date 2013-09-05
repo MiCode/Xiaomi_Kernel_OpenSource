@@ -1148,7 +1148,8 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 		rc = status & 0x1;
 	} else {
 		status = MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG);
-		rc = status & 0x80000;
+		status &= 0x180000;
+		rc = (status == 0x080000);
 	}
 
 	mdp3_clk_update(MDP3_CLK_AHB, 0);
