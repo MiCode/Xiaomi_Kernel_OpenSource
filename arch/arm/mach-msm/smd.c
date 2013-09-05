@@ -2640,7 +2640,6 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 		if (old_apps != apps) {
 			SMSM_DBG("<SM %08x NOTIFY>\n", apps);
 			__raw_writel(apps, SMSM_STATE_ADDR(SMSM_APPS_STATE));
-			do_smd_probe();
 			notify_other_smsm(SMSM_APPS_STATE, (old_apps ^ apps));
 		}
 
@@ -3085,10 +3084,9 @@ void smd_post_init(bool is_legacy)
 	if (is_legacy) {
 		smd_initialized = 1;
 		smd_alloc_loopback_channel();
-		tasklet_schedule(&smd_fake_irq_tasklet);
-	} else {
-		schedule_work(&probe_work);
 	}
+
+	schedule_work(&probe_work);
 }
 
 /**
