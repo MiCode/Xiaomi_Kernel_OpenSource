@@ -1329,9 +1329,15 @@
 	xhci_hsic_host: qcom,xhci-msm-hsic@0xf9c00000 {
 		compatible = "qcom,xhci-msm-hsic";
 		reg = <0xf9c00000 0xfc000>;
-		interrupts =<0 32 0>,
-			   <0 29 0>;
-		interrupt-names = "core_irq", "pwr_event_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&xhci_hsic_host>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 32 0
+				1 &intc 0 29 0
+				2 &msmgpio 107 0x4>;
+		interrupt-names = "core_irq", "pwr_event_irq", "wakeup_irq";
 		hsic-vdd-dig-supply = <&pma8084_s2_corner>;
 		hsic-gdsc-supply = <&gdsc_usb_hsic>;
 		hsic,strobe-gpio = <&msmgpio 134 0x00>;
