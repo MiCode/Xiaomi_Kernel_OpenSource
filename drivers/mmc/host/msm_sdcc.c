@@ -3763,114 +3763,52 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 				     struct mmc_ios *ios)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
-	unsigned long flags;
-	int vreg_level;
-	bool prev_pwrsave, curr_pwrsave;
 	int rc = 0;
+	enum vdd_io_level io_level;
+	unsigned int vreg_level = 0;
 
 	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
-		/* Set VDD IO to high voltage range (2.7v - 3.6v) */
-		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_HIGH, 0);
-		if (!rc)
-			msmsdcc_update_io_pad_pwr_switch(host);
-		goto out;
+		io_level = VDD_IO_HIGH;
+		break;
 	case MMC_SIGNAL_VOLTAGE_180:
-		vreg_level = msmsdcc_get_vdd_io_vol(host);
-		/* check if already have the vreg set to 1.8v range */
-		if (vreg_level < 1700000 || vreg_level > 1950000)
-			break; /* do voltage switch */
-		else
-			goto out; /* voltage switch not required */
+		io_level = VDD_IO_LOW;
+		break;
 	case MMC_SIGNAL_VOLTAGE_120:
-		/*
-		 * For eMMC cards, VDD_IO voltage range must be changed
-		 * only if it operates in HS200 SDR 1.2V mode or in
-		 * DDR 1.2V mode.
-		 */
-		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_SET_LEVEL, 1200000);
-		if (!rc)
-			msmsdcc_update_io_pad_pwr_switch(host);
-		goto out;
+		io_level = VDD_IO_SET_LEVEL;
+		vreg_level = 1200000;
+		break;
 	default:
 		/* invalid selection. don't do anything */
 		rc = -EINVAL;
 		goto out;
 	}
-
-	/*
-	 * If we are here means voltage switch from high voltage to
-	 * low voltage is required
-	 */
-	spin_lock_irqsave(&host->lock, flags);
-	prev_pwrsave = !!(readl_relaxed(host->base + MMCICLOCK) &
-			MCI_CLK_PWRSAVE);
-	curr_pwrsave = prev_pwrsave;
-	/*
-	 * Poll on MCIDATIN_3_0 and MCICMDIN bits of MCI_TEST_INPUT
-	 * register until they become all zeros.
-	 */
-	if (readl_relaxed(host->base + MCI_TEST_INPUT) & (0xF << 1)) {
-		rc = -EAGAIN;
-		pr_err("%s: %s: MCIDATIN_3_0 is still not all zeros",
-			mmc_hostname(mmc), __func__);
-		goto out_unlock;
-	}
-
-	/* Stop SD CLK output. */
-	if (!prev_pwrsave) {
-		writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
-				MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
-		msmsdcc_sync_reg_wr(host);
-		curr_pwrsave = true;
-	}
-	spin_unlock_irqrestore(&host->lock, flags);
-
-	/*
-	 * Switch VDD Io from high voltage range (2.7v - 3.6v) to
-	 * low voltage range (1.7v - 1.95v).
-	 */
-	rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_LOW, 0);
-	if (rc)
-		goto out;
-
-	msmsdcc_update_io_pad_pwr_switch(host);
-
-	/* Wait 5 ms for the voltage regulater in the card to become stable. */
-	usleep_range(5000, 5500);
-
-	spin_lock_irqsave(&host->lock, flags);
-	/* Disable PWRSAVE would make sure that SD CLK is always running */
-	writel_relaxed((readl_relaxed(host->base + MMCICLOCK)
-			& ~MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
-	msmsdcc_sync_reg_wr(host);
-	curr_pwrsave = false;
-	spin_unlock_irqrestore(&host->lock, flags);
-
-	/*
-	 * If MCIDATIN_3_0 and MCICMDIN bits of MCI_TEST_INPUT register
-	 * don't become all ones within 1 ms then a Voltage Switch
-	 * sequence has failed and a power cycle to the card is required.
-	 * Otherwise Voltage Switch sequence is completed successfully.
-	 */
-	usleep_range(1000, 1500);
-
-	spin_lock_irqsave(&host->lock, flags);
-	if ((readl_relaxed(host->base + MCI_TEST_INPUT) & (0xF << 1))
-				!= (0xF << 1)) {
-		pr_err("%s: %s: MCIDATIN_3_0 are still not all ones",
-			mmc_hostname(mmc), __func__);
-		rc = -EAGAIN;
-		goto out_unlock;
-	}
-
-out_unlock:
-	/* Restore the correct PWRSAVE state */
-	if (prev_pwrsave ^ curr_pwrsave)
-		msmsdcc_set_pwrsave(mmc, prev_pwrsave);
-	spin_unlock_irqrestore(&host->lock, flags);
+	rc = msmsdcc_set_vdd_io_vol(host, io_level, vreg_level);
+	if (!rc)
+		msmsdcc_update_io_pad_pwr_switch(host);
 out:
 	return rc;
+}
+
+/*
+ * Returns 1 if any of the data lines [0:3] state is low (card busy).
+ * Returns 0 if all of the data lines [0:3] state is high (card not busy).
+ */
+static int msmsdcc_is_card_busy(struct mmc_host *mmc)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	u32 data_lines_mask = (0xF << 1);
+
+	if (atomic_read(&host->clks_on))
+		return !((readl_relaxed(host->base + MCI_TEST_INPUT) &
+			  data_lines_mask) == data_lines_mask);
+
+	/*
+	 * Clock should ideally be running when this function is called but
+	 * in case if its not running then return 0 to indicate that card is
+	 * not busy.
+	 */
+	return 0;
 }
 
 static inline void msmsdcc_cm_sdc4_dll_set_freq(struct msmsdcc_host *host)
@@ -4445,6 +4383,7 @@ static const struct mmc_host_ops msmsdcc_ops = {
 	.get_ro		= msmsdcc_get_ro,
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
 	.start_signal_voltage_switch = msmsdcc_switch_io_voltage,
+	.card_busy = msmsdcc_is_card_busy,
 	.execute_tuning = msmsdcc_execute_tuning,
 	.stop_request = msmsdcc_stop_request,
 	.get_xfer_remain = msmsdcc_get_xfer_remain,
