@@ -2322,7 +2322,8 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 	calc_gmemsize(&drawctxt->context_gmem_shadow, adreno_dev->gmem_size);
 	tmp_ctx.gmem_base = adreno_dev->gmem_base;
 
-	result = kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
+	result = kgsl_allocate(&(adreno_dev->dev),
+		&drawctxt->context_gmem_shadow.gmemshadow,
 		drawctxt->base.proc_priv->pagetable,
 		drawctxt->context_gmem_shadow.size);
 
@@ -2357,7 +2358,7 @@ static int a3xx_drawctxt_create(struct adreno_device *adreno_dev,
 	 * and texture and vertex buffer storage too
 	 */
 
-	ret = kgsl_allocate(&drawctxt->gpustate,
+	ret = kgsl_allocate(&(adreno_dev->dev), &drawctxt->gpustate,
 		drawctxt->base.proc_priv->pagetable, CONTEXT_SIZE);
 
 	if (ret)
