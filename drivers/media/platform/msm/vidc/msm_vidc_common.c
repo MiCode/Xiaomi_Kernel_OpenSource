@@ -830,12 +830,15 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb->v4l2_planes[0].reserved[4] = fill_buf_done->frame_width;
 		vb->v4l2_planes[0].reserved[5] = fill_buf_done->frame_height;
 		if (vb->v4l2_planes[0].data_offset > vb->v4l2_planes[0].length)
-			dprintk(VIDC_INFO, "fbd:data_offset overflow length\n");
+			dprintk(VIDC_INFO,
+				"fbd:Overflow data_offset = %d; length = %d\n",
+				vb->v4l2_planes[0].data_offset,
+				vb->v4l2_planes[0].length);
 		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
-			dprintk(VIDC_INFO, "fbd:bytesused overflow length\n");
-		if ((u8 *)vb->v4l2_planes[0].m.userptr !=
-			response->input_done.packet_buffer)
-			dprintk(VIDC_INFO, "fbd:Unexpected buffer address\n");
+			dprintk(VIDC_INFO,
+				"fbd:Overflow bytesused = %d; length = %d\n",
+				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_planes[0].length);
 		if (!(fill_buf_done->flags1 &
 			HAL_BUFFERFLAG_TIMESTAMPINVALID) &&
 			fill_buf_done->filled_len1) {
