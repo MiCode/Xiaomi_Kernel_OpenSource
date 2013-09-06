@@ -272,7 +272,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		return ERR_CAST(drv->vreg_cx);
 
 	drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
-	if (!IS_ERR(drv->vreg_pll)) {
+	if (!IS_ERR_OR_NULL(drv->vreg_pll)) {
 		int voltage;
 		ret = of_property_read_u32(pdev->dev.of_node, "qcom,vdd_pll",
 					   &voltage);
