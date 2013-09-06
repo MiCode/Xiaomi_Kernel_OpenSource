@@ -22,6 +22,7 @@ Optional properties:
 - qti,gpio-err-ready: GPIO used by the lpass to indicate apps error service is ready.
 - qti,gpio-proxy-unvote: GPIO used by the lpass to indicate apps clock is ready.
 - qti,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	qti,lpass@fe200000 {

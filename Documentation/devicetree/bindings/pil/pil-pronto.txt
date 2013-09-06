@@ -20,6 +20,7 @@ Optional properties:
 - qti,gpio-proxy-unvote: GPIO used by the wcnss to trigger proxy unvoting in
   the Apps
 - qti,gpio-force-stop: GPIO used by the Apps to force the wcnss to shutdown.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	qti,pronto@fb21b000 {
