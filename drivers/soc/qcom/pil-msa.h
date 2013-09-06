@@ -23,7 +23,6 @@ struct modem_data {
 	struct q6v5_data *q6;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
-	void *adsp_state_notifier;
 	void *ramdump_dev;
 	bool crash_shutdown;
 	bool ignore_errors;
