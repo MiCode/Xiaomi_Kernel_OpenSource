@@ -40,6 +40,7 @@
 #define MAX_UPSCALE_RATIO	20
 #define MAX_DECIMATION		4
 #define MDP_MIN_VBP		4
+#define MAX_FREE_LIST_SIZE	12
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
@@ -380,6 +381,9 @@ struct mdss_overlay_private {
 	struct list_head pipes_cleanup;
 	struct list_head rot_proc_list;
 	bool mixer_swap;
+
+	struct mdss_mdp_data free_list[MAX_FREE_LIST_SIZE];
+	int free_list_size;
 };
 
 struct mdss_mdp_perf_params {
