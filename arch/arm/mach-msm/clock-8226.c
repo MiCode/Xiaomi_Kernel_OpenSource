@@ -328,6 +328,7 @@ static struct branch_clk oxilicx_axi_clk;
 #define CAMSS_VFE_VFE_AXI_CBCR                             (0x36BC)
 #define CAMSS_CSI_VFE0_BCR                                 (0x3700)
 #define CAMSS_CSI_VFE0_CBCR                                (0x3704)
+#define CAMSS_MICRO_BCR                                    (0x3490)
 #define OXILI_GFX3D_CBCR                                   (0x4028)
 #define OXILICX_BCR                                        (0x4030)
 #define OXILICX_AXI_CBCR                                   (0x4038)
@@ -2303,6 +2304,7 @@ static struct branch_clk camss_mclk1_clk = {
 static struct branch_clk camss_micro_ahb_clk = {
 	.cbcr_reg = CAMSS_MICRO_AHB_CBCR,
 	.has_sibling = 1,
+	.bcr_reg = CAMSS_MICRO_BCR,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "camss_micro_ahb_clk",
