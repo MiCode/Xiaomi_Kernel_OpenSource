@@ -4539,7 +4539,8 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	if (intel_crtc->config.has_pch_encoder)
 		intel_prepare_shared_dpll(intel_crtc);
 
-	if (intel_crtc->config.has_dp_encoder)
+	if (intel_crtc->config.has_dp_encoder ||
+		intel_pipe_has_type(&intel_crtc->base, INTEL_OUTPUT_EDP))
 		intel_dp_set_m_n(intel_crtc);
 
 	intel_set_pipe_timings(intel_crtc);
@@ -4651,7 +4652,8 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	if (intel_crtc->active)
 		return;
 
-	if (intel_crtc->config.has_dp_encoder)
+	if (intel_crtc->config.has_dp_encoder ||
+		intel_pipe_has_type(&intel_crtc->base, INTEL_OUTPUT_EDP))
 		intel_dp_set_m_n(intel_crtc);
 
 	intel_set_pipe_timings(intel_crtc);
@@ -5181,7 +5183,8 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	/* Set up the display plane register */
 	dspcntr = DISPPLANE_GAMMA_ENABLE;
 
-	if (intel_crtc->config.has_dp_encoder)
+	if (intel_crtc->config.has_dp_encoder ||
+		intel_pipe_has_type(&intel_crtc->base, INTEL_OUTPUT_EDP))
 		intel_dp_set_m_n(intel_crtc);
 
 	intel_set_pipe_timings(intel_crtc);
@@ -5286,7 +5289,8 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 	else
 		dspcntr |= DISPPLANE_SEL_PIPE_B;
 
-	if (intel_crtc->config.has_dp_encoder)
+	if (intel_crtc->config.has_dp_encoder ||
+		intel_pipe_has_type(&intel_crtc->base, INTEL_OUTPUT_EDP))
 		intel_dp_set_m_n(intel_crtc);
 
 	intel_set_pipe_timings(intel_crtc);
