@@ -158,7 +158,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator1>;
 		qcom,led-flash-src = <&led_flash0>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <90>;
 		qcom,sensor-name = "skuf_ov12830_p12v01c";
 		cam_vdig-supply = <&pm8226_l5>;
 		cam_vana-supply = <&pm8226_l19>;
