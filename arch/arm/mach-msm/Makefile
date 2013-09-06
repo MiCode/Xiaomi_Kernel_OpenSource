@@ -382,7 +382,7 @@ obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30-regulator.o
 obj-$(CONFIG_ARCH_MSM7X27A) += board-msm7x27a-regulator.o
 endif
 
-obj-$(CONFIG_ARCH_MSM8960) += mdm2.o mdm_common.o
+obj-$(CONFIG_EXTERNAL_MDM) += mdm2.o mdm_common.o
 obj-$(CONFIG_MSM_RTB) += msm_rtb.o
 obj-$(CONFIG_MSM_CACHE_ERP) += cache_erp.o
 obj-$(CONFIG_MSM_EBI_ERP) += ebi_erp.o

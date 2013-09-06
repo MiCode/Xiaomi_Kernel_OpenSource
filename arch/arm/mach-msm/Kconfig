@@ -1664,6 +1664,17 @@ config MSM_SMP2P_TEST
 	  are used to verify the local and remote
 	  implementations.
 
+config EXTERNAL_MDM
+	tristate "External modem driver"
+	default n
+	help
+	  Enable communication with external modem.
+	  Support power up and shut down external modem
+	  by using gpios. Monitor external modem status
+	  for crashes and perform ram dump collection
+	  as well as a restart of the modem in the event
+	  of a crash.
+
 config MSM_RESET_MODEM
 	tristate "Reset Modem Driver"
 	depends on MSM_SMD
