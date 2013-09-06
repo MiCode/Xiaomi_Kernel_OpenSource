@@ -49,6 +49,7 @@
 #include "mdp3_hwio.h"
 #include "mdp3_ctrl.h"
 #include "mdp3_ppp.h"
+#include "mdss_debug.h"
 
 #define MDP_CORE_HW_VERSION	0x03040310
 struct mdp3_hw_resource *mdp3_res;
@@ -1229,8 +1230,48 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 			rc = mdp3_continuous_splash_on(pdata);
 		}
 	}
+	return rc;
+}
+
+static void mdp3_debug_enable_clock(int on)
+{
+	if (on)
+		mdp3_clk_enable(1);
+	else
+		mdp3_clk_enable(0);
+}
+
+static int mdp3_debug_init(struct platform_device *pdev)
+{
+	int rc;
+	struct mdss_data_type *mdata;
+
+	mdata = devm_kzalloc(&pdev->dev, sizeof(*mdata), GFP_KERNEL);
+	if (!mdata)
+		return -ENOMEM;
+
+	mdss_res = mdata;
+
+	mdata->debug_inf.debug_dump_stats = NULL;
+	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
+
+	rc = mdss_debugfs_init(mdata);
+	if (rc)
+		return rc;
+
+	rc = mdss_debug_register_base(NULL, mdp3_res->mdp_base ,
+					mdp3_res->mdp_reg_size);
 
 	return rc;
+}
+
+static void mdp3_debug_deinit(struct platform_device *pdev)
+{
+	if (mdss_res) {
+		mdss_debugfs_remove(mdss_res);
+		devm_kfree(&pdev->dev, mdss_res);
+		mdss_res = NULL;
+	}
 }
 
 static int mdp3_probe(struct platform_device *pdev)
@@ -1280,6 +1321,12 @@ static int mdp3_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
+	rc = mdp3_debug_init(pdev);
+	if (rc) {
+		pr_err("unable to initialize mdp debugging\n");
+		goto probe_done;
+	}
+
 	rc = mdss_fb_register_mdp_instance(&mdp3_interface);
 	if (rc)
 		pr_err("unable to register mdp instance\n");
@@ -1293,6 +1340,11 @@ probe_done:
 
 		devm_kfree(&pdev->dev, mdp3_res);
 		mdp3_res = NULL;
+
+		if (mdss_res) {
+			devm_kfree(&pdev->dev, mdss_res);
+			mdss_res = NULL;
+		}
 	}
 
 	return rc;
@@ -1341,6 +1393,7 @@ static int mdp3_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mdp3_bus_scale_unregister();
 	mdp3_clk_remove();
+	mdp3_debug_deinit(pdev);
 	return 0;
 }
 
