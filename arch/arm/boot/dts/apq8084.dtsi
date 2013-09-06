@@ -344,6 +344,7 @@
 		ranges;
 		interrupts = <0 133 0>;
 		interrupt-names = "hs_phy_irq";
+		USB3_GDSC-supply = <&gdsc_usb30>;
 		ssusb_vdd_dig-supply = <&pma8084_s1>;
 		SSUSB_1p8-supply = <&pma8084_l6>;
 		hsusb_vdd_dig-supply = <&pma8084_s1>;
