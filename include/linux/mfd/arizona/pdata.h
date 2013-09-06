@@ -202,7 +202,7 @@ struct arizona_pdata {
 	void (*ez2ctrl_trigger)(void);
 
 	/** wm5102t output power */
-	int wm5102t_output_pwr;
+	unsigned int wm5102t_output_pwr;
 };
 
 #endif

@@ -137,9 +137,9 @@ static const struct {
 	{ wm5102t_pwr_4, ARRAY_SIZE(wm5102t_pwr_4) },
 };
 
-int wm5102_apply_patch(struct arizona *arizona,
-		       const struct reg_default *wm5102_patch,
-		       const int patch_size)
+static int wm5102_apply_patch(struct arizona *arizona,
+			      const struct reg_default *wm5102_patch,
+			      const int patch_size)
 {
 	int i, ret;
 
@@ -155,7 +155,6 @@ int wm5102_apply_patch(struct arizona *arizona,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm5102_apply_patch);
 
 /* We use a function so we can use ARRAY_SIZE() */
 int wm5102_patch(struct arizona *arizona)
