@@ -5048,6 +5048,14 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_crtc->active = false;
 	intel_update_watermarks(crtc);
 
+	/*Reset lane for VLV platform*/
+	if (IS_VALLEYVIEW(dev)) {
+		if (intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
+			vlv_dpio_write(dev_priv, pipe, 0x8200, 0x00000000);
+			vlv_dpio_write(dev_priv, pipe, 0x8204, 0x00e00060);
+		}
+	}
+
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
