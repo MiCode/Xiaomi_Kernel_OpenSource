@@ -586,6 +586,7 @@
 		gpios = <&msmgpio 40 0>, <&msmgpio 41 0>, <&msmgpio 42 0>, <&msmgpio 43 0>, <&msmgpio 44 0>;
 		qcom,has-pronto-hw;
 		qcom,has-autodetect-xo;
+		qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
 	};
 
 	qcom,msm-adsp-sensors {
