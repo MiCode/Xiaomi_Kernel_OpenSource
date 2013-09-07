@@ -20,6 +20,7 @@ Required properties:
 - gpios: gpio numbers to configure 5-wire interface of WLAN connectivity
 - qcom,has-48mhz-xo: boolean flag to determine the usage of 24MHz XO from RF
 - qcom,has-pronto-hw: boolean flag to determine the revId of the WLAN subsystem
+- qcom,wcnss-adc_tm: ADC handle for vbatt notification APIs.
 
 Optional properties:
 - qcom,has-autodetect-xo: boolean flag to determine whether Iris XO auto detect
@@ -49,4 +50,5 @@ Example:
                 <&msmgpio 39 0>, <&msmgpio 40 0>;
         qcom,has-48mhz-xo;
         qcom,has-pronto-hw;
+        qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
     };
