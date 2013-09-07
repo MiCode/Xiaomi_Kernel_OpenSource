@@ -90,6 +90,13 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 
 #define TAPAN_IRQ_MBHC_JACK_SWITCH 21
 
+enum tapan_codec_type {
+	WCD9306,
+	WCD9302,
+};
+
+static enum tapan_codec_type codec_ver;
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -5035,6 +5042,16 @@ static void tapan_enable_config_rco(struct wcd9xxx *core, bool enable)
 	struct wcd9xxx_core_resource *core_res = &core->core_res;
 
 	if (enable) {
+		wcd9xxx_reg_update(core, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+				   0x80, 0x80);
+		wcd9xxx_reg_update(core, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+				   0x04, 0x04);
+		wcd9xxx_reg_update(core, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+				   0x01, 0x01);
+		usleep_range(1000, 1000);
+		wcd9xxx_reg_update(core, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+				   0x80, 0x00);
+
 		/* Enable RC Oscillator */
 		wcd9xxx_reg_update(core, WCD9XXX_A_RC_OSC_FREQ, 0x10, 0x00);
 		wcd9xxx_reg_write(core_res, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x17);
@@ -5063,6 +5080,13 @@ static void tapan_enable_config_rco(struct wcd9xxx *core, bool enable)
 		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x02);
 		wcd9xxx_reg_update(core, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x00);
 		usleep_range(50, 50);
+
+		wcd9xxx_reg_update(core, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0x00);
+		usleep_range(10, 10);
+		wcd9xxx_reg_write(core_res, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x16);
+		wcd9xxx_reg_update(core, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+				   0x03, 0x00);
+		usleep_range(100, 100);
 	}
 
 }
@@ -5226,7 +5250,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		}
 	}
 
-	if (tapan_check_wcd9306(codec->dev, false) == true) {
+	if (codec_ver == WCD9306) {
 		snd_soc_add_codec_controls(codec, tapan_9306_snd_controls,
 					   ARRAY_SIZE(tapan_9306_snd_controls));
 		snd_soc_dapm_new_controls(dapm, tapan_9306_dapm_widgets,
@@ -5251,11 +5275,13 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	atomic_set(&kp_tapan_priv, (unsigned long)tapan);
 	mutex_lock(&dapm->codec->mutex);
-	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
-	snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
-	snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
-	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
-	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+	if (codec_ver == WCD9306) {
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
+		snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
+		snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
+		snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+	}
 	snd_soc_dapm_sync(dapm);
 	mutex_unlock(&dapm->codec->mutex);
 
@@ -5356,6 +5382,7 @@ static int __devinit tapan_probe(struct platform_device *pdev)
 			 __func__);
 		is_wcd9306 = true;
 	}
+	codec_ver = is_wcd9306 ? WCD9306 : WCD9302;
 
 	if (!is_wcd9306) {
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
