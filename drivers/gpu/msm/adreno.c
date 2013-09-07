@@ -912,7 +912,6 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 static bool adreno_use_default_setstate(struct adreno_device *adreno_dev)
 {
 	return (adreno_isidle(&adreno_dev->dev) ||
-		adreno_dev->drawctxt_active == NULL ||
 		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
 		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
 		adreno_dev->dev.cff_dump_enable);
