@@ -887,6 +887,9 @@ static inline void ufshcd_hba_capabilities(struct ufs_hba *hba)
 	hba->nutrs = (hba->capabilities & MASK_TRANSFER_REQUESTS_SLOTS) + 1;
 	hba->nutmrs =
 	((hba->capabilities & MASK_TASK_MANAGEMENT_REQUEST_SLOTS) >> 16) + 1;
+
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0)
+		hba->capabilities |= MASK_64_ADDRESSING_SUPPORT;
 }
 
 /**

@@ -452,6 +452,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1		(1<<2)
 
+	/* UFSHC advertises 64-bit not supported even though it supports */
+	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0        (1 << 3)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
