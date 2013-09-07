@@ -852,6 +852,7 @@ struct mdp_display_commit {
 	uint32_t wait_for_finish;
 	struct fb_var_screeninfo var;
 	struct mdp_buf_fence buf_fence;
+	struct mdp_rect roi;
 };
 
 struct mdp_page_protection {
