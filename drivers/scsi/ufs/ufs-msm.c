@@ -1322,7 +1322,8 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 	if ((major == 0x1) && (minor == 0x001) && (step == 0x0000))
 		hba->quirks |= (UFSHCD_QUIRK_BROKEN_INTR_AGGR
 			      | UFSHCD_QUIRK_BROKEN_HIBERN8
-			      | UFSHCD_QUIRK_BROKEN_VER_REG_1_1);
+			      | UFSHCD_QUIRK_BROKEN_VER_REG_1_1
+			      | UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0);
 }
 
 /**
