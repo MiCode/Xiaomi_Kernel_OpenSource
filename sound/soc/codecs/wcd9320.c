@@ -6191,6 +6191,14 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL(taiko_hs_detect);
 
+void taiko_hs_detect_exit(struct snd_soc_codec *codec)
+{
+	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	wcd9xxx_mbhc_stop(&taiko->mbhc);
+	taiko->mbhc_started = false;
+}
+EXPORT_SYMBOL(taiko_hs_detect_exit);
+
 void taiko_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
 				enum wcd9xxx_codec_event),
@@ -6277,14 +6285,10 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 					taiko_enable_mbhc_micbias,
 					NULL, rco_clk_rate, true);
-		if (ret) {
+		if (ret)
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
-		} else {
-			ret = wcd9xxx_mbhc_start(&taiko->mbhc,
-						 taiko->mbhc.mbhc_cfg);
-			if (!ret)
-				taiko->mbhc_started = true;
-		}
+		else
+			taiko_hs_detect(codec, taiko->mbhc.mbhc_cfg);
 	}
 	taiko->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
 

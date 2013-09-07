@@ -1629,6 +1629,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pr_err("%s: Failed to register adsp state notifier\n",
 		       __func__);
 		err = -EFAULT;
+		taiko_hs_detect_exit(codec);
 		goto out;
 	}
 

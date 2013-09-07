@@ -4929,6 +4929,13 @@ int tapan_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL(tapan_hs_detect);
 
+void tapan_hs_detect_exit(struct snd_soc_codec *codec)
+{
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	wcd9xxx_mbhc_stop(&tapan->mbhc);
+}
+EXPORT_SYMBOL(tapan_hs_detect_exit);
+
 static int tapan_device_down(struct wcd9xxx *wcd9xxx)
 {
 	struct snd_soc_codec *codec;
