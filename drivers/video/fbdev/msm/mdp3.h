@@ -125,6 +125,7 @@ struct mdp3_hw_resource {
 
 	u32 splash_mem_addr;
 	u32 splash_mem_size;
+	struct mdss_panel_cfg pan_cfg;
 };
 
 struct mdp3_img_data {
