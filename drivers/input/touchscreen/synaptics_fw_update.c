@@ -2054,7 +2054,7 @@ static struct device_attribute attrs[] = {
 	__ATTR(writeconfig, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_write_config_store),
-	__ATTR(writelockdown, S_IWUGO,
+	__ATTR(writelockdown, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_write_lockdown_store),
 	__ATTR(readconfig, S_IRUGO | S_IWUSR | S_IWGRP,
