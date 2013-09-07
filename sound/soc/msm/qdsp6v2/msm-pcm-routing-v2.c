@@ -371,8 +371,12 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 		msm_send_eq_values(fedai_id);
 	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions) && perf_mode)
-			set_bit(fedai_id, &msm_bedais[i].perf_mode);
+		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions)) {
+			if (perf_mode)
+				set_bit(fedai_id, &msm_bedais[i].perf_mode);
+			else
+				clear_bit(fedai_id, &msm_bedais[i].perf_mode);
+		}
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&

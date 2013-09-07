@@ -522,7 +522,6 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				/* Should only come here if there is an APR */
 				/* error or malformed APR packet. Otherwise */
 				/* response will be returned as */
-				/* ADM_CMDRSP_SHARED_MEM_MAP_REGIONS */
 				if (payload[1] != 0) {
 					pr_err("%s: ADM map error, resuming\n",
 						__func__);
@@ -967,11 +966,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		open.hdr.opcode = ADM_CMD_DEVICE_OPEN_V5;
 		open.flags = 0x00;
 		if (perf_mode) {
-			open.flags |= ADM_LOW_LATENCY_DEVICE_SESSION <<
-				ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG;
+			open.flags |= ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
 		} else {
-			open.flags |= ADM_LEGACY_DEVICE_SESSION <<
-				ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG;
+			open.flags |= ADM_LEGACY_DEVICE_SESSION;
 		}
 
 		open.mode_of_operation = path;
