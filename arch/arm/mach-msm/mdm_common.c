@@ -52,7 +52,7 @@
 #define MDM_MODEM_DELTA	100
 #define MDM_BOOT_TIMEOUT	60000L
 #define MDM_RDUMP_TIMEOUT	120000L
-#define MDM2AP_STATUS_TIMEOUT_MS 60000L
+#define MDM2AP_STATUS_TIMEOUT_MS 120000L
 
 /* Allow a maximum device id of this many digits */
 #define MAX_DEVICE_DIGITS  10
@@ -473,6 +473,13 @@ static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		else
 			mdev->first_boot = 0;
 
+		/* If userspace has reset the peripheral device then
+		 * inform the modem here.
+		 */
+		if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_WAKEUP)))
+				gpio_direction_output(
+				   MDM_GPIO(AP2MDM_WAKEUP), 1);
+
 		/* If successful, start a timer to check that the mdm2ap_status
 		 * gpio goes high.
 		 */
@@ -682,17 +689,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys)
 		 */
 		msleep(mdm_drv->pdata->ramdump_delay_ms);
 	}
-	/* If userspace is resetting the peripheral device then
-	 * it will also reset the modem during ramdumps or normal
-	 * power up.
-	 */
-	if (!mdm_drv->mdm_unexpected_reset_occurred) {
-		mdm_ops->reset_mdm_cb(mdm_drv);
-		/* Update gpio configuration to "booting" config. */
-		mdm_update_gpio_configs(mdev, GPIO_UPDATE_BOOTING_CONFIG);
-	} else {
-		mdm_drv->mdm_unexpected_reset_occurred = 0;
-	}
+	mdm_drv->mdm_unexpected_reset_occurred = 0;
 	return 0;
 }
 
