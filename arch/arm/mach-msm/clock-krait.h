@@ -20,7 +20,7 @@
 extern struct clk_mux_ops clk_mux_ops_kpss;
 extern struct clk_div_ops clk_div_ops_kpss_div2;
 
-#define DEFINE_KPSS_DIV2_CLK(clk_name, _parent, _offset) \
+#define DEFINE_KPSS_DIV2_CLK(clk_name, _parent, _offset, _lf_tree) \
 static struct div_clk clk_name = {		\
 	.div = 2,				\
 	.min_div = 2,				\
@@ -29,6 +29,7 @@ static struct div_clk clk_name = {		\
 	.offset = _offset,			\
 	.mask = 0x3,				\
 	.shift = 6,				\
+	.priv = (void *) _lf_tree,		\
 	.c = {					\
 		.parent = _parent,		\
 		.dbg_name = #clk_name,		\

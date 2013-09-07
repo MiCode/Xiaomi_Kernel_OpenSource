@@ -77,7 +77,7 @@ static struct hfpll_clk hfpll0_clk = {
 	},
 };
 
-DEFINE_KPSS_DIV2_CLK(hfpll0_div_clk, &hfpll0_clk.c, 0x4501);
+DEFINE_KPSS_DIV2_CLK(hfpll0_div_clk, &hfpll0_clk.c, 0x4501, true);
 
 static struct hfpll_clk hfpll1_clk = {
 	.d = &hdata,
@@ -93,7 +93,7 @@ static struct hfpll_clk hfpll1_clk = {
 	},
 };
 
-DEFINE_KPSS_DIV2_CLK(hfpll1_div_clk, &hfpll1_clk.c, 0x5501);
+DEFINE_KPSS_DIV2_CLK(hfpll1_div_clk, &hfpll1_clk.c, 0x5501, true);
 
 static struct hfpll_clk hfpll2_clk = {
 	.d = &hdata,
@@ -109,7 +109,7 @@ static struct hfpll_clk hfpll2_clk = {
 	},
 };
 
-DEFINE_KPSS_DIV2_CLK(hfpll2_div_clk, &hfpll2_clk.c, 0x6501);
+DEFINE_KPSS_DIV2_CLK(hfpll2_div_clk, &hfpll2_clk.c, 0x6501, true);
 
 static struct hfpll_clk hfpll3_clk = {
 	.d = &hdata,
@@ -125,7 +125,7 @@ static struct hfpll_clk hfpll3_clk = {
 	},
 };
 
-DEFINE_KPSS_DIV2_CLK(hfpll3_div_clk, &hfpll3_clk.c, 0x7501);
+DEFINE_KPSS_DIV2_CLK(hfpll3_div_clk, &hfpll3_clk.c, 0x7501, true);
 
 static struct hfpll_clk hfpll_l2_clk = {
 	.d = &hdata,
@@ -141,7 +141,7 @@ static struct hfpll_clk hfpll_l2_clk = {
 	},
 };
 
-DEFINE_KPSS_DIV2_CLK(hfpll_l2_div_clk, &hfpll_l2_clk.c, 0x500);
+DEFINE_KPSS_DIV2_CLK(hfpll_l2_div_clk, &hfpll_l2_clk.c, 0x500, false);
 
 #define SEC_MUX_COMMON_DATA		\
 	.safe_parent = &acpu_aux_clk.c,	\
@@ -155,6 +155,7 @@ DEFINE_KPSS_DIV2_CLK(hfpll_l2_div_clk, &hfpll_l2_clk.c, 0x500);
 
 static struct mux_clk krait0_sec_mux_clk = {
 	.offset = 0x4501,
+	.priv = (void *) true,
 	SEC_MUX_COMMON_DATA,
 	.c = {
 		.dbg_name = "krait0_sec_mux_clk",
@@ -165,6 +166,7 @@ static struct mux_clk krait0_sec_mux_clk = {
 
 static struct mux_clk krait1_sec_mux_clk = {
 	.offset = 0x5501,
+	.priv = (void *) true,
 	SEC_MUX_COMMON_DATA,
 	.c = {
 		.dbg_name = "krait1_sec_mux_clk",
@@ -175,6 +177,7 @@ static struct mux_clk krait1_sec_mux_clk = {
 
 static struct mux_clk krait2_sec_mux_clk = {
 	.offset = 0x6501,
+	.priv = (void *) true,
 	SEC_MUX_COMMON_DATA,
 	.c = {
 		.dbg_name = "krait2_sec_mux_clk",
@@ -185,6 +188,7 @@ static struct mux_clk krait2_sec_mux_clk = {
 
 static struct mux_clk krait3_sec_mux_clk = {
 	.offset = 0x7501,
+	.priv = (void *) true,
 	SEC_MUX_COMMON_DATA,
 	.c = {
 		.dbg_name = "krait3_sec_mux_clk",
@@ -210,6 +214,7 @@ static struct mux_clk l2_sec_mux_clk = {
 
 static struct mux_clk krait0_pri_mux_clk = {
 	.offset = 0x4501,
+	.priv = (void *) true,
 	MUX_SRC_LIST(
 		{ &hfpll0_clk.c, 1 },
 		{ &hfpll0_div_clk.c, 2 },
@@ -226,6 +231,7 @@ static struct mux_clk krait0_pri_mux_clk = {
 
 static struct mux_clk krait1_pri_mux_clk = {
 	.offset = 0x5501,
+	.priv = (void *) true,
 	MUX_SRC_LIST(
 		{ &hfpll1_clk.c, 1 },
 		{ &hfpll1_div_clk.c, 2 },
@@ -242,6 +248,7 @@ static struct mux_clk krait1_pri_mux_clk = {
 
 static struct mux_clk krait2_pri_mux_clk = {
 	.offset = 0x6501,
+	.priv = (void *) true,
 	MUX_SRC_LIST(
 		{ &hfpll2_clk.c, 1 },
 		{ &hfpll2_div_clk.c, 2 },
@@ -258,6 +265,7 @@ static struct mux_clk krait2_pri_mux_clk = {
 
 static struct mux_clk krait3_pri_mux_clk = {
 	.offset = 0x7501,
+	.priv = (void *) true,
 	MUX_SRC_LIST(
 		{ &hfpll3_clk.c, 1 },
 		{ &hfpll3_div_clk.c, 2 },
