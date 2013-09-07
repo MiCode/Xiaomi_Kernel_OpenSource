@@ -613,6 +613,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1			UFS_BIT(9)
 
+	/* UFSHC advertises 64-bit not supported even though it supports */
+	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0		UFS_BIT(10)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */
