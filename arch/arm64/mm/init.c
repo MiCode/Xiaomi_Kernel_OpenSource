@@ -32,7 +32,6 @@
 #include <linux/of_fdt.h>
 #include <linux/dma-contiguous.h>
 
-#include <asm/prom.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/sizes.h>
