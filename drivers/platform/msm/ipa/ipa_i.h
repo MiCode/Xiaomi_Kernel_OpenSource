@@ -922,5 +922,8 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip);
 int __ipa_commit_rt_v2(enum ipa_ip_type ip);
 int __ipa_commit_hdr_v1(void);
 int __ipa_commit_hdr_v2(void);
+int ipa_generate_flt_eq(enum ipa_ip_type ip,
+		const struct ipa_rule_attrib *attrib,
+		struct ipa_ipfltri_rule_eq *eq_attrib);
 
 #endif /* _IPA_I_H_ */

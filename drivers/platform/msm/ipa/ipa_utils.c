@@ -770,6 +770,448 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	return 0;
 }
 
+int ipa_generate_flt_eq(enum ipa_ip_type ip,
+		const struct ipa_rule_attrib *attrib,
+		struct ipa_ipfltri_rule_eq *eq_atrb)
+{
+	u8 ofst_meq32 = 0;
+	u8 ihl_ofst_rng16 = 0;
+	u8 ihl_ofst_meq32 = 0;
+	u8 ofst_meq128 = 0;
+	u16 eq_bitmap = 0;
+	u16 *en_rule = &eq_bitmap;
+
+	if (ip == IPA_IP_v4) {
+
+		/* error check */
+		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
+		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
+		    IPA_FLT_FLOW_LABEL) {
+			IPAERR("v6 attrib's specified for v4 rule\n");
+			return -EPERM;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TOS) {
+			*en_rule |= IPA_TOS_EQ;
+			eq_atrb->tos_eq_present = 1;
+			eq_atrb->tos_eq = attrib->u.v4.tos;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			eq_atrb->offset_meq_32[ofst_meq32].offset = 0;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				attrib->tos_mask << 16;
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				attrib->tos_value << 16;
+			ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
+			*en_rule |= IPA_PROTOCOL_EQ;
+			eq_atrb->protocol_eq_present = 1;
+			eq_atrb->protocol_eq = attrib->u.v4.protocol;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			eq_atrb->offset_meq_32[ofst_meq32].offset = 12;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				attrib->u.v4.src_addr_mask;
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				attrib->u.v4.src_addr;
+			ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			eq_atrb->offset_meq_32[ofst_meq32].offset = 16;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				attrib->u.v4.dst_addr_mask;
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				attrib->u.v4.dst_addr;
+			ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			if (attrib->src_port_hi < attrib->src_port_lo) {
+				IPAERR("bad src port range param\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 0;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->src_port_lo;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->src_port_hi;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			if (attrib->dst_port_hi < attrib->dst_port_lo) {
+				IPAERR("bad dst port range param\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 2;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->dst_port_lo;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->dst_port_hi;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 0;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask = 0xFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->type;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_CODE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 1;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask = 0xFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->code;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SPI) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 0;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				0xFFFFFFFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->spi;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 0;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->src_port;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->src_port;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 2;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->dst_port;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->dst_port;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
+			*en_rule |= IPA_METADATA_COMPARE;
+			eq_atrb->metadata_meq32_present = 1;
+			eq_atrb->metadata_meq32.offset = 0;
+			eq_atrb->metadata_meq32.mask = attrib->meta_data_mask;
+			eq_atrb->metadata_meq32.value = attrib->meta_data;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+			IPAERR("Frg eq unsupported at eq level\n");
+			return -EPERM;
+		}
+
+	} else if (ip == IPA_IP_v6) {
+
+		/* v6 code below assumes no extension headers TODO: fix this */
+
+		/* error check */
+		if (attrib->attrib_mask & IPA_FLT_TOS ||
+		    attrib->attrib_mask & IPA_FLT_PROTOCOL ||
+		    attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+			IPAERR("v4 attrib's specified for v6 rule\n");
+			return -EPERM;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
+			*en_rule |= IPA_PROTOCOL_EQ;
+			eq_atrb->protocol_eq_present = 1;
+			eq_atrb->protocol_eq = attrib->u.v6.next_hdr;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 0;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask = 0xFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->type;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_CODE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 1;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask = 0xFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->code;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SPI) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 0;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				0xFFFFFFFF;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->spi;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 0;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->src_port;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->src_port;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 2;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->dst_port;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->dst_port;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			if (attrib->src_port_hi < attrib->src_port_lo) {
+				IPAERR("bad src port range param\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 0;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->src_port_lo;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->src_port_hi;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
+			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+				IPAERR("ran out of ihl_rng16 eq\n");
+				return -EPERM;
+			}
+			if (attrib->dst_port_hi < attrib->dst_port_lo) {
+				IPAERR("bad dst port range param\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset = 2;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->dst_port_lo;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->dst_port_hi;
+			ihl_ofst_rng16++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+			eq_atrb->offset_meq_128[ofst_meq128].offset = 8;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 0)
+				= attrib->u.v6.src_addr_mask[0];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
+				= attrib->u.v6.src_addr_mask[1];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
+				= attrib->u.v6.src_addr_mask[2];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
+				= attrib->u.v6.src_addr_mask[3];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 0)
+				= attrib->u.v6.src_addr[0];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 4)
+				= attrib->u.v6.src_addr[1];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
+				= attrib->u.v6.src_addr[2];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value +
+					12) = attrib->u.v6.src_addr[3];
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+			eq_atrb->offset_meq_128[ofst_meq128].offset = 24;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 0)
+				= attrib->u.v6.dst_addr_mask[0];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
+				= attrib->u.v6.dst_addr_mask[1];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
+				= attrib->u.v6.dst_addr_mask[2];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
+				= attrib->u.v6.dst_addr_mask[3];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 0)
+				= attrib->u.v6.dst_addr[0];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 4)
+				= attrib->u.v6.dst_addr[1];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
+				= attrib->u.v6.dst_addr[2];
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value +
+					12) = attrib->u.v6.dst_addr[3];
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TC) {
+			*en_rule |= IPA_FLT_TC;
+			eq_atrb->tc_eq_present = 1;
+			eq_atrb->tc_eq = attrib->u.v6.tc;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+			eq_atrb->offset_meq_128[ofst_meq128].offset = 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 0)
+				= attrib->tos_mask << 20;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
+				= 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
+				= 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
+				= 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 0)
+				= attrib->tos_value << 20;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 4)
+				= 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
+				= 0;
+			*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value +
+					12) = 0;
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
+			*en_rule |= IPA_FLT_FLOW_LABEL;
+			eq_atrb->fl_eq_present = 1;
+			eq_atrb->fl_eq = attrib->u.v6.flow_label;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
+			*en_rule |= IPA_METADATA_COMPARE;
+			eq_atrb->metadata_meq32_present = 1;
+			eq_atrb->metadata_meq32.offset = 0;
+			eq_atrb->metadata_meq32.mask = attrib->meta_data_mask;
+			eq_atrb->metadata_meq32.value = attrib->meta_data;
+		}
+
+	} else {
+		IPAERR("unsupported ip %d\n", ip);
+		return -EPERM;
+	}
+
+	/*
+	 * default "rule" means no attributes set -> map to
+	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
+	 */
+	if (attrib->attrib_mask == 0) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		eq_atrb->offset_meq_32[ofst_meq32].offset = 0;
+		eq_atrb->offset_meq_32[ofst_meq32].mask = 0;
+		eq_atrb->offset_meq_32[ofst_meq32].value = 0;
+		ofst_meq32++;
+	}
+
+	eq_atrb->rule_eq_bitmap = *en_rule;
+	eq_atrb->num_offset_meq_32 = ofst_meq32;
+	eq_atrb->num_ihl_offset_range_16 = ihl_ofst_rng16;
+	eq_atrb->num_ihl_offset_meq_32 = ihl_ofst_meq32;
+	eq_atrb->num_offset_meq_128 = ofst_meq128;
+
+	return 0;
+}
+
 /**
  * ipa_cfg_ep - IPA end-point configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
