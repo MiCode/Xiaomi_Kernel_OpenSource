@@ -1342,6 +1342,13 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		s_ctrl->power_setting_array =
 			sensor_slave_info.power_setting_array;
 		power_setting_array = &s_ctrl->power_setting_array;
+
+		if (!power_setting_array->size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
 		power_setting_array->power_setting = kzalloc(
 			power_setting_array->size *
 			sizeof(struct msm_sensor_power_setting), GFP_KERNEL);
@@ -1398,6 +1405,12 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		if (copy_from_user(&conf_array,
 			(void *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_reg_setting))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		if (!conf_array.size) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
@@ -1492,6 +1505,12 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		CDBG("%s:slave_addr=0x%x, array_size=%d\n", __func__,
 			write_config.slave_addr,
 			write_config.conf_array.size);
+
+		if (!write_config.conf_array.size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
 		reg_setting = kzalloc(write_config.conf_array.size *
 			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
 		if (!reg_setting) {
@@ -1565,6 +1584,11 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 
+		if (!conf_array.size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
 		reg_setting = kzalloc(conf_array.size *
 			(sizeof(struct msm_camera_i2c_seq_reg_array)),
 			GFP_KERNEL);
@@ -1655,8 +1679,13 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		s_ctrl->stop_setting_valid = 1;
-
 		reg_setting = stop_setting->reg_setting;
+
+		if (!stop_setting->size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
 		stop_setting->reg_setting = kzalloc(stop_setting->size *
 			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
 		if (!stop_setting->reg_setting) {
