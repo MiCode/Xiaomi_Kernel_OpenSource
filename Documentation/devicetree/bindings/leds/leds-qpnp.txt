@@ -38,10 +38,10 @@ Optional properties for WLED:
 Flash is used primarily as a camera or video flash.
 
 Optional properties for flash:
-- qcom,headroom: headroom to use, mV
-- qcom,duration: duration of the flash, ms
+- qcom,headroom: headroom to use. Values should be 0, 1, 2, 3 for 250mV, 300mV, 400mV and 500mV
+- qcom,duration: duration of the flash and torch, 10ms - 1280ms for flash and 2s - 33s for torch
 - qcom,clamp-curr: current to clamp at, mA
-- qcom,startup-dly: delay before flashing after flash executed, us
+- qcom,startup-dly: delay before flashing after flash executed. Values should 0, 1, 2, 3 for 10us, 32us, 64us, and 128us
 - qcom,saftey-timer: include for safety timer use, otherwise watchdog timer will be used
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
