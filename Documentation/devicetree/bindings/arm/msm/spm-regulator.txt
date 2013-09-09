@@ -12,6 +12,13 @@ Required structure:
 - A qcom,spm-regulator node must be a child of an SPMI node that has specified
 	the spmi-slave-container property
 
+Optional properties:
+- qcom,mode:       A string which specifies the mode to use for the regulator.
+		    Supported values are "pwm" and "auto".  PWM mode is more
+		    robust, but draws more current than auto mode.  If this
+		    property is not specified, then the regulator will remain
+		    in whatever mode hardware or bootloaders set it to.
+
 All properties specified within the core regulator framework can also be used.
 These bindings can be found in regulator.txt.
 
