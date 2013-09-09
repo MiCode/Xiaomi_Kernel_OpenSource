@@ -22,6 +22,13 @@
 /include/ "msm-pma8084.dtsi"
 /include/ "msm8974pro-ac-regulator.dtsi"
 
+/ {
+	qcom,msm-id = <194 0x10000>,
+		      <210 0x10000>,
+		      <213 0x10000>,
+		      <216 0x10000>;
+};
+
 /*
  * Override PM8841 and PM8941 resources with proper PMA8084 resources for
  * MSM8974Pro AC.

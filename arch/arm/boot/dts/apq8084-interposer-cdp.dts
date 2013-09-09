@@ -16,10 +16,7 @@
 /include/ "apq8084-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro-AC APQ8084 Interporser CDP";
+	model = "Qualcomm MSM 8974Pro-AC APQ8084 Interporser CDP / MTP";
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,msm-id = <194 1 0x10000>,
-		      <210 1 0x10000>,
-		      <213 1 0x10000>,
-		      <216 1 0x10000>;
+	qcom,board-id = <1 2>, <8 2>;
 };
