@@ -101,6 +101,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc330000.cti", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc33c000.cti", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "fc360000.cti", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "fd828018.hwevent", OFF),
 
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc326000.tmc", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc324000.replicator", OFF),
@@ -127,6 +128,10 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc330000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc33c000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fc360000.cti", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "fd828018.hwevent", OFF),
+
+	CLK_DUMMY("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent",
+		  OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
