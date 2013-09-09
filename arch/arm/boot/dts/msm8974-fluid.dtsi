@@ -293,6 +293,7 @@
 			qcom,switch-freq = <11>;
 			qcom,ovp-val = <2>;
 			qcom,num-strings = <3>;
+			qcom,num-physical-strings = <3>;
 			qcom,id = <0>;
 		};
 	};
