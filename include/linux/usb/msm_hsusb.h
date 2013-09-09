@@ -440,6 +440,7 @@ struct msm_otg {
 	unsigned int host_mode;
 	unsigned int voltage_max;
 	unsigned int current_max;
+	unsigned int usbin_health;
 
 	dev_t ext_chg_dev;
 	struct cdev ext_chg_cdev;

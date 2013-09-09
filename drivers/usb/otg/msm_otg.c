@@ -3604,6 +3604,9 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = psy->type;
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = motg->usbin_health;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -3634,6 +3637,9 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPE:
 		psy->type = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		motg->usbin_health = val->intval;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -3646,6 +3652,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 						enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_HEALTH:
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
@@ -3663,6 +3670,7 @@ static char *otg_pm_power_supplied_to[] = {
 };
 
 static enum power_supply_property otg_pm_power_props_usb[] = {
+	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
