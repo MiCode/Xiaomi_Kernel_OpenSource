@@ -56,8 +56,8 @@
 			qcom,ws = <10000>;
 			qcom,qport = <2>;
 			qcom,mas-hw-id = <11>;
-			qcom,prio1 = <2>;
-			qcom,prio0 = <2>;
+			qcom,prio1 = <3>;
+			qcom,prio0 = <3>;
 		};
 
 		mas-mdpe {
@@ -71,8 +71,8 @@
 			qcom,ws = <10000>;
 			qcom,qport = <7>;
 			qcom,mas-hw-id = <11>;
-			qcom,prio1 = <2>;
-			qcom,prio0 = <2>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 		};
 
 		fab-bimc {
@@ -913,7 +913,7 @@
 		qcom,fabclk-dual = "mem_clk";
 		qcom,fabclk-active = "mem_a_clk";
 		qcom,ntieredslaves = <0>;
-		qcom,qos-freq = <4800>;
+		qcom,qos-freq = <19200>;
 		qcom,hw-sel = "BIMC";
 		qcom,rpm-en;
 
@@ -930,13 +930,19 @@
 			qcom,masterp = <0>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "BIMC";
-			qcom,mode = "Fixed";
+			qcom,mode = "Limiter";
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
 			qcom,prio-lvl = <0>;
+			qcom,mode-thresh = "Fixed";
+			qcom,thresh = <800000>;
+			qcom,dual-conf;
+			qcom,bimc,bw = <300000>;
+			qcom,bimc,gp = <5>;
+			qcom,bimc,thmp = <50>;
 		};
 
 		mas-mss-proc {
