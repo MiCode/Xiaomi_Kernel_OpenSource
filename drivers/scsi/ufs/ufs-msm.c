@@ -1098,10 +1098,12 @@ static int msm_ufs_check_hibern8(struct ufs_hba *hba)
 	do {
 		err = ufshcd_dme_get(hba,
 			UIC_ARG_MIB(MPHY_TX_FSM_STATE), &tx_fsm_val);
-		if (!err &&  tx_fsm_val != TX_FSM_HIBERN8)
-			/* sleep for max. 200us */
-			usleep_range(100, 200);
-	} while (!err && time_before(jiffies, timeout));
+		if (err || tx_fsm_val == TX_FSM_HIBERN8)
+			break;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
 
 	/*
 	 * we might have scheduled out for long during polling so
