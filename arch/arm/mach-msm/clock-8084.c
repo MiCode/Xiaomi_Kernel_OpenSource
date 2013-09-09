@@ -3275,9 +3275,10 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 	},
 };
 
+/* Set has_sibling to 0 to allow set rate on this branch clock */
 static struct branch_clk gcc_usb_hsic_ahb_clk = {
 	.cbcr_reg = USB_HSIC_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &usb_hsic_ahb_clk_src.c,
