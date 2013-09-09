@@ -13,12 +13,12 @@
 /dts-v1/;
 
 /include/ "msm8610-v2.dtsi"
-/include/ "msm8610-qrd.dtsi"
+/include/ "msm8610-qrd-skuab.dtsi"
+/include/ "dsi-v2-panel-otm8018b-fwvga-video.dtsi"
+/include/ "msm8612-qrd-camera-sensor.dtsi"
 
 / {
-	model = "Qualcomm MSM 8610v2 QRD";
+	model = "Qualcomm MSM 8610v2 QRD SKUAB";
 	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
 	qcom,board-id = <11 3>;
-	qcom,msm-id = <147 0x10001>, <165 0x10001>, <161 0x10001>, <162 0x10001>,
-				  <163 0x10001>, <164 0x10001>, <166 0x10001>;
 };
