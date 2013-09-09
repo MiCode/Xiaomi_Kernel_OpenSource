@@ -309,6 +309,8 @@ struct wcd9xxx_mbhc {
 
 	u32 rco_clk_rate;
 
+	bool update_z;
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
 	struct dentry *debugfs_mbhc;
