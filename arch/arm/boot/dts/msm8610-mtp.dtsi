@@ -182,8 +182,10 @@
             "INT_LDO_H", "MCLK",
             "MIC BIAS External", "Handset Mic",
             "MIC BIAS Internal2", "Headset Mic",
+            "MIC BIAS External", "Secondary Mic",
             "AMIC1", "MIC BIAS External",
-            "AMIC2", "MIC BIAS Internal2";
+            "AMIC2", "MIC BIAS Internal2",
+            "AMIC3", "MIC BIAS External";
     };
 
 	qcom,dsi_v2_truly_wvga_video {
