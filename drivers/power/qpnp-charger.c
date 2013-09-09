@@ -33,6 +33,7 @@
 #include <linux/qpnp-revid.h>
 #include <linux/alarmtimer.h>
 #include <linux/time.h>
+#include <linux/spinlock.h>
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
@@ -294,14 +295,19 @@ struct qpnp_chg_chip {
 	struct qpnp_chg_irq		chg_vbatdet_lo;
 	struct qpnp_chg_irq		batt_pres;
 	struct qpnp_chg_irq		batt_temp_ok;
+	struct qpnp_chg_irq		coarse_det_usb;
 	bool				bat_is_cool;
 	bool				bat_is_warm;
 	bool				chg_done;
 	bool				charger_monitor_checked;
 	bool				usb_present;
+	u8				usbin_health;
+	bool				usb_coarse_det;
 	bool				dc_present;
 	bool				batt_present;
 	bool				charging_disabled;
+	bool				ovp_monitor_enable;
+	bool				usb_valid_check_ovp;
 	bool				btc_disabled;
 	bool				use_default_batt_values;
 	bool				duty_cycle_100p;
@@ -346,6 +352,7 @@ struct qpnp_chg_chip {
 	struct work_struct		adc_disable_work;
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
+	struct delayed_work		usbin_health_check;
 	struct work_struct		soc_check_work;
 	struct delayed_work		aicl_check_work;
 	struct work_struct		insertion_ocv_work;
@@ -358,6 +365,7 @@ struct qpnp_chg_chip {
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct mutex			jeita_configure_lock;
 	struct mutex			batfet_vreg_lock;
+	spinlock_t			usbin_health_monitor_lock;
 	struct alarm			reduce_power_stage_alarm;
 	struct work_struct		reduce_power_stage_work;
 	bool				power_stage_workaround_running;
@@ -395,7 +403,13 @@ static u8 btc_value[] = {
 	[COLD_THD_80_PCT] = BIT(1),
 };
 
-	static inline int
+enum usbin_health {
+	USBIN_UNKNOW,
+	USBIN_OK,
+	USBIN_OVP,
+};
+
+static inline int
 get_bpd(const char *name)
 {
 	int i = 0;
@@ -606,6 +620,58 @@ qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 	pr_debug("chgr usb sts 0x%x\n", usbin_valid_rt_sts);
 
 	return (usbin_valid_rt_sts & USB_VALID_BIT) ? 1 : 0;
+}
+
+#define USB_VALID_MASK 0xC0
+#define USB_COARSE_DET 0x10
+#define USB_VALID_UVP_VALUE    0x00
+#define USB_VALID_OVP_VALUE    0x40
+static int
+qpnp_chg_check_usb_coarse_det(struct qpnp_chg_chip *chip)
+{
+	u8 usbin_chg_rt_sts;
+	int rc;
+	rc = qpnp_chg_read(chip, &usbin_chg_rt_sts,
+		chip->usb_chgpth_base + CHGR_STATUS , 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+			chip->usb_chgpth_base + CHGR_STATUS, rc);
+		return rc;
+	}
+	return (usbin_chg_rt_sts & USB_COARSE_DET) ? 1 : 0;
+}
+
+static int
+qpnp_chg_check_usbin_health(struct qpnp_chg_chip *chip)
+{
+	u8 usbin_chg_rt_sts, usbin_health = 0;
+	int rc;
+
+	rc = qpnp_chg_read(chip, &usbin_chg_rt_sts,
+		chip->usb_chgpth_base + CHGR_STATUS , 1);
+
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+		chip->usb_chgpth_base + CHGR_STATUS, rc);
+		return rc;
+	}
+
+	pr_debug("chgr usb sts 0x%x\n", usbin_chg_rt_sts);
+	if ((usbin_chg_rt_sts & USB_COARSE_DET) == USB_COARSE_DET) {
+		if ((usbin_chg_rt_sts & USB_VALID_MASK)
+			 == USB_VALID_OVP_VALUE) {
+			usbin_health = USBIN_OVP;
+			pr_err("Over voltage charger inserted\n");
+		} else if ((usbin_chg_rt_sts & USB_VALID_BIT) != 0) {
+			usbin_health = USBIN_OK;
+			pr_debug("Valid charger inserted\n");
+		}
+	} else {
+		usbin_health = USBIN_UNKNOW;
+		pr_debug("Charger plug out\n");
+	}
+
+	return usbin_health;
 }
 
 static int
@@ -1195,12 +1261,103 @@ qpnp_chg_regulator_batfet_set(struct qpnp_chg_chip *chip, bool enable)
 	return rc;
 }
 
+static void
+qpnp_usbin_health_check_work(struct work_struct *work)
+{
+	int usbin_health = 0;
+	u8 psy_health_sts = 0;
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_chg_chip *chip = container_of(dwork,
+				struct qpnp_chg_chip, usbin_health_check);
+
+	usbin_health = qpnp_chg_check_usbin_health(chip);
+	spin_lock(&chip->usbin_health_monitor_lock);
+	if (chip->usbin_health != usbin_health) {
+		pr_debug("health_check_work: pr_usbin_health = %d, usbin_health = %d",
+			chip->usbin_health, usbin_health);
+		chip->usbin_health = usbin_health;
+		if (usbin_health == USBIN_OVP)
+			psy_health_sts = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+		else if (usbin_health == USBIN_OK)
+			psy_health_sts = POWER_SUPPLY_HEALTH_GOOD;
+		power_supply_set_health_state(chip->usb_psy, psy_health_sts);
+		power_supply_changed(chip->usb_psy);
+	}
+	/* enable OVP monitor in usb valid after coarse-det complete */
+	chip->usb_valid_check_ovp = true;
+	spin_unlock(&chip->usbin_health_monitor_lock);
+	return;
+}
+
+#define USB_VALID_DEBOUNCE_TIME_MASK		0x3
+#define USB_DEB_BYPASS		0x0
+#define USB_DEB_5MS			0x1
+#define USB_DEB_10MS		0x2
+#define USB_DEB_20MS		0x3
+static irqreturn_t
+qpnp_chg_coarse_det_usb_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_chg_chip *chip = _chip;
+	int host_mode, rc = 0;
+	int debounce[] = {
+		[USB_DEB_BYPASS] = 0,
+		[USB_DEB_5MS] = 5,
+		[USB_DEB_10MS] = 10,
+		[USB_DEB_20MS] = 20 };
+	u8 ovp_ctl;
+	bool usb_coarse_det;
+
+	host_mode = qpnp_chg_is_otg_en_set(chip);
+	usb_coarse_det = qpnp_chg_check_usb_coarse_det(chip);
+	pr_debug("usb coarse-det triggered: %d host_mode: %d\n",
+			usb_coarse_det, host_mode);
+
+	if (host_mode)
+		return IRQ_HANDLED;
+	/* ignore to monitor OVP in usbin valid irq handler
+	 * if the coarse-det fired first, do the OVP state monitor
+	 * in the usbin_health_check work, and after the work,
+	 * enable monitor OVP in usbin valid irq handler */
+	chip->usb_valid_check_ovp = false;
+	if (chip->usb_coarse_det ^ usb_coarse_det) {
+		chip->usb_coarse_det = usb_coarse_det;
+		if (usb_coarse_det) {
+			/* usb coarse-det rising edge, check the usbin_valid
+			 * debounce time setting, and start a delay work to
+			 * check the OVP status */
+			rc = qpnp_chg_read(chip, &ovp_ctl,
+					chip->usb_chgpth_base + USB_OVP_CTL, 1);
+
+			if (rc) {
+				pr_err("spmi read failed: addr=%03X, rc=%d\n",
+					chip->usb_chgpth_base + USB_OVP_CTL,
+					rc);
+				return rc;
+			}
+			ovp_ctl = ovp_ctl & USB_VALID_DEBOUNCE_TIME_MASK;
+			schedule_delayed_work(&chip->usbin_health_check,
+					msecs_to_jiffies(debounce[ovp_ctl]));
+		} else {
+			/* usb coarse-det rising edge, set the usb psy health
+			 * status to unknown */
+			pr_debug("usb coarse det clear, set usb health to unknown\n");
+			chip->usbin_health = USBIN_UNKNOW;
+			power_supply_set_health_state(chip->usb_psy,
+				POWER_SUPPLY_HEALTH_UNKNOWN);
+			power_supply_changed(chip->usb_psy);
+		}
+
+	}
+	return IRQ_HANDLED;
+}
+
 #define ENUM_T_STOP_BIT		BIT(0)
 static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
-	int usb_present, host_mode;
+	int usb_present, host_mode, usbin_health;
+	u8 psy_health_sts;
 
 	usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
 	host_mode = qpnp_chg_is_otg_en_set(chip);
@@ -1214,6 +1371,26 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
 		if (!usb_present) {
+			/* when a valid charger inserted, and increase the
+			 *  charger voltage to OVP threshold, then
+			 *  usb_in_valid falling edge interrupt triggers.
+			 *  So we handle the OVP monitor here, and ignore
+			 *  other health state changes */
+			if (chip->ovp_monitor_enable &&
+				       (chip->usb_valid_check_ovp)) {
+				usbin_health =
+					qpnp_chg_check_usbin_health(chip);
+				if (chip->usbin_health != usbin_health) {
+					chip->usbin_health = usbin_health;
+					if (usbin_health == USBIN_OVP)
+						psy_health_sts =
+					POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+					power_supply_set_health_state(
+						chip->usb_psy,
+						psy_health_sts);
+					power_supply_changed(chip->usb_psy);
+				}
+			}
 			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
@@ -1222,6 +1399,27 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 			qpnp_chg_usb_suspend_enable(chip, 1);
 			chip->prev_usb_max_ma = -EINVAL;
 		} else {
+			/* when OVP clamped usbin, and then decrease
+			 * the charger voltage to lower than the OVP
+			 * threshold, a usbin_valid rising edge
+			 * interrupt triggered. So we change the usb
+			 * psy health state back to good */
+			if (chip->ovp_monitor_enable &&
+				       (chip->usb_valid_check_ovp)) {
+				usbin_health =
+					qpnp_chg_check_usbin_health(chip);
+				if (chip->usbin_health != usbin_health) {
+					chip->usbin_health = usbin_health;
+					 if (usbin_health == USBIN_OK)
+						psy_health_sts =
+						POWER_SUPPLY_HEALTH_GOOD;
+					power_supply_set_health_state(
+						chip->usb_psy,
+						psy_health_sts);
+					power_supply_changed(chip->usb_psy);
+				}
+			}
+
 			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
@@ -3352,6 +3550,27 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 		case SMBB_USB_CHGPTH_SUBTYPE:
 		case SMBBP_USB_CHGPTH_SUBTYPE:
 		case SMBCL_USB_CHGPTH_SUBTYPE:
+			if (chip->ovp_monitor_enable) {
+				chip->coarse_det_usb.irq =
+					spmi_get_irq_byname(spmi,
+					spmi_resource, "coarse-det-usb");
+				if (chip->coarse_det_usb.irq < 0) {
+					pr_err("Can't get coarse-det irq\n");
+					return rc;
+				}
+				rc = devm_request_irq(chip->dev,
+					chip->coarse_det_usb.irq,
+					qpnp_chg_coarse_det_usb_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"coarse-det-usb", chip);
+				if (rc < 0) {
+					pr_err("Can't req %d coarse-det: %d\n",
+						chip->coarse_det_usb.irq, rc);
+					return rc;
+				}
+			}
+
 			chip->usbin_valid.irq = spmi_get_irq_byname(spmi,
 						spmi_resource, "usbin-valid");
 			if (chip->usbin_valid.irq < 0) {
@@ -3867,6 +4086,10 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,charging-disabled");
 
+	chip->ovp_monitor_enable = of_property_read_bool(
+					chip->spmi->dev.of_node,
+					"qcom,ovp-monitor-en");
+
 	/* Get the duty-cycle-100p property */
 	chip->duty_cycle_100p = of_property_read_bool(
 					chip->spmi->dev.of_node,
@@ -3935,6 +4158,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	mutex_init(&chip->jeita_configure_lock);
 	mutex_init(&chip->batfet_vreg_lock);
+	spin_lock_init(&chip->usbin_health_monitor_lock);
 	alarm_init(&chip->reduce_power_stage_alarm, ALARM_REALTIME,
 			qpnp_chg_reduce_power_stage_callback);
 	INIT_WORK(&chip->reduce_power_stage_work,
@@ -4154,6 +4378,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	INIT_DELAYED_WORK(&chip->eoc_work, qpnp_eoc_work);
 	INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
+	INIT_DELAYED_WORK(&chip->usbin_health_check,
+			qpnp_usbin_health_check_work);
 	INIT_WORK(&chip->soc_check_work, qpnp_chg_soc_check_work);
 	INIT_DELAYED_WORK(&chip->aicl_check_work, qpnp_aicl_check_work);
 
