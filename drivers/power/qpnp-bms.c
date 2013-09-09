@@ -2030,6 +2030,9 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
 
+	if (wake_lock_active(&chip->low_voltage_wake_lock))
+		goto skip_limits;
+
 	if (chip->last_ocv_uv > chip->flat_ocv_threshold_uv)
 		correction_limit_uv = chip->high_ocv_correction_limit_uv;
 	else
@@ -2044,6 +2047,8 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 			delta_ocv_uv = -correction_limit_uv;
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
+
+skip_limits:
 
 	chip->last_ocv_uv -= delta_ocv_uv;
 
