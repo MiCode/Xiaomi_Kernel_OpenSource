@@ -88,6 +88,7 @@
 #define CHGR_STATUS				0x09
 #define CHGR_BAT_IF_VCP				0x42
 #define CHGR_BAT_IF_BATFET_CTRL1		0x90
+#define CHGR_BAT_IF_BATFET_CTRL4		0x93
 #define CHGR_BAT_IF_SPARE			0xDF
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_PSTG_CTRL			0x73
@@ -2360,8 +2361,13 @@ qpnp_chg_regulator_batfet_enable(struct regulator_dev *rdev)
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
-	rc = qpnp_chg_masked_write(chip,
+	if (chip->type == SMBB)
+		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + CHGR_BAT_IF_SPARE,
+			BATFET_LPM_MASK, BATFET_NO_LPM, 1);
+	else
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4,
 			BATFET_LPM_MASK, BATFET_NO_LPM, 1);
 	if (rc)
 		pr_err("failed to write to batt_if rc=%d\n", rc);
@@ -2374,8 +2380,13 @@ qpnp_chg_regulator_batfet_disable(struct regulator_dev *rdev)
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
-	rc = qpnp_chg_masked_write(chip,
+	if (chip->type == SMBB)
+		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + CHGR_BAT_IF_SPARE,
+			BATFET_LPM_MASK, BATFET_LPM, 1);
+	else
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4,
 			BATFET_LPM_MASK, BATFET_LPM, 1);
 	if (rc)
 		pr_err("failed to write to batt_if rc=%d\n", rc);
@@ -2386,11 +2397,15 @@ static int
 qpnp_chg_regulator_batfet_is_enabled(struct regulator_dev *rdev)
 {
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
-	int rc;
+	int rc = 0;
 	u8 reg;
 
-	rc = qpnp_chg_read(chip, &reg,
+	if (chip->type == SMBB)
+		rc = qpnp_chg_read(chip, &reg,
 				chip->bat_if_base + CHGR_BAT_IF_SPARE, 1);
+	else
+		rc = qpnp_chg_read(chip, &reg,
+			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4, 1);
 	if (rc) {
 		pr_err("failed to read batt_if rc=%d\n", rc);
 		return rc;
