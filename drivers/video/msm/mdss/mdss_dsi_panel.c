@@ -187,8 +187,13 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				ctrl_pdata->rst_seq[i]);
 			msleep(ctrl_pdata->rst_seq[++i]);
 		}
+
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+
+		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
+			gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
+
 		if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 			pr_debug("%s: Panel Not properly turned OFF\n",
 						__func__);
@@ -196,9 +201,13 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
-		gpio_set_value((ctrl_pdata->rst_gpio), 0);
+		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
+			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
+
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+
+		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 	}
 }
 
