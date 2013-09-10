@@ -352,7 +352,7 @@ static int msm_of_get_pin(struct device_node *np, int index,
 				struct msm_pinctrl_dd *dd, uint *pin)
 {
 	struct of_phandle_args pargs;
-	struct msm_pintype_info *pinfo;
+	struct msm_pintype_info *pinfo, *pintype;
 	int num_pintypes;
 	int ret, i;
 
@@ -360,9 +360,10 @@ static int msm_of_get_pin(struct device_node *np, int index,
 								index, &pargs);
 	if (ret)
 		return ret;
-	pinfo = dd->msm_pintype;
+	pintype = dd->msm_pintype;
 	num_pintypes = dd->num_pintypes;
 	for (i = 0; i < num_pintypes; i++)  {
+		pinfo = &pintype[i];
 		/* Find the matching pin type node */
 		if (pargs.np != pinfo->node)
 			continue;
@@ -527,7 +528,8 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 		for (i = 0; i < pinfo_entries; i++) {
 			pintype = &pinfo[i];
 			/* Check if node is pintype node */
-			if (!of_find_property(pt_node, pinfo->prop_name, NULL))
+			if (!of_find_property(pt_node, pintype->prop_name,
+									NULL))
 				continue;
 			of_node_get(pt_node);
 			pintype->node = pt_node;
