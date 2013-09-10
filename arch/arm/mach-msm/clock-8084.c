@@ -5646,7 +5646,6 @@ static struct clk_lookup apq_clocks_8084_rumi[] = {
 
 static struct clk_lookup apq_clocks_8084[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991e000.serial", OFF),
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("ref_clk",    NULL, "f9200000.qcom,ssusb", OFF),
 	CLK_DUMMY("mem_iface_clk",	gcc_mmss_bimc_gfx_clk.c,
 				     "fdb00000.qcom,kgsl-3d0", OFF),
@@ -5748,7 +5747,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_blsp1_qup6_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart1_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart2_apps_clk.c,	""),
-	CLK_LOOKUP("",	gcc_blsp1_uart3_apps_clk.c,	""),
+	CLK_LOOKUP("core_clk",	gcc_blsp1_uart3_apps_clk.c, "f991f000.serial"),
 	CLK_LOOKUP("",	gcc_blsp1_uart4_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart5_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart6_apps_clk.c,	""),
