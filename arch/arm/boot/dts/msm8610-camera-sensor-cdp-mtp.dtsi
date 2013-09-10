@@ -38,6 +38,78 @@
 		qcom,cci-master = <0>;
 	};
 
+	eeprom0: qcom,eeprom@6a {
+		cell-index = <0>;
+		reg = <0x6a 0x0>;
+		qcom,eeprom-name = "truly_cm7700";
+		compatible = "qcom,msm_eeprom";
+		qcom,slave-addr = <0x6c>;
+		qcom,num-blocks = <9>;
+		qcom,page0 = <1 0x0100 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0 1 1>;
+		qcom,mem0 = <0 0x0 2 0 1 0>;
+		qcom,page1 = <1 0x3d84 2 0x8 1 1>;
+		qcom,pageen1 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll1 = <0 0x0 2 0 1 1>;
+		qcom,mem1 = <32 0x3d00 2 0 1 0>;
+		qcom,page2 = <1 0x3d84 2 0x9 1 1>;
+		qcom,pageen2 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll2 = <0 0x0 2 0 1 1>;
+		qcom,mem2 = <32 0x3d00 2 0 1 0>;
+		qcom,page3 = <1 0x3d84 2 0xa 1 1>;
+		qcom,pageen3 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll3 = <0 0x0 2 0 1 1>;
+		qcom,mem3 = <32 0x3d00 2 0 1 0>;
+		qcom,page4 = <1 0x3d84 2 0xb 1 1>;
+		qcom,pageen4 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll4 = <0 0x0 2 0 1 1>;
+		qcom,mem4 = <32 0x3d00 2 0 1 0>;
+		qcom,page5 = <1 0x3d84 2 0xc 1 1>;
+		qcom,pageen5 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll5 = <0 0x0 2 0 1 1>;
+		qcom,mem5 = <32 0x3d00 2 0 1 0>;
+		qcom,page6 = <1 0x3d84 2 0xd 1 1>;
+		qcom,pageen6 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll6 = <0 0x0 2 0 1 1>;
+		qcom,mem6 = <32 0x3d00 2 0 1 0>;
+		qcom,page7 = <1 0x3d84 2 0xe 1 1>;
+		qcom,pageen7 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll7 = <0 0x0 2 0 1 1>;
+		qcom,mem7 = <32 0x3d00 2 0 1 0>;
+		qcom,page8 = <1 0x3d84 2 0xf 1 1>;
+		qcom,pageen8 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll8 = <0 0x0 2 0 1 1>;
+		qcom,mem8 = <32 0x3d00 2 0 1 0>;
+
+		cam_vdig-supply = <&pm8110_l2>;
+		cam_vio-supply = <&pm8110_l14>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio";
+		qcom,cam-vreg-type = <0 0 0 0>;
+		qcom,cam-vreg-min-voltage = <1200000 1800000>;
+		qcom,cam-vreg-max-voltage = <1200000 1800000>;
+		qcom,cam-vreg-op-mode = <200000 8000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 13 0>,
+			<&msmgpio 21 0>,
+			<&msmgpio 20 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET1",
+			"CAM_STANDBY";
+		qcom,cam-power-seq-type = "sensor_vreg",
+			"sensor_vreg", "sensor_clk",
+			"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig",
+			"cam_vio", "sensor_cam_mclk",
+			"sensor_gpio_reset",
+			"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <1 1 24000000 1 1>;
+		qcom,cam-power-seq-delay = <1 1 5 5 10>;
+	};
+
 	qcom,camera@6f {
 		compatible = "qcom,ov8825";
 		reg = <0x6f>;
@@ -46,6 +118,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
+		qcom,eeprom-src = <&eeprom0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "ov8825";
 		cam_vdig-supply = <&pm8110_l2>;
