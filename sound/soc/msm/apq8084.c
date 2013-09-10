@@ -41,6 +41,8 @@
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
+#define SAMPLING_RATE_8KHZ 8000
+#define SAMPLING_RATE_16KHZ 16000
 #define SAMPLING_RATE_48KHZ 48000
 #define SAMPLING_RATE_96KHZ 96000
 #define SAMPLING_RATE_192KHZ 192000
@@ -179,6 +181,20 @@ struct apq8084_liquid_dock_dev {
 
 static struct apq8084_liquid_dock_dev *apq8084_liquid_dock_dev;
 
+/* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
+enum {
+	SLIM_1_RX_1 = 160, /* BT-SCO TX and USB TX */
+	SLIM_1_TX_1 = 161, /* BT-SCO RX and USB RX1 */
+	SLIM_1_TX_2 = 162, /* USB RX2 */
+	SLIM_3_RX_1 = 167, /* External echo-cancellation ref */
+	SLIM_3_RX_2 = 168, /* External echo-cancellation ref */
+	SLIM_3_TX_1 = 169, /* HDMI RX */
+	SLIM_3_TX_2 = 170, /* HDMI RX */
+	SLIM_4_TX_1 = 163, /* In-call recording RX */
+	SLIM_4_TX_2 = 164, /* In-call recording RX */
+	SLIM_4_RX_1 = 165, /* In-call music delivery TX */
+};
+
 static struct platform_device *spdev;
 static struct regulator *ext_spk_amp_regulator;
 static int ext_spk_amp_gpio = -1;
@@ -193,6 +209,11 @@ static int msm_hdmi_rx_ch = 2;
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
+
+static int msm_slim_1_rate = SAMPLING_RATE_8KHZ;
+static int msm_slim_1_rx_ch = 1;
+static int msm_slim_1_tx_ch = 1;
+static int msm_slim_3_rx_ch = 1;
 
 static struct mutex cdc_mclk_mutex;
 static struct clk *codec_clk;
@@ -656,10 +677,10 @@ static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 
 static char const *hdmi_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 						 "KHZ_192"};
-static const char *const btsco_rate_text[] = {"8000", "16000"};
-static const struct soc_enum msm_btsco_enum[] = {
-	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
-};
+
+static const char * const slim1_tx_ch_text[] = {"One", "Two"};
+static const char * const slim3_rx_ch_text[] = {"One", "Two"};
+static const char *const slim1_rate_text[] = {"8000", "16000", "48000"};
 
 static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -777,6 +798,76 @@ static int msm_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 {
 	msm_slim_0_tx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s: msm_slim_0_tx_ch = %d\n", __func__, msm_slim_0_tx_ch);
+	return 1;
+}
+
+static int msm_slim_1_tx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_1_tx_ch  = %d\n", __func__,
+		 msm_slim_1_tx_ch);
+
+	ucontrol->value.integer.value[0] = msm_slim_1_tx_ch - 1;
+	return 0;
+}
+
+static int msm_slim_1_tx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	msm_slim_1_tx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_slim_1_tx_ch = %d\n", __func__,
+		 msm_slim_1_tx_ch);
+	return 1;
+}
+
+static int msm_slim_1_rate_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_1_rate  = %d", __func__,
+		 msm_slim_1_rate);
+
+	ucontrol->value.integer.value[0] = msm_slim_1_rate;
+	return 0;
+}
+
+static int msm_slim_1_rate_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 16000:
+		msm_slim_1_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 48000:
+		msm_slim_1_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 8000:
+	default:
+		msm_slim_1_rate = SAMPLING_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: msm_slim_1_rate = %d\n", __func__,
+		 msm_slim_1_rate);
+	return 0;
+}
+
+static int msm_slim_3_rx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_3_rx_ch  = %d\n", __func__,
+		 msm_slim_3_rx_ch);
+
+	ucontrol->value.integer.value[0] = msm_slim_3_rx_ch - 1;
+	return 0;
+}
+
+static int msm_slim_3_rx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	msm_slim_3_rx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_slim_3_rx_ch = %d\n", __func__,
+		 msm_slim_3_rx_ch);
 	return 1;
 }
 
@@ -1217,6 +1308,64 @@ static int msm_slim_5_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_slim_1_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = msm_slim_1_rate;
+	channels->min = channels->max = msm_slim_1_rx_ch;
+	return 0;
+}
+
+static int msm_slim_1_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = msm_slim_1_rate;
+	channels->min = channels->max = msm_slim_1_tx_ch;
+	return 0;
+}
+
+static int msm_slim_3_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_slim_3_rx_ch;
+	return 0;
+}
+
+static int msm_slim_3_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = 2;
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params)
 {
@@ -1237,6 +1386,9 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(3, hdmi_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(2, slim1_tx_ch_text),
+	SOC_ENUM_SINGLE_EXT(3, slim1_rate_text),
+	SOC_ENUM_SINGLE_EXT(3, slim3_rx_ch_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -1260,6 +1412,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
 	SOC_ENUM_EXT("HDMI_RX SampleRate", msm_snd_enum[7],
 			hdmi_rx_sample_rate_get, hdmi_rx_sample_rate_put),
+	SOC_ENUM_EXT("SLIM_1_TX Channels", msm_snd_enum[8],
+			msm_slim_1_tx_ch_get, msm_slim_1_tx_ch_put),
+	SOC_ENUM_EXT("SLIM_1 SampleRate", msm_snd_enum[9],
+			msm_slim_1_rate_get, msm_slim_1_rate_put),
+	SOC_ENUM_EXT("SLIM_3_RX Channels", msm_snd_enum[10],
+			msm_slim_3_rx_ch_get, msm_slim_3_rx_ch_put),
 };
 
 static bool apq8084_swap_gnd_mic(struct snd_soc_codec *codec)
@@ -1479,10 +1637,20 @@ out:
 	return err;
 }
 
+static int msm_stubrx_init(struct snd_soc_pcm_runtime *rtd)
+{
+	rtd->pmdown_time = 0;
+	return 0;
+}
+
 static int apq8084_snd_startup(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
-		 substream->name, substream->stream);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		  __func__, rtd->dai_link->stream_name,
+		  rtd->dai_link->cpu_dai_name,
+		  rtd->dai_link->codec_dai_name);
 	return 0;
 }
 
@@ -1599,12 +1767,18 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to get codec chan map\n", __func__);
 			goto end;
 		}
-		/* For tabla_tx1 case */
+		/* For taiko_tx1 case */
 		if (codec_dai->id == 1)
 			user_set_tx_ch = msm_slim_0_tx_ch;
-		/* For tabla_tx2 case */
+		/* For taiko_tx2 case */
 		else if (codec_dai->id == 3)
 			user_set_tx_ch = params_channels(params);
+		else if (codec_dai->id == 5)
+			/* DAI 5 is used for external EC reference from codec.
+			 * Since Rx is fed as reference for EC, the config of
+			 * this DAI is based on that of the Rx path.
+			 */
+			user_set_tx_ch = msm_slim_0_rx_ch;
 		else
 			user_set_tx_ch = tx_ch_cnt;
 
@@ -1624,8 +1798,11 @@ end:
 
 static void apq8084_snd_shudown(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s(): substream = %s stream = %d\n", __func__,
-		 substream->name, substream->stream);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		  __func__, rtd->dai_link->stream_name,
+		  rtd->dai_link->cpu_dai_name, rtd->dai_link->codec_dai_name);
 }
 
 static struct snd_soc_ops apq8084_be_ops = {
@@ -1683,9 +1860,92 @@ end:
 	return ret;
 }
 
+static int apq8084_slimbus_1_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch = SLIM_1_RX_1, tx_ch[2] = {SLIM_1_TX_1, SLIM_1_TX_2};
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: APQ USB TX -> SLIMBUS_1_RX -> MDM TX shared ch %d\n",
+			 __func__, rx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIMBUS_1 RX channel map\n",
+				__func__, ret);
+			goto end;
+		}
+	} else {
+		pr_debug("%s: MDM RX ->SLIMBUS_1_TX ->APQ USB Rx shared ch %d %d\n",
+			  __func__, tx_ch[0], tx_ch[1]);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, msm_slim_1_tx_ch,
+						  tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIMBUS_1 TX channel map\n",
+				__func__, ret);
+			goto end;
+		}
+	}
+
+end:
+	return ret;
+}
+
+static int apq8084_slimbus_3_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[2] = {SLIM_3_RX_1, SLIM_3_RX_2};
+	unsigned int tx_ch[2] = {SLIM_3_TX_1, SLIM_3_TX_2};
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: SLIMBUS_3_RX_ch %d, sch %d %d\n",
+			 __func__, msm_slim_3_rx_ch, rx_ch[0], rx_ch[1]);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+						  msm_slim_3_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIMBUS_3 RX channel map\n",
+				__func__, ret);
+			goto end;
+		}
+	} else {
+		pr_debug("%s: MDM RX -> SLIMBUS_3_TX -> APQ HDMI ch: %d, %d\n",
+			 __func__, tx_ch[0], tx_ch[1]);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 2, tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIMBUS_3 TX channel map\n",
+				__func__, ret);
+			goto end;
+		}
+	}
+
+end:
+	return ret;
+}
+
+static struct snd_soc_ops apq8084_slimbus_1_be_ops = {
+	.startup = apq8084_snd_startup,
+	.hw_params = apq8084_slimbus_1_hw_params,
+	.shutdown = apq8084_snd_shudown,
+};
+
 static struct snd_soc_ops apq8084_slimbus_2_be_ops = {
 	.startup = apq8084_snd_startup,
 	.hw_params = apq8084_slimbus_2_hw_params,
+	.shutdown = apq8084_snd_shudown,
+};
+
+static struct snd_soc_ops apq8084_slimbus_3_be_ops = {
+	.startup = apq8084_snd_startup,
+	.hw_params = apq8084_slimbus_3_hw_params,
 	.shutdown = apq8084_snd_shudown,
 };
 
@@ -1972,6 +2232,36 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA8,
 	},
+	/* Voice Stub */
+	{
+		.name = "Voice Stub",
+		.stream_name = "Voice Stub",
+		.cpu_dai_name = "VOICE_STUB",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+		 SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = "VoLTE Stub",
+		.stream_name = "VoLTE Stub",
+		.cpu_dai_name   = "VOLTE_STUB",
+		.platform_name  = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 	/* HDMI Hostless */
 	{
 		.name = "HDMI_RX_HOSTLESS",
@@ -2144,13 +2434,13 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.stream_name = "Slimbus1 Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.16386",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_rx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
-		/* this dai link has playback support */
+		.be_hw_params_fixup = msm_slim_1_rx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_1_be_ops,
+		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
@@ -2159,12 +2449,12 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.stream_name = "Slimbus1 Capture",
 		.cpu_dai_name = "msm-dai-q6-dev.16387",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_tx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
+		.be_hw_params_fixup = msm_slim_1_tx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_1_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -2172,13 +2462,13 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.stream_name = "Slimbus3 Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.16390",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_rx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
-		/* this dai link has playback support */
+		.be_hw_params_fixup = msm_slim_3_rx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_3_be_ops,
+		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
@@ -2187,12 +2477,12 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.stream_name = "Slimbus3 Capture",
 		.cpu_dai_name = "msm-dai-q6-dev.16391",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_tx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
+		.be_hw_params_fixup = msm_slim_3_tx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_3_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -2261,6 +2551,49 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_STUB_RX,
+		.stream_name = "Stub Playback",
+		.cpu_dai_name = "msm-dai-stub-dev.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_rx2",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_EXTPROC_RX,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.init = &msm_stubrx_init,
+		.ops = &apq8084_be_ops,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_STUB_TX,
+		.stream_name = "Stub Capture",
+		.cpu_dai_name = "msm-dai-stub-dev.1",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_EXTPROC_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &apq8084_be_ops,
+	},
+	{
+		.name = LPASS_BE_STUB_1_TX,
+		.stream_name = "Stub1 Capture",
+		.cpu_dai_name = "msm-dai-stub-dev.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "taiko_codec",
+		.codec_dai_name	= "taiko_tx3",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_EXTPROC_EC_TX,
+		/* This BE is used for external EC reference from codec. Since
+		 * Rx is fed as reference for EC, the config of this DAI is
+		 * based on that of the Rx path.
+		 */
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &apq8084_be_ops,
 	},
 };
 
