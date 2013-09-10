@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm APQ 8084 Simulator";
 	compatible = "qcom,apq8084-sim", "qcom,apq8084", "qcom,sim";
-	qcom,msm-id = <178 0 0>;
+	qcom,board-id = <16 0>;
 
 	aliases {
 		serial0 = &uart0;
