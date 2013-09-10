@@ -1176,6 +1176,20 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		}
 	}
 
+	ctrl_pdata->bklt_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-bklight-en-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
+		pr_info("%s: bklt_en gpio not specified\n", __func__);
+	} else {
+		rc = gpio_request(ctrl_pdata->bklt_en_gpio, "bklt_enable");
+		if (rc) {
+			pr_err("request bklt gpio failed, rc=%d\n", rc);
+			gpio_free(ctrl_pdata->bklt_en_gpio);
+			gpio_free(ctrl_pdata->disp_en_gpio);
+			return -ENODEV;
+		}
+	}
+
 	if (panel_data->panel_info.type == MIPI_CMD_PANEL) {
 		ctrl_pdata->disp_te_gpio = of_get_named_gpio
 			(ctrl_pdev->dev.of_node, "qcom,platform-te-gpio", 0);
