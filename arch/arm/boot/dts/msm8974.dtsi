@@ -214,10 +214,12 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
-		vdd-supply = <&gdsc_venus>;
+		venus-supply = <&gdsc_venus>;
 		qcom,hfi = "venus";
 		qcom,has-ocmem;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk";
+		qcom,clock-configs = <0x3 0x0 0x0 0x0>;
 	};
 
 	qcom,vidc {
