@@ -22,9 +22,9 @@
 static int set_nohalt(void *data, u64 val)
 {
 	if (val)
-		cpu_idle_poll_ctrl(false);
-	else
 		cpu_idle_poll_ctrl(true);
+	else
+		cpu_idle_poll_ctrl(false);
 	return 0;
 }
 
