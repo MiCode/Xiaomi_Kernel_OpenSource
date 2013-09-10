@@ -3088,15 +3088,16 @@ static struct branch_clk gcc_ufs_axi_clk = {
 	},
 };
 
-/* TODO: need to figure out if the divider is fixed */
 static struct branch_clk gcc_ufs_rx_cfg_clk = {
 	.cbcr_reg = UFS_RX_CFG_CBCR,
 	.has_sibling = 1,
+	.max_div = 16,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &ufs_axi_clk_src.c,
 		.dbg_name = "gcc_ufs_rx_cfg_clk",
 		.ops = &clk_ops_branch,
+		.rate = 2,
 		CLK_INIT(gcc_ufs_rx_cfg_clk.c),
 	},
 };
@@ -3121,15 +3122,16 @@ static struct branch_clk gcc_ufs_rx_symbol_1_clk = {
 	},
 };
 
-/* TODO: needs to figure out if the divider is fixed */
 static struct branch_clk gcc_ufs_tx_cfg_clk = {
 	.cbcr_reg = UFS_TX_CFG_CBCR,
 	.has_sibling = 1,
+	.max_div = 16,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &ufs_axi_clk_src.c,
 		.dbg_name = "gcc_ufs_tx_cfg_clk",
 		.ops = &clk_ops_branch,
+		.rate = 2,
 		CLK_INIT(gcc_ufs_tx_cfg_clk.c),
 	},
 };
