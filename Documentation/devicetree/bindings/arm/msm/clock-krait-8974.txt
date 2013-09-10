@@ -35,6 +35,12 @@ Optional properties:
 			not need to be listed in the table. If there is no
 			AVS support at all, then the whole property can be
 			omitted.
+- qcom,hfpll-config-val:
+			A 32 bit value to be programmed into the HFPLL
+			configuration control register.
+- qcom,hfpll-user-vco-mask:
+			The mask to be used when programming the VCO selection
+			bits in the user control register.
 
 Example:
 	qcom,clock-krait@f9016000 {
