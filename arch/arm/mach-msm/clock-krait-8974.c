@@ -56,8 +56,6 @@ static struct hfpll_data hdata = {
 	.status_offset = 0x1C,
 
 	.user_val = 0x8,
-	.user_vco_mask = BIT(20),
-	.config_val = 0x04D0405D,
 	.low_vco_max_rate = 1248000000,
 	.min_rate = 537600000UL,
 	.max_rate = 2900000000UL,
@@ -595,7 +593,8 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	char prop_name[] = "qcom,speedXX-pvsXX-bin-vXX";
 	unsigned long *freq, cur_rate, aux_rate;
 	int *uv, *ua;
-	u32 *dscr;
+	u32 *dscr, vco_mask, config_val;
+	int ret;
 
 	vdd_l2.regulator[0] = devm_regulator_get(dev, "l2-dig");
 	if (IS_ERR(vdd_l2.regulator[0])) {
@@ -663,6 +662,16 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 		return -EINVAL;
 	if (hfpll_base_init(pdev, &hfpll_l2_clk))
 		return -EINVAL;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,hfpll-config-val",
+			     &config_val);
+	if (!ret)
+		hdata.config_val = config_val;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,hfpll-user-vco-mask",
+			     &vco_mask);
+	if (!ret)
+		hdata.user_vco_mask = vco_mask;
 
 	get_krait_bin_format_b(pdev, &speed, &pvs, &ver);
 	snprintf(prop_name, ARRAY_SIZE(prop_name),
