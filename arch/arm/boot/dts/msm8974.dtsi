@@ -106,6 +106,7 @@
 /include/ "msm8974-mdss.dtsi"
 /include/ "msm8974-smp2p.dtsi"
 /include/ "msm8974-bus.dtsi"
+/include/ "msm8974-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
