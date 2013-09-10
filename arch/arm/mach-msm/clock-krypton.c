@@ -121,6 +121,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
 #define RPM_QPIC_CLK_TYPE	0x63697071
+#define RPM_IPA_CLK_TYPE        0x00617069
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
 
@@ -133,6 +134,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 #define BIMC_ID		0x0
 #define QPIC_ID		0x0
+#define IPA_ID		0x0
 
 #define D0_ID		 1
 #define D1_ID		 2
@@ -880,6 +882,8 @@ static struct rcg_clk usb_hsic_xcvr_fs_clk_src = {
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
+
+DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE, IPA_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 
@@ -1637,6 +1641,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&cnoc_clk.c,                          GCC_BASE, 0x0008},
 	{&pnoc_clk.c,                          GCC_BASE, 0x0010},
 	{&snoc_clk.c,                          GCC_BASE, 0x0000},
+	{&ipa_clk.c,                           GCC_BASE, 0x01E0},
 
 	{&q6ss_ahbm_clk.c,                   LPASS_BASE, 0x001d},
 	{&q6ss_ahb_lfabif_clk.c,             LPASS_BASE, 0x001e},
@@ -1847,6 +1852,9 @@ static struct clk_lookup msm_clocks_krypton[] = {
 
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991d000.uart"),
 	CLK_LOOKUP("core_clk", gcc_blsp1_uart1_apps_clk.c, "f991d000.uart"),
+
+	/* IPA */
+	CLK_LOOKUP("core_clk",        ipa_clk.c, "fd4c0000.qcom,ipa"),
 
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup1_i2c_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup1_spi_apps_clk.c, ""),
