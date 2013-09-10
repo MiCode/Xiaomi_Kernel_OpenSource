@@ -53,6 +53,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define CBCR_REG(x)	(*(x)->base + (x)->cbcr_reg)
 #define BCR_REG(x)	(*(x)->base + (x)->bcr_reg)
 #define VOTE_REG(x)	(*(x)->base + (x)->vote_reg)
+#define GATE_EN_REG(x)	(*(x)->base + (x)->en_reg)
 
 /*
  * Important clock bit positions and masks
@@ -924,6 +925,45 @@ static struct clk *edp_clk_get_parent(struct clk *c)
 	return freq->src_clk;
 }
 
+static int gate_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	u32 regval;
+	struct gate_clk *g = to_gate_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(GATE_EN_REG(g));
+	regval |= g->en_mask;
+	writel_relaxed(regval, GATE_EN_REG(g));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	return 0;
+}
+
+static void gate_clk_disable(struct clk *c)
+{
+	unsigned long flags;
+	u32 regval;
+	struct gate_clk *g = to_gate_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(GATE_EN_REG(g));
+	regval &= ~(g->en_mask);
+	writel_relaxed(regval, GATE_EN_REG(g));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static enum handoff gate_clk_handoff(struct clk *c)
+{
+	struct gate_clk *g = to_gate_clk(c);
+	u32 regval;
+
+	regval = readl_relaxed(GATE_EN_REG(g));
+	if (regval & g->en_mask)
+		return HANDOFF_ENABLED_CLK;
+
+	return HANDOFF_DISABLED_CLK;
+}
 
 struct clk_ops clk_ops_empty;
 
@@ -1004,4 +1044,10 @@ struct clk_ops clk_ops_vote = {
 	.disable = local_vote_clk_disable,
 	.reset = local_vote_clk_reset,
 	.handoff = local_vote_clk_handoff,
+};
+
+struct clk_ops clk_ops_gate = {
+	.enable = gate_clk_enable,
+	.disable = gate_clk_disable,
+	.handoff = gate_clk_handoff,
 };
