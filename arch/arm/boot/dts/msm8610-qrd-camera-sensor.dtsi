@@ -20,14 +20,14 @@
                 qcom,csid-sd-index = <0>;
                 qcom,mount-angle = <90>;
                 qcom,sensor-name = "hi256";
-                cam_vdig-supply = <&pm8110_l2>;
+                cam_vdig-supply = <&pm8110_l14>;
                 cam_vana-supply = <&pm8110_l19>;
                 cam_vio-supply = <&pm8110_l14>;
                 qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
                 qcom,cam-vreg-type = <0 0 0>;
-                qcom,cam-vreg-min-voltage = <1200000 1800000 2850000>;
-                qcom,cam-vreg-max-voltage = <1200000 1800000 2850000>;
-                qcom,cam-vreg-op-mode = <200000 8000 80000>;
+                qcom,cam-vreg-min-voltage = <1800000 1800000 2850000>;
+                qcom,cam-vreg-max-voltage = <1800000 1800000 2850000>;
+                qcom,cam-vreg-op-mode = <200000 0 80000>;
                 qcom,gpio-no-mux = <0>;
                 gpios = <&msmgpio 13 0>,
                         <&msmgpio 21 0>,
