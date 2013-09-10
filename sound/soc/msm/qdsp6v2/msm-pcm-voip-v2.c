@@ -80,12 +80,16 @@ enum voip_state {
 	VOIP_STARTED,
 };
 
-struct voip_frame {
+struct voip_frame_hdr {
+	uint32_t timestamp;
 	union {
-	uint32_t frame_type;
-	uint32_t packet_rate;
-	} header;
-	uint32_t len;
+		uint32_t frame_type;
+		uint32_t packet_rate;
+	};
+};
+struct voip_frame {
+	struct voip_frame_hdr frm_hdr;
+	uint32_t pktlen;
 	uint8_t voc_pkt[VOIP_MAX_VOC_PKT_SIZE];
 };
 
@@ -276,6 +280,7 @@ static unsigned int supported_sample_rates[] = {8000, 16000};
 /* capture path */
 static void voip_process_ul_pkt(uint8_t *voc_pkt,
 				uint32_t pkt_len,
+				uint32_t timestamp,
 				void *private_data)
 {
 	struct voip_buf_node *buf_node = NULL;
@@ -300,13 +305,15 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			buf_node->frame.header.frame_type =
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.frm_hdr.frame_type =
 						((*voc_pkt) & 0xF0) >> 4;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+			buf_node->frame.pktlen = pkt_len - DSP_FRAME_HDR_LEN;
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
+
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 			break;
 		}
@@ -318,27 +325,30 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 			 * Header format:
 			 * Bits 0-3: frame rate
 			 */
-			buf_node->frame.header.packet_rate = (*voc_pkt) & 0x0F;
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.frm_hdr.packet_rate = (*voc_pkt) & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+			buf_node->frame.pktlen = pkt_len - DSP_FRAME_HDR_LEN;
 
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 			break;
 		}
 		default: {
-			buf_node->frame.len = pkt_len;
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.pktlen = pkt_len;
 			memcpy(&buf_node->frame.voc_pkt[0],
 			       voc_pkt,
-			       buf_node->frame.len);
+			       buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 		}
 		}
-		pr_debug("ul_pkt: pkt_len =%d, frame.len=%d\n", pkt_len,
-			buf_node->frame.len);
+		pr_debug("%s: pkt_len =%d, frame.pktlen=%d, timestamp=%d\n",
+			 __func__, pkt_len, buf_node->frame.pktlen, timestamp);
+
 		prtd->pcm_capture_irq_pos += prtd->pcm_capture_count;
 		spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 		snd_pcm_period_elapsed(prtd->capture_substream);
@@ -369,7 +379,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 		switch (prtd->mode) {
 		case MODE_AMR:
 		case MODE_AMR_WB: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							DSP_FRAME_HDR_LEN;
 			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
@@ -378,12 +388,12 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			*voc_pkt = ((buf_node->frame.header.frame_type &
+			*voc_pkt = ((buf_node->frame.frm_hdr.frame_type &
 					0x0F) << 4) | (prtd->rate_type & 0x0F);
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 			break;
 		}
@@ -391,7 +401,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 		case MODE_4GV_NB:
 		case MODE_4GV_WB:
 		case MODE_4GV_NW: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							 DSP_FRAME_HDR_LEN;
 			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
@@ -399,22 +409,22 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 			 * Add the DSP frame info header. Header format:
 			 * Bits 0-3 : Frame rate
 			 */
-			*voc_pkt = buf_node->frame.header.packet_rate & 0x0F;
+			*voc_pkt = buf_node->frame.frm_hdr.packet_rate & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 			break;
 		}
 		default: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len;
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen;
 			voc_pkt = voc_pkt + sizeof(uint32_t);
 			memcpy(voc_pkt,
 			       &buf_node->frame.voc_pkt[0],
-			       buf_node->frame.len);
+			       buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 		}
 		}
@@ -562,7 +572,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 			if (prtd->mode == MODE_PCM) {
 				ret = copy_from_user(&buf_node->frame.voc_pkt,
 							buf, count);
-				buf_node->frame.len = count;
+				buf_node->frame.pktlen = count;
 			} else
 				ret = copy_from_user(&buf_node->frame,
 							buf, count);
