@@ -148,6 +148,7 @@ struct qpnp_bms_chip {
 	wait_queue_head_t		bms_wait_queue;
 	u16				base;
 	u16				iadc_base;
+	u16				batt_pres_addr;
 
 	u8				revision1;
 	u8				revision2;
@@ -3233,6 +3234,7 @@ static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,
 	return 0;
 }
 
+#define BAT_REMOVED_OFFMODE_BIT		BIT(6)
 static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 {
 	int rc;
@@ -3265,6 +3267,7 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 
 		rc = qpnp_read_wrapper(chip, &temp,
 				chip->base + SOC_STORAGE_REG, 1);
+		pr_debug("stored soc = %d\n", temp);
 		if (rc) {
 			pr_err("failed to read addr = %d %d\n",
 					chip->base + SOC_STORAGE_REG, rc);
@@ -3282,10 +3285,19 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 	/* read the SOC storage to determine if there was a battery removal */
 	rc = qpnp_read_wrapper(chip, &temp, chip->base + SOC_STORAGE_REG, 1);
 	if (!rc) {
-		if (temp == SOC_INVALID)
+		if (temp == SOC_INVALID) {
 			chip->battery_removed = true;
+			chip->shutdown_soc_invalid = true;
+		}
 	}
-
+	if (chip->batt_pres_addr) {
+		rc = qpnp_read_wrapper(chip, &temp, chip->batt_pres_addr, 1);
+		pr_debug("offmode removed: %02x\n", temp);
+		if (!rc && (temp & BAT_REMOVED_OFFMODE_BIT)) {
+			chip->battery_removed = true;
+			chip->shutdown_soc_invalid = true;
+		}
+	}
 
 	pr_debug("shutdown_soc = %d shutdown_iavg = %d shutdown_soc_invalid = %d, battery_removed = %d\n",
 			chip->shutdown_soc,
@@ -3642,6 +3654,14 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 			pr_err("node %s IO resource absent!\n",
 				spmi->dev.of_node->full_name);
 			return -ENXIO;
+		}
+
+		pr_debug("Node name = %s\n", spmi_resource->of_node->name);
+
+		if (strcmp("qcom,batt-pres-status",
+					spmi_resource->of_node->name) == 0) {
+			chip->batt_pres_addr = resource->start;
+			continue;
 		}
 
 		rc = qpnp_read_wrapper(chip, &type,
