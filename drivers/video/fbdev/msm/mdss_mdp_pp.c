@@ -3370,6 +3370,11 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	bl_mfd = ad->bl_mfd;
 	ctl = mfd_to_ctl(ad->mfd);
 
+	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
+		mutex_unlock(&ad->lock);
+		return;
+	}
+
 	if (PP_AD_STATE_RUN & ad->state) {
 		/* Kick off calculation */
 		ad->calc_itr--;
