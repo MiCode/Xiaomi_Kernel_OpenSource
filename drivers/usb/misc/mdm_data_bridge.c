@@ -381,13 +381,13 @@ int data_bridge_open(struct bridge *brdg)
 	int			ch_id;
 
 	if (!brdg) {
-		err("bridge is null\n");
+		pr_err("bridge is null\n");
 		return -EINVAL;
 	}
 
 	ch_id = get_data_bridge_chid(brdg->name);
 	if (ch_id < 0 || ch_id >= MAX_BRIDGE_DEVICES) {
-		err("%s: %s dev not found\n", __func__, brdg->name);
+		pr_err("%s: %s dev not found\n", __func__, brdg->name);
 		return ch_id;
 	}
 
@@ -673,13 +673,13 @@ static int data_bridge_probe(struct usb_interface *iface,
 
 	dev = __dev[id];
 	if (!dev) {
-		err("%s: device not found\n", __func__);
+		pr_err("%s: device not found\n", __func__);
 		return -ENODEV;
 	}
 
 	dev->pdev = platform_device_alloc(name, -1);
 	if (!dev->pdev) {
-		err("%s: unable to allocate platform device\n", __func__);
+		pr_err("%s: unable to allocate platform device\n", __func__);
 		kfree(dev);
 		return -ENOMEM;
 	}
@@ -957,7 +957,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	char				**bname = (char **)id->driver_info;
 
 	if (iface->num_altsetting != 1) {
-		err("%s invalid num_altsetting %u\n",
+		pr_err("%s invalid num_altsetting %u\n",
 				__func__, iface->num_altsetting);
 		return -EINVAL;
 	}
@@ -991,7 +991,8 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 
 	ch_id = get_bridge_dev_idx();
 	if (ch_id < 0) {
-		err("%s all bridge channels claimed. Probe failed\n", __func__);
+		pr_err("%s all bridge channels claimed. Probe failed\n",
+				__func__);
 		return -ENODEV;
 	}
 
@@ -1026,7 +1027,7 @@ static void bridge_disconnect(struct usb_interface *intf)
 	struct data_bridge	*dev = usb_get_intfdata(intf);
 
 	if (!dev) {
-		err("%s: data device not found\n", __func__);
+		pr_err("%s: data device not found\n", __func__);
 		return;
 	}
 
@@ -1126,7 +1127,7 @@ static int __init bridge_init(void)
 
 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 		if (!dev) {
-			err("%s: unable to allocate dev\n", __func__);
+			pr_err("%s: unable to allocate dev\n", __func__);
 			ret = -ENOMEM;
 			goto error;
 		}
@@ -1151,7 +1152,7 @@ static int __init bridge_init(void)
 
 	ret = usb_register(&bridge_driver);
 	if (ret) {
-		err("%s: unable to register mdm_bridge driver", __func__);
+		pr_err("%s: unable to register mdm_bridge driver", __func__);
 		goto error;
 	}
 

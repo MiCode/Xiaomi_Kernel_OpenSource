@@ -310,13 +310,13 @@ int ctrl_bridge_open(struct bridge *brdg)
 	int			ch_id;
 
 	if (!brdg) {
-		err("bridge is null\n");
+		pr_err("bridge is null\n");
 		return -EINVAL;
 	}
 
 	ch_id = get_ctrl_bridge_chid(brdg->name);
 	if (ch_id < 0 || ch_id >= MAX_BRIDGE_DEVICES) {
-		err("%s: %s dev not found\n", __func__, brdg->name);
+		pr_err("%s: %s dev not found\n", __func__, brdg->name);
 		return ch_id;
 	}
 
