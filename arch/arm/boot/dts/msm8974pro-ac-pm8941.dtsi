@@ -250,3 +250,31 @@
 					"low-thr-en-set";
 	};
 };
+
+/*
+ * Disable PMA8084 PWM/LPG devices in order to avoid a channel-id collision
+ * with PM8941 PWM/LPG devices.
+ */
+&pma8084_lpg1 {
+	status = "disabled";
+};
+
+&pma8084_lpg2 {
+	status = "disabled";
+};
+
+&pma8084_lpg3 {
+	status = "disabled";
+};
+
+&pma8084_lpg4 {
+	status = "disabled";
+};
+
+&pma8084_lpg5 {
+	status = "disabled";
+};
+
+&pma8084_lpg6 {
+	status = "disabled";
+};
