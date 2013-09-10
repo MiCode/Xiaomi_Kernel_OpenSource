@@ -61,8 +61,8 @@ static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 	u32 regval;
 
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	regval &= ~(0x3 | (0x3 << 8));
-	regval |= pri_src_sel | (pri_src_sel << 8);
+	regval &= ~0x3;
+	regval |= (pri_src_sel & 0x3);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
@@ -75,8 +75,8 @@ static void __cpuinit set_sec_clk_src(struct scalable *sc, u32 sec_src_sel)
 	u32 regval;
 
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	regval &= ~((0x3 << 2) | (0x3 << 10));
-	regval |= (sec_src_sel << 2) | (sec_src_sel << 10);
+	regval &= ~(0x3 << 2);
+	regval |= ((sec_src_sel & 0x3) << 2);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
@@ -784,7 +784,7 @@ static int __cpuinit init_clock_sources(struct scalable *sc,
 
 	/* Set PRI_SRC_SEL_HFPLL_DIV2 divider to div-2. */
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	regval &= ~(0x3 << 6 | 0x3 << 14);
+	regval &= ~(0x3 << 6);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
 	/* Enable and switch to the target clock source. */
