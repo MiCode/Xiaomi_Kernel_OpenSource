@@ -55,6 +55,9 @@ Required properties:
 				to LDO mode. Acceptable values are from 1000uV to 100000uV
 - qcom,cpu-num:			Indicates what cpu this regulator controls
 
+Optional properties:
+- qcom,ldo-disable:		Indicates whether to disable using LDO mode
+
 Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
 
