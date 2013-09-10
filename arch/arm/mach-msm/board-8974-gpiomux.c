@@ -305,14 +305,17 @@ static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	},
 };
 
-static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
+static struct msm_gpiomux_config msm_touch_i2cmode_configs[] __initdata = {
 	{
-		.gpio      = 59,		/* TOUCH I2C Mode */
+		.gpio      = 57,		/* TOUCH I2C Mode */
 		.settings = {
 			[GPIOMUX_ACTIVE] = &atmel_i2cmode_act_cfg,
 			[GPIOMUX_SUSPENDED] = &atmel_i2cmode_sus_cfg,
 		},
 	},
+};
+
+static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 	{
 		.gpio      = 60,		/* TOUCH RESET */
 		.settings = {
@@ -1382,6 +1385,9 @@ void __init msm_8974_init_gpiomux(void)
 			ARRAY_SIZE(msm8974_slimbus_config));
 
 	msm_gpiomux_install(msm_touch_configs, ARRAY_SIZE(msm_touch_configs));
+	if (of_board_is_liquid())
+		msm_gpiomux_install(msm_touch_i2cmode_configs,
+					ARRAY_SIZE(msm_touch_i2cmode_configs));
 		msm_gpiomux_install(hap_lvl_shft_config,
 				ARRAY_SIZE(hap_lvl_shft_config));
 
