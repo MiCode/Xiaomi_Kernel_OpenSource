@@ -31,6 +31,9 @@
 };
 
 &sdcc1 {
+	vdd-supply = <&pma8084_l20>;
+	vdd-io-supply = <&pma8084_s4>;
+
 	qcom,vdd-always-on;
 	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -54,6 +57,9 @@
 };
 
 &sdcc2 {
+	vdd-supply = <&pma8084_l21>;
+	vdd-io-supply = <&pma8084_l13>;
+
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <9000 800000>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
