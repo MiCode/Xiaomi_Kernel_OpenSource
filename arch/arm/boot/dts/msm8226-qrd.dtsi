@@ -385,6 +385,7 @@
 	status = "okay";
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,tchg-mins = <240>;
+	qcom,ovp-monitor-en;
 };
 
 &pm8226_gpios {
