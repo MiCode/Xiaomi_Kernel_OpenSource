@@ -184,8 +184,7 @@ static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
 
-/*
- * On SMD channel 4K of maximum data can be transferred, including message
+/* On SMD channel 4K of maximum data can be transferred, including message
  * header, so NV fragment size as next multiple of 1Kb is 3Kb.
  */
 #define NV_FRAGMENT_SIZE  3072
@@ -202,8 +201,7 @@ static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
 	(x / NV_FRAGMENT_SIZE) : ((x / NV_FRAGMENT_SIZE) + 1))
 
 struct nvbin_dnld_req_params {
-	/*
-	 * Fragment sequence number of the NV bin Image. NV Bin Image
+	/* Fragment sequence number of the NV bin Image. NV Bin Image
 	 * might not fit into one message due to size limitation of
 	 * the SMD channel FIFO so entire NV blob is chopped into
 	 * multiple fragments starting with seqeunce number 0. The
@@ -213,8 +211,7 @@ struct nvbin_dnld_req_params {
 	 */
 	unsigned short frag_number;
 
-	/*
-	 * bit 0: When set to 1 it indicates that no more fragments will
+	/* bit 0: When set to 1 it indicates that no more fragments will
 	 * be sent.
 	 * bit 1: When set, a new message will be followed by this message
 	 * bit 2- bit 14:  Reserved
@@ -226,8 +223,7 @@ struct nvbin_dnld_req_params {
 	/* NV Image size (number of bytes) */
 	unsigned int nvbin_buffer_size;
 
-	/*
-	 * Following the 'nvbin_buffer_size', there should be
+	/* Following the 'nvbin_buffer_size', there should be
 	 * nvbin_buffer_size bytes of NV bin Image i.e.
 	 * uint8[nvbin_buffer_size].
 	 */
@@ -235,8 +231,7 @@ struct nvbin_dnld_req_params {
 
 
 struct nvbin_dnld_req_msg {
-	/*
-	 * Note: The length specified in nvbin_dnld_req_msg messages
+	/* Note: The length specified in nvbin_dnld_req_msg messages
 	 * should be hdr.msg_len = sizeof(nvbin_dnld_req_msg) +
 	 * nvbin_buffer_size.
 	 */
@@ -251,26 +246,22 @@ struct cal_data_params {
 	 */
 	unsigned int total_size;
 	unsigned short frag_number;
-	/*
-	 * bit 0: When set to 1 it indicates that no more fragments will
+	/* bit 0: When set to 1 it indicates that no more fragments will
 	 * be sent.
 	 * bit 1: When set, a new message will be followed by this message
 	 * bit 2- bit 15: Reserved
 	 */
 	unsigned short msg_flags;
-	/*
-	 * fragment size
+	/* fragment size
 	 */
 	unsigned int frag_size;
-	/*
-	 * Following the frag_size, frag_size of fragmented
+	/* Following the frag_size, frag_size of fragmented
 	 * data will be followed.
 	 */
 };
 
 struct cal_data_msg {
-	/*
-	 * The length specified in cal_data_msg should be
+	/* The length specified in cal_data_msg should be
 	 * hdr.msg_len = sizeof(cal_data_msg) + frag_size
 	 */
 	struct smd_msg_hdr hdr;
@@ -740,7 +731,7 @@ fail:
 	return rc;
 }
 
-static int 
+static int
 wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 {
 	if (!penv || !penv->triggered)
@@ -773,7 +764,7 @@ static struct platform_driver wcnss_wlan_ctrl_driver = {
 	.remove	= wcnss_wlan_ctrl_remove,
 };
 
-static int 
+static int
 wcnss_ctrl_remove(struct platform_device *pdev)
 {
 	if (penv && penv->smd_ch)
@@ -782,7 +773,7 @@ wcnss_ctrl_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int 
+static int
 wcnss_ctrl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1352,8 +1343,7 @@ static void wcnss_nvbin_dnld(void)
 		goto out;
 	}
 
-	/*
-	 * First 4 bytes in nv blob is validity bitmap.
+	/* First 4 bytes in nv blob is validity bitmap.
 	 * We cannot validate nv, so skip those 4 bytes.
 	 */
 	nv_blob_addr = nv->data + 4;
@@ -1946,7 +1936,7 @@ static struct miscdevice wcnss_misc = {
 	.fops = &wcnss_node_fops,
 };
 
-static int 
+static int
 wcnss_wlan_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1988,7 +1978,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 
 }
 
-static int 
+static int
 wcnss_wlan_remove(struct platform_device *pdev)
 {
 	wcnss_remove_sysfs(&pdev->dev);
