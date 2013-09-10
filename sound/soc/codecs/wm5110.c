@@ -589,6 +589,20 @@ ARIZONA_MUX_ENUMS(ISRC3DEC2, ARIZONA_ISRC3DEC2MIX_INPUT_1_SOURCE);
 ARIZONA_MUX_ENUMS(ISRC3DEC3, ARIZONA_ISRC3DEC3MIX_INPUT_1_SOURCE);
 ARIZONA_MUX_ENUMS(ISRC3DEC4, ARIZONA_ISRC3DEC4MIX_INPUT_1_SOURCE);
 
+static const char * const wm5110_memory_mux_texts[] = {
+	"None",
+	"Shared Memory",
+};
+
+static const struct soc_enum wm5110_memory_enum =
+	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(wm5110_memory_mux_texts),
+			wm5110_memory_mux_texts);
+
+static const struct snd_kcontrol_new wm5110_memory_mux[] = {
+	SOC_DAPM_ENUM_VIRT("DSP2 Virtual Input", wm5110_memory_enum),
+	SOC_DAPM_ENUM_VIRT("DSP3 Virtual Input", wm5110_memory_enum),
+};
+
 static const char *wm5110_aec_loopback_texts[] = {
 	"HPOUT1L", "HPOUT1R", "HPOUT2L", "HPOUT2R", "HPOUT3L", "HPOUT3R",
 	"SPKOUTL", "SPKOUTR", "SPKDAT1L", "SPKDAT1R", "SPKDAT2L", "SPKDAT2R",
@@ -1015,6 +1029,11 @@ ARIZONA_DSP_WIDGETS(DSP2, "DSP2"),
 ARIZONA_DSP_WIDGETS(DSP3, "DSP3"),
 ARIZONA_DSP_WIDGETS(DSP4, "DSP4"),
 
+SND_SOC_DAPM_VIRT_MUX("DSP2 Virtual Input", SND_SOC_NOPM, 0, 0,
+		      &wm5110_memory_mux[0]),
+SND_SOC_DAPM_VIRT_MUX("DSP3 Virtual Input", SND_SOC_NOPM, 0, 0,
+		      &wm5110_memory_mux[1]),
+
 ARIZONA_MUX_WIDGETS(ISRC1DEC1, "ISRC1DEC1"),
 ARIZONA_MUX_WIDGETS(ISRC1DEC2, "ISRC1DEC2"),
 ARIZONA_MUX_WIDGETS(ISRC1DEC3, "ISRC1DEC3"),
@@ -1380,6 +1399,11 @@ static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
 	ARIZONA_DSP_ROUTES("DSP2"),
 	ARIZONA_DSP_ROUTES("DSP3"),
 	ARIZONA_DSP_ROUTES("DSP4"),
+
+	{ "DSP2",  NULL, "DSP2 Virtual Input" },
+	{ "DSP2 Virtual Input", "Shared Memory", "DSP3" },
+	{ "DSP3", NULL, "DSP3 Virtual Input" },
+	{ "DSP3 Virtual Input", "Shared Memory", "DSP2" },
 
 	ARIZONA_MUX_ROUTES("ISRC1INT1", "ISRC1INT1"),
 	ARIZONA_MUX_ROUTES("ISRC1INT2", "ISRC1INT2"),
