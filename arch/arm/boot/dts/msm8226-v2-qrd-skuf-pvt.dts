@@ -15,15 +15,8 @@
 /include/ "msm8226-qrd-skuf.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226v2 QRD";
+	model = "Qualcomm MSM 8226v2 QRD PVT";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,skuf", "qcom,qrd";
-	qcom,board-id = <0xb 0x2>;
+	qcom,board-id = <0x2000b 0x2>;
 };
 
-&pm8226_bms {
-        qcom,use-external-rsense;
-};
-
-&pm8226_iadc {
-        qcom,rsense = <10000000>;
-};
