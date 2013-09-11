@@ -680,8 +680,8 @@ int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
 			(unsigned long int)virt, &phys);
 
 	fb_addr_va = (unsigned long *)ioremap(fb_addr, size);
-
 	memcpy(virt, fb_addr_va, size);
+	iounmap(fb_addr_va);
 
 	sp = splash_pipes;
 	flush = 0;
