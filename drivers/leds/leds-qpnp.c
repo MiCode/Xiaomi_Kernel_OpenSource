@@ -168,7 +168,8 @@
 #define LED_MPP_EN_CTRL(base)		(base + 0x46)
 #define LED_MPP_SINK_CTRL(base)		(base + 0x4C)
 
-#define LED_MPP_CURRENT_DEFAULT		5
+#define LED_MPP_CURRENT_MIN		5
+#define LED_MPP_CURRENT_MAX		40
 #define LED_MPP_VIN_CTRL_DEFAULT	0
 #define LED_MPP_CURRENT_PER_SETTING	5
 #define LED_MPP_SOURCE_SEL_DEFAULT	LED_MPP_MODE_ENABLE
@@ -623,6 +624,21 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 
 		if (led->mpp_cfg->pwm_mode != MANUAL_MODE)
 			pwm_enable(led->mpp_cfg->pwm_cfg->pwm_dev);
+		else {
+			if (led->cdev.brightness < LED_MPP_CURRENT_MIN)
+				led->cdev.brightness = LED_MPP_CURRENT_MIN;
+
+			val = (led->cdev.brightness / LED_MPP_CURRENT_MIN) - 1;
+
+			rc = qpnp_led_masked_write(led,
+					LED_MPP_SINK_CTRL(led->base),
+					LED_MPP_SINK_MASK, val);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Failed to write sink control reg\n");
+				return rc;
+			}
+		}
 
 		val = (led->mpp_cfg->source_sel & LED_MPP_SRC_MASK) |
 			(led->mpp_cfg->mode_ctrl & LED_MPP_MODE_CTRL_MASK);
@@ -1349,7 +1365,10 @@ static int qpnp_led_set_max_brightness(struct qpnp_led_data *led)
 		led->cdev.max_brightness = RGB_MAX_LEVEL;
 		break;
 	case QPNP_ID_LED_MPP:
-		led->cdev.max_brightness = MPP_MAX_LEVEL;
+		if (led->mpp_cfg->pwm_mode == MANUAL_MODE)
+			led->cdev.max_brightness = led->max_current;
+		else
+			led->cdev.max_brightness = MPP_MAX_LEVEL;
 		break;
 	case QPNP_ID_KPDBL:
 		led->cdev.max_brightness = KPDBL_MAX_LEVEL;
@@ -2330,6 +2349,14 @@ static int qpnp_mpp_init(struct qpnp_led_data *led)
 {
 	int rc, val;
 
+
+	if (led->max_current < LED_MPP_CURRENT_MIN ||
+		led->max_current > LED_MPP_CURRENT_MAX) {
+		dev_err(&led->spmi_dev->dev,
+			"max current for mpp is not valid\n");
+		return -EINVAL;
+	}
+
 	val = (led->mpp_cfg->current_setting / LED_MPP_CURRENT_PER_SETTING) - 1;
 
 	if (val < 0)
@@ -2347,7 +2374,7 @@ static int qpnp_mpp_init(struct qpnp_led_data *led)
 		LED_MPP_SINK_MASK, val);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
-			"Failed to write led enable reg\n");
+			"Failed to write sink control reg\n");
 		return rc;
 	}
 
@@ -2973,11 +3000,16 @@ static int qpnp_get_config_mpp(struct qpnp_led_data *led,
 		return -ENOMEM;
 	}
 
-	led->mpp_cfg->current_setting = LED_MPP_CURRENT_DEFAULT;
+	led->mpp_cfg->current_setting = LED_MPP_CURRENT_MIN;
 	rc = of_property_read_u32(node, "qcom,current-setting", &val);
-	if (!rc)
-		led->mpp_cfg->current_setting = (u8) val;
-	else if (rc != -EINVAL)
+	if (!rc) {
+		if (led->mpp_cfg->current_setting < LED_MPP_CURRENT_MIN)
+			led->mpp_cfg->current_setting = LED_MPP_CURRENT_MIN;
+		else if (led->mpp_cfg->current_setting > LED_MPP_CURRENT_MAX)
+			led->mpp_cfg->current_setting = LED_MPP_CURRENT_MAX;
+		else
+			led->mpp_cfg->current_setting = (u8) val;
+	} else if (rc != -EINVAL)
 		return rc;
 
 	led->mpp_cfg->source_sel = LED_MPP_SOURCE_SEL_DEFAULT;
