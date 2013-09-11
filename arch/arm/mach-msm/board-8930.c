@@ -98,7 +98,6 @@
 #include "pm-boot.h"
 #include "msm_watchdog.h"
 #include "board-8930.h"
-#include "acpuclock-krait.h"
 #include "platsmp.h"
 
 static struct platform_device msm_fm_platform_init = {
@@ -2655,8 +2654,6 @@ static void __init msm8930_pm8917_wcd9xxx_pdata_fixup(
 /* Modify platform data values to match requirements for PM8917. */
 static void __init msm8930_pm8917_pdata_fixup(void)
 {
-	struct acpuclk_platform_data *pdata;
-
 	msm8930_pm8917_wcd9xxx_pdata_fixup(&sitar_platform_data);
 	msm8930_pm8917_wcd9xxx_pdata_fixup(&sitar1p1_platform_data);
 
@@ -2672,12 +2669,6 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 
 	msm8930_device_rpm_regulator.dev.platform_data
 		= &msm8930_pm8917_rpm_regulator_pdata;
-
-	pdata = msm8930_device_acpuclk.dev.platform_data;
-	pdata->uses_pm8917 = true;
-
-	pdata = msm8930ab_device_acpuclk.dev.platform_data;
-	pdata->uses_pm8917 = true;
 }
 
 static void __init msm8930ab_update_retention_spm(void)
