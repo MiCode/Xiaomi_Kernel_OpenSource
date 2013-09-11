@@ -88,6 +88,16 @@
 	qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 };
 
+&uart6 {
+	status = "ok";
+	qcom,tx-gpio = <&msmgpio 43 0x00>;
+	qcom,rx-gpio = <&msmgpio 44 0x00>;
+	qcom,cts-gpio = <&msmgpio 45 0x00>;
+	qcom,rfr-gpio = <&msmgpio 46 0x00>;
+	qcom,inject-rx-on-wakeup = <1>;
+	qcom,rx-char-to-inject = <0xFD>;
+};
+
 &blsp2_uart1 {
 	status = "ok";
 };

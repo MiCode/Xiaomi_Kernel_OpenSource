@@ -163,6 +163,31 @@
 		status = "disabled";
 	};
 
+	uart6: uart@f9922000 { /* BLSP1 UART6 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0xf9922000 0x1000>,
+			<0xf9904000 0x19000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart6>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 112 0
+						1 &intc 0 238 0
+						2 &msmgpio 44 0>;
+
+		qcom,bam-tx-ep-pipe-index = <10>;
+		qcom,bam-rx-ep-pipe-index = <11>;
+		qcom,msm-bus,name = "uart6";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
+	};
+
 	qcom,cache_erp {
 		compatible = "qcom,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
