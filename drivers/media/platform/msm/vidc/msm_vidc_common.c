@@ -851,7 +851,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb->v4l2_buf.flags = 0;
 
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
-			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOS;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
 			vb->v4l2_buf.flags &= ~V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
@@ -921,7 +921,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 					struct vb2_buffer, queued_entry);
 				vb->v4l2_planes[0].bytesused = 0;
 				vb->v4l2_planes[0].data_offset = 0;
-				vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
+				vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOS;
 				mutex_lock(&q->lock);
 				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 				mutex_unlock(&q->lock);
@@ -1997,7 +1997,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		}
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			frame_data.buffer_type = HAL_BUFFER_INPUT;
-			if (vb->v4l2_buf.flags & V4L2_BUF_FLAG_EOS) {
+			if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_EOS) {
 				frame_data.flags |= HAL_BUFFERFLAG_EOS;
 				dprintk(VIDC_DBG,
 					"Received EOS on output capability\n");
