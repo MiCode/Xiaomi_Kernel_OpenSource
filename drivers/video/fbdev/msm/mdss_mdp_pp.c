@@ -2859,7 +2859,7 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 		return -EHOSTDOWN;
 	}
 	if (mixer_num > MDSS_AD_MAX_MIXERS) {
-		pr_warn("too many mixers, not supported, %d", mixer_num);
+		pr_debug("too many mixers, not supported, %d", mixer_num);
 		return ret;
 	}
 
