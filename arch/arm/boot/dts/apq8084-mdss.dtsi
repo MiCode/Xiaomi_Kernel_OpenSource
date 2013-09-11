@@ -33,6 +33,11 @@
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18 22>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
 
+		qcom,mdss-pipe-rgb-fixed-mmb =	<2 0 1>,
+						<2 2 3>,
+						<2 4 5>,
+						<2 6 7>;
+
 		qcom,mdss-smp-data = <44 8192>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
