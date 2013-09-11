@@ -32,10 +32,24 @@ Optional properties:
  - goodix,no-force-update	: To specify force update is allowed.
  - goodix,button-map	: Button map of key codes. The number of key codes
 				depend on panel.
- - goodix,cfg-data	: Touchpanel controller configuration data, ask vendor
-				to provide that. Default configuration will be
-				used if this property is not present.
-
+ - goodix,cfg-data0	: Touch screen controller config data group 0. Ask vendor
+				to provide that.
+				Driver supports maximum six config groups. If more than one
+				groups are defined, driver will select config group depending
+				on hardware configuration. If only config group 0 is defined,
+				it will be used for all hardware configurations.
+				Touch screen controller will use its onchip default config data
+				if this property is not present.
+ - goodix,cfg-data1	: Touch screen controller config data group 1. Ask vendor
+				to provide that.
+ - goodix,cfg-data2	: Touch screen controller config data group 2. Ask vendor
+				to provide that.
+ - goodix,cfg-data3	: Touch screen controller config data group 3. Ask vendor
+				to provide that.
+ - goodix,cfg-data4	: Touch screen controller config data group 4. Ask vendor
+				to provide that.
+ - goodix,cfg-data5	: Touch screen controller config data group 5. Ask vendor
+				to provide that.
 Example:
 i2c@f9927000 {
 		goodix@5d {
@@ -50,25 +64,25 @@ i2c@f9927000 {
 			goodix,display-coords = <0 0 720 1080>;
 			goodix,button-map= <158 102 139>;
 			goodix,product-id = "915";
-			goodix,cfg-data = [
-		41 D0 02 00 05 0A 05 01 01 08
-		12 58 50 41 03 05 00 00 00 00
-		00 00 00 00 00 00 00 8C 2E 0E
-		28 24 73 13 00 00 00 83 03 1D
-		40 02 00 00 00 03 64 32 00 00
-		00 1A 38 94 C0 02 00 00 00 04
-		9E 1C 00 8D 20 00 7A 26 00 6D
-		2C 00 60 34 00 60 10 38 68 00
-		F0 50 35 FF FF 27 00 00 00 00
-		00 01 1B 14 0C 14 00 00 01 00
-		00 00 00 00 00 00 00 00 00 00
-		00 00 02 04 06 08 0A 0C 0E 10
-		12 14 16 18 1A 1C FF FF FF FF
-		FF FF FF FF FF FF FF FF FF FF
-		FF FF 00 02 04 06 08 0A 0C 0F
-		10 12 13 14 16 18 1C 1D 1E 1F
-		20 21 22 24 26 28 29 2A FF FF
-		FF FF FF FF FF FF FF 22 22 22
-		22 22 22 FF 07 01];
+			goodix,cfg-data0 = [
+				41 D0 02 00 05 0A 05 01 01 08
+				12 58 50 41 03 05 00 00 00 00
+				00 00 00 00 00 00 00 8C 2E 0E
+				28 24 73 13 00 00 00 83 03 1D
+				40 02 00 00 00 03 64 32 00 00
+				00 1A 38 94 C0 02 00 00 00 04
+				9E 1C 00 8D 20 00 7A 26 00 6D
+				2C 00 60 34 00 60 10 38 68 00
+				F0 50 35 FF FF 27 00 00 00 00
+				00 01 1B 14 0C 14 00 00 01 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 02 04 06 08 0A 0C 0E 10
+				12 14 16 18 1A 1C FF FF FF FF
+				FF FF FF FF FF FF FF FF FF FF
+				FF FF 00 02 04 06 08 0A 0C 0F
+				10 12 13 14 16 18 1C 1D 1E 1F
+				20 21 22 24 26 28 29 2A FF FF
+				FF FF FF FF FF FF FF 22 22 22
+				22 22 22 FF 07 01];
 		};
 };
