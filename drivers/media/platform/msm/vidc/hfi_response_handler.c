@@ -1170,6 +1170,7 @@ u32 hfi_process_msg_packet(
 					msg_hdr);
 		break;
 	case HFI_MSG_SYS_IDLE:
+	case HFI_MSG_SYS_PC_PREP_DONE:
 		break;
 	case HFI_MSG_SYS_SESSION_INIT_DONE:
 		SANITIZE_SESSION_PKT(msg_hdr);
