@@ -2273,6 +2273,8 @@ static int loopback_data(struct msm_ipc_port *src,
 	struct msm_ipc_port *port_ptr;
 	struct rr_packet *pkt;
 	int ret_len;
+	struct sk_buff *temp_skb;
+	int align_size;
 
 	if (!data) {
 		pr_err("%s: Invalid pkt pointer\n", __func__);
@@ -2294,6 +2296,11 @@ static int loopback_data(struct msm_ipc_port *src,
 	hdr->dst_node_id = IPC_ROUTER_NID_LOCAL;
 	hdr->dst_port_id = port_id;
 
+	temp_skb = skb_peek_tail(pkt->pkt_fragment_q);
+	align_size = ALIGN_SIZE(pkt->length);
+	skb_put(temp_skb, align_size);
+	pkt->length += align_size;
+
 	down_read(&local_ports_lock_lha2);
 	port_ptr = msm_ipc_router_lookup_local_port(port_id);
 	if (!port_ptr) {
@@ -2304,7 +2311,7 @@ static int loopback_data(struct msm_ipc_port *src,
 		return -ENODEV;
 	}
 
-	ret_len = pkt->length;
+	ret_len = hdr->size;
 	post_pkt_to_port(port_ptr, pkt, 0);
 	update_comm_mode_info(&src->mode_info, NULL);
 	up_read(&local_ports_lock_lha2);
