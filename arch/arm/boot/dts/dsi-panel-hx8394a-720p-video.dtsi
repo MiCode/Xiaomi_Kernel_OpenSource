@@ -55,10 +55,10 @@
 				39 01 00 00 00 00 23 e0 01 05 07 25 35 3f 0b 32 04 09 0e 10 13 10 14 16 1b 01 05 07 25 35 3f 0b 32 04 09 0e 10 13 10 14 16 1b
 				05 01 00 00 00 00 02 00 00
 				39 01 00 00 00 00 04 bf 06 00 10
-				05 01 00 00 c8 00 02 11 00
-				05 01 00 00 32 00 02 29 00];
-		qcom,mdss-dsi-off-command = [05 01 00 00 0a 00 02 28 00
-				05 01 00 00 96 00 02 10 00];
+				05 01 00 00 96 00 02 11 00
+				05 01 00 00 14 00 02 29 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 00 00 02 28 00
+				05 01 00 00 00 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-h-sync-pulse = <1>;
