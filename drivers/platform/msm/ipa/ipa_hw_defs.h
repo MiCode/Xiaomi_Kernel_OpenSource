@@ -275,4 +275,83 @@ struct ipa_ip_packet_tag {
 	u32 tag;
 };
 
+/*! @brief Struct for the the IPA UL packet status header */
+struct ipa_hw_pkt_status {
+	u32 status_opcode:8;
+	u32 exception:8;
+	u32 status_mask:16;
+	u32 pkt_len:16;
+	u32 endp_src_idx:5;
+	u32 reserved_1:3;
+	u32 endp_dest_idx:5;
+	u32 reserved_2:3;
+	u32 metadata:32;
+	u32 filt_local:1;
+	u32 filt_global:1;
+	u32 filt_pipe_idx:5;
+	u32 filt_match:1;
+	u32 filt_rule_idx:6;
+	u32 ret_hdr:1;
+	u32 reserved_3:1;
+	u32 tag_f_1:16;
+	u32 tag_f_2:32;
+	u32 time_day_ctr:32;
+	u32 nat_hit:1;
+	u32 nat_tbl_idx:13;
+	u32 nat_type:2;
+	u32 route_local:1;
+	u32 route_tbl_idx:5;
+	u32 route_match:1;
+	u32 reserved_4:1;
+	u32 route_rule_idx:8;
+	u32 hdr_local:1;
+	u32 hdr_offset:10;
+	u32 frag_hit:1;
+	u32 frag_rule:4;
+	u32 reserved_5:16;
+};
+
+#define IPA_PKT_STATUS_SIZE sizeof(struct ipa_hw_pkt_status)
+
+/*! @brief Status header opcodes */
+enum ipa_hw_status_opcode {
+	IPA_HW_STATUS_OPCODE_MIN,
+	IPA_HW_STATUS_OPCODE_PACKET = IPA_HW_STATUS_OPCODE_MIN,
+	IPA_HW_STATUS_OPCODE_NEW_FRAG_RULE,
+	IPA_HW_STATUS_OPCODE_DROPPED_PACKET,
+	IPA_HW_STATUS_OPCODE_MAX
+};
+
+/*! @brief Possible Masks received in status */
+enum ipa_hw_pkt_status_mask {
+	IPA_HW_PKT_STATUS_MASK_FRAG_PROCESS      = 0x1,
+	IPA_HW_PKT_STATUS_MASK_FILT_PROCESS      = 0x2,
+	IPA_HW_PKT_STATUS_MASK_NAT_PROCESS       = 0x4,
+	IPA_HW_PKT_STATUS_MASK_ROUTE_PROCESS     = 0x8,
+	IPA_HW_PKT_STATUS_MASK_TAG_VALID         = 0x10,
+	IPA_HW_PKT_STATUS_MASK_FRAGMENT          = 0x20,
+	IPA_HW_PKT_STATUS_MASK_FIRST_FRAGMENT    = 0x40,
+	IPA_HW_PKT_STATUS_MASK_V4                = 0x80,
+	IPA_HW_PKT_STATUS_MASK_CKSUM_PROCESS     = 0x100,
+	IPA_HW_PKT_STATUS_MASK_AGGR_PROCESS      = 0x200,
+	IPA_HW_PKT_STATUS_MASK_DEST_EOT          = 0x400,
+	IPA_HW_PKT_STATUS_MASK_DEAGGR_PROCESS    = 0x800,
+	IPA_HW_PKT_STATUS_MASK_DEAGG_FIRST       = 0x1000,
+	IPA_HW_PKT_STATUS_MASK_SRC_EOT           = 0x2000
+};
+
+/*! @brief Possible Exceptions received in status */
+enum ipa_hw_pkt_status_exception {
+	IPA_HW_PKT_STATUS_EXCEPTION_NONE           = 0x0,
+	IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR         = 0x1,
+	IPA_HW_PKT_STATUS_EXCEPTION_REPL           = 0x2,
+	IPA_HW_PKT_STATUS_EXCEPTION_IPTYPE         = 0x4,
+	IPA_HW_PKT_STATUS_EXCEPTION_IHL            = 0x8,
+	IPA_HW_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS = 0x10,
+	IPA_HW_PKT_STATUS_EXCEPTION_SW_FILT        = 0x20,
+	IPA_HW_PKT_STATUS_EXCEPTION_NAT            = 0x40,
+	IPA_HW_PKT_STATUS_EXCEPTION_ACTUAL_MAX,
+	IPA_HW_PKT_STATUS_EXCEPTION_MAX            = 0xFF
+};
+
 #endif /* _IPA_HW_DEFS_H */

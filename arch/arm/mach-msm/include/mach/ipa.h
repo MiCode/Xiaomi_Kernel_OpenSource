@@ -277,6 +277,23 @@ struct ipa_ep_cfg_deaggr {
 };
 
 /**
+ * struct ipa_ep_cfg_status - status configuration in IPA end-point
+ * @status_en: Determines if end point supports Status Indications. SW should
+ *	set this bit in order to enable Statuses. Output Pipe - send
+ *	Status indications only if bit is set. Input Pipe - forward Status
+ *	indication to STATUS_ENDP only if bit is set. Valid for Input
+ *	and Output Pipes (IPA Consumer and Producer)
+ * @status_ep: Statuses generated for this endpoint will be forwarded to the
+ *	specifed Status End Point. Status endpoint needs to be
+ *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
+ *	Consumer)
+ */
+struct ipa_ep_cfg_status {
+	bool status_en;
+	u8 status_ep;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:	NAT parmeters
  * @hdr:	Header parameters
@@ -284,6 +301,7 @@ struct ipa_ep_cfg_deaggr {
  * @aggr:	Aggregation parameters
  * @deaggr:	Deaggregation params
  * @route:	Routing parameters
+ * @status:	Status parameters
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -293,6 +311,7 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_aggr aggr;
 	struct ipa_ep_cfg_deaggr deaggr;
 	struct ipa_ep_cfg_route route;
+	struct ipa_ep_cfg_status status;
 };
 
 typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
@@ -397,6 +416,9 @@ struct ipa_sys_connect_params {
 struct ipa_tx_meta {
 	u8 mbim_stream_id;
 	bool mbim_stream_id_valid;
+	u8 pkt_init_dst_ep;
+	bool pkt_init_dst_ep_valid;
+	bool pkt_init_dst_ep_remote;
 };
 
 /**
@@ -600,6 +622,8 @@ int ipa_cfg_ep_deaggr(u32 clnt_hdl,
 int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
 
 int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
 
 int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
@@ -899,6 +923,12 @@ static inline int ipa_cfg_ep_route(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
 		const struct ipa_ep_cfg_holb *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_status(u32 clnt_hdl,
+		const struct ipa_ep_cfg_status *ipa_ep_cfg)
 {
 	return -EPERM;
 }
