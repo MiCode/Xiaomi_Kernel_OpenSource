@@ -30,7 +30,6 @@ static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
-static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -93,11 +92,6 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
 	}
-}
-
-static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp)
-{
-	return bitmap_weight(smp, SMP_MB_CNT) == 0;
 }
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
@@ -249,7 +243,21 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 	return rc;
 }
-
+/*
+ * mdss_mdp_smp_alloc() -- set smp mmb and and wm levels for a staged pipe
+ * @pipe: pointer to a pipe
+ *
+ * Function amends reserved smp mmbs to allocated bitmap and ties respective
+ * mmbs to their pipe fetch_ids. Based on the number of total allocated mmbs
+ * for a staged pipe, it also sets the watermark levels (wm).
+ *
+ * This function will be called on every commit where pipe params might not
+ * have changed. In such cases, we need to ensure that wm levels are not
+ * wiped out. Also in some rare situations hw might have reset and wiped out
+ * smp mmb programming but new smp reservation is not done. In such cases we
+ * need to ensure that for a staged pipes, mmbs are set properly based on
+ * allocated bitmap.
+ */
 static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 {
 	int i;
@@ -257,8 +265,12 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
-		if (__mdss_mdp_pipe_smp_mmb_is_empty(pipe->smp_map[i].reserved))
+		if (bitmap_empty(pipe->smp_map[i].reserved, SMP_MB_CNT)) {
+			cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
+				pipe->smp_map[i].allocated);
 			continue;
+		}
+
 		mdss_mdp_smp_mmb_amend(pipe->smp_map[i].allocated,
 			pipe->smp_map[i].reserved);
 		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
