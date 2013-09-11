@@ -50,16 +50,15 @@ static char *chstate(unsigned n)
 	}
 }
 
-static int debug_f3(char *buf, int max)
+static void debug_f3(struct seq_file *s)
 {
 	char *x;
 	int size;
-	int i = 0, j = 0;
+	int j = 0;
 	unsigned cols = 0;
 	char str[4*sizeof(unsigned)+1] = {0};
 
-	i += scnprintf(buf + i, max - i,
-		       "Printing to log\n");
+	seq_puts(s, "Printing to log\n");
 
 	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
 	if (x != 0) {
@@ -93,25 +92,22 @@ static int debug_f3(char *buf, int max)
 		}
 		pr_info("\n");
 	}
-
-	return max;
 }
 
-static int debug_int_stats(char *buf, int max)
+static void debug_int_stats(struct seq_file *s)
 {
-	int i = 0;
 	int subsys;
 	struct interrupt_stat *stats = interrupt_stats;
 	const char *subsys_name;
 
-	i += scnprintf(buf + i, max - i,
+	seq_puts(s,
 		"   Subsystem    | Interrupt ID |    In     | Out (Hardcoded) |"
 		" Out (Configured)|\n");
 
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		subsys_name = smd_pid_to_subsystem(subsys);
 		if (subsys_name) {
-			i += scnprintf(buf + i, max - i,
+			seq_printf(s,
 				"%-10s %4s |    %9d | %9u |       %9u |       %9u |\n",
 				smd_pid_to_subsystem(subsys), "smd",
 				stats->smd_interrupt_id,
@@ -119,7 +115,7 @@ static int debug_int_stats(char *buf, int max)
 				stats->smd_out_hardcode_count,
 				stats->smd_out_config_count);
 
-			i += scnprintf(buf + i, max - i,
+			seq_printf(s,
 				"%-10s %4s |    %9d | %9u |       %9u |       %9u |\n",
 				smd_pid_to_subsystem(subsys), "smsm",
 				stats->smsm_interrupt_id,
@@ -129,17 +125,14 @@ static int debug_int_stats(char *buf, int max)
 		}
 		++stats;
 	}
-
-	return i;
 }
 
-static int debug_int_stats_reset(char *buf, int max)
+static void debug_int_stats_reset(struct seq_file *s)
 {
-	int i = 0;
 	int subsys;
 	struct interrupt_stat *stats = interrupt_stats;
 
-	i += scnprintf(buf + i, max - i, "Resetting interrupt stats.\n");
+	seq_puts(s, "Resetting interrupt stats.\n");
 
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		stats->smd_in_count = 0;
@@ -150,35 +143,28 @@ static int debug_int_stats_reset(char *buf, int max)
 		stats->smsm_out_config_count = 0;
 		++stats;
 	}
-
-	return i;
 }
 
-static int debug_diag(char *buf, int max)
+static void debug_diag(struct seq_file *s)
 {
-	int i = 0;
-
-	i += scnprintf(buf + i, max - i,
-		       "Printing to log\n");
+	seq_puts(s, "Printing to log\n");
 	smd_diag();
-
-	return i;
 }
 
-static int debug_modem_err_f3(char *buf, int max)
+static void debug_modem_err_f3(struct seq_file *s)
 {
 	char *x;
 	int size;
-	int i = 0, j = 0;
+	int j = 0;
 	unsigned cols = 0;
 	char str[4*sizeof(unsigned)+1] = {0};
 
 	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
 	if (x != 0) {
 		pr_info("smem: F3 TRACE LOG\n");
-		while (size > 0 && max - i) {
+		while (size > 0) {
 			if (size >= sizeof(unsigned)) {
-				i += scnprintf(buf + i, max - i, "%08x",
+				seq_printf(s, "%08x",
 					       *((unsigned *) x));
 				for (j = 0; j < sizeof(unsigned); ++j)
 					if (isprint(*(x+j)))
@@ -190,76 +176,62 @@ static int debug_modem_err_f3(char *buf, int max)
 				x += sizeof(unsigned);
 				size -= sizeof(unsigned);
 			} else {
-				while (size-- > 0 && max - i)
-					i += scnprintf(buf + i, max - i,
-						       "%02x",
-						       (unsigned) *x++);
+				while (size-- > 0)
+					seq_printf(s, "%02x", (unsigned) *x++);
 				break;
 			}
 			if (cols == 3) {
 				cols = 0;
 				str[4*sizeof(unsigned)] = 0;
-				i += scnprintf(buf + i, max - i, " %s\n",
-					       str);
+				seq_printf(s, " %s\n", str);
 				str[0] = 0;
 			} else {
 				cols++;
-				i += scnprintf(buf + i, max - i, " ");
+				seq_puts(s, " ");
 			}
 		}
-		i += scnprintf(buf + i, max - i, "\n");
+		seq_puts(s, "\n");
 	}
-
-	return i;
 }
 
-static int debug_modem_err(char *buf, int max)
+static void debug_modem_err(struct seq_file *s)
 {
 	char *x;
 	int size;
-	int i = 0;
 
 	x = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
 	if (x != 0) {
 		x[SZ_DIAG_ERR_MSG - 1] = 0;
-		i += scnprintf(buf + i, max - i,
-			       "smem: DIAG '%s'\n", x);
+		seq_printf(s, "smem: DIAG '%s'\n", x);
 	}
 
 	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
 	if (x != 0) {
 		x[size - 1] = 0;
-		i += scnprintf(buf + i, max - i,
-			       "smem: CRASH LOG\n'%s'\n", x);
+		seq_printf(s, "smem: CRASH LOG\n'%s'\n", x);
 	}
-	i += scnprintf(buf + i, max - i, "\n");
-
-	return i;
+	seq_puts(s, "\n");
 }
 
-static int debug_read_diag_msg(char *buf, int max)
+static void debug_read_diag_msg(struct seq_file *s)
 {
 	char *msg;
-	int i = 0;
 
 	msg = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
 
 	if (msg) {
 		msg[SZ_DIAG_ERR_MSG - 1] = 0;
-		i += scnprintf(buf + i, max - i, "diag: '%s'\n", msg);
+		seq_printf(s, "diag: '%s'\n", msg);
 	}
-	return i;
 }
 
-static int dump_ch(char *buf, int max, int n,
+static void dump_ch(struct seq_file *s, int n,
 		   void *half_ch_s,
 		   void *half_ch_r,
 		   struct smd_half_channel_access *half_ch_funcs,
 		   unsigned size)
 {
-	return scnprintf(
-		buf, max,
-		"ch%02d:"
+	seq_printf(s, "ch%02d:"
 		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c <->"
 		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c : %5x\n", n,
 		chstate(half_ch_funcs->get_state(half_ch_s)),
@@ -288,20 +260,17 @@ static int dump_ch(char *buf, int max, int n,
 		);
 }
 
-static int debug_read_smsm_state(char *buf, int max)
+static void debug_read_smsm_state(struct seq_file *s)
 {
 	uint32_t *smsm;
-	int n, i = 0;
+	int n;
 
 	smsm = smem_find(ID_SHARED_STATE,
 			 SMSM_NUM_ENTRIES * sizeof(uint32_t));
 
 	if (smsm)
 		for (n = 0; n < SMSM_NUM_ENTRIES; n++)
-			i += scnprintf(buf + i, max - i, "entry %d: 0x%08x\n",
-				       n, smsm[n]);
-
-	return i;
+			seq_printf(s, "entry %d: 0x%08x\n", n, smsm[n]);
 }
 
 struct SMSM_CB_DATA {
@@ -324,8 +293,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 #define UT_EQ_INT(a, b) \
 	if ((a) != (b)) { \
-		i += scnprintf(buf + i, max - i, \
-			"%s:%d " #a "(%d) != " #b "(%d)\n", \
+		seq_printf(s, "%s:%d " #a "(%d) != " #b "(%d)\n", \
 				__func__, __LINE__, \
 				a, b); \
 		break; \
@@ -334,8 +302,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 #define UT_GT_INT(a, b) \
 	if ((a) <= (b)) { \
-		i += scnprintf(buf + i, max - i, \
-			"%s:%d " #a "(%d) > " #b "(%d)\n", \
+		seq_printf(s, "%s:%d " #a "(%d) > " #b "(%d)\n", \
 				__func__, __LINE__, \
 				a, b); \
 		break; \
@@ -351,9 +318,8 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	} while (0)
 
 
-static int debug_test_smsm(char *buf, int max)
+static void debug_test_smsm(struct seq_file *s)
 {
-	int i = 0;
 	int test_num = 0;
 	int ret;
 
@@ -399,7 +365,7 @@ static int debug_test_smsm(char *buf, int max)
 					msecs_to_jiffies(20)), 0);
 		UT_EQ_INT(smsm_cb_data.cb_count, 2);
 
-		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+		seq_printf(s, "Test %d - PASS\n", test_num);
 	} while (0);
 
 	/* Test case 2 - Update already registered callback */
@@ -472,7 +438,7 @@ static int debug_test_smsm(char *buf, int max)
 					msecs_to_jiffies(20)), 0);
 		UT_EQ_INT(smsm_cb_data.cb_count, 6);
 
-		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+		seq_printf(s, "Test %d - PASS\n", test_num);
 	} while (0);
 
 	/* Test case 3 - Two callback registrations with different data */
@@ -517,21 +483,17 @@ static int debug_test_smsm(char *buf, int max)
 				smsm_state_cb, (void *)0x1234);
 		UT_EQ_INT(ret, 2);
 
-		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+		seq_printf(s, "Test %d - PASS\n", test_num);
 	} while (0);
-
-	return i;
 }
 
-static int debug_read_mem(char *buf, int max)
+static void debug_read_mem(struct seq_file *s)
 {
 	unsigned n;
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	struct smem_heap_entry *toc = shared->heap_toc;
-	int i = 0;
 
-	i += scnprintf(buf + i, max - i,
-		       "heap: init=%d free=%d remain=%d\n",
+	seq_printf(s, "heap: init=%d free=%d remain=%d\n",
 		       shared->heap_info.initialized,
 		       shared->heap_info.free_offset,
 		       shared->heap_info.heap_remaining);
@@ -539,25 +501,23 @@ static int debug_read_mem(char *buf, int max)
 	for (n = 0; n < SMEM_NUM_ITEMS; n++) {
 		if (toc[n].allocated == 0)
 			continue;
-		i += scnprintf(buf + i, max - i,
-			       "%04d: offset %08x size %08x\n",
+		seq_printf(s, "%04d: offset %08x size %08x\n",
 			       n, toc[n].offset, toc[n].size);
 	}
-	return i;
 }
 
 #if (!defined(CONFIG_MSM_SMD_PKG4) && !defined(CONFIG_MSM_SMD_PKG3))
-static int debug_read_ch(char *buf, int max)
+static void debug_read_ch(struct seq_file *s)
 {
 	void *shared;
-	int n, i = 0;
+	int n;
 	struct smd_alloc_elm *ch_tbl;
 	unsigned ch_type;
 	unsigned shared_size;
 
 	ch_tbl = smem_find(ID_CH_ALLOC_TBL, sizeof(*ch_tbl) * 64);
 	if (!ch_tbl)
-		goto fail;
+		return;
 
 	for (n = 0; n < SMD_CHANNELS; n++) {
 		ch_type = SMD_CHANNEL_TYPE(ch_tbl[n].type);
@@ -571,28 +531,25 @@ static int debug_read_ch(char *buf, int max)
 
 		if (shared == 0)
 			continue;
-		i += dump_ch(buf + i, max - i, n, shared,
+		dump_ch(s, n, shared,
 			     (shared + shared_size +
 			     SMD_BUF_SIZE), get_half_ch_funcs(ch_type),
 			     SMD_BUF_SIZE);
 	}
-
-fail:
-	return i;
 }
 #else
-static int debug_read_ch(char *buf, int max)
+static void debug_read_ch(struct seq_file *s)
 {
 	void *shared, *buffer;
 	unsigned buffer_sz;
-	int n, i = 0;
+	int n;
 	struct smd_alloc_elm *ch_tbl;
 	unsigned ch_type;
 	unsigned shared_size;
 
 	ch_tbl = smem_find(ID_CH_ALLOC_TBL, sizeof(*ch_tbl) * 64);
 	if (!ch_tbl)
-		goto fail;
+		return;
 
 	for (n = 0; n < SMD_CHANNELS; n++) {
 		ch_type = SMD_CHANNEL_TYPE(ch_tbl[n].type);
@@ -612,82 +569,68 @@ static int debug_read_ch(char *buf, int max)
 		if (buffer == 0)
 			continue;
 
-		i += dump_ch(buf + i, max - i, n, shared,
+		dump_ch(s, n, shared,
 			     (shared + shared_size),
 			     get_half_ch_funcs(ch_type),
 			     buffer_sz / 2);
 	}
-
-fail:
-	return i;
 }
 #endif
 
-static int debug_read_smem_version(char *buf, int max)
+static void debug_read_smem_version(struct seq_file *s)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	uint32_t n, version, i = 0;
+	uint32_t n, version;
 
 	for (n = 0; n < 32; n++) {
 		version = shared->version[n];
-		i += scnprintf(buf + i, max - i,
-			       "entry %d: smem = %d  proc_comm = %d\n", n,
+		seq_printf(s, "entry %d: smem = %d  proc_comm = %d\n", n,
 			       version >> 16,
 			       version & 0xffff);
 	}
-
-	return i;
 }
 
 /* NNV: revist, it may not be smd version */
-static int debug_read_smd_version(char *buf, int max)
+static void debug_read_smd_version(struct seq_file *s)
 {
 	uint32_t *smd_ver;
-	uint32_t n, version, i = 0;
+	uint32_t n, version;
 
 	smd_ver = smem_alloc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
 
 	if (smd_ver)
 		for (n = 0; n < 32; n++) {
 			version = smd_ver[n];
-			i += scnprintf(buf + i, max - i,
-				       "entry %d: %d.%d\n", n,
+			seq_printf(s, "entry %d: %d.%d\n", n,
 				       version >> 16,
 				       version & 0xffff);
 		}
-
-	return i;
 }
 
-static int debug_read_build_id(char *buf, int max)
+static void debug_read_build_id(struct seq_file *s)
 {
 	unsigned size;
 	void *data;
 
 	data = smem_get_entry(SMEM_HW_SW_BUILD_ID, &size);
 	if (!data)
-		return 0;
+		return;
 
-	if (size >= max)
-		size = max;
-	memcpy(buf, data, size);
-
-	return size;
+	seq_write(s, data, size);
 }
 
-static int debug_read_alloc_tbl(char *buf, int max)
+static void debug_read_alloc_tbl(struct seq_file *s)
 {
 	struct smd_alloc_elm *shared;
-	int n, i = 0;
+	int n;
 
 	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(struct smd_alloc_elm[64]));
 
 	if (!shared)
-		return 0;
+		return;
 
 	for (n = 0; n < 64; n++) {
-		i += scnprintf(buf + i, max - i,
-				"name=%s cid=%d ch type=%d "
+		seq_printf(s, "name=%s cid=%d ch type=%d "
 				"xfer type=%d ref_count=%d\n",
 				shared[n].name,
 				shared[n].cid,
@@ -695,73 +638,69 @@ static int debug_read_alloc_tbl(char *buf, int max)
 				SMD_XFER_TYPE(shared[n].type),
 				shared[n].ref_count);
 	}
-
-	return i;
 }
 
-static int debug_read_intr_mask(char *buf, int max)
+static void debug_read_intr_mask(struct seq_file *s)
 {
 	uint32_t *smsm;
-	int m, n, i = 0;
+	int m, n;
 
 	smsm = smem_alloc(SMEM_SMSM_CPU_INTR_MASK,
 			  SMSM_NUM_ENTRIES * SMSM_NUM_HOSTS * sizeof(uint32_t));
 
 	if (smsm)
 		for (m = 0; m < SMSM_NUM_ENTRIES; m++) {
-			i += scnprintf(buf + i, max - i, "entry %d:", m);
+			seq_printf(s, "entry %d:", m);
 			for (n = 0; n < SMSM_NUM_HOSTS; n++)
-				i += scnprintf(buf + i, max - i,
-					       "   host %d: 0x%08x",
+				seq_printf(s, "   host %d: 0x%08x",
 					       n, smsm[m * SMSM_NUM_HOSTS + n]);
-			i += scnprintf(buf + i, max - i, "\n");
+			seq_puts(s, "\n");
 		}
-
-	return i;
 }
 
-static int debug_read_intr_mux(char *buf, int max)
+static void debug_read_intr_mux(struct seq_file *s)
 {
 	uint32_t *smsm;
-	int n, i = 0;
+	int n;
 
 	smsm = smem_alloc(SMEM_SMD_SMSM_INTR_MUX,
 			  SMSM_NUM_INTR_MUX * sizeof(uint32_t));
 
 	if (smsm)
 		for (n = 0; n < SMSM_NUM_INTR_MUX; n++)
-			i += scnprintf(buf + i, max - i, "entry %d: %d\n",
-				       n, smsm[n]);
-
-	return i;
+			seq_printf(s, "entry %d: %d\n", n, smsm[n]);
 }
 
-#define DEBUG_BUFMAX 4096
-static char debug_buffer[DEBUG_BUFMAX];
-
-static ssize_t debug_read(struct file *file, char __user *buf,
-			  size_t count, loff_t *ppos)
+static int debugfs_show(struct seq_file *s, void *data)
 {
-	int (*fill)(char *buf, int max) = file->private_data;
-	int bsize;
+	void (*show)(struct seq_file *) = s->private;
 
-	if (*ppos != 0)
-		return 0;
+	show(s);
 
-	bsize = fill(debug_buffer, DEBUG_BUFMAX);
-	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
+	return 0;
+}
+
+static int debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debugfs_show, inode->i_private);
 }
 
 static const struct file_operations debug_ops = {
-	.read = debug_read,
-	.open = simple_open,
+	.open = debug_open,
+	.release = single_release,
+	.read = seq_read,
+	.llseek = seq_lseek,
 };
 
 static void debug_create(const char *name, umode_t mode,
 			 struct dentry *dent,
-			 int (*fill)(char *buf, int max))
+			 void (*show)(struct seq_file *))
 {
-	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	struct dentry *file;
+
+	file = debugfs_create_file(name, mode, dent, show, &debug_ops);
+	if (!file)
+		pr_err("%s: unable to create file '%s'\n", __func__, name);
 }
 
 static int __init smd_debugfs_init(void)
