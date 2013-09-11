@@ -46,6 +46,8 @@
 
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
+static void i9xx_update_primary_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+				     int x, int y);
 
 static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 				struct intel_crtc_config *pipe_config);
@@ -132,6 +134,8 @@ static const intel_limit_t intel_limits_i8xx_dac = {
 	.p2 = { .dot_limit = 165000,
 		.p2_slow = 4, .p2_fast = 2 },
 };
+
+struct drm_display_mode rot_mode;
 
 static const intel_limit_t intel_limits_i8xx_dvo = {
 	.dot = { .min = 25000, .max = 350000 },
@@ -2468,6 +2472,83 @@ static void intel_find_plane_obj(struct intel_crtc *intel_crtc,
 	}
 }
 
+int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
+				struct drm_file *file)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_plane_180_rotation *rotation = data;
+
+	bool rotate = (rotation->rotate & 0x1) ? true : false;
+	int reg;
+	u32 val;
+	u32 sprctla;
+	u32 sprctlb;
+	int ret = 1;
+	struct drm_mode_object *obj;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	int pipe;
+
+	obj = drm_mode_object_find(dev, rotation->crtc_id,
+			DRM_MODE_OBJECT_CRTC);
+
+	if (!obj) {
+		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n", rotation->crtc_id);
+		return -EINVAL;
+	}
+
+	crtc = obj_to_crtc(obj);
+	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+	intel_crtc = to_intel_crtc(crtc);
+	pipe = intel_crtc->pipe;
+
+	DRM_DEBUG_DRIVER("pipe = %d\n", pipe);
+	memcpy(&rot_mode, &(crtc->hwmode), sizeof(struct drm_display_mode));
+	reg = DSPCNTR(pipe);
+	val = I915_READ(reg);
+	sprctla = I915_READ(SPCNTR(pipe, 0));
+	sprctlb = I915_READ(SPCNTR(pipe, 1));
+
+	/*Clear older rotation settings*/
+	if (val & DISPLAY_PLANE_ENABLE) {
+		val &= ~DISPPLANE_180_ROTATION_ENABLE;
+		I915_WRITE(reg, val);
+		ret = 0;
+	}
+
+	if (sprctla & DISPLAY_PLANE_ENABLE) {
+		sprctla &= ~DISPPLANE_180_ROTATION_ENABLE;
+		I915_WRITE(SPCNTR(pipe, 0), sprctla);
+		ret = 0;
+	}
+
+	if (sprctlb & DISPLAY_PLANE_ENABLE) {
+		sprctlb &= ~DISPPLANE_180_ROTATION_ENABLE;
+		I915_WRITE(SPCNTR(pipe, 1), sprctlb);
+		ret = 0;
+	}
+
+	if (rotate) {
+		if (val & DISPLAY_PLANE_ENABLE) {
+			val |= DISPPLANE_180_ROTATION_ENABLE;
+			I915_WRITE(reg, val);
+		}
+
+		if (sprctla & DISPLAY_PLANE_ENABLE) {
+			sprctla |= DISPPLANE_180_ROTATION_ENABLE;
+			I915_WRITE(SPCNTR(pipe, 0), sprctla);
+		}
+
+		if (sprctlb & DISPLAY_PLANE_ENABLE) {
+			sprctlb |= DISPPLANE_180_ROTATION_ENABLE;
+			I915_WRITE(SPCNTR(pipe, 1), sprctlb);
+		}
+	}
+
+	i9xx_update_primary_plane(crtc, crtc->primary->fb, 0, 0);
+	return ret;
+}
+
 static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 				      struct drm_framebuffer *fb,
 				      int x, int y)
@@ -2479,9 +2560,12 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long linear_offset;
+	bool rotate = false;
 	u32 dspcntr;
 	u32 reg;
+	int pixel_size;
 
+	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
@@ -2520,6 +2604,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		BUG();
 	}
 
+	if (dspcntr & DISPPLANE_180_ROTATION_ENABLE)
+		rotate = true;
+
 	if (INTEL_INFO(dev)->gen >= 4) {
 		if (obj->tiling_mode != I915_TILING_NONE)
 			dspcntr |= DISPPLANE_TILED;
@@ -2529,6 +2616,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 	if (IS_G4X(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+
+	if (rotate)
+		dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
 
 	I915_WRITE(reg, dspcntr);
 
@@ -2551,8 +2641,16 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	if (INTEL_INFO(dev)->gen >= 4) {
 		I915_WRITE(DSPSURF(plane),
 			   i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
-		I915_WRITE(DSPTILEOFF(plane), (y << 16) | x);
-		I915_WRITE(DSPLINOFF(plane), linear_offset);
+		if (rotate) {
+			I915_WRITE(DSPTILEOFF(plane), ((intel_fb->base.height
+				<< 16) | (intel_fb->base.width)));
+			I915_WRITE(DSPLINOFF(plane), (intel_fb->base.width *
+				intel_fb->base.height * pixel_size));
+		} else {
+			I915_WRITE(DSPTILEOFF(plane), (y << 16) | x);
+			I915_WRITE(DSPLINOFF(plane), linear_offset);
+		}
+
 	} else
 		I915_WRITE(DSPADDR(plane), i915_gem_obj_ggtt_offset(obj) + linear_offset);
 	POSTING_READ(reg);

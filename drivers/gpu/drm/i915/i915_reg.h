@@ -4061,6 +4061,7 @@ enum punit_power_well {
 #define   DISPPLANE_STEREO_POLARITY_SECOND	(1<<18)
 #define   DISPPLANE_TRICKLE_FEED_DISABLE	(1<<14) /* Ironlake */
 #define   DISPPLANE_TILED			(1<<10)
+#define   DISPPLANE_180_ROTATION_ENABLE		(1<<15)
 #define _DSPAADDR				0x70184
 #define _DSPASTRIDE				0x70188
 #define _DSPAPOS				0x7018C /* reserved */
