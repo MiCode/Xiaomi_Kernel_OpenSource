@@ -16,6 +16,16 @@ Required device bindings:
 			"qpnp-lpg-channel-base" = physical base address of the
 			controller's LPG channel register.
 - qcom,channel-id:	channel Id for the PWM.
+- qcom,supported-sizes:	Supported PWM sizes.
+			Following three pwm sizes lists are supported by PWM/LPG controllers.
+			<6>, <9>;
+			<7>, <8>;
+			<6>, <7>, <9>;
+- qcom,ramp-index:	Ramp index in LUT ramp control register.
+			Each LPG has an index in the LUT ramp control register.
+			One exception is that, if LPG does not support LUT mode
+			and supports only PWM mode then there is no need to
+			provide the ramp-index.
 
 Optional device bindings:
 - qcom,force-pwm-size:	For certain LPG channels, PWM size can be forced.
@@ -83,53 +93,57 @@ Optional bindings to support LPG feature:
 
 
 Example:
-        qcom,spmi@fc4c0000 {
-                #address-cells = <1>;
-                #size-cells = <0>;
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-                qcom,pm8941@1 {
-                        spmi-slave-container;
-                        reg = <0x1>;
-                        #address-cells = <1>;
-                        #size-cells = <1>;
+		qcom,pm8941@1 {
+			spmi-slave-container;
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
 
-                        pwm@b100 {
-                                #address-cells = <1>;
-                                #size-cells = <1>;
-                                compatible = "qcom,qpnp-pwm";
-                                reg = <0xb100 0x100>,
-                                      <0xb040 0x80>;
+			pwm@b100 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm";
+				reg = <0xb100 0x100>, <0xb040 0x80>;
 				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
-                                qcom,channel-id = <0>;
+				qcom,channel-id = <0>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <0>;
 				status = "okay";
-                        };
+			};
 
-                        pwm@b200 {
-                                #address-cells = <1>;
-                                #size-cells = <1>;
-                                compatible = "qcom,qpnp-pwm";
-                                reg = <0xb200 0x100>,
-                                      <0xb040 0x80>;
+			pwm@b200 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm";
+				reg = <0xb200 0x100>, <0xb040 0x80>;
 				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
-                                qcom,channel-id = <1>;
-                                qcom,force-pwm-size = <9>;
-                                qcom,period = <6000000>;
+				qcom,channel-id = <1>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <1>;
+				qcom,force-pwm-size = <9>;
+				qcom,period = <6000000>;
 				status = "okay";
+
 				qcom,pwm {
 					qcom,duty = <4000000>;
 					label = "pwm";
 				};
-                        };
+			};
 
-                        pwm@b500 {
-                                #address-cells = <1>;
-                                #size-cells = <1>;
-                                compatible = "qcom,qpnp-pwm";
-                                reg = <0xb500 0x100>,
-                                      <0xb040 0x80>;
+			pwm@b500 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm"
+				reg = <0xb500 0x100>, <0xb040 0x80>;
 				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
-                                qcom,channel-id = <4>;
-                                qcom,period = <6000000>;
+				qcom,channel-id = <4>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <4>;
+				qcom,period = <6000000>;
 				qcom,mode-select = <0>;
 				qcom,channel-owner = "RGB-led";
 				status = "okay";
@@ -146,9 +160,9 @@ Example:
 					qcom,ramp-step-duration = <20>;
 					label = "lpg";
 				};
-                        };
-                };
-        };
+			};
+		};
+	};
 
 There are couple of ways to configure PWM device channels as shown in above
 example,

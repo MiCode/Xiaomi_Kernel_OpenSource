@@ -64,6 +64,8 @@ do { \
 #define QPNP_PWM_FREQ_CLK_SELECT_MASK		0x03
 #define QPNP_MIN_PWM_BIT_SIZE		6
 #define QPNP_MAX_PWM_BIT_SIZE		9
+#define QPNP_PWM_SIZES_SUPPORTED	10
+
 #define QPNP_SET_PWM_CLK(val, clk, pwm_size) \
 do { \
 	val = (clk + 1) & QPNP_PWM_FREQ_CLK_SELECT_MASK; \
@@ -125,21 +127,11 @@ do { \
 
 /* LPG Control for RAMP_CONTROL */
 #define QPNP_RAMP_START_MASK			0x01
-#define QPNP_RAMP_CONTROL_SHIFT			8
 
 #define QPNP_ENABLE_LUT_V0(value) (value |= QPNP_RAMP_START_MASK)
 #define QPNP_DISABLE_LUT_V0(value) (value &= ~QPNP_RAMP_START_MASK)
-#define QPNP_ENABLE_LUT_V1(value, id) \
-do { \
-	(id < 8) ? (value |= BIT(id)) : \
-	(value |= (BIT(id) >> QPNP_RAMP_CONTROL_SHIFT)); \
-} while (0)
-
-#define QPNP_DISABLE_LUT_V1(value, id) \
-do { \
-	(id < 8) ? (value &= ~BIT(id)) : \
-	(value &= (~BIT(id) >> QPNP_RAMP_CONTROL_SHIFT)); \
-} while (0)
+#define QPNP_ENABLE_LUT_V1(value, id) (value |= BIT(id))
+#define QPNP_DISABLE_LUT_V1(value, id) (value &= ~BIT(id))
 
 /* LPG Control for RAMP_STEP_DURATION_LSB */
 #define QPNP_RAMP_STEP_DURATION_LSB_MASK	0xFF
@@ -193,12 +185,6 @@ do { \
 #define SPMI_LPG_REG_ADDR(b, n)	(b + SPMI_LPG_REG_BASE_OFFSET + (n))
 #define SPMI_MAX_BUF_LEN	8
 
-#define QPNP_GPLED_LPG_CHANNEL_RANGE_START 8
-#define QPNP_GPLED_LPG_CHANNEL_RANGE_END 11
-#define qpnp_check_gpled_lpg_channel(id) \
-	(id >= QPNP_GPLED_LPG_CHANNEL_RANGE_START && \
-	id <= QPNP_GPLED_LPG_CHANNEL_RANGE_END)
-
 #define QPNP_PWM_LUT_NOT_SUPPORTED	0x1
 
 /* Supported PWM sizes */
@@ -206,6 +192,10 @@ do { \
 #define QPNP_PWM_SIZE_7_BIT		7
 #define QPNP_PWM_SIZE_8_BIT		8
 #define QPNP_PWM_SIZE_9_BIT		9
+
+#define QPNP_PWM_SIZE_6_9_BIT		0x9
+#define QPNP_PWM_SIZE_7_8_BIT		0x6
+#define QPNP_PWM_SIZE_6_7_9_BIT		0xB
 
 /* LPG revisions */
 enum qpnp_lpg_revision {
@@ -278,6 +268,7 @@ static unsigned int pt_t[NUM_LPG_PRE_DIVIDE][NUM_CLOCKS] = {
 struct qpnp_lut_config {
 	u8	*duty_pct_list;
 	int	list_len;
+	int	ramp_index;
 	int	lo_index;
 	int	hi_index;
 	int	lut_pause_hi_cnt;
@@ -301,6 +292,7 @@ struct _qpnp_pwm_config {
 	int				pwm_value;
 	int				pwm_duty;
 	struct pwm_period_config	period;
+	int				supported_sizes;
 	int				force_pwm_size;
 };
 
@@ -435,12 +427,12 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 	int		best_m, best_div, best_clk;
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
-	int		id = chip->channel_id;
+	int             supported_sizes = chip->pwm_config.supported_sizes;
 	int		force_pwm_size = chip->pwm_config.force_pwm_size;
 	struct pwm_period_config *period = &chip->pwm_config.period;
 
 	/* PWM Period / N */
-	if (qpnp_check_gpled_lpg_channel(id))
+	if (supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
 		n = 7;
 	else
 		n = 6;
@@ -448,7 +440,7 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
 		period_n = (period_us * NSEC_PER_USEC) >> n;
 	} else {
-		if (qpnp_check_gpled_lpg_channel(id))
+		if (supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
 			n = 8;
 		else
 			n = 9;
@@ -461,7 +453,8 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 		else
 			period_n = period_n << (n - force_pwm_size);
 		n = force_pwm_size;
-		pr_info("LPG channel '%d' pwm size is forced to=%d\n", id, n);
+		pr_info("LPG channel '%d' pwm size is forced to=%d\n",
+					chip->channel_id, n);
 	}
 
 	min_err = last_err = (unsigned)(-1);
@@ -498,7 +491,7 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 
 	/* Adapt to optimal pwm size, the higher the resolution the better */
 	if (!force_pwm_size) {
-		if (qpnp_check_gpled_lpg_channel(id)) {
+		if (supported_sizes == QPNP_PWM_SIZE_7_8_BIT) {
 			if (n == 7 && best_m >= 1) {
 				n += 1;
 				best_m -= 1;
@@ -574,7 +567,7 @@ static int qpnp_lpg_change_table(struct qpnp_pwm_chip *chip,
 		if (pwm_value > max_pwm_value)
 			pwm_value = max_pwm_value;
 
-		if (qpnp_check_gpled_lpg_channel(chip->channel_id)) {
+		if (chip->pwm_config.supported_sizes == QPNP_PWM_SIZE_7_8_BIT) {
 			lut->duty_pct_list[i] = pwm_value;
 		} else {
 			lut->duty_pct_list[i*2] = pwm_value;
@@ -587,7 +580,7 @@ static int qpnp_lpg_change_table(struct qpnp_pwm_chip *chip,
 	 * For the Keypad Backlight Lookup Table (KPDBL_LUT),
 	 * offset is lo_index.
 	 */
-	if (qpnp_check_gpled_lpg_channel(chip->channel_id))
+	if (chip->pwm_config.supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
 		offset = lut->lo_index;
 
 	/* Write with max allowable burst mode, each entry is of two bytes */
@@ -994,10 +987,12 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 		break;
 	case QPNP_LPG_REVISION_1:
 		if (state == QPNP_LUT_ENABLE) {
-			QPNP_ENABLE_LUT_V1(value1, chip->channel_id);
+			QPNP_ENABLE_LUT_V1(value1,
+					lpg_config->lut_config.ramp_index);
 			value2 = QPNP_ENABLE_LPG_MODE;
 		} else {
-			QPNP_DISABLE_LUT_V1(value1, chip->channel_id);
+			QPNP_DISABLE_LUT_V1(value1,
+					lpg_config->lut_config.ramp_index);
 			value2 = QPNP_DISABLE_LPG_MODE;
 		}
 		mask1 = value1;
@@ -1023,7 +1018,7 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 
 static inline int qpnp_enable_pwm_mode(struct qpnp_pwm_chip *chip)
 {
-	if (qpnp_check_gpled_lpg_channel(chip->channel_id))
+	if (chip->pwm_config.supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
 		return QPNP_ENABLE_PWM_MODE_GPLED_CHANNEL;
 	return QPNP_ENABLE_PWM_MODE;
 }
@@ -1546,18 +1541,18 @@ static int qpnp_parse_lpg_dt_config(struct device_node *of_lpg_node,
 
 	rc = of_property_read_u32(of_parent, "qcom,period", &period);
 	if (rc) {
-		pr_err("node is missing PWM Period prop");
+		pr_err("node is missing PWM Period prop\n");
 		return rc;
 	}
 
 	if (!of_get_property(of_lpg_node, "qcom,duty-percents", &list_size)) {
-		pr_err("node is missing duty-pct list");
+		pr_err("node is missing duty-pct list\n");
 		return rc;
 	}
 
 	rc = of_property_read_u32(of_lpg_node, "cell-index", &start_idx);
 	if (rc) {
-		pr_err("Missing start index");
+		pr_err("Missing start index\n");
 		return rc;
 	}
 
@@ -1620,7 +1615,7 @@ out:
 static int qpnp_parse_dt_config(struct spmi_device *spmi,
 					struct qpnp_pwm_chip *chip)
 {
-	int			rc, enable, lut_entry_size;
+	int			rc, enable, lut_entry_size, list_size, i;
 	const char		*lable;
 	struct resource		*res;
 	struct device_node	*node;
@@ -1629,14 +1624,47 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	struct device_node	*of_node = spmi->dev.of_node;
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	struct qpnp_lut_config	*lut_config = &lpg_config->lut_config;
+	struct _qpnp_pwm_config	*pwm_config = &chip->pwm_config;
 	int			force_pwm_size = 0;
+	int			pwm_size_list[QPNP_PWM_SIZES_SUPPORTED];
 
 	rc = of_property_read_u32(of_node, "qcom,channel-id",
 				&chip->channel_id);
 	if (rc) {
 		dev_err(&spmi->dev, "%s: node is missing LPG channel id\n",
 								__func__);
-		goto out;
+		return -EINVAL;
+	}
+
+	if (!of_get_property(of_node, "qcom,supported-sizes", &list_size)) {
+		pr_err("Missing qcom,supported-size list\n");
+		return -EINVAL;
+	}
+
+	list_size /= sizeof(u32);
+	if (list_size > QPNP_PWM_SIZES_SUPPORTED) {
+		pr_err(" qcom,supported-size list is too big\n");
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,supported-sizes",
+			pwm_size_list, list_size);
+
+	if (rc) {
+		pr_err("Invalid qcom,supported-size property\n");
+		return rc;
+	}
+
+	for (i = 0; i < list_size; i++) {
+		pwm_config->supported_sizes |=
+			(1 << (pwm_size_list[i] - QPNP_MIN_PWM_BIT_SIZE));
+	}
+
+	if (!(pwm_config->supported_sizes == QPNP_PWM_SIZE_6_9_BIT ||
+		pwm_config->supported_sizes == QPNP_PWM_SIZE_7_8_BIT ||
+		pwm_config->supported_sizes == QPNP_PWM_SIZE_6_7_9_BIT)) {
+		pr_err("PWM sizes list qcom,supported-size is not proper\n");
+		return -EINVAL;
 	}
 
 	/*
@@ -1646,7 +1674,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	 */
 	rc = of_property_read_u32(of_node, "qcom,force-pwm-size",
 				&force_pwm_size);
-	if (qpnp_check_gpled_lpg_channel(chip->channel_id)) {
+	if (pwm_config->supported_sizes == QPNP_PWM_SIZE_7_8_BIT) {
 		if (!(force_pwm_size == QPNP_PWM_SIZE_7_BIT ||
 				force_pwm_size == QPNP_PWM_SIZE_8_BIT))
 			force_pwm_size = 0;
@@ -1654,12 +1682,14 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		if (!(force_pwm_size == QPNP_PWM_SIZE_6_BIT ||
 				force_pwm_size == QPNP_PWM_SIZE_9_BIT))
 			force_pwm_size = 0;
-	} else if (!(force_pwm_size == QPNP_PWM_SIZE_6_BIT ||
+	} else if (pwm_config->supported_sizes == QPNP_PWM_SIZE_6_7_9_BIT) {
+		if (!(force_pwm_size == QPNP_PWM_SIZE_6_BIT ||
 				force_pwm_size == QPNP_PWM_SIZE_7_BIT ||
 				force_pwm_size == QPNP_PWM_SIZE_9_BIT))
 			force_pwm_size = 0;
+	}
 
-	chip->pwm_config.force_pwm_size = force_pwm_size;
+	pwm_config->force_pwm_size = force_pwm_size;
 	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
 					QPNP_LPG_CHANNEL_BASE);
 	if (!res) {
@@ -1682,7 +1712,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		lpg_config->lut_size = resource_size(res) >> 1;
 		lut_entry_size = sizeof(u16);
 
-		if (qpnp_check_gpled_lpg_channel(chip->channel_id)) {
+		if (pwm_config->supported_sizes == QPNP_PWM_SIZE_7_8_BIT) {
 			lpg_config->lut_size = resource_size(res);
 			lut_entry_size = sizeof(u8);
 		}
@@ -1692,6 +1722,14 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		if (!lut_config->duty_pct_list) {
 			pr_err("can not allocate duty pct list\n");
 			return -ENOMEM;
+		}
+
+		rc = of_property_read_u32(of_node, "qcom,ramp-index",
+						&lut_config->ramp_index);
+		if (rc) {
+			pr_err("Missing LPG qcom,ramp-index property\n");
+			kfree(lut_config->duty_pct_list);
+			return rc;
 		}
 	}
 
