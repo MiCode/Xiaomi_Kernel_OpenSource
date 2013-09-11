@@ -341,7 +341,7 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = UFS_PHY_POWER_DOWN_CONTROL,
 	},
 	{
-		.cfg_value = 0x77,
+		.cfg_value = 0xFF,
 		.reg_offset = QSERDES_COM_PLL_CRCTRL,
 	},
 	{
@@ -353,11 +353,11 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_COM_SYSCLK_EN_SEL,
 	},
 	{
-		.cfg_value = 0x06,
+		.cfg_value = 0x00,
 		.reg_offset = QSERDES_COM_SYS_CLK_CTRL,
 	},
 	{
-		.cfg_value = 0x02,
+		.cfg_value = 0x03,
 		.reg_offset = QSERDES_COM_PLL_CLKEPDIV,
 	},
 	{
@@ -397,7 +397,7 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_COM_PLLLOCK_CMP_EN,
 	},
 	{
-		.cfg_value = 0x14,
+		.cfg_value = 0x10,
 		.reg_offset = QSERDES_COM_RESETSM_CNTRL,
 	},
 	{
@@ -437,11 +437,11 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_RX_CDR_CONTROL_QUARTER(1),
 	},
 	{
-		.cfg_value = 0x80,
+		.cfg_value = 0xC0,
 		.reg_offset = QSERDES_RX_SIGDET_CNTRL(0),
 	},
 	{
-		.cfg_value = 0x80,
+		.cfg_value = 0xC0,
 		.reg_offset = QSERDES_RX_SIGDET_CNTRL(1),
 	},
 	{
@@ -797,7 +797,7 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_RX_EQ_CONTROL(0),
 	},
 	{
-		.cfg_value = 0x71,
+		.cfg_value = 0x73,
 		.reg_offset = QSERDES_RX_RX_IQ_RXDET_EN(0),
 	},
 	{
@@ -877,7 +877,7 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_RX_EQ_CONTROL(1),
 	},
 	{
-		.cfg_value = 0x71,
+		.cfg_value = 0x73,
 		.reg_offset = QSERDES_RX_RX_IQ_RXDET_EN(1),
 	},
 	{
@@ -1252,10 +1252,21 @@ static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 	case PRE_CHANGE:
 		/* Assert PHY reset and apply PHY calibration values */
 		msm_ufs_assert_reset(hba);
+
+		/* provide 1ms delay to let the reset pulse propagate */
+		usleep_range(1000, 1100);
+
 		msm_ufs_phy_calibrate(phy);
 
 		/* De-assert PHY reset and start serdes */
 		msm_ufs_deassert_reset(hba);
+
+		/*
+		 * after reset deassertion, phy will need all ref clocks,
+		 * voltage, current to settle down before starting serdes.
+		 */
+		usleep_range(1000, 1100);
+
 		msm_ufs_phy_start_serdes(phy);
 
 		/* poll for PCS_READY for max. 1sec */
