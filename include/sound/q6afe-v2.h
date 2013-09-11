@@ -92,7 +92,8 @@ enum afe_mad_type {
 	MAD_HW_NONE = 0x00,
 	MAD_HW_AUDIO = 0x01,
 	MAD_HW_BEACON = 0x02,
-	MAD_HW_ULTRASOUND = 0x04
+	MAD_HW_ULTRASOUND = 0x04,
+	MAD_SW_AUDIO = 0x05,
 };
 
 struct afe_audio_buffer {
