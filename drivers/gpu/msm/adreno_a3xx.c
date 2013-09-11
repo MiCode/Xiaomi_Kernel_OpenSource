@@ -3147,41 +3147,41 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 }
 
 
-static void a3xx_perfcounter_enable_pwr(struct kgsl_device *device,
-	unsigned int countable)
+static int a3xx_perfcounter_enable_pwr(struct kgsl_device *device,
+	unsigned int counter)
 {
 	unsigned int in, out;
 
-	if (countable > 1)
-		return;
+	if (counter > 1)
+		return -EINVAL;
 
 	kgsl_regread(device, A3XX_RBBM_RBBM_CTL, &in);
 
-	if (countable == 0)
+	if (counter == 0)
 		out = in | RBBM_RBBM_CTL_RESET_PWR_CTR0;
 	else
 		out = in | RBBM_RBBM_CTL_RESET_PWR_CTR1;
 
 	kgsl_regwrite(device, A3XX_RBBM_RBBM_CTL, out);
 
-	if (countable == 0)
+	if (counter == 0)
 		out = in | RBBM_RBBM_CTL_ENABLE_PWR_CTR0;
 	else
 		out = in | RBBM_RBBM_CTL_ENABLE_PWR_CTR1;
 
 	kgsl_regwrite(device, A3XX_RBBM_RBBM_CTL, out);
 
-	return;
+	return 0;
 }
 
-static void a3xx_perfcounter_enable_vbif(struct kgsl_device *device,
+static int a3xx_perfcounter_enable_vbif(struct kgsl_device *device,
 					 unsigned int counter,
 					 unsigned int countable)
 {
 	unsigned int in, out, bit, sel;
 
 	if (counter > 1 || countable > 0x7f)
-		return;
+		return -EINVAL;
 
 	kgsl_regread(device, A3XX_VBIF_PERF_CNT_EN, &in);
 	kgsl_regread(device, A3XX_VBIF_PERF_CNT_SEL, &sel);
@@ -3203,20 +3203,21 @@ static void a3xx_perfcounter_enable_vbif(struct kgsl_device *device,
 	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_CLR, 0);
 
 	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_EN, out);
+	return 0;
 }
 
-static void a3xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
-					     unsigned int countable)
+static int a3xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
+					     unsigned int counter)
 {
 	unsigned int in, out, bit;
 
-	if (countable > 2)
-		return;
+	if (counter > 2)
+		return -EINVAL;
 
 	kgsl_regread(device, A3XX_VBIF_PERF_CNT_EN, &in);
-	if (countable == 0)
+	if (counter == 0)
 		bit = VBIF_PERF_PWR_CNT_0;
-	else if (countable == 1)
+	else if (counter == 1)
 		bit = VBIF_PERF_PWR_CNT_1;
 	else
 		bit = VBIF_PERF_PWR_CNT_2;
@@ -3227,6 +3228,7 @@ static void a3xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
 	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_CLR, 0);
 
 	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_EN, out);
+	return 0;
 }
 
 /*
@@ -3237,9 +3239,10 @@ static void a3xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
  * @countable - Desired countable
  *
  * Physically set up a counter within a group with the desired countable
+ * Return 0 on success else error code
  */
 
-static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
+static int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -3248,18 +3251,20 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 
 	/* Special cases */
 	if (group == KGSL_PERFCOUNTER_GROUP_PWR)
-		return a3xx_perfcounter_enable_pwr(device, countable);
+		return a3xx_perfcounter_enable_pwr(device, counter);
 	else if (group == KGSL_PERFCOUNTER_GROUP_VBIF)
-		return a3xx_perfcounter_enable_vbif(device, counter, countable);
+		return a3xx_perfcounter_enable_vbif(device, counter,
+							countable);
 	else if (group == KGSL_PERFCOUNTER_GROUP_VBIF_PWR)
-		return a3xx_perfcounter_enable_vbif_pwr(device, countable);
+		return a3xx_perfcounter_enable_vbif_pwr(device, counter);
 
 	if (group >= adreno_dev->gpudev->perfcounters->group_count)
-		return;
+		return -EINVAL;
 
-	if (counter >=
-		adreno_dev->gpudev->perfcounters->groups[group].reg_count)
-		return;
+	if ((0 == adreno_dev->gpudev->perfcounters->groups[group].reg_count) ||
+		(counter >=
+		adreno_dev->gpudev->perfcounters->groups[group].reg_count))
+		return -EINVAL;
 
 	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
 
@@ -3267,12 +3272,15 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, reg->select, countable);
 
 	if (reg->load_bit < 32) {
-		val = 1 << reg->load_bit;
+		kgsl_regread(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, &val);
+		val |= (1 << reg->load_bit);
 		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, val);
 	} else {
-		val  = 1 << (reg->load_bit - 32);
+		kgsl_regread(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, &val);
+		val  |= (1 << (reg->load_bit - 32));
 		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, val);
 	}
+	return 0;
 }
 
 static uint64_t a3xx_perfcounter_read_pwr(struct adreno_device *adreno_dev,
@@ -3383,8 +3391,9 @@ static uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	if (group >= adreno_dev->gpudev->perfcounters->group_count)
 		return 0;
 
-	if (counter >=
-		adreno_dev->gpudev->perfcounters->groups[group].reg_count)
+	if ((0 == adreno_dev->gpudev->perfcounters->groups[group].reg_count) ||
+		(counter >=
+		adreno_dev->gpudev->perfcounters->groups[group].reg_count))
 		return 0;
 
 	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
@@ -3837,8 +3846,30 @@ static struct adreno_perfcounters a3xx_perfcounters = {
 	ARRAY_SIZE(a3xx_perfcounter_groups),
 };
 
-static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
+/*
+ * a3xx_perfcounter_close() - Return counters that were initialized in
+ * a3xx_perfcounter_init
+ * @adreno_dev: The device for which counters were initialized
+ */
+static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
 {
+	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		SP_FS_FULL_ALU_INSTRUCTIONS,
+		PERFCOUNTER_FLAG_KERNEL);
+	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		SP_FS_CFLOW_INSTRUCTIONS,
+		PERFCOUNTER_FLAG_KERNEL);
+	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		SP0_ICL1_MISSES,
+		PERFCOUNTER_FLAG_KERNEL);
+	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		SP_ALU_ACTIVE_CYCLES,
+		PERFCOUNTER_FLAG_KERNEL);
+}
+
+static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
+{
+	int ret;
 	/* SP[3] counter is broken on a330 so disable it if a330 device */
 	if (adreno_is_a330(adreno_dev))
 		a3xx_perfcounters_sp[3].countable = KGSL_PERFCOUNTER_BROKEN;
@@ -3853,29 +3884,47 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	 * we will use this to augment our hang detection
 	 */
 	if (adreno_dev->fast_hang_detect) {
-		adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_SP,
 			SP_ALU_ACTIVE_CYCLES, &ft_detect_regs[6],
 			PERFCOUNTER_FLAG_KERNEL);
+		if (ret)
+			goto err;
 		ft_detect_regs[7] = ft_detect_regs[6] + 1;
-		adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_SP,
 			SP0_ICL1_MISSES, &ft_detect_regs[8],
 			PERFCOUNTER_FLAG_KERNEL);
+		if (ret)
+			goto err;
 		ft_detect_regs[9] = ft_detect_regs[8] + 1;
-		adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_SP,
 			SP_FS_CFLOW_INSTRUCTIONS, &ft_detect_regs[10],
 			PERFCOUNTER_FLAG_KERNEL);
+		if (ret)
+			goto err;
 		ft_detect_regs[11] = ft_detect_regs[10] + 1;
 	}
 
-	adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+	ret = adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
 		SP_FS_FULL_ALU_INSTRUCTIONS, NULL, PERFCOUNTER_FLAG_KERNEL);
+	if (ret)
+		goto err;
 
 	/* Reserve and start countable 1 in the PWR perfcounter group */
-	adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
+	ret = adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
 			NULL, PERFCOUNTER_FLAG_KERNEL);
+	if (ret)
+		goto err;
 
 	/* Default performance counter profiling to false */
 	adreno_dev->profile.enabled = false;
+	return ret;
+
+err:
+	a3xx_perfcounter_close(adreno_dev);
+	return ret;
 }
 
 /**
@@ -4343,6 +4392,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.ctxt_draw_workaround = NULL,
 	.rb_init = a3xx_rb_init,
 	.perfcounter_init = a3xx_perfcounter_init,
+	.perfcounter_close = a3xx_perfcounter_close,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
 	.irq_pending = a3xx_irq_pending,
