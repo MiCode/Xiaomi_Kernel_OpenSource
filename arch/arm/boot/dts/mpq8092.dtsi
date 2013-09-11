@@ -17,6 +17,10 @@
 	compatible = "qcom,mpq8092";
 	interrupt-parent = <&intc>;
 
+	aliases {
+		i2c2 = &i2c_2;
+	};
+
 	soc: soc { };
 };
 
@@ -271,6 +275,26 @@
 			qcom,ocmem-part-name = "video";
 			qcom,ocmem-part-min = <0x55000>;
 		};
+	};
+
+	i2c_2: i2c@f9924000 { /* BLSP1 QUP2 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr", "bam_phys_addr";
+		reg = <0xf9924000 0x1000>,
+		      <0xf9904000 0x11000>;
+		interrupt-names = "qup_irq", "bam_irq";
+		interrupts = <0 96 0>, <0 238 0>;
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <19200000>;
+		qcom,gpio-sda = <&msmgpio 6 0>;
+		qcom,gpio-scl = <&msmgpio 7 0>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,bam-pipe-idx-cons = <14>;
+		qcom,bam-pipe-idx-prod = <15>;
+		qcom,master-id = <86>;
 	};
 
 	memory_hole: qcom,msm-mem-hole {

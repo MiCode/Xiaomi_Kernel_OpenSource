@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,12 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
+static struct gpiomux_setting gpio_i2c_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting gpio_uart_config = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_16MA,
@@ -25,6 +31,18 @@ static struct gpiomux_setting gpio_uart_config = {
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
+	{
+		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 7,		/* BLSP1 QUP2 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
 	{
 		.gpio      = 45,	       /* BLSP8 UART TX */
 		.settings = {
