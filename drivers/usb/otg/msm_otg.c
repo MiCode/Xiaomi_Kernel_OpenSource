@@ -2614,8 +2614,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
-			if (dcp)
+			if (dcp) {
 				msm_otg_wait_for_ext_chg_done(motg);
+				/* Turn off VDP_SRC */
+				ulpi_write(otg->phy, 0x2, 0x86);
+			}
 			msm_otg_reset(otg->phy);
 			/*
 			 * There is a small window where ID interrupt
