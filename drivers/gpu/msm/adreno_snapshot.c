@@ -921,11 +921,6 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	header->ptbase = (__u32)obj->ptbase;
 	header->size = obj->dwords;
 
-	/* Make sure memory is mapped */
-	if (obj->entry)
-		src = (unsigned int *)
-		kgsl_gpuaddr_to_vaddr(&obj->entry->memdesc, obj->gpuaddr);
-
 	/* Write the contents of the ib */
 	for (i = 0; i < obj->dwords; i++, src++, dst++) {
 		*dst = *src;
