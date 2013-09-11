@@ -365,8 +365,7 @@ struct mdss_dsi_ctrl_pdata {
 };
 
 int dsi_panel_device_register(struct device_node *pan_node,
-				struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-			      bool cmd_cfg_cont_splash);
+				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 char *mdss_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mdss_dsi_buf_init(struct dsi_buf *dp);
@@ -425,5 +424,6 @@ struct dcs_cmd_req *mdss_dsi_cmdlist_get(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmdlist_kickoff(int intf);
 
 int mdss_dsi_panel_init(struct device_node *node,
-		struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+		bool cmd_cfg_cont_splash);
 #endif /* MDSS_DSI_H */

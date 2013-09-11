@@ -761,10 +761,12 @@ error:
 }
 
 int mdss_dsi_panel_init(struct device_node *node,
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+	bool cmd_cfg_cont_splash)
 {
 	int rc = 0;
 	static const char *panel_name;
+	bool cont_splash_enabled;
 
 	if (!node) {
 		pr_err("%s: no panel node\n", __func__);
@@ -783,6 +785,22 @@ int mdss_dsi_panel_init(struct device_node *node,
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
 		return rc;
+	}
+
+	if (cmd_cfg_cont_splash)
+		cont_splash_enabled = of_property_read_bool(node,
+				"qcom,cont-splash-enabled");
+	else
+		cont_splash_enabled = false;
+	if (!cont_splash_enabled) {
+		pr_info("%s:%d Continuous splash flag not found.\n",
+				__func__, __LINE__);
+		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 0;
+	} else {
+		pr_info("%s:%d Continuous splash flag enabled.\n",
+				__func__, __LINE__);
+
+		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
 	}
 
 	ctrl_pdata->on = mdss_dsi_panel_on;
