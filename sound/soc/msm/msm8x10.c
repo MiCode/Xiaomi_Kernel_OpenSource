@@ -130,7 +130,7 @@ static const struct snd_soc_dapm_widget msm8x10_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Lineout amp", msm_ext_spkramp_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-
+	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
 };
 static int msm8x10_ext_spk_power_amp_init(void)
 {
