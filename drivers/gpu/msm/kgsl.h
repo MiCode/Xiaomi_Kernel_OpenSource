@@ -167,6 +167,7 @@ struct kgsl_memdesc_ops {
 struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
 	void *hostptr; /* kernel virtual address */
+	unsigned int hostptr_count; /* number of threads using hostptr */
 	unsigned long useraddr; /* userspace address */
 	unsigned int gpuaddr;
 	phys_addr_t physaddr;
@@ -282,8 +283,7 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 
 static inline void *kgsl_memdesc_map(struct kgsl_memdesc *memdesc)
 {
-	if (memdesc->hostptr == NULL && memdesc->ops &&
-		memdesc->ops->map_kernel)
+	if (memdesc->ops && memdesc->ops->map_kernel)
 		memdesc->ops->map_kernel(memdesc);
 
 	return memdesc->hostptr;
