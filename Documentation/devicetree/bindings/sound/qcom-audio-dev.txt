@@ -456,6 +456,7 @@ Required properties:
 
 Required properties:
 - compatible : "qcom,apq8084-audio-taiko"
+- qcom,ext-mclk-gpio  : audio uses this GPIO to request mclk in MTP and CDP
 
 Example:
 
@@ -499,6 +500,7 @@ sound {
 	qcom,hdmi-audio-rx;
 	qcom,ext-ult-lo-amp-gpio = <&pm8941_gpios 6 0>;
 
+	qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
 	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
 	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
 	qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
