@@ -536,8 +536,8 @@ int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
 			(unsigned long int)virt, &phys);
 
 	bl_fb_addr_va = (unsigned long *)ioremap(bl_fb_addr, size);
-
 	memcpy(virt, bl_fb_addr_va, size);
+	iounmap(bl_fb_addr_va);
 
 	MDSS_MDP_REG_WRITE(pipe_addr, phys);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_CTL_FLUSH + MDSS_MDP_REG_CTL_OFFSET(0),
