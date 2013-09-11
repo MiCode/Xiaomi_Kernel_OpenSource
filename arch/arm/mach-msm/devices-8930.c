@@ -31,7 +31,6 @@
 #include "rpm_stats.h"
 #include "rpm_rbcpr_stats.h"
 #include "footswitch.h"
-#include "acpuclock-krait.h"
 #include "pm.h"
 
 #ifdef CONFIG_MSM_MPM
@@ -675,16 +674,9 @@ struct platform_device msm8627_device_acpuclk = {
 	.id		= -1,
 };
 
-static struct acpuclk_platform_data acpuclk_8930_pdata = {
-	.uses_pm8917 = false,
-};
-
 struct platform_device msm8930_device_acpuclk = {
 	.name		= "acpuclk-8930",
 	.id		= -1,
-	.dev = {
-		.platform_data = &acpuclk_8930_pdata,
-	},
 };
 
 struct platform_device msm8930aa_device_acpuclk = {
@@ -692,16 +684,9 @@ struct platform_device msm8930aa_device_acpuclk = {
 	.id		= -1,
 };
 
-static struct acpuclk_platform_data acpuclk_8930ab_pdata = {
-	.uses_pm8917 = false,
-};
-
 struct platform_device msm8930ab_device_acpuclk = {
 	.name		= "acpuclk-8930ab",
 	.id		= -1,
-	.dev = {
-		.platform_data = &acpuclk_8930ab_pdata,
-	},
 };
 
 static struct fs_driver_data gfx3d_fs_data = {
