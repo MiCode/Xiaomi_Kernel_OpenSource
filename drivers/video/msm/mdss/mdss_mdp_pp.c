@@ -308,6 +308,10 @@ static void pp_igc_config(unsigned long flags, char __iomem *addr,
 static void pp_enhist_config(unsigned long flags, char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_hist_lut_data *enhist_cfg);
+static void pp_dither_config(char __iomem *addr,
+				struct pp_sts_type *pp_sts,
+				struct mdp_dither_cfg_data *dither_cfg);
+static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode);
 static void pp_sharp_config(char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
@@ -602,7 +606,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 				&pipe->pp_cfg.pa_cfg);
 
 			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
-				opmode |= (1 << 4); /* PA_EN */
+				opmode |= MDSS_MDP_VIG_OP_PA_EN;
 		}
 
 		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
@@ -1014,15 +1018,67 @@ error:
 	return ret;
 }
 
+static void pp_dither_config(char __iomem *addr,
+			struct pp_sts_type *pp_sts,
+			struct mdp_dither_cfg_data *dither_cfg)
+{
+	u32 data;
+	int i;
+
+	if (dither_cfg->flags & MDP_PP_OPS_WRITE) {
+		data = dither_depth_map[dither_cfg->g_y_depth];
+		data |= dither_depth_map[dither_cfg->b_cb_depth] << 2;
+		data |= dither_depth_map[dither_cfg->r_cr_depth] << 4;
+		writel_relaxed(data, addr);
+		addr += 0x14;
+		for (i = 0; i << 16; i += 4) {
+			data = dither_matrix[i] |
+				(dither_matrix[i + 1] << 4) |
+				(dither_matrix[i + 2] << 8) |
+				(dither_matrix[i + 3] << 12);
+			writel_relaxed(data, addr);
+			addr += 4;
+		}
+	}
+	if (dither_cfg->flags & MDP_PP_OPS_DISABLE)
+		pp_sts->dither_sts &= ~PP_STS_ENABLE;
+	else if (dither_cfg->flags & MDP_PP_OPS_ENABLE)
+		pp_sts->dither_sts |= PP_STS_ENABLE;
+}
+
+static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode)
+{
+	if (pp_sts->pa_sts & PP_STS_ENABLE)
+		*opmode |= MDSS_MDP_DSPP_OP_PA_EN; /* PA_EN */
+	if (pp_sts->pcc_sts & PP_STS_ENABLE)
+		*opmode |= MDSS_MDP_DSPP_OP_PCC_EN; /* PCC_EN */
+
+	if (pp_sts->igc_sts & PP_STS_ENABLE) {
+		*opmode |= MDSS_MDP_DSPP_OP_IGC_LUT_EN | /* IGC_LUT_EN */
+			      (pp_sts->igc_tbl_idx << 1);
+	}
+	if (pp_sts->enhist_sts & PP_STS_ENABLE) {
+		*opmode |= MDSS_MDP_DSPP_OP_HIST_LUTV_EN | /* HIST_LUT_EN */
+				  MDSS_MDP_DSPP_OP_PA_EN; /* PA_EN */
+	}
+	if (pp_sts->dither_sts & PP_STS_ENABLE)
+		*opmode |= MDSS_MDP_DSPP_OP_DST_DITHER_EN; /* DITHER_EN */
+	if (pp_sts->gamut_sts & PP_STS_ENABLE) {
+		*opmode |= MDSS_MDP_DSPP_OP_GAMUT_EN; /* GAMUT_EN */
+		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
+			*opmode |= MDSS_MDP_DSPP_OP_GAMUT_PCC_ORDER;
+	}
+	if (pp_sts->pgc_sts & PP_STS_ENABLE)
+		*opmode |= MDSS_MDP_DSPP_OP_ARGC_LUT_EN;
+}
+
 static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 {
 	u32 flags, dspp_num, opmode = 0;
-	struct mdp_dither_cfg_data *dither_cfg;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
-	u32 data;
 	char __iomem *base, *addr;
-	int i, ret = 0;
+	int ret = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
 	u32 mixer_cnt;
@@ -1079,62 +1135,23 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	pp_enhist_config(flags, base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
 			pp_sts, &mdss_pp_res->enhist_disp_cfg[disp_num]);
 
-	if (pp_sts->pa_sts & PP_STS_ENABLE)
-		opmode |= (1 << 20); /* PA_EN */
-
-	if (pp_sts->pcc_sts & PP_STS_ENABLE)
-		opmode |= (1 << 4); /* PCC_EN */
-
-	if (pp_sts->igc_sts & PP_STS_ENABLE) {
-		opmode |= (1 << 0) | /* IGC_LUT_EN */
-			      (pp_sts->igc_tbl_idx << 1);
-	}
-
-	if (pp_sts->enhist_sts & PP_STS_ENABLE) {
-		opmode |= (1 << 19) | /* HIST_LUT_EN */
-				  (1 << 20); /* PA_EN */
-		if (!(pp_sts->pa_sts & PP_STS_ENABLE)) {
-			/* Program default value */
-			addr = base + MDSS_MDP_REG_DSPP_PA_BASE;
-			writel_relaxed(0, addr);
-			writel_relaxed(0, addr + 4);
-			writel_relaxed(0, addr + 8);
-			writel_relaxed(0, addr + 12);
-		}
+	if (pp_sts->enhist_sts & PP_STS_ENABLE &&
+			!(pp_sts->pa_sts & PP_STS_ENABLE)) {
+		/* Program default value */
+		addr = base + MDSS_MDP_REG_DSPP_PA_BASE;
+		writel_relaxed(0, addr);
+		writel_relaxed(0, addr + 4);
+		writel_relaxed(0, addr + 8);
+		writel_relaxed(0, addr + 12);
 	}
 	if (flags & PP_FLAGS_DIRTY_DITHER) {
-		dither_cfg = &mdss_pp_res->dither_disp_cfg[disp_num];
-		if (dither_cfg->flags & MDP_PP_OPS_WRITE) {
-			addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
-			data = dither_depth_map[dither_cfg->g_y_depth];
-			data |= dither_depth_map[dither_cfg->b_cb_depth] << 2;
-			data |= dither_depth_map[dither_cfg->r_cr_depth] << 4;
-			writel_relaxed(data, addr);
-			addr += 0x14;
-			for (i = 0; i << 16; i += 4) {
-				data = dither_matrix[i] |
-					(dither_matrix[i + 1] << 4) |
-					(dither_matrix[i + 2] << 8) |
-					(dither_matrix[i + 3] << 12);
-				writel_relaxed(data, addr);
-				addr += 4;
-			}
-		}
-		if (dither_cfg->flags & MDP_PP_OPS_DISABLE)
-			pp_sts->dither_sts &= ~PP_STS_ENABLE;
-		else if (dither_cfg->flags & MDP_PP_OPS_ENABLE)
-			pp_sts->dither_sts |= PP_STS_ENABLE;
+		addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
+		pp_dither_config(addr, pp_sts,
+				&mdss_pp_res->dither_disp_cfg[disp_num]);
 	}
-	if (pp_sts->dither_sts & PP_STS_ENABLE)
-		opmode |= (1 << 8); /* DITHER_EN */
 	if (flags & PP_FLAGS_DIRTY_GAMUT)
 		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num], base,
 				pp_sts);
-	if (pp_sts->gamut_sts & PP_STS_ENABLE) {
-		opmode |= (1 << 23); /* GAMUT_EN */
-		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
-			opmode |= (1 << 24); /* GAMUT_ORDER */
-	}
 
 	if (flags & PP_FLAGS_DIRTY_PGC) {
 		pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
@@ -1147,9 +1164,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
 			pp_sts->pgc_sts |= PP_STS_ENABLE;
 	}
-	if (pp_sts->pgc_sts & PP_STS_ENABLE)
-		opmode |= (1 << 22);
 
+	pp_dspp_opmode_config(pp_sts, &opmode);
 flush_exit:
 	writel_relaxed(opmode, base + MDSS_MDP_REG_DSPP_OP_MODE);
 
