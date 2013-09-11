@@ -510,7 +510,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 					BLEND_OP_OPAQUE;
 
 	if (!fmt->alpha_enable && (pipe->blend_op != BLEND_OP_OPAQUE))
-		pr_warn("Unintended blend_op %d on layer with no alpha plane\n",
+		pr_debug("Unintended blend_op %d on layer with no alpha plane\n",
 			pipe->blend_op);
 
 	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90)) {
