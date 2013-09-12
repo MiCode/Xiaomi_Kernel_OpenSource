@@ -227,6 +227,8 @@ enum {
 #define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
 
+#define DSI_FLAG_CLOCK_MASTER		0x80000000
+
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -238,6 +240,8 @@ struct mdss_dsi_ctrl_pdata {
 	unsigned char *ctrl_base;
 	int reg_size;
 	u32 clk_cnt;
+	int clk_cnt_sub;
+	u32 flags;
 	struct clk *mdp_core_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
@@ -308,12 +312,19 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
-int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+int mdss_dsi_link_clk_start(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_link_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl);
+int mdss_dsi_bus_clk_start(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_bus_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
 void mdss_dsi_controller_cfg(int enable,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);
+
+struct mdss_dsi_ctrl_pdata *mdss_dsi_ctrl_slave(
+				struct mdss_dsi_ctrl_pdata *ctrl);
 
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
