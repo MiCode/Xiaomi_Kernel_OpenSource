@@ -694,7 +694,6 @@ struct v4l2_buffer {
 /* Cache handling flags */
 #define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE	0x0800
 #define V4L2_BUF_FLAG_NO_CACHE_CLEAN		0x1000
-#define V4L2_BUF_FLAG_EOS			0x2000
 /* Timestamp type */
 #define V4L2_BUF_FLAG_TIMESTAMP_MASK		0xe000
 #define V4L2_BUF_FLAG_TIMESTAMP_UNKNOWN		0x0000
@@ -709,7 +708,7 @@ struct v4l2_buffer {
 #define V4L2_QCOM_BUF_DATA_CORRUPT		0x200000
 #define V4L2_QCOM_BUF_DROP_FRAME		0x400000
 #define V4L2_QCOM_BUF_INPUT_UNSUPPORTED		0x800000
-#define V4L2_QCOM_BUF_FLAG_EOS			0x2000
+#define V4L2_QCOM_BUF_FLAG_EOS			0x1000000
 
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
