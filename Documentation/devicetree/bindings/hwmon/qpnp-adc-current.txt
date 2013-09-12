@@ -33,6 +33,9 @@ Optional properties:
 				  apply the default RSENSE if conditions are met.
 			      1 : Select this type to read the IADC, SMBB trim register and
 				  manufacturer type and apply the default RSENSE if conditions are met.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC type and revision for applying the appropriate temperature
+		    compensation parameters.
 
 Channel node
 NOTE: Atleast one Channel node is required.
