@@ -158,6 +158,7 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
+		vdd-supply = <&gdsc_venus>;
 		qcom,load-freq-tbl = <352800 160000000>,
 			<244800 133330000>,
 			<108000  66700000>;
