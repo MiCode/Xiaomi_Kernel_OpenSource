@@ -1612,6 +1612,7 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
+	bool skip_fpr = false;
 	int ret = 0;
 
 	trace();
@@ -1624,19 +1625,37 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
+	if ((udc->udc_driver->in_lpm != NULL) &&
+	    (udc->udc_driver->in_lpm(udc))) {
+		if (udc->udc_driver->set_fpr_flag) {
+			/* When USB HW is in low-power mode we set a flag
+			 * for the OTG layer to set the FPR bit during the
+			 * low-power mode mode exit sequence.
+			 */
+			udc->udc_driver->set_fpr_flag(udc);
+			skip_fpr = true;
+		}
+	}
+
 	udc->udc_driver->notify_event(udc,
 		CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT);
 
 	if (udc->transceiver)
 		usb_phy_set_suspend(udc->transceiver, 0);
 
+	while (udc->udc_driver->in_lpm(udc))
+		usleep(1);
+
 	spin_lock_irqsave(udc->lock, flags);
-	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
-		ret = -EINVAL;
-		dbg_trace("port is not suspended\n");
-		goto out;
+	if (!skip_fpr) {
+		if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
+			ret = -EINVAL;
+			dbg_trace("port is not suspended\n");
+			goto out;
+		}
+		hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
 	}
-	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
+
 out:
 	spin_unlock_irqrestore(udc->lock, flags);
 	return ret;
@@ -1970,7 +1989,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	}
 
 	/* MSM Specific: updating the request as required for
-	 * SPS mode. Enable MSM proprietary DMA engine acording
+	 * SPS mode. Enable MSM DMA engine acording
 	 * to the UDC private data in the request.
 	 */
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
@@ -2218,7 +2237,7 @@ __acquires(mEp->lock)
 				   struct ci13xxx_req, queue);
 		list_del_init(&mReq->queue);
 
-		/* MSM Specific: Clear end point proprietary register */
+		/* MSM Specific: Clear end point specific register */
 		if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
 			if (mReq->req.udc_priv & MSM_SPS_MODE) {
 				val = hw_cread(CAP_ENDPTPIPEID +
