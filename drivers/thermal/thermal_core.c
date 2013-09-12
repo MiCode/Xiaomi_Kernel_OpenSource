@@ -156,14 +156,30 @@ int sensor_get_id(char *name)
 }
 EXPORT_SYMBOL(sensor_get_id);
 
+static long get_min(struct sensor_info *sensor, long temp)
+{
+	long min = LONG_MIN;
+	struct sensor_threshold *pos, *var;
+
+	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {
+		if (pos->trip == THERMAL_TRIP_CONFIGURABLE_LOW)
+			if (pos->temp < temp && pos->temp > min)
+				min = pos->temp;
+	}
+
+	return min;
+}
+
 static void __update_sensor_thresholds(struct sensor_info *sensor)
 {
-	int min = INT_MIN;
-	int max = INT_MAX;
+	long min = LONG_MIN;
+	long max = LONG_MAX;
+	long max_of_min = LONG_MIN;
+	long min_of_max = LONG_MAX;
 	struct sensor_threshold *pos, *var;
 	enum thermal_trip_type type;
 	int i;
-	unsigned long curr_temp;
+	long curr_temp;
 
 	for (i = 0; ((sensor->max_idx == -1) || (sensor->min_idx == -1)) &&
 		(sensor->tz->ops->get_trip_type) && (i < sensor->tz->trips);
@@ -173,36 +189,58 @@ static void __update_sensor_thresholds(struct sensor_info *sensor)
 			sensor->max_idx = i;
 		if (type == THERMAL_TRIP_CONFIGURABLE_LOW)
 			sensor->min_idx = i;
+		sensor->tz->ops->get_trip_temp(sensor->tz,
+			THERMAL_TRIP_CONFIGURABLE_LOW, &sensor->threshold_min);
+		sensor->tz->ops->get_trip_temp(sensor->tz,
+			THERMAL_TRIP_CONFIGURABLE_HI, &sensor->threshold_max);
 	}
 
-	get_cpu();
 	sensor->tz->ops->get_temp(sensor->tz, &curr_temp);
 	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {
-		if ((pos->trip == THERMAL_TRIP_CONFIGURABLE_LOW) &&
-				(pos->temp < (int)curr_temp))
-			if (pos->temp > min)
+		if (pos->trip == THERMAL_TRIP_CONFIGURABLE_LOW) {
+			if (pos->temp > max_of_min)
+				max_of_min = pos->temp;
+			if (pos->temp < curr_temp && pos->temp > min)
 				min = pos->temp;
-		if ((pos->trip == THERMAL_TRIP_CONFIGURABLE_HI) &&
-				(pos->temp > (int)curr_temp))
-			if (pos->temp < max)
+		}
+		if (pos->trip == THERMAL_TRIP_CONFIGURABLE_HI) {
+			if (pos->temp < min_of_max)
+				min_of_max = pos->temp;
+			if (pos->temp > curr_temp && pos->temp < max)
 				max = pos->temp;
+		}
 	}
-	put_cpu();
+
+	pr_debug("sensor %d: min of max: %ld max of min: %ld\n",
+			sensor->sensor_id, max_of_min, min_of_max);
+
+	/* If we haven't found a max and min bounding the curr_temp,
+	 * use the min of max and max of min instead.
+	 */
+	if (max == LONG_MAX)
+		max = min_of_max;
+	if (min == LONG_MIN) {
+		min = get_min(sensor, max);
+		if (min == LONG_MIN)
+			min = max_of_min;
+	}
 
 	if (sensor->tz->ops->set_trip_temp) {
-		if (max != INT_MAX) {
+		if (max != sensor->threshold_max) {
 			sensor->tz->ops->set_trip_temp(sensor->tz,
 				sensor->max_idx, max);
 			sensor->threshold_max = max;
 		}
-		if (min != INT_MIN) {
+		if (min != sensor->threshold_min) {
 			sensor->tz->ops->set_trip_temp(sensor->tz,
 				sensor->min_idx, min);
 			sensor->threshold_min = min;
 		}
 	}
 
-	pr_debug("sensor %d, min: %d, max %d\n", sensor->sensor_id, min, max);
+	pr_debug("sensor %d: curr_temp: %ld min: %ld max: %ld\n",
+		sensor->sensor_id, curr_temp,
+		sensor->threshold_min, sensor->threshold_max);
 }
 
 static void sensor_update_work(struct work_struct *work)
@@ -218,7 +256,7 @@ static void sensor_update_work(struct work_struct *work)
  * Do NOT call sensor_set_trip from this function
  */
 int thermal_sensor_trip(struct thermal_zone_device *tz,
-		enum thermal_trip_type trip, unsigned long temp)
+		enum thermal_trip_type trip, long temp)
 {
 	struct sensor_threshold *pos, *var;
 	int ret = -ENODEV;
@@ -235,10 +273,10 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 			continue;
 		if (((trip == THERMAL_TRIP_CONFIGURABLE_LOW) &&
 			(pos->temp <= tz->sensor.threshold_min) &&
-			(pos->temp >= (int) temp)) ||
+			(pos->temp >= temp)) ||
 			((trip == THERMAL_TRIP_CONFIGURABLE_HI) &&
 				(pos->temp >= tz->sensor.threshold_max) &&
-				(pos->temp <= (int)temp))) {
+				(pos->temp <= temp))) {
 			pos->notify(trip, temp, pos->data);
 		}
 	}
@@ -302,29 +340,6 @@ int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 }
 EXPORT_SYMBOL(sensor_cancel_trip);
 
-static int sensor_get_trip_temp(struct thermal_zone_device *tz,
-		int type, unsigned long *temp)
-{
-	struct sensor_info *sensor = get_sensor(tz->id);
-
-	if (!sensor)
-		return -EFAULT;
-
-	switch (type) {
-	case THERMAL_TRIP_CONFIGURABLE_HI:
-		*temp = tz->sensor.threshold_max;
-		break;
-	case THERMAL_TRIP_CONFIGURABLE_LOW:
-		*temp = tz->sensor.threshold_min;
-		break;
-	default:
-		tz->ops->get_trip_temp(tz, type, temp);
-		break;
-	}
-
-	return 0;
-}
-
 static int tz_notify_trip(enum thermal_trip_type type, int temp, void *data)
 {
 	struct thermal_zone_device *tz = (struct thermal_zone_device *)data;
@@ -377,7 +392,7 @@ int sensor_init(struct thermal_zone_device *tz)
 	sensor->sensor_id = tz->id;
 	sensor->tz = tz;
 	sensor->threshold_min = 0;
-	sensor->threshold_max = INT_MAX;
+	sensor->threshold_max = LONG_MAX;
 	sensor->max_idx = -1;
 	sensor->min_idx = -1;
 	mutex_init(&sensor->lock);
@@ -904,8 +919,7 @@ trip_point_temp_show(struct device *dev, struct device_attribute *attr,
 	if (!sscanf(attr->attr.name, "trip_point_%d_temp", &trip))
 		return -EINVAL;
 
-	ret = sensor_get_trip_temp(tz, trip, &temperature);
-
+	ret = tz->ops->get_trip_temp(tz, trip, &temperature);
 	if (ret)
 		return ret;
 
