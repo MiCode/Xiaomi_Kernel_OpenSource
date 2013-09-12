@@ -130,6 +130,37 @@
 		interrupts = <0 108 0>;
 		status = "disabled";
 	};
+
+	usb@78d9000 {
+		compatible = "qcom,hsusb-otg";
+
+		reg = <0x78d9000 0x400>;
+		interrupts = <0 134 0>,<0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+
+		HSUSB_VDDCX-supply = <&pm8916_s1>;
+		HSUSB_1p8-supply = <&pm8916_l7>;
+		HSUSB_3p3-supply = <&pm8916_l13>;
+		qcom,vdd-voltage-level = <0 1150000 1150000>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>;
+				<87 512 6000  6000>;
+	};
+
+	android_usb {
+		compatible = "qcom,android-usb";
+		qcom,android-usb-swfi-latency = <1>;
+	};
 };
 
 /include/ "msm8916-regulator.dtsi"
