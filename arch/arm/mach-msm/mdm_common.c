@@ -140,6 +140,7 @@ static struct gpio_map {
 	{"qcom,ap2mdm-status-gpio",     AP2MDM_STATUS},
 	{"qcom,mdm2ap-pblrdy-gpio",     MDM2AP_PBLRDY},
 	{"qcom,ap2mdm-wakeup-gpio",     AP2MDM_WAKEUP},
+	{"qcom,ap2mdm-chnlrdy-gpio",     AP2MDM_CHNLRDY},
 	{"qcom,mdm2ap-wakeup-gpio",     MDM2AP_WAKEUP},
 	{"qcom,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
 	{"qcom,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
@@ -476,9 +477,9 @@ static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		/* If userspace has reset the peripheral device then
 		 * inform the modem here.
 		 */
-		if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_WAKEUP)))
+		if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_CHNLRDY)))
 				gpio_direction_output(
-				   MDM_GPIO(AP2MDM_WAKEUP), 1);
+				   MDM_GPIO(AP2MDM_CHNLRDY), 1);
 
 		/* If successful, start a timer to check that the mdm2ap_status
 		 * gpio goes high.
@@ -1176,6 +1177,13 @@ static int mdm_configure_ipc(struct mdm_device *mdev)
 			goto fatal_err;
 		}
 	}
+	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_CHNLRDY))) {
+		if (gpio_request(MDM_GPIO(AP2MDM_CHNLRDY), "AP2MDM_CHNLRDY")) {
+			pr_err("%s Failed to configure AP2MDM_CHNLRDY gpio\n",
+				   __func__);
+			goto fatal_err;
+		}
+	}
 	if (GPIO_IS_VALID(MDM_GPIO(USB_SW))) {
 		if (gpio_request(MDM_GPIO(USB_SW), "USB_SW"))
 			pr_err("%s Failed to configure usb switch gpio\n",
@@ -1185,8 +1193,8 @@ static int mdm_configure_ipc(struct mdm_device *mdev)
 	gpio_direction_output(MDM_GPIO(AP2MDM_STATUS), 0);
 	gpio_direction_output(MDM_GPIO(AP2MDM_ERRFATAL), 0);
 
-	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_WAKEUP)))
-		gpio_direction_output(MDM_GPIO(AP2MDM_WAKEUP), 0);
+	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_CHNLRDY)))
+		gpio_direction_output(MDM_GPIO(AP2MDM_CHNLRDY), 0);
 
 	gpio_direction_input(MDM_GPIO(MDM2AP_STATUS));
 	gpio_direction_input(MDM_GPIO(MDM2AP_ERRFATAL));
