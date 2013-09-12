@@ -254,10 +254,10 @@
 		reg-names = "hfpll_l2_clk", "hfpll0_clk",
 				"hfpll1_clk", "hfpll2_clk",
 				"hfpll3_clk", "efuse";
-		cpu0-supply = <&pma8084_s8>;
-		cpu1-supply = <&pma8084_s8>;
-		cpu2-supply = <&pma8084_s8>;
-		cpu3-supply = <&pma8084_s8>;
+		cpu0-supply = <&krait0_vreg>;
+		cpu1-supply = <&krait1_vreg>;
+		cpu2-supply = <&krait2_vreg>;
+		cpu3-supply = <&krait3_vreg>;
 		l2-dig-supply = <&pma8084_s2_corner_ao>;
 		hfpll-dig-supply = <&pma8084_s2_corner_ao>;
 		hfpll-analog-supply = <&pma8084_l12_ao>;
