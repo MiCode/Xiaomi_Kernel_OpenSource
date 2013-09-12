@@ -1150,7 +1150,7 @@ static int cpufreq_nominate_new_policy_cpu(struct cpufreq_policy *policy,
 	int ret;
 
 	/* first sibling now owns the new sysfs dir */
-	cpu_dev = get_cpu_device(cpumask_first(policy->cpus));
+	cpu_dev = get_cpu_device(cpumask_any_but(policy->cpus, old_cpu));
 
 	/* Don't touch sysfs files during light-weight tear-down */
 	if (frozen)
@@ -1218,12 +1218,9 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 		 cpu, policy->user_policy.min, policy->user_policy.max);
 #endif
 
-	WARN_ON(lock_policy_rwsem_write(cpu));
+	lock_policy_rwsem_read(cpu);
 	cpus = cpumask_weight(policy->cpus);
-
-	if (cpus > 1)
-		cpumask_clear_cpu(cpu, policy->cpus);
-	unlock_policy_rwsem_write(cpu);
+	unlock_policy_rwsem_read(cpu);
 
 	if (cpu != policy->cpu) {
 		if (!frozen)
@@ -1266,9 +1263,12 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 		return -EINVAL;
 	}
 
-	lock_policy_rwsem_read(cpu);
+	WARN_ON(lock_policy_rwsem_write(cpu));
 	cpus = cpumask_weight(policy->cpus);
-	unlock_policy_rwsem_read(cpu);
+
+	if (cpus > 1)
+		cpumask_clear_cpu(cpu, policy->cpus);
+	unlock_policy_rwsem_write(cpu);
 
 	/* If cpu is last user of policy, free policy */
 	if (cpus == 1) {
