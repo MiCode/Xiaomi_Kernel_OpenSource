@@ -1121,6 +1121,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 	unsigned temp;
 	u32 phy_ctrl_val = 0;
 	unsigned ret;
+	bool in_device_mode;
+	bool bus_is_suspended;
+	bool is_remote_wakeup;
 
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
@@ -1191,12 +1194,36 @@ static int msm_otg_resume(struct msm_otg *motg)
 	 * PHY comes out of low power mode (LPM) in case of wakeup
 	 * from asynchronous interrupt.
 	 */
-	if (!(readl(USB_PORTSC) & PORTSC_PHCD))
+	if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 		goto skip_phy_resume;
 
-	writel(readl(USB_PORTSC) & ~PORTSC_PHCD, USB_PORTSC);
+	in_device_mode =
+		phy->otg->gadget &&
+		test_bit(ID, &motg->inputs);
+
+	bus_is_suspended =
+		readl_relaxed(USB_PORTSC) & PORTSC_SUSP_MASK;
+
+	is_remote_wakeup = in_device_mode && bus_is_suspended;
+
+	if (is_remote_wakeup && pdata->rw_during_lpm_workaround) {
+		/*
+		 * In some targets there is a HW issue with remote wakeup
+		 * during low-power mode. As a workaround, the FPR bit
+		 * is written simultaneously with the clearing of the
+		 * PHCD bit.
+		 */
+		writel_relaxed(
+			(readl_relaxed(USB_PORTSC) & ~PORTSC_PHCD) |
+			PORTSC_FPR_MASK,
+			USB_PORTSC);
+	} else {
+		writel_relaxed(readl_relaxed(USB_PORTSC) & ~PORTSC_PHCD,
+			USB_PORTSC);
+	}
+
 	while (cnt < PHY_RESUME_TIMEOUT_USEC) {
-		if (!(readl(USB_PORTSC) & PORTSC_PHCD))
+		if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 			break;
 		udelay(1);
 		cnt++;
@@ -4206,6 +4233,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	if (res_gpio < 0)
 		res_gpio = 0;
 	pdata->vddmin_gpio = res_gpio;
+
+	pdata->rw_during_lpm_workaround = of_property_read_bool(node,
+				"qcom,hsusb-otg-rw-during-lpm-workaround");
 
 	return pdata;
 }
