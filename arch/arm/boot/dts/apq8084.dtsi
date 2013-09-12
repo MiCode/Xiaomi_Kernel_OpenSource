@@ -1055,3 +1055,19 @@
 		qcom,thermal-node;
 	};
 };
+
+&krait_regulator_pmic {
+	status = "ok";
+
+	qcom,ctl@2900 {
+		status = "ok";
+	};
+
+	qcom,ps@2a00 {
+		status = "ok";
+	};
+
+	qcom,freq@2b00 {
+		status = "ok";
+	};
+};
