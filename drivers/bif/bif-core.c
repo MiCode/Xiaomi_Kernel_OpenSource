@@ -2827,6 +2827,7 @@ struct bif_ctrl_dev *bif_ctrl_register(struct bif_ctrl_desc *bif_desc,
 	struct bif_ctrl_dev *bdev = ERR_PTR(-EINVAL);
 	struct bif_slave_dev *sdev;
 	bool battery_present = false;
+	bool slaves_present = false;
 	int rc, rid_ohm;
 
 	if (!bif_desc) {
@@ -2901,11 +2902,20 @@ struct bif_ctrl_dev *bif_ctrl_register(struct bif_ctrl_desc *bif_desc,
 	list_for_each_entry(sdev, &bif_sdev_list, list) {
 		if (sdev->present) {
 			battery_present = true;
+			slaves_present = true;
 			break;
 		}
 	}
 
 	BLOCKING_INIT_NOTIFIER_HEAD(&bdev->bus_change_notifier);
+
+	/* Disable the BIF bus master if no slaves are found. */
+	if (!slaves_present) {
+		rc = bdev->desc->ops->set_bus_state(bdev,
+			BIF_BUS_STATE_MASTER_DISABLED);
+		if (rc < 0)
+			pr_err("Could not disble BIF master, rc=%d\n", rc);
+	}
 
 	if (battery_present) {
 		bdev->battery_present = true;
