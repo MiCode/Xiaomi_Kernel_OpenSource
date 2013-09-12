@@ -21,6 +21,9 @@ Optional properties:
 - qcom,rsense : Use this property when external rsense should be used
 		for current calculation and specify the units in nano-ohms.
 - qcom,iadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC type and revision for applying the appropriate temperature
+		    compensation parameters.
 
 Channel node
 NOTE: Atleast one Channel node is required.
