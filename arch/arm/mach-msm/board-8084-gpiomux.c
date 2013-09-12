@@ -23,6 +23,12 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_uart_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv  = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 10,		/* BLSP1 QUP3 I2C_SDA */
@@ -34,6 +40,18 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 11,		/* BLSP1 QUP3 I2C_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 51,		/* BLSP2 UART1 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 52,		/* BLSP2 UART1 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 };
