@@ -29,6 +29,7 @@
 #include <mach/clock-generic.h>
 #include <mach/clk.h>
 #include "clock-krait.h"
+#include "clock-local2.h"
 #include "clock.h"
 
 /* Clock inputs coming into Krait subsystem */
@@ -370,6 +371,75 @@ struct kpss_core_clk l2_clk = {
 	},
 };
 
+static void __iomem *meas_base;
+
+#define L2_CBCR_REG  0x004C
+#define GLB_CLK_DIAG 0x001C
+
+DEFINE_FIXED_SLAVE_DIV_CLK(krait0_div_clk, 4, &krait0_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(krait1_div_clk, 4, &krait1_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(krait2_div_clk, 4, &krait2_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(krait3_div_clk, 4, &krait3_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(l2_div_clk, 4, &l2_clk.c);
+
+static struct mux_clk kpss_debug_ter_mux = {
+	.offset = GLB_CLK_DIAG,
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 8,
+	MUX_SRC_LIST(
+		{&krait0_div_clk.c, 0},
+		{&krait1_div_clk.c, 1},
+		{&krait2_div_clk.c, 2},
+		{&krait3_div_clk.c, 3},
+	),
+	.rec_set_par = 1,
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "kpss_debug_ter_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(kpss_debug_ter_mux.c),
+	},
+};
+
+static struct mux_clk kpss_debug_sec_mux = {
+	.offset = GLB_CLK_DIAG,
+	.en_offset = L2_CBCR_REG,
+	.en_reg = 1,
+	.ops = &mux_reg_ops,
+	.en_mask = BIT(0),
+	.mask = 0x7,
+	.shift = 12,
+	MUX_SRC_LIST(
+		{&kpss_debug_ter_mux.c, 0},
+		{&l2_div_clk.c, 1},
+	),
+	.rec_set_par = 1,
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "kpss_debug_sec_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(kpss_debug_sec_mux.c),
+	},
+};
+
+static struct mux_clk kpss_debug_pri_mux = {
+	.offset = GLB_CLK_DIAG,
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 16,
+	MUX_SRC_LIST(
+		{&kpss_debug_sec_mux.c, 0},
+	),
+	.rec_set_par = 1,
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "kpss_debug_pri_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(kpss_debug_pri_mux.c),
+	},
+};
+
 static struct clk_lookup kpss_clocks_8974[] = {
 	CLK_LOOKUP("",	hfpll_src_clk.c,	""),
 	CLK_LOOKUP("",	acpu_aux_clk.c,		""),
@@ -404,6 +474,9 @@ static struct clk_lookup kpss_clocks_8974[] = {
 	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "fe805664.qcom,pm-8x60"),
 	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "fe805664.qcom,pm-8x60"),
 	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "fe805664.qcom,pm-8x60"),
+
+	CLK_LOOKUP("kpss_debug_mux", kpss_debug_pri_mux.c,
+		   "fc401880.qcom,cc-debug"),
 };
 
 static struct clk *cpu_clk[] = {
@@ -592,6 +665,7 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	int speed, pvs, ver, rows, cpu;
 	char prop_name[] = "qcom,speedXX-pvsXX-bin-vXX";
 	unsigned long *freq, cur_rate, aux_rate;
+	struct resource *res;
 	int *uv, *ua;
 	u32 *dscr, vco_mask, config_val;
 	int ret;
@@ -722,6 +796,18 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 
 	if (clk_init_vdd_class(dev, &l2_clk.c, rows, freq, uv, NULL))
 		return -ENOMEM;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
+	if (!res) {
+		dev_info(&pdev->dev, "Unable to read GLB base.\n");
+		return -EINVAL;
+	}
+
+	meas_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!meas_base) {
+		dev_warn(&pdev->dev, "Unable to map GLB base.\n");
+		return -ENOMEM;
+	}
 
 	msm_clock_register(kpss_clocks_8974, ARRAY_SIZE(kpss_clocks_8974));
 
