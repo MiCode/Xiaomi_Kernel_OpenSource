@@ -4921,8 +4921,10 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 
 		cvs_voc_pkt = v->shmem_info.sh_buf.buf[1].data;
 		if (cvs_voc_pkt != NULL &&  common.mvs_info.ul_cb != NULL) {
+			/* cvs_voc_pkt[0] contains tx timestamp */
 			common.mvs_info.ul_cb((uint8_t *)&cvs_voc_pkt[3],
 					      cvs_voc_pkt[2],
+					      cvs_voc_pkt[0],
 					      common.mvs_info.private_data);
 		} else
 			pr_err("%s: cvs_voc_pkt or ul_cb is NULL\n", __func__);

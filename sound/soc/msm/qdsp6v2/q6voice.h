@@ -1207,6 +1207,7 @@ struct cvp_set_mute_cmd {
 /* CB for up-link packets. */
 typedef void (*ul_cb_fn)(uint8_t *voc_pkt,
 			 uint32_t pkt_len,
+			 uint32_t timestamp,
 			 void *private_data);
 
 /* CB for down-link packets. */
