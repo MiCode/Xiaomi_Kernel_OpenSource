@@ -80,6 +80,9 @@
 /* Task management command timeout */
 #define TM_CMD_TIMEOUT	100 /* msecs */
 
+/* maximum number of link-startup retries */
+#define DME_LINKSTARTUP_RETRIES 3
+
 /* Expose the flag value from utp_upiu_query.value */
 #define MASK_QUERY_UPIU_FLAG_LOC 0xFF
 
@@ -1977,20 +1980,33 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 static int ufshcd_link_startup(struct ufs_hba *hba)
 {
 	int ret;
+	int retries = DME_LINKSTARTUP_RETRIES;
 
-	if (hba->vops && hba->vops->link_startup_notify)
-		hba->vops->link_startup_notify(hba, PRE_CHANGE);
+	do {
+		if (hba->vops && hba->vops->link_startup_notify)
+			hba->vops->link_startup_notify(hba, PRE_CHANGE);
 
-	ret = ufshcd_dme_link_startup(hba);
+		ret = ufshcd_dme_link_startup(hba);
+
+		/* check if device is detected by inter-connect layer */
+		if (!ret && !ufshcd_is_device_present(hba)) {
+			dev_err(hba->dev, "%s: Device not present\n", __func__);
+			ret = -ENXIO;
+			goto out;
+		}
+
+		/*
+		 * DME link lost indication is only received when link is up,
+		 * but we can't be sure if the link is up until link startup
+		 * succeeds. So reset the local Uni-Pro and try again.
+		 */
+		if (ret && ufshcd_hba_enable(hba))
+			goto out;
+	} while (ret && retries--);
+
 	if (ret)
+		/* failed to get the link up... retire */
 		goto out;
-
-	/* check if device is detected by inter-connect layer */
-	if (!ufshcd_is_device_present(hba)) {
-		dev_err(hba->dev, "%s: Device not present\n", __func__);
-		ret = -ENXIO;
-		goto out;
-	}
 
 	/* Include any host controller configuration via UIC commands */
 	if (hba->vops && hba->vops->link_startup_notify) {
