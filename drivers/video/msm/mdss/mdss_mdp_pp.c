@@ -3218,6 +3218,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct msm_fb_data_type *bl_mfd;
 	char __iomem *base;
+	u32 temp;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
@@ -3284,6 +3285,21 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->sts &= ~PP_AD_STS_DIRTY_INIT;
 		ad->state |= PP_AD_STATE_INIT;
 		pp_ad_init_write(ad);
+	}
+
+	/* update ad screen size if it has changed since last configuration */
+	if (mfd->panel_info->type == WRITEBACK_PANEL &&
+		(ad->init.frame_w != ctl->width ||
+			ad->init.frame_h != ctl->height)) {
+		pr_debug("changing from %dx%d to %dx%d", ad->init.frame_w,
+							ad->init.frame_h,
+							ctl->width,
+							ctl->height);
+		ad->init.frame_w = ctl->width;
+		ad->init.frame_h = ctl->height;
+		temp = ad->init.frame_w << 16;
+		temp |= ad->init.frame_h & 0xFFFF;
+		writel_relaxed(temp, base + MDSS_MDP_REG_AD_FRAME_SIZE);
 	}
 
 	if ((ad->sts & PP_STS_ENABLE) && PP_AD_STATE_IS_READY(ad->state)) {
