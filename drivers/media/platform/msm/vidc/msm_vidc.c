@@ -498,7 +498,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 
-	setup_event_queue(inst, &core->vdev[core_id].vdev);
+	setup_event_queue(inst, &core->vdev[session_type].vdev);
 
 	mutex_lock(&core->sync_lock);
 	list_add_tail(&inst->list, &core->instances);
