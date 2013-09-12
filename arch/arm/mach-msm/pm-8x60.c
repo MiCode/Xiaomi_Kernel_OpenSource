@@ -34,7 +34,6 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/cpu.h>
-#include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <mach/scm.h>
 #include <mach/socinfo.h>
@@ -635,23 +634,10 @@ static bool msm_pm_power_collapse(bool from_idle)
 	if (cp15_data.save_cp15)
 		msm_pm_restore_cpu_reg();
 
-	if (cpu_online(cpu) && !msm_no_ramp_down_pc) {
+	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		ramp_up_first_cpu(cpu, saved_acpuclk_rate);
-	} else {
-		unsigned int gic_dist_enabled;
-		unsigned int gic_dist_pending;
-		gic_dist_enabled = readl_relaxed(
-				MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_CLEAR);
-		gic_dist_pending = readl_relaxed(
-				MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET);
-		mb();
-		gic_dist_pending &= gic_dist_enabled;
-
-		if (gic_dist_pending)
-			pr_err("CPU %d interrupted during hotplug.Pending int 0x%x\n",
-					cpu, gic_dist_pending);
-	}
-
+	else
+		__WARN();
 
 	avs_set_avsdscr(avsdscr);
 	avs_set_avscsr(avscsr);
