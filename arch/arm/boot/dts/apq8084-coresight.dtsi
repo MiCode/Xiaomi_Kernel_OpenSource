@@ -41,7 +41,7 @@
 
 		vdd-io-supply = <&pma8084_l13>;
 
-		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-voltage-level = <2950000 2950000>;
 		qcom,vdd-io-current-level = <200 22000>;
 	};
 
