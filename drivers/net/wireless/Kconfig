@@ -310,6 +310,20 @@ config WCNSS_MEM_PRE_ALLOC
 	---help---
 	  Pre-allocate memory for the WLAN driver module
 
+config CLD_LL_CORE
+	tristate "Qualcomm CORE driver for QCA6714"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	select NL80211_TESTMODE
+	depends on MIGHT_HAVE_PCI
+	depends on PCI
+	depends on PCI_MSI
+	depends on MSM_PCIE
+	---help---
+	  Core driver for the Qualcomm QCA6714 Chipset
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
