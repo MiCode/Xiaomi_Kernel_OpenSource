@@ -1443,7 +1443,8 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	return 0;
 
 splash_on_err:
-	mdp3_clk_enable(0);
+	if (mdp3_clk_enable(0))
+		pr_err("%s: Unable to disable mdp3 clocks\n", __func__);
 	return rc;
 }
 
