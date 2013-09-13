@@ -171,6 +171,8 @@ do { \
 				SET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, HALT_REQ, v)
 #define GET_MICRO_MMU_CTRL_IDLE(b) \
 				GET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, IDLE)
+#define SET_MICRO_MMU_CTRL_RESERVED(b, v) \
+				SET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, RESERVED, v)
 #define SET_PREDICTIONDIS0(b, v) SET_GLOBAL_REG(PREDICTIONDIS0, (b), (v))
 #define SET_PREDICTIONDIS1(b, v) SET_GLOBAL_REG(PREDICTIONDIS1, (b), (v))
 #define SET_S1L1BFBLP0(b, v)     SET_GLOBAL_REG(S1L1BFBLP0, (b), (v))
@@ -1687,6 +1689,7 @@ do { \
 #define CBFRSYNRA_SID_MASK      0x7FFF
 
 /* Implementation defined register space masks */
+#define MICRO_MMU_CTRL_RESERVED_MASK          0x03
 #define MICRO_MMU_CTRL_HALT_REQ_MASK          0x01
 #define MICRO_MMU_CTRL_IDLE_MASK              0x01
 
@@ -2071,6 +2074,7 @@ do { \
 #define CBFRSYNRA_SID_SHIFT        0
 
 /* Implementation defined register space shift */
+#define MICRO_MMU_CTRL_RESERVED_SHIFT         0x00
 #define MICRO_MMU_CTRL_HALT_REQ_SHIFT         0x02
 #define MICRO_MMU_CTRL_IDLE_SHIFT             0x03
 
