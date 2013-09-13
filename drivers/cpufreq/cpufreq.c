@@ -42,11 +42,18 @@ static DEFINE_RWLOCK(cpufreq_driver_lock);
 DEFINE_MUTEX(cpufreq_governor_lock);
 static LIST_HEAD(cpufreq_policy_list);
 
-/* This one keeps track of the previously set governor of a removed CPU */
-static DEFINE_PER_CPU(char[CPUFREQ_NAME_LEN], cpufreq_cpu_governor);
-
 /* Flag to suspend/resume CPUFreq governors */
 static bool cpufreq_suspended;
+
+/*
+ * This one keeps track of the previously set governor and user-set
+ * min/max freq of a removed CPU
+ */
+struct cpufreq_cpu_save_data {
+	char gov[CPUFREQ_NAME_LEN];
+	unsigned int max, min;
+};
+static DEFINE_PER_CPU(struct cpufreq_cpu_save_data, cpufreq_policy_save);
 
 static inline bool has_target(void)
 {
@@ -960,7 +967,7 @@ static void cpufreq_init_policy(struct cpufreq_policy *policy)
 	memcpy(&new_policy, policy, sizeof(*policy));
 
 	/* Update governor of new_policy to the governor used before hotplug */
-	gov = __find_governor(per_cpu(cpufreq_cpu_governor, policy->cpu));
+	gov = __find_governor(per_cpu(cpufreq_policy_save, policy->cpu).gov);
 	if (gov)
 		pr_debug("Restoring governor %s for cpu %d\n",
 				policy->governor->name, policy->cpu);
@@ -968,6 +975,17 @@ static void cpufreq_init_policy(struct cpufreq_policy *policy)
 		gov = CPUFREQ_DEFAULT_GOVERNOR;
 
 	new_policy.governor = gov;
+
+	if (per_cpu(cpufreq_policy_save, policy->cpu).min) {
+		policy->min = per_cpu(cpufreq_policy_save, policy->cpu).min;
+		policy->user_policy.min = policy->min;
+	}
+	if (per_cpu(cpufreq_policy_save, policy->cpu).max) {
+		policy->max = per_cpu(cpufreq_policy_save, policy->cpu).max;
+		policy->user_policy.max = policy->max;
+	}
+	pr_debug("Restoring CPU%d user policy min %d and max %d\n",
+		 policy->cpu, policy->min, policy->max);
 
 	/* Use the default policy if its valid. */
 	if (cpufreq_driver->setpolicy)
@@ -1378,8 +1396,12 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 	}
 
 	if (!cpufreq_driver->setpolicy)
-		strncpy(per_cpu(cpufreq_cpu_governor, cpu),
+		strlcpy(per_cpu(cpufreq_policy_save, cpu).gov,
 			policy->governor->name, CPUFREQ_NAME_LEN);
+	per_cpu(cpufreq_policy_save, cpu).min = policy->user_policy.min;
+	per_cpu(cpufreq_policy_save, cpu).max = policy->user_policy.max;
+	pr_debug("Saving CPU%d user policy min %d and max %d\n",
+		 cpu, policy->user_policy.min, policy->user_policy.max);
 
 	down_read(&policy->rwsem);
 	cpus = cpumask_weight(policy->cpus);
@@ -2118,6 +2140,7 @@ EXPORT_SYMBOL_GPL(cpufreq_register_governor);
 void cpufreq_unregister_governor(struct cpufreq_governor *governor)
 {
 	int cpu;
+	struct cpufreq_cpu_save_data *saved_policy;
 
 	if (!governor)
 		return;
@@ -2128,8 +2151,9 @@ void cpufreq_unregister_governor(struct cpufreq_governor *governor)
 	for_each_present_cpu(cpu) {
 		if (cpu_online(cpu))
 			continue;
-		if (!strcmp(per_cpu(cpufreq_cpu_governor, cpu), governor->name))
-			strcpy(per_cpu(cpufreq_cpu_governor, cpu), "\0");
+		saved_policy = &per_cpu(cpufreq_policy_save, cpu);
+		if (!strcmp(saved_policy->gov, governor->name))
+			strlcpy(saved_policy->gov, "\0", CPUFREQ_NAME_LEN);
 	}
 
 	mutex_lock(&cpufreq_governor_mutex);
