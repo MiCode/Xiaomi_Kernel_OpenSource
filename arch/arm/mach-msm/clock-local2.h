@@ -157,6 +157,25 @@ static inline struct measure_clk *to_measure_clk(struct clk *clk)
 	return container_of(clk, struct measure_clk, c);
 }
 
+/**
+ * struct gate_clk
+ * @c: clk
+ * @en_mask: ORed with @en_reg to enable gate clk
+ * @en_reg: register used to enable/disable gate clk
+ * @base: pointer to base address of ioremapped registers
+ */
+struct gate_clk {
+	struct clk c;
+	const u32 en_mask;
+	const u32 en_reg;
+	void *const __iomem *base;
+};
+
+static inline struct gate_clk *to_gate_clk(struct clk *clk)
+{
+	return container_of(clk, struct gate_clk, c);
+}
+
 /*
  * Generic set-rate implementations
  */
@@ -178,6 +197,7 @@ extern struct clk_ops clk_ops_rcg_edp;
 extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
 extern struct clk_ops clk_ops_edppixel;
+extern struct clk_ops clk_ops_gate;
 
 enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);
