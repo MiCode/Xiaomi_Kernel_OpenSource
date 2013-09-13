@@ -120,8 +120,6 @@ static void __init mpq8092_init(void)
 }
 
 static const char *mpq8092_dt_match[] __initconst = {
-	"qcom,mpq8092-sim",
-	"qcom,mpq8092-rumi",
 	"qcom,mpq8092",
 	NULL
 };
