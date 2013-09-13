@@ -493,6 +493,14 @@ static enum handoff branch_clk_handoff(struct clk *c)
 	u32 cbcr_regval;
 
 	cbcr_regval = readl_relaxed(CBCR_REG(branch));
+
+	/* Set the cdiv to c->rate for fixed divider branch clock */
+	if (c->rate && (c->rate < branch->max_div)) {
+		cbcr_regval &= ~BM(CBCR_CDIV_MSB, CBCR_CDIV_LSB);
+		cbcr_regval |= BVAL(CBCR_CDIV_MSB, CBCR_CDIV_LSB, c->rate);
+		writel_relaxed(cbcr_regval, CBCR_REG(branch));
+	}
+
 	if ((cbcr_regval & CBCR_BRANCH_OFF_BIT))
 		return HANDOFF_DISABLED_CLK;
 
