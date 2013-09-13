@@ -84,23 +84,17 @@ static long mux_round_rate(struct clk *c, unsigned long rate)
 {
 	struct mux_clk *mux = to_mux_clk(c);
 	int i;
-	unsigned long prate, max_prate = 0, rrate = ULONG_MAX;
+	unsigned long prate, rrate = 0;
 
 	for (i = 0; i < mux->num_parents; i++) {
 		prate = clk_round_rate(mux->parents[i].src, rate);
-		if (IS_ERR_VALUE(prate))
-			continue;
-		if (prate < rate) {
-			max_prate = max(prate, max_prate);
-			continue;
-		}
-
-		rrate = min(rrate, prate);
+		if (is_better_rate(rate, rrate, prate))
+			rrate = prate;
 	}
-	if (rrate == ULONG_MAX)
-		rrate = max_prate;
+	if (!rrate)
+		return -EINVAL;
 
-	return rrate ? rrate : -EINVAL;
+	return rrate;
 }
 
 static int mux_set_rate(struct clk *c, unsigned long rate)
@@ -293,8 +287,8 @@ struct clk_mux_ops mux_reg_ops = {
 static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 {
 	struct div_clk *d = to_div_clk(c);
-	unsigned int div, min_div, max_div;
-	unsigned long p_rrate, rrate = ULONG_MAX;
+	unsigned int div, min_div, max_div, rrate_div = 1;
+	unsigned long p_rrate, rrate = 0;
 
 	rate = max(rate, 1UL);
 
@@ -311,6 +305,12 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 			break;
 
 		p_rrate /= div;
+
+		if (is_better_rate(rate, rrate, p_rrate)) {
+			rrate = p_rrate;
+			rrate_div = div;
+		}
+
 		/*
 		 * Trying higher dividers is only going to ask the parent for
 		 * a higher rate. If it can't even output a rate higher than
@@ -318,26 +318,17 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 		 * going to be able to output an even higher rate required
 		 * for a higher divider. So, stop trying higher dividers.
 		 */
-		if (p_rrate < rate) {
-			if (rrate == ULONG_MAX) {
-				rrate = p_rrate;
-				if (best_div)
-					*best_div = div;
-			}
+		if (p_rrate < rate)
 			break;
-		}
-		if (p_rrate < rrate) {
-			rrate = p_rrate;
-			if (best_div)
-				*best_div = div;
-		}
 
 		if (rrate <= rate + d->rate_margin)
 			break;
 	}
 
-	if (rrate == ULONG_MAX)
+	if (!rrate)
 		return -EINVAL;
+	if (best_div)
+		*best_div = rrate_div;
 
 	return rrate;
 }
