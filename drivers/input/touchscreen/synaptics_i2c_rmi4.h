@@ -186,6 +186,10 @@ struct synaptics_rmi4_device_info {
  * @irq: attention interrupt
  * @sensor_max_x: sensor maximum x value
  * @sensor_max_y: sensor maximum y value
+ * @disp_maxx: max x value of display
+ * @disp_maxy: max y value of display
+ * @disp_minx: min x value of display
+ * @disp_miny: min y value of display
  * @irq_enabled: flag for indicating interrupt enable status
  * @touch_stopped: flag to stop interrupt thread processing
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
@@ -230,6 +234,10 @@ struct synaptics_rmi4_data {
 	int irq;
 	int sensor_max_x;
 	int sensor_max_y;
+	int disp_maxx;
+	int disp_maxy;
+	int disp_minx;
+	int disp_miny;
 	bool irq_enabled;
 	bool touch_stopped;
 	bool fingers_on_2d;

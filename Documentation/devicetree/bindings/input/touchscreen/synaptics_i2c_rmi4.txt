@@ -18,8 +18,10 @@ Optional property:
  - synaptics,button-map		: virtual key code mappings to be used
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
- - synaptics,panel-x		: panel x dimension
- - synaptics,panel-y		: panel y dimension
+ - synaptics,panel-coords	: touch panel min x, min y, max x and
+					max y resolution
+ - synaptics,display-coords	: display min x, min y, max x and
+					max y resolution
  - synaptics,reset-delay	: reset delay for controller (ms), default 100
  - synaptics,fw-image-name	: name of firmware .img file in /etc/firmware
  - synaptics,power-down		: fully power down regulators in suspend
