@@ -17,9 +17,9 @@
 
 
 / {
-        model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP";
+        model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";
         compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-        qcom,msm-id = <195 1 8>;
+        qcom,board-id = <1 8>, <8 8>;
 };
 
 &pma8084_l3 {
