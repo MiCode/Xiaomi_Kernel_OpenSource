@@ -2312,6 +2312,11 @@
 		interrupts = <0 1 0>;
 	};
 
+	qcom,perfmap@fc330000 {
+		compatible = "qcom,perfmap";
+		reg = <0xfc330000 0x3000>;
+	};
+
 	qcom,smdtty {
 		compatible = "qcom,smdtty";
 
