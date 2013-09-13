@@ -1421,6 +1421,12 @@ config KSAPI
           Scorpion processor supported hardware performance counters on a per
           thread basis or AXI counters on an overall system basis.
 
+config PERFMAP
+        tristate "Perfmap support (EXPERIMENTAL)"
+	depends on ARCH_MSM_KRAIT
+        help
+          Perfmap: memory mapped interface for performance monitors.
+
 endmenu
 
 source "arch/arm/common/Kconfig"
