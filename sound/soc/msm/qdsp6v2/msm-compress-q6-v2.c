@@ -647,15 +647,17 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			break;
 		}
 
-
 		pr_debug("%s: CMD_EOS\n", __func__);
+
 		prtd->cmd_ack = 0;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 
+/*
 		if (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN) {
 			pr_err("PARTIAL DRAIN, do not wait for EOS ack");
 			break;
 		}
+*/
 
 		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(prtd->eos_wait,
