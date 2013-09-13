@@ -1,5 +1,5 @@
 
-ccflags-y += -Idrivers/media/dvb/dvb-core/
+ccflags-y += -Idrivers/media/dvb-core/
 ccflags-y += -Idrivers/media/platform/msm/dvb/include/
 ccflags-y += -Idrivers/misc/
 

@@ -1,6 +1,6 @@
 
-EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core/
-EXTRA_CFLAGS += -Idrivers/media/platform/msm/dvb/include/
+ccflags-y += -Idrivers/media/dvb-core/
+ccflags-y += -Idrivers/media/platform/msm/dvb/include/
 
 obj-$(CONFIG_DVB_MPQ) += mpq-adapter.o
 
