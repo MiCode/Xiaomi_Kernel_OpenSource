@@ -182,6 +182,21 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 	}
 }
 
+static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
+{
+	struct msm_otg *otg;
+
+	if (udc == NULL)
+		return false;
+
+	if (udc->transceiver == NULL)
+		return false;
+
+	otg = container_of(udc->transceiver, struct msm_otg, phy);
+
+	return (atomic_read(&otg->in_lpm) != 0);
+}
+
 static irqreturn_t ci13xxx_msm_resume_irq(int irq, void *data)
 {
 	struct ci13xxx *udc = _udc;
@@ -204,6 +219,7 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 				  CI13XXX_IS_OTG,
 	.nz_itc			= 0,
 	.notify_event		= ci13xxx_msm_notify_event,
+	.in_lpm                 = ci13xxx_msm_in_lpm,
 };
 
 static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,

@@ -824,6 +824,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.enable_lpm_on_dev_suspend	= true,
 	.core_clk_always_on_workaround = true,
 	.delay_lpm_on_disconnect = true,
+	.rw_during_lpm_workaround = true,
 };
 
 

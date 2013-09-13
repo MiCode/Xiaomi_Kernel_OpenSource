@@ -146,6 +146,7 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_CONTROLLER_UDC_STARTED_EVENT		6
 
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
+	bool    (*in_lpm) (struct ci13xxx *udc);
 };
 
 /* CI13XXX UDC descriptor & global resources */
