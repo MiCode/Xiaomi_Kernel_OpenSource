@@ -16,6 +16,7 @@
 #define ADM_PATH_PLAYBACK 0x1
 #define ADM_PATH_LIVE_REC 0x2
 #define ADM_PATH_NONLIVE_REC 0x3
+#include <mach/qdsp6v2/rtac.h>
 #include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
 
@@ -42,6 +43,10 @@ int adm_multi_ch_copp_open(int port, int path, int rate, int mode,
 			int topology, bool perf_mode, uint16_t bits_per_sample);
 
 int adm_unmap_cal_blocks(void);
+
+int adm_map_rtac_block(struct rtac_cal_block_data *cal_block);
+
+int adm_unmap_rtac_block(uint32_t *mem_map_handle);
 
 int adm_memory_map_regions(int port_id, uint32_t *buf_add, uint32_t mempool_id,
 				uint32_t *bufsz, uint32_t bufcnt);
