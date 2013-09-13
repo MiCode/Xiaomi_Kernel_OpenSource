@@ -24,6 +24,9 @@ semantics.
 			qcom,pin-type-sdc: SDC
    - #qcom,pin-cells: number of cells in the pin type specifier.
    - qcom,num-pins: number of pins of given type present on the MSM.
+   Optional: A pintype may support gpio operations. In that case, a pintype
+   node can have an additional child node representing a gpio controller.
+   - #gpio-controller: Can be used as a gpio controller
 
 - Pin groups as child nodes: The pin mux (selecting pin function
   mode) and pin config (pull up/down, driver strength, direction) settings are

@@ -12,6 +12,7 @@
 #ifndef __PINCTRL_MSM_H__
 #define __PINCTRL_MSM_H__
 
+#include <linux/gpio.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf.h>
@@ -55,6 +56,9 @@ struct msm_pmx_funcs {
  * @num_pins: number of pins of given pintype.
  * @pin_start: starting pin number for the given pintype within pinctroller.
  * @pin_end: ending pin number for the given pintype within pinctroller.
+ * @gc: gpio chip implementation for pin type.
+ * @supports_gpio: pintype supports gpio function.
+ * @grange: pins that map to gpios.
  * @node: device node for the pintype.
  */
 struct msm_pintype_info {
@@ -69,6 +73,9 @@ struct msm_pintype_info {
 	u32 num_pins;
 	int pin_start;
 	int pin_end;
+	struct gpio_chip gc;
+	bool supports_gpio;
+	struct pinctrl_gpio_range grange;
 	struct device_node *node;
 };
 

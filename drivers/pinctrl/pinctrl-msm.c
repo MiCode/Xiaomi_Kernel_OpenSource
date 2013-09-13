@@ -13,8 +13,10 @@
 #include <linux/err.h>
 #include <linux/irqdomain.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/machine.h>
@@ -124,12 +126,30 @@ static void msm_pmx_disable(struct pinctrl_dev *pctldev,
 	msm_pmx_prg_fn(pctldev, selector, group, false);
 }
 
+/* Enable gpio function for a pin */
+static int msm_pmx_gpio_request(struct pinctrl_dev *pctldev,
+				struct pinctrl_gpio_range *grange,
+				unsigned pin)
+{
+	struct msm_pinctrl_dd *dd;
+	struct msm_pindesc *pindesc;
+	struct msm_pintype_info *pinfo;
+
+	dd = pinctrl_dev_get_drvdata(pctldev);
+	pindesc = dd->msm_pindesc;
+	pinfo = pindesc[pin].pin_info;
+	/* All TLMM versions use function 0 for gpio function */
+	pinfo->prg_func(pin, 0, pinfo->reg_base, true);
+	return 0;
+}
+
 static struct pinmux_ops msm_pmxops = {
 	.get_functions_count	= msm_pmx_functions_count,
 	.get_function_name	= msm_pmx_get_fname,
 	.get_function_groups	= msm_pmx_get_groups,
 	.enable			= msm_pmx_enable,
 	.disable		= msm_pmx_disable,
+	.gpio_request_enable	= msm_pmx_gpio_request,
 };
 
 static int msm_pconf_prg(struct pinctrl_dev *pctldev, unsigned int pin,
@@ -348,6 +368,16 @@ static struct pinctrl_ops msm_pctrlops = {
 	.dt_free_map		= msm_dt_free_map,
 };
 
+static int msm_pinctrl_request_gpio(struct gpio_chip *gc, unsigned offset)
+{
+	return pinctrl_request_gpio(gc->base + offset);
+}
+
+static void msm_pinctrl_free_gpio(struct gpio_chip *gc, unsigned offset)
+{
+	pinctrl_free_gpio(gc->base + offset);
+}
+
 static int msm_of_get_pin(struct device_node *np, int index,
 				struct msm_pinctrl_dd *dd, uint *pin)
 {
@@ -509,6 +539,20 @@ static void msm_populate_pindesc(struct msm_pintype_info *pinfo,
 	}
 }
 
+static bool msm_pintype_supports_gpio(struct msm_pintype_info *pinfo)
+{
+	struct device_node *pt_node;
+
+	for_each_child_of_node(pinfo->node, pt_node) {
+		if (of_find_property(pt_node, "gpio-controller", NULL)) {
+			pinfo->gc.of_node = pt_node;
+			pinfo->supports_gpio = true;
+			return true;
+		}
+	}
+	return false;
+}
+
 static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 						struct msm_pinctrl_dd *dd)
 {
@@ -629,6 +673,7 @@ static int msm_register_pinctrl(struct msm_pinctrl_dd *dd)
 {
 	int i;
 	struct pinctrl_pin_desc *pindesc;
+	struct msm_pintype_info *pinfo, *pintype;
 	struct pinctrl_desc *ctrl_desc = &dd->pctl;
 
 	ctrl_desc->name = "msm-pinctrl";
@@ -655,7 +700,47 @@ static int msm_register_pinctrl(struct msm_pinctrl_dd *dd)
 		dev_err(dd->dev, "could not register pinctrl driver\n");
 		return -EINVAL;
 	}
+
+	pinfo = dd->msm_pintype;
+	for (i = 0; i < dd->num_pintypes; i++) {
+		pintype = &pinfo[i];
+		if (!pintype->supports_gpio)
+			continue;
+		pintype->grange.name = pintype->name;
+		pintype->grange.id = i;
+		pintype->grange.pin_base = pintype->pin_start;
+		pintype->grange.base = pintype->gc.base;
+		pintype->grange.npins = pintype->gc.ngpio;
+		pintype->grange.gc = &pintype->gc;
+		pinctrl_add_gpio_range(dd->pctl_dev, &pintype->grange);
+	}
 	return 0;
+}
+
+static void msm_register_gpiochip(struct msm_pinctrl_dd *dd)
+{
+
+	struct gpio_chip *gc;
+	struct msm_pintype_info *pintype, *pinfo;
+	int i, ret = 0;
+
+	pinfo = dd->msm_pintype;
+	for (i = 0; i < dd->num_pintypes; i++) {
+		pintype = &pinfo[i];
+		if (!msm_pintype_supports_gpio(pintype))
+			continue;
+		gc = &pintype->gc;
+		gc->request = msm_pinctrl_request_gpio;
+		gc->free = msm_pinctrl_free_gpio;
+		gc->dev = dd->dev;
+		gc->ngpio = pintype->num_pins;
+		gc->base = -1;
+		ret = gpiochip_add(gc);
+		if (ret) {
+			dev_err(dd->dev, "failed to register gpio chip\n");
+			pinfo->supports_gpio = false;
+		}
+	}
 }
 
 static int msm_pinctrl_probe(struct platform_device *pdev)
@@ -689,6 +774,7 @@ static int msm_pinctrl_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "driver data not available\n");
 		return ret;
 	}
+	msm_register_gpiochip(dd);
 	ret = msm_register_pinctrl(dd);
 	if (ret) {
 		msm_pinctrl_cleanup_dd(dd);
