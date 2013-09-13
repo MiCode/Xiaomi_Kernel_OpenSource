@@ -16,7 +16,13 @@ Optional properties:
 - qcom,vdd-supply: Regulator needed to access IOMMU
 - qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
-- interrupts : should contain the performance monitor overflow interrupt number.
+- interrupts : Interrupt numbers for permormance and global fault interrupts
+- interrupt-names: Refers to the interrupts number mentioned above.
+	"pmon" : the performance monitor overflow interrupt number
+	"global_cfg_NS_irq" : the global config non-secure interrupt number
+	"global_client_NS_irq" : the global client non-secure interrupt number
+	"global_cfg_S_irq" : the global config secure interrupt number
+	"global_client_S_irq" : the global client secure interrupt number
 - qcom,iommu-enable-halt : Enable halt of the IOMMU before programming certain	19
   registers
 - qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.

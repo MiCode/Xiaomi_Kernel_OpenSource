@@ -236,6 +236,7 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[]);
  * interrupt is not supported in the API yet, but this will print an error
  * message and dump useful IOMMU registers.
  */
+irqreturn_t msm_iommu_global_fault_handler(int irq, void *dev_id);
 irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
 irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id);
 irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id);
