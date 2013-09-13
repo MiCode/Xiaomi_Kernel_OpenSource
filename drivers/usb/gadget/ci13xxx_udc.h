@@ -147,6 +147,7 @@ struct ci13xxx_udc_driver {
 
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
 	bool    (*in_lpm) (struct ci13xxx *udc);
+	void    (*set_fpr_flag) (struct ci13xxx *udc);
 };
 
 /* CI13XXX UDC descriptor & global resources */

@@ -230,9 +230,12 @@ enum usb_vdd_value {
  * @l1_supported: enable link power management support.
  * @dpdm_pulldown_added: Indicates whether pull down resistors are
  *		connected on data lines or not.
- * @vddmin_gpio: dedictaed gpio in the platform that is used
- *		for pullup the D+ line in case of bus suspend
- *		with phy retention.
+ * @vddmin_gpio: dedictaed gpio in the platform that is used for
+ *		pullup the D+ line in case of bus suspend with
+ *		phy retention.
+ * @rw_during_lpm_workaround: Determines whether remote-wakeup
+ *		during low-power mode workaround will be
+ *		applied.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -383,6 +386,7 @@ struct msm_otg {
 	bool sm_work_pending;
 	atomic_t pm_suspended;
 	atomic_t in_lpm;
+	atomic_t set_fpr_with_lpm_exit;
 	int async_int;
 	unsigned cur_power;
 	struct delayed_work chg_work;

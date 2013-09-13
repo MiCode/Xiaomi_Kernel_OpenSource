@@ -197,6 +197,21 @@ static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
 	return (atomic_read(&otg->in_lpm) != 0);
 }
 
+static void ci13xxx_msm_set_fpr_flag(struct ci13xxx *udc)
+{
+	struct msm_otg *otg;
+
+	if (udc == NULL)
+		return;
+
+	if (udc->transceiver == NULL)
+		return;
+
+	otg = container_of(udc->transceiver, struct msm_otg, phy);
+
+	atomic_set(&otg->set_fpr_with_lpm_exit, 1);
+}
+
 static irqreturn_t ci13xxx_msm_resume_irq(int irq, void *data)
 {
 	struct ci13xxx *udc = _udc;
@@ -220,6 +235,7 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 	.nz_itc			= 0,
 	.notify_event		= ci13xxx_msm_notify_event,
 	.in_lpm                 = ci13xxx_msm_in_lpm,
+	.set_fpr_flag           = ci13xxx_msm_set_fpr_flag,
 };
 
 static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
