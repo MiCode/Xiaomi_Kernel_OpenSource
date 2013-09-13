@@ -196,6 +196,12 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("",	gcc_venus0_axi_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_venus0_vcodec0_clk.c,	"", OFF),
 
+	/* HSUSB-OTG Clocks */
+	CLK_DUMMY("xo", NULL, "78d9000.usb", OFF),
+	CLK_DUMMY("iface_clk", NULL, "78d9000.usb", OFF),
+	CLK_DUMMY("core_clk", NULL, "78d9000.usb", OFF),
+	CLK_DUMMY("sleep_clk", NULL, "78d9000.usb", OFF),
+
 };
 
 struct clock_init_data msm8916_clock_init_data __initdata = {
