@@ -324,10 +324,22 @@ static int rmnet_usb_data_dmux(struct sk_buff *skb,  struct urb *rx_urb)
 	return mux_id - 1;
 }
 
-static void rmnet_usb_data_mux(struct sk_buff *skb, unsigned int id)
+static struct sk_buff *rmnet_usb_data_mux(struct sk_buff *skb, unsigned int id)
 {
 	struct	mux_hdr *hdr;
 	size_t	len;
+	struct sk_buff *new_skb;
+
+	if ((skb->len & 0x3) && (skb_tailroom(skb) < (4 - (skb->len & 0x3)))) {
+		new_skb = skb_copy_expand(skb, skb_headroom(skb),
+					  4 - (skb->len & 0x3), GFP_ATOMIC);
+		dev_kfree_skb_any(skb);
+		if (new_skb == NULL) {
+			pr_err("%s: cannot allocate skb\n", __func__);
+			return NULL;
+		}
+		skb = new_skb;
+	}
 
 	hdr = (struct mux_hdr *)skb_push(skb, sizeof(struct mux_hdr));
 	hdr->mux_id = id + 1;
@@ -338,6 +350,8 @@ static void rmnet_usb_data_mux(struct sk_buff *skb, unsigned int id)
 
 	hdr->pkt_len_w_padding = cpu_to_le16(skb->len - sizeof(struct mux_hdr));
 	hdr->padding_info = (ALIGN(len, 4) - len) << MUX_PAD_SHIFT;
+
+	return skb;
 }
 
 static struct sk_buff *rmnet_usb_tx_fixup(struct usbnet *dev,
@@ -354,10 +368,12 @@ static struct sk_buff *rmnet_usb_tx_fixup(struct usbnet *dev,
 	 }
 
 	if (dev->data[4])
-		rmnet_usb_data_mux(skb, dev->data[3]);
+		skb = rmnet_usb_data_mux(skb, dev->data[3]);
 
-	DBG1("[%s] Tx packet #%lu len=%d mark=0x%x\n",
-	    dev->net->name, dev->net->stats.tx_packets, skb->len, skb->mark);
+	if (skb)
+		DBG1("[%s] Tx packet #%lu len=%d mark=0x%x\n",
+			dev->net->name, dev->net->stats.tx_packets,
+			skb->len, skb->mark);
 
 	return skb;
 }
