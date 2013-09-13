@@ -22,7 +22,8 @@
 / {
 	model = "Qualcomm MSM 8926";
 	compatible = "qcom,msm8926";
-	qcom,msm-id = <200 0>;
+	qcom,msm-id = <200 0>,
+		      <224 0>;
 };
 
 &soc {
