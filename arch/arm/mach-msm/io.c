@@ -328,6 +328,7 @@ void __init msm_map_8974_io(void)
 #ifdef CONFIG_ARCH_APQ8084
 static struct map_desc msm_8084_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, APQ8084),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, APQ8084),
 	MSM_CHIP_DEVICE(TLMM, APQ8084),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
