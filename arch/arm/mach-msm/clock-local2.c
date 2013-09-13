@@ -70,7 +70,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define MND_DUAL_EDGE_MODE_BVAL		BVAL(13, 12, 0x2)
 #define CMD_RCGR_CONFIG_DIRTY_MASK	BM(7, 4)
 #define CBCR_CDIV_LSB			16
-#define CBCR_CDIV_MSB			24
+#define CBCR_CDIV_MSB			19
 
 enum branch_state {
 	BRANCH_ON,
