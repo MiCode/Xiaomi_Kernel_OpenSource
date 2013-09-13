@@ -33,7 +33,7 @@
 
 		adsp_mem: adsp_region {
 			linux,contiguous-region;
-			reg = <0 0xc00000>;
+			reg = <0 0x2a00000>;
 			label = "adsp_mem";
 		};
 
@@ -203,6 +203,12 @@
 							<0x1f1>;
 			};
 		};
+	};
+
+	qcom,vidc {
+		compatible = "qcom,msm-vidc";
+		qcom,hfi = "q6";
+		qcom,max-hw-load = <108000>; /* 720p @ 30 * 1  */
 	};
 
 	qcom,wfd {
