@@ -693,8 +693,11 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 	spin_lock(&usb_bam_lock);
 	/* Check if BAM requires RESET before connect and reset of first pipe */
 	if ((pdata->reset_on_connect[pipe_connect->bam_type] == true) &&
-	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0))
+	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)) {
+		spin_unlock(&usb_bam_lock);
 		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
+		spin_lock(&usb_bam_lock);
+	}
 	spin_unlock(&usb_bam_lock);
 
 	ret = connect_pipe(idx, bam_pipe_idx);
