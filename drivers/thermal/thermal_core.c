@@ -913,7 +913,7 @@ trip_point_temp_store(struct device *dev, struct device_attribute *attr,
 {
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
 	int trip, ret;
-	unsigned long temperature;
+	long temperature;
 
 	if (!tz->ops->set_trip_temp)
 		return -EPERM;
@@ -921,7 +921,7 @@ trip_point_temp_store(struct device *dev, struct device_attribute *attr,
 	if (!sscanf(attr->attr.name, "trip_point_%d_temp", &trip))
 		return -EINVAL;
 
-	if (kstrtoul(buf, 10, &temperature))
+	if (kstrtol(buf, 10, &temperature))
 		return -EINVAL;
 
 	ret = sensor_set_trip_temp(tz, trip, temperature);
