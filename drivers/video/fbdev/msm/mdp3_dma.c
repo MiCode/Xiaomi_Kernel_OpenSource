@@ -831,6 +831,7 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 					MDP3_DMA_CALLBACK_TYPE_DMA_DONE);
 
 	init_completion(&dma->dma_comp);
+	dma->vsync_client.handler = NULL;
 	return ret;
 }
 
