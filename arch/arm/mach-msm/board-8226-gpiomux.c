@@ -589,6 +589,24 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 
 };
 
+static struct msm_gpiomux_config msm_sensor_configs_skuf_plus[] __initdata = {
+	{
+		.gpio = 22, /* CAM1_VDD */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[4],
+		},
+	},
+	{
+		.gpio = 34, /* CAM1 VCM_PWDN */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[4],
+		},
+	},
+};
+
+
 static struct gpiomux_setting auxpcm_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -772,7 +790,13 @@ void __init msm8226_init_gpiomux(void)
 
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
+
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
+
+	if (of_board_is_skuf())
+		msm_gpiomux_install(msm_sensor_configs_skuf_plus,
+			ARRAY_SIZE(msm_sensor_configs_skuf_plus));
+
 	msm_gpiomux_install(msm_auxpcm_configs,
 			ARRAY_SIZE(msm_auxpcm_configs));
 
