@@ -288,17 +288,6 @@ static int pil_venus_reset(struct pil_desc *pil)
 	unsigned long iova;
 	u32 ver, cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
 
-	/*
-	 * GDSC needs to remain on till Venus is shutdown. So, enable
-	 * the GDSC here again to make sure it remains on beyond the
-	 * expiry of the proxy vote timer.
-	 */
-	rc = regulator_enable(drv->gdsc);
-	if (rc) {
-		dev_err(pil->dev, "GDSC enable failed\n");
-		return rc;
-	}
-
 	/* Get Venus version number */
 	if (!drv->hw_ver_checked) {
 		ver = readl_relaxed(wrapper_base + VENUS_WRAPPER_HW_VERSION);
@@ -344,7 +333,7 @@ static int pil_venus_reset(struct pil_desc *pil)
 	rc = iommu_attach_device(drv->iommu_fw_domain, drv->iommu_fw_ctx);
 	if (rc) {
 		dev_err(pil->dev, "venus fw iommu attach failed\n");
-		goto err_iommu_attach;
+		return rc;
 	}
 
 	/* Map virtual addr space 0 - fw_sz to firmware physical addr space */
@@ -365,9 +354,6 @@ static int pil_venus_reset(struct pil_desc *pil)
 
 err_iommu_map:
 	iommu_detach_device(drv->iommu_fw_domain, drv->iommu_fw_ctx);
-
-err_iommu_attach:
-	regulator_disable(drv->gdsc);
 
 	return rc;
 }
@@ -424,8 +410,6 @@ static int pil_venus_shutdown(struct pil_desc *pil)
 
 	venus_clock_disable_unprepare(pil->dev);
 
-	regulator_disable(drv->gdsc);
-
 	drv->is_booted = 0;
 
 	return 0;
@@ -454,22 +438,8 @@ static int pil_venus_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 static int pil_venus_reset_trusted(struct pil_desc *pil)
 {
 	int rc;
-	struct venus_data *drv = dev_get_drvdata(pil->dev);
-
-	/*
-	 * GDSC needs to remain on till Venus is shutdown. So, enable
-	 * the GDSC here again to make sure it remains on beyond the
-	 * expiry of the proxy vote timer.
-	 */
-	rc = regulator_enable(drv->gdsc);
-	if (rc) {
-		dev_err(pil->dev, "GDSC enable failed\n");
-		return rc;
-	}
 
 	rc = pas_auth_and_reset(PAS_VIDC);
-	if (rc)
-		regulator_disable(drv->gdsc);
 
 	return rc;
 }
@@ -477,15 +447,12 @@ static int pil_venus_reset_trusted(struct pil_desc *pil)
 static int pil_venus_shutdown_trusted(struct pil_desc *pil)
 {
 	int rc;
-	struct venus_data *drv = dev_get_drvdata(pil->dev);
 
 	venus_clock_prepare_enable(pil->dev);
 
 	rc = pas_shutdown(PAS_VIDC);
 
 	venus_clock_disable_unprepare(pil->dev);
-
-	regulator_disable(drv->gdsc);
 
 	return rc;
 }
