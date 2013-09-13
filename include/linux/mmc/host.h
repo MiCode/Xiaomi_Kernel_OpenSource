@@ -448,6 +448,11 @@ struct mmc_host {
 		enum mmc_load	state;
 	} clk_scaling;
 	enum dev_state dev_status;
+	/*
+	 * Set to 1 to just stop the SDCLK to the card without
+	 * actually disabling the clock from it's source.
+	 */
+	bool			card_clock_off;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
