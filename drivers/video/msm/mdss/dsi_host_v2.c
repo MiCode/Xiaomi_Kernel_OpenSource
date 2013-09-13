@@ -482,6 +482,8 @@ int msm_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	if (rc == 0) {
 		pr_err("DSI command transaction time out\n");
 		rc = -ETIME;
+	} else if (!IS_ERR_VALUE(rc)) {
+		rc = 0;
 	}
 
 	dma_unmap_single(&dsi_host_private->dis_dev, tp->dmap, size,
@@ -524,7 +526,7 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 {
 	struct dsi_cmd_desc *cm;
 	u32 dsi_ctrl, ctrl;
-	int i, video_mode;
+	int i, video_mode, rc = 0;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
 	/* turn on cmd mode
@@ -546,6 +548,11 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, cm);
 		msm_dsi_cmd_dma_tx(tp);
+		rc = msm_dsi_cmd_dma_tx(tp);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("%s: failed to call cmd_dma_tx\n", __func__);
+			break;
+		}
 		if (cm->dchdr.wait)
 			msleep(cm->dchdr.wait);
 		cm++;
@@ -555,7 +562,7 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 
 	if (video_mode)
 		MIPI_OUTP(ctrl_base + DSI_CTRL, dsi_ctrl);
-	return 0;
+	return rc;
 }
 
 /* MDSS_DSI_MRPS, Maximum Return Packet Size */
@@ -582,7 +589,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 			struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int cnt, len, diff, pkt_size;
+	int cnt, len, diff, pkt_size, rc = 0;
 	char cmd;
 
 	if (pdata->panel_info.mipi.no_max_pkt_size)
@@ -618,7 +625,13 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		max_pktsize[0] = pkt_size;
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, pkt_size_cmd);
-		msm_dsi_cmd_dma_tx(tp);
+		rc = msm_dsi_cmd_dma_tx(tp);
+		if (IS_ERR_VALUE(rc)) {
+			msm_dsi_disable_irq();
+			pr_err("%s: dma_tx failed\n", __func__);
+			rp->len = 0;
+			goto end;
+		}
 		pr_debug("%s: Max packet size sent\n", __func__);
 	}
 
@@ -627,6 +640,12 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 
 	/* transmit read comamnd to client */
 	msm_dsi_cmd_dma_tx(tp);
+	if (IS_ERR_VALUE(rc)) {
+		msm_dsi_disable_irq();
+		pr_err("%s: dma_tx failed\n", __func__);
+		rp->len = 0;
+		goto end;
+	}
 	/*
 	 * once cmd_dma_done interrupt received,
 	 * return data from client is ready and stored
@@ -680,6 +699,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		break;
 	}
 
+end:
 	return rp->len;
 }
 
