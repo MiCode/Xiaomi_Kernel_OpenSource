@@ -357,6 +357,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 	uint64_t ab = 0, ib = 0;
 	int rate = 0;
+	int rc;
 
 	if (on_off) {
 		rate = MDP_BLIT_CLK_RATE;
@@ -368,7 +369,11 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		ib = (ab * 3) / 2;
 	}
 	mdp3_clk_set_rate(MDP3_CLK_CORE, rate, MDP3_CLIENT_PPP);
-	mdp3_clk_enable(on_off);
+	rc = mdp3_clk_enable(on_off);
+	if (rc < 0) {
+		pr_err("%s: mdp3_clk_enable failed\n", __func__);
+		return rc;
+	}
 	mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
 	ppp_stat->bw_on = on_off;
 	return 0;
