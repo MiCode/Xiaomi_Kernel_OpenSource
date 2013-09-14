@@ -1842,21 +1842,16 @@ int adreno_reset(struct kgsl_device *device)
 			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
 	}
 	if (ret) {
+		/* If soft reset failed/skipped, then pull the power */
+		adreno_stop(device);
+
+		/* Keep trying to start the device until it works */
 		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-			/* If soft reset failed/skipped, then pull the power */
-			ret = adreno_stop(device);
-			if (ret) {
-				msleep(20);
-				continue;
-			}
-
 			ret = adreno_start(device);
+			if (!ret)
+				break;
 
-			if (ret) {
-				msleep(20);
-				continue;
-			}
-			break;
+			msleep(20);
 		}
 	}
 	if (ret)
