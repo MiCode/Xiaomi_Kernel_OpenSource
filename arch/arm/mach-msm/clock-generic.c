@@ -70,6 +70,7 @@ static int mux_set_parent(struct clk *c, struct clk *p)
 
 	old_parent = c->parent;
 	c->parent = p;
+	c->rate = clk_get_rate(p);
 	__clk_post_reparent(c, old_parent, &flags);
 
 	return 0;
