@@ -114,10 +114,10 @@
 			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
-			"AMIC4", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCRight Headset Mic",
-			"AMIC5", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCLeft Headset Mic";
+			"AMIC3", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Analog Mic3",
+			"AMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Analog Mic4";
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
@@ -454,6 +454,7 @@
 &slim_msm {
 	tapan_codec {
 		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
 	};
 };
 
