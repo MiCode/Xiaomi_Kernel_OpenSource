@@ -1110,8 +1110,8 @@ static void dbg_usb_op_fail(u8 addr, const char *name,
 		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
 			scnprintf(msg, sizeof(msg),
-					"%08X:%08X:%08X\n",
-					req->dma, req->ptr->next,
+					"%pa:%08X:%08X\n",
+					&req->dma, req->ptr->next,
 					req->ptr->token);
 			dbg_print(addr, "REQ", 0, msg);
 			scnprintf(msg, sizeof(msg), "%08X:%d\n",
@@ -1598,8 +1598,8 @@ static ssize_t print_dtds(struct device *dev,
 	list_for_each(ptr, &mEp->qh.queue) {
 		req = list_entry(ptr, struct ci13xxx_req, queue);
 
-		pr_info("\treq:%08x next:%08x token:%08x page0:%08x status:%d\n",
-				req->dma, req->ptr->next, req->ptr->token,
+		pr_info("\treq:%pa next:%08x token:%08x page0:%08x status:%d\n",
+				&req->dma, req->ptr->next, req->ptr->token,
 				req->ptr->page[0], req->req.status);
 	}
 done:
@@ -1901,8 +1901,8 @@ static void ep_prime_timer_func(unsigned long data)
 				mep->qh.ptr->td.next, mep->qh.ptr->td.token);
 		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
-			pr_info("\treq:%08xnext:%08xtkn:%08xpage0:%08xsts:%d\n",
-					req->dma, req->ptr->next,
+			pr_info("\treq:%pa:%08xtkn:%08xpage0:%08xsts:%d\n",
+					&req->dma, req->ptr->next,
 					req->ptr->token, req->ptr->page[0],
 					req->req.status);
 		}

@@ -94,7 +94,7 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &msm_ehci_dma_mask;
 	if (!pdev->dev.coherent_dma_mask)
-		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
 
 	hcd = usb_create_hcd(&ehci_msm_hc_driver, &pdev->dev,
 			     dev_name(&pdev->dev));
