@@ -32,7 +32,6 @@
 #include <linux/types.h>
 #include <linux/alarmtimer.h>
 #include <linux/thermal.h>
-#include <mach/cpufreq.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
