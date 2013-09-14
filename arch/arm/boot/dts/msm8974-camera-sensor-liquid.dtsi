@@ -37,8 +37,6 @@
 		qcom,mount-angle = <0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,sensor-name = "s5k3l1yx";
-		qcom,vdd-cx-supply = <&pm8841_s2>;
-		qcom,vdd-cx-name = "qcom,vdd-cx";
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
 		cam_vio-supply = <&pm8941_lvs2>;
@@ -79,8 +77,6 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <0>;
 		qcom,sensor-name = "imx135";
-		qcom,vdd-cx-supply = <&pm8841_s2>;
-		qcom,vdd-cx-name = "qcom,vdd-cx";
 		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
@@ -123,8 +119,6 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <180>;
 		qcom,sensor-name = "ov2720";
-		qcom,vdd-cx-supply = <&pm8841_s2>;
-		qcom,vdd-cx-name = "qcom,vdd-cx";
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
 		cam_vio-supply = <&pm8941_lvs2>;
@@ -159,8 +153,6 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <0>;
-		qcom,vdd-cx-supply = <&pm8841_s2>;
-		qcom,vdd-cx-name = "qcom,vdd-cx";
 		qcom,sensor-name = "mt9m114";
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
