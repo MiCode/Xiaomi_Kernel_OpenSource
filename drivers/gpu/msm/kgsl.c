@@ -1634,12 +1634,23 @@ static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
 	if (context == NULL)
 		return -EINVAL;
 
-	/* Sanity check - you can't create a sync point on your own context */
+	/*
+	 * We allow somebody to create a sync point on their own context.
+	 * This has the effect of delaying a command from submitting until the
+	 * dependent command has cleared.  That said we obviously can't let them
+	 * create a sync point on a future timestamp.
+	 */
+
 	if (context == cmdbatch->context) {
-		KGSL_DRV_ERR(device,
-			"Cannot create a sync point on your own context %d\n",
-			context->id);
-		goto done;
+		unsigned int queued = kgsl_readtimestamp(device, context,
+			KGSL_TIMESTAMP_QUEUED);
+
+		if (timestamp_cmp(sync->timestamp, queued) > 0) {
+			KGSL_DRV_ERR(device,
+			"Cannot create syncpoint for future timestamp %d (current %d)\n",
+				sync->timestamp, queued);
+			goto done;
+		}
 	}
 
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
