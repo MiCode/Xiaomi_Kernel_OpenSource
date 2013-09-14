@@ -5825,8 +5825,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	/* SDCC clocks */
 	CLK_LOOKUP("iface_clk",	gcc_sdcc1_ahb_clk.c,	"msm_sdcc.1"),
 	CLK_LOOKUP("core_clk",	gcc_sdcc1_apps_clk.c,	"msm_sdcc.1"),
-	CLK_LOOKUP("",	gcc_sdcc1_cdccal_ff_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sdcc1_cdccal_sleep_clk.c,	""),
+	CLK_LOOKUP("cal_clk",	gcc_sdcc1_cdccal_ff_clk.c,	"msm_sdcc.1"),
+	CLK_LOOKUP("sleep_clk",	gcc_sdcc1_cdccal_sleep_clk.c,	"msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",	gcc_sdcc2_ahb_clk.c,	"msm_sdcc.2"),
 	CLK_LOOKUP("core_clk",	gcc_sdcc2_apps_clk.c,	"msm_sdcc.2"),
 	CLK_LOOKUP("",	gcc_sdcc3_ahb_clk.c,	""),
