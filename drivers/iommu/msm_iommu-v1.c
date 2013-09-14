@@ -50,7 +50,7 @@
 
 
 static DEFINE_MUTEX(msm_iommu_lock);
-struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
+struct dump_regs_tbl_entry dump_regs_tbl[MAX_DUMP_REGS];
 
 static int __enable_regulators(struct msm_iommu_drvdata *drvdata)
 {
@@ -1183,6 +1183,8 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[])
 
 	pr_err("SCTLR  = %08x    ACTLR  = %08x\n",
 		 regs[DUMP_REG_SCTLR].val, regs[DUMP_REG_ACTLR].val);
+	pr_err("CBAR  = %08x    CBFRSYNRA  = %08x\n",
+		regs[DUMP_REG_CBAR_N].val, regs[DUMP_REG_CBFRSYNRA_N].val);
 	print_ctx_mem_attr_regs(regs);
 }
 
@@ -1192,9 +1194,24 @@ static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
 	unsigned int i;
 
 	for (i = DUMP_REG_FIRST; i < MAX_DUMP_REGS; ++i) {
-		regs[i].val = GET_CTX_REG(dump_regs_tbl[i].reg_offset,
-					base, ctx);
-		regs[i].valid = 1;
+		struct msm_iommu_context_reg *r = &regs[i];
+		unsigned long regaddr = dump_regs_tbl[i].reg_offset;
+		r->valid = 1;
+		switch (dump_regs_tbl[i].dump_reg_type) {
+		case DRT_CTX_REG:
+			r->val = GET_CTX_REG(regaddr, base, ctx);
+			break;
+		case DRT_GLOBAL_REG:
+			r->val = GET_GLOBAL_REG(regaddr, base);
+			break;
+		case DRT_GLOBAL_REG_N:
+			r->val = GET_GLOBAL_REG_N(regaddr, ctx, base);
+			break;
+		default:
+			pr_info("Unknown dump_reg_type...\n");
+			r->valid = 0;
+			break;
+		}
 	}
 	print_ctx_regs(regs);
 }
@@ -1343,30 +1360,33 @@ static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)
 	return __pa(priv->pt.fl_table);
 }
 
-#define DUMP_REG_INIT(dump_reg, cb_reg, mbp)				\
-	do {								\
+#define DUMP_REG_INIT(dump_reg, cb_reg, mbp, drt)		\
+	do {							\
 		dump_regs_tbl[dump_reg].reg_offset = cb_reg;	\
-		dump_regs_tbl[dump_reg].name = #cb_reg;			\
-		dump_regs_tbl[dump_reg].must_be_present = mbp;		\
+		dump_regs_tbl[dump_reg].name = #cb_reg;		\
+		dump_regs_tbl[dump_reg].must_be_present = mbp;	\
+		dump_regs_tbl[dump_reg].dump_reg_type = drt;	\
 	} while (0)
 
 static void msm_iommu_build_dump_regs_table(void)
 {
-	DUMP_REG_INIT(DUMP_REG_FAR0,	CB_FAR,       1);
-	DUMP_REG_INIT(DUMP_REG_FAR1,	CB_FAR + 4,   1);
-	DUMP_REG_INIT(DUMP_REG_PAR0,	CB_PAR,       1);
-	DUMP_REG_INIT(DUMP_REG_PAR1,	CB_PAR + 4,   1);
-	DUMP_REG_INIT(DUMP_REG_FSR,	CB_FSR,       1);
-	DUMP_REG_INIT(DUMP_REG_FSYNR0,	CB_FSYNR0,    1);
-	DUMP_REG_INIT(DUMP_REG_FSYNR1,	CB_FSYNR1,    1);
-	DUMP_REG_INIT(DUMP_REG_TTBR0_0,	CB_TTBR0,     1);
-	DUMP_REG_INIT(DUMP_REG_TTBR0_1,	CB_TTBR0 + 4, 0);
-	DUMP_REG_INIT(DUMP_REG_TTBR1_0,	CB_TTBR1,     1);
-	DUMP_REG_INIT(DUMP_REG_TTBR1_1,	CB_TTBR1 + 4, 0);
-	DUMP_REG_INIT(DUMP_REG_SCTLR,	CB_SCTLR,     1);
-	DUMP_REG_INIT(DUMP_REG_ACTLR,	CB_ACTLR,     1);
-	DUMP_REG_INIT(DUMP_REG_PRRR,	CB_PRRR,      1);
-	DUMP_REG_INIT(DUMP_REG_NMRR,	CB_NMRR,      1);
+	DUMP_REG_INIT(DUMP_REG_FAR0,	CB_FAR,       1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_FAR1,	CB_FAR + 4,   1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_PAR0,	CB_PAR,       1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_PAR1,	CB_PAR + 4,   1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_FSR,	CB_FSR,       1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_FSYNR0,	CB_FSYNR0,    1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_FSYNR1,	CB_FSYNR1,    1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_TTBR0_0,	CB_TTBR0,     1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_TTBR0_1,	CB_TTBR0 + 4, 0, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_TTBR1_0,	CB_TTBR1,     1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_TTBR1_1,	CB_TTBR1 + 4, 0, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_SCTLR,	CB_SCTLR,     1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_ACTLR,	CB_ACTLR,     1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_PRRR,	CB_PRRR,      1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_NMRR,	CB_NMRR,      1, DRT_CTX_REG);
+	DUMP_REG_INIT(DUMP_REG_CBAR_N,	CBAR,         1, DRT_GLOBAL_REG_N);
+	DUMP_REG_INIT(DUMP_REG_CBFRSYNRA_N, CBFRSYNRA, 1, DRT_GLOBAL_REG_N);
 }
 
 static struct iommu_ops msm_iommu_ops = {
