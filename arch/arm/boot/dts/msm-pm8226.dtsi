@@ -62,6 +62,11 @@
 			};
 		};
 
+		pm8226_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		pm8226_chg: qcom,charger {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-charger";
