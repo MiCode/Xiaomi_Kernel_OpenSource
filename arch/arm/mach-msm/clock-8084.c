@@ -3227,6 +3227,7 @@ static struct branch_clk gcc_usb30_sec_master_clk = {
 		.parent = &usb30_sec_master_clk_src.c,
 		.dbg_name = "gcc_usb30_sec_master_clk",
 		.ops = &clk_ops_branch,
+		.depends = &gcc_sys_noc_usb3_sec_axi_clk.c,
 		CLK_INIT(gcc_usb30_sec_master_clk.c),
 	},
 };
@@ -3287,6 +3288,7 @@ static struct branch_clk gcc_usb_hsic_ahb_clk = {
 		.parent = &usb_hsic_ahb_clk_src.c,
 		.dbg_name = "gcc_usb_hsic_ahb_clk",
 		.ops = &clk_ops_branch,
+		.depends = &gcc_periph_noc_usb_hsic_ahb_clk.c,
 		CLK_INIT(gcc_usb_hsic_ahb_clk.c),
 	},
 };
