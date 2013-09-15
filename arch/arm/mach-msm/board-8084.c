@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
+#include <linux/regulator/krait-regulator.h>
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
@@ -96,6 +97,7 @@ void __init apq8084_add_drivers(void)
 	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
+	krait_power_init();
 	if (of_board_is_rumi())
 		msm_clock_init(&apq8084_rumi_clock_init_data);
 	else
