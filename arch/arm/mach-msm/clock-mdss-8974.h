@@ -81,4 +81,11 @@ extern struct div_clk byte_clk_src_8084;
 
 extern struct div_clk hdmipll_clk_src;
 
+extern struct dsi_pll_vco_clk dsi_vco_clk_samarium;
+extern struct div_clk analog_postdiv_clk_samarium;
+extern struct div_clk indirect_path_div2_clk_samarium;
+extern struct div_clk pixel_clk_src_samarium;
+extern struct mux_clk byte_mux_samarium;
+extern struct div_clk byte_clk_src_samarium;
+
 #endif
