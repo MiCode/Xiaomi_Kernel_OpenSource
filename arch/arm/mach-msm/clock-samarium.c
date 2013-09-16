@@ -3538,6 +3538,14 @@ static struct clk_lookup msm_clocks_samarium[] = {
 					"fda04000.qcom,cpp"),
 	CLK_LOOKUP("iface_clk", camss_vfe_vfe_ahb_clk.c, "fda04000.qcom,cpp"),
 
+	/* GDSC */
+	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fd8c1024.qcom,gdsc"),
+	CLK_LOOKUP("core0_clk", camss_vfe_vfe0_clk.c, "fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("cpp_clk", camss_vfe_cpp_clk.c, "fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4024.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd8c2304.qcom,gdsc"),
+
 	/* MMSS */
 	CLK_LOOKUP("", axi_clk_src.c, ""),
 	CLK_LOOKUP("", camss_ahb_clk.c, ""),
@@ -3567,7 +3575,6 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("bus_clk", venus0_axi_clk.c, "fdce0000.qcom,venus"),
 	CLK_LOOKUP("mem_clk", venus0_ocmemnoc_clk.c, "fdce0000.qcom,venus"),
 	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fdce0000.qcom,venus"),
-	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fd8c1024.qcom,gdsc"),
 };
 
 static struct pll_config_regs mmpll0_regs __initdata = {
