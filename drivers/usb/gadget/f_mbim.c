@@ -233,7 +233,7 @@ static struct usb_cdc_ext_mbb_desc ext_mbb_desc = {
 
 	.bcdMbbExtendedVersion =	cpu_to_le16(0x0100),
 	.bMaxOutstandingCmdMsges =	64,
-	.wMTU =	1500,
+	.wMTU =	cpu_to_le16(1500),
 };
 
 /* the default data interface has no endpoints ... */
