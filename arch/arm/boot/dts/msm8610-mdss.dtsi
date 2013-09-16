@@ -20,7 +20,7 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,memblock-reserve = <0xf800000 0x800000>;
+			qcom,memblock-reserve = <0x3200000 0x800000>;
 		};
 	};
 
