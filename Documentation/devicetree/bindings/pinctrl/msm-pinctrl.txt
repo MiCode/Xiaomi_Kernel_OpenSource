@@ -27,6 +27,8 @@ semantics.
    Optional: A pintype may support gpio operations. In that case, a pintype
    node can have an additional child node representing a gpio controller.
    - #gpio-controller: Can be used as a gpio controller
+   - #gpio-cells: Should be two. The first cell is the pin number and the
+			second cell is used to specify optional parameters
 
 - Pin groups as child nodes: The pin mux (selecting pin function
   mode) and pin config (pull up/down, driver strength, direction) settings are
@@ -95,6 +97,11 @@ semantics.
 			qcom,pin-type-gp;
 			qcom,num-pins = <117>;
 			#qcom,pin-cells = <1>;
+			/* Supports Gpio controller */
+			msm_gpio: msm_gpio {
+				#gpio-controller;
+				#gpio-cells = <2>;
+			};
 		};
 		/* Sdc pin type */
 		sdc: sdc {
