@@ -844,6 +844,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <0>;
 		};
 
 		pma8084_lpg2: pwm@b200 {
@@ -852,6 +854,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <1>;
 		};
 
 		pma8084_lpg3: pwm@b300 {
@@ -860,6 +864,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <2>;
 		};
 
 		pma8084_lpg4: pwm@b400 {
@@ -868,6 +874,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <3>;
 		};
 
 		pma8084_lpg5: pwm@b500 {
@@ -876,6 +884,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <4>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <4>;
 		};
 
 		pma8084_lpg6: pwm@b600 {
@@ -884,6 +894,8 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <5>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <5>;
 		};
 	};
 };
