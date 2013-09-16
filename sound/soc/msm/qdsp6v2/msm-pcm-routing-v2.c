@@ -193,7 +193,7 @@ int get_topology(int path_type)
 		topology_id = get_adm_tx_topology();
 
 	if (topology_id  == 0)
-		topology_id = DEFAULT_COPP_TOPOLOGY;
+		topology_id = NULL_COPP_TOPOLOGY;
 
 	return topology_id;
 }
