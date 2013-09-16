@@ -228,7 +228,23 @@ struct msm_sensor_id_info_t {
 	uint16_t sensor_id;
 };
 
+enum msm_sensor_camera_id_t {
+	CAMERA_0,
+	CAMERA_1,
+	CAMERA_2,
+	CAMERA_3,
+	MAX_CAMERAS,
+};
+
+enum cci_i2c_master_t {
+	MASTER_0,
+	MASTER_1,
+	MASTER_MAX,
+};
+
 struct msm_camera_sensor_slave_info {
+	char sensor_name[32];
+	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t sensor_id_info;
@@ -318,10 +334,19 @@ struct csi_lane_params_t {
 	uint8_t csi_phy_sel;
 };
 
+enum camb_position_t {
+	BACK_CAMERA_B,
+	FRONT_CAMERA_B,
+};
+
 struct msm_sensor_info_t {
-	char sensor_name[MAX_SENSOR_NAME];
-	int32_t    session_id;
-	int32_t     subdev_id[SUB_MODULE_MAX];
+	char     sensor_name[MAX_SENSOR_NAME];
+	int32_t  session_id;
+	int32_t  subdev_id[SUB_MODULE_MAX];
+	uint8_t  is_mount_angle_valid;
+	uint32_t sensor_mount_angle;
+	int modes_supported;
+	enum camb_position_t position;
 };
 
 struct camera_vreg_t {
@@ -331,11 +356,6 @@ struct camera_vreg_t {
 	int max_voltage;
 	int op_mode;
 	uint32_t delay;
-};
-
-enum camb_position_t {
-	BACK_CAMERA_B,
-	FRONT_CAMERA_B,
 };
 
 enum camerab_mode_t {
@@ -586,6 +606,20 @@ struct msm_camera_led_cfg_t {
 	uint32_t flash_current[2];
 };
 
+/* sensor init structures and enums */
+enum msm_sensor_init_cfg_type_t {
+	CFG_SINIT_PROBE,
+	CFG_SINIT_PROBE_DONE,
+	CFG_SINIT_PROBE_WAIT_DONE,
+};
+
+struct sensor_init_cfg_data {
+	enum msm_sensor_init_cfg_type_t cfgtype;
+	union {
+		void *setting;
+	} cfg;
+};
+
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data)
 
@@ -612,6 +646,9 @@ struct msm_camera_led_cfg_t {
 
 #define VIDIOC_MSM_SENSOR_GET_AF_STATUS \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, uint32_t)
+
+#define VIDIOC_MSM_SENSOR_INIT_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct sensor_init_cfg_data)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 

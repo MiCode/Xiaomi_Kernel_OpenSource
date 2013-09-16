@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <media/msm_cam_sensor.h>
 #include <media/v4l2-subdev.h>
 #include "msm_camera_i2c.h"
+#include "msm_camera_dt_util.h"
 #include "msm_sd.h"
 
 #define DEFINE_MSM_MUTEX(mutexname) \
@@ -44,53 +45,55 @@ enum msm_sensor_state_t {
 
 struct msm_sensor_fn_t {
 	int (*sensor_config) (struct msm_sensor_ctrl_t *, void __user *);
-	int (*sensor_power_down)
-		(struct msm_sensor_ctrl_t *);
+	int (*sensor_power_down) (struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
-	int32_t (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
+	int (*sensor_match_id) (struct msm_sensor_ctrl_t *);
 };
+
 
 struct msm_sensor_ctrl_t {
 	struct platform_device *pdev;
-	enum msm_camera_device_type_t sensor_device_type;
-	enum cci_i2c_master_t cci_i2c_master;
-	struct msm_camera_sensor_board_info *sensordata;
-	struct msm_sensor_power_setting_array power_setting_array;
 	struct mutex *msm_sensor_mutex;
 
-	struct msm_camera_i2c_client *sensor_i2c_client;
-	struct device *dev;
-
+	enum msm_camera_device_type_t sensor_device_type;
+	struct msm_camera_sensor_board_info *sensordata;
+	struct msm_sensor_power_setting_array power_setting_array;
+	struct msm_sensor_packed_cfg_t *cfg_override;
 	struct msm_sd_subdev msm_sd;
+	enum cci_i2c_master_t cci_i2c_master;
+
+	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct v4l2_subdev_info *sensor_v4l2_subdev_info;
 	uint8_t sensor_v4l2_subdev_info_size;
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
 	struct msm_camera_i2c_reg_setting stop_setting;
-	bool stop_setting_valid;
-	bool free_power_setting;
-	struct msm_cam_clk_info *clk_info;
-	uint16_t clk_info_size;
 	void *misc_regulator;
 	enum msm_sensor_state_t sensor_state;
+	uint8_t is_probe_succeed;
 };
 
-int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
-			void __user *argp);
+int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
 
-int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl);
 
-int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl);
 
-int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_check_id(struct msm_sensor_ctrl_t *s_ctrl);
+
+int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	void *data);
 
-int32_t msm_sensor_i2c_probe(struct i2c_client *client,
+int msm_sensor_update_cfg(struct msm_sensor_ctrl_t *s_ctrl);
+
+int msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id, struct msm_sensor_ctrl_t *s_ctrl);
 
-int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
+
+int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
