@@ -13,7 +13,6 @@
 /dts-v1/;
 /include/ "msm8226-v1.dtsi"
 /include/ "msm8226-qrd.dtsi"
-/include/ "dsi-panel-nt35521-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226v1 QRD";
