@@ -12,6 +12,7 @@ Required properties:
 Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
+- vdd-supply : regulator to supply venus.
 - qcom,vidc-cp-map : start and size of device virtual address range for
   secure buffers. Video hardware uses this address range to identify if
   the buffers are secure or non-secure.
@@ -66,6 +67,7 @@ Example:
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
+		vdd-supply = <&gdsc_venus>;
 		qcom,vidc-cp-map = <0x1000000 0x40000000>;
 		qcom,vidc-ns-map = <0x40000000 0x40000000>;
 		qcom,load-freq-tbl = <979200 410000000>,
