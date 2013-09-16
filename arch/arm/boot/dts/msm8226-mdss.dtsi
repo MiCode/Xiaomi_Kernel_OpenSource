@@ -11,7 +11,7 @@
  */
 
 &soc {
-	qcom,mdss_mdp@fd900000 {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x22100>,
 			<0xfd924000 0x1000>;
@@ -63,6 +63,7 @@
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;

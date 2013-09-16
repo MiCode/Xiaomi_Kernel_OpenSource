@@ -841,6 +841,8 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		goto error_pan_node;
 	}
 
+	cmd_cfg_cont_splash = mdss_panel_get_boot_cfg() ? true : false;
+
 	rc = mdss_dsi_panel_init(dsi_pan_node, &vendor_pdata);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
@@ -855,7 +857,6 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	}
 
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
-
 	return 0;
 
 error_pan_node:
