@@ -4,14 +4,23 @@ mdss-dsi-panel is a dsi panel device which supports panels that
 are compatable with MIPI display serial interface specification.
 
 Required properties:
-- compatible:				Specifies the version for DSI HW. that
-					this panel will be worked with
-					"qcom,mdss-dsi-panel" = DSI v6.0
+- compatible:				This property applies to DSI V2 panels only.
+					This property should not be added for panels
+					that work based on version "V6.0"
+					DSI panels that are of different versions
+					are initialized by the drivers for dsi controller.
+					This property specifies the version
+					for DSI HW that this panel will work with
 					"qcom,dsi-panel-v2" = DSI V2.0
-- status:        			A string that has to be set to "okay/ok" to enable
-					the panel driver. By default this property will be
-					set to "disable". Will be set to "ok/okay" status
-					for specific platforms.
+- status:        			This property applies to DSI V2 panels only.
+					This property should not be added for panels
+					that work based on version "V6.0"
+					DSI panels that are of different versions
+					are initialized by the drivers for dsi controller.
+					A string that has to be set to "okay/ok"
+					to enable the panel driver. By default this property
+					will be set to "disable". Will be set to "ok/okay"
+					status for specific platforms.
 - qcom,mdss-dsi-panel-controller:	Specifies the phandle for the DSI controller that
 					this panel will be mapped to.
 - qcom,mdss-dsi-panel-width:		Specifies panel width in pixels.
@@ -225,11 +234,9 @@ Note, if a given optional qcom,* binding is not present, then the driver will co
 the default values specified.
 
 Example:
-&soc {
-	qcom,mdss_dsi_sim_video {
-		compatible = "qcom,mdss-dsi-panel";
+&mdss_mdp {
+	dsi_sim_vid: qcom,mdss_dsi_sim_video {
 		qcom,mdss-dsi-panel-name = "simulator video mode dsi panel";
-		status = "disable";
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-height = <1280>;
 		qcom,mdss-dsi-panel-width = <720>;
