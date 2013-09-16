@@ -92,3 +92,13 @@
 
 	status = "ok";
 };
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_otg {
+	status = "ok";
+	qcom,hsusb-otg-otg-control = <2>;
+	qcom,dp-manual-pullup;
+};
