@@ -550,6 +550,7 @@
 };
 
 &gdsc_mdss {
+	qcom,clock-names = "core_clk", "lut_clk";
 	status = "ok";
 };
 
@@ -558,6 +559,7 @@
 };
 
 &gdsc_vfe {
+	qcom,clock-names = "core0_clk", "cpp_clk";
 	status = "ok";
 };
 
@@ -566,6 +568,7 @@
 };
 
 &gdsc_oxili_gx {
+	qcom,clock-names = "core_clk";
 	status = "ok";
 };
 
