@@ -435,9 +435,9 @@
 		mas-qdss-etr {
 			cell-id = <60>;
 			label = "mas-qdss-etr";
-			qcom,masterp = <13>;
+			qcom,masterp = <14>;
 			qcom,tier = <2>;
-			qcom,qport = <10>;
+			qcom,qport = <8>;
 			qcom,mode = "Fixed";
 			qcom,mas-hw-id = <31>;
 			qcom,prio1 = <1>;
@@ -448,15 +448,15 @@
 		mas-usb3 {
 			cell-id = <61>;
 			label = "mas-usb3";
-			qcom,masterp = <14>;
+			qcom,masterp = <17>;
 			qcom,tier = <2>;
 			qcom,mode = "Fixed";
-			qcom,qport = <11>;
+			qcom,qport = <10>;
 			qcom,mas-hw-id = <32>;
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
-/*			qcom,iface-clk-node = "msm_usb3";*/
+			qcom,iface-clk-node = "msm_usb3";
 		};
 
 		slv-ampss {
