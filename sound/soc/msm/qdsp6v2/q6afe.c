@@ -1923,9 +1923,9 @@ int q6afe_audio_client_buf_alloc_contiguous(unsigned int dir,
 			buf[cnt].used = dir ^ 1;
 			buf[cnt].size = bufsz;
 			buf[cnt].actual_size = bufsz;
-			pr_debug("%s data[%p]phys[%p][%p]\n", __func__,
+			pr_debug("%s data[%p]phys[%pa][%p]\n", __func__,
 				   (void *)buf[cnt].data,
-				   (void *)buf[cnt].phys,
+				   &buf[cnt].phys,
 				   (void *)&buf[cnt].phys);
 		}
 		cnt++;
@@ -2118,10 +2118,10 @@ int q6afe_audio_client_buf_free_contiguous(unsigned int dir,
 	cnt = port->max_buf_cnt - 1;
 
 	if (port->buf[0].data) {
-		pr_debug("%s:data[%p]phys[%p][%p] , client[%p] handle[%p]\n",
+		pr_debug("%s:data[%p]phys[%pa][%p] , client[%p] handle[%p]\n",
 			__func__,
 			(void *)port->buf[0].data,
-			(void *)port->buf[0].phys,
+			&port->buf[0].phys,
 			(void *)&port->buf[0].phys,
 			(void *)port->buf[0].client,
 			(void *)port->buf[0].handle);

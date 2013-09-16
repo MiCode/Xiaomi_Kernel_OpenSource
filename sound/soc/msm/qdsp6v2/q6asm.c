@@ -688,10 +688,10 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 	}
 
 	if (port->buf[0].data) {
-		pr_debug("%s:data[%p]phys[%p][%p] , client[%p] handle[%p]\n",
+		pr_debug("%s:data[%p]phys[%pa][%p] , client[%p] handle[%p]\n",
 			__func__,
 			(void *)port->buf[0].data,
-			(void *)port->buf[0].phys,
+			&port->buf[0].phys,
 			(void *)&port->buf[0].phys,
 			(void *)port->buf[0].client,
 			(void *)port->buf[0].handle);
@@ -923,10 +923,10 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					buf[cnt].used = 1;
 					buf[cnt].size = bufsz;
 					buf[cnt].actual_size = bufsz;
-					pr_debug("%s data[%p]phys[%p][%p]\n",
+					pr_debug("%s data[%p]phys[%pa][%p]\n",
 						__func__,
 					   (void *)buf[cnt].data,
-					   (void *)buf[cnt].phys,
+					   &buf[cnt].phys,
 					   (void *)&buf[cnt].phys);
 					cnt++;
 				}
@@ -1016,9 +1016,9 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 			buf[cnt].used = dir ^ 1;
 			buf[cnt].size = bufsz;
 			buf[cnt].actual_size = bufsz;
-			pr_debug("%s data[%p]phys[%p][%p]\n", __func__,
+			pr_debug("%s data[%p]phys[%pa][%p]\n", __func__,
 				   (void *)buf[cnt].data,
-				   (void *)buf[cnt].phys,
+				   &buf[cnt].phys,
 				   (void *)&buf[cnt].phys);
 		}
 		cnt++;
@@ -1288,8 +1288,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 			if (port->buf[data->token].phys !=
 				payload[0]) {
-				pr_err("Buf expected[%p]rxed[%p]\n",\
-				   (void *)port->buf[data->token].phys,\
+				pr_err("Buf expected[%pa]rxed[%p]\n",
+				   &port->buf[data->token].phys,
 				   (void *)payload[0]);
 				spin_unlock_irqrestore(&port->dsp_lock,
 								dsp_flags);
@@ -1345,8 +1345,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			port->buf[token].used = 0;
 			if (port->buf[token].phys !=
 				payload[READDONE_IDX_BUFADD_LSW]) {
-				pr_err("Buf expected[%p]rxed[%p]\n",\
-				   (void *)port->buf[token].phys,\
+				pr_err("Buf expected[%pa]rxed[%p]\n",
+				   &port->buf[token].phys,
 				   (void *)payload[READDONE_IDX_BUFADD_LSW]);
 				spin_unlock_irqrestore(&port->dsp_lock,
 							dsp_flags);
@@ -3477,13 +3477,13 @@ int q6asm_read(struct audio_client *ac)
 		dsp_buf = port->dsp_buf;
 		ab = &port->buf[dsp_buf];
 
-		pr_debug("%s:session[%d]dsp-buf[%d][%p]cpu_buf[%d][%p]\n",
+		pr_debug("%s:session[%d]dsp-buf[%d][%p]cpu_buf[%d][%pa]\n",
 					__func__,
 					ac->session,
 					dsp_buf,
 					(void *)port->buf[dsp_buf].data,
 					port->cpu_buf,
-					(void *)port->buf[port->cpu_buf].phys);
+					&port->buf[port->cpu_buf].phys);
 
 		read.hdr.opcode = ASM_DATA_CMD_READ_V2;
 		read.buf_addr_lsw = ab->phys;
@@ -3539,13 +3539,13 @@ int q6asm_read_nolock(struct audio_client *ac)
 		dsp_buf = port->dsp_buf;
 		ab = &port->buf[dsp_buf];
 
-		pr_debug("%s:session[%d]dsp-buf[%d][%p]cpu_buf[%d][%p]\n",
+		pr_debug("%s:session[%d]dsp-buf[%d][%p]cpu_buf[%d][%pa]\n",
 					__func__,
 					ac->session,
 					dsp_buf,
 					(void *)port->buf[dsp_buf].data,
 					port->cpu_buf,
-					(void *)port->buf[port->cpu_buf].phys);
+					&port->buf[port->cpu_buf].phys);
 
 		read.hdr.opcode = ASM_DATA_CMD_READ_V2;
 		read.buf_addr_lsw = ab->phys;
@@ -3757,9 +3757,9 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 						list);
 		write.mem_map_handle = buf_node->mmap_hdl;
 
-		pr_debug("%s:ab->phys[0x%x]bufadd[0x%x] token[0x%x]buf_id[0x%x]buf_size[0x%x]mmaphdl[0x%x]"
+		pr_debug("%s:ab->phys[%pa]bufadd[0x%x] token[0x%x]buf_id[0x%x]buf_size[0x%x]mmaphdl[0x%x]"
 						, __func__,
-						ab->phys,
+						&ab->phys,
 						write.buf_addr_lsw,
 						write.hdr.token,
 						write.seq_id,
@@ -3824,9 +3824,9 @@ int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 			write.flags = (0x80000000 | flags);
 		port->dsp_buf = (port->dsp_buf + 1) & (port->max_buf_cnt - 1);
 
-		pr_debug("%s:ab->phys[0x%x]bufadd[0x%x]token[0x%x] buf_id[0x%x]buf_size[0x%x]mmaphdl[0x%x]"
+		pr_debug("%s:ab->phys[%pa]bufadd[0x%x]token[0x%x] buf_id[0x%x]buf_size[0x%x]mmaphdl[0x%x]"
 							, __func__,
-							ab->phys,
+							&ab->phys,
 							write.buf_addr_lsw,
 							write.hdr.token,
 							write.seq_id,

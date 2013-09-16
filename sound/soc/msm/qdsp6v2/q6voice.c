@@ -3499,8 +3499,8 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	struct vss_istream_cmd_set_oob_packet_exchange_config_t
 						 packet_exchange_config_pkt;
 	int ret = 0;
-	uint64_t *dec_buf;
-	uint64_t *enc_buf;
+	phys_addr_t dec_buf;
+	phys_addr_t enc_buf;
 	void *apr_cvs;
 	u16 cvs_handle;
 
@@ -3508,8 +3508,8 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
-	dec_buf = (uint64_t *)v->shmem_info.sh_buf.buf[0].phys;
-	enc_buf = (uint64_t *)v->shmem_info.sh_buf.buf[1].phys;
+	dec_buf = (phys_addr_t)v->shmem_info.sh_buf.buf[0].phys;
+	enc_buf = (phys_addr_t)v->shmem_info.sh_buf.buf[1].phys;
 
 	apr_cvs = common.apr_q6_cvs;
 
@@ -3538,11 +3538,11 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	packet_exchange_config_pkt.enc_buf_addr = (uint32_t)enc_buf;
 	packet_exchange_config_pkt.enc_buf_size = 4096;
 
-	pr_debug("%s: dec buf: add %p, size %d, enc buf: add %p, size %d\n",
+	pr_debug("%s: dec buf: add %pa, size %d, enc buf: add %pa, size %d\n",
 		__func__,
-		dec_buf,
+		&dec_buf,
 		packet_exchange_config_pkt.dec_buf_size,
-		enc_buf,
+		&enc_buf,
 		packet_exchange_config_pkt.enc_buf_size);
 
 	v->cvs_state = CMD_STATUS_FAIL;
@@ -5579,15 +5579,15 @@ static int voice_alloc_oob_shared_mem(void)
 		cnt++;
 	}
 
-	pr_debug("%s buf[0].data:[%p], buf[0].phys:[%p], &buf[0].phys:[%p],\n",
+	pr_debug("%s buf[0].data:[%p], buf[0].phys:[%pa], &buf[0].phys:[%p],\n",
 		 __func__,
 		(void *)v->shmem_info.sh_buf.buf[0].data,
-		(void *)v->shmem_info.sh_buf.buf[0].phys,
+		&v->shmem_info.sh_buf.buf[0].phys,
 		(void *)&v->shmem_info.sh_buf.buf[0].phys);
-	pr_debug("%s: buf[1].data:[%p], buf[1].phys[%p], &buf[1].phys[%p]\n",
+	pr_debug("%s: buf[1].data:[%p], buf[1].phys[%pa], &buf[1].phys[%p]\n",
 		__func__,
 		(void *)v->shmem_info.sh_buf.buf[1].data,
-		(void *)v->shmem_info.sh_buf.buf[1].phys,
+		&v->shmem_info.sh_buf.buf[1].phys,
 		(void *)&v->shmem_info.sh_buf.buf[1].phys);
 
 	memset((void *)v->shmem_info.sh_buf.buf[0].data, 0, (bufsz * bufcnt));
@@ -5626,9 +5626,9 @@ static int voice_alloc_oob_mem_table(void)
 	}
 
 	v->shmem_info.memtbl.size = sizeof(struct vss_imemory_table_t);
-	pr_debug("%s data[%p]phys[%p][%p]\n", __func__,
+	pr_debug("%s data[%p]phys[%pa][%p]\n", __func__,
 		 (void *)v->shmem_info.memtbl.data,
-		 (void *)v->shmem_info.memtbl.phys,
+		 &v->shmem_info.memtbl.phys,
 		 (void *)&v->shmem_info.memtbl.phys);
 
 done:
@@ -5876,9 +5876,9 @@ static int voice_alloc_cal_mem_map_table(void)
 	}
 
 	common.cal_mem_map_table.size = sizeof(struct vss_imemory_table_t);
-	pr_debug("%s: data 0x%x phys 0x%x\n", __func__,
+	pr_debug("%s: data 0x%x phys %pa\n", __func__,
 		 (unsigned int) common.cal_mem_map_table.data,
-		 common.cal_mem_map_table.phys);
+		 &common.cal_mem_map_table.phys);
 
 done:
 	return ret;
@@ -5903,9 +5903,9 @@ static int voice_alloc_rtac_mem_map_table(void)
 	}
 
 	common.rtac_mem_map_table.size = sizeof(struct vss_imemory_table_t);
-	pr_debug("%s: data 0x%x phys 0x%x\n", __func__,
+	pr_debug("%s: data 0x%x phys %pa\n", __func__,
 		 (unsigned int) common.rtac_mem_map_table.data,
-		 common.rtac_mem_map_table.phys);
+		 &common.rtac_mem_map_table.phys);
 
 done:
 	return ret;

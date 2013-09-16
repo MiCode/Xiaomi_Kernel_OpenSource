@@ -899,10 +899,10 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->addr =  buf[0].phys;
 	dma_buf->bytes = runtime->hw.buffer_bytes_max;
 
-	pr_debug("%s: buf[%p]dma_buf->area[%p]dma_buf->addr[%p]\n"
+	pr_debug("%s: buf[%p]dma_buf->area[%p]dma_buf->addr[%pa]\n"
 		 "dma_buf->bytes[%d]\n", __func__,
 		 (void *)buf, (void *)dma_buf->area,
-		 (void *)dma_buf->addr, dma_buf->bytes);
+		 &dma_buf->addr, dma_buf->bytes);
 	if (!dma_buf->area)
 		return -ENOMEM;
 
