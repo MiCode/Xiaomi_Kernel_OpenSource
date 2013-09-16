@@ -24,6 +24,26 @@
 		coresight-nr-inports = <1>;
 	};
 
+	tpiu: tpiu@fc320000 {
+		compatible = "arm,coresight-tpiu";
+		reg = <0xfc320000 0x1000>;
+		reg-names = "tpiu-base";
+
+		coresight-id = <1>;
+		coresight-name = "coresight-tpiu";
+		coresight-nr-inports = <1>;
+
+		vdd-supply = <&pma8084_l21>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <200 800000>;
+
+		vdd-io-supply = <&pma8084_l13>;
+
+		qcom,vdd-io-voltage-level = <2950000 2950000>;
+		qcom,vdd-io-current-level = <200 22000>;
+	};
+
 	replicator: replicator@fc324000 {
 		compatible = "qcom,coresight-replicator";
 		reg = <0xfc324000 0x1000>;
@@ -32,9 +52,9 @@
 		coresight-id = <2>;
 		coresight-name = "coresight-replicator";
 		coresight-nr-inports = <1>;
-		coresight-outports = <0>;
-		coresight-child-list = <&tmc_etr>;
-		coresight-child-ports = <0>;
+		coresight-outports = <0 1>;
+		coresight-child-list = <&tmc_etr &tpiu>;
+		coresight-child-ports = <0 0>;
 	};
 
 	tmc_etf: tmc@fc325000 {
