@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2011,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ static inline void kgsl_core_debugfs_init(void) { }
 static inline void kgsl_device_debugfs_init(struct kgsl_device *device) { }
 static inline void kgsl_core_debugfs_close(void) { }
 static inline struct dentry *kgsl_get_debugfs_dir(void) { return NULL; }
-static inline int kgsl_process_init_debugfs(struct kgsl_process_private *)
+static inline int kgsl_process_init_debugfs(struct kgsl_process_private *priv)
 {
 	return 0;
 }
