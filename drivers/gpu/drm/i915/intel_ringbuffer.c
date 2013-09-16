@@ -2371,6 +2371,31 @@ intel_ring_flush_all_caches(struct intel_engine_cs *ring)
 
 	trace_i915_gem_ring_flush(ring, 0, I915_GEM_GPU_DOMAINS);
 
+	if (IS_VALLEYVIEW(ring->dev) && IS_GEN7(ring->dev)) {
+		/*
+		 * WaReadAfterWriteHazard
+		 * Send a number of Store Data commands here to finish
+		 * flushing hardware pipeline.This is needed in the case
+		 * where the next workload tries reading from the same
+		 * surface that this batch writes to. Without these StoreDWs,
+		 * not all of the data will actually be flushd to the surface
+		 * by the time the next batch starts reading it, possibly
+		 * causing a small amount of corruption.
+		 */
+		int i;
+		ret = intel_ring_begin(ring, 4 * 12);
+		if (ret)
+			return ret;
+		for (i = 0; i < 12; i++) {
+			intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+			intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+						MI_STORE_DWORD_INDEX_SHIFT);
+			intel_ring_emit(ring, 0);
+			intel_ring_emit(ring, MI_NOOP);
+		}
+		intel_ring_advance(ring);
+	}
+
 	ring->gpu_caches_dirty = false;
 	return 0;
 }
@@ -2380,6 +2405,28 @@ intel_ring_invalidate_all_caches(struct intel_engine_cs *ring)
 {
 	uint32_t flush_domains;
 	int ret;
+
+	if (IS_VALLEYVIEW(ring->dev) && IS_GEN7(ring->dev)) {
+		/*
+		 * WaTlbInvalidateStoreDataBefore:vlv
+		 * Before pipecontrol with TLB invalidate set, need 2 store
+		 * data cmds (such as MI_STORE_DATA_IMM or MI_STORE_DATA_INDEX)
+		 * Without this, hardware cannot guarantee the cmd after the
+		 * PIPE_CONTROL with TLB inv will not use the old TLB values.
+		 */
+		int i;
+		ret = intel_ring_begin(ring, 4 * 2);
+		if (ret)
+			return ret;
+		for (i = 0; i < 2; i++) {
+			intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+			intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+						MI_STORE_DWORD_INDEX_SHIFT);
+			intel_ring_emit(ring, 0);
+			intel_ring_emit(ring, MI_NOOP);
+		}
+		intel_ring_advance(ring);
+	}
 
 	flush_domains = 0;
 	if (ring->gpu_caches_dirty)
