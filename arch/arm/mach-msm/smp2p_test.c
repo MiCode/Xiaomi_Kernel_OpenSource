@@ -16,6 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <mach/subsystem_restart.h>
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
 
@@ -77,7 +78,7 @@ static void smp2p_ut_local_basic(struct seq_file *s)
 		rmp->remote_item.header.valid_total_ent, SMP2P_MAX_ENTRY);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 0);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 		msm_smp2p_set_remote_mock_exists(true);
 		rmp->tx_interrupt();
 
@@ -161,7 +162,7 @@ static void smp2p_ut_local_late_open(struct seq_file *s)
 			SMP2P_MAX_ENTRY);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 0);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 
 		msm_smp2p_set_remote_mock_exists(true);
 
@@ -251,7 +252,7 @@ static void smp2p_ut_local_early_open(struct seq_file *s)
 		rmp->remote_item.header.valid_total_ent, SMP2P_MAX_ENTRY);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 0);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 
 		msm_smp2p_set_remote_mock_exists(false);
 		UT_ASSERT_PTR(NULL, ==,
@@ -369,7 +370,7 @@ static void smp2p_ut_mock_loopback(struct seq_file *s)
 		rmp->remote_item.header.valid_total_ent, SMP2P_MAX_ENTRY);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 1);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 		msm_smp2p_set_remote_mock_exists(true);
 
 		/* Create test entry and attach loopback server */
@@ -794,7 +795,7 @@ static void smp2p_ut_local_in_max_entries(struct seq_file *s)
 		rmp->remote_item.header.valid_total_ent, SMP2P_MAX_ENTRY);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 0);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 		msm_smp2p_set_remote_mock_exists(true);
 
 		/* Create Max Entries in the remote mock object */
@@ -892,7 +893,7 @@ static void smp2p_ut_local_in_multiple(struct seq_file *s)
 		rmp->remote_item.header.valid_total_ent, 1);
 		SMP2P_SET_ENT_VALID(
 		rmp->remote_item.header.valid_total_ent, 0);
-		rmp->remote_item.header.reserved = 0x0;
+		rmp->remote_item.header.flags = 0x0;
 		msm_smp2p_set_remote_mock_exists(true);
 
 		/* Create an Entry in the remote mock object */
@@ -950,6 +951,217 @@ static void smp2p_ut_local_in_multiple(struct seq_file *s)
 		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
 				rmp->remote_item.entries[0].name,
 				&(cb_in_2.nb));
+	}
+}
+
+/**
+ * smp2p_ut_local_ssr_ack - Verify SSR Done/ACK Feature
+ *
+ * @s: pointer to output file
+ */
+static void smp2p_ut_local_ssr_ack(struct seq_file *s)
+{
+	int failed = 0;
+	struct msm_smp2p_remote_mock *rmp = NULL;
+	int ret;
+
+	seq_printf(s, "Running %s\n", __func__);
+	do {
+		struct smp2p_smem *rhdr;
+		struct smp2p_smem *lhdr;
+		int negotiation_state;
+
+		/* initialize v1 without SMP2P_FEATURE_SSR_ACK enabled */
+		ret = smp2p_reset_mock_edge();
+		UT_ASSERT_INT(ret, ==, 0);
+		rmp = msm_smp2p_get_remote_mock();
+		UT_ASSERT_PTR(rmp, !=, NULL);
+		rhdr = &rmp->remote_item.header;
+
+		rmp->rx_interrupt_count = 0;
+		memset(&rmp->remote_item, 0, sizeof(struct smp2p_smem_item));
+		rhdr->magic = SMP2P_MAGIC;
+		SMP2P_SET_LOCAL_PID(rhdr->rem_loc_proc_id,
+				SMP2P_REMOTE_MOCK_PROC);
+		SMP2P_SET_REMOTE_PID(rhdr->rem_loc_proc_id, SMP2P_APPS_PROC);
+		SMP2P_SET_VERSION(rhdr->feature_version, 1);
+		SMP2P_SET_FEATURES(rhdr->feature_version, 0);
+		SMP2P_SET_ENT_TOTAL(rhdr->valid_total_ent, SMP2P_MAX_ENTRY);
+		SMP2P_SET_ENT_VALID(rhdr->valid_total_ent, 0);
+		rhdr->flags = 0x0;
+		msm_smp2p_set_remote_mock_exists(true);
+		rmp->tx_interrupt();
+
+		/* verify edge is open */
+		lhdr = smp2p_get_out_item(SMP2P_REMOTE_MOCK_PROC,
+					&negotiation_state);
+		UT_ASSERT_PTR(NULL, !=, lhdr);
+		UT_ASSERT_INT(negotiation_state, ==, SMP2P_EDGE_STATE_OPENED);
+		UT_ASSERT_INT(rmp->rx_interrupt_count, ==, 1);
+
+		/* verify no response to ack feature */
+		rmp->rx_interrupt_count = 0;
+		SMP2P_SET_RESTART_DONE(rhdr->flags, 1);
+		rmp->tx_interrupt();
+		UT_ASSERT_INT(0, ==, SMP2P_GET_RESTART_DONE(lhdr->flags));
+		UT_ASSERT_INT(0, ==, SMP2P_GET_RESTART_ACK(lhdr->flags));
+		UT_ASSERT_INT(rmp->rx_interrupt_count, ==, 0);
+
+		/* initialize v1 with SMP2P_FEATURE_SSR_ACK enabled */
+		ret = smp2p_reset_mock_edge();
+		UT_ASSERT_INT(ret, ==, 0);
+		rmp = msm_smp2p_get_remote_mock();
+		UT_ASSERT_PTR(rmp, !=, NULL);
+		rhdr = &rmp->remote_item.header;
+
+		rmp->rx_interrupt_count = 0;
+		memset(&rmp->remote_item, 0, sizeof(struct smp2p_smem_item));
+		rhdr->magic = SMP2P_MAGIC;
+		SMP2P_SET_LOCAL_PID(rhdr->rem_loc_proc_id,
+				SMP2P_REMOTE_MOCK_PROC);
+		SMP2P_SET_REMOTE_PID(rhdr->rem_loc_proc_id, SMP2P_APPS_PROC);
+		SMP2P_SET_VERSION(rhdr->feature_version, 1);
+		SMP2P_SET_FEATURES(rhdr->feature_version,
+				SMP2P_FEATURE_SSR_ACK);
+		SMP2P_SET_ENT_TOTAL(rhdr->valid_total_ent, SMP2P_MAX_ENTRY);
+		SMP2P_SET_ENT_VALID(rhdr->valid_total_ent, 0);
+		rmp->rx_interrupt_count = 0;
+		rhdr->flags = 0x0;
+		msm_smp2p_set_remote_mock_exists(true);
+		rmp->tx_interrupt();
+
+		/* verify edge is open */
+		lhdr = smp2p_get_out_item(SMP2P_REMOTE_MOCK_PROC,
+					&negotiation_state);
+		UT_ASSERT_PTR(NULL, !=, lhdr);
+		UT_ASSERT_INT(negotiation_state, ==, SMP2P_EDGE_STATE_OPENED);
+		UT_ASSERT_INT(rmp->rx_interrupt_count, ==, 1);
+
+		/* verify response to ack feature */
+		rmp->rx_interrupt_count = 0;
+		SMP2P_SET_RESTART_DONE(rhdr->flags, 1);
+		rmp->tx_interrupt();
+		UT_ASSERT_INT(0, ==, SMP2P_GET_RESTART_DONE(lhdr->flags));
+		UT_ASSERT_INT(1, ==, SMP2P_GET_RESTART_ACK(lhdr->flags));
+		UT_ASSERT_INT(rmp->rx_interrupt_count, ==, 1);
+
+		rmp->rx_interrupt_count = 0;
+		SMP2P_SET_RESTART_DONE(rhdr->flags, 0);
+		rmp->tx_interrupt();
+		UT_ASSERT_INT(0, ==, SMP2P_GET_RESTART_DONE(lhdr->flags));
+		UT_ASSERT_INT(0, ==, SMP2P_GET_RESTART_ACK(lhdr->flags));
+		UT_ASSERT_INT(rmp->rx_interrupt_count, ==, 1);
+
+		seq_puts(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		seq_puts(s, "\tFailed\n");
+	}
+}
+
+/**
+ * smp2p_ut_local_ssr_ack - Verify SSR Done/ACK Feature
+ *
+ * @s: pointer to output file
+ * @rpid: Remote processor ID
+ * @int_cfg: Interrupt config
+ */
+static void smp2p_ut_remotesubsys_ssr_ack(struct seq_file *s, uint32_t rpid,
+		struct smp2p_interrupt_config *int_cfg)
+{
+	int failed = 0;
+
+	seq_printf(s, "Running %s\n", __func__);
+	do {
+		struct smp2p_smem *rhdr;
+		struct smp2p_smem *lhdr;
+		int negotiation_state;
+		bool ssr_ack_enabled;
+		uint32_t ssr_done_start;
+
+		lhdr = smp2p_get_out_item(rpid, &negotiation_state);
+		UT_ASSERT_PTR(NULL, !=, lhdr);
+		UT_ASSERT_INT(SMP2P_EDGE_STATE_OPENED, ==, negotiation_state);
+
+		rhdr = smp2p_get_in_item(rpid);
+		UT_ASSERT_PTR(NULL, !=, rhdr);
+
+		/* get initial state of SSR flags */
+		if (SMP2P_GET_FEATURES(rhdr->feature_version)
+				& SMP2P_FEATURE_SSR_ACK)
+			ssr_ack_enabled = true;
+		else
+			ssr_ack_enabled = false;
+
+		ssr_done_start = SMP2P_GET_RESTART_DONE(rhdr->flags);
+		UT_ASSERT_INT(ssr_done_start, ==,
+				SMP2P_GET_RESTART_ACK(lhdr->flags));
+
+		/* trigger restart */
+		seq_printf(s, "Restarting '%s'\n", int_cfg->name);
+		subsystem_restart(int_cfg->name);
+		msleep(10*1000);
+
+		/* verify ack signaling */
+		if (ssr_ack_enabled) {
+			ssr_done_start ^= 1;
+			UT_ASSERT_INT(ssr_done_start, ==,
+					SMP2P_GET_RESTART_ACK(lhdr->flags));
+			UT_ASSERT_INT(ssr_done_start, ==,
+					SMP2P_GET_RESTART_DONE(rhdr->flags));
+			UT_ASSERT_INT(0, ==,
+					SMP2P_GET_RESTART_DONE(lhdr->flags));
+			seq_puts(s, "\tSSR ACK Enabled and Toggled\n");
+		} else {
+			UT_ASSERT_INT(0, ==,
+					SMP2P_GET_RESTART_DONE(lhdr->flags));
+			UT_ASSERT_INT(0, ==,
+					SMP2P_GET_RESTART_ACK(lhdr->flags));
+
+			UT_ASSERT_INT(0, ==,
+					SMP2P_GET_RESTART_DONE(rhdr->flags));
+			UT_ASSERT_INT(0, ==,
+					SMP2P_GET_RESTART_ACK(rhdr->flags));
+			seq_puts(s, "\tSSR ACK Disabled\n");
+		}
+
+		seq_puts(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		seq_puts(s, "\tFailed\n");
+	}
+}
+
+/**
+ * smp2p_ut_remote_ssr_ack - Verify SSR Done/ACK Feature
+ *
+ * @s: pointer to output file
+ *
+ * Triggers SSR for each subsystem.
+ */
+static void smp2p_ut_remote_ssr_ack(struct seq_file *s)
+{
+	struct smp2p_interrupt_config *int_cfg;
+	int pid;
+
+	int_cfg = smp2p_get_interrupt_config();
+	if (!int_cfg) {
+		seq_puts(s,
+			"Remote processor config unavailable\n");
+		return;
+	}
+
+	for (pid = 0; pid < SMP2P_NUM_PROCS; ++pid) {
+		if (!int_cfg[pid].is_configured)
+			continue;
+
+		msm_smp2p_deinit_rmt_lpb_proc(pid);
+		smp2p_ut_remotesubsys_ssr_ack(s, pid, &int_cfg[pid]);
+		msm_smp2p_init_rmt_lpb_proc(pid);
 	}
 }
 
@@ -1019,6 +1231,10 @@ static int __init smp2p_debugfs_init(void)
 			smp2p_ut_remote_out_max_entries);
 	smp2p_debug_create("ut_local_in_multiple",
 			smp2p_ut_local_in_multiple);
+	smp2p_debug_create("ut_local_ssr_ack",
+			smp2p_ut_local_ssr_ack);
+	smp2p_debug_create("ut_remote_ssr_ack",
+			smp2p_ut_remote_ssr_ack);
 
 	return 0;
 }
