@@ -262,6 +262,29 @@ novreg:
 	return rc;
 }
 
+static int mdss_dsi_get_panel_cfg(char *panel_cfg)
+{
+	int rc;
+	struct mdss_panel_cfg *pan_cfg = NULL;
+
+	if (!panel_cfg)
+		return MDSS_PANEL_INTF_INVALID;
+
+	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_DSI);
+	if (IS_ERR(pan_cfg)) {
+		return PTR_ERR(pan_cfg);
+	} else if (!pan_cfg) {
+		panel_cfg[0] = 0;
+		return 0;
+	}
+
+	pr_debug("%s:%d: cfg:[%s]\n", __func__, __LINE__,
+		 pan_cfg->arg_cfg);
+	rc = strlcpy(panel_cfg, pan_cfg->arg_cfg,
+		     sizeof(pan_cfg->arg_cfg));
+	return rc;
+}
+
 static int mdss_dsi_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -636,98 +659,213 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	return rc;
 }
 
+/**
+ * mdss_dsi_find_panel_of_node(): find device node of dsi panel
+ * @pdev: platform_device of the dsi ctrl node
+ * @panel_cfg: string containing intf specific config data
+ *
+ * Function finds the panel device node using the interface
+ * specific configuration data. This configuration data is
+ * could be derived from the result of bootloader's GCDB
+ * panel detection mechanism. If such config data doesn't
+ * exist then this panel returns the default panel configured
+ * in the device tree.
+ *
+ * returns pointer to panel node on success, NULL on error.
+ */
+static struct device_node *mdss_dsi_find_panel_of_node(
+		struct platform_device *pdev, char *panel_cfg)
+{
+	int l;
+	int ctrl_id = -1;
+	char *panel_name;
+	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
+
+	l = strlen(panel_cfg);
+	if (!l) {
+		/* no panel cfg chg, parse dt */
+		pr_debug("%s:%d: no cmd line cfg present\n",
+			 __func__, __LINE__);
+		dsi_pan_node = of_parse_phandle(
+			pdev->dev.of_node,
+			"qcom,dsi-pref-prim-pan", 0);
+		if (!dsi_pan_node) {
+			pr_err("%s:can't find panel phandle\n",
+			       __func__);
+			return NULL;
+		}
+	} else {
+		if (panel_cfg[0] == '0') {
+			pr_debug("%s:%d: DSI ctrl 1\n", __func__, __LINE__);
+			ctrl_id = 0;
+		} else if (panel_cfg[0] == '1') {
+			pr_debug("%s:%d: DSI ctrl 2\n", __func__, __LINE__);
+			ctrl_id = 1;
+		}
+		if ((pdev->id - 1) != ctrl_id) {
+			pr_err("%s:%d:pdev_ID=[%d]\n",
+			       __func__, __LINE__, pdev->id);
+			return NULL;
+		}
+		/*
+		 * skip first two chars '<dsi_ctrl_id>' and
+		 * ':' to get to the panel name
+		 */
+		panel_name = panel_cfg + 2;
+		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
+			 panel_cfg, panel_name);
+
+		mdss_node = of_parse_phandle(pdev->dev.of_node,
+					     "qcom,mdss-mdp", 0);
+
+		if (!mdss_node) {
+			pr_err("%s: %d: mdss_node null\n",
+			       __func__, __LINE__);
+			return NULL;
+		}
+		dsi_pan_node = of_find_node_by_name(mdss_node,
+						    panel_name);
+		if (!dsi_pan_node) {
+			pr_err("%s: invalid pan node\n",
+			       __func__);
+			return NULL;
+		}
+	}
+	return dsi_pan_node;
+}
+
 static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	u32 index;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct device_node *dsi_pan_node = NULL;
+	char panel_cfg[MDSS_MAX_PANEL_LEN];
+	struct resource *mdss_dsi_mres;
+	const char *ctrl_name;
+	static struct mdss_panel_common_pdata vendor_pdata;
+	bool cmd_cfg_cont_splash = true;
 
-	if (pdev->dev.of_node) {
-		struct resource *mdss_dsi_mres;
-		const char *ctrl_name;
+	if (!mdss_is_ready()) {
+		pr_err("%s: MDP not probed yet!\n", __func__);
+		return -EPROBE_DEFER;
+	}
 
-		ctrl_pdata = platform_get_drvdata(pdev);
+	if (!pdev->dev.of_node) {
+		pr_err("DSI driver only supports device tree probe\n");
+		return -ENOTSUPP;
+	}
+
+	ctrl_pdata = platform_get_drvdata(pdev);
+	if (!ctrl_pdata) {
+		ctrl_pdata = devm_kzalloc(&pdev->dev,
+					  sizeof(struct mdss_dsi_ctrl_pdata),
+					  GFP_KERNEL);
 		if (!ctrl_pdata) {
-			ctrl_pdata = devm_kzalloc(&pdev->dev,
-				sizeof(struct mdss_dsi_ctrl_pdata), GFP_KERNEL);
-			if (!ctrl_pdata) {
-				pr_err("%s: FAILED: cannot alloc dsi ctrl\n",
-					__func__);
-				rc = -ENOMEM;
-				goto error_no_mem;
-			}
-			platform_set_drvdata(pdev, ctrl_pdata);
-		}
-
-		ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
-		if (!ctrl_name)
-			pr_info("%s:%d, DSI Ctrl name not specified\n",
-						__func__, __LINE__);
-		else
-			pr_info("%s: DSI Ctrl name = %s\n",
-				__func__, ctrl_name);
-
-		rc = of_property_read_u32(pdev->dev.of_node,
-					  "cell-index", &index);
-		if (rc) {
-			dev_err(&pdev->dev,
-				"%s: Cell-index not specified, rc=%d\n",
-							__func__, rc);
-			goto error_no_mem;
-		}
-
-		if (index == 0)
-			pdev->id = 1;
-		else
-			pdev->id = 2;
-
-		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!mdss_dsi_mres) {
-			pr_err("%s:%d unable to get the MDSS resources",
-				       __func__, __LINE__);
+			pr_err("%s: FAILED: cannot alloc dsi ctrl\n",
+			       __func__);
 			rc = -ENOMEM;
 			goto error_no_mem;
 		}
-		if (mdss_dsi_mres) {
-			mdss_dsi_base = ioremap(mdss_dsi_mres->start,
-				resource_size(mdss_dsi_mres));
-			if (!mdss_dsi_base) {
-				pr_err("%s:%d unable to remap dsi resources",
-					       __func__, __LINE__);
-				rc = -ENOMEM;
-				goto error_no_mem;
-			}
-		}
-
-		rc = of_platform_populate(pdev->dev.of_node,
-					NULL, NULL, &pdev->dev);
-		if (rc) {
-			dev_err(&pdev->dev,
-				"%s: failed to add child nodes, rc=%d\n",
-							__func__, rc);
-			goto error_ioremap;
-		}
-
-		/* Parse the regulator information */
-		rc = mdss_dsi_get_dt_vreg_data(&pdev->dev,
-			&ctrl_pdata->power_data);
-		if (rc) {
-			pr_err("%s: failed to get vreg data from dt. rc=%d\n",
-				__func__, rc);
-			goto error_vreg;
-		}
-
-		pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
+		platform_set_drvdata(pdev, ctrl_pdata);
 	}
+
+	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!ctrl_name)
+		pr_info("%s:%d, DSI Ctrl name not specified\n",
+			__func__, __LINE__);
+	else
+		pr_info("%s: DSI Ctrl name = %s\n",
+			__func__, ctrl_name);
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "cell-index", &index);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"%s: Cell-index not specified, rc=%d\n",
+			__func__, rc);
+		goto error_no_mem;
+	}
+
+	if (index == 0)
+		pdev->id = 1;
+	else
+		pdev->id = 2;
+
+	mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mdss_dsi_mres) {
+		pr_err("%s:%d unable to get the MDSS resources",
+		       __func__, __LINE__);
+		rc = -ENOMEM;
+		goto error_no_mem;
+	}
+
+	mdss_dsi_base = ioremap(mdss_dsi_mres->start,
+				resource_size(mdss_dsi_mres));
+	if (!mdss_dsi_base) {
+		pr_err("%s:%d unable to remap dsi resources",
+		       __func__, __LINE__);
+		rc = -ENOMEM;
+		goto error_no_mem;
+	}
+
+	rc = of_platform_populate(pdev->dev.of_node,
+				  NULL, NULL, &pdev->dev);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"%s: failed to add child nodes, rc=%d\n",
+			__func__, rc);
+		goto error_ioremap;
+	}
+
+	/* Parse the regulator information */
+	rc = mdss_dsi_get_dt_vreg_data(&pdev->dev,
+				       &ctrl_pdata->power_data);
+	if (rc) {
+		pr_err("%s: failed to get vreg data from dt. rc=%d\n",
+		       __func__, rc);
+		goto error_vreg;
+	}
+
+	/* DSI panels can be different between controllers */
+	rc = mdss_dsi_get_panel_cfg(panel_cfg);
+	if (!rc)
+		/* dsi panel cfg not present */
+		pr_warn("%s:%d:dsi specific cfg not present\n",
+			__func__, __LINE__);
+
+	/* find panel device node */
+	dsi_pan_node = mdss_dsi_find_panel_of_node(pdev, panel_cfg);
+	if (!dsi_pan_node) {
+		pr_err("%s: can't find panel node %s\n", __func__, panel_cfg);
+		goto error_pan_node;
+	}
+
+	rc = mdss_dsi_panel_init(dsi_pan_node, &vendor_pdata);
+	if (rc) {
+		pr_err("%s: dsi panel init failed\n", __func__);
+		goto error_pan_node;
+	}
+
+	rc = dsi_panel_device_register(dsi_pan_node, &vendor_pdata,
+				       cmd_cfg_cont_splash);
+	if (rc) {
+		pr_err("%s: dsi panel dev reg failed\n", __func__);
+		goto error_pan_node;
+	}
+
+	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 
 	return 0;
 
+error_pan_node:
+	of_node_put(dsi_pan_node);
+error_vreg:
+	mdss_dsi_put_dt_vreg_data(&pdev->dev, &ctrl_pdata->power_data);
 error_ioremap:
 	iounmap(mdss_dsi_base);
 error_no_mem:
 	devm_kfree(&pdev->dev, ctrl_pdata);
-error_vreg:
-	mdss_dsi_put_dt_vreg_data(&pdev->dev, &ctrl_pdata->power_data);
 
 	return rc;
 }
@@ -810,9 +948,9 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 	return 0;
 }
 
-
-int dsi_panel_device_register(struct platform_device *pdev,
-			      struct mdss_panel_common_pdata *panel_data)
+int dsi_panel_device_register(struct device_node *pan_node,
+			      struct mdss_panel_common_pdata *panel_data,
+			      bool cmd_cfg_cont_splash)
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
@@ -887,7 +1025,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		dsi_pclk_rate = 35000000;
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
-	dsi_ctrl_np = of_parse_phandle(pdev->dev.of_node,
+	dsi_ctrl_np = of_parse_phandle(pan_node,
 				"qcom,mdss-dsi-panel-controller", 0);
 	if (!dsi_ctrl_np) {
 		pr_err("%s: Dsi controller node not initialized\n", __func__);
@@ -903,8 +1041,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	rc = mdss_dsi_regulator_init(ctrl_pdev);
 	if (rc) {
-		dev_err(&pdev->dev,
-			"%s: failed to init regulator, rc=%d\n",
+		pr_err("%s: failed to init regulator, rc=%d\n",
 						__func__, rc);
 		return rc;
 	}
@@ -956,10 +1093,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	}
 
 	ctrl_pdata->shared_pdata.broadcast_enable = of_property_read_bool(
-		pdev->dev.of_node, "qcom,mdss-dsi-panel-broadcast-mode");
+		pan_node, "qcom,mdss-dsi-panel-broadcast-mode");
 
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 		"qcom,platform-enable-gpio", 0);
+
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_err("%s:%d, Disp_en gpio not specified\n",
 						__func__, __LINE__);
@@ -1079,8 +1217,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
-	cont_splash_enabled = of_property_read_bool(pdev->dev.of_node,
-			"qcom,cont-splash-enabled");
+	if (cmd_cfg_cont_splash)
+		cont_splash_enabled = of_property_read_bool(pan_node,
+				"qcom,cont-splash-enabled");
+	else
+		cont_splash_enabled = false;
 	if (!cont_splash_enabled) {
 		pr_info("%s:%d Continuous splash flag not found.\n",
 				__func__, __LINE__);
@@ -1105,7 +1246,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
-		dev_err(&pdev->dev, "unable to register MIPI DSI panel\n");
+		pr_err("%s: unable to register MIPI DSI panel\n", __func__);
 		if (ctrl_pdata->rst_gpio)
 			gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
@@ -1126,7 +1267,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		ctrl_pdata->ndx = 1;
 	}
 
-	pr_debug("%s: Panal data initialized\n", __func__);
+	pr_debug("%s: Panel data initialized\n", __func__);
 	return 0;
 }
 
