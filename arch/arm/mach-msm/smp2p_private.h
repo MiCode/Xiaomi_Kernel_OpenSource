@@ -20,8 +20,7 @@
 #include "smp2p_private_api.h"
 
 #define SMP2P_MAX_ENTRY 16
-#define SMP2P_LOCAL_VERSION 1
-#define SMP2P_LOCAL_FEATURE  0x0
+#define SMP2P_FEATURE_SSR_ACK 0x1
 
 /* SMEM Item Header Macros */
 #define SMP2P_MAGIC 0x504D5324
@@ -37,6 +36,10 @@
 #define SMP2P_ENT_TOTAL_BIT 0
 #define SMP2P_ENT_VALID_MASK 0xffff0000
 #define SMP2P_ENT_VALID_BIT 16
+#define SMP2P_FLAGS_RESTART_DONE_BIT 0
+#define SMP2P_FLAGS_RESTART_DONE_MASK 0x1
+#define SMP2P_FLAGS_RESTART_ACK_BIT 1
+#define SMP2P_FLAGS_RESTART_ACK_MASK 0x2
 
 #define SMP2P_GET_BITS(hdr_val, mask, bit) \
 	(((hdr_val) & (mask)) >> (bit))
@@ -76,6 +79,20 @@
 #define SMP2P_SET_ENT_VALID(hdr, entries) \
 	SMP2P_SET_BITS(hdr,  SMP2P_ENT_VALID_MASK, SMP2P_ENT_VALID_BIT,\
 		entries)
+
+#define SMP2P_GET_RESTART_DONE(hdr) \
+	SMP2P_GET_BITS(hdr, SMP2P_FLAGS_RESTART_DONE_MASK, \
+			SMP2P_FLAGS_RESTART_DONE_BIT)
+#define SMP2P_SET_RESTART_DONE(hdr, value) \
+	SMP2P_SET_BITS(hdr, SMP2P_FLAGS_RESTART_DONE_MASK, \
+			SMP2P_FLAGS_RESTART_DONE_BIT, value)
+
+#define SMP2P_GET_RESTART_ACK(hdr) \
+	SMP2P_GET_BITS(hdr, SMP2P_FLAGS_RESTART_ACK_MASK, \
+			SMP2P_FLAGS_RESTART_ACK_BIT)
+#define SMP2P_SET_RESTART_ACK(hdr, value) \
+	SMP2P_SET_BITS(hdr, SMP2P_FLAGS_RESTART_ACK_MASK, \
+			SMP2P_FLAGS_RESTART_ACK_BIT, value)
 
 /* Loopback Command Macros */
 #define SMP2P_RMT_CMD_TYPE_MASK 0x80000000
@@ -162,12 +179,21 @@ enum msm_smp2p_edge_state {
 	SMP2P_EDGE_STATE_FAILED = 0xff,
 };
 
+/**
+ * struct smp2p_smem - SMP2P SMEM Item Header
+ *
+ * @magic:  Set to "$SMP" -- used for identification / debug purposes
+ * @feature_version:  Feature and version fields
+ * @rem_loc_proc_id:  Remote (31:16) and Local (15:0) processor IDs
+ * @valid_total_ent:  Valid (31:16) and total (15:0) entries
+ * @flags:  Flags (bits 31:2 reserved)
+ */
 struct smp2p_smem {
 	uint32_t magic;
 	uint32_t feature_version;
 	uint32_t rem_loc_proc_id;
 	uint32_t valid_total_ent;
-	uint32_t reserved;
+	uint32_t flags;
 };
 
 struct smp2p_entry_v1 {
