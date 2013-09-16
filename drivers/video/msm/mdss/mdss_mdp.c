@@ -1051,15 +1051,16 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
-	SPRINT("mdp_version=5 hw_rev=%d\n", mdata->mdp_rev);
+	SPRINT("mdp_version=5\n");
+	SPRINT("hw_rev=%d\n", mdata->mdp_rev);
 	SPRINT("rgb_pipes=%d\n", mdata->nrgb_pipes);
 	SPRINT("vig_pipes=%d\n", mdata->nvig_pipes);
 	SPRINT("dma_pipes=%d\n", mdata->ndma_pipes);
 	SPRINT("smp_count=%d\n", mdata->smp_mb_cnt);
 	SPRINT("smp_size=%d\n", mdata->smp_mb_size);
-	SPRINT("max downscale ratio=%d\n", MAX_DOWNSCALE_RATIO);
-	SPRINT("max upscale ratio=%d\n", MAX_UPSCALE_RATIO);
-	SPRINT("features:");
+	SPRINT("max_downscale_ratio=%d\n", MAX_DOWNSCALE_RATIO);
+	SPRINT("max_upscale_ratio=%d\n", MAX_UPSCALE_RATIO);
+	SPRINT("features=");
 	if (mdata->has_bwc)
 		SPRINT(" bwc");
 	if (mdata->has_decimation)
