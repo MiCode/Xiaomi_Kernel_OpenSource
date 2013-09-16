@@ -31,8 +31,6 @@
 
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
-#define HW_RESPONSE_TIMEOUT     1000
-#define POWER_COLLAPSE_DELAY    2000
 
 /*Workaround for simulator */
 #define HFI_SIM_FW_BIAS		0x0
@@ -2385,7 +2383,7 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 		return;
 	}
 	rc = wait_for_completion_timeout(&pc_prep_done,
-			msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d", rc);
 		return;
@@ -2417,7 +2415,7 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 	}
 	venus_hfi_clk_disable(device);
 	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
-			msecs_to_jiffies(POWER_COLLAPSE_DELAY)))
+			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
 		dprintk(VIDC_DBG, "PM work already scheduled\n");
 already_disabled:
 	device->clocks_enabled = 0;
