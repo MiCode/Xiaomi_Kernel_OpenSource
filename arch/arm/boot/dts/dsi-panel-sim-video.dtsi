@@ -11,8 +11,7 @@
  */
 
 &soc {
-
-	qcom,mdss_dsi_sim_video {
+	dsi_sim_vid: qcom,mdss_dsi_sim_video {
 		compatible = "qcom,mdss-dsi-panel";
 		label = "simulator video mode dsi panel";
 		status = "disable";

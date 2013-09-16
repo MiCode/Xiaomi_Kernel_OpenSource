@@ -16,7 +16,7 @@
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
 &soc {
-	qcom,mdss_dsi_nt35590_720p_video {
+	dsi_nt35590_720_vid: qcom,mdss_dsi_nt35590_720p_video {
 		compatible = "qcom,mdss-dsi-panel";
 		status = "disable";
 		qcom,mdss-dsi-panel-name = "nt35590 720p video mode dsi panel";
