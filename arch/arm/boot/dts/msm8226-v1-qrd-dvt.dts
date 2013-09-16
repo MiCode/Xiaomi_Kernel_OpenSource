@@ -29,9 +29,10 @@
 		      <223 0x2000b 0>;
 };
 
-&soc {
-        qcom,mdss_dsi_hx8394a_720p_video {
-                status = "ok";
-		qcom,cont-splash-enabled;
-        };
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394a_720_vid>;
+};
+
+&dsi_hx8394a_720_vid {
+	qcom,cont-splash-enabled;
 };

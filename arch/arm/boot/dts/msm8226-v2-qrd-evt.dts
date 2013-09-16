@@ -29,9 +29,10 @@
 		      <223 11 0x20000>;
 };
 
-&soc {
-        qcom,mdss_dsi_nt35590_720p_video {
-                status = "ok";
-		qcom,cont-splash-enabled;
-        };
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+};
+
+&dsi_nt35590_720_vid {
+	qcom,cont-splash-enabled;
 };
