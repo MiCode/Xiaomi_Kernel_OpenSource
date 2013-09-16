@@ -16,4 +16,5 @@ obj-$(CONFIG_ARCH_MSM8974) += msm_bus_board_8974.o
 obj-$(CONFIG_ARCH_MSM9625) += msm_bus_board_9625.o
 obj-$(CONFIG_ARCH_MSM8226) += msm_bus_id.o
 obj-$(CONFIG_ARCH_MSM8610) += msm_bus_id.o
+obj-$(CONFIG_ARCH_APQ8084) += msm_bus_id.o
 obj-$(CONFIG_DEBUG_FS) += msm_bus_dbg.o
