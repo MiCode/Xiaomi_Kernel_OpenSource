@@ -109,6 +109,7 @@ struct ci13xxx_ep {
 		struct ci13xxx_qh *ptr;
 		dma_addr_t         dma;
 	}                                      qh;
+	struct list_head                       rw_queue;
 	int                                    wedge;
 
 	/* global resources */
@@ -170,7 +171,7 @@ struct ci13xxx {
 	u8                         suspended;  /* suspended by the host */
 	u8                         configured;  /* is device configured */
 	u8                         test_mode;  /* the selected test mode */
-
+	bool                       rw_pending; /* Remote wakeup pending flag */
 	struct delayed_work        rw_work;    /* remote wakeup delayed work */
 	struct usb_gadget_driver  *driver;     /* 3rd party gadget driver */
 	struct ci13xxx_udc_driver *udc_driver; /* device controller driver */
