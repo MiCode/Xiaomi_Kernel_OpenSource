@@ -76,6 +76,10 @@ module_param(rndis_ul_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rndis_ul_max_pkt_per_xfer,
 	"Maximum packets per transfer for UL aggregation");
 
+static unsigned int rx_trigger_enabled;
+module_param(rx_trigger_enabled, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rx_trigger_enabled, "rx trigger_enable");
+
 struct f_rndis {
 	struct gether			port;
 	u8				ctrl_id, data_id;
@@ -88,6 +92,28 @@ struct f_rndis {
 	struct usb_request		*notify_req;
 	atomic_t			notify_count;
 };
+
+static struct f_rndis *__rndis;
+
+int
+rndis_rx_trigger(void)
+{
+	struct f_rndis *rndis = __rndis;
+
+	if (!rx_trigger_enabled || !rndis) {
+		pr_err("can't set rx trigger\n");
+		return -EINVAL;
+	}
+
+	if (rndis->port.rx_triggered)
+		return 0;
+
+
+	rndis->port.rx_triggered = true;
+	gether_up(&rndis->port);
+
+	return 0;
+}
 
 static inline struct f_rndis *func_to_rndis(struct usb_function *f)
 {
@@ -592,6 +618,8 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else if (intf == rndis->data_id) {
 		struct net_device	*net;
 
+		rndis->port.rx_triggered = false;
+
 		if (rndis->port.in_ep->driver_data) {
 			DBG(cdev, "reset rndis\n");
 			gether_disconnect(&rndis->port);
@@ -839,6 +867,7 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
 	kfree(rndis);
+	__rndis = NULL;
 }
 
 /* Some controllers can't support RNDIS ... */
@@ -879,6 +908,8 @@ rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (!rndis)
 		goto fail;
 
+	__rndis = rndis;
+
 	memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
 	rndis->vendorID = vendorID;
 	rndis->manufacturer = manufacturer;
@@ -893,6 +924,7 @@ rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	rndis->port.unwrap = rndis_rm_hdr;
 	rndis->port.ul_max_pkts_per_xfer = rndis_ul_max_pkt_per_xfer;
 	rndis->port.dl_max_pkts_per_xfer = rndis_dl_max_pkt_per_xfer;
+	rndis->port.rx_trigger_enabled = rx_trigger_enabled;
 
 	rndis->port.func.name = "rndis";
 	rndis->port.func.strings = rndis_strings;
