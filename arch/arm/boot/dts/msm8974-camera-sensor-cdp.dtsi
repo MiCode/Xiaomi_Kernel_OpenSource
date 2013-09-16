@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,5 +177,98 @@
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
+	};
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,actuator-src = <&actuator0>;
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+		cam_vdig-supply = <&pm8941_l3>;
+		cam_vana-supply = <&pm8941_l17>;
+		cam_vio-supply = <&pm8941_lvs3>;
+		cam_vaf-supply = <&pm8941_l23>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+				     "cam_vaf";
+		qcom,cam-vreg-type = <0 1 0 0>;
+		qcom,cam-vreg-min-voltage = <1225000 0 2850000 3000000>;
+		qcom,cam-vreg-max-voltage = <1225000 0 2850000 3000000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 15 0>,
+			<&msmgpio 90 0>,
+			<&msmgpio 89 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+					  "CAM_RESET1",
+					  "CAM_STANDBY";
+		qcom,cci-master = <0>;
+		status = "ok";
+	};
+
+	qcom,camera@1 {
+		cell-index = <1>;
+		compatible = "qcom,camera";
+		reg = <0x1>;
+		qcom,csiphy-sd-index = <1>;
+		qcom,csid-sd-index = <0>;
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+		cam_vdig-supply = <&pm8941_l3>;
+		cam_vana-supply = <&pm8941_l17>;
+		cam_vio-supply = <&pm8941_lvs3>;
+		cam_vaf-supply = <&pm8941_l23>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+				     "cam_vaf";
+		qcom,cam-vreg-type = <0 1 0 0>;
+		qcom,cam-vreg-min-voltage = <1225000 0 2850000 3000000>;
+		qcom,cam-vreg-max-voltage = <1225000 0 2850000 3000000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
+		gpios = <&msmgpio 16 0>,
+			<&msmgpio 92 0>,
+			<&msmgpio 91 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+					  "CAM_RESET1",
+					  "CAM_STANDBY";
+		qcom,cci-master = <0>;
+		status = "ok";
+	};
+
+	qcom,camera@2 {
+		cell-index = <2>;
+		compatible = "qcom,camera";
+		reg = <0x2>;
+		qcom,csiphy-sd-index = <2>;
+		qcom,csid-sd-index = <2>;
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+		cam_vdig-supply = <&pm8941_l3>;
+		cam_vana-supply = <&pm8941_l17>;
+		cam_vio-supply = <&pm8941_lvs3>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio";
+		qcom,cam-vreg-type = <0 0 1>;
+		qcom,cam-vreg-min-voltage = <1225000 2850000 0>;
+		qcom,cam-vreg-max-voltage = <1225000 2850000 0>;
+		qcom,cam-vreg-op-mode = <105000 80000 0>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 17 0>,
+			<&msmgpio 18 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+					  "CAM_RESET1";
+		qcom,cci-master = <0>;
+		status = "ok";
 	};
 };
