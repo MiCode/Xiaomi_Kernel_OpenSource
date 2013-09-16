@@ -2531,6 +2531,9 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 			 * driver initialization. Wait for it.
 			 */
 			wait_for_completion(&pmic_vbus_init);
+		} else if (pdata->otg_control == OTG_USER_CONTROL) {
+			set_bit(ID, &motg->inputs);
+			set_bit(B_SESS_VLD, &motg->inputs);
 		}
 		break;
 	default:
@@ -3773,14 +3776,15 @@ static struct dentry *msm_otg_dbg_root;
 static int msm_otg_debugfs_init(struct msm_otg *motg)
 {
 	struct dentry *msm_otg_dentry;
+	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	msm_otg_dbg_root = debugfs_create_dir("msm_otg", NULL);
 
 	if (!msm_otg_dbg_root || IS_ERR(msm_otg_dbg_root))
 		return -ENODEV;
 
-	if (motg->pdata->mode == USB_OTG &&
-		motg->pdata->otg_control == OTG_USER_CONTROL) {
+	if ((pdata->mode == USB_OTG || pdata->mode == USB_PERIPHERAL) &&
+		pdata->otg_control == OTG_USER_CONTROL) {
 
 		msm_otg_dentry = debugfs_create_file("mode", S_IRUGO |
 			S_IWUSR, msm_otg_dbg_root, motg,
