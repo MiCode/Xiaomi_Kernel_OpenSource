@@ -95,6 +95,7 @@ Optional properties:
 - coresight-ctis : list of ctis that this component interacts with
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
+- qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
 		     by the funnel
 - qcom,reset-flush-race : indicates if a race exists between flushing and ddr
@@ -145,6 +146,7 @@ Examples:
 		interrupt-names = "byte-cntr-irq";
 
 		qcom,byte-cntr-absent;
+		qcom,memory-size = <0x100000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";

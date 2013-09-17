@@ -22,7 +22,6 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/memory_alloc.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
@@ -35,7 +34,7 @@
 #include <linux/interrupt.h>
 #include <linux/cdev.h>
 #include <linux/usb/usb_qdss.h>
-#include <mach/memory.h>
+#include <linux/dma-mapping.h>
 #include <mach/sps.h>
 #include <mach/usb_bam.h>
 #include <mach/msm_memory_dump.h>
@@ -154,7 +153,7 @@ struct tmc_drvdata {
 	bool			aborting;
 	char			*reg_buf;
 	char			*buf;
-	phys_addr_t		paddr;
+	dma_addr_t		paddr;
 	void __iomem		*vaddr;
 	uint32_t		size;
 	struct mutex		usb_lock;
@@ -1566,7 +1565,8 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (pdev->dev.of_node) {
 			ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,memory-reservation-size", &drvdata->size);
+						   "qcom,memory-size",
+						   &drvdata->size);
 			if (ret) {
 				clk_disable_unprepare(drvdata->clk);
 				return ret;
@@ -1579,17 +1579,11 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->paddr = allocate_contiguous_ebi_nomap(drvdata->size,
-							       SZ_4K);
-		if (!drvdata->paddr)
+		drvdata->vaddr = dma_zalloc_coherent(&pdev->dev, drvdata->size,
+						     &drvdata->paddr,
+						     GFP_KERNEL);
+		if (!drvdata->vaddr)
 			return -ENOMEM;
-		drvdata->vaddr = devm_ioremap(dev, drvdata->paddr,
-					      drvdata->size);
-		if (!drvdata->vaddr) {
-			ret = -ENOMEM;
-			goto err0;
-		}
-		memset(drvdata->vaddr, 0, drvdata->size);
 		drvdata->buf = drvdata->vaddr;
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		if (pdev->dev.of_node)
@@ -1729,7 +1723,10 @@ err2:
 err1:
 	tmc_etr_byte_cntr_exit(drvdata);
 err0:
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size,
+				  drvdata->vaddr,
+				  drvdata->paddr);
 	return ret;
 }
 
@@ -1741,7 +1738,9 @@ static int __devexit tmc_remove(struct platform_device *pdev)
 	misc_deregister(&drvdata->miscdev);
 	coresight_unregister(drvdata->csdev);
 	tmc_etr_bam_exit(drvdata);
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size, drvdata->vaddr,
+				  drvdata->paddr);
 	return 0;
 }
 
