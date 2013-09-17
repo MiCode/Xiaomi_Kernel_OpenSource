@@ -382,7 +382,7 @@ int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 
 static int mdp3_clk_update(u32 clk_idx, u32 enable)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	struct clk *clk;
 	int count = 0;
 
