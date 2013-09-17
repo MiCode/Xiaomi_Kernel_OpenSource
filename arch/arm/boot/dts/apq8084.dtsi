@@ -893,6 +893,10 @@
 		qcom,ib = <32505856>;
 	};
 
+	qcom,msm-adsp-loader {
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
+	};
 };
 
 &gdsc_venus {

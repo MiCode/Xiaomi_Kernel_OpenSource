@@ -320,6 +320,7 @@ config ARCH_APQ8084
 	select MSM_RPM_SMD
 	select USB_ARCH_HAS_XHCI
 	select KRAIT_REGULATOR
+	select MSM_PIL
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
