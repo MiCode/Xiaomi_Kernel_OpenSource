@@ -665,15 +665,15 @@ static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
 
 	mutex_lock(&mdp3_session->lock);
 
-	if (mdp3_session->overlay.id == req->id) {
-		mdp3_session->overlay = *req;
-		if (req->id == MSMFB_NEW_REQUEST) {
-			mdp3_session->overlay.id = 1;
-			req->id = 1;
-		}
-	} else {
-		rc = -EINVAL;
+	if (mdp3_session->overlay.id != req->id)
+		pr_err("overlay was not released, continue to recover\n");
+
+	mdp3_session->overlay = *req;
+	if (req->id == MSMFB_NEW_REQUEST) {
+		mdp3_session->overlay.id = 1;
+		req->id = 1;
 	}
+
 	mutex_unlock(&mdp3_session->lock);
 
 	return rc;
