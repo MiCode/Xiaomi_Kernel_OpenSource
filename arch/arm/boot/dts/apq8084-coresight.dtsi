@@ -124,7 +124,7 @@
 		coresight-nr-inports = <4>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in1>;
-		coresight-child-ports = <5>;
+		coresight-child-ports = <6>;
 	};
 
 	funnel_mmss: funnel@fc36c000 {
