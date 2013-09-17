@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -383,11 +383,11 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	mb();
 
 	if (!mhsic->pdata->core_clk_always_on_workaround || !mhsic->connected) {
-		clk_disable(mhsic->iface_clk);
-		clk_disable(mhsic->core_clk);
+		clk_disable_unprepare(mhsic->iface_clk);
+		clk_disable_unprepare(mhsic->core_clk);
 	}
-	clk_disable(mhsic->phy_clk);
-	clk_disable(mhsic->cal_clk);
+	clk_disable_unprepare(mhsic->phy_clk);
+	clk_disable_unprepare(mhsic->cal_clk);
 
 	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_OFF);
 	if (ret)
@@ -440,11 +440,11 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 				__func__, ret);
 
 	if (!mhsic->pdata->core_clk_always_on_workaround || !mhsic->connected) {
-		clk_enable(mhsic->iface_clk);
-		clk_enable(mhsic->core_clk);
+		clk_prepare_enable(mhsic->iface_clk);
+		clk_prepare_enable(mhsic->core_clk);
 	}
-	clk_enable(mhsic->phy_clk);
-	clk_enable(mhsic->cal_clk);
+	clk_prepare_enable(mhsic->phy_clk);
+	clk_prepare_enable(mhsic->cal_clk);
 
 	temp = readl_relaxed(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
