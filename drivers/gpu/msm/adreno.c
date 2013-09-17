@@ -214,6 +214,10 @@ static const struct {
 	{ ADRENO_REV_A420, 4, 2, 0, ANY_ID,
 		"a420_pm4.fw", "a420_pfp.fw", &adreno_a4xx_gpudev,
 		512, 0, 2, (SZ_1M + SZ_512K), NO_VER, NO_VER },
+	{ ADRENO_REV_A310, 3, 1, 0, 0x10,
+		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2, SZ_512K, NO_VER, NO_VER, 0x8AD, 0x2E4, 0x201,
+			0x200 },
 };
 
 /**
@@ -1525,6 +1529,7 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 {
 	if (!(adreno_is_a330(adreno_dev) ||
 		adreno_is_a305b(adreno_dev) ||
+		adreno_is_a310(adreno_dev) ||
 		adreno_is_a4xx(adreno_dev)))
 		return 0;
 
@@ -1548,6 +1553,7 @@ adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
 {
 	if (!(adreno_is_a330(adreno_dev) ||
 		adreno_is_a305b(adreno_dev) ||
+		adreno_is_a310(adreno_dev) ||
 		adreno_is_a4xx(adreno_dev)))
 		return;
 
