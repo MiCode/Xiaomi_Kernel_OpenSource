@@ -44,6 +44,9 @@
 	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_ENABLED
 #define BITSTREAM_RESTRICT_DISABLED \
 	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_DISABLED
+#define MIN_TIME_RESOLUTION 1
+#define MAX_TIME_RESOLUTION 0xFFFFFF
+#define DEFAULT_TIME_RESOLUTION 0x7530
 
 static const char *const mpeg_video_rate_control[] = {
 	"No Rate Control",
@@ -758,6 +761,18 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.cluster = MSM_VENC_CTRL_CLUSTER_DEINTERLACE,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG4_TIME_RESOLUTION,
+		.name = "Vop time increment resolution",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = MIN_TIME_RESOLUTION,
+		.maximum = MAX_TIME_RESOLUTION,
+		.default_value = DEFAULT_TIME_RESOLUTION,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = 0,
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1305,6 +1320,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hfi_device *hdev;
 	struct hal_extradata_enable extra;
+	struct hal_mpeg4_time_resolution time_res;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1970,6 +1986,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY;
 		preserve_text_quality.enable = ctrl->val;
 		pdata = &preserve_text_quality;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG4_TIME_RESOLUTION:
+		property_id = HAL_PARAM_VENC_MPEG4_TIME_RESOLUTION;
+		time_res.time_increment_resolution = ctrl->val;
+		pdata = &time_res;
 		break;
 	default:
 		rc = -ENOTSUPP;

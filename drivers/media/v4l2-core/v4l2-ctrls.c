@@ -722,6 +722,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 		return "VP8 Profile Level";
 	case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE:
 		return "Deinterlace for encoder";
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG4_TIME_RESOLUTION:
+		return "Vop time increment resolution";
 
 	/* CAMERA controls */
 	/* Keep the order of the 'case's the same as in videodev2.h! */
