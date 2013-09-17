@@ -1572,7 +1572,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		/* Reset UTMI HSPHY interface */
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
-								 0xF0000000);
+								 0x80000000);
 		/* 10usec delay required before de-asserting PHY RESET */
 		udelay(10);
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
