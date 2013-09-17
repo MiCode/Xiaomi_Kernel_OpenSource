@@ -755,11 +755,6 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 	if (!mdp3_session || !mdp3_session->dma)
 		return -EINVAL;
 
-	if (!mdp3_session->status) {
-		pr_err("%s, display off!\n", __func__);
-		return -EPERM;
-	}
-
 	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		mdp3_ctrl_reset(mfd);
@@ -767,6 +762,12 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 	mdp3_release_splash_memory();
 
 	mutex_lock(&mdp3_session->lock);
+
+	if (!mdp3_session->status) {
+		pr_err("%s, display off!\n", __func__);
+		mutex_unlock(&mdp3_session->lock);
+		return -EPERM;
+	}
 
 	data = mdp3_bufq_pop(&mdp3_session->bufq_in);
 	if (data) {
@@ -802,17 +803,18 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	if (!mdp3_session || !mdp3_session->dma)
 		return;
 
-	if (!mdp3_session->status) {
-		pr_err("mdp3_ctrl_pan_display, display off!\n");
-		return;
-	}
-
 	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		mdp3_ctrl_reset(mfd);
 	}
 
 	mutex_lock(&mdp3_session->lock);
+
+	if (!mdp3_session->status) {
+		pr_err("mdp3_ctrl_pan_display, display off!\n");
+		goto pan_error;
+	}
+
 	fbi = mfd->fbi;
 
 	bpp = fbi->var.bits_per_pixel / 8;
