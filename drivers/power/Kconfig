@@ -416,6 +416,16 @@ config SMB349_CHARGER
 	  SMB349 be operated as a slave device via the power supply
 	  framework.
 
+config SMB349_USB_CHARGER
+	tristate "smb349 usb charger (with VBUS detection)"
+	depends on I2C
+	help
+	 Say Y to enable support for the SMB349 switching mode based charger.
+	 The driver supports charging control (enable/disable) and
+	 charge-current limiting. It also provides USB VBUS detection and
+	 notification support. The driver controls SMB349 via I2C and
+	 supports device-tree interface.
+
 config SMB350_CHARGER
 	tristate "smb350 charger"
 	depends on I2C
