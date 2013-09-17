@@ -232,9 +232,9 @@ enum {
  * @dword_2: UPIU header DW-2
  */
 struct utp_upiu_header {
-	u32 dword_0;
-	u32 dword_1;
-	u32 dword_2;
+	__be32 dword_0;
+	__be32 dword_1;
+	__be32 dword_2;
 };
 
 /**
@@ -243,7 +243,7 @@ struct utp_upiu_header {
  * @cdb: Command Descriptor Block CDB DW-4 to DW-7
  */
 struct utp_upiu_cmd {
-	u32 exp_data_transfer_len;
+	__be32 exp_data_transfer_len;
 	u8 cdb[MAX_CDB_SIZE];
 };
 
@@ -264,10 +264,10 @@ struct utp_upiu_query {
 	u8 idn;
 	u8 index;
 	u8 selector;
-	u16 reserved_osf;
-	u16 length;
-	u32 value;
-	u32 reserved[2];
+	__be16 reserved_osf;
+	__be16 length;
+	__be32 value;
+	__be32 reserved[2];
 };
 
 /**
@@ -292,9 +292,9 @@ struct utp_upiu_req {
  * @sense_data: Sense data field DW-8 to DW-12
  */
 struct utp_cmd_rsp {
-	u32 residual_transfer_count;
-	u32 reserved[4];
-	u16 sense_data_len;
+	__be32 residual_transfer_count;
+	__be32 reserved[4];
+	__be16 sense_data_len;
 	u8 sense_data[18];
 };
 
@@ -322,10 +322,10 @@ struct utp_upiu_rsp {
  */
 struct utp_upiu_task_req {
 	struct utp_upiu_header header;
-	u32 input_param1;
-	u32 input_param2;
-	u32 input_param3;
-	u32 reserved[2];
+	__be32 input_param1;
+	__be32 input_param2;
+	__be32 input_param3;
+	__be32 reserved[2];
 };
 
 /**
@@ -337,9 +337,9 @@ struct utp_upiu_task_req {
  */
 struct utp_upiu_task_rsp {
 	struct utp_upiu_header header;
-	u32 output_param1;
-	u32 output_param2;
-	u32 reserved[3];
+	__be32 output_param1;
+	__be32 output_param2;
+	__be32 reserved[3];
 };
 
 /**
