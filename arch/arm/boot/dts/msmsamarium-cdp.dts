@@ -18,6 +18,6 @@
 / {
 	model = "Qualcomm MSM SAMARIUM CDP";
 	compatible = "qcom,msmsamarium-cdp", "qcom,msmsamarium", "qcom,cdp";
-	qcom,msm-id = <195 1 0>;
+	qcom,board-id = <1 0>;
 };
 

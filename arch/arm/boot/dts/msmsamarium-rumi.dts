@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm MSM SAMARIUM RUMI";
 	compatible = "qcom,msmsamarium-rumi", "qcom,msmsamarium", "qcom,rumi";
-	qcom,msm-id = <195 15 0>;
+	qcom,board-id = <15 0>;
 };
 
 &blsp1_uart2{

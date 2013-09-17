@@ -15,6 +15,7 @@
 / {
 	model = "Qualcomm MSM SAMARIUM";
 	compatible = "qcom,msmsamarium";
+	qcom,msm-id = <195 0>;
 	interrupt-parent = <&intc>;
 	soc: soc { };
 	aliases {
