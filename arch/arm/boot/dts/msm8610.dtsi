@@ -944,15 +944,11 @@
 
 &gdsc_vfe {
 	qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
-	qcom,skip-logic-collapse;
-	qcom,retain-periph;
-	qcom,retain-mem;
 	status = "ok";
 };
 
 &gdsc_oxili_cx {
 	qcom,clock-names = "core_clk", "iface_clk", "mem_clk";
-	qcom,skip-logic-collapse;
 	status = "ok";
 };
 
