@@ -124,6 +124,17 @@
 		/delete-property/ dwc_usb3-adc_tm;
 	};
 
+	ssphy@f92f8800 {
+		vdd-supply = <&pma8084_s2_corner>;
+		vdda18-supply = <&pma8084_l6>;
+	};
+
+	hsphy@f92f8800 {
+		vdd-supply = <&pma8084_s2_corner>;
+		vdda18-supply = <&pma8084_l6>;
+		vdda33-supply = <&pma8084_l24>;
+	};
+
 	qcom,ehci-host@f9a55000 {
 		HSUSB_VDDCX-supply = <&pma8084_s2>;
 		HSUSB_1p8-supply = <&pma8084_l6>;

@@ -803,6 +803,26 @@
 		compatible = "qcom,android-usb";
 	};
 
+	hsphy0: hsphy@f92f8800 {
+		compatible = "qcom,usb-hsphy";
+		reg = <0xf92f8800 0x3ff>,
+			<0xfd4ab204 0x4>;
+		qcom,hsphy-init = <0x00D191A4>;
+		vdd-supply = <&pma8084_s1>;
+		vdda18-supply = <&pma8084_l6>;
+		vdda33-supply = <&pma8084_l24>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,ext-vbus-id;
+	};
+
+	ssphy0: ssphy@f92f8800 {
+		compatible = "qcom,usb-ssphy";
+		reg = <0xf92f8800 0x3ff>;
+		vdd-supply = <&pma8084_s1>;
+		vdda18-supply = <&pma8084_l6>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+	};
+
 	tsens: tsens@fc4a8000 {
 		compatible = "qcom,msm-tsens";
 		reg = <0xfc4a8000 0x2000>,
