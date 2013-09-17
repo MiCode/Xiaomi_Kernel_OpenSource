@@ -122,33 +122,35 @@ int chk_config_get_id(void)
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		return 0;
 
-	if (driver->use_device_tree) {
-		if (machine_is_msm8974())
-			return MSM8974_TOOLS_ID;
-		else if (machine_is_apq8074())
-			return APQ8074_TOOLS_ID;
-		else
-			return 0;
-	} else {
-		switch (socinfo_get_msm_cpu()) {
-		case MSM_CPU_8X60:
-			return APQ8060_TOOLS_ID;
-		case MSM_CPU_8960:
-		case MSM_CPU_8960AB:
-			return AO8960_TOOLS_ID;
-		case MSM_CPU_8064:
-		case MSM_CPU_8064AB:
-		case MSM_CPU_8064AA:
-			return APQ8064_TOOLS_ID;
-		case MSM_CPU_8930:
-		case MSM_CPU_8930AA:
-		case MSM_CPU_8930AB:
-			return MSM8930_TOOLS_ID;
-		case MSM_CPU_8974:
-			return MSM8974_TOOLS_ID;
-		case MSM_CPU_8625:
-			return MSM8625_TOOLS_ID;
-		default:
+	switch (socinfo_get_msm_cpu()) {
+	case MSM_CPU_8X60:
+		return APQ8060_TOOLS_ID;
+	case MSM_CPU_8960:
+	case MSM_CPU_8960AB:
+		return AO8960_TOOLS_ID;
+	case MSM_CPU_8064:
+	case MSM_CPU_8064AB:
+	case MSM_CPU_8064AA:
+		return APQ8064_TOOLS_ID;
+	case MSM_CPU_8930:
+	case MSM_CPU_8930AA:
+	case MSM_CPU_8930AB:
+		return MSM8930_TOOLS_ID;
+	case MSM_CPU_8974:
+		return MSM8974_TOOLS_ID;
+	case MSM_CPU_8625:
+		return MSM8625_TOOLS_ID;
+	case MSM_CPU_8084:
+		return APQ8084_TOOLS_ID;
+	default:
+		if (driver->use_device_tree) {
+			if (machine_is_msm8974())
+				return MSM8974_TOOLS_ID;
+			else if (machine_is_apq8074())
+				return APQ8074_TOOLS_ID;
+			else
+				return 0;
+		} else {
 			return 0;
 		}
 	}
