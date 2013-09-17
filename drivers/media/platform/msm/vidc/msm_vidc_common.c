@@ -862,6 +862,11 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_DATA_CORRUPT;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_DROP_FRAME;
+		if (fill_buf_done->flags1 &
+			HAL_BUFFERFLAG_TS_DISCONTINUITY)
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_TS_DISCONTINUITY;
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_TS_ERROR)
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_TS_ERROR;
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
@@ -2018,6 +2023,19 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			if (vb->v4l2_buf.flags &
 				V4L2_QCOM_BUF_TIMESTAMP_INVALID)
 				frame_data.timestamp = LLONG_MAX;
+			if (vb->v4l2_buf.flags &
+					V4L2_QCOM_BUF_TS_DISCONTINUITY) {
+				frame_data.flags |=
+					HAL_BUFFERFLAG_TS_DISCONTINUITY;
+				dprintk(VIDC_DBG,
+					"Received TS_DISCONTINUE on output\n");
+			}
+			if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_TS_ERROR) {
+				frame_data.flags |=
+					HAL_BUFFERFLAG_TS_ERROR;
+				dprintk(VIDC_DBG,
+					"Received TS_ERROR on output cap\n");
+			}
 			dprintk(VIDC_DBG,
 				"Sending etb to hal: device_addr: 0x%x"
 				"Alloc: %d, filled: %d, offset: %d\n",
