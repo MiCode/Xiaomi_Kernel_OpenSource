@@ -966,9 +966,9 @@
 /include/ "apq8084-regulator.dtsi"
 
 &pma8084_vadc {
-	chan@b0 {
+	chan@73 {
 		label = "apq_therm";
-		reg = <0xb0>;
+		reg = <0x73>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -977,9 +977,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@b3 {
+	chan@77 {
 		label = "quiet_therm";
-		reg = <0xb3>;
+		reg = <0x77>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -1002,9 +1002,9 @@
 		qcom,btm-channel-number = <0x48>;
 	};
 
-	chan@b0 {
+	chan@73 {
 		label = "apq_therm";
-		reg = <0xb0>;
+		reg = <0x73>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -1015,9 +1015,9 @@
 		qcom,thermal-node;
 	};
 
-	chan@b3 {
+	chan@77 {
 		label = "quiet_therm";
-		reg = <0xb3>;
+		reg = <0x77>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
