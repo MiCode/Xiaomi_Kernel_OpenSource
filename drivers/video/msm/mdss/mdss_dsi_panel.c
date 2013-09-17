@@ -66,6 +66,13 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		return;
 	}
 
+	if (level == 0) {
+		if (ctrl->pwm_enabled)
+			pwm_disable(ctrl->pwm_bl);
+		ctrl->pwm_enabled = 0;
+		return;
+	}
+
 	duty = level * ctrl->pwm_period;
 	duty /= ctrl->bklt_max;
 
@@ -76,6 +83,11 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	pr_debug("%s: ndx=%d level=%d duty=%d\n", __func__,
 					ctrl->ndx, level, duty);
 
+	if (ctrl->pwm_enabled) {
+		pwm_disable(ctrl->pwm_bl);
+		ctrl->pwm_enabled = 0;
+	}
+
 	ret = pwm_config(ctrl->pwm_bl, duty, ctrl->pwm_period);
 	if (ret) {
 		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
@@ -85,6 +97,7 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	ret = pwm_enable(ctrl->pwm_bl);
 	if (ret)
 		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
+	ctrl->pwm_enabled = 1;
 }
 
 static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
