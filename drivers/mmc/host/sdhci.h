@@ -235,7 +235,9 @@
 
 /* 55-57 reserved */
 
-#define SDHCI_ADMA_ADDRESS	0x58
+#define SDHCI_HI_SHIFT 32
+#define SDHCI_ADMA_ADDRESS_LOW	0x58 /* addr[0:31] */
+#define SDHCI_ADMA_ADDRESS_HIGH	0x5C /* addr[32:63] */
 
 /* 60-FB reserved */
 
