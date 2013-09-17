@@ -196,7 +196,7 @@ usb_phy_vbus_off(struct usb_phy *x)
 static inline int
 usb_phy_set_params(struct usb_phy *x)
 {
-	if (x->set_params)
+	if (x && x->set_params)
 		return x->set_params(x);
 
 	return 0;
