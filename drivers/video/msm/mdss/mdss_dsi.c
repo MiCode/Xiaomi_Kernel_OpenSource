@@ -1112,12 +1112,16 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		}
 	}
 
-	ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+	if (panel_data->panel_info.type == MIPI_CMD_PANEL) {
+		ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 						"qcom,platform-te-gpio", 0);
-	if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
-		pr_err("%s:%d, Disp_te gpio not specified\n",
+		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+			pr_err("%s:%d, Disp_te gpio not specified\n",
 						__func__, __LINE__);
-	} else {
+		}
+	}
+
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
 		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
 		if (rc) {
 			pr_err("request TE gpio failed, rc=%d\n",
