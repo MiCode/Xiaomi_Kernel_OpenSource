@@ -24,6 +24,7 @@
 #include <linux/clk.h>
 
 #include <mach/clk.h>
+#include <mach/clock-generic.h>
 #include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
 
@@ -696,6 +697,85 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
+}
+
+/* Sample clock for 'ticks' reference clock ticks. */
+static u32 run_measurement(unsigned ticks, void __iomem *ctl_reg,
+				void __iomem *status_reg)
+{
+	/* Stop counters and set the XO4 counter start value. */
+	writel_relaxed(ticks, ctl_reg);
+
+	/* Wait for timer to become ready. */
+	while ((readl_relaxed(status_reg) & BIT(25)) != 0)
+		cpu_relax();
+
+	/* Run measurement and wait for completion. */
+	writel_relaxed(BIT(20)|ticks, ctl_reg);
+	while ((readl_relaxed(status_reg) & BIT(25)) == 0)
+		cpu_relax();
+
+	/* Return measured ticks. */
+	return readl_relaxed(status_reg) & BM(24, 0);
+}
+
+/*
+ * Perform a hardware rate measurement for a given clock.
+ * FOR DEBUG USE ONLY: Measurements take ~15 ms!
+ */
+unsigned long measure_get_rate(struct clk *c)
+{
+	unsigned long flags;
+	u32 gcc_xo4_reg_backup;
+	u64 raw_count_short, raw_count_full;
+	unsigned ret;
+	u32 sample_ticks = 0x10000;
+	u32 multiplier = 0x1;
+	struct measure_clk_data *data = to_mux_clk(c)->priv;
+
+	ret = clk_prepare_enable(data->cxo);
+	if (ret) {
+		pr_warn("CXO clock failed to enable. Can't measure\n");
+		return 0;
+	}
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+
+	/* Enable CXO/4 and RINGOSC branch. */
+	gcc_xo4_reg_backup = readl_relaxed(*data->base + data->xo_div4_cbcr);
+	writel_relaxed(0x1, *data->base + data->xo_div4_cbcr);
+
+	/*
+	 * The ring oscillator counter will not reset if the measured clock
+	 * is not running.  To detect this, run a short measurement before
+	 * the full measurement.  If the raw results of the two are the same
+	 * then the clock must be off.
+	 */
+
+	/* Run a short measurement. (~1 ms) */
+	raw_count_short = run_measurement(0x1000, *data->base + data->ctl_reg,
+					  *data->base + data->status_reg);
+	/* Run a full measurement. (~14 ms) */
+	raw_count_full = run_measurement(sample_ticks,
+					 *data->base + data->ctl_reg,
+					 *data->base + data->status_reg);
+	writel_relaxed(gcc_xo4_reg_backup, *data->base + data->xo_div4_cbcr);
+
+	/* Return 0 if the clock is off. */
+	if (raw_count_full == raw_count_short) {
+		ret = 0;
+	} else {
+		/* Compute rate in Hz. */
+		raw_count_full = ((raw_count_full * 10) + 15) * 4800000;
+		do_div(raw_count_full, ((sample_ticks * 10) + 35));
+		ret = (raw_count_full * multiplier);
+	}
+	writel_relaxed(data->plltest_val, *data->base + data->plltest_reg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	clk_disable_unprepare(data->cxo);
+
+	return ret;
 }
 
 struct frac_entry {
