@@ -90,7 +90,6 @@ Optional properties :
   below optional properties:
     - qcom,msm_bus,name
     - qcom,msm_bus,num_cases
-    - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
 
