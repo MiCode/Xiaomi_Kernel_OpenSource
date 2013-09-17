@@ -19,7 +19,7 @@
 #include <sound/lsm_params.h>
 #include <mach/qdsp6v2/apr.h>
 
-typedef void (*app_cb)(uint32_t opcode, uint32_t token,
+typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, void *priv);
 
 struct lsm_sound_model {
@@ -34,7 +34,7 @@ struct lsm_sound_model {
 
 struct lsm_client {
 	int		session;
-	app_cb		cb;
+	lsm_app_cb	cb;
 	atomic_t	cmd_state;
 	void		*priv;
 	struct apr_svc  *apr;
@@ -118,7 +118,7 @@ struct lsm_cmd_reg_snd_model {
 	uint32_t	mem_map_handle;
 } __packed;
 
-struct lsm_client *q6lsm_client_alloc(app_cb cb, void *priv);
+struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client);
 int q6lsm_start(struct lsm_client *client, bool wait);
@@ -126,6 +126,7 @@ int q6lsm_stop(struct lsm_client *client, bool wait);
 int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len);
 int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
+int q6lsm_unmap_cal_blocks(void);
 int q6lsm_register_sound_model(struct lsm_client *client,
 			       enum lsm_detection_mode mode, u16 minkeyword,
 			       u16 minuser, bool detectfailure);

@@ -22,6 +22,11 @@
 #include "audio_acdb.h"
 #include "q6voice.h"
 
+#include <sound/q6adm-v2.h>
+#include <sound/q6afe-v2.h>
+#include <sound/q6asm-v2.h>
+#include <sound/q6lsm.h>
+
 
 #define MAX_NETWORKS			15
 #define MAX_IOCTL_DATA			(MAX_NETWORKS * 2)
@@ -996,12 +1001,64 @@ static int acdb_open(struct inode *inode, struct file *f)
 	return result;
 }
 
+static int unmap_cal_tables(void)
+{
+	int	result = 0;
+	int	result2 = 0;
+
+	result2 = adm_unmap_cal_blocks();
+	if (result2 < 0) {
+		pr_err("%s: adm_unmap_cal_blocks failed, err = %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	result2 = afe_unmap_cal_blocks();
+	if (result2 < 0) {
+		pr_err("%s: afe_unmap_cal_blocks failed, err = %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	result2 = q6lsm_unmap_cal_blocks();
+	if (result2 < 0) {
+		pr_err("%s: lsm_unmap_cal_blocks failed, err = %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	result2 = q6asm_unmap_cal_blocks();
+	if (result2 < 0) {
+		pr_err("%s: asm_unmap_cal_blocks failed, err = %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	result2 = voc_unmap_cal_blocks();
+	if (result2 < 0) {
+		pr_err("%s: voice_unmap_cal_blocks failed, err = %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	return result;
+}
+
 static int deregister_memory(void)
 {
-	int i;
+	int	result = 0;
+	int	i;
+	pr_debug("%s\n", __func__);
 
 	if (atomic64_read(&acdb_data.mem_len)) {
 		mutex_lock(&acdb_data.acdb_mutex);
+		/* unmap all cal data */
+		result = unmap_cal_tables();
+		if (result < 0)
+			pr_err("%s: unmap_cal_tables failed, err = %d\n",
+				__func__, result);
+
+
 		atomic64_set(&acdb_data.mem_len, 0);
 
 		for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
@@ -1011,7 +1068,7 @@ static int deregister_memory(void)
 		msm_audio_ion_free(acdb_data.ion_client, acdb_data.ion_handle);
 		mutex_unlock(&acdb_data.acdb_mutex);
 	}
-	return 0;
+	return result;
 }
 
 static int register_memory(void)
@@ -1022,6 +1079,7 @@ static int register_memory(void)
 	void                    *kvptr;
 	unsigned long		kvaddr;
 	unsigned long		mem_len;
+	pr_debug("%s\n", __func__);
 
 	mutex_lock(&acdb_data.acdb_mutex);
 	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
