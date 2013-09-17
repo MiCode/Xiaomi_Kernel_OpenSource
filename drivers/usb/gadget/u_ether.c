@@ -73,6 +73,7 @@ struct eth_dev {
 	unsigned		header_len;
 	unsigned int		ul_max_pkts_per_xfer;
 	unsigned int		dl_max_pkts_per_xfer;
+	bool			rx_trigger_enabled;
 	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
 	int			(*unwrap)(struct gether *,
 						struct sk_buff *skb,
@@ -831,13 +832,21 @@ static int eth_open(struct net_device *net)
 {
 	struct eth_dev	*dev = netdev_priv(net);
 	struct gether	*link;
+	bool wait_for_rx_trigger;
 
 	DBG(dev, "%s\n", __func__);
-	if (netif_carrier_ok(dev->net))
-		eth_start(dev, GFP_KERNEL);
 
 	spin_lock_irq(&dev->lock);
 	link = dev->port_usb;
+	spin_unlock_irq(&dev->lock);
+
+	wait_for_rx_trigger = dev->rx_trigger_enabled && link &&
+		!link->rx_triggered;
+
+	if (netif_carrier_ok(dev->net) && !wait_for_rx_trigger)
+		eth_start(dev, GFP_KERNEL);
+
+	spin_lock_irq(&dev->lock);
 	if (link && link->open)
 		link->open(link);
 	spin_unlock_irq(&dev->lock);
@@ -1060,6 +1069,7 @@ struct net_device *gether_connect(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	int			result = 0;
+	bool wait_for_rx_trigger;
 
 	if (!dev)
 		return ERR_PTR(-EINVAL);
@@ -1092,6 +1102,7 @@ struct net_device *gether_connect(struct gether *link)
 		dev->wrap = link->wrap;
 		dev->ul_max_pkts_per_xfer = link->ul_max_pkts_per_xfer;
 		dev->dl_max_pkts_per_xfer = link->dl_max_pkts_per_xfer;
+		dev->rx_trigger_enabled = link->rx_trigger_enabled;
 
 		spin_lock(&dev->lock);
 		dev->tx_skb_hold_count = 0;
@@ -1108,7 +1119,11 @@ struct net_device *gether_connect(struct gether *link)
 		spin_unlock(&dev->lock);
 
 		netif_carrier_on(dev->net);
-		if (netif_running(dev->net))
+
+		wait_for_rx_trigger = dev->rx_trigger_enabled &&
+			!link->rx_triggered;
+
+		if (netif_running(dev->net) && !wait_for_rx_trigger)
 			eth_start(dev, GFP_ATOMIC);
 
 	/* on error, disable any endpoints  */
@@ -1196,10 +1211,21 @@ void gether_disconnect(struct gether *link)
 	dev->header_len = 0;
 	dev->unwrap = NULL;
 	dev->wrap = NULL;
+	dev->rx_trigger_enabled = 0;
 
 	spin_lock(&dev->lock);
 	dev->port_usb = NULL;
 	spin_unlock(&dev->lock);
+}
+
+int gether_up(struct gether *link)
+{
+	struct eth_dev *dev = link->ioport;
+
+	if (dev && netif_carrier_ok(dev->net))
+		eth_start(dev, GFP_KERNEL);
+
+	return 0;
 }
 
 static int __init gether_init(void)
