@@ -448,6 +448,10 @@ static ssize_t cti_show_trigin(struct device *dev,
 	uint32_t ctien;
 	ssize_t size = 0;
 
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
+
 	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
 		ctien = cti_readl(drvdata, CTIINEN(trig));
 		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
@@ -468,6 +472,7 @@ static ssize_t cti_show_trigin(struct device *dev,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
 	return size;
 }
 static DEVICE_ATTR(show_trigin, S_IRUGO, cti_show_trigin, NULL);
@@ -479,6 +484,10 @@ static ssize_t cti_show_trigout(struct device *dev,
 	unsigned long trig, ch;
 	uint32_t ctien;
 	ssize_t size = 0;
+
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
 
 	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
 		ctien = cti_readl(drvdata, CTIOUTEN(trig));
@@ -500,6 +509,7 @@ static ssize_t cti_show_trigout(struct device *dev,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
 	return size;
 }
 static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
