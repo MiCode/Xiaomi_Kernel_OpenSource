@@ -443,15 +443,16 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 	pte_efuse = readl_relaxed(base);
 	redundant_sel = (pte_efuse >> 24) & 0x7;
 	*speed = pte_efuse & 0x7;
-	*pvs = (pte_efuse >> 6) & 0x7;
+	/* 4 bits of PVS are in efuse register bits 31, 8-6. */
+	*pvs = ((pte_efuse >> 28) & 0x8) | ((pte_efuse >> 6) & 0x7);
 	*ver = (pte_efuse >> 4) & 0x3;
 
 	switch (redundant_sel) {
 	case 1:
-		*speed = (pte_efuse >> 27) & 0x7;
+		*speed = (pte_efuse >> 27) & 0xF;
 		break;
 	case 2:
-		*pvs = (pte_efuse >> 27) & 0x7;
+		*pvs = (pte_efuse >> 27) & 0xF;
 		break;
 	}
 
