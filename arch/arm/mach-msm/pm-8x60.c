@@ -515,8 +515,16 @@ static void msm_pm_swfi(void)
 static void msm_pm_retention(void)
 {
 	int ret = 0;
+	int saved_rate = 0;
+	unsigned int cpu = smp_processor_id();
+	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
 
 	msm_pm_config_hw_before_retention();
+	if (use_acpuclk_apis)
+		saved_rate = acpuclk_power_collapse();
+	else
+		clk_disable(cpu_clk);
+
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
 	WARN_ON(ret);
 
@@ -525,6 +533,15 @@ static void msm_pm_retention(void)
 					MSM_SCM_L2_RET);
 	else
 		msm_arch_idle();
+
+	if (use_acpuclk_apis) {
+		if (acpuclk_set_rate(cpu, saved_rate, SETRATE_PC))
+			pr_err("%s(): Error setting acpuclk_set_rate\n",
+					__func__);
+	} else {
+		if (clk_enable(cpu_clk))
+			pr_err("%s(): Error restore cpu clk\n", __func__);
+	}
 
 	msm_pm_config_hw_after_retention();
 }
