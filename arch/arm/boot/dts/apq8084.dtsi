@@ -1601,7 +1601,7 @@
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
 		qcom,hfi = "venus";
-		qcom,has-ocmem;
+		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
 		qcom,vidc-ns-map = <0x40000000 0x40000000>;
 		qcom,load-freq-tbl = <979200 465000000>,

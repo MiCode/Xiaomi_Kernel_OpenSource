@@ -37,7 +37,8 @@ Optional properties:
 - qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
   (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
   as "enum cp_mem_usage" in include/linux/msm_ion.h
-- qcom,has-ocmem: indicate the target has ocmem if this property exists
+- qcom,ocmem-size: ocmem size required by hardware for optimum performance.
+  If ocmem is not present then there is no need to specify this property.
 - qcom,vidc-iommu-domains: node containing individual domain nodes, each with:
 	- a unique domain name for the domain node (e.g vidc,domain-ns)
 	- qcom,vidc-domain-phandle: phandle for the domain as defined in

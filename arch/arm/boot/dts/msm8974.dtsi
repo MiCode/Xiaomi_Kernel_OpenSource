@@ -216,7 +216,7 @@
 		interrupts = <0 44 0>;
 		vdd-supply = <&gdsc_venus>;
 		qcom,hfi = "venus";
-		qcom,has-ocmem;
+		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
 	};
 
