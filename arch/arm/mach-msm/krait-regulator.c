@@ -158,6 +158,7 @@
 #define MSM_MDD_BASE_PHYS	0xf908a800
 
 #define KPSS_VERSION_2P0	0x20000000
+#define KPSS_VERSION_2P2	0x20020000
 
 /**
  * struct pmic_gang_vreg -
@@ -1189,7 +1190,9 @@ static void glb_init(void __iomem *apcs_gcc_base)
 	pr_debug("version= 0x%x\n", version);
 
 	/* configure bi-modal switch */
-	if (version > KPSS_VERSION_2P0)
+	if (version >= KPSS_VERSION_2P2)
+		writel_relaxed(0x0010736E, apcs_gcc_base + PWR_GATE_CONFIG);
+	else if (version > KPSS_VERSION_2P0)
 		writel_relaxed(0x0308736E, apcs_gcc_base + PWR_GATE_CONFIG);
 	else
 		writel_relaxed(0x0008736E, apcs_gcc_base + PWR_GATE_CONFIG);
