@@ -556,6 +556,8 @@ void wcd9xxx_resmgr_put_clk_block(struct wcd9xxx_resmgr *resmgr,
 		if (--resmgr->clk_rco_users == 0 &&
 		    resmgr->clk_type == WCD9XXX_CLK_RCO) {
 			wcd9xxx_disable_clock_block(resmgr);
+			snd_soc_update_bits(resmgr->codec,
+					WCD9XXX_A_RC_OSC_FREQ, 0x80, 0x00);
 			resmgr->clk_type = WCD9XXX_CLK_OFF;
 		}
 		break;
