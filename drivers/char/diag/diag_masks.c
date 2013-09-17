@@ -368,7 +368,7 @@ void diag_send_log_mask_update(smd_channel_t *ch, int equip_id)
 			driver->log_mask->status = DIAG_CTRL_MASK_INVALID;
 		}
 
-		if (driver->msg_mask->status == DIAG_CTRL_MASK_INVALID) {
+		if (driver->log_mask->status == DIAG_CTRL_MASK_INVALID) {
 			mutex_unlock(&driver->diag_cntl_mutex);
 			return;
 		}
