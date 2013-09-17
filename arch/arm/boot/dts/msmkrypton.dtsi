@@ -15,6 +15,7 @@
 / {
 	model = "Qualcomm MSM KRYPTON";
 	compatible = "qcom,msmkrypton";
+	qcom,msm-id = <187 0x10000>;
 	interrupt-parent = <&intc>;
 
 	aliases {

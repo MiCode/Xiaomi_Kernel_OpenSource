@@ -10,26 +10,9 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msmkrypton.dtsi"
-
-/ {
-	model = "Qualcomm MSM KRYPTON SIM";
-	compatible = "qcom,msmkrypton-sim", "qcom,msmkrypton", "qcom,sim";
-	qcom,board-id = <16 0>;
+&soc {
 };
 
 &uartdm3{
 	status = "ok";
-};
-
-&spi_6 {
-	ethernet-switch@0 {
-		compatible = "simtec,ks8851";
-		reg = <0>;
-		interrupt-parent = <&msmgpio>;
-		spi-max-frequency = <19200000>;
-		interrupts = <75 0>;
-	};
 };
