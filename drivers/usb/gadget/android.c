@@ -1242,10 +1242,35 @@ static ssize_t mbim_transports_store(struct device *dev,
 }
 
 static DEVICE_ATTR(mbim_transports, S_IRUGO | S_IWUSR, mbim_transports_show,
-				   mbim_transports_store);
+				mbim_transports_store);
+
+static ssize_t wMTU_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", ext_mbb_desc.wMTU);
+}
+
+static ssize_t wMTU_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+	if (sscanf(buf, "%d", &value) == 1) {
+		if (value < 0 || value > USHRT_MAX)
+			pr_err("illegal MTU %d, enter unsigned 16 bits\n",
+				value);
+		else
+			ext_mbb_desc.wMTU = cpu_to_le16(value);
+		return size;
+	}
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(wMTU, S_IRUGO | S_IWUSR, wMTU_show,
+				wMTU_store);
 
 static struct device_attribute *mbim_function_attributes[] = {
 	&dev_attr_mbim_transports,
+	&dev_attr_wMTU,
 	NULL
 };
 
