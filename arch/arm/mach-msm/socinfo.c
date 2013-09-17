@@ -424,6 +424,8 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* Samarium IDs */
 	[195] = MSM_CPU_SAMARIUM,
+	[196] = MSM_CPU_SAMARIUM,
+	[197] = MSM_CPU_SAMARIUM,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
