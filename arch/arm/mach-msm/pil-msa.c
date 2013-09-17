@@ -177,11 +177,17 @@ static int pil_msa_pbl_shutdown(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
-	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_Q6_HALT_BASE);
-	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_MODEM_HALT_BASE);
-	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_NC_HALT_BASE);
+	if (drv->axi_halt_base) {
+		pil_q6v5_halt_axi_port(pil,
+			drv->axi_halt_base + MSS_Q6_HALT_BASE);
+		pil_q6v5_halt_axi_port(pil,
+			drv->axi_halt_base + MSS_MODEM_HALT_BASE);
+		pil_q6v5_halt_axi_port(pil,
+			drv->axi_halt_base + MSS_NC_HALT_BASE);
+	}
 
-	writel_relaxed(1, drv->restart_reg);
+	if (drv->restart_reg)
+		writel_relaxed(1, drv->restart_reg);
 
 	if (drv->is_booted) {
 		pil_msa_pbl_disable_clks(drv);
@@ -207,9 +213,11 @@ static int pil_msa_pbl_reset(struct pil_desc *pil)
 		goto err_power;
 
 	/* Deassert reset to subsystem and wait for propagation */
-	writel_relaxed(0, drv->restart_reg);
-	mb();
-	udelay(2);
+	if (drv->restart_reg) {
+		writel_relaxed(0, drv->restart_reg);
+		mb();
+		udelay(2);
+	}
 
 	ret = pil_msa_pbl_enable_clks(drv);
 	if (ret)
