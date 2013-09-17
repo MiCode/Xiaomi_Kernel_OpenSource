@@ -195,14 +195,14 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
+		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+
 		for (i = 0; i < MDSS_DSI_RST_SEQ_LEN; ++i) {
 			gpio_set_value((ctrl_pdata->rst_gpio),
 				ctrl_pdata->rst_seq[i]);
 			msleep(ctrl_pdata->rst_seq[++i]);
 		}
-
-		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 
 		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 			gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
