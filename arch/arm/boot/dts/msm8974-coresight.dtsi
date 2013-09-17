@@ -41,6 +41,11 @@
 
 		qcom,vdd-voltage-level = <2950000 2950000>;
 		qcom,vdd-current-level = <9000 800000>;
+
+		vdd-io-supply = <&pm8941_l13>;
+
+		qcom,vdd-io-voltage-level = <2950000 2950000>;
+		qcom,vdd-io-current-level = <6 22000>;
 	};
 
 	replicator: replicator@fc31c000 {
