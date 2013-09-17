@@ -828,6 +828,9 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 					MDP3_DMA_CALLBACK_TYPE_DMA_DONE);
 	mdp3_irq_disable(MDP3_INTR_LCDC_UNDERFLOW);
 
+	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, 0);
+	MDP3_REG_WRITE(MDP3_REG_INTR_CLEAR, 0xfffffff);
+
 	init_completion(&dma->dma_comp);
 	dma->vsync_client.handler = NULL;
 	return ret;
