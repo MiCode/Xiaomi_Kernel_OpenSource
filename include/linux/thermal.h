@@ -98,7 +98,7 @@ struct thermal_cooling_device {
 #define CELSIUS_TO_KELVIN(t)	((t)*10+2732)
 
 struct sensor_threshold {
-	int temp;
+	long temp;
 	enum thermal_trip_type trip;
 	int (*notify)(enum thermal_trip_type type, int temp, void *data);
 	void *data;
@@ -108,8 +108,8 @@ struct sensor_threshold {
 struct sensor_info {
 	uint32_t sensor_id;
 	struct thermal_zone_device *tz;
-	int threshold_min;
-	int threshold_max;
+	long threshold_min;
+	long threshold_max;
 	int max_idx;
 	int min_idx;
 	struct list_head sensor_list;
@@ -190,7 +190,7 @@ int sensor_get_id(char *name);
 int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
 int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
 int thermal_sensor_trip(struct thermal_zone_device *tz,
-		enum thermal_trip_type trip, unsigned long temp);
+		enum thermal_trip_type trip, long temp);
 
 #ifdef CONFIG_NET
 extern int thermal_generate_netlink_event(u32 orig, enum events event);
