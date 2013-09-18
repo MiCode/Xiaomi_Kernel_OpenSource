@@ -97,8 +97,10 @@ static inline void __raw_writell_no_log(u64 val, volatile void __iomem *addr)
 {
 	register u64 v asm ("r2");
 
+	v = val;
+
 	asm volatile("strd %1, %0"
-		     : "+Qo" (*(volatile u32 __force *)addr)
+		     : "+Qo" (*(volatile u64 __force *)addr)
 		     : "r" (v));
 }
 
@@ -125,7 +127,7 @@ static inline u64 __raw_readll_no_log(const volatile void __iomem *addr)
 	register u64 val asm ("r2");
 
 	asm volatile("ldrd %1, %0"
-		     : "+Qo" (*(volatile u32 __force *)addr),
+		     : "+Qo" (*(volatile u64 __force *)addr),
 		       "=r" (val));
 	return val;
 }
@@ -362,7 +364,7 @@ extern void _memset_io(volatile void __iomem *, int, size_t);
 #define writeb_relaxed(v,c)	__raw_writeb(v,c)
 #define writew_relaxed(v,c)	__raw_writew((__force u16) cpu_to_le16(v),c)
 #define writel_relaxed(v,c)	__raw_writel((__force u32) cpu_to_le32(v),c)
-#define writell_relaxed(v,c)	__raw_writell((__force u32) cpu_to_le32(v),c)
+#define writell_relaxed(v,c)	__raw_writell((__force u64) cpu_to_le64(v),c)
 #define writel_relaxed_no_log(v, c) __raw_writel_no_log((__force u32) cpu_to_le32(v),c)
 #define writell_relaxed_no_log(v, c) __raw_writell_no_log((__force u64) cpu_to_le64(v),c)
 
