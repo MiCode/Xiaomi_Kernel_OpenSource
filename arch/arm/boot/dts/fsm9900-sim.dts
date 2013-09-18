@@ -29,6 +29,17 @@
 		interrupts = <0 116 0>;
 		status = "ok";
 	};
+
+	qcom,fuse@fc4b8000 {
+		vdd-blow-supply = <&vdd_blow>;
+		status = "ok";
+	};
+
+	vdd_blow: dummy_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "vdd-blow";
+	};
 };
 
 &sdcc1 {
