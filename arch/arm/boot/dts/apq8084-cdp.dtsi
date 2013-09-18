@@ -19,6 +19,25 @@
 &soc {
 };
 
+/include/ "dsi-panel-jdi-1080p-video.dtsi"
+&dsi_jdi_1080_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
+	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,platform-reset-gpio = <&msmgpio 96 0>;
+	qcom,platform-enable-gpio = <&msmgpio 137 0>;
+	qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
+};
+
 &blsp2_uart1 {
 	status = "ok";
 };
@@ -70,4 +89,17 @@
 	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
 	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+};
+
+&pma8084_gpios {
+	gpio@c600 { /* GPIO 7 */
+		/* Backlight PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <2>;		/* Special Function 1 = LPG 3 */
+		qcom,out-strength = <3>;	/* High drive strength */
+		qcom,master-en = <1>;
+	};
 };
