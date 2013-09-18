@@ -1343,6 +1343,8 @@ struct mvs_driver_info {
 	ul_cb_fn ul_cb;
 	dl_cb_fn dl_cb;
 	void *private_data;
+	uint32_t evrc_min_rate;
+	uint32_t evrc_max_rate;
 };
 
 struct dtmf_driver_info {
@@ -1487,7 +1489,9 @@ void voc_register_dtmf_rx_detection_cb(dtmf_rx_det_cb_fn dtmf_rx_ul_cb,
 void voc_config_vocoder(uint32_t media_type,
 			uint32_t rate,
 			uint32_t network_type,
-			uint32_t dtx_mode);
+			uint32_t dtx_mode,
+			uint32_t evrc_min_rate,
+			uint32_t evrc_max_rate);
 
 enum {
 	DEV_RX = 0,
