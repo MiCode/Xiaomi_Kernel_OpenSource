@@ -26,6 +26,7 @@
 #include <mach/clk-provider.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_smd.h>
+#include <mach/restart.h>
 
 #include <linux/io.h>
 #include <linux/gpio.h>
@@ -131,5 +132,6 @@ DT_MACHINE_START(MSM8092_DT, "Qualcomm MSM 8092 (Flattened Device Tree)")
 	.dt_compat = mpq8092_dt_match,
 	.reserve = mpq8092_dt_reserve,
 	.init_very_early = mpq8092_early_memory,
+	.restart = msm_restart,
 	.smp = &msm8974_smp_ops,
 MACHINE_END
