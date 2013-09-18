@@ -82,6 +82,7 @@
 			stk,wait-reg = <0x07>;
 			stk,ps-thdh = <150>;
 			stk,ps-thdl = <100>;
+			stk,use-fir;
 		};
 	};
 
