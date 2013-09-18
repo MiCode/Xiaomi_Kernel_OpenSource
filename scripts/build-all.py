@@ -89,6 +89,7 @@ def scan_configs():
         r'apq*_defconfig',
         r'qsd*_defconfig',
 	r'msmkrypton*_defconfig',
+	r'mpq*_defconfig',
         )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):
