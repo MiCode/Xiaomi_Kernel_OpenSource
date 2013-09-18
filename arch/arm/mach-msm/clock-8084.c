@@ -757,7 +757,6 @@ static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo_clk_src.c);
-static DEFINE_CLK_BRANCH_VOTER(cxo_ehci_host_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo_clk_src.c);
 
@@ -5659,11 +5658,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_DUMMY("iface_clk", lcc_core_smmu_cfg_clk.c, "fe064000.qcom,iommu",
 									OFF),
 
-
-	CLK_LOOKUP("xo",  cxo_otg_clk.c,            "msm_otg"),
 	CLK_LOOKUP("xo",  cxo_pil_lpass_clk.c,      "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",  cxo_dwc3_clk.c,           "f9200000.qcom,ssusb"),
-	CLK_LOOKUP("xo",  cxo_ehci_host_clk.c,      "msm_ehci_host"),
 	CLK_LOOKUP("xo",  cxo_lpm_clk.c,            "fc4281d0.qcom,mpm"),
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
@@ -5870,7 +5866,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"f9200000.qcom,ssusb"),
 	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c,
 			"f9200000.qcom,ssusb"),
-	CLK_LOOKUP("",	gcc_usb2a_phy_sleep_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb2b_phy_sleep_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_master_clk.c,	""),
 	CLK_LOOKUP("mem_clk",	gcc_usb30_master_clk.c,	"f9304000.qcom,usbbam"),
@@ -5879,8 +5874,12 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_usb30_sec_master_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_sec_mock_utmi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_sec_sleep_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb_hs_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb_hs_system_clk.c,	""),
+
+	CLK_LOOKUP("xo",	cxo_otg_clk.c,			"f9a55000.usb"),
+	CLK_LOOKUP("iface_clk",	gcc_usb_hs_ahb_clk.c,		"f9a55000.usb"),
+	CLK_LOOKUP("core_clk",	gcc_usb_hs_system_clk.c,	"f9a55000.usb"),
+	CLK_LOOKUP("sleep_clk", gcc_usb2a_phy_sleep_clk.c,	"f9a55000.usb"),
+
 	CLK_LOOKUP("core_clk", gcc_usb_hsic_ahb_clk.c,
 			"f9c00000.qcom,xhci-msm-hsic"),
 	CLK_LOOKUP("hsic_clk", gcc_usb_hsic_clk.c,
