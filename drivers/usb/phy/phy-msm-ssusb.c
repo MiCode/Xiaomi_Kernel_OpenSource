@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
+#include <linux/usb/msm_hsusb.h>
 
 /* QSCRATCH SSPHY control registers */
 #define SS_PHY_CTRL_REG			0x30
@@ -333,6 +334,38 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 	return ret;
 }
 
+static int msm_ssphy_notify_connect(struct usb_phy *uphy,
+				       enum usb_device_speed speed)
+{
+	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
+
+	if (uphy->flags & PHY_HOST_MODE)
+		return 0;
+
+	if (uphy->flags & PHY_VBUS_VALID_OVERRIDE)
+		/* Indicate power present to SS phy */
+		msm_usb_write_readback(phy->base, SS_PHY_CTRL_REG,
+					LANE0_PWR_PRESENT, LANE0_PWR_PRESENT);
+
+	return 0;
+}
+
+static int msm_ssphy_notify_disconnect(struct usb_phy *uphy,
+				       enum usb_device_speed speed)
+{
+	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
+
+	if (uphy->flags & PHY_HOST_MODE)
+		return 0;
+
+	if (uphy->flags & PHY_VBUS_VALID_OVERRIDE)
+		/* Clear power indication to SS phy */
+		msm_usb_write_readback(phy->base, SS_PHY_CTRL_REG,
+					LANE0_PWR_PRESENT, 0);
+
+	return 0;
+}
+
 static int msm_ssphy_probe(struct platform_device *pdev)
 {
 	struct msm_ssphy *phy;
@@ -396,11 +429,16 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	phy->phy.dev		= dev;
-	phy->phy.init		= msm_ssphy_init;
-	phy->phy.set_suspend	= msm_ssphy_set_suspend;
-	phy->phy.set_params	= msm_ssphy_set_params;
-	phy->phy.type		= USB_PHY_TYPE_USB3;
+	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
+		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
+
+	phy->phy.dev			= dev;
+	phy->phy.init			= msm_ssphy_init;
+	phy->phy.set_suspend		= msm_ssphy_set_suspend;
+	phy->phy.set_params		= msm_ssphy_set_params;
+	phy->phy.notify_connect		= msm_ssphy_notify_connect;
+	phy->phy.notify_disconnect	= msm_ssphy_notify_disconnect;
+	phy->phy.type			= USB_PHY_TYPE_USB3;
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
