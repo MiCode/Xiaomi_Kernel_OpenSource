@@ -50,7 +50,7 @@ struct goodix_ts_platform_data {
 	u32 irq_gpio_flags;
 	int reset_gpio;
 	u32 reset_gpio_flags;
-	u32 family_id;
+	const char *product_id;
 	u32 x_max;
 	u32 y_max;
 	u32 x_min;
@@ -206,30 +206,34 @@ extern u16 total_len;
 #define GTP_INT_TRIGGER		GTP_IRQ_TAB_FALLING
 #endif
 
-#define GTP_MAX_TOUCH         5
-#define GTP_ESD_CHECK_CIRCLE  2000      /* jiffy: ms */
+#define GTP_PRODUCT_ID_MAXSIZE	5
+#define GTP_PRODUCT_ID_BUFFER_MAXSIZE	6
+#define GTP_FW_VERSION_BUFFER_MAXSIZE	4
+#define GTP_MAX_TOUCH		5
+#define GTP_ESD_CHECK_CIRCLE	2000      /* jiffy: ms */
 
 /***************************PART3:OTHER define*********************************/
-#define GTP_DRIVER_VERSION		"V1.8<2013/06/08>"
-#define GTP_I2C_NAME			"Goodix-TS"
-#define GTP_POLL_TIME			10     /* jiffy: ms*/
-#define GTP_ADDR_LENGTH			2
+#define GTP_DRIVER_VERSION	"V1.8.1<2013/09/01>"
+#define GTP_I2C_NAME		"Goodix-TS"
+#define GTP_POLL_TIME		10     /* jiffy: ms*/
+#define GTP_ADDR_LENGTH		2
 #define GTP_CONFIG_MIN_LENGTH	186
 #define GTP_CONFIG_MAX_LENGTH	240
-#define FAIL					0
-#define SUCCESS					1
-#define SWITCH_OFF				0
-#define SWITCH_ON				1
+#define FAIL			0
+#define SUCCESS			1
+#define SWITCH_OFF		0
+#define SWITCH_ON		1
 
 /* Registers define */
-#define GTP_READ_COOR_ADDR		0x814E
-#define GTP_REG_SLEEP			0x8040
-#define GTP_REG_SENSOR_ID		0x814A
-#define GTP_REG_CONFIG_DATA		0x8047
-#define GTP_REG_VERSION			0x8140
+#define GTP_READ_COOR_ADDR	0x814E
+#define GTP_REG_SLEEP		0x8040
+#define GTP_REG_SENSOR_ID	0x814A
+#define GTP_REG_CONFIG_DATA	0x8047
+#define GTP_REG_FW_VERSION	0x8144
+#define GTP_REG_PRODUCT_ID	0x8140
 
-#define RESOLUTION_LOC			3
-#define TRIGGER_LOC				8
+#define RESOLUTION_LOC		3
+#define TRIGGER_LOC		8
 
 #define CFG_GROUP_LEN(p_cfg_grp) (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
 /* Log define */
