@@ -753,6 +753,7 @@ static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo_clk_src.c);
@@ -5702,6 +5703,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("bus_a_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("iface_clk", gcc_ocmem_noc_cfg_ahb_clk.c, ""),
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
+	CLK_LOOKUP("bus_clk", pnoc_keepalive_a_clk.c, ""),
 
 	/* RCG source clocks */
 	CLK_LOOKUP("",	usb30_master_clk_src.c,	""),
@@ -6315,7 +6317,6 @@ static void __init reg_init(void)
 			GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 }
 
-/* TODO: Need to check if more RPM clock should be initilized */
 static void __init apq8084_clock_post_init(void)
 {
 
@@ -6328,6 +6329,18 @@ static void __init apq8084_clock_post_init(void)
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
 	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
+
+	/*
+	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&pnoc_keepalive_a_clk.c, 19200000);
+	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
+
+	/*
+	 * Hold an active set vote for CXO; this is because CXO is expected
+	 * to remain on whenever CPUs aren't power collapsed.
+	 */
+	clk_prepare_enable(&xo_a_clk_src.c);
 }
 
 #define GCC_CC_PHYS		0xFC400000
