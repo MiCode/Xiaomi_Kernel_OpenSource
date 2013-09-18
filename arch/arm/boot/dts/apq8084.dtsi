@@ -501,7 +501,33 @@
 			< 2265600 1728000 7448 /* 931 MHz */ >;
 	};
 
+	usb_otg: usb@f9a55000 {
+		compatible = "qcom,hsusb-otg";
+
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0 0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+		HSUSB_VDDCX-supply = <&pma8084_s1>;
+		HSUSB_1p8-supply = <&pma8084_l6>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <3>;
+		qcom,hsusb-otg-default-mode = <1>;
+		qcom,dp-manual-pullup;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>;
+	};
+
 	qcom,usbbam@f9304000 {
+		status = "disabled";
 		compatible = "qcom,usb-bam-msm";
 		reg = <0xf9304000 0x5000>,
 		      <0xf92f880c 0x4>;
@@ -533,6 +559,7 @@
 	};
 
 	usb3: qcom,ssusb@f9200000 {
+		status = "disabled";
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 			 <0xfd4ab000 0x4>;
