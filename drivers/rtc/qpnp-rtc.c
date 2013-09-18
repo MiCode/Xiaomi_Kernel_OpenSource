@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-13, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -588,9 +588,19 @@ static void qpnp_rtc_shutdown(struct spmi_device *spmi)
 	u8 reg;
 	int rc;
 	unsigned long irq_flags;
-	struct qpnp_rtc *rtc_dd = dev_get_drvdata(&spmi->dev);
-	bool rtc_alarm_powerup = rtc_dd->rtc_alarm_powerup;
+	struct qpnp_rtc *rtc_dd;
+	bool rtc_alarm_powerup;
 
+	if (!spmi) {
+		pr_err("qpnp-rtc: spmi device not found\n");
+		return;
+	}
+	rtc_dd = dev_get_drvdata(&spmi->dev);
+	if (!rtc_dd) {
+		pr_err("qpnp-rtc: rtc driver data not found\n");
+		return;
+	}
+	rtc_alarm_powerup = rtc_dd->rtc_alarm_powerup;
 	if (!rtc_alarm_powerup && !poweron_alarm) {
 		spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
 		dev_dbg(&spmi->dev, "Disabling alarm interrupts\n");
