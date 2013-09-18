@@ -37,7 +37,6 @@ struct dwc3_charger;
  */
 struct dwc3_otg {
 	struct usb_otg		otg;
-	struct usb_phy		usb3_phy;
 	int			irq;
 	struct dwc3		*dwc;
 	void __iomem		*regs;

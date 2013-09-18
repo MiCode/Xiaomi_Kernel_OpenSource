@@ -1544,15 +1544,8 @@
 				 0x0 1 &spmi_bus 0x0 0x0 0x9 0x0>;
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
-		ssusb_vdd_dig-supply = <&pm8841_s2_corner>;
-		SSUSB_1p8-supply = <&pm8941_l6>;
-		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
-		HSUSB_1p8-supply = <&pm8941_l6>;
-		HSUSB_3p3-supply = <&pm8941_l24>;
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
-		qcom,vdd-voltage-level = <1 5 7>;
-		qcom,dwc-hsphy-init = <0x00D191A4>;
 		qcom,misc-ref = <&pm8941_misc>;
 		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
@@ -1570,7 +1563,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>, <0 179 0>;
 			interrupt-names = "irq", "otg_irq";
-			usb-phy = <&usb3>, <&usb3>;
+			usb-phy = <&hsphy>, <&ssphy>;
 			tx-fifo-resize;
 		};
 	};

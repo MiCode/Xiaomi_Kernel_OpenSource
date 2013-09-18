@@ -112,6 +112,10 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg |= DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
+	/* Bring up PHYs */
+	usb_phy_init(dwc->usb2_phy);
+	usb_phy_init(dwc->usb3_phy);
+
 	if (dwc->revision >= DWC3_REVISION_230A)
 		dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
 
@@ -125,8 +129,6 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg |= DWC3_GUSB2PHYCFG_PHYSOFTRST;
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
-	usb_phy_init(dwc->usb2_phy);
-	usb_phy_init(dwc->usb3_phy);
 	mdelay(100);
 
 	/* Clear USB3 PHY reset */
