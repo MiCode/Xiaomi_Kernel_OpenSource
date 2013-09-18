@@ -1603,7 +1603,15 @@ static struct measure_mux_entry measure_mux_GCC[] = {
 	{ &gcc_ce1_axi_clk.c,  GCC_BASE, 0x0139 },
 	{ &gcc_ce1_ahb_clk.c,  GCC_BASE, 0x013a },
 	{ &gcc_lpass_q6_axi_clk.c,  GCC_BASE, 0x0160 },
-	{&dummy_clk, N_BASES, 0x0000},
+	{ &pnoc_clk.c, GCC_BASE, 0x010},
+	{ &snoc_clk.c, GCC_BASE, 0x000},
+	{ &cnoc_clk.c, GCC_BASE, 0x008},
+	/*
+	 * measure the gcc_bimc_kpss_axi_clk instead to account for the DDR
+	 * rate being gcc_bimc_clk/2.
+	 */
+	{ &bimc_clk.c, GCC_BASE, 0x155},
+	{ &dummy_clk, N_BASES, 0x0000},
 };
 
 static struct pll_vote_clk mmpll0_pll = {
@@ -2725,6 +2733,7 @@ static struct measure_mux_entry measure_mux_MMSS[] = {
 	{ &camss_csi1rdi_clk.c,  MMSS_BASE, 0x0049 },
 	{ &camss_csi1pix_clk.c,  MMSS_BASE, 0x004a },
 	{ &camss_ispif_ahb_clk.c,  MMSS_BASE, 0x0055 },
+	{ &mmssnoc_ahb_clk.c,  MMSS_BASE, 0x0001 },
 	{&dummy_clk, N_BASES, 0x0000},
 };
 
