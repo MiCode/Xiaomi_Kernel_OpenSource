@@ -318,11 +318,11 @@ config CRYPTO_DEV_QCRYPTO
 config CRYPTO_DEV_QCE
 	tristate "Qualcomm Crypto Engine (QCE) module"
 	select  CRYPTO_DEV_QCE40 if ARCH_MSM8960 || ARCH_MSM9615
-	select  CRYPTO_DEV_QCE50 if ARCH_MSM8974 || ARCH_MSM9625 || ARCH_MSM8226 || ARCH_MSM8610
+	select  CRYPTO_DEV_QCE50 if ARCH_MSM8974 || ARCH_MSM9625 || ARCH_MSM8226 || ARCH_MSM8610 || ARCH_FSM9900
 	default n
 	help
           This driver supports Qualcomm Crypto Engine in MSM7x30, MSM8660
-	  MSM8x55, MSM8960 and MSM9615
+	  MSM8x55, MSM8960, MSM9615, and FSM9900
 	  To compile this driver as a module, choose M here: the
 	  For MSM7x30 MSM8660 and MSM8x55 the module is called qce
 	  For MSM8960, APQ8064 and MSM9615 the module is called qce40
