@@ -15,8 +15,8 @@
 /include/ "fsm9900.dtsi"
 
 / {
-	model = "Qualcomm FSM9900 Rumi";
-	compatible = "qcom,fsm9900-rumi", "qcom,fsm9900", "qcom,rumi";
+	model = "Qualcomm FSM9900 CDP";
+	compatible = "qcom,fsm9900-cdp", "qcom,fsm9900", "qcom,cdp";
 	qcom,msm-id = <188 15 0>;
 
 	aliases {
