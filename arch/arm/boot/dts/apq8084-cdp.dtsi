@@ -112,12 +112,13 @@
 };
 
 &i2c_0 {
-	smb349-charger@1B {
+	smb349_otg_supply: smb349-charger@1B {
 		compatible = "qcom,smb349-charger";
 		reg = <0x1B>;
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x00 0xCD 0x0>; /* PMIC8084 GPIO 14 */
 		qcom,charging-disabled;
+		regulator-name = "smb349_otg_supply";
 	};
 };
 

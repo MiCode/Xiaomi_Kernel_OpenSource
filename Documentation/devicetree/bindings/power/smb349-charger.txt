@@ -8,6 +8,7 @@ The smb349 interface is via I2C bus.
 Required Properties:
 - compatible:			Must be "qcom,smb349-charger".
 - reg:				The device 7-bit I2C address.
+- regulator-name		A string used as a descriptive name for OTG regulator.
 
 Optional Properties:
 

@@ -20,6 +20,9 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/power_supply.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/of_regulator.h>
+#include <linux/regulator/machine.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 
@@ -55,6 +58,8 @@
 #define CMD_A_VOLATILE_W_PERM_BIT		BIT(7)
 #define CMD_A_CHG_SUSP_EN_BIT			BIT(2)
 #define CMD_A_CHG_SUSP_EN_MASK			BIT(2)
+#define CMD_A_OTG_ENABLE_BIT			BIT(4)
+#define CMD_A_OTG_ENABLE_MASK			BIT(4)
 #define CMD_B_CHG_HC_ENABLE_BIT			BIT(0)
 #define CMD_B_CHG_USB3_ENABLE_BIT		BIT(2)
 #define CMD_B_CHG_USB_500_900_ENABLE_BIT	BIT(1)
@@ -142,6 +147,11 @@
 #define SMB_FAST_CHG_CURRENT_MASK	0xF0
 #define SMB349_DEFAULT_BATT_CAPACITY	50
 
+struct smb349_regulator {
+	struct regulator_desc	rdesc;
+	struct regulator_dev	*rdev;
+};
+
 struct smb349_charger {
 	struct i2c_client	*client;
 	struct device		*dev;
@@ -162,6 +172,8 @@ struct smb349_charger {
 	struct power_supply	*usb_psy;
 	struct power_supply	*bms_psy;
 	struct power_supply	batt_psy;
+
+	struct smb349_regulator	otg_vreg;
 
 	struct dentry		*debug_root;
 };
@@ -271,6 +283,91 @@ static int smb349_fastchg_current_set(struct smb349_charger *chip)
 
 	return smb349_masked_write(chip, CHG_CURRENT_CTRL_REG,
 				SMB_FAST_CHG_CURRENT_MASK, temp);
+}
+
+static int smb349_chg_otg_regulator_enable(struct regulator_dev *rdev)
+{
+	int rc = 0;
+	struct smb349_charger *chip = rdev_get_drvdata(rdev);
+
+	rc = smb349_masked_write(chip, CMD_A_REG, CMD_A_OTG_ENABLE_BIT,
+							CMD_A_OTG_ENABLE_BIT);
+	if (rc)
+		dev_err(chip->dev, "Couldn't enable  OTG mode rc=%d\n", rc);
+	return rc;
+}
+
+static int smb349_chg_otg_regulator_disable(struct regulator_dev *rdev)
+{
+	int rc = 0;
+	struct smb349_charger *chip = rdev_get_drvdata(rdev);
+
+	rc = smb349_masked_write(chip, CMD_A_REG, CMD_A_OTG_ENABLE_BIT, 0);
+	if (rc)
+		dev_err(chip->dev, "Couldn't disable OTG mode rc=%d\n", rc);
+	return rc;
+}
+
+static int smb349_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
+{
+	int rc = 0;
+	u8 reg = 0;
+	struct smb349_charger *chip = rdev_get_drvdata(rdev);
+
+	rc = smb349_read_reg(chip, CMD_A_REG, &reg);
+	if (rc) {
+		dev_err(chip->dev,
+				"Couldn't read OTG enable bit rc=%d\n", rc);
+		return rc;
+	}
+
+	return  (reg & CMD_A_OTG_ENABLE_BIT) ? 1 : 0;
+}
+
+struct regulator_ops smb349_chg_otg_reg_ops = {
+	.enable		= smb349_chg_otg_regulator_enable,
+	.disable	= smb349_chg_otg_regulator_disable,
+	.is_enabled	= smb349_chg_otg_regulator_is_enable,
+};
+
+static int smb349_regulator_init(struct smb349_charger *chip)
+{
+	int rc = 0;
+	struct regulator_init_data *init_data;
+	struct regulator_config cfg = {};
+
+	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node);
+	if (!init_data) {
+		dev_err(chip->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	if (init_data->constraints.name) {
+		chip->otg_vreg.rdesc.owner = THIS_MODULE;
+		chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
+		chip->otg_vreg.rdesc.ops = &smb349_chg_otg_reg_ops;
+		chip->otg_vreg.rdesc.name = init_data->constraints.name;
+
+		cfg.dev = chip->dev;
+		cfg.init_data = init_data;
+		cfg.driver_data = chip;
+		cfg.of_node = chip->dev->of_node;
+
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_STATUS;
+
+		chip->otg_vreg.rdev = regulator_register(
+						&chip->otg_vreg.rdesc, &cfg);
+		if (IS_ERR(chip->otg_vreg.rdev)) {
+			rc = PTR_ERR(chip->otg_vreg.rdev);
+			chip->otg_vreg.rdev = NULL;
+			if (rc != -EPROBE_DEFER)
+				dev_err(chip->dev,
+					"OTG reg failed, rc=%d\n", rc);
+		}
+	}
+
+	return rc;
 }
 
 static int smb349_hw_init(struct smb349_charger *chip)
@@ -1145,6 +1242,14 @@ static int smb349_charger_probe(struct i2c_client *client,
 	}
 
 	dump_regs(chip);
+
+	rc = smb349_regulator_init(chip);
+	if  (rc) {
+		dev_err(&client->dev,
+			"Couldn't initialize smb349 ragulator rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smb349_hw_init(chip);
 	if (rc) {
 		dev_err(&client->dev,
@@ -1247,6 +1352,7 @@ fail_chg_valid_irq:
 		gpio_free(chip->chg_valid_gpio);
 fail_smb349_hw_init:
 	power_supply_unregister(&chip->batt_psy);
+	regulator_unregister(chip->otg_vreg.rdev);
 	return rc;
 }
 
