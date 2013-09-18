@@ -17,6 +17,7 @@
 #include <linux/if_vlan.h>
 
 #include "emac_hw.h"
+#include "emac_ptp.h"
 
 #define RFD_PREF_LOW_TH     0x10
 #define RFD_PREF_UP_TH      0x10
@@ -339,6 +340,7 @@ void emac_hw_disable_intr(struct emac_hw *hw)
 {
 	emac_reg_w32(hw, EMAC, EMAC_INT_STATUS, DIS_INT);
 	emac_reg_w32(hw, EMAC, EMAC_INT_MASK, 0);
+	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
 	wmb();
 }
 
@@ -777,6 +779,9 @@ void emac_hw_config_mac(struct emac_hw *hw)
 	emac_hw_config_rx_ctrl(hw);
 	emac_hw_config_dma_ctrl(hw);
 
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_config(hw);
+
 	val = emac_reg_r32(hw, EMAC, EMAC_AXI_MAST_CTRL);
 	val &= ~(DATA_BYTE_SWAP | MAX_BOUND);
 	val |= MAX_BTYPE;
@@ -863,6 +868,13 @@ void emac_hw_start_mac(struct emac_hw *hw)
 
 	/* clear all interrupts, set interrupt read clear */
 	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL, INT_RD_CLR_EN);
+
+	if (CHK_HW_FLAG(PTP_EN)) {
+		if (hw->link_speed == EMAC_LINK_SPEED_1GB_FULL)
+			emac_ptp_set_linkspeed(hw, emac_mac_speed_1000);
+		else
+			emac_ptp_set_linkspeed(hw, emac_mac_speed_10_100);
+	}
 
 	emac_hw_config_mac_ctrl(hw);
 
