@@ -179,6 +179,15 @@
 #define STK3X1X_VIO_MIN_UV	1750000
 #define STK3X1X_VIO_MAX_UV	1950000
 
+#define STK_FIR_LEN 16
+#define MAX_FIR_LEN 32
+struct data_filter {
+	u16 raw[MAX_FIR_LEN];
+	int sum;
+	int number;
+	int idx;
+};
+
 struct stk3x1x_data {
 	struct i2c_client *client;
 #if (!defined(STK_POLL_PS) || !defined(STK_POLL_ALS))
@@ -218,6 +227,9 @@ struct stk3x1x_data {
 	struct regulator *vdd;
 	struct regulator *vio;
 	bool power_enabled;
+	bool use_fir;
+	struct data_filter      fir;
+	atomic_t                firlength;
 };
 
 #if( !defined(CONFIG_STK_PS_ALS_USE_CHANGE_THRESHOLD))
@@ -385,6 +397,13 @@ static int32_t stk3x1x_init_all_reg(struct stk3x1x_data *ps_data, struct stk3x1x
     if (ret < 0)
 	{
 		printk(KERN_ERR "%s: write i2c error\n", __func__);
+		return ret;
+	}
+
+	ret = i2c_smbus_write_byte_data(ps_data->client, 0x87, 0x60);
+	if (ret < 0) {
+		dev_err(&ps_data->client->dev,
+			"%s: write i2c error\n", __func__);
 		return ret;
 	}
 	return 0;
@@ -708,9 +727,32 @@ static int32_t stk3x1x_enable_als(struct stk3x1x_data *ps_data, uint8_t enable)
     return ret;
 }
 
+static inline int32_t stk3x1x_filter_reading(struct stk3x1x_data *ps_data,
+			int32_t word_data)
+{
+	int index;
+	int firlen = atomic_read(&ps_data->firlength);
+
+	if (ps_data->fir.number < firlen) {
+		ps_data->fir.raw[ps_data->fir.number] = word_data;
+		ps_data->fir.sum += word_data;
+		ps_data->fir.number++;
+		ps_data->fir.idx++;
+	} else {
+		index = ps_data->fir.idx % firlen;
+		ps_data->fir.sum -= ps_data->fir.raw[index];
+		ps_data->fir.raw[index] = word_data;
+		ps_data->fir.sum += word_data;
+		ps_data->fir.idx++;
+		word_data = ps_data->fir.sum/firlen;
+	}
+	return word_data;
+}
+
 static inline int32_t stk3x1x_get_als_reading(struct stk3x1x_data *ps_data)
 {
     int32_t word_data, tmp_word_data;
+
 	tmp_word_data = i2c_smbus_read_word_data(ps_data->client, STK_DATA1_ALS_REG);
 	if(tmp_word_data < 0)
 	{
@@ -718,6 +760,9 @@ static inline int32_t stk3x1x_get_als_reading(struct stk3x1x_data *ps_data)
 		return tmp_word_data;
 	}
 	word_data = ((tmp_word_data & 0xFF00) >> 8) | ((tmp_word_data & 0x00FF) << 8) ;
+	if (ps_data->use_fir)
+		word_data = stk3x1x_filter_reading(ps_data, word_data);
+
 	return word_data;
 }
 
@@ -912,7 +957,12 @@ static ssize_t stk_als_delay_show(struct device *dev, struct device_attribute *a
 	return scnprintf(buf, PAGE_SIZE, "%lld\n", ktime_to_ns(ps_data->als_poll_delay));
 }
 
-
+static inline void stk_als_delay_store_fir(struct stk3x1x_data *ps_data)
+{
+	ps_data->fir.number = 0;
+	ps_data->fir.idx = 0;
+	ps_data->fir.sum = 0;
+}
 static ssize_t stk_als_delay_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     uint64_t value = 0;
@@ -936,6 +986,10 @@ static ssize_t stk_als_delay_store(struct device *dev, struct device_attribute *
 	mutex_lock(&ps_data->io_lock);
 	if(value != ktime_to_ns(ps_data->als_poll_delay))
 		ps_data->als_poll_delay = ns_to_ktime(value);
+
+	if (ps_data->use_fir)
+		stk_als_delay_store_fir(ps_data);
+
 	mutex_unlock(&ps_data->io_lock);
 	return size;
 }
@@ -948,6 +1002,77 @@ static ssize_t stk_als_ir_code_show(struct device *dev, struct device_attribute 
     return scnprintf(buf, PAGE_SIZE, "%d\n", reading);
 }
 
+static ssize_t stk_als_firlen_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
+	int len = atomic_read(&ps_data->firlength);
+
+	dev_dbg(dev, "%s: len = %2d, idx = %2d\n",
+			__func__, len, ps_data->fir.idx);
+	dev_dbg(dev, "%s: sum = %5d, ave = %5d\n",
+			__func__, ps_data->fir.sum, ps_data->fir.sum/len);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", len);
+}
+
+static ssize_t stk_als_firlen_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	uint64_t value = 0;
+	int ret;
+	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
+	ret = kstrtoull(buf, 10, &value);
+	if (ret < 0) {
+		dev_err(dev, "%s:strict_strtoull failed, ret=0x%x\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (value > MAX_FIR_LEN) {
+		dev_err(dev, "%s: firlen exceed maximum filter length\n",
+			__func__);
+	} else if (value < 1) {
+		atomic_set(&ps_data->firlength, 1);
+		memset(&ps_data->fir, 0x00, sizeof(ps_data->fir));
+	} else {
+		atomic_set(&ps_data->firlength, value);
+		memset(&ps_data->fir, 0x00, sizeof(ps_data->fir));
+	}
+	return size;
+}
+
+static ssize_t stk_als_fir_enable_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", ps_data->use_fir);
+}
+
+static ssize_t stk_als_fir_enable_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	uint64_t value = 0;
+	int ret;
+	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
+	ret = kstrtoull(buf, 10, &value);
+	if (ret < 0) {
+		dev_err(dev, "%s:strict_strtoull failed, ret=0x%x\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (value) {
+		ps_data->use_fir = true;
+		memset(&ps_data->fir, 0x00, sizeof(ps_data->fir));
+	} else {
+		ps_data->use_fir = false;
+	}
+	return size;
+}
 static ssize_t stk_ps_code_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct stk3x1x_data *ps_data =  dev_get_drvdata(dev);
@@ -1432,6 +1557,11 @@ static struct device_attribute als_transmittance_attribute = __ATTR(transmittanc
 static struct device_attribute als_poll_delay_attribute =
 	__ATTR(poll_delay, 0664, stk_als_delay_show, stk_als_delay_store);
 static struct device_attribute als_ir_code_attribute = __ATTR(ircode,0444,stk_als_ir_code_show,NULL);
+static struct device_attribute als_firlen_attribute =
+	__ATTR(firlen, 0664, stk_als_firlen_show, stk_als_firlen_store);
+static struct device_attribute als_fir_enable_attribute =
+	__ATTR(fir_enable, 0664, stk_als_fir_enable_show,
+	stk_als_fir_enable_store);
 
 static struct attribute *stk_als_attrs [] =
 {
@@ -1441,6 +1571,8 @@ static struct attribute *stk_als_attrs [] =
     &als_transmittance_attribute.attr,
 	&als_poll_delay_attribute.attr,
 	&als_ir_code_attribute.attr,
+	&als_firlen_attribute.attr,
+	&als_fir_enable_attribute.attr,
     NULL
 };
 
@@ -1673,6 +1805,13 @@ static irqreturn_t stk_oss_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 #endif	/*	#if (!defined(STK_POLL_PS) || !defined(STK_POLL_ALS))	*/
+
+static inline void stk3x1x_init_fir(struct stk3x1x_data *ps_data)
+{
+	memset(&ps_data->fir, 0x00, sizeof(ps_data->fir));
+	atomic_set(&ps_data->firlength, STK_FIR_LEN);
+}
+
 static int32_t stk3x1x_init_all_setting(struct i2c_client *client, struct stk3x1x_platform_data *plat_data)
 {
 	int32_t ret;
@@ -1697,6 +1836,10 @@ static int32_t stk3x1x_init_all_setting(struct i2c_client *client, struct stk3x1
 #ifndef CONFIG_STK_PS_ALS_USE_CHANGE_THRESHOLD
 	stk_init_code_threshold_table(ps_data);
 #endif
+
+	if (plat_data->use_fir)
+		stk3x1x_init_fir(ps_data);
+
     return 0;
 }
 
@@ -1998,6 +2141,8 @@ static int stk3x1x_parse_dt(struct device *dev,
 		return rc;
 	}
 
+	pdata->use_fir = of_property_read_bool(np, "stk,use-fir");
+
 	return 0;
 }
 #else
@@ -2064,6 +2209,7 @@ static int stk3x1x_probe(struct i2c_client *client,
 	}
 	ps_data->als_transmittance = plat_data->transmittance;
 	ps_data->int_pin = plat_data->int_pin;
+	ps_data->use_fir = plat_data->use_fir;
 
 	if (ps_data->als_transmittance == 0) {
 		dev_err(&client->dev,
