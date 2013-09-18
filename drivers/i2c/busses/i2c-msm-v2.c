@@ -3470,7 +3470,7 @@ static int i2c_msm_pm_sys_resume(struct device *dev)
 static void i2c_msm_pm_rt_init(struct device *dev)
 {
 	pm_runtime_set_suspended(dev);
-	pm_runtime_set_autosuspend_delay(dev, MSEC_PER_SEC * 100);
+	pm_runtime_set_autosuspend_delay(dev, MSEC_PER_SEC);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 }
@@ -3647,7 +3647,6 @@ static int i2c_msm_probe(struct platform_device *pdev)
 
 	i2c_msm_rsrcs_gpio_init(ctrl);
 	i2c_msm_pm_rt_init(ctrl->dev);
-	pm_runtime_get_noresume(ctrl->dev);
 
 	/* allocate xfer modes */
 	ret = (*ctrl->ver.create)(ctrl);
@@ -3668,14 +3667,8 @@ static int i2c_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto reg_err;
 
-	pm_runtime_mark_last_busy(ctrl->dev);
-	ret = pm_runtime_put(ctrl->dev);
-	if (ret)
-		i2c_msm_err(ctrl, "on pm_runtime_put():%d", ret);
-
 	i2c_msm_dbg(ctrl, MSM_PROF, "probe() completed with success");
 	return 0;
-
 
 reg_err:
 	i2c_msm_dbgfs_teardown(ctrl);
