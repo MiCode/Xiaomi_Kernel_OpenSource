@@ -457,47 +457,47 @@
 	};
 };
 
-/* QPNP controlled regulators: */
+/* SPM controlled regulators: */
 &spmi_bus {
 	qcom,pma8084@1 {
-		pma8084_s8: regulator@2900 {
+		pma8084_s8: spm-regulator@2900 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2900 0x100>;
+			regulator-name = "8084_s8";
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1250000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
+			qcom,cpu-num = <0>;
+			qcom,mode = "pwm";
 		};
 
-		pma8084_s9: regulator@2c00 {
+		pma8084_s9: spm-regulator@2c00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2c00 0x100>;
+			regulator-name = "8084_s9";
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1250000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
+			qcom,cpu-num = <1>;
+			qcom,mode = "pwm";
 		};
 
-		pma8084_s10: regulator@2f00 {
+		pma8084_s10: spm-regulator@2f00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2f00 0x100>;
+			regulator-name = "8084_s10";
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1250000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
+			qcom,cpu-num = <2>;
+			qcom,mode = "pwm";
 		};
 
-		pma8084_s11: regulator@3200 {
+		pma8084_s11: spm-regulator@3200 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x3200 0x100>;
+			regulator-name = "8084_s11";
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1250000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
+			qcom,cpu-num = <3>;
+			qcom,mode = "pwm";
 		};
 	};
 };
