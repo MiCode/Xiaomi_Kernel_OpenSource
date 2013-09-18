@@ -162,6 +162,9 @@
 	qcom,msm-thermal {
 		vdd-dig-supply = <&pma8084_s2_floor_corner>;
 		vdd-gfx-supply = <&pma8084_s7_floor_corner>;
+		/delete-property/ qcom,pmic-sw-mode-temp;
+		/delete-property/ qcom,pmic-sw-mode-temp-hysteresis;
+		/delete-property/ qcom,pmic-sw-mode-regs;
 	};
 
 	qcom,lpm-resources {
