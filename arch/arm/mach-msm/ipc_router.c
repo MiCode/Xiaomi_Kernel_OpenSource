@@ -617,6 +617,27 @@ static int calc_tx_header_size(struct rr_packet *pkt,
 }
 
 /**
+ * calc_rx_header_size() - Calculate the RX header size
+ * @xprt_info: XPRT info of the received message.
+ *
+ * @return: valid header size on success, INT_MAX on failure.
+ */
+static int calc_rx_header_size(struct msm_ipc_router_xprt_info *xprt_info)
+{
+	int xprt_version = 0;
+	int hdr_size = INT_MAX;
+
+	if (xprt_info)
+		xprt_version = xprt_info->xprt->get_version(xprt_info->xprt);
+
+	if (xprt_version == IPC_ROUTER_V1)
+		hdr_size = sizeof(struct rr_header_v1);
+	else if (xprt_version == IPC_ROUTER_V2)
+		hdr_size = sizeof(struct rr_header_v2);
+	return hdr_size;
+}
+
+/**
  * prepend_header_v1() - Prepend IPC Router header of version 1
  * @pkt: Packet structure which contains the header info to be prepended.
  * @hdr_size: Size of the header
@@ -2080,7 +2101,7 @@ static void do_read_data(struct work_struct *work)
 			     read_data);
 
 	while ((pkt = rr_read(xprt_info)) != NULL) {
-		if (pkt->length < IPC_ROUTER_HDR_SIZE ||
+		if (pkt->length < calc_rx_header_size(xprt_info) ||
 		    pkt->length > MAX_IPC_PKT_SIZE) {
 			pr_err("%s: Invalid pkt length %d\n",
 				__func__, pkt->length);
