@@ -293,6 +293,7 @@ struct qpnp_chg_chip {
 	bool				bat_is_cool;
 	bool				bat_is_warm;
 	bool				chg_done;
+	bool				charger_monitor_checked;
 	bool				usb_present;
 	bool				dc_present;
 	bool				batt_present;
@@ -341,6 +342,7 @@ struct qpnp_chg_chip {
 	struct delayed_work		arb_stop_work;
 	struct delayed_work		eoc_work;
 	struct work_struct		soc_check_work;
+	struct delayed_work		aicl_check_work;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_chg_regulator	batfet_vreg;
@@ -1503,6 +1505,28 @@ qpnp_power_get_property_mains(struct power_supply *psy,
 	return 0;
 }
 
+static void
+qpnp_aicl_check_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_chg_chip *chip = container_of(dwork,
+				struct qpnp_chg_chip, aicl_check_work);
+	union power_supply_propval ret = {0,};
+
+	if (!charger_monitor && qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		chip->usb_psy->get_property(chip->usb_psy,
+			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
+		if ((ret.intval / 1000) > USB_WALL_THRESHOLD_MA) {
+			pr_debug("no charger_monitor present set iusbmax %d\n",
+					ret.intval / 1000);
+			qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
+		}
+	} else {
+		pr_debug("charger_monitor is present\n");
+	}
+	chip->charger_monitor_checked = true;
+}
+
 static int
 get_prop_battery_voltage_now(struct qpnp_chg_chip *chip)
 {
@@ -1790,7 +1814,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		} else {
 			qpnp_chg_usb_suspend_enable(chip, 0);
 			if (((ret.intval / 1000) > USB_WALL_THRESHOLD_MA)
-					&& (charger_monitor)) {
+					&& (charger_monitor ||
+					!chip->charger_monitor_checked)) {
 				qpnp_chg_iusbmax_set(chip,
 						USB_WALL_THRESHOLD_MA);
 			} else {
@@ -3931,6 +3956,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->eoc_work, qpnp_eoc_work);
 	INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
 	INIT_WORK(&chip->soc_check_work, qpnp_chg_soc_check_work);
+	INIT_DELAYED_WORK(&chip->aicl_check_work, qpnp_aicl_check_work);
 
 	if (chip->dc_chgpth_base) {
 		chip->dc_psy.name = "qpnp-dc";
@@ -4012,6 +4038,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	if (qpnp_chg_is_usb_chg_plugged_in(chip))
 		power_supply_set_online(chip->usb_psy, 1);
 
+	schedule_delayed_work(&chip->aicl_check_work,
+		msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 	pr_info("success chg_dis = %d, bpd = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
 			chip->charging_disabled,
 			chip->bpd_detection,
