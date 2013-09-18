@@ -1091,6 +1091,7 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 	int retval;
+	u32 temp;
 
 	mehci->timer = USB_HS_GPTIMER_BASE;
 	ehci->caps = USB_CAPLENGTH;
@@ -1109,6 +1110,12 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 		writel_relaxed(0x08 | MSM_USB_ASYNC_BRIDGE_BYPASS, USB_AHBMODE);
 	else
 		writel_relaxed(0x08, USB_AHBMODE);
+
+	if (pdata->dis_internal_clk_gating) {
+		temp = readl_relaxed(USB_GENCONFIG2);
+		temp &= ~GENCFG2_SYS_CLK_HOST_DEV_GATE_EN;
+		writel_relaxed(temp, USB_GENCONFIG2);
+	}
 
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
@@ -1892,6 +1899,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 
 	pdata->phy_sof_workaround = of_property_read_bool(node,
 					"qcom,phy-sof-workaround");
+	pdata->dis_internal_clk_gating = of_property_read_bool(node,
+					"qcom,disable-internal-clk-gating");
 	pdata->phy_susp_sof_workaround = of_property_read_bool(node,
 					"qcom,phy-susp-sof-workaround");
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
