@@ -35,6 +35,7 @@
 /* 2 is to account for module & param ID in payload */
 #define ADM_GET_PARAMETER_LENGTH  (4096 - APR_HDR_SIZE - 2 * sizeof(uint32_t))
 
+#define ULL_SUPPORTED_SAMPLE_RATE 48000
 
 enum {
 	ADM_RX_AUDPROC_CAL,
@@ -1202,11 +1203,14 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			(open.topology_id == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
 				rate = 16000;
 
-		if (perf_mode)
+		if (perf_mode) {
 			open.topology_id = NULL_COPP_TOPOLOGY;
+			rate = ULL_SUPPORTED_SAMPLE_RATE;
+		}
 
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bits_per_sample;
+		WARN_ON(perf_mode && (rate != 48000));
 		open.sample_rate  = rate;
 		memset(open.dev_channel_mapping, 0, 8);
 
