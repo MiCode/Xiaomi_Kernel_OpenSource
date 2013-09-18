@@ -1567,6 +1567,7 @@ static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sdcc2_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sdcc3_clk, &pnoc_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
@@ -1919,6 +1920,7 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	/* RPM and voter clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
+	CLK_LOOKUP("bus_clk", pnoc_keepalive_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk", cnoc_clk.c, ""),
 	CLK_LOOKUP("mem_clk", bimc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", snoc_a_clk.c, ""),
@@ -2044,6 +2046,12 @@ static void __init msmkrypton_clock_post_init(void)
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&xo_a_clk.c);
+
+	/*
+	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&pnoc_keepalive_a_clk.c, 19200000);
+	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
 }
 
 #define GCC_CC_PHYS		0xFC400000
