@@ -331,15 +331,30 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 /* INTR */
 void emac_hw_enable_intr(struct emac_hw *hw)
 {
-	emac_reg_w32(hw, EMAC, EMAC_INT_STATUS, ~DIS_INT);
-	emac_reg_w32(hw, EMAC, EMAC_INT_MASK, hw->intr_mask);
+	struct emac_adapter *adpt = hw->adpt;
+	struct emac_irq_info *irq_info;
+	int i;
+
+	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+		irq_info = &adpt->irq_info[i];
+		emac_reg_w32(hw, EMAC, irq_info->status_reg, ~DIS_INT);
+		emac_reg_w32(hw, EMAC, irq_info->mask_reg, irq_info->mask);
+	}
 	wmb();
 }
 
 void emac_hw_disable_intr(struct emac_hw *hw)
 {
-	emac_reg_w32(hw, EMAC, EMAC_INT_STATUS, DIS_INT);
-	emac_reg_w32(hw, EMAC, EMAC_INT_MASK, 0);
+	struct emac_adapter *adpt = hw->adpt;
+	struct emac_irq_info *irq_info;
+	int i;
+
+	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+		irq_info = &adpt->irq_info[i];
+		emac_reg_w32(hw, EMAC, irq_info->status_reg, DIS_INT);
+		emac_reg_w32(hw, EMAC, irq_info->mask_reg, 0);
+	}
+
 	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
 	wmb();
 }
