@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,7 +421,7 @@ static void transfer_results(struct kgsl_device *device,
 		} else {
 			struct adreno_context *adreno_ctxt =
 				ADRENO_CONTEXT(k_ctxt);
-			pid = k_ctxt->pid;  /* pid */
+			pid = k_ctxt->proc_priv->pid;  /* pid */
 			tid = k_ctxt->tid; /* tid creator */
 			client_type =  adreno_ctxt->type << 16;
 		}

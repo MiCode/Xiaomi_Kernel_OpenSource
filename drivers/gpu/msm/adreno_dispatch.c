@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -857,13 +857,8 @@ static char _pidname[TASK_COMM_LEN];
 
 static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 {
-	struct task_struct *task = NULL;
-
-	if (context)
-		task = find_task_by_vpid(context->pid);
-
-	if (task)
-		get_task_comm(_pidname, task);
+	if (context && context->proc_priv)
+		strlcpy(_pidname, context->proc_priv->comm, sizeof(_pidname));
 	else
 		snprintf(_pidname, TASK_COMM_LEN, "unknown");
 
@@ -873,7 +868,7 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 #define pr_fault(_d, _c, fmt, args...) \
 		dev_err((_d)->dev, "%s[%d]: " fmt, \
 		_kgsl_context_comm((_c)->context), \
-		(_c)->context->pid, ##args)
+		(_c)->context->proc_priv->pid, ##args)
 
 
 static void adreno_fault_header(struct kgsl_device *device,
