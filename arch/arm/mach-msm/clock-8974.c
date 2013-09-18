@@ -583,7 +583,7 @@ static void __iomem *virt_bases[N_BASES];
 #define F_HDMI(f, s, div, m, n) \
 	{ \
 		.freq_hz = (f), \
-		.src_clk = &s##_clk_src, \
+		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
 		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
@@ -3251,41 +3251,7 @@ static struct rcg_clk esc1_clk_src = {
 	},
 };
 
-static int hdmi_pll_clk_enable(struct clk *c)
-{
-	return hdmi_pll_enable();
-}
-
-static void hdmi_pll_clk_disable(struct clk *c)
-{
-	hdmi_pll_disable();
-}
-
-static int hdmi_pll_clk_set_rate(struct clk *c, unsigned long rate)
-{
-	return hdmi_pll_set_rate(rate);
-}
-
-static struct clk_ops clk_ops_hdmi_pll = {
-	.enable = hdmi_pll_clk_enable,
-	.disable = hdmi_pll_clk_disable,
-	.set_rate = hdmi_pll_clk_set_rate,
-};
-
-static struct clk hdmipll_clk_src = {
-	.parent = &cxo_clk_src.c,
-	.dbg_name = "hdmipll_clk_src",
-	.ops = &clk_ops_hdmi_pll,
-	CLK_INIT(hdmipll_clk_src),
-};
-
 static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
-	/*
-	 * The zero rate is required since suspend/resume wipes out the HDMI PHY
-	 * registers. This entry allows the HDMI driver to switch the cached
-	 * rate to zero before suspend and back to the real rate after resume.
-	 */
-	F_HDMI(        0, hdmipll, 1, 0, 0),
 	F_HDMI( 25200000, hdmipll, 1, 0, 0),
 	F_HDMI( 27000000, hdmipll, 1, 0, 0),
 	F_HDMI( 27030000, hdmipll, 1, 0, 0),
