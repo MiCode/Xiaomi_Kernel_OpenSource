@@ -324,6 +324,7 @@ struct msm_otg_platform_data {
  * @sleep_clk: clock struct of sleep_clk for USB PHY.
  * @core_clk_rate: core clk max frequency
  * @regs: ioremapped register base address.
+ * @usb_phy_ctrl_reg: relevant PHY_CTRL_REG register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
  * @in_lpm: indicates low power mode (LPM) state.
@@ -362,6 +363,7 @@ struct msm_otg {
 	long core_clk_rate;
 	struct resource *io_res;
 	void __iomem *regs;
+	void __iomem *usb_phy_ctrl_reg;
 #define ID		0
 #define B_SESS_VLD	1
 #define ID_A		2

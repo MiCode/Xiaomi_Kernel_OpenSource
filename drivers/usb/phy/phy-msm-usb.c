@@ -528,19 +528,19 @@ static void usb_phy_reset(struct msm_otg *motg)
 		return;
 
 	/* Assert USB PHY_PON */
-	val =  readl_relaxed(USB_PHY_CTRL);
+	val =  readl_relaxed(motg->usb_phy_ctrl_reg);
 	val &= ~PHY_POR_BIT_MASK;
 	val |= PHY_POR_ASSERT;
-	writel_relaxed(val, USB_PHY_CTRL);
+	writel_relaxed(val, motg->usb_phy_ctrl_reg);
 
 	/* wait for minimum 10 microseconds as suggested in HPG. */
 	usleep_range(10, 15);
 
 	/* Deassert USB PHY_PON */
-	val =  readl_relaxed(USB_PHY_CTRL);
+	val =  readl_relaxed(motg->usb_phy_ctrl_reg);
 	val &= ~PHY_POR_BIT_MASK;
 	val |= PHY_POR_DEASSERT;
-	writel_relaxed(val, USB_PHY_CTRL);
+	writel_relaxed(val, motg->usb_phy_ctrl_reg);
 
 	/* Ensure that RESET operation is completed. */
 	mb();
@@ -994,7 +994,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (motg->caps & ALLOW_PHY_RETENTION && !device_bus_suspend && !dcp &&
 		 (!host_bus_suspend || ((motg->caps & ALLOW_HOST_PHY_RETENTION)
 		&& (pdata->dpdm_pulldown_added || !(portsc & PORTSC_CCS))))) {
-		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(motg->usb_phy_ctrl_reg);
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL) {
 			/* Enable PHY HV interrupts to wake MPM/Link */
 			if ((motg->pdata->mode == USB_OTG) ||
@@ -1006,12 +1006,13 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		}
 		if (host_bus_suspend)
 			phy_ctrl_val |= PHY_CLAMP_DPDMSE_EN;
-		writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
+		writel_relaxed(phy_ctrl_val & ~PHY_RETEN,
+						motg->usb_phy_ctrl_reg);
 		motg->lpm_flags |= PHY_RETENTIONED;
 	} else if (device_bus_suspend && !dcp &&
 			(pdata->mpm_dpshv_int || pdata->mpm_dmshv_int)) {
 		/* DP DM HV interrupts are used for bus resume from XO off */
-		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(motg->usb_phy_ctrl_reg);
 		phy_ctrl_val |= PHY_CLAMP_DPDMSE_EN;
 		if (motg->caps & ALLOW_PHY_RETENTION && pdata->vddmin_gpio) {
 
@@ -1029,7 +1030,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 			motg->lpm_flags |= PHY_RETENTIONED;
 			gpio_direction_output(pdata->vddmin_gpio, 1);
 		}
-		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
+		writel_relaxed(phy_ctrl_val, motg->usb_phy_ctrl_reg);
 	}
 
 	/* Ensure that above operation is completed before turning off clocks */
@@ -1167,7 +1168,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 	if (motg->lpm_flags & PHY_RETENTIONED) {
 		msm_hsusb_mhl_switch_enable(motg, 1);
 		msm_hsusb_config_vddcx(1);
-		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(motg->usb_phy_ctrl_reg);
 		phy_ctrl_val |= PHY_RETEN;
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
 			!motg->device_bus_suspend)
@@ -1175,14 +1176,14 @@ static int msm_otg_resume(struct msm_otg *motg)
 			phy_ctrl_val &=
 				~(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
 		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN);
-		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
+		writel_relaxed(phy_ctrl_val, motg->usb_phy_ctrl_reg);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
 		if (pdata->vddmin_gpio && motg->device_bus_suspend)
 			gpio_direction_input(pdata->vddmin_gpio);
 	} else if (motg->device_bus_suspend) {
-		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(motg->usb_phy_ctrl_reg);
 		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN);
-		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
+		writel_relaxed(phy_ctrl_val, motg->usb_phy_ctrl_reg);
 	}
 
 	temp = readl(USB_USBCMD);
@@ -4426,6 +4427,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto devote_bus_bw;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
+
+	if (pdata->enable_sec_phy)
+		motg->usb_phy_ctrl_reg = USB_PHY_CTRL2;
+	else
+		motg->usb_phy_ctrl_reg = USB_PHY_CTRL;
 
 	motg->irq = platform_get_irq(pdev, 0);
 	if (!motg->irq) {
