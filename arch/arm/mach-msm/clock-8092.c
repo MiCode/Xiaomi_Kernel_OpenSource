@@ -476,6 +476,7 @@ static void __iomem *virt_bases[N_BASES];
 #define gpll0_lpass_source_val		5
 #define bcc_pll0_source_val		1
 #define bcc_pll1_source_val		1
+#define bcc_dem_test_source_val          1
 
 #define F(f, s, div, m, n) \
 	{ \
@@ -4684,17 +4685,6 @@ static struct mux_clk bcc_dem_img_atv_clk_src = {
 	},
 };
 
-static struct branch_clk nidaq_in_clk = {
-	.bcr_reg = DEM_TEST_BCR,
-	.cbcr_reg = NIDAQ_IN_CBCR,
-	.base = &virt_bases[BCSS_BASE],
-	.c = {
-		.dbg_name = "nidaq_in_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(nidaq_in_clk.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_atv_rxfe_resamp_clk[] = {
 	F_BCAST(196608000, bcc_pll1, 1, 8, 25),
 	F_END
@@ -4786,6 +4776,18 @@ static struct mux_clk albacore_sif_clk = {
 		.dbg_name = "albacore_sif_clk",
 		.ops = &clk_ops_gen_mux,
 		CLK_INIT(albacore_sif_clk.c),
+	},
+};
+
+static struct gate_clk bcc_tlmm_sif_clk = {
+	.en_reg = ATV_RXFE_RESAMP_CLK_MISC,
+	.en_mask = BIT(5),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tlmm_sif_clk",
+		.parent = &albacore_sif_clk.c,
+		.ops = &clk_ops_gate,
+		CLK_INIT(bcc_tlmm_sif_clk.c),
 	},
 };
 
@@ -5495,6 +5497,122 @@ static struct gate_clk bcc_dem_rxfe_q_clk = {
 	},
 };
 
+static struct mux_clk bcc_dem_test_rxfe_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 11,
+	.offset = DEMOD_TEST_MISC,
+	MUX_SRC_LIST(
+		{&bcc_dem_rxfe_i_clk.c, 0},
+		{&bcc_atv_rxfe_clk.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_test_rxfe_clk",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_dem_test_rxfe_clk.c),
+	},
+};
+
+static struct mux_clk bcc_adc_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 0,
+	.offset = DEMOD_TEST_MISC,
+	MUX_SRC_LIST(
+		{&bcc_adc_0_out_clk.c, 0},
+		{&bcc_adc_1_out_clk.c, 1},
+		{&bcc_adc_2_out_clk.c, 2},
+		{&bcc_dem_test_rxfe_clk.c, 3},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+	      .dbg_name = "bcc_adc_clk",
+	      .ops = &clk_ops_gen_mux,
+	      CLK_INIT(bcc_adc_clk.c),
+	},
+};
+
+static struct mux_clk bcc_dem_test_clk_src = {
+	.ops = &mux_reg_ops,
+	.mask = 0x7,
+	.shift = 2,
+	.offset = DEMOD_TEST_MISC,
+	MUX_SRC_LIST(
+		{&albacore_sif_clk.c, 0},
+		{&bcc_albacore_cvbs_clk.c, 1},
+		{&bcc_adc_clk.c, 2},
+		{&bcc_dem_rxfe_if_clk_src.c, 3},
+		{&bcc_atv_rxfe_x1_resamp_clk.c, 4},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_test_clk_src",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_dem_test_clk_src.c),
+	},
+};
+
+static struct mux_clk bcc_gram_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 5,
+	.offset = DEMOD_TEST_MISC,
+	MUX_SRC_LIST(
+		{&bcc_dem_test_clk_src.c, 0},
+		{&bcc_dem_core_clk.c, 1},
+		{&bcc_dem_ahb_clk.c, 2},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+	      .dbg_name = "bcc_gram_clk",
+	      .ops = &clk_ops_gen_mux,
+	      CLK_INIT(bcc_gram_clk.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_nidaq_out_clk_src[] = {
+	F_BCAST(153600000, bcc_dem_test, 1, 1, 2),
+	F_BCAST(76800000, bcc_dem_test, 1, 1, 4),
+	F_BCAST(38400000, bcc_dem_test, 1, 1, 8),
+	F_END
+};
+
+static struct rcg_clk nidaq_out_clk_src = {
+	.cmd_rcgr_reg = NIDAQ_OUT_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_nidaq_out_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "nidaq_out_clk_src",
+		.ops = &clk_ops_rcg,
+		CLK_INIT(nidaq_out_clk_src.c),
+	},
+};
+
+static struct branch_clk nidaq_out_clk = {
+	.cbcr_reg = NIDAQ_OUT_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "nidaq_out_clk",
+		.parent = &nidaq_out_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(nidaq_out_clk.c),
+	},
+};
+
+static struct branch_clk nidaq_in_clk = {
+	.cbcr_reg = NIDAQ_IN_CBCR,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "nidaq_in_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(nidaq_in_clk.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -5692,6 +5810,10 @@ struct measure_mux_entry measure_mux[] = {
 	{&atv_rxfe_resamp_clk_src.c,		BCSS_BASE,	0x008b},
 	{&bcc_atv_rxfe_resamp_clk_src.c,	BCSS_BASE,	0x008c},
 	{&bcc_forza_sync_x5_clk.c,		BCSS_BASE,	0x008d},
+	{&bcc_dem_test_clk_src.c,		BCSS_BASE,	0x00c0},
+	{&bcc_gram_clk.c,			BCSS_BASE,	0x00c1},
+	{&bcc_adc_clk.c,			BCSS_BASE,	0x00c2},
+	{&nidaq_out_clk.c,			BCSS_BASE,	0x00c7},
 	{&dem_core_clk_x2_src.c,		BCSS_BASE,	0x0102},
 	{&bcc_ts_out_clk.c,			BCSS_BASE,	0x0103},
 	{&dig_dem_core_clk_src.c,		BCSS_BASE,	0x010a},
@@ -6516,6 +6638,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	/* RCGs */
 	CLK_LOOKUP("",	adc_clk_src.c,	""),
 	CLK_LOOKUP("",	atv_x5_clk_src.c,	""),
+	CLK_LOOKUP("",	nidaq_out_clk_src.c,	""),
 	CLK_LOOKUP("",	atv_rxfe_resamp_clk_src.c,	""),
 	CLK_LOOKUP("",	dig_dem_core_clk_src.c,	""),
 
@@ -6538,6 +6661,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	bcc_adc_1_out_clk.c,	""),
 	CLK_LOOKUP("",	bcc_adc_2_out_clk.c,	""),
 	CLK_LOOKUP("",	bcc_dem_rxfe_q_clk.c,	""),
+	CLK_LOOKUP("",  bcc_tlmm_sif_clk.c,   ""),
 
 	/* Muxes */
 	CLK_LOOKUP("",	atv_rxfe_clk_src.c,	""),
@@ -6548,8 +6672,13 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	albacore_sif_clk.c,	""),
 	CLK_LOOKUP("",	bcc_dem_rxfe_if_clk_src.c,	""),
 	CLK_LOOKUP("",	bcc_dem_rxfe_div3_mux_div4_i_clk.c,	""),
+	CLK_LOOKUP("",  bcc_dem_test_rxfe_clk.c,     ""),
+	CLK_LOOKUP("",  bcc_adc_clk.c,     ""),
+	CLK_LOOKUP("",  bcc_dem_test_clk_src.c,     ""),
+	CLK_LOOKUP("",  bcc_gram_clk.c,     ""),
 
 	/* Branches */
+	CLK_LOOKUP("",	nidaq_out_clk.c,	""),
 	CLK_LOOKUP("",	nidaq_in_clk.c,	""),
 	CLK_LOOKUP("",	bcc_atv_rxfe_resamp_clk_src.c,	""),
 	CLK_LOOKUP("",	bcc_dem_rxfe_i_clk.c,	""),
