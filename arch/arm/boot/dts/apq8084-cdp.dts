@@ -18,5 +18,14 @@
 / {
 	model = "Qualcomm APQ 8084 CDP";
 	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	qcom,board-id = <1 0>,
+			<1 1>,
+			<1 2>,
+			<1 3>,
+			<1 4>,
+			<21 0>,
+			<21 1>,
+			<21 2>,
+			<21 3>,
+			<21 4>;
 };
