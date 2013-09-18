@@ -50,7 +50,7 @@ static void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq)
 	while (count--) {
 		struct mdp3_img_data *data = &bufq->img_data[bufq->pop_idx];
 		bufq->pop_idx = (bufq->pop_idx + 1) % MDP3_MAX_BUF_QUEUE;
-		mdp3_put_img(data);
+		mdp3_put_img(data, MDP3_CLIENT_DMA_P);
 	}
 	bufq->count = 0;
 	bufq->push_idx = 0;
@@ -706,7 +706,7 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 	struct msmfb_data *img = &req->data;
 	struct mdp3_img_data data;
 
-	rc = mdp3_get_img(img, &data);
+	rc = mdp3_get_img(img, &data, MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
 		return rc;
@@ -715,7 +715,7 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 	rc = mdp3_bufq_push(&mdp3_session->bufq_in, &data);
 	if (rc) {
 		pr_err("fail to queue the overlay buffer, buffer drop\n");
-		mdp3_put_img(&data);
+		mdp3_put_img(&data, MDP3_CLIENT_DMA_P);
 		return rc;
 	}
 	return 0;
@@ -779,7 +779,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 
 	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
-		mdp3_put_img(data);
+		mdp3_put_img(data, MDP3_CLIENT_DMA_P);
 	}
 	mutex_unlock(&mdp3_session->lock);
 
