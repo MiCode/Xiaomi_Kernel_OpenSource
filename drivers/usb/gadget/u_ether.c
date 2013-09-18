@@ -18,9 +18,11 @@
 #include <linux/gfp.h>
 #include <linux/device.h>
 #include <linux/ctype.h>
+#include <linux/if_arp.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
+#include <linux/msm_rmnet.h>
 
 #include "u_ether.h"
 
@@ -83,6 +85,8 @@ struct eth_dev {
 	struct work_struct	rx_work;
 
 	unsigned long		todo;
+	unsigned long		flags;
+	unsigned short		rx_needed_headroom;
 #define	WORK_RX_MEMORY		0
 
 	bool			zlp;
@@ -208,6 +212,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	size_t		size = 0;
 	struct usb_ep	*out;
 	unsigned long	flags;
+	unsigned short reserve_headroom;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb)
@@ -243,8 +248,14 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	if (dev->port_usb->is_fixed)
 		size = max_t(size_t, size, dev->port_usb->fixed_out_len);
 
-	pr_debug("%s: size: %d", __func__, size);
-	skb = alloc_skb(size + NET_IP_ALIGN, gfp_flags);
+	if (dev->rx_needed_headroom)
+		reserve_headroom = dev->rx_needed_headroom;
+	else
+		reserve_headroom = NET_IP_ALIGN;
+
+	pr_debug("%s: size: %d + %d(hr)", __func__, size, reserve_headroom);
+
+	skb = alloc_skb(size + reserve_headroom, gfp_flags);
 	if (skb == NULL) {
 		DBG(dev, "no rx skb\n");
 		goto enomem;
@@ -254,7 +265,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * but on at least one, checksumming fails otherwise.  Note:
 	 * RNDIS headers involve variable numbers of LE32 values.
 	 */
-	skb_reserve(skb, NET_IP_ALIGN);
+	skb_reserve(skb, reserve_headroom);
 
 	req->buf = skb->data;
 	req->length = size;
@@ -436,6 +447,28 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 }
 
+static __be16 ether_ip_type_trans(struct sk_buff *skb,
+	struct net_device *dev)
+{
+	__be16	protocol = 0;
+
+	skb->dev = dev;
+
+	switch (skb->data[0] & 0xf0) {
+	case 0x40:
+		protocol = htons(ETH_P_IP);
+		break;
+	case 0x60:
+		protocol = htons(ETH_P_IPV6);
+		break;
+	default:
+		pr_debug_ratelimited("[%s] L3 protocol decode error: 0x%02x",
+		       dev->name, skb->data[0] & 0xf0);
+	}
+
+	return protocol;
+}
+
 static void process_rx_w(struct work_struct *work)
 {
 	struct eth_dev	*dev = container_of(work, struct eth_dev, rx_work);
@@ -455,7 +488,11 @@ static void process_rx_w(struct work_struct *work)
 			dev_kfree_skb_any(skb);
 			continue;
 		}
-		skb->protocol = eth_type_trans(skb, dev->net);
+		if (test_bit(RMNET_MODE_LLP_IP, &dev->flags))
+			skb->protocol = ether_ip_type_trans(skb, dev->net);
+		else
+			skb->protocol = eth_type_trans(skb, dev->net);
+
 		dev->net->stats.rx_packets++;
 		dev->net->stats.rx_bytes += skb->len;
 
@@ -666,8 +703,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			return -ENOMEM;
 	}
 
-	/* apply outgoing CDC or RNDIS filters */
-	if (!is_promisc(cdc_filter)) {
+	/* apply outgoing CDC or RNDIS filters only for ETH packets */
+	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
+						!is_promisc(cdc_filter)) {
 		u8		*dest = skb->data;
 
 		if (is_multicast_ether_addr(dest)) {
@@ -944,14 +982,102 @@ static int get_ether_addr(const char *str, u8 *dev_addr)
 	return 1;
 }
 
+static int ether_ioctl(struct net_device *, struct ifreq *, int);
+
 static const struct net_device_ops eth_netdev_ops = {
 	.ndo_open		= eth_open,
 	.ndo_stop		= eth_stop,
 	.ndo_start_xmit		= eth_start_xmit,
+	.ndo_do_ioctl		= ether_ioctl,
 	.ndo_change_mtu		= ueth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 };
+
+static const struct net_device_ops eth_netdev_ops_ip = {
+	.ndo_open		= eth_open,
+	.ndo_stop		= eth_stop,
+	.ndo_start_xmit		= eth_start_xmit,
+	.ndo_do_ioctl		= ether_ioctl,
+	.ndo_change_mtu		= ueth_change_mtu,
+	.ndo_set_mac_address	= 0,
+	.ndo_validate_addr	= 0,
+};
+
+static int ether_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	struct eth_dev	*eth_dev = netdev_priv(dev);
+	void __user *addr = (void __user *) ifr->ifr_ifru.ifru_data;
+	int		prev_mtu = dev->mtu;
+	u32		state, old_opmode;
+	int		rc = -EFAULT;
+
+	old_opmode = eth_dev->flags;
+	/* Process IOCTL command */
+	switch (cmd) {
+	case RMNET_IOCTL_SET_LLP_ETHERNET:	/*Set Ethernet protocol*/
+		/* Perform Ethernet config only if in IP mode currently*/
+		if (test_bit(RMNET_MODE_LLP_IP, &eth_dev->flags)) {
+			ether_setup(dev);
+			dev->mtu = prev_mtu;
+			dev->netdev_ops = &eth_netdev_ops;
+			clear_bit(RMNET_MODE_LLP_IP, &eth_dev->flags);
+			set_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags);
+			DBG(eth_dev, "[%s] ioctl(): set Ethernet proto mode\n",
+					dev->name);
+		}
+		if (test_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags))
+			rc = 0;
+		break;
+
+	case RMNET_IOCTL_SET_LLP_IP:		/* Set RAWIP protocol*/
+		/* Perform IP config only if in Ethernet mode currently*/
+		if (test_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags)) {
+			/* Undo config done in ether_setup() */
+			dev->header_ops = 0;  /* No header */
+			dev->type = ARPHRD_RAWIP;
+			dev->hard_header_len = 0;
+			dev->mtu = prev_mtu;
+			dev->addr_len = 0;
+			dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
+			dev->netdev_ops = &eth_netdev_ops_ip;
+			clear_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags);
+			set_bit(RMNET_MODE_LLP_IP, &eth_dev->flags);
+			DBG(eth_dev, "[%s] ioctl(): set IP protocol mode\n",
+					dev->name);
+		}
+		if (test_bit(RMNET_MODE_LLP_IP, &eth_dev->flags))
+			rc = 0;
+		break;
+
+	case RMNET_IOCTL_GET_LLP:	/* Get link protocol state */
+		state = eth_dev->flags & (RMNET_MODE_LLP_ETH
+						| RMNET_MODE_LLP_IP);
+		if (copy_to_user(addr, &state, sizeof(state)))
+			break;
+		rc = 0;
+		break;
+
+	case RMNET_IOCTL_SET_RX_HEADROOM:	/* Set RX headroom */
+		if (copy_from_user(&eth_dev->rx_needed_headroom, addr,
+					sizeof(eth_dev->rx_needed_headroom)))
+			break;
+		DBG(eth_dev, "[%s] ioctl(): set RX HEADROOM: %x\n",
+				dev->name, eth_dev->rx_needed_headroom);
+		rc = 0;
+		break;
+
+	default:
+		pr_err("[%s] error: ioctl called for unsupported cmd[%d]",
+			dev->name, cmd);
+		rc = -EINVAL;
+	}
+
+	DBG(eth_dev, "[%s] %s: cmd=0x%x opmode old=0x%08x new=0x%08lx\n",
+		dev->name, __func__, cmd, old_opmode, eth_dev->flags);
+
+	return rc;
+}
 
 static struct device_type gadget_type = {
 	.name	= "gadget",
@@ -1009,6 +1135,9 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	net->netdev_ops = &eth_netdev_ops;
 
 	SET_ETHTOOL_OPS(net, &ops);
+
+	/* set operation mode to eth by default */
+	set_bit(RMNET_MODE_LLP_ETH, &dev->flags);
 
 	dev->gadget = g;
 	SET_NETDEV_DEV(net, &g->dev);

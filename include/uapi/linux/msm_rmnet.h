@@ -29,6 +29,7 @@ enum rmnet_ioctl_cmds_e {
 	RMNET_IOCTL_CLOSE            = 0x000089F9, /* Close transport port   */
 	RMNET_IOCTL_FLOW_ENABLE	     = 0x000089FA, /* Flow enable	     */
 	RMNET_IOCTL_FLOW_DISABLE     = 0x000089FB, /* Flow disable	     */
+	RMNET_IOCTL_SET_RX_HEADROOM  = 0x000089FC, /* RX Headroom	     */
 	RMNET_IOCTL_MAX
 };
 
