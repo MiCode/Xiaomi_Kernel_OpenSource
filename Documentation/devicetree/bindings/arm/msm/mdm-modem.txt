@@ -36,6 +36,8 @@ Optional named gpio properties:
 		booted into the PBL bootloader.
 - qcom,ap2mdm-wakeup-gpio: gpio used by the apps processor to wake the external modem
 		out of a low power state.
+- qcom,ap2mdm-chnl-rdy-gpio: gpio used by the apps processor to inform the external modem
+		that data link is ready.
 - qcom,mdm2ap-wakeup-gpio: gpio from the external modem to the apps processor to wake it
 		out of a low power state.
 - qcom,ap2mdm-vddmin-gpio: gpio to indicate to the external modem when the apps processor

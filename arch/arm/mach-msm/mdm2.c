@@ -225,8 +225,8 @@ static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
 	 * de-assert it now so that it can be asserted later.
 	 * May not be used.
 	 */
-	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_WAKEUP)))
-		gpio_direction_output(MDM_GPIO(AP2MDM_WAKEUP), 0);
+	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_CHNLRDY)))
+		gpio_direction_output(MDM_GPIO(AP2MDM_CHNLRDY), 0);
 
 	/*
 	 * If we did an "early power on" then ignore the very next
@@ -260,8 +260,8 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 		mdm_peripheral_disconnect(mdm_drv);
 		msleep(100);
 		mdm_peripheral_connect(mdm_drv);
-		if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_WAKEUP)))
-			gpio_direction_output(MDM_GPIO(AP2MDM_WAKEUP), 1);
+		if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_CHNLRDY)))
+			gpio_direction_output(MDM_GPIO(AP2MDM_CHNLRDY), 1);
 	}
 }
 
