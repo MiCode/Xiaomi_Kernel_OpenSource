@@ -353,9 +353,9 @@ struct kgsl_process_private;
  * @events_list: list node for the list of all contexts that have pending events
  * @pid: process that owns this context.
  * @tid: task that created this context.
- * @pagefault: flag set if this context caused a pagefault.
  * @pagefault_ts: global timestamp of the pagefault, if KGSL_CONTEXT_PAGEFAULT
  * is set.
+ * @flags: flags from userspace controlling the behavior of this context
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -372,6 +372,7 @@ struct kgsl_context {
 	struct list_head events;
 	struct list_head events_list;
 	unsigned int pagefault_ts;
+	unsigned int flags;
 };
 
 /**
