@@ -40,8 +40,9 @@ enum {
 };
 
 enum {
-	MDP3_IOMMU_DOMAIN,
-	MDP3_IOMMU_DOMAIN_MAX
+	MDP3_DMA_IOMMU_DOMAIN,
+	MDP3_PPP_IOMMU_DOMAIN,
+	MDP3_IOMMU_DOMAIN_MAX,
 };
 
 enum {
@@ -55,6 +56,12 @@ enum {
 enum {
 	MDP3_CLIENT_DMA_P,
 	MDP3_CLIENT_PPP,
+};
+
+enum {
+	DI_PARTITION_NUM = 0,
+	DI_DOMAIN_NUM = 1,
+	DI_MAX,
 };
 
 struct mdp3_bus_handle_map {
@@ -80,6 +87,19 @@ struct mdp3_iommu_ctx_map {
 	char *ctx_name;
 	struct device *ctx;
 	int attached;
+};
+
+struct mdp3_iommu_meta {
+	struct rb_node node;
+	struct ion_handle *handle;
+	struct rb_root iommu_maps;
+	struct kref ref;
+	struct sg_table *table;
+	struct dma_buf *dbuf;
+	int mapped_size;
+	unsigned long size;
+	dma_addr_t iova_addr;
+	unsigned long flags;
 };
 
 #define MDP3_MAX_INTR 28
@@ -110,6 +130,8 @@ struct mdp3_hw_resource {
 	struct mdp3_iommu_domain_map *domains;
 	struct mdp3_iommu_ctx_map *iommu_contexts;
 	struct ion_handle *ion_handle;
+	struct mutex iommu_lock;
+	struct rb_root iommu_root;
 	void *virt;
 	unsigned long phys;
 	size_t size;
@@ -131,6 +153,7 @@ struct mdp3_hw_resource {
 struct mdp3_img_data {
 	dma_addr_t addr;
 	u32 len;
+	u32 padding;
 	u32 flags;
 	int p_need;
 	struct file *srcp_file;
@@ -150,8 +173,9 @@ void mdp3_irq_deregister(void);
 int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate, int client);
 int mdp3_clk_enable(int enable);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
-int mdp3_put_img(struct mdp3_img_data *data);
-int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
+int mdp3_put_img(struct mdp3_img_data *data, int client);
+int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
+		int client);
 int mdp3_iommu_enable(int client);
 int mdp3_iommu_disable(int client);
 int mdp3_iommu_is_attached(int client);
