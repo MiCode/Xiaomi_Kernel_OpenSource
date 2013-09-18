@@ -820,6 +820,32 @@ exit:
 	return retval;
 }
 
+/**
+ * synaptics_rmi4_release_all()
+ *
+ * Called by synaptics_rmi4_suspend()
+ *
+ * Release all touch data during the touch device switch to suspend state.
+ */
+
+static void synaptics_rmi4_release_all(struct synaptics_rmi4_data *rmi4_data)
+{
+	int finger;
+	int max_num_fingers = rmi4_data->num_of_fingers;
+
+	for (finger = 0; finger < max_num_fingers; finger++) {
+		input_mt_slot(rmi4_data->input_dev, finger);
+		input_mt_report_slot_state(rmi4_data->input_dev,
+				MT_TOOL_FINGER, 0);
+	}
+
+	input_report_key(rmi4_data->input_dev, BTN_TOUCH, 0);
+	input_report_key(rmi4_data->input_dev,
+			BTN_TOOL_FINGER, 0);
+
+	input_sync(rmi4_data->input_dev);
+}
+
  /**
  * synaptics_rmi4_f11_abs_report()
  *
@@ -3309,6 +3335,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 			synaptics_rmi4_irq_enable(rmi4_data, false);
 			synaptics_rmi4_sensor_sleep(rmi4_data);
 		}
+
+		synaptics_rmi4_release_all(rmi4_data);
 
 		retval = synaptics_rmi4_regulator_lpm(rmi4_data, true);
 		if (retval < 0) {
