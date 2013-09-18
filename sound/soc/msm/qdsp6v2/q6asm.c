@@ -2237,7 +2237,6 @@ int q6asm_cfg_dual_mono_aac(struct audio_client *ac,
 			uint16_t sce_left, uint16_t sce_right)
 {
 	struct asm_aac_dual_mono_mapping_param dual_mono;
-	u32 frames_per_buf = 0;
 
 	int rc = 0;
 
@@ -2248,11 +2247,8 @@ int q6asm_cfg_dual_mono_aac(struct audio_client *ac,
 
 	dual_mono.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 	dual_mono.encdec.param_id = ASM_PARAM_ID_AAC_DUAL_MONO_MAPPING;
-	dual_mono.encdec.param_size = sizeof(struct asm_aac_enc_cfg_v2) -
-				sizeof(struct asm_stream_cmd_set_encdec_param);
-	dual_mono.encblk.frames_per_buf = frames_per_buf;
-	dual_mono.encblk.enc_cfg_blk_size  = dual_mono.encdec.param_size -
-				sizeof(struct asm_enc_cfg_blk_param_v2);
+	dual_mono.encdec.param_size = sizeof(dual_mono.left_channel_sce) +
+				      sizeof(dual_mono.right_channel_sce);
 	dual_mono.left_channel_sce = sce_left;
 	dual_mono.right_channel_sce = sce_right;
 

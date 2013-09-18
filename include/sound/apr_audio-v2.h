@@ -4328,7 +4328,6 @@ struct asm_aac_sbr_ps_flag_param {
 struct asm_aac_dual_mono_mapping_param {
 	struct apr_hdr							hdr;
 	struct asm_stream_cmd_set_encdec_param	encdec;
-	struct asm_enc_cfg_blk_param_v2			encblk;
 	u16    left_channel_sce;
 	u16    right_channel_sce;
 
