@@ -139,6 +139,22 @@ static inline struct local_vote_clk *to_local_vote_clk(struct clk *clk)
 }
 
 /**
+ * struct reset_clk - Reset clock
+ * @c: clk
+ * @reset_reg: block reset register
+ * @base: pointer to base address of ioremapped registers.
+ */
+struct reset_clk {
+	struct clk c;
+	const u32 reset_reg;
+	void *const __iomem *base;
+};
+
+static inline struct reset_clk *to_reset_clk(struct clk *clk)
+{
+	return container_of(clk, struct reset_clk, c);
+}
+/**
  * struct measure_clk - for rate measurement debug use
  * @sample_ticks: sample period in reference clock ticks
  * @multiplier: measurement scale-up factor
@@ -198,6 +214,7 @@ extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
 extern struct clk_ops clk_ops_edppixel;
 extern struct clk_ops clk_ops_gate;
+extern struct clk_ops clk_ops_rst;
 
 enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);

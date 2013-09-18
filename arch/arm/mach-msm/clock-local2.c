@@ -52,6 +52,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define D_REG(x)	(*(x)->base + (x)->cmd_rcgr_reg + 0x10)
 #define CBCR_REG(x)	(*(x)->base + (x)->cbcr_reg)
 #define BCR_REG(x)	(*(x)->base + (x)->bcr_reg)
+#define RST_REG(x)	(*(x)->base + (x)->reset_reg)
 #define VOTE_REG(x)	(*(x)->base + (x)->vote_reg)
 #define GATE_EN_REG(x)	(*(x)->base + (x)->en_reg)
 
@@ -973,7 +974,21 @@ static enum handoff gate_clk_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static int reset_clk_rst(struct clk *c, enum clk_reset_action action)
+{
+	struct reset_clk *rst = to_reset_clk(c);
+
+	if (!rst->reset_reg)
+		return -EPERM;
+
+	return __branch_clk_reset(RST_REG(rst), action);
+}
+
 struct clk_ops clk_ops_empty;
+
+struct clk_ops clk_ops_rst = {
+	.reset = reset_clk_rst,
+};
 
 struct clk_ops clk_ops_rcg = {
 	.enable = rcg_clk_prepare,
