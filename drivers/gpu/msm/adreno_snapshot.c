@@ -155,7 +155,7 @@ static int snapshot_freeze_obj_list(struct kgsl_device *device,
 			/* Save current IB2 statically */
 			if (ib2base == ib_objs->gpuaddr) {
 				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
-				ptbase, ib_objs->gpuaddr, ib_objs->size);
+				ptbase, ib_objs->gpuaddr, ib_objs->size >> 2);
 			} else {
 				temp_ret = kgsl_snapshot_get_object(device,
 					ptbase, ib_objs->gpuaddr, ib_objs->size,
