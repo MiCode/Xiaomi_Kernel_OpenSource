@@ -104,6 +104,10 @@ static void ion_chunk_heap_free(struct ion_buffer *buffer)
 
 	ion_heap_buffer_zero(buffer);
 
+	if (ion_buffer_cached(buffer))
+		dma_sync_sg_for_device(NULL, table->sgl, table->nents,
+                                       DMA_BIDIRECTIONAL);
+
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		if (ion_buffer_cached(buffer))
 			dma_sync_sg_for_device(NULL, sg, 1, DMA_BIDIRECTIONAL);
@@ -140,7 +144,6 @@ static struct ion_heap_ops chunk_heap_ops = {
 struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 {
 	struct ion_chunk_heap *chunk_heap;
-	struct scatterlist sg;
 
 	chunk_heap = kzalloc(sizeof(struct ion_chunk_heap), GFP_KERNEL);
 	if (!chunk_heap)
@@ -157,9 +160,9 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 	chunk_heap->size = heap_data->size;
 	chunk_heap->allocated = 0;
 
-	sg_init_table(&sg, 1);
-	sg_set_page(&sg, phys_to_page(heap_data->base), heap_data->size, 0);
-	dma_sync_sg_for_device(NULL, &sg, 1, DMA_BIDIRECTIONAL);
+	ion_pages_sync_for_device(NULL, pfn_to_page(PFN_DOWN(heap_data->base)),
+			heap_data->size, DMA_BIDIRECTIONAL);
+
 	gen_pool_add(chunk_heap->pool, chunk_heap->base, heap_data->size, -1);
 	chunk_heap->heap.ops = &chunk_heap_ops;
 	chunk_heap->heap.type = ION_HEAP_TYPE_CHUNK;

@@ -18,6 +18,7 @@
 #ifndef _ION_PRIV_H
 #define _ION_PRIV_H
 
+#include <linux/dma-direction.h>
 #include <linux/kref.h>
 #include <linux/mm_types.h>
 #include <linux/mutex.h>
@@ -399,6 +400,17 @@ void ion_page_pool_free(struct ion_page_pool *, struct page *);
  */
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 			  int nr_to_scan);
+
+/**
+ * ion_pages_sync_for_device - cache flush pages for use with the specified
+ *                             device
+ * @dev:		the device the pages will be used with
+ * @page:		the first page to be flushed
+ * @size:		size in bytes of region to be flushed
+ * @dir:		direction of dma transfer
+ */
+void ion_pages_sync_for_device(struct device *dev, struct page *page,
+		size_t size, enum dma_data_direction dir);
 
 int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
 			int (*f)(struct ion_heap *heap, void *data));
