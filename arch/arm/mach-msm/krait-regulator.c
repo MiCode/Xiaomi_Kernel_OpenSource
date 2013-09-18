@@ -1643,6 +1643,12 @@ void secondary_cpu_hs_init(void *base_ptr, int cpu)
 	void *mdd_base;
 	struct krait_power_vreg *kvreg;
 
+	if (version == 0) {
+		gcc_base_ptr = ioremap_nocache(GCC_BASE, SZ_4K);
+		version = readl_relaxed(gcc_base_ptr + VERSION);
+		iounmap(gcc_base_ptr);
+	}
+
 	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
 	reg_val =  BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
 		| LDO_PWR_DWN_MASK
@@ -1650,23 +1656,14 @@ void secondary_cpu_hs_init(void *base_ptr, int cpu)
 		| BHS_EN_MASK;
 	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 
-	if (version == 0) {
-		gcc_base_ptr = ioremap_nocache(GCC_BASE, SZ_4K);
-		version = readl_relaxed(gcc_base_ptr + VERSION);
-		iounmap(gcc_base_ptr);
-	}
+	/* complete the above write before the delay */
+	mb();
+	/* wait for the bhs to settle */
+	udelay(BHS_SETTLING_DELAY_US);
 
-	/* Turn on the BHS segments only for version < 2 */
-	if (version <= KPSS_VERSION_2P0) {
-		/* complete the above write before the delay */
-		mb();
-		/* wait for the bhs to settle */
-		udelay(BHS_SETTLING_DELAY_US);
-
-		/* Turn on BHS segments */
-		reg_val |= BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS;
-		writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
-	}
+	/* Turn on BHS segments */
+	reg_val |= BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS;
+	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
 
 	/* complete the above write before the delay */
 	mb();
