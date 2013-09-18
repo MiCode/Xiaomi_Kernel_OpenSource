@@ -284,8 +284,10 @@ static void tr_update(struct slp_buf *s, char *buf)
 	struct kvp *e, *n;
 
 	for_each_kvp(buf, n) {
+		bool found = false;
 		for_each_kvp(s->buf, e) {
 			if (n->k == e->k) {
+				found = true;
 				if (n->s == e->s) {
 					void *e_data = get_data(e);
 					void *n_data = get_data(n);
@@ -300,6 +302,11 @@ static void tr_update(struct slp_buf *s, char *buf)
 				}
 				break;
 			}
+
+		}
+		if (!found) {
+			add_kvp(s->buf, n);
+			s->valid = true;
 		}
 	}
 }
