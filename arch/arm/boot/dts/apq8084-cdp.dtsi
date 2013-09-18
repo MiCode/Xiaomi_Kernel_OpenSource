@@ -102,4 +102,21 @@
 		qcom,out-strength = <3>;	/* High drive strength */
 		qcom,master-en = <1>;
 	};
+
+	gpio@cd00 { /* GPIO 14 */
+		qcom,mode = <0>;
+		qcom,pull = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+};
+
+&i2c_0 {
+	smb349-charger@1B {
+		compatible = "qcom,smb349-charger";
+		reg = <0x1B>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x00 0xCD 0x0>; /* PMIC8084 GPIO 14 */
+		qcom,charging-disabled;
+	};
 };

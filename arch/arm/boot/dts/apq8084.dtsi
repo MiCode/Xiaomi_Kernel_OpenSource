@@ -241,6 +241,7 @@
 		qcom,i2c-src-freq = <50000000>;
 		qcom,sda-gpio = <&msmgpio 10 0>;
 		qcom,scl-gpio = <&msmgpio 11 0>;
+		qcom,master-id = <86>;
 	};
 
 	qcom,clock-krait@f9016000 {
