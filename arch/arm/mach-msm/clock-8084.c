@@ -2642,17 +2642,6 @@ static struct branch_clk gcc_mmss_vpu_maple_sys_noc_axi_clk = {
 	},
 };
 
-static struct branch_clk gcc_ocmem_noc_cfg_ahb_clk = {
-	.cbcr_reg = OCMEM_NOC_CFG_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_ocmem_noc_cfg_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_ocmem_noc_cfg_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_pcie_0_aux_clk = {
 	.cbcr_reg = PCIE_0_AUX_CBCR,
 	.has_sibling = 0,
@@ -5181,7 +5170,6 @@ static struct measure_mux_entry measure_mux[] = {
 	{&gcc_sys_noc_usb3_axi_clk.c,		GCC_BASE, 0x0001},
 	{&gcc_sys_noc_usb3_sec_axi_clk.c,	GCC_BASE, 0x0007},
 	{&gcc_periph_noc_usb_hsic_ahb_clk.c,	GCC_BASE, 0x0013},
-	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_mmss_vpu_maple_sys_noc_axi_clk.c,	GCC_BASE, 0x002e},
 	{&gcc_sys_noc_ufs_axi_clk.c,		GCC_BASE, 0x0030},
 	{&gcc_usb30_master_clk.c,		GCC_BASE, 0x0050},
@@ -5707,7 +5695,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("ocmem_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("bus_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("bus_a_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
-	CLK_LOOKUP("iface_clk", gcc_ocmem_noc_cfg_ahb_clk.c, ""),
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
 	CLK_LOOKUP("bus_clk", pnoc_keepalive_a_clk.c, ""),
 
@@ -5812,7 +5799,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_lpass_sway_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_mmss_vpu_maple_sys_noc_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ocmem_noc_cfg_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_pdm2_clk.c,	""),
 	CLK_LOOKUP("",	gcc_pdm_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_periph_noc_usb_hsic_ahb_clk.c,	""),
