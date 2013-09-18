@@ -407,7 +407,7 @@ static int qports_kmpss[] = {0};
 static int qports_lpass_ahb[] = {0};
 static int qports_qdss_bam[] = {1};
 static int qports_gw_pnoc_snoc[] = {8};
-static int qports_ipa[] = {7};
+static int qports_ipa[] = {3};
 static int qports_qdss_etr[] = {10};
 
 static struct msm_bus_node_info sys_noc_info[] = {
@@ -527,6 +527,7 @@ static struct msm_bus_node_info sys_noc_info[] = {
 		.qport = qports_ipa,
 		.mas_hw_id = MAS_IPA,
 		.hw_sel = MSM_BUS_NOC,
+		.iface_clk_node = "msm_bus_ipa",
 	},
 	{
 		.id = MSM_BUS_MASTER_QDSS_ETR,
