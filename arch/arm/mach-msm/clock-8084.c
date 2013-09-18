@@ -2505,36 +2505,38 @@ static struct local_vote_clk gcc_ce2_clk = {
 	},
 };
 
-static struct branch_clk gcc_ce3_ahb_clk = {
+static struct local_vote_clk gcc_ce3_ahb_clk = {
 	.cbcr_reg = CE3_AHB_CBCR,
-	.has_sibling = 1,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(28),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_ce3_ahb_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce3_ahb_clk.c),
 	},
 };
 
-static struct branch_clk gcc_ce3_axi_clk = {
+static struct local_vote_clk gcc_ce3_axi_clk = {
 	.cbcr_reg = CE3_AXI_CBCR,
-	.has_sibling = 1,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(29),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_ce3_axi_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce3_axi_clk.c),
 	},
 };
 
-static struct branch_clk gcc_ce3_clk = {
+static struct local_vote_clk gcc_ce3_clk = {
 	.cbcr_reg = CE3_CBCR,
-	.has_sibling = 0,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(30),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.parent = &ce3_clk_src.c,
 		.dbg_name = "gcc_ce3_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce3_clk.c),
 	},
 };
