@@ -31,6 +31,7 @@
 #include "clock-voter.h"
 #include "clock.h"
 #include "clock-krait.h"
+#include "clock-mdss-8974.h"
 
 enum {
 	GCC_BASE,
@@ -56,6 +57,8 @@ static void __iomem *virt_bases[N_BASES];
 #define mmpll3_mm_source_val 3
 #define mmpll4_mm_source_val 3
 #define gpll0_mm_source_val 5
+#define dsipll0_pixel_mm_source_val 1
+#define dsipll0_byte_mm_source_val 1
 
 #define FIXDIV(div) (div ? (2 * (div) - 1) : (0))
 
@@ -282,13 +285,19 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define VENUS0_AHB_CBCR                                    (0x1030)
 #define VENUS0_AXI_CBCR                                    (0x1034)
 #define VENUS0_OCMEMNOC_CBCR                               (0x1038)
+#define PCLK0_CMD_RCGR                                     (0x2000)
 #define MDP_CMD_RCGR                                       (0x2040)
 #define VSYNC_CMD_RCGR                                     (0x2080)
+#define BYTE0_CMD_RCGR                                     (0x2120)
+#define ESC0_CMD_RCGR                                      (0x2160)
 #define MDSS_AHB_CBCR                                      (0x2308)
 #define MDSS_AXI_CBCR                                      (0x2310)
+#define MDSS_PCLK0_CBCR                                    (0x2314)
 #define MDSS_MDP_CBCR                                      (0x231C)
 #define MDSS_MDP_LUT_CBCR                                  (0x2320)
 #define MDSS_VSYNC_CBCR                                    (0x2328)
+#define MDSS_BYTE0_CBCR                                    (0x233C)
+#define MDSS_ESC0_CBCR                                     (0x2344)
 #define CSI0PHYTIMER_CMD_RCGR                              (0x3000)
 #define CAMSS_PHY0_CSI0PHYTIMER_CBCR                       (0x3024)
 #define CSI1PHYTIMER_CMD_RCGR                              (0x3030)
@@ -1917,6 +1926,28 @@ static struct rcg_clk jpeg0_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl pixel_freq_tbl[] = {
+	{
+		.src_clk = &pixel_clk_src_samarium.c,
+		.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val)
+				| BVAL(4, 0, 0),
+	},
+	F_END
+};
+
+static struct rcg_clk pclk0_clk_src = {
+	.cmd_rcgr_reg = PCLK0_CMD_RCGR,
+	.current_freq = pixel_freq_tbl,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &pixel_clk_src_samarium.c,
+		.dbg_name = "pclk0_clk_src",
+		.ops = &clk_ops_pixel,
+		VDD_DIG_FMAX_MAP2(LOW, 148500000, NOMINAL, 250000000),
+		CLK_INIT(pclk0_clk_src.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_ocmemcx_ocmemnoc_clk[] = {
 	F_MM(  19200000,         xo,    1,    0,     0),
 	F_MM(  37500000,      gpll0,   16,    0,     0),
@@ -2127,6 +2158,46 @@ static struct rcg_clk cpp_clk_src = {
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 320000000, HIGH,
 			465000000),
 		CLK_INIT(cpp_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl byte_freq_tbl[] = {
+	{
+		.src_clk = &byte_clk_src_samarium.c,
+		.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
+	},
+	F_END
+};
+
+static struct rcg_clk byte0_clk_src = {
+	.cmd_rcgr_reg = BYTE0_CMD_RCGR,
+	.current_freq = byte_freq_tbl,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &byte_clk_src_samarium.c,
+		.dbg_name = "byte0_clk_src",
+		.ops = &clk_ops_byte,
+		VDD_DIG_FMAX_MAP2(LOW, 111370000, NOMINAL, 187500000),
+		CLK_INIT(byte0_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_mdss_esc0_clk[] = {
+	F_MM(  19200000,         xo,    1,    0,     0),
+	F_END
+};
+
+static struct rcg_clk esc0_clk_src = {
+	.cmd_rcgr_reg = ESC0_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_mdss_esc0_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "esc0_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 19200000),
+		CLK_INIT(esc0_clk_src.c),
 	},
 };
 
@@ -2628,6 +2699,30 @@ static struct branch_clk mdss_axi_clk = {
 	},
 };
 
+static struct branch_clk mdss_byte0_clk = {
+	.cbcr_reg = MDSS_BYTE0_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "mdss_byte0_clk",
+		.parent = &byte0_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_byte0_clk.c),
+	},
+};
+
+static struct branch_clk mdss_esc0_clk = {
+	.cbcr_reg = MDSS_ESC0_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "mdss_esc0_clk",
+		.parent = &esc0_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_esc0_clk.c),
+	},
+};
+
 static struct branch_clk mdss_mdp_clk = {
 	.cbcr_reg = MDSS_MDP_CBCR,
 	.has_sibling = 1,
@@ -2649,6 +2744,18 @@ static struct branch_clk mdss_mdp_lut_clk = {
 		.parent = &mdp_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdss_mdp_lut_clk.c),
+	},
+};
+
+static struct branch_clk mdss_pclk0_clk = {
+	.cbcr_reg = MDSS_PCLK0_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "mdss_pclk0_clk",
+		.parent = &pclk0_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_pclk0_clk.c),
 	},
 };
 
@@ -2874,7 +2981,10 @@ static struct measure_mux_entry measure_mux[] = {
 	{&venus0_ahb_clk.c,	MMSS_BASE, 0x000f},
 	{&mdss_mdp_clk.c,	MMSS_BASE, 0x0012},
 	{&mdss_mdp_lut_clk.c,	MMSS_BASE, 0x0013},
+	{&mdss_pclk0_clk.c,	MMSS_BASE, 0x0014},
 	{&mdss_vsync_clk.c,	MMSS_BASE, 0x0015},
+	{&mdss_byte0_clk.c,	MMSS_BASE, 0x0016},
+	{&mdss_esc0_clk.c,	MMSS_BASE, 0x0017},
 	{&mdss_ahb_clk.c,	MMSS_BASE, 0x0018},
 	{&mdss_axi_clk.c,	MMSS_BASE, 0x0019},
 	{&camss_top_ahb_clk.c,	MMSS_BASE, 0x001a},
@@ -3545,6 +3655,14 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
 	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd8c2304.qcom,gdsc"),
 
+	/* DSI PLL clocks */
+	CLK_LOOKUP("", dsi_vco_clk_samarium.c, ""),
+	CLK_LOOKUP("", analog_postdiv_clk_samarium.c, ""),
+	CLK_LOOKUP("", indirect_path_div2_clk_samarium.c, ""),
+	CLK_LOOKUP("", pixel_clk_src_samarium.c, ""),
+	CLK_LOOKUP("", byte_mux_samarium.c, ""),
+	CLK_LOOKUP("", byte_clk_src_samarium.c, ""),
+
 	/* MMSS */
 	CLK_LOOKUP("", axi_clk_src.c, ""),
 	CLK_LOOKUP("", camss_ahb_clk.c, ""),
@@ -3559,8 +3677,13 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("", mdp_clk_src.c, ""),
 	CLK_LOOKUP("", mdss_ahb_clk.c, ""),
 	CLK_LOOKUP("", mdss_axi_clk.c, ""),
+	CLK_LOOKUP("", byte0_clk_src.c, ""),
+	CLK_LOOKUP("", mdss_byte0_clk.c, ""),
+	CLK_LOOKUP("", mdss_esc0_clk.c, ""),
 	CLK_LOOKUP("", mdss_mdp_clk.c, ""),
 	CLK_LOOKUP("", mdss_mdp_lut_clk.c, ""),
+	CLK_LOOKUP("", mdss_pclk0_clk.c, ""),
+	CLK_LOOKUP("", pclk0_clk_src.c, ""),
 	CLK_LOOKUP("", mdss_vsync_clk.c, ""),
 	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent"),
 	CLK_LOOKUP("", mmss_mmssnoc_axi_clk.c, ""),
@@ -3755,6 +3878,12 @@ static void __init msmsamarium_clock_pre_init(void)
 	enable_rpm_scaling();
 
 	reg_init();
+
+	/*
+	 * MDSS needs the ahb clock and needs to init before we register the
+	 * lookup table.
+	 */
+	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
 }
 
 static void __init msmsamarium_rumi_clock_pre_init(void)
