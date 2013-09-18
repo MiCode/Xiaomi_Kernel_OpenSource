@@ -199,6 +199,7 @@ struct adreno_device {
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
 	ADRENO_DEVICE_PWRON_FIXUP = 1,
+	ADRENO_DEVICE_INITIALIZED = 2,
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0
