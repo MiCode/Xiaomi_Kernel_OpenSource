@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -386,8 +386,8 @@ char fuse_regulator_name[] = "8058_lvs0";
 
 struct resource qfp_fuse_resources[] = {
 	{
-		.start = (uint32_t) MSM_QFP_FUSE_BASE,
-		.end   = (uint32_t) MSM_QFP_FUSE_BASE + MSM_QFP_FUSE_SIZE,
+		.start = MSM_QFP_FUSE_PHYS,
+		.end   = MSM_QFP_FUSE_PHYS + MSM_QFP_FUSE_SIZE - 1,
 		.flags = IORESOURCE_MEM,
 	},
 };
