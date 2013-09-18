@@ -2463,6 +2463,7 @@ static struct local_vote_clk gcc_ce1_clk = {
 	.en_mask = BIT(5),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ce1_clk_src.c,
 		.dbg_name = "gcc_ce1_clk",
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce1_clk.c),
@@ -2499,6 +2500,7 @@ static struct local_vote_clk gcc_ce2_clk = {
 	.en_mask = BIT(2),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ce2_clk_src.c,
 		.dbg_name = "gcc_ce2_clk",
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce2_clk.c),
@@ -2535,6 +2537,7 @@ static struct local_vote_clk gcc_ce3_clk = {
 	.en_mask = BIT(30),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ce3_clk_src.c,
 		.dbg_name = "gcc_ce3_clk",
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce3_clk.c),
@@ -5772,14 +5775,17 @@ static struct clk_lookup apq_clocks_8084[] = {
 	/* CE clocks */
 	CLK_LOOKUP("",	gcc_ce1_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce1_axi_clk.c,	""),
+	CLK_LOOKUP("",	ce1_clk_src.c,	""),
 	CLK_LOOKUP("",	gcc_ce1_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_ce2_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce2_axi_clk.c,	""),
+	CLK_LOOKUP("",	ce2_clk_src.c,	""),
 	CLK_LOOKUP("",	gcc_ce2_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_ce3_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce3_axi_clk.c,	""),
+	CLK_LOOKUP("",	ce3_clk_src.c,	""),
 	CLK_LOOKUP("",	gcc_ce3_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_copss_smmu_ahb_clk.c,	""),
