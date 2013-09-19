@@ -6294,6 +6294,24 @@ static struct clk_lookup apq_clocks_8084[] = {
 						"fde0b000.qcom,vpu"),
 	CLK_LOOKUP("prng_clk", gcc_prng_ahb_clk.c, "fde0b000.qcom,vpu"),
 
+	CLK_LOOKUP("iface_clk", vpu_ahb_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("bus_clk", vpu_axi_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("vdp_clk", vpu_vdp_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("vdp_bus_clk", vpu_bus_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("cxo_clk", vpu_cxo_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("core_clk", vpu_maple_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("sleep_clk", vpu_sleep_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("maple_bus_clk", gcc_mmss_vpu_maple_sys_noc_axi_clk.c,
+						"fde0b000.qcom,pil-vpu"),
+
+	CLK_LOOKUP("",	vpu_ahb_clk.c,	""),
+	CLK_LOOKUP("",	vpu_axi_clk.c,	""),
+	CLK_LOOKUP("",	vpu_bus_clk.c,	""),
+	CLK_LOOKUP("",	vpu_cxo_clk.c,	""),
+	CLK_LOOKUP("",	vpu_maple_clk.c,	""),
+	CLK_LOOKUP("",	vpu_sleep_clk.c,	""),
+	CLK_LOOKUP("",	vpu_vdp_clk.c,	""),
+
 	/* IOMMU clocks */
 	CLK_LOOKUP("iface_clk", camss_jpeg_jpeg_ahb_clk.c,
 						"fda64000.qcom,iommu"),

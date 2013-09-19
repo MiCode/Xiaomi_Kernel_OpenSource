@@ -1220,6 +1220,16 @@ config MSM_PIL_VENUS
 	  Support for booting and shutting down the VENUS processor (Video).
 	  Venus is the Video subsystem processor used for video codecs.
 
+config MSM_PIL_VPU
+	tristate "VPU Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down the VPU (Video Processing Unit)
+	  processor.
+
+	  VPU is the Video Processing subsystem processor used for
+	  video processing.
+
 config MSM_PIL_GSS
 	tristate "GSS (Cortex A5) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
