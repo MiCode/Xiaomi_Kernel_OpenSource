@@ -27,7 +27,6 @@
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
-static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
 
@@ -42,21 +41,29 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
-static u32 mdss_mdp_smp_mmb_reserve(unsigned long *existing,
-	unsigned long *reserve, size_t n)
+static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
+	size_t n)
 {
 	u32 i, mmb;
+	u32 fixed_cnt = bitmap_weight(smp_map->fixed, SMP_MB_CNT);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (n <= fixed_cnt)
+		return fixed_cnt;
+	else
+		n -= fixed_cnt;
 
 	/* reserve more blocks if needed, but can't free mmb at this point */
-	for (i = bitmap_weight(existing, SMP_MB_CNT); i < n; i++) {
-		if (bitmap_full(mdss_mdp_smp_mmb_pool, SMP_MB_CNT))
+	for (i = bitmap_weight(smp_map->allocated, SMP_MB_CNT); i < n; i++) {
+		if (bitmap_full(mdata->mmb_alloc_map, SMP_MB_CNT))
 			break;
 
-		mmb = find_first_zero_bit(mdss_mdp_smp_mmb_pool, SMP_MB_CNT);
-		set_bit(mmb, reserve);
-		set_bit(mmb, mdss_mdp_smp_mmb_pool);
+		mmb = find_first_zero_bit(mdata->mmb_alloc_map, SMP_MB_CNT);
+		set_bit(mmb, smp_map->reserved);
+		set_bit(mmb, mdata->mmb_alloc_map);
 	}
-	return i;
+
+	return i + fixed_cnt;
 }
 
 static int mdss_mdp_smp_mmb_set(int client_id, unsigned long *smp)
@@ -85,10 +92,12 @@ static void mdss_mdp_smp_mmb_amend(unsigned long *smp, unsigned long *extra)
 
 static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
 	if (!bitmap_empty(smp, SMP_MB_CNT)) {
 		if (write)
 			mdss_mdp_smp_mmb_set(0, smp);
-		bitmap_andnot(mdss_mdp_smp_mmb_pool, mdss_mdp_smp_mmb_pool,
+		bitmap_andnot(mdata->mmb_alloc_map, mdata->mmb_alloc_map,
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
 	}
@@ -226,8 +235,8 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
-		reserved = mdss_mdp_smp_mmb_reserve(pipe->smp_map[i].allocated,
-			pipe->smp_map[i].reserved, num_blks);
+		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp_map[i],
+			num_blks);
 		if (reserved < num_blks)
 			break;
 	}
@@ -265,6 +274,8 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
+		cnt += bitmap_weight(pipe->smp_map[i].fixed, SMP_MB_CNT);
+
 		if (bitmap_empty(pipe->smp_map[i].reserved, SMP_MB_CNT)) {
 			cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
 				pipe->smp_map[i].allocated);
