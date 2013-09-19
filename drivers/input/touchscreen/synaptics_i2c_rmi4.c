@@ -3374,17 +3374,6 @@ static int synaptics_rmi4_resume(struct device *dev)
 	rmi4_data->touch_stopped = false;
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 
-	if (rmi4_data->board->power_down_enable ||
-			rmi4_data->board->disable_gpios) {
-		retval = synaptics_rmi4_reset_device(rmi4_data);
-		if (retval < 0) {
-			dev_err(&rmi4_data->i2c_client->dev,
-				"%s: Failed to issue reset command, " \
-				"rc = %d\n", __func__, retval);
-			return retval;
-		}
-	}
-
 	rmi4_data->suspended = false;
 
 	return 0;
