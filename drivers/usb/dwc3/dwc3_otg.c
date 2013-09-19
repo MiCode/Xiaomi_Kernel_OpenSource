@@ -24,6 +24,7 @@
 #include "io.h"
 #include "xhci.h"
 
+#define VBUS_REG_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 #define MAX_INVALID_CHRGR_RETRY 3
 static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
 module_param(max_chgr_retry_count, int, S_IRUGO | S_IWUSR);
@@ -339,13 +340,13 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 		dev_dbg(otg->phy->dev, "%s: set gadget %s\n",
 					__func__, gadget->name);
 		otg->gadget = gadget;
-		schedule_work(&dotg->sm_work);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 	} else {
 		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
 			dwc3_otg_start_peripheral(otg, 0);
 			otg->gadget = NULL;
 			otg->phy->state = OTG_STATE_UNDEFINED;
-			schedule_work(&dotg->sm_work);
+			queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 		} else {
 			otg->gadget = NULL;
 		}
@@ -370,7 +371,7 @@ static void dwc3_ext_chg_det_done(struct usb_otg *otg, struct dwc3_charger *chg)
 	 * STOP chg_det as part of !BSV handling would reset the chg_det flags
 	 */
 	if (test_bit(B_SESS_VLD, &dotg->inputs))
-		schedule_work(&dotg->sm_work);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 }
 
 /**
@@ -409,7 +410,7 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 
 	/* Flush processing any pending events before handling new ones */
 	if (init)
-		flush_work(&dotg->sm_work);
+		flush_delayed_work(&dotg->sm_work);
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
@@ -456,15 +457,16 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 
 		if (!init) {
 			init = true;
-			if (!work_busy(&dotg->sm_work))
-				schedule_work(&dotg->sm_work);
+			if (!work_busy(&dotg->sm_work.work))
+				queue_delayed_work(system_nrt_wq,
+							&dotg->sm_work, 0);
 
 			complete(&dotg->dwc3_xcvr_vbus_init);
 			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
 			return;
 		}
 
-		schedule_work(&dotg->sm_work);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 	}
 }
 
@@ -613,7 +615,7 @@ static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 			handled_irqs |= DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT;
 		}
 
-		schedule_work(&dotg->sm_work);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
 
 		ret = IRQ_HANDLED;
 
@@ -674,10 +676,12 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
  */
 static void dwc3_otg_sm_work(struct work_struct *w)
 {
-	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, sm_work);
+	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, sm_work.work);
 	struct usb_phy *phy = dotg->otg.phy;
 	struct dwc3_charger *charger = dotg->charger;
 	bool work = 0;
+	int ret = 0;
+	int delay = 0;
 
 	pm_runtime_resume(phy->dev);
 	dev_dbg(phy->dev, "%s state\n", usb_otg_state_string(phy->state));
@@ -820,10 +824,23 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		if (test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "id\n");
 			phy->state = OTG_STATE_B_IDLE;
+			dotg->vbus_retry_count = 0;
 			work = 1;
 		} else {
 			phy->state = OTG_STATE_A_HOST;
-			if (dwc3_otg_start_host(&dotg->otg, 1)) {
+			ret = dwc3_otg_start_host(&dotg->otg, 1);
+			if ((ret == -EPROBE_DEFER) &&
+						dotg->vbus_retry_count < 3) {
+				/*
+				 * Get regulator failed as regulator driver is
+				 * not up yet. Will try to start host after 1sec
+				 */
+				phy->state = OTG_STATE_A_IDLE;
+				dev_dbg(phy->dev, "Unable to get vbus regulator. Retrying...\n");
+				delay = VBUS_REG_CHECK_DELAY;
+				work = 1;
+				dotg->vbus_retry_count++;
+			} else if (ret) {
 				/*
 				 * Probably set_host was not called yet.
 				 * We will re-try as soon as it will be called
@@ -842,6 +859,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dev_dbg(phy->dev, "id\n");
 			dwc3_otg_start_host(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
+			dotg->vbus_retry_count = 0;
 			work = 1;
 		}
 		break;
@@ -852,7 +870,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		schedule_work(&dotg->sm_work);
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, delay);
 }
 
 
@@ -1005,7 +1023,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->dev = dwc->dev;
 
 	init_completion(&dotg->dwc3_xcvr_vbus_init);
-	INIT_WORK(&dotg->sm_work, dwc3_otg_sm_work);
+	INIT_DELAYED_WORK(&dotg->sm_work, dwc3_otg_sm_work);
 
 	ret = request_irq(dotg->irq, dwc3_otg_interrupt, IRQF_SHARED,
 				"dwc3_otg", dotg);
@@ -1020,7 +1038,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	return 0;
 
 err1:
-	cancel_work_sync(&dotg->sm_work);
+	cancel_delayed_work_sync(&dotg->sm_work);
 	dwc->dotg = NULL;
 
 	return ret;
@@ -1040,7 +1058,7 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 	if (dotg) {
 		if (dotg->charger)
 			dotg->charger->start_detection(dotg->charger, false);
-		cancel_work_sync(&dotg->sm_work);
+		cancel_delayed_work_sync(&dotg->sm_work);
 		pm_runtime_put(dwc->dev);
 		free_irq(dotg->irq, dotg);
 		dwc->dotg = NULL;
