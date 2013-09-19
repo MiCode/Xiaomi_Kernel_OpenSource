@@ -1763,7 +1763,7 @@ static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
 {
 	union power_supply_propval ret = {0,};
-	int battery_status, charger_in;
+	int battery_status, bms_status, soc, charger_in;
 
 	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
 		return DEFAULT_CAPACITY;
@@ -1771,28 +1771,32 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		soc = ret.intval;
 		battery_status = get_prop_batt_status(chip);
+		chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_STATUS, &ret);
+		bms_status = ret.intval;
 		charger_in = qpnp_chg_is_usb_chg_plugged_in(chip) ||
 			qpnp_chg_is_dc_chg_plugged_in(chip);
 
 		if (battery_status != POWER_SUPPLY_STATUS_CHARGING
+				&& bms_status != POWER_SUPPLY_STATUS_CHARGING
 				&& charger_in
 				&& !chip->resuming_charging
 				&& !chip->charging_disabled
 				&& chip->soc_resume_limit
-				&& ret.intval <= chip->soc_resume_limit) {
-			pr_debug("resuming charging at %d%% soc\n",
-					ret.intval);
+				&& soc <= chip->soc_resume_limit) {
+			pr_debug("resuming charging at %d%% soc\n", soc);
 			chip->resuming_charging = true;
 			qpnp_chg_set_appropriate_vbatdet(chip);
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
 		}
-		if (ret.intval == 0) {
+		if (soc == 0) {
 			if (!qpnp_chg_is_usb_chg_plugged_in(chip)
 				&& !qpnp_chg_is_usb_chg_plugged_in(chip))
 				pr_warn_ratelimited("Battery 0, CHG absent\n");
 		}
-		return ret.intval;
+		return soc;
 	} else {
 		pr_debug("No BMS supply registered return 50\n");
 	}

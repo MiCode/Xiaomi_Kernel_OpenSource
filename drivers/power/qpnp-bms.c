@@ -191,6 +191,7 @@ struct qpnp_bms_chip {
 	struct mutex			vbat_monitor_mutex;
 	struct mutex			soc_invalidation_mutex;
 	struct mutex			last_soc_mutex;
+	struct mutex			status_lock;
 
 	bool				use_external_rsense;
 	bool				use_ocv_thresholds;
@@ -297,6 +298,7 @@ static char *qpnp_bms_supplicants[] = {
 
 static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
@@ -3139,6 +3141,7 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 {
 	int status = get_battery_status(chip);
 
+	mutex_lock(&chip->status_lock);
 	if (chip->battery_status != status) {
 		pr_debug("status = %d, shadow status = %d\n",
 				status, chip->battery_status);
@@ -3155,6 +3158,7 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 			pr_debug("battery full\n");
 			enable_bms_irq(&chip->ocv_thr_irq);
 			enable_bms_irq(&chip->sw_cc_thr_irq);
+			recalculate_soc(chip);
 		} else if (chip->battery_status
 				== POWER_SUPPLY_STATUS_FULL) {
 			pr_debug("battery not full any more\n");
@@ -3167,6 +3171,7 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 		 * recalculation to update the SoC */
 		schedule_work(&chip->recalc_work);
 	}
+	mutex_unlock(&chip->status_lock);
 }
 
 #define CALIB_WRKARND_DIG_MAJOR_MAX		0x03
@@ -3248,6 +3253,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_bms_capacity(chip);
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		val->intval = chip->battery_status;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_bms_current_now(chip);
@@ -4037,6 +4045,7 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->vbat_monitor_mutex);
 	mutex_init(&chip->soc_invalidation_mutex);
 	mutex_init(&chip->last_soc_mutex);
+	mutex_init(&chip->status_lock);
 	init_waitqueue_head(&chip->bms_wait_queue);
 
 	warm_reset = qpnp_pon_is_warm_reset();
