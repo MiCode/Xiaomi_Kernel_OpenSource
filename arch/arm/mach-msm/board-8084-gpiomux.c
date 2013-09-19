@@ -228,6 +228,50 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting auxpcm_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting auxpcm_sus_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+/* Primary AUXPCM port sharing GPIO lines with Tertiary MI2S */
+static struct msm_gpiomux_config apq8084_pri_ter_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 87,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 88,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 89,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 90,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+};
+
 void __init apq8084_init_gpiomux(void)
 {
 	int rc;
@@ -243,4 +287,6 @@ void __init apq8084_init_gpiomux(void)
 			ARRAY_SIZE(apq8084_hsic_configs));
 	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
 	msm_gpiomux_install(mdm_configs, ARRAY_SIZE(mdm_configs));
+	msm_gpiomux_install(apq8084_pri_ter_auxpcm_configs,
+			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
 }
