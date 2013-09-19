@@ -14,7 +14,6 @@
 
 /include/ "msm8610-v1.dtsi"
 /include/ "msm8610-qrd-skuab.dtsi"
-/include/ "dsi-v2-panel-otm8018b-fwvga-video.dtsi"
 /include/ "msm8612-qrd-camera-sensor.dtsi"
 
 / {

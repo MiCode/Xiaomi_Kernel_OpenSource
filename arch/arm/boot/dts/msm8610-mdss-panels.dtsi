@@ -10,16 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msm8610-v2.dtsi"
-/include/ "msm8610-cdp.dtsi"
-/include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8610v2 CDP";
-	compatible = "qcom,msm8610-cdp", "qcom,msm8610", "qcom,cdp";
-	qcom,board-id = <1 0>;
-};
-
-
+/include/ "dsi-panel-truly-wvga-video.dtsi"
+/include/ "dsi-panel-truly-wvga-cmd.dtsi"
+/include/ "dsi-panel-nt35590-720p-video.dtsi"
+/include/ "dsi-panel-otm8018b-fwvga-video.dtsi"
+/include/ "dsi-panel-hx8379a-wvga-video.dtsi"

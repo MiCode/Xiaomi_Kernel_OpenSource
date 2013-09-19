@@ -202,10 +202,6 @@
             "AMIC2", "MIC BIAS Internal2",
             "AMIC3", "MIC BIAS External";
     };
-
-	qcom,dsi_v2_truly_wvga_video {
-		qcom,cont-splash-enabled;
-	};
 };
 
 &i2c_cdc  {
@@ -442,4 +438,20 @@
 
 &pm8110_chg {
 	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_wvga_vid>;
+};
+
+&dsi_truly_wvga_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_truly_wvga_cmd {
+	qcom,cont-splash-enabled;
 };
