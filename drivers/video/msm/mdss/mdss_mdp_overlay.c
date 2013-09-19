@@ -1809,9 +1809,12 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
-		pp_bus_handle = mdss_mdp_get_mdata()->pp_bus_hdl;
 		ret = mdss_mdp_histogram_stop(mdp5_data->ctl, block);
+		if (ret)
+			return ret;
+
 		if (!req) {
+			pp_bus_handle = mdss_mdp_get_mdata()->pp_bus_hdl;
 			req = msm_bus_scale_client_update_request(pp_bus_handle,
 				 PP_CLK_CFG_OFF);
 			if (req)
