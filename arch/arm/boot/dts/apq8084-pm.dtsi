@@ -121,7 +121,7 @@
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-ret = [1f 00 20 03 22 00 0f];
 		qcom,saw2-spm-cmd-gdhs = [00 20 32 42 07 44 22 50 02 32 50 0f];
-		qcom,saw2-spm-cmd-pc = [00 10 22 12 32 b0 11 42 07 01 b0 12 22
+		qcom,saw2-spm-cmd-pc = [00 22 12 32 b0 11 42 07 01 b0 12 22
 				44 50 02 32 50 0f];
 		qcom,L2-spm-is-apcs-master;
 	};
