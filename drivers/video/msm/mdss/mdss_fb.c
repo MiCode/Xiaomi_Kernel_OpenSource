@@ -1540,6 +1540,13 @@ static int __mdss_fb_display_thread(void *data)
 {
 	struct msm_fb_data_type *mfd = data;
 	int ret;
+	struct sched_param param;
+
+	param.sched_priority = 16;
+	ret = sched_setscheduler(current, SCHED_FIFO, &param);
+	if (ret)
+		pr_warn("set priority failed for fb%d display thread\n",
+				mfd->index);
 
 	while (1) {
 		wait_event(mfd->commit_wait_q,
