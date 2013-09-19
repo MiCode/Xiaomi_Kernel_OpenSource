@@ -797,6 +797,10 @@ struct ipa_controller {
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 	int (*ipa_commit_rt)(enum ipa_ip_type ip);
 	int (*ipa_commit_hdr)(void);
+	void (*ipa_cfg_ep_cfg)(u32 clnt_hdl,
+			const struct ipa_ep_cfg_cfg *cfg);
+	void (*ipa_cfg_ep_metadata_mask)(u32 clnt_hdl,
+			const struct ipa_ep_cfg_metadata_mask *metadata_mask);
 };
 
 extern struct ipa_context *ipa_ctx;
