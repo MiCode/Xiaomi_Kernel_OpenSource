@@ -28,10 +28,6 @@
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
 
-	qcom,dsi_v2_hx8379a_wvga_video {
-		qcom,cont-splash-enabled;
-	};
-
 	usb@f9a55000 {
 		qcom,hsusb-otg-phy-init-seq =
 		<0x44 0x80 0x6a 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
@@ -61,4 +57,16 @@
 		label = "batt_therm";
 		qcom,scale-function = <7>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_wvga_vid>;
+};
+
+&dsi_hx8379a_wvga_vid {
+	qcom,cont-splash-enabled;
 };
