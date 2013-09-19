@@ -17,6 +17,12 @@
 	compatible = "qcom,apq8084";
 	qcom,msm-id = <178 0x10000>;
 	interrupt-parent = <&intc>;
+
+	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+	};
+
 	soc: soc { };
 };
 
@@ -187,6 +193,18 @@
 		status = "disabled";
 	};
 
+	sdhc_1: sdhci@f9824900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		status = "disabled";
+	};
+
 	sdcc2: qcom,sdcc@f98a4000 {
 		cell-index = <2>; /* SDC2 SD card slot */
 		compatible = "qcom,msm-sdcc";
@@ -195,6 +213,17 @@
 		interrupts = <0 125 0>;
 		interrupt-names = "core_irq";
 
+		qcom,bus-width = <4>;
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@f98a4900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf98a4900 0x11c>, <0xf98a4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <4>;
 		status = "disabled";
