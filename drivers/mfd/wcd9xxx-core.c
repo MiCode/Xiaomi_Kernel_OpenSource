@@ -1689,6 +1689,10 @@ static int wcd9xxx_device_up(struct wcd9xxx *wcd9xxx)
 static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	if (!wcd9xxx) {
+		pr_err("%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
 	dev_dbg(wcd9xxx->dev, "%s: device up\n", __func__);
 	return wcd9xxx_device_up(wcd9xxx);
 }
@@ -1697,6 +1701,10 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
 
+	if (!wcd9xxx) {
+		pr_err("%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
 	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
