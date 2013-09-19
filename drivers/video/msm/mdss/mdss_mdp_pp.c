@@ -19,6 +19,8 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
@@ -225,6 +227,27 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define SHARP_EDGE_THR_DEFAULT	112
 #define SHARP_SMOOTH_THR_DEFAULT	8
 #define SHARP_NOISE_THR_DEFAULT	2
+
+#define MDP_PP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
+	{						\
+		.src = MSM_BUS_MASTER_SPDM,		\
+		.dst = MSM_BUS_SLAVE_IMEM_CFG,		\
+		.ab = (ab_val),				\
+		.ib = (ib_val),				\
+	}
+
+#define SZ_37_5M (37500000 * 8)
+
+static struct msm_bus_vectors mdp_pp_bus_vectors[] = {
+	MDP_PP_BUS_VECTOR_ENTRY(0, 0),
+	MDP_PP_BUS_VECTOR_ENTRY(0, SZ_37_5M),
+};
+static struct msm_bus_paths mdp_pp_bus_usecases[ARRAY_SIZE(mdp_pp_bus_vectors)];
+static struct msm_bus_scale_pdata mdp_pp_bus_scale_table = {
+	.usecase = mdp_pp_bus_usecases,
+	.num_usecases = ARRAY_SIZE(mdp_pp_bus_usecases),
+	.name = "mdss_pp",
+};
 
 struct mdss_pp_res_type {
 	/* logical info */
@@ -1268,6 +1291,7 @@ int mdss_mdp_pp_init(struct device *dev)
 	int i, ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
+	struct msm_bus_scale_pdata *pp_bus_pdata;
 
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
@@ -1289,12 +1313,34 @@ int mdss_mdp_pp_init(struct device *dev)
 			mutex_init(&vig[i].pp_res.hist.hist_mutex);
 			spin_lock_init(&vig[i].pp_res.hist.hist_lock);
 		}
+		if (!mdata->pp_bus_hdl) {
+			pp_bus_pdata = &mdp_pp_bus_scale_table;
+			for (i = 0; i < pp_bus_pdata->num_usecases; i++) {
+				mdp_pp_bus_usecases[i].num_paths = 1;
+				mdp_pp_bus_usecases[i].vectors =
+					&mdp_pp_bus_vectors[i];
+			}
+
+			mdata->pp_bus_hdl =
+				msm_bus_scale_register_client(pp_bus_pdata);
+			if (!mdata->pp_bus_hdl) {
+				pr_err("not able to register pp_bus_scale\n");
+				ret = -ENOMEM;
+			}
+			pr_debug("register pp_bus_hdl=%x\n", mdata->pp_bus_hdl);
+		}
+
 	}
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
 void mdss_mdp_pp_term(struct device *dev)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata->pp_bus_hdl) {
+		msm_bus_scale_unregister_client(mdata->pp_bus_hdl);
+		mdata->pp_bus_hdl = 0;
+	}
 	if (!mdss_pp_res) {
 		mutex_lock(&mdss_pp_mutex);
 		devm_kfree(dev, mdss_pp_res);
