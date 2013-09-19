@@ -581,10 +581,11 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_panel_data *pdata;
-	int ret = 0, off;
+	int i, ret = 0, off;
 	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
 	int mdss_v2_intf_off = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	u32 data, flush;
 
 	off = 0;
 
@@ -600,7 +601,18 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 		return ret;
 	}
 
-	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
+	/* clear up mixer0 and mixer1 */
+	flush = 0;
+	for (i = 0; i < 2; i++) {
+		data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_LAYER(i));
+		if (data) {
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i),
+						MDSS_MDP_LM_BORDER_COLOR);
+			flush |= (0x40 << i);
+		}
+	}
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
+
 	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 
 	if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
