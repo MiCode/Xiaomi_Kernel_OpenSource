@@ -290,6 +290,7 @@ static int msm_pcm_restart(struct snd_pcm_substream *substream)
 	struct output_meta_data_st output_meta_data;
 
 	pr_debug("%s: restart\n", __func__);
+	memset(&output_meta_data, 0x0, sizeof(struct output_meta_data_st));
 	if (runtime->render_flag & SNDRV_RENDER_STOPPED) {
 		buf = prtd->audio_client->port[IN].buf;
 		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
