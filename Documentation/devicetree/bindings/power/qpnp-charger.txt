@@ -86,6 +86,8 @@ Parent node optional properties:
 					that exhibit inaccuracies in battery current readings. This
 					phandle is used to check the version of the PMIC and apply
 					necessary software workarounds.
+- qcom,ext-ovp-present			Indicates if an external OVP exists which reduces the
+					overall input resistance of the charge path.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
