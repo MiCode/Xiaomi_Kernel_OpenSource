@@ -473,6 +473,10 @@
 			qcom,freq-req;
 		};
 	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
 };
 
 &gdsc_venus {
