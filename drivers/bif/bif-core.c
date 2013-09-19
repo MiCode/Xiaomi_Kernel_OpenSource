@@ -205,13 +205,14 @@ static void bif_print_slave_data(struct bif_slave_dev *sdev)
 	}
 
 	if (sdev->nvm_function) {
-		pr_debug("  NVM function: pointer=0x%04X, task=%d, wr_buf_size=%d, nvm_base=0x%04X, nvm_size=%d\n",
+		pr_debug("  NVM function: pointer=0x%04X, task=%d, wr_buf_size=%d, nvm_base=0x%04X, nvm_size=%d, nvm_lock_offset=%d\n",
 			sdev->nvm_function->nvm_pointer,
 			sdev->nvm_function->slave_control_channel,
 			(sdev->nvm_function->write_buffer_size
 				? sdev->nvm_function->write_buffer_size : 0),
 			sdev->nvm_function->nvm_base_address,
-			sdev->nvm_function->nvm_size);
+			sdev->nvm_function->nvm_size,
+			sdev->nvm_function->nvm_lock_offset);
 		if (sdev->nvm_function->object_count)
 			pr_debug("  NVM objects:\n");
 		i = 0;
@@ -699,6 +700,106 @@ static int _bif_disable_auto_task(struct bif_slave_dev *sdev, unsigned int task)
 	if (rc) {
 		pr_err("BIF slave register masked write failed, rc=%d\n", rc);
 		return rc;
+	}
+
+	return rc;
+}
+
+/*
+ * The MIPI-BIF spec does not define a maximum time in which an NVM write must
+ * complete.  The following delay and recheck count therefore represent
+ * arbitrary but reasonable values.
+ */
+#define NVM_WRITE_POLL_DELAY_MS		20
+#define NVM_WRITE_MAX_POLL_COUNT	50
+
+static int _bif_slave_nvm_raw_write(struct bif_slave_dev *sdev, u16 offset,
+				u8 *buf, int len)
+{
+	int rc = 0;
+	int write_len, poll_count, rc2;
+	u8 write_buf[3];
+
+	if (!sdev->nvm_function) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	} else if (offset + len > sdev->nvm_function->nvm_size) {
+		pr_err("write offset + len = %d > NVM size = %d\n",
+			offset + len, sdev->nvm_function->nvm_size);
+		return -EINVAL;
+	} else if (offset < sdev->nvm_function->nvm_lock_offset) {
+		pr_err("write offset = %d < first writable offset = %d\n",
+			offset, sdev->nvm_function->nvm_lock_offset);
+		return -EINVAL;
+	}
+
+	rc = _bif_enable_auto_task(sdev,
+			sdev->nvm_function->slave_control_channel);
+	if (rc) {
+		pr_err("Failed to enable NVM auto task, rc=%d\n", rc);
+		return rc;
+	}
+
+	while (len > 0) {
+		write_len = sdev->nvm_function->write_buffer_size;
+		if (write_len == 0)
+			write_len = 256;
+		write_len = min(write_len, len);
+
+		write_buf[0] = offset >> 8;
+		write_buf[1] = offset;
+		write_buf[2] = (write_len == 256) ? 0 : write_len;
+
+		/* Write offset and size registers. */
+		rc = _bif_slave_write(sdev, sdev->nvm_function->nvm_pointer + 6,
+					write_buf, 3);
+		if (rc) {
+			pr_err("BIF slave write failed, rc=%d\n", rc);
+			goto done;
+		}
+
+		/* Write to NVM write buffer registers. */
+		rc = _bif_slave_write(sdev, sdev->nvm_function->nvm_pointer + 9,
+					buf, write_len);
+		if (rc) {
+			pr_err("BIF slave write failed, rc=%d\n", rc);
+			goto done;
+		}
+
+		/*
+		 * Wait for completion of the NVM write which was auto-triggered
+		 * by the register write of the last byte in the NVM write
+		 * buffer.
+		 */
+		poll_count = NVM_WRITE_MAX_POLL_COUNT;
+		do {
+			msleep(NVM_WRITE_POLL_DELAY_MS);
+			rc = _bif_task_is_busy(sdev,
+				sdev->nvm_function->slave_control_channel);
+			poll_count--;
+		} while (rc > 0 && poll_count > 0);
+
+		if (rc < 0) {
+			pr_err("Failed to check task state, rc=%d", rc);
+			goto done;
+		} else if (rc > 0) {
+			pr_err("BIF slave NVM write not completed after %d ms\n",
+			    NVM_WRITE_POLL_DELAY_MS * NVM_WRITE_MAX_POLL_COUNT);
+			rc = -ETIMEDOUT;
+			goto done;
+		}
+
+		len -= write_len;
+		offset += write_len;
+		buf += write_len;
+	}
+
+done:
+	rc2 = _bif_disable_auto_task(sdev,
+			sdev->nvm_function->slave_control_channel);
+	if (rc2) {
+		pr_err("Failed to disable NVM auto task, rc=%d\n", rc2);
+		return rc2;
 	}
 
 	return rc;
@@ -1659,6 +1760,74 @@ int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len)
 EXPORT_SYMBOL(bif_slave_write);
 
 /**
+ * bif_slave_nvm_raw_read() - read contiguous memory values from a BIF slave's
+ *		non-volatile memory (NVM)
+ * @slave:	BIF slave handle
+ * @offset:	Offset from the beginning of BIF slave NVM to begin reading at
+ * @buf:	Buffer to fill with memory values
+ * @len:	Number of byte to read
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len)
+{
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	} else if (IS_ERR_OR_NULL(buf)) {
+		pr_err("Invalid buffer pointer=%ld\n", PTR_ERR(buf));
+		return -EINVAL;
+	} else if (!slave->sdev->nvm_function) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	} else if (offset + len > slave->sdev->nvm_function->nvm_size) {
+		pr_err("read offset + len = %d > NVM size = %d\n",
+			offset + len, slave->sdev->nvm_function->nvm_size);
+		return -EINVAL;
+	}
+
+	return bif_slave_read(slave,
+		slave->sdev->nvm_function->nvm_base_address + offset, buf, len);
+}
+EXPORT_SYMBOL(bif_slave_nvm_raw_read);
+
+/**
+ * bif_slave_nvm_raw_write() - write contiguous memory values to a BIF slave's
+ *		non-volatile memory (NVM)
+ * @slave:	BIF slave handle
+ * @offset:	Offset from the beginning of BIF slave NVM to begin writing at
+ * @buf:	Buffer containing values to write
+ * @len:	Number of byte to write
+ *
+ * Note that this function does *not* respect the MIPI-BIF object data
+ * formatting specification.  It can cause corruption of the object data list
+ * stored in NVM if used improperly.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	} else if (IS_ERR_OR_NULL(buf)) {
+		pr_err("Invalid buffer pointer=%ld\n", PTR_ERR(buf));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_slave_nvm_raw_write(slave->sdev, offset, buf, len);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_slave_nvm_raw_write);
+
+/**
  * bif_slave_is_present() - check if a slave is currently physically present
  *		in the system
  * @slave:	BIF slave handle
@@ -2276,11 +2445,20 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		return rc;
 	}
 
-	sdev->nvm_function->nvm_pointer		= buf[0] << 8 | buf[1];
+	sdev->nvm_function->nvm_pointer			= buf[0] << 8 | buf[1];
 	sdev->nvm_function->slave_control_channel	= buf[2];
 	sdev->nvm_function->write_buffer_size		= buf[3];
 	sdev->nvm_function->nvm_base_address		= buf[4] << 8 | buf[5];
 	sdev->nvm_function->nvm_size			= buf[6] << 8 | buf[7];
+
+	/* Read NVM lock offset */
+	rc = _bif_slave_read(sdev, sdev->nvm_function->nvm_pointer, buf, 2);
+	if (rc) {
+		pr_err("Slave memory read failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	sdev->nvm_function->nvm_lock_offset		= buf[0] << 8 | buf[1];
 
 	INIT_LIST_HEAD(&sdev->nvm_function->object_list);
 
