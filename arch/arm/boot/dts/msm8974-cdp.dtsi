@@ -237,6 +237,7 @@
 		hsic,data-pad-offset = <0x2054>;
 		qcom,phy-susp-sof-workaround;
 		hsic,vdd-voltage-level = <1 5 7>;
+		qcom,disable-internal-clk-gating;
 
 		qcom,msm-bus,name = "hsic";
 		qcom,msm-bus,num-cases = <2>;
