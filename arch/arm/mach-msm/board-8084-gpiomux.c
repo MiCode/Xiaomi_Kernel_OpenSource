@@ -64,6 +64,28 @@ static struct gpiomux_setting ap2mdm_wakeup = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting hap_lvl_shft_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting hap_lvl_shft_suspended_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
+	{
+		.gpio = 48,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hap_lvl_shft_active_config,
+			[GPIOMUX_SUSPENDED] = &hap_lvl_shft_suspended_config,
+		},
+	},
+};
+
 static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	/* AP2MDM_STATUS */
 	{
@@ -233,6 +255,18 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 	{
 		.gpio      = 30,		/* BLSP1 QUP4 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 41,		/* BLSP1 QUP5 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 42,		/* BLSP1 QUP5 ISC_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
@@ -616,4 +650,6 @@ void __init apq8084_init_gpiomux(void)
 	msm_gpiomux_install(msm_wlan_configs, ARRAY_SIZE(msm_wlan_configs));
 
 	msm_gpiomux_install(&sd_card_det, 1);
+	msm_gpiomux_install(hap_lvl_shft_config,
+					ARRAY_SIZE(hap_lvl_shft_config));
 }

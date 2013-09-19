@@ -371,10 +371,10 @@
 	gpio@cf00 { /* GPIO 16 */
 		qcom,mode = <1>;		/* Digital output */
 		qcom,output-type = <0>;		/* CMOS logic */
-		qcom,invert = <0>;		/* Output low initially */
+		qcom,pull = <5>;		/* No pull */
 		qcom,vin-sel = <2>;		/* VIN 2 */
-		qcom,src-sel = <2>;		/* Function 1 */
-		qcom,out-strength = <2>;	/* Medium */
+		qcom,out-strength = <3>;	/* High */
+		qcom,src-sel = <3>;       	/* QPNP_PIN_SEL_FUNC_2  */
 		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
@@ -468,3 +468,27 @@
 		interrupts = <0x00 0xcd 0x0>; /* PMIC8084 GPIO 14 */
 	};
 };
+
+&i2c_2 {
+	isa1200@48 {
+		status = "okay";
+		reg = <0x48>;
+		vcc_i2c-supply = <&pma8084_s4>;
+		compatible = "imagis,isa1200";
+		label = "vibrator";
+		imagis,chip-en;
+		imagis,need-pwm-clk;
+		imagis,ext-clk-en;
+		imagis,hap-en-gpio = <&msmgpio 48 0x00>;
+		imagis,max-timeout = <15000>;
+		imagis,pwm-div = <256>;
+		imagis,mode-ctrl = <2>;
+		imagis,regulator {
+			regulator-name = "vcc_i2c";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-max-microamp = <9360>;
+		};
+	};
+};
+
