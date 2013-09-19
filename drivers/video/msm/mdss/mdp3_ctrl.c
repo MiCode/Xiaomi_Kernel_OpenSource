@@ -1218,7 +1218,8 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 	if (!mdp3_session->dma->config_lut)
 		return -EINVAL;
 
-	if (cmap->start + cmap->len > MDP_LUT_SIZE) {
+	if (cmap->start > MDP_LUT_SIZE || cmap->len > MDP_LUT_SIZE ||
+			(cmap->start + cmap->len > MDP_LUT_SIZE)) {
 		pr_err("mdp3_ctrl_lut_update invalid arguments\n");
 		return  -EINVAL;
 	}
