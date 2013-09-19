@@ -25,7 +25,7 @@ Required properties:
   - #gpio-cells : Must be 2. The first cell is the pin number and the
     second cell is used to specify optional parameters (currently unused).
 
-  - AVDD1-supply, DBVDD1-supply, DBVDD2-supply, DBVDD3-supply, CPVDD-supply,
+  - AVDD-supply, DBVDD1-supply, DBVDD2-supply, DBVDD3-supply, CPVDD-supply,
     SPKVDDL-supply, SPKVDDR-supply : power supplies for the device, as covered
     in Documentation/devicetree/bindings/regulator/regulator.txt
 
@@ -53,10 +53,10 @@ codec: wm5102@1a {
 	#gpio-cells = <2>;
 
 	wlf,gpio-defaults = <
-		0x00000000, /* AIF1TXLRCLK */
-		0xffffffff,
-		0xffffffff,
-		0xffffffff,
-		0xffffffff,
+		0x00000000 /* AIF1TXLRCLK */
+		0xffffffff
+		0xffffffff
+		0xffffffff
+		0xffffffff
 	>;
 };
