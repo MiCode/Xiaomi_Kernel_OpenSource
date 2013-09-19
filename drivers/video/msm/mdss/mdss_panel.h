@@ -74,7 +74,6 @@ enum {
 #define MDSS_INTF_MAX_NAME_LEN 5
 struct mdss_panel_intf {
 	char name[MDSS_INTF_MAX_NAME_LEN];
-	u8   len;
 	int  type;
 };
 
