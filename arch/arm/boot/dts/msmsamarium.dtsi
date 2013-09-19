@@ -30,6 +30,7 @@
 /include/ "msmsamarium-smp2p.dtsi"
 /include/ "msmsamarium-pm.dtsi"
 /include/ "msmsamarium-coresight.dtsi"
+/include/ "msmsamarium-pinctrl.dtsi"
 
 &soc {
 	#address-cells = <1>;

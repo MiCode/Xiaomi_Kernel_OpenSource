@@ -562,6 +562,8 @@ config ARCH_MSMSAMARIUM
 	select MSM_RUN_QUEUE_STATS
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 	select QMI_ENCDEC
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V3
 endmenu
 
 choice
