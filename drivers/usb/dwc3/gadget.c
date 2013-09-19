@@ -2811,9 +2811,6 @@ static void dwc3_dump_reg_info(struct dwc3 *dwc)
 	dbg_print_reg("OSTS", dwc3_readl(dwc->regs, DWC3_OSTS));
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_ERROR_EVENT);
-
-	panic("DWC3 Erratic error\n");
-
 }
 
 static void dwc3_gadget_interrupt(struct dwc3 *dwc,
