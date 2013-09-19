@@ -227,6 +227,7 @@ struct wcd9xxx_mbhc_config {
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
 	unsigned long cs_enable_flags;
+	bool use_int_rbias;
 };
 
 struct wcd9xxx_cfilt_mode {
@@ -252,6 +253,7 @@ struct wcd9xxx_mbhc_cb {
 	void (*compute_impedance) (s16 *, s16 *, uint32_t *, uint32_t *);
 	void (*enable_mbhc_txfe) (struct snd_soc_codec *, bool);
 	int (*enable_mb_source) (struct snd_soc_codec *, bool);
+	void (*setup_int_rbias) (struct snd_soc_codec *, bool);
 };
 
 struct wcd9xxx_mbhc {
