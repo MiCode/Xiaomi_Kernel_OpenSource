@@ -17,6 +17,7 @@
 #include <linux/of_platform.h>
 #include <linux/memory.h>
 #include <linux/msm_tsens.h>
+#include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -108,6 +109,7 @@ void __init msmsamarium_add_drivers(void)
 	else
 		msm_clock_init(&msmsamarium_clock_init_data);
 	tsens_tm_init_driver();
+	msm_thermal_device_init();
 }
 
 static void __init msmsamarium_map_io(void)
