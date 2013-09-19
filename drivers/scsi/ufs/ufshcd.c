@@ -1211,8 +1211,7 @@ out_put_tag:
  */
 static inline void ufshcd_init_query(struct ufs_hba *hba,
 		struct ufs_query_req **request, struct ufs_query_res **response,
-		enum query_opcode opcode, enum attr_idn idn,
-		u8 index, u8 selector)
+		enum query_opcode opcode, u8 idn, u8 index, u8 selector)
 {
 	*request = &hba->dev_cmd.query.request;
 	*response = &hba->dev_cmd.query.response;
