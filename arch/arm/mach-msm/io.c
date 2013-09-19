@@ -554,6 +554,7 @@ void __init msm_map_msmkrypton_io(void)
 #ifdef CONFIG_ARCH_MPQ8092
 static struct map_desc mpq8092_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, MPQ8092),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MPQ8092),
 	MSM_CHIP_DEVICE(TLMM, MPQ8092),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
