@@ -54,7 +54,6 @@ Optional properties :
 		and MIN bandwidth votes. Minimum two cases must be defined for
 		both NONE and MAX votes. If MIN vote is different from NONE VOTE
 		then specify third case for MIN VOTE.
-    - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
 - qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
@@ -122,7 +121,6 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-dmsehv-int = <58>;
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,active_only = <0>;
 		qcom,msm_bus,num_paths = <1>;
 		qcom,msm_bus,vectors =
 				<87 512 0 0>,

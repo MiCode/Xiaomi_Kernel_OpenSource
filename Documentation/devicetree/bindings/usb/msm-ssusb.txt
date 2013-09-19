@@ -27,7 +27,6 @@ Optional properties :
   below optional properties:
     - qcom,msm_bus,name
     - qcom,msm_bus,num_cases
-    - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
 - interrupt-names : Optional interrupt resource entries are:
@@ -85,7 +84,6 @@ Example MSM USB3.0 controller device node :
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,active_only = <0>;
 		qcom,msm_bus,num_paths = <1>;
 		qcom,msm_bus,vectors =
 				<61 512 0 0>,
