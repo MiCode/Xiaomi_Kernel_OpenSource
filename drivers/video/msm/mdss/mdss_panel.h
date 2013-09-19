@@ -155,9 +155,9 @@ struct mdss_dsi_phy_ctrl {
 	uint32_t timing[12];
 	uint32_t ctrl[4];
 	uint32_t strength[2];
-	char bistCtrl[6];
+	char bistctrl[6];
 	uint32_t pll[21];
-	char laneCfg[45];
+	char lanecfg[45];
 };
 
 struct mipi_panel_info {
@@ -180,7 +180,7 @@ struct mipi_panel_info {
 	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char vc;	/* virtual channel */
-	struct mdss_dsi_phy_ctrl *dsi_phy_db;
+	struct mdss_dsi_phy_ctrl dsi_phy_db;
 	/* video mode */
 	char pulse_mode_hsa_he;
 	char hfp_power_stop;

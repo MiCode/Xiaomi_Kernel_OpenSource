@@ -362,12 +362,12 @@ static void msm_dsi_phy_lane_init(unsigned char *ctrl_base,
 	for (ln = 0; ln < 5; ln++) {
 		unsigned char *off = ctrl_base + 0x0300 + (ln * 0x40);
 		index = ln * 6;
-		MIPI_OUTP(off, pd->laneCfg[index]);
-		MIPI_OUTP(off + 4, pd->laneCfg[index + 1]);
-		MIPI_OUTP(off + 8, pd->laneCfg[index + 2]);
-		MIPI_OUTP(off + 12, pd->laneCfg[index + 3]);
-		MIPI_OUTP(off + 20, pd->laneCfg[index + 4]);
-		MIPI_OUTP(off + 24, pd->laneCfg[index + 5]);
+		MIPI_OUTP(off, pd->lanecfg[index]);
+		MIPI_OUTP(off + 4, pd->lanecfg[index + 1]);
+		MIPI_OUTP(off + 8, pd->lanecfg[index + 2]);
+		MIPI_OUTP(off + 12, pd->lanecfg[index + 3]);
+		MIPI_OUTP(off + 20, pd->lanecfg[index + 4]);
+		MIPI_OUTP(off + 24, pd->lanecfg[index + 5]);
 	}
 	wmb();
 }
@@ -386,9 +386,9 @@ static void msm_dsi_phy_timing_init(unsigned char *ctrl_base,
 static void msm_dsi_phy_bist_init(unsigned char *ctrl_base,
 			struct mdss_dsi_phy_ctrl *pd)
 {
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, pd->bistCtrl[4]);
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL1, pd->bistCtrl[1]);
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL0, pd->bistCtrl[0]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, pd->bistctrl[4]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL1, pd->bistctrl[1]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL0, pd->bistctrl[0]);
 	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, 0);
 	wmb();
 }
@@ -398,7 +398,7 @@ int msm_dsi_phy_init(unsigned char *ctrl_base,
 {
 	struct mdss_dsi_phy_ctrl *pd;
 
-	pd = pdata->panel_info.mipi.dsi_phy_db;
+	pd = &(pdata->panel_info.mipi.dsi_phy_db);
 
 	msm_dsi_phy_strength_init(ctrl_base, pd);
 
