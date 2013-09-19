@@ -1,0 +1,21 @@
+* QFP-FUSE
+
+The qfp-fuse entry specifies the memory mapped addresses for the QFPROM fuse
+registers. The qfpfuse driver uses these to provide api(s) that can be used
+to read and write the fuse values. The write operation can be done one time
+only.
+
+Required Properties:
+compatible: component name used for driver matching, should be "qcom,qfp-fuse"
+reg: physical base address and length of the register set
+qcom,blow-status-offset: offset of the blow status registers.
+vdd-blow-supply: regulator used to blow fuses. For backward compatibility, the
+regulator name must contain the string vdd-blow.
+
+Example:
+	qcom,qfpfuse@fc4b8000 {
+		compatible = "qcom,qfp-fuse";
+		reg = <0xfc4b8000 0x7000>;
+		qcom,blow-status-offset = 0x204c;
+		vdd-blow-supply: <&vdd_blow>;
+	};

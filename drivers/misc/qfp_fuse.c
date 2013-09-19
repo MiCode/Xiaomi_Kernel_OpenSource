@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 
 /*
  * Time QFPROM requires to reliably burn a fuse.
@@ -41,13 +42,22 @@
 
 #define QFP_FUSE_READY              0x01
 #define QFP_FUSE_OFF                0x00
+static const char *blow_supply = "vdd-blow";
 
 struct qfp_priv_t {
 	uint32_t base;
 	uint32_t end;
+	uint32_t blow_status_offset;
 	struct mutex lock;
 	struct regulator *fuse_vdd;
 	u8 state;
+};
+
+struct qfp_resource {
+	resource_size_t	start;
+	resource_size_t	size;
+	uint32_t	blow_status_offset;
+	const char	*regulator_name;
 };
 
 /* We need only one instance of this for the driver */
@@ -79,7 +89,7 @@ static inline int qfp_fuse_wait_for_fuse_blow(u32 *status)
 	udelay(400);
 	do {
 		*status = readl_relaxed(
-			qfp_priv->base + QFPROM_BLOW_STATUS_OFFSET);
+			qfp_priv->base + qfp_priv->blow_status_offset);
 
 		if (!(*status & QFPROM_BLOW_STATUS_BUSY))
 			return 0;
@@ -313,20 +323,60 @@ static struct miscdevice qfp_fuse_dev = {
 	.fops = &qfp_fuse_fops
 };
 
-
-static int qfp_fuse_probe(struct platform_device *pdev)
+static int qfp_get_resource(struct platform_device *pdev,
+			    struct qfp_resource *qfp_res)
 {
-	int ret = 0;
 	struct resource *res;
-	const char *regulator_name = pdev->dev.platform_data;
-
+	const char *regulator_name = NULL;
+	uint32_t blow_status_offset = QFPROM_BLOW_STATUS_OFFSET;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
 
+	if (pdev->dev.of_node) {
+		struct device_node *np = pdev->dev.of_node;
+
+		if (of_property_read_u32(np, "qcom,blow-status-offset",
+					 &blow_status_offset) == 0) {
+			if ((res->start + blow_status_offset) > res->end) {
+				pr_err("Invalid blow-status-offset\n");
+				return -EINVAL;
+			}
+		}
+
+		if (of_property_read_bool(np, "vdd-blow-supply")) {
+			/* For backward compatibility, use the name
+			 * from blow_supply */
+			regulator_name = blow_supply;
+		} else {
+			pr_err("Failed to find regulator-name property\n");
+			return -EINVAL;
+		}
+
+	} else {
+		regulator_name = pdev->dev.platform_data;
+	}
+
 	if (!regulator_name)
 		return -EINVAL;
+
+	qfp_res->start = res->start;
+	qfp_res->size = resource_size(res);
+	qfp_res->blow_status_offset = blow_status_offset;
+	qfp_res->regulator_name = regulator_name;
+
+	return 0;
+}
+
+static int qfp_fuse_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct qfp_resource res;
+
+	ret = qfp_get_resource(pdev, &res);
+	if (ret)
+		return ret;
 
 	/* Initialize */
 	qfp_priv = kzalloc(sizeof(struct qfp_priv_t), GFP_KERNEL);
@@ -336,15 +386,19 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/* The driver is passed ioremapped address */
-	qfp_priv->base = res->start;
-	qfp_priv->end = res->end;
+	qfp_priv->base = (uint32_t)ioremap(res.start, res.size);
+	if (!qfp_priv->base) {
+		pr_warn("ioremap failed\n");
+		goto err;
+	}
+	qfp_priv->end = qfp_priv->base + res.size;
+	qfp_priv->blow_status_offset = res.blow_status_offset;
 
 	/* Get regulator for QFPROM writes */
-	qfp_priv->fuse_vdd = regulator_get(NULL, regulator_name);
+	qfp_priv->fuse_vdd = regulator_get(&pdev->dev, res.regulator_name);
 	if (IS_ERR(qfp_priv->fuse_vdd)) {
 		ret = PTR_ERR(qfp_priv->fuse_vdd);
-		pr_err("Err (%d) getting %s\n", ret, regulator_name);
+		pr_err("Err (%d) getting %s\n", ret, res.regulator_name);
 		qfp_priv->fuse_vdd = NULL;
 		goto err;
 	}
@@ -374,6 +428,7 @@ static int qfp_fuse_remove(struct platform_device *plat)
 	if (qfp_priv && qfp_priv->fuse_vdd)
 		regulator_put(qfp_priv->fuse_vdd);
 
+	iounmap((void __iomem *)qfp_priv->base);
 	kfree(qfp_priv);
 	qfp_priv = NULL;
 
@@ -382,12 +437,18 @@ static int qfp_fuse_remove(struct platform_device *plat)
 	return 0;
 }
 
+static struct of_device_id __attribute__ ((unused)) qfp_fuse_of_match[] = {
+	{ .compatible = "qcom,qfp-fuse", },
+	{}
+};
+
 static struct platform_driver qfp_fuse_driver = {
 	.probe = qfp_fuse_probe,
 	.remove = qfp_fuse_remove,
 	.driver = {
 		.name = "qfp_fuse_driver",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(qfp_fuse_of_match),
 	},
 };
 
