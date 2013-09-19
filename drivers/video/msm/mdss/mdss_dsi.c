@@ -919,14 +919,13 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	cmd_cfg_cont_splash = mdss_panel_get_boot_cfg() ? true : false;
 
-	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata);
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, cmd_cfg_cont_splash);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
 		goto error_pan_node;
 	}
 
-	rc = dsi_panel_device_register(dsi_pan_node, ctrl_pdata,
-				       cmd_cfg_cont_splash);
+	rc = dsi_panel_device_register(dsi_pan_node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s: dsi panel dev reg failed\n", __func__);
 		goto error_pan_node;
@@ -1026,8 +1025,7 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 }
 
 int dsi_panel_device_register(struct device_node *pan_node,
-				struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-			      bool cmd_cfg_cont_splash)
+				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
@@ -1036,7 +1034,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	bool dynamic_fps;
-	bool cont_splash_enabled = false;
 	const char *data;
 
 	mipi  = &(pinfo->mipi);
@@ -1302,22 +1299,9 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
-	if (cmd_cfg_cont_splash)
-		cont_splash_enabled = of_property_read_bool(pan_node,
-				"qcom,cont-splash-enabled");
-	else
-		cont_splash_enabled = false;
-	if (!cont_splash_enabled) {
-		pr_info("%s:%d Continuous splash flag not found.\n",
-				__func__, __LINE__);
-		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 0;
-		ctrl_pdata->panel_data.panel_info.panel_power_on = 0;
-	} else {
-		pr_info("%s:%d Continuous splash flag enabled.\n",
-				__func__, __LINE__);
 
-		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
-		ctrl_pdata->panel_data.panel_info.panel_power_on = 1;
+	if (pinfo->cont_splash_enabled) {
+		pinfo->panel_power_on = 1;
 		rc = mdss_dsi_panel_power_on(&(ctrl_pdata->panel_data), 1);
 		if (rc) {
 			pr_err("%s: Panel power on failed\n", __func__);
@@ -1327,6 +1311,8 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
+	} else {
+		pinfo->panel_power_on = 0;
 	}
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
