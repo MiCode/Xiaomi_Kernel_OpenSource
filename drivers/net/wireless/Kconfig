@@ -321,7 +321,7 @@ config WCNSS_REGISTER_DUMP_ON_BITE
 	 register dump on WCNSS WDOG bite.
 
 config CLD_LL_CORE
-	tristate "Qualcomm CORE driver for QCA6714"
+	tristate "Qualcomm CORE driver for QCA6174"
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	select WEXT_CORE
@@ -332,7 +332,7 @@ config CLD_LL_CORE
 	depends on PCI_MSI
 	depends on MSM_PCIE
 	---help---
-	  Core driver for the Qualcomm QCA6714 Chipset
+	  Core driver for the Qualcomm QCA6174 Chipset
 
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
