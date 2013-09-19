@@ -2698,6 +2698,12 @@ static void msm8x10_wcd_micb_internal(struct snd_soc_codec *codec, bool on)
 			    0x1C, on ? 0x14 : 0x00);
 }
 
+static void msm8x10_wcd_enable_mb_vddio(struct snd_soc_codec *codec, bool on)
+{
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_CFILT_1_CTL,
+			    0x40, on ? 0x40 : 0x00);
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
@@ -2711,6 +2717,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mbhc_txfe = msm8x10_wcd_mbhc_txfe,
 	.enable_mb_source = msm8x10_wcd_enable_ext_mb_source,
 	.setup_int_rbias = msm8x10_wcd_micb_internal,
+	.pull_mb_to_vddio = msm8x10_wcd_enable_mb_vddio,
 };
 
 static void delayed_hs_detect_fn(struct work_struct *work)
