@@ -126,7 +126,7 @@
 
 &sdhc_1 {
 	reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000 400000000>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000 384000000>;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 
 	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
