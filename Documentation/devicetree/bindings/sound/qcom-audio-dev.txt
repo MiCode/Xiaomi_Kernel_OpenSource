@@ -446,6 +446,8 @@ Optional properties:
 - qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
 - qcom,tapan-codec-9302: Indicates that this device node is for WCD9302 audio
 			    codec.
+- qcom,mbhc-bias-internal: Flag to indicate if internal micbias should be used
+			   for headset detection.
 
 * APQ8074 ASoC Machine driver
 
