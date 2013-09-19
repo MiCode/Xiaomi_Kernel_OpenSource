@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@
 #define TAPAN_CACHE_SIZE TAPAN_NUM_REGISTERS
 
 #define TAPAN_REG_VAL(reg, val)		{reg, 0, val}
+
+#define TAPAN_CDC_ZDET_SUPPORTED  true
 
 extern const u8 tapan_reg_readable[TAPAN_CACHE_SIZE];
 extern const u8 tapan_reset_reg_defaults[TAPAN_CACHE_SIZE];

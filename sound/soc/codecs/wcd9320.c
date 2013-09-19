@@ -49,6 +49,9 @@
 
 #define DAPM_MICBIAS2_EXTERNAL_STANDALONE "MIC BIAS2 External Standalone"
 
+/* RX_HPH_CNP_WG_TIME increases by 0.24ms */
+#define TAIKO_WG_TIME_FACTOR_US	240
+
 static atomic_t kp_taiko_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
@@ -509,6 +512,12 @@ struct taiko_priv {
 
 	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
 			enum wcd9xxx_codec_event);
+
+	/*
+	 * list used to save/restore registers at start and
+	 * end of impedance measurement
+	 */
+	struct list_head reg_save_restore;
 };
 
 static const u32 comp_shift[] = {
@@ -6239,6 +6248,198 @@ static int taiko_device_down(struct wcd9xxx *wcd9xxx)
 	return 0;
 }
 
+static int wcd9xxx_prepare_static_pa(struct wcd9xxx_mbhc *mbhc,
+				     struct list_head *lh)
+{
+	int i;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	const struct wcd9xxx_reg_mask_val reg_set_paon[] = {
+		{WCD9XXX_A_RX_HPH_OCP_CTL, 0x18, 0x00},
+		{WCD9XXX_A_RX_HPH_L_TEST, 0x1, 0x0},
+		{WCD9XXX_A_RX_HPH_R_TEST, 0x1, 0x0},
+		{WCD9XXX_A_RX_HPH_BIAS_WG_OCP, 0xff, 0x1A},
+		{WCD9XXX_A_RX_HPH_CNP_WG_CTL, 0xff, 0xDB},
+		{WCD9XXX_A_RX_HPH_CNP_WG_TIME, 0xff, 0x15},
+		{WCD9XXX_A_CDC_RX1_B6_CTL, 0xff, 0x81},
+		{WCD9XXX_A_CDC_CLK_RX_B1_CTL, 0x01, 0x01},
+		{WCD9XXX_A_RX_HPH_CHOP_CTL, 0xff, 0xA4},
+		{WCD9XXX_A_RX_HPH_L_GAIN, 0xff, 0x2C},
+		{WCD9XXX_A_CDC_RX2_B6_CTL, 0xff, 0x81},
+		{WCD9XXX_A_CDC_CLK_RX_B1_CTL, 0x02, 0x02},
+		{WCD9XXX_A_RX_HPH_R_GAIN, 0xff, 0x2C},
+		{WCD9XXX_A_NCP_CLK, 0xff, 0xFC},
+		{WCD9XXX_A_BUCK_CTRL_CCL_3, 0xff, 0x60},
+		{WCD9XXX_A_RX_COM_BIAS, 0xff, 0x80},
+		{WCD9XXX_A_BUCK_MODE_3, 0xff, 0xC6},
+		{WCD9XXX_A_BUCK_MODE_4, 0xff, 0xE6},
+		{WCD9XXX_A_BUCK_MODE_5, 0xff, 0x02},
+		{WCD9XXX_A_BUCK_MODE_1, 0xff, 0xA1},
+		{WCD9XXX_A_NCP_EN, 0xff, 0xFF},
+		{WCD9XXX_A_BUCK_MODE_5, 0xff, 0x7B},
+		{WCD9XXX_A_CDC_CLSH_B1_CTL, 0xff, 0xE6},
+		{WCD9XXX_A_RX_HPH_L_DAC_CTL, 0xff, 0xC0},
+		{WCD9XXX_A_RX_HPH_R_DAC_CTL, 0xff, 0xC0},
+	};
+
+	for (i = 0; i < ARRAY_SIZE(reg_set_paon); i++)
+		wcd9xxx_soc_update_bits_push(codec, lh,
+					     reg_set_paon[i].reg,
+					     reg_set_paon[i].mask,
+					     reg_set_paon[i].val, 0);
+	pr_debug("%s: PAs are prepared\n", __func__);
+
+	return 0;
+}
+
+static int wcd9xxx_enable_static_pa(struct wcd9xxx_mbhc *mbhc, bool enable)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+	const int wg_time = snd_soc_read(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME) *
+			    TAIKO_WG_TIME_FACTOR_US;
+
+	snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CNP_EN, 0x30,
+			    enable ? 0x30 : 0x0);
+	/* Wait for wave gen time to avoid pop noise */
+	usleep_range(wg_time, wg_time + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	pr_debug("%s: PAs are %s as static mode (wg_time %d)\n", __func__,
+		 enable ? "enabled" : "disabled", wg_time);
+	return 0;
+}
+
+static int taiko_setup_zdet(struct wcd9xxx_mbhc *mbhc,
+			    enum mbhc_impedance_detect_stages stage)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	const int ramp_wait_us = 18 * 1000;
+
+#define __wr(reg, mask, value)						  \
+	do {								  \
+		ret = wcd9xxx_soc_update_bits_push(codec,		  \
+						   &taiko->reg_save_restore, \
+						   reg, mask, value, 0);  \
+		if (ret < 0)						  \
+			return ret;					  \
+	} while (0)
+
+	switch (stage) {
+
+	case PRE_MEAS:
+		INIT_LIST_HEAD(&taiko->reg_save_restore);
+		wcd9xxx_prepare_static_pa(mbhc, &taiko->reg_save_restore);
+		wcd9xxx_enable_static_pa(mbhc, true);
+
+		/*
+		 * save old value of registers and write the new value to
+		 * restore old value back, WCD9XXX_A_CDC_PA_RAMP_B{1,2,3,4}_CTL
+		 * registers don't need to be restored as those are solely used
+		 * by impedance detection.
+		 */
+		/* Phase 1 */
+		/* Reset the PA Ramp */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x1C);
+		/*
+		 * Connect the PA Ramp to PA chain and release reset with
+		 * keep it connected.
+		 */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x1F);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x03);
+		/*
+		 * Program the PA Ramp to FS_48K, L shift 1 and sample
+		 * num to 24
+		 */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B3_CTL,
+			      0x3 << 4 | 0x6);
+		/* 0x56 for 10mv.  0xC0 is for 50mv */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B4_CTL, 0xC0);
+		/* Enable MBHC MUX, Set MUX current to 37.5uA and ADC7 */
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0);
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
+		__wr(WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0xFF, 0x78);
+		__wr(WCD9XXX_A_TX_7_MBHC_EN, 0xFF, 0x8C);
+		/* Change NSA and NAVG */
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B4_CTL, 0x4 << 4, 0x4 << 4);
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B5_CTL, 0xFF, 0x10);
+		/* Reset MBHC and set it up for STA */
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x0A);
+		__wr(WCD9XXX_A_CDC_MBHC_EN_CTL, 0xFF, 0x02);
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x02);
+
+		/* Set HPH_MBHC for zdet */
+		__wr(WCD9XXX_A_MBHC_HPH, 0xB3, 0x80);
+		break;
+	case POST_MEAS:
+		/* Phase 2 */
+		/* Start the PA ramp on HPH L and R */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x05);
+		/* Ramp generator takes ~17ms */
+		usleep_range(ramp_wait_us,
+				ramp_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+
+		/* Disable Ical */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x00);
+		/* Ramp generator takes ~17ms */
+		usleep_range(ramp_wait_us,
+				ramp_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case PA_DISABLE:
+		/* Ramp HPH L & R back to Zero */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x0A);
+		/* Ramp generator takes ~17ms */
+		usleep_range(ramp_wait_us,
+				ramp_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x00);
+
+		/* Clean up starts */
+		/* Turn off PA ramp generator */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x0);
+		wcd9xxx_enable_static_pa(mbhc, false);
+		wcd9xxx_restore_registers(codec, &taiko->reg_save_restore);
+		break;
+	}
+#undef __wr
+
+	return ret;
+}
+
+static void taiko_compute_impedance(s16 *l, s16 *r, uint32_t *zl, uint32_t *zr)
+{
+
+	int64_t rl, rr = 0; /* milliohm */
+	const int alphal = 364; /* 0.005555 * 65536 = 364.05 */
+	const int alphar = 364; /* 0.005555 * 65536 = 364.05 */
+	const int beta = 3855; /* 0.011765 * 5 * 65536 = 3855.15 */
+	const int rref = 11333; /* not scaled up */
+	const int shift = 16;
+
+	rl = (int)(l[0] - l[1]) * 1000 / (l[0] - l[2]);
+	rl = rl * rref * alphal;
+	rl = rl >> shift;
+	rl = rl * beta;
+	rl = rl >> shift;
+	*zl = rl;
+
+	rr = (int)(r[0] - r[1]) * 1000 / (r[0] - r[2]);
+	rr = rr * rref  * alphar;
+	rr = rr >> shift;
+	rr = rr * beta;
+	rr = rr >> shift;
+	*zr = rr;
+}
+
+static enum wcd9xxx_cdc_type taiko_get_cdc_type(void)
+{
+	return WCD9XXX_CDC_TYPE_TAIKO;
+}
+
+static const struct wcd9xxx_mbhc_cb mbhc_cb = {
+	.get_cdc_type = taiko_get_cdc_type,
+	.setup_zdet = taiko_setup_zdet,
+	.compute_impedance = taiko_compute_impedance,
+};
+
 static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -6284,7 +6485,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 					taiko_enable_mbhc_micbias,
-					NULL, rco_clk_rate, true);
+					&mbhc_cb, rco_clk_rate, true);
 		if (ret)
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		else
@@ -6473,7 +6674,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 				taiko_enable_mbhc_micbias,
-				NULL, rco_clk_rate, true);
+				&mbhc_cb, rco_clk_rate, true);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_init;

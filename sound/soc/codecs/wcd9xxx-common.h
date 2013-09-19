@@ -81,4 +81,16 @@ enum wcd9xxx_codec_event {
 	WCD9XXX_CODEC_EVENT_CODEC_UP = 0,
 };
 
+struct wcd9xxx_register_save_node {
+	struct list_head lh;
+	u16 reg;
+	u16 value;
+};
+
+extern int wcd9xxx_soc_update_bits_push(struct snd_soc_codec *codec,
+					struct list_head *lh,
+					uint16_t reg, uint8_t mask,
+					uint8_t value, int delay);
+extern void wcd9xxx_restore_registers(struct snd_soc_codec *codec,
+				      struct list_head *lh);
 #endif
