@@ -357,7 +357,8 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 {
 	int ret;
 
-	atomic_set(&this_afe.state, 1);
+	if (wait)
+		atomic_set(&this_afe.state, 1);
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, data);
 	if (ret > 0) {
