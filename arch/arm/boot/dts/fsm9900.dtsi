@@ -280,6 +280,18 @@
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200>;
 		qcom,calib-mode = "fuse_map4";
 	};
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <3>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0xf>;
+		qcom,core-limit-temp = <80>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,core-control-mask = <0xe>;
+	};
 
 	qcom,fuse@fc4b8000 {
 		compatible = "qcom,qfp-fuse";
