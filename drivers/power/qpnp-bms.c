@@ -83,7 +83,7 @@
 #define IAVG_STEP_SIZE_MA		50
 #define IAVG_START			600
 #define IAVG_INVALID			0xFF
-#define SOC_INVALID			0xFF
+#define SOC_INVALID			0x7F
 
 #define IAVG_SAMPLES 16
 
@@ -148,6 +148,7 @@ struct qpnp_bms_chip {
 	u16				base;
 	u16				iadc_base;
 	u16				batt_pres_addr;
+	u16				soc_storage_addr;
 
 	u8				revision1;
 	u8				revision2;
@@ -1615,6 +1616,7 @@ static struct kernel_param_ops bms_reset_ops = {
 
 module_param_cb(bms_reset, &bms_reset_ops, &bms_reset, 0644);
 
+#define SOC_STORAGE_MASK	0xFE
 static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 				int soc)
 {
@@ -1627,15 +1629,12 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 	else
 		temp = 0;
 
-	rc = qpnp_write_wrapper(chip, &temp,
-			chip->base + IAVG_STORAGE_REG, 1);
-
-	temp = soc;
+	rc = qpnp_write_wrapper(chip, &temp, chip->base + IAVG_STORAGE_REG, 1);
 
 	/* don't store soc if temperature is below 5degC */
 	if (batt_temp > IGNORE_SOC_TEMP_DECIDEG)
-		rc = qpnp_write_wrapper(chip, &temp,
-				chip->base + SOC_STORAGE_REG, 1);
+		qpnp_masked_write_base(chip, chip->soc_storage_addr,
+				SOC_STORAGE_MASK, (soc + 1) << 1);
 }
 
 static int scale_soc_while_chg(struct qpnp_bms_chip *chip, int chg_time_sec,
@@ -3239,62 +3238,65 @@ static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,
 static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 {
 	int rc;
-	u8 temp;
+	u8 iavg, soc, batt_pres;
+
+	/* SOC is stored in the first 7 bits */
+	rc = qpnp_read_wrapper(chip, &soc, chip->soc_storage_addr, 1);
+	if (rc) {
+		pr_err("failed to read addr = %d %d\n",
+				chip->soc_storage_addr, rc);
+		chip->battery_removed = true;
+		chip->shutdown_soc_invalid = true;
+		chip->shutdown_iavg_ma = IAVG_START;
+		return;
+	}
+
+	soc = (soc >> 1) - 1;
 
 	if (chip->ignore_shutdown_soc) {
 		chip->shutdown_soc_invalid = true;
 		chip->shutdown_soc = 0;
 		chip->shutdown_iavg_ma = 0;
 	} else {
-		rc = qpnp_read_wrapper(chip, &temp,
+		rc = qpnp_read_wrapper(chip, &iavg,
 				chip->base + IAVG_STORAGE_REG, 1);
 		if (rc) {
 			pr_err("failed to read addr = %d %d assuming %d\n",
 					chip->base + IAVG_STORAGE_REG, rc,
 					IAVG_START);
 			chip->shutdown_iavg_ma = IAVG_START;
-		} else if (temp == IAVG_INVALID) {
+		} else if (iavg == IAVG_INVALID) {
 			pr_err("invalid iavg read from BMS1_DATA_REG_1, using %d\n",
 					IAVG_START);
 			chip->shutdown_iavg_ma = IAVG_START;
 		} else {
-			if (temp == 0) {
+			if (iavg == 0)
 				chip->shutdown_iavg_ma = IAVG_START;
-			} else {
+			else
 				chip->shutdown_iavg_ma = IAVG_START
-					+ IAVG_STEP_SIZE_MA * (temp + 1);
-			}
+					+ IAVG_STEP_SIZE_MA * (iavg + 1);
 		}
 
-		rc = qpnp_read_wrapper(chip, &temp,
-				chip->base + SOC_STORAGE_REG, 1);
-		pr_debug("stored soc = %d\n", temp);
-		if (rc) {
-			pr_err("failed to read addr = %d %d\n",
-					chip->base + SOC_STORAGE_REG, rc);
-		} else {
-			chip->shutdown_soc = temp;
+		pr_debug("stored soc = %d\n", soc);
+		chip->shutdown_soc = soc;
 
-			if (chip->shutdown_soc == SOC_INVALID) {
-				pr_debug("No shutdown soc available\n");
-				chip->shutdown_soc_invalid = true;
-				chip->shutdown_iavg_ma = 0;
-			}
-		}
-	}
-
-	/* read the SOC storage to determine if there was a battery removal */
-	rc = qpnp_read_wrapper(chip, &temp, chip->base + SOC_STORAGE_REG, 1);
-	if (!rc) {
-		if (temp == SOC_INVALID) {
-			chip->battery_removed = true;
+		if (chip->shutdown_soc == SOC_INVALID
+				|| soc == 0) {
+			pr_debug("No shutdown soc available\n");
 			chip->shutdown_soc_invalid = true;
+			chip->shutdown_iavg_ma = 0;
 		}
 	}
-	if (chip->batt_pres_addr) {
-		rc = qpnp_read_wrapper(chip, &temp, chip->batt_pres_addr, 1);
-		pr_debug("offmode removed: %02x\n", temp);
-		if (!rc && (temp & BAT_REMOVED_OFFMODE_BIT)) {
+
+	/* check the SOC storage to determine if there was a battery removal */
+	if (soc == SOC_INVALID || soc == 0) {
+		chip->battery_removed = true;
+		chip->shutdown_soc_invalid = true;
+	} else if (chip->batt_pres_addr) {
+		rc = qpnp_read_wrapper(chip, &batt_pres,
+				chip->batt_pres_addr, 1);
+		pr_debug("offmode removed: %02x\n", batt_pres);
+		if (!rc && (batt_pres & BAT_REMOVED_OFFMODE_BIT)) {
 			chip->battery_removed = true;
 			chip->shutdown_soc_invalid = true;
 		}
@@ -3664,6 +3666,10 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 					spmi_resource->of_node->name) == 0) {
 			chip->batt_pres_addr = resource->start;
 			continue;
+		} else if (strcmp("qcom,soc-storage-reg",
+					spmi_resource->of_node->name) == 0) {
+			chip->soc_storage_addr = resource->start;
+			continue;
 		}
 
 		rc = qpnp_read_wrapper(chip, &type,
@@ -3704,7 +3710,14 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 		dev_err(&spmi->dev, "BMS_IADC peripheral was not registered\n");
 		return -EINVAL;
 	}
+	if (chip->soc_storage_addr == 0) {
+		/* default to dvdd backed BMS data reg0 */
+		chip->soc_storage_addr = chip->base + SOC_STORAGE_REG;
+	}
 
+	pr_debug("bms-base = 0x%04x, iadc-base = 0x%04x, bat-pres-reg = 0x%04x, soc-storage-reg = 0x%04x\n",
+			chip->base, chip->iadc_base,
+			chip->batt_pres_addr, chip->soc_storage_addr);
 	return 0;
 }
 

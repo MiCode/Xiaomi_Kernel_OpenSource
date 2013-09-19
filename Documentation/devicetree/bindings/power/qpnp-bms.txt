@@ -18,6 +18,10 @@ Additionally, optional subnodes may be included:
 		battery interface's BATT_PRES_STATUS register. If this node is
 		added, then the BMS will try to detect offmode battery removal
 		via the battery interface's offmode battery removal circuit.
+- qcom,soc-storage-reg : A subnode with a register address to a spare PMIC
+		register. If this node is included, then the BMS will store its
+		shutdown SOC in the specified register instead of the default
+		BMS data register.
 - qcom,battery-data : A phandle to a node containing the available batterydata
 		profiles. See the batterydata bindings documentation for more
 		details.
@@ -114,6 +118,10 @@ Parent node optional properties:
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC SMBB battery interface BATT_PRES_STATUS
 		register.
+
+qcom,soc-storage-reg node required properties:
+- reg : address and length of the spare PMIC register that the BMS will store
+		shutdown SoC in.
 
 qcom,bms-iadc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
