@@ -8,6 +8,8 @@ Required properties:
 - reg: NCI i2c slave address.
 - qcom,dis-gpio: specific gpio for hardware reset.
 - qcom,irq-gpio: specific gpio for read interrupt.
+- qcom,clk-src: nfc clock source ("BBCLK2", "RFCLK3", "GPCLK", ...)
+- qcom,clk-en-gpio: msm gpio clock,used ony if clock source is msm gpio
 - interrupt-parent: Should be phandle for the interrupt controller
                     that services interrupts for this device.
 - interrupts: should contain the NFC interrupt. NFC has one read interrupt.
@@ -21,6 +23,8 @@ Example:
 		reg = <0x0e>;
 		qcom,irq-gpio = <&msmgpio 21 0x00>;
 		qcom,dis-gpio = <&msmgpio 20 0x00>;
+		qcom,clk-src = "BBCLK2";
+		qcom,clk-en-gpio = <&msmgpio 0 0x00>;
 		interrupt-parent = <&msmgpio>;
 		interrupts = <21 0>;
 		qcom,clk-gpio = <&pm8226_gpios 3 0>;

@@ -38,6 +38,8 @@
 			reg = <0x0e>;
 			qcom,irq-gpio = <&msmgpio 21 0x00>;
 			qcom,dis-gpio = <&msmgpio 20 0x00>;
+			qcom,clk-src = "BBCLK2";
+			qcom,clk-en-gpio = <&msmgpio 0 0x00>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <21 0>;
 			qcom,clk-gpio = <&pm8226_gpios 3 0>;
