@@ -126,6 +126,7 @@ struct mdp3_hw_resource {
 	int irq_registered;
 
 	struct early_suspend suspend_handler;
+	struct mdss_panel_cfg pan_cfg;
 };
 
 struct mdp3_img_data {
