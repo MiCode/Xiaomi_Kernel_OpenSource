@@ -52,7 +52,7 @@
 	qcom,sup-voltages = <2950 2950>;
 	qcom,nonremovable;
 	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
-	status = "ok";
+	status = "disabled";
 };
 
 &sdhc_1 {
@@ -71,7 +71,7 @@
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000 400000000>;
 	qcom,nonremovable;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
-	status = "disabled";
+	status = "ok";
 };
 
 &sdcc2 {
@@ -94,7 +94,7 @@
 	qcom,xpc;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 	qcom,current-limit = <800>;
-	status = "ok";
+	status = "disabled";
 };
 
 &sdhc_2 {
@@ -111,7 +111,7 @@
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-	status = "disabled";
+	status = "ok";
 };
 
 &pma8084_gpios {
