@@ -2840,6 +2840,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
+	msm_host->mmc->caps2 |= MMC_CAP2_CORE_PM;
 	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 
 	if (msm_host->pdata->nonremovable)
@@ -2896,7 +2897,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("%s: %s: pm_runtime_set_active failed: err: %d\n",
 		       mmc_hostname(host->mmc), __func__, ret);
-	else
+	else if (mmc_use_core_runtime_pm(host->mmc))
 		pm_runtime_enable(&pdev->dev);
 
 	/* Successful initialization */
