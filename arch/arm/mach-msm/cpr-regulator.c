@@ -148,7 +148,7 @@ struct cpr_regulator {
 	void __iomem	*efuse_base;
 
 	/* Process voltage parameters */
-	u32		pvs_bin_process[CPR_PVS_EFUSE_BINS_MAX];
+	u32		pvs_init_v[CPR_PVS_EFUSE_BINS_MAX];
 	u32		pvs_corner_v[NUM_APC_PVS][CPR_CORNER_MAX];
 	/* Process voltage variables */
 	u32		pvs_bin;
@@ -999,6 +999,7 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	u64 efuse_bits;
 	int rc, process;
 	u32 pvs_fuse[3], pvs_fuse_redun_sel[4];
+	u32 init_v;
 	bool redundant;
 	size_t pvs_bins;
 
@@ -1034,24 +1035,34 @@ static int cpr_pvs_init(struct platform_device *pdev,
 				   ((1 << pvs_fuse[2]) - 1);
 
 	pvs_bins = 1 << pvs_fuse[2];
-	rc = of_property_read_u32_array(of_node, "qcom,pvs-bin-process",
-					cpr_vreg->pvs_bin_process,
-					pvs_bins);
+
+	rc = of_property_read_u32_array(of_node, "qcom,pvs-init-voltage",
+					cpr_vreg->pvs_init_v, pvs_bins);
 	if (rc < 0) {
-		pr_err("pvs-bin-process missing: rc=%d\n", rc);
+		pr_err("pvs-init-voltage missing: rc=%d\n", rc);
 		return rc;
 	}
 
-	process = cpr_vreg->pvs_bin_process[cpr_vreg->pvs_bin];
-	pr_info("[row:%d] = 0x%llX, n_bits=%d, bin=%d (%d)\n",
-		pvs_fuse[0], efuse_bits, pvs_fuse[2],
-		cpr_vreg->pvs_bin, process);
+	init_v = cpr_vreg->pvs_init_v[cpr_vreg->pvs_bin];
+	for (process = NUM_APC_PVS - 1; process > APC_PVS_NO; process--) {
+		if (init_v <= cpr_vreg->pvs_corner_v[process][CPR_CORNER_TURBO])
+			break;
+	}
 
-	if (process == APC_PVS_NO || process >= NUM_APC_PVS) {
-		pr_err("Bin=%d (%d) is out of spec. Assume SLOW.\n",
-		       cpr_vreg->pvs_bin, process);
+	if (process == APC_PVS_NO) {
+		process = APC_PVS_SLOW;
+		cpr_vreg->pvs_corner_v[process][CPR_CORNER_TURBO] = init_v;
+		cpr_vreg->ceiling_max = init_v;
+	} else if (process == APC_PVS_FAST &&
+		init_v < cpr_vreg->pvs_corner_v[APC_PVS_FAST][CPR_CORNER_SVS]) {
 		process = APC_PVS_SLOW;
 	}
+
+	pr_info("[row:%d] = 0x%llX, n_bits=%d, bin=%d (%d)",
+		pvs_fuse[0], efuse_bits, pvs_fuse[2],
+		cpr_vreg->pvs_bin, process);
+	pr_info("pvs initial turbo voltage_= from %u to %u\n",
+		init_v, cpr_vreg->pvs_corner_v[process][CPR_CORNER_TURBO]);
 
 	cpr_vreg->process = process;
 
