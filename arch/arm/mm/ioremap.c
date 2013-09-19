@@ -91,9 +91,8 @@ void __init add_static_vm_early(struct static_vm *svm)
 	void *vaddr;
 
 	vm = &svm->vm;
-	if (vm_area_check_early(vm))
-		return;
-	vm_area_add_early(vm);
+	if (!vm_area_check_early(vm))
+		vm_area_add_early(vm);
 	vaddr = vm->addr;
 
 	list_for_each_entry(curr_svm, &static_vmlist, list) {
