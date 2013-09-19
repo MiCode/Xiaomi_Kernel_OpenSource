@@ -330,6 +330,7 @@ config ARCH_MPQ8092
 	select HAVE_ARM_ARCH_TIMER
 	select MULTI_IRQ_HANDLER
 	select CPU_V7
+	select MSM_SCM
 	select MSM_GPIOMUX
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
