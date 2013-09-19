@@ -16,8 +16,8 @@
 
 / {
 	model = "Qualcomm FSM9900 Simulator";
-	compatible = "qcom,fsm9900-sim", "qcom,fsm9900", "qcom-sim";
-	qcom,msm-id = <188 0 0>;
+	compatible = "qcom,fsm9900-sim", "qcom,fsm9900", "qcom,sim";
+	qcom,msm-id = <188 16 0>;
 
 	aliases {
 		serial0 = &uart0;

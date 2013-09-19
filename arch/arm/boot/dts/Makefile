@@ -154,7 +154,9 @@ dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
 	msm8610-v2-qrd-skuaa.dtb \
 	msm8610-v2-qrd-skuab.dtb
 dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
-	fsm9900-sim.dtb
+	fsm9900-sim.dtb \
+	fsm9900-cdp.dtb \
+	fsm9900-mtp.dtb
 dtb-$(CONFIG_ARCH_MSMKRYPTON) += msmkrypton-sim.dtb
 dtb-$(CONFIG_ARCH_MSMSAMARIUM) += msmsamarium-sim.dtb \
 	msmsamarium-rumi.dtb \
