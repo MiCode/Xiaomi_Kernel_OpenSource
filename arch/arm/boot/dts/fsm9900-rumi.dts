@@ -21,11 +21,80 @@
 
 	aliases {
 		serial0 = &uart0;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 };
 
 &soc {
+	timer {
+		compatible = "arm,armv7-timer";
+		clock-frequency = <4000000>;
+	};
+
 	uart0: serial@f9960000 {
 		status = "ok";
 	};
+
+	qcom,wdt@f9017000 {
+		status = "disabled";
+	};
+
+	qcom,fuse@fc4b8000 {
+		qcom,blow-status-offset = <0x2048>;
+		vdd-blow-supply = <&dummy_vreg>;
+		status = "ok";
+	};
+
+	dummy_vreg: dummy_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "dummy_vreg";
+		regulator-always-on;
+	};
+
+	qcom,sps@0xfe204000 {
+		status = "disabled";
+	};
+};
+
+
+&sdcc1 {
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <800 500000>;
+
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <250 154000>;
+
+	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,sup-voltages = <2950 2950>;
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};
+
+&sdcc2 {
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <9000 800000>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <6 22000>;
+
+	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,sup-voltages = <2950 2950>;
+	qcom,xpc;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+	qcom,current-limit = <800>;
+
+	status = "ok";
 };
