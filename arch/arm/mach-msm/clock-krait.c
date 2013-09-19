@@ -29,6 +29,7 @@
 
 static DEFINE_SPINLOCK(kpss_clock_reg_lock);
 
+#define LPL_SHIFT	8
 static void __kpss_mux_set_sel(struct mux_clk *mux, int sel)
 {
 	unsigned long flags;
@@ -38,6 +39,10 @@ static void __kpss_mux_set_sel(struct mux_clk *mux, int sel)
 	regval = get_l2_indirect_reg(mux->offset);
 	regval &= ~(mux->mask << mux->shift);
 	regval |= (sel & mux->mask) << mux->shift;
+	if (mux->priv) {
+		regval &= ~(mux->mask << (mux->shift + LPL_SHIFT));
+		regval |= (sel & mux->mask) << (mux->shift + LPL_SHIFT);
+	}
 	set_l2_indirect_reg(mux->offset, regval);
 	spin_unlock_irqrestore(&kpss_clock_reg_lock, flags);
 
@@ -97,6 +102,8 @@ static int kpss_div2_get_div(struct div_clk *div)
 	regval = get_l2_indirect_reg(div->offset);
 	val = (regval >> div->shift) & div->mask;
 	regval &= ~(div->mask << div->shift);
+	if (div->priv)
+		regval &= ~(div->mask << (div->shift + LPL_SHIFT));
 	set_l2_indirect_reg(div->offset, regval);
 	spin_unlock_irqrestore(&kpss_clock_reg_lock, flags);
 
