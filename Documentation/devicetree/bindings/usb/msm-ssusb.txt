@@ -40,6 +40,10 @@ Optional properties :
 		TX fifo allocation in bytes
 - qcom,dwc-usb3-msm-qdss-tx-fifo-size: If present, represent RAM size available
 		for TX fifo allocation in QDSS composition
+- qcom,restore-sec-cfg-for-scm-dev-id: If present then device id value is
+  passed to secure channel manager(scm) driver. scm driver uses this device
+  id to restore USB controller related security configuration after coming
+  out of the controller power collapse.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
