@@ -32,16 +32,13 @@
 
 &sdcc1 {
 	vdd-supply = <&pma8084_l20>;
-	vdd-io-supply = <&pma8084_s4>;
-
-	qcom,vdd-always-on;
-	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <800 500000>;
+	qcom,vdd-current-level = <200 500000>;
 
+	vdd-io-supply = <&pma8084_s4>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <250 154000>;
+	qcom,vdd-io-current-level = <200 154000>;
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
@@ -56,12 +53,14 @@
 };
 
 &sdhc_1 {
+	vdd-supply = <&pma8084_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <800 500000>;
+	qcom,vdd-current-level = <200 500000>;
 
+	vdd-io-supply = <&pma8084_s4>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <250 154000>;
+	qcom,vdd-io-current-level = <200 154000>;
 
 	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
 	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
@@ -76,13 +75,12 @@
 
 &sdcc2 {
 	vdd-supply = <&pma8084_l21>;
-	vdd-io-supply = <&pma8084_l13>;
-
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <9000 800000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pma8084_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
-	qcom,vdd-io-current-level = <6 22000>;
-	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-current-level = <200 22000>;
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
@@ -98,11 +96,13 @@
 };
 
 &sdhc_2 {
+	vdd-supply = <&pma8084_l21>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <9000 800000>;
+	qcom,vdd-current-level = <200 800000>;
 
+	vdd-io-supply = <&pma8084_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
-	qcom,vdd-io-current-level = <6 22000>;
+	qcom,vdd-io-current-level = <200 22000>;
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
