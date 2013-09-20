@@ -242,12 +242,28 @@ static ssize_t mdss_fb_get_split(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_mdp_show_blank_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	int ret;
+
+	pr_debug("fb%d panel_power_on = %d\n", mfd->index, mfd->panel_power_on);
+	ret = scnprintf(buf, PAGE_SIZE, "panel_power_on = %d\n",
+						mfd->panel_power_on);
+
+	return ret;
+}
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
+static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
+	&dev_attr_show_blank_event.attr,
 	NULL,
 };
 
