@@ -278,6 +278,10 @@ enum a4xx_sp_perfctr_sp_sel {
 #define A4XX_VPC_PERFCTR_VPC_SEL_2	0xe67
 #define A4XX_VPC_PERFCTR_VPC_SEL_3	0xe68
 
+/* UCHE register */
+#define UCHE_TRAP_BASE_LO               0xe83
+#define UCHE_TRAP_BASE_HI               0xe84
+
 /* VSC registers */
 #define A4XX_VSC_SIZE_ADDRESS		0xc01
 #define A4XX_VSC_PIPE_DATA_ADDRESS_0	0xc10
