@@ -1136,9 +1136,6 @@ static const struct snd_kcontrol_new msm8x10_wcd_snd_controls[] = {
 			  MSM8X10_WCD_A_CDC_IIR1_GAIN_B4_CTL,
 			0, -84,	40, digital_gain),
 
-	SOC_SINGLE("MICBIAS1 CAPLESS Switch",
-		   MSM8X10_WCD_A_MICB_1_CTL, 4, 1, 1),
-
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
 
@@ -2827,6 +2824,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	struct msm8x10_wcd *msm8x10_wcd;
 	struct wcd9xxx_core_resource *core_res;
 	int i, ret = 0;
+	struct msm8x10_wcd_pdata *pdata;
 
 	dev_dbg(codec->dev, "%s()\n", __func__);
 
@@ -2872,6 +2870,17 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
+
+	pdata = dev_get_platdata(msm8x10_wcd->dev);
+	if (!pdata) {
+		dev_err(msm8x10_wcd->dev, "%s: platform data not found\n",
+			__func__);
+	}
+
+	/* update micbias capless mode */
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL, 0x10,
+			    pdata->micbias.bias1_cap_mode << 4);
+
 	msm8x10_wcd_priv->on_demand_list[ON_DEMAND_CP].supply =
 				wcd8x10_wcd_codec_find_regulator(
 				codec->control_data,
