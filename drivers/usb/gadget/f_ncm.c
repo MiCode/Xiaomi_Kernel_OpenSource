@@ -332,13 +332,13 @@ static struct usb_descriptor_header *ncm_hs_function[] = {
 
 #define STRING_CTRL_IDX	0
 #define STRING_MAC_IDX	1
-#define NCM_STRING_DATA_IDX	2
+#define NCM_STRING_DATA_IDX	2	/* Avoid a collision with f_mbim.c */
 #define STRING_IAD_IDX	3
 
 static struct usb_string ncm_string_defs[] = {
 	[STRING_CTRL_IDX].s = "CDC Network Control Model (NCM)",
 	[STRING_MAC_IDX].s = "",
-	[STRING_DATA_IDX].s = "CDC Network Data",
+	[NCM_STRING_DATA_IDX].s = "CDC Network Data",
 	[STRING_IAD_IDX].s = "CDC NCM",
 	{  } /* end of list */
 };
@@ -1318,7 +1318,7 @@ int ncm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 		ncm_control_intf.iInterface =
 			ncm_string_defs[STRING_CTRL_IDX].id;
 
-		status = ncm_string_defs[STRING_DATA_IDX].id;
+		status = ncm_string_defs[NCM_STRING_DATA_IDX].id;
 		ncm_data_nop_intf.iInterface = status;
 		ncm_data_intf.iInterface = status;
 
