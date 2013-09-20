@@ -1711,7 +1711,7 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 				 struct mdp_buf_sync *buf_sync)
 {
-	int i, fence_cnt = 0, ret = 0;
+	int i, ret = 0;
 	int acq_fen_fd[MDP_MAX_FENCE_FD];
 	struct sync_fence *fence;
 
@@ -1738,10 +1738,9 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		}
 		sync_pt_data->acq_fen[i] = fence;
 	}
-	fence_cnt = i;
+	sync_pt_data->acq_fen_cnt = i;
 	if (ret)
 		goto buf_sync_err_1;
-	sync_pt_data->acq_fen_cnt = fence_cnt;
 
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT)
 		mdss_fb_wait_for_fence(sync_pt_data);
@@ -1792,7 +1791,7 @@ buf_sync_err_2:
 	sync_pt_data->cur_rel_fence = NULL;
 	sync_pt_data->cur_rel_fen_fd = 0;
 buf_sync_err_1:
-	for (i = 0; i < fence_cnt; i++)
+	for (i = 0; i < sync_pt_data->acq_fen_cnt; i++)
 		sync_fence_put(sync_pt_data->acq_fen[i]);
 	sync_pt_data->acq_fen_cnt = 0;
 	mutex_unlock(&sync_pt_data->sync_mutex);
