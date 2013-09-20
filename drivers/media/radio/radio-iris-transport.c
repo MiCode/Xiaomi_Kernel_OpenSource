@@ -105,6 +105,7 @@ static void send_disable_event(struct work_struct *worker)
 	skb = alloc_skb(len, GFP_ATOMIC);
 	if (!skb) {
 		FMDERR("Memory not allocated for the socket");
+		kfree(worker);
 		return;
 	}
 
