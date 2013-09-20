@@ -15,6 +15,7 @@
 / {
 	model = "Qualcomm MPQ8092";
 	compatible = "qcom,mpq8092";
+	qcom,msm-id = <146 0>;
 	interrupt-parent = <&intc>;
 
 	aliases {
