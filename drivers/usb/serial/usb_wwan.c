@@ -516,7 +516,6 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	/* explicitly set the driver mode to raw */
 	tty->raw = 1;
 	tty->real_raw = 1;
-	tty->update_room_in_ldisc = 1;
 
 	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	dbg("%s", __func__);
