@@ -164,6 +164,7 @@ static int msm_gpio_direction_output(struct gpio_chip *chip,
 	return 0;
 }
 
+#ifndef CONFIG_USE_PINCTRL_IRQ
 #ifdef CONFIG_OF
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
@@ -186,6 +187,12 @@ static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 {
 	return irq - MSM_GPIO_TO_INT(chip->base);
+}
+#endif
+#else
+static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
+{
+	return -EINVAL;
 }
 #endif
 
@@ -213,6 +220,7 @@ static struct msm_gpio_dev msm_gpio = {
 	},
 };
 
+#ifndef CONFIG_USE_PINCTRL_IRQ
 static void msm_gpio_irq_ack(struct irq_data *d)
 {
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, d->irq);
@@ -416,6 +424,7 @@ static struct syscore_ops msm_gpio_syscore_ops = {
 	.suspend = msm_gpio_suspend,
 	.resume = msm_gpio_resume,
 };
+#endif /* CONFIG_USE_PINCTRL_IRQ */
 
 static void msm_tlmm_set_field(const struct tlmm_field_cfg *configs,
 			       unsigned id, unsigned width, unsigned val)
@@ -461,6 +470,7 @@ int gpio_tlmm_config(unsigned config, unsigned disable)
 }
 EXPORT_SYMBOL(gpio_tlmm_config);
 
+#ifndef CONFIG_USE_PINCTRL_IRQ
 int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 					unsigned int input_polarity)
 {
@@ -500,6 +510,59 @@ static inline void msm_gpio_set_irq_handler(struct device *dev)
 	}
 }
 
+static int msm_gpio_setup_irqchip(struct platform_device *pdev)
+{
+	int ret = 0, ngpio;
+
+	ngpio = msm_gpio.gpio_chip.ngpio;
+	tlmm_msm_summary_irq = platform_get_irq(pdev, 0);
+	if (tlmm_msm_summary_irq < 0) {
+		pr_err("%s: No interrupt defined for msmgpio\n", __func__);
+		return -ENXIO;
+	}
+
+	msm_gpio.enabled_irqs = devm_kzalloc(&pdev->dev, sizeof(unsigned long)
+					* BITS_TO_LONGS(ngpio), GFP_KERNEL);
+	if (!msm_gpio.enabled_irqs) {
+		dev_err(&pdev->dev, "%s failed to allocate bitmap\n", __func__);
+		return -ENOMEM;
+	}
+
+	msm_gpio.wake_irqs = devm_kzalloc(&pdev->dev, sizeof(unsigned long) *
+					BITS_TO_LONGS(ngpio), GFP_KERNEL);
+	if (!msm_gpio.wake_irqs) {
+		dev_err(&pdev->dev, "%s failed to allocated wake_irqs bitmap\n"
+				, __func__);
+		return -ENOMEM;
+	}
+
+	bitmap_zero(msm_gpio.enabled_irqs, ngpio);
+	bitmap_zero(msm_gpio.wake_irqs, ngpio);
+	msm_gpio_set_irq_handler(&pdev->dev);
+
+	ret = devm_request_irq(&pdev->dev, tlmm_msm_summary_irq,
+			msm_summary_irq_handler, IRQF_TRIGGER_HIGH,
+			"msmgpio", NULL);
+	if (ret) {
+		pr_err("Request_irq failed for tlmm_msm_summary_irq - %d\n",
+				ret);
+		return ret;
+	}
+	register_syscore_ops(&msm_gpio_syscore_ops);
+	return 0;
+}
+#else
+static inline void msm_gpio_set_irq_handler(struct device *dev)
+{
+	return;
+}
+
+static int msm_gpio_setup_irqchip(struct platform_device *pdev)
+{
+	return 0;
+}
+#endif
+
 static int msm_gpio_probe(struct platform_device *pdev)
 {
 	int ret, ngpio = 0;
@@ -524,48 +587,15 @@ static int msm_gpio_probe(struct platform_device *pdev)
 		nr_direct_connect_irqs = pdata->direct_connect_irqs;
 	}
 
-	tlmm_msm_summary_irq = platform_get_irq(pdev, 0);
-	if (tlmm_msm_summary_irq < 0) {
-		pr_err("%s: No interrupt defined for msmgpio\n", __func__);
-		return -ENXIO;
-	}
-
 	msm_gpio.gpio_chip.dev = &pdev->dev;
 	msm_gpio.gpio_chip.ngpio = ngpio;
 	spin_lock_init(&tlmm_lock);
-	msm_gpio.enabled_irqs = devm_kzalloc(&pdev->dev, sizeof(unsigned long)
-					* BITS_TO_LONGS(ngpio), GFP_KERNEL);
-	if (!msm_gpio.enabled_irqs) {
-		dev_err(&pdev->dev, "%s failed to allocated enabled_irqs bitmap\n"
-				, __func__);
-		return -ENOMEM;
-	}
-
-	msm_gpio.wake_irqs = devm_kzalloc(&pdev->dev, sizeof(unsigned long) *
-					BITS_TO_LONGS(ngpio), GFP_KERNEL);
-	if (!msm_gpio.wake_irqs) {
-		dev_err(&pdev->dev, "%s failed to allocated wake_irqs bitmap\n"
-				, __func__);
-		return -ENOMEM;
-	}
-
-	bitmap_zero(msm_gpio.enabled_irqs, ngpio);
-	bitmap_zero(msm_gpio.wake_irqs, ngpio);
+	ret = msm_gpio_setup_irqchip(pdev);
+	if (ret)
+		return ret;
 	ret = gpiochip_add(&msm_gpio.gpio_chip);
 	if (ret < 0)
 		return ret;
-
-	msm_gpio_set_irq_handler(&pdev->dev);
-
-	ret = devm_request_irq(&pdev->dev, tlmm_msm_summary_irq,
-			msm_summary_irq_handler, IRQF_TRIGGER_HIGH,
-			"msmgpio", NULL);
-	if (ret) {
-		pr_err("Request_irq failed for tlmm_msm_summary_irq - %d\n",
-				ret);
-		return ret;
-	}
-	register_syscore_ops(&msm_gpio_syscore_ops);
 	return 0;
 }
 
@@ -579,8 +609,9 @@ static struct of_device_id msm_gpio_of_match[] = {
 static int msm_gpio_remove(struct platform_device *pdev)
 {
 	int ret;
-
+#ifndef CONFIG_USE_PINCTRL_IRQ
 	unregister_syscore_ops(&msm_gpio_syscore_ops);
+#endif
 	ret = gpiochip_remove(&msm_gpio.gpio_chip);
 	if (ret < 0)
 		return ret;
@@ -612,6 +643,7 @@ static int __init msm_gpio_init(void)
 postcore_initcall(msm_gpio_init);
 
 #ifdef CONFIG_OF
+#ifndef CONFIG_USE_PINCTRL_IRQ
 static int msm_gpio_irq_domain_xlate(struct irq_domain *d,
 				     struct device_node *controller,
 				     const u32 *intspec,
@@ -664,9 +696,9 @@ int __init msm_gpio_of_init(struct device_node *node,
 		WARN(1, "Cannot allocate irq_domain\n");
 		return -ENOMEM;
 	}
-
 	return 0;
 }
+#endif
 #endif
 
 MODULE_AUTHOR("Gregory Bean <gbean@codeaurora.org>");
