@@ -3082,6 +3082,16 @@ static void put_event(struct perf_event *event)
 
 static int perf_release(struct inode *inode, struct file *file)
 {
+	struct perf_event *event = file->private_data;
+
+	/*
+	 * Event can be in state OFF because of a constraint check.
+	 * Change to ACTIVE so that it gets cleaned up correctly.
+	 */
+	if ((event->state == PERF_EVENT_STATE_OFF) &&
+	    event->attr.constraint_duplicate)
+		event->state = PERF_EVENT_STATE_ACTIVE;
+
 	put_event(file->private_data);
 	return 0;
 }
