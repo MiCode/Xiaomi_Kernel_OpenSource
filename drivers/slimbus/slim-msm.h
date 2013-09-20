@@ -82,7 +82,8 @@
 
 /* Slimbus QMI service */
 #define SLIMBUS_QMI_SVC_ID 0x0301
-#define SLIMBUS_QMI_INS_ID 1
+#define SLIMBUS_QMI_SVC_V1 1
+#define SLIMBUS_QMI_INS_ID 0
 
 #define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
 #define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
