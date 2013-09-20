@@ -600,6 +600,8 @@ static struct platform_driver krait_l2_pmu_driver = {
 
 static int __init register_krait_l2_pmu_driver(void)
 {
+	int i;
+
 	/* Reset all ctrs */
 	set_l2_indirect_reg(L2PMCR, L2PMCR_RESET_ALL);
 
@@ -620,6 +622,11 @@ static int __init register_krait_l2_pmu_driver(void)
 
 	/* Avoid spurious interrupt if any */
 	get_reset_pmovsr();
+
+	/* Clear counter enables */
+	disable_counter(l2_cycle_ctr_idx);
+	for (i = 0; i < total_l2_ctrs; i++)
+		disable_counter(i);
 
 	return platform_driver_register(&krait_l2_pmu_driver);
 }
