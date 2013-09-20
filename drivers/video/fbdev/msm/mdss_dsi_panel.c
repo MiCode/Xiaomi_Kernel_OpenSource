@@ -231,6 +231,61 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 }
 
+static char caset[] = {0x2a, 0x00, 0x00, 0x03, 0x00};	/* DTYPE_DCS_LWRITE */
+static char paset[] = {0x2b, 0x00, 0x00, 0x05, 0x00};	/* DTYPE_DCS_LWRITE */
+
+static struct dsi_cmd_desc partial_update_enable_cmd[] = {
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(caset)}, caset},
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(paset)}, paset},
+};
+
+static int mdss_dsi_panel_partial_update(struct mdss_panel_data *pdata)
+{
+	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	struct dcs_cmd_req cmdreq;
+	int rc = 0;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	mipi  = &pdata->panel_info.mipi;
+
+	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+
+	caset[1] = (((pdata->panel_info.roi_x) & 0xFF00) >> 8);
+	caset[2] = (((pdata->panel_info.roi_x) & 0xFF));
+	caset[3] = (((pdata->panel_info.roi_x - 1 + pdata->panel_info.roi_w)
+								& 0xFF00) >> 8);
+	caset[4] = (((pdata->panel_info.roi_x - 1 + pdata->panel_info.roi_w)
+								& 0xFF));
+	partial_update_enable_cmd[0].payload = caset;
+
+	paset[1] = (((pdata->panel_info.roi_y) & 0xFF00) >> 8);
+	paset[2] = (((pdata->panel_info.roi_y) & 0xFF));
+	paset[3] = (((pdata->panel_info.roi_y - 1 + pdata->panel_info.roi_h)
+								& 0xFF00) >> 8);
+	paset[4] = (((pdata->panel_info.roi_y - 1 + pdata->panel_info.roi_h)
+								& 0xFF));
+	partial_update_enable_cmd[1].payload = paset;
+
+	pr_debug("%s: enabling partial update\n", __func__);
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = partial_update_enable_cmd;
+	cmdreq.cmds_cnt = 2;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+
+	return rc;
+}
+
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
@@ -850,6 +905,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 	int rc = 0;
 	static const char *panel_name;
 	bool cont_splash_enabled;
+	bool partial_update_enabled;
 
 	if (!node) {
 		pr_err("%s: no panel node\n", __func__);
@@ -884,6 +940,18 @@ int mdss_dsi_panel_init(struct device_node *node,
 				__func__, __LINE__);
 
 		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
+	}
+
+	partial_update_enabled = of_property_read_bool(node,
+						"qcom,partial-update-enabled");
+	if (partial_update_enabled) {
+		pr_info("%s: Partial update enabled.\n", __func__);
+		ctrl_pdata->panel_data.panel_info.partial_update_enabled = 1;
+		ctrl_pdata->partial_update_fnc = mdss_dsi_panel_partial_update;
+	} else {
+		pr_info("%s: Partial update disabled.\n", __func__);
+		ctrl_pdata->panel_data.panel_info.partial_update_enabled = 0;
+		ctrl_pdata->partial_update_fnc = NULL;
 	}
 
 	ctrl_pdata->on = mdss_dsi_panel_on;
