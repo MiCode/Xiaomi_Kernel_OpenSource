@@ -18,6 +18,7 @@
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
 #include <linux/types.h>
+#include <linux/notifier.h>
 
 #include "mdss_panel.h"
 
@@ -39,6 +40,28 @@
 #ifndef MIN
 #define  MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
+
+/**
+ * enum mdp_notify_event - Different frame events to indicate frame update state
+ *
+ * @MDP_NOTIFY_FRAME_BEGIN:	Frame update has started, the frame is about to
+ *				be programmed into hardware.
+ * @MDP_NOTIFY_FRAME_FLUSHED:	Configuration of frame has been flushed and
+ *				DMA transfer has started.
+ * @MDP_NOTIFY_FRAME_DONE:	Frame DMA transfer has completed.
+ *				- For video mode panels this will indicate that
+ *				  previous frame has been replaced by new one.
+ *				- For command mode/writeback frame done happens
+ *				  as soon as the DMA of the frame is done.
+ * @MDP_NOTIFY_FRAME_TIMEOUT:	Frame DMA transfer has failed to complete within
+ *				a fair amount of time.
+ */
+enum mdp_notify_event {
+	MDP_NOTIFY_FRAME_BEGIN = 1,
+	MDP_NOTIFY_FRAME_FLUSHED,
+	MDP_NOTIFY_FRAME_DONE,
+	MDP_NOTIFY_FRAME_TIMEOUT,
+};
 
 struct disp_info_type_suspend {
 	int op_enable;
@@ -63,7 +86,10 @@ struct msm_sync_pt_data {
 	u32 threshold;
 
 	atomic_t commit_cnt;
+	bool flushed;
+
 	struct mutex sync_mutex;
+	struct notifier_block notifier;
 };
 
 struct msm_fb_data_type;
