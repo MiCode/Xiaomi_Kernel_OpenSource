@@ -279,7 +279,8 @@ Optional properties:
 					as below:
 					--> Reset GPIO value
 					--> Sleep value (in ms)
-
+- qcom,partial-update-enabled:		Boolean used to enable partial
+					panel update for command mode panels.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -378,5 +379,6 @@ Example:
 		qcom,mdss-tear-check-rd-ptr-trigger-intr = <1281>;
 		qcom,mdss-tear-check-frame-rate = <6000>;
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
+		qcom,partial-update-enabled;
 	};
 };
