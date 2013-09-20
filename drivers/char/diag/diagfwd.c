@@ -2453,7 +2453,7 @@ void diagfwd_init(void)
 	driver->buf_tbl_size = (buf_tbl_size < driver->poolsize_hdlc) ?
 				driver->poolsize_hdlc : buf_tbl_size;
 	driver->supports_separate_cmdrsp = device_supports_separate_cmdrsp();
-	driver->supports_apps_hdlc_encoding = 0;
+	driver->supports_apps_hdlc_encoding = 1;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 
