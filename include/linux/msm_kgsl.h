@@ -75,9 +75,9 @@ struct kgsl_pwrlevel {
  * @num_levels:		Number of pwrlevels for the specific device
  * @idle_timeout:	Timeout for GPU to turn its resources off
  * @strtstp_sleepwake:  Flag to decide b/w SLEEP and SLUMBER
+ * @bus_control:	Flag if independent bus voting is supported
  * @clk_map:		Clocks map per platform
  * @idle_needed:        Flag to specify if idle needed before clock change
- * @step_mul:           DCVS specific indexing into the bustable
  * @bus_scale_table:	Bus table with different b/w votes
  * @iommu_data:		Struct holding iommu context data
  * @iommu_count:	Number of IOMMU units for the GPU
@@ -92,6 +92,7 @@ struct kgsl_device_platform_data {
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	bool strtstp_sleepwake;
+	bool bus_control;
 	unsigned int clk_map;
 	unsigned int idle_needed;
 	unsigned int step_mul;

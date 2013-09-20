@@ -16,7 +16,8 @@
 irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev);
 void a3xx_irq_control(struct adreno_device *adreno_dev, int state);
 unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
-unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev);
+void a3xx_busy_cycles(struct adreno_device *adreno_dev,
+			struct adreno_busy_data *);
 
 int a3xx_rb_init(struct adreno_device *adreno_dev,
 			struct adreno_ringbuffer *rb);

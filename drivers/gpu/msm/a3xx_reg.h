@@ -848,6 +848,7 @@
 #define VBIF_PERF_CNT_1_SEL_MASK 0x7f00
 
 /* VBIF countables */
+#define VBIF_AXI_TOTAL_BEATS 85
 #define VBIF_DDR_TOTAL_CYCLES 110
 
 /*
