@@ -88,6 +88,9 @@ static struct devfreq_simple_ondemand_data adreno_ondemand_data = {
 };
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
+	.bus = {
+		.max = 450,
+	},
 	.device_id = KGSL_DEVICE_3D0,
 };
 
@@ -1385,15 +1388,6 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 		&pdata->init_level))
 		pdata->init_level = 1;
 
-	/*
-	 * qcom,step-pwrlevel isn't required so don't spam the kernel log
-	 * if it isn't found
-	 */
-
-	if (of_property_read_u32(parent, "qcom,step-pwrlevel",
-		&pdata->step_mul))
-		pdata->step_mul = 1;
-
 	if (pdata->init_level < 0 || pdata->init_level > pdata->num_levels) {
 		KGSL_CORE_ERR("Initial power level out of range\n");
 		pdata->init_level = 1;
@@ -1526,6 +1520,9 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 
 	pdata->strtstp_sleepwake = of_property_read_bool(pdev->dev.of_node,
 						"qcom,strtstp-sleepwake");
+
+	pdata->bus_control = of_property_read_bool(pdev->dev.of_node,
+					"qcom,bus-control");
 
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,clk-map",
 		&pdata->clk_map))
@@ -2861,10 +2858,10 @@ static long adreno_ioctl(struct kgsl_device_private *dev_priv,
 
 }
 
-static inline s64 adreno_ticks_to_us(u32 ticks, u32 gpu_freq)
+static inline s64 adreno_ticks_to_us(u32 ticks, u32 freq)
 {
-	gpu_freq /= 1000000;
-	return ticks / gpu_freq;
+	freq /= 1000000;
+	return ticks / freq;
 }
 
 static void adreno_power_stats(struct kgsl_device *device,
@@ -2872,7 +2869,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned int cycles = 0;
+	struct adreno_busy_data busy_data;
 
 	memset(stats, 0, sizeof(*stats));
 	/*
@@ -2881,10 +2878,12 @@ static void adreno_power_stats(struct kgsl_device *device,
 	 * any cycles since the last time this function was called.
 	 */
 	if (device->state == KGSL_STATE_ACTIVE)
-		cycles = adreno_dev->gpudev->busy_cycles(adreno_dev);
+		adreno_dev->gpudev->busy_cycles(adreno_dev, &busy_data);
 
-	stats->busy_time = adreno_ticks_to_us(cycles,
+	stats->busy_time = adreno_ticks_to_us(busy_data.gpu_busy,
 					      kgsl_pwrctrl_active_freq(pwr));
+	stats->ram_time = busy_data.vbif_ram_cycles;
+	stats->ram_wait = busy_data.vbif_starved_ram;
 }
 
 void adreno_irqctrl(struct kgsl_device *device, int state)

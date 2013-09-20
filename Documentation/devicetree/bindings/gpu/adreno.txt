@@ -64,7 +64,7 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
-- qcom,step-pwrlevel:	   How many qcom,gpu-pwrlevel should be decremented at once
+- qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.

@@ -64,7 +64,9 @@ struct kgsl_clk_stats {
  * @clk_stats - structure of clock statistics
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_latency - allowed CPU latency in microseconds
- * @step_mul - multiplier for moving between power levels
+ * @bus_control - true if the bus calculation is independent
+ * @bus_index - default bus index into the bus_ib table
+ * @bus_ib - the set of unique ib requests needed for the bus calculation
  */
 
 struct kgsl_pwrctrl {
@@ -88,11 +90,14 @@ struct kgsl_pwrctrl {
 	uint32_t pcl;
 	unsigned int idle_needed;
 	const char *irq_name;
+	bool irq_last;
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_latency;
-	unsigned int step_mul;
-	unsigned int irq_last;
+	bool bus_control;
+	int bus_mod;
+	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
+	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];
 };
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
@@ -105,6 +110,8 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device);
 int kgsl_pwrctrl_wake(struct kgsl_device *device);
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	unsigned int level);
+void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
+	bool on);
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
 void kgsl_pwrctrl_enable(struct kgsl_device *device);
