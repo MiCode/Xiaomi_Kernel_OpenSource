@@ -64,6 +64,19 @@ Optional properties:
     The third cell represents the value of the micd-pol-gpio pin, a non-zero
     value indicates this should be on
 
+  - wlf,micbias1 : Configuration for the micbias regulator, should include 5
+    cells.
+    The first cell is the output voltage in millivolts
+    The second cell a non-zero value indicates an external capacitor is fitted
+    The third cell a non-zero value indicates the micbias should be actively
+    discharged
+    The four cell a non-zero value indicates that the micbias should be
+    brought up slowly to reduce pops
+    The fifth cell a non-zero value indicates the micbias should be bypassed
+    and simply output MICVDD
+  - wlf,micbias2 : See wlf,micbias1
+  - wlf,micbias3 : See wlf,micbias1
+
   - wlf,gpio-defaults : A list of GPIO configuration register values. If
     absent, no configuration of these registers is performed. If any
     entry has a value that is out of range for a 16 bit register then
@@ -105,6 +118,8 @@ codec: wm5102@1a {
 		0x1 1 0
 		0x0 2 1
 	>;
+
+	wlf,micbias2 = <2600 0 1 1 0>;
 
 	wlf,gpio-defaults = <
 		0x00000000 /* AIF1TXLRCLK */

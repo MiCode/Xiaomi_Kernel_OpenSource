@@ -707,6 +707,27 @@ static int arizona_of_get_micd_configs(struct arizona *arizona,
 error:
 	devm_kfree(arizona->dev, micd_configs);
 	dev_err(arizona->dev, "DT property %s is malformed: %d\n", prop, ret);
+
+	return ret;
+}
+
+static int arizona_of_get_micbias(struct arizona *arizona,
+				  const char *prop, int index)
+{
+	int ret;
+	u32 micbias_config[5];
+
+	ret = arizona_of_read_u32_array(arizona, prop, false,
+					micbias_config,
+					ARRAY_SIZE(micbias_config));
+	if (ret >= 0) {
+		arizona->pdata.micbias[index].mV = micbias_config[0];
+		arizona->pdata.micbias[index].ext_cap = micbias_config[1];
+		arizona->pdata.micbias[index].discharge = micbias_config[2];
+		arizona->pdata.micbias[index].soft_start = micbias_config[3];
+		arizona->pdata.micbias[index].bypass = micbias_config[4];
+	}
+
 	return ret;
 }
 
@@ -741,6 +762,10 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 
 	arizona_of_get_micd_ranges(arizona, "wlf,micd-ranges");
 	arizona_of_get_micd_configs(arizona, "wlf,micd-configs");
+
+	arizona_of_get_micbias(arizona, "wlf,micbias1", 0);
+	arizona_of_get_micbias(arizona, "wlf,micbias2", 1);
+	arizona_of_get_micbias(arizona, "wlf,micbias3", 2);
 
 	arizona_of_get_gpio_defaults(arizona, "wlf,gpio-defaults");
 
