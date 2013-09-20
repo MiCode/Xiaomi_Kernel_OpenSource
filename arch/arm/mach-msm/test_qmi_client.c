@@ -25,7 +25,8 @@
 #include "kernel_test_service_v01.h"
 
 #define TEST_SERVICE_SVC_ID 0x0000000f
-#define TEST_SERVICE_INS_ID 1
+#define TEST_SERVICE_V1 1
+#define TEST_SERVICE_INS_ID 0
 
 static int test_rep_cnt = 10;
 module_param_named(rep_cnt, test_rep_cnt, int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -250,6 +251,7 @@ static void test_clnt_svc_arrive(struct work_struct *work)
 
 	D("%s: Lookup server name\n", __func__);
 	rc = qmi_connect_to_service(test_clnt, TEST_SERVICE_SVC_ID,
+				    TEST_SERVICE_V1,
 				    TEST_SERVICE_INS_ID);
 	if (rc < 0) {
 		pr_err("%s: Server not found\n", __func__);
@@ -408,7 +410,8 @@ static int __init test_qmi_init(void)
 		return -EFAULT;
 
 	rc = qmi_svc_event_notifier_register(TEST_SERVICE_SVC_ID,
-				TEST_SERVICE_INS_ID, &test_clnt_nb);
+				TEST_SERVICE_V1, TEST_SERVICE_INS_ID,
+				&test_clnt_nb);
 	if (rc < 0) {
 		pr_err("%s: notifier register failed\n", __func__);
 		destroy_workqueue(test_clnt_workqueue);
@@ -422,7 +425,8 @@ static int __init test_qmi_init(void)
 			__func__, IS_ERR(test_dent));
 		test_dent = NULL;
 		qmi_svc_event_notifier_unregister(TEST_SERVICE_SVC_ID,
-					TEST_SERVICE_INS_ID, &test_clnt_nb);
+					TEST_SERVICE_V1, TEST_SERVICE_INS_ID,
+					&test_clnt_nb);
 		destroy_workqueue(test_clnt_workqueue);
 		return -EFAULT;
 	}
@@ -433,6 +437,7 @@ static int __init test_qmi_init(void)
 static void __exit test_qmi_exit(void)
 {
 	qmi_svc_event_notifier_unregister(TEST_SERVICE_SVC_ID,
+					TEST_SERVICE_V1,
 					TEST_SERVICE_INS_ID, &test_clnt_nb);
 	destroy_workqueue(test_clnt_workqueue);
 	debugfs_remove(test_dent);
