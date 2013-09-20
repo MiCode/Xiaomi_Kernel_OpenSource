@@ -4810,10 +4810,29 @@ static struct clk_lookup msm_clocks_8974_rumi[] = {
 	CLK_DUMMY("core_clk", NULL, "fdc84000.qcom,iommu", oFF),
 };
 
-static struct clk_lookup msm_clocks_8974ac_only[] __initdata = {
+static struct clk_lookup msm_clocks_8974pro_only[] __initdata = {
 	CLK_LOOKUP("gpll4", gpll4_clk_src.c, ""),
 	CLK_LOOKUP("sleep_clk", gcc_sdcc1_cdccal_sleep_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("cal_clk", gcc_sdcc1_cdccal_ff_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk2_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk1_clk.c, "90.qcom,camera"),
+};
+
+static struct clk_lookup msm_clocks_8974_only[] __initdata = {
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", gp1_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp1_clk_src.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_clk", gcc_gp1_clk.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp1_clk.c, "90.qcom,camera"),
 };
 
 static struct clk_lookup msm_clocks_8974_common[] __initdata = {
@@ -4993,22 +5012,16 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("core_clk_src", mdp_clk_src.c, "mdp.0"),
 	CLK_LOOKUP("vsync_clk", mdss_vsync_clk.c, "mdp.0"),
 
-	/* MM sensor clocks */
-	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "6e.qcom,camera"),
-	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "20.qcom,camera"),
-	CLK_LOOKUP("cam_src_clk", gp1_clk_src.c, "6c.qcom,camera"),
-	CLK_LOOKUP("cam_src_clk", mmss_gp1_clk_src.c, "90.qcom,camera"),
-	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "6e.qcom,camera"),
-	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "20.qcom,camera"),
-	CLK_LOOKUP("cam_clk", gcc_gp1_clk.c, "6c.qcom,camera"),
-	CLK_LOOKUP("cam_clk", camss_gp1_clk.c, "90.qcom,camera"),
-	CLK_LOOKUP("cam_clk", camss_mclk1_clk.c, ""),
-	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, ""),
-	CLK_LOOKUP("cam_clk", camss_mclk3_clk.c, ""),
-	CLK_LOOKUP("cam_gp0_src_clk", mmss_gp0_clk_src.c, ""),
-	CLK_LOOKUP("cam_gp1_src_clk", mmss_gp1_clk_src.c, ""),
-	CLK_LOOKUP("cam_gp0_clk", camss_gp0_clk.c, ""),
-	CLK_LOOKUP("cam_gp1_clk", camss_gp1_clk.c, ""),
+	/* MM sensor clocks placeholder */
+	CLK_LOOKUP("", camss_mclk0_clk.c, ""),
+	CLK_LOOKUP("", camss_mclk1_clk.c, ""),
+	CLK_LOOKUP("", camss_mclk2_clk.c, ""),
+	CLK_LOOKUP("", camss_mclk3_clk.c, ""),
+	CLK_LOOKUP("", mmss_gp0_clk_src.c, ""),
+	CLK_LOOKUP("", mmss_gp1_clk_src.c, ""),
+	CLK_LOOKUP("", camss_gp0_clk.c, ""),
+	CLK_LOOKUP("", camss_gp1_clk.c, ""),
+
 	/* CCI clocks */
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,
 		"fda0c000.qcom,cci"),
@@ -5361,7 +5374,8 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 };
 
 static struct clk_lookup msm_clocks_8974[ARRAY_SIZE(msm_clocks_8974_common)
-	+ ARRAY_SIZE(msm_clocks_8974ac_only)];
+	+ ARRAY_SIZE(msm_clocks_8974_only)
+	+ ARRAY_SIZE(msm_clocks_8974pro_only)];
 
 static struct pll_config_regs mmpll0_regs __initdata = {
 	.l_reg = (void __iomem *)MMPLL0_L_REG,
@@ -5708,18 +5722,26 @@ static void __init msm8974_clock_pre_init(void)
 
 	memcpy(msm_clocks_8974, msm_clocks_8974_common,
 	       sizeof(msm_clocks_8974_common));
-	msm8974_clock_init_data.size -= ARRAY_SIZE(msm_clocks_8974ac_only);
 
-	/* version specific changes */
+	/* version specific clock changes */
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2
 	    || cpu_is_msm8974pro())
 		msm8974_v2_clock_override();
-	if (cpu_is_msm8974pro()) {
+	if (cpu_is_msm8974pro())
 		msm8974_pro_clock_override();
+
+	/* version specific lookup table changes */
+	if (cpu_is_msm8974()) {
 		memcpy(msm_clocks_8974 + ARRAY_SIZE(msm_clocks_8974_common),
-		       msm_clocks_8974ac_only, sizeof(msm_clocks_8974ac_only));
+		       msm_clocks_8974_only, sizeof(msm_clocks_8974_only));
 		msm8974_clock_init_data.size +=
-			ARRAY_SIZE(msm_clocks_8974ac_only);
+			ARRAY_SIZE(msm_clocks_8974_only);
+	} else if (cpu_is_msm8974pro()) {
+		memcpy(msm_clocks_8974 + ARRAY_SIZE(msm_clocks_8974_common),
+		       msm_clocks_8974pro_only,
+		       sizeof(msm_clocks_8974pro_only));
+		msm8974_clock_init_data.size +=
+			ARRAY_SIZE(msm_clocks_8974pro_only);
 	}
 
 	/*
@@ -5748,7 +5770,7 @@ static void __init msm8974_rumi_clock_pre_init(void)
 
 struct clock_init_data msm8974_clock_init_data __initdata = {
 	.table = msm_clocks_8974,
-	.size = ARRAY_SIZE(msm_clocks_8974),
+	.size = ARRAY_SIZE(msm_clocks_8974_common),
 	.pre_init = msm8974_clock_pre_init,
 	.post_init = msm8974_clock_post_init,
 };
