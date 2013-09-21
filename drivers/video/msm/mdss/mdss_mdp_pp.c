@@ -289,7 +289,8 @@ static void pp_update_pcc_regs(u32 offset,
 static void pp_update_igc_lut(struct mdp_igc_lut_data *cfg,
 				u32 offset, u32 blk_idx);
 static void pp_update_gc_one_lut(u32 offset,
-				struct mdp_ar_gc_lut_data *lut_data);
+				struct mdp_ar_gc_lut_data *lut_data,
+				uint8_t num_stages);
 static void pp_update_argc_lut(u32 offset,
 				struct mdp_pgc_lut_data *config);
 static void pp_update_hist_lut(char __iomem *base,
@@ -1753,35 +1754,48 @@ igc_config_exit:
 	return ret;
 }
 static void pp_update_gc_one_lut(u32 offset,
-		struct mdp_ar_gc_lut_data *lut_data)
+		struct mdp_ar_gc_lut_data *lut_data,
+		uint8_t num_stages)
 {
-	int i, start_idx;
+	int i, start_idx, idx;
 
 	start_idx = (MDSS_MDP_REG_READ(offset) >> 16) & 0xF;
-	for (i = start_idx; i < GC_LUT_SEGMENTS; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].x_start);
-	for (i = 0; i < start_idx; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].x_start);
+	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].x_start);
+	}
+	for (i = 0; i < start_idx; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].x_start);
+	}
 	offset += 4;
 	start_idx = (MDSS_MDP_REG_READ(offset) >> 16) & 0xF;
-	for (i = start_idx; i < GC_LUT_SEGMENTS; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].slope);
-	for (i = 0; i < start_idx; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].slope);
+	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].slope);
+	}
+	for (i = 0; i < start_idx; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].slope);
+	}
 	offset += 4;
 	start_idx = (MDSS_MDP_REG_READ(offset) >> 16) & 0xF;
-	for (i = start_idx; i < GC_LUT_SEGMENTS; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].offset);
-	for (i = 0; i < start_idx; i++)
-		MDSS_MDP_REG_WRITE(offset, lut_data[i].offset);
+	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].offset);
+	}
+	for (i = 0; i < start_idx; i++) {
+		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
+		MDSS_MDP_REG_WRITE(offset, lut_data[idx].offset);
+	}
 }
 static void pp_update_argc_lut(u32 offset, struct mdp_pgc_lut_data *config)
 {
-	pp_update_gc_one_lut(offset, config->r_data);
+	pp_update_gc_one_lut(offset, config->r_data, config->num_r_stages);
 	offset += 0x10;
-	pp_update_gc_one_lut(offset, config->g_data);
+	pp_update_gc_one_lut(offset, config->g_data, config->num_g_stages);
 	offset += 0x10;
-	pp_update_gc_one_lut(offset, config->b_data);
+	pp_update_gc_one_lut(offset, config->b_data, config->num_b_stages);
 }
 static void pp_read_gc_one_lut(u32 offset,
 		struct mdp_ar_gc_lut_data *gc_data)
@@ -1859,7 +1873,7 @@ int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
 	u32 argc_offset = 0, disp_num, dspp_num = 0;
 	struct mdp_pgc_lut_data local_cfg;
 	struct mdp_pgc_lut_data *pgc_ptr;
-	u32 tbl_size;
+	u32 tbl_size, r_size, g_size, b_size;
 
 	if (!ctl)
 		return -EINVAL;
@@ -1930,18 +1944,35 @@ int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
 		*copyback = 1;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	} else {
+		r_size = config->num_r_stages *
+			sizeof(struct mdp_ar_gc_lut_data);
+		g_size = config->num_g_stages *
+			sizeof(struct mdp_ar_gc_lut_data);
+		b_size = config->num_b_stages *
+			sizeof(struct mdp_ar_gc_lut_data);
+		if (r_size > tbl_size ||
+			g_size > tbl_size ||
+			b_size > tbl_size ||
+			r_size == 0 ||
+			g_size == 0 ||
+			b_size == 0) {
+			ret = -EINVAL;
+			pr_warn("%s, number of rgb stages invalid",
+				__func__);
+			goto argc_config_exit;
+		}
 		if (copy_from_user(&mdss_pp_res->gc_lut_r[disp_num][0],
-			config->r_data, tbl_size)) {
+			config->r_data, r_size)) {
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
 		if (copy_from_user(&mdss_pp_res->gc_lut_g[disp_num][0],
-			config->g_data, tbl_size)) {
+			config->g_data, g_size)) {
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
 		if (copy_from_user(&mdss_pp_res->gc_lut_b[disp_num][0],
-			config->b_data, tbl_size)) {
+			config->b_data, b_size)) {
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
