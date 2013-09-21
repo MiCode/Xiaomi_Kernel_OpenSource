@@ -1162,6 +1162,7 @@ static int qpnp_bsi_bus_set_active_mode(struct bif_ctrl_dev *bdev,
 			+ QPNP_BSI_POWER_UP_LOW_DELAY_US);
 		break;
 	case BIF_BUS_STATE_POWER_DOWN:
+	case BIF_BUS_STATE_MASTER_DISABLED:
 		msleep(QPNP_BSI_MAX_SLAVE_POWER_UP_DELAY_MS);
 		break;
 	}
@@ -1180,13 +1181,34 @@ static int qpnp_bsi_set_bus_state(struct bif_ctrl_dev *bdev, int state)
 {
 	struct qpnp_bsi_chip *chip = bdev_get_drvdata(bdev);
 	int rc = 0;
+	u8 reg;
 
 	if (state == chip->state)
 		return 0;
 
+	if (chip->state == BIF_BUS_STATE_MASTER_DISABLED) {
+		/*
+		 * Enable the BSI peripheral when transitioning from a disabled
+		 * bus state to any of the active bus states so that BIF
+		 * transactions can take place.
+		 */
+		reg = QPNP_BSI_ENABLE;
+		rc = qpnp_bsi_write(chip, QPNP_BSI_REG_ENABLE, &reg, 1);
+		if (rc) {
+			dev_err(&chip->spmi_dev->dev, "%s: qpnp_bsi_write() failed, rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+	}
+
 	switch (state) {
 	case BIF_BUS_STATE_MASTER_DISABLED:
-		pr_info("master disable not yet supported.\n");
+		/* Disable the BSI peripheral. */
+		reg = QPNP_BSI_DISABLE;
+		rc = qpnp_bsi_write(chip, QPNP_BSI_REG_ENABLE, &reg, 1);
+		if (rc)
+			dev_err(&chip->spmi_dev->dev, "%s: qpnp_bsi_write() failed, rc=%d\n",
+				__func__, rc);
 		break;
 	case BIF_BUS_STATE_POWER_DOWN:
 		rc = qpnp_bsi_bus_transaction(bdev, BIF_TRANS_BC, BIF_CMD_PDWN);
@@ -1624,7 +1646,7 @@ static int __devinit qpnp_bsi_probe(struct spmi_device *spmi)
 	struct device *dev = &spmi->dev;
 	struct qpnp_bsi_chip *chip;
 	int rc;
-	u8 type[2], reg;
+	u8 type[2];
 
 	if (!spmi->dev.of_node) {
 		dev_err(dev, "%s: device node missing\n", __func__);
@@ -1655,7 +1677,7 @@ static int __devinit qpnp_bsi_probe(struct spmi_device *spmi)
 
 	chip->spmi_dev		= spmi;
 	chip->bdesc.ops		= &qpnp_bsi_ops;
-	chip->state		= BIF_BUS_STATE_POWER_DOWN;
+	chip->state		= BIF_BUS_STATE_MASTER_DISABLED;
 	chip->com_mode		= QPNP_BSI_COM_MODE_IRQ;
 
 	rc = qpnp_bsi_read(chip, QPNP_BSI_REG_TYPE, type, 2);
@@ -1687,15 +1709,6 @@ static int __devinit qpnp_bsi_probe(struct spmi_device *spmi)
 	rc = qpnp_bsi_set_tau_bif(chip, chip->bdesc.bus_clock_min_ns);
 	if (rc) {
 		dev_err(dev, "%s: qpnp_bsi_set_tau_bif() failed, rc=%d\n",
-			__func__, rc);
-		goto cleanup_irqs;
-	}
-
-	/* Enable the BSI module. */
-	reg = QPNP_BSI_ENABLE;
-	rc = qpnp_bsi_write(chip, QPNP_BSI_REG_ENABLE, &reg, 1);
-	if (rc) {
-		dev_err(dev, "%s: qpnp_bsi_write() failed, rc=%d\n",
 			__func__, rc);
 		goto cleanup_irqs;
 	}
