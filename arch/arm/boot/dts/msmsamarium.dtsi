@@ -34,6 +34,7 @@
 /include/ "msmsamarium-coresight.dtsi"
 /include/ "msmsamarium-pinctrl.dtsi"
 /include/ "msmsamarium-bus.dtsi"
+/include/ "msmsamarium-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
