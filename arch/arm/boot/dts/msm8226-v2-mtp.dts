@@ -18,13 +18,5 @@
 / {
 	model = "Qualcomm MSM 8226v2 MTP";
 	compatible = "qcom,msm8226-mtp", "qcom,msm8226", "qcom,mtp";
-	qcom,msm-id = <145 8 0x20000>,
-		      <158 8 0x20000>,
-		      <159 8 0x20000>,
-		      <198 8 0x20000>,
-		      <205 8 0x20000>,
-		      <220 8 0x20000>,
-		      <221 8 0x20000>,
-		      <222 8 0x20000>,
-		      <223 8 0x20000>;
+	qcom,board-id = <8 0>;
 };

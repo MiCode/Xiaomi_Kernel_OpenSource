@@ -18,13 +18,5 @@
 / {
 	model = "Qualcomm MSM 8226v2 CDP";
 	compatible = "qcom,msm8226-cdp", "qcom,msm8226", "qcom,cdp";
-	qcom,msm-id = <145 1 0x20000>,
-		      <158 1 0x20000>,
-		      <159 1 0x20000>,
-		      <198 1 0x20000>,
-		      <205 1 0x20000>,
-		      <220 1 0x20000>,
-		      <221 1 0x20000>,
-		      <222 1 0x20000>,
-		      <223 1 0x20000>;
+	qcom,board-id = <1 0>;
 };
