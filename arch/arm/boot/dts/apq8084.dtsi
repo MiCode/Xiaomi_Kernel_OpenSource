@@ -813,6 +813,7 @@
 			   <0 29 0>;
 		interrupt-names = "core_irq", "pwr_event_irq";
 		hsic-vdd-dig-supply = <&pma8084_s2_corner>;
+		hsic-gdsc-supply = <&gdsc_usb_hsic>;
 		hsic,strobe-gpio = <&msmgpio 134 0x00>;
 		hsic,data-gpio = <&msmgpio 135 0x00>;
 		qcom,vdd-voltage-level = <1 5 7>;
