@@ -161,7 +161,9 @@ dtb-$(CONFIG_ARCH_MSMKRYPTON) += msmkrypton-sim.dtb
 dtb-$(CONFIG_ARCH_MSMSAMARIUM) += msmsamarium-sim.dtb \
 	msmsamarium-rumi.dtb \
 	msmsamarium-cdp-interposer.dtb \
-	msmsamarium-cdp.dtb
+	msmsamarium-cdp.dtb \
+	msmsamarium-mtp.dtb \
+	apqsamarium-mtp.dtb
 dtb-$(CONFIG_ARCH_MPQ8092) += mpq8092-sim.dtb \
 	mpq8092-rumi.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb \

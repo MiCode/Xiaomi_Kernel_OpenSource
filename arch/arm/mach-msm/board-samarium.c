@@ -136,6 +136,7 @@ void __init msmsamarium_init_very_early(void)
 
 static const char *msmsamarium_dt_match[] __initconst = {
 	"qcom,msmsamarium",
+	"qcom,apqsamarium",
 	NULL
 };
 
