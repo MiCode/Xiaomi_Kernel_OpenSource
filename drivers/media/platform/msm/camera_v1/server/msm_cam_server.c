@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1181,7 +1181,7 @@ static int map_imem_addresses(struct msm_cam_media_controller *mctl)
 		(unsigned long)IMEM_Y_PING_OFFSET, mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
 		SZ_4K, IOMMU_WRITE | IOMMU_READ,
-		(unsigned long *)&mctl->ping_imem_y);
+			&mctl->ping_imem_y);
 	mctl->ping_imem_cbcr = mctl->ping_imem_y + IMEM_Y_SIZE;
 	if (rc < 0) {
 		pr_err("%s: ping iommu mapping returned error %d\n",
@@ -1193,7 +1193,7 @@ static int map_imem_addresses(struct msm_cam_media_controller *mctl)
 		(unsigned long)IMEM_Y_PONG_OFFSET, mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
 		SZ_4K, IOMMU_WRITE | IOMMU_READ,
-		(unsigned long *)&mctl->pong_imem_y);
+		&mctl->pong_imem_y);
 	mctl->pong_imem_cbcr = mctl->pong_imem_y + IMEM_Y_SIZE;
 	if (rc < 0) {
 		pr_err("%s: pong iommu mapping returned error %d\n",

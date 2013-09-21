@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * Based on videobuf-dma-contig.c,
  * (c) 2008 Magnus Damm
@@ -47,7 +47,7 @@
 
 static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 {
-	unsigned long phyaddr;
+	dma_addr_t phyaddr;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	int rc, len;
 	mem->client = msm_ion_client_create(-1, "camera");
@@ -63,7 +63,7 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 	}
 	rc = ion_map_iommu(mem->client, mem->ion_handle,
 			-1, 0, SZ_4K, 0,
-			(unsigned long *)&phyaddr,
+			&phyaddr,
 			(unsigned long *)&len, 0, 0);
 	if (rc < 0) {
 		pr_err("%s Could not get physical address\n", __func__);
@@ -192,7 +192,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		return PTR_ERR(mem->ion_handle);
 	}
 	rc = ion_map_iommu(client, mem->ion_handle, domain_num, 0,
-		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
+		SZ_4K, 0, &mem->phyaddr, &len, 0, 0);
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
 #else

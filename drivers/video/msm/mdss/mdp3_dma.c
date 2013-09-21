@@ -542,7 +542,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	}
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)buf);
-	dma->source_config.buf = buf;
+	dma->source_config.buf = (int)buf;
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		mdp3_ccs_update(dma);
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 1);
@@ -579,7 +579,7 @@ static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
 
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR, (u32)buf);
-	dma->source_config.buf = buf;
+	dma->source_config.buf = (int)buf;
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD)
 		MDP3_REG_WRITE(MDP3_REG_DMA_S_START, 1);
 

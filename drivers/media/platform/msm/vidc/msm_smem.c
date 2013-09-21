@@ -46,7 +46,7 @@ static u32 get_tz_usage(struct smem_client *client, enum hal_buffer buffer_type)
 
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
-		unsigned long *iova, unsigned long *buffer_size,
+		dma_addr_t *iova, unsigned long *buffer_size,
 		u32 flags, enum hal_buffer buffer_type)
 {
 	int rc = 0;
@@ -135,7 +135,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		struct msm_smem *mem, enum hal_buffer buffer_type)
 {
 	struct ion_handle *hndl;
-	unsigned long iova = 0;
+	dma_addr_t iova = 0;
 	unsigned long buffer_size = 0;
 	unsigned long ionflags = 0;
 	int rc = 0;
@@ -185,7 +185,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	int map_kernel)
 {
 	struct ion_handle *hndl;
-	unsigned long iova = 0;
+	dma_addr_t iova = 0;
 	unsigned long buffer_size = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;

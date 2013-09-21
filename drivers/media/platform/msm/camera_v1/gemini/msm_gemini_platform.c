@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@ void msm_gemini_platform_p2v(struct file  *file,
 uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
 				struct ion_handle **ionhandle)
 {
-	unsigned long paddr;
+	dma_addr_t paddr;
 	unsigned long size;
 	int rc;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION

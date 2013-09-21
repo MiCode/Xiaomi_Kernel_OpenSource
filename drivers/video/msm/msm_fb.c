@@ -1442,7 +1442,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 					    MDP_CURSOR_SIZE,
 					    SZ_4K,
 					    0,
-					    &cursor_buf_iommu);
+					    (dma_addr_t *)&cursor_buf_iommu);
 		if (cursor_buf_iommu)
 			mfd->cursor_buf_phys = (void *)cursor_buf_iommu;
 

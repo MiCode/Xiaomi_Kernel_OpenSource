@@ -98,7 +98,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 					VIDEO_MAIN_POOL,
 					SZ_4K,
 					0,
-					&iova,
+					(dma_addr_t *)&iova,
 					&buffer_size,
 					0, 0);
 			if (ret || !iova) {

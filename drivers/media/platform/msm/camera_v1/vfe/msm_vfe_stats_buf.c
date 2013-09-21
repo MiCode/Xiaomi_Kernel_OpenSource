@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,7 +166,7 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	struct msm_stats_buf_info *info, struct ion_client *client,
 	int domain_num)
 {
-	unsigned long paddr;
+	dma_addr_t paddr;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	unsigned long kvstart;
 	struct file *file;
@@ -221,7 +221,7 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	memcpy(&stats_buf->info, info, sizeof(stats_buf->info));
 	D("%s Adding buf to list with type %d\n", __func__,
 	  stats_buf->info.type);
-	D("%s pmem_stats address is 0x%ld\n", __func__, paddr);
+	D("%s pmem_stats address is 0x%pa\n", __func__, &paddr);
 	stats_buf->state = MSM_STATS_BUFFER_STATE_PREPARED;
 	return 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION

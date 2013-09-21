@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/qdsp5/adsp_driver.c
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009, 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009, 2012-2013 The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -35,7 +35,7 @@ struct adsp_ion_info {
 struct adsp_ion_region {
 	struct hlist_node list;
 	void *vaddr;
-	unsigned long paddr;
+	dma_addr_t paddr;
 	unsigned long kvaddr;
 	unsigned long len;
 	unsigned long ion_flag;

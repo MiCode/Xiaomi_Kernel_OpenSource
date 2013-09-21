@@ -39,7 +39,7 @@ void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file  *file,
 uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
 	uint32_t len, struct file **file_p, struct ion_handle **ionhandle,
 	int domain_num) {
-	unsigned long paddr;
+	dma_addr_t paddr;
 	unsigned long size;
 	int rc;
 	*ionhandle = ion_import_dma_buf(pgmn_dev->jpeg_client, fd);

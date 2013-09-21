@@ -186,7 +186,8 @@ int msm_rotator_iommu_map_buf(int mem_id, int domain,
 	if (rot_iommu_split_domain) {
 		if (secure) {
 			if (ion_phys(msm_rotator_dev->client,
-				*pihdl, start, (unsigned *)len)) {
+				*pihdl, (ion_phys_addr_t *)start,
+				(unsigned *)len)) {
 				pr_err("%s:%d: ion_phys map failed\n",
 					 __func__, __LINE__);
 				return -ENOMEM;
@@ -194,7 +195,7 @@ int msm_rotator_iommu_map_buf(int mem_id, int domain,
 		} else {
 			if (ion_map_iommu(msm_rotator_dev->client,
 				*pihdl,	domain, GEN_POOL,
-				SZ_4K, 0, start, len, 0,
+				SZ_4K, 0, (dma_addr_t *)start, len, 0,
 				ION_IOMMU_UNMAP_DELAYED)) {
 				pr_err("ion_map_iommu() failed\n");
 				return -EINVAL;
@@ -203,7 +204,8 @@ int msm_rotator_iommu_map_buf(int mem_id, int domain,
 	} else {
 		if (ion_map_iommu(msm_rotator_dev->client,
 			*pihdl,	ROTATOR_SRC_DOMAIN, GEN_POOL,
-			SZ_4K, 0, start, len, 0, ION_IOMMU_UNMAP_DELAYED)) {
+			SZ_4K, 0, (dma_addr_t *)start, len, 0,
+			ION_IOMMU_UNMAP_DELAYED)) {
 			pr_err("ion_map_iommu() failed\n");
 			return -EINVAL;
 		}

@@ -2023,7 +2023,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_buffer_size control;
 	struct vcd_property_enc_recon_buffer *ctrl = NULL;
-	unsigned long phy_addr;
+	dma_addr_t phy_addr;
 	int i = 0;
 	int heap_mask = 0;
 	u32 ion_flags = 0;
@@ -2080,8 +2080,8 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 					0, 0);
 				 if (rc || !phy_addr) {
 					WFD_MSG_ERR(
-						"ion map iommu failed, rc = %d, phy_addr = 0x%lx\n",
-						rc, phy_addr);
+						"ion map iommu failed, rc = %d, phy_addr = 0x%pa\n",
+						rc, &phy_addr);
 					goto unmap_ion_alloc;
 				}
 
@@ -2424,7 +2424,7 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion = NULL;
 	unsigned long rc = 0, size = 0;
-	void *paddr = NULL;
+	dma_addr_t paddr = 0;
 
 	if (!sd) {
 		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
@@ -2442,18 +2442,18 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 
 	if (inst->secure) {
 		rc = ion_phys(mmap->ion_client, mregion->ion_handle,
-				(unsigned long *)&paddr,
+				&paddr,
 				(size_t *)&size);
 	} else {
 		rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
 				VIDEO_DOMAIN, VIDEO_MAIN_POOL, SZ_4K,
-				0, (unsigned long *)&paddr,
+				0, &paddr,
 				&size, 0, 0);
 	}
 
 	if (rc) {
 		WFD_MSG_ERR("Failed to get physical addr\n");
-		paddr = NULL;
+		paddr = 0;
 	} else if (size < mregion->size) {
 		WFD_MSG_ERR("Failed to map enough memory\n");
 		rc = -ENOMEM;

@@ -1978,7 +1978,7 @@ int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp)
 }
 EXPORT_SYMBOL(mdss_fb_register_mdp_instance);
 
-int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
+int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num)
 {
 	struct fb_info *info;
 	struct msm_fb_data_type *mfd;

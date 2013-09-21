@@ -1066,7 +1066,7 @@ static int mpq_int_vid_dec_set_h264_mv_buffers(
 	int rc = 0;
 	unsigned long ionflag = 0;
 	unsigned long buffer_size = 0;
-	unsigned long iova = 0;
+	dma_addr_t iova = 0;
 
 	if (!client_ctx || !mv_data)
 		return -EINVAL;
@@ -1113,7 +1113,7 @@ static int mpq_int_vid_dec_set_h264_mv_buffers(
 		rc = ion_map_iommu(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
 				VIDEO_DOMAIN, VIDEO_MAIN_POOL,
-				SZ_4K, 0, (unsigned long *)&iova,
+				SZ_4K, 0, &iova,
 				(unsigned long *)&buffer_size,
 				0, 0);
 		if (rc) {
@@ -1126,8 +1126,8 @@ static int mpq_int_vid_dec_set_h264_mv_buffers(
 		vcd_h264_mv_buffer->dev_addr = (u8 *) iova;
 
 	}
-	DBG("Virt: %p, Phys %p, fd: %d", vcd_h264_mv_buffer->
-		kernel_virtual_addr, vcd_h264_mv_buffer->physical_addr,
+	DBG("Virt: %p, Phys %pa, fd: %d", vcd_h264_mv_buffer->
+		kernel_virtual_addr, &vcd_h264_mv_buffer->physical_addr,
 		vcd_h264_mv_buffer->pmem_fd);
 	DBG("Dev addr %p", vcd_h264_mv_buffer->dev_addr);
 	vcd_status = vcd_set_property(client_ctx->vcd_handle,

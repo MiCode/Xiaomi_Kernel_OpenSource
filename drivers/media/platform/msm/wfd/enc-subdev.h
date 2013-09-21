@@ -32,7 +32,7 @@ enum venc_event {
 struct mem_region {
 	struct list_head list;
 	u8 *kvaddr;
-	u8 *paddr;
+	dma_addr_t paddr;
 	u32 size;
 	u32 offset;
 	u32 fd;

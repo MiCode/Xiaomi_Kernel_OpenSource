@@ -22,9 +22,9 @@ struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
 	struct file  *file;
 	uint32_t framedone_len;
-	uint32_t y_buffer_addr;
+	dma_addr_t y_buffer_addr;
 	uint32_t y_len;
-	uint32_t cbcr_buffer_addr;
+	dma_addr_t cbcr_buffer_addr;
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
 	struct ion_handle *handle;

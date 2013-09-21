@@ -61,7 +61,7 @@ struct disp_info_type_suspend {
 struct msmfb_writeback_data_list {
 	struct list_head registered_entry;
 	struct list_head active_entry;
-	void *addr;
+	dma_addr_t addr;
 	struct ion_handle *ihdl;
 	struct file *pmem_file;
 	struct msmfb_data buf_info;
@@ -185,8 +185,8 @@ struct msm_fb_data_type {
 	struct switch_dev writeback_sdev;
 	wait_queue_head_t wait_q;
 	struct ion_client *iclient;
-	unsigned long display_iova;
-	unsigned long rotator_iova;
+	dma_addr_t display_iova;
+	dma_addr_t rotator_iova;
 	struct mdp_buf_type *ov0_wb_buf;
 	struct mdp_buf_type *ov1_wb_buf;
 	u32 ov_start;

@@ -158,7 +158,7 @@ static unsigned long wfd_enc_addr_to_mdp_addr(struct wfd_inst *inst,
 				&inst->input_mem_list) {
 			mpair = list_entry(ptr, struct mem_region_pair,
 					list);
-			if (mpair->enc->paddr == (u8 *)addr)
+			if (mpair->enc->paddr == addr)
 				return (unsigned long)mpair->mdp->paddr;
 		}
 	}
@@ -229,7 +229,7 @@ alloc_fail:
 		ion_free(client, handle);
 
 		mregion->kvaddr = NULL;
-		mregion->paddr = NULL;
+		mregion->paddr = 0;
 		mregion->ion_handle = NULL;
 	}
 	return rc;
@@ -291,6 +291,8 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	mutex_unlock(&inst->lock);
 
 	for (i = 0; i < VENC_INPUT_BUFFERS; ++i) {
+		dma_addr_t region_end;
+
 		mpair = kzalloc(sizeof(*mpair), GFP_KERNEL);
 		enc_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
 		mdp_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
@@ -316,9 +318,11 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 			rc = -EINVAL;
 			goto alloc_fail;
 		}
-		WFD_MSG_DBG("NOTE: enc paddr = [%p->%p], kvaddr = %p\n",
-				enc_mregion->paddr, (int8_t *)
-				enc_mregion->paddr + enc_mregion->size,
+
+		region_end = enc_mregion->paddr + enc_mregion->size;
+		WFD_MSG_DBG("NOTE: enc paddr = [%pa->%pa], kvaddr = %p\n",
+				&enc_mregion->paddr, (int8_t *)
+				&region_end,
 				enc_mregion->kvaddr);
 
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
@@ -345,10 +349,10 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 
 		if (rc) {
 			WFD_MSG_ERR(
-				"Failed to map to mdp, rc = %d, paddr = 0x%p\n",
-				rc, mdp_mregion->paddr);
+				"Failed to map to mdp, rc = %d, paddr = 0x%pa\n",
+				rc, &mdp_mregion->paddr);
 			mdp_mregion->kvaddr = NULL;
-			mdp_mregion->paddr = NULL;
+			mdp_mregion->paddr = 0;
 			mdp_mregion->ion_handle = NULL;
 			goto mdp_mmap_fail;
 		} else if (!mdp_mregion->paddr) {
@@ -356,7 +360,7 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 				"but failed to map to MDP\n");
 			rc = -EINVAL;
 			mdp_mregion->kvaddr = NULL;
-			mdp_mregion->paddr = NULL;
+			mdp_mregion->paddr = 0;
 			mdp_mregion->ion_handle = NULL;
 			goto mdp_mmap_fail;
 		}
@@ -366,9 +370,8 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mdp_buf.kvaddr = (u32) mdp_mregion->kvaddr;
 		mdp_buf.paddr = (u32) mdp_mregion->paddr;
 
-		WFD_MSG_DBG("NOTE: mdp paddr = [%p->%p], kvaddr = %p\n",
-				mdp_mregion->paddr, (void *)
-				((int)mdp_mregion->paddr + mdp_mregion->size),
+		WFD_MSG_DBG("NOTE: mdp paddr = [%pa size %x], kvaddr = %p\n",
+				&mdp_mregion->paddr, mdp_mregion->size,
 				mdp_mregion->kvaddr);
 
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,

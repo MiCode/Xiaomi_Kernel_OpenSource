@@ -223,7 +223,7 @@ static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 
 	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
 			domain, 0, align, 0,
-			(unsigned long *)&mregion->paddr,
+			&mregion->paddr,
 			(unsigned long *)&mregion->size,
 			0, 0);
 	if (rc) {

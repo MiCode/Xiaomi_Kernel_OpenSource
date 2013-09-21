@@ -194,8 +194,8 @@ static int ion_carveout_print_debug(struct ion_heap *heap, struct seq_file *s,
 				da = data->addr-1;
 				seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
 					   "FREE", &last_end, &da,
-					   data->addr-last_end,
-					   data->addr-last_end);
+					   (unsigned long)data->addr-last_end,
+					   (unsigned long)data->addr-last_end);
 			}
 
 			if (data->client_name)

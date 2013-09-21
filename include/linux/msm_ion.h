@@ -127,7 +127,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
  */
 int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num, unsigned long align,
-			unsigned long iova_length, unsigned long *iova,
+			unsigned long iova_length, ion_phys_addr_t *iova,
 			unsigned long *buffer_size,
 			unsigned long flags, unsigned long iommu_flags);
 
@@ -282,7 +282,7 @@ static inline struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 static inline int ion_map_iommu(struct ion_client *client,
 			struct ion_handle *handle, int domain_num,
 			int partition_num, unsigned long align,
-			unsigned long iova_length, unsigned long *iova,
+			unsigned long iova_length, ion_phys_addr_t *iova,
 			unsigned long *buffer_size,
 			unsigned long flags,
 			unsigned long iommu_flags)

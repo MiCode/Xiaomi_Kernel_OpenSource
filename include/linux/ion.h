@@ -32,7 +32,7 @@ struct ion_buffer;
    plumbed in the kernel, and all instances of ion_phys_addr_t should
    be converted to phys_addr_t.  For the time being many kernel interfaces
    do not accept phys_addr_t's that would have to */
-#define ion_phys_addr_t unsigned long
+#define ion_phys_addr_t dma_addr_t
 
 /**
  * struct ion_platform_heap - defines a heap in the given platform

@@ -81,8 +81,8 @@ struct hfi_mem_map_table {
 };
 
 struct hfi_mem_map {
-	u32 virtual_addr;
-	u32 physical_addr;
+	dma_addr_t virtual_addr;
+	phys_addr_t physical_addr;
 	u32 size;
 	u32 attr;
 };

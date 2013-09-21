@@ -590,7 +590,7 @@ int msm_gemini_input_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 			(unsigned long)buf_cmd.y_off, CAMERA_DOMAIN, GEN_POOL,
 			((buf_cmd.y_len + buf_cmd.cbcr_len + 4095) & (~4095)),
 			SZ_4K, IOMMU_WRITE | IOMMU_READ,
-			(unsigned long *)&buf_p->y_buffer_addr);
+			&buf_p->y_buffer_addr);
 		if (rc < 0) {
 			pr_err("%s iommu mapping failed with error %d\n",
 				 __func__, rc);

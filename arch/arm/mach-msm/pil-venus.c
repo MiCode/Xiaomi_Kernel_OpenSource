@@ -285,7 +285,7 @@ static int pil_venus_reset(struct pil_desc *pil)
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *wrapper_base = drv->venus_wrapper_base;
 	phys_addr_t pa = pil_get_entry_addr(pil);
-	unsigned long iova;
+	dma_addr_t iova;
 	u32 ver, cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
 
 	/* Get Venus version number */

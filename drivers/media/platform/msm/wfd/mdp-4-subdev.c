@@ -211,12 +211,12 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 	if (use_iommu) {
 		rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
 				domain, GEN_POOL, SZ_4K, 0,
-				(unsigned long *)&mregion->paddr,
+				&mregion->paddr,
 				(unsigned long *)&mregion->size,
 				0, 0);
 	} else {
 		rc = ion_phys(mmap->ion_client,	mregion->ion_handle,
-				(unsigned long *)&mregion->paddr,
+				&mregion->paddr,
 				(size_t *)&mregion->size);
 	}
 

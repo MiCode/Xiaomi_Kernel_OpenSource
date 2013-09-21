@@ -1,7 +1,7 @@
 /* drivers/video/msm/src/drv/mdp/mdp_ppp.c
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2009, 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2009, 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1279,7 +1279,8 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 		if (IS_ERR_OR_NULL(*srcp_ihdl))
 			return PTR_ERR(*srcp_ihdl);
 
-		if (!ion_phys(mfd->iclient, *srcp_ihdl, start, (size_t *) len))
+		if (!ion_phys(mfd->iclient, *srcp_ihdl,
+		    (ion_phys_addr_t *)start, (size_t *) len))
 			return ret;
 		 else
 			return -EINVAL;

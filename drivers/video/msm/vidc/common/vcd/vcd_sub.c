@@ -93,7 +93,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 				VIDEO_MAIN_POOL,
 				SZ_4K,
 				0,
-				(unsigned long *)&iova,
+				(dma_addr_t *)&iova,
 				(unsigned long *)&buffer_size,
 				0, 0);
 			if (ret || !iova) {

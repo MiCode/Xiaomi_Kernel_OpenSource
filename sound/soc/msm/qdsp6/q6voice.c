@@ -4561,7 +4561,7 @@ static void voice_allocate_shared_memory(void)
 	int			i, j, result;
 	int			offset = 0;
 	int			mem_len;
-	unsigned long		paddr;
+	dma_addr_t		paddr;
 	void                    *kvptr;
 	pr_debug("%s\n", __func__);
 
