@@ -1580,6 +1580,13 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 
 			goto fail;
 		}
+
+		if (common.mvs_info.media_type != VSS_MEDIA_ID_EVRC_MODEM) {
+			ret = voice_set_dtx(v);
+			if (ret < 0)
+				goto fail;
+		}
+
 		break;
 	}
 	case VSS_MEDIA_ID_AMR_NB_MODEM: {
