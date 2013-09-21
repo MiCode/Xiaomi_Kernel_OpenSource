@@ -24,6 +24,7 @@
 
 #include <mach/rpm-regulator.h>
 #include <mach/clk.h>
+#include <mach/msm_iomap.h>
 
 #include "xhci.h"
 
@@ -37,6 +38,8 @@
 #define MSM_HSIC_PWR_EVENT_IRQ_STAT	(MSM_HSIC_BASE + 0xf8858)
 #define MSM_HSIC_PWR_EVNT_IRQ_MASK	(MSM_HSIC_BASE + 0xf885c)
 
+#define TLMM_GPIO_HSIC_STROBE_PAD_CTL	(MSM_TLMM_BASE + 0x2050)
+#define TLMM_GPIO_HSIC_DATA_PAD_CTL	(MSM_TLMM_BASE + 0x2054)
 
 #define GCTL_CORESOFTRESET	BIT(11)
 
@@ -756,6 +759,16 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		goto deinit_vddcx;
 	}
 
+	/* enable STROBE_PAD_CTL */
+	reg = readl_relaxed(TLMM_GPIO_HSIC_STROBE_PAD_CTL);
+	writel_relaxed(reg | 0x2000000, TLMM_GPIO_HSIC_STROBE_PAD_CTL);
+
+	/* enable DATA_PAD_CTL */
+	reg = readl_relaxed(TLMM_GPIO_HSIC_DATA_PAD_CTL);
+	writel_relaxed(reg | 0x2000000, TLMM_GPIO_HSIC_DATA_PAD_CTL);
+
+	mb();
+
 	/* Enable LPM in Sleep mode and suspend mode */
 	reg = readl_relaxed(MSM_HSIC_CTRL_REG);
 	reg |= CTRLREG_PLL_CTRL_SLEEP | CTRLREG_PLL_CTRL_SUSP;
@@ -864,6 +877,17 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	struct usb_hcd	*hcd = platform_get_drvdata(pdev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd);
+	u32 reg;
+
+	/* disable STROBE_PAD_CTL */
+	reg = readl_relaxed(TLMM_GPIO_HSIC_STROBE_PAD_CTL);
+	writel_relaxed(reg & 0xfdffffff, TLMM_GPIO_HSIC_STROBE_PAD_CTL);
+
+	/* disable DATA_PAD_CTL */
+	reg = readl_relaxed(TLMM_GPIO_HSIC_DATA_PAD_CTL);
+	writel_relaxed(reg & 0xfdffffff, TLMM_GPIO_HSIC_DATA_PAD_CTL);
+
+	mb();
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
