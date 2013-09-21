@@ -68,7 +68,8 @@ enum {
 	MADNONE,
 	MADAUDIO,
 	MADBEACON,
-	MADULTRASOUND
+	MADULTRASOUND,
+	MADSWAUDIO,
 };
 
 #define SLIMBUS_0_TX_TEXT "SLIMBUS_0_TX"
@@ -882,6 +883,9 @@ static int msm_routing_lsm_func_get(struct snd_kcontrol *kcontrol,
 	case MAD_HW_ULTRASOUND:
 		ucontrol->value.integer.value[0] = MADULTRASOUND;
 		break;
+	case MAD_SW_AUDIO:
+		ucontrol->value.integer.value[0] = MADSWAUDIO;
+	break;
 	default:
 		WARN(1, "Unknown\n");
 		return -EINVAL;
@@ -920,6 +924,9 @@ static int msm_routing_lsm_func_put(struct snd_kcontrol *kcontrol,
 		break;
 	case MADULTRASOUND:
 		mad_type = MAD_HW_ULTRASOUND;
+		break;
+	case MADSWAUDIO:
+		mad_type = MAD_SW_AUDIO;
 		break;
 	default:
 		WARN(1, "Unknown\n");
@@ -2427,7 +2434,7 @@ static const struct snd_kcontrol_new lsm_mux =
 			  msm_routing_lsm_mux_put);
 
 static const char * const lsm_func_text[] = {
-	"None", "AUDIO", "BEACON", "ULTRASOUND"
+	"None", "AUDIO", "BEACON", "ULTRASOUND", "SWAUDIO",
 };
 static const struct soc_enum lsm_func_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(lsm_func_text), lsm_func_text);

@@ -320,13 +320,6 @@ int q6lsm_open(struct lsm_client *client)
 	int rc;
 	struct lsm_stream_cmd_open_tx open;
 
-	if (!afe_has_config(AFE_CDC_REGISTERS_CONFIG) ||
-	    !afe_has_config(AFE_SLIMBUS_SLAVE_CONFIG)) {
-		pr_err("%s: AFE isn't configured yet\n", __func__);
-		rc = -EAGAIN;
-		goto exit;
-	}
-
 	memset(&open, 0, sizeof(open));
 	q6lsm_add_hdr(client, &open.hdr, sizeof(open), true);
 
@@ -339,8 +332,6 @@ int q6lsm_open(struct lsm_client *client)
 		pr_err("%s: Open failed opcode 0x%x, rc %d\n",
 		       __func__, open.hdr.opcode, rc);
 
-exit:
-	pr_debug("%s: leave %d\n", __func__, rc);
 	return rc;
 }
 
