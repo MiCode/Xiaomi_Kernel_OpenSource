@@ -35,6 +35,8 @@ enum a4xx_rb_perfctr_rb_sel {
 /* RBBM registers */
 #define A4XX_RBBM_AHB_CMD		0x25
 #define A4XX_RBBM_SP_HYST_CNT		0x21
+#define A4XX_RBBM_SW_RESET_CMD		0x22
+
 #define A4XX_RBBM_AHB_CTL0		0x23
 #define A4XX_RBBM_AHB_CTL1		0x24
 #define A4XX_RBBM_WAIT_IDLE_CLOCKS_CTL	0x2b
