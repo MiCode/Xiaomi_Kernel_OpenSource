@@ -357,7 +357,6 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 		size = SZ_64M / mdss_res->axi_port_cnt;
 
 		ab_quota = div_u64(ab_quota, mdss_res->axi_port_cnt);
-		ib_quota = div_u64(ib_quota, mdss_res->axi_port_cnt);
 
 		new_uc_idx = (mdss_res->curr_bw_uc_idx %
 			(bw_table->num_usecases - 1)) + 1;
