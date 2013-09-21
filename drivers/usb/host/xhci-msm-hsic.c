@@ -335,7 +335,7 @@ static int mxhci_hsic_ulpi_write(struct mxhci_hsic_hcd *mxhci, u32 val,
 
 	/* poll for write done */
 	timeout = jiffies + usecs_to_jiffies(ULPI_IO_TIMEOUT_USECS);
-	while (readl_relaxed(MSM_HSIC_GUSB2PHYACC) & GUSB2PHYACC_VSTSDONE) {
+	while (!(readl_relaxed(MSM_HSIC_GUSB2PHYACC) & GUSB2PHYACC_VSTSDONE)) {
 		if (time_after(jiffies, timeout)) {
 			dev_err(mxhci->dev, "mxhci_hsic_ulpi_write: timeout\n");
 			return -ETIMEDOUT;
