@@ -80,6 +80,7 @@ struct mxhci_hsic_hcd {
 	struct clk		*utmi_clk;
 	struct clk		*hsic_clk;
 	struct clk		*cal_clk;
+	struct clk		*system_clk;
 
 	struct regulator	*hsic_vddcx;
 	struct regulator	*hsic_gdsc;
@@ -119,6 +120,15 @@ static int mxhci_hsic_init_clocks(struct mxhci_hsic_hcd *mxhci, u32 init)
 
 	if (!init)
 		goto disable_all_clks;
+
+	/* 75Mhz system_clk required for normal hsic operation */
+	mxhci->system_clk = devm_clk_get(mxhci->dev, "system_clk");
+	if (IS_ERR(mxhci->system_clk)) {
+		dev_err(mxhci->dev, "failed to get system_clk\n");
+		ret = PTR_ERR(mxhci->system_clk);
+		goto out;
+	}
+	clk_set_rate(mxhci->system_clk, 75000000);
 
 	/* 60Mhz core_clk required for LINK protocol engine */
 	mxhci->core_clk = devm_clk_get(mxhci->dev, "core_clk");
@@ -165,10 +175,16 @@ static int mxhci_hsic_init_clocks(struct mxhci_hsic_hcd *mxhci, u32 init)
 	}
 	clk_set_rate(mxhci->cal_clk, 9600000);
 
+	ret = clk_prepare_enable(mxhci->system_clk);
+	if (ret) {
+		dev_err(mxhci->dev, "failed to enable system_clk\n");
+		goto out;
+	}
+
 	ret = clk_prepare_enable(mxhci->core_clk);
 	if (ret) {
 		dev_err(mxhci->dev, "failed to enable core_clk\n");
-		goto out;
+		goto err_core_clk;
 	}
 
 	ret = clk_prepare_enable(mxhci->hsic_clk);
@@ -209,6 +225,8 @@ err_utmi_clk:
 	clk_disable_unprepare(mxhci->hsic_clk);
 err_hsic_clk:
 	clk_disable_unprepare(mxhci->core_clk);
+err_core_clk:
+	clk_disable_unprepare(mxhci->system_clk);
 out:
 	return ret;
 }
@@ -488,6 +506,7 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 
 	init_completion(&mxhci->phy_in_lpm);
 
+	clk_disable_unprepare(mxhci->system_clk);
 	clk_disable_unprepare(mxhci->core_clk);
 	clk_disable_unprepare(mxhci->utmi_clk);
 	clk_disable_unprepare(mxhci->hsic_clk);
@@ -545,6 +564,7 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 		dev_err(mxhci->dev,
 			"unable to set nominal vddcx voltage (no VDD MIN)\n");
 
+	clk_prepare_enable(mxhci->system_clk);
 	clk_prepare_enable(mxhci->core_clk);
 	clk_prepare_enable(mxhci->utmi_clk);
 	clk_prepare_enable(mxhci->hsic_clk);
