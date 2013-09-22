@@ -550,14 +550,16 @@
 		interrupt-names = "cdc-int";
 	};
 
-	slim_msm: slim@fe12f000 {
+	slim_msm: slim@fe1af000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
-		reg = <0xfe12f000 0x35000>,
-		      <0xfe104000 0x20000>;
+		reg = <0xfe1af000 0x2c000>,
+		      <0xfe184000 0x18000>;
 			reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 163 0 0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0xf0>;
 
 		tapan_codec {
 			compatible = "qcom,tapan-slim-pgd";
