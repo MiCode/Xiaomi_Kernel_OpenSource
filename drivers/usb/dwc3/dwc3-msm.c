@@ -94,6 +94,10 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define DBM_PIPE_CFG		(DBM_BASE + (0x80))
 #define DBM_SOFT_RESET		(DBM_BASE + (0x84))
 #define DBM_GEN_CFG		(DBM_BASE + (0x88))
+#define DBM_GEVNTADR_LSB	(DBM_BASE + (0x98))
+#define DBM_GEVNTADR_MSB	(DBM_BASE + (0x9C))
+#define DBM_DATA_FIFO_LSB(n)	(DBM_BASE + (0xA0 + 8 * (n)))
+#define DBM_DATA_FIFO_MSB(n)	(DBM_BASE + (0xA4 + 8 * (n)))
 
 /**
  *  USB DBM  Hardware registers bitmask.
@@ -428,11 +432,16 @@ static int dwc3_msm_configured_dbm_ep_num(struct dwc3_msm *mdwc)
  *
  */
 static int dwc3_msm_event_buffer_config(struct dwc3_msm *mdwc,
-					u32 addr, u16 size)
+					u32 addr_lo, u32 addr_hi, u16 size)
 {
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	dwc3_msm_write_reg(mdwc->base, DBM_GEVNTADR, addr);
+	if (sizeof(phys_addr_t) > sizeof(u32)) {
+		dwc3_msm_write_reg(mdwc->base, DBM_GEVNTADR_LSB, addr_lo);
+		dwc3_msm_write_reg(mdwc->base, DBM_GEVNTADR_MSB, addr_hi);
+	} else {
+		dwc3_msm_write_reg(mdwc->base, DBM_GEVNTADR, addr_lo);
+	}
 	dwc3_msm_write_reg_field(mdwc->base, DBM_GEVNTSIZ,
 		DBM_GEVNTSIZ_MASK, size);
 
@@ -595,7 +604,8 @@ static int dwc3_msm_dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep)
  * @size - size of data fifo.
  *
  */
-int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size, u8 dst_pipe_idx)
+int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+			 u32 size, u8 dst_pipe_idx)
 {
 	u8 dbm_ep;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
@@ -608,7 +618,14 @@ int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size, u8 dst_pipe_idx)
 	dbm_ep = bam_pipe;
 	mdwc->ep_num_mapping[dbm_ep] = dep->number;
 
-	dwc3_msm_write_reg(mdwc->base, DBM_DATA_FIFO(dbm_ep), addr);
+	if (sizeof(addr) > sizeof(u32)) {
+		u32 lo = lower_32_bits(addr);
+		u32 hi = upper_32_bits(addr);
+		dwc3_msm_write_reg(mdwc->base, DBM_DATA_FIFO_LSB(dbm_ep), lo);
+		dwc3_msm_write_reg(mdwc->base, DBM_DATA_FIFO_MSB(dbm_ep), hi);
+	} else {
+		dwc3_msm_write_reg(mdwc->base, DBM_DATA_FIFO(dbm_ep), addr);
+	}
 	dwc3_msm_write_reg_field(mdwc->base, DBM_DATA_FIFO_SIZE(dbm_ep),
 		DBM_DATA_FIFO_SIZE_MASK, size);
 
@@ -660,7 +677,7 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 	 * the event buffers.
 	 */
 	if (0 == dwc3_msm_configured_dbm_ep_num(mdwc))
-		dwc3_msm_event_buffer_config(mdwc, 0, 0);
+		dwc3_msm_event_buffer_config(mdwc, 0, 0, 0);
 
 	/*
 	 * Call original complete function, notice that dwc->lock is already
@@ -901,6 +918,7 @@ int msm_ep_config(struct usb_ep *ep)
 
 	dwc3_msm_event_buffer_config(mdwc,
 			dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
+			dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0)));
 
 	/* Save original ep ops for future restore*/
