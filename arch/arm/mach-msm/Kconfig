@@ -333,6 +333,7 @@ config ARCH_MPQ8092
 	select MSM_NATIVE_RESTART
 	select MSM_RESTART_V2
 	select CPU_V7
+	select MSM_SCM
 	select MSM_GPIOMUX
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
