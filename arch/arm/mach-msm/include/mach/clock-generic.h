@@ -52,6 +52,8 @@ struct mux_clk {
 	/* Fields not used by helper function. */
 	void *const __iomem *base;
 	u32		offset;
+	u32		en_offset;
+	int		en_reg;
 	u32		mask;
 	u32		shift;
 	u32		en_mask;
