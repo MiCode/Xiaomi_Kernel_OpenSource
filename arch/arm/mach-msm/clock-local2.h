@@ -176,6 +176,7 @@ extern struct clk_ops clk_ops_vote;
 extern struct clk_ops clk_ops_rcg_hdmi;
 extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
+extern struct clk_mux_ops mux_reg_ops;
 
 enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);
