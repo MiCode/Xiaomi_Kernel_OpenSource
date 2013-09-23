@@ -68,7 +68,7 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
+		.config_val = 24000000,
 		.delay = 1,
 	},
 	{
