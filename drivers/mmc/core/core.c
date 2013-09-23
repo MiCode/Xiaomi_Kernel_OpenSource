@@ -3496,7 +3496,7 @@ int mmc_flush_cache(struct mmc_card *card)
 						EXT_CSD_FLUSH_CACHE, 1,
 						MMC_FLUSH_REQ_TIMEOUT_MS);
 		if (err == -ETIMEDOUT) {
-			pr_debug("%s: cache flush timeout\n",
+			pr_err("%s: cache flush timeout\n",
 					mmc_hostname(card->host));
 			rc = mmc_interrupt_hpi(card);
 			if (rc)
