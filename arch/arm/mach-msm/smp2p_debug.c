@@ -141,9 +141,11 @@ static int smp2p_item_header3(char *buf, int max, struct smp2p_smem *item_ptr)
 	}
 
 	i += scnprintf(buf + i, max - i,
-		"Entries Valid/Max: %d/%d",
+		"Entries #/Max: %d/%d Flags: %c%c",
 		SMP2P_GET_ENT_VALID(item_ptr->valid_total_ent),
-		SMP2P_GET_ENT_TOTAL(item_ptr->valid_total_ent)
+		SMP2P_GET_ENT_TOTAL(item_ptr->valid_total_ent),
+		item_ptr->flags & SMP2P_FLAGS_RESTART_ACK_MASK ? 'A' : 'a',
+		item_ptr->flags & SMP2P_FLAGS_RESTART_DONE_MASK ? 'D' : 'd'
 		);
 
 	return i;
