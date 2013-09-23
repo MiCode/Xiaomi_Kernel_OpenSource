@@ -179,6 +179,7 @@ struct msm_vidc_core_capability {
 	struct hal_capability_supported frame_rate;
 	u32 pixelprocess_capabilities;
 	u32 capability_set;
+	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 };
 
 struct msm_vidc_core {

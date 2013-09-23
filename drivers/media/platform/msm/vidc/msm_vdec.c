@@ -1302,6 +1302,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
+	inst->capability.buffer_mode[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->capability.buffer_mode[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->prop.fps = 30;
 	return rc;
 }
