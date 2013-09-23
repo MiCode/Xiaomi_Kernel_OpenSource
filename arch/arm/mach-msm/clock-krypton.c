@@ -154,6 +154,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB30_MOCK_UTMI_CBCR                               (0x03D0)
 #define USB30_MASTER_CMD_RCGR                              (0x03D4)
 #define USB30_MOCK_UTMI_CMD_RCGR                           (0x03E8)
+#define USB3_PHY_BCR                                       (0x03FC)
+#define USB3_PHY_COM_BCR                                   (0x1B88)
 #define USB3_PIPE_CBCR                                     (0x1B90)
 #define USB3_AUX_CBCR                                      (0x1B94)
 #define USB3_PIPE_CMD_RCGR                                 (0x1B98)
@@ -882,6 +884,26 @@ static struct rcg_clk usb_hsic_xcvr_fs_clk_src = {
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
+
+static struct reset_clk gcc_usb3_phy_com_reset = {
+	.reset_reg = USB3_PHY_COM_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_phy_com_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3_phy_com_reset.c),
+	},
+};
+
+static struct reset_clk gcc_usb3_phy_reset = {
+	.reset_reg = USB3_PHY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3_phy_reset.c),
+	},
+};
 
 DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE, IPA_ID, NULL);
 
@@ -2027,6 +2049,8 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("",	gcc_usb30_sleep_clk.c,	""),
 
 	CLK_LOOKUP("",	ce1_clk_src.c,	""),
+	CLK_LOOKUP("",	gcc_usb3_phy_com_reset.c,	""),
+	CLK_LOOKUP("",	gcc_usb3_phy_reset.c,	""),
 };
 
 static void __init reg_init(void)
