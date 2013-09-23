@@ -128,8 +128,10 @@ are currently used and are current valid.
   |                        section.                                           |
    ---------------------------------------------------------------------------
   | Feature      3 Bytes   Refer to Version                                   |
-  | flags                  and Feature Negotiation  Must be set to zero.      |
-  |                        section.                                           |
+  | flags                  and Feature Negotiation                            |
+  |                        section for details.                               |
+  |   bit 0                SSR_ACK Feature          Supported when set to 1   |
+  |   bits 1:31            Reserved                 Must be set to 0.         |
    ---------------------------------------------------------------------------
   | Entries      2 Bytes   Total number of          Must be 0 or greater.     |
   | Total                  entries.                                           |
@@ -137,7 +139,11 @@ are currently used and are current valid.
   | Entries      2 Bytes   Number of valid          Must be between 0         |
   | Valid                  entries.                 and Entries Total.        |
    ---------------------------------------------------------------------------
-  | Reserved     4 Bytes   Reserved                 Must be set to 0.         |
+  | Flags        4 Bytes                                                      |
+  |   bit 0                RESTART_DONE             Toggle for every restart  |
+  |   bit 1                RESTART_ACK              Toggle to ACK remote      |
+  |                                                 RESTART_DONE              |
+  |   bits 2:31            Reserved                 Must be set to 0.         |
    ---------------------------------------------------------------------------
                            Table 1 - SMEM Item Header
 
@@ -384,7 +390,42 @@ Subsystem Restart
 SMP2P is unaffected by SubSystem Restart (SSR) on the high-level OS side and is
 actually used as an underlying communication mechanism for SSR.  On the
 peripheral system that is being restarted, SMP2P will zero out all existing
-state entries upon reboot as part of the SMP2P initialization process.
+state entries upon reboot as part of the SMP2P initialization process and if the
+SSR_ACK feature is enabled, then it waits for an acknowledgement as outlined in
+the following subsections.
+
+SSR_ACK Feature - Reboot Use Case (Non-HLOS Only)
+-------------------------------------------------
+If a remote system boots up after an SSR and sees that the remote and local
+version numbers and feature flags are equal, then it zeros out entry values.  If
+the SSR_ACK feature is enabled, it will wait for an acknowledgement from the other
+processor that it has seen the zero entry before completing the negotiation
+sequence.
+
+    if remote and local version numbers and feature flags are equal
+        Zero out all entry values
+        if SSR_ACK feature is enabled
+            Set local RESTART_DONE flag to inverse of the remote RESTART_ACK
+            Send interrupt to remote system
+            Wait for interrupt and for remote RESTART_ACK to be equal to local
+            RESTART_DONE
+    Continue with normal negotiation sequence
+
+Interrupt Use Case
+------------------
+For every interrupt triggered by a remote change, SMP2P will notify the client
+of a change in state.  In addition, if the SSR_ACK feature is enabled, the SSR
+handshaking will also be handled.
+
+    if SSR_ACK feature is enabled
+        if remote RESTART_DONE != local RESTART_ACK
+            Notify client of entry change (will be * -> 0 transition)
+            Toggle local RESTART_ACK
+            Send interrupt to remote system
+        else
+            Notify client of entry change as usual
+    else
+        Notify client of entry change as usual
 
 Debug
 =====
