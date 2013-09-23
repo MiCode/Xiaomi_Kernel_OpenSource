@@ -1299,7 +1299,7 @@ out_unlock:
  *
  * Returns 0 for success, non-zero in case of failure
 */
-int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
+static int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 			enum attr_idn idn, u8 index, u8 selector, u32 *attr_val)
 {
 	struct ufs_query_req *request = NULL;
@@ -1364,7 +1364,7 @@ out:
  * The buf_len parameter will contain, on return, the length parameter
  * received on the response.
  */
-int ufshcd_query_descriptor(struct ufs_hba *hba,
+static int ufshcd_query_descriptor(struct ufs_hba *hba,
 			enum query_opcode opcode, enum attr_idn idn, u8 index,
 			u8 selector, u8 *desc_buf, int *buf_len)
 {
@@ -1677,7 +1677,7 @@ EXPORT_SYMBOL_GPL(ufshcd_dme_get_attr);
  *
  * Returns 0 on success, non-zero value on failure
  */
-int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
+static int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
 {
 	struct uic_command uic_cmd = {0};
 	struct completion pwr_done;
@@ -2086,7 +2086,8 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
  * Change queue depth according to the reason and make sure
  * the max. limits are not crossed.
  */
-int ufshcd_change_queue_depth(struct scsi_device *sdev, int depth, int reason)
+static int ufshcd_change_queue_depth(struct scsi_device *sdev,
+		int depth, int reason)
 {
 	struct ufs_hba *hba = shost_priv(sdev->host);
 
