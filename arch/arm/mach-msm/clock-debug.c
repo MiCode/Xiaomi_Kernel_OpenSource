@@ -72,7 +72,7 @@ static struct clk *measure;
 
 static int clock_debug_measure_get(void *data, u64 *val)
 {
-	struct clk *clock = data;
+	struct clk *clock = data, *par;
 	int ret, is_hw_gated;
 
 	/* Check to see if the clock is in hardware gating mode */
@@ -92,6 +92,12 @@ static int clock_debug_measure_get(void *data, u64 *val)
 		 */
 		if (is_hw_gated && clock->count)
 			clock->ops->disable_hwcg(clock);
+		par = measure;
+		while (par && par != clock) {
+			if (par->ops->enable)
+				par->ops->enable(par);
+			par = par->parent;
+		}
 		*val = clk_get_rate(measure);
 		/* Reenable hwgating if it was disabled */
 		if (is_hw_gated && clock->count)
