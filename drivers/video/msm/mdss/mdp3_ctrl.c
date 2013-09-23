@@ -758,8 +758,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
 	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		mdp3_ctrl_reset(mfd);
-		mdp3_free();
 	}
+	mdp3_release_splash_memory();
 
 	mutex_lock(&mdp3_session->lock);
 
@@ -805,9 +805,9 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 
 	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
-		mdp3_ctrl_off(mfd);
-		mdp3_ctrl_on(mfd);
+		mdp3_ctrl_reset(mfd);
 	}
+	mdp3_release_splash_memory();
 
 	mutex_lock(&mdp3_session->lock);
 
@@ -1359,8 +1359,13 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	struct mdp3_session_data *mdp3_session = NULL;
 	u32 intf_type = MDP3_DMA_OUTPUT_SEL_DSI_VIDEO;
 	int rc;
+	int splash_mismatch = 0;
 
 	pr_debug("mdp3_ctrl_init\n");
+	rc = mdp3_parse_dt_splash(mfd);
+	if (rc)
+		splash_mismatch = 1;
+
 	mdp3_interface->on_fnc = mdp3_ctrl_on;
 	mdp3_interface->off_fnc = mdp3_ctrl_off;
 	mdp3_interface->do_histogram = NULL;
@@ -1405,7 +1410,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_session->dma->output_config.out_sel = intf_type;
 	mdp3_session->mfd = mfd;
 	mdp3_session->panel = dev_get_platdata(&mfd->pdev->dev);
-	mdp3_session->status = 0;
+	mdp3_session->status = mdp3_session->intf->active;
 	mdp3_session->overlay.id = MSMFB_NEW_REQUEST;
 	mdp3_bufq_init(&mdp3_session->bufq_in);
 	mdp3_bufq_init(&mdp3_session->bufq_out);
@@ -1434,6 +1439,11 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
+
+	if (splash_mismatch) {
+		pr_err("splash memory mismatch, stop splash\n");
+		mdp3_ctrl_off(mfd);
+	}
 
 init_done:
 	if (IS_ERR_VALUE(rc))

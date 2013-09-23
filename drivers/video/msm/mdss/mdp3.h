@@ -149,6 +149,8 @@ struct mdp3_hw_resource {
 
 	struct early_suspend suspend_handler;
 	struct mdss_panel_cfg pan_cfg;
+	u32 splash_mem_addr;
+	u32 splash_mem_size;
 };
 
 struct mdp3_img_data {
@@ -181,6 +183,8 @@ int mdp3_iommu_enable(int client);
 int mdp3_iommu_disable(int client);
 int mdp3_iommu_is_attached(int client);
 void mdp3_free(void);
+int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd);
+void mdp3_release_splash_memory(void);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
