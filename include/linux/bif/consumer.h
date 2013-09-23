@@ -311,10 +311,11 @@ enum bif_mipi_object_type {
  * @type:		Object type
  * @version:		Object version
  * @manufacturer_id:	Manufacturer ID number allocated by MIPI
- * @length:		Length of the entire object including header and CRC
+ * @length:		Length of the entire object including header and CRC;
+ *			data length == total length - 8.
  * @data:		Raw byte data found in the object
  * @crc:		CRC of the object calculated using CRC-CCITT
- * @list:		Linked-list connection parameter
+ * @list:		Linked-list connection parameter; internal use only
  * @addr:		BIF slave address correspond to the start of the object
  *
  * manufacturer_id == 0x0000 if MIPI type and version.
@@ -415,6 +416,9 @@ enum bif_bus_event {
 #define BIF_MATCH_FUNCTION_TYPE		BIT(2)
 #define BIF_MATCH_FUNCTION_VERSION	BIT(3)
 #define BIF_MATCH_IGNORE_PRESENCE	BIT(4)
+#define BIF_MATCH_OBJ_TYPE		BIT(5)
+#define BIF_MATCH_OBJ_VERSION		BIT(6)
+#define BIF_MATCH_OBJ_MANUFACTURER_ID	BIT(7)
 
 /**
  * struct bif_match_criteria - specifies the matching criteria that a BIF
@@ -431,6 +435,17 @@ enum bif_bus_event {
  * @ignore_presence:	If true, then slaves that are currently not present
  *			will be successfully matched against.  By default, only
  *			present slaves can be matched.
+ * @obj_type:		Defines the type of a BIF object found in the
+ *			non-volatile memory of a slave.
+ * @obj_version:	Defines the version of a BIF object found in the
+ *			non-volatile memory of a slave.
+ * @obj_manufacturer_id: Manufacturer ID of a BIF object found in the
+ *			non-volatile memory of a slave.
+ *
+ * If function_type and function_verion are both specified, then they must both
+ * match for a single BIF function.  If obj_type and obj_version or
+ * obj_manufacturer_id are specified, then all must match for a single BIF
+ * object.
  */
 struct bif_match_criteria {
 	u32	match_mask;
@@ -439,6 +454,34 @@ struct bif_match_criteria {
 	u8	function_type;
 	u8	function_version;
 	bool	ignore_presence;
+	u8	obj_type;
+	u8	obj_version;
+	u16	obj_manufacturer_id;
+};
+
+/* Mask values to be ORed for use in bif_obj_match_criteria.match_mask. */
+#define BIF_OBJ_MATCH_TYPE		BIT(0)
+#define BIF_OBJ_MATCH_VERSION		BIT(1)
+#define BIF_OBJ_MATCH_MANUFACTURER_ID	BIT(2)
+
+/**
+ * struct bif_obj_match_criteria - specifies the matching criteria that a BIF
+ *			consumer uses to find an appropriate BIF data object
+ *			within a slave
+ * @match_mask:		Mask value specifying which parameters to match upon.
+ *			This value should be some ORed combination of
+ *			BIF_OBJ_MATCH_* specified above.
+ * @type:		Defines the type of the object.  The type may be either
+ *			MIPI or manufacturer defined.
+ * @version:		Defines the version of the object.  The version may be
+ *			either MIPI or manufacturer defined.
+ * @manufacturer_id:	Manufacturer ID number allocated by MIPI.
+ */
+struct bif_obj_match_criteria {
+	u32	match_mask;
+	u8	type;
+	u8	version;
+	u16	manufacturer_id;
 };
 
 /**
@@ -486,10 +529,10 @@ void bif_ctrl_put(struct bif_ctrl *ctrl);
 
 int bif_ctrl_signal_battery_changed(struct bif_ctrl *ctrl);
 
-int bif_slave_match_count(const struct bif_ctrl *ctrl,
+int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria);
 
-struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria);
 
 void bif_slave_put(struct bif_slave *slave);
@@ -504,6 +547,14 @@ struct bif_ctrl *bif_get_ctrl_handle(struct bif_slave *slave);
 
 int bif_slave_find_function(struct bif_slave *slave, u8 function, u8 *version,
 				u16 *function_pointer);
+
+int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria);
+
+struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria);
+
+void bif_object_put(struct bif_object *object);
 
 int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len);
@@ -563,11 +614,11 @@ static inline void bif_ctrl_put(struct bif_ctrl *ctrl) { return; }
 static inline int bif_ctrl_signal_battery_changed(struct bif_ctrl *ctrl)
 { return -EPERM; }
 
-static inline int bif_slave_match_count(const struct bif_ctrl *ctrl,
+static inline int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria)
 { return -EPERM; }
 
-static inline struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+static inline struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria)
 { return ERR_PTR(-EPERM); }
 
@@ -587,6 +638,17 @@ static inline struct bif_ctrl *bif_get_ctrl_handle(struct bif_slave *slave)
 static inline int bif_slave_find_function(struct bif_slave *slave, u8 function,
 				u8 *version, u16 *function_pointer)
 { return -EPERM; }
+
+static inline int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria)
+{ return -EPERM; }
+
+static inline struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria)
+{ return ERR_PTR(-EPERM); }
+
+static inline void bif_object_put(struct bif_object *object)
+{}
 
 static inline int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf,
 				int len)
