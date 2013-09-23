@@ -50,6 +50,7 @@
 /include/ "msm8610-coresight.dtsi"
 /include/ "msm8610-smp2p.dtsi"
 /include/ "msm8610-bus.dtsi"
+/include/ "msm8610-pinctrl.dtsi"
 /include/ "msm8610-mdss.dtsi"
 
 &soc {
