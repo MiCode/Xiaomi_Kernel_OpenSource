@@ -2,6 +2,30 @@
 # msm network device configuration
 #
 
+config NET_VENDOR_MSM
+	bool "MSM network devices"
+	default n
+	depends on ARCH_MSM
+	---help---
+	  If you have a network (Ethernet) card belonging to this class, say Y
+	  and read the Ethernet-HOWTO, available from
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about MSM network controllers. If you say Y, you will
+	  be asked for your specific controller in the following questions.
+
+if NET_VENDOR_MSM
+config MSM_EMAC
+	tristate "MSM EMAC Gigabit Ethernet support"
+	default n
+	select CRC32
+	---help---
+	  This driver supports the MSM EMAC Gigabit Ethernet controller.
+
+endif # NET_VENDOR_MSM
+
 config MSM_RMNET
 	tristate "MSM RMNET Virtual Network Device"
 	depends on ARCH_MSM
