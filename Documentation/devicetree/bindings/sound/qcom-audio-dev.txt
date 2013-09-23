@@ -86,11 +86,20 @@ Required properties:
 
 * msm-dai-stub
 
+[First Level Nodes]
+
 Required properties:
 
- - compatible : "qcom,msm-dai-stub"
- - qcom,msm-dai-stub : This enables stub CPU dai in Audio.
-   The stub dai is used when there is no real backend in Audio.
+ - compatible : "msm-dai-stub"
+
+[Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-stub-dev"
+ - qcom,msm-dai-stub-dev-id : Stub dai port ID value is from 0 to 3.
+   This enables stub CPU dai in Audio. The stub dai is used when
+   there is no real backend in Audio.
 
 * msm-dai-q6-hdmi
 
