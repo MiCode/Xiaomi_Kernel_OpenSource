@@ -511,7 +511,7 @@ static void msm_bus_noc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_noc_info *ninfo;
 	struct msm_bus_noc_qos_bw qos_bw;
 	int i, ports;
-	long int bw;
+	int64_t bw;
 	struct msm_bus_noc_commit *sel_cd =
 		(struct msm_bus_noc_commit *)sel_cdata;
 

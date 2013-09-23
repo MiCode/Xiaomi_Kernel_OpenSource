@@ -1876,7 +1876,7 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_bimc_info *binfo;
 	struct msm_bus_bimc_qos_bw qbw;
 	int i;
-	long int bw;
+	int64_t bw;
 	int ports = info->node_info->num_mports;
 	struct msm_bus_bimc_commit *sel_cd =
 		(struct msm_bus_bimc_commit *)sel_cdata;
@@ -1912,11 +1912,11 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 			qbw.bw = sel_cd->mas[info->node_info->masterp[i]].bw;
 			qbw.ws = info->node_info->ws;
 			/* Threshold low = 90% of bw */
-			qbw.thl = (90 * bw) / 100;
+			qbw.thl = div_s64((90 * bw), 100);
 			/* Threshold medium = bw */
 			qbw.thm = bw;
 			/* Threshold high = 10% more than bw */
-			qbw.thh = (110 * bw) / 100;
+			qbw.thh = div_s64((110 * bw), 100);
 			/* Check if info is a shared master.
 			 * If it is, mark it dirty
 			 * If it isn't, then set QOS Bandwidth
