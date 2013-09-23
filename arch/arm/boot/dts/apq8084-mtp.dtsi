@@ -298,6 +298,10 @@
 	};
 
 	gpio@cd00 { /* GPIO 14 */
+		qcom,mode = <0>;
+		qcom,pull = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@ce00 { /* GPIO 15 */
@@ -393,5 +397,14 @@
 	};
 
 	mpp@a700 { /* MPP 8 */
+	};
+};
+
+&i2c_0 {
+	smb349-charger@1b {
+		compatible = "qcom,smb349-charger";
+		reg = <0x1b>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x00 0xcd 0x0>; /* PMIC8084 GPIO 14 */
 	};
 };
