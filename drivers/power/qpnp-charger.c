@@ -246,6 +246,7 @@ struct qpnp_chg_regulator {
  * @btc_disabled		Flag to disable btc (disables hot and cold irqs)
  * @max_voltage_mv:		the max volts the batt should be charged up to
  * @min_voltage_mv:		min battery voltage before turning the FET on
+ * @batt_weak_voltage_mv:	Weak battery voltage threshold
  * @max_bat_chg_current:	maximum battery charge current in mA
  * @warm_bat_chg_ma:	warm battery maximum charge current in mA
  * @cool_bat_chg_ma:	cool battery maximum charge current in mA
@@ -318,6 +319,7 @@ struct qpnp_chg_chip {
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
 	unsigned int			min_voltage_mv;
+	unsigned int			batt_weak_voltage_mv;
 	int				prev_usb_max_ma;
 	int				set_vddmax_mv;
 	int				delta_vddmax_mv;
@@ -907,6 +909,26 @@ qpnp_chg_vinmin_get(struct qpnp_chg_chip *chip)
 	pr_debug("vin_min= 0x%02x, ma = %d\n", vin_min, vin_min_mv);
 
 	return vin_min_mv;
+}
+
+#define QPNP_CHG_VBATWEAK_MIN_MV	2100
+#define QPNP_CHG_VBATWEAK_MAX_MV	3600
+#define QPNP_CHG_VBATWEAK_STEP_MV	100
+static int
+qpnp_chg_vbatweak_set(struct qpnp_chg_chip *chip, int vbatweak_mv)
+{
+	u8 temp;
+
+	if (vbatweak_mv < QPNP_CHG_VBATWEAK_MIN_MV
+			|| vbatweak_mv > QPNP_CHG_VBATWEAK_MAX_MV)
+		return -EINVAL;
+
+	temp = (vbatweak_mv - QPNP_CHG_VBATWEAK_MIN_MV)
+			/ QPNP_CHG_VBATWEAK_STEP_MV;
+
+	pr_debug("voltage=%d setting %02x\n", vbatweak_mv, temp);
+	return qpnp_chg_write(chip, &temp,
+		chip->chgr_base + CHGR_VBAT_WEAK, 1);
 }
 
 static int
@@ -3714,6 +3736,8 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_CHGR_SUBTYPE:
 	case SMBBP_CHGR_SUBTYPE:
 	case SMBCL_CHGR_SUBTYPE:
+		qpnp_chg_vbatweak_set(chip, chip->batt_weak_voltage_mv);
+
 		rc = qpnp_chg_vinmin_set(chip, chip->min_voltage_mv);
 		if (rc) {
 			pr_debug("failed setting  min_voltage rc=%d\n", rc);
@@ -4045,6 +4069,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	OF_PROP_READ(chip, hot_batt_p, "batt-hot-percentage", rc, 1);
 	OF_PROP_READ(chip, cold_batt_p, "batt-cold-percentage", rc, 1);
 	OF_PROP_READ(chip, soc_resume_limit, "resume-soc", rc, 1);
+	OF_PROP_READ(chip, batt_weak_voltage_mv, "vbatweak-mv", rc, 1);
 
 	if (rc)
 		return rc;
