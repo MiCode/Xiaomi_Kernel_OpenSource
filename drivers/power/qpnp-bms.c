@@ -81,8 +81,7 @@
 
 /* Configuration for saving of shutdown soc/iavg */
 #define IGNORE_SOC_TEMP_DECIDEG		50
-#define IAVG_STEP_SIZE_MA		50
-#define IAVG_START			600
+#define IAVG_STEP_SIZE_MA		10
 #define IAVG_INVALID			0xFF
 #define SOC_INVALID			0x7E
 
@@ -1639,8 +1638,8 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 	int rc;
 	int iavg_ma = chip->prev_uuc_iavg_ma;
 
-	if (iavg_ma > IAVG_START)
-		temp = (iavg_ma - IAVG_START) / IAVG_STEP_SIZE_MA;
+	if (iavg_ma > MIN_IAVG_MA)
+		temp = (iavg_ma - MIN_IAVG_MA) / IAVG_STEP_SIZE_MA;
 	else
 		temp = 0;
 
@@ -3330,17 +3329,17 @@ static int read_shutdown_iavg_ma(struct qpnp_bms_chip *chip)
 	if (rc) {
 		pr_err("failed to read addr = %d %d assuming %d\n",
 				chip->base + IAVG_STORAGE_REG, rc,
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else if (iavg == IAVG_INVALID) {
 		pr_err("invalid iavg read from BMS1_DATA_REG_1, using %d\n",
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else {
 		if (iavg == 0)
-			return IAVG_START;
+			return MIN_IAVG_MA;
 		else
-			return IAVG_START + IAVG_STEP_SIZE_MA * (iavg + 1);
+			return MIN_IAVG_MA + IAVG_STEP_SIZE_MA * iavg;
 	}
 }
 
