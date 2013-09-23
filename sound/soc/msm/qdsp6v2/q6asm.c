@@ -1607,7 +1607,7 @@ static int __q6asm_open_read(struct audio_client *ac,
 
 	open.preprocopo_id = get_asm_topology();
 	if (open.preprocopo_id == 0)
-		open.preprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT;
+		open.preprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
 	open.bits_per_sample = bits_per_sample;
 	open.mode_flags = 0x0;
 
@@ -1706,7 +1706,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 
 	open.postprocopo_id = get_asm_topology();
 	if (open.postprocopo_id == 0)
-		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT;
+		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
 
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
@@ -1790,7 +1790,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 	/* source endpoint : matrix */
 	open.postprocopo_id = get_asm_topology();
 	if (open.postprocopo_id == 0)
-		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT;
+		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
 
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
