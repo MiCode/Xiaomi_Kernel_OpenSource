@@ -4122,6 +4122,7 @@ static int iris_vidioc_querycap(struct file *file, void *priv,
 	radio = video_get_drvdata(video_devdata(file));
 	strlcpy(capability->driver, DRIVER_NAME, sizeof(capability->driver));
 	strlcpy(capability->card, DRIVER_CARD, sizeof(capability->card));
+	capability->capabilities = V4L2_CAP_TUNER | V4L2_CAP_RADIO;
 	radio->g_cap = capability;
 	return 0;
 }
