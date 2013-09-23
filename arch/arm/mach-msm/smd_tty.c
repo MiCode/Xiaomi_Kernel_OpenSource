@@ -340,12 +340,16 @@ static void smd_tty_notify(void *priv, unsigned event)
 		break;
 
 	case SMD_EVENT_OPEN:
+		tty = tty_port_tty_get(&info->port);
 		spin_lock_irqsave(&info->reset_lock_lha2, flags);
+		if (tty)
+			clear_bit(TTY_OTHER_CLOSED, &tty->flags);
 		info->in_reset = 0;
 		info->in_reset_updated = 1;
 		info->is_open = 1;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
 		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
+		tty_kref_put(tty);
 		break;
 
 	case SMD_EVENT_CLOSE:
@@ -355,13 +359,17 @@ static void smd_tty_notify(void *priv, unsigned event)
 		info->is_open = 0;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
 		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
-		/* schedule task to send TTY_BREAK */
-		tasklet_hi_schedule(&info->tty_tsklt);
 
 		tty = tty_port_tty_get(&info->port);
-		if (tty->index == LOOPBACK_IDX)
-			schedule_delayed_work(&loopback_work,
-					msecs_to_jiffies(1000));
+		if (tty) {
+			/* send TTY_BREAK through read tasklet */
+			set_bit(TTY_OTHER_CLOSED, &tty->flags);
+			tasklet_hi_schedule(&info->tty_tsklt);
+
+			if (tty->index == LOOPBACK_IDX)
+				schedule_delayed_work(&loopback_work,
+						msecs_to_jiffies(1000));
+		}
 		tty_kref_put(tty);
 		break;
 	}
