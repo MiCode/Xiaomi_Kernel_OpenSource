@@ -28,6 +28,38 @@
 		qcom,cdc-micbias2-headset-only;
 		qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&pma8084_gpios 21 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&pma8084_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pma8084_gpios 2 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
@@ -121,6 +153,20 @@
 };
 
 &pma8084_gpios {
+	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
+	gpio@c400 { /* GPIO 5 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
 	gpio@c600 { /* GPIO 7 */
 		/* Backlight PWM */
 		qcom,mode = <1>;		/* Digital output */
@@ -130,6 +176,13 @@
 		qcom,src-sel = <2>;		/* Special Function 1 = LPG 3 */
 		qcom,out-strength = <3>;	/* High drive strength */
 		qcom,master-en = <1>;
+	};
+
+	gpio@d400 { /* GPIO 21 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 };
 
