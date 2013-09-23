@@ -68,7 +68,6 @@ static inline struct mux_clk *to_mux_clk(struct clk *c)
 }
 
 extern struct clk_ops clk_ops_gen_mux;
-extern struct clk_mux_ops mux_reg_ops;
 
 /* ==================== Divider clock ==================== */
 
