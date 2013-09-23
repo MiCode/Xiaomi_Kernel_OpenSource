@@ -299,6 +299,12 @@ trigger SMP2P to:
        has changed.
     2) Compare Entries Valid to cached value.  If changed, initialize new entries.
 
+Security
+========
+Since the implementation resides in the kernel and does not expose interfaces
+to userspace, no security issues are anticipated.  The usage of separate SMEM
+items allows for future security enhancements in SMEM.
+
 Performance
 ===========
 No performance issues are anticipated as the signaling rate is expected to be
@@ -311,19 +317,18 @@ GPIO and interrupt subsystems.
 
 To map an entry to the client, the client must add two nodes to the Device
 Tree:
-  1) A node that matches "qcom,smp2pgpio" to create the entry
-  2) A node that matches the client driver to provide the GPIO pin mapping
+    1) A node that matches "qcom,smp2pgpio" to create the entry
+    2) A node that matches the client driver to provide the GPIO pin mapping
 
-The details of the device tree entries are contained in the file
-Documentionat/devicetree/bindings/arm/msm/smp2p.txt.
-
+The details of the device tree entries for the GPIO interface are contained in
+the file Documentation/devicetree/bindings/gpio/gpio-smp2p.txt.
 
     /* SMP2P Test Driver for inbound entry. */
     smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
         compatible = "qcom,smp2pgpio";
         qcom,entry-name = "smp2p";
         qcom,remote-pid = <7>;
-        qcom,is_inbound;
+        qcom,is-inbound;
         gpio-controller;
         #gpio-cells = <2>;
         interrupt-controller;
@@ -374,6 +379,13 @@ calls are shown below:
 
 Please reference the unit test code for example usage.
 
+Subsystem Restart
+=================
+SMP2P is unaffected by SubSystem Restart (SSR) on the high-level OS side and is
+actually used as an underlying communication mechanism for SSR.  On the
+peripheral system that is being restarted, SMP2P will zero out all existing
+state entries upon reboot as part of the SMP2P initialization process.
+
 Debug
 =====
 The state values and names for all entries accessible by the Apps are
@@ -395,12 +407,13 @@ One module parameter will be provided to change the verbosity of internal loggin
 
 Config options
 ==============
-Configuration of interrupts will be done using Device Tree.  By default, the
-testing components will be enabled since it does not affect performance and has
-a minimal impact on kernel size.  However, customers can disable the testing
-components for size optimization.
+Configuration of interrupts will be done using Device Tree per the format in
+Documentation/devicetree/bindings/arm/msm/smp2p.txt.  By default, the testing
+components will be enabled since it does not affect performance and has a
+minimal impact on kernel size.  However, customers can disable the testing
+component for size optimization.
 
-    CONFIG_MSM_SMP2P - enables SMP2P core functionality
+    CONFIG_MSM_SMP2P - enables SMP2P
     CONFIG_MSM_SMP2P_TEST - enables unit test support
 
 Dependencies
