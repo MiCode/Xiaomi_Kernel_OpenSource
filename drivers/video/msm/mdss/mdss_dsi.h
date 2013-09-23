@@ -323,6 +323,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct clk *esc_clk;
 	struct clk *pixel_clk;
 	u8 ctrl_state;
+	int panel_mode;
 	int irq_cnt;
 	int mdss_dsi_clk_on;
 	int rst_gpio;
