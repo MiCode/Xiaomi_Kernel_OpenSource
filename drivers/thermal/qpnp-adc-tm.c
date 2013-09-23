@@ -1611,26 +1611,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
-	rc = devm_request_irq(&spmi->dev, chip->adc->adc_high_thr_irq,
-				qpnp_adc_tm_high_thr_isr,
-		IRQF_TRIGGER_RISING, "qpnp_adc_tm_high_interrupt", chip);
-	if (rc) {
-		dev_err(&spmi->dev, "failed to request adc irq\n");
-		goto fail;
-	} else {
-		enable_irq_wake(chip->adc->adc_high_thr_irq);
-	}
-
-	rc = devm_request_irq(&spmi->dev, chip->adc->adc_low_thr_irq,
-				qpnp_adc_tm_low_thr_isr,
-		IRQF_TRIGGER_RISING, "qpnp_adc_tm_low_interrupt", chip);
-	if (rc) {
-		dev_err(&spmi->dev, "failed to request adc irq\n");
-		goto fail;
-	} else {
-		enable_irq_wake(chip->adc->adc_low_thr_irq);
-	}
-
 	for_each_child_of_node(node, child) {
 		char name[25];
 		int btm_channel_num;
@@ -1677,8 +1657,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 	chip->max_channels_available = count_adc_channel_list;
 	INIT_WORK(&chip->trigger_high_thr_work, qpnp_adc_tm_high_thr_work);
 	INIT_WORK(&chip->trigger_low_thr_work, qpnp_adc_tm_low_thr_work);
-	dev_set_drvdata(&spmi->dev, chip);
-	list_add(&chip->list, &qpnp_adc_tm_device_list);
 
 	rc = qpnp_adc_tm_write_reg(chip, QPNP_ADC_TM_HIGH_THR_INT_EN,
 								thr_init);
@@ -1700,6 +1678,29 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		pr_err("multi meas en failed\n");
 		goto fail;
 	}
+
+	rc = devm_request_irq(&spmi->dev, chip->adc->adc_high_thr_irq,
+				qpnp_adc_tm_high_thr_isr,
+		IRQF_TRIGGER_RISING, "qpnp_adc_tm_high_interrupt", chip);
+	if (rc) {
+		dev_err(&spmi->dev, "failed to request adc irq\n");
+		goto fail;
+	} else {
+		enable_irq_wake(chip->adc->adc_high_thr_irq);
+	}
+
+	rc = devm_request_irq(&spmi->dev, chip->adc->adc_low_thr_irq,
+				qpnp_adc_tm_low_thr_isr,
+		IRQF_TRIGGER_RISING, "qpnp_adc_tm_low_interrupt", chip);
+	if (rc) {
+		dev_err(&spmi->dev, "failed to request adc irq\n");
+		goto fail;
+	} else {
+		enable_irq_wake(chip->adc->adc_low_thr_irq);
+	}
+
+	dev_set_drvdata(&spmi->dev, chip);
+	list_add(&chip->list, &qpnp_adc_tm_device_list);
 
 	pr_debug("OK\n");
 	return 0;
