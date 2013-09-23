@@ -47,7 +47,7 @@
 #define GUSB2PHYACC_VSTSDONE	BIT(24)
 #define GUSB2PHYACC_VSTSBUSY	BIT(23)
 #define GUSB2PHYACC_REGWR	BIT(22)
-#define GUSB2PHYACC_REGADDR(n)	(((n) & 0x3F) << 21)
+#define GUSB2PHYACC_REGADDR(n)	(((n) & 0x3F) << 16)
 #define GUSB2PHYACC_REGDATA(n)	((n) & 0xFF)
 
 /* QSCRATCH ctrl reg */
