@@ -268,16 +268,16 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		cmd->index_table_expansion_addr_type = IPA_NAT_SHARED_MEMORY;
 
 		cmd->ipv4_rules_addr = init->ipv4_rules_offset +
-				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
+				IPA_RAM_NAT_OFST;
 
 		cmd->ipv4_expansion_rules_addr = init->expn_rules_offset +
-				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
+				IPA_RAM_NAT_OFST;
 
 		cmd->index_table_addr = init->index_offset  +
-				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
+				IPA_RAM_NAT_OFST;
 
 		cmd->index_table_expansion_addr = init->index_expn_offset +
-				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
+				IPA_RAM_NAT_OFST;
 	}
 	cmd->table_index = init->tbl_index;
 	IPADBG("Table index:0x%x\n", cmd->table_index);

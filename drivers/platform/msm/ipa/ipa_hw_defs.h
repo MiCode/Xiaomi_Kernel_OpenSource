@@ -33,6 +33,7 @@
 #define IPA_NAT_DMA           (14)
 #define IPA_IP_PACKET_TAG     (15)
 #define IPA_IP_PACKET_INIT    (16)
+#define IPA_DMA_SHARED_MEM    (19)
 
 #define IPA_INTERFACE_ID_EXCEPTION         (0)
 #define IPA_INTERFACE_ID_A2_WWAN        (0x10)
@@ -352,6 +353,18 @@ enum ipa_hw_pkt_status_exception {
 	IPA_HW_PKT_STATUS_EXCEPTION_NAT            = 0x40,
 	IPA_HW_PKT_STATUS_EXCEPTION_ACTUAL_MAX,
 	IPA_HW_PKT_STATUS_EXCEPTION_MAX            = 0xFF
+};
+
+/*! @brief IPA_HW_IMM_CMD_DMA_SHARED_MEM Immediate Command Parameters */
+struct ipa_hw_imm_cmd_dma_shared_mem {
+	u32 reserved_1:16;
+	u32 size:16;
+	u32 system_addr:32;
+	u32 local_addr:16;
+	u32 direction:1;
+	u32 skip_pipeline_clear:1;
+	u32 reserved_2:14;
+	u32 padding:32;
 };
 
 #endif /* _IPA_HW_DEFS_H */

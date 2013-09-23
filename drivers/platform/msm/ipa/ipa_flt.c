@@ -168,56 +168,39 @@ static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 	return total_sz;
 }
 
-/**
- * ipa_generate_flt_hw_tbl() - generates the filtering hardware table
- * @ip:	[in] the ip address family type
- * @mem:	[out] buffer to put the filtering table
- *
- * Returns:	0 on success, negative on failure
- */
-int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
+static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
+		u8 *hdr, u32 body_start_offset, u8 *hdr2, u32 *hdr_top)
 {
 	struct ipa_flt_tbl *tbl;
 	struct ipa_flt_entry *entry;
-	u32 hdr_top = 0;
 	int i;
-	u32 hdr_sz;
 	u32 offset;
-	u8 *hdr;
 	u8 *body;
-	u8 *base;
 	struct ipa_mem_buffer flt_tbl_mem;
 	u8 *ftbl_membody;
 
-	mem->size = ipa_get_flt_hw_tbl_size(ip, &hdr_sz);
-	mem->size = IPA_HW_TABLE_ALIGNMENT(mem->size);
+	*hdr_top = 0;
+	body = base;
 
-	if (mem->size == 0) {
-		IPAERR("flt tbl empty ip=%d\n", ip);
-		goto error;
-	}
-	mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
-	if (!mem->base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
-		goto error;
-	}
-
-	memset(mem->base, 0, mem->size);
-
-	/* build the flt tbl in the DMA buffer to submit to IPA HW */
-	base = hdr = (u8 *)mem->base;
-	body = base + hdr_sz;
-
-	/* write a dummy header to move cursor */
-	hdr = ipa_write_32(hdr_top, hdr);
+#define IPA_WRITE_FLT_HDR(idx, val) {			\
+	if (idx <= 5) {					\
+		*((u32 *)hdr + 1 + idx) = val;		\
+	} else if (idx >= 6 && idx <= 9) {		\
+		WARN_ON(1);				\
+	} else if (idx >= 10 && idx <= 19) {		\
+		*((u32 *)hdr2 + idx - 10) = val;	\
+	} else {					\
+		WARN_ON(1);				\
+	}						\
+}
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
 
 	if (!list_empty(&tbl->head_flt_rule_list)) {
-		hdr_top |= IPA_FLT_BIT_MASK;
+		*hdr_top |= IPA_FLT_BIT_MASK;
+
 		if (!tbl->in_sys) {
-			offset = body - base;
+			offset = body - base + body_start_offset;
 			if (offset & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT) {
 				IPAERR("offset is not word multiple %d\n",
 						offset);
@@ -227,7 +210,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 			offset &= ~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
 			/* rule is at an offset from base */
 			offset |= IPA_FLT_BIT_MASK;
-			hdr = ipa_write_32(offset, hdr);
+
+			if (hdr2)
+				*(u32 *)hdr = offset;
+			else
+				hdr = ipa_write_32(offset, hdr);
 
 			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_flt_rule_list,
@@ -264,7 +251,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 				IPA_FLT_ENTRY_MEMORY_ALLIGNMENT);
 			ftbl_membody = flt_tbl_mem.base;
 			memset(flt_tbl_mem.base, 0, flt_tbl_mem.size);
-			hdr = ipa_write_32(flt_tbl_mem.phys_base, hdr);
+
+			if (hdr2)
+				*(u32 *)hdr = flt_tbl_mem.phys_base;
+			else
+				hdr = ipa_write_32(flt_tbl_mem.phys_base, hdr);
 
 			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_flt_rule_list,
@@ -291,9 +282,10 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (!list_empty(&tbl->head_flt_rule_list)) {
 			/* pipe "i" is at bit "i+1" */
-			hdr_top |= (1 << (i + 1));
+			*hdr_top |= (1 << (i + 1));
+
 			if (!tbl->in_sys) {
-				offset = body - base;
+				offset = body - base + body_start_offset;
 				if (offset & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT) {
 					IPAERR("ofst is not word multiple %d\n",
 					       offset);
@@ -302,7 +294,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 				offset &= ~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
 				/* rule is at an offset from base */
 				offset |= IPA_FLT_BIT_MASK;
-				hdr = ipa_write_32(offset, hdr);
+
+				if (hdr2)
+					IPA_WRITE_FLT_HDR(i, offset)
+				else
+					hdr = ipa_write_32(offset, hdr);
 
 				/* generate the rule-set */
 				list_for_each_entry(entry,
@@ -343,7 +339,13 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 
 				ftbl_membody = flt_tbl_mem.base;
 				memset(flt_tbl_mem.base, 0, flt_tbl_mem.size);
-				hdr = ipa_write_32(flt_tbl_mem.phys_base, hdr);
+
+				if (hdr2)
+					IPA_WRITE_FLT_HDR(i,
+						flt_tbl_mem.phys_base)
+				else
+					hdr = ipa_write_32(
+						flt_tbl_mem.phys_base, hdr);
 
 				/* generate the rule-set */
 				list_for_each_entry(entry,
@@ -369,15 +371,68 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 		}
 	}
 
+	return 0;
+
+proc_err:
+	return -EPERM;
+}
+
+
+/**
+ * ipa_generate_flt_hw_tbl() - generates the filtering hardware table
+ * @ip:	[in] the ip address family type
+ * @mem:	[out] buffer to put the filtering table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+static int ipa_generate_flt_hw_tbl_v1(enum ipa_ip_type ip,
+		struct ipa_mem_buffer *mem)
+{
+	u32 hdr_top = 0;
+	u32 hdr_sz;
+	u8 *hdr;
+	u8 *body;
+	u8 *base;
+
+	mem->size = ipa_get_flt_hw_tbl_size(ip, &hdr_sz);
+	mem->size = IPA_HW_TABLE_ALIGNMENT(mem->size);
+
+	if (mem->size == 0) {
+		IPAERR("flt tbl empty ip=%d\n", ip);
+		goto error;
+	}
+	mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
+			GFP_KERNEL);
+	if (!mem->base) {
+		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
+		goto error;
+	}
+
+	memset(mem->base, 0, mem->size);
+
+	/* build the flt tbl in the DMA buffer to submit to IPA HW */
+	base = hdr = (u8 *)mem->base;
+	body = base + hdr_sz;
+
+	/* write a dummy header to move cursor */
+	hdr = ipa_write_32(hdr_top, hdr);
+
+	if (ipa_generate_flt_hw_tbl_common(ip, body, hdr, hdr_sz, 0,
+				&hdr_top)) {
+		IPAERR("fail to generate FLT HW table\n");
+		goto proc_err;
+	}
+
 	/* now write the hdr_top */
 	ipa_write_32(hdr_top, base);
 
+	IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
+
 	return 0;
+
 proc_err:
 	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
-	mem->base = NULL;
 error:
-
 	return -EPERM;
 }
 
@@ -428,7 +483,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 	}
 }
 
-static int __ipa_commit_flt(enum ipa_ip_type ip)
+int __ipa_commit_flt_v1(enum ipa_ip_type ip)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer *mem;
@@ -445,10 +500,12 @@ static int __ipa_commit_flt(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = IPA_RAM_V4_FLT_SIZE;
+		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_v1_RAM_V4_FLT_SIZE :
+			IPA_RAM_V4_FLT_SIZE_DDR;
 		size = sizeof(struct ipa_ip_v4_filter_init);
 	} else {
-		avail = IPA_RAM_V6_FLT_SIZE;
+		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_v1_RAM_V6_FLT_SIZE :
+			IPA_RAM_V6_FLT_SIZE_DDR;
 		size = sizeof(struct ipa_ip_v6_filter_init);
 	}
 	cmd = kmalloc(size, GFP_KERNEL);
@@ -457,7 +514,7 @@ static int __ipa_commit_flt(enum ipa_ip_type ip)
 		goto fail_alloc_cmd;
 	}
 
-	if (ipa_generate_flt_hw_tbl(ip, mem)) {
+	if (ipa_generate_flt_hw_tbl_v1(ip, mem)) {
 		IPAERR("fail to generate FLT HW TBL ip %d\n", ip);
 		goto fail_hw_tbl_gen;
 	}
@@ -472,13 +529,13 @@ static int __ipa_commit_flt(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V4_FILTER_INIT;
 		v4->ipv4_rules_addr = mem->phys_base;
 		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = ipa_ctx->ctrl->sram_flt_ipv4_ofst;
+		v4->ipv4_addr = IPA_v1_RAM_V4_FLT_OFST;
 	} else {
 		v6 = (struct ipa_ip_v6_filter_init *)cmd;
 		desc.opcode = IPA_IP_V6_FILTER_INIT;
 		v6->ipv6_rules_addr = mem->phys_base;
 		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = ipa_ctx->ctrl->sram_flt_ipv6_ofst;
+		v6->ipv6_addr = IPA_v1_RAM_V6_FLT_OFST;
 	}
 
 	desc.pyld = cmd;
@@ -508,6 +565,197 @@ fail_alloc_cmd:
 fail_alloc_mem:
 
 	return -EPERM;
+}
+
+static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
+		struct ipa_mem_buffer *mem, struct ipa_mem_buffer *head1,
+		struct ipa_mem_buffer *head2)
+{
+	int i;
+	u32 hdr_sz;
+	int num_words;
+	u32 *entr;
+	u32 body_start_offset;
+	u32 hdr_top;
+
+	if (ip == IPA_IP_v4)
+		body_start_offset = IPA_v2_RAM_APPS_V4_FLT_OFST -
+			IPA_v2_RAM_V4_FLT_OFST;
+	else
+		body_start_offset = IPA_v2_RAM_APPS_V6_FLT_OFST -
+			IPA_v2_RAM_V6_FLT_OFST;
+
+	num_words = 7;
+	head1->size = num_words * 4;
+	head1->base = dma_alloc_coherent(NULL, head1->size, &head1->phys_base,
+			GFP_KERNEL);
+	if (!head1->base) {
+		IPAERR("fail to alloc DMA buff of size %d\n", head1->size);
+		goto err;
+	}
+	entr = (u32 *)head1->base;
+	for (i = 0; i < num_words; i++) {
+		*entr = ipa_ctx->empty_rt_tbl_mem.phys_base;
+		entr++;
+	}
+
+	num_words = 10;
+	head2->size = num_words * 4;
+	head2->base = dma_alloc_coherent(NULL, head2->size, &head2->phys_base,
+			GFP_KERNEL);
+	if (!head2->base) {
+		IPAERR("fail to alloc DMA buff of size %d\n", head2->size);
+		goto head_err;
+	}
+	entr = (u32 *)head2->base;
+	for (i = 0; i < num_words; i++) {
+		*entr = ipa_ctx->empty_rt_tbl_mem.phys_base;
+		entr++;
+	}
+
+	mem->size = ipa_get_flt_hw_tbl_size(ip, &hdr_sz);
+	mem->size -= hdr_sz;
+	mem->size = IPA_HW_TABLE_ALIGNMENT(mem->size);
+
+	if (mem->size) {
+		mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
+			GFP_KERNEL);
+		if (!mem->base) {
+			IPAERR("fail to alloc DMA buff of size %d\n",
+					mem->size);
+			goto body_err;
+		}
+		memset(mem->base, 0, mem->size);
+	}
+
+	if (ipa_generate_flt_hw_tbl_common(ip, mem->base, head1->base,
+				body_start_offset, head2->base, &hdr_top)) {
+		IPAERR("fail to generate FLT HW table\n");
+		goto proc_err;
+	}
+
+	IPADBG("HEAD1\n");
+	IPA_DUMP_BUFF(head1->base, head1->phys_base, head1->size);
+	IPADBG("HEAD2\n");
+	IPA_DUMP_BUFF(head2->base, head2->phys_base, head2->size);
+	if (mem->size) {
+		IPADBG("BODY\n");
+		IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
+	}
+
+	return 0;
+
+proc_err:
+	if (mem->size)
+		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+body_err:
+	dma_free_coherent(NULL, head2->size, head2->base, head2->phys_base);
+head_err:
+	dma_free_coherent(NULL, head1->size, head1->base, head1->phys_base);
+err:
+	return -EPERM;
+}
+
+int __ipa_commit_flt_v2(enum ipa_ip_type ip)
+{
+	struct ipa_desc desc[3];
+	struct ipa_mem_buffer body;
+	struct ipa_mem_buffer head1;
+	struct ipa_mem_buffer head2;
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd1 = {0};
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd2 = {0};
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd3 = {0};
+	u16 avail;
+	int rc = 0;
+	u32 local_addr1;
+	u32 local_addr2;
+	u32 local_addr3;
+	bool lcl;
+
+	memset(desc, 0, 3 * sizeof(struct ipa_desc));
+
+	if (ip == IPA_IP_v4) {
+		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_v2_RAM_APPS_V4_FLT_SIZE :
+			IPA_RAM_V4_FLT_SIZE_DDR;
+		local_addr1 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V4_FLT_OFST + 4;
+		local_addr2 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V4_FLT_OFST + 12 * 4;
+		local_addr3 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_APPS_V4_FLT_OFST;
+		lcl = ipa_ctx->ip4_flt_tbl_lcl;
+	} else {
+		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_v2_RAM_APPS_V6_FLT_SIZE :
+			IPA_RAM_V6_FLT_SIZE_DDR;
+		local_addr1 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V6_FLT_OFST + 4;
+		local_addr2 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V6_FLT_OFST + 12 * 4;
+		local_addr3 = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_APPS_V6_FLT_OFST;
+		lcl = ipa_ctx->ip6_flt_tbl_lcl;
+	}
+
+	if (ipa_generate_flt_hw_tbl_v2(ip, &body, &head1, &head2)) {
+		IPAERR("fail to generate FLT HW TBL ip %d\n", ip);
+		rc = -EFAULT;
+		goto fail_gen;
+	}
+
+	if (body.size > avail) {
+		IPAERR("tbl too big, needed %d avail %d\n", body.size, avail);
+		goto fail_send_cmd;
+	}
+
+	cmd1.size = head1.size;
+	cmd1.system_addr = head1.phys_base;
+	cmd1.local_addr = local_addr1;
+
+	desc[0].opcode = IPA_DMA_SHARED_MEM;
+	desc[0].pyld = &cmd1;
+	desc[0].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc[0].type = IPA_IMM_CMD_DESC;
+
+	cmd2.size = head2.size;
+	cmd2.system_addr = head2.phys_base;
+	cmd2.local_addr = local_addr2;
+
+	desc[1].opcode = IPA_DMA_SHARED_MEM;
+	desc[1].pyld = &cmd2;
+	desc[1].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc[1].type = IPA_IMM_CMD_DESC;
+
+	if (lcl) {
+		cmd3.size = body.size;
+		cmd3.system_addr = body.phys_base;
+		cmd3.local_addr = local_addr3;
+
+		desc[2].opcode = IPA_DMA_SHARED_MEM;
+		desc[2].pyld = &cmd3;
+		desc[2].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+		desc[2].type = IPA_IMM_CMD_DESC;
+
+		if (ipa_send_cmd(3, desc)) {
+			IPAERR("fail to send immediate command\n");
+			rc = -EFAULT;
+			goto fail_send_cmd;
+		}
+	} else {
+		if (ipa_send_cmd(2, desc)) {
+			IPAERR("fail to send immediate command\n");
+			rc = -EFAULT;
+			goto fail_send_cmd;
+		}
+	}
+
+	__ipa_reap_sys_flt_tbls(ip);
+fail_send_cmd:
+	if (body.size)
+		dma_free_coherent(NULL, body.size, body.base, body.phys_base);
+	dma_free_coherent(NULL, head1.size, head1.base, head1.phys_base);
+	dma_free_coherent(NULL, head2.size, head2.base, head2.phys_base);
+fail_gen:
+	return rc;
 }
 
 static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
@@ -695,7 +943,7 @@ int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	}
 
 	if (rules->commit)
-		if (__ipa_commit_flt(rules->ip)) {
+		if (ipa_ctx->ctrl->ipa_commit_flt(rules->ip)) {
 			result = -EPERM;
 			goto bail;
 		}
@@ -736,7 +984,7 @@ int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 	}
 
 	if (hdls->commit)
-		if (__ipa_commit_flt(hdls->ip)) {
+		if (ipa_ctx->ctrl->ipa_commit_flt(hdls->ip)) {
 			mutex_unlock(&ipa_ctx->lock);
 			result = -EPERM;
 			goto bail;
@@ -769,7 +1017,7 @@ int ipa_commit_flt(enum ipa_ip_type ip)
 
 	mutex_lock(&ipa_ctx->lock);
 
-	if (__ipa_commit_flt(ip)) {
+	if (ipa_ctx->ctrl->ipa_commit_flt(ip)) {
 		result = -EPERM;
 		goto bail;
 	}

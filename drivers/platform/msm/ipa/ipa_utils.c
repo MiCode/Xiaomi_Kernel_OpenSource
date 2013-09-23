@@ -48,6 +48,12 @@ void _ipa_sram_settings_read_v1_0(void)
 	ipa_ctx->smem_restricted_bytes = 0;
 	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST_v1_0);
+	ipa_ctx->smem_reqd_sz = IPA_v1_RAM_END_OFST;
+	ipa_ctx->hdr_tbl_lcl = 1;
+	ipa_ctx->ip4_rt_tbl_lcl = 0;
+	ipa_ctx->ip6_rt_tbl_lcl = 0;
+	ipa_ctx->ip4_flt_tbl_lcl = 1;
+	ipa_ctx->ip6_flt_tbl_lcl = 1;
 }
 
 void _ipa_sram_settings_read_v1_1(void)
@@ -55,6 +61,12 @@ void _ipa_sram_settings_read_v1_1(void)
 	ipa_ctx->smem_restricted_bytes = 0;
 	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST_v1_1);
+	ipa_ctx->smem_reqd_sz = IPA_v1_RAM_END_OFST;
+	ipa_ctx->hdr_tbl_lcl = 1;
+	ipa_ctx->ip4_rt_tbl_lcl = 0;
+	ipa_ctx->ip6_rt_tbl_lcl = 0;
+	ipa_ctx->ip4_flt_tbl_lcl = 1;
+	ipa_ctx->ip6_flt_tbl_lcl = 1;
 }
 
 void _ipa_sram_settings_read_v2_0(void)
@@ -63,11 +75,16 @@ void _ipa_sram_settings_read_v2_0(void)
 			IPA_SHARED_MEM_SIZE_OFST_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_SHFT_v2_0);
-
 	ipa_ctx->smem_sz = ipa_read_reg_field(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v2_0);
+	ipa_ctx->smem_reqd_sz = IPA_v2_RAM_END_OFST;
+	ipa_ctx->hdr_tbl_lcl = 0;
+	ipa_ctx->ip4_rt_tbl_lcl = 0;
+	ipa_ctx->ip6_rt_tbl_lcl = 0;
+	ipa_ctx->ip4_flt_tbl_lcl = 1;
+	ipa_ctx->ip6_flt_tbl_lcl = 1;
 }
 
 void _ipa_cfg_route_v1_0(struct ipa_route *route)
@@ -1543,8 +1560,11 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 			clnt_hdl,
 			ep_route->rt_tbl_hdl);
 
-	/* always use the "default" routing tables whose indices are 0 */
-	ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
+	/* always use "default" routing table when programming EP ROUTE reg */
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0)
+		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
+	else
+		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
 
 	ipa_inc_client_enable_clks();
 
@@ -1754,44 +1774,6 @@ void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 				byt[0], byt[1], byt[2], byt[3]);
 	}
 	IPADBG("END\n");
-}
-
-/**
- * ipa_dump() - dumps part of driver data structures for debug purposes
- */
-void ipa_dump(void)
-{
-	struct ipa_mem_buffer hdr_mem = { 0 };
-	struct ipa_mem_buffer rt_mem = { 0 };
-	struct ipa_mem_buffer flt_mem = { 0 };
-
-	mutex_lock(&ipa_ctx->lock);
-
-	if (ipa_generate_hdr_hw_tbl(&hdr_mem))
-		IPAERR("fail\n");
-	if (ipa_generate_rt_hw_tbl(IPA_IP_v4, &rt_mem))
-		IPAERR("fail\n");
-	if (ipa_generate_flt_hw_tbl(IPA_IP_v4, &flt_mem))
-		IPAERR("fail\n");
-	IPAERR("PHY hdr=%x rt=%x flt=%x\n", hdr_mem.phys_base, rt_mem.phys_base,
-			flt_mem.phys_base);
-	IPAERR("VIRT hdr=%x rt=%x flt=%x\n", (u32)hdr_mem.base,
-			(u32)rt_mem.base, (u32)flt_mem.base);
-	IPAERR("SIZE hdr=%d rt=%d flt=%d\n", hdr_mem.size, rt_mem.size,
-			flt_mem.size);
-	IPA_DUMP_BUFF(hdr_mem.base, hdr_mem.phys_base, hdr_mem.size);
-	IPA_DUMP_BUFF(rt_mem.base, rt_mem.phys_base, rt_mem.size);
-	IPA_DUMP_BUFF(flt_mem.base, flt_mem.phys_base, flt_mem.size);
-	if (hdr_mem.phys_base)
-		dma_free_coherent(NULL, hdr_mem.size, hdr_mem.base,
-				hdr_mem.phys_base);
-	if (rt_mem.phys_base)
-		dma_free_coherent(NULL, rt_mem.size, rt_mem.base,
-				rt_mem.phys_base);
-	if (flt_mem.phys_base)
-		dma_free_coherent(NULL, flt_mem.size, flt_mem.base,
-				flt_mem.phys_base);
-	mutex_unlock(&ipa_ctx->lock);
 }
 
 /**
@@ -2148,6 +2130,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
 		ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v1;
+		ctrl->ipa_commit_flt = __ipa_commit_flt_v1;
+		ctrl->ipa_commit_rt = __ipa_commit_rt_v1;
+		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
 		break;
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
@@ -2166,6 +2151,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
 		ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v1;
+		ctrl->ipa_commit_flt = __ipa_commit_flt_v1;
+		ctrl->ipa_commit_rt = __ipa_commit_rt_v1;
+		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
 		break;
 	case (IPA_HW_v2_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
@@ -2184,6 +2172,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
 		ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v2_0;
+		ctrl->ipa_commit_flt = __ipa_commit_flt_v2;
+		ctrl->ipa_commit_rt = __ipa_commit_rt_v2;
+		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
 		break;
 	default:
 		return -EPERM;
