@@ -5989,6 +5989,10 @@ static struct clk_lookup apq_clocks_8084[] = {
 							"fc594000.ufshc"),
 	CLK_LOOKUP("tx_lane1_sync_clk", gcc_ufs_tx_symbol_1_clk.c,
 							"fc594000.ufshc"),
+	/* UFS PHY clocks */
+	CLK_LOOKUP("ref_clk_src", rf_clk3.c,             "fc597000.ufsphy"),
+	CLK_LOOKUP("ref_clk_parent", pcie_1_phy_ldo.c,   "fc597000.ufsphy"),
+	CLK_LOOKUP("ref_clk", sata_phy_ldo.c,            "fc597000.ufsphy"),
 	CLK_LOOKUP("tx_iface_clk", gcc_ufs_tx_cfg_clk.c, "fc597000.ufsphy"),
 	CLK_LOOKUP("rx_iface_clk", gcc_ufs_rx_cfg_clk.c, "fc597000.ufsphy"),
 
@@ -6337,7 +6341,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	/* LDO */
 	CLK_LOOKUP("",		pcie_0_phy_ldo.c,               ""),
 	CLK_LOOKUP("",		pcie_1_phy_ldo.c,               ""),
-	CLK_LOOKUP("",		sata_phy_ldo.c,               ""),
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
