@@ -324,6 +324,7 @@ config ARCH_APQ8084
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
+	select REGULATOR
 	select ARCH_MSM_KRAITMP
 	select GPIO_MSM_V3
 	select ARM_GIC
