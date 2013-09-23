@@ -381,8 +381,9 @@ static void smp2p_ut_remote_spinlock_rpm(struct seq_file *s)
 		smem_spinlock = smem_get_remote_spinlock();
 		UT_ASSERT_PTR(smem_spinlock, !=, NULL);
 
-		data_ptr = smem_alloc2(SMEM_ID_VENDOR0,
-				sizeof(struct rpm_spinlock_test));
+		data_ptr = smem_alloc2_to_proc(SMEM_ID_VENDOR0,
+				sizeof(struct rpm_spinlock_test), 0,
+				SMEM_ANY_HOST_FLAG);
 		UT_ASSERT_PTR(0, !=, data_ptr);
 
 		/* Send start */
