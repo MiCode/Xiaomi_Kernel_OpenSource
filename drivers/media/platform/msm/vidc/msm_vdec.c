@@ -12,7 +12,7 @@
  */
 
 #include <linux/slab.h>
-
+#include <mach/scm.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
@@ -23,6 +23,14 @@
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME
 #define DEFAULT_CONCEAL_COLOR 0x0
+
+#define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
+#define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
+#define TZ_FEATURE_VERSION(major, minor, patch) \
+	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
+struct tz_get_feature_version {
+	u32 feature_id;
+};
 
 enum msm_vdec_ctrl_cluster {
 	MSM_VDEC_CTRL_CLUSTER_MAX = 1 << 0,
@@ -1359,6 +1367,25 @@ static inline enum buffer_mode_type get_buf_type(int val)
 	return 0;
 }
 
+static int check_tz_dynamic_buffer_support(void)
+{
+	int rc = 0;
+	struct tz_get_feature_version tz_feature_id;
+	unsigned int resp = 0;
+
+	tz_feature_id.feature_id = TZ_DYNAMIC_BUFFER_FEATURE_ID;
+	rc = scm_call(SCM_SVC_INFO,
+		  TZ_INFO_GET_FEATURE_VERSION_ID, &tz_feature_id,
+		  sizeof(tz_feature_id), &resp, sizeof(resp));
+	if ((rc) || (resp != TZ_FEATURE_VERSION(1, 1, 0))) {
+		dprintk(VIDC_DBG,
+			"Dyamic buffer mode not supported, failed to get tz feature version id : %u, rc : %d, response : %u\n",
+			tz_feature_id.feature_id, rc, resp);
+		rc = -ENOTSUPP;
+	}
+	return rc;
+}
+
 static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1487,6 +1514,12 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				ctrl->val);
 			rc = -ENOTSUPP;
 			break;
+		}
+		if ((alloc_mode.buffer_mode == HAL_BUFFER_MODE_DYNAMIC) &&
+			(inst->flags & VIDC_SECURE) &&
+			check_tz_dynamic_buffer_support()) {
+				rc = -ENOTSUPP;
+				break;
 		}
 		alloc_mode.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &alloc_mode;
