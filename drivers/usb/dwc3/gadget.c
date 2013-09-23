@@ -2802,10 +2802,13 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 		}
 	}
 
+	/*
+	 * Notify suspend only to gadget driver, but not resume. Resume is
+	 * notified as part of wakeup event in dwc3_gadget_wakeup_interrupt().
+	 */
 	if (next == DWC3_LINK_STATE_U0) {
 		if (dwc->link_state == DWC3_LINK_STATE_U3) {
 			dbg_event(0xFF, "RESUME", 0);
-			dwc->gadget_driver->resume(&dwc->gadget);
 		}
 	} else if (next == DWC3_LINK_STATE_U3) {
 		dbg_event(0xFF, "SUSPEND", 0);
