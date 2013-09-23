@@ -66,3 +66,11 @@
 &pm8226_chg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_ssd2080m_720_vid>;
+};
+
+&dsi_ssd2080m_720_vid {
+	qcom,cont-splash-enabled;
+};
