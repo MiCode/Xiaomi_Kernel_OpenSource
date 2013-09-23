@@ -1214,28 +1214,6 @@ static int qseecom_send_cmd(struct qseecom_dev_handle *data, void __user *argp)
 	return ret;
 }
 
-static int qseecom_unprotect_buffer(void __user *argp)
-{
-	int ret = 0;
-	struct ion_handle *ihandle;
-	int32_t ion_fd;
-
-	ret = copy_from_user(&ion_fd, argp, sizeof(ion_fd));
-	if (ret) {
-		pr_err("copy_from_user failed");
-		return ret;
-	}
-
-	ihandle = ion_import_dma_buf(qseecom.ion_clnt, ion_fd);
-
-	ret = msm_ion_unsecure_buffer(qseecom.ion_clnt, ihandle);
-	if (ret)
-		return -EINVAL;
-	if (!IS_ERR_OR_NULL(ihandle))
-		ion_free(qseecom.ion_clnt, ihandle);
-	return 0;
-}
-
 static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 					struct qseecom_dev_handle *data,
 					bool listener_svc)
@@ -1283,21 +1261,6 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			if (IS_ERR_OR_NULL(ihandle)) {
 				pr_err("Ion client can't retrieve the handle\n");
 				return -ENOMEM;
-			}
-			switch (lstnr_resp->protection_mode) {
-			case QSEOS_PROTECT_BUFFER:
-				 ret = msm_ion_secure_buffer(qseecom.ion_clnt,
-								ihandle,
-								VIDEO_PIXEL,
-								0);
-				break;
-			case QSEOS_UNPROTECT_PROTECTED_BUFFER:
-				ret = msm_ion_unsecure_buffer(qseecom.ion_clnt,
-								ihandle);
-				break;
-			case QSEOS_UNPROTECTED_BUFFER:
-			default:
-				break;
 			}
 			field = lstnr_resp->resp_buf_ptr +
 				lstnr_resp->ifd_data[i].cmd_buf_offset;
@@ -3129,16 +3092,6 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		wake_up_all(&data->abort_wq);
 		if (ret)
 			pr_err("failed qseecom_send_mod_resp: %d\n", ret);
-		break;
-	}
-	case QSEECOM_IOCTL_UNPROTECT_BUF: {
-		/* Only one client allowed here at a time */
-		atomic_inc(&data->ioctl_count);
-		ret = qseecom_unprotect_buffer(argp);
-		atomic_dec(&data->ioctl_count);
-		wake_up_all(&data->abort_wq);
-		if (ret)
-			pr_err("failed qseecom_unprotect: %d\n", ret);
 		break;
 	}
 	default:
