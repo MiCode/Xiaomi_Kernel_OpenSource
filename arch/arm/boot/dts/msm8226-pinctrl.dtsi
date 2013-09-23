@@ -20,6 +20,10 @@
 			qcom,pin-type-gp;
 			qcom,num-pins = <117>;
 			#qcom,pin-cells = <1>;
+			msm_gpio: msm_gpio {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
 		};
 		/* SDC pin type */
 		sdc: sdc {
