@@ -719,7 +719,12 @@ static int smd_tty_device_init(int idx)
 			(unsigned long)&smd_tty[idx]);
 	init_waitqueue_head(&smd_tty[idx].ch_opened_wait_queue);
 	ret = platform_driver_register(&smd_tty[idx].driver);
+	if (ret)
+		return ret;
 
+	if (device_create_file(smd_tty[idx].device_ptr, &dev_attr_open_timeout))
+		SMD_TTY_ERR("%s: Unable to create device attributes for %s",
+			__func__, smd_configs[idx].port_name);
 	return ret;
 }
 
@@ -771,12 +776,6 @@ static int __init smd_tty_core_init(void)
 		}
 
 		ret = smd_tty_device_init(idx);
-		if (device_create_file(smd_tty[idx].device_ptr,
-					&dev_attr_open_timeout))
-			SMD_TTY_ERR(
-				"%s: Unable to create device attributes for %s",
-				__func__, smd_configs[n].port_name);
-
 		if (ret) {
 			SMD_TTY_ERR(
 				"%s: init failed %d (%d)", __func__, idx, ret);
