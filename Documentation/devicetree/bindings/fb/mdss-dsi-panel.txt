@@ -238,7 +238,37 @@ Optional properties:
 					in dsi controller.
 					"high" = Set GPIO to HIGH
 					"low" = Set GPIO to LOW
-
+- qcom,mdss-tear-check-disable:		Boolean to disable mdp tear check. Tear check is enabled by default to avoid
+					tearing. Other tear-check properties are ignored if this property is present.
+					The below tear check configuration properties can be individually tuned if
+					tear check is enabled.
+- qcom,mdss-tear-check-sync-cfg-height: Specifies the vertical total number of lines.
+					The default value is 0xfff0.
+- qcom,mdss-tear-check-sync-init-val:	Specifies the init value at which the read pointer gets loaded
+					at vsync edge. The reader pointer refers to the line number of
+					panel buffer that is currently being updated.
+					The default value is panel height.
+- qcom,mdss-tear-check-sync-threshold-start:
+					Allows the first ROI line write to an panel when read pointer is
+					between the range of ROI start line and ROI start line plus this
+					setting.
+					The default value is 4.
+- qcom,mdss-tear-check-sync-threshold-continue:
+					The minimum number of lines the write pointer needs to be
+					above the read pointer so that it is safe to write to the panel.
+					(This check is not done for the first ROI line write of an update)
+					The default value is 4.
+- qcom,mdss-tear-check-start-pos:	Specify the y position from which the start_threshold value is
+					added and write is kicked off if the read pointer falls within that
+					region.
+					The default value is panel height.
+- qcom,mdss-tear-check-rd-ptr-trigger-intr:
+					Specify the read pointer value at which an interrupt has to be
+					generated.
+					The default value is panel height + 1.
+- qcom,mdss-tear-check-frame-rate:	Specify the value to be a real frame rate(fps) x 100 factor to tune the
+					timing of TE simulation with more precision.
+					The default value is 6000 with 60 fps.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -329,5 +359,12 @@ Example:
 		qcom,mdss-pan-physical-width-dimension = <60>;
 		qcom,mdss-pan-physical-height-dimension = <140>;
 		qcom,mdss-dsi-panel-mode-gpio-state = "low";
+		qcom,mdss-tear-check-sync-cfg-height = <0xfff0>;
+		qcom,mdss-tear-check-sync-init-val = <1280>;
+		qcom,mdss-tear-check-sync-threshold-start = <4>;
+		qcom,mdss-tear-check-sync-threshold-continue = <4>;
+		qcom,mdss-tear-check-start-pos = <1280>;
+		qcom,mdss-tear-check-rd-ptr-trigger-intr = <1281>;
+		qcom,mdss-tear-check-frame-rate = <6000>;
 	};
 };
