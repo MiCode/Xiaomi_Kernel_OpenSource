@@ -5661,7 +5661,6 @@ static struct clk_lookup apq_clocks_8084_rumi[] = {
 
 static struct clk_lookup apq_clocks_8084[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991e000.serial", OFF),
-	CLK_DUMMY("ref_clk",    NULL, "f9200000.qcom,ssusb", OFF),
 	CLK_DUMMY("mem_iface_clk",	gcc_mmss_bimc_gfx_clk.c,
 				     "fdb00000.qcom,kgsl-3d0", OFF),
 	CLK_DUMMY("iface_clk", lcc_q6_smmu_cfg_clk.c, "fe054000.qcom,iommu",
@@ -5869,6 +5868,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("rx_iface_clk", gcc_ufs_rx_cfg_clk.c, "fc597000.ufsphy"),
 
 	/* USB clocks */
+	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9200000.qcom,ssusb"),
+	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9400000.qcom,ssusb"),
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c,
