@@ -388,6 +388,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	}
 	clk_disable_unprepare(mhsic->phy_clk);
 	clk_disable_unprepare(mhsic->cal_clk);
+	clk_disable_unprepare(mhsic->alt_core_clk);
 
 	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_OFF);
 	if (ret)
@@ -445,6 +446,7 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 	}
 	clk_prepare_enable(mhsic->phy_clk);
 	clk_prepare_enable(mhsic->cal_clk);
+	clk_prepare_enable(mhsic->alt_core_clk);
 
 	temp = readl_relaxed(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
