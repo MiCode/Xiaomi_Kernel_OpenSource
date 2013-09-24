@@ -1,0 +1,18 @@
+MSM Krait L2 performance monitor counters for bandwidth measurement device
+
+krait-l2pm is a device that represents the Krait L2 PM counters that can be
+used to measure the bandwidth of read/write traffic from the Krait CPU
+subsystem.
+
+Required properties:
+- compatible:		Must be "qcom,kraitbw-l2pm"
+- interrupts:		Lists the L2 PM counter overflow IRQ.
+- qcom,bytes-per-beat:	The number of bytes transferred in one data beat from
+			the Krait CPU subsystem.
+
+Example:
+	qcom,kraitbw-l2pm {
+		compatible = "qcom,kraitbw-l2pm";
+		interrupts = <0 1 1>;
+		qcom,bytes-per-beat = <8>;
+	};
