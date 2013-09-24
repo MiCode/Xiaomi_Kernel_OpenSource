@@ -290,6 +290,8 @@
 		l2-dig-supply = <&pma8084_s2_corner_ao>;
 		hfpll-dig-supply = <&pma8084_s2_corner_ao>;
 		hfpll-analog-supply = <&pma8084_l12_ao>;
+		qcom,hfpll-config-val = <0x04D0405D>;
+		qcom,hfpll-user-vco-mask = <0x00100000>;
 
 		qcom,l2-fmax =
 			<          0 0			 >,
