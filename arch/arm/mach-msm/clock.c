@@ -570,6 +570,9 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int rc = 0;
 
+	if (!clk->ops->set_parent && clk->parent == parent)
+		return 0;
+
 	if (!clk->ops->set_parent)
 		return -ENOSYS;
 
