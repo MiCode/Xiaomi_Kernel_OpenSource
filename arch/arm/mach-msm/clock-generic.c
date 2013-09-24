@@ -524,6 +524,11 @@ static int ext_set_rate(struct clk *c, unsigned long rate)
 	return clk_set_rate(c->parent, rate);
 }
 
+static unsigned long ext_get_rate(struct clk *c)
+{
+	return clk_get_rate(c->parent);
+}
+
 static int ext_set_parent(struct clk *c, struct clk *p)
 {
 	return clk_set_parent(c->parent, p);
@@ -540,6 +545,7 @@ struct clk_ops clk_ops_ext = {
 	.handoff = ext_handoff,
 	.round_rate = ext_round_rate,
 	.set_rate = ext_set_rate,
+	.get_rate = ext_get_rate,
 	.set_parent = ext_set_parent,
 };
 
