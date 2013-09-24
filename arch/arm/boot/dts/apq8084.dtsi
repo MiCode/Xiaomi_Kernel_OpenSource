@@ -892,6 +892,7 @@
 		vdda33-supply = <&pma8084_l24>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,ext-vbus-id;
+		qcom,vbus-valid-override;
 	};
 
 	ssphy0: ssphy@f92f8800 {
@@ -900,6 +901,7 @@
 		vdd-supply = <&pma8084_s1>;
 		vdda18-supply = <&pma8084_l6>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,vbus-valid-override;
 	};
 
 	tsens: tsens@fc4a8000 {
