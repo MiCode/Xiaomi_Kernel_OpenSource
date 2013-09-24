@@ -51,6 +51,8 @@
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
 #define COMPRESSED_LR_VOL_MAX_STEPS	0x20002000
 
+#define MAX_AC3_PARAM_SIZE		(18*2*sizeof(int))
+
 const DECLARE_TLV_DB_LINEAR(compr_rx_vol_gain, 0,
 			    COMPRESSED_LR_VOL_MAX_STEPS);
 struct snd_msm {
@@ -977,19 +979,25 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			compr->codec = FORMAT_MPEG4_AAC;
 			break;
 		case SND_AUDIOCODEC_AC3: {
-			char params_value[18*2*sizeof(int)];
+			char params_value[MAX_AC3_PARAM_SIZE];
 			int *params_value_data = (int *)params_value;
 			/* 36 is the max param length for ddp */
 			int i;
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
-			int params_length = ddp->params_length*sizeof(int);
+			uint32_t params_length = ddp->params_length*sizeof(int);
+			if(params_length > MAX_AC3_PARAM_SIZE) {
+				/*MAX is 36*sizeof(int) this should not happen*/
+				pr_err("params_length(%d) is greater than %d",
+				params_length, MAX_AC3_PARAM_SIZE);
+				params_length = MAX_AC3_PARAM_SIZE;
+			}
 			pr_debug("SND_AUDIOCODEC_AC3\n");
 			compr->codec = FORMAT_AC3;
 			if (copy_from_user(params_value, (void *)ddp->params,
 					params_length))
-				pr_err("%s: ERROR: copy ddp params value\n",
-					__func__);
+				pr_err("%s: copy ddp params value, size=%d\n",
+					__func__, params_length);
 			pr_debug("params_length: %d\n", ddp->params_length);
 			for (i = 0; i < params_length; i++)
 				pr_debug("params_value[%d]: %x\n", i,
@@ -1008,19 +1016,25 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			break;
 		}
 		case SND_AUDIOCODEC_EAC3: {
-			char params_value[18*2*sizeof(int)];
+			char params_value[MAX_AC3_PARAM_SIZE];
 			int *params_value_data = (int *)params_value;
 			/* 36 is the max param length for ddp */
 			int i;
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
-			int params_length = ddp->params_length*sizeof(int);
+			uint32_t params_length = ddp->params_length*sizeof(int);
+			if(params_length > MAX_AC3_PARAM_SIZE) {
+				/*MAX is 36*sizeof(int) this should not happen*/
+				pr_err("params_length(%d) is greater than %d",
+				params_length, MAX_AC3_PARAM_SIZE);
+				params_length = MAX_AC3_PARAM_SIZE;
+			}
 			pr_debug("SND_AUDIOCODEC_EAC3\n");
 			compr->codec = FORMAT_EAC3;
 			if (copy_from_user(params_value, (void *)ddp->params,
 					params_length))
-				pr_err("%s: ERROR: copy ddp params value\n",
-					__func__);
+				pr_err("%s: copy ddp params value, size=%d\n",
+					__func__, params_length);
 			pr_debug("params_length: %d\n", ddp->params_length);
 			for (i = 0; i < ddp->params_length; i++)
 				pr_debug("params_value[%d]: %x\n", i,
