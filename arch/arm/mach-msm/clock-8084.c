@@ -5219,6 +5219,8 @@ static struct gate_clk sata_phy_ldo = {
 	},
 };
 
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 100000000);
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -5849,6 +5851,11 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_boot_rom_ahb_clk.c,	""),
 
 	/* CE clocks */
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
+	CLK_LOOKUP("core_clk_src", scm_ce1_clk_src.c,     "scm"),
+
 	CLK_LOOKUP("",	gcc_ce1_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce1_axi_clk.c,	""),
 	CLK_LOOKUP("",	ce1_clk_src.c,	""),
