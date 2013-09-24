@@ -689,7 +689,7 @@
 	qcom,msm-cpufreq@0 {
 		reg = <0 4>;
 		compatible = "qcom,msm-cpufreq";
-		qcom,cpu-mem-ports = <1 512>, <2 512>;
+		qcom,cpu-mem-ports = <1 512>;
 		qcom,cpufreq-table =
 			<  300000  300000  600 /*  75 MHz */ >,
 			<  422400  422400 1200 /* 150 MHz */ >,
