@@ -31,6 +31,7 @@
 #include <net/pkt_sched.h>
 #include <linux/workqueue.h>
 #include <linux/completion.h>
+#include <linux/ratelimit.h>
 #include <mach/ipa.h>
 
 #define WWAN_DEV_NAME "rmnet%d"
@@ -193,7 +194,7 @@ static void a2_mux_write_done(void *dev, struct sk_buff *skb)
 			ipa_rm_inactivity_timer_release_resource(
 				ipa_rm_resource_by_ch_id[wwan_ptr->ch_id]);
 		else
-			pr_err("%s: ch=%d empty but UL desc FIFOs not empty\n",
+			pr_err_ratelimited("%s: ch=%d empty but UL desc FIFOs not empty\n",
 					__func__, wwan_ptr->ch_id);
 	}
 	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
