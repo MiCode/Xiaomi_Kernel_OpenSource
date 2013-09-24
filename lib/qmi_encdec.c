@@ -385,7 +385,8 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 
 	tlv_pointer = buf_dst;
 	tlv_len = 0;
-	buf_dst = buf_dst + (TLV_LEN_SIZE + TLV_TYPE_SIZE);
+	if (enc_level == 1)
+		buf_dst = buf_dst + (TLV_LEN_SIZE + TLV_TYPE_SIZE);
 
 	while (temp_ei->data_type != QMI_EOTI) {
 		buf_src = in_c_struct + temp_ei->offset;
