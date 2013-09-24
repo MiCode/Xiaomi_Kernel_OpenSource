@@ -68,6 +68,9 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define DPDMHV_INT_MASK			(0xFC0)
 #define ALT_INTERRUPT_MASK		(0xFFF)
 
+#define TCSR_USB30_CONTROL		BIT(8)
+#define TCSR_HSPHY_ARES			BIT(11)
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -79,6 +82,7 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	void __iomem		*tcsr;
 	int			hsphy_init_seq;
 
 	struct regulator	*vdd;
@@ -214,6 +218,15 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
+	if (phy->tcsr) {
+		u32 val = readl_relaxed(phy->tcsr);
+
+		/* Assert/deassert TCSR Reset */
+		writel_relaxed((val | TCSR_HSPHY_ARES), phy->tcsr);
+		usleep(1000);
+		writel_relaxed((val & ~TCSR_HSPHY_ARES), phy->tcsr);
+	}
+
 	/*
 	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
 	 * and disable RETENTION (power-on default is ENABLED)
@@ -343,6 +356,20 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		dev_err(dev, "ioremap failed\n");
 		ret = -ENODEV;
 		goto err_ret;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res) {
+		phy->tcsr = devm_ioremap_nocache(dev, res->start,
+						 resource_size(res));
+		if (!phy->tcsr) {
+			dev_err(dev, "tcsr ioremap failed\n");
+			return -ENODEV;
+		}
+
+		/* switch MUX to let SNPS controller use the primary HSPHY */
+		writel_relaxed(readl_relaxed(phy->tcsr) | TCSR_USB30_CONTROL,
+				phy->tcsr);
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
