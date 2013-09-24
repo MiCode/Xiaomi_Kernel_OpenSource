@@ -28,11 +28,15 @@ static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 
+/* QSCRATCH register settings differ based on MSM core ver */
+#define MSM_CORE_VER_120		0x10020061
+
 /* QSCRATCH register offsets */
 #define HS_PHY_CTRL_REG			(0x10)
 #define PARAMETER_OVERRIDE_X_REG	(0x14)
 #define ALT_INTERRUPT_EN_REG		(0x20)
 #define HS_PHY_IRQ_STAT_REG		(0x24)
+#define HS_PHY_CTRL_COMMON_REG		(0xEC)	/* ver >= MSM_CORE_VER_120 */
 
 /* HS_PHY_CTRL_REG bits */
 #define RETENABLEN			BIT(1)
@@ -43,14 +47,21 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define ID_HV_CLAMP_EN_N		BIT(9)
 #define COMMONONN			BIT(11)
 #define OTGDISABLE0			BIT(12)
+#define VBUSVLDEXT0			BIT(13)
+#define VBUSVLDEXTSEL0			BIT(14)
 #define OTGSESSVLDHV_INTEN		BIT(15)
 #define IDHV_INTEN			BIT(16)
 #define DPSEHV_CLAMP_EN_N		BIT(17)
+#define UTMI_OTG_VBUS_VALID		BIT(20)
 #define USB2_UTMI_CLK_EN		BIT(21)
 #define USB2_SUSPEND_N			BIT(22)
 #define USB2_SUSPEND_N_SEL		BIT(23)
 #define DMSEHV_CLAMP_EN_N		BIT(24)
 #define CLAMP_MPM_DPSE_DMSE_EN_N	BIT(26)
+#define SW_SESSVLD_SEL			BIT(28)	/* ver >= MSM_CORE_VER_120 */
+
+/* HS_PHY_CTRL_COMMON_REG bits */
+#define COMMON_VBUSVLDEXTSEL0		BIT(12)	/* ver >= MSM_CORE_VER_120 */
 
 /* ALT_INTERRUPT_EN/HS_PHY_IRQ_STAT bits */
 #define ACAINTEN			BIT(0)
@@ -331,6 +342,76 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	return 0;
 }
 
+static int msm_hsphy_notify_connect(struct usb_phy *uphy,
+				    enum usb_device_speed speed)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	u32 core_ver;
+
+	if (uphy->flags & PHY_HOST_MODE)
+		return 0;
+
+	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
+		return 0;
+
+	/* different sequences based on core version */
+	core_ver = readl_relaxed(phy->base);
+
+	/* Set External VBUS Valid Select. Set once, can be left on */
+	if (core_ver >= MSM_CORE_VER_120) {
+		msm_usb_write_readback(phy->base, HS_PHY_CTRL_COMMON_REG,
+					COMMON_VBUSVLDEXTSEL0,
+					COMMON_VBUSVLDEXTSEL0);
+	} else {
+		msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+					VBUSVLDEXTSEL0, VBUSVLDEXTSEL0);
+	}
+
+	/* Enable D+ pull-up resistor */
+	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+				VBUSVLDEXT0, VBUSVLDEXT0);
+
+	/* Set OTG VBUS Valid from HSPHY to controller */
+	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+				UTMI_OTG_VBUS_VALID, UTMI_OTG_VBUS_VALID);
+
+	/* Indicate value is driven by UTMI_OTG_VBUS_VALID bit */
+	if (core_ver >= MSM_CORE_VER_120)
+		msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+					SW_SESSVLD_SEL, SW_SESSVLD_SEL);
+
+	return 0;
+}
+
+static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
+				       enum usb_device_speed speed)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	u32 core_ver;
+
+	if (uphy->flags & PHY_HOST_MODE)
+		return 0;
+
+	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
+		return 0;
+
+	core_ver = readl_relaxed(phy->base);
+
+	/* Clear OTG VBUS Valid to Controller */
+	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+				UTMI_OTG_VBUS_VALID, 0);
+
+	/* Disable D+ pull-up resistor */
+	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG, VBUSVLDEXT0, 0);
+
+	/* Indicate value is no longer driven by UTMI_OTG_VBUS_VALID bit */
+	if (core_ver >= MSM_CORE_VER_120)
+		msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+					SW_SESSVLD_SEL, 0);
+
+	return 0;
+}
+
 static int msm_hsphy_probe(struct platform_device *pdev)
 {
 	struct msm_hsphy *phy;
@@ -430,11 +511,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	phy->phy.dev		= dev;
-	phy->phy.init		= msm_hsphy_init;
-	phy->phy.set_suspend	= msm_hsphy_set_suspend;
+	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
+		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
+
+	phy->phy.dev			= dev;
+	phy->phy.init			= msm_hsphy_init;
+	phy->phy.set_suspend		= msm_hsphy_set_suspend;
+	phy->phy.notify_connect		= msm_hsphy_notify_connect;
+	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
 	/*FIXME: this conflicts with dwc3_otg */
-	/*phy->phy.type		= USB_PHY_TYPE_USB2; */
+	/*phy->phy.type			= USB_PHY_TYPE_USB2; */
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)

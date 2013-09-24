@@ -305,6 +305,9 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		dev_dbg(otg->phy->dev, "%s: turn on gadget %s\n",
 					__func__, otg->gadget->name);
 
+		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
+		usb_phy_notify_connect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
+
 		/* Core reset is not required during start peripheral. Only
 		 * DBM reset is required, hence perform only DBM reset here */
 		if (ext_xceiv && ext_xceiv->otg_capability &&
@@ -317,6 +320,8 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		dev_dbg(otg->phy->dev, "%s: turn off gadget %s\n",
 					__func__, otg->gadget->name);
 		usb_gadget_vbus_disconnect(otg->gadget);
+		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
+		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
 	}
 
 	return 0;
