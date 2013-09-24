@@ -497,6 +497,7 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+	batfet-supply = <&pm8226_chg_batif>;
 };
 
 &mdss_dsi0 {
