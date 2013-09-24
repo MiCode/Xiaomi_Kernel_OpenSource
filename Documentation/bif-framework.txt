@@ -329,6 +329,25 @@ order to retrieve the set of BIF objects within a slave which match certain
 criteria.  bif_object_put() is used to free the memory allocated by
 bif_object_match_get().
 
+BIF object manipulation in slave non-volatile memory:
+-----------------------------------------------------
+int bif_object_write(struct bif_slave *slave, u8 type, u8 version, u16
+			manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_delete(struct bif_slave *slave, const struct bif_object *object);
+
+bif_object_write() can be used to write a new BIF data object into the NVM of
+a given slave.  The new object is added to the end of the NVM object list.
+bif_object_overwrite() can be used to overwrite an existing BIF data object
+in the NVM of a slave.  The new object data must be the same size as the
+existing object data.  bif_object_delete() can be used to delete a object from
+the NVM object list and shift all of the objects after it in order to fill the
+deleted object's space.
+
 Get or set the BIF bus state or period:
 ---------------------------------------
 
