@@ -109,7 +109,8 @@ struct dss_gpio hpd_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-hpd"},
 	{0, 1, COMPATIBLE_NAME "-ext-5v"},
 	{0, 1, COMPATIBLE_NAME "-mux-en"},
-	{0, 0, COMPATIBLE_NAME "-mux-sel"}
+	{0, 0, COMPATIBLE_NAME "-mux-sel"},
+	{0, 1, COMPATIBLE_NAME "-mux-lpm"}
 };
 
 struct dss_gpio ddc_gpio_config[] = {
