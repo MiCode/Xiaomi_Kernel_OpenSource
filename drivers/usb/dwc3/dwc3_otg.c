@@ -936,18 +936,6 @@ int dwc3_otg_register_phys(struct platform_device *pdev)
 	}
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 
-	dotg->usb3_phy.dev = &pdev->dev;
-	ret = usb_add_phy(&dotg->usb3_phy, USB_PHY_TYPE_USB3);
-	if (ret) {
-		dev_err(&pdev->dev, "can't register transceiver, err: %d\n",
-			ret);
-		goto remove_phy2;
-	}
-	return ret;
-
-remove_phy2:
-	usb_remove_phy(dotg->otg.phy);
-
 	return ret;
 }
 
@@ -955,7 +943,6 @@ void dwc3_otg_deregister_phys(struct platform_device *pdev)
 {
 	dev_dbg(&pdev->dev, "dwc3_otg_deregister_phys\n");
 
-	usb_remove_phy(&the_dotg->usb3_phy);
 	usb_remove_phy(the_dotg->otg.phy);
 }
 

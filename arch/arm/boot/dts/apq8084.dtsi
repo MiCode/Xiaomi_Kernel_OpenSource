@@ -708,6 +708,7 @@
 	};
 
 	usb_otg: usb@f9a55000 {
+		status = "disabled";
 		compatible = "qcom,hsusb-otg";
 
 		reg = <0xf9a55000 0x400>;
@@ -765,7 +766,6 @@
 	};
 
 	usb3: qcom,ssusb@f9200000 {
-		status = "disabled";
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 			 <0xfd4ab000 0x4>;
@@ -782,13 +782,7 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		ssusb_vdd_dig-supply = <&pma8084_s1>;
-		SSUSB_1p8-supply = <&pma8084_l6>;
-		hsusb_vdd_dig-supply = <&pma8084_s1>;
-		HSUSB_1p8-supply = <&pma8084_l6>;
-		HSUSB_3p3-supply = <&pma8084_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
-		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,otg-capability;
 		qcom,misc-ref = <&pma8084_misc>;
 
@@ -799,6 +793,7 @@
 			interrupts = <0 131 0>, <0 179 0>;
 			interrupt-names = "irq", "otg_irq";
 			tx-fifo-resize;
+			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
 	};
 

@@ -114,11 +114,6 @@
 	};
 
 	qcom,ssusb@f9200000 {
-		ssusb_vdd_dig-supply = <&pma8084_s2_corner>;
-		SSUSB_1p8-supply = <&pma8084_l6>;
-		hsusb_vdd_dig-supply = <&pma8084_s2_corner>;
-		HSUSB_1p8-supply = <&pma8084_l6>;
-		HSUSB_3p3-supply = <&pma8084_l24>;
 		/delete-property/ vbus_dwc3-supply;
 		/delete-property/ qcom,misc-ref;
 		/delete-property/ dwc_usb3-adc_tm;
