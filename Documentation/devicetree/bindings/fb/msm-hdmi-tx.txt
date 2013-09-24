@@ -32,6 +32,9 @@ Optional properties:
   property for liquid devices.
 - qcom,hdmi-tx-mux-en: gpio required to enable mux for HDMI output
   on liquid devices. Required property for liquid devices.
+- qcom,hdmi-tx-mux-lpm: gpio required for hdmi mux configuration
+  selection on liquid devices. Required property for liquid devices.
+- qcom,hdmi-tx-ext-5v: gpio required to enable 5V boost.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
@@ -64,6 +67,11 @@ Example:
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
+		qcom,hdmi-tx-ext-5v = <&pma8084_mpps 3 0>;
+
+		qcom,hdmi-tx-mux-lpm = <&msmgpio 27 0>;
+		qcom,hdmi-tx-mux-en = <&msmgpio 83 0>;
+		qcom,hdmi-tx-mux-sel = <&msmgpio 85 0>;
 
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
