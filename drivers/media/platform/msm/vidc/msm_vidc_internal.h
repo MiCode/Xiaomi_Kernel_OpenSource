@@ -44,8 +44,6 @@
 #define MAX_SUPPORTED_WIDTH 3820
 #define MAX_SUPPORTED_HEIGHT 2160
 
-
-
 #define V4L2_EVENT_VIDC_BASE  10
 
 #define SYS_MSG_START VIDC_EVENT_CHANGE
@@ -126,8 +124,8 @@ struct msm_video_device {
 };
 
 struct session_prop {
-	u32 width;
-	u32 height;
+	u32 width[MAX_PORT_NUM];
+	u32 height[MAX_PORT_NUM];
 	u32 fps;
 	u32 bitrate;
 };
@@ -178,6 +176,8 @@ struct msm_vidc_core_capability {
 	struct hal_capability_supported height;
 	struct hal_capability_supported frame_rate;
 	u32 pixelprocess_capabilities;
+	struct hal_capability_supported scale_x;
+	struct hal_capability_supported scale_y;
 	u32 capability_set;
 	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 };
@@ -256,6 +256,7 @@ void handle_cmd_response(enum command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
+int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 
 #endif
