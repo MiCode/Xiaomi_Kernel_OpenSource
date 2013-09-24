@@ -20,6 +20,12 @@ IPA node:
                    "a2-bam-irq" - string to identify the A2 BAM interrupt.
 - qcom,ipa-hw-ver: Specifies the IPA hardware version.
 
+Optional:
+
+- qcom,use-a2-service: determine if A2 service will be used
+- qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
+- qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
+
 IPA pipe sub nodes (A2 static pipes configurations):
 
 -label: two labels are supported, a2-to-ipa and ipa-to-a2 which

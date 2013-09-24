@@ -23,34 +23,33 @@
 
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
-		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
-		return;
-	}
+	IPADBG("Enabling data path\n");
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1)
-		ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 0);
+	/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
+		return;
+
+	ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), 0);
 }
 
 static int ipa_disable_data_path(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
-		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
-		return 0;
-	}
+	IPADBG("Disabling data path\n");
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 1);
-		udelay(IPA_PKT_FLUSH_TO_US);
-		if (IPA_CLIENT_IS_CONS(ep->client) &&
-				ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
-				ep->cfg.aggr.aggr_time_limit)
-			msleep(ep->cfg.aggr.aggr_time_limit);
-	}
+	/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
+		return 0;
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), 1);
+	udelay(IPA_PKT_FLUSH_TO_US);
+	if (IPA_CLIENT_IS_CONS(ep->client) &&
+			ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
+			ep->cfg.aggr.aggr_time_limit)
+		msleep(ep->cfg.aggr.aggr_time_limit);
 
 	return 0;
 }
@@ -179,15 +178,15 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	int result = -EFAULT;
 	struct ipa_ep_context *ep;
 
-	ipa_inc_client_enable_clks();
+	IPADBG("connecting client\n");
 
 	if (in == NULL || sps == NULL || clnt_hdl == NULL ||
 	    in->client >= IPA_CLIENT_MAX ||
 	    in->desc_fifo_sz == 0 || in->data_fifo_sz == 0) {
 		IPAERR("bad parm.\n");
-		result = -EINVAL;
-		goto fail;
+		return -EINVAL;
 	}
+
 
 	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, in->client);
 	if (ipa_ep_idx == -1) {
@@ -203,6 +202,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
+	ipa_inc_client_enable_clks();
 	ipa_enable_data_path(ipa_ep_idx);
 
 	ep->valid = 1;
@@ -303,8 +303,8 @@ desc_mem_alloc_fail:
 	sps_free_endpoint(ep->ep_hdl);
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-fail:
 	ipa_dec_client_disable_clks();
+fail:
 	return result;
 }
 EXPORT_SYMBOL(ipa_connect);

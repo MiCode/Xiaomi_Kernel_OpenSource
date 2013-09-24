@@ -27,19 +27,16 @@
 #include "ipa_reg.h"
 
 #define DRV_NAME "ipa"
-#define IPA_COOKIE 0xfacefeed
+#define IPA_COOKIE 0x57831603
 
 #define IPA_NUM_PIPES 0x14
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 
-#ifdef IPA_DEBUG
 #define IPADBG(fmt, args...) \
+	pr_debug(fmt, ## args)
+#define IPAERR(fmt, args...) \
 	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
-/*	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args) */
-#else
-#define IPADBG(fmt, args...)
-#endif
 
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
@@ -85,8 +82,6 @@
 #define IPA_STATS_INC_BRIDGE_CNT(type, dir, base) do { } while (0)
 #endif
 
-#define IPAERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
 #define IPA_TOS_EQ			BIT(0)
 #define IPA_PROTOCOL_EQ		BIT(1)
@@ -116,12 +111,14 @@
 #define IPA_RX_POOL_CEIL 32
 #define IPA_RX_SKB_SIZE 2048
 
-#define IPA_DFLT_HDR_NAME "ipa_excp_hdr"
+#define IPA_A5_MUX_HDR_NAME "ipa_excp_hdr"
 #define IPA_INVALID_L4_PROTOCOL 0xFF
 
 #define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
 #define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
 #define IPA_SETFIELD(val, shift, mask) (((val) << (shift)) & (mask))
+#define IPA_SETFIELD_IN_REG(reg, val, shift, mask) \
+			(reg |= ((val) << (shift)) & (mask))
 
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
@@ -558,6 +555,8 @@ struct ipa_stats {
 	u32 a2_power_apps_acks;
 };
 
+struct ipa_controller;
+
 /**
  * struct ipa_context - IPA context
  * @class: pointer to the struct class
@@ -587,7 +586,9 @@ struct ipa_stats {
  * @sys: IPA sys context for system-bam pipes
  * @rx_wq: Rx packets work queue
  * @tx_wq: Tx packets work queue
- * @smem_sz: shared memory size
+ * @smem_sz: shared memory size available for SW use starting
+ *  from non-restricted bytes
+ * @smem_restricted_bytes: the bytes that SW should not use in the shared mem
  * @hdr_hdl_tree: header handles tree
  * @rt_rule_hdl_tree: routing rule handles tree
  * @rt_tbl_hdl_tree: routing table handles tree
@@ -613,7 +614,14 @@ struct ipa_stats {
  * @dma_pool: special purpose DMA pool
  * @ipa_hw_type: type of IPA HW type (e.g. IPA 1.0, IPA 1.1 etc')
  * @ipa_hw_mode: mode of IPA HW mode (e.g. Normal, Virtual or over PCIe)
- *
+ * @use_ipa_bamdma_a2_bridge: used for indirect communication
+ *  between IPA and A2 PER
+ * @use_ipa_teth_bridge: use tethering bridge driver
+ * @use_a2_service: the A2 service shall be used for A2 MUXing capability
+ * @ipa_bus_hdl: msm driver handle for the data path bus
+ * @ctrl: holds the core specific operations based on
+ *  core version (vtable like)
+
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa_context {
@@ -645,6 +653,7 @@ struct ipa_context {
 	struct workqueue_struct *rx_wq;
 	struct workqueue_struct *tx_wq;
 	u16 smem_sz;
+	u16 smem_restricted_bytes;
 	struct rb_root hdr_hdl_tree;
 	struct rb_root rt_rule_hdl_tree;
 	struct rb_root rt_tbl_hdl_tree;
@@ -680,9 +689,14 @@ struct ipa_context {
 	wait_queue_head_t msg_waitq;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa_hw_mode ipa_hw_mode;
+	bool use_ipa_bamdma_a2_bridge;
+	bool use_ipa_teth_bridge;
+	bool use_a2_service;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
+	u32 ipa_bus_hdl;
+	struct ipa_controller *ctrl;
 };
 
 /**
@@ -691,12 +705,16 @@ struct ipa_context {
  * @route_def_pipe: route default pipe
  * @route_def_hdr_table: route default header table
  * @route_def_hdr_ofst: route default header offset table
+ * @route_frag_def_pipe: Default pipe to route fragmented exception
+ *    packets and frag new rule statues, if source pipe does not have
+ *    a notification status pipe defined.
  */
 struct ipa_route {
 	u32 route_dis;
 	u32 route_def_pipe;
 	u32 route_def_hdr_table;
 	u32 route_def_hdr_ofst;
+	u8  route_frag_def_pipe;
 };
 
 /**
@@ -744,6 +762,9 @@ struct a2_mux_pipe_connection {
 };
 
 struct ipa_plat_drv_res {
+	bool use_ipa_bamdma_a2_bridge;
+	bool use_ipa_teth_bridge;
+	bool use_a2_service;
 	u32 ipa_mem_base;
 	u32 ipa_mem_size;
 	u32 bam_mem_base;
@@ -759,6 +780,33 @@ struct ipa_plat_drv_res {
 	enum ipa_hw_mode ipa_hw_mode;
 	struct a2_mux_pipe_connection a2_to_ipa_pipe;
 	struct a2_mux_pipe_connection ipa_to_a2_pipe;
+};
+
+struct ipa_controller {
+	u32 ipa_src_clk_rate;
+	u32 sram_flt_ipv4_ofst;
+	u32 sram_flt_ipv6_ofst;
+	u32 sram_nat_ipv4_ofst;
+	u32 sram_rt_ipv4_ofst;
+	u32 sram_rt_ipv6_ofst;
+	u32 sram_hdr_ofst;
+	void (*ipa_sram_read_settings)(void);
+	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
+			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
+	void (*ipa_cfg_ep_aggr)(u32 pipe_number,
+			const struct ipa_ep_cfg_aggr *ipa_ep_agrr_cfg);
+	void (*ipa_cfg_ep_nat)(u32 pipe_number,
+			const struct ipa_ep_cfg_nat *ipa_ep_nat_cfg);
+	void (*ipa_cfg_ep_mode)(u32 pipe_number, u32 dst_pipe_number,
+			const struct ipa_ep_cfg_mode *ep_mode);
+	void (*ipa_cfg_ep_route)(u32 pipe_index, u32 rt_tbl_index);
+	void (*ipa_cfg_ep_holb)(u32 pipe_index,
+			const struct ipa_ep_cfg_holb *ep_holb);
+	void (*ipa_cfg_route)(struct ipa_route *route);
+	int (*ipa_read_gen_reg)(char *buff, int max_len);
+	int (*ipa_read_ep_reg)(char *buff, int max_len, int pipe);
+	void (*ipa_write_dbg_cnt)(int option);
+	int (*ipa_read_dbg_cnt)(char *buf, int max_len);
 };
 
 extern struct ipa_context *ipa_ctx;
@@ -798,14 +846,14 @@ void ipa_debugfs_remove(void);
 int ipa_insert(struct rb_root *root, struct ipa_tree_node *data);
 struct ipa_tree_node *ipa_search(struct rb_root *root, u32 hdl);
 void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
-
 #ifdef IPA_DEBUG
 #define IPA_DUMP_BUFF(base, phy_base, size) \
 	ipa_dump_buff_internal(base, phy_base, size)
 #else
 #define IPA_DUMP_BUFF(base, phy_base, size)
 #endif
-
+int ipa_controller_static_bind(struct ipa_controller *controller,
+		enum ipa_hw_type ipa_hw_type);
 int ipa_cfg_route(struct ipa_route *route);
 int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr);
 void ipa_replenish_rx_cache(void);
@@ -828,20 +876,31 @@ void ipa_dec_client_disable_clks(void);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
 int __ipa_release_hdr(u32 hdr_hdl);
+int _ipa_read_gen_reg_v1_0(char *buff, int max_len);
+int _ipa_read_gen_reg_v1_1(char *buff, int max_len);
+int _ipa_read_gen_reg_v2_0(char *buff, int max_len);
+int _ipa_read_ep_reg_v1_0(char *buf, int max_len, int pipe);
+int _ipa_read_ep_reg_v1_1(char *buf, int max_len, int pipe);
+int _ipa_read_ep_reg_v2_0(char *buf, int max_len, int pipe);
+void _ipa_write_dbg_cnt_v1(int option);
+void _ipa_write_dbg_cnt_v2_0(int option);
+int _ipa_read_dbg_cnt_v1(char *buf, int max_len);
+int _ipa_read_dbg_cnt_v2_0(char *buf, int max_len);
 
 static inline u32 ipa_read_reg(void *base, u32 offset)
 {
-	u32 val = ioread32(base + offset);
-	IPADBG("0x%x(va) read reg 0x%x r_val 0x%x.\n",
-		(u32)base, offset, val);
-	return val;
+	return ioread32(base + offset);
+}
+
+static inline u32 ipa_read_reg_field(void *base, u32 offset,
+		u32 mask, u32 shift)
+{
+	return (ipa_read_reg(base, offset) & mask) >> shift;
 }
 
 static inline void ipa_write_reg(void *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
-	IPADBG("0x%x(va) write reg 0x%x w_val 0x%x.\n",
-		(u32)base, offset, val);
 }
 
 int ipa_bridge_init(void);

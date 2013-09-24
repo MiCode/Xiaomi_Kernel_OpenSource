@@ -542,6 +542,8 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 	struct ipa_desc *desc;
 	int result = 0;
 
+	IPADBG("sending command\n");
+
 	ipa_inc_client_enable_clks();
 
 	if (num_desc == 1) {
@@ -955,6 +957,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		IPAERR("fail to configure EP.\n");
 		goto fail_sps_api;
 	}
+	IPADBG("ep configuration successful\n");
 
 	/* Default Config */
 	ipa_ctx->ep[ipa_ep_idx].ep_hdl = sps_alloc_endpoint();

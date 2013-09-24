@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +54,15 @@
  * @en_rule: enable rule
  * @action: post routing action
  * @rt_tbl_idx: index in routing table
- * @rsvd: reserved
+ * @retain_hdr: added to add back to the packet the header removed
+ *  as part of header removal. This will be done as part of
+ *  header insertion block.
+ * @to_uc: direct IPA to sent the packet to uc instead of
+ *  the intended destination. This will be performed just after
+ *  routing block processing, so routing will have determined
+ *  destination end point and uc will receive this information
+ *  together with the packet as part of the HW packet TX commands
+ * @rsvd: reserved bits
  */
 struct ipa_flt_rule_hw_hdr {
 	union {
@@ -63,7 +71,9 @@ struct ipa_flt_rule_hw_hdr {
 			u32 en_rule:16;
 			u32 action:5;
 			u32 rt_tbl_idx:5;
-			u32 rsvd:6;
+			u32 retain_hdr:1;
+			u32 to_uc:1;
+			u32 rsvd:4;
 		} hdr;
 	} u;
 };
@@ -142,21 +152,23 @@ struct ipa_ip_v6_routing_init {
 
 /**
  * struct ipa_hdr_init_local - IPA_HDR_INIT_LOCAL command payload
- * @hdr_table_addr: address of header table
- * @size_hdr_table: size of the above
- * @hdr_addr: header address
+ * @hdr_table_src_addr: word address of header table in system memory where the
+ *  table starts (use as source for memory copying)
+ * @size_hdr_table: size of the above (in bytes)
+ * @hdr_table_dst_addr: header address in IPA sram (used as dst for memory copy)
  * @rsvd: reserved
  */
 struct ipa_hdr_init_local {
-	u64 hdr_table_addr:32;
+	u64 hdr_table_src_addr:32;
 	u64 size_hdr_table:12;
-	u64 hdr_addr:16;
+	u64 hdr_table_dst_addr:16;
 	u64 rsvd:4;
 };
 
 /**
  * struct ipa_hdr_init_system - IPA_HDR_INIT_SYSTEM command payload
- * @hdr_table_addr: address of header table
+ * @hdr_table_addr: word address of header table in system memory where the
+ *  table starts (use as source for memory copying)
  * @rsvd: reserved
  */
 struct ipa_hdr_init_system {

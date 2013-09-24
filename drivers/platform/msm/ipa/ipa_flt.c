@@ -55,6 +55,8 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 	start = buf;
 	hdr = (struct ipa_flt_rule_hw_hdr *)buf;
 	hdr->u.hdr.action = entry->rule.action;
+	hdr->u.hdr.retain_hdr =  entry->rule.retain_hdr;
+	hdr->u.hdr.to_uc = entry->rule.to_uc;
 	if (entry->rt_tbl)
 		hdr->u.hdr.rt_tbl_idx = entry->rt_tbl->idx;
 	else
@@ -68,7 +70,12 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 		return -EPERM;
 	}
 
-	IPADBG("en_rule %x\n", en_rule);
+	IPADBG("en_rule 0x%x, action=%d, rt_idx=%d, uc=%d, retain_hdr=%d\n",
+			en_rule,
+			hdr->u.hdr.action,
+			hdr->u.hdr.rt_tbl_idx,
+			hdr->u.hdr.to_uc,
+			hdr->u.hdr.retain_hdr);
 
 	hdr->u.hdr.en_rule = en_rule;
 	ipa_write_32(hdr->u.word, (u8 *)hdr);
@@ -465,13 +472,13 @@ static int __ipa_commit_flt(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V4_FILTER_INIT;
 		v4->ipv4_rules_addr = mem->phys_base;
 		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_RAM_V4_FLT_OFST;
+		v4->ipv4_addr = ipa_ctx->ctrl->sram_flt_ipv4_ofst;
 	} else {
 		v6 = (struct ipa_ip_v6_filter_init *)cmd;
 		desc.opcode = IPA_IP_V6_FILTER_INIT;
 		v6->ipv6_rules_addr = mem->phys_base;
 		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_RAM_V6_FLT_OFST;
+		v6->ipv6_addr = ipa_ctx->ctrl->sram_flt_ipv6_ofst;
 	}
 
 	desc.pyld = cmd;
