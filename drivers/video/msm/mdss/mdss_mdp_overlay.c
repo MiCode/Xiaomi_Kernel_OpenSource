@@ -1600,15 +1600,81 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
+static inline int mdss_mdp_ad_is_supported(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_mdp_mixer *mixer;
 
-static struct attribute *vsync_fs_attrs[] = {
+	if (!ctl) {
+		pr_debug("there is no ctl attached to fb\n");
+		return 0;
+	}
+
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+	if (mixer && (mixer->num > ctl->mdata->nad_cfgs)) {
+		if (!mixer)
+			pr_warn("there is no mixer attached to fb\n");
+		else
+			pr_debug("mixer attached (%d) doesnt support ad\n",
+				 mixer->num);
+		return 0;
+	}
+
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
+	if (mixer && (mixer->num > ctl->mdata->nad_cfgs))
+		return 0;
+
+	return 1;
+}
+
+static ssize_t mdss_mdp_ad_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret, state;
+
+	state = mdss_mdp_ad_is_supported(mfd) ? mdp5_data->ad_state : -1;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d", state);
+
+	return ret;
+}
+
+static ssize_t mdss_mdp_ad_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret, ad;
+
+	ret = kstrtoint(buf, 10, &ad);
+	if (ret) {
+		pr_err("Invalid input for ad\n");
+		return -EINVAL;
+	}
+
+	mdp5_data->ad_state = ad;
+	sysfs_notify(&dev->kobj, NULL, "ad");
+
+	return count;
+}
+
+
+static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
+static DEVICE_ATTR(ad, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_ad_show,
+	mdss_mdp_ad_store);
+
+static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
+	&dev_attr_ad.attr,
 	NULL,
 };
 
-static struct attribute_group vsync_fs_attr_group = {
-	.attrs = vsync_fs_attrs,
+static struct attribute_group mdp_overlay_sysfs_group = {
+	.attrs = mdp_overlay_sysfs_attrs,
 };
 
 static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
@@ -2343,7 +2409,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	if (rc)
 		return rc;
 
-	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
+	rc = sysfs_create_group(&dev->kobj, &mdp_overlay_sysfs_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
 		goto init_fail;
