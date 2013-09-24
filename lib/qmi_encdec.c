@@ -570,6 +570,11 @@ static int qmi_decode_struct_elem(struct elem_info *ei_array, void *buf_dst,
 	int i, rc, decoded_bytes = 0;
 	struct elem_info *temp_ei = ei_array;
 
+	if (dec_level > 2 && !tlv_len) {
+		tlv_len = qmi_calc_max_msg_len(temp_ei->ei_array, dec_level);
+		tlv_len = tlv_len * elem_len;
+	}
+
 	for (i = 0; i < elem_len; i++) {
 		rc = _qmi_kernel_decode(temp_ei->ei_array, buf_dst, buf_src,
 					(tlv_len/elem_len), dec_level);
@@ -641,6 +646,9 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 
 	QMI_DECODE_LOG_MSG(in_buf, in_buf_len);
 	while (decoded_bytes < in_buf_len) {
+		if (dec_level > 2 && temp_ei->data_type == QMI_EOTI)
+			return decoded_bytes;
+
 		if (dec_level == 1) {
 			tlv_pointer = buf_src;
 			QMI_ENCDEC_DECODE_TLV(&tlv_type,
