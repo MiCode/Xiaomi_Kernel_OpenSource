@@ -303,6 +303,7 @@ struct tapan_priv {
 	u8 aux_r_gain;
 
 	bool spkr_pa_widget_on;
+	struct regulator *spkdrv_reg;
 
 	struct afe_param_cdc_slimbus_slave_cfg slimbus_slave_cfg;
 
@@ -2373,12 +2374,22 @@ static int tapan_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct tapan_priv *priv = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 
+	WARN_ONCE(!priv->spkdrv_reg, "SPKDRV supply %s isn't defined\n",
+		WCD9XXX_VDD_SPKDRV_NAME);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-
+		if (priv->spkdrv_reg) {
+			ret = regulator_enable(priv->spkdrv_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s Failed to enable spkdrv reg %s\n",
+					__func__, WCD9XXX_VDD_SPKDRV_NAME);
+		}
 		if (spkr_drv_wrnd > 0) {
 			WARN_ON(!(snd_soc_read(codec, TAPAN_A_SPKR_DRV_EN) &
 				  0x80));
@@ -2398,6 +2409,13 @@ static int tapan_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 				   0x80));
 			snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80,
 					    0x80);
+		}
+		if (priv->spkdrv_reg) {
+			ret = regulator_disable(priv->spkdrv_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s: Failed to disable spkdrv_reg %s\n",
+					__func__, WCD9XXX_VDD_SPKDRV_NAME);
 		}
 		break;
 	}
@@ -5659,6 +5677,8 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		goto err_pdata;
 	}
 
+	tapan->spkdrv_reg =
+		tapan_codec_find_regulator(codec, WCD9XXX_VDD_SPKDRV_NAME);
 	if (spkr_drv_wrnd > 0) {
 		WCD9XXX_BG_CLK_LOCK(&tapan->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&tapan->resmgr,
@@ -5760,6 +5780,8 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 
 	for (index = 0; index < CP_REG_MAX; index++)
 		tapan->cp_regulators[index] = NULL;
+
+	tapan->spkdrv_reg = NULL;
 
 	kfree(tapan);
 	return 0;
