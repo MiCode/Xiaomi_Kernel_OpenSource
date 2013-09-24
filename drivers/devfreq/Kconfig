@@ -80,6 +80,16 @@ config DEVFREQ_GOV_CPUFREQ
 	  CPU frequency to device frequency mapping table(s). This governor
 	  can be useful for controlling devices such as DDR, cache, CCI, etc.
 
+config DEVFREQ_GOV_QCOM_BW_HWMON
+	tristate "HW monitor based governor for device BW"
+	depends on QCOM_BIMC_BWMON
+	help
+	  HW monitor based governor for device to DDR bandwidth voting.
+	  This governor sets the CPU BW vote by using BIMC counters to monitor
+	  the CPU's use of DDR. Since this uses target specific counters it
+	  can conflict with existing profiling tools.  This governor is unlikely
+	  to be useful for non-QCOM devices.
+
 config DEVFREQ_GOV_QCOM_CACHE_HWMON
 	tristate "HW monitor based governor for cache frequency"
 	help
