@@ -90,7 +90,7 @@
 };
 
 &msmgpio {
-	ngpio = <120>;
+	ngpio = <121>;
 };
 
 &memory_hole {
