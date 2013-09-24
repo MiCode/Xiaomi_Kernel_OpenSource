@@ -1680,6 +1680,9 @@ error:
 static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 						struct qcedev_control *podev)
 {
+	uint32_t total = 0;
+	uint32_t i;
+
 	if ((req->alg == QCEDEV_ALG_AES_CMAC) &&
 				(!podev->ce_support.cmac)) {
 		pr_err("%s: CMAC not supported\n", __func__);
@@ -1717,6 +1720,14 @@ static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 		}
 	}
 
+	/* Check for sum of all src length is equal to data_len  */
+	for (i = 0, total = 0; i < req->entries; i++)
+		total += req->data[i].len;
+	if (total != req->data_len) {
+		pr_err("%s: Total src(%d) buf size != data_len (%d)\n",
+			__func__, total, req->data_len);
+		goto sha_error;
+	}
 	return 0;
 sha_error:
 	return -EINVAL;
