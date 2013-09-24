@@ -2378,8 +2378,12 @@ static void synaptics_rmi4_detection_work(struct work_struct *work)
 				link) {
 			if ((exp_fhandler->func_init != NULL) &&
 					(exp_fhandler->inserted == false)) {
-				exp_fhandler->func_init(rmi4_data);
-				exp_fhandler->inserted = true;
+				if (exp_fhandler->func_init(rmi4_data) < 0) {
+					list_del(&exp_fhandler->link);
+					kfree(exp_fhandler);
+				} else {
+					exp_fhandler->inserted = true;
+				}
 			} else if ((exp_fhandler->func_init == NULL) &&
 					(exp_fhandler->inserted == true)) {
 				exp_fhandler->func_remove(rmi4_data);
