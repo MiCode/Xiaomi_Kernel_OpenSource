@@ -2031,6 +2031,9 @@ static const struct file_operations debug_dump_info_fops = {
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 		unsigned char intr_mask)
 {
+	if (!fwu)
+		return;
+
 	if (fwu->intr_mask & intr_mask)
 		fwu->interrupt_flag = true;
 
@@ -2116,6 +2119,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to alloc mem for fwu\n",
 				__func__);
+		retval = -ENOMEM;
 		goto exit;
 	}
 
@@ -2141,10 +2145,12 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 		dev_dbg(&rmi4_data->i2c_client->dev,
 				"%s: Failed to read PDT properties, assuming 0x00\n",
 				__func__);
+		goto exit_free_mem;
 	} else if (pdt_props.has_bsr) {
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Reflash for LTS not currently supported\n",
 				__func__);
+		retval = -EINVAL;
 		goto exit_free_mem;
 	}
 
@@ -2243,7 +2249,7 @@ exit_free_fwu:
 	fwu = NULL;
 
 exit:
-	return 0;
+	return retval;
 }
 
 static void synaptics_rmi4_fwu_remove(struct synaptics_rmi4_data *rmi4_data)
