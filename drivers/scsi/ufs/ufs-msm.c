@@ -331,6 +331,9 @@ struct msm_ufs_phy {
 	void __iomem *mmio;
 	struct clk *tx_iface_clk;
 	struct clk *rx_iface_clk;
+	struct clk *ref_clk_src;
+	struct clk *ref_clk_parent;
+	struct clk *ref_clk;
 	struct msm_ufs_phy_vreg vdda_pll;
 	struct msm_ufs_phy_vreg vdda_phy;
 };
@@ -1140,11 +1143,45 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 {
 	int err;
 
+	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_phy);
+	if (err)
+		goto out;
+
+	/* vdda_pll also enables ref clock LDOs so enable it first */
+	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_pll);
+	if (err)
+		goto out_disable_phy;
+
+	/*
+	 * reference clock is propagated in a daisy-chained manner from
+	 * source to phy, so ungate them at each stage.
+	 */
+	err = clk_prepare_enable(phy->ref_clk_src);
+	if (err) {
+		dev_err(phy->dev, "%s: ref_clk_src enable failed %d\n",
+				__func__, err);
+		goto out_disable_pll;
+	}
+
+	err = clk_prepare_enable(phy->ref_clk_parent);
+	if (err) {
+		dev_err(phy->dev, "%s: ref_clk_parent enable failed %d\n",
+				__func__, err);
+		goto out_disable_src;
+	}
+
+	err = clk_prepare_enable(phy->ref_clk);
+	if (err) {
+		dev_err(phy->dev, "%s: ref_clk enable failed %d\n",
+				__func__, err);
+		goto out_disable_parent;
+	}
+
 	err = clk_prepare_enable(phy->tx_iface_clk);
 	if (err) {
 		dev_err(phy->dev, "%s: tx_iface_clk enable failed %d\n",
 				__func__, err);
-		goto out;
+		goto out_disable_ref;
 	}
 
 	err = clk_prepare_enable(phy->rx_iface_clk);
@@ -1154,22 +1191,20 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 		goto out_disable_tx;
 	}
 
-	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_phy);
-	if (err)
-		goto out_disable_rx;
-
-	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_pll);
-	if (err)
-		goto out_disable_phy;
-
 	goto out;
 
-out_disable_phy:
-	msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
-out_disable_rx:
-	clk_disable_unprepare(phy->rx_iface_clk);
 out_disable_tx:
 	clk_disable_unprepare(phy->tx_iface_clk);
+out_disable_ref:
+	clk_disable_unprepare(phy->ref_clk);
+out_disable_parent:
+	clk_disable_unprepare(phy->ref_clk_parent);
+out_disable_src:
+	clk_disable_unprepare(phy->ref_clk_src);
+out_disable_pll:
+	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
+out_disable_phy:
+	msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
 out:
 	return err;
 }
@@ -1179,11 +1214,14 @@ static int msm_ufs_phy_power_off(struct msm_ufs_phy *phy)
 	writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 	mb();
 
-	clk_disable_unprepare(phy->tx_iface_clk);
 	clk_disable_unprepare(phy->rx_iface_clk);
+	clk_disable_unprepare(phy->tx_iface_clk);
+	clk_disable_unprepare(phy->ref_clk);
+	clk_disable_unprepare(phy->ref_clk_parent);
+	clk_disable_unprepare(phy->ref_clk_src);
 
-	msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
+	msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
 
 	return 0;
 }
@@ -1426,6 +1464,23 @@ out:
 	return err;
 }
 
+static int msm_ufs_phy_clk_get(struct device *dev,
+		const char *name, struct clk **clk_out)
+{
+	struct clk *clk;
+	int err = 0;
+
+	clk = devm_clk_get(dev, name);
+	if (IS_ERR(clk)) {
+		err = PTR_ERR(clk);
+		dev_err(dev, "failed to get %s err %d", name, err);
+	} else {
+		*clk_out = clk;
+	}
+
+	return err;
+}
+
 static int msm_ufs_phy_probe(struct platform_device *pdev)
 {
 	struct msm_ufs_phy *phy;
@@ -1442,22 +1497,30 @@ static int msm_ufs_phy_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	phy->mmio = devm_ioremap_resource(dev, res);
-	if (IS_ERR_OR_NULL(phy->mmio))
-		goto out;
-
-	phy->tx_iface_clk = devm_clk_get(dev, "tx_iface_clk");
-	if (IS_ERR(phy->tx_iface_clk)) {
-		err = PTR_ERR(phy->tx_iface_clk);
-		dev_err(dev, "failed to get tx_iface_clk %d\n", err);
+	if (IS_ERR(phy->mmio)) {
+		err = PTR_ERR(phy->mmio);
 		goto out;
 	}
 
-	phy->rx_iface_clk = devm_clk_get(dev, "rx_iface_clk");
-	if (IS_ERR(phy->rx_iface_clk)) {
-		err = PTR_ERR(phy->rx_iface_clk);
-		dev_err(dev, "failed to get rx_iface_clk %d\n", err);
+	err = msm_ufs_phy_clk_get(dev, "tx_iface_clk", &phy->tx_iface_clk);
+	if (err)
 		goto out;
-	}
+
+	err = msm_ufs_phy_clk_get(dev, "rx_iface_clk", &phy->rx_iface_clk);
+	if (err)
+		goto out;
+
+	err = msm_ufs_phy_clk_get(dev, "ref_clk_src", &phy->ref_clk_src);
+	if (err)
+		goto out;
+
+	err = msm_ufs_phy_clk_get(dev, "ref_clk_parent", &phy->ref_clk_parent);
+	if (err)
+		goto out;
+
+	err = msm_ufs_phy_clk_get(dev, "ref_clk", &phy->ref_clk);
+	if (err)
+		goto out;
 
 	err = msm_ufs_phy_init_vreg(dev, &phy->vdda_pll, "vdda-pll");
 	if (err)
