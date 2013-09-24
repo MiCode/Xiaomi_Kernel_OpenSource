@@ -82,6 +82,7 @@ struct mxhci_hsic_hcd {
 	struct clk		*cal_clk;
 
 	struct regulator	*hsic_vddcx;
+	struct regulator	*hsic_gdsc;
 
 	struct wakeup_source	ws;
 
@@ -253,6 +254,33 @@ reg_enable_err:
 
 out:
 	return ret;
+}
+
+/*
+ * Config Global Distributed Switch Controller (GDSC)
+ * to turn on/off HSIC controller
+ */
+static int mxhci_msm_config_gdsc(struct mxhci_hsic_hcd *mxhci, int on)
+{
+	int ret = 0;
+
+	if (!mxhci->hsic_gdsc) {
+		mxhci->hsic_gdsc = devm_regulator_get(mxhci->dev, "hsic-gdsc");
+			if (IS_ERR(mxhci->hsic_gdsc))
+				return PTR_ERR(mxhci->hsic_gdsc);
+	}
+
+	if (on) {
+		ret = regulator_enable(mxhci->hsic_gdsc);
+		if (ret) {
+			dev_err(mxhci->dev, "unable to enable hsic gdsc\n");
+			return ret;
+		}
+	} else {
+		regulator_disable(mxhci->hsic_gdsc);
+	}
+
+	return 0;
 }
 
 static int mxhci_hsic_config_gpios(struct mxhci_hsic_hcd *mxhci)
@@ -655,6 +683,12 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		goto put_hcd;
 	}
 
+	ret = mxhci_msm_config_gdsc(mxhci, 1);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to configure hsic gdsc\n");
+		goto put_hcd;
+	}
+
 	ret = mxhci_hsic_init_clocks(mxhci, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize clocks\n");
@@ -808,6 +842,7 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 	mxhci_hsic_init_vddcx(mxhci, 0);
 	mxhci_hsic_init_clocks(mxhci, 0);
+	mxhci_msm_config_gdsc(mxhci, 0);
 	wakeup_source_trash(&mxhci->ws);
 	usb_put_hcd(hcd);
 
