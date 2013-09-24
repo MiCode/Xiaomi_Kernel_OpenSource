@@ -5888,7 +5888,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"f9c00000.qcom,xhci-msm-hsic"),
 	CLK_LOOKUP("utmi_clk", gcc_usb_hsic_mock_utmi_clk.c,
 			"f9c00000.qcom,xhci-msm-hsic"),
-	CLK_LOOKUP("",	gcc_usb_hsic_system_clk.c,	""),
+	CLK_LOOKUP("system_clk", gcc_usb_hsic_system_clk.c,
+			"f9c00000.qcom,xhci-msm-hsic"),
 
 	/* PCIE clocks */
 	CLK_LOOKUP("",	gcc_pcie_0_aux_clk.c,	""),
