@@ -32,3 +32,7 @@
 	};
 
 };
+
+&hsic_host {
+	status = "ok";
+};
