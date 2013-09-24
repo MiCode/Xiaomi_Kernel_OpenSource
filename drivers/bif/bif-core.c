@@ -833,6 +833,45 @@ static void bif_slave_ctrl_unlock(struct bif_slave *slave)
 	bif_ctrl_unlock(&slave->ctrl);
 }
 
+/**
+ * bif_crc_ccitt() - calculate the CRC-CCITT CRC value of the data specified
+ * @buffer:	Data to calculate the CRC of
+ * @len:	Length of the data buffer in bytes
+ *
+ * MIPI-BIF specifies the usage of CRC-CCITT for BIF data objects.  This
+ * function performs the CRC calculation while taking into account the bit
+ * ordering used by BIF.
+ */
+u16 bif_crc_ccitt(const u8 *buffer, unsigned int len)
+{
+	u16 crc = 0xFFFF;
+
+	while (len--) {
+		crc = crc_ccitt_byte(crc, bitrev8(*buffer));
+		buffer++;
+	}
+	return bitrev16(crc);
+}
+EXPORT_SYMBOL(bif_crc_ccitt);
+
+static u16 bif_object_crc_ccitt(const struct bif_object *object)
+{
+	u16 crc = 0xFFFF;
+	int i;
+
+	crc = crc_ccitt_byte(crc, bitrev8(object->type));
+	crc = crc_ccitt_byte(crc, bitrev8(object->version));
+	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id >> 8));
+	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id));
+	crc = crc_ccitt_byte(crc, bitrev8(object->length >> 8));
+	crc = crc_ccitt_byte(crc, bitrev8(object->length));
+
+	for (i = 0; i < object->length - 8; i++)
+		crc = crc_ccitt_byte(crc, bitrev8(object->data[i]));
+
+	return bitrev16(crc);
+}
+
 static int bif_check_task(struct bif_slave *slave, unsigned int task)
 {
 	if (IS_ERR_OR_NULL(slave)) {
@@ -1860,6 +1899,382 @@ void bif_object_put(struct bif_object *object)
 }
 EXPORT_SYMBOL(bif_object_put);
 
+/* Copies the contents of object into buf following MIPI-BIF formatting. */
+static void bif_object_flatten(u8 *buf, const struct bif_object *object)
+{
+	buf[0]			= object->type;
+	buf[1]			= object->version;
+	buf[2]			= object->manufacturer_id >> 8;
+	buf[3]			= object->manufacturer_id;
+	buf[4]			= object->length >> 8;
+	buf[5]			= object->length;
+	memcpy(&buf[6], object->data, object->length - 8);
+	buf[object->length - 2]	= object->crc >> 8;
+	buf[object->length - 1]	= object->crc;
+}
+
+/**
+ * bif_object_write() - writes a new BIF object at the end of the object list in
+ *			the non-volatile memory of a slave
+ * @slave:		BIF slave handle
+ * @type:		Type of the object
+ * @version:		Version of the object
+ * @manufacturer_id:	Manufacturer ID number allocated by MIPI
+ * @data:		Data contained in the object
+ * @data_len:		Length of the data
+ *
+ * Returns 0 on success or errno on failure.  This function will fail if the NVM
+ * lock points to an offset after the BIF object list terminator (0x00).
+ */
+int bif_object_write(struct bif_slave *slave, u8 type, u8 version,
+			u16 manufacturer_id, const u8 *data, int data_len)
+{
+	struct bif_object *object;
+	struct bif_object *tail_object;
+	struct bif_nvm_function	*nvm;
+	int rc;
+	int add_null = 0;
+	u16 offset = 0;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(data)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	if (nvm->object_count > 0) {
+		tail_object = list_entry(nvm->object_list.prev,
+					struct bif_object, list);
+		offset = tail_object->addr - nvm->nvm_base_address
+				+ tail_object->length;
+	}
+
+	if (offset < nvm->nvm_lock_offset) {
+		pr_err("Cannot write BIF object to NVM because the end of the object list is locked (end=%d < lock=%d)\n",
+			offset, nvm->nvm_lock_offset);
+		rc = -EPERM;
+		goto error_unlock;
+	} else if (offset + data_len + 8 > nvm->nvm_size) {
+		pr_err("Cannot write BIF object to NVM because there is not enough remaining space (size=%d > remaining=%d)\n",
+			data_len + 8, nvm->nvm_size - offset);
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (offset + data_len + 8 < nvm->nvm_size)
+		add_null = 1;
+	object = kzalloc(sizeof(*object), GFP_KERNEL);
+	if (!object) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	object->data = kzalloc(data_len, GFP_KERNEL);
+	if (!object->data) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto free_object;
+	}
+
+	buf = kzalloc(data_len + 8 + add_null, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto free_data;
+	}
+
+	object->type		= type;
+	object->version		= version;
+	object->manufacturer_id	= manufacturer_id;
+	object->length		= data_len + 8;
+	memcpy(object->data, data, data_len);
+	object->crc		= bif_object_crc_ccitt(object);
+	object->addr		= offset + nvm->nvm_base_address;
+
+	bif_object_flatten(buf, object);
+	if (add_null)
+		buf[object->length] = BIF_OBJ_END_OF_LIST;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev, offset, buf,
+					object->length + add_null);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto free_data;
+	}
+	kfree(buf);
+
+	list_add_tail(&object->list, &nvm->object_list);
+	nvm->object_count++;
+
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+
+free_data:
+	kfree(object->data);
+free_object:
+	kfree(object);
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+
+}
+EXPORT_SYMBOL(bif_object_write);
+
+/*
+ * Returns a pointer to the internal object referenced by a consumer object
+ * if it exists.  Returns NULL if the internal object cannot be found.
+ */
+static struct bif_object *bif_object_consumer_search(
+	struct bif_nvm_function *nvm, const struct bif_object *consumer_object)
+{
+	struct bif_object *object = NULL;
+	struct bif_object *search_object;
+
+	/*
+	 * Internal struct in object linked list is pointed to by consumer
+	 * object list.prev.
+	 */
+	search_object = list_entry(consumer_object->list.prev,
+					struct bif_object, list);
+
+	list_for_each_entry(object, &nvm->object_list, list) {
+		if (object == search_object)
+			break;
+	}
+
+	if (object != search_object)
+		return NULL;
+
+	return object;
+}
+
+/**
+ * bif_object_overwrite() - overwrites an existing BIF object found in the
+ *			non-volatile memory of a slave
+ * @slave:		BIF slave handle
+ * @object:		Existing object in the slave to overwrite
+ * @type:		Type of the object
+ * @version:		Version of the object
+ * @manufacturer_id:	Manufacturer ID number allocated by MIPI
+ * @data:		Data contained in the object
+ * @data_len:		Length of the data
+ *
+ * Returns 0 on success or errno on failure.  The data stored within 'object'
+ * is updated to the new values upon success.  The new data written to the
+ * object must have exactly the same length as the old data (i.e.
+ * data_len == object->length - 8).
+ *
+ * This function will fail if the NVM lock points to an offset after the
+ * beginning of the existing BIF object.
+ */
+int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len)
+{
+	struct bif_object *edit_object = NULL;
+	struct bif_nvm_function *nvm;
+	int rc;
+	u16 crc;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(object)
+	    || IS_ERR_OR_NULL(data)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	if (data_len + 8 != object->length) {
+		pr_err("New data length=%d is different from existing length=%d\n",
+			data_len, object->length - 8);
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+
+	edit_object = bif_object_consumer_search(nvm, object);
+	if (!edit_object) {
+		pr_err("BIF object not found within slave\n");
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (edit_object->addr - nvm->nvm_base_address < nvm->nvm_lock_offset) {
+		pr_err("Cannot overwrite BIF object in NVM because some portion of it is locked\n");
+		rc = -EPERM;
+		goto error_unlock;
+	}
+
+	buf = kzalloc(data_len + 8, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	buf[0]			= type;
+	buf[1]			= version;
+	buf[2]			= manufacturer_id >> 8;
+	buf[3]			= manufacturer_id;
+	buf[4]			= (data_len + 8) >> 8;
+	buf[5]			= data_len + 8;
+	memcpy(&buf[6], data, data_len);
+	crc			= bif_crc_ccitt(buf, data_len + 6);
+	buf[data_len + 6]	= crc >> 8;
+	buf[data_len + 7]	= crc;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev,
+		object->addr - nvm->nvm_base_address, buf, data_len + 8);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto error_unlock;
+	}
+	kfree(buf);
+
+	/* Update internal object struct. */
+	edit_object->type		= type;
+	edit_object->version		= version;
+	edit_object->manufacturer_id	= manufacturer_id;
+	edit_object->length		= data_len + 8;
+	memcpy(edit_object->data, data, data_len);
+	edit_object->crc		= crc;
+
+	/* Update consumer object struct. */
+	object->type			= type;
+	object->version			= version;
+	object->manufacturer_id		= manufacturer_id;
+	object->length			= data_len + 8;
+	memcpy(object->data, data, data_len);
+	object->crc			= crc;
+
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_object_overwrite);
+
+/**
+ * bif_object_delete() - deletes an existing BIF object found in the
+ *			non-volatile memory of a slave.  Objects found in the
+ *			object list in the NVM of the slave are shifted forward
+ *			in order to fill the hole left by the deleted object
+ * @slave:		BIF slave handle
+ * @object:		Existing object in the slave to delete
+ *
+ * Returns 0 on success or errno on failure.  bif_object_put() must still be
+ * called after this function in order to free the memory in the consumer
+ * 'object' struct pointer.
+ *
+ * This function will fail if the NVM lock points to an offset after the
+ * beginning of the existing BIF object.
+ */
+int bif_object_delete(struct bif_slave *slave, const struct bif_object *object)
+{
+	struct bif_object *del_object = NULL;
+	struct bif_object *tail_object;
+	struct bif_nvm_function *nvm;
+	bool found = false;
+	int pos = 0;
+	int rc;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(object)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	bif_slave_ctrl_lock(slave);
+
+	del_object = bif_object_consumer_search(nvm, object);
+	if (!del_object) {
+		pr_err("BIF object not found within slave\n");
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (del_object->addr - nvm->nvm_base_address < nvm->nvm_lock_offset) {
+		pr_err("Cannot delete BIF object in NVM because some portion of it is locked\n");
+		rc = -EPERM;
+		goto error_unlock;
+	}
+
+	buf = kmalloc(nvm->nvm_size, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	/*
+	 * Copy the contents of objects after the one to be deleted into a flat
+	 * array.
+	 */
+	list_for_each_entry(tail_object, &nvm->object_list, list) {
+		if (found) {
+			bif_object_flatten(&buf[pos], tail_object);
+			pos += tail_object->length;
+		} else if (tail_object == del_object) {
+			found = true;
+		}
+	}
+
+	/* Add the list terminator. */
+	buf[pos++] = BIF_OBJ_END_OF_LIST;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev,
+		del_object->addr - nvm->nvm_base_address, buf, pos);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto error_unlock;
+	}
+	kfree(buf);
+
+	/* Update the addresses of the objects after the one to be deleted. */
+	found = false;
+	list_for_each_entry(tail_object, &nvm->object_list, list) {
+		if (found)
+			tail_object->addr -= del_object->length;
+		else if (tail_object == del_object)
+			found = true;
+	}
+
+	list_del(&del_object->list);
+	kfree(del_object->data);
+	kfree(del_object);
+	nvm->object_count--;
+
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_object_delete);
+
 /**
  * bif_slave_read() - read contiguous memory values from a BIF slave
  * @slave:	BIF slave handle
@@ -2527,45 +2942,6 @@ static int bif_initialize_slave_control_function(struct bif_slave_dev *sdev,
 	}
 
 	return rc;
-}
-
-/**
- * bif_crc_ccitt() - calculate the CRC-CCITT CRC value of the data specified
- * @buffer:	Data to calculate the CRC of
- * @len:	Length of the data buffer in bytes
- *
- * MIPI-BIF specifies the usage of CRC-CCITT for BIF data objects.  This
- * function performs the CRC calculation while taking into account the bit
- * ordering used by BIF.
- */
-u16 bif_crc_ccitt(const u8 *buffer, unsigned int len)
-{
-	u16 crc = 0xFFFF;
-
-	while (len--) {
-		crc = crc_ccitt_byte(crc, bitrev8(*buffer));
-		buffer++;
-	}
-	return bitrev16(crc);
-}
-EXPORT_SYMBOL(bif_crc_ccitt);
-
-static u16 bif_object_crc_ccitt(const struct bif_object *object)
-{
-	u16 crc = 0xFFFF;
-	int i;
-
-	crc = crc_ccitt_byte(crc, bitrev8(object->type));
-	crc = crc_ccitt_byte(crc, bitrev8(object->version));
-	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id >> 8));
-	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id));
-	crc = crc_ccitt_byte(crc, bitrev8(object->length >> 8));
-	crc = crc_ccitt_byte(crc, bitrev8(object->length));
-
-	for (i = 0; i < object->length - 8; i++)
-		crc = crc_ccitt_byte(crc, bitrev8(object->data[i]));
-
-	return bitrev16(crc);
 }
 
 /*
