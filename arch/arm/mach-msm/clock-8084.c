@@ -32,6 +32,7 @@
 #include "clock-voter.h"
 #include "clock.h"
 #include "clock-mdss-8974.h"
+#include "clock-krait.h"
 
 enum {
 	GCC_BASE,
@@ -5447,6 +5448,12 @@ static struct measure_mux_entry measure_mux[] = {
 	{&camss_ahb_clk.c,			MMSS_BASE, 0x0078},
 	{&venus0_core0_vcodec_clk.c,		MMSS_BASE, 0x0079},
 	{&venus0_core1_vcodec_clk.c,		MMSS_BASE, 0x007a},
+
+	{&krait0_clk.c,				APCS_BASE, M_ACPU0},
+	{&krait1_clk.c,				APCS_BASE, M_ACPU1},
+	{&krait2_clk.c,				APCS_BASE, M_ACPU2},
+	{&krait3_clk.c,				APCS_BASE, M_ACPU3},
+	{&l2_clk.c,				APCS_BASE, M_L2},
 
 	{&dummy_clk,				N_BASES, 0x0000},
 };
