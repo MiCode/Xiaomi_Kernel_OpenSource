@@ -1577,6 +1577,25 @@
 		};
 	};
 
+	hsphy: hsphy@f92f8800 {
+		compatible = "qcom,usb-hsphy";
+		reg = <0xf92f8800 0x3ff>;
+		qcom,hsphy-init = <0x00D191A4>;
+		vdd-supply = <&pm8841_s2_corner>;
+		vdda18-supply = <&pm8941_l6>;
+		vdda33-supply = <&pm8941_l24>;
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,ext-vbus-id;
+	};
+
+	ssphy: ssphy@f92f8800 {
+		compatible = "qcom,usb-ssphy";
+		reg = <0xf92f8800 0x3ff>;
+		vdd-supply = <&pm8841_s2_corner>;
+		vdda18-supply = <&pm8941_l6>;
+		qcom,vdd-voltage-level = <1 5 7>;
+	};
+
 	ehci: qcom,ehci-host@f9a55000 {
 		compatible = "qcom,ehci-host";
 		status = "disabled";
