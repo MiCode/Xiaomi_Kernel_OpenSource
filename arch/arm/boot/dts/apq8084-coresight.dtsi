@@ -137,7 +137,7 @@
 		coresight-nr-inports = <8>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in1>;
-		coresight-child-ports = <1>;
+		coresight-child-ports = <2>;
 	};
 
 	stm: stm@fc302000 {
