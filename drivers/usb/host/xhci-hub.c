@@ -818,7 +818,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		}
 		if ((temp & PORT_PLS_MASK) == XDEV_U0
 			&& (temp & PORT_POWER)
-			&& (bus_state->suspended_ports & (1 << wIndex))) {
+			&& ((bus_state->suspended_ports & (1 << wIndex))
+			|| (xhci->quirks & XHCI_NO_SELECTIVE_SUSPEND))) {
 			bus_state->suspended_ports &= ~(1 << wIndex);
 			if (hcd->speed != HCD_USB3)
 				bus_state->port_c_suspend |= 1 << wIndex;
@@ -875,6 +876,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		/* FIXME: What new port features do we need to support? */
 		switch (wValue) {
 		case USB_PORT_FEAT_SUSPEND:
+			if (xhci->quirks & XHCI_NO_SELECTIVE_SUSPEND)
+				break;
 			temp = xhci_readl(xhci, port_array[wIndex]);
 			if ((temp & PORT_PLS_MASK) != XDEV_U0) {
 				/* Resume the port to U0 first */
@@ -1089,6 +1092,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			xhci_dbg(xhci, "PORTSC %04x\n", temp);
 			if (temp & PORT_RESET)
 				goto error;
+			if (xhci->quirks & XHCI_NO_SELECTIVE_SUSPEND)
+				break;
 			if ((temp & PORT_PLS_MASK) == XDEV_U3) {
 				if ((temp & PORT_PE) == 0)
 					goto error;

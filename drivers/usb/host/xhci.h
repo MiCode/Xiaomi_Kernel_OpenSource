@@ -1548,6 +1548,7 @@ struct xhci_hcd {
  * The workaround is to handle TRB Error and Context State Error in same way
  */
 #define XHCI_TR_DEQ_ERR_QUIRK	(1 << 18)
+#define XHCI_NO_SELECTIVE_SUSPEND (1 << 19)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
