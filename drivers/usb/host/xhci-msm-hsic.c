@@ -23,6 +23,7 @@
 #include <linux/bitops.h>
 
 #include <mach/rpm-regulator.h>
+#include <mach/clk.h>
 
 #include "xhci.h"
 
@@ -348,6 +349,7 @@ static int mxhci_hsic_ulpi_write(struct mxhci_hsic_hcd *mxhci, u32 val,
 static void mxhci_hsic_reset(struct mxhci_hsic_hcd *mxhci)
 {
 	u32 reg;
+	int ret;
 	struct usb_hcd *hcd = hsic_to_hcd(mxhci);
 
 	/* start controller reset */
@@ -355,28 +357,46 @@ static void mxhci_hsic_reset(struct mxhci_hsic_hcd *mxhci)
 	reg |= GCTL_CORESOFTRESET;
 	writel_relaxed(reg, MSM_HSIC_GCTL);
 
-	/* reset phy's digital interface with recommended hw prog delays */
+	usleep(1000);
 
-	/* Assert USB2 PHY reset */
-	reg = readl_relaxed(MSM_HSIC_GUSB2PHYCFG);
-	reg |= GUSB2PHYCFG_PHYSOFTRST;
-	writel_relaxed(reg, MSM_HSIC_GUSB2PHYCFG);
+	/* phy reset using asynchronous block reset */
 
-	usleep(100);
+	clk_disable_unprepare(mxhci->cal_clk);
+	clk_disable_unprepare(mxhci->utmi_clk);
+	clk_disable_unprepare(mxhci->hsic_clk);
+	clk_disable_unprepare(mxhci->core_clk);
+	clk_disable_unprepare(mxhci->system_clk);
+	clk_disable_unprepare(mxhci->phy_sleep_clk);
 
-	/* Clear USB2 PHY reset */
-	reg = readl_relaxed(MSM_HSIC_GUSB2PHYCFG);
-	reg &= ~GUSB2PHYCFG_PHYSOFTRST;
-	writel_relaxed(reg, MSM_HSIC_GUSB2PHYCFG);
+	ret = clk_reset(mxhci->hsic_clk, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(mxhci->dev, "hsic clk assert failed:%d\n", ret);
+		return;
+	}
+	usleep_range(10000, 12000);
 
-	usleep(100);
+	ret = clk_reset(mxhci->hsic_clk, CLK_RESET_DEASSERT);
+	if (ret)
+		dev_err(mxhci->dev, "hsic clk deassert failed:%d\n",
+				ret);
+	/*
+	 * Required delay between the deassertion and
+	 *	clock enablement.
+	*/
+	ndelay(200);
+	clk_prepare_enable(mxhci->phy_sleep_clk);
+	clk_prepare_enable(mxhci->system_clk);
+	clk_prepare_enable(mxhci->core_clk);
+	clk_prepare_enable(mxhci->hsic_clk);
+	clk_prepare_enable(mxhci->utmi_clk);
+	clk_prepare_enable(mxhci->cal_clk);
 
 	/* After PHY is stable we can take Core out of reset state */
 	reg = readl_relaxed(MSM_HSIC_GCTL);
 	reg &= ~GCTL_CORESOFTRESET;
 	writel_relaxed(reg, MSM_HSIC_GCTL);
 
-	usleep(100);
+	usleep(1000);
 }
 
 static void mxhci_hsic_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
