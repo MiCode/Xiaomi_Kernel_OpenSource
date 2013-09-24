@@ -76,6 +76,12 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&mdss_hdmi_tx {
+        qcom,hdmi-tx-mux-lpm = <&msmgpio 27 0>;
+        qcom,hdmi-tx-mux-en = <&msmgpio 83 0>;
+        qcom,hdmi-tx-mux-sel = <&msmgpio 85 0>;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
 	qcom,platform-reset-gpio = <&msmgpio 96 0>;
