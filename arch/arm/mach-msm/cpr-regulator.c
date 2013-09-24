@@ -1263,10 +1263,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			     quot[CPR_CORNER_NORMAL])
 					<= CPR_FUSE_MIN_QUOT_DIFF)
 				valid_fuse = false;
-			else if ((quot[CPR_CORNER_NORMAL] -
-				  quot[CPR_CORNER_SVS])
-					<= CPR_FUSE_MIN_QUOT_DIFF)
-				valid_fuse = false;
 		} else {
 			valid_fuse = false;
 		}
