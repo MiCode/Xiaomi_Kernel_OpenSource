@@ -1607,6 +1607,9 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
+
+		/* Always pull up TxFe for TX2 to Micbias */
+		snd_soc_update_bits(codec, micb_int_reg, 0x04, 0x04);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
@@ -1624,6 +1627,8 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
 
+		/* Disable pull up TxFe for TX2 to Micbias */
+		snd_soc_update_bits(codec, micb_int_reg, 0x04, 0x00);
 		break;
 	}
 	return 0;
