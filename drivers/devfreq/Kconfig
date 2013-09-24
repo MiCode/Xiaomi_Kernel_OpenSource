@@ -79,6 +79,17 @@ config DEVFREQ_GOV_MSM_CPUFREQ
 	  to DDR BW vote based on the current CPU frequency.  This governor
 	  is unlikely to be useful for non-MSM devices.
 
+config DEVFREQ_GOV_MSM_CPUBW_HWMON
+	tristate "HW monitor based governor for CPUBW"
+	depends on ARCH_MSM_KRAIT
+	help
+	  HW monitor based governor for CPU to DDR bandwidth voting. This
+	  goveror currently supports only Krait L2 PM counters.  Sets the CPU
+	  BW vote by using L2 PM counters to monitor the Krait's use of DDR.
+	  Since this governor uses some of the PM counters it can conflict
+	  with existing profiling tools.  This governor is unlikely to be
+	  useful for other devices.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ

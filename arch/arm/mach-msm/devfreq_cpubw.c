@@ -113,7 +113,9 @@ static struct devfreq_governor_data gov_data[] = {
 	{ .name = "powersave" },
 	{ .name = "userspace" },
 	{ .name = "msm_cpufreq" },
+	{ .name = "cpubw_hwmon", .data = &gov_ab },
 };
+
 struct devfreq_dev_profile cpubw_profile = {
 	.polling_ms = 50,
 	.target = cpubw_target,
