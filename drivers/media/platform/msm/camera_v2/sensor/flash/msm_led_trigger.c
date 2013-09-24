@@ -26,6 +26,9 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
+extern int32_t msm_led_torch_create_classdev(
+				struct platform_device *pdev, void *data);
+
 static struct msm_led_flash_ctrl_t fctrl;
 
 static int32_t msm_led_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
@@ -209,7 +212,11 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 			of_node_put(flash_src_node);
 		}
 	}
+
 	rc = msm_led_flash_create_v4lsubdev(pdev, &fctrl);
+	if (!rc)
+		msm_led_torch_create_classdev(pdev, &fctrl);
+
 	return rc;
 }
 
