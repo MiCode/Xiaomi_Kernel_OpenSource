@@ -131,6 +131,9 @@ u64 armpmu_event_update(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	u64 delta, prev_raw_count, new_raw_count;
 
+	if (event->state <= PERF_EVENT_STATE_OFF)
+		return 0;
+
 again:
 	prev_raw_count = local64_read(&hwc->prev_count);
 	new_raw_count = armpmu->read_counter(event);

@@ -504,8 +504,10 @@ static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 			 * This sets the event OFF on all but one
 			 * CPU.
 			 */
-			if (!(event->cpu < 0))
+			if (!(event->cpu < 0)) {
 				event->state = PERF_EVENT_STATE_OFF;
+				event->attr.constraint_duplicate = 1;
+			}
 	}
 out:
 	raw_spin_unlock_irqrestore(&l2_pmu_constraints.lock, flags);
