@@ -271,6 +271,8 @@ struct msm_otg_platform_data {
 /* phy related flags */
 #define ENABLE_DP_MANUAL_PULLUP		BIT(0)
 #define ENABLE_SECONDARY_PHY		BIT(1)
+#define PHY_HOST_MODE			BIT(2)
+#define PHY_CHARGER_CONNECTED		BIT(3)
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
 
