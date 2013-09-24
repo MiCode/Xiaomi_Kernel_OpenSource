@@ -376,6 +376,25 @@ static uint32_t is_modem_smsm_inited(void)
 	return (modem_state & ready_state) == ready_state;
 }
 
+static int smd_tty_dummy_probe(struct platform_device *pdev)
+{
+	int n;
+
+	for (n = 0; n < MAX_SMD_TTYS; ++n) {
+		if (!smd_tty[n].dev_name)
+			continue;
+
+		if (pdev->id == smd_tty[n].edge &&
+			!strcmp(pdev->name, smd_tty[n].dev_name)) {
+			complete_all(&smd_tty[n].ch_allocated);
+			return 0;
+		}
+	}
+	SMD_TTY_ERR("[ERR]%s: unknown device '%s'\n", __func__, pdev->name);
+
+	return -ENODEV;
+}
+
 static int smd_tty_port_activate(struct tty_port *tport,
 				 struct tty_struct *tty)
 {
@@ -393,6 +412,17 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	mutex_lock(&info->open_lock_lha1);
 	tty->driver_data = info;
 
+	info->driver.probe = smd_tty_dummy_probe;
+	info->driver.driver.name = smd_tty[n].dev_name;
+	info->driver.driver.owner = THIS_MODULE;
+	res = platform_driver_register(&info->driver);
+	if (res) {
+		SMD_TTY_ERR("%s:%d Idx smd_tty_driver register failed %d\n",
+							__func__, n, res);
+		info->driver.probe = NULL;
+		goto out;
+	}
+
 	peripheral = smd_edge_to_subsystem(smd_tty[n].edge);
 	if (peripheral) {
 		info->pil = subsystem_get(peripheral);
@@ -409,7 +439,7 @@ static int smd_tty_port_activate(struct tty_port *tport,
 			 */
 			msleep((smd_tty[n].open_wait * 1000));
 			res = PTR_ERR(info->pil);
-			goto out;
+			goto platform_unregister;
 		}
 
 		/* Wait for the modem SMSM to be inited for the SMD
@@ -492,6 +522,10 @@ release_wl_tl:
 
 release_pil:
 	subsystem_put(info->pil);
+
+platform_unregister:
+	platform_driver_unregister(&info->driver);
+
 out:
 	mutex_unlock(&info->open_lock_lha1);
 
@@ -529,6 +563,7 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	smd_close(info->ch);
 	info->ch = NULL;
 	subsystem_put(info->pil);
+	platform_driver_unregister(&info->driver);
 
 	mutex_unlock(&info->open_lock_lha1);
 	tty_kref_put(tty);
@@ -668,25 +703,6 @@ static struct tty_operations smd_tty_ops = {
 	.tiocmset = smd_tty_tiocmset,
 };
 
-static int smd_tty_dummy_probe(struct platform_device *pdev)
-{
-	int n;
-
-	for (n = 0; n < MAX_SMD_TTYS; ++n) {
-		if (!smd_tty[n].dev_name)
-			continue;
-
-		if (pdev->id == smd_tty[n].edge &&
-			!strncmp(pdev->name, smd_tty[n].dev_name,
-					SMD_MAX_CH_NAME_LEN)) {
-			complete_all(&smd_tty[n].ch_allocated);
-			return 0;
-		}
-	}
-	SMD_TTY_ERR("[ERR]%s: unknown device '%s'\n", __func__, pdev->name);
-
-	return -ENODEV;
-}
 
 /**
  * smd_tty_log_init()- Init function for IPC logging
@@ -739,9 +755,8 @@ static int smd_tty_register_driver(void)
 	return ret;
 }
 
-static int smd_tty_device_init(int idx)
+static void smd_tty_device_init(int idx)
 {
-	int ret;
 	struct tty_port *port;
 
 	port = &smd_tty[idx].port;
@@ -751,25 +766,16 @@ static int smd_tty_device_init(int idx)
 							   idx, NULL);
 	init_completion(&smd_tty[idx].ch_allocated);
 	mutex_init(&smd_tty[idx].open_lock_lha1);
-
-	/* register platform device */
-	smd_tty[idx].driver.probe = smd_tty_dummy_probe;
-	smd_tty[idx].driver.driver.name = smd_tty[idx].dev_name;
-	smd_tty[idx].driver.driver.owner = THIS_MODULE;
 	spin_lock_init(&smd_tty[idx].reset_lock_lha2);
 	spin_lock_init(&smd_tty[idx].ra_lock_lha3);
 	smd_tty[idx].is_open = 0;
 	setup_timer(&smd_tty[idx].buf_req_timer, buf_req_retry,
 			(unsigned long)&smd_tty[idx]);
 	init_waitqueue_head(&smd_tty[idx].ch_opened_wait_queue);
-	ret = platform_driver_register(&smd_tty[idx].driver);
-	if (ret)
-		return ret;
 
 	if (device_create_file(smd_tty[idx].device_ptr, &dev_attr_open_timeout))
 		SMD_TTY_ERR("%s: Unable to create device attributes for %s",
 			__func__, smd_configs[idx].port_name);
-	return ret;
 }
 
 static int smd_tty_core_init(void)
@@ -798,52 +804,10 @@ static int smd_tty_core_init(void)
 							SMD_MAX_CH_NAME_LEN);
 		}
 
-		if (idx == DS_IDX) {
-			/*
-			 * DS port uses the kernel API starting with
-			 * 8660 Fusion.  Only register the userspace
-			 * platform device for older targets.
-			 */
-			int legacy_ds = 0;
-
-			legacy_ds |= cpu_is_msm7x01() || cpu_is_msm7x25();
-			legacy_ds |= cpu_is_msm7x27() || cpu_is_msm7x30();
-			legacy_ds |= cpu_is_qsd8x50() || cpu_is_msm8x55();
-			/*
-			 * use legacy mode for 8660 Standalone (subtype 0)
-			 */
-			legacy_ds |= cpu_is_msm8x60() &&
-					(socinfo_get_platform_subtype() == 0x0);
-
-			if (!legacy_ds)
-				continue;
-		}
-
-		ret = smd_tty_device_init(idx);
-		if (ret) {
-			SMD_TTY_ERR(
-				"%s: init failed %d (%d)", __func__, idx, ret);
-			smd_tty[idx].driver.probe = NULL;
-			goto out;
-		}
+		smd_tty_device_init(idx);
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 	return 0;
-
-out:
-	/* unregister platform devices */
-	for (n = 0; n < ARRAY_SIZE(smd_configs); ++n) {
-		idx = smd_configs[n].tty_dev_index;
-
-		if (smd_tty[idx].driver.probe) {
-			platform_driver_unregister(&smd_tty[idx].driver);
-			tty_unregister_device(smd_tty_driver, idx);
-		}
-	}
-
-	tty_unregister_driver(smd_tty_driver);
-	put_tty_driver(smd_tty_driver);
-	return ret;
 }
 
 static int smd_tty_devicetree_init(struct platform_device *pdev)
@@ -851,7 +815,7 @@ static int smd_tty_devicetree_init(struct platform_device *pdev)
 	int ret;
 	int idx;
 	int edge;
-	char *key;
+	char *key = NULL;
 	const char *ch_name;
 	const char *dev_name;
 	const char *remote_ss;
@@ -900,32 +864,23 @@ static int smd_tty_devicetree_init(struct platform_device *pdev)
 						SMD_MAX_CH_NAME_LEN);
 		}
 
-		ret = smd_tty_device_init(idx);
-		if (ret) {
-			SMD_TTY_ERR("%s: init failed %d (%d)\n", __func__,
-								idx, ret);
-			smd_tty[idx].driver.probe = NULL;
-			goto error;
-		}
+		smd_tty_device_init(idx);
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
 	return 0;
 
 error:
-	SMD_TTY_ERR("%s: unregister platform device\n", __func__);
-	/*Unregister platform devices*/
+	SMD_TTY_ERR("%s:Initialization error, key[%s]\n", __func__, key);
+	/* Unregister tty platform devices */
 	for_each_child_of_node(pdev->dev.of_node, node) {
 
 		key = "qcom,smdtty-dev-idx";
 		ret = of_property_read_u32(node, key, &idx);
 		if (ret || idx >= MAX_SMD_TTYS)
 			goto out;
-
-		if (smd_tty[idx].driver.probe) {
-			platform_driver_unregister(&smd_tty[idx].driver);
+		if (smd_tty[idx].device_ptr)
 			tty_unregister_device(smd_tty_driver, idx);
-		}
 	}
 out:
 	tty_unregister_driver(smd_tty_driver);
