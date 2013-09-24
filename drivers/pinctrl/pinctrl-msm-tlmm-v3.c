@@ -9,10 +9,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <asm/mach/irq.h>
 #include <linux/bitops.h>
+#include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/err.h>
+#include <linux/interrupt.h>
+#include <linux/irqchip/chained_irq.h>
+#include <linux/irqdomain.h>
 #include <linux/io.h>
 #include <linux/pinctrl/pinconf-generic.h>
+#include <linux/spinlock.h>
+#include <linux/syscore_ops.h>
 #include "pinctrl-msm.h"
 
 /* config translations */
@@ -62,6 +70,28 @@
 #define TLMMV3_SDC2_DATA_PULL_MASK	0x3
 #define TLMMV3_SDC2_CMD_PULL_SHFT	11
 #define TLMMV3_SDC2_CMD_PULL_MASK	0x3
+/* TLMM V3 IRQ REG fields */
+#define INTR_ENABLE_BIT		0
+#define	INTR_POL_CTL_BIT	1
+#define	INTR_DECT_CTL_BIT	2
+#define	INTR_RAW_STATUS_EN_BIT	4
+#define	INTR_TARGET_PROC_BIT	5
+#define	INTR_DIR_CONN_EN_BIT	8
+#define INTR_STATUS_BIT		0
+#define DC_POLARITY_BIT		8
+
+/* Target processors for TLMM pin based interrupts */
+#define INTR_TARGET_PROC_APPS(core_id)	((core_id) << INTR_TARGET_PROC_BIT)
+#define TLMMV3_APPS_ID_DEFAULT	4
+#define INTR_TARGET_PROC_NONE	(7 << INTR_TARGET_PROC_BIT)
+/* Interrupt flag bits */
+#define DC_POLARITY_HI		BIT(DC_POLARITY_BIT)
+#define INTR_POL_CTL_HI		BIT(INTR_POL_CTL_BIT)
+#define INTR_DECT_CTL_LEVEL	(0 << INTR_DECT_CTL_BIT)
+#define INTR_DECT_CTL_POS_EDGE	(1 << INTR_DECT_CTL_BIT)
+#define INTR_DECT_CTL_NEG_EDGE	(2 << INTR_DECT_CTL_BIT)
+#define INTR_DECT_CTL_DUAL_EDGE	(3 << INTR_DECT_CTL_BIT)
+#define INTR_DECT_CTL_MASK	(3 << INTR_DECT_CTL_BIT)
 
 #define TLMMV3_GP_INOUT_BIT		1
 #define TLMMV3_GP_OUT			BIT(TLMMV3_GP_INOUT_BIT)
@@ -69,6 +99,10 @@
 
 #define gc_to_pintype(gc) \
 		container_of(gc, struct msm_pintype_info, gc)
+#define ic_to_pintype(ic) \
+		((struct msm_pintype_info *)ic->pinfo)
+#define pintype_get_gc(pinfo)	(&pinfo->gc)
+#define pintype_get_ic(pinfo)	(pinfo->irq_chip)
 
 /* SDC Pin type register offsets */
 #define TLMMV3_SDC_OFFSET		0x2044
@@ -76,8 +110,10 @@
 #define TLMMV3_SDC2_CFG(base)		(TLMMV3_SDC1_CFG(base) + 0x4)
 
 /* GP pin type register offsets */
-#define TLMMV3_GP_CFG(base, pin)	(base + 0x1000 + 0x10 * (pin))
-#define TLMMV3_GP_INOUT(base, pin)	(base + 0x1004 + 0x10 * (pin))
+#define TLMMV3_GP_CFG(base, pin)		(base + 0x1000 + 0x10 * (pin))
+#define TLMMV3_GP_INOUT(base, pin)		(base + 0x1004 + 0x10 * (pin))
+#define TLMMV3_GP_INTR_CFG(base, pin)		(base + 0x1008 + 0x10 * (pin))
+#define TLMMV3_GP_INTR_STATUS(base, pin)	(base + 0x100c + 0x10 * (pin))
 
 struct msm_sdc_regs {
 	unsigned int offset;
@@ -355,7 +391,347 @@ static int msm_tlmm_v3_gp_dir_out(struct gpio_chip *gc, unsigned offset,
 
 static int msm_tlmm_v3_gp_to_irq(struct gpio_chip *gc, unsigned offset)
 {
-	return -EINVAL;
+	struct msm_pintype_info *pinfo = gc_to_pintype(gc);
+	struct msm_tlmm_irq_chip *ic = pintype_get_ic(pinfo);
+	return irq_create_mapping(ic->domain, offset);
+}
+
+/* Irq reg ops */
+static void msm_tlmm_v3_set_intr_status(struct msm_tlmm_irq_chip *ic,
+								unsigned pin)
+{
+	void __iomem *status_reg = TLMMV3_GP_INTR_STATUS(ic->chip_base, pin);
+	writel_relaxed(0, status_reg);
+}
+
+static int msm_tlmm_v3_get_intr_status(struct msm_tlmm_irq_chip *ic,
+								unsigned pin)
+{
+	void __iomem *status_reg = TLMMV3_GP_INTR_STATUS(ic->chip_base, pin);
+	return readl_relaxed(status_reg) & BIT(INTR_STATUS_BIT);
+}
+
+static void msm_tlmm_v3_set_intr_cfg_enable(struct msm_tlmm_irq_chip *ic,
+								unsigned pin,
+								int enable)
+{
+	unsigned int val;
+	void __iomem *cfg_reg = TLMMV3_GP_INTR_CFG(ic->chip_base, pin);
+
+	val = readl_relaxed(cfg_reg);
+	if (enable) {
+		val &= ~BIT(INTR_DIR_CONN_EN_BIT);
+		val |= BIT(INTR_ENABLE_BIT);
+	} else
+		val &= ~BIT(INTR_ENABLE_BIT);
+	writel_relaxed(val, cfg_reg);
+}
+
+static int msm_tlmm_v3_get_intr_cfg_enable(struct msm_tlmm_irq_chip *ic,
+								unsigned pin)
+{
+	void __iomem *cfg_reg = TLMMV3_GP_INTR_CFG(ic->chip_base, pin);
+	return readl_relaxed(cfg_reg) & BIT(INTR_ENABLE_BIT);
+}
+
+static void msm_tlmm_v3_set_intr_cfg_type(struct msm_tlmm_irq_chip *ic,
+							struct irq_data *d,
+							unsigned int type)
+{
+	unsigned cfg;
+	void __iomem *cfg_reg = TLMMV3_GP_INTR_CFG(ic->chip_base,
+							(irqd_to_hwirq(d)));
+	/*
+	 * RAW_STATUS_EN is left on for all gpio irqs. Due to the
+	 * internal circuitry of TLMM, toggling the RAW_STATUS
+	 * could cause the INTR_STATUS to be set for EDGE interrupts.
+	 */
+	cfg = BIT(INTR_RAW_STATUS_EN_BIT) | INTR_TARGET_PROC_APPS(ic->apps_id);
+	writel_relaxed(cfg, cfg_reg);
+	cfg &= ~INTR_DECT_CTL_MASK;
+	if (type == IRQ_TYPE_EDGE_RISING)
+		cfg |= INTR_DECT_CTL_POS_EDGE;
+	else if (type == IRQ_TYPE_EDGE_FALLING)
+		cfg |= INTR_DECT_CTL_NEG_EDGE;
+	else if (type == IRQ_TYPE_EDGE_BOTH)
+		cfg |= INTR_DECT_CTL_DUAL_EDGE;
+	else
+		cfg |= INTR_DECT_CTL_LEVEL;
+
+	if (type & IRQ_TYPE_LEVEL_LOW)
+		cfg &= ~INTR_POL_CTL_HI;
+	else
+		cfg |= INTR_POL_CTL_HI;
+
+	writel_relaxed(cfg, cfg_reg);
+	/*
+	 * Sometimes it might take a little while to update
+	 * the interrupt status after the RAW_STATUS is enabled
+	 * We clear the interrupt status before enabling the
+	 * interrupt in the unmask call-back.
+	 */
+	udelay(5);
+}
+
+static irqreturn_t msm_tlmm_v3_irq_handle(int irq, void *data)
+{
+	unsigned long i;
+	unsigned int virq = 0;
+	struct msm_tlmm_irq_chip *ic = (struct msm_tlmm_irq_chip *)data;
+	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct msm_pintype_info *pinfo = ic_to_pintype(ic);
+	struct gpio_chip *gc = pintype_get_gc(pinfo);
+
+	chained_irq_enter(chip, desc);
+	for_each_set_bit(i, ic->enabled_irqs, ic->num_irqs)
+	 {
+		dev_dbg(ic->dev, "hwirq in bit mask %d\n", (unsigned int)i);
+		if (msm_tlmm_v3_get_intr_status(ic, i)) {
+			dev_dbg(ic->dev, "hwirw %d fired\n", (unsigned int)i);
+			virq = msm_tlmm_v3_gp_to_irq(gc, i);
+			if (!virq) {
+				dev_dbg(ic->dev, "invalid virq\n");
+				return IRQ_NONE;
+			}
+			generic_handle_irq(virq);
+		}
+
+	}
+	chained_irq_exit(chip, desc);
+	return IRQ_HANDLED;
+}
+
+static void msm_tlmm_v3_irq_ack(struct irq_data *d)
+{
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+
+	msm_tlmm_v3_set_intr_status(ic, irqd_to_hwirq(d));
+	mb();
+}
+
+static void msm_tlmm_v3_irq_mask(struct irq_data *d)
+{
+	unsigned long irq_flags;
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+
+	spin_lock_irqsave(&ic->irq_lock, irq_flags);
+	msm_tlmm_v3_set_intr_cfg_enable(ic, irqd_to_hwirq(d), 0);
+	__clear_bit(irqd_to_hwirq(d), ic->enabled_irqs);
+	mb();
+	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
+	if (ic->irq_chip_extn->irq_mask)
+		ic->irq_chip_extn->irq_mask(d);
+}
+
+static void msm_tlmm_v3_irq_unmask(struct irq_data *d)
+{
+	unsigned long irq_flags;
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+
+	spin_lock_irqsave(&ic->irq_lock, irq_flags);
+	__set_bit(irqd_to_hwirq(d), ic->enabled_irqs);
+	if (!msm_tlmm_v3_get_intr_cfg_enable(ic, irqd_to_hwirq(d))) {
+		msm_tlmm_v3_set_intr_status(ic, irqd_to_hwirq(d));
+		msm_tlmm_v3_set_intr_cfg_enable(ic, irqd_to_hwirq(d), 1);
+		mb();
+	}
+	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
+	if (ic->irq_chip_extn->irq_unmask)
+		ic->irq_chip_extn->irq_unmask(d);
+}
+
+static void msm_tlmm_v3_irq_disable(struct irq_data *d)
+{
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+	if (ic->irq_chip_extn->irq_disable)
+		ic->irq_chip_extn->irq_disable(d);
+}
+
+static int msm_tlmm_v3_irq_set_type(struct irq_data *d, unsigned int flow_type)
+{
+	unsigned long irq_flags;
+	unsigned int pin = irqd_to_hwirq(d);
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+
+
+	spin_lock_irqsave(&ic->irq_lock, irq_flags);
+
+	if (flow_type & IRQ_TYPE_EDGE_BOTH) {
+		__irq_set_handler_locked(d->irq, handle_edge_irq);
+		if ((flow_type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
+			__set_bit(pin, ic->dual_edge_irqs);
+		else
+			__clear_bit(pin, ic->dual_edge_irqs);
+	} else {
+		__irq_set_handler_locked(d->irq, handle_level_irq);
+		__clear_bit(pin, ic->dual_edge_irqs);
+	}
+
+	msm_tlmm_v3_set_intr_cfg_type(ic, d, flow_type);
+
+	mb();
+	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
+
+	if ((flow_type & IRQ_TYPE_EDGE_BOTH) != IRQ_TYPE_EDGE_BOTH) {
+		if (ic->irq_chip_extn->irq_set_type)
+			ic->irq_chip_extn->irq_set_type(d, flow_type);
+	}
+
+	return 0;
+}
+
+static int msm_tlmm_v3_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	unsigned int pin = irqd_to_hwirq(d);
+	struct msm_tlmm_irq_chip *ic = irq_data_get_irq_chip_data(d);
+
+	if (on) {
+		if (bitmap_empty(ic->wake_irqs, ic->num_irqs))
+			irq_set_irq_wake(ic->irq, 1);
+		set_bit(pin, ic->wake_irqs);
+	} else {
+		clear_bit(pin, ic->wake_irqs);
+		if (bitmap_empty(ic->wake_irqs, ic->num_irqs))
+			irq_set_irq_wake(ic->irq, 0);
+	}
+
+	if (ic->irq_chip_extn->irq_set_wake)
+		ic->irq_chip_extn->irq_set_wake(d, on);
+
+	return 0;
+}
+
+static struct lock_class_key msm_tlmm_irq_lock_class;
+
+static int msm_tlmm_v3_irq_map(struct irq_domain *h, unsigned int virq,
+					irq_hw_number_t hw)
+{
+	struct msm_tlmm_irq_chip *ic = h->host_data;
+
+	irq_set_lockdep_class(virq, &msm_tlmm_irq_lock_class);
+	irq_set_chip_data(virq, ic);
+	irq_set_chip_and_handler(virq, &ic->chip,
+					handle_level_irq);
+	set_irq_flags(virq, IRQF_VALID);
+	return 0;
+}
+
+/*
+ * irq domain callbacks for interrupt controller.
+ */
+static const struct irq_domain_ops msm_tlmm_v3_gp_irqd_ops = {
+	.map	= msm_tlmm_v3_irq_map,
+	.xlate	= irq_domain_xlate_twocell,
+};
+
+struct irq_chip mpm_tlmm_irq_extn = {
+	.irq_eoi	= NULL,
+	.irq_mask	= NULL,
+	.irq_unmask	= NULL,
+	.irq_retrigger	= NULL,
+	.irq_set_type	= NULL,
+	.irq_set_wake	= NULL,
+	.irq_disable	= NULL,
+};
+
+static struct msm_tlmm_irq_chip msm_tlmm_v3_gp_irq = {
+			.irq_chip_extn = &mpm_tlmm_irq_extn,
+			.chip = {
+				.name		= "msm_tlmm_v3_irq",
+				.irq_mask	= msm_tlmm_v3_irq_mask,
+				.irq_unmask	= msm_tlmm_v3_irq_unmask,
+				.irq_ack	= msm_tlmm_v3_irq_ack,
+				.irq_set_type	= msm_tlmm_v3_irq_set_type,
+				.irq_set_wake	= msm_tlmm_v3_irq_set_wake,
+				.irq_disable	= msm_tlmm_v3_irq_disable,
+			},
+			.apps_id = TLMMV3_APPS_ID_DEFAULT,
+			.domain_ops = &msm_tlmm_v3_gp_irqd_ops,
+};
+
+/* Power management core operations */
+
+static int msm_tlmm_v3_gp_irq_suspend(void)
+{
+	unsigned long irq_flags;
+	unsigned long i;
+	struct msm_tlmm_irq_chip *ic = &msm_tlmm_v3_gp_irq;
+	int num_irqs = ic->num_irqs;
+
+	spin_lock_irqsave(&ic->irq_lock, irq_flags);
+	for_each_set_bit(i, ic->enabled_irqs, num_irqs)
+		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 0);
+
+	for_each_set_bit(i, ic->enabled_irqs, num_irqs)
+		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 1);
+	mb();
+	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
+	return 0;
+}
+
+static void msm_tlmm_v3_gp_irq_resume(void)
+{
+	unsigned long irq_flags;
+	unsigned long i;
+	struct msm_tlmm_irq_chip *ic = &msm_tlmm_v3_gp_irq;
+	int num_irqs = ic->num_irqs;
+
+	spin_lock_irqsave(&ic->irq_lock, irq_flags);
+	for_each_set_bit(i, ic->wake_irqs, num_irqs)
+		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 0);
+
+	for_each_set_bit(i, ic->enabled_irqs, num_irqs)
+		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 1);
+	mb();
+	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
+}
+
+static struct syscore_ops msm_tlmm_v3_irq_syscore_ops = {
+	.suspend = msm_tlmm_v3_gp_irq_suspend,
+	.resume = msm_tlmm_v3_gp_irq_resume,
+};
+
+static int msm_tlmm_v3_gp_irq_init(int irq, struct msm_pintype_info *pinfo,
+						struct device *tlmm_dev)
+{
+	int ret, num_irqs;
+	struct msm_tlmm_irq_chip *ic = pinfo->irq_chip;
+
+	num_irqs = ic->num_irqs;
+	ret = devm_request_irq(tlmm_dev, irq, msm_tlmm_v3_irq_handle,
+						IRQF_TRIGGER_HIGH,
+						dev_name(tlmm_dev), ic);
+	if (ret) {
+		dev_err(tlmm_dev, "unable to register irq %d\n", irq);
+		return ret;
+	}
+	ic->enabled_irqs = devm_kzalloc(tlmm_dev, sizeof(unsigned long)
+					* BITS_TO_LONGS(num_irqs), GFP_KERNEL);
+	if (IS_ERR(ic->enabled_irqs)) {
+		dev_err(tlmm_dev, "Unable to allocate enabled irqs bitmap\n");
+		return PTR_ERR(ic->enabled_irqs);
+	}
+	ic->dual_edge_irqs = devm_kzalloc(tlmm_dev, sizeof(unsigned long)
+					* BITS_TO_LONGS(num_irqs), GFP_KERNEL);
+	if (IS_ERR(ic->dual_edge_irqs)) {
+		dev_err(tlmm_dev, "Unable to allocate dual edge irqs bitmap\n");
+		return PTR_ERR(ic->dual_edge_irqs);
+	}
+	ic->wake_irqs = devm_kzalloc(tlmm_dev, sizeof(unsigned long)
+					* BITS_TO_LONGS(num_irqs), GFP_KERNEL);
+	if (IS_ERR(ic->wake_irqs)) {
+		dev_err(tlmm_dev, "Unable to allocate dual edge irqs bitmap\n");
+		return PTR_ERR(ic->wake_irqs);
+	}
+	spin_lock_init(&ic->irq_lock);
+	ic->chip_base = pinfo->reg_base;
+	ic->irq = irq;
+	ic->dev = tlmm_dev;
+	ic->num_irqs = pinfo->num_pins;
+	ic->pinfo = pinfo;
+	register_syscore_ops(&msm_tlmm_v3_irq_syscore_ops);
+	return 0;
 }
 
 static struct msm_pintype_info tlmm_v3_pininfo[] = {
@@ -374,6 +750,8 @@ static struct msm_pintype_info tlmm_v3_pininfo[] = {
 				.set              = msm_tlmm_v3_gp_set,
 				.to_irq           = msm_tlmm_v3_gp_to_irq,
 		},
+		.init_irq = msm_tlmm_v3_gp_irq_init,
+		.irq_chip = &msm_tlmm_v3_gp_irq,
 	},
 	{
 		.prg_cfg = msm_tlmm_v3_sdc_cfg,
