@@ -171,6 +171,25 @@ static int ueth_change_mtu(struct net_device *net, int new_mtu)
 	return status;
 }
 
+static int ueth_change_mtu_ip(struct net_device *net, int new_mtu)
+{
+	struct eth_dev	*dev = netdev_priv(net);
+	unsigned long	flags;
+	int		status = 0;
+
+	spin_lock_irqsave(&dev->lock, flags);
+	if (new_mtu <= 0)
+		status = -EINVAL;
+	else
+		net->mtu = new_mtu;
+
+	DBG(dev, "[%s] MTU change: old=%d new=%d\n", net->name,
+					net->mtu, new_mtu);
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+	return status;
+}
+
 static void eth_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *p)
 {
 	struct eth_dev *dev = netdev_priv(net);
@@ -481,7 +500,8 @@ static void process_rx_w(struct work_struct *work)
 	while ((skb = skb_dequeue(&dev->rx_frames))) {
 		if (status < 0
 				|| ETH_HLEN > skb->len
-				|| skb->len > ETH_FRAME_LEN) {
+				|| (skb->len > ETH_FRAME_LEN &&
+				test_bit(RMNET_MODE_LLP_ETH, &dev->flags))) {
 			dev->net->stats.rx_errors++;
 			dev->net->stats.rx_length_errors++;
 			DBG(dev, "rx length %d\n", skb->len);
@@ -999,7 +1019,7 @@ static const struct net_device_ops eth_netdev_ops_ip = {
 	.ndo_stop		= eth_stop,
 	.ndo_start_xmit		= eth_start_xmit,
 	.ndo_do_ioctl		= ether_ioctl,
-	.ndo_change_mtu		= ueth_change_mtu,
+	.ndo_change_mtu		= ueth_change_mtu_ip,
 	.ndo_set_mac_address	= 0,
 	.ndo_validate_addr	= 0,
 };
