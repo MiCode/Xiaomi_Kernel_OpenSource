@@ -142,6 +142,10 @@
 	};
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&smb349_otg_supply>;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pma8084_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
