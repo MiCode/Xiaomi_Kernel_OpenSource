@@ -33,6 +33,9 @@ Optional properties:
   When this entry is not present, voting is done by the runtime-pm callbacks.
  - qcom,master-id : Master endpoint number used for voting on clocks using the
   bus-scaling driver.
+ - qcom,rt-priority : whether spi message queue is set to run as a realtime task.
+  With this spi transaction message pump with high (realtime) priority to reduce
+  the transfer latency on the bus by minimising the delay between a transfer request
 
 Optional properties which are required for support of BAM-mode:
 - qcom,ver-reg-exists : Boolean. When present, allows driver to verify if HW
@@ -92,4 +95,5 @@ Example:
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,ver-reg-exists;
 		qcom,master-id = <86>;
+		qcom,rt-priority;
 	};
