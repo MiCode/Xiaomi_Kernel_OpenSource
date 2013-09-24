@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm FSM9900 CDP";
 	compatible = "qcom,fsm9900-cdp", "qcom,fsm9900", "qcom,cdp";
-	qcom,msm-id = <188 15 0>;
+	qcom,msm-id = <188 1 0>;
 
 	aliases {
 		serial0 = &uart0;
