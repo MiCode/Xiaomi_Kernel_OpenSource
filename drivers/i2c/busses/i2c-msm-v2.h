@@ -17,11 +17,6 @@
 #ifndef _I2C_MSM_V2_H
 #define _I2C_MSM_V2_H
 
-#define i2c_msm_err(ctrl, fmt, ...) \
-		dev_err(ctrl->dev, "Error " pr_fmt(fmt), ##__VA_ARGS__)
-#define i2c_msm_info(ctrl, fmt, ...) \
-		dev_info(ctrl->dev, pr_fmt(fmt), ##__VA_ARGS__)
-
 enum msm_i2_debug_level {
 	MSM_ERR,	/* Error messages only. Always on */
 	MSM_PROF,	/* High level events. Use for profiling */
