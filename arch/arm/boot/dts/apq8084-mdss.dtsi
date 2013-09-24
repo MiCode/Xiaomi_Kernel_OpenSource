@@ -19,8 +19,6 @@
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
-		status = "disabled";
-
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
 		qcom,msm-bus,num-cases = <3>;
