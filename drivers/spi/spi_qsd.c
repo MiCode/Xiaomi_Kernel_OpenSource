@@ -1957,15 +1957,40 @@ error:
 	}
 }
 
-/* workqueue - pull messages from queue & process */
-static void msm_spi_workq(struct work_struct *work)
+/**
+ * msm_spi_transfer_one_message: To process one spi message at a time
+ * @master: spi master controller reference
+ * @msg: one multi-segment SPI transaction
+ * @return zero on success or negative error value
+ *
+ */
+static int msm_spi_transfer_one_message(struct spi_master *master,
+					  struct spi_message *msg)
 {
-	struct msm_spi      *dd =
-		container_of(work, struct msm_spi, work_data);
+	struct msm_spi	*dd;
+	struct spi_transfer *tr;
 	unsigned long        flags;
-	u32                  status_error = 0;
+	u32	status_error = 0;
 
-	pm_runtime_get_sync(dd->dev);
+	dd = spi_master_get_devdata(master);
+
+	if (list_empty(&msg->transfers) || !msg->complete)
+		return -EINVAL;
+
+	list_for_each_entry(tr, &msg->transfers, transfer_list) {
+		/* Check message parameters */
+		if (tr->speed_hz > dd->pdata->max_clock_speed ||
+		    (tr->bits_per_word &&
+		     (tr->bits_per_word < 4 || tr->bits_per_word > 32)) ||
+		    (tr->tx_buf == NULL && tr->rx_buf == NULL)) {
+			dev_err(dd->dev,
+				"Invalid transfer: %d Hz, %d bpw tx=%p, rx=%p\n",
+				tr->speed_hz, tr->bits_per_word,
+				tr->tx_buf, tr->rx_buf);
+			status_error = -EINVAL;
+			goto out;
+		}
+	}
 
 	mutex_lock(&dd->core_lock);
 
@@ -1990,20 +2015,16 @@ static void msm_spi_workq(struct work_struct *work)
 		status_error = 1;
 	}
 	spin_lock_irqsave(&dd->queue_lock, flags);
+	dd->transfer_pending = 1;
+	dd->cur_msg = msg;
+	spin_unlock_irqrestore(&dd->queue_lock, flags);
 
-	while (!list_empty(&dd->queue)) {
-		dd->cur_msg = list_entry(dd->queue.next,
-					 struct spi_message, queue);
-		list_del_init(&dd->cur_msg->queue);
-		spin_unlock_irqrestore(&dd->queue_lock, flags);
-		if (status_error)
+	if (status_error)
 			dd->cur_msg->status = -EIO;
-		else
-			msm_spi_process_message(dd);
-		if (dd->cur_msg->complete)
-			dd->cur_msg->complete(dd->cur_msg->context);
-		spin_lock_irqsave(&dd->queue_lock, flags);
-	}
+	else
+		msm_spi_process_message(dd);
+
+	spin_lock_irqsave(&dd->queue_lock, flags);
 	dd->transfer_pending = 0;
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
 
@@ -2012,44 +2033,33 @@ static void msm_spi_workq(struct work_struct *work)
 
 	mutex_unlock(&dd->core_lock);
 
-	pm_runtime_mark_last_busy(dd->dev);
-	pm_runtime_put_autosuspend(dd->dev);
-
-	/* If needed, this can be done after the current message is complete,
-	   and work can be continued upon resume. No motivation for now. */
+	/*
+	 * If needed, this can be done after the current message is complete,
+	 * and work can be continued upon resume. No motivation for now.
+	 */
 	if (dd->suspended)
 		wake_up_interruptible(&dd->continue_suspend);
+
+out:
+	dd->cur_msg->status = status_error;
+	spi_finalize_current_message(master);
+	return 0;
 }
 
-static int msm_spi_transfer(struct spi_device *spi, struct spi_message *msg)
+static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
 {
-	struct msm_spi	*dd;
-	unsigned long    flags;
-	struct spi_transfer *tr;
+	struct msm_spi	*dd = spi_master_get_devdata(master);
 
-	dd = spi_master_get_devdata(spi->master);
+	pm_runtime_get_sync(dd->dev);
+	return 0;
+}
 
-	if (list_empty(&msg->transfers) || !msg->complete)
-		return -EINVAL;
+static int msm_spi_unprepare_transfer_hardware(struct spi_master *master)
+{
+	struct msm_spi	*dd = spi_master_get_devdata(master);
 
-	list_for_each_entry(tr, &msg->transfers, transfer_list) {
-		/* Check message parameters */
-		if (tr->speed_hz > dd->pdata->max_clock_speed ||
-		    (tr->bits_per_word &&
-		     (tr->bits_per_word < 4 || tr->bits_per_word > 32)) ||
-		    (tr->tx_buf == NULL && tr->rx_buf == NULL)) {
-			dev_err(&spi->dev, "Invalid transfer: %d Hz, %d bpw"
-					   "tx=%p, rx=%p\n",
-					    tr->speed_hz, tr->bits_per_word,
-					    tr->tx_buf, tr->rx_buf);
-			return -EINVAL;
-		}
-	}
-
-	spin_lock_irqsave(&dd->queue_lock, flags);
-	list_add_tail(&msg->queue, &dd->queue);
-	spin_unlock_irqrestore(&dd->queue_lock, flags);
-	queue_work(dd->workqueue, &dd->work_data);
+	pm_runtime_mark_last_busy(dd->dev);
+	pm_runtime_put_autosuspend(dd->dev);
 	return 0;
 }
 
@@ -2701,6 +2711,8 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			&dd->cs_gpios[2].gpio_num,       DT_OPT,  DT_GPIO, -1},
 		{"qcom,gpio-cs3",
 			&dd->cs_gpios[3].gpio_num,       DT_OPT,  DT_GPIO, -1},
+		{"qcom,rt-priority",
+			&pdata->rt_priority,		 DT_OPT,  DT_BOOL,  0},
 		{NULL,  NULL,                            0,       0,        0},
 		};
 
@@ -2794,7 +2806,11 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	master->mode_bits      = SPI_SUPPORTED_MODES;
 	master->num_chipselect = SPI_NUM_CHIPSELECTS;
 	master->setup          = msm_spi_setup;
-	master->transfer       = msm_spi_transfer;
+	master->prepare_transfer_hardware = msm_spi_prepare_transfer_hardware;
+	master->transfer_one_message = msm_spi_transfer_one_message;
+	master->unprepare_transfer_hardware
+			= msm_spi_unprepare_transfer_hardware;
+
 	platform_set_drvdata(pdev, master);
 	dd = spi_master_get_devdata(master);
 
@@ -2834,6 +2850,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
 		dd->cs_gpios[i].valid = 0;
 
+	master->rt = pdata->rt_priority;
 	dd->pdata = pdata;
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!resource) {
@@ -2895,13 +2912,6 @@ skip_dma_resources:
 
 	spin_lock_init(&dd->queue_lock);
 	mutex_init(&dd->core_lock);
-	INIT_LIST_HEAD(&dd->queue);
-	INIT_WORK(&dd->work_data, msm_spi_workq);
-	init_waitqueue_head(&dd->continue_suspend);
-	dd->workqueue = create_singlethread_workqueue(
-			dev_name(master->dev.parent));
-	if (!dd->workqueue)
-		goto err_probe_workq;
 
 	if (!devm_request_mem_region(&pdev->dev, dd->mem_phys_addr,
 					dd->mem_size, SPI_DRV_NAME)) {
@@ -3078,8 +3088,6 @@ err_probe_clk_get:
 	}
 err_probe_rlock_init:
 err_probe_reqmem:
-	destroy_workqueue(dd->workqueue);
-err_probe_workq:
 err_probe_res:
 	spi_master_put(master);
 err_probe_exit:
@@ -3242,7 +3250,6 @@ static int __devexit msm_spi_remove(struct platform_device *pdev)
 	clk_put(dd->clk);
 	clk_put(dd->pclk);
 	msm_spi_clk_path_teardown(dd);
-	destroy_workqueue(dd->workqueue);
 	platform_set_drvdata(pdev, 0);
 	spi_unregister_master(master);
 	spi_master_put(master);
