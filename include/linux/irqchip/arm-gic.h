@@ -79,9 +79,10 @@ static inline void gic_init(unsigned int nr, int start,
 	gic_init_bases(nr, start, dist, cpu, 0, NULL);
 }
 
+#ifdef CONFIG_ARCH_MSM8625
 void msm_gic_save(bool modem_wake, int from_idle);
 void msm_gic_restore(void);
 void gic_configure_and_raise(unsigned int irq, unsigned int cpu);
 #endif
-
+#endif
 #endif
