@@ -139,7 +139,8 @@ enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_BITRATE = 1 << 8,
 	MSM_VENC_CTRL_CLUSTER_TIMING = 1 << 9,
 	MSM_VENC_CTRL_CLUSTER_VP8_PROFILE_LEVEL = 1 << 10,
-	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 11,
+	MSM_VENC_CTRL_CLUSTER_DEINTERLACE = 1 << 11,
+	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 12,
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -405,7 +406,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)
 		),
 		.qmenu = mpeg_video_rotation,
-		.cluster = 0,
+		.cluster = MSM_VENC_CTRL_CLUSTER_DEINTERLACE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
@@ -746,6 +747,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_DISABLED,
 		.step = 1,
 		.cluster = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE,
+		.name = "Deinterlace for encoder",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_ENABLED,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED,
+		.step = 1,
+		.cluster = MSM_VENC_CTRL_CLUSTER_DEINTERLACE,
 	},
 };
 
@@ -1581,11 +1592,22 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+	{
+		struct v4l2_ctrl *deinterlace = NULL;
 		if (!(inst->capability.pixelprocess_capabilities &
 			HAL_VIDEO_ENCODER_ROTATION_CAPABILITY)) {
 			dprintk(VIDC_ERR, "Rotation not supported: 0x%x",
 				ctrl->id);
 			rc = -ENOTSUPP;
+			break;
+		}
+		deinterlace =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE);
+		if (ctrl->val && deinterlace && deinterlace->val !=
+				V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED) {
+			dprintk(VIDC_ERR,
+				"Rotation not supported with deinterlacing");
+			rc = -EINVAL;
 			break;
 		}
 		property_id =
@@ -1596,6 +1618,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		operations.flip = HAL_FLIP_NONE;
 		pdata = &operations;
 		break;
+	}
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP: {
 		struct v4l2_ctrl *qpp, *qpb;
 
@@ -1951,6 +1974,37 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	default:
 		rc = -ENOTSUPP;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE:
+	{
+		struct v4l2_ctrl *rotation = NULL;
+		if (!(inst->capability.pixelprocess_capabilities &
+			HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY)) {
+			dprintk(VIDC_ERR, "Deinterlace not supported: 0x%x",
+					ctrl->id);
+			rc = -ENOTSUPP;
+			break;
+		}
+		rotation = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+		if (ctrl->val && rotation && rotation->val !=
+			V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE) {
+			dprintk(VIDC_ERR,
+				"Deinterlacing not supported with rotation");
+			rc = -EINVAL;
+			break;
+		}
+		property_id = HAL_CONFIG_VPE_DEINTERLACE;
+		switch (ctrl->val) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_ENABLED:
+			enable.enable = 1;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED:
+		default:
+			enable.enable = 0;
+			break;
+		}
+		pdata = &enable;
+		break;
+	}
 	}
 #undef TRY_GET_CTRL
 
