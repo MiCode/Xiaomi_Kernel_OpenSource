@@ -553,6 +553,21 @@ static bool msm_pintype_supports_gpio(struct msm_pintype_info *pinfo)
 	return false;
 }
 
+static bool msm_pintype_supports_irq(struct msm_pintype_info *pinfo)
+{
+	struct device_node *pt_node;
+
+	if (!pinfo->init_irq)
+		return false;
+	for_each_child_of_node(pinfo->node, pt_node) {
+		if (of_find_property(pt_node, "interrupt-controller", NULL)) {
+			pinfo->irq_chip->node = pt_node;
+			return true;
+		}
+	}
+	return false;
+}
+
 static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 						struct msm_pinctrl_dd *dd)
 {
@@ -743,6 +758,22 @@ static void msm_register_gpiochip(struct msm_pinctrl_dd *dd)
 	}
 }
 
+static int msm_register_irqchip(struct msm_pinctrl_dd *dd)
+{
+	struct msm_pintype_info *pintype, *pinfo;
+	int i, ret = 0;
+
+	pinfo = dd->msm_pintype;
+	for (i = 0; i < dd->num_pintypes; i++) {
+		pintype = &pinfo[i];
+		if (!msm_pintype_supports_irq(pintype))
+			continue;
+		ret = pintype->init_irq(dd->irq, pintype, dd->dev);
+		return ret;
+	}
+	return 0;
+}
+
 static int msm_pinctrl_probe(struct platform_device *pdev)
 {
 	struct msm_pinctrl_dd *dd;
@@ -780,6 +811,7 @@ static int msm_pinctrl_probe(struct platform_device *pdev)
 		msm_pinctrl_cleanup_dd(dd);
 		return ret;
 	}
+	msm_register_irqchip(dd);
 	platform_set_drvdata(pdev, dd);
 	return 0;
 }

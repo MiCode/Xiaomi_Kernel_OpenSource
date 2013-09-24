@@ -26,9 +26,25 @@ semantics.
    - qcom,num-pins: number of pins of given type present on the MSM.
    Optional: A pintype may support gpio operations. In that case, a pintype
    node can have an additional child node representing a gpio controller.
+   Additionally the pintype may also support using pins as interrupt triggers.
+   In this case we augment the gpio controller node with interrupt controller
+   attributes. The interrupt controller node, if present, needs to specify the
+   number of pins that can be used as interrupts as well as the id of the
+   processor core to which they need to be routed. Generally the apps id is
+   fixed for a given TLMM block in all SOCs that use that TLMM block.
+   However in some SOCs, the processor id can change. Override the default
+   value in that case.
    - #gpio-controller: Can be used as a gpio controller
    - #gpio-cells: Should be two. The first cell is the pin number and the
 			second cell is used to specify optional parameters
+   - #interrupt-controller: Can be used as an interrupt controller
+   - compatible: identifies the interrupt controller feature version.
+			- "msm_tlmm_v3_gpio": TLMM V3 interrupt controller.
+   - num_irqs: number of pins that can be used as an interrupt source.
+   - apps_id: if present, override the default core id for given TLMM block.
+   - #interrupt-cells: Should be two. The first cell is the pin number used as
+			irq and the second cell is used to specify optional
+			flags
 
 - Pin groups as child nodes: The pin mux (selecting pin function
   mode) and pin config (pull up/down, driver strength, direction) settings are
@@ -101,6 +117,11 @@ semantics.
 			msm_gpio: msm_gpio {
 				#gpio-controller;
 				#gpio-cells = <2>;
+				compatible = "msm_tlmm_v3_gpio";
+				#interrupt-controller;
+				#interrupt-cells <2>;
+				num_irqs = <117>;
+				apps_id = <4>;
 			};
 		};
 		/* Sdc pin type */
