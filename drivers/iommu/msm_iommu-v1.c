@@ -11,6 +11,7 @@
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -42,6 +43,10 @@
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
 #endif
+
+#define IOMMU_MSEC_STEP		10
+#define IOMMU_MSEC_TIMEOUT	5000
+
 
 static DEFINE_MUTEX(msm_iommu_lock);
 struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
@@ -180,12 +185,18 @@ void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata)
 
 static void __sync_tlb(void __iomem *base, int ctx)
 {
+	int i;
+
 	SET_TLBSYNC(base, ctx, 0);
 
 	/* No barrier needed due to register proximity */
-	while (GET_CB_TLBSTATUS_SACTIVE(base, ctx))
-		cpu_relax();
+	for (i = 0; i < IOMMU_MSEC_TIMEOUT; i += IOMMU_MSEC_STEP)
+		if (GET_CB_TLBSTATUS_SACTIVE(base, ctx) == 0)
+			break;
+		else
+			msleep(IOMMU_MSEC_STEP);
 
+	BUG_ON(i >= IOMMU_MSEC_TIMEOUT);
 	/* No barrier needed due to read dependency */
 }
 
@@ -891,6 +902,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	void __iomem *base;
 	phys_addr_t ret = 0;
 	int ctx;
+	int i;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -913,8 +925,18 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	SET_ATS1PR(base, ctx, va & CB_ATS1PR_ADDR);
 	mb();
-	while (GET_CB_ATSR_ACTIVE(base, ctx))
-		cpu_relax();
+	for (i = 0; i < IOMMU_MSEC_TIMEOUT; i += IOMMU_MSEC_STEP)
+		if (GET_CB_ATSR_ACTIVE(base, ctx) == 0)
+			break;
+		else
+			msleep(IOMMU_MSEC_STEP);
+
+	if (i >= IOMMU_MSEC_TIMEOUT) {
+		pr_err("%s: iova to phys timed out on %pa for %s (%s)\n",
+			__func__, &va, iommu_drvdata->name, ctx_drvdata->name);
+		ret = 0;
+		goto fail;
+	}
 
 	par = GET_PAR(base, ctx);
 	__disable_clocks(iommu_drvdata);
