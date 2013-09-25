@@ -66,6 +66,8 @@ wfi_done:
 #endif
 	bx	lr
 #endif
+ENDPROC(msm_arch_idle)
+
 ENTRY(msm_pm_pc_hotplug)
 	stmfd	sp!, {lr}
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
@@ -135,6 +137,7 @@ skip_hp_debug2:
 	mov     r0, #0                   /* return power collapse failed */
 	ldmfd	sp!, {lr}
 	bx      lr
+ENDPROC(msm_pm_pc_hotplug)
 
 ENTRY(msm_pm_collapse)
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
@@ -152,7 +155,9 @@ ENTRY(msm_pm_collapse)
 #endif
 
 	PUSH	{r4-r12}
-	stmia   r0!, {r13-r14}
+ARM(	stmia   r0!, {r13-r14}	)
+THUMB(	str	r13, [r0],#4	)
+THUMB(	str	r14, [r0],#4	)
 #ifdef	CONFIG_ARM_LPAE
 	mrc	p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc	p15, 0, r2, c2, c0, 2 /*TTBCR*/
@@ -282,10 +287,13 @@ skip_pc_debug2:
 	mul	r2, r2, r1
 	add	r0, r0, r2
 #endif
-	ldmfd   r0, {r13-r14}		 /* restore sp and lr */
+ARM(	ldmfd   r0, {r13-r14}	)		 /* restore sp and lr */
+THUMB(	ldr	r13, [r0],#4	)
+THUMB(	ldr	r14, [r0],#4	)
 	POP 	{r4-r12}		 /* restore r4-r12 registers */
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
+ENDPROC(msm_pm_collapse)
 
 ENTRY(msm_pm_collapse_exit)
 #if 0 /* serial debug */
@@ -364,7 +372,9 @@ msm_pm_pa_to_va:
 	mcr     p15, 0, r10, c13, c0, 3 /* TPIDRURO */
 	mcr     p15, 0, r11, c13, c0, 1 /* context ID */
 	isb
-	ldmdb   r1!, {r13-r14}
+ARM(	ldmdb   r1!, {r13-r14}	)
+THUMB(	ldr	r14, [r1, #-4]!	)
+THUMB(	ldr	r13, [r1, #-4]!	)
 	ldr	r0, =msm_pm_pc_pgd
 	ldr	r1, =msm_pm_collapse_exit
 	adr	r3, msm_pm_collapse_exit
@@ -424,6 +434,7 @@ msm_pm_pa_to_va:
 	nop
 	nop
 1:	b       1b
+ENDPROC(msm_pm_collapse_exit)
 
 ENTRY(msm_pm_boot_entry)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
@@ -453,16 +464,19 @@ skip_pc_debug3:
 
 	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
 	ldr     pc, [r1]                 /* jump                           */
+ENDPROC(msm_pm_boot_entry)
 
 ENTRY(msm_pm_set_l2_flush_flag)
 	ldr     r1, =msm_pm_flush_l2_flag
 	str     r0, [r1]
 	bx      lr
+ENDPROC(msm_pm_set_l2_flush_flag)
 
 ENTRY(msm_pm_get_l2_flush_flag)
 	ldr     r1, =msm_pm_flush_l2_flag
 	ldr     r0, [r1]
 	bx      lr
+ENDPROC(msm_pm_get_l2_flush_flag)
 
 	.data
 
