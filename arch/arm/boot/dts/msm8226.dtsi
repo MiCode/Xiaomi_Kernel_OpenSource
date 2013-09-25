@@ -33,7 +33,7 @@
 
 		adsp_mem: adsp_region {
 			linux,contiguous-region;
-			reg = <0 0x2000000>;
+			reg = <0 0xc00000>;
 			label = "adsp_mem";
 		};
 
@@ -51,7 +51,6 @@
 /include/ "msm8226-camera.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8226-iommu.dtsi"
-/include/ "msm8226-pm.dtsi"
 /include/ "msm8226-smp2p.dtsi"
 /include/ "msm8226-gpu.dtsi"
 /include/ "msm8226-bus.dtsi"
@@ -159,6 +158,7 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
+		vdd-supply = <&gdsc_venus>;
 		qcom,load-freq-tbl = <352800 160000000>,
 			<244800 133330000>,
 			<108000  66700000>;
@@ -332,19 +332,20 @@
 			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 			qcom,cdc-vdd-px-current = <25000>;
 
-			cdc-vdd-a-1p2v-supply = <&pm8226_l4>;
-			qcom,cdc-vdd-a-1p2v-voltage = <1200000 1200000>;
-			qcom,cdc-vdd-a-1p2v-current = <10000>;
-
 			cdc-vdd-cx-supply = <&pm8226_l4>;
 			qcom,cdc-vdd-cx-voltage = <1200000 1200000>;
-			qcom,cdc-vdd-cx-current = <10000>;
+			qcom,cdc-vdd-cx-current = <2000>;
 
-			qcom,cdc-static-supplies = "cdc-vdd-buck",
-						   "cdc-vdd-h",
+			cdc-vdd-buckhelper-supply = <&pm8226_l25>;
+			qcom,cdc-vdd-buckhelper-voltage = <1775000 2125000>;
+			qcom,cdc-vdd-buckhelper-current = <10000>;
+
+			qcom,cdc-static-supplies = "cdc-vdd-h",
 						   "cdc-vdd-px",
-						   "cdc-vdd-a-1p2v",
 						   "cdc-vdd-cx";
+
+			qcom,cdc-cp-supplies = "cdc-vdd-buck",
+						"cdc-vdd-buckhelper";
 
 			qcom,cdc-micbias-ldoh-v = <0x3>;
 			qcom,cdc-micbias-cfilt1-mv = <1800>;
@@ -375,6 +376,18 @@
 		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
 		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+	};
+
+	sound-9302 {
+		compatible = "qcom,msm8226-audio-tapan";
+		qcom,model = "msm8226-tapan9302-snd-card";
+		qcom,tapan-mclk-clk-freq = <9600000>;
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,tapan-codec-9302;
 	};
 
 	qcom,msm-pcm {
@@ -425,6 +438,10 @@
 		qcom,msm-dai-q6-dev-id = <8>;
 	};
 
+	qcom,msm-lsm-client {
+		compatible = "qcom,msm-lsm-client";
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
@@ -466,6 +483,11 @@
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
 		};
+
+		qcom,msm-dai-q6-sb-5-tx {
+                        compatible = "qcom,msm-dai-q6-dev";
+                        qcom,msm-dai-q6-dev-id = <16395>;
+                };
 
 		qcom,msm-dai-q6-bt-sco-rx {
 			compatible = "qcom,msm-dai-q6-dev";
@@ -912,6 +934,8 @@
 		interrupts = <0 99 0>;
 		qcom,i2c-bus-freq = <384000>;
 		qcom,i2c-src-freq = <19200000>;
+		qcom,sda-gpio = <&msmgpio 18 0>;
+		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
 	qcom,acpuclk@f9011050 {

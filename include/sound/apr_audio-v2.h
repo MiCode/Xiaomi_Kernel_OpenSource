@@ -82,13 +82,14 @@ struct adm_cmd_matrix_map_routings_v5 {
 */
 #define ADM_CMD_DEVICE_OPEN_V5                          0x00010326
 
-#define ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG                           13
+/* Definition for a low latency stream session. */
+#define ADM_LOW_LATENCY_DEVICE_SESSION			0x2000
+
+/* Definition for a ultra low latency stream session. */
+#define ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION		0x4000
 
 /* Definition for a legacy device session. */
 #define ADM_LEGACY_DEVICE_SESSION                                      0
-
-/* Definition for a low latency stream session. */
-#define ADM_LOW_LATENCY_DEVICE_SESSION                                 1
 
 /* Indicates that endpoint_id_2 is to be ignored.*/
 #define ADM_CMD_COPP_OPEN_END_POINT_ID_2_IGNORE				0xFFFF
@@ -3816,11 +3817,12 @@ struct asm_session_cmdrsp_get_path_delay_v2 {
 #define ASM_STREAM_CMD_OPEN_WRITE_V2       0x00010D8F
 #define ASM_STREAM_CMD_OPEN_WRITE_V3       0x00010DB3
 
-#define ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_WRITE                     28
+#define ASM_LOW_LATENCY_STREAM_SESSION				0x10000000
+
+#define ASM_ULTRA_LOW_LATENCY_STREAM_SESSION			0x20000000
 
 #define ASM_LEGACY_STREAM_SESSION                                      0
 
-#define ASM_LOW_LATENCY_STREAM_SESSION                                  1
 
 struct asm_stream_cmd_open_write_v3 {
 	struct apr_hdr			hdr;

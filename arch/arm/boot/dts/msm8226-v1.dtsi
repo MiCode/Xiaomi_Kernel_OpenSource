@@ -17,6 +17,19 @@
  */
 
 /include/ "msm8226.dtsi"
+/include/ "msm8226-v1-pm.dtsi"
+
+/ {
+	qcom,msm-id = <145 0>,
+		      <158 0>,
+		      <159 0>,
+		      <198 0>,
+		      <205 0>,
+		      <220 0>,
+		      <221 0>,
+		      <222 0>,
+		      <223 0>;
+};
 
 &tsens {
 	qcom,sensors = <4>;

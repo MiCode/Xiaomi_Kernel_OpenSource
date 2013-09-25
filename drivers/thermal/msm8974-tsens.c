@@ -164,7 +164,7 @@
 #define TSENS10_POINT2_BACKUP_MASK	0x3f000000
 
 #define TSENS_8X26_BASE0_MASK		0x1fe000
-#define TSENS0_8X26_POINT1_MASK		0x7f00000
+#define TSENS0_8X26_POINT1_MASK		0x7e00000
 #define TSENS1_8X26_POINT1_MASK		0x3f
 #define TSENS2_8X26_POINT1_MASK		0xfc0
 #define TSENS3_8X26_POINT1_MASK		0x3f000
@@ -174,11 +174,11 @@
 #define TSENS_8X26_TSENS_CAL_SEL	0xe0000000
 #define TSENS_8X26_BASE1_MASK		0xff
 #define TSENS0_8X26_POINT2_MASK		0x3f00
-#define TSENS1_8X26_POINT2_MASK		0xfc00
+#define TSENS1_8X26_POINT2_MASK		0xfc000
 #define TSENS2_8X26_POINT2_MASK		0x3f00000
 #define TSENS3_8X26_POINT2_MASK		0xfc000000
-#define TSENS4_8X26_POINT2_MASK		0xfc000000
-#define TSENS5_8X26_POINT2_MASK		0x3f00000
+#define TSENS4_8X26_POINT2_MASK		0x3f00000
+#define TSENS5_8X26_POINT2_MASK		0xfc000000
 #define TSENS6_8X26_POINT2_MASK		0x7e0000
 
 #define TSENS_8X26_CAL_SEL_SHIFT	29
@@ -664,6 +664,15 @@ static void tsens_scheduler_fn(struct work_struct *work)
 			lower_thr = true;
 		}
 		if (upper_thr || lower_thr) {
+			unsigned long temp;
+			enum thermal_trip_type trip =
+					THERMAL_TRIP_CONFIGURABLE_LOW;
+
+			if (upper_thr)
+				trip = THERMAL_TRIP_CONFIGURABLE_HI;
+			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
+
 			/* Notify user space */
 			queue_work(tm->tsens_wq, &tm->sensor[i].work);
 			rc = tsens_get_sw_id_mapping(

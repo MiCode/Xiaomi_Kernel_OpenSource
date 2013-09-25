@@ -136,6 +136,8 @@ Optional properties:
 					is present, and vise versa.
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
+- qcom,use-tz-api:		Present: CPR reads efuse parameters through trustzone API.
+				Not Present: CPR reads efuse parameters directly.
 
 
 Example:

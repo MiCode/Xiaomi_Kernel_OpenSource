@@ -75,7 +75,7 @@ target += smd_rpc_sym.c
 $(obj)/smd_rpc_sym.c: $(src)/smd_rpc_sym $(src)/mkrpcsym.pl
 	$(call if_changed,mkrpcsym)
 
-obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o smd_private.o smem.o
+obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o smd_private.o smem.o smd_init_dt.o smd_init_plat.o
 obj-$(CONFIG_MSM_SMP2P) += smp2p.o smp2p_debug.o smp2p_gpio.o
 obj-$(CONFIG_MSM_SMP2P_TEST) += smp2p_loopback.o smp2p_test.o smp2p_gpio_test.o smp2p_spinlock_test.o
 obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o
@@ -296,7 +296,7 @@ obj-$(CONFIG_ARCH_MSM8226) += gdsc.o
 obj-$(CONFIG_ARCH_MSM8610) += gdsc.o
 obj-$(CONFIG_ARCH_MPQ8092) += gdsc.o
 obj-$(CONFIG_ARCH_APQ8084) += gdsc.o
-obj-$(CONFIG_KRAIT_REGULATOR) += krait-regulator.o
+obj-$(CONFIG_KRAIT_REGULATOR) += krait-regulator.o  krait-regulator-pmic.o
 obj-$(CONFIG_ARCH_MSMKRYPTON) += board-krypton.o board-krypton-gpiomux.o
 obj-$(CONFIG_ARCH_MSMSAMARIUM) += board-samarium.o board-samarium-gpiomux.o
 obj-$(CONFIG_ARCH_MSM9625) += board-9625.o board-9625-gpiomux.o
@@ -431,3 +431,4 @@ obj-$(CONFIG_CPU_FREQ_MSM) += cpufreq.o
 
 obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
+obj-$(CONFIG_ARCH_RANDOM) += early_random.o

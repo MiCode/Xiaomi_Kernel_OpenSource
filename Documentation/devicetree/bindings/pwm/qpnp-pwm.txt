@@ -18,6 +18,8 @@ Required device bindings:
 - qcom,channel-id:	channel Id for the PWM.
 
 Optional device bindings:
+- qcom,force-pwm-size:	For certain LPG channels, PWM size can be forced.
+			Possible values  6, 7, 8 and 9.
 - qcom,channel-owner:	A string value to supply owner information.
 - qcom,mode-select:	0 = PWM mode
 			1 = LPG mode
@@ -110,6 +112,7 @@ Example:
                                       <0xb040 0x80>;
 				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
                                 qcom,channel-id = <1>;
+                                qcom,force-pwm-size = <9>;
                                 qcom,period = <6000000>;
 				status = "okay";
 				qcom,pwm {

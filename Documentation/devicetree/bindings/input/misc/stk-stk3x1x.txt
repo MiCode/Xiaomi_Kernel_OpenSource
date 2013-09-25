@@ -25,6 +25,10 @@ Required properties:
  - stk,ps-thdl	: Low threshold for proximity sensor, sensor will report
 				"far" if the proximity sensor reading is larger than this value.
 
+Optional properties:
+
+ - stk,use-fir	: Boolean to enable light data jitter suppressing FIR filter.
+
 Example:
 	i2c@f9925000 {
 		stk@48 {
@@ -43,4 +47,5 @@ Example:
 			stk,wait-reg = <0x07>;
 			stk,ps-thdh = <1700>;
 			stk,ps-thdl = <1500>;
+			stk,use-fir;
 		};

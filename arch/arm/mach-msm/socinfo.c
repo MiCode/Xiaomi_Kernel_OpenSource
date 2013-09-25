@@ -85,6 +85,7 @@ const char *qrd_hw_platform_subtype[] = {
 	[PLATFORM_SUBTYPE_SKUF] = "SKUF",
 	[PLATFORM_SUBTYPE_SKUAB] = "SKUAB",
 	[PLATFORM_SUBTYPE_SKUG] = "SKUG",
+	[PLATFORM_SUBTYPE_QRD_INVALID] = "INVALID",
 };
 
 enum {
@@ -365,6 +366,12 @@ static enum msm_cpu cpu_of_id[] = {
 	[199] = MSM_CPU_8226,
 	[200] = MSM_CPU_8226,
 	[205] = MSM_CPU_8226,
+	[219] = MSM_CPU_8226,
+	[220] = MSM_CPU_8226,
+	[221] = MSM_CPU_8226,
+	[222] = MSM_CPU_8226,
+	[223] = MSM_CPU_8226,
+	[224] = MSM_CPU_8226,
 
 	/* 8092 IDs */
 	[146] = MSM_CPU_8092,
@@ -668,7 +675,7 @@ socinfo_show_platform_subtype(struct sys_device *dev,
 		if (hw_subtype >= PLATFORM_SUBTYPE_QRD_INVALID) {
 			pr_err("%s: Invalid hardware platform sub type for qrd found\n",
 				__func__);
-			hw_subtype = PLATFORM_SUBTYPE_QRD;
+			hw_subtype = PLATFORM_SUBTYPE_QRD_INVALID;
 		}
 		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 					qrd_hw_platform_subtype[hw_subtype]);
@@ -790,6 +797,16 @@ msm_get_platform_subtype(struct device *dev,
 {
 	uint32_t hw_subtype;
 	hw_subtype = socinfo_get_platform_subtype();
+	if (HW_PLATFORM_QRD == socinfo_get_platform_type()) {
+		if (hw_subtype >= PLATFORM_SUBTYPE_QRD_INVALID) {
+			pr_err("%s: Invalid hardware platform sub type for qrd found\n",
+				__func__);
+			hw_subtype = PLATFORM_SUBTYPE_QRD_INVALID;
+		}
+		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+					qrd_hw_platform_subtype[hw_subtype]);
+	}
+
 	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 		hw_platform_subtype[hw_subtype]);
 }

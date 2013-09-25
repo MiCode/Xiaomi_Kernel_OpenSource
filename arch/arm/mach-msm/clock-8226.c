@@ -353,7 +353,6 @@ static struct branch_clk oxilicx_axi_clk;
 #define GPLL1_N_VAL                                        (0x004C)
 #define GPLL1_USER_CTL                                     (0x0050)
 #define GPLL1_STATUS                                       (0x005C)
-#define PERIPH_NOC_AHB_CBCR                                (0x0184)
 #define NOC_CONF_XPU_AHB_CBCR                              (0x01C0)
 #define MMSS_NOC_CFG_AHB_CBCR                              (0x024C)
 #define MSS_CFG_AHB_CBCR                                   (0x0280)
@@ -1394,17 +1393,6 @@ static struct branch_clk gcc_pdm_xo4_clk = {
 	},
 };
 
-static struct branch_clk gcc_periph_noc_ahb_clk = {
-	.cbcr_reg = PERIPH_NOC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_periph_noc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_periph_noc_ahb_clk.c),
-	},
-};
-
 static struct local_vote_clk gcc_prng_ahb_clk = {
 	.cbcr_reg = PRNG_AHB_CBCR,
 	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -1571,7 +1559,6 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 };
 
 static struct measure_mux_entry measure_mux_GCC[] = {
-	{ &gcc_periph_noc_ahb_clk.c,  GCC_BASE, 0x0010 },
 	{ &gcc_mss_cfg_ahb_clk.c,  GCC_BASE, 0x0030 },
 	{ &gcc_mss_q6_bimc_axi_clk.c,  GCC_BASE, 0x0031 },
 	{ &gcc_usb_hsic_ahb_clk.c,  GCC_BASE, 0x0058 },
@@ -1616,7 +1603,15 @@ static struct measure_mux_entry measure_mux_GCC[] = {
 	{ &gcc_ce1_axi_clk.c,  GCC_BASE, 0x0139 },
 	{ &gcc_ce1_ahb_clk.c,  GCC_BASE, 0x013a },
 	{ &gcc_lpass_q6_axi_clk.c,  GCC_BASE, 0x0160 },
-	{&dummy_clk, N_BASES, 0x0000},
+	{ &pnoc_clk.c, GCC_BASE, 0x010},
+	{ &snoc_clk.c, GCC_BASE, 0x000},
+	{ &cnoc_clk.c, GCC_BASE, 0x008},
+	/*
+	 * measure the gcc_bimc_kpss_axi_clk instead to account for the DDR
+	 * rate being gcc_bimc_clk/2.
+	 */
+	{ &bimc_clk.c, GCC_BASE, 0x155},
+	{ &dummy_clk, N_BASES, 0x0000},
 };
 
 static struct pll_vote_clk mmpll0_pll = {
@@ -2738,6 +2733,7 @@ static struct measure_mux_entry measure_mux_MMSS[] = {
 	{ &camss_csi1rdi_clk.c,  MMSS_BASE, 0x0049 },
 	{ &camss_csi1pix_clk.c,  MMSS_BASE, 0x004a },
 	{ &camss_ispif_ahb_clk.c,  MMSS_BASE, 0x0055 },
+	{ &mmssnoc_ahb_clk.c,  MMSS_BASE, 0x0001 },
 	{&dummy_clk, N_BASES, 0x0000},
 };
 
@@ -2833,6 +2829,8 @@ static struct pll_freq_tbl apcs_pll_freq[] = {
 	F_APCS_PLL(1305600000, 68, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1344000000, 70, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1401600000, 73, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1497600000, 78, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1593600000, 83, 0x0, 0x1, 0x0, 0x0, 0x0),
 	PLL_F_END
 };
 
@@ -3400,6 +3398,10 @@ static struct clk_lookup msm_clocks_8226[] = {
 	/* eeprom clocks */
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6c.qcom,eeprom"),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6c.qcom,eeprom"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "18.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "18.qcom,eeprom"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6b.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6b.qcom,eeprom"),
 
 	/* CCI clocks */
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,

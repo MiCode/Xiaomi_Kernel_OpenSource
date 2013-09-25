@@ -357,7 +357,8 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 {
 	int ret;
 
-	atomic_set(&this_afe.state, 1);
+	if (wait)
+		atomic_set(&this_afe.state, 1);
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, data);
 	if (ret > 0) {
@@ -467,6 +468,35 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 			 path);
 done:
 	return;
+}
+
+int afe_unmap_cal_blocks(void)
+{
+	int	i;
+	int	result = 0;
+	int	result2 = 0;
+
+	for (i = 0; i < MAX_AFE_CAL_TYPES; i++) {
+		if (atomic_read(&this_afe.mem_map_cal_handles[i]) != 0) {
+
+			atomic_set(&this_afe.mem_map_cal_index, i);
+			result2 = afe_cmd_memory_unmap(atomic_read(
+				&this_afe.mem_map_cal_handles[i]));
+			if (result2 < 0) {
+				pr_err("%s: unmap failed, err %d\n",
+					__func__, result2);
+				result = result2;
+			} else {
+				atomic_set(&this_afe.mem_map_cal_handles[i],
+					0);
+			}
+			atomic_set(&this_afe.mem_map_cal_index, -1);
+
+			this_afe.afe_cal_addr[i].cal_paddr = 0;
+			this_afe.afe_cal_addr[i].cal_size = 0;
+		}
+	}
+	return result;
 }
 
 static int afe_spk_prot_prepare(int port, int param_id,
@@ -1223,7 +1253,13 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	mad_type = afe_port_get_mad_type(port_id);
 	pr_debug("%s: port_id 0x%x, mad_type %d\n", __func__, port_id,
 		 mad_type);
-	if (mad_type != MAD_HW_NONE) {
+	if (mad_type != MAD_HW_NONE && mad_type != MAD_SW_AUDIO) {
+		if (!afe_has_config(AFE_CDC_REGISTERS_CONFIG) ||
+		    !afe_has_config(AFE_SLIMBUS_SLAVE_CONFIG)) {
+			pr_err("%s: AFE isn't configured yet for HW MAD\n",
+			       __func__);
+			return -EINVAL;
+		}
 		ret = afe_turn_onoff_hw_mad(mad_type, true);
 		if (ret) {
 			pr_err("%s: afe_turn_onoff_hw_mad failed %d\n",
@@ -2006,7 +2042,6 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 		goto fail_cmd;
 	}
 
-	pr_debug("%s: mmap handle 0x%x\n", __func__, this_afe.mmap_handle);
 	kfree(mmap_region_cmd);
 	return 0;
 fail_cmd:
@@ -2090,7 +2125,6 @@ int q6afe_audio_client_buf_free_contiguous(unsigned int dir,
 	cnt = port->max_buf_cnt - 1;
 
 	if (port->buf[0].data) {
-		msm_audio_ion_free(port->buf[0].client, port->buf[0].handle);
 		pr_debug("%s:data[%p]phys[%p][%p] , client[%p] handle[%p]\n",
 			__func__,
 			(void *)port->buf[0].data,
@@ -2098,6 +2132,9 @@ int q6afe_audio_client_buf_free_contiguous(unsigned int dir,
 			(void *)&port->buf[0].phys,
 			(void *)port->buf[0].client,
 			(void *)port->buf[0].handle);
+		msm_audio_ion_free(port->buf[0].client, port->buf[0].handle);
+		port->buf[0].client = NULL;
+		port->buf[0].handle = NULL;
 	}
 
 	while (cnt >= 0) {
@@ -2817,7 +2854,7 @@ int afe_close(int port_id)
 	mad_type = afe_port_get_mad_type(port_id);
 	pr_debug("%s: port_id 0x%x, mad_type %d\n", __func__, port_id,
 		 mad_type);
-	if (mad_type != MAD_HW_NONE) {
+	if (mad_type != MAD_HW_NONE && mad_type != MAD_SW_AUDIO) {
 		pr_debug("%s: Turn off MAD\n", __func__);
 		ret = afe_turn_onoff_hw_mad(mad_type, false);
 		if (ret) {

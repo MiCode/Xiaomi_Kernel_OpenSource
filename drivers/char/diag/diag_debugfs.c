@@ -86,6 +86,25 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Lpass hdlc encoding: %d\n"
 		"RIVA hdlc encoding: %d\n"
 		"Modem CMD hdlc encoding: %d\n"
+		"Modem DATA in_buf_1_size: %d\n"
+		"Modem DATA in_buf_2_size: %d\n"
+		"ADSP DATA in_buf_1_size: %d\n"
+		"ADSP DATA in_buf_2_size: %d\n"
+		"RIVA DATA in_buf_1_size: %d\n"
+		"RIVA DATA in_buf_2_size: %d\n"
+		"Modem DATA in_buf_1_raw_size: %d\n"
+		"Modem DATA in_buf_2_raw_size: %d\n"
+		"ADSP DATA in_buf_1_raw_size: %d\n"
+		"ADSP DATA in_buf_2_raw_size: %d\n"
+		"RIVA DATA in_buf_1_raw_size: %d\n"
+		"RIVA DATA in_buf_2_raw_size: %d\n"
+		"Modem CMD in_buf_1_size: %d\n"
+		"Modem CMD in_buf_1_raw_size: %d\n"
+		"Modem CNTL in_buf_1_size: %d\n"
+		"ADSP CNTL in_buf_1_size: %d\n"
+		"RIVA CNTL in_buf_1_size: %d\n"
+		"Modem DCI in_buf_1_size: %d\n"
+		"Modem DCI CMD in_buf_1_size: %d\n"
 		"logging_mode: %d\n"
 		"real_time_mode: %d\n",
 		(unsigned int)driver->smd_data[MODEM_DATA].ch,
@@ -133,6 +152,25 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->smd_data[LPASS_DATA].encode_hdlc,
 		driver->smd_data[WCNSS_DATA].encode_hdlc,
 		driver->smd_cmd[MODEM_DATA].encode_hdlc,
+		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_size,
+		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_size,
+		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_size,
+		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_raw_size,
+		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_raw_size,
+		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_raw_size,
+		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_cntl[MODEM_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cntl[LPASS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cntl[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci[MODEM_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci_cmd[MODEM_DATA].buf_in_1_size,
 		driver->logging_mode,
 		driver->real_time_mode);
 
@@ -350,19 +388,21 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 			"i: %3d, cmd_code: %4x, subsys_id: %4x, "
 			"client: %2d, cmd_code_lo: %4x, "
-			"cmd_code_hi: %4x, process_id: %5d\n",
+			"cmd_code_hi: %4x, process_id: %5d %s\n",
 			i,
 			driver->table[i].cmd_code,
 			driver->table[i].subsys_id,
 			driver->table[i].client_id,
 			driver->table[i].cmd_code_lo,
 			driver->table[i].cmd_code_hi,
-			driver->table[i].process_id);
+			driver->table[i].process_id,
+			(diag_find_polling_reg(i) ? "<- Polling cmd reg" : ""));
 
 		bytes_in_buffer += bytes_written;
 
 		/* Check if there is room to add another table entry */
 		bytes_remaining = buf_size - bytes_in_buffer;
+
 		if (bytes_remaining < bytes_written)
 			break;
 	}

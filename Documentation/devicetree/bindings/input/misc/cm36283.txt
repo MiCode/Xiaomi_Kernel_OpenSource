@@ -1,0 +1,40 @@
+Capella cm36283 L/P sensor
+
+Required properties:
+
+ - compatible		: Should be "capella,cm36283".
+ - reg				: i2c slave address of the device.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: L/P sample interrupt to indicate new data ready.
+ - vdd-supply		: Power supply needed to power up the device.
+ - vio-supply		: IO power supply needed for IO and I2C.
+ - capella,interrupt-gpio	: The gpio pin for the interrupt.
+ - capella,levels	: The adc value for light sensor to trigger different light level.
+ - capella,ps_close_thd_set	: The threshold adc value for proximity sensor to trigger close  interrupt.
+ - capella,ps_away_thd_set: The threshold adc value for proximity sensor to trigger away interrupt.
+ - capella,ls_cmd	: The initial value to configure cm36283 ALS_CONF register.
+ - capella,ps_conf1_val	: The initial value to configure cm36283 PS_CONF1 register.
+ - capella,ps_conf3_val	: The initial value to configure cm36283 PS_CONF3 register.
+
+Optional properties:
+
+ - capella,use-polling	: Property to specify if using polling instead of interrupt for adc value report.
+
+Example:
+
+		capella@60 {
+				compatible = "capella,cm36283";
+				reg = <0x60>;
+				interrupt-parent = <&msmgpio>;
+				interrupts = <80 0x2>;
+				vdd-supply = <&pm8110_l19>;
+				vio-supply = <&pm8110_l14>;
+				capella,use-polling;
+				capella,interrupt-gpio = <80>;
+				capella,levels = <0x0A 0xA0 0xE1 0x140 0x280 0x500 0xA28 0x16A8 0x1F40 0x2800>;
+				capella,ps_close_thd_set = <0xa>;
+				capella,ps_away_thd_set = <0x5>;
+				capella,ls_cmd = <0x44>;  /* PS_IT=160ms, INT_PERS=2*/
+				capella,ps_conf1_val = <0x0006>;  /*CM36283_PS_ITB_1_2 | CM36283_PS_DR_1_40| CM36283_PS_IT_1T | CM36283_PS_PERS_2 | CM36283_PS_RES_1*/
+				capella,ps_conf3_val = <0x3010>;  /* CM36283_PS_MS_NORMAL | CM36283_PS_PROL_255 | CM36283_PS_SMART_PERS_ENABLE, */
+		};

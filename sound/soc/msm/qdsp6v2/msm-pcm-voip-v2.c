@@ -46,6 +46,7 @@
 #define MODE_AMR		0x5
 #define MODE_AMR_WB		0xD
 #define MODE_PCM		0xC
+#define MODE_4GV_NW		0xE
 
 enum format {
 	FORMAT_S16_LE = 2,
@@ -79,12 +80,16 @@ enum voip_state {
 	VOIP_STARTED,
 };
 
-struct voip_frame {
+struct voip_frame_hdr {
+	uint32_t timestamp;
 	union {
-	uint32_t frame_type;
-	uint32_t packet_rate;
-	} header;
-	uint32_t len;
+		uint32_t frame_type;
+		uint32_t packet_rate;
+	};
+};
+struct voip_frame {
+	struct voip_frame_hdr frm_hdr;
+	uint32_t pktlen;
 	uint8_t voc_pkt[VOIP_MAX_VOC_PKT_SIZE];
 };
 
@@ -136,6 +141,9 @@ struct voip_drv_info {
 	unsigned int pcm_capture_count;
 	unsigned int pcm_capture_irq_pos;       /* IRQ position */
 	unsigned int pcm_capture_buf_pos;       /* position in buffer */
+
+	uint32_t evrc_min_rate;
+	uint32_t evrc_max_rate;
 };
 
 static int voip_get_media_type(uint32_t mode,
@@ -144,10 +152,15 @@ static int voip_get_media_type(uint32_t mode,
 static int voip_get_rate_type(uint32_t mode,
 				uint32_t rate,
 				uint32_t *rate_type);
+static int voip_config_vocoder(struct snd_pcm_substream *substream);
 static int msm_voip_mode_rate_config_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol);
 static int msm_voip_mode_rate_config_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol);
+static int msm_voip_evrc_min_max_rate_config_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol);
+static int msm_voip_evrc_min_max_rate_config_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol);
 
 static struct voip_drv_info voip_info;
 
@@ -257,6 +270,9 @@ static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 			     0, 2, msm_voip_mode_rate_config_get,
 			     msm_voip_mode_rate_config_put),
+	SOC_SINGLE_MULTI_EXT("Voip Evrc Min Max Rate Config", SND_SOC_NOPM,
+			     0, 4, 0, 2, msm_voip_evrc_min_max_rate_config_get,
+			     msm_voip_evrc_min_max_rate_config_put),
 	SOC_SINGLE_EXT("Voip Dtx Mode", SND_SOC_NOPM, 0, 1, 0,
 		       msm_voip_dtx_mode_get, msm_voip_dtx_mode_put),
 };
@@ -275,6 +291,7 @@ static unsigned int supported_sample_rates[] = {8000, 16000};
 /* capture path */
 static void voip_process_ul_pkt(uint8_t *voc_pkt,
 				uint32_t pkt_len,
+				uint32_t timestamp,
 				void *private_data)
 {
 	struct voip_buf_node *buf_node = NULL;
@@ -299,44 +316,50 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			buf_node->frame.header.frame_type =
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.frm_hdr.frame_type =
 						((*voc_pkt) & 0xF0) >> 4;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+			buf_node->frame.pktlen = pkt_len - DSP_FRAME_HDR_LEN;
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
+
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 			break;
 		}
 		case MODE_IS127:
 		case MODE_4GV_NB:
-		case MODE_4GV_WB: {
+		case MODE_4GV_WB:
+		case MODE_4GV_NW: {
 			/* Remove the DSP frame info header.
 			 * Header format:
 			 * Bits 0-3: frame rate
 			 */
-			buf_node->frame.header.packet_rate = (*voc_pkt) & 0x0F;
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.frm_hdr.packet_rate = (*voc_pkt) & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+			buf_node->frame.pktlen = pkt_len - DSP_FRAME_HDR_LEN;
 
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 			break;
 		}
 		default: {
-			buf_node->frame.len = pkt_len;
+			buf_node->frame.frm_hdr.timestamp = timestamp;
+			buf_node->frame.pktlen = pkt_len;
 			memcpy(&buf_node->frame.voc_pkt[0],
 			       voc_pkt,
-			       buf_node->frame.len);
+			       buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 		}
 		}
-		pr_debug("ul_pkt: pkt_len =%d, frame.len=%d\n", pkt_len,
-			buf_node->frame.len);
+		pr_debug("%s: pkt_len =%d, frame.pktlen=%d, timestamp=%d\n",
+			 __func__, pkt_len, buf_node->frame.pktlen, timestamp);
+
 		prtd->pcm_capture_irq_pos += prtd->pcm_capture_count;
 		spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 		snd_pcm_period_elapsed(prtd->capture_substream);
@@ -367,7 +390,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 		switch (prtd->mode) {
 		case MODE_AMR:
 		case MODE_AMR_WB: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							DSP_FRAME_HDR_LEN;
 			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
@@ -376,19 +399,20 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			*voc_pkt = ((buf_node->frame.header.frame_type &
+			*voc_pkt = ((buf_node->frame.frm_hdr.frame_type &
 					0x0F) << 4) | (prtd->rate_type & 0x0F);
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 			break;
 		}
 		case MODE_IS127:
 		case MODE_4GV_NB:
-		case MODE_4GV_WB: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+		case MODE_4GV_WB:
+		case MODE_4GV_NW: {
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							 DSP_FRAME_HDR_LEN;
 			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
@@ -396,22 +420,22 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 			 * Add the DSP frame info header. Header format:
 			 * Bits 0-3 : Frame rate
 			 */
-			*voc_pkt = buf_node->frame.header.packet_rate & 0x0F;
+			*voc_pkt = buf_node->frame.frm_hdr.packet_rate & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
-				buf_node->frame.len);
+				buf_node->frame.pktlen);
 
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 			break;
 		}
 		default: {
-			*((uint32_t *)voc_pkt) = buf_node->frame.len;
+			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen;
 			voc_pkt = voc_pkt + sizeof(uint32_t);
 			memcpy(voc_pkt,
 			       &buf_node->frame.voc_pkt[0],
-			       buf_node->frame.len);
+			       buf_node->frame.pktlen);
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 		}
 		}
@@ -559,7 +583,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 			if (prtd->mode == MODE_PCM) {
 				ret = copy_from_user(&buf_node->frame.voc_pkt,
 							buf, count);
-				buf_node->frame.len = count;
+				buf_node->frame.pktlen = count;
 			} else
 				ret = copy_from_user(&buf_node->frame,
 							buf, count);
@@ -759,13 +783,137 @@ done:
 
 	return ret;
 }
-static int msm_pcm_prepare(struct snd_pcm_substream *substream)
+
+static int voip_config_vocoder(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
 	uint32_t media_type = 0;
 	uint32_t rate_type = 0;
+	uint32_t evrc_min_rate_type = 0;
+	uint32_t evrc_max_rate_type = 0;
+
+	if ((runtime->format != FORMAT_SPECIAL) &&
+	    ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB) ||
+	    (prtd->mode == MODE_IS127) || (prtd->mode == MODE_4GV_NB) ||
+	    (prtd->mode == MODE_4GV_WB) || (prtd->mode == MODE_4GV_NW))) {
+		pr_err("%s(): mode:%d and format:%u are not mached\n",
+			__func__, prtd->mode, (uint32_t)runtime->format);
+
+		ret =  -EINVAL;
+		goto done;
+	}
+
+	if ((runtime->format != FORMAT_S16_LE) &&
+	    (prtd->mode == MODE_PCM)) {
+		pr_err("%s(): mode:%d and format:%u are not mached\n",
+			__func__, prtd->mode, (uint32_t)runtime->format);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = voip_get_media_type(prtd->mode,
+				  prtd->play_samp_rate,
+				  &media_type);
+	if (ret < 0) {
+		pr_err("%s(): fail at getting media_type, ret=%d\n",
+			__func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	pr_debug("%s(): media_type=%d\n", __func__, media_type);
+
+	if ((prtd->mode == MODE_PCM) ||
+	    (prtd->mode == MODE_AMR) ||
+	    (prtd->mode == MODE_AMR_WB)) {
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->rate,
+					 &rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting rate_type, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		prtd->rate_type = rate_type;
+		pr_debug("rate_type=%d\n", rate_type);
+
+	} else if ((prtd->mode == MODE_IS127) ||
+		   (prtd->mode == MODE_4GV_NB) ||
+		   (prtd->mode == MODE_4GV_WB) ||
+		   (prtd->mode == MODE_4GV_NW)) {
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->evrc_min_rate,
+					 &evrc_min_rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting min rate, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		if (evrc_min_rate_type == VOC_0_RATE)
+			evrc_min_rate_type = VOC_8_RATE;
+
+		ret = voip_get_rate_type(prtd->mode,
+					 prtd->evrc_max_rate,
+					 &evrc_max_rate_type);
+		if (ret < 0) {
+			pr_err("%s(): fail at getting max rate, ret=%d\n",
+				__func__, ret);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		if (evrc_max_rate_type == VOC_0_RATE)
+			evrc_max_rate_type = VOC_1_RATE;
+
+		if (evrc_max_rate_type < evrc_min_rate_type) {
+			pr_err("%s(): Invalid EVRC min max rates: %d, %d\n",
+				__func__, evrc_min_rate_type,
+				evrc_max_rate_type);
+
+			ret = -EINVAL;
+			goto done;
+		}
+		pr_debug("%s(): min rate=%d, max rate=%d\n",
+			  __func__, evrc_min_rate_type, evrc_max_rate_type);
+	}
+	if ((prtd->play_samp_rate == 8000) &&
+	    (prtd->cap_samp_rate == 8000))
+		voc_config_vocoder(media_type, rate_type,
+				   VSS_NETWORK_ID_VOIP_NB,
+				   voip_info.dtx_mode,
+				   evrc_min_rate_type,
+				   evrc_max_rate_type);
+	else if ((prtd->play_samp_rate == 16000) &&
+		 (prtd->cap_samp_rate == 16000))
+		voc_config_vocoder(media_type, rate_type,
+				   VSS_NETWORK_ID_VOIP_WB,
+				   voip_info.dtx_mode,
+				   evrc_min_rate_type,
+				   evrc_max_rate_type);
+	else {
+		pr_debug("%s: Invalid rate playback %d, capture %d\n",
+			 __func__, prtd->play_samp_rate,
+			 prtd->cap_samp_rate);
+
+		ret = -EINVAL;
+	}
+done:
+
+	return ret;
+}
+
+static int msm_pcm_prepare(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct voip_drv_info *prtd = runtime->private_data;
 
 	mutex_lock(&prtd->lock);
 
@@ -774,63 +922,19 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		ret = msm_pcm_capture_prepare(substream);
 
-	if ((runtime->format != FORMAT_SPECIAL) &&
-		 ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB) ||
-		 (prtd->mode == MODE_IS127) || (prtd->mode == MODE_4GV_NB) ||
-		 (prtd->mode == MODE_4GV_WB))) {
-		pr_err("mode:%d and format:%u are not mached\n",
-			prtd->mode, (uint32_t)runtime->format);
-		ret =  -EINVAL;
-		goto done;
-	}
-
-	if ((runtime->format != FORMAT_S16_LE) &&
-		(prtd->mode == MODE_PCM)) {
-		pr_err("mode:%d and format:%u are not mached\n",
-			prtd->mode, (uint32_t)runtime->format);
-		ret = -EINVAL;
-		goto done;
-	}
-
 	if (prtd->playback_instance && prtd->capture_instance
-				&& (prtd->state != VOIP_STARTED)) {
+	    && (prtd->state != VOIP_STARTED)) {
+		ret = voip_config_vocoder(substream);
+		if (ret < 0) {
+			pr_err("%s(): fail at configuring vocoder for voip, ret=%d\n",
+				__func__, ret);
 
-		ret = voip_get_rate_type(prtd->mode,
-					prtd->rate,
-					&rate_type);
-		if (ret < 0) {
-			pr_err("fail at getting rate_type\n");
-			ret = -EINVAL;
 			goto done;
 		}
-		prtd->rate_type = rate_type;
-		ret = voip_get_media_type(prtd->mode,
-						prtd->play_samp_rate,
-						&media_type);
-		if (ret < 0) {
-			pr_err("fail at getting media_type\n");
-			goto done;
-		}
-		pr_debug(" media_type=%d, rate_type=%d\n", media_type,
-			rate_type);
-		if ((prtd->play_samp_rate == 8000) &&
-					(prtd->cap_samp_rate == 8000))
-			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_NB,
-					voip_info.dtx_mode);
-		else if ((prtd->play_samp_rate == 16000) &&
-					(prtd->cap_samp_rate == 16000))
-			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_WB,
-					voip_info.dtx_mode);
-		else {
-			pr_debug("%s: Invalid rate playback %d, capture %d\n",
-				 __func__, prtd->play_samp_rate,
-				 prtd->cap_samp_rate);
-			goto done;
-		}
+
 		voc_register_mvs_cb(voip_process_ul_pkt,
-					voip_process_dl_pkt, prtd);
+				    voip_process_dl_pkt, prtd);
+
 		ret = voc_start_voice_call(
 				voc_get_session_id(VOIP_SESSION_NAME));
 
@@ -976,6 +1080,35 @@ static int msm_voip_mode_rate_config_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_voip_evrc_min_max_rate_config_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	ucontrol->value.integer.value[0] = voip_info.evrc_min_rate;
+	ucontrol->value.integer.value[1] = voip_info.evrc_max_rate;
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+
+static int msm_voip_evrc_min_max_rate_config_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	voip_info.evrc_min_rate = ucontrol->value.integer.value[0];
+	voip_info.evrc_max_rate = ucontrol->value.integer.value[1];
+
+	pr_debug("%s(): evrc_min_rate=%d,evrc_max_rate=%d\n", __func__,
+		  voip_info.evrc_min_rate, voip_info.evrc_max_rate);
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+
 static int voip_get_rate_type(uint32_t mode, uint32_t rate,
 				 uint32_t *rate_type)
 {
@@ -1073,6 +1206,23 @@ static int voip_get_rate_type(uint32_t mode, uint32_t rate,
 		}
 		break;
 	}
+	case MODE_4GV_NW: {
+		switch (rate) {
+		case VOC_0_RATE:
+		case VOC_8_RATE:
+		case VOC_4_RATE:
+		case VOC_2_RATE:
+		case VOC_1_RATE:
+		case VOC_8_RATE_NC:
+			*rate_type = rate;
+			break;
+		default:
+			pr_err("wrong rate for 4GV_NW.\n");
+			ret = -EINVAL;
+			break;
+		}
+		break;
+	}
 	default:
 		pr_err("wrong mode type.\n");
 		ret = -EINVAL;
@@ -1111,6 +1261,9 @@ static int voip_get_media_type(uint32_t mode,
 		break;
 	case MODE_4GV_WB: /* EVRC-WB */
 		*media_type = VSS_MEDIA_ID_4GV_WB_MODEM;
+		break;
+	case MODE_4GV_NW: /* EVRC-NW */
+		*media_type = VSS_MEDIA_ID_4GV_NW_MODEM;
 		break;
 	default:
 		pr_debug(" input mode is not supported\n");

@@ -497,9 +497,9 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	setup_event_queue(inst, &core->vdev[core_id].vdev);
 
-	mutex_lock(&core->lock);
+	mutex_lock(&core->sync_lock);
 	list_add_tail(&inst->list, &core->instances);
-	mutex_unlock(&core->lock);
+	mutex_unlock(&core->sync_lock);
 	return inst;
 fail_init:
 	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);

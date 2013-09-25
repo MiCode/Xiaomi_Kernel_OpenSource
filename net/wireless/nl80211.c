@@ -2408,8 +2408,8 @@ static int nl80211_stop_ap(struct sk_buff *skb, struct genl_info *info)
 		return -ENOENT;
 
 	err = rdev->ops->stop_ap(&rdev->wiphy, dev);
-	if (!err)
-		wdev->beacon_interval = 0;
+	wdev->beacon_interval = 0;
+
 	return err;
 }
 
@@ -8472,6 +8472,18 @@ void cfg80211_ft_event(struct net_device *netdev,
 				nl80211_mlme_mcgrp.id, GFP_KERNEL);
 }
 EXPORT_SYMBOL(cfg80211_ft_event);
+
+
+void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp)
+{
+	struct wireless_dev *wdev = netdev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+
+	nl80211_send_mlme_event(rdev, netdev, NULL, 0,
+				NL80211_CMD_STOP_AP, gfp);
+}
+EXPORT_SYMBOL(cfg80211_ap_stopped);
+
 
 /* initialisation/exit functions */
 

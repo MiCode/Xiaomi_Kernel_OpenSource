@@ -440,12 +440,19 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 	case CSID_CFG: {
 		struct msm_camera_csid_params csid_params;
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
-		int32_t i = 0;
+		int8_t i = 0;
 		if (copy_from_user(&csid_params,
 			(void *)cdata->cfg.csid_params,
 			sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
+			break;
+		}
+		if (csid_params.lut_params.num_cid < 1 ||
+			csid_params.lut_params.num_cid > 16) {
+			pr_err("%s: %d num_cid outside range\n",
+				 __func__, __LINE__);
+			rc = -EINVAL;
 			break;
 		}
 		for (i = 0; i < csid_params.lut_params.num_cid; i++) {

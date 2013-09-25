@@ -25,6 +25,7 @@
 #include "dsi_v2.h"
 #include "dsi_io_v2.h"
 #include "dsi_host_v2.h"
+#include "mdss_debug.h"
 
 #define DSI_POLL_SLEEP_US 1000
 #define DSI_POLL_TIMEOUT_US 16000
@@ -38,7 +39,10 @@ struct dsi_host_v2_private {
 
 	int irq_no;
 	unsigned char *dsi_base;
+	size_t dsi_reg_size;
 	struct device dis_dev;
+
+	void (*debug_enable_clk)(int on);
 };
 
 static struct dsi_host_v2_private *dsi_host_private;
@@ -478,6 +482,8 @@ int msm_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	if (rc == 0) {
 		pr_err("DSI command transaction time out\n");
 		rc = -ETIME;
+	} else if (!IS_ERR_VALUE(rc)) {
+		rc = 0;
 	}
 
 	dma_unmap_single(&dsi_host_private->dis_dev, tp->dmap, size,
@@ -520,7 +526,7 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 {
 	struct dsi_cmd_desc *cm;
 	u32 dsi_ctrl, ctrl;
-	int i, video_mode;
+	int i, video_mode, rc = 0;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
 	/* turn on cmd mode
@@ -542,8 +548,13 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, cm);
 		msm_dsi_cmd_dma_tx(tp);
-		if (cm->wait)
-			msleep(cm->wait);
+		rc = msm_dsi_cmd_dma_tx(tp);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("%s: failed to call cmd_dma_tx\n", __func__);
+			break;
+		}
+		if (cm->dchdr.wait)
+			msleep(cm->dchdr.wait);
 		cm++;
 	}
 
@@ -551,15 +562,15 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 
 	if (video_mode)
 		MIPI_OUTP(ctrl_base + DSI_CTRL, dsi_ctrl);
-	return 0;
+	return rc;
 }
 
 /* MDSS_DSI_MRPS, Maximum Return Packet Size */
 static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
 
 static struct dsi_cmd_desc pkt_size_cmd[] = {
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize}
+	{{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
+		sizeof(max_pktsize)}, max_pktsize}
 };
 
 /*
@@ -578,7 +589,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 			struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int cnt, len, diff, pkt_size;
+	int cnt, len, diff, pkt_size, rc = 0;
 	char cmd;
 
 	if (pdata->panel_info.mipi.no_max_pkt_size)
@@ -590,8 +601,8 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	if (len <= 2) {
 		cnt = 4;	/* short read */
 	} else {
-		if (len > DSI_LEN)
-			len = DSI_LEN;	/* 8 bytes at most */
+		if (len > MDSS_DSI_LEN)
+			len = MDSS_DSI_LEN;	/* 8 bytes at most */
 
 		len = ALIGN(len, 4); /* len 4 bytes align */
 		diff = len - rlen;
@@ -614,7 +625,13 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		max_pktsize[0] = pkt_size;
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, pkt_size_cmd);
-		msm_dsi_cmd_dma_tx(tp);
+		rc = msm_dsi_cmd_dma_tx(tp);
+		if (IS_ERR_VALUE(rc)) {
+			msm_dsi_disable_irq();
+			pr_err("%s: dma_tx failed\n", __func__);
+			rp->len = 0;
+			goto end;
+		}
 		pr_debug("%s: Max packet size sent\n", __func__);
 	}
 
@@ -623,6 +640,12 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 
 	/* transmit read comamnd to client */
 	msm_dsi_cmd_dma_tx(tp);
+	if (IS_ERR_VALUE(rc)) {
+		msm_dsi_disable_irq();
+		pr_err("%s: dma_tx failed\n", __func__);
+		rp->len = 0;
+		goto end;
+	}
 	/*
 	 * once cmd_dma_done interrupt received,
 	 * return data from client is ready and stored
@@ -676,6 +699,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		break;
 	}
 
+end:
 	return rp->len;
 }
 
@@ -739,12 +763,18 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	u32 dummy_xres, dummy_yres;
 	u32 bitclk_rate = 0, byteclk_rate = 0, pclk_rate = 0, dsiclk_rate = 0;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	pr_debug("msm_dsi_on\n");
 
 	pinfo = &pdata->panel_info;
 
-	ret = msm_dsi_regulator_enable();
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	ret = msm_dss_enable_vreg(
+		ctrl_pdata->power_data.vreg_config,
+		ctrl_pdata->power_data.num_vreg, 1);
 	if (ret) {
 		pr_err("%s: DSI power on failed\n", __func__);
 		return ret;
@@ -839,6 +869,16 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 static int msm_dsi_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	pr_debug("msm_dsi_off\n");
 	msm_dsi_controller_cfg(0);
@@ -848,7 +888,9 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	msm_dsi_phy_off(dsi_host_private->dsi_base);
 	msm_dsi_ahb_ctrl(0);
 
-	ret = msm_dsi_regulator_disable();
+	ret = msm_dss_enable_vreg(
+		ctrl_pdata->power_data.vreg_config,
+		ctrl_pdata->power_data.num_vreg, 0);
 	if (ret) {
 		pr_err("%s: Panel power off failed\n", __func__);
 		return ret;
@@ -861,11 +903,24 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_panel_info *pinfo;
 	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+
 
 	pr_debug("%s:\n", __func__);
 
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
 	pinfo = &pdata->panel_info;
-	ret = msm_dsi_regulator_enable();
+	ret = msm_dss_enable_vreg(
+		ctrl_pdata->power_data.vreg_config,
+		ctrl_pdata->power_data.num_vreg, 1);
 	if (ret) {
 		pr_err("%s: DSI power on failed\n", __func__);
 		return ret;
@@ -877,10 +932,140 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static void msm_dsi_debug_enable_clock(int on)
+{
+	if (dsi_host_private->debug_enable_clk)
+		dsi_host_private->debug_enable_clk(on);
+
+	if (on)
+		msm_dsi_ahb_ctrl(1);
+	else
+		msm_dsi_ahb_ctrl(0);
+}
+
+static int msm_dsi_debug_init(void)
+{
+	int rc;
+
+	if (!mdss_res)
+		return 0;
+
+	dsi_host_private->debug_enable_clk =
+			mdss_res->debug_inf.debug_enable_clock;
+
+	mdss_res->debug_inf.debug_enable_clock = msm_dsi_debug_enable_clock;
+
+
+	rc = mdss_debug_register_base("dsi0",
+				dsi_host_private->dsi_base,
+				dsi_host_private->dsi_reg_size);
+
+	return rc;
+}
+
+static int dsi_get_panel_cfg(char *panel_cfg)
+{
+	int rc;
+	struct mdss_panel_cfg *pan_cfg = NULL;
+
+	if (!panel_cfg)
+		return MDSS_PANEL_INTF_INVALID;
+
+	pan_cfg = mdp3_panel_intf_type(MDSS_PANEL_INTF_DSI);
+	if (IS_ERR(pan_cfg)) {
+		panel_cfg[0] = 0;
+		return PTR_ERR(pan_cfg);
+	} else if (!pan_cfg) {
+		panel_cfg[0] = 0;
+		return 0;
+	}
+
+	pr_debug("%s:%d: cfg:[%s]\n", __func__, __LINE__,
+		 pan_cfg->arg_cfg);
+	rc = strlcpy(panel_cfg, pan_cfg->arg_cfg,
+				MDSS_MAX_PANEL_LEN);
+	return rc;
+}
+
+/**
+ * dsi_find_panel_of_node(): find device node of dsi panel
+ * @pdev: platform_device of the dsi ctrl node
+ * @panel_cfg: string containing intf specific config data
+ *
+ * Function finds the panel device node using the interface
+ * specific configuration data. This configuration data is
+ * could be derived from the result of bootloader's GCDB
+ * panel detection mechanism. If such config data doesn't
+ * exist then this panel returns the default panel configured
+ * in the device tree.
+ *
+ * returns pointer to panel node on success, NULL on error.
+ */
+static struct device_node *dsi_find_panel_of_node(
+		struct platform_device *pdev, char *panel_cfg)
+{
+	int l;
+	char *panel_name;
+	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
+
+	if (!panel_cfg)
+		return NULL;
+
+	l = strlen(panel_cfg);
+	if (!l) {
+		/* no panel cfg chg, parse dt */
+		pr_debug("%s:%d: no cmd line cfg present\n",
+			 __func__, __LINE__);
+		dsi_pan_node = of_parse_phandle(
+			pdev->dev.of_node,
+			"qcom,dsi-pref-prim-pan", 0);
+		if (!dsi_pan_node) {
+			pr_err("%s:can't find panel phandle\n",
+			       __func__);
+			return NULL;
+		}
+	} else {
+		if (panel_cfg[0] != '0') {
+			pr_err("%s:%d:ctrl id=[%d] not supported\n",
+			       __func__, __LINE__, panel_cfg[0]);
+			return NULL;
+		}
+		/*
+		 * skip first two chars '<dsi_ctrl_id>' and
+		 * ':' to get to the panel name
+		 */
+		panel_name = panel_cfg + 2;
+		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
+			 panel_cfg, panel_name);
+
+		mdss_node = of_parse_phandle(pdev->dev.of_node,
+					     "qcom,mdss-mdp", 0);
+
+		if (!mdss_node) {
+			pr_err("%s: %d: mdss_node null\n",
+			       __func__, __LINE__);
+			return NULL;
+		}
+		dsi_pan_node = of_find_node_by_name(mdss_node,
+						    panel_name);
+		if (!dsi_pan_node) {
+			pr_err("%s: invalid pan node\n",
+			       __func__);
+			return NULL;
+		}
+	}
+	return dsi_pan_node;
+}
+
 static int __devinit msm_dsi_probe(struct platform_device *pdev)
 {
 	struct dsi_interface intf;
+	char panel_cfg[MDSS_MAX_PANEL_LEN];
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	int rc = 0;
+	struct device_node *dsi_pan_node = NULL;
+	bool cmd_cfg_cont_splash = false;
+	struct resource *mdss_dsi_mres;
 
 	pr_debug("%s\n", __func__);
 
@@ -888,59 +1073,103 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	if (pdev->dev.of_node) {
-		struct resource *mdss_dsi_mres;
-		pdev->id = 0;
-		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!mdss_dsi_mres) {
-			pr_err("%s:%d unable to get the MDSS reg resources",
-				__func__, __LINE__);
-			return -ENOMEM;
-		} else {
-			dsi_host_private->dsi_base = ioremap(
-						mdss_dsi_mres->start,
-						resource_size(mdss_dsi_mres));
-			if (!dsi_host_private->dsi_base) {
-				pr_err("%s:%d unable to remap dsi resources",
-					__func__, __LINE__);
-				return -ENOMEM;
-			}
-		}
-
-		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-		if (!mdss_dsi_mres || mdss_dsi_mres->start == 0) {
-			pr_err("%s:%d unable to get the MDSS irq resources",
-				__func__, __LINE__);
-			rc = -ENODEV;
-			goto dsi_probe_error;
-		} else {
-			rc = msm_dsi_irq_init(&pdev->dev, mdss_dsi_mres->start);
-			if (rc) {
-				dev_err(&pdev->dev,
-					"%s: failed to init irq, rc=%d\n",
-							__func__, rc);
-				goto dsi_probe_error;
-			}
-		}
-
-		rc = msm_dsi_io_init(pdev);
-		if (rc) {
-			dev_err(&pdev->dev,
-				"%s: failed to init DSI IO, rc=%d\n",
-							__func__, rc);
-			goto dsi_probe_error;
-		}
-
-		rc = of_platform_populate(pdev->dev.of_node,
-					NULL, NULL, &pdev->dev);
-		if (rc) {
-			dev_err(&pdev->dev,
-				"%s: failed to add child nodes, rc=%d\n",
-							__func__, rc);
-			goto dsi_probe_error;
-		}
-
+	if (!pdev->dev.of_node) {
+		pr_err("%s: Device node is not accessible\n", __func__);
+		rc = -ENODEV;
+		goto error_no_mem;
 	}
+	pdev->id = 0;
+
+	ctrl_pdata = platform_get_drvdata(pdev);
+	if (!ctrl_pdata) {
+		ctrl_pdata = devm_kzalloc(&pdev->dev,
+			sizeof(struct mdss_dsi_ctrl_pdata), GFP_KERNEL);
+		if (!ctrl_pdata) {
+			pr_err("%s: FAILED: cannot alloc dsi ctrl\n", __func__);
+			rc = -ENOMEM;
+			goto error_no_mem;
+		}
+		platform_set_drvdata(pdev, ctrl_pdata);
+	}
+
+	mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mdss_dsi_mres) {
+		pr_err("%s:%d unable to get the MDSS reg resources",
+							__func__, __LINE__);
+		rc = -ENOMEM;
+		goto error_io_resource;
+	} else {
+		dsi_host_private->dsi_reg_size = resource_size(mdss_dsi_mres);
+		dsi_host_private->dsi_base = ioremap(mdss_dsi_mres->start,
+						dsi_host_private->dsi_reg_size);
+		if (!dsi_host_private->dsi_base) {
+			pr_err("%s:%d unable to remap dsi resources",
+							__func__, __LINE__);
+			rc = -ENOMEM;
+			goto error_io_resource;
+		}
+	}
+
+	mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!mdss_dsi_mres || mdss_dsi_mres->start == 0) {
+		pr_err("%s:%d unable to get the MDSS irq resources",
+							__func__, __LINE__);
+		rc = -ENODEV;
+		goto error_irq_resource;
+	} else {
+		rc = msm_dsi_irq_init(&pdev->dev, mdss_dsi_mres->start);
+		if (rc) {
+			dev_err(&pdev->dev, "%s: failed to init irq, rc=%d\n",
+								__func__, rc);
+			goto error_irq_resource;
+		}
+	}
+
+	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: failed to add child nodes, rc=%d\n",
+								__func__, rc);
+		goto error_platform_pop;
+	}
+
+	/* DSI panels can be different between controllers */
+	rc = dsi_get_panel_cfg(panel_cfg);
+	if (!rc)
+		/* dsi panel cfg not present */
+		pr_warn("%s:%d:dsi specific cfg not present\n",
+							 __func__, __LINE__);
+
+	/* find panel device node */
+	dsi_pan_node = dsi_find_panel_of_node(pdev, panel_cfg);
+	if (!dsi_pan_node) {
+		pr_err("%s: can't find panel node %s\n", __func__,
+								panel_cfg);
+		goto error_pan_node;
+	}
+
+	cmd_cfg_cont_splash = mdp3_panel_get_boot_cfg() ? true : false;
+
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, cmd_cfg_cont_splash);
+	if (rc) {
+		pr_err("%s: dsi panel init failed\n", __func__);
+		goto error_pan_node;
+	}
+
+	rc = dsi_ctrl_config_init(pdev, ctrl_pdata);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: failed to parse mdss dtsi rc=%d\n",
+								__func__, rc);
+		goto error_pan_node;
+	}
+
+	rc = msm_dsi_io_init(pdev, &(ctrl_pdata->power_data));
+	if (rc) {
+		dev_err(&pdev->dev, "%s: failed to init DSI IO, rc=%d\n",
+								__func__, rc);
+		goto error_io_init;
+	}
+
+	pr_debug("%s: Dsi Ctrl->0 initialized\n", __func__);
 
 	dsi_host_private->dis_dev = pdev->dev;
 	intf.on = msm_dsi_on;
@@ -952,25 +1181,53 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	intf.index = 0;
 	intf.private = NULL;
 	dsi_register_interface(&intf);
+
+	msm_dsi_debug_init();
+
+	rc = dsi_panel_device_register_v2(pdev, ctrl_pdata);
+	if (rc) {
+		pr_err("%s: dsi panel dev reg failed\n", __func__);
+		goto error_device_register;
+	}
 	pr_debug("%s success\n", __func__);
 	return 0;
-dsi_probe_error:
+error_device_register:
+	msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data));
+error_io_init:
+	dsi_ctrl_config_deinit(pdev, ctrl_pdata);
+error_pan_node:
+	of_node_put(dsi_pan_node);
+error_platform_pop:
+	msm_dsi_disable_irq();
+error_irq_resource:
 	if (dsi_host_private->dsi_base) {
 		iounmap(dsi_host_private->dsi_base);
 		dsi_host_private->dsi_base = NULL;
 	}
-	msm_dsi_io_deinit();
+error_io_resource:
+	devm_kfree(&pdev->dev, ctrl_pdata);
+error_no_mem:
 	msm_dsi_deinit();
+
 	return rc;
 }
 
 static int __devexit msm_dsi_remove(struct platform_device *pdev)
 {
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
+	if (!ctrl_pdata) {
+		pr_err("%s: no driver data\n", __func__);
+		return -ENODEV;
+	}
+
 	msm_dsi_disable_irq();
-	msm_dsi_io_deinit();
+	msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data));
+	dsi_ctrl_config_deinit(pdev, ctrl_pdata);
 	iounmap(dsi_host_private->dsi_base);
 	dsi_host_private->dsi_base = NULL;
 	msm_dsi_deinit();
+	devm_kfree(&pdev->dev, ctrl_pdata);
+
 	return 0;
 }
 

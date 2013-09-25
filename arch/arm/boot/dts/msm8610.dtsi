@@ -40,7 +40,6 @@
 /include/ "msm8610-gpu.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8610-coresight.dtsi"
-/include/ "msm8610-pm.dtsi"
 /include/ "msm8610-smp2p.dtsi"
 /include/ "msm8610-bus.dtsi"
 /include/ "msm8610-mdss.dtsi"
@@ -68,6 +67,15 @@
 		ngpio = <102>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
+	};
+
+	wcd9xxx_intc: wcd9xxx_irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 31 0>;
+		interrupt-names = "cdc-int";
 	};
 
 	qcom,mpm2-sleep-counter@fc4a3000 {
@@ -241,7 +249,7 @@
 				<87 512 60000 960000>;
 	};
 
-	android_usb@fe8050c8 {
+	android_usb: android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfe8050c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
@@ -258,8 +266,6 @@
 		interrupt-names = "core_irq", "bam_irq";
 
 		vdd-supply = <&pm8110_l17>;
-		qcom,vdd-always-on;
-		qcom,vdd-lpm-sup;
 		qcom,vdd-voltage-level = <2900000 2900000>;
 		qcom,vdd-current-level = <9000 400000>;
 
@@ -472,6 +478,7 @@
 		qcom,i2c-src-freq = <19200000>;
 		qcom,sda-gpio = <&msmgpio 2 0>;
 		qcom,scl-gpio = <&msmgpio 3 0>;
+                qcom,master-id = <86>;
 	};
 
 	i2c_cdc: i2c@f9927000 { /* BLSP1 QUP5 */
@@ -484,6 +491,8 @@
                 interrupt-names = "qup_err_intr";
                 interrupts = <0 99 0>;
                 qcom,i2c-bus-freq = <100000>;
+                qcom,i2c-src-freq = <19200000>;
+                qcom,master-id = <86>;
         };
 
 	i2c: i2c@f9928000 { /* BLSP1 QUP6 */
@@ -499,6 +508,7 @@
 		qcom,i2c-src-freq = <19200000>;
 		qcom,sda-gpio = <&msmgpio 16 0>;
 		qcom,scl-gpio = <&msmgpio 17 0>;
+                qcom,master-id = <86>;
 	};
 
 	i2c@f9925000 { /* BLSP-1 QUP-3 */
@@ -511,6 +521,10 @@
 		interrupt-names = "qup_err_intr";
 		interrupts = <0 97 0>;
 		qcom,i2c-bus-freq = <100000>;
+                qcom,i2c-src-freq = <19200000>;
+                qcom,sda-gpio = <&msmgpio 10 0>;
+                qcom,scl-gpio = <&msmgpio 11 0>;
+                qcom,master-id = <86>;
 	};
 
 	spi_4: spi@f9926000 { /* BLSP1 QUP4 */
@@ -929,10 +943,12 @@
 };
 
 &gdsc_vfe {
+	qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
 	status = "ok";
 };
 
 &gdsc_oxili_cx {
+	qcom,clock-names = "core_clk", "iface_clk", "mem_clk";
 	status = "ok";
 };
 

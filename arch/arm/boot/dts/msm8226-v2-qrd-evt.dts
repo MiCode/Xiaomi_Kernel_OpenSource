@@ -13,21 +13,17 @@
 /dts-v1/;
 /include/ "msm8226-v2.dtsi"
 /include/ "msm8226-qrd.dtsi"
-/include/ "dsi-panel-nt35590-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226v2 QRD";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
-	qcom,msm-id = <145 11 0x20000>,
-		      <158 11 0x20000>,
-		      <159 11 0x20000>,
-		      <198 11 0x20000>,
-		      <205 11 0x20000>;
+	qcom,board-id = <11 0>;
 };
 
-&soc {
-        qcom,mdss_dsi_nt35590_720p_video {
-                status = "ok";
-		qcom,cont-splash-enabled;
-        };
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+};
+
+&dsi_nt35590_720_vid {
+	qcom,cont-splash-enabled;
 };

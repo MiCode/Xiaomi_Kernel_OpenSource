@@ -11,6 +11,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <sound/soc.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
@@ -31,6 +32,8 @@
 #define NCP_SETTLE_TIME_US 50
 
 #define MAX_IMPED_PARAMS 13
+
+#define USLEEP_RANGE_MARGIN_US 100
 
 struct wcd9xxx_imped_val {
 	u32 imped_val;
@@ -613,6 +616,46 @@ static void wcd9xxx_clsh_comp_req(struct snd_soc_codec *codec,
 						  shift, false);
 	}
 }
+
+
+int wcd9xxx_soc_update_bits_push(struct snd_soc_codec *codec,
+					struct list_head *list,
+					uint16_t reg, uint8_t mask,
+					uint8_t value, int delay)
+{
+	int rc;
+	struct wcd9xxx_register_save_node *node;
+
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
+	if (unlikely(!node)) {
+		pr_err("%s: Not enough memory\n", __func__);
+		return -ENOMEM;
+	}
+	node->reg = reg;
+	node->value = snd_soc_read(codec, reg);
+	list_add(&node->lh, list);
+	if (mask == 0xFF)
+		rc = snd_soc_write(codec, reg, value);
+	else
+		rc = snd_soc_update_bits(codec, reg, mask, value);
+	if (delay)
+		usleep_range(delay, delay + USLEEP_RANGE_MARGIN_US);
+	return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_soc_update_bits_push);
+
+void wcd9xxx_restore_registers(struct snd_soc_codec *codec,
+			       struct list_head *lh)
+{
+	struct wcd9xxx_register_save_node *node, *nodetmp;
+
+	list_for_each_entry_safe(node, nodetmp, lh, lh) {
+		snd_soc_write(codec, node->reg, node->value);
+		list_del(&node->lh);
+		kfree(node);
+	}
+}
+EXPORT_SYMBOL(wcd9xxx_restore_registers);
 
 static void wcd9xxx_enable_buck_mode(struct snd_soc_codec *codec,
 		u8 buck_vref)

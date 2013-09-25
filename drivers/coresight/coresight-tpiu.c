@@ -88,6 +88,11 @@ struct tpiu_drvdata {
 	unsigned int		reg_high;
 	unsigned int		reg_lpm;
 	unsigned int		reg_hpm;
+	struct regulator        *reg_io;
+	unsigned int            reg_low_io;
+	unsigned int            reg_high_io;
+	unsigned int            reg_lpm_io;
+	unsigned int            reg_hpm_io;
 	enum tpiu_set		set;
 	unsigned int		seta_gpiocnt;
 	unsigned int		*seta_gpios;
@@ -240,7 +245,7 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 {
 	int ret;
 
-	if (!drvdata->reg)
+	if (!drvdata->reg || !drvdata->reg_io)
 		return -EINVAL;
 
 	ret = tpiu_reg_set_optimum_mode(drvdata->reg, drvdata->reg_hpm);
@@ -253,6 +258,20 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	ret = regulator_enable(drvdata->reg);
 	if (ret)
 		goto err1;
+	ret = tpiu_reg_set_optimum_mode(drvdata->reg_io, drvdata->reg_hpm_io);
+	if (ret < 0)
+		goto err2;
+	ret = tpiu_reg_set_voltage(drvdata->reg_io, drvdata->reg_low_io,
+				   drvdata->reg_high_io);
+	if (ret)
+		goto err3;
+	ret = regulator_enable(drvdata->reg_io);
+	if (ret)
+		goto err4;
+
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_FIXED);
+	if (ret)
+		goto err5;
 
 	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x16D);
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
@@ -265,6 +284,14 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	TPIU_LOCK(drvdata);
 
 	return 0;
+err5:
+	regulator_disable(drvdata->reg_io);
+err4:
+	tpiu_reg_set_voltage(drvdata->reg_io, 0, drvdata->reg_high_io);
+err3:
+	tpiu_reg_set_optimum_mode(drvdata->reg_io, 0);
+err2:
+	regulator_disable(drvdata->reg);
 err1:
 	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
 err0:
@@ -342,9 +369,15 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 0);
 
+	clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
+
 	regulator_disable(drvdata->reg);
-	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
 	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
+	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
+
+	regulator_disable(drvdata->reg_io);
+	tpiu_reg_set_voltage(drvdata->reg_io, 0, drvdata->reg_high_io);
+	tpiu_reg_set_optimum_mode(drvdata->reg_io, 0);
 }
 
 static void tpiu_disable(struct coresight_device *csdev)
@@ -564,6 +597,33 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 		of_node_put(reg_node);
 	} else {
 		dev_err(dev, "sdc voltage supply not specified or available\n");
+	}
+
+	reg_node = of_parse_phandle(node, "vdd-io-supply", 0);
+	if (reg_node) {
+		drvdata->reg_io = devm_regulator_get(dev, "vdd-io");
+		if (IS_ERR(drvdata->reg_io))
+			return PTR_ERR(drvdata->reg_io);
+
+		prop = of_get_property(node, "qcom,vdd-io-voltage-level", &len);
+		if (!prop || (len != (2 * sizeof(__be32)))) {
+			dev_err(dev, "sdc io voltage levels not specified\n");
+		} else {
+			drvdata->reg_low_io = be32_to_cpup(&prop[0]);
+			drvdata->reg_high_io = be32_to_cpup(&prop[1]);
+		}
+
+		prop = of_get_property(node, "qcom,vdd-io-current-level", &len);
+		if (!prop || (len != (2 * sizeof(__be32)))) {
+			dev_err(dev, "sdc io current levels not specified\n");
+		} else {
+			drvdata->reg_lpm_io = be32_to_cpup(&prop[0]);
+			drvdata->reg_hpm_io = be32_to_cpup(&prop[1]);
+		}
+		of_node_put(reg_node);
+	} else {
+		dev_err(dev,
+			"sdc io voltage supply not specified or available\n");
 	}
 
 	drvdata->out_mode = TPIU_OUT_MODE_MICTOR;

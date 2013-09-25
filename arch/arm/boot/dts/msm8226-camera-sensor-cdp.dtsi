@@ -18,6 +18,7 @@
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pm8226_flash0 &pm8226_flash1>;
+		qcom,torch-source = <&pm8226_torch>;
 	};
 };
 
@@ -30,6 +31,13 @@
 		qcom,cci-master = <0>;
 	};
 
+	actuator1: qcom,actuator@36 {
+		cell-index = <1>;
+		reg = <0x36>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+	};
+
 	qcom,camera@6f {
 		compatible = "qcom,ov8825";
 		reg = <0x6f>;
@@ -38,7 +46,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
-		qcom,mount-angle = <0>;
+		qcom,mount-angle = <180>;
 		qcom,sensor-name = "ov8825";
 		cam_vdig-supply = <&pm8226_l5>;
 		cam_vana-supply = <&pm8226_l19>;
@@ -74,6 +82,7 @@
 		qcom,slave-id = <0x20 0x0016 0x0135>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
+		qcom,actuator-src = <&actuator1>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "imx135";
 		cam_vdig-supply = <&pm8226_l5>;

@@ -403,6 +403,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_DIVX      v4l2_fourcc('D', 'I', 'V', 'X') /* DIVX        */
 #define V4L2_PIX_FMT_VP8 v4l2_fourcc('V', 'P', '8', '0') /* ON2 VP8 stream */
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C') /* for HEVC stream */
+#define V4L2_PIX_FMT_HEVC_HYBRID v4l2_fourcc('H', 'V', 'C', 'H')
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
@@ -1551,6 +1552,7 @@ enum v4l2_mpeg_video_h264_level {
 	V4L2_MPEG_VIDEO_H264_LEVEL_4_2	= 13,
 	V4L2_MPEG_VIDEO_H264_LEVEL_5_0	= 14,
 	V4L2_MPEG_VIDEO_H264_LEVEL_5_1	= 15,
+	V4L2_MPEG_VIDEO_H264_LEVEL_5_2	= 16,
 };
 #define V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA	(V4L2_CID_MPEG_BASE+360)
 #define V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA	(V4L2_CID_MPEG_BASE+361)
@@ -1872,6 +1874,16 @@ enum v4l2_mpeg_vidc_video_alloc_mode_type {
 enum v4l2_mpeg_vidc_video_assembly {
 	V4L2_MPEG_VIDC_FRAME_ASSEMBLY_DISABLE	= 0,
 	V4L2_MPEG_VIDC_FRAME_ASSEMBLY_ENABLE	= 1,
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE+32)
+enum v4l2_mpeg_vidc_video_vp8_profile_level {
+	V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
+	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
+	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2,
+	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 };
 
 /*  Camera class control IDs */

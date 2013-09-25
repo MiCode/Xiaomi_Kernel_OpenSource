@@ -168,31 +168,6 @@ enum msm8x10_wcd_micbias_num {
 	MSM8X10_WCD_MICBIAS1 = 0,
 };
 
-struct msm8x10_wcd_mbhc_config {
-	struct snd_soc_jack *headset_jack;
-	struct snd_soc_jack *button_jack;
-	bool read_fw_bin;
-	/*
-	 * void* calibration contains:
-	 *  struct msm8x10_wcd_mbhc_general_cfg generic;
-	 *  struct msm8x10_wcd_mbhc_plug_detect_cfg plug_det;
-	 *  struct msm8x10_wcd_mbhc_plug_type_cfg plug_type;
-	 *  struct msm8x10_wcd_mbhc_btn_detect_cfg btn_det;
-	 *  struct msm8x10_wcd_mbhc_imped_detect_cfg imped_det;
-	 * Note: various size depends on btn_det->num_btn
-	 */
-	void *calibration;
-	enum msm8x10_wcd_micbias_num micbias;
-	int (*mclk_cb_fn) (struct snd_soc_codec*, int, bool);
-	unsigned int mclk_rate;
-	unsigned int gpio;
-	unsigned int gpio_irq;
-	int gpio_level_insert;
-	bool detect_extn_cable;
-	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
-	bool (*swap_gnd_mic) (struct snd_soc_codec *);
-};
-
 enum msm8x10_wcd_pm_state {
 	MSM8X10_WCD_PM_SLEEPABLE,
 	MSM8X10_WCD_PM_AWAKE,
@@ -203,40 +178,29 @@ struct msm8x10_wcd {
 	struct device *dev;
 	struct mutex io_lock;
 	struct mutex xfer_lock;
-	struct mutex irq_lock;
 	u8 version;
 
 	int reset_gpio;
 	int (*read_dev)(struct msm8x10_wcd *msm8x10,
-			unsigned short reg, unsigned int *val);
+			unsigned short reg);
 	int (*write_dev)(struct msm8x10_wcd *msm8x10,
 			 unsigned short reg, u8 val);
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
 
-	enum msm8x10_wcd_pm_state pm_state;
-	struct mutex pm_lock;
-	/* pm_wq notifies change of pm_state */
-	wait_queue_head_t pm_wq;
-	struct pm_qos_request pm_qos_req;
-	int wlock_holders;
-
 	u8 idbyte[4];
 
-	unsigned int irq_base;
-	unsigned int irq;
-	u8 irq_masks_cur[MSM8X10_WCD_NUM_IRQ_REGS];
-	u8 irq_masks_cache[MSM8X10_WCD_NUM_IRQ_REGS];
-	bool irq_level_high[MSM8X10_WCD_NUM_IRQS];
 	int num_irqs;
 	u32 mclk_rate;
 	char __iomem *pdino_base;
+
+	struct wcd9xxx_core_resource wcd9xxx_res;
 };
 
 extern int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
 			     bool dapm);
 extern int msm8x10_wcd_hs_detect(struct snd_soc_codec *codec,
-			   struct msm8x10_wcd_mbhc_config *mbhc_cfg);
+			struct wcd9xxx_mbhc_config *mbhc_cfg);
 
 #endif

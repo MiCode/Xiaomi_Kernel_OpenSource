@@ -2867,6 +2867,7 @@ static int run_long_seq_write(struct test_data *td)
 {
 	int ret = 0;
 	int i;
+	int num_requests = TEST_MAX_REQUESTS / 2;
 
 	td->test_count = 0;
 	mbtd->completed_req_count = 0;
@@ -2876,15 +2877,15 @@ static int run_long_seq_write(struct test_data *td)
 		     td->wr_rd_next_req_id);
 
 	do {
-		for (i = 0; i < TEST_MAX_REQUESTS; i++) {
+		for (i = 0; i < num_requests; i++) {
 			/*
 			 * since our requests come from a pool containing 128
 			 * requests, we don't want to exhaust this quantity,
-			 * therefore we add up to TEST_MAX_REQUESTS (which
+			 * therefore we add up to num_requests (which
 			 * includes a safety margin) and then call the mmc layer
 			 * to fetch them
 			 */
-			if (td->test_count > TEST_MAX_REQUESTS)
+			if (td->test_count > num_requests)
 				break;
 
 			ret = test_iosched_add_wr_rd_test_req(0, WRITE,

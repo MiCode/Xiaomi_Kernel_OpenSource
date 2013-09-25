@@ -165,5 +165,14 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.bpp = 2,
 		.element = { C1_B_Cb, C0_G_Y, C2_R_Cr, C0_G_Y },
 	},
+	{
+		FMT_YUV_COMMON(MDP_YCBYCR_H2V1),
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,
+		.chroma_sample = MDSS_MDP_CHROMA_H2V1,
+		.unpack_count = 4,
+		.bpp = 2,
+		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
+	},
+
 };
 #endif

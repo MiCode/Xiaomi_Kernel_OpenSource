@@ -10,19 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
 /include/ "msm8610-qrd.dtsi"
-/include/ "dsi-v2-panel-hx8379a-wvga-video.dtsi"
-/include/ "msm8610-qrd-camera-sensor.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8610 QRD";
-	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
-	qcom,board-id = <11 1>, <11 0>;
-	qcom,msm-id = <147 0>, <165 0>, <161 0>, <162 0>,
-				  <163 0>, <164 0>, <166 0>;
-};
 
 &soc {
     sound {
@@ -39,11 +27,29 @@
 
         qcom,ext-spk-amp-gpio = <&msmgpio 92 0x0>;
     };
+
+	usb@f9a55000 {
+		qcom,hsusb-otg-phy-init-seq =
+		<0x44 0x80 0x6a 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
+	};
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		/include/ "batterydata-qrd-4v2-1300mah.dtsi"
+	};
 };
 
 &pm8110_bms {
 	status = "ok";
-	qcom,batt-type = <5>;
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8110_chg {
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &pm8110_vadc {
@@ -51,4 +57,16 @@
 		label = "batt_therm";
 		qcom,scale-function = <7>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_wvga_vid>;
+};
+
+&dsi_hx8379a_wvga_vid {
+	qcom,cont-splash-enabled;
 };

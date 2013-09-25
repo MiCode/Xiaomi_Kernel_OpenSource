@@ -119,11 +119,22 @@ int mdp3_ppp_get_img(struct mdp_img *img, struct mdp_blit_req *req,
 		struct mdp3_img_data *data)
 {
 	struct msmfb_data fb_data;
+	uint32_t stride;
+	int bpp = ppp_bpp(img->format);
+
+	if (bpp <= 0) {
+		pr_err("%s incorrect format %d\n", __func__, img->format);
+		return -EINVAL;
+	}
+
 	fb_data.flags = img->priv;
 	fb_data.memory_id = img->memory_id;
 	fb_data.offset = 0;
 
-	return mdp3_get_img(&fb_data, data);
+	stride = img->width * bpp;
+	data->padding = 16 * stride;
+
+	return mdp3_get_img(&fb_data, data, MDP3_CLIENT_PPP);
 }
 
 /* Check format */
@@ -346,6 +357,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 	uint64_t ab = 0, ib = 0;
 	int rate = 0;
+	int rc;
 
 	if (on_off) {
 		rate = MDP_BLIT_CLK_RATE;
@@ -357,8 +369,17 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		ib = (ab * 3) / 2;
 	}
 	mdp3_clk_set_rate(MDP3_CLK_CORE, rate, MDP3_CLIENT_PPP);
-	mdp3_clk_enable(on_off);
-	mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	rc = mdp3_clk_enable(on_off);
+	if (rc < 0) {
+		pr_err("%s: mdp3_clk_enable failed\n", __func__);
+		return rc;
+	}
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	if (rc < 0) {
+		mdp3_clk_enable(!on_off);
+		pr_err("%s: scale_set_quota failed\n", __func__);
+		return rc;
+	}
 	ppp_stat->bw_on = on_off;
 	return 0;
 }
@@ -909,10 +930,14 @@ void mdp3_free_fw_timer_func(unsigned long arg)
 static void mdp3_free_bw_wq_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
+	int rc;
+
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 	if (ppp_stat->bw_on) {
 		mdp3_ppp_turnon(mfd, 0);
-		mdp3_iommu_disable(MDP3_CLIENT_PPP);
+		rc = mdp3_iommu_disable(MDP3_CLIENT_PPP);
+		if (rc < 0)
+			WARN(1, "Unable to disable ppp iommu\n");
 	}
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
@@ -931,8 +956,19 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	}
 
 	if (!ppp_stat->bw_on) {
-		mdp3_iommu_enable(MDP3_CLIENT_PPP);
+		rc = mdp3_iommu_enable(MDP3_CLIENT_PPP);
+		if (rc < 0) {
+			mutex_unlock(&ppp_stat->config_ppp_mutex);
+			pr_err("%s: mdp3_iommu_enable failed\n", __func__);
+			return;
+		}
 		mdp3_ppp_turnon(mfd, 1);
+		if (rc < 0) {
+			mdp3_iommu_disable(MDP3_CLIENT_PPP);
+			mutex_unlock(&ppp_stat->config_ppp_mutex);
+			pr_err("%s: Enable ppp resources failed\n", __func__);
+			return;
+		}
 	}
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
@@ -945,8 +981,10 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 						&req->src_data[i],
 						&req->dst_data[i]);
 				}
-				mdp3_put_img(&req->src_data[i]);
-				mdp3_put_img(&req->dst_data[i]);
+				mdp3_put_img(&req->src_data[i],
+					MDP3_CLIENT_PPP);
+				mdp3_put_img(&req->dst_data[i],
+					MDP3_CLIENT_PPP);
 			}
 		}
 		/* Signal to release fence */
@@ -1017,7 +1055,7 @@ int mdp3_ppp_parse_req(void __user *p,
 		rc = mdp3_ppp_get_img(&req->req_list[i].dst,
 				&req->req_list[i], &req->dst_data[i]);
 		if (rc < 0 || req->dst_data[i].len == 0) {
-			mdp3_put_img(&req->src_data[i]);
+			mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
 			pr_err("mdp_ppp: couldn't retrieve dest img from mem\n");
 			goto parse_err_1;
 		}
@@ -1060,8 +1098,8 @@ parse_err_2:
 	put_unused_fd(req->cur_rel_fen_fd);
 parse_err_1:
 	for (i--; i >= 0; i--) {
-		mdp3_put_img(&req->src_data[i]);
-		mdp3_put_img(&req->dst_data[i]);
+		mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
+		mdp3_put_img(&req->dst_data[i], MDP3_CLIENT_PPP);
 	}
 	mdp3_ppp_deinit_buf_sync(req);
 	mutex_unlock(&ppp_stat->req_mutex);

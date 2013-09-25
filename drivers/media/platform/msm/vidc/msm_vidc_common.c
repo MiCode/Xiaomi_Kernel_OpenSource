@@ -22,8 +22,6 @@
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
 
-#define HW_RESPONSE_TIMEOUT 1000
-
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
 	__rc; \
@@ -362,7 +360,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	int rc = 0;
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
-		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
 		msm_comm_recover_from_session_error(inst);
@@ -526,8 +524,15 @@ static void handle_load_resource_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response)
+	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
+		if (response->status) {
+			dprintk(VIDC_ERR,
+				"Load resource response from FW : 0x%x",
+				response->status);
+			msm_comm_generate_session_error(inst);
+		}
+	}
 	else
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for load resource\n");
@@ -817,10 +822,21 @@ static void handle_fbd(enum command_response cmd, void *data)
 		(u32)fill_buf_done->packet_buffer1);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
+		vb->v4l2_planes[0].data_offset = fill_buf_done->offset1;
 		vb->v4l2_planes[0].reserved[2] = fill_buf_done->start_x_coord;
 		vb->v4l2_planes[0].reserved[3] = fill_buf_done->start_y_coord;
 		vb->v4l2_planes[0].reserved[4] = fill_buf_done->frame_width;
 		vb->v4l2_planes[0].reserved[5] = fill_buf_done->frame_height;
+		if (vb->v4l2_planes[0].data_offset > vb->v4l2_planes[0].length)
+			dprintk(VIDC_INFO,
+				"fbd:Overflow data_offset = %d; length = %d\n",
+				vb->v4l2_planes[0].data_offset,
+				vb->v4l2_planes[0].length);
+		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
+			dprintk(VIDC_INFO,
+				"fbd:Overflow bytesused = %d; length = %d\n",
+				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_planes[0].length);
 		if (!(fill_buf_done->flags1 &
 			HAL_BUFFERFLAG_TIMESTAMPINVALID) &&
 			fill_buf_done->filled_len1) {
@@ -873,8 +889,9 @@ static void handle_fbd(enum command_response cmd, void *data)
 			msm_vidc_debugfs_update(inst,
 				MSM_VIDC_DEBUGFS_EVENT_FBD);
 
-		dprintk(VIDC_DBG, "Filled length = %d; flags %x\n",
+		dprintk(VIDC_DBG, "Filled length = %d; offset = %d; flags %x\n",
 				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_planes[0].data_offset,
 				vb->v4l2_buf.flags);
 		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -901,6 +918,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 				vb = list_first_entry(&q->vb2_bufq.queued_list,
 					struct vb2_buffer, queued_entry);
 				vb->v4l2_planes[0].bytesused = 0;
+				vb->v4l2_planes[0].data_offset = 0;
 				vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
 				mutex_lock(&q->lock);
 				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -932,12 +950,14 @@ static void  handle_seq_hdr_done(enum command_response cmd, void *data)
 	}
 
 	vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
+	vb->v4l2_planes[0].data_offset = fill_buf_done->offset1;
 
 	vb->v4l2_buf.flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 	vb->v4l2_buf.timestamp = ns_to_timeval(0);
 
-	dprintk(VIDC_DBG, "Filled length = %d; flags %x\n",
+	dprintk(VIDC_DBG, "Filled length = %d; offset = %d; flags %x\n",
 				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_planes[0].data_offset,
 				vb->v4l2_buf.flags);
 	mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -1106,7 +1126,7 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 	}
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)],
-		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
 		rc = -EIO;
@@ -1128,7 +1148,7 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)],
-		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
 		rc = -EIO;
@@ -1409,8 +1429,11 @@ static int msm_vidc_load_resources(int flipped_state,
 		return -EINVAL;
 	}
 
+	mutex_lock(&inst->core->sync_lock);
 	num_mbs_per_sec = msm_comm_get_load(inst->core, MSM_VIDC_DECODER);
 	num_mbs_per_sec += msm_comm_get_load(inst->core, MSM_VIDC_ENCODER);
+	mutex_unlock(&inst->core->sync_lock);
+
 	if (num_mbs_per_sec > inst->core->resources.max_load) {
 		dprintk(VIDC_ERR, "HW is overloaded, needed: %d max: %d\n",
 			num_mbs_per_sec, inst->core->resources.max_load);
@@ -1429,8 +1452,10 @@ static int msm_vidc_load_resources(int flipped_state,
 	if (inst->core->resources.has_ocmem) {
 		ocmem_sz = get_ocmem_requirement(inst->prop.height,
 						inst->prop.width);
+		mutex_lock(&inst->core->sync_lock);
 		rc = msm_comm_scale_bus(inst->core, inst->session_type,
 					OCMEM_MEM);
+		mutex_unlock(&inst->core->sync_lock);
 		if (!rc) {
 			mutex_lock(&inst->core->sync_lock);
 			rc = call_hfi_op(hdev, alloc_ocmem,
@@ -2089,7 +2114,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	}
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)],
-		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR,
 			"Wait interrupted or timeout: %d\n", rc);
@@ -2341,6 +2366,7 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 					queued_entry);
 			if (vb) {
 				vb->v4l2_planes[0].bytesused = 0;
+				vb->v4l2_planes[0].data_offset = 0;
 				mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 				vb2_buffer_done(vb,
 						VB2_BUF_STATE_DONE);
@@ -2358,6 +2384,7 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 					queued_entry);
 			if (vb) {
 				vb->v4l2_planes[0].bytesused = 0;
+				vb->v4l2_planes[0].data_offset = 0;
 				mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 				vb2_buffer_done(vb,
 						VB2_BUF_STATE_DONE);
@@ -2436,6 +2463,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 					lock = &inst->bufq[CAPTURE_PORT].lock;
 				else
 					lock = &inst->bufq[OUTPUT_PORT].lock;
+				temp->vb->v4l2_planes[0].bytesused = 0;
 				mutex_lock(lock);
 				vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
 				mutex_unlock(lock);
@@ -2673,7 +2701,7 @@ int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 	}
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_ABORT_DONE)],
-		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
 			__func__, rc);

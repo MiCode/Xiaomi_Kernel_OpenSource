@@ -46,12 +46,14 @@
 
 	tpiu@fc318000 {
 		vdd-supply = <&pma8084_l21>;
+		vdd-io-supply = <&pma8084_l13>;
 	};
 
 	qcom,mdss_dsi@fd922800 {
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
 		vdda-supply = <&pma8084_l2>;
+		qcom,platform-reset-gpio = <&pma8084_gpios 20 0>;
 	};
 
 	qcom,mdss_dsi@fd922e00 {
@@ -160,6 +162,9 @@
 	qcom,msm-thermal {
 		vdd-dig-supply = <&pma8084_s2_floor_corner>;
 		vdd-gfx-supply = <&pma8084_s7_floor_corner>;
+		/delete-property/ qcom,pmic-sw-mode-temp;
+		/delete-property/ qcom,pmic-sw-mode-temp-hysteresis;
+		/delete-property/ qcom,pmic-sw-mode-regs;
 	};
 
 	qcom,lpm-resources {
@@ -187,4 +192,20 @@
 
 &tspp {
 	vdd_cx-supply = <&pma8084_s2_corner>;
+};
+
+&krait_regulator_pmic {
+	status = "ok";
+
+	qcom,ctl@2900 {
+		status = "ok";
+	};
+
+	qcom,ps@2a00 {
+		status = "ok";
+	};
+
+	qcom,freq@2b00 {
+		status = "ok";
+	};
 };

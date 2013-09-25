@@ -19,8 +19,7 @@
 		interrupts = <0 166 0>;
 		interrupt-names = "byte-cntr-irq";
 
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x20000>; /* 128K EBI1 buffer */
+		qcom,memory-size = <0x20000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -121,13 +120,13 @@
 		coresight-child-ports = <7>;
 	};
 
-	etm: etm@fc332000 {
+	etm0: etm@fc332000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc332000 0x1000>;
 		reg-names = "etm-base";
 
 		coresight-id = <8>;
-		coresight-name = "coresight-etm";
+		coresight-name = "coresight-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;

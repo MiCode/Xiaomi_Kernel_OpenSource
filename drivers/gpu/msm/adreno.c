@@ -71,6 +71,8 @@
 	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
 	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
 
+#define KGSL_LOG_LEVEL_DEFAULT 3
+
 static const struct kgsl_functable adreno_functable;
 
 static struct adreno_device device_3d0 = {
@@ -100,6 +102,13 @@ static struct adreno_device device_3d0 = {
 		.iomemname = KGSL_3D0_REG_MEMORY,
 		.shadermemname = KGSL_3D0_SHADER_MEMORY,
 		.ftbl = &adreno_functable,
+		.cmd_log = KGSL_LOG_LEVEL_DEFAULT,
+		.ctxt_log = KGSL_LOG_LEVEL_DEFAULT,
+		.drv_log = KGSL_LOG_LEVEL_DEFAULT,
+		.mem_log = KGSL_LOG_LEVEL_DEFAULT,
+		.pwr_log = KGSL_LOG_LEVEL_DEFAULT,
+		.ft_log = KGSL_LOG_LEVEL_DEFAULT,
+		.pm_dump_enable = 0,
 	},
 	.gmem_base = 0,
 	.gmem_size = SZ_256K,
@@ -117,13 +126,7 @@ static struct adreno_device device_3d0 = {
  * If the values of these registers are same after
  * KGSL_TIMEOUT_PART time, GPU hang is reported in
  * kernel log.
- * *****ALERT******ALERT********ALERT*************
- * Order of registers below is important, registers
- * from LONG_IB_DETECT_REG_INDEX_START to
- * LONG_IB_DETECT_REG_INDEX_END are used in long ib detection.
  */
-#define LONG_IB_DETECT_REG_INDEX_START 1
-#define LONG_IB_DETECT_REG_INDEX_END 5
 
 unsigned int ft_detect_regs[FT_DETECT_REGS_COUNT];
 
@@ -631,36 +634,44 @@ static void adreno_cleanup_pt(struct kgsl_device *device,
 
 	kgsl_mmu_unmap(pagetable, &adreno_dev->profile.shared_buffer);
 
+	kgsl_mmu_unmap(pagetable, &adreno_dev->pwron_fixup);
+
 	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
 }
 
 static int adreno_setup_pt(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable)
 {
-	int result = 0;
+	int result;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
 	result = kgsl_mmu_map_global(pagetable, &rb->buffer_desc);
-	if (result)
-		goto error;
 
-	result = kgsl_mmu_map_global(pagetable, &rb->memptrs_desc);
-	if (result)
-		goto unmap_buffer_desc;
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable, &rb->memptrs_desc);
 
-	result = kgsl_mmu_map_global(pagetable, &device->memstore);
-	if (result)
-		goto unmap_memptrs_desc;
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable, &device->memstore);
 
-	result = kgsl_mmu_map_global(pagetable,
-					&adreno_dev->profile.shared_buffer);
-	if (result)
-		goto unmap_profile_shared;
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable,
+			&adreno_dev->profile.shared_buffer);
 
-	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory);
-	if (result)
-		goto unmap_memstore_desc;
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable,
+			&adreno_dev->pwron_fixup);
+
+
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable,
+			&device->mmu.setstate_memory);
+
+	if (result) {
+		/* On error clean up what we have wrought */
+		adreno_cleanup_pt(device, pagetable);
+		return result;
+	}
 
 	/*
 	 * Set the mpu end to the last "normal" global memory we use.
@@ -669,22 +680,8 @@ static int adreno_setup_pt(struct kgsl_device *device,
 	 */
 	device->mh.mpu_range = device->mmu.setstate_memory.gpuaddr +
 				device->mmu.setstate_memory.size;
-	return result;
 
-unmap_profile_shared:
-	kgsl_mmu_unmap(pagetable, &adreno_dev->profile.shared_buffer);
-
-unmap_memstore_desc:
-	kgsl_mmu_unmap(pagetable, &device->memstore);
-
-unmap_memptrs_desc:
-	kgsl_mmu_unmap(pagetable, &rb->memptrs_desc);
-
-unmap_buffer_desc:
-	kgsl_mmu_unmap(pagetable, &rb->buffer_desc);
-
-error:
-	return result;
+	return 0;
 }
 
 static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
@@ -808,6 +805,8 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 	int i;
 	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync, mmu_ctrl;
 
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
 	for (i = 0; i < num_iommu_units; i++) {
 		ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
 				i, KGSL_IOMMU_CONTEXT_USER);
@@ -895,8 +894,14 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 					KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
 			cmds += adreno_wait_reg_eq(cmds, tlbstatus, 0,
 					KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+			/* release all commands with wait_for_me */
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+			*cmds++ = 0;
 		}
 	}
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
 	return cmds - cmds_orig;
 }
 
@@ -915,7 +920,6 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 static bool adreno_use_default_setstate(struct adreno_device *adreno_dev)
 {
 	return (adreno_isidle(&adreno_dev->dev) ||
-		adreno_dev->drawctxt_active == NULL ||
 		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
 		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
 		adreno_dev->dev.cff_dump_enable);
@@ -1693,6 +1697,10 @@ static int adreno_init(struct kgsl_device *device)
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
 
+	/* Certain targets need the fixup.  You know who you are */
+	if (adreno_is_a330v2(adreno_dev))
+		adreno_a3xx_pwron_fixup_init(adreno_dev);
+
 	return 0;
 }
 
@@ -1714,6 +1722,9 @@ static int adreno_start(struct kgsl_device *device)
 
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
+
+	/* Set the bit to indicate that we've just powered on */
+	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
 	/* Set up a2xx special case */
 	if (adreno_is_a2xx(adreno_dev)) {
@@ -3104,6 +3115,7 @@ static int adreno_setproperty(struct kgsl_device *device,
 				adreno_dev->fast_hang_detect = 1;
 				kgsl_pwrscale_enable(device);
 			} else {
+				kgsl_pwrctrl_wake(device);
 				device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
 				adreno_dev->fast_hang_detect = 0;
 				kgsl_pwrscale_disable(device);
@@ -3325,6 +3337,9 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 
 	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr, size))
 		return &device->memstore;
+
+	if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup, gpuaddr, size))
+		return &adreno_dev->pwron_fixup;
 
 	if (kgsl_gpuaddr_in_memdesc(&device->mmu.setstate_memory, gpuaddr,
 					size))
@@ -3553,7 +3568,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int curr_reg_val[FT_DETECT_REGS_COUNT];
 	unsigned int fast_hang_detected = 1;
-	unsigned int long_ib_detected = 1;
 	unsigned int i;
 	static unsigned long next_hang_detect_time;
 	static unsigned int prev_global_ts;
@@ -3565,9 +3579,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 	if (!adreno_dev->fast_hang_detect)
 		fast_hang_detected = 0;
-
-	if (!adreno_dev->long_ib_detect)
-		long_ib_detected = 0;
 
 	if (!(adreno_dev->ringbuffer.flags & KGSL_FLAGS_STARTED))
 		return 0;
@@ -3653,17 +3664,8 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 			}
 		}
 		for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
-			if (curr_reg_val[i] != prev_reg_val[i]) {
+			if (curr_reg_val[i] != prev_reg_val[i])
 				fast_hang_detected = 0;
-
-				/* Check for long IB here */
-				if ((i >=
-					LONG_IB_DETECT_REG_INDEX_START)
-					&&
-					(i <=
-					LONG_IB_DETECT_REG_INDEX_END))
-					long_ib_detected = 0;
-			}
 		}
 
 		if (fast_hang_detected) {
@@ -3685,15 +3687,12 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 			pid_name, curr_context->ib_gpu_time_used,
 			curr_global_ts+1);
 
-			if ((long_ib_detected) &&
+			if ((adreno_dev->long_ib_detect) &&
 				(!(curr_context->flags &
-				 CTXT_FLAGS_NO_FAULT_TOLERANCE))) {
-				curr_context->ib_gpu_time_used +=
-					KGSL_TIMEOUT_PART;
-				if (curr_context->ib_gpu_time_used >
-					KGSL_TIMEOUT_LONG_IB_DETECTION) {
-					if (adreno_dev->long_ib_ts !=
-						curr_global_ts) {
+				 CTXT_FLAGS_NO_FAULT_TOLERANCE)) &&
+				(curr_context->ib_gpu_time_used >
+					KGSL_TIMEOUT_LONG_IB_DETECTION) &&
+				(adreno_dev->long_ib_ts != curr_global_ts)) {
 						KGSL_FT_ERR(device,
 						"Proc %s, ctxt_id %d ts %d"
 						"used GPU for %d ms long ib "
@@ -3710,8 +3709,6 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 						curr_context->ib_gpu_time_used =
 								0;
 						return 1;
-					}
-				}
 			}
 		}
 	} else {

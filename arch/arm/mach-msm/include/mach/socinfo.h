@@ -43,6 +43,7 @@
 #define of_board_is_mtp()	of_machine_is_compatible("qcom,mtp")
 #define of_board_is_qrd()	of_machine_is_compatible("qcom,qrd")
 #define of_board_is_xpm()	of_machine_is_compatible("qcom,xpm")
+#define of_board_is_skuf()	of_machine_is_compatible("qcom,skuf")
 
 #define machine_is_msm8974()	of_machine_is_compatible("qcom,msm8974")
 #define machine_is_msm9625()	of_machine_is_compatible("qcom,msm9625")
@@ -72,6 +73,7 @@
 #define of_board_is_mtp()		0
 #define of_board_is_qrd()		0
 #define of_board_is_xpm()		0
+#define of_board_is_skuf()		0
 
 #define machine_is_msm8974()		0
 #define machine_is_msm9625()		0

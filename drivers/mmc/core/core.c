@@ -607,7 +607,7 @@ static int mmc_stop_request(struct mmc_host *host)
 	int err = 0;
 	u32 status;
 
-	if (!host->ops->stop_request || !card->ext_csd.hpi) {
+	if (!host->ops->stop_request || !card->ext_csd.hpi_en) {
 		pr_warn("%s: host ops stop_request() or HPI not supported\n",
 				mmc_hostname(host));
 		return -ENOTSUPP;

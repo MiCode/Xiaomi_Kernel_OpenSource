@@ -28,6 +28,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
+#include <mach/scm.h>
 
 /* Register Offsets for RB-CPR and Bit Definitions */
 
@@ -153,6 +154,9 @@ struct cpr_regulator {
 	u32		pvs_bin;
 	u32		process;
 
+	/* Control parameter to read efuse parameters by trustzone API */
+	bool		use_tz_api;
+
 	/* APC voltage regulator */
 	struct regulator	*vdd_apc;
 
@@ -222,6 +226,45 @@ module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 		else \
 			pr_debug(message, ##__VA_ARGS__); \
 	} while (0)
+
+
+static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num)
+{
+	int rc;
+	u64 efuse_bits;
+	struct cpr_read_req {
+		u32 row_address;
+		int addr_type;
+	} req;
+
+	struct cpr_read_rsp {
+		u32 row_data[2];
+		u32 status;
+	} rsp;
+
+	if (cpr_vreg->use_tz_api != true) {
+		efuse_bits = readll_relaxed(cpr_vreg->efuse_base
+			+ row_num * BYTES_PER_FUSE_ROW);
+		return efuse_bits;
+	}
+
+	req.row_address = cpr_vreg->efuse_addr + row_num * BYTES_PER_FUSE_ROW;
+	req.addr_type = 0;
+	efuse_bits = 0;
+
+	rc = scm_call(SCM_SVC_FUSE, SCM_FUSE_READ,
+			&req, sizeof(req), &rsp, sizeof(rsp));
+
+	if (rc) {
+		pr_err("read row %d failed, err code = %d", row_num, rc);
+	} else {
+		efuse_bits = ((u64)(rsp.row_data[1]) << 32) +
+				(u64)rsp.row_data[0];
+	}
+
+	return efuse_bits;
+}
+
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
 {
@@ -933,18 +976,17 @@ static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
 static int __devinit cpr_is_fuse_redundant(struct cpr_regulator *cpr_vreg,
 					 u32 redun_sel[4])
 {
-	u32 fuse_bits;
+	u64 fuse_bits;
 	int redundant;
 
-	fuse_bits = readl_relaxed(cpr_vreg->efuse_base
-				  + redun_sel[0] * BYTES_PER_FUSE_ROW);
+	fuse_bits = cpr_read_efuse_row(cpr_vreg, redun_sel[0]);
 	fuse_bits = (fuse_bits >> redun_sel[1]) & ((1 << redun_sel[2]) - 1);
 	if (fuse_bits == redun_sel[3])
 		redundant = 1;
 	else
 		redundant = 0;
 
-	pr_info("[row:%d] = 0x%x @%d:%d = %d?: redundant=%d\n",
+	pr_info("[row:%d] = 0x%llx @%d:%d = %d?: redundant=%d\n",
 		redun_sel[0], fuse_bits,
 		redun_sel[1], redun_sel[2], redun_sel[3], redundant);
 	return redundant;
@@ -954,7 +996,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	u32 efuse_bits;
+	u64 efuse_bits;
 	int rc, process;
 	u32 pvs_fuse[3], pvs_fuse_redun_sel[4];
 	bool redundant;
@@ -986,8 +1028,8 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 	}
 
 	/* Construct PVS process # from the efuse bits */
-	efuse_bits = readl_relaxed(cpr_vreg->efuse_base +
-				   pvs_fuse[0] * BYTES_PER_FUSE_ROW);
+
+	efuse_bits = cpr_read_efuse_row(cpr_vreg, pvs_fuse[0]);
 	cpr_vreg->pvs_bin = (efuse_bits >> pvs_fuse[1]) &
 				   ((1 << pvs_fuse[2]) - 1);
 
@@ -1001,7 +1043,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 	}
 
 	process = cpr_vreg->pvs_bin_process[cpr_vreg->pvs_bin];
-	pr_info("[row:%d] = 0x%08X, n_bits=%d, bin=%d (%d)\n",
+	pr_info("[row:%d] = 0x%llX, n_bits=%d, bin=%d (%d)\n",
 		pvs_fuse[0], efuse_bits, pvs_fuse[2],
 		cpr_vreg->pvs_bin, process);
 
@@ -1147,8 +1189,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	}
 
 	/* Read the control bits of eFuse */
-	fuse_bits = readll_relaxed(cpr_vreg->efuse_base
-				   + cpr_fuse_row * BYTES_PER_FUSE_ROW);
+	fuse_bits = cpr_read_efuse_row(cpr_vreg, cpr_fuse_row);
 	pr_info("[row:%d] = 0x%llx\n", cpr_fuse_row, fuse_bits);
 
 	if (redundant) {
@@ -1175,8 +1216,8 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 					  &temp_row, rc);
 			if (rc)
 				return rc;
-			fuse_bits_2 = readll_relaxed(cpr_vreg->efuse_base
-					+ temp_row * BYTES_PER_FUSE_ROW);
+
+			fuse_bits_2 = cpr_read_efuse_row(cpr_vreg, temp_row);
 			pr_info("[original row:%d] = 0x%llx\n",
 				temp_row, fuse_bits_2);
 		}
@@ -1391,6 +1432,7 @@ static int __devinit cpr_efuse_init(struct platform_device *pdev,
 		pr_err("efuse_addr missing: res=%p\n", res);
 		return -EINVAL;
 	}
+
 	cpr_vreg->efuse_addr = res->start;
 	len = res->end - res->start + 1;
 
@@ -1402,6 +1444,12 @@ static int __devinit cpr_efuse_init(struct platform_device *pdev,
 				cpr_vreg->efuse_addr);
 		return -EINVAL;
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,use-tz-api"))
+		cpr_vreg->use_tz_api = true;
+	else
+		cpr_vreg->use_tz_api = false;
+
 	return 0;
 }
 

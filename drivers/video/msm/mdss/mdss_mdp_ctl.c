@@ -242,6 +242,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_panel_info *pinfo = NULL;
 	int fps = DEFAULT_FRAME_RATE;
 	u32 v_total;
 	int i;
@@ -252,22 +253,21 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	*clk_rate = 0;
 
 	if (!mixer->rotator_mode) {
-		int is_writeback = false;
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
 			fps = mdss_panel_get_framerate(pinfo);
 			v_total = mdss_panel_get_vtotal(pinfo);
 
 			if (pinfo->type == WRITEBACK_PANEL)
-				is_writeback = true;
+				pinfo = NULL;
 		} else {
 			v_total = mixer->height;
-
-			is_writeback = true;
 		}
 		*clk_rate = mixer->width * v_total * fps;
-		if (is_writeback) {
+		if (pinfo && pinfo->lcdc.v_back_porch < MDP_MIN_VBP)
+			*clk_rate = MDSS_MDP_CLK_FUDGE_FACTOR(*clk_rate);
+
+		if (!pinfo) {
 			/* perf for bus writeback */
 			*bus_ab_quota = fps * mixer->width * mixer->height * 3;
 			*bus_ab_quota >>= MDSS_MDP_BUS_FACTOR_SHIFT;
@@ -420,6 +420,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->read_line_cnt_fnc = NULL;
 	ctl->add_vsync_handler = NULL;
 	ctl->remove_vsync_handler = NULL;
+	ctl->panel_data = NULL;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
@@ -428,7 +429,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		struct mdss_mdp_ctl *ctl, u32 type, int mux)
 {
-	struct mdss_mdp_mixer *mixer = NULL;
+	struct mdss_mdp_mixer *mixer = NULL, *alt_mixer = NULL;
 	u32 nmixers_intf;
 	u32 nmixers_wb;
 	u32 i;
@@ -446,6 +447,16 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	case MDSS_MDP_MIXER_TYPE_INTF:
 		mixer_pool = ctl->mdata->mixer_intf;
 		nmixers = nmixers_intf;
+
+		/*
+		 * try to reserve first layer mixer for write back if
+		 * assertive display needs to be supported through wfd
+		 */
+		if (ctl->mdata->has_wb_ad && ctl->intf_num) {
+			alt_mixer = mixer_pool;
+			mixer_pool++;
+			nmixers--;
+		}
 		break;
 
 	case MDSS_MDP_MIXER_TYPE_WRITEBACK:
@@ -484,6 +495,9 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		}
 		mixer = NULL;
 	}
+
+	if (!mixer && alt_mixer && (alt_mixer->ref_cnt == 0))
+		mixer = alt_mixer;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return mixer;
@@ -515,13 +529,13 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 
 	ctl = mdss_mdp_ctl_alloc(mdss_res, mdss_res->nmixers_intf);
 	if (!ctl) {
-		pr_err("unable to allocate wb ctl\n");
+		pr_debug("unable to allocate wb ctl\n");
 		return NULL;
 	}
 
 	mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK, false);
 	if (!mixer) {
-		pr_err("unable to allocate wb mixer\n");
+		pr_debug("unable to allocate wb mixer\n");
 		goto error;
 	}
 
@@ -567,6 +581,7 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	struct mdss_mdp_ctl *ctl;
 
 	ctl = mixer->ctl;
+	mixer->rotator_mode = 0;
 
 	pr_debug("destroy ctl=%d mixer=%d\n", ctl->num, mixer->num);
 

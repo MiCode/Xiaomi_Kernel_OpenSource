@@ -11,7 +11,7 @@
  */
 
 &soc {
-	qcom,mdss_mdp@fd900000 {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x22100>,
 			<0xfd924000 0x1000>;
@@ -41,7 +41,7 @@
 		qcom,vbif-settings = <0x004 0x00000001>,
 				     <0x0D8 0x00000707>,
 				     <0x124 0x00000003>;
-		qcom,mdp-settings = <0x02E0 0x000000A9>,
+		qcom,mdp-settings = <0x02E0 0x000000A5>,
 				    <0x02E4 0x00000055>;
 
 		mdss_fb0: qcom,mdss_fb_primary {
@@ -63,10 +63,11 @@
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
-		qcom,platform-reset-gpio = <&msmgpio 25 1>;
+		qcom,platform-reset-gpio = <&msmgpio 25 0>;
 		qcom,platform-te-gpio = <&msmgpio 24 0>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
@@ -119,3 +120,5 @@
 		qcom,mdss-fb-map = <&mdss_fb1>;
 	};
 };
+
+/include/ "msm8226-mdss-panels.dtsi"

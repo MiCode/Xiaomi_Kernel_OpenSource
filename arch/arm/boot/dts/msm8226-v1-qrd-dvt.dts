@@ -13,20 +13,17 @@
 /dts-v1/;
 /include/ "msm8226-v1.dtsi"
 /include/ "msm8226-qrd.dtsi"
-/include/ "dsi-panel-hx8394a-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226 QRD";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
-	qcom,msm-id = <145 0x2000b 0>,
-		      <158 0x2000b 0>,
-		      <159 0x2000b 0>,
-		      <198 0x2000b 0>;
+	qcom,board-id = <0x2000b 0>;
 };
 
-&soc {
-        qcom,mdss_dsi_hx8394a_720p_video {
-                status = "ok";
-		qcom,cont-splash-enabled;
-        };
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394a_720_vid>;
+};
+
+&dsi_hx8394a_720_vid {
+	qcom,cont-splash-enabled;
 };

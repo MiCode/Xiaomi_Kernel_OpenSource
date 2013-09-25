@@ -18,12 +18,12 @@
 / {
 	model = "Qualcomm APQ 8026 MTP";
 	compatible = "qcom,apq8026-mtp", "qcom,apq8026", "qcom,mtp";
-	qcom,msm-id = <199 8 0>;
+	qcom,board-id = <8 0>;
 };
 
 &cci {
-	/* Rotate rear camera to 0 degrees */
+	/* Rotate rear camera to 180 degrees */
 	qcom,camera@6f {
-	qcom,mount-angle = <0>;
+	qcom,mount-angle = <180>;
 	};
 };

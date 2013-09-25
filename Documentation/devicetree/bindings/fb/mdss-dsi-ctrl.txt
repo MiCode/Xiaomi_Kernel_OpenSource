@@ -12,6 +12,7 @@ Required properties:
 - vdda-supply:				Phandle for vreg regulator device node.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+- qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
 - qcom,platform-regulator-settings:	An array of length 7 that specifies the PHY
 					regulator settings.
 - qcom,platform-strength-ctrl:		An array of length 2 that specifies the PHY
@@ -20,6 +21,8 @@ Required properties:
 					BIST ctrl settings.
 - qcom,platform-lane-config:		An array of length 45 that specifies the PHY
 					lane configuration settings.
+- qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
+					with the controller.
 
 Optional properties:
 - label:		        	A string used to describe the controller used.
@@ -41,6 +44,8 @@ Optional properties:
 - qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
+- qcom,platform-mode-gpio:		Select video/command mode of panel through gpio when it supports
+					both modes.
 - qcom,platform-reset-sequence:		An array that lists the
 					sequence of reset gpio values and sleeps
 					Each command will have the format defined
@@ -57,6 +62,7 @@ Example:
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
+		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
@@ -66,9 +72,11 @@ Example:
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&msmgpio 25 1>;
 		qcom,platform-te-gpio = <&msmgpio 24 0>;
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
+		qcom,platform-mode-gpio = <&msmgpio 7 0>;
 		qcom,platform-reset-sequence = <1 25 0 20 1 10>;
 		qcom,platform-supply-entry1 {
 			qcom,supply-name = "vdd";

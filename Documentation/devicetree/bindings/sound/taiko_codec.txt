@@ -35,6 +35,12 @@ Required properties:
  - qcom,cdc-vddcx-2-voltage: cx-2 supply's voltage level min and max in mV.
  - qcom,cdc-vddcx-2-current: cx-2 supply's max current in mA.
 
+ - cdc-vdd-buckhelper-supply: phandle of helper regulator supply's
+				device tree node. This supply is a helper regulator for
+				cdc-vdd-buck-supply regulator.
+ - cdc-vdd-buckhelper-voltage: helper supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buckhelper-current: helper supply's max current in mA.
+
  - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
 			     hardware probe.  Supplies in this list will be
 			     stay enabled.
@@ -75,6 +81,10 @@ Optional properties:
  - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
 				dynamically.
 				Supplies in this list are off by default.
+
+- qcom,cdc-cp-supplies: List of supplies required for codec chargepump enable
+				Supplies in this list can be enabled/disabled dynamically and
+				are off by default.
 
  - qcom,cdc-micbias2-headset-only: Boolean. Allow micbias 2 only to headset mic.
 

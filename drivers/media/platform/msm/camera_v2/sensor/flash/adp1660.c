@@ -43,7 +43,8 @@ static struct msm_camera_i2c_reg_array adp1660_release_array[] = {
 
 static struct msm_camera_i2c_reg_array adp1660_low_array[] = {
 	{0x08, 0x04},
-	{0x01, 0xBA},
+	{0x06, 0x1E},
+	{0x01, 0xBD},
 	{0x0f, 0x01},
 };
 
@@ -52,7 +53,7 @@ static struct msm_camera_i2c_reg_array adp1660_high_array[] = {
 	{0x06, 0x3C},
 	{0x09, 0x28},
 	{0x0f, 0x01},
-	{0x01, 0xBA},
+	{0x01, 0xBD},
 };
 
 static void __exit msm_flash_adp1660_i2c_remove(void)

@@ -123,6 +123,7 @@
 		qcom,saw2-spm-cmd-gdhs = [00 32 42 07 44 50 02 32 50 0f];
 		qcom,saw2-spm-cmd-pc = [00 10 32 b0 11 42 07 01 b0 12 44
 				50 02 32 50 0f];
+		qcom,L2-spm-is-apcs-master;
 	};
 
 	qcom,lpm-levels {
@@ -219,6 +220,7 @@
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 70>,  /* iommu_pmon_nonsecure_irq */
 			<0xff 97>,  /* iommu_nonsecure_irq */
 			<0xff 105>, /* iommu_pmon_nonsecure_irq */
@@ -344,5 +346,13 @@
 		compatible = "qcom,rpmrbcpr-stats";
 		reg = <0xfc000000 0x1a0000>;
 		qcom,start-offset = <0x190010>;
+	};
+
+	qcom,rpm-master-stats@fc428150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0xfc428150 0x3200>;
+		qcom,masters = "APSS", "MPSS", "LPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <2560>;
 	};
 };

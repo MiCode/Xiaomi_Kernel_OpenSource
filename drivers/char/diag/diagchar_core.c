@@ -327,17 +327,19 @@ int diag_find_polling_reg(int i)
 	subsys_id = driver->table[i].subsys_id;
 	cmd_code_lo = driver->table[i].cmd_code_lo;
 	cmd_code_hi = driver->table[i].cmd_code_hi;
-	if (driver->table[i].cmd_code == 0x0C)
-		return 1;
-	else if (driver->table[i].cmd_code == 0xFF) {
-		if (subsys_id == 0x04 && cmd_code_hi == 0x0E &&
-			 cmd_code_lo == 0x0E)
+
+	if (driver->table[i].cmd_code == 0xFF) {
+		if (subsys_id == 0xFF && cmd_code_hi >= 0x0C &&
+			 cmd_code_lo <= 0x0C)
 			return 1;
-		else if (subsys_id == 0x08 && cmd_code_hi == 0x02 &&
-			 cmd_code_lo == 0x02)
+		if (subsys_id == 0x04 && cmd_code_hi >= 0x0E &&
+			 cmd_code_lo <= 0x0E)
 			return 1;
-		else if (subsys_id == 0x32 && cmd_code_hi == 0x03  &&
-			 cmd_code_lo == 0x03)
+		else if (subsys_id == 0x08 && cmd_code_hi >= 0x02 &&
+			 cmd_code_lo <= 0x02)
+			return 1;
+		else if (subsys_id == 0x32 && cmd_code_hi >= 0x03  &&
+			 cmd_code_lo <= 0x03)
 			return 1;
 	}
 	return 0;
@@ -356,7 +358,8 @@ void diag_clear_reg(int peripheral)
 	}
 	/* re-scan the registration table */
 	for (i = 0; i < diag_max_reg; i++) {
-		if (diag_find_polling_reg(i) == 1) {
+		if (driver->table[i].process_id != 0 &&
+				diag_find_polling_reg(i) == 1) {
 			driver->polling_reg_flag = 1;
 			break;
 		}
@@ -1270,17 +1273,6 @@ drop:
 						*(data->buf_in_1),
 						data->write_ptr_1->length);
 					data->in_busy_1 = 0;
-				}
-				if (data->in_busy_2 == 1) {
-					num_data++;
-					/*Copy the length of data being passed*/
-					COPY_USER_SPACE_OR_EXIT(buf+ret,
-						(data->write_ptr_2->length), 4);
-					/*Copy the actual data being passed*/
-					COPY_USER_SPACE_OR_EXIT(buf+ret,
-						*(data->buf_in_2),
-						data->write_ptr_2->length);
-					data->in_busy_2 = 0;
 				}
 			}
 		}
