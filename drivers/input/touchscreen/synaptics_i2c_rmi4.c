@@ -1368,6 +1368,15 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 		rmi4_pdata->panel_y = temp_val;
 	}
 
+	rmi4_pdata->reset_delay = RESET_DELAY;
+	rc = of_property_read_u32(np, "synaptics,reset-delay", &temp_val);
+	if (!rc)
+		rmi4_pdata->reset_delay = temp_val;
+	else if (rc != -EINVAL) {
+		dev_err(dev, "Unable to read reset delay\n");
+		return rc;
+	}
+
 	rc = of_property_read_string(np, "synaptics,fw-image-name",
 		&rmi4_pdata->fw_image_name);
 	if (rc && (rc != -EINVAL)) {
@@ -2260,7 +2269,7 @@ static int synaptics_rmi4_reset_command(struct synaptics_rmi4_data *rmi4_data)
 		return retval;
 	}
 
-	msleep(RESET_DELAY);
+	msleep(rmi4_data->board->reset_delay);
 	return retval;
 };
 
@@ -2605,7 +2614,7 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 			gpio_set_value(rmi4_data->board->reset_gpio, 0);
 			usleep(RMI4_GPIO_SLEEP_LOW_US);
 			gpio_set_value(rmi4_data->board->reset_gpio, 1);
-			msleep(RESET_DELAY);
+			msleep(rmi4_data->board->reset_delay);
 		} else
 			synaptics_rmi4_reset_command(rmi4_data);
 
