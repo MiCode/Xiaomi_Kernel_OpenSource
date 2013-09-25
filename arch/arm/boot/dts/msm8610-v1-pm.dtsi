@@ -168,6 +168,7 @@
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<2 216>, /* tsens_upper_lower_int */
+			<41 63>,  /* dino_gen_purpose_irq35 */
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
 			<0xff 19>,  /* APC_qgicQTmrNonSecPhysIrptReq */
 			<0xff 35>,  /* WDT_barkInt */
