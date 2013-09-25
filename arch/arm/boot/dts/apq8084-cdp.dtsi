@@ -18,6 +18,17 @@
 	};
 };
 
+&pma8084_mpps {
+	mpp@a200 { /* MPP 3 */
+		/* ext_5v enable */
+		qcom,mode = <1>;
+		qcom,invert = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+	};
+};
+
 &soc {
 };
 

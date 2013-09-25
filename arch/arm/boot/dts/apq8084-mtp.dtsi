@@ -19,6 +19,9 @@
 };
 
 &soc {
+	qcom,hdmi_tx@fd922100 {
+		status = "disabled";
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
