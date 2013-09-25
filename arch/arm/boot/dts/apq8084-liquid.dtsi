@@ -15,6 +15,12 @@
 		serial0 = &blsp2_uart1;
 	};
 
+	memory {
+		fb_mem: fb_region {
+			reg = <0 0 0 0x1d00000>;
+		};
+	};
+
 	bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pma8084_gpios 4 0>; /* BT_EN */
