@@ -2782,6 +2782,7 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 		return;
 	}
 
+	mutex_lock(&device->clk_pwr_lock);
 	venus_hfi_for_each_clock(device, cl, {
 		if (!device->clocks_enabled && cl->has_sw_power_collapse) {
 			dprintk(VIDC_DBG,
@@ -2794,6 +2795,7 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 	});
 
 	device->clocks_enabled = 0;
+	mutex_unlock(&device->clk_pwr_lock);
 }
 
 static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
@@ -2805,6 +2807,7 @@ static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 		return -EINVAL;
 	}
 
+	mutex_lock(&device->clk_pwr_lock);
 	venus_hfi_for_each_clock(device, cl, {
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
@@ -2817,6 +2820,7 @@ static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 	});
 
 	device->clocks_enabled = 1;
+	mutex_unlock(&device->clk_pwr_lock);
 
 	return rc;
 
@@ -2827,6 +2831,7 @@ fail_clk_enable:
 
 		clk_disable_unprepare(cl->clk);
 	});
+	mutex_unlock(&device->clk_pwr_lock);
 
 	return rc;
 }
@@ -3415,9 +3420,11 @@ static int venus_hfi_load_fw(void *dev)
 		goto fail_iommu_attach;
 	}
 
+	mutex_lock(&device->clk_pwr_lock);
 	rc = venus_hfi_enable_regulators(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable GDSC %d", rc);
+		mutex_unlock(&device->clk_pwr_lock);
 		goto fail_enable_gdsc;
 	}
 
@@ -3428,10 +3435,12 @@ static int venus_hfi_load_fw(void *dev)
 	if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
 		dprintk(VIDC_ERR, "Failed to download firmware\n");
 		rc = -ENOMEM;
+		mutex_unlock(&device->clk_pwr_lock);
 		goto fail_load_fw;
 	}
 
 	device->power_enabled = 1;
+	mutex_unlock(&device->clk_pwr_lock);
 
 	/* Clocks can be enabled only after pil_get since
 	 * gdsc is turned-on in pil_get*/
@@ -3456,8 +3465,11 @@ fail_protect_mem:
 fail_enable_clks:
 	subsystem_put(device->resources.fw.cookie);
 fail_load_fw:
+	mutex_lock(&device->clk_pwr_lock);
 	device->resources.fw.cookie = NULL;
 	venus_hfi_disable_regulators(device);
+	device->power_enabled = 0;
+	mutex_unlock(&device->clk_pwr_lock);
 fail_enable_gdsc:
 	venus_hfi_iommu_detach(device);
 fail_iommu_attach:
@@ -3476,8 +3488,11 @@ static void venus_hfi_unload_fw(void *dev)
 		flush_workqueue(device->vidc_workq);
 		flush_workqueue(device->venus_pm_workq);
 		venus_hfi_disable_clks(device);
+		mutex_lock(&device->clk_pwr_lock);
 		subsystem_put(device->resources.fw.cookie);
 		venus_hfi_disable_regulators(device);
+		device->power_enabled = 0;
+		mutex_unlock(&device->clk_pwr_lock);
 		venus_hfi_interface_queues_release(dev);
 		venus_hfi_iommu_detach(device);
 		device->resources.fw.cookie = NULL;
