@@ -120,6 +120,16 @@ static inline u64 arch_counter_get_cntvct_cp15(void)
 	return cval;
 }
 
+static inline u64 arch_counter_get_cntpct_cp15(void)
+{
+	u64 cval;
+
+	isb();
+	asm volatile("mrs %0, cntpct_el0" : "=r" (cval));
+
+	return cval;
+}
+
 static inline int arch_timer_arch_init(void)
 {
 	return 0;
