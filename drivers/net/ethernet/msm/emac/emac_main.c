@@ -24,6 +24,7 @@
 
 #include "emac.h"
 #include "emac_hw.h"
+#include "emac_ptp.h"
 
 #define DRV_VERSION "1.0.0.0"
 
@@ -265,6 +266,19 @@ static void emac_set_tpdesc_lastfrag(struct emac_tx_queue *txque)
 	writel_relaxed(tmp_tpd, htpd + 1);
 }
 
+void emac_set_tpdesc_tstamp_sav(struct emac_tx_queue *txque)
+{
+	struct emac_adapter *adpt = netdev_priv(txque->netdev);
+	u32 tmp_tpd;
+	u32 *htpd = EMAC_TPD(txque, adpt->tpdesc_size,
+			     txque->tpd.last_produce_idx);
+
+	tmp_tpd = readl_relaxed(htpd + 3);
+	tmp_tpd |= EMAC_TPD_TSTAMP_SAVE;
+	writel_relaxed(tmp_tpd, htpd + 3);
+	wmb();
+}
+
 /* Fill up receive queue's RFD with preallocated receive buffers */
 static int emac_refresh_rx_buffer(struct emac_rx_queue *rxque)
 {
@@ -345,6 +359,42 @@ static void emac_clean_rfdesc(struct emac_rx_queue *rxque,
 	rxque->rfd.process_idx = consume_idx;
 }
 
+static void emac_read_tx_tstamp_fifo(struct emac_hw *hw,
+				     struct emac_tx_queue *txque)
+{
+	struct emac_buffer *tpbuf;
+	u32 ts_idx = 0;
+	u32 sec, ns;
+
+	while (1) {
+		ts_idx = emac_reg_r32(hw, EMAC_CSR,
+				      EMAC_EMAC_WRAPPER_TX_TS_INX);
+		if (ts_idx & EMAC_WRAPPER_TX_TS_EMPTY)
+			break;
+
+		ns = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_TX_TS_LO);
+		sec = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_TX_TS_HI);
+
+		ts_idx &= EMAC_WRAPPER_TX_TS_INX_BMSK;
+		if ((ts_idx < txque->tpd.consume_idx) ||
+		    (ts_idx > txque->tpd.last_produce_idx)) {
+			emac_warn(hw->adpt, tx_done,
+				  "zombie timestamp desc idx %d\n", ts_idx);
+			continue;
+		}
+
+		tpbuf  = GET_TPD_BUFFER(txque, ts_idx);
+
+		if (tpbuf->skb &&
+		    (skb_shinfo(tpbuf->skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+			struct skb_shared_hwtstamps ts;
+
+			ts.hwtstamp = ktime_set(sec, ns);
+			skb_tstamp_tx(tpbuf->skb, &ts);
+		}
+	}
+}
+
 /* Process receive event */
 static void emac_handle_rx(struct emac_adapter *adpt,
 			   struct emac_rx_queue *rxque,
@@ -401,6 +451,14 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		skb->ip_summed = CHECKSUM_NONE;
 		skb->dev = netdev;
 		skb->protocol = eth_type_trans(skb, skb->dev);
+
+		if (CHK_HW_FLAG(TS_RX_EN)) {
+			struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
+
+			hwts->hwtstamp = ktime_set(srrd.genr.ts_high,
+						   srrd.genr.ts_low);
+		}
+
 		emac_receive_skb(rxque, skb, (u16)srrd.genr.cvlan_tag,
 				 (bool)srrd.genr.cvlan_flag);
 
@@ -439,6 +497,7 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 		 txque->que_idx, hw_consume_idx);
 
 	while (txque->tpd.consume_idx != hw_consume_idx) {
+		emac_read_tx_tstamp_fifo(hw, txque);
 		tpbuf = GET_TPD_BUFFER(txque, txque->tpd.consume_idx);
 		if (tpbuf->dma) {
 			dma_unmap_single(txque->dev, tpbuf->dma, tpbuf->length,
@@ -608,6 +667,7 @@ static void emac_tx_map(struct emac_adapter *adpt,
 			struct sk_buff *skb,
 			union emac_sw_tpdesc *stpd)
 {
+	struct emac_hw  *hw = &adpt->hw;
 	struct emac_buffer *tpbuf = NULL;
 	u16 nr_frags = skb_shinfo(skb)->nr_frags;
 	u32 len = skb_headlen(skb);
@@ -628,7 +688,6 @@ static void emac_tx_map(struct emac_adapter *adpt,
 		stpd->genr.addr_lo = EMAC_DMA_ADDR_LO(tpbuf->dma);
 		stpd->genr.addr_hi = EMAC_DMA_ADDR_HI(tpbuf->dma);
 		stpd->genr.buffer_len = tpbuf->length;
-
 		emac_set_tpdesc(txque, stpd);
 	}
 
@@ -662,6 +721,12 @@ static void emac_tx_map(struct emac_adapter *adpt,
 
 	/* The last tpd */
 	emac_set_tpdesc_lastfrag(txque);
+
+	if (CHK_HW_FLAG(TS_TX_EN) &&
+	    (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+		emac_set_tpdesc_tstamp_sav(txque);
+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+	}
 
 	/* The last buffer info contain the skb address,
 	 * so it will be freed after unmap
@@ -1385,6 +1450,7 @@ err_alloc_rtx:
 static int emac_close(struct net_device *netdev)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
 
 	/* ensure no task is running and no reset is in progress */
 	while (CHK_AND_SET_ADPT_FLAG(STATE_RESETTING))
@@ -1394,6 +1460,9 @@ static int emac_close(struct net_device *netdev)
 		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 	else
 		emac_hw_reset_mac(hw);
+
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_stop(hw);
 
 	emac_free_all_rtx_descriptor(adpt);
 
@@ -1459,6 +1528,8 @@ static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
 		return emac_mii_ioctl(netdev, ifr, cmd);
+	case SIOCSHWTSTAMP:
+		return emac_tstamp_ioctl(netdev, ifr, cmd);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -1849,6 +1920,9 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 
 	/* phy */
 	emac_hw_init_phy(hw);
+
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_init(hw);
 }
 
 #ifdef CONFIG_PM
@@ -2057,7 +2131,7 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
-	adpt->tstamp_en = false;
+	adpt->tstamp_en = true;
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
 		goto err_res;
@@ -2074,6 +2148,11 @@ static int emac_probe(struct platform_device *pdev)
 
 	adpt->tpdesc_size = EMAC_TPDESC_SIZE;
 	adpt->rfdesc_size = EMAC_RFDESC_SIZE;
+
+	if (adpt->tstamp_en) {
+		hw->rtc_ref_clkrate = DEFAULT_RTC_REF_CLKRATE;
+		SET_HW_FLAG(PTP_CAP);
+	}
 
 	/* init netdev */
 	netdev->netdev_ops = &emac_netdev_ops;

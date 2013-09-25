@@ -86,6 +86,17 @@ enum emac_fc_mode {
 	emac_fc_default
 };
 
+/* IEEE1588 */
+enum emac_ptp_clk_mode {
+	emac_ptp_clk_mode_oc_two_step,
+	emac_ptp_clk_mode_oc_one_step
+};
+
+enum emac_ptp_mode {
+	emac_ptp_mode_slave,
+	emac_ptp_mode_master
+};
+
 struct emac_hw_stats {
 	/* rx */
 	u64 rx_ok;              /* good packets */
@@ -199,6 +210,11 @@ struct emac_hw {
 #define EMAC_HW_FLAG_VLANSTRIP_EN        1
 #define EMAC_HW_FLAG_MULTIALL_EN         2
 #define EMAC_HW_FLAG_LOOPBACK_EN         3
+
+#define EMAC_HW_FLAG_PTP_CAP             4
+#define EMAC_HW_FLAG_PTP_EN              5
+#define EMAC_HW_FLAG_TS_RX_EN            6
+#define EMAC_HW_FLAG_TS_TX_EN            7
 
 #define CHK_HW_FLAG(_flag)              CHK_FLAG(hw, HW, _flag)
 #define SET_HW_FLAG(_flag)              SET_FLAG(hw, HW, _flag)
@@ -431,6 +447,7 @@ union emac_sw_tpdesc {
 		((_que)->tpd.tpdesc + (_size * (_i)))
 
 #define EMAC_TPD_LAST_FRAGMENT  0x80000000
+#define EMAC_TPD_TSTAMP_SAVE    0x80000000
 
 /* emac_ring_header represents a single, contiguous block of DMA space
  * mapped for the three descriptor rings (tpd, rfd, rrd)

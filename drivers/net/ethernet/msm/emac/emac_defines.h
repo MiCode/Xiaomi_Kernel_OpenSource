@@ -267,10 +267,82 @@
 #define H1TPD_PROD_IDX_SHFT                                           0
 
 /* EMAC_EMAC_WRAPPER_CSR1 */
+#define TX_TS_ENABLE                                            0x10000
+#define DIS_1588_CLKS                                             0x800
 #define FREQ_MODE                                                 0x200
 #define ENABLE_RRD_TIMESTAMP                                        0x8
 
 /* EMAC_EMAC_WRAPPER_CSR2 */
 #define WOL_EN                                                     0x80
+
+/* EMAC_EMAC_WRAPPER_CSR10 */
+#define RD_CLR_1588                                                 0x2
+#define DIS_1588                                                    0x1
+
+/* EMAC_EMAC_WRAPPER_TX_TS_INX */
+#define EMAC_WRAPPER_TX_TS_EMPTY                             0x80000000
+#define EMAC_WRAPPER_TX_TS_INX_BMSK                              0xffff
+
+/* EMAC_P1588_CTRL_REG */
+#define ATTACH_EN                                                  0x10
+#define BYPASS_O                                                    0x8
+#define CLOCK_MODE_BMSK                                             0x6
+#define CLOCK_MODE_SHFT                                               1
+#define ETH_MODE_SW                                                 0x1
+
+/* EMAC_P1588_INC_VALUE_2 */
+#define INC_VALUE_2_BMSK                                         0xffff
+
+/* EMAC_P1588_INC_VALUE_1 */
+#define INC_VALUE_1_BMSK                                         0xffff
+
+/* EMAC_P1588_NANO_OFFSET_2 */
+#define NANO_OFFSET_2_BMSK                                       0xffff
+
+/* EMAC_P1588_NANO_OFFSET_1 */
+#define NANO_OFFSET_1_BMSK                                       0xffff
+
+/* EMAC_P1588_SEC_OFFSET_2 */
+#define SEC_OFFSET_2_BMSK                                        0xffff
+
+/* EMAC_P1588_SEC_OFFSET_1 */
+#define SEC_OFFSET_1_BMSK                                        0xffff
+
+/* EMAC_P1588_REAL_TIME_5 */
+#define REAL_TIME_5_BMSK                                         0xffff
+#define REAL_TIME_5_SHFT                                              0
+
+/* EMAC_P1588_REAL_TIME_4 */
+#define REAL_TIME_4_BMSK                                         0xffff
+#define REAL_TIME_4_SHFT                                              0
+
+/* EMAC_P1588_REAL_TIME_3 */
+#define REAL_TIME_3_BMSK                                         0xffff
+#define REAL_TIME_3_SHFT                                              0
+
+/* EMAC_P1588_REAL_TIME_2 */
+#define REAL_TIME_2_BMSK                                         0xffff
+#define REAL_TIME_2_SHFT                                              0
+
+/* EMAC_P1588_REAL_TIME_1 */
+#define REAL_TIME_1_BMSK                                         0xffff
+#define REAL_TIME_1_SHFT                                              0
+
+/* EMAC_P1588_RTC_EXPANDED_CONFIG */
+#define RTC_READ_MODE                                              0x20
+#define RTC_SNAPSHOT                                               0x10
+#define LOAD_RTC                                                    0x1
+
+/* EMAC_P1588_RTC_PRELOADED_4 */
+#define RTC_PRELOADED_4_BMSK                                     0xffff
+
+/* EMAC_P1588_RTC_PRELOADED_3 */
+#define RTC_PRELOADED_3_BMSK                                     0xffff
+
+/* EMAC_P1588_RTC_PRELOADED_2 */
+#define RTC_PRELOADED_2_BMSK                                     0xffff
+
+/* EMAC_P1588_RTC_PRELOADED_1 */
+#define RTC_PRELOADED_1_BMSK                                     0xffff
 
 #endif /* __EMAC_DEFINES_H__ */

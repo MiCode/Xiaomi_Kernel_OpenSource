@@ -107,5 +107,33 @@
 /* EMAC_CSR register offsets */
 #define EMAC_EMAC_WRAPPER_CSR1                   0x000000
 #define EMAC_EMAC_WRAPPER_CSR2                   0x000004
+#define EMAC_EMAC_WRAPPER_CSR10                  0x000024
+#define EMAC_EMAC_WRAPPER_TX_TS_LO               0x000104
+#define EMAC_EMAC_WRAPPER_TX_TS_HI               0x000108
+#define EMAC_EMAC_WRAPPER_TX_TS_INX              0x00010c
+
+/* EMAC_1588 register offsets */
+#define EMAC_P1588_CTRL_REG                      0x000048
+#define EMAC_P1588_INC_VALUE_2                   0x0000d8
+#define EMAC_P1588_INC_VALUE_1                   0x0000dc
+#define EMAC_P1588_NANO_OFFSET_2                 0x0000e0
+#define EMAC_P1588_NANO_OFFSET_1                 0x0000e4
+#define EMAC_P1588_SEC_OFFSET_3                  0x0000e8
+#define EMAC_P1588_SEC_OFFSET_2                  0x0000ec
+#define EMAC_P1588_SEC_OFFSET_1                  0x0000f0
+#define EMAC_P1588_REAL_TIME_5                   0x0000f4
+#define EMAC_P1588_REAL_TIME_4                   0x0000f8
+#define EMAC_P1588_REAL_TIME_3                   0x0000fc
+#define EMAC_P1588_REAL_TIME_2                   0x000100
+#define EMAC_P1588_REAL_TIME_1                   0x000104
+#define EMAC_P1588_ADJUST_RTC                    0x000110
+#define EMAC_P1588_PTP_EXPANDED_INT_MASK         0x0003c4
+#define EMAC_P1588_PTP_EXPANDED_INT_STATUS       0x0003c8
+#define EMAC_P1588_RTC_EXPANDED_CONFIG           0x000400
+#define EMAC_P1588_RTC_PRELOADED_5               0x000404
+#define EMAC_P1588_RTC_PRELOADED_4               0x000408
+#define EMAC_P1588_RTC_PRELOADED_3               0x00040c
+#define EMAC_P1588_RTC_PRELOADED_2               0x000410
+#define EMAC_P1588_RTC_PRELOADED_1               0x000414
 
 #endif /* __EMAC_REGS_H__ */
