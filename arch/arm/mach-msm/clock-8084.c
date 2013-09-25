@@ -3227,9 +3227,10 @@ static struct branch_clk gcc_usb30_sleep_clk = {
 	},
 };
 
+/* Set has_sibling to 0 to allow set rate on this branch clock */
 static struct branch_clk gcc_usb30_sec_master_clk = {
 	.cbcr_reg = USB30_SEC_MASTER_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &usb30_sec_master_clk_src.c,
