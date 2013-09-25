@@ -352,9 +352,12 @@ struct qpnp_chg_chip {
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_chg_regulator	batfet_vreg;
+	bool				batfet_ext_en;
+	struct work_struct		batfet_lcl_work;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct mutex			jeita_configure_lock;
+	struct mutex			batfet_vreg_lock;
 	struct alarm			reduce_power_stage_alarm;
 	struct work_struct		reduce_power_stage_work;
 	bool				power_stage_workaround_running;
@@ -1170,6 +1173,28 @@ qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
 				chip->delta_vddmax_mv);
 }
 
+#define BATFET_LPM_MASK		0xC0
+#define BATFET_LPM		0x40
+#define BATFET_NO_LPM		0x00
+static int
+qpnp_chg_regulator_batfet_set(struct qpnp_chg_chip *chip, bool enable)
+{
+	int rc = 0;
+
+	if (chip->type == SMBB)
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_SPARE,
+			BATFET_LPM_MASK,
+			enable ? BATFET_NO_LPM : BATFET_LPM, 1);
+	else
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4,
+			BATFET_LPM_MASK,
+			enable ? BATFET_NO_LPM : BATFET_LPM, 1);
+
+	return rc;
+}
+
 #define ENUM_T_STOP_BIT		BIT(0)
 static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
@@ -1192,10 +1217,9 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
+				chip->chg_done = false;
 			}
 			qpnp_chg_usb_suspend_enable(chip, 1);
-			if (!qpnp_chg_is_dc_chg_plugged_in(chip))
-				chip->chg_done = false;
 			chip->prev_usb_max_ma = -EINVAL;
 		} else {
 			if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
@@ -1208,6 +1232,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		}
 
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		schedule_work(&chip->batfet_lcl_work);
 	}
 
 	return IRQ_HANDLED;
@@ -1293,6 +1318,7 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 		power_supply_changed(&chip->dc_psy);
 		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
+		schedule_work(&chip->batfet_lcl_work);
 	}
 
 	return IRQ_HANDLED;
@@ -2433,53 +2459,11 @@ static struct regulator_ops qpnp_chg_boost_reg_ops = {
 	.list_voltage		= qpnp_chg_regulator_boost_list_voltage,
 };
 
-#define BATFET_LPM_MASK		0xC0
-#define BATFET_LPM		0x40
-#define BATFET_NO_LPM		0x00
 static int
-qpnp_chg_regulator_batfet_enable(struct regulator_dev *rdev)
+qpnp_chg_bat_if_batfet_reg_enabled(struct qpnp_chg_chip *chip)
 {
-	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
-	int rc;
-
-	if (chip->type == SMBB)
-		rc = qpnp_chg_masked_write(chip,
-			chip->bat_if_base + CHGR_BAT_IF_SPARE,
-			BATFET_LPM_MASK, BATFET_NO_LPM, 1);
-	else
-		rc = qpnp_chg_masked_write(chip,
-			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4,
-			BATFET_LPM_MASK, BATFET_NO_LPM, 1);
-	if (rc)
-		pr_err("failed to write to batt_if rc=%d\n", rc);
-	return rc;
-}
-
-static int
-qpnp_chg_regulator_batfet_disable(struct regulator_dev *rdev)
-{
-	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
-	int rc;
-
-	if (chip->type == SMBB)
-		rc = qpnp_chg_masked_write(chip,
-			chip->bat_if_base + CHGR_BAT_IF_SPARE,
-			BATFET_LPM_MASK, BATFET_LPM, 1);
-	else
-		rc = qpnp_chg_masked_write(chip,
-			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4,
-			BATFET_LPM_MASK, BATFET_LPM, 1);
-	if (rc)
-		pr_err("failed to write to batt_if rc=%d\n", rc);
-	return rc;
-}
-
-static int
-qpnp_chg_regulator_batfet_is_enabled(struct regulator_dev *rdev)
-{
-	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
 	int rc = 0;
-	u8 reg;
+	u8 reg = 0;
 
 	if (chip->type == SMBB)
 		rc = qpnp_chg_read(chip, &reg,
@@ -2487,15 +2471,65 @@ qpnp_chg_regulator_batfet_is_enabled(struct regulator_dev *rdev)
 	else
 		rc = qpnp_chg_read(chip, &reg,
 			chip->bat_if_base + CHGR_BAT_IF_BATFET_CTRL4, 1);
+
 	if (rc) {
 		pr_err("failed to read batt_if rc=%d\n", rc);
 		return rc;
 	}
 
-	if (reg && BATFET_LPM_MASK == BATFET_NO_LPM)
+	if ((reg & BATFET_LPM_MASK) == BATFET_NO_LPM)
 		return 1;
 
 	return 0;
+}
+
+static int
+qpnp_chg_regulator_batfet_enable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc = 0;
+
+	mutex_lock(&chip->batfet_vreg_lock);
+	/* Only enable if not already enabled */
+	if (!qpnp_chg_bat_if_batfet_reg_enabled(chip)) {
+		rc = qpnp_chg_regulator_batfet_set(chip, 1);
+		if (rc)
+			pr_err("failed to write to batt_if rc=%d\n", rc);
+	}
+
+	chip->batfet_ext_en = true;
+	mutex_unlock(&chip->batfet_vreg_lock);
+
+	return rc;
+}
+
+static int
+qpnp_chg_regulator_batfet_disable(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int rc = 0;
+
+	mutex_lock(&chip->batfet_vreg_lock);
+	/* Don't allow disable if charger connected */
+	if (!qpnp_chg_is_usb_chg_plugged_in(chip) &&
+			!qpnp_chg_is_dc_chg_plugged_in(chip)) {
+		rc = qpnp_chg_regulator_batfet_set(chip, 0);
+		if (rc)
+			pr_err("failed to write to batt_if rc=%d\n", rc);
+	}
+
+	chip->batfet_ext_en = false;
+	mutex_unlock(&chip->batfet_vreg_lock);
+
+	return rc;
+}
+
+static int
+qpnp_chg_regulator_batfet_is_enabled(struct regulator_dev *rdev)
+{
+	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+
+	return chip->batfet_ext_en;
 }
 
 static struct regulator_ops qpnp_chg_batfet_vreg_ops = {
@@ -3004,6 +3038,25 @@ qpnp_chg_reduce_power_stage(struct qpnp_chg_chip *chip)
 		pr_debug("stopping power stage workaround\n");
 		chip->power_stage_workaround_running = false;
 	}
+}
+
+static void
+qpnp_chg_batfet_lcl_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip, batfet_lcl_work);
+
+	mutex_lock(&chip->batfet_vreg_lock);
+	if (qpnp_chg_is_usb_chg_plugged_in(chip) ||
+			qpnp_chg_is_dc_chg_plugged_in(chip)) {
+		qpnp_chg_regulator_batfet_set(chip, 1);
+		pr_debug("disabled ULPM\n");
+	} else if (!chip->batfet_ext_en && !qpnp_chg_is_usb_chg_plugged_in(chip)
+			&& !qpnp_chg_is_dc_chg_plugged_in(chip)) {
+		qpnp_chg_regulator_batfet_set(chip, 0);
+		pr_debug("enabled ULPM\n");
+	}
+	mutex_unlock(&chip->batfet_vreg_lock);
 }
 
 static void
@@ -3854,7 +3907,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	return rc;
 }
 
-static int 
+static int
 qpnp_charger_probe(struct spmi_device *spmi)
 {
 	u8 subtype;
@@ -3881,12 +3934,15 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	mutex_init(&chip->jeita_configure_lock);
+	mutex_init(&chip->batfet_vreg_lock);
 	alarm_init(&chip->reduce_power_stage_alarm, ALARM_REALTIME,
 			qpnp_chg_reduce_power_stage_callback);
 	INIT_WORK(&chip->reduce_power_stage_work,
 			qpnp_chg_reduce_power_stage_work);
 	INIT_WORK(&chip->insertion_ocv_work,
 			qpnp_chg_insertion_ocv_work);
+	INIT_WORK(&chip->batfet_lcl_work,
+			qpnp_chg_batfet_lcl_work);
 
 	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
@@ -4207,7 +4263,7 @@ fail_chg_enable:
 	return rc;
 }
 
-static int 
+static int
 qpnp_charger_remove(struct spmi_device *spmi)
 {
 	struct qpnp_chg_chip *chip = dev_get_drvdata(&spmi->dev);
