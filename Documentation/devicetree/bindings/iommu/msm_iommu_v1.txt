@@ -47,6 +47,8 @@ Optional properties:
 Optional properties:
 - qcom,needs-alt-core-clk : boolean to enable the secondary core clock for
   access to the IOMMU configuration registers
+- qcom,needs-alt-iface-clk : boolean to enable the secondary iface clock for
+  access to the IOMMU configuration registers
 - qcom,iommu-bfb-regs : An array of unsigned 32-bit integers corresponding to
   BFB register addresses that need to be configured for performance tuning
   purposes. If this property is present, the qcom,iommu-bfb-data must also be

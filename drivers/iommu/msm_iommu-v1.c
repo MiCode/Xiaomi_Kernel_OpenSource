@@ -102,14 +102,18 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
-		clk_disable_unprepare(drvdata->pclk);
+		goto fail1;
 
 	if (drvdata->aclk) {
 		ret = clk_prepare_enable(drvdata->aclk);
-		if (ret) {
-			clk_disable_unprepare(drvdata->clk);
-			clk_disable_unprepare(drvdata->pclk);
-		}
+		if (ret)
+			goto fail2;
+	}
+
+	if (drvdata->aiclk) {
+		ret = clk_prepare_enable(drvdata->aiclk);
+		if (ret)
+			goto fail3;
 	}
 
 	if (drvdata->clk_reg_virt) {
@@ -121,12 +125,23 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 		/* Ensure clock is on before continuing */
 		mb();
 	}
+	return 0;
+
+fail3:
+	if (drvdata->aclk)
+		clk_disable_unprepare(drvdata->aclk);
+fail2:
+	clk_disable_unprepare(drvdata->clk);
+fail1:
+	clk_disable_unprepare(drvdata->pclk);
 fail:
 	return ret;
 }
 
 static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 {
+	if (drvdata->aiclk)
+		clk_disable_unprepare(drvdata->aiclk);
 	if (drvdata->aclk)
 		clk_disable_unprepare(drvdata->aclk);
 	clk_disable_unprepare(drvdata->clk);

@@ -90,7 +90,8 @@ struct msm_iommu_bfb_settings {
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
  * @pclk:	The clock for the IOMMU bus interconnect
- * @aclk:	Alternate clock for this IOMMU core, if any
+ * @aclk:	Alternate core clock for this IOMMU core, if any
+ * @aiclk:	Alternate interface clock for this IOMMU core, if any
  * @name:	Human-readable name of this IOMMU device
  * @gdsc:	Regulator needed to power this HW block (v2 only)
  * @bfb_settings: Optional BFB performance tuning parameters
@@ -113,6 +114,7 @@ struct msm_iommu_drvdata {
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *aclk;
+	struct clk *aiclk;
 	const char *name;
 	struct regulator *gdsc;
 	struct regulator *alt_gdsc;
