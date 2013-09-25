@@ -330,3 +330,19 @@
 		qcom,cdc-micbias4-ext-cap;
 	};
 };
+
+&i2c_1 {
+	synaptics@20 {
+		compatible = "synaptics,rmi4";
+		reg = <0x20>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <143 0x2008>;
+		vdd-supply = <&pma8084_l18>;
+		vcc_i2c-supply = <&pma8084_lvs1>;
+		synaptics,display-coords = <0 0 1079 1919>;
+		synaptics,panel-coords = <0 0 1079 2084>;
+		synaptics,reset-gpio = <&msmgpio 145 0x00>;
+		synaptics,irq-gpio = <&msmgpio 143 0x2008>;
+		synaptics,i2c-pull-up;
+	};
+};

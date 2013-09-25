@@ -5827,13 +5827,14 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	/* BLSP2  clocks */
 	CLK_LOOKUP("iface_clk",	gcc_blsp2_ahb_clk.c,	"f995e000.serial"),
+	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c,	"f9966000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp2_qup1_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup1_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup2_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup2_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup3_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup3_spi_apps_clk.c,	""),
-	CLK_LOOKUP("",	gcc_blsp2_qup4_i2c_apps_clk.c,	""),
+	CLK_LOOKUP("core_clk", gcc_blsp2_qup4_i2c_apps_clk.c,	"f9966000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp2_qup4_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup5_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup5_spi_apps_clk.c,	""),
