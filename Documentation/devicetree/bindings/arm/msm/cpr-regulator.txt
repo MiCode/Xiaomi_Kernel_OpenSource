@@ -22,16 +22,12 @@ Required properties:
 				should be 1 for SVS corner
 - regulator-max-microvolt:	Maximum corner value as max constraint, which
 				should be 4 for SUPER_TURBO or 3 for TURBO
-- qcom,pvs-bin-process:		A list of integers whose length is equal to 2 to
-				the power of qcom,pvs-fuse[num-of-bits]. The location or
-				0-based index of an element in the list corresponds
-				to the bin number. The value of each integer
-				corresponds to the PVS process speed of the APC
-				silicon for a chip with one of these cases:
-					1 = APC_PVS_SLOW
-					2 = APC_PVS_NOM
-					3 = APC_PVS_FAST
-					0 or other values = No PVS
+- qcom,pvs-init-voltage:  	A list of integers whose length is equal to 2
+				to the power of qcom,pvs-fuse[num-of-bits]. The
+				location or 0-based index of an element in the
+				list corresponds to the bin number. The value of
+				each integer corresponds to the initial voltage
+				of the PVS bin in turbo mode in microvolts.
 - qcom,pvs-corner-ceiling-slow:	Ceiling voltages of all corners for APC_PVS_SLOW
 - qcom,pvs-corner-ceiling-nom:	Ceiling voltages of all corners for APC_PVS_NOM
 - qcom,pvs-corner-ceiling-fast:	Ceiling voltages of all corners for APC_PVS_FAST
@@ -155,8 +151,14 @@ Example:
 		qcom,pvs-fuse-redun-sel = <22 24 3 2>;
 		qcom,pvs-fuse-redun = <22 27 5>;
 
-		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
-					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
+		qcom,pvs-init-voltage = <1330000 1330000 1330000 1320000
+						1310000 1300000 1290000 1280000
+						1270000 1260000 1250000 1240000
+						1230000 1220000 1210000 1200000
+						1190000 1180000 1170000 1160000
+						1150000 1140000 1140000 1140000
+						1140000 1140000 1140000 1140000
+						1140000 1140000 1140000 1140000>;
 		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
 		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
 		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
