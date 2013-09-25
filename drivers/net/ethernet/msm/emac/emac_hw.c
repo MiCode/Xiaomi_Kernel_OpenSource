@@ -15,6 +15,7 @@
 
 #include <linux/crc32.h>
 #include <linux/if_vlan.h>
+#include <linux/phy.h>
 
 #include "emac_hw.h"
 #include "emac_ptp.h"
@@ -237,6 +238,130 @@ int emac_hw_ack_phy_intr(struct emac_hw *hw)
 	return 0;
 }
 
+int emac_hw_init_sgmii(struct emac_hw *hw)
+{
+	int i;
+
+	/* PCS programming */
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_CDR_CTRL0,
+		     SGMII_CDR_MAX_CNT);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_POW_DWN_CTRL0, PWRDN_B);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_CMN_PWR_CTRL,
+		     BIAS_EN | SYSCLK_EN | CLKBUF_L_EN |
+		     PLL_TXCLK_EN | PLL_RXCLK_EN);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_TX_PWR_CTRL,
+		     L0_TX_EN | L0_CLKBUF_EN | L0_TRAN_BIAS_EN);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_RX_PWR_CTRL,
+		     L0_RX_SIGDET_EN |
+		     (1 << L0_RX_TERM_MODE_SHFT) | L0_RX_I_EN);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_CMN_PWR_CTRL,
+		     BIAS_EN | PLL_EN | SYSCLK_EN | CLKBUF_L_EN |
+		     PLL_TXCLK_EN | PLL_RXCLK_EN);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_LANE_CTRL1,
+		     L0_RX_EQ_EN | L0_RESET_TSYNC_EN | L0_DRV_LVL_BMSK);
+	wmb();
+
+	/* sysclk/refclk setting */
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_SYSCLK_EN_SEL,
+		     SYSCLK_SEL_CMOS);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_SYS_CLK_CTRL,
+		     SYSCLK_CM | SYSCLK_AC_COUPLE);
+
+	/* PLL setting */
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_IP_SETI,
+		     QSERDES_PLL_IPSETI);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_CP_SETI,
+		     QSERDES_PLL_CP_SETI);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_IP_SETP,
+		     QSERDES_PLL_IP_SETP);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_CP_SETP,
+		     QSERDES_PLL_CP_SETP);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_CRCTRL,
+		     QSERDES_PLL_CRCTRL);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLL_CNTRL,
+		     OCP_EN | PLL_DIV_FFEN | PLL_DIV_ORD);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_DEC_START1,
+		     DEC_START1_MUX | QSERDES_PLL_DEC);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_DEC_START2,
+		     DEC_START2_MUX | DEC_START2);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_DIV_FRAC_START1,
+		     DIV_FRAC_START1_MUX | QSERDES_PLL_DIV_FRAC_START1);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_DIV_FRAC_START2,
+		     DIV_FRAC_START2_MUX | QSERDES_PLL_DIV_FRAC_START2);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_DIV_FRAC_START3,
+		     DIV_FRAC_START3_MUX | QSERDES_PLL_DIV_FRAC_START3);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLLLOCK_CMP1,
+		     QSERDES_PLL_LOCK_CMP1);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLLLOCK_CMP2,
+		     QSERDES_PLL_LOCK_CMP2);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLLLOCK_CMP3,
+		     QSERDES_PLL_LOCK_CMP3);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_PLLLOCK_CMP_EN,
+		     PLLLOCK_CMP_EN);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_RESETSM_CNTRL,
+		     FRQ_TUNE_MODE);
+
+	/* CDR setting */
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_RX_CDR_CONTROL,
+		     SECONDORDERENABLE |
+		     (QSERDES_RX_CDR_CTRL1_THRESH << FIRSTORDER_THRESH_SHFT) |
+		     (QSERDES_RX_CDR_CTRL1_GAIN << SECONDORDERGAIN_SHFT));
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_RX_CDR_CONTROL2,
+		     SECONDORDERENABLE |
+		     (QSERDES_RX_CDR_CTRL2_THRESH << FIRSTORDER_THRESH_SHFT) |
+		     (QSERDES_RX_CDR_CTRL2_GAIN << SECONDORDERGAIN_SHFT));
+
+	/* TX/RX setting */
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_TX_BIST_MODE_LANENO,
+		     QSERDES_TX_BIST_MODE_LANENO);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_TX_TX_DRV_LVL,
+		     TX_DRV_LVL_MUX | (QSERDES_TX_DRV_LVL << TX_DRV_LVL_SHFT));
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN,
+		     EMP_EN_MUX | EMP_EN);
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_TX_TX_EMP_POST1_LVL,
+		     TX_EMP_POST1_LVL_MUX |
+		     (QSERDES_TX_EMP_POST1_LVL << TX_EMP_POST1_LVL_SHFT));
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_RX_RX_EQ_GAIN12,
+		     (QSERDES_RX_EQ_GAIN2 << RX_EQ_GAIN2_SHFT) |
+		     (QSERDES_RX_EQ_GAIN1 << RX_EQ_GAIN1_SHFT));
+	emac_reg_w32(hw, EMAC_QSERDES, EMAC_QSERDES_TX_LANE_MODE,
+		     QSERDES_TX_LANE_MODE);
+	wmb();
+
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_SERDES_START,
+		     SERDES_START);
+	wmb();
+
+	for (i = 0; i < SERDES_START_WAIT_TIMES; i++) {
+		if (emac_reg_r32(hw, EMAC_QSERDES, EMAC_QSERDES_COM_RESET_SM) &
+		    QSERDES_READY)
+			break;
+		usleep_range(100, 200);
+	}
+
+	if (i == SERDES_START_WAIT_TIMES) {
+		emac_err(hw->adpt, "serdes failed to start\n");
+		return -EIO;
+	}
+
+	/* Mask out all the SGMII Interrupt */
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_INTERRUPT_MASK, 0);
+	wmb();
+
+	emac_hw_clear_sgmii_intr_status(hw, SGMII_PHY_INTERRUPT_ERR);
+
+	return 0;
+}
+
+int emac_hw_reset_sgmii(struct emac_hw *hw)
+{
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_RESET_CTRL,
+		     PHY_SW_RESET);
+	wmb();
+
+	return emac_hw_init_sgmii(hw);
+}
+
 int emac_hw_init_phy(struct emac_hw *hw)
 {
 	u16 phy_id[2];
@@ -254,6 +379,9 @@ int emac_hw_init_phy(struct emac_hw *hw)
 	hw->phy_id[0] = phy_id[0];
 	hw->phy_id[1] = phy_id[1];
 	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
+
+	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		retval = emac_hw_init_sgmii(hw);
 
 	return retval;
 }
@@ -343,7 +471,7 @@ int emac_setup_phy_link_speed(struct emac_hw *hw, u32 speed,
 
 int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 {
-	u16 bmsr;
+	u16 bmsr, pssr;
 	int retval;
 
 	retval = emac_read_phy_reg(hw, MII_BMSR, &bmsr);
@@ -356,8 +484,39 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 		return 0;
 	}
 	*link_up = true;
-	/* Read speed from phy specific registers */
-	*speed = EMAC_LINK_SPEED_100_FULL;
+	retval = emac_read_phy_reg(hw, MII_PSSR, &pssr);
+	if (retval)
+		return retval;
+
+	if (!(pssr & PSSR_SPD_DPLX_RESOLVED)) {
+		emac_err(hw->adpt, "error for speed duplex resolved\n");
+		return -EINVAL;
+	}
+
+	switch (pssr & PSSR_SPEED) {
+	case PSSR_1000MBS:
+		if (pssr & PSSR_DPLX)
+			*speed = EMAC_LINK_SPEED_1GB_FULL;
+		else
+			emac_err(hw->adpt, "1000M half duplex is invalid");
+		break;
+	case PSSR_100MBS:
+		if (pssr & PSSR_DPLX)
+			*speed = EMAC_LINK_SPEED_100_FULL;
+		else
+			*speed = EMAC_LINK_SPEED_100_HALF;
+		break;
+	case PSSR_10MBS:
+		if (pssr & PSSR_DPLX)
+			*speed = EMAC_LINK_SPEED_10_FULL;
+		else
+			*speed = EMAC_LINK_SPEED_10_HALF;
+		break;
+	default:
+		*speed = EMAC_LINK_SPEED_UNKNOWN;
+		retval = -EINVAL;
+		break;
+	}
 
 	return retval;
 }
@@ -387,6 +546,73 @@ int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed)
 	return 0;
 }
 
+int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
+{
+	u32 status;
+
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_INTERRUPT_CLEAR,
+		     irq_bits);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_IRQ_CMD,
+		     IRQ_GLOBAL_CLEAR);
+	wmb();
+
+	status = emac_reg_r32(hw, EMAC_SGMII_PHY,
+			      EMAC_SGMII_PHY_INTERRUPT_STATUS);
+	if (status & irq_bits) {
+		emac_err(hw->adpt,
+			 "failed to clear SGMII irq: status 0x%x bits 0x%x\n",
+			 status, irq_bits);
+		return -EIO;
+	}
+
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_IRQ_CMD, 0);
+	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_INTERRUPT_CLEAR, 0);
+	wmb();
+
+	return 0;
+}
+
+int emac_check_sgmii_autoneg(struct emac_hw *hw, u32 *speed, bool *link_up)
+{
+	u32 status;
+
+	status = emac_reg_r32(hw, EMAC_SGMII_PHY,
+			      EMAC_SGMII_PHY_AUTONEG1_STATUS) & 0xff;
+	status <<= 8;
+	status |= emac_reg_r32(hw, EMAC_SGMII_PHY,
+			       EMAC_SGMII_PHY_AUTONEG0_STATUS) & 0xff;
+
+	if (!(status & TXCFG_LINK)) {
+		*link_up = false;
+		*speed = EMAC_LINK_SPEED_UNKNOWN;
+		return 0;
+	}
+
+	*link_up = true;
+
+	switch (status & TXCFG_MODE_BMSK) {
+	case TXCFG_1000_FULL:
+		*speed = EMAC_LINK_SPEED_1GB_FULL;
+		break;
+	case TXCFG_100_FULL:
+		*speed = EMAC_LINK_SPEED_100_FULL;
+		break;
+	case TXCFG_100_HALF:
+		*speed = EMAC_LINK_SPEED_100_HALF;
+		break;
+	case TXCFG_10_FULL:
+		*speed = EMAC_LINK_SPEED_10_FULL;
+		break;
+	case TXCFG_10_HALF:
+		*speed = EMAC_LINK_SPEED_10_HALF;
+		break;
+	default:
+		*speed = EMAC_LINK_SPEED_UNKNOWN;
+		break;
+	}
+	return 0;
+}
+
 /* INTR */
 void emac_hw_enable_intr(struct emac_hw *hw)
 {
@@ -398,6 +624,12 @@ void emac_hw_enable_intr(struct emac_hw *hw)
 		irq_info = &adpt->irq_info[i];
 		emac_reg_w32(hw, EMAC, irq_info->status_reg, ~DIS_INT);
 		emac_reg_w32(hw, EMAC, irq_info->mask_reg, irq_info->mask);
+	}
+
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+		irq_info = &adpt->irq_info[EMAC_SGMII_PHY_IRQ];
+		emac_reg_w32(hw, EMAC_SGMII_PHY, irq_info->mask_reg,
+			     irq_info->mask);
 	}
 	wmb();
 }
@@ -415,6 +647,11 @@ void emac_hw_disable_intr(struct emac_hw *hw)
 	}
 
 	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
+
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+		irq_info = &adpt->irq_info[EMAC_SGMII_PHY_IRQ];
+		emac_reg_w32(hw, EMAC_SGMII_PHY, irq_info->mask_reg, 0);
+	}
 	wmb();
 }
 
@@ -765,7 +1002,7 @@ static void emac_hw_config_dma_ctrl(struct emac_hw *hw)
 /* Flow Control (fc)  */
 static int emac_get_fc_mode(struct emac_hw *hw, enum emac_fc_mode *mode)
 {
-	u16 i, bmsr = 0;
+	u16 i, bmsr = 0, pssr = 0;
 	int retval = 0;
 
 	for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
@@ -774,8 +1011,26 @@ static int emac_get_fc_mode(struct emac_hw *hw, enum emac_fc_mode *mode)
 			return retval;
 
 		if (bmsr & BMSR_LSTATUS) {
-			/* Read fc mode from phy specific registers */
-			*mode = emac_fc_full;
+			retval = emac_read_phy_reg(hw, MII_PSSR, &pssr);
+			if (retval)
+				return retval;
+
+			if (!(pssr & PSSR_SPD_DPLX_RESOLVED)) {
+				emac_err(hw->adpt,
+					"error for speed duplex resolved\n");
+				return -EINVAL;
+			}
+
+			if ((pssr & PSSR_FC_TXEN) &&
+			    (pssr & PSSR_FC_RXEN)) {
+				*mode = emac_fc_full;
+			} else if (pssr & PSSR_FC_TXEN) {
+				*mode = emac_fc_tx_pause;
+			} else if (pssr & PSSR_FC_RXEN) {
+				*mode = emac_fc_rx_pause;
+			} else {
+				*mode = emac_fc_none;
+			}
 			break;
 		}
 		msleep(100); /* link can take upto few seconds to come up */

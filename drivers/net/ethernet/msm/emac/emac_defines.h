@@ -349,4 +349,127 @@
 /* EMAC_P1588_RTC_PRELOADED_1 */
 #define RTC_PRELOADED_1_BMSK                                     0xffff
 
+/* EMAC_QSERDES_COM_SYS_CLK_CTRL */
+#define SYSCLK_CM                                                  0x10
+#define SYSCLK_AC_COUPLE                                           0x08
+
+/* EMAC_QSERDES_COM_PLL_CNTRL */
+#define OCP_EN                                                     0x20
+#define PLL_DIV_FFEN                                               0x04
+#define PLL_DIV_ORD                                                0x02
+
+/* EMAC_QSERDES_COM_SYSCLK_EN_SEL */
+#define SYSCLK_SEL_CMOS                                             0x8
+
+/* EMAC_QSERDES_COM_RESETSM_CNTRL */
+#define FRQ_TUNE_MODE                                              0x10
+
+/* EMAC_QSERDES_COM_PLLLOCK_CMP_EN */
+#define PLLLOCK_CMP_EN                                             0x01
+
+/* EMAC_QSERDES_COM_DEC_START1 */
+#define DEC_START1_MUX                                             0x80
+
+/* EMAC_QSERDES_COM_DIV_FRAC_START1 */
+#define DIV_FRAC_START1_MUX                                        0x80
+
+/* EMAC_QSERDES_COM_DIV_FRAC_START2 */
+#define DIV_FRAC_START2_MUX                                        0x80
+
+/* EMAC_QSERDES_COM_DIV_FRAC_START3 */
+#define DIV_FRAC_START3_MUX                                        0x10
+
+/* EMAC_QSERDES_COM_DEC_START2 */
+#define DEC_START2_MUX                                              0x2
+#define DEC_START2                                                  0x1
+
+/* EMAC_QSERDES_COM_RESET_SM */
+#define QSERDES_READY                                              0x20
+
+/* EMAC_QSERDES_TX_TX_EMP_POST1_LVL */
+#define TX_EMP_POST1_LVL_MUX                                       0x20
+#define TX_EMP_POST1_LVL_BMSK                                      0x1f
+#define TX_EMP_POST1_LVL_SHFT                                         0
+
+/* EMAC_QSERDES_TX_TX_DRV_LVL */
+#define TX_DRV_LVL_MUX                                             0x10
+#define TX_DRV_LVL_BMSK                                            0x0f
+#define TX_DRV_LVL_SHFT                                               0
+
+/* EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN */
+#define EMP_EN_MUX                                                  0x2
+#define EMP_EN                                                      0x1
+
+/* EMAC_QSERDES_RX_CDR_CONTROL */
+/* EMAC_QSERDES_RX_CDR_CONTROL2 */
+#define SECONDORDERENABLE                                          0x40
+#define FIRSTORDER_THRESH_BMSK                                     0x38
+#define FIRSTORDER_THRESH_SHFT                                        3
+#define SECONDORDERGAIN_BMSK                                       0x07
+#define SECONDORDERGAIN_SHFT                                          0
+
+/* EMAC_QSERDES_RX_RX_EQ_GAIN12 */
+#define RX_EQ_GAIN2_BMSK                                           0xf0
+#define RX_EQ_GAIN2_SHFT                                              4
+#define RX_EQ_GAIN1_BMSK                                           0x0f
+#define RX_EQ_GAIN1_SHFT                                              0
+
+/* EMAC_SGMII_PHY_SERDES_START */
+#define SERDES_START                                               0x01
+
+/* EMAC_SGMII_PHY_CMN_PWR_CTRL */
+#define BIAS_EN                                                    0x40
+#define PLL_EN                                                     0x20
+#define SYSCLK_EN                                                  0x10
+#define CLKBUF_L_EN                                                0x08
+#define PLL_TXCLK_EN                                               0x02
+#define PLL_RXCLK_EN                                               0x01
+
+/* EMAC_SGMII_PHY_RX_PWR_CTRL */
+#define L0_RX_SIGDET_EN                                            0x80
+#define L0_RX_TERM_MODE_BMSK                                       0x30
+#define L0_RX_TERM_MODE_SHFT                                          4
+#define L0_RX_I_EN                                                 0x02
+
+/* EMAC_SGMII_PHY_TX_PWR_CTRL */
+#define L0_TX_EN                                                   0x20
+#define L0_CLKBUF_EN                                               0x10
+#define L0_TRAN_BIAS_EN                                            0x02
+
+/* EMAC_SGMII_PHY_LANE_CTRL1 */
+#define L0_RX_EQ_EN                                                0x40
+#define L0_RESET_TSYNC_EN                                          0x10
+#define L0_DRV_LVL_BMSK                                            0x0f
+#define L0_DRV_LVL_SHFT                                               0
+
+/* EMAC_SGMII_PHY_AUTONEG_CFG2 */
+#define AN_ENABLE                                                  0x01
+
+/* EMAC_SGMII_PHY_SPEED_CFG1 */
+#define DUPLEX_MODE                                                0x10
+#define SPDMODE_1000                                               0x02
+#define SPDMODE_100                                                0x01
+#define SPDMODE_10                                                 0x00
+#define SPDMODE_BMSK                                               0x03
+#define SPDMODE_SHFT                                                  0
+
+/* EMAC_SGMII_PHY_POW_DWN_CTRL0 */
+#define PWRDN_B                                                    0x01
+
+/* EMAC_SGMII_PHY_RESET_CTRL */
+#define PHY_SW_RESET                                               0x01
+
+/* EMAC_SGMII_PHY_IRQ_CMD */
+#define IRQ_GLOBAL_CLEAR                                           0x01
+
+/* EMAC_SGMII_PHY_INTERRUPT_MASK */
+#define DECODE_CODE_ERR                                            0x80
+#define DECODE_DISP_ERR                                            0x40
+#define PLL_UNLOCK                                                 0x20
+#define AN_ILLEGAL_TERM                                            0x10
+#define SYNC_FAIL                                                  0x08
+#define AN_START                                                   0x04
+#define AN_END                                                     0x02
+#define AN_REQUEST                                                 0x01
+
 #endif /* __EMAC_DEFINES_H__ */

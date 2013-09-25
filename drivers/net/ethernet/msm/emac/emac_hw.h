@@ -44,7 +44,11 @@ extern int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed);
 extern int emac_hw_ack_phy_intr(struct emac_hw *hw);
 extern int emac_hw_init_phy(struct emac_hw *hw);
 extern int emac_hw_reset_phy(struct emac_hw *hw);
-
+extern int emac_hw_init_sgmii(struct emac_hw *hw);
+extern int emac_hw_reset_sgmii(struct emac_hw *hw);
+extern int emac_check_sgmii_autoneg(struct emac_hw *hw, u32 *speed,
+				    bool *linkup);
+extern int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits);
 extern void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed, bool wol_en,
 				    bool rx_en);
 /* MAC */
@@ -124,9 +128,74 @@ extern void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr);
 
 #define MDIO_WAIT_TIMES                 1000
 
+#define SERDES_START_WAIT_TIMES         100
+
+#define SGMII_CDR_MAX_CNT               0x0f
+
+#define QSERDES_PLL_IPSETI              0x01
+#define QSERDES_PLL_CP_SETI             0x3b
+#define QSERDES_PLL_IP_SETP             0x0a
+#define QSERDES_PLL_CP_SETP             0x09
+#define QSERDES_PLL_CRCTRL              0xfb
+#define QSERDES_PLL_DEC                    2
+#define QSERDES_PLL_DIV_FRAC_START1     0x55
+#define QSERDES_PLL_DIV_FRAC_START2     0x2a
+#define QSERDES_PLL_DIV_FRAC_START3     0x03
+#define QSERDES_PLL_LOCK_CMP1           0x2b
+#define QSERDES_PLL_LOCK_CMP2           0x68
+#define QSERDES_PLL_LOCK_CMP3           0x00
+
+#define QSERDES_RX_CDR_CTRL1_THRESH     0x03
+#define QSERDES_RX_CDR_CTRL1_GAIN       0x02
+#define QSERDES_RX_CDR_CTRL2_THRESH     0x03
+#define QSERDES_RX_CDR_CTRL2_GAIN       0x04
+#define QSERDES_RX_EQ_GAIN2              0xf
+#define QSERDES_RX_EQ_GAIN1              0xf
+
+#define QSERDES_TX_BIST_MODE_LANENO     0x00
+#define QSERDES_TX_DRV_LVL              0x0f
+#define QSERDES_TX_EMP_POST1_LVL           1
+#define QSERDES_TX_LANE_MODE            0x08
+
+#define SGMII_PHY_INTERRUPT_ERR (\
+	DECODE_CODE_ERR         |\
+	DECODE_DISP_ERR         |\
+	PLL_UNLOCK              |\
+	SYNC_FAIL)
+
+#define SGMII_ISR_AN_MASK       (\
+	AN_REQUEST              |\
+	AN_START                |\
+	AN_END                  |\
+	AN_ILLEGAL_TERM)
+
+#define SGMII_ISR_MASK          (\
+	SGMII_PHY_INTERRUPT_ERR |\
+	SGMII_ISR_AN_MASK)
+
+/* SGMII TX_CONFIG */
+#define TXCFG_LINK                      0x8000
+#define TXCFG_MODE_BMSK                 0x1c00
+#define TXCFG_1000_FULL                 0x1800
+#define TXCFG_100_FULL                  0x1400
+#define TXCFG_100_HALF                  0x0400
+#define TXCFG_10_FULL                   0x1000
+#define TXCFG_10_HALF                   0x0000
+
 /* PHY */
+#define MII_PSSR                        0x11 /* PHY Specific Status Reg */
 
 /* MII_BMCR (0x00) */
 #define BMCR_SPEED10                    0x0000
+
+/* MII_PSSR (0x11) */
+#define PSSR_FC_RXEN                    0x0004
+#define PSSR_FC_TXEN                    0x0008
+#define PSSR_SPD_DPLX_RESOLVED          0x0800  /* 1=Speed & Duplex resolved */
+#define PSSR_DPLX                       0x2000  /* 1=Duplex 0=Half Duplex */
+#define PSSR_SPEED                      0xC000  /* Speed, bits 14:15 */
+#define PSSR_10MBS                      0x0000  /* 00=10Mbs */
+#define PSSR_100MBS                     0x4000  /* 01=100Mbs */
+#define PSSR_1000MBS                    0x8000  /* 10=1000Mbs */
 
 #endif /*_EMAC_HW_H_*/

@@ -29,10 +29,11 @@
 #define EMAC_DMA_ADDR_LO(_addr) \
 		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
 
-/* 4 emac core irqs; 1 wol irq */
+/* 4 emac core irq, 1 phy irq, 1 wol irq */
 #define EMAC_NUM_CORE_IRQ     4
 #define EMAC_WOL_IRQ          4
-#define EMAC_NUM_IRQ          5
+#define EMAC_SGMII_PHY_IRQ    5
+#define EMAC_NUM_IRQ          6
 
 /* mdio/mdc gpios */
 #define EMAC_NUM_GPIO         2
@@ -61,6 +62,8 @@ enum emac_reg_bases {
 	EMAC,
 	EMAC_CSR,
 	EMAC_1588,
+	EMAC_QSERDES,
+	EMAC_SGMII_PHY,
 	NUM_EMAC_REG_BASES
 };
 
@@ -608,10 +611,11 @@ struct emac_adapter {
 	struct timer_list  emac_timer;
 	unsigned long	link_jiffies;
 
-	bool		tstamp_en;
-	u32		wol;
-	u16		msg_enable;
-	unsigned long	flags;
+	bool            tstamp_en;
+	int             phy_mode;
+	u32             wol;
+	u16             msg_enable;
+	unsigned long   flags;
 };
 
 #define EMAC_ADPT_FLAG_STATE_RESETTING          16
@@ -620,6 +624,7 @@ struct emac_adapter {
 
 #define EMAC_ADPT_FLAG_TASK_REINIT_REQ          19
 #define EMAC_ADPT_FLAG_TASK_LSC_REQ             20
+#define EMAC_ADPT_FLAG_TASK_CHK_SGMII_REQ       21
 
 #define CHK_ADPT_FLAG(_flag)           CHK_FLAG(adpt, ADPT, _flag)
 #define SET_ADPT_FLAG(_flag)           SET_FLAG(adpt, ADPT, _flag)

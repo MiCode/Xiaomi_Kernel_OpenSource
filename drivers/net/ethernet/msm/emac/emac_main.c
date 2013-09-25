@@ -20,6 +20,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/module.h>
+#include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/tcp.h>
@@ -54,6 +55,7 @@ module_param_named(msglvl, msm_emac_msglvl, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int emac_up(struct emac_adapter *adpt);
 static void emac_down(struct emac_adapter *adpt, u32 ctrl);
 static irqreturn_t emac_interrupt(int irq, void *data);
+static irqreturn_t emac_sgmii_interrupt(int irq, void *data);
 static irqreturn_t emac_wol_interrupt(int irq, void *data);
 
 /* EMAC HW has an issue with interrupt assignment because of which
@@ -75,6 +77,8 @@ static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 	  EMAC_INT3_MASK, 0, NULL, NULL },
 	{ 0, "emac_wol_irq", emac_wol_interrupt, 0,
 	  0, 0, NULL, NULL },
+	{ 0, "emac_sgmii_irq", emac_sgmii_interrupt, 0,
+	  EMAC_SGMII_PHY_INTERRUPT_MASK, SGMII_ISR_MASK, NULL, NULL },
 };
 
 static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
@@ -912,6 +916,37 @@ static irqreturn_t emac_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t emac_sgmii_interrupt(int irq, void *data)
+{
+	struct emac_irq_info *irq_info = data;
+	struct emac_adapter *adpt = irq_info->adpt;
+	struct emac_hw *hw = &adpt->hw;
+	u32 status;
+
+	emac_dbg(adpt, intr, "receive sgmii interrupt\n");
+
+	do {
+		status = emac_reg_r32(hw, EMAC_SGMII_PHY,
+				      EMAC_SGMII_PHY_INTERRUPT_STATUS);
+		status &= irq_info->mask;
+		if (!status)
+			break;
+
+		if (status & SGMII_PHY_INTERRUPT_ERR) {
+			SET_ADPT_FLAG(TASK_CHK_SGMII_REQ);
+			if (!CHK_ADPT_FLAG(STATE_DOWN))
+				emac_task_schedule(adpt);
+		}
+
+		if (status & SGMII_ISR_AN_MASK)
+			emac_check_lsc(adpt);
+
+		emac_hw_clear_sgmii_intr_status(hw, status);
+	} while (1);
+
+	return IRQ_HANDLED;
+}
+
 /* Enable interrupts */
 static inline void emac_enable_intr(struct emac_adapter *adpt)
 {
@@ -929,6 +964,9 @@ static inline void emac_disable_intr(struct emac_adapter *adpt)
 	emac_hw_disable_intr(hw);
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
 		synchronize_irq(adpt->irq_info[i].irq);
+
+	/* SGMII IRQ */
+	synchronize_irq(adpt->irq_info[EMAC_SGMII_PHY_IRQ].irq);
 }
 
 /* Configure VLAN tag strip/insert feature */
@@ -1463,6 +1501,7 @@ static void emac_down(struct emac_adapter *adpt, u32 ctrl)
 
 	CLI_ADPT_FLAG(TASK_LSC_REQ);
 	CLI_ADPT_FLAG(TASK_REINIT_REQ);
+	CLI_ADPT_FLAG(TASK_CHK_SGMII_REQ);
 	del_timer_sync(&adpt->emac_timer);
 
 	if (ctrl & EMAC_HW_CTRL_RESET_MAC)
@@ -1769,6 +1808,35 @@ link_task_done:
 	CLI_ADPT_FLAG(STATE_RESETTING);
 }
 
+/* Check SGMII for error */
+static void emac_sgmii_task_routine(struct emac_adapter *adpt)
+{
+	struct emac_hw *hw = &adpt->hw;
+
+	if (!CHK_ADPT_FLAG(TASK_CHK_SGMII_REQ))
+		return;
+	CLI_ADPT_FLAG(TASK_CHK_SGMII_REQ);
+
+	/* ensure that no reset is in progess while link task is running */
+	while (CHK_AND_SET_ADPT_FLAG(STATE_RESETTING))
+		msleep(20); /* Reset might take few 10s of ms */
+
+	if (CHK_ADPT_FLAG(STATE_DOWN))
+		goto sgmii_task_done;
+
+	if (emac_reg_r32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_RX_CHK_STATUS)
+	    & 0x40)
+		goto sgmii_task_done;
+
+	emac_err(adpt, "SGMII CDR not locked\n");
+	emac_down(adpt, 0);
+	emac_hw_reset_sgmii(hw);
+	emac_up(adpt);
+
+sgmii_task_done:
+	CLI_ADPT_FLAG(STATE_RESETTING);
+}
+
 /* Watchdog task routine */
 static void emac_task_routine(struct work_struct *work)
 {
@@ -1781,6 +1849,8 @@ static void emac_task_routine(struct work_struct *work)
 	emac_reinit_task_routine(adpt);
 
 	emac_link_task_routine(adpt);
+
+	emac_sgmii_task_routine(adpt);
 
 	CLI_ADPT_FLAG(STATE_WATCH_DOG);
 }
@@ -2129,11 +2199,18 @@ static int emac_get_resources(struct platform_device *pdev,
 	struct resource *res;
 	struct net_device *netdev = adpt->netdev;
 	void *reg_base[NUM_EMAC_REG_BASES] = { 0 };
-	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588"};
+	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588",
+					      "emac_qserdes", "emac_sgmii_phy"};
 
 	/* get irqs */
 	for (i = 0; i < EMAC_NUM_IRQ; i++) {
 		struct emac_irq_info *irq_info = &adpt->irq_info[i];
+
+		/* SGMII_PHY IRQ is only required if phy_mode is "sgmii" */
+		if ((i == EMAC_SGMII_PHY_IRQ) &&
+		    (adpt->phy_mode != PHY_INTERFACE_MODE_SGMII))
+				continue;
+
 		retval = platform_get_irq_byname(pdev, irq_info->name);
 		if (retval < 0) {
 			/* If WOL IRQ is not specified, WOL is disabled */
@@ -2147,8 +2224,15 @@ static int emac_get_resources(struct platform_device *pdev,
 	}
 
 	/* get register addresses */
+	retval = 0;
 	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
+		/* 1588 is required only if tstamp is enabled */
 		if ((i == EMAC_1588) && !adpt->tstamp_en)
+			continue;
+
+		/* qserdes & sgmii_phy are required only for sgmii phy */
+		if ((adpt->phy_mode != PHY_INTERFACE_MODE_SGMII) &&
+		    ((i == EMAC_QSERDES) || (i == EMAC_SGMII_PHY)))
 			continue;
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -2234,9 +2318,11 @@ static int emac_probe(struct platform_device *pdev)
 		adpt->irq_info[i].rxque = &adpt->rx_queue[i];
 	}
 	adpt->irq_info[EMAC_WOL_IRQ].adpt = adpt;
+	adpt->irq_info[EMAC_SGMII_PHY_IRQ].adpt = adpt;
 
 	hw->phy_addr = 0;
 	adpt->tstamp_en = true;
+	adpt->phy_mode = 0;
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
 		goto err_res;
