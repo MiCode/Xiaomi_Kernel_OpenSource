@@ -246,6 +246,9 @@
 
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,platform-reset-gpio = <&pma8084_gpios 20 1>;
+	qcom,platform-enable-gpio = <&msmgpio 82 0>;
+	qcom,platform-bklight-en-gpio = <&msmgpio 102 0>;
 };
 
 &dsi_jdi_1080_vid {
