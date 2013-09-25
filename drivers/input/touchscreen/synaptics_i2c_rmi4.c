@@ -1053,9 +1053,9 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			wy = finger_data->wy;
 #endif
 
-			if (rmi4_data->board->x_flip)
+			if (rmi4_data->flip_x)
 				x = rmi4_data->sensor_max_x - x;
-			if (rmi4_data->board->y_flip)
+			if (rmi4_data->flip_y)
 				y = rmi4_data->sensor_max_y - y;
 
 			dev_dbg(&rmi4_data->i2c_client->dev,
@@ -1349,6 +1349,8 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,disable-gpios");
 	rmi4_pdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
 	rmi4_pdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
+	rmi4_pdata->do_lockdown = of_property_read_bool(np,
+			"synaptics,do-lockdown");
 
 	rc = of_property_read_u32(np, "synaptics,panel-x", &temp_val);
 	if (rc && (rc != -EINVAL)) {
