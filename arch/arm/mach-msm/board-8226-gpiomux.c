@@ -863,6 +863,10 @@ void __init msm8226_init_gpiomux(void)
 	 * be disabled when ethernet config is enabled.
 	 */
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
+	if (machine_is_msm8926()) {
+		msm_hsic_configs[0].gpio = 119; /* STROBE */
+		msm_hsic_configs[1].gpio = 120; /* DATA */
+	}
 	msm_gpiomux_install(msm_hsic_configs, ARRAY_SIZE(msm_hsic_configs));
 #endif
 }
