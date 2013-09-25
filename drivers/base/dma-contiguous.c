@@ -220,16 +220,26 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	__be32 *prop;
 	char *name;
 	bool in_system;
+	unsigned long size_cells = dt_root_size_cells;
+	unsigned long addr_cells = dt_root_addr_cells;
 
 	if (!of_get_flat_dt_prop(node, "linux,contiguous-region", NULL))
 		return 0;
 
+	prop = of_get_flat_dt_prop(node, "#size-cells", NULL);
+	if (prop)
+		size_cells = be32_to_cpu(prop);
+
+	prop = of_get_flat_dt_prop(node, "#address-cells", NULL);
+	if (prop)
+		addr_cells = be32_to_cpu(prop);
+
 	prop = of_get_flat_dt_prop(node, "reg", &len);
-	if (!prop || (len != 2 * sizeof(unsigned long)))
+	if (!prop || depth != 2)
 		return 0;
 
-	base = be32_to_cpu(prop[0]);
-	size = be32_to_cpu(prop[1]);
+	base = dt_mem_next_cell(addr_cells, &prop);
+	size = dt_mem_next_cell(size_cells, &prop);
 
 	name = of_get_flat_dt_prop(node, "label", NULL);
 	in_system =
