@@ -1051,7 +1051,7 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
-		if (pipe->pid == pid) {
+		if (!mfd->ref_cnt || (pipe->pid == pid)) {
 			unset_ndx |= pipe->ndx;
 			cnt++;
 		}
