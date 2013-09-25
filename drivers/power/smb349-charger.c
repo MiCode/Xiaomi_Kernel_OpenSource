@@ -902,7 +902,7 @@ static int apsd_complete(struct smb349_charger *chip, u8 status)
 		type = POWER_SUPPLY_TYPE_USB_DCP;
 		break;
 	default:
-		type = POWER_SUPPLY_TYPE_UNKNOWN;
+		type = POWER_SUPPLY_TYPE_USB;
 		break;
 	}
 
