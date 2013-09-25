@@ -118,6 +118,12 @@
 
 	gpio@ce00 { /* GPIO 15 */
 		/* Codec clock */
+		qcom,mode = <1>;           /* Digital output */
+		qcom,output-type = <0>;    /* CMOS */
+		qcom,vin-sel = <2>;        /* PMA8084 S4 = 1.8 V */
+		qcom,out-strength = <1>;   /* Low */
+		qcom,src-sel = <2>;        /* Function 1 - DIVCLK1 */
+		qcom,master-en = <1>;
 	};
 
 	gpio@cf00 { /* GPIO 16 */
