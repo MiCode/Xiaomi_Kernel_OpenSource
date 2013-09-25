@@ -3169,6 +3169,7 @@ static struct branch_clk gcc_ufs_tx_symbol_1_clk = {
 
 static struct branch_clk gcc_usb2a_phy_sleep_clk = {
 	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
+	.bcr_reg = USB2A_PHY_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -3360,6 +3361,26 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 		.dbg_name = "gcc_usb_hsic_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_system_clk.c),
+	},
+};
+
+static struct reset_clk gcc_usb30_phy_com_clk = {
+	.reset_reg = USB30_PHY_COM_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb30_phy_com_clk",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb30_phy_com_clk.c),
+	},
+};
+
+static struct reset_clk gcc_usb3_phy_clk = {
+	.reset_reg = USB3_PHY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_phy_clk",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3_phy_clk.c),
 	},
 };
 
@@ -5907,6 +5928,9 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"f9c00000.qcom,xhci-msm-hsic"),
 	CLK_LOOKUP("system_clk", gcc_usb_hsic_system_clk.c,
 			"f9c00000.qcom,xhci-msm-hsic"),
+
+	CLK_LOOKUP("",	gcc_usb30_phy_com_clk.c,	""),
+	CLK_LOOKUP("",	gcc_usb3_phy_clk.c,	""),
 
 	/* PCIE clocks */
 	CLK_LOOKUP("",	gcc_pcie_0_aux_clk.c,	""),
