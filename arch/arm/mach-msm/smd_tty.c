@@ -772,7 +772,7 @@ static int smd_tty_device_init(int idx)
 	return ret;
 }
 
-static int __init smd_tty_core_init(void)
+static int smd_tty_core_init(void)
 {
 	int ret;
 	int n;
@@ -846,7 +846,7 @@ out:
 	return ret;
 }
 
-static int __init smd_tty_devicetree_init(struct platform_device *pdev)
+static int smd_tty_devicetree_init(struct platform_device *pdev)
 {
 	int ret;
 	int idx;
