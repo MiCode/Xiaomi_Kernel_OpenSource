@@ -597,6 +597,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS: return "Intra Refresh CIR MBS";
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		return "VP8 Profile Level";
+	case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE:
+		return "Deinterlace for encoder";
 
 	/* CAMERA controls */
 	/* Keep the order of the 'case's the same as in videodev2.h! */
@@ -802,6 +804,11 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 		*flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
 		break;
 	case V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR:
+		*type = V4L2_CTRL_TYPE_BOOLEAN;
+		*min = 0;
+		*max = *step = 1;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE:
 		*type = V4L2_CTRL_TYPE_BOOLEAN;
 		*min = 0;
 		*max = *step = 1;
