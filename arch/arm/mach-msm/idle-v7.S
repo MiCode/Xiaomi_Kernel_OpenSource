@@ -305,11 +305,11 @@ ENTRY(msm_pm_collapse_exit)
 	mov     r1, #'A'
 	str     r1, [r0, #0x00C]
 #endif
+	adr	r3, 3f
+	ldr	r1, [r3]
+	sub	r3, r1, r3
 	ldr     r1, =msm_saved_state_phys
-	ldr     r2, =msm_pm_collapse_exit
-	adr     r3, msm_pm_collapse_exit
-	add     r1, r1, r3
-	sub     r1, r1, r2
+	sub     r1, r1, r3		/* translate virt to phys */
 	ldr	r1, [r1]
 	add	r1, r1, #CPU_SAVED_STATE_SIZE
 #if (NR_CPUS >= 2)
@@ -333,11 +333,11 @@ ENTRY(msm_pm_collapse_exit)
 	mcr     p15, 0, r13, c13, c0, 1 /* context ID */
 	isb
 	ldmdb   r1!, {r13, r14}
+	adr	r3, 3f
+	ldr	r0, [r3]
+	sub	r3, r0, r3
 	ldr	r0, =msm_pm_pc_pgd
-	ldr	r4, =msm_pm_collapse_exit
-	adr	r3, msm_pm_collapse_exit
-	add	r0, r0, r3
-	sub	r0, r0, r4
+	sub	r0, r0, r3		/* translate virt to phys */
 	ldr	r0, [r0]
 	ldr	r3, [r0]
 	mrrc	p15, 0, r4, r5, c2     /* save current TTBR0 */
@@ -375,11 +375,11 @@ msm_pm_pa_to_va:
 ARM(	ldmdb   r1!, {r13-r14}	)
 THUMB(	ldr	r14, [r1, #-4]!	)
 THUMB(	ldr	r13, [r1, #-4]!	)
+	adr	r3, 3f
+	ldr	r0, [r3]
+	sub	r3, r0, r3
 	ldr	r0, =msm_pm_pc_pgd
-	ldr	r1, =msm_pm_collapse_exit
-	adr	r3, msm_pm_collapse_exit
-	add	r0, r0, r3
-	sub	r0, r0, r1
+	sub	r0, r0, r3		/* translate virt to phys */
 	ldr	r0, [r0]
 	mrc     p15, 0, r1, c2, c0, 0 /* save current TTBR0 */
 	and	r3, r1, #0x7f /* mask to get TTB flags */
@@ -446,11 +446,11 @@ THUMB(2:			)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
 	and     r0, r0, #15              /* what CPU am I                  */
 
+	adr	r3, 3f
+	ldr	r1, [r3]
+	sub	r3, r1, r3
 	ldr	r1, =msm_pc_debug_counters_phys /*phys addr for IMEM reg */
-	ldr	r2, =msm_pm_boot_entry
-	adr	r3, msm_pm_boot_entry
-	add	r1, r1, r3               /* translate virt to phys addr    */
-	sub	r1, r1, r2
+	sub	r1, r1, r3			/* translate virt to phys */
 	ldr	r1,[r1]
 
 	cmp	r1, #0
@@ -463,10 +463,7 @@ THUMB(2:			)
 
 skip_pc_debug3:
 	ldr     r1, =msm_pm_boot_vector
-	ldr     r2, =msm_pm_boot_entry
-	adr     r3, msm_pm_boot_entry
-	add     r1, r1, r3               /* translate virt to phys addr    */
-	sub     r1, r1, r2
+	sub	r1, r1, r3		/* translate virt to phys */
 
 	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
 	ldr     pc, [r1]                 /* jump                           */
@@ -483,6 +480,8 @@ ENTRY(msm_pm_get_l2_flush_flag)
 	ldr     r0, [r1]
 	bx      lr
 ENDPROC(msm_pm_get_l2_flush_flag)
+
+3:	.long	.
 
 	.data
 
