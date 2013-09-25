@@ -108,6 +108,12 @@
 	status = "ok";
 };
 
+&blsp2_uart0 {
+	qcom,tx-gpio = <&msmgpio 130 0>;
+	qcom,rx-gpio = <&msmgpio 131 0>;
+	status = "ok";
+};
+
 &mdm0 {
 	interrupt-map = <0 &msmgpio 111 0x3
 			1 &msmgpio 109 0x3
