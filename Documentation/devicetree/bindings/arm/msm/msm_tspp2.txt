@@ -1,0 +1,70 @@
+TSPP2 - Transport Stream Packet Processor v2
+
+TSPP2 is a HW accelerator for processing MPEG-2 Transport Stream packets.
+For information on the TSPP2 driver, please refer to the TSPP2 driver
+documentation: Documentation/arm/msm/tspp2.txt.
+
+The devicetree representation of the TSPP2 block should be:
+
+Required properties:
+
+- compatible: "qcom,msm_tspp2"
+- cell-index: represents device ID.
+- reg: physical memory base addresses and sizes for the following:
+	TSPP2, TSIF0, TSIF1, TSPP2_BAM.
+- reg-names: names of the memory regions:
+	MSM_TSPP2, MSM_TSIF0, MSM_TSIF1, MSM_TSPP2_BAM.
+- interrupts: represents IRQ numbers for the following:
+	TSIF_TSPP2, TSIF0, TSIF1, TSIF_BAM.
+- interrupt-names: TSPP2, TSIF and BAM interrupt names.
+- qcom,tspp2-ahb-clk: TSPP2 AHB clock name.
+- qcom,tspp2-core-clk: TSPP2 core clock name.
+- qcom,tsif-ref-clk: TSIF reference clock name.
+	The driver uses clk_get to get the clocks by name. The clocks
+	should be defined in the relevant clock file (e.g. clock-8092.c).
+/* TODO: may need to add Key Ladder (KLM) clock too */
+/* TODO: update regarding regulator (GDSC): */
+/* TODO: update regarding bus bandwidth voting: */
+- qcom,iommu-hlos-group: Name of the Broadcast HLOS IOMMU domain as defined in
+	<target>-iommu-domains.dtsi, (e.g. mpq8092-iommu-domains.dtsi).
+	The Broadcast HLOS IOMMU domain includes a context bank and virtual
+	address pools definitions, used for mapping non-secured pipe memory
+	buffers.
+- qcom,iommu-hlos-partition: Partition number in the HLOS IOMMU domain.
+- qcom,iommu-cpz-group: Name of the Broadcast CPZ IOMMU domain as defined in
+	<target>-iommu-domains.dtsi, (e.g. mpq8092-iommu-domains.dtsi).
+	The Broadcast CPZ IOMMU domain includes a context bank and virtual
+	address pool definitions, used for mapping secured pipe memory buffers.
+- qcom,iommu-cpz-partition: Partition number in the CPZ IOMMU domain.
+
+Example (for MPQ8092 platform, avaialble at mpq8092.dtsi):
+
+	tspp2: msm_tspp2@fc724000 {
+		compatible = "qcom,msm_tspp2";
+		cell-index = <0>;
+		reg = <0xfc724000 0x7000>, /* MSM_TSPP2  */
+		      <0xfc72b000 0x0200>, /* MSM_TSIF0 */
+		      <0xfc72b200 0x0200>, /* MSM_TSIF1 */
+		      <0xfc704000 0x20000>; /* MSM_TSPP2_BAM */
+		reg-names = "MSM_TSPP2",
+			"MSM_TSIF0",
+			"MSM_TSIF1",
+			"MSM_TSPP2_BAM";
+		interrupts = <0 297 0>, /* TSPP2 */
+			<0 295 0>, /* TSIF0 */
+			<0 296 0>, /* TSIF1 */
+			<0 294 0>; /* TSIF_BAM */
+		interrupt-names = "TSPP2",
+			"TSIF0",
+			"TSIF1",
+			"TSPP2_BAM";
+		qcom,tspp2-ahb-clk = "bcc_tspp2_ahb_clk";
+		qcom,tspp2-core-clk = "bcc_tspp2_core_clk";
+		qcom,tsif-ref-clk = "tsif_ref_clk_src";
+		qcom,iommu-hlos-group = "bcast_hlos";
+		qcom,iommu-hlos-partition = <0>;
+		qcom,iommu-cpz-group = "bcast_cpz";
+		qcom,iommu-cpz-partition = <0>;
+	};
+
+
