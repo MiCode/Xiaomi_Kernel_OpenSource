@@ -216,6 +216,12 @@
 						100000000 200000000 4294967295>;
 		status = "disabled";
 	};
+
+	qcom,ipc-spinlock@1905000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1905000 0x8000>;
+		qcom,num-locks = <8>;
+	};
 };
 
 /include/ "msm8916-regulator.dtsi"
