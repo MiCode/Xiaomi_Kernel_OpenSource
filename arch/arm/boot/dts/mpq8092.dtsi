@@ -342,6 +342,34 @@
 			qcom,irq-no-suspend;
 		};
 	};
+
+	tspp2: msm_tspp2@fc724000 {
+		compatible = "qcom,msm_tspp2";
+		cell-index = <0>;
+		reg = <0xfc724000 0x7000>, /* MSM_TSPP2  */
+		      <0xfc72b000 0x0200>, /* MSM_TSIF0 */
+		      <0xfc72b200 0x0200>, /* MSM_TSIF1 */
+		      <0xfc704000 0x20000>; /* MSM_TSPP2_BAM */
+		reg-names = "MSM_TSPP2",
+			"MSM_TSIF0",
+			"MSM_TSIF1",
+			"MSM_TSPP2_BAM";
+		interrupts = <0 265 0>, /* TSPP2 */
+			<0 263 0>, /* TSIF0 */
+			<0 264 0>, /* TSIF1 */
+			<0 262 0>; /* TSIF_BAM */
+		interrupt-names = "TSPP2",
+			"TSIF0",
+			"TSIF1",
+			"TSPP2_BAM";
+		qcom,tspp2-ahb-clk = "bcc_tspp2_ahb_clk";
+		qcom,tspp2-core-clk = "bcc_tspp2_core_clk";
+		qcom,tsif-ref-clk = "tsif_ref_clk_src";
+		qcom,iommu-hlos-group = "bcast_hlos";
+		qcom,iommu-hlos-partition = <0>;
+		qcom,iommu-cpz-group = "bcast_cpz";
+		qcom,iommu-cpz-partition = <0>;
+	};
 };
 
 &gdsc_venus {
