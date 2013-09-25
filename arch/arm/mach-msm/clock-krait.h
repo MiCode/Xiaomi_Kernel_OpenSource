@@ -50,9 +50,9 @@ struct hfpll_data {
 	const u32 status_offset;
 
 	const u32 droop_val;
-	const u32 config_val;
+	u32 config_val;
 	const u32 user_val;
-	const u32 user_vco_mask;
+	u32 user_vco_mask;
 	unsigned long low_vco_max_rate;
 
 	unsigned long min_rate;

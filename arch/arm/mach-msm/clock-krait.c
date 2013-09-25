@@ -130,7 +130,8 @@ static void __hfpll_clk_init_once(struct clk *c)
 		return;
 
 	/* Configure PLL parameters for integer mode. */
-	writel_relaxed(hd->config_val, h->base + hd->config_offset);
+	if (hd->config_val)
+		writel_relaxed(hd->config_val, h->base + hd->config_offset);
 	writel_relaxed(0, h->base + hd->m_offset);
 	writel_relaxed(1, h->base + hd->n_offset);
 
@@ -141,7 +142,7 @@ static void __hfpll_clk_init_once(struct clk *c)
 		rate = readl_relaxed(h->base + hd->l_offset) * h->src_rate;
 
 		/* Pick the right VCO. */
-		if (rate > hd->low_vco_max_rate)
+		if (hd->user_vco_mask && rate > hd->low_vco_max_rate)
 			regval |= hd->user_vco_mask;
 		writel_relaxed(regval, h->base + hd->user_offset);
 	}
@@ -250,7 +251,7 @@ static int hfpll_clk_set_rate(struct clk *c, unsigned long rate)
 		hfpll_clk_disable(c);
 
 	/* Pick the right VCO. */
-	if (hd->user_offset) {
+	if (hd->user_offset && hd->user_vco_mask) {
 		u32 regval;
 		regval = readl_relaxed(h->base + hd->user_offset);
 		if (rate <= hd->low_vco_max_rate)
