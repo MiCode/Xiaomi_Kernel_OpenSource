@@ -2501,9 +2501,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->io_res = res; /* used to calculate chg block offset */
 
-	pm_runtime_set_active(mdwc->dev);
-	pm_runtime_enable(mdwc->dev);
-
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
 				 &mdwc->dbm_num_eps)) {
 		dev_err(&pdev->dev,
@@ -2679,6 +2676,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
 	dwc3_msm_debugfs_init(mdwc);
+
+	pm_runtime_set_active(mdwc->dev);
+	pm_runtime_enable(mdwc->dev);
 
 	return 0;
 
