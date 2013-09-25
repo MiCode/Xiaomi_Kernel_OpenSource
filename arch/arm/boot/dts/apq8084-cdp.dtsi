@@ -283,6 +283,12 @@
 	};
 
 	mpp@a200 { /* MPP 3 */
+		/* HDMI_5v_vreg regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	mpp@a300 { /* MPP 4 */

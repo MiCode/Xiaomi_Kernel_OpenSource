@@ -515,4 +515,12 @@
 		enable-active-high;
 		gpio = <&pma8084_gpios 20 0>;
 	};
+
+	hdmi_vreg: hdmi_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi_vreg";
+		startup-delay-us = <400>;
+		enable-active-high;
+		gpio = <&pma8084_mpps 3 0>;
+	};
 };
