@@ -1197,6 +1197,12 @@ static int mdss_fb_release(struct fb_info *info, int user)
 	if (!pinfo || (pinfo->pid != pid)) {
 		pr_warn("unable to find process info for fb%d pid=%d\n",
 				mfd->index, pid);
+		if (mfd->mdp.release_fnc) {
+			ret = mfd->mdp.release_fnc(mfd);
+			if (ret)
+				pr_err("error releasing fb%d resources\n",
+						mfd->index);
+		}
 	} else {
 		pr_debug("found process entry pid=%d ref=%d\n",
 				pinfo->pid, pinfo->ref_cnt);
