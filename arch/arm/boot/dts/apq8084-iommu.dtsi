@@ -123,6 +123,7 @@
 
 &jpeg_iommu {
 	status = "ok";
+	qcom,needs-alt-iface-clk;
 	vdd-supply = <&gdsc_jpeg>;
 
 	qcom,iommu-bfb-regs =  <0x204c
@@ -382,6 +383,7 @@
 
 &vfe_iommu {
 	status = "ok";
+	qcom,needs-alt-iface-clk;
 	vdd-supply = <&gdsc_vfe>;
 
 	qcom,iommu-bfb-regs =  <0x204c
@@ -473,6 +475,7 @@
 &vpu_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_vpu>;
+	qcom,needs-alt-core-clk;
 };
 
 &lpass_qdsp_iommu {
