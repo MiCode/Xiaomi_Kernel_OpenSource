@@ -65,6 +65,7 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 
 	if (enable) {
+		dsi_ctrl_gpio_request(ctrl_pdata);
 		mdss_dsi_panel_reset(pdata, 1);
 
 		rc = dsi_cmds_tx_v2(pdata, &dsi_panel_tx_buf,
@@ -82,6 +83,7 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 					ctrl_pdata->off_cmds.cmd_cnt);
 
 		mdss_dsi_panel_reset(pdata, 0);
+		dsi_ctrl_gpio_free(ctrl_pdata);
 	}
 	return rc;
 }
@@ -139,107 +141,37 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct device_node *np = pdev->dev.of_node;
-	int rc = 0;
 
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(np,
 		"qcom,platform-enable-gpio", 0);
 
-	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
+	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		pr_err("%s:%d, Disp_en gpio not specified\n",
 						__func__, __LINE__);
-	} else {
-		rc = gpio_request(ctrl_pdata->disp_en_gpio, "disp_enable");
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-			       rc);
-			gpio_free(ctrl_pdata->disp_en_gpio);
-			return -ENODEV;
-		}
-	}
 
+	ctrl_pdata->disp_te_gpio = -1;
 	if (ctrl_pdata->panel_data.panel_info.mipi.mode == DSI_CMD_MODE) {
 		ctrl_pdata->disp_te_gpio = of_get_named_gpio(np,
 						"qcom,platform-te-gpio", 0);
-		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio))
 			pr_err("%s:%d, Disp_te gpio not specified\n",
 							__func__, __LINE__);
-		} else {
-			rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
-			if (rc) {
-				pr_err("request TE gpio failed, rc=%d\n",
-								       rc);
-				gpio_free(ctrl_pdata->disp_te_gpio);
-				return -ENODEV;
-			}
-			rc = gpio_tlmm_config(GPIO_CFG(
-					ctrl_pdata->disp_te_gpio, 1,
-					GPIO_CFG_INPUT,
-					GPIO_CFG_PULL_DOWN,
-					GPIO_CFG_2MA),
-					GPIO_CFG_ENABLE);
-
-			if (rc) {
-				pr_err("%s: unable to config tlmm = %d\n",
-					__func__, ctrl_pdata->disp_te_gpio);
-				gpio_free(ctrl_pdata->disp_te_gpio);
-				return -ENODEV;
-			}
-
-			rc = gpio_direction_input(ctrl_pdata->disp_te_gpio);
-			if (rc) {
-				pr_err("set_direction for disp_en gpio failed, rc=%d\n",
-								       rc);
-				gpio_free(ctrl_pdata->disp_te_gpio);
-				if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-					gpio_free(ctrl_pdata->disp_en_gpio);
-				return -ENODEV;
-			}
-			pr_debug("%s: te_gpio=%d\n", __func__,
-					ctrl_pdata->disp_te_gpio);
-		}
 	}
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(np,
 					"qcom,platform-reset-gpio", 0);
-	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
+	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
-	} else {
-		rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-				rc);
-			gpio_free(ctrl_pdata->rst_gpio);
-			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-				gpio_free(ctrl_pdata->disp_en_gpio);
-			if (gpio_is_valid(ctrl_pdata->disp_te_gpio))
-				gpio_free(ctrl_pdata->disp_te_gpio);
-			return -ENODEV;
-		}
-	}
 
+	ctrl_pdata->mode_gpio = -1;
 	if (ctrl_pdata->panel_data.panel_info.mode_gpio_state !=
 						MODE_GPIO_NOT_VALID) {
 		ctrl_pdata->mode_gpio = of_get_named_gpio(np,
 						"qcom,platform-mode-gpio", 0);
-		if (!gpio_is_valid(ctrl_pdata->mode_gpio)) {
+		if (!gpio_is_valid(ctrl_pdata->mode_gpio))
 			pr_info("%s:%d, reset gpio not specified\n",
 							__func__, __LINE__);
-		} else {
-			rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
-			if (rc) {
-				pr_err("request panel mode gpio failed,rc=%d\n",
-									rc);
-				gpio_free(ctrl_pdata->mode_gpio);
-				if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-					gpio_free(ctrl_pdata->disp_en_gpio);
-				if (gpio_is_valid(ctrl_pdata->rst_gpio))
-					gpio_free(ctrl_pdata->rst_gpio);
-				if (gpio_is_valid(ctrl_pdata->disp_te_gpio))
-					gpio_free(ctrl_pdata->disp_te_gpio);
-				return -ENODEV;
-			}
-		}
 	}
 	return 0;
 }
@@ -258,15 +190,81 @@ void dsi_ctrl_config_deinit(struct platform_device *pdev,
 		module_power->vreg_config = NULL;
 	}
 	module_power->num_vreg = 0;
+}
 
-	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-		gpio_free(ctrl_pdata->disp_en_gpio);
-	if (gpio_is_valid(ctrl_pdata->rst_gpio))
-		gpio_free(ctrl_pdata->rst_gpio);
+int dsi_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+
+	if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
+		rc = gpio_request(ctrl_pdata->disp_en_gpio, "disp_enable");
+		if (rc)
+			goto gpio_request_err4;
+
+		ctrl_pdata->disp_en_gpio_requested = 1;
+	}
+
+	if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+		rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
+		if (rc)
+			goto gpio_request_err3;
+
+		ctrl_pdata->rst_gpio_requested = 1;
+	}
+
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
+		if (rc)
+			goto gpio_request_err2;
+
+		ctrl_pdata->disp_te_gpio_requested = 1;
+	}
+
+	if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
+		rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
+		if (rc)
+			goto gpio_request_err1;
+
+		ctrl_pdata->mode_gpio_requested = 1;
+	}
+
+	return rc;
+
+gpio_request_err1:
 	if (gpio_is_valid(ctrl_pdata->disp_te_gpio))
 		gpio_free(ctrl_pdata->disp_te_gpio);
-	if (gpio_is_valid(ctrl_pdata->mode_gpio))
+gpio_request_err2:
+	if (gpio_is_valid(ctrl_pdata->rst_gpio))
+		gpio_free(ctrl_pdata->rst_gpio);
+gpio_request_err3:
+	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+		gpio_free(ctrl_pdata->disp_en_gpio);
+gpio_request_err4:
+	ctrl_pdata->disp_en_gpio_requested = 0;
+	ctrl_pdata->rst_gpio_requested = 0;
+	ctrl_pdata->disp_te_gpio_requested = 0;
+	ctrl_pdata->mode_gpio_requested = 0;
+	return rc;
+}
+
+void dsi_ctrl_gpio_free(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	if (ctrl_pdata->disp_en_gpio_requested) {
+		gpio_free(ctrl_pdata->disp_en_gpio);
+		ctrl_pdata->disp_en_gpio_requested = 0;
+	}
+	if (ctrl_pdata->rst_gpio_requested) {
+		gpio_free(ctrl_pdata->rst_gpio);
+		ctrl_pdata->rst_gpio_requested = 0;
+	}
+	if (ctrl_pdata->disp_te_gpio_requested) {
+		gpio_free(ctrl_pdata->disp_te_gpio);
+		ctrl_pdata->disp_te_gpio_requested = 0;
+	}
+	if (ctrl_pdata->mode_gpio_requested) {
 		gpio_free(ctrl_pdata->mode_gpio);
+		ctrl_pdata->mode_gpio_requested = 0;
+	}
 }
 
 static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
