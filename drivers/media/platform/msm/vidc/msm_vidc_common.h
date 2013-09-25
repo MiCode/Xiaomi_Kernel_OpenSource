@@ -46,6 +46,7 @@ struct hal_buffer_requirements *get_buff_req_buffer(
 #define IS_PRIV_CTRL(idx) (\
 		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
+int msm_comm_check_scaling_supported(struct msm_vidc_inst *inst);
+int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst);
 
 #endif
-int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst);
