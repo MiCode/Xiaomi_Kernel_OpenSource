@@ -13,23 +13,10 @@
 /dts-v1/;
 
 /include/ "msmkrypton.dtsi"
+/include/ "msmkrypton-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM KRYPTON SIM";
-	compatible = "qcom,msmkrypton-sim", "qcom,msmkrypton", "qcom,sim";
-	qcom,board-id = <16 0>;
-};
-
-&uartdm3{
-	status = "ok";
-};
-
-&spi_6 {
-	ethernet-switch@0 {
-		compatible = "simtec,ks8851";
-		reg = <0>;
-		interrupt-parent = <&msmgpio>;
-		spi-max-frequency = <19200000>;
-		interrupts = <75 0>;
-	};
+	model = "Qualcomm MSM KRYPTON MTP";
+	compatible = "qcom,msmkrypton-mtp", "qcom,msmkrypton", "qcom,mtp";
+	qcom,board-id = <8 0>;
 };
