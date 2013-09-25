@@ -49,12 +49,6 @@
 
 extern char cmd_line[COMMAND_LINE_SIZE];
 
-void __init early_init_dt_add_memory_arch(u64 base, u64 size)
-{
-	size &= PAGE_MASK;
-	memblock_add(base, size);
-}
-
 void __init early_init_devtree(void *params)
 {
 	void *alloc;
