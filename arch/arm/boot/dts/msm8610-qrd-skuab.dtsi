@@ -44,6 +44,40 @@
 			focaltech,no-force-update;
 			focaltech,i2c-pull-up;
 		};
+		goodix@5d {
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <1 0x2008>;
+			reset-gpios = <&msmgpio 0 0x00>;
+			interrupt-gpios = <&msmgpio 1 0x00>;
+			vdd-supply = <&pm8110_l19>;
+			vcc_i2c-supply = <&pm8110_l14>;
+			goodix,panel-coords = <0 0 540 980>;
+			goodix,display-coords = <0 0 540 960>;
+			goodix,button-map= <139 102 158>;
+			goodix,family-id = <0x0>;
+			goodix,cfg-data0 = [
+				46 1C 02 C0 03 0A 05 11 01 08
+				14 3B 46 32 03 05 00 00 00 00
+				00 00 00 00 00 00 00 8A 09 0B
+				39 00 99 0A 00 00 02 83 03 1D
+				00 08 00 00 00 00 00 00 00 00
+				00 1D 73 94 C5 02 07 00 00 04
+				78 21 00 5C 2C 00 48 3A 00 3A
+				4C 00 2F 65 00 30 10 30 50 00
+				56 45 35 FF FF 17 00 00 00 00
+				00 01 1C 15 0C 14 5F 03 02 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 16 14 12 10 0E 0C 0A 08
+				06 04 02 FF FF FF 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 22 21 20 1F 1E 1D 1C 18
+				16 12 10 0F 0C 0A 08 06 04 02
+				00 FF FF FF FF FF FF FF 00 00
+				00 FF FF FF FF FF FF FF FF FF
+				F8 FF FF FF E4 01];
+		};
 	};
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
@@ -55,6 +89,7 @@
 		qcom,key-codes = <139 102 158>;
 		qcom,y-offset = <0>;
 	};
+
     i2c@f9925000 {
 		fsl@1c {
 			compatible = "fsl,mma8x5x";
