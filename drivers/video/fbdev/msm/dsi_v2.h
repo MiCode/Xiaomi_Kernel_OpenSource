@@ -70,6 +70,10 @@ void dsi_ctrl_config_deinit(struct platform_device *pdev,
 int dsi_ctrl_config_init(struct platform_device *pdev,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
+int dsi_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+
+void dsi_ctrl_gpio_free(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+
 struct mdss_panel_cfg *mdp3_panel_intf_type(int intf_val);
 
 int mdp3_panel_get_boot_cfg(void);
