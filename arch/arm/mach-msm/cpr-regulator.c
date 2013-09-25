@@ -25,9 +25,11 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/debugfs.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
+#include <asm/uaccess.h>
 #include <mach/scm.h>
 
 /* Register Offsets for RB-CPR and Bit Definitions */
@@ -92,9 +94,15 @@
 /* RBCPR Result status Register */
 #define REG_RBCPR_RESULT_0		0xA0
 
+#define RBCPR_RESULT0_BUSY_SHIFT	19
+#define RBCPR_RESULT0_ERROR_LT0_SHIFT	18
+#define RBCPR_RESULT0_ERROR_SHIFT	6
+#define RBCPR_RESULT0_ERROR_BITS	12
+#define RBCPR_RESULT0_ERROR_MASK	((1<<RBCPR_RESULT0_ERROR_BITS)-1)
 #define RBCPR_RESULT0_ERROR_STEPS_SHIFT	2
 #define RBCPR_RESULT0_ERROR_STEPS_BITS	4
 #define RBCPR_RESULT0_ERROR_STEPS_MASK	((1<<RBCPR_RESULT0_ERROR_STEPS_BITS)-1)
+#define RBCPR_RESULT0_STEP_UP_SHIFT	1
 
 /* RBCPR Interrupt Control Register */
 #define REG_RBIF_IRQ_EN(n)		(0x100 + 4 * n)
@@ -212,6 +220,7 @@ struct cpr_regulator {
 static int cpr_debug_enable = CPR_DEBUG_MASK_IRQ;
 static int cpr_enable;
 static struct cpr_regulator *the_cpr;
+static struct dentry *cpr_debugfs_entry;
 
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 #define cpr_debug(message, ...) \
@@ -1517,6 +1526,113 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	return 0;
 }
 
+#if defined(CONFIG_DEBUG_FS)
+
+static ssize_t cpr_debugfs_read(struct file *file, char __user *buff,
+				size_t count, loff_t *ppos)
+{
+	char *debugfs_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	ssize_t len, ret = 0;
+	u32 gcnt, ro_sel, ctl, irq_status, reg, error_steps;
+	u32 step_dn, step_up, error, error_lt0, busy;
+
+	if (!debugfs_buf)
+		return -ENOMEM;
+
+	mutex_lock(&the_cpr->cpr_mutex);
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"corner = %d, current_volt = %d uV\n",
+			the_cpr->corner, the_cpr->last_volt[the_cpr->corner]);
+	ret += len;
+
+	ro_sel = the_cpr->cpr_fuse_ro_sel[the_cpr->corner];
+	gcnt = cpr_read(the_cpr, REG_RBCPR_GCNT_TARGET(ro_sel));
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"rbcpr_gcnt_target (%u) = 0x%02X\n", ro_sel, gcnt);
+	ret += len;
+
+	ctl = cpr_read(the_cpr, REG_RBCPR_CTL);
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"rbcpr_ctl = 0x%02X\n", ctl);
+	ret += len;
+
+	irq_status = cpr_read(the_cpr, REG_RBIF_IRQ_STATUS);
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"rbcpr_irq_status = 0x%02X\n", irq_status);
+	ret += len;
+
+	reg = cpr_read(the_cpr, REG_RBCPR_RESULT_0);
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"rbcpr_result_0 = 0x%02X\n", reg);
+	ret += len;
+
+	step_dn = reg & 0x01;
+	step_up = (reg >> RBCPR_RESULT0_STEP_UP_SHIFT) & 0x01;
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"  [step_dn = %u", step_dn);
+	ret += len;
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			", step_up = %u", step_up);
+	ret += len;
+
+	error_steps = (reg >> RBCPR_RESULT0_ERROR_STEPS_SHIFT)
+				& RBCPR_RESULT0_ERROR_STEPS_MASK;
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			", error_steps = %u", error_steps);
+	ret += len;
+
+	error = (reg >> RBCPR_RESULT0_ERROR_SHIFT) & RBCPR_RESULT0_ERROR_MASK;
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			", error = %u", error);
+	ret += len;
+
+	error_lt0 = (reg >> RBCPR_RESULT0_ERROR_LT0_SHIFT) & 0x01;
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			", error_lt_0 = %u", error_lt0);
+	ret += len;
+
+	busy = (reg >> RBCPR_RESULT0_BUSY_SHIFT) & 0x01;
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			", busy = %u]\n", busy);
+	ret += len;
+	mutex_unlock(&the_cpr->cpr_mutex);
+
+
+	ret = simple_read_from_buffer(buff, count, ppos, debugfs_buf, ret);
+	kfree(debugfs_buf);
+	return ret;
+}
+
+static const struct file_operations cpr_debugfs_fops = {
+	.read = cpr_debugfs_read,
+};
+
+static void cpr_debugfs_init(void)
+{
+	cpr_debugfs_entry = debugfs_create_file("debug_info", 0444,
+						the_cpr->rdev->debugfs, NULL,
+						&cpr_debugfs_fops);
+	if (!cpr_debugfs_entry)
+		pr_err("cpr_irq_debugfs_entry creation failed.\n");
+}
+
+static void cpr_debugfs_remove(void)
+{
+	debugfs_remove(cpr_debugfs_entry);
+}
+
+#else
+
+static void cpr_debugfs_init(void)
+{}
+
+static void cpr_debugfs_remove(void)
+{}
+
+#endif
+
 static int cpr_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config reg_config = {};
@@ -1604,6 +1720,7 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, cpr_vreg);
 	the_cpr = cpr_vreg;
+	cpr_debugfs_init();
 
 	return 0;
 
@@ -1625,6 +1742,7 @@ static int cpr_regulator_remove(struct platform_device *pdev)
 		}
 
 		cpr_apc_exit(cpr_vreg);
+		cpr_debugfs_remove();
 		regulator_unregister(cpr_vreg->rdev);
 	}
 
