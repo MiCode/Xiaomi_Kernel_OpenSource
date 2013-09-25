@@ -712,6 +712,9 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		usb_enable_autosuspend(ksb->udev);
 	}
 
+	/* disable interface suspend */
+	usb_autopm_get_interface(ifc);
+
 	dev_dbg(&udev->dev, "usb dev connected");
 
 	return 0;
