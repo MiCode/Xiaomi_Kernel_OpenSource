@@ -10,6 +10,8 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 
+	.arm
+
 __CPUINIT
 
 /*
@@ -20,6 +22,10 @@ __CPUINIT
  * This is executing in physical space with cache's off.
  */
 ENTRY(msm_secondary_startup)
+THUMB(	adr	r9, BSYM(2f)	)	@ Kernel is always entered in ARM.
+THUMB(	bx	r9		)	@ If this is a Thumb-2 kernel,
+THUMB(	.thumb			)	@ switch to Thumb now.
+THUMB(2:			)
 	mrc	p15, 0, r0, c0, c0, 5 	@ MPIDR
 	and	r0, r0, #15		@ What CPU am I
 	adr	r4, 1f			@ address of

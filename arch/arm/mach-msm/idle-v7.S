@@ -436,7 +436,13 @@ msm_pm_pa_to_va:
 1:	b       1b
 ENDPROC(msm_pm_collapse_exit)
 
+	.arm
+
 ENTRY(msm_pm_boot_entry)
+THUMB(	adr	r9, BSYM(2f)	)	/* Kernel is always entered in ARM. */
+THUMB(	bx	r9		)	/* If this is a Thumb-2 kernel, */
+THUMB(	.thumb			)	/* switch to Thumb now.		*/
+THUMB(2:			)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
 	and     r0, r0, #15              /* what CPU am I                  */
 
