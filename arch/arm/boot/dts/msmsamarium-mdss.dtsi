@@ -120,3 +120,5 @@
 		qcom,mdss-fb-map = <&mdss_fb1>;
 	};
 };
+
+/include/ "dsi-panel-jdi-1080p-video.dtsi"
