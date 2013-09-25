@@ -686,7 +686,7 @@ int div_prepare(struct clk *c)
 {
 	struct div_clk *div = to_div_clk(c);
 	/* Restore the divider's value */
-	return div->ops->set_div(div, div->div);
+	return div->ops->set_div(div, div->data.div);
 }
 
 int mux_prepare(struct clk *c)
@@ -1451,8 +1451,10 @@ struct dsi_pll_vco_clk dsi_vco_clk_8226 = {
 };
 
 struct div_clk analog_postdiv_clk_8226 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &analog_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8226.c,
@@ -1465,7 +1467,9 @@ struct div_clk analog_postdiv_clk_8226 = {
 
 struct div_clk indirect_path_div2_clk_8226 = {
 	.ops = &fixed_2div_ops,
-	.div = 2,
+	.data = {
+		.div = 2,
+	},
 	.c = {
 		.parent = &analog_postdiv_clk_8226.c,
 		.dbg_name = "indirect_path_div2_clk",
@@ -1476,8 +1480,10 @@ struct div_clk indirect_path_div2_clk_8226 = {
 };
 
 struct div_clk pixel_clk_src_8226 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &digital_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8226.c,
@@ -1505,8 +1511,10 @@ struct mux_clk byte_mux_8226 = {
 
 struct div_clk byte_clk_src_8226 = {
 	.ops = &fixed_4div_ops,
-	.min_div = 4,
-	.max_div = 4,
+	.data = {
+		.min_div = 4,
+		.max_div = 4,
+	},
 	.c = {
 		.parent = &byte_mux_8226.c,
 		.dbg_name = "byte_clk_src",
@@ -1544,8 +1552,10 @@ struct dsi_pll_vco_clk dsi_vco_clk_8084 = {
 };
 
 struct div_clk analog_postdiv_clk_8084 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &analog_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8084.c,
@@ -1558,7 +1568,9 @@ struct div_clk analog_postdiv_clk_8084 = {
 
 struct div_clk indirect_path_div2_clk_8084 = {
 	.ops = &fixed_2div_ops,
-	.div = 2,
+	.data = {
+		.div = 2,
+	},
 	.c = {
 		.parent = &analog_postdiv_clk_8084.c,
 		.dbg_name = "indirect_path_div2_clk",
@@ -1569,8 +1581,10 @@ struct div_clk indirect_path_div2_clk_8084 = {
 };
 
 struct div_clk pixel_clk_src_8084 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &digital_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8084.c,
@@ -1598,8 +1612,10 @@ struct mux_clk byte_mux_8084 = {
 
 struct div_clk byte_clk_src_8084 = {
 	.ops = &fixed_4div_ops,
-	.min_div = 4,
-	.max_div = 4,
+	.data = {
+		.min_div = 4,
+		.max_div = 4,
+	},
 	.c = {
 		.parent = &byte_mux_8084.c,
 		.dbg_name = "byte_clk_src",
@@ -1637,8 +1653,10 @@ struct dsi_pll_vco_clk dsi_vco_clk_8974 = {
 };
 
 struct div_clk analog_postdiv_clk_8974 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &analog_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8974.c,
@@ -1651,7 +1669,9 @@ struct div_clk analog_postdiv_clk_8974 = {
 
 struct div_clk indirect_path_div2_clk_8974 = {
 	.ops = &fixed_2div_ops,
-	.div = 2,
+	.data = {
+		.div = 2,
+	},
 	.c = {
 		.parent = &analog_postdiv_clk_8974.c,
 		.dbg_name = "indirect_path_div2_clk",
@@ -1662,8 +1682,10 @@ struct div_clk indirect_path_div2_clk_8974 = {
 };
 
 struct div_clk pixel_clk_src_8974 = {
-	.max_div = 255,
-	.min_div = 1,
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
 	.ops = &digital_postdiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8974.c,
@@ -1691,8 +1713,10 @@ struct mux_clk byte_mux_8974 = {
 
 struct div_clk byte_clk_src_8974 = {
 	.ops = &fixed_4div_ops,
-	.min_div = 4,
-	.max_div = 4,
+	.data = {
+		.min_div = 4,
+		.max_div = 4,
+	},
 	.c = {
 		.parent = &byte_mux_8974.c,
 		.dbg_name = "byte_clk_src",
@@ -2067,10 +2091,10 @@ static unsigned long edp_mainlink_get_rate(struct clk *c)
 
 	if (pclk->ops->get_rate) {
 		rate = pclk->ops->get_rate(pclk);
-		rate /= mclk->div;
+		rate /= mclk->data.div;
 	}
 
-	pr_debug("%s: rate=%d div=%d\n", __func__, (int)rate, mclk->div);
+	pr_debug("%s: rate=%d div=%d\n", __func__, (int)rate, mclk->data.div);
 
 	return rate;
 }
@@ -2080,7 +2104,9 @@ static struct clk_div_ops fixed_5div_ops; /* null ops */
 
 struct div_clk edp_mainlink_clk_src = {
 	.ops = &fixed_5div_ops,
-	.div = 5,
+	.data = {
+		.div = 5,
+	},
 	.c = {
 		.parent = &edp_vco_clk.c,
 		.dbg_name = "edp_mainlink_clk_src",
@@ -2138,8 +2164,10 @@ static struct clk_div_ops edp_pixel_ops = {
 };
 
 struct div_clk edp_pixel_clk_src = {
-	.max_div = 2,
-	.min_div = 1,
+	.data = {
+		.max_div = 2,
+		.min_div = 1,
+	},
 	.ops = &edp_pixel_ops,
 	.c = {
 		.parent = &edp_vco_clk.c,
@@ -2287,7 +2315,9 @@ static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 };
 
 static struct div_clk hdmipll_div1_clk = {
-	.div = 1,
+	.data = {
+		.div = 1,
+	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
 		.dbg_name = "hdmipll_div1_clk",
@@ -2298,7 +2328,9 @@ static struct div_clk hdmipll_div1_clk = {
 };
 
 static struct div_clk hdmipll_div2_clk = {
-	.div = 2,
+	.data = {
+		.div = 2,
+	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
 		.dbg_name = "hdmipll_div2_clk",
@@ -2309,7 +2341,9 @@ static struct div_clk hdmipll_div2_clk = {
 };
 
 static struct div_clk hdmipll_div4_clk = {
-	.div = 4,
+	.data = {
+		.div = 4,
+	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
 		.dbg_name = "hdmipll_div4_clk",
@@ -2320,7 +2354,9 @@ static struct div_clk hdmipll_div4_clk = {
 };
 
 static struct div_clk hdmipll_div6_clk = {
-	.div = 6,
+	.data = {
+		.div = 6,
+	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
 		.dbg_name = "hdmipll_div6_clk",
@@ -2389,7 +2425,9 @@ static struct mux_clk hdmipll_mux_clk = {
 };
 
 struct div_clk hdmipll_clk_src = {
-	.div = 5,
+	.data = {
+		.div = 5,
+	},
 	.c = {
 		.parent = &hdmipll_mux_clk.c,
 		.dbg_name = "hdmipll_clk_src",
