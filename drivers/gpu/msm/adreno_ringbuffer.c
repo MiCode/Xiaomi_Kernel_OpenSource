@@ -391,7 +391,8 @@ int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 	if (adreno_is_a305(adreno_dev) || adreno_is_a305c(adreno_dev) ||
 		adreno_is_a320(adreno_dev))
 		kgsl_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x000E0602);
-	else if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
+	else if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev) ||
+			adreno_is_a310(adreno_dev))
 		kgsl_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x003E2008);
 
 	rb->wptr = 0;
