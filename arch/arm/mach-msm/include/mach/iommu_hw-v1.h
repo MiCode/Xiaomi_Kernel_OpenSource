@@ -155,7 +155,7 @@ do { \
 #define GET_NSCR0(b)             GET_GLOBAL_REG(NSCR0, (b))
 #define GET_NSCR2(b)             GET_GLOBAL_REG(NSCR2, (b))
 #define GET_NSACR(b)             GET_GLOBAL_REG(NSACR, (b))
-#define GET_PMCR(b, v)           GET_GLOBAL_REG(PMCR, (b))
+#define GET_PMCR(b)              GET_GLOBAL_REG(PMCR, (b))
 #define GET_SMR_N(b, N)          GET_GLOBAL_REG_N(SMR, N, (b))
 #define GET_S2CR_N(b, N)         GET_GLOBAL_REG_N(S2CR, N, (b))
 
