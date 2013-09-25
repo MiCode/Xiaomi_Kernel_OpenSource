@@ -507,4 +507,12 @@
 			qcom,ldo-disable;
 		};
 	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pma8084_gpios 20 0>;
+	};
 };
