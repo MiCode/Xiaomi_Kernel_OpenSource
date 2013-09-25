@@ -31,7 +31,7 @@ struct mdss_mdp_cmd_ctx {
 	u8 ref_cnt;
 	struct completion pp_comp;
 	struct completion stop_comp;
-	mdp_vsync_handler_t send_vsync;
+	struct list_head vsync_handlers;
 	int panel_on;
 	int koff_cnt;
 	int clk_enabled;
@@ -212,6 +212,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
 	struct mdss_mdp_cmd_ctx *ctx = ctl->priv_data;
+	struct mdss_mdp_vsync_handler *tmp;
 	ktime_t vsync_time;
 
 	if (!ctx) {
@@ -223,8 +224,10 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	ctl->vsync_cnt++;
 
 	spin_lock(&ctx->clk_lock);
-	if (ctx->send_vsync)
-		ctx->send_vsync(ctl, vsync_time);
+	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
+		if (tmp->enabled && !tmp->cmd_post_flush)
+			tmp->vsync_handler(ctl, vsync_time);
+	}
 
 	if (!ctx->vsync_enabled) {
 		if (ctx->rdptr_enabled)
@@ -245,6 +248,8 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
 	struct mdss_mdp_cmd_ctx *ctx = ctl->priv_data;
+	struct mdss_mdp_vsync_handler *tmp;
+	ktime_t vsync_time;
 
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -252,6 +257,10 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 	}
 
 	spin_lock(&ctx->clk_lock);
+	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
+		if (tmp->enabled && tmp->cmd_post_flush)
+			tmp->vsync_handler(ctl, vsync_time);
+	}
 	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
 
 	complete_all(&ctx->pp_comp);
@@ -298,15 +307,16 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	}
 
 	spin_lock_irqsave(&ctx->clk_lock, flags);
-	if (ctx->vsync_enabled) {
-		spin_unlock_irqrestore(&ctx->clk_lock, flags);
-		return 0;
+	if (!handle->enabled) {
+		handle->enabled = true;
+		list_add(&handle->list, &ctx->vsync_handlers);
+		if (!handle->cmd_post_flush)
+			ctx->vsync_enabled = 1;
 	}
-	ctx->vsync_enabled = 1;
-	ctx->send_vsync = handle->vsync_handler;
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
-	mdss_mdp_cmd_clk_on(ctx);
+	if (!handle->cmd_post_flush)
+		mdss_mdp_cmd_clk_on(ctx);
 
 	return 0;
 }
@@ -317,6 +327,8 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 
 	struct mdss_mdp_cmd_ctx *ctx;
 	unsigned long flags;
+	struct mdss_mdp_vsync_handler *tmp;
+	int num_rdptr_vsync = 0;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -326,13 +338,18 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 
 
 	spin_lock_irqsave(&ctx->clk_lock, flags);
-	if (!ctx->vsync_enabled) {
-		spin_unlock_irqrestore(&ctx->clk_lock, flags);
-		return 0;
+	if (handle->enabled) {
+		handle->enabled = false;
+		list_del_init(&handle->list);
 	}
-	ctx->vsync_enabled = 0;
-	ctx->send_vsync = NULL;
-	ctx->rdptr_enabled = VSYNC_EXPIRE_TICK;
+	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
+		if (!tmp->cmd_post_flush)
+			num_rdptr_vsync++;
+	}
+	if (!num_rdptr_vsync) {
+		ctx->vsync_enabled = 0;
+		ctx->rdptr_enabled = VSYNC_EXPIRE_TICK;
+	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 	return 0;
 }
@@ -432,6 +449,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	unsigned long flags;
+	struct mdss_mdp_vsync_handler *tmp, *handle;
 	int need_wait = 0;
 	int ret = 0;
 
@@ -444,10 +462,6 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	if (ctx->rdptr_enabled) {
 		INIT_COMPLETION(ctx->stop_comp);
 		need_wait = 1;
-	}
-	if (ctx->vsync_enabled) {
-		pr_err("%s: vsync should be disabled\n", __func__);
-		ctx->vsync_enabled = 0;
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
@@ -462,6 +476,9 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_cmd_clk_off(ctx);
 
 	ctx->panel_on = 0;
+
+	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
+		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
 				   NULL, NULL);
@@ -527,6 +544,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	spin_lock_init(&ctx->clk_lock);
 	mutex_init(&ctx->clk_mtx);
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
+	INIT_LIST_HEAD(&ctx->vsync_handlers);
 
 	pr_debug("%s: ctx=%p num=%d mixer=%d\n", __func__,
 				ctx, ctx->pp_num, mixer->num);

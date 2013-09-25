@@ -2257,6 +2257,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		}
 		ctl->vsync_handler.vsync_handler =
 						mdss_mdp_overlay_handle_vsync;
+		ctl->vsync_handler.cmd_post_flush = false;
 
 		if (mfd->split_display && pdata->next) {
 			/* enable split display */
