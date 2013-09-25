@@ -229,6 +229,7 @@ struct msm_vidc_inst {
 	struct buf_count count;
 	enum msm_vidc_modes flags;
 	struct msm_vidc_core_capability capability;
+	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 };
 
 extern struct msm_vidc_drv *vidc_driver;

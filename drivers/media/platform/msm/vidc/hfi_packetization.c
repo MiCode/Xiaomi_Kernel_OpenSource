@@ -371,6 +371,9 @@ static u32 get_hfi_buf_mode(enum buffer_mode_type hal_buf_mode)
 	case HAL_BUFFER_MODE_RING:
 		buf_mode = HFI_BUFFER_MODE_RING;
 		break;
+	case HAL_BUFFER_MODE_DYNAMIC:
+		buf_mode = HFI_BUFFER_MODE_DYNAMIC;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Invalid buffer mode :0x%x\n",
 				hal_buf_mode);
