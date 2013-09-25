@@ -34,6 +34,7 @@
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
 #include <linux/mfd/pm8xxx/misc.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
@@ -137,6 +138,10 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define MSM_PRONTO_BRDG_ERR_SRC         0xfb080fb0
 
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
+#define WCNSS_VBATT_THRESHOLD		3500000
+#define WCNSS_VBATT_GUARD		200
+#define WCNSS_VBATT_HIGH		3700000
+#define WCNSS_VBATT_LOW			3300000
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
@@ -152,6 +157,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_CALDATA_UPLD_RSP        (WCNSS_CTRL_MSG_START + 5)
 #define	WCNSS_CALDATA_DNLD_REQ        (WCNSS_CTRL_MSG_START + 6)
 #define	WCNSS_CALDATA_DNLD_RSP        (WCNSS_CTRL_MSG_START + 7)
+#define	WCNSS_VBATT_LEVEL_IND         (WCNSS_CTRL_MSG_START + 8)
 
 
 #define VALID_VERSION(version) \
@@ -274,6 +280,16 @@ struct cal_data_msg {
 	struct cal_data_params cal_params;
 };
 
+struct vbatt_level {
+	u32 curr_volt;
+	u32 threshold;
+};
+
+struct vbatt_message {
+	struct smd_msg_hdr hdr;
+	struct vbatt_level vbatt;
+};
+
 static struct {
 	struct platform_device *pdev;
 	void		*pil;
@@ -295,6 +311,7 @@ static struct {
 	void		(*tm_notify)(struct device *, int);
 	struct wcnss_wlan_config wlan_config;
 	struct delayed_work wcnss_work;
+	struct delayed_work vbatt_work;
 	struct work_struct wcnssctrl_version_work;
 	struct work_struct wcnssctrl_nvbin_dnld_work;
 	struct work_struct wcnssctrl_rx_work;
@@ -321,8 +338,12 @@ static struct {
 	int	user_cal_exp_size;
 	int	device_opened;
 	int	iris_xo_mode_set;
+	int	fw_vbatt_state;
 	struct mutex dev_lock;
 	wait_queue_head_t read_wait;
+	struct qpnp_adc_tm_btm_param vbat_monitor_params;
+	struct qpnp_adc_tm_chip *adc_tm_dev;
+	struct mutex vbat_monitor_mutex;
 } *penv = NULL;
 
 static ssize_t wcnss_serial_number_show(struct device *dev,
@@ -1084,7 +1105,6 @@ u32 wcnss_get_wlan_rx_buff_count(void)
 }
 EXPORT_SYMBOL(wcnss_get_wlan_rx_buff_count);
 
-
 static int wcnss_smd_tx(void *data, int len)
 {
 	int ret = 0;
@@ -1101,6 +1121,102 @@ static int wcnss_smd_tx(void *data, int len)
 	}
 	return ret;
 }
+
+static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
+{
+	mutex_lock(&penv->vbat_monitor_mutex);
+	cancel_delayed_work_sync(&penv->vbatt_work);
+
+	if (state == ADC_TM_LOW_STATE) {
+		pr_debug("wcnss: low voltage notification triggered\n");
+		penv->vbat_monitor_params.state_request =
+			ADC_TM_HIGH_THR_ENABLE;
+		penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD +
+		WCNSS_VBATT_GUARD;
+		penv->vbat_monitor_params.low_thr = 0;
+	} else if (state == ADC_TM_HIGH_STATE) {
+		penv->vbat_monitor_params.state_request =
+			ADC_TM_LOW_THR_ENABLE;
+		penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD -
+		WCNSS_VBATT_GUARD;
+		penv->vbat_monitor_params.high_thr = 0;
+		pr_debug("wcnss: high voltage notification triggered\n");
+	} else {
+		pr_debug("wcnss: unknown voltage notification state: %d\n",
+				state);
+		mutex_unlock(&penv->vbat_monitor_mutex);
+		return;
+	}
+	pr_debug("wcnss: set low thr to %d and high to %d\n",
+			penv->vbat_monitor_params.low_thr,
+			penv->vbat_monitor_params.high_thr);
+
+	qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
+			&penv->vbat_monitor_params);
+	schedule_delayed_work(&penv->vbatt_work, msecs_to_jiffies(2000));
+	mutex_unlock(&penv->vbat_monitor_mutex);
+}
+
+static int wcnss_setup_vbat_monitoring(void)
+{
+	int rc = -1;
+
+	if (!penv->adc_tm_dev) {
+		pr_err("wcnss: not setting up vbatt\n");
+		return rc;
+	}
+	penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD;
+	penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD;
+	penv->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	penv->vbat_monitor_params.channel = VBAT_SNS;
+	penv->vbat_monitor_params.btm_ctx = (void *)penv;
+	penv->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	penv->vbat_monitor_params.threshold_notification = &wcnss_notify_vbat;
+	pr_debug("wcnss: set low thr to %d and high to %d\n",
+			penv->vbat_monitor_params.low_thr,
+			penv->vbat_monitor_params.high_thr);
+
+	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
+					&penv->vbat_monitor_params);
+	if (rc)
+		pr_err("wcnss: tm setup failed: %d\n", rc);
+
+	return rc;
+}
+
+static void wcnss_update_vbatt(struct work_struct *work)
+{
+	struct vbatt_message vbatt_msg;
+	int ret = 0;
+
+	vbatt_msg.hdr.msg_type = WCNSS_VBATT_LEVEL_IND;
+	vbatt_msg.hdr.msg_len = sizeof(struct vbatt_message);
+	vbatt_msg.vbatt.threshold = WCNSS_VBATT_THRESHOLD;
+
+	mutex_lock(&penv->vbat_monitor_mutex);
+	if (penv->vbat_monitor_params.low_thr &&
+		(penv->fw_vbatt_state == WCNSS_VBATT_LOW ||
+			penv->fw_vbatt_state == WCNSS_CONFIG_UNSPECIFIED)) {
+		vbatt_msg.vbatt.curr_volt = WCNSS_VBATT_HIGH;
+		penv->fw_vbatt_state = WCNSS_VBATT_HIGH;
+		pr_debug("wcnss: send HIGH BATT to FW\n");
+	} else if (!penv->vbat_monitor_params.low_thr &&
+		(penv->fw_vbatt_state == WCNSS_VBATT_HIGH ||
+			penv->fw_vbatt_state == WCNSS_CONFIG_UNSPECIFIED)){
+		vbatt_msg.vbatt.curr_volt = WCNSS_VBATT_LOW;
+		penv->fw_vbatt_state = WCNSS_VBATT_LOW;
+		pr_debug("wcnss: send LOW BATT to FW\n");
+	} else {
+		mutex_unlock(&penv->vbat_monitor_mutex);
+		return;
+	}
+	mutex_unlock(&penv->vbat_monitor_mutex);
+	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	if (ret < 0)
+		pr_err("wcnss: smd tx failed\n");
+	return;
+}
+
 
 static unsigned char wcnss_fw_status(void)
 {
@@ -1315,6 +1431,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		fw_status = wcnss_fw_status();
 		pr_debug("wcnss: received WCNSS_NVBIN_DNLD_RSP from ccpu %u\n",
 			fw_status);
+		wcnss_setup_vbat_monitoring();
 		break;
 
 	case WCNSS_CALDATA_DNLD_RSP:
@@ -1784,6 +1901,14 @@ wcnss_trigger_config(struct platform_device *pdev)
 		}
 
 	}
+	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
+	if (IS_ERR(penv->adc_tm_dev)) {
+		pr_err("%s:  adc get failed\n", __func__);
+		penv->adc_tm_dev = NULL;
+	} else {
+		INIT_DELAYED_WORK(&penv->vbatt_work, wcnss_update_vbatt);
+		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
+	}
 
 	/* trigger initialization of the WCNSS */
 	penv->pil = subsystem_get(WCNSS_PIL_DEVICE);
@@ -1995,6 +2120,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&penv->dev_lock);
+	mutex_init(&penv->vbat_monitor_mutex);
 	init_waitqueue_head(&penv->read_wait);
 
 	/* Since we were built into the kernel we'll be called as part
