@@ -287,4 +287,22 @@ config SND_SOC_APQ8084
 	 interfaces with DSP, also it will enable
 	 the machine drivers and the corresponding
 	 DAI-links.
+
+config SND_SOC_MSMSAMARIUM
+	tristate "SoC Machine driver for MSMSAMARIUM boards"
+	depends on ARCH_MSMSAMARIUM
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_WCD9306
+	select SND_DYNAMIC_MINORS
+	select AUDIO_OCMEM
+	select DOLBY_DAP
+	help
+	 To add support for SoC audio on MSMSAMARIUM.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine drivers and the corresponding
+	 DAI-links.
+
 endmenu
