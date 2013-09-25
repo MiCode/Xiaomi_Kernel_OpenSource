@@ -24,6 +24,17 @@
 	};
 
 	soc: soc { };
+
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		qsecom_mem: qsecom_region {
+			linux,contiguous-region;
+			reg = <0 0 0 0x1100000>;
+			label = "qseecom_mem";
+                };
+        };
 };
 
 /include/ "msm-gdsc.dtsi"
