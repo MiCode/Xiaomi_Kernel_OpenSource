@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <linux/of.h>
 
 #include <mach/ipc_bridge.h>
 #include <mach/subsystem_restart.h>
@@ -41,19 +42,28 @@ if (msm_ipc_router_hsic_xprt_debug_mask) \
 #define XPRT_NAME_LEN 32
 
 /**
- * msm_ipc_router_hsic_xprt - IPC Router's HSIC XPRT strucutre
+ * msm_ipc_router_hsic_xprt - IPC Router's HSIC XPRT structure
+ * @list: IPC router's HSIC XPRTs list.
+ * @ch_name: Name of the HSIC endpoint exported by ipc_bridge driver.
+ * @xprt_name: Name of the XPRT to be registered with IPC Router.
+ * @driver: Platform drivers register by this XPRT.
  * @xprt: IPC Router XPRT structure to contain HSIC XPRT specific info.
  * @pdev: Platform device registered by IPC Bridge function driver.
  * @hsic_xprt_wq: Workqueue to queue read & other XPRT related works.
  * @read_work: Read Work to perform read operation from HSIC's ipc_bridge.
  * @in_pkt: Pointer to any partially read packet.
  * @ss_reset_lock: Lock to protect access to the ss_reset flag.
+ * @ss_reset: flag used to check SSR state.
  * @sft_close_complete: Variable to indicate completion of SSR handling
  *                      by IPC Router.
  * @xprt_version: IPC Router header version supported by this XPRT.
  * @xprt_option: XPRT specific options to be handled by IPC Router.
  */
 struct msm_ipc_router_hsic_xprt {
+	struct list_head list;
+	char ch_name[XPRT_NAME_LEN];
+	char xprt_name[XPRT_NAME_LEN];
+	struct platform_driver driver;
 	struct msm_ipc_router_xprt xprt;
 	struct platform_device *pdev;
 	struct workqueue_struct *hsic_xprt_wq;
@@ -93,29 +103,36 @@ struct msm_ipc_router_hsic_xprt_config hsic_xprt_cfg[] = {
 	{"ipc_bridge", "ipc_rtr_ipc_bridge1", 1, 1, 3},
 };
 
-static struct msm_ipc_router_hsic_xprt hsic_remote_xprt[NUM_HSIC_XPRTS];
+#define MODULE_NAME "ipc_router_hsic_xprt"
+#define IPC_ROUTER_HSIC_XPRT_WAIT_TIMEOUT 3000
+static int ipc_router_hsic_xprt_probe_done;
+static struct delayed_work ipc_router_hsic_xprt_probe_work;
+static DEFINE_MUTEX(hsic_remote_xprt_list_lock_lha1);
+static LIST_HEAD(hsic_remote_xprt_list);
 
 /**
- * find_hsic_xprt_cfg() - Find the config info specific to an HSIC endpoint
- * @pdev: Platform device registered by HSIC's ipc_bridge driver
+ * find_hsic_xprt_list() - Find xprt item specific to an HSIC endpoint
+ * @name: Name of the platform device to find in list
  *
- * @return: Index to the entry in the hsic_remote_xprt table if matching
- *          endpoint is found, < 0 on error.
+ * @return: pointer to msm_ipc_router_hsic_xprt if matching endpoint is found,
+ *		else NULL.
  *
- * This function is used to find the configuration information specific to
- * an HSIC endpoint from the hsic_remote_xprt table.
+ * This function is used to find specific xprt item from the global xprt list
  */
-static int find_hsic_xprt_cfg(struct platform_device *pdev)
+static struct msm_ipc_router_hsic_xprt *
+		find_hsic_xprt_list(const char *name)
 {
-	int i;
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp;
 
-	for (i = 0; i < NUM_HSIC_XPRTS; i++) {
-		/* TODO: Update the condition for multiple hsic links */
-		if (!strncmp(pdev->name, hsic_xprt_cfg[i].ch_name, 32))
-			return i;
+	mutex_lock(&hsic_remote_xprt_list_lock_lha1);
+	list_for_each_entry(hsic_xprtp, &hsic_remote_xprt_list, list) {
+		if (!strcmp(name, hsic_xprtp->ch_name)) {
+			mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+			return hsic_xprtp;
+		}
 	}
-
-	return -ENODEV;
+	mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+	return NULL;
 }
 
 /**
@@ -367,28 +384,27 @@ static void hsic_xprt_sft_close_done(struct msm_ipc_router_xprt *xprt)
  */
 static int msm_ipc_router_hsic_remote_remove(struct platform_device *pdev)
 {
-	int id;
 	struct ipc_bridge_platform_data *pdata;
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp;
 
-	id = find_hsic_xprt_cfg(pdev);
-	if (id < 0) {
-		pr_err("%s: called for unknown ch %s\n",
-			__func__, pdev->name);
-		return id;
+	hsic_xprtp = find_hsic_xprt_list(pdev->name);
+	if (!hsic_xprtp) {
+		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		return -ENODEV;
 	}
 
-	mutex_lock(&hsic_remote_xprt[id].ss_reset_lock);
-	hsic_remote_xprt[id].ss_reset = 1;
-	mutex_unlock(&hsic_remote_xprt[id].ss_reset_lock);
-	flush_workqueue(hsic_remote_xprt[id].hsic_xprt_wq);
-	destroy_workqueue(hsic_remote_xprt[id].hsic_xprt_wq);
-	init_completion(&hsic_remote_xprt[id].sft_close_complete);
-	msm_ipc_router_xprt_notify(&hsic_remote_xprt[id].xprt,
+	mutex_lock(&hsic_xprtp->ss_reset_lock);
+	hsic_xprtp->ss_reset = 1;
+	mutex_unlock(&hsic_xprtp->ss_reset_lock);
+	flush_workqueue(hsic_xprtp->hsic_xprt_wq);
+	destroy_workqueue(hsic_xprtp->hsic_xprt_wq);
+	init_completion(&hsic_xprtp->sft_close_complete);
+	msm_ipc_router_xprt_notify(&hsic_xprtp->xprt,
 				   IPC_ROUTER_XPRT_EVENT_CLOSE, NULL);
 	D("%s: Notified IPC Router of %s CLOSE\n",
-	  __func__, hsic_remote_xprt[id].xprt.name);
-	wait_for_completion(&hsic_remote_xprt[id].sft_close_complete);
-	hsic_remote_xprt[id].pdev = NULL;
+	  __func__, hsic_xprtp->xprt.name);
+	wait_for_completion(&hsic_xprtp->sft_close_complete);
+	hsic_xprtp->pdev = NULL;
 	pdata = pdev->dev.platform_data;
 	if (pdata && pdata->close)
 		pdata->close(pdev);
@@ -407,8 +423,8 @@ static int msm_ipc_router_hsic_remote_remove(struct platform_device *pdev)
 static int msm_ipc_router_hsic_remote_probe(struct platform_device *pdev)
 {
 	int rc;
-	int id;		/*Index into the hsic_xprt_cfg table*/
 	struct ipc_bridge_platform_data *pdata;
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp;
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata || !pdata->open || !pdata->read ||
@@ -417,87 +433,286 @@ static int msm_ipc_router_hsic_remote_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	id = find_hsic_xprt_cfg(pdev);
-	if (id < 0) {
-		pr_err("%s: called for unknown ch %s\n",
-			__func__, pdev->name);
-		return id;
+	hsic_xprtp = find_hsic_xprt_list(pdev->name);
+	if (!hsic_xprtp) {
+		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		return -ENODEV;
 	}
 
-	hsic_remote_xprt[id].hsic_xprt_wq =
+	hsic_xprtp->hsic_xprt_wq =
 		create_singlethread_workqueue(pdev->name);
-	if (!hsic_remote_xprt[id].hsic_xprt_wq) {
+	if (!hsic_xprtp->hsic_xprt_wq) {
 		pr_err("%s: WQ creation failed for %s\n",
 			__func__, pdev->name);
 		return -EFAULT;
 	}
 
-	hsic_remote_xprt[id].xprt.name = hsic_xprt_cfg[id].xprt_name;
-	hsic_remote_xprt[id].xprt.link_id = hsic_xprt_cfg[id].link_id;
-	hsic_remote_xprt[id].xprt.get_version =
-		msm_ipc_router_hsic_get_xprt_version;
-	hsic_remote_xprt[id].xprt.get_option =
-		 msm_ipc_router_hsic_get_xprt_option;
-	hsic_remote_xprt[id].xprt.read_avail = NULL;
-	hsic_remote_xprt[id].xprt.read = NULL;
-	hsic_remote_xprt[id].xprt.write_avail =
-		msm_ipc_router_hsic_remote_write_avail;
-	hsic_remote_xprt[id].xprt.write = msm_ipc_router_hsic_remote_write;
-	hsic_remote_xprt[id].xprt.close = msm_ipc_router_hsic_remote_close;
-	hsic_remote_xprt[id].xprt.sft_close_done = hsic_xprt_sft_close_done;
-	hsic_remote_xprt[id].xprt.priv = NULL;
-
-	hsic_remote_xprt[id].in_pkt = NULL;
-	INIT_DELAYED_WORK(&hsic_remote_xprt[id].read_work, hsic_xprt_read_data);
-	mutex_init(&hsic_remote_xprt[id].ss_reset_lock);
-	hsic_remote_xprt[id].ss_reset = 0;
-	hsic_remote_xprt[id].xprt_version = hsic_xprt_cfg[id].xprt_version;
-	hsic_remote_xprt[id].xprt_option = 0;
-
 	rc = pdata->open(pdev);
 	if (rc < 0) {
 		pr_err("%s: Channel open failed for %s.%d\n",
 			__func__, pdev->name, pdev->id);
-		destroy_workqueue(hsic_remote_xprt[id].hsic_xprt_wq);
+		destroy_workqueue(hsic_xprtp->hsic_xprt_wq);
 		return rc;
 	}
-	hsic_remote_xprt[id].pdev = pdev;
-	msm_ipc_router_xprt_notify(&hsic_remote_xprt[id].xprt,
+	hsic_xprtp->pdev = pdev;
+	msm_ipc_router_xprt_notify(&hsic_xprtp->xprt,
 				   IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
 	D("%s: Notified IPC Router of %s OPEN\n",
-	  __func__, hsic_remote_xprt[id].xprt.name);
-	queue_delayed_work(hsic_remote_xprt[id].hsic_xprt_wq,
-			   &hsic_remote_xprt[id].read_work, 0);
+	  __func__, hsic_xprtp->xprt.name);
+	queue_delayed_work(hsic_xprtp->hsic_xprt_wq,
+			   &hsic_xprtp->read_work, 0);
 	return 0;
 }
 
-static struct platform_driver msm_ipc_router_hsic_remote_driver[] = {
-	{
-		.probe		= msm_ipc_router_hsic_remote_probe,
-		.remove		= msm_ipc_router_hsic_remote_remove,
-		.driver		= {
-				.name	= "ipc_bridge",
-				.owner	= THIS_MODULE,
-		},
-	},
-};
-
-static int __init msm_ipc_router_hsic_init(void)
+/**
+ * msm_ipc_router_hsic_driver_register() - register HSIC XPRT drivers
+ *
+ * @hsic_xprtp: pointer to IPC router hsic xprt structure.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when a new XPRT is added to register platform
+ * drivers for new XPRT.
+ */
+static int msm_ipc_router_hsic_driver_register(
+			struct msm_ipc_router_hsic_xprt *hsic_xprtp)
 {
-	int i, ret, rc = 0;
-	BUG_ON(ARRAY_SIZE(hsic_xprt_cfg) != NUM_HSIC_XPRTS);
-	for (i = 0; i < ARRAY_SIZE(msm_ipc_router_hsic_remote_driver); i++) {
-		ret = platform_driver_register(
-				&msm_ipc_router_hsic_remote_driver[i]);
+	int ret;
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp_item;
+
+	hsic_xprtp_item = find_hsic_xprt_list(pdev->name);
+
+	mutex_lock(&hsic_remote_xprt_list_lock_lha1);
+	list_add(&hsic_xprtp->list, &hsic_remote_xprt_list);
+	mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+
+	if (!hsic_xprtp_item) {
+		hsic_xprtp->driver.driver.name = hsic_xprtp->ch_name;
+		hsic_xprtp->driver.driver.owner = THIS_MODULE;
+		hsic_xprtp->driver.probe = msm_ipc_router_hsic_remote_probe;
+		hsic_xprtp->driver.remove = msm_ipc_router_hsic_remote_remove;
+
+		ret = platform_driver_register(&hsic_xprtp->driver);
 		if (ret) {
-			pr_err("%s: Failed to register platform driver for xprt%d. Continuing...\n",
-				__func__, i);
-			rc = ret;
+			pr_err("%s: Failed to register platform driver[%s]\n",
+					__func__, hsic_xprtp->ch_name);
+			return ret;
 		}
+	} else {
+		pr_err("%s Already driver registered %s\n",
+					__func__, hsic_xprtp->ch_name);
 	}
-	return rc;
+
+	return 0;
 }
 
-module_init(msm_ipc_router_hsic_init);
+/**
+ * msm_ipc_router_hsic_config_init() - init HSIC xprt configs
+ *
+ * @hsic_xprt_config: pointer to HSIC xprt configurations.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called to initialize the HSIC XPRT pointer with
+ * the HSIC XPRT configurations either from device tree or static arrays.
+ */
+static int msm_ipc_router_hsic_config_init(
+		struct msm_ipc_router_hsic_xprt_config *hsic_xprt_config)
+{
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp;
+
+	hsic_xprtp = kzalloc(sizeof(struct msm_ipc_router_hsic_xprt),
+							GFP_KERNEL);
+	if (IS_ERR_OR_NULL(hsic_xprtp)) {
+		pr_err("%s: kzalloc() failed for hsic_xprtp id:%s\n",
+				__func__, hsic_xprt_config->ch_name);
+		return -ENOMEM;
+	}
+
+	hsic_xprtp->xprt.link_id = hsic_xprt_config->link_id;
+	hsic_xprtp->xprt_version = hsic_xprt_config->xprt_version;
+
+	strlcpy(hsic_xprtp->ch_name, hsic_xprt_config->ch_name,
+					XPRT_NAME_LEN);
+
+	strlcpy(hsic_xprtp->xprt_name, hsic_xprt_config->xprt_name,
+						XPRT_NAME_LEN);
+	hsic_xprtp->xprt.name = hsic_xprtp->xprt_name;
+
+	hsic_xprtp->xprt.get_version =
+		msm_ipc_router_hsic_get_xprt_version;
+	hsic_xprtp->xprt.get_option =
+		 msm_ipc_router_hsic_get_xprt_option;
+	hsic_xprtp->xprt.read_avail = NULL;
+	hsic_xprtp->xprt.read = NULL;
+	hsic_xprtp->xprt.write_avail =
+		msm_ipc_router_hsic_remote_write_avail;
+	hsic_xprtp->xprt.write = msm_ipc_router_hsic_remote_write;
+	hsic_xprtp->xprt.close = msm_ipc_router_hsic_remote_close;
+	hsic_xprtp->xprt.sft_close_done = hsic_xprt_sft_close_done;
+	hsic_xprtp->xprt.priv = NULL;
+
+	hsic_xprtp->in_pkt = NULL;
+	INIT_DELAYED_WORK(&hsic_xprtp->read_work, hsic_xprt_read_data);
+	mutex_init(&hsic_xprtp->ss_reset_lock);
+	hsic_xprtp->ss_reset = 0;
+	hsic_xprtp->xprt_option = 0;
+
+	msm_ipc_router_hsic_driver_register(hsic_xprtp);
+	return 0;
+
+}
+
+/**
+ * parse_devicetree() - parse device tree binding
+ *
+ * @node: pointer to device tree node
+ * @hsic_xprt_config: pointer to HSIC XPRT configurations
+ *
+ * @return: 0 on success, -ENODEV on failure.
+ */
+static int parse_devicetree(struct device_node *node,
+		struct msm_ipc_router_hsic_xprt_config *hsic_xprt_config)
+{
+	int ret;
+	int link_id;
+	int version;
+	char *key;
+	const char *ch_name;
+	const char *remote_ss;
+
+	key = "qcom,ch-name";
+	ch_name = of_get_property(node, key, NULL);
+	if (!ch_name)
+		goto error;
+	strlcpy(hsic_xprt_config->ch_name, ch_name, XPRT_NAME_LEN);
+
+	key = "qcom,xprt-remote";
+	remote_ss = of_get_property(node, key, NULL);
+	if (!remote_ss)
+		goto error;
+
+	key = "qcom,xprt-linkid";
+	ret = of_property_read_u32(node, key, &link_id);
+	if (ret)
+		goto error;
+	hsic_xprt_config->link_id = link_id;
+
+	key = "qcom,xprt-version";
+	ret = of_property_read_u32(node, key, &version);
+	if (ret)
+		goto error;
+	hsic_xprt_config->xprt_version = version;
+
+	scnprintf(hsic_xprt_config->xprt_name, XPRT_NAME_LEN, "%s_%s",
+			remote_ss, hsic_xprt_config->ch_name);
+
+	return 0;
+
+error:
+	pr_err("%s: missing key: %s\n", __func__, key);
+	return -ENODEV;
+}
+
+/**
+ * msm_ipc_router_hsic_xprt_probe() - Probe an HSIC xprt
+ * @pdev: Platform device corresponding to HSIC xprt.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when the underlying device tree driver registers
+ * a platform device, mapped to an HSIC transport.
+ */
+static int msm_ipc_router_hsic_xprt_probe(
+				struct platform_device *pdev)
+{
+	int ret;
+	struct msm_ipc_router_hsic_xprt_config hsic_xprt_config;
+
+	if (pdev && pdev->dev.of_node) {
+		mutex_lock(&hsic_remote_xprt_list_lock_lha1);
+		ipc_router_hsic_xprt_probe_done = 1;
+		mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+
+		ret = parse_devicetree(pdev->dev.of_node,
+						&hsic_xprt_config);
+		if (ret) {
+			pr_err(" failed to parse device tree\n");
+			return ret;
+		}
+
+		ret = msm_ipc_router_hsic_config_init(
+						&hsic_xprt_config);
+		if (ret) {
+			pr_err(" %s init failed\n", __func__);
+			return ret;
+		}
+	}
+	return ret;
+}
+
+/**
+ * ipc_router_hsic_xprt_probe_worker() - probe worker for non DT configurations
+ *
+ * @work: work item to process
+ *
+ * This function is called by schedule_delay_work after 3sec and check if
+ * device tree probe is done or not. If device tree probe fails the default
+ * configurations read from static array.
+ */
+static void ipc_router_hsic_xprt_probe_worker(struct work_struct *work)
+{
+	int i, ret;
+
+	BUG_ON(ARRAY_SIZE(hsic_xprt_cfg) != NUM_HSIC_XPRTS);
+
+	mutex_lock(&hsic_remote_xprt_list_lock_lha1);
+	if (!ipc_router_hsic_xprt_probe_done) {
+		mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+		for (i = 0; i < ARRAY_SIZE(hsic_xprt_cfg); i++) {
+			ret = msm_ipc_router_hsic_config_init(
+							&hsic_xprt_cfg[i]);
+			if (ret)
+				pr_err(" %s init failed config idx %d\n",
+								__func__, i);
+		}
+		mutex_lock(&hsic_remote_xprt_list_lock_lha1);
+	}
+	mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
+}
+
+static struct of_device_id msm_ipc_router_hsic_xprt_match_table[] = {
+	{ .compatible = "qcom,ipc_router_hsic_xprt" },
+	{},
+};
+
+static struct platform_driver msm_ipc_router_hsic_xprt_driver = {
+	.probe = msm_ipc_router_hsic_xprt_probe,
+	.driver = {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = msm_ipc_router_hsic_xprt_match_table,
+	 },
+};
+
+static int __init msm_ipc_router_hsic_xprt_init(void)
+{
+	int rc;
+
+	rc = platform_driver_register(&msm_ipc_router_hsic_xprt_driver);
+	if (rc) {
+		pr_err("%s: msm_ipc_router_hsic_xprt_driver register failed %d\n",
+								__func__, rc);
+		return rc;
+	}
+
+	INIT_DELAYED_WORK(&ipc_router_hsic_xprt_probe_work,
+					ipc_router_hsic_xprt_probe_worker);
+	schedule_delayed_work(&ipc_router_hsic_xprt_probe_work,
+			msecs_to_jiffies(IPC_ROUTER_HSIC_XPRT_WAIT_TIMEOUT));
+	return 0;
+}
+
+module_init(msm_ipc_router_hsic_xprt_init);
 MODULE_DESCRIPTION("IPC Router HSIC XPRT");
 MODULE_LICENSE("GPL v2");

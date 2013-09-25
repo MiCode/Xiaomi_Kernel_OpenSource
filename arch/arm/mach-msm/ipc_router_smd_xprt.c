@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <linux/of.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
@@ -43,7 +44,34 @@ if (msm_ipc_router_smd_xprt_debug_mask) \
 #define NUM_SMD_XPRTS 4
 #define XPRT_NAME_LEN (SMD_MAX_CH_NAME_LEN + 12)
 
+/**
+ * msm_ipc_router_smd_xprt - IPC Router's SMD XPRT structure
+ * @list: IPC router's SMD XPRTs list.
+ * @ch_name: Name of the HSIC endpoint exported by ipc_bridge driver.
+ * @xprt_name: Name of the XPRT to be registered with IPC Router.
+ * @edge: SMD channel edge.
+ * @driver: Platform drivers register by this XPRT.
+ * @xprt: IPC Router XPRT structure to contain XPRT specific info.
+ * @channel: SMD channel specific info.
+ * @smd_xprt_wq: Workqueue to queue read & other XPRT related works.
+ * @write_avail_wait_q: wait queue for writer thread.
+ * @in_pkt: Pointer to any partially read packet.
+ * @is_partial_in_pkt: check pkt completion.
+ * @read_work: Read Work to perform read operation from SMD.
+ * @ss_reset_lock: Lock to protect access to the ss_reset flag.
+ * @ss_reset: flag used to check SSR state.
+ * @pil: handle to the remote subsystem.
+ * @sft_close_complete: Variable to indicate completion of SSR handling
+ *                      by IPC Router.
+ * @xprt_version: IPC Router header version supported by this XPRT.
+ * @xprt_option: XPRT specific options to be handled by IPC Router.
+ */
 struct msm_ipc_router_smd_xprt {
+	struct list_head list;
+	char ch_name[SMD_MAX_CH_NAME_LEN];
+	char xprt_name[XPRT_NAME_LEN];
+	uint32_t edge;
+	struct platform_driver driver;
 	struct msm_ipc_router_xprt xprt;
 	smd_channel_t *channel;
 	struct workqueue_struct *smd_xprt_wq;
@@ -68,12 +96,21 @@ static void smd_xprt_read_data(struct work_struct *work);
 static void smd_xprt_open_event(struct work_struct *work);
 static void smd_xprt_close_event(struct work_struct *work);
 
+/**
+ * msm_ipc_router_smd_xprt_config - Config. Info. of each SMD XPRT
+ * @ch_name: Name of the SMD endpoint exported by SMD driver.
+ * @xprt_name: Name of the XPRT to be registered with IPC Router.
+ * @edge: ID to differentiate among multiple SMD endpoints.
+ * @link_id: Network Cluster ID to which this XPRT belongs to.
+ * @xprt_version: IPC Router header version supported by this XPRT.
+ */
 struct msm_ipc_router_smd_xprt_config {
 	char ch_name[SMD_MAX_CH_NAME_LEN];
 	char xprt_name[XPRT_NAME_LEN];
 	uint32_t edge;
 	uint32_t link_id;
 	unsigned xprt_version;
+	unsigned xprt_option;
 };
 
 struct msm_ipc_router_smd_xprt_config smd_xprt_cfg[] = {
@@ -83,20 +120,12 @@ struct msm_ipc_router_smd_xprt_config smd_xprt_cfg[] = {
 	{"IPCRTR", "ipc_rtr_wcnss_ipcrtr", SMD_APPS_WCNSS, 1, 1},
 };
 
-static struct msm_ipc_router_smd_xprt smd_remote_xprt[NUM_SMD_XPRTS];
-
-static int find_smd_xprt_cfg(struct platform_device *pdev)
-{
-	int i;
-
-	for (i = 0; i < NUM_SMD_XPRTS; i++) {
-		if (!strncmp(pdev->name, smd_xprt_cfg[i].ch_name, 20) &&
-		    (pdev->id == smd_xprt_cfg[i].edge))
-			return i;
-	}
-
-	return -ENODEV;
-}
+#define MODULE_NAME "ipc_router_smd_xprt"
+#define IPC_ROUTER_SMD_XPRT_WAIT_TIMEOUT 3000
+static int ipc_router_smd_xprt_probe_done;
+static struct delayed_work ipc_router_smd_xprt_probe_work;
+static DEFINE_MUTEX(smd_remote_xprt_list_lock_lha1);
+static LIST_HEAD(smd_remote_xprt_list);
 
 static int msm_ipc_router_smd_get_xprt_version(
 	struct msm_ipc_router_xprt *xprt)
@@ -429,69 +458,85 @@ static void *msm_ipc_load_subsystem(uint32_t edge)
 	return pil;
 }
 
+/**
+ * find_smd_xprt_list() - Find xprt item specific to an HSIC endpoint
+ * @pdev: Platform device registered by HSIC's ipc_bridge driver
+ *
+ * @return: pointer to msm_ipc_router_smd_xprt if matching endpoint is found,
+ *		else NULL.
+ *
+ * This function is used to find specific xprt item from the global xprt list
+ */
+static struct msm_ipc_router_smd_xprt *
+		find_smd_xprt_list(struct platform_device *pdev)
+{
+	struct msm_ipc_router_smd_xprt *smd_xprtp;
+
+	mutex_lock(&smd_remote_xprt_list_lock_lha1);
+	list_for_each_entry(smd_xprtp, &smd_remote_xprt_list, list) {
+		if (!strcmp(pdev->name, smd_xprtp->ch_name)
+				&& (pdev->id == smd_xprtp->edge)) {
+			mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+			return smd_xprtp;
+		}
+	}
+	mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+	return NULL;
+}
+
+/**
+ * msm_ipc_router_smd_remote_probe() - Probe an SMD endpoint
+ *
+ * @pdev: Platform device corresponding to SMD endpoint.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when the underlying SMD driver registers
+ * a platform device, mapped to SMD endpoint.
+ */
 static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 {
 	int rc;
-	int id;		/*Index into the smd_xprt_cfg table*/
+	struct msm_ipc_router_smd_xprt *smd_xprtp;
 
-	id = find_smd_xprt_cfg(pdev);
-	if (id < 0) {
-		pr_err("%s: called for unknown ch %s\n",
-			__func__, pdev->name);
-		return id;
+	smd_xprtp = find_smd_xprt_list(pdev);
+	if (!smd_xprtp) {
+		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		return -ENODEV;
 	}
-
-	smd_remote_xprt[id].smd_xprt_wq =
+	if (strcmp(pdev->name, smd_xprtp->ch_name)
+			|| (pdev->id != smd_xprtp->edge)) {
+		pr_err("%s wrong item name:%s edge:%d\n",
+				__func__, smd_xprtp->ch_name, smd_xprtp->edge);
+		return -ENODEV;
+	}
+	smd_xprtp->smd_xprt_wq =
 		create_singlethread_workqueue(pdev->name);
-	if (!smd_remote_xprt[id].smd_xprt_wq) {
+	if (!smd_xprtp->smd_xprt_wq) {
 		pr_err("%s: WQ creation failed for %s\n",
 			__func__, pdev->name);
 		return -EFAULT;
 	}
 
-	smd_remote_xprt[id].xprt.name = smd_xprt_cfg[id].xprt_name;
-	smd_remote_xprt[id].xprt.link_id = smd_xprt_cfg[id].link_id;
-	smd_remote_xprt[id].xprt.get_version =
-		msm_ipc_router_smd_get_xprt_version;
-	smd_remote_xprt[id].xprt.get_option =
-		msm_ipc_router_smd_get_xprt_option;
-	smd_remote_xprt[id].xprt.read_avail = NULL;
-	smd_remote_xprt[id].xprt.read = NULL;
-	smd_remote_xprt[id].xprt.write_avail =
-		msm_ipc_router_smd_remote_write_avail;
-	smd_remote_xprt[id].xprt.write = msm_ipc_router_smd_remote_write;
-	smd_remote_xprt[id].xprt.close = msm_ipc_router_smd_remote_close;
-	smd_remote_xprt[id].xprt.sft_close_done = smd_xprt_sft_close_done;
-	smd_remote_xprt[id].xprt.priv = NULL;
-
-	init_waitqueue_head(&smd_remote_xprt[id].write_avail_wait_q);
-	smd_remote_xprt[id].in_pkt = NULL;
-	smd_remote_xprt[id].is_partial_in_pkt = 0;
-	INIT_DELAYED_WORK(&smd_remote_xprt[id].read_work, smd_xprt_read_data);
-	spin_lock_init(&smd_remote_xprt[id].ss_reset_lock);
-	smd_remote_xprt[id].ss_reset = 0;
-	smd_remote_xprt[id].xprt_version = smd_xprt_cfg[id].xprt_version;
-	smd_remote_xprt[id].xprt_option = FRAG_PKT_WRITE_ENABLE;
-
-	smd_remote_xprt[id].pil = msm_ipc_load_subsystem(
-					smd_xprt_cfg[id].edge);
-	rc = smd_named_open_on_edge(smd_xprt_cfg[id].ch_name,
-				    smd_xprt_cfg[id].edge,
-				    &smd_remote_xprt[id].channel,
-				    &smd_remote_xprt[id],
+	smd_xprtp->pil = msm_ipc_load_subsystem(
+					smd_xprtp->edge);
+	rc = smd_named_open_on_edge(smd_xprtp->ch_name,
+				    smd_xprtp->edge,
+				    &smd_xprtp->channel,
+				    smd_xprtp,
 				    msm_ipc_router_smd_remote_notify);
 	if (rc < 0) {
 		pr_err("%s: Channel open failed for %s\n",
-			__func__, smd_xprt_cfg[id].ch_name);
-		if (smd_remote_xprt[id].pil) {
-			subsystem_put(smd_remote_xprt[id].pil);
-			smd_remote_xprt[id].pil = NULL;
+			__func__, smd_xprtp->ch_name);
+		if (smd_xprtp->pil) {
+			subsystem_put(smd_xprtp->pil);
+			smd_xprtp->pil = NULL;
 		}
-		destroy_workqueue(smd_remote_xprt[id].smd_xprt_wq);
+		destroy_workqueue(smd_xprtp->smd_xprt_wq);
 		return rc;
 	}
 
-	smd_disable_read_intr(smd_remote_xprt[id].channel);
+	smd_disable_read_intr(smd_xprtp->channel);
 
 	smsm_change_state(SMSM_APPS_STATE, 0, SMSM_RPCINIT);
 
@@ -523,39 +568,266 @@ void msm_ipc_unload_default_node(void *pil)
 }
 EXPORT_SYMBOL(msm_ipc_unload_default_node);
 
-static struct platform_driver msm_ipc_router_smd_remote_driver[] = {
-	{
-		.probe		= msm_ipc_router_smd_remote_probe,
-		.driver		= {
-				.name	= "RPCRPY_CNTL",
-				.owner	= THIS_MODULE,
-		},
-	},
-	{
-		.probe		= msm_ipc_router_smd_remote_probe,
-		.driver		= {
-				.name	= "IPCRTR",
-				.owner	= THIS_MODULE,
-		},
-	},
-};
-
-static int __init msm_ipc_router_smd_init(void)
+/**
+ * msm_ipc_router_smd_driver_register() - register SMD XPRT drivers
+ *
+ * @smd_xprtp: pointer to Ipc router smd xprt structure.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when a new XPRT is added to register platform
+ * drivers for new XPRT.
+ */
+static int msm_ipc_router_smd_driver_register(
+			struct msm_ipc_router_smd_xprt *smd_xprtp)
 {
-	int i, ret, rc = 0;
-	BUG_ON(ARRAY_SIZE(smd_xprt_cfg) != NUM_SMD_XPRTS);
-	for (i = 0; i < ARRAY_SIZE(msm_ipc_router_smd_remote_driver); i++) {
-		ret = platform_driver_register(
-				&msm_ipc_router_smd_remote_driver[i]);
-		if (ret) {
-			pr_err("%s: Failed to register platform driver for"
-			       " xprt%d. Continuing...\n", __func__, i);
-			rc = ret;
-		}
+	int ret;
+	struct msm_ipc_router_smd_xprt *item;
+	unsigned already_registered = 0;
+
+	mutex_lock(&smd_remote_xprt_list_lock_lha1);
+	list_for_each_entry(item, &smd_remote_xprt_list, list) {
+		if (!strcmp(smd_xprtp->ch_name, item->ch_name))
+			already_registered = 1;
 	}
-	return rc;
+	list_add(&smd_xprtp->list, &smd_remote_xprt_list);
+	mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+
+	if (!already_registered) {
+		smd_xprtp->driver.driver.name = smd_xprtp->ch_name;
+		smd_xprtp->driver.driver.owner = THIS_MODULE;
+		smd_xprtp->driver.probe = msm_ipc_router_smd_remote_probe;
+
+		ret = platform_driver_register(&smd_xprtp->driver);
+		if (ret) {
+			pr_err("%s: Failed to register platform driver [%s]\n",
+						__func__, smd_xprtp->ch_name);
+			return ret;
+		}
+	} else {
+		pr_err("%s Already driver registered %s\n",
+					__func__, smd_xprtp->ch_name);
+	}
+	return 0;
 }
 
-module_init(msm_ipc_router_smd_init);
+/**
+ * msm_ipc_router_smd_config_init() - init SMD xprt configs
+ *
+ * @smd_xprt_config: pointer to SMD xprt configurations.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called to initialize the SMD XPRT pointer with
+ * the SMD XPRT configurations either from device tree or static arrays.
+ */
+static int msm_ipc_router_smd_config_init(
+		struct msm_ipc_router_smd_xprt_config *smd_xprt_config)
+{
+	struct msm_ipc_router_smd_xprt *smd_xprtp;
+
+	smd_xprtp = kzalloc(sizeof(struct msm_ipc_router_smd_xprt), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(smd_xprtp)) {
+		pr_err("%s: kzalloc() failed for smd_xprtp id:%s\n",
+				__func__, smd_xprt_config->ch_name);
+		return -ENOMEM;
+	}
+
+	smd_xprtp->xprt.link_id = smd_xprt_config->link_id;
+	smd_xprtp->xprt_version = smd_xprt_config->xprt_version;
+	smd_xprtp->edge = smd_xprt_config->edge;
+	smd_xprtp->xprt_option = smd_xprt_config->xprt_option;
+
+	strlcpy(smd_xprtp->ch_name, smd_xprt_config->ch_name,
+						SMD_MAX_CH_NAME_LEN);
+
+	strlcpy(smd_xprtp->xprt_name, smd_xprt_config->xprt_name,
+						XPRT_NAME_LEN);
+	smd_xprtp->xprt.name = smd_xprtp->xprt_name;
+
+	smd_xprtp->xprt.get_version =
+		msm_ipc_router_smd_get_xprt_version;
+	smd_xprtp->xprt.get_option =
+		msm_ipc_router_smd_get_xprt_option;
+	smd_xprtp->xprt.read_avail = NULL;
+	smd_xprtp->xprt.read = NULL;
+	smd_xprtp->xprt.write_avail =
+		msm_ipc_router_smd_remote_write_avail;
+	smd_xprtp->xprt.write = msm_ipc_router_smd_remote_write;
+	smd_xprtp->xprt.close = msm_ipc_router_smd_remote_close;
+	smd_xprtp->xprt.sft_close_done = smd_xprt_sft_close_done;
+	smd_xprtp->xprt.priv = NULL;
+
+	init_waitqueue_head(&smd_xprtp->write_avail_wait_q);
+	smd_xprtp->in_pkt = NULL;
+	smd_xprtp->is_partial_in_pkt = 0;
+	INIT_DELAYED_WORK(&smd_xprtp->read_work, smd_xprt_read_data);
+	spin_lock_init(&smd_xprtp->ss_reset_lock);
+	smd_xprtp->ss_reset = 0;
+
+	msm_ipc_router_smd_driver_register(smd_xprtp);
+
+	return 0;
+}
+
+/**
+ * parse_devicetree() - parse device tree binding
+ *
+ * @node: pointer to device tree node
+ * @smd_xprt_config: pointer to SMD XPRT configurations
+ *
+ * @return: 0 on success, -ENODEV on failure.
+ */
+static int parse_devicetree(struct device_node *node,
+		struct msm_ipc_router_smd_xprt_config *smd_xprt_config)
+{
+	int ret;
+	int edge;
+	int link_id;
+	int version;
+	char *key;
+	const char *ch_name;
+	const char *remote_ss;
+
+	key = "qcom,ch-name";
+	ch_name = of_get_property(node, key, NULL);
+	if (!ch_name)
+		goto error;
+	strlcpy(smd_xprt_config->ch_name, ch_name, SMD_MAX_CH_NAME_LEN);
+
+	key = "qcom,xprt-remote";
+	remote_ss = of_get_property(node, key, NULL);
+	if (!remote_ss)
+		goto error;
+	edge = smd_remote_ss_to_edge(remote_ss);
+	if (edge < 0)
+		goto error;
+	smd_xprt_config->edge = edge;
+
+	key = "qcom,xprt-linkid";
+	ret = of_property_read_u32(node, key, &link_id);
+	if (ret)
+		goto error;
+	smd_xprt_config->link_id = link_id;
+
+	key = "qcom,xprt-version";
+	ret = of_property_read_u32(node, key, &version);
+	if (ret)
+		goto error;
+	smd_xprt_config->xprt_version = version;
+
+	key = "qcom,fragmented-data";
+	smd_xprt_config->xprt_option = of_property_read_bool(node, key);
+
+	scnprintf(smd_xprt_config->xprt_name, XPRT_NAME_LEN, "%s_%s",
+			remote_ss, smd_xprt_config->ch_name);
+
+	return 0;
+
+error:
+	pr_err("%s: missing key: %s\n", __func__, key);
+	return -ENODEV;
+}
+
+/**
+ * msm_ipc_router_smd_xprt_probe() - Probe an SMD xprt
+ *
+ * @pdev: Platform device corresponding to SMD xprt.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when the underlying device tree driver registers
+ * a platform device, mapped to an SMD transport.
+ */
+static int msm_ipc_router_smd_xprt_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct msm_ipc_router_smd_xprt_config smd_xprt_config;
+
+	if (pdev) {
+		if (pdev->dev.of_node) {
+			mutex_lock(&smd_remote_xprt_list_lock_lha1);
+			ipc_router_smd_xprt_probe_done = 1;
+			mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+
+			ret = parse_devicetree(pdev->dev.of_node,
+							&smd_xprt_config);
+			if (ret) {
+				pr_err(" failed to parse device tree\n");
+				return ret;
+			}
+
+			ret = msm_ipc_router_smd_config_init(&smd_xprt_config);
+			if (ret) {
+				pr_err("%s init failed\n", __func__);
+				return ret;
+			}
+		}
+	}
+	return 0;
+}
+
+/**
+ * ipc_router_smd_xprt_probe_worker() - probe worker for non DT configurations
+ *
+ * @work: work item to process
+ *
+ * This function is called by schedule_delay_work after 3sec and check if
+ * device tree probe is done or not. If device tree probe fails the default
+ * configurations read from static array.
+ */
+static void ipc_router_smd_xprt_probe_worker(struct work_struct *work)
+{
+	int i, ret;
+
+	BUG_ON(ARRAY_SIZE(smd_xprt_cfg) != NUM_SMD_XPRTS);
+
+	mutex_lock(&smd_remote_xprt_list_lock_lha1);
+	if (!ipc_router_smd_xprt_probe_done) {
+		mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+		for (i = 0; i < ARRAY_SIZE(smd_xprt_cfg); i++) {
+			ret = msm_ipc_router_smd_config_init(&smd_xprt_cfg[i]);
+			if (ret)
+				pr_err(" %s init failed config idx %d\n",
+							__func__, i);
+		}
+		mutex_lock(&smd_remote_xprt_list_lock_lha1);
+	}
+	mutex_unlock(&smd_remote_xprt_list_lock_lha1);
+}
+
+static struct of_device_id msm_ipc_router_smd_xprt_match_table[] = {
+	{ .compatible = "qcom,ipc_router_smd_xprt" },
+	{},
+};
+
+static struct platform_driver msm_ipc_router_smd_xprt_driver = {
+	.probe = msm_ipc_router_smd_xprt_probe,
+	.driver = {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = msm_ipc_router_smd_xprt_match_table,
+	 },
+};
+
+static int __init msm_ipc_router_smd_xprt_init(void)
+{
+	int rc;
+
+	rc = platform_driver_register(&msm_ipc_router_smd_xprt_driver);
+	if (rc) {
+		pr_err("%s: msm_ipc_router_smd_xprt_driver register failed %d\n",
+								__func__, rc);
+		return rc;
+	}
+
+	INIT_DELAYED_WORK(&ipc_router_smd_xprt_probe_work,
+					ipc_router_smd_xprt_probe_worker);
+	schedule_delayed_work(&ipc_router_smd_xprt_probe_work,
+			msecs_to_jiffies(IPC_ROUTER_SMD_XPRT_WAIT_TIMEOUT));
+	return 0;
+}
+
+module_init(msm_ipc_router_smd_xprt_init);
 MODULE_DESCRIPTION("IPC Router SMD XPRT");
 MODULE_LICENSE("GPL v2");
