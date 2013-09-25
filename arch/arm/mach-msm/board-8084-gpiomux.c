@@ -174,6 +174,55 @@ static struct gpiomux_setting hsic_sus_cfg = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+static struct gpiomux_setting hdmi_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting hdmi_active_1_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting hdmi_active_2_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
+	{
+		.gpio = 31,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 32,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 33,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 34,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config apq8084_hsic_configs[] = {
 	{
 		.gpio = 134,               /*HSIC_STROBE */
@@ -289,4 +338,5 @@ void __init apq8084_init_gpiomux(void)
 	msm_gpiomux_install(mdm_configs, ARRAY_SIZE(mdm_configs));
 	msm_gpiomux_install(apq8084_pri_ter_auxpcm_configs,
 			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
+	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 }
