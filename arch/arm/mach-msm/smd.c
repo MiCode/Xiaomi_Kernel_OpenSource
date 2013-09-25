@@ -825,7 +825,7 @@ static void smd_reset_edge(void *void_ch, unsigned new_state,
 	}
 }
 
-static void smd_channel_reset_state(struct smd_alloc_elm *shared,
+static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 		unsigned new_state, unsigned pid)
 {
 	unsigned n;
@@ -834,6 +834,19 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 	void *local_ch;
 	void *remote_ch;
 	int is_word_access;
+	unsigned base_id;
+
+	switch (table_id) {
+	case PRI_ALLOC_TBL:
+		base_id = SMEM_SMD_BASE_ID;
+		break;
+	case SEC_ALLOC_TBL:
+		base_id = SMEM_SMD_BASE_ID_2;
+		break;
+	default:
+		SMD_INFO("%s: invalid table_id:%d\n", __func__, table_id);
+		return;
+	}
 
 	for (n = 0; n < SMD_CHANNELS; n++) {
 		if (!shared[n].ref_count)
@@ -844,10 +857,10 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		type = SMD_CHANNEL_TYPE(shared[n].type);
 		is_word_access = is_word_access_ch(type);
 		if (is_word_access)
-			shared2 = smem_alloc(SMEM_SMD_BASE_ID + n,
+			shared2 = smem_alloc(base_id + n,
 				sizeof(struct smd_shared_v2_word_access));
 		else
-			shared2 = smem_alloc(SMEM_SMD_BASE_ID + n,
+			shared2 = smem_alloc(base_id + n,
 				sizeof(struct smd_shared_v2));
 		if (!shared2)
 			continue;
@@ -870,16 +883,19 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 
 void smd_channel_reset(uint32_t restart_pid)
 {
-	struct smd_alloc_elm *shared;
+	struct smd_alloc_elm *shared_pri;
+	struct smd_alloc_elm *shared_sec;
 	unsigned long flags;
 
 	SMx_POWER_INFO("%s: starting reset\n", __func__);
 
-	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
-	if (!shared) {
+	shared_pri = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared_pri) * 64);
+	if (!shared_pri) {
 		pr_err("%s: allocation table not initialized\n", __func__);
 		return;
 	}
+	shared_sec = smem_find(SMEM_CHANNEL_ALLOC_TBL_2,
+						sizeof(*shared_sec) * 64);
 
 	/* reset SMSM entry */
 	if (smsm_info.state) {
@@ -903,7 +919,11 @@ void smd_channel_reset(uint32_t restart_pid)
 	/* change all remote states to CLOSING */
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
-	smd_channel_reset_state(shared, SMD_SS_CLOSING, restart_pid);
+	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSING,
+								restart_pid);
+	if (shared_sec)
+		smd_channel_reset_state(shared_sec, SEC_ALLOC_TBL,
+						SMD_SS_CLOSING, restart_pid);
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
@@ -919,7 +939,11 @@ void smd_channel_reset(uint32_t restart_pid)
 	/* change all remote states to CLOSED */
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
-	smd_channel_reset_state(shared, SMD_SS_CLOSED, restart_pid);
+	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSED,
+								restart_pid);
+	if (shared_sec)
+		smd_channel_reset_state(shared_sec, SEC_ALLOC_TBL,
+						SMD_SS_CLOSED, restart_pid);
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
