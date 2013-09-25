@@ -5185,6 +5185,39 @@ static struct branch_clk mdss_pclk1_clk = {
 	},
 };
 
+static struct gate_clk pcie_0_phy_ldo = {
+	.en_reg = PCIE_0_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "pcie_0_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(pcie_0_phy_ldo.c),
+	},
+};
+
+static struct gate_clk pcie_1_phy_ldo = {
+	.en_reg = PCIE_1_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "pcie_1_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(pcie_1_phy_ldo.c),
+	},
+};
+
+static struct gate_clk sata_phy_ldo = {
+	.en_reg = SATA_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "sata_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(sata_phy_ldo.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -6209,6 +6242,11 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",		pixel_clk_src_8084.c,              ""),
 	CLK_LOOKUP("",		byte_mux_8084.c,                   ""),
 	CLK_LOOKUP("",		byte_clk_src_8084.c,               ""),
+
+	/* LDO */
+	CLK_LOOKUP("",		pcie_0_phy_ldo.c,               ""),
+	CLK_LOOKUP("",		pcie_1_phy_ldo.c,               ""),
+	CLK_LOOKUP("",		sata_phy_ldo.c,               ""),
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
