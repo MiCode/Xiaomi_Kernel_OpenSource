@@ -2454,7 +2454,7 @@ static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 	},
 };
 
-static struct div_clk hdmipll_div1_clk = {
+struct div_clk hdmipll_div1_clk = {
 	.data = {
 		.div = 1,
 	},
@@ -2467,7 +2467,7 @@ static struct div_clk hdmipll_div1_clk = {
 	},
 };
 
-static struct div_clk hdmipll_div2_clk = {
+struct div_clk hdmipll_div2_clk = {
 	.data = {
 		.div = 2,
 	},
@@ -2480,7 +2480,7 @@ static struct div_clk hdmipll_div2_clk = {
 	},
 };
 
-static struct div_clk hdmipll_div4_clk = {
+struct div_clk hdmipll_div4_clk = {
 	.data = {
 		.div = 4,
 	},
@@ -2493,7 +2493,7 @@ static struct div_clk hdmipll_div4_clk = {
 	},
 };
 
-static struct div_clk hdmipll_div6_clk = {
+struct div_clk hdmipll_div6_clk = {
 	.data = {
 		.div = 6,
 	},
@@ -2548,7 +2548,7 @@ static int hdmi_mux_prepare(struct clk *c)
 	return ret;
 }
 
-static struct mux_clk hdmipll_mux_clk = {
+struct mux_clk hdmipll_mux_clk = {
 	MUX_SRC_LIST(
 		{ &hdmipll_div1_clk.c, 0 },
 		{ &hdmipll_div2_clk.c, 1 },
