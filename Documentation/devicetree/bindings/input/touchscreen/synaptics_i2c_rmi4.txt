@@ -14,12 +14,14 @@ Optional property:
  - vdd-supply		: Analog power supply needed to power device
  - vcc_i2c-supply		: Power source required to pull up i2c bus
  - synaptics,i2c-pull-up	: specify to indicate pull up is needed
+ - synaptics,disable-gpios	: specify to disable gpios in suspend (power saving)
  - synaptics,button-map		: virtual key code mappings to be used
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
  - synaptics,panel-x		: panel x dimension
  - synaptics,panel-y		: panel y dimension
  - synaptics,fw-image-name	: name of firmware .img file in /etc/firmware
+ - synaptics,power-down		: fully power down regulators in suspend
 
 Example:
 	i2c@f9927000 { /* BLSP1 QUP5 */

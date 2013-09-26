@@ -832,6 +832,7 @@ struct msm_vidc_fw {
 };
 
 u32 hfi_process_msg_packet(msm_vidc_callback callback,
-		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr);
+		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
+		struct list_head *sessions, struct mutex *session_lock);
 #endif
 

@@ -24,6 +24,19 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		sdhc3 = &sdhc_3; /* SDC3 SDIO slot */
 		sdhc4 = &sdhc_4; /* SDC4 SDIO slot */
+
+		/* smdtty devices */
+		smd1 = &smdtty_apps_fm;
+		smd2 = &smdtty_apps_riva_bt_acl;
+		smd3 = &smdtty_apps_riva_bt_cmd;
+		smd4 = &smdtty_mbalbridge;
+		smd5 = &smdtty_apps_riva_ant_cmd;
+		smd6 = &smdtty_apps_riva_ant_data;
+		smd7 = &smdtty_data1;
+		smd11 = &smdtty_data11;
+		smd21 = &smdtty_data21;
+		smd27 = &smdtty_gps_nmea;
+		smd36 = &smdtty_loopback;
 	};
 
 	cpus {
@@ -198,6 +211,7 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
+		vdd-supply = <&gdsc_venus>;
 		qcom,hfi = "venus";
 		qcom,has-ocmem;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
@@ -898,6 +912,8 @@
 		qcom,dwc-hsphy-init = <0x00D191A4>;
 		qcom,misc-ref = <&pm8941_misc>;
 		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
@@ -911,6 +927,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>, <0 179 0>;
 			interrupt-names = "irq", "otg_irq";
+			tx-fifo-resize;
 		};
 	};
 
@@ -1378,8 +1395,6 @@
 		compatible = "qcom,cache_dump";
 		qcom,l1-dump-size = <0x100000>;
 		qcom,l2-dump-size = <0x500000>;
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x600000>; /* 6M EBI1 buffer */
 	};
 
 	tsens: tsens@fc4a8000 {
@@ -1468,7 +1483,7 @@
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0xf9304000>;
 			qcom,dst-bam-pipe-index = <2>;
-			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-offset = <0xf2000>;
 			qcom,data-fifo-size = <0x1800>;
 			qcom,descriptor-fifo-offset = <0xf4000>;
 			qcom,descriptor-fifo-size = <0x1400>;
@@ -1504,6 +1519,10 @@
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor6",
+				"tsens_tz_sensor7", "tsens_tz_sensor8";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		qcom,pmic-sw-mode-temp = <85>;
@@ -1540,7 +1559,7 @@
 
         memory_hole: qcom,msm-mem-hole {
                 compatible = "qcom,msm-mem-hole";
-                qcom,memblock-remove = <0x7b00000 0x8400000>; /* Address and Size of Hole */
+                qcom,memblock-remove = <0x5d00000 0xa200000>; /* Address and Size of Hole */
         };
 
 	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
@@ -1667,6 +1686,66 @@
 	l2-pmu {
 		compatible = "qcom,l2-pmu";
 		interrupts = <0 1 0>;
+	};
+
+	qcom,smdtty {
+		compatible = "qcom,smdtty";
+
+		smdtty_apps_fm: qcom,smdtty-apps-fm {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_FM";
+		};
+
+		smdtty_apps_riva_bt_acl: smdtty-apps-riva-bt-acl {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_RIVA_BT_ACL";
+		};
+
+		smdtty_apps_riva_bt_cmd: qcom,smdtty-apps-riva-bt-cmd {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_RIVA_BT_CMD";
+		};
+
+		smdtty_mbalbridge: qcom,smdtty-mbalbridge {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "MBALBRIDGE";
+		};
+
+		smdtty_apps_riva_ant_cmd: smdtty-apps-riva-ant-cmd {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_RIVA_ANT_CMD";
+		};
+
+		smdtty_apps_riva_ant_data: smdtty-apps-riva-ant-data {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_RIVA_ANT_DATA";
+		};
+
+		smdtty_data1: qcom,smdtty-data1 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA1";
+		};
+
+		smdtty_data11: qcom,smdtty-data11 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA11";
+		};
+
+		smdtty_data21: qcom,smdtty-data21 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA21";
+		};
+
+		smdtty_gps_nmea: smdtty-gpsnmea {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "GPSNMEA";
+		};
+
+		smdtty_loopback: smdtty-loopback {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "LOOPBACK";
+			qcom,smdtty-dev-name = "LOOPBACK_TTY";
+		};
 	};
 };
 

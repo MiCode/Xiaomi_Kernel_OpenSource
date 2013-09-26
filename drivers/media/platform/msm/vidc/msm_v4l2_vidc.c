@@ -36,6 +36,8 @@
 
 struct msm_vidc_drv *vidc_driver;
 
+uint32_t msm_vidc_pwr_collapse_delay = 2000;
+
 struct buffer_info {
 	struct list_head list;
 	int type;
@@ -781,6 +783,31 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 
 static DEVICE_ATTR(link_name, 0644, msm_vidc_link_name_show, NULL);
 
+static ssize_t store_pwr_collapse_delay(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long val = 0;
+	int rc = 0;
+	rc = kstrtoul(buf, 0, &val);
+	if (rc)
+		return rc;
+	else if (val == 0)
+		return -EINVAL;
+	msm_vidc_pwr_collapse_delay = val;
+	return count;
+}
+
+static ssize_t show_pwr_collapse_delay(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", msm_vidc_pwr_collapse_delay);
+}
+
+static DEVICE_ATTR(pwr_collapse_delay, 0644, show_pwr_collapse_delay,
+		store_pwr_collapse_delay);
+
 static int __devinit msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -798,6 +825,12 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	rc = msm_vidc_initialize_core(pdev, core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core\n");
+		goto err_v4l2_register;
+	}
+	rc = device_create_file(&pdev->dev, &dev_attr_pwr_collapse_delay);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to create pwr_collapse_delay sysfs node");
 		goto err_v4l2_register;
 	}
 	if (core->hfi_type == VIDC_HFI_Q6) {

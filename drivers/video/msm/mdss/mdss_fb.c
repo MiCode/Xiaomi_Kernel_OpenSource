@@ -313,6 +313,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->index = fbi_list_index;
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 
+	mfd->ext_ad_ctrl = -1;
 	mfd->bl_level = 0;
 	mfd->bl_scale = 1024;
 	mfd->bl_min_lvl = 30;
@@ -322,6 +323,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (pdata->next)
 		mfd->split_display = true;
 	mfd->mdp = *mdp_instance;
+	INIT_LIST_HEAD(&mfd->proc_list);
 
 	mutex_init(&mfd->lock);
 	mutex_init(&mfd->bl_lock);
@@ -702,11 +704,8 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 			mfd->op_enable = false;
 			curr_pwr_state = mfd->panel_power_on;
-			mutex_lock(&mfd->bl_lock);
-			mdss_fb_set_backlight(mfd, 0);
 			mfd->panel_power_on = false;
 			bl_updated = 0;
-			mutex_unlock(&mfd->bl_lock);
 
 			ret = mfd->mdp.off_fnc(mfd);
 			if (ret)
@@ -1021,6 +1020,10 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		fix->line_length = var->xres * bpp;
 
 	var->yres = panel_info->yres;
+	if (panel_info->physical_width)
+		var->width = panel_info->physical_width;
+	if (panel_info->physical_height)
+		var->height = panel_info->physical_height;
 	var->xres_virtual = var->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
@@ -1097,13 +1100,31 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 static int mdss_fb_open(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdss_fb_proc_info *pinfo = NULL;
 	int result;
+	int pid = current->tgid;
+
+	list_for_each_entry(pinfo, &mfd->proc_list, list) {
+		if (pinfo->pid == pid)
+			break;
+	}
+
+	if ((pinfo == NULL) || (pinfo->pid != pid)) {
+		pinfo = kmalloc(sizeof(*pinfo), GFP_KERNEL);
+		if (!pinfo) {
+			pr_err("unable to alloc process info\n");
+			return -ENOMEM;
+		}
+		pinfo->pid = pid;
+		pinfo->ref_cnt = 0;
+		list_add(&pinfo->list, &mfd->proc_list);
+		pr_debug("new process entry pid=%d\n", pinfo->pid);
+	}
 
 	result = pm_runtime_get_sync(info->dev);
 
 	if (result < 0)
 		pr_err("pm_runtime: fail to wake up\n");
-
 
 	if (!mfd->ref_cnt) {
 		result = mdss_fb_blank_sub(FB_BLANK_UNBLANK, info,
@@ -1116,6 +1137,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 		}
 	}
 
+	pinfo->ref_cnt++;
 	mfd->ref_cnt++;
 	return 0;
 }
@@ -1123,7 +1145,9 @@ static int mdss_fb_open(struct fb_info *info, int user)
 static int mdss_fb_release(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdss_fb_proc_info *pinfo = NULL;
 	int ret = 0;
+	int pid = current->tgid;
 
 	if (!mfd->ref_cnt) {
 		pr_info("try to close unopened fb %d!\n", mfd->index);
@@ -1132,6 +1156,31 @@ static int mdss_fb_release(struct fb_info *info, int user)
 
 	mdss_fb_pan_idle(mfd);
 	mfd->ref_cnt--;
+
+	list_for_each_entry(pinfo, &mfd->proc_list, list) {
+		if (pinfo->pid == pid)
+			break;
+	}
+
+	if (!pinfo || (pinfo->pid != pid)) {
+		pr_warn("unable to find process info for fb%d pid=%d\n",
+				mfd->index, pid);
+	} else {
+		pr_debug("found process entry pid=%d ref=%d\n",
+				pinfo->pid, pinfo->ref_cnt);
+
+		pinfo->ref_cnt--;
+		if (pinfo->ref_cnt == 0) {
+			if (mfd->mdp.release_fnc) {
+				ret = mfd->mdp.release_fnc(mfd);
+				if (ret)
+					pr_err("error releasing fb%d pid=%d\n",
+						mfd->index, pinfo->pid);
+			}
+			list_del(&pinfo->list);
+			kfree(pinfo);
+		}
+	}
 
 	if (!mfd->ref_cnt) {
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,

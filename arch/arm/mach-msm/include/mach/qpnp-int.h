@@ -71,6 +71,28 @@ int qpnpint_unregister_controller(struct device_node *node);
  */
 int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 		       struct qpnp_irq_spec *spec);
+
+/**
+ * qpnpint_show_irq - Prints the Linux interrupt number
+ *
+ * Pass a PMIC Arbiter interrupt to Linux.
+ */
+int qpnpint_show_irq(struct spmi_controller *spmi_ctrl,
+		       struct qpnp_irq_spec *spec);
+
+#ifdef CONFIG_MSM_SHOW_RESUME_IRQ
+extern int msm_show_resume_irq_mask;
+static inline bool qpnpint_show_resume_irq(void)
+{
+	return msm_show_resume_irq_mask;
+}
+#else
+static inline bool qpnpint_show_resume_irq(void)
+{
+	return false;
+}
+#endif
+
 #else
 static inline int __init qpnpint_of_init(struct device_node *node,
 				  struct device_node *parent)
@@ -96,6 +118,16 @@ static inline int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 		       struct qpnp_irq_spec *spec)
 {
 	return -ENXIO;
+}
+int qpnpint_show_irq(struct spmi_controller *spmi_ctrl,
+		       struct qpnp_irq_spec *spec)
+{
+	return -ENXIO;
+}
+
+static inline bool qpnpint_show_resume_irq(void)
+{
+	return false;
 }
 #endif /* CONFIG_MSM_QPNP_INT */
 #endif /* QPNPINT_H */

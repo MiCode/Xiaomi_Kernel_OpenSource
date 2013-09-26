@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,7 +211,8 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					in_vreg[i].vreg_name, rc);
 				goto vreg_set_opt_mode_fail;
 			}
-			msleep(in_vreg[i].pre_on_sleep);
+			if (in_vreg[i].pre_on_sleep)
+				msleep(in_vreg[i].pre_on_sleep);
 			rc = regulator_set_optimum_mode(in_vreg[i].vreg,
 				in_vreg[i].enable_load);
 			if (rc < 0) {
@@ -221,7 +222,8 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 				goto vreg_set_opt_mode_fail;
 			}
 			rc = regulator_enable(in_vreg[i].vreg);
-			msleep(in_vreg[i].post_on_sleep);
+			if (in_vreg[i].post_on_sleep)
+				msleep(in_vreg[i].post_on_sleep);
 			if (rc < 0) {
 				DEV_ERR("%pS->%s: %s enable failed\n",
 					__builtin_return_address(0), __func__,
@@ -232,11 +234,13 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 	} else {
 		for (i = num_vreg-1; i >= 0; i--)
 			if (regulator_is_enabled(in_vreg[i].vreg)) {
-				msleep(in_vreg[i].pre_off_sleep);
+				if (in_vreg[i].pre_off_sleep)
+					msleep(in_vreg[i].pre_off_sleep);
 				regulator_set_optimum_mode(in_vreg[i].vreg,
 					in_vreg[i].disable_load);
 				regulator_disable(in_vreg[i].vreg);
-				msleep(in_vreg[i].post_off_sleep);
+				if (in_vreg[i].post_off_sleep)
+					msleep(in_vreg[i].post_off_sleep);
 			}
 	}
 	return rc;
@@ -246,11 +250,13 @@ disable_vreg:
 
 vreg_set_opt_mode_fail:
 	for (i--; i >= 0; i--) {
-		msleep(in_vreg[i].pre_off_sleep);
+		if (in_vreg[i].pre_off_sleep)
+			msleep(in_vreg[i].pre_off_sleep);
 		regulator_set_optimum_mode(in_vreg[i].vreg,
 			in_vreg[i].disable_load);
 		regulator_disable(in_vreg[i].vreg);
-		msleep(in_vreg[i].post_off_sleep);
+		if (in_vreg[i].post_off_sleep)
+			msleep(in_vreg[i].post_off_sleep);
 	}
 
 	return rc;

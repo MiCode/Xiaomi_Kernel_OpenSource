@@ -426,6 +426,9 @@ int snd_soc_new_ac97_codec(struct snd_soc_codec *codec,
 	struct snd_ac97_bus_ops *ops, int num);
 void snd_soc_free_ac97_codec(struct snd_soc_codec *codec);
 
+void snd_soc_card_change_online_state(struct snd_soc_card *soc_card,
+				      int online);
+
 /*
  *Controls
  */
@@ -967,7 +970,6 @@ struct snd_soc_pcm_runtime {
 	enum snd_soc_pcm_subclass pcm_subclass;
 	struct snd_pcm_ops ops;
 
-	unsigned int complete:1;
 	unsigned int dev_registered:1;
 
 	/* Dynamic PCM BE runtime data */

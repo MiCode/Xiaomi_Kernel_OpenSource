@@ -52,6 +52,7 @@ struct q6_hfi_device {
 	struct q6_resources resources;
 	struct msm_vidc_platform_resources *res;
 	void *apr;
+	struct mutex session_lock;
 };
 
 struct q6_apr_cmd_sys_init_packet {

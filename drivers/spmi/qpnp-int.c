@@ -591,8 +591,9 @@ int qpnpint_unregister_controller(struct device_node *node)
 }
 EXPORT_SYMBOL(qpnpint_unregister_controller);
 
-int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
-		       struct qpnp_irq_spec *spec)
+static int __qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
+		       struct qpnp_irq_spec *spec,
+		       bool show)
 {
 	struct irq_domain *domain;
 	unsigned long hwirq, busno;
@@ -617,11 +618,39 @@ int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 	domain = chip_lookup[busno]->domain;
 	irq = irq_radix_revmap_lookup(domain, hwirq);
 
-	generic_handle_irq(irq);
+	if (show) {
+		struct irq_desc *desc;
+		const char *name = "null";
+
+		desc = irq_to_desc(irq);
+		if (desc == NULL)
+			name = "stray irq";
+		else if (desc->action && desc->action->name)
+			name = desc->action->name;
+
+		pr_warn("%d triggered [0x%01x, 0x%02x,0x%01x] %s\n",
+				irq, spec->slave, spec->per, spec->irq, name);
+	} else {
+		generic_handle_irq(irq);
+	}
 
 	return 0;
 }
+
+int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
+		       struct qpnp_irq_spec *spec)
+{
+	return  __qpnpint_handle_irq(spmi_ctrl, spec, false);
+}
+
 EXPORT_SYMBOL(qpnpint_handle_irq);
+
+int qpnpint_show_irq(struct spmi_controller *spmi_ctrl,
+		       struct qpnp_irq_spec *spec)
+{
+	return  __qpnpint_handle_irq(spmi_ctrl, spec, true);
+}
+EXPORT_SYMBOL(qpnpint_show_irq);
 
 int __init qpnpint_of_init(struct device_node *node, struct device_node *parent)
 {

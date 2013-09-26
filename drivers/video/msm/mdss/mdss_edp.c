@@ -753,6 +753,20 @@ static int __devinit mdss_edp_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct mdss_edp_drv_pdata *edp_drv;
+	struct mdss_panel_cfg *pan_cfg = NULL;
+
+	if (!mdss_is_ready()) {
+		pr_err("%s: MDP not probed yet!\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_EDP);
+	if (IS_ERR(pan_cfg)) {
+		return PTR_ERR(pan_cfg);
+	} else if (!pan_cfg) {
+		pr_debug("%s: not configured as prim\n", __func__);
+		return -ENODEV;
+	}
 
 	if (!pdev->dev.of_node) {
 		pr_err("%s: Failed\n", __func__);

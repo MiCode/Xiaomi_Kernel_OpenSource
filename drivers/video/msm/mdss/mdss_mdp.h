@@ -39,6 +39,8 @@
 #define MAX_DOWNSCALE_RATIO	4
 #define MAX_UPSCALE_RATIO	20
 #define MAX_DECIMATION		4
+#define MDP_MIN_VBP		4
+#define MAX_FREE_LIST_SIZE	12
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
@@ -114,6 +116,7 @@ typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
 struct mdss_mdp_vsync_handler {
 	bool enabled;
+	bool cmd_post_flush;
 	mdp_vsync_handler_t vsync_handler;
 	struct list_head list;
 };
@@ -270,6 +273,7 @@ struct mdss_ad_info {
 	struct mutex lock;
 	struct work_struct calc_work;
 	struct msm_fb_data_type *mfd;
+	struct msm_fb_data_type *bl_mfd;
 	struct mdss_mdp_vsync_handler handle;
 	struct completion comp;
 	u32 last_str;
@@ -314,6 +318,7 @@ struct mdss_mdp_pipe {
 	u32 ftch_id;
 	atomic_t ref_cnt;
 	u32 play_cnt;
+	int pid;
 
 	u32 flags;
 	u32 bwc_mode;
@@ -362,7 +367,6 @@ struct mdss_mdp_writeback_arg {
 };
 
 struct mdss_overlay_private {
-	int vsync_pending;
 	ktime_t vsync_time;
 	struct sysfs_dirent *vsync_event_sd;
 	int borderfill_enable;
@@ -377,7 +381,12 @@ struct mdss_overlay_private {
 	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
+	struct list_head rot_proc_list;
 	bool mixer_swap;
+
+	struct mdss_mdp_data free_list[MAX_FREE_LIST_SIZE];
+	int free_list_size;
+	int ad_state;
 };
 
 struct mdss_mdp_perf_params {

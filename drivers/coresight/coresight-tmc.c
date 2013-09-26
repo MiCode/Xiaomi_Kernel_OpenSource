@@ -22,7 +22,6 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/memory_alloc.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
@@ -35,7 +34,7 @@
 #include <linux/interrupt.h>
 #include <linux/cdev.h>
 #include <linux/usb/usb_qdss.h>
-#include <mach/memory.h>
+#include <linux/dma-mapping.h>
 #include <mach/sps.h>
 #include <mach/usb_bam.h>
 #include <mach/msm_memory_dump.h>
@@ -44,6 +43,8 @@
 
 #define tmc_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tmc_readl(drvdata, off)		__raw_readl(drvdata->base + off)
+
+#define tmc_readl_no_log(drvdata, off)	__raw_readl_no_log(drvdata->base + off)
 
 #define TMC_LOCK(drvdata)						\
 do {									\
@@ -152,7 +153,7 @@ struct tmc_drvdata {
 	bool			aborting;
 	char			*reg_buf;
 	char			*buf;
-	unsigned long		paddr;
+	dma_addr_t		paddr;
 	void __iomem		*vaddr;
 	uint32_t		size;
 	struct mutex		usb_lock;
@@ -271,9 +272,11 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, bamdata->data_fifo.phys_base, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
-	tmc_writel(drvdata, 0x103, TMC_FFCR);
+	tmc_writel(drvdata, (uint32_t)bamdata->data_fifo.phys_base, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)bamdata->data_fifo.phys_base) >> 32)
+		   & 0xFF, TMC_DBAHI);
+	/* Set FOnFlIn for periodic flush */
+	tmc_writel(drvdata, 0x133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
 
@@ -339,7 +342,6 @@ static void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata)
 	TMC_UNLOCK(drvdata);
 
 	tmc_wait_for_flush(drvdata);
-	tmc_flush_and_stop(drvdata);
 	__tmc_disable(drvdata);
 
 	TMC_LOCK(drvdata);
@@ -468,8 +470,9 @@ static void __tmc_etr_enable_to_mem(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	tmc_writel(drvdata, axictl, TMC_AXICTL);
 
-	tmc_writel(drvdata, drvdata->paddr, TMC_DBALO);
-	tmc_writel(drvdata, 0x0, TMC_DBAHI);
+	tmc_writel(drvdata, (uint32_t)drvdata->paddr, TMC_DBALO);
+	tmc_writel(drvdata, (((uint64_t)drvdata->paddr) >> 32) & 0xFF,
+		   TMC_DBAHI);
 	tmc_writel(drvdata, 0x1133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
@@ -651,7 +654,7 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 	bufp = drvdata->buf;
 	while (1) {
 		for (i = 0; i < memwords; i++) {
-			read_data = tmc_readl(drvdata, TMC_RRD);
+			read_data = tmc_readl_no_log(drvdata, TMC_RRD);
 			if (read_data == 0xFFFFFFFF)
 				goto out;
 			memcpy(bufp, &read_data, BYTES_PER_WORD);
@@ -1298,7 +1301,7 @@ static ssize_t tmc_etr_store_byte_cntr_value(struct device *dev,
 		return -EINVAL;
 	if ((drvdata->size / 8) < val)
 		return -EINVAL;
-	if (drvdata->size % (val * 8) != 0)
+	if (val && drvdata->size % (val * 8) != 0)
 		return -EINVAL;
 
 	drvdata->byte_cntr_value = val;
@@ -1562,7 +1565,8 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (pdev->dev.of_node) {
 			ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,memory-reservation-size", &drvdata->size);
+						   "qcom,memory-size",
+						   &drvdata->size);
 			if (ret) {
 				clk_disable_unprepare(drvdata->clk);
 				return ret;
@@ -1575,17 +1579,11 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->paddr = allocate_contiguous_ebi_nomap(drvdata->size,
-							       SZ_4K);
-		if (!drvdata->paddr)
+		drvdata->vaddr = dma_zalloc_coherent(&pdev->dev, drvdata->size,
+						     &drvdata->paddr,
+						     GFP_KERNEL);
+		if (!drvdata->vaddr)
 			return -ENOMEM;
-		drvdata->vaddr = devm_ioremap(dev, drvdata->paddr,
-					      drvdata->size);
-		if (!drvdata->vaddr) {
-			ret = -ENOMEM;
-			goto err0;
-		}
-		memset(drvdata->vaddr, 0, drvdata->size);
 		drvdata->buf = drvdata->vaddr;
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		if (pdev->dev.of_node)
@@ -1725,7 +1723,10 @@ err2:
 err1:
 	tmc_etr_byte_cntr_exit(drvdata);
 err0:
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size,
+				  drvdata->vaddr,
+				  drvdata->paddr);
 	return ret;
 }
 
@@ -1737,7 +1738,9 @@ static int __devexit tmc_remove(struct platform_device *pdev)
 	misc_deregister(&drvdata->miscdev);
 	coresight_unregister(drvdata->csdev);
 	tmc_etr_bam_exit(drvdata);
-	free_contiguous_memory_by_paddr(drvdata->paddr);
+	if (drvdata->vaddr)
+		dma_free_coherent(&pdev->dev, drvdata->size, drvdata->vaddr,
+				  drvdata->paddr);
 	return 0;
 }
 

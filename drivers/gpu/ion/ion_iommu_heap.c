@@ -136,12 +136,18 @@ static struct page_info *alloc_largest_available(struct ion_iommu_heap *heap,
 	return NULL;
 }
 
-static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data)
+static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data,
+				bool is_cached)
 {
-	int i, j;
+	int i, j, k;
 	unsigned int npages_to_vmap;
 	unsigned int total_pages;
 	void *ptr = NULL;
+	/*
+	 * It's cheaper just to use writecombine memory and skip the
+	 * cache vs. using a cache memory and trying to flush it afterwards
+	 */
+	pgprot_t pgprot = pgprot_writecombine(pgprot_kernel);
 
 	/*
 	 * As an optimization, we manually zero out all of the
@@ -161,7 +167,7 @@ static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data)
 		for (j = 0; j < MAX_VMAP_RETRIES && npages_to_vmap;
 			++j) {
 			ptr = vmap(&data->pages[i], npages_to_vmap,
-					VM_IOREMAP, pgprot_kernel);
+					VM_IOREMAP, pgprot);
 			if (ptr)
 				break;
 			else
@@ -171,6 +177,20 @@ static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data)
 			return -ENOMEM;
 
 		memset(ptr, 0, npages_to_vmap * PAGE_SIZE);
+		if (is_cached) {
+			/*
+			 * invalidate the cache to pick up the zeroing
+			 */
+			for (k = 0; k < npages_to_vmap; k++) {
+				void *p = kmap_atomic(data->pages[i + k]);
+				phys_addr_t phys = page_to_phys(
+							data->pages[i + k]);
+
+				dmac_inv_range(p, p + PAGE_SIZE);
+				outer_inv_range(phys, phys + PAGE_SIZE);
+				kunmap_atomic(p);
+			}
+		}
 		vunmap(ptr);
 	}
 
@@ -269,7 +289,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 
 
 		if (flags & ION_FLAG_POOL_FORCE_ALLOC) {
-			ret = ion_iommu_buffer_zero(data);
+			ret = ion_iommu_buffer_zero(data, ION_IS_CACHED(flags));
 			if (ret) {
 				pr_err("Couldn't vmap the pages for zeroing\n");
 				goto err3;
@@ -328,7 +348,7 @@ static void ion_iommu_heap_free(struct ion_buffer *buffer)
 		return;
 
 	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC))
-		ion_iommu_buffer_zero(data);
+		ion_iommu_buffer_zero(data, ION_IS_CACHED(buffer->flags));
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		int order = get_order(sg_dma_len(sg));

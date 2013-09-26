@@ -75,11 +75,14 @@ obj-$(CONFIG_MCP_SA11X0)	+= mcp-sa11x0.o
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-core.o
 obj-$(CONFIG_MCP_UCB1200_TS)	+= ucb1x00-ts.o
 
-obj-$(CONFIG_WCD9310_CODEC)       += wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o
-obj-$(CONFIG_WCD9304_CODEC)       += wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o
-obj-$(CONFIG_WCD9320_CODEC)       += wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o
-obj-$(CONFIG_WCD9306_CODEC)       += wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o
-
+obj-$(CONFIG_WCD9310_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o \
+						wcd9xxx-slimslave.o wcd9xxx-core-resource.o
+obj-$(CONFIG_WCD9304_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o \
+						wcd9xxx-slimslave.o wcd9xxx-core-resource.o
+obj-$(CONFIG_WCD9320_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
+						wcd9xxx-core-resource.o
+obj-$(CONFIG_WCD9306_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o\
+						wcd9xxx-slimslave.o wcd9xxx-core-resource.o
 
 ifeq ($(CONFIG_SA1100_ASSABET),y)
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-assabet.o

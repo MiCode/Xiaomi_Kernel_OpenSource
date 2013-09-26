@@ -13,6 +13,7 @@
 #define __Q6_ASM_V2_H__
 
 #include <mach/qdsp6v2/apr.h>
+#include <mach/qdsp6v2/rtac.h>
 #include <sound/apr_audio-v2.h>
 #include <linux/list.h>
 #include <linux/msm_ion.h>
@@ -76,7 +77,8 @@
 #define SOFT_PAUSE_ENABLE	1
 #define SOFT_PAUSE_DISABLE	0
 
-#define SESSION_MAX	0x08
+#define SESSION_MAX		0x08
+#define ASM_CONTROL_SESSION	0x0F
 
 /* payload structure bytes */
 #define READDONE_IDX_STATUS 0
@@ -223,6 +225,12 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
 
 int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add,
 							int dir);
+
+int q6asm_unmap_cal_blocks(void);
+
+int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block);
+
+int q6asm_unmap_rtac_block(uint32_t *mem_map_handle);
 
 int q6asm_run(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);

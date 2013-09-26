@@ -10,17 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-nt35590-720p-video.dtsi"
 /include/ "msm8226-camera-sensor-mtp.dtsi"
 
 &soc {
 	serial@f991f000 {
 		status = "ok";
-	};
-
-	qcom,mdss_dsi_nt35590_720p_video {
-		status = "ok";
-		qcom,cont-splash-enabled;
 	};
 
 	i2c@f9927000 { /* BLSP1 QUP5 */
@@ -35,7 +29,6 @@
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
-			synaptics,power-down;
 		};
 	};
 
@@ -105,10 +98,27 @@
 			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
-			"AMIC3", "MIC BIAS1 External",
-			"MIC BIAS1 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC5", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic";
+
+		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
+	};
+
+	sound-9302 {
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"SPK_OUT", "EXT_VDD_SPKR",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic";
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
@@ -261,7 +271,7 @@
 			qcom,led_mpp_4 {
 				label = "mpp";
 				linux,name = "green";
-				linux,default-trigger = "none";
+				linux,default-trigger = "battery-full";
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
@@ -287,7 +297,7 @@
 			qcom,led_mpp_6 {
 				label = "mpp";
 				linux,name = "red";
-				linux,default-trigger = "none";
+				linux,default-trigger = "battery-charging";
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
@@ -332,6 +342,12 @@
 				qcom,num-strings = <1>;
 				qcom,id = <0>;
 			};
+		};
+
+		qcom,vibrator@c000 {
+			status = "okay";
+			qcom,vib-timeout-ms = <15000>;
+			qcom,vib-vtg-level-mV = <3100>;
 		};
 	};
 };
@@ -446,6 +462,11 @@
 
 &pm8226_bms {
 	status = "ok";
+	qcom,enable-fcc-learning;
+	qcom,min-fcc-learning-soc = <20>;
+	qcom,min-fcc-ocv-pc = <30>;
+	qcom,min-fcc-learning-samples = <5>;
+	qcom,fcc-resolution = <10>;
 };
 
 &pm8226_chg {
@@ -456,4 +477,16 @@
 	tapan_codec {
 		qcom,cdc-micbias1-ext-cap;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+};
+
+&dsi_nt35590_720_vid {
+	qcom,cont-splash-enabled;
 };

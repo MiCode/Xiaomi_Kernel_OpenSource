@@ -17,16 +17,20 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
+#include <sound/q6afe-v2.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
+#include <mach/subsystem_notif.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
+#include "qdsp6v2/q6core.h"
+#include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9306.h"
-#include <linux/io.h>
 
 #define DRV_NAME "msm8226-asoc-tapan"
 
@@ -49,6 +53,10 @@
 
 #define LO_1_SPK_AMP   0x1
 #define LO_2_SPK_AMP   0x2
+
+#define ADSP_STATE_READY_TIMEOUT_MS 3000
+
+static void *adsp_state_notifier;
 
 static int msm8226_auxpcm_rate = 8000;
 static atomic_t auxpcm_rsc_ref;
@@ -335,6 +343,9 @@ static const struct snd_soc_dapm_widget msm8226_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+
+	SND_SOC_DAPM_MIC("Analog Mic3", NULL),
+	SND_SOC_DAPM_MIC("Analog Mic4", NULL),
 
 	SND_SOC_DAPM_SPK("Lineout_1 amp", msm8226_ext_spkramp_event),
 	SND_SOC_DAPM_SPK("Lineout_2 amp", msm8226_ext_spkramp_event),
@@ -696,6 +707,107 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
 };
 
+static int msm_afe_set_config(struct snd_soc_codec *codec)
+{
+	int rc;
+	void *config_data;
+
+	pr_debug("%s: enter\n", __func__);
+	config_data = tapan_get_afe_config(codec, AFE_CDC_REGISTERS_CONFIG);
+	rc = afe_set_config(AFE_CDC_REGISTERS_CONFIG, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set codec registers config %d\n",
+			__func__, rc);
+		return rc;
+	}
+	config_data = tapan_get_afe_config(codec, AFE_SLIMBUS_SLAVE_CONFIG);
+	rc = afe_set_config(AFE_SLIMBUS_SLAVE_CONFIG, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set slimbus slave config %d\n", __func__,
+			rc);
+		return rc;
+	}
+	config_data = tapan_get_afe_config(codec, AFE_AANC_VERSION);
+	rc = afe_set_config(AFE_AANC_VERSION, config_data, 0);
+	if (rc) {
+		pr_err("%s: Failed to set AANC version %d\n", __func__,
+			rc);
+		return rc;
+	}
+	return 0;
+}
+
+static void msm_afe_clear_config(void)
+{
+	afe_clear_config(AFE_CDC_REGISTERS_CONFIG);
+	afe_clear_config(AFE_SLIMBUS_SLAVE_CONFIG);
+	afe_clear_config(AFE_AANC_VERSION);
+}
+
+static int  msm8226_adsp_state_callback(struct notifier_block *nb,
+		unsigned long value, void *priv)
+{
+	if (value == SUBSYS_BEFORE_SHUTDOWN) {
+		pr_debug("%s: ADSP is about to shutdown. Clearing AFE config\n",
+			 __func__);
+		msm_afe_clear_config();
+	} else if (value == SUBSYS_AFTER_POWERUP) {
+		pr_debug("%s: ADSP is up\n", __func__);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = msm8226_adsp_state_callback,
+	.priority = -INT_MAX,
+};
+
+static int msm8226_tapan_codec_up(struct snd_soc_codec *codec)
+{
+	int err;
+	unsigned long timeout;
+	int adsp_ready = 0;
+
+	pr_debug("%s\n", __func__);
+	timeout = jiffies +
+		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+
+	do {
+		if (!q6core_is_adsp_ready()) {
+			pr_err("%s: ADSP Audio isn't ready\n", __func__);
+		} else {
+			pr_debug("%s: ADSP Audio is ready\n", __func__);
+			adsp_ready = 1;
+			break;
+		}
+	} while (time_after(timeout, jiffies));
+
+	if (!adsp_ready) {
+		pr_err("%s: timed out waiting for ADSP Audio\n", __func__);
+		return -ETIMEDOUT;
+	}
+
+	err = msm_afe_set_config(codec);
+	if (err)
+		pr_err("%s: Failed to set AFE config. err %d\n",
+			__func__, err);
+	return err;
+}
+
+static int msm8226_tapan_event_cb(struct snd_soc_codec *codec,
+	enum wcd9xxx_codec_event codec_event)
+{
+	switch (codec_event) {
+	case WCD9XXX_CODEC_EVENT_CODEC_UP:
+		return msm8226_tapan_codec_up(codec);
+	default:
+		pr_err("%s: UnSupported codec event %d\n",
+			__func__, codec_event);
+		return -EINVAL;
+	}
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -736,13 +848,37 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
+	err = msm_afe_set_config(codec);
+	if (err) {
+		pr_err("%s: Failed to set AFE config %d\n",
+			__func__, err);
+		return err;
+	}
+
 	/* start mbhc */
 	mbhc_cfg.calibration = def_tapan_mbhc_cal();
-	if (mbhc_cfg.calibration)
+	if (mbhc_cfg.calibration) {
 		err = tapan_hs_detect(codec, &mbhc_cfg);
-	else
+	} else {
 		err = -ENOMEM;
+		goto out;
+	}
 
+	adsp_state_notifier =
+		subsys_notif_register_notifier("adsp",
+			&adsp_state_notifier_block);
+
+	if (!adsp_state_notifier) {
+		pr_err("%s: Failed to register adsp state notifier\n",
+			__func__);
+		err = -EFAULT;
+		goto out;
+	}
+
+	tapan_event_register(msm8226_tapan_event_cb, rtd->codec);
+	return 0;
+
+out:
 	return err;
 }
 
@@ -904,7 +1040,7 @@ static struct snd_soc_ops msm8226_be_ops = {
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
-static struct snd_soc_dai_link msm8226_dai[] = {
+static struct snd_soc_dai_link msm8226_common_dai[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MSM8226 Media1",
@@ -1165,6 +1301,38 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.be_id = MSM_FRONTEND_DAI_VOLTE,
 	},
+	{
+		.name = "QCHAT",
+		.stream_name = "QCHAT",
+		.cpu_dai_name   = "QCHAT",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_QCHAT,
+	},
+	/* LSM FE */
+	{
+		.name = "Listen Audio Service",
+		.stream_name = "Listen Audio Service",
+		.cpu_dai_name = "LSM",
+		.platform_name = "msm-lsm-client",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST },
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_LSM1,
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
@@ -1289,6 +1457,61 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ops = &msm_auxpcm_be_ops,
 		.ignore_suspend = 1
 	},
+	/* Incall Record Uplink BACK END DAI Link */
+	{
+		.name = LPASS_BE_INCALL_RECORD_TX,
+		.stream_name = "Voice Uplink Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.32772",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+	/* Incall Record Downlink BACK END DAI Link */
+	{
+		.name = LPASS_BE_INCALL_RECORD_RX,
+		.stream_name = "Voice Downlink Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.32771",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+	/* Incall Music BACK END DAI Link */
+	{
+		.name = LPASS_BE_VOICE_PLAYBACK_TX,
+		.stream_name = "Voice Farend Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.32773",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+	/* Incall Music 2 BACK END DAI Link */
+	{
+		.name = LPASS_BE_VOICE2_PLAYBACK_TX,
+		.stream_name = "Voice2 Farend Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.32770",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm8226_9306_dai[] = {
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -1402,64 +1625,168 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ops = &msm8226_be_ops,
 		.ignore_suspend = 1,
 	},
-	/* Incall Record Uplink BACK END DAI Link */
 	{
-		.name = LPASS_BE_INCALL_RECORD_TX,
-		.stream_name = "Voice Uplink Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.32772",
+		.name = LPASS_BE_SLIMBUS_5_TX,
+		.stream_name = "Slimbus5 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16395",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan_tx1",
 		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ignore_suspend = 1,
-	},
-	/* Incall Record Downlink BACK END DAI Link */
-	{
-		.name = LPASS_BE_INCALL_RECORD_RX,
-		.stream_name = "Voice Downlink Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.32771",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ignore_suspend = 1,
-	},
-	/* Incall Music BACK END DAI Link */
-	{
-		.name = LPASS_BE_VOICE_PLAYBACK_TX,
-		.stream_name = "Voice Farend Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.32773",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ignore_suspend = 1,
-	},
-	/* Incall Music 2 BACK END DAI Link */
-	{
-		.name = LPASS_BE_VOICE2_PLAYBACK_TX,
-		.stream_name = "Voice2 Farend Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.32770",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
 		.ignore_suspend = 1,
 	},
 };
 
+static struct snd_soc_dai_link msm8226_9302_dai[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SLIMBUS_0_RX,
+		.stream_name = "Slimbus Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16384",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+		.init = &msm_audrx_init,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_0_TX,
+		.stream_name = "Slimbus Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16385",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_1_RX,
+		.stream_name = "Slimbus1 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16386",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_RX,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		/* dai link has playback support */
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_1_TX,
+		.stream_name = "Slimbus1 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16387",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_3_RX,
+		.stream_name = "Slimbus3 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16390",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_RX,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		/* dai link has playback support */
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_3_TX,
+		.stream_name = "Slimbus3 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16391",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_4_RX,
+		.stream_name = "Slimbus4 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16392",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		/* dai link has playback support */
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_4_TX,
+		.stream_name = "Slimbus4 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16393",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name	= "tapan9302_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_5_TX,
+		.stream_name = "Slimbus5 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16395",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan9302_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm8226_9306_dai_links[
+				ARRAY_SIZE(msm8226_common_dai) +
+				ARRAY_SIZE(msm8226_9306_dai)];
+
+static struct snd_soc_dai_link msm8226_9302_dai_links[
+				ARRAY_SIZE(msm8226_common_dai) +
+				ARRAY_SIZE(msm8226_9302_dai)];
+
 struct snd_soc_card snd_soc_card_msm8226 = {
 	.name		= "msm8226-tapan-snd-card",
-	.dai_link	= msm8226_dai,
-	.num_links	= ARRAY_SIZE(msm8226_dai),
+	.dai_link	= msm8226_9306_dai_links,
+	.num_links	= ARRAY_SIZE(msm8226_9306_dai_links),
+};
+
+struct snd_soc_card snd_soc_card_9302_msm8226 = {
+	.name		= "msm8226-tapan9302-snd-card",
+	.dai_link	= msm8226_9302_dai_links,
+	.num_links	= ARRAY_SIZE(msm8226_9302_dai_links),
 };
 
 static int msm8226_dtparse_auxpcm(struct platform_device *pdev,
@@ -1534,7 +1861,7 @@ static int msm8226_prepare_codec_mclk(struct snd_soc_card *card)
 		ret = gpio_request(pdata->mclk_gpio, "TAPAN_CODEC_PMIC_MCLK");
 		if (ret) {
 			dev_err(card->dev,
-				"%s: Failed to request taiko mclk gpio %d\n",
+				"%s: Failed to request tapan mclk gpio %d\n",
 				__func__, pdata->mclk_gpio);
 			return ret;
 		}
@@ -1580,9 +1907,36 @@ static int msm8226_setup_hs_jack(struct platform_device *pdev,
 	return 0;
 }
 
+static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
+{
+
+	struct snd_soc_card *card;
+
+	if (of_property_read_bool(dev->of_node,
+					"qcom,tapan-codec-9302")) {
+		card = &snd_soc_card_9302_msm8226;
+
+		memcpy(msm8226_9302_dai_links, msm8226_common_dai,
+				sizeof(msm8226_common_dai));
+		memcpy(msm8226_9302_dai_links + ARRAY_SIZE(msm8226_common_dai),
+			msm8226_9302_dai, sizeof(msm8226_9302_dai));
+
+	} else {
+
+		card = &snd_soc_card_msm8226;
+
+		memcpy(msm8226_9306_dai_links, msm8226_common_dai,
+				sizeof(msm8226_common_dai));
+		memcpy(msm8226_9306_dai_links + ARRAY_SIZE(msm8226_common_dai),
+			msm8226_9306_dai, sizeof(msm8226_9306_dai));
+	}
+
+	return card;
+}
+
 static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = &snd_soc_card_msm8226;
+	struct snd_soc_card *card;
 	struct msm8226_asoc_mach_data *pdata;
 	int ret;
 	const char *auxpcm_pri_gpio_set = NULL;
@@ -1600,14 +1954,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* Parse AUXPCM info from DT */
-	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
-					msm_auxpcm_gpio_name);
-	if (ret) {
-		dev_err(&pdev->dev,
-		"%s: Auxpcm pin data parse failed\n", __func__);
-		goto err;
-	}
+	card = populate_snd_card_dailinks(&pdev->dev);
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
@@ -1649,6 +1996,33 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	ret = msm8226_prepare_codec_mclk(card);
+	if (ret)
+		goto err1;
+
+	mutex_init(&cdc_mclk_mutex);
+
+	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
+					"qcom,headset-jack-type-NO");
+
+	ret = snd_soc_register_card(card);
+	if (ret == -EPROBE_DEFER)
+		goto err;
+	else if (ret) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
+			ret);
+		goto err;
+	}
+
+	/* Parse AUXPCM info from DT */
+	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
+					msm_auxpcm_gpio_name);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"%s: Auxpcm pin data parse failed\n", __func__);
+		goto err;
+	}
+
 	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,cdc-vdd-spkr-gpios", 0);
 	if (vdd_spkr_gpio < 0) {
@@ -1686,21 +2060,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		}
 	}
 
-	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
-					"qcom,headset-jack-type-NO");
 	msm8226_setup_hs_jack(pdev, pdata);
-
-	ret = msm8226_prepare_codec_mclk(card);
-	if (ret)
-		goto err_lineout_spkr;
-
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
-			ret);
-		goto err_lineout_spkr;
-	}
-	mutex_init(&cdc_mclk_mutex);
 
 	ret = of_property_read_string(pdev->dev.of_node,
 			"qcom,prim-auxpcm-gpio-set", &auxpcm_pri_gpio_set);
@@ -1747,6 +2107,7 @@ err:
 		gpio_free(pdata->mclk_gpio);
 		pdata->mclk_gpio = 0;
 	}
+err1:
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }

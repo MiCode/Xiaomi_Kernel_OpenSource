@@ -252,7 +252,8 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 	prtd->substream = substream;
-	prtd->lsm_client = q6lsm_client_alloc((app_cb)lsm_event_handler, prtd);
+	prtd->lsm_client = q6lsm_client_alloc(
+				(lsm_app_cb)lsm_event_handler, prtd);
 	if (!prtd->lsm_client) {
 		pr_err("%s: Could not allocate memory\n", __func__);
 		kfree(prtd);

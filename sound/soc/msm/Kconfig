@@ -215,6 +215,7 @@ config SND_SOC_MSM8226
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_WCD9306
 	select SND_DYNAMIC_MINORS
+	select DOLBY_DAP
 	help
 	 To add support for SoC audio on MSM8226.
 	 This will enable sound soc drivers which

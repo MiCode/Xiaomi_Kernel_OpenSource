@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/remote_spinlock.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include <mach/msm_smsm.h>
 #include <mach/msm_smd.h>
 
@@ -213,4 +214,60 @@ struct interrupt_stat {
 	uint32_t smsm_interrupt_id;
 };
 extern struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
+
+struct interrupt_config_item {
+	/* must be initialized */
+	irqreturn_t (*irq_handler)(int req, void *data);
+	/* outgoing interrupt config (set from platform data) */
+	uint32_t out_bit_pos;
+	void __iomem *out_base;
+	uint32_t out_offset;
+	int irq_id;
+};
+
+enum {
+	MSM_SMD_DEBUG = 1U << 0,
+	MSM_SMSM_DEBUG = 1U << 1,
+	MSM_SMD_INFO = 1U << 2,
+	MSM_SMSM_INFO = 1U << 3,
+	MSM_SMx_POWER_INFO = 1U << 4,
+};
+
+struct interrupt_config {
+	struct interrupt_config_item smd;
+	struct interrupt_config_item smsm;
+};
+
+struct edge_to_pid {
+	uint32_t	local_pid;
+	uint32_t	remote_pid;
+	char		subsys_name[SMD_MAX_CH_NAME_LEN];
+	bool		initialized;
+};
+
+extern void *smd_log_ctx;
+extern int msm_smd_debug_mask;
+extern int disable_smsm_reset_handshake;
+extern bool smem_initialized_check(void);
+
+extern irqreturn_t smd_modem_irq_handler(int irq, void *data);
+extern irqreturn_t smsm_modem_irq_handler(int irq, void *data);
+extern irqreturn_t smd_dsp_irq_handler(int irq, void *data);
+extern irqreturn_t smsm_dsp_irq_handler(int irq, void *data);
+extern irqreturn_t smd_dsps_irq_handler(int irq, void *data);
+extern irqreturn_t smsm_dsps_irq_handler(int irq, void *data);
+extern irqreturn_t smd_wcnss_irq_handler(int irq, void *data);
+extern irqreturn_t smsm_wcnss_irq_handler(int irq, void *data);
+extern irqreturn_t smd_rpm_irq_handler(int irq, void *data);
+
+extern int msm_smd_driver_register(void);
+extern void smd_post_init(bool is_legacy);
+extern int smsm_post_init(void);
+
+extern struct interrupt_config *smd_get_intr_config(uint32_t edge);
+extern int smd_edge_to_remote_pid(uint32_t edge);
+extern void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name);
+extern void smd_set_edge_initialized(uint32_t edge);
+extern void smd_cfg_smd_intr(uint32_t proc, uint32_t mask, void *ptr);
+extern void smd_cfg_smsm_intr(uint32_t proc, uint32_t mask, void *ptr);
 #endif

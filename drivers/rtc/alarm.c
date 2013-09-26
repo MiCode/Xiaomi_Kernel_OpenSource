@@ -25,6 +25,7 @@
 
 #include <asm/mach/time.h>
 
+#define ALARM_DELTA 120
 #define ANDROID_ALARM_PRINT_ERROR (1U << 0)
 #define ANDROID_ALARM_PRINT_INIT_STATUS (1U << 1)
 #define ANDROID_ALARM_PRINT_TSET (1U << 2)
@@ -454,7 +455,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);
 		if (rtc_current_time + 1 >= rtc_alarm_time) {
 			pr_alarm(SUSPEND, "alarm about to go off\n");
-			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
+			rtc_time_to_tm(0, &rtc_alarm.time);
 			rtc_alarm.enabled = 0;
 			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 
@@ -479,7 +480,7 @@ static int alarm_resume(struct platform_device *pdev)
 
 	pr_alarm(SUSPEND, "alarm_resume(%p)\n", pdev);
 
-	memset(&alarm, 0, sizeof(alarm));
+	rtc_time_to_tm(0, &alarm.time);
 	alarm.enabled = 0;
 	rtc_set_alarm(alarm_rtc_dev, &alarm);
 
@@ -512,6 +513,15 @@ static void alarm_shutdown(struct platform_device *dev)
 	rtc_tm_to_time(&rtc_time, &rtc_secs);
 	alarm_delta = wall_time.tv_sec - rtc_secs;
 	alarm_time = power_on_alarm - alarm_delta;
+
+	/*
+	 * Substract ALARM_DELTA from actual alarm time
+	 * to powerup the device before actual alarm
+	 * expiration.
+	 */
+	if ((alarm_time - ALARM_DELTA) > rtc_secs)
+		alarm_time -= ALARM_DELTA;
+
 	if (alarm_time <= rtc_secs)
 		goto disable_alarm;
 

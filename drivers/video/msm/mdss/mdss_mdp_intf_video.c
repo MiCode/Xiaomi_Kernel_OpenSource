@@ -479,9 +479,9 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
 
-		rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+		rc = wait_for_completion_timeout(&ctx->vsync_comp,
 				usecs_to_jiffies(VSYNC_TIMEOUT_US));
-		WARN(rc <= 0, "timeout (%d) enabling timegen on ctl=%d\n",
+		WARN(rc == 0, "timeout (%d) enabling timegen on ctl=%d\n",
 				rc, ctl->num);
 
 		ctx->timegen_en = true;
@@ -536,8 +536,8 @@ int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
 			(unsigned long int)virt, &phys);
 
 	bl_fb_addr_va = (unsigned long *)ioremap(bl_fb_addr, size);
-
 	memcpy(virt, bl_fb_addr_va, size);
+	iounmap(bl_fb_addr_va);
 
 	MDSS_MDP_REG_WRITE(pipe_addr, phys);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_CTL_FLUSH + MDSS_MDP_REG_CTL_OFFSET(0),

@@ -693,6 +693,7 @@ struct dwc3_scratchpad_array {
  * @mem: points to start of memory which is used for this struct.
  * @hwparams: copy of hwparams registers
  * @root: debugfs root folder pointer
+ * @tx_fifo_size: Available RAM size for TX fifo allocation
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -778,6 +779,7 @@ struct dwc3 {
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	bool			softconnect;
 	void (*notify_event) (struct dwc3 *, unsigned);
+	int			tx_fifo_size;
 };
 
 /* -------------------------------------------------------------------------- */

@@ -240,6 +240,7 @@ static void __iomem *virt_bases[N_BASES];
 #define                 GFX3D_CMD_RCGR	    0x4000
 #define               OXILI_GFX3D_CBCR	    0x4028
 #define                OXILI_GFX3D_BCR	    0x4030
+#define                 GMEM_GFX3D_BCR	    0x4040
 #define                  OXILI_AHB_BCR	    0x4044
 #define                 OXILI_AHB_CBCR	    0x403C
 #define                   AHB_CMD_RCGR	    0x5000
@@ -1550,7 +1551,6 @@ static struct clk_freq_tbl ftbl_mmss_mmssnoc_axi_clk[] = {
 	F_END,
 };
 
-static struct branch_clk mmss_mmssnoc_axi_clk;
 static struct rcg_clk axi_clk_src = {
 	.cmd_rcgr_reg = AXI_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1562,7 +1562,6 @@ static struct rcg_clk axi_clk_src = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000),
 		CLK_INIT(axi_clk_src.c),
-		.depends = &mmss_mmssnoc_axi_clk.c
 	},
 };
 
@@ -2147,6 +2146,7 @@ static struct branch_clk csi_ahb_clk = {
 
 static struct branch_clk csi_vfe_clk = {
 	.cbcr_reg = CSI_VFE_CBCR,
+	.bcr_reg = CSI_VFE_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2217,6 +2217,7 @@ static struct branch_clk dsi_pclk_clk = {
 
 static struct branch_clk gmem_gfx3d_clk = {
 	.cbcr_reg = GMEM_GFX3D_CBCR,
+	.bcr_reg = GMEM_GFX3D_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2262,6 +2263,7 @@ static struct branch_clk mdp_ahb_clk = {
 	},
 };
 
+static struct branch_clk mmss_mmssnoc_axi_clk;
 static struct branch_clk mdp_axi_clk = {
 	.cbcr_reg = MDP_AXI_CBCR,
 	.base = &virt_bases[MMSS_BASE],
@@ -2272,6 +2274,7 @@ static struct branch_clk mdp_axi_clk = {
 		.dbg_name = "mdp_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -2327,6 +2330,7 @@ static struct branch_clk mmss_mmssnoc_axi_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &axi_clk_src.c,
 		.dbg_name = "mmss_mmssnoc_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mmssnoc_axi_clk.c),
@@ -2342,6 +2346,7 @@ static struct branch_clk mmss_s0_axi_clk = {
 		.dbg_name = "mmss_s0_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_s0_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -2358,6 +2363,7 @@ static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 
 static struct branch_clk oxili_ahb_clk = {
 	.cbcr_reg = OXILI_AHB_CBCR,
+	.bcr_reg = OXILI_AHB_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2369,6 +2375,7 @@ static struct branch_clk oxili_ahb_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
+	.bcr_reg = OXILI_GFX3D_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2381,6 +2388,7 @@ static struct branch_clk oxili_gfx3d_clk = {
 
 static struct branch_clk vfe_clk = {
 	.cbcr_reg = VFE_CBCR,
+	.bcr_reg = VFE_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2393,6 +2401,7 @@ static struct branch_clk vfe_clk = {
 
 static struct branch_clk vfe_ahb_clk = {
 	.cbcr_reg = VFE_AHB_CBCR,
+	.bcr_reg = VFE_AHB_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
@@ -2404,6 +2413,7 @@ static struct branch_clk vfe_ahb_clk = {
 
 static struct branch_clk vfe_axi_clk = {
 	.cbcr_reg = VFE_AXI_CBCR,
+	.bcr_reg = VFE_AXI_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	 /* FIXME: Remove this once simulation is fixed. */
@@ -2413,6 +2423,7 @@ static struct branch_clk vfe_axi_clk = {
 		.dbg_name = "vfe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vfe_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -3015,11 +3026,13 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-006d"),
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "6-0078"),
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-0020"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-006a"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006f"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-007d"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006d"),
 	CLK_LOOKUP("cam_clk", mclk1_clk.c, "6-0078"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-0020"),
+	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006a"),
 
 
 	/* CSIPHY clocks */
@@ -3133,6 +3146,14 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c, "fd404000.qcom,qcrypto"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c, "fd404000.qcom,qcrypto"),
 	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,     "fd404000.qcom,qcrypto"),
+
+	/* GDSC clocks */
+	CLK_LOOKUP("core_clk", vfe_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("iface_clk", vfe_ahb_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("bus_clk",  vfe_axi_clk.c,	"fd8c36a4.qcom,gdsc"),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
+	CLK_LOOKUP("iface_clk", oxili_ahb_clk.c, "fd8c4034.qcom,gdsc"),
+	CLK_LOOKUP("mem_clk", gmem_gfx3d_clk.c, "fd8c4034.qcom,gdsc"),
 };
 
 static struct clk_lookup msm_clocks_8610_rumi[] = {

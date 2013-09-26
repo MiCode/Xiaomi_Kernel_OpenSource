@@ -581,6 +581,11 @@ struct slim_controller {
  * @shutdown: Standard shutdown callback used during powerdown/halt.
  * @suspend: Standard suspend callback used during system suspend
  * @resume: Standard resume callback used during system resume
+ * @device_up: This callback is called when the device reports present and
+ *		gets a logical address assigned to it
+ * @device_down: This callback is called when device reports absent, or the
+ *		bus goes down. Device will report present when bus is up and
+ *		device_up callback will be called again when that happens
  * @driver: Slimbus device drivers should initialize name and owner field of
  *	this structure
  * @id_table: List of slimbus devices supported by this driver
@@ -593,6 +598,8 @@ struct slim_driver {
 					pm_message_t pmesg);
 	int				(*resume)(struct slim_device *sldev);
 	int				(*device_up)(struct slim_device *sldev);
+	int				(*device_down)
+						(struct slim_device *sldev);
 
 	struct device_driver		driver;
 	const struct slim_device_id	*id_table;
@@ -1020,6 +1027,13 @@ extern void slim_remove_device(struct slim_device *sbdev);
  */
 extern int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 				u8 e_len, u8 *laddr, bool valid);
+
+/*
+ * slim_report_absent: Controller calls this function when a device
+ *	reports absent, OR when the device cannot be communicated with
+ * @sbdev: Device that cannot be reached, or that sent report absent
+ */
+void slim_report_absent(struct slim_device *sbdev);
 
 /*
  * slim_msg_response: Deliver Message response received from a device to the

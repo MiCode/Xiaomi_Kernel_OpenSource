@@ -17,9 +17,11 @@
 
 void msm_dsi_ahb_ctrl(int enable);
 
-int msm_dsi_io_init(struct platform_device *dev);
+int msm_dsi_io_init(struct platform_device *dev,
+				struct dss_module_power *mp);
 
-void msm_dsi_io_deinit(void);
+void msm_dsi_io_deinit(struct platform_device *dev,
+				struct dss_module_power *mp);
 
 int msm_dsi_clk_init(struct platform_device *dev);
 
@@ -37,14 +39,6 @@ int msm_dsi_clk_set_rate(unsigned long esc_rate,
 int msm_dsi_clk_enable(void);
 
 int msm_dsi_clk_disable(void);
-
-int msm_dsi_regulator_init(struct platform_device *dev);
-
-void msm_dsi_regulator_deinit(void);
-
-int msm_dsi_regulator_enable(void);
-
-int msm_dsi_regulator_disable(void);
 
 int msm_dsi_phy_init(unsigned char *ctrl_base,
 			struct mdss_panel_data *pdata);

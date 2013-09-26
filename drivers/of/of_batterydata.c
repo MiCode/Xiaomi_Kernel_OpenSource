@@ -155,6 +155,35 @@ static int of_batterydata_read_single_row_lut(struct device_node *data_node,
 	return 0;
 }
 
+static int of_batterydata_read_batt_id_kohm(const struct device_node *np,
+				const char *propname, struct batt_ids *batt_ids)
+{
+	struct property *prop;
+	const __be32 *data;
+	int num, i, *id_kohm = batt_ids->kohm;
+
+	prop = of_find_property(np, "qcom,batt-id-kohm", NULL);
+	if (!prop) {
+		pr_err("%s: No battery id resistor found\n", np->name);
+		return -EINVAL;
+	} else if (!prop->value) {
+		pr_err("%s: No battery id resistor value found, np->name\n",
+						np->name);
+		return -ENODATA;
+	} else if (prop->length > MAX_BATT_ID_NUM * sizeof(__be32)) {
+		pr_err("%s: Too many battery id resistors\n", np->name);
+		return -EINVAL;
+	}
+
+	num = prop->length/sizeof(__be32);
+	batt_ids->num = num;
+	data = prop->value;
+	for (i = 0; i < num; i++)
+		*id_kohm++ = be32_to_cpup(data++);
+
+	return 0;
+}
+
 #define OF_PROP_READ(property, qpnp_dt_property, node, rc, optional)	\
 do {									\
 	if (rc)								\
@@ -172,6 +201,7 @@ do {									\
 } while (0)
 
 static int of_batterydata_load_battery_data(struct device_node *node,
+				int best_id_kohm,
 				struct bms_battery_data *batt_data)
 {
 	int rc;
@@ -197,13 +227,14 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 			"default-rbatt-mohm", node, rc, false);
 	OF_PROP_READ(batt_data->rbatt_capacitive_mohm,
 			"rbatt-capacitive-mohm", node, rc, false);
-	OF_PROP_READ(batt_data->batt_id_kohm, "batt-id-kohm", node, rc, false);
 	OF_PROP_READ(batt_data->flat_ocv_threshold_uv,
 			"flat-ocv-threshold", node, rc, true);
 	OF_PROP_READ(batt_data->max_voltage_uv,
 			"max-voltage-uv", node, rc, true);
 	OF_PROP_READ(batt_data->cutoff_uv, "v-cutoff-uv", node, rc, true);
 	OF_PROP_READ(batt_data->iterm_ua, "chg-term-ua", node, rc, true);
+
+	batt_data->batt_id_kohm = best_id_kohm;
 
 	return rc;
 }
@@ -229,8 +260,9 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 				int batt_id_uv)
 {
 	struct device_node *node, *best_node;
-	uint32_t id_kohm;
-	int delta, best_delta, batt_id_kohm, rpull_up_kohm, vadc_vdd_uv, rc = 0;
+	struct batt_ids batt_ids;
+	int delta, best_delta, batt_id_kohm, rpull_up_kohm,
+		vadc_vdd_uv, best_id_kohm, i, rc = 0;
 
 	node = batterydata_container_node;
 	OF_PROP_READ(rpull_up_kohm, "rpull-up-kohm", node, rc, false);
@@ -242,18 +274,24 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 					rpull_up_kohm, vadc_vdd_uv);
 	best_node = NULL;
 	best_delta = 0;
+	best_id_kohm = 0;
 
 	/*
 	 * Find the battery data with a battery id resistor closest to this one
 	 */
 	for_each_child_of_node(batterydata_container_node, node) {
-		rc = of_property_read_u32(node, "qcom,batt-id-kohm", &id_kohm);
+		rc = of_batterydata_read_batt_id_kohm(node,
+						"qcom,batt-id-kohm",
+						&batt_ids);
 		if (rc)
 			continue;
-		delta = abs((int)id_kohm - batt_id_kohm);
-		if (delta < best_delta || !best_node) {
-			best_node = node;
-			best_delta = delta;
+		for (i = 0; i < batt_ids.num; i++) {
+			delta = abs(batt_ids.kohm[i] - batt_id_kohm);
+			if (delta < best_delta || !best_node) {
+				best_node = node;
+				best_delta = delta;
+				best_id_kohm = batt_ids.kohm[i];
+			}
 		}
 	}
 
@@ -262,7 +300,8 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 		return -ENODATA;
 	}
 
-	return of_batterydata_load_battery_data(best_node, batt_data);
+	return of_batterydata_load_battery_data(best_node,
+					best_id_kohm, batt_data);
 }
 
 MODULE_LICENSE("GPL v2");

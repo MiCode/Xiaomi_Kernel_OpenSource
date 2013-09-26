@@ -24,7 +24,6 @@
 #include "dsi_host_v2.h"
 
 struct msm_dsi_io_private {
-	struct regulator *vdda_vreg;
 	struct clk *dsi_byte_clk;
 	struct clk *dsi_esc_clk;
 	struct clk *dsi_pixel_clk;
@@ -41,23 +40,17 @@ static struct msm_dsi_io_private *dsi_io_private;
 void msm_dsi_ahb_ctrl(int enable)
 {
 	if (enable) {
-		if (dsi_io_private->msm_dsi_ahb_clk_on) {
-			pr_debug("ahb clks already ON\n");
-			return;
-		}
-		clk_enable(dsi_io_private->dsi_ahb_clk);
-		dsi_io_private->msm_dsi_ahb_clk_on = 1;
+		dsi_io_private->msm_dsi_ahb_clk_on++;
+		if (dsi_io_private->msm_dsi_ahb_clk_on == 1)
+			clk_enable(dsi_io_private->dsi_ahb_clk);
 	} else {
-		if (dsi_io_private->msm_dsi_ahb_clk_on == 0) {
-			pr_debug("ahb clk already OFF\n");
-			return;
-		}
-		clk_disable(dsi_io_private->dsi_ahb_clk);
-		dsi_io_private->msm_dsi_ahb_clk_on = 0;
+		dsi_io_private->msm_dsi_ahb_clk_on--;
+		if (dsi_io_private->msm_dsi_ahb_clk_on == 0)
+			clk_disable(dsi_io_private->dsi_ahb_clk);
 	}
 }
 
-int msm_dsi_io_init(struct platform_device *dev)
+int msm_dsi_io_init(struct platform_device *pdev, struct dss_module_power *mp)
 {
 	int rc;
 
@@ -70,25 +63,29 @@ int msm_dsi_io_init(struct platform_device *dev)
 		}
 	}
 
-	rc = msm_dsi_clk_init(dev);
+	rc = msm_dsi_clk_init(pdev);
 	if (rc) {
 		pr_err("fail to initialize DSI clock\n");
 		return rc;
 	}
 
-	rc = msm_dsi_regulator_init(dev);
+	rc = msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
+						mp->num_vreg, 1);
 	if (rc) {
 		pr_err("fail to initialize DSI regulator\n");
 		return rc;
 	}
+
 	return 0;
 }
 
-void msm_dsi_io_deinit(void)
+void msm_dsi_io_deinit(struct platform_device *pdev,
+				 struct dss_module_power *mp)
 {
 	if (dsi_io_private) {
 		msm_dsi_clk_deinit();
-		msm_dsi_regulator_deinit();
+		msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
+					mp->num_vreg, 0);
 		kfree(dsi_io_private);
 		dsi_io_private = NULL;
 	}
@@ -248,61 +245,6 @@ int msm_dsi_clk_disable(void)
 	return 0;
 }
 
-int msm_dsi_regulator_init(struct platform_device *dev)
-{
-	int ret = 0;
-
-	dsi_io_private->vdda_vreg = devm_regulator_get(&dev->dev, "vdda");
-	if (IS_ERR(dsi_io_private->vdda_vreg)) {
-		ret = PTR_ERR(dsi_io_private->vdda_vreg);
-		pr_err("could not get vdda 8110_l4, ret=%d\n", ret);
-		return ret;
-	}
-
-	ret = regulator_set_voltage(dsi_io_private->vdda_vreg, DSI_VDDA_VOLTAGE,
-					DSI_VDDA_VOLTAGE);
-	if (ret)
-		pr_err("vdd_io_vreg->set_voltage failed, ret=%d\n", ret);
-
-	return ret;
-}
-
-void msm_dsi_regulator_deinit(void)
-{
-	if (!IS_ERR(dsi_io_private->vdda_vreg)) {
-		devm_regulator_put(dsi_io_private->vdda_vreg);
-		dsi_io_private->vdda_vreg = NULL;
-	}
-}
-
-int msm_dsi_regulator_enable(void)
-{
-	int ret;
-
-	ret = regulator_enable(dsi_io_private->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to enable regulator.\n", __func__);
-		return ret;
-	}
-	msleep(20); /*per DSI controller spec*/
-	return ret;
-}
-
-int msm_dsi_regulator_disable(void)
-{
-	int ret;
-
-	ret = regulator_disable(dsi_io_private->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to disable regulator.\n", __func__);
-		return ret;
-	}
-	wmb();
-	msleep(20); /*per DSI controller spec*/
-
-	return ret;
-}
-
 static void msm_dsi_phy_strength_init(unsigned char *ctrl_base,
 					struct mdss_dsi_phy_ctrl *pd)
 {
@@ -368,12 +310,12 @@ static void msm_dsi_phy_lane_init(unsigned char *ctrl_base,
 	for (ln = 0; ln < 5; ln++) {
 		unsigned char *off = ctrl_base + 0x0300 + (ln * 0x40);
 		index = ln * 6;
-		MIPI_OUTP(off, pd->laneCfg[index]);
-		MIPI_OUTP(off + 4, pd->laneCfg[index + 1]);
-		MIPI_OUTP(off + 8, pd->laneCfg[index + 2]);
-		MIPI_OUTP(off + 12, pd->laneCfg[index + 3]);
-		MIPI_OUTP(off + 20, pd->laneCfg[index + 4]);
-		MIPI_OUTP(off + 24, pd->laneCfg[index + 5]);
+		MIPI_OUTP(off, pd->lanecfg[index]);
+		MIPI_OUTP(off + 4, pd->lanecfg[index + 1]);
+		MIPI_OUTP(off + 8, pd->lanecfg[index + 2]);
+		MIPI_OUTP(off + 12, pd->lanecfg[index + 3]);
+		MIPI_OUTP(off + 20, pd->lanecfg[index + 4]);
+		MIPI_OUTP(off + 24, pd->lanecfg[index + 5]);
 	}
 	wmb();
 }
@@ -392,9 +334,9 @@ static void msm_dsi_phy_timing_init(unsigned char *ctrl_base,
 static void msm_dsi_phy_bist_init(unsigned char *ctrl_base,
 			struct mdss_dsi_phy_ctrl *pd)
 {
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, pd->bistCtrl[4]);
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL1, pd->bistCtrl[1]);
-	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL0, pd->bistCtrl[0]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, pd->bistctrl[4]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL1, pd->bistctrl[1]);
+	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL0, pd->bistctrl[0]);
 	MIPI_OUTP(ctrl_base + DSI_DSIPHY_BIST_CTRL4, 0);
 	wmb();
 }
@@ -404,7 +346,7 @@ int msm_dsi_phy_init(unsigned char *ctrl_base,
 {
 	struct mdss_dsi_phy_ctrl *pd;
 
-	pd = pdata->panel_info.mipi.dsi_phy_db;
+	pd = &(pdata->panel_info.mipi.dsi_phy_db);
 
 	msm_dsi_phy_strength_init(ctrl_base, pd);
 

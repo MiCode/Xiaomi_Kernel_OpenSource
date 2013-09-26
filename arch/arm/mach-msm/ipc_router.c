@@ -1350,7 +1350,7 @@ static void msm_ipc_cleanup_routing_table(
 	struct msm_ipc_router_xprt_info *xprt_info)
 {
 	int i;
-	struct msm_ipc_routing_table_entry *rt_entry;
+	struct msm_ipc_routing_table_entry *rt_entry, *tmp_rt_entry;
 
 	if (!xprt_info) {
 		pr_err("%s: Invalid xprt_info\n", __func__);
@@ -1360,7 +1360,8 @@ static void msm_ipc_cleanup_routing_table(
 	down_write(&server_list_lock_lha2);
 	down_write(&routing_table_lock_lha3);
 	for (i = 0; i < RT_HASH_SIZE; i++) {
-		list_for_each_entry(rt_entry, &routing_table[i], list) {
+		list_for_each_entry_safe(rt_entry, tmp_rt_entry,
+					 &routing_table[i], list) {
 			down_write(&rt_entry->lock_lha4);
 			if (rt_entry->xprt_info != xprt_info) {
 				up_write(&rt_entry->lock_lha4);
@@ -1369,6 +1370,8 @@ static void msm_ipc_cleanup_routing_table(
 			cleanup_rmt_ports(xprt_info, rt_entry);
 			rt_entry->xprt_info = NULL;
 			up_write(&rt_entry->lock_lha4);
+			list_del(&rt_entry->list);
+			kfree(rt_entry);
 		}
 	}
 	up_write(&routing_table_lock_lha3);

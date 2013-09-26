@@ -127,6 +127,7 @@
 		qcom,saw2-spm-cmd-gdhs = [00 20 32 42 07 44 22 50 02 32 50 0f];
 		qcom,saw2-spm-cmd-pc = [00 10 32 b0 11 42 07 01 b0 12 44
 				50 02 32 50 0f];
+		qcom,L2-spm-is-apcs-master;
 	};
 
 	qcom,lpm-levels {
@@ -217,7 +218,7 @@
 			<0xff 176>, /* o_wcss_apss_smsm_irq */
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
-			<0xff 179>, /* o_wcss_apss_asic_intr
+			<0xff 179>, /* o_wcss_apss_asic_intr */
 
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
@@ -315,4 +316,13 @@
 		reg-names = "phys_addr_base";
 		qcom,sleep-stats-version = <2>;
 	};
+
+	qcom,rpm-master-stats@fc428150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0xfc428150 0x3200>;
+		qcom,masters = "APSS", "MPSS", "LPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <2560>;
+	};
+
 };

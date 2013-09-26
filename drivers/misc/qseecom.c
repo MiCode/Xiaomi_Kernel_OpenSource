@@ -77,10 +77,11 @@ enum qseecom_clk_definitions {
 };
 
 enum qseecom_client_handle_type {
-	QSEECOM_CLIENT_APP = 0,
+	QSEECOM_CLIENT_APP = 1,
 	QSEECOM_LISTENER_SERVICE,
 	QSEECOM_SECURE_SERVICE,
 	QSEECOM_GENERIC,
+	QSEECOM_UNAVAILABLE_CLIENT_APP,
 };
 
 enum qseecom_ce_hw_instance {
@@ -2171,6 +2172,9 @@ static int qseecom_unload_external_elf(struct qseecom_dev_handle *data)
 	struct qseecom_unload_app_ireq req;
 	struct cpumask mask;
 
+	/* unavailable client app */
+	data->type = QSEECOM_UNAVAILABLE_CLIENT_APP;
+
 	/* Populate the structure for sending scm call to unload image */
 	req.qsee_cmd_id = QSEOS_UNLOAD_EXTERNAL_ELF_COMMAND;
 
@@ -2942,6 +2946,8 @@ static int qseecom_release(struct inode *inode, struct file *file)
 				pr_err("Close failed\n");
 				return ret;
 			}
+			break;
+		case QSEECOM_UNAVAILABLE_CLIENT_APP:
 			break;
 		default:
 			pr_err("Unsupported clnt_handle_type %d",

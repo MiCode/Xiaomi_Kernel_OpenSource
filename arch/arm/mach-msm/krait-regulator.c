@@ -29,7 +29,9 @@
 #include <linux/regulator/krait-regulator.h>
 #include <linux/debugfs.h>
 #include <linux/syscore_ops.h>
+#include <linux/cpu.h>
 #include <mach/msm_iomap.h>
+#include "krait-regulator-pmic.h"
 
 #include "spm.h"
 #include "pm.h"
@@ -222,8 +224,9 @@ struct krait_power_vreg {
 	int				cpu_num;
 	int				coeff1;
 	int				coeff2;
-	bool				online;
+	bool				reg_en;
 	int				online_at_probe;
+	bool				force_bhs;
 };
 
 DEFINE_PER_CPU(struct krait_power_vreg *, krait_vregs);
@@ -372,7 +375,7 @@ static int get_coeff_total(struct krait_power_vreg *from)
 		phase_scaling_factor = pvreg->efuse_phase_scaling_factor;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 
 		if (kvreg->mode == LDO_MODE) {
@@ -414,7 +417,7 @@ static int num_online(struct pmic_gang_vreg *pvreg)
 	struct krait_power_vreg *kvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (kvreg->online)
+		if (kvreg->reg_en)
 			online_total++;
 	}
 	return online_total;
@@ -427,7 +430,7 @@ static int get_total_load(struct krait_power_vreg *from)
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 		load_total += kvreg->load;
 	}
@@ -474,16 +477,18 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	}
 
 	/* First check if the coeff is low for PFM mode */
-	if (load_total <= pvreg->pfm_threshold && n_online == 1) {
+	if (load_total <= pvreg->pfm_threshold
+			&& n_online == 1
+			&& krait_pmic_is_ready()) {
 		if (!pvreg->pfm_mode) {
 			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
 			if (rc) {
 				pr_err("%s PFM en failed load_t %d rc = %d\n",
 					from->name, load_total, rc);
 				return rc;
-			} else {
-				pvreg->pfm_mode = true;
 			}
+			krait_pmic_post_pfm_entry();
+			pvreg->pfm_mode = true;
 		}
 		return rc;
 	}
@@ -495,10 +500,10 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 			pr_err("%s PFM exit failed load %d rc = %d\n",
 				from->name, coeff_total, rc);
 			return rc;
-		} else {
-			pvreg->pfm_mode = false;
-			udelay(PWM_SETTLING_TIME_US);
 		}
+		pvreg->pfm_mode = false;
+		krait_pmic_post_pwm_entry();
+		udelay(PWM_SETTLING_TIME_US);
 	}
 
 	/* calculate phases */
@@ -565,7 +570,7 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	kvreg->load = load_uA;
-	if (!kvreg->online) {
+	if (!kvreg->reg_en) {
 		mutex_unlock(&pvreg->krait_power_vregs_lock);
 		return kvreg->mode;
 	}
@@ -588,10 +593,10 @@ static unsigned int krait_power_get_mode(struct regulator_dev *rdev)
 	return kvreg->mode;
 }
 
-static int switch_to_using_hs(struct krait_power_vreg *kvreg)
+static void __switch_to_using_bhs(void *info)
 {
-	if (kvreg->mode == HS_MODE)
-		return 0;
+	struct krait_power_vreg *kvreg = info;
+
 	/* enable bhs */
 	if (version > KPSS_VERSION_2P0) {
 		krait_masked_write(kvreg, APC_PWR_GATE_MODE,
@@ -645,21 +650,18 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 
 	kvreg->mode = HS_MODE;
 	pr_debug("%s using BHS\n", kvreg->name);
-	return 0;
 }
 
-static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
+static void __switch_to_using_ldo(void *info)
 {
-	if (kvreg->mode == LDO_MODE
-		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
-		return 0;
+	struct krait_power_vreg *kvreg = info;
 
 	/*
 	 * if the krait is in ldo mode and a voltage change is requested on the
 	 * ldo switch to using hs before changing ldo voltage
 	 */
 	if (kvreg->mode == LDO_MODE)
-		switch_to_using_hs(kvreg);
+		__switch_to_using_bhs(kvreg);
 
 	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
 	if (version > KPSS_VERSION_2P0) {
@@ -698,7 +700,25 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 
 	kvreg->mode = LDO_MODE;
 	pr_debug("%s using LDO\n", kvreg->name);
-	return 0;
+}
+
+static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
+{
+	if (kvreg->mode == LDO_MODE
+		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
+		return 0;
+
+	return smp_call_function_single(kvreg->cpu_num,
+			__switch_to_using_ldo, kvreg, 1);
+}
+
+static int switch_to_using_bhs(struct krait_power_vreg *kvreg)
+{
+	if (kvreg->mode == HS_MODE)
+		return 0;
+
+	return smp_call_function_single(kvreg->cpu_num,
+			__switch_to_using_bhs, kvreg, 1);
 }
 
 static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
@@ -740,7 +760,7 @@ static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
 
 	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
 
-	rc = msm_spm_apcs_set_vdd(setpoint);
+	rc = msm_spm_set_vdd(0, setpoint); /* value of CPU is don't care */
 	if (rc < 0)
 		pr_err("could not set %duV setpt = 0x%x rc = %d\n",
 				uV, setpoint, rc);
@@ -750,6 +770,41 @@ static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
 	return rc;
 }
 
+static int configure_ldo_or_hs_one(struct krait_power_vreg *kvreg, int vmax)
+{
+	int rc;
+
+	if (!kvreg->reg_en)
+		return 0;
+
+	if (kvreg->force_bhs)
+		/*
+		 * The cpu is in transitory phase where it is being
+		 * prepared to be offlined or onlined and is being
+		 * forced to run on BHS during that time
+		 */
+		return 0;
+
+	if (kvreg->uV <= kvreg->ldo_threshold_uV
+		&& kvreg->uV - kvreg->ldo_delta_uV + kvreg->headroom_uV
+			<= vmax) {
+		rc = switch_to_using_ldo(kvreg);
+		if (rc < 0) {
+			pr_err("could not switch %s to ldo rc = %d\n",
+						kvreg->name, rc);
+			return rc;
+		}
+	} else {
+		rc = switch_to_using_bhs(kvreg);
+		if (rc < 0) {
+			pr_err("could not switch %s to hs rc = %d\n",
+						kvreg->name, rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 {
 	struct pmic_gang_vreg *pvreg = from->pvreg;
@@ -757,27 +812,12 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 	int rc = 0;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
-			continue;
-		if (kvreg->uV <= kvreg->ldo_threshold_uV
-			&& kvreg->uV - kvreg->ldo_delta_uV + kvreg->headroom_uV
-				<= vmax) {
-			rc = switch_to_using_ldo(kvreg);
-			if (rc < 0) {
-				pr_err("could not switch %s to ldo rc = %d\n",
-							kvreg->name, rc);
-				return rc;
-			}
-		} else {
-			rc = switch_to_using_hs(kvreg);
-			if (rc < 0) {
-				pr_err("could not switch %s to hs rc = %d\n",
-							kvreg->name, rc);
-				return rc;
-			}
+		rc = configure_ldo_or_hs_one(kvreg, vmax);
+		if (rc) {
+			pr_err("could not switch %s\n", kvreg->name);
+			break;
 		}
 	}
-
 	return rc;
 }
 
@@ -856,7 +896,7 @@ static int get_vmax(struct pmic_gang_vreg *pvreg)
 	struct krait_power_vreg *kvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
-		if (!kvreg->online)
+		if (!kvreg->reg_en)
 			continue;
 
 		v = kvreg->uV;
@@ -896,7 +936,7 @@ static int _set_voltage(struct regulator_dev *rdev,
 		rc = krait_voltage_decrease(kvreg, vmax);
 
 	if (rc < 0) {
-		dev_err(&rdev->dev, "%s failed to set %duV from %duV rc = %d\n",
+		pr_err("%s failed to set %duV from %duV rc = %d\n",
 				kvreg->name, requested_uV, orig_krait_uV, rc);
 	}
 
@@ -927,7 +967,7 @@ static int krait_power_set_voltage(struct regulator_dev *rdev,
 	}
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	if (!kvreg->online) {
+	if (!kvreg->reg_en) {
 		kvreg->uV = min_uV;
 		mutex_unlock(&pvreg->krait_power_vregs_lock);
 		return 0;
@@ -943,7 +983,7 @@ static int krait_power_is_enabled(struct regulator_dev *rdev)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
 
-	return kvreg->online;
+	return kvreg->reg_en;
 }
 
 static int krait_power_enable(struct regulator_dev *rdev)
@@ -953,8 +993,9 @@ static int krait_power_enable(struct regulator_dev *rdev)
 	int rc;
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
+	pr_debug("enable %s\n", kvreg->name);
 	__krait_power_mdd_enable(kvreg, true);
-	kvreg->online = true;
+	kvreg->reg_en = true;
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
 		goto en_err;
@@ -975,7 +1016,8 @@ static int krait_power_disable(struct regulator_dev *rdev)
 	int rc;
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	kvreg->online = false;
+	pr_debug("disable %s\n", kvreg->name);
+	kvreg->reg_en = false;
 
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load);
 	if (rc < 0)
@@ -997,6 +1039,69 @@ static struct regulator_ops krait_power_ops = {
 	.enable			= krait_power_enable,
 	.disable		= krait_power_disable,
 	.is_enabled		= krait_power_is_enabled,
+};
+
+static int krait_regulator_cpu_callback(struct notifier_block *nfb,
+					    unsigned long action, void *hcpu)
+{
+	int cpu = (int)hcpu;
+	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, cpu);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+
+	pr_debug("start state=0x%02x, cpu=%d is_online=%d\n",
+			(int)action, cpu, cpu_online(cpu));
+	switch (action & ~CPU_TASKS_FROZEN) {
+	case CPU_UP_PREPARE:
+		mutex_lock(&pvreg->krait_power_vregs_lock);
+		kvreg->force_bhs = true;
+		/*
+		 * cpu is offline at this point, force bhs on which ever cpu
+		 * this callback is running on
+		 */
+		pr_debug("%s force BHS locally\n", kvreg->name);
+		__switch_to_using_bhs(kvreg);
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		break;
+	case CPU_UP_CANCELED:
+	case CPU_ONLINE:
+		mutex_lock(&pvreg->krait_power_vregs_lock);
+		kvreg->force_bhs = false;
+		/*
+		 * switch the cpu to proper bhs/ldo, the cpu is online at this
+		 * point. The gang voltage and mode votes for the cpu were
+		 * submitted in CPU_UP_PREPARE phase
+		 */
+		configure_ldo_or_hs_one(kvreg, pvreg->pmic_vmax_uV);
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		break;
+	case CPU_DOWN_PREPARE:
+		mutex_lock(&pvreg->krait_power_vregs_lock);
+		kvreg->force_bhs = true;
+		/*
+		 * switch the cpu to run on bhs using smp function calls. Note
+		 * that the cpu is online at this point.
+		 */
+		pr_debug("%s force BHS remotely\n", kvreg->name);
+		switch_to_using_bhs(kvreg);
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		break;
+	case CPU_DOWN_FAILED:
+		mutex_lock(&pvreg->krait_power_vregs_lock);
+		kvreg->force_bhs = false;
+		configure_ldo_or_hs_one(kvreg, pvreg->pmic_vmax_uV);
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		break;
+	default:
+		break;
+	}
+
+	pr_debug("done state=0x%02x, cpu=%d is_online=%d\n",
+			(int)action, cpu, cpu_online(cpu));
+	return NOTIFY_OK;
+}
+
+static struct notifier_block krait_cpu_notifier = {
+	.notifier_call = krait_regulator_cpu_callback,
 };
 
 static struct dentry *dent;
@@ -1481,11 +1586,14 @@ int __init krait_power_init(void)
 				KRAIT_REGULATOR_DRIVER_NAME, rc);
 		return rc;
 	}
+
+	register_hotcpu_notifier(&krait_cpu_notifier);
 	return platform_driver_register(&krait_pdn_driver);
 }
 
 static void __exit krait_power_exit(void)
 {
+	unregister_hotcpu_notifier(&krait_cpu_notifier);
 	platform_driver_unregister(&krait_power_driver);
 	platform_driver_unregister(&krait_pdn_driver);
 }

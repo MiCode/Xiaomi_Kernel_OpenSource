@@ -371,7 +371,7 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 	map.info.ctx_id = ctx_drvdata->num;
 	map.info.va = va;
 	map.info.size = len;
-	map.flags = 0;
+	map.flags = IOMMU_TLBINVAL_FLAG;
 	flush_va = &pa;
 	flush_pa = virt_to_phys(&pa);
 
@@ -421,7 +421,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 	map.info.ctx_id = ctx_drvdata->num;
 	map.info.va = va;
 	map.info.size = len;
-	map.flags = 0;
+	map.flags = IOMMU_TLBINVAL_FLAG;
 
 	if (sg->length == len) {
 		pa = get_phys_addr(sg);

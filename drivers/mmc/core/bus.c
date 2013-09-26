@@ -204,9 +204,11 @@ static int mmc_runtime_idle(struct device *dev)
 
 	if (mmc_use_core_runtime_pm(card->host)) {
 		ret = pm_schedule_suspend(dev, card->idle_timeout);
-		if (ret) {
-			pr_err("%s: %s: pm_schedule_suspend failed: err: %d\n",
-			       mmc_hostname(host), __func__, ret);
+		if ((ret < 0) && (dev->power.runtime_error ||
+				  dev->power.disable_depth > 0)) {
+			pr_err("%s: %s: %s: pm_schedule_suspend failed: err: %d\n",
+			       mmc_hostname(host), __func__, dev_name(dev),
+			       ret);
 			return ret;
 		}
 	}
@@ -397,10 +399,11 @@ int mmc_add_card(struct mmc_card *card)
 			mmc_card_ddr_mode(card) ? "DDR " : "",
 			type);
 	} else {
-		pr_info("%s: new %s%s%s%s%s card at address %04x\n",
+		pr_info("%s: new %s%s%s%s%s%s card at address %04x\n",
 			mmc_hostname(card->host),
 			mmc_card_uhs(card) ? "ultra high speed " :
 			(mmc_card_highspeed(card) ? "high speed " : ""),
+			(mmc_card_hs400(card) ? "HS400 " : ""),
 			(mmc_card_hs200(card) ? "HS200 " : ""),
 			mmc_card_ddr_mode(card) ? "DDR " : "",
 			uhs_bus_speed_mode, type, card->rca);

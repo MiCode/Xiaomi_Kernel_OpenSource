@@ -463,8 +463,6 @@ static void flush_to_ldisc(struct work_struct *work)
 			int count;
 			char *char_buf;
 			unsigned char *flag_buf;
-			unsigned int left = 0;
-			unsigned int max_space;
 
 			count = head->commit - head->read;
 			if (!count) {
@@ -474,38 +472,11 @@ static void flush_to_ldisc(struct work_struct *work)
 				tty_buffer_free(tty, head);
 				continue;
 			}
-			/* Ldisc or user is trying to flush the buffers
-			   we are feeding to the ldisc, stop feeding the
-			   line discipline as we want to empty the queue */
-			if (test_bit(TTY_FLUSHPENDING, &tty->flags))
-				break;
-
-			/* update receive room */
-			spin_lock(&tty->read_lock);
-			if (tty->update_room_in_ldisc) {
-				if ((tty->read_cnt == N_TTY_BUF_SIZE - 1) &&
-					(tty->receive_room ==
-						N_TTY_BUF_SIZE - 1))
-					tty->rr_bug++;
-				left = N_TTY_BUF_SIZE - tty->read_cnt - 1;
-			}
-			spin_unlock(&tty->read_lock);
 
 			if (!tty->receive_room)
 				break;
-
-			if (tty->update_room_in_ldisc && !left) {
-				schedule_work(&tty->buf.work);
-				break;
-			}
-
-			if (tty->update_room_in_ldisc)
-				max_space = min(left, tty->receive_room);
-			else
-				max_space = tty->receive_room;
-
-			if (count > max_space)
-				count = max_space;
+			if (count > tty->receive_room)
+				count = tty->receive_room;
 			char_buf = head->char_buf_ptr + head->read;
 			flag_buf = head->flag_buf_ptr + head->read;
 			head->read += count;
@@ -513,16 +484,18 @@ static void flush_to_ldisc(struct work_struct *work)
 			disc->ops->receive_buf(tty, char_buf,
 							flag_buf, count);
 			spin_lock_irqsave(&tty->buf.lock, flags);
+			/* Ldisc or user is trying to flush the buffers.
+			   We may have a deferred request to flush the
+			   input buffer, if so pull the chain under the lock
+			   and empty the queue */
+			if (test_bit(TTY_FLUSHPENDING, &tty->flags)) {
+				__tty_buffer_flush(tty);
+				clear_bit(TTY_FLUSHPENDING, &tty->flags);
+				wake_up(&tty->read_wait);
+				break;
+			}
 		}
 		clear_bit(TTY_FLUSHING, &tty->flags);
-	}
-
-	/* We may have a deferred request to flush the input buffer,
-	   if so pull the chain under the lock and empty the queue */
-	if (test_bit(TTY_FLUSHPENDING, &tty->flags)) {
-		__tty_buffer_flush(tty);
-		clear_bit(TTY_FLUSHPENDING, &tty->flags);
-		wake_up(&tty->read_wait);
 	}
 	spin_unlock_irqrestore(&tty->buf.lock, flags);
 

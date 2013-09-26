@@ -1640,6 +1640,13 @@ static int mmc_blk_update_interrupted_req(struct mmc_card *card,
 		 ext_csd[EXT_CSD_CORRECTLY_PRG_SECTORS_NUM + 2] << 16 |
 		 ext_csd[EXT_CSD_CORRECTLY_PRG_SECTORS_NUM + 3] << 24);
 
+	/*
+	 * skip packed command header (1 sector) included by the counter but not
+	 * actually written to the NAND
+	 */
+	if (correctly_done >= card->ext_csd.data_sector_size)
+		correctly_done -= card->ext_csd.data_sector_size;
+
 	list_for_each_entry(prq, &mq_rq->packed_list, queuelist) {
 		if ((correctly_done - (int)blk_rq_bytes(prq)) < 0) {
 			/* prq is not successfull */
@@ -2992,11 +2999,6 @@ force_ro_fail:
 
 	return ret;
 }
-
-#define CID_MANFID_SANDISK	0x2
-#define CID_MANFID_TOSHIBA	0x11
-#define CID_MANFID_MICRON	0x13
-#define CID_MANFID_SAMSUNG	0x15
 
 static const struct mmc_fixup blk_fixups[] =
 {

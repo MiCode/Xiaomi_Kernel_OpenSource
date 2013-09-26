@@ -504,7 +504,7 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		return;
 	}
 
-	pd = ((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db;
+	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
 	/* Strength ctrl 0 */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
@@ -564,7 +564,7 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		for (i = 0; i < 9; i++) {
 			offset = i + (ln * 9);
 			MIPI_OUTP((ctrl_pdata->ctrl_base) + off,
-							pd->laneCfg[offset]);
+							pd->lanecfg[offset]);
 			wmb();
 			off += 4;
 		}
@@ -583,7 +583,7 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 
 	off = 0x04b4;	/* phy BIST ctrl 0 - 5 */
 	for (i = 0; i < 6; i++) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->bistCtrl[i]);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->bistctrl[i]);
 		wmb();
 		off += 4;
 	}

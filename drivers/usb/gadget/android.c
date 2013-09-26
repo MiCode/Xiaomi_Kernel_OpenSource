@@ -388,22 +388,30 @@ static void android_work(struct work_struct *data)
 	}
 }
 
-static void android_enable(struct android_dev *dev)
+static int android_enable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_configuration *conf;
+	int err = 0;
 
 	if (WARN_ON(!dev->disable_depth))
-		return;
+		return err;
 
 	if (--dev->disable_depth == 0) {
 
-		list_for_each_entry(conf, &dev->configs, list_item)
-			usb_add_config(cdev, &conf->usb_config,
+		list_for_each_entry(conf, &dev->configs, list_item) {
+			err = usb_add_config(cdev, &conf->usb_config,
 						android_bind_config);
-
+			if (err < 0) {
+				pr_err("%s: usb_add_config failed : err: %d\n",
+						__func__, err);
+				return err;
+			}
+		}
 		usb_gadget_connect(cdev->gadget);
 	}
+
+	return err;
 }
 
 static void android_disable(struct android_dev *dev)
@@ -1768,11 +1776,18 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	config->fsg.nluns = 1;
 	name[0] = "lun";
 	if (dev->pdata && dev->pdata->cdrom) {
-		config->fsg.nluns = 2;
-		config->fsg.luns[1].cdrom = 1;
-		config->fsg.luns[1].ro = 1;
-		config->fsg.luns[1].removable = 0;
-		name[1] = "lun0";
+		config->fsg.luns[config->fsg.nluns].cdrom = 1;
+		config->fsg.luns[config->fsg.nluns].ro = 1;
+		config->fsg.luns[config->fsg.nluns].removable = 0;
+		name[config->fsg.nluns] = "lun0";
+		config->fsg.nluns++;
+	}
+	if (dev->pdata && dev->pdata->internal_ums) {
+		config->fsg.luns[config->fsg.nluns].cdrom = 0;
+		config->fsg.luns[config->fsg.nluns].ro = 0;
+		config->fsg.luns[config->fsg.nluns].removable = 1;
+		name[config->fsg.nluns] = "lun1";
+		config->fsg.nluns++;
 	}
 
 	config->fsg.luns[0].removable = 1;
@@ -2130,7 +2145,18 @@ android_bind_enabled_functions(struct android_dev *dev,
 	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
 		ret = f_holder->f->bind_config(f_holder->f, c);
 		if (ret) {
-			pr_err("%s: %s failed", __func__, f_holder->f->name);
+			pr_err("%s: %s failed\n", __func__, f_holder->f->name);
+			while (!list_empty(&c->functions)) {
+				struct usb_function		*f;
+
+				f = list_first_entry(&c->functions,
+					struct usb_function, list);
+				list_del(&f->list);
+				if (f->unbind)
+					f->unbind(c, f);
+			}
+			if (c->unbind)
+				c->unbind(c);
 			return ret;
 		}
 	}
@@ -2347,7 +2373,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	int enabled = 0;
 	bool audio_enabled = false;
 	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
-
+	int err = 0;
 
 	if (!cdev)
 		return -ENODEV;
@@ -2382,7 +2408,14 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 			}
 		if (audio_enabled)
 			msleep(100);
-		android_enable(dev);
+		err = android_enable(dev);
+		if (err < 0) {
+			pr_err("%s: android_enable failed\n", __func__);
+			dev->connected = 0;
+			dev->enabled = false;
+			mutex_unlock(&dev->mutex);
+			return size;
+		}
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
 		android_disable(dev);
@@ -2873,6 +2906,8 @@ static int __devinit android_probe(struct platform_device *pdev)
 				&pdata->swfi_latency);
 		pdata->cdrom = of_property_read_bool(pdev->dev.of_node,
 				"qcom,android-usb-cdrom");
+		pdata->internal_ums = of_property_read_bool(pdev->dev.of_node,
+				"qcom,android-usb-internal-ums");
 	} else {
 		pdata = pdev->dev.platform_data;
 	}
