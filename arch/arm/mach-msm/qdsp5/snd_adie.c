@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009,2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -364,6 +364,7 @@ EXPORT_SYMBOL(adie_svc_config_adie_block);
 #ifdef CONFIG_DEBUG_FS
 
 struct dentry *dentry;
+static char l_buf[100];
 
 static ssize_t snd_adie_debug_open(struct inode *inode, struct file *file)
 {
@@ -376,8 +377,17 @@ static ssize_t snd_adie_debug_write(struct file *file, const char __user *buf,
 {
 	int rc = 0, op = 0;
 	int id = 0, adie_block = 0, config = 1;
+	size_t len;
 
-	sscanf(buf, "%d %d %d %d", &op, &id, &adie_block, &config);
+	len = count > (sizeof(l_buf) - 1) ?
+			(sizeof(l_buf) - 1) : count;
+	l_buf[len] = 0;
+	if (copy_from_user(l_buf, buf, len)) {
+		pr_info("Unable to copy data from user space\n");
+		return -EFAULT;
+	}
+	if (sscanf(l_buf, "%d %d %d %d", &op, &id, &adie_block, &config) != 4)
+		return -EINVAL;
 	MM_INFO("\nUser input: op %d id %d block %d config %d\n", op, id,
 			adie_block, config);
 	switch (op) {
