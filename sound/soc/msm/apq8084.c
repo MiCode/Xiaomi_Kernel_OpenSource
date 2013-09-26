@@ -196,10 +196,10 @@ static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 
 static struct mutex cdc_mclk_mutex;
 static struct clk *codec_clk;
+static int ext_mclk_gpio = -1;
 static int clk_users;
 static atomic_t prim_auxpcm_rsc_ref;
 static atomic_t sec_auxpcm_rsc_ref;
-
 
 static int apq8084_liquid_ext_spk_power_amp_init(void)
 {
@@ -553,6 +553,27 @@ static int msm_ext_spkramp_ultrasound_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int apq8084_ext_mclk_gpio_init(void)
+{
+	int ret = 0;
+	ext_mclk_gpio = of_get_named_gpio(spdev->dev.of_node,
+					  "qcom,ext-mclk-gpio", 0);
+
+	pr_debug("%s: ext_mclk_gpio %d", __func__, ext_mclk_gpio);
+	if (ext_mclk_gpio >= 0) {
+		ret = gpio_request(ext_mclk_gpio, "ext_mclk_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext_mclk_gpio.\n",
+				__func__);
+
+			ext_mclk_gpio = -1;
+			return -EINVAL;
+		}
+		gpio_direction_output(ext_mclk_gpio, 0);
+	}
+	return 0;
+}
+
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm)
 {
@@ -562,23 +583,24 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			__func__, enable, clk_users);
 	mutex_lock(&cdc_mclk_mutex);
 	if (enable) {
-		if (!codec_clk) {
-			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
-				__func__);
-			ret = -EINVAL;
-			goto exit;
-		}
+		if (ext_mclk_gpio >= 0) {
+			clk_users++;
+			if (clk_users != 1)
+				goto exit;
 
-		clk_users++;
-		if (clk_users != 1)
-			goto exit;
+			gpio_direction_output(ext_mclk_gpio, 1);
+			taiko_mclk_enable(codec, 1, dapm);
+		} else if (codec_clk) {
+			clk_users++;
+			if (clk_users != 1)
+				goto exit;
 
-		if (codec_clk) {
 			clk_prepare_enable(codec_clk);
 			taiko_mclk_enable(codec, 1, dapm);
 		} else {
-			pr_err("%s: Error setting Taiko MCLK\n", __func__);
-			clk_users--;
+			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
+				__func__);
+			ret = -EINVAL;
 			goto exit;
 		}
 	} else {
@@ -586,7 +608,10 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			clk_users--;
 			if (clk_users == 0) {
 				taiko_mclk_enable(codec, 0, dapm);
-				clk_disable_unprepare(codec_clk);
+				if (ext_mclk_gpio >= 0)
+					gpio_direction_output(ext_mclk_gpio, 0);
+				else if (codec_clk)
+					clk_disable_unprepare(codec_clk);
 			}
 		} else {
 			pr_err("%s: Error releasing Taiko MCLK\n", __func__);
@@ -1414,7 +1439,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_enable_pin(dapm, "Lineout_4 amp");
 
 	snd_soc_dapm_sync(dapm);
-	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	err = apq8084_ext_mclk_gpio_init();
+	if (err) {
+		pr_err("%s: apq8084 mclk_gpio init failed (%d)\n",
+			__func__, err);
+	}
+	if (ext_mclk_gpio < 0)
+		codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
@@ -1475,7 +1508,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	taiko_event_register(apq8084_taiko_event_cb, rtd->codec);
 	return 0;
 out:
-	clk_put(codec_clk);
+	if (ext_mclk_gpio < 0)
+		clk_put(codec_clk);
 	return err;
 }
 
@@ -2595,6 +2629,9 @@ static int apq8084_asoc_machine_remove(struct platform_device *pdev)
 		kfree(apq8084_liquid_dock_dev);
 		apq8084_liquid_dock_dev = NULL;
 	}
+
+	if (gpio_is_valid(ext_mclk_gpio))
+		gpio_free(ext_mclk_gpio);
 
 	iounmap(lpaif_pri_muxsel_virt_addr);
 	iounmap(lpaif_sec_muxsel_virt_addr);
