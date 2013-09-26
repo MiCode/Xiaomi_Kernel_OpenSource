@@ -818,7 +818,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		return -EINVAL;
 	}
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		struct hal_frame_size frame_sz;
 
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
@@ -831,13 +830,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 		inst->fmts[fmt->type] = fmt;
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
-		dprintk(VIDC_DBG, "width = %d, height = %d\n",
-				frame_sz.width, frame_sz.height);
-		ret = msm_comm_try_set_prop(inst,
-			HAL_PARAM_FRAME_SIZE, &frame_sz);
 		ret = ret || msm_comm_try_get_bufreqs(inst);
 		if (ret) {
 			for (i = 0; i < fmt->num_planes; ++i) {
