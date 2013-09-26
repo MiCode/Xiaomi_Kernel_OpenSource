@@ -856,7 +856,7 @@ qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 #define QPNP_CHG_VINMIN_MAX_MV		9600
 #define QPNP_CHG_VINMIN_STEP_MV		50
 #define QPNP_CHG_VINMIN_STEP_HIGH_MV	200
-#define QPNP_CHG_VINMIN_MASK		0x1F
+#define QPNP_CHG_VINMIN_MASK		0x3F
 #define QPNP_CHG_VINMIN_MIN_VAL	0x10
 static int
 qpnp_chg_vinmin_set(struct qpnp_chg_chip *chip, int voltage)
