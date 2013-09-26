@@ -311,7 +311,7 @@ struct ufs_hba {
 	unsigned long tm_condition;
 	unsigned long tm_slots_in_use;
 
-	struct completion *pwr_done;
+	struct completion *uic_async_done;
 
 	u32 ufshcd_state;
 	u32 eh_flags;
