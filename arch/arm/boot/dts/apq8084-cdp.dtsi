@@ -30,6 +30,10 @@
 };
 
 &soc {
+	sound {
+		qcom,model = "apq8084-taiko-cdp-snd-card";
+		qcom,cdc-micbias2-headset-only;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
