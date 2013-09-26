@@ -11,6 +11,7 @@
  */
 
 /include/ "external-mdm9x25.dtsi"
+/include/ "apq8084-camera-sensor-mtp.dtsi"
 
 / {
 	aliases {

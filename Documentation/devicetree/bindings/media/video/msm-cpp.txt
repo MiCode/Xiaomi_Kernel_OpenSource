@@ -14,6 +14,8 @@ Required properties:
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
 - vdd-supply: phandle to GDSC regulator controlling VFE & CPP core.
+- clock-names: name of the clocks required for the device
+- clock-rates: clock rate in Hz
 
 Example:
 
@@ -27,4 +29,8 @@ Example:
        interrupts = <0 49 0>;
        interrupt-names = "cpp";
        vdd-supply = <&gdsc_vfe>;
+	qcom,clock-names = "camss_top_ahb_clk", "vfe_clk_src",
+			"camss_vfe_vfe_clk", "iface_clk", "cpp_core_clk",
+			"cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk";
+	qcom,clock-rates = <0 266670000 0 0 266670000 0 0 0>;
    };
