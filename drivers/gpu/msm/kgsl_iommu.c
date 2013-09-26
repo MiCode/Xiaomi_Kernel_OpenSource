@@ -1165,7 +1165,8 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 		if (ret)
 			goto err;
 
-		iommu_unit->iommu_halt_enable = data.iommu_halt_enable;
+		if (!msm_soc_version_supports_iommu_v0())
+			iommu_unit->iommu_halt_enable = 1;
 		iommu_unit->ahb_base = data.physstart - mmu->device->reg_phys;
 	}
 	iommu->unit_count = pdata_dev->iommu_count;
