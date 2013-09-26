@@ -1285,6 +1285,9 @@ qpnp_chg_regulator_batfet_set(struct qpnp_chg_chip *chip, bool enable)
 {
 	int rc = 0;
 
+	if (chip->charging_disabled || !chip->bat_if_base)
+		return rc;
+
 	if (chip->type == SMBB)
 		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + CHGR_BAT_IF_SPARE,
@@ -2583,6 +2586,9 @@ qpnp_chg_bat_if_batfet_reg_enabled(struct qpnp_chg_chip *chip)
 {
 	int rc = 0;
 	u8 reg = 0;
+
+	if (!chip->bat_if_base)
+		return rc;
 
 	if (chip->type == SMBB)
 		rc = qpnp_chg_read(chip, &reg,
