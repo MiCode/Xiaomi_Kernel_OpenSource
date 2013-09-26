@@ -1057,39 +1057,73 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 
 /*******************************************************
 Function:
-	Read chip version.
+	Read firmware version
 Input:
 	client:  i2c device
 	version: buffer to keep ic firmware version
 Output:
 	read operation return.
-	2: succeed, otherwise: failed
+	0: succeed, otherwise: failed
 *******************************************************/
-int gtp_read_version(struct i2c_client *client, u16 *version)
+static int gtp_read_fw_version(struct i2c_client *client, u16 *version)
 {
-	int ret = -EIO;
-	u8 buf[8] = { GTP_REG_VERSION >> 8, GTP_REG_VERSION & 0xff };
-
-	GTP_DEBUG_FUNC();
+	int ret = 0;
+	u8 buf[GTP_FW_VERSION_BUFFER_MAXSIZE] = {
+		GTP_REG_FW_VERSION >> 8, GTP_REG_FW_VERSION & 0xff };
 
 	ret = gtp_i2c_read(client, buf, sizeof(buf));
 	if (ret < 0) {
 		dev_err(&client->dev, "GTP read version failed.\n");
-		return ret;
+		return -EIO;
 	}
 
 	if (version)
-		*version = (buf[7] << 8) | buf[6];
+		*version = (buf[3] << 8) | buf[2];
+
+	return ret;
+}
+/*******************************************************
+Function:
+	Read and check chip id.
+Input:
+	client:  i2c device
+Output:
+	read operation return.
+	0: succeed, otherwise: failed
+*******************************************************/
+static int gtp_check_product_id(struct i2c_client *client)
+{
+	int ret = 0;
+	char product_id[GTP_PRODUCT_ID_MAXSIZE];
+	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+	/* 04 bytes are used for the Product-id in the register space.*/
+	u8 buf[GTP_PRODUCT_ID_BUFFER_MAXSIZE] =	{
+		GTP_REG_PRODUCT_ID >> 8, GTP_REG_PRODUCT_ID & 0xff };
+
+	ret = gtp_i2c_read(client, buf, sizeof(buf));
+	if (ret < 0) {
+		dev_err(&client->dev, "GTP read version failed.\n");
+		return -EIO;
+	}
 
 	if (buf[5] == 0x00) {
-		dev_dbg(&client->dev, "IC Version: %c%c%c_%02x%02x\n", buf[2],
-				buf[3], buf[4], buf[7], buf[6]);
+		/* copy (GTP_PRODUCT_ID_MAXSIZE - 1) from buffer. Ex: 915 */
+		strlcpy(product_id, &buf[2], GTP_PRODUCT_ID_MAXSIZE - 1);
 	} else {
 		if (buf[5] == 'S' || buf[5] == 's')
 			chip_gt9xxs = 1;
-		dev_dbg(&client->dev, "IC Version: %c%c%c%c_%02x%02x\n", buf[2],
-				buf[3], buf[4], buf[5], buf[7], buf[6]);
+		/* copy GTP_PRODUCT_ID_MAXSIZE from buffer. Ex: 915s */
+		strlcpy(product_id, &buf[2], GTP_PRODUCT_ID_MAXSIZE);
 	}
+
+	dev_info(&client->dev, "Goodix Product ID = %s\n", product_id);
+
+	if (!IS_ERR(ts->pdata->product_id))
+		ret = strcmp(product_id, ts->pdata->product_id);
+
+	if (ret != 0)
+		return -EINVAL;
+
 	return ret;
 }
 
@@ -1582,10 +1616,9 @@ static int goodix_parse_dt(struct device *dev,
 	if (pdata->irq_gpio < 0)
 		return pdata->irq_gpio;
 
-	rc = of_property_read_u32(np, "goodix,family-id", &temp_val);
-	if (!rc)
-		pdata->family_id = temp_val;
-	else
+	rc = of_property_read_string(np, "goodix,product-id",
+						&pdata->product_id);
+	if (rc < 0 || strlen(pdata->product_id) > GTP_PRODUCT_ID_MAXSIZE)
 		return rc;
 
 	prop = of_find_property(np, "goodix,button-map", NULL);
@@ -1765,9 +1798,13 @@ static int goodix_ts_probe(struct i2c_client *client,
 	else
 		dev_info(&client->dev, "GTP works in interrupt mode.\n");
 
-	ret = gtp_read_version(client, &version_info);
-	if (ret != 2) {
-		dev_err(&client->dev, "Read version failed.\n");
+	ret = gtp_read_fw_version(client, &version_info);
+	if (ret != 0)
+		dev_err(&client->dev, "GTP firmware version read failed.\n");
+
+	ret = gtp_check_product_id(client);
+	if (ret != 0) {
+		dev_err(&client->dev, "GTP Product id doesn't match.\n");
 		goto exit_free_irq;
 	}
 	if (ts->use_irq)

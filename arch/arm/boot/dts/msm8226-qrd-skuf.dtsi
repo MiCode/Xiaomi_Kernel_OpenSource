@@ -60,7 +60,7 @@
 			goodix,panel-coords = <0 0 720 1200>;
 			goodix,display-coords = <0 0 720 1080>;
 			goodix,button-map= <158 102 139>;
-			goodix,family-id = <0x0>;
+			goodix,product-id = "915";
 			goodix,cfg-data = [
 			41 D0 02 00 05 0A 35 01 01 0F
 			2D 08 55 32 03 04 00 00 00 00
