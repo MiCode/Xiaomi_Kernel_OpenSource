@@ -50,6 +50,10 @@
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <114>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
 			};
 
 			qcom,pon_3 {
@@ -59,6 +63,7 @@
 				qcom,s1-timer = <6720>;
 				qcom,s2-timer = <2000>;
 				qcom,s2-type = <7>;
+				qcom,use-bark;
 			};
 		};
 

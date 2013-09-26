@@ -58,6 +58,7 @@ Sub-node optional properties:
 				0 = Not supported
 				1 = Supported
 				This property is set to '0' if not specified.
+- qcom,use-bark                        Specify if this pon type needs to handle bark irq
 - qcom,s1-timer			The debounce timer for the BARK interrupt for
 				that reset source. Value is specified in ms.
 				Supported values are -
@@ -108,6 +109,7 @@ Example:
 			qcom,s2-timer = <2000>;
 			qcom,s2-type = <1>;
 			linux,code = <114>;
+			qcom,use-bark;
 		};
 
 		qcom,pon_3 {
@@ -117,5 +119,6 @@ Example:
 			qcom,s2-timer = <2000>;
 			qcom,s2-type = <7>;
 			qcom,pull-up = <1>;
+			qcom,use-bark;
 		};
 	};
