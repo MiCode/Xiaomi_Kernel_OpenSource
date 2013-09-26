@@ -195,6 +195,7 @@
 			<0xff 157>, /* sdc2_irq(0) */
 			<0xff 161>, /* lpass_irq_out_spare[4] */
 			<0xff 162>, /* lpass_irq_out_spare[5]*/
+			<0xff 166>, /* usb_hs_irq */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
@@ -210,6 +211,8 @@
 			<0xff 191>, /* lpass_irq_out_apcs(3) */
 			<0xff 192>, /* lpass_irq_out_apcs(4) */
 			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 195>, /* lpass_irq_out_apcs(7) */
+			<0xff 196>, /* lpass_irq_out_apcs(8) */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
