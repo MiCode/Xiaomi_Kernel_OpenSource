@@ -42,6 +42,11 @@ static int msm_rmnet_bam_debug_mask;
 module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static unsigned long int msm_rmnet_bam_headroom_check_failure;
+module_param(msm_rmnet_bam_headroom_check_failure, ulong, S_IRUGO);
+MODULE_PARM_DESC(msm_rmnet_bam_headroom_check_failure,
+		 "Number of packets with insufficient headroom");
+
 #define DEBUG_MASK_LVL0 (1U << 0)
 #define DEBUG_MASK_LVL1 (1U << 1)
 #define DEBUG_MASK_LVL2 (1U << 2)
@@ -287,6 +292,23 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 			((struct net_device *)dev)->name, __func__);
 }
 
+static struct sk_buff *_rmnet_add_headroom(struct sk_buff **skb,
+					   struct net_device *dev)
+{
+	struct sk_buff *skbn;
+
+	if (skb_headroom(*skb) < dev->needed_headroom) {
+		msm_rmnet_bam_headroom_check_failure++;
+		skbn = skb_realloc_headroom(*skb, dev->needed_headroom);
+		kfree_skb(*skb);
+		*skb = skbn;
+	} else {
+		skbn = *skb;
+	}
+
+	return skbn;
+}
+
 static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
@@ -295,6 +317,10 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	u32 opmode;
 	unsigned long flags;
 
+	if (unlikely(!_rmnet_add_headroom(&skb, dev))) {
+		dev->stats.tx_dropped++;
+		return NETDEV_TX_OK;
+	}
 	/* For QoS mode, prepend QMI header and assign flow ID from skb->mark */
 	spin_lock_irqsave(&p->lock, flags);
 	opmode = p->operation_mode;
