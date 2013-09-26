@@ -1018,6 +1018,47 @@ static int dsi_pll_enable_seq_e(void)
 	return pll_locked ? 0 : -EINVAL;
 }
 
+static int dsi_pll_enable_seq_samarium(void)
+{
+	int rc = 0, pll_locked;
+
+	dsi_pll_software_reset();
+
+	/*
+	 * PLL power up sequence.
+	 * Add necessary delays recommeded by hardware.
+	 */
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(1000);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(1000);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
+	udelay(1000);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(1000);
+
+
+	/* DSI Uniphy lock detect setting */
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		  0x04);
+	udelay(100);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		  0x05);
+	udelay(500);
+
+	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
+	if (!pll_locked) {
+		pr_debug("%s: DSI PLL status failed to Lock\n",
+		       __func__);
+		rc = -EINVAL;
+	} else {
+		pr_debug("%s: DSI PLL Lock success\n", __func__);
+		rc = 0;
+	}
+
+	return rc;
+}
+
 static int dsi_pll_enable_seq_8974(void)
 {
 	int i, rc = 0;
@@ -1520,6 +1561,105 @@ struct div_clk byte_clk_src_8226 = {
 		.dbg_name = "byte_clk_src",
 		.ops = &byte_clk_src_ops,
 		CLK_INIT(byte_clk_src_8226.c),
+	},
+};
+
+struct dsi_pll_vco_clk dsi_vco_clk_samarium = {
+	.ref_clk_rate = 19200000,
+	.min_rate = 350000000,
+	.max_rate = 750000000,
+	.pll_en_seq_cnt = 3,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_samarium,
+	.lpfr_lut_size = 10,
+	.lpfr_lut = (struct lpfr_cfg[]){
+		{479500000, 8},
+		{480000000, 11},
+		{575500000, 8},
+		{576000000, 12},
+		{610500000, 8},
+		{659500000, 9},
+		{671500000, 10},
+		{672000000, 14},
+		{708500000, 10},
+		{750000000, 11},
+	},
+	.c = {
+		.dbg_name = "dsi_vco_clk",
+		.ops = &clk_ops_dsi_vco,
+		CLK_INIT(dsi_vco_clk_samarium.c),
+	},
+};
+
+struct div_clk analog_postdiv_clk_samarium = {
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
+	.ops = &analog_postdiv_ops,
+	.c = {
+		.parent = &dsi_vco_clk_samarium.c,
+		.dbg_name = "analog_postdiv_clk",
+		.ops = &analog_potsdiv_clk_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(analog_postdiv_clk_samarium.c),
+	},
+};
+
+struct div_clk indirect_path_div2_clk_samarium = {
+	.ops = &fixed_2div_ops,
+	.data = {
+		.div = 2,
+	},
+	.c = {
+		.parent = &analog_postdiv_clk_samarium.c,
+		.dbg_name = "indirect_path_div2_clk",
+		.ops = &clk_ops_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(indirect_path_div2_clk_samarium.c),
+	},
+};
+
+struct div_clk pixel_clk_src_samarium = {
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
+	.ops = &digital_postdiv_ops,
+	.c = {
+		.parent = &dsi_vco_clk_samarium.c,
+		.dbg_name = "pixel_clk_src",
+		.ops = &pixel_clk_src_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(pixel_clk_src_samarium.c),
+	},
+};
+
+struct mux_clk byte_mux_samarium = {
+	.num_parents = 2,
+	.parents = (struct clk_src[]){
+		{&dsi_vco_clk_samarium.c, 0},
+		{&indirect_path_div2_clk_samarium.c, 1},
+	},
+	.ops = &byte_mux_ops,
+	.c = {
+		.parent = &dsi_vco_clk_samarium.c,
+		.dbg_name = "byte_mux",
+		.ops = &byte_mux_clk_ops,
+		CLK_INIT(byte_mux_samarium.c),
+	},
+};
+
+struct div_clk byte_clk_src_samarium = {
+	.ops = &fixed_4div_ops,
+	.data = {
+		.min_div = 4,
+		.max_div = 4,
+	},
+	.c = {
+		.parent = &byte_mux_samarium.c,
+		.dbg_name = "byte_clk_src",
+		.ops = &byte_clk_src_ops,
+		CLK_INIT(byte_clk_src_samarium.c),
 	},
 };
 
