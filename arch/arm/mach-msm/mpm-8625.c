@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -251,7 +251,7 @@ int msm_gic_irq_enter_sleep2(bool modem_wake, int from_idle)
 		/* save the contents of GIC CPU interface and Distributor
 		 * Disable all the Interrupts, if we enter from idle pc
 		 */
-		msm_gic_save();
+		msm_gic_save(modem_wake, from_idle);
 		irq_set_irq_type(MSM8625_INT_A9_M2A_6, IRQF_TRIGGER_RISING);
 		enable_irq(MSM8625_INT_A9_M2A_6);
 		pr_debug("%s going for sleep now\n", __func__);
