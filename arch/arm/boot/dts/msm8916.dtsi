@@ -26,6 +26,7 @@
 };
 
 /include/ "msm8916-ion.dtsi"
+/include/ "msm8916-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
