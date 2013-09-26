@@ -14,6 +14,7 @@
 #define _MSM_EMAC_H_
 
 #include <asm/byteorder.h>
+#include <linux/interrupt.h>
 #include <linux/netdevice.h>
 
 /* Device IDs */
@@ -27,6 +28,8 @@
 		((u32)(((u64)(_addr) & DMA_ADDR_HI_MASK) >> 32))
 #define EMAC_DMA_ADDR_LO(_addr) \
 		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
+
+#define EMAC_NUM_CORE_IRQ     4
 
 #define EMAC_LINK_SPEED_UNKNOWN         0x0
 #define EMAC_LINK_SPEED_10_HALF         0x0001
@@ -161,7 +164,6 @@ struct emac_hw {
 
 	u16     devid;
 	u16     revid;
-	u32     intr_mask;
 
 	/* ring parameter */
 	u8      tpd_burst;
@@ -449,6 +451,19 @@ union emac_sw_tpdesc {
 #define EMAC_TPD_LAST_FRAGMENT  0x80000000
 #define EMAC_TPD_TSTAMP_SAVE    0x80000000
 
+struct emac_irq_info {
+	unsigned int irq;
+	char *name;
+	irq_handler_t handler;
+
+	u32 status_reg;
+	u32 mask_reg;
+	u32 mask;
+
+	struct emac_rx_queue *rxque;
+	struct emac_adapter  *adpt;
+};
+
 /* emac_ring_header represents a single, contiguous block of DMA space
  * mapped for the three descriptor rings (tpd, rfd, rrd)
  */
@@ -512,6 +527,7 @@ struct emac_rx_queue {
 	u8 consume_shft;
 
 	u32 intr;
+	struct emac_irq_info *irq_info;
 };
 
 #define GET_RFD_BUFFER(_rque, _i)    (&((_rque)->rfd.rfbuff[(_i)]))
@@ -551,7 +567,7 @@ struct emac_tx_queue {
 struct emac_adapter {
 	struct net_device *netdev;
 
-	unsigned int irq;
+	struct emac_irq_info *irq_info;
 
 	/* dma parameters */
 	u64                             dma_mask;

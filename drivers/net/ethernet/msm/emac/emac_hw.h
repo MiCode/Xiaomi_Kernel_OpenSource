@@ -71,14 +71,8 @@ extern void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr);
 		ISR_ERROR       |\
 		ISR_GPHY_LINK   |\
 		ISR_TX_PKT      |\
-		ISR_RX_PKT      |\
+		RX_PKT_INT0     |\
 		GPHY_WAKEUP_INT)
-
-#define ISR_RX_PKT      (\
-	RX_PKT_INT0     |\
-	RX_PKT_INT1     |\
-	RX_PKT_INT2     |\
-	RX_PKT_INT3)
 
 #define ISR_TX_PKT      (\
 	TX_PKT_INT      |\

@@ -103,6 +103,12 @@
 #define EMAC_TXMAC_STATC_REG25                   0x001bd0
 #define EMAC_MAILBOX_15                          0x001bd4
 #define EMAC_MAILBOX_16                          0x001bd8
+#define EMAC_INT1_MASK                           0x001bf0
+#define EMAC_INT1_STATUS                         0x001bf4
+#define EMAC_INT2_MASK                           0x001bf8
+#define EMAC_INT2_STATUS                         0x001bfc
+#define EMAC_INT3_MASK                           0x001c00
+#define EMAC_INT3_STATUS                         0x001c04
 
 /* EMAC_CSR register offsets */
 #define EMAC_EMAC_WRAPPER_CSR1                   0x000000
