@@ -56,7 +56,7 @@
 
 #define SMD_VERSION 0x00020000
 #define SMSM_SNAPSHOT_CNT 64
-#define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4)
+#define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4 + sizeof(uint64_t))
 #define RSPIN_INIT_WAIT_MS 1000
 #define SMD_FIFO_FULL_RESERVE 4
 
@@ -2560,7 +2560,9 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 	uint32_t new_state;
 	unsigned long flags;
 	int ret;
+	uint64_t timestamp;
 
+	timestamp = sched_clock();
 	ret = kfifo_avail(&smsm_snapshot_fifo);
 	if (ret < SMSM_SNAPSHOT_SIZE) {
 		pr_err("%s: SMSM snapshot full %d\n", __func__, ret);
@@ -2600,6 +2602,12 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 			pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
 			goto restore_snapshot_count;
 		}
+	}
+
+	ret = kfifo_in(&smsm_snapshot_fifo, &timestamp, sizeof(timestamp));
+	if (ret != sizeof(timestamp)) {
+		pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
+		goto restore_snapshot_count;
 	}
 
 	/* queue wakelock usage flag */
@@ -2868,8 +2876,12 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 	uint32_t use_wakelock;
 	int ret;
 	unsigned long flags;
+	uint64_t t_snapshot;
+	uint64_t t_start;
+	unsigned long nanosec_rem;
 
 	while (kfifo_len(&smsm_snapshot_fifo) >= SMSM_SNAPSHOT_SIZE) {
+		t_start = sched_clock();
 		mutex_lock(&smsm_lock);
 		for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
 			state_info = &smsm_states[n];
@@ -2900,6 +2912,15 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 			}
 		}
 
+		ret = kfifo_out(&smsm_snapshot_fifo, &t_snapshot,
+				sizeof(t_snapshot));
+		if (ret != sizeof(t_snapshot)) {
+			pr_err("%s: snapshot underflow %d\n",
+				__func__, ret);
+			mutex_unlock(&smsm_lock);
+			return;
+		}
+
 		/* read wakelock flag */
 		ret = kfifo_out(&smsm_snapshot_fifo, &use_wakelock,
 				sizeof(use_wakelock));
@@ -2927,6 +2948,12 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 			spin_unlock_irqrestore(&smsm_snapshot_count_lock,
 					flags);
 		}
+
+		t_start = t_start - t_snapshot;
+		nanosec_rem = do_div(t_start, 1000000000U);
+		SMSM_POWER_INFO(
+			"SMSM snapshot queue response time %6u.%09lu s\n",
+			(unsigned)t_start, nanosec_rem);
 	}
 }
 
