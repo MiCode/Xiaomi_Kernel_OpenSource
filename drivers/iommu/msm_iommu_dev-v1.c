@@ -30,7 +30,7 @@
 #include <mach/iommu_perfmon.h>
 #include <mach/msm_bus.h>
 
-static struct of_device_id msm_iommu_v1_ctx_match_table[];
+static struct of_device_id msm_iommu_ctx_match_table[];
 
 #ifdef CONFIG_IOMMU_LPAE
 static const char *BFB_REG_NODE_NAME = "qcom,iommu-lpae-bfb-regs";
@@ -206,7 +206,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 						      "qcom,iommu-enable-halt");
 
 	ret = of_platform_populate(pdev->dev.of_node,
-				   msm_iommu_v1_ctx_match_table,
+				   msm_iommu_ctx_match_table,
 				   NULL, &pdev->dev);
 	if (ret) {
 		pr_err("Failed to create iommu context device\n");
@@ -549,27 +549,29 @@ static int msm_iommu_ctx_remove(struct platform_device *pdev)
 
 static struct of_device_id msm_iommu_match_table[] = {
 	{ .compatible = "qcom,msm-smmu-v1", },
+	{ .compatible = "qcom,msm-smmu-v2", },
 	{}
 };
 
 static struct platform_driver msm_iommu_driver = {
 	.driver = {
-		.name	= "msm_iommu_v1",
+		.name	= "msm_iommu",
 		.of_match_table = msm_iommu_match_table,
 	},
 	.probe		= msm_iommu_probe,
 	.remove		= msm_iommu_remove,
 };
 
-static struct of_device_id msm_iommu_v1_ctx_match_table[] = {
+static struct of_device_id msm_iommu_ctx_match_table[] = {
 	{ .compatible = "qcom,msm-smmu-v1-ctx", },
+	{ .compatible = "qcom,msm-smmu-v2-ctx", },
 	{}
 };
 
 static struct platform_driver msm_iommu_ctx_driver = {
 	.driver = {
-		.name	= "msm_iommu_ctx_v1",
-		.of_match_table = msm_iommu_v1_ctx_match_table,
+		.name	= "msm_iommu_ctx",
+		.of_match_table = msm_iommu_ctx_match_table,
 	},
 	.probe		= msm_iommu_ctx_probe,
 	.remove		= msm_iommu_ctx_remove,
