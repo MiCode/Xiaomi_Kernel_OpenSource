@@ -196,6 +196,7 @@
 		hsic,log2-itc = <3>;
 		qcom,ahb-async-bridge-bypass;
 		hsic,disable-cerr;
+		qcom,disable-internal-clk-gating;
 	};
 
 	qcom,usbbam@f9a44000 {
