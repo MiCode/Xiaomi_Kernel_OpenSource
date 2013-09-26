@@ -1326,6 +1326,24 @@
 		compatible = "qcom,msm-lsm-client";
 	};
 
+	qcom,msm-dai-stub {
+		compatible = "qcom,msm-dai-stub";
+		qcom,msm-dai-stub-rx {
+			compatible = "qcom,msm-dai-stub-dev";
+			qcom,msm-dai-stub-dev-id = <0>;
+		};
+
+		qcom,msm-dai-stub-tx {
+			compatible = "qcom,msm-dai-stub-dev";
+			qcom,msm-dai-stub-dev-id = <1>;
+		};
+
+		qcom,msm-dai-stub-1-tx {
+			compatible = "qcom,msm-dai-stub-dev";
+			qcom,msm-dai-stub-dev-id = <3>;
+		};
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
