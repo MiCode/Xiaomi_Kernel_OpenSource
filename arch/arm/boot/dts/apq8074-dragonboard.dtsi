@@ -23,9 +23,12 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi_sharp_qhd_video {
-		status = "ok";
-		qcom,cont-splash-enabled;
+	qcom,mdss_dsi@fd922800 {
+		qcom,dsi-pref-prim-pan = <&dsi_sharp_qhd_vid>;
+	};
+
+	qcom,mdss_mdp@fd900000 {
+		qcom,mdss-pref-prim-intf = "dsi";
 	};
 
 	qcom,hdmi_tx@fd922100 {
@@ -661,4 +664,8 @@
 	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 	status = "ok";
+};
+
+&dsi_sharp_qhd_vid {
+	qcom,cont-splash-enabled;
 };
