@@ -27,6 +27,7 @@
 #include <linux/timer.h>
 #include <linux/kernel.h>
 #include <linux/workqueue.h>
+#include <mach/clk.h>
 #include <mach/iommu_domains.h>
 #include <mach/iommu.h>
 #include <mach/vreg.h>
@@ -48,6 +49,7 @@
 #define CONFIG_MSM_CPP_DBG 0
 
 #define CPP_CMD_TIMEOUT_MS 300
+#define MSM_MICRO_IFACE_CLK_IDX 7
 
 #define MSM_CPP_NOMINAL_CLOCK 266670000
 #define MSM_CPP_TURBO_CLOCK 320000000
@@ -648,6 +650,38 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 			goto fs_failed;
 		}
 	}
+
+	cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX] =
+		clk_get(&cpp_dev->pdev->dev,
+		cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
+	if (IS_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX])) {
+		pr_err("%s get failed\n",
+			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
+		rc = PTR_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+		goto remap_failed;
+	}
+
+	rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+		CLK_RESET_ASSERT);
+	if (rc) {
+		pr_err("%s:micro_iface_clk assert failed\n", __func__);
+		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+		goto remap_failed;
+	}
+
+	usleep_range(10000, 12000);
+
+	rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+		CLK_RESET_DEASSERT);
+	  if (rc) {
+		pr_err("%s:micro_iface_clk assert failed\n", __func__);
+		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+		goto remap_failed;
+	}
+
+	usleep_range(1000, 1200);
+
+	clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
 
 	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 			cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 1);
