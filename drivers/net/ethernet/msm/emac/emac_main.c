@@ -13,6 +13,7 @@
 /* MSM EMAC Ethernet Controller driver.
  */
 
+#include <linux/gpio.h>
 #include <linux/if_ether.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
@@ -70,6 +71,11 @@ static struct emac_irq_info emac_irq[EMAC_NUM_CORE_IRQ] = {
 	  EMAC_INT2_MASK, RX_PKT_INT3, NULL, NULL },
 	{ 0, "emac_core3_irq", emac_interrupt, EMAC_INT3_STATUS,
 	  EMAC_INT3_MASK, 0, NULL, NULL },
+};
+
+static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
+	{ 0, "qcom,emac-gpio-mdc" },
+	{ 0, "qcom,emac-gpio-mdio" },
 };
 
 /* reinitialize */
@@ -1369,6 +1375,18 @@ static int emac_up(struct emac_adapter *adpt)
 	for (i = 0; i < adpt->num_rxques; i++)
 		emac_refresh_rx_buffer(&adpt->rx_queue[i]);
 
+	for (i = 0; i < EMAC_NUM_GPIO; i++) {
+		struct emac_gpio_info *gpio_info = &adpt->gpio_info[i];
+		retval = gpio_request(gpio_info->gpio, gpio_info->name);
+		if (retval) {
+			emac_err(adpt, "failed to request gpio %s: %d\n",
+				 gpio_info->name, retval);
+			while (--i >= 0)
+				gpio_free(adpt->gpio_info[i].gpio);
+			goto err_request_gpio;
+		}
+	}
+
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
 		struct emac_irq_info *irq_info = &adpt->irq_info[i];
 		retval = request_irq(irq_info->irq, irq_info->handler,
@@ -1397,6 +1415,9 @@ static int emac_up(struct emac_adapter *adpt)
 	return retval;
 
 err_request_irq:
+	for (i = 0; i < EMAC_NUM_GPIO; i++)
+		gpio_free(adpt->gpio_info[i].gpio);
+err_request_gpio:
 	emac_clean_all_rx_queues(adpt);
 	return retval;
 }
@@ -1417,6 +1438,9 @@ static void emac_down(struct emac_adapter *adpt, u32 ctrl)
 	emac_napi_disable_all(adpt);
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
 		free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
+
+	for (i = 0; i < EMAC_NUM_GPIO; i++)
+		gpio_free(adpt->gpio_info[i].gpio);
 
 	CLI_ADPT_FLAG(TASK_LSC_REQ);
 	CLI_ADPT_FLAG(TASK_REINIT_REQ);
@@ -2156,6 +2180,7 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
+	memcpy(adpt->gpio_info, emac_gpio, sizeof(adpt->gpio_info));
 	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
 		adpt->irq_info[i].adpt = adpt;
