@@ -33,3 +33,175 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 8 0>;
 };
+
+&pma8084_gpios {
+	gpio@c000 { /* GPIO 1 */
+		/* 5 V Boost regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <0>;		/* VPH = battery voltage */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c100 { /* GPIO 2 */
+		/* Unused */
+	};
+
+	gpio@c200 { /* GPIO 3 */
+		/* Snapshot button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		/* Focus button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c400 { /* GPIO 5 */
+		/* Volume up button */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c500 { /* GPIO 6 */
+		/* Unused */
+	};
+
+	gpio@c600 { /* GPIO 7 */
+		/* Haptics PWM */
+	};
+
+	gpio@c700 { /* GPIO 8 */
+		/* Backlight PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <2>;		/* Special Function 1 = LPG 4 */
+		qcom,out-strength = <3>;	/* High drive strength */
+		qcom,master-en = <1>;
+	};
+
+	gpio@c800 { /* GPIO 9 */
+		/* Unused */
+	};
+
+	gpio@c900 { /* GPIO 10 */
+		/* NFC clock request */
+	};
+
+	gpio@ca00 { /* GPIO 11 */
+		/* USB VBUS detect */
+	};
+
+	gpio@cb00 { /* GPIO 12 */
+		/* NFC power request */
+	};
+
+	gpio@cc00 { /* GPIO 13 */
+		/* SMB1357 STAT */
+	};
+
+	gpio@cd00 { /* GPIO 14 */
+		/* UIM3 LDO enable */
+	};
+
+	gpio@ce00 { /* GPIO 15 */
+		/* Codec clock */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <2>;		/* Function 1 = DIV_CLK 1 */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;
+	};
+
+	gpio@cf00 { /* GPIO 16 */
+		/* Haptics clock */
+	};
+
+	gpio@d000 { /* GPIO 17 */
+		/* QPA clock */
+	};
+
+	gpio@d100 { /* GPIO 18 */
+		/* UIM3 LDO voltage select */
+	};
+
+	gpio@d200 { /* GPIO 19 */
+		/* BOOST_BYP */
+	};
+
+	gpio@d300 { /* GPIO 20 */
+		/* Display enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;
+	};
+
+	gpio@d400 { /* GPIO 21 */
+		/* BATT_GONE */
+	};
+
+	gpio@d500 { /* GPIO 22 */
+		/* BATT_REM_ALARM */
+	};
+};
+
+&pma8084_mpps {
+	mpp@a000 { /* MPP 1 */
+		/* VREF_PADS */
+	};
+
+	mpp@a100 { /* MPP 2 */
+		/* Unused */
+	};
+
+	mpp@a200 { /* MPP 3 */
+		/* VREF_DAC */
+	};
+
+	mpp@a300 { /* MPP 4 */
+		/* VBATT */
+	};
+
+	mpp@a400 { /* MPP 5 */
+		/* Unused */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* SPI ethernet RST_N */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8V > 1.6V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;
+	};
+
+	mpp@a600 { /* MPP 7 */
+		/* SPI ethernet PME */
+	};
+
+	mpp@a700 { /* MPP 8 */
+		/* SPI ethernet INT_N */
+	};
+};
