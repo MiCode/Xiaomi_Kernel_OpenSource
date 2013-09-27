@@ -501,12 +501,14 @@ void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
 	}
 }
 
-static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
+static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
+					struct mdss_mdp_data *data)
 {
 	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
 	u32 width, height;
 	u32 decimation;
 	struct mdss_mdp_img_rect sci, dst, src;
+	int ret = 0;
 
 	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
 			pipe->num, pipe->img_width, pipe->img_height,
@@ -517,6 +519,12 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 	height = pipe->img_height;
 	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
 			&pipe->src_planes, pipe->bwc_mode);
+
+	if (data != NULL) {
+		ret = mdss_mdp_data_check(data, &pipe->src_planes);
+		if (ret)
+			return ret;
+	}
 
 	if ((pipe->flags & MDP_DEINTERLACE) &&
 			!(pipe->flags & MDP_SOURCE_ROTATED_90)) {
@@ -690,7 +698,7 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 
 	pr_debug("solid fill setup on pnum=%d\n", pipe->num);
 
-	ret = mdss_mdp_image_setup(pipe);
+	ret = mdss_mdp_image_setup(pipe, NULL);
 	if (ret) {
 		pr_err("image setup error for pnum=%d\n", pipe->num);
 		return ret;
@@ -751,7 +759,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			goto done;
 		}
 
-		ret = mdss_mdp_image_setup(pipe);
+		ret = mdss_mdp_image_setup(pipe, src_data);
 		if (ret) {
 			pr_err("image setup error for pnum=%d\n", pipe->num);
 			goto done;
