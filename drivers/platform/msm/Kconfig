@@ -115,7 +115,7 @@ config IPA
 	  to configure IPA core.
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
-	depends on ARCH_MSM8960
+	depends on MSM_QDSP6_APRV2
 	help
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.
