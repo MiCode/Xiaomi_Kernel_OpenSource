@@ -556,6 +556,34 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+	case IPA_IOC_QUERY_INTF_EXT_PROPS:
+		sz = sizeof(struct ipa_ioc_query_intf_ext_props);
+		if (copy_from_user(header, (u8 *)arg, sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		pyld_sz = sz + ((struct ipa_ioc_query_intf_ext_props *)
+				header)->num_ext_props *
+			sizeof(struct ipa_ioc_ext_intf_prop);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa_query_intf_ext_props(
+				(struct ipa_ioc_query_intf_ext_props *)param)) {
+			retval = -1;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
 	case IPA_IOC_PULL_MSG:
 		if (copy_from_user(header, (u8 *)arg,
 					sizeof(struct ipa_msg_meta))) {

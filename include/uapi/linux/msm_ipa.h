@@ -53,7 +53,8 @@
 #define IPA_IOCTL_RM_ADD_DEPENDENCY 29
 #define IPA_IOCTL_RM_DEL_DEPENDENCY 30
 #define IPA_IOCTL_GENERATE_FLT_EQ 31
-#define IPA_IOCTL_MAX            32
+#define IPA_IOCTL_QUERY_INTF_EXT_PROPS 32
+#define IPA_IOCTL_MAX            33
 
 /**
  * max size of the header to be inserted
@@ -687,11 +688,14 @@ struct ipa_ioc_get_rt_tbl {
  *			valid only when ioctl return val is non-negative
  * @num_rx_props:	output parameter, number of rx properties
  *			valid only when ioctl return val is non-negative
+ * @num_ext_props:	output parameter, number of ext properties
+ *			valid only when ioctl return val is non-negative
  */
 struct ipa_ioc_query_intf {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint32_t num_tx_props;
 	uint32_t num_rx_props;
+	uint32_t num_ext_props;
 };
 
 /**
@@ -718,6 +722,34 @@ struct ipa_ioc_query_intf_tx_props {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint32_t num_tx_props;
 	struct ipa_ioc_tx_intf_prop tx[0];
+};
+
+/**
+ * struct ipa_ioc_ext_intf_prop - interface extended property
+ * @ip: IP family of routing rule
+ * @eq_attrib: attributes of the rule in equation form
+ * @action: action field
+ * @rt_tbl_idx: index of RT table referred to by filter rule
+ * @mux_id: MUX_ID
+ */
+struct ipa_ioc_ext_intf_prop {
+	enum ipa_ip_type ip;
+	struct ipa_ipfltri_rule_eq eq_attrib;
+	enum ipa_flt_action action;
+	uint32_t rt_tbl_idx;
+	uint8_t mux_id;
+};
+
+/**
+ * struct ipa_ioc_query_intf_ext_props - interface ext propertie
+ * @name: name of interface
+ * @num_ext_props: number of EXT properties
+ * @ext[0]: output parameter, the ext properties go here back to back
+ */
+struct ipa_ioc_query_intf_ext_props {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint32_t num_ext_props;
+	struct ipa_ioc_ext_intf_prop ext[0];
 };
 
 /**
@@ -932,6 +964,9 @@ struct ipa_ioc_generate_flt_eq {
 #define IPA_IOC_QUERY_INTF_RX_PROPS _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_QUERY_INTF_RX_PROPS, \
 					struct ipa_ioc_query_intf_rx_props *)
+#define IPA_IOC_QUERY_INTF_EXT_PROPS _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_QUERY_INTF_EXT_PROPS, \
+					struct ipa_ioc_query_intf_ext_props *)
 #define IPA_IOC_GET_HDR _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_HDR, \
 				struct ipa_ioc_get_hdr *)
