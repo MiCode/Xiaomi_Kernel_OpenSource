@@ -250,8 +250,8 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	if (prop)
 		limit = be32_to_cpu(prop[0]);
 
-	pr_info("Found %s, memory base %lx, size %ld MiB, limit %pa\n", uname,
-		(unsigned long)base, (unsigned long)size / SZ_1M, &limit);
+	pr_info("Found %s, memory base %pa, size %ld MiB, limit %pa\n", uname,
+			&base, (unsigned long)size / SZ_1M, &limit);
 	dma_contiguous_reserve_area(size, &base, limit, name,
 					in_system);
 
@@ -273,7 +273,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 {
 	phys_addr_t sel_size = 0;
 
-	pr_debug("%s(limit %08lx)\n", __func__, (unsigned long)limit);
+	pr_debug("%s(limit %pa)\n", __func__, &limit);
 
 	if (size_cmdline != -1) {
 		sel_size = size_cmdline;
@@ -325,9 +325,9 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	phys_addr_t alignment;
 	int ret = 0;
 
-	pr_debug("%s(size %lx, base %08lx, limit %08lx)\n", __func__,
-		 (unsigned long)size, (unsigned long)base,
-		 (unsigned long)limit);
+	pr_debug("%s(size %lx, base %pa, limit %pa)\n", __func__,
+		 (unsigned long)size, &base,
+		 &limit);
 
 	/* Sanity checks */
 	if (cma_area_count == ARRAY_SIZE(cma_areas)) {
@@ -376,8 +376,8 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	cma_area_count++;
 	*res_base = base;
 
-	pr_info("CMA: reserved %ld MiB at %08lx\n", (unsigned long)size / SZ_1M,
-		(unsigned long)base);
+	pr_info("CMA: reserved %ld MiB at %pa\n", (unsigned long)size / SZ_1M,
+		 &base);
 
 	/* Architecture specific contiguous memory fixup. */
 	dma_contiguous_early_fixup(base, size);
