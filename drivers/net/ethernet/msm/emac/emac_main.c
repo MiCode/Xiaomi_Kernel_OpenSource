@@ -2065,6 +2065,17 @@ static int emac_get_resources(struct platform_device *pdev,
 	void *reg_base[NUM_EMAC_REG_BASES] = { 0 };
 	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588"};
 
+	/* get irqs */
+	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+		struct emac_irq_info *irq_info = &adpt->irq_info[i];
+		retval = platform_get_irq_byname(pdev, irq_info->name);
+		if (retval < 0)
+			goto err_res;
+
+		irq_info->irq = retval;
+	}
+
+	/* get register addresses */
 	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
 		if ((i == EMAC_1588) && !adpt->tstamp_en)
 			continue;
@@ -2096,6 +2107,7 @@ static int emac_get_resources(struct platform_device *pdev,
 		netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
 	}
 
+err_res:
 	return retval;
 }
 
@@ -2144,16 +2156,16 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
-	adpt->tstamp_en = true;
-	retval = emac_get_resources(pdev, adpt);
-	if (retval)
-		goto err_res;
-
-	adpt->irq_info = emac_irq;
+	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
 		adpt->irq_info[i].adpt = adpt;
 		adpt->irq_info[i].rxque = &adpt->rx_queue[i];
 	}
+
+	adpt->tstamp_en = true;
+	retval = emac_get_resources(pdev, adpt);
+	if (retval)
+		goto err_res;
 
 	hw_ver = emac_reg_r32(hw, EMAC, EMAC_CORE_HW_VERSION);
 

@@ -29,6 +29,7 @@
 #define EMAC_DMA_ADDR_LO(_addr) \
 		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
 
+/* 4 emac core irqs */
 #define EMAC_NUM_CORE_IRQ     4
 
 #define EMAC_LINK_SPEED_UNKNOWN         0x0
@@ -567,7 +568,7 @@ struct emac_tx_queue {
 struct emac_adapter {
 	struct net_device *netdev;
 
-	struct emac_irq_info *irq_info;
+	struct emac_irq_info  irq_info[EMAC_NUM_CORE_IRQ];
 
 	/* dma parameters */
 	u64                             dma_mask;
