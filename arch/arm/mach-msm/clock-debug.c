@@ -23,6 +23,7 @@
 #include <linux/clkdev.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
+#include <linux/io.h>
 
 #include <mach/clk-provider.h>
 
@@ -412,6 +413,56 @@ static const struct file_operations clock_parent_fops = {
 	.write		= clock_parent_write,
 };
 
+void clk_debug_print_hw(struct clk *clk, struct seq_file *f)
+{
+	void __iomem *base;
+	struct clk_register_data *regs;
+	u32 i, j, size;
+
+	if (IS_ERR_OR_NULL(clk))
+		return;
+
+	clk_debug_print_hw(clk->parent, f);
+
+	clock_debug_output(f, false, "%s\n", clk->dbg_name);
+
+	if (!clk->ops->list_registers)
+		return;
+
+	j = 0;
+	base = clk->ops->list_registers(clk, j, &regs, &size);
+	while (!IS_ERR(base)) {
+		for (i = 0; i < size; i++) {
+			u32 val = readl_relaxed(base + regs[i].offset);
+			clock_debug_output(f, false, "%20s: 0x%.8x\n",
+						regs[i].name, val);
+		}
+		j++;
+		base = clk->ops->list_registers(clk, j, &regs, &size);
+	}
+}
+
+static int print_hw_show(struct seq_file *m, void *unused)
+{
+	struct clk *c = m->private;
+	clk_debug_print_hw(c, m);
+
+	return 0;
+}
+
+static int print_hw_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, print_hw_show, inode->i_private);
+}
+
+static const struct file_operations clock_print_hw_fops = {
+	.open		= print_hw_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+
 static int clock_debug_add(struct clk *clock)
 {
 	char temp[50], *ptr;
@@ -461,6 +512,10 @@ static int clock_debug_add(struct clk *clock)
 
 	if (!debugfs_create_file("parent", S_IRUGO, clk_dir, clock,
 				&clock_parent_fops))
+			goto error;
+
+	if (!debugfs_create_file("print", S_IRUGO, clk_dir, clock,
+				&clock_print_hw_fops))
 			goto error;
 
 	return 0;
