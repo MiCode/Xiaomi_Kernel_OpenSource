@@ -1064,10 +1064,10 @@
 		vccq2-max-microamp = <145000>;
 
 		clock-names = "core_clk_src", "core_clk", "bus_clk", "iface_clk",
-				"rx_lane0_sync_clk", "tx_lane0_sync_clk",
+				"ref_clk", "rx_lane0_sync_clk", "tx_lane0_sync_clk",
 				"rx_lane1_sync_clk", "tx_lane1_sync_clk";
 		max-clock-frequency-hz = <200000000>, <0>, <0>, <0>,
-						<0>, <0>, <0>, <0>;
+						<0>, <0>, <0>, <0>, <0>;
 
 		status = "disabled";
 	};
