@@ -1354,87 +1354,87 @@ static struct acpu_level acpu_ftbl_pro_2p5g_pvs6[] __initdata = {
 	{ 0, { 0 } }
 };
 
-static struct pvs_table pvs_v1[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+static struct pvs_table pvs_v1[NUM_PVS_REVS][NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	/* 8974v1 1.7GHz Parts */
-	[0][0] = { acpu_freq_tbl_v1_pvs0, sizeof(acpu_freq_tbl_v1_pvs0) },
-	[0][1] = { acpu_freq_tbl_v1_pvs1, sizeof(acpu_freq_tbl_v1_pvs1) },
-	[0][2] = { acpu_freq_tbl_v1_pvs2, sizeof(acpu_freq_tbl_v1_pvs2) },
-	[0][3] = { acpu_freq_tbl_v1_pvs3, sizeof(acpu_freq_tbl_v1_pvs3) },
-	[0][4] = { acpu_freq_tbl_v1_pvs4, sizeof(acpu_freq_tbl_v1_pvs4) },
+	[0][0][0] = { acpu_freq_tbl_v1_pvs0, sizeof(acpu_freq_tbl_v1_pvs0) },
+	[0][0][1] = { acpu_freq_tbl_v1_pvs1, sizeof(acpu_freq_tbl_v1_pvs1) },
+	[0][0][2] = { acpu_freq_tbl_v1_pvs2, sizeof(acpu_freq_tbl_v1_pvs2) },
+	[0][0][3] = { acpu_freq_tbl_v1_pvs3, sizeof(acpu_freq_tbl_v1_pvs3) },
+	[0][0][4] = { acpu_freq_tbl_v1_pvs4, sizeof(acpu_freq_tbl_v1_pvs4) },
 };
 
-static struct pvs_table pvs_v2[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+static struct pvs_table pvs_v2[NUM_PVS_REVS][NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	/* 8974v2 2.0GHz Parts */
-	[0][0] = { acpu_freq_tbl_2g_pvs0, sizeof(acpu_freq_tbl_2g_pvs0) },
-	[0][1] = { acpu_freq_tbl_2g_pvs1, sizeof(acpu_freq_tbl_2g_pvs1) },
-	[0][2] = { acpu_freq_tbl_2g_pvs2, sizeof(acpu_freq_tbl_2g_pvs2) },
-	[0][3] = { acpu_freq_tbl_2g_pvs3, sizeof(acpu_freq_tbl_2g_pvs3) },
-	[0][4] = { acpu_freq_tbl_2g_pvs4, sizeof(acpu_freq_tbl_2g_pvs4) },
-	[0][5] = { acpu_freq_tbl_2g_pvs5, sizeof(acpu_freq_tbl_2g_pvs5) },
-	[0][6] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
-	[0][7] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
+	[0][0][0] = { acpu_freq_tbl_2g_pvs0, sizeof(acpu_freq_tbl_2g_pvs0) },
+	[0][0][1] = { acpu_freq_tbl_2g_pvs1, sizeof(acpu_freq_tbl_2g_pvs1) },
+	[0][0][2] = { acpu_freq_tbl_2g_pvs2, sizeof(acpu_freq_tbl_2g_pvs2) },
+	[0][0][3] = { acpu_freq_tbl_2g_pvs3, sizeof(acpu_freq_tbl_2g_pvs3) },
+	[0][0][4] = { acpu_freq_tbl_2g_pvs4, sizeof(acpu_freq_tbl_2g_pvs4) },
+	[0][0][5] = { acpu_freq_tbl_2g_pvs5, sizeof(acpu_freq_tbl_2g_pvs5) },
+	[0][0][6] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
+	[0][0][7] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
 
 	/* 8974v2 2.3GHz Parts */
-	[1][0] = { acpu_freq_tbl_2p3g_pvs0, sizeof(acpu_freq_tbl_2p3g_pvs0) },
-	[1][1] = { acpu_freq_tbl_2p3g_pvs1, sizeof(acpu_freq_tbl_2p3g_pvs1) },
-	[1][2] = { acpu_freq_tbl_2p3g_pvs2, sizeof(acpu_freq_tbl_2p3g_pvs2) },
-	[1][3] = { acpu_freq_tbl_2p3g_pvs3, sizeof(acpu_freq_tbl_2p3g_pvs3) },
-	[1][4] = { acpu_freq_tbl_2p3g_pvs4, sizeof(acpu_freq_tbl_2p3g_pvs4) },
-	[1][5] = { acpu_freq_tbl_2p3g_pvs5, sizeof(acpu_freq_tbl_2p3g_pvs5) },
-	[1][6] = { acpu_freq_tbl_2p3g_pvs6, sizeof(acpu_freq_tbl_2p3g_pvs6) },
-	[1][7] = { acpu_freq_tbl_2p3g_pvs6, sizeof(acpu_freq_tbl_2p3g_pvs6) },
+	[0][1][0] = { acpu_freq_tbl_2p3g_pvs0, sizeof(acpu_freq_tbl_2p3g_pvs0) },
+	[0][1][1] = { acpu_freq_tbl_2p3g_pvs1, sizeof(acpu_freq_tbl_2p3g_pvs1) },
+	[0][1][2] = { acpu_freq_tbl_2p3g_pvs2, sizeof(acpu_freq_tbl_2p3g_pvs2) },
+	[0][1][3] = { acpu_freq_tbl_2p3g_pvs3, sizeof(acpu_freq_tbl_2p3g_pvs3) },
+	[0][1][4] = { acpu_freq_tbl_2p3g_pvs4, sizeof(acpu_freq_tbl_2p3g_pvs4) },
+	[0][1][5] = { acpu_freq_tbl_2p3g_pvs5, sizeof(acpu_freq_tbl_2p3g_pvs5) },
+	[0][1][6] = { acpu_freq_tbl_2p3g_pvs6, sizeof(acpu_freq_tbl_2p3g_pvs6) },
+	[0][1][7] = { acpu_freq_tbl_2p3g_pvs6, sizeof(acpu_freq_tbl_2p3g_pvs6) },
 
 	/* 8974v2 2.2GHz Parts */
-	[2][0] = { acpu_freq_tbl_2p2g_pvs0, sizeof(acpu_freq_tbl_2p2g_pvs0) },
-	[2][1] = { acpu_freq_tbl_2p2g_pvs1, sizeof(acpu_freq_tbl_2p2g_pvs1) },
-	[2][2] = { acpu_freq_tbl_2p2g_pvs2, sizeof(acpu_freq_tbl_2p2g_pvs2) },
-	[2][3] = { acpu_freq_tbl_2p2g_pvs3, sizeof(acpu_freq_tbl_2p2g_pvs3) },
-	[2][4] = { acpu_freq_tbl_2p2g_pvs4, sizeof(acpu_freq_tbl_2p2g_pvs4) },
-	[2][5] = { acpu_freq_tbl_2p2g_pvs5, sizeof(acpu_freq_tbl_2p2g_pvs5) },
-	[2][6] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
-	[2][7] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
+	[0][2][0] = { acpu_freq_tbl_2p2g_pvs0, sizeof(acpu_freq_tbl_2p2g_pvs0) },
+	[0][2][1] = { acpu_freq_tbl_2p2g_pvs1, sizeof(acpu_freq_tbl_2p2g_pvs1) },
+	[0][2][2] = { acpu_freq_tbl_2p2g_pvs2, sizeof(acpu_freq_tbl_2p2g_pvs2) },
+	[0][2][3] = { acpu_freq_tbl_2p2g_pvs3, sizeof(acpu_freq_tbl_2p2g_pvs3) },
+	[0][2][4] = { acpu_freq_tbl_2p2g_pvs4, sizeof(acpu_freq_tbl_2p2g_pvs4) },
+	[0][2][5] = { acpu_freq_tbl_2p2g_pvs5, sizeof(acpu_freq_tbl_2p2g_pvs5) },
+	[0][2][6] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
+	[0][2][7] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
 };
 
-static struct pvs_table pvs_pro[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+static struct pvs_table pvs_pro[NUM_PVS_REVS][NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	/* 2.0 GHz is not used on 8974Pro */
-	[0][0] = { acpu_freq_tbl_2g_pvs0, sizeof(acpu_freq_tbl_2g_pvs0) },
-	[0][1] = { acpu_freq_tbl_2g_pvs1, sizeof(acpu_freq_tbl_2g_pvs1) },
-	[0][2] = { acpu_freq_tbl_2g_pvs2, sizeof(acpu_freq_tbl_2g_pvs2) },
-	[0][3] = { acpu_freq_tbl_2g_pvs3, sizeof(acpu_freq_tbl_2g_pvs3) },
-	[0][4] = { acpu_freq_tbl_2g_pvs4, sizeof(acpu_freq_tbl_2g_pvs4) },
-	[0][5] = { acpu_freq_tbl_2g_pvs5, sizeof(acpu_freq_tbl_2g_pvs5) },
-	[0][6] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
-	[0][7] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
+	[0][0][0] = { acpu_freq_tbl_2g_pvs0, sizeof(acpu_freq_tbl_2g_pvs0) },
+	[0][0][1] = { acpu_freq_tbl_2g_pvs1, sizeof(acpu_freq_tbl_2g_pvs1) },
+	[0][0][2] = { acpu_freq_tbl_2g_pvs2, sizeof(acpu_freq_tbl_2g_pvs2) },
+	[0][0][3] = { acpu_freq_tbl_2g_pvs3, sizeof(acpu_freq_tbl_2g_pvs3) },
+	[0][0][4] = { acpu_freq_tbl_2g_pvs4, sizeof(acpu_freq_tbl_2g_pvs4) },
+	[0][0][5] = { acpu_freq_tbl_2g_pvs5, sizeof(acpu_freq_tbl_2g_pvs5) },
+	[0][0][6] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
+	[0][0][7] = { acpu_freq_tbl_2g_pvs6, sizeof(acpu_freq_tbl_2g_pvs6) },
 
 	/* 8974Pro AB 2.3GHz */
-	[1][0] = { acpu_ftbl_pro_2p3g_pvs0, sizeof(acpu_ftbl_pro_2p3g_pvs0) },
-	[1][1] = { acpu_ftbl_pro_2p3g_pvs1, sizeof(acpu_ftbl_pro_2p3g_pvs1) },
-	[1][2] = { acpu_ftbl_pro_2p3g_pvs2, sizeof(acpu_ftbl_pro_2p3g_pvs2) },
-	[1][3] = { acpu_ftbl_pro_2p3g_pvs3, sizeof(acpu_ftbl_pro_2p3g_pvs3) },
-	[1][4] = { acpu_ftbl_pro_2p3g_pvs4, sizeof(acpu_ftbl_pro_2p3g_pvs4) },
-	[1][5] = { acpu_ftbl_pro_2p3g_pvs5, sizeof(acpu_ftbl_pro_2p3g_pvs5) },
-	[1][6] = { acpu_ftbl_pro_2p3g_pvs6, sizeof(acpu_ftbl_pro_2p3g_pvs6) },
-	[1][7] = { acpu_ftbl_pro_2p3g_pvs6, sizeof(acpu_ftbl_pro_2p3g_pvs6) },
+	[0][1][0] = { acpu_ftbl_pro_2p3g_pvs0, sizeof(acpu_ftbl_pro_2p3g_pvs0) },
+	[0][1][1] = { acpu_ftbl_pro_2p3g_pvs1, sizeof(acpu_ftbl_pro_2p3g_pvs1) },
+	[0][1][2] = { acpu_ftbl_pro_2p3g_pvs2, sizeof(acpu_ftbl_pro_2p3g_pvs2) },
+	[0][1][3] = { acpu_ftbl_pro_2p3g_pvs3, sizeof(acpu_ftbl_pro_2p3g_pvs3) },
+	[0][1][4] = { acpu_ftbl_pro_2p3g_pvs4, sizeof(acpu_ftbl_pro_2p3g_pvs4) },
+	[0][1][5] = { acpu_ftbl_pro_2p3g_pvs5, sizeof(acpu_ftbl_pro_2p3g_pvs5) },
+	[0][1][6] = { acpu_ftbl_pro_2p3g_pvs6, sizeof(acpu_ftbl_pro_2p3g_pvs6) },
+	[0][1][7] = { acpu_ftbl_pro_2p3g_pvs6, sizeof(acpu_ftbl_pro_2p3g_pvs6) },
 
 	/* 2.2GHz is not used on 8974Pro */
-	[2][0] = { acpu_freq_tbl_2p2g_pvs0, sizeof(acpu_freq_tbl_2p2g_pvs0) },
-	[2][1] = { acpu_freq_tbl_2p2g_pvs1, sizeof(acpu_freq_tbl_2p2g_pvs1) },
-	[2][2] = { acpu_freq_tbl_2p2g_pvs2, sizeof(acpu_freq_tbl_2p2g_pvs2) },
-	[2][3] = { acpu_freq_tbl_2p2g_pvs3, sizeof(acpu_freq_tbl_2p2g_pvs3) },
-	[2][4] = { acpu_freq_tbl_2p2g_pvs4, sizeof(acpu_freq_tbl_2p2g_pvs4) },
-	[2][5] = { acpu_freq_tbl_2p2g_pvs5, sizeof(acpu_freq_tbl_2p2g_pvs5) },
-	[2][6] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
-	[2][7] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
+	[0][2][0] = { acpu_freq_tbl_2p2g_pvs0, sizeof(acpu_freq_tbl_2p2g_pvs0) },
+	[0][2][1] = { acpu_freq_tbl_2p2g_pvs1, sizeof(acpu_freq_tbl_2p2g_pvs1) },
+	[0][2][2] = { acpu_freq_tbl_2p2g_pvs2, sizeof(acpu_freq_tbl_2p2g_pvs2) },
+	[0][2][3] = { acpu_freq_tbl_2p2g_pvs3, sizeof(acpu_freq_tbl_2p2g_pvs3) },
+	[0][2][4] = { acpu_freq_tbl_2p2g_pvs4, sizeof(acpu_freq_tbl_2p2g_pvs4) },
+	[0][2][5] = { acpu_freq_tbl_2p2g_pvs5, sizeof(acpu_freq_tbl_2p2g_pvs5) },
+	[0][2][6] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
+	[0][2][7] = { acpu_freq_tbl_2p2g_pvs6, sizeof(acpu_freq_tbl_2p2g_pvs6) },
 
 	/* 8974Pro AC 2.5GHz */
-	[3][0] = { acpu_ftbl_pro_2p5g_pvs0, sizeof(acpu_ftbl_pro_2p5g_pvs0) },
-	[3][1] = { acpu_ftbl_pro_2p5g_pvs1, sizeof(acpu_ftbl_pro_2p5g_pvs1) },
-	[3][2] = { acpu_ftbl_pro_2p5g_pvs2, sizeof(acpu_ftbl_pro_2p5g_pvs2) },
-	[3][3] = { acpu_ftbl_pro_2p5g_pvs3, sizeof(acpu_ftbl_pro_2p5g_pvs3) },
-	[3][4] = { acpu_ftbl_pro_2p5g_pvs4, sizeof(acpu_ftbl_pro_2p5g_pvs4) },
-	[3][5] = { acpu_ftbl_pro_2p5g_pvs5, sizeof(acpu_ftbl_pro_2p5g_pvs5) },
-	[3][6] = { acpu_ftbl_pro_2p5g_pvs6, sizeof(acpu_ftbl_pro_2p5g_pvs6) },
-	[3][7] = { acpu_ftbl_pro_2p5g_pvs6, sizeof(acpu_ftbl_pro_2p5g_pvs6) },
+	[0][3][0] = { acpu_ftbl_pro_2p5g_pvs0, sizeof(acpu_ftbl_pro_2p5g_pvs0) },
+	[0][3][1] = { acpu_ftbl_pro_2p5g_pvs1, sizeof(acpu_ftbl_pro_2p5g_pvs1) },
+	[0][3][2] = { acpu_ftbl_pro_2p5g_pvs2, sizeof(acpu_ftbl_pro_2p5g_pvs2) },
+	[0][3][3] = { acpu_ftbl_pro_2p5g_pvs3, sizeof(acpu_ftbl_pro_2p5g_pvs3) },
+	[0][3][4] = { acpu_ftbl_pro_2p5g_pvs4, sizeof(acpu_ftbl_pro_2p5g_pvs4) },
+	[0][3][5] = { acpu_ftbl_pro_2p5g_pvs5, sizeof(acpu_ftbl_pro_2p5g_pvs5) },
+	[0][3][6] = { acpu_ftbl_pro_2p5g_pvs6, sizeof(acpu_ftbl_pro_2p5g_pvs6) },
+	[0][3][7] = { acpu_ftbl_pro_2p5g_pvs6, sizeof(acpu_ftbl_pro_2p5g_pvs6) },
 };
 
 static struct msm_bus_scale_pdata bus_scale_data __initdata = {
@@ -1470,12 +1470,15 @@ static void __init apply_v1_l2_workaround(void)
 		{ }
 	};
 	struct acpu_level *l;
-	int s, p;
+	int s, p, r;
 
-	for (s = 0; s < NUM_SPEED_BINS; s++)
-		for (p = 0; p < NUM_PVS; p++)
-			for (l = pvs_v1[s][p].table; l && l->speed.khz; l++)
-				l->l2_level = l->l2_level > 5 ? 1 : 0;
+	for (r = 0; r < NUM_PVS_REVS; r++)
+		for (s = 0; s < NUM_SPEED_BINS; s++)
+			for (p = 0; p < NUM_PVS; p++) {
+				l = pvs_v1[r][s][p].table;
+				for (; l && l->speed.khz; l++)
+					l->l2_level = l->l2_level > 5 ? 1 : 0;
+			}
 
 	acpuclk_8974_params.l2_freq_tbl = resticted_l2_tbl;
 	acpuclk_8974_params.l2_freq_tbl_size = sizeof(resticted_l2_tbl);

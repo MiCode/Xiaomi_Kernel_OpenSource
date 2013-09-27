@@ -50,8 +50,13 @@ enum pvs {
 	PVS_NOMINAL = 1,
 	PVS_FAST = 3,
 	PVS_FASTER = 4,
-	NUM_PVS = 8
+	NUM_PVS = 16
 };
+
+/**
+ * The maximum number of PVS revisions.
+ */
+#define NUM_PVS_REVS (4)
 
 /**
  * The maximum number of speed bins.
@@ -236,12 +241,14 @@ struct scalable {
  * @pvs_valid: @pvs field is valid
  * @speed: Speed bin ID
  * @pvs: PVS bin ID
+ * @pvs_rev: PVS revision ID
  */
 struct bin_info {
 	bool speed_valid;
 	bool pvs_valid;
 	int speed;
 	int pvs;
+	int pvs_rev;
 };
 
 /**
@@ -273,7 +280,7 @@ struct acpuclk_krait_params {
 	struct scalable *scalable;
 	size_t scalable_size;
 	struct hfpll_data *hfpll_data;
-	struct pvs_table (*pvs_tables)[NUM_PVS];
+	struct pvs_table (*pvs_tables)[NUM_SPEED_BINS][NUM_PVS];
 	struct l2_level *l2_freq_tbl;
 	size_t l2_freq_tbl_size;
 	phys_addr_t pte_efuse_phys;
@@ -293,6 +300,7 @@ struct acpuclk_krait_params {
  * @boost_uv: Voltage boost amount
  * @speed_bin: Speed bin ID.
  * @pvs_bin: PVS bin ID.
+ * @pvs_bin: PVS revision ID.
  * @dev: Device.
  */
 struct drv_data {
@@ -305,6 +313,7 @@ struct drv_data {
 	int boost_uv;
 	int speed_bin;
 	int pvs_bin;
+	int pvs_rev;
 	struct device *dev;
 };
 
