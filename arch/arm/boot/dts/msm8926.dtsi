@@ -44,6 +44,11 @@
 			<0xfc4b80b0 0x8>;
 		reg-names = "rcg_base", "pte_efuse";
 	};
+
+	qcom,msm-thermal {
+		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor5",
+				"tsens_tz_sensor1", "tsens_tz_sensor1";
+	};
 };
 
 &pm8226_l3 {
