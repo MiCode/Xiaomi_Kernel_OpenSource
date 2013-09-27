@@ -2925,7 +2925,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",                  gcc_ce1_clk.c, ""),
 	CLK_LOOKUP("iface_clk",       gcc_copss_smmu_ahb_clk.c, ""),
 	CLK_LOOKUP("iface_clk",        gcc_lpss_smmu_ahb_clk.c, ""),
-	CLK_LOOKUP("core_clk",                  gcc_gp1_clk.c, ""),
+	CLK_LOOKUP("core_clk",                  gcc_gp1_clk.c, "0-000e"),
 	CLK_LOOKUP("core_clk",                  gcc_gp2_clk.c, ""),
 	CLK_LOOKUP("core_clk",                  gcc_gp3_clk.c, ""),
 	CLK_LOOKUP("core_clk",         gcc_lpass_q6_axi_clk.c, ""),
