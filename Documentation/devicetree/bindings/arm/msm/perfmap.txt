@@ -1,0 +1,16 @@
+* MSM Perfmap interface for performance monitors
+
+Perfmap provides mapping of the base address for performance monitors and
+allows user-space to access it via mmap call. It create a character device
+driver which is accessed from user-space.
+
+The required nodes for Perfmap are:
+
+- compatible: "qcom,perfmap"
+- reg: base address and size of mapped area
+
+Example:
+	qcom,perfmap@0xfc330000 {
+		compatible = "qcom,perfmap";
+		reg = <0xfc330000 0x3000>;
+	};
