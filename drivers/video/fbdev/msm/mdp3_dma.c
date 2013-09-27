@@ -159,6 +159,7 @@ static int mdp3_dma_callback_setup(struct mdp3_dma *dma)
 		.data = dma,
 	};
 
+
 	struct mdp3_intr_cb hist_cb = {
 		.cb = mdp3_hist_done_intr_handler,
 		.data = dma,
@@ -298,6 +299,7 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 	dma->output_config = *output_config;
 	mdp3_dma_sync_config(dma, source_config);
 
+	mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
 	mdp3_dma_callback_setup(dma);
 	return 0;
 }
@@ -824,6 +826,7 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 
 	mdp3_dma_callback_disable(dma, MDP3_DMA_CALLBACK_TYPE_VSYNC |
 					MDP3_DMA_CALLBACK_TYPE_DMA_DONE);
+	mdp3_irq_disable(MDP3_INTR_LCDC_UNDERFLOW);
 
 	init_completion(&dma->dma_comp);
 	dma->vsync_client.handler = NULL;

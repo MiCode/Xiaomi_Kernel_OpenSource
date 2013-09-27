@@ -1806,6 +1806,14 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	return rc;
 }
 
+static int mdp3_debug_dump_stats(void *data, char *buf, int len)
+{
+	int total = 0;
+	total = scnprintf(buf, len, "underrun: %08u\n",
+			mdp3_res->underrun_cnt);
+	return total;
+}
+
 static void mdp3_debug_enable_clock(int on)
 {
 	if (on)
@@ -1825,7 +1833,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 
 	mdss_res = mdata;
 
-	mdata->debug_inf.debug_dump_stats = NULL;
+	mdata->debug_inf.debug_dump_stats = mdp3_debug_dump_stats;
 	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
 
 	rc = mdss_debugfs_init(mdata);
@@ -1847,6 +1855,13 @@ static void mdp3_debug_deinit(struct platform_device *pdev)
 	}
 }
 
+static void mdp3_dma_underrun_intr_handler(int type, void *arg)
+{
+	mdp3_res->underrun_cnt++;
+	pr_err("display underrun detected count=%d\n",
+			mdp3_res->underrun_cnt);
+}
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1855,6 +1870,11 @@ static int mdp3_probe(struct platform_device *pdev)
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
 	.panel_register_done = mdp3_panel_register_done,
 	.fb_stride = mdp3_fb_stride,
+	};
+
+	struct mdp3_intr_cb underrun_cb = {
+		.cb = mdp3_dma_underrun_intr_handler,
+		.data = NULL,
 	};
 
 	if (!pdev->dev.of_node) {
@@ -1903,6 +1923,11 @@ static int mdp3_probe(struct platform_device *pdev)
 	rc = mdss_fb_register_mdp_instance(&mdp3_interface);
 	if (rc)
 		pr_err("unable to register mdp instance\n");
+
+	rc = mdp3_set_intr_callback(MDP3_INTR_LCDC_UNDERFLOW,
+					&underrun_cb);
+	if (rc)
+		pr_err("unable to configure interrupt callback\n");
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
