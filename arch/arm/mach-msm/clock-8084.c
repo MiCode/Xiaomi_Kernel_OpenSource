@@ -5766,9 +5766,6 @@ static struct clk_lookup apq_clocks_8084_rumi[] = {
 };
 
 static struct clk_lookup apq_clocks_8084[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991e000.serial", OFF),
-	CLK_DUMMY("mem_iface_clk",	gcc_mmss_bimc_gfx_clk.c,
-				     "fdb00000.qcom,kgsl-3d0", OFF),
 	CLK_DUMMY("iface_clk", lcc_q6_smmu_cfg_clk.c, "fe054000.qcom,iommu",
 									OFF),
 	CLK_DUMMY("iface_clk", lcc_core_smmu_cfg_clk.c, "fe064000.qcom,iommu",
