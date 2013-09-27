@@ -35,6 +35,12 @@
 			qcom,memory-fixed = <0x0db00000 0x1d00000>;
 		};
 
+		qcom,ion-heap@27 { /* QSECOM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <27>;
+			linux,contiguous-region = <&qsecom_mem>;
+		};
+
 		qcom,ion-heap@28 { /* AUDIO HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <28>;
