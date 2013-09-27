@@ -316,19 +316,16 @@ i915_set_primary_alpha(struct drm_i915_private *dev_priv, int zorder, int plane)
 
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
+
+	if (!(dspcntr & DISPLAY_PLANE_ENABLE))
+		return;
+
 	pixformat = dspcntr & DISPPLANE_PIXFORMAT_MASK;
 	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
 
 	DRM_DEBUG_DRIVER("pixformat = %x, alpha = %d", pixformat, alpha);
 
 	switch (pixformat) {
-	case DISPPLANE_BGRX555:
-	case DISPPLANE_BGRA555:
-		if (alpha)
-			dspcntr |= DISPPLANE_BGRA555;
-		else
-			dspcntr |= DISPPLANE_BGRX555;
-		break;
 	case DISPPLANE_BGRX888:
 	case DISPPLANE_BGRA888:
 		if (alpha)
@@ -342,6 +339,25 @@ i915_set_primary_alpha(struct drm_i915_private *dev_priv, int zorder, int plane)
 			dspcntr |= DISPPLANE_RGBA888;
 		else
 			dspcntr |= DISPPLANE_RGBX888;
+		break;
+	case DISPPLANE_BGRX101010:
+	case DISPPLANE_BGRA101010:
+		if (alpha)
+			dspcntr |= DISPPLANE_BGRA101010;
+		else
+			dspcntr |= DISPPLANE_BGRX101010;
+		break;
+	case DISPPLANE_RGBX101010:
+	case DISPPLANE_RGBA101010:
+		if (alpha)
+			dspcntr |= DISPPLANE_RGBA101010;
+		else
+			dspcntr |= DISPPLANE_RGBX101010;
+	case DISPPLANE_BGRX565:
+		dspcntr |= DISPPLANE_BGRX565;
+		break;
+	case DISPPLANE_8BPP:
+		dspcntr |= DISPPLANE_8BPP;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
@@ -372,6 +388,8 @@ void i915_set_sprite_alpha(struct drm_i915_private *dev_priv, int zorder,
 		alpha = false;
 
 	spcntr = I915_READ(SPCNTR(pipe, plane));
+	if (!(spcntr & DISPLAY_PLANE_ENABLE))
+		return;
 	pixformat = spcntr & SP_PIXFORMAT_MASK;
 	spcntr &= ~SP_PIXFORMAT_MASK;
 
@@ -391,6 +409,19 @@ void i915_set_sprite_alpha(struct drm_i915_private *dev_priv, int zorder,
 			spcntr |= SP_FORMAT_RGBA8888;
 		else
 			spcntr |= SP_FORMAT_RGBX8888;
+		break;
+	case SP_FORMAT_RGBA1010102:
+	case SP_FORMAT_RGBX1010102:
+		if (alpha)
+			spcntr |= SP_FORMAT_RGBA1010102;
+		else
+			spcntr |= SP_FORMAT_RGBX1010102;
+		break;
+	case SP_FORMAT_YUV422:
+		spcntr |= SP_FORMAT_YUV422;
+		break;
+	case SP_FORMAT_BGR565:
+		spcntr |= SP_FORMAT_BGR565;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
