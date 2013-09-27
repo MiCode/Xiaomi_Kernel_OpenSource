@@ -139,27 +139,30 @@ Output:
 int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
-	struct i2c_msg msgs[2];
 	int ret = -EIO;
-	int retries = 0;
+	u8 retries;
+	struct i2c_msg msgs[2] = {
+		{
+			.flags	= !I2C_M_RD,
+			.addr	= client->addr,
+			.len	= GTP_ADDR_LENGTH,
+			.buf	= &buf[0],
+		},
+		{
+			.flags	= I2C_M_RD,
+			.addr	= client->addr,
+			.len	= len - GTP_ADDR_LENGTH,
+			.buf	= &buf[GTP_ADDR_LENGTH],
+		},
+	};
 
-	msgs[0].flags = !I2C_M_RD;
-	msgs[0].addr = client->addr;
-	msgs[0].len = GTP_ADDR_LENGTH;
-	msgs[0].buf = &buf[0];
-
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].addr = client->addr;
-	msgs[1].len = len - GTP_ADDR_LENGTH;
-	msgs[1].buf = &buf[GTP_ADDR_LENGTH];
-
-	while (retries < 5) {
+	for (retries = 0; retries < 5; retries++) {
 		ret = i2c_transfer(client->adapter, msgs, 2);
 		if (ret == 2)
 			break;
-		retries++;
+		dev_err(&client->dev, "I2C retry: %d\n", retries + 1);
 	}
-	if (retries >= 5) {
+	if (retries == 5) {
 #if GTP_SLIDE_WAKEUP
 		/* reset chip would quit doze mode */
 		if (DOZE_ENABLED == doze_status)
@@ -169,7 +172,7 @@ int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 			gtp_reset_guitar(ts, 10);
 		else
 			dev_warn(&client->dev,
-				"<GTP> gtp_reset_guitar exit init_done=%d:\n",
+				"gtp_reset_guitar exit init_done=%d:\n",
 				init_done);
 	}
 	return ret;
@@ -190,22 +193,22 @@ Output:
 int gtp_i2c_write(struct i2c_client *client, u8 *buf, int len)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
-	struct i2c_msg msg;
 	int ret = -EIO;
-	int retries = 0;
+	u8 retries;
+	struct i2c_msg msg = {
+		.flags = !I2C_M_RD,
+		.addr = client->addr,
+		.len = len,
+		.buf = buf,
+	};
 
-	msg.flags = !I2C_M_RD;
-	msg.addr = client->addr;
-	msg.len = len;
-	msg.buf = buf;
-
-	while (retries < 5) {
+	for (retries = 0; retries < 5; retries++) {
 		ret = i2c_transfer(client->adapter, &msg, 1);
 		if (ret == 1)
 			break;
-		retries++;
+		dev_err(&client->dev, "I2C retry: %d\n", retries + 1);
 	}
-	if ((retries >= 5)) {
+	if ((retries == 5)) {
 #if GTP_SLIDE_WAKEUP
 		if (DOZE_ENABLED == doze_status)
 			return ret;
@@ -214,11 +217,12 @@ int gtp_i2c_write(struct i2c_client *client, u8 *buf, int len)
 			gtp_reset_guitar(ts, 10);
 		else
 			dev_warn(&client->dev,
-				"<GTP> gtp_reset_guitar exit init_done=%d:\n",
+				"gtp_reset_guitar exit init_done=%d:\n",
 				init_done);
 	}
 	return ret;
 }
+
 /*******************************************************
 Function:
 	i2c read twice, compare the results
