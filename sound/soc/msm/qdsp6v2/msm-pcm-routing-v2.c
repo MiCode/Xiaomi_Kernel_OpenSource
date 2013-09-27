@@ -48,7 +48,6 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  sample_rate;
 	unsigned int  channel;
 	unsigned int  format;
-	unsigned long perf_mode;
 };
 
 #define INVALID_SESSION -1
@@ -329,6 +328,11 @@ static int send_stereo_to_custom_stereo_cmd(int port_id,
 	return 0;
 }
 
+/* Track performance mode of all front-end multimedia sessions.
+ * Performance mode is only valid when session is valid.
+ */
+static bool fe_dai_perf_mode[MSM_FRONTEND_DAI_MM_SIZE][2];
+
 static uint8_t is_be_dai_extproc(int be_dai)
 {
 	if (be_dai == MSM_BACKEND_DAI_EXTPROC_RX ||
@@ -443,17 +447,13 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 
 	payload.num_copps = 0; /* only RX needs to use payload */
 	fe_dai_map[fedai_id][session_type] = dspst_id;
+	fe_dai_perf_mode[fedai_id][session_type] = perf_mode;
+
 	/* re-enable EQ if active */
 	if (eq_data[fedai_id].enable)
 		msm_send_eq_values(fedai_id);
 	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions)) {
-			if (perf_mode)
-				set_bit(fedai_id, &msm_bedais[i].perf_mode);
-			else
-				clear_bit(fedai_id, &msm_bedais[i].perf_mode);
-		}
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
@@ -476,8 +476,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				topology,
-				test_bit(fedai_id, &msm_bedais[i].perf_mode),
+				topology, perf_mode,
 				bits_per_sample);
 			else
 				adm_open(msm_bedais[i].port_id,
@@ -485,7 +484,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
 				topology,
-				test_bit(fedai_id, &msm_bedais[i].perf_mode),
+				perf_mode,
 				bits_per_sample);
 
 			payload.copp_ids[payload.num_copps++] =
@@ -546,9 +545,9 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
 			adm_close(msm_bedais[i].port_id,
-				test_bit(fedai_id, &msm_bedais[i].perf_mode));
+				  fe_dai_perf_mode[fedai_id][session_type]);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (!test_bit(fedai_id, &msm_bedais[i].perf_mode)))
+			    (fe_dai_perf_mode[fedai_id][session_type] == false))
 				dolby_dap_deinit(msm_bedais[i].port_id);
 		}
 	}
@@ -580,7 +579,6 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	int session_type, path_type, port_id, topology;
 	u32 channels;
 	uint16_t bits_per_sample = 16;
-	bool perf_mode = false;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -617,8 +615,6 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			if (msm_bedais[reg].port_id == VOICE_RECORD_RX ||
 			    msm_bedais[reg].port_id == VOICE_RECORD_TX)
 				topology = DEFAULT_COPP_TOPOLOGY;
-			perf_mode = test_bit(val,
-					&msm_bedais[reg].perf_mode);
 			if ((session_type == SESSION_TYPE_RX) &&
 				(channels > 0)) {
 				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
@@ -626,21 +622,22 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				msm_bedais[reg].sample_rate,
 				channels,
 				topology,
-				perf_mode,
+				fe_dai_perf_mode[val][session_type],
 				bits_per_sample);
 			} else
 				adm_open(msm_bedais[reg].port_id,
 				path_type,
 				msm_bedais[reg].sample_rate, channels,
-				topology, perf_mode, bits_per_sample);
+				topology, fe_dai_perf_mode[val][session_type],
+				bits_per_sample);
 
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type,
-				perf_mode);
+				fe_dai_perf_mode[val][session_type]);
 			port_id = srs_port_id = msm_bedais[reg].port_id;
 			srs_send_params(srs_port_id, 1, 0);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (!perf_mode))
+			    (fe_dai_perf_mode[val][session_type] == false))
 				if (dolby_dap_init(port_id, channels) < 0)
 					pr_err("%s: Err init dolby dap\n",
 						__func__);
@@ -653,14 +650,14 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		clear_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
-			perf_mode = test_bit(val, &msm_bedais[reg].perf_mode);
-			adm_close(msm_bedais[reg].port_id, perf_mode);
+			adm_close(msm_bedais[reg].port_id,
+				  fe_dai_perf_mode[val][session_type]);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (!perf_mode))
+			    (fe_dai_perf_mode[val][session_type] == false))
 				dolby_dap_deinit(msm_bedais[reg].port_id);
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type,
-				perf_mode);
+				fe_dai_perf_mode[val][session_type]);
 		}
 	}
 	if ((msm_bedais[reg].port_id == VOICE_RECORD_RX)
@@ -2742,8 +2739,7 @@ static int msm_routing_put_stereo_to_custom_stereo_control(
 			for_each_set_bit(i,
 				&msm_bedais[be_index].fe_sessions,
 				MSM_FRONTEND_DAI_MM_SIZE) {
-				if (test_bit(i,
-				    &(msm_bedais[be_index].perf_mode)))
+				if (fe_dai_perf_mode[i][SESSION_TYPE_RX])
 					goto skip_send_custom_stereo;
 				session_id = fe_dai_map[i][SESSION_TYPE_RX];
 				if (is_custom_stereo_on) {
@@ -3925,12 +3921,11 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 			adm_close(bedai->port_id,
-				test_bit(i, &(bedai->perf_mode)));
+				  fe_dai_perf_mode[i][session_type]);
 			srs_port_id = -1;
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (!test_bit(i, &(bedai->perf_mode))))
+			    (fe_dai_perf_mode[i][session_type] == false))
 				dolby_dap_deinit(bedai->port_id);
-			clear_bit(i, &(bedai->perf_mode));
 		}
 	}
 
@@ -3951,7 +3946,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	u32 channels;
 	bool playback, capture;
 	uint16_t bits_per_sample = 16;
-	bool perf_mode = false;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -3992,31 +3986,30 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			if (bedai->port_id == VOICE_RECORD_RX ||
 			    bedai->port_id == VOICE_RECORD_TX)
 				topology = DEFAULT_COPP_TOPOLOGY;
-			perf_mode = test_bit(i, &(bedai->perf_mode));
 			if ((playback) && (channels > 0)) {
 				adm_multi_ch_copp_open(bedai->port_id,
 					path_type,
 					bedai->sample_rate,
 					channels,
 					topology,
-					perf_mode,
+					fe_dai_perf_mode[i][session_type],
 					bits_per_sample);
 			} else if (capture) {
 				adm_open(bedai->port_id,
 				path_type,
 				bedai->sample_rate,
 				channels,
-				topology, perf_mode,
+				topology, fe_dai_perf_mode[i][session_type],
 				bits_per_sample);
 			}
 
 			msm_pcm_routing_build_matrix(i,
 				fe_dai_map[i][session_type], path_type,
-				perf_mode);
+				fe_dai_perf_mode[i][session_type]);
 			port_id = srs_port_id = bedai->port_id;
 			srs_send_params(srs_port_id, 1, 0);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (!perf_mode))
+			    (fe_dai_perf_mode[i][session_type] == false))
 				if (dolby_dap_init(port_id, channels) < 0)
 					pr_err("%s: Err init dolby dap\n",
 						__func__);
