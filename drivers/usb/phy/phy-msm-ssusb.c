@@ -24,6 +24,10 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 
+static int ss_phy_override_deemphasis;
+module_param(ss_phy_override_deemphasis, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(ss_phy_override_deemphasis, "Override SSPHY demphasis value");
+
 /* QSCRATCH SSPHY control registers */
 #define SS_PHY_CTRL_REG			0x30
 #define SS_PHY_PARAM_CTRL_1		0x34
@@ -52,6 +56,7 @@ struct msm_ssphy {
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	int			deemphasis_val;
 };
 
 static int msm_ssusb_config_vdd(struct msm_ssphy *phy, int high)
@@ -271,7 +276,12 @@ static int msm_ssphy_set_params(struct usb_phy *uphy)
 	 */
 	data = msm_ssusb_read_phycreg(phy->base, 0x1002);
 	data &= ~0x3F80;
-	data |= (0x16 << 7);
+	if (ss_phy_override_deemphasis)
+		phy->deemphasis_val = ss_phy_override_deemphasis;
+	if (phy->deemphasis_val)
+		data |= (phy->deemphasis_val << 7);
+	else
+		data |= (0x16 << 7);
 	data &= ~0x7F;
 	data |= (0x7F | (1 << 14));
 	msm_ssusb_write_phycreg(phy->base, 0x1002, data);
@@ -431,6 +441,10 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
+
+	if (of_property_read_u32(dev->of_node, "qcom,deemphasis-value",
+						&phy->deemphasis_val))
+		dev_dbg(dev, "unable to read ssphy deemphasis value\n");
 
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_init;

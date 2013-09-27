@@ -58,6 +58,8 @@ Optional properties:
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
+ - qcom,deemphasis-value: This property if present represents ss phy
+   deemphasis value to be used for overriding into SSPHY register.
 
 Example:
 	ssphy@f9200000 {
@@ -66,4 +68,5 @@ Example:
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
 		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,deemphasis-value = <26>;
 	};
