@@ -171,6 +171,7 @@ struct kgsl_snapshot_debugbus {
 #define SNAPSHOT_GPU_OBJECT_SHADER  1
 #define SNAPSHOT_GPU_OBJECT_IB      2
 #define SNAPSHOT_GPU_OBJECT_GENERIC 3
+#define SNAPSHOT_GPU_OBJECT_DRAW    4
 
 struct kgsl_snapshot_gpu_object {
 	int type;      /* Type of GPU object */
