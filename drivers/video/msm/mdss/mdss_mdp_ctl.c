@@ -1809,6 +1809,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 	wmb();
 	ctl->flush_bits = 0;
+	if (sctl)
+		sctl->flush_bits = 0;
 
 	if (ctl->display_fnc)
 		ret = ctl->display_fnc(ctl, arg); /* kickoff */
