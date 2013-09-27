@@ -857,6 +857,7 @@
 
 &gdsc_oxili_gx {
 	qcom,clock-names = "core_clk";
+	parent-supply = <&pma8084_s7_corner>;
 	status = "ok";
 };
 
