@@ -14,7 +14,7 @@
 
 /include/ "msm8974pro-ac.dtsi"
 /include/ "msmsamarium-cdp.dtsi"
-
+/include/ "msmsamarium-camera-sensor-cdp-interposer.dtsi"
 
 / {
         model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";
