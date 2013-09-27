@@ -20,15 +20,32 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/avtimer.h>
+#include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
 #include <mach/qdsp6v2/apr.h>
 
 #define DEVICE_NAME "avtimer"
+#define TIMEOUT_MS 1000
+#define CORE_CLIENT 1
+#define TEMP_PORT ((CORE_CLIENT << 8) | 0x0001)
 
+#define AVCS_CMD_REMOTE_AVTIMER_VOTE_REQUEST 0x00012914
+#define AVCS_CMD_RSP_REMOTE_AVTIMER_VOTE_REQUEST 0x00012915
+#define AVCS_CMD_REMOTE_AVTIMER_RELEASE_REQUEST 0x00012916
+#define AVTIMER_REG_CNT 2
 
-#define ADSP_CMD_SET_POWER_COLLAPSE_STATE 0x0001115C
+struct adsp_avt_timer {
+	struct apr_hdr hdr;
+	union {
+		char client_name[8];
+		u32 avtimer_handle;
+	};
+} __packed;
 
-static int major;	/* Major number assigned to our device driver */
+static int major;
+
 struct avtimer_t {
 	struct apr_svc *core_handle_q;
 	struct cdev myc;
@@ -42,56 +59,63 @@ struct avtimer_t {
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
 };
+
 static struct avtimer_t avtimer;
 
-static struct apr_svc *core_handle;
-
-struct adsp_power_collapse {
-	struct apr_hdr hdr;
-	uint32_t power_collapse;
-};
-
-static int32_t avcs_core_callback(struct apr_client_data *data, void *priv)
+static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 {
-	uint32_t *payload;
+	uint32_t *payload1;
 
-	pr_debug("core msg: payload len = %u, apr resp opcode = 0x%X\n",
-		data->payload_size, data->opcode);
+	pr_debug("%s: core msg: payload len = %u, apr resp opcode = 0x%X\n",
+		__func__, data->payload_size, data->opcode);
+
+	if (!data) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
 
 	switch (data->opcode) {
 
 	case APR_BASIC_RSP_RESULT:{
 
-		if (data->payload_size == 0) {
+		if (!data->payload_size) {
 			pr_err("%s: APR_BASIC_RSP_RESULT No Payload ",
 					__func__);
 			return 0;
 		}
 
-		payload = data->payload;
-
-		switch (payload[0]) {
-
-		case ADSP_CMD_SET_POWER_COLLAPSE_STATE:
-			pr_debug("CMD_SET_POWER_COLLAPSE_STATE status[0x%x]\n",
-					payload[1]);
+		payload1 = data->payload;
+		switch (payload1[0]) {
+		case AVCS_CMD_REMOTE_AVTIMER_RELEASE_REQUEST:
+			pr_debug("%s: Cmd = TIMER RELEASE status[0x%x]\n",
+			__func__, payload1[1]);
 			break;
 		default:
 			pr_err("Invalid cmd rsp[0x%x][0x%x]\n",
-					payload[0], payload[1]);
+					payload1[0], payload1[1]);
 			break;
 		}
 		break;
 	}
+
 	case RESET_EVENTS:{
-		pr_debug("Reset event received in Core service");
-		apr_reset(core_handle);
-		core_handle = NULL;
+		pr_debug("%s: Reset event received in AV timer\n", __func__);
+		apr_reset(avtimer.core_handle_q);
+		avtimer.core_handle_q = NULL;
 		break;
 	}
 
+	case AVCS_CMD_RSP_REMOTE_AVTIMER_VOTE_REQUEST:
+		payload1 = data->payload;
+		pr_debug("%s: RSP_REMOTE_AVTIMER_VOTE_REQUEST handle %x\n",
+			__func__, payload1[0]);
+		avtimer.timer_handle = payload1[0];
+		avtimer.enable_timer_resp_recieved = 1;
+		wake_up(&avtimer.adsp_resp_wait);
+		break;
 	default:
-		pr_err("Message id from adsp core svc: %d\n", data->opcode);
+		pr_err("%s: Message adspcore svc: %d\n",
+				__func__, data->opcode);
 		break;
 	}
 
@@ -100,104 +124,147 @@ static int32_t avcs_core_callback(struct apr_client_data *data, void *priv)
 
 int avcs_core_open(void)
 {
-	if (core_handle == NULL)
-		core_handle = apr_register("ADSP", "CORE",
-					avcs_core_callback, 0xFFFFFFFF, NULL);
-
-	pr_debug("Open_q %p\n", core_handle);
-	if (core_handle == NULL) {
+	if (!avtimer.core_handle_q)
+		avtimer.core_handle_q = apr_register("ADSP", "CORE",
+					aprv2_core_fn_q, TEMP_PORT, NULL);
+	pr_debug("%s: Open_q %p\n", __func__, avtimer.core_handle_q);
+	if (!avtimer.core_handle_q) {
 		pr_err("%s: Unable to register CORE\n", __func__);
-		return -ENODEV;
+		return -EINVAL;
 	}
 	return 0;
 }
+EXPORT_SYMBOL(avcs_core_open);
 
-int avcs_core_disable_power_collapse(int disable)
+static int avcs_core_disable_avtimer(int timerhandle)
 {
-	struct adsp_power_collapse pc;
-	int rc = 0;
+	int rc = -EINVAL;
+	struct adsp_avt_timer payload;
 
-	if (core_handle) {
-		pc.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
-			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		pc.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-					sizeof(uint32_t));
-		pc.hdr.src_port = 0;
-		pc.hdr.dest_port = 0;
-		pc.hdr.token = 0;
-		pc.hdr.opcode = ADSP_CMD_SET_POWER_COLLAPSE_STATE;
-		/*
-		* When power_collapse set to 1 -- If the aDSP is in the power
-		* collapsed state when this command is received, it is awakened
-		* from this state. The aDSP does not power collapse again until
-		* the client revokes this	command
-		* When power_collapse set to 0 -- This indicates to the aDSP
-		* that the remote client does not need it to be out of power
-		* collapse any longer. This may not always put the aDSP into
-		* power collapse; the aDSP must honor an internal client's
-		* power requirements as well.
-		*/
-		pc.power_collapse = disable;
-		rc = apr_send_pkt(core_handle, (uint32_t *)&pc);
-		if (rc < 0) {
-			pr_debug("disable power collapse = %d failed\n",
-				disable);
-			return rc;
-		}
-		pr_debug("disable power collapse = %d\n", disable);
+	if (!timerhandle) {
+		pr_err("%s: Invalid timer handle\n", __func__);
+		return -EINVAL;
 	}
-	return 0;
+	memset(&payload, 0, sizeof(payload));
+	rc = avcs_core_open();
+	if (!rc && avtimer.core_handle_q) {
+		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		payload.hdr.pkt_size =
+			sizeof(struct adsp_avt_timer);
+		payload.hdr.src_svc = avtimer.core_handle_q->id;
+		payload.hdr.src_domain = APR_DOMAIN_APPS;
+		payload.hdr.dest_domain = APR_DOMAIN_ADSP;
+		payload.hdr.dest_svc = APR_SVC_ADSP_CORE;
+		payload.hdr.src_port = TEMP_PORT;
+		payload.hdr.dest_port = TEMP_PORT;
+		payload.hdr.token = CORE_CLIENT;
+		payload.hdr.opcode = AVCS_CMD_REMOTE_AVTIMER_RELEASE_REQUEST;
+		payload.avtimer_handle = timerhandle;
+		pr_debug("%s: disable avtimer opcode %x handle %x\n",
+			__func__, payload.hdr.opcode, payload.avtimer_handle);
+		rc = apr_send_pkt(avtimer.core_handle_q,
+						(uint32_t *)&payload);
+		if (rc < 0)
+			pr_err("%s: Enable AVtimer failed op[0x%x]rc[%d]\n",
+				__func__, payload.hdr.opcode, rc);
+		else
+			rc = 0;
+	}
+	return rc;
 }
+
+static int avcs_core_enable_avtimer(char *client_name)
+{
+	int rc = -EINVAL, ret = -EINVAL;
+	struct adsp_avt_timer payload;
+
+	if (!client_name) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	memset(&payload, 0, sizeof(payload));
+	rc = avcs_core_open();
+	if (!rc && avtimer.core_handle_q) {
+		avtimer.enable_timer_resp_recieved = 0;
+		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		payload.hdr.pkt_size =
+			sizeof(struct adsp_avt_timer);
+		payload.hdr.src_svc = avtimer.core_handle_q->id;
+		payload.hdr.src_domain = APR_DOMAIN_APPS;
+		payload.hdr.dest_domain = APR_DOMAIN_ADSP;
+		payload.hdr.dest_svc = APR_SVC_ADSP_CORE;
+		payload.hdr.src_port = TEMP_PORT;
+		payload.hdr.dest_port = TEMP_PORT;
+		payload.hdr.token = CORE_CLIENT;
+		payload.hdr.opcode = AVCS_CMD_REMOTE_AVTIMER_VOTE_REQUEST;
+		strlcpy(payload.client_name, client_name,
+			   sizeof(payload.client_name));
+		pr_debug("%s: enable avtimer opcode %x client name %s\n",
+			__func__, payload.hdr.opcode, payload.client_name);
+		rc = apr_send_pkt(avtimer.core_handle_q,
+						(uint32_t *)&payload);
+		if (rc < 0) {
+			pr_err("%s: Enable AVtimer failed op[0x%x]rc[%d]\n",
+				__func__, payload.hdr.opcode, rc);
+			goto bail;
+		} else
+			rc = 0;
+		ret = wait_event_timeout(avtimer.adsp_resp_wait,
+			(avtimer.enable_timer_resp_recieved == 1),
+			msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout for Enable timer\n",
+					__func__);
+			rc = -ETIMEDOUT;
+		}
+		if (rc)
+			avtimer.timer_handle = 0;
+	}
+bail:
+	return rc;
+}
+
+int avcs_core_disable_power_collapse(int enable)
+{
+	int rc = 0;
+	mutex_lock(&avtimer.avtimer_lock);
+	if (enable) {
+		if (avtimer.avtimer_open_cnt) {
+			avtimer.avtimer_open_cnt++;
+			pr_debug("%s: opened avtimer open count=%d\n",
+				__func__, avtimer.avtimer_open_cnt);
+			rc = 0;
+			goto done;
+		}
+		rc = avcs_core_enable_avtimer("timer");
+		if (!rc)
+			avtimer.avtimer_open_cnt++;
+	} else {
+		if (avtimer.avtimer_open_cnt > 0) {
+			avtimer.avtimer_open_cnt--;
+			if (!avtimer.avtimer_open_cnt) {
+				rc = avcs_core_disable_avtimer(
+				avtimer.timer_handle);
+				avtimer.timer_handle = 0;
+			}
+		}
+	}
+done:
+	mutex_unlock(&avtimer.avtimer_lock);
+	return rc;
+}
+EXPORT_SYMBOL(avcs_core_disable_power_collapse);
 
 static int avtimer_open(struct inode *inode, struct file *file)
 {
-	int rc = 0;
-	struct avtimer_t *pavtimer = &avtimer;
-
-	pr_debug("avtimer_open\n");
-	mutex_lock(&pavtimer->avtimer_lock);
-
-	if (pavtimer->avtimer_open_cnt != 0) {
-		pavtimer->avtimer_open_cnt++;
-		pr_debug("%s: opened avtimer open count=%d\n",
-			__func__, pavtimer->avtimer_open_cnt);
-		mutex_unlock(&pavtimer->avtimer_lock);
-		return 0;
-	}
-	try_module_get(THIS_MODULE);
-
-	rc = avcs_core_open();
-	if (core_handle)
-		rc = avcs_core_disable_power_collapse(1);
-
-	pavtimer->avtimer_open_cnt++;
-	pr_debug("%s: opened avtimer open count=%d\n",
-		__func__, pavtimer->avtimer_open_cnt);
-	mutex_unlock(&pavtimer->avtimer_lock);
-	pr_debug("avtimer_open leave rc=%d\n", rc);
-
-	return rc;
+	return avcs_core_disable_power_collapse(1);
 }
 
 static int avtimer_release(struct inode *inode, struct file *file)
 {
-	int rc = 0;
-	struct avtimer_t *pavtimer = &avtimer;
-
-	mutex_lock(&pavtimer->avtimer_lock);
-	pavtimer->avtimer_open_cnt--;
-
-	if (core_handle && pavtimer->avtimer_open_cnt == 0)
-		rc = avcs_core_disable_power_collapse(0);
-
-	pr_debug("device_release(%p,%p) open count=%d\n",
-		inode, file, pavtimer->avtimer_open_cnt);
-
-	module_put(THIS_MODULE);
-
-	mutex_unlock(&pavtimer->avtimer_lock);
-
-	return rc;
+	return avcs_core_disable_power_collapse(0);
 }
 
 /*
