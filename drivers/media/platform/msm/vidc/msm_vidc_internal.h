@@ -16,6 +16,7 @@
 
 #include <linux/atomic.h>
 #include <linux/list.h>
+#include <linux/time.h>
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/wait.h>
@@ -281,6 +282,7 @@ struct buffer_info {
 	bool inactive;
 	bool mapped[VIDEO_MAX_PLANES];
 	int same_fd_ref[VIDEO_MAX_PLANES];
+	struct timeval timestamp;
 };
 
 struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,

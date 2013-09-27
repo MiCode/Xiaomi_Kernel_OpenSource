@@ -323,6 +323,8 @@ static inline void populate_buf_info(struct buffer_info *binfo,
 	binfo->memory = b->memory;
 	binfo->v4l2_index = b->index;
 	binfo->dequeued = false;
+	binfo->timestamp.tv_sec = b->timestamp.tv_sec;
+	binfo->timestamp.tv_usec = b->timestamp.tv_usec;
 	dprintk(VIDC_DBG, "%s: fd[%d] = %d b->index = %d",
 			__func__, i, binfo->fd[0], b->index);
 }
@@ -335,6 +337,8 @@ static inline void repopulate_v4l2_buffer(struct v4l2_buffer *b,
 	b->length = binfo->num_planes;
 	b->memory = binfo->memory;
 	b->index = binfo->v4l2_index;
+	b->timestamp.tv_sec = binfo->timestamp.tv_sec;
+	b->timestamp.tv_usec = binfo->timestamp.tv_usec;
 	for (i = 0; i < binfo->num_planes; ++i) {
 		b->m.planes[i].reserved[0] = binfo->fd[i];
 		b->m.planes[i].reserved[1] = binfo->buff_off[i];
