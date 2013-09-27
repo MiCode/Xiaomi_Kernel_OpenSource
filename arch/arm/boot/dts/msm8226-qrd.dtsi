@@ -29,7 +29,10 @@
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
+			synaptics,power-down;
+			synaptics,disable-gpios;
 		};
+
 		focaltech@38 {
 			compatible = "focaltech,5x06";
 			reg = <0x38>;
