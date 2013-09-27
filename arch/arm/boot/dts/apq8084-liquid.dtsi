@@ -57,6 +57,14 @@
 
 		qcom,cdc-micbias2-headset-only;
 	};
+
+	qca1530_vreg: qca1530_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "qca1530_vreg";
+		startup-delay-us = <11000>; /* the on time of SMB209AN */
+		enable-active-high;
+		gpio = <&pma8084_mpps 7 0>;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
