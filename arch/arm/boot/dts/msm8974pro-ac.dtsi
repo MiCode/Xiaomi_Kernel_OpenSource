@@ -123,6 +123,7 @@
 		vdd-supply = <&pma8084_s2_corner>;
 		vdda18-supply = <&pma8084_l6>;
 		qcom,vbus-valid-override;
+		qcom,deemphasis-value = <26>;
 	};
 
 	hsphy@f92f8800 {
