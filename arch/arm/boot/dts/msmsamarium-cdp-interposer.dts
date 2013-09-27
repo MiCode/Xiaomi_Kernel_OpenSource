@@ -14,16 +14,12 @@
 
 /include/ "msm8974pro-ac.dtsi"
 /include/ "msmsamarium-cdp.dtsi"
-/include/ "dsi-panel-jdi-1080p-video.dtsi"
-/include/ "msmsamarium-camera-sensor-cdp-interposer.dtsi"
-/ {
-        model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP";
-        compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-        qcom,msm-id = <194 1 8>;
-};
 
-&usb3 {
-      status = "disabled";
+
+/ {
+        model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";
+        compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
+        qcom,board-id = <1 8>, <8 8>;
 };
 
 &pma8084_l3 {
@@ -42,6 +38,17 @@
 	regulator-min-microvolt = <1050000>;
 	regulator-max-microvolt = <1050000>;
 	qcom,init-voltage = <1050000>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+};
+
+&dsi_jdi_1080_vid {
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
+	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 8 0>;
 };
 
 &sdhc_1 {
@@ -85,70 +92,13 @@
 
 	status = "ok";
 };
-&i2c_0 {
-	smb349-charger@1b {
-		compatible = "summit,smb349-charger";
-		reg = <0x1b>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xCC 0x0>;	/* PMA8084 GPIO 13 */
-		summit,charging-disabled;
-		summit,disable-apsd;
-	};
-};
 
-&pma8084_gpios {
-	gpio@cc00 { /* GPIO 13 */
-		/* SMB349 STAT */
-		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <1>;		/* Pull up 1.5 uA */
-		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
-		qcom,src-sel = <0>;		/* Constant */
-		qcom,master-en = <1>;
-	};
-};
-
-&soc {
-	qcom,mdss_dsi_jdi_1080p_video {
-		/*qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
-		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-		qcom,mdss-dsi-bl-pmic-bank-select = <3>;*/
-		qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 8 0>;
-	};
-
-	mdss_dsi1: qcom,mdss_dsi@fd922e00 {
-		status = "disabled";
-	};
-
-	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
-		status = "disabled";
-	};
-
-	mdss_edp: qcom,mdss_edp@fd923400 {
-		status = "disabled";
-	};
-
-	sound{
-		compatible = "qcom,msm8974-audio-tapan";
-		qcom,model = "msm8974-tapan-cdp-snd-card";
-	};
+&usb3 {
+	status = "disabled";
 };
 
 &usb_otg {
 	status = "ok";
 	qcom,hsusb-otg-otg-control = <2>;
 	qcom,dp-manual-pullup;
-};
-
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
-};
-
-&dsi_jdi_1080_vid {
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
-	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 8 0>;
 };
