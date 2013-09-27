@@ -212,8 +212,9 @@ s32 init_wr_node(struct i2c_client *client)
 
 	i = 5;
 	while ((!cmd_head.data) && i) {
-		cmd_head.data = kzalloc(i * DATA_LENGTH_UINT, GFP_KERNEL);
-		if (NULL != cmd_head.data)
+		cmd_head.data = devm_kzalloc(&client->dev,
+				i * DATA_LENGTH_UINT, GFP_KERNEL);
+		if (cmd_head.data)
 			break;
 		i--;
 	}
@@ -247,7 +248,6 @@ s32 init_wr_node(struct i2c_client *client)
 
 void uninit_wr_node(void)
 {
-	kfree(cmd_head.data);
 	cmd_head.data = NULL;
 	unregister_i2c_func();
 	remove_proc_entry(procname, NULL);
