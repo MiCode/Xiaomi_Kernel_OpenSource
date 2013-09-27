@@ -878,7 +878,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 static int pp_mixer_setup(u32 disp_num,
 		struct mdss_mdp_mixer *mixer)
 {
-	u32 flags, dspp_num, opmode = 0;
+	u32 flags, dspp_num, opmode = 0, lm_bitmask = 0;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
 	struct mdss_mdp_ctl *ctl;
@@ -898,6 +898,9 @@ static int pp_mixer_setup(u32 disp_num,
 	else
 		flags = 0;
 
+	lm_bitmask = (dspp_num == MDSS_MDP_DSPP3) ?
+		BIT(20) : (BIT(6) << dspp_num);
+
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
@@ -911,11 +914,13 @@ static int pp_mixer_setup(u32 disp_num,
 			pp_sts->argc_sts &= ~PP_STS_ENABLE;
 		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
 			pp_sts->argc_sts |= PP_STS_ENABLE;
-		ctl->flush_bits |= BIT(6) << dspp_num; /* LAYER_MIXER */
+
+		ctl->flush_bits |= lm_bitmask;
 	}
+
 	/* update LM opmode if LM needs flush */
 	if ((pp_sts->argc_sts & PP_STS_ENABLE) &&
-		(ctl->flush_bits & (BIT(6) << dspp_num))) {
+		(ctl->flush_bits & lm_bitmask)) {
 		addr = mixer->base + MDSS_MDP_REG_LM_OP_MODE;
 		opmode = readl_relaxed(addr);
 		opmode |= (1 << 0); /* GC_LUT_EN */
@@ -1147,7 +1152,12 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 flush_exit:
 	writel_relaxed(opmode, base + MDSS_MDP_REG_DSPP_OP_MODE);
-	ctl->flush_bits |= BIT(13 + dspp_num);
+
+	if (dspp_num == MDSS_MDP_DSPP3)
+		ctl->flush_bits |= BIT(21);
+	else
+		ctl->flush_bits |= BIT(13 + dspp_num);
+
 	wmb();
 dspp_exit:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
@@ -3353,6 +3363,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	}
 	mutex_unlock(&ad->lock);
 	mutex_lock(&mfd->lock);
+	/* dspp3 doesn't have ad attached to it so following is safe */
 	ctl->flush_bits |= BIT(13 + ad->num);
 	mutex_unlock(&mfd->lock);
 
