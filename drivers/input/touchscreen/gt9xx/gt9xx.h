@@ -122,7 +122,7 @@ extern u16 total_len;
 /* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
 #define GTP_DBL_CLK_WAKEUP		0
 
-#define GTP_DEBUG_ON			1
+#define GTP_DEBUG_ON			0
 #define GTP_DEBUG_ARRAY_ON		0
 #define GTP_DEBUG_FUNC_ON		0
 
