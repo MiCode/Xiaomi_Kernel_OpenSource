@@ -146,6 +146,17 @@
 			capella,ps_conf1_val = <0x0006>;
 			capella,ps_conf3_val = <0x3010>;
 		};
+		nfc-nci@0e {
+			compatible = "qcom,nfc-nci";
+			reg = <0x0e>;
+			qcom,irq-gpio = <&msmgpio 77 0x00>;
+			qcom,dis-gpio = <&msmgpio 93 0x00>;
+			qcom,clk-en-gpio = <&msmgpio 78 0x00>;
+			qcom,clk-src = "GPCLK";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <77 0>;
+			qcom,clk-gpio = <&pm8110_gpios 1 0>;
+		};
 	};
 
 	gen-vkeys {
@@ -387,6 +398,11 @@
 
 &pm8110_gpios {
 	gpio@c000 { /* GPIO 1 */
+		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c100 { /* GPIO 2 */
