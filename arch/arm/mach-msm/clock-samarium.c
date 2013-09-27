@@ -858,6 +858,8 @@ static struct rcg_clk ce1_clk_src = {
 	},
 };
 
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 171430000);
+
 static struct clk_freq_tbl ftbl_gcc_pdm2_clk[] = {
 	F(  60000000,      gpll0,   10,    0,     0),
 	F_END
@@ -3512,6 +3514,12 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, "msm_sdcc.3"),
 	CLK_LOOKUP("iface_clk", gcc_sdcc4_ahb_clk.c, "msm_sdcc.4"),
 	CLK_LOOKUP("core_clk", gcc_sdcc4_apps_clk.c, "msm_sdcc.4"),
+
+	/* SCM PAS */
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
+	CLK_LOOKUP("core_clk_src", scm_ce1_clk_src.c,     "scm"),
 
 	/* Misc GCC branch */
 	CLK_LOOKUP("", ce1_clk_src.c, ""),
