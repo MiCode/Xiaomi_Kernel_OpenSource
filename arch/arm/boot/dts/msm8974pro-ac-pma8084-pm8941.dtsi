@@ -106,6 +106,7 @@
 	interrupt-map = <0x0 0 &intc 0 133 0
 			0x0 1 &spmi_bus 0x0 0x2 0x9 0x0>;
 	interrupt-names = "hs_phy_irq", "pmic_id_irq";
+	qcom,dwc-ssphy-deemphasis-value = <26>;
 };
 
 /* Correct PM8941 local slave ID 0 to use global SID 4 for all interrupts. */
