@@ -247,7 +247,6 @@
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0>, <0 187 0>;
-		qcom,not-wakeup;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
 		#address-cells = <1>;
