@@ -286,8 +286,11 @@ struct buffer_info {
 struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
 			struct list_head *list, u32 device_addr);
 int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
+int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo);
 int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 				struct buffer_info *binfo);
 int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo);
+int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
 #endif

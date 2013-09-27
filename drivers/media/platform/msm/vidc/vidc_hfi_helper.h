@@ -855,6 +855,12 @@ struct hfi_msg_event_notify_packet {
 	u32 rg_ext_event_data[1];
 };
 
+struct hfi_msg_release_buffer_ref_event_packet {
+	u8 *packet_buffer;
+	u8 *exra_data_buffer;
+	u32 output_tag;
+};
+
 struct hfi_msg_sys_init_done_packet {
 	u32 size;
 	u32 packet_type;

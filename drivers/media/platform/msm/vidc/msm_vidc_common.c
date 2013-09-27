@@ -32,6 +32,8 @@
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
 #define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
+#define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
+		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 
 #define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
 	(__height >> 4) * (__width >> 4) * __fps; \
@@ -483,6 +485,60 @@ static void handle_event_change(enum command_response cmd, void *data)
 		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 			break;
+		case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
+			{
+				struct v4l2_event buf_event = {0};
+				struct buffer_info *binfo = NULL;
+				u32 *ptr = NULL;
+
+				dprintk(VIDC_DBG,
+					"%s - inst: %p buffer: %p extra: %p\n",
+					__func__, inst,
+					event_notify->packet_buffer,
+					event_notify->exra_data_buffer);
+
+				/*
+				* Get the buffer_info entry for the
+				* device address.
+				*/
+				binfo = device_to_uvaddr(inst,
+					&inst->registered_bufs,
+					(u32)event_notify->packet_buffer);
+				if (!binfo) {
+					dprintk(VIDC_ERR,
+						"%s buffer not found in registered list\n",
+						__func__);
+					return;
+				}
+
+				/* Fill event data to be sent to client*/
+				buf_event.type =
+					V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
+				ptr = (u32 *)buf_event.u.data;
+				ptr[0] = binfo->fd[0];
+				ptr[1] = binfo->buff_off[0];
+
+				dprintk(VIDC_DBG,
+					"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
+					ptr[0], ptr[1]);
+
+				/* Decrement buffer reference count*/
+				buf_ref_put(inst, binfo);
+
+				/*
+				* Release buffer and remove from list
+				* if reference goes to zero.
+				*/
+				if (unmap_and_deregister_buf(inst, binfo))
+					dprintk(VIDC_ERR,
+					"%s: buffer unmap failed\n", __func__);
+
+				/*send event to client*/
+				v4l2_event_queue_fh(&inst->event_handler,
+					&buf_event);
+				wake_up(&inst->kernel_event_queue);
+				return;
+			}
 		default:
 			break;
 		}

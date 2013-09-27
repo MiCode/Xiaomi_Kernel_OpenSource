@@ -885,6 +885,7 @@ enum hal_flush {
 enum hal_event_type {
 	HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES,
 	HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES,
+	HAL_EVENT_RELEASE_BUFFER_REFERENCE,
 	HAL_UNUSED_SEQCHG = 0x10000000,
 };
 
@@ -953,6 +954,8 @@ struct msm_vidc_cb_event {
 	u32 height;
 	u32 width;
 	u32 hal_event_type;
+	u8 *packet_buffer;
+	u8 *exra_data_buffer;
 };
 
 /* Data callback structure */
