@@ -819,6 +819,107 @@ static void handle_ebd(enum command_response cmd, void *data)
 	}
 }
 
+int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo)
+{
+	int cnt = 0;
+
+	if (!inst || !binfo)
+		return -EINVAL;
+
+	mutex_lock(&inst->lock);
+	atomic_inc(&binfo->ref_count);
+	cnt = atomic_read(&binfo->ref_count);
+	if (cnt > 2) {
+		dprintk(VIDC_ERR, "%s: invalid ref_cnt: %d\n", __func__, cnt);
+		cnt = -EINVAL;
+	}
+	dprintk(VIDC_DBG, "REF_GET[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
+	mutex_unlock(&inst->lock);
+	return cnt;
+}
+
+int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
+{
+	int rc = 0;
+	int cnt;
+	bool release_buf = false;
+	bool qbuf_again = false;
+
+	if (!inst || !binfo)
+		return -EINVAL;
+
+	mutex_lock(&inst->lock);
+	atomic_dec(&binfo->ref_count);
+	cnt = atomic_read(&binfo->ref_count);
+	dprintk(VIDC_DBG, "REF_PUT[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
+	if (cnt == 0)
+		release_buf = true;
+	else if (cnt == 1)
+		qbuf_again = true;
+	else {
+		dprintk(VIDC_ERR, "%s: invalid ref_cnt: %d\n", __func__, cnt);
+		cnt = -EINVAL;
+	}
+	mutex_unlock(&inst->lock);
+
+	if (cnt < 0)
+		return cnt;
+
+	rc = output_buffer_cache_invalidate(inst, binfo);
+	if (rc)
+		return rc;
+
+	if (release_buf) {
+		/*
+		* We can not delete binfo here as we need to set the user
+		* virtual address saved in binfo->uvaddr to the dequeued v4l2
+		* buffer.
+		*
+		* We will set the pending_deletion flag to true here and delete
+		* binfo from registered list in dqbuf after setting the uvaddr.
+		*/
+		dprintk(VIDC_DBG, "fd[0] = %d -> pending_deletion = true\n",
+			binfo->fd[0]);
+		binfo->pending_deletion = true;
+	} else if (qbuf_again) {
+		rc = qbuf_dynamic_buf(inst, binfo);
+		if (!rc)
+			return rc;
+	}
+	return cnt;
+}
+
+static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
+					u32 device_addr, u32 flags)
+{
+	struct buffer_info *binfo = NULL;
+
+	/*
+	 * Update reference count and release OR queue back the buffer,
+	 * only when firmware is not holding a reference.
+	 */
+	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
+		binfo = device_to_uvaddr(inst, &inst->registered_bufs,
+				device_addr);
+		if (!binfo) {
+			dprintk(VIDC_ERR,
+				"%s buffer not found in registered list\n",
+				__func__);
+			return;
+		}
+		if (flags & HAL_BUFFERFLAG_READONLY) {
+			dprintk(VIDC_DBG,
+				"_F_B_D_ fd[0] = %d -> Reference with f/w",
+				binfo->fd[0]);
+		} else {
+			dprintk(VIDC_DBG,
+				"_F_B_D_ fd[0] = %d -> FBD_ref_released\n",
+				binfo->fd[0]);
+			buf_ref_put(inst, binfo);
+		}
+	}
+}
+
 static void handle_fbd(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -862,6 +963,10 @@ static void handle_fbd(enum command_response cmd, void *data)
 		}
 		vb->v4l2_buf.flags = 0;
 
+		handle_dynamic_buffer(inst, (u32)fill_buf_done->packet_buffer1,
+					fill_buf_done->flags1);
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_READONLY)
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_READONLY;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOS;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)

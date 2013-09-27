@@ -14,6 +14,7 @@
 #ifndef _MSM_VIDC_INTERNAL_H_
 #define _MSM_VIDC_INTERNAL_H_
 
+#include <linux/atomic.h>
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/completion.h>
@@ -231,6 +232,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_core_capability capability;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct list_head registered_bufs;
+	bool map_output_buffer;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -271,6 +273,21 @@ struct buffer_info {
 	u32 uvaddr[VIDEO_MAX_PLANES];
 	u32 device_addr[VIDEO_MAX_PLANES];
 	struct msm_smem *handle[VIDEO_MAX_PLANES];
+	enum v4l2_memory memory;
+	u32 v4l2_index;
+	bool pending_deletion;
+	atomic_t ref_count;
+	bool dequeued;
+	bool inactive;
+	bool mapped[VIDEO_MAX_PLANES];
+	int same_fd_ref[VIDEO_MAX_PLANES];
 };
 
+struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
+			struct list_head *list, u32 device_addr);
+int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
+int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
+				struct buffer_info *binfo);
+int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo);
 #endif
