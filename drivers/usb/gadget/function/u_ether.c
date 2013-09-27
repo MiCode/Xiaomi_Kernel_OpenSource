@@ -23,6 +23,8 @@
 #include <linux/if_vlan.h>
 #include <linux/if_arp.h>
 #include <linux/msm_rmnet.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #include "u_ether.h"
 
@@ -99,7 +101,13 @@ struct eth_dev {
 	bool			no_skb_reserve;
 	u8			host_mac[ETH_ALEN];
 	u8			dev_mac[ETH_ALEN];
+	unsigned long		tx_throttle;
+	struct dentry		*uether_dent;
+	struct dentry		*uether_dfile;
 };
+
+static void uether_debugfs_init(struct eth_dev *dev);
+static void uether_debugfs_exit(struct eth_dev *dev);
 
 /*-------------------------------------------------------------------------*/
 
@@ -719,8 +727,15 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	list_del(&req->list);
 
 	/* temporarily stop TX queue when the freelist empties */
-	if (list_empty(&dev->tx_reqs))
+	if (list_empty(&dev->tx_reqs)) {
+		/*
+		 * tx_throttle gives info about number of times u_ether
+		 * asked network layer to stop queueing packets to it
+		 * when transmit resources are unavailable
+		 */
+		dev->tx_throttle++;
 		netif_stop_queue(net);
+	}
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
 	/* no buffer copies needed, unless the network stack did it
@@ -1211,6 +1226,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
 		 *  - tx queueing enabled if open *and* carrier is "on"
 		 */
 		netif_carrier_off(net);
+		uether_debugfs_init(dev);
 	}
 
 	return dev;
@@ -1412,6 +1428,7 @@ void gether_cleanup(struct eth_dev *dev)
 	if (!dev)
 		return;
 
+	uether_debugfs_exit(dev);
 	unregister_netdev(dev->net);
 	flush_work(&dev->work);
 	free_netdev(dev->net);
@@ -1584,6 +1601,11 @@ void gether_disconnect(struct gether *link)
 		link->out_ep->desc = NULL;
 	}
 
+	pr_debug("%s(): tx_throttle count= %lu", __func__,
+					dev->tx_throttle);
+	/* reset tx_throttle count */
+	dev->tx_throttle = 0;
+
 	/* finish forgetting about this USB link episode */
 	dev->header_len = 0;
 	dev->unwrap = NULL;
@@ -1594,6 +1616,66 @@ void gether_disconnect(struct gether *link)
 	spin_unlock(&dev->lock);
 }
 EXPORT_SYMBOL_GPL(gether_disconnect);
+
+static int uether_stat_show(struct seq_file *s, void *unused)
+{
+	struct eth_dev *dev = s->private;
+	int ret = 0;
+
+	if (dev)
+		seq_printf(s, "tx_throttle = %lu\n", dev->tx_throttle);
+	return ret;
+}
+
+static int uether_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, uether_stat_show, inode->i_private);
+}
+
+static ssize_t uether_stat_reset(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct eth_dev *dev = s->private;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->lock, flags);
+	/* Reset tx_throttle */
+	dev->tx_throttle = 0;
+	spin_unlock_irqrestore(&dev->lock, flags);
+	return count;
+}
+
+static const struct file_operations uether_stats_ops = {
+	.open = uether_open,
+	.read = seq_read,
+	.write = uether_stat_reset,
+};
+
+static void uether_debugfs_init(struct eth_dev *dev)
+{
+	struct dentry *uether_dent;
+	struct dentry *uether_dfile;
+
+	uether_dent = debugfs_create_dir("uether_rndis", NULL);
+	if (IS_ERR(uether_dent))
+		return;
+	dev->uether_dent = uether_dent;
+
+	uether_dfile = debugfs_create_file("status", 0644,
+				uether_dent, dev, &uether_stats_ops);
+	if (!uether_dfile || IS_ERR(uether_dfile))
+		debugfs_remove(uether_dent);
+	dev->uether_dfile = uether_dfile;
+}
+
+static void uether_debugfs_exit(struct eth_dev *dev)
+{
+	debugfs_remove(dev->uether_dfile);
+	debugfs_remove(dev->uether_dent);
+	dev->uether_dent = NULL;
+	dev->uether_dfile = NULL;
+}
 
 static int __init gether_init(void)
 {
