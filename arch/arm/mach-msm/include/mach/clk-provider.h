@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
+#include <linux/seq_file.h>
 #include <mach/clk.h>
 
 /*
@@ -40,6 +41,21 @@
 #define ENABLE		3	/* Bit pol: 1 = running */
 #define ENABLE_VOTED	4	/* Bit pol: 1 = running; delay on disable */
 #define DELAY		5	/* No bit to check, just delay */
+
+struct clk_register_data {
+	char *name;
+	u32 offset;
+};
+#ifdef CONFIG_DEBUG_FS
+void clk_debug_print_hw(struct clk *clk, struct seq_file *f);
+#else
+static inline void clock_debug_print_hw(struct clk *clk, struct seq_file *f) {}
+#endif
+
+#define CLK_WARN(clk, cond, fmt, ...) do {				\
+	clk_debug_print_hw(clk, NULL);					\
+	WARN(cond, "%s: " fmt, (clk)->dbg_name, ##__VA_ARGS__);		\
+} while (0)
 
 /**
  * struct clk_vdd_class - Voltage scaling class
@@ -129,6 +145,8 @@ struct clk_ops {
 	int (*set_parent)(struct clk *clk, struct clk *parent);
 	struct clk *(*get_parent)(struct clk *clk);
 	bool (*is_local)(struct clk *clk);
+	void __iomem *(*list_registers)(struct clk *clk, int n,
+				struct clk_register_data **regs, u32 *size);
 };
 
 /**
