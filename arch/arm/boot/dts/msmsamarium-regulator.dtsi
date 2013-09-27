@@ -462,7 +462,7 @@
 	qcom,pma8084@1 {
 		pma8084_s8: regulator@2900 {
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1100000>;
+			regulator-max-microvolt = <1250000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
@@ -472,7 +472,7 @@
 
 		pma8084_s9: regulator@2c00 {
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1100000>;
+			regulator-max-microvolt = <1250000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
@@ -482,7 +482,7 @@
 
 		pma8084_s10: regulator@2f00 {
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1100000>;
+			regulator-max-microvolt = <1250000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
@@ -492,7 +492,7 @@
 
 		pma8084_s11: regulator@3200 {
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1100000>;
+			regulator-max-microvolt = <1250000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
