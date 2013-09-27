@@ -371,6 +371,7 @@ DEFINE_CLK_RPM_SMD(mmssnoc_ahb, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
 DEFINE_CLK_RPM_SMD(ocmemgx, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID, NULL);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk2, bb_clk2_a, BB_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk1, rf_clk1_a, RF_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk3, rf_clk3_a, RF_CLK3_ID);
@@ -380,6 +381,7 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk2, div_clk2_a, DIV_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk3, div_clk3_a, DIV_CLK3_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk1_pin, rf_clk1_a_pin, RF_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_a_pin, RF_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk3_pin, rf_clk3_a_pin, RF_CLK3_ID);
@@ -3298,6 +3300,8 @@ static struct clk_lookup msm_clocks_samarium[] = {
 
 	CLK_LOOKUP("", bb_clk1.c, ""),
 	CLK_LOOKUP("", bb_clk1_a.c, ""),
+	CLK_LOOKUP("", bb_clk2.c, ""),
+	CLK_LOOKUP("", bb_clk2_a.c, ""),
 	CLK_LOOKUP("", rf_clk1.c, ""),
 	CLK_LOOKUP("", rf_clk1_a.c, ""),
 	CLK_LOOKUP("", rf_clk2.c, ""),
@@ -3313,6 +3317,8 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("", diff_clk1_a.c, ""),
 	CLK_LOOKUP("", bb_clk1_pin.c, ""),
 	CLK_LOOKUP("", bb_clk1_a_pin.c, ""),
+	CLK_LOOKUP("", bb_clk2_pin.c, ""),
+	CLK_LOOKUP("ref_clk", bb_clk2_a_pin.c, "3-000e"),
 	CLK_LOOKUP("", rf_clk1_pin.c, ""),
 	CLK_LOOKUP("", rf_clk1_a_pin.c, ""),
 	CLK_LOOKUP("", rf_clk2_pin.c, ""),
