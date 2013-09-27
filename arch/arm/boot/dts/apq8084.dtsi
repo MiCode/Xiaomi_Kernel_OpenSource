@@ -1274,6 +1274,7 @@
 
 	android_usb {
 		compatible = "qcom,android-usb";
+		qcom,android-usb-swfi-latency = <1>;
 	};
 
 	hsphy0: hsphy@f92f8800 {
