@@ -690,11 +690,16 @@ static void msm_ehci_phy_susp_fail_work(struct work_struct *w)
 					phy_susp_fail_work);
 	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
 
+	pm_runtime_disable(mhcd->dev);
+
 	msm_ehci_vbus_power(mhcd, 0);
 	usb_remove_hcd(hcd);
 	msm_hsusb_reset(mhcd);
 	usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	msm_ehci_vbus_power(mhcd, 1);
+
+	pm_runtime_set_active(mhcd->dev);
+	pm_runtime_enable(mhcd->dev);
 }
 
 #define PHY_SUSP_TIMEOUT_MSEC	500
