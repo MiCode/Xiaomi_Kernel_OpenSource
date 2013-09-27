@@ -32,6 +32,36 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_i2c_act_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting gpio_touch_int_act_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting gpio_touch_int_sus_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting gpio_touch_reset_act_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting gpio_touch_reset_sus_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_spi_config = {
 	.func = GPIOMUX_FUNC_1,
@@ -89,12 +119,14 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
 		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{
 		.gpio      = 7,		/* BLSP1 QUP2 I2C_SCL */
 		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
@@ -123,7 +155,6 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 };
-
 
 static struct gpiomux_setting lcd_en_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -155,6 +186,23 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
+	{
+		.gpio      = 14,	       /* TOUCH INT GPIO */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_touch_int_act_config,
+			[GPIOMUX_SUSPENDED] = &gpio_touch_int_sus_config,
+		},
+	},
+	{
+		.gpio      = 13,	       /* TOUCH RESET GPIO */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_touch_reset_act_config,
+			[GPIOMUX_SUSPENDED] = &gpio_touch_reset_sus_config,
+		},
+	},
+};
+
 void __init msmsamarium_init_gpiomux(void)
 {
 	int rc;
@@ -170,4 +218,5 @@ void __init msmsamarium_init_gpiomux(void)
 #endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
+	msm_gpiomux_install(msm_touch_configs, ARRAY_SIZE(msm_touch_configs));
 }

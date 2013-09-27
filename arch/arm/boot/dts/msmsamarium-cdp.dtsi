@@ -24,6 +24,33 @@
 		startup-delay-us = <500>;
 		enable-active-high;
 	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "synaptics_rmi4_i2c";
+		qcom,disp-maxx = <1079>;
+		qcom,disp-maxy = <1919>;
+		qcom,panel-maxx = <1079>;
+		qcom,panel-maxy = <2084>;
+		qcom,key-codes = <158 139 102 217>;
+	};
+};
+
+&i2c_2 {
+	synaptics@20 {
+		compatible = "synaptics,rmi4";
+		reg = <0x20>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <14 0x2008>;
+		vdd-supply = <&pma8084_l18>;
+		vcc_i2c-supply = <&pma8084_lvs1>;
+		synaptics,reset-gpio = <&msmgpio 13 0x00>;
+		synaptics,irq-gpio = <&msmgpio 14 0x2008>;
+		synaptics,display-coords = <0 0 1079 1919>;
+		synaptics,i2c-pull-up;
+		synaptics,power-down;
+		synaptics,disable-gpios;
+	};
 };
 
 &blsp1_uart1{
