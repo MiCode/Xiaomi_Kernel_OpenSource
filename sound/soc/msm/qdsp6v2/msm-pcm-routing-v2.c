@@ -1429,7 +1429,7 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 		break;
 	case 1:
 		msm_route_ec_ref_rx = 1;
-		ec_ref_port_id = PRIMARY_I2S_RX;
+		ec_ref_port_id = AFE_PORT_ID_PRIMARY_MI2S_RX;
 		break;
 	default:
 		msm_route_ec_ref_rx = 3; /* NONE */
