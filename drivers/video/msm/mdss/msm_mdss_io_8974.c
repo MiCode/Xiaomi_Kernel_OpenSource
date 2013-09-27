@@ -26,10 +26,11 @@
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
+static struct mdss_dsi_ctrl_pdata *left_ctrl;
 static struct dsi_clk_desc dsi_pclk;
 
 int mdss_dsi_clk_init(struct platform_device *pdev,
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+	struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct device *dev = NULL;
 	int rc = 0;
@@ -40,77 +41,86 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
-	ctrl_pdata->mdp_core_clk = clk_get(dev, "mdp_core_clk");
-	if (IS_ERR(ctrl_pdata->mdp_core_clk)) {
-		rc = PTR_ERR(ctrl_pdata->mdp_core_clk);
+	ctrl->mdp_core_clk = clk_get(dev, "mdp_core_clk");
+	if (IS_ERR(ctrl->mdp_core_clk)) {
+		rc = PTR_ERR(ctrl->mdp_core_clk);
 		pr_err("%s: Unable to get mdp core clk. rc=%d\n",
 			__func__, rc);
 		goto mdss_dsi_clk_err;
 	}
 
-	ctrl_pdata->ahb_clk = clk_get(dev, "iface_clk");
-	if (IS_ERR(ctrl_pdata->ahb_clk)) {
-		rc = PTR_ERR(ctrl_pdata->ahb_clk);
+	ctrl->ahb_clk = clk_get(dev, "iface_clk");
+	if (IS_ERR(ctrl->ahb_clk)) {
+		rc = PTR_ERR(ctrl->ahb_clk);
 		pr_err("%s: Unable to get mdss ahb clk. rc=%d\n",
 			__func__, rc);
 		goto mdss_dsi_clk_err;
 	}
 
-	ctrl_pdata->axi_clk = clk_get(dev, "bus_clk");
-	if (IS_ERR(ctrl_pdata->axi_clk)) {
-		rc = PTR_ERR(ctrl_pdata->axi_clk);
+	ctrl->axi_clk = clk_get(dev, "bus_clk");
+	if (IS_ERR(ctrl->axi_clk)) {
+		rc = PTR_ERR(ctrl->axi_clk);
 		pr_err("%s: Unable to get axi bus clk. rc=%d\n",
 			__func__, rc);
 		goto mdss_dsi_clk_err;
 	}
 
-	ctrl_pdata->byte_clk = clk_get(dev, "byte_clk");
-	if (IS_ERR(ctrl_pdata->byte_clk)) {
-		rc = PTR_ERR(ctrl_pdata->byte_clk);
+	ctrl->byte_clk = clk_get(dev, "byte_clk");
+	if (IS_ERR(ctrl->byte_clk)) {
+		rc = PTR_ERR(ctrl->byte_clk);
 		pr_err("%s: can't find dsi_byte_clk. rc=%d\n",
 			__func__, rc);
-		ctrl_pdata->byte_clk = NULL;
+		ctrl->byte_clk = NULL;
 		goto mdss_dsi_clk_err;
 	}
 
-	ctrl_pdata->pixel_clk = clk_get(dev, "pixel_clk");
-	if (IS_ERR(ctrl_pdata->pixel_clk)) {
-		rc = PTR_ERR(ctrl_pdata->pixel_clk);
+	ctrl->pixel_clk = clk_get(dev, "pixel_clk");
+	if (IS_ERR(ctrl->pixel_clk)) {
+		rc = PTR_ERR(ctrl->pixel_clk);
 		pr_err("%s: can't find dsi_pixel_clk. rc=%d\n",
 			__func__, rc);
-		ctrl_pdata->pixel_clk = NULL;
+		ctrl->pixel_clk = NULL;
 		goto mdss_dsi_clk_err;
 	}
 
-	ctrl_pdata->esc_clk = clk_get(dev, "core_clk");
-	if (IS_ERR(ctrl_pdata->esc_clk)) {
-		rc = PTR_ERR(ctrl_pdata->esc_clk);
+	ctrl->esc_clk = clk_get(dev, "core_clk");
+	if (IS_ERR(ctrl->esc_clk)) {
+		rc = PTR_ERR(ctrl->esc_clk);
 		pr_err("%s: can't find dsi_esc_clk. rc=%d\n",
 			__func__, rc);
-		ctrl_pdata->esc_clk = NULL;
+		ctrl->esc_clk = NULL;
 		goto mdss_dsi_clk_err;
+	}
+
+	if (ctrl->shared_pdata.broadcast_enable) {
+		if (ctrl->panel_data.panel_info.pdest
+					== DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			left_ctrl = ctrl;
+		}
 	}
 
 mdss_dsi_clk_err:
 	if (rc)
-		mdss_dsi_clk_deinit(ctrl_pdata);
+		mdss_dsi_clk_deinit(ctrl);
 	return rc;
 }
 
-void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
+void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
 {
-	if (ctrl_pdata->byte_clk)
-		clk_put(ctrl_pdata->byte_clk);
-	if (ctrl_pdata->esc_clk)
-		clk_put(ctrl_pdata->esc_clk);
-	if (ctrl_pdata->pixel_clk)
-		clk_put(ctrl_pdata->pixel_clk);
-	if (ctrl_pdata->axi_clk)
-		clk_put(ctrl_pdata->axi_clk);
-	if (ctrl_pdata->ahb_clk)
-		clk_put(ctrl_pdata->ahb_clk);
-	if (ctrl_pdata->mdp_core_clk)
-		clk_put(ctrl_pdata->mdp_core_clk);
+	if (ctrl->byte_clk)
+		clk_put(ctrl->byte_clk);
+	if (ctrl->esc_clk)
+		clk_put(ctrl->esc_clk);
+	if (ctrl->pixel_clk)
+		clk_put(ctrl->pixel_clk);
+	if (ctrl->axi_clk)
+		clk_put(ctrl->axi_clk);
+	if (ctrl->ahb_clk)
+		clk_put(ctrl->ahb_clk);
+	if (ctrl->mdp_core_clk)
+		clk_put(ctrl->mdp_core_clk);
 }
 
 #define PREF_DIV_RATIO 27
@@ -279,6 +289,21 @@ error:
 
 void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
+	if (ctrl_pdata->shared_pdata.broadcast_enable) {
+		if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			return;
+		} else if (left_ctrl &&
+				(ctrl_pdata->panel_data.panel_info.pdest
+							== DISPLAY_2)) {
+			pr_debug("%s: disable_unprepare left ctrl bus clks\n",
+							__func__);
+			clk_disable_unprepare(left_ctrl->axi_clk);
+			clk_disable_unprepare(left_ctrl->ahb_clk);
+			clk_disable_unprepare(left_ctrl->mdp_core_clk);
+		}
+	}
 	clk_disable_unprepare(ctrl_pdata->axi_clk);
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
 	clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
@@ -321,6 +346,21 @@ static void mdss_dsi_clk_unprepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
+	}
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable) {
+		if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			return;
+		} else if (left_ctrl &&
+				(ctrl_pdata->panel_data.panel_info.pdest
+							== DISPLAY_2)) {
+			pr_debug("%s: unprepare left ctrl clocks\n", __func__);
+			clk_unprepare(left_ctrl->pixel_clk);
+			clk_unprepare(left_ctrl->byte_clk);
+			clk_unprepare(left_ctrl->esc_clk);
+		}
 	}
 
 	clk_unprepare(ctrl_pdata->pixel_clk);
@@ -425,6 +465,22 @@ static void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		return;
 	}
 
+	if (ctrl_pdata->shared_pdata.broadcast_enable) {
+		if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			return;
+		} else if (left_ctrl &&
+				(ctrl_pdata->panel_data.panel_info.pdest
+							== DISPLAY_2)) {
+			pr_debug("%s: disabled left ctrl clocks\n", __func__);
+			clk_disable(left_ctrl->pixel_clk);
+			clk_disable(left_ctrl->byte_clk);
+			clk_disable(left_ctrl->esc_clk);
+			left_ctrl->mdss_dsi_clk_on = 0;
+		}
+	}
+
 	clk_disable(ctrl_pdata->esc_clk);
 	clk_disable(ctrl_pdata->pixel_clk);
 	clk_disable(ctrl_pdata->byte_clk);
@@ -504,18 +560,10 @@ void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
 
 void mdss_dsi_phy_enable(struct mdss_dsi_ctrl_pdata *ctrl, int on)
 {
-	static struct mdss_dsi_ctrl_pdata *left_ctrl;
-
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
-
-	if (!left_ctrl
-		&& ctrl->shared_pdata.broadcast_enable)
-		if ((ctrl->panel_data).panel_info.pdest
-						== DISPLAY_1)
-			left_ctrl = ctrl;
 
 	if (on) {
 		MIPI_OUTP(ctrl->ctrl_base + 0x03cc, 0x03);
