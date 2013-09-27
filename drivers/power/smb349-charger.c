@@ -863,14 +863,18 @@ static void dump_regs(struct smb349_charger *chip)
 static int apsd_complete(struct smb349_charger *chip, u8 status)
 {
 	int rc;
-	u8 reg = 0, type = POWER_SUPPLY_TYPE_UNKNOWN;
+	u8 reg = 0;
+	enum power_supply_type type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	/*
 	 * If apsd is disabled, charger detection is done by
 	 * DCIN UV irq.
+	 * status = ZERO - indicates charger removed, handled
+	 * by DCIN UV irq
 	 */
-	if (chip->disable_apsd) {
-		dev_dbg(chip->dev, "APSD disabled!\n");
+	if (chip->disable_apsd || status == 0) {
+		dev_dbg(chip->dev, "APSD %s, status = %d\n",
+			chip->disable_apsd ? "disabled" : "enabled", !!status);
 		return 0;
 	}
 
@@ -914,7 +918,7 @@ static int apsd_complete(struct smb349_charger *chip, u8 status)
 	if (chip->enable_chg_type_detection) {
 		dev_dbg(chip->dev, "%s updating usb_psy with type=%d", __func__,
 				type);
-		power_supply_set_charge_type(chip->usb_psy, type);
+		power_supply_set_supply_type(chip->usb_psy, type);
 	}
 
 	 /* SMB is now done sampling the D+/D- lines, indicate USB driver */
@@ -939,6 +943,9 @@ static int chg_uv(struct smb349_charger *chip, u8 status)
 		chip->chg_present = false;
 		dev_dbg(chip->dev, "%s updating usb_psy present=%d",
 				__func__, chip->chg_present);
+		if (chip->enable_chg_type_detection)
+			power_supply_set_supply_type(chip->usb_psy,
+						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 	}
 
@@ -1175,15 +1182,10 @@ static int determine_initial_state(struct smb349_charger *chip)
 	}
 
 	if (reg & IRQ_E_INPUT_UV_BIT) {
-		chip->chg_present = false;
-		dev_dbg(chip->dev, "%s updating usb_psy present=%d",
-				__func__, chip->chg_present);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+		chg_uv(chip, 1);
 	} else {
-		chip->chg_present = true;
-		dev_dbg(chip->dev, "%s updating usb_psy present=%d",
-				__func__, chip->chg_present);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+		chg_uv(chip, 0);
+		apsd_complete(chip, 1);
 	}
 
 	return 0;
@@ -1294,8 +1296,6 @@ static int smb349_charger_probe(struct i2c_client *client,
 
 	/* STAT irq configuration */
 	if (client->irq) {
-		/* check the intial state of the irq status registers */
-		smb349_chg_stat_handler(client->irq, chip);
 		rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
 				smb349_chg_stat_handler,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
