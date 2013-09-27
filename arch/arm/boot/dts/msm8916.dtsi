@@ -279,6 +279,13 @@
 		compatible = "qcom,msm-mem-hole";
 		qcom,memblock-remove = <0x88800000 0x06900000>;
 	};
+
+	qcom,bam_dmux@4044000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0x4044000 0x19000>;
+		interrupts = <0 29 1>;
+		qcom,rx-ring-size = <32>;
+	};
 };
 
 /include/ "msm8916-regulator.dtsi"
