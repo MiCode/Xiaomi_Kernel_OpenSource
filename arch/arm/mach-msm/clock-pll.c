@@ -127,6 +127,38 @@ static enum handoff pll_vote_clk_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static void __iomem *pll_vote_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+	static struct clk_register_data data1[] = {
+		{"APPS_VOTE", 0x0},
+	};
+	/* Not compatible with 8960 & friends */
+	static struct clk_register_data data2[] = {
+		{"MODE", 0x0},
+		{"L", 0x4},
+		{"M", 0x8},
+		{"N", 0xC},
+		{"USER", 0x10},
+		{"CONFIG", 0x14},
+		{"STATUS", 0x1C},
+	};
+
+	switch (n) {
+	case 0:
+		*regs = data1;
+		*size = ARRAY_SIZE(data1);
+		return PLL_EN_REG(pllv);
+	case 1:
+		*regs = data2;
+		*size = ARRAY_SIZE(data2);
+		return PLL_STATUS_REG(pllv) - 0x1C;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+}
+
 struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
@@ -134,6 +166,7 @@ struct clk_ops clk_ops_pll_vote = {
 	.round_rate = fixed_pll_clk_round_rate,
 	.set_rate = fixed_pll_clk_set_rate,
 	.handoff = pll_vote_clk_handoff,
+	.list_registers = pll_vote_clk_list_registers,
 };
 
 static void __pll_config_reg(void __iomem *pll_config, struct pll_freq_tbl *f,
@@ -431,11 +464,35 @@ out:
 	return ret;
 }
 
+static void __iomem *local_pll_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	/* Not compatible with 8960 & friends */
+	struct pll_clk *pll = to_pll_clk(c);
+	static struct clk_register_data data[] = {
+		{"MODE", 0x0},
+		{"L", 0x4},
+		{"M", 0x8},
+		{"N", 0xC},
+		{"USER", 0x10},
+		{"CONFIG", 0x14},
+		{"STATUS", 0x1C},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return PLL_MODE_REG(pll);
+}
+
+
 struct clk_ops clk_ops_local_pll = {
 	.enable = local_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
 	.handoff = local_pll_clk_handoff,
+	.list_registers = local_pll_clk_list_registers,
 };
 
 struct clk_ops clk_ops_sr2_pll = {
@@ -444,6 +501,7 @@ struct clk_ops clk_ops_sr2_pll = {
 	.set_rate = local_pll_clk_set_rate,
 	.round_rate = local_pll_clk_round_rate,
 	.handoff = local_pll_clk_handoff,
+	.list_registers = local_pll_clk_list_registers,
 };
 
 struct pll_rate {
@@ -662,6 +720,7 @@ struct clk_ops clk_ops_pll_acpu_vote = {
 	.set_rate = fixed_pll_clk_set_rate,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.handoff = pll_acpu_vote_clk_handoff,
+	.list_registers = pll_vote_clk_list_registers,
 };
 
 static void __set_fsm_mode(void __iomem *mode_reg,
