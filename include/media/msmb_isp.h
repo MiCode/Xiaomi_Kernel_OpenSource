@@ -6,6 +6,7 @@
 #define MAX_PLANES_PER_STREAM 3
 #define MAX_NUM_STREAM 7
 
+#define ISP_VERSION_44        44
 #define ISP_VERSION_40        40
 #define ISP_VERSION_32        32
 #define ISP_NATIVE_BUF_BIT    0x10000
@@ -191,6 +192,7 @@ enum msm_isp_stats_type {
 	MSM_ISP_STATS_BF,    /* Bayer Focus */
 	MSM_ISP_STATS_BE,    /* Bayer Exposure*/
 	MSM_ISP_STATS_BHIST, /* Bayer Hist */
+	MSM_ISP_STATS_BF_SCALE, /* Bayer Focus scale */
 	MSM_ISP_STATS_MAX    /* MAX */
 };
 
