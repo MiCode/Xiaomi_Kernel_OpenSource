@@ -44,6 +44,7 @@ nintendo	Nintendo
 nvidia	NVIDIA
 nxp	NXP Semiconductors
 onnn	ON Semiconductor Corp.
+ovti	OmniVision Technologies, Inc.
 picochip	Picochip Ltd
 powervr	PowerVR (deprecated, use img)
 qcom	Qualcomm, Inc.
