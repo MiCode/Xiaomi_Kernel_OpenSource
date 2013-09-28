@@ -2692,6 +2692,12 @@ static int msm8x10_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 	return ret;
 }
 
+static void msm8x10_wcd_micb_internal(struct snd_soc_codec *codec, bool on)
+{
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_INT_RBIAS,
+			    0x1C, on ? 0x14 : 0x00);
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
@@ -2704,6 +2710,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_clock_gate = msm8x10_wcd_mbhc_clk_gate,
 	.enable_mbhc_txfe = msm8x10_wcd_mbhc_txfe,
 	.enable_mb_source = msm8x10_wcd_enable_ext_mb_source,
+	.setup_int_rbias = msm8x10_wcd_micb_internal,
 };
 
 static void delayed_hs_detect_fn(struct work_struct *work)

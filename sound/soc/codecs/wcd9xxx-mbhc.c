@@ -3949,6 +3949,18 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 		0x40, WCD9XXX_CFILT_FAST_MODE);
 
 	/*
+	 * setup internal micbias if codec uses internal micbias for
+	 * headset detection
+	 */
+	if (mbhc->mbhc_cfg->use_int_rbias) {
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->setup_int_rbias)
+			mbhc->mbhc_cb->setup_int_rbias(codec, true);
+		else
+			pr_info("%s: internal bias is requested but codec did not provide callback\n",
+				__func__);
+	}
+
+	/*
 	 * If codec has specific clock gating for MBHC,
 	 * remove the clock gate
 	 */
