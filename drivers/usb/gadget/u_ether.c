@@ -612,6 +612,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 				}
 
 				new_req->length = length;
+				new_req->complete = tx_complete;
 				retval = usb_ep_queue(in, new_req, GFP_ATOMIC);
 				switch (retval) {
 				default:
