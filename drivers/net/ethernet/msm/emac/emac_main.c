@@ -466,9 +466,12 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		}
 
 		skb_put(skb, srrd.genr.pkt_len - ETH_FCS_LEN);
-		skb->ip_summed = CHECKSUM_NONE;
 		skb->dev = netdev;
 		skb->protocol = eth_type_trans(skb, skb->dev);
+		if (netdev->features & NETIF_F_RXCSUM)
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		else
+			skb_checksum_none_assert(skb);
 
 		if (CHK_HW_FLAG(TS_RX_EN)) {
 			struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
