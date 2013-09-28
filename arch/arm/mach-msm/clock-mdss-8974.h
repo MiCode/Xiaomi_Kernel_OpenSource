@@ -80,6 +80,11 @@ extern struct mux_clk byte_mux_8084;
 extern struct div_clk byte_clk_src_8084;
 
 extern struct div_clk hdmipll_clk_src;
+extern struct mux_clk hdmipll_mux_clk;
+extern struct div_clk hdmipll_div1_clk;
+extern struct div_clk hdmipll_div2_clk;
+extern struct div_clk hdmipll_div4_clk;
+extern struct div_clk hdmipll_div6_clk;
 
 extern struct dsi_pll_vco_clk dsi_vco_clk_samarium;
 extern struct div_clk analog_postdiv_clk_samarium;
