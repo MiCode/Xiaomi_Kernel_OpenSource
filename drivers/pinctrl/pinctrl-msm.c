@@ -543,6 +543,9 @@ static bool msm_pintype_supports_gpio(struct msm_pintype_info *pinfo)
 {
 	struct device_node *pt_node;
 
+	if (!pinfo->node)
+		return false;
+
 	for_each_child_of_node(pinfo->node, pt_node) {
 		if (of_find_property(pt_node, "gpio-controller", NULL)) {
 			pinfo->gc.of_node = pt_node;
