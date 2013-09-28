@@ -338,7 +338,7 @@ static int adsp_shutdown(const struct subsys_desc *subsys, bool force_stop)
 		mb();
 	}
 	pil_shutdown(&drv->q6->desc);
-	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
+	disable_irq(drv->subsys_desc.wdog_bite_irq);
 
 	pr_debug("ADSP is Down\n");
 	adsp_set_state("OFFLINE");

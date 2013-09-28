@@ -350,7 +350,7 @@ static int wcnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct pronto_data *drv = subsys_to_drv(subsys);
 
-	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
+	disable_irq(drv->subsys_desc.wdog_bite_irq);
 	pil_shutdown(&drv->desc);
 	return 0;
 }
