@@ -56,6 +56,16 @@ config MSM_CSI30_HEADER
           This config macro is required for targets based on
           8064 platforms.
 
+config MSM_CSI31_HEADER
+        bool "Qualcomm MSM CSI 3.1 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 3.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required for targets based on
+          APQ8084 platform.
+
 config MSM_CSIPHY
         bool "Qualcomm MSM Camera Serial Interface Physical receiver support"
         depends on MSMB_CAMERA

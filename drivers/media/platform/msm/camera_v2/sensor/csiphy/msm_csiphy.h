@@ -42,8 +42,9 @@ struct csiphy_device {
 	uint32_t hw_version;
 	enum msm_csiphy_state_t csiphy_state;
 
-	struct clk *csiphy_clk[4];
-	uint8_t ref_count;
+	struct clk *csiphy_clk[8];
+
+	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
 };
 

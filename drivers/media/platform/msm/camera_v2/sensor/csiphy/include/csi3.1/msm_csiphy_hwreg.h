@@ -16,7 +16,6 @@
 #include "msm_camera_io_util.h"
 
 /*MIPI CSI PHY registers*/
-#define MIPI_CSIPHY_HW_VERSION_ADDR              0x17C
 #define MIPI_CSIPHY_LNn_CFG1_ADDR                0x0
 #define MIPI_CSIPHY_LNn_CFG2_ADDR                0x4
 #define MIPI_CSIPHY_LNn_CFG3_ADDR                0x8
@@ -31,19 +30,23 @@
 #define MIPI_CSIPHY_GLBL_RESET_ADDR              0x140
 #define MIPI_CSIPHY_GLBL_PWR_CFG_ADDR            0x144
 #define MIPI_CSIPHY_GLBL_IRQ_CMD_ADDR            0x164
-#define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR       0x180
-#define MIPI_CSIPHY_INTERRUPT_MASK0_ADDR         0x1A0
-#define MIPI_CSIPHY_INTERRUPT_MASK_VAL           0x6F
-#define MIPI_CSIPHY_INTERRUPT_MASK_ADDR          0x1A4
-#define MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR        0x1C0
-#define MIPI_CSIPHY_INTERRUPT_CLEAR_ADDR         0x1C4
+#define MIPI_CSIPHY_HW_VERSION_ADDR              0x188
+#define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR       0x18C
+#define MIPI_CSIPHY_INTERRUPT_MASK0_ADDR         0x1AC
+#define MIPI_CSIPHY_INTERRUPT_MASK_VAL           0x3F
+#define MIPI_CSIPHY_INTERRUPT_MASK_ADDR          0x1AC
+#define MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR        0x1CC
+#define MIPI_CSIPHY_INTERRUPT_CLEAR_ADDR         0x1CC
 #define MIPI_CSIPHY_MODE_CONFIG_SHIFT            0x4
-#define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1E0
-#define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1E8
-#define CSIPHY_VERSION                           0x0
+#define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1EC
+#define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1F4
+#define CSIPHY_VERSION                           0x31
 
 static struct msm_cam_clk_info csiphy_clk_info[] = {
-	{"csiphy_timer_src_clk", 177780000},
+	{"camss_top_ahb_clk", -1},
+	{"camss_ahb_clk", -1},
+	{"ispif_ahb_clk", -1},
+	{"csiphy_timer_src_clk", 200000000},
 	{"csiphy_timer_clk", -1},
 };
 

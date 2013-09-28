@@ -13,6 +13,9 @@
 #ifndef MSM_CSID_HWREG_H
 #define MSM_CSID_HWREG_H
 
+
+#include "msm_camera_io_util.h"
+
 /* MIPI	CSID registers */
 #define CSID_HW_VERSION_ADDR                        0x0
 #define CSID_CORE_CTRL_0_ADDR                       0x4
@@ -48,5 +51,25 @@
 #define CSID_DL_INPUT_SEL_SHIFT                     0x2
 #define CSID_PHY_SEL_SHIFT                          17
 #define CSID_VERSION                                0x02000011
+
+static struct msm_cam_clk_info csid_clk_info[] = {
+	{"csi_src_clk", 177780000},
+	{"csi_clk", -1},
+	{"csi_phy_clk", -1},
+	{"csi_pclk", -1},
+};
+
+static struct msm_cam_clk_info csid_clk_src_info[] = {
+	{"csi_phy_src_clk", 0},
+	{"csi_phy_src_clk", 0},
+	{"csi_pix_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+	{"csi_rdi_src_clk", 0},
+};
+
+static struct camera_vreg_t csid_vreg_info[] = {
+	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
+};
 
 #endif
