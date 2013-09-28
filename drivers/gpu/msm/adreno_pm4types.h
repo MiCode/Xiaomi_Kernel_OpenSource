@@ -96,6 +96,11 @@
 /* initiate fetch of bin IDs and draw using supplied indices */
 #define CP_DRAW_INDX_2_BIN	0x35
 
+/* New draw packets defined for A4XX */
+#define CP_DRAW_INDX_OFFSET	0x38
+#define CP_DRAW_INDIRECT	0x28
+#define CP_DRAW_INDX_INDIRECT	0x29
+#define CP_DRAW_AUTO		0x24
 
 /* begin/end initiator for viz query extent processing */
 #define CP_VIZ_QUERY		0x23
