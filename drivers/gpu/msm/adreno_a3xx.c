@@ -2345,17 +2345,40 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a3xx_drawctxt_detach(struct adreno_context *drawctxt)
+{
+	kgsl_sharedmem_free(&drawctxt->gpustate);
+	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
+}
+
+static int a3xx_drawctxt_save(struct adreno_device *adreno_dev,
+			   struct adreno_context *context);
+
+static int a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
+			      struct adreno_context *context);
+
+static const struct adreno_context_ops a3xx_legacy_ctx_ops = {
+	.save = a3xx_drawctxt_save,
+	.restore = a3xx_drawctxt_restore,
+	.detach = a3xx_drawctxt_detach,
+};
+
+
 static int a3xx_drawctxt_create(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt)
 {
 	int ret;
 
 	/*
-	 * Allocate memory for the GPU state and the context commands.
-	 * Despite the name, this is much more then just storage for
-	 * the gpustate.  This contains command space for gmem save
-	 * and texture and vertex buffer storage too
+	 * Nothing to do here if the context is using preambles and doesn't need
+	 * GMEM save/restore
 	 */
+	if ((drawctxt->flags & CTXT_FLAGS_PREAMBLE) &&
+		(drawctxt->flags & CTXT_FLAGS_NOGMEMALLOC)) {
+		drawctxt->ops = &adreno_preamble_ctx_ops;
+		return 0;
+	}
+	drawctxt->ops = &a3xx_legacy_ctx_ops;
 
 	ret = kgsl_allocate(&drawctxt->gpustate,
 		drawctxt->base.proc_priv->pagetable, CONTEXT_SIZE);
@@ -2390,9 +2413,6 @@ static int a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	int ret;
-
-	if (context == NULL || (context->flags & CTXT_FLAGS_BEING_DESTROYED))
-		return 0;
 
 	if (context->state == ADRENO_CONTEXT_STATE_INVALID)
 		return 0;
@@ -2451,38 +2471,12 @@ static int a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 			      struct adreno_context *context)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int cmds[5];
-	int ret = 0;
+	int ret;
 
-	if (context == NULL) {
-		/* No context - set the default pagetable and thats it */
-		unsigned int id;
-		/*
-		 * If there isn't a current context, the kgsl_mmu_setstate
-		 * will use the CPU path so we don't need to give
-		 * it a valid context id.
-		 */
-		id = (adreno_dev->drawctxt_active != NULL)
-			? adreno_dev->drawctxt_active->base.id
-			: KGSL_CONTEXT_INVALID;
-		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable,
-				  id);
-		return 0;
-	}
-
-	cmds[0] = cp_nop_packet(1);
-	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
-	cmds[3] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
-	cmds[4] = context->base.id;
-	ret = adreno_ringbuffer_issuecmds(device, context, KGSL_CMD_FLAGS_NONE,
-					cmds, 5);
+	/* do the common part */
+	ret = adreno_context_restore(adreno_dev, context);
 	if (ret)
 		return ret;
-
-	kgsl_mmu_setstate(&device->mmu, context->base.proc_priv->pagetable,
-			context->base.id);
 
 	/*
 	 * Restore GMEM.  (note: changes shader.
@@ -4401,9 +4395,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounters = &a3xx_perfcounters,
 
 	.ctxt_create = a3xx_drawctxt_create,
-	.ctxt_save = a3xx_drawctxt_save,
-	.ctxt_restore = a3xx_drawctxt_restore,
-	.ctxt_draw_workaround = NULL,
 	.rb_init = a3xx_rb_init,
 	.perfcounter_init = a3xx_perfcounter_init,
 	.perfcounter_close = a3xx_perfcounter_close,

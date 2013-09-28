@@ -106,70 +106,6 @@ const unsigned int a4xx_registers[] = {
 
 const unsigned int a4xx_registers_count = ARRAY_SIZE(a4xx_registers) / 2;
 
-static int a4xx_drawctxt_create(struct adreno_device *adreno_dev,
-	struct adreno_context *drawctxt)
-{
-	int ret = 0;
-	struct kgsl_device *device = &adreno_dev->dev;
-
-	if (!(drawctxt->flags & CTXT_FLAGS_PREAMBLE)) {
-		/* This option is not supported on a4xx */
-		KGSL_DRV_ERR(device,
-			"Preambles required for A4XX draw contexts\n");
-		ret = -EPERM;
-		goto done;
-	}
-
-	if (!(drawctxt->flags & CTXT_FLAGS_NOGMEMALLOC)) {
-		/* This option is not supported on a4xx */
-		KGSL_DRV_ERR(device,
-			"Cannot create context with gmemalloc\n");
-		ret = -EPERM;
-	}
-
-done:
-	return ret;
-}
-
-static int a4xx_drawctxt_restore(struct adreno_device *adreno_dev,
-			      struct adreno_context *context)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int cmds[5];
-	int ret;
-
-	if (context == NULL) {
-		/* No context - set the default pagetable and thats it */
-		unsigned int id;
-		/*
-		 * If there isn't a current context, the kgsl_mmu_setstate
-		 * will use the CPU path so we don't need to give
-		 * it a valid context id.
-		 */
-		id = (adreno_dev->drawctxt_active != NULL)
-			? adreno_dev->drawctxt_active->base.id
-			: KGSL_CONTEXT_INVALID;
-		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable,
-				  id);
-		return 0;
-	}
-
-	cmds[0] = cp_nop_packet(1);
-	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
-	cmds[3] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
-	cmds[4] = context->base.id;
-	ret = adreno_ringbuffer_issuecmds(device, context, KGSL_CMD_FLAGS_NONE,
-					cmds, 5);
-	if (ret)
-		return ret;
-	ret = kgsl_mmu_setstate(&device->mmu,
-			context->base.proc_priv->pagetable,
-			context->base.id);
-	return ret;
-}
-
 static const struct adreno_vbif_data a420_vbif[] = {
 	{ A4XX_VBIF_ABIT_SORT, 0x0001001F },
 	{ A4XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
@@ -294,8 +230,6 @@ const struct adreno_reg_offsets a4xx_reg_offsets = {
 struct adreno_gpudev adreno_a4xx_gpudev = {
 	.reg_offsets = &a4xx_reg_offsets,
 
-	.ctxt_create = a4xx_drawctxt_create,
-	.ctxt_restore = a4xx_drawctxt_restore,
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
