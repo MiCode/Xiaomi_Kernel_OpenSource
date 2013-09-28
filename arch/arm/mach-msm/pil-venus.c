@@ -466,20 +466,7 @@ static struct pil_reset_ops pil_venus_ops_trusted = {
 	.proxy_unvote = pil_venus_remove_proxy_vote,
 };
 
-static int venus_start(const struct subsys_desc *desc)
-{
-	struct venus_data *drv = subsys_to_drv(desc);
-
-	return pil_boot(&drv->desc);
-}
-
-static void venus_stop(const struct subsys_desc *desc)
-{
-	struct venus_data *drv = subsys_to_drv(desc);
-	pil_shutdown(&drv->desc);
-}
-
-static int venus_shutdown(const struct subsys_desc *desc)
+static int venus_shutdown(const struct subsys_desc *desc, bool force_stop)
 {
 	struct venus_data *drv = subsys_to_drv(desc);
 	pil_shutdown(&drv->desc);
@@ -581,8 +568,6 @@ static int pil_venus_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = desc->name;
 	drv->subsys_desc.owner = THIS_MODULE;
 	drv->subsys_desc.dev = &pdev->dev;
-	drv->subsys_desc.start = venus_start;
-	drv->subsys_desc.stop = venus_stop;
 	drv->subsys_desc.shutdown = venus_shutdown;
 	drv->subsys_desc.powerup = venus_powerup;
 	drv->subsys_desc.ramdump = venus_ramdump;

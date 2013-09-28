@@ -51,17 +51,18 @@ static struct pil_reset_ops pil_tzapps_ops = {
 
 #define subsys_to_drv(d) container_of(d, struct tzapps_data, subsys_desc)
 
-static int tzapps_start(const struct subsys_desc *desc)
+static int tzapps_powerup(const struct subsys_desc *desc)
 {
 	struct tzapps_data *drv = subsys_to_drv(desc);
 
 	return pil_boot(&drv->pil_desc);
 }
 
-static void tzapps_stop(const struct subsys_desc *desc)
+static int tzapps_shutdown(const struct subsys_desc *desc, bool force_stop)
 {
 	struct tzapps_data *drv = subsys_to_drv(desc);
 	pil_shutdown(&drv->pil_desc);
+	return 0;
 }
 
 static int pil_tzapps_driver_probe(struct platform_device *pdev)
@@ -90,9 +91,8 @@ static int pil_tzapps_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = "tzapps";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = tzapps_start;
-	drv->subsys_desc.stop = tzapps_stop;
-
+	drv->subsys_desc.powerup = tzapps_powerup;
+	drv->subsys_desc.shutdown = tzapps_shutdown;
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
 		pil_desc_release(desc);

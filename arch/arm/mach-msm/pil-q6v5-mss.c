@@ -108,7 +108,7 @@ static irqreturn_t modem_stop_ack_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int modem_shutdown(const struct subsys_desc *subsys)
+static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct modem_data *drv = subsys_to_drv(subsys);
 	unsigned long ret;
@@ -116,7 +116,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 	if (subsys->is_not_loadable)
 		return 0;
 
-	if (!subsys_get_crash_status(drv->subsys)) {
+	if (!subsys_get_crash_status(drv->subsys) && force_stop) {
 		gpio_set_value(subsys->force_stop_gpio, 1);
 		ret = wait_for_completion_timeout(&drv->stop_ack,
 				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
@@ -127,6 +127,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 
 	pil_shutdown(&drv->mba->desc);
 	pil_shutdown(&drv->q6->desc);
+	disable_irq(drv->subsys_desc.wdog_bite_irq);
 	return 0;
 }
 
@@ -139,8 +140,8 @@ static int modem_powerup(const struct subsys_desc *subsys)
 		return 0;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
-	 * run concurrently with either the watchdog bite error handler or the
-	 * SMSM callback, making it safe to unset the flag below.
+	 * run concurrently with the watchdog bite error handler, making it safe
+	 * to unset the flag below.
 	 */
 	INIT_COMPLETION(drv->stop_ack);
 	drv->ignore_errors = false;
@@ -150,6 +151,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	ret = pil_boot(&drv->mba->desc);
 	if (ret)
 		pil_shutdown(&drv->q6->desc);
+	enable_irq(drv->subsys_desc.wdog_bite_irq);
 	return ret;
 }
 
@@ -208,35 +210,6 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mss_start(const struct subsys_desc *desc)
-{
-	int ret;
-	struct modem_data *drv = subsys_to_drv(desc);
-
-	if (desc->is_not_loadable)
-		return 0;
-
-	INIT_COMPLETION(drv->stop_ack);
-	ret = pil_boot(&drv->q6->desc);
-	if (ret)
-		return ret;
-	ret = pil_boot(&drv->mba->desc);
-	if (ret)
-		pil_shutdown(&drv->q6->desc);
-	return ret;
-}
-
-static void mss_stop(const struct subsys_desc *desc)
-{
-	struct modem_data *drv = subsys_to_drv(desc);
-
-	if (desc->is_not_loadable)
-		return;
-
-	pil_shutdown(&drv->mba->desc);
-	pil_shutdown(&drv->q6->desc);
-}
-
 static int pil_subsys_init(struct modem_data *drv,
 					struct platform_device *pdev)
 {
@@ -249,8 +222,6 @@ static int pil_subsys_init(struct modem_data *drv,
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;
 	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
-	drv->subsys_desc.start = mss_start;
-	drv->subsys_desc.stop = mss_stop;
 	drv->subsys_desc.err_fatal_handler = modem_err_fatal_intr_handler;
 	drv->subsys_desc.stop_ack_handler = modem_stop_ack_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = modem_wdog_bite_intr_handler;

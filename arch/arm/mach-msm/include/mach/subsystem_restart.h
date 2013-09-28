@@ -36,8 +36,6 @@ struct module;
  * @depends_on: subsystem this subsystem depends on to operate
  * @dev: parent device
  * @owner: module the descriptor belongs to
- * @start: Start a subsystem
- * @stop: Stop a subsystem
  * @shutdown: Stop a subsystem
  * @powerup: Start a subsystem
  * @crash_shutdown: Shutdown a subsystem when the system crashes (can't sleep)
@@ -51,10 +49,7 @@ struct subsys_desc {
 	struct device *dev;
 	struct module *owner;
 
-	int (*start)(const struct subsys_desc *desc);
-	void (*stop)(const struct subsys_desc *desc);
-
-	int (*shutdown)(const struct subsys_desc *desc);
+	int (*shutdown)(const struct subsys_desc *desc, bool force_stop);
 	int (*powerup)(const struct subsys_desc *desc);
 	void (*crash_shutdown)(const struct subsys_desc *desc);
 	int (*ramdump)(int, const struct subsys_desc *desc);

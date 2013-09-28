@@ -362,29 +362,12 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	}
 }
 
-static int gss_start(const struct subsys_desc *desc)
-{
-	struct gss_data *drv;
-
-	drv = container_of(desc, struct gss_data, subsys_desc);
-	return pil_boot(&drv->pil_desc);
-}
-
-static void gss_stop(const struct subsys_desc *desc)
-{
-	struct gss_data *drv;
-
-	drv = container_of(desc, struct gss_data, subsys_desc);
-	pil_shutdown(&drv->pil_desc);
-}
-
-static int gss_shutdown(const struct subsys_desc *desc)
+static int gss_shutdown(const struct subsys_desc *desc, bool force_stop)
 {
 	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
 
 	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
-
 	return 0;
 }
 
@@ -539,8 +522,6 @@ static int pil_gss_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = "gss";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = gss_start;
-	drv->subsys_desc.stop = gss_stop;
 	drv->subsys_desc.shutdown = gss_shutdown;
 	drv->subsys_desc.powerup = gss_powerup;
 	drv->subsys_desc.ramdump = gss_ramdump;
@@ -577,6 +558,7 @@ static int pil_gss_probe(struct platform_device *pdev)
 			IRQF_TRIGGER_RISING, "gss_a5_wdog", drv);
 	if (ret < 0)
 		goto err;
+	disable_irq(drv->irq);
 	return 0;
 err:
 	destroy_ramdump_device(drv->smem_ramdump_dev);
