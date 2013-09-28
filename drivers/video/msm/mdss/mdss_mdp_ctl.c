@@ -27,7 +27,7 @@
 #define MDSS_MDP_BUS_FUDGE_FACTOR_IB(val) (((val) / 2) * 3)
 #define MDSS_MDP_BUS_FUDGE_FACTOR_HIGH_IB(val) (val << 1)
 #define MDSS_MDP_BUS_FUDGE_FACTOR_AB(val) (val << 1)
-#define MDSS_MDP_BUS_FLOOR_BW (3200000000ULL >> MDSS_MDP_BUS_FACTOR_SHIFT)
+#define MDSS_MDP_BUS_FLOOR_BW (1600000000ULL >> MDSS_MDP_BUS_FACTOR_SHIFT)
 
 /* 1.25 clock fudge factor */
 #define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
