@@ -4050,6 +4050,15 @@ static int wcd9xxx_get_mbhc_cfilt_sel(struct wcd9xxx_mbhc *mbhc)
 	return cfilt;
 }
 
+static void wcd9xxx_enable_mbhc_txfe(struct wcd9xxx_mbhc *mbhc, bool on)
+{
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mbhc_txfe)
+		mbhc->mbhc_cb->enable_mbhc_txfe(mbhc->codec, on);
+	else
+		snd_soc_update_bits(mbhc->codec, WCD9XXX_A_TX_7_MBHC_TEST_CTL,
+				    0x40, on ? 0x40 : 0x00);
+}
+
 static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 				void *data)
 {
@@ -4067,14 +4076,22 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 	case WCD9XXX_EVENT_PRE_MICBIAS_2_ON:
 	case WCD9XXX_EVENT_PRE_MICBIAS_3_ON:
 	case WCD9XXX_EVENT_PRE_MICBIAS_4_ON:
-		if (mbhc->mbhc_cfg->micbias == wcd9xxx_event_to_micbias(event))
+		if (mbhc->mbhc_cfg && mbhc->mbhc_cfg->micbias ==
+		    wcd9xxx_event_to_micbias(event)) {
 			wcd9xxx_switch_micbias(mbhc, 0);
+			/*
+			 * Enable MBHC TxFE whenever  micbias is
+			 * turned ON and polling is active
+			 */
+			if (mbhc->polling_active)
+				wcd9xxx_enable_mbhc_txfe(mbhc, true);
+		}
 		break;
 	case WCD9XXX_EVENT_POST_MICBIAS_1_ON:
 	case WCD9XXX_EVENT_POST_MICBIAS_2_ON:
 	case WCD9XXX_EVENT_POST_MICBIAS_3_ON:
 	case WCD9XXX_EVENT_POST_MICBIAS_4_ON:
-		if (mbhc->mbhc_cfg->micbias ==
+		if (mbhc->mbhc_cfg && mbhc->mbhc_cfg->micbias ==
 		    wcd9xxx_event_to_micbias(event) &&
 		    wcd9xxx_mbhc_polling(mbhc)) {
 			/* if polling is on, restart it */
@@ -4086,11 +4103,17 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 	case WCD9XXX_EVENT_POST_MICBIAS_2_OFF:
 	case WCD9XXX_EVENT_POST_MICBIAS_3_OFF:
 	case WCD9XXX_EVENT_POST_MICBIAS_4_OFF:
-		if (mbhc->mbhc_cfg->micbias ==
-		    wcd9xxx_event_to_micbias(event) &&
-		    (mbhc->event_state &
-		     (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
-			wcd9xxx_switch_micbias(mbhc, 1);
+		if (mbhc->mbhc_cfg && mbhc->mbhc_cfg->micbias ==
+		    wcd9xxx_event_to_micbias(event)) {
+			if (mbhc->event_state &
+			   (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR))
+				wcd9xxx_switch_micbias(mbhc, 1);
+			/*
+			 * Disable MBHC TxFE, in case it was enabled
+			 * earlier when micbias was enabled.
+			 */
+			wcd9xxx_enable_mbhc_txfe(mbhc, false);
+		}
 		break;
 	/* PA usage change */
 	case WCD9XXX_EVENT_PRE_HPHL_PA_ON:

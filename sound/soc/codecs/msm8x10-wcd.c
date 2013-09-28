@@ -1577,15 +1577,20 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 	u16 micb_int_reg;
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
 	char *internal3_text = "Internal3";
+	enum wcd9xxx_notify_event e_post_off, e_pre_on, e_post_on;
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	switch (w->reg) {
 	case MSM8X10_WCD_A_MICB_1_CTL:
 		micb_int_reg = MSM8X10_WCD_A_MICB_1_INT_RBIAS;
+		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_1_ON;
+		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_1_ON;
+		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_1_OFF;
 		break;
 	default:
 		dev_err(codec->dev,
@@ -1596,6 +1601,9 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Let MBHC module know micbias is about to turn ON */
+		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_pre_on);
+
 		if (strnstr(w->name, internal1_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x80);
 		else if (strnstr(w->name, internal2_text, 30))
@@ -1605,8 +1613,13 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
+		/* Let MBHC module know so micbias is on */
+		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		/* Let MBHC module know so micbias switch to be off */
+		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_off);
+
 		if (strnstr(w->name, internal1_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x00);
 		else if (strnstr(w->name, internal2_text, 30))
@@ -2649,6 +2662,12 @@ static void msm8x10_wcd_mbhc_clk_gate(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_TOP_CLK_CTL, 0x10, 0x10);
 }
 
+static void msm8x10_wcd_mbhc_txfe(struct snd_soc_codec *codec, bool on)
+{
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_TX_7_MBHC_EN_ATEST_CTRL,
+			    0x80, on ? 0x80 : 0x00);
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
@@ -2659,6 +2678,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.free_irq = msm8x10_wcd_free_irq,
 	.get_cdc_type = msm8x10_wcd_get_cdc_type,
 	.enable_clock_gate = msm8x10_wcd_mbhc_clk_gate,
+	.enable_mbhc_txfe = msm8x10_wcd_mbhc_txfe,
 };
 
 static void delayed_hs_detect_fn(struct work_struct *work)
