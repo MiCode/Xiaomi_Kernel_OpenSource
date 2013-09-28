@@ -457,6 +457,8 @@ Optional properties:
 			    codec.
 - qcom,mbhc-bias-internal: Flag to indicate if internal micbias should be used
 			   for headset detection.
+- qcom,dock-plug-det-irq: Interrupt line to detect Docking/Undocking of Liquid
+			  device
 
 * APQ8074 ASoC Machine driver
 
@@ -512,6 +514,7 @@ sound {
 	qcom,ext-ult-lo-amp-gpio = <&pm8941_gpios 6 0>;
 
 	qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
+	qcom,dock-plug-det-irq = <&pm8841_mpps 2 0>;
 	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
 	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
 	qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
