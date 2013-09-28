@@ -2668,6 +2668,30 @@ static void msm8x10_wcd_mbhc_txfe(struct snd_soc_codec *codec, bool on)
 			    0x80, on ? 0x80 : 0x00);
 }
 
+static int msm8x10_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
+	bool turn_on)
+{
+	int ret = 0;
+
+	if (turn_on)
+		ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+	else
+		ret = snd_soc_dapm_disable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+
+	snd_soc_dapm_sync(&codec->dapm);
+
+	if (ret)
+		dev_err(codec->dev, "%s: Failed to %s external micbias source\n",
+			__func__, turn_on ? "enable" : "disabled");
+	else
+		dev_dbg(codec->dev, "%s: %s external micbias source\n",
+			 __func__, turn_on ? "Enabled" : "Disabled");
+
+	return ret;
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
@@ -2679,6 +2703,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.get_cdc_type = msm8x10_wcd_get_cdc_type,
 	.enable_clock_gate = msm8x10_wcd_mbhc_clk_gate,
 	.enable_mbhc_txfe = msm8x10_wcd_mbhc_txfe,
+	.enable_mb_source = msm8x10_wcd_enable_ext_mb_source,
 };
 
 static void delayed_hs_detect_fn(struct work_struct *work)
