@@ -1960,7 +1960,7 @@ static int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	mutex_init(&cdc_mclk_mutex);
 
 	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
-					"qcom,headset-jack-type-NO");
+					"qcom,headset-jack-type-NC");
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
