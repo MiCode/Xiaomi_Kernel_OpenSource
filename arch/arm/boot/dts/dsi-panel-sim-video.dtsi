@@ -59,5 +59,6 @@
 		qcom,mdss-dsi-t-clk-pre = <0x1b>;
 		qcom,mdss-dsi-dma-trigger = <4>;
 		qcom,mdss-dsi-mdp-trigger = <0>;
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 200>, <1 20>;
 	};
 };
