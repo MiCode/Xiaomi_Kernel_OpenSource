@@ -257,4 +257,5 @@ static inline void *msm_ipc_load_default_node(void)
 static inline void msm_ipc_unload_default_node(void *pil) { }
 #endif
 
+void msm_ipc_router_free_skb(struct sk_buff_head *skb_head);
 #endif
