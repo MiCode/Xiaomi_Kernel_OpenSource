@@ -1224,6 +1224,12 @@ static void wcd9xxx_codec_hphr_gnd_switch(struct snd_soc_codec *codec, bool on)
 static void wcd9xxx_onoff_vddio_switch(struct wcd9xxx_mbhc *mbhc, bool on)
 {
 	pr_debug("%s: vddio %d\n", __func__, on);
+
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->pull_mb_to_vddio) {
+		mbhc->mbhc_cb->pull_mb_to_vddio(mbhc->codec, on);
+		goto exit;
+	}
+
 	if (on) {
 		snd_soc_update_bits(mbhc->codec, mbhc->mbhc_bias_regs.mbhc_reg,
 				    1 << 7, 1 << 7);
@@ -1235,6 +1241,12 @@ static void wcd9xxx_onoff_vddio_switch(struct wcd9xxx_mbhc *mbhc, bool on)
 		snd_soc_update_bits(mbhc->codec, mbhc->mbhc_bias_regs.mbhc_reg,
 				    1 << 7, 0);
 	}
+
+exit:
+	/*
+	 * Wait for the micbias to settle down to vddio
+	 * when the micbias to vddio switch is enabled.
+	 */
 	if (on)
 		usleep_range(10000, 10000);
 }
