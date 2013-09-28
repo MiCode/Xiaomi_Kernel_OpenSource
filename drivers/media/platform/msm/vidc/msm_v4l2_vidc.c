@@ -514,6 +514,19 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
 		dprintk(VIDC_DBG, "Queueing device address = 0x%x\n",
 				binfo->device_addr[i]);
+
+		if ((vidc_inst->fmts[OUTPUT_PORT]->fourcc ==
+			V4L2_PIX_FMT_HEVC_HYBRID) &&  binfo->handle[i] &&
+			(b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to INV caches: %d\n", rc);
+					goto err_invalid_buff;
+			}
+		}
+
 		if (binfo->handle[i] &&
 			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
 			rc = msm_smem_cache_operations(v4l2_inst->mem_client,

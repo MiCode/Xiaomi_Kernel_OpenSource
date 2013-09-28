@@ -33,27 +33,32 @@
 
 &pm8226_l3 {
 	regulator-min-microvolt = <750000>;
-	regulator-max-microvolt = <1287500>;
+	regulator-max-microvolt = <1337500>;
 };
 
 &pm8226_l3_ao {
 	regulator-min-microvolt = <750000>;
-	regulator-max-microvolt = <1287500>;
+	regulator-max-microvolt = <1337500>;
 };
 
 &pm8226_l3_so {
 	regulator-min-microvolt = <750000>;
-	regulator-max-microvolt = <1287500>;
+	regulator-max-microvolt = <1337500>;
 };
 
 &pm8226_s2 {
 	regulator-min-microvolt = <900000>;
-	regulator-max-microvolt = <1280000>;
+	regulator-max-microvolt = <1330000>;
 };
 
 &apc_vreg_corner {
-	qcom,pvs-bin-process = <1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2
-				2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3>;
+	qcom,pvs-init-voltage = <1330000 1330000 1330000 1320000 1310000
+					1300000 1290000 1280000 1270000 1260000
+					1250000 1240000 1230000 1220000 1210000
+					1200000 1190000 1180000 1170000 1160000
+					1150000 1140000 1140000 1140000 1140000
+					1140000 1140000 1140000 1140000 1140000
+					1140000 1140000>;
 	qcom,pvs-corner-ceiling-slow = <1050000 1150000 1280000>;
 	qcom,pvs-corner-ceiling-nom  = <1050000 1080000 1200000>;
 	qcom,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;

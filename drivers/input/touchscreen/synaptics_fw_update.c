@@ -32,7 +32,6 @@
 #define SHOW_PROGRESS
 #define MAX_FIRMWARE_ID_LEN 10
 #define FORCE_UPDATE false
-#define DO_LOCKDOWN false
 #define INSIDE_FIRMWARE_UPDATE
 
 #define FW_IMAGE_OFFSET 0x100
@@ -1115,7 +1114,11 @@ static int fwu_enter_flash_prog(bool force)
 	if (retval < 0)
 		return retval;
 
-	if (f01_device_status.flash_prog) {
+	if (force) {
+		dev_info(&fwu->rmi4_data->i2c_client->dev,
+			"%s: Force to enter flash prog mode\n",
+			__func__);
+	} else if (f01_device_status.flash_prog) {
 		dev_info(&fwu->rmi4_data->i2c_client->dev,
 				"%s: Already in flash prog mode\n",
 				__func__);
@@ -1475,6 +1478,9 @@ static int fwu_do_reflash(void)
 			"%s: Erase all command written\n",
 			__func__);
 
+	if (fwu->polling_mode)
+		msleep(100);
+
 	retval = fwu_wait_for_idle(ERASE_WAIT_MS);
 	if (retval < 0)
 		return retval;
@@ -1757,7 +1763,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -1800,7 +1806,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -1835,7 +1841,7 @@ exit:
 	kfree(fwu->ext_data_source);
 	fwu->ext_data_source = NULL;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	return retval;
 }
 
@@ -2166,7 +2172,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 
 	fwu->initialized = true;
 	fwu->force_update = FORCE_UPDATE;
-	fwu->do_lockdown = DO_LOCKDOWN;
+	fwu->do_lockdown = rmi4_data->board->do_lockdown;
 	fwu->initialized = true;
 	fwu->polling_mode = false;
 

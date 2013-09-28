@@ -96,6 +96,8 @@ enum device_status {
 #define F12_FINGERS_TO_SUPPORT 10
 #define MAX_F11_TOUCH_WIDTH 15
 
+#define RMI4_COORDS_ARR_SIZE 4
+
 static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr, unsigned char *data,
 		unsigned short length);
@@ -1053,9 +1055,9 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			wy = finger_data->wy;
 #endif
 
-			if (rmi4_data->board->x_flip)
+			if (rmi4_data->flip_x)
 				x = rmi4_data->sensor_max_x - x;
-			if (rmi4_data->board->y_flip)
+			if (rmi4_data->flip_y)
 				y = rmi4_data->sensor_max_y - y;
 
 			dev_dbg(&rmi4_data->i2c_client->dev,
@@ -1332,6 +1334,50 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 }
 
 #ifdef CONFIG_OF
+static int synaptics_rmi4_get_dt_coords(struct device *dev, char *name,
+				struct synaptics_rmi4_platform_data *pdata)
+{
+	u32 coords[RMI4_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	int coords_size, rc;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != RMI4_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(np, name, coords, coords_size);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
+
+	if (strcmp(name, "synaptics,panel-coords") == 0) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (strcmp(name, "synaptics,display-coords") == 0) {
+		pdata->disp_minx = coords[0];
+		pdata->disp_miny = coords[1];
+		pdata->disp_maxx = coords[2];
+		pdata->disp_maxy = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int synaptics_rmi4_parse_dt(struct device *dev,
 				struct synaptics_rmi4_platform_data *rmi4_pdata)
 {
@@ -1349,21 +1395,26 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,disable-gpios");
 	rmi4_pdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
 	rmi4_pdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
+	rmi4_pdata->do_lockdown = of_property_read_bool(np,
+			"synaptics,do-lockdown");
 
-	rc = of_property_read_u32(np, "synaptics,panel-x", &temp_val);
-	if (rc && (rc != -EINVAL)) {
-		dev_err(dev, "Unable to read panel X dimension\n");
+	rc = synaptics_rmi4_get_dt_coords(dev, "synaptics,display-coords",
+				rmi4_pdata);
+	if (rc && (rc != -EINVAL))
 		return rc;
-	} else {
-		rmi4_pdata->panel_x = temp_val;
-	}
 
-	rc = of_property_read_u32(np, "synaptics,panel-y", &temp_val);
-	if (rc && (rc != -EINVAL)) {
-		dev_err(dev, "Unable to read panel Y dimension\n");
+	rc = synaptics_rmi4_get_dt_coords(dev, "synaptics,panel-coords",
+				rmi4_pdata);
+	if (rc && (rc != -EINVAL))
 		return rc;
-	} else {
-		rmi4_pdata->panel_y = temp_val;
+
+	rmi4_pdata->reset_delay = RESET_DELAY;
+	rc = of_property_read_u32(np, "synaptics,reset-delay", &temp_val);
+	if (!rc)
+		rmi4_pdata->reset_delay = temp_val;
+	else if (rc != -EINVAL) {
+		dev_err(dev, "Unable to read reset delay\n");
+		return rc;
 	}
 
 	rc = of_property_read_string(np, "synaptics,fw-image-name",
@@ -1819,11 +1870,10 @@ static int synaptics_rmi4_capacitance_button_map(
 	const struct synaptics_rmi4_platform_data *pdata = rmi4_data->board;
 
 	if (!pdata->capacitance_button_map) {
-		dev_err(&rmi4_data->i2c_client->dev,
-				"%s: capacitance_button_map is" \
-				"NULL in board file\n",
+		dev_info(&rmi4_data->i2c_client->dev,
+				"%s: capacitance_button_map not in use\n",
 				__func__);
-		return -ENODEV;
+		return 0;
 	} else if (!pdata->capacitance_button_map->map) {
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Button map is missing in board file\n",
@@ -2258,7 +2308,7 @@ static int synaptics_rmi4_reset_command(struct synaptics_rmi4_data *rmi4_data)
 		return retval;
 	}
 
-	msleep(RESET_DELAY);
+	msleep(rmi4_data->board->reset_delay);
 	return retval;
 };
 
@@ -2603,7 +2653,7 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 			gpio_set_value(rmi4_data->board->reset_gpio, 0);
 			usleep(RMI4_GPIO_SLEEP_LOW_US);
 			gpio_set_value(rmi4_data->board->reset_gpio, 1);
-			msleep(RESET_DELAY);
+			msleep(rmi4_data->board->reset_delay);
 		} else
 			synaptics_rmi4_reset_command(rmi4_data);
 
@@ -2776,12 +2826,32 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_free_gpios;
 	}
 
+	if (rmi4_data->board->disp_maxx)
+		rmi4_data->disp_maxx = rmi4_data->board->disp_maxx;
+	else
+		rmi4_data->disp_maxx = rmi4_data->sensor_max_x;
+
+	if (rmi4_data->board->disp_maxy)
+		rmi4_data->disp_maxy = rmi4_data->board->disp_maxy;
+	else
+		rmi4_data->disp_maxy = rmi4_data->sensor_max_y;
+
+	if (rmi4_data->board->disp_minx)
+		rmi4_data->disp_minx = rmi4_data->board->disp_minx;
+	else
+		rmi4_data->disp_minx = 0;
+
+	if (rmi4_data->board->disp_miny)
+		rmi4_data->disp_miny = rmi4_data->board->disp_miny;
+	else
+		rmi4_data->disp_miny = 0;
+
 	input_set_abs_params(rmi4_data->input_dev,
-			ABS_MT_POSITION_X, 0,
-			rmi4_data->sensor_max_x, 0, 0);
+			ABS_MT_POSITION_X, rmi4_data->disp_minx,
+			rmi4_data->disp_maxx, 0, 0);
 	input_set_abs_params(rmi4_data->input_dev,
-			ABS_MT_POSITION_Y, 0,
-			rmi4_data->sensor_max_y, 0, 0);
+			ABS_MT_POSITION_Y, rmi4_data->disp_miny,
+			rmi4_data->disp_maxy, 0, 0);
 	input_set_abs_params(rmi4_data->input_dev,
 			ABS_PRESSURE, 0, 255, 0, 0);
 #ifdef REPORT_2D_W
