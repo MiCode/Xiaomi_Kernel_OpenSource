@@ -21,6 +21,7 @@
 #include "adreno_cp_parser.h"
 
 #define MAX_IB_OBJS 1000
+#define NUM_SET_DRAW_GROUPS 32
 
 /*
  * This structure keeps track of type0 writes to VSC_PIPE_DATA_ADDRESS_x and
@@ -43,6 +44,17 @@ struct ib_vsc_pipe {
 struct ib_vbo {
 	unsigned int base;
 	unsigned int stride;
+};
+
+/*
+ * struct set_draw_state -  Holds information from a set draw state packet
+ * @cmd_stream_addr: An indirect address to list of PM4 commands
+ * @cmd_stream_dwords: Number of Dwords at location pointed by cmd_stream_addr
+ *
+ */
+struct set_draw_state {
+	unsigned int cmd_stream_addr;
+	unsigned int cmd_stream_dwords;
 };
 
 /* List of variables used when parsing an IB */
@@ -71,6 +83,9 @@ struct ib_parser_variables {
 	/* Cached value of SP_VS_OBJ_START_REG and SP_FS_OBJ_START_REG. */
 	unsigned int sp_vs_obj_start_reg;
 	unsigned int sp_fs_obj_start_reg;
+
+	/* 32 groups of command streams in set draw state packets */
+	struct set_draw_state set_draw_groups[NUM_SET_DRAW_GROUPS];
 };
 
 /*
@@ -87,6 +102,16 @@ static int load_state_unit_sizes[7][2] = {
 	{ 8, 2 },
 	{ 8, 2 },
 };
+
+static int adreno_ib_find_objs(struct kgsl_device *device,
+				phys_addr_t ptbase,
+				unsigned int gpuaddr, unsigned int dwords,
+				struct adreno_ib_object_list *ib_obj_list);
+
+static int ib_parse_set_draw_state(struct kgsl_device *device,
+	unsigned int *ptr,
+	phys_addr_t ptbase, struct adreno_ib_object_list *ib_obj_list,
+	struct ib_parser_variables *ib_parse_vars);
 
 /*
  * adreno_ib_merge_range() - Increases the address range tracked by an ib
@@ -488,6 +513,7 @@ static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 	struct ib_parser_variables *ib_parse_vars)
 {
 	int ret = 0;
+	int i;
 
 	if (type3_pkt_size(pkt[0]) < 3)
 		return 0;
@@ -507,6 +533,18 @@ static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 	 */
 	ret = ib_add_type0_entries(device, ptbase, ib_obj_list,
 				ib_parse_vars);
+
+	/* Process set draw state command streams if any */
+	for (i = 0; i < NUM_SET_DRAW_GROUPS; i++) {
+		if (ib_parse_vars->set_draw_groups[i].cmd_stream_dwords)
+			ret =
+			adreno_ib_find_objs(device, ptbase,
+			ib_parse_vars->set_draw_groups[i].cmd_stream_addr,
+			ib_parse_vars->set_draw_groups[i].cmd_stream_dwords,
+			ib_obj_list);
+		if (ret)
+			break;
+	}
 	return ret;
 }
 
@@ -533,6 +571,9 @@ static int ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
 	else if (opcode == CP_DRAW_INDX)
 		return ib_parse_draw_indx(device, ptr, ptbase, ib_obj_list,
 					ib_parse_vars);
+	else if (opcode == CP_SET_DRAW_STATE)
+		return ib_parse_set_draw_state(device, ptr, ptbase,
+					ib_obj_list, ib_parse_vars);
 
 	return 0;
 }
@@ -637,6 +678,62 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	}
 	ib_add_type0_entries(device, ptbase, ib_obj_list,
 				ib_parse_vars);
+}
+
+static int ib_parse_set_draw_state(struct kgsl_device *device,
+	unsigned int *ptr,
+	phys_addr_t ptbase, struct adreno_ib_object_list *ib_obj_list,
+	struct ib_parser_variables *ib_parse_vars)
+{
+	int size = type0_pkt_size(*ptr);
+	int i;
+	int grp_id;
+	int ret = 0;
+	int flags;
+
+	/*
+	 * size is the size of the packet that does not include the DWORD
+	 * for the packet header, we only want to loop here through the
+	 * packet parameters from ptr[1] till ptr[size] where ptr[0] is the
+	 * packet header. In each loop we look at 2 DWRODS hence increment
+	 * loop counter by 2 always
+	 */
+	for (i = 1; i <= size; i += 2) {
+		grp_id = ptr[i] & 0x1F000000 >> 24;
+		/* take action based on flags */
+		flags = (ptr[i] & 0x000F0000) >> 16;
+		/* Disable all groups */
+		if (flags & 0x4) {
+			int j;
+			for (j = 0; j < NUM_SET_DRAW_GROUPS; j++)
+				ib_parse_vars->set_draw_groups[j].
+					cmd_stream_dwords = 0;
+			continue;
+		}
+		/* disable flag */
+		if (flags & 0x2) {
+			ib_parse_vars->set_draw_groups[grp_id].
+						cmd_stream_dwords = 0;
+			continue;
+		}
+		/* dirty flag */
+		if (flags & 0x1) {
+			ib_parse_vars->set_draw_groups[grp_id].
+				cmd_stream_dwords = ptr[i] & 0x0000FFFF;
+			ib_parse_vars->set_draw_groups[grp_id].
+				cmd_stream_addr = ptr[i + 1];
+			continue;
+		}
+		/* load immediate */
+		if (flags & 0x8) {
+			ret = adreno_ib_find_objs(device, ptbase,
+				ptr[i + 1], (ptr[i] & 0x0000FFFF),
+				ib_obj_list);
+			if (ret)
+				break;
+		}
+	}
+	return ret;
 }
 
 /*
