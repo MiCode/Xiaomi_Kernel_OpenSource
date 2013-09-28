@@ -72,6 +72,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.detect_extn_cable = false,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
+	.use_int_rbias = false,
 };
 
 /*
@@ -1042,6 +1043,8 @@ static int msm8x10_asoc_machine_probe(struct platform_device *pdev)
 	prcgr = ioremap(MSM8X10_DINO_LPASS_DIGCODEC_CMD_RCGR, 4);
 	mbhc_cfg.gpio_level_insert = of_property_read_bool(pdev->dev.of_node,
 						"qcom,headset-jack-type-NC");
+	mbhc_cfg.use_int_rbias = of_property_read_bool(pdev->dev.of_node,
+						"qcom,mbhc-bias-internal");
 
 	spdev = pdev;
 	mutex_init(&cdc_mclk_mutex);
