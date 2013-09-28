@@ -73,6 +73,12 @@ int ion_cp_secure_buffer(struct ion_buffer *buffer, int version, void *data,
 				int flags);
 
 int ion_cp_unsecure_buffer(struct ion_buffer *buffer, int force_unsecure);
+
+int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
+			int flags, bool skip_usage);
+
+int msm_ion_unsecure_table(struct sg_table *table);
+
 #else
 static inline int ion_cp_change_chunks_state(unsigned long chunks,
 			unsigned int nchunks, unsigned int chunk_size,
@@ -103,6 +109,17 @@ static inline int ion_cp_secure_buffer(struct ion_buffer *buffer, int version,
 
 static inline int ion_cp_unsecure_buffer(struct ion_buffer *buffer,
 				int force_unsecure)
+{
+	return -ENODEV;
+}
+
+int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
+			int flags, bool skip_usage)
+{
+	return -ENODEV;
+}
+
+int msm_ion_unsecure_table(struct sg_table *table)
 {
 	return -ENODEV;
 }

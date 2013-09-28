@@ -105,13 +105,6 @@ void ion_cp_heap_get_base(struct ion_heap *heap, unsigned long *base,
 
 void ion_mem_map_show(struct ion_heap *heap);
 
-
-
-int ion_secure_handle(struct ion_client *client, struct ion_handle *handle,
-			int version, void *data, int flags);
-
-int ion_unsecure_handle(struct ion_client *client, struct ion_handle *handle);
-
 int ion_heap_allow_secure_allocation(enum ion_heap_type type);
 
 int ion_heap_allow_heap_secure(enum ion_heap_type type);

@@ -157,22 +157,6 @@ int msm_ion_unsecure_heap_2_0(int heap_id, enum cp_mem_usage usage)
 }
 EXPORT_SYMBOL(msm_ion_unsecure_heap_2_0);
 
-int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
-				enum cp_mem_usage usage,
-				int flags)
-{
-	return ion_secure_handle(client, handle, ION_CP_V2,
-				(void *)usage, flags);
-}
-EXPORT_SYMBOL(msm_ion_secure_buffer);
-
-int msm_ion_unsecure_buffer(struct ion_client *client,
-				struct ion_handle *handle)
-{
-	return ion_unsecure_handle(client, handle);
-}
-EXPORT_SYMBOL(msm_ion_unsecure_buffer);
-
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd)
 {
