@@ -163,6 +163,13 @@ enum qseecom_buffer_protection {
 	QSEOS_UNPROTECT_PROTECTED_BUFFER,
 };
 
+enum qseecom_bandwidth_request_mode {
+	INACTIVE = 0,
+	LOW,
+	MEDIUM,
+	HIGH,
+};
+
 /*
  * struct qseecom_send_modfd_resp - for send command ioctl request
  * @req_len - command buffer length
@@ -246,5 +253,9 @@ struct qseecom_send_modfd_listener_resp {
 
 #define QSEECOM_IOCTL_UNPROTECT_BUF \
 	_IOWR(QSEECOM_IOC_MAGIC, 22, int)
+
+
+#define QSEECOM_IOCTL_SET_BUS_SCALING_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 23, int)
 
 #endif /* _UAPI_QSEECOM_H_ */
