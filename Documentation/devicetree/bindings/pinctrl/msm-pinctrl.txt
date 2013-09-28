@@ -39,7 +39,7 @@ semantics.
 			second cell is used to specify optional parameters
    - #interrupt-controller: Can be used as an interrupt controller
    - compatible: identifies the interrupt controller feature version.
-			- "msm_tlmm_v3_gpio": TLMM V3 interrupt controller.
+			- "qcom,msm-tlmmv3-gp-intc": TLMM V3 interrupt chip.
    - num_irqs: number of pins that can be used as an interrupt source.
    - apps_id: if present, override the default core id for given TLMM block.
    - #interrupt-cells: Should be two. The first cell is the pin number used as
