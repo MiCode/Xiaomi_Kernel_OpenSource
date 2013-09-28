@@ -21,5 +21,11 @@ unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev);
 
 int a3xx_rb_init(struct adreno_device *adreno_dev,
 			struct adreno_ringbuffer *rb);
+int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
+	unsigned int group, unsigned int counter, unsigned int countable);
+uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
+	unsigned int group, unsigned int counter);
+void a3xx_perfcounter_disable(struct adreno_device *adreno_dev,
+	unsigned int group, unsigned int counter);
 
 #endif /*__A3XX_H */

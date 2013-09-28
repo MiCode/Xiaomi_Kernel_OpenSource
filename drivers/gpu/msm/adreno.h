@@ -250,6 +250,10 @@ struct adreno_perfcounters {
 #define ADRENO_PERFCOUNTER_GROUP(core, name) { core##_perfcounters_##name, \
 	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
 
+#define ADRENO_PERFCOUNTER_GROUP_OFF(core, name, offset) \
+	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
+	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
+
 /**
  * adreno_regs: List of registers that are used in kgsl driver for all
  * 3D devices. Each device type has different offset value for the same
