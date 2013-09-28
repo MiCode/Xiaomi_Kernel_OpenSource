@@ -595,12 +595,8 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
-	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 
 	pr_debug("%s: portno:%d\n", __func__, dev->port_num);
-	if ((dxport == USB_GADGET_XPORT_BAM2BAM ||
-		 dxport == USB_GADGET_XPORT_BAM2BAM_IPA))
-			gbam_destroy(dev->port_num);
 	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
 	if (gadget_is_dualspeed(c->cdev->gadget))

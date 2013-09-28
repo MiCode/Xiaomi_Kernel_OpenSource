@@ -64,7 +64,6 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num,
 	enum transport_type trans);
 void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans);
 void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans);
-int gbam_destroy(unsigned int no_bam2bam_port);
 int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(enum ctrl_client client_num, unsigned int count,
