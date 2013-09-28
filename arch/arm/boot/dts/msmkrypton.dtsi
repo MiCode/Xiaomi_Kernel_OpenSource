@@ -283,6 +283,10 @@
 			    "restart_reg";
 
 		interrupts = <0 24 1>;
+		vdd_mss-supply = <&pmd9635_s1>;
+		vdd_cx-supply = <&pmd9635_l3_corner>;
+		vdd_mx-supply = <&pmd9635_s3>;
+		vdd_pll-supply = <&pmd9635_l7>;
 		qcom,vdd_pll = <1800000>;
 
 		qcom,firmware-name = "mba";
