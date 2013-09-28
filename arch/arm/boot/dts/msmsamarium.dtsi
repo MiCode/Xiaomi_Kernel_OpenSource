@@ -28,6 +28,7 @@
 
 /include/ "msm-gdsc.dtsi"
 /include/ "msmsamarium-ion.dtsi"
+/include/ "msmsamarium-iommu.dtsi"
 /include/ "msmsamarium-smp2p.dtsi"
 /include/ "msmsamarium-pm.dtsi"
 /include/ "msmsamarium-coresight.dtsi"
