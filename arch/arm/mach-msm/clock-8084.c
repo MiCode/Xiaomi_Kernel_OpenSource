@@ -6110,6 +6110,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc344000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fd828018.hwevent"),
 
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.16384"),
 	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent"),
 
 	/* Multimedia clocks */
