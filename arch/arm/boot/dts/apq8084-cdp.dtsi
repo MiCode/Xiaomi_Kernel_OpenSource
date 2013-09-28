@@ -397,5 +397,7 @@
 		synaptics,reset-gpio = <&msmgpio 145 0x00>;
 		synaptics,irq-gpio = <&msmgpio 143 0x2008>;
 		synaptics,i2c-pull-up;
+		synaptics,disable-gpios;
+		synaptics,power-down;
 	};
 };
