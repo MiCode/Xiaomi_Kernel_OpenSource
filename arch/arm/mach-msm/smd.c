@@ -3250,6 +3250,21 @@ void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name)
 }
 
 /**
+ * smd_reset_all_edge_subsys_name() - Reset the PIL string
+ *
+ * This function is used to reset the PIL string of all edges in
+ * targets where configuration information is available through
+ * device tree.
+ */
+void smd_reset_all_edge_subsys_name(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(edge_to_pids); i++)
+		strlcpy(edge_to_pids[i].subsys_name,
+			"", sizeof(""));
+}
+
+/**
  * smd_set_edge_initialized() - Set the edge initialized status
  * @edge:	edge type identifies local and remote processor
  *

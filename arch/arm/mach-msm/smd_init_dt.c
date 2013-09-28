@@ -46,6 +46,9 @@
 #define SMSM_DBG(x...) do { } while (0)
 #endif
 
+static DEFINE_MUTEX(smd_probe_lock);
+static int first_probe_done;
+
 static int msm_smsm_probe(struct platform_device *pdev)
 {
 	uint32_t edge;
@@ -177,6 +180,13 @@ static int msm_smd_probe(struct platform_device *pdev)
 		pr_err("%s: missing link to parent device\n", __func__);
 		return -ENODEV;
 	}
+
+	mutex_lock(&smd_probe_lock);
+	if (!first_probe_done) {
+		smd_reset_all_edge_subsys_name();
+		first_probe_done = 1;
+	}
+	mutex_unlock(&smd_probe_lock);
 
 	parent_pdev = to_platform_device(pdev->dev.parent);
 
