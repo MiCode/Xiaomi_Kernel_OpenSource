@@ -247,12 +247,26 @@ struct adreno_perfcounters {
 	unsigned int group_count;
 };
 
+/**
+ * adreno_invalid_countabless: Invalid countables that do not work properly
+ * @countables: List of unusable countables
+ * @num_countables: Number of unusable countables
+ */
+struct adreno_invalid_countables {
+	const unsigned int *countables;
+	int num_countables;
+};
+
 #define ADRENO_PERFCOUNTER_GROUP(core, name) { core##_perfcounters_##name, \
 	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
 
 #define ADRENO_PERFCOUNTER_GROUP_OFF(core, name, offset) \
 	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
 	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
+
+#define ADRENO_PERFCOUNTER_INVALID_COUNTABLE(name, off) \
+	[KGSL_PERFCOUNTER_GROUP_##off] = { name##_invalid_countables, \
+				ARRAY_SIZE(name##_invalid_countables) }
 
 /**
  * adreno_regs: List of registers that are used in kgsl driver for all
@@ -363,6 +377,8 @@ struct adreno_gpudev {
 	int ctx_switches_since_last_draw;
 
 	struct adreno_perfcounters *perfcounters;
+	const struct adreno_invalid_countables
+			*invalid_countables;
 
 	/* GPU specific function hooks */
 	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);

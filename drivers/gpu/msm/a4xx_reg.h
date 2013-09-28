@@ -26,6 +26,12 @@
 #define A4XX_RB_PERFCTR_RB_SEL_6	0xccd
 #define A4XX_RB_PERFCTR_RB_SEL_7	0xcce
 
+enum a4xx_rb_perfctr_rb_sel {
+	RB_VALID_SAMPLES = 0x25,
+	RB_Z_FAIL = 0x28,
+	RB_S_FAIL = 0x29,
+};
+
 /* RBBM registers */
 #define A4XX_RBBM_AHB_CMD		0x25
 #define A4XX_RBBM_SP_HYST_CNT		0x21
@@ -260,6 +266,10 @@
 #define A4XX_SP_PERFCTR_SP_SEL_10	0xece
 #define A4XX_SP_PERFCTR_SP_SEL_11	0xecf
 
+enum a4xx_sp_perfctr_sp_sel {
+	SP_FS_STAGE_BARY_INSTRUCTIONS = 0x10,
+};
+
 /* VPC registers */
 #define A4XX_VPC_DEBUG_RAM_SEL		0xe60
 #define A4XX_VPC_DEBUG_RAM_READ		0xe61
@@ -287,6 +297,12 @@
 #define A4XX_VFD_PERFCTR_VFD_SEL_5	0xe48
 #define A4XX_VFD_PERFCTR_VFD_SEL_6	0xe49
 #define A4XX_VFD_PERFCTR_VFD_SEL_7	0xe4a
+
+enum a4xx_vfd_perfctr_vfd_sel {
+	VFD_VPC_BYPASS_TRANS = 0x2,
+	VFD_UPPER_SHADER_FIBERS = 0xb,
+	VFD_LOWER_SHADER_FIBERS = 0xc,
+};
 
 /* VBIF registers */
 #define A4XX_VBIF_ABIT_SORT		0x301c
@@ -376,6 +392,13 @@
 #define A4XX_PC_PERFCTR_PC_SEL_6	0xd16
 #define A4XX_PC_PERFCTR_PC_SEL_7	0xd17
 
+enum a4xx_pc_perfctr_pc_sel {
+	PC_INSTANCES = 0x1,
+	PC_VERTEX_HITS = 0x8,
+	PC_GENERATED_FIBERS = 0x12,
+	PC_GENERATED_WAVES = 0x13,
+};
+
 /* HLSQ registers */
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_0	0xe06
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_1	0xe07
@@ -386,11 +409,33 @@
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_6	0xe0c
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_7	0xe0d
 
+enum a4xx_hlsq_perfctr_hlsq_sel {
+	HLSQ_SP_VS_STAGE_CONSTANT = 0x0,
+	HLSQ_SP_VS_STAGE_INSTRUCTIONS = 0x1,
+	HLSQ_SP_FS_STAGE_CONSTANT = 0x2,
+	HLSQ_SP_FS_STAGE_INSTRUCTIONS = 0x3,
+	HLSQ_FS_STAGE_16_WAVES = 0x8,
+	HLSQ_FS_STAGE_32_WAVES = 0x9,
+	HLSQ_FS_STAGE_64_WAVES = 0xa,
+	HLSQ_VS_STAGE_16_WAVES = 0xb,
+	HLSQ_VS_STAGE_32_WAVES = 0xc,
+};
+
 /* CCU registers */
 #define A4XX_RB_PERFCTR_CCU_SEL_0	0xccf
 #define A4XX_RB_PERFCTR_CCU_SEL_1	0xcd0
 #define A4XX_RB_PERFCTR_CCU_SEL_2	0xcd1
 #define A4XX_RB_PERFCTR_CCU_SEL_3	0xcd2
+
+enum a4xx_cu_perfctr_ccu_sel {
+	CCU_VBIF_STALL = 0x1,
+	CCU_VBIF_LATENCY_CYCLES = 0x4,
+	CCU_VBIF_LATENCY_SAMPLES = 0x5,
+	CCU_Z_READ = 0x13,
+	CCU_Z_WRITE = 0x14,
+	CCU_C_READ = 0x15,
+	CCU_C_WRITE = 0x16,
+};
 
 /* UCHE registers */
 #define A4XX_UCHE_PERFCTR_UCHE_SEL_0	0xe8e
@@ -403,6 +448,15 @@
 #define A4XX_UCHE_PERFCTR_UCHE_SEL_7	0xe95
 
 /* TPL1 registers */
+enum a4xx_uche_perfctr_uche_sel {
+	UCHE_READ_REQUESTS_MARB = 0x8,
+	UCHE_READ_REQUESTS_SP = 0x9,
+	UCHE_WRITE_REQUESTS_MARB = 0xa,
+	UCHE_WRITE_REQUESTS_SP = 0xb,
+	UCHE_WRITE_REQUESTS_VPC = 0x14,
+};
+
+/* TPL1 registers */
 #define A4XX_TPL1_PERFCTR_TP_SEL_0	0xf04
 #define A4XX_TPL1_PERFCTR_TP_SEL_1	0xf05
 #define A4XX_TPL1_PERFCTR_TP_SEL_2	0xf06
@@ -412,4 +466,16 @@
 #define A4XX_TPL1_PERFCTR_TP_SEL_6	0xf0a
 #define A4XX_TPL1_PERFCTR_TP_SEL_7	0xf0b
 
-#endif /* _A400_REG_H */
+enum a4xx_tpl1_perfctr_tp_sel {
+	TP_OUTPUT_TEXELS_POINT = 0x2,
+	TP_OUTPUT_TEXELS_BILINEAR = 0x3,
+	TP_OUTPUT_TEXELS_MIP = 0x4,
+	TP_OUTPUT_TEXELS_ANISO = 0x5,
+	TP_OUTPUT_TEXELS_OPS16 = 0x6,
+	TP_OUTPUT_TEXELS_OPS32 = 0x7,
+	TP_ZERO_LOD = 0xe,
+	TP_LATENCY = 0x12,
+	TP_LATENCY_TRANS = 0x13,
+};
+
+#endif /* _A4XX_REG_H */
