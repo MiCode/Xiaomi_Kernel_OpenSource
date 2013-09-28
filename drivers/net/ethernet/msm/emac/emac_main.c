@@ -13,6 +13,7 @@
 /* MSM EMAC Ethernet Controller driver.
  */
 
+#include <linux/if_ether.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
 #include <linux/ip.h>
@@ -1899,7 +1900,7 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 	adpt->num_rxdescs = EMAC_DEF_RX_DESCS;
 
 	/* mtu */
-	adpt->netdev->mtu = EMAC_MAX_JUMBO_PKT_SIZE;
+	adpt->netdev->mtu = ETH_DATA_LEN;
 	hw->mtu = adpt->netdev->mtu;
 	max_frame = adpt->netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
 	adpt->rxbuf_size = adpt->netdev->mtu > EMAC_DEF_RX_BUF_SIZE ?
