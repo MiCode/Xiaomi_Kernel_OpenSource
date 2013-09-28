@@ -126,7 +126,7 @@ static struct msm_sensor_ctrl_t ov5648_s_ctrl = {
 
 static const struct of_device_id ov5648_dt_match[] = {
 	{
-		.compatible = "qcom,ov5648",
+		.compatible = "ovti,ov5648",
 		.data = &ov5648_s_ctrl
 	},
 	{}
@@ -136,7 +136,7 @@ MODULE_DEVICE_TABLE(of, ov5648_dt_match);
 
 static struct platform_driver ov5648_platform_driver = {
 	.driver = {
-		.name = "qcom,ov5648",
+		.name = "ovti,ov5648",
 		.owner = THIS_MODULE,
 		.of_match_table = ov5648_dt_match,
 	},
