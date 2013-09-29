@@ -898,7 +898,7 @@ static void usb_bam_finish_suspend(void)
 			spin_unlock(&usb_bam_ipa_handshake_info_lock);
 			pr_debug("%s: Suspending pipe\n", __func__);
 			/* ACK on the last pipe */
-			if (info[cur_bam].pipes_suspended * 2 + 1 ==
+			if ((info[cur_bam].pipes_suspended + 1) * 2 ==
 			    ctx.pipes_enabled_per_bam[cur_bam] &&
 			    info[cur_bam].cur_cons_state ==
 			    IPA_RM_RESOURCE_RELEASED) {
@@ -921,6 +921,7 @@ static void usb_bam_finish_suspend(void)
 		}
 	}
 	info[cur_bam].pipes_to_suspend = 0;
+	info[cur_bam].pipes_resumed = 0;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	pr_debug("%s: Starting LPM on Bus Suspend\n", __func__);
 	usb_bam_start_lpm(0);
@@ -1421,12 +1422,13 @@ static void usb_bam_finish_resume(struct work_struct *w)
 	resume_suspended_pipes(cur_bam);
 
 	if (info[cur_bam].pipes_resumed * 2 ==
-	      ctx.pipes_enabled_per_bam[cur_bam] &&
-	      info[cur_bam].cur_cons_state == IPA_RM_RESOURCE_GRANTED) {
-		pr_debug("%s: Notify CONS_GRANTED\n", __func__);
-		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
-				 ipa_rm_resource_cons[cur_bam]);
+	      ctx.pipes_enabled_per_bam[cur_bam]) {
 		info[cur_bam].pipes_resumed = 0;
+		if (info[cur_bam].cur_cons_state == IPA_RM_RESOURCE_GRANTED) {
+			pr_debug("%s: Notify CONS_GRANTED\n", __func__);
+			ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
+					 ipa_rm_resource_cons[cur_bam]);
+		}
 	}
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	mutex_unlock(&info[cur_bam].suspend_resume_mutex);
