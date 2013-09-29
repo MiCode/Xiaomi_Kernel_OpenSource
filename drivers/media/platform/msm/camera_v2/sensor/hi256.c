@@ -33,7 +33,7 @@ static struct msm_sensor_power_setting hi256_power_setting[] = {
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_LOW,
-		.delay = 20,
+		.delay = 0,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
@@ -63,13 +63,13 @@ static struct msm_sensor_power_setting hi256_power_setting[] = {
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
 		.config_val = 24000000,
-		.delay = 10,
+		.delay = 5,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_LOW,
-		.delay = 20,
+		.delay = 0,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
@@ -81,7 +81,7 @@ static struct msm_sensor_power_setting hi256_power_setting[] = {
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_HIGH,
-		.delay = 30,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_I2C_MUX,
