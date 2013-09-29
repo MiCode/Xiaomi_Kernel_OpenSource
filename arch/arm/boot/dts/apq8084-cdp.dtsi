@@ -159,47 +159,6 @@
 	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
 };
 
-&pma8084_gpios {
-	gpio@c100 { /* GPIO 2 */
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-	};
-
-	gpio@c400 { /* GPIO 5 */
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-	};
-
-	gpio@c600 { /* GPIO 7 */
-		/* Backlight PWM */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;		/* CMOS logic */
-		qcom,invert = <0>;		/* Do not invert the output */
-		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
-		qcom,src-sel = <2>;		/* Special Function 1 = LPG 3 */
-		qcom,out-strength = <3>;	/* High drive strength */
-		qcom,master-en = <1>;
-	};
-
-	gpio@cd00 { /* GPIO 14 */
-		qcom,mode = <0>;
-		qcom,pull = <1>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-	};
-
-	gpio@d400 { /* GPIO 21 */
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-	};
-};
-
 &i2c_0 {
 	smb349_otg_supply: smb349-charger@1B {
 		compatible = "qcom,smb349-charger";
@@ -273,6 +232,10 @@
 	};
 
 	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@c200 { /* GPIO 3 */
@@ -282,24 +245,48 @@
 	};
 
 	gpio@c400 { /* GPIO 5 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@c500 { /* GPIO 6 */
 	};
 
 	gpio@c600 { /* GPIO 7 */
+		/* Backlight PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <2>;		/* Special Function 1=LPG 3 */
+		qcom,out-strength = <3>;	/* High drive strength */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c700 { /* GPIO 8 */
 	};
 
 	gpio@c800 { /* GPIO 9 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@c900 { /* GPIO 10 */
 	};
 
 	gpio@ca00 { /* GPIO 11 */
+		/* VBUS interrupt */
+		qcom,mode = <0>;
+		qcom,pull = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@cb00 { /* GPIO 12 */
@@ -309,18 +296,51 @@
 	};
 
 	gpio@cd00 { /* GPIO 14 */
+		/* SMB349 STAT */
+		qcom,mode = <0>;
+		qcom,pull = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@ce00 { /* GPIO 15 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <2>;		/* Function 1 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@cf00 { /* GPIO 16 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <2>;		/* Function 1 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@d000 { /* GPIO 17 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <2>;		/* Function 1 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@d100 { /* GPIO 18 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <2>;		/* Function 1 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@d200 { /* GPIO 19 */
@@ -338,6 +358,10 @@
 	};
 
 	gpio@d400 { /* GPIO 21 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 	};
 
 	gpio@d500 { /* GPIO 22 */
