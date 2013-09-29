@@ -212,3 +212,16 @@
 		/* SPI ethernet INT_N */
 	};
 };
+
+&i2c_chg {
+	smb1359_otg_supply: smb1359-charger@1c {
+		compatible = "qcom,smb1359-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xcc 0x0>;	/* PMA8084 GPIO 13 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mV = <100>;
+		regulator-name = "smb1359_otg_supply";
+	};
+};

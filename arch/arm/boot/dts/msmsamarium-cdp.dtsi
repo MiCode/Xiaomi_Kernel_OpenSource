@@ -137,6 +137,11 @@
 
 	gpio@cc00 { /* GPIO 13 */
 		/* SMB349 STAT */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <1>;		/* Pull up 1.5 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
 	};
 
 	gpio@cd00 { /* GPIO 14 */
@@ -289,4 +294,17 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 8 0>;
+};
+
+&i2c_chg {
+	smb1359_otg_supply: smb1359-charger@1c {
+		compatible = "qcom,smb1359-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xcc 0x0>;	/* PMA8084 GPIO 13 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mV = <100>;
+		regulator-name = "smb1359_otg_supply";
+	};
 };
