@@ -1,0 +1,91 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_gpu: qcom,kgsl-3d0@fdb00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdb00000 0x10000
+		       0xfdb20000 0x20000>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03010010>;
+
+		qcom,initial-pwrlevel = <1>;
+
+		/* Idle Timeout = HZ/12 */
+		qcom,idle-timeout = <8>;
+		qcom,strtstp-sleepwake;
+
+		/* Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE */
+		qcom,clk-map = <0x00000006>;
+
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>, <89 604 0 0>,
+				<26 512 0 3600000>, <89 604 0 872720>,
+				<26 512 0 7200000>, <89 604 0 2133360>,
+				<26 512 0 9600000>, <89 604 0 2400000>;
+
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gdsc_oxili_cx>;
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&kgsl_iommu>;
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <525000000>;
+				qcom,bus-freq = <3>;
+				qcom,io-fraction = <33>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <2>;
+				qcom,io-fraction = <66>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <1>;
+				qcom,io-fraction = <100>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,io-fraction = <0>;
+			};
+		};
+
+	};
+};
+
