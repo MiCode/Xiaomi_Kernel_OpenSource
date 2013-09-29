@@ -617,6 +617,36 @@ static struct msm_gpiomux_config sd_card_det __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_qca1530_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm_qca1530_cdp_configs[] __initdata = {
+	{
+		.gpio = 133,    /* qca1530 reset */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_qca1530_config,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm_qca1530_liquid_configs[] __initdata = {
+	{
+		.gpio = 128,    /* qca1530 reset */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_qca1530_config,
+		},
+	},
+	{
+		.gpio = 66,     /* qca1530 power extra */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_qca1530_config,
+		},
+	},
+};
+
 void __init apq8084_init_gpiomux(void)
 {
 	int rc;
@@ -633,13 +663,18 @@ void __init apq8084_init_gpiomux(void)
 	msm_gpiomux_install(msm_synaptics_configs,
 					ARRAY_SIZE(msm_synaptics_configs));
 
-	if (of_board_is_liquid())
+	if (of_board_is_liquid()) {
 		msm_gpiomux_install(msm_blsp2_uart5_configs,
 				ARRAY_SIZE(msm_blsp2_uart5_configs));
-	else {
+		msm_gpiomux_install(msm_qca1530_liquid_configs,
+				ARRAY_SIZE(msm_qca1530_liquid_configs));
+	} else {
 		msm_gpiomux_install(mdm_configs, ARRAY_SIZE(mdm_configs));
 		msm_gpiomux_install(msm_blsp2_uart1_configs,
 				ARRAY_SIZE(msm_blsp2_uart1_configs));
+		if (of_board_is_cdp())
+			msm_gpiomux_install(msm_qca1530_cdp_configs,
+					ARRAY_SIZE(msm_qca1530_cdp_configs));
 	}
 	msm_gpiomux_install(apq8084_hsic_configs,
 			ARRAY_SIZE(apq8084_hsic_configs));
