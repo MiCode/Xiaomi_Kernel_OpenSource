@@ -635,6 +635,8 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp3_session->lock);
 
 	vsync_client = mdp3_dma->vsync_client;
+	if (panel && panel->set_backlight)
+		panel->set_backlight(panel, 0);
 
 	rc = mdp3_dma->stop(mdp3_dma, mdp3_session->intf);
 	if (rc) {
@@ -808,6 +810,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	struct mdp3_img_data *data;
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 	int rc = 0;
+	bool reset_done = false;
+	struct mdss_panel_data *panel;
 
 	if (!mfd || !mfd->mdp.private1)
 		return -EINVAL;
@@ -821,9 +825,11 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		return -EPERM;
 	}
 
+	panel = mdp3_session->panel;
 	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		mdp3_ctrl_reset(mfd);
+		reset_done = true;
 	}
 	mdp3_release_splash_memory();
 
@@ -853,6 +859,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		msleep(1000 / panel_info->mipi.frame_rate);
 		mdp3_session->first_commit = false;
 	}
+	if (reset_done && (panel && panel->set_backlight))
+		panel->set_backlight(panel, panel->panel_info.bl_max);
 
 	mutex_unlock(&mdp3_session->lock);
 
