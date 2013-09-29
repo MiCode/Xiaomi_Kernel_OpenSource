@@ -16,6 +16,8 @@
 #include "mdss_fb.h"
 #include "mdp3_ppp.h"
 
+#define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
+
 /* bg_config_lut not needed since it is same as src */
 const uint32_t src_cfg_lut[MDP_IMGTYPE_LIMIT] = {
 	[MDP_RGB_565] = MDP_RGB_565_SRC_REG,
@@ -1504,56 +1506,56 @@ void ppp_load_y_scale_table(int idx)
 
 uint32_t ppp_bpp(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return bytes_per_pixel[type];
 }
 
 uint32_t ppp_src_config(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return src_cfg_lut[type];
 }
 
 uint32_t ppp_out_config(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return out_cfg_lut[type];
 }
 
 uint32_t ppp_pack_pattern(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return pack_patt_lut[type];
 }
 
 uint32_t ppp_dst_op_reg(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return dst_op_reg[type];
 }
 
 uint32_t ppp_src_op_reg(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return src_op_reg[type];
 }
 
 bool ppp_per_p_alpha(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return per_pixel_alpha[type];
 }
 
 bool ppp_multi_plane(uint32_t type)
 {
-	if (type > MDP_IMGTYPE_LIMIT)
+	if (MDP_IS_IMGTYPE_BAD(type))
 		return 0;
 	return multi_plane[type];
 }
