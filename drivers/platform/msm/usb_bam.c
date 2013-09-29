@@ -1396,6 +1396,8 @@ static void usb_bam_finish_resume(struct work_struct *w)
 {
 	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	enum usb_bam cur_bam = HSUSB_BAM;
+	struct usb_bam_pipe_connect *pipe_connect;
+	u32 idx, dst_idx, suspended;
 
 	BUG_ON(IS_ERR_OR_NULL(phy));
 	pr_debug("%s: enter", __func__);
@@ -1411,6 +1413,29 @@ static void usb_bam_finish_resume(struct work_struct *w)
 	}
 	info[cur_bam].pipes_to_suspend = 0;
 	info[cur_bam].lpm_wait_handshake = true;
+
+	pr_debug("Resuming: pipes_suspended =%d",
+		 info[cur_bam].pipes_suspended);
+
+	suspended = info[cur_bam].pipes_suspended;
+	while (suspended >= 1) {
+		idx = suspended - 1;
+		dst_idx = info[cur_bam].resume_dst_idx[idx];
+		pipe_connect = &usb_bam_connections[dst_idx];
+		if (pipe_connect->cons_stopped) {
+			spin_unlock(&usb_bam_ipa_handshake_info_lock);
+			ipa_resume_pipes(idx);
+			spin_lock(&usb_bam_ipa_handshake_info_lock);
+			pr_debug("%s: Starting CONS on %d", __func__, dst_idx);
+			start_cons_transfers(pipe_connect);
+		}
+		suspended--;
+	}
+	if (info[cur_bam].cur_cons_state == IPA_RM_RESOURCE_GRANTED) {
+		pr_debug("%s: Notify CONS_GRANTED\n", __func__);
+		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
+				 ipa_rm_resource_cons[HSUSB_BAM]);
+	}
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
 	/* Start handshake for the first pipe resumed */
@@ -1418,8 +1443,15 @@ static void usb_bam_finish_resume(struct work_struct *w)
 		wait_for_prod_granted(cur_bam);
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
-
-	resume_suspended_pipes(cur_bam);
+	while (info[cur_bam].pipes_suspended >= 1) {
+		idx = info[cur_bam].pipes_suspended - 1;
+		dst_idx = info[cur_bam].resume_dst_idx[idx];
+		pipe_connect = &usb_bam_connections[dst_idx];
+		pr_debug("%s: Starting PROD on %d", __func__, dst_idx);
+		start_prod_transfers(pipe_connect);
+		info[cur_bam].pipes_suspended--;
+		info[cur_bam].pipes_resumed++;
+	}
 
 	if (info[cur_bam].pipes_resumed * 2 ==
 	      ctx.pipes_enabled_per_bam[cur_bam]) {
@@ -1427,9 +1459,10 @@ static void usb_bam_finish_resume(struct work_struct *w)
 		if (info[cur_bam].cur_cons_state == IPA_RM_RESOURCE_GRANTED) {
 			pr_debug("%s: Notify CONS_GRANTED\n", __func__);
 			ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
-					 ipa_rm_resource_cons[cur_bam]);
+						 ipa_rm_resource_cons[cur_bam]);
 		}
 	}
+
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	mutex_unlock(&info[cur_bam].suspend_resume_mutex);
 	pr_debug("%s: done", __func__);
