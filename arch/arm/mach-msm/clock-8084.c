@@ -5790,7 +5790,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("xo",  cxo_lpm_clk.c,            "fc4281d0.qcom,mpm"),
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
-
+	/* NFC */
+	CLK_LOOKUP("ref_clk",            bb_clk2_a_pin.c, "3-000e"),
 	/* RPM clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
@@ -5863,13 +5864,16 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9923000.spi"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9925000.i2c"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c,	"f9922000.uart"),
+	/* NFC */
+	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9926000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp1_qup1_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("core_clk",	gcc_blsp1_qup1_spi_apps_clk.c,	"f9923000.spi"),
 	CLK_LOOKUP("",	gcc_blsp1_qup2_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup2_spi_apps_clk.c,	""),
 	CLK_LOOKUP("core_clk",	gcc_blsp1_qup3_i2c_apps_clk.c, "f9925000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp1_qup3_spi_apps_clk.c,	""),
-	CLK_LOOKUP("",	gcc_blsp1_qup4_i2c_apps_clk.c,	""),
+	/* NFC */
+	CLK_LOOKUP("core_clk",	gcc_blsp1_qup4_i2c_apps_clk.c,	"f9926000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp1_qup4_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup5_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup5_spi_apps_clk.c,	""),
