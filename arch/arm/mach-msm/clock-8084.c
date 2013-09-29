@@ -6335,6 +6335,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("pcie_0_ldo",	pcie_0_phy_ldo.c,  "msm_pcie"),
 	CLK_LOOKUP("pcie_1_ldo",	pcie_1_phy_ldo.c,  "msm_pcie"),
 	CLK_LOOKUP("",		sata_phy_ldo.c,               ""),
+
+	CLK_LOOKUP("rtc_clk",	div_clk3.c, "qca1530.1"),
 };
 
 static struct pll_config_regs mmpll0_regs __initdata = {
