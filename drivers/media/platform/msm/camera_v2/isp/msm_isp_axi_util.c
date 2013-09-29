@@ -786,6 +786,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 	uint32_t frame_id = vfe_dev->axi_data.
 		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
+	memset(&buf_event, 0, sizeof(buf_event));
 
 	if (buf && ts) {
 		if (stream_info->buf_divert) {
@@ -815,6 +816,18 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 					&buf_event);
 			}
 		} else {
+			buf_event.input_intf =
+				SRC_TO_INTF(stream_info->stream_src);
+			buf_event.frame_id = frame_id;
+			buf_event.timestamp = ts->buf_time;
+			buf_event.u.buf_done.session_id =
+				stream_info->session_id;
+			buf_event.u.buf_done.stream_id =
+				stream_info->stream_id;
+			buf_event.u.buf_done.output_format =
+				stream_info->runtime_output_format;
+			msm_isp_send_event(vfe_dev,
+				ISP_EVENT_BUF_DONE, &buf_event);
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
 				&ts->buf_time, frame_id,
