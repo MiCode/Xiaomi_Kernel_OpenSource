@@ -29,25 +29,28 @@
 #define RMNET_CTRL_DEV_READY	1
 #define RMNET_CTRL_DEV_MUX_EN	2
 
-/*MUX header bit masks*/
-#define MUX_CTRL_MASK	0x1
+/*data MUX header bit mask*/
 #define MUX_PAD_SHIFT	0x2
+
+/*big endian format ctrl MUX header bit masks*/
+#define MUX_CTRL_PADLEN_MASK	0x3F
+#define MUX_CTRL_MASK	0x80
 
 /*max padding bytes for n byte alignment*/
 #define MAX_PAD_BYTES(n)	(n-1)
 
 /*
- *MUX Header Format
- *BIT 0 : Mux type 0: Data, 1: control
- *BIT 1: Reserved
- *BIT 2-7: Pad bytes
+ *MUX Header big endian Format
+ *BIT 0 - 5 : Pad bytes
+ *BIT 6: Reserved
+ *BIT 7: Mux type 0: Data, 1: control
  *BIT 8-15: Mux ID
  *BIT 16-31: PACKET_LEN_WITH_PADDING (Bytes)
  */
 struct mux_hdr {
 	__u8	padding_info;
 	__u8	mux_id;
-	__le16	pkt_len_w_padding;
+	__u16	pkt_len_w_padding;
 } __packed;
 
 struct rmnet_ctrl_dev {

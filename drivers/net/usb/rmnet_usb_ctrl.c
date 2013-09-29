@@ -124,7 +124,7 @@ static int rmnet_usb_ctrl_dmux(struct ctrl_pkt_list_elem *clist)
 	unsigned int	mux_id;
 
 	hdr = (struct mux_hdr *)clist->cpkt.data;
-	pad_len = hdr->padding_info >> MUX_PAD_SHIFT;
+	pad_len = hdr->padding_info & MUX_CTRL_PADLEN_MASK;
 	if (pad_len > MAX_PAD_BYTES(4)) {
 		pr_err_ratelimited("%s: Invalid pad len %d\n", __func__,
 				pad_len);
@@ -137,7 +137,7 @@ static int rmnet_usb_ctrl_dmux(struct ctrl_pkt_list_elem *clist)
 		return -EINVAL;
 	}
 
-	total_len = le16_to_cpu(hdr->pkt_len_w_padding);
+	total_len = ntohs(hdr->pkt_len_w_padding);
 	if (!total_len || !(total_len - pad_len)) {
 		pr_err_ratelimited("%s: Invalid pkt length %d\n", __func__,
 				total_len);
@@ -162,10 +162,11 @@ static void rmnet_usb_ctrl_mux(unsigned int id, struct ctrl_pkt *cpkt)
 	/*add padding if len is not 4 byte aligned*/
 	pad_len =  ALIGN(len, 4) - len;
 
-	hdr->pkt_len_w_padding = cpu_to_le16(len + pad_len);
-	hdr->padding_info = (pad_len << MUX_PAD_SHIFT) | MUX_CTRL_MASK;
+	hdr->pkt_len_w_padding = htons(len + pad_len);
+	hdr->padding_info = (pad_len &  MUX_CTRL_PADLEN_MASK) | MUX_CTRL_MASK;
 
-	cpkt->data_size = sizeof(struct mux_hdr) + hdr->pkt_len_w_padding;
+	cpkt->data_size = sizeof(struct mux_hdr) +
+		ntohs(hdr->pkt_len_w_padding);
 }
 
 static void get_encap_work(struct work_struct *w)
