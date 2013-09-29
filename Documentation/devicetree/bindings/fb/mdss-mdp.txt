@@ -207,6 +207,11 @@ Subnode properties:
 			 enabled if framebuffer size is less than max mixer
 			 width; 2) the defaut even split is enabled if frambuffer
 			 size is greater than max mixer width.
+- qcom,memblock-reserve: Specifies the memory location and the size reserved
+			 for the framebuffer used to display the splash screen.
+			 This property is required whenever the continuous splash
+			 screen feature is enabled for the corresponding
+			 framebuffer device.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {

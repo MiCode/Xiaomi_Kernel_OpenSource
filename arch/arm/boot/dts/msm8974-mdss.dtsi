@@ -73,6 +73,7 @@
 			compatible = "qcom,mdss-fb";
 			qcom,memory-reservation-type = "EBI1";
 			qcom,memory-reservation-size = <0x800000>;
+			qcom,memblock-reserve = <0x03200000 0x01E00000>;
 		};
 
 		mdss_fb1: qcom,mdss_fb_external {
