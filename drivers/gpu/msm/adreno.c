@@ -828,7 +828,13 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 				 * glue commands together until next
 				 * WAIT_FOR_ME
 				 */
-				cmds += adreno_wait_reg_eq(cmds,
+				if (adreno_is_a4xx(adreno_dev))
+					cmds += adreno_wait_reg_mem(cmds,
+					adreno_getreg(adreno_dev,
+						ADRENO_REG_CP_WFI_PEND_CTR),
+					1, 0xFFFFFFFF, 0xF);
+				else
+					cmds += adreno_wait_reg_eq(cmds,
 					adreno_getreg(adreno_dev,
 						ADRENO_REG_CP_WFI_PEND_CTR),
 					1, 0xFFFFFFFF, 0xF);
@@ -843,9 +849,18 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 				*cmds++ =
 				   KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
 				/* wait for smmu to lock */
-				cmds += adreno_wait_reg_eq(cmds, mmu_ctrl,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
+				if (adreno_is_a4xx(adreno_dev))
+					cmds += adreno_wait_reg_mem(cmds,
+					mmu_ctrl,
+					KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+					KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+					0xF);
+				else
+					cmds += adreno_wait_reg_eq(cmds,
+					mmu_ctrl,
+					KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+					KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+					0xF);
 			}
 			/* set ttbr0 */
 			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
@@ -891,7 +906,11 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 			tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu, i,
 					KGSL_IOMMU_CONTEXT_USER,
 					KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
-			cmds += adreno_wait_reg_eq(cmds, tlbstatus, 0,
+			if (adreno_is_a4xx(adreno_dev))
+				cmds += adreno_wait_reg_mem(cmds, tlbstatus, 0,
+					KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+			else
+				cmds += adreno_wait_reg_eq(cmds, tlbstatus, 0,
 					KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
 		}
 	}
