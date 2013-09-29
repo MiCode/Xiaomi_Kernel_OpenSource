@@ -17,6 +17,13 @@
 };
 
 &soc {
+	ext_5v_vreg: regulator-tps61256 {
+		compatible = "regulator-fixed";
+		regulator-name = "ext_5v_boost";
+		gpio = <&pma8084_gpios 1 0>;
+		startup-delay-us = <500>;
+		enable-active-high;
+	};
 };
 
 &blsp1_uart1 {
