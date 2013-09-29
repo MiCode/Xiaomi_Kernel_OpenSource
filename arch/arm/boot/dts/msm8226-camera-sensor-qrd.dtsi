@@ -402,7 +402,7 @@
 	};
 
 	qcom,camera@6a {
-		compatible = "qcom,ov5648";
+		compatible = "ovti,ov5648";
 		reg = <0x6a>;
 		qcom,slave-id = <0x6c 0x300a 0x5648>;
 		qcom,csiphy-sd-index = <1>;
