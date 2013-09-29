@@ -132,6 +132,7 @@
 #define ARIZONA_MIC_DETECT_LEVEL_2		 0x2A7
 #define ARIZONA_MIC_DETECT_LEVEL_3		 0x2A8
 #define ARIZONA_MIC_DETECT_LEVEL_4		 0x2A9
+#define ARIZONA_MIC_DETECT_4                     0x2AB
 #define ARIZONA_MIC_NOISE_MIX_CONTROL_1          0x2C3
 #define ARIZONA_ISOLATION_CONTROL                0x2CB
 #define ARIZONA_JACK_DETECT_ANALOGUE             0x2D3
@@ -2143,9 +2144,9 @@
 #define ARIZONA_ACCDET_SRC_MASK                  0x2000  /* ACCDET_SRC */
 #define ARIZONA_ACCDET_SRC_SHIFT                     13  /* ACCDET_SRC */
 #define ARIZONA_ACCDET_SRC_WIDTH                      1  /* ACCDET_SRC */
-#define ARIZONA_ACCDET_MODE_MASK                 0x0003  /* ACCDET_MODE - [1:0] */
-#define ARIZONA_ACCDET_MODE_SHIFT                     0  /* ACCDET_MODE - [1:0] */
-#define ARIZONA_ACCDET_MODE_WIDTH                     2  /* ACCDET_MODE - [1:0] */
+#define ARIZONA_ACCDET_MODE_MASK                 0x0007  /* ACCDET_MODE - [2:0] */
+#define ARIZONA_ACCDET_MODE_SHIFT                     0  /* ACCDET_MODE - [2:0] */
+#define ARIZONA_ACCDET_MODE_WIDTH                     3  /* ACCDET_MODE - [2:0] */
 
 /*
  * R667 (0x29B) - Headphone Detect 1
@@ -2253,6 +2254,16 @@
 #define ARIZONA_MICD_STS_MASK                    0x0001  /* MICD_STS */
 #define ARIZONA_MICD_STS_SHIFT                        0  /* MICD_STS */
 #define ARIZONA_MICD_STS_WIDTH                        1  /* MICD_STS */
+
+/*
+ * R683 (0x2AB) - Mic Detect 4
+ */
+#define ARIZONA_MICDET_ADCVAL_DIFF_MASK          0xFF00  /* MICDET_ADCVAL_DIFF - [15:8] */
+#define ARIZONA_MICDET_ADCVAL_DIFF_SHIFT              8  /* MICDET_ADCVAL_DIFF - [15:8] */
+#define ARIZONA_MICDET_ADCVAL_DIFF_WIDTH              8  /* MICDET_ADCVAL_DIFF - [15:8] */
+#define ARIZONA_MICDET_ADCVAL_MASK               0x007F  /* MICDET_ADCVAL - [15:8] */
+#define ARIZONA_MICDET_ADCVAL_SHIFT                   0  /* MICDET_ADCVAL - [15:8] */
+#define ARIZONA_MICDET_ADCVAL_WIDTH                   7  /* MICDET_ADCVAL - [15:8] */
 
 /*
  * R707 (0x2C3) - Mic noise mix control 1

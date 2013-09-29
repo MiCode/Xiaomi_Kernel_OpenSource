@@ -548,6 +548,7 @@ static const struct reg_default wm5110_reg_default[] = {
 	{ 0x000002A7, 0x372C },    /* R679   - Mic Detect Level 2 */
 	{ 0x000002A8, 0x1422 },    /* R680   - Mic Detect Level 3 */
 	{ 0x000002A9, 0x300A },    /* R681   - Mic Detect Level 4 */
+	{ 0x000002AB, 0x0000 },    /* R683   - Mic Detect 4 */
 	{ 0x000002C3, 0x0000 },    /* R707   - Mic noise mix control 1 */
 	{ 0x000002D3, 0x0000 },    /* R723   - Jack detect analogue */
 	{ 0x00000300, 0x0000 },    /* R768   - Input Enables */
@@ -1575,6 +1576,7 @@ static bool wm5110_readable_register(struct device *dev, unsigned int reg)
 	case ARIZONA_MIC_DETECT_1:
 	case ARIZONA_MIC_DETECT_2:
 	case ARIZONA_MIC_DETECT_3:
+	case ARIZONA_MIC_DETECT_4:
 	case ARIZONA_MIC_DETECT_LEVEL_1:
 	case ARIZONA_MIC_DETECT_LEVEL_2:
 	case ARIZONA_MIC_DETECT_LEVEL_3:
@@ -2509,6 +2511,7 @@ static bool wm5110_volatile_register(struct device *dev, unsigned int reg)
 	case ARIZONA_SAMPLE_RATE_3_STATUS:
 	case ARIZONA_ASYNC_SAMPLE_RATE_1_STATUS:
 	case ARIZONA_MIC_DETECT_3:
+	case ARIZONA_MIC_DETECT_4:
 	case ARIZONA_HEADPHONE_DETECT_2:
 	case ARIZONA_INPUT_ENABLES_STATUS:
 	case ARIZONA_OUTPUT_STATUS_1:
