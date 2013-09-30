@@ -1073,7 +1073,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *link = 0;
 	unsigned int *cmds;
-	unsigned int i;
+	unsigned int i, cmdflags;
 	struct adreno_context *drawctxt = NULL;
 	unsigned int start_index = 0;
 	int ret;
@@ -1094,6 +1094,8 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		ret = -EDEADLK;
 		goto done;
 	}
+
+	cmdflags = (flags & KGSL_CMD_FLAGS_EOF);
 
 	/* process any profiling results that are available into the log_buf */
 	adreno_profile_process_results(device);
@@ -1161,7 +1163,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	if (test_and_clear_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv) &&
 		test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
-			flags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
+			cmdflags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
 
 	if (drawctxt->flags & CTXT_FLAGS_USER_GENERATED_TS) {
 		if (timestamp_cmp(drawctxt->timestamp, *timestamp) >= 0) {
@@ -1178,7 +1180,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
-					flags,
+					cmdflags,
 					&link[0], (cmds - link));
 	if (ret)
 		goto done;
