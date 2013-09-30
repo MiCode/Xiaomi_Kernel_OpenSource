@@ -1011,8 +1011,11 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_UPPER_PIPE_CTRL, upper);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_LOWER_PIPE_CTRL, lower);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_EN, enable);
-}
 
+	if (main_ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_103)
+		MDSS_MDP_REG_WRITE(MMSS_MDP_MDP_SSPP_SPARE_0,
+			enable ? 0x1 : 0x0);
+}
 
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 {
@@ -1802,15 +1805,20 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	/* postprocessing setup, including dspp */
 	mdss_mdp_pp_setup_locked(ctl);
+
+	if (sctl && ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+		ctl->flush_bits |= sctl->flush_bits;
+		sctl->flush_bits = 0;
+	}
+
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl->flush_bits);
-	if (sctl) {
+	if (sctl && sctl->flush_bits) {
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
 			sctl->flush_bits);
+		sctl->flush_bits = 0;
 	}
 	wmb();
 	ctl->flush_bits = 0;
-	if (sctl)
-		sctl->flush_bits = 0;
 
 	if (ctl->display_fnc)
 		ret = ctl->display_fnc(ctl, arg); /* kickoff */
