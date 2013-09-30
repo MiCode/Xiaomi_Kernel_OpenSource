@@ -2078,6 +2078,9 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* REPORT SUPPORTED OPERATION CODES is not supported */
 	sdev->no_report_opcodes = 1;
 
+	/* try read capactiy (10) first as rc_16 is optional in UFS spec. */
+	sdev->try_rc_10_first = 1;
+
 	lun_qdepth = ufshcd_read_sdev_qdepth(hba, sdev);
 	if (lun_qdepth <= 0)
 		/* eventually, we can figure out the real queue depth */
