@@ -2584,11 +2584,33 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	struct drm_device *dev = dev_priv->dev;
 	struct ilk_wm_values *previous = &dev_priv->wm.hw;
 	unsigned int dirty;
-	uint32_t val;
+	uint32_t val, pipe, cur_plane_wm;
 
 	dirty = ilk_compute_wm_dirty(dev, previous, results);
 	if (!dirty)
 		return;
+
+	/*
+	 * WM value for disabled plane has no impact. Hence not disturbing it.
+	 * This will make sure that none of the enabled plane's WM value
+	 * will be set zero, hence avoiding FIFO underrun error
+	 */
+	for (pipe = 0; pipe < I915_MAX_PIPES; pipe++) {
+		if (pipe == PIPE_C)
+			val = I915_READ(WM0_PIPEC_IVB);
+		else
+			val = I915_READ(WM0_PIPEA_ILK + (pipe * 4));
+
+		/* Primary plane WM value */
+		cur_plane_wm = (val & 0xFF0000) >> 16;
+		if (!((results->wm_pipe[pipe] & 0xFF0000) >> 16))
+			results->wm_pipe[pipe] |= (cur_plane_wm << 16);
+
+		/* Sprite plane WM value */
+		cur_plane_wm = (val & 0xFF00) >> 8;
+		if (!((results->wm_pipe[pipe] & 0xFF00) >> 8))
+			results->wm_pipe[pipe] |= (cur_plane_wm << 8);
+	}
 
 	_ilk_disable_lp_wm(dev_priv, dirty);
 
