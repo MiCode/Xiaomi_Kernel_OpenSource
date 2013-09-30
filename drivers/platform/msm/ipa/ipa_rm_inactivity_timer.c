@@ -138,6 +138,7 @@ int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 */
 int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 {
+	unsigned long flags;
 	IPADBG("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
@@ -151,6 +152,10 @@ int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 		    __func__, resource_name);
 		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&ipa_rm_it_handles[resource_name].lock, flags);
+	cancel_delayed_work(&ipa_rm_it_handles[resource_name].work);
+	spin_unlock_irqrestore(&ipa_rm_it_handles[resource_name].lock, flags);
 
 	memset(&ipa_rm_it_handles[resource_name], 0,
 	       sizeof(struct ipa_rm_it_private));
