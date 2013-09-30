@@ -3664,6 +3664,8 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 			}
 		}
 		for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
+			if (ft_detect_regs[i] == 0)
+				continue;
 			if (curr_reg_val[i] != prev_reg_val[i])
 				fast_hang_detected = 0;
 		}
@@ -3725,8 +3727,12 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 
 	/* If hangs are not detected copy the current reg values
 	 * to previous values and return no hang */
-	for (i = 0; i < FT_DETECT_REGS_COUNT; i++)
-			prev_reg_val[i] = curr_reg_val[i];
+	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
+		if (ft_detect_regs[i] == 0)
+			continue;
+		prev_reg_val[i] = curr_reg_val[i];
+	}
+
 	return 0;
 }
 
