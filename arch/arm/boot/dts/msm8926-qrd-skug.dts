@@ -90,6 +90,14 @@
 	};
 };
 
+&spmi_bus {
+	qcom,pm8226@0 {
+		qcom,leds@a100 {
+			status = "disable";
+			};
+		};
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_ssd2080m_720_vid>;
 };
