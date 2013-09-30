@@ -214,6 +214,33 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	}
 };
 
+static struct msm_gpiomux_config msm_blsp1_uart6_configs[] __initdata = {
+	{
+		.gpio      = 43,		/* BLSP1 UART6 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 44,		/* BLSP1 UART6 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 45,		/* BLSP1 UART6 CTS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 46,		/* BLSP1 UART6 RTS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+};
+
 static struct gpiomux_setting hsic_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -444,6 +471,8 @@ void __init apq8084_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(msm_blsp1_uart6_configs,
+					ARRAY_SIZE(msm_blsp1_uart6_configs));
 	msm_gpiomux_install(msm_synaptics_configs,
 					ARRAY_SIZE(msm_synaptics_configs));
 	msm_gpiomux_install(apq8084_hsic_configs,
