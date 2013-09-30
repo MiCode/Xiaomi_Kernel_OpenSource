@@ -91,6 +91,7 @@
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
+#define PLATFORM_SUBTYPE_INTERPOSERV3 2
 #define PLATFORM_SUBTYPE_SGLTE	6
 
 enum msm_cpu {

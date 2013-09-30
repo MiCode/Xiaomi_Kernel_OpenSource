@@ -1393,6 +1393,62 @@ static struct msm_gpiomux_config apq8074_dragonboard_ts_config[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_i2c_active_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_reset_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config apq8074_interposer_config[] __initdata = {
+	{
+		/* BLSP1 QUP I2C_DATA */
+		.gpio      = 6,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_i2c_active_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		/* BLSP1 QUP I2C_CLK */
+		.gpio      = 7,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_i2c_active_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		/* BLSP1 QUP I2C_DATA */
+		.gpio	   = 10,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_i2c_active_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		/* BLSP1 QUP I2C_CLK */
+		.gpio	   = 11,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_i2c_active_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		/* IO Expander Reset */
+		.gpio	   = 138,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_reset_config,
+			[GPIOMUX_SUSPENDED] = &gpio_reset_config,
+		},
+	},
+};
+
+
 void __init msm_8974_init_gpiomux(void)
 {
 	int rc;
@@ -1488,4 +1544,9 @@ void __init msm_8974_init_gpiomux(void)
 	if (of_board_is_dragonboard() && machine_is_apq8074())
 		msm_gpiomux_install(apq8074_dragonboard_ts_config,
 			ARRAY_SIZE(apq8074_dragonboard_ts_config));
+
+	if ((socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_INTERPOSERV3)
+		&& of_board_is_cdp())
+		msm_gpiomux_install(apq8074_interposer_config,
+			ARRAY_SIZE(apq8074_interposer_config));
 }
