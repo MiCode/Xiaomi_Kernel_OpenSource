@@ -67,8 +67,9 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
 	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
-	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK, 0);
-	wmb(); /* ensure PHY address is cleared before we proceed */
+	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
+			  (dev << PHY_ADDR_SHFT));
+	wmb(); /* ensure PHY address is set before we proceed */
 	udelay(1000);
 
 	if (ext) {
@@ -119,8 +120,9 @@ int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
 	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
-	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK, 0);
-	wmb(); /* ensure PHY address is cleared before we proceed */
+	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
+			  (dev << PHY_ADDR_SHFT));
+	wmb(); /* ensure PHY address is set before we proceed */
 	udelay(1000);
 
 	if (ext) {
@@ -167,7 +169,8 @@ int emac_read_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 *phy_data)
 	int  retval;
 
 	spin_lock_irqsave(&hw->mdio_lock, flags);
-	retval = emac_hw_read_phy_reg(hw, false, 0, true, reg_addr, phy_data);
+	retval = emac_hw_read_phy_reg(hw, false, hw->phy_addr, true,
+				      reg_addr, phy_data);
 	spin_unlock_irqrestore(&hw->mdio_lock, flags);
 
 	if (retval)
@@ -185,7 +188,8 @@ int emac_write_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 phy_data)
 	int  retval;
 
 	spin_lock_irqsave(&hw->mdio_lock, flags);
-	retval = emac_hw_write_phy_reg(hw, false, 0, true, reg_addr, phy_data);
+	retval = emac_hw_write_phy_reg(hw, false, hw->phy_addr, true,
+				       reg_addr, phy_data);
 	spin_unlock_irqrestore(&hw->mdio_lock, flags);
 
 	if (retval)

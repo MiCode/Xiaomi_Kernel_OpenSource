@@ -38,6 +38,7 @@
 
 /* EMAC_PHY_STS */
 #define PHY_ADDR_BMSK                                          0x1f0000
+#define PHY_ADDR_SHFT                                                16
 
 /* EMAC_MDIO_EX_CTRL */
 #define DEVAD_BMSK                                             0x1f0000
