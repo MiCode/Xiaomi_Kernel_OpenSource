@@ -16,6 +16,12 @@
 	aliases {
 		serial0 = &blsp2_uart1;
 	};
+
+	bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pma8084_gpios 4 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&wlan_vreg>;
+	};
 };
 
 &soc {
