@@ -1643,9 +1643,6 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	if (udc->transceiver)
 		usb_phy_set_suspend(udc->transceiver, 0);
 
-	while (udc->udc_driver->in_lpm(udc))
-		usleep(1);
-
 	spin_lock_irqsave(udc->lock, flags);
 	if (!skip_fpr) {
 		if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
