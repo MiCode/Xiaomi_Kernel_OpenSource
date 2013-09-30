@@ -21,9 +21,6 @@ Optional Properties:
 - qcom,chg-autonomous-mode	This is a bool property and it indicates that the
 				charger is configured for autonomous operation and
 				does not require any software configuration.
-- qcom,enable-chg-type-detection This is bool property and it indicates
-				if charger detection is supported by this
-				driver.
 - qcom,disable-apsd		This is a bool property which disables Automatic
 				power source detection (apsd). If this is set
 				charger detection is done by DCIN UV irq.

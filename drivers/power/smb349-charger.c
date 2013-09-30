@@ -161,7 +161,6 @@ struct smb349_charger {
 	int			chg_present;
 	bool			chg_autonomous_mode;
 	bool			disable_apsd;
-	bool			enable_chg_type_detection;
 	bool			battery_missing;
 	bool			supply_update;
 	const char		*bms_psy_name;
@@ -915,11 +914,7 @@ static int apsd_complete(struct smb349_charger *chip, u8 status)
 	dev_dbg(chip->dev, "APSD complete. USB type detected=%d chg_present=%d",
 						type, chip->chg_present);
 
-	if (chip->enable_chg_type_detection) {
-		dev_dbg(chip->dev, "%s updating usb_psy with type=%d", __func__,
-				type);
-		power_supply_set_supply_type(chip->usb_psy, type);
-	}
+	power_supply_set_supply_type(chip->usb_psy, type);
 
 	 /* SMB is now done sampling the D+/D- lines, indicate USB driver */
 	dev_dbg(chip->dev, "%s updating usb_psy present=%d", __func__,
@@ -936,6 +931,8 @@ static int chg_uv(struct smb349_charger *chip, u8 status)
 		chip->chg_present = true;
 		dev_dbg(chip->dev, "%s updating usb_psy present=%d",
 				__func__, chip->chg_present);
+		power_supply_set_supply_type(chip->usb_psy,
+						POWER_SUPPLY_TYPE_USB);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 	}
 
@@ -943,8 +940,7 @@ static int chg_uv(struct smb349_charger *chip, u8 status)
 		chip->chg_present = false;
 		dev_dbg(chip->dev, "%s updating usb_psy present=%d",
 				__func__, chip->chg_present);
-		if (chip->enable_chg_type_detection)
-			power_supply_set_supply_type(chip->usb_psy,
+		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 	}
@@ -1136,9 +1132,6 @@ static int smb_parse_dt(struct smb349_charger *chip)
 
 	chip->chg_autonomous_mode = of_property_read_bool(node,
 					"qcom,chg-autonomous-mode");
-
-	chip->enable_chg_type_detection = of_property_read_bool(node,
-					"qcom,enable-chg-type-detection");
 
 	chip->disable_apsd = of_property_read_bool(node, "qcom,disable-apsd");
 
