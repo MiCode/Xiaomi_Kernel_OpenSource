@@ -95,21 +95,6 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p4[] = {
 	{ 0 }
 };
 
-static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p5[] = {
-	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
-	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
-	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL, 0, 6 },
-	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL, 0, 6 },
-	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1344000, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1401600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 1, 1497600, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,  0, 7 },
-	{ 0 }
-};
-
 static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p6[] = {
 	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,    0, 4 },
 	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_SVS,    0, 4 },
@@ -141,8 +126,8 @@ static struct clkctl_acpu_speed *pvs_tables_8226[NUM_SPEED_BIN] = {
 	[6] = acpu_freq_tbl_8226_1p2,
 	[2] = acpu_freq_tbl_8226_1p4,
 	[5] = acpu_freq_tbl_8226_1p4,
-	[4] = acpu_freq_tbl_8226_1p5,
-	[7] = acpu_freq_tbl_8226_1p5,
+	[4] = acpu_freq_tbl_8226_1p4,
+	[7] = acpu_freq_tbl_8226_1p4,
 	[1] = acpu_freq_tbl_8226_1p6,
 };
 
