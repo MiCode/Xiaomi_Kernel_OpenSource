@@ -88,7 +88,8 @@ Parent node optional properties:
 					necessary software workarounds.
 - qcom,ext-ovp-present			Indicates if an external OVP exists which reduces the
 					overall input resistance of the charge path.
-
+- qcom,ovp-monitor-en			The ovp is enabled on hw by default. If this flag is
+					set, the charger ovp status is monitored in software.
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
 	the spmi-dev-container property. Each subnode reflects
