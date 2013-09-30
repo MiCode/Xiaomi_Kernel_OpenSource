@@ -5861,6 +5861,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f991e000.serial"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f991f000.serial"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9925000.i2c"),
+	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c,	"f9922000.uart"),
 	CLK_LOOKUP("",	gcc_blsp1_qup1_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup1_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup2_i2c_apps_clk.c,	""),
@@ -5878,7 +5879,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk",	gcc_blsp1_uart3_apps_clk.c, "f991f000.serial"),
 	CLK_LOOKUP("",	gcc_blsp1_uart4_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart5_apps_clk.c,	""),
-	CLK_LOOKUP("",	gcc_blsp1_uart6_apps_clk.c,	""),
+	CLK_LOOKUP("core_clk", gcc_blsp1_uart6_apps_clk.c,  "f9922000.uart"),
 
 	/* BLSP2  clocks */
 	CLK_LOOKUP("iface_clk",	gcc_blsp2_ahb_clk.c,	"f995e000.serial"),
