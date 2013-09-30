@@ -57,6 +57,34 @@ u32 emac_reg_field_r32(struct emac_hw *hw, u8 base, u32 reg,
 }
 
 /* PHY */
+static int emac_disable_mdio_autopoll(struct emac_hw *hw)
+{
+	u32 i, val;
+
+	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
+	wmb(); /* ensure mdio autopoll disable is requested */
+
+	/* wait for any mdio polling to complete */
+	for (i = 0; i < MDIO_WAIT_TIMES; i++) {
+		val = emac_reg_r32(hw, EMAC, EMAC_MDIO_CTRL);
+		if (!(val & MDIO_BUSY))
+			return 0;
+
+		udelay(100);
+	}
+
+	/* failed to disable; ensure it is enabled before returning */
+	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
+	wmb(); /* ensure mdio autopoll is enabled */
+	return -EBUSY;
+}
+
+static void emac_enable_mdio_autopoll(struct emac_hw *hw)
+{
+	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
+	wmb(); /* ensure mdio autopoll is enabled */
+}
+
 int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 			 u16 reg_addr, u16 *phy_data)
 {
@@ -66,11 +94,13 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 	*phy_data = 0;
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
-	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
+	retval = emac_disable_mdio_autopoll(hw);
+	if (retval)
+		return retval;
+
 	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
 			  (dev << PHY_ADDR_SHFT));
 	wmb(); /* ensure PHY address is set before we proceed */
-	udelay(1000);
 
 	if (ext) {
 		val = ((dev << DEVAD_SHFT) & DEVAD_BMSK) |
@@ -106,8 +136,7 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 	if (i == MDIO_WAIT_TIMES)
 		retval = -EIO;
 
-	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
-	wmb();
+	emac_enable_mdio_autopoll(hw);
 	return retval;
 }
 
@@ -119,11 +148,13 @@ int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
-	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
+	retval = emac_disable_mdio_autopoll(hw);
+	if (retval)
+		return retval;
+
 	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
 			  (dev << PHY_ADDR_SHFT));
 	wmb(); /* ensure PHY address is set before we proceed */
-	udelay(1000);
 
 	if (ext) {
 		val = ((dev << DEVAD_SHFT) & DEVAD_BMSK) |
@@ -158,8 +189,7 @@ int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 	if (i == MDIO_WAIT_TIMES)
 		retval = -EIO;
 
-	emac_reg_update32(hw, EMAC, EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
-	wmb();
+	emac_enable_mdio_autopoll(hw);
 	return retval;
 }
 
