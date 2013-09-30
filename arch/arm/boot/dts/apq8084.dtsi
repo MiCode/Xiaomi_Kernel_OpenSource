@@ -1552,6 +1552,23 @@
 		qcom,msm-rng-iface-clk;
 	};
 
+	qseecom: qcom,qseecom@d600000 {
+		compatible = "qcom,qseecom";
+		reg = <0xd600000 0x500000>;
+		reg-names = "secapp-region";
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,hlos-ce-hw-instance = <1>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>;
+	};
+
 	jtag_fuse: jtagfuse@fc4be024 {
 		compatible = "qcom,jtag-fuse";
 		reg = <0xfc4be024 0x8>;
