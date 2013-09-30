@@ -49,6 +49,7 @@
 #include <mach/msm_smem.h>
 
 #include <asm/cacheflush.h>
+#include <asm/io.h>
 
 #include "smd_private.h"
 #include "modem_notifier.h"
@@ -59,6 +60,7 @@
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4 + sizeof(uint64_t))
 #define RSPIN_INIT_WAIT_MS 1000
 #define SMD_FIFO_FULL_RESERVE 4
+#define SMD_FIFO_ADDR_ALIGN_BYTES 3
 
 uint32_t SMSM_NUM_ENTRIES = 8;
 uint32_t SMSM_NUM_HOSTS = 3;
@@ -243,6 +245,69 @@ static inline void smd_write_intr(unsigned int val,
 {
 	wmb();
 	__raw_writel(val, addr);
+}
+
+/**
+ * smd_memcpy32_to_fifo() - Copy to SMD channel FIFO
+ *
+ * @dest: Destination address
+ * @src: Source address
+ * @num_bytes: Number of bytes to copy
+ *
+ * @return: On Success, address of destination
+ *
+ * This function copies num_bytes data from src to dest. This is used as the
+ * memcpy function to copy data to SMD FIFO in case the SMD FIFO is 4 byte
+ * aligned.
+ */
+static void *smd_memcpy32_to_fifo(void *dest, const void *src, size_t num_bytes)
+{
+	uint32_t *dest_local = (uint32_t *)dest;
+	uint32_t *src_local = (uint32_t *)src;
+
+	BUG_ON(num_bytes & SMD_FIFO_ADDR_ALIGN_BYTES);
+	BUG_ON(!dest_local ||
+			((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	BUG_ON(!src_local ||
+			((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	num_bytes /= sizeof(uint32_t);
+
+	while (num_bytes--)
+		__raw_writel_no_log(*src_local++, dest_local++);
+
+	return dest;
+}
+
+/**
+ * smd_memcpy32_from_fifo() - Copy from SMD channel FIFO
+ * @dest: Destination address
+ * @src: Source address
+ * @num_bytes: Number of bytes to copy
+ *
+ * @return: On Success, destination address
+ *
+ * This function copies num_bytes data from SMD FIFO to dest. This is used as
+ * the memcpy function to copy data from SMD FIFO in case the SMD FIFO is 4 byte
+ * aligned.
+ */
+static void *smd_memcpy32_from_fifo(void *dest, const void *src,
+						size_t num_bytes)
+{
+
+	uint32_t *dest_local = (uint32_t *)dest;
+	uint32_t *src_local = (uint32_t *)src;
+
+	BUG_ON(num_bytes & SMD_FIFO_ADDR_ALIGN_BYTES);
+	BUG_ON(!dest_local ||
+			((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	BUG_ON(!src_local ||
+			((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	num_bytes /= sizeof(uint32_t);
+
+	while (num_bytes--)
+		*dest_local++ = __raw_readl_no_log(src_local++);
+
+	return dest;
 }
 
 static inline void log_notify(uint32_t subsystem, smd_channel_t *ch)
@@ -1078,6 +1143,10 @@ static int ch_read(struct smd_channel *ch, void *_data, int len, int user_buf)
 			n = len;
 		if (_data) {
 			if (user_buf) {
+				if (is_word_access_ch(ch->type)) {
+					panic("%s: Word Based Access SMD channel %d not supported",
+						__func__, ch->type);
+				}
 				r = copy_to_user(data, ptr, n);
 				if (r > 0) {
 					pr_err("%s: "
@@ -1086,8 +1155,9 @@ static int ch_read(struct smd_channel *ch, void *_data, int len, int user_buf)
 						__func__,
 						r);
 				}
-			} else
-				memcpy(data, ptr, n);
+			} else {
+				ch->read_from_fifo(data, ptr, n);
+			}
 		}
 
 		data += n;
@@ -1498,6 +1568,10 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 		if (xfer > len)
 			xfer = len;
 		if (user_buf) {
+			if (is_word_access_ch(ch->type)) {
+				panic("%s: Word Based SMD channel %d not supported",
+					__func__, ch->type);
+			}
 			r = copy_from_user(ptr, buf, xfer);
 			if (r > 0) {
 				pr_err("%s: "
@@ -1506,8 +1580,10 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 					__func__,
 					r);
 			}
-		} else
-			memcpy(ptr, buf, xfer);
+		} else {
+			ch->write_to_fifo(ptr, buf, xfer);
+		}
+
 		ch_write_done(ch, xfer);
 		len -= xfer;
 		buf += xfer;
@@ -1786,6 +1862,14 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
 		ch->write_avail = smd_stream_write_avail;
 		ch->update_state = update_stream_state;
 		ch->read_from_cb = smd_stream_read;
+	}
+
+	if (is_word_access_ch(ch->type)) {
+		ch->read_from_fifo = smd_memcpy32_from_fifo;
+		ch->write_to_fifo = smd_memcpy32_to_fifo;
+	} else {
+		ch->read_from_fifo = memcpy;
+		ch->write_to_fifo = memcpy;
 	}
 
 	memcpy(ch->name, alloc_elm->name, SMD_MAX_CH_NAME_LEN);

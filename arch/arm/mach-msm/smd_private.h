@@ -181,6 +181,8 @@ struct smd_channel {
 	void (*update_state)(smd_channel_t *ch);
 	unsigned last_state;
 	void (*notify_other_cpu)(smd_channel_t *ch);
+	void *(*read_from_fifo)(void *dest, const void *src, size_t num_bytes);
+	void *(*write_to_fifo)(void *dest, const void *src, size_t num_bytes);
 
 	char name[20];
 	struct platform_device pdev;
