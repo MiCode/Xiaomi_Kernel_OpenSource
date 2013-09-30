@@ -2833,9 +2833,9 @@ static int msm_hs_sps_init_ep_conn(struct msm_hs_port *msm_uport,
 	/* Now save the sps pipe handle */
 	ep->pipe_handle = sps_pipe_handle;
 	pr_debug("msm_serial_hs: success !! %s: pipe_handle=0x%x\n"
-		"desc_fifo.phys_base=0x%x\n",
+		"desc_fifo.phys_base=0x%llx\n",
 		is_producer ? "READ" : "WRITE",
-		(u32)sps_pipe_handle, sps_config->desc.phys_base);
+		(u32) sps_pipe_handle, (u64) sps_config->desc.phys_base);
 	return 0;
 
 get_config_err:
