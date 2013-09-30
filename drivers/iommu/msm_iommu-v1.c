@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,7 +297,6 @@ static void __reset_iommu(void __iomem *base)
 	mb();
 }
 
-#ifdef CONFIG_IOMMU_NON_SECURE
 static void __reset_iommu_secure(void __iomem *base)
 {
 	SET_NSACR(base, 0);
@@ -319,24 +318,15 @@ static void __program_iommu_secure(void __iomem *base)
 	SET_NSCR0_CLIENTPD(base, 0);
 }
 
-#else
-static inline void __reset_iommu_secure(void __iomem *base)
-{
-}
-
-static inline void __program_iommu_secure(void __iomem *base)
-{
-}
-
-#endif
-
 /*
  * May only be called for non-secure iommus
  */
 static void __program_iommu(void __iomem *base)
 {
 	__reset_iommu(base);
-	__reset_iommu_secure(base);
+
+	if (!msm_iommu_get_scm_call_avail())
+		__reset_iommu_secure(base);
 
 	SET_CR0_SMCFCFG(base, 1);
 	SET_CR0_USFCFG(base, 1);
@@ -347,7 +337,8 @@ static void __program_iommu(void __iomem *base)
 	SET_CR0_GFRE(base, 1);
 	SET_CR0_CLIENTPD(base, 0);
 
-	__program_iommu_secure(base);
+	if (!msm_iommu_get_scm_call_avail())
+		__program_iommu_secure(base);
 
 	mb(); /* Make sure writes complete before returning */
 }

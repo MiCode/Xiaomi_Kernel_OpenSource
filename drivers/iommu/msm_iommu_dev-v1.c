@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,6 +126,11 @@ static void __put_bus_vote_client(struct msm_iommu_drvdata *drvdata)
 	drvdata->bus_client = 0;
 }
 
+/*
+ * CONFIG_IOMMU_NON_SECURE allows us to override the secure
+ * designation of SMMUs in device tree. With this config enabled
+ * all SMMUs will be programmed by this driver.
+ */
 #ifdef CONFIG_IOMMU_NON_SECURE
 static inline void get_secure_id(struct device_node *node,
 			  struct msm_iommu_drvdata *drvdata)
@@ -141,13 +146,16 @@ static inline void get_secure_ctx(struct device_node *node,
 static void get_secure_id(struct device_node *node,
 			  struct msm_iommu_drvdata *drvdata)
 {
-	of_property_read_u32(node, "qcom,iommu-secure-id", &drvdata->sec_id);
+	if (msm_iommu_get_scm_call_avail())
+		of_property_read_u32(node, "qcom,iommu-secure-id",
+				     &drvdata->sec_id);
 }
 
 static void get_secure_ctx(struct device_node *node,
 			   struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
-	ctx_drvdata->secure_context =
+	if (msm_iommu_get_scm_call_avail())
+		ctx_drvdata->secure_context =
 			of_property_read_bool(node, "qcom,secure-context");
 }
 #endif
@@ -596,6 +604,8 @@ static struct platform_driver msm_iommu_ctx_driver = {
 static int __init msm_iommu_driver_init(void)
 {
 	int ret;
+
+	msm_iommu_check_scm_call_avail();
 
 	msm_set_iommu_access_ops(&iommu_access_ops_v1);
 	msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -364,6 +364,10 @@ static inline int msm_soc_version_supports_iommu_v0(void)
 	return 0;
 }
 #endif
+
+int msm_iommu_get_scm_call_avail(void);
+void msm_iommu_check_scm_call_avail(void);
+
 u32 msm_iommu_get_mair0(void);
 u32 msm_iommu_get_mair1(void);
 u32 msm_iommu_get_prrr(void);
