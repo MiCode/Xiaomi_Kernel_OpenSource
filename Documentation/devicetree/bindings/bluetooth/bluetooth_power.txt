@@ -3,14 +3,33 @@ Bluetooth controller communicates with the Bluetooth Host using HCI Transport la
 HCI Transport layer can be based on UART or USB serial communication protocol.
 
 Required properties:
-  - compatible: Should be "qca,ar3002"
+  - compatible: Should be set to one of the following:
+	qca,ar3002
+	qca,qca6174
   - qca,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
 
 Optional properties:
-  None
+  - qca,bt-vdd-pa-supply: Bluetooth VDD PA regulator handle
+  - qca,bt-vdd-io-supply: Bluetooth VDD IO regulator handle
+  - qca,bt-vdd-ldo-supply: Bluetooth VDD LDO regulator handle. Kept under optional parameters
+		as some of the chipsets doesn't require ldo or it may use from same vddio.
+  - qca,bt-chip-pwd-supply: Chip power down gpio is required when bluetooth module
+		and other modules like wifi co-exist in a singe chip and shares a
+		common gpio to bring chip out of reset.
+  - qca,bt-vdd-io-voltage-level: specifies VDD IO voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+  - qca,bt-vdd-pa-voltage-level: specifies VDD PA voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+  - qca,bt-vdd-ldo-voltage-level: specifies VDD LDO voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
 
 Example:
   bt-ar3002 {
     compatible = "qca,ar3002";
     qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
+    qca,bt-vdd-io-supply = <&pm8941_s3>;
+    qca,bt-vdd-pa-supply = <&pm8941_l19>;
+    qca,bt-chip-pwd-supply = <&ath_chip_pwd_l>;
+    qca,bt-vdd-io-supply = <1800000 1800000>;
+    qca,bt-vdd-pa-supply = <2900000 2900000>;
   };
