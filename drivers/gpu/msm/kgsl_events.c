@@ -363,44 +363,13 @@ void kgsl_cancel_event(struct kgsl_device *device, struct kgsl_context *context,
 }
 EXPORT_SYMBOL(kgsl_cancel_event);
 
-static inline int _mark_next_event(struct kgsl_device *device,
-		struct list_head *head)
-{
-	struct kgsl_event *event;
-
-	if (!list_empty(head)) {
-		event = list_first_entry(head, struct kgsl_event, list);
-
-		/*
-		 * Next event will return 0 if the event was marked or 1 if the
-		 * timestamp on the event has passed - return that up a layer
-		 */
-
-		if (device->ftbl->next_event)
-			return device->ftbl->next_event(device, event);
-	}
-
-	return 0;
-}
-
 static int kgsl_process_context_events(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
-	while (1) {
-		unsigned int timestamp = kgsl_readtimestamp(device, context,
-			KGSL_TIMESTAMP_RETIRED);
+	unsigned int timestamp = kgsl_readtimestamp(device, context,
+		KGSL_TIMESTAMP_RETIRED);
 
-		_retire_events(device, &context->events, timestamp);
-
-		/*
-		 * _mark_next event will return 1 as long as the next event
-		 * timestamp has expired - this is to cope with an unavoidable
-		 * race condition with the GPU that is still processing events.
-		 */
-
-		if (!_mark_next_event(device, &context->events))
-			break;
-	}
+	_retire_events(device, &context->events, timestamp);
 
 	/*
 	 * Return 0 if the list is empty so the calling function can remove the
@@ -431,7 +400,6 @@ void kgsl_process_events(struct work_struct *work)
 	device->events_last_timestamp = timestamp;
 
 	_retire_events(device, &device->events, timestamp);
-	_mark_next_event(device, &device->events);
 
 	/* Now process all of the pending contexts */
 	list_for_each_entry_safe(context, tmp, &device->events_pending_list,
