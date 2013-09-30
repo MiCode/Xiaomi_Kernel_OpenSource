@@ -109,29 +109,35 @@ Output:
 *********************************************************/
 s32 gup_i2c_read(struct i2c_client *client, u8 *buf, s32 len)
 {
-	struct i2c_msg msgs[2];
 	s32 ret = -1;
-	s32 retries = 0;
+	u8 retries = 0;
+	struct i2c_msg msgs[2] = {
+		{
+			.flags = !I2C_M_RD,
+			.addr  = client->addr,
+			.len   = GTP_ADDR_LENGTH,
+			.buf   = &buf[0],
+		},
+		{
+			.flags = I2C_M_RD,
+			.addr  = client->addr,
+			.len   = len - GTP_ADDR_LENGTH,
+			.buf   = &buf[GTP_ADDR_LENGTH],
+		},
+	};
 
 	GTP_DEBUG_FUNC();
-
-	msgs[0].flags = !I2C_M_RD;
-	msgs[0].addr  = client->addr;
-	msgs[0].len   = GTP_ADDR_LENGTH;
-	msgs[0].buf   = &buf[0];
-	/* msgs[0].scl_rate = 300 * 1000;  (for Rockchip) */
-
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].addr  = client->addr;
-	msgs[1].len   = len - GTP_ADDR_LENGTH;
-	msgs[1].buf   = &buf[GTP_ADDR_LENGTH];
-	/* msgs[1].scl_rate = 300 * 1000; */
 
 	while (retries < 5) {
 		ret = i2c_transfer(client->adapter, msgs, 2);
 		if (ret == 2)
 			break;
 		retries++;
+	}
+
+	if (retries == 5) {
+		dev_err(&client->dev, "I2C read retry limit over.\n");
+		ret = -EIO;
 	}
 
 	return ret;
@@ -151,23 +157,27 @@ Output:
 *********************************************************/
 s32 gup_i2c_write(struct i2c_client *client, u8 *buf, s32 len)
 {
-	struct i2c_msg msg;
 	s32 ret = -1;
-	s32 retries = 0;
+	u8 retries = 0;
+	struct i2c_msg msg = {
+		.flags = !I2C_M_RD,
+		.addr  = client->addr,
+		.len   = len,
+		.buf   = buf,
+	};
 
 	GTP_DEBUG_FUNC();
-
-	msg.flags = !I2C_M_RD;
-	msg.addr  = client->addr;
-	msg.len   = len;
-	msg.buf   = buf;
-	/* msg.scl_rate = 300 * 1000;    (for Rockchip) */
 
 	while (retries < 5) {
 		ret = i2c_transfer(client->adapter, &msg, 1);
 		if (ret == 1)
 			break;
 		retries++;
+	}
+
+	if (retries == 5) {
+		dev_err(&client->dev, "I2C write retry limit over.\n");
+		ret = -EIO;
 	}
 
 	return ret;
@@ -286,7 +296,7 @@ static s32 gup_init_panel(struct goodix_ts_data *ts)
 
 static u8 gup_get_ic_msg(struct i2c_client *client, u16 addr, u8 *msg, s32 len)
 {
-	s32 i = 0;
+	u8 i = 0;
 
 	msg[0] = (addr >> 8) & 0xff;
 	msg[1] = addr & 0xff;
@@ -305,12 +315,12 @@ static u8 gup_get_ic_msg(struct i2c_client *client, u16 addr, u8 *msg, s32 len)
 
 static u8 gup_set_ic_msg(struct i2c_client *client, u16 addr, u8 val)
 {
-	s32 i = 0;
-	u8 msg[3];
-
-	msg[0] = (addr >> 8) & 0xff;
-	msg[1] = addr & 0xff;
-	msg[2] = val;
+	u8 i = 0;
+	u8 msg[3] = {
+		(addr >> 8) & 0xff,
+		addr & 0xff,
+		val,
+	};
 
 	for (i = 0; i < 5; i++)
 		if (gup_i2c_write(client, msg, GTP_ADDR_LENGTH + 1) > 0)
@@ -408,7 +418,7 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 s32 gup_enter_update_mode(struct i2c_client *client)
 {
 	s32 ret = -1;
-	s32 retry = 0;
+	u8 retry = 0;
 	u8 rd_buf[3];
 
 	/* step1:RST output low last at least 2ms */
