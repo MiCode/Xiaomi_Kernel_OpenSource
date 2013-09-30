@@ -1082,6 +1082,22 @@
 			< 1458000 1171200 4264 /* 533 MHz */ >;
 	};
 
+	i2c_chg: i2c@f9963000 { /* BLSP2 QUP1 */
+		cell-index = <5>;
+		compatible = "qcom,i2c-qup";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9963000 0x1000>;
+		interrupt-names = "qup_err_intr";
+		interrupts = <0 101 0>;
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,sda-gpio = <&msmgpio 55 0>;
+		qcom,scl-gpio = <&msmgpio 56 0>;
+		qcom,master-id = <84>;
+	};
+
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;

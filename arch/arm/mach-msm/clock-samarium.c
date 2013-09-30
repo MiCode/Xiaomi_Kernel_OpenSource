@@ -3476,6 +3476,8 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991e000.serial"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9923000.i2c"),
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup1_i2c_apps_clk.c, "f9923000.i2c"),
+	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9963000.i2c"),
+	CLK_LOOKUP("core_clk", gcc_blsp2_qup1_i2c_apps_clk.c, "f9963000.i2c"),
 	CLK_LOOKUP("", gcc_blsp1_qup1_spi_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup2_i2c_apps_clk.c, "f9924000.i2c"),
 	CLK_LOOKUP("", gcc_blsp1_qup2_spi_apps_clk.c, ""),
