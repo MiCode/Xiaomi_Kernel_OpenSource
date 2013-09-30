@@ -189,9 +189,11 @@ void ipa_rm_resource_producer_notify_clients(
 					link);
 		if (notify_registered_only && !reg_info->explicit)
 			continue;
-		reg_info_cloned = kzalloc(sizeof(*reg_info_cloned), GFP_ATOMIC);
-		if (!reg_info_cloned)
+		reg_info_cloned = kzalloc(sizeof(*reg_info_cloned), GFP_KERNEL);
+		if (!reg_info_cloned) {
+			IPAERR("No memory\n");
 			goto clone_list_failed;
+		}
 		reg_info_cloned->reg_params.notify_cb =
 				reg_info->reg_params.notify_cb;
 		reg_info_cloned->reg_params.user_data =
