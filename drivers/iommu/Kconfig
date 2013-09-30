@@ -49,10 +49,22 @@ config MSM_IOMMU_V1
 
 	  If unsure, say N here.
 
+# MSM IOMMU sync lock support
+config MSM_IOMMU_SYNC
+	bool "MSM IOMMU Sync Lock Support"
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930 || ARCH_MSM8610) && MSM_IOMMU_V0
+	help
+	  Say Y here if you want the IOMMU to grab a remote spinlock to ensure
+	  synchronization between IOMMU accesses by CPU and other exectution
+	  environments in the SoC.
+
+	  If unsure, say N here.
+
 # MSM IOMMU CPU-GPU sync programming support
 config MSM_IOMMU_GPU_SYNC
 	bool "MSM IOMMU CPU-GPU Sync Support"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930) && MSM_IOMMU_V0 && MSM_REMOTE_SPINLOCK_SFPB
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930) && MSM_IOMMU_V0
+	select  MSM_IOMMU_SYNC
 	help
 	  Say Y here if you want to synchronize access to IOMMU configuration
 	  port between CPU and GPU. CPU will grab a remote spinlock before
