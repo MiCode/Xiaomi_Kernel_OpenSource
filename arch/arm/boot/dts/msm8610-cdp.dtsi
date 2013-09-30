@@ -187,6 +187,7 @@
 
 		qcom,cdc-on-demand-supplies = "cdc-vdda-cp",
 					      "cdc-vdd-mic-bias";
+		qcom,cdc-micbias1-ext-cap;
 	};
 
 	msm8x10_wcd_codec@77{
