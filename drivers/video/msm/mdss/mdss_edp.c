@@ -164,24 +164,30 @@ static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv)
 	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
 			"qcom,panel-pwm-period", &edp_drv->pwm_period);
 	if (ret) {
-		pr_err("%s: panel pwm period is not specified, %d", __func__,
+		pr_warn("%s: panel pwm period is not specified, %d", __func__,
 				edp_drv->pwm_period);
-		return -EINVAL;
+		edp_drv->pwm_period = -EINVAL;
 	}
 
 	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
 			"qcom,panel-lpg-channel", &edp_drv->lpg_channel);
 	if (ret) {
-		pr_err("%s: panel lpg channel is not specified, %d", __func__,
+		pr_warn("%s: panel lpg channel is not specified, %d", __func__,
 				edp_drv->lpg_channel);
-		return -EINVAL;
+		edp_drv->lpg_channel = -EINVAL;
 	}
 
-	edp_drv->bl_pwm = pwm_request(edp_drv->lpg_channel, "lcd-backlight");
-	if (edp_drv->bl_pwm == NULL || IS_ERR(edp_drv->bl_pwm)) {
-		pr_err("%s: pwm request failed", __func__);
+	if (edp_drv->pwm_period != -EINVAL &&
+		edp_drv->lpg_channel != -EINVAL) {
+		edp_drv->bl_pwm = pwm_request(edp_drv->lpg_channel,
+				"lcd-backlight");
+		if (edp_drv->bl_pwm == NULL || IS_ERR(edp_drv->bl_pwm)) {
+			pr_err("%s: pwm request failed", __func__);
+			edp_drv->bl_pwm = NULL;
+			return -EIO;
+		}
+	} else {
 		edp_drv->bl_pwm = NULL;
-		return -EIO;
 	}
 
 	return 0;
@@ -199,27 +205,26 @@ void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
 		return;
 	}
 
-	bl_max = edp_drv->panel_data.panel_info.bl_max;
-	if (bl_level > bl_max)
-		bl_level = bl_max;
+	if (edp_drv->bl_pwm != NULL) {
+		bl_max = edp_drv->panel_data.panel_info.bl_max;
+		if (bl_level > bl_max)
+			bl_level = bl_max;
 
-	if (edp_drv->bl_pwm == NULL) {
-		pr_err("%s: edp_drv->bl_pwm=NULL.\n", __func__);
-		return;
-	}
+		ret = pwm_config(edp_drv->bl_pwm,
+				bl_level * edp_drv->pwm_period / bl_max,
+				edp_drv->pwm_period);
+		if (ret) {
+			pr_err("%s: pwm_config() failed err=%d.\n", __func__,
+					ret);
+			return;
+		}
 
-	ret = pwm_config(edp_drv->bl_pwm,
-			bl_level * edp_drv->pwm_period / bl_max,
-			edp_drv->pwm_period);
-	if (ret) {
-		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
-		return;
-	}
-
-	ret = pwm_enable(edp_drv->bl_pwm);
-	if (ret) {
-		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
-		return;
+		ret = pwm_enable(edp_drv->bl_pwm);
+		if (ret) {
+			pr_err("%s: pwm_enable() failed err=%d\n", __func__,
+					ret);
+			return;
+		}
 	}
 }
 
@@ -359,7 +364,8 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	mdss_edp_irq_disable(edp_drv);
 
 	gpio_set_value(edp_drv->gpio_panel_en, 0);
-	pwm_disable(edp_drv->bl_pwm);
+	if (edp_drv->bl_pwm != NULL)
+		pwm_disable(edp_drv->bl_pwm);
 	mdss_edp_enable(edp_drv->base, 0);
 	mdss_edp_unconfig_clk(edp_drv->base, edp_drv->mmss_cc_base);
 	mdss_edp_enable_mainlink(edp_drv->base, 0);
