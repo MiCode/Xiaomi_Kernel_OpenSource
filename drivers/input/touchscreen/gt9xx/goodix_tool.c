@@ -93,23 +93,31 @@ static void tool_set_proc_name(char *procname)
 static s32 tool_i2c_read_no_extra(u8 *buf, u16 len)
 {
 	s32 ret = -1;
-	s32 i = 0;
-	struct i2c_msg msgs[2];
-
-	msgs[0].flags = !I2C_M_RD;
-	msgs[0].addr  = gt_client->addr;
-	msgs[0].len   = cmd_head.addr_len;
-	msgs[0].buf   = &buf[0];
-
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].addr  = gt_client->addr;
-	msgs[1].len   = len;
-	msgs[1].buf   = &buf[GTP_ADDR_LENGTH];
+	u8 i = 0;
+	struct i2c_msg msgs[2] = {
+		{
+			.flags = !I2C_M_RD,
+			.addr  = gt_client->addr,
+			.len   = cmd_head.addr_len,
+			.buf   = &buf[0],
+		},
+		{
+			.flags = I2C_M_RD,
+			.addr  = gt_client->addr,
+			.len   = len,
+			.buf   = &buf[GTP_ADDR_LENGTH],
+		},
+	};
 
 	for (i = 0; i < cmd_head.retry; i++) {
 		ret = i2c_transfer(gt_client->adapter, msgs, 2);
 		if (ret > 0)
 			break;
+	}
+
+	if (i == cmd_head.retry) {
+		dev_err(&client->dev, "I2C read retry limit over.\n");
+		ret = -EIO;
 	}
 
 	return ret;
@@ -118,19 +126,24 @@ static s32 tool_i2c_read_no_extra(u8 *buf, u16 len)
 static s32 tool_i2c_write_no_extra(u8 *buf, u16 len)
 {
 	s32 ret = -1;
-	s32 i = 0;
-	struct i2c_msg msg;
-
-	msg.flags = !I2C_M_RD;
-	msg.addr  = gt_client->addr;
-	msg.len   = len;
-	msg.buf   = buf;
+	u8 i = 0;
+	struct i2c_msg msg = {
+		.flags = !I2C_M_RD,
+		.addr  = gt_client->addr,
+		.len   = len,
+		.buf   = buf,
+	};
 
 	for (i = 0; i < cmd_head.retry; i++) {
 		ret = i2c_transfer(gt_client->adapter, &msg, 1);
 		if (ret > 0)
 			break;
-		}
+	}
+
+	if (i == cmd_head.retry) {
+		dev_err(&client->dev, "I2C write retry limit over.\n");
+		ret = -EIO;
+	}
 
 	return ret;
 }
