@@ -42,11 +42,6 @@
 	/* PMA8084 S2 + S12 = 2 phase VDD_CX supply */
 	rpm-regulator-smpa2 {
 		status = "okay";
-		pma8084_s2: regulator-s2 {
-			regulator-min-microvolt = <550000>;
-			regulator-max-microvolt = <1260000>;
-			status = "okay";
-		};
 		pma8084_s2_corner: regulator-s2-corner {
 			regulator-name = "8084_s2_corner";
 			qcom,set = <3>;
@@ -118,11 +113,6 @@
 
 	rpm-regulator-smpa7 {
 		status = "okay";
-		pma8084_s7: regulator-s7 {
-			regulator-min-microvolt = <815000>;
-			regulator-max-microvolt = <1050000>;
-			status = "okay";
-		};
 		pma8084_s7_corner: regulator-s7-corner {
 			compatible = "qcom,rpm-regulator-smd";
 			regulator-name = "8084_s7_corner";
