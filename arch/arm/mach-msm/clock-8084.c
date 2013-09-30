@@ -2618,17 +2618,6 @@ static struct branch_clk gcc_gp3_clk = {
 	},
 };
 
-static struct branch_clk gcc_lpass_mport_axi_clk = {
-	.cbcr_reg = LPASS_MPORT_AXI_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_lpass_mport_axi_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_lpass_mport_axi_clk.c),
-	},
-};
-
 static struct branch_clk gcc_lpass_q6_axi_clk = {
 	.cbcr_reg = LPASS_Q6_AXI_CBCR,
 	.has_sibling = 1,
@@ -5322,7 +5311,6 @@ static struct measure_mux_entry measure_mux[] = {
 	{&gcc_ce2_axi_clk.c,			GCC_BASE, 0x0141},
 	{&gcc_ce2_ahb_clk.c,			GCC_BASE, 0x0142},
 	{&gcc_lpass_q6_axi_clk.c,		GCC_BASE, 0x0160},
-	{&gcc_lpass_mport_axi_clk.c,		GCC_BASE, 0x0162},
 	{&gcc_lpass_sway_clk.c,			GCC_BASE, 0x0163},
 	{&gcc_copss_smmu_axi_clk.c,		GCC_BASE, 0x01e8},
 	{&gcc_copss_smmu_ahb_clk.c,		GCC_BASE, 0x01e9},
@@ -5729,6 +5717,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 									OFF),
 	CLK_DUMMY("iface_clk", lcc_core_smmu_cfg_clk.c, "fe064000.qcom,iommu",
 									OFF),
+	CLK_DUMMY("core_clk",  gcc_lpass_mport_axi_clk.c, "fe064000.qcom,iommu",
+									OFF),
 
 	CLK_LOOKUP("xo",  cxo_pil_lpass_clk.c,      "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",  cxo_dwc3_clk.c,           "f9200000.qcom,ssusb"),
@@ -5871,7 +5861,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_gp2_clk.c,	""),
 	CLK_LOOKUP("",	gcc_gp3_clk.c,	""),
 
-	CLK_LOOKUP("",	gcc_lpass_mport_axi_clk.c,	""),
 	CLK_LOOKUP("bus_clk",	gcc_lpass_q6_axi_clk.c,	"fe200000.qcom,lpass"),
 	CLK_LOOKUP("core_clk",	dummy_clk,	"fe200000.qcom,lpass"),
 	CLK_LOOKUP("iface_clk",	dummy_clk,	"fe200000.qcom,lpass"),
@@ -6241,8 +6230,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk", vpu_axi_clk.c, "fdee4000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", vpu_bus_clk.c, "fdee4000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", gcc_lpass_q6_axi_clk.c, "fe054000.qcom,iommu"),
-	CLK_LOOKUP("core_clk", gcc_lpass_mport_axi_clk.c,
-							"fe064000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", vpu_vdp_clk.c, "fd8c1404.qcom,gdsc"),
 	CLK_LOOKUP("maple_clk", vpu_maple_clk.c, "fd8c1404.qcom,gdsc"),
 	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
