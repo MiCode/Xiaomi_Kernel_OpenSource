@@ -2301,8 +2301,6 @@ static void build_restore_fixup_cmds(struct adreno_device *adreno_dev,
 static int a3xx_create_gpustate_shadow(struct adreno_device *adreno_dev,
 				     struct adreno_context *drawctxt)
 {
-	drawctxt->flags |= CTXT_FLAGS_STATE_SHADOW;
-
 	build_regrestore_cmds(adreno_dev, drawctxt);
 	build_constantrestore_cmds(adreno_dev, drawctxt);
 	build_hlsqcontrol_restore_cmds(adreno_dev, drawctxt);
@@ -2342,8 +2340,6 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
 		KGSL_CACHE_OP_FLUSH);
 
-	drawctxt->flags |= CTXT_FLAGS_GMEM_SHADOW;
-
 	return 0;
 }
 
@@ -2375,8 +2371,8 @@ static int a3xx_drawctxt_create(struct adreno_device *adreno_dev,
 	 * Nothing to do here if the context is using preambles and doesn't need
 	 * GMEM save/restore
 	 */
-	if ((drawctxt->flags & CTXT_FLAGS_PREAMBLE) &&
-		(drawctxt->flags & CTXT_FLAGS_NOGMEMALLOC)) {
+	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) &&
+		(drawctxt->base.flags & KGSL_CONTEXT_NO_GMEM_ALLOC)) {
 		drawctxt->ops = &adreno_preamble_ctx_ops;
 		return 0;
 	}
@@ -2392,15 +2388,15 @@ static int a3xx_drawctxt_create(struct adreno_device *adreno_dev,
 			CONTEXT_SIZE);
 	tmp_ctx.cmd = drawctxt->gpustate.hostptr + CMD_OFFSET;
 
-	if (!(drawctxt->flags & CTXT_FLAGS_PREAMBLE)) {
+	if (!(drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE)) {
 		ret = a3xx_create_gpustate_shadow(adreno_dev, drawctxt);
 		if (ret)
 			goto done;
 
-		drawctxt->flags |= CTXT_FLAGS_SHADER_SAVE;
+		set_bit(ADRENO_CONTEXT_SHADER_SAVE, &drawctxt->priv);
 	}
 
-	if (!(drawctxt->flags & CTXT_FLAGS_NOGMEMALLOC))
+	if (!(drawctxt->base.flags & KGSL_CONTEXT_NO_GMEM_ALLOC))
 		ret = a3xx_create_gmem_shadow(adreno_dev, drawctxt);
 
 done:
@@ -2419,7 +2415,7 @@ static int a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 	if (context->state == ADRENO_CONTEXT_STATE_INVALID)
 		return 0;
 
-	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+	if (!(context->base.flags & KGSL_CONTEXT_PREAMBLE)) {
 		/* Fixup self modifying IBs for save operations */
 		ret = adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_NONE, context->save_fixup, 3);
@@ -2433,19 +2429,17 @@ static int a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 		if (ret)
 			return ret;
 
-		if (context->flags & CTXT_FLAGS_SHADER_SAVE) {
+		if (test_bit(ADRENO_CONTEXT_SHADER_SAVE, &context->priv)) {
 			/* Save shader instructions */
 			ret = adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_PMODE, context->shader_save, 3);
 			if (ret)
 				return ret;
-
-			context->flags |= CTXT_FLAGS_SHADER_RESTORE;
+			set_bit(ADRENO_CONTEXT_SHADER_RESTORE, &context->priv);
 		}
 	}
 
-	if ((context->flags & CTXT_FLAGS_GMEM_SAVE) &&
-	    (context->flags & CTXT_FLAGS_GMEM_SHADOW)) {
+	if (test_bit(ADRENO_CONTEXT_GMEM_SAVE, &context->priv)) {
 		/*
 		 * Save GMEM (note: changes shader. shader must
 		 * already be saved.)
@@ -2463,7 +2457,7 @@ static int a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 		if (ret)
 			return ret;
 
-		context->flags |= CTXT_FLAGS_GMEM_RESTORE;
+		set_bit(ADRENO_CONTEXT_GMEM_RESTORE, &context->priv);
 	}
 
 	return 0;
@@ -2485,7 +2479,7 @@ static int a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	 * Shader must not already be restored.)
 	 */
 
-	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
+	if (test_bit(ADRENO_CONTEXT_GMEM_RESTORE, &context->priv)) {
 		kgsl_cffdump_syncmem(context->base.device,
 			&context->gpustate,
 			context->context_gmem_shadow.gmem_restore[1],
@@ -2498,10 +2492,10 @@ static int a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 					    gmem_restore, 3);
 		if (ret)
 			return ret;
-		context->flags &= ~CTXT_FLAGS_GMEM_RESTORE;
+		clear_bit(ADRENO_CONTEXT_GMEM_RESTORE, &context->priv);
 	}
 
-	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+	if (!(context->base.flags & KGSL_CONTEXT_PREAMBLE)) {
 		ret = adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_NONE, context->reg_restore, 3);
 		if (ret)
@@ -2520,12 +2514,13 @@ static int a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 		if (ret)
 			return ret;
 
-		if (context->flags & CTXT_FLAGS_SHADER_RESTORE)
+		if (test_bit(ADRENO_CONTEXT_SHADER_RESTORE, &context->priv)) {
 			ret = adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
 				context->shader_restore, 3);
 			if (ret)
 				return ret;
+		}
 		/* Restore HLSQ_CONTROL_0 register */
 		ret = adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_NONE,

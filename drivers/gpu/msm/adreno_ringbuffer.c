@@ -1083,7 +1083,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	commands are stored in the first node of the IB chain. We can skip that
 	if a context switch hasn't occured */
 
-	if ((drawctxt->flags & CTXT_FLAGS_PREAMBLE) &&
+	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) &&
 		!test_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv) &&
 		(adreno_dev->drawctxt_active == drawctxt))
 		start_index = 1;
