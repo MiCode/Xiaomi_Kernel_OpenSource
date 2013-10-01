@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +55,7 @@
 
 #define JPEG_OFFLINE_CMD_START 0x00000001
 
-#define JPEG_RESET_DEFAULT 0x00020000
+#define JPEG_RESET_DEFAULT 0x00032013
 
 #define JPEG_IRQ_DISABLE_ALL 0x00000000
 #define JPEG_IRQ_CLEAR_ALL 0xFFFFFFFF
