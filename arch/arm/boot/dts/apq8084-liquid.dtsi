@@ -367,3 +367,134 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&i2c_1 {
+	atmel_mxt_ts@4a {
+		compatible = "atmel,mxt-ts";
+		reg = <0x4a>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <143 0x2>;
+		vdd_ana-supply = <&pma8084_l18>;
+		vcc_i2c-supply = <&pma8084_lvs1>;
+		atmel,reset-gpio = <&msmgpio 145 0x00>;
+		atmel,i2cmode-gpio = <&msmgpio 144 0x00>;
+		atmel,irq-gpio = <&msmgpio 143 0x00>;
+		atmel,panel-coords = <0 0 2560 1440>;
+		atmel,display-coords = <0 0 2560 1440>;
+		atmel,i2c-pull-up;
+		atmel,no-force-update;
+		atmel,no-lpm-support;
+		atmel,cfg_1 {
+			atmel,family-id = <0xa2>;
+			atmel,variant-id = <0x00>;
+			atmel,version = <0x20>;
+			atmel,build = <0xab>;
+			atmel,config = [
+				/* Object 6, Instance = 0 */
+				00 00 00 00 00 00
+				/* Object 38, Instance = 0 */
+				21 01 00 19 09 0D 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00
+				/* Object 7, Instance = 0 */
+				FF FF FF 00
+				/* Object 8, Instance = 0 */
+				64 00 14 00 00 00 00 00 00 00
+				/* Object 9, Instance = 0 */
+				83 00 00 20 34 00 A5 3C 08 07
+				00 00 00 00 0A 00 00 00 A0 05
+				00 0A 03 07 0A 00 08 14 1A 0D
+				00 0A 00 00 0A 00
+				/* Object 9, Instance = 1 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00
+				/* Object 15, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00
+				/* Object 18, Instance = 0 */
+				00 00
+				/* Object 19, Instance = 0 */
+				00 00 00 00 00 00
+				/* Object 24, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00
+				/* Object 24, Instance = 1 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00
+				/* Object 25, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00
+				/* Object 27, Instance = 0 */
+				00 00 00 00 00 00 00
+				/* Object 27, Instance = 1 */
+				00 00 00 00 00 00 00
+				/* Object 40, Instance = 0 */
+				00 00 00 00 00
+				/* Object 40, Instance = 1 */
+				00 00 00 00 00
+				/* Object 42, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				/* Object 42, Instance = 1 */
+				00 00 00 00 00 00 00 00 00 00
+				/* Object 43, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00
+				/* Object 46, Instance = 0 */
+				00 00 10 10 00 00 00 00 00 00
+				04
+				/* Object 47, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00
+				/* Object 47, Instance = 1 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00
+				/* Object 55, Instance = 0 */
+				00 00 00 00 00 00 00
+				/* Object 55, Instance = 1 */
+				00 00 00 00 00 00 00
+				/* Object 56, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00
+				/* Object 57, Instance = 0 */
+				00 00 00
+				/* Object 57, Instance = 1 */
+				00 00 00
+				/* Object 61, Instance = 0 */
+				00 00 00 00 00
+				/* Object 61, Instance = 1 */
+				00 00 00 00 00
+				/* Object 61, Instance = 2 */
+				00 00 00 00 00
+				/* Object 61, Instance = 3 */
+				00 00 00 00 00
+				/* Object 62, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00
+				/* Object 63, Instance = 0 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00
+				/* Object 63, Instance = 1 */
+				00 00 00 00 00 00 00 00 00 00
+				00 00
+				];
+		};
+	};
+};
