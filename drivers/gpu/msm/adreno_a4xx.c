@@ -164,6 +164,11 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A4XX_RBBM_PERFCTR_CTL, 0x01);
 	/* Turn on the GPU busy counter and let it run free */
 	adreno_dev->gpu_cycles = 0;
+
+	/* Disable L2 bypass to avoid UCHE out of bounds errors */
+	kgsl_regwrite(device, UCHE_TRAP_BASE_LO, 0xffff0000);
+	kgsl_regwrite(device, UCHE_TRAP_BASE_HI, 0xffff0000);
+
 }
 
 int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
