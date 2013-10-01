@@ -675,6 +675,11 @@ struct Scsi_Host {
 	unsigned eh_noresume:1;
 
 	/*
+	 * Set "SELECT REPORT" field to allow detection of well known logical
+	 * units along with standard LUs.
+	 */
+	unsigned report_wlus:1;
+	/*
 	 * Optional work queue to be utilized by the transport
 	 */
 	char work_q_name[20];
