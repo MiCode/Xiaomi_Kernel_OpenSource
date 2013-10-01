@@ -170,6 +170,7 @@ static struct led_classdev backlight_led = {
 	.name           = "lcd-backlight",
 	.brightness     = MDSS_MAX_BL_BRIGHTNESS,
 	.brightness_set = mdss_fb_set_bl_brightness,
+	.max_brightness = MDSS_MAX_BL_BRIGHTNESS,
 };
 
 static ssize_t mdss_fb_get_type(struct device *dev,
