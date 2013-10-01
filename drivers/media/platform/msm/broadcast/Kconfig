@@ -2,6 +2,17 @@
 # MSM Broadcast subsystem drivers
 #
 
+config TSPP
+	depends on ARCH_MSM
+	tristate "TSPP (Transport Stream Packet Processor) Support"
+	---help---
+	Transport Stream Packet Processor v1 is used to offload the
+	processing of MPEG transport streams from the main processor.
+	It is used to process incoming transport streams from TSIF
+	to supports use-cases such as transport stream live play
+	and recording.
+	This can also be compiled as a loadable module.
+
 config TSPP2
 	depends on ARCH_MPQ8092
 	tristate "TSPP2 (Transport Stream Packet Processor v2) Support"
@@ -12,4 +23,15 @@ config TSPP2
 	input, to supports use-cases such as transport stream live play,
 	playback from memory and recording.
 	This can also be compiled as a loadable module.
+
+config CI_BRIDGE_SPI
+	depends on SPI_QUP
+	tristate "CI Bridge SPI Driver Support"
+	---help---
+	This driver provides a simple SPI read/write interface to
+	an external CI bridge. It implements a character device
+	driver interface which allows making SPI transactions
+	using the Linux SPI framework.
+
+	To compile this driver as module, choose M here.
 

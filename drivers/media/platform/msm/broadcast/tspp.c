@@ -2054,7 +2054,7 @@ EXPORT_SYMBOL(tspp_set_key);
  *
  * @dev: TSPP device (up to TSPP_MAX_DEVICES)
  * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
- * @pNotify: notification function
+ * @notify: notification function
  * @userdata: user data to pass to notification function
  * @timer_ms: notification for partially filled buffers
  *
@@ -2062,7 +2062,7 @@ EXPORT_SYMBOL(tspp_set_key);
  *
  */
 int tspp_register_notification(u32 dev, u32 channel_id,
-	tspp_notifier *pNotify, void *userdata, u32 timer_ms)
+	tspp_notifier *notify, void *userdata, u32 timer_ms)
 {
 	struct tspp_channel *channel;
 	struct tspp_device *pdev;
@@ -2077,7 +2077,7 @@ int tspp_register_notification(u32 dev, u32 channel_id,
 		return -ENODEV;
 	}
 	channel = &pdev->channels[channel_id];
-	channel->notifier = pNotify;
+	channel->notifier = notify;
 	channel->notify_data = userdata;
 	channel->expiration_period_ms = timer_ms;
 
