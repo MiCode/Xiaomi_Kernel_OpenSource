@@ -216,6 +216,12 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	drvdata->sec_id = -1;
 	drvdata->ttbr_split = 0;
 
+	drvdata->needs_rem_spinlock = of_property_read_bool(pdev->dev.of_node,
+					"qcom,msm-enable-remote-spinlock");
+
+	if (drvdata->needs_rem_spinlock)
+		pr_info("%s enabled remote spinlock\n", drvdata->name);
+
 	ret = of_platform_populate(pdev->dev.of_node,
 				   msm_iommu_v0_ctx_match_table,
 				   NULL, &pdev->dev);

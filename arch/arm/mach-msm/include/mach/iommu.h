@@ -102,6 +102,7 @@ struct msm_iommu_bfb_settings {
  * @asid:         List of ASID and their usage count (index is ASID value).
  * @ctx_attach_count: Count of how many context are attached.
  * @bus_client  : Bus client needed to vote for bus bandwidth.
+ * @needs_rem_spinlock  : 1 if remote spinlock is needed, 0 otherwise
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -127,6 +128,7 @@ struct msm_iommu_drvdata {
 	int *asid;
 	unsigned int ctx_attach_count;
 	unsigned int bus_client;
+	int needs_rem_spinlock;
 };
 
 /**
