@@ -147,6 +147,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba);
 static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag);
 static int ufshcd_read_sdev_qdepth(struct ufs_hba *hba,
 					struct scsi_device *sdev);
+static void ufshcd_hba_exit(struct ufs_hba *hba);
 
 /*
  * ufshcd_wait_for_register - wait for register value to change
@@ -3334,6 +3335,13 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
 		pm_runtime_put_sync(hba->dev);
 	}
 out:
+	/*
+	 * If we failed to initialize the device or the device is not
+	 * present, turn off the power/clocks etc.
+	 */
+	if (ret && !ufshcd_eh_in_progress(hba))
+		ufshcd_hba_exit(hba);
+
 	return;
 }
 
@@ -3654,6 +3662,7 @@ static int ufshcd_hba_init(struct ufs_hba *hba)
 	if (err)
 		goto out_disable_vreg;
 
+	hba->is_powered = true;
 	goto out;
 
 out_disable_vreg:
@@ -3666,9 +3675,12 @@ out:
 
 static void ufshcd_hba_exit(struct ufs_hba *hba)
 {
-	ufshcd_variant_hba_exit(hba);
-	ufshcd_setup_vreg(hba, false);
-	ufshcd_setup_clocks(hba, false);
+	if (hba->is_powered) {
+		ufshcd_variant_hba_exit(hba);
+		ufshcd_setup_vreg(hba, false);
+		ufshcd_setup_clocks(hba, false);
+		hba->is_powered = false;
+	}
 }
 
 /**
