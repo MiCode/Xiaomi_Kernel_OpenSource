@@ -126,6 +126,12 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		goto err;
 	}
 
+	if ((msm_audio_ion_data.smmu_enabled == true) &&
+	    (msm_audio_ion_data.group == NULL)) {
+		pr_debug("%s:probe is not done, deferred\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
 	*client = msm_audio_ion_client_create(UINT_MAX, name);
 	if (IS_ERR_OR_NULL((void *)(*client))) {
 		pr_err("%s: ION create client for AUDIO failed\n", __func__);
@@ -448,6 +454,7 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 	int rc = 0;
 	const char *msm_audio_ion_dt = "qcom,smmu-enabled";
 	bool smmu_enabled;
+	enum apr_subsys_state q6_state;
 
 	if (pdev->dev.of_node == NULL) {
 		pr_err("%s: device tree is not found\n", __func__);
@@ -460,6 +467,14 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 	msm_audio_ion_data.smmu_enabled = smmu_enabled;
 
 	if (smmu_enabled) {
+		q6_state = apr_get_q6_state();
+		if (q6_state == APR_SUBSYS_DOWN) {
+			pr_debug("defering %s, adsp_state %d\n", __func__,
+				q6_state);
+			return -EPROBE_DEFER;
+		} else
+			pr_debug("%s: adsp is ready\n", __func__);
+
 		msm_audio_ion_data.group = iommu_group_find("lpass_audio");
 		if (!msm_audio_ion_data.group) {
 			pr_debug("Failed to find group lpass_audio deferred\n");
