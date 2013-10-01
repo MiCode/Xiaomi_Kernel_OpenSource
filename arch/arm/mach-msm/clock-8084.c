@@ -599,6 +599,8 @@ static void __iomem *virt_bases[N_BASES];
 #define dsipll0_byte_mm_source_val 1
 #define dsipll0_pixel_mm_source_val 1
 #define hdmipll_mm_source_val 3
+#define edp_mainlink_mm_source_val 4
+#define edp_pixel_mm_source_val 5
 
 #define F(f, s, div, m, n) \
 	{ \
@@ -3958,25 +3960,6 @@ static struct rcg_clk cpp_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_edpaux_clk[] = {
-	F_MM( 19200000,         xo,    1, 0, 0),
-	F_END
-};
-
-static struct rcg_clk edpaux_clk_src = {
-	.cmd_rcgr_reg = EDPAUX_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_mdss_edpaux_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "edpaux_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOW, 19200000),
-		CLK_INIT(edpaux_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_mdss_esc0_1_clk[] = {
 	F_MM( 19200000,         xo,    1, 0, 0),
 	F_END
@@ -4726,18 +4709,6 @@ static struct branch_clk mdss_axi_clk = {
 	},
 };
 
-static struct branch_clk mdss_edpaux_clk = {
-	.cbcr_reg = MDSS_EDPAUX_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.parent = &edpaux_clk_src.c,
-		.dbg_name = "mdss_edpaux_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mdss_edpaux_clk.c),
-	},
-};
-
 static struct branch_clk mdss_esc0_clk = {
 	.cbcr_reg = MDSS_ESC0_CBCR,
 	.has_sibling = 0,
@@ -5274,6 +5245,116 @@ static struct branch_clk oxili_rbbmtimer_clk = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_mdss_edpaux_clk[] = {
+	F_MM( 19200000,         xo,    1, 0, 0),
+	F_END
+};
+
+static struct rcg_clk edpaux_clk_src = {
+	.cmd_rcgr_reg = EDPAUX_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_mdss_edpaux_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "edpaux_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 19200000),
+		CLK_INIT(edpaux_clk_src.c),
+	},
+};
+
+static struct branch_clk mdss_edpaux_clk = {
+	.cbcr_reg = MDSS_EDPAUX_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &edpaux_clk_src.c,
+		.dbg_name = "mdss_edpaux_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_edpaux_clk.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_mdss_edplink_clk[] = {
+	F_MM(162000000, edp_mainlink,  1,   0,   0),
+	F_MM(270000000, edp_mainlink,  1,   0,   0),
+	F_END
+};
+
+static struct rcg_clk edplink_clk_src = {
+	.cmd_rcgr_reg = EDPLINK_CMD_RCGR,
+	.freq_tbl = ftbl_mdss_edplink_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "edplink_clk_src",
+		.ops = &clk_ops_rcg_edp,
+		VDD_DIG_FMAX_MAP2(LOW, 135000000, NOMINAL, 270000000),
+		CLK_INIT(edplink_clk_src.c),
+	},
+};
+
+static struct branch_clk mdss_edplink_clk = {
+	.cbcr_reg = MDSS_EDPLINK_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &edplink_clk_src.c,
+		.dbg_name = "mdss_edplink_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_edplink_clk.c),
+	},
+};
+
+static struct clk_freq_tbl edp_pixel_freq_tbl[] = {
+	{
+		.src_clk = &edp_pixel_clk_src.c,
+		.div_src_val = BVAL(10, 8, edp_pixel_mm_source_val)
+				| BVAL(4, 0, 0),
+	},
+	F_END
+};
+
+static struct rcg_clk edppixel_clk_src = {
+	.cmd_rcgr_reg = EDPPIXEL_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.current_freq = edp_pixel_freq_tbl,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &edp_pixel_clk_src.c,
+		.dbg_name = "edppixel_clk_src",
+		.ops = &clk_ops_edppixel,
+		VDD_DIG_FMAX_MAP2(LOW, 175000000, NOMINAL, 350000000),
+		CLK_INIT(edppixel_clk_src.c),
+	},
+};
+
+/* Allow set rate go through this branch clock */
+static struct branch_clk mdss_edppixel_clk = {
+	.cbcr_reg = MDSS_EDPPIXEL_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &edppixel_clk_src.c,
+		.dbg_name = "mdss_edppixel_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_edppixel_clk.c),
+	},
+};
+
+static struct branch_clk mdss_avsync_edppixel_clk = {
+	.cbcr_reg = AVSYNC_EDPPIXEL_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &edppixel_clk_src.c,
+		.dbg_name = "mdss_avsync_edppixel_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mdss_avsync_edppixel_clk.c),
+	},
+};
+
 static struct gate_clk pcie_0_phy_ldo = {
 	.en_reg = PCIE_0_PHY_LDO_EN,
 	.en_mask = BIT(0),
@@ -5480,6 +5561,8 @@ static struct measure_mux_entry measure_mux[] = {
 	{&mdss_pclk0_clk.c,			MMSS_BASE, 0x0016},
 	{&mdss_pclk1_clk.c,			MMSS_BASE, 0x0017},
 	{&mdss_extpclk_clk.c,			MMSS_BASE, 0x0018},
+	{&mdss_edppixel_clk.c,			MMSS_BASE, 0x0019},
+	{&mdss_edplink_clk.c,			MMSS_BASE, 0x001a},
 	{&mdss_edpaux_clk.c,			MMSS_BASE, 0x001b},
 	{&mdss_vsync_clk.c,			MMSS_BASE, 0x001c},
 	{&mdss_hdmi_clk.c,			MMSS_BASE, 0x001d},
@@ -5514,6 +5597,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{&camss_vfe_cpp_ahb_clk.c,		MMSS_BASE, 0x003b},
 	{&camss_vfe_vfe_ahb_clk.c,		MMSS_BASE, 0x003c},
 	{&camss_vfe_vfe_axi_clk.c,		MMSS_BASE, 0x003d},
+	{&mdss_avsync_edppixel_clk.c,		MMSS_BASE, 0x003e},
 	{&camss_csi_vfe0_clk.c,			MMSS_BASE, 0x003f},
 	{&camss_csi_vfe1_clk.c,			MMSS_BASE, 0x0040},
 	{&camss_csi0_clk.c,			MMSS_BASE, 0x0041},
@@ -6461,7 +6545,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("vsync_clk", mdss_vsync_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("",	avsync_extpclk_clk.c,	""),
 	CLK_LOOKUP("",	mdss_axi_clk.c,	""),
-	CLK_LOOKUP("",	mdss_edpaux_clk.c,	""),
 	CLK_LOOKUP("",	mdss_esc0_clk.c,	""),
 	CLK_LOOKUP("",	mdss_esc1_clk.c,	""),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd922100.qcom,hdmi_tx"),
@@ -6473,6 +6556,15 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	mdss_mdp_clk.c,	""),
 	CLK_LOOKUP("",	mdss_mdp_lut_clk.c,	""),
 	CLK_LOOKUP("",	mdss_vsync_clk.c,	""),
+
+	CLK_LOOKUP("core_clk", mdss_edpaux_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("pixel_clk", mdss_edppixel_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("avsync_pixel_clk", mdss_avsync_edppixel_clk.c,
+						"fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("link_clk", mdss_edplink_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("mdp_core_clk", mdss_mdp_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd923400.qcom,mdss_edp"),
+
 
 	CLK_LOOKUP("",	hdmipll_clk_src.c,	""),
 	CLK_LOOKUP("",	hdmipll_mux_clk.c,	""),
