@@ -523,4 +523,12 @@
 		enable-active-high;
 		gpio = <&pma8084_mpps 3 0>;
 	};
+
+	usb1_vreg: usb1_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb1_vreg";
+		startup-delay-us = <63000>; /* the on time of NX5P1000 */
+		enable-active-high;
+		gpio = <&pma8084_gpios 9 0>;
+	};
 };
