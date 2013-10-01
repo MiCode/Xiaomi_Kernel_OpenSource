@@ -2571,31 +2571,60 @@ static inline int ufshcd_get_bkops_status(struct ufs_hba *hba, u32 *status)
 }
 
 /**
+ * ufshcd_bkops_ctrl - control the auto bkops based on current bkops status
+ * @hba: per-adapter instance
+ * @status: bkops_status value
+ *
+ * Read the bkops_status from the UFS device and Enable fBackgroundOpsEn
+ * flag in the device to permit background operations if the device
+ * bkops_status is greater than or equal to "status" argument passed to
+ * this function, disable otherwise.
+ *
+ * Returns 0 for success, non-zero in case of failure.
+ *
+ * NOTE: Caller of this function can check the "hba->auto_bkops_enabled" flag
+ * to know whether auto bkops is enabled or disabled after this function
+ * returns control to it.
+ */
+static int ufshcd_bkops_ctrl(struct ufs_hba *hba,
+			     enum bkops_status status)
+{
+	int err;
+	u32 curr_status = 0;
+
+	err = ufshcd_get_bkops_status(hba, &curr_status);
+	if (err) {
+		dev_err(hba->dev, "%s: failed to get BKOPS status %d\n",
+				__func__, err);
+		goto out;
+	} else if (curr_status > BKOPS_STATUS_MAX) {
+		dev_err(hba->dev, "%s: invalid BKOPS status %d\n",
+				__func__, curr_status);
+		err = -EINVAL;
+		goto out;
+	}
+
+	if (curr_status >= status)
+		err = ufshcd_enable_auto_bkops(hba);
+	else
+		err = ufshcd_disable_auto_bkops(hba);
+out:
+	return err;
+}
+
+/**
  * ufshcd_urgent_bkops - handle urgent bkops exception event
  * @hba: per-adapter instance
  *
  * Enable fBackgroundOpsEn flag in the device to permit background
  * operations.
+ *
+ * If BKOPs is enabled, this function returns 0, 1 if the bkops in not enabled
+ * and negative error value for any other failure.
  */
 static int ufshcd_urgent_bkops(struct ufs_hba *hba)
 {
-	int err;
-	u32 status = 0;
-
-	err = ufshcd_get_bkops_status(hba, &status);
-	if (err) {
-		dev_err(hba->dev, "%s: failed to get BKOPS status %d\n",
-				__func__, err);
-		goto out;
-	}
-
-	status = status & 0xF;
-
-	/* handle only if status indicates performance impact or critical */
-	if (status >= BKOPS_STATUS_PERF_IMPACT)
-		err = ufshcd_enable_auto_bkops(hba);
-out:
-	return err;
+	return ufshcd_bkops_ctrl(hba, BKOPS_STATUS_PERF_IMPACT);
 }
 
 static inline int ufshcd_get_ee_status(struct ufs_hba *hba, u32 *status)
@@ -2629,7 +2658,7 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 	status &= hba->ee_ctrl_mask;
 	if (status & MASK_EE_URGENT_BKOPS) {
 		err = ufshcd_urgent_bkops(hba);
-		if (err)
+		if (err < 0)
 			dev_err(hba->dev, "%s: failed to handle urgent bkops %d\n",
 					__func__, err);
 	}
@@ -3785,6 +3814,8 @@ EXPORT_SYMBOL_GPL(ufshcd_resume);
 
 int ufshcd_runtime_suspend(struct ufs_hba *hba)
 {
+	int ret;
+
 	if (!hba)
 		return 0;
 
@@ -3792,7 +3823,9 @@ int ufshcd_runtime_suspend(struct ufs_hba *hba)
 	 * The device is idle with no requests in the queue,
 	 * allow background operations.
 	 */
-	return ufshcd_enable_auto_bkops(hba);
+	ret = ufshcd_bkops_ctrl(hba, BKOPS_STATUS_NON_CRITICAL);
+
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_suspend);
 

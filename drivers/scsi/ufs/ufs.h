@@ -198,11 +198,12 @@ enum {
 };
 
 /* Background operation status */
-enum {
+enum bkops_status {
 	BKOPS_STATUS_NO_OP               = 0x0,
 	BKOPS_STATUS_NON_CRITICAL        = 0x1,
 	BKOPS_STATUS_PERF_IMPACT         = 0x2,
 	BKOPS_STATUS_CRITICAL            = 0x3,
+	BKOPS_STATUS_MAX		 = BKOPS_STATUS_CRITICAL,
 };
 
 /* UTP QUERY Transaction Specific Fields OpCode */
