@@ -681,6 +681,10 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	}
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
+	/* Call the GPU specific resume function */
+	if (device->ftbl->resume)
+		device->ftbl->resume(device);
+
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "resume end\n");
 	return 0;
