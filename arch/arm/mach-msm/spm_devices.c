@@ -455,23 +455,17 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	spm_data.phase_port = -1;
 	spm_data.pfm_port = -1;
 
+	key = "qcom,vctl-port";
+	of_property_read_u32(node, key, &spm_data.vctl_port);
+
+	key = "qcom,phase-port";
+	of_property_read_u32(node, key, &spm_data.phase_port);
+
+	key = "qcom,pfm-port";
+	of_property_read_u32(node, key, &spm_data.pfm_port);
+
 	/* optional */
 	if (dev == &msm_spm_l2_device) {
-		key = "qcom,vctl-port";
-		ret = of_property_read_u32(node, key, &val);
-		if (!ret)
-			spm_data.vctl_port = val;
-
-		key = "qcom,phase-port";
-		ret = of_property_read_u32(node, key, &val);
-		if (!ret)
-			spm_data.phase_port = val;
-
-		key = "qcom,pfm-port";
-		ret = of_property_read_u32(node, key, &val);
-		if (!ret)
-			spm_data.pfm_port = val;
-
 		key = "qcom,L2-spm-is-apcs-master";
 		msm_spm_L2_apcs_master =
 			of_property_read_bool(pdev->dev.of_node, key);
