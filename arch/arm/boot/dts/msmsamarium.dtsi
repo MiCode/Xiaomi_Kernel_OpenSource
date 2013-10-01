@@ -35,6 +35,7 @@
 /include/ "msmsamarium-pinctrl.dtsi"
 /include/ "msmsamarium-bus.dtsi"
 /include/ "msmsamarium-gpu.dtsi"
+/include/ "msmsamarium-iommu-domains.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -140,6 +141,78 @@
 		reg = <0xf991e000 0x1000>;
 		interrupts = <0 108 0>;
 		status = "disabled";
+	};
+
+	qcom,vidc@fdc00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0xfdc00000 0xff000>;
+		interrupts = <0 44 0>;
+		qcom,load-freq-tbl = <489600 266700000>,
+			<244800 133330000>,
+			<108000 100000000>,
+			<36000   50000000>;
+		qcom,hfi = "venus";
+		qcom,has-ocmem;
+		qcom,bus-ports = <1>;
+		qcom,reg-presets = <0xE0024 0x0>,
+			<0x80124 0x3>,
+			<0xE0020 0x5555556>,
+			<0x800B0 0x10101001>,
+			<0x800B4 0x00101010>,
+			<0x800C0 0x1010100f>,
+			<0x800C4 0x00101010>,
+			<0x800D0 0x00000010>,
+			<0x800D4 0x00000010>,
+			<0x800D8 0x00000707>,
+			<0x80070 0x00001F00>,
+			<0x80074 0x000000A4>;
+		qcom,enc-ocmem-ab-ib = <0 0>,
+			<138000 1034000>,
+			<414000 1034000>,
+			<940000 1034000>,
+			<1880000 2068000>;
+		qcom,dec-ocmem-ab-ib = <0 0>,
+			<176000 519000>,
+			<456000 519000>,
+			<864000 519000>,
+			<1728000 1038000>;
+		qcom,enc-ddr-ab-ib = <0 0>,
+			<129000 142000>,
+			<384000 422000>,
+			<866000 953000>,
+			<1732000 1906000>;
+		qcom,dec-ddr-ab-ib = <0 0>,
+			<103000 134000>,
+			<268000 348000>,
+			<505000 657000>,
+			<1010000 1314000>;
+		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
+			<0x2 0x2>,
+			<0x1f0 0x3>;
+		qcom,max-hw-load = <489600>; /* 1080p @ 60 */
+		qcom,vidc-iommu-domains {
+                qcom,domain-ns {
+                        qcom,vidc-domain-phandle = <&venus_domain_ns>;
+                        qcom,vidc-partition-buffer-types = <0x1ff>,
+							<0x200>;
+                };
+                qcom,domain-sec-bs {
+                        qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+                        qcom,vidc-partition-buffer-types = <0x91>;
+                };
+                qcom,domain-sec-px {
+                        qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+                        qcom,vidc-partition-buffer-types = <0x42>;
+                };
+                qcom,domain-sec-np {
+                        qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+                        qcom,vidc-partition-buffer-types = <0x120>;
+                };
+	    };
+	};
+
+	qcom,wfd {
+		compatible = "qcom,msm-wfd";
 	};
 
 	blsp1_uart2: serial@f991f000 {

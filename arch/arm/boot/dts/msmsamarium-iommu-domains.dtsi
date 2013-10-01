@@ -1,0 +1,45 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,iommu-domains {
+		compatible = "qcom,iommu-domains";
+
+		venus_domain_ns: qcom,iommu-domain1 {
+			label = "venus_ns";
+			qcom,iommu-contexts = <&venus_ns>;
+			qcom,virtual-addr-pool = <0x5dc00000 0x7f000000
+						 0xdcc00000 0x1000000>;
+		};
+
+		venus_domain_sec_bitstream: qcom,iommu-domain2 {
+			label = "venus_sec_bitstream";
+			qcom,iommu-contexts = <&venus_sec_bitstream>;
+			qcom,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_pixel: qcom,iommu-domain3 {
+			label = "venus_sec_pixel";
+			qcom,iommu-contexts = <&venus_sec_pixel>;
+			qcom,virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_non_pixel: qcom,iommu-domain4 {
+			label = "venus_sec_non_pixel";
+			qcom,iommu-contexts = <&venus_sec_non_pixel>;
+			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-domain;
+		};
+	};
+};
