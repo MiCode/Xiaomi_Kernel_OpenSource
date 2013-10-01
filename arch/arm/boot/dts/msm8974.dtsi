@@ -1561,7 +1561,8 @@
 
         memory_hole: qcom,msm-mem-hole {
                 compatible = "qcom,msm-mem-hole";
-                qcom,memblock-remove = <0x5d00000 0xa200000>; /* Address and Size of Hole */
+                qcom,memblock-remove = <0x5d00000 0x7d00000
+					0xfa00000 0x500000>; /* Address and Size of Hole */
         };
 
 	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
