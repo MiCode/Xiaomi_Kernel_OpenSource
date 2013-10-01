@@ -416,6 +416,13 @@ ufshcd_config_intr_aggr(struct ufs_hba *hba, u8 cnt, u8 tmout)
 
 #define ufshcd_is_intr_aggr_broken(hba) ((hba)->quirks & \
 					 UFSHCD_QUIRK_BROKEN_INTR_AGGR)
+
+#define ufshcd_can_queue(hba)	\
+	({			\
+		((hba)->quirks & \
+		 UFSHCD_QUIRK_BROKEN_DEVICE_Q_CMND) ? 1 : (hba)->nutrs; \
+	})
+
 /**
  * ufshcd_disable_intr_aggr - Disables interrupt aggregation.
  * @hba: per adapter instance
@@ -3977,7 +3984,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	/* Configure LRB */
 	ufshcd_host_memory_configure(hba);
 
-	host->can_queue = hba->nutrs;
+	host->can_queue = ufshcd_can_queue(hba);
 	host->cmd_per_lun = hba->nutrs;
 	host->max_id = UFSHCD_MAX_ID;
 	host->max_lun = UFS_MAX_LUNS;
