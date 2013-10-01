@@ -1140,6 +1140,26 @@ err:
 	return err;
 }
 
+int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
+{
+	int err;
+
+	if (freq < MMC_HS200_MAX_DTR) {
+		/*
+		 * Lower the clock and adjust the timing to be able
+		 * to switch to HighSpeed mode
+		 */
+		mmc_set_timing(card->host, MMC_TIMING_LEGACY);
+		mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
+
+		err = mmc_select_hs(card);
+	} else {
+		err = mmc_select_hs400(card);
+	}
+
+	return err;
+}
+
 /**
  * mmc_change_bus_speed() - Change MMC card bus frequency at runtime
  * @host: pointer to mmc host structure
@@ -1181,7 +1201,13 @@ static int mmc_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 	if (*freq < host->f_min)
 		*freq = host->f_min;
 
-	mmc_set_clock(host, (unsigned int) (*freq));
+	if (mmc_card_hs400(card)) {
+		err = mmc_set_clock_bus_speed(card, *freq);
+		if (err)
+			goto out;
+	} else {
+		mmc_set_clock(host, (unsigned int) (*freq));
+	}
 
 	if (mmc_card_hs200(card) && card->host->ops->execute_tuning) {
 		/*
@@ -1451,6 +1477,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_get_ext_csd(card, &ext_csd);
 		if (err)
 			goto free_card;
+		memcpy(&card->cached_ext_csd, ext_csd, sizeof(card->ext_csd));
 		err = mmc_read_ext_csd(card, ext_csd);
 		if (err)
 			goto free_card;
