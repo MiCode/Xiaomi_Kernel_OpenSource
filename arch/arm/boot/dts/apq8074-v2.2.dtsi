@@ -17,6 +17,7 @@
  */
 
 /include/ "msm8974-v2.2.dtsi"
+/include/ "apq8074-v2.2-ion.dtsi"
 
 &soc {
 	qcom,qseecom@a700000 {
