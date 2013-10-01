@@ -29,6 +29,7 @@
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include <sound/q6afe-v2.h>
 #include <linux/module.h>
+#include <mach/gpiomux.h>
 #include "../codecs/msm8x10-wcd.h"
 #define DRV_NAME "msm8x10-asoc-wcd"
 #define BTSCO_RATE_8KHZ 8000
@@ -186,6 +187,10 @@ static void msm8x10_enable_ext_spk_power_amp(u32 on)
 
 static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
 {
+	/* set the drive strength on the clock */
+	msm_tlmm_misc_reg_write(TLMM_CDC_HDRV_CTL, 0x00);
+	msm_tlmm_misc_reg_write(TLMM_CDC_HDRV_PULL_CTL, 0x0006db6d);
+
 	iowrite32(0x1, pcbcr);
 	/* Set the update bit to make the settings go through */
 	iowrite32(0x1, prcgr);
