@@ -302,6 +302,10 @@ struct ufs_hba {
 	/* UFSHC advertises 64-bit not supported even though it supports */
 	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0        (1 << 3)
 
+	/* Command queueing for the UFS device is broken, allowing the
+	 * controller to have a single command at a time for the device */
+	#define UFSHCD_QUIRK_BROKEN_DEVICE_Q_CMND        (1 << 4)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 
