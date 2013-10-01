@@ -62,7 +62,6 @@
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
-				 UIC_POWER_MODE |\
 				 UFSHCD_ERROR_MASK)
 /* UIC command timeout, unit: ms */
 #define UIC_CMD_TIMEOUT	500
@@ -1687,6 +1686,68 @@ out:
 EXPORT_SYMBOL_GPL(ufshcd_dme_get_attr);
 
 /**
+ * ufshcd_uic_pwr_ctrl - executes UIC commands (which affects the link power
+ * state) and waits for it to take effect.
+ *
+ * @hba: per adapter instance
+ * @cmd: UIC command to execute
+ *
+ * DME operations like DME_SET(PA_PWRMODE), DME_HIBERNATE_ENTER &
+ * DME_HIBERNATE_EXIT commands take some time to take its effect on both host
+ * and device UniPro link and hence it's final completion would be indicated by
+ * dedicated status bits in Interrupt Status register (UPMS, UHES, UHXS) in
+ * addition to normal UIC command completion Status (UCCS). This function only
+ * returns after the relevant status bits indicate the completion.
+ *
+ * Returns 0 on success, non-zero value on failure
+ */
+int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
+{
+	struct completion uic_async_done;
+	unsigned long flags;
+	u8 status;
+	int ret;
+
+	mutex_lock(&hba->uic_cmd_mutex);
+	init_completion(&uic_async_done);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->uic_async_done = &uic_async_done;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	ret = __ufshcd_send_uic_cmd(hba, cmd);
+	if (ret) {
+		dev_err(hba->dev,
+			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
+			cmd->command, cmd->argument3, ret);
+		goto out;
+	}
+
+	if (!wait_for_completion_timeout(hba->uic_async_done,
+					 msecs_to_jiffies(UIC_CMD_TIMEOUT))) {
+		dev_err(hba->dev,
+			"pwr ctrl cmd 0x%x with mode 0x%x completion timeout\n",
+			cmd->command, cmd->argument3);
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+	status = ufshcd_get_upmcrs(hba);
+	if (status != PWR_LOCAL) {
+		dev_err(hba->dev,
+			"pwr ctrl cmd 0x%0x failed, host umpcrs:0x%x\n",
+			cmd->command, status);
+		ret = (status != PWR_OK) ? status : -1;
+	}
+out:
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->uic_async_done = NULL;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	mutex_unlock(&hba->uic_cmd_mutex);
+	return ret;
+}
+
+/**
  * ufshcd_uic_change_pwr_mode - Perform the UIC power mode chage
  *				using DME_SET primitives.
  * @hba: per adapter instance
@@ -1697,51 +1758,30 @@ EXPORT_SYMBOL_GPL(ufshcd_dme_get_attr);
 static int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
 {
 	struct uic_command uic_cmd = {0};
-	struct completion pwr_done;
-	unsigned long flags;
-	u8 status;
-	int ret;
 
 	uic_cmd.command = UIC_CMD_DME_SET;
 	uic_cmd.argument1 = UIC_ARG_MIB(PA_PWRMODE);
 	uic_cmd.argument3 = mode;
-	init_completion(&pwr_done);
 
-	mutex_lock(&hba->uic_cmd_mutex);
+	return ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
+}
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pwr_done = &pwr_done;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	ret = __ufshcd_send_uic_cmd(hba, &uic_cmd);
-	if (ret) {
-		dev_err(hba->dev,
-			"pwr mode change with mode 0x%x uic error %d\n",
-			mode, ret);
-		goto out;
-	}
+int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
+{
+	struct uic_command uic_cmd = {0};
 
-	if (!wait_for_completion_timeout(hba->pwr_done,
-					 msecs_to_jiffies(UIC_CMD_TIMEOUT))) {
-		dev_err(hba->dev,
-			"pwr mode change with mode 0x%x completion timeout\n",
-			mode);
-		ret = -ETIMEDOUT;
-		goto out;
-	}
+	uic_cmd.command = UIC_CMD_DME_HIBER_ENTER;
 
-	status = ufshcd_get_upmcrs(hba);
-	if (status != PWR_LOCAL) {
-		dev_err(hba->dev,
-			"pwr mode change failed, host umpcrs:0x%x\n",
-			status);
-		ret = (status != PWR_OK) ? status : -1;
-	}
-out:
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pwr_done = NULL;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	mutex_unlock(&hba->uic_cmd_mutex);
-	return ret;
+	return ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
+}
+
+int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
+{
+	struct uic_command uic_cmd = {0};
+
+	uic_cmd.command = UIC_CMD_DME_HIBER_EXIT;
+
+	return ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
 }
 
 /**
@@ -1978,7 +2018,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	}
 
 	/* enable UIC related interrupts */
-	ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
+	ufshcd_enable_intr(hba, UFSHCD_UIC_MASK);
 
 	if (hba->vops && hba->vops->hce_enable_notify)
 		hba->vops->hce_enable_notify(hba, POST_CHANGE);
@@ -2317,8 +2357,8 @@ static void ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		complete(&hba->active_uic_cmd->done);
 	}
 
-	if ((intr_status & UIC_POWER_MODE) && hba->pwr_done)
-		complete(hba->pwr_done);
+	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done)
+		complete(hba->uic_async_done);
 }
 
 /**
