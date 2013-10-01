@@ -37,6 +37,8 @@ Optional properties for Ion heaps
 - qcom,memory-reservation-size: size of reserved memory for the ION heap.
 - qcom,memory-reservation-type: type of memory to be reserved
 (see memory-reserve.txt for information about memory reservations)
+- qcom,default-prefetch-size: Based value to be used for prefetching
+  optimizations. Ignored if the heap does not support prefetching.
 
 Example:
 	qcom,ion {

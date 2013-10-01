@@ -554,7 +554,8 @@ static void check_for_heap_overlap(const struct ion_platform_heap heap_list[],
 }
 
 #ifdef CONFIG_OF
-static int msm_init_extra_data(struct ion_platform_heap *heap,
+static int msm_init_extra_data(struct device_node *node,
+			       struct ion_platform_heap *heap,
 			       const struct ion_heap_desc *heap_desc)
 {
 	int ret = 0;
@@ -578,6 +579,28 @@ static int msm_init_extra_data(struct ion_platform_heap *heap,
 					   GFP_KERNEL);
 		if (!heap->extra_data)
 			ret = -ENOMEM;
+		break;
+	}
+	case ION_HEAP_TYPE_SECURE_DMA:
+	{
+		unsigned int val;
+
+		ret = of_property_read_u32(node,
+					"qcom,default-prefetch-size", &val);
+
+		if (!ret) {
+			heap->extra_data = kzalloc(sizeof(struct ion_cma_pdata),
+					   GFP_KERNEL);
+
+			if (!heap->extra_data) {
+				ret = -ENOMEM;
+			} else {
+				struct ion_cma_pdata *extra = heap->extra_data;
+				extra->default_prefetch_size = val;
+			}
+		} else {
+			ret = 0;
+		}
 		break;
 	}
 	default:
@@ -639,7 +662,8 @@ static int msm_ion_populate_heap(struct device_node *node,
 			if (ret)
 				break;
 			heap->type = heap_type;
-			ret = msm_init_extra_data(heap, &ion_heap_meta[i]);
+			ret = msm_init_extra_data(node, heap,
+						&ion_heap_meta[i]);
 			break;
 		}
 	}
