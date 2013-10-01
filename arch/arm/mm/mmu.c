@@ -1002,6 +1002,18 @@ void __init sanity_check_meminfo(void)
 {
 	int i, j, highmem = 0;
 
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	unsigned long hole_start;
+	for (i = 0; i < (meminfo.nr_banks - 1); i++) {
+		hole_start = meminfo.bank[i].start + meminfo.bank[i].size;
+		if (hole_start != meminfo.bank[i+1].start) {
+			if (hole_start <= MAX_HOLE_ADDRESS) {
+				vmalloc_min = (void *) (vmalloc_min +
+				(meminfo.bank[i+1].start - hole_start));
+			}
+		}
+	}
+#endif
 #ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
 	find_memory_hole();
 #endif
