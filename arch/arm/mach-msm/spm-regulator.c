@@ -90,6 +90,7 @@ struct spm_vreg {
 	u16				spmi_base_addr;
 	u8				init_mode;
 	int				step_rate;
+	u32				cpu_num;
 };
 
 static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
@@ -121,7 +122,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 			return rc;
 	}
 
-	rc = msm_spm_set_vdd(0, vreg->vlevel); /* value of CPU is don't care */
+	rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
 	if (rc) {
 		pr_err("%s: msm_spm_set_vdd failed %d\n", vreg->rdesc.name, rc);
 		return rc;
@@ -414,6 +415,11 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	rc = qpnp_fts2_check_type(vreg);
 	if (rc)
 		return rc;
+
+	/* Specify CPU 0 as default in order to handle shared regulator case. */
+	vreg->cpu_num = 0;
+	of_property_read_u32(vreg->spmi_dev->dev.of_node, "qcom,cpu-num",
+						&vreg->cpu_num);
 
 	/*
 	 * The FTS2 regulator must be initialized to range 0 or range 1 during

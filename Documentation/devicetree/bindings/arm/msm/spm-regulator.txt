@@ -18,6 +18,8 @@ Optional properties:
 		    robust, but draws more current than auto mode.  If this
 		    property is not specified, then the regulator will remain
 		    in whatever mode hardware or bootloaders set it to.
+- qcom,cpu-num:    Specifies which CPU this regulator powers.  This property is
+		    not need when the SPM regulator is shared between all CPUs.
 
 All properties specified within the core regulator framework can also be used.
 These bindings can be found in regulator.txt.
