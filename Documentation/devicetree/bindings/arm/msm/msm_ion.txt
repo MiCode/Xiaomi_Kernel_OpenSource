@@ -37,6 +37,10 @@ Optional properties for Ion heaps
 - qti,memory-reservation-size: size of reserved memory for the ION heap.
 - qti,memory-reservation-type: type of memory to be reserved
 (see memory-reserve.txt for information about memory reservations)
+- qti,default-prefetch-size: Base value to be used for prefetching
+  optimizations. Ignored if the heap does not support prefetching.
+  Will set to a reasonable default value (e.g. the maximum heap size)
+  if this option is not set.
 
 Example:
 	qti,ion {
