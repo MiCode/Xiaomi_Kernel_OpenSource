@@ -52,6 +52,30 @@ module_param(sip_direct_media, int, 0600);
 MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
 				   "endpoints only (default 1)");
 
+static struct ctl_table_header *sip_sysctl_header;
+static unsigned nf_ct_disable_sip_alg;
+
+static ctl_table sip_sysctl_tbl[] = {
+	{
+		.procname     = "nf_conntrack_disable_sip_alg",
+		.data         = &nf_ct_disable_sip_alg,
+		.maxlen       = sizeof(unsigned int),
+		.mode         = 0644,
+		.proc_handler = proc_dointvec,
+	},
+	{}
+};
+
+static struct ctl_path sip_sysctls_path[] = {
+	{
+		.procname  = "net",
+	},
+	{
+		.procname  = "netfilter",
+	},
+	{}
+};
+
 unsigned int (*nf_nat_sip_hook)(struct sk_buff *skb, unsigned int protoff,
 				unsigned int dataoff, const char **dptr,
 				unsigned int *datalen) __read_mostly;
@@ -1518,6 +1542,9 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 	typeof(nf_nat_sip_hook) nf_nat_sip;
 	int ret;
 
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
+
 	if (strnicmp(*dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
 		ret = process_sip_request(skb, protoff, dataoff, dptr, datalen);
 	else
@@ -1683,6 +1710,16 @@ static void nf_conntrack_sip_fini(void)
 static int __init nf_conntrack_sip_init(void)
 {
 	int i, j, ret;
+
+	sip_sysctl_header = register_sysctl_paths(sip_sysctls_path,
+						sip_sysctl_tbl);
+	if (!sip_sysctl_header)
+		pr_debug("nf_ct_sip:Unable to register SIP systbl\n");
+
+	if (nf_ct_disable_sip_alg)
+		pr_debug("nf_ct_sip: SIP ALG disabled\n");
+	else
+		pr_debug("nf_ct_sip: SIP ALG enabled\n");
 
 	if (ports_c == 0)
 		ports[ports_c++] = SIP_PORT;
