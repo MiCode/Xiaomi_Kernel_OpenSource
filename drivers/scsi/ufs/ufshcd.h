@@ -96,6 +96,51 @@ struct uic_command {
 	struct completion done;
 };
 
+/* Used to differentiate the power management options */
+enum ufs_pm_op {
+	UFS_RUNTIME_PM,
+	UFS_SYSTEM_PM,
+};
+
+#define ufshcd_is_runtime_pm(op) ((op) == UFS_RUNTIME_PM)
+#define ufshcd_is_system_pm(op) ((op) == UFS_SYSTEM_PM)
+
+/* Host <-> Device UniPro Link state */
+enum uic_link_state {
+	UIC_LINK_OFF_STATE	= 0, /* Link powered down or disabled */
+	UIC_LINK_ACTIVE_STATE	= 1, /* Link is in Fast/Slow/Sleep state */
+	UIC_LINK_HIBERN8_STATE	= 2, /* Link is in Hibernate state */
+};
+
+#define ufshcd_is_link_off(hba) ((hba)->uic_link_state & UIC_LINK_OFF_STATE)
+#define ufshcd_is_link_active(hba) ((hba)->uic_link_state & \
+				    UIC_LINK_ACTIVE_STATE)
+#define ufshcd_is_link_hibern8(hba) ((hba)->uic_link_state & \
+				    UIC_LINK_HIBERN8_STATE)
+#define ufshcd_set_link_off(hba) ((hba)->uic_link_state = UIC_LINK_OFF_STATE)
+#define ufshcd_set_link_active(hba) ((hba)->uic_link_state = \
+				    UIC_LINK_ACTIVE_STATE)
+#define ufshcd_set_link_hibern8(hba) ((hba)->uic_link_state = \
+				    UIC_LINK_HIBERN8_STATE)
+
+/*
+ * UFS Power management levels.
+ * Each level is in increasing order of power savings.
+ */
+enum ufs_pm_level {
+	UFS_PM_LVL_0, /* UFS_ACTIVE_PWR_MODE, UIC_LINK_ACTIVE_STATE */
+	UFS_PM_LVL_1, /* UFS_ACTIVE_PWR_MODE, UIC_LINK_HIBERN8_STATE */
+	UFS_PM_LVL_2, /* UFS_SLEEP_PWR_MODE, UIC_LINK_ACTIVE_STATE */
+	UFS_PM_LVL_3, /* UFS_SLEEP_PWR_MODE, UIC_LINK_HIBERN8_STATE */
+	UFS_PM_LVL_4, /* UFS_POWERDOWN_PWR_MODE, UIC_LINK_OFF_STATE */
+	UFS_PM_LVL_MAX
+};
+
+struct ufs_pm_lvl_states {
+	enum ufs_dev_pwr_mode dev_state;
+	enum uic_link_state link_state;
+};
+
 /**
  * struct ufshcd_lrb - local reference block
  * @utr_descriptor_ptr: UTRD address of the command
@@ -197,6 +242,8 @@ struct ufs_clk_info {
  *                     variant specific Uni-Pro initialization.
  * @link_startup_notify: called before and after Link startup is carried out
  *                       to allow variant specific Uni-Pro initialization.
+ * @suspend: called during host controller PM callback
+ * @resume: called during host controller PM callback
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -206,6 +253,8 @@ struct ufs_hba_variant_ops {
 	int     (*setup_regulators)(struct ufs_hba *, bool);
 	int     (*hce_enable_notify)(struct ufs_hba *, bool);
 	int     (*link_startup_notify)(struct ufs_hba *, bool);
+	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
+	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 };
 
 /**
@@ -270,6 +319,18 @@ struct ufs_hba {
 
 	struct Scsi_Host *host;
 	struct device *dev;
+	/*
+	 * This field is to keep a reference to "scsi_device" corresponding to
+	 * "UFS device" W-LU.
+	 */
+	struct scsi_device *sdev_ufs_device;
+	enum ufs_dev_pwr_mode curr_dev_pwr_mode;
+	enum uic_link_state uic_link_state;
+	/* Desired UFS power management level during runtime PM */
+	enum ufs_pm_level rpm_lvl;
+	/* Desired UFS power management level during system PM */
+	enum ufs_pm_level spm_lvl;
+	int pm_op_in_progress;
 
 	struct ufshcd_lrb *lrb;
 	unsigned long lrb_in_use;
@@ -284,6 +345,7 @@ struct ufs_hba {
 	struct ufs_hba_variant_ops *vops;
 	void *priv;
 	unsigned int irq;
+	bool is_irq_enabled;
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
@@ -313,14 +375,13 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE      (1 << 5)
 
-	struct uic_command *active_uic_cmd;
-	struct mutex uic_cmd_mutex;
-
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
 	unsigned long tm_slots_in_use;
 
+	struct uic_command *active_uic_cmd;
+	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
 
 	u32 ufshcd_state;
@@ -396,6 +457,8 @@ static inline void check_upiu_size(void)
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
 extern int ufshcd_runtime_resume(struct ufs_hba *hba);
 extern int ufshcd_runtime_idle(struct ufs_hba *hba);
+extern int ufshcd_system_suspend(struct ufs_hba *hba);
+extern int ufshcd_system_resume(struct ufs_hba *hba);
 extern int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u8 attr_set, u32 mib_val, u8 peer);
 extern int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,

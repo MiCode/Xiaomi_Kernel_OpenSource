@@ -62,6 +62,14 @@
 #define UFS_MAX_LUNS		(SCSI_W_LUN_BASE + UFS_UPIU_MAX_UNIT_NUM_ID)
 #define UFS_UPIU_WLUN_ID	(1 << 7)
 
+/* Well known logical unit id in LUN field of UPIU */
+enum {
+	UFS_UPIU_REPORT_LUNS_WLUN	= 0x81,
+	UFS_UPIU_UFS_DEVICE_WLUN	= 0xD0,
+	UFS_UPIU_BOOT_WLUN		= 0xB0,
+	UFS_UPIU_RPMB_WLUN		= 0xC4,
+};
+
 /*
  * UFS Protocol Information Unit related definitions
  */
@@ -264,6 +272,14 @@ enum {
 	UPIU_TASK_MANAGEMENT_FUNC_FAILED	= 0x05,
 	UPIU_INCORRECT_LOGICAL_UNIT_NO		= 0x09,
 };
+
+/* UFS device power modes */
+enum ufs_dev_pwr_mode {
+	UFS_ACTIVE_PWR_MODE	= 1,
+	UFS_SLEEP_PWR_MODE	= 2,
+	UFS_POWERDOWN_PWR_MODE	= 3,
+};
+
 /**
  * struct utp_upiu_header - UPIU header structure
  * @dword_0: UPIU header DW-0
