@@ -287,8 +287,10 @@ struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
 	struct buffer_info *dummy = NULL;
 	int found = 0;
 	int i;
-	if (!list || !device_addr) {
-		dprintk(VIDC_ERR, "Invalid input\n");
+	if (!list || !device_addr || !inst) {
+		dprintk(VIDC_ERR,
+			"Invalid input- list: %p device_addr: %u inst: %p\n",
+			list, device_addr, inst);
 		goto err_invalid_input;
 	}
 	mutex_lock(&inst->lock);
