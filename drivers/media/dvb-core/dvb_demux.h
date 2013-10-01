@@ -91,6 +91,9 @@ struct dvb_demux_rec_info {
 		 */
 		u64 min_pattern_tsp_num;
 
+		/* Number of indexing-enabled feeds */
+		u8 indexing_feeds_num;
+
 		/* Number of feeds with video pattern search request */
 		u8 pattern_search_feeds_num;
 
@@ -245,6 +248,7 @@ struct dvb_demux {
 	void (*convert_ts)(struct dvb_demux_feed *feed,
 			 const u8 timestamp[TIMESTAMP_LEN],
 			 u64 *timestampIn27Mhz);
+	int (*set_indexing)(struct dvb_demux_feed *feed);
 
 	int users;
 #define MAX_DVB_DEMUX_USERS 10
@@ -297,8 +301,8 @@ struct dvb_demux {
 
 int dvb_dmx_init(struct dvb_demux *dvbdemux);
 void dvb_dmx_release(struct dvb_demux *dvbdemux);
-void dvb_dmx_swfilter_section_packets(struct dvb_demux *demux, const u8 *buf,
-			      size_t count);
+int dvb_dmx_swfilter_section_packet(struct dvb_demux_feed *feed, const u8 *buf,
+	int should_lock);
 void dvb_dmx_swfilter_packets(struct dvb_demux *dvbdmx, const u8 *buf,
 			      size_t count);
 void dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf, size_t count);
@@ -321,13 +325,13 @@ int dvb_dmx_video_pattern_search(
 		struct dvb_dmx_video_prefix_size_masks *prefix_size_masks,
 		struct dvb_dmx_video_patterns_results *results);
 int dvb_demux_push_idx_event(struct dvb_demux_feed *feed,
-		struct dmx_index_event_info *idx_event);
+		struct dmx_index_event_info *idx_event, int should_lock);
 void dvb_dmx_process_idx_pattern(struct dvb_demux_feed *feed,
 		struct dvb_dmx_video_patterns_results *patterns, int pattern,
 		u64 curr_stc, u64 prev_stc,
 		u64 curr_match_tsp, u64 prev_match_tsp,
 		u64 curr_pusi_tsp, u64 prev_pusi_tsp);
-void dvb_dmx_notify_idx_events(struct dvb_demux_feed *feed);
+void dvb_dmx_notify_idx_events(struct dvb_demux_feed *feed, int should_lock);
 int dvb_dmx_notify_section_event(struct dvb_demux_feed *feed,
 	struct dmx_data_ready *event, int should_lock);
 
@@ -409,6 +413,11 @@ static inline int dvb_dmx_is_rec_feed(struct dvb_demux_feed *feed)
 		return 0;
 
 	return 1;
+}
+
+static inline u16 ts_pid(const u8 *buf)
+{
+	return ((buf[1] & 0x1f) << 8) + buf[2];
 }
 
 

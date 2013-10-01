@@ -47,6 +47,58 @@ MODULE_PARM_DESC(debug, "Turn on/off debugging (default:off).");
 
 #define dprintk	if (debug) printk
 
+static inline int dvb_dmxdev_verify_buffer_size(u32 size, u32 max_size,
+	u32 size_align)
+{
+	if (size_align)
+		return size <= max_size && !(size % size_align);
+	else
+		return size <= max_size;
+}
+
+static int dvb_filter_verify_buffer_size(struct dmxdev_filter *filter,
+	size_t size)
+{
+	struct dmx_caps caps;
+
+	/*
+	 * For backward compatibility, if no demux capabilities can
+	 * be retrieved assume size is ok.
+	 * Decoder filter buffer size is verified when decoder buffer is set.
+	 */
+	if (filter->dev->demux->get_caps) {
+		filter->dev->demux->get_caps(filter->dev->demux, &caps);
+
+		if (filter->type == DMXDEV_TYPE_SEC)
+			return dvb_dmxdev_verify_buffer_size(
+				size,
+				caps.section.max_size,
+				caps.section.size_alignment);
+
+		if (filter->params.pes.output == DMX_OUT_TAP)
+			return dvb_dmxdev_verify_buffer_size(
+				size,
+				caps.pes.max_size,
+				caps.pes.size_alignment);
+
+		if (filter->params.pes.output == DMX_OUT_TSDEMUX_TAP ||
+			filter->params.pes.output == DMX_OUT_TS_TAP) {
+			if (filter->dmx_tsp_format == DMX_TSP_FORMAT_188)
+				return dvb_dmxdev_verify_buffer_size(
+					size,
+					caps.recording_188_tsp.max_size,
+					caps.recording_188_tsp.size_alignment);
+
+			return dvb_dmxdev_verify_buffer_size(
+					size,
+					caps.recording_192_tsp.max_size,
+					caps.recording_192_tsp.size_alignment);
+		}
+	}
+
+	return 1;
+}
+
 static int dvb_dmxdev_buffer_write(struct dvb_ringbuffer *buf,
 				   const u8 *src, size_t len)
 {
@@ -1115,6 +1167,38 @@ static int dvb_dvr_external_input_only(struct dmxdev *dmxdev)
 	return is_external_only;
 }
 
+static int dvb_dvr_verify_buffer_size(struct dmxdev *dmxdev,
+	unsigned int f_flags,
+	unsigned long size)
+{
+	struct dmx_caps caps;
+	int tsp_size;
+
+	if (!dmxdev->demux->get_caps)
+		return 1;
+
+	if (dmxdev->demux->get_tsp_size)
+		tsp_size = dmxdev->demux->get_tsp_size(dmxdev->demux);
+	else
+		tsp_size = 188;
+
+	dmxdev->demux->get_caps(dmxdev->demux, &caps);
+	if ((f_flags & O_ACCMODE) == O_RDONLY)
+		return (tsp_size == 188 && dvb_dmxdev_verify_buffer_size(size,
+				caps.recording_188_tsp.max_size,
+				caps.recording_188_tsp.size_alignment)) ||
+			(tsp_size == 192 && dvb_dmxdev_verify_buffer_size(size,
+				caps.recording_192_tsp.max_size,
+				caps.recording_192_tsp.size_alignment));
+
+	return (tsp_size == 188 && dvb_dmxdev_verify_buffer_size(size,
+		caps.playback_188_tsp.max_size,
+		caps.playback_188_tsp.size_alignment)) ||
+		(tsp_size == 192 && dvb_dmxdev_verify_buffer_size(size,
+			caps.playback_192_tsp.max_size,
+			caps.playback_192_tsp.size_alignment));
+}
+
 static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
@@ -1129,7 +1213,8 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 	if (!dmxdev->demux->write)
 		return -EOPNOTSUPP;
 
-	if (((file->f_flags & O_ACCMODE) == O_RDONLY) ||
+	if (!dvb_dvr_verify_buffer_size(dmxdev, file->f_flags, src->size) ||
+		((file->f_flags & O_ACCMODE) == O_RDONLY) ||
 		!src->data || !cmdbuf->data ||
 		(dvb_dvr_external_input_only(dmxdev) &&
 		 (dmxdev->dvr_input_buffer_mode == DMX_BUFFER_MODE_INTERNAL)))
@@ -1202,6 +1287,10 @@ static ssize_t dvb_dvr_read(struct file *file, char __user *buf, size_t count,
 
 	if (dmxdev->exit)
 		return -ENODEV;
+
+	if (!dvb_dvr_verify_buffer_size(dmxdev, file->f_flags,
+		dmxdev->dvr_buffer.size))
+		return -EINVAL;
 
 	res = dvb_dmxdev_buffer_read(NULL, &dmxdev->dvr_buffer,
 				file->f_flags & O_NONBLOCK,
@@ -1475,11 +1564,13 @@ static int dvb_dvr_get_event(struct dmxdev *dmxdev,
 		 */
 		flush_len = dvb_ringbuffer_avail(&dmxdev->dvr_buffer);
 		dvb_ringbuffer_flush(&dmxdev->dvr_buffer);
-		dvb_dmxdev_notify_data_read(dmxdev->dvr_feed, flush_len);
 		dmxdev->dvr_buffer.error = 0;
 	}
 
 	spin_unlock_irq(&dmxdev->lock);
+
+	if (event->type == DMX_EVENT_BUFFER_OVERFLOW)
+		dvb_dmxdev_notify_data_read(dmxdev->dvr_feed, flush_len);
 
 	/*
 	 * in PULL mode, we might be stalling on
@@ -1522,10 +1613,7 @@ static int dvb_dvr_get_buffer_status(struct dmxdev *dmxdev,
 			 */
 			flush_len = dvb_ringbuffer_avail(buf);
 			dvb_ringbuffer_flush(buf);
-			dvb_dmxdev_notify_data_read(dmxdev->dvr_feed,
-				flush_len);
 		}
-
 		buf->error = 0;
 	}
 
@@ -1534,6 +1622,9 @@ static int dvb_dvr_get_buffer_status(struct dmxdev *dmxdev,
 	dmx_buffer_status->read_offset = buf->pread;
 	dmx_buffer_status->write_offset = buf->pwrite;
 	dmx_buffer_status->size = buf->size;
+
+	if (dmx_buffer_status->error == -EOVERFLOW)
+		dvb_dmxdev_notify_data_read(dmxdev->dvr_feed, flush_len);
 
 	spin_unlock_irq(lock);
 
@@ -1738,7 +1829,17 @@ static int dvb_dmxdev_set_decoder_buffer_size(
 	struct dmxdev_filter *dmxdevfilter,
 	unsigned long size)
 {
-	if (0 == size)
+	struct dmx_caps caps;
+	struct dmx_demux *demux = dmxdevfilter->dev->demux;
+
+	if (demux->get_caps) {
+		demux->get_caps(demux, &caps);
+		if (!dvb_dmxdev_verify_buffer_size(size, caps.decoder.max_size,
+			caps.decoder.size_alignment))
+			return -EINVAL;
+	}
+
+	if (size == 0)
 		return -EINVAL;
 
 	if (dmxdevfilter->decoder_buffers.buffers_size == size)
@@ -1841,6 +1942,7 @@ static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
 	struct dmxdev_feed *feed;
 	struct dmxdev_feed *ts_feed = NULL;
 	struct dmx_caps caps;
+	int ret = 0;
 
 	if (!dmxdevfilter->dev->demux->get_caps)
 		return -EINVAL;
@@ -1866,7 +1968,7 @@ static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
 			ts_feed->idx_params = *idx_params;
 			if ((dmxdevfilter->state == DMXDEV_STATE_GO) &&
 				ts_feed->ts->set_idx_params)
-				ts_feed->ts->set_idx_params(
+				ret = ts_feed->ts->set_idx_params(
 						ts_feed->ts, idx_params);
 			break;
 		}
@@ -1875,7 +1977,7 @@ static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
 	if (!found_pid)
 		return -EINVAL;
 
-	return 0;
+	return ret;
 }
 
 static int dvb_dmxdev_get_scrambling_bits(struct dmxdev_filter *filter,
@@ -2065,7 +2167,7 @@ static int dvb_dmxdev_abort_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 	struct dmx_caps caps;
 
 	if (!dmxdevfilter->dev->demux->get_caps)
-			return -EINVAL;
+		return -EINVAL;
 
 	dmxdevfilter->dev->demux->get_caps(dmxdevfilter->dev->demux, &caps);
 
@@ -2108,7 +2210,7 @@ static int dvb_dmxdev_abort_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 }
 
 static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
-				int required_space)
+				int required_space, int wait)
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
 	struct dvb_ringbuffer *src;
@@ -2150,6 +2252,9 @@ static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 
 		spin_unlock(&dmxdevfilter->dev->lock);
 
+		if (!wait)
+			return -ENOSPC;
+
 		ret = wait_event_interruptible(src->queue,
 				(!src->data) ||
 				((dvb_ringbuffer_free(src) >= required_space) &&
@@ -2165,7 +2270,7 @@ static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 
 static int dvb_dmxdev_sec_fullness_callback(
 				struct dmx_section_filter *filter,
-				int required_space)
+				int required_space, int wait)
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
 	struct dvb_ringbuffer *src = &dmxdevfilter->buffer;
@@ -2198,6 +2303,9 @@ static int dvb_dmxdev_sec_fullness_callback(
 		}
 
 		spin_unlock(&dmxdevfilter->dev->lock);
+
+		if (!wait)
+			return -ENOSPC;
 
 		ret = wait_event_interruptible(src->queue,
 				(!src->data) ||
@@ -2250,7 +2358,7 @@ static int dvb_dmxdev_get_buffer_status(
 		struct dmx_buffer_status *dmx_buffer_status)
 {
 	struct dvb_ringbuffer *buf = &dmxdevfilter->buffer;
-	ssize_t flush_len;
+	ssize_t flush_len = 0;
 
 	/*
 	 * Note: Taking the dmxdevfilter->dev->lock spinlock is required only
@@ -2298,7 +2406,6 @@ static int dvb_dmxdev_get_buffer_status(
 			 */
 			flush_len = dvb_ringbuffer_avail(buf);
 			dvb_ringbuffer_flush(buf);
-			dvb_dmxdev_notify_data_read(dmxdevfilter, flush_len);
 		}
 		buf->error = 0;
 	}
@@ -2310,6 +2417,9 @@ static int dvb_dmxdev_get_buffer_status(
 	dmx_buffer_status->size = buf->size;
 
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+	if (dmx_buffer_status->error == -EOVERFLOW)
+		dvb_dmxdev_notify_data_read(dmxdevfilter, flush_len);
 
 	return 0;
 }
@@ -2366,7 +2476,6 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 		 */
 		flush_len = dvb_ringbuffer_avail(&dmxdevfilter->buffer);
 		dvb_ringbuffer_flush(&dmxdevfilter->buffer);
-		dvb_dmxdev_notify_data_read(dmxdevfilter, flush_len);
 		dmxdevfilter->buffer.error = 0;
 	} else if (event->type == DMX_EVENT_SECTION_TIMEOUT) {
 		/* clear buffer error now that user was notified */
@@ -2386,6 +2495,9 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 				dmxdevfilter->events.read_index);
 
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+	if (event->type == DMX_EVENT_BUFFER_OVERFLOW)
+		dvb_dmxdev_notify_data_read(dmxdevfilter, flush_len);
 
 	/*
 	 * in PULL mode, we might be stalling on
@@ -2723,6 +2835,23 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 	}
 
 	if (dmx_data_ready->status == DMX_OK_EOS) {
+		/* Report partial recording chunk */
+		if ((dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP ||
+			dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP)
+			&& events->current_event_data_size) {
+			event.type = DMX_EVENT_NEW_REC_CHUNK;
+			event.params.recording_chunk.offset =
+				events->current_event_start_offset;
+			event.params.recording_chunk.size =
+				events->current_event_data_size;
+			events->current_event_start_offset =
+				(events->current_event_start_offset +
+				events->current_event_data_size) %
+				buffer->size;
+			events->current_event_data_size = 0;
+			dvb_dmxdev_add_event(events, &event);
+		}
+
 		dmxdevfilter->eos_state = 1;
 		dprintk("dmxdev: DMX_OK_EOS - entering EOS state\n");
 		event.type = DMX_EVENT_EOS;
@@ -2856,8 +2985,9 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 			event.params.pes.base_offset =
 				events->current_event_start_offset;
 			event.params.pes.start_offset =
-				events->current_event_start_offset +
-				dmx_data_ready->pes_end.start_gap;
+				(events->current_event_start_offset +
+				dmx_data_ready->pes_end.start_gap) %
+				dmxdevfilter->buffer.size;
 
 			event.params.pes.actual_length =
 				dmx_data_ready->pes_end.actual_length;
@@ -2895,18 +3025,22 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 
 	if ((dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP) ||
 		(dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP)) {
-		if (events->current_event_data_size >=
+		while (events->current_event_data_size >=
 			dmxdevfilter->params.pes.rec_chunk_size) {
 			event.type = DMX_EVENT_NEW_REC_CHUNK;
 			event.params.recording_chunk.offset =
 				events->current_event_start_offset;
-
 			event.params.recording_chunk.size =
-				events->current_event_data_size;
+				dmxdevfilter->params.pes.rec_chunk_size;
+			events->current_event_data_size =
+				events->current_event_data_size -
+				dmxdevfilter->params.pes.rec_chunk_size;
+			events->current_event_start_offset =
+				(events->current_event_start_offset +
+				dmxdevfilter->params.pes.rec_chunk_size) %
+				buffer->size;
 
 			dvb_dmxdev_add_event(events, &event);
-
-			events->current_event_data_size = 0;
 		 }
 	}
 	spin_unlock(&dmxdevfilter->dev->lock);
@@ -3173,9 +3307,15 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 
 	if ((filter->params.pes.output == DMX_OUT_TS_TAP) ||
 		(filter->params.pes.output == DMX_OUT_TSDEMUX_TAP))
-		if (tsfeed->set_idx_params)
-			tsfeed->set_idx_params(
+		if (tsfeed->set_idx_params) {
+			ret = tsfeed->set_idx_params(
 					tsfeed, &feed->idx_params);
+			if (ret) {
+				dmxdev->demux->release_ts_feed(dmxdev->demux,
+					tsfeed);
+				return ret;
+			}
+		}
 
 	ret = tsfeed->start_filtering(tsfeed);
 	if (ret < 0) {
@@ -3236,7 +3376,24 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 	if (filter->state >= DMXDEV_STATE_GO)
 		dvb_dmxdev_filter_stop(filter);
 
+	if (!dvb_filter_verify_buffer_size(filter, filter->buffer.size))
+		return -EINVAL;
+
 	if (!filter->buffer.data) {
+		/*
+		 * dmxdev buffer in decoder filters is not really used
+		 * to exchange data with applications. Decoder buffers
+		 * can be set using DMX_SET_DECODER_BUFFER, which
+		 * would not update the filter->buffer.data at all.
+		 * Therefore we should not treat this filter as
+		 * other regular filters and should not fail here
+		 * even if user sets the buffer in deocder
+		 * filter as external buffer.
+		 */
+		if ((filter->type == DMXDEV_TYPE_PES) &&
+			(filter->params.pes.output == DMX_OUT_DECODER))
+			filter->buffer_mode = DMX_BUFFER_MODE_INTERNAL;
+
 		if ((filter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) ||
 			dvb_filter_external_buffer_only(dmxdev, filter))
 			return -ENOMEM;
@@ -3771,6 +3928,9 @@ static int dvb_dmxdev_set_decoder_buffer(struct dmxdev *dmxdev,
 		return -EINVAL;
 
 	dmxdev->demux->get_caps(dmxdev->demux, &caps);
+	if (!dvb_dmxdev_verify_buffer_size(buffs->buffers_size,
+			caps.decoder.max_size, caps.decoder.size_alignment))
+		return -EINVAL;
 
 	if ((buffs->buffers_size == 0) ||
 		(buffs->is_linear &&

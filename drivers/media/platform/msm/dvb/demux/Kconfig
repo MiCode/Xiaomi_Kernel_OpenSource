@@ -1,6 +1,6 @@
 config DVB_MPQ_DEMUX
 	tristate "DVB Demux Device"
-	depends on DVB_MPQ && ION && ION_MSM
+	depends on DVB_MPQ && ION && ION_MSM && QSEECOM
 	default n
 
 	help
@@ -28,18 +28,24 @@ choice
 		bool "TSPPv1 plugin"
 		depends on TSPP
 		help
-			Use this option of your HW has Transport Stream Packet Processor (TSPP) version1 support
+			Use this option if your HW has Transport Stream Packet Processor (TSPP) version1 support
 
 	config DVB_MPQ_TSPP2
 		bool "TSPPv2 plugin"
-		depends on TSPP
+		depends on TSPP2
 		help
-			Use this option of your HW has Transport Stream Packet Processor (TSPP) version2 support
+			Use this option if your HW has Transport Stream Packet Processor (TSPP) version2 support.
+			TSPP2 performs the following operations in HW:
+			- TS packet analysis
+			- PID filtering
+			- PES assembly
+			- Indexing of video
+			- Crytographic operations
 
 	config DVB_MPQ_TSIF
 		bool "TSIF plugin"
 		depends on TSIF
 		help
-			Use this option of your HW has only TSIF input without any Transport Stream Packet Processor (TSPP) support
+			Use this option if your HW has only TSIF input without any Transport Stream Packet Processor (TSPP) support
 endchoice
 

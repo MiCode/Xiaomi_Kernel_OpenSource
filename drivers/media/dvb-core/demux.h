@@ -93,7 +93,7 @@ struct dmx_data_ready {
 	/*
 	 * data_length may be 0 in case of DMX_OK_PES_END or DMX_OK_EOS
 	 * and in non-DMX_OK_XXX events. In DMX_OK_PES_END,
-	 * data_length is for data comming after the end of PES.
+	 * data_length is for data coming after the end of PES.
 	 */
 	int data_length;
 
@@ -292,11 +292,13 @@ typedef int (*dmx_section_cb) (	const u8 * buffer1,
 
 typedef int (*dmx_ts_fullness) (
 				struct dmx_ts_feed *source,
-				int required_space);
+				int required_space,
+				int wait);
 
 typedef int (*dmx_section_fullness) (
 				struct dmx_section_filter *source,
-				int required_space);
+				int required_space,
+				int wait);
 
 /*--------------------------------------------------------------------------*/
 /* DVB Front-End */

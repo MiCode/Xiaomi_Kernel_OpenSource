@@ -111,9 +111,11 @@
  */
 
 struct mpq_streambuffer;
+struct mpq_streambuffer_packet_header;
 
 typedef void (*mpq_streambuffer_pkt_dispose_cb) (
 	struct mpq_streambuffer *sbuff,
+	struct mpq_streambuffer_packet_header *packet,
 	void *user_data);
 
 enum mpq_streambuffer_mode {
