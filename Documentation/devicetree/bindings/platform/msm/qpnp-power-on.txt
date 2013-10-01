@@ -16,7 +16,9 @@ Required properties:
 			"kpdpwr-resin-bark". Bark interrupts are associated with system
 			reset configuration to allow default reset configuration to be
 			activated. If system reset configuration is not supported then
-			bark interrupts are nops.
+			bark interrupts are nops. Additionally, the "pmic-wd-bark"
+			interrupt can be added if the system needs to handle PMIC
+			watch dog barks.
 
 Optional properties:
 - qcom,pon-dbc-delay		The debounce delay for the power-key interrupt
