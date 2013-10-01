@@ -79,6 +79,7 @@ struct	qcedev_sha_ctxt {
 	uint8_t		first_blk;
 	uint8_t		last_blk;
 	uint8_t		authkey[QCEDEV_MAX_SHA_BLOCK_SIZE];
+	bool		init_done;
 };
 
 struct qcedev_async_req {
@@ -744,6 +745,7 @@ static int qcedev_sha_init(struct qcedev_async_req *areq,
 			sha_ctxt->diglen = SHA256_DIGEST_SIZE;
 		}
 	}
+	sha_ctxt->init_done = true;
 	return 0;
 }
 
@@ -878,6 +880,11 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 	int num_entries = 0;
 	uint32_t total = 0;
 
+	if (handle->sha_ctxt.init_done == false) {
+		pr_err("%s Init was not called\n", __func__);
+		return -EINVAL;
+	}
+
 	/* verify address src(s) */
 	for (i = 0; i < qcedev_areq->sha_op_req.entries; i++)
 		if (!access_ok(VERIFY_READ,
@@ -985,10 +992,19 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	int err = 0;
 	struct scatterlist sg_src;
 	uint32_t total;
-
 	uint8_t *k_buf_src = NULL;
 	uint8_t *k_align_src = NULL;
 
+	if (handle->sha_ctxt.init_done == false) {
+		pr_err("%s Init was not called\n", __func__);
+		return -EINVAL;
+	}
+
+	if (handle->sha_ctxt.trailing_buf_len == 0) {
+		pr_err("%s Incorrect trailng buffer %d\n", __func__,
+					handle->sha_ctxt.trailing_buf_len);
+		return -EINVAL;
+	}
 	handle->sha_ctxt.last_blk = 1;
 
 	total = handle->sha_ctxt.trailing_buf_len;
@@ -1019,6 +1035,7 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.auth_data[0] = 0;
 	handle->sha_ctxt.auth_data[1] = 0;
 	handle->sha_ctxt.trailing_buf_len = 0;
+	handle->sha_ctxt.init_done = false;
 	memset(&handle->sha_ctxt.trailing_buf[0], 0, 64);
 
 	kfree(k_buf_src);
@@ -1805,6 +1822,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 					sizeof(struct qcedev_sha_op_req)))
 				return -EFAULT;
 		}
+		handle->sha_ctxt.init_done = true;
 		break;
 	case QCEDEV_IOCTL_GET_CMAC_REQ:
 		if (!podev->ce_support.cmac)
@@ -1829,6 +1847,10 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			if (err)
 				return err;
 		} else {
+			if (handle->sha_ctxt.init_done == false) {
+				pr_err("%s Init was not called\n", __func__);
+				return -EINVAL;
+			}
 			err = qcedev_hash_update(&qcedev_areq, handle, &sg_src);
 			if (err)
 				return err;
@@ -1845,6 +1867,10 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 	case QCEDEV_IOCTL_SHA_FINAL_REQ:
 
+		if (handle->sha_ctxt.init_done == false) {
+			pr_err("%s Init was not called\n", __func__);
+			return -EINVAL;
+		}
 		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
 				sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
@@ -1866,6 +1892,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
+		handle->sha_ctxt.init_done = false;
 		break;
 
 	case QCEDEV_IOCTL_GET_SHA_REQ:
