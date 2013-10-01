@@ -1274,15 +1274,6 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 	}
 }
 
-static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
-{
-	int num_mbs = 0;
-	num_mbs = GET_NUM_MBS(height, width);
-	/*TODO: This should be changes once the numbers are
-	 * available from firmware*/
-	return 512 * 1024;
-}
-
 static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 {
 	int rc = 0;
@@ -1600,7 +1591,6 @@ static int msm_vidc_load_resources(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	u32 ocmem_sz = 0;
 	struct hfi_device *hdev;
 	int num_mbs_per_sec = 0;
 	int height, width;
@@ -1642,8 +1632,6 @@ static int msm_vidc_load_resources(int flipped_state,
 			inst->prop.height[OUTPUT_PORT]);
 		width = max(inst->prop.width[CAPTURE_PORT],
 			inst->prop.width[OUTPUT_PORT]);
-		ocmem_sz = get_ocmem_requirement(
-			height, width);
 		rc = msm_comm_scale_bus(inst->core, inst->session_type,
 					OCMEM_MEM);
 		mutex_unlock(&inst->core->sync_lock);
@@ -1651,7 +1639,7 @@ static int msm_vidc_load_resources(int flipped_state,
 			mutex_lock(&inst->core->sync_lock);
 			rc = call_hfi_op(hdev, alloc_ocmem,
 					hdev->hfi_device_data,
-					ocmem_sz);
+					inst->core->resources.has_ocmem);
 			mutex_unlock(&inst->core->sync_lock);
 			if (rc) {
 				dprintk(VIDC_WARN,

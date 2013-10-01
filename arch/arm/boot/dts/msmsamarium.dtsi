@@ -152,7 +152,7 @@
 			<108000 100000000>,
 			<36000   50000000>;
 		qcom,hfi = "venus";
-		qcom,has-ocmem;
+		qcom,ocmem-size = <131072>; /* 128 * 1024 */
 		qcom,bus-ports = <1>;
 		qcom,reg-presets = <0xE0024 0x0>,
 			<0x80124 0x3>,
