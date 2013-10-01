@@ -166,6 +166,18 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
+	{                           /* NFC */
+		.gpio      = 87,		/* BLSP1 QUP6 I2C_DAT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{                           /* NFC */
+		.gpio      = 88,		/* BLSP1 QUP6 I2C_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
 };
 
 static struct gpiomux_setting lcd_en_act_cfg = {
