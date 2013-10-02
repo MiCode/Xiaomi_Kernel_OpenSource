@@ -1510,6 +1510,8 @@ struct div_clk indirect_path_div2_clk_8226 = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
 	},
 	.c = {
 		.parent = &analog_postdiv_clk_8226.c,
@@ -1609,6 +1611,8 @@ struct div_clk indirect_path_div2_clk_samarium = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
 	},
 	.c = {
 		.parent = &analog_postdiv_clk_samarium.c,
@@ -1710,6 +1714,8 @@ struct div_clk indirect_path_div2_clk_8084 = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
 	},
 	.c = {
 		.parent = &analog_postdiv_clk_8084.c,
@@ -1811,6 +1817,8 @@ struct div_clk indirect_path_div2_clk_8974 = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
 	},
 	.c = {
 		.parent = &analog_postdiv_clk_8974.c,
@@ -2246,6 +2254,8 @@ struct div_clk edp_mainlink_clk_src = {
 	.ops = &fixed_5div_ops,
 	.data = {
 		.div = 5,
+		.min_div = 5,
+		.max_div = 5,
 	},
 	.c = {
 		.parent = &edp_vco_clk.c,
@@ -2457,6 +2467,8 @@ static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 struct div_clk hdmipll_div1_clk = {
 	.data = {
 		.div = 1,
+		.min_div = 1,
+		.max_div = 1,
 	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
@@ -2470,6 +2482,8 @@ struct div_clk hdmipll_div1_clk = {
 struct div_clk hdmipll_div2_clk = {
 	.data = {
 		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
 	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
@@ -2483,6 +2497,8 @@ struct div_clk hdmipll_div2_clk = {
 struct div_clk hdmipll_div4_clk = {
 	.data = {
 		.div = 4,
+		.min_div = 4,
+		.max_div = 4,
 	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
@@ -2496,6 +2512,8 @@ struct div_clk hdmipll_div4_clk = {
 struct div_clk hdmipll_div6_clk = {
 	.data = {
 		.div = 6,
+		.min_div = 6,
+		.max_div = 6,
 	},
 	.c = {
 		.parent = &hdmi_vco_clk.c,
@@ -2567,6 +2585,8 @@ struct mux_clk hdmipll_mux_clk = {
 struct div_clk hdmipll_clk_src = {
 	.data = {
 		.div = 5,
+		.min_div = 5,
+		.max_div = 5,
 	},
 	.c = {
 		.parent = &hdmipll_mux_clk.c,
