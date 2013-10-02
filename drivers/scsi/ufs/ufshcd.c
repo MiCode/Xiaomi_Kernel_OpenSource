@@ -2458,6 +2458,10 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr final_params = { 0 };
 	int ret;
 
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
+		return 0;
+
+	/* Get the connected lane count */
 	if (hba->vops && hba->vops->pwr_change_notify)
 		hba->vops->pwr_change_notify(hba,
 		     PRE_CHANGE, desired_pwr_mode, &final_params);
