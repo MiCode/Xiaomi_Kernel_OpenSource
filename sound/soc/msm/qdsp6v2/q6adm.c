@@ -36,7 +36,7 @@
 #define ADM_GET_PARAMETER_LENGTH  (4096 - APR_HDR_SIZE - 2 * sizeof(uint32_t))
 
 #define ULL_SUPPORTED_SAMPLE_RATE 48000
-
+#define ULL_MAX_SUPPORTED_CHANNEL 2
 enum {
 	ADM_RX_AUDPROC_CAL,
 	ADM_TX_AUDPROC_CAL,
@@ -1128,8 +1128,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (perf_mode) {
 			open.topology_id = NULL_COPP_TOPOLOGY;
 			rate = ULL_SUPPORTED_SAMPLE_RATE;
+			if(channel_mode > ULL_MAX_SUPPORTED_CHANNEL)
+				channel_mode = ULL_MAX_SUPPORTED_CHANNEL;
 		}
-
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bits_per_sample;
 		WARN_ON(perf_mode && (rate != 48000));
