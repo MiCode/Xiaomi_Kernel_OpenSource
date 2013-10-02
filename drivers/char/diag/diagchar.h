@@ -347,6 +347,7 @@ struct diagchar_dev {
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
 	struct diag_smd_info smd_cmd[NUM_SMD_CMD_CHANNELS];
 	struct diag_smd_info smd_dci_cmd[NUM_SMD_DCI_CMD_CHANNELS];
+	int rcvd_feature_mask[NUM_SMD_CONTROL_CHANNELS];
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
