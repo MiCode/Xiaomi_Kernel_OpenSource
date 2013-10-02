@@ -32,6 +32,7 @@
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&secure_mem>;
 			qcom,ion-heap-type = "SECURE_DMA";
+			qcom,default-prefetch-size = <0x6c00000>;
 		};
 
 		qcom,ion-heap@22 { /* adsp heap */
