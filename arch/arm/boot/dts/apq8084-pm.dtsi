@@ -200,22 +200,51 @@
 
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<47 165>, /* usb30_hs_phy_irq */
 			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
-			<0xff 57>,  /* mss_to_apps_irq(0) */
-			<0xff 58>,  /* mss_to_apps_irq(1) */
-			<0xff 59>,  /* mss_to_apps_irq(2) */
-			<0xff 60>,  /* mss_to_apps_irq(3) */
-			<0xff 173>, /* o_wcss_apss_smd_hi */
-			<0xff 174>, /* o_wcss_apss_smd_med */
-			<0xff 175>, /* o_wcss_apss_smd_low */
-			<0xff 176>, /* o_wcss_apss_smsm_irq */
-			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
-			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
-			<0xff 179>, /* o_wcss_apss_asic_intr */
+			<0xff 78>, /* mdss_mmu_cirpt[0] */
+			<0xff 79>, /* mdss_mmu_cirpt[1] */
+			<0xff 80>, /* mdss_mmu_cirpt[2] */
+			<0xff 105>, /* mdss_mmu_pmirpt */
+			<0xff 116>, /* mdss_vbif_irpt */
+			<0xff 64>, /* usb30_hsic_ee1_irq */
+			<0xff 165>, /* usb30_hs_phy_irq */
 
+			<0xff 57>, /* o_vpu_vpu_apps_irq_out */
+			<0xff 58>, /* o_vpu_maple_apps_irq_out */
+			<0xff 59>, /* o_avsync_cpu_int0 */
+			<0xff 65>, /* o_gc_sys_irq[0] */
+			<0xff 66>, /* o_gc_sys_irq[1] */
+			<0xff 67>, /* o_gc_sys_irq[2] */
+			<0xff 68>, /* o_gc_sys_irq[3] */
+			<0xff 69>, /* oxili_vbif_irpt */
+			<0xff 69>, /* oxili_vbif_irpt */
+			<0xff 70>, /* oxili_mmu_pmirpt */
+			<0xff 73>, /* venus0_mmu_cirpt[2] */
+			<0xff 74>, /* venus0_mmu_cirpt[1] */
+			<0xff 75>, /* venus0_mmu_cirpt[0] */
+			<0xff 76>, /* venus0_irq */
+			<0xff 77>, /* venus0_mmu_pmirpt */
+			<0xff 108>, /* ocmem_nonsec_irq */
+			<0xff 109>, /* ocmem_dm_nonsec_irq */
+			<0xff 110>, /* csiphy_0_irq */
+			<0xff 111>, /* csiphy_1_irq */
+			<0xff 112>, /* csiphy_2_irq */
+			<0xff 113>, /* o_ocmem_axi_timeout_nonseq_irq */
+			<0xff 176>, /* o_vpu_vbif_mmu_cirpt[0] */
+			<0xff 177>, /* o_vpu_vbif_mmu_cirpt[1] */
+			<0xff 178>, /* o_vpu_vbif_mmu_cirpt[2] */
+			<0xff 179>, /* o_vpu_vbif_mmu_pmirpt */
+			<0xff 182>, /* rbif_irq[0] */
+			<0xff 183>, /* rbif_irq[1] */
+			<0xff 184>, /* rbif_irq[2] */
+			<0xff 186>, /* mnoc_obs_mainFault */
+			<0xff 272>, /* oxili_mmu_cirpt[0] */
+			<0xff 273>, /* oxili_mmu_cirpt[1] */
+			<0xff 274>, /* oxili_mmu_cirpt[2] */
+
+			<0xff 168>, /* lpass_irq_out_apcs[11] */
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
 			<0xff 190>, /* lpass_irq_out_apcs(2) */
@@ -226,6 +255,14 @@
 			<0xff 195>, /* lpass_irq_out_apcs(7) */
 			<0xff 196>, /* lpass_irq_out_apcs(8) */
 			<0xff 197>, /* lpass_irq_out_apcs(9) */
+			<0xff 198>, /* lpass_irq_out_apcs[19] */
+			<0xff 212>, /* lpass_irq_out_apcs[16] */
+			<0xff 234>, /* lpass_irq_out_apcs[23] */
+			<0xff 235>, /* lpass_irq_out_apcs[20] */
+			<0xff 297>, /* lpass_irq_out_apcs[21] */
+			<0xff 298>, /* lpass_irq_out_apcs[22] */
+			<0xff 299>, /* lpass_irq_out_apcs[17] */
+			<0xff 300>, /* lpass_irq_out_apcs[18] */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
@@ -237,45 +274,44 @@
 			<0xff 240>; /* summary_irq_kpss */
 
 		qcom,gpio-parent = <&msmgpio>;
-		qcom,gpio-map = <3  102>,
-			<4  1 >,
-			<5  5 >,
-			<6  9 >,
-			<7  18>,
-			<8  20>,
-			<9  24>,
-			<10  27>,
-			<11  28>,
-			<12  34>,
-			<13  35>,
-			<14  37>,
-			<15  42>,
-			<16  44>,
-			<17  46>,
-			<18  50>,
-			<19  54>,
-			<20  59>,
-			<21  61>,
-			<22  62>,
-			<23  64>,
-			<24  65>,
-			<25  66>,
-			<26  67>,
-			<27  68>,
-			<28  71>,
-			<29  72>,
-			<30  73>,
-			<31  74>,
-			<32  75>,
-			<33  77>,
-			<34  79>,
-			<35  80>,
-			<36  82>,
-			<37  86>,
-			<38  92>,
-			<39  93>,
-			<40  95>,
-			<41  144>;
+		qcom,gpio-map = <3 1>,
+			<4 5>,
+			<5 8>,
+			<6 9>,
+			<7 28>,
+			<8 34>,
+			<9 40>,
+			<10 44>,
+			<11 48>,
+			<12 52>,
+			<13 55>,
+			<14 56>,
+			<15 58>,
+			<16 60>,
+			<17 64>,
+			<18 67>,
+			<19 68>,
+			<20 69>,
+			<21 76>,
+			<22 77>,
+			<23 78>,
+			<24 79>,
+			<25 84>,
+			<26 95>,
+			<27 102>,
+			<28 103>,
+			<29 104>,
+			<30 105>,
+			<31 107>,
+			<32 109>,
+			<33 111>,
+			<34 113>,
+			<35 121>,
+			<36 122>,
+			<37 123>,
+			<38 131>,
+			<40 139>,
+			<41 141>;
 	};
 
 	qcom,pm-8x60@fe805664 {
