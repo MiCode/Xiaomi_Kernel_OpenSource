@@ -2008,13 +2008,19 @@ static int sdhci_do_get_cd(struct sdhci_host *host)
 		return 0;
 
 	/* If polling/nonremovable, assume that the card is always present. */
-	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
-	    (host->mmc->caps & MMC_CAP_NONREMOVABLE))
+	if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
 		return 1;
 
-	/* Try slot gpio detect */
+	/*
+	 * Try slot gpio detect before checking for the broken card detection
+	 * quirk. There might be hosts that might have broken card detection
+	 * but still provide a gpio for card detection.
+	 */
 	if (!IS_ERR_VALUE(gpio_cd))
 		return !!gpio_cd;
+
+	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
+		return 1;
 
 	/* Host native card detect */
 	return !!(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT);
@@ -3582,8 +3588,13 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (caps[0] & SDHCI_CAN_DO_HISPD)
 		mmc->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
 
+	/*
+	 * Enable polling on when card detection is broken and no card detect
+	 * gpio is present.
+	 */
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) &&
-	    !(host->mmc->caps & MMC_CAP_NONREMOVABLE))
+	    !(host->mmc->caps & MMC_CAP_NONREMOVABLE) &&
+	    (mmc_gpio_get_cd(host->mmc) < 0))
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
 
 	/* If vqmmc regulator and no 1.8V signalling, then there's no UHS */
