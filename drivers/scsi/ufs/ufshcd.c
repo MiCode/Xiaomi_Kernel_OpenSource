@@ -4188,9 +4188,13 @@ link_startup:
 			goto out;
 	} while (ret && retries--);
 
-	if (ret)
+	if (ret) {
 		/* failed to get the link up... retire */
 		goto out;
+	} else {
+		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 0);
+		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 1);
+	}
 
 	if (link_startup_again) {
 		link_startup_again = false;
