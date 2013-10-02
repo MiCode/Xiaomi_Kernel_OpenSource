@@ -35,7 +35,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "imx135";
-		qcom,vdd-cx-supply = <&pma8084_s2>;
+		qcom,vdd-cx-supply = <&pma8084_s2_corner>;
 		qcom,vdd-cx-name = "qcom,vdd-cx";
 		cam_vdig-supply = <&pma8084_l27>;
 		cam_vana-supply = <&pma8084_l17>;
@@ -78,7 +78,7 @@
                qcom,csid-sd-index = <1>;
                qcom,mount-angle = <270>;
                qcom,sensor-name = "imx132";
-               qcom,vdd-cx-supply = <&pma8084_s2>;
+               qcom,vdd-cx-supply = <&pma8084_s2_corner>;
                qcom,vdd-cx-name = "qcom,vdd-cx";
                cam_vdig-supply = <&pma8084_l3>;
                cam_vana-supply = <&pma8084_l17>;
