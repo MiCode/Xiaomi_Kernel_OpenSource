@@ -1341,6 +1341,7 @@
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
 		qcom,otg-capability;
 		qcom,misc-ref = <&pma8084_misc>;
+		qcom,restore-sec-cfg-for-scm-dev-id = <9>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
