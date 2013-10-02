@@ -465,6 +465,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE      (1 << 5)
 
+	/* runtime pm or system suspend/resume is broken */
+	#define UFSHCD_QUIRK_BROKEN_SUSPEND              (1 << 6)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
