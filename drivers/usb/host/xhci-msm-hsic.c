@@ -540,7 +540,7 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 	clk_disable_unprepare(mxhci->hsic_clk);
 	clk_disable_unprepare(mxhci->cal_clk);
 
-	ret = regulator_set_voltage(mxhci->hsic_vddcx, mxhci->vdd_low_vol_level,
+	ret = regulator_set_voltage(mxhci->hsic_vddcx, mxhci->vdd_no_vol_level,
 			mxhci->vdd_high_vol_level);
 	if (ret < 0)
 		dev_err(mxhci->dev, "unable to set vddcx voltage for VDD MIN\n");
