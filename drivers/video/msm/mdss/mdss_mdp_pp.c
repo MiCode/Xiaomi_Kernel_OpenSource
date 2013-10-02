@@ -1250,7 +1250,8 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 			pp_ad_cfg_write(ad);
 		if (PP_AD_STATE_INIT & ad->state)
 			pp_ad_init_write(ad);
-		if (PP_AD_STATE_DATA & ad->state) {
+		if ((PP_AD_STATE_DATA & ad->state) &&
+			(ad->sts & PP_STS_ENABLE)) {
 			bl = ad->bl_mfd->bl_level;
 			ad->last_bl = bl;
 			if (ad->state & PP_AD_STATE_BL_LIN) {
