@@ -175,7 +175,7 @@ static int secure_buffer_change_table(struct sg_table *table,
 }
 
 int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
-			int flags, bool skip_usage_check)
+			int flags)
 {
 	struct secure_meta *meta;
 	int ret;
@@ -184,15 +184,6 @@ int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
 	meta = secure_meta_lookup(table);
 
 	if (meta) {
-		if (meta->usage != usage && !skip_usage_check) {
-			pr_err("%s: Trying to re-secure buffer with different values",
-				__func__);
-			pr_err("Last secured usage: %d current %d\n",
-				meta->usage, usage);
-			ret = -EINVAL;
-			goto out;
-		}
-
 		kref_get(&meta->ref);
 		ret = 0;
 	} else {
@@ -233,7 +224,7 @@ int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
 		goto out;
 	}
 
-	ret = msm_ion_secure_table(table, usage, flags, false);
+	ret = msm_ion_secure_table(table, usage, flags);
 out:
 	return ret;
 }

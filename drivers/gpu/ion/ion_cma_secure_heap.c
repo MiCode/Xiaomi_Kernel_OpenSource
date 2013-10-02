@@ -492,7 +492,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	if (buf) {
 		int ret;
 
-		ret = msm_ion_secure_table(buf->table, 0, 0, true);
+		ret = msm_ion_secure_table(buf->table, 0, 0);
 		if (ret) {
 			/*
 			 * Don't treat the secure buffer failing here as an
