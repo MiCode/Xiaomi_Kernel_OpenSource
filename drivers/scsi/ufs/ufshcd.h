@@ -307,6 +307,12 @@ struct ufs_hba {
 	 * controller to have a single command at a time for the device */
 	#define UFSHCD_QUIRK_BROKEN_DEVICE_Q_CMND        (1 << 4)
 
+	/*
+	 * Power mode switch is broken, the power mode will be default
+	 * to PWM-G1 or the one set by bootloader.
+	 */
+	#define UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE      (1 << 5)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 

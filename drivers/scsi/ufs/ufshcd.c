@@ -1806,6 +1806,9 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	u8 pwr[] = {FASTAUTO_MODE, FASTAUTO_MODE};
 	int ret;
 
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
+		return 0;
+
 	/* Get the connected lane count */
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &lanes[RX]);
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &lanes[TX]);
