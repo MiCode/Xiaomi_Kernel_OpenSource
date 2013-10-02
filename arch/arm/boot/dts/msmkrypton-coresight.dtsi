@@ -225,13 +225,13 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_cpu: cti@fc343000 {
+	cti_cpu0: cti@fc343000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc343000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <19>;
-		coresight-name = "coresight-cti-cpu";
+		coresight-name = "coresight-cti-cpu0";
 		coresight-nr-inports = <0>;
 	};
 
