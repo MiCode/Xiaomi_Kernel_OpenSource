@@ -73,6 +73,16 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "synaptics_rmi4_i2c";
+		qcom,disp-maxx = <1079>;
+		qcom,disp-maxy = <1919>;
+		qcom,panel-maxx = <1079>;
+		qcom,panel-maxy = <2084>;
+		qcom,key-codes = <158 139 102 217>;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
