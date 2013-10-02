@@ -517,6 +517,28 @@ static struct msm_gpiomux_config msm_wlan_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting sd_card_det_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+static struct gpiomux_setting sd_card_det_sleep_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config sd_card_det __initdata = {
+	.gpio = 122,
+	.settings = {
+		[GPIOMUX_ACTIVE]    = &sd_card_det_active_config,
+		[GPIOMUX_SUSPENDED] = &sd_card_det_sleep_config,
+	},
+};
+
 void __init apq8084_init_gpiomux(void)
 {
 	int rc;
@@ -540,4 +562,6 @@ void __init apq8084_init_gpiomux(void)
 			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 	msm_gpiomux_install(msm_wlan_configs, ARRAY_SIZE(msm_wlan_configs));
+
+	msm_gpiomux_install(&sd_card_det, 1);
 }
