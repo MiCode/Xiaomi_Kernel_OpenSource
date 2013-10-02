@@ -1184,6 +1184,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->qmi.nb.notifier_call = ngd_qmi_available;
 	pm_runtime_get_noresume(dev->dev);
 	ret = qmi_svc_event_notifier_register(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_SVC_V1,
 				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
 	if (ret) {
 		pr_err("Slimbus QMI service registration failed:%d", ret);
@@ -1211,6 +1212,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 
 err_thread_create_failed:
 	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_SVC_V1,
 				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
 qmi_register_failed:
 	free_irq(dev->irq, dev);
@@ -1230,6 +1232,7 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 	ngd_slim_enable(dev, false);
 	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_SVC_V1,
 				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
 	pm_runtime_disable(&pdev->dev);
 	free_irq(dev->irq, dev);

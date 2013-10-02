@@ -1174,6 +1174,7 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 	}
 
 	rc = qmi_connect_to_service(handle, SLIMBUS_QMI_SVC_ID,
+						SLIMBUS_QMI_SVC_V1,
 						SLIMBUS_QMI_INS_ID);
 	if (rc < 0) {
 		pr_err("%s: QMI server not found\n", __func__);
