@@ -24,6 +24,14 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
+
+	memory {
+		fb_mem: fb_region {
+			linux,contiguous-region;
+			reg = <0 0x1400000>;
+			label = "fb_mem";
+		};
+	};
 };
 
 /include/ "msm-gdsc.dtsi"
