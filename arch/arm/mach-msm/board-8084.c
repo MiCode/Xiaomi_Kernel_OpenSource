@@ -68,6 +68,8 @@ static struct of_dev_auxdata apq8084_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, "msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qcom,ufshc", 0xFC594000, "msm_ufs.1", NULL),
 	OF_DEV_AUXDATA("qcom,xhci-msm-hsic", 0xf9c00000, "msm_hsic_host", NULL),
+	OF_DEV_AUXDATA("qcom,msm_pcie", 0xFC520000, "msm_pcie", NULL),
+	OF_DEV_AUXDATA("qcom,msm_pcie", 0xFC528000, "msm_pcie", NULL),
 	{}
 };
 
