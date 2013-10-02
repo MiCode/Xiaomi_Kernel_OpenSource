@@ -13,6 +13,11 @@
 #define _UNIPRO_H_
 
 /*
+ * M-TX Configuration Attributes
+ */
+#define TX_LCC_ENABLE		0x2C
+
+/*
  * PHY Adpater attributes
  */
 #define PA_ACTIVETXDATALANES	0x1560
