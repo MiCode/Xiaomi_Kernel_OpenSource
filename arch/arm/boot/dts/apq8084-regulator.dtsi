@@ -236,6 +236,8 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
+			proxy-supply = <&pma8084_l12>;
+			qcom,proxy-consumer-enable;
 			status = "okay";
 		};
 		pma8084_l12_ao: regulator-l12-ao {
