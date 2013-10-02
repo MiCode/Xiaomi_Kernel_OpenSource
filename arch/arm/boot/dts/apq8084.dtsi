@@ -1723,7 +1723,6 @@
 			"DMIC6", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic6";
 
-		qcom,cdc-mclk-gpios = <&pma8084_gpios 15 0>;
 		qcom,taiko-mclk-clk-freq = <9600000>;
 		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 87 0>;
 		qcom,prim-auxpcm-gpio-sync = <&msmgpio 88 0>;
