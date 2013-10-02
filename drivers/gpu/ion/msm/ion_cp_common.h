@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,10 @@ struct ion_cp_buffer {
 	struct mutex lock;
 	int version;
 	void *data;
+	/*
+	 * secure is happening at allocation time, ignore version/data check
+	 */
+	bool ignore_check;
 };
 
 #if defined(CONFIG_ION_MSM)
