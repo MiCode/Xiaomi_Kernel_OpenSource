@@ -71,6 +71,14 @@
 		enable-active-high;
 		gpio = <&pma8084_mpps 7 0>;
 	};
+
+	usb0_vreg: usb0_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb0_vreg";
+		startup-delay-us = <18000>; /* the on time of TPD4S214 */
+		enable-active-high;
+		gpio = <&pma8084_gpios 8 0>;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
