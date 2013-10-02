@@ -238,6 +238,7 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 
 	return (void *)rd_dev;
 }
+EXPORT_SYMBOL(create_ramdump_device);
 
 void destroy_ramdump_device(void *dev)
 {
@@ -249,6 +250,7 @@ void destroy_ramdump_device(void *dev)
 	misc_deregister(&rd_dev->device);
 	kfree(rd_dev);
 }
+EXPORT_SYMBOL(destroy_ramdump_device);
 
 static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		int nsegments, bool use_elf)
@@ -333,9 +335,11 @@ int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
 	return _do_ramdump(handle, segments, nsegments, false);
 }
+EXPORT_SYMBOL(do_ramdump);
 
 int
 do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
 	return _do_ramdump(handle, segments, nsegments, true);
 }
+EXPORT_SYMBOL(do_elf_ramdump);
