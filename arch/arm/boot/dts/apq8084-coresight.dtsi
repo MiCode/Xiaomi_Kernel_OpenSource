@@ -320,9 +320,9 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_l2: cti@fc340000 {
+	cti_l2: cti@fc350000 {
 		compatible = "arm,coresight-cti";
-		reg = <0xfc340000 0x1000>;
+		reg = <0xfc350000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <24>;
@@ -330,9 +330,9 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_cpu0: cti@fc341000 {
+	cti_cpu0: cti@fc351000 {
 		compatible = "arm,coresight-cti";
-		reg = <0xfc341000 0x1000>;
+		reg = <0xfc351000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <25>;
@@ -340,9 +340,9 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_cpu1: cti@fc342000 {
+	cti_cpu1: cti@fc352000 {
 		compatible = "arm,coresight-cti";
-		reg = <0xfc342000 0x1000>;
+		reg = <0xfc352000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <26>;
@@ -350,9 +350,9 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_cpu2: cti@fc343000 {
+	cti_cpu2: cti@fc353000 {
 		compatible = "arm,coresight-cti";
-		reg = <0xfc343000 0x1000>;
+		reg = <0xfc353000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <27>;
@@ -360,9 +360,9 @@
 		coresight-nr-inports = <0>;
 	};
 
-	cti_cpu3: cti@fc344000 {
+	cti_cpu3: cti@fc354000 {
 		compatible = "arm,coresight-cti";
-		reg = <0xfc344000 0x1000>;
+		reg = <0xfc354000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <28>;
