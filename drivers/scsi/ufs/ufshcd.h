@@ -375,6 +375,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE      (1 << 5)
 
+	/* runtime pm or system suspend/resume is broken */
+	#define UFSHCD_QUIRK_BROKEN_SUSPEND              (1 << 6)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
