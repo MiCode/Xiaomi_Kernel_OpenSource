@@ -213,7 +213,19 @@ static void hfi_process_session_error(
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = ((struct hal_session *) pkt->session_id)->
 		session_id;
-	callback(SESSION_ERROR, &cmd_done);
+	dprintk(VIDC_INFO, "Received : SESSION_ERROR with event id : %d\n",
+		pkt->event_data1);
+	switch (pkt->event_data1) {
+	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
+	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
+	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
+		dprintk(VIDC_INFO, "Non Fatal : HFI_EVENT_SESSION_ERROR\n");
+		break;
+	default:
+		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR\n");
+		callback(SESSION_ERROR, &cmd_done);
+		break;
+	}
 }
 static void hfi_process_event_notify(
 		msm_vidc_callback callback, u32 device_id,
@@ -237,7 +249,7 @@ static void hfi_process_event_notify(
 		hfi_process_sys_error(callback, device_id);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
-		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR");
+		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
 		if (!validate_session_pkt(sessions, sess, session_lock))
 			hfi_process_session_error(callback, device_id, pkt);
 		break;
