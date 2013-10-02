@@ -20,6 +20,8 @@
 #include "kgsl_iommu.h"
 #include <mach/ocmem.h>
 
+#include "a3xx_reg.h"
+
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
@@ -939,6 +941,44 @@ static inline void adreno_vbif_start(struct kgsl_device *device,
 		kgsl_regwrite(device, vbif->reg, vbif->val);
 		vbif++;
 	}
+}
+
+/**
+ * adreno_set_protected_registers() - Protect the specified range of registers
+ * from being accessed by the GPU
+ * @device: pointer to the KGSL device
+ * @index: Pointer to the index of the protect mode register to write to
+ * @reg: Starting dword register to write
+ * @mask_len: Size of the mask to protect (# of registers = 2 ** mask_len)
+ *
+ * Add the range of registers to the list of protected mode registers that will
+ * cause an exception if the GPU accesses them.  There are 16 available
+ * protected mode registers.  Index is used to specify which register to write
+ * to - the intent is to call this function multiple times with the same index
+ * pointer for each range and the registers will be magically programmed in
+ * incremental fashion
+ */
+static inline void adreno_set_protected_registers(struct kgsl_device *device,
+	unsigned int *index, unsigned int reg, int mask_len)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int val;
+
+	/* This function is only for adreno A3XX and beyond */
+	BUG_ON(adreno_is_a2xx(adreno_dev));
+
+	/* There are only 16 registers available */
+	BUG_ON(*index >= 16);
+
+	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFF);
+
+	/*
+	 * Write the protection range to the next available protection
+	 * register
+	 */
+
+	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0 + *index, val);
+	*index = *index + 1;
 }
 
 #ifdef CONFIG_DEBUG_FS
