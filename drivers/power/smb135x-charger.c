@@ -216,8 +216,10 @@ struct smb135x_chg {
 	struct power_supply		*usb_psy;
 	struct power_supply		batt_psy;
 	struct power_supply		dc_psy;
+	struct power_supply		*bms_psy;
 	enum power_supply_type		dc_psy_type;
 	int				dc_psy_ma;
+	const char			*bms_psy_name;
 
 	/* status tracking */
 	bool				chg_done_batt_full;
@@ -380,6 +382,7 @@ static enum power_supply_property smb135x_battery_properties[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 };
 
@@ -466,6 +469,20 @@ static int smb135x_get_prop_charge_type(struct smb135x_chg *chip)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
+}
+
+#define DEFAULT_BATT_CAPACITY	50
+static int smb135x_get_prop_batt_capacity(struct smb135x_chg *chip)
+{
+	union power_supply_propval ret = {0, };
+
+	if (chip->bms_psy) {
+		chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		return ret.intval;
+	}
+
+	return DEFAULT_BATT_CAPACITY;
 }
 
 static int smb135x_enable_volatile_writes(struct smb135x_chg *chip)
@@ -818,6 +835,9 @@ static int smb135x_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb135x_get_prop_charge_type(chip);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		val->intval = smb135x_get_prop_batt_capacity(chip);
+		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
@@ -855,6 +875,10 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 				struct smb135x_chg, batt_psy);
 	union power_supply_propval prop = {0,};
 	int rc, current_limit = 0, online = 0;
+
+	if (chip->bms_psy_name)
+		chip->bms_psy =
+			power_supply_get_by_name((char *)chip->bms_psy_name);
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &prop);
@@ -1807,6 +1831,11 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 
 	chip->chg_enabled = !(of_property_read_bool(node,
 						"qcom,charging-disabled"));
+
+	rc = of_property_read_string(node, "qcom,bms-psy-name",
+						&chip->bms_psy_name);
+	if (rc)
+		chip->bms_psy_name = NULL;
 
 	return 0;
 }
