@@ -759,9 +759,7 @@ static inline int adreno_add_idle_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
 
-	if ((adreno_dev->gpurev == ADRENO_REV_A305) ||
-		(adreno_dev->gpurev == ADRENO_REV_A305C) ||
-		(adreno_dev->gpurev == ADRENO_REV_A320)) {
+	if (adreno_is_a3xx(adreno_dev)) {
 		*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
 		*cmds++ = 0;
 	}
