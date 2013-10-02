@@ -148,8 +148,12 @@ enum sdc_mpm_pin_state {
 #define CORE_TESTBUS_ENA	(1 << 3)
 #define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
 
-#define CORE_MCI_VERSION	0x050
-#define CORE_VERSION_310	0x10000011
+#define CORE_MCI_VERSION		0x050
+#define CORE_VERSION_STEP_MASK		0x0000FFFF
+#define CORE_VERSION_MINOR_MASK		0x0FFF0000
+#define CORE_VERSION_MINOR_SHIFT	16
+#define CORE_VERSION_MAJOR_MASK		0xF0000000
+#define CORE_VERSION_MAJOR_SHIFT	28
 
 /*
  * Waiting until end of potential AHB access for data:
@@ -2694,10 +2698,15 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	u32 value;
 	int ret;
 	u32 version;
+	u8 major;
 
 	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
-	/* Core version 3.1.0 doesn't need this workaround */
-	if (version == CORE_VERSION_310)
+	major = (version & CORE_VERSION_MAJOR_MASK) >>
+			CORE_VERSION_MAJOR_SHIFT;
+
+	/* Starting with SDCC 5 controller (core major version = 1)
+	 * and later revisions don't require this workaround */
+	if (major >= 1)
 		return;
 
 	value = readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CTRL);
