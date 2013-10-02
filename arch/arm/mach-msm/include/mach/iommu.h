@@ -280,7 +280,7 @@ static inline struct iommu_access_ops *msm_get_iommu_access_ops(void)
 }
 #endif
 
-#ifdef CONFIG_MSM_IOMMU_GPU_SYNC
+#ifdef CONFIG_MSM_IOMMU_SYNC
 void msm_iommu_remote_p0_spin_lock(void);
 void msm_iommu_remote_p0_spin_unlock(void);
 
@@ -292,19 +292,6 @@ void msm_iommu_remote_p0_spin_unlock(void);
 #define msm_iommu_remote_spin_lock()
 #define msm_iommu_remote_spin_unlock()
 #endif
-
-/* Allows kgsl iommu driver to acquire lock */
-#define msm_iommu_lock() \
-	do { \
-		msm_iommu_mutex_lock(); \
-		msm_iommu_remote_spin_lock(); \
-	} while (0)
-
-#define msm_iommu_unlock() \
-	do { \
-		msm_iommu_remote_spin_unlock(); \
-		msm_iommu_mutex_unlock(); \
-	} while (0)
 
 #ifdef CONFIG_MSM_IOMMU
 /*
