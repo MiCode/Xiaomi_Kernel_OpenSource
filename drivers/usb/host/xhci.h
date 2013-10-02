@@ -1651,6 +1651,30 @@ static inline int xhci_link_trb_quirk(struct xhci_hcd *xhci)
 }
 
 /* xHCI debugging */
+
+/* Maximum debug message length */
+#define DBG_MSG_LEN   64UL
+
+/* Maximum number of messages */
+#define DBG_MAX_MSG   512UL
+#define TIME_BUF_LEN  20
+#define HEX_DUMP_LEN  72
+struct dbg_data {
+	char     (ctrl_buf[DBG_MAX_MSG])[DBG_MSG_LEN];
+	char     (data_buf[DBG_MAX_MSG])[DBG_MSG_LEN];
+	unsigned ctrl_idx;
+	rwlock_t ctrl_lck;
+	unsigned data_idx;
+	rwlock_t data_lck;
+	unsigned int log_events;
+	unsigned int log_payload;
+	unsigned int inep_log_mask;
+	unsigned int outep_log_mask;
+};
+
+void __maybe_unused
+xhci_dbg_log_event(struct dbg_data *d, struct urb *urb, char *event,
+		unsigned extra);
 void xhci_print_ir_set(struct xhci_hcd *xhci, int set_num);
 void xhci_print_registers(struct xhci_hcd *xhci);
 void xhci_dbg_regs(struct xhci_hcd *xhci);
