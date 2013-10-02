@@ -102,6 +102,7 @@ struct sensor_threshold {
 	enum thermal_trip_type trip;
 	int (*notify)(enum thermal_trip_type type, int temp, void *data);
 	void *data;
+	uint8_t active;
 	struct list_head list;
 };
 
@@ -189,6 +190,8 @@ void thermal_cooling_device_unregister(struct thermal_cooling_device *);
 int sensor_get_id(char *name);
 int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
 int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
+int sensor_activate_trip(uint32_t sensor_id, struct sensor_threshold *threshold,
+			bool enable);
 int thermal_sensor_trip(struct thermal_zone_device *tz,
 		enum thermal_trip_type trip, long temp);
 
