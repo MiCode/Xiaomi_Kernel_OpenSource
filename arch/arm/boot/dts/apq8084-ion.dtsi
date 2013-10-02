@@ -28,6 +28,13 @@
 			reg = <25>;
 		};
 
+		qcom,ion-heap@8 { /* CP_MM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <8>;
+			qcom,heap-align = <0x1000>;
+			linux,contiguous-region = <&secure_mem>;
+		};
+
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;

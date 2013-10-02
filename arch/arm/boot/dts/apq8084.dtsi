@@ -42,6 +42,12 @@
 			label = "fb_mem";
 			linux,memory-limit = <0xffffffff>;
 		};
+
+		secure_mem: secure_region {
+			linux,contiguous-region;
+			reg = <0 0 0 0xfc00000>;
+			label = "secure_mem";
+		};
         };
 };
 
