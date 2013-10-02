@@ -2612,12 +2612,6 @@ static void msm8x10_wcd_codec_specific_cal_setup(
 			0xE0, 0xE0);
 }
 
-static int msm8x10_wcd_get_jack_detect_irq(
-		struct snd_soc_codec *codec)
-{
-	return MSM8X10_WCD_IRQ_MBHC_HS_DET;
-}
-
 static struct wcd9xxx_cfilt_mode msm8x10_wcd_switch_cfilt_mode(
 	struct wcd9xxx_mbhc *mbhc, bool fast)
 {
@@ -2640,14 +2634,6 @@ static void msm8x10_wcd_select_cfilt(struct snd_soc_codec *codec,
 {
 	snd_soc_update_bits(codec,
 			mbhc->mbhc_bias_regs.ctl_reg, 0x60, 0x00);
-}
-
-static void msm8x10_wcd_free_irq(struct wcd9xxx_mbhc *mbhc)
-{
-	struct msm8x10_wcd *msm8x10_wcd = mbhc->codec->control_data;
-	struct wcd9xxx_core_resource *core_res =
-			&msm8x10_wcd->wcd9xxx_res;
-	wcd9xxx_free_irq(core_res, MSM8X10_WCD_IRQ_MBHC_HS_DET, mbhc);
 }
 
 enum wcd9xxx_cdc_type msm8x10_wcd_get_cdc_type(void)
@@ -2707,10 +2693,8 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
 	.codec_specific_cal = msm8x10_wcd_codec_specific_cal_setup,
-	.jack_detect_irq = msm8x10_wcd_get_jack_detect_irq,
 	.switch_cfilt_mode = msm8x10_wcd_switch_cfilt_mode,
 	.select_cfilt = msm8x10_wcd_select_cfilt,
-	.free_irq = msm8x10_wcd_free_irq,
 	.get_cdc_type = msm8x10_wcd_get_cdc_type,
 	.enable_clock_gate = msm8x10_wcd_mbhc_clk_gate,
 	.enable_mbhc_txfe = msm8x10_wcd_mbhc_txfe,
@@ -2819,6 +2803,17 @@ static struct notifier_block adsp_state_notifier_block = {
 	.priority = -INT_MAX,
 };
 
+static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {
+	.poll_plug_rem = MSM8X10_WCD_IRQ_MBHC_REMOVAL,
+	.shortavg_complete = MSM8X10_WCD_IRQ_MBHC_SHORT_TERM,
+	.potential_button_press = MSM8X10_WCD_IRQ_MBHC_PRESS,
+	.button_release = MSM8X10_WCD_IRQ_MBHC_RELEASE,
+	.dce_est_complete = MSM8X10_WCD_IRQ_MBHC_POTENTIAL,
+	.insertion = MSM8X10_WCD_IRQ_MBHC_INSERTION,
+	.hph_left_ocp = MSM8X10_WCD_IRQ_HPH_PA_OCPL_FAULT,
+	.hph_right_ocp = MSM8X10_WCD_IRQ_HPH_PA_OCPR_FAULT,
+	.hs_jack_switch = MSM8X10_WCD_IRQ_MBHC_HS_DET,
+};
 
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
@@ -2896,7 +2891,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	ret = wcd9xxx_mbhc_init(&msm8x10_wcd_priv->mbhc,
 				&msm8x10_wcd_priv->resmgr,
-				codec, NULL, &mbhc_cb,
+				codec, NULL, &mbhc_cb, &cdc_intr_ids,
 				HELICON_MCLK_CLK_9P6MHZ, false);
 	if (ret) {
 		pr_err("%s: Failed to initialize mbhc\n", __func__);
