@@ -34,6 +34,20 @@
 		};
 	};
 
+	i2c@f9925000 { /* BLSP1 QUP3 */
+		nfc-nci@0e {
+			compatible = "qcom,nfc-nci";
+			reg = <0x0e>;
+			qcom,irq-gpio = <&msmgpio 21 0x00>;
+			qcom,dis-gpio = <&msmgpio 20 0x00>;
+			qcom,clk-src = "BBCLK2";
+			qcom,clk-en-gpio = <&msmgpio 0 0x00>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <21 0>;
+			qcom,clk-gpio = <&pm8226_gpios 3 0>;
+		};
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -370,6 +384,11 @@
 	};
 
 	gpio@c200 { /* GPIO 3 */
+		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c300 { /* GPIO 4 */
