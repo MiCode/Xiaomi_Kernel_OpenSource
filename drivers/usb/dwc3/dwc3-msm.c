@@ -46,6 +46,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
 #include <mach/clk.h>
+#include <mach/scm.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
@@ -161,6 +162,13 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
 
+/* TZ SCM parameters */
+#define DWC3_MSM_RESTORE_SCM_CFG_CMD 0x2
+struct dwc3_msm_scm_cmd_buf {
+	unsigned int device_id;
+	unsigned int spare;
+};
+
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
 	struct usb_request *req;
@@ -235,6 +243,7 @@ struct dwc3_msm {
 	bool ext_chg_opened;
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
+	unsigned int scm_dev_id;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1080,6 +1089,28 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 	return 0;
 }
 
+/* Restores VMIDMT/xPU security configuration in TrustZone */
+static int dwc3_msm_restore_sec_config(unsigned int device_id)
+{
+	struct dwc3_msm_scm_cmd_buf cbuf;
+	int ret, scm_ret = 0;
+
+	if (!device_id)
+		return 0;
+
+	cbuf.device_id = device_id;
+
+	ret = scm_call(SCM_SVC_MP, DWC3_MSM_RESTORE_SCM_CFG_CMD, &cbuf,
+			sizeof(cbuf), &scm_ret, sizeof(scm_ret));
+	if (ret || scm_ret) {
+		pr_err("%s: failed(%d) to restore sec config, scm_ret=%d\n",
+			__func__, ret, scm_ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 {
 	int ret = 0;
@@ -1153,6 +1184,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
 		/* Re-initialize SSPHY after reset */
 		usb_phy_set_params(mdwc->ss_phy);
+		dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	default:
@@ -1594,6 +1626,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
 								0x7FFFFFFF);
+
+		ret = dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
+		if (ret)
+			return ret;
 	}
 
 	if (resume_from_core_clk_off)
@@ -2634,6 +2670,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
 	}
+
+	ret = of_property_read_u32(node, "qcom,restore-sec-cfg-for-scm-dev-id",
+					&mdwc->scm_dev_id);
+	if (ret && ret != -ENODATA)
+		dev_dbg(&pdev->dev, "unable to read scm device id\n");
 
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
