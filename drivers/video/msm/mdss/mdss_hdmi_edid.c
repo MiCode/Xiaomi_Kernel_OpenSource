@@ -27,6 +27,8 @@
 #define MAX_AUDIO_DATA_BLOCK_SIZE	30
 #define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
 
+#define BUFF_SIZE_3D 128
+
 struct hdmi_edid_sink_data {
 	u32 disp_mode_list[HDMI_VFRMT_MAX];
 	u32 disp_3d_mode_list[HDMI_VFRMT_MAX];
@@ -249,19 +251,19 @@ static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 			if (!hdmi_get_supported_mode(*video_mode))
 				continue;
 			if (ret > 0)
-				ret += snprintf(buf+ret, PAGE_SIZE-ret, ",%d",
-					*video_mode++);
+				ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+					",%d", *video_mode++);
 			else
-				ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
-					*video_mode++);
+				ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+					"%d", *video_mode++);
 		}
 	} else {
-		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%d",
 			edid_ctrl->video_resolution);
 	}
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
-	ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
 
 	return ret;
 } /* hdmi_edid_sysfs_rda_modes */
@@ -279,7 +281,7 @@ static ssize_t hdmi_edid_sysfs_rda_physical_address(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "%d\n", edid_ctrl->physical_address);
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", edid_ctrl->physical_address);
 	DEV_DBG("%s: '%d'\n", __func__, edid_ctrl->physical_address);
 
 	return ret;
@@ -298,7 +300,7 @@ static ssize_t hdmi_edid_sysfs_rda_scan_info(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "%d, %d, %d\n", edid_ctrl->pt_scan_info,
+	ret = scnprintf(buf, PAGE_SIZE, "%d, %d, %d\n", edid_ctrl->pt_scan_info,
 		edid_ctrl->it_scan_info, edid_ctrl->ce_scan_info);
 	DEV_DBG("%s: '%s'\n", __func__, buf);
 
@@ -311,7 +313,8 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 {
 	ssize_t ret = 0;
 	int i;
-	char buff_3d[128];
+	char buff_3d[BUFF_SIZE_3D];
+
 	struct hdmi_edid_ctrl *edid_ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
 
@@ -327,23 +330,23 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 
 		for (i = 0; i < edid_ctrl->sink_data.num_of_elements; ++i) {
 			ret = hdmi_get_video_3d_fmt_2string(*video_3d_mode++,
-				buff_3d);
+				buff_3d, sizeof(buff_3d));
 			if (ret > 0)
-				ret += snprintf(buf+ret, PAGE_SIZE-ret,
+				ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 					",%d=%s", *video_mode++,
 					buff_3d);
 			else
-				ret += snprintf(buf+ret, PAGE_SIZE-ret,
+				ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 					"%d=%s", *video_mode++,
 					buff_3d);
 		}
 	} else {
-		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%d",
 			edid_ctrl->video_resolution);
 	}
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
-	ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
 
 	return ret;
 } /* hdmi_edid_sysfs_rda_3d_modes */
@@ -816,7 +819,7 @@ static void hdmi_edid_detail_desc(const u8 *data_buf, u32 *disp_mode)
 static void hdmi_edid_add_sink_3d_format(struct hdmi_edid_sink_data *sink_data,
 	u32 video_format, u32 video_3d_format)
 {
-	char string[128];
+	char string[BUFF_SIZE_3D];
 	u32 added = false;
 	int i;
 
@@ -828,7 +831,7 @@ static void hdmi_edid_add_sink_3d_format(struct hdmi_edid_sink_data *sink_data,
 		}
 	}
 
-	hdmi_get_video_3d_fmt_2string(video_3d_format, string);
+	hdmi_get_video_3d_fmt_2string(video_3d_format, string, sizeof(string));
 
 	DEV_DBG("%s: EDID[3D]: format: %d [%s], %s %s\n", __func__,
 		video_format, msm_hdmi_mode_2string(video_format),
