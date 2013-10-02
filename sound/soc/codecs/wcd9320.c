@@ -248,21 +248,6 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 
 #define TAIKO_I2S_MASTER_MODE_MASK 0x08
 
-#define TAIKO_DMIC_SAMPLE_RATE_DIV_2	0x0
-#define TAIKO_DMIC_SAMPLE_RATE_DIV_3	0x1
-#define TAIKO_DMIC_SAMPLE_RATE_DIV_4	0x2
-
-#define TAIKO_DMIC_B1_CTL_DIV_2 0x00
-#define TAIKO_DMIC_B1_CTL_DIV_3 0x22
-#define TAIKO_DMIC_B1_CTL_DIV_4 0x44
-
-#define TAIKO_DMIC_B2_CTL_DIV_2 0x00
-#define TAIKO_DMIC_B2_CTL_DIV_3 0x02
-#define TAIKO_DMIC_B2_CTL_DIV_4 0x04
-
-#define TAIKO_ANC_DMIC_X2_ON	0x1
-#define TAIKO_ANC_DMIC_X2_OFF	0x0
-
 #define TAIKO_SLIM_CLOSE_TIMEOUT 1000
 #define TAIKO_SLIM_IRQ_OVERFLOW (1 << 0)
 #define TAIKO_SLIM_IRQ_UNDERFLOW (1 << 1)
@@ -5741,24 +5726,24 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	/* Set the DMIC sample rate */
 	if (pdata->mclk_rate == TAIKO_MCLK_CLK_9P6MHZ) {
 		switch (pdata->dmic_sample_rate) {
-		case TAIKO_DMIC_SAMPLE_RATE_2P4MHZ:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_4;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_4;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_4;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_OFF;
+		case WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_4;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_4;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
 			break;
-		case TAIKO_DMIC_SAMPLE_RATE_4P8MHZ:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_2;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_2;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_2;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_ON;
+		case WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_2;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_2;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
 			break;
-		case TAIKO_DMIC_SAMPLE_RATE_3P2MHZ:
-		case TAIKO_DMIC_SAMPLE_RATE_UNDEFINED:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_3;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_3;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_3;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_OFF;
+		case WCD9XXX_DMIC_SAMPLE_RATE_3P2MHZ:
+		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_3;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_3;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
 			break;
 		default:
 			pr_err("%s Invalid sample rate %d for mclk %d\n",
@@ -5769,24 +5754,24 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 		}
 	} else if (pdata->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ) {
 		switch (pdata->dmic_sample_rate) {
-		case TAIKO_DMIC_SAMPLE_RATE_3P072MHZ:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_4;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_4;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_4;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_OFF;
+		case WCD9XXX_DMIC_SAMPLE_RATE_3P072MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_4;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_4;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
 			break;
-		case TAIKO_DMIC_SAMPLE_RATE_6P144MHZ:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_2;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_2;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_2;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_ON;
+		case WCD9XXX_DMIC_SAMPLE_RATE_6P144MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_2;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_2;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
 			break;
-		case TAIKO_DMIC_SAMPLE_RATE_4P096MHZ:
-		case TAIKO_DMIC_SAMPLE_RATE_UNDEFINED:
-			dmic_sample_rate_value = TAIKO_DMIC_SAMPLE_RATE_DIV_3;
-			dmic_b1_ctl_value = TAIKO_DMIC_B1_CTL_DIV_3;
-			dmic_b2_ctl_value = TAIKO_DMIC_B2_CTL_DIV_3;
-			anc_ctl_value = TAIKO_ANC_DMIC_X2_OFF;
+		case WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ:
+		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_3;
+			dmic_b2_ctl_value = WCD9XXX_DMIC_B2_CTL_DIV_3;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
 			break;
 		default:
 			pr_err("%s Invalid sample rate %d for mclk %d\n",

@@ -4600,6 +4600,9 @@ static int tapan_handle_pdata(struct tapan_priv *tapan)
 	u8 flag = pdata->amic_settings.use_pdata;
 	u8 i = 0, j = 0;
 	u8 val_txfe = 0, value = 0;
+	u8 dmic_sample_rate_value = 0;
+	u8 dmic_b1_ctl_value = 0;
+	u8 anc_ctl_value = 0;
 
 	if (!pdata) {
 		dev_err(codec->dev, "%s: NULL pdata\n", __func__);
@@ -4692,6 +4695,78 @@ static int tapan_handle_pdata(struct tapan_priv *tapan)
 	value = (pdata->micbias.bias3_cap_mode == MICBIAS_EXT_BYP_CAP ?
 		 0x00 : 0x10);
 	snd_soc_update_bits(codec, TAPAN_A_MICB_3_CTL, 0x10, value);
+
+	/* Set the DMIC sample rate */
+	if (pdata->mclk_rate == TAPAN_MCLK_CLK_9P6MHZ) {
+		switch (pdata->dmic_sample_rate) {
+		case WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_4;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
+			break;
+		case WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_2;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
+			break;
+		case WCD9XXX_DMIC_SAMPLE_RATE_3P2MHZ:
+		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_3;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
+			break;
+		default:
+			dev_err(codec->dev,
+				"%s Invalid sample rate %d for mclk %d\n",
+				__func__, pdata->dmic_sample_rate,
+				pdata->mclk_rate);
+			rc = -EINVAL;
+			goto done;
+		}
+	} else if (pdata->mclk_rate == TAPAN_MCLK_CLK_12P288MHZ) {
+		switch (pdata->dmic_sample_rate) {
+		case WCD9XXX_DMIC_SAMPLE_RATE_3P072MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_4;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
+			break;
+		case WCD9XXX_DMIC_SAMPLE_RATE_6P144MHZ:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_2;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
+			break;
+		case WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ:
+		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
+			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
+			dmic_b1_ctl_value = WCD9XXX_DMIC_B1_CTL_DIV_3;
+			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
+			break;
+		default:
+			dev_err(codec->dev,
+				"%s Invalid sample rate %d for mclk %d\n",
+				__func__, pdata->dmic_sample_rate,
+				pdata->mclk_rate);
+			rc = -EINVAL;
+			goto done;
+		}
+	} else {
+		dev_err(codec->dev, "%s MCLK is not set!\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	snd_soc_update_bits(codec, TAPAN_A_CDC_TX1_DMIC_CTL,
+		0x7, dmic_sample_rate_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_TX2_DMIC_CTL,
+		0x7, dmic_sample_rate_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_TX3_DMIC_CTL,
+		0x7, dmic_sample_rate_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_TX4_DMIC_CTL,
+		0x7, dmic_sample_rate_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_DMIC_B1_CTL,
+		0xEE, dmic_b1_ctl_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_ANC1_B2_CTL,
+		0x1, anc_ctl_value);
 
 done:
 	return rc;
@@ -4885,15 +4960,6 @@ static const struct tapan_reg_mask_val tapan_codec_reg_init_val[] = {
 	{TAPAN_A_CDC_TX2_MUX_CTL, 0x8, 0x0},
 	{TAPAN_A_CDC_TX3_MUX_CTL, 0x8, 0x0},
 	{TAPAN_A_CDC_TX4_MUX_CTL, 0x8, 0x0},
-
-	/* config Decimator for DMIC CLK_MODE_1(3.2Mhz@9.6Mhz mclk) */
-	{TAPAN_A_CDC_TX1_DMIC_CTL, 0x7, 0x1},
-	{TAPAN_A_CDC_TX2_DMIC_CTL, 0x7, 0x1},
-	{TAPAN_A_CDC_TX3_DMIC_CTL, 0x7, 0x1},
-	{TAPAN_A_CDC_TX4_DMIC_CTL, 0x7, 0x1},
-
-	/* config DMIC clk to CLK_MODE_1 (3.2Mhz@9.6Mhz mclk) */
-	{TAPAN_A_CDC_CLK_DMIC_B1_CTL, 0xEE, 0x22},
 
 	/* Compander zone selection */
 	{TAPAN_A_CDC_COMP0_B4_CTL, 0x3F, 0x37},
