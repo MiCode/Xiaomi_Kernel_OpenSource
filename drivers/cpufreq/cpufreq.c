@@ -74,13 +74,11 @@ static DEFINE_PER_CPU(struct cpufreq_cpu_save_data, cpufreq_policy_save);
 static DEFINE_PER_CPU(struct rw_semaphore, cpu_policy_rwsem);
 
 #define lock_policy_rwsem(mode, cpu)					\
-static int lock_policy_rwsem_##mode(int cpu)				\
+static void lock_policy_rwsem_##mode(int cpu)				\
 {									\
 	struct cpufreq_policy *policy = per_cpu(cpufreq_cpu_data, cpu);	\
 	BUG_ON(!policy);						\
 	down_##mode(&per_cpu(cpu_policy_rwsem, policy->cpu));		\
-									\
-	return 0;							\
 }
 
 lock_policy_rwsem(read, cpu);
@@ -668,13 +666,12 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
-	ssize_t ret = -EINVAL;
+	ssize_t ret;
 
 	if (!down_read_trylock(&cpufreq_rwsem))
-		goto exit;
+		return -EINVAL;
 
-	if (lock_policy_rwsem_read(policy->cpu) < 0)
-		goto up_read;
+	lock_policy_rwsem_read(policy->cpu);
 
 	if (fattr->show)
 		ret = fattr->show(policy, buf);
@@ -682,10 +679,8 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 		ret = -EIO;
 
 	unlock_policy_rwsem_read(policy->cpu);
-
-up_read:
 	up_read(&cpufreq_rwsem);
-exit:
+
 	return ret;
 }
 
@@ -704,8 +699,7 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
 	if (!down_read_trylock(&cpufreq_rwsem))
 		goto unlock;
 
-	if (lock_policy_rwsem_write(policy->cpu) < 0)
-		goto up_read;
+	lock_policy_rwsem_write(policy->cpu);
 
 	if (fattr->store)
 		ret = fattr->store(policy, buf, count);
@@ -714,7 +708,6 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
 
 	unlock_policy_rwsem_write(policy->cpu);
 
-up_read:
 	up_read(&cpufreq_rwsem);
 unlock:
 	put_online_cpus();
@@ -1172,7 +1165,7 @@ static int cpufreq_nominate_new_policy_cpu(struct cpufreq_policy *policy,
 	if (ret) {
 		pr_err("%s: Failed to move kobj: %d", __func__, ret);
 
-		WARN_ON(lock_policy_rwsem_write(old_cpu));
+		lock_policy_rwsem_write(old_cpu);
 		cpumask_set_cpu(old_cpu, policy->cpus);
 		unlock_policy_rwsem_write(old_cpu);
 
@@ -1272,7 +1265,7 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 		return -EINVAL;
 	}
 
-	WARN_ON(lock_policy_rwsem_write(cpu));
+	lock_policy_rwsem_write(cpu);
 	cpus = cpumask_weight(policy->cpus);
 
 	if (cpus > 1)
@@ -1495,14 +1488,11 @@ unsigned int cpufreq_get(unsigned int cpu)
 	if (!down_read_trylock(&cpufreq_rwsem))
 		return 0;
 
-	if (unlikely(lock_policy_rwsem_read(cpu)))
-		goto out_policy;
+	lock_policy_rwsem_read(cpu);
 
 	ret_freq = __cpufreq_get(cpu);
 
 	unlock_policy_rwsem_read(cpu);
-
-out_policy:
 	up_read(&cpufreq_rwsem);
 
 	return ret_freq;
@@ -1726,14 +1716,12 @@ int cpufreq_driver_target(struct cpufreq_policy *policy,
 {
 	int ret = -EINVAL;
 
-	if (unlikely(lock_policy_rwsem_write(policy->cpu)))
-		goto fail;
+	lock_policy_rwsem_write(policy->cpu);
 
 	ret = __cpufreq_driver_target(policy, target_freq, relation);
 
 	unlock_policy_rwsem_write(policy->cpu);
 
-fail:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(cpufreq_driver_target);
@@ -2026,10 +2014,7 @@ int cpufreq_update_policy(unsigned int cpu)
 		goto no_policy;
 	}
 
-	if (unlikely(lock_policy_rwsem_write(cpu))) {
-		ret = -EINVAL;
-		goto fail;
-	}
+	lock_policy_rwsem_write(cpu);
 
 	pr_debug("updating policy for CPU %u\n", cpu);
 	memcpy(&new_policy, policy, sizeof(*policy));
@@ -2058,7 +2043,6 @@ int cpufreq_update_policy(unsigned int cpu)
 
 	unlock_policy_rwsem_write(cpu);
 
-fail:
 	cpufreq_cpu_put(policy);
 no_policy:
 	return ret;
