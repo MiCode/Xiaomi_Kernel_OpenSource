@@ -1398,7 +1398,8 @@ static int vco_prepare(struct clk *c)
 {
 	int rc = 0;
 
-	if (vco_cached_rate != 0) {
+	if ((vco_cached_rate != 0)
+	    && (vco_cached_rate == c->rate)) {
 		rc = vco_set_rate(c, vco_cached_rate);
 		if (rc) {
 			pr_err("%s: vco_set_rate failed. rc=%d\n",

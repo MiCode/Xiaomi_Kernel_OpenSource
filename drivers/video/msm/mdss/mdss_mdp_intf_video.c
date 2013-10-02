@@ -109,7 +109,7 @@ int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 	return 0;
 }
 
-static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
+static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 					struct intf_timing_params *p)
 {
 	u32 hsync_period, vsync_period;
@@ -117,7 +117,9 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
 	u32 active_h_start, active_h_end, active_v_start, active_v_end;
 	u32 den_polarity, hsync_polarity, vsync_polarity;
 	u32 display_hctl, active_hctl, hsync_ctl, polarity_ctl;
+	struct mdss_mdp_video_ctx *ctx;
 
+	ctx = ctl->priv_data;
 	hsync_period = p->hsync_pulse_width + p->h_back_porch +
 			p->width + p->h_front_porch;
 	vsync_period = p->vsync_pulse_width + p->v_back_porch +
@@ -180,7 +182,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
-			   vsync_period * hsync_period);
+			vsync_period * hsync_period);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PULSE_WIDTH_F0,
 			   p->vsync_pulse_width * hsync_period);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_HCTL, display_hctl);
@@ -440,6 +442,88 @@ static void mdss_mdp_video_underrun_intr_done(void *arg)
 			ctl->underrun_cnt);
 }
 
+static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_panel_data *pdata;
+	int rc = 0;
+	u32 hsync_period, vsync_period;
+
+	pr_debug("Updating fps for ctl=%d\n", ctl->num);
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	pdata = ctl->panel_data;
+	if (pdata == NULL) {
+		pr_err("%s: Invalid panel data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!pdata->panel_info.dynamic_fps) {
+		pr_err("%s: Dynamic fps not enabled for this panel\n",
+						__func__);
+		return -EINVAL;
+	}
+
+	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
+	hsync_period = mdss_panel_get_htotal(&pdata->panel_info);
+
+	if (pdata->panel_info.dfps_update
+			!= DFPS_SUSPEND_RESUME_MODE) {
+		if (pdata->panel_info.dfps_update
+				== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+			if (!ctx->timegen_en) {
+				pr_err("TG is OFF. DFPS mode invalid\n");
+				return -EINVAL;
+			}
+			ctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
+			mdss_mdp_display_commit(ctl, NULL);
+			mdss_mdp_display_wait4comp(ctl);
+			mdp_video_write(ctx,
+					MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+			/*
+			 * Need to wait for atleast one vsync time for proper
+			 * TG OFF before doing changes on interfaces
+			 */
+			msleep(20);
+			rc = mdss_mdp_ctl_intf_event(ctl,
+						MDSS_EVENT_PANEL_UPDATE_FPS,
+						(void *)new_fps);
+			WARN(rc, "intf %d panel fps update error (%d)\n",
+							ctl->intf_num, rc);
+			mdp_video_write(ctx,
+					MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
+			/*
+			 * Add memory barrier to make sure the MDP Video
+			 * mode engine is enabled before next frame is sent
+			 */
+			mb();
+			ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
+			mdss_mdp_display_commit(ctl, NULL);
+			mdss_mdp_display_wait4comp(ctl);
+		} else {
+			pr_err("intf %d panel, unknown FPS mode\n",
+							ctl->intf_num);
+			return -EINVAL;
+		}
+	} else {
+		rc = mdss_mdp_ctl_intf_event(ctl,
+					MDSS_EVENT_PANEL_UPDATE_FPS,
+					(void *)new_fps);
+		WARN(rc, "intf %d panel fps update error (%d)\n",
+						ctl->intf_num, rc);
+	}
+
+	return rc;
+}
+
+
+
+
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_video_ctx *ctx;
@@ -654,7 +738,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 			pinfo->bpp);
 	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
 
-	if (mdss_mdp_video_timegen_setup(ctx, &itp)) {
+	if (mdss_mdp_video_timegen_setup(ctl, &itp)) {
 		pr_err("unable to get timing parameters\n");
 		return -EINVAL;
 	}
@@ -666,6 +750,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->read_line_cnt_fnc = mdss_mdp_video_line_count;
 	ctl->add_vsync_handler = mdss_mdp_video_add_vsync_handler;
 	ctl->remove_vsync_handler = mdss_mdp_video_remove_vsync_handler;
+	ctl->config_fps_fnc = mdss_mdp_video_config_fps;
 
 	return 0;
 }

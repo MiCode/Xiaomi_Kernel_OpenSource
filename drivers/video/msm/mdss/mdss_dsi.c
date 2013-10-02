@@ -289,6 +289,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *panel_info = NULL;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -305,6 +306,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+	panel_info = &ctrl_pdata->panel_data.panel_info;
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
@@ -335,6 +337,11 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 		return ret;
 	}
 
+	if (panel_info->dynamic_fps
+	    && (panel_info->dfps_update == DFPS_SUSPEND_RESUME_MODE)
+	    && (panel_info->new_fps != panel_info->mipi.frame_rate))
+		panel_info->mipi.frame_rate = panel_info->new_fps;
+
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -350,6 +357,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	u32 ystride, bpp, data, dst_bpp;
 	u32 dummy_xres, dummy_yres;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	u32 hsync_period, vsync_period;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -412,11 +420,16 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 			pdata->panel_info.bpp);
 	height = pdata->panel_info.yres;
 
-	mipi  = &pdata->panel_info.mipi;
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		dummy_xres = pdata->panel_info.lcdc.xres_pad;
 		dummy_yres = pdata->panel_info.lcdc.yres_pad;
+	}
 
+	vsync_period = vspw + vbp + height + dummy_yres + vfp;
+	hsync_period = hspw + hbp + width + dummy_xres + hfp;
+
+	mipi  = &pdata->panel_info.mipi;
+	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
 			((hspw + hbp + width + dummy_xres) << 16 |
 			(hspw + hbp)));
@@ -424,9 +437,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 			((vspw + vbp + height + dummy_yres) << 16 |
 			(vspw + vbp)));
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-			(vspw + vbp + height + dummy_yres +
-				vfp - 1) << 16 | (hspw + hbp +
-				width + dummy_xres + hfp - 1));
+				((vsync_period - 1) << 16)
+				| (hsync_period - 1));
 
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x30, (hspw << 16));
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x34, 0);
@@ -591,6 +603,65 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	return ret;
 }
 
+static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
+{
+	int rc = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	u32 dsi_ctrl;
+
+	pr_debug("%s+:\n", __func__);
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (!ctrl_pdata->panel_data.panel_info.dynamic_fps) {
+		pr_err("%s: Dynamic fps not enabled for this panel\n",
+					__func__);
+		return -EINVAL;
+	}
+
+	if (new_fps !=
+		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
+		rc = mdss_dsi_clk_div_config
+			(&ctrl_pdata->panel_data.panel_info, new_fps);
+		if (rc) {
+			pr_err("%s: unable to initialize the clk dividers\n",
+							__func__);
+			return rc;
+		}
+		ctrl_pdata->pclk_rate =
+			ctrl_pdata->panel_data.panel_info.mipi.dsi_pclk_rate;
+		ctrl_pdata->byte_clk_rate =
+			ctrl_pdata->panel_data.panel_info.clk_rate / 8;
+
+		if (pdata->panel_info.dfps_update
+				== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+			dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) +
+					    0x0004);
+			ctrl_pdata->panel_data.panel_info.mipi.frame_rate =
+									new_fps;
+			dsi_ctrl &= ~0x2;
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+							dsi_ctrl);
+			mdss_dsi_controller_cfg(true, pdata);
+			mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+			mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+			dsi_ctrl |= 0x2;
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+							dsi_ctrl);
+		}
+	} else {
+		pr_debug("%s: Panel is already at this FPS\n", __func__);
+	}
+
+	return rc;
+}
+
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -644,6 +715,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_DSI_CMDLIST_KOFF:
 		mdss_dsi_cmdlist_commit(ctrl_pdata, 1);
+	case MDSS_EVENT_PANEL_UPDATE_FPS:
+		if (arg != NULL) {
+			rc = mdss_dsi_dfps_config(pdata, (int)arg);
+			pr_debug("%s:update fps to = %d\n",
+				__func__, (int)arg);
+		}
 		break;
 	case MDSS_EVENT_CONT_SPLASH_BEGIN:
 		if (ctrl_pdata->off_cmds.link_state == DSI_HS_MODE) {
@@ -952,76 +1029,24 @@ int dsi_panel_device_register(struct device_node *pan_node,
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
-	u8 lanes = 0, bpp;
-	u32 h_period, v_period, dsi_pclk_rate, tmp[9];
+	u32 tmp[9];
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
+	bool dynamic_fps;
 	const char *data;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 
-	h_period = ((pinfo->lcdc.h_pulse_width)
-			+ (pinfo->lcdc.h_back_porch)
-			+ (pinfo->xres)
-			+ (pinfo->lcdc.h_front_porch));
-
-	v_period = ((pinfo->lcdc.v_pulse_width)
-			+ (pinfo->lcdc.v_back_porch)
-			+ (pinfo->yres)
-			+ (pinfo->lcdc.v_front_porch));
-
-	mipi  = &pinfo->mipi;
 	mipi  = &(pinfo->mipi);
 
 	pinfo->type =
 		((mipi->mode == DSI_VIDEO_MODE)
 			? MIPI_VIDEO_PANEL : MIPI_CMD_PANEL);
 
-	if (mipi->data_lane3)
-		lanes += 1;
-	if (mipi->data_lane2)
-		lanes += 1;
-	if (mipi->data_lane1)
-		lanes += 1;
-	if (mipi->data_lane0)
-		lanes += 1;
-
-
-	if ((mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
-	    || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB888)
-	    || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB666_LOOSE))
-		bpp = 3;
-	else if ((mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
-		 || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
-		bpp = 2;
-	else
-		bpp = 3;		/* Default format set to RGB888 */
-
-	if (!pinfo->clk_rate) {
-		h_period += pinfo->lcdc.xres_pad;
-		v_period += pinfo->lcdc.yres_pad;
-
-		if (lanes > 0) {
-			pinfo->clk_rate =
-			((h_period * v_period * (mipi->frame_rate) * bpp * 8)
-			   / lanes);
-		} else {
-			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
-			pinfo->clk_rate =
-				(h_period * v_period
-					 * (mipi->frame_rate) * bpp * 8);
-		}
-	}
-	pll_divider_config.clk_rate = pinfo->clk_rate;
-
-	rc = mdss_dsi_clk_div_config(bpp, lanes, &dsi_pclk_rate);
+	rc = mdss_dsi_clk_div_config(pinfo, mipi->frame_rate);
 	if (rc) {
 		pr_err("%s: unable to initialize the clk dividers\n", __func__);
 		return rc;
 	}
-
-	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
-		dsi_pclk_rate = 35000000;
-	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
 	dsi_ctrl_np = of_parse_phandle(pan_node,
 				"qcom,mdss-dsi-panel-controller", 0);
@@ -1087,6 +1112,43 @@ int dsi_panel_device_register(struct device_node *pan_node,
 
 	ctrl_pdata->shared_pdata.broadcast_enable = of_property_read_bool(
 		pan_node, "qcom,mdss-dsi-panel-broadcast-mode");
+
+	dynamic_fps = of_property_read_bool(pan_node,
+					  "qcom,mdss-dsi-pan-enable-dynamic-fps");
+	if (dynamic_fps) {
+		pinfo->dynamic_fps = true;
+		data = of_get_property(pan_node,
+					  "qcom,mdss-dsi-pan-fps-update", NULL);
+		if (data) {
+			if (!strcmp(data, "dfps_suspend_resume_mode")) {
+				pinfo->dfps_update =
+						DFPS_SUSPEND_RESUME_MODE;
+				pr_debug("%s: dfps mode: suspend/resume\n",
+								__func__);
+			} else if (!strcmp(data,
+					    "dfps_immediate_clk_mode")) {
+				pinfo->dfps_update =
+						DFPS_IMMEDIATE_CLK_UPDATE_MODE;
+				pr_debug("%s: dfps mode: Immediate clk\n",
+								__func__);
+			} else {
+				pr_debug("%s: dfps to default mode\n",
+								__func__);
+				pinfo->dfps_update =
+						DFPS_SUSPEND_RESUME_MODE;
+				pr_debug("%s: dfps mode: suspend/resume\n",
+								__func__);
+			}
+		} else {
+			pr_debug("%s: dfps update mode not configured\n",
+								__func__);
+				pinfo->dynamic_fps =
+								false;
+				pr_debug("%s: dynamic FPS disabled\n",
+								__func__);
+		}
+		pinfo->new_fps = pinfo->mipi.frame_rate;
+	}
 
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 		"qcom,platform-enable-gpio", 0);
@@ -1219,7 +1281,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	 * register in mdp driver
 	 */
 
-	ctrl_pdata->pclk_rate = dsi_pclk_rate;
+	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
 	ctrl_pdata->byte_clk_rate = pinfo->clk_rate / 8;
 	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);

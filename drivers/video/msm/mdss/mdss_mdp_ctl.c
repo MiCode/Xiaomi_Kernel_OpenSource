@@ -428,6 +428,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->add_vsync_handler = NULL;
 	ctl->remove_vsync_handler = NULL;
 	ctl->panel_data = NULL;
+	ctl->config_fps_fnc = NULL;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
@@ -1227,11 +1228,19 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	u32 mixercfg = 0, blend_color_out = 0, bg_alpha_enable = 0;
 	u32 fg_alpha = 0, bg_alpha = 0;
 	int stage, secure = 0;
+	int screen_state;
+
+	screen_state = ctl->force_screen_state;
 
 	if (!mixer)
 		return -ENODEV;
 
 	pr_debug("setup mixer=%d\n", mixer->num);
+
+	if (screen_state == MDSS_SCREEN_FORCE_BLANK) {
+		mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+		goto update_mixer;
+	}
 
 	pipe = mixer->stage_pipe[MDSS_MDP_STAGE_BASE];
 	if (pipe == NULL) {
@@ -1340,6 +1349,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	if (mixer->cursor_enabled)
 		mixercfg |= MDSS_MDP_LM_CURSOR_OUT;
 
+update_mixer:
 	pr_debug("mixer=%d mixer_cfg=%x\n", mixer->num, mixercfg);
 
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
@@ -1601,6 +1611,16 @@ static int mdss_mdp_mixer_update(struct mdss_mdp_mixer *mixer)
 	return 0;
 }
 
+int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps)
+{
+	int ret = 0;
+
+	if (ctl->config_fps_fnc)
+		ret = ctl->config_fps_fnc(ctl, fps);
+
+	return ret;
+}
+
 int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 				 ktime_t *wakeup_time)
 {
@@ -1739,7 +1759,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	mixer2_changed = (ctl->mixer_right && ctl->mixer_right->params_changed);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	if (mixer1_changed || mixer2_changed) {
+	if (mixer1_changed || mixer2_changed
+			|| ctl->force_screen_state) {
 		perf_update = mdss_mdp_ctl_perf_update(ctl);
 
 		if (ctl->prepare_fnc)

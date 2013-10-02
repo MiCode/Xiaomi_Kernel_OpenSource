@@ -1465,6 +1465,96 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 	return rc;
 }
 
+static ssize_t dynamic_fps_sysfs_rda_dfps(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_panel_data *pdata;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data->ctl || !mdp5_data->ctl->power_on)
+		return 0;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected for fb%d\n", mfd->index);
+		return -ENODEV;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		       pdata->panel_info.mipi.frame_rate);
+	pr_debug("%s: '%d'\n", __func__,
+		pdata->panel_info.mipi.frame_rate);
+
+	return ret;
+} /* dynamic_fps_sysfs_rda_dfps */
+
+static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int dfps, rc = 0;
+	struct mdss_panel_data *pdata;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	rc = kstrtoint(buf, 10, &dfps);
+	if (rc) {
+		pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (!mdp5_data->ctl || !mdp5_data->ctl->power_on)
+		return 0;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected for fb%d\n", mfd->index);
+		return -ENODEV;
+	}
+
+	if (dfps == pdata->panel_info.mipi.frame_rate) {
+		pr_debug("%s: FPS is already %d\n",
+			__func__, dfps);
+		return count;
+	}
+
+	if (dfps < 30) {
+		pr_err("Unsupported FPS. Configuring to min_fps = 30\n");
+		dfps = 30;
+		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
+	} else if (dfps > 60) {
+		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
+		dfps = 60;
+		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
+	} else {
+		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
+	}
+	if (!rc) {
+		pr_info("%s: configured to '%d' FPS\n", __func__, dfps);
+	} else {
+		pr_err("Failed to configure '%d' FPS. rc = %d\n",
+							dfps, rc);
+		return rc;
+	}
+	pdata->panel_info.new_fps = dfps;
+	return count;
+} /* dynamic_fps_sysfs_wta_dfps */
+
+
+static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUSR, dynamic_fps_sysfs_rda_dfps,
+	dynamic_fps_sysfs_wta_dfps);
+
+static struct attribute *dynamic_fps_fs_attrs[] = {
+	&dev_attr_dynamic_fps.attr,
+	NULL,
+};
+static struct attribute_group dynamic_fps_fs_attrs_group = {
+	.attrs = dynamic_fps_fs_attrs,
+};
+
 static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2290,6 +2380,15 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		pr_err("vsync_event sysfs lookup failed\n");
 		rc = -ENODEV;
 		goto init_fail;
+	}
+
+	if (mfd->panel_info->type == MIPI_VIDEO_PANEL) {
+		rc = sysfs_create_group(&dev->kobj,
+			&dynamic_fps_fs_attrs_group);
+		if (rc) {
+			pr_err("Error dfps sysfs creation ret=%d\n", rc);
+			goto init_fail;
+		}
 	}
 
 	pm_runtime_set_suspended(&mfd->pdev->dev);
