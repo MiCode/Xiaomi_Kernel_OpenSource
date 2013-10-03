@@ -239,6 +239,8 @@ static struct smsm_state_info *smsm_states;
 static int smd_stream_write_avail(struct smd_channel *ch);
 static int smd_stream_read_avail(struct smd_channel *ch);
 
+static bool pid_is_on_edge(uint32_t edge_num, unsigned pid);
+
 static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr)
 {
@@ -631,8 +633,7 @@ static void scan_alloc_table(struct smd_alloc_elm *shared,
 		 * involved
 		 */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
-		if (type >= ARRAY_SIZE(edge_to_pids) ||
-				edge_to_pids[type].local_pid != SMD_APPS)
+		if (!pid_is_on_edge(type, SMD_APPS))
 			continue;
 		if (!shared[n].ref_count)
 			continue;
@@ -690,58 +691,33 @@ static void smd_channel_probe_worker(struct work_struct *work)
 }
 
 /**
- * Lookup processor ID and determine if it belongs to the proved edge
- * type.
+ * get_remote_ch() - gathers remote channel info
  *
  * @shared2:   Pointer to v2 shared channel structure
  * @type:      Edge type
  * @pid:       Processor ID of processor on edge
- * @local_ch:  Channel that belongs to processor @pid
- * @remote_ch: Other side of edge contained @pid
+ * @remote_ch:  Channel that belongs to processor @pid
  * @is_word_access_ch: Bool, is this a word aligned access channel
  *
- * Returns 0 for not on edge, 1 for found on edge
+ * @returns:		0 on success, error code on failure
  */
-static int pid_is_on_edge(void *shared2,
+static int get_remote_ch(void *shared2,
 		uint32_t type, uint32_t pid,
-		void **local_ch,
 		void **remote_ch,
 		int is_word_access_ch
 		)
 {
-	int ret = 0;
-	struct edge_to_pid *edge;
-	void *ch0;
-	void *ch1;
+	if (!remote_ch || !shared2 || !pid_is_on_edge(type, pid) ||
+				!pid_is_on_edge(type, SMD_APPS))
+		return -EINVAL;
 
-	*local_ch = 0;
-	*remote_ch = 0;
+	if (is_word_access_ch)
+		*remote_ch =
+			&((struct smd_shared_v2_word_access *)(shared2))->ch1;
+	else
+		*remote_ch = &((struct smd_shared_v2 *)(shared2))->ch1;
 
-	if (!shared2 || (type >= ARRAY_SIZE(edge_to_pids)))
-		return 0;
-
-	if (is_word_access_ch) {
-		ch0 = &((struct smd_shared_v2_word_access *)(shared2))->ch0;
-		ch1 = &((struct smd_shared_v2_word_access *)(shared2))->ch1;
-	} else {
-		ch0 = &((struct smd_shared_v2 *)(shared2))->ch0;
-		ch1 = &((struct smd_shared_v2 *)(shared2))->ch1;
-	}
-
-	edge = &edge_to_pids[type];
-	if (edge->local_pid != edge->remote_pid) {
-		if (pid == edge->local_pid) {
-			*local_ch = ch0;
-			*remote_ch = ch1;
-			ret = 1;
-		} else if (pid == edge->remote_pid) {
-			*local_ch = ch1;
-			*remote_ch = ch0;
-			ret = 1;
-		}
-	}
-
-	return ret;
+	return 0;
 }
 
 /**
@@ -847,7 +823,6 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 	unsigned n;
 	void *shared2;
 	uint32_t type;
-	void *local_ch;
 	void *remote_ch;
 	int is_word_access;
 	unsigned base_id;
@@ -881,21 +856,31 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 		if (!shared2)
 			continue;
 
-		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch,
-							is_word_access))
-			smd_reset_edge(local_ch, new_state, is_word_access);
-
-		/*
-		 * ModemFW is in the same subsystem as ModemSW, but has
-		 * separate SMD edges that need to be reset.
-		 */
-		if (pid == SMSM_MODEM &&
-				pid_is_on_edge(shared2, type, SMD_MODEM_Q6_FW,
-				 &local_ch, &remote_ch, is_word_access))
-			smd_reset_edge(local_ch, new_state, is_word_access);
+		if (!get_remote_ch(shared2, type, pid,
+					&remote_ch, is_word_access))
+			smd_reset_edge(remote_ch, new_state, is_word_access);
 	}
 }
 
+/**
+ * pid_is_on_edge() - checks to see if the processor with id pid is on the
+ * edge specified by edge_num
+ *
+ * @edge_num:		the number of the edge which is being tested
+ * @pid:		the id of the processor being tested
+ *
+ * @returns:		true if on edge, false otherwise
+ */
+static bool pid_is_on_edge(uint32_t edge_num, unsigned pid)
+{
+	struct edge_to_pid edge;
+
+	if (edge_num >= ARRAY_SIZE(edge_to_pids))
+		return 0;
+
+	edge = edge_to_pids[edge_num];
+	return (edge.local_pid == pid || edge.remote_pid == pid);
+}
 
 void smd_channel_reset(uint32_t restart_pid)
 {
@@ -943,14 +928,8 @@ void smd_channel_reset(uint32_t restart_pid)
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
-	/* notify SMD processors */
 	mb();
 	smd_fake_irq_handler(0);
-	notify_modem_smd(NULL);
-	notify_dsp_smd(NULL);
-	notify_dsps_smd(NULL);
-	notify_wcnss_smd(NULL);
-	notify_rpm_smd(NULL);
 
 	/* change all remote states to CLOSED */
 	mutex_lock(&smd_probe_lock);
@@ -963,14 +942,8 @@ void smd_channel_reset(uint32_t restart_pid)
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
-	/* notify SMD processors */
 	mb();
 	smd_fake_irq_handler(0);
-	notify_modem_smd(NULL);
-	notify_dsp_smd(NULL);
-	notify_dsps_smd(NULL);
-	notify_wcnss_smd(NULL);
-	notify_rpm_smd(NULL);
 
 	SMD_POWER_INFO("%s: finished reset\n", __func__);
 }
