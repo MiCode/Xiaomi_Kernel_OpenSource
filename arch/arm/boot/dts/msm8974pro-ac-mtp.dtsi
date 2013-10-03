@@ -46,6 +46,11 @@
 
 &soc {
 	i2c@f9924000 {
+		synaptics@20 {
+			vdd-supply = <&pma8084_l18>;
+			vcc_i2c-supply = <&pma8084_lvs1>;
+		};
+
 		atmel_mxt_ts@4a {
 			vdd_ana-supply = <&pma8084_l18>;
 			vcc_i2c-supply = <&pma8084_lvs1>;

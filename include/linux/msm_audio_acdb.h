@@ -63,6 +63,10 @@
 			(AUDIO_MAX_COMMON_IOCTL_NUM+28), unsigned)
 #define AUDIO_DEREGISTER_VOCPROC_VOL_TABLE	_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+29), unsigned)
+#define AUDIO_SET_HW_DELAY_RX	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+30), struct hw_delay)
+#define AUDIO_SET_HW_DELAY_TX	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+31), struct hw_delay)
 #define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+40)
 
 /* ACDB structures */
@@ -94,6 +98,11 @@ struct msm_spk_prot_cfg {
 struct msm_spk_prot_status {
 	int r0;
 	int status;
+};
+
+struct hw_delay {
+	uint32_t num_entries;
+	void *delay_info;
 };
 
 /* For Real-Time Audio Calibration */

@@ -136,10 +136,28 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	buf = __ion_secure_cma_allocate(heap, buffer, len, align, flags);
 
 	if (buf) {
+		int ret;
+
 		buf->secure.want_delayed_unsecure = 0;
 		atomic_set(&buf->secure.secure_cnt, 0);
 		mutex_init(&buf->secure.lock);
 		buf->secure.is_secure = 1;
+		buf->secure.ignore_check = true;
+
+		/*
+		 * make sure the size is set before trying to secure
+		 */
+		buffer->size = len;
+		ret = ion_cp_secure_buffer(buffer, ION_CP_V2, 0, 0);
+		if (ret) {
+			/*
+			 * Don't treat the secure buffer failing here as an
+			 * error for backwards compatibility reasons. If
+			 * the secure fails, the map will also fail so there
+			 * is no security risk.
+			 */
+			pr_debug("%s: failed to secure buffer\n", __func__);
+		}
 		return 0;
 	} else {
 		return -ENOMEM;
@@ -153,6 +171,8 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
+
+	ion_cp_unsecure_buffer(buffer, 1);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 	sg_free_table(info->table);

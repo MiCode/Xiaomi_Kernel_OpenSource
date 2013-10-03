@@ -502,7 +502,7 @@ static int msm_smd_probe_legacy(struct platform_device *pdev)
 		pr_err("smd_post_init() failed ret = %d\n", ret);
 		return ret;
 	}
-	smd_post_init(1);
+	smd_post_init(1, 0);
 
 	return 0;
 }

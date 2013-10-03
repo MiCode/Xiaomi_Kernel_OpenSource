@@ -130,7 +130,8 @@ Required properties :
 - interrupt-names : Required interrupt resource entries are:
             HSUSB EHCI expects "core_irq" and optionally "async_irq".
 - <supply-name>-supply: handle to the regulator device tree node
-  Required "supply-name" is "HSUSB_VDDCX" "HSUSB_1p8-supply" "HSUSB_3p3-supply".
+  Required "supply-name" is either "hsusb_vdd_dig" or "HSUSB_VDDCX"
+  "HSUSB_1p8-supply" "HSUSB_3p3-supply".
 - qcom,usb2-power-budget: maximum vbus power (in mA) that can be provided.
 
 Optional properties :
@@ -138,6 +139,15 @@ Optional properties :
 - qcom,resume-gpio: if present then peripheral connected to usb controller
   cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
   gpio to wakeup peripheral.
+- qcom,vdd-voltage-level: This property must be a list of five integer
+  values (no, 0.5vsuspend, 0.75suspend, min, max) where each value respresents
+  either a voltage in microvolts or a value corresponding to voltage corner.
+  First value represents value to vote when USB is not at all active, second
+  value represents value to vote when target is not connected to dock during low
+  power mode, third value represents vlaue to vote when target is connected to dock
+  and no peripheral connected over dock during low power mode, fourth value represents
+  minimum value to vote when USB is operational, fifth item represents maximum value
+  to vote for USB is operational.
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {
@@ -145,11 +155,12 @@ Example MSM HSUSB EHCI controller device node :
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
-		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,usb2-enable-hsphy2;
 		qcom,usb2-power-budget = <500>;
+		qcom,vdd-voltage-level = <1 2 3 5 7>;
 	};
 
 ANDROID USB:

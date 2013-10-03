@@ -230,7 +230,8 @@ enum {
 	MSM_SMSM_DEBUG = 1U << 1,
 	MSM_SMD_INFO = 1U << 2,
 	MSM_SMSM_INFO = 1U << 3,
-	MSM_SMx_POWER_INFO = 1U << 4,
+	MSM_SMD_POWER_INFO = 1U << 4,
+	MSM_SMSM_POWER_INFO = 1U << 5,
 };
 
 struct interrupt_config {
@@ -261,7 +262,7 @@ extern irqreturn_t smsm_wcnss_irq_handler(int irq, void *data);
 extern irqreturn_t smd_rpm_irq_handler(int irq, void *data);
 
 extern int msm_smd_driver_register(void);
-extern void smd_post_init(bool is_legacy);
+extern void smd_post_init(bool is_legacy, unsigned remote_pid);
 extern int smsm_post_init(void);
 
 extern struct interrupt_config *smd_get_intr_config(uint32_t edge);

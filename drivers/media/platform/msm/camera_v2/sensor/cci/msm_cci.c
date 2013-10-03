@@ -26,6 +26,8 @@
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
+#define CYCLES_PER_MICRO_SEC 4915
+#define CCI_MAX_DELAY 10000
 
 #define CCI_TIMEOUT msecs_to_jiffies(100)
 
@@ -178,13 +180,13 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 {
 	uint16_t i = 0, j = 0, k = 0, h = 0, len = 0;
 	int32_t rc = 0;
-	uint32_t cmd = 0;
+	uint32_t cmd = 0, delay = 0;
 	uint8_t data[10];
 	uint16_t reg_addr = 0;
-	struct msm_camera_cci_i2c_write_cfg *i2c_msg =
+	struct msm_camera_i2c_reg_setting *i2c_msg =
 		&c_ctrl->cfg.cci_i2c_write_cfg;
 	uint16_t cmd_size = i2c_msg->size;
-	struct msm_camera_i2c_reg_conf *i2c_cmd = i2c_msg->reg_conf_tbl;
+	struct msm_camera_i2c_reg_array *i2c_cmd = i2c_msg->reg_setting;
 	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 
 	if (i2c_cmd == NULL) {
@@ -213,6 +215,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 	while (cmd_size) {
 		CDBG("%s cmd_size %d addr 0x%x data 0x%x", __func__,
 			cmd_size, i2c_cmd->reg_addr, i2c_cmd->reg_data);
+		delay = i2c_cmd->delay;
 		data[i++] = CCI_I2C_WRITE_CMD;
 		if (i2c_cmd->reg_addr)
 			reg_addr = i2c_cmd->reg_addr;
@@ -251,6 +254,17 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 			cmd = 0;
 			for (j = 0; (j < 4 && k < i); j++)
 				cmd |= (data[k++] << (j * 8));
+			CDBG("%s CCI_I2C_M0_Q0_LOAD_DATA_ADDR 0x%x\n",
+				__func__, cmd);
+			msm_camera_io_w(cmd, cci_dev->base +
+				CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
+				master * 0x200 + queue * 0x100);
+		}
+		if ((delay > 0) && (delay < CCI_MAX_DELAY)) {
+			cmd = (uint32_t)((delay * CYCLES_PER_MICRO_SEC) /
+				0x100);
+			cmd <<= 4;
+			cmd |= CCI_I2C_WAIT_CMD;
 			CDBG("%s CCI_I2C_M0_Q0_LOAD_DATA_ADDR 0x%x\n",
 				__func__, cmd);
 			msm_camera_io_w(cmd, cci_dev->base +
