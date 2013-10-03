@@ -118,6 +118,12 @@
 	status = "ok";
 };
 
+&blsp2_uart4 {
+	qcom,tx-gpio = <&msmgpio 112 0>;
+	qcom,rx-gpio = <&msmgpio 113 0>;
+	status = "ok";
+};
+
 /* CoreSight */
 &tpiu {
 	qcom,seta-gpios = <&msmgpio 4 0>,

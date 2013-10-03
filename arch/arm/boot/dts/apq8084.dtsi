@@ -202,6 +202,20 @@
 				<86 512 500 800>;
 	};
 
+	blsp2_uart4: uart@f9961000 { /* BLSP2 UART4 */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9961000 0x1000>;
+		interrupts = <0 117 0>;
+		status = "disabled";
+
+		qcom,msm-bus,name = "blsp2_uart4";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
+	};
+
 	qcom,cache_erp {
 		compatible = "qcom,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
