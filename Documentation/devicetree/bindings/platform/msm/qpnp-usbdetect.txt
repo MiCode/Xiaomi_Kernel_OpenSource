@@ -1,0 +1,24 @@
+QPNP External USB VBUS Detection Circuit
+
+Discrete USB VBUS detection circuitry can be connected to Qualcomm PMICs.
+Such circuits can be used to detect the when a USB cable is connected to
+an upstream port such as a standard host or a wall charger by detecting
+the presence of VBUS voltage. The PMIC is notified by a detection event
+via SPMI bus interrupt. A software driver can in turn notify the USB
+subsytem using the power_supply framework.
+
+Required Properties:
+ - compatible: must be "qcom,qpnp-usbdetect"
+ - interrupts: an interrupt triggered by the output of the detection circuit
+ - interrupt-names: must be "vbus_det_irq"
+ - vin-supply: phandle to a regulator that supplies 5V to this circuit
+
+Example:
+
+	usb_detect {
+		compatible = "qcom,qpnp-usbdetect";
+                interrupt-parent = <&spmi_bus>;
+                interrupts = <0x0 0xCA 0x0>;  /* PMA8084 GPIO 11 */
+                interrupt-names = "vbus_det_irq";
+                vin-supply = <&vbus_det_reg>;
+	};

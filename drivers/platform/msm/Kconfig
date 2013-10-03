@@ -91,6 +91,16 @@ config QPNP_COINCELL
 	  maintain PMIC register state when the main battery is removed from the
 	  mobile device.
 
+config QPNP_USB_DETECT
+	tristate "Qualcomm QPNP USB VBUS Detection"
+	depends on POWER_SUPPLY
+	help
+	  This driver supports external USB VBUS detection circuitry which
+	  can be connected to Qualcomm QPNP PMIC devices.  The driver will
+	  configure a GPIO from the detector's output line and in turn notify
+	  the USB driver of VBUS presence/disconnection using the power_supply
+	  framework.
+
 config IPA
 	tristate "IPA support"
 	depends on SPS
