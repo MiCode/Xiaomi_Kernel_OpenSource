@@ -104,8 +104,7 @@ static void rcg_update_config(struct rcg_clk *rcg)
 		udelay(1);
 	}
 
-	WARN(count == 0, "%s: rcg didn't update its configuration.",
-		rcg->c.dbg_name);
+	CLK_WARN(&rcg->c, count == 0, "rcg didn't update its configuration.");
 }
 
 /* RCG set rate function for clocks with Half Integer Dividers. */
@@ -323,6 +322,41 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 	return _rcg_clk_handoff(to_rcg_clk(c));
 }
 
+static void __iomem *rcg_hid_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	static struct clk_register_data data[] = {
+		{"CMD_RCGR", 0x0},
+		{"CFG_RCGR", 0x4},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return CMD_RCGR_REG(rcg);
+}
+
+static void __iomem *rcg_mnd_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	static struct clk_register_data data[] = {
+		{"CMD_RCGR", 0x0},
+		{"CFG_RCGR", 0x4},
+		{"M_VAL", 0x8},
+		{"N_VAL", 0xC},
+		{"D_VAL", 0x10},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return CMD_RCGR_REG(rcg);
+}
+
 #define BRANCH_CHECK_MASK	BM(31, 28)
 #define BRANCH_ON_VAL		BVAL(31, 28, 0x0)
 #define BRANCH_OFF_VAL		BVAL(31, 28, 0x8)
@@ -331,9 +365,8 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 /*
  * Branch clock functions
  */
-static void branch_clk_halt_check(u32 halt_check, const char *clk_name,
-				  void __iomem *cbcr_reg,
-				  enum branch_state br_status)
+static void branch_clk_halt_check(struct clk *c, u32 halt_check,
+			void __iomem *cbcr_reg, enum branch_state br_status)
 {
 	char *status_str = (br_status == BRANCH_ON) ? "off" : "on";
 
@@ -367,7 +400,7 @@ static void branch_clk_halt_check(u32 halt_check, const char *clk_name,
 			};
 			udelay(1);
 		}
-		WARN(count == 0, "%s status stuck %s", clk_name, status_str);
+		CLK_WARN(c, count == 0, "status stuck %s", status_str);
 	}
 }
 
@@ -384,8 +417,8 @@ static int branch_clk_enable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	/* Wait for clock to enable before continuing. */
-	branch_clk_halt_check(branch->halt_check, branch->c.dbg_name,
-				CBCR_REG(branch), BRANCH_ON);
+	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
+				BRANCH_ON);
 
 	return 0;
 }
@@ -403,8 +436,8 @@ static void branch_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	/* Wait for clock to disable before continuing. */
-	branch_clk_halt_check(branch->halt_check, branch->c.dbg_name,
-				CBCR_REG(branch), BRANCH_OFF);
+	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
+				BRANCH_OFF);
 }
 
 static int branch_cdiv_set_rate(struct branch_clk *branch, unsigned long rate)
@@ -591,6 +624,21 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	return ret;
 }
 
+static void __iomem *branch_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct branch_clk *branch = to_branch_clk(c);
+	static struct clk_register_data data[] = {
+		{"CBCR", 0x0},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return CBCR_REG(branch);
+}
+
 /*
  * Voteable clock functions
  */
@@ -618,8 +666,7 @@ static int local_vote_clk_enable(struct clk *c)
 	writel_relaxed(ena, VOTE_REG(vclk));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
-	branch_clk_halt_check(vclk->halt_check, c->dbg_name, CBCR_REG(vclk),
-				BRANCH_ON);
+	branch_clk_halt_check(c, vclk->halt_check, CBCR_REG(vclk), BRANCH_ON);
 
 	return 0;
 }
@@ -654,6 +701,31 @@ struct frac_entry {
 	int num;
 	int den;
 };
+
+static void __iomem *local_vote_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct local_vote_clk *vclk = to_local_vote_clk(c);
+	static struct clk_register_data data1[] = {
+		{"CBCR", 0x0},
+	};
+	static struct clk_register_data data2[] = {
+		{"APPS_VOTE", 0x0},
+		{"APPS_SLEEP_VOTE", 0x4},
+	};
+	switch (n) {
+	case 0:
+		*regs = data1;
+		*size = ARRAY_SIZE(data1);
+		return CBCR_REG(vclk);
+	case 1:
+		*regs = data2;
+		*size = ARRAY_SIZE(data2);
+		return VOTE_REG(vclk);
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+}
 
 static struct frac_entry frac_table_675m[] = {	/* link rate of 270M */
 	{52, 295},	/* 119 M */
@@ -962,6 +1034,21 @@ static void gate_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
+static void __iomem *gate_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct gate_clk *g = to_gate_clk(c);
+	static struct clk_register_data data[] = {
+		{"EN_REG", 0x0},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return GATE_EN_REG(g);
+}
+
 static enum handoff gate_clk_handoff(struct clk *c)
 {
 	struct gate_clk *g = to_gate_clk(c);
@@ -997,6 +1084,7 @@ struct clk_ops clk_ops_rcg = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
 	.get_parent = rcg_clk_get_parent,
+	.list_registers = rcg_hid_clk_list_registers,
 };
 
 struct clk_ops clk_ops_rcg_mnd = {
@@ -1006,6 +1094,7 @@ struct clk_ops clk_ops_rcg_mnd = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_mnd_clk_handoff,
 	.get_parent = rcg_mnd_clk_get_parent,
+	.list_registers = rcg_mnd_clk_list_registers,
 };
 
 struct clk_ops clk_ops_pixel = {
@@ -1014,6 +1103,7 @@ struct clk_ops clk_ops_pixel = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = round_rate_pixel,
 	.handoff = pixel_rcg_handoff,
+	.list_registers = rcg_mnd_clk_list_registers,
 };
 
 struct clk_ops clk_ops_edppixel = {
@@ -1022,6 +1112,7 @@ struct clk_ops clk_ops_edppixel = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = pixel_rcg_handoff,
+	.list_registers = rcg_mnd_clk_list_registers,
 };
 
 struct clk_ops clk_ops_byte = {
@@ -1030,6 +1121,7 @@ struct clk_ops clk_ops_byte = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = byte_rcg_handoff,
+	.list_registers = rcg_hid_clk_list_registers,
 };
 
 struct clk_ops clk_ops_rcg_hdmi = {
@@ -1039,6 +1131,7 @@ struct clk_ops clk_ops_rcg_hdmi = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
 	.get_parent = rcg_clk_get_parent,
+	.list_registers = rcg_hid_clk_list_registers,
 };
 
 struct clk_ops clk_ops_rcg_edp = {
@@ -1048,6 +1141,7 @@ struct clk_ops clk_ops_rcg_edp = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
 	.get_parent = edp_clk_get_parent,
+	.list_registers = rcg_hid_clk_list_registers,
 };
 
 struct clk_ops clk_ops_branch = {
@@ -1060,6 +1154,7 @@ struct clk_ops clk_ops_branch = {
 	.reset = branch_clk_reset,
 	.set_flags = branch_clk_set_flags,
 	.handoff = branch_clk_handoff,
+	.list_registers = branch_clk_list_registers,
 };
 
 struct clk_ops clk_ops_vote = {
@@ -1067,10 +1162,12 @@ struct clk_ops clk_ops_vote = {
 	.disable = local_vote_clk_disable,
 	.reset = local_vote_clk_reset,
 	.handoff = local_vote_clk_handoff,
+	.list_registers = local_vote_clk_list_registers,
 };
 
 struct clk_ops clk_ops_gate = {
 	.enable = gate_clk_enable,
 	.disable = gate_clk_disable,
 	.handoff = gate_clk_handoff,
+	.list_registers = gate_clk_list_registers,
 };
