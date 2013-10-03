@@ -150,8 +150,8 @@ struct iommu_access_ops {
 	int (*iommu_clk_on)(struct msm_iommu_drvdata *);
 	void (*iommu_clk_off)(struct msm_iommu_drvdata *);
 	void * (*iommu_lock_initialize)(void);
-	void (*iommu_lock_acquire)(void);
-	void (*iommu_lock_release)(void);
+	void (*iommu_lock_acquire)(unsigned int need_extra_lock);
+	void (*iommu_lock_release)(unsigned int need_extra_lock);
 };
 
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
@@ -283,16 +283,18 @@ static inline struct iommu_access_ops *msm_get_iommu_access_ops(void)
 #endif
 
 #ifdef CONFIG_MSM_IOMMU_SYNC
-void msm_iommu_remote_p0_spin_lock(void);
-void msm_iommu_remote_p0_spin_unlock(void);
+void msm_iommu_remote_p0_spin_lock(unsigned int need_lock);
+void msm_iommu_remote_p0_spin_unlock(unsigned int need_lock);
 
 #define msm_iommu_remote_lock_init() _msm_iommu_remote_spin_lock_init()
-#define msm_iommu_remote_spin_lock() msm_iommu_remote_p0_spin_lock()
-#define msm_iommu_remote_spin_unlock() msm_iommu_remote_p0_spin_unlock()
+#define msm_iommu_remote_spin_lock(need_lock) \
+				msm_iommu_remote_p0_spin_lock(need_lock)
+#define msm_iommu_remote_spin_unlock(need_lock) \
+				msm_iommu_remote_p0_spin_unlock(need_lock)
 #else
 #define msm_iommu_remote_lock_init()
-#define msm_iommu_remote_spin_lock()
-#define msm_iommu_remote_spin_unlock()
+#define msm_iommu_remote_spin_lock(need_lock)
+#define msm_iommu_remote_spin_unlock(need_lock)
 #endif
 
 #ifdef CONFIG_MSM_IOMMU

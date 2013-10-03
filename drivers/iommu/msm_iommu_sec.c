@@ -194,7 +194,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	struct msm_scm_fault_regs_dump *regs;
 	int tmp, ret = IRQ_HANDLED;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	BUG_ON(!pdev);
 
@@ -266,7 +266,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 free_regs:
 	kfree(regs);
 lock_release:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 	return ret;
 }
 
@@ -510,12 +510,12 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 	priv = domain->priv;
 	domain->priv = NULL;
 
 	kfree(priv);
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 }
 
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -526,7 +526,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	int ret = 0;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	priv = domain->priv;
 	if (!priv || !dev) {
@@ -582,12 +582,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ctx_drvdata->attached_domain = domain;
 	++iommu_drvdata->ctx_attach_count;
 
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 
 	msm_iommu_attached(dev->parent);
 	return ret;
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 	return ret;
 }
 
@@ -599,7 +599,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	msm_iommu_detached(dev->parent);
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 	if (!dev)
 		goto fail;
 
@@ -615,7 +615,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	BUG_ON(iommu_drvdata->ctx_attach_count == 0);
 	--iommu_drvdata->ctx_attach_count;
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 }
 
 static int get_drvdata(struct iommu_domain *domain,
@@ -645,7 +645,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
@@ -656,7 +656,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 					va, pa, len);
 	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 	return ret;
 }
 
@@ -667,7 +667,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = -ENODEV;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
@@ -678,7 +678,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 					va, len);
 	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 
 	/* the IOMMU API requires us to return how many bytes were unmapped */
 	len = ret ? 0 : len;
@@ -693,7 +693,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
@@ -703,7 +703,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 						va, sg, len);
 	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 	return ret;
 }
 
@@ -715,7 +715,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
 
-	iommu_access_ops->iommu_lock_acquire();
+	iommu_access_ops->iommu_lock_acquire(0);
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
@@ -726,7 +726,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 
 fail:
-	iommu_access_ops->iommu_lock_release();
+	iommu_access_ops->iommu_lock_release(0);
 	return 0;
 }
 

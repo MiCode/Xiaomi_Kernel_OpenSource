@@ -188,11 +188,11 @@ static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 
 	if (event_class == MSM_IOMMU_PMU_NO_EVENT_CLASS) {
 		if (iommu->hw_ops->is_hw_access_OK(pmon)) {
-			iommu->ops->iommu_lock_acquire();
+			iommu->ops->iommu_lock_acquire(1);
 			iommu->hw_ops->counter_disable(iommu, counter);
 			iommu->hw_ops->ovfl_int_disable(iommu, counter);
 			iommu->hw_ops->set_event_class(pmon, count_no, 0);
-			iommu->ops->iommu_lock_release();
+			iommu->ops->iommu_lock_release(1);
 		}
 		counter->overflow_count = 0;
 		counter->value = 0;
@@ -200,12 +200,12 @@ static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 		counter->overflow_count = 0;
 		counter->value = 0;
 		if (iommu->hw_ops->is_hw_access_OK(pmon)) {
-			iommu->ops->iommu_lock_acquire();
+			iommu->ops->iommu_lock_acquire(1);
 			iommu->hw_ops->set_event_class(pmon, count_no,
 					event_class);
 			iommu->hw_ops->ovfl_int_enable(iommu, counter);
 			iommu->hw_ops->counter_enable(iommu, counter);
-			iommu->ops->iommu_lock_release();
+			iommu->ops->iommu_lock_release(1);
 		}
 	}
 }
@@ -261,9 +261,9 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 	iommu->ops->iommu_clk_on(iommu_drvdata);
 
 	/* Reset counters in HW */
-	iommu->ops->iommu_lock_acquire();
+	iommu->ops->iommu_lock_acquire(1);
 	iommu->hw_ops->reset_counters(&pmon->iommu);
-	iommu->ops->iommu_lock_release();
+	iommu->ops->iommu_lock_release(1);
 
 	/* Reset SW counters */
 	iommu_pm_reset_counts(pmon);
@@ -272,7 +272,7 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 
 	iommu_pm_set_all_counters(pmon);
 
-	iommu->ops->iommu_lock_acquire();
+	iommu->ops->iommu_lock_acquire(1);
 
 	/* enable all counter group */
 	for (i = 0; i < pmon->num_groups; ++i)
@@ -280,7 +280,7 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 
 	/* enable global counters */
 	iommu->hw_ops->enable_pm(iommu);
-	iommu->ops->iommu_lock_release();
+	iommu->ops->iommu_lock_release(1);
 
 	pr_info("%s: TLB performance monitoring turned ON\n",
 		pmon->iommu.iommu_name);
@@ -295,7 +295,7 @@ static void iommu_pm_off(struct iommu_pmon *pmon)
 
 	pmon->enabled = 0;
 
-	iommu->ops->iommu_lock_acquire();
+	iommu->ops->iommu_lock_acquire(1);
 
 	/* disable global counters */
 	iommu->hw_ops->disable_pm(iommu);
@@ -310,7 +310,7 @@ static void iommu_pm_off(struct iommu_pmon *pmon)
 	/* Update cached copy of counters before turning off power */
 	iommu_pm_read_all_counters(pmon);
 
-	iommu->ops->iommu_lock_release();
+	iommu->ops->iommu_lock_release(1);
 	iommu->ops->iommu_clk_off(iommu_drvdata);
 	iommu->ops->iommu_bus_vote(iommu_drvdata, 0);
 	iommu->ops->iommu_power_off(iommu_drvdata);
@@ -341,9 +341,9 @@ static ssize_t iommu_pm_count_value_read(struct file *fp,
 	mutex_lock(&pmon->lock);
 
 	if (iommu->hw_ops->is_hw_access_OK(pmon)) {
-		iommu->ops->iommu_lock_acquire();
+		iommu->ops->iommu_lock_acquire(1);
 		counter->value = iommu->hw_ops->read_counter(counter);
-		iommu->ops->iommu_lock_release();
+		iommu->ops->iommu_lock_release(1);
 	}
 	full_count = (unsigned long long) counter->value +
 		     ((unsigned long long)counter->overflow_count *
@@ -448,9 +448,9 @@ static ssize_t iommu_reset_counters_write(struct file *fp,
 		rv = kstrtoul(buf, 10, &cmd);
 		if (!rv && (cmd == 1)) {
 			if (iommu->hw_ops->is_hw_access_OK(pmon)) {
-				iommu->ops->iommu_lock_acquire();
+				iommu->ops->iommu_lock_acquire(1);
 				iommu->hw_ops->reset_counters(&pmon->iommu);
-				iommu->ops->iommu_lock_release();
+				iommu->ops->iommu_lock_release(1);
 			}
 			iommu_pm_reset_counts(pmon);
 			pr_info("TLB performance counters reset\n");
