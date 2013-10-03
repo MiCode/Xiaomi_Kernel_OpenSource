@@ -63,6 +63,10 @@ Required properties:
 Optional properties:
 - qcom,mdss-dsi-panel-name:		A string used as a descriptive name of the panel
 - qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
+					If this property is specified, it is required to
+					to specify the memory reserved for the splash
+					screen using the qcom,memblock-reserve binding
+					for the framebuffer device attached to the panel.
 - qcom,mdss-dsi-panel-broadcast-mode:	Boolean used to enable broadcast mode.
 - qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
 - qcom,mdss-dsi-fbc-bpp:		Compressed bpp supported by the panel.
