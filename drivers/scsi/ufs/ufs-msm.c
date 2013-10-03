@@ -331,9 +331,11 @@ struct msm_ufs_phy {
 	void __iomem *mmio;
 	struct clk *tx_iface_clk;
 	struct clk *rx_iface_clk;
+	bool is_iface_clk_enabled;
 	struct clk *ref_clk_src;
 	struct clk *ref_clk_parent;
 	struct clk *ref_clk;
+	bool is_ref_clk_enabled;
 	struct msm_ufs_phy_vreg vdda_pll;
 	struct msm_ufs_phy_vreg vdda_phy;
 };
@@ -975,6 +977,95 @@ out:
 	return phy;
 }
 
+/* Turn ON M-PHY RMMI interface clocks */
+static int msm_ufs_enable_phy_iface_clk(struct msm_ufs_phy *phy)
+{
+	int ret = 0;
+
+	if (phy->is_iface_clk_enabled)
+		goto out;
+
+	ret = clk_prepare_enable(phy->tx_iface_clk);
+	if (ret)
+		goto out;
+	ret = clk_prepare_enable(phy->rx_iface_clk);
+	if (ret)
+		goto disable_tx_iface_clk;
+
+	phy->is_iface_clk_enabled = true;
+
+disable_tx_iface_clk:
+	if (ret)
+		clk_disable_unprepare(phy->tx_iface_clk);
+out:
+	if (ret)
+		dev_err(phy->dev, "%s: iface_clk enable failed %d\n",
+				__func__, ret);
+	return ret;
+}
+
+/* Turn OFF M-PHY RMMI interface clocks */
+static void msm_ufs_disable_phy_iface_clk(struct msm_ufs_phy *phy)
+{
+	if (phy->is_iface_clk_enabled) {
+		clk_disable_unprepare(phy->tx_iface_clk);
+		clk_disable_unprepare(phy->rx_iface_clk);
+		phy->is_iface_clk_enabled = false;
+	}
+}
+
+static int msm_ufs_enable_phy_ref_clk(struct msm_ufs_phy *phy)
+{
+	int ret = 0;
+
+	if (phy->is_ref_clk_enabled)
+		goto out;
+
+	/*
+	 * reference clock is propagated in a daisy-chained manner from
+	 * source to phy, so ungate them at each stage.
+	 */
+	ret = clk_prepare_enable(phy->ref_clk_src);
+	if (ret) {
+		dev_err(phy->dev, "%s: ref_clk_src enable failed %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	ret = clk_prepare_enable(phy->ref_clk_parent);
+	if (ret) {
+		dev_err(phy->dev, "%s: ref_clk_parent enable failed %d\n",
+				__func__, ret);
+		goto out_disable_src;
+	}
+
+	ret = clk_prepare_enable(phy->ref_clk);
+	if (ret) {
+		dev_err(phy->dev, "%s: ref_clk enable failed %d\n",
+				__func__, ret);
+		goto out_disable_parent;
+	}
+	goto out;
+
+out_disable_parent:
+	clk_disable_unprepare(phy->ref_clk_parent);
+out_disable_src:
+	clk_disable_unprepare(phy->ref_clk_src);
+out:
+	return ret;
+}
+
+static void msm_ufs_disable_phy_ref_clk(struct msm_ufs_phy *phy)
+{
+	if (phy->is_ref_clk_enabled) {
+		clk_disable_unprepare(phy->ref_clk);
+		clk_disable_unprepare(phy->ref_clk_parent);
+		clk_disable_unprepare(phy->ref_clk_src);
+		phy->is_ref_clk_enabled = false;
+	}
+}
+
+
 static int msm_ufs_phy_cfg_vreg(struct device *dev,
 				struct msm_ufs_phy_vreg *vreg, bool on)
 {
@@ -1152,55 +1243,18 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 	if (err)
 		goto out_disable_phy;
 
-	/*
-	 * reference clock is propagated in a daisy-chained manner from
-	 * source to phy, so ungate them at each stage.
-	 */
-	err = clk_prepare_enable(phy->ref_clk_src);
-	if (err) {
-		dev_err(phy->dev, "%s: ref_clk_src enable failed %d\n",
-				__func__, err);
+	err = msm_ufs_enable_phy_ref_clk(phy);
+	if (err)
 		goto out_disable_pll;
-	}
 
-	err = clk_prepare_enable(phy->ref_clk_parent);
-	if (err) {
-		dev_err(phy->dev, "%s: ref_clk_parent enable failed %d\n",
-				__func__, err);
-		goto out_disable_src;
-	}
-
-	err = clk_prepare_enable(phy->ref_clk);
-	if (err) {
-		dev_err(phy->dev, "%s: ref_clk enable failed %d\n",
-				__func__, err);
-		goto out_disable_parent;
-	}
-
-	err = clk_prepare_enable(phy->tx_iface_clk);
-	if (err) {
-		dev_err(phy->dev, "%s: tx_iface_clk enable failed %d\n",
-				__func__, err);
+	err = msm_ufs_enable_phy_iface_clk(phy);
+	if (err)
 		goto out_disable_ref;
-	}
-
-	err = clk_prepare_enable(phy->rx_iface_clk);
-	if (err) {
-		dev_err(phy->dev, "%s: rx_iface_clk enable failed %d\n",
-				__func__, err);
-		goto out_disable_tx;
-	}
 
 	goto out;
 
-out_disable_tx:
-	clk_disable_unprepare(phy->tx_iface_clk);
 out_disable_ref:
-	clk_disable_unprepare(phy->ref_clk);
-out_disable_parent:
-	clk_disable_unprepare(phy->ref_clk_parent);
-out_disable_src:
-	clk_disable_unprepare(phy->ref_clk_src);
+	msm_ufs_disable_phy_ref_clk(phy);
 out_disable_pll:
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
 out_disable_phy:
@@ -1214,11 +1268,8 @@ static int msm_ufs_phy_power_off(struct msm_ufs_phy *phy)
 	writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 	mb();
 
-	clk_disable_unprepare(phy->rx_iface_clk);
-	clk_disable_unprepare(phy->tx_iface_clk);
-	clk_disable_unprepare(phy->ref_clk);
-	clk_disable_unprepare(phy->ref_clk_parent);
-	clk_disable_unprepare(phy->ref_clk_src);
+	msm_ufs_disable_phy_iface_clk(phy);
+	msm_ufs_disable_phy_ref_clk(phy);
 
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
@@ -1338,6 +1389,49 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 	return 0;
 }
 
+static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+{
+	struct msm_ufs_phy *phy = hba->priv;
+	int ret = 0;
+
+	if (!phy)
+		return 0;
+
+	if (ufshcd_is_link_off(hba)) {
+		msm_ufs_phy_power_off(phy);
+		goto out;
+	}
+
+	/* M-PHY RMMI interface clocks can be turned off */
+	msm_ufs_disable_phy_iface_clk(phy);
+
+	/*
+	 * If UniPro link is not active, PHY ref_clk and main PHY analog power
+	 * can be switched off.
+	 */
+	if (!ufshcd_is_link_active(hba)) {
+		msm_ufs_disable_phy_ref_clk(phy);
+		ret = msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
+		/*
+		 * TODO: Check if "vdda_pll" can voted off when link is hibern8
+		 * or power off state?
+		 */
+	}
+
+out:
+	return ret;
+}
+
+static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+{
+	struct msm_ufs_phy *phy = hba->priv;
+
+	if (!phy)
+		return 0;
+
+	return msm_ufs_phy_power_on(phy);
+}
+
 #define UFS_HW_VER_MAJOR_SHFT	(28)
 #define UFS_HW_VER_MAJOR_MASK	(0x000F << UFS_HW_VER_MAJOR_SHFT)
 #define UFS_HW_VER_MINOR_SHFT	(16)
@@ -1374,7 +1468,8 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_BROKEN_VER_REG_1_1
 			      | UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0
 			      | UFSHCD_QUIRK_BROKEN_DEVICE_Q_CMND
-			      | UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE);
+			      | UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE
+			      | UFSHCD_QUIRK_BROKEN_SUSPEND);
 }
 
 /**
@@ -1404,6 +1499,30 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->priv = NULL;
 
 	msm_ufs_advertise_quirks(hba);
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_SUSPEND) {
+		/*
+		 * During runtime suspend and system suspend keep the device
+		 * and the link active but shut-off the system clocks.
+		 */
+		hba->rpm_lvl = UFS_PM_LVL_0;
+		hba->spm_lvl = UFS_PM_LVL_0;
+
+	} else if (hba->quirks & UFSHCD_QUIRK_BROKEN_HIBERN8) {
+		/*
+		 * During runtime suspend, keep link active but put device in
+		 * sleep state.
+		 * During system suspend, power off both link and device.
+		 */
+		hba->rpm_lvl = UFS_PM_LVL_2;
+		hba->spm_lvl = UFS_PM_LVL_4;
+	} else {
+		/*
+		 * During runtime & system suspend, put link in Hibern8 and
+		 * device in sleep.
+		 */
+		hba->rpm_lvl = UFS_PM_LVL_3;
+		hba->spm_lvl = UFS_PM_LVL_3;
+	}
 out:
 	return err;
 }
@@ -1564,6 +1683,8 @@ const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
 	.exit                   = msm_ufs_exit,
 	.hce_enable_notify      = msm_ufs_hce_enable_notify,
 	.link_startup_notify    = msm_ufs_link_startup_notify,
+	.suspend		= msm_ufs_suspend,
+	.resume			= msm_ufs_resume,
 };
 EXPORT_SYMBOL(ufs_hba_msm_vops);
 
