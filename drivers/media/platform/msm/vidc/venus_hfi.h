@@ -144,21 +144,6 @@ struct hal_data {
 	u8 *register_base_addr;
 };
 
-enum vidc_clocks {
-	VCODEC_CLK,
-	VCODEC_AHB_CLK,
-	VCODEC_AXI_CLK,
-	VCODEC_OCMEM_CLK,
-	VCODEC_MAX_CLKS
-};
-
-struct venus_core_clock {
-	char name[VIDC_MAX_NAME_LENGTH];
-	struct clk *clk;
-	u32 count;
-	struct load_freq_table load_freq_tbl[8];
-};
-
 struct venus_bus_info {
 	u32 ddr_handle[MSM_VIDC_MAX_DEVICES];
 	u32 ocmem_handle[MSM_VIDC_MAX_DEVICES];
@@ -172,7 +157,6 @@ struct on_chip_mem {
 
 struct venus_resources {
 	struct msm_vidc_fw fw;
-	struct venus_core_clock clock[VCODEC_MAX_CLKS];
 	struct venus_bus_info bus_info;
 	struct on_chip_mem ocmem;
 };
@@ -186,7 +170,6 @@ struct venus_hfi_device {
 	u32 bus_load[MSM_VIDC_MAX_DEVICES];
 	u32 clocks_enabled;
 	u32 power_enabled;
-	enum vidc_clocks clk_gating_level;
 	struct mutex read_lock;
 	struct mutex write_lock;
 	struct mutex clk_pwr_lock;
@@ -209,7 +192,6 @@ struct venus_hfi_device {
 	u32 irq;
 	struct venus_resources resources;
 	struct msm_vidc_platform_resources *res;
-	struct regulator *gdsc;
 };
 
 void venus_hfi_delete_device(void *device);

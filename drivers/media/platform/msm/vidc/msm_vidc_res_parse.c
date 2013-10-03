@@ -17,6 +17,11 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_res_parse.h"
 
+enum clock_properties {
+	CLOCK_PROP_HAS_SCALING = 1 << 0,
+	CLOCK_PROP_HAS_SW_POWER_COLLAPSE = 1 << 1,
+};
+
 struct master_slave {
 	int masters_ocmem[2];
 	int masters_ddr[2];
@@ -157,9 +162,36 @@ static inline void msm_vidc_free_buffer_usage_table(
 	res->buffer_usage_set.buffer_usage_tbl = NULL;
 }
 
+static inline void msm_vidc_free_regulator_table(
+			struct msm_vidc_platform_resources *res)
+{
+	int c = 0;
+	for (c = 0; c < res->regulator_set.count; ++c) {
+		struct regulator_info *rinfo =
+			&res->regulator_set.regulator_tbl[c];
+
+		kfree(rinfo->name);
+		rinfo->name = NULL;
+	}
+
+	kfree(res->regulator_set.regulator_tbl);
+	res->regulator_set.regulator_tbl = NULL;
+	res->regulator_set.count = 0;
+}
+
+static inline void msm_vidc_free_clock_table(
+			struct msm_vidc_platform_resources *res)
+{
+	kfree(res->clock_set.clock_tbl);
+	res->clock_set.clock_tbl = NULL;
+	res->clock_set.count = 0;
+}
+
 void msm_vidc_free_platform_resources(
 			struct msm_vidc_platform_resources *res)
 {
+	msm_vidc_free_clock_table(res);
+	msm_vidc_free_regulator_table(res);
 	msm_vidc_free_freq_table(res);
 	msm_vidc_free_reg_table(res);
 	msm_vidc_free_bus_vectors(res);
@@ -480,7 +512,7 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 			of_property_read_bool(ctx_node,	"qcom,secure-domain");
 
 		dprintk(VIDC_DBG,
-				"domain %s : secure = %d",
+				"domain %s : secure = %d\n",
 				iommu_map->name,
 				iommu_map->is_secure);
 
@@ -492,7 +524,7 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 
 		if (rc) {
 			dprintk(VIDC_ERR,
-					"cannot load partition buffertype information (%d)",
+					"cannot load partition buffertype information (%d)\n",
 					rc);
 			rc = -ENOENT;
 			goto err_load_groups;
@@ -543,6 +575,165 @@ static int msm_vidc_load_buffer_usage_table(
 	return 0;
 err_load_buf_usage:
 	msm_vidc_free_buffer_usage_table(res);
+	return rc;
+}
+
+static int msm_vidc_load_regulator_table(
+		struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	struct platform_device *pdev = res->pdev;
+	struct regulator_set *regulators = &res->regulator_set;
+	struct device_node *domains_parent_node = NULL;
+	struct property *domains_property = NULL;
+
+	regulators->count = 0;
+	regulators->regulator_tbl = NULL;
+
+	domains_parent_node = pdev->dev.of_node;
+	for_each_property_of_node(domains_parent_node, domains_property) {
+		const char *search_string = "-supply";
+		char *supply;
+		bool matched = false;
+		struct device_node *regulator_node = NULL;
+		struct regulator_info *rinfo = NULL;
+		void *temp = NULL;
+
+		/* 1) check if current property is possibly a regulator */
+		supply = strnstr(domains_property->name, search_string,
+				strlen(domains_property->name) + 1);
+		matched = supply && (*(supply + strlen(search_string)) == '\0');
+		if (!matched)
+			continue;
+
+		/* 2) make sure prop isn't being misused */
+		regulator_node = of_parse_phandle(domains_parent_node,
+				domains_property->name, 0);
+		if (IS_ERR(regulator_node)) {
+			dprintk(VIDC_WARN, "%s is not a phandle\n",
+					domains_property->name);
+			continue;
+		}
+
+		/* 3) expand our table */
+		temp = krealloc(regulators->regulator_tbl,
+				sizeof(*regulators->regulator_tbl) *
+				(regulators->count + 1), GFP_KERNEL);
+		if (!temp) {
+			rc = -ENOMEM;
+			dprintk(VIDC_ERR,
+					"Failed to alloc memory for regulator table\n");
+			goto err_reg_tbl_alloc;
+		}
+
+		regulators->regulator_tbl = temp;
+		regulators->count++;
+
+		/* 4) populate regulator info */
+		rinfo = &regulators->regulator_tbl[regulators->count - 1];
+		rinfo->name = kstrndup(domains_property->name,
+				supply - domains_property->name, GFP_KERNEL);
+		if (!rinfo->name) {
+			rc = -ENOMEM;
+			dprintk(VIDC_ERR,
+					"Failed to alloc memory for regulator name\n");
+			goto err_reg_name_alloc;
+		}
+
+		rinfo->has_hw_power_collapse = of_property_read_bool(
+			regulator_node, "qcom,support-hw-trigger");
+
+		dprintk(VIDC_DBG, "Found regulator %s: h/w collapse = %s\n",
+				rinfo->name,
+				rinfo->has_hw_power_collapse ? "yes" : "no");
+	}
+
+	if (!regulators->count)
+		dprintk(VIDC_DBG, "No regulators found");
+
+	return 0;
+
+err_reg_name_alloc:
+err_reg_tbl_alloc:
+	msm_vidc_free_regulator_table(res);
+	return rc;
+}
+
+static int msm_vidc_load_clock_table(
+		struct msm_vidc_platform_resources *res)
+{
+	int rc = 0, num_clocks = 0, c = 0;
+	struct platform_device *pdev = res->pdev;
+	int *clock_props = NULL;
+	struct venus_clock_set *clocks = &res->clock_set;
+
+	num_clocks = of_property_count_strings(pdev->dev.of_node,
+				"qcom,clock-names");
+	if (num_clocks <= 0) {
+		/* Devices such as Q6 might not have any control over clocks
+		 * hence have none specified, which is ok. */
+		dprintk(VIDC_DBG, "No clocks found\n");
+		clocks->count = 0;
+		rc = 0;
+		goto err_load_clk_table_fail;
+	}
+
+	clock_props = kzalloc(num_clocks * sizeof(*clock_props), GFP_KERNEL);
+	if (!clock_props) {
+		dprintk(VIDC_ERR, "No memory to read clock properties\n");
+		rc = -ENOMEM;
+		goto err_load_clk_table_fail;
+	}
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,clock-configs", clock_props,
+				num_clocks);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to read clock properties: %d\n", rc);
+		goto err_load_clk_prop_fail;
+	}
+
+	clocks->clock_tbl = kzalloc(sizeof(*clocks->clock_tbl)
+			* num_clocks, GFP_KERNEL);
+	if (!clocks->clock_tbl) {
+		dprintk(VIDC_ERR, "Failed to allocate memory for clock tbl\n");
+		rc = -ENOMEM;
+		goto err_load_clk_prop_fail;
+	}
+
+	clocks->count = num_clocks;
+	dprintk(VIDC_DBG, "Found %d clocks\n", num_clocks);
+
+	for (c = 0; c < num_clocks; ++c) {
+		struct venus_clock *vc = &res->clock_set.clock_tbl[c];
+
+		of_property_read_string_index(pdev->dev.of_node,
+				"qcom,clock-names", c, &vc->name);
+
+		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
+			vc->count = res->load_freq_tbl_size;
+			vc->load_freq_tbl = res->load_freq_tbl;
+		} else {
+			vc->count = 0;
+			vc->load_freq_tbl = NULL;
+		}
+
+		vc->has_sw_power_collapse = !!(clock_props[c] &
+				CLOCK_PROP_HAS_SW_POWER_COLLAPSE);
+
+		dprintk(VIDC_DBG,
+				"Found clock %s: scales = %s, s/w collapse = %s\n",
+				vc->name,
+				vc->count ? "yes" : "no",
+				vc->has_sw_power_collapse ? "yes" : "no");
+	}
+
+	kfree(clock_props);
+	return 0;
+
+err_load_clk_prop_fail:
+	kfree(clock_props);
+err_load_clk_table_fail:
 	return rc;
 }
 
@@ -597,16 +788,34 @@ int read_platform_resources_from_dt(
 		goto err_load_buffer_usage_table;
 	}
 
+	rc = msm_vidc_load_regulator_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load list of regulators %d\n", rc);
+		goto err_load_regulator_table;
+	}
+
+	rc = msm_vidc_load_clock_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to load clock table: %d\n", rc);
+		goto err_load_clock_table;
+	}
+
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
 			&res->max_load);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to determine max load supported: %d\n", rc);
-		goto err_load_buffer_usage_table;
+		goto err_load_max_hw_load;
 	}
 
 	return rc;
-
+err_load_max_hw_load:
+	msm_vidc_free_clock_table(res);
+err_load_clock_table:
+	msm_vidc_free_regulator_table(res);
+err_load_regulator_table:
+	msm_vidc_free_buffer_usage_table(res);
 err_load_buffer_usage_table:
 	msm_vidc_free_iommu_groups(res);
 err_load_iommu_groups:
