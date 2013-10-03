@@ -629,10 +629,10 @@
 			"MSM_TSIF1_PHYS",
 			"MSM_TSPP_PHYS",
 			"MSM_TSPP_BAM_PHYS";
-		interrupts = <0 153 0>, /* TSIF_TSPP_IRQ */
-			<0 151 0>, /* TSIF0_IRQ */
-			<0 152 0>, /* TSIF1_IRQ */
-			<0 154 0>; /* TSIF_BAM_IRQ */
+		interrupts = <0 121 0>, /* TSIF_TSPP_IRQ */
+			<0 119 0>, /* TSIF0_IRQ */
+			<0 120 0>, /* TSIF1_IRQ */
+			<0 122 0>; /* TSIF_BAM_IRQ */
 		interrupt-names = "TSIF_TSPP_IRQ",
 			"TSIF0_IRQ",
 			"TSIF1_IRQ",
