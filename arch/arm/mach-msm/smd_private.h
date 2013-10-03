@@ -230,7 +230,8 @@ enum {
 	MSM_SMSM_DEBUG = 1U << 1,
 	MSM_SMD_INFO = 1U << 2,
 	MSM_SMSM_INFO = 1U << 3,
-	MSM_SMx_POWER_INFO = 1U << 4,
+	MSM_SMD_POWER_INFO = 1U << 4,
+	MSM_SMSM_POWER_INFO = 1U << 5,
 };
 
 struct interrupt_config {

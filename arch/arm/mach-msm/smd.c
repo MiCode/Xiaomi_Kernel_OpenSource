@@ -144,15 +144,24 @@ enum {
 	SMSM_APPS_DEM_I = 3,
 };
 
-int msm_smd_debug_mask = MSM_SMx_POWER_INFO | MSM_SMD_INFO;
+int msm_smd_debug_mask = MSM_SMD_POWER_INFO | MSM_SMD_INFO |
+							MSM_SMSM_POWER_INFO;
 module_param_named(debug_mask, msm_smd_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 void *smd_log_ctx;
+void *smsm_log_ctx;
 #define NUM_LOG_PAGES 4
 
-#define IPC_LOG(level, x...) do { \
+#define IPC_LOG_SMD(level, x...) do { \
 	if (smd_log_ctx) \
 		ipc_log_string(smd_log_ctx, x); \
+	else \
+		printk(level x); \
+	} while (0)
+
+#define IPC_LOG_SMSM(level, x...) do { \
+	if (smsm_log_ctx) \
+		ipc_log_string(smsm_log_ctx, x); \
 	else \
 		printk(level x); \
 	} while (0)
@@ -160,33 +169,40 @@ void *smd_log_ctx;
 #if defined(CONFIG_MSM_SMD_DEBUG)
 #define SMD_DBG(x...) do {				\
 		if (msm_smd_debug_mask & MSM_SMD_DEBUG) \
-			IPC_LOG(KERN_DEBUG, x);		\
+			IPC_LOG_SMD(KERN_DEBUG, x);	\
 	} while (0)
 
 #define SMSM_DBG(x...) do {					\
 		if (msm_smd_debug_mask & MSM_SMSM_DEBUG)	\
-			IPC_LOG(KERN_DEBUG, x);		\
+			IPC_LOG_SMSM(KERN_DEBUG, x);		\
 	} while (0)
 
 #define SMD_INFO(x...) do {			 	\
 		if (msm_smd_debug_mask & MSM_SMD_INFO)	\
-			IPC_LOG(KERN_INFO, x);		\
+			IPC_LOG_SMD(KERN_INFO, x);	\
 	} while (0)
 
 #define SMSM_INFO(x...) do {				\
 		if (msm_smd_debug_mask & MSM_SMSM_INFO) \
-			IPC_LOG(KERN_INFO, x);		\
+			IPC_LOG_SMSM(KERN_INFO, x);	\
 	} while (0)
-#define SMx_POWER_INFO(x...) do {				\
-		if (msm_smd_debug_mask & MSM_SMx_POWER_INFO) \
-			IPC_LOG(KERN_INFO, x);		\
+
+#define SMD_POWER_INFO(x...) do {				\
+		if (msm_smd_debug_mask & MSM_SMD_POWER_INFO)	\
+			IPC_LOG_SMD(KERN_INFO, x);		\
+	} while (0)
+
+#define SMSM_POWER_INFO(x...) do {				\
+		if (msm_smd_debug_mask & MSM_SMSM_POWER_INFO)	\
+			IPC_LOG_SMSM(KERN_INFO, x);		\
 	} while (0)
 #else
 #define SMD_DBG(x...) do { } while (0)
 #define SMSM_DBG(x...) do { } while (0)
 #define SMD_INFO(x...) do { } while (0)
 #define SMSM_INFO(x...) do { } while (0)
-#define SMx_POWER_INFO(x...) do { } while (0)
+#define SMD_POWER_INFO(x...) do { } while (0)
+#define SMSM_POWER_INFO(x...) do { } while (0)
 #endif
 
 /**
@@ -237,9 +253,9 @@ static inline void log_notify(uint32_t subsystem, smd_channel_t *ch)
 	(void) subsys;
 
 	if (!ch)
-		SMx_POWER_INFO("Apps->%s\n", subsys);
+		SMD_POWER_INFO("Apps->%s\n", subsys);
 	else
-		SMx_POWER_INFO(
+		SMD_POWER_INFO(
 			"Apps->%s ch%d '%s': tx%d/rx%d %dr/%dw : %dr/%dw\n",
 			subsys, ch->n, ch->name,
 			ch->fifo_size -
@@ -322,7 +338,7 @@ static inline void notify_modem_smsm(void)
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_MODEM].smsm;
 
-	SMx_POWER_INFO("SMSM Apps->%s", "MODEM");
+	SMSM_POWER_INFO("SMSM Apps->%s", "MODEM");
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_MODEM].smsm_out_config_count;
@@ -336,7 +352,7 @@ static inline void notify_dsp_smsm(void)
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_Q6].smsm;
 
-	SMx_POWER_INFO("SMSM Apps->%s", "ADSP");
+	SMSM_POWER_INFO("SMSM Apps->%s", "ADSP");
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_Q6].smsm_out_config_count;
@@ -350,7 +366,7 @@ static inline void notify_dsps_smsm(void)
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_DSPS].smsm;
 
-	SMx_POWER_INFO("SMSM Apps->%s", "DSPS");
+	SMSM_POWER_INFO("SMSM Apps->%s", "DSPS");
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_DSPS].smsm_out_config_count;
@@ -364,7 +380,7 @@ static inline void notify_wcnss_smsm(void)
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_WCNSS].smsm;
 
-	SMx_POWER_INFO("SMSM Apps->%s", "WCNSS");
+	SMSM_POWER_INFO("SMSM Apps->%s", "WCNSS");
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smsm_out_config_count;
@@ -887,7 +903,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	struct smd_alloc_elm *shared_sec;
 	unsigned long flags;
 
-	SMx_POWER_INFO("%s: starting reset\n", __func__);
+	SMD_POWER_INFO("%s: starting reset\n", __func__);
 
 	shared_pri = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared_pri) * 64);
 	if (!shared_pri) {
@@ -956,7 +972,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	notify_wcnss_smd(NULL);
 	notify_rpm_smd(NULL);
 
-	SMx_POWER_INFO("%s: finished reset\n", __func__);
+	SMD_POWER_INFO("%s: finished reset\n", __func__);
 }
 
 /* how many bytes are available for reading */
@@ -1259,14 +1275,14 @@ static void handle_smd_irq(struct list_head *list,
 		}
 		tmp = ch->half_ch->get_state(ch->recv);
 		if (tmp != ch->last_state) {
-			SMx_POWER_INFO("SMD ch%d '%s' State change %d->%d\n",
+			SMD_POWER_INFO("SMD ch%d '%s' State change %d->%d\n",
 					ch->n, ch->name, ch->last_state, tmp);
 			smd_state_change(ch, ch->last_state, tmp);
 			state_change = 1;
 		}
 		if (ch_flags & 0x3) {
 			ch->update_state(ch);
-			SMx_POWER_INFO(
+			SMD_POWER_INFO(
 				"SMD ch%d '%s' Data event 0x%x tx%d/rx%d %dr/%dw : %dr/%dw\n",
 				ch->n, ch->name,
 				ch_flags,
@@ -1281,7 +1297,7 @@ static void handle_smd_irq(struct list_head *list,
 			ch->notify(ch->priv, SMD_EVENT_DATA);
 		}
 		if (ch_flags & 0x4 && !state_change) {
-			SMx_POWER_INFO("SMD ch%d '%s' State update\n",
+			SMD_POWER_INFO("SMD ch%d '%s' State update\n",
 					ch->n, ch->name);
 			ch->notify(ch->priv, SMD_EVENT_STATUS);
 		}
@@ -1296,7 +1312,7 @@ static inline void log_irq(uint32_t subsystem)
 
 	(void) subsys;
 
-	SMx_POWER_INFO("SMD Int %s->Apps\n", subsys);
+	SMD_POWER_INFO("SMD Int %s->Apps\n", subsys);
 }
 
 irqreturn_t smd_modem_irq_handler(int irq, void *data)
@@ -2232,11 +2248,11 @@ int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask)
 		return -ENODEV;
 
 	if (mask) {
-		SMx_POWER_INFO("SMD Masking interrupts from %s\n",
+		SMD_POWER_INFO("SMD Masking interrupts from %s\n",
 				edge_to_pids[ch->type].subsys_name);
 		irq_chip->irq_mask(irq_data);
 	} else {
-		SMx_POWER_INFO("SMD Unmasking interrupts from %s\n",
+		SMD_POWER_INFO("SMD Unmasking interrupts from %s\n",
 				edge_to_pids[ch->type].subsys_name);
 		irq_chip->irq_unmask(irq_data);
 	}
@@ -2532,7 +2548,7 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 	if (use_wakelock) {
 		spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
 		if (smsm_snapshot_count == 0) {
-			SMx_POWER_INFO("SMSM snapshot wake lock\n");
+			SMSM_POWER_INFO("SMSM snapshot wake lock\n");
 			wake_lock(&smsm_snapshot_wakelock);
 		}
 		++smsm_snapshot_count;
@@ -2568,7 +2584,7 @@ restore_snapshot_count:
 		if (smsm_snapshot_count) {
 			--smsm_snapshot_count;
 			if (smsm_snapshot_count == 0) {
-				SMx_POWER_INFO("SMSM snapshot wake unlock\n");
+				SMSM_POWER_INFO("SMSM snapshot wake unlock\n");
 				wake_unlock(&smsm_snapshot_wakelock);
 			}
 		} else {
@@ -2663,28 +2679,28 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 
 irqreturn_t smsm_modem_irq_handler(int irq, void *data)
 {
-	SMx_POWER_INFO("SMSM Int Modem->Apps\n");
+	SMSM_POWER_INFO("SMSM Int Modem->Apps\n");
 	++interrupt_stats[SMD_MODEM].smsm_in_count;
 	return smsm_irq_handler(irq, data);
 }
 
 irqreturn_t smsm_dsp_irq_handler(int irq, void *data)
 {
-	SMx_POWER_INFO("SMSM Int LPASS->Apps\n");
+	SMSM_POWER_INFO("SMSM Int LPASS->Apps\n");
 	++interrupt_stats[SMD_Q6].smsm_in_count;
 	return smsm_irq_handler(irq, data);
 }
 
 irqreturn_t smsm_dsps_irq_handler(int irq, void *data)
 {
-	SMx_POWER_INFO("SMSM Int DSPS->Apps\n");
+	SMSM_POWER_INFO("SMSM Int DSPS->Apps\n");
 	++interrupt_stats[SMD_DSPS].smsm_in_count;
 	return smsm_irq_handler(irq, data);
 }
 
 irqreturn_t smsm_wcnss_irq_handler(int irq, void *data)
 {
-	SMx_POWER_INFO("SMSM Int WCNSS->Apps\n");
+	SMSM_POWER_INFO("SMSM Int WCNSS->Apps\n");
 	++interrupt_stats[SMD_WCNSS].smsm_in_count;
 	return smsm_irq_handler(irq, data);
 }
@@ -2774,7 +2790,7 @@ int smsm_change_state(uint32_t smsm_entry,
 	old_state = __raw_readl(SMSM_STATE_ADDR(smsm_entry));
 	new_state = (old_state & ~clear_mask) | set_mask;
 	__raw_writel(new_state, SMSM_STATE_ADDR(smsm_entry));
-	SMx_POWER_INFO("%s %d:%08x->%08x", __func__, smsm_entry,
+	SMSM_POWER_INFO("%s %d:%08x->%08x", __func__, smsm_entry,
 			old_state, new_state);
 	notify_other_smsm(SMSM_APPS_STATE, (old_state ^ new_state));
 
@@ -2835,7 +2851,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 
 			state_changes = state_info->last_value ^ new_state;
 			if (state_changes) {
-				SMx_POWER_INFO("SMSM Change %d: %08x->%08x\n",
+				SMSM_POWER_INFO("SMSM Change %d: %08x->%08x\n",
 						n, state_info->last_value,
 						new_state);
 				list_for_each_entry(cb_info,
@@ -2866,7 +2882,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 			if (smsm_snapshot_count) {
 				--smsm_snapshot_count;
 				if (smsm_snapshot_count == 0) {
-					SMx_POWER_INFO("SMSM snapshot"
+					SMSM_POWER_INFO("SMSM snapshot"
 						   " wake unlock\n");
 					wake_unlock(&smsm_snapshot_wakelock);
 				}
@@ -3241,7 +3257,13 @@ int __init msm_smd_init(void)
 
 	smd_log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smd");
 	if (!smd_log_ctx) {
-		pr_err("%s: unable to create logging context\n", __func__);
+		pr_err("%s: unable to create SMD logging context\n", __func__);
+		msm_smd_debug_mask = 0;
+	}
+
+	smsm_log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smsm");
+	if (!smsm_log_ctx) {
+		pr_err("%s: unable to create SMSM logging context\n", __func__);
 		msm_smd_debug_mask = 0;
 	}
 
