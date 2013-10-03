@@ -114,7 +114,7 @@
 #define IPA_EVENT_THRESHOLD 0x10
 
 #define IPA_RX_POOL_CEIL 32
-#define IPA_RX_SKB_SIZE 2048
+#define IPA_RX_SKB_SIZE 1792
 
 #define IPA_DFLT_HDR_NAME "ipa_excp_hdr"
 #define IPA_INVALID_L4_PROTOCOL 0xFF
