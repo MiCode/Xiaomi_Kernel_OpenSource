@@ -125,6 +125,11 @@
 #define WCD9XXX_MB_MEAS_DELTA_MAX_MV 80
 #define WCD9XXX_CS_MEAS_DELTA_MAX_MV 10
 
+static int impedance_detect_en;
+module_param(impedance_detect_en, int,
+			S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(impedance_detect_en, "enable/disable impedance detect");
+
 static bool detect_use_vddio_switch = true;
 
 struct wcd9xxx_mbhc_detect {
@@ -866,7 +871,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			mbhc->micbias_enable_cb(mbhc->codec, true);
 		}
 
-		if (mbhc->impedance_detect)
+		if (mbhc->impedance_detect && impedance_detect_en)
 			wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
@@ -4456,6 +4461,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->rco_clk_rate = rco_clk_rate;
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->impedance_detect = impedance_det_en;
+	impedance_detect_en = impedance_det_en ? 1 : 0;
 
 	if (mbhc->headset_jack.jack == NULL) {
 		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,
