@@ -148,5 +148,5 @@ DT_MACHINE_START(MSMSAMARIUM_DT, "Qualcomm MSM Samarium(Flattened Device Tree)")
 	.reserve = msmsamarium_reserve,
 	.init_very_early = msmsamarium_init_very_early,
 	.restart = msm_restart,
-	.smp = &msm8974_smp_ops,
+	.smp = &msm8962_smp_ops,
 MACHINE_END

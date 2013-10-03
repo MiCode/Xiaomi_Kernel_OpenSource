@@ -35,6 +35,9 @@
 #define SCSS_CPU1CORE_RESET 0xD80
 #define SCSS_DBG_STATUS_CORE_PWRDUP 0xE64
 #define MSM8960_SAW2_BASE_ADDR 0x02089000
+#define MSM8962_SAW2_BASE_ADDR 0xF9089000
+#define APCS_ALIAS0_BASE_ADDR 0xF9088000
+
 /*
  * Write pen_release in a way that is guaranteed to be visible to all
  * observers, irrespective of whether they're taking part in coherency
@@ -138,6 +141,33 @@ static int __cpuinit msm8974_release_secondary(unsigned long base,
 		return -ENODEV;
 
 	secondary_cpu_hs_init(base_ptr, cpu);
+
+	writel_relaxed(0x021, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x020, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x000, base_ptr+0x04);
+	mb();
+
+	writel_relaxed(0x080, base_ptr+0x04);
+	mb();
+	iounmap(base_ptr);
+	return 0;
+}
+
+static int __cpuinit msm8962_release_secondary(unsigned long base,
+						unsigned int cpu)
+{
+	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
+
+	if (!base_ptr)
+		return -ENODEV;
+
+	msm_spm_turn_on_cpu_rail(MSM8962_SAW2_BASE_ADDR, cpu);
 
 	writel_relaxed(0x021, base_ptr+0x04);
 	mb();
@@ -270,9 +300,24 @@ int __cpuinit msm8974_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (of_board_is_sim())
-			release_secondary_sim(0xf9088000, cpu);
+			release_secondary_sim(APCS_ALIAS0_BASE_ADDR, cpu);
 		else if (!of_board_is_rumi())
-			msm8974_release_secondary(0xf9088000, cpu);
+			msm8974_release_secondary(APCS_ALIAS0_BASE_ADDR, cpu);
+
+		per_cpu(cold_boot_done, cpu) = true;
+	}
+	return release_from_pen(cpu);
+}
+
+int __cpuinit msm8962_boot_secondary(unsigned int cpu, struct task_struct *idle)
+{
+	pr_debug("Starting secondary CPU %d\n", cpu);
+
+	if (per_cpu(cold_boot_done, cpu) == false) {
+		if (of_board_is_sim())
+			release_secondary_sim(APCS_ALIAS0_BASE_ADDR, cpu);
+		else if (!of_board_is_rumi())
+			msm8962_release_secondary(APCS_ALIAS0_BASE_ADDR, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
 	}
@@ -285,9 +330,9 @@ int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (of_board_is_sim())
-			release_secondary_sim(0xf9088000, cpu);
+			release_secondary_sim(APCS_ALIAS0_BASE_ADDR, cpu);
 		else if (!of_board_is_rumi())
-			arm_release_secondary(0xf9088000, cpu);
+			arm_release_secondary(APCS_ALIAS0_BASE_ADDR, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
 	}
@@ -370,6 +415,17 @@ struct smp_operations msm8974_smp_ops __initdata = {
 	.smp_prepare_cpus = msm_platform_smp_prepare_cpus,
 	.smp_secondary_init = msm_secondary_init,
 	.smp_boot_secondary = msm8974_boot_secondary,
+#ifdef CONFIG_HOTPLUG
+	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
+#endif
+};
+
+struct smp_operations msm8962_smp_ops __initdata = {
+	.smp_init_cpus = msm_smp_init_cpus,
+	.smp_prepare_cpus = msm_platform_smp_prepare_cpus,
+	.smp_secondary_init = msm_secondary_init,
+	.smp_boot_secondary = msm8962_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
 	.cpu_kill = msm_cpu_kill,
