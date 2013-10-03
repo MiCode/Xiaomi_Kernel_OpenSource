@@ -961,6 +961,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
+	if (req->cmd_req_len > UINT_MAX - req->resp_len) {
+		pr_err("Integer overflow detected in req_len & rsp_len, exiting now\n");
+		return -EINVAL;
+	}
+
 	reqd_len_sb_in = req->cmd_req_len + req->resp_len;
 	if (reqd_len_sb_in > data->client.sb_length) {
 		pr_debug("Not enough memory to fit cmd_buf and "
@@ -980,7 +985,7 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 
 	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
 					data->client.sb_virt,
-					(req->cmd_req_len + req->resp_len),
+					reqd_len_sb_in,
 					ION_IOC_CLEAN_INV_CACHES);
 
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, (const void *) &send_data_req,
