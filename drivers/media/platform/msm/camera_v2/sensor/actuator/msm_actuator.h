@@ -77,7 +77,7 @@ struct msm_actuator_ctrl_t {
 	uint32_t total_steps;
 	uint16_t pwd_step;
 	uint16_t initial_code;
-	struct msm_camera_i2c_reg_tbl *i2c_reg_tbl;
+	struct msm_camera_i2c_reg_array *i2c_reg_tbl;
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;

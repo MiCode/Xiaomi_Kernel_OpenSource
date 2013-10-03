@@ -1854,6 +1854,11 @@ config ENABLE_DMM
 
 config DONT_MAP_HOLE_AFTER_MEMBANK0
 	def_bool n
+	depends on ENABLE_VMALLOC_SAVING=n
+
+config ENABLE_VMALLOC_SAVING
+	def_bool n
+	depends on DONT_MAP_HOLE_AFTER_MEMBANK0=n
 
 config HOLES_IN_ZONE
 	def_bool n

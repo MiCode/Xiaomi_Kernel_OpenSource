@@ -7,7 +7,8 @@ Required properties :
 - interrupt-names : Required interrupt resource entries are:
 	"core_irq" : Interrupt for HSIC core
 - <supply-name>-supply: handle to the regulator device tree node
-  Required "supply-name" is "HSIC_VDDCX" and optionally - "HSIC_GDSC".
+  Required "supply-name" is either "hsic_vdd_dig" or "HSIC_VDDCX" and
+  optionally - "HSIC_GDSC".
 
 Optional properties :
 - interrupt-parent - This must provide reference to the current
@@ -81,6 +82,9 @@ Optional properties :
   the reset and enumeration. Since some devices might take more than 100ms
   for initialization when receiving the bus reset, add delay to avoid the
   problem that enmueration is before device initialization done.
+- hsic,vdd-voltage-level: This property must be a list of three integer
+  values (no, min, max) where each value represents either a voltage in
+  microvolts or a value corresponding to voltage corner
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
@@ -104,7 +108,7 @@ Example MSM HSIC EHCI controller device node :
 			1 &intc 0 148 0
 			2 &msmgpio 144 0x8>;
 		interrupt-names = "core_irq", "async_irq", "wakeup";
-		HSIC_VDDCX-supply = <&pm8019_l12>;
+		hsic_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
 		hsic,strobe-gpio = <&msmgpio 144 0x00>;
 		hsic,data-gpio = <&msmgpio 145 0x00>;
@@ -113,6 +117,7 @@ Example MSM HSIC EHCI controller device node :
 		hsic,strobe-pad-offset = <0x2050>;
 		hsic,data-pad-offset = <0x2054>;
 		hsic,consider-ipa-handshake;
+		hsic,vdd-voltage-level = <1 5 7>;
 
 		qcom,msm-bus,name = "hsic";
 		qcom,msm-bus,num-cases = <2>;

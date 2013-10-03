@@ -35,6 +35,9 @@
 #include <linux/uaccess.h>
 #include <linux/file.h>
 #include <linux/msm_kgsl.h>
+#include <linux/major.h>
+#include <linux/bootmem.h>
+#include <linux/memblock.h>
 
 #include <mach/board.h>
 #include <mach/clk.h>
@@ -583,6 +586,41 @@ static int mdp3_irq_setup(void)
 	return 0;
 }
 
+struct reg_dump {
+	int start_addr;
+	int num_reads;
+};
+
+struct reg_dump ppp_reg[] = {
+	{0x10108, 3},
+	{0x10118, 6},
+	{0x10138, 9},
+	{0x10158, 1},
+	{0x10164, 7},
+	{0x1019C, 1},
+	{0x101b8, 2},
+	{0x101c0, 8},
+};
+
+static int mdp3_iommu_fault_handler(struct iommu_domain *domain,
+		struct device *dev, unsigned long iova, int flags, void *token)
+{
+	unsigned int addr, val;
+	int i, j;
+	pr_err("MDP IOMMU page fault: iova 0x%lx\n", iova);
+	for (i = 0; i < ARRAY_SIZE(ppp_reg); i++) {
+		for (j = 0; j < ppp_reg[i].num_reads; j++) {
+			addr = ppp_reg[i].start_addr + (j*4);
+			val = MDP3_REG_READ(addr);
+			pr_err("TMsg: Addr= 0x%08x, val= 0x%08x\n",
+				(unsigned int)addr, (unsigned int)val);
+		}
+	}
+	panic("PPP pagefault, shutting down for easier debugging\n");
+	return 0;
+}
+
+
 int mdp3_iommu_attach(int context)
 {
 	struct mdp3_iommu_ctx_map *context_map;
@@ -658,6 +696,9 @@ int mdp3_iommu_domain_init(void)
 			else
 				return PTR_ERR(mdp3_iommu_domains[i].domain);
 		}
+		iommu_set_fault_handler(mdp3_iommu_domains[i].domain,
+			mdp3_iommu_fault_handler,
+			NULL);
 	}
 
 	mdp3_res->domains = mdp3_iommu_domains;
@@ -1594,6 +1635,45 @@ void mdp3_free(void)
 	}
 }
 
+int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
+{
+	struct platform_device *pdev = mfd->pdev;
+	int rc;
+	u32 offsets[2];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,memblock-reserve", offsets, 2);
+
+	if (rc) {
+		pr_err("fail to get memblock-reserve property\n");
+		return rc;
+	}
+
+	if (mdp3_res->splash_mem_addr != offsets[0])
+		rc = -EINVAL;
+
+	mdp3_res->splash_mem_addr = offsets[0];
+	mdp3_res->splash_mem_size = offsets[1];
+
+	pr_debug("memaddr=%x size=%x\n", mdp3_res->splash_mem_addr,
+		mdp3_res->splash_mem_size);
+
+	return rc;
+}
+
+void mdp3_release_splash_memory(void)
+{
+	/* Give back the reserved memory to the system */
+	if (mdp3_res->splash_mem_addr) {
+		pr_debug("mdp3_release_splash_memory\n");
+		memblock_free(mdp3_res->splash_mem_addr,
+				mdp3_res->splash_mem_size);
+		free_bootmem_late(mdp3_res->splash_mem_addr,
+				mdp3_res->splash_mem_size);
+		mdp3_res->splash_mem_addr = 0;
+	}
+}
+
 struct mdp3_dma *mdp3_get_dma_pipe(int capability)
 {
 	int i;
@@ -1684,6 +1764,8 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 		rc = (status == 0x080000);
 	}
 
+	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_S_IBUF_ADDR);
+
 	mdp3_clk_update(MDP3_CLK_AHB, 0);
 	mdp3_clk_update(MDP3_CLK_CORE, 0);
 	return rc;
@@ -1714,12 +1796,6 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	rc = mdp3_ppp_init();
 	if (rc) {
 		pr_err("ppp init failed\n");
-		goto splash_on_err;
-	}
-
-	rc = mdp3_continuous_splash_copy(pdata);
-	if (rc) {
-		pr_err("fail to copy continuous splash image\n");
 		goto splash_on_err;
 	}
 

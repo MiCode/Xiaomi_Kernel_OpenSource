@@ -29,6 +29,8 @@
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
+			synaptics,power-down;
+			synaptics,disable-gpios;
 		};
 	};
 
@@ -102,7 +104,7 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
-		qcom,headset-jack-type-NO;
+		qcom,headset-jack-type-NC;
 	};
 
 	sound-9302 {
@@ -120,7 +122,7 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
-		qcom,headset-jack-type-NO;
+		qcom,headset-jack-type-NC;
 	};
 };
 

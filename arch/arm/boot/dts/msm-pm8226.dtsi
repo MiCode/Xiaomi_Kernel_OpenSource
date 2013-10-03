@@ -831,10 +831,10 @@
 			pm8226_flash0: qcom,flash_0 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
-				qcom,headroom = <0>;
+				qcom,headroom = <3>;
 				qcom,duration = <1280>;
 				qcom,clamp-curr = <200>;
-				qcom,startup-dly = <1>;
+				qcom,startup-dly = <3>;
 				qcom,safety-timer;
 				label = "flash";
 				linux,default-trigger =
@@ -847,10 +847,10 @@
 			pm8226_flash1: qcom,flash_1 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
-				qcom,headroom = <0>;
+				qcom,headroom = <3>;
 				qcom,duration = <1280>;
 				qcom,clamp-curr = <200>;
-				qcom,startup-dly = <1>;
+				qcom,startup-dly = <3>;
 				qcom,safety-timer;
 				linux,default-trigger =
 						"flash1_trigger";

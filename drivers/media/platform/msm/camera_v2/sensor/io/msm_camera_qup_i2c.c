@@ -308,29 +308,31 @@ int32_t msm_camera_qup_i2c_write_seq_table(struct msm_camera_i2c_client *client,
 
 int32_t msm_camera_qup_i2c_write_table_w_microdelay(
 	struct msm_camera_i2c_client *client,
-	struct msm_camera_i2c_reg_tbl *reg_tbl, uint16_t size,
-	enum msm_camera_i2c_data_type data_type)
+	struct msm_camera_i2c_reg_setting *write_setting)
 {
 	int i;
 	int32_t rc = -EFAULT;
+	struct msm_camera_i2c_reg_array *reg_setting = NULL;
 
-	if (!client || !reg_tbl)
+	if (!client || !write_setting)
 		return rc;
 
 	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
 		&& client->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
-		|| (data_type != MSM_CAMERA_I2C_BYTE_DATA
-		&& data_type != MSM_CAMERA_I2C_WORD_DATA))
+		|| (write_setting->data_type != MSM_CAMERA_I2C_BYTE_DATA
+		&& write_setting->data_type != MSM_CAMERA_I2C_WORD_DATA))
 		return rc;
 
-	for (i = 0; i < size; i++) {
-		rc = msm_camera_qup_i2c_write(client, reg_tbl->reg_addr,
-			reg_tbl->reg_data, data_type);
+	reg_setting = write_setting->reg_setting;
+	for (i = 0; i < write_setting->size; i++) {
+		rc = msm_camera_qup_i2c_write(client, reg_setting->reg_addr,
+			reg_setting->reg_data, write_setting->data_type);
 		if (rc < 0)
 			break;
-		if (reg_tbl->delay)
-			usleep_range(reg_tbl->delay, reg_tbl->delay + 1000);
-		reg_tbl++;
+		if (reg_setting->delay)
+			usleep_range(reg_setting->delay,
+				reg_setting->delay + 1000);
+		reg_setting++;
 	}
 	return rc;
 }

@@ -55,8 +55,12 @@ static unsigned long acpuclk_krait_get_rate(int cpu)
 	return drv.scalable[cpu].cur_speed->khz;
 }
 
-/* Select a source on the primary MUX. */
-static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
+struct set_clk_src_args {
+	struct scalable *sc;
+	u32 src_sel;
+};
+
+static void __set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 {
 	u32 regval;
 
@@ -71,6 +75,27 @@ static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
+}
+
+static void __set_cpu_pri_clk_src(void *data)
+{
+	struct set_clk_src_args *args = data;
+	__set_pri_clk_src(args->sc, args->src_sel);
+}
+
+/* Select a source on the primary MUX. */
+static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
+{
+	int cpu = sc - drv.scalable;
+	if (sc != &drv.scalable[L2] && cpu_online(cpu)) {
+		struct set_clk_src_args args = {
+			.sc = sc,
+			.src_sel = pri_src_sel,
+		};
+		smp_call_function_single(cpu, __set_cpu_pri_clk_src, &args, 1);
+	} else {
+		__set_pri_clk_src(sc, pri_src_sel);
+	}
 }
 
 /* Select a source on the secondary MUX. */

@@ -1,0 +1,9 @@
+OmniVision Image Sensor Device Tree Bindings.
+========================================
+
+Boards with the OmniVision Image Sensor shall have the following properties:
+
+Required root node properties:
+    - compatible:
+    - "ovti,ov8865" : OmniVision OV8865 8 megapixel Image Sensor.
+    - "ovti,ov5648" : OmniVision OV5648 5 megapixel Image Sensor.
