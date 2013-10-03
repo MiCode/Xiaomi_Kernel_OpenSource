@@ -23,6 +23,8 @@
 #include <linux/sched.h>
 #include <linux/thread_info.h>
 #include <linux/qmi_encdec.h>
+#include <linux/slab.h>
+#include <linux/kmemleak.h>
 
 #include <asm/string.h>
 #include <asm/atomic.h>
@@ -370,6 +372,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 		ret = -ENOMEM;
 		goto out_sendmsg;
 	}
+	kmemleak_not_leak(msg);
 
 	if (port_ptr->type == CLIENT_PORT)
 		wait_for_irsc_completion();
