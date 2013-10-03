@@ -1775,14 +1775,13 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 		return -EINVAL;
 	}
 
+	chip->dc_psy_type = -EINVAL;
 	dc_psy_type = of_get_property(node, "qcom,dc-psy-type", NULL);
 	if (dc_psy_type) {
 		if (strcmp(dc_psy_type, "Mains") == 0)
 			chip->dc_psy_type = POWER_SUPPLY_TYPE_MAINS;
 		else if (strcmp(dc_psy_type, "Wireless") == 0)
 			chip->dc_psy_type = POWER_SUPPLY_TYPE_WIRELESS;
-		else
-			chip->dc_psy_type = -EINVAL;
 	}
 
 	if (chip->dc_psy_type != -EINVAL) {
