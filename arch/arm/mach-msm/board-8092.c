@@ -27,6 +27,8 @@
 #include <mach/msm_smem.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
+#include <mach/rpm-smd.h>
+#include <mach/rpm-regulator-smd.h>
 
 #include <linux/io.h>
 #include <linux/gpio.h>
@@ -103,6 +105,8 @@ void __init mpq8092_add_drivers(void)
 	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
+	msm_rpm_driver_init();
+	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
 	msm_clock_init(&mpq8092_clock_init_data);
 }
