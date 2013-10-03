@@ -307,6 +307,10 @@ enum {
 	DSI_CTRL_MAX,
 };
 
+#define DSI_EV_PLL_UNLOCKED		0x0001
+#define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
+#define DSI_EV_MDP_BUSY_RELEASE		0x80000000
+
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -344,6 +348,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dss_module_power power_data;
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
+	struct mdss_panel_recovery *recovery;
 
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
@@ -386,7 +391,7 @@ void mdss_dsi_cmd_mode_ctrl(int enable);
 void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
-void mdss_dsi_ack_err_status(unsigned char *dsi_base);
+void mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
