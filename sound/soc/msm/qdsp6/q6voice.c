@@ -1519,7 +1519,8 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 
 	/* get the cvs cal data */
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1928,7 +1929,8 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 
       /* get the cvp cal data */
 	get_all_vocproc_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -2063,7 +2065,8 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 	get_all_vocvol_cal(&vol_block);
 	get_all_vocproc_cal(&voc_block);
 
-	if (vol_block.cal_size == 0)
+	if (vol_block.cal_size == 0 ||
+	    vol_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
