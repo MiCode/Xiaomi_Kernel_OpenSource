@@ -79,6 +79,14 @@
 		enable-active-high;
 		gpio = <&pma8084_gpios 8 0>;
 	};
+
+	usb_detect {
+		compatible = "qcom,qpnp-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xca 0x0>;  /* PMA8084 GPIO 11 */
+		interrupt-names = "vbus_det_irq";
+		vin-supply = <&vbus_det_vreg>;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
