@@ -21,7 +21,9 @@
 #include <linux/irq.h>
 #include <linux/dma-mapping.h>
 #include <linux/bitops.h>
+#include <linux/workqueue.h>
 
+#include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
@@ -91,6 +93,12 @@ struct mxhci_hsic_hcd {
 
 	struct wakeup_source	ws;
 
+	u32			bus_perf_client;
+	struct msm_bus_scale_pdata	*bus_scale_table;
+	struct work_struct	bus_vote_w;
+	bool			bus_vote;
+	struct workqueue_struct	*wq;
+
 	bool			wakeup_irq_enabled;
 	int			strobe;
 	int			data;
@@ -116,6 +124,19 @@ static inline struct mxhci_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
 static inline struct usb_hcd *hsic_to_hcd(struct mxhci_hsic_hcd *mxhci)
 {
 	return container_of((void *) mxhci, struct usb_hcd, hcd_priv);
+}
+
+static void mxhci_hsic_bus_vote_w(struct work_struct *w)
+{
+	struct mxhci_hsic_hcd *mxhci =
+			container_of(w, struct mxhci_hsic_hcd, bus_vote_w);
+	int ret;
+
+	ret = msm_bus_scale_client_update_request(mxhci->bus_perf_client,
+			mxhci->bus_vote);
+	if (ret)
+		dev_err(mxhci->dev, "%s: Failed to vote for bus bandwidth %d\n",
+				__func__, ret);
 }
 
 static int mxhci_hsic_init_clocks(struct mxhci_hsic_hcd *mxhci, u32 init)
@@ -545,6 +566,11 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 	if (ret < 0)
 		dev_err(mxhci->dev, "unable to set vddcx voltage for VDD MIN\n");
 
+	if (mxhci->bus_perf_client) {
+		mxhci->bus_vote = false;
+		queue_work(mxhci->wq, &mxhci->bus_vote_w);
+	}
+
 	mxhci->in_lpm = 1;
 
 	enable_irq(hcd->irq);
@@ -574,6 +600,11 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 	}
 
 	pm_stay_awake(mxhci->dev);
+
+	if (mxhci->bus_perf_client) {
+		mxhci->bus_vote = true;
+		queue_work(mxhci->wq, &mxhci->bus_vote_w);
+	}
 
 	spin_lock_irqsave(&mxhci->wakeup_lock, flags);
 	if (mxhci->wakeup_irq_enabled) {
@@ -851,8 +882,34 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		goto remove_usb3_hcd;
 	}
 
-
 	init_completion(&mxhci->phy_in_lpm);
+
+	mxhci->wq = create_singlethread_workqueue("mxhci_wq");
+	if (!mxhci->wq) {
+		dev_err(&pdev->dev, "unable to create workqueue\n");
+		ret = -ENOMEM;
+		goto remove_usb3_hcd;
+	}
+
+	INIT_WORK(&mxhci->bus_vote_w, mxhci_hsic_bus_vote_w);
+
+	mxhci->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!mxhci->bus_scale_table) {
+		dev_dbg(&pdev->dev, "bus scaling is disabled\n");
+	} else {
+		mxhci->bus_perf_client =
+			msm_bus_scale_register_client(mxhci->bus_scale_table);
+		/* Configure BUS performance parameters for MAX bandwidth */
+		if (mxhci->bus_perf_client) {
+			mxhci->bus_vote = true;
+			queue_work(mxhci->wq, &mxhci->bus_vote_w);
+		} else {
+			dev_err(&pdev->dev, "%s: bus scaling client reg err\n",
+					__func__);
+			ret = -ENODEV;
+			goto delete_wq;
+		}
+	}
 
 	/* Enable HSIC PHY */
 	mxhci_hsic_ulpi_write(mxhci, 0x01, MSM_HSIC_CFG_SET);
@@ -866,6 +923,8 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 
 	return 0;
 
+delete_wq:
+	destroy_workqueue(mxhci->wq);
 remove_usb3_hcd:
 	usb_remove_hcd(xhci->shared_hcd);
 put_usb3_hcd:
@@ -912,6 +971,14 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 
 	if (mxhci->wakeup_irq_enabled)
 		disable_irq_wake(mxhci->wakeup_irq);
+
+	mxhci->bus_vote = false;
+	cancel_work_sync(&mxhci->bus_vote_w);
+
+	if (mxhci->bus_perf_client)
+		msm_bus_scale_unregister_client(mxhci->bus_perf_client);
+
+	destroy_workqueue(mxhci->wq);
 
 	device_init_wakeup(&pdev->dev, 0);
 	mxhci_hsic_init_vddcx(mxhci, 0);
