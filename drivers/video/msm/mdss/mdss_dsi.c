@@ -1187,7 +1187,8 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			       __func__, __LINE__);
 	}
 
-	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio) &&
+					pinfo->type == MIPI_CMD_PANEL) {
 		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
 		if (rc) {
 			pr_err("request TE gpio failed, rc=%d\n",
