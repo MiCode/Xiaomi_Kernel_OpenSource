@@ -105,6 +105,9 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"RIVA CNTL in_buf_1_size: %d\n"
 		"Modem DCI in_buf_1_size: %d\n"
 		"Modem DCI CMD in_buf_1_size: %d\n"
+		"Received Feature mask from Modem: %d\n"
+		"Received Feature mask from LPASS: %d\n"
+		"Received Feature mask from WCNSS: %d\n"
 		"logging_mode: %d\n"
 		"real_time_mode: %d\n",
 		(unsigned int)driver->smd_data[MODEM_DATA].ch,
@@ -171,6 +174,9 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		(unsigned int)driver->smd_cntl[WCNSS_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_dci[MODEM_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_dci_cmd[MODEM_DATA].buf_in_1_size,
+		driver->rcvd_feature_mask[MODEM_DATA],
+		driver->rcvd_feature_mask[LPASS_DATA],
+		driver->rcvd_feature_mask[WCNSS_DATA],
 		driver->logging_mode,
 		driver->real_time_mode);
 
