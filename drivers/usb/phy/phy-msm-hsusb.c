@@ -60,8 +60,13 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define CLAMP_MPM_DPSE_DMSE_EN_N	BIT(26)
 #define SW_SESSVLD_SEL			BIT(28)	/* ver >= MSM_CORE_VER_120 */
 
-/* HS_PHY_CTRL_COMMON_REG bits */
-#define COMMON_VBUSVLDEXTSEL0		BIT(12)	/* ver >= MSM_CORE_VER_120 */
+/* HS_PHY_CTRL_COMMON_REG bits used when core_ver >= MSM_CORE_VER_120 */
+#define COMMON_VBUSVLDEXTSEL0		BIT(12)
+#define COMMON_OTGDISABLE0		BIT(11)
+#define COMMON_OTGTUNE0_MASK		(0x7 << 8)
+#define COMMON_OTGTUNE0_DEFAULT		(0x4 << 8)
+#define COMMON_COMMONONN		BIT(7)
+#define COMMON_RETENABLEN		BIT(3)
 
 /* ALT_INTERRUPT_EN/HS_PHY_IRQ_STAT bits */
 #define ACAINTEN			BIT(0)
@@ -95,6 +100,7 @@ struct msm_hsphy {
 	void __iomem		*base;
 	void __iomem		*tcsr;
 	int			hsphy_init_seq;
+	u32			core_ver;
 
 	struct regulator	*vdd;
 	struct regulator	*vdda33;
@@ -238,6 +244,9 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		writel_relaxed((val & ~TCSR_HSPHY_ARES), phy->tcsr);
 	}
 
+	/* different sequences based on core version */
+	phy->core_ver = readl_relaxed(phy->base);
+
 	/*
 	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
 	 * and disable RETENTION (power-on default is ENABLED)
@@ -248,6 +257,12 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 			DMSEHV_CLAMP_EN_N | CLAMP_MPM_DPSE_DMSE_EN_N,
 			phy->base + HS_PHY_CTRL_REG);
 	usleep_range(2000, 2200);
+
+	if (phy->core_ver >= MSM_CORE_VER_120)
+		writel_relaxed(COMMON_OTGDISABLE0 | COMMON_OTGTUNE0_DEFAULT |
+				COMMON_COMMONONN | FSEL_DEFAULT |
+				COMMON_RETENABLEN,
+				phy->base + HS_PHY_CTRL_COMMON_REG);
 
 	/*
 	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
@@ -302,6 +317,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN),
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN));
+
 		/* can turn off regulators if disconnected in device mode */
 		if (!host || !chg_connected) {
 			if (phy->ext_vbus_id)
@@ -314,6 +330,11 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			if (phy->ext_vbus_id)
 				msm_hsusb_ldo_enable(phy, 1);
 		}
+
+		if (phy->core_ver >= MSM_CORE_VER_120)
+			msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						FSEL_MASK, FSEL_DEFAULT);
 
 		if (!phy->ext_vbus_id)
 			/* Disable HV interrupts */
@@ -346,7 +367,6 @@ static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 				    enum usb_device_speed speed)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
-	u32 core_ver;
 
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
@@ -354,11 +374,8 @@ static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
 		return 0;
 
-	/* different sequences based on core version */
-	core_ver = readl_relaxed(phy->base);
-
 	/* Set External VBUS Valid Select. Set once, can be left on */
-	if (core_ver >= MSM_CORE_VER_120) {
+	if (phy->core_ver >= MSM_CORE_VER_120) {
 		msm_usb_write_readback(phy->base, HS_PHY_CTRL_COMMON_REG,
 					COMMON_VBUSVLDEXTSEL0,
 					COMMON_VBUSVLDEXTSEL0);
@@ -376,7 +393,7 @@ static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 				UTMI_OTG_VBUS_VALID, UTMI_OTG_VBUS_VALID);
 
 	/* Indicate value is driven by UTMI_OTG_VBUS_VALID bit */
-	if (core_ver >= MSM_CORE_VER_120)
+	if (phy->core_ver >= MSM_CORE_VER_120)
 		msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
 					SW_SESSVLD_SEL, SW_SESSVLD_SEL);
 
@@ -387,15 +404,12 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 				       enum usb_device_speed speed)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
-	u32 core_ver;
 
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
 
 	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
 		return 0;
-
-	core_ver = readl_relaxed(phy->base);
 
 	/* Clear OTG VBUS Valid to Controller */
 	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
@@ -405,7 +419,7 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG, VBUSVLDEXT0, 0);
 
 	/* Indicate value is no longer driven by UTMI_OTG_VBUS_VALID bit */
-	if (core_ver >= MSM_CORE_VER_120)
+	if (phy->core_ver >= MSM_CORE_VER_120)
 		msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
 					SW_SESSVLD_SEL, 0);
 
