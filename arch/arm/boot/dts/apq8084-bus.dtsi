@@ -1191,12 +1191,15 @@
 			qcom,masterp = <1>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "NoC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,ws = <10000>;
 			qcom,qport = <1>;
 			qcom,mas-hw-id = <6>;
 			qcom,buswidth = <32>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,prio-lvl = <0>;
 		};
 
 
