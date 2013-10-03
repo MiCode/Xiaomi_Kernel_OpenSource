@@ -75,7 +75,7 @@ int ion_cp_secure_buffer(struct ion_buffer *buffer, int version, void *data,
 int ion_cp_unsecure_buffer(struct ion_buffer *buffer, int force_unsecure);
 
 int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
-			int flags, bool skip_usage);
+			int flags);
 
 int msm_ion_unsecure_table(struct sg_table *table);
 
@@ -114,7 +114,7 @@ static inline int ion_cp_unsecure_buffer(struct ion_buffer *buffer,
 }
 
 int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
-			int flags, bool skip_usage)
+			int flags)
 {
 	return -ENODEV;
 }
