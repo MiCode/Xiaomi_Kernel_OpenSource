@@ -588,6 +588,11 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 {
 	struct mdss_mdp_ctl *ctl;
 
+	if (!mixer || !mixer->ctl) {
+		pr_err("invalid ctl handle\n");
+		return -ENODEV;
+	}
+
 	ctl = mixer->ctl;
 	mixer->rotator_mode = 0;
 
