@@ -101,7 +101,7 @@ qcom,bimc,bw:		Bandwidth limit for a BIMC master using dual modes.
 			other parameters used in Limiter and Regular mode
 			for static BKE configuration. It is defined in KBps.
 qcom,bimc,gp:		Grant Period for configuring a master in limiter
-			mode. This is an integer value in micro-seconds.
+			mode. This is an integer value in nano-seconds.
 qcom,bimc,thmp:		Medium threshold percentage for BIMC masters.
 			This percentage is used to calculate medium threshold
 			value for BIMC Masters in Limiter mode for static
