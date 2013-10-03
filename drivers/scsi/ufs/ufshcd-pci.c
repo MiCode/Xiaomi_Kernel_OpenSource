@@ -92,7 +92,7 @@ static int ufshcd_pci_runtime_idle(struct device *dev)
  */
 static void ufshcd_pci_shutdown(struct pci_dev *pdev)
 {
-	ufshcd_hba_stop((struct ufs_hba *)pci_get_drvdata(pdev), true);
+	ufshcd_shutdown((struct ufs_hba *)pci_get_drvdata(pdev));
 }
 
 /**
