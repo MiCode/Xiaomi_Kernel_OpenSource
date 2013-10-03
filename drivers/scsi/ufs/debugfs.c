@@ -19,6 +19,8 @@
 
 #include "debugfs.h"
 
+#define BUFF_LINE_CAPACITY 16
+
 static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
@@ -130,6 +132,83 @@ exit:
 	return ret;
 }
 
+static void
+ufsdbg_pr_buf_to_std(struct seq_file *file, void *buff, int size, char *str)
+{
+	int i;
+	char linebuf[38];
+	int lines = size/BUFF_LINE_CAPACITY +
+			(size % BUFF_LINE_CAPACITY ? 1 : 0);
+
+	for (i = 0; i < lines; i++) {
+		hex_dump_to_buffer(buff + i * BUFF_LINE_CAPACITY,
+				BUFF_LINE_CAPACITY, BUFF_LINE_CAPACITY, 4,
+				linebuf, sizeof(linebuf), false);
+		seq_printf(file, "%s [%x]: %s\n", str, i * BUFF_LINE_CAPACITY,
+				linebuf);
+	}
+}
+
+static int ufsdbg_host_regs_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+
+	ufsdbg_pr_buf_to_std(file, hba->mmio_base, UFSHCI_REG_SPACE_SIZE,
+			"host regs");
+	return 0;
+}
+
+static int ufsdbg_host_regs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_host_regs_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_host_regs_fops = {
+	.open		= ufsdbg_host_regs_open,
+	.read		= seq_read,
+};
+
+static int ufsdbg_show_hba_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+
+	seq_printf(file, "hba->outstanding_tasks = 0x%x\n",
+			(u32)hba->outstanding_tasks);
+	seq_printf(file, "hba->outstanding_reqs = 0x%x\n",
+			(u32)hba->outstanding_reqs);
+
+	seq_printf(file, "hba->capabilities = 0x%x\n", hba->capabilities);
+	seq_printf(file, "hba->nutrs = %d\n", hba->nutrs);
+	seq_printf(file, "hba->nutmrs = %d\n", hba->nutmrs);
+	seq_printf(file, "hba->ufs_version = 0x%x\n", hba->ufs_version);
+	seq_printf(file, "hba->irq = 0x%x\n", hba->irq);
+	seq_printf(file, "hba->auto_bkops_enabled = %d\n",
+			hba->auto_bkops_enabled);
+
+	seq_printf(file, "hba->ufshcd_state = 0x%x\n", hba->ufshcd_state);
+	seq_printf(file, "hba->eh_flags = 0x%x\n", hba->eh_flags);
+	seq_printf(file, "hba->intr_mask = 0x%x\n", hba->intr_mask);
+	seq_printf(file, "hba->ee_ctrl_mask = 0x%x\n", hba->ee_ctrl_mask);
+
+	/* HBA Errors */
+	seq_printf(file, "hba->errors = 0x%x\n", hba->errors);
+	seq_printf(file, "hba->uic_error = 0x%x\n", hba->uic_error);
+	seq_printf(file, "hba->saved_err = 0x%x\n", hba->saved_err);
+	seq_printf(file, "hba->saved_uic_err = 0x%x\n", hba->saved_uic_err);
+
+	return 0;
+}
+
+static int ufsdbg_show_hba_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_show_hba_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_show_hba_fops = {
+	.open		= ufsdbg_show_hba_open,
+	.read		= seq_read,
+};
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
@@ -164,6 +243,22 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (ufshcd_init_tag_statistics(hba)) {
 		dev_err(hba->dev, "%s: Error initializing tag stats",
 			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.host_regs = debugfs_create_file("host_regs", S_IRUSR,
+				hba->debugfs_files.debugfs_root, hba,
+				&ufsdbg_host_regs_fops);
+	if (!hba->debugfs_files.host_regs) {
+		dev_err(hba->dev, "%s:  NULL hcd regs file, exiting", __func__);
+		goto err;
+	}
+
+	hba->debugfs_files.show_hba = debugfs_create_file("show_hba", S_IRUSR,
+				hba->debugfs_files.debugfs_root, hba,
+				&ufsdbg_show_hba_fops);
+	if (!hba->debugfs_files.show_hba) {
+		dev_err(hba->dev, "%s:  NULL hba file, exiting", __func__);
 		goto err;
 	}
 
