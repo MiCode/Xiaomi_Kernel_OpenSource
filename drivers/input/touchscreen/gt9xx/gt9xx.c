@@ -152,13 +152,13 @@ int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 		},
 	};
 
-	for (retries = 0; retries < 5; retries++) {
+	for (retries = 0; retries < GTP_I2C_RETRY_5; retries++) {
 		ret = i2c_transfer(client->adapter, msgs, 2);
 		if (ret == 2)
 			break;
 		dev_err(&client->dev, "I2C retry: %d\n", retries + 1);
 	}
-	if (retries == 5) {
+	if (retries == GTP_I2C_RETRY_5) {
 #if GTP_SLIDE_WAKEUP
 		/* reset chip would quit doze mode */
 		if (doze_status == DOZE_ENABLED)
@@ -198,13 +198,13 @@ int gtp_i2c_write(struct i2c_client *client, u8 *buf, int len)
 		.buf = buf,
 	};
 
-	for (retries = 0; retries < 5; retries++) {
+	for (retries = 0; retries < GTP_I2C_RETRY_5; retries++) {
 		ret = i2c_transfer(client->adapter, &msg, 1);
 		if (ret == 1)
 			break;
 		dev_err(&client->dev, "I2C retry: %d\n", retries + 1);
 	}
-	if ((retries == 5)) {
+	if (retries == GTP_I2C_RETRY_5) {
 #if GTP_SLIDE_WAKEUP
 		if (doze_status == DOZE_ENABLED)
 			return ret;
@@ -238,7 +238,7 @@ int gtp_i2c_read_dbl_check(struct i2c_client *client,
 	u8 confirm_buf[16] = {0};
 	u8 retry = 0;
 
-	while (retry++ < 3) {
+	while (retry++ < GTP_I2C_RETRY_3) {
 		memset(buf, 0xAA, 16);
 		buf[0] = (u8)(addr >> 8);
 		buf[1] = (u8)(addr & 0xFF);
@@ -252,7 +252,7 @@ int gtp_i2c_read_dbl_check(struct i2c_client *client,
 		if (!memcmp(buf, confirm_buf, len + 2))
 			break;
 	}
-	if (retry < 3) {
+	if (retry < GTP_I2C_RETRY_3) {
 		memcpy(rxbuf, confirm_buf + 2, len);
 		return SUCCESS;
 	}
@@ -281,7 +281,7 @@ static int gtp_send_cfg(struct goodix_ts_data *ts)
 			"Ic fixed config, no config sent!");
 		ret = 2;
 	} else {
-		for (retry = 0; retry < 5; retry++) {
+		for (retry = 0; retry < GTP_I2C_RETRY_5; retry++) {
 			ret = gtp_i2c_write(ts->client,
 				ts->config_data,
 				GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
@@ -720,7 +720,7 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts)
 #endif
 	gtp_irq_disable(ts);
 
-	while (retry++ < 5) {
+	while (retry++ < GTP_I2C_RETRY_3) {
 		i2c_control_buf[0] = 0x80;
 		i2c_control_buf[1] = 0x46;
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
@@ -766,7 +766,7 @@ static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
 
 	ret = gpio_direction_output(ts->pdata->irq_gpio, 0);
 	usleep(5000);
-	while (retry++ < 5) {
+	while (retry++ < GTP_I2C_RETRY_5) {
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
 		if (ret > 0) {
 			dev_dbg(&ts->client->dev,
@@ -804,7 +804,7 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 		return 1;
 	}
 #else
-	while (retry++ < 10) {
+	while (retry++ < GTP_I2C_RETRY_10) {
 #if GTP_SLIDE_WAKEUP
 		/* wakeup not by slide */
 		if (doze_status != DOZE_WAKEUP)
@@ -1072,7 +1072,7 @@ Output:
 static int gtp_i2c_test(struct i2c_client *client)
 {
 	u8 buf[3] = { GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff };
-	int retry = 5;
+	int retry = GTP_I2C_RETRY_5;
 	int ret = -EIO;
 
 	while (retry--) {
@@ -2031,13 +2031,13 @@ static int gtp_init_ext_watchdog(struct i2c_client *client)
 	msg.len   = 4;
 	msg.buf   = opr_buffer;
 
-	while (retries < 5) {
+	while (retries < GTP_I2C_RETRY_5) {
 		ret = i2c_transfer(client->adapter, &msg, 1);
 		if (ret == 1)
 			return 1;
 		retries++;
 	}
-	if (retries >= 5)
+	if (retries == GTP_I2C_RETRY_5)
 		dev_err(&client->dev, "init external watchdog failed!");
 	return 0;
 }
@@ -2053,7 +2053,7 @@ Output:
 *******************************************************/
 static void gtp_esd_check_func(struct work_struct *work)
 {
-	s32 i;
+	s32 retry;
 	s32 ret = -1;
 	struct goodix_ts_data *ts = NULL;
 	u8 test[4] = {0x80, 0x40};
@@ -2070,7 +2070,7 @@ static void gtp_esd_check_func(struct work_struct *work)
 		return;
 #endif
 
-	for (i = 0; i < 3; i++) {
+	for (retry = 0; retry < GTP_I2C_RETRY_3; retry++) {
 		ret = gtp_i2c_read(ts->client, test, 4);
 
 		if ((ret < 0)) {
@@ -2079,7 +2079,7 @@ static void gtp_esd_check_func(struct work_struct *work)
 		} else {
 			if ((test[2] == 0xAA) || (test[3] != 0xAA)) {
 				/* IC works abnormally..*/
-				i = 3;
+				retry = GTP_I2C_RETRY_3;
 				break;
 			}
 			/* IC works normally, Write 0x8040 0xAA*/
@@ -2088,7 +2088,7 @@ static void gtp_esd_check_func(struct work_struct *work)
 			break;
 		}
 	}
-	if (i >= 3) {
+	if (retry == GTP_I2C_RETRY_3) {
 		dev_err(&ts->client->dev,
 			"IC Working ABNORMALLY, Resetting Guitar...\n");
 		gtp_reset_guitar(ts, 50);
