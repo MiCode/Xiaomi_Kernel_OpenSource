@@ -216,8 +216,6 @@ void *smsm_log_ctx;
 #define OVERFLOW_ADD_UNSIGNED(type, a, b) \
 	(((type)~0 - (a)) < (b) ? true : false)
 
-static unsigned last_heap_free = 0xffffffff;
-
 static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr);
 #ifndef INT_ADSP_A11_SMSM
@@ -465,13 +463,15 @@ void smd_diag(void)
 	char *x;
 	int size;
 
-	x = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
+	x = smem_find_to_proc(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		x[SZ_DIAG_ERR_MSG - 1] = 0;
 		SMD_INFO("smem: DIAG '%s'\n", x);
 	}
 
-	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
+	x = smem_get_entry_to_proc(SMEM_ERR_CRASH_LOG, &size, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		x[size - 1] = 0;
 		pr_err("smem: CRASH LOG\n'%s'\n", x);
@@ -578,15 +578,17 @@ static struct platform_device loopback_tty_pdev = {.name = "LOOPBACK_TTY"};
 static LIST_HEAD(smd_ch_closed_list);
 static LIST_HEAD(smd_ch_closing_list);
 static LIST_HEAD(smd_ch_to_close_list);
-static LIST_HEAD(smd_ch_list_modem);
-static LIST_HEAD(smd_ch_list_dsp);
-static LIST_HEAD(smd_ch_list_dsps);
-static LIST_HEAD(smd_ch_list_wcnss);
-static LIST_HEAD(smd_ch_list_rpm);
 
-/* 2 total supported tables of channels */
-static unsigned char smd_ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS * 2];
-static struct work_struct probe_work;
+struct remote_proc_info {
+	unsigned remote_pid;
+	unsigned free_space;
+	struct work_struct probe_work;
+	struct list_head ch_list;
+	/* 2 total supported tables of channels */
+	unsigned char ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS * 2];
+};
+
+static struct remote_proc_info remote_info[NUM_SMD_SUBSYSTEMS];
 
 static void finalize_channel_close_fn(struct work_struct *work);
 static DECLARE_WORK(finalize_channel_close_work, finalize_channel_close_fn);
@@ -594,7 +596,8 @@ static struct workqueue_struct *channel_close_wq;
 
 #define PRI_ALLOC_TBL 1
 #define SEC_ALLOC_TBL 2
-static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id);
+static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
+				struct remote_proc_info *r_info);
 
 static bool smd_edge_inited(int edge)
 {
@@ -612,19 +615,23 @@ static DEFINE_MUTEX(smd_probe_lock);
  *
  * @shared: pointer to the table array in SMEM
  * @smd_ch_allocated: pointer to an array indicating already allocated channels
- * table_id: identifier for this channel allocation table
+ * @table_id: identifier for this channel allocation table
+ * @num_entries: number of entries in this allocation table
+ * @r_info: pointer to the info structure of the remote proc we care about
  *
  * The smd_probe_lock must be locked by the calling function.  Shared and
  * smd_ch_allocated are assumed to be valid pointers.
  */
 static void scan_alloc_table(struct smd_alloc_elm *shared,
 				char *smd_ch_allocated,
-				int table_id)
+				int table_id,
+				unsigned num_entries,
+				struct remote_proc_info *r_info)
 {
 	unsigned n;
 	uint32_t type;
 
-	for (n = 0; n < SMEM_NUM_SMD_STREAM_CHANNELS; n++) {
+	for (n = 0; n < num_entries; n++) {
 		if (smd_ch_allocated[n])
 			continue;
 
@@ -633,7 +640,8 @@ static void scan_alloc_table(struct smd_alloc_elm *shared,
 		 * involved
 		 */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
-		if (!pid_is_on_edge(type, SMD_APPS))
+		if (!pid_is_on_edge(type, SMD_APPS) ||
+				!pid_is_on_edge(type, r_info->remote_pid))
 			continue;
 		if (!shared[n].ref_count)
 			continue;
@@ -642,17 +650,17 @@ static void scan_alloc_table(struct smd_alloc_elm *shared,
 
 		if (!smd_initialized && !smd_edge_inited(type)) {
 			SMD_INFO(
-				"Probe skipping tbl %d, ch %d, edge not inited\n",
-				table_id, n);
+				"Probe skipping proc %d, tbl %d, ch %d, edge not inited\n",
+				r_info->remote_pid, table_id, n);
 			continue;
 		}
 
-		if (!smd_alloc_channel(&shared[n], table_id))
+		if (!smd_alloc_channel(&shared[n], table_id, r_info))
 			smd_ch_allocated[n] = 1;
 		else
 			SMD_INFO(
-				"Probe skipping tbl %d, ch %d, not allocated\n",
-				table_id, n);
+				"Probe skipping proc %d, tbl %d, ch %d, not allocated\n",
+				r_info->remote_pid, table_id, n);
 	}
 }
 
@@ -667,9 +675,13 @@ static void scan_alloc_table(struct smd_alloc_elm *shared,
 static void smd_channel_probe_worker(struct work_struct *work)
 {
 	struct smd_alloc_elm *shared;
+	struct remote_proc_info *r_info;
+	unsigned tbl_size;
 
-	shared = smem_find(ID_CH_ALLOC_TBL,
-				sizeof(*shared) * SMEM_NUM_SMD_STREAM_CHANNELS);
+	r_info = container_of(work, struct remote_proc_info, probe_work);
+
+	shared = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &tbl_size,
+							r_info->remote_pid, 0);
 
 	if (!shared) {
 		pr_err("%s: allocation table not initialized\n", __func__);
@@ -678,14 +690,18 @@ static void smd_channel_probe_worker(struct work_struct *work)
 
 	mutex_lock(&smd_probe_lock);
 
-	scan_alloc_table(shared, smd_ch_allocated, PRI_ALLOC_TBL);
+	scan_alloc_table(shared, r_info->ch_allocated, PRI_ALLOC_TBL,
+						tbl_size / sizeof(*shared),
+						r_info);
 
-	shared = smem_find(SMEM_CHANNEL_ALLOC_TBL_2,
-			sizeof(*shared) * SMEM_NUM_SMD_STREAM_CHANNELS);
+	shared = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size,
+							r_info->remote_pid, 0);
 	if (shared)
 		scan_alloc_table(shared,
-			&(smd_ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS]),
-			SEC_ALLOC_TBL);
+			&(r_info->ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS]),
+			SEC_ALLOC_TBL,
+			tbl_size / sizeof(*shared),
+			r_info);
 
 	mutex_unlock(&smd_probe_lock);
 }
@@ -817,8 +833,21 @@ static void smd_reset_edge(void *void_ch, unsigned new_state,
 	}
 }
 
+/**
+ * smd_channel_reset_state() - find channels in an allocation table and set them
+ *				to the specified state
+ *
+ * @shared:	Pointer to the allocation table to scan
+ * @table_id:	ID of the table
+ * @new_state:	New state that channels should be set to
+ * @pid:	Processor ID of the remote processor for the channels
+ * @num_entries: Number of entries in the table
+ *
+ * Scan the indicated table for channels between Apps and @pid.  If a valid
+ * channel is found, set the remote side of the channel to @new_state.
+ */
 static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
-		unsigned new_state, unsigned pid)
+		unsigned new_state, unsigned pid, unsigned num_entries)
 {
 	unsigned n;
 	void *shared2;
@@ -839,7 +868,7 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 		return;
 	}
 
-	for (n = 0; n < SMD_CHANNELS; n++) {
+	for (n = 0; n < num_entries; n++) {
 		if (!shared[n].ref_count)
 			continue;
 		if (!shared[n].name[0])
@@ -848,11 +877,12 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 		type = SMD_CHANNEL_TYPE(shared[n].type);
 		is_word_access = is_word_access_ch(type);
 		if (is_word_access)
-			shared2 = smem_alloc(base_id + n,
-				sizeof(struct smd_shared_v2_word_access));
+			shared2 = smem_find_to_proc(base_id + n,
+				sizeof(struct smd_shared_v2_word_access), pid,
+				0);
 		else
-			shared2 = smem_alloc(base_id + n,
-				sizeof(struct smd_shared_v2));
+			shared2 = smem_find_to_proc(base_id + n,
+				sizeof(struct smd_shared_v2), pid, 0);
 		if (!shared2)
 			continue;
 
@@ -887,16 +917,19 @@ void smd_channel_reset(uint32_t restart_pid)
 	struct smd_alloc_elm *shared_pri;
 	struct smd_alloc_elm *shared_sec;
 	unsigned long flags;
+	unsigned pri_size;
+	unsigned sec_size;
 
 	SMD_POWER_INFO("%s: starting reset\n", __func__);
 
-	shared_pri = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared_pri) * 64);
+	shared_pri = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &pri_size,
+								restart_pid, 0);
 	if (!shared_pri) {
 		pr_err("%s: allocation table not initialized\n", __func__);
 		return;
 	}
-	shared_sec = smem_find(SMEM_CHANNEL_ALLOC_TBL_2,
-						sizeof(*shared_sec) * 64);
+	shared_sec = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2, &sec_size,
+								restart_pid, 0);
 
 	/* reset SMSM entry */
 	if (smsm_info.state) {
@@ -921,10 +954,11 @@ void smd_channel_reset(uint32_t restart_pid)
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
 	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSING,
-								restart_pid);
+				restart_pid, pri_size / sizeof(*shared_pri));
 	if (shared_sec)
 		smd_channel_reset_state(shared_sec, SEC_ALLOC_TBL,
-						SMD_SS_CLOSING, restart_pid);
+						SMD_SS_CLOSING, restart_pid,
+						sec_size / sizeof(*shared_sec));
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
@@ -935,10 +969,11 @@ void smd_channel_reset(uint32_t restart_pid)
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
 	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSED,
-								restart_pid);
+				restart_pid, pri_size / sizeof(*shared_pri));
 	if (shared_sec)
 		smd_channel_reset_state(shared_sec, SEC_ALLOC_TBL,
-						SMD_SS_CLOSED, restart_pid);
+						SMD_SS_CLOSED, restart_pid,
+						sec_size / sizeof(*shared_sec));
 	spin_unlock_irqrestore(&smd_lock, flags);
 	mutex_unlock(&smd_probe_lock);
 
@@ -1146,13 +1181,31 @@ static void ch_set_state(struct smd_channel *ch, unsigned n)
 	ch->notify_other_cpu(ch);
 }
 
-static void do_smd_probe(void)
+/**
+ * do_smd_probe() - Look for newly created SMD channels a specific processor
+ *
+ * @remote_pid: remote processor id of the proc that may have created channels
+ */
+static void do_smd_probe(unsigned remote_pid)
 {
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	if (shared->heap_info.free_offset != last_heap_free) {
-		last_heap_free = shared->heap_info.free_offset;
-		schedule_work(&probe_work);
+	unsigned free_space;
+
+	free_space = smem_get_free_space(remote_pid);
+	if (free_space != remote_info[remote_pid].free_space) {
+		remote_info[remote_pid].free_space = free_space;
+		schedule_work(&remote_info[remote_pid].probe_work);
 	}
+}
+
+/**
+ * do_smd_probe() - Look for newly created SMD channels from any remote proc
+ */
+static void do_smd_probe_all(void)
+{
+	int i;
+
+	for (i = 1; i < NUM_SMD_SUBSYSTEMS; ++i)
+		do_smd_probe(i);
 }
 
 static void smd_state_change(struct smd_channel *ch,
@@ -1219,7 +1272,7 @@ static void handle_smd_irq_closing_list(void)
 	spin_unlock_irqrestore(&smd_lock, flags);
 }
 
-static void handle_smd_irq(struct list_head *list,
+static void handle_smd_irq(struct remote_proc_info *r_info,
 		void (*notify)(smd_channel_t *ch))
 {
 	unsigned long flags;
@@ -1227,6 +1280,9 @@ static void handle_smd_irq(struct list_head *list,
 	unsigned ch_flags;
 	unsigned tmp;
 	unsigned char state_change;
+	struct list_head *list;
+
+	list = &r_info->ch_list;
 
 	spin_lock_irqsave(&smd_lock, flags);
 	list_for_each_entry(ch, list, ch_list) {
@@ -1276,7 +1332,7 @@ static void handle_smd_irq(struct list_head *list,
 		}
 	}
 	spin_unlock_irqrestore(&smd_lock, flags);
-	do_smd_probe();
+	do_smd_probe(r_info->remote_pid);
 }
 
 static inline void log_irq(uint32_t subsystem)
@@ -1292,7 +1348,7 @@ irqreturn_t smd_modem_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_MODEM);
 	++interrupt_stats[SMD_MODEM].smd_in_count;
-	handle_smd_irq(&smd_ch_list_modem, notify_modem_smd);
+	handle_smd_irq(&remote_info[SMD_MODEM], notify_modem_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
@@ -1301,7 +1357,7 @@ irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_QDSP);
 	++interrupt_stats[SMD_Q6].smd_in_count;
-	handle_smd_irq(&smd_ch_list_dsp, notify_dsp_smd);
+	handle_smd_irq(&remote_info[SMD_Q6], notify_dsp_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
@@ -1310,7 +1366,7 @@ irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_DSPS);
 	++interrupt_stats[SMD_DSPS].smd_in_count;
-	handle_smd_irq(&smd_ch_list_dsps, notify_dsps_smd);
+	handle_smd_irq(&remote_info[SMD_DSPS], notify_dsps_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
@@ -1319,7 +1375,7 @@ irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_WCNSS);
 	++interrupt_stats[SMD_WCNSS].smd_in_count;
-	handle_smd_irq(&smd_ch_list_wcnss, notify_wcnss_smd);
+	handle_smd_irq(&remote_info[SMD_WCNSS], notify_wcnss_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
@@ -1328,18 +1384,18 @@ irqreturn_t smd_rpm_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_RPM);
 	++interrupt_stats[SMD_RPM].smd_in_count;
-	handle_smd_irq(&smd_ch_list_rpm, notify_rpm_smd);
+	handle_smd_irq(&remote_info[SMD_RPM], notify_rpm_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
 
 static void smd_fake_irq_handler(unsigned long arg)
 {
-	handle_smd_irq(&smd_ch_list_modem, notify_modem_smd);
-	handle_smd_irq(&smd_ch_list_dsp, notify_dsp_smd);
-	handle_smd_irq(&smd_ch_list_dsps, notify_dsps_smd);
-	handle_smd_irq(&smd_ch_list_wcnss, notify_wcnss_smd);
-	handle_smd_irq(&smd_ch_list_rpm, notify_rpm_smd);
+	handle_smd_irq(&remote_info[SMD_MODEM], notify_modem_smd);
+	handle_smd_irq(&remote_info[SMD_Q6], notify_dsp_smd);
+	handle_smd_irq(&remote_info[SMD_DSPS], notify_dsps_smd);
+	handle_smd_irq(&remote_info[SMD_WCNSS], notify_wcnss_smd);
+	handle_smd_irq(&remote_info[SMD_RPM], notify_rpm_smd);
 	handle_smd_irq_closing_list();
 }
 
@@ -1365,32 +1421,32 @@ void smd_sleep_exit(void)
 	int need_int = 0;
 
 	spin_lock_irqsave(&smd_lock, flags);
-	list_for_each_entry(ch, &smd_ch_list_modem, ch_list) {
+	list_for_each_entry(ch, &remote_info[SMD_MODEM].ch_list, ch_list) {
 		if (smd_need_int(ch)) {
 			need_int = 1;
 			break;
 		}
 	}
-	list_for_each_entry(ch, &smd_ch_list_dsp, ch_list) {
+	list_for_each_entry(ch, &remote_info[SMD_Q6].ch_list, ch_list) {
 		if (smd_need_int(ch)) {
 			need_int = 1;
 			break;
 		}
 	}
-	list_for_each_entry(ch, &smd_ch_list_dsps, ch_list) {
+	list_for_each_entry(ch, &remote_info[SMD_DSPS].ch_list, ch_list) {
 		if (smd_need_int(ch)) {
 			need_int = 1;
 			break;
 		}
 	}
-	list_for_each_entry(ch, &smd_ch_list_wcnss, ch_list) {
+	list_for_each_entry(ch, &remote_info[SMD_WCNSS].ch_list, ch_list) {
 		if (smd_need_int(ch)) {
 			need_int = 1;
 			break;
 		}
 	}
 	spin_unlock_irqrestore(&smd_lock, flags);
-	do_smd_probe();
+	do_smd_probe_all();
 
 	if (need_int) {
 		SMD_DBG("smd_sleep_exit need interrupt\n");
@@ -1571,12 +1627,14 @@ static int smd_packet_read_from_cb(smd_channel_t *ch, void *data, int len,
  * @ch: pointer to the local structure for this channel
  * @table_id: the id of the table this channel resides in. 1 = first table, 2 =
  *		second table, etc
+ * @r_info: pointer to the info structure of the remote proc for this channel
  * @returns: -EINVAL for failure; 0 for success
  *
  * ch must point to an allocated instance of struct smd_channel that is zeroed
  * out, and has the n and type members already initialized to the correct values
  */
-static int smd_alloc_v2(struct smd_channel *ch, int table_id)
+static int smd_alloc_v2(struct smd_channel *ch, int table_id,
+						struct remote_proc_info *r_info)
 {
 	void *buffer;
 	unsigned buffer_sz;
@@ -1599,7 +1657,8 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 
 	if (is_word_access_ch(ch->type)) {
 		struct smd_shared_v2_word_access *shared2;
-		shared2 = smem_alloc(base_id + ch->n, sizeof(*shared2));
+		shared2 = smem_alloc_to_proc(base_id + ch->n, sizeof(*shared2),
+							r_info->remote_pid, 0);
 		if (!shared2) {
 			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
 			return -EINVAL;
@@ -1608,7 +1667,8 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 		ch->recv = &shared2->ch1;
 	} else {
 		struct smd_shared_v2 *shared2;
-		shared2 = smem_alloc(base_id + ch->n, sizeof(*shared2));
+		shared2 = smem_alloc_to_proc(base_id + ch->n, sizeof(*shared2),
+							r_info->remote_pid, 0);
 		if (!shared2) {
 			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
 			return -EINVAL;
@@ -1618,7 +1678,8 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 	}
 	ch->half_ch = get_half_ch_funcs(ch->type);
 
-	buffer = smem_get_entry(fifo_id + ch->n, &buffer_sz);
+	buffer = smem_get_entry_to_proc(fifo_id + ch->n, &buffer_sz,
+							r_info->remote_pid, 0);
 	if (!buffer) {
 		SMD_INFO("smem_get_entry failed\n");
 		return -EINVAL;
@@ -1643,7 +1704,8 @@ static int smd_alloc_v1(struct smd_channel *ch)
 }
 
 #else /* define v1 for older targets */
-static int smd_alloc_v2(struct smd_channel *ch, int table_id)
+static int smd_alloc_v2(struct smd_channel *ch, int table_id,
+						struct remote_proc_info *r_info)
 {
 	return -EINVAL;
 }
@@ -1651,7 +1713,8 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id)
 static int smd_alloc_v1(struct smd_channel *ch)
 {
 	struct smd_shared_v1 *shared1;
-	shared1 = smem_alloc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1));
+	shared1 = smem_alloc_to_proc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1),
+							0, SMEM_ANY_HOST_FLAG);
 	if (!shared1) {
 		pr_err("smd_alloc_channel() cid %d does not exist\n", ch->n);
 		return -EINVAL;
@@ -1674,9 +1737,11 @@ static int smd_alloc_v1(struct smd_channel *ch)
  * @alloc_elm: the allocation element stored in SMEM for this channel
  * @table_id: the id of the table this channel resides in. 1 = first table, 2 =
  *		seconds table, etc
+ * @r_info: pointer to the info structure of the remote proc for this channel
  * @returns: -1 for failure; 0 for success
  */
-static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id)
+static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
+				struct remote_proc_info *r_info)
 {
 	struct smd_channel *ch;
 
@@ -1688,7 +1753,7 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id)
 	ch->n = alloc_elm->cid;
 	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
 
-	if (smd_alloc_v2(ch, table_id) && smd_alloc_v1(ch)) {
+	if (smd_alloc_v2(ch, table_id, r_info) && smd_alloc_v1(ch)) {
 		kfree(ch);
 		return -1;
 	}
@@ -1911,18 +1976,11 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	SMD_DBG("smd_open: opening '%s'\n", ch->name);
 
 	spin_lock_irqsave(&smd_lock, flags);
-	if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_MODEM)
-		list_add(&ch->ch_list, &smd_ch_list_modem);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_QDSP)
-		list_add(&ch->ch_list, &smd_ch_list_dsp);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_DSPS)
-		list_add(&ch->ch_list, &smd_ch_list_dsps);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_WCNSS)
-		list_add(&ch->ch_list, &smd_ch_list_wcnss);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_RPM)
-		list_add(&ch->ch_list, &smd_ch_list_rpm);
-	else
+	if (unlikely(ch->type == SMD_LOOPBACK_TYPE))
 		list_add(&ch->ch_list, &smd_ch_list_loopback);
+	else
+		list_add(&ch->ch_list,
+		       &remote_info[edge_to_pids[ch->type].remote_pid].ch_list);
 
 	SMD_DBG("%s: opening ch %d\n", __func__, ch->n);
 
@@ -2394,8 +2452,9 @@ static int smsm_init(void)
 	}
 	remote_spin_unlock_irqrestore(remote_spinlock, flags);
 
-	smsm_size_info = smem_alloc(SMEM_SMSM_SIZE_INFO,
-				sizeof(struct smsm_size_info_type));
+	smsm_size_info = smem_alloc_to_proc(SMEM_SMSM_SIZE_INFO,
+				sizeof(struct smsm_size_info_type), 0,
+				SMEM_ANY_HOST_FLAG);
 	if (smsm_size_info) {
 		SMSM_NUM_ENTRIES = smsm_size_info->num_entries;
 		SMSM_NUM_HOSTS = smsm_size_info->num_hosts;
@@ -2412,9 +2471,10 @@ static int smsm_init(void)
 			"smsm_snapshot");
 
 	if (!smsm_info.state) {
-		smsm_info.state = smem_alloc2(ID_SHARED_STATE,
-					      SMSM_NUM_ENTRIES *
-					      sizeof(uint32_t));
+		smsm_info.state = smem_alloc2_to_proc(ID_SHARED_STATE,
+						SMSM_NUM_ENTRIES *
+						sizeof(uint32_t), 0,
+						SMEM_ANY_HOST_FLAG);
 
 		if (smsm_info.state) {
 			__raw_writel(0, SMSM_STATE_ADDR(SMSM_APPS_STATE));
@@ -2425,10 +2485,12 @@ static int smsm_init(void)
 	}
 
 	if (!smsm_info.intr_mask) {
-		smsm_info.intr_mask = smem_alloc2(SMEM_SMSM_CPU_INTR_MASK,
-						  SMSM_NUM_ENTRIES *
-						  SMSM_NUM_HOSTS *
-						  sizeof(uint32_t));
+		smsm_info.intr_mask = smem_alloc2_to_proc(
+						SMEM_SMSM_CPU_INTR_MASK,
+						SMSM_NUM_ENTRIES *
+						SMSM_NUM_HOSTS *
+						sizeof(uint32_t), 0,
+						SMEM_ANY_HOST_FLAG);
 
 		if (smsm_info.intr_mask) {
 			for (i = 0; i < SMSM_NUM_ENTRIES; i++)
@@ -2443,9 +2505,10 @@ static int smsm_init(void)
 	}
 
 	if (!smsm_info.intr_mux)
-		smsm_info.intr_mux = smem_alloc2(SMEM_SMD_SMSM_INTR_MUX,
-						 SMSM_NUM_INTR_MUX *
-						 sizeof(uint32_t));
+		smsm_info.intr_mux = smem_alloc2_to_proc(SMEM_SMD_SMSM_INTR_MUX,
+							SMSM_NUM_INTR_MUX *
+							sizeof(uint32_t), 0,
+							SMEM_ANY_HOST_FLAG);
 
 	i = smsm_cb_init();
 	if (i)
@@ -3075,18 +3138,23 @@ static int restart_notifier_cb(struct notifier_block *this,
  * smd_post_init() - SMD post initialization
  * @is_leagcy:	1 for Leagcy/platform device init sequence
  *		0 for device tree init sequence
+ * @remote_pid: remote pid that has been initialized.  Ignored when is_legacy=1
  *
  * This function is used by the legacy and device tree initialization
  * to complete the SMD init sequence.
  */
-void smd_post_init(bool is_legacy)
+void smd_post_init(bool is_legacy, unsigned remote_pid)
 {
+	int i;
+
 	if (is_legacy) {
 		smd_initialized = 1;
 		smd_alloc_loopback_channel();
+		for (i = 1; i < NUM_SMD_SUBSYSTEMS; ++i)
+			schedule_work(&remote_info[i].probe_work);
+	} else {
+		schedule_work(&remote_info[remote_pid].probe_work);
 	}
-
-	schedule_work(&probe_work);
 }
 
 /**
@@ -3222,6 +3290,7 @@ int __init msm_smd_init(void)
 {
 	static bool registered;
 	int rc;
+	int i;
 
 	if (registered)
 		return 0;
@@ -3240,7 +3309,12 @@ int __init msm_smd_init(void)
 
 	registered = true;
 
-	INIT_WORK(&probe_work, smd_channel_probe_worker);
+	for (i = 0; i < NUM_SMD_SUBSYSTEMS; ++i) {
+		remote_info[i].remote_pid = i;
+		remote_info[i].free_space = UINT_MAX;
+		INIT_WORK(&remote_info[i].probe_work, smd_channel_probe_worker);
+		INIT_LIST_HEAD(&remote_info[i].ch_list);
+	}
 
 	channel_close_wq = create_singlethread_workqueue("smd_channel_close");
 	if (IS_ERR(channel_close_wq)) {
