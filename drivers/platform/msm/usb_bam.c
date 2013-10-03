@@ -360,14 +360,14 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		/*
 		 * Enable USB PRIVATE RAM to be used for BAM FIFOs
 		 * HSUSB: Only RAM13 is used for BAM FIFOs
-		 * SSUSB: RAM12, 13 are used for BAM FIFOs
+		 * SSUSB: RAM11, 12, 13 are used for BAM FIFOs
 		 */
 		bam = pipe_connect->bam_type;
 
 		if (bam == HSUSB_BAM)
 			ram1_value = 0x4;
 		else
-			ram1_value = 0x6;
+			ram1_value = 0x7;
 
 		pr_debug("Writing 0x%x to QSCRATCH_RAM1\n", ram1_value);
 		writel_relaxed(ram1_value, ctx.qscratch_ram1_reg);

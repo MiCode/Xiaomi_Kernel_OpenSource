@@ -1562,7 +1562,7 @@
 		qcom,misc-ref = <&pm8941_misc>;
 		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
-		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
@@ -2152,7 +2152,7 @@
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0xf9304000>;
 			qcom,dst-bam-pipe-index = <2>;
-			qcom,data-fifo-offset = <0xf2000>;
+			qcom,data-fifo-offset = <0xf0000>;
 			qcom,data-fifo-size = <0x1800>;
 			qcom,descriptor-fifo-offset = <0xf4000>;
 			qcom,descriptor-fifo-size = <0x1400>;
