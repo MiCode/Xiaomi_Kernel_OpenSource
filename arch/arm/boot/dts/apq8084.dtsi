@@ -170,6 +170,20 @@
 		status = "disabled";
 	};
 
+	blsp2_uart0: uart@f995d000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf995d000 0x1000>;
+		interrupts = <0 113 0>;
+		status = "disabled";
+
+		qcom,msm-bus,name = "blsp2_uart0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
+	};
+
 	serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
