@@ -16,6 +16,7 @@
 #include <linux/ioport.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 
 static struct gpiomux_setting ap2mdm_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -181,6 +182,18 @@ static struct gpiomux_setting gpio_spi_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_uart_gps_liquid_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv  = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_uart_gps_cdp_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv  = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 0,		/* BLSP1 QUP1 SPI_DATA_MOSI */
@@ -273,6 +286,37 @@ static struct msm_gpiomux_config msm_blsp1_uart6_configs[] __initdata = {
 		.gpio      = 46,		/* BLSP1 UART6 RTS */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+};
+
+/* QCA1530 uses differnt GPIOs based on platform, hence these settings */
+static struct msm_gpiomux_config msm_blsp2_uart5_configs[] __initdata = {
+	{
+		.gpio      = 112,		/* BLSP2 UART5 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_gps_liquid_config,
+		},
+	},
+	{
+		.gpio      = 113,		/* BLSP2 UART5 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_gps_liquid_config,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm_blsp2_uart1_configs[] __initdata = {
+	{
+		.gpio      = 130,		/* BLSP2 UART1 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_gps_cdp_config,
+		},
+	},
+	{
+		.gpio      = 131,		/* BLSP2 UART1 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_gps_cdp_config,
 		},
 	},
 };
@@ -554,10 +598,18 @@ void __init apq8084_init_gpiomux(void)
 					ARRAY_SIZE(msm_blsp1_uart6_configs));
 	msm_gpiomux_install(msm_synaptics_configs,
 					ARRAY_SIZE(msm_synaptics_configs));
+
+	if (of_board_is_liquid())
+		msm_gpiomux_install(msm_blsp2_uart5_configs,
+				ARRAY_SIZE(msm_blsp2_uart5_configs));
+	else {
+		msm_gpiomux_install(mdm_configs, ARRAY_SIZE(mdm_configs));
+		msm_gpiomux_install(msm_blsp2_uart1_configs,
+				ARRAY_SIZE(msm_blsp2_uart1_configs));
+	}
 	msm_gpiomux_install(apq8084_hsic_configs,
 			ARRAY_SIZE(apq8084_hsic_configs));
 	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
-	msm_gpiomux_install(mdm_configs, ARRAY_SIZE(mdm_configs));
 	msm_gpiomux_install(apq8084_pri_ter_auxpcm_configs,
 			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
