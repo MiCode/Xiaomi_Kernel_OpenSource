@@ -89,8 +89,10 @@
 	};
 };
 
-/include/ "dsi-panel-jdi-1080p-video.dtsi"
-&dsi_jdi_1080_vid {
+/include/ "dsi-panel-jdi-dualmipi0-video.dtsi"
+/include/ "dsi-panel-jdi-dualmipi1-video.dtsi"
+
+&dsi_dual0_jdi_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
@@ -107,11 +109,19 @@
         qcom,hdmi-tx-mux-sel = <&msmgpio 85 0>;
 };
 
+&mdss_fb0 {
+	qcom,memory-reservation-size = <0x1C20000>;
+};
+
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual0_jdi_video>;
 	qcom,platform-reset-gpio = <&msmgpio 96 0>;
 	qcom,platform-enable-gpio = <&msmgpio 137 0>;
 	qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual1_jdi_video>;
 };
 
 &blsp2_uart1 {
