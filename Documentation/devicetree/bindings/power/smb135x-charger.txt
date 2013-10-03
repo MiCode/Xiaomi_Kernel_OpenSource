@@ -13,6 +13,8 @@ Optional Properties:
 
 - interrupts			This indicates the IRQ number of the GPIO
 				connected to the STAT pin.
+- qcom,bms-psy-name	 	the psy name to use for reporting battery capacity. If left
+				unspecified it uses a preprogrammed default value.
 - qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
 				the battery is charged. Supported range 3600mV to 4500mV
 - qcom,charging-timeout		Maximum duration in minutes that a single charge
