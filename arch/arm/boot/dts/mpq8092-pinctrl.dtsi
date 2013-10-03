@@ -1,0 +1,37 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tlmm_pinmux: pinctrl@fd510000 {
+		compatible = "qcom,msm-tlmm-v3";
+		reg = <0xfd510000 0x4000>;
+
+		/*General purpose pins*/
+		gp: gp {
+			qcom,pin-type-gp;
+			qcom,num-pins = <142>;
+			#qcom,pin-cells = <1>;
+		};
+
+		/* SDC pin type */
+		sdc: sdc {
+			qcom,pin-type-sdc;
+			/* 0-2 for sdc1 3-5 for sdc2 */
+			qcom,num-pins = <6>;
+			/* Order of pins */
+			/* CLK -> 0 */
+			/* CMD -> 1 */
+			/* DATA -> 2 */
+			#qcom,pin-cells = <1>;
+		};
+	};
+};
