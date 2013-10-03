@@ -1502,13 +1502,9 @@ struct mdss_mdp_pipe *mdss_mdp_mixer_stage_pipe(struct mdss_mdp_ctl *ctl,
 	if (!ctl)
 		return NULL;
 
-	if (mutex_lock_interruptible(&ctl->lock))
-		return NULL;
-
 	mixer = mdss_mdp_mixer_get(ctl, mux);
 	if (mixer)
 		pipe = mixer->stage_pipe[stage];
-	mutex_unlock(&ctl->lock);
 
 	return pipe;
 }
@@ -1579,14 +1575,10 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe)
 	pr_debug("unstage pnum=%d stage=%d mixer=%d\n", pipe->num,
 			pipe->mixer_stage, mixer->num);
 
-	if (mutex_lock_interruptible(&ctl->lock))
-		return -EINTR;
-
 	if (pipe == mixer->stage_pipe[pipe->mixer_stage]) {
 		mixer->params_changed++;
 		mixer->stage_pipe[pipe->mixer_stage] = NULL;
 	}
-	mutex_unlock(&ctl->lock);
 
 	return 0;
 }
