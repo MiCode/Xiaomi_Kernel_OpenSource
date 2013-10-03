@@ -436,6 +436,8 @@ struct ufs_hba {
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
 
+	/* Keeps information of the UFS device connected to this host */
+	struct ufs_dev_info dev_info;
 	bool auto_bkops_enabled;
 	struct ufs_vreg_info vreg_info;
 	struct list_head clk_list_head;
