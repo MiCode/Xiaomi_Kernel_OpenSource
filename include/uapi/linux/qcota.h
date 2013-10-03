@@ -1,18 +1,5 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
-
-#ifndef __QCOTA__H
-#define __QCOTA__H
+#ifndef _UAPI_QCOTA_H
+#define _UAPI_QCOTA_H
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
@@ -162,4 +149,4 @@ struct qce_f9_req {
 #define QCOTA_F8_MPKT_REQ _IOWR(QCOTA_IOC_MAGIC, 2, struct qce_f8_multi_pkt_req)
 #define QCOTA_F9_REQ _IOWR(QCOTA_IOC_MAGIC, 3, struct qce_f9_req)
 
-#endif /* __QCOTA__H */
+#endif /* _UAPI_QCOTA_H */

@@ -353,6 +353,7 @@ header-y += prctl.h
 header-y += ptp_clock.h
 header-y += ptrace.h
 header-y += qcedev.h
+header-y += qcota.h
 header-y += qnx4_fs.h
 header-y += qnxtypes.h
 header-y += qrng.h
