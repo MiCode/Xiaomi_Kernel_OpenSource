@@ -69,6 +69,7 @@ static void check_poison_mem(unsigned char *mem, size_t bytes)
 
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 16, 1, start,
 			end - start + 1, 1);
+	BUG_ON(PANIC_CORRUPTION);
 	dump_stack();
 }
 
