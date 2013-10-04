@@ -191,6 +191,9 @@ static int msm_lpm_set_l2_mode(int sleep_mode)
 	case MSM_SPM_L2_MODE_GDHS:
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_GDHS);
 		break;
+	case MSM_SPM_L2_MODE_PC_NO_RPM:
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
+		break;
 	case MSM_SPM_L2_MODE_RETENTION:
 	case MSM_SPM_L2_MODE_DISABLED:
 		break;
@@ -448,6 +451,7 @@ static int msm_lpm_get_l2_cache_value(struct device_node *node,
 	int i;
 	struct lpm_lookup_table l2_mode_lookup[] = {
 		{MSM_SPM_L2_MODE_POWER_COLLAPSE, "l2_cache_pc"},
+		{MSM_SPM_L2_MODE_PC_NO_RPM, "l2_cache_pc_no_rpm"},
 		{MSM_SPM_L2_MODE_GDHS, "l2_cache_gdhs"},
 		{MSM_SPM_L2_MODE_RETENTION, "l2_cache_retention"},
 		{MSM_SPM_L2_MODE_DISABLED, "l2_cache_active"}

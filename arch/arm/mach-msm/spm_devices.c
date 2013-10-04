@@ -400,6 +400,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	struct mode_of of_l2_modes[] = {
 		{"qcom,saw2-spm-cmd-ret", MSM_SPM_L2_MODE_RETENTION, 1},
 		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_L2_MODE_GDHS, 1},
+		{"qcom,saw2-spm-cmd-pc-no-rpm", MSM_SPM_L2_MODE_PC_NO_RPM, 1},
 		{"qcom,saw2-spm-cmd-pc", MSM_SPM_L2_MODE_POWER_COLLAPSE, 1},
 	};
 
