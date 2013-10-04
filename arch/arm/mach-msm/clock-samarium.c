@@ -3272,6 +3272,10 @@ static struct clk_lookup msm_clocks_samarium_rumi[] = {
 
 	CLK_DUMMY("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent",
 		  OFF),
+	CLK_DUMMY("core_clk", gcc_ce1_clk.c, "qseecom", OFF),
+	CLK_DUMMY("iface_clk", gcc_ce1_ahb_clk.c, "qseecom", OFF),
+	CLK_DUMMY("bus_clk",  gcc_ce1_axi_clk.c, "qseecom", OFF),
+	CLK_DUMMY("core_clk_src", qseecom_ce1_clk_src.c, "qseecom", OFF),
 };
 
 static struct clk_lookup msm_clocks_samarium[] = {
