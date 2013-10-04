@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -66,6 +67,7 @@ void __init msmkrypton_add_drivers(void)
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_clock_init(&msmkrypton_clock_init_data);
+	tsens_tm_init_driver();
 }
 
 void __init msmkrypton_reserve(void)
