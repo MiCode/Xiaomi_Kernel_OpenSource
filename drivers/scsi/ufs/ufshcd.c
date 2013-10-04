@@ -3905,7 +3905,8 @@ out:
 	return ret;
 }
 
-static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
+static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
+				 bool skip_ref_clk)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -3916,6 +3917,9 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
+			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+				continue;
+
 			if (on && !clki->enabled) {
 				ret = clk_prepare_enable(clki->clk);
 				if (ret) {
@@ -3939,6 +3943,11 @@ out:
 		}
 	}
 	return ret;
+}
+
+static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
+{
+	return  __ufshcd_setup_clocks(hba, on, false);
 }
 
 static int ufshcd_init_clocks(struct ufs_hba *hba)
@@ -4259,8 +4268,11 @@ disable_clks:
 			goto set_link_active;
 	}
 
-	/* freeze the hardware by turning off the clocks */
-	ufshcd_setup_clocks(hba, false);
+	if (!ufshcd_is_link_active(hba))
+		ufshcd_setup_clocks(hba, false);
+	else
+		/* If link is active, device ref_clk can't be switched off */
+		__ufshcd_setup_clocks(hba, false, true);
 
 	/*
 	 * Disable the host irq as host controller as there won't be any
