@@ -1045,6 +1045,8 @@ static int msm_ufs_enable_phy_ref_clk(struct msm_ufs_phy *phy)
 				__func__, ret);
 		goto out_disable_parent;
 	}
+
+	phy->is_ref_clk_enabled = true;
 	goto out;
 
 out_disable_parent:
@@ -1501,11 +1503,12 @@ static int msm_ufs_init(struct ufs_hba *hba)
 	msm_ufs_advertise_quirks(hba);
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_SUSPEND) {
 		/*
-		 * During runtime suspend and system suspend keep the device
-		 * and the link active but shut-off the system clocks.
+		 * During runtime suspend keep the device and the link active
+		 * but shut-off the system clocks. During system suspend power
+		 * off both link and device.
 		 */
 		hba->rpm_lvl = UFS_PM_LVL_0;
-		hba->spm_lvl = UFS_PM_LVL_0;
+		hba->spm_lvl = UFS_PM_LVL_4;
 
 	} else if (hba->quirks & UFSHCD_QUIRK_BROKEN_HIBERN8) {
 		/*
