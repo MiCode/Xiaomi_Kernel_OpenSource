@@ -93,4 +93,12 @@ int smem_module_init_notifier_unregister(struct notifier_block *nb);
  * necessary partition internals are restricted to just SMEM.
  */
 unsigned smem_get_free_space(unsigned to_proc);
+
+/**
+ * smem_get_version() - Get the smem user version number
+ *
+ * @idx: SMEM user idx in SMEM_VERSION_INFO table.
+ * @returns: smem version number if success otherwise zero.
+ */
+unsigned smem_get_version(unsigned idx);
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_ */

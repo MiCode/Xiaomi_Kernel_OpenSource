@@ -898,6 +898,30 @@ unsigned smem_get_free_space(unsigned to_proc)
 EXPORT_SYMBOL(smem_get_free_space);
 
 /**
+ * smem_get_version() - Get the smem user version number
+ *
+ * @idx: SMEM user idx in SMEM_VERSION_INFO table.
+ * @returns: smem version number if success otherwise zero.
+ */
+unsigned smem_get_version(unsigned idx)
+{
+	int *version_array;
+
+	if (idx > 32) {
+		pr_err("%s: invalid idx:%d\n", __func__, idx);
+		return 0;
+	}
+
+	version_array = __smem_find(SMEM_VERSION_INFO, SMEM_VERSION_INFO_SIZE,
+							true);
+	if (version_array == NULL)
+		return 0;
+
+	return version_array[idx];
+}
+EXPORT_SYMBOL(smem_get_version);
+
+/**
  * init_smem_remote_spinlock - Reentrant remote spinlock initialization
  *
  * @returns: success or error code for failure
@@ -937,7 +961,6 @@ bool smem_initialized_check(void)
 	static int is_inited;
 	unsigned long flags;
 	struct smem_shared *smem;
-	int *version_array;
 
 	if (likely(checked)) {
 		if (unlikely(!is_inited))
@@ -960,18 +983,13 @@ bool smem_initialized_check(void)
 	if (smem->heap_info.reserved != 0)
 		goto failed;
 
-	version_array = __smem_find(SMEM_VERSION_INFO, SMEM_VERSION_INFO_SIZE,
-									true);
-	if (version_array == NULL)
-		goto failed;
-
 	/*
 	 * The Modem SBL is now the Master SBL version and is required to
 	 * pre-initialize SMEM and fill in any necessary configuration
 	 * structures.  Without the extra configuration data, the SMEM driver
 	 * cannot be properly initialized.
 	 */
-	if (version_array[MODEM_SBL_VERSION_INDEX] != SMEM_VERSION << 16) {
+	if (smem_get_version(MODEM_SBL_VERSION_INDEX) != SMEM_VERSION << 16) {
 		pr_err("%s: SBL version not correct\n", __func__);
 		goto failed;
 	}
