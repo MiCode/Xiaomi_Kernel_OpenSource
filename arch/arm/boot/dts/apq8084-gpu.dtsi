@@ -27,7 +27,7 @@
 
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,strtstp-sleepwake;
-		qcom,clk-map = <0x00000016>; //KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE
+		qcom,clk-map = <0x00000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "grp3d";
