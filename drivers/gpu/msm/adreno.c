@@ -633,11 +633,11 @@ static void adreno_cleanup_pt(struct kgsl_device *device,
 
 	kgsl_mmu_unmap(pagetable, &device->memstore);
 
-	kgsl_mmu_unmap(pagetable, &adreno_dev->profile.shared_buffer);
-
 	kgsl_mmu_unmap(pagetable, &adreno_dev->pwron_fixup);
 
 	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
+
+	kgsl_mmu_unmap(pagetable, &adreno_dev->profile.shared_buffer);
 }
 
 static int adreno_setup_pt(struct kgsl_device *device,
@@ -649,6 +649,12 @@ static int adreno_setup_pt(struct kgsl_device *device,
 
 	result = kgsl_mmu_map_global(pagetable, &rb->buffer_desc);
 
+	/*
+	 * ALERT: Order of these mapping is important to
+	 * Keep the most used entries like memptrs, memstore
+	 * and mmu setstate memory by TLB prefetcher.
+	 */
+
 	if (!result)
 		result = kgsl_mmu_map_global(pagetable, &rb->memptrs_desc);
 
@@ -657,16 +663,15 @@ static int adreno_setup_pt(struct kgsl_device *device,
 
 	if (!result)
 		result = kgsl_mmu_map_global(pagetable,
-			&adreno_dev->profile.shared_buffer);
-
-	if (!result)
-		result = kgsl_mmu_map_global(pagetable,
 			&adreno_dev->pwron_fixup);
-
 
 	if (!result)
 		result = kgsl_mmu_map_global(pagetable,
 			&device->mmu.setstate_memory);
+
+	if (!result)
+		result = kgsl_mmu_map_global(pagetable,
+			&adreno_dev->profile.shared_buffer);
 
 	if (result) {
 		/* On error clean up what we have wrought */
@@ -679,8 +684,8 @@ static int adreno_setup_pt(struct kgsl_device *device,
 	 * For the IOMMU, this will be used to restrict access to the
 	 * mapped registers.
 	 */
-	device->mh.mpu_range = device->mmu.setstate_memory.gpuaddr +
-				device->mmu.setstate_memory.size;
+	device->mh.mpu_range = adreno_dev->profile.shared_buffer.gpuaddr +
+				adreno_dev->profile.shared_buffer.size;
 
 	return 0;
 }
