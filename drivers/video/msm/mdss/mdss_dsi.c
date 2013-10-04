@@ -617,7 +617,7 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	}
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
+			panel_data);
 
 	if (!ctrl_pdata->panel_data.panel_info.dynamic_fps) {
 		pr_err("%s: Dynamic fps not enabled for this panel\n",
@@ -657,6 +657,43 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 		}
 	} else {
 		pr_debug("%s: Panel is already at this FPS\n", __func__);
+	}
+
+	return rc;
+}
+
+static int mdss_dsi_ctl_partial_update(struct mdss_panel_data *pdata)
+{
+	int rc = -EINVAL;
+	u32 data;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
+	data = (((pdata->panel_info.roi_w * 3) + 1) << 16) |
+			(pdata->panel_info.mipi.vc << 8) | DTYPE_DCS_LWRITE;
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
+
+	/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
+	data = pdata->panel_info.roi_h << 16 | pdata->panel_info.roi_w;
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
+
+	if (ctrl_pdata->partial_update_fnc)
+		rc = ctrl_pdata->partial_update_fnc(pdata);
+
+	if (rc) {
+		pr_err("%s: unable to initialize the panel\n",
+				__func__);
+		return rc;
 	}
 
 	return rc;
@@ -728,6 +765,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			/* Panel is Enabled in Bootloader */
 			rc = mdss_dsi_blank(pdata);
 		}
+		break;
+	case MDSS_EVENT_ENABLE_PARTIAL_UPDATE:
+		rc = mdss_dsi_ctl_partial_update(pdata);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

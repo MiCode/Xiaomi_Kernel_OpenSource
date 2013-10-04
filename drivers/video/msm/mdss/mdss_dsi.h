@@ -315,6 +315,7 @@ struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
+	int (*partial_update_fnc) (struct mdss_panel_data *pdata);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
 	int reg_size;
