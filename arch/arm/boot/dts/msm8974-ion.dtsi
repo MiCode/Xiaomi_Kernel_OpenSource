@@ -16,8 +16,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@30 {
-			reg = <30>;
+		qcom,ion-heap@25 {
+			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
@@ -40,11 +40,6 @@
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&adsp_mem>;
 			qcom,ion-heap-type = "DMA";
-		};
-
-		qcom,ion-heap@25 {
-			reg = <25>;
-			qcom,ion-heap-type = "IOMMU";
 		};
 
 		qcom,ion-heap@27 { /* QSECOM HEAP */

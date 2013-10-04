@@ -76,10 +76,6 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_SF_HEAP_NAME,
 	},
 	{
-		.id	= ION_IOMMU_HEAP_ID,
-		.name	= ION_IOMMU_HEAP_NAME,
-	},
-	{
 		.id	= ION_QSECOM_HEAP_ID,
 		.name	= ION_QSECOM_HEAP_NAME,
 	},
@@ -590,7 +586,6 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_CONTIG),
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
-	MAKE_HEAP_TYPE_MAPPING(IOMMU),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
 	MAKE_HEAP_TYPE_MAPPING(CP),
 	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
@@ -963,9 +958,6 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
-	case ION_HEAP_TYPE_IOMMU:
-		heap = ion_iommu_heap_create(heap_data);
-		break;
 	case ION_HEAP_TYPE_CP:
 		heap = ion_cp_heap_create(heap_data);
 		break;
@@ -1005,9 +997,6 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
-	case ION_HEAP_TYPE_IOMMU:
-		ion_iommu_heap_destroy(heap);
-		break;
 	case ION_HEAP_TYPE_CP:
 		ion_cp_heap_destroy(heap);
 		break;
