@@ -178,6 +178,7 @@ struct fastrpc_buf {
 struct file_data {
 	spinlock_t hlock;
 	struct hlist_head hlst;
+	uint32_t mode;
 };
 
 struct fastrpc_device {
@@ -407,7 +408,7 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	unsigned long len;
-	dma_addr_t iova;
+	ion_phys_addr_t iova;
 
 	list = smq_invoke_buf_start(rpra, sc);
 	pages = smq_phy_page_start(sc, list);
@@ -461,7 +462,7 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 		}
 		list[i].num = 1;
 		pages[list[i].pgidx].addr =
-			buf_page_start((void *)(unsigned long)(pbuf->phys +
+			buf_page_start((void *)((uint32_t)pbuf->phys +
 						 (pbuf->size - rlen)));
 		pages[list[i].pgidx].size =
 			buf_page_size(pra[i].buf.len);
@@ -791,9 +792,9 @@ static void add_dev(struct fastrpc_apps *me, struct fastrpc_device *dev)
 
 static int fastrpc_release_current_dsp_process(void);
 
-static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
-			struct fastrpc_ioctl_invoke *invoke, remote_arg_t *pra,
-			int *fds)
+static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
+			uint32_t kernel, struct fastrpc_ioctl_invoke *invoke,
+			remote_arg_t *pra, int *fds)
 {
 	remote_arg_t *rpra = 0;
 	struct fastrpc_device *dev = 0;
@@ -829,11 +830,14 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 
 	context_list_alloc_ctx(&me->clst, &ctx);
 	inv_args_pre(sc, rpra);
+	if (FASTRPC_MODE_SERIAL == mode)
+		inv_args(sc, rpra, obuf.used);
 	VERIFY(err, 0 == fastrpc_invoke_send(me, kernel, invoke->handle, sc,
 						ctx, &obuf));
 	if (err)
 		goto bail;
-	inv_args(sc, rpra, obuf.used);
+	if (FASTRPC_MODE_PARALLEL == mode)
+		inv_args(sc, rpra, obuf.used);
 	VERIFY(err, 0 == (interrupted =
 			wait_for_completion_interruptible(&ctx->work)));
 	if (err)
@@ -891,7 +895,8 @@ static int fastrpc_create_current_dsp_process(void)
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(0, 1, 0);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra, 0)));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, ra, 0)));
 	return err;
 }
 
@@ -909,7 +914,8 @@ static int fastrpc_release_current_dsp_process(void)
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(1, 1, 0);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra, 0)));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, ra, 0)));
 	return err;
 }
 
@@ -947,7 +953,8 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_apps *me,
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(2, 2, 1);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra, 0)));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, ra, 0)));
 	mmap->vaddrout = routargs.vaddrout;
 	if (err)
 		goto bail;
@@ -976,7 +983,8 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_apps *me,
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra, 0)));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, ra, 0)));
 	return err;
 }
 
@@ -1183,8 +1191,8 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (err)
 			goto bail;
 		}
-		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 0, invoke,
-								pra, fds)));
+		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, fdata->mode,
+							0, invoke, pra, fds)));
 		if (err)
 			goto bail;
 		break;
@@ -1210,6 +1218,17 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 								&munmap)));
 		if (err)
 			goto bail;
+		break;
+	case FASTRPC_IOCTL_SETMODE:
+		switch ((uint32_t)ioctl_param) {
+		case FASTRPC_MODE_PARALLEL:
+		case FASTRPC_MODE_SERIAL:
+			fdata->mode = (uint32_t)ioctl_param;
+			break;
+		default:
+			err = -ENOTTY;
+			break;
+		}
 		break;
 	default:
 		err = -ENOTTY;
