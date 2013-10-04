@@ -181,7 +181,7 @@ static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag);
 static int ufshcd_read_sdev_qdepth(struct ufs_hba *hba,
 					struct scsi_device *sdev);
 static void ufshcd_hba_exit(struct ufs_hba *hba);
-
+static int ufshcd_probe_hba(struct ufs_hba *hba);
 static inline void ufshcd_enable_irq(struct ufs_hba *hba)
 {
 	if (!hba->is_irq_enabled) {
@@ -3331,7 +3331,6 @@ out:
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 {
 	int err;
-	async_cookie_t cookie;
 	unsigned long flags;
 
 	/* Reset the host controller */
@@ -3344,10 +3343,9 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 		goto out;
 
 	/* Establish the link again and restore the device */
-	cookie = async_schedule(ufshcd_async_scan, hba);
-	/* wait for async scan to be completed */
-	async_synchronize_cookie(++cookie);
-	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
+	err = ufshcd_probe_hba(hba);
+
+	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL))
 		err = -EIO;
 out:
 	if (err)
@@ -3579,13 +3577,13 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 }
 
 /**
- * ufshcd_async_scan - asynchronous execution for link startup
- * @data: data pointer to pass to this function
- * @cookie: cookie data
+ * ufshcd_probe_hba - probe hba to detect device and initialize
+ * @hba: per-adapter instance
+ *
+ * Execute link-startup and verify device initialization
  */
-static void ufshcd_async_scan(void *data, async_cookie_t cookie)
+static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
-	struct ufs_hba *hba = (struct ufs_hba *)data;
 	int ret;
 
 	ret = ufshcd_link_startup(hba);
@@ -3626,7 +3624,19 @@ out:
 	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress)
 		ufshcd_hba_exit(hba);
 
-	return;
+	return ret;
+}
+
+/**
+ * ufshcd_async_scan - asynchronous execution for probing hba
+ * @data: data pointer to pass to this function
+ * @cookie: cookie data
+ */
+static void ufshcd_async_scan(void *data, async_cookie_t cookie)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)data;
+
+	ufshcd_probe_hba(hba);
 }
 
 static struct scsi_host_template ufshcd_driver_template = {
