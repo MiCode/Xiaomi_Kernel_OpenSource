@@ -2824,7 +2824,7 @@ static struct branch_clk venus0_axi_clk = {
 
 static struct branch_clk venus0_ocmemnoc_clk = {
 	.cbcr_reg = VENUS0_OCMEMNOC_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "venus0_ocmemnoc_clk",
