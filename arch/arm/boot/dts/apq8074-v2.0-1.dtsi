@@ -37,9 +37,6 @@
 				<55 512 3936000 393600>;
 	};
 
-	sound {
-		compatible = "qcom,apq8074-audio-taiko";
-	};
 };
 
 &memory_hole {
