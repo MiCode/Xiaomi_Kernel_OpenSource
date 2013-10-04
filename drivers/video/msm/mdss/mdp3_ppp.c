@@ -495,6 +495,9 @@ static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
 {
 	int dst_h, src_w, i;
 	uint32_t mdp_op = blit_op->mdp_op;
+	void *src_p0 = blit_op->src.p0;
+	void *src_p1 = blit_op->src.p1;
+	void *dst_p0 = blit_op->dst.p0;
 
 	src_w = req->src_rect.w;
 	dst_h = blit_op->dst.roi.height;
@@ -526,8 +529,11 @@ static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
 		/* this is for a remainder update */
 		dst_h -= 16;
 		src_w -= blit_op->src.roi.width;
-		/* restore mdp_op since MDPOP_ASCALE have been cleared */
+		/* restore parameters that may have been overwritten */
 		blit_op->mdp_op = mdp_op;
+		blit_op->src.p0 = src_p0;
+		blit_op->src.p1 = src_p1;
+		blit_op->dst.p0 = dst_p0;
 	}
 
 	if ((dst_h < 0) || (src_w < 0))
