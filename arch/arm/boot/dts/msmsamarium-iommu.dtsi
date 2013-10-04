@@ -83,6 +83,7 @@
 
 &jpeg_iommu {
 	status = "ok";
+	qcom,needs-alt-iface-clk;
 	qcom,iommu-enable-halt;
 	vdd-supply = <&gdsc_jpeg>;
 
@@ -214,6 +215,7 @@
 
 &vfe_iommu {
 	status = "ok";
+	qcom,needs-alt-iface-clk;
 	vdd-supply = <&gdsc_vfe>;
 	qcom,iommu-enable-halt;
 
