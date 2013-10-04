@@ -1175,9 +1175,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->restart_order = update_restart_order(subsys);
-	ret = subsys_parse_devicetree(desc);
-	if (ret)
-		goto err_dtree;
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
 	wake_lock_init(&subsys->wake_lock, WAKE_LOCK_SUSPEND, subsys->wlname);
@@ -1209,6 +1206,13 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 		goto err_register;
 	}
 
+	if (!desc->dev->of_node)
+		return subsys;
+
+	ret = subsys_parse_devicetree(desc);
+	if (ret)
+		goto err_misc_device;
+
 	ret = subsys_setup_irqs(subsys);
 	if (ret < 0)
 		goto err_misc_device;
@@ -1224,7 +1228,6 @@ err_debugfs:
 	ida_simple_remove(&subsys_ida, subsys->id);
 err_ida:
 	wake_lock_destroy(&subsys->wake_lock);
-err_dtree:
 	kfree(subsys);
 	return ERR_PTR(ret);
 }
