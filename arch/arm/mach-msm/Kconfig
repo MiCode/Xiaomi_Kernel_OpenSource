@@ -126,6 +126,7 @@ config ARCH_FSM9900
 config ARCH_MSMKRYPTON
 	bool "MSMKRYPTON"
 	select ARM_GIC
+	select MSM_SCM
 	select CPU_V7
 	select MSM_GPIOMUX
 	select MSM_RPM_SMD
