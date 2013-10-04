@@ -1,0 +1,50 @@
+Fairchild Semiconductor FAN53555 regulator
+
+The FAN53555 is a step-down switching voltage regulator that delivers a
+digitally programmable output from an input voltage supply of 2.5 V to 5.5 V.
+The output voltage is programmed through an I2C interface capable of operating
+up to 3.4 MHz.
+
+The fan53555 interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "fairchild,fan53555-regulator".
+- reg:				The device 8-bit I2C address.
+- fairchild,backup-vsel:	Register ID of backup register.
+				Supported values are 0 or 1.
+				The voltage selection ID used while the system
+				is active will be the other option not used
+				during running.
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this
+				regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this
+				regulator.
+- regulator-ramp-delay:		The slew rate of the regulator, in uV/us.
+				Supported values are 64000, 32000, 16000,
+				8000, 4000, 2000, 1000 and 500.
+
+Optional Properties:
+- fairchild,vsel-gpio:		Present: GPIO connects to the VSEL pin and set
+				the output.
+				Not Present: No GPIO is connected to vsel pin.
+- fairchild,restore-reg:	Present: Restore vsel register from backup
+				register.
+				Not Present: No restore.
+- fairchild,disable-suspend:	Present: Disable regulator suspend method.
+				Not Present: Do not disable regulator suspend
+				method.
+
+Example:
+	i2c_0 {
+		fan53555-regulator@60 {
+			compatible = "fairchild,fan53555-regulator";
+			reg = <0x60>;
+			fairchild,backup-vsel = <1>;
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1350000>;
+			regulator-ramp-delay = <8000>;
+			fairchild,vsel-gpio = <&msmgpio 2 1>;
+			fairchild,restore-reg;
+			fairchild,disable-suspend;
+		};
+	};
