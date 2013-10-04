@@ -147,24 +147,17 @@
 		qcom,master-id = <86>;
 	};
 
-	serial@f991f000 {
+	blsp1_uart2: serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
 		interrupts = <0 109 0>;
 		status = "disabled";
 	};
 
-	serial@f9922000 {
+	blsp1_uart5: serial@f9922000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf9922000 0x1000>;
 		interrupts = <0 112 0>;
-		status = "disabled";
-	};
-
-	serial@f995e000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf995e000 0x1000>;
-		interrupts = <0 114 0>;
 		status = "disabled";
 	};
 
