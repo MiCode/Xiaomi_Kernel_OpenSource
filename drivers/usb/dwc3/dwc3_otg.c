@@ -24,7 +24,7 @@
 #include "io.h"
 #include "xhci.h"
 
-#define VBUS_REG_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
+#define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 #define MAX_INVALID_CHRGR_RETRY 3
 static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
 module_param(max_chgr_retry_count, int, S_IRUGO | S_IWUSR);
@@ -686,7 +686,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	struct dwc3_charger *charger = dotg->charger;
 	bool work = 0;
 	int ret = 0;
-	int delay = 0;
+	unsigned long delay = 0;
 
 	pm_runtime_resume(phy->dev);
 	dev_dbg(phy->dev, "%s state\n", usb_otg_state_string(phy->state));
