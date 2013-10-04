@@ -151,10 +151,13 @@
 		status = "disabled";
 	};
 
-	qcom,vidc@fdc00000 {
+	msm_vidc: qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
+		venus-supply = <&gdsc_venus>;
 		interrupts = <0 44 0>;
+		qcom,clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk";
+		qcom,clock-configs = <0x3 0x0 0x0 0x0>;
 		qcom,load-freq-tbl = <489600 266700000>,
 			<244800 133330000>,
 			<108000 100000000>,
@@ -165,13 +168,6 @@
 		qcom,reg-presets = <0xE0024 0x0>,
 			<0x80124 0x3>,
 			<0xE0020 0x5555556>,
-			<0x800B0 0x10101001>,
-			<0x800B4 0x00101010>,
-			<0x800C0 0x1010100f>,
-			<0x800C4 0x00101010>,
-			<0x800D0 0x00000010>,
-			<0x800D4 0x00000010>,
-			<0x800D8 0x00000707>,
 			<0x80070 0x00001F00>,
 			<0x80074 0x000000A4>;
 		qcom,enc-ocmem-ab-ib = <0 0>,
