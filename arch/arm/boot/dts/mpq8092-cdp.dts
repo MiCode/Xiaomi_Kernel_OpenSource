@@ -1,0 +1,33 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mpq8092.dtsi"
+#include "mpq8092-cdp.dtsi"
+
+/ {
+	model = "Qualcomm MPQ 8092 CDP";
+	compatible = "qcom,mpq8092-cdp", "qcom,mpq8092", "qcom,cdp";
+	qcom,board-id = <1 0>;
+	qcom,board-id = <1 1>;
+	qcom,board-id = <21 0>;
+	qcom,board-id = <21 1>;
+
+	aliases {
+		serial0 = &blsp1_uart5;
+	};
+};
+
+&blsp1_uart5 {
+	status = "ok";
+};
