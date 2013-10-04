@@ -295,6 +295,10 @@ static void pp_update_argc_lut(char __iomem *addr,
 				struct mdp_pgc_lut_data *config);
 static void pp_update_hist_lut(char __iomem *base,
 				struct mdp_hist_lut_data *cfg);
+static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config);
+static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
+				char __iomem *base,
+				struct pp_sts_type *pp_sts);
 static void pp_pa_config(unsigned long flags, char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pa_cfg *pa_config);
@@ -2086,10 +2090,32 @@ int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
 	return 0;
 }
 
+static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config)
+{
+	if (config->tbl_size[0] != GAMUT_T0_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[1] != GAMUT_T1_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[2] != GAMUT_T2_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[3] != GAMUT_T3_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[4] != GAMUT_T4_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[5] != GAMUT_T5_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[6] != GAMUT_T6_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[7] != GAMUT_T7_SIZE)
+		return -EINVAL;
+
+	return 0;
+}
+
 int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 					u32 *copyback)
 {
-	int i, j, size_total = 0, ret = 0;
+	int i, j, ret = 0;
 
 	u32 disp_num, dspp_num = 0;
 	uint16_t *tbl_off;
@@ -2102,9 +2128,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
-	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++)
-		size_total += config->tbl_size[i];
-	if (size_total != GAMUT_TOTAL_TABLE_SIZE)
+
+	if (pp_gm_has_invalid_lut_size(config))
 		return -EINVAL;
 
 	mutex_lock(&mdss_pp_mutex);
