@@ -2428,7 +2428,6 @@ static int smsm_cb_init(void)
 
 static int smsm_init(void)
 {
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	int i;
 	struct smsm_size_info_type *smsm_size_info;
 	unsigned long flags;
@@ -2477,7 +2476,7 @@ static int smsm_init(void)
 
 		if (smsm_info.state) {
 			__raw_writel(0, SMSM_STATE_ADDR(SMSM_APPS_STATE));
-			if ((shared->version[VERSION_MODEM] >> 16) >= 0xB)
+			if ((smem_get_version(VERSION_MODEM) >> 16) >= 0xB)
 				__raw_writel(0, \
 					SMSM_STATE_ADDR(SMSM_APPS_DEM_I));
 		}
