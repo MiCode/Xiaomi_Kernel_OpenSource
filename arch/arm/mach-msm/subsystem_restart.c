@@ -425,8 +425,10 @@ static void enable_all_irqs(struct subsys_device *dev)
 {
 	if (dev->desc->err_ready_irq)
 		enable_irq(dev->desc->err_ready_irq);
-	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler)
+	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler) {
 		enable_irq(dev->desc->wdog_bite_irq);
+		irq_set_irq_wake(dev->desc->wdog_bite_irq, 1);
+	}
 	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
 		enable_irq(dev->desc->err_fatal_irq);
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
@@ -437,8 +439,10 @@ static void disable_all_irqs(struct subsys_device *dev)
 {
 	if (dev->desc->err_ready_irq)
 		disable_irq(dev->desc->err_ready_irq);
-	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler)
+	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler) {
 		disable_irq(dev->desc->wdog_bite_irq);
+		irq_set_irq_wake(dev->desc->wdog_bite_irq, 0);
+	}
 	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
 		disable_irq(dev->desc->err_fatal_irq);
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
