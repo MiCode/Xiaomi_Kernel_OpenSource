@@ -78,11 +78,15 @@ static inline u32 mdp_video_read(struct mdss_mdp_video_ctx *ctx,
 
 static inline u32 mdss_mdp_video_line_count(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
+	struct mdss_mdp_video_ctx *ctx;
 	u32 line_cnt = 0;
+	if (!ctl || !ctl->priv_data)
+		goto line_count_exit;
+	ctx = ctl->priv_data;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	line_cnt = mdp_video_read(ctx, MDSS_MDP_REG_INTF_LINE_COUNT);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+line_count_exit:
 	return line_cnt;
 }
 
