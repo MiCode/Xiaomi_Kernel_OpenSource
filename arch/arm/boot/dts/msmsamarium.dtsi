@@ -1451,6 +1451,31 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
+	qcom,wcnss-wlan@fb000000 {
+		compatible = "qcom,wcnss_wlan";
+		reg = <0xfb000000 0x280000>,
+			<0xf9011008 0x04>;
+		reg-names = "wcnss_mmio", "wcnss_fiq";
+		interrupts = <0 145 0 0 146 0>;
+		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+		qcom,pronto-vddmx-supply = <&pma8084_s1>;
+		qcom,pronto-vddcx-supply = <&pma8084_s2_corner>;
+		qcom,pronto-vddpx-supply = <&pma8084_s4>;
+		qcom,iris-vddxo-supply = <&pma8084_l6>;
+		qcom,iris-vddrfa-supply = <&pma8084_l11>;
+		qcom,iris-vddpa-supply = <&pma8084_l19>;
+		qcom,iris-vdddig-supply = <&pma8084_s3>;
+
+		gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>, <&msmgpio 39 0>, <&msmgpio 40 0>;
+		qcom,has-48mhz-xo;
+		qcom,has-pronto-hw;
+	};
+
 	qcom,venus@fdce0000 {
 		compatible = "qcom,pil-venus";
 		reg = <0xfdce0000 0x4000>,
