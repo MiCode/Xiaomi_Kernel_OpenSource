@@ -1628,9 +1628,6 @@ adreno_probe(struct platform_device *pdev)
 	if (status != 0)
 		goto error;
 
-	/* Identify the specific GPU */
-	adreno_identify_gpu(adreno_dev);
-
 	status = kgsl_device_platform_probe(device);
 	if (status)
 		goto error_close_rb;
@@ -1704,6 +1701,9 @@ static int adreno_init(struct kgsl_device *device)
 
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
+
+	/* Identify the specific GPU */
+	adreno_identify_gpu(adreno_dev);
 
 	if (adreno_ringbuffer_read_pm4_ucode(device)) {
 		KGSL_DRV_ERR(device, "Reading pm4 microcode failed %s\n",
