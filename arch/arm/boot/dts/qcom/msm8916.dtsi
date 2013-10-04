@@ -43,6 +43,7 @@
 #include "msm8916-smp2p.dtsi"
 #include "msm8916-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8916-iommu.dtsi"
 
 &soc {
 	#address-cells = <1>;
