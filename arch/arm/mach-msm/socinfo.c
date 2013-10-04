@@ -1196,6 +1196,7 @@ const int cpu_is_krait_v3(void)
 	case 0x511F06F1:
 	case 0x511F06F2:
 	case 0x510F05D0:
+	case 0x510F07F0:
 		return 1;
 
 	default:
