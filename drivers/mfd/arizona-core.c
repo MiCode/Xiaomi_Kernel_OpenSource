@@ -795,6 +795,12 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 				  pdata->max_channels_clocked,
 				  ARRAY_SIZE(pdata->max_channels_clocked));
 
+	arizona_of_read_u32_array(arizona, "wlf,dmic-ref", false,
+				  pdata->dmic_ref, ARRAY_SIZE(pdata->dmic_ref));
+
+	arizona_of_read_u32_array(arizona, "wlf,inmode", false,
+				  pdata->inmode, ARRAY_SIZE(pdata->inmode));
+
 	return 0;
 }
 
