@@ -83,10 +83,6 @@ static void __init mpq8092_map_io(void)
 static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
 			"msm_otg", NULL),
-	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
-			"msm_serial_hsl.0", NULL),
-	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF9922000, \
-			"msm_serial_hsl.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
