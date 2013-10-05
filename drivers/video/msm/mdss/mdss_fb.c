@@ -1452,7 +1452,8 @@ static void mdss_fb_commit_wq_handler(struct work_struct *work)
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 		mdss_fb_wait_for_fence(&mfd->mdp_sync_pt_data);
 		if (mfd->mdp.kickoff_fnc)
-			ret = mfd->mdp.kickoff_fnc(mfd);
+			ret = mfd->mdp.kickoff_fnc(mfd,
+					  &fb_backup->disp_commit);
 		if (!ret)
 			mdss_fb_update_backlight(mfd);
 		mdss_fb_signal_timeline(&mfd->mdp_sync_pt_data);

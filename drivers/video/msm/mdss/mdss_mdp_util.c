@@ -244,6 +244,20 @@ struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 	return NULL;
 }
 
+void mdss_mdp_intersect_rect(struct mdss_mdp_img_rect *res_rect,
+	const struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect)
+{
+	int l = max(dst_rect->x, sci_rect->x);
+	int t = max(dst_rect->y, sci_rect->y);
+	int r = min((dst_rect->x + dst_rect->w), (sci_rect->x + sci_rect->w));
+	int b = min((dst_rect->y + dst_rect->h), (sci_rect->y + sci_rect->h));
+
+	if (r < l || b < t)
+		*res_rect = (struct mdss_mdp_img_rect){0, 0, 0, 0};
+	else
+		*res_rect = (struct mdss_mdp_img_rect){l, t, (r-l), (b-t)};
+}
 int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			       struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps)
