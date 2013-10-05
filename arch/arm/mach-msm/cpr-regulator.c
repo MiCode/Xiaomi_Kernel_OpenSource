@@ -592,13 +592,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		}
 		cpr_vreg->last_volt[corner] = new_volt;
 
-		/* Restore default threshold for DOWN */
-		reg_mask = RBCPR_CTL_DN_THRESHOLD_MASK <<
-				RBCPR_CTL_DN_THRESHOLD_SHIFT;
-		reg_val = cpr_vreg->down_threshold <<
-				RBCPR_CTL_DN_THRESHOLD_SHIFT;
-		/* and disable auto nack down */
-		reg_mask |= RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
+		/* Disable auto nack down */
+		reg_mask = RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
+		reg_val = 0;
 
 		cpr_ctl_modify(cpr_vreg, reg_mask, reg_val);
 
@@ -620,14 +616,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				      cpr_vreg->floor_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
-			/* Maximize the DOWN threshold */
-			reg_mask = RBCPR_CTL_DN_THRESHOLD_MASK <<
-					RBCPR_CTL_DN_THRESHOLD_SHIFT;
-			reg_val = reg_mask;
-
 			/* Enable auto nack down */
-			reg_mask |= RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
-			reg_val |= RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
+			reg_mask = RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
+			reg_val = RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
 
 			cpr_ctl_modify(cpr_vreg, reg_mask, reg_val);
 
