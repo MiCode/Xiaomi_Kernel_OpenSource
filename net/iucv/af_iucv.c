@@ -408,7 +408,7 @@ static void iucv_sock_destruct(struct sock *sk)
 	sk_mem_reclaim(sk);
 
 	if (!sock_flag(sk, SOCK_DEAD)) {
-		pr_err("Attempt to release alive iucv socket %p\n", sk);
+		WARN(1, "Attempt to release alive iucv socket %p\n", sk);
 		return;
 	}
 
