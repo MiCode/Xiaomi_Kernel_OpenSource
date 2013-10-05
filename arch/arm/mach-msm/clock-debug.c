@@ -30,7 +30,7 @@
 #include "clock.h"
 
 static LIST_HEAD(clk_list);
-static DEFINE_SPINLOCK(clk_list_lock);
+static DEFINE_MUTEX(clk_list_lock);
 
 static struct dentry *debugfs_base;
 static u32 debug_suspend;
@@ -275,16 +275,18 @@ static int clock_debug_print_clock(struct clk *c, struct seq_file *m)
 static void clock_debug_print_enabled_clocks(struct seq_file *m)
 {
 	struct clk_table *table;
-	unsigned long flags;
 	int i, cnt = 0;
 
+	if (!mutex_trylock(&clk_list_lock)) {
+		pr_err("clock-debug: Clocks are being registered. Cannot print clock state now.\n");
+		return;
+	}
 	clock_debug_output(m, 0, "Enabled clocks:\n");
-	spin_lock_irqsave(&clk_list_lock, flags);
 	list_for_each_entry(table, &clk_list, node) {
 		for (i = 0; i < table->num_clocks; i++)
 			cnt += clock_debug_print_clock(table->clocks[i].clk, m);
 	}
-	spin_unlock_irqrestore(&clk_list_lock, flags);
+	mutex_unlock(&clk_list_lock);
 
 	if (cnt)
 		clock_debug_output(m, 0, "Enabled clock count: %d\n", cnt);
@@ -368,7 +370,6 @@ static ssize_t clock_parent_write(struct file *filp,
 	struct clk *clock = filp->private_data;
 	char buf[256];
 	char *cmp;
-	unsigned long flags;
 	struct clk_table *table;
 	int i, ret;
 	struct clk *parent = NULL;
@@ -379,7 +380,7 @@ static ssize_t clock_parent_write(struct file *filp,
 	buf[cnt] = '\0';
 	cmp = strstrip(buf);
 
-	spin_lock_irqsave(&clk_list_lock, flags);
+	mutex_lock(&clk_list_lock);
 	list_for_each_entry(table, &clk_list, node) {
 		for (i = 0; i < table->num_clocks; i++)
 			if (!strcmp(cmp, table->clocks[i].clk->dbg_name)) {
@@ -395,14 +396,14 @@ static ssize_t clock_parent_write(struct file *filp,
 		goto err;
 	}
 
-	spin_unlock_irqrestore(&clk_list_lock, flags);
+	mutex_unlock(&clk_list_lock);
 	ret = clk_set_parent(clock, table->clocks[i].clk);
 	if (ret)
 		return ret;
 
 	return cnt;
 err:
-	spin_unlock_irqrestore(&clk_list_lock, flags);
+	mutex_unlock(&clk_list_lock);
 	return ret;
 }
 
@@ -463,6 +464,18 @@ static const struct file_operations clock_print_hw_fops = {
 };
 
 
+static void clock_measure_add(struct clk *clock)
+{
+	if (IS_ERR_OR_NULL(measure))
+		return;
+
+	if (clk_set_parent(measure, clock))
+		return;
+
+	debugfs_create_file("measure", S_IRUGO, clock->clk_dir, clock,
+				&clock_measure_fops);
+}
+
 static int clock_debug_add(struct clk *clock)
 {
 	char temp[50], *ptr;
@@ -479,6 +492,8 @@ static int clock_debug_add(struct clk *clock)
 	if (!clk_dir)
 		return -ENOMEM;
 
+	clock->clk_dir = clk_dir;
+
 	if (!debugfs_create_file("rate", S_IRUGO | S_IWUSR, clk_dir,
 				clock, &clock_rate_fops))
 		goto error;
@@ -493,12 +508,6 @@ static int clock_debug_add(struct clk *clock)
 
 	if (!debugfs_create_file("has_hw_gating", S_IRUGO, clk_dir, clock,
 				&clock_hwcg_fops))
-		goto error;
-
-	if (measure &&
-	    !clk_set_parent(measure, clock) &&
-	    !debugfs_create_file("measure", S_IRUGO, clk_dir, clock,
-				&clock_measure_fops))
 		goto error;
 
 	if (clock->ops->list_rate)
@@ -517,6 +526,8 @@ static int clock_debug_add(struct clk *clock)
 	if (!debugfs_create_file("print", S_IRUGO, clk_dir, clock,
 				&clock_print_hw_fops))
 			goto error;
+
+	clock_measure_add(clock);
 
 	return 0;
 error:
@@ -551,10 +562,6 @@ static int clock_debug_init(void)
 				&enabled_clocks_fops))
 		return -ENOMEM;
 
-	measure = clk_get_sys("debug", "measure");
-	if (IS_ERR(measure))
-		measure = NULL;
-
 	return 0;
 }
 
@@ -566,8 +573,7 @@ static int clock_debug_init(void)
  */
 int clock_debug_register(struct clk_lookup *table, size_t size)
 {
-	struct clk_table *clk_table;
-	unsigned long flags;
+	struct clk_table *clk_table, *clk_table_tmp;
 	int i, ret;
 
 	mutex_lock(&clk_debug_lock);
@@ -585,13 +591,24 @@ int clock_debug_register(struct clk_lookup *table, size_t size)
 	clk_table->clocks = table;
 	clk_table->num_clocks = size;
 
-	spin_lock_irqsave(&clk_list_lock, flags);
+	if (IS_ERR_OR_NULL(measure)) {
+		measure = clk_get_sys("debug", "measure");
+		if (!IS_ERR(measure)) {
+			mutex_lock(&clk_list_lock);
+			list_for_each_entry(clk_table_tmp, &clk_list, node) {
+			for (i = 0; i < clk_table_tmp->num_clocks; i++)
+				clock_measure_add(clk_table_tmp->clocks[i].clk);
+			}
+			mutex_unlock(&clk_list_lock);
+		}
+	}
+
+	mutex_lock(&clk_list_lock);
 	list_add_tail(&clk_table->node, &clk_list);
-	spin_unlock_irqrestore(&clk_list_lock, flags);
+	mutex_unlock(&clk_list_lock);
 
 	for (i = 0; i < size; i++)
 		clock_debug_add(table[i].clk);
-
 out:
 	mutex_unlock(&clk_debug_lock);
 	return ret;
