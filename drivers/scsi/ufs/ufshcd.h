@@ -210,6 +210,8 @@ struct ufs_stats {
 struct debugfs_files {
 	struct dentry *debugfs_root;
 	struct dentry *tag_stats;
+	struct dentry *show_hba;
+	struct dentry *host_regs;
 };
 #endif
 
