@@ -192,7 +192,7 @@
 						"vdd-loop";
 		};
 
-		qcom,bat-if@1200 {
+		pm8941_chg_batif: qcom,bat-if@1200 {
 			interrupts =	<0x2 0x12 0x0>,
 					<0x2 0x12 0x1>,
 					<0x2 0x12 0x2>,
