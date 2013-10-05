@@ -6335,32 +6335,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",		sata_phy_ldo.c,               ""),
 };
 
-static struct pll_config_regs gpll4_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL4_L,
-	.m_reg = (void __iomem *)GPLL4_M,
-	.n_reg = (void __iomem *)GPLL4_N,
-	.config_reg = (void __iomem *)GPLL4_USER_CTL,
-	.mode_reg = (void __iomem *)GPLL4_MODE,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* PLL4 at 800 MHz, main output enabled. LJ mode. */
-static struct pll_config gpll4_config __initdata = {
-	.l = 0x29,
-	.m = 0x2,
-	.n = 0x3,
-	.vco_val = 0x1,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 static struct pll_config_regs mmpll0_regs __initdata = {
 	.l_reg = (void __iomem *)MMPLL0_PLL_L_VAL,
 	.m_reg = (void __iomem *)MMPLL0_PLL_M_VAL,
@@ -6468,8 +6442,6 @@ static struct pll_config mmpll4_config __initdata = {
 static void __init reg_init(void)
 {
 	u32 regval;
-
-	configure_sr_hpm_lp_pll(&gpll4_config, &gpll4_regs, 1);
 
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
 	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
