@@ -10,19 +10,28 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&soc {
+	tlmm_pinmux: pinctrl@1000000 {
+		compatible = "qcom,msm-tlmm-v4";
+		reg = <0x1000000 0x300000>;
 
-/include/ "msm8916.dtsi"
-/include/ "msm8916-pinctrl.dtsi"
+		/*General purpose pins*/
+		gp: gp {
+			qcom,pin-type-gp;
+			qcom,num-pins = <118>;
+			#qcom,pin-cells = <1>;
+		};
 
-/ {
-	model = "Qualcomm MSM8916 Simulator";
-	compatible = "qcom,msm8916-sim", "qcom,msm8916", "qcom,sim";
-	qcom,board-id= <16 0>;
-};
+		pmx-uartconsole {
+			qcom,pins = <&gp 0>, <&gp 1>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "uart-console";
 
-&blsp1_uart1 {
-	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_sleep>;
+		uart_console_sleep: uart-console {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+	};
 };

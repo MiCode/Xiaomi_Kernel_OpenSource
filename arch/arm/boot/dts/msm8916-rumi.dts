@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8916.dtsi"
+/include/ "msm8916-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm MSM8916 RUMI";
@@ -28,4 +29,6 @@
 
 &blsp1_uart1 {
 	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
 };
