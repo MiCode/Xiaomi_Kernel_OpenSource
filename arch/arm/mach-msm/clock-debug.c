@@ -74,6 +74,7 @@ static int clock_debug_measure_get(void *data, u64 *val)
 {
 	struct clk *clock = data, *par;
 	int ret, is_hw_gated;
+	unsigned long meas_rate, sw_rate;
 
 	/* Check to see if the clock is in hardware gating mode */
 	if (clock->ops->in_hwcg_mode)
@@ -103,6 +104,16 @@ static int clock_debug_measure_get(void *data, u64 *val)
 		if (is_hw_gated && clock->count)
 			clock->ops->enable_hwcg(clock);
 	}
+
+	/*
+	 * If there's a divider on the path from the clock output to the
+	 * measurement circuitry, account for it by dividing the original clock
+	 * rate with the rate set on the parent of the measure clock.
+	 */
+	meas_rate = clk_get_rate(clock);
+	sw_rate = clk_get_rate(measure->parent);
+	if (sw_rate && meas_rate >= (sw_rate * 2))
+		*val *= DIV_ROUND_CLOSEST(meas_rate, sw_rate);
 
 	return ret;
 }
