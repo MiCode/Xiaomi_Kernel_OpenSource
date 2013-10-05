@@ -25,6 +25,7 @@
 
 #include <mach/clk.h>
 #include <mach/clk-provider.h>
+#include <mach/clock-generic.h>
 
 #include "clock-local2.h"
 
@@ -1071,6 +1072,67 @@ static int reset_clk_rst(struct clk *c, enum clk_reset_action action)
 	return __branch_clk_reset(RST_REG(rst), action);
 }
 
+static DEFINE_SPINLOCK(mux_reg_lock);
+
+static int mux_reg_enable(struct mux_clk *clk)
+{
+	u32 regval;
+	unsigned long flags;
+	u32 offset = clk->en_reg ? clk->en_offset : clk->offset;
+
+	spin_lock_irqsave(&mux_reg_lock, flags);
+	regval = readl_relaxed(*clk->base + offset);
+	regval |= clk->en_mask;
+	writel_relaxed(regval, *clk->base + offset);
+	/* Ensure enable request goes through before returning */
+	mb();
+	spin_unlock_irqrestore(&mux_reg_lock, flags);
+
+	return 0;
+}
+
+static void mux_reg_disable(struct mux_clk *clk)
+{
+	u32 regval;
+	unsigned long flags;
+	u32 offset = clk->en_reg ? clk->en_offset : clk->offset;
+
+	spin_lock_irqsave(&mux_reg_lock, flags);
+	regval = readl_relaxed(*clk->base + offset);
+	regval &= ~clk->en_mask;
+	writel_relaxed(regval, *clk->base + offset);
+	spin_unlock_irqrestore(&mux_reg_lock, flags);
+}
+
+static int mux_reg_set_mux_sel(struct mux_clk *clk, int sel)
+{
+	u32 regval;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mux_reg_lock, flags);
+	regval = readl_relaxed(*clk->base + clk->offset);
+	regval &= ~(clk->mask << clk->shift);
+	regval |= (sel & clk->mask) << clk->shift;
+	writel_relaxed(regval, *clk->base + clk->offset);
+	/* Ensure switch request goes through before returning */
+	mb();
+	spin_unlock_irqrestore(&mux_reg_lock, flags);
+
+	return 0;
+}
+
+static int mux_reg_get_mux_sel(struct mux_clk *clk)
+{
+	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	return !!((regval >> clk->shift) & clk->mask);
+}
+
+static bool mux_reg_is_enabled(struct mux_clk *clk)
+{
+	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	return !!(regval & clk->en_mask);
+}
+
 struct clk_ops clk_ops_empty;
 
 struct clk_ops clk_ops_rst = {
@@ -1170,4 +1232,12 @@ struct clk_ops clk_ops_gate = {
 	.disable = gate_clk_disable,
 	.handoff = gate_clk_handoff,
 	.list_registers = gate_clk_list_registers,
+};
+
+struct clk_mux_ops mux_reg_ops = {
+	.enable = mux_reg_enable,
+	.disable = mux_reg_disable,
+	.set_mux_sel = mux_reg_set_mux_sel,
+	.get_mux_sel = mux_reg_get_mux_sel,
+	.is_enabled = mux_reg_is_enabled,
 };
