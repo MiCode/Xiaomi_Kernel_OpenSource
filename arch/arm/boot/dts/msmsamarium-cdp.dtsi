@@ -341,7 +341,7 @@
 		interrupts = <0x0 0xcc 0x0>;	/* PMA8084 GPIO 13 */
 		qcom,float-voltage-mv = <4200>;
 		qcom,charging-timeout = <1536>;
-		qcom,recharge-thresh-mV = <100>;
+		qcom,recharge-thresh-mv = <200>;
 		regulator-name = "smb1359_otg_supply";
 	};
 };
