@@ -24,6 +24,7 @@ obj-$(CONFIG_PINCTRL_IMX6Q)	+= pinctrl-imx6q.o
 obj-$(CONFIG_PINCTRL_IMX6Q)	+= pinctrl-imx6dl.o
 obj-$(CONFIG_PINCTRL_FALCON)	+= pinctrl-falcon.o
 obj-$(CONFIG_PINCTRL_MSM_TLMM_V3)	+= pinctrl-msm.o pinctrl-msm-tlmm-v3.o
+obj-$(CONFIG_PINCTRL_MSM_TLMM_V4)	+= pinctrl-msm.o pinctrl-msm-tlmm-v4.o
 obj-$(CONFIG_PINCTRL_MXS)	+= pinctrl-mxs.o
 obj-$(CONFIG_PINCTRL_IMX23)	+= pinctrl-imx23.o
 obj-$(CONFIG_PINCTRL_IMX28)	+= pinctrl-imx28.o
