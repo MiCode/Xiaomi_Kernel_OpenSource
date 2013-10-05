@@ -427,11 +427,20 @@ static int slave_div_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 }
 
+static unsigned long slave_div_get_rate(struct clk *c)
+{
+	struct div_clk *d = to_div_clk(c);
+	if (!d->data.div)
+		return 0;
+	return clk_get_rate(c->parent) / d->data.div;
+}
+
 struct clk_ops clk_ops_slave_div = {
 	.enable = div_enable,
 	.disable = div_disable,
 	.round_rate = slave_div_round_rate,
 	.set_rate = slave_div_set_rate,
+	.get_rate = slave_div_get_rate,
 	.handoff = div_handoff,
 };
 
