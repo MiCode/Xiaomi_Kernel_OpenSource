@@ -151,6 +151,38 @@ config CORESIGHT_ETM_PCSAVE_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power penalty.
 
+config CORESIGHT_AUDIO_ETM
+	bool "Audio processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on audio processor using
+	  CoreSight framework. Enabling this will allow turning on ETM tracing
+	  on audio processor via sysfs by configuring the required CoreSight
+	  components.
+
+config CORESIGHT_MODEM_ETM
+	bool "Modem processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on modem processor using
+	  CoreSight framework. Enabling this will allow turning on ETM tracing
+	  on modem processor via sysfs by configuring the required CoreSight
+	  components.
+
+config CORESIGHT_WCN_ETM
+	bool "Wireless subsystem processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on wireless subsystem
+	  processor  using CoreSight framework. Enabling this will allow
+	  turning on ETM tracing on wireless subsystem via sysfs by configuring
+	  the required CoreSight components.
+
+config CORESIGHT_RPM_ETM
+	bool "RPM processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on RPM processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on RPM processor via sysfs by configuring the required
+	  CoreSight components.
+
 endif
 
 config CORESIGHT_EVENT
