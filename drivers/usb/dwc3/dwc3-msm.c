@@ -125,7 +125,7 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define DBM_SFT_RST_MASK	0x80000000
 #define DBM_EN_MASK		0x00000002
 
-#define DBM_MAX_EPS		4
+#define DBM_MAX_EPS		8
 
 /* DBM TRB configurations */
 #define DBM_TRB_BIT		0x80000000
