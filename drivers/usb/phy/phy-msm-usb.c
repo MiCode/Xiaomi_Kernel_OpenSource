@@ -3701,8 +3701,10 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = motg->current_max;
 		break;
-	/* Reflect USB enumeration */
 	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = !!test_bit(B_SESS_VLD, &motg->inputs);
+		break;
+	/* Reflect USB enumeration */
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = motg->online;
 		break;
