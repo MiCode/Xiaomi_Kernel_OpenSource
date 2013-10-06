@@ -1804,7 +1804,7 @@
 		qcom,prim-auxpcm-gpio-sync = <&msmgpio 88 0>;
 		qcom,prim-auxpcm-gpio-din  = <&msmgpio 89 0>;
 		qcom,prim-auxpcm-gpio-dout = <&msmgpio 90 0>;
-		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
 		qcom,sec-auxpcm-gpio-clk  = <&msmgpio 82 0>;
 		qcom,sec-auxpcm-gpio-sync = <&msmgpio 83 0>;
 		qcom,sec-auxpcm-gpio-din  = <&msmgpio 84 0>;
