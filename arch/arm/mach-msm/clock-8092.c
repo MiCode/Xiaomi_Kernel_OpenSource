@@ -347,6 +347,8 @@ static struct clk_lookup msm_clocks_8092[] = {
 	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("xo", NULL, "msm_otg", OFF),
+	/* PRNG */
+	CLK_DUMMY("core_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng", OFF),
 };
 
 struct clock_init_data mpq8092_clock_init_data __initdata = {
