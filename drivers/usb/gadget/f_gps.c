@@ -213,7 +213,7 @@ static int gps_gport_setup(void)
 	int res;
 
 	res = gsmd_ctrl_setup(GPS_CTRL_CLIENT, 1, &base);
-	gps_port.port->port_num += base;
+	gps_port.port->port_num = base;
 	return res;
 }
 
