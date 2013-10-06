@@ -137,7 +137,7 @@
 		coresight-name = "coresight-stm";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
-		coresight-child-list = <&funnel_in1>;
+		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <7>;
 	};
 
