@@ -1821,6 +1821,15 @@
 			qcom,ocmem-part-min = <0x20000>;
 		};
 	};
+
+	qcom,msm-adsp-sensors {
+		compatible = "qcom,msm-adsp-sensors";
+		qcom,src-id = <11>;
+		qcom,dst-id = <604>;
+		qcom,ab = <32505856>;
+		qcom,ib = <32505856>;
+	};
+
 };
 
 &gdsc_venus {
