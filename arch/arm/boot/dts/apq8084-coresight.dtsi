@@ -55,9 +55,9 @@
 		coresight-id = <2>;
 		coresight-name = "coresight-replicator";
 		coresight-nr-inports = <1>;
-		coresight-outports = <0>;
-		coresight-child-list = <&tmc_etr>;
-		coresight-child-ports = <0>;
+		coresight-outports = <0 1>;
+		coresight-child-list = <&tmc_etr &tpiu>;
+		coresight-child-ports = <0 0>;
 	};
 
 	tmc_etf: tmc@fc325000 {
