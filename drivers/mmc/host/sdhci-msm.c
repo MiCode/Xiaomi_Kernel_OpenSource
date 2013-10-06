@@ -2687,6 +2687,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
+	/* Unset HC_MODE_EN bit in HC_MODE register */
+	writel_relaxed(0, (msm_host->core_mem + CORE_HC_MODE));
+
 	/* Set SW_RST bit in POWER register (Offset 0x0) */
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
 			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
