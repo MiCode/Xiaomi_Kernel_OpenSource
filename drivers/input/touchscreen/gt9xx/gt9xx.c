@@ -1065,7 +1065,7 @@ static int gtp_check_product_id(struct i2c_client *client)
 
 	ret = gtp_i2c_read(client, buf, sizeof(buf));
 	if (ret < 0) {
-		dev_err(&client->dev, "GTP read version failed.\n");
+		dev_err(&client->dev, "GTP read product_id failed.\n");
 		return -EIO;
 	}
 
@@ -1755,7 +1755,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		dev_info(&client->dev, "GTP works in interrupt mode.\n");
 
 	ret = gtp_read_fw_version(client, &version_info);
-	if (ret != 0)
+	if (ret != 2)
 		dev_err(&client->dev, "GTP firmware version read failed.\n");
 
 	ret = gtp_check_product_id(client);
