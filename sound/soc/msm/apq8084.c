@@ -144,7 +144,6 @@ struct msm_auxpcm_ctrl {
 };
 
 struct apq8084_asoc_mach_data {
-	int mclk_gpio;
 	u32 mclk_freq;
 	int us_euro_gpio;
 	struct msm_auxpcm_ctrl *pri_auxpcm_ctrl;
@@ -2735,23 +2734,6 @@ err:
 	return ret;
 }
 
-static int apq8084_prepare_codec_mclk(struct snd_soc_card *card)
-{
-	struct apq8084_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	int ret;
-
-	if (pdata->mclk_gpio) {
-		ret = gpio_request(pdata->mclk_gpio, "TAIKO_CODEC_PMIC_MCLK");
-		if (ret) {
-			dev_err(card->dev,
-				"%s: Failed to request taiko mclk gpio %d\n",
-				__func__, pdata->mclk_gpio);
-			return ret;
-		}
-	}
-	return 0;
-}
-
 static int apq8084_prepare_us_euro(struct snd_soc_card *card)
 {
 	struct apq8084_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
@@ -2816,21 +2798,6 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err;
 	}
-
-	pdata->mclk_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qcom,cdc-mclk-gpios", 0);
-	if (pdata->mclk_gpio < 0) {
-		dev_err(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
-			"qcom, cdc-mclk-gpios", pdev->dev.of_node->full_name,
-			pdata->mclk_gpio);
-		ret = -ENODEV;
-		goto err;
-	}
-
-	ret = apq8084_prepare_codec_mclk(card);
-	if (ret)
-		goto err;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,hdmi-audio-rx")) {
 		dev_info(&pdev->dev, "%s(): hdmi audio support present\n",
@@ -2934,12 +2901,6 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 	return 0;
 
 err:
-	if (pdata->mclk_gpio > 0) {
-		dev_dbg(&pdev->dev, "%s free gpio %d\n",
-			__func__, pdata->mclk_gpio);
-		gpio_free(pdata->mclk_gpio);
-		pdata->mclk_gpio = 0;
-	}
 	if (pdata->us_euro_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free us_euro gpio %d\n",
 			__func__, pdata->us_euro_gpio);
@@ -2962,7 +2923,6 @@ static int apq8084_asoc_machine_remove(struct platform_device *pdev)
 	if (gpio_is_valid(ext_ult_spk_amp_gpio))
 		gpio_free(ext_ult_spk_amp_gpio);
 
-	gpio_free(pdata->mclk_gpio);
 	gpio_free(pdata->us_euro_gpio);
 	if (gpio_is_valid(ext_spk_amp_gpio))
 		gpio_free(ext_spk_amp_gpio);
