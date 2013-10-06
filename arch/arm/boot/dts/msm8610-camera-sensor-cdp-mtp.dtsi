@@ -149,6 +149,44 @@
 		qcom,cci-master = <0>;
 	};
 
+	qcom,camera@34 {
+		compatible = "sne,imx134";
+		reg = <0x34>;
+		qcom,slave-id = <0x34 0x0016 0x0134>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&led_flash0>;
+		qcom,mount-angle = <90>;
+		qcom,sensor-name = "imx134";
+		cam_vdig-supply = <&pm8110_l2>;
+		cam_vana-supply = <&pm8110_l19>;
+		cam_vio-supply = <&pm8110_l14>;
+		cam_vaf-supply = <&pm8110_l16>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+							 "cam_vaf";
+		qcom,cam-vreg-type = <0 0 0 0>;
+		qcom,cam-vreg-min-voltage = <1200000 1800000 2850000 3000000>;
+		qcom,cam-vreg-max-voltage = <1200000 1800000 2850000 3000000>;
+		qcom,cam-vreg-op-mode = <200000 8000 80000 100000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 13 0>,
+			<&msmgpio 21 0>,
+			<&msmgpio 20 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET1",
+			"CAM_STANDBY";
+		qcom,csi-lane-assign = <0xe4>;
+		qcom,csi-lane-mask = <0x3>;
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <1>;
+		qcom,cci-master = <0>;
+	};
+
 	qcom,camera@6d {
 		compatible = "qcom,ov9724";
 		reg = <0x6d>;
