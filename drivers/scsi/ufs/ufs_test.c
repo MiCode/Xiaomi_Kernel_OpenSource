@@ -27,11 +27,14 @@
 #define MODULE_NAME "ufs_test"
 
 #define TEST_MAX_BIOS_PER_REQ		16
+#define TEST_MAX_SECTOR_RANGE		(10*1024*1024) /* 5GB */
 #define LARGE_PRIME_1	1103515367
 #define LARGE_PRIME_2	35757
 #define DEFAULT_NUM_OF_BIOS		2
 #define LONG_SEQUENTIAL_MIXED_TIMOUT_MS 100000
-#define THREADS_COMPLETION_TIMOUT 10000 /* 10 sec */
+#define THREADS_COMPLETION_TIMOUT msecs_to_jiffies(10000) /* 10 sec */
+#define MAX_PARALLEL_QUERIES 33
+#define RANDOM_REQUEST_THREADS 4
 
 /* the amount of requests that will be inserted */
 #define LONG_SEQ_TEST_NUM_REQS  256
@@ -45,7 +48,8 @@
 /* and calculate the MiB value fraction */
 #define LONG_TEST_SIZE_FRACTION(x) (BYTE_TO_MB_x_10(x) - \
 		(LONG_TEST_SIZE_INTEGER(x) * 10))
-#define MAX_PARALLEL_QUERIES 33
+/* translation mask from sectors to block */
+#define SECTOR_TO_BLOCK_MASK 0x7
 
 #define test_pr_debug(fmt, args...) pr_debug("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
@@ -85,6 +89,7 @@ enum ufs_test_testcases {
 	UFS_TEST_LONG_SEQUENTIAL_WRITE,
 	UFS_TEST_LONG_SEQUENTIAL_MIXED,
 
+	UFS_TEST_PARALLEL_READ_AND_WRITE,
 	NUM_TESTS,
 };
 
@@ -157,6 +162,46 @@ static int ufs_test_add_test(struct ufs_test_data *utd,
 	return ret;
 }
 
+/**
+ * struct test_scenario - keeps scenario data that creates unique pattern
+ * @td: per test reference
+ * @direction: pattern initial direction
+ * @toggle_direction: every toggle_direction requests switch direction for one
+ *			request
+ * @total_req: number of request to issue
+ * @rnd_req: should request issue to random LBA with random size
+ * @run_q: the maximum number of request to hold in queue (before run_queue())
+ */
+struct test_scenario {
+	struct test_data *td;
+	int direction;
+	int toggle_direction;
+	int total_req;
+	bool rnd_req;
+	int run_q;
+};
+
+enum scenario_id {
+	/* scenarios for parallel read and write test */
+	SCEN_RANDOM_READ_50,
+	SCEN_RANDOM_WRITE_50,
+	SCEN_RANDOM_MAX,
+};
+
+static struct test_scenario test_scenario[SCEN_RANDOM_MAX] = {
+		{NULL, READ, 0, 50, true, 5}, /* SCEN_RANDOM_READ_50 */
+		{NULL, WRITE, 0, 50, true, 5}, /* SCEN_RANDOM_WRITE_50 */
+};
+
+static
+struct test_scenario *get_scenario(struct test_data *td, enum scenario_id id)
+{
+	struct test_scenario *ret = &test_scenario[id];
+
+	ret->td = td;
+	return ret;
+}
+
 static char *ufs_test_get_test_case_str(struct test_data *td)
 {
 	if (!td) {
@@ -180,6 +225,9 @@ static char *ufs_test_get_test_case_str(struct test_data *td)
 	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
 		return "UFS long sequential mixed test";
 		break;
+	case UFS_TEST_PARALLEL_READ_AND_WRITE:
+		return "UFS parallel read and write test";
+		break;
 	default:
 		return "Unknown test";
 	}
@@ -198,6 +246,37 @@ static unsigned int ufs_test_pseudo_random_seed(unsigned int *seed_number,
 	ret = (unsigned int) ((*seed_number) % max_val);
 
 	return (ret > min_val ? ret : min_val);
+}
+
+/**
+ * pseudo_rnd_sector_and_size - provides random sector and size for test request
+ * @seed: random seed
+ * @min_start_sector: minimum lba
+ * @start_sector: pointer for output start sector
+ * @num_of_bios: pointer for output number of bios
+ *
+ * Note that for UFS sector number has to be aligned with block size. Since
+ * scsi will send the block number as the LBA.
+ */
+static void pseudo_rnd_sector_and_size(unsigned int *seed,
+					unsigned int min_start_sector,
+					unsigned int *start_sector,
+					unsigned int *num_of_bios)
+{
+	unsigned int max_sec = min_start_sector + TEST_MAX_SECTOR_RANGE;
+	do {
+		*start_sector = ufs_test_pseudo_random_seed(seed, 1, max_sec);
+		*num_of_bios = ufs_test_pseudo_random_seed(seed,
+						1, TEST_MAX_BIOS_PER_REQ);
+		if (!(*num_of_bios))
+			*num_of_bios = 1;
+	} while ((*start_sector < min_start_sector) ||
+		 (*start_sector + (*num_of_bios * BIO_U32_SIZE * 4)) > max_sec);
+	/*
+	 * The test-iosched API is working with sectors 512b, while UFS LBA
+	 * is in blocks (4096). Thus the last 3 bits has to be cleared.
+	 */
+	*start_sector &= ~SECTOR_TO_BLOCK_MASK;
 }
 
 static void ufs_test_pseudo_rnd_size(unsigned int *seed,
@@ -255,6 +334,14 @@ static int ufs_test_show(struct seq_file *file, int test_case)
 		 "compare the same data. The second stage reads, will issue in "
 		 "Parallel to write requests with the same LBA and size.\n"
 		 "NOTE: The test requires a long timeout.\n";
+		break;
+	case UFS_TEST_PARALLEL_READ_AND_WRITE:
+		test_description = "\nufs_test_parallel_read_and_write\n"
+		 "=========\n"
+		 "Description:\n"
+		 "This test initiate two threads. Each thread is issuing "
+		 "multiple random requests. One thread will issue only read "
+		 "requests, while the other will only issue write requests.\n";
 		break;
 	default:
 		test_description = "Unknown test";
@@ -450,6 +537,91 @@ static void ufs_test_random_async_query(void *data, async_cookie_t cookie)
 	ufs_test_thread_complete(ret);
 }
 
+static void scenario_free_end_io_fn(struct request *rq, int err)
+{
+	struct test_request *test_rq;
+	struct test_data *ptd = test_get_test_data();
+
+	BUG_ON(!rq);
+	test_rq = (struct test_request *)rq->elv.priv[0];
+	BUG_ON(!test_rq);
+
+	spin_lock_irq(&ptd->lock);
+	ptd->dispatched_count--;
+	list_del_init(&test_rq->queuelist);
+	__blk_put_request(ptd->req_q, test_rq->rq);
+	spin_unlock_irq(&ptd->lock);
+
+	kfree(test_rq->bios_buffer);
+	kfree(test_rq);
+
+	if (err)
+		test_pr_err("%s: request %d completed, err=%d", __func__,
+			test_rq->req_id, err);
+
+	check_test_completion();
+}
+
+static bool ufs_test_multi_thread_completion(void)
+{
+	return atomic_read(&utd->outstanding_threads) <= 0;
+}
+
+/**
+ * ufs_test_do_toggling() - decides whether toggling is needed
+ * toggle_factor - iteration to toggle
+ * iteration - what is the current iteration
+ */
+static inline int ufs_test_toggle_direction(int toggle_factor, int iteration)
+{
+	if (toggle_factor)
+		return 1;
+	return iteration % toggle_factor;
+}
+
+static void ufs_test_run_scenario(void *data, async_cookie_t cookie)
+{
+	struct test_scenario *ts = (struct test_scenario *)data;
+	int ret = 0, i, start_sec;
+
+	BUG_ON(!ts);
+	start_sec = ts->td->start_sector;
+
+	for (i = 0; i < ts->total_req; i++) {
+		int num_bios = DEFAULT_NUM_OF_BIOS;
+		int direction;
+
+		if (ufs_test_toggle_direction(ts->toggle_direction, i))
+			direction = (ts->direction == WRITE) ? READ : WRITE;
+		else
+			direction = ts->direction;
+
+		/* use randomly generated requests */
+		if (ts->rnd_req && utd->random_test_seed != 0)
+			pseudo_rnd_sector_and_size(&utd->random_test_seed,
+				ts->td->start_sector, &start_sec, &num_bios);
+
+		ret = test_iosched_add_wr_rd_test_req(0, direction, start_sec,
+					num_bios, TEST_PATTERN_5A,
+					scenario_free_end_io_fn);
+		if (ret) {
+			test_pr_err("%s: failed to create request" , __func__);
+			break;
+		}
+
+		/*
+		 * We want to run the queue every run_q requests, or,
+		 * when the requests pool is exhausted
+		 */
+		if (ts->td->test_count >= QUEUE_MAX_REQUESTS ||
+				(ts->run_q && !(i % ts->run_q)))
+			blk_run_queue(ts->td->req_q);
+	}
+
+	blk_run_queue(ts->td->req_q);
+	ufs_test_thread_complete(ret);
+}
+
 static int ufs_test_run_multi_query_test(struct test_data *td)
 {
 	int i;
@@ -476,6 +648,45 @@ static int ufs_test_run_multi_query_test(struct test_data *td)
 			__func__, atomic_read(&utd->outstanding_threads));
 	}
 	test_iosched_mark_test_completion();
+	return 0;
+}
+
+static int ufs_test_run_parallel_read_and_write_test(struct test_data *td)
+{
+	struct test_scenario *read_data, *write_data;
+	int i;
+	bool changed_seed = false;
+
+	read_data = get_scenario(td, SCEN_RANDOM_READ_50);
+	write_data = get_scenario(td, SCEN_RANDOM_WRITE_50);
+
+	/* allow randomness even if user forgot */
+	if (utd->random_test_seed <= 0) {
+		changed_seed = true;
+		utd->random_test_seed = 1;
+	}
+
+	atomic_set(&utd->outstanding_threads, 0);
+	utd->fail_threads = 0;
+	init_completion(&utd->outstanding_complete);
+
+	for (i = 0; i < (RANDOM_REQUEST_THREADS % 2); i++) {
+		async_schedule(ufs_test_run_scenario, read_data);
+		async_schedule(ufs_test_run_scenario, write_data);
+		atomic_add(2, &utd->outstanding_threads);
+	}
+
+	if (!wait_for_completion_timeout(&utd->outstanding_complete,
+				THREADS_COMPLETION_TIMOUT)) {
+		test_pr_err("%s: Multi-thread test timed-out %d threads left",
+			__func__, atomic_read(&utd->outstanding_threads));
+	}
+	check_test_completion();
+
+	/* clear random seed if changed */
+	if (changed_seed)
+		utd->random_test_seed = 0;
+
 	return 0;
 }
 
@@ -677,6 +888,7 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	utd->test_info.get_test_case_str_fn = ufs_test_get_test_case_str;
 	utd->test_info.testcase = test_case;
 	utd->test_info.get_rq_disk_fn = ufs_test_get_rq_disk;
+	utd->test_info.check_test_result_fn = ufs_test_check_result;
 	utd->test_stage = DEFAULT;
 
 	switch (test_case) {
@@ -700,6 +912,12 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 		utd->test_info.run_test_fn = run_mixed_long_seq_test;
 		utd->test_info.post_test_fn = long_seq_test_calc_throughput;
 		utd->test_info.check_test_result_fn = ufs_test_check_result;
+		break;
+	case UFS_TEST_PARALLEL_READ_AND_WRITE:
+		utd->test_info.run_test_fn =
+				ufs_test_run_parallel_read_and_write_test;
+		utd->test_info.check_test_completion_fn =
+				ufs_test_multi_thread_completion;
 		break;
 	default:
 		test_pr_err("%s: Unknown test-case: %d", __func__, test_case);
@@ -732,6 +950,7 @@ TEST_OPS(multi_query, MULTI_QUERY);
 TEST_OPS(long_sequential_read, LONG_SEQUENTIAL_READ);
 TEST_OPS(long_sequential_write, LONG_SEQUENTIAL_WRITE);
 TEST_OPS(long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
+TEST_OPS(parallel_read_and_write, PARALLEL_READ_AND_WRITE);
 
 static void ufs_test_debugfs_cleanup(void)
 {
@@ -783,6 +1002,9 @@ static int ufs_test_debugfs_init(void)
 	if (ret)
 		goto exit_err;
 	add_test(utd, multi_query, MULTI_QUERY);
+	if (ret)
+		goto exit_err;
+	add_test(utd, parallel_read_and_write, PARALLEL_READ_AND_WRITE);
 	if (ret)
 		goto exit_err;
 
