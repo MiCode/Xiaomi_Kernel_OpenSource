@@ -412,7 +412,7 @@ static void mxhci_hsic_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 	 * here that the generic code does not try to make a pci_dev from our
 	 * dev struct in order to setup MSI
 	 */
-	xhci->quirks |= XHCI_BROKEN_MSI;
+	xhci->quirks |= XHCI_PLAT;
 
 	/* Single port controller using out of band remote wakeup */
 	if (mxhci->wakeup_irq)

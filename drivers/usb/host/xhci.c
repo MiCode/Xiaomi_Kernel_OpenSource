@@ -189,7 +189,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	return ret;
 }
 
-#if defined(CONFIG_PCI) && !defined(CONFIG_ARCH_MSM)
+#ifdef CONFIG_PCI
 static int xhci_free_msi(struct xhci_hcd *xhci)
 {
 	int i;
