@@ -1519,6 +1519,7 @@ struct xhci_hcd {
 #define XHCI_SPURIOUS_REBOOT	(1 << 13)
 #define XHCI_COMP_MODE_QUIRK	(1 << 14)
 #define XHCI_AVOID_BEI		(1 << 15)
+#define XHCI_PLAT		(1 << 16)
 /*
  * In Synopsis DWC3 controller, PORTSC register access involves multiple clock
  * domains. When the software does a PORTSC write, handshakes are needed
@@ -1533,7 +1534,7 @@ struct xhci_hcd {
  * The workaround is to give some delay (5 mac2_clk -> UTMI clock = 60 MHz ->
  * (16.66 ns x 5 = 84ns) ~100ns after writing to the PORTSC register.
  */
-#define XHCI_PORTSC_DELAY	(1 << 16)
+#define XHCI_PORTSC_DELAY	(1 << 17)
 /*
  * In Synopsis DWC3 controller, XHCI RESET takes some time complete. If PIPE
  * RESET is not complete by the time USBCMD.RUN bit is set then HC fails to
@@ -1541,7 +1542,7 @@ struct xhci_hcd {
  *
  * The workaround is to give worst case pipe delay ~350us after resetting HC
  */
-#define XHCI_RESET_DELAY	(1 << 17)
+#define XHCI_RESET_DELAY	(1 << 18)
 /*
  * When the Endpoint State (EP State) is not Error/Stopped, a Set TR Dequeue
  * Pointer Command must generate a Command Completion Event with the Completion
@@ -1550,8 +1551,8 @@ struct xhci_hcd {
  *
  * The workaround is to handle TRB Error and Context State Error in same way
  */
-#define XHCI_TR_DEQ_ERR_QUIRK	(1 << 18)
-#define XHCI_NO_SELECTIVE_SUSPEND (1 << 19)
+#define XHCI_TR_DEQ_ERR_QUIRK	(1 << 19)
+#define XHCI_NO_SELECTIVE_SUSPEND (1 << 20)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
