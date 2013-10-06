@@ -288,7 +288,7 @@ static ssize_t hdmi_edid_sysfs_rda_physical_address(struct device *dev,
 
 	return ret;
 } /* hdmi_edid_sysfs_rda_physical_address */
-static DEVICE_ATTR(pa, S_IRUGO, hdmi_edid_sysfs_rda_physical_address, NULL);
+static DEVICE_ATTR(pa, S_IRUSR, hdmi_edid_sysfs_rda_physical_address, NULL);
 
 static ssize_t hdmi_edid_sysfs_rda_scan_info(struct device *dev,
 	struct device_attribute *attr, char *buf)
