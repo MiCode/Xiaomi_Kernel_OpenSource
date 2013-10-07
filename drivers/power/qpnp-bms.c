@@ -241,6 +241,7 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 
+	int				system_load_count;
 	int				prev_uuc_iavg_ma;
 	int				prev_pc_unusable;
 	int				ibat_at_cv_ua;
@@ -1858,8 +1859,9 @@ static int report_state_of_charge(struct qpnp_bms_chip *chip)
 		return report_cc_based_soc(chip);
 }
 
-#define VDD_MAX_ERR		5000
-#define VDD_STEP_SIZE		10000
+#define VDD_MAX_ERR			5000
+#define VDD_STEP_SIZE			10000
+#define MAX_COUNT_BEFORE_RESET_TO_CC	3
 static int charging_adjustments(struct qpnp_bms_chip *chip,
 				struct soc_params *params, int soc,
 				int vbat_uv, int ibat_ua, int batt_temp)
@@ -1881,9 +1883,28 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 		}
 
 		chip->prev_batt_terminal_uv = batt_terminal_uv;
+		chip->system_load_count = 0;
+		return soc;
+	} else if (ibat_ua > 0 && batt_terminal_uv
+			< chip->max_voltage_uv - (VDD_MAX_ERR * 2)) {
+		if (chip->system_load_count > MAX_COUNT_BEFORE_RESET_TO_CC) {
+			chip->soc_at_cv = -EINVAL;
+			pr_debug("Vbat below CV threshold, resetting CC_TO_CV\n");
+			chip->system_load_count = 0;
+		} else {
+			chip->system_load_count += 1;
+			pr_debug("Vbat below CV threshold, count: %d\n",
+					chip->system_load_count);
+		}
+		return soc;
+	} else if (ibat_ua > 0) {
+		pr_debug("NOT CHARGING SOC %d\n", soc);
+		chip->system_load_count = 0;
+		chip->prev_chg_soc = soc;
 		return soc;
 	}
 
+	chip->system_load_count = 0;
 	/*
 	 * battery is in CV phase - begin linear interpolation of soc based on
 	 * battery charge current
@@ -2011,10 +2032,12 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		goto out;
 	}
 
-	if (ibat_ua < 0 && !is_battery_full(chip)) {
+	if (is_battery_charging(chip)) {
 		soc = charging_adjustments(chip, params, soc, vbat_uv, ibat_ua,
 				batt_temp);
-		goto out;
+		/* Skip adjustments if we are in CV or ibat is negative */
+		if (chip->soc_at_cv != -EINVAL || ibat_ua < 0)
+			goto out;
 	}
 
 	/*
