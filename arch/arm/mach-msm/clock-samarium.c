@@ -3750,6 +3750,10 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("bus_clk", venus0_axi_clk.c, "fdce0000.qcom,venus"),
 	CLK_LOOKUP("mem_clk", venus0_ocmemnoc_clk.c, "fdce0000.qcom,venus"),
 	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fdce0000.qcom,venus"),
+	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fdc00000.qcom,vidc"),
+	CLK_LOOKUP("iface_clk",  venus0_ahb_clk.c, "fdc00000.qcom,vidc"),
+	CLK_LOOKUP("bus_clk",  venus0_axi_clk.c, "fdc00000.qcom,vidc"),
+	CLK_LOOKUP("mem_clk",  venus0_ocmemnoc_clk.c, "fdc00000.qcom,vidc"),
 
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb10000.qcom,iommu"),
