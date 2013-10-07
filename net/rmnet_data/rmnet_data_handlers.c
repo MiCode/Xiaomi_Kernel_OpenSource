@@ -358,6 +358,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 			map_header->mux_id = ep->mux_id;
 	}
 
+	skb->protocol = htons(ETH_P_MAP);
+
 	if (config->egress_data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
 		rmnet_map_aggregate(skb, config);
 		return RMNET_MAP_CONSUMED;
