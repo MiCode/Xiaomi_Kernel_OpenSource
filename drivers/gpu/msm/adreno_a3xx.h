@@ -27,5 +27,5 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter);
 void a3xx_perfcounter_disable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter);
-
+void a3xx_soft_reset(struct adreno_device *adreno_dev);
 #endif /*__A3XX_H */

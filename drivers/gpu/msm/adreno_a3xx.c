@@ -4196,18 +4196,17 @@ void a3xx_coresight_config_debug_reg(struct kgsl_device *device,
  * all the HW logic, restores GPU registers to default state and
  * flushes out pending VBIF transactions.
  */
-static void a3xx_soft_reset(struct adreno_device *adreno_dev)
+void a3xx_soft_reset(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int reg;
 
-	kgsl_regwrite(device, A3XX_RBBM_SW_RESET_CMD, 1);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
 	/*
 	 * Do a dummy read to get a brief read cycle delay for the reset to take
 	 * effect
 	 */
-	kgsl_regread(device, A3XX_RBBM_SW_RESET_CMD, &reg);
-	kgsl_regwrite(device, A3XX_RBBM_SW_RESET_CMD, 0);
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
@@ -4437,6 +4436,7 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_TC_CNTL_STATUS, REG_TC_CNTL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_TP0_CHICKEN, REG_TP0_CHICKEN),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_RBBM_CTL, A3XX_RBBM_RBBM_CTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A3XX_RBBM_SW_RESET_CMD),
 };
 
 const struct adreno_reg_offsets a3xx_reg_offsets = {
