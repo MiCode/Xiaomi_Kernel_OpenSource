@@ -87,6 +87,11 @@
 		interrupt-names = "vbus_det_irq";
 		vin-supply = <&vbus_det_vreg>;
 	};
+
+	drv2667_vreg: drv2667_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_drv2667";
+	};
 };
 
 /include/ "dsi-panel-jdi-dualmipi0-video.dtsi"
@@ -534,5 +539,26 @@
 				00 00
 				];
 		};
+	};
+};
+
+&i2c_2 {
+	ti-drv2667@59 {
+		compatible = "ti,drv2667";
+		reg = <0x59>;
+		vdd-supply = <&drv2667_vreg>;
+		vdd-i2c-supply = <&pma8084_s4>;
+		ti,label = "vibrator";
+		ti,gain = <2>;
+		ti,idle-timeout-ms = <20>;
+		ti,max-runtime-ms = <15000>;
+		ti,mode = <2>;
+		ti,wav-seq = [
+			/* wave form id */
+			01
+			/* header size, start and stop bytes */
+			05 80 06 00 09
+			/* repeat, amp, freq, duration, envelope */
+			01 ff 19 02 00];
 	};
 };
