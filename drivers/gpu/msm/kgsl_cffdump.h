@@ -15,6 +15,7 @@
 #define __KGSL_CFFDUMP_H
 
 #include <linux/types.h>
+#include "kgsl_device.h"
 
 extern unsigned int kgsl_cff_dump_enable;
 
@@ -51,6 +52,10 @@ void kgsl_cffdump_memory_base(struct kgsl_device *device, unsigned int base,
 void kgsl_cffdump_hang(struct kgsl_device *device);
 int kgsl_cff_dump_enable_set(void *data, u64 val);
 int kgsl_cff_dump_enable_get(void *data, u64 *val);
+int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
+				struct kgsl_context *context,
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int numibs);
 
 #else
 
@@ -124,6 +129,15 @@ static inline void kgsl_cffdump_user_event(struct kgsl_device *device,
 {
 	return;
 }
+
+static inline int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
+				struct kgsl_context *context,
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int numibs)
+{
+	return 0;
+}
+
 static inline int kgsl_cff_dump_enable_set(void *data, u64 val)
 {
 	return -EINVAL;
@@ -135,5 +149,15 @@ static inline int kgsl_cff_dump_enable_get(void *data, u64 *val)
 }
 
 #endif /* CONFIG_MSM_KGSL_CFF_DUMP */
+
+/*
+ * kgsl_cff_core_idle() - Idle the device if CFF is on
+ * @device: Device whose idle fuunction is called
+ */
+static inline void kgsl_cff_core_idle(struct kgsl_device *device)
+{
+	if (device->cff_dump_enable)
+		device->ftbl->idle(device);
+}
 
 #endif /* __KGSL_CFFDUMP_H */

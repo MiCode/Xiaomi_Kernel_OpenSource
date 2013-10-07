@@ -1180,16 +1180,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp);
 
-#ifdef CONFIG_MSM_KGSL_CFF_DUMP
-	if (ret)
-		goto done;
-	/*
-	 * insert wait for idle after every IB1
-	 * this is conservative but works reliably and is ok
-	 * even for performance simulations
-	 */
-	ret = adreno_idle(device);
-#endif
+	/* CFF stuff executed only if CFF is enabled */
+	kgsl_cffdump_capture_ib_desc(device, context, ibdesc, numibs);
+	kgsl_cff_core_idle(device);
 
 done:
 	device->pwrctrl.irq_last = 0;
