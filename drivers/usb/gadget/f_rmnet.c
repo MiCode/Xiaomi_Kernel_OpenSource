@@ -1265,7 +1265,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 static void frmnet_unbind_config(void)
 {
 	int i;
-
+	gbam_cleanup();
 	for (i = 0; i < nr_rmnet_ports; i++)
 		if (rmnet_ports[i].data_xport == USB_GADGET_XPORT_ETHER)
 			gether_cleanup(rmnet_ports[i].port->dev);
