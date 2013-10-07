@@ -185,6 +185,10 @@
 #define IRQ_G_REG			0x56
 #define IRQ_G_SRC_DETECT_BIT		BIT(6)
 
+enum {
+	WRKARND_USB100_BIT = BIT(0),
+};
+
 static int chg_time[] = {
 	192,
 	384,
@@ -236,6 +240,7 @@ struct smb135x_chg {
 	struct smb135x_regulator	otg_vreg;
 	int				skip_writes;
 	int				skip_reads;
+	u32				workaround_flags;
 };
 
 static int smb135x_read(struct smb135x_chg *chip, int reg,
@@ -313,6 +318,21 @@ static int read_version(struct smb135x_chg *chip, u8 *version)
 	}
 	*version = (reg & REV_MASK);
 	return 0;
+}
+
+#define TRIM_23_REG		0x23
+#define CHECK_USB100_GOOD_BIT	BIT(1)
+static bool is_usb100_broken(struct smb135x_chg *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb135x_read(chip, TRIM_23_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read status 9 rc = %d\n", rc);
+		return rc;
+	}
+	return !!(reg & CHECK_USB100_GOOD_BIT);
 }
 
 static bool is_dc_present(struct smb135x_chg *chip)
@@ -670,19 +690,12 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 							int current_ma)
 {
 	int rc;
-	u8 version = MAX_VERSION;
 
 	pr_debug("USB current_ma = %d\n", current_ma);
 
-	rc = read_version(chip, &version);
-	if (rc < 0)
-		dev_err(chip->dev, "Couldn't read version rc = %d\n", rc);
-
-	if (version <= USB_100_PROBLEM_VERSION
-		&& (current_ma == CURRENT_100_MA
-			|| current_ma == CURRENT_150_MA)) {
-		pr_info("version = 0x%02x USB requested = %dmA using %dmA\n",
-			version, current_ma, CURRENT_500_MA);
+	if (chip->workaround_flags & WRKARND_USB100_BIT) {
+		pr_info("USB requested = %dmA using %dmA\n", current_ma,
+						CURRENT_500_MA);
 		current_ma = CURRENT_500_MA;
 	}
 
@@ -1717,7 +1730,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 {
 	int rc;
 	int i;
-	u8 reg, mask, version, dc_cur_val;
+	u8 reg, mask, dc_cur_val;
 
 	rc = smb135x_enable_volatile_writes(chip);
 	if (rc < 0) {
@@ -1728,19 +1741,18 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 
 	/*
 	 * force using current from the register i.e. ignore auto
-	 * power source detect mA ratings
+	 * power source detect (APSD) mA ratings
 	 */
-	rc = read_version(chip, &version);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read version rc=%d\n", rc);
-		return rc;
-	}
-
 	mask = USE_REGISTER_FOR_CURRENT;
-	if (version <= USB_100_PROBLEM_VERSION)
+	if (is_usb100_broken(chip))
+		chip->workaround_flags |= WRKARND_USB100_BIT;
+
+	if (chip->workaround_flags & WRKARND_USB100_BIT)
 		reg = 0;
 	else
+		/* this ignores APSD results */
 		reg = USE_REGISTER_FOR_CURRENT;
+
 	rc = smb135x_masked_write(chip, CMD_INPUT_LIMIT, mask, reg);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set input limit cmd rc=%d\n", rc);
@@ -2003,6 +2015,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb135x_chg *chip;
 	struct power_supply *usb_psy;
+	u8 version;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -2179,7 +2192,13 @@ static int smb135x_charger_probe(struct i2c_client *client,
 				rc);
 	}
 
-	dev_info(chip->dev, "SMB135X successfully probed batt=%d dc = %d usb = %d\n",
+	version = 0;
+	rc = read_version(chip, &version);
+	if (rc)
+		dev_err(chip->dev, "Couldn't read version rc = %d\n", rc);
+
+	dev_info(chip->dev, "SMB135X version = 0x%x successfully probed batt=%d dc = %d usb = %d\n",
+			version,
 			smb135x_get_prop_batt_present(chip),
 			chip->dc_present, chip->usb_present);
 	return 0;
