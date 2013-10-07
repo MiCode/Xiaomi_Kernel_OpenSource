@@ -338,6 +338,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define CAMSS_GP1_CBCR                                     (0x3474)
 #define CAMSS_TOP_AHB_CBCR                                 (0x3484)
 #define CAMSS_AHB_CBCR                                     (0x348C)
+#define CAMSS_MICRO_BCR                                    (0x3490)
 #define CAMSS_MICRO_AHB_CBCR                               (0x3494)
 #define JPEG0_CMD_RCGR                                     (0x3500)
 #define CAMSS_JPEG_JPEG0_CBCR                              (0x35A8)
@@ -2623,6 +2624,7 @@ static struct branch_clk camss_mclk2_clk = {
 
 static struct branch_clk camss_micro_ahb_clk = {
 	.cbcr_reg = CAMSS_MICRO_AHB_CBCR,
+	.bcr_reg = CAMSS_MICRO_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
