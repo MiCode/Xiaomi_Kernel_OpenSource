@@ -25,6 +25,7 @@
 #include <linux/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
+#include <mach/rpm-regulator-smd.h>
 
 
 static void __iomem *msm_wcnss_base;
@@ -107,8 +108,9 @@ static struct vregs_info iris_vregs_pronto[] = {
 static struct vregs_info pronto_vregs[] = {
 	{"qcom,pronto-vddmx",  VREG_NULL_CONFIG, 950000,  0,
 		1150000, 0,    NULL},
-	{"qcom,pronto-vddcx",  VREG_NULL_CONFIG, 900000,  0,
-		1150000, 0,    NULL},
+	{"qcom,pronto-vddcx",  VREG_NULL_CONFIG, RPM_REGULATOR_CORNER_NORMAL,
+		RPM_REGULATOR_CORNER_NONE, RPM_REGULATOR_CORNER_SUPER_TURBO,
+		0,             NULL},
 	{"qcom,pronto-vddpx",  VREG_NULL_CONFIG, 1800000, 0,
 		1800000, 0,    NULL},
 };

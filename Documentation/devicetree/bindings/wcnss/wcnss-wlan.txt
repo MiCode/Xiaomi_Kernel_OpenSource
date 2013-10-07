@@ -11,7 +11,8 @@ Required properties:
 - reg-names: "wcnss_mmio", "wcnss_fiq"
 - interupts: Pronto to Apps interrupts for tx done and rx pending.
 - qcom,pronto-vddmx-supply: regulator to supply pronto pll.
-- qcom,pronto-vddcx-supply: regulator to supply WLAN/BT/FM digital module.
+- qcom,pronto-vddcx-supply: voltage corner regulator to supply WLAN/BT/FM
+                            digital module.
 - qcom,pronto-vddpx-supply: regulator to supply WLAN DAC.
 - qcom,iris-vddxo-supply  : regulator to supply RF XO.
 - qcom,iris-vddrfa-supply : regulator to supply RFA digital.
@@ -39,7 +40,7 @@ Example:
         interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
         qcom,pronto-vddmx-supply = <&pm8841_s1>;
-        qcom,pronto-vddcx-supply = <&pm8841_s2>;
+        qcom,pronto-vddcx-supply = <&pm8841_s2_corner>;
         qcom,pronto-vddpx-supply = <&pm8941_s3>;
         qcom,iris-vddxo-supply = <&pm8941_l6>;
         qcom,iris-vddrfa-supply = <&pm8941_l11>;

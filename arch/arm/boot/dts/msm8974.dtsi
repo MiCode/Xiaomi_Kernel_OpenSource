@@ -1928,7 +1928,7 @@
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
 		qcom,pronto-vddmx-supply = <&pm8841_s1>;
-		qcom,pronto-vddcx-supply = <&pm8841_s2>;
+		qcom,pronto-vddcx-supply = <&pm8841_s2_corner>;
 		qcom,pronto-vddpx-supply = <&pm8941_s3>;
 		qcom,iris-vddxo-supply = <&pm8941_l6>;
 		qcom,iris-vddrfa-supply = <&pm8941_l11>;

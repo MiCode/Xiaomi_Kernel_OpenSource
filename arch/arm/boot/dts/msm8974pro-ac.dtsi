@@ -159,7 +159,7 @@
 
 	qcom,wcnss-wlan@fb000000 {
 		qcom,pronto-vddmx-supply = <&pma8084_s1>;
-		qcom,pronto-vddcx-supply = <&pma8084_s2>;
+		qcom,pronto-vddcx-supply = <&pma8084_s2_corner>;
 		qcom,pronto-vddpx-supply = <&pma8084_s4>;
 		qcom,iris-vddxo-supply = <&pma8084_l6>;
 		qcom,iris-vddrfa-supply = <&pma8084_l11>;
