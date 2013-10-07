@@ -1077,6 +1077,18 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 		mbhc->mbhc_cb->enable_mb_source(codec, true);
 
 	/*
+	 * setup internal micbias if codec uses internal micbias for
+	 * headset detection
+	 */
+	if (mbhc->mbhc_cfg->use_int_rbias) {
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->setup_int_rbias)
+			mbhc->mbhc_cb->setup_int_rbias(codec, true);
+	else
+		pr_err("%s: internal bias is requested but codec did not provide callback\n",
+			 __func__);
+	}
+
+	/*
 	 * Request BG and clock.
 	 * These will be released by wcd9xxx_cleanup_hs_polling
 	 */
