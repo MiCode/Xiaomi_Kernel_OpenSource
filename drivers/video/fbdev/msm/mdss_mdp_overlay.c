@@ -417,7 +417,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if ((req->flags & MDP_BWC_EN) || ((req->flags & MDP_SOURCE_ROTATED_90)
 		&& (mdata->mdp_rev < MDSS_MDP_HW_REV_102)))
 		req->src.format =
-			mdss_mdp_get_rotator_dst_format(req->src.format);
+			mdss_mdp_get_rotator_dst_format(req->src.format, 1);
 
 	fmt = mdss_mdp_get_format_params(req->src.format);
 	if (!fmt) {
