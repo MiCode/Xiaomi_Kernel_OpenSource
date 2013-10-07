@@ -643,12 +643,6 @@ alloc_fail:
 	return -ENOMEM;
 }
 
-static const struct of_device_id msm_pinctrl_dt_match[] = {
-	{ .compatible = "qcom,msm-tlmm-v3",
-		.data = &tlmm_v3_pintypes, },
-	{},
-};
-MODULE_DEVICE_TABLE(of, msm_pinctrl_dt_match);
 
 static void msm_pinctrl_cleanup_dd(struct msm_pinctrl_dd *dd)
 {
@@ -665,17 +659,9 @@ static void msm_pinctrl_cleanup_dd(struct msm_pinctrl_dd *dd)
 static int msm_pinctrl_get_drvdata(struct msm_pinctrl_dd *dd,
 						struct platform_device *pdev)
 {
-	const struct of_device_id *match;
-	const struct msm_tlmm_pintype *tlmm_info;
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
 
-	match = of_match_node(msm_pinctrl_dt_match, node);
-	if (IS_ERR(match))
-		return PTR_ERR(match);
-	tlmm_info = match->data;
-	dd->msm_pintype = tlmm_info->pintype_info;
-	dd->num_pintypes = tlmm_info->num_entries;
 	ret = msm_pinctrl_dt_parse_pintype(node, dd);
 	if (ret)
 		goto out;
@@ -777,11 +763,11 @@ static int msm_register_irqchip(struct msm_pinctrl_dd *dd)
 	return 0;
 }
 
-static int msm_pinctrl_probe(struct platform_device *pdev)
+int msm_pinctrl_probe(struct platform_device *pdev,
+					struct msm_tlmm_desc *tlmm_info)
 {
 	struct msm_pinctrl_dd *dd;
 	struct device *dev = &pdev->dev;
-	struct resource *res;
 	int ret;
 
 	dd = devm_kzalloc(dev, sizeof(*dd), GFP_KERNEL);
@@ -789,20 +775,11 @@ static int msm_pinctrl_probe(struct platform_device *pdev)
 		dev_err(dev, "Alloction failed for driver data\n");
 		return -ENOMEM;
 	}
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(dev, "cannot find IO resource\n");
-		return -ENOENT;
-	}
-	dd->base = devm_ioremap(&pdev->dev, res->start,
-							resource_size(res));
-	if (IS_ERR(dd->base))
-		return PTR_ERR(dd->base);
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (res)
-		dd->irq = res->start;
 	dd->dev = dev;
+	dd->msm_pintype = tlmm_info->pintypes;
+	dd->base = tlmm_info->base;
+	dd->irq = tlmm_info->irq;
+	dd->num_pintypes = tlmm_info->num_pintypes;
 	ret = msm_pinctrl_get_drvdata(dd, pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "driver data not available\n");
@@ -818,27 +795,4 @@ static int msm_pinctrl_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dd);
 	return 0;
 }
-
-static struct platform_driver msm_pinctrl_driver = {
-	.probe		= msm_pinctrl_probe,
-	.driver = {
-		.name	= "msm-pinctrl",
-		.owner	= THIS_MODULE,
-		.of_match_table = of_match_ptr(msm_pinctrl_dt_match),
-	},
-};
-
-static int __init msm_pinctrl_drv_register(void)
-{
-	return platform_driver_register(&msm_pinctrl_driver);
-}
-postcore_initcall(msm_pinctrl_drv_register);
-
-static void __exit msm_pinctrl_drv_unregister(void)
-{
-	platform_driver_unregister(&msm_pinctrl_driver);
-}
-module_exit(msm_pinctrl_drv_unregister);
-
-MODULE_LICENSE("GPLv2");
-
+EXPORT_SYMBOL(msm_pinctrl_probe);

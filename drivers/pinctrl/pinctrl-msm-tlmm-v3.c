@@ -18,6 +18,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
@@ -473,11 +474,11 @@ static void msm_tlmm_v3_set_intr_cfg_type(struct msm_tlmm_irq_chip *ic,
 	udelay(5);
 }
 
-static irqreturn_t msm_tlmm_v3_irq_handle(int irq, void *data)
+static irqreturn_t msm_tlmm_v3_gp_handle_irq(int irq,
+						struct  msm_tlmm_irq_chip *ic)
 {
 	unsigned long i;
 	unsigned int virq = 0;
-	struct msm_tlmm_irq_chip *ic = (struct msm_tlmm_irq_chip *)data;
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct msm_pintype_info *pinfo = ic_to_pintype(ic);
@@ -648,6 +649,7 @@ static struct msm_tlmm_irq_chip msm_tlmm_v3_gp_irq = {
 			},
 			.apps_id = TLMMV3_APPS_ID_DEFAULT,
 			.domain_ops = &msm_tlmm_v3_gp_irqd_ops,
+			.handler = msm_tlmm_v3_gp_handle_irq,
 };
 
 /* Power management core operations */
@@ -695,17 +697,10 @@ static struct syscore_ops msm_tlmm_v3_irq_syscore_ops = {
 static int msm_tlmm_v3_gp_irq_init(int irq, struct msm_pintype_info *pinfo,
 						struct device *tlmm_dev)
 {
-	int ret, num_irqs;
+	int num_irqs;
 	struct msm_tlmm_irq_chip *ic = pinfo->irq_chip;
 
 	num_irqs = ic->num_irqs;
-	ret = devm_request_irq(tlmm_dev, irq, msm_tlmm_v3_irq_handle,
-						IRQF_TRIGGER_HIGH,
-						dev_name(tlmm_dev), ic);
-	if (ret) {
-		dev_err(tlmm_dev, "unable to register irq %d\n", irq);
-		return ret;
-	}
 	ic->enabled_irqs = devm_kzalloc(tlmm_dev, sizeof(unsigned long)
 					* BITS_TO_LONGS(num_irqs), GFP_KERNEL);
 	if (IS_ERR(ic->enabled_irqs)) {
@@ -732,6 +727,30 @@ static int msm_tlmm_v3_gp_irq_init(int irq, struct msm_pintype_info *pinfo,
 	ic->pinfo = pinfo;
 	register_syscore_ops(&msm_tlmm_v3_irq_syscore_ops);
 	return 0;
+}
+
+static irqreturn_t msm_tlmm_v3_handle_irq(int irq, void *data)
+{
+	int i, num_pintypes;
+	struct msm_pintype_info *pintypes, *pintype;
+	struct msm_tlmm_irq_chip *ic;
+	struct msm_tlmm_desc *tlmm_desc = (struct msm_tlmm_desc *)data;
+	irqreturn_t ret = IRQ_NONE;
+
+	pintypes = tlmm_desc->pintypes;
+	num_pintypes = tlmm_desc->num_pintypes;
+	for (i = 0; i < num_pintypes; i++) {
+		pintype = &pintypes[i];
+		if (!pintype->irq_chip)
+			continue;
+		ic = pintype->irq_chip;
+		if (!ic->node)
+			continue;
+		ret = ic->handler(irq, ic);
+		if (ret != IRQ_HANDLED)
+			break;
+	}
+	return ret;
 }
 
 static struct msm_pintype_info tlmm_v3_pininfo[] = {
@@ -767,3 +786,78 @@ struct msm_tlmm_pintype tlmm_v3_pintypes = {
 	.pintype_info = tlmm_v3_pininfo,
 };
 
+static const struct of_device_id msm_tlmm_v3_dt_match[] = {
+	{ .compatible = "qcom,msm-tlmm-v3",
+		.data = &tlmm_v3_pintypes, },
+	{},
+};
+MODULE_DEVICE_TABLE(of, msm_tlmm_v3_dt_match);
+
+static int msm_tlmm_v3_probe(struct platform_device *pdev)
+{
+	const struct of_device_id *match;
+	const struct msm_tlmm_pintype *pinfo;
+	struct msm_tlmm_desc *tlmm_desc;
+	int irq, ret;
+	struct resource *res;
+	struct device_node *node = pdev->dev.of_node;
+
+	match = of_match_node(msm_tlmm_v3_dt_match, node);
+	if (IS_ERR(match))
+		return PTR_ERR(match);
+	pinfo = match->data;
+	tlmm_desc = devm_kzalloc(&pdev->dev, sizeof(*tlmm_desc), GFP_KERNEL);
+	if (!tlmm_desc) {
+		dev_err(&pdev->dev, "Alloction failed for tlmm desc\n");
+		return -ENOMEM;
+	}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(&pdev->dev, "cannot find IO resource\n");
+		return -ENOENT;
+	}
+	tlmm_desc->base = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (IS_ERR(tlmm_desc->base))
+		return PTR_ERR(tlmm_desc->base);
+	tlmm_desc->irq = -EINVAL;
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res) {
+		irq = res->start;
+		ret = devm_request_irq(&pdev->dev, irq, msm_tlmm_v3_handle_irq,
+							IRQF_TRIGGER_HIGH,
+							dev_name(&pdev->dev),
+							tlmm_desc);
+		if (ret) {
+			dev_err(&pdev->dev, "register for irq failed\n");
+			return ret;
+		}
+		tlmm_desc->irq = irq;
+	}
+	tlmm_desc->pintypes = pinfo->pintype_info;
+	tlmm_desc->num_pintypes = pinfo->num_entries;
+	return msm_pinctrl_probe(pdev, tlmm_desc);
+}
+
+static struct platform_driver msm_tlmm_v3_drv = {
+	.probe		= msm_tlmm_v3_probe,
+	.driver = {
+		.name	= "msm-tlmmv3-pinctrl",
+		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(msm_tlmm_v3_dt_match),
+	},
+};
+
+static int __init msm_tlmm_v3_drv_register(void)
+{
+	return platform_driver_register(&msm_tlmm_v3_drv);
+}
+postcore_initcall(msm_tlmm_v3_drv_register);
+
+static void __exit msm_tlmm_v3_drv_unregister(void)
+{
+	platform_driver_unregister(&msm_tlmm_v3_drv);
+}
+module_exit(msm_tlmm_v3_drv_unregister);
+
+MODULE_LICENSE("GPLv2");
