@@ -352,18 +352,35 @@ struct kgsl_snapshot_object *kgsl_snapshot_find_object(
 }
 
 /* ksgl_snapshot_have_object - Return 1 if the object has been processed
- *@device - the device that is being snapshotted
+ * @device - the device that is being snapshotted
  * @ptbase - the pagetable base of the object to freeze
  * @gpuaddr - The gpu address of the object to freeze
  * @size - the size of the object (may not always be the size of the region)
  *
  * Return 1 if the object is already in the list - this can save us from
- * having to parse the sme thing over again.
+ * having to parse the same thing over again. There are 2 lists that are
+ * tracking objects so check for the object in both lists
 */
 int kgsl_snapshot_have_object(struct kgsl_device *device, phys_addr_t ptbase,
 	unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_snapshot_object *obj;
+	struct kgsl_snapshot_cp_obj *obj_cp;
+	struct adreno_ib_object *ib_obj;
+	int i;
+
+	/* Check whether the object is tracked already in ib list */
+	list_for_each_entry(obj_cp, &device->snapshot_cp_list, node) {
+		if (obj_cp->ptbase != ptbase)
+			continue;
+		for (i = 0; i < obj_cp->ib_obj_list->num_objs; i++) {
+			ib_obj = &(obj_cp->ib_obj_list->obj_list[i]);
+			if ((gpuaddr >= ib_obj->gpuaddr) &&
+				((gpuaddr + size) <=
+				(ib_obj->gpuaddr + ib_obj->size)))
+				return 1;
+		}
+	}
 
 	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
 		if (obj->ptbase != ptbase)
