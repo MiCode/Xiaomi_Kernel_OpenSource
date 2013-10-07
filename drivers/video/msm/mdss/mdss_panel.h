@@ -120,6 +120,7 @@ struct mdss_panel_cfg {
 				 - 0 clock disable
 				 - 1 clock enable
  * @MDSS_EVENT_DSI_CMDLIST_KOFF: kickoff sending dcs command from command list
+ * @MDSS_EVENT_ENABLE_PARTIAL_UPDATE: Event to update ROI of the panel.
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -137,6 +138,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_FB_REGISTERED,
 	MDSS_EVENT_PANEL_CLK_CTRL,
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
+	MDSS_EVENT_ENABLE_PARTIAL_UPDATE,
 };
 
 struct lcd_panel_info {
@@ -271,6 +273,10 @@ struct mdss_panel_info {
 	u32 is_3d_panel;
 	u32 out_format;
 	u32 vic; /* video identification code */
+	u32 roi_x;
+	u32 roi_y;
+	u32 roi_w;
+	u32 roi_h;
 	int bklt_ctrl;	/* backlight ctrl */
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
@@ -281,6 +287,7 @@ struct mdss_panel_info {
 	int new_fps;
 
 	u32 cont_splash_enabled;
+	u32 partial_update_enabled;
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
