@@ -114,6 +114,8 @@ enum msm_tlmm_misc_reg {
 	TLMM_ETM_MODE_REG = 0x2014,
 	TLMM_SDC2_HDRV_PULL_CTL = 0x2048,
 	TLMM_SPARE_REG = 0x2024,
+	TLMM_CDC_HDRV_CTL = 0x2054,
+	TLMM_CDC_HDRV_PULL_CTL = 0x2058,
 };
 
 void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val);
