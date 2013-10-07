@@ -1605,8 +1605,12 @@ struct dsi_pll_vco_clk dsi_vco_clk_samarium = {
 	.ref_clk_rate = 19200000,
 	.min_rate = 350000000,
 	.max_rate = 750000000,
-	.pll_en_seq_cnt = 3,
-	.pll_enable_seqs[0] = dsi_pll_enable_seq_samarium,
+	.pll_en_seq_cnt = 4,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_8974,
+	.pll_enable_seqs[1] = dsi_pll_enable_seq_8974,
+	.pll_enable_seqs[2] = dsi_pll_enable_seq_8974,
+	.pll_enable_seqs[3] = dsi_pll_enable_seq_samarium,
+
 	.lpfr_lut_size = 10,
 	.lpfr_lut = (struct lpfr_cfg[]){
 		{479500000, 8},
