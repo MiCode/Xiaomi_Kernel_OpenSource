@@ -53,8 +53,6 @@ static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 #define TAPAN_EXT_CLK_RATE 9600000
 
-static int msmsamarium_auxpcm_rate = 8000;
-
 /* It takes about 13ms for Class-D PAs to ramp-up */
 #define EXT_CLASS_D_EN_DELAY 13000
 #define EXT_CLASS_D_DIS_DELAY 3000
@@ -420,21 +418,6 @@ static int msm_proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				      struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate =
-		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels =
-		hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	rate->min = rate->max = msmsamarium_auxpcm_rate;
-	channels->min = channels->max = 1;
-
-	return 0;
-}
-
 static int msm_proxy_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -462,9 +445,6 @@ static int msm_proxy_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = 48000;
 	return 0;
 }
-
-static struct snd_soc_ops msm_auxpcm_be_ops = {
-};
 
 static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
@@ -1358,35 +1338,6 @@ static struct snd_soc_dai_link msmsamarium_dai_links[] = {
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msmsamarium_be_ops,
 		.ignore_suspend = 1,
-	},
-	/* AUX PCM Backend DAI Links */
-	{
-		.name = LPASS_BE_AUXPCM_RX,
-		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
-		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-		.ops = &msm_auxpcm_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1
-		/* this dainlink has playback support */
-	},
-	{
-		.name = LPASS_BE_AUXPCM_TX,
-		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6-auxpcm.1",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
-		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-		.ops = &msm_auxpcm_be_ops,
-		.ignore_suspend = 1
 	},
 	/* Incall Record Uplink BACK END DAI Link */
 	{
