@@ -235,12 +235,18 @@ struct smb135x_chg {
 	u32				peek_poke_address;
 	struct smb135x_regulator	otg_vreg;
 	int				skip_writes;
+	int				skip_reads;
 };
 
 static int smb135x_read(struct smb135x_chg *chip, int reg,
 				u8 *val)
 {
 	s32 ret;
+
+	if (chip->skip_reads) {
+		*val = 0;
+		return 0;
+	}
 
 	ret = i2c_smbus_read_byte_data(chip->client, reg);
 	if (ret < 0) {
@@ -1218,38 +1224,148 @@ static int chg_inhibit_handler(struct smb135x_chg *chip, u8 rt_stat)
 	return 0;
 }
 
+struct smb_irq_info {
+	const char		*name;
+	int			(*smb_irq)(struct smb135x_chg *chip,
+							u8 rt_stat);
+	int			high;
+	int			low;
+};
+
 struct irq_handler_info {
 	u8			stat_reg;
 	u8			val;
 	u8			prev_val;
-	int (*smb_irq[4])(struct smb135x_chg *chip, u8 rt_stat);
+	struct smb_irq_info	irq_info[4];
 };
 
 static struct irq_handler_info handlers[] = {
 	{IRQ_A_REG, 0, 0,
-		{cold_soft_handler, hot_soft_handler,
-			cold_hard_handler, hot_hard_handler
-		}
+		{
+			{
+				.name		= "cold_soft",
+				.smb_irq	= cold_soft_handler,
+			},
+			{
+				.name		= "hot_soft",
+				.smb_irq	= hot_soft_handler,
+			},
+			{
+				.name		= "cold_hard",
+				.smb_irq	= cold_hard_handler,
+			},
+			{
+				.name		= "hot_hard",
+				.smb_irq	= hot_hard_handler,
+			},
+		},
 	},
 	{IRQ_B_REG, 0, 0,
-		{chg_hot_handler, vbat_low_handler,
-			battery_missing_handler, battery_missing_handler
-		}
+		{
+			{
+				.name		= "chg_hot",
+				.smb_irq	= chg_hot_handler,
+			},
+			{
+				.name		= "vbat_low",
+				.smb_irq	= vbat_low_handler,
+			},
+			{
+				.name		= "battery_missing",
+				.smb_irq	= battery_missing_handler,
+			},
+			{
+				.name		= "battery_missing",
+				.smb_irq	= battery_missing_handler,
+			},
+		},
 	},
 	{IRQ_C_REG, 0, 0,
-		{chg_term_handler, taper_handler, recharge_handler, NULL}
+		{
+			{
+				.name		= "chg_term",
+				.smb_irq	= chg_term_handler,
+			},
+			{
+				.name		= "taper",
+				.smb_irq	= taper_handler,
+			},
+			{
+				.name		= "recharge",
+				.smb_irq	= recharge_handler,
+			},
+			{
+				.name		= "fast_chg",
+			},
+		},
 	},
 	{IRQ_D_REG, 0, 0,
-		{NULL, safety_timeout_handler, NULL, NULL}
+		{
+			{
+				.name		= "prechg_timeout",
+			},
+			{
+				.name		= "safety_timeout",
+				.smb_irq	= safety_timeout_handler,
+			},
+			{
+				.name		= "aicl_done",
+			},
+			{
+				.name		= "battery_ov",
+			},
+		},
 	},
 	{IRQ_E_REG, 0, 0,
-		{NULL, NULL, NULL, NULL}
+		{
+			{
+				.name		= "usbin_uv",
+			},
+			{
+				.name		= "usbin_ov",
+			},
+			{
+				.name		= "dcin_uv",
+			},
+			{
+				.name		= "dcin_ov",
+			},
+		},
 	},
 	{IRQ_F_REG, 0, 0,
-		{power_ok_handler, NULL, NULL, NULL, }
+		{
+			{
+				.name		= "power_ok",
+				.smb_irq	= power_ok_handler,
+			},
+			{
+				.name		= "unused",
+			},
+			{
+				.name		= "otg_fail",
+			},
+			{
+				.name		= "otg_oc",
+			},
+		},
 	},
 	{IRQ_G_REG, 0, 0,
-		{chg_inhibit_handler, NULL, NULL, src_detect_handler}
+		{
+			{
+				.name		= "chg_inhibit",
+				.smb_irq	= chg_inhibit_handler,
+			},
+			{
+				.name		= "chg_error",
+			},
+			{
+				.name		= "wd_timeout",
+			},
+			{
+				.name		= "src_detect",
+				.smb_irq	= src_detect_handler,
+			},
+		},
 	},
 };
 
@@ -1275,7 +1391,7 @@ static irqreturn_t smb135x_chg_stat_handler(int irq, void *dev_id)
 			continue;
 		}
 
-		for (j = 0; j < ARRAY_SIZE(handlers[i].smb_irq); j++) {
+		for (j = 0; j < ARRAY_SIZE(handlers[i].irq_info); j++) {
 			triggered = handlers[i].val
 			       & (IRQ_LATCHED_MASK << (j * BITS_PER_IRQ));
 			rt_stat = handlers[i].val
@@ -1284,10 +1400,15 @@ static irqreturn_t smb135x_chg_stat_handler(int irq, void *dev_id)
 				& (IRQ_STATUS_MASK << (j * BITS_PER_IRQ));
 			changed = prev_rt_stat ^ rt_stat;
 
+			if (triggered || changed)
+				rt_stat ? handlers[i].irq_info[j].high++ :
+						handlers[i].irq_info[j].low++;
+
 			if ((triggered || changed)
-				&& handlers[i].smb_irq[j] != NULL) {
+				&& handlers[i].irq_info[j].smb_irq != NULL) {
 				handler_count++;
-				rc = handlers[i].smb_irq[j](chip, rt_stat);
+				rc = handlers[i].irq_info[j].smb_irq(chip,
+								rt_stat);
 				if (rc < 0)
 					dev_err(chip->dev,
 						"Couldn't handle %d irq for reg 0x%02x rc = %d\n",
@@ -1407,6 +1528,42 @@ static int status_debugfs_open(struct inode *inode, struct file *file)
 static const struct file_operations status_debugfs_ops = {
 	.owner		= THIS_MODULE,
 	.open		= status_debugfs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int show_irq_count(struct seq_file *m, void *data)
+{
+	int i, j, total = 0;
+
+	for (i = 0; i < ARRAY_SIZE(handlers); i++)
+		for (j = 0; j < 4; j++) {
+			seq_printf(m, "%s=%d\t(high=%d low=%d)\n",
+						handlers[i].irq_info[j].name,
+						handlers[i].irq_info[j].high
+						+ handlers[i].irq_info[j].low,
+						handlers[i].irq_info[j].high,
+						handlers[i].irq_info[j].low);
+			total += (handlers[i].irq_info[j].high
+					+ handlers[i].irq_info[j].low);
+		}
+
+	seq_printf(m, "\n\tTotal = %d\n", total);
+
+	return 0;
+}
+
+static int irq_count_debugfs_open(struct inode *inode, struct file *file)
+{
+	struct smb135x_chg *chip = inode->i_private;
+
+	return single_open(file, show_irq_count, chip);
+}
+
+static const struct file_operations irq_count_debugfs_ops = {
+	.owner		= THIS_MODULE,
+	.open		= irq_count_debugfs_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -2002,6 +2159,23 @@ static int smb135x_charger_probe(struct i2c_client *client,
 		if (!ent)
 			dev_err(chip->dev,
 				"Couldn't create data debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_x32("skip_reads",
+					  S_IFREG | S_IWUSR | S_IRUGO,
+					  chip->debug_root,
+					  &(chip->skip_reads));
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create data debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_file("irq_count", S_IFREG | S_IRUGO,
+					  chip->debug_root, chip,
+					  &irq_count_debugfs_ops);
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create count debug file rc = %d\n",
 				rc);
 	}
 
