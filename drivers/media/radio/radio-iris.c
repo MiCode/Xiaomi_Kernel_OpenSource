@@ -4275,11 +4275,11 @@ static int __init iris_probe(struct platform_device *pdev)
 		if (kfifo_alloc_rc != 0) {
 			FMDERR("failed allocating buffers %d\n",
 				   kfifo_alloc_rc);
-			for (; i > -1; i--) {
+			for (; i > -1; i--)
 				kfifo_free(&radio->data_buf[i]);
-				kfree(radio);
-				return -ENOMEM;
-			}
+			video_device_release(radio->videodev);
+			kfree(radio);
+			return -ENOMEM;
 		}
 	}
 
@@ -4307,8 +4307,16 @@ static int __init iris_probe(struct platform_device *pdev)
 	} else {
 		priv_videodev = kzalloc(sizeof(struct video_device),
 			GFP_KERNEL);
-		memcpy(priv_videodev, radio->videodev,
-			sizeof(struct video_device));
+		if (priv_videodev != NULL) {
+			memcpy(priv_videodev, radio->videodev,
+				sizeof(struct video_device));
+		} else {
+			video_unregister_device(radio->videodev);
+			video_device_release(radio->videodev);
+			for (; i > -1; i--)
+				kfifo_free(&radio->data_buf[i]);
+			kfree(radio);
+		}
 	}
 	return 0;
 }
