@@ -4989,7 +4989,6 @@ static void intel_crtc_disable(struct drm_crtc *crtc)
 		if (connector->encoder->crtc != crtc)
 			continue;
 
-		connector->dpms = DRM_MODE_DPMS_OFF;
 		to_intel_encoder(connector->encoder)->connectors_active = false;
 	}
 }
@@ -9913,7 +9912,6 @@ intel_modeset_update_state(struct drm_device *dev, unsigned prepare_pipes)
 {
 	struct intel_encoder *intel_encoder;
 	struct intel_crtc *intel_crtc;
-	struct drm_connector *connector;
 
 	list_for_each_entry(intel_encoder, &dev->mode_config.encoder_list,
 			    base.head) {
@@ -9934,26 +9932,6 @@ intel_modeset_update_state(struct drm_device *dev, unsigned prepare_pipes)
 		WARN_ON(intel_crtc->new_config &&
 			intel_crtc->new_config != &intel_crtc->config);
 		WARN_ON(intel_crtc->base.enabled != !!intel_crtc->new_config);
-	}
-
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		if (!connector->encoder || !connector->encoder->crtc)
-			continue;
-
-		intel_crtc = to_intel_crtc(connector->encoder->crtc);
-
-		if (prepare_pipes & (1 << intel_crtc->pipe)) {
-			struct drm_property *dpms_property =
-				dev->mode_config.dpms_property;
-
-			connector->dpms = DRM_MODE_DPMS_ON;
-			drm_object_property_set_value(&connector->base,
-							 dpms_property,
-							 DRM_MODE_DPMS_ON);
-
-			intel_encoder = to_intel_encoder(connector->encoder);
-			intel_encoder->connectors_active = true;
-		}
 	}
 
 }
@@ -10389,6 +10367,7 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	struct drm_display_mode *saved_mode;
 	struct intel_crtc_config *pipe_config = NULL;
 	struct intel_crtc *intel_crtc;
+	struct drm_connector *connector;
 	unsigned disable_pipes, prepare_pipes, modeset_pipes;
 	int ret = 0;
 
@@ -10497,11 +10476,22 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			goto done;
 	}
 
-	/* Now enable the clocks, plane, pipe, and connectors that we set up. */
-	for_each_intel_crtc_masked(dev, prepare_pipes, intel_crtc) {
-		update_scanline_offset(intel_crtc);
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (!connector->encoder || !connector->encoder->crtc)
+			continue;
 
-		dev_priv->display.crtc_enable(&intel_crtc->base);
+		intel_crtc = to_intel_crtc(connector->encoder->crtc);
+
+		if ((connector->dpms != DRM_MODE_DPMS_OFF)
+			&& (prepare_pipes & (1 << (intel_crtc)->pipe))) {
+			/*
+			 * Now enable the clocks, plane, pipe, and connectors that we 
+			 * set up.
+			*/
+			update_scanline_offset(intel_crtc);
+			to_intel_encoder(connector->encoder)->connectors_active = true;
+			dev_priv->display.crtc_enable(&intel_crtc->base);
+		}
 	}
 
 	/* FIXME: add subpixel order */
@@ -12229,11 +12219,9 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
 		if (connector->get_hw_state(connector)) {
-			connector->base.dpms = DRM_MODE_DPMS_ON;
 			connector->encoder->connectors_active = true;
 			connector->base.encoder = &connector->encoder->base;
 		} else {
-			connector->base.dpms = DRM_MODE_DPMS_OFF;
 			connector->base.encoder = NULL;
 		}
 		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] hw state readout: %s\n",
