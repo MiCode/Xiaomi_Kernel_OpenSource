@@ -96,3 +96,11 @@
 	qcom,memblock-remove = <0x08000000 0x7500000
 				0x0fa00000 0x500000>; /* Address and size of the hole */
 };
+
+&hsic_host {
+	interrupt-map = <0 &intc 0 136 0
+		1 &intc 0 148 0
+		2 &msmgpio 119 0x8>;
+	hsic,strobe-gpio = <&msmgpio 119 0x00>;
+	hsic,data-gpio = <&msmgpio 120 0x00>;
+};
