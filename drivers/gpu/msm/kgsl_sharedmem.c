@@ -211,7 +211,7 @@ kgsl_process_init_sysfs(struct kgsl_device *device,
 	return ret;
 }
 
-static int kgsl_drv_memstat_show(struct device *dev,
+static ssize_t kgsl_drv_memstat_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
@@ -237,7 +237,7 @@ static int kgsl_drv_memstat_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", val);
 }
 
-static int kgsl_drv_histogram_show(struct device *dev,
+static ssize_t kgsl_drv_histogram_show(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
@@ -252,7 +252,7 @@ static int kgsl_drv_histogram_show(struct device *dev,
 	return len;
 }
 
-static int kgsl_drv_full_cache_threshold_store(struct device *dev,
+static ssize_t kgsl_drv_full_cache_threshold_store(struct device *dev,
 					 struct device_attribute *attr,
 					 const char *buf, size_t count)
 {
@@ -267,7 +267,7 @@ static int kgsl_drv_full_cache_threshold_store(struct device *dev,
 	return count;
 }
 
-static int kgsl_drv_full_cache_threshold_show(struct device *dev,
+static ssize_t kgsl_drv_full_cache_threshold_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {

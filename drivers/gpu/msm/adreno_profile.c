@@ -855,7 +855,7 @@ err:
 	return status;
 }
 
-static int profile_pipe_print(struct file *filep, char __user *ubuf,
+static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 		size_t max, loff_t *ppos)
 {
 	struct kgsl_device *device = (struct kgsl_device *) filep->private_data;
