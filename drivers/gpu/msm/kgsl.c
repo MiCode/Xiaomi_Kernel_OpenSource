@@ -188,9 +188,7 @@ kgsl_mem_entry_create(void)
 {
 	struct kgsl_mem_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 
-	if (!entry)
-		KGSL_CORE_ERR("kzalloc(%d) failed\n", sizeof(*entry));
-	else
+	if (entry)
 		kref_init(&entry->refcount);
 
 	return entry;
@@ -443,7 +441,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 
 	/* MAX - 1, there is one memdesc in memstore for device info */
 	if (id >= KGSL_MEMSTORE_MAX) {
-		KGSL_DRV_INFO(device, "cannot have more than %d "
+		KGSL_DRV_INFO(device, "cannot have more than %zu "
 				"ctxts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
 		ret = -ENOSPC;
@@ -824,11 +822,8 @@ kgsl_find_process_private(struct kgsl_device_private *cur_dev_priv)
 
 	/* no existing process private found for this dev_priv, create one */
 	private = kzalloc(sizeof(struct kgsl_process_private), GFP_KERNEL);
-	if (private == NULL) {
-		KGSL_DRV_ERR(cur_dev_priv->device, "kzalloc(%d) failed\n",
-			sizeof(struct kgsl_process_private));
+	if (private == NULL)
 		goto done;
-	}
 
 	kref_init(&private->refcount);
 
@@ -1059,8 +1054,6 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 
 	dev_priv = kzalloc(sizeof(struct kgsl_device_private), GFP_KERNEL);
 	if (dev_priv == NULL) {
-		KGSL_DRV_ERR(device, "kzalloc failed(%d)\n",
-			sizeof(struct kgsl_device_private));
 		result = -ENOMEM;
 		goto err_pmruntime;
 	}
@@ -2479,7 +2472,7 @@ static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
 	size = ALIGN(size, PAGE_SIZE);
 
 	if (_check_region(offset & PAGE_MASK, size, len)) {
-		KGSL_CORE_ERR("Offset (%ld) + size (%d) is larger"
+		KGSL_CORE_ERR("Offset (%ld) + size (%zu) is larger"
 			      "than region length %d\n",
 			      offset & PAGE_MASK, size, len);
 		return -EINVAL;

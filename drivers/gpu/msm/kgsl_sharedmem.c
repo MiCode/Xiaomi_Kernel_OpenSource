@@ -465,8 +465,6 @@ static int kgsl_page_alloc_map_kernel(struct kgsl_memdesc *memdesc)
 		/* create a list of pages to call vmap */
 		pages = vmalloc(npages * sizeof(struct page *));
 		if (!pages) {
-			KGSL_CORE_ERR("vmalloc(%d) failed\n",
-				npages * sizeof(struct page *));
 			ret = -ENOMEM;
 			goto done;
 		}
@@ -676,7 +674,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			}
 
 			KGSL_CORE_ERR(
-				"Out of memory: only allocated %dKB of %dKB requested\n",
+				"Out of memory: only allocated %zuKB of %zuKB requested\n",
 				(size - len) >> 10, size >> 10);
 
 			ret = -ENOMEM;
@@ -805,7 +803,6 @@ kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
 	memdesc->hostptr = dma_alloc_coherent(NULL, size, &memdesc->physaddr,
 					      GFP_KERNEL);
 	if (memdesc->hostptr == NULL) {
-		KGSL_CORE_ERR("dma_alloc_coherent(%d) failed\n", size);
 		result = -ENOMEM;
 		goto err;
 	}
