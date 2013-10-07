@@ -413,14 +413,12 @@ int mmc_add_card(struct mmc_card *card)
 #endif
 	mmc_init_context_info(card->host);
 
-	if (mmc_use_core_runtime_pm(card->host)) {
-		ret = pm_runtime_set_active(&card->dev);
-		if (ret)
-			pr_err("%s: %s: failed setting runtime active: ret: %d\n",
-			       mmc_hostname(card->host), __func__, ret);
-		else if (!mmc_card_sdio(card))
-			pm_runtime_enable(&card->dev);
-	}
+	ret = pm_runtime_set_active(&card->dev);
+	if (ret)
+		pr_err("%s: %s: failed setting runtime active: ret: %d\n",
+		       mmc_hostname(card->host), __func__, ret);
+	else if (!mmc_card_sdio(card) && mmc_use_core_runtime_pm(card->host))
+		pm_runtime_enable(&card->dev);
 
 	if (mmc_card_sdio(card)) {
 		ret = device_init_wakeup(&card->dev, true);

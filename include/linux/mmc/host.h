@@ -326,6 +326,7 @@ struct mmc_host {
 
 #define MMC_CAP2_HS400_1_8V	(1 << 22)        /* can support */
 #define MMC_CAP2_HS400_1_2V	(1 << 23)        /* can support */
+#define MMC_CAP2_CORE_PM       (1 << 24)       /* use PM framework */
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
 				 MMC_CAP2_HS400_1_2V)
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
@@ -613,6 +614,11 @@ static inline unsigned int mmc_host_clk_rate(struct mmc_host *host)
 static inline int mmc_use_core_runtime_pm(struct mmc_host *host)
 {
 	return host->caps2 & MMC_CAP2_CORE_RUNTIME_PM;
+}
+
+static inline int mmc_use_core_pm(struct mmc_host *host)
+{
+	return host->caps2 & MMC_CAP2_CORE_PM;
 }
 
 #endif /* LINUX_MMC_HOST_H */
