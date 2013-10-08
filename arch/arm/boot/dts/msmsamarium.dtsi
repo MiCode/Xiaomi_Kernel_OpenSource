@@ -1845,10 +1845,6 @@
 	status = "ok";
 };
 
-&gdsc_usb_hsic {
-	status = "ok";
-};
-
 &gdsc_mdss {
 	qcom,clock-names = "core_clk", "lut_clk";
 	status = "ok";
