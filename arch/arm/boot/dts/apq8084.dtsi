@@ -87,6 +87,7 @@
 		ngpio = <146>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
+		qcom,subsys-id = <3>;
 	};
 
 	timer {
