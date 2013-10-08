@@ -165,6 +165,23 @@ enum rmnet_netlink_message_types_e {
 	RMNET_NETLINK_NEW_VND,
 
 	/*
+	 * RMNET_NETLINK_NEW_VND_WITH_PREFIX - Creates a new virtual network
+	 *                                     device node with the specified
+	 *                                     prefix for the device name
+	 * Args: int32_t node number
+	 *       char[] vnd_name - Use as prefix
+	 * Returns: status code
+	 */
+	RMNET_NETLINK_NEW_VND_WITH_PREFIX,
+
+	/*
+	 * RMNET_NETLINK_GET_VND_NAME - Gets the string name of a VND from ID
+	 * Args: int32_t node number
+	 * Returns: char[] vnd_name
+	 */
+	RMNET_NETLINK_GET_VND_NAME,
+
+	/*
 	 * RMNET_NETLINK_FREE_VND - Removes virtual network device node
 	 * Args: int32_t node number
 	 * Returns: status code

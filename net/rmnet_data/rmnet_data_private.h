@@ -17,7 +17,7 @@
 #define RMNET_DATA_MAX_VND              32
 #define RMNET_DATA_MAX_PACKET_SIZE      16384
 #define RMNET_DATA_DFLT_PACKET_SIZE     1500
-#define RMNET_DATA_DEV_NAME_STR         "rmnet_data%d"
+#define RMNET_DATA_DEV_NAME_STR         "rmnet_data"
 #define RMNET_DATA_NEEDED_HEADROOM      16
 #define RMNET_ETHERNET_HEADER_LENGTH    14
 
