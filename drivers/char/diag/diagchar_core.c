@@ -71,7 +71,7 @@ static unsigned int poolsize_user = 8;  /*Number of items in the mempool */
 static unsigned int itemsize_write_struct = 20; /*Size of item in the mempool */
 static unsigned int poolsize_write_struct = 10;/* Num of items in the mempool */
 /* For the dci memory pool */
-static unsigned int itemsize_dci = 8192; /*Size of item in the mempool */
+static unsigned int itemsize_dci = IN_BUF_SIZE; /*Size of item in the mempool */
 static unsigned int poolsize_dci = 10;  /*Number of items in the mempool */
 /* This is the max number of user-space clients supported at initialization*/
 static unsigned int max_clients = 15;
@@ -129,8 +129,6 @@ static void drain_timer_func(unsigned long data)
 void diag_drain_work_fn(struct work_struct *work)
 {
 	int err = 0;
-	struct list_head *start, *temp;
-	struct diag_dci_client_tbl *entry = NULL;
 	timer_in_progress = 0;
 
 	mutex_lock(&driver->diagchar_mutex);
@@ -148,34 +146,6 @@ void diag_drain_work_fn(struct work_struct *work)
 
 	mutex_unlock(&driver->diagchar_mutex);
 
-	if (!(driver->num_dci_client > 0))
-		return;
-
-	list_for_each_safe(start, temp, &driver->dci_client_list) {
-		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->client == NULL)
-			continue;
-		mutex_lock(&entry->data_mutex);
-		if (entry->apps_data_len > 0) {
-			err = dci_apps_write(entry);
-			entry->dci_apps_data = NULL;
-			entry->apps_data_len = 0;
-			if (entry->apps_in_busy_1 == 0) {
-				entry->dci_apps_data =
-				   entry->dci_apps_buffer;
-				entry->apps_in_busy_1 = 1;
-			} else {
-				entry->dci_apps_data =
-				   diagmem_alloc(driver, driver->itemsize_dci,
-								POOL_TYPE_DCI);
-			}
-
-			if (!entry->dci_apps_data)
-				pr_err_ratelimited("diag: In %s, Not able to acquire a buffer. Reduce data rate.\n",
-								__func__);
-		}
-		mutex_unlock(&entry->data_mutex);
-	}
 }
 
 void check_drain_timer(void)
@@ -598,46 +568,60 @@ static int diag_copy_dci(char __user *buf, size_t count,
 	int total_data_len = 0;
 	int ret = 0;
 	int exit_stat = 1;
-	int i;
+	struct diag_dci_buffer_t *buf_entry, *temp;
+	struct diag_smd_info *smd_info = NULL;
 
 	if (!buf || !entry || !pret)
 		return exit_stat;
 
 	ret = *pret;
 
-	/* Place holder for total data length */
 	ret += 4;
 
-	mutex_lock(&entry->data_mutex);
-	/* Copy the apps data */
-	for (i = 0; i < entry->dci_apps_tbl_size; i++) {
-		if (entry->dci_apps_tbl[i].buf != NULL) {
-			if (copy_to_user(buf+ret,
-				(void *)(entry->dci_apps_tbl[i].buf),
-				entry->dci_apps_tbl[i].length)) {
-					goto drop;
-			}
-			ret += entry->dci_apps_tbl[i].length;
-			total_data_len += entry->dci_apps_tbl[i].length;
+	mutex_lock(&entry->write_buf_mutex);
+	list_for_each_entry_safe(buf_entry, temp, &entry->list_write_buf,
+								buf_track) {
+		list_del(&buf_entry->buf_track);
+		mutex_lock(&buf_entry->data_mutex);
+		if ((buf_entry->data_len > 0) &&
+		    (buf_entry->in_busy) &&
+		    (buf_entry->data)) {
+			if (copy_to_user(buf+ret, (void *)buf_entry->data,
+					 buf_entry->data_len))
+				goto drop;
+			ret += buf_entry->data_len;
+			total_data_len += buf_entry->data_len;
 drop:
-			if (entry->dci_apps_tbl[i].buf ==
-						entry->dci_apps_buffer) {
-				entry->apps_in_busy_1 = 0;
-			} else {
-				diagmem_free(driver, entry->dci_apps_tbl[i].buf,
-								POOL_TYPE_DCI);
+			buf_entry->in_busy = 0;
+			buf_entry->data_len = 0;
+			buf_entry->in_list = 0;
+			if (buf_entry->buf_type == DCI_BUF_CMD) {
+				if (buf_entry->data_source == APPS_DATA) {
+					mutex_unlock(&buf_entry->data_mutex);
+					continue;
+				}
+				if (driver->separate_cmdrsp[
+						buf_entry->data_source]) {
+					smd_info = &driver->smd_dci_cmd[
+						buf_entry->data_source];
+				} else {
+					smd_info = &driver->smd_dci[
+						buf_entry->data_source];
+				}
+				smd_info->in_busy_1 = 0;
+				mutex_unlock(&buf_entry->data_mutex);
+				continue;
+			} else if (buf_entry->buf_type == DCI_BUF_SECONDARY) {
+				diagmem_free(driver, buf_entry->data,
+					     POOL_TYPE_DCI);
+				buf_entry->data = NULL;
+				mutex_unlock(&buf_entry->data_mutex);
+				kfree(buf_entry);
+				continue;
 			}
-			entry->dci_apps_tbl[i].buf = NULL;
-			entry->dci_apps_tbl[i].length = 0;
-		}
-	}
 
-	/* Copy the smd data */
-	if (entry->data_len > 0) {
-		COPY_USER_SPACE_OR_EXIT(buf+ret, *(entry->dci_data),
-							entry->data_len);
-		total_data_len += entry->data_len;
-		entry->data_len = 0;
+		}
+		mutex_unlock(&buf_entry->data_mutex);
 	}
 
 	if (total_data_len > 0) {
@@ -649,10 +633,12 @@ drop:
 			__func__, total_data_len);
 	}
 
+	entry->in_service = 0;
+	mutex_unlock(&entry->write_buf_mutex);
+
 	exit_stat = 0;
 exit:
 	*pret = ret;
-	mutex_unlock(&entry->data_mutex);
 
 	return exit_stat;
 }
@@ -1052,17 +1038,27 @@ long diagchar_ioctl(struct file *filp,
 			result = DIAG_DCI_NOT_SUPPORTED;
 			break;
 		}
-		stats.dropped_logs = dci_params->dropped_logs;
-		stats.dropped_events = dci_params->dropped_events;
-		stats.received_logs = dci_params->received_logs;
-		stats.received_events = dci_params->received_events;
-		if (stats.reset_status) {
-			mutex_lock(&dci_health_mutex);
-			dci_params->dropped_logs = 0;
-			dci_params->dropped_events = 0;
-			dci_params->received_logs = 0;
-			dci_params->received_events = 0;
-			mutex_unlock(&dci_health_mutex);
+		stats.stats.dropped_logs = 0;
+		stats.stats.dropped_events = 0;
+		stats.stats.received_logs = 0;
+		stats.stats.received_events = 0;
+		for (i = 0; i < NUM_DCI_PROC; i++) {
+			stats.stats.dropped_logs +=
+				dci_params->buffers[i].health.dropped_logs;
+			stats.stats.dropped_events +=
+				dci_params->buffers[i].health.dropped_events;
+			stats.stats.received_logs +=
+				dci_params->buffers[i].health.received_logs;
+			stats.stats.received_events +=
+				dci_params->buffers[i].health.received_events;
+			if (!stats.reset_status)
+				continue;
+			mutex_lock(&dci_params->buffers[i].health_mutex);
+			dci_params->buffers[i].health.dropped_logs = 0;
+			dci_params->buffers[i].health.dropped_events = 0;
+			dci_params->buffers[i].health.received_logs = 0;
+			dci_params->buffers[i].health.received_events = 0;
+			mutex_unlock(&dci_params->buffers[i].health_mutex);
 		}
 		if (copy_to_user((void *)ioarg, &stats,
 				   sizeof(struct diag_dci_health_stats)))
@@ -1413,16 +1409,17 @@ drop:
 		/* Copy the type of data being passed */
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
-		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* check the current client and copy its data */
 		entry = diag_dci_get_client_entry();
 		if (entry) {
+			if (!entry->in_service)
+				goto exit;
+			COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
 			if (exit_stat == 1)
 				goto exit;
 		}
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
-			driver->smd_dci[i].in_busy_1 = 0;
 			if (driver->smd_dci[i].ch) {
 				diag_dci_try_deactivate_wakeup_source(
 						driver->smd_dci[i].ch);
@@ -1434,7 +1431,6 @@ drop:
 			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
 				if (!driver->separate_cmdrsp[i])
 					continue;
-				driver->smd_dci_cmd[i].in_busy_1 = 0;
 				if (driver->smd_dci_cmd[i].ch) {
 					diag_dci_try_deactivate_wakeup_source(
 						driver->smd_dci_cmd[i].ch);
@@ -1488,10 +1484,10 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	}
 #ifdef CONFIG_DIAG_OVER_USB
 	if (driver->logging_mode == NO_LOGGING_MODE ||
-		(((pkt_type != DCI_DATA_TYPE) ||
-		((pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) == 0))
+	    (!((pkt_type == DCI_DATA_TYPE) ||
+	       ((pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) == 0))
 		&& (driver->logging_mode == USB_MODE) &&
-			(!driver->usb_connected))) {
+		(!driver->usb_connected))) {
 		/*Drop the diag payload */
 		return -EIO;
 	}

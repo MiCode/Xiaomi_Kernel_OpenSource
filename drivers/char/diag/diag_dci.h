@@ -28,6 +28,11 @@
 #define DCI_LOG_CON_MIN_LEN		14
 #define DCI_EVENT_CON_MIN_LEN		16
 
+
+#define DCI_BUF_PRIMARY		1
+#define DCI_BUF_SECONDARY	2
+#define DCI_BUF_CMD		3
+
 #ifdef CONFIG_DEBUG_FS
 #define DIAG_DCI_DEBUG_CNT	100
 #define DIAG_DCI_DEBUG_LEN	100
@@ -54,41 +59,50 @@ struct dci_pkt_req_tracking_tbl {
 	int tag;
 };
 
+struct diag_dci_health_t {
+	int dropped_logs;
+	int dropped_events;
+	int received_logs;
+	int received_events;
+};
+
+struct diag_dci_buffer_t {
+	unsigned char *data;
+	unsigned int data_len;
+	struct mutex data_mutex;
+	uint8_t in_busy;
+	uint8_t buf_type;
+	int data_source;
+	int capacity;
+	uint8_t in_list;
+	struct list_head buf_track;
+};
+
+struct diag_dci_buf_peripheral_t {
+	struct diag_dci_buffer_t *buf_curr;
+	struct diag_dci_buffer_t *buf_primary;
+	struct diag_dci_buffer_t *buf_cmd;
+	struct diag_dci_health_t health;
+	struct mutex health_mutex;
+	struct mutex buf_mutex;
+};
+
 struct diag_dci_client_tbl {
 	struct task_struct *client;
-	uint16_t list; /* bit mask */
+	uint16_t list;
 	int signal_type;
 	unsigned char *dci_log_mask;
 	unsigned char *dci_event_mask;
-	unsigned char *dci_data;
-	int data_len;
-	int total_capacity;
-	/* Buffer that each client owns for sending data */
-	unsigned char *dci_apps_buffer;
-	/* Pointer to buffer currently aggregating data in.
-	 * May point to dci_apps_buffer or buffer from
-	 * dci memory pool
-	 */
-	unsigned char *dci_apps_data;
-	int dci_apps_tbl_size;
-	struct diag_write_device *dci_apps_tbl;
-	int apps_data_len;
-	int apps_in_busy_1;
-	int dropped_logs;
-	int dropped_events;
-	int received_logs;
-	int received_events;
-	struct mutex data_mutex;
 	uint8_t real_time;
 	struct list_head track;
+	struct diag_dci_buf_peripheral_t buffers[NUM_DCI_PROC];
+	uint8_t in_service;
+	struct list_head list_write_buf;
+	struct mutex write_buf_mutex;
 };
 
-/* This is used for DCI health stats */
 struct diag_dci_health_stats {
-	int dropped_logs;
-	int dropped_events;
-	int received_logs;
-	int received_events;
+	struct diag_dci_health_t stats;
 	int reset_status;
 };
 
@@ -128,7 +142,7 @@ int diag_dci_register_client(uint16_t peripheral_list, int signal);
 int diag_dci_deinit_client(void);
 void diag_update_smd_dci_work_fn(struct work_struct *);
 void diag_dci_notify_client(int peripheral_mask, int data);
-int dci_apps_write(struct diag_dci_client_tbl *entry);
+void diag_dci_wakeup_clients(void);
 void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes);
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes);
