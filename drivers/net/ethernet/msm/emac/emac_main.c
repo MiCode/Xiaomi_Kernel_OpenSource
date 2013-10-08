@@ -2187,6 +2187,7 @@ static int emac_probe(struct platform_device *pdev)
 		adpt->irq_info[i].rxque = &adpt->rx_queue[i];
 	}
 
+	hw->phy_addr = 0;
 	adpt->tstamp_en = true;
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)

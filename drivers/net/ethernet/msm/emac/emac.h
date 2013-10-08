@@ -179,6 +179,7 @@ struct emac_hw {
 	enum emac_dma_order       dma_order;
 
 	/* PHY parameter */
+	u32             phy_addr;
 	u16             phy_id[2];
 	u32             autoneg_advertised;
 	u32             link_speed;
