@@ -65,5 +65,6 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 				      struct net_device *egress_dev);
 void rmnet_config_netlink_msg_handler (struct sk_buff *skb);
 int rmnet_create_vnd(int id);
+int rmnet_create_vnd_prefix(int id, const char *name);
 
 #endif /* _RMNET_DATA_CONFIG_H_ */
