@@ -77,14 +77,6 @@
 #if GTP_HAVE_TOUCH_KEY
 static const u16 touch_key_array[] = {KEY_MENU, KEY_HOMEPAGE, KEY_BACK};
 
-#if GTP_DEBUG_ON
-static const int  key_codes[] = {
-	KEY_HOME, KEY_BACK, KEY_MENU, KEY_SEARCH
-};
-static const char *const key_names[] = {
-	"Key_Home", "Key_Back", "Key_Menu", "Key_Search"
-};
-#endif
 #endif
 
 static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms);
@@ -498,18 +490,6 @@ static void goodix_ts_work_func(struct work_struct *work)
 
 	if (key_value || pre_key) {
 		for (i = 0; i < ARRAY_SIZE(touch_key_array); i++) {
-#if GTP_DEBUG_ON
-			for (ret = 0; ret < 4; ++ret) {
-				if (key_codes[ret] == touch_key_array[i]) {
-					GTP_DEBUG("Key: %s %s",
-						key_names[ret],
-						(key_value & (0x01 << i))
-						? "Down" : "Up");
-					break;
-				}
-			}
-#endif
-
 			input_report_key(ts->input_dev,
 				touch_key_array[i], key_value & (0x01<<i));
 		}
