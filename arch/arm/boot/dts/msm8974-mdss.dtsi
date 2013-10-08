@@ -90,7 +90,6 @@
 		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&pm8941_gpios 19 0>;
 		qcom,platform-enable-gpio = <&msmgpio 58 0>;
-		qcom,platform-reset-sequence = <1 20 0 200 1 20 2>;
 		qcom,platform-te-gpio = <&msmgpio 12 0>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
