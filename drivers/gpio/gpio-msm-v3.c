@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,8 @@ enum {
 	DC_POLARITY_BIT	= 8,
 };
 
+/* Default id of application processor subsystem */
+static unsigned subsys_id = 4;
 /*
  * When a GPIO triggers, two separate decisions are made, controlled
  * by two separate flags.
@@ -80,7 +82,7 @@ enum {
 #define INTR_DIR_CONN_EN   BIT(INTR_DIR_CONN_EN_BIT)
 #define DC_POLARITY_HI     BIT(DC_POLARITY_BIT)
 
-#define INTR_TARGET_PROC_APPS    (4 << INTR_TARGET_PROC_BIT)
+#define INTR_TARGET_PROC_APPS    (subsys_id << INTR_TARGET_PROC_BIT)
 #define INTR_TARGET_PROC_NONE    (7 << INTR_TARGET_PROC_BIT)
 
 #define INTR_DECT_CTL_LEVEL      (0 << INTR_DECT_CTL_BIT)
@@ -200,6 +202,11 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)
 	 * interrupt in the unmask call-back.
 	 */
 	udelay(5);
+}
+
+void __msm_gpio_set_subsys_id(unsigned id)
+{
+	subsys_id = id;
 }
 
 void __gpio_tlmm_config(unsigned config)

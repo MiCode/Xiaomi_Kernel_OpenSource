@@ -13,6 +13,8 @@ Required properties:
 - ngpio : Specify the number of MSM GPIOs
 - qcom,direct-connect-irqs : Specifies the number of GPIOs that can be used as
   direct connect interrupts
+Optional properties:
+- qcom,subsys-id: subsystem id to which gpio interrupts must be routed
 
 Example:
 

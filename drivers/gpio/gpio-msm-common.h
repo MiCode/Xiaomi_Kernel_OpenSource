@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,4 +27,13 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type);
 void __gpio_tlmm_config(unsigned config);
 void __msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 					unsigned int input_polarity);
+#ifdef CONFIG_OF
+void __msm_gpio_set_subsys_id(unsigned id);
+#else
+static inline void __msm_gpio_set_subsys_id(unsigned id)
+{
+	return;
+}
 #endif
+#endif
+
