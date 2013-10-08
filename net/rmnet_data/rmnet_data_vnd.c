@@ -360,29 +360,45 @@ int rmnet_vnd_init(void)
  * rmnet_vnd_create_dev() - Create a new virtual network device node.
  * @id:         Virtual device node id
  * @new_device: Pointer to newly created device node
+ * @prefix:     Device name prefix
  *
  * Allocates structures for new virtual network devices. Sets the name of the
  * new device and registers it with the network stack. Device will appear in
- * ifconfig list after this is called.
+ * ifconfig list after this is called. If the prefix is null, then
+ * RMNET_DATA_DEV_NAME_STR will be assumed.
  *
  * Return:
  *      - 0 if successful
  *      - -EINVAL if id is out of range, or id already in use
  *      - -EINVAL if net_device allocation failed
+ *      - -EINVAL if prefix does not fit in buffer
  *      - return code of register_netdevice() on other errors
  */
-int rmnet_vnd_create_dev(int id, struct net_device **new_device)
+int rmnet_vnd_create_dev(int id, struct net_device **new_device,
+			 const char *prefix)
 {
 	struct net_device *dev;
-	int rc = 0;
+	char dev_prefix[IFNAMSIZ];
+	int p, rc = 0;
 
 	if (id < 0 || id > RMNET_DATA_MAX_VND || rmnet_devices[id] != 0) {
 		*new_device = 0;
 		return -EINVAL;
 	}
 
+	if (!prefix)
+		p = scnprintf(dev_prefix, IFNAMSIZ, "%s%%d",
+			  RMNET_DATA_DEV_NAME_STR);
+	else
+		p = scnprintf(dev_prefix, IFNAMSIZ, "%s%%d",
+			  prefix);
+	if (p >= (IFNAMSIZ-1)) {
+		LOGE("%s(): Specified prefix longer than IFNAMSIZ", __func__);
+		return -EINVAL;
+	}
+
 	dev = alloc_netdev(sizeof(struct rmnet_vnd_private_s),
-			   RMNET_DATA_DEV_NAME_STR,
+			   dev_prefix,
 			   rmnet_vnd_setup);
 	if (!dev) {
 		LOGE("%s(): Failed to to allocate netdev for id %d",
@@ -404,6 +420,45 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device)
 
 	LOGM("%s(): Registered device %s\n", __func__, dev->name);
 	return rc;
+}
+
+/**
+ * rmnet_vnd_get_name() - Gets the string name of a VND based on ID
+ * @id:         Virtual device node id
+ * @name:       Buffer to store name of virtual device node
+ * @name_len:   Length of name buffer
+ *
+ * Copies the name of the virtual device node into the users buffer. Will throw
+ * an error if the buffer is null, or too small to hold the device name.
+ *
+ * Return:
+ *      - 0 if successful
+ *      - -EINVAL if name is null
+ *      - -EINVAL if id is invalid or not in range
+ *      - -EINVAL if name is too small to hold things
+ */
+int rmnet_vnd_get_name(int id, char *name, int name_len)
+{
+	int p;
+
+	if (!name) {
+		LOGM("%s(): Bad arguments; name buffer null", __func__);
+		return -EINVAL;
+	}
+
+	if ((id < 0) || (id >= RMNET_DATA_MAX_VND) || !rmnet_devices[id]) {
+		LOGM("%s(): Invalid id [%d]", __func__, id);
+		return -EINVAL;
+	}
+
+	p = strlcpy(name, rmnet_devices[id]->name, name_len);
+	if (p >= name_len) {
+		LOGM("%s(): Buffer to small to fit device name", __func__);
+		return -EINVAL;
+	}
+	LOGL("%s(): Found mapping [%d]->\"%s\"", __func__, id, name);
+
+	return 0;
 }
 
 /**
