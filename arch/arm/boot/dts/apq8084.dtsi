@@ -1636,6 +1636,11 @@
 		qcom,ipi-ping;
 	};
 
+	qcom,tz-log@fe805720 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe805720 0x1000>;
+	};
+
 	qcom,msm-rng@f9bff000{
 		compatible = "qcom,msm-rng";
 		reg = <0xf9bff000 0x200>;
