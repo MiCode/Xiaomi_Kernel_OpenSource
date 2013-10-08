@@ -135,6 +135,12 @@
 		};
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps";
+		qcom,device-type = <3>;
+		qcom,pipe-attr-ee;
+	};
+
 	blsp1_uart1: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
