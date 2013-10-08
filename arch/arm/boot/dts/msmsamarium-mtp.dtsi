@@ -153,6 +153,11 @@
 
 	gpio@cc00 { /* GPIO 13 */
 		/* SMB1357 STAT */
+		qcom,mode = <0>;		/* Digital input */
+		qcom,pull = <1>;		/* Pull up 1.5 uA */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
 	};
 
 	gpio@cd00 { /* GPIO 14 */
