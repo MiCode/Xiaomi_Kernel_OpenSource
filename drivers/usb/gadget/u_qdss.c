@@ -62,7 +62,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	struct usb_ep *data_ep, u8 data_addr, int enable)
 {
 	int res = 0;
-	u8 idx;
+	int idx;
 
 	pr_debug("set_qdss_data_connection\n");
 
@@ -77,7 +77,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	if (enable) {
 		res = usb_bam_connect(idx, &(bam_info.usb_bam_pipe_idx));
 		bam_info.data_fifo =
-			kzalloc(sizeof(struct sps_mem_buffer *), GFP_KERNEL);
+			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
 			pr_err("qdss_data_connection: memory alloc failed\n");
 			return -ENOMEM;
