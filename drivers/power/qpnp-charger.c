@@ -3212,6 +3212,8 @@ qpnp_chg_reduce_power_stage(struct qpnp_chg_chip *chip)
 	bool usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
 	bool usb_ma_above_wall =
 		(qpnp_chg_usb_iusbmax_get(chip) > USB_WALL_THRESHOLD_MA);
+	bool target_usb_ma_above_wall =
+		(chip->prev_usb_max_ma > USB_WALL_THRESHOLD_MA);
 
 	if (fast_chg
 		&& usb_present
@@ -3257,7 +3259,7 @@ qpnp_chg_reduce_power_stage(struct qpnp_chg_chip *chip)
 		}
 	}
 
-	if (usb_present && usb_ma_above_wall) {
+	if (usb_present && target_usb_ma_above_wall) {
 		kt = ns_to_ktime(POWER_STAGE_REDUCE_CHECK_PERIOD_NS);
 		alarm_start_relative(&chip->reduce_power_stage_alarm, kt);
 	} else {
