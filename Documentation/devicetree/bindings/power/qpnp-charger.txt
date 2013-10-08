@@ -37,6 +37,9 @@ Parent node optional properties:
 - qcom,maxinput-usb-ma:			Maximum input current USB.
 - qcom,maxinput-dc-ma:			Maximum input current DC.
 - qcom,vbatdet-delta-mv:		Battery charging resume delta.
+- qcom,vbatweak-mv:			Weak battery voltage threshold in mV, above which
+					fast charging can start. The supported voltage range is
+					from 2100mV to 3600mV with a step size of 100mV.
 - qcom,charging-disabled:		Set this property to disable charging
 					by default. This can then be overriden
 					writing the the module parameter
@@ -203,6 +206,7 @@ Example:
 		qcom,ibatmax-ma = <1500>;
 		qcom,ibatterm-ma = <200>;
 		qcom,ibatsafe-ma = <1500>;
+		qcom,vbatweak-mv = <3200>;
 		qcom,thermal-mitigation = <1500 700 600 325>;
 		qcom,cool-bat-degc = <10>;
 		qcom,cool-bat-mv = <4100>;
