@@ -180,8 +180,8 @@ static void qdss_ctrl_write_complete(struct usb_ep *ep,
 			req->length = 0;
 			d_req->actual = req->actual;
 			d_req->status = req->status;
-			usb_ep_queue(qdss->ctrl_in, req, GFP_ATOMIC);
-			return;
+			if (!usb_ep_queue(qdss->ctrl_in, req, GFP_ATOMIC))
+				return;
 		}
 	}
 

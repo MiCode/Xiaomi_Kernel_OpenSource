@@ -226,8 +226,8 @@ static void diag_write_complete(struct usb_ep *ep,
 			d_req->actual = req->actual;
 			d_req->status = req->status;
 			/* Queue zero length packet */
-			usb_ep_queue(ctxt->in, req, GFP_ATOMIC);
-			return;
+			if (!usb_ep_queue(ctxt->in, req, GFP_ATOMIC))
+				return;
 		}
 	}
 
