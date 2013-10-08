@@ -273,6 +273,11 @@
 			qcom,irq-no-suspend;
 		};
 	};
+
+	memory_hole: qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x88800000 0x06900000>;
+	};
 };
 
 /include/ "msm8916-regulator.dtsi"
