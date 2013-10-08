@@ -109,6 +109,10 @@
 		interrupts = <0 49 0>;
 		interrupt-names = "cpp";
 		vdd-supply = <&gdsc_vfe>;
+        qcom,clock-names = "camss_top_ahb_clk", "vfe_clk_src",
+                           "camss_vfe_vfe_clk", "iface_clk", "cpp_core_clk",
+                           "cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk";
+        qcom,clock-rates = <0 266670000 0 0 266670000 0 0 0>;
 	};
 
 	cci: qcom,cci@fda0c000 {
@@ -120,6 +124,9 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
+        qcom,clock-names = "camss_top_ahb_clk", "cci_src_clk",
+                           "cci_ahb_clk", "cci_clk";
+        qcom,clock-rates = <0 19200000 0 0>;
 		gpios = <&msmgpio 29 0>,
 			<&msmgpio 30 0>;
 		qcom,gpio-tbl-num = <0 1>;

@@ -18,6 +18,8 @@ Required properties:
     qcom,gpio-req-tbl-num property (in the same order)
 - qcom,gpio-req-tbl-label : should contain name of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)
+- clock-names: name of the clocks required for the device
+- clock-rates: clock rate in Hz
 
 Optional properties:
 - master0: qcom,cci-master0 - node should contain clock settings for
@@ -177,6 +179,10 @@ Example:
        reg-names = "cci";
        interrupts = <0 50 0>;
        interrupt-names = "cci";
+	qcom,clock-names = "camss_top_ahb_clk", "vfe_clk_src",
+			"camss_vfe_vfe_clk", "iface_clk", "cpp_core_clk",
+			"cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk";
+	qcom,clock-rates = <0 266670000 0 0 266670000 0 0 0>;
        gpios = <&msmgpio 19 0>,
                <&msmgpio 20 0>,
                <&msmgpio 21 0>,

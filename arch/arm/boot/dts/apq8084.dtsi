@@ -62,6 +62,7 @@
 /include/ "apq8084-pm.dtsi"
 /include/ "apq8084-bus.dtsi"
 /include/ "apq8084-iommu-domains.dtsi"
+/include/ "apq8084-camera.dtsi"
 
 &soc {
 	#address-cells = <1>;
