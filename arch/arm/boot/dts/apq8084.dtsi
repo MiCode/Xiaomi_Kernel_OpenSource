@@ -1308,7 +1308,6 @@
 	};
 
 	qcom,usbbam@f9304000 {
-		status = "disabled";
 		compatible = "qcom,usb-bam-msm";
 		reg = <0xf9304000 0x5000>,
 		      <0xf92f880c 0x4>;
@@ -1316,7 +1315,7 @@
 		interrupts = <0 132 0>;
 		interrupt-names = "ssusb";
 		qcom,usb-bam-num-pipes = <16>;
-		qcom,usb-bam-fifo-baseaddr = <0x00000000 0xf9200000>;
+		qcom,usb-bam-fifo-baseaddr = <0xf9200000>;
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
 
@@ -1380,6 +1379,8 @@
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 		qcom,otg-capability;
 		qcom,misc-ref = <&pma8084_misc>;
 		qcom,restore-sec-cfg-for-scm-dev-id = <9>;
