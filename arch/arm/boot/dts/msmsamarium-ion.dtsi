@@ -41,5 +41,13 @@
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x08000000 0x5100000>;
 		};
+
+		qcom,ion-heap@28 { /* AUDIO HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <28>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x614000>;
+		};
 	};
 };
