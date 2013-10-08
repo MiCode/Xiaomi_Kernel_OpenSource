@@ -609,11 +609,29 @@ static struct gpiomux_setting sd_card_det_sleep_config = {
 	.dir = GPIOMUX_IN,
 };
 
-static struct msm_gpiomux_config sd_card_det __initdata = {
-	.gpio = 122,
-	.settings = {
-		[GPIOMUX_ACTIVE]    = &sd_card_det_active_config,
-		[GPIOMUX_SUSPENDED] = &sd_card_det_sleep_config,
+static struct msm_gpiomux_config sd_card_det[] __initdata = {
+	{
+		.gpio = 122,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sd_card_det_active_config,
+			[GPIOMUX_SUSPENDED] = &sd_card_det_sleep_config,
+		},
+	},
+};
+
+static struct gpiomux_setting eth_pwr_sleep_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config eth_pwr[] = {
+	{
+		.gpio = 39,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &eth_pwr_sleep_config,
+		},
 	},
 };
 
@@ -649,7 +667,9 @@ void __init apq8084_init_gpiomux(void)
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 	msm_gpiomux_install(msm_wlan_configs, ARRAY_SIZE(msm_wlan_configs));
 
-	msm_gpiomux_install(&sd_card_det, 1);
 	msm_gpiomux_install(hap_lvl_shft_config,
 					ARRAY_SIZE(hap_lvl_shft_config));
+	msm_gpiomux_install(sd_card_det, ARRAY_SIZE(sd_card_det));
+	if (of_board_is_cdp())
+		msm_gpiomux_install(eth_pwr, ARRAY_SIZE(eth_pwr));
 }
