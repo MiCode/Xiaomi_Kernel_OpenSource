@@ -3040,7 +3040,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 					pch = list_entry(pos,
 						struct slim_pending_ch,
 						pending);
-					if (pch->chan == slc->chan) {
+					if (pch->chan == chan) {
 						list_del(&pch->pending);
 						kfree(pch);
 						add_mark_removal = false;
