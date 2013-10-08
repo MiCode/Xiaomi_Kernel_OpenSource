@@ -29,7 +29,7 @@ Optional properties:
 				It is a four tuple consisting of min x,
 				min y, max x and max y values.
  - goodix,i2c-pull-up	: To specify pull up is required.
- - goodix,no-force-update	: To specify force update is allowed.
+ - goodix,force-update	: To specify force update is allowed.
  - goodix,enable-power-off	: Power off touchscreen during suspend.
  - goodix,button-map	: Button map of key codes. The number of key codes
 				depend on panel.
