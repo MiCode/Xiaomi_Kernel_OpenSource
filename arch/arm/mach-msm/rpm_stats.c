@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,8 +271,8 @@ static int msm_rpmstats_file_open(struct inode *inode, struct file *file)
 	if (!prvdata->reg_base) {
 		kfree(file->private_data);
 		prvdata = NULL;
-		pr_err("%s: ERROR could not ioremap start=%p, len=%u\n",
-			__func__, (void *)pdata->phys_addr_base,
+		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
+			__func__, &pdata->phys_addr_base,
 			pdata->phys_size);
 		return -EBUSY;
 	}

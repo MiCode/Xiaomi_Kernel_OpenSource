@@ -266,8 +266,8 @@ static int msm_rpm_master_stats_file_open(struct inode *inode,
 	if (!prvdata->reg_base) {
 		kfree(file->private_data);
 		prvdata = NULL;
-		pr_err("%s: ERROR could not ioremap start=%p, len=%u\n",
-			__func__, (void *)pdata->phys_addr_base,
+		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
+			__func__, &pdata->phys_addr_base,
 			pdata->phys_size);
 		return -EBUSY;
 	}
