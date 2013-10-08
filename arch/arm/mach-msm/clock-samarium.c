@@ -3645,6 +3645,7 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("core_clk", mdss_axi_clk.c, "fd928000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", camss_vfe_vfe_ahb_clk.c, "fda44000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", camss_vfe_vfe_axi_clk.c, "fda44000.qcom,iommu"),
+	CLK_LOOKUP("alt_iface_clk", camss_ahb_clk.c,  "fda44000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", camss_top_ahb_clk.c, "fda44000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", venus0_vcodec0_clk.c, "fdc84000.qcom,iommu"),
@@ -3653,6 +3654,7 @@ static struct clk_lookup msm_clocks_samarium[] = {
 					 "fda64000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", camss_jpeg_jpeg_axi_clk.c,
 					 "fda64000.qcom,iommu"),
+	CLK_LOOKUP("alt_iface_clk", camss_ahb_clk.c,  "fda64000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", camss_top_ahb_clk.c, "fda64000.qcom,iommu"),
 };
 
