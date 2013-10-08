@@ -20,6 +20,8 @@
 #include <soc/qcom/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
+#include <mach/msm_smd.h>
+#include <soc/qcom/smem.h>
 
 #include "board-dt.h"
 #include "clock.h"
@@ -68,6 +70,18 @@ static struct of_dev_auxdata msm8916_auxdata_lookup[] __initdata = {
 	{}
 };
 
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
+void __init msm8916_add_drivers(void)
+{
+	msm_smem_init();
+	msm_smd_init();
+}
+
 static void __init msm8916_init(void)
 {
 	struct of_dev_auxdata *adata = msm8916_auxdata_lookup;
@@ -77,6 +91,7 @@ static void __init msm8916_init(void)
 
 	msm_clock_init(&msm8916_clock_init_data);
 	board_dt_populate(adata);
+	msm8916_add_drivers();
 }
 
 static const char *msm8916_dt_match[] __initconst = {
