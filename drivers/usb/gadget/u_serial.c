@@ -723,9 +723,14 @@ static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
 static int gs_start_io(struct gs_port *port)
 {
 	struct list_head	*head = &port->read_pool;
-	struct usb_ep		*ep = port->port_usb->out;
+	struct usb_ep		*ep;
 	int			status;
 	unsigned		started;
+
+	if (!port->port_usb)
+		return -EIO;
+
+	ep = port->port_usb->out;
 
 	/* Allocate RX and TX I/O buffers.  We can't easily do this much
 	 * earlier (with GFP_KERNEL) because the requests are coupled to
@@ -749,8 +754,6 @@ static int gs_start_io(struct gs_port *port)
 	port->n_read = 0;
 	started = gs_start_rx(port);
 
-	if (!port->port_usb)
-		return -EIO;
 	/* unblock any pending writes into our circular buffer */
 	if (started) {
 		tty_wakeup(port->port.tty);

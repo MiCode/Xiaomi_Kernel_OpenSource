@@ -456,7 +456,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			pr_err("%s: usb_bam_get_connection_idx failed\n",
 				__func__);
 			gsmd_ctrl_disconnect(&dev->port, port_num);
-			return ret;
+			return -EINVAL;
 		}
 	case USB_GADGET_XPORT_BAM:
 		ret = gbam_connect(&dev->port, port_num,
@@ -477,7 +477,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			pr_err("%s: usb_bam_get_connection_idx failed\n",
 				__func__);
 			gsmd_ctrl_disconnect(&dev->port, port_num);
-			return ret;
+			return -EINVAL;
 		}
 		ret = gbam_connect(&dev->port, port_num,
 			dxport, src_connection_idx, dst_connection_idx);

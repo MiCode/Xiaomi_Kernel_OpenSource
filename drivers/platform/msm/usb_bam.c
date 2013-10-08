@@ -180,7 +180,7 @@ static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
 static struct usb_bam_hsic_host_info hsic_host_info;
 
-static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
+static int __usb_bam_register_wake_cb(int idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
 static void wait_for_prod_release(enum usb_bam cur_bam);
 
@@ -662,7 +662,7 @@ static void usb_bam_start_lpm(bool disconnect)
 
 }
 
-int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
+int usb_bam_connect(int idx, u32 *bam_pipe_idx)
 {
 	int ret;
 	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
@@ -2017,7 +2017,7 @@ static void usb_bam_ack_toggle_cb(void *priv,
 	}
 }
 
-static int __usb_bam_register_wake_cb(u8 idx, int (*callback)(void *user),
+static int __usb_bam_register_wake_cb(int idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe)
 {
 	struct sps_pipe *pipe = ctx.usb_bam_sps.sps_pipes[idx];
