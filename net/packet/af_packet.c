@@ -1114,7 +1114,7 @@ static void packet_sock_destruct(struct sock *sk)
 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
 
 	if (!sock_flag(sk, SOCK_DEAD)) {
-		pr_err("Attempt to release alive packet socket: %p\n", sk);
+		WARN(1, "Attempt to release alive packet socket: %p\n", sk);
 		return;
 	}
 
