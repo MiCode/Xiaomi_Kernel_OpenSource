@@ -168,3 +168,8 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&usb_otg {
+	interrupts = <0 134 0>;
+	interrupt-names = "core_irq";
+};

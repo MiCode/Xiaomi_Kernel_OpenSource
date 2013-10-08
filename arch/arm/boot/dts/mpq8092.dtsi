@@ -173,7 +173,7 @@
                 reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
 
-	usb@f9a55000 {
+	usb_otg: usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
