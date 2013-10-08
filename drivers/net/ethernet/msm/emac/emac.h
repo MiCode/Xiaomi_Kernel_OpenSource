@@ -32,6 +32,9 @@
 /* 4 emac core irqs */
 #define EMAC_NUM_CORE_IRQ     4
 
+/* mdio/mdc gpios */
+#define EMAC_NUM_GPIO         2
+
 #define EMAC_LINK_SPEED_UNKNOWN         0x0
 #define EMAC_LINK_SPEED_10_HALF         0x0001
 #define EMAC_LINK_SPEED_10_FULL         0x0002
@@ -465,6 +468,11 @@ struct emac_irq_info {
 	struct emac_adapter  *adpt;
 };
 
+struct emac_gpio_info {
+	unsigned int gpio;
+	char *name;
+};
+
 /* emac_ring_header represents a single, contiguous block of DMA space
  * mapped for the three descriptor rings (tpd, rfd, rrd)
  */
@@ -569,6 +577,7 @@ struct emac_adapter {
 	struct net_device *netdev;
 
 	struct emac_irq_info  irq_info[EMAC_NUM_CORE_IRQ];
+	struct emac_gpio_info gpio_info[EMAC_NUM_GPIO];
 
 	/* dma parameters */
 	u64                             dma_mask;
