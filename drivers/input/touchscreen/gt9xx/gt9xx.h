@@ -56,7 +56,7 @@ struct goodix_ts_platform_data {
 	u32 panel_miny;
 	u32 panel_maxx;
 	u32 panel_maxy;
-	bool no_force_update;
+	bool force_update;
 	bool i2c_pull_up;
 	bool enable_power_off;
 	size_t config_data_len[GOODIX_MAX_CFG_GROUP];
@@ -94,6 +94,7 @@ struct goodix_ts_data {
 	bool power_on;
 	struct mutex lock;
 	bool fw_loading;
+	bool force_update;
 	struct regulator *avdd;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
