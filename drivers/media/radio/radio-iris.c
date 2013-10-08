@@ -3623,13 +3623,21 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
 		if (radio->riva_data_req.cmd_params.length <= MAX_RIVA_PEEK_RSP_SIZE) {
-			memcpy(radio->riva_data_req.data, (void *)ctrl->value,
+			retval = copy_from_user(radio->riva_data_req.data,
+						(void *)ctrl->value,
 						radio->riva_data_req.cmd_params.length);
-			radio->riva_data_req.cmd_params.subopcode = RIVA_POKE_OPCODE;
-			retval = hci_poke_data(&radio->riva_data_req , radio->fm_hdev);
+			if (retval == 0) {
+				radio->riva_data_req.cmd_params.subopcode =
+									RIVA_POKE_OPCODE;
+				retval = hci_poke_data(&radio->riva_data_req,
+							radio->fm_hdev);
+			} else {
+				retval = -EINVAL;
+			}
 		} else {
 			FMDERR("Can not copy into driver's buffer. Length %d is more than"
-			 "the buffer size %d\n", ctrl->value, MAX_RIVA_PEEK_RSP_SIZE);
+			 "the buffer size %d\n", radio->riva_data_req.cmd_params.length,
+				MAX_RIVA_PEEK_RSP_SIZE);
 			retval = -EINVAL;
 		}
 		break;
