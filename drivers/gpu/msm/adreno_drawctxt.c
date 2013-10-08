@@ -553,7 +553,7 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 
 	adreno_profile_process_results(device);
 
-	if (drawctxt->ops->detach)
+	if (drawctxt->ops && drawctxt->ops->detach)
 		drawctxt->ops->detach(drawctxt);
 
 	/* wake threads waiting to submit commands from this context */
