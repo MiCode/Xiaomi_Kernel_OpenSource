@@ -601,6 +601,11 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	}
 	/* Get the physical address of the ION BUF */
 	ret = ion_phys(qseecom.ion_clnt, data->client.ihandle, &pa, &len);
+	if (len < req.sb_len) {
+		pr_err("Requested length (0x%x) is > allocated (0x%x)\n",
+			req.sb_len, len);
+		return -EINVAL;
+	}
 	/* Populate the structure for sending scm call to load image */
 	data->client.sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt,
 							data->client.ihandle);
