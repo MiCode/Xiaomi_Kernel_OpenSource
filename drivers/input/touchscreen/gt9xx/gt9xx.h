@@ -46,12 +46,15 @@
 #endif
 
 #define GOODIX_MAX_CFG_GROUP	6
+#define GTP_FW_NAME_MAXSIZE	50
+
 struct goodix_ts_platform_data {
 	int irq_gpio;
 	u32 irq_gpio_flags;
 	int reset_gpio;
 	u32 reset_gpio_flags;
 	const char *product_id;
+	const char *fw_name;
 	u32 x_max;
 	u32 y_max;
 	u32 x_min;
@@ -73,6 +76,7 @@ struct goodix_ts_data {
 	struct hrtimer timer;
 	struct workqueue_struct *goodix_wq;
 	struct work_struct	work;
+	char fw_name[GTP_FW_NAME_MAXSIZE];
 	s32 irq_is_disabled;
 	s32 use_irq;
 	u16 abs_x_max;

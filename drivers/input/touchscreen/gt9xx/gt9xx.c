@@ -1055,9 +1055,7 @@ static int gtp_check_product_id(struct i2c_client *client)
 
 	dev_info(&client->dev, "Goodix Product ID = %s\n", product_id);
 
-	if (!IS_ERR(ts->pdata->product_id))
-		ret = strcmp(product_id, ts->pdata->product_id);
-
+	ret = strcmp(product_id, ts->pdata->product_id);
 	if (ret != 0)
 		return -EINVAL;
 
@@ -1473,6 +1471,50 @@ static int goodix_power_deinit(struct goodix_ts_data *ts)
 	return 0;
 }
 
+static ssize_t gtp_fw_name_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+
+	if (!strlen(ts->fw_name))
+		return snprintf(buf, GTP_FW_NAME_MAXSIZE - 1,
+			"No fw name has been given.");
+	else
+		return snprintf(buf, GTP_FW_NAME_MAXSIZE - 1,
+			"%s\n", ts->fw_name);
+}
+
+static ssize_t gtp_fw_name_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+
+	if (size > GTP_FW_NAME_MAXSIZE - 1) {
+		dev_err(dev, "FW name size exceeds the limit.");
+		return -EINVAL;
+	}
+
+	strlcpy(ts->fw_name, buf, size);
+	if (ts->fw_name[size-1] == '\n')
+		ts->fw_name[size-1] = '\0';
+
+	return size;
+}
+
+static DEVICE_ATTR(fw_name, (S_IRUGO | S_IWUSR | S_IWGRP),
+			gtp_fw_name_show,
+			gtp_fw_name_store);
+
+static struct attribute *gtp_attrs[] = {
+	&dev_attr_fw_name.attr,
+	NULL
+};
+
+static const struct attribute_group gtp_attr_grp = {
+	.attrs = gtp_attrs,
+};
+
 static int goodix_ts_get_dt_coords(struct device *dev, char *name,
 				struct goodix_ts_platform_data *pdata)
 {
@@ -1549,8 +1591,17 @@ static int goodix_parse_dt(struct device *dev,
 
 	rc = of_property_read_string(np, "goodix,product-id",
 						&pdata->product_id);
-	if (rc < 0 || strlen(pdata->product_id) > GTP_PRODUCT_ID_MAXSIZE)
-		return rc;
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Failed to parse product_id.");
+		return -EINVAL;
+	}
+
+	rc = of_property_read_string(np, "goodix,fw_name",
+						&pdata->fw_name);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Failed to parse firmware name.\n");
+		return -EINVAL;
+	}
 
 	prop = of_find_property(np, "goodix,button-map", NULL);
 	if (prop) {
@@ -1689,12 +1740,16 @@ static int goodix_ts_probe(struct i2c_client *client,
 		goto exit_free_io_port;
 	}
 
+	if (pdata->fw_name)
+		strlcpy(ts->fw_name, pdata->fw_name,
+						strlen(pdata->fw_name) + 1);
+
 #if GTP_AUTO_UPDATE
 	ret = gup_init_update_proc(ts);
 	if (ret < 0) {
 		dev_err(&client->dev,
 			"GTP Create firmware update thread error.\n");
-		goto exit_free_io_port;
+		goto exit_power_off;
 	}
 #endif
 
@@ -1711,6 +1766,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "GTP request input dev failed.\n");
 		goto exit_free_inputdev;
 	}
+	input_set_drvdata(ts->input_dev, ts);
 
 #if defined(CONFIG_FB)
 	ts->fb_notif.notifier_call = fb_notifier_callback;
@@ -1754,6 +1810,12 @@ static int goodix_ts_probe(struct i2c_client *client,
 #if GTP_ESD_PROTECT
 	gtp_esd_switch(client, SWITCH_ON);
 #endif
+	ret = sysfs_create_group(&client->dev.kobj, &gtp_attr_grp);
+	if (ret < 0) {
+		dev_err(&client->dev, "sys file creation failed.\n");
+		goto exit_free_irq;
+	}
+
 	init_done = true;
 	return 0;
 exit_free_irq:
@@ -1805,6 +1867,8 @@ Output:
 static int goodix_ts_remove(struct i2c_client *client)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+
+	sysfs_remove_group(&ts->input_dev->dev.kobj, &gtp_attr_grp);
 
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
