@@ -677,7 +677,7 @@ static int tz_log_probe(struct platform_device *pdev)
 {
 	struct resource *resource;
 	void __iomem *virt_iobase;
-	uint32_t tzdiag_phy_iobase;
+	phys_addr_t tzdiag_phy_iobase;
 	uint32_t *ptr = NULL;
 
 	/*
@@ -698,9 +698,9 @@ static int tz_log_probe(struct platform_device *pdev)
 				resource->end - resource->start + 1);
 	if (!virt_iobase) {
 		dev_err(&pdev->dev,
-			"%s: ERROR could not ioremap: start=%p, len=%u\n",
-			__func__, (void *) resource->start,
-			(resource->end - resource->start + 1));
+			"%s: ERROR could not ioremap: start=%pr, len=%u\n",
+			__func__, &resource->start,
+			(unsigned int)(resource->end - resource->start + 1));
 		return -ENXIO;
 	}
 	/*
@@ -716,8 +716,8 @@ static int tz_log_probe(struct platform_device *pdev)
 
 	if (!tzdbg.virt_iobase) {
 		dev_err(&pdev->dev,
-			"%s: ERROR could not ioremap: start=%p, len=%u\n",
-			__func__, (void *) tzdiag_phy_iobase,
+			"%s: ERROR could not ioremap: start=%pr, len=%u\n",
+			__func__, &tzdiag_phy_iobase,
 			DEBUG_MAX_RW_BUF);
 		return -ENXIO;
 	}
