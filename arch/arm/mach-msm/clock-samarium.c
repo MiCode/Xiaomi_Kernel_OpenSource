@@ -151,12 +151,6 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define GPLL4_STATUS                                       (0x1DDC)
 #define MSS_CFG_AHB_CBCR                                   (0x0280)
 #define MSS_Q6_BIMC_AXI_CBCR                               (0x0284)
-#define USB_HS_HSIC_BCR                                    (0x0400)
-#define USB_HSIC_AHB_CBCR                                  (0x0408)
-#define USB_HSIC_SYSTEM_CMD_RCGR                           (0x041C)
-#define USB_HSIC_SYSTEM_CBCR                               (0x040C)
-#define USB_HSIC_IO_CAL_CMD_RCGR                           (0x0458)
-#define USB_HSIC_IO_CAL_CBCR                               (0x0414)
 #define USB_HS_BCR                                         (0x0480)
 #define USB_HS_SYSTEM_CBCR                                 (0x0484)
 #define USB_HS_AHB_CBCR                                    (0x0488)
@@ -1008,44 +1002,6 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_gcc_usb_hsic_io_cal_clk[] = {
-	F(   9600000,         xo,    2,    0,     0),
-	F_END
-};
-
-static struct rcg_clk usb_hsic_io_cal_clk_src = {
-	.cmd_rcgr_reg = USB_HSIC_IO_CAL_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_gcc_usb_hsic_io_cal_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "usb_hsic_io_cal_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOW, 9600000),
-		CLK_INIT(usb_hsic_io_cal_clk_src.c),
-	},
-};
-
-static struct clk_freq_tbl ftbl_gcc_usb_hsic_system_clk[] = {
-	F(  75000000,      gpll0,    8,    0,     0),
-	F_END
-};
-
-static struct rcg_clk usb_hsic_system_clk_src = {
-	.cmd_rcgr_reg = USB_HSIC_SYSTEM_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_gcc_usb_hsic_system_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "usb_hsic_system_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 60000000, NOMINAL, 75000000),
-		CLK_INIT(usb_hsic_system_clk_src.c),
-	},
-};
-
 static struct local_vote_clk gcc_bam_dma_ahb_clk = {
 	.cbcr_reg = BAM_DMA_AHB_CBCR,
 	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -1690,42 +1646,6 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 		.parent = &usb_hs_system_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hs_system_clk.c),
-	},
-};
-
-static struct branch_clk gcc_usb_hsic_ahb_clk = {
-	.cbcr_reg = USB_HSIC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_usb_hsic_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_usb_hsic_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_usb_hsic_io_cal_clk = {
-	.cbcr_reg = USB_HSIC_IO_CAL_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_usb_hsic_io_cal_clk",
-		.parent = &usb_hsic_io_cal_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_usb_hsic_io_cal_clk.c),
-	},
-};
-
-static struct branch_clk gcc_usb_hsic_system_clk = {
-	.cbcr_reg = USB_HSIC_SYSTEM_CBCR,
-	.bcr_reg = USB_HS_HSIC_BCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_usb_hsic_system_clk",
-		.parent = &usb_hsic_system_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_usb_hsic_system_clk.c),
 	},
 };
 
@@ -2950,9 +2870,6 @@ static struct measure_mux_entry measure_mux[] = {
 
 	{&gcc_mss_cfg_ahb_clk.c,	GCC_BASE, 0x0030},
 	{&gcc_mss_q6_bimc_axi_clk.c,	GCC_BASE, 0x0031},
-	{&gcc_usb_hsic_ahb_clk.c,	GCC_BASE, 0x0058},
-	{&gcc_usb_hsic_system_clk.c,	GCC_BASE, 0x0059},
-	{&gcc_usb_hsic_io_cal_clk.c,	GCC_BASE, 0x005b},
 	{&gcc_usb_hs_system_clk.c,	GCC_BASE, 0x0060},
 	{&gcc_usb_hs_ahb_clk.c,	GCC_BASE, 0x0061},
 	{&gcc_usb2a_phy_sleep_clk.c,	GCC_BASE, 0x0063},
@@ -3590,9 +3507,6 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("", gcc_usb2a_phy_sleep_clk.c, ""),
 	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c, "msm_otg"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c, "msm_otg"),
-	CLK_LOOKUP("", gcc_usb_hsic_ahb_clk.c, ""),
-	CLK_LOOKUP("", gcc_usb_hsic_io_cal_clk.c, ""),
-	CLK_LOOKUP("", gcc_usb_hsic_system_clk.c, ""),
 
 	/* MM sensor clocks */
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
