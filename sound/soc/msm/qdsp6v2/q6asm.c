@@ -62,10 +62,13 @@ struct asm_buffer_node {
 	uint32_t  buf_addr_lsw;
 	uint32_t  mmap_hdl;
 };
-static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv);
+static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv);
 static int32_t q6asm_callback(struct apr_client_data *data, void *priv);
 static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 			uint32_t pkt_size, uint32_t cmd_flg);
+static void q6asm_add_hdr_custom_topology(struct audio_client *ac,
+					  struct apr_hdr *hdr,
+					  uint32_t pkt_size, uint32_t cmd_flg);
 static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
 			uint32_t pkt_size, uint32_t cmd_flg);
 static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
@@ -364,7 +367,6 @@ void send_asm_custom_topology(struct audio_client *ac)
 	struct list_head		*ptr, *next;
 	int				result;
 	int				size = 4096;
-
 	get_asm_custom_topology(&cal_block);
 	if (cal_block.cal_size == 0) {
 		pr_debug("%s: no cal to send addr= 0x%x\n",
@@ -422,8 +424,9 @@ void send_asm_custom_topology(struct audio_client *ac)
 		}
 	}
 
-	q6asm_add_hdr(ac, &asm_top.hdr, APR_PKT_SIZE(APR_HDR_SIZE,
-						sizeof(asm_top)), TRUE);
+	q6asm_add_hdr_custom_topology(ac, &asm_top.hdr,
+				      APR_PKT_SIZE(APR_HDR_SIZE,
+					sizeof(asm_top)), TRUE);
 
 	asm_top.hdr.opcode = ASM_CMD_ADD_TOPOLOGIES;
 	asm_top.payload_addr_lsw = cal_block.cal_paddr;
@@ -445,7 +448,7 @@ void send_asm_custom_topology(struct audio_client *ac)
 	result = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!result) {
-		pr_err("%s: Set topologies failed payload = 0x%x\n",
+		pr_err("%s: Set topologies failed after timedout payload = 0x%x\n",
 			__func__, cal_block.cal_paddr);
 		goto done;
 	}
@@ -775,7 +778,7 @@ void *q6asm_mmap_apr_reg(void)
 	if ((atomic_read(&this_mmap.ref_cnt) == 0) ||
 	    (this_mmap.apr == NULL)) {
 		this_mmap.apr = apr_register("ADSP", "ASM", \
-					(apr_fn)q6asm_mmapcallback,\
+					(apr_fn)q6asm_srvc_callback,\
 					0x0FFFFFFFF, &this_mmap);
 		if (this_mmap.apr == NULL) {
 			pr_debug("%s Unable to register APR ASM common port\n",
@@ -869,7 +872,6 @@ struct audio_client *q6asm_get_audio_client(int session_id)
 		pr_err("%s: session not active: %d\n", __func__, session_id);
 		goto err;
 	}
-
 	return session[session_id];
 err:
 	return NULL;
@@ -1042,7 +1044,7 @@ fail:
 	return -EINVAL;
 }
 
-static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
+static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t sid = 0;
 	uint32_t dir = 0;
@@ -1089,6 +1091,7 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 		switch (payload[0]) {
 		case ASM_CMD_SHARED_MEM_MAP_REGIONS:
 		case ASM_CMD_SHARED_MEM_UNMAP_REGIONS:
+		case ASM_CMD_ADD_TOPOLOGIES:
 			if (payload[1] != 0) {
 				pr_err("%s: cmd = 0x%x returned error = 0x%x sid:%d\n",
 					__func__, payload[0], payload[1], sid);
@@ -1611,6 +1614,36 @@ static void q6asm_stream_add_hdr_async(struct audio_client *ac,
 					uint32_t cmd_flg, int32_t stream_id)
 {
 	__q6asm_add_hdr_async(ac, hdr, pkt_size, cmd_flg, stream_id);
+	return;
+}
+
+static void q6asm_add_hdr_custom_topology(struct audio_client *ac,
+					  struct apr_hdr *hdr,
+					  uint32_t pkt_size, uint32_t cmd_flg)
+{
+	pr_debug("%s:pkt_size=%d cmd_flg=%d session=%d\n", __func__, pkt_size,
+		cmd_flg, ac->session);
+	if (ac->apr == NULL) {
+		pr_err("%s: ac->apr is NULL", __func__);
+		return;
+	}
+
+	mutex_lock(&ac->cmd_lock);
+	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
+				APR_HDR_LEN(sizeof(struct apr_hdr)),\
+				APR_PKT_VER);
+	hdr->src_svc = ((struct apr_svc *)ac->apr)->id;
+	hdr->src_domain = APR_DOMAIN_APPS;
+	hdr->dest_svc = APR_SVC_ASM;
+	hdr->dest_domain = APR_DOMAIN_ADSP;
+	hdr->src_port = ((ac->session << 8) & 0xFF00) | 0x01;
+	hdr->dest_port = 0;
+	if (cmd_flg) {
+		hdr->token = ((ac->session << 8) | 0x0001) ;
+		atomic_set(&ac->cmd_state, 1);
+	}
+	hdr->pkt_size  = pkt_size;
+	mutex_unlock(&ac->cmd_lock);
 	return;
 }
 
