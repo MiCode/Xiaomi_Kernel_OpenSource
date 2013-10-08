@@ -368,6 +368,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
+			qcom,pmic-revid = <&pm8226_revid>;
 
 			chan@8 {
 				label = "die_temp";
@@ -428,6 +429,7 @@
 			qcom,iadc-vadc = <&pm8226_vadc>;
 			qcom,iadc-poll-eoc;
 			qcom,use-default-rds-trim = <0>;
+			qcom,pmic-revid = <&pm8226_revid>;
 
 			chan@0 {
 				label = "internal_rsense";
