@@ -155,7 +155,6 @@ struct msm_hs_rx {
 	struct tasklet_struct tlet;
 	struct msm_hs_sps_ep_conn_data prod;
 };
-
 enum buffer_states {
 	NONE_PENDING = 0x0,
 	FIFO_OVERRUN = 0x1,
@@ -219,6 +218,7 @@ struct msm_hs_port {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	bool rx_discard_flush_issued;
 	int rx_count_callback;
+	bool rx_bam_inprogress;
 	unsigned int *reg_ptr;
 };
 
@@ -1106,6 +1106,10 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		 */
 		mb();
 		if (is_blsp_uart(msm_uport)) {
+			if (msm_uport->rx_bam_inprogress)
+				ret = wait_event_timeout(msm_uport->rx.wait,
+					msm_uport->rx_bam_inprogress == false,
+					RX_FLUSH_COMPLETE_TIMEOUT);
 			ret = sps_disconnect(sps_pipe_handle);
 			if (ret)
 				pr_err("%s(): sps_disconnect failed\n",
@@ -1358,10 +1362,13 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	msm_uport->rx.flush = FLUSH_NONE;
 
 	if (is_blsp_uart(msm_uport)) {
+		msm_uport->rx_bam_inprogress = true;
 		sps_pipe_handle = rx->prod.pipe_handle;
 		/* Queue transfer request to SPS */
 		sps_transfer_one(sps_pipe_handle, rx->rbuffer,
 			UARTDM_RX_BUF_SIZE, msm_uport, flags);
+		msm_uport->rx_bam_inprogress = false;
+		wake_up(&msm_uport->rx.wait);
 	} else {
 		msm_dmov_enqueue_cmd(msm_uport->dma_rx_channel,
 				&msm_uport->rx.xfer);
@@ -1532,10 +1539,13 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	if (!msm_uport->rx.buffer_pending) {
 		if (is_blsp_uart(msm_uport)) {
 			msm_uport->rx.flush = FLUSH_NONE;
+			msm_uport->rx_bam_inprogress = true;
 			sps_pipe_handle = rx->prod.pipe_handle;
 			/* Queue transfer request to SPS */
 			sps_transfer_one(sps_pipe_handle, rx->rbuffer,
 				UARTDM_RX_BUF_SIZE, msm_uport, sps_flags);
+			msm_uport->rx_bam_inprogress = false;
+			wake_up(&msm_uport->rx.wait);
 		} else {
 			msm_hs_start_rx_locked(uport);
 		}
