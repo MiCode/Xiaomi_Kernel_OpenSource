@@ -53,6 +53,19 @@ struct disp_info_notify {
 	int value;
 };
 
+struct msm_sync_pt_data {
+	char *fence_name;
+	u32 acq_fen_cnt;
+	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
+	struct sw_sync_timeline *timeline;
+	int timeline_value;
+	u32 threshold;
+	struct mutex sync_mutex;
+};
+
 struct msm_fb_data_type;
 
 struct msm_mdp_interface {
@@ -75,6 +88,8 @@ struct msm_mdp_interface {
 	int (*update_ad_input)(struct msm_fb_data_type *mfd);
 	int (*panel_register_done)(struct mdss_panel_data *pdata);
 	u32 (*fb_stride)(u32 fb_index, u32 xres, int bpp);
+	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
+				const struct mdp_buf_sync *buf_sync);
 	void *private1;
 };
 
@@ -138,17 +153,8 @@ struct msm_fb_data_type {
 
 	struct msm_mdp_interface mdp;
 
-	u32 acq_fen_cnt;
-	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
-	int cur_rel_fen_fd;
-	struct sync_pt *cur_rel_sync_pt;
-	struct sync_fence *cur_rel_fence;
-	struct sync_fence *last_rel_fence;
-	struct sw_sync_timeline *timeline;
-	int timeline_value;
-	u32 last_acq_fen_cnt;
-	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
-	struct mutex sync_mutex;
+	struct msm_sync_pt_data mdp_sync_pt_data;
+
 	/* for non-blocking */
 	struct completion commit_comp;
 	u32 is_committing;
@@ -188,8 +194,8 @@ static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
-void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd);
-void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd);
+void mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data);
+void mdss_fb_signal_timeline(struct msm_sync_pt_data *sync_pt_data);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);
 #endif /* MDSS_FB_H */
