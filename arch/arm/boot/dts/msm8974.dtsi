@@ -804,7 +804,7 @@
 		interrupts = <0 105 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <50000000>;
+		qcom,i2c-src-freq = <19200000>;
 		qcom,master-id = <84>;
 	};
 
