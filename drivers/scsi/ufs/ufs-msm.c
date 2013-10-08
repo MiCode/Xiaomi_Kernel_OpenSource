@@ -1382,8 +1382,10 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 	switch (status) {
 	case PRE_CHANGE:
 		msm_ufs_cfg_timers(hba);
+		break;
 	case POST_CHANGE:
 		msm_ufs_enable_tx_lanes(hba);
+		break;
 	default:
 		break;
 	}
