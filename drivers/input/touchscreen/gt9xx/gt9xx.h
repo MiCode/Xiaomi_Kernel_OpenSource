@@ -131,10 +131,6 @@ extern u16 total_len;
 /* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
 #define GTP_DBL_CLK_WAKEUP		0
 
-#define GTP_DEBUG_ON			0
-#define GTP_DEBUG_ARRAY_ON		0
-#define GTP_DEBUG_FUNC_ON		0
-
 /*************************** PART2:TODO define *******************************/
 /* STEP_1(REQUIRED): Define Configuration Information Group(s) */
 /* Sensor_ID Map: */
@@ -201,39 +197,6 @@ extern u16 total_len;
 #define TRIGGER_LOC		8
 
 #define CFG_GROUP_LEN(p_cfg_grp) (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
-/* Log define */
-#define GTP_DEBUG(fmt, arg...)	do {\
-		if (GTP_DEBUG_ON) {\
-			pr_debug("<<-GTP-DEBUG->> [%d]"fmt"\n",\
-				__LINE__, ##arg); } \
-		} while (0)
-
-#define GTP_DEBUG_ARRAY(array, num)    do {\
-		s32 i; \
-		u8 *a = array; \
-		if (GTP_DEBUG_ARRAY_ON) {\
-			pr_debug("<<-GTP-DEBUG-ARRAY->>\n");\
-			for (i = 0; i < (num); i++) { \
-				pr_debug("%02x   ", (a)[i]);\
-				if ((i + 1) % 10 == 0) { \
-					pr_debug("\n");\
-				} \
-			} \
-			pr_debug("\n");\
-		} \
-	} while (0)
-
-#define GTP_DEBUG_FUNC()	do {\
-	if (GTP_DEBUG_FUNC_ON)\
-		pr_debug("<<-GTP-FUNC->> Func:%s@Line:%d\n",\
-					__func__, __LINE__);\
-	} while (0)
-
-#define GTP_SWAP(x, y)		do {\
-					typeof(x) z = x;\
-					x = y;\
-					y = z;\
-				} while (0)
 /*****************************End of Part III********************************/
 
 void gtp_esd_switch(struct i2c_client *client, int on);
