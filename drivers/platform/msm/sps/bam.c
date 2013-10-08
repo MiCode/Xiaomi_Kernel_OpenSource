@@ -34,6 +34,71 @@
 /* Maximum number of execution environment */
 #define BAM_MAX_EES 8
 
+#ifdef	CONFIG_SPS_SUPPORT_4K_GROUP
+
+/**
+  *  BAM Hardware registers.
+  *
+  */
+#define CTRL                        (0x0)
+#define REVISION                    (0x1000)
+#define SW_REVISION                 (0x1004)
+#define NUM_PIPES                   (0x1008)
+#define TIMER                       (0x40)
+#define TIMER_CTRL                  (0x44)
+#define DESC_CNT_TRSHLD             (0x8)
+#define IRQ_SRCS                    (0x3010)
+#define IRQ_SRCS_MSK                (0x3014)
+#define IRQ_SRCS_UNMASKED           (0x3018)
+#define IRQ_STTS                    (0x14)
+#define IRQ_CLR                     (0x18)
+#define IRQ_EN                      (0x1c)
+#define AHB_MASTER_ERR_CTRLS        (0x1024)
+#define AHB_MASTER_ERR_ADDR         (0x1028)
+#define AHB_MASTER_ERR_ADDR_MSB     (0x1104)
+#define AHB_MASTER_ERR_DATA         (0x102c)
+#define TRUST_REG                   (0x2000)
+#define TEST_BUS_SEL                (0x1010)
+#define TEST_BUS_REG                (0x1014)
+#define CNFG_BITS                   (0x7c)
+#define IRQ_SRCS_EE(n)             (0x3000 + 4096 * (n))
+#define IRQ_SRCS_MSK_EE(n)         (0x3004 + 4096 * (n))
+#define IRQ_SRCS_UNMASKED_EE(n)    (0x3008 + 4096 * (n))
+#define PIPE_ATTR_EE(n)            (0x300c + 4096 * (n))
+
+#define P_CTRL(n)                  (0x13000 + 4096 * (n))
+#define P_RST(n)                   (0x13004 + 4096 * (n))
+#define P_HALT(n)                  (0x13008 + 4096 * (n))
+#define P_IRQ_STTS(n)              (0x13010 + 4096 * (n))
+#define P_IRQ_CLR(n)               (0x13014 + 4096 * (n))
+#define P_IRQ_EN(n)                (0x13018 + 4096 * (n))
+#define P_TIMER(n)                 (0x1301c + 4096 * (n))
+#define P_TIMER_CTRL(n)            (0x13020 + 4096 * (n))
+#define P_PRDCR_SDBND(n)           (0x13024 + 4096 * (n))
+#define P_CNSMR_SDBND(n)           (0x13028 + 4096 * (n))
+#define P_TRUST_REG(n)             (0x2020 + 4 * (n))
+#define P_EVNT_DEST_ADDR(n)        (0x1382c + 4096 * (n))
+#define P_EVNT_DEST_ADDR_MSB(n)    (0x13934 + 4096 * (n))
+#define P_EVNT_REG(n)              (0x13818 + 4096 * (n))
+#define P_SW_OFSTS(n)              (0x13800 + 4096 * (n))
+#define P_DATA_FIFO_ADDR(n)        (0x13824 + 4096 * (n))
+#define P_DATA_FIFO_ADDR_MSB(n)    (0x13924 + 4096 * (n))
+#define P_DESC_FIFO_ADDR(n)        (0x1381c + 4096 * (n))
+#define P_DESC_FIFO_ADDR_MSB(n)    (0x13914 + 4096 * (n))
+#define P_EVNT_GEN_TRSHLD(n)       (0x13828 + 4096 * (n))
+#define P_FIFO_SIZES(n)            (0x13820 + 4096 * (n))
+#define P_RETR_CNTXT(n)            (0x13834 + 4096 * (n))
+#define P_SI_CNTXT(n)              (0x13838 + 4096 * (n))
+#define P_DF_CNTXT(n)              (0x13830 + 4096 * (n))
+#define P_AU_PSM_CNTXT_1(n)        (0x13804 + 4096 * (n))
+#define P_PSM_CNTXT_2(n)           (0x13808 + 4096 * (n))
+#define P_PSM_CNTXT_3(n)           (0x1380c + 4096 * (n))
+#define P_PSM_CNTXT_3_MSB(n)       (0x13904 + 4096 * (n))
+#define P_PSM_CNTXT_4(n)           (0x13810 + 4096 * (n))
+#define P_PSM_CNTXT_5(n)           (0x13814 + 4096 * (n))
+
+#else
+
 /**
  *  BAM Hardware registers.
  *
@@ -94,6 +159,8 @@
 #define P_PSM_CNTXT_3_MSB(n)       (0x1904 + 4096 * (n))
 #define P_PSM_CNTXT_4(n)           (0x1810 + 4096 * (n))
 #define P_PSM_CNTXT_5(n)           (0x1814 + 4096 * (n))
+
+#endif /* CONFIG_SPS_SUPPORT_4K_GROUP */
 
 /**
  *  BAM Hardware registers bitmask.
