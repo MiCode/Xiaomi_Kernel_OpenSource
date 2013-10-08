@@ -1990,6 +1990,16 @@ static struct rcg_clk mmss_gp1_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_camss_mclk0_2_clk[] = {
+	F_MM(   4800000,         xo,    4,    0,     0),
+	F_MM(   6000000,      gpll0,   10,    1,    10),
+	F_MM(   8000000,      gpll0,   15,    1,     5),
+	F_MM(   9600000,         xo,    2,    0,     0),
+	F_MM(  16000000,      gpll0, 12.5,    1,     3),
+	F_MM(  19200000,         xo,    1,    0,     0),
+	F_MM(  24000000,      gpll0,    5,    1,     5),
+	F_MM(  32000000,     mmpll0,    5,    1,     5),
+	F_MM(  48000000,      gpll0, 12.5,    0,     0),
+	F_MM(  64000000,     mmpll0, 12.5,    0,     0),
 	F_MM(  66670000,      gpll0,    9,    0,     0),
 	F_END
 };
