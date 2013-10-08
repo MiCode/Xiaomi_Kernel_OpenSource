@@ -2089,7 +2089,7 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		struct bif_ddb_l2_data *func)
 {
 	int rc = 0;
-	int data_len;
+	int data_len, read_size;
 	u8 buf[8], object_type;
 	struct bif_object *object;
 	struct bif_object *temp;
@@ -2135,8 +2135,7 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		return rc;
 	}
 
-	/* Object type == 0x00 corresponds to the end of the object list. */
-	while (object_type != 0x00) {
+	while (object_type != BIF_OBJ_END_OF_LIST) {
 		object = kzalloc(sizeof(*object), GFP_KERNEL);
 		if (!object) {
 			pr_err("out of memory\n");
@@ -2188,15 +2187,20 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 			goto free_data;
 		}
 
-		rc = _bif_slave_read(sdev, addr + 6 + data_len, buf, 3);
+		if ((object->length + addr) >= (sdev->nvm_function->nvm_size
+				+ sdev->nvm_function->nvm_base_address))
+			read_size = 2;
+		else
+			read_size = 3;
+		rc = _bif_slave_read(sdev, addr + 6 + data_len, buf, read_size);
 		if (rc) {
 			pr_err("Slave memory read of object CRC failed; addr=0x%04X, len=%d, rc=%d\n",
-				addr + 6 + data_len, 3, rc);
+				addr + 6 + data_len, read_size, rc);
 			goto free_data;
 		}
 
 		object->crc = buf[0] << 8 | buf[1];
-		object_type = buf[2];
+		object_type = (read_size == 3) ? buf[2] : BIF_OBJ_END_OF_LIST;
 		sdev->nvm_function->object_count++;
 
 		crc = bif_object_crc_ccitt(object);
