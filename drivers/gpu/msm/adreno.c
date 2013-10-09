@@ -951,8 +951,11 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	num_iommu_units = kgsl_mmu_get_num_iommu_units(&device->mmu);
 
 	context = kgsl_context_get(device, context_id);
-	if (context == NULL)
+
+	if (context == NULL) {
+		kgsl_mmu_device_setstate(&device->mmu, KGSL_CONTEXT_INVALID);
 		return;
+	}
 
 	adreno_ctx = ADRENO_CONTEXT(context);
 
