@@ -1,0 +1,46 @@
+config BCMDHD
+	tristate "Broadcom 43xx wireless cards support"
+	depends on MMC && CFG80211
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43xx chipset.
+
+	  This driver uses the kernel's cfg80211 subsystem.
+
+	  If you choose to build a module, it'll be called dhd. Say M if
+	  unsure.
+
+config BCM4350
+	bool "Broadcom 4350 wireless cards support"
+	depends on BCMDHD
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4339 chipset.
+
+config BCMDHD_FW_PATH
+	depends on BCMDHD
+	string "Firmware path"
+	default "/system/etc/firmware/fw_bcmdhd.bin"
+	---help---
+	  Path to the firmware file.
+
+config BCMDHD_NVRAM_PATH
+	depends on BCMDHD
+	string "NVRAM path"
+	default "/system/etc/wifi/bcmdhd.cal"
+	---help---
+	  Path to the calibration file.
+
+config DHD_USE_STATIC_BUF
+	bool "Enable memory preallocation"
+	depends on BCMDHD
+	default n
+	---help---
+	  Use memory preallocated in platform
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCMDHD && CFG80211
+	default n
+	---help---
+	  Use CFG80211 sched scan
