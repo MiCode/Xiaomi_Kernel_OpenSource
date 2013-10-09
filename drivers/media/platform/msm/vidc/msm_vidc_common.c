@@ -424,16 +424,20 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
+	struct hfi_device *hdev;
+
 	if (response) {
 		struct vidc_hal_session_init_done *session_init_done =
 			(struct vidc_hal_session_init_done *)
 			response->data;
 		inst = (struct msm_vidc_inst *)response->session_id;
-		if (!inst) {
-			dprintk(VIDC_ERR, "%s: invalid input parameters",
-				__func__);
+		if (!inst || !inst->core || !inst->core->device) {
+			dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 			return;
 		}
+
+		hdev = inst->core->device;
+
 		if (!response->status && session_init_done) {
 			inst->capability.width = session_init_done->width;
 			inst->capability.height = session_init_done->height;
@@ -441,6 +445,8 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 				session_init_done->frame_rate;
 			inst->capability.scale_x = session_init_done->scale_x;
 			inst->capability.scale_y = session_init_done->scale_y;
+			inst->capability.pixelprocess_capabilities =
+				call_hfi_op(hdev, get_core_capabilities);
 			inst->capability.capability_set = true;
 			inst->capability.buffer_mode[CAPTURE_PORT] =
 				session_init_done->alloc_mode_out;
