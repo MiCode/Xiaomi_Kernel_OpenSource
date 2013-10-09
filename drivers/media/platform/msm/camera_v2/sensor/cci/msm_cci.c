@@ -631,7 +631,11 @@ ERROR:
 static int msm_cci_subdev_g_chip_ident(struct v4l2_subdev *sd,
 			struct v4l2_dbg_chip_ident *chip)
 {
-	BUG_ON(!chip);
+	if (!chip) {
+		pr_err("%s:%d: NULL pointer supplied for chip ident\n",
+			 __func__, __LINE__);
+		return -EINVAL;
+	}
 	chip->ident = V4L2_IDENT_CCI;
 	chip->revision = 0;
 	return 0;
