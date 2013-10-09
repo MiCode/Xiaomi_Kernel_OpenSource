@@ -27,6 +27,7 @@ Required properties:
 - qcom,hdmi-tx-hpd: gpio required for HDMI hot-plug detect.
 
 Optional properties:
+- hpd-5v-en-supply: phandle to the 5V boost enable regulator device tree node.
 - qcom,hdmi-tx-mux-sel: gpio required to toggle HDMI output between
   docking station, type A, and liquid device, type D, ports. Required
   property for liquid devices.
@@ -34,7 +35,6 @@ Optional properties:
   on liquid devices. Required property for liquid devices.
 - qcom,hdmi-tx-mux-lpm: gpio required for hdmi mux configuration
   selection on liquid devices. Required property for liquid devices.
-- qcom,hdmi-tx-ext-5v: gpio required to enable 5V boost.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
@@ -55,19 +55,19 @@ Example:
 
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-5v-supply = <&pm8941_mvs2>;
+		hpd-5v-en-supply = <&hdmi_vreg>;
 		core-vdda-supply = <&pm8941_l12>;
 		core-vcc-supply = <&pm8941_s3>;
-		qcom,supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
-		qcom,min-voltage-level = <0 0 1800000 1800000>;
-		qcom,max-voltage-level = <0 0 1800000 1800000>;
-		qcom,enable-load = <0 0 1800000 0>;
-		qcom,disable-load = <0 0 0 0>;
+		qcom,supply-names = "hpd-gdsc", "hpd-5v", "hpd-5v-en", "core-vdda", "core-vcc";
+		qcom,min-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,max-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,enable-load = <0 0 0 1800000 0>;
+		qcom,disable-load = <0 0 0 0 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
-		qcom,hdmi-tx-ext-5v = <&pma8084_mpps 3 0>;
 
 		qcom,hdmi-tx-mux-lpm = <&msmgpio 27 0>;
 		qcom,hdmi-tx-mux-en = <&msmgpio 83 0>;
