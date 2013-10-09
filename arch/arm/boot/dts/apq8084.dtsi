@@ -2065,6 +2065,10 @@
 		};
 	};
 
+	qcom,wfd {
+		compatible = "qcom,msm-wfd";
+	};
+
 	qcom,msm-adsp-sensors {
 		compatible = "qcom,msm-adsp-sensors";
 		qcom,src-id = <11>;
