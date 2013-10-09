@@ -4,7 +4,6 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 David Brownell
  * Copyright (C) 2008 by Nokia Corporation
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from usbserial.c, which is
  * Copyright (C) 1999 - 2002 Greg Kroah-Hartman (greg@kroah.com)
@@ -1305,29 +1304,22 @@ const struct file_operations debug_adb_ops = {
 	.read = debug_read_status,
 };
 
-struct dentry *gs_dent;
 static void usb_debugfs_init(struct gs_port *ui_dev, int port_num)
 {
+	struct dentry *dent;
 	char buf[48];
 
 	snprintf(buf, 48, "usb_serial%d", port_num);
-	gs_dent = debugfs_create_dir(buf, 0);
-	if (!gs_dent || IS_ERR(gs_dent))
+	dent = debugfs_create_dir(buf, 0);
+	if (IS_ERR(dent))
 		return;
 
-	debugfs_create_file("readstatus", 0444, gs_dent, ui_dev,
-			&debug_adb_ops);
+	debugfs_create_file("readstatus", 0444, dent, ui_dev, &debug_adb_ops);
 	debugfs_create_file("reset", S_IRUGO | S_IWUSR,
-			gs_dent, ui_dev, &debug_rst_ops);
-}
-
-static void usb_debugfs_remove(void)
-{
-	debugfs_remove_recursive(gs_dent);
+			dent, ui_dev, &debug_rst_ops);
 }
 #else
-static inline void usb_debugfs_init(struct gs_port *ui_dev, int port_num) {}
-static inline void usb_debugfs_remove(void) {}
+static void usb_debugfs_init(struct gs_port *ui_dev) {}
 #endif
 
 static int gs_closed(struct gs_port *port)
@@ -1623,7 +1615,6 @@ module_init(userial_init);
 
 static void userial_cleanup(void)
 {
-	usb_debugfs_remove();
 	destroy_workqueue(gserial_wq);
 	tty_unregister_driver(gs_tty_driver);
 	put_tty_driver(gs_tty_driver);

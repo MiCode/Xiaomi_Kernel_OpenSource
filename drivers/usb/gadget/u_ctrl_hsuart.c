@@ -479,7 +479,6 @@ free_ports:
 	return ret;
 }
 
-#if defined(CONFIG_DEBUG_FS)
 #define DEBUG_BUF_SIZE	1024
 static ssize_t ghsuart_ctrl_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
@@ -559,7 +558,7 @@ static int ghsuart_ctrl_debugfs_init(void)
 
 	ghsuart_ctrl_dfile =
 		debugfs_create_file("status", S_IRUGO | S_IWUSR,
-				ghsuart_ctrl_dent, 0, &ghsuart_ctrl_stats_ops);
+				ghsuart_ctrl_dent, 0, &gctrl_stats_ops);
 	if (!ghsuart_ctrl_dfile || IS_ERR(ghsuart_ctrl_dfile)) {
 		debugfs_remove(ghsuart_ctrl_dent);
 		ghsuart_ctrl_dent = NULL;
@@ -572,10 +571,6 @@ static void ghsuart_ctrl_debugfs_exit(void)
 {
 	debugfs_remove_recursive(ghsuart_ctrl_dent);
 }
-#else
-static int ghsuart_ctrl_debugfs_init(void) { return 0; }
-static void ghsuart_ctrl_debugfs_exit(void) {}
-#endif
 
 static int __init ghsuart_ctrl_init(void)
 {
