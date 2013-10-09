@@ -615,6 +615,46 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 	}
 }
 
+phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
+					  phys_addr_t va)
+{
+	struct msm_iommu_priv *priv = domain->priv;
+	struct msm_iommu_pt *pt = &priv->pt;
+	unsigned long *fl_pte;
+	unsigned long fl_offset;
+	unsigned long *sl_table = NULL;
+	unsigned long sl_offset;
+	unsigned long *sl_pte;
+
+	if (!pt->fl_table) {
+		pr_err("Page table doesn't exist\n");
+		return 0;
+	}
+
+	fl_offset = FL_OFFSET(va);
+	fl_pte = pt->fl_table + fl_offset;
+
+	if (*fl_pte & FL_TYPE_TABLE) {
+		sl_table = __va(((*fl_pte) & FL_BASE_MASK));
+		sl_offset = SL_OFFSET(va);
+		sl_pte = sl_table + sl_offset;
+		/* 64 KB section */
+		if (*sl_pte & SL_TYPE_LARGE)
+			return (*sl_pte & 0xFFFF0000) | (va & ~0xFFFF0000);
+		/* 4 KB section */
+		if (*sl_pte & SL_TYPE_SMALL)
+			return (*sl_pte & 0xFFFFF000) | (va & ~0xFFFFF000);
+	} else {
+		/* 16 MB section */
+		if (*fl_pte & FL_SUPERSECTION)
+			return (*fl_pte & 0xFF000000) | (va & ~0xFF000000);
+		/* 1 MB section */
+		if (*fl_pte & FL_TYPE_SECT)
+			return (*fl_pte & 0xFFF00000) | (va & ~0xFFF00000);
+	}
+	return 0;
+}
+
 static int __init get_tex_class(int icp, int ocp, int mt, int nos)
 {
 	int i = 0;

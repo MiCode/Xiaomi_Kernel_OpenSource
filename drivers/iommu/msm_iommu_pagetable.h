@@ -26,4 +26,6 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 			struct scatterlist *sg, unsigned int len, int prot);
 void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 				unsigned int len);
+phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
+						phys_addr_t va);
 #endif
