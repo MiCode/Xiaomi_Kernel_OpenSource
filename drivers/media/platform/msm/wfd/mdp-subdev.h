@@ -19,13 +19,26 @@
 
 #define MDP_MAGIC_IOCTL 'M'
 
+/* Converts a dma_addr_t (which _might_ be 64 bits) to a 32 bit value.
+ * This is required because hardware can only access 32 bit addresses,
+ * and more importantly, the v4l2 spec only allows for 32 bit addresses.
+ * However in the off chance that we actually manage to get an address
+ * that can't fit into 32 bits, this macro triggers a WARN_ON and returns
+ * the truncated 32 bit address */
+static inline u32 dma_addr_to_u32(dma_addr_t x)
+{
+	u32 temp = (u32)x;
+	WARN_ON((dma_addr_t)temp != x);
+	return temp;
+}
+
 struct mdp_buf_info {
 	void *inst;
 	void *cookie;
 	u32 fd;
 	u32 offset;
 	u32 kvaddr;
-	dma_addr_t paddr;
+	u32 paddr;
 };
 
 struct mdp_prop {
