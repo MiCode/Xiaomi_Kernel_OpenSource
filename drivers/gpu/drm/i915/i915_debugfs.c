@@ -4809,14 +4809,24 @@ ssize_t i915_timestamp_read(struct file *filp,
 	int len = 0;
 	char buf[TIMESTAMP_BUFFER_LEN] = {0,};
 	unsigned long flags;
-	unsigned int gpu_ts;
+	u32 gpu_ts_hi, gpu_ts_lo, gpu_ts_hi_new;
+	u64 gpu_ts;
 	unsigned int cpu;
 	u32 sec, nsec;
 	u64 ftrace_ts;
 
 	local_irq_save(flags);
 	cpu = smp_processor_id();
-	gpu_ts = I915_READ(RING_TIMESTAMP(RENDER_RING_BASE));
+
+	gpu_ts_hi = I915_READ(RING_TIMESTAMP_HI(RENDER_RING_BASE));
+	gpu_ts_lo = I915_READ(RING_TIMESTAMP_LO(RENDER_RING_BASE));
+	gpu_ts_hi_new = I915_READ(RING_TIMESTAMP_HI(RENDER_RING_BASE));
+	if (gpu_ts_hi_new != gpu_ts_hi) {
+		gpu_ts_lo = I915_READ(RING_TIMESTAMP_LO(RENDER_RING_BASE));
+		gpu_ts_hi = gpu_ts_hi_new;
+	}
+	gpu_ts = (u64)gpu_ts_hi << 32 | gpu_ts_lo;
+
 	ftrace_ts = ftrace_now(cpu);
 	local_irq_restore(flags);
 
@@ -4824,7 +4834,7 @@ ssize_t i915_timestamp_read(struct file *filp,
 	sec = (u32) ftrace_ts;
 
 	len = snprintf(buf, TIMESTAMP_BUFFER_LEN,
-		      "CPU%03u %u.%09u s\nGPU %u ticks\n",
+		      "CPU%03u %u.%09u s\nGPU %llu ticks\n",
 		      cpu, sec, nsec, gpu_ts);
 
 	return simple_read_from_buffer(ubuf, max, ppos,

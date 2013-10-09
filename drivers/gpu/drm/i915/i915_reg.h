@@ -1029,7 +1029,8 @@ enum punit_power_well {
 #define RING_ACTHD_UDW(base)	((base)+0x5c)
 #define RING_NOPID(base)	((base)+0x94)
 #define RING_IMR(base)		((base)+0xa8)
-#define RING_TIMESTAMP(base)	((base)+0x358)
+#define RING_TIMESTAMP_LO(base)	((base)+0x358)
+#define RING_TIMESTAMP_HI(base)	((base)+0x35c)
 #define   TAIL_ADDR		0x001FFFF8
 #define   HEAD_WRAP_COUNT	0xFFE00000
 #define   HEAD_WRAP_ONE		0x00200000
