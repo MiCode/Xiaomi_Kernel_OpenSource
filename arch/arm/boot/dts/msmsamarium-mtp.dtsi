@@ -266,6 +266,14 @@
 		qcom,recharge-thresh-mv = <200>;
 		regulator-name = "smb1359_otg_supply";
 	};
+
+	smb349-charger@1b {
+		compatible = "qcom,smb349-charger";
+		reg = <0x1b>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xcc 0x0>;	/* PMA8084 GPIO 13 */
+		qcom,charging-disabled;
+	};
 };
 
 &sdhc_1 {
