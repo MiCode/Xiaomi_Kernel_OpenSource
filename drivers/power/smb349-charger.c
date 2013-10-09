@@ -1194,6 +1194,7 @@ static int smb349_charger_probe(struct i2c_client *client,
 	int rc, irq;
 	struct smb349_charger *chip;
 	struct power_supply *usb_psy;
+	u8 reg = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -1210,6 +1211,13 @@ static int smb349_charger_probe(struct i2c_client *client,
 	chip->client = client;
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
+
+	/* probe the device to check if its actually connected */
+	rc = smb349_read_reg(chip, CHG_OTH_CURRENT_CTRL_REG, &reg);
+	if (rc) {
+		pr_err("Failed to detect SMB349, device may be absent\n");
+		return -ENODEV;
+	}
 
 	rc = smb_parse_dt(chip);
 	if (rc) {
