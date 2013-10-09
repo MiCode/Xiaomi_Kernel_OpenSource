@@ -58,6 +58,7 @@ struct hdmi_tx_ctrl {
 	struct switch_dev sdev;
 	struct switch_dev audio_sdev;
 	struct workqueue_struct *workq;
+	spinlock_t hpd_state_lock;
 
 	uint32_t video_resolution;
 
@@ -68,6 +69,7 @@ struct hdmi_tx_ctrl {
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
+	u32 vote_hdmi_core_on;
 	u8  timing_gen_on;
 	u32 mhl_max_pclk;
 	u8  mhl_hpd_on;
