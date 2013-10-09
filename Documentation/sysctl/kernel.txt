@@ -26,6 +26,7 @@ show up in /proc/sys/kernel:
 - boot_reason		     [ ARM only ]
 - callhome		     [ S390 only ]
 - cap_last_cap
+- cold_boot		     [ ARM only ]
 - core_pattern
 - core_pipe_limit
 - core_uses_pid
@@ -175,6 +176,16 @@ cap_last_cap
 
 Highest valid capability of the running kernel.  Exports
 CAP_LAST_CAP from the kernel.
+
+===============================================================
+
+cold_boot
+
+ARM -- indicator for system cold boot
+
+A single bit will be set in the unsigned integer value to identify
+whether the device was booted from a cold or warm state. Zero
+indicating a warm boot and one indicating a cold boot.
 
 ==============================================================
 

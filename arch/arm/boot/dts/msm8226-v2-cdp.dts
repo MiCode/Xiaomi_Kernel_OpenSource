@@ -20,3 +20,7 @@
 	compatible = "qcom,msm8226-cdp", "qcom,msm8226", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };
+
+&hsic_host {
+	status = "ok";
+};

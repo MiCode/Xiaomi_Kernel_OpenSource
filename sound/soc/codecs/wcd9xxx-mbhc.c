@@ -125,6 +125,11 @@
 #define WCD9XXX_MB_MEAS_DELTA_MAX_MV 80
 #define WCD9XXX_CS_MEAS_DELTA_MAX_MV 10
 
+static int impedance_detect_en;
+module_param(impedance_detect_en, int,
+			S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(impedance_detect_en, "enable/disable impedance detect");
+
 static bool detect_use_vddio_switch = true;
 
 struct wcd9xxx_mbhc_detect {
@@ -863,7 +868,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			mbhc->micbias_enable_cb(mbhc->codec, true);
 		}
 
-		if (mbhc->impedance_detect)
+		if (mbhc->impedance_detect && impedance_detect_en)
 			wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
@@ -1075,6 +1080,18 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 	/* Enable external voltage source to micbias if present */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
 		mbhc->mbhc_cb->enable_mb_source(codec, true);
+
+	/*
+	 * setup internal micbias if codec uses internal micbias for
+	 * headset detection
+	 */
+	if (mbhc->mbhc_cfg->use_int_rbias) {
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->setup_int_rbias)
+			mbhc->mbhc_cb->setup_int_rbias(codec, true);
+	else
+		pr_err("%s: internal bias is requested but codec did not provide callback\n",
+			 __func__);
+	}
 
 	/*
 	 * Request BG and clock.
@@ -1406,7 +1423,7 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		    (dgnd->_vdces + WCD9XXX_CS_GM_SWAP_THRES_MAX_MV >
 		     maxv))
 			type = PLUG_TYPE_GND_MIC_SWAP;
-		else if (dgnd->_type != PLUG_TYPE_HEADSET) {
+		else if (dgnd->_type != PLUG_TYPE_HEADSET && !dmicbias) {
 			pr_debug("%s: Invalid, inconsistent types\n", __func__);
 			type = PLUG_TYPE_INVALID;
 		}
@@ -2257,8 +2274,11 @@ static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
 	usleep_range(generic->t_shutdown_plug_rem,
 		     generic->t_shutdown_plug_rem);
 
-	cs_enable = ((mbhc->mbhc_cfg->cs_enable_flags &
-		      (1 << MBHC_CS_ENABLE_REMOVAL)) != 0);
+	/* If micbias is enabled, don't enable current source */
+	cs_enable = (((mbhc->mbhc_cfg->cs_enable_flags &
+		      (1 << MBHC_CS_ENABLE_REMOVAL)) != 0) &&
+		     (!(snd_soc_read(codec,
+				     mbhc->mbhc_bias_regs.ctl_reg) & 0x80)));
 	if (cs_enable)
 		wcd9xxx_turn_onoff_current_source(mbhc, true, false);
 
@@ -3030,13 +3050,14 @@ static void wcd9xxx_get_z(struct wcd9xxx_mbhc *mbhc, s16 *dce_z, s16 *sta_z)
 	change = snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4,
 				     1 << 0);
 	usleep_range(1000, 1000 + 1000);
-	if (sta_z)
+	if (sta_z) {
 		*sta_z = wcd9xxx_codec_sta_dce(mbhc, 0, false);
-	if (dce_z)
+		pr_debug("%s: sta_z 0x%x\n", __func__, *sta_z & 0xFFFF);
+	}
+	if (dce_z) {
 		*dce_z = wcd9xxx_codec_sta_dce(mbhc, 1, false);
-
-	pr_debug("%s: sta_z 0x%x, dce_z 0x%x\n", __func__, *sta_z & 0xFFFF,
-		 *dce_z & 0xFFFF);
+		pr_debug("%s: dce_z 0x%x\n", __func__, *dce_z & 0xFFFF);
+	}
 
 	/* Connect override from micbias */
 	if (change)
@@ -4450,6 +4471,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->rco_clk_rate = rco_clk_rate;
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->impedance_detect = impedance_det_en;
+	impedance_detect_en = impedance_det_en ? 1 : 0;
 
 	if (mbhc->headset_jack.jack == NULL) {
 		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,

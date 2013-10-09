@@ -79,6 +79,23 @@
 		qcom,key-codes = <139 172 158>;
 		qcom,y-offset = <0>;
 	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+		keypad-backlight {
+			gpios = <&msmgpio 34 0>;
+			label = "button-backlight";
+			linux,default-trigger = "none";
+		};
+	};
+};
+
+&spmi_bus {
+	qcom,pm8226@0 {
+		qcom,leds@a100 {
+			status = "disable";
+			};
+		};
 };
 
 &mdss_dsi0 {
