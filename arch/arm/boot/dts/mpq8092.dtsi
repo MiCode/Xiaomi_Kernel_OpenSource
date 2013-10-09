@@ -323,7 +323,7 @@
 
 	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x0d400000 0x00700000
+		qcom,memblock-remove = <0x0d400000 0x02400000
 					0x0FA00000 0x00600000>;
 	};
 
