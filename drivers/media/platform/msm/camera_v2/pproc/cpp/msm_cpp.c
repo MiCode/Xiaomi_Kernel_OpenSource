@@ -1645,6 +1645,12 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			return -EINVAL;
 		}
 
+		if (ioctl_ptr->len > sizeof(clock_rate)) {
+			pr_err("Not valid ioctl_ptr->len\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
 		rc = (copy_from_user(&clock_rate,
 			(void __user *)ioctl_ptr->ioctl_ptr,
 			ioctl_ptr->len) ? -EFAULT : 0);
