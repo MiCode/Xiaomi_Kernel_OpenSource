@@ -1926,6 +1926,9 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	u32 lanes[] = {1, 1};
 	u32 gear[] = {1, 1};
 	u8 pwr[] = {FASTAUTO_MODE, FASTAUTO_MODE};
+	struct ufs_pa_layer_attr dev_max_params = { 0 };
+	struct ufs_pa_layer_attr dev_required_params = { 0 };
+	u32 hs_rate = PA_HS_MODE_B;
 	int ret;
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
@@ -1953,6 +1956,30 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 		pwr[TX] = SLOWAUTO_MODE;
 	}
 
+	if (hba->vops->pwr_change_notify) {
+
+		/* storing the device max capabilities */
+		dev_max_params.gear_rx = gear[RX];
+		dev_max_params.gear_tx = gear[TX];
+		dev_max_params.lane_rx = lanes[RX];
+		dev_max_params.lane_tx = lanes[TX];
+		dev_max_params.pwr_rx = pwr[RX];
+		dev_max_params.pwr_tx = pwr[TX];
+		dev_max_params.hs_rate = hs_rate;
+
+		hba->vops->pwr_change_notify(hba,
+		     PRE_CHANGE, &dev_max_params, &dev_required_params);
+
+		/* restoring the min-max preferences to configure the device */
+		gear[RX] = dev_required_params.gear_rx;
+		gear[TX] = dev_required_params.gear_tx;
+		lanes[RX] = dev_required_params.lane_rx;
+		lanes[TX] = dev_required_params.lane_tx;
+		pwr[RX] = dev_required_params.pwr_rx;
+		pwr[TX] = dev_required_params.pwr_tx;
+		hs_rate = dev_required_params.hs_rate;
+	}
+
 	/*
 	 * Configure attributes for power mode change with below.
 	 * - PA_RXGEAR, PA_ACTIVERXDATALANES, PA_RXTERMINATION,
@@ -1969,13 +1996,20 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	if (pwr[TX] == FASTAUTO_MODE)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), TRUE);
 
-	if (pwr[RX] == FASTAUTO_MODE || pwr[TX] == FASTAUTO_MODE)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES), PA_HS_MODE_B);
+	if ((pwr[RX] == FASTAUTO_MODE || pwr[TX] == FASTAUTO_MODE ||
+	     pwr[RX] == FAST_MODE || pwr[TX] == FAST_MODE) &&
+	     hs_rate == PA_HS_MODE_B)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES), hs_rate);
 
 	ret = ufshcd_uic_change_pwr_mode(hba, pwr[RX] << 4 | pwr[TX]);
-	if (ret)
+	if (ret) {
 		dev_err(hba->dev,
 			"pwr_mode: power mode change failed %d\n", ret);
+	} else {
+		if (hba->vops->pwr_change_notify)
+			hba->vops->pwr_change_notify(hba,
+				POST_CHANGE, NULL, &dev_required_params);
+	}
 
 	return ret;
 }
