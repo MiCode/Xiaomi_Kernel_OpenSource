@@ -1,0 +1,61 @@
+ON Semiconductor NCP6335d regulator
+
+NCP6335d is able to deliver up to 5.0 A, with programmable output voltage from
+0.6 V to 1.87 V in 10mV steps, with synchronous rectification and automatic PWM/
+PFM transitions, enable pins and power good/fail signaling.
+
+The NCP6335d interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "onnn,ncp6335d-regulator".
+- reg:				The device 8-bit I2C address.
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this
+				regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this
+				regulator.
+- onnn,min-setpoint:		Minimum setpoint voltage in microvolts supported
+				by this regulator.
+- onnn,step-size:		The step size of the regulator, in uV.
+- onnn,min-slew-ns:		Minimum time in ns needed to change voltage by
+				one step size. This value corresponds to DVS
+				mode bit of 00b in command register.
+- onnn,max-slew-ns:		Maximum time in ns needed to change voltage by
+				one step size. This value corresponds to DVS
+				mode bit of 11b in command register.
+- onnn,vsel:			Working vsel register. Supported value are 0
+				or 1.
+- onnn,slew-ns:			Time in ns needed to change voltage by one step
+				size. Supported value are 333, 666, 1333, 2666.
+
+Optional Properties:
+- onnn,discharge-enable:	Present: discharge enabled.
+				Not Present: discharge disabled.
+- onnn,restore-reg:		Present: Restore vsel register from backup register.
+				Not Present: No restore.
+- onnn,vsel-gpio:		Present: GPIO connects to the VSEL pin and set the
+				VSEL pin according to device tree flag.
+				Not Present: No GPIO is connected to vsel pin.
+- onnn,sleep-enable:		Present: Forced in sleep mode when EN and VSEL
+				pins are low.
+				Not Present: Low quiescent current mode when EN and VSEL
+				pins are low.
+
+
+Example:
+	i2c_0 {
+		ncp6335d-regulator@1c {
+			compatible = "onnn,ncp6335d-regulator";
+			reg = <0x1c>;
+			onnn,vsel = <0>;
+			onnn,slew-rate-ns = <2666>;
+			onnn,discharge-enable;
+			onnn,step-size = <10000>;
+			onnn,min-slew-ns = <333>;
+			onnn,max-slew-ns = <2666>;
+
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1350000>;
+			onnn,min-setpoint = <600000>;
+			onnn,vsel-gpio = <&msmgpio 2 1>;
+		};
+	};

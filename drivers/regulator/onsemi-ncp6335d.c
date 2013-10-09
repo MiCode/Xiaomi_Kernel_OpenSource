@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,10 +12,16 @@
 
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#include <linux/log2.h>
 #include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/of_regulator.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/regulator/onsemi-ncp6335d.h>
 
@@ -51,9 +57,15 @@ struct ncp6335d_info {
 	struct regmap *regmap;
 	struct device *dev;
 	unsigned int vsel_reg;
+	unsigned int vsel_backup_reg;
 	unsigned int mode_bit;
 	int curr_voltage;
 	int slew_rate;
+
+	unsigned int step_size;
+	unsigned int min_voltage;
+	unsigned int min_slew_ns;
+	unsigned int max_slew_ns;
 };
 
 static void dump_registers(struct ncp6335d_info *dd,
@@ -71,8 +83,8 @@ static void ncp633d_slew_delay(struct ncp6335d_info *dd,
 	u8 val;
 	int delay;
 
-	val = abs(prev_uV - new_uV) / NCP6335D_STEP_VOLTAGE_UV;
-	delay =  (val * dd->slew_rate / 1000) + 1;
+	val = abs(prev_uV - new_uV) / dd->step_size;
+	delay = ((val * dd->slew_rate) / 1000) + 1;
 
 	dev_dbg(dd->dev, "Slew Delay = %d\n", delay);
 
@@ -120,8 +132,8 @@ static int ncp6335d_get_voltage(struct regulator_dev *rdev)
 		dev_err(dd->dev, "Unable to get volatge rc(%d)", rc);
 		return rc;
 	}
-	dd->curr_voltage = ((val & NCP6335D_VOUT_SEL_MASK) *
-			NCP6335D_STEP_VOLTAGE_UV) + NCP6335D_MIN_VOLTAGE_UV;
+	dd->curr_voltage = ((val & NCP6335D_VOUT_SEL_MASK) * dd->step_size) +
+				dd->min_voltage;
 
 	dump_registers(dd, dd->vsel_reg, __func__);
 
@@ -134,10 +146,8 @@ static int ncp6335d_set_voltage(struct regulator_dev *rdev,
 	int rc, set_val, new_uV;
 	struct ncp6335d_info *dd = rdev_get_drvdata(rdev);
 
-	set_val = DIV_ROUND_UP(min_uV - NCP6335D_MIN_VOLTAGE_UV,
-					NCP6335D_STEP_VOLTAGE_UV);
-	new_uV = (set_val * NCP6335D_STEP_VOLTAGE_UV) +
-					NCP6335D_MIN_VOLTAGE_UV;
+	set_val = DIV_ROUND_UP(min_uV - dd->min_voltage, dd->step_size);
+	new_uV = (set_val * dd->step_size) + dd->min_voltage;
 	if (new_uV > max_uV) {
 		dev_err(dd->dev, "Unable to set volatge (%d %d)\n",
 							min_uV, max_uV);
@@ -226,7 +236,69 @@ static struct regulator_desc rdesc = {
 	.ops = &ncp6335d_ops,
 };
 
-static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
+static int ncp6335d_restore_working_reg(struct device_node *node,
+					struct ncp6335d_info *dd)
+{
+	int ret;
+	unsigned int val;
+
+	/* Restore register from back up register */
+	ret = regmap_read(dd->regmap, dd->vsel_backup_reg, &val);
+	if (ret < 0) {
+		dev_err(dd->dev, "Failed to get backup data from reg %d, ret = %d\n",
+			dd->vsel_backup_reg, ret);
+		return ret;
+	}
+
+	ret = regmap_update_bits(dd->regmap, dd->vsel_reg,
+					NCP6335D_VOUT_SEL_MASK, val);
+	if (ret < 0) {
+		dev_err(dd->dev, "Failed to update working reg %d, ret = %d\n",
+			dd->vsel_reg,  ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int ncp6335d_parse_gpio(struct device_node *node,
+					struct ncp6335d_info *dd)
+{
+	int ret = 0, gpio;
+	enum of_gpio_flags flags;
+
+	if (!of_find_property(node, "onnn,vsel-gpio", NULL))
+		return ret;
+
+	/* Get GPIO connected to vsel and set its output */
+	gpio = of_get_named_gpio_flags(node,
+			"onnn,vsel-gpio", 0, &flags);
+	if (!gpio_is_valid(gpio)) {
+		if (gpio != -EPROBE_DEFER)
+			dev_err(dd->dev, "Could not get vsel, ret = %d\n",
+				gpio);
+		return gpio;
+	}
+
+	ret = devm_gpio_request(dd->dev, gpio, "ncp6335d_vsel");
+	if (ret) {
+		dev_err(dd->dev, "Failed to obtain gpio %d ret = %d\n",
+				gpio, ret);
+			return ret;
+	}
+
+	ret = gpio_direction_output(gpio, flags & OF_GPIO_ACTIVE_LOW ? 0 : 1);
+	if (ret) {
+		dev_err(dd->dev, "Failed to set GPIO %d to: %s, ret = %d",
+				gpio, flags & OF_GPIO_ACTIVE_LOW ?
+				"GPIO_LOW" : "GPIO_HIGH", ret);
+		return ret;
+	}
+
+	return ret;
+}
+static int __devinit ncp6335d_init(struct i2c_client *client,
+			struct ncp6335d_info *dd,
 			const struct ncp6335d_platform_data *pdata)
 {
 	int rc;
@@ -235,16 +307,28 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 	switch (pdata->default_vsel) {
 	case NCP6335D_VSEL0:
 		dd->vsel_reg = REG_NCP6335D_PROGVSEL0;
+		dd->vsel_backup_reg = REG_NCP6335D_PROGVSEL1;
 		dd->mode_bit = NCP6335D_PWM_MODE0;
 	break;
 	case NCP6335D_VSEL1:
 		dd->vsel_reg = REG_NCP6335D_PROGVSEL1;
+		dd->vsel_backup_reg = REG_NCP6335D_PROGVSEL0;
 		dd->mode_bit = NCP6335D_PWM_MODE1;
 	break;
 	default:
 		dev_err(dd->dev, "Invalid VSEL ID %d\n", pdata->default_vsel);
 		return -EINVAL;
 	}
+
+	if (of_property_read_bool(client->dev.of_node, "onnn,restore-reg")) {
+		rc = ncp6335d_restore_working_reg(client->dev.of_node, dd);
+		if (rc)
+			return rc;
+	}
+
+	rc = ncp6335d_parse_gpio(client->dev.of_node, dd);
+	if (rc)
+		return rc;
 
 	/* get the current programmed voltage */
 	rc = regmap_read(dd->regmap, dd->vsel_reg, &val);
@@ -253,7 +337,7 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 		return rc;
 	}
 	dd->curr_voltage = ((val & NCP6335D_VOUT_SEL_MASK) *
-			NCP6335D_STEP_VOLTAGE_UV) + NCP6335D_MIN_VOLTAGE_UV;
+				dd->step_size) + dd->min_voltage;
 
 	/* set discharge */
 	rc = regmap_update_bits(dd->regmap, REG_NCP6335D_PGOOD,
@@ -266,15 +350,15 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 	}
 
 	/* set slew rate */
-	if (pdata->slew_rate_ns < NCP6335D_MIN_SLEW_NS ||
-			pdata->slew_rate_ns > NCP6335D_MAX_SLEW_NS) {
+	if (pdata->slew_rate_ns < dd->min_slew_ns ||
+			pdata->slew_rate_ns > dd->max_slew_ns) {
 		dev_err(dd->dev, "Invalid slew rate %d\n", pdata->slew_rate_ns);
 		return -EINVAL;
 	}
-	val = DIV_ROUND_UP(pdata->slew_rate_ns - NCP6335D_MIN_SLEW_NS,
-						NCP6335D_MIN_SLEW_NS);
-	val >>= 1;
-	dd->slew_rate = val * NCP6335D_MIN_SLEW_NS;
+
+	dd->slew_rate = pdata->slew_rate_ns;
+	val = DIV_ROUND_UP(pdata->slew_rate_ns, dd->min_slew_ns);
+	val = ilog2(val);
 
 	rc = regmap_update_bits(dd->regmap, REG_NCP6335D_TIMING,
 			NCP6335D_SLEW_MASK, val << NCP6335D_SLEW_SHIFT);
@@ -301,6 +385,99 @@ static struct regmap_config ncp6335d_regmap_config = {
 	.val_bits = 8,
 };
 
+static int ncp6335d_parse_dt(struct i2c_client *client,
+				struct ncp6335d_info *dd)
+{
+	int rc;
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,step-size", &dd->step_size);
+	if (rc < 0) {
+		dev_err(&client->dev, "step size missing: rc = %d.\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,min-slew-ns", &dd->min_slew_ns);
+	if (rc < 0) {
+		dev_err(&client->dev, "min slew us missing: rc = %d.\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,max-slew-ns", &dd->max_slew_ns);
+	if (rc < 0) {
+		dev_err(&client->dev, "max slew us missing: rc = %d.\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,min-setpoint", &dd->min_voltage);
+	if (rc < 0) {
+		dev_err(&client->dev, "min set point missing: rc = %d.\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static struct ncp6335d_platform_data *
+	ncp6335d_get_of_platform_data(struct i2c_client *client)
+{
+	struct ncp6335d_platform_data *pdata = NULL;
+	struct regulator_init_data *init_data;
+	int rc;
+
+	init_data = of_get_regulator_init_data(&client->dev,
+				client->dev.of_node);
+	if (!init_data) {
+		dev_err(&client->dev, "regulator init data is missing\n");
+		return pdata;
+	}
+
+	pdata = devm_kzalloc(&client->dev,
+			sizeof(struct ncp6335d_platform_data), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&client->dev, "ncp6335d_platform_data allocation failed.\n");
+		return pdata;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,vsel", &pdata->default_vsel);
+	if (rc < 0) {
+		dev_err(&client->dev, "onnn,vsel property missing: rc = %d.\n",
+			rc);
+		return NULL;
+	}
+
+	rc = of_property_read_u32(client->dev.of_node,
+			"onnn,slew-ns", &pdata->slew_rate_ns);
+	if (rc < 0) {
+		dev_err(&client->dev, "onnn,slew-ns property missing: rc = %d.\n",
+			rc);
+		return NULL;
+	}
+
+	pdata->discharge_enable = of_property_read_bool(client->dev.of_node,
+						"onnn,discharge-enable");
+
+	pdata->sleep_enable = of_property_read_bool(client->dev.of_node,
+						"onnn,sleep-enable");
+
+	pdata->init_data = init_data;
+
+	init_data->constraints.input_uV = init_data->constraints.max_uV;
+	init_data->constraints.valid_ops_mask =
+				REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS |
+				REGULATOR_CHANGE_MODE;
+	init_data->constraints.valid_modes_mask =
+				REGULATOR_MODE_NORMAL |
+				REGULATOR_MODE_FAST;
+	init_data->constraints.initial_mode = REGULATOR_MODE_NORMAL;
+	return pdata;
+}
+
 static int __devinit ncp6335d_regulator_probe(struct i2c_client *client,
 					const struct i2c_device_id *id)
 {
@@ -309,7 +486,11 @@ static int __devinit ncp6335d_regulator_probe(struct i2c_client *client,
 	struct ncp6335d_info *dd;
 	const struct ncp6335d_platform_data *pdata;
 
-	pdata = client->dev.platform_data;
+	if (client->dev.of_node)
+		pdata = ncp6335d_get_of_platform_data(client);
+	else
+		pdata = client->dev.platform_data;
+
 	if (!pdata) {
 		dev_err(&client->dev, "Platform data not specified\n");
 		return -EINVAL;
@@ -319,6 +500,17 @@ static int __devinit ncp6335d_regulator_probe(struct i2c_client *client,
 	if (!dd) {
 		dev_err(&client->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
+	}
+
+	if (client->dev.of_node) {
+		rc = ncp6335d_parse_dt(client, dd);
+		if (rc)
+			return rc;
+	} else {
+		dd->step_size	= NCP6335D_STEP_VOLTAGE_UV;
+		dd->min_voltage	= NCP6335D_MIN_VOLTAGE_UV;
+		dd->min_slew_ns	= NCP6335D_MIN_SLEW_NS;
+		dd->max_slew_ns	= NCP6335D_MAX_SLEW_NS;
 	}
 
 	dd->regmap = devm_regmap_init_i2c(client, &ncp6335d_regmap_config);
@@ -339,17 +531,19 @@ static int __devinit ncp6335d_regulator_probe(struct i2c_client *client,
 	dd->dev = &client->dev;
 	i2c_set_clientdata(client, dd);
 
-	rc = ncp6335d_init(dd, pdata);
+	rc = ncp6335d_init(client, dd, pdata);
 	if (rc) {
 		dev_err(&client->dev, "Unable to intialize the regulator\n");
 		return -EINVAL;
 	}
 
-	dd->regulator = regulator_register(&rdesc, &client->dev,
-					dd->init_data, dd, NULL);
+	dd->regulator = regulator_register(&rdesc, &client->dev, dd->init_data,
+						dd, client->dev.of_node);
+
 	if (IS_ERR(dd->regulator)) {
 		dev_err(&client->dev, "Unable to register regulator rc(%ld)",
 						PTR_ERR(dd->regulator));
+
 		return PTR_ERR(dd->regulator);
 	}
 
@@ -365,6 +559,12 @@ static int __devexit ncp6335d_regulator_remove(struct i2c_client *client)
 	return 0;
 }
 
+static struct of_device_id ncp6335d_match_table[] = {
+	{ .compatible = "onnn,ncp6335d-regulator", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ncp6335d_match_table);
+
 static const struct i2c_device_id ncp6335d_id[] = {
 	{"ncp6335d", -1},
 	{ },
@@ -373,15 +573,32 @@ static const struct i2c_device_id ncp6335d_id[] = {
 static struct i2c_driver ncp6335d_regulator_driver = {
 	.driver = {
 		.name = "ncp6335d-regulator",
+		.owner = THIS_MODULE,
+		.of_match_table = ncp6335d_match_table,
 	},
 	.probe = ncp6335d_regulator_probe,
 	.remove = __devexit_p(ncp6335d_regulator_remove),
 	.id_table = ncp6335d_id,
 };
-static int __init ncp6335d_regulator_init(void)
+
+/**
+ * ncp6335d_regulator_init() - initialized ncp6335d regulator driver
+ * This function registers the ncp6335d regulator platform driver.
+ *
+ * Returns 0 on success or errno on failure.
+ */
+int __init ncp6335d_regulator_init(void)
 {
+	static bool initialized;
+
+	if (initialized)
+		return 0;
+	else
+		initialized = true;
+
 	return i2c_add_driver(&ncp6335d_regulator_driver);
 }
+EXPORT_SYMBOL(ncp6335d_regulator_init);
 subsys_initcall(ncp6335d_regulator_init);
 
 static void __exit ncp6335d_regulator_exit(void)
