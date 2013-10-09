@@ -2032,19 +2032,17 @@ fail_gpio_res:
 static int wcnss_node_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev;
+	int rc = 0;
 
 	if (!penv)
 		return -EFAULT;
 
-	/* first open is only to trigger WCNSS platform driver */
 	if (!penv->triggered) {
 		pr_info(DEVICE " triggered by userspace\n");
 		pdev = penv->pdev;
-		return wcnss_trigger_config(pdev);
-
-	} else if (penv->device_opened) {
-		pr_info(DEVICE " already opened\n");
-		return -EBUSY;
+		rc = wcnss_trigger_config(pdev);
+		if (rc)
+			return -EFAULT;
 	}
 
 	mutex_lock(&penv->dev_lock);
@@ -2055,7 +2053,7 @@ static int wcnss_node_open(struct inode *inode, struct file *file)
 	penv->device_opened = 1;
 	mutex_unlock(&penv->dev_lock);
 
-	return 0;
+	return rc;
 }
 
 static ssize_t wcnss_wlan_read(struct file *fp, char __user
