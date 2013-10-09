@@ -29,8 +29,8 @@
 		qcom,vctl-port = <0x0>;
 		qcom,saw2-pmic-data0 = <0x02030080>;
 		qcom,saw2-pmic-data1 = <0x30000>;
-		qcom,saw2-pmic-data2 = <0x00000078>;
-		qcom,saw2-pmic-data3 = <0x040000B4>;
+		qcom,saw2-pmic-data2 = <0x00000096>;
+		qcom,saw2-pmic-data3 = <0x040000E6>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 21 03 31 0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 11 03 01 82 10 0b 30 06
@@ -57,8 +57,8 @@
 		qcom,vctl-port = <0x0>;
 		qcom,saw2-pmic-data0 = <0x02030080>;
 		qcom,saw2-pmic-data1 = <0x30000>;
-		qcom,saw2-pmic-data2 = <0x00000078>;
-		qcom,saw2-pmic-data3 = <0x040000B4>;
+		qcom,saw2-pmic-data2 = <0x00000096>;
+		qcom,saw2-pmic-data3 = <0x040000E6>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 21 03 31 0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 11 03 01 82 10 0b 30 06
@@ -85,8 +85,8 @@
 		qcom,vctl-port = <0x0>;
 		qcom,saw2-pmic-data0 = <0x02030080>;
 		qcom,saw2-pmic-data1 = <0x30000>;
-		qcom,saw2-pmic-data2 = <0x00000078>;
-		qcom,saw2-pmic-data3 = <0x040000B4>;
+		qcom,saw2-pmic-data2 = <0x00000096>;
+		qcom,saw2-pmic-data3 = <0x040000E6>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 21 03 31 0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 11 03 01 82 10 0b 30 06
@@ -113,8 +113,8 @@
 		qcom,vctl-port = <0x0>;
 		qcom,saw2-pmic-data0 = <0x02030080>;
 		qcom,saw2-pmic-data1 = <0x30000>;
-		qcom,saw2-pmic-data2 = <0x00000078>;
-		qcom,saw2-pmic-data3 = <0x040000B4>;
+		qcom,saw2-pmic-data2 = <0x00000096>;
+		qcom,saw2-pmic-data3 = <0x040000E6>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 21 03 31 0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 11 03 01 82 10 0b 30 06
