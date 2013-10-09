@@ -29,6 +29,9 @@
 #define HBRN8_POLL_TOUT_MS      100
 #define DEFAULT_CLK_RATE_HZ     1000000
 
+static unsigned long
+msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs);
+
 /* MSM UFS host controller vendor specific registers */
 enum {
 	REG_UFS_SYS1CLK_1US                 = 0xC0,
@@ -1279,46 +1282,6 @@ static int msm_ufs_phy_power_off(struct msm_ufs_phy *phy)
 	return 0;
 }
 
-static void msm_ufs_cfg_timers(struct ufs_hba *hba)
-{
-	unsigned long core_clk_rate = 0;
-	unsigned long tx_clk_rate = 0;
-	u32 core_clk_cycles_per_us;
-	u32 core_clk_period_in_ns;
-	u32 tx_clk_cycles_per_us;
-	u32 core_clk_cycles_per_100ms;
-	struct ufs_clk_info *clki;
-
-	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk"))
-			core_clk_rate = clk_get_rate(clki->clk);
-		else if (!strcmp(clki->name, "tx_lane0_sync_clk"))
-			tx_clk_rate = clk_get_rate(clki->clk);
-	}
-
-	/* If frequency is smaller than 1MHz, set to 1MHz */
-	if (core_clk_rate < DEFAULT_CLK_RATE_HZ)
-		core_clk_rate = DEFAULT_CLK_RATE_HZ;
-
-	if (tx_clk_rate < DEFAULT_CLK_RATE_HZ)
-		tx_clk_rate = DEFAULT_CLK_RATE_HZ;
-
-	core_clk_cycles_per_us = core_clk_rate / USEC_PER_SEC;
-	ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
-
-	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
-	tx_clk_cycles_per_us = tx_clk_rate / USEC_PER_SEC;
-	tx_clk_cycles_per_us &= MASK_TX_SYMBOL_CLK_1US_REG;
-	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
-	core_clk_period_in_ns &= MASK_CLK_NS_REG;
-	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
-			REG_UFS_TX_SYMBOL_CLK_NS_US);
-
-	core_clk_cycles_per_100ms = (core_clk_rate / MSEC_PER_SEC) * 100;
-	ufshcd_writel(hba, core_clk_cycles_per_100ms,
-				REG_UFS_PA_LINK_STARTUP_TIMER);
-}
-
 static inline void msm_ufs_assert_reset(struct ufs_hba *hba)
 {
 	ufshcd_rmwl(hba, MASK_UFS_PHY_SOFT_RESET,
@@ -1379,9 +1342,16 @@ static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 
 static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 {
+	unsigned long core_clk_rate = 0;
+	u32 core_clk_cycles_per_100ms;
+
 	switch (status) {
 	case PRE_CHANGE:
-		msm_ufs_cfg_timers(hba);
+		core_clk_rate = msm_ufs_cfg_timers(hba, 0, 0);
+		core_clk_cycles_per_100ms =
+			(core_clk_rate / MSEC_PER_SEC) * 100;
+		ufshcd_writel(hba, core_clk_cycles_per_100ms,
+					REG_UFS_PA_LINK_STARTUP_TIMER);
 		break;
 	case POST_CHANGE:
 		msm_ufs_enable_tx_lanes(hba);
@@ -1643,7 +1613,8 @@ static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
 	return 0;
 }
 
-static void msm_ufs_cfg_ufs_tx_symbol_reg(struct ufs_hba *hba, u32 gear, u32 hs)
+static unsigned long
+msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs)
 {
 	struct ufs_clk_info *clki;
 	u32 core_clk_period_in_ns;
@@ -1661,6 +1632,11 @@ static void msm_ufs_cfg_ufs_tx_symbol_reg(struct ufs_hba *hba, u32 gear, u32 hs)
 		{UFS_HS_G1, 0x1F},
 		{UFS_HS_G2, 0x3e},
 	};
+
+	if (gear == 0 && hs == 0) {
+		gear = UFS_PWM_G1;
+		hs = SLOWAUTO_MODE;
+	}
 
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
 		if (!strcmp(clki->name, "core_clk"))
@@ -1687,12 +1663,13 @@ static void msm_ufs_cfg_ufs_tx_symbol_reg(struct ufs_hba *hba, u32 gear, u32 hs)
 	case UNCHANGED:
 	default:
 		pr_err("%s: power parameter not valid\n", __func__);
-		return;
+		return core_clk_rate;
 	}
 
 	/* this register 2 fields shall be written at once */
 	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
 						REG_UFS_TX_SYMBOL_CLK_NS_US);
+	return core_clk_rate;
 }
 
 static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
@@ -1737,7 +1714,7 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 
 		break;
 	case POST_CHANGE:
-		msm_ufs_cfg_ufs_tx_symbol_reg(hba, dev_req_params->gear_rx,
+		msm_ufs_cfg_timers(hba, dev_req_params->gear_rx,
 							dev_req_params->pwr_rx);
 
 		val = ~(MAX_U32 << dev_req_params->lane_tx);
