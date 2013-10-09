@@ -33,6 +33,7 @@ static char *descriptions =
 	" 8 Perf: Make per-process counters configurable\n"
 	" 9 msm: perf: Add L2 support for tracecounters\n"
 	"10 ARM: dts: msm: add perf-events support for apq8084\n"
+	"11 ARM: dts: msm: add perf-events support for msmsamarium\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
