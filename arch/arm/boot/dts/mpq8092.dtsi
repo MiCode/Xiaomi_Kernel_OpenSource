@@ -125,6 +125,13 @@
 		};
 	};
 
+	qcom,msm-rtb {
+                compatible = "qcom,msm-rtb";
+                qcom,memory-reservation-type = "EBI1";
+                qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+        };
+
+
 	spi_1: spi@f9923000 { /* BLSP1 QUP1 */
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
