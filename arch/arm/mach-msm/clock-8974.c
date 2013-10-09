@@ -5015,6 +5015,13 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("core_clk_src", mdp_clk_src.c, "mdp.0"),
 	CLK_LOOKUP("vsync_clk", mdss_vsync_clk.c, "mdp.0"),
 
+	CLK_LOOKUP("", hdmipll_clk_src.c, ""),
+	CLK_LOOKUP("", hdmipll_mux_clk.c, ""),
+	CLK_LOOKUP("", hdmipll_div1_clk.c, ""),
+	CLK_LOOKUP("", hdmipll_div2_clk.c, ""),
+	CLK_LOOKUP("", hdmipll_div4_clk.c, ""),
+	CLK_LOOKUP("", hdmipll_div6_clk.c, ""),
+
 	/* MM sensor clocks placeholder */
 	CLK_LOOKUP("", camss_mclk0_clk.c, ""),
 	CLK_LOOKUP("", camss_mclk1_clk.c, ""),
