@@ -27,7 +27,7 @@
 		reg = <0x900 0x100>;
 	};
 
-	qcom,revid@100 {
+	pm8941_revid: qcom,revid@100 {
 		compatible = "qcom,qpnp-revid";
 		reg = <0x100 0x100>;
 	};
@@ -576,6 +576,7 @@
 		qcom,adc-bit-resolution = <15>;
 		qcom,adc-vdd-reference = <1800>;
 		qcom,vadc-poll-eoc;
+		qcom,pmic-revid = <&pm8941_revid>;
 
 		chan@0 {
 			label = "usb_in";
@@ -820,6 +821,7 @@
 		qcom,adc-vdd-reference = <1800>;
 		qcom,iadc-vadc = <&pm8941_vadc>;
 		qcom,iadc-poll-eoc;
+		qcom,pmic-revid = <&pm8941_revid>;
 
 		chan@0 {
 			label = "internal_rsense";
