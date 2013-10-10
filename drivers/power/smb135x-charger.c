@@ -84,6 +84,10 @@
 #define CHG_STAT_ACTIVE_HIGH_BIT	BIT(1)
 #define CHG_STAT_IRQ_ONLY_BIT		BIT(4)
 
+#define CHG_19_REG			0x19
+#define BATT_MISSING_ALGO_BIT		BIT(2)
+#define BATT_MISSING_THERM_BIT		BIT(1)
+
 #define VFLOAT_REG			0x1E
 
 /* Irq Config registers */
@@ -210,6 +214,7 @@ struct smb135x_chg {
 	bool				usb_present;
 	bool				dc_present;
 
+	bool				bmd_algo_disabled;
 	int				vfloat_mv;
 	int				safety_time;
 	int				resume_delta_mv;
@@ -1828,6 +1833,17 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 		}
 	}
 
+	/* battery missing detection */
+	rc = smb135x_masked_write(chip, CHG_19_REG,
+			BATT_MISSING_ALGO_BIT | BATT_MISSING_THERM_BIT,
+			chip->bmd_algo_disabled ? BATT_MISSING_THERM_BIT :
+						BATT_MISSING_ALGO_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set batt_missing config = %d\n",
+									rc);
+		return rc;
+	}
+
 	smb135x_charging(chip, chip->chg_enabled);
 
 	/* interrupt enabling - active low */
@@ -1967,6 +1983,9 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 						chip->safety_time);
 		return -EINVAL;
 	}
+
+	chip->bmd_algo_disabled = of_property_read_bool(node,
+						"qcom,bmd-algo-disabled");
 
 	chip->dc_psy_type = -EINVAL;
 	dc_psy_type = of_get_property(node, "qcom,dc-psy-type", NULL);
