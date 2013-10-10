@@ -414,6 +414,7 @@ static enum power_supply_property smb135x_battery_properties[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 };
 
@@ -514,6 +515,24 @@ static int smb135x_get_prop_batt_capacity(struct smb135x_chg *chip)
 	}
 
 	return DEFAULT_BATT_CAPACITY;
+}
+
+static int smb135x_get_prop_batt_health(struct smb135x_chg *chip)
+{
+	union power_supply_propval ret = {0, };
+
+	if (chip->batt_hot)
+		ret.intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+	else if (chip->batt_cold)
+		ret.intval = POWER_SUPPLY_HEALTH_COLD;
+	else if (chip->batt_warm)
+		ret.intval = POWER_SUPPLY_HEALTH_WARM;
+	else if (chip->batt_cool)
+		ret.intval = POWER_SUPPLY_HEALTH_COOL;
+	else
+		ret.intval = POWER_SUPPLY_HEALTH_GOOD;
+
+	return ret.intval;
 }
 
 static int smb135x_enable_volatile_writes(struct smb135x_chg *chip)
@@ -861,6 +880,9 @@ static int smb135x_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = smb135x_get_prop_batt_capacity(chip);
+		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = smb135x_get_prop_batt_health(chip);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
