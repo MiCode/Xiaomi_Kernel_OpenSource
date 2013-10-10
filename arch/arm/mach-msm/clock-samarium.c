@@ -2856,6 +2856,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{&cnoc.c,	GCC_BASE,  0x0008},
 	{&pnoc.c,	GCC_BASE,  0x0010},
 	{&bimc.c,	GCC_BASE,  0x0155},
+	{&bimc_gpu.c,	GCC_BASE,  0x015c},
 	{&mmssnoc_ahb.c,	MMSS_BASE,  0x0001},
 
 	{&gcc_mss_cfg_ahb_clk.c,	GCC_BASE, 0x0030},
