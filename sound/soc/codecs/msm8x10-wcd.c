@@ -1428,13 +1428,8 @@ static void msm8x10_wcd_codec_enable_adc_block(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec,
 				    MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
 				    0x20, 0x20);
-	} else {
+	} else
 		wcd8x10->adc_count--;
-		if (!wcd8x10->adc_count)
-			snd_soc_update_bits(codec,
-					    MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
-					    0x20, 0x0);
-	}
 }
 
 static int msm8x10_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
