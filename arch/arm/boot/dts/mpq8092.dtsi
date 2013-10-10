@@ -404,6 +404,11 @@
 				<1 618 0 0>,
 				<1 618 0 800>;
         };
+
+	qcom,tz-log@fe805720 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe805720 0x1000>;
+	};
 };
 
 &gdsc_venus {
