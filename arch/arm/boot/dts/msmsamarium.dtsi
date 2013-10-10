@@ -1948,9 +1948,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@77 {
+	chan@37 {
 		label = "batt_id";
-		reg = <0x77>;
+		reg = <0x37>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -1959,13 +1959,13 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@78 {
+	chan@38 {
 		label = "batt_therm";
-		reg = <0x78>;
+		reg = <0x38>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <1>;
+		qcom,scale-function = <8>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
@@ -1995,9 +1995,9 @@
 		qcom,btm-channel-number = <0x48>;
 	};
 
-	chan@78 {
+	chan@38 {
 		label = "batt_therm";
-		reg = <0x78>;
+		reg = <0x38>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
