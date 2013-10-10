@@ -1429,7 +1429,7 @@ static void mdss_fb_commit_wq_handler(struct work_struct *work)
 	struct fb_var_screeninfo *var;
 	struct fb_info *info;
 	struct msm_fb_backup_type *fb_backup;
-	int ret;
+	int ret = 0;
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
 	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
@@ -1438,8 +1438,9 @@ static void mdss_fb_commit_wq_handler(struct work_struct *work)
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 		mdss_fb_wait_for_fence(&mfd->mdp_sync_pt_data);
 		if (mfd->mdp.kickoff_fnc)
-			mfd->mdp.kickoff_fnc(mfd, &fb_backup->disp_commit);
-		mdss_fb_update_backlight(mfd);
+			ret = mfd->mdp.kickoff_fnc(mfd, &fb_backup->disp_commit);
+		if (!ret)
+			mdss_fb_update_backlight(mfd);
 		mdss_fb_signal_timeline(&mfd->mdp_sync_pt_data);
 	} else {
 		var = &fb_backup->disp_commit.var;
