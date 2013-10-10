@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,7 +48,7 @@ TRACE_EVENT(kgsl_a3xx_irq_status,
 		"d_name=%s status=%s",
 		__get_str(device_name),
 		__entry->status ? __print_flags(__entry->status, "|",
-			{ 1 << A3XX_INT_RBBM_AHB_ERROR, "RBBM_GPU_IDLE" },
+			{ 1 << A3XX_INT_RBBM_GPU_IDLE, "RBBM_GPU_IDLE" },
 			{ 1 << A3XX_INT_RBBM_AHB_ERROR, "RBBM_AHB_ERR" },
 			{ 1 << A3XX_INT_RBBM_REG_TIMEOUT, "RBBM_REG_TIMEOUT" },
 			{ 1 << A3XX_INT_RBBM_ME_MS_TIMEOUT,
