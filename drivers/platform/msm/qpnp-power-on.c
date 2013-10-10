@@ -506,6 +506,54 @@ static irqreturn_t qpnp_cblpwr_irq(int irq, void *_pon)
 	return IRQ_HANDLED;
 }
 
+static void print_pon_reg(struct qpnp_pon *pon, u16 offset)
+{
+	int rc;
+	u16 addr;
+	u8 reg;
+
+	addr = pon->base + offset;
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			addr, &reg, 1);
+	if (rc)
+		dev_emerg(&pon->spmi->dev,
+				"Unable to read reg at 0x%04x\n", addr);
+	else
+		dev_emerg(&pon->spmi->dev, "reg@0x%04x: %02x\n", addr, reg);
+}
+
+#define PON_PBL_STATUS			0x7
+#define PON_PON_REASON1			0x8
+#define PON_PON_REASON2			0x9
+#define PON_WARM_RESET_REASON1		0xA
+#define PON_WARM_RESET_REASON2		0xB
+#define PON_POFF_REASON1		0xC
+#define PON_POFF_REASON2		0xD
+#define PON_SOFT_RESET_REASON1		0xE
+#define PON_SOFT_RESET_REASON2		0xF
+#define PON_PMIC_WD_RESET_S1_TIMER	0x54
+#define PON_PMIC_WD_RESET_S2_TIMER	0x55
+static irqreturn_t qpnp_pmic_wd_bark_irq(int irq, void *_pon)
+{
+	struct qpnp_pon *pon = _pon;
+
+	print_pon_reg(pon, PON_PBL_STATUS);
+	print_pon_reg(pon, PON_PBL_STATUS);
+	print_pon_reg(pon, PON_PON_REASON1);
+	print_pon_reg(pon, PON_PON_REASON2);
+	print_pon_reg(pon, PON_WARM_RESET_REASON1);
+	print_pon_reg(pon, PON_WARM_RESET_REASON2);
+	print_pon_reg(pon, PON_POFF_REASON1);
+	print_pon_reg(pon, PON_POFF_REASON2);
+	print_pon_reg(pon, PON_SOFT_RESET_REASON1);
+	print_pon_reg(pon, PON_SOFT_RESET_REASON2);
+	print_pon_reg(pon, PON_PMIC_WD_RESET_S1_TIMER);
+	print_pon_reg(pon, PON_PMIC_WD_RESET_S2_TIMER);
+	panic("PMIC Watch dog triggered");
+
+	return IRQ_HANDLED;
+}
+
 static void bark_work_func(struct work_struct *work)
 {
 	int rc;
@@ -811,7 +859,7 @@ qpnp_pon_config_input(struct qpnp_pon *pon,  struct qpnp_pon_config *cfg)
 
 static int qpnp_pon_config_init(struct qpnp_pon *pon)
 {
-	int rc = 0, i = 0;
+	int rc = 0, i = 0, pmic_wd_bark_irq;
 	struct device_node *pp = NULL;
 	struct qpnp_pon_config *cfg;
 	u8 pon_ver;
@@ -1023,6 +1071,21 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 		if (rc && rc != -EINVAL) {
 			dev_err(&pon->spmi->dev, "Unable to read pull-up\n");
 			return rc;
+		}
+	}
+
+	pmic_wd_bark_irq = spmi_get_irq_byname(pon->spmi, NULL, "pmic-wd-bark");
+	/* request the pmic-wd-bark irq only if it is defined */
+	if (pmic_wd_bark_irq >= 0) {
+		rc = devm_request_irq(&pon->spmi->dev, pmic_wd_bark_irq,
+					qpnp_pmic_wd_bark_irq,
+					IRQF_TRIGGER_RISING,
+					"qpnp_pmic_wd_bark", pon);
+		if (rc < 0) {
+			dev_err(&pon->spmi->dev,
+				"Can't request %d IRQ\n",
+					pmic_wd_bark_irq);
+			goto free_input_dev;
 		}
 	}
 
