@@ -86,6 +86,10 @@ void check_test_completion(void)
 	if (!ptd)
 		goto exit;
 
+	if (ptd->test_info.check_test_completion_fn &&
+		!ptd->test_info.check_test_completion_fn())
+		goto exit;
+
 	list_for_each_entry(test_rq, &ptd->dispatched_queue, queuelist)
 		if (!test_rq->req_completed)
 			goto exit;

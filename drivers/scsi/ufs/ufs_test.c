@@ -179,20 +179,6 @@ static void ufs_test_pseudo_rnd_size(unsigned int *seed,
 		*num_of_bios = DEFAULT_NUM_OF_BIOS;
 }
 
-static void ufs_test_write_read_test_end_io_fn(struct request *rq, int err)
-{
-	struct test_request *test_rq = (struct test_request *)rq->elv.priv[0];
-	BUG_ON(!test_rq);
-
-	test_pr_info("%s: request %d completed, err=%d",
-			__func__, test_rq->req_id, err);
-	test_rq->req_completed = 1;
-	test_rq->req_result = err;
-
-	utd->write_completed = true;
-	wake_up(&utd->wait_q);
-}
-
 static int ufs_test_show(struct seq_file *file, int test_case)
 {
 	char *test_description;
@@ -260,6 +246,16 @@ exit:
 	return gd;
 }
 
+static bool ufs_write_read_completion(void)
+{
+	if (!utd->write_completed) {
+		utd->write_completed = true;
+		wake_up(&utd->wait_q);
+		return false;
+	}
+	return true;
+}
+
 static int ufs_test_run_write_read_test(struct test_data *td)
 {
 	int ret = 0;
@@ -282,8 +278,7 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 
 	utd->write_completed = false;
 	ret = test_iosched_add_wr_rd_test_req(0, WRITE, start_sec, num_bios,
-					TEST_PATTERN_5A,
-					ufs_test_write_read_test_end_io_fn);
+						TEST_PATTERN_5A, NULL);
 
 	if (ret) {
 		test_pr_err("%s: failed to add a write request", __func__);
@@ -454,6 +449,8 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	switch (test_case) {
 	case UFS_TEST_WRITE_READ_TEST:
 		utd->test_info.run_test_fn = ufs_test_run_write_read_test;
+		utd->test_info.check_test_completion_fn =
+				ufs_write_read_completion;
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
