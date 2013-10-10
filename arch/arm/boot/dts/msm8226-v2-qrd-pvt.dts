@@ -21,9 +21,9 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_hx8394a_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
 };
 
-&dsi_hx8394a_720_vid {
+&dsi_nt35590_720_vid {
 	qcom,cont-splash-enabled;
 };
