@@ -947,6 +947,13 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 		}
 	}
 
+	/*
+	 * put runtime pm reference for well-known logical units,
+	 * drivers are expected to _get_* again during probe.
+	 */
+	if (scsi_is_wlun(sdev->lun))
+		scsi_autopm_put_device(sdev);
+
 	return error;
 }
 
