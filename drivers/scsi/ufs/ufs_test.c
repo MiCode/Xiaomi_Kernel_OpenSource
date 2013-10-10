@@ -35,6 +35,7 @@
 #define THREADS_COMPLETION_TIMOUT msecs_to_jiffies(10000) /* 10 sec */
 #define MAX_PARALLEL_QUERIES 33
 #define RANDOM_REQUEST_THREADS 4
+#define LUN_DEPTH_TEST_SIZE 9
 
 /* the amount of requests that will be inserted */
 #define LONG_SEQ_TEST_NUM_REQS  256
@@ -90,6 +91,8 @@ enum ufs_test_testcases {
 	UFS_TEST_LONG_SEQUENTIAL_MIXED,
 
 	UFS_TEST_PARALLEL_READ_AND_WRITE,
+	UFS_TEST_LUN_DEPTH,
+
 	NUM_TESTS,
 };
 
@@ -99,6 +102,9 @@ enum ufs_test_stage {
 
 	UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE1,
 	UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2,
+
+	UFS_TEST_LUN_DEPTH_TEST_RUNNING,
+	UFS_TEST_LUN_DEPTH_DONE_ISSUING_REQ,
 };
 
 struct ufs_test_data {
@@ -185,12 +191,21 @@ enum scenario_id {
 	/* scenarios for parallel read and write test */
 	SCEN_RANDOM_READ_50,
 	SCEN_RANDOM_WRITE_50,
+
+	SCEN_RANDOM_READ_32_NO_FLUSH,
+	SCEN_RANDOM_WRITE_32_NO_FLUSH,
+
 	SCEN_RANDOM_MAX,
 };
 
 static struct test_scenario test_scenario[SCEN_RANDOM_MAX] = {
 		{NULL, READ, 0, 50, true, 5}, /* SCEN_RANDOM_READ_50 */
 		{NULL, WRITE, 0, 50, true, 5}, /* SCEN_RANDOM_WRITE_50 */
+
+		/* SCEN_RANDOM_READ_32_NO_FLUSH */
+		{NULL, READ, 1, 32, true, 64},
+		/* SCEN_RANDOM_WRITE_32_NO_FLUSH */
+		{NULL, WRITE, 1, 32, true, 64},
 };
 
 static
@@ -227,6 +242,9 @@ static char *ufs_test_get_test_case_str(struct test_data *td)
 		break;
 	case UFS_TEST_PARALLEL_READ_AND_WRITE:
 		return "UFS parallel read and write test";
+		break;
+	case UFS_TEST_LUN_DEPTH:
+		return "UFS LUN depth test";
 		break;
 	default:
 		return "Unknown test";
@@ -342,6 +360,23 @@ static int ufs_test_show(struct seq_file *file, int test_case)
 		 "This test initiate two threads. Each thread is issuing "
 		 "multiple random requests. One thread will issue only read "
 		 "requests, while the other will only issue write requests.\n";
+		break;
+	case UFS_TEST_LUN_DEPTH:
+		test_description = "\nufs_test_lun_depth\n"
+		 "=========\n"
+		 "Description:\n"
+		 "This test is trying to stress the edge cases of the UFS "
+		 "device queue. This queue has two such edges, the total queue "
+		 "depth and the command per LU. To test those edges properly, "
+		 "two deviations from the edge in addition to the edge are "
+		 "tested as well. One deviation will be fixed (1), and the "
+		 "second will be picked randomly.\n"
+		 "The test will fill a request queue with random read "
+		 "requests. The amount of request will vary each iteration and "
+		 "will be either the one of the edges or the sum of this edge "
+		 "with one deviations.\n"
+		 "The test will test for each iteration once only reads and "
+		 "once only writes.\n";
 		break;
 	default:
 		test_description = "Unknown test";
@@ -564,7 +599,8 @@ static void scenario_free_end_io_fn(struct request *rq, int err)
 
 static bool ufs_test_multi_thread_completion(void)
 {
-	return atomic_read(&utd->outstanding_threads) <= 0;
+	return atomic_read(&utd->outstanding_threads) <= 0 &&
+			utd->test_stage != UFS_TEST_LUN_DEPTH_TEST_RUNNING;
 }
 
 /**
@@ -681,6 +717,81 @@ static int ufs_test_run_parallel_read_and_write_test(struct test_data *td)
 		test_pr_err("%s: Multi-thread test timed-out %d threads left",
 			__func__, atomic_read(&utd->outstanding_threads));
 	}
+	check_test_completion();
+
+	/* clear random seed if changed */
+	if (changed_seed)
+		utd->random_test_seed = 0;
+
+	return 0;
+}
+
+static void ufs_test_run_synchronous_scenario(struct test_scenario *read_data)
+{
+	init_completion(&utd->outstanding_complete);
+	atomic_set(&utd->outstanding_threads, 1);
+	async_schedule(ufs_test_run_scenario, read_data);
+	if (!wait_for_completion_timeout(&utd->outstanding_complete,
+			THREADS_COMPLETION_TIMOUT)) {
+		test_pr_err("%s: Multi-thread test timed-out %d threads left",
+			__func__, atomic_read(&utd->outstanding_threads));
+	}
+}
+
+static int ufs_test_run_lun_depth_test(struct test_data *td)
+{
+	struct test_scenario *read_data, *write_data;
+	struct scsi_device *sdev;
+	bool changed_seed = false;
+	int i = 0, num_req[LUN_DEPTH_TEST_SIZE];
+	int lun_qdepth, nutrs;
+
+	BUG_ON(!td || !td->req_q || !td->req_q->queuedata);
+	sdev = (struct scsi_device *)td->req_q->queuedata;
+	lun_qdepth = sdev->max_queue_depth;
+	nutrs = sdev->host->can_queue;
+	/* in case there is no specific queue size per LU */
+	if (lun_qdepth == nutrs)
+		lun_qdepth = lun_qdepth >> 2;
+
+	/* allow randomness even if user forgot */
+	if (utd->random_test_seed <= 0) {
+		changed_seed = true;
+		utd->random_test_seed = 1;
+	}
+
+	/* initialize the number of request for each iteration */
+	num_req[i++] = ufs_test_pseudo_random_seed(
+			&utd->random_test_seed, 1, lun_qdepth - 2);
+	num_req[i++] = lun_qdepth - 1;
+	num_req[i++] = lun_qdepth;
+	num_req[i++] = lun_qdepth + 1;
+	num_req[i++] = lun_qdepth + 1 + ufs_test_pseudo_random_seed(
+			&utd->random_test_seed, 1, nutrs - lun_qdepth - 2);
+	num_req[i++] = nutrs - 1;
+	num_req[i++] = nutrs;
+	num_req[i++] = nutrs + 1;
+	/* a random number up to 10, not to cause overflow or timeout */
+	num_req[i++] = nutrs + 1 + ufs_test_pseudo_random_seed(
+			&utd->random_test_seed, 1, 10);
+
+
+	utd->test_stage = UFS_TEST_LUN_DEPTH_TEST_RUNNING;
+	utd->fail_threads = 0;
+	read_data = get_scenario(td, SCEN_RANDOM_READ_32_NO_FLUSH);
+	write_data = get_scenario(td, SCEN_RANDOM_READ_32_NO_FLUSH);
+
+	for (i = 0; i < LUN_DEPTH_TEST_SIZE; i++) {
+		int reqs = num_req[i];
+
+		read_data->total_req = reqs;
+		write_data->total_req = reqs;
+
+		ufs_test_run_synchronous_scenario(read_data);
+		ufs_test_run_synchronous_scenario(write_data);
+	}
+
+	utd->test_stage = UFS_TEST_LUN_DEPTH_DONE_ISSUING_REQ;
 	check_test_completion();
 
 	/* clear random seed if changed */
@@ -919,6 +1030,9 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 		utd->test_info.check_test_completion_fn =
 				ufs_test_multi_thread_completion;
 		break;
+	case UFS_TEST_LUN_DEPTH:
+		utd->test_info.run_test_fn = ufs_test_run_lun_depth_test;
+		break;
 	default:
 		test_pr_err("%s: Unknown test-case: %d", __func__, test_case);
 		WARN_ON(true);
@@ -951,6 +1065,7 @@ TEST_OPS(long_sequential_read, LONG_SEQUENTIAL_READ);
 TEST_OPS(long_sequential_write, LONG_SEQUENTIAL_WRITE);
 TEST_OPS(long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
 TEST_OPS(parallel_read_and_write, PARALLEL_READ_AND_WRITE);
+TEST_OPS(lun_depth, LUN_DEPTH);
 
 static void ufs_test_debugfs_cleanup(void)
 {
@@ -1005,6 +1120,9 @@ static int ufs_test_debugfs_init(void)
 	if (ret)
 		goto exit_err;
 	add_test(utd, parallel_read_and_write, PARALLEL_READ_AND_WRITE);
+	if (ret)
+		goto exit_err;
+	add_test(utd, lun_depth, LUN_DEPTH);
 	if (ret)
 		goto exit_err;
 
