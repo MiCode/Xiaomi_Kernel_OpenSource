@@ -2015,7 +2015,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb135x_chg *chip;
 	struct power_supply *usb_psy;
-	u8 version;
+	u8 version, reg = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -2032,6 +2032,13 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	chip->client = client;
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
+
+	/* probe the device to check if its actually connected */
+	rc = smb135x_read(chip, CFG_4_REG, &reg);
+	if (rc) {
+		pr_err("Failed to detect SMB135x, device may be absent\n");
+		return -ENODEV;
+	}
 
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
