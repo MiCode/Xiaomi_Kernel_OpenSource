@@ -84,6 +84,14 @@
 		qcom,panel-maxy = <2084>;
 		qcom,key-codes = <158 139 102 217>;
 	};
+
+	spi_eth_vreg: spi_eth_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "spi_eth_vreg";
+		startup-delay-us = <60>;
+		enable-active-high;
+		gpio = <&msmgpio 39 0>;
+	};
 };
 
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
