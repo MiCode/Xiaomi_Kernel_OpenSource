@@ -91,6 +91,12 @@
 &sdhc_1 {
 	vdd-supply = <&pma8084_l20>;
 	vdd-io-supply = <&pma8084_s4>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
 };
 
 &sdhc_2 {
