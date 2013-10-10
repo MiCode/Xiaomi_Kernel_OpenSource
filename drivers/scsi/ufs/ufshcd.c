@@ -2533,7 +2533,7 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	int ret;
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
-		return 0;
+		msleep(1000);
 
 	/* Get the connected lane count */
 	if (hba->vops && hba->vops->pwr_change_notify)
@@ -2543,6 +2543,9 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
 
 	ret = ufshcd_change_power_mode(hba, &final_params);
+
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
+		msleep(1000);
 
 	return ret;
 }
