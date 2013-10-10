@@ -26,6 +26,7 @@
 #define LARGE_PRIME_1	1103515367
 #define LARGE_PRIME_2	35757
 #define DEFAULT_NUM_OF_BIOS		2
+#define LONG_SEQUENTIAL_MIXED_TIMOUT_MS 100000
 
 /* the amount of requests that will be inserted */
 #define LONG_SEQ_TEST_NUM_REQS  256
@@ -75,8 +76,17 @@ enum ufs_test_testcases {
 
 	UFS_TEST_LONG_SEQUENTIAL_READ,
 	UFS_TEST_LONG_SEQUENTIAL_WRITE,
+	UFS_TEST_LONG_SEQUENTIAL_MIXED,
 
 	NUM_TESTS,
+};
+
+enum ufs_test_stage {
+	DEFAULT,
+	UFS_TEST_ERROR,
+
+	UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE1,
+	UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2,
 };
 
 struct ufs_test_data {
@@ -102,6 +112,8 @@ struct ufs_test_data {
 
 	/* A counter for the number of test requests completed */
 	unsigned int completed_req_count;
+	/* Test stage */
+	enum ufs_test_stage test_stage;
 };
 
 static struct ufs_test_data *utd;
@@ -149,6 +161,9 @@ static char *ufs_test_get_test_case_str(struct test_data *td)
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
 		return "UFS long sequential write test";
+		break;
+	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
+		return "UFS long sequential mixed test";
 		break;
 	default:
 		return "Unknown test";
@@ -209,6 +224,20 @@ static int ufs_test_show(struct seq_file *file, int test_case)
 		 "throughput at the driver level by sequentially writing many "
 		 "large requests\n";
 		break;
+	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
+		test_description = "\nufs_long_sequential_mixed_test_read\n"
+		 "=========\n"
+		 "Description:\n"
+		 "The test will verify correctness of sequential data pattern "
+		 "written to the device while new data (with same pattern) is "
+		 "written simultaneously.\n"
+		 "First this test will run a long sequential write scenario."
+		 "This first stage will write the pattern that will be read "
+		 "later. Second, sequential read requests will read and "
+		 "compare the same data. The second stage reads, will issue in "
+		 "Parallel to write requests with the same LBA and size.\n"
+		 "NOTE: The test requires a long timeout.\n";
+		break;
 	default:
 		test_description = "Unknown test";
 	}
@@ -244,6 +273,15 @@ static struct gendisk *ufs_test_get_rq_disk(void)
 	gd = sdkp->disk;
 exit:
 	return gd;
+}
+
+static int ufs_test_check_result(struct test_data *td)
+{
+	if (utd->test_stage == UFS_TEST_ERROR) {
+		test_pr_err("%s: An error occurred during the test.", __func__);
+		return TEST_FAILED;
+	}
+	return 0;
 }
 
 static bool ufs_write_read_completion(void)
@@ -324,6 +362,16 @@ static void long_seq_test_free_end_io_fn(struct request *rq, int err)
 	__blk_put_request(ptd->req_q, test_rq->rq);
 	spin_unlock_irq(&ptd->lock);
 
+	if (utd->test_stage == UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2 &&
+			rq_data_dir(rq) == READ &&
+			compare_buffer_to_pattern(test_rq)) {
+		/* if the pattern does not match */
+		test_pr_err("%s: read pattern not as expected", __func__);
+		utd->test_stage = UFS_TEST_ERROR;
+		check_test_completion();
+		return;
+	}
+
 	kfree(test_rq->bios_buffer);
 	kfree(test_rq);
 	utd->completed_req_count++;
@@ -333,25 +381,42 @@ static void long_seq_test_free_end_io_fn(struct request *rq, int err)
 			test_rq->req_id, err);
 
 	check_test_completion();
-
 }
 
+/**
+ * run_long_seq_test - main function for long sequential test
+ * @td - test specific data
+ *
+ * This function is used to fill up (and keep full) the test queue with
+ * requests. There are two scenarios this function works with:
+ * 1. Only read/write (STAGE_1 or no stage)
+ * 2. Simultaneous read and write to the same LBAs (STAGE_2)
+ */
 static int run_long_seq_test(struct test_data *td)
 {
 	int ret = 0;
 	int direction;
 	static unsigned int inserted_requests;
+	u32 sector;
 
 	BUG_ON(!td);
-	td->test_count = 0;
-	utd->completed_req_count = 0;
-	inserted_requests = 0;
+	sector = td->start_sector;
+	if (utd->test_stage != UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2) {
+		td->test_count = 0;
+		utd->completed_req_count = 0;
+		inserted_requests = 0;
+	}
 
-	if (td->test_info.testcase == UFS_TEST_LONG_SEQUENTIAL_READ)
+	/* Set the direction */
+	switch (td->test_info.testcase) {
+	case UFS_TEST_LONG_SEQUENTIAL_READ:
 		direction = READ;
-	else
+		break;
+	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
+	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
+	default:
 		direction = WRITE;
-
+	}
 	test_pr_info("%s: Adding %d requests, first req_id=%d",
 		     __func__, LONG_SEQ_TEST_NUM_REQS,
 		     td->wr_rd_next_req_id);
@@ -361,7 +426,7 @@ static int run_long_seq_test(struct test_data *td)
 		* since our requests come from a pool containing 128
 		* requests, we don't want to exhaust this quantity,
 		* therefore we add up to QUEUE_MAX_REQUESTS (which
-		* includes a safety margin) and then call the mmc layer
+		* includes a safety margin) and then call the block layer
 		* to fetch them
 		*/
 		if (td->test_count >= QUEUE_MAX_REQUESTS) {
@@ -369,15 +434,28 @@ static int run_long_seq_test(struct test_data *td)
 			continue;
 		}
 
-		ret = test_iosched_add_wr_rd_test_req(0, direction,
-			td->start_sector, TEST_MAX_BIOS_PER_REQ,
-			TEST_PATTERN_5A,
-			long_seq_test_free_end_io_fn);
+		ret = test_iosched_add_wr_rd_test_req(0, direction, sector,
+				TEST_MAX_BIOS_PER_REQ, TEST_PATTERN_5A,
+				long_seq_test_free_end_io_fn);
 		if (ret) {
 			test_pr_err("%s: failed to create request" , __func__);
 			break;
 		}
 		inserted_requests++;
+		if (utd->test_stage == UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2) {
+			ret = test_iosched_add_wr_rd_test_req(0, READ, sector,
+					TEST_MAX_BIOS_PER_REQ, TEST_PATTERN_5A,
+					long_seq_test_free_end_io_fn);
+			if (ret) {
+				test_pr_err("%s: failed to create request" ,
+						__func__);
+				break;
+			}
+			inserted_requests++;
+		}
+		/* NUM_OF_BLOCK * (BLOCK_SIZE / SECTOR_SIZE) */
+		sector += TEST_MAX_BIOS_PER_REQ * (PAGE_SIZE /
+				td->req_q->limits.logical_block_size);
 		td->test_info.test_byte_count +=
 			(TEST_MAX_BIOS_PER_REQ * sizeof(unsigned int) *
 			BIO_U32_SIZE);
@@ -391,7 +469,24 @@ static int run_long_seq_test(struct test_data *td)
 	return ret;
 }
 
-static int  long_seq_test_calc_throughput(struct test_data *td)
+static int run_mixed_long_seq_test(struct test_data *td)
+{
+	int ret;
+
+	utd->test_stage = UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE1;
+	ret = run_long_seq_test(td);
+	if (ret)
+		goto out;
+
+	test_pr_info("%s: First write iteration completed.", __func__);
+	test_pr_info("%s: Starting mixed write and reads sequence.", __func__);
+	utd->test_stage = UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2;
+	ret = run_long_seq_test(td);
+out:
+	return ret;
+}
+
+static int long_seq_test_calc_throughput(struct test_data *td)
 {
 	unsigned long fraction, integer;
 	unsigned long mtime, byte_count;
@@ -445,6 +540,7 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	utd->test_info.get_test_case_str_fn = ufs_test_get_test_case_str;
 	utd->test_info.testcase = test_case;
 	utd->test_info.get_rq_disk_fn = ufs_test_get_rq_disk;
+	utd->test_stage = DEFAULT;
 
 	switch (test_case) {
 	case UFS_TEST_WRITE_READ_TEST:
@@ -456,6 +552,13 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
 		utd->test_info.run_test_fn = run_long_seq_test;
 		utd->test_info.post_test_fn = long_seq_test_calc_throughput;
+		utd->test_info.check_test_result_fn = ufs_test_check_result;
+		break;
+	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
+		utd->test_info.timeout_msec = LONG_SEQUENTIAL_MIXED_TIMOUT_MS;
+		utd->test_info.run_test_fn = run_mixed_long_seq_test;
+		utd->test_info.post_test_fn = long_seq_test_calc_throughput;
+		utd->test_info.check_test_result_fn = ufs_test_check_result;
 		break;
 	default:
 		test_pr_err("%s: Unknown test-case: %d", __func__, test_case);
@@ -486,6 +589,7 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 TEST_OPS(write_read_test, WRITE_READ_TEST);
 TEST_OPS(long_sequential_read, LONG_SEQUENTIAL_READ);
 TEST_OPS(long_sequential_write, LONG_SEQUENTIAL_WRITE);
+TEST_OPS(long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
 
 static void ufs_test_debugfs_cleanup(void)
 {
@@ -531,6 +635,9 @@ static int ufs_test_debugfs_init(void)
 	if (ret)
 		goto exit_err;
 	ret = add_test(utd, long_sequential_write, LONG_SEQUENTIAL_WRITE);
+	if (ret)
+		goto exit_err;
+	ret = add_test(utd, long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
 	if (ret)
 		goto exit_err;
 

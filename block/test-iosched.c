@@ -448,7 +448,7 @@ static char *get_test_case_str(struct test_data *td)
  * Verify that the test request data buffer includes the expected
  * pattern
  */
-static int compare_buffer_to_pattern(struct test_request *test_rq)
+int compare_buffer_to_pattern(struct test_request *test_rq)
 {
 	int i = 0;
 	int num_of_dwords = test_rq->buf_size/sizeof(int);
