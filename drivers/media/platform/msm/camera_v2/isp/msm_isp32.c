@@ -860,6 +860,12 @@ static int msm_vfe32_get_stats_idx(enum msm_isp_stats_type stats_type)
 	}
 }
 
+static int msm_vfe32_stats_check_streams(
+	struct msm_vfe_stats_stream *stream_info)
+{
+	return 0;
+}
+
 static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
@@ -1130,6 +1136,7 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe32_get_stats_idx,
+			.check_streams = msm_vfe32_stats_check_streams,
 			.cfg_comp_mask = msm_vfe32_stats_cfg_comp_mask,
 			.cfg_wm_irq_mask = msm_vfe32_stats_cfg_wm_irq_mask,
 			.clear_wm_irq_mask = msm_vfe32_stats_clear_wm_irq_mask,

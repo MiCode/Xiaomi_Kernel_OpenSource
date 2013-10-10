@@ -157,6 +157,7 @@ struct msm_vfe_core_ops {
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx) (enum msm_isp_stats_type stats_type);
+	int (*check_streams) (struct msm_vfe_stats_stream *stream_info);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
