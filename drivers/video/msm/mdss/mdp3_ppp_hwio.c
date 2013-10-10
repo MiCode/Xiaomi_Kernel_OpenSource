@@ -354,6 +354,7 @@ bool check_if_rgb(int color)
 	case MDP_ARGB_8888:
 	case MDP_XRGB_8888:
 	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
 		rgb = true;
 	default:
 		break;

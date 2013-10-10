@@ -54,6 +54,7 @@ static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
 	[MDP_YCRYCB_H2V1] = true,
 	[MDP_Y_CBCR_H2V1] = true,
 	[MDP_Y_CRCB_H2V1] = true,
+	[MDP_BGRX_8888] = true,
 };
 
 #define MAX_LIST_WINDOW 16
