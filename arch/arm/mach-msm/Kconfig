@@ -318,6 +318,8 @@ config ARCH_APQ8084
 	select MSM_L2_SPM
 	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
 	select USB_ARCH_HAS_XHCI
 	select KRAIT_REGULATOR
 	select MSM_PIL
