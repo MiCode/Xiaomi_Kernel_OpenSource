@@ -6719,7 +6719,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = wcd9xxx_resmgr_init(&taiko->resmgr, codec, core_res, pdata,
-				  &taiko_reg_address, WCD9XXX_CDC_TYPE_TAIKO);
+				  &pdata->micbias, &taiko_reg_address,
+				  WCD9XXX_CDC_TYPE_TAIKO);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		goto err_init;

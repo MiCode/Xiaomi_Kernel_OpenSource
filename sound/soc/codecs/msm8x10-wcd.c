@@ -208,7 +208,7 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 	struct msm8x10_wcd_regulator *vreg,
 	const char *vreg_name, bool ondemand);
 static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
-	struct msm8x10_wcd_micbias_setting *micbias);
+	struct wcd9xxx_micbias_setting *micbias);
 static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
 	struct device *dev);
 
@@ -625,11 +625,22 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 }
 
 static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
-	struct msm8x10_wcd_micbias_setting *micbias)
+	struct wcd9xxx_micbias_setting *micbias)
 {
 	int ret = 0;
 	char prop_name[CODEC_DT_MAX_PROP_SIZE];
 	u32 prop_val;
+
+	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
+		 "qcom,cdc-micbias-ldoh-v");
+	ret = of_property_read_u32(dev->of_node, prop_name,
+				   &prop_val);
+	if (ret) {
+		dev_err(dev, "Looking up %s property in node %s failed",
+			prop_name, dev->of_node->full_name);
+		return -ENODEV;
+	}
+	micbias->ldoh_v = (u8) prop_val;
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
 		 "qcom,cdc-micbias-cfilt-mv");
@@ -2531,7 +2542,7 @@ static const struct msm8x10_wcd_reg_mask_val msm8x10_wcd_reg_defaults[] = {
 
 	/* Disable internal biasing path which can cause leakage */
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_BIAS_CURR_CTL_2, 0x04),
-	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_MICB_CFILT_1_VAL, 0x60),
+
 	/* Enable pulldown to reduce leakage */
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_MICB_1_CTL, 0x82),
 	MSM8X10_WCD_REG_VAL(MSM8X10_WCD_A_TX_COM_BIAS, 0xE0),
@@ -3055,6 +3066,41 @@ static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {
 	.hs_jack_switch = MSM8X10_WCD_IRQ_MBHC_HS_DET,
 };
 
+static int msm8x10_wcd_handle_pdata(struct snd_soc_codec *codec,
+	struct msm8x10_wcd_pdata *pdata)
+{
+	int k1, rc = 0;
+	struct msm8x10_wcd_priv *msm8x10_wcd_priv;
+
+	msm8x10_wcd_priv = snd_soc_codec_get_drvdata(codec);
+
+	/* Make sure settings are correct */
+	if (pdata->micbias.ldoh_v > WCD9XXX_LDOH_3P0_V ||
+	    pdata->micbias.bias1_cfilt_sel > WCD9XXX_CFILT1_SEL) {
+		rc = -EINVAL;
+		goto done;
+	}
+
+	/* figure out k value */
+	k1 = wcd9xxx_resmgr_get_k_val(&msm8x10_wcd_priv->resmgr,
+				 pdata->micbias.cfilt1_mv);
+	if (IS_ERR_VALUE(k1)) {
+		rc = -EINVAL;
+		goto done;
+	}
+
+	/* Set voltage level */
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_CFILT_1_VAL,
+			    0xFC, (k1 << 2));
+
+	/* update micbias capless mode */
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL, 0x10,
+			    pdata->micbias.bias1_cap_mode << 4);
+
+done:
+	return rc;
+}
+
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd_priv;
@@ -3091,12 +3137,18 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	INIT_DELAYED_WORK(&msm8x10_wcd_priv->hs_detect_work,
 			delayed_hs_detect_fn);
 
+	pdata = dev_get_platdata(msm8x10_wcd->dev);
+	if (!pdata) {
+		dev_err(msm8x10_wcd->dev, "%s: platform data not found\n",
+			__func__);
+	}
+
 	/* codec resmgr module init */
 	msm8x10_wcd = codec->control_data;
 	core_res = &msm8x10_wcd->wcd9xxx_res;
 	ret = wcd9xxx_resmgr_init(&msm8x10_wcd_priv->resmgr,
-				codec, core_res, NULL, NULL,
-				WCD9XXX_CDC_TYPE_HELICON);
+				codec, core_res, NULL, &pdata->micbias,
+				NULL, WCD9XXX_CDC_TYPE_HELICON);
 	if (ret) {
 		dev_err(codec->dev,
 				"%s: wcd9xxx init failed %d\n",
@@ -3107,16 +3159,6 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x10_wcd_bringup(codec);
 	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
-
-	pdata = dev_get_platdata(msm8x10_wcd->dev);
-	if (!pdata) {
-		dev_err(msm8x10_wcd->dev, "%s: platform data not found\n",
-			__func__);
-	}
-
-	/* update micbias capless mode */
-	snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL, 0x10,
-			    pdata->micbias.bias1_cap_mode << 4);
 
 	msm8x10_wcd_priv->on_demand_list[ON_DEMAND_CP].supply =
 				wcd8x10_wcd_codec_find_regulator(
@@ -3134,9 +3176,15 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 				codec, NULL, &mbhc_cb, &cdc_intr_ids,
 				HELICON_MCLK_CLK_9P6MHZ, true);
 	if (ret) {
-		pr_err("%s: Failed to initialize mbhc\n", __func__);
+		dev_err(msm8x10_wcd->dev, "%s: Failed to initialize mbhc\n",
+			__func__);
 		goto exit_probe;
 	}
+
+	/* Handle the Pdata */
+	ret = msm8x10_wcd_handle_pdata(codec, pdata);
+	if (IS_ERR_VALUE(ret))
+		dev_err(msm8x10_wcd->dev, "%s: Bad Pdata\n", __func__);
 
 	registered_codec = codec;
 	adsp_state_notifier =
@@ -3442,6 +3490,11 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 		dev_dbg(&client->dev, "%s:Platform data from device tree\n",
 			__func__);
 		pdata = msm8x10_wcd_populate_dt_pdata(&client->dev);
+		if (!pdata) {
+			dev_err(&client->dev, "%s: Failed to parse pdata from device tree\n",
+				__func__);
+			goto rtn;
+		}
 		client->dev.platform_data = pdata;
 	} else {
 		dev_dbg(&client->dev, "%s:Platform data from board file\n",

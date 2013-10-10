@@ -16,6 +16,7 @@
 #include <sound/jack.h>
 #include "wcd9xxx-mbhc.h"
 #include "wcd9xxx-resmgr.h"
+#include <linux/mfd/wcd9xxx/pdata.h>
 
 #define MSM8X10_WCD_NUM_REGISTERS	0x600
 #define MSM8X10_WCD_MAX_REGISTER	(MSM8X10_WCD_NUM_REGISTERS-1)
@@ -113,28 +114,6 @@ enum {
 	MSM8X10_WCD_NUM_IRQS,
 };
 
-/*
- * Each micbias can be assigned to one of three cfilters
- * Vbatt_min >= .15V + ldoh_v
- * ldoh_v >= .15v + cfiltx_mv
- * If ldoh_v = 1.95 160 mv < cfiltx_mv < 1800 mv
- * If ldoh_v = 2.35 200 mv < cfiltx_mv < 2200 mv
- * If ldoh_v = 2.75 240 mv < cfiltx_mv < 2600 mv
- * If ldoh_v = 2.85 250 mv < cfiltx_mv < 2700 mv
- */
-struct msm8x10_wcd_micbias_setting {
-	u8 ldoh_v;
-	u32 cfilt1_mv; /* in mv */
-	/*
-	 * Different WCD9xxx series codecs may not
-	 * have 4 mic biases. If a codec has fewer
-	 * mic biases, some of these properties will
-	 * not be used.
-	 */
-	u8 bias1_cfilt_sel;
-	u8 bias1_cap_mode;
-};
-
 struct msm8x10_wcd_ocp_setting {
 	unsigned int	use_pdata:1; /* 0 - use sys default as recommended */
 	unsigned int	num_attempts:4; /* up to 15 attempts */
@@ -158,7 +137,7 @@ struct msm8x10_wcd_pdata {
 	int num_irqs;
 	int reset_gpio;
 	void *msm8x10_wcd_ahb_base_vaddr;
-	struct msm8x10_wcd_micbias_setting micbias;
+	struct wcd9xxx_micbias_setting micbias;
 	struct msm8x10_wcd_ocp_setting ocp;
 	struct msm8x10_wcd_regulator regulator[MAX_REGULATOR];
 	u32 mclk_rate;
