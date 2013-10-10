@@ -62,22 +62,23 @@ static irqreturn_t emac_sgmii_interrupt(int irq, void *data);
 static irqreturn_t emac_wol_interrupt(int irq, void *data);
 
 /* EMAC HW has an issue with interrupt assignment because of which
-   following receive rss queue to interrupt mapping is used.
-   intr      rss-queue
-   core0       0, 1
-   core1       2
-   core2       3
-   core3       x (unsigned)
+   receive queue 1 is disabled and following receive rss queue to
+   interrupt mapping is used.
+   rss-queue   intr
+      0        core0
+      1        core3 (disabled)
+      2        core1
+      3        core2
 */
 static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 	{ 0, "emac_core0_irq", emac_interrupt, EMAC_INT_STATUS,
-	  EMAC_INT_MASK, IMR_NORMAL_MASK | RX_PKT_INT1, NULL, NULL },
+	  EMAC_INT_MASK, IMR_NORMAL_MASK | RX_PKT_INT0, NULL, NULL },
+	{ 0, "emac_core3_irq", emac_interrupt, EMAC_INT3_STATUS,
+	  EMAC_INT3_MASK, 0, NULL, NULL },
 	{ 0, "emac_core1_irq", emac_interrupt, EMAC_INT1_STATUS,
 	  EMAC_INT1_MASK, RX_PKT_INT2, NULL, NULL },
 	{ 0, "emac_core2_irq", emac_interrupt, EMAC_INT2_STATUS,
 	  EMAC_INT2_MASK, RX_PKT_INT3, NULL, NULL },
-	{ 0, "emac_core3_irq", emac_interrupt, EMAC_INT3_STATUS,
-	  EMAC_INT3_MASK, 0, NULL, NULL },
 	{ 0, "emac_wol_irq", emac_wol_interrupt, 0,
 	  0, 0, NULL, NULL },
 	{ 0, "emac_sgmii_irq", emac_sgmii_interrupt, 0,
@@ -1920,8 +1921,8 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 		adpt->rx_queue[3].consume_mask = RFD3_CONS_IDX_BMSK;
 		adpt->rx_queue[3].consume_shft = RFD3_CONS_IDX_SHFT;
 
-		adpt->rx_queue[3].intr = RX_PKT_INT3;
 		adpt->rx_queue[3].irq_info = &adpt->irq_info[3];
+		adpt->rx_queue[3].intr = adpt->irq_info[3].mask & ISR_RX_PKT;
 	case 3:
 		adpt->rx_queue[2].produce_reg = EMAC_MAILBOX_6;
 		adpt->rx_queue[2].produce_mask = RFD2_PROD_IDX_BMSK;
@@ -1935,8 +1936,8 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 		adpt->rx_queue[2].consume_mask = RFD2_CONS_IDX_BMSK;
 		adpt->rx_queue[2].consume_shft = RFD2_CONS_IDX_SHFT;
 
-		adpt->rx_queue[2].intr = RX_PKT_INT2;
 		adpt->rx_queue[2].irq_info = &adpt->irq_info[2];
+		adpt->rx_queue[2].intr = adpt->irq_info[2].mask & ISR_RX_PKT;
 	case 2:
 		adpt->rx_queue[1].produce_reg = EMAC_MAILBOX_5;
 		adpt->rx_queue[1].produce_mask = RFD1_PROD_IDX_BMSK;
@@ -1950,8 +1951,8 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 		adpt->rx_queue[1].consume_mask = RFD1_CONS_IDX_BMSK;
 		adpt->rx_queue[1].consume_shft = RFD1_CONS_IDX_SHFT;
 
-		adpt->rx_queue[1].intr = RX_PKT_INT1;
 		adpt->rx_queue[1].irq_info = &adpt->irq_info[1];
+		adpt->rx_queue[1].intr = adpt->irq_info[1].mask & ISR_RX_PKT;
 	case 1:
 		adpt->rx_queue[0].produce_reg = EMAC_MAILBOX_0;
 		adpt->rx_queue[0].produce_mask = RFD0_PROD_IDX_BMSK;
@@ -1965,8 +1966,8 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 		adpt->rx_queue[0].consume_mask = RFD0_CONS_IDX_BMSK;
 		adpt->rx_queue[0].consume_shft = RFD0_CONS_IDX_SHFT;
 
-		adpt->rx_queue[0].intr = RX_PKT_INT0;
 		adpt->rx_queue[0].irq_info = &adpt->irq_info[0];
+		adpt->rx_queue[0].intr = adpt->irq_info[0].mask & ISR_RX_PKT;
 		break;
 	}
 
