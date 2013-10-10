@@ -900,7 +900,6 @@ static int a2_mux_write_cmd(void *data, u32 len)
 		return -ENOMEM;
 	}
 	memcpy(skb_put(pkt->skb, len), data, len);
-	kfree(data);
 	pkt->len = len;
 	pkt->is_cmd = 1;
 	set_tx_timestamp(pkt);
@@ -1332,10 +1331,10 @@ int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
 		    hdr->magic_num, hdr->pkt_len);
 		rc = a2_mux_write_cmd((void *)hdr,
 				       sizeof(struct bam_mux_hdr));
+		kfree(hdr);
 		if (rc) {
 			IPAERR("%s: bam_mux_write_cmd failed %d; ch: %d\n",
 			       __func__, rc, lcid);
-			kfree(hdr);
 			return rc;
 		}
 		rc = a2_mux_add_hdr(lcid);
@@ -1402,10 +1401,10 @@ int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid)
 		IPADBG("convert to network order magic_num=%d, pkt_len=%d\n",
 		    hdr->magic_num, hdr->pkt_len);
 		rc = a2_mux_write_cmd((void *)hdr, sizeof(struct bam_mux_hdr));
+		kfree(hdr);
 		if (rc) {
 			IPAERR("%s: bam_mux_write_cmd failed %d; ch: %d\n",
 			       __func__, rc, lcid);
-			kfree(hdr);
 			return rc;
 		}
 
