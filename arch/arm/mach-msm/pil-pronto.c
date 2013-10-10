@@ -338,7 +338,7 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		pr_err("Ignoring wcnss bite irq, restart in progress\n");
 		return IRQ_HANDLED;
 	}
-	wcnss_pronto_log_debug_regs();
+	wcnss_log_debug_regs_on_bite();
 
 	drv->restart_inprogress = true;
 	restart_wcnss(drv);
