@@ -96,6 +96,8 @@ config ARCH_MPQ8092
 	select ARM_HAS_SG_CHAIN
 	select MSM_RPM_SMD
 	select MSM_RPM_REGULATOR_SMD
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V3
 
 config ARCH_FSM9900
 	bool "FSM9900"
