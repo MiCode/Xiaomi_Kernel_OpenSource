@@ -1333,48 +1333,79 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	return uuc_uah_iavg;
 }
 
-static void find_ocv_for_soc(struct qpnp_bms_chip *chip,
-				struct soc_params *params,
-				int batt_temp,
-				int shutdown_soc,
-				int *ret_ocv_uv)
+static s64 find_ocv_charge_for_soc(struct qpnp_bms_chip *chip,
+				struct soc_params *params, int soc)
 {
-	s64 ocv_charge_uah;
-	int pc, new_pc;
-	int batt_temp_degc = batt_temp / 10;
-	int ocv_uv;
+	return div_s64((s64)soc * (params->fcc_uah - params->uuc_uah),
+			100) + params->cc_uah + params->uuc_uah;
+}
 
-	ocv_charge_uah = (s64)shutdown_soc
-				* (params->fcc_uah - params->uuc_uah);
-	ocv_charge_uah = div_s64(ocv_charge_uah, 100)
-				+ params->cc_uah + params->uuc_uah;
+static int find_pc_for_soc(struct qpnp_bms_chip *chip,
+			struct soc_params *params, int soc)
+{
+	int ocv_charge_uah = find_ocv_charge_for_soc(chip, params, soc);
+	int pc;
+
 	pc = DIV_ROUND_CLOSEST((int)ocv_charge_uah * 100, params->fcc_uah);
 	pc = clamp(pc, 0, 100);
+	pr_debug("soc = %d, fcc = %d uuc = %d rc = %d pc = %d\n",
+			soc, params->fcc_uah, params->uuc_uah,
+			ocv_charge_uah, pc);
+	return pc;
+}
 
-	ocv_uv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
+#define SIGN(x) ((x) < 0 ? -1 : 1)
+#define UV_PER_SPIN 50000
+static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
+{
+	int new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv_mv;
+	int delta_mv = 5;
+	int max_spin_count;
+	int count = 0;
+	int sign, new_sign;
 
-	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
-					shutdown_soc, params->fcc_uah,
-					params->uuc_uah, (int)ocv_charge_uah,
-					pc, ocv_uv);
-	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_uv);
-	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_uv);
+	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
 
-	while (abs(new_pc - pc) > 1) {
-		int delta_mv = 5;
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
+	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
+						/ UV_PER_SPIN;
+	sign = SIGN(pc - new_pc);
 
-		if (new_pc > pc)
-			delta_mv = -1 * delta_mv;
+	while (abs(new_pc - pc) != 0 && count < max_spin_count) {
+		/*
+		 * If the newly interpolated pc is larger than the lookup pc,
+		 * the ocv should be reduced and vice versa
+		 */
+		new_sign = SIGN(pc - new_pc);
+		/*
+		 * If the sign has changed, then we have passed the lookup pc.
+		 * reduce the ocv step size to get finer results.
+		 *
+		 * If we have already reduced the ocv step size and still
+		 * passed the lookup pc, just stop and use the current ocv.
+		 * This can only happen if the batterydata profile is
+		 * non-monotonic anyways.
+		 */
+		if (new_sign != sign) {
+			if (delta_mv > 1)
+				delta_mv = 1;
+			else
+				break;
+		}
+		sign = new_sign;
 
-		ocv_uv = ocv_uv + delta_mv;
+		ocv_mv = ocv_mv + delta_mv * sign;
 		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
-				batt_temp_degc, ocv_uv);
+				batt_temp_degc, ocv_mv);
 		pr_debug("test revlookup pc = %d for ocv = %d\n",
-				new_pc, ocv_uv);
+			new_pc, ocv_mv);
+		count++;
 	}
 
-	*ret_ocv_uv = ocv_uv * 1000;
-	params->ocv_charge_uah = (int)ocv_charge_uah;
+	return ocv_mv * 1000;
 }
 
 static int get_current_time(unsigned long *now_tm_sec)
@@ -1834,7 +1865,6 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 				int vbat_uv, int ibat_ua, int batt_temp)
 {
 	int chg_soc, soc_ibat, batt_terminal_uv, weight_ibat, weight_cc;
-	int new_ocv_uv;
 
 	batt_terminal_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
 
@@ -1888,9 +1918,10 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	if (chg_soc > chip->prev_chg_soc) {
 		chip->prev_chg_soc = chg_soc;
 
-		find_ocv_for_soc(chip, params, batt_temp, chg_soc, &new_ocv_uv);
-		chip->charging_adjusted_ocv = new_ocv_uv;
-		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n", new_ocv_uv,
+		chip->charging_adjusted_ocv = find_ocv_for_pc(chip, batt_temp,
+				find_pc_for_soc(chip, params, chg_soc));
+		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n",
+				chip->charging_adjusted_ocv,
 				chip->prev_chg_soc);
 	}
 
@@ -2172,7 +2203,8 @@ static void configure_soc_wakeup(struct qpnp_bms_chip *chip,
 	cc_raw_64 = convert_cc_uah_to_raw(chip, target_cc_uah);
 	cc_raw = convert_s64_to_s36(cc_raw_64);
 
-	find_ocv_for_soc(chip, params, batt_temp, target_soc, &target_ocv_uv);
+	target_ocv_uv = find_ocv_for_pc(chip, batt_temp,
+				find_pc_for_soc(chip, params, target_soc));
 	ocv_raw = convert_vbatt_uv_to_raw(chip, target_ocv_uv);
 
 	/*
@@ -2202,8 +2234,7 @@ static int calculate_raw_soc(struct qpnp_bms_chip *chip,
 					struct soc_params *params,
 					int batt_temp)
 {
-	int soc, new_ocv_uv;
-	int remaining_usable_charge_uah;
+	int soc, remaining_usable_charge_uah;
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = params->ocv_charge_uah
@@ -2220,8 +2251,10 @@ static int calculate_raw_soc(struct qpnp_bms_chip *chip,
 		 * in a bad soc. Adjust ocv to get 0 soc
 		 */
 		pr_debug("soc is %d, adjusting pon ocv to make it 0\n", soc);
-		find_ocv_for_soc(chip, params, batt_temp, 0, &new_ocv_uv);
-		chip->last_ocv_uv = new_ocv_uv;
+		chip->last_ocv_uv = find_ocv_for_pc(chip, batt_temp,
+				find_pc_for_soc(chip, params, 0));
+		params->ocv_charge_uah = find_ocv_charge_for_soc(chip,
+				params, 0);
 
 		remaining_usable_charge_uah = params->ocv_charge_uah
 					- params->cc_uah
@@ -2259,7 +2292,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 {
 	struct soc_params params;
 	int soc, previous_soc, shutdown_soc, new_calculated_soc;
-	int remaining_usable_charge_uah, new_ocv_uv;
+	int remaining_usable_charge_uah;
 
 	calculate_soc_params(chip, raw, &params, batt_temp);
 	if (!is_battery_present(chip)) {
@@ -2290,9 +2323,10 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 		 */
 		pr_debug("soc = %d before forcing shutdown_soc = %d\n",
 							soc, shutdown_soc);
-		find_ocv_for_soc(chip, &params, batt_temp,
-					shutdown_soc, &new_ocv_uv);
-		chip->last_ocv_uv = new_ocv_uv;
+		chip->last_ocv_uv = find_ocv_for_pc(chip, batt_temp,
+				find_pc_for_soc(chip, &params, shutdown_soc));
+		params.ocv_charge_uah = find_ocv_charge_for_soc(chip,
+				&params, shutdown_soc);
 
 		remaining_usable_charge_uah = params.ocv_charge_uah
 					- params.cc_uah
@@ -4224,7 +4258,7 @@ error_read:
 	return rc;
 }
 
-static int 
+static int
 qpnp_bms_remove(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip = dev_get_drvdata(&spmi->dev);
