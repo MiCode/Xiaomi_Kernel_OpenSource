@@ -626,6 +626,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		stats.byte_count = atomic_read(&audio->out_bytes);
 		if (copy_to_user((void*) arg, &stats, sizeof(stats)))
 			return -EFAULT;
