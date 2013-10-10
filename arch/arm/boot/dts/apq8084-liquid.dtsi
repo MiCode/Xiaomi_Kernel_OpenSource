@@ -264,12 +264,26 @@
 	status = "ok";
 };
 
+&vph_pwr_vreg {
+	status = "ok";
+};
+
 &slim_msm {
 	taiko_codec {
 		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
+
+		/*
+		 * Liquid has external spkrdrv supply. Give a dummy supply
+		 * to make codec driver happy.
+		 */
+		cdc-vdd-spkdrv-supply = <&vph_pwr_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <0 0>;
+		qcom,cdc-vdd-spkdrv-current = <0>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 	};
 };
 
