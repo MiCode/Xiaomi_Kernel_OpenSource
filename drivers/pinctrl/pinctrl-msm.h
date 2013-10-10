@@ -18,6 +18,7 @@
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/platform_device.h>
 
 /**
  * struct msm_pin_group: group of pins having the same pinmux function.
@@ -60,6 +61,7 @@ struct msm_pmx_funcs {
  * @dev: TLMM device.
  * @device_node: device tree node of interrupt controller.
  * @pinfo: pintype information.
+ * @handler: irq handler for given pintype interrupt controller
  */
 struct msm_tlmm_irq_chip {
 	int irq;
@@ -77,6 +79,7 @@ struct msm_tlmm_irq_chip {
 	struct device *dev;
 	struct device_node *node;
 	void *pinfo;
+	irqreturn_t (*handler)(int irq, struct msm_tlmm_irq_chip *ic);
 };
 
 /**
@@ -140,7 +143,22 @@ struct msm_pindesc {
 	char name[20];
 };
 
-/* TLMM version specific data */
-extern struct msm_tlmm_pintype tlmm_v3_pintypes;
+/**
+ * struct msm_tlmm_desc: descriptor for the TLMM hardware block
+ * @base: base address of tlmm desc.
+ * @irq: summary irq number for tlmm block. Must be > 0 if present.
+ * @num_pintypes: Number of pintypes on the tlmm block for a given SOC.
+ * @pintypes: pintypes supported on a given TLMM block for a given SOC.
+ */
+struct msm_tlmm_desc {
+	void __iomem *base;
+	int irq;
+	unsigned int num_pintypes;
+	struct msm_pintype_info *pintypes;
+};
+
+/* Common probe for all TLMM */
+int msm_pinctrl_probe(struct platform_device *pdev,
+					struct msm_tlmm_desc *tlmm_info);
 #endif
 
