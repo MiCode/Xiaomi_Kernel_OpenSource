@@ -718,12 +718,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			for (i = 0; i < fmt->num_planes; ++i) {
 				f->fmt.pix_mp.plane_fmt[i].sizeimage =
-					fmt->get_frame_size(i,
-						inst->capability.height.max,
-						inst->capability.width.max);
-				inst->bufq[OUTPUT_PORT].
-					vb2_bufq.plane_sizes[i] =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+				inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[i];
 			}
 		} else {
 			switch (fmt->fourcc) {
@@ -840,6 +835,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int ret = 0;
 	int i;
 	struct hal_buffer_requirements *buff_req_buffer;
+	int max_input_size = 0;
+
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
@@ -928,9 +925,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
 		frame_sz.height = inst->prop.height[OUTPUT_PORT];
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
-		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0, inst->capability.height.max,
+
+		max_input_size = fmt->get_frame_size(0,
+					inst->capability.height.max,
 					inst->capability.width.max);
+
+		if (f->fmt.pix_mp.plane_fmt[0].sizeimage > max_input_size)
+			f->fmt.pix_mp.plane_fmt[0].sizeimage = max_input_size;
+
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[i] =
