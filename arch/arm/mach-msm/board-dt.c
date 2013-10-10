@@ -34,7 +34,17 @@ extern int gic_of_init(struct device_node *node, struct device_node *parent);
 
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
+#ifdef CONFIG_USE_PINCTRL_IRQ
+	{
+		.compatible = "qcom,msm-tlmmv3-gp-intc",
+		.data = msm_tlmm_v3_of_irq_init,
+	},
+#else
+	{
+		.compatible = "qcom,msm-gpio",
+		.data = msm_gpio_of_init,
+	},
+#endif
 	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
 	{ .compatible = "qcom,wcd9xxx-irq", .data = wcd9xxx_irq_of_init, },
 	{}

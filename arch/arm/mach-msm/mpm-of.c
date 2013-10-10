@@ -741,7 +741,11 @@ void __init of_mpm_init(struct device_node *node)
 			"qcom,gpio-parent",
 			"qcom,gpio-map",
 			"gpio",
+	#ifdef CONFIG_USE_PINCTRL_IRQ
+			&mpm_tlmm_irq_extn,
+	#else
 			&msm_gpio_irq_extn,
+	#endif
 			mpm_irq_domain_legacy_size,
 		},
 	};

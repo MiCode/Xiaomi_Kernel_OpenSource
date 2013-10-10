@@ -2839,6 +2839,15 @@ config MSM_RTB
 	  region. This is designed to aid in debugging reset cases where the
 	  caches may not be flushed before the target resets.
 
+config USE_PINCTRL_IRQ
+	default n
+	bool "Use Pinctrl IRQ chip"
+	help
+	 Use Irq chip with Pinctrl subsystem instead of the irq chip
+	 associated with gpio lib. The pinctrl irq chip allows the pin
+	 attributes to be configured, prior to configuring them as
+	 interrupt triggers.
+
 config MSM_RTB_SEPARATE_CPUS
 	bool "Separate entries for each cpu"
 	depends on MSM_RTB
