@@ -23,35 +23,6 @@
 #define MAX_IB_OBJS 1000
 #define NUM_SET_DRAW_GROUPS 32
 
-/*
- * This structure keeps track of type0 writes to VSC_PIPE_DATA_ADDRESS_x and
- * VSC_PIPE_DATA_LENGTH_x. When a draw initator is called these registers
- * point to buffers that we need to freeze for a snapshot
- */
-
-struct ib_vsc_pipe {
-	unsigned int base;
-	unsigned int size;
-};
-
-/*
- * This struct keeps track of type0 writes to VFD_FETCH_INSTR_0_X and
- * VFD_FETCH_INSTR_1_X registers. When a draw initator is called the addresses
- * and sizes in these registers point to VBOs that we need to freeze for a
- * snapshot
- */
-
-struct ib_vbo {
-	unsigned int base;
-	unsigned int stride;
-};
-
-/*
- * struct set_draw_state -  Holds information from a set draw state packet
- * @cmd_stream_addr: An indirect address to list of PM4 commands
- * @cmd_stream_dwords: Number of Dwords at location pointed by cmd_stream_addr
- *
- */
 struct set_draw_state {
 	unsigned int cmd_stream_addr;
 	unsigned int cmd_stream_dwords;
@@ -59,31 +30,8 @@ struct set_draw_state {
 
 /* List of variables used when parsing an IB */
 struct ib_parser_variables {
-	struct ib_vsc_pipe vsc_pipe[8];
-	/*
-	 * This is the cached value of type0 writes to the VSC_SIZE_ADDRESS
-	 * which contains the buffer address of the visiblity stream size
-	 * buffer during a binning pass
-	 */
-	unsigned int vsc_size_address;
-	struct ib_vbo vbo[16];
-	/* This is the cached value of type0 writes to VFD_INDEX_MAX. */
-	unsigned int vfd_index_max;
-	/*
-	 * This is the cached value of type0 writes to VFD_CONTROL_0 which
-	 * tells us how many VBOs are active when the draw initator is called
-	 */
-	unsigned int vfd_control_0;
-	/* Cached value of type0 writes to SP_VS_PVT_MEM_ADDR and
-	 * SP_FS_PVT_MEM_ADDR. This is a buffer that contains private
-	 * stack information for the shader
-	 */
-	unsigned int sp_vs_pvt_mem_addr;
-	unsigned int sp_fs_pvt_mem_addr;
-	/* Cached value of SP_VS_OBJ_START_REG and SP_FS_OBJ_START_REG. */
-	unsigned int sp_vs_obj_start_reg;
-	unsigned int sp_fs_obj_start_reg;
-
+	/* List of registers containing addresses and their sizes */
+	unsigned int cp_addr_regs[ADRENO_CP_ADDR_MAX];
 	/* 32 groups of command streams in set draw state packets */
 	struct set_draw_state set_draw_groups[NUM_SET_DRAW_GROUPS];
 };
@@ -398,109 +346,70 @@ static int ib_add_type0_entries(struct kgsl_device *device,
 	phys_addr_t ptbase, struct adreno_ib_object_list *ib_obj_list,
 	struct ib_parser_variables *ib_parse_vars)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret = 0;
 	int i;
+	int vfd_end;
+	unsigned int mask;
 	/* First up the visiblity stream buffer */
-
-	for (i = 0; i < ARRAY_SIZE(ib_parse_vars->vsc_pipe); i++) {
-		if (ib_parse_vars->vsc_pipe[i].base != 0 &&
-			ib_parse_vars->vsc_pipe[i].size != 0) {
+	if (adreno_is_a4xx(adreno_dev))
+		mask = 0xFFFFFFFC;
+	else
+		mask = 0xFFFFFFFF;
+	for (i = ADRENO_CP_ADDR_VSC_PIPE_DATA_ADDRESS_0;
+		i < ADRENO_CP_ADDR_VSC_PIPE_DATA_LENGTH_7; i++) {
+		if (ib_parse_vars->cp_addr_regs[i]) {
 			ret = adreno_ib_add_range(device, ptbase,
-				ib_parse_vars->vsc_pipe[i].base,
-				ib_parse_vars->vsc_pipe[i].size,
+				ib_parse_vars->cp_addr_regs[i] & mask,
+				ib_parse_vars->cp_addr_regs[i + 1],
 				SNAPSHOT_GPU_OBJECT_GENERIC,
 				ib_obj_list);
 			if (ret < 0)
 				return ret;
-			ib_parse_vars->vsc_pipe[i].size = 0;
-			ib_parse_vars->vsc_pipe[i].base = 0;
+			ib_parse_vars->cp_addr_regs[i] = 0;
+			ib_parse_vars->cp_addr_regs[i + 1] = 0;
+			i++;
 		}
 	}
 
-	/* Next the visibility stream size buffer */
-
-	if (ib_parse_vars->vsc_size_address) {
-		ret = adreno_ib_add_range(device, ptbase,
-			ib_parse_vars->vsc_size_address, 32,
-			SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-		if (ret < 0)
-			return ret;
-		ib_parse_vars->vsc_size_address = 0;
-	}
-
-	/* Next private shader buffer memory */
-	if (ib_parse_vars->sp_vs_pvt_mem_addr) {
-		ret = adreno_ib_add_range(device, ptbase,
-			ib_parse_vars->sp_vs_pvt_mem_addr, 8192,
-			SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-		if (ret < 0)
-			return ret;
-
-		ib_parse_vars->sp_vs_pvt_mem_addr = 0;
-	}
-
-	if (ib_parse_vars->sp_fs_pvt_mem_addr) {
-		ret = adreno_ib_add_range(device, ptbase,
-				ib_parse_vars->sp_fs_pvt_mem_addr, 8192,
-				SNAPSHOT_GPU_OBJECT_GENERIC,
-				ib_obj_list);
-		if (ret < 0)
-			return ret;
-
-		ib_parse_vars->sp_fs_pvt_mem_addr = 0;
-	}
-
-	if (ib_parse_vars->sp_vs_obj_start_reg) {
-		ret = adreno_ib_add_range(device, ptbase,
-			ib_parse_vars->sp_vs_obj_start_reg & 0xFFFFFFE0,
-			0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-		if (ret < 0)
-			return -ret;
-		ib_parse_vars->sp_vs_obj_start_reg = 0;
-	}
-
-	if (ib_parse_vars->sp_fs_obj_start_reg) {
-		ret = adreno_ib_add_range(device, ptbase,
-			ib_parse_vars->sp_fs_obj_start_reg & 0xFFFFFFE0,
-			0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-		if (ret < 0)
-			return ret;
-		ib_parse_vars->sp_fs_obj_start_reg = 0;
-	}
-
-	/* Finally: VBOs */
-
-	/* The number of active VBOs is stored in VFD_CONTROL_O[31:27] */
-	for (i = 0; i < (ib_parse_vars->vfd_control_0) >> 27; i++) {
-		int size;
-
-		/*
-		 * The size of the VBO is the stride stored in
-		 * VFD_FETCH_INSTR_0_X.BUFSTRIDE * VFD_INDEX_MAX. The base
-		 * is stored in VFD_FETCH_INSTR_1_X
-		 */
-
-		if (ib_parse_vars->vbo[i].base != 0) {
-			size = ib_parse_vars->vbo[i].stride *
-					ib_parse_vars->vfd_index_max;
-
+	vfd_end = adreno_is_a4xx(adreno_dev) ?
+		ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_31 :
+		ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15;
+	for (i = ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_0;
+		i <= vfd_end; i++) {
+		if (ib_parse_vars->cp_addr_regs[i]) {
 			ret = adreno_ib_add_range(device, ptbase,
-				ib_parse_vars->vbo[i].base,
-				0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+				ib_parse_vars->cp_addr_regs[i],
+				0, SNAPSHOT_GPU_OBJECT_GENERIC,
+				ib_obj_list);
 			if (ret < 0)
 				return ret;
+			ib_parse_vars->cp_addr_regs[i] = 0;
 		}
-
-		ib_parse_vars->vbo[i].base = 0;
-		ib_parse_vars->vbo[i].stride = 0;
 	}
 
-	ib_parse_vars->vfd_control_0 = 0;
-	ib_parse_vars->vfd_index_max = 0;
-
+	if (ib_parse_vars->cp_addr_regs[ADRENO_CP_ADDR_VSC_SIZE_ADDRESS]) {
+		ret = adreno_ib_add_range(device, ptbase,
+			ib_parse_vars->cp_addr_regs[
+				ADRENO_CP_ADDR_VSC_SIZE_ADDRESS] & mask,
+			32, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		if (ret < 0)
+			return ret;
+		ib_parse_vars->cp_addr_regs[
+			ADRENO_CP_ADDR_VSC_SIZE_ADDRESS] = 0;
+	}
+	mask = 0xFFFFFFE0;
+	for (i = ADRENO_CP_ADDR_SP_VS_PVT_MEM_ADDR;
+		i <= ADRENO_CP_ADDR_SP_FS_OBJ_START_REG; i++) {
+		ret = adreno_ib_add_range(device, ptbase,
+			ib_parse_vars->cp_addr_regs[i] & mask,
+			0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		if (ret < 0)
+			return ret;
+		ib_parse_vars->cp_addr_regs[i] = 0;
+	}
 	return ret;
 }
-
 /*
  * The DRAW_INDX opcode sends a draw initator which starts a draw operation in
  * the GPU, so this is the point where all the registers and buffers become
@@ -594,86 +503,73 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	int size = type0_pkt_size(*ptr);
 	int offset = type0_pkt_offset(*ptr);
 	int i;
+	int reg_index;
 
 	for (i = 0; i < size; i++, offset++) {
-
 		/* Visiblity stream buffer */
-
-		if (offset >= adreno_getreg(adreno_dev,
-				ADRENO_REG_VSC_PIPE_DATA_ADDRESS_0) &&
-			offset <= adreno_getreg(adreno_dev,
-					ADRENO_REG_VSC_PIPE_DATA_LENGTH_7)) {
-			int index = offset - adreno_getreg(adreno_dev,
-					ADRENO_REG_VSC_PIPE_DATA_ADDRESS_0);
-
-			/* Each bank of address and length registers are
-			 * interleaved with an empty register:
-			 *
-			 * address 0
-			 * length 0
-			 * empty
-			 * address 1
-			 * length 1
-			 * empty
-			 * ...
-			 */
-
-			if ((index % 3) == 0)
-				ib_parse_vars->vsc_pipe[index / 3].base =
+		if (offset >= adreno_cp_parser_getreg(adreno_dev,
+				ADRENO_CP_ADDR_VSC_PIPE_DATA_ADDRESS_0) &&
+			offset <= adreno_cp_parser_getreg(adreno_dev,
+				ADRENO_CP_ADDR_VSC_PIPE_DATA_LENGTH_7)) {
+			reg_index = adreno_cp_parser_regindex(
+					adreno_dev, offset,
+					ADRENO_CP_ADDR_VSC_PIPE_DATA_ADDRESS_0,
+					ADRENO_CP_ADDR_VSC_PIPE_DATA_LENGTH_7);
+			if (reg_index > 0)
+				ib_parse_vars->cp_addr_regs[reg_index] =
 								ptr[i + 1];
-			else if ((index % 3) == 1)
-				ib_parse_vars->vsc_pipe[index / 3].size =
+			continue;
+		} else if ((offset >= adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_0)) &&
+			(offset <= adreno_cp_parser_getreg(adreno_dev,
+				ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15))) {
+			reg_index = adreno_cp_parser_regindex(adreno_dev,
+					offset,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_0,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15);
+			if (reg_index > 0)
+				ib_parse_vars->cp_addr_regs[reg_index] =
 								ptr[i + 1];
-		} else if ((offset >= adreno_getreg(adreno_dev,
-					ADRENO_REG_VFD_FETCH_INSTR_0_0)) &&
-			(offset <= adreno_getreg(adreno_dev,
-					ADRENO_REG_VFD_FETCH_INSTR_1_F))) {
-			int index = offset -
-				adreno_getreg(adreno_dev,
-					ADRENO_REG_VFD_FETCH_INSTR_0_0);
-
-			/*
-			 * FETCH_INSTR_0_X and FETCH_INSTR_1_X banks are
-			 * interleaved as above but without the empty register
-			 * in between
-			 */
-
-			if ((index % 2) == 0)
-				ib_parse_vars->vbo[index >> 1].stride =
-					(ptr[i + 1] >> 7) & 0x1FF;
-			else
-				ib_parse_vars->vbo[index >> 1].base =
-					ptr[i + 1];
+			continue;
+		} else if ((offset >= adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_16)) &&
+			(offset <= adreno_cp_parser_getreg(adreno_dev,
+				ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_31))) {
+			reg_index = adreno_cp_parser_regindex(adreno_dev,
+					offset,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_16,
+					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_31);
+			if (reg_index > 0)
+				ib_parse_vars->cp_addr_regs[reg_index] =
+								ptr[i + 1];
+			continue;
 		} else {
-			/*
-			 * Cache various support registers for calculating
-			 * buffer sizes
-			 */
-
 			if (offset ==
-				adreno_getreg(adreno_dev,
-						ADRENO_REG_VFD_CONTROL_0))
-				ib_parse_vars->vfd_control_0 = ptr[i + 1];
-			else if (offset ==
-				adreno_getreg(adreno_dev,
-						ADRENO_REG_VFD_INDEX_MAX))
-				ib_parse_vars->vfd_index_max = ptr[i + 1];
-			else if (offset ==
-				adreno_getreg(adreno_dev,
-						ADRENO_REG_VSC_SIZE_ADDRESS))
-				ib_parse_vars->vsc_size_address = ptr[i + 1];
-			else if (offset == adreno_getreg(adreno_dev,
-					ADRENO_REG_SP_VS_PVT_MEM_ADDR_REG))
-				ib_parse_vars->sp_vs_pvt_mem_addr = ptr[i + 1];
-			else if (offset == adreno_getreg(adreno_dev,
-					ADRENO_REG_SP_FS_PVT_MEM_ADDR_REG))
-				ib_parse_vars->sp_fs_pvt_mem_addr = ptr[i + 1];
-			else if (offset == adreno_getreg(adreno_dev,
-					ADRENO_REG_SP_VS_OBJ_START_REG))
-				ib_parse_vars->sp_vs_obj_start_reg = ptr[i + 1];
-			else if (offset == adreno_getreg(adreno_dev,
-					ADRENO_REG_SP_FS_OBJ_START_REG))
-				ib_parse_vars->sp_fs_obj_start_reg = ptr[i + 1];
+				adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_VSC_SIZE_ADDRESS))
+				ib_parse_vars->cp_addr_regs[
+					ADRENO_CP_ADDR_VSC_SIZE_ADDRESS] =
+						ptr[i + 1];
+			else if (offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_SP_VS_PVT_MEM_ADDR))
+				ib_parse_vars->cp_addr_regs[
+					ADRENO_CP_ADDR_SP_VS_PVT_MEM_ADDR] =
+						ptr[i + 1];
+			else if (offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_SP_FS_PVT_MEM_ADDR))
+				ib_parse_vars->cp_addr_regs[
+					ADRENO_CP_ADDR_SP_FS_PVT_MEM_ADDR] =
+						ptr[i + 1];
+			else if (offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_SP_VS_OBJ_START_REG))
+				ib_parse_vars->cp_addr_regs[
+					ADRENO_CP_ADDR_SP_VS_OBJ_START_REG] =
+						ptr[i + 1];
+			else if (offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_ADDR_SP_FS_OBJ_START_REG))
+				ib_parse_vars->cp_addr_regs[
+					ADRENO_CP_ADDR_SP_FS_OBJ_START_REG] =
+						ptr[i + 1];
 		}
 	}
 	ib_add_type0_entries(device, ptbase, ib_obj_list,
