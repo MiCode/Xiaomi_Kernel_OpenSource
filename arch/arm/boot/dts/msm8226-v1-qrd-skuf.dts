@@ -20,3 +20,10 @@
 	qcom,board-id = <11 2>;
 };
 
+&pm8226_bms {
+        qcom,use-external-rsense;
+};
+
+&pm8226_iadc {
+        qcom,rsense = <10000000>;
+};
