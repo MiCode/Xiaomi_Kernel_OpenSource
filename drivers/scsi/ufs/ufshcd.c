@@ -1932,7 +1932,7 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	int ret;
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
-		return 0;
+		msleep(1000);
 
 	/* Get the connected lane count */
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &lanes[RX]);
@@ -2014,6 +2014,9 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 			hba->vops->pwr_change_notify(hba,
 				POST_CHANGE, NULL, &dev_required_params);
 	}
+
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
+		msleep(1000);
 
 	return ret;
 }
