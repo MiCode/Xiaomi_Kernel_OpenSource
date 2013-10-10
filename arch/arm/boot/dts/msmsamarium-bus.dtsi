@@ -40,6 +40,7 @@
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <7>;
+			qcom,hw-sel = "NoC";
 		};
 
 		mas-mdp-port0 {
@@ -52,6 +53,7 @@
 			qcom,qport = <1>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
+			qcom,hw-sel = "NoC";
 		};
 
 		mas-video-p0 {
@@ -64,6 +66,7 @@
 			qcom,ws = <10000>;
 			qcom,qport = <4>;
 			qcom,mas-hw-id = <9>;
+			qcom,hw-sel = "NoC";
 		};
 
 		mas-vfe {
@@ -76,6 +79,7 @@
 			qcom,ws = <10000>;
 			qcom,qport = <6>;
 			qcom,mas-hw-id = <11>;
+			qcom,hw-sel = "NoC";
 		};
 
 		fab-cnoc {
@@ -1144,24 +1148,14 @@
 			qcom,masterp = <2>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "BIMC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,ws = <10000>;
 			qcom,qport = <2>;
 			qcom,mas-hw-id = <6>;
-		};
-
-		fab-mmss-noc {
-			cell-id = <2048>;
-			label = "fab_mmss_noc";
-			qcom,gateway;
-			qcom,masterp = <3>;
-			qcom,qport = <3>;
-			qcom,buswidth = <8>;
-			qcom,ws = <10000>;
-			qcom,mas-hw-id = <2>;
-			qcom,hw-sel = "BIMC";
-			qcom,mode = "Bypass";
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,prio-lvl = <0>;
 		};
 
 		fab-snoc {
@@ -1177,6 +1171,19 @@
 			qcom,slv-hw-id = <2>;
 			qcom,mode = "Bypass";
 			qcom,hw-sel = "RPM";
+		};
+
+		fab-mmss-noc {
+			cell-id = <2048>;
+			label = "fab_mmss_noc";
+			qcom,gateway;
+			qcom,masterp = <3>;
+			qcom,qport = <3>;
+			qcom,buswidth = <8>;
+			qcom,ws = <10000>;
+			qcom,mas-hw-id = <2>;
+			qcom,hw-sel = "BIMC";
+			qcom,mode = "Bypass";
 		};
 
 		slv-ebi-ch0 {
