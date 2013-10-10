@@ -12,16 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ac-pm8941.dtsi"
-/include/ "msm8974pro-ac-mtp.dtsi"
+/include/ "msm8974pro-ac-pma8084-pm8941.dtsi"
+/include/ "msm8974pro-pma8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro-AC MTP";
+	model = "Qualcomm MSM 8974Pro-AC + PMA8084 MTP";
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
-	qcom,msm-id = <194 8 0x10000>,
-		      <210 8 0x10000>,
-		      <213 8 0x10000>,
-		      <216 8 0x10000>;
+	qcom,board-id = <8 1>;
 };
 
 &pma8084_vadc {

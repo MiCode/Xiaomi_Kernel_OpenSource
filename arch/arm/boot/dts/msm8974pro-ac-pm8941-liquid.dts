@@ -12,21 +12,11 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ab.dtsi"
-/include/ "msm8974-mtp.dtsi"
+/include/ "msm8974pro-ac-pm8941.dtsi"
+/include/ "msm8974-liquid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro MTP";
-	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
-	qcom,msm-id = <209 8 0x10000>,
-		      <211 8 0x10000>,
-		      <212 8 0x10000>,
-		      <214 8 0x10000>,
-		      <215 8 0x10000>,
-		      <217 8 0x10000>,
-		      <218 8 0x10000>;
-};
-
-&sdhc_1 {
-	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
+	model = "Qualcomm MSM 8974Pro-AC LIQUID";
+	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
+	qcom,board-id = <9 0>;
 };

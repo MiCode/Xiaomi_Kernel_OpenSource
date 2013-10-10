@@ -10,19 +10,15 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msm8974pro-ab.dtsi"
-/include/ "msm8974-fluid.dtsi"
+/include/ "msm8974pro-pma8084.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro FLUID";
-	compatible = "qcom,msm8974-fluid", "qcom,msm8974", "qcom,fluid";
-	qcom,msm-id = <209 3 0x10000>,
-		      <211 3 0x10000>,
-		      <212 3 0x10000>,
-		      <214 3 0x10000>,
-		      <215 3 0x10000>,
-		      <217 3 0x10000>,
-		      <218 3 0x10000>;
+	qcom,msm-id = <194 0x10000>,
+		      <210 0x10000>,
+		      <213 0x10000>,
+		      <216 0x10000>;
+};
+
+&sdhc_1 {
+	reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
 };

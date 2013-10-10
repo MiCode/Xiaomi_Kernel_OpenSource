@@ -12,22 +12,11 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ab.dtsi"
-/include/ "msm8974-cdp.dtsi"
+/include/ "msm8974pro-ab-pm8941.dtsi"
+/include/ "msm8974-liquid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro CDP";
-	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,msm-id = <208 1 0x10000>,
-		      <209 1 0x10000>,
-		      <211 1 0x10000>,
-		      <212 1 0x10000>,
-		      <214 1 0x10000>,
-		      <215 1 0x10000>,
-		      <217 1 0x10000>,
-		      <218 1 0x10000>,
-		      <194 1 0x10000>,	/* 8974Pro-AC IDs */
-		      <210 1 0x10000>,
-		      <213 1 0x10000>,
-		      <216 1 0x10000>;
+	model = "Qualcomm MSM 8974Pro-AA/AB LIQUID";
+	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
+	qcom,board-id = <9 0>;
 };
