@@ -5941,6 +5941,17 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_periph_noc_usb_hsic_ahb_clk.c,	""),
 	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 
+	/* QSEECOM clocks */
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "qseecom"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "qseecom"),
+
+	CLK_LOOKUP("ce_drv_core_clk",     gcc_ce2_clk.c,         "qseecom"),
+	CLK_LOOKUP("ce_drv_iface_clk",    gcc_ce2_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_bus_clk",      gcc_ce2_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_core_clk_src", ce2_clk_src.c,         "qseecom"),
+
 	/* SATA clocks */
 	CLK_LOOKUP("",	gcc_sata_asic0_clk.c,	""),
 	CLK_LOOKUP("",	gcc_sata_axi_clk.c,	""),
