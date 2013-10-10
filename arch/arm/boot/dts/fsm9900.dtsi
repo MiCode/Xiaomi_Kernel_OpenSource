@@ -87,7 +87,7 @@
 		status = "disabled";
 	};
 
-	qcom,smem@fa00000 {
+	qcom,smem@1c100000 {
 		compatible = "qcom,smem";
 		reg = <0x1c100000 0x200000>,
 			<0xf9011000 0x1000>;
@@ -97,7 +97,7 @@
 			compatible = "qcom,smd";
 			qcom,smd-edge = <0>;
 			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x1>;
+			qcom,smd-irq-bitmask = <0x100>;
 			qcom,pil-string = "modem";
 			interrupts = <0 72 1>;
 		};
@@ -106,7 +106,7 @@
 			compatible = "qcom,smd";
 			qcom,smd-edge = <1>;
 			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x10>;
+			qcom,smd-irq-bitmask = <0x10000>;
 			qcom,pil-string = "adsp";
 			interrupts = <0 64 1>;
 		};
@@ -115,7 +115,7 @@
 			compatible = "qcom,smd";
 			qcom,smd-edge = <3>;
 			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x100>;
+			qcom,smd-irq-bitmask = <0x100000>;
 			qcom,pil-string = "dsps";
 			interrupts = <0 60 1>;
 		};
@@ -133,7 +133,7 @@
 			compatible = "qcom,smd";
 			qcom,smd-edge = <15>;
 			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x1000000>;
+			qcom,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
 			qcom,irq-no-suspend;
 		};
