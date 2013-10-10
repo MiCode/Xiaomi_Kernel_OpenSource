@@ -1419,8 +1419,9 @@
 		};
 	};
 
-	android_usb {
+	android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
 	};
 
