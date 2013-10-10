@@ -1,0 +1,256 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8974pro-ac-pma8084.dtsi"
+&spmi_bus {
+	pm8941_lsid0: qcom,pm8941@2 {
+		reg = <0x2>;
+	};
+	pm8941_lsid1: qcom,pm8941@3 {
+		reg = <0x3>;
+	};
+};
+/include/ "msm-pm8941.dtsi"
+
+&pm8941_lsid0 {
+	qcom,power-on@800 {
+		status = "disabled";
+	};
+
+	clkdiv@5b00 {
+		status = "disabled";
+	};
+
+	clkdiv@5c00 {
+		status = "disabled";
+	};
+
+	clkdiv@5d00 {
+		status = "disabled";
+	};
+
+	qcom,pm8941_rtc {
+		status = "disabled";
+	};
+
+	gpios {
+		status = "disabled";
+	};
+
+	mpps {
+		status = "disabled";
+	};
+};
+
+&pm8941_lsid1 {
+	pm8941_boost: regulator@a000 {
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		qcom,enable-time = <500>;
+		status = "okay";
+	};
+
+	pm8941_mvs1: regulator@8300 {
+		parent-supply = <&pm8941_chg_otg>;
+		qcom,enable-time = <1000>;
+		qcom,pull-down-enable = <1>;
+		interrupts = <0x3 0x83 0x2>;
+		interrupt-names = "ocp";
+		qcom,ocp-enable = <1>;
+		qcom,ocp-max-retries = <10>;
+		qcom,ocp-retry-delay = <30>;
+		qcom,soft-start-enable = <1>;
+		qcom,vs-soft-start-strength = <0>;
+		qcom,hpm-enable = <1>;
+		qcom,auto-mode-enable = <0>;
+		status = "okay";
+	};
+};
+
+&pma8084_mvs1 {
+	parent-supply = <&pm8941_boost>;
+};
+
+&pm8941_chg {
+	otg-parent-supply = <&pm8941_boost>;
+};
+
+&pm8941_chg_boost {
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <5000000>;
+	regulator-name = "8941_smbb_boost";
+};
+
+&pm8941_chg_batif {
+	regulator-name = "batfet";
+};
+
+&pm8941_chg_otg {
+	regulator-name = "8941_smbb_otg";
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&pm8941_mvs1>;
+	qcom,misc-ref = <&pm8941_misc>;
+	dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+	interrupt-map-mask = <0x0 0xffffffff>;
+	interrupt-map = <0x0 0 &intc 0 133 0
+			0x0 1 &spmi_bus 0x0 0x2 0x9 0x0>;
+	interrupt-names = "hs_phy_irq", "pmic_id_irq";
+};
+
+/* Correct PM8941 local slave ID 0 to use global SID 4 for all interrupts. */
+&pm8941_lsid0 {
+	qcom,temp-alarm@2400 {
+		interrupts = <0x2 0x24 0x0>;
+	};
+
+	qcom,power-on@800 {
+		interrupts = <0x2 0x8 0x0>,
+			     <0x2 0x8 0x1>,
+			     <0x2 0x8 0x4>,
+			     <0x2 0x8 0x5>;
+		interrupt-names = "kpdpwr", "resin",
+				"resin-bark", "kpdpwr-resin-bark";
+	};
+
+	qcom,bsi@1b00 {
+		interrupts = <0x2 0x1b 0x0>,
+			     <0x2 0x1b 0x1>,
+			     <0x2 0x1b 0x2>,
+			     <0x2 0x12 0x0>;
+		interrupt-names = "err",
+				  "rx",
+				  "tx",
+				  "batt-present";
+	};
+
+	qcom,bms {
+		qcom,bms-bms@4000 {
+			interrupts =	<0x2 0x40 0x0>,
+					<0x2 0x40 0x1>,
+					<0x2 0x40 0x2>,
+					<0x2 0x40 0x3>,
+					<0x2 0x40 0x4>,
+					<0x2 0x40 0x5>,
+					<0x2 0x40 0x6>,
+					<0x2 0x40 0x7>;
+			interrupt-names = "cc_thr",
+					  "ocv_for_r",
+					  "good_ocv",
+					  "charge_begin",
+					  "ocv_thr",
+					  "sw_cc_thr",
+					  "vsense_avg",
+					  "vsense_for_r";
+		};
+	};
+
+	qcom,charger {
+		qcom,chgr@1000 {
+			interrupts =	<0x2 0x10 0x0>,
+					<0x2 0x10 0x1>,
+					<0x2 0x10 0x2>,
+					<0x2 0x10 0x3>,
+					<0x2 0x10 0x4>,
+					<0x2 0x10 0x5>,
+					<0x2 0x10 0x6>,
+					<0x2 0x10 0x7>;
+			interrupt-names =	"vbat-det-lo",
+						"vbat-det-hi",
+						"chgwdog",
+						"state-change",
+						"trkl-chg-on",
+						"fast-chg-on",
+						"chg-failed",
+						"chg-done";
+		};
+
+		qcom,buck@1100 {
+			interrupts =	<0x2 0x11 0x0>,
+					<0x2 0x11 0x1>,
+					<0x2 0x11 0x2>,
+					<0x2 0x11 0x3>,
+					<0x2 0x11 0x4>,
+					<0x2 0x11 0x5>,
+					<0x2 0x11 0x6>;
+			interrupt-names =	"vbat-ov",
+						"vreg-ov",
+						"overtemp",
+						"vchg-loop",
+						"ichg-loop",
+						"ibat-loop",
+						"vdd-loop";
+		};
+
+		qcom,bat-if@1200 {
+			interrupts =	<0x2 0x12 0x0>,
+					<0x2 0x12 0x1>,
+					<0x2 0x12 0x2>,
+					<0x2 0x12 0x3>,
+					<0x2 0x12 0x4>;
+			interrupt-names =	"batt-pres",
+						"bat-temp-ok",
+						"bat-fet-on",
+						"vcp-on",
+						"psi";
+		};
+
+		qcom,usb-chgpth@1300 {
+			interrupts =	<0x2 0x13 0x0>,
+					<0x2 0x13 0x1>,
+					<0x2 0x13 0x2>;
+			interrupt-names =	"coarse-det-usb",
+						"usbin-valid",
+						"chg-gone";
+		};
+
+		qcom,dc-chgpth@1400 {
+			interrupts =	<0x2 0x14 0x0>,
+					<0x2 0x14 0x1>;
+			interrupt-names =	"coarse-det-dc",
+						"dcin-valid";
+		};
+
+		qcom,boost@1500 {
+			interrupts =	<0x2 0x15 0x0>,
+					<0x2 0x15 0x1>;
+			interrupt-names =	"boost-pwr-ok",
+						"limit-error";
+		};
+	};
+
+	qcom,pm8941_rtc {
+		qcom,pm8941_rtc_alarm@6100 {
+			interrupts = <0x2 0x61 0x1>;
+		};
+	};
+
+	vadc@3100 {
+		interrupts = <0x2 0x31 0x0>;
+		interrupt-names = "eoc-int-en-set";
+	};
+
+	iadc@3600 {
+		interrupts = <0x2 0x36 0x0>;
+		interrupt-names = "eoc-int-en-set";
+	};
+
+	qcom,vadc@3400 {
+		interrupts =	<0x2 0x34 0x0>,
+				<0x2 0x34 0x3>,
+				<0x2 0x34 0x4>;
+		interrupt-names =	"eoc-int-en-set",
+					"high-thr-en-set",
+					"low-thr-en-set";
+	};
+};
