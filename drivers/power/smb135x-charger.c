@@ -1088,7 +1088,7 @@ static int cold_soft_handler(struct smb135x_chg *chip, u8 rt_stat)
 static int battery_missing_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
-	chip->batt_present = !!rt_stat;
+	chip->batt_present = !rt_stat;
 	return 0;
 }
 static int vbat_low_handler(struct smb135x_chg *chip, u8 rt_stat)
