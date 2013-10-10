@@ -11,14 +11,18 @@
  *
  */
 
-#include <linux/module.h>
+#include <linux/async.h>
+#include <linux/atomic.h>
 #include <linux/blkdev.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/module.h>
 #include <linux/test-iosched.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_cmnd.h>
+#include <scsi/scsi_host.h>
 #include <../sd.h>
-#include <linux/delay.h>
+#include "ufshcd.h"
 
 #define MODULE_NAME "ufs_test"
 
@@ -27,6 +31,7 @@
 #define LARGE_PRIME_2	35757
 #define DEFAULT_NUM_OF_BIOS		2
 #define LONG_SEQUENTIAL_MIXED_TIMOUT_MS 100000
+#define THREADS_COMPLETION_TIMOUT 10000 /* 10 sec */
 
 /* the amount of requests that will be inserted */
 #define LONG_SEQ_TEST_NUM_REQS  256
@@ -40,6 +45,7 @@
 /* and calculate the MiB value fraction */
 #define LONG_TEST_SIZE_FRACTION(x) (BYTE_TO_MB_x_10(x) - \
 		(LONG_TEST_SIZE_INTEGER(x) * 10))
+#define MAX_PARALLEL_QUERIES 33
 
 #define test_pr_debug(fmt, args...) pr_debug("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
@@ -73,6 +79,7 @@ ufs_test_add_test(utd, UFS_TEST_ ## upper_case_name, "ufs_test_"#test_name,\
 
 enum ufs_test_testcases {
 	UFS_TEST_WRITE_READ_TEST,
+	UFS_TEST_MULTI_QUERY,
 
 	UFS_TEST_LONG_SEQUENTIAL_READ,
 	UFS_TEST_LONG_SEQUENTIAL_WRITE,
@@ -114,6 +121,11 @@ struct ufs_test_data {
 	unsigned int completed_req_count;
 	/* Test stage */
 	enum ufs_test_stage test_stage;
+
+	/* Parameters for maintaining multiple threads */
+	int fail_threads;
+	atomic_t outstanding_threads;
+	struct completion outstanding_complete;
 };
 
 static struct ufs_test_data *utd;
@@ -155,6 +167,9 @@ static char *ufs_test_get_test_case_str(struct test_data *td)
 	switch (td->test_info.testcase) {
 	case UFS_TEST_WRITE_READ_TEST:
 		return "UFS write read test";
+		break;
+	case UFS_TEST_MULTI_QUERY:
+		return "Test multiple queries at the same time";
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 		return "UFS long sequential read test";
@@ -205,6 +220,9 @@ static int ufs_test_show(struct seq_file *file, int test_case)
 		 "Description:\n"
 		 "This test write once a random block and than reads it to "
 		 "verify its content. Used to debug first time transactions.\n";
+		break;
+	case UFS_TEST_MULTI_QUERY:
+		test_description = "Test multiple queries at the same time.\n";
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 		test_description = "\nufs_long_sequential_read_test\n"
@@ -281,6 +299,13 @@ static int ufs_test_check_result(struct test_data *td)
 		test_pr_err("%s: An error occurred during the test.", __func__);
 		return TEST_FAILED;
 	}
+
+	if (utd->fail_threads != 0) {
+		test_pr_err("%s: About %d threads failed during execution.",
+				__func__, utd->fail_threads);
+		return utd->fail_threads;
+	}
+
 	return 0;
 }
 
@@ -340,6 +365,118 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 
 	blk_run_queue(q);
 	return ret;
+}
+
+static void ufs_test_thread_complete(int result)
+{
+	if (result)
+		utd->fail_threads++;
+	atomic_dec(&utd->outstanding_threads);
+	if (!atomic_read(&utd->outstanding_threads))
+		complete(&utd->outstanding_complete);
+}
+
+static void ufs_test_random_async_query(void *data, async_cookie_t cookie)
+{
+	int op;
+	struct ufs_hba *hba = (struct ufs_hba *)data;
+	int buff_len = UNIT_DESC_MAX_SIZE;
+	u8 desc_buf[UNIT_DESC_MAX_SIZE];
+	bool flag;
+	u32 att;
+	int ret = 0;
+
+	op = ufs_test_pseudo_random_seed(&utd->random_test_seed, 1, 8);
+	/*
+	 * When write data (descriptor/attribute/flag) queries are issued,
+	 * regular work and functionality must be kept. The data is read
+	 * first to make sure the original state is restored.
+	 */
+	switch (op) {
+	case UPIU_QUERY_OPCODE_READ_DESC:
+	case UPIU_QUERY_OPCODE_WRITE_DESC:
+		ret = ufshcd_query_descriptor(hba, UPIU_QUERY_OPCODE_READ_DESC,
+				QUERY_DESC_IDN_UNIT, 0, 0, desc_buf, &buff_len);
+		if (ret || op == UPIU_QUERY_OPCODE_READ_DESC)
+			break;
+
+		ret = ufshcd_query_descriptor(hba, UPIU_QUERY_OPCODE_WRITE_DESC,
+				QUERY_DESC_IDN_UNIT, 0, 0, desc_buf, &buff_len);
+		break;
+	case UPIU_QUERY_OPCODE_WRITE_ATTR:
+	case UPIU_QUERY_OPCODE_READ_ATTR:
+		ret = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+				QUERY_ATTR_IDN_EE_CONTROL, 0, 0, &att);
+		if (ret || op == UPIU_QUERY_OPCODE_READ_ATTR)
+			break;
+
+		ret = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+				QUERY_ATTR_IDN_EE_CONTROL, 0, 0, &att);
+		break;
+	case UPIU_QUERY_OPCODE_READ_FLAG:
+	case UPIU_QUERY_OPCODE_SET_FLAG:
+	case UPIU_QUERY_OPCODE_CLEAR_FLAG:
+	case UPIU_QUERY_OPCODE_TOGGLE_FLAG:
+		/* We read the QUERY_FLAG_IDN_BKOPS_EN and restore it later */
+		ret = ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+				QUERY_FLAG_IDN_BKOPS_EN, &flag);
+		if (ret || op == UPIU_QUERY_OPCODE_READ_FLAG)
+			break;
+
+		/* After changing the flag we have to change it back */
+		ret = ufshcd_query_flag(hba, op, QUERY_FLAG_IDN_BKOPS_EN, NULL);
+		if ((op == UPIU_QUERY_OPCODE_SET_FLAG && flag) ||
+				(op == UPIU_QUERY_OPCODE_CLEAR_FLAG && !flag))
+			/* No need to change it back */
+			break;
+
+		if (flag)
+			ret |= ufshcd_query_flag(hba,
+				UPIU_QUERY_OPCODE_SET_FLAG,
+				QUERY_FLAG_IDN_BKOPS_EN, NULL);
+		else
+			ret |= ufshcd_query_flag(hba,
+				UPIU_QUERY_OPCODE_CLEAR_FLAG,
+				QUERY_FLAG_IDN_BKOPS_EN, NULL);
+		break;
+	default:
+		test_pr_err("%s: Random error unknown op %d", __func__, op);
+	}
+
+	if (ret)
+		test_pr_err("%s: Query thread with op %d, failed with err %d.",
+			__func__, op, ret);
+
+	ufs_test_thread_complete(ret);
+}
+
+static int ufs_test_run_multi_query_test(struct test_data *td)
+{
+	int i;
+	struct scsi_device *sdev;
+	struct ufs_hba *hba;
+
+	BUG_ON(!td || !td->req_q || !td->req_q->queuedata);
+	sdev = (struct scsi_device *)td->req_q->queuedata;
+	BUG_ON(!sdev->host);
+	hba = shost_priv(sdev->host);
+	BUG_ON(!hba);
+
+	atomic_set(&utd->outstanding_threads, 0);
+	utd->fail_threads = 0;
+	init_completion(&utd->outstanding_complete);
+	for (i = 0; i < MAX_PARALLEL_QUERIES; ++i) {
+		atomic_inc(&utd->outstanding_threads);
+		async_schedule(ufs_test_random_async_query, hba);
+	}
+
+	if (!wait_for_completion_timeout(&utd->outstanding_complete,
+			THREADS_COMPLETION_TIMOUT)) {
+		test_pr_err("%s: Multi-query test timed-out %d threads left",
+			__func__, atomic_read(&utd->outstanding_threads));
+	}
+	test_iosched_mark_test_completion();
+	return 0;
 }
 
 static void long_seq_test_free_end_io_fn(struct request *rq, int err)
@@ -548,6 +685,10 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 		utd->test_info.check_test_completion_fn =
 				ufs_write_read_completion;
 		break;
+	case UFS_TEST_MULTI_QUERY:
+		utd->test_info.run_test_fn = ufs_test_run_multi_query_test;
+		utd->test_info.check_test_result_fn = ufs_test_check_result;
+		break;
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
 		utd->test_info.run_test_fn = run_long_seq_test;
@@ -587,6 +728,7 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 }
 
 TEST_OPS(write_read_test, WRITE_READ_TEST);
+TEST_OPS(multi_query, MULTI_QUERY);
 TEST_OPS(long_sequential_read, LONG_SEQUENTIAL_READ);
 TEST_OPS(long_sequential_write, LONG_SEQUENTIAL_WRITE);
 TEST_OPS(long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
@@ -638,6 +780,9 @@ static int ufs_test_debugfs_init(void)
 	if (ret)
 		goto exit_err;
 	ret = add_test(utd, long_sequential_mixed, LONG_SEQUENTIAL_MIXED);
+	if (ret)
+		goto exit_err;
+	add_test(utd, multi_query, MULTI_QUERY);
 	if (ret)
 		goto exit_err;
 
