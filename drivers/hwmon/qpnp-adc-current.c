@@ -325,48 +325,8 @@ static int32_t qpnp_iadc_read_conversion_result(struct qpnp_iadc_chip *iadc,
 	return 0;
 }
 
-#define QPNP_IADC_PM8941_3_1_REV2	3
-#define QPNP_IADC_PM8941_3_1_REV3	2
-#define QPNP_IADC_PM8026_1_REV2		1
-#define QPNP_IADC_PM8026_1_REV3		2
-#define QPNP_IADC_PM8026_2_REV2		4
-#define QPNP_IADC_PM8026_2_REV3		2
-#define QPNP_IADC_PM8110_1_REV2		2
-#define QPNP_IADC_PM8110_1_REV3		2
-
-#define QPNP_IADC_REV_ID_8941_3_1	1
-#define QPNP_IADC_REV_ID_8026_1_0	2
-#define QPNP_IADC_REV_ID_8026_2_0	3
-#define QPNP_IADC_REV_ID_8110_1_0	4
-
-static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
-						int32_t *version)
-{
-	if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8941_3_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8941_3_1_REV3))
-		*version = QPNP_IADC_REV_ID_8941_3_1;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8026_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8026_1_REV3))
-		*version = QPNP_IADC_REV_ID_8026_1_0;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8026_2_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8026_2_REV3))
-		*version = QPNP_IADC_REV_ID_8026_2_0;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8110_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8110_1_REV3))
-		*version = QPNP_IADC_REV_ID_8110_1_0;
-	else
-		*version = -EINVAL;
-
-	return;
-}
+#define QPNP_IADC_PM8026_2_REV2	4
+#define QPNP_IADC_PM8026_2_REV3	2
 
 #define QPNP_COEFF_1					969000
 #define QPNP_COEFF_2					32
@@ -393,15 +353,17 @@ static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
 #define QPNP_COEFF_22					5000000
 #define QPNP_COEFF_23					3722500
 #define QPNP_COEFF_24					84
+#define QPNP_COEFF_25					33
+#define QPNP_COEFF_26					22
 
 static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 							int64_t die_temp)
 {
 	int64_t temp_var = 0, sys_gain_coeff = 0, old;
 	int32_t coeff_a = 0, coeff_b = 0;
-	int32_t version;
+	int version = 0;
 
-	qpnp_temp_comp_version_check(iadc, &version);
+	version = qpnp_adc_get_revid_version(iadc->dev);
 	if (version == -EINVAL)
 		return 0;
 
@@ -416,7 +378,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 				iadc->iadc_comp.sys_gain;
 
 	switch (version) {
-	case QPNP_IADC_REV_ID_8941_3_1:
+	case QPNP_REV_ID_8941_3_1:
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
 			if (!iadc->iadc_comp.ext_rsense) {
@@ -455,7 +417,58 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 			break;
 		}
 		break;
-	case QPNP_IADC_REV_ID_8026_1_0:
+	case QPNP_REV_ID_8026_2_1:
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_25;
+					coeff_b = 0;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = 0;
+					coeff_b = 0;
+				}
+			}
+			break;
+		case COMP_ID_TSMC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_26;
+					coeff_b = 0;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = 0;
+					coeff_b = 0;
+				}
+			}
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8026_1_0:
 		/* pm8026 rev 1.0 */
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
@@ -507,7 +520,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 			break;
 		}
 		break;
-	case QPNP_IADC_REV_ID_8110_1_0:
+	case QPNP_REV_ID_8110_1_0:
 		/* pm8110 rev 1.0 */
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
@@ -540,7 +553,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 		}
 		break;
 	default:
-	case QPNP_IADC_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_0:
 		/* pm8026 rev 1.0 */
 		coeff_a = 0;
 		coeff_b = 0;
