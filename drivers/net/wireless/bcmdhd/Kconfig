@@ -15,12 +15,12 @@ config BCM4350
 	depends on BCMDHD
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 4339 chipset.
+	  Broadcom 4350 chipset.
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
-	default "/system/etc/firmware/fw_bcmdhd.bin"
+	default "/system/vendor/firmware/fw_bcmdhd.bin"
 	---help---
 	  Path to the firmware file.
 
