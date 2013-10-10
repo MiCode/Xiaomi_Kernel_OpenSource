@@ -188,6 +188,7 @@ struct cpp_device {
 	struct device *iommu_ctx;
 	struct ion_client *client;
 	struct kref refcount;
+	uint32_t num_clk;
 
 	/* Reusing proven tasklet from msm isp */
 	atomic_t irq_cnt;

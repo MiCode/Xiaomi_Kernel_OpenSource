@@ -531,11 +531,11 @@ static int vpe_init_hardware(struct vpe_device *vpe_dev)
 				"vpe", vpe_dev);
 		if (rc < 0) {
 			pr_err("irq request fail! start=%u\n",
-				vpe_dev->irq->start);
+				(uint32_t) vpe_dev->irq->start);
 			rc = -EBUSY;
 			goto unmap_base;
 		} else {
-			VPE_DBG("Got irq! %d\n", vpe_dev->irq->start);
+			VPE_DBG("Got irq! %d\n", (int)vpe_dev->irq->start);
 		}
 	} else {
 		VPE_DBG("Skip requesting the irq since device is booting\n");

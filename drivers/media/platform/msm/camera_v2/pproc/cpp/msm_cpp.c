@@ -72,6 +72,8 @@ static int set_timer_idx;
 /* dump the frame command before writing to the hardware */
 #define  MSM_CPP_DUMP_FRM_CMD 0
 
+#define CPP_CLK_INFO_MAX 16
+
 #if CONFIG_MSM_CPP_DBG
 #define CPP_DBG(fmt, args...) pr_err(fmt, ##args)
 #else
@@ -124,16 +126,10 @@ static void msm_enqueue(struct msm_device_queue *queue,
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
 
-static struct msm_cam_clk_info cpp_clk_info[] = {
-	{"camss_top_ahb_clk", -1},
-	{"vfe_clk_src", 266670000},
-	{"camss_vfe_vfe_clk", -1},
-	{"iface_clk", -1},
-	{"cpp_core_clk", 266670000},
-	{"cpp_iface_clk", -1},
-	{"cpp_bus_clk", -1},
-	{"micro_iface_clk", -1},
-};
+
+
+static struct msm_cam_clk_info cpp_clk_info[CPP_CLK_INFO_MAX];
+
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev);
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin);
 static void cpp_timer_callback(unsigned long data);
@@ -684,7 +680,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
 
 	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
-			cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 1);
+			cpp_dev->cpp_clk, cpp_dev->num_clk, 1);
 	if (rc < 0) {
 		pr_err("clk enable failed\n");
 		goto clk_failed;
@@ -727,7 +723,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 
 	cpp_dev->hw_info.cpp_hw_version =
 		msm_camera_io_r(cpp_dev->cpp_hw_base);
-	pr_debug("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
+	pr_info("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
@@ -753,7 +749,7 @@ vbif_remap_failed:
 	iounmap(cpp_dev->base);
 remap_failed:
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
-		cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 0);
+		cpp_dev->cpp_clk, cpp_dev->num_clk, 0);
 clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
@@ -776,7 +772,7 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	iounmap(cpp_dev->vbif_base);
 	iounmap(cpp_dev->cpp_hw_base);
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
-		cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 0);
+		cpp_dev->cpp_clk, cpp_dev->num_clk, 0);
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 	cpp_dev->fs_cpp = NULL;
@@ -1795,12 +1791,59 @@ static int cpp_register_domain(void)
 	return msm_register_domain(&cpp_fw_layout);
 }
 
+static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
+	struct platform_device *pdev)
+{
+	uint32_t count;
+	int i, rc;
+	uint32_t rates[CPP_CLK_INFO_MAX];
+
+	struct device_node *of_node;
+	of_node = pdev->dev.of_node;
+
+	count = of_property_count_strings(of_node, "qcom,clock-names");
+
+	CPP_DBG("count = %d\n", count);
+	if (count == 0) {
+		pr_err("no clocks found in device tree, count=%d", count);
+		return 0;
+	}
+
+	if (count > CPP_CLK_INFO_MAX) {
+		pr_err("invalid count=%d, max is %d\n", count,
+			CPP_CLK_INFO_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+				i, &(cpp_clk_info[i].clk_name));
+		CPP_DBG("clock-names[%d] = %s\n", i, cpp_clk_info[i].clk_name);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return rc;
+		}
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		return rc;
+	}
+	for (i = 0; i < count; i++) {
+		cpp_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		CPP_DBG("clk_rate[%d] = %ld\n", i, cpp_clk_info[i].clk_rate);
+	}
+	cpp_dev->num_clk = count;
+	return 0;
+}
+
 
 static int cpp_probe(struct platform_device *pdev)
 {
 	struct cpp_device *cpp_dev;
 	int rc = 0;
-
+	CPP_DBG("E");
 	cpp_dev = kzalloc(sizeof(struct cpp_device), GFP_KERNEL);
 	if (!cpp_dev) {
 		pr_err("no enough memory\n");
@@ -1894,6 +1937,11 @@ static int cpp_probe(struct platform_device *pdev)
 		goto ERROR3;
 	}
 
+	if (msm_cpp_get_clk_info(cpp_dev, pdev) < 0) {
+		pr_err("msm_cpp_get_clk_info() failed\n");
+		goto ERROR3;
+	}
+
 	media_entity_init(&cpp_dev->msm_sd.sd.entity, 0, NULL, 0);
 	cpp_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	cpp_dev->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_CPP;
@@ -1936,6 +1984,10 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_timers[0].used = 0;
 	cpp_timers[1].used = 0;
 	cpp_dev->fw_name_bin = NULL;
+	if (rc == 0)
+		CPP_DBG("SUCCESS.");
+	else
+		CPP_DBG("FAILED.");
 	return rc;
 ERROR3:
 	release_mem_region(cpp_dev->mem->start, resource_size(cpp_dev->mem));
