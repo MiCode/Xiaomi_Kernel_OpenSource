@@ -555,7 +555,7 @@ static void tzdbg_register_qsee_log_buf(void)
 	struct qseecom_reg_log_buf_ireq req;
 
 	/* scm response */
-	struct qseecom_command_scm_resp resp;
+	struct qseecom_command_scm_resp resp = {};
 	ion_phys_addr_t pa = 0;
 	uint32_t len;
 	int ret = 0;
