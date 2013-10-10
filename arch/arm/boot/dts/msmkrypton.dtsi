@@ -301,6 +301,71 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
+
+	usb3: qcom,ssusb@f9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xf9200000 0xfc000>,
+				<0xfd4ab000 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupt-parent = <&usb3>;
+		interrupts = <0 1>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0x0 0xffffffff>;
+		interrupt-map = <0x0 0 &intc 0 133 0
+						0x0 1 &spmi_bus 0x0 0x0 0x9 0x0>;
+		interrupt-names = "hs_phy_irq", "pmic_id_irq";
+
+		USB3_GDSC-supply = <&gdsc_usb30>;
+		qcom,dwc-usb3-msm-dbm-eps = <8>;
+		qcom,otg-capability;
+		qcom,dwc-hsphy-init = <0x00D191A4>;
+
+		qcom,msm-bus,name = "usb3";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+						<61 512 0 0>,
+						<61 512 240000 960000>;
+
+		dwc3@f9200000 {
+				compatible = "synopsys,dwc3";
+				reg = <0xf9200000 0xfc000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 131 0>, <0 179 0>;
+				interrupt-names = "irq", "otg_irq";
+				usb-phy = <&hsphy0>, <&ssphy0>;
+		};
+        };
+
+	android_usb@fe8050c8 {
+		reg = <0xfe8050c8 0xc8>;
+		compatible = "qcom,android-usb";
+		qcom,android-usb-swfi-latency = <100>;
+	};
+
+	hsphy0: hsphy@f92f8800 {
+		compatible = "qcom,usb-hsphy";
+		reg = <0xf92f8800 0x3ff>;
+		qcom,hsphy-init = <0x00D191A4>;
+		vdd-supply = <&pmd9635_l3_corner>;
+		vdda18-supply = <&pmd9635_l8>;
+		vdda33-supply = <&pmd9635_l10>;
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,ext-vbus-id;
+		qcom,vbus-valid-override;
+	};
+
+	ssphy0: ssphy@f9b38000 {
+		compatible = "qcom,usb-ssphy-qmp";
+		reg = <0xf9b38000 0x16c>;
+		vdd-supply = <&pmd9635_l4>;
+		vdda18-supply = <&pmd9635_l8>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,vbus-valid-override;
+	};
 };
 
 &gdsc_pcie_0 {
