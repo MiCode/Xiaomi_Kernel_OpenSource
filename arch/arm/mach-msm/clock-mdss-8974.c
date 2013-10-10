@@ -2062,7 +2062,6 @@ static int edp_pll_ready_poll(void)
 	if (status)
 		return 1;
 
-	pr_err("%s: PLL NOT ready\n", __func__);
 	return 0;
 }
 
