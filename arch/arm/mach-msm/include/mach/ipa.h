@@ -32,6 +32,8 @@ enum ipa_nat_en_type {
  * @BASIC: basic mode
  * @ENABLE_FRAMING_HDLC: not currently supported
  * @ENABLE_DEFRAMING_HDLC: not currently supported
+ * @DMA: all data arriving IPA will not go through IPA logic blocks, this
+ *  allows IPA to work as DMA for specific pipes.
  */
 enum ipa_mode_type {
 	IPA_BASIC,
@@ -54,9 +56,12 @@ enum ipa_aggr_en_type {
  *  enum ipa_aggr_type - type of aggregation in IPA end-point
  */
 enum ipa_aggr_type {
-	IPA_MBIM_16,
-	IPA_MBIM_32,
-	IPA_TLP,
+	IPA_MBIM_16 = 0,
+	IPA_HDLC    = 1,
+	IPA_TLP     = 2,
+	IPA_RNDIS   = 3,
+	IPA_GENERIC = 4,
+	IPA_QCMAP   = 6,
 };
 
 /**
@@ -90,49 +95,59 @@ struct ipa_ep_cfg_nat {
 
 /**
  * struct ipa_ep_cfg_hdr - header configuration in IPA end-point
- * @hdr_len:	Header length in bytes to be added/removed. Assuming header len
- *		is constant per endpoint. Valid for both Input and Output Pipes
+ *
+ * @hdr_len:Header length in bytes to be added/removed. Assuming
+ *			header len is constant per endpoint. Valid for
+ *			both Input and Output Pipes
  * @hdr_ofst_metadata_valid:	0: Metadata_Ofst  value is invalid, i.e., no
- *				metadata within header.
- *				1: Metadata_Ofst  value is valid, i.e., metadata
- *				within header is in offset Metadata_Ofst Valid
- *				for Input Pipes only (IPA Consumer) (for output
- *				pipes, metadata already set within the header)
+ *			metadata within header.
+ *			1: Metadata_Ofst  value is valid, i.e., metadata
+ *			within header is in offset Metadata_Ofst Valid
+ *			for Input Pipes only (IPA Consumer) (for output
+ *			pipes, metadata already set within the header)
  * @hdr_ofst_metadata:	Offset within header in which metadata resides
  *			Size of metadata - 4bytes
  *			Example -  Stream ID/SSID/mux ID.
  *			Valid for  Input Pipes only (IPA Consumer) (for output
  *			pipes, metadata already set within the header)
  * @hdr_additional_const_len:	Defines the constant length that should be added
- *				to the payload length in order for IPA to update
- *				correctly the length field within the header
- *				(valid only in case Hdr_Ofst_Pkt_Size_Valid=1)
- *				Valid for Output Pipes (IPA Producer)
+ *			to the payload length in order for IPA to update
+ *			correctly the length field within the header
+ *			(valid only in case Hdr_Ofst_Pkt_Size_Valid=1)
+ *			Valid for Output Pipes (IPA Producer)
  * @hdr_ofst_pkt_size_valid:	0: Hdr_Ofst_Pkt_Size  value is invalid, i.e., no
- *				length field within the inserted header
- *				1: Hdr_Ofst_Pkt_Size  value is valid, i.e., a
- *				packet length field resides within the header
- *				Valid for Output Pipes (IPA Producer)
+ *			length field within the inserted header
+ *			1: Hdr_Ofst_Pkt_Size  value is valid, i.e., a
+ *			packet length field resides within the header
+ *			Valid for Output Pipes (IPA Producer)
  * @hdr_ofst_pkt_size:	Offset within header in which packet size reside. Upon
  *			Header Insertion, IPA will update this field within the
  *			header with the packet length . Assumption is that
  *			header length field size is constant and is 2Bytes
  *			Valid for Output Pipes (IPA Producer)
  * @hdr_a5_mux:	Determines whether A5 Mux header should be added to the packet.
- *		This bit is valid only when Hdr_En=01(Header Insertion)
- *		SW should set this bit for IPA-to-A5 pipes.
- *		0: Do not insert A5 Mux Header
- *		1: Insert A5 Mux Header
- *		Valid for Output Pipes (IPA Producer)
+ *			This bit is valid only when Hdr_En=01(Header Insertion)
+ *			SW should set this bit for IPA-to-A5 pipes.
+ *			0: Do not insert A5 Mux Header
+ *			1: Insert A5 Mux Header
+ *			Valid for Output Pipes (IPA Producer)
+ * @hdr_remove_additional:	bool switch, remove more of the header
+ *			based on the aggregation configuration (register
+ *			HDR_LEN_INC_DEAGG_HDR)
+ * @hdr_metadata_reg_valid:	bool switch, metadata from
+ *			register INIT_HDR_METADATA_n is valid.
+ *			(relevant only for IPA Consumer pipes)
  */
 struct ipa_ep_cfg_hdr {
-	u32 hdr_len;
-	u32 hdr_ofst_metadata_valid;
-	u32 hdr_ofst_metadata;
-	u32 hdr_additional_const_len;
-	u32 hdr_ofst_pkt_size_valid;
-	u32 hdr_ofst_pkt_size;
-	u32 hdr_a5_mux;
+	u32  hdr_len;
+	u32  hdr_ofst_metadata_valid;
+	u32  hdr_ofst_metadata;
+	u32  hdr_additional_const_len;
+	u32  hdr_ofst_pkt_size_valid;
+	u32  hdr_ofst_pkt_size;
+	u32  hdr_a5_mux;
+	u32  hdr_remove_additional;
+	u32  hdr_metadata_reg_valid;
 };
 
 /**
@@ -151,8 +166,9 @@ struct ipa_ep_cfg_mode {
 
 /**
  * struct ipa_ep_cfg_aggr - aggregation configuration in IPA end-point
+ *
  * @aggr_en:	Valid for both Input and Output Pipes
- * @aggr:	Valid for both Input and Output Pipes
+ * @aggr:	aggregation type (Valid for both Input and Output Pipes)
  * @aggr_byte_limit:	Limit of aggregated packet size in KB (<=32KB) When set
  *			to 0, there is no size limitation on the aggregation.
  *			When both, Aggr_Byte_Limit and Aggr_Time_Limit are set

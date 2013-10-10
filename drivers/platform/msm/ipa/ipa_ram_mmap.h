@@ -14,8 +14,10 @@
 #define _IPA_RAM_MMAP_H_
 
 /*
- * This header defines the memory map of the IPA RAM (not all 8K is available
- * for SW use)
+ * This header defines the memory map of the IPA RAM (not all SRAM is
+ * available for SW use)
+ * In case of restricted bytes the actual starting address will be
+ * advanced by the number of needed bytes
  */
 
 #define IPA_RAM_NAT_OFST    0
@@ -31,6 +33,8 @@
 #define IPA_RAM_V6_RT_OFST  (IPA_RAM_V6_FLT_OFST + IPA_RAM_V6_FLT_SIZE)
 #define IPA_RAM_V6_RT_SIZE  512
 #define IPA_RAM_END_OFST    (IPA_RAM_V6_RT_OFST + IPA_RAM_V6_RT_SIZE)
+
+#define IPA_RAM_REQUIRED IPA_RAM_END_OFST
 
 #define IPA_RAM_V6_RT_SIZE_DDR 16384
 #define IPA_RAM_V4_RT_SIZE_DDR 16384

@@ -80,7 +80,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 		IPADBG("Mapping shared(local) memory\n");
 		IPADBG("map sz=0x%lx\n", vsize);
 		phys_addr = ipa_ctx->ipa_wrapper_base + IPA_REG_BASE_OFST +
-			IPA_SRAM_DIRECT_ACCESS_n_OFST(IPA_NAT_PHYS_MEM_OFFSET);
+			IPA_SRAM_DIRECT_ACCESS_N_OFST(IPA_NAT_PHYS_MEM_OFFSET);
 
 		if (remap_pfn_range(
 			 vma, vma->vm_start,
@@ -267,16 +267,17 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		cmd->index_table_addr_type = IPA_NAT_SHARED_MEMORY;
 		cmd->index_table_expansion_addr_type = IPA_NAT_SHARED_MEMORY;
 
-		cmd->ipv4_rules_addr =
-			init->ipv4_rules_offset + IPA_RAM_NAT_OFST;
+		cmd->ipv4_rules_addr = init->ipv4_rules_offset +
+				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
 
-		cmd->ipv4_expansion_rules_addr =
-			init->expn_rules_offset + IPA_RAM_NAT_OFST;
+		cmd->ipv4_expansion_rules_addr = init->expn_rules_offset +
+				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
 
-		cmd->index_table_addr = init->index_offset + IPA_RAM_NAT_OFST;
+		cmd->index_table_addr = init->index_offset  +
+				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
 
-		cmd->index_table_expansion_addr =
-			init->index_expn_offset + IPA_RAM_NAT_OFST;
+		cmd->index_table_expansion_addr = init->index_expn_offset +
+				ipa_ctx->ctrl->sram_nat_ipv4_ofst;
 	}
 	cmd->table_index = init->tbl_index;
 	IPADBG("Table index:0x%x\n", cmd->table_index);

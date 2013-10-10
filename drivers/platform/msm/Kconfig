@@ -103,7 +103,7 @@ config QPNP_USB_DETECT
 
 config IPA
 	tristate "IPA support"
-	depends on SPS
+	depends on SPS && NET
 	help
 	  This driver supports the Internet Packet Accelerator (IPA) core.
 	  IPA is a programmable protocol processor HW block.

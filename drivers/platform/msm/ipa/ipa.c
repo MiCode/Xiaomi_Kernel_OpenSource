@@ -34,16 +34,15 @@
 #define IPA_MOBILE_AP_MODE(x) (x == IPA_MODE_MOBILE_AP_ETH || \
 			       x == IPA_MODE_MOBILE_AP_WAN || \
 			       x == IPA_MODE_MOBILE_AP_WLAN)
-#define IPA_CNOC_CLK_RATE (37 * 1000 * 1000UL)
-#define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
-#define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
-#define IPA_DEFAULT_HEADER_LENGTH (8)
+#define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
+#define IPA_A5_MUX_HEADER_LENGTH (8)
 #define IPA_DMA_POOL_SIZE (512)
 #define IPA_DMA_POOL_ALIGNMENT (4)
 #define IPA_DMA_POOL_BOUNDARY (1024)
 #define IPA_NUM_DESC_PER_SW_TX (2)
 #define IPA_ROUTING_RULE_BYTE_SIZE (4)
-#define IPA_BAM_CNFG_BITS_VAL (0x7FFFE004)
+#define IPA_BAM_CNFG_BITS_VALv1_1 (0x7FFFE004)
+#define IPA_BAM_CNFG_BITS_VALv2_0 (0xFFFFE004)
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
@@ -125,9 +124,6 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata = {
 	.name = "ipa",
 };
 
-static uint32_t ipa_bus_hdl;
-
-static struct device *ipa_dev;
 struct ipa_context *ipa_ctx;
 
 static bool polling_mode;
@@ -670,7 +666,7 @@ int ipa_setup_dflt_rt_tables(void)
 		IPAERR("fail to alloc mem\n");
 		return -ENOMEM;
 	}
-	/* setup a default v4 route to point to A5 */
+	/* setup a default v4 route to point to Apps */
 	rt_rule->num_rules = 1;
 	rt_rule->commit = 1;
 	rt_rule->ip = IPA_IP_v4;
@@ -728,24 +724,11 @@ static int ipa_setup_exception_path(void)
 	hdr->num_hdrs = 1;
 	hdr->commit = 1;
 	hdr_entry = &hdr->hdr[0];
-	strlcpy(hdr_entry->name, IPA_DFLT_HDR_NAME, IPA_RESOURCE_NAME_MAX);
+	strlcpy(hdr_entry->name, IPA_A5_MUX_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 
-	/*
-	 * only single stream for MBIM supported and no exception packets
-	 * expected so set default header to zero
-	 * for IPA HW 1.1 and up the default header length is 8 (exception)
-	 */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
-		hdr_entry->hdr_len = 1;
-		hdr_entry->hdr[0] = 0;
-	} else {
-		hdr_entry->hdr_len = IPA_DEFAULT_HEADER_LENGTH;
-	}
+	/* set template for the A5_MUX header in header addition block */
+	hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
 
-	/*
-	 * SW does not know anything about default exception header so
-	 * we don't set it. IPA HW will use it as a template
-	 */
 	if (ipa_add_hdr(hdr)) {
 		IPAERR("fail to add exception hdr\n");
 		ret = -EPERM;
@@ -760,8 +743,9 @@ static int ipa_setup_exception_path(void)
 
 	ipa_ctx->excp_hdr_hdl = hdr_entry->hdr_hdl;
 
-	/* exception packets goto LAN-WAN pipe from IPA to A5 */
+	/* set the route register to pass exception packets to Apps */
 	route.route_def_pipe = IPA_A5_LAN_WAN_IN;
+	route.route_frag_def_pipe = IPA_A5_LAN_WAN_IN;
 	route.route_def_hdr_table = !ipa_ctx->hdr_tbl_lcl;
 
 	if (ipa_cfg_route(&route)) {
@@ -814,7 +798,7 @@ static void ipa_poll_function(struct work_struct *work)
 	return;
 }
 
-static int ipa_setup_a5_pipes(void)
+static int ipa_setup_apps_pipes(void)
 {
 	struct ipa_sys_connect_params sys_in;
 	int result = 0;
@@ -830,6 +814,7 @@ static int ipa_setup_a5_pipes(void)
 		result = -EPERM;
 		goto fail_cmd;
 	}
+	IPADBG("Apps to IPA cmd pipe is connected\n");
 
 	/* Start polling, only if needed */
 	if (ipa_ctx->polling_mode) {
@@ -842,6 +827,7 @@ static int ipa_setup_a5_pipes(void)
 			IPAERR(":schedule delayed work failed.\n");
 			goto fail_schedule_delayed_work;
 		}
+		IPADBG("polling mode enabled\n\n");
 	}
 
 	if (ipa_setup_exception_path()) {
@@ -849,14 +835,14 @@ static int ipa_setup_a5_pipes(void)
 		result = -EPERM;
 		goto fail_schedule_delayed_work;
 	}
+	IPADBG("Exception path was successfully set");
 
-	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_0) {
-		if (ipa_setup_dflt_rt_tables()) {
-			IPAERR(":fail to setup dflt routes\n");
-			result = -EPERM;
-			goto fail_schedule_delayed_work;
-		}
+	if (ipa_setup_dflt_rt_tables()) {
+		IPAERR(":fail to setup dflt routes\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
 	}
+	IPADBG("default routing was set\n");
 
 	/* LAN-WAN IN (IPA->A5) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
@@ -897,7 +883,7 @@ fail_cmd:
 	return result;
 }
 
-static void ipa_teardown_a5_pipes(void)
+static void ipa_teardown_apps_pipes(void)
 {
 	cancel_delayed_work(&ipa_ctx->poll_work);
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_out);
@@ -1122,7 +1108,7 @@ static void ipa_set_aggregation_params(void)
  * The following device attributes are for configuring the aggregation
  * attributes when the driver is already running.
  * The attributes are for configuring the aggregation type
- * (MBIM_16/MBIM_32/TLP), the aggregation byte limit and the aggregation
+ * (MBIM_16/TLP), the aggregation byte limit and the aggregation
  * time limit.
  */
 static ssize_t ipa_show_aggregation_type(struct device *dev,
@@ -1142,9 +1128,6 @@ static ssize_t ipa_show_aggregation_type(struct device *dev,
 	switch (ipa_ctx->aggregation_type) {
 	case IPA_MBIM_16:
 		strlcpy(str, "MBIM_16", IPA_AGGR_STR_IN_BYTES("MBIM_16"));
-		break;
-	case IPA_MBIM_32:
-		strlcpy(str, "MBIM_32", IPA_AGGR_STR_IN_BYTES("MBIM_32"));
 		break;
 	case IPA_TLP:
 		strlcpy(str, "TLP", IPA_AGGR_STR_IN_BYTES("TLP"));
@@ -1175,8 +1158,6 @@ static ssize_t ipa_store_aggregation_type(struct device *dev,
 
 	if (!strncmp(pstr, "MBIM_16", IPA_AGGR_STR_IN_BYTES("MBIM_16")))
 		ipa_ctx->aggregation_type = IPA_MBIM_16;
-	else if (!strncmp(pstr, "MBIM_32", IPA_AGGR_STR_IN_BYTES("MBIM_32")))
-		ipa_ctx->aggregation_type = IPA_MBIM_32;
 	else if (!strncmp(pstr, "TLP", IPA_AGGR_STR_IN_BYTES("TLP")))
 		ipa_ctx->aggregation_type = IPA_TLP;
 	else {
@@ -1301,6 +1282,9 @@ static const struct file_operations ipa_drv_fops = {
 
 static int ipa_get_clks(struct device *dev)
 {
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
+		return 0;
+
 	ipa_cnoc_clk = clk_get(dev, "iface_clk");
 	if (IS_ERR(ipa_cnoc_clk)) {
 		ipa_cnoc_clk = NULL;
@@ -1347,6 +1331,11 @@ static int ipa_get_clks(struct device *dev)
 */
 void ipa_enable_clks(void)
 {
+	IPADBG("enabling IPA clocks and bus voting\n");
+
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
+		return;
+
 	if (ipa_cnoc_clk) {
 		clk_prepare(ipa_cnoc_clk);
 		clk_enable(ipa_cnoc_clk);
@@ -1356,12 +1345,8 @@ void ipa_enable_clks(void)
 	}
 
 	if (ipa_clk_src)
-		if (ipa_res.ipa_hw_type == IPA_HW_v1_0)
-			clk_set_rate(ipa_clk_src, IPA_V1_CLK_RATE);
-		else if (ipa_res.ipa_hw_type == IPA_HW_v1_1)
-			clk_set_rate(ipa_clk_src, IPA_V1_1_CLK_RATE);
-		else
-			WARN_ON(1);
+		clk_set_rate(ipa_clk_src,
+				ipa_ctx->ctrl->ipa_src_clk_rate);
 	else
 		WARN_ON(1);
 
@@ -1395,7 +1380,7 @@ void ipa_enable_clks(void)
 	else
 		WARN_ON(1);
 
-	if (msm_bus_scale_client_update_request(ipa_bus_hdl, 1))
+	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 1))
 		WARN_ON(1);
 }
 
@@ -1407,6 +1392,11 @@ void ipa_enable_clks(void)
 */
 void ipa_disable_clks(void)
 {
+	IPADBG("disabling IPA clocks and bus voting\n");
+
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
+			return;
+
 	if (ipa_inactivity_clk)
 		clk_disable_unprepare(ipa_inactivity_clk);
 	else
@@ -1427,7 +1417,7 @@ void ipa_disable_clks(void)
 	else
 		WARN_ON(1);
 
-	if (msm_bus_scale_client_update_request(ipa_bus_hdl, 0))
+	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 0))
 		WARN_ON(1);
 }
 
@@ -1442,9 +1432,9 @@ void ipa_inc_client_enable_clks(void)
 {
 	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients++;
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
 	if (ipa_ctx->ipa_active_clients == 1)
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_enable_clks();
+		ipa_enable_clks();
 	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
 }
 
@@ -1459,29 +1449,41 @@ void ipa_dec_client_disable_clks(void)
 {
 	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients--;
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
 	if (ipa_ctx->ipa_active_clients == 0)
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
+		ipa_disable_clks();
 	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
 }
 
-
 static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 {
-	void *bam_cnfg_bits;
+	void *ipa_bam_mmio;
+	int reg_val;
+	int retval = 0;
 
-	if ((ipa_ctx->ipa_hw_type == IPA_HW_v1_0) ||
-	    (ipa_ctx->ipa_hw_type == IPA_HW_v1_1)) {
-		bam_cnfg_bits = ioremap(res->ipa_mem_base +
-						IPA_BAM_REG_BASE_OFST,
-					IPA_BAM_REMAP_SIZE);
-		if (!bam_cnfg_bits)
-			return -ENOMEM;
-		ipa_write_reg(bam_cnfg_bits, IPA_BAM_CNFG_BITS_OFST,
-				IPA_BAM_CNFG_BITS_VAL);
-		iounmap(bam_cnfg_bits);
+	ipa_bam_mmio = ioremap(res->ipa_mem_base + IPA_BAM_REG_BASE_OFST,
+			IPA_BAM_REMAP_SIZE);
+	if (!ipa_bam_mmio)
+		return -ENOMEM;
+	switch (ipa_ctx->ipa_hw_type) {
+	case IPA_HW_v1_0:
+	case IPA_HW_v1_1:
+		reg_val = IPA_BAM_CNFG_BITS_VALv1_1;
+		break;
+	case IPA_HW_v2_0:
+		reg_val = IPA_BAM_CNFG_BITS_VALv2_0;
+		break;
+	default:
+		retval = -EPERM;
+		goto fail;
 	}
-	return 0;
+
+	ipa_write_reg(ipa_bam_mmio, IPA_BAM_CNFG_BITS_OFST, reg_val);
+
+fail:
+	iounmap(ipa_bam_mmio);
+
+	return retval;
 }
 
 static int ipa_init_flt_block(void)
@@ -1489,7 +1491,7 @@ static int ipa_init_flt_block(void)
 	int result = 0;
 
 	/*
-	 * SW workaround for Improper Filter Behaviour when neiher Global nor
+	 * SW workaround for Improper Filter Behavior when neither Global nor
 	 * Pipe Rules are present => configure dummy global filter rule
 	 * always which results in a miss
 	 */
@@ -1498,7 +1500,7 @@ static int ipa_init_flt_block(void)
 	struct ipa_ioc_get_rt_tbl rt_lookup;
 	enum ipa_ip_type ip;
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
+	if (ipa_ctx->ipa_hw_type >= IPA_HW_v1_1) {
 		size_t sz = sizeof(struct ipa_ioc_add_flt_rule) +
 		   sizeof(struct ipa_flt_rule_add);
 
@@ -1508,6 +1510,7 @@ static int ipa_init_flt_block(void)
 			return -ENOMEM;
 		}
 
+		IPADBG("Adding global rules for IPv4 and IPv6");
 		for (ip = IPA_IP_v4; ip < IPA_IP_MAX; ip++) {
 			memset(&rt_lookup, 0,
 					sizeof(struct ipa_ioc_get_rt_tbl));
@@ -1541,6 +1544,7 @@ static int ipa_init_flt_block(void)
 			}
 			rule->rule.action = IPA_PASS_TO_ROUTING;
 			rule->rule.rt_tbl_hdl = rt_lookup.hdl;
+			rule->rule.retain_hdr = true;
 
 			if (ipa_add_flt_rule(rules) || rules->rules[0].status) {
 				result = -EINVAL;
@@ -1555,7 +1559,8 @@ static int ipa_init_flt_block(void)
 
 /**
 * ipa_init() - Initialize the IPA Driver
-*@resource_p:	contain platform specific values from DST file
+* @resource_p:	contain platform specific values from DST file
+* @ipa_dev:	The basic device structure representing the IPA driver
 *
 * Function initialization process:
 * - Allocate memory for the driver context data struct
@@ -1585,21 +1590,23 @@ static int ipa_init_flt_block(void)
 * - Create a char-device for IPA
 * - Initialize IPA RM (resource manager)
 */
-static int ipa_init(const struct ipa_plat_drv_res *resource_p)
+static int ipa_init(const struct ipa_plat_drv_res *resource_p,
+		struct device *ipa_dev)
 {
 	int result = 0;
 	int i;
 	struct sps_bam_props bam_props = { 0 };
 	struct ipa_flt_tbl *flt_tbl;
 	struct ipa_rt_tbl_set *rset;
+	struct ipa_controller *ctrl;
 
-	IPADBG("IPA init\n");
+	IPADBG("IPA Driver initialization started\n");
 
 	ipa_ctx = kzalloc(sizeof(*ipa_ctx), GFP_KERNEL);
 	if (!ipa_ctx) {
 		IPAERR(":kzalloc err.\n");
 		result = -ENOMEM;
-		goto fail_mem;
+		goto fail_mem_ctx;
 	}
 
 	IPADBG("polling_mode=%u delay_ms=%u\n", polling_mode, polling_delay_ms);
@@ -1616,6 +1623,49 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
+	ipa_ctx->use_ipa_bamdma_a2_bridge =
+			resource_p->use_ipa_bamdma_a2_bridge;
+	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
+	ipa_ctx->use_a2_service = resource_p->use_a2_service;
+
+	/* default aggregation parameters */
+	ipa_ctx->aggregation_type = IPA_MBIM_16;
+	ipa_ctx->aggregation_byte_limit = 1;
+	ipa_ctx->aggregation_time_limit = 0;
+
+	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+	if (!ctrl) {
+		IPAERR("memory allocation error for ctrl\n");
+		result = -ENOMEM;
+		goto fail_mem_ctrl;
+	}
+	result = ipa_controller_static_bind(ctrl,
+			ipa_ctx->ipa_hw_type);
+	if (result) {
+		IPAERR("fail to static bind IPA ctrl.\n");
+		result = -EFAULT;
+		goto fail_bind;
+	}
+	ipa_ctx->ctrl = ctrl;
+
+	/* get BUS handle */
+	ipa_ctx->ipa_bus_hdl =
+		msm_bus_scale_register_client(&ipa_bus_client_pdata);
+	if (!ipa_ctx->ipa_bus_hdl) {
+		IPAERR("fail to register with bus mgr!\n");
+		result = -ENODEV;
+		goto fail_bind;
+	}
+
+	/* get IPA clocks */
+	if (ipa_get_clks(ipa_dev) != 0) {
+		IPAERR(":fail to get clk handle's!\n");
+		result = -ENODEV;
+		goto fail_bind;
+	}
+
+	/* enable IPA clocks explicitly to allow the initialization */
+	ipa_enable_clks();
 
 	/* setup IPA register access */
 	ipa_ctx->mmio = ioremap(resource_p->ipa_mem_base + IPA_REG_BASE_OFST,
@@ -1625,46 +1675,42 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -EFAULT;
 		goto fail_remap;
 	}
-	/* do POR programming to setup HW */
+
 	result = ipa_init_hw();
 	if (result) {
-		IPAERR(":error initializing driver.\n");
+		IPAERR(":error initializing HW.\n");
 		result = -ENODEV;
 		goto fail_init_hw;
 	}
+	IPADBG("IPA HW initialization sequence completed");
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
-		/* setup chicken bits */
-		result = ipa_set_single_ndp_per_mbim(true);
-		if (result) {
-			IPAERR(":failed to set single ndp per mbim.\n");
-			result = -EFAULT;
-			goto fail_init_hw;
-		}
+	ctrl->ipa_sram_read_settings();
+	IPADBG("SRAM, base: 0x%x size: 0x%x, restricted bytes: 0x%x\n",
+			ipa_ctx->ipa_wrapper_base +
+			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0),
+			ipa_ctx->smem_sz, ipa_ctx->smem_restricted_bytes);
 
-		result = ipa_set_hw_timer_fix_for_mbim_aggr(true);
-		if (result) {
-			IPAERR(":failed to set HW timer fix for MBIM agg.\n");
-			result = -EFAULT;
-			goto fail_init_hw;
-		}
-	}
-
-
-	/* read how much SRAM is available for SW use */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
-		ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v1);
-	else
-		ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v2);
-
-	if (IPA_RAM_END_OFST > ipa_ctx->smem_sz) {
+	if (IPA_RAM_REQUIRED >
+			ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes) {
 		IPAERR("SW expect more core memory, needed %d, avail %d\n",
 				IPA_RAM_END_OFST, ipa_ctx->smem_sz);
 		result = -ENOMEM;
 		goto fail_init_hw;
 	}
+
+	ctrl->sram_flt_ipv4_ofst  = IPA_RAM_V4_FLT_OFST +
+			ipa_ctx->smem_restricted_bytes;
+	ctrl->sram_flt_ipv4_ofst  = IPA_RAM_V6_FLT_OFST +
+			ipa_ctx->smem_restricted_bytes;
+	ctrl->sram_nat_ipv4_ofst = IPA_RAM_NAT_OFST +
+			ipa_ctx->smem_restricted_bytes;
+	ctrl->sram_rt_ipv4_ofst   = IPA_RAM_V4_RT_OFST +
+			ipa_ctx->smem_restricted_bytes;
+	ctrl->sram_rt_ipv6_ofst   = IPA_RAM_V6_RT_OFST +
+			ipa_ctx->smem_restricted_bytes;
+	ctrl->sram_hdr_ofst       = IPA_RAM_HDR_OFST +
+			ipa_ctx->smem_restricted_bytes;
+
 	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
 	bam_props.virt_size = resource_p->bam_mem_size;
@@ -1680,6 +1726,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENODEV;
 		goto fail_init_hw;
 	}
+	IPADBG("IPA BAM is registered\n");
 
 	if (ipa_setup_bam_cfg(resource_p)) {
 		IPAERR(":bam cfg err.\n");
@@ -1713,8 +1760,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		goto fail_hdr_cache;
 	}
 	ipa_ctx->hdr_offset_cache =
-	   kmem_cache_create("IPA HDR OFF", sizeof(struct ipa_hdr_offset_entry),
-			   0, 0, NULL);
+	   kmem_cache_create("IPA HDR OFFSET",
+			   sizeof(struct ipa_hdr_offset_entry), 0, 0, NULL);
 	if (!ipa_ctx->hdr_offset_cache) {
 		IPAERR(":ipa hdr off cache create failed\n");
 		result = -ENOMEM;
@@ -1767,7 +1814,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 			IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
 			0, 0);
 	}
-
 	if (!ipa_ctx->dma_pool) {
 		IPAERR("cannot alloc DMA pool.\n");
 		result = -ENOMEM;
@@ -1838,6 +1884,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENOMEM;
 		goto fail_tx_wq;
 	}
+	IPADBG("workqueues were created\n");
 
 	ipa_ctx->hdr_hdl_tree = RB_ROOT;
 	ipa_ctx->rt_rule_hdl_tree = RB_ROOT;
@@ -1847,27 +1894,38 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients = 0;
 
-	result = ipa_bridge_init();
-	if (result) {
-		IPAERR("ipa bridge init err.\n");
-		result = -ENODEV;
-		goto fail_a5_pipes;
+	/* enable IPA clocks until the end of the initialization */
+	ipa_inc_client_enable_clks();
+
+	/* HW bridge to allow A2<->IPA BAM2BAM communication */
+	if (ipa_ctx->use_ipa_bamdma_a2_bridge) {
+		result = ipa_bridge_init();
+		if (result) {
+			IPAERR("ipa bamdma-bridge init err.\n");
+			result = -ENODEV;
+			goto fail_apps_pipes;
+		}
+		IPADBG("IPA-A2 HW bridge initialized");
 	}
 
 	/* setup the A5-IPA pipes */
-	if (ipa_setup_a5_pipes()) {
-		IPAERR(":failed to setup IPA-A5 pipes.\n");
+	if (ipa_setup_apps_pipes()) {
+		IPAERR(":failed to setup IPA-Apps pipes.\n");
 		result = -ENODEV;
-		goto fail_a5_pipes;
+		goto fail_apps_pipes;
 	}
+	IPADBG("IPA System2Bam pipes were connected\n");
 
 	ipa_replenish_rx_cache();
+	IPADBG("Rx cache was replenished to %d packets wrapper",
+			IPA_RX_POOL_CEIL);
 
 	if (ipa_init_flt_block()) {
 		IPAERR("fail to setup dummy filter rules\n");
 		result = -ENODEV;
 		goto fail_empty_rt_tbl;
 	}
+	IPADBG("filter block was set with dummy filter rules");
 
 	/*
 	 * setup an empty routing table in system memory, this will be used
@@ -1887,10 +1945,12 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	}
 	memset(ipa_ctx->empty_rt_tbl_mem.base, 0,
 			ipa_ctx->empty_rt_tbl_mem.size);
+	IPADBG("empty routing table was allocated in system memory");
 
 	/* setup the IPA pipe mem pool */
-	ipa_pipe_mem_init(resource_p->ipa_pipe_mem_start_ofst,
-			resource_p->ipa_pipe_mem_size);
+	if (resource_p->ipa_pipe_mem_size)
+		ipa_pipe_mem_init(resource_p->ipa_pipe_mem_start_ofst,
+				resource_p->ipa_pipe_mem_size);
 
 	ipa_ctx->class = class_create(THIS_MODULE, DRV_NAME);
 
@@ -1919,42 +1979,50 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENODEV;
 		goto fail_cdev_add;
 	}
+	IPADBG("ipa cdev added successful. major:%d minor:%d",
+			MAJOR(ipa_ctx->dev_num),
+			MINOR(ipa_ctx->dev_num));
 
-	/* default aggregation parameters */
-	ipa_ctx->aggregation_type = IPA_MBIM_16;
-	ipa_ctx->aggregation_byte_limit = 1;
-	ipa_ctx->aggregation_time_limit = 0;
+	/* Initialize IPA RM (resource manager) */
+	result = ipa_rm_initialize();
+	if (result) {
+		IPAERR("RM initialization failed (%d)\n", -result);
+		result = -ENODEV;
+		goto fail_ipa_rm_init;
+	}
+	IPADBG("IPA resource manager initialized");
 
-	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_PCIE) {
-		/* Initialize IPA RM (resource manager) */
-		result = ipa_rm_initialize();
+	if (ipa_ctx->use_a2_service) {
+		result = a2_mux_init();
 		if (result) {
-			IPAERR(":cdev_add err=%d\n", -result);
+			IPAERR(":a2 service init failed (%d)\n", -result);
 			result = -ENODEV;
-			goto fail_ipa_rm_init;
+			goto fail_a2_service_init;
 		}
+		IPADBG("A2 service initialized");
 	}
 
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL) {
-		a2_mux_init();
-
+	if (ipa_ctx->use_ipa_teth_bridge) {
 		/* Initialize the tethering bridge driver */
 		result = teth_bridge_driver_init();
 		if (result) {
-			IPAERR(":teth_bridge_driver_init() failed\n");
+			IPAERR(":teth_bridge init failed (%d)\n", -result);
 			result = -ENODEV;
-			goto fail_cdev_add;
+			goto fail_teth_bridge_init;
 		}
+		IPADBG("teth_bridge initialized");
 	}
 
-	/* gate IPA clocks */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-		ipa_disable_clks();
+	ipa_dec_client_disable_clks();
 
-	IPADBG(":IPA driver init OK.\n");
+	pr_info("IPA driver initialization was successful.\n");
 
 	return 0;
 
+fail_teth_bridge_init:
+	a2_mux_exit();
+fail_a2_service_init:
+	ipa_rm_exit();
 fail_ipa_rm_init:
 	cdev_del(&ipa_ctx->cdev);
 fail_cdev_add:
@@ -1970,8 +2038,8 @@ fail_alloc_chrdev_region:
 			  ipa_ctx->empty_rt_tbl_mem.phys_base);
 fail_empty_rt_tbl:
 	ipa_cleanup_rx();
-	ipa_teardown_a5_pipes();
-fail_a5_pipes:
+	ipa_teardown_apps_pipes();
+fail_apps_pipes:
 	destroy_workqueue(ipa_ctx->tx_wq);
 fail_tx_wq:
 	destroy_workqueue(ipa_ctx->rx_wq);
@@ -2002,174 +2070,200 @@ fail_flt_rule_cache:
 fail_init_hw:
 	iounmap(ipa_ctx->mmio);
 fail_remap:
+	ipa_disable_clks();
+fail_bind:
+	kfree(ipa_ctx->ctrl);
+fail_mem_ctrl:
 	kfree(ipa_ctx);
 	ipa_ctx = NULL;
-fail_mem:
+fail_mem_ctx:
 	return result;
 }
 
-static int ipa_plat_drv_probe(struct platform_device *pdev_p)
+static int get_a2_pipes_configurations(struct ipa_plat_drv_res *ipa_res,
+					struct platform_device *pdev_p)
 {
-	int result = 0;
+	int result;
 	struct resource *resource_p;
-
-	IPADBG("IPA plat drv probe\n");
-
-	/* initialize ipa_res */
-	ipa_res.ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
-	ipa_res.ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
-	ipa_res.ipa_hw_type = 0;
-	ipa_res.ipa_hw_mode = 0;
 
 	result = ipa_load_pipe_connection(pdev_p,
 					A2_TO_IPA,
-					&ipa_res.a2_to_ipa_pipe);
-	if (0 != result)
+					&ipa_res->a2_to_ipa_pipe);
+	if (result)
 		IPAERR(":ipa_load_pipe_connection failed!\n");
 
 	result = ipa_load_pipe_connection(pdev_p, IPA_TO_A2,
-					  &ipa_res.ipa_to_a2_pipe);
-	if (0 != result)
+					  &ipa_res->ipa_to_a2_pipe);
+	if (result)
 		IPAERR(":ipa_load_pipe_connection failed!\n");
 
-	/* Get IPA wrapper address */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
-			"ipa-base");
-
-	if (!resource_p) {
-		IPAERR(":get resource failed for ipa-base!\n");
-		return -ENODEV;
-	} else {
-		ipa_res.ipa_mem_base = resource_p->start;
-		ipa_res.ipa_mem_size = resource_size(resource_p);
-	}
-
-	/* Get IPA BAM address */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
-			"bam-base");
-
-	if (!resource_p) {
-		IPAERR(":get resource failed for bam-base!\n");
-		return -ENODEV;
-	} else {
-		ipa_res.bam_mem_base = resource_p->start;
-		ipa_res.bam_mem_size = resource_size(resource_p);
-	}
-
 	/* Get IPA A2 BAM address */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
-			"a2-bam-base");
-
+	resource_p = platform_get_resource_byname(pdev_p,
+			IORESOURCE_MEM, "a2-bam-base");
 	if (!resource_p) {
 		IPAERR(":get resource failed for a2-bam-base!\n");
 		return -ENODEV;
 	} else {
-		ipa_res.a2_bam_mem_base = resource_p->start;
-		ipa_res.a2_bam_mem_size = resource_size(resource_p);
-	}
-
-	/* Get IPA pipe mem start ofst */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
-			"ipa-pipe-mem");
-
-	if (!resource_p) {
-		IPADBG(":get resource failed for ipa-pipe-mem\n");
-	} else {
-		ipa_res.ipa_pipe_mem_start_ofst = resource_p->start;
-		ipa_res.ipa_pipe_mem_size = resource_size(resource_p);
-	}
-
-	/* Get IPA IRQ number */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_IRQ,
-			"ipa-irq");
-
-	if (!resource_p) {
-		IPAERR(":get resource failed for ipa-irq!\n");
-		return -ENODEV;
-	} else {
-		ipa_res.ipa_irq = resource_p->start;
-	}
-
-	/* Get IPA BAM IRQ number */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_IRQ,
-			"bam-irq");
-
-	if (!resource_p) {
-		IPAERR(":get resource failed for bam-irq!\n");
-		return -ENODEV;
-	} else {
-		ipa_res.bam_irq = resource_p->start;
+		ipa_res->a2_bam_mem_base = resource_p->start;
+		ipa_res->a2_bam_mem_size = resource_size(resource_p);
+		IPADBG(":a2-bam-base = 0x%x , size = 0x%x\n",
+				ipa_res->a2_bam_mem_base,
+				ipa_res->a2_bam_mem_size);
 	}
 
 	/* Get IPA A2 BAM IRQ number */
-	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_IRQ,
-			"a2-bam-irq");
-
+	resource_p = platform_get_resource_byname(pdev_p,
+			IORESOURCE_IRQ, "a2-bam-irq");
 	if (!resource_p) {
 		IPAERR(":get resource failed for a2-bam-irq!\n");
 		return -ENODEV;
 	} else {
-		ipa_res.a2_bam_irq = resource_p->start;
+		ipa_res->a2_bam_irq = resource_p->start;
+		IPADBG("a2-bam-irq = 0x%x\n", ipa_res->a2_bam_irq);
 	}
 
-	/* Get IPA HW Version */
-	result = of_property_read_u32(pdev_p->dev.of_node, "qcom,ipa-hw-ver",
-					&ipa_res.ipa_hw_type);
+	return 0;
+}
 
-	if ((result) || (ipa_res.ipa_hw_type == 0)) {
+static int get_ipa_dts_configuration(struct platform_device *pdev,
+		struct ipa_plat_drv_res *ipa_drv_res)
+{
+	int result;
+	struct resource *resource;
+
+	/* initialize ipa_res */
+	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
+	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
+	ipa_drv_res->ipa_hw_type = 0;
+	ipa_drv_res->ipa_hw_mode = 0;
+
+	/* Get IPA HW Version */
+	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
+					&ipa_drv_res->ipa_hw_type);
+	if ((result) || (ipa_drv_res->ipa_hw_type == 0)) {
 		IPAERR(":get resource failed for ipa-hw-ver!\n");
 		return -ENODEV;
 	}
-	IPADBG(": found ipa_res.ipa_hw_type = %d", ipa_res.ipa_hw_type);
+	IPADBG(": ipa_hw_type = %d", ipa_drv_res->ipa_hw_type);
 
 	/* Get IPA HW mode */
-	result = of_property_read_u32(pdev_p->dev.of_node, "ipa-hw-mode",
-			&ipa_res.ipa_hw_mode);
-
+	result = of_property_read_u32(pdev->dev.of_node, "ipa-hw-mode",
+			&ipa_drv_res->ipa_hw_mode);
 	if (result)
 		IPADBG("using default (IPA_MODE_NORMAL) for ipa-hw-mode\n");
 	else
-		IPADBG(": found ipa_res.ipa_hw_mode = %d", ipa_res.ipa_hw_mode);
+		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
+				ipa_drv_res->ipa_hw_mode);
 
-	IPADBG(":ipa_mem_base = 0x%x, ipa_mem_size = 0x%x\n",
-	       ipa_res.ipa_mem_base, ipa_res.ipa_mem_size);
-	IPADBG(":bam_mem_base = 0x%x, bam_mem_size = 0x%x\n",
-	       ipa_res.bam_mem_base, ipa_res.bam_mem_size);
-	IPADBG(":pipe_mem_start_ofst = 0x%x, pipe_mem_size = 0x%x\n",
-	       ipa_res.ipa_pipe_mem_start_ofst, ipa_res.ipa_pipe_mem_size);
+	ipa_drv_res->use_ipa_bamdma_a2_bridge =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-ipa-bamdma-a2-bridge");
+	IPADBG(": using A2-BAMDMA bridge = %s",
+		ipa_drv_res->use_ipa_bamdma_a2_bridge ?
+				"True" : "False");
 
-	IPADBG(":ipa_irq = %d\n", ipa_res.ipa_irq);
-	IPADBG(":bam_irq = %d\n", ipa_res.bam_irq);
+	ipa_drv_res->use_a2_service = of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-a2-service");
+	IPADBG(": using A2 service = %s",
+			ipa_drv_res->use_a2_service
+			? "True" : "False");
 
-	/* stash the IPA dev ptr */
-	ipa_dev = &pdev_p->dev;
+	ipa_drv_res->use_ipa_teth_bridge =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-ipa-tethering-bridge");
+	IPADBG(": using TBDr = %s",
+		ipa_drv_res->use_ipa_teth_bridge
+		? "True" : "False");
 
-	if (ipa_res.ipa_hw_mode == IPA_HW_MODE_NORMAL) {
-		/* get IPA clocks */
-		if (ipa_get_clks(ipa_dev) != 0) {
-			IPAERR(":fail to get clk handle's!\n");
+	/* Get IPA wrapper address */
+	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"ipa-base");
+	if (!resource) {
+		IPAERR(":get resource failed for ipa-base!\n");
+		return -ENODEV;
+	} else {
+		ipa_drv_res->ipa_mem_base = resource->start;
+		ipa_drv_res->ipa_mem_size = resource_size(resource);
+		IPADBG(": ipa-base = 0x%x, size = 0x%x\n",
+				ipa_drv_res->ipa_mem_base,
+				ipa_drv_res->ipa_mem_size);
+	}
+
+	/* Get IPA BAM address */
+	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"bam-base");
+	if (!resource) {
+		IPAERR(":get resource failed for bam-base!\n");
+		return -ENODEV;
+	} else {
+		ipa_drv_res->bam_mem_base = resource->start;
+		ipa_drv_res->bam_mem_size = resource_size(resource);
+		IPADBG(": bam-base = 0x%x, size = 0x%x\n",
+				ipa_drv_res->bam_mem_base,
+				ipa_drv_res->bam_mem_size);
+	}
+
+	/* Get IPA pipe mem start ofst */
+	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"ipa-pipe-mem");
+	if (!resource) {
+		IPADBG(":not using pipe memory - resource nonexisting\n");
+	} else {
+		ipa_drv_res->ipa_pipe_mem_start_ofst = resource->start;
+		ipa_drv_res->ipa_pipe_mem_size = resource_size(resource);
+		IPADBG(":using pipe memory - at 0x%x of size 0x%x\n",
+				ipa_drv_res->ipa_pipe_mem_start_ofst,
+				ipa_drv_res->ipa_pipe_mem_size);
+	}
+
+	/* Get IPA IRQ number */
+	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
+			"ipa-irq");
+	if (!resource) {
+		IPAERR(":get resource failed for ipa-irq!\n");
+		return -ENODEV;
+	} else {
+		ipa_drv_res->ipa_irq = resource->start;
+		IPADBG(":ipa-irq = %d\n", ipa_drv_res->ipa_irq);
+	}
+
+	/* Get IPA BAM IRQ number */
+	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
+			"bam-irq");
+	if (!resource) {
+		IPAERR(":get resource failed for bam-irq!\n");
+		return -ENODEV;
+	} else {
+		ipa_drv_res->bam_irq = resource->start;
+		IPADBG(":ibam-irq = %d\n", ipa_drv_res->bam_irq);
+	}
+
+	if (ipa_drv_res->use_a2_service) {
+		result = get_a2_pipes_configurations(&ipa_res, pdev);
+		if (result)
 			return -ENODEV;
-		}
+	}
 
-		/* get BUS handle */
-		ipa_bus_hdl =
-			msm_bus_scale_register_client(&ipa_bus_client_pdata);
-		if (!ipa_bus_hdl) {
-			IPAERR(":fail to register with bus mgr!\n");
-			return -ENODEV;
-		}
+	return 0;
+}
 
-		/* enable IPA clocks */
-		ipa_enable_clks();
+static int ipa_plat_drv_probe(struct platform_device *pdev_p)
+{
+	int result;
+
+	IPADBG("IPA driver probing started\n");
+
+	 result = get_ipa_dts_configuration(pdev_p, &ipa_res);
+	 if (result) {
+		IPAERR("IPA dts parsing failed\n");
+		return result;
 	}
 
 	/* Proceed to real initialization */
-	result = ipa_init(&ipa_res);
+	result = ipa_init(&ipa_res, &pdev_p->dev);
 	if (result) {
 		IPAERR("ipa_init failed\n");
-		/* gate IPA clocks */
-		if (ipa_res.ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
+		return result;
 	}
 
 	result = device_create_file(&pdev_p->dev,

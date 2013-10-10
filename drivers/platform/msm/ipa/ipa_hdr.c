@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,10 +92,10 @@ static int __ipa_commit_hdr(void)
 		goto fail_send_cmd;
 	}
 
-	cmd->hdr_table_addr = mem->phys_base;
+	cmd->hdr_table_src_addr = mem->phys_base;
 	if (ipa_ctx->hdr_tbl_lcl) {
 		cmd->size_hdr_table = mem->size;
-		cmd->hdr_addr = IPA_RAM_HDR_OFST;
+		cmd->hdr_table_dst_addr = ipa_ctx->ctrl->sram_hdr_ofst;
 		desc.opcode = IPA_HDR_INIT_LOCAL;
 	} else {
 		desc.opcode = IPA_HDR_INIT_SYSTEM;
@@ -296,6 +296,8 @@ int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	IPADBG("adding %d headers to IPA driver internal data struct\n",
+			hdrs->num_hdrs);
 	for (i = 0; i < hdrs->num_hdrs; i++) {
 		if (__ipa_add_hdr(&hdrs->hdr[i])) {
 			IPAERR("failed to add hdr %d\n", i);
@@ -306,6 +308,7 @@ int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 	}
 
 	if (hdrs->commit) {
+		IPADBG("committing all headers to IPA core");
 		if (__ipa_commit_hdr()) {
 			result = -EPERM;
 			goto bail;
@@ -445,7 +448,7 @@ int ipa_reset_hdr(void)
 			&ipa_ctx->hdr_tbl.head_hdr_entry_list, link) {
 
 		/* do not remove the default exception header */
-		if (!strncmp(entry->name, IPA_DFLT_HDR_NAME,
+		if (!strncmp(entry->name, IPA_A5_MUX_HDR_NAME,
 					IPA_RESOURCE_NAME_MAX))
 			continue;
 

@@ -1,9 +1,13 @@
 #ifndef _UAPI_MSM_IPA_H_
 #define _UAPI_MSM_IPA_H_
 
-#include <linux/types.h>
-#include <linux/stddef.h>
+#ifndef __KERNEL__
+#include <stdint.h>
+#include <stddef.h>
+#include <sys/stat.h>
+#endif
 #include <linux/ioctl.h>
+#include <linux/types.h>
 
 /**
  * unique magic number of the IPA device
@@ -148,7 +152,7 @@ enum ipa_ip_type {
  * Pass to routing: 5'd0
  * Pass to source NAT: 5'd1
  * Pass to destination NAT: 5'd2
- * Pass to default output pipe (e.g., A5): 5'd3
+ * Pass to default output pipe (e.g., Apps or Modem): 5'd3
  */
 enum ipa_flt_action {
 	IPA_PASS_TO_ROUTING,
@@ -282,11 +286,16 @@ struct ipa_rule_attrib {
 
 /**
  * struct ipa_flt_rule - attributes of a filtering rule
+ * @retain_hdr: bool switch to instruct IPA core to add back to the packet
+ *  the header removed as part of header removal
+ * @to_uc: bool switch to pass packet to micro-controller
  * @action: action field
  * @rt_tbl_hdl: handle of table from "get"
  * @attrib: attributes of the rule
  */
 struct ipa_flt_rule {
+	uint8_t retain_hdr;
+	uint8_t to_uc;
 	enum ipa_flt_action action;
 	uint32_t rt_tbl_hdl;
 	struct ipa_rule_attrib attrib;

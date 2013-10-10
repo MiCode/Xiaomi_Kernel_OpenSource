@@ -389,13 +389,17 @@ static int __ipa_commit_rt(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V4_ROUTING_INIT;
 		v4->ipv4_rules_addr = mem->phys_base;
 		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_RAM_V4_RT_OFST;
+		v4->ipv4_addr = ipa_ctx->ctrl->sram_rt_ipv4_ofst;
+		IPADBG("putting Routing IPv4 rules to phys 0x%x",
+				v4->ipv4_addr);
 	} else {
 		v6 = (struct ipa_ip_v6_routing_init *)cmd;
 		desc.opcode = IPA_IP_V6_ROUTING_INIT;
 		v6->ipv6_rules_addr = mem->phys_base;
 		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_RAM_V6_RT_OFST;
+		v6->ipv6_addr = ipa_ctx->ctrl->sram_rt_ipv6_ofst;
+		IPADBG("putting Routing IPv6 rules to phys 0x%x",
+				v6->ipv6_addr);
 	}
 
 	desc.pyld = cmd;
