@@ -233,6 +233,17 @@ struct ufs_clk_info {
 
 #define PRE_CHANGE      0
 #define POST_CHANGE     1
+
+struct ufs_pa_layer_attr {
+	u32 gear_rx;
+	u32 gear_tx;
+	u32 lane_rx;
+	u32 lane_tx;
+	u32 pwr_rx;
+	u32 pwr_tx;
+	u32 hs_rate;
+};
+
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
@@ -244,6 +255,9 @@ struct ufs_clk_info {
  *                     variant specific Uni-Pro initialization.
  * @link_startup_notify: called before and after Link startup is carried out
  *                       to allow variant specific Uni-Pro initialization.
+ * @pwr_change_notify: called before and after a power mode change
+ *			is carried out to allow vendor spesific capabilities
+ *			to be set.
  * @suspend: called during host controller PM callback
  * @resume: called during host controller PM callback
  */
@@ -255,6 +269,9 @@ struct ufs_hba_variant_ops {
 	int     (*setup_regulators)(struct ufs_hba *, bool);
 	int     (*hce_enable_notify)(struct ufs_hba *, bool);
 	int     (*link_startup_notify)(struct ufs_hba *, bool);
+	int	(*pwr_change_notify)(struct ufs_hba *,
+					bool, struct ufs_pa_layer_attr *,
+					struct ufs_pa_layer_attr *);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 };
