@@ -38,7 +38,6 @@ Optional properties:
 	the below optional properties:
 	- qcom,msm-bus,name
 	- qcom,msm-bus,num-cases
-	- qcom,msm-bus,active-only
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
 
@@ -85,7 +84,6 @@ Example (for 8974 platform, avaialble at msm8974.dtsi):
 
 		qcom,msm-bus,name = "tsif";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<82 512 0 0>, /* No vote */

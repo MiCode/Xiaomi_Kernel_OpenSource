@@ -481,21 +481,50 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 
 }
 
-static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
+void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
+	struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect)
+{
+	struct mdss_mdp_img_rect res;
+	mdss_mdp_intersect_rect(&res, dst_rect, sci_rect);
+
+	if (res.w && res.h) {
+		if ((res.w != dst_rect->w) || (res.h != dst_rect->h)) {
+			src_rect->x = src_rect->x + (res.x - dst_rect->x);
+			src_rect->y = src_rect->y + (res.y - dst_rect->y);
+			src_rect->w = res.w;
+			src_rect->h = res.h;
+		}
+		*dst_rect = (struct mdss_mdp_img_rect)
+			{(res.x - sci_rect->x), (res.y - sci_rect->y),
+			res.w, res.h};
+	}
+}
+
+static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
+					struct mdss_mdp_data *data)
 {
 	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
 	u32 width, height;
 	u32 decimation;
+	struct mdss_mdp_img_rect sci, dst, src;
+	int ret = 0;
 
 	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
-		   pipe->num, pipe->img_width, pipe->img_height,
-		   pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
-		   pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+			pipe->num, pipe->img_width, pipe->img_height,
+			pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
+			pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
 	width = pipe->img_width;
 	height = pipe->img_height;
 	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
 			&pipe->src_planes, pipe->bwc_mode);
+
+	if (data != NULL) {
+		ret = mdss_mdp_data_check(data, &pipe->src_planes);
+		if (ret)
+			return ret;
+	}
 
 	if ((pipe->flags & MDP_DEINTERLACE) &&
 			!(pipe->flags & MDP_SOURCE_ROTATED_90)) {
@@ -512,15 +541,23 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 		pr_debug("Image decimation h=%d v=%d\n",
 				pipe->horz_deci, pipe->vert_deci);
 
+	sci = pipe->mixer->ctl->roi;
+	dst = pipe->dst;
+	src = pipe->src;
+
+	mdss_mdp_crop_rect(&src, &dst, &sci);
+
+	src_size = (src.h << 16) | src.w;
+	src_xy = (src.y << 16) | src.x;
+	dst_size = (dst.h << 16) | dst.w;
+	dst_xy = (dst.y << 16) | dst.x;
+
 	img_size = (height << 16) | width;
-	src_size = (pipe->src.h << 16) | pipe->src.w;
-	src_xy = (pipe->src.y << 16) | pipe->src.x;
-	dst_size = (pipe->dst.h << 16) | pipe->dst.w;
-	dst_xy = (pipe->dst.y << 16) | pipe->dst.x;
+
 	ystride0 =  (pipe->src_planes.ystride[0]) |
-		    (pipe->src_planes.ystride[1] << 16);
+			(pipe->src_planes.ystride[1] << 16);
 	ystride1 =  (pipe->src_planes.ystride[2]) |
-		    (pipe->src_planes.ystride[3] << 16);
+			(pipe->src_planes.ystride[3] << 16);
 
 	if (pipe->overfetch_disable) {
 		img_size = src_size;
@@ -661,7 +698,7 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 
 	pr_debug("solid fill setup on pnum=%d\n", pipe->num);
 
-	ret = mdss_mdp_image_setup(pipe);
+	ret = mdss_mdp_image_setup(pipe, NULL);
 	if (ret) {
 		pr_err("image setup error for pnum=%d\n", pipe->num);
 		return ret;
@@ -706,7 +743,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	params_changed = (pipe->params_changed) ||
 			 ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
 			 (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
-			 && (ctl->mdata->mixer_switched));
+			 && (ctl->mdata->mixer_switched)) ||
+			 ctl->roi_changed;
 	if (src_data == NULL) {
 		mdss_mdp_pipe_solidfill_setup(pipe);
 		goto update_nobuf;
@@ -721,7 +759,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			goto done;
 		}
 
-		ret = mdss_mdp_image_setup(pipe);
+		ret = mdss_mdp_image_setup(pipe, src_data);
 		if (ret) {
 			pr_err("image setup error for pnum=%d\n", pipe->num);
 			goto done;

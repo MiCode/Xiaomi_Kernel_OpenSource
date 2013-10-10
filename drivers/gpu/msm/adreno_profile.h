@@ -61,6 +61,7 @@ struct adreno_profile {
 #define ADRENO_PROFILE_LOG_BUF_SIZE_DWORDS  (ADRENO_PROFILE_LOG_BUF_SIZE / \
 						sizeof(unsigned int))
 
+#ifdef CONFIG_DEBUG_FS
 void adreno_profile_init(struct kgsl_device *device);
 void adreno_profile_close(struct kgsl_device *device);
 int adreno_profile_process_results(struct kgsl_device *device);
@@ -70,6 +71,22 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 void adreno_profile_postib_processing(struct kgsl_device *device,
 		unsigned int *cmd_flags, unsigned int **rbptr,
 		unsigned int *cmds_gpu);
+#else
+static inline void adreno_profile_init(struct kgsl_device *device) { }
+static inline void adreno_profile_close(struct kgsl_device *device) { }
+static inline int adreno_profile_process_results(struct kgsl_device *device)
+{
+	return 0;
+}
+
+static inline void adreno_profile_preib_processing(struct kgsl_device *device,
+		unsigned int context_id, unsigned int *cmd_flags,
+		unsigned int **rbptr, unsigned int *cmds_gpu) { }
+
+static inline void adreno_profile_postib_processing(struct kgsl_device *device,
+		unsigned int *cmd_flags, unsigned int **rbptr,
+		unsigned int *cmds_gpu) { }
+#endif
 
 static inline bool adreno_profile_enabled(struct adreno_profile *profile)
 {

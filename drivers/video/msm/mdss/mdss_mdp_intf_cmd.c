@@ -428,6 +428,22 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
+static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
+{
+	int rc = 0;
+	if (ctl->roi.w && ctl->roi.h && ctl->roi_changed &&
+			ctl->panel_data->panel_info.partial_update_enabled) {
+		ctl->panel_data->panel_info.roi_x = ctl->roi.x;
+		ctl->panel_data->panel_info.roi_y = ctl->roi.y;
+		ctl->panel_data->panel_info.roi_w = ctl->roi.w;
+		ctl->panel_data->panel_info.roi_h = ctl->roi.h;
+
+		rc = mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_ENABLE_PARTIAL_UPDATE, NULL);
+	}
+	return rc;
+}
+
 int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
@@ -450,12 +466,14 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
 	}
 
-	mdss_mdp_cmd_clk_on(ctx);
+	mdss_mdp_cmd_set_partial_roi(ctl);
 
 	/*
 	 * tx dcs command if had any
 	 */
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF, NULL);
+
+	mdss_mdp_cmd_clk_on(ctx);
 
 	INIT_COMPLETION(ctx->pp_comp);
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
