@@ -1436,6 +1436,322 @@ static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	return msm_ufs_phy_power_on(phy);
 }
 
+/* vendor specific pre-defined parameters */
+#define	SLOW 1
+#define FAST 2
+
+#define UFS_MSM_LIMIT_NUM_LANES_RX	2
+#define UFS_MSM_LIMIT_NUM_LANES_TX	2
+#define UFS_MSM_LIMIT_HSGEAR_RX		UFS_HS_G1
+#define UFS_MSM_LIMIT_HSGEAR_TX		UFS_HS_G1
+#define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
+#define UFS_MSM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
+#define UFS_MSM_LIMIT_RX_PWR_PWM	SLOW_MODE
+#define UFS_MSM_LIMIT_TX_PWR_PWM	SLOW_MODE
+#define UFS_MSM_LIMIT_RX_PWR_HS		FAST_MODE
+#define UFS_MSM_LIMIT_TX_PWR_HS		FAST_MODE
+#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
+#define UFS_MSM_LIMIT_DESIRED_MODE	SLOW
+
+struct ufs_msm_dev_params {
+	u32 pwm_rx_gear;	/* pwm rx gear to work in */
+	u32 pwm_tx_gear;	/* pwm tx gear to work in */
+	u32 hs_rx_gear;		/* hs rx gear to work in */
+	u32 hs_tx_gear;		/* hs tx gear to work in */
+	u32 rx_lanes;		/* number of rx lanes */
+	u32 tx_lanes;		/* number of tx lanes */
+	u32 rx_pwr_pwm;		/* rx pwm working pwr */
+	u32 tx_pwr_pwm;		/* tx pwm working pwr */
+	u32 rx_pwr_hs;		/* rx hs working pwr */
+	u32 tx_pwr_hs;		/* tx hs working pwr */
+	u32 hs_rate;		/* rate A/B to work in HS */
+	u32 desired_working_mode;
+};
+
+enum ufs_pwm_gear_tag {
+	UFS_PWM_DONT_CHANGE,	/* Don't change Gear */
+	UFS_PWM_G1,		/* PWM Gear 1 (default for reset) */
+	UFS_PWM_G2,		/* PWM Gear 2 */
+	UFS_PWM_G3,		/* PWM Gear 3 */
+	UFS_PWM_G4,		/* PWM Gear 4 */
+	UFS_PWM_G5,		/* PWM Gear 5 */
+	UFS_PWM_G6,		/* PWM Gear 6 */
+	UFS_PWM_G7,		/* PWM Gear 7 */
+};
+
+enum ufs_hs_gear_tag {
+	UFS_HS_DONT_CHANGE,	/* Don't change Gear */
+	UFS_HS_G1,		/* HS Gear 1 (default for reset) */
+	UFS_HS_G2,		/* HS Gear 2 */
+	UFS_HS_G3,		/* HS Gear 3 */
+};
+
+/**
+ * as every power mode, according to the UFS spec, have a defined
+ * number that are not corresponed to their order or power
+ * consumption (i.e 5, 2, 4, 1 respectively from low to high),
+ * we need to map them into array, so we can scan it easily
+ * in order to find the minimum required power mode.
+ * also, we can use this routine to go the other way around,
+ * and from array index, the fetch the correspond power mode.
+ */
+static int map_unmap_pwr_mode(u32 mode, bool is_pwr_to_arr)
+{
+	enum {SL_MD = 0, SLA_MD = 1, FS_MD = 2, FSA_MD = 3, UNDEF = 4};
+	int ret = -EINVAL;
+
+	if (is_pwr_to_arr) {
+		switch (mode) {
+		case SLOW_MODE:
+			ret = SL_MD;
+			break;
+		case SLOWAUTO_MODE:
+			ret = SLA_MD;
+			break;
+		case FAST_MODE:
+			ret = FS_MD;
+			break;
+		case FASTAUTO_MODE:
+			ret = FSA_MD;
+			break;
+		default:
+			ret = UNDEF;
+			break;
+		}
+	} else {
+		switch (mode) {
+		case SL_MD:
+			ret = SLOW_MODE;
+			break;
+		case SLA_MD:
+			ret = SLOWAUTO_MODE;
+			break;
+		case FS_MD:
+			ret = FAST_MODE;
+			break;
+		case FSA_MD:
+			ret = FASTAUTO_MODE;
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+#define NUM_OF_SUPPORTED_MODES	5
+static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
+				struct ufs_pa_layer_attr *dev_max,
+				struct ufs_pa_layer_attr *dev_req)
+{
+	int arr[NUM_OF_SUPPORTED_MODES] = {0};
+	int i;
+	int min_power;
+	int min_dev_lanes;
+	int min_msm_lanes;
+	int min_msm_gear;
+	int min_dev_gear;
+	bool is_max_dev_hs;
+	bool is_max_msm_hs;
+
+	/**
+	 * mapping the max. supported power mode of the device
+	 * and the max. pre-defined support power mode of the vendor
+	 * in order to scan them easily
+	 */
+	arr[map_unmap_pwr_mode(dev_max->pwr_rx, true)]++;
+	arr[map_unmap_pwr_mode(dev_max->pwr_tx, true)]++;
+
+	if (msm_param->desired_working_mode == SLOW) {
+		arr[map_unmap_pwr_mode(msm_param->rx_pwr_pwm, true)]++;
+		arr[map_unmap_pwr_mode(msm_param->tx_pwr_pwm, true)]++;
+	} else {
+		arr[map_unmap_pwr_mode(msm_param->rx_pwr_hs, true)]++;
+		arr[map_unmap_pwr_mode(msm_param->tx_pwr_hs, true)]++;
+	}
+
+	for (i = 0; i < NUM_OF_SUPPORTED_MODES; ++i) {
+		if (arr[i] != 0)
+			break;
+	}
+
+	/* no supported power mode found */
+	if (i == NUM_OF_SUPPORTED_MODES) {
+		return -EINVAL;
+	} else {
+		min_power = map_unmap_pwr_mode(i, false);
+		if (min_power >= 0)
+			dev_req->pwr_rx = dev_req->pwr_tx = min_power;
+		else
+			return -EINVAL;
+	}
+
+	/**
+	 * we would like rx and tx to work in the same number of lanes
+	 * the minimum number of lanes between rx and tx of the device
+	 * capabilities and the vendor preferences determines to how many
+	 * lanes we shall configure the device
+	 */
+	min_dev_lanes = min_t(u32, dev_max->lane_rx, dev_max->lane_tx);
+	min_msm_lanes = min_t(u32, msm_param->rx_lanes, msm_param->tx_lanes);
+	dev_req->lane_rx = dev_req->lane_tx =
+			min_t(u32, min_dev_lanes, min_msm_lanes);
+
+	if (dev_max->pwr_rx == SLOW_MODE ||
+	    dev_max->pwr_rx == SLOWAUTO_MODE)
+		is_max_dev_hs = false;
+	else
+		is_max_dev_hs = true;
+
+	/* setting the device maximum gear */
+	min_dev_gear = min_t(u32, dev_max->gear_rx, dev_max->gear_tx);
+
+	/**
+	 * setting the desired gear to be the minimum according to the desired
+	 * power mode
+	 */
+	if (msm_param->desired_working_mode == SLOW) {
+		is_max_msm_hs = false;
+		min_msm_gear = min_t(u32, msm_param->pwm_rx_gear,
+						msm_param->pwm_tx_gear);
+	} else {
+		is_max_msm_hs = true;
+		min_msm_gear = min_t(u32, msm_param->hs_rx_gear,
+						msm_param->hs_tx_gear);
+	}
+
+	/**
+	 * if both device capabilities and vendor pre-defined preferences are
+	 * both HS or both PWM then set the minimum gear to be the
+	 * chosen working gear.
+	 * if one is PWM and one is HS then the one that is PWM get to decide
+	 * what the gear, as he is the one that also decided previously what
+	 * pwr the device will be configured to.
+	 */
+	if ((is_max_dev_hs && is_max_msm_hs) ||
+	    (!is_max_dev_hs && !is_max_msm_hs)) {
+		dev_req->gear_rx = dev_req->gear_tx =
+			min_t(u32, min_dev_gear, min_msm_gear);
+	} else if (!is_max_dev_hs) {
+		dev_req->gear_rx = dev_req->gear_tx = min_dev_gear;
+	} else {
+		dev_req->gear_rx = dev_req->gear_tx = min_msm_gear;
+	}
+
+	return 0;
+}
+
+static void msm_ufs_cfg_ufs_tx_symbol_reg(struct ufs_hba *hba, u32 gear, u32 hs)
+{
+	struct ufs_clk_info *clki;
+	u32 core_clk_period_in_ns;
+	u32 tx_clk_cycles_per_us = 0;
+	unsigned long core_clk_rate = 0;
+
+	static u32 pwm_fr_table[][2] = {
+		{UFS_PWM_G1, 0x1},
+		{UFS_PWM_G2, 0x1},
+		{UFS_PWM_G3, 0x1},
+		{UFS_PWM_G4, 0x1},
+	};
+
+	static u32 hs_fr_table_rA[][2] = {
+		{UFS_HS_G1, 0x1F},
+		{UFS_HS_G2, 0x3e},
+	};
+
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+		if (!strcmp(clki->name, "core_clk"))
+			core_clk_rate = clk_get_rate(clki->clk);
+	}
+
+	/* If frequency is smaller than 1MHz, set to 1MHz */
+	if (core_clk_rate < DEFAULT_CLK_RATE_HZ)
+		core_clk_rate = DEFAULT_CLK_RATE_HZ;
+
+	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
+	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
+	core_clk_period_in_ns &= MASK_CLK_NS_REG;
+
+	switch (hs) {
+	case FASTAUTO_MODE:
+	case FAST_MODE:
+		tx_clk_cycles_per_us = hs_fr_table_rA[gear-1][1];
+		break;
+	case SLOWAUTO_MODE:
+	case SLOW_MODE:
+		tx_clk_cycles_per_us = pwm_fr_table[gear-1][1];
+		break;
+	case UNCHANGED:
+	default:
+		pr_err("%s: power parameter not valid\n", __func__);
+		return;
+	}
+
+	/* this register 2 fields shall be written at once */
+	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
+						REG_UFS_TX_SYMBOL_CLK_NS_US);
+}
+
+static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
+				     bool status,
+				     struct ufs_pa_layer_attr *dev_max_params,
+				     struct ufs_pa_layer_attr *dev_req_params)
+{
+	int val;
+	struct msm_ufs_phy *phy = hba->priv;
+	struct ufs_msm_dev_params ufs_msm_cap;
+	int ret;
+
+	if (!dev_req_params) {
+		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	switch (status) {
+	case PRE_CHANGE:
+		ufs_msm_cap.rx_lanes = UFS_MSM_LIMIT_NUM_LANES_RX;
+		ufs_msm_cap.tx_lanes = UFS_MSM_LIMIT_NUM_LANES_TX;
+		ufs_msm_cap.hs_rx_gear = UFS_MSM_LIMIT_HSGEAR_RX;
+		ufs_msm_cap.hs_tx_gear = UFS_MSM_LIMIT_HSGEAR_TX;
+		ufs_msm_cap.pwm_rx_gear = UFS_MSM_LIMIT_PWMGEAR_RX;
+		ufs_msm_cap.pwm_tx_gear = UFS_MSM_LIMIT_PWMGEAR_TX;
+		ufs_msm_cap.rx_pwr_pwm = UFS_MSM_LIMIT_RX_PWR_PWM;
+		ufs_msm_cap.tx_pwr_pwm = UFS_MSM_LIMIT_TX_PWR_PWM;
+		ufs_msm_cap.rx_pwr_hs = UFS_MSM_LIMIT_RX_PWR_HS;
+		ufs_msm_cap.tx_pwr_hs = UFS_MSM_LIMIT_TX_PWR_HS;
+		ufs_msm_cap.hs_rate = UFS_MSM_LIMIT_HS_RATE;
+		ufs_msm_cap.desired_working_mode =
+					UFS_MSM_LIMIT_DESIRED_MODE;
+
+		ret = get_pwr_dev_param(&ufs_msm_cap, dev_max_params,
+							dev_req_params);
+		if (ret) {
+			pr_err("%s: failed to determine capabilities\n",
+					__func__);
+			goto out;
+		}
+
+		break;
+	case POST_CHANGE:
+		msm_ufs_cfg_ufs_tx_symbol_reg(hba, dev_req_params->gear_rx,
+							dev_req_params->pwr_rx);
+
+		val = ~(MAX_U32 << dev_req_params->lane_tx);
+		writel_relaxed(val, phy->mmio + UFS_PHY_TX_LANE_ENABLE);
+		mb();
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+out:
+	return ret;
+}
+
 #define UFS_HW_VER_MAJOR_SHFT	(28)
 #define UFS_HW_VER_MAJOR_MASK	(0x000F << UFS_HW_VER_MAJOR_SHFT)
 #define UFS_HW_VER_MINOR_SHFT	(16)
@@ -1688,6 +2004,7 @@ const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
 	.exit                   = msm_ufs_exit,
 	.hce_enable_notify      = msm_ufs_hce_enable_notify,
 	.link_startup_notify    = msm_ufs_link_startup_notify,
+	.pwr_change_notify	= msm_ufs_pwr_change_notify,
 	.suspend		= msm_ufs_suspend,
 	.resume			= msm_ufs_resume,
 };
