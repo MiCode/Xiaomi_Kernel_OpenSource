@@ -1279,6 +1279,13 @@
 			qcom,mas-hw-id = <55>;
 		};
 
+		mas-video-ocmem {
+			cell-id = <68>;
+			label = "mas-video-ocmem";
+			qcom,masterp = <3>;
+			qcom,tier = <2>;
+		};
+
 		slv-ocmem {
 			cell-id = <604>;
 			label = "slv-ocmem";
