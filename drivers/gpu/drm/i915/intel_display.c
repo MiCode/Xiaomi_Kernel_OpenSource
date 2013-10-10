@@ -9206,6 +9206,7 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 				 struct intel_engine_cs *ring,
 				 uint32_t flags)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	uint32_t plane_bit = 0;
 	int len, ret;
@@ -9291,6 +9292,20 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 
 	intel_mark_page_flip_active(intel_crtc);
 	__intel_ring_advance(ring);
+
+	/*
+	 * Sync the sprite plane disable with corresponding flip.
+	 * This will retain the sprite plane on display till valid data
+	 * is provided through flip. Hence avoiding any flicker effect
+	 * on plane switch, with no overhead.
+	 */
+	if (intel_crtc->disable_sprite) {
+		/* Activate double buffered register update */
+		I915_WRITE(SPRSURF(intel_crtc->pipe), 0);
+		POSTING_READ(SPRSURF(intel_crtc->pipe));
+		intel_crtc->disable_sprite = false;
+	}
+
 	return 0;
 }
 
@@ -11080,6 +11095,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->cursor_cntl = ~0;
 
 	init_waitqueue_head(&intel_crtc->vbl_wait);
+	intel_crtc->disable_sprite = false;
 
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
 	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);

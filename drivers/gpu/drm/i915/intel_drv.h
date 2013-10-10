@@ -418,6 +418,9 @@ struct intel_crtc {
 	wait_queue_head_t vbl_wait;
 
 	int scanline_offset;
+
+	/* Flag to schedule the sprite disable to corresponding flip */
+	bool disable_sprite;
 };
 
 struct intel_plane_wm_parameters {
