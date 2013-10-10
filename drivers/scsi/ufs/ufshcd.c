@@ -4350,6 +4350,35 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 	}
 }
 
+static int
+ufshcd_send_request_sense(struct ufs_hba *hba, struct scsi_device *sdp)
+{
+	unsigned char cmd[6] = {REQUEST_SENSE,
+				0,
+				0,
+				0,
+				SCSI_SENSE_BUFFERSIZE,
+				0};
+	char *buffer;
+	int ret;
+
+	buffer = kzalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
+	if (!buffer) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = scsi_execute_req_flags(sdp, cmd, DMA_FROM_DEVICE, buffer,
+				SCSI_SENSE_BUFFERSIZE, NULL,
+				msecs_to_jiffies(1000), 3, NULL, REQ_PM);
+	if (ret)
+		pr_err("%s: failed with err %d\n", __func__, ret);
+
+	kfree(buffer);
+out:
+	return ret;
+}
+
 /**
  * ufshcd_set_dev_pwr_mode - sends START STOP UNIT command to set device
  *			     power mode
@@ -4369,6 +4398,12 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 
 	if (!sdp || !scsi_device_online(sdp))
 		return -ENODEV;
+
+	if (pwr_mode != UFS_ACTIVE_PWR_MODE) {
+		ret = ufshcd_send_request_sense(hba, sdp);
+		if (ret)
+			goto out;
+	}
 
 	cmd[4] = pwr_mode << 4;
 
@@ -4391,7 +4426,7 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 
 	if (!ret)
 		hba->curr_dev_pwr_mode = pwr_mode;
-
+out:
 	return ret;
 }
 
