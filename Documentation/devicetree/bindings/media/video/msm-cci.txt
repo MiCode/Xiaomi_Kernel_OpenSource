@@ -49,6 +49,7 @@ MSM sensor node contains properties of camera sensor
 Required properties:
 - compatible : should be manufacturer name followed by sensor name
     - "qcom,s5k3l1yx"
+    - "sne,imx134"
     - "qcom,imx135"
     - "shinetech,gc0339"
     - "shinetech,hi256"
