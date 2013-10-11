@@ -26,3 +26,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+&usb_otg {
+	interrupts = <0 134 0>;
+	interrupt-names = "core_irq";
+};
