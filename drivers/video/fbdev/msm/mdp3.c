@@ -103,6 +103,7 @@ static struct msm_bus_paths
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
 };
+static char mdss_mdp3_panel[MDSS_MAX_PANEL_LEN];
 
 static struct msm_bus_scale_pdata mdp_bus_ppp_scale_table = {
 	.usecase = mdp_bus_ppp_usecases,
@@ -957,10 +958,9 @@ static int mdp3_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	if (!pan_cfg)
 		return -EINVAL;
 
-	strlcpy(pan_name, &pan_cfg->arg_cfg[0], sizeof(pan_cfg->arg_cfg));
-	if (pan_name[0] == '0') {
+	if (mdss_mdp3_panel[0] == '0') {
 		pan_cfg->lk_cfg = false;
-	} else if (pan_name[0] == '1') {
+	} else if (mdss_mdp3_panel[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
 		/* read from dt */
@@ -970,7 +970,7 @@ static int mdp3_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	}
 
 	/* skip lk cfg and delimiter; ex: "0:" */
-	strlcpy(pan_name, &pan_name[2], MDSS_MAX_PANEL_LEN);
+	strlcpy(pan_name, &mdss_mdp3_panel[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
 		pr_err("%s: pan_name=[%s] invalid\n",
@@ -1001,12 +1001,9 @@ static int mdp3_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	return 0;
 }
 
-static int mdp3_parse_bootarg(struct platform_device *pdev)
+static int mdp3_get_cmdline_config(struct platform_device *pdev)
 {
-	struct device_node *chosen_node;
-	static const char *cmd_line;
-	char *disp_idx, *end_idx;
-	int rc, len = 0, name_len, cmd_len;
+	int rc, len = 0;
 	int *intf_type;
 	char *panel_name;
 	struct mdss_panel_cfg *pan_cfg;
@@ -1020,71 +1017,16 @@ static int mdp3_parse_bootarg(struct platform_device *pdev)
 	/* reads from dt by default */
 	pan_cfg->lk_cfg = true;
 
-	chosen_node = of_find_node_by_name(NULL, "chosen");
-	if (!chosen_node) {
-		pr_err("%s: get chosen node failed\n", __func__);
-		rc = -ENODEV;
-		goto get_dt_pan;
+	len = strlen(mdss_mdp3_panel);
+
+	if (len > 0) {
+		rc = mdp3_get_pan_cfg(pan_cfg);
+		if (!rc) {
+			pan_cfg->init_done = true;
+			return rc;
+		}
 	}
 
-	cmd_line = of_get_property(chosen_node, "bootargs", &len);
-	if (!cmd_line || len <= 0) {
-		pr_err("%s: get bootargs failed\n", __func__);
-		rc = -ENODEV;
-		goto get_dt_pan;
-	}
-
-	name_len = strlen("mdss_mdp.panel=");
-	cmd_len = strlen(cmd_line);
-	disp_idx = strnstr(cmd_line, "mdss_mdp.panel=", cmd_len);
-	if (!disp_idx) {
-		pr_err("%s:%d:cmdline panel not set disp_idx=[%p]\n",
-				__func__, __LINE__, disp_idx);
-		memset(panel_name, 0x00, MDSS_MAX_PANEL_LEN);
-		*intf_type = MDSS_PANEL_INTF_INVALID;
-		rc = MDSS_PANEL_INTF_INVALID;
-		goto get_dt_pan;
-	}
-
-	disp_idx += name_len;
-
-	end_idx = strnstr(disp_idx, " ", MDSS_MAX_PANEL_LEN);
-	pr_debug("%s:%d: pan_name=[%s] end=[%s]\n", __func__, __LINE__,
-		 disp_idx, end_idx);
-	if (!end_idx) {
-		end_idx = disp_idx + strlen(disp_idx) + 1;
-		pr_warn("%s:%d: pan_name=[%s] end=[%s]\n", __func__,
-		       __LINE__, disp_idx, end_idx);
-	}
-
-	if (end_idx <= disp_idx) {
-		pr_err("%s:%d:cmdline pan incorrect end=[%p] disp=[%p]\n",
-			__func__, __LINE__, end_idx, disp_idx);
-		memset(panel_name, 0x00, MDSS_MAX_PANEL_LEN);
-		*intf_type = MDSS_PANEL_INTF_INVALID;
-		rc = MDSS_PANEL_INTF_INVALID;
-		goto get_dt_pan;
-	}
-
-	*end_idx = 0;
-	len = end_idx - disp_idx + 1;
-	if (len <= 0) {
-		pr_warn("%s: panel name not rx", __func__);
-		rc = -EINVAL;
-		goto get_dt_pan;
-	}
-
-	strlcpy(panel_name, disp_idx, min(++len, MDSS_MAX_PANEL_LEN));
-	pr_debug("%s:%d panel:[%s]", __func__, __LINE__, panel_name);
-	of_node_put(chosen_node);
-
-	rc = mdp3_get_pan_cfg(pan_cfg);
-	if (!rc) {
-		pan_cfg->init_done = true;
-		return rc;
-	}
-
-get_dt_pan:
 	rc = mdp3_parse_dt_pan_intf(pdev);
 	/* if pref pan intf is not present */
 	if (rc)
@@ -1093,7 +1035,6 @@ get_dt_pan:
 	else
 		pan_cfg->init_done = true;
 
-	of_node_put(chosen_node);
 	return rc;
 }
 
@@ -1128,7 +1069,7 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 	}
 	mdp3_res->irq = res->start;
 
-	rc = mdp3_parse_bootarg(pdev);
+	rc = mdp3_get_cmdline_config(pdev);
 	if (rc) {
 		pr_err("%s: Error in panel override:rc=[%d]\n",
 		       __func__, rc);
@@ -2337,5 +2278,14 @@ static int __init mdp3_driver_init(void)
 
 	return 0;
 }
+
+module_param_string(panel, mdss_mdp3_panel, MDSS_MAX_PANEL_LEN, 0);
+MODULE_PARM_DESC(panel,
+		"panel=<lk_cfg>:<pan_intf>:<pan_intf_cfg> "
+		"where <lk_cfg> is "1"-lk/gcdb config or "0" non-lk/non-gcdb "
+		"config; <pan_intf> is dsi:0 "
+		"<pan_intf_cfg> is panel interface specific string "
+		"Ex: This string is panel's device node name from DT "
+		"for DSI interface");
 
 module_init(mdp3_driver_init);
