@@ -1694,9 +1694,6 @@ struct measure_mux_entry measure_mux[] = {
 	{&snoc_clk.c,                          GCC_BASE, 0x0000},
 	{&ipa_clk.c,                           GCC_BASE, 0x01E0},
 
-	{&q6ss_ahbm_clk.c,                   LPASS_BASE, 0x001d},
-	{&q6ss_ahb_lfabif_clk.c,             LPASS_BASE, 0x001e},
-
 	{&a7_m_clk,			  APCS_GCC_BASE,    0x3},
 	{&dummy_clk,				N_BASES, 0x0000},
 };
@@ -1740,6 +1737,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 
 	default:
+		spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 		return -EINVAL;
 	}
 
