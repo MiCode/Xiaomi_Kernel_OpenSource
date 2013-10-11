@@ -3732,7 +3732,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 
 	/* UniPro link is active now */
 	ufshcd_set_link_active(hba);
-	ufshcd_config_max_pwr_mode(hba);
 
 	ret = ufshcd_verify_dev_init(hba);
 	if (ret)
@@ -3746,6 +3745,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
 	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+
+	ufshcd_config_max_pwr_mode(hba);
 
 	/*
 	 * If we are in error handling context or in power management callbacks
