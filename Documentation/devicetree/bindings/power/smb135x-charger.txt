@@ -36,6 +36,10 @@ Optional Properties:
 - qcom,bmd-algo-disabled	Indicates if the battery missing detection algorithm
 				is disabled. If this node is present SMB uses
 				the THERM pin for battery missing detection.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 50, 100, 150, 200, 250, 300, 500, 600.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
 - regulator-name		A string used as a descriptive name for OTG regulator.
 
 Example:
@@ -46,6 +50,7 @@ Example:
 			interrupt-parent = <&spmi_bus>;
 			interrupts = <0x00 0xCD 0>;
 			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <100>;
 			qcom,dc-psy-type = <8>;
 			qcom,dc-psy-ma = <800>;
 			qcom,charging-disabled;

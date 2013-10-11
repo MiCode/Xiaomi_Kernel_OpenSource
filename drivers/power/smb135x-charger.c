@@ -37,6 +37,17 @@
 				(RIGHT_BIT_POS))
 
 /* Config registers */
+#define CFG_3_REG			0x03
+#define CHG_ITERM_50MA			0x08
+#define CHG_ITERM_100MA			0x10
+#define CHG_ITERM_150MA			0x18
+#define CHG_ITERM_200MA			0x20
+#define CHG_ITERM_250MA			0x28
+#define CHG_ITERM_300MA			0x00
+#define CHG_ITERM_500MA			0x30
+#define CHG_ITERM_600MA			0x38
+#define CHG_ITERM_MASK			SMB135X_MASK(5, 3)
+
 #define CFG_4_REG			0x04
 #define CHG_INHIBIT_MASK		SMB135X_MASK(7, 6)
 #define CHG_INHIBIT_50MV_VAL		0x00
@@ -215,6 +226,8 @@ struct smb135x_chg {
 	bool				dc_present;
 
 	bool				bmd_algo_disabled;
+	bool				iterm_disabled;
+	int				iterm_ma;
 	int				vfloat_mv;
 	int				safety_time;
 	int				resume_delta_mv;
@@ -1831,9 +1844,8 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	 */
 	rc = smb135x_masked_write(chip, CFG_14_REG,
 			CHG_EN_BY_PIN_BIT | CHG_EN_ACTIVE_LOW_BIT
-			| PRE_TO_FAST_REQ_CMD_BIT | DISABLE_CURRENT_TERM_BIT
-			| DISABLE_AUTO_RECHARGE_BIT | EN_CHG_INHIBIT_BIT,
-			EN_CHG_INHIBIT_BIT);
+			| PRE_TO_FAST_REQ_CMD_BIT | DISABLE_AUTO_RECHARGE_BIT
+			| EN_CHG_INHIBIT_BIT, EN_CHG_INHIBIT_BIT);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set cfg 14 rc=%d\n", rc);
 		return rc;
@@ -1849,6 +1861,56 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 		if (rc < 0) {
 			dev_err(chip->dev,
 				"Couldn't set float voltage rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	/* set iterm */
+	if (chip->iterm_ma != -EINVAL) {
+		if (chip->iterm_disabled) {
+			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
+			return -EINVAL;
+		} else {
+			if (chip->iterm_ma <= 50)
+				reg = CHG_ITERM_50MA;
+			else if (chip->iterm_ma <= 100)
+				reg = CHG_ITERM_100MA;
+			else if (chip->iterm_ma <= 150)
+				reg = CHG_ITERM_150MA;
+			else if (chip->iterm_ma <= 200)
+				reg = CHG_ITERM_200MA;
+			else if (chip->iterm_ma <= 250)
+				reg = CHG_ITERM_250MA;
+			else if (chip->iterm_ma <= 300)
+				reg = CHG_ITERM_300MA;
+			else if (chip->iterm_ma <= 500)
+				reg = CHG_ITERM_500MA;
+			else
+				reg = CHG_ITERM_600MA;
+
+			rc = smb135x_masked_write(chip, CFG_3_REG,
+							CHG_ITERM_MASK, reg);
+			if (rc) {
+				dev_err(chip->dev,
+					"Couldn't set iterm rc = %d\n", rc);
+				return rc;
+			}
+
+			rc = smb135x_masked_write(chip, CFG_14_REG,
+						DISABLE_CURRENT_TERM_BIT, 0);
+			if (rc) {
+				dev_err(chip->dev,
+					"Couldn't enable iterm rc = %d\n", rc);
+				return rc;
+			}
+		}
+	} else  if (chip->iterm_disabled) {
+		rc = smb135x_masked_write(chip, CFG_14_REG,
+					DISABLE_CURRENT_TERM_BIT,
+					DISABLE_CURRENT_TERM_BIT);
+		if (rc) {
+			dev_err(chip->dev, "Couldn't set iterm rc = %d\n",
+								rc);
 			return rc;
 		}
 	}
@@ -2066,6 +2128,13 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 						&chip->resume_delta_mv);
 	if (rc < 0)
 		chip->resume_delta_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,iterm-ma", &chip->iterm_ma);
+	if (rc < 0)
+		chip->iterm_ma = -EINVAL;
+
+	chip->iterm_disabled = of_property_read_bool(node,
+						"qcom,iterm-disabled");
 
 	chip->chg_enabled = !(of_property_read_bool(node,
 						"qcom,charging-disabled"));
