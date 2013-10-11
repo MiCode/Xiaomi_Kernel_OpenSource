@@ -1687,7 +1687,6 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 tx_dmic_ctl_reg;
 	u8 dmic_clk_sel, dmic_clk_en;
-	u16 dmic_clk_mode;
 	unsigned int dmic;
 	int ret;
 
@@ -1702,13 +1701,11 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 2:
 		dmic_clk_sel = 0x02;
 		dmic_clk_en = 0x01;
-		dmic_clk_mode = SITAR_A_CDC_DMIC_CLK0_MODE;
 		break;
 	case 3:
 	case 4:
 		dmic_clk_sel = 0x08;
 		dmic_clk_en = 0x04;
-		dmic_clk_mode = SITAR_A_CDC_DMIC_CLK1_MODE;
 		break;
 
 		break;
@@ -1724,8 +1721,6 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* Configure the TLMM control registers as CORE_CDC_DMIC_CLK */
-		snd_soc_update_bits(codec, dmic_clk_mode, 0x7, 0x0);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_DMIC_CTL,
 				dmic_clk_sel, dmic_clk_sel);
 
@@ -1735,8 +1730,6 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 				dmic_clk_en, dmic_clk_en);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* Configure the TLMM control registers as SLIMbus pin control*/
-		snd_soc_update_bits(codec, dmic_clk_mode, 0x7, 0x4);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_DMIC_CTL,
 				dmic_clk_en, 0);
 		break;
@@ -5857,12 +5850,6 @@ static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 
 	/*enable External clock select*/
 	{SITAR_A_CDC_CLK_MCLK_CTL, 0x01, 0x01},
-
-	/* config DMIC Pins to GPIO mode */
-	{SITAR_A_CDC_DMIC_CLK0_MODE, 0x07, 0x04},
-	{SITAR_A_CDC_DMIC_CLK1_MODE, 0x07, 0x04},
-	{SITAR_A_PIN_CTL_OE0, 0x90, 0x90},
-	{SITAR_A_PIN_CTL_DATA0, 0x90, 0x90},
 };
 
 static void sitar_i2c_codec_init_reg(struct snd_soc_codec *codec)
