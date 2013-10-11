@@ -814,6 +814,7 @@ struct dwc3 {
 	bool			softconnect;
 	void (*notify_event) (struct dwc3 *, unsigned);
 	int			tx_fifo_size;
+	bool			tx_fifo_reduced;
 };
 
 /* -------------------------------------------------------------------------- */

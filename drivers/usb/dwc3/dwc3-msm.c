@@ -978,10 +978,13 @@ void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enabled)
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
-	if (qdss_enabled)
+	if (qdss_enabled) {
+		dwc->tx_fifo_reduced = true;
 		dwc->tx_fifo_size = mdwc->qdss_tx_fifo_size;
-	else
+	} else {
+		dwc->tx_fifo_reduced = false;
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
+	}
 }
 EXPORT_SYMBOL(dwc3_tx_fifo_resize_request);
 
