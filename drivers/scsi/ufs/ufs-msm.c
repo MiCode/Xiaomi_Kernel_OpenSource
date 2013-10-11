@@ -20,6 +20,9 @@
 #include <linux/of.h>
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
+
+#include <mach/msm_bus.h>
+
 #include "ufshcd.h"
 #include "unipro.h"
 
@@ -28,9 +31,7 @@
 #define TX_FSM_HIBERN8          0x1
 #define HBRN8_POLL_TOUT_MS      100
 #define DEFAULT_CLK_RATE_HZ     1000000
-
-static unsigned long
-msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs);
+#define BUS_VECTOR_NAME_LEN     32
 
 /* MSM UFS host controller vendor specific registers */
 enum {
@@ -57,6 +58,58 @@ enum {
 	MASK_TX_SYMBOL_CLK_1US_REG          = 0x3FF,
 	MASK_CLK_NS_REG                     = 0xFFFC00,
 };
+
+static LIST_HEAD(phy_list);
+
+struct msm_ufs_phy_calibration {
+	u32 reg_offset;
+	u32 cfg_value;
+};
+
+struct msm_ufs_phy_vreg {
+	const char *name;
+	struct regulator *reg;
+	int max_uA;
+	int min_uV;
+	int max_uV;
+	bool enabled;
+};
+
+struct msm_ufs_phy {
+	struct list_head list;
+	struct device *dev;
+	void __iomem *mmio;
+	struct clk *tx_iface_clk;
+	struct clk *rx_iface_clk;
+	bool is_iface_clk_enabled;
+	struct clk *ref_clk_src;
+	struct clk *ref_clk_parent;
+	struct clk *ref_clk;
+	bool is_ref_clk_enabled;
+	struct msm_ufs_phy_vreg vdda_pll;
+	struct msm_ufs_phy_vreg vdda_phy;
+};
+
+struct msm_ufs_bus_vote {
+	uint32_t client_handle;
+	uint32_t curr_vote;
+	int min_bw_vote;
+	int max_bw_vote;
+	int saved_vote;
+	bool is_max_bw_needed;
+	struct device_attribute max_bus_bw;
+};
+
+struct msm_ufs_host {
+	struct msm_ufs_phy *phy;
+	struct ufs_hba *hba;
+	struct msm_ufs_bus_vote bus_vote;
+	struct ufs_pa_layer_attr dev_req_params;
+};
+
+static unsigned long
+msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs);
+static int msm_ufs_update_bus_bw_vote(struct msm_ufs_host *host);
 
 /* MSM UFS PHY control registers */
 
@@ -311,37 +364,6 @@ enum {
 #define VDDA_PHY_MAX_UV            1000000
 #define VDDA_PLL_MIN_UV            1800000
 #define VDDA_PLL_MAX_UV            1800000
-
-static LIST_HEAD(phy_list);
-
-struct msm_ufs_phy_calibration {
-	u32 reg_offset;
-	u32 cfg_value;
-};
-
-struct msm_ufs_phy_vreg {
-	const char *name;
-	struct regulator *reg;
-	int max_uA;
-	int min_uV;
-	int max_uV;
-	bool enabled;
-};
-
-struct msm_ufs_phy {
-	struct list_head list;
-	struct device *dev;
-	void __iomem *mmio;
-	struct clk *tx_iface_clk;
-	struct clk *rx_iface_clk;
-	bool is_iface_clk_enabled;
-	struct clk *ref_clk_src;
-	struct clk *ref_clk_parent;
-	struct clk *ref_clk;
-	bool is_ref_clk_enabled;
-	struct msm_ufs_phy_vreg vdda_pll;
-	struct msm_ufs_phy_vreg vdda_phy;
-};
 
 static struct msm_ufs_phy_calibration phy_cal_table[] = {
 	{
@@ -1171,7 +1193,8 @@ static int msm_ufs_enable_tx_lanes(struct ufs_hba *hba)
 	int err;
 	u32 tx_lanes;
 	u32 val;
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 
 	err = ufshcd_dme_get(hba,
 			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &tx_lanes);
@@ -1298,7 +1321,8 @@ static inline void msm_ufs_deassert_reset(struct ufs_hba *hba)
 
 static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 {
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 	u32 val;
 	int err = -EINVAL;
 
@@ -1365,7 +1389,8 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 
 static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 	int ret = 0;
 
 	if (!phy)
@@ -1398,7 +1423,8 @@ out:
 
 static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 
 	if (!phy)
 		return 0;
@@ -1675,7 +1701,8 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 				     struct ufs_pa_layer_attr *dev_req_params)
 {
 	int val;
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 	struct ufs_msm_dev_params ufs_msm_cap;
 	int ret = 0;
 
@@ -1717,6 +1744,11 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 		val = ~(MAX_U32 << dev_req_params->lane_tx);
 		writel_relaxed(val, phy->mmio + UFS_PHY_TX_LANE_ENABLE);
 		mb();
+
+		/* cache the power mode parameters to use internally */
+		memcpy(&host->dev_req_params,
+				dev_req_params, sizeof(*dev_req_params));
+		msm_ufs_update_bus_bw_vote(host);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1767,6 +1799,204 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND);
 }
 
+static int msm_ufs_get_bus_vote(struct msm_ufs_host *host,
+		const char *speed_mode)
+{
+	struct device *dev = host->hba->dev;
+	struct device_node *np = dev->of_node;
+	int err;
+	const char *key = "qcom,bus-vector-names";
+
+	if (!speed_mode) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	if (host->bus_vote.is_max_bw_needed && !!strcmp(speed_mode, "MIN"))
+		err = of_property_match_string(np, key, "MAX");
+	else
+		err = of_property_match_string(np, key, speed_mode);
+
+out:
+	if (err < 0)
+		dev_err(dev, "%s: Invalid %s mode %d\n",
+				__func__, speed_mode, err);
+	return err;
+}
+
+static int msm_ufs_set_bus_vote(struct msm_ufs_host *host, int vote)
+{
+	int err = 0;
+
+	if (vote != host->bus_vote.curr_vote) {
+		err = msm_bus_scale_client_update_request(
+				host->bus_vote.client_handle, vote);
+		if (err) {
+			dev_err(host->hba->dev,
+				"%s: msm_bus_scale_client_update_request() failed: bus_client_handle=0x%x, vote=%d, err=%d\n",
+				__func__, host->bus_vote.client_handle,
+				vote, err);
+			goto out;
+		}
+
+		host->bus_vote.curr_vote = vote;
+	}
+out:
+	return err;
+}
+
+static int msm_ufs_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
+{
+	int err = 0;
+	int gear = max_t(u32, p->gear_rx, p->gear_tx);
+	int lanes = max_t(u32, p->lane_rx, p->lane_tx);
+	int pwr = max_t(u32, map_unmap_pwr_mode(p->pwr_rx, true),
+			map_unmap_pwr_mode(p->pwr_tx, true));
+
+	/* default to PWM Gear 1, Lane 1 if power mode is not initialized */
+	if (!gear)
+		gear = 1;
+
+	if (!lanes)
+		lanes = 1;
+
+	if (!p->pwr_rx && !p->pwr_tx)
+		pwr = 0;
+
+	pwr = map_unmap_pwr_mode(pwr, false);
+	if (pwr < 0) {
+		err = pwr;
+		goto out;
+	}
+
+	if (pwr == FAST_MODE || pwr == FASTAUTO_MODE)
+		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_R%s_G%d_L%d", "HS",
+				p->hs_rate == PA_HS_MODE_B ? "B" : "A",
+				gear, lanes);
+	else
+		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_G%d_L%d",
+				"PWM", gear, lanes);
+out:
+	return err;
+}
+
+static int msm_ufs_update_bus_bw_vote(struct msm_ufs_host *host)
+{
+	int vote;
+	int err = 0;
+	char mode[BUS_VECTOR_NAME_LEN];
+
+	err = msm_ufs_get_speed_mode(&host->dev_req_params, mode);
+	if (err)
+		goto out;
+
+	vote = msm_ufs_get_bus_vote(host, mode);
+	if (vote >= 0)
+		err = msm_ufs_set_bus_vote(host, vote);
+	else
+		err = vote;
+
+out:
+	if (err)
+		dev_err(host->hba->dev, "%s: failed %d\n", __func__, err);
+	else
+		host->bus_vote.saved_vote = vote;
+	return err;
+}
+
+static int msm_ufs_setup_clocks(struct ufs_hba *hba, bool on)
+{
+	struct msm_ufs_host *host = hba->priv;
+	int err;
+	int vote;
+
+	if (on) {
+		vote = host->bus_vote.saved_vote;
+		if (vote == host->bus_vote.min_bw_vote)
+			msm_ufs_update_bus_bw_vote(host);
+	} else {
+		vote = host->bus_vote.min_bw_vote;
+	}
+
+	err = msm_ufs_set_bus_vote(host, vote);
+	if (err)
+		dev_err(hba->dev, "%s: set bus vote failed %d\n",
+				__func__, err);
+
+	return err;
+}
+
+static ssize_t
+show_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct msm_ufs_host *host = hba->priv;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			host->bus_vote.is_max_bw_needed);
+}
+
+static ssize_t
+store_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct msm_ufs_host *host = hba->priv;
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		host->bus_vote.is_max_bw_needed = !!value;
+		msm_ufs_update_bus_bw_vote(host);
+	}
+
+	return count;
+}
+
+static int msm_ufs_bus_register(struct msm_ufs_host *host)
+{
+	int err;
+	struct msm_bus_scale_pdata *bus_pdata;
+	struct device *dev = host->hba->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *np = dev->of_node;
+
+	bus_pdata = msm_bus_cl_get_pdata(pdev);
+	if (!bus_pdata) {
+		dev_err(dev, "%s: failed to get bus vectors\n", __func__);
+		err = -ENODATA;
+		goto out;
+	}
+
+	err = of_property_count_strings(np, "qcom,bus-vector-names");
+	if (err < 0 || err != bus_pdata->num_usecases) {
+		dev_err(dev, "%s: qcom,bus-vector-names not specified correctly %d\n",
+				__func__, err);
+		goto out;
+	}
+
+	host->bus_vote.client_handle = msm_bus_scale_register_client(bus_pdata);
+	if (!host->bus_vote.client_handle) {
+		dev_err(dev, "%s: msm_bus_scale_register_client failed\n",
+				__func__);
+		err = -EFAULT;
+		goto out;
+	}
+
+	/* cache the vote index for minimum and maximum bandwidth */
+	host->bus_vote.min_bw_vote = msm_ufs_get_bus_vote(host, "MIN");
+	host->bus_vote.max_bw_vote = msm_ufs_get_bus_vote(host, "MAX");
+
+	host->bus_vote.max_bus_bw.show = show_ufs_to_mem_max_bus_bw;
+	host->bus_vote.max_bus_bw.store = store_ufs_to_mem_max_bus_bw;
+	sysfs_attr_init(&host->bus_vote.max_bus_bw.attr);
+	host->bus_vote.max_bus_bw.attr.name = "max_bus_bw";
+	host->bus_vote.max_bus_bw.attr.mode = S_IRUGO | S_IWUSR;
+	err = device_create_file(dev, &host->bus_vote.max_bus_bw);
+out:
+	return err;
+}
+
 /**
  * msm_ufs_init - bind phy with controller
  * @hba: host controller instance
@@ -1780,18 +2010,33 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 static int msm_ufs_init(struct ufs_hba *hba)
 {
 	int err;
+	struct device *dev = hba->dev;
 	struct msm_ufs_phy *phy = msm_get_ufs_phy(hba->dev);
+	struct msm_ufs_host *host;
 
 	if (IS_ERR(phy)) {
 		err = PTR_ERR(phy);
 		goto out;
 	}
 
-	hba->priv = (void *)phy;
+	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
+	if (!host) {
+		err = -ENOMEM;
+		dev_err(dev, "%s: no memory for msm ufs host\n", __func__);
+		goto out;
+	}
+
+	host->phy = phy;
+	host->hba = hba;
+	hba->priv = (void *)host;
+
+	err = msm_ufs_bus_register(host);
+	if (err)
+		goto out_host_free;
 
 	err = msm_ufs_phy_power_on(phy);
 	if (err)
-		hba->priv = NULL;
+		goto out_host_free;
 
 	msm_ufs_advertise_quirks(hba);
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_SUSPEND) {
@@ -1819,14 +2064,22 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->rpm_lvl = UFS_PM_LVL_3;
 		hba->spm_lvl = UFS_PM_LVL_3;
 	}
+
+out_host_free:
+	if (err) {
+		devm_kfree(dev, host);
+		hba->priv = NULL;
+	}
 out:
 	return err;
 }
 
 static void msm_ufs_exit(struct ufs_hba *hba)
 {
-	struct msm_ufs_phy *phy = hba->priv;
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
 
+	msm_bus_scale_unregister_client(host->bus_vote.client_handle);
 	msm_ufs_phy_power_off(phy);
 }
 
@@ -1977,6 +2230,7 @@ const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
 	.name                   = "msm",
 	.init                   = msm_ufs_init,
 	.exit                   = msm_ufs_exit,
+	.setup_clocks           = msm_ufs_setup_clocks,
 	.hce_enable_notify      = msm_ufs_hce_enable_notify,
 	.link_startup_notify    = msm_ufs_link_startup_notify,
 	.pwr_change_notify	= msm_ufs_pwr_change_notify,
