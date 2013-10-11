@@ -1659,6 +1659,29 @@ static int force_irq_set(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(force_irq_ops, NULL, force_irq_set, "0x%02llx\n");
 
+static int force_rechg_set(void *data, u64 val)
+{
+	int rc;
+	struct smb135x_chg *chip = data;
+
+	rc = smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT, 0);
+	if (rc)
+		dev_err(chip->dev,
+			"Couldn't disable charge-inhibit rc=%d\n", rc);
+	/* delay for charge-inhibit to take affect */
+	msleep(500);
+	rc |= smb135x_charging(chip, false);
+	rc |= smb135x_charging(chip, true);
+	rc |= smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT,
+						EN_CHG_INHIBIT_BIT);
+	if (rc)
+		dev_err(chip->dev,
+			"Couldn't enable charge-inhibit rc=%d\n", rc);
+
+	return rc;
+}
+DEFINE_SIMPLE_ATTRIBUTE(force_rechg_ops, NULL, force_rechg_set, "0x%02llx\n");
+
 #ifdef DEBUG
 static void dump_regs(struct smb135x_chg *chip)
 {
@@ -2242,6 +2265,14 @@ static int smb135x_charger_probe(struct i2c_client *client,
 		if (!ent)
 			dev_err(chip->dev,
 				"Couldn't create count debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_file("force_recharge", S_IFREG | S_IRUGO,
+					  chip->debug_root, chip,
+					  &force_rechg_ops);
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create recharge debug file rc = %d\n",
 				rc);
 	}
 
