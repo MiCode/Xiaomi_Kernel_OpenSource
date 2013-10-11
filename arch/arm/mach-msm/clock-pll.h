@@ -170,6 +170,11 @@ static inline struct pll_clk *to_pll_clk(struct clk *c)
 int sr_pll_clk_enable(struct clk *c);
 int sr_hpm_lp_pll_clk_enable(struct clk *c);
 
+struct pll_alt_config {
+	u32 val;
+	u32 mask;
+};
+
 struct pll_config {
 	u32 l;
 	u32 m;
@@ -186,6 +191,10 @@ struct pll_config {
 	u32 main_output_mask;
 	u32 aux_output_val;
 	u32 aux_output_mask;
+	/* SR2 PLL specific fields */
+	u32 add_factor_val;
+	u32 add_factor_mask;
+	struct pll_alt_config alt_cfg;
 };
 
 struct pll_config_regs {
@@ -193,6 +202,7 @@ struct pll_config_regs {
 	void __iomem *m_reg;
 	void __iomem *n_reg;
 	void __iomem *config_reg;
+	void __iomem *config_alt_reg;
 	void __iomem *mode_reg;
 	void *const __iomem *base;
 };
