@@ -58,8 +58,8 @@ struct diag_dci_client_tbl {
 	struct task_struct *client;
 	uint16_t list; /* bit mask */
 	int signal_type;
-	unsigned char dci_log_mask[DCI_LOG_MASK_SIZE];
-	unsigned char dci_event_mask[DCI_EVENT_MASK_SIZE];
+	unsigned char *dci_log_mask;
+	unsigned char *dci_event_mask;
 	unsigned char *dci_data;
 	int data_len;
 	int total_capacity;
@@ -80,6 +80,7 @@ struct diag_dci_client_tbl {
 	int received_events;
 	struct mutex data_mutex;
 	uint8_t real_time;
+	struct list_head track;
 };
 
 /* This is used for DCI health stats */
@@ -123,6 +124,8 @@ extern struct mutex dci_stat_mutex;
 
 int diag_dci_init(void);
 void diag_dci_exit(void);
+int diag_dci_register_client(uint16_t peripheral_list, int signal);
+int diag_dci_deinit_client(void);
 void diag_update_smd_dci_work_fn(struct work_struct *);
 void diag_dci_notify_client(int peripheral_mask, int data);
 int dci_apps_write(struct diag_dci_client_tbl *entry);
@@ -134,19 +137,19 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 							 int len, int index);
 void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf,
 								int len);
-int diag_dci_find_client_index(int client_id);
+struct diag_dci_client_tbl *diag_dci_get_client_entry(void);
 /* DCI Log streaming functions */
 void create_dci_log_mask_tbl(unsigned char *tbl_buf);
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask);
-void clear_client_dci_cumulative_log_mask(int client_index);
+void diag_dci_invalidate_cumulative_log_mask(void);
 int diag_send_dci_log_mask(smd_channel_t *ch);
 void extract_dci_log(unsigned char *buf, int len, int data_source);
 int diag_dci_clear_log_mask(void);
 int diag_dci_query_log_mask(uint16_t log_code);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
-void clear_client_dci_cumulative_event_mask(int client_index);
+void diag_dci_invalidate_cumulative_event_mask(void);
 int diag_send_dci_event_mask(smd_channel_t *ch);
 void extract_dci_events(unsigned char *buf, int len, int data_source);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
@@ -154,7 +157,7 @@ int diag_dci_clear_event_mask(void);
 int diag_dci_query_event_mask(uint16_t event_id);
 void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type);
 uint8_t diag_dci_get_cumulative_real_time(void);
-int diag_dci_set_real_time(int client_id, uint8_t real_time);
+int diag_dci_set_real_time(uint8_t real_time);
 /* Functions related to DCI wakeup sources */
 void diag_dci_try_activate_wakeup_source(smd_channel_t *channel);
 void diag_dci_try_deactivate_wakeup_source(smd_channel_t *channel);
