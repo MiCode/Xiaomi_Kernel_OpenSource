@@ -684,6 +684,7 @@ int __init msm_gpio_of_init(struct device_node *node,
 			    struct device_node *parent)
 {
 	int ngpio, ret;
+	u32 subsys_id;
 
 	ret = of_property_read_u32(node, "ngpio", &ngpio);
 	if (ret) {
@@ -696,6 +697,9 @@ int __init msm_gpio_of_init(struct device_node *node,
 		WARN(1, "Cannot allocate irq_domain\n");
 		return -ENOMEM;
 	}
+	ret = of_property_read_u32(node, "qcom,subsys-id", &subsys_id);
+	if (!ret)
+		__msm_gpio_set_subsys_id(subsys_id);
 	return 0;
 }
 #endif
