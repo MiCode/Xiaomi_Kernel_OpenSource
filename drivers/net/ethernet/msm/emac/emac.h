@@ -29,8 +29,10 @@
 #define EMAC_DMA_ADDR_LO(_addr) \
 		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
 
-/* 4 emac core irqs */
+/* 4 emac core irqs; 1 wol irq */
 #define EMAC_NUM_CORE_IRQ     4
+#define EMAC_WOL_IRQ          4
+#define EMAC_NUM_IRQ          5
 
 /* mdio/mdc gpios */
 #define EMAC_NUM_GPIO         2
@@ -577,7 +579,7 @@ struct emac_tx_queue {
 struct emac_adapter {
 	struct net_device *netdev;
 
-	struct emac_irq_info  irq_info[EMAC_NUM_CORE_IRQ];
+	struct emac_irq_info  irq_info[EMAC_NUM_IRQ];
 	struct emac_gpio_info gpio_info[EMAC_NUM_GPIO];
 
 	/* dma parameters */
@@ -635,7 +637,7 @@ struct emac_adapter {
 		test_and_set_bit((EMAC_##_type##_FLAG_##_flag), &((_st)->flags))
 
 /* default to trying for four seconds */
-#define EMAC_TRY_LINK_TIMEOUT (4 * HZ)
+#define EMAC_TRY_LINK_TIMEOUT     (4 * HZ)
 
 #define EMAC_HW_CTRL_RESET_MAC         0x00000001
 
