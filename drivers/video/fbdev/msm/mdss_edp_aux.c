@@ -27,9 +27,6 @@
 #include <linux/bug.h>
 #include <linux/of_gpio.h>
 
-#include <asm/system.h>
-#include <asm/mach-types.h>
-
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/clk.h>
