@@ -373,7 +373,9 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		writel_relaxed(ram1_value, ctx.qscratch_ram1_reg);
 		/* fall through */
 	case OCI_MEM:
-		pr_debug("%s: USB BAM using oci memory\n", __func__);
+		if (pipe_connect->mem_type == OCI_MEM)
+			pr_debug("%s: USB BAM using oci memory\n", __func__);
+
 		data_buf->phys_base =
 			pipe_connect->data_fifo_base_offset +
 				pdata->usb_bam_fifo_baseaddr;
@@ -2558,7 +2560,7 @@ static int usb_bam_init(int bam_idx)
 	struct msm_usb_bam_platform_data *pdata =
 		ctx.usb_bam_pdev->dev.platform_data;
 	struct resource *res, *ram_resource;
-	struct sps_bam_props props = ctx.usb_bam_sps.usb_props;
+	struct sps_bam_props *props = &ctx.usb_bam_sps.usb_props;
 
 	pr_debug("%s: usb_bam_init - %s\n", __func__,
 		bam_enable_strings[bam_idx]);
@@ -2606,28 +2608,28 @@ static int usb_bam_init(int bam_idx)
 		}
 	}
 
-	props.phys_addr = res->start;
-	props.virt_addr = usb_virt_addr;
-	props.virt_size = resource_size(res);
-	props.irq = irq;
-	props.summing_threshold = USB_THRESHOLD;
-	props.event_threshold = USB_THRESHOLD;
-	props.num_pipes = pdata->usb_bam_num_pipes;
-	props.callback = usb_bam_sps_events;
-	props.user = bam_enable_strings[bam_idx];
-	props.options = SPS_BAM_OPT_IRQ_WAKEUP;
+	props->phys_addr = res->start;
+	props->virt_addr = usb_virt_addr;
+	props->virt_size = resource_size(res);
+	props->irq = irq;
+	props->summing_threshold = USB_THRESHOLD;
+	props->event_threshold = USB_THRESHOLD;
+	props->num_pipes = pdata->usb_bam_num_pipes;
+	props->callback = usb_bam_sps_events;
+	props->user = bam_enable_strings[bam_idx];
+	props->options = SPS_BAM_OPT_IRQ_WAKEUP;
 
 	/*
 	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
 	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
 	*/
 	if (pdata->ignore_core_reset_ack && bam_idx != SSUSB_BAM)
-		props.options = SPS_BAM_NO_EXT_P_RST;
+		props->options = SPS_BAM_NO_EXT_P_RST;
 
 	if (pdata->disable_clk_gating)
-		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+		props->options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
-	ret = sps_register_bam_device(&props, &(ctx.h_bam[bam_idx]));
+	ret = sps_register_bam_device(props, &(ctx.h_bam[bam_idx]));
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
