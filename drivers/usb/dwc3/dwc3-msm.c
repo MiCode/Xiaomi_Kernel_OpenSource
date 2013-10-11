@@ -518,7 +518,7 @@ static int dwc3_msm_dbm_ep_config(struct dwc3_msm *mdwc, u8 usb_ep, u8 bam_pipe,
 				  bool producer, bool disable_wb,
 				  bool internal_mem, bool ioc)
 {
-	u8 dbm_ep;
+	int dbm_ep;
 	u32 ep_cfg;
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
@@ -564,7 +564,7 @@ static int dwc3_msm_dbm_ep_config(struct dwc3_msm *mdwc, u8 usb_ep, u8 bam_pipe,
  */
 static int dwc3_msm_dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep)
 {
-	u8 dbm_ep;
+	int dbm_ep;
 	u32 data;
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);

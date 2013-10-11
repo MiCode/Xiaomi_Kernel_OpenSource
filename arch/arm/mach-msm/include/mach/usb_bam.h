@@ -181,7 +181,7 @@ struct msm_usb_bam_platform_data {
  * @return 0 on success, negative value on error
  *
  */
-int usb_bam_connect(u8 idx, u32 *bam_pipe_idx);
+int usb_bam_connect(int idx, u32 *bam_pipe_idx);
 
 /**
  * Connect USB-to-IPA SPS connection.
