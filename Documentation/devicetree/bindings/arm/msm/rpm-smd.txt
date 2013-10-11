@@ -21,15 +21,8 @@ Required properties
 			<mach/msm_smd.h>
 
 Optional properties
-- rpm-standlone: Allow the driver to run in standalone mode. This is a
-			suggestion to the RPM driver and if the SMD
-			channel is made available for RPM, the driver
-			would continue to send requests to RPM processor,
-			but if the SMD channel is unavailable, driver will
-			return success even though the data is not sent
-			to the RPM processor. In the absence of this
-			option, the driver will fail if the SMD channel
-			is unavailable.
+- rpm-standlone: Allow RPM driver to run in standalone mode irrespective of RPM
+			channel presence.
 
 Example:
 
