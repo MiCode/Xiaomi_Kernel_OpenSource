@@ -136,6 +136,7 @@ static bool msm_pm_retention_calls_tz;
 static bool msm_no_ramp_down_pc;
 static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 static bool msm_pm_pc_reset_timer;
+static bool msm_pm_in_suspend;
 
 DEFINE_PER_CPU(struct clk *, cpu_clks);
 static struct clk *l2_clk;
@@ -822,7 +823,7 @@ static int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-			if (num_online_cpus() > 1)
+			if (num_online_cpus() > 1 || msm_pm_in_suspend)
 				allow = false;
 			break;
 		case MSM_PM_SLEEP_MODE_RETENTION:
@@ -1174,6 +1175,7 @@ void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops)
 static int msm_suspend_prepare(void)
 {
 	suspend_time = msm_pm_timer_enter_suspend(&suspend_period);
+	msm_pm_in_suspend = true;
 	msm_mpm_suspend_prepare();
 	return 0;
 }
@@ -1191,6 +1193,7 @@ static void msm_suspend_wake(void)
 					suspend_time);
 		suspend_power_collapsed = false;
 	}
+	msm_pm_in_suspend = false;
 }
 
 static const struct platform_suspend_ops msm_pm_ops = {
