@@ -44,7 +44,9 @@ Optional properties :
   suspend, reset and resume.
 - qcom,phy-susp-sof-workaround : If present then HSIC PHY has h/w BUG related to
   SOFs while entering SUSPEND. Relevant software workaround is required for the same
-  during SUSPEND only.
+  during SUSPEND.
+- qcom,phy-reset-sof-workaround : If present then HSIC PHY has h/w BUG related to
+  SOFs during RESET.
 - qcom,pool-64-bit-align: If present then the pool's memory will be aligned
   to 64 bits
 - qcom,enable_hbm: if present host bus manager is enabled.
