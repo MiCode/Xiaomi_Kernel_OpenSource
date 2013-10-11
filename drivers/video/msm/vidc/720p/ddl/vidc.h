@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #define VIDC_H
 #include <linux/io.h>
 #include <linux/delay.h>
-#include <asm/system.h>
 
 #define VIDC_720P_IN(reg)                       VIDC_##reg##_IN
 #define VIDC_720P_INM(reg,  mask)                VIDC_##reg##_INM(mask)

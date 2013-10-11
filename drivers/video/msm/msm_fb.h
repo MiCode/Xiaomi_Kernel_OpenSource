@@ -26,8 +26,6 @@
 #include <linux/io.h>
 #include <mach/board.h>
 
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <mach/memory.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>

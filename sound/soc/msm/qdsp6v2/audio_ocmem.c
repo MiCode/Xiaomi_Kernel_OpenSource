@@ -23,7 +23,6 @@
 #include <linux/io.h>
 #include <linux/of_device.h>
 #include <linux/memory_alloc.h>
-#include <asm/mach-types.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/ocmem.h>

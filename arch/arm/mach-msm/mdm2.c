@@ -29,7 +29,6 @@
 #include <linux/completion.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
-#include <asm/mach-types.h>
 #include <mach/mdm2.h>
 #include <mach/restart.h>
 #include <mach/subsystem_notif.h>

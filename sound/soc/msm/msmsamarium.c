@@ -27,7 +27,6 @@
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
 #include <sound/pcm_params.h>
-#include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"

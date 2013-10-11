@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,6 @@
 
 #include <linux/spinlock.h>
 #include <linux/module.h>
-#include <asm/mach-types.h>
 #include <asm/cputype.h>
 
 DEFINE_RAW_SPINLOCK(l2_access_lock);

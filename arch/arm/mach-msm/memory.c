@@ -26,7 +26,6 @@
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 #include <asm/setup.h>
-#include <asm/mach-types.h>
 #include <mach/msm_memtypes.h>
 #include <mach/memory.h>
 #include <linux/hardirq.h>

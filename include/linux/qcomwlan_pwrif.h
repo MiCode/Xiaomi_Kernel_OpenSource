@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <mach/msm_xo.h>
-#include <asm/mach-types.h>
 #include <mach/rpm-regulator.h>
 
 #define CHIP_POWER_ON         1

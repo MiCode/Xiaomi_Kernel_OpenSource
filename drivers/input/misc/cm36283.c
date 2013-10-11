@@ -36,7 +36,6 @@
 #include <linux/of_gpio.h>
 
 #include <asm/uaccess.h>
-#include <asm/mach-types.h>
 #include <asm/setup.h>
 
 #define I2C_RETRY_COUNT 10

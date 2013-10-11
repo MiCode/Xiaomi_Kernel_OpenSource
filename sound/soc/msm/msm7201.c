@@ -37,7 +37,6 @@
 #include <linux/dma-mapping.h>
 
 #include "msm-pcm.h"
-#include <asm/mach-types.h>
 #include <mach/msm_rpcrouter.h>
 
 static struct msm_rpc_endpoint *snd_ep;

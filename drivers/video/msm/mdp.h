@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,9 +32,6 @@
 #endif
 
 #include <linux/io.h>
-
-#include <asm/system.h>
-#include <asm/mach-types.h>
 
 #include "msm_fb_panel.h"
 

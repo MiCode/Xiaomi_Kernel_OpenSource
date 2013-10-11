@@ -25,8 +25,6 @@
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
 #include <linux/msm_mdp.h>
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/iommu_domains.h>
 #include "mdp.h"

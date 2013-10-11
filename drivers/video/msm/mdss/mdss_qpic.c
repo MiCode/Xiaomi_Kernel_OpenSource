@@ -29,8 +29,6 @@
 #include <linux/bootmem.h>
 #include <linux/dma-mapping.h>
 
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <mach/sps.h>
 #include <mach/clk.h>
 #include <mach/hardware.h>

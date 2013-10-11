@@ -22,7 +22,6 @@
 #include <linux/syscalls.h>
 
 #include <linux/irq.h>
-#include <asm/system.h>
 
 #define fb_width(fb)	((fb)->var.xres)
 #define fb_height(fb)	((fb)->var.yres)

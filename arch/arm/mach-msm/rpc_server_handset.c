@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/rpc_server_handset.c
  *
- * Copyright (c) 2008-2010,2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2010,2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,8 +18,6 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/switch.h>
-
-#include <asm/mach-types.h>
 
 #include <mach/msm_rpcrouter.h>
 #include <mach/board.h>

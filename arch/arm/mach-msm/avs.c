@@ -13,7 +13,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <asm/mach-types.h>
 #include <asm/cputype.h>
 #include "avs.h"
 #include "spm.h"

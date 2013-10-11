@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/soc-dsp.h>
 #include <sound/pcm.h>
-#include <asm/mach-types.h>
 #include "msm-pcm-routing.h"
 #include "../codecs/wm8903.h"
 

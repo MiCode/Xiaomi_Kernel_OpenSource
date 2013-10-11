@@ -22,8 +22,6 @@
 #include <mach/hardware.h>
 #include <linux/io.h>
 #include <mach/iommu_domains.h>
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
 

@@ -31,7 +31,6 @@
 #include <linux/clk.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/msm_charm.h>
-#include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/mdm2.h>
 #include <mach/restart.h>

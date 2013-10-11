@@ -20,7 +20,6 @@
 #include <linux/input.h>
 #include <linux/uaccess.h>
 #include <linux/time.h>
-#include <asm/mach-types.h>
 #include <sound/apr_audio.h>
 #include <mach/qdsp6v2/usf.h>
 #include "q6usm.h"

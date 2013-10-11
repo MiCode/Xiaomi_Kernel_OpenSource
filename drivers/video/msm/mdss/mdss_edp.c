@@ -27,8 +27,6 @@
 #include <linux/clk.h>
 #include <linux/spinlock_types.h>
 #include <linux/kthread.h>
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/dma.h>
 

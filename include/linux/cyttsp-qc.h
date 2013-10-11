@@ -36,8 +36,6 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
-#include <asm/mach-types.h>
-
 #define CYPRESS_TTSP_NAME	"cyttsp"
 #define CY_I2C_NAME		"cyttsp-i2c"
 #define CY_SPI_NAME		"cyttsp-spi"

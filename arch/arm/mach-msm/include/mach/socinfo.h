@@ -21,7 +21,6 @@
 #include <linux/of.h>
 
 #include <asm/cputype.h>
-#include <asm/mach-types.h>
 /*
  * SOC version type with major number in the upper 16 bits and minor
  * number in the lower 16 bits.  For example:
