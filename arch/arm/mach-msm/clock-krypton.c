@@ -142,6 +142,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define A1_ID		 4
 #define A2_ID		 5
 
+#define LNBBCLK_ID	2
+
 #define APCS_CLK_DIAG                                      (0x001C)
 #define GPLL0_MODE                                         (0x0000)
 #define GPLL1_MODE                                         (0x0040)
@@ -175,6 +177,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB_HS_SYSTEM_CBCR                                 (0x0484)
 #define USB_HS_AHB_CBCR                                    (0x0488)
 #define USB_HS_SYSTEM_CMD_RCGR                             (0x0490)
+#define USB2A_PHY_SLEEP_CBCR                               (0x04AC)
+#define USB2B_PHY_SLEEP_CBCR                               (0x04B4)
 #define SDCC2_APPS_CMD_RCGR                                (0x0510)
 #define SDCC2_APPS_CBCR                                    (0x0504)
 #define SDCC2_AHB_CBCR                                     (0x0508)
@@ -931,6 +935,8 @@ static struct gate_clk gcc_usb_ss_ldo = {
 
 DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE, IPA_ID, NULL);
 
+DEFINE_CLK_RPM_SMD_XO_BUFFER(lnbbclk_clk, lnbbclk_a_clk, LNBBCLK_ID);
+
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
@@ -1421,6 +1427,28 @@ static struct branch_clk gcc_sys_noc_usb3_axi_clk = {
 	},
 };
 
+static struct branch_clk gcc_usb2a_phy_sleep_clk = {
+	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2a_phy_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb2a_phy_sleep_clk.c),
+	},
+};
+
+static struct branch_clk gcc_usb2b_phy_sleep_clk = {
+	.cbcr_reg = USB2B_PHY_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2b_phy_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb2b_phy_sleep_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb3_aux_clk = {
 	.cbcr_reg = USB3_AUX_CBCR,
 	.has_sibling = 0,
@@ -1618,6 +1646,7 @@ static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo.c);
 
 static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, 171430000);
 static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 171430000);
@@ -2083,6 +2112,12 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("",  gcc_usb3_phy_reset.c,   ""),
 	CLK_LOOKUP("",  gcc_pcie_gpio_ldo.c,   ""),
 	CLK_LOOKUP("",  gcc_usb_ss_ldo.c,   ""),
+
+	CLK_LOOKUP("", lnbbclk_clk.c, ""),
+	CLK_LOOKUP("", lnbbclk_a_clk.c, ""),
+	CLK_LOOKUP("", cxo_dwc3_clk.c, ""),
+	CLK_LOOKUP("", gcc_usb2a_phy_sleep_clk.c, ""),
+	CLK_LOOKUP("", gcc_usb2b_phy_sleep_clk.c, ""),
 };
 
 static void __init reg_init(void)
