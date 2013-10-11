@@ -1,5 +1,5 @@
 /* Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011,2013, Code Aurora Forum. All rights reserved.
  * Author: Dima Zavin <dima@android.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,8 @@ enum ssbi_controller_type {
 	MSM_SBI_CTRL_SSBI = 0,
 	MSM_SBI_CTRL_SSBI2,
 	MSM_SBI_CTRL_PMIC_ARBITER,
+	FSM_SBI_CTRL_GENI_SSBI_ARBITER,
+	FSM_SBI_CTRL_GENI_SSBI2_ARBITER,
 };
 
 struct ssbi_platform_data {
