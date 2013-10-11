@@ -2083,6 +2083,15 @@
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
+
+	qcom,pil-vpu@fde0b000{
+		compatible = "qcom,pil-vpu";
+		reg = <0xfde0b000 0x80>;
+		reg-names = "maple_csr_base";
+		vdd-supply = <&gdsc_vpu>;
+
+		qcom,firmware-name = "vpu";
+	};
 };
 
 &gdsc_venus {
