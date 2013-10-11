@@ -3751,6 +3751,8 @@ static const struct adreno_vbif_data a310_vbif[] = {
 	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000001 },
 	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x3 },
+	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18180C0C },
+	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x1818000C },
 	{0, 0},
 };
 
