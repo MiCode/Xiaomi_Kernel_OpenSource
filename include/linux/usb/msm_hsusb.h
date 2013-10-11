@@ -586,15 +586,15 @@ static inline void msm_hw_bam_disable(bool bam_disable)
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
-int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
+int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
 	u8 dst_pipe_idx);
 
 void msm_dwc3_restart_usb_session(struct usb_gadget *gadget);
 
 int msm_register_usb_ext_notification(struct usb_ext_notification *info);
 #else
-static inline int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
-	u8 dst_pipe_idx)
+static inline int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+	u32 size, u8 dst_pipe_idx)
 {
 	return -ENODEV;
 }
