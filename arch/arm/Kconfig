@@ -1410,18 +1410,6 @@ config ARM_ERRATA_798181
 	  which sends an IPI to the CPUs that are running the same ASID
 	  as the one being invalidated.
 
-config KSAPI
-        tristate "KSAPI support (EXPERIMENTAL)"
-	depends on ARCH_MSM_KRAIT
-        default n
-        help
-          KSAPI: Performance monitoring tool for linux.
-          KSAPI records performance statistics for Snapdragon linux platform.
-          It uses the /proc FS as a means to exchange configuration data and
-          counter statistics. It can monitor the counter statistics for
-          Scorpion processor supported hardware performance counters on a per
-          thread basis or AXI counters on an overall system basis.
-
 config PERFMAP
         tristate "Perfmap support (EXPERIMENTAL)"
 	depends on ARCH_MSM_KRAIT
