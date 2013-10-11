@@ -232,6 +232,7 @@ irqreturn_t msm_jpeg_core_irq(int irq_num, void *context)
 			msm_jpeg_irq_handler(
 				MSM_JPEG_HW_MASK_COMP_FRAMEDONE,
 				context, data);
+		pgmn_dev->state = MSM_JPEG_INIT;
 	}
 	if (msm_jpeg_hw_irq_is_reset_ack(jpeg_irq_status)) {
 		data = msm_jpeg_core_reset_ack_irq(jpeg_irq_status,
