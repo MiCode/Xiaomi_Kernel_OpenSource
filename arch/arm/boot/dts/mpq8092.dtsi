@@ -410,6 +410,13 @@
 		compatible = "qcom,tz-log";
 		reg = <0xfe805720 0x1000>;
 	};
+
+	rpm_bus: qcom,rpm-smd {
+			compatible = "qcom,rpm-smd";
+			rpm-channel-name = "rpm_requests";
+			rpm-channel-type = <15>; /* SMD_APPS_RPM */
+			rpm-standalone; /* TODO: remove this after bring up */
+       };
 };
 
 &gdsc_venus {
@@ -448,5 +455,6 @@
 	status = "ok";
 };
 
+/include/ "msm-pma8084-rpm-regulator.dtsi"
 /include/ "msm-pma8084.dtsi"
 /include/ "mpq8092-regulator.dtsi"
