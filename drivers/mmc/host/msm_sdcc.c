@@ -516,8 +516,6 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 
 	if (mrq->data)
 		mrq->data->bytes_xfered = host->curr.data_xfered;
-	if (mrq->cmd->error == -ETIMEDOUT)
-		mdelay(5);
 
 	msmsdcc_reset_dpsm(host);
 
