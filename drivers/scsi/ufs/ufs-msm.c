@@ -1410,8 +1410,8 @@ static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 #define	SLOW 1
 #define FAST 2
 
-#define UFS_MSM_LIMIT_NUM_LANES_RX	2
-#define UFS_MSM_LIMIT_NUM_LANES_TX	2
+#define UFS_MSM_LIMIT_NUM_LANES_RX	1
+#define UFS_MSM_LIMIT_NUM_LANES_TX	1
 #define UFS_MSM_LIMIT_HSGEAR_RX		UFS_HS_G1
 #define UFS_MSM_LIMIT_HSGEAR_TX		UFS_HS_G1
 #define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
@@ -1421,7 +1421,7 @@ static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 #define UFS_MSM_LIMIT_RX_PWR_HS		FAST_MODE
 #define UFS_MSM_LIMIT_TX_PWR_HS		FAST_MODE
 #define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
-#define UFS_MSM_LIMIT_DESIRED_MODE	SLOW
+#define UFS_MSM_LIMIT_DESIRED_MODE	FAST
 
 struct ufs_msm_dev_params {
 	u32 pwm_rx_gear;	/* pwm rx gear to work in */
