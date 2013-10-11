@@ -1088,6 +1088,12 @@ static int smb135x_regulator_init(struct smb135x_chg *chip)
 	return rc;
 }
 
+static void smb135x_regulator_deinit(struct smb135x_chg *chip)
+{
+	if (chip->otg_vreg.rdev)
+		regulator_unregister(chip->otg_vreg.rdev);
+}
+
 static int hot_hard_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
@@ -2102,14 +2108,14 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	if (rc < 0) {
 		dev_err(&client->dev,
 			"Unable to intialize hardware rc = %d\n", rc);
-		return rc;
+		goto free_regulator;
 	}
 
 	rc = determine_initial_status(chip);
 	if (rc < 0) {
 		dev_err(&client->dev,
 			"Unable to determine init status rc = %d\n", rc);
-		return rc;
+		goto free_regulator;
 	}
 
 	chip->batt_psy.name		= "battery";
@@ -2125,7 +2131,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	if (rc < 0) {
 		dev_err(&client->dev,
 			"Unable to register batt_psy rc = %d\n", rc);
-		return rc;
+		goto free_regulator;
 	}
 
 	if (chip->dc_psy_type != -EINVAL) {
@@ -2256,6 +2262,8 @@ unregister_dc_psy:
 		power_supply_unregister(&chip->dc_psy);
 unregister_batt_psy:
 	power_supply_unregister(&chip->batt_psy);
+free_regulator:
+	smb135x_regulator_deinit(chip);
 	return rc;
 }
 
@@ -2269,6 +2277,8 @@ static int smb135x_charger_remove(struct i2c_client *client)
 		power_supply_unregister(&chip->dc_psy);
 
 	power_supply_unregister(&chip->batt_psy);
+
+	smb135x_regulator_deinit(chip);
 
 	return 0;
 }
