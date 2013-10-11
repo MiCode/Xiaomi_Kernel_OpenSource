@@ -63,6 +63,8 @@ static void __init msm8916_map_io(void)
 }
 
 static struct of_dev_auxdata msm8916_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,sdhci-msm", 0x07824900, "msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,sdhci-msm", 0x07864900, "msm_sdcc.2", NULL),
 	{}
 };
 
