@@ -4252,7 +4252,7 @@ static void a3xx_protect_init(struct kgsl_device *device)
 	adreno_set_protected_registers(device, &index, 0xCC0, 0);
 
 	/* VBIF registers */
-	adreno_set_protected_registers(device, &index, 0x3000, 11);
+	adreno_set_protected_registers(device, &index, 0x3000, 6);
 }
 
 static void a3xx_start(struct adreno_device *adreno_dev)
