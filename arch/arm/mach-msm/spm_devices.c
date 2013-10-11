@@ -443,8 +443,6 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &val);
 	if (!ret)
 		spm_data.vctl_timeout_us = val;
-	else if (cpu == 0xffff)
-		goto fail;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
