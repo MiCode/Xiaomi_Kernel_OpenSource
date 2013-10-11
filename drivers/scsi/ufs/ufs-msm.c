@@ -1680,7 +1680,7 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 	int val;
 	struct msm_ufs_phy *phy = hba->priv;
 	struct ufs_msm_dev_params ufs_msm_cap;
-	int ret;
+	int ret = 0;
 
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
