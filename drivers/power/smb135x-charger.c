@@ -233,6 +233,7 @@ struct smb135x_chg {
 	int				resume_delta_mv;
 	struct dentry			*debug_root;
 	int				usb_current_arr_size;
+	u8				irq_cfg_mask[3];
 
 	/* psy */
 	struct power_supply		*usb_psy;
@@ -2382,6 +2383,62 @@ static int smb135x_charger_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int smb135x_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb135x_chg *chip = i2c_get_clientdata(client);
+	int i, rc;
+
+	/* Save the current IRQ config */
+	for (i = 0; i < 3; i++) {
+		rc = smb135x_read(chip, IRQ_CFG_REG + i,
+					&chip->irq_cfg_mask[i]);
+		if (rc)
+			dev_err(chip->dev,
+				"Couldn't save irq cfg regs rc=%d\n", rc);
+	}
+
+	/* enable only important IRQs */
+	rc = smb135x_write(chip, IRQ_CFG_REG, 0);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't set irq_cfg rc = %d\n", rc);
+
+	rc = smb135x_write(chip, IRQ2_CFG_REG, IRQ2_BATT_MISSING_BIT
+						| IRQ2_VBAT_LOW_BIT
+						| IRQ2_POWER_OK_BIT);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't set irq2_cfg rc = %d\n", rc);
+
+	rc = smb135x_write(chip, IRQ3_CFG_REG, IRQ3_SRC_DETECT_BIT);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't set irq3_cfg rc = %d\n", rc);
+
+	return 0;
+}
+
+static int smb135x_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb135x_chg *chip = i2c_get_clientdata(client);
+	int i, rc;
+
+	/* Restore the IRQ config */
+	for (i = 0; i < 3; i++) {
+		rc = smb135x_write(chip, IRQ_CFG_REG + i,
+					chip->irq_cfg_mask[i]);
+		if (rc)
+			dev_err(chip->dev,
+				"Couldn't restore irq cfg regs rc=%d\n", rc);
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops smb135x_pm_ops = {
+	.resume		= smb135x_resume,
+	.suspend	= smb135x_suspend,
+};
+
 static const struct i2c_device_id smb135x_charger_id[] = {
 	{"smb135x-charger", 0},
 	{},
@@ -2393,6 +2450,7 @@ static struct i2c_driver smb135x_charger_driver = {
 		.name		= "smb135x-charger",
 		.owner		= THIS_MODULE,
 		.of_match_table	= smb135x_match_table,
+		.pm		= &smb135x_pm_ops,
 	},
 	.probe		= smb135x_charger_probe,
 	.remove		= smb135x_charger_remove,
