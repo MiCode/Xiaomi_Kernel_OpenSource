@@ -41,6 +41,7 @@
 /include/ "msm8916-ion.dtsi"
 /include/ "msm8916-smp2p.dtsi"
 /include/ "msm8916-ipcrouter.dtsi"
+/include/ "msm-gdsc-8916.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -508,6 +509,26 @@
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
 	};
+};
+
+&gdsc_venus {
+	status = "okay";
+};
+
+&gdsc_mdss {
+	status = "okay";
+};
+
+&gdsc_jpeg {
+	status = "okay";
+};
+
+&gdsc_vfe {
+	status = "okay";
+};
+
+&gdsc_oxili_gx {
+	status = "okay";
 };
 
 /include/ "msm8916-regulator.dtsi"
