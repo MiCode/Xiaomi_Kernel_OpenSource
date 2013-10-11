@@ -217,6 +217,7 @@ enum adreno_device_flags {
  * @offset: register hardware offset
  * @load_bit: The bit number in LOAD register which corresponds to this counter
  * @select: The countable register offset
+ * @value: The 64 bit countable register value
  */
 struct adreno_perfcount_register {
 	unsigned int countable;
@@ -225,6 +226,7 @@ struct adreno_perfcount_register {
 	unsigned int offset;
 	int load_bit;
 	unsigned int select;
+	uint64_t value;
 };
 
 /**
@@ -392,11 +394,15 @@ struct adreno_gpudev {
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*perfcounter_init)(struct adreno_device *);
 	void (*perfcounter_close)(struct adreno_device *);
+	void (*perfcounter_save)(struct adreno_device *);
+	void (*perfcounter_restore)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	unsigned int (*busy_cycles)(struct adreno_device *);
 	int (*perfcounter_enable)(struct adreno_device *, unsigned int group,
 		unsigned int counter, unsigned int countable);
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
+		unsigned int group, unsigned int counter);
+	void (*perfcounter_write)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
 	int (*coresight_enable) (struct kgsl_device *device);
 	void (*coresight_disable) (struct kgsl_device *device);
