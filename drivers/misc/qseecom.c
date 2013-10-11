@@ -1147,6 +1147,10 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		ret = -EINVAL;
 		break;
 	}
+	if (!qseecom.support_bus_scaling) {
+		qsee_disable_clock_vote(data, CLK_DFAB);
+		qsee_disable_clock_vote(data, CLK_SFPB);
+	}
 exit:
 	return ret;
 }
