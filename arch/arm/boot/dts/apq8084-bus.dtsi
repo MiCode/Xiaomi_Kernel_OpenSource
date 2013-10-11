@@ -97,16 +97,19 @@
 		};
 
 		mas-vpu {
-			cell-id = <93>;
+			cell-id = <94>;
 			label = "mas-vpu";
 			qcom,masterp = <8>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "NoC";
-			qcom,perm-mode = "Bypass";
-			qcom,mode = "Bypass";
+			qcom,perm-mode = "Fixed";
+			qcom,mode = "Fixed";
 			qcom,ws = <10000>;
 			qcom,qport = <6>;
 			qcom,mas-hw-id = <11>;
+			qcom,prio-lvl = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 		};
 
 		fab-cnoc {
