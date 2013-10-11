@@ -89,6 +89,7 @@ static struct mdss_panel_intf pan_types[] = {
 	{"edp", MDSS_PANEL_INTF_EDP},
 	{"hdmi", MDSS_PANEL_INTF_HDMI},
 };
+static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
 
 struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
 	[MDSS_IOMMU_DOMAIN_UNSECURE] = {
@@ -1128,6 +1129,131 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	}
 }
 
+static int mdss_mdp_get_pan_intf(const char *pan_intf)
+{
+	int i, rc = MDSS_PANEL_INTF_INVALID;
+
+	if (!pan_intf)
+		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(pan_types); i++) {
+		if (!strcmp(pan_intf, pan_types[i].name)) {
+			rc = pan_types[i].type;
+			break;
+		}
+	}
+	return rc;
+}
+
+static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
+{
+	char *t = NULL;
+	char pan_intf_str[MDSS_MAX_PANEL_LEN];
+	int rc, i, panel_len;
+	char pan_name[MDSS_MAX_PANEL_LEN];
+
+	if (!pan_cfg)
+		return -EINVAL;
+
+	if (mdss_mdp_panel[0] == '0') {
+		pan_cfg->lk_cfg = false;
+	} else if (mdss_mdp_panel[0] == '1') {
+		pan_cfg->lk_cfg = true;
+	} else {
+		/* read from dt */
+		pan_cfg->lk_cfg = true;
+		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
+		return -EINVAL;
+	}
+
+	/* skip lk cfg and delimiter; ex: "0:" */
+	strlcpy(pan_name, &mdss_mdp_panel[2], MDSS_MAX_PANEL_LEN);
+	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
+	if (!t) {
+		pr_err("pan_name=[%s] invalid\n", pan_name);
+		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
+		return -EINVAL;
+	}
+
+	for (i = 0; ((pan_name + i) < t) && (i < 4); i++)
+		pan_intf_str[i] = *(pan_name + i);
+	pan_intf_str[i] = 0;
+	pr_debug("%d panel intf %s\n", __LINE__, pan_intf_str);
+	/* point to the start of panel name */
+	t = t + 1;
+	strlcpy(&pan_cfg->arg_cfg[0], t, sizeof(pan_cfg->arg_cfg));
+	pr_debug("%d: t=[%s] panel name=[%s]\n", __LINE__,
+		t, pan_cfg->arg_cfg);
+
+	panel_len = strlen(pan_cfg->arg_cfg);
+	if (!panel_len) {
+		pr_err("Panel name is invalid\n");
+		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
+		return -EINVAL;
+	}
+
+	rc = mdss_mdp_get_pan_intf(pan_intf_str);
+	pan_cfg->pan_intf = (rc < 0) ?  MDSS_PANEL_INTF_INVALID : rc;
+	return 0;
+}
+
+static int mdss_mdp_parse_dt_pan_intf(struct platform_device *pdev)
+{
+	int rc;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	const char *prim_intf = NULL;
+
+	rc = of_property_read_string(pdev->dev.of_node,
+				"qcom,mdss-pref-prim-intf", &prim_intf);
+	if (rc)
+		return -ENODEV;
+
+	rc = mdss_mdp_get_pan_intf(prim_intf);
+	if (rc < 0) {
+		mdata->pan_cfg.pan_intf = MDSS_PANEL_INTF_INVALID;
+	} else {
+		mdata->pan_cfg.pan_intf = rc;
+		rc = 0;
+	}
+	return rc;
+}
+
+static int mdss_mdp_get_cmdline_config(struct platform_device *pdev)
+{
+	int rc, len = 0;
+	int *intf_type;
+	char *panel_name;
+	struct mdss_panel_cfg *pan_cfg;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	mdata->pan_cfg.arg_cfg[MDSS_MAX_PANEL_LEN] = 0;
+	pan_cfg = &mdata->pan_cfg;
+	panel_name = &pan_cfg->arg_cfg[0];
+	intf_type = &pan_cfg->pan_intf;
+
+	/* reads from dt by default */
+	pan_cfg->lk_cfg = true;
+
+	len = strlen(mdss_mdp_panel);
+
+	if (len > 0) {
+		rc = mdss_mdp_get_pan_cfg(pan_cfg);
+		if (!rc) {
+			pan_cfg->init_done = true;
+			return rc;
+		}
+	}
+
+	rc = mdss_mdp_parse_dt_pan_intf(pdev);
+	/* if pref pan intf is not present */
+	if (rc)
+		pr_err("unable to parse device tree for pan intf\n");
+	else
+		pan_cfg->init_done = true;
+
+	return rc;
+}
+
 static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1263,6 +1389,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
+	rc = mdss_mdp_get_cmdline_config(pdev);
+	if (rc) {
+		pr_err("Error in panel override:rc=[%d]\n", rc);
+		goto probe_done;
+	}
+
 	rc = mdss_mdp_res_init(mdata);
 	if (rc) {
 		pr_err("unable to initialize mdss mdp resources\n");
@@ -1371,193 +1503,6 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 	return 0;
 }
 
-static int mdss_mdp_get_pan_intf(const char *pan_intf)
-{
-	int i, rc = MDSS_PANEL_INTF_INVALID;
-
-	if (!pan_intf)
-		return rc;
-
-	for (i = 0; i < ARRAY_SIZE(pan_types); i++) {
-		if (!strncmp(pan_intf, pan_types[i].name, MDSS_MAX_PANEL_LEN)) {
-			rc = pan_types[i].type;
-			break;
-		}
-	}
-	return rc;
-}
-
-static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
-{
-	char *t = NULL;
-	char pan_intf_str[MDSS_MAX_PANEL_LEN];
-	int rc, i, panel_len;
-	char pan_name[MDSS_MAX_PANEL_LEN];
-
-	if (!pan_cfg)
-		return -EINVAL;
-
-	strlcpy(pan_name, &pan_cfg->arg_cfg[0], sizeof(pan_cfg->arg_cfg));
-	if (pan_name[0] == '0') {
-		pan_cfg->lk_cfg = false;
-	} else if (pan_name[0] == '1') {
-		pan_cfg->lk_cfg = true;
-	} else {
-		/* read from dt */
-		pan_cfg->lk_cfg = true;
-		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
-		return -EINVAL;
-	}
-
-	/* skip lk cfg and delimiter; ex: "0:" */
-	strlcpy(pan_name, &pan_name[2], MDSS_MAX_PANEL_LEN);
-	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
-	if (!t) {
-		pr_err("%s: pan_name=[%s] invalid\n",
-			__func__, pan_name);
-		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
-		return -EINVAL;
-	}
-
-	for (i = 0; ((pan_name + i) < t) && (i < 4); i++)
-		pan_intf_str[i] = *(pan_name + i);
-	pan_intf_str[i] = 0;
-	pr_debug("%s:%d panel intf %s\n", __func__, __LINE__, pan_intf_str);
-	/* point to the start of panel name */
-	t = t + 1;
-	strlcpy(&pan_cfg->arg_cfg[0], t, sizeof(pan_cfg->arg_cfg));
-	pr_debug("%s:%d: t=[%s] panel name=[%s]\n", __func__, __LINE__,
-		t, pan_cfg->arg_cfg);
-
-	panel_len = strlen(pan_cfg->arg_cfg);
-	if (!panel_len) {
-		pr_err("%s: Panel name is invalid\n", __func__);
-		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
-		return -EINVAL;
-	}
-
-	rc = mdss_mdp_get_pan_intf(pan_intf_str);
-	pan_cfg->pan_intf = (rc < 0) ?  MDSS_PANEL_INTF_INVALID : rc;
-	return 0;
-}
-
-static int mdss_mdp_parse_dt_pan_intf(struct platform_device *pdev)
-{
-	int rc;
-	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
-	const char *prim_intf = NULL;
-
-	rc = of_property_read_string(pdev->dev.of_node,
-				"qcom,mdss-pref-prim-intf", &prim_intf);
-	if (rc)
-		return -ENODEV;
-
-	rc = mdss_mdp_get_pan_intf(prim_intf);
-	if (rc < 0) {
-		mdata->pan_cfg.pan_intf = MDSS_PANEL_INTF_INVALID;
-	} else {
-		mdata->pan_cfg.pan_intf = rc;
-		rc = 0;
-	}
-	return rc;
-}
-
-static int mdss_mdp_parse_bootarg(struct platform_device *pdev)
-{
-	struct device_node *chosen_node;
-	static const char *cmd_line;
-	char *disp_idx, *end_idx;
-	int rc, len = 0, name_len, cmd_len;
-	int *intf_type;
-	char *panel_name;
-	struct mdss_panel_cfg *pan_cfg;
-	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
-
-	mdata->pan_cfg.arg_cfg[MDSS_MAX_PANEL_LEN] = 0;
-	pan_cfg = &mdata->pan_cfg;
-	panel_name = &pan_cfg->arg_cfg[0];
-	intf_type = &pan_cfg->pan_intf;
-
-	/* reads from dt by default */
-	pan_cfg->lk_cfg = true;
-
-	chosen_node = of_find_node_by_name(NULL, "chosen");
-	if (!chosen_node) {
-		pr_err("%s: get chosen node failed\n", __func__);
-		rc = -ENODEV;
-		goto get_dt_pan;
-	}
-
-	cmd_line = of_get_property(chosen_node, "bootargs", &len);
-	if (!cmd_line || len <= 0) {
-		pr_err("%s: get bootargs failed\n", __func__);
-		rc = -ENODEV;
-		goto get_dt_pan;
-	}
-
-	name_len = strlen("mdss_mdp.panel=");
-	cmd_len = strlen(cmd_line);
-	disp_idx = strnstr(cmd_line, "mdss_mdp.panel=", cmd_len);
-	if (!disp_idx) {
-		pr_err("%s:%d:cmdline panel not set disp_idx=[%p]\n",
-				__func__, __LINE__, disp_idx);
-		memset(panel_name, 0x00, MDSS_MAX_PANEL_LEN);
-		*intf_type = MDSS_PANEL_INTF_INVALID;
-		rc = MDSS_PANEL_INTF_INVALID;
-		goto get_dt_pan;
-	}
-
-	disp_idx += name_len;
-
-	end_idx = strnstr(disp_idx, " ", MDSS_MAX_PANEL_LEN);
-	pr_debug("%s:%d: pan_name=[%s] end=[%s]\n", __func__, __LINE__,
-		 disp_idx, end_idx);
-	if (!end_idx) {
-		end_idx = disp_idx + strlen(disp_idx) + 1;
-		pr_warn("%s:%d: pan_name=[%s] end=[%s]\n", __func__,
-		       __LINE__, disp_idx, end_idx);
-	}
-
-	if (end_idx <= disp_idx) {
-		pr_err("%s:%d:cmdline pan incorrect end=[%p] disp=[%p]\n",
-			__func__, __LINE__, end_idx, disp_idx);
-		memset(panel_name, 0x00, MDSS_MAX_PANEL_LEN);
-		*intf_type = MDSS_PANEL_INTF_INVALID;
-		rc = MDSS_PANEL_INTF_INVALID;
-		goto get_dt_pan;
-	}
-
-	*end_idx = 0;
-	len = end_idx - disp_idx + 1;
-	if (len <= 0) {
-		pr_warn("%s: panel name not rx", __func__);
-		rc = -EINVAL;
-		goto get_dt_pan;
-	}
-
-	strlcpy(panel_name, disp_idx, min(++len, MDSS_MAX_PANEL_LEN));
-	pr_debug("%s:%d panel:[%s]", __func__, __LINE__, panel_name);
-	of_node_put(chosen_node);
-
-	rc = mdss_mdp_get_pan_cfg(pan_cfg);
-	if (!rc) {
-		pan_cfg->init_done = true;
-		return rc;
-	}
-
-get_dt_pan:
-	rc = mdss_mdp_parse_dt_pan_intf(pdev);
-	/* if pref pan intf is not present */
-	if (rc)
-		pr_err("%s:unable to parse device tree for pan intf\n",
-			__func__);
-	else
-		pan_cfg->init_done = true;
-
-	of_node_put(chosen_node);
-	return rc;
-}
-
 static int mdss_mdp_parse_dt(struct platform_device *pdev)
 {
 	int rc, data;
@@ -1617,13 +1562,6 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = mdss_mdp_parse_bootarg(pdev);
-	if (rc) {
-		pr_err("%s: Error in panel override:rc=[%d]\n",
-		       __func__, rc);
-		return rc;
-	}
-
 	rc = mdss_mdp_parse_dt_bus_scale(pdev);
 	if (rc) {
 		pr_err("Error in device tree : bus scale\n");
@@ -1640,7 +1578,6 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	mdata->mdp_base = mdata->mdss_base + data;
 	return 0;
 }
-
 
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 {
@@ -2676,5 +2613,15 @@ static int __init mdss_mdp_driver_init(void)
 	return 0;
 
 }
+
+module_param_string(panel, mdss_mdp_panel, MDSS_MAX_PANEL_LEN, 0);
+MODULE_PARM_DESC(panel,
+		"panel=<lk_cfg>:<pan_intf>:<pan_intf_cfg> "
+		"where <lk_cfg> is "1"-lk/gcdb config or "0" non-lk/non-gcdb "
+		"config; <pan_intf> is dsi:<ctrl_id> or hdmi or edp "
+		"<pan_intf_cfg> is panel interface specific string "
+		"Ex: This string is panel's device node name from DT "
+		"for DSI interface "
+		"hdmi/edp interface does not use this string");
 
 module_init(mdss_mdp_driver_init);
