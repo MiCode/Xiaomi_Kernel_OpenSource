@@ -363,7 +363,6 @@ DEFINE_CLK_RPM_SMD(cnoc, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(pnoc, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(bimc, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
-DEFINE_CLK_RPM_SMD(bimc_gpu, bimc_gpu_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 DEFINE_CLK_RPM_SMD_QDSS(qdss, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 DEFINE_CLK_RPM_SMD(gfx3d, gfx3d_a_clk, RPM_MEM_CLK_TYPE, OXILI_ID, NULL);
 DEFINE_CLK_RPM_SMD(mmssnoc_ahb, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
@@ -410,6 +409,11 @@ static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_ehci_host_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_lpm_clk, &xo.c);
 
+/*
+ * RPM manages gcc_bimc_gpu_clk automatically. This clock is created
+ * for measurement only.
+ */
+DEFINE_CLK_DUMMY(bimc_gpu, 0);
 
 static unsigned int soft_vote_gpll0;
 
@@ -3342,7 +3346,6 @@ static struct clk_lookup msm_clocks_samarium[] = {
 	CLK_LOOKUP("", bimc.c, ""),
 	CLK_LOOKUP("", bimc_a_clk.c, ""),
 	CLK_LOOKUP("", bimc_gpu.c, ""),
-	CLK_LOOKUP("", bimc_gpu_a_clk.c, ""),
 	CLK_LOOKUP("", pnoc_keepalive_a_clk.c, ""),
 	CLK_LOOKUP("", mmssnoc_ahb.c, ""),
 	CLK_LOOKUP("", mmssnoc_ahb_a_clk.c, ""),
