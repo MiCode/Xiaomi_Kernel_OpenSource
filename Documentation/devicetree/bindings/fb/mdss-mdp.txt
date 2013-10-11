@@ -106,6 +106,7 @@ Required properties
 				- "hdmi"
 
 Optional properties:
+- vdd-cx-supply :	Phandle for vdd CX regulator device node.
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
 			settings used to setup MDSS QoS for optimum performance.
 			The key used should be offset from "vbif_phys" register
@@ -177,6 +178,7 @@ Example:
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
+		vdd-cx-supply = <&pm8841_s2_corner>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
