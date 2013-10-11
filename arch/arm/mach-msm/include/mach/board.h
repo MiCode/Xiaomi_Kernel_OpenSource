@@ -24,8 +24,16 @@
 #include <linux/leds-pmic8058.h>
 #include <linux/clkdev.h>
 #include <linux/of_platform.h>
-#include <linux/msm_ssbi.h>
+#include <linux/ssbi.h>
 #include <mach/msm_bus.h>
+
+#define RF_TYPE_16 0x10
+#define RF_TYPE_17 0x11
+#define RF_TYPE_18 0x12
+#define RF_TYPE_32 0x20
+#define RF_TYPE_33 0x21
+#define RF_TYPE_48 0x30
+#define RF_TYPE_49 0x31
 
 struct msm_camera_io_ext {
 	uint32_t mdcphy;
@@ -539,7 +547,7 @@ struct msm_i2c_platform_data {
 
 struct msm_i2c_ssbi_platform_data {
 	const char *rsl_id;
-	enum msm_ssbi_controller_type controller_type;
+	enum ssbi_controller_type controller_type;
 };
 
 struct msm_vidc_platform_data {
@@ -613,6 +621,7 @@ void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
 void msm_map_fsm9900_io(void);
 void fsm9900_init_gpiomux(void);
+void fsm9900_rf_init_gpiomux(void);
 void msm_map_8974_io(void);
 void msm_map_8084_io(void);
 void msm_map_msmkrypton_io(void);

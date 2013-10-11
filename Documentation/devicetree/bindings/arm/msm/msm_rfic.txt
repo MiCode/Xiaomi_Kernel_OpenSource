@@ -1,0 +1,59 @@
+QTI Radio Frequency IC (RFIC)
+
+This is a kernel platform driver which enables the RF interfaces supported by
+QTI. This driver uses SSBI driver to access the low level registers. This has
+support for Pulse Density Modulation(PDM) and General purpose RF Control(GRFC)s.
+It is also possible to access GRFC without going through SSBI. There are 2
+sections listed below, one using ssbi parent driver and the other direct access.
+
+1. Driver access to get/set GRFC registers using ssbi driver.
+
+Required properties:
+-compatible: parent should be "qcom,ssbi"
+-reg: physical base address and length of the register set
+-reg-names: RFIC device is a child node of ssbi and uses the base address of
+the parent driver. RFIC uses a large set of registers, hence base address is
+defined here.
+-qcom,controller-type: controller type could be "geni-ssbi-arbiter" or
+"geni-ssbi2-arbiter"
+-compatible: child should be "qcom,rfic"
+
+Example for rfic driver using SSBI as a parent:
+	ssbi1:  qcom,ssbi@f9b18000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b18000 0x4000>;
+		reg-names = "ssbi1_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@1 {
+			compatible = "qti,rfic";
+		};
+	};
+
+2. Driver access to set/get GRFC registers without going thru SSBI. The following
+driver entry is independent and does not use ssbi driver.
+
+Required properties:
+-compatible: should be "qti,rfic"
+-reg: specifies the base address of the GRFC registers.
+vdd-switch-supply: regulator used to control RF switches.
+vdd-wtr-supply: regulator used to control WTR.
+vdd-ftr1-supply: regulator used to control FTR1.
+vdd-ftr2-supply: regulator used to control FTR2.
+vdd-mtr-supply: regulator used to control MTR.
+
+Example:
+	qti,rfic@fd4a4090 {
+		compatible = "qti,rfic";
+		reg = <0xfd4a4090 0x40>;
+		vdd-switch-supply = <&pma8084_l18>;
+		vdd-wtr-supply = <&pma8084_l19>;
+		vdd-ftr1-supply = <&pma8084_l23>;
+		vdd-ftr2-supply = <&pma8084_l25>;
+		vdd-mtr-supply = <&pma8084_l26>;
+	};
+
+	qti,pdm@f9b10000 {
+		compatible = "qti,rfic";
+		reg = <0xf9b10000 0x8000>;
+	};
