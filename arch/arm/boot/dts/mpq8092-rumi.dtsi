@@ -12,6 +12,7 @@
 
 / {
 	aliases {
+		serial0 = &blsp1_uart5;
 		spi0 = &spi_0;
 	};
 };
@@ -128,6 +129,10 @@
         qcom,kgsl-3d0@fdb00000 {
 		status = "disabled";
 	};
+};
+
+&blsp1_uart5 {
+	status = "ok";
 };
 
 &gdsc_venus {

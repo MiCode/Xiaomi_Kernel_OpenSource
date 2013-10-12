@@ -18,16 +18,17 @@
 	model = "Qualcomm MPQ8092 Simulator";
 	compatible = "qcom,mpq8092-sim", "qcom,mpq8092", "qcom,sim";
 	qcom,board-id = <16 0>;
+
+	aliases {
+		serial0 = &blsp1_uart2;
+	};
 };
 
 &soc {
-	serial@f991f000 {
-		status = "ok";
-	};
+};
 
-	serial@f995e000 {
-		status = "ok";
-	};
+&blsp1_uart2 {
+	status = "ok";
 };
 
 &sdcc1 {

@@ -22,7 +22,4 @@
 };
 
 &soc {
-	serial@f9922000 {
-		status = "ok";
-	};
 };
