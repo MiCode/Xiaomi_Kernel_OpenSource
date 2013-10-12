@@ -24,6 +24,7 @@
 #include <linux/list.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 #include <trace/events/power.h>
 #include <mach/clk-provider.h>
 #include "clock.h"
@@ -783,6 +784,57 @@ int msm_clock_register(struct clk_lookup *table, size_t size)
 	return 0;
 }
 EXPORT_SYMBOL(msm_clock_register);
+
+struct of_msm_provider_data {
+	struct clk_lookup *table;
+	size_t size;
+};
+
+static struct clk *of_clk_src_get(struct of_phandle_args *clkspec,
+				  void *data)
+{
+	struct of_msm_provider_data *ofdata = data;
+	int n;
+
+	for (n = 0; n < ofdata->size; n++) {
+		if (clkspec->args[0] == ofdata->table[n].of_idx)
+			return ofdata->table[n].clk;
+	}
+	return ERR_PTR(-ENOENT);
+}
+
+/**
+ * of_msm_clock_register() - Register clock tables with clkdev and with the
+ *			     clock DT framework
+ * @table: Table of clocks
+ * @size: Size of @table
+ * @np: Device pointer corresponding to the clock-provider device
+ *
+ * Upon return, clock APIs may be used to control clocks registered using this
+ * function.
+ */
+int of_msm_clock_register(struct device_node *np, struct clk_lookup *table,
+				size_t size)
+{
+	int ret = 0;
+	struct of_msm_provider_data *data;
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	data->table = table;
+	data->size = size;
+
+	ret = of_clk_add_provider(np, of_clk_src_get, data);
+	if (ret) {
+		kfree(data);
+		return -ENOMEM;
+	}
+
+	return msm_clock_register(table, size);
+}
+EXPORT_SYMBOL(of_msm_clock_register);
 
 /**
  * msm_clock_init() - Register and initialize a clock driver
