@@ -1360,8 +1360,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 */
 	int status = 0;
 	struct kgsl_iommu *iommu;
-	struct kgsl_device *device = mmu->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	atomic_set(&mmu->fault, 0);
 	iommu = kzalloc(sizeof(struct kgsl_iommu), GFP_KERNEL);
@@ -1387,10 +1385,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT &&
 				(msm_soc_version_supports_iommu_v0() ||
 				 iommu->iommu_units[0].iommu_halt_enable);
-
-	/* KGSL Per Process Page Table is broken for A310*/
-	if (adreno_is_a310(adreno_dev))
-		mmu->pt_per_process = 0;
 
 	/*
 	 * For IOMMU per-process pagetables, the allocatable range
