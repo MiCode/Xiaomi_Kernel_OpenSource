@@ -75,7 +75,7 @@ static char *modem_status_str[MODEM_STATUS_LAST] = {
 };
 
 struct modem_pil_data {
-	struct mba_data image;
+	struct modem_data image;
 	const char *name;
 	u32 num_images;
 	u32 id;
@@ -190,7 +190,7 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 		struct modem_pil_data *modem = &drv->modem[index];
 		int img;
 		char *pmi_name = kzalloc((strlen(modem->name) + 5), GFP_KERNEL);
-		struct mba_data *image = &modem->image;
+		struct modem_data *image = &modem->image;
 
 		if (!pmi_name) {
 			ret = -ENOMEM;
@@ -522,7 +522,7 @@ static int pil_femto_modem_desc_probe(struct platform_device *pdev)
 	struct modem_pil_data *modem;
 	struct pil_desc *mba_desc;
 	struct resource *res;
-	struct mba_data *mba;
+	struct modem_data *mba;
 	void __iomem *rmb;
 	int ret;
 	u32 id;
@@ -602,12 +602,13 @@ static int pil_femto_modem_desc_probe(struct platform_device *pdev)
 	mba_desc = &mba->desc;
 	mba_desc->name = modem->name;
 	mba_desc->dev = dev;
-	mba_desc->ops = &pil_msa_mba_ops;
+	mba_desc->ops = &pil_msa_femto_mba_ops;
 	mba_desc->owner = THIS_MODULE;
 	mba_desc->proxy_timeout = 0;
 	mba_desc->flags = skip_entry ? PIL_SKIP_ENTRY_CHECK : 0;
 	mba_desc->map_fw_mem = pil_femto_modem_map_fw_mem;
 	mba_desc->unmap_fw_mem = NULL;
+
 	ret = pil_desc_init(mba_desc);
 	if (ret)
 		return ret;
@@ -673,15 +674,15 @@ static int pil_femto_modem_driver_probe(
 	q6->self_auth = 1;
 
 	q6_desc = &q6->desc;
-	q6_desc->ops = &pil_msa_pbl_ops;
+	q6_desc->ops = &pil_msa_mss_ops;
 	q6_desc->owner = THIS_MODULE;
 	q6_desc->proxy_timeout = 0;
 	q6_desc->map_fw_mem = pil_femto_modem_map_fw_mem;
 	q6_desc->unmap_fw_mem = NULL;
 
 	/* For this target, PBL interactions are different. */
-	pil_msa_pbl_ops.proxy_vote = NULL;
-	pil_msa_pbl_ops.proxy_unvote = NULL;
+	pil_msa_mss_ops.proxy_vote = NULL;
+	pil_msa_mss_ops.proxy_unvote = NULL;
 
 	/* Initialize the number of discovered modems. */
 	drv->disc_modems = 0;

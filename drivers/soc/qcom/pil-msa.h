@@ -13,17 +13,32 @@
 #ifndef __MSM_PIL_MSA_H
 #define __MSM_PIL_MSA_H
 
+#include <mach/subsystem_restart.h>
+
 #include "peripheral-loader.h"
 
 #define VDD_MSS_UV	1050000
 
-struct mba_data {
+struct modem_data {
+	struct q6v5_data *q6;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	void *adsp_state_notifier;
+	void *ramdump_dev;
+	bool crash_shutdown;
+	bool ignore_errors;
+	struct completion stop_ack;
 	void __iomem *rmb_base;
 	struct clk *xo;
 	struct pil_desc desc;
 };
 
-extern struct pil_reset_ops pil_msa_pbl_ops;
-extern struct pil_reset_ops pil_msa_mba_ops;
+extern struct pil_reset_ops pil_msa_mss_ops;
+extern struct pil_reset_ops pil_msa_mss_ops_selfauth;
+extern struct pil_reset_ops pil_msa_femto_mba_ops;
 
+int pil_mss_reset_load_mba(struct pil_desc *pil);
+int pil_mss_make_proxy_votes(struct pil_desc *pil);
+void pil_mss_remove_proxy_votes(struct pil_desc *pil);
+int pil_mss_shutdown(struct pil_desc *pil);
 #endif

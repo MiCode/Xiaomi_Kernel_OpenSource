@@ -874,7 +874,7 @@
 		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pm8110_l10>;
 		qcom,vdd_pll = <1800000>;
-		qcom,firmware-name = "mba";
+		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 
 		/* GPIO inputs from mss */
