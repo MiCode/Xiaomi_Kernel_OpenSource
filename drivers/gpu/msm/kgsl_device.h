@@ -297,7 +297,6 @@ struct kgsl_device {
 	struct list_head events;
 	struct list_head events_pending_list;
 	unsigned int events_last_timestamp;
-	s64 on_time;
 
 	/* Postmortem Control switches */
 	int pm_regs_enabled;
@@ -423,11 +422,6 @@ enum kgsl_process_priv_flags {
 struct kgsl_device_private {
 	struct kgsl_device *device;
 	struct kgsl_process_private *process_priv;
-};
-
-struct kgsl_power_stats {
-	s64 total_time;
-	s64 busy_time;
 };
 
 struct kgsl_device *kgsl_get_device(int dev_idx);

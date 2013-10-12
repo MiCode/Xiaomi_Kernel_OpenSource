@@ -15,8 +15,6 @@ msm_kgsl_core-y = \
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_DRM) += kgsl_drm.o
-msm_kgsl_core-$(CONFIG_MSM_SCM) += kgsl_pwrscale_trustzone.o
-msm_kgsl_core-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += kgsl_pwrscale_idlestats.o
 msm_kgsl_core-$(CONFIG_SYNC) += kgsl_sync.o
 
 msm_adreno-y += \

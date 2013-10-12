@@ -287,6 +287,31 @@ TRACE_EVENT(kgsl_gpubusy,
 	)
 );
 
+TRACE_EVENT(kgsl_pwrstats,
+	TP_PROTO(struct kgsl_device *device, u64 total_time,
+		 struct kgsl_power_stats *pstats),
+
+	TP_ARGS(device, total_time, pstats),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(u64, total_time)
+		__field(u64, busy_time)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->total_time = total_time;
+		__entry->busy_time = pstats->busy_time;
+	),
+
+	TP_printk(
+		"d_name=%s total=%lld busy=%lld",
+		__get_str(device_name),
+		__entry->total_time, __entry->busy_time
+	)
+);
+
 DECLARE_EVENT_CLASS(kgsl_pwrstate_template,
 	TP_PROTO(struct kgsl_device *device, unsigned int state),
 
