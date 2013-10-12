@@ -66,6 +66,39 @@
 		qcom,panel-maxy = <2084>;
 		qcom,key-codes = <158 139 102 217>;
 	};
+
+	sound {
+		qcom,model = "msmsamarium-tapan-mtp-snd-card";
+		qcom,audio-routing =
+                        "RX_BIAS", "MCLK",
+                        "LDO_H", "MCLK",
+                        "SPK_OUT", "MCLK",
+                        "AMIC2", "MIC BIAS2 External",
+                        "MIC BIAS2 External", "Headset Mic",
+                        "AMIC4", "MIC BIAS2 External",
+                        "MIC BIAS2 External", "ANCRight Headset Mic",
+                        "AMIC5", "MIC BIAS2 External",
+                        "MIC BIAS2 External", "ANCLeft Headset Mic",
+                        "DMIC1", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic1",
+                        "DMIC2", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic2",
+                        "DMIC3", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic3",
+                        "DMIC4", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic4";
+	};
+};
+
+&slim_msm {
+	tapan_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+		cdc-vdd-spkdrv-supply = <&ext_5v_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+	};
 };
 
 &i2c_2 {
