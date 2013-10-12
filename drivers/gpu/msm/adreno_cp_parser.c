@@ -424,19 +424,58 @@ static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 {
 	int ret = 0;
 	int i;
+	int opcode = cp_type3_opcode(pkt[0]);
 
-	if (type3_pkt_size(pkt[0]) < 3)
-		return 0;
-
-	/*  DRAW_IDX may have a index buffer pointer */
-
-	if (type3_pkt_size(pkt[0]) > 3) {
-		ret = adreno_ib_add_range(device, ptbase, pkt[4], pkt[5],
-			SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
-		if (ret < 0)
-			return ret;
+	switch (opcode) {
+	case CP_DRAW_INDX:
+		if (type3_pkt_size(pkt[0]) > 3) {
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[4], pkt[5],
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		}
+		break;
+	case CP_DRAW_INDX_OFFSET:
+		if (type3_pkt_size(pkt[0]) == 6) {
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[5], pkt[6],
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		}
+		break;
+	case CP_DRAW_INDIRECT:
+		if (type3_pkt_size(pkt[0]) == 2) {
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[2], 0,
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		}
+		break;
+	case CP_DRAW_INDX_INDIRECT:
+		if (type3_pkt_size(pkt[0]) == 4) {
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[2], pkt[3],
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+			if (ret)
+				break;
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[4], 0,
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		}
+		break;
+	case CP_DRAW_AUTO:
+		if (type3_pkt_size(pkt[0]) == 6) {
+			ret = adreno_ib_add_range(device, ptbase,
+				 pkt[3], 0, SNAPSHOT_GPU_OBJECT_GENERIC,
+				ib_obj_list);
+			if (ret)
+				break;
+			ret = adreno_ib_add_range(device, ptbase,
+				pkt[4], 0,
+				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+		}
+		break;
 	}
 
+	if (ret)
+		return ret;
 	/*
 	 * All of the type0 writes are valid at a draw initiator, so freeze
 	 * the various buffers that we are tracking
@@ -470,21 +509,26 @@ static int ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
 {
 	int opcode = cp_type3_opcode(*ptr);
 
-	if (opcode == CP_LOAD_STATE)
+	switch (opcode) {
+	case  CP_LOAD_STATE:
 		return ib_parse_load_state(device, ptr, ptbase, ib_obj_list,
 					ib_parse_vars);
-	else if (opcode == CP_SET_BIN_DATA)
+	case CP_SET_BIN_DATA:
 		return ib_parse_set_bin_data(device, ptr, ptbase, ib_obj_list,
 					ib_parse_vars);
-	else if (opcode == CP_MEM_WRITE)
+	case CP_MEM_WRITE:
 		return ib_parse_mem_write(device, ptr, ptbase, ib_obj_list,
 					ib_parse_vars);
-	else if (opcode == CP_DRAW_INDX)
+	case CP_DRAW_INDX:
+	case CP_DRAW_INDX_OFFSET:
+	case CP_DRAW_INDIRECT:
+	case CP_DRAW_INDX_INDIRECT:
 		return ib_parse_draw_indx(device, ptr, ptbase, ib_obj_list,
 					ib_parse_vars);
-	else if (opcode == CP_SET_DRAW_STATE)
+	case CP_SET_DRAW_STATE:
 		return ib_parse_set_draw_state(device, ptr, ptbase,
 					ib_obj_list, ib_parse_vars);
+	}
 
 	return 0;
 }
