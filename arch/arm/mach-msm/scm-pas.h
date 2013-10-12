@@ -26,6 +26,7 @@ enum pas_id {
 	PAS_SECAPP,
 	PAS_GSS,
 	PAS_VIDC,
+	PAS_VPU,
 };
 
 #ifdef CONFIG_MSM_PIL
