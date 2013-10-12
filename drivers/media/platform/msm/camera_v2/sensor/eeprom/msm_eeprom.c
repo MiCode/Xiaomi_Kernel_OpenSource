@@ -171,7 +171,7 @@ static int msm_eeprom_get_subdev_id(struct msm_eeprom_ctrl_t *e_ctrl,
 		pr_err("%s failed\n", __func__);
 		return -EINVAL;
 	}
-	*subdev_id = e_ctrl->subdev_id;
+	put_user(e_ctrl->subdev_id, subdev_id);
 	CDBG("subdev_id %d\n", *subdev_id);
 	CDBG("%s X\n", __func__);
 	return 0;
