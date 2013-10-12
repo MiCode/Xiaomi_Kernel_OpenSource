@@ -372,7 +372,26 @@ static void __iomem *virt_bases[N_BASES];
 #define PLL_SR_M_VAL				0x0008
 #define PLL_SR_N_VAL				0x000C
 #define PLL_SR_USER_CTL				0x0010
+#define PLL_SR_CONFIG_CTL			0x0014
 #define PLL_SR_STATUS				0x001C
+#define PLL_SR2_MODE				0x0020
+#define PLL_SR2_L_VAL				0x0024
+#define PLL_SR2_M_VAL				0x0028
+#define PLL_SR2_N_VAL				0x002C
+#define PLL_SR2_USER_CTL			0x0030
+#define PLL_SR2_CONFIG_CTL			0x0034
+#define PLL_SR2_TEST_CTL			0x0038
+#define PLL_SR2_STATUS				0x003C
+#define DEM_AHB_BCR				0x0100
+#define LNB_BCR					0x0104
+#define VBIF_BCR				0x0108
+#define TSPP2_BCR				0x010C
+#define DEM_CORE_BCR				0x0110
+#define ATV_X5_BCR				0x0114
+#define ATV_RXFE_BCR				0x0118
+#define ADC_BCR					0x011C
+#define TSC_BCR					0x0120
+#define DEM_TEST_BCR				0x0124
 #define BCC_XO_CBCR				0x0130
 #define TSPP2_AHB_CBCR				0x0134
 #define DEM_AHB_CBCR				0x0138
@@ -392,11 +411,14 @@ static void __iomem *virt_bases[N_BASES];
 #define TSC_SER_CBCR				0x0170
 #define TSC_PAR_CBCR				0x0174
 #define TSC_CI_CBCR				0x0178
+#define TSC_CICAM_CBCR				0x017C
 #define TSPP2_CORE_CBCR				0x0180
 #define DEM_CORE_CBCR				0x0184
 #define LNB_AHB_CBCR				0x0188
 #define LNB_SER_CBCR				0x018C
 #define KLM_AHB_CBCR				0x0190
+#define TS_IN_0_CBCR				0x0194
+#define TS_IN_1_CBCR				0x0198
 #define TS_OUT_CBCR				0x019C
 #define FORZA_SYNC_X5_CBCR			0x01A0
 #define DEM_CORE_DIV2_CBCR			0x01A4
@@ -406,11 +428,17 @@ static void __iomem *virt_bases[N_BASES];
 #define ADC_CMD_RCGR				0x0400
 #define ADC_CLK_MISC				0x0408
 #define DIG_DEM_CORE_CMD_RCGR			0x0420
-#define ATV_RXFE_RESAMP_CLK_MISC		0x0454
+#define TSC_MISC				0x0428
+#define TSPP2_MISC				0x042C
+#define DIG_DEM_CORE_MISC			0x0430
+#define TS_OUT_MISC				0x0434
 #define ATV_RESAMP_CMD_RCGR			0x0440
+#define ATV_RXFE_RESAMP_CLK_MISC		0x0454
 #define ATV_X5_CMD_RCGR				0x0460
 #define DIG_DEM_RXFE_MISC			0x0474
 #define NIDAQ_OUT_CMD_RCGR			0x0480
+#define DEMOD_TEST_MISC				0x0498
+#define BCC_DEBUG_CLK_CTL			0x0500
 #define GLB_CLK_DIAG				0x001C
 #define GLB_TEST_BUS_SEL			0x0020
 #define L2_CBCR					0x004C
@@ -446,6 +474,7 @@ static void __iomem *virt_bases[N_BASES];
 #define xo_lpass_source_val		0
 #define lpaaudio_pll_lpass_source_val	1
 #define gpll0_lpass_source_val		5
+#define bcc_pll0_source_val		1
 #define bcc_pll1_source_val		1
 
 #define F(f, s, div, m, n) \
@@ -489,6 +518,17 @@ static void __iomem *virt_bases[N_BASES];
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_mm_source_val), \
+	}
+
+#define F_BCAST(f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_clk = &s##_clk_src.c, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_source_val), \
 	}
 
 #define VDD_DIG_FMAX_MAP1(l1, f1) \
@@ -4214,6 +4254,1247 @@ static struct branch_clk vpu_vdp_xin_clk = {
 	},
 };
 
+/* BCAST Clocks */
+static struct pll_config_regs bcc_pll0_regs __initdata = {
+	.l_reg = (void __iomem *)PLL_SR_L_VAL,
+	.m_reg = (void __iomem *)PLL_SR_M_VAL,
+	.n_reg = (void __iomem *)PLL_SR_N_VAL,
+	.config_reg = (void __iomem *)PLL_SR_USER_CTL,
+	.mode_reg = (void __iomem *)PLL_SR_MODE,
+	.base = &virt_bases[BCSS_BASE],
+};
+
+static struct pll_config bcc_pll0_config __initdata = {
+	.l = 50,
+	.m = 0,
+	.n = 1,
+	.vco_val = 0x0,
+	.vco_mask = BM(21, 20),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(9, 8),
+	.mn_ena_val = BIT(24),
+	.mn_ena_mask = BIT(24),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+};
+
+static struct pll_clk bcc_pll0_clk_src = {
+	.mode_reg = (void __iomem *)PLL_SR_MODE,
+	.status_reg = (void __iomem *)PLL_SR_STATUS,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.rate = 960000000,
+		.dbg_name = "bcc_pll0_clk_src",
+		.ops = &clk_ops_local_pll,
+		CLK_INIT(bcc_pll0_clk_src.c),
+	},
+};
+
+static struct pll_config_regs bcc_pll1_regs __initdata = {
+	.l_reg = (void __iomem *)PLL_SR2_L_VAL,
+	.m_reg = (void __iomem *)PLL_SR2_M_VAL,
+	.n_reg = (void __iomem *)PLL_SR2_N_VAL,
+	.config_reg = (void __iomem *)PLL_SR2_USER_CTL,
+	.config_alt_reg = (void __iomem *)PLL_SR2_CONFIG_CTL,
+	.mode_reg = (void __iomem *)PLL_SR2_MODE,
+	.base = &virt_bases[BCSS_BASE],
+};
+
+static struct pll_config bcc_pll1_config __initdata = {
+	.l = 32,
+	.m = 0,
+	.n = 1,
+	.vco_val = BVAL(29, 28, 0x1),
+	.vco_mask = BM(29, 28),
+	.add_factor_val = BVAL(31, 30, 0x0),
+	.add_factor_mask = BM(31, 30),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(9, 8),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+	.alt_cfg = {
+		.val = BVAL(31, 0, 0x45004035),
+		.mask = BM(31, 0),
+	},
+};
+
+
+static struct pll_clk bcc_pll1_clk_src = {
+	.mode_reg = (void __iomem *)PLL_SR2_MODE,
+	.status_reg = (void __iomem *)PLL_SR2_STATUS,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.rate = 614400000,
+		.dbg_name = "bcc_pll1_clk_src",
+		.ops = &clk_ops_sr2_pll,
+		CLK_INIT(bcc_pll1_clk_src.c),
+	},
+};
+
+/*
+ * SRC_DIV = 2 (4:0) => 0x3 DIV-2
+ * SRC_SEL = PLL_SR2_OUT_CLK (10:8) => 1
+ */
+static struct clk_freq_tbl ftbl_adc_clk_src[] = {
+	F_BCAST(307200000, bcc_pll1, 2, 0, 0),
+	F_END
+};
+
+static struct rcg_clk adc_clk_src = {
+	.cmd_rcgr_reg = ADC_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_adc_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "adc_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 307200000),
+		CLK_INIT(adc_clk_src.c),
+	},
+};
+
+static int adc_01_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(3, 0);
+	regval |= BVAL(3, 0, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+	mb();
+
+	return 0;
+}
+
+static int adc_01_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(3, 0);
+
+	return div + 1;
+}
+
+static struct clk_div_ops adc_01_clk_src_ops = {
+	.set_div = adc_01_clk_src_set_div,
+	.get_div = adc_01_clk_src_get_div,
+};
+
+static struct div_clk adc_01_clk_src = {
+	.data = {
+		.max_div = 3,
+		.min_div = 1,
+	},
+	.offset = ADC_CLK_MISC,
+	.ops = &adc_01_clk_src_ops,
+	.c = {
+		.parent = &adc_clk_src.c,
+		.dbg_name = "adc_01_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(adc_01_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_adc_0_in_clk = {
+	.bcr_reg = ADC_BCR,
+	.cbcr_reg = ADC_0_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_adc_0_in_clk",
+		.parent = &adc_01_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_adc_0_in_clk.c),
+	},
+};
+
+static struct branch_clk bcc_adc_1_in_clk = {
+	.bcr_reg = ADC_BCR,
+	.cbcr_reg = ADC_1_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_adc_1_in_clk",
+		.parent = &adc_01_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_adc_1_in_clk.c),
+	},
+};
+
+static struct ext_clk bcc_adc_0_out_clk = {
+	.c = {
+		.dbg_name = "bcc_adc_0_out_clk",
+		.parent = &bcc_adc_0_in_clk.c,
+		.ops = &clk_ops_ext,
+		CLK_INIT(bcc_adc_0_out_clk.c),
+	},
+};
+
+static struct ext_clk bcc_adc_1_out_clk = {
+	.c = {
+		.dbg_name = "bcc_adc_1_out_clk",
+		.parent = &bcc_adc_1_in_clk.c,
+		.ops = &clk_ops_ext,
+		CLK_INIT(bcc_adc_1_out_clk.c),
+	},
+};
+
+static int adc_2_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(7, 4);
+	regval |= BVAL(7, 4, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+	mb();
+
+	return 0;
+}
+
+static int adc_2_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(7, 4);
+
+	return (div >> 4) + 1;
+}
+
+static struct clk_div_ops adc_2_clk_src_ops = {
+	.set_div = adc_2_clk_src_set_div,
+	.get_div = adc_2_clk_src_get_div,
+};
+
+static struct div_clk adc_2_clk_src = {
+	.data = {
+		.max_div = 3,
+		.min_div = 1,
+	},
+	.offset = ADC_CLK_MISC,
+	.ops = &adc_2_clk_src_ops,
+	.c = {
+		.parent = &adc_clk_src.c,
+		.dbg_name = "adc_2_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(adc_2_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_adc_2_in_clk = {
+	.bcr_reg = ADC_BCR,
+	.cbcr_reg = ADC_2_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_adc_2_in_clk",
+		.parent = &adc_2_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_adc_2_in_clk.c),
+	},
+};
+
+static struct ext_clk bcc_adc_2_out_clk = {
+	.c = {
+		.dbg_name = "bcc_adc_2_out_clk",
+		.parent = &bcc_adc_2_in_clk.c,
+		.ops = &clk_ops_ext,
+		CLK_INIT(bcc_adc_2_out_clk.c),
+	},
+};
+
+static struct mux_clk atv_rxfe_clk_src = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 14,
+	.offset = ADC_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_adc_0_out_clk.c, 0},
+		{&bcc_adc_1_out_clk.c, 1},
+		{&bcc_adc_2_out_clk.c, 2},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "atv_rxfe_clk_src",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(atv_rxfe_clk_src.c),
+	},
+};
+
+static struct mux_clk dem_rxfe_clk_src = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 8,
+	.offset = ADC_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_adc_0_out_clk.c, 0},
+		{&bcc_adc_1_out_clk.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "dem_rxfe_clk_src",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(dem_rxfe_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_dem_rxfe_i_clk = {
+	.bcr_reg = DEM_CORE_BCR,
+	.cbcr_reg = DEM_RXFE_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_rxfe_i_clk",
+		.parent = &dem_rxfe_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_dem_rxfe_i_clk.c),
+	},
+};
+
+static struct branch_clk bcc_atv_rxfe_clk = {
+	.bcr_reg = ATV_RXFE_BCR,
+	.cbcr_reg = ATV_RXFE_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_atv_rxfe_clk",
+		.parent = &atv_rxfe_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_atv_rxfe_clk.c),
+	},
+};
+
+/*
+ * SRC_DIV = 5 DIV-5 (4:0) => 9
+ * SRC_SEL = PLL_SR2_OUT_CLK (10:8) => 0x1
+ */
+static struct clk_freq_tbl ftbl_atv_x5_clk_src[] = {
+	F_BCAST(122880000, bcc_pll1, 5, 0, 0),
+	F_END
+};
+
+static struct rcg_clk atv_x5_clk_src = {
+	.cmd_rcgr_reg = ATV_X5_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_atv_x5_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "atv_x5_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP1(LOW, 122880000),
+		CLK_INIT(atv_x5_clk_src.c),
+	},
+};
+
+static struct branch_clk atv_x5_clk = {
+	.bcr_reg = ATV_X5_BCR,
+	.cbcr_reg = ATV_X5_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "atv_x5_clk",
+		.parent = &atv_x5_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(atv_x5_clk.c),
+	},
+};
+
+DEFINE_FIXED_DIV_CLK(bcc_albacore_cvbs_clk_src, 2, &atv_x5_clk_src.c);
+
+DEFINE_FIXED_DIV_CLK(bcc_albacore_cvbs_clk, 2, &atv_x5_clk.c);
+
+DEFINE_FIXED_DIV_CLK(bcc_atv_x1_clk, 5, &atv_x5_clk.c);
+
+static int atv_x5_clk_post_cdiv_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(7, 4);
+	regval |= BVAL(7, 4, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int atv_x5_clk_post_cdiv_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(7, 4);
+
+	return (div >> 4) + 1;
+}
+
+static struct clk_div_ops atv_x5_clk_post_cdiv_ops = {
+	.set_div = atv_x5_clk_post_cdiv_set_div,
+	.get_div = atv_x5_clk_post_cdiv_get_div,
+};
+
+static struct div_clk atv_x5_clk_post_cdiv = {
+	.data = {
+		.max_div = 5,
+		.min_div = 1,
+	},
+	.offset = DIG_DEM_RXFE_MISC,
+	.ops = &atv_x5_clk_post_cdiv_ops,
+	.c = {
+		.parent = &atv_x5_clk.c,
+		.dbg_name = "atv_x5_clk_post_cdiv",
+		.ops = &clk_ops_slave_div,
+		CLK_INIT(atv_x5_clk_post_cdiv.c),
+	},
+};
+
+static struct branch_clk bcc_forza_sync_x5_clk = {
+	.bcr_reg = ATV_RXFE_BCR,
+	.cbcr_reg = FORZA_SYNC_X5_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_forza_sync_x5_clk",
+		.parent = &atv_x5_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_forza_sync_x5_clk.c),
+	},
+};
+
+static struct mux_clk bcc_dem_img_atv_clk_src = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 0,
+	.offset = DIG_DEM_RXFE_MISC,
+	MUX_SRC_LIST(
+		{&bcc_albacore_cvbs_clk.c, 0},
+		{&atv_x5_clk_post_cdiv.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_img_atv_clk_src",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_dem_img_atv_clk_src.c),
+	},
+};
+
+static struct branch_clk nidaq_in_clk = {
+	.bcr_reg = DEM_TEST_BCR,
+	.cbcr_reg = NIDAQ_IN_CBCR,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "nidaq_in_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(nidaq_in_clk.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_atv_rxfe_resamp_clk[] = {
+	F_BCAST(196608000, bcc_pll1, 1, 8, 25),
+	F_END
+};
+
+static struct rcg_clk atv_rxfe_resamp_clk_src = {
+	.cmd_rcgr_reg = ATV_RESAMP_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_atv_rxfe_resamp_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "atv_rxfe_resamp_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP1(LOW, 196608000),
+		CLK_INIT(atv_rxfe_resamp_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_atv_rxfe_resamp_clk_src = {
+	.bcr_reg = ATV_RXFE_BCR,
+	.cbcr_reg = ATV_RXFE_RESAMP_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_atv_rxfe_resamp_clk_src",
+		.parent = &atv_rxfe_resamp_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_atv_rxfe_resamp_clk_src.c),
+	},
+};
+
+DEFINE_FIXED_DIV_CLK(bcc_atv_rxfe_div2_clk, 2,
+					&bcc_atv_rxfe_resamp_clk_src.c);
+DEFINE_FIXED_DIV_CLK(bcc_atv_rxfe_div4_clk, 4,
+					&bcc_atv_rxfe_resamp_clk_src.c);
+DEFINE_FIXED_DIV_CLK(bcc_atv_rxfe_div8_clk, 8,
+					&bcc_atv_rxfe_resamp_clk_src.c);
+DEFINE_FIXED_DIV_CLK(bcc_dem_rxfe_div2_i_clk, 2, &bcc_dem_rxfe_i_clk.c);
+DEFINE_FIXED_DIV_CLK(bcc_dem_rxfe_div3_i_clk, 3, &bcc_dem_rxfe_i_clk.c);
+DEFINE_FIXED_DIV_CLK(bcc_dem_rxfe_div4_i_clk, 4, &bcc_dem_rxfe_i_clk.c);
+
+static struct mux_clk bcc_atv_rxfe_resamp_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 8,
+	.offset = ATV_RXFE_RESAMP_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_atv_rxfe_resamp_clk_src.c, 0},
+		{&bcc_atv_rxfe_div2_clk.c, 1},
+		{&bcc_atv_rxfe_div4_clk.c, 2},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_atv_rxfe_resamp_clk",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_atv_rxfe_resamp_clk.c),
+	},
+};
+
+static struct mux_clk bcc_atv_rxfe_x1_resamp_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 0,
+	.offset = ATV_RXFE_RESAMP_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_atv_rxfe_div4_clk.c, 0},
+		{&bcc_atv_rxfe_div8_clk.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_atv_rxfe_x1_resamp_clk",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_atv_rxfe_x1_resamp_clk.c),
+	},
+};
+
+static struct mux_clk albacore_sif_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 4,
+	.offset = ATV_RXFE_RESAMP_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_atv_x1_clk.c, 0},
+		{&bcc_atv_rxfe_x1_resamp_clk.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "albacore_sif_clk",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(albacore_sif_clk.c),
+	},
+};
+
+static struct mux_clk bcc_dem_rxfe_if_clk_src = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 12,
+	.offset = ADC_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_dem_rxfe_i_clk.c, 0},
+		{&bcc_dem_rxfe_div2_i_clk.c, 1},
+		{&bcc_dem_rxfe_div3_i_clk.c, 2},
+		{&bcc_dem_rxfe_div4_i_clk.c, 3},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_rxfe_if_clk_src",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_dem_rxfe_if_clk_src.c),
+	},
+};
+
+static struct mux_clk bcc_dem_rxfe_div3_mux_div4_i_clk = {
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 11,
+	.offset = ADC_CLK_MISC,
+	MUX_SRC_LIST(
+		{&bcc_dem_rxfe_div3_i_clk.c, 0},
+		{&bcc_dem_rxfe_div4_i_clk.c, 1},
+	),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_rxfe_div3_mux_div4_i_clk",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(bcc_dem_rxfe_div3_mux_div4_i_clk.c),
+	},
+};
+
+
+/*
+ * SRC_DIV = 1 DIV-1 (4:0) => 0x1
+ * SRC_SEL = PLL_SR_OUT_CLK, (10:8) => 0x1
+ */
+static struct clk_freq_tbl ftbl_dig_dem_core_clk[] = {
+	F_BCAST(960000000, bcc_pll0, 1, 0, 0),
+	F_END
+};
+
+static struct rcg_clk dig_dem_core_clk_src = {
+	.cmd_rcgr_reg = DIG_DEM_CORE_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_dig_dem_core_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "dig_dem_core_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 960000000),
+		CLK_INIT(dig_dem_core_clk_src.c),
+	},
+};
+
+static int dem_core_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(3, 0);
+	regval |= BVAL(3, 0, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int dem_core_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(3, 0);
+
+	return div + 1;
+}
+
+static struct clk_div_ops dem_core_clk_src_ops = {
+	.set_div = dem_core_clk_src_set_div,
+	.get_div = dem_core_clk_src_get_div,
+};
+
+static struct div_clk dem_core_clk_src = {
+	.data = {
+		.max_div = 4,
+		.min_div = 4,
+	},
+	.offset = DIG_DEM_CORE_MISC,
+	.ops = &dem_core_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "dem_core_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(dem_core_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_dem_core_clk = {
+	.bcr_reg = DEM_CORE_BCR,
+	.cbcr_reg = DEM_CORE_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_core_clk",
+		.parent = &dem_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_dem_core_clk.c),
+	},
+};
+
+static int dem_core_clk_x2_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(7, 4);
+	regval |= BVAL(7, 4, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int dem_core_clk_x2_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(7, 4);
+
+	return (div >> 4) + 1;
+}
+
+static struct clk_div_ops dem_core_clk_x2_src_ops = {
+	.set_div = dem_core_clk_x2_src_set_div,
+	.get_div = dem_core_clk_x2_src_get_div,
+};
+
+static struct div_clk dem_core_clk_x2_src = {
+	.data = {
+		.max_div = 2,
+		.min_div = 2,
+	},
+	.offset = DIG_DEM_CORE_MISC,
+	.ops = &dem_core_clk_x2_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "dem_core_clk_x2_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(dem_core_clk_x2_src.c),
+	},
+};
+
+static struct branch_clk bcc_dem_core_x2_pre_cgf_clk = {
+	.bcr_reg = DEM_CORE_BCR,
+	.cbcr_reg = DEM_CORE_X2_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_core_x2_pre_cgf_clk",
+		.parent = &dem_core_clk_x2_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_dem_core_x2_pre_cgf_clk.c),
+	},
+};
+
+static int dem_core_div2_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(15, 12);
+	regval |= BVAL(15, 12, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int dem_core_div2_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(15, 12);
+
+	return (div >> 12) + 1;
+}
+
+static struct clk_div_ops dem_core_div2_clk_src_ops = {
+	.set_div = dem_core_div2_clk_src_set_div,
+	.get_div = dem_core_div2_clk_src_get_div,
+};
+
+static struct div_clk dem_core_div2_clk_src = {
+	.data = {
+		.max_div = 8,
+		.min_div = 8,
+	},
+	.offset = DIG_DEM_CORE_MISC,
+	.ops = &dem_core_div2_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "dem_core_div2_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(dem_core_div2_clk_src.c),
+	},
+};
+
+static int tspp2_core_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(3, 0);
+	regval |= BVAL(3, 0, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int tspp2_core_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(3, 0);
+
+	return div + 1;
+}
+
+static struct clk_div_ops tspp2_core_clk_src_ops = {
+	.set_div = tspp2_core_clk_src_set_div,
+	.get_div = tspp2_core_clk_src_get_div,
+};
+
+static struct div_clk tspp2_core_clk_src = {
+	.data = {
+		.max_div = 5,
+		.min_div = 5,
+	},
+	.offset = TSPP2_MISC,
+	.ops = &tspp2_core_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "tspp2_core_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(tspp2_core_clk_src.c),
+	},
+};
+
+static int bcc_ts_out_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(8, 0);
+	regval |= BVAL(8, 0, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int bcc_ts_out_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(8, 0);
+
+	return div + 1;
+}
+
+static struct clk_div_ops bcc_ts_out_clk_src_ops = {
+	.set_div = bcc_ts_out_clk_src_set_div,
+	.get_div = bcc_ts_out_clk_src_get_div,
+};
+
+static struct div_clk bcc_ts_out_clk_src = {
+	.data = {
+		.max_div = 9,
+		.min_div = 9,
+	},
+	.offset = TS_OUT_MISC,
+	.ops = &bcc_ts_out_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "bcc_ts_out_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(bcc_ts_out_clk_src.c),
+	},
+};
+
+static int bcc_tsc_ci_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(7, 4);
+	regval |= BVAL(7, 4, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int bcc_tsc_ci_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(7, 4);
+
+	return (div >> 4) + 1;
+}
+
+static struct clk_div_ops bcc_tsc_ci_clk_src_ops = {
+	.set_div = bcc_tsc_ci_clk_src_set_div,
+	.get_div = bcc_tsc_ci_clk_src_get_div,
+};
+
+static struct div_clk bcc_tsc_ci_clk_src = {
+	.data = {
+		.max_div = 16,
+		.min_div = 16,
+	},
+	.offset = TSC_MISC,
+	.ops = &bcc_tsc_ci_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "bcc_tsc_ci_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(bcc_tsc_ci_clk_src.c),
+	},
+};
+
+static int bcc_tsc_cicam_ts_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(28, 20);
+	regval |= BVAL(28, 20, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int bcc_tsc_cicam_ts_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(28, 20);
+
+	return (div >> 20) + 1;
+}
+
+static struct clk_div_ops bcc_tsc_cicam_ts_clk_src_ops = {
+	.set_div = bcc_tsc_cicam_ts_clk_src_set_div,
+	.get_div = bcc_tsc_cicam_ts_clk_src_get_div,
+};
+
+static struct div_clk bcc_tsc_cicam_ts_clk_src = {
+	.data = {
+		.max_div = 133,
+		.min_div = 80,
+	},
+	.offset = TSC_MISC,
+	.ops = &bcc_tsc_cicam_ts_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "bcc_tsc_cicam_ts_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(bcc_tsc_cicam_ts_clk_src.c),
+	},
+};
+
+static int tsc_par_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(16, 8);
+	regval |= BVAL(16, 8, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int tsc_par_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(16, 8);
+
+	return (div >> 8) + 1;
+}
+
+static struct clk_div_ops tsc_par_clk_src_ops = {
+	.set_div = tsc_par_clk_src_set_div,
+	.get_div = tsc_par_clk_src_get_div,
+};
+
+static struct div_clk tsc_par_clk_src = {
+	.data = {
+		.max_div = 48,
+		.min_div = 48,
+	},
+	.offset = TSC_MISC,
+	.ops = &tsc_par_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "tsc_par_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(tsc_par_clk_src.c),
+	},
+};
+
+static int tsc_ser_clk_src_set_div(struct div_clk *clk, int div)
+{
+	u32 regval = 0;
+
+	regval = readl_relaxed(BCSS_REG_BASE(clk->offset)) & ~BM(3, 0);
+	regval |= BVAL(3, 0, (div - 1));
+	writel_relaxed(regval, BCSS_REG_BASE(clk->offset));
+
+	return 0;
+}
+
+static int tsc_ser_clk_src_get_div(struct div_clk *clk)
+{
+	int div;
+
+	div = readl_relaxed(BCSS_REG_BASE(clk->offset));
+	div &= BM(3, 0);
+
+	return div + 1;
+}
+
+static struct clk_div_ops tsc_ser_clk_src_ops = {
+	.set_div = tsc_ser_clk_src_set_div,
+	.get_div = tsc_ser_clk_src_get_div,
+};
+
+static struct div_clk tsc_ser_clk_src = {
+	.data = {
+		.max_div = 6,
+		.min_div = 6,
+	},
+	.offset = TSC_MISC,
+	.ops = &tsc_ser_clk_src_ops,
+	.c = {
+		.parent = &dig_dem_core_clk_src.c,
+		.dbg_name = "tsc_ser_clk_src",
+		.ops = &clk_ops_div,
+		CLK_INIT(tsc_ser_clk_src.c),
+	},
+};
+
+static struct branch_clk bcc_dem_core_div2_clk = {
+	.cbcr_reg = DEM_CORE_DIV2_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_core_div2_clk",
+		.parent = &dem_core_div2_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_dem_core_div2_clk.c),
+	},
+};
+
+static struct branch_clk bcc_ts_out_clk = {
+	.bcr_reg = DEM_CORE_BCR,
+	.cbcr_reg = TS_OUT_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_ts_out_clk",
+		.parent = &bcc_ts_out_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_ts_out_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tsc_ci_clk = {
+	.bcr_reg = TSC_BCR,
+	.cbcr_reg = TSC_CI_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tsc_ci_clk",
+		.parent = &bcc_tsc_ci_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tsc_ci_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tsc_cicam_ts_clk = {
+	.bcr_reg = TSC_BCR,
+	.cbcr_reg = TSC_CICAM_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tsc_cicam_ts_clk",
+		.parent = &bcc_tsc_cicam_ts_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tsc_cicam_ts_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tsc_par_clk = {
+	.bcr_reg = TSC_BCR,
+	.cbcr_reg = TSC_PAR_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tsc_par_clk",
+		.parent = &tsc_par_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tsc_par_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tsc_ser_clk = {
+	.bcr_reg = TSC_BCR,
+	.cbcr_reg = TSC_SER_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tsc_ser_clk",
+		.parent = &tsc_ser_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tsc_ser_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tspp2_core_clk = {
+	.bcr_reg = TSPP2_BCR,
+	.cbcr_reg = TSPP2_CORE_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tspp2_core_clk",
+		.parent = &tspp2_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tspp2_core_clk.c),
+	},
+};
+
+static struct branch_clk bcc_vbif_dem_core_clk = {
+	.cbcr_reg = VBIF_DEM_CORE_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_vbif_dem_core_clk",
+		.parent = &dem_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_vbif_dem_core_clk.c),
+	},
+};
+
+static struct branch_clk bcc_vbif_tspp2_clk = {
+	.cbcr_reg = VBIF_TSPP2_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_vbif_tspp2_clk",
+		.parent = &tspp2_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_vbif_tspp2_clk.c),
+	},
+};
+
+static struct branch_clk bcc_img_ahb_clk = {
+	.bcr_reg = DEM_CORE_BCR,
+	.cbcr_reg = IMG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_img_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_img_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_klm_ahb_clk = {
+	.bcr_reg = TSPP2_BCR,
+	.cbcr_reg = KLM_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_klm_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_klm_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_lnb_ahb_clk = {
+	.bcr_reg = LNB_BCR,
+	.cbcr_reg = LNB_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_lnb_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_lnb_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_dem_ahb_clk = {
+	.bcr_reg = DEM_AHB_BCR,
+	.cbcr_reg = DEM_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_dem_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tsc_ahb_clk = {
+	.bcr_reg = TSC_BCR,
+	.cbcr_reg = TSC_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tsc_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tsc_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_tspp2_ahb_clk = {
+	.bcr_reg = TSPP2_BCR,
+	.cbcr_reg = TSPP2_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_tspp2_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_tspp2_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_vbif_ahb_clk = {
+	.bcr_reg = VBIF_BCR,
+	.cbcr_reg = VBIF_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_vbif_ahb_clk",
+		.parent = &gcc_bcss_cfg_ahb_clk.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_vbif_ahb_clk.c),
+	},
+};
+
+static struct branch_clk bcc_vbif_axi_clk = {
+	.cbcr_reg = VBIF_AXI_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_vbif_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_vbif_axi_clk.c),
+	},
+};
+
+static struct branch_clk bcc_lnb_ser_clk = {
+	.bcr_reg = LNB_BCR,
+	.cbcr_reg = LNB_SER_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_lnb_ser_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_lnb_ser_clk.c),
+	},
+};
+
+static struct branch_clk bcc_xo_clk = {
+	.cbcr_reg = BCC_XO_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_xo_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(bcc_xo_clk.c),
+	},
+};
+
+static struct gate_clk bcc_dem_rxfe_q_clk = {
+	.en_reg = ADC_CLK_MISC,
+	.en_mask = BIT(10),
+	.base = &virt_bases[BCSS_BASE],
+	.c = {
+		.dbg_name = "bcc_dem_rxfe_q_clk",
+		.parent = &bcc_dem_rxfe_i_clk.c,
+		.ops = &clk_ops_gate,
+		CLK_INIT(bcc_dem_rxfe_q_clk.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -4237,6 +5518,7 @@ enum {
 };
 
 struct measure_mux_entry measure_mux[] = {
+	/* GCC */
 	{&gcc_sys_noc_usb3_axi_clk.c,		GCC_BASE,	0x0001},
 	{&gcc_mmss_noc_cfg_ahb_clk.c,		GCC_BASE,	0x002a},
 	{&gcc_mmss_a5ss_axi_clk.c,		GCC_BASE,	0x002d},
@@ -4343,6 +5625,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_pwm_ahb_clk.c,			GCC_BASE,	0x0248},
 	{&gcc_pwm_clk.c,			GCC_BASE,	0x0249},
 
+	/* MMSS */
 	{&mmss_mmssnoc_ahb_clk.c,		MMSS_BASE,	0x0001},
 	{&mmss_mmssnoc_bto_ahb_clk.c,		MMSS_BASE,	0x0002},
 	{&mmss_misc_ahb_clk.c,			MMSS_BASE,	0x0003},
@@ -4384,6 +5667,52 @@ struct measure_mux_entry measure_mux[] = {
 	{&vcap_ahb_clk.c,			MMSS_BASE,	0x0039},
 	{&avsync_vp_clk.c,			MMSS_BASE,	0x004e},
 	{&avsync_ahb_clk.c,			MMSS_BASE,	0x0052},
+
+	/* BCAST */
+	{&adc_clk_src.c,			BCSS_BASE,	0x0000},
+	{&adc_01_clk_src.c,			BCSS_BASE,	0x0001},
+	{&adc_2_clk_src.c,			BCSS_BASE,	0x0002},
+	{&bcc_adc_0_in_clk.c,			BCSS_BASE,	0x0003},
+	{&bcc_adc_0_out_clk.c,			BCSS_BASE,	0x0004},
+	{&bcc_adc_1_in_clk.c,			BCSS_BASE,	0x0005},
+	{&bcc_adc_1_out_clk.c,			BCSS_BASE,	0x0006},
+	{&bcc_adc_2_in_clk.c,			BCSS_BASE,	0x0008},
+	{&bcc_adc_2_out_clk.c,			BCSS_BASE,	0x0009},
+	{&dem_rxfe_clk_src.c,			BCSS_BASE,	0x000a},
+	{&bcc_dem_rxfe_i_clk.c,			BCSS_BASE,	0x000b},
+	{&bcc_dem_rxfe_q_clk.c,			BCSS_BASE,	0x000c},
+	{&bcc_dem_rxfe_div2_i_clk.c,		BCSS_BASE,	0x000d},
+	{&bcc_dem_rxfe_div3_mux_div4_i_clk.c,	BCSS_BASE,	0x0010},
+	{&bcc_dem_rxfe_if_clk_src.c,		BCSS_BASE,	0x0012},
+	{&atv_rxfe_clk_src.c,			BCSS_BASE,	0x0013},
+	{&bcc_atv_rxfe_clk.c,			BCSS_BASE,	0x0014},
+	{&bcc_atv_rxfe_resamp_clk.c,		BCSS_BASE,	0x0088},
+	{&albacore_sif_clk.c,			BCSS_BASE,	0x0089},
+	{&bcc_atv_x1_clk.c,			BCSS_BASE,	0x008a},
+	{&atv_rxfe_resamp_clk_src.c,		BCSS_BASE,	0x008b},
+	{&bcc_atv_rxfe_resamp_clk_src.c,	BCSS_BASE,	0x008c},
+	{&bcc_forza_sync_x5_clk.c,		BCSS_BASE,	0x008d},
+	{&dem_core_clk_x2_src.c,		BCSS_BASE,	0x0102},
+	{&bcc_ts_out_clk.c,			BCSS_BASE,	0x0103},
+	{&dig_dem_core_clk_src.c,		BCSS_BASE,	0x010a},
+	{&bcc_ts_out_clk_src.c,			BCSS_BASE,	0x010b},
+	{&atv_x5_clk_src.c,			BCSS_BASE,	0x0140},
+	{&atv_x5_clk.c,				BCSS_BASE,	0x0141},
+	{&bcc_albacore_cvbs_clk.c,		BCSS_BASE,	0x0144},
+	{&bcc_dem_img_atv_clk_src.c,		BCSS_BASE,	0x014a},
+	{&bcc_xo_clk.c,				BCSS_BASE,	0x0181},
+	{&bcc_lnb_ser_clk.c,			BCSS_BASE,	0x01c0},
+	{&tsc_ser_clk_src.c,			BCSS_BASE,	0x0200},
+	{&tsc_par_clk_src.c,			BCSS_BASE,	0x0201},
+	{&bcc_tsc_ser_clk.c,			BCSS_BASE,	0x0204},
+	{&bcc_tsc_par_clk.c,			BCSS_BASE,	0x0205},
+	{&bcc_tsc_ci_clk.c,			BCSS_BASE,	0x0206},
+	{&bcc_tspp2_core_clk.c,			BCSS_BASE,	0x0240},
+	{&tspp2_core_clk_src.c,			BCSS_BASE,	0x0241},
+	{&bcc_vbif_dem_core_clk.c,		BCSS_BASE,	0x0280},
+	{&bcc_vbif_axi_clk.c,			BCSS_BASE,	0x0281},
+	{&bcc_vbif_tspp2_clk.c,			BCSS_BASE,	0x0282},
+	{&bcc_vbif_ahb_clk.c,			BCSS_BASE,	0x0283},
 	{&dummy_clk,				N_BASES,	0x0000},
 };
 
@@ -4457,7 +5786,10 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	case BCSS_BASE:
 		clk_sel = 0x1DA;
 		regval = BVAL(11, 0, measure_mux[i].debug_mux);
-		/* TODO: writel regval */
+		writel_relaxed(regval, BCSS_REG_BASE(BCC_DEBUG_CLK_CTL));
+
+		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -5174,6 +6506,91 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	sdme_vproc_clk_src.c,	""),
 	CLK_LOOKUP("",	vdp_clk_src.c,	""),
 	CLK_LOOKUP("",	vpu_bus_clk_src.c,	""),
+
+	/* BCAST */
+
+	/* PLLs */
+	CLK_LOOKUP("",	bcc_pll0_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_pll1_clk_src.c,	""),
+
+	/* RCGs */
+	CLK_LOOKUP("",	adc_clk_src.c,	""),
+	CLK_LOOKUP("",	atv_x5_clk_src.c,	""),
+	CLK_LOOKUP("",	atv_rxfe_resamp_clk_src.c,	""),
+	CLK_LOOKUP("",	dig_dem_core_clk_src.c,	""),
+
+	/* Divs */
+	CLK_LOOKUP("",	adc_01_clk_src.c,	""),
+	CLK_LOOKUP("",	adc_2_clk_src.c,	""),
+	CLK_LOOKUP("",	atv_x5_clk_post_cdiv.c,	""),
+	CLK_LOOKUP("",	dem_core_clk_src.c,	""),
+	CLK_LOOKUP("",	dem_core_clk_x2_src.c,	""),
+	CLK_LOOKUP("",	dem_core_div2_clk_src.c,	""),
+	CLK_LOOKUP("",	tspp2_core_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_ts_out_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_ci_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_cicam_ts_clk_src.c,	""),
+	CLK_LOOKUP("",	tsc_par_clk_src.c,	""),
+	CLK_LOOKUP("",	tsc_ser_clk_src.c,	""),
+
+	/* Fixed clocks */
+	CLK_LOOKUP("",	bcc_adc_0_out_clk.c,	""),
+	CLK_LOOKUP("",	bcc_adc_1_out_clk.c,	""),
+	CLK_LOOKUP("",	bcc_adc_2_out_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_q_clk.c,	""),
+
+	/* Muxes */
+	CLK_LOOKUP("",	atv_rxfe_clk_src.c,	""),
+	CLK_LOOKUP("",	dem_rxfe_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_dem_img_atv_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_resamp_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_x1_resamp_clk.c,	""),
+	CLK_LOOKUP("",	albacore_sif_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_if_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_div3_mux_div4_i_clk.c,	""),
+
+	/* Branches */
+	CLK_LOOKUP("",	nidaq_in_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_resamp_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_i_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_clk.c,	""),
+	CLK_LOOKUP("",	atv_x5_clk.c,	""),
+	CLK_LOOKUP("",	bcc_forza_sync_x5_clk.c,	""),
+	CLK_LOOKUP("",	bcc_adc_0_in_clk.c,	""),
+	CLK_LOOKUP("",	bcc_adc_1_in_clk.c,	""),
+	CLK_LOOKUP("",	bcc_adc_2_in_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_core_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_core_x2_pre_cgf_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_core_div2_clk.c,	""),
+	CLK_LOOKUP("",	bcc_ts_out_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_ci_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_cicam_ts_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_par_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_ser_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tspp2_core_clk.c,	""),
+	CLK_LOOKUP("",	bcc_vbif_dem_core_clk.c,	""),
+	CLK_LOOKUP("",	bcc_vbif_tspp2_clk.c,	""),
+	CLK_LOOKUP("",	bcc_img_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_klm_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_lnb_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tsc_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_tspp2_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_vbif_ahb_clk.c,	""),
+	CLK_LOOKUP("",	bcc_vbif_axi_clk.c,	""),
+	CLK_LOOKUP("",	bcc_lnb_ser_clk.c,	""),
+	CLK_LOOKUP("",	bcc_xo_clk.c,	""),
+
+	/* Fixed CDIVS */
+	CLK_LOOKUP("",	bcc_albacore_cvbs_clk_src.c,	""),
+	CLK_LOOKUP("",	bcc_albacore_cvbs_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_x1_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_div2_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_div4_clk.c,	""),
+	CLK_LOOKUP("",	bcc_atv_rxfe_div8_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_div2_i_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_div3_i_clk.c,	""),
+	CLK_LOOKUP("",	bcc_dem_rxfe_div4_i_clk.c,	""),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 };
 
@@ -5185,6 +6602,9 @@ static void __init reg_init(void)
 	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
 	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_sr_hpm_lp_pll(&mmpll6_config, &mmpll6_regs, 1);
+
+	configure_sr_hpm_lp_pll(&bcc_pll0_config, &bcc_pll0_regs, 0);
+	configure_sr_hpm_lp_pll(&bcc_pll1_config, &bcc_pll1_regs, 0);
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
@@ -5244,6 +6664,8 @@ static void __init mpq8092_clock_post_init(void)
 
 static void __init mpq8092_clock_pre_init(void)
 {
+	u32 index = 0, regval = 0;
+
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
 		panic("clock-8092: Unable to ioremap GCC memory!");
@@ -5269,6 +6691,25 @@ static void __init mpq8092_clock_pre_init(void)
 	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-8092: Unable to get the vdd_dig regulator!");
+
+	/* BCSS: BCR & CBCR reset values are enabled, so explicitly disable
+	 * them before SW uses them. This will be fixed in the next versions
+	 * of the chip
+	 */
+
+	/* BCR */
+	for (index = 0x100; index < 0x128; index = index+4) {
+		regval = readl_relaxed(BCSS_REG_BASE(index));
+		regval &= ~BIT(0);
+		writel_relaxed(regval, BCSS_REG_BASE(index));
+	}
+
+	/* CBCR */
+	for (index = 0x130; index < 0x1B4; index = index+4) {
+		regval = readl_relaxed(BCSS_REG_BASE(index));
+		regval &= ~BIT(0);
+		writel_relaxed(regval, BCSS_REG_BASE(index));
+	}
 
 	enable_rpm_scaling();
 
