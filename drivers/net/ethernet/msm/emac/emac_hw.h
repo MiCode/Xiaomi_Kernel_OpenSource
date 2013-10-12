@@ -67,7 +67,6 @@ extern void emac_hw_config_mac(struct emac_hw *hw);
 extern void emac_hw_start_mac(struct emac_hw *hw);
 extern void emac_hw_stop_mac(struct emac_hw *hw);
 
-extern void emac_hw_get_mac_addr(struct emac_hw *hw, u8 *addr);
 extern void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr);
 
 #define IMR_NORMAL_MASK         (\

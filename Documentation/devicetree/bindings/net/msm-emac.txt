@@ -1,0 +1,67 @@
+Qualcomm MSM Ethernet Controller (EMAC)
+
+Required properties:
+- cell-index : EMAC controller instance number.
+- compatible : Should be "qcom,emac".
+- reg : Offset and length of the register regions for the device
+- reg-names : Register region names referenced in 'reg' above.
+	Required register resource entries are:
+	"emac"       : EMAC controller register block.
+	"emac_csr"   : EMAC wrapper register block.
+	Optional register resource entries are:
+	"emac_1588"      : EMAC 1588 (PTP) register block.
+			   Required if 'qcom,emac-tstamp-en' is present.
+	"emac_qserdes"   : EMAC SerDes register block.
+			   Required if 'phy-mode' is "sgmii".
+	"emac_sgmii_phy" : EMAC SGMII PHY register block.
+			   Required if 'phy-mode' is "sgmii".
+- interrupts : Interrupt numbers used by this controller
+- interrupt-names : Interrupt resource names referenced in 'interrupts' above.
+	Required interrupt resource entries are:
+	"emac_core0_irq" : EMAC core0 interrupt.
+	"emac_core1_irq" : EMAC core1 interrupt.
+	"emac_core2_irq" : EMAC core2 interrupt.
+	"emac_core3_irq" : EMAC core3 interrupt.
+	Optional interrupt resource entries are:
+	"emac_sgmii_irq" : EMAC SGMII interrupt.
+			   Required if 'phy-mode' is "sgmii".
+	"emac_wol_irq"   : EMAC Wake-On-LAN (WOL) interrupt.
+			   Required if WOL is supported.
+- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
+- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
+- phy-addr : Specifies phy address on MDIO bus.
+- phy-mode : Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
+	     For "sgmii", the "emac_sgmii" register base and
+	     "emac_sgmii_irq" interrupt must be specified.
+
+Optional properties:
+- qcom,emac-tstamp-en : Enables the PTP (1588) timestamping feature.
+		        Include this only if PTP (1588) timestamping
+			feature is needed. If included, "emac_1588" register
+			base should be specified.
+- local-mac-address : The 6-byte MAC address.
+		      This field is optional. If present, it is only a
+		      placeholder for the MAC address. The correct MAC
+		      address is populated in device tree during platform
+		      initialization.
+
+Example:
+	emac0: qcom,emac@feb20000 {
+		cell-index = <0>;
+		compatible = "qcom,emac";
+		reg-names = "emac", "emac_csr", "emac_1588",
+			    "emac_qserdes", "emac_sgmii_phy";
+		reg = <0xfeb20000 0x10000>,
+		      <0xfeb36000 0x1000>,
+		      <0xfeb3c000 0x4000>,
+		      <0xfeb13800 0x300>,
+		      <0xfeb13b00 0x100>;
+		interrupts = <0 76 0>, <0 77 0>, <0 78 0>, <0 79 0>;
+		interrupt-names = "emac_core0_irq", "emac_core1_irq",
+				  "emac_core2_irq", "emac_core3_irq";
+		qcom,emac-gpio-mdc = <&msmgpio 123 0>;
+		qcom,emac-gpio-mdio = <&msmgpio 124 0>;
+		qcom,emac-tstamp-en;
+		phy-mode = "sgmii";
+		phy-addr = <0>;
+	};

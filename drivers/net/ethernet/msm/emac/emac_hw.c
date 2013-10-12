@@ -1217,17 +1217,6 @@ void emac_hw_stop_mac(struct emac_hw *hw)
 	udelay(1000);
 }
 
-/* mac address should come from device tree */
-void emac_hw_get_mac_addr(struct emac_hw *hw, u8 *addr)
-{
-	addr[0] = 0x00;
-	addr[1] = 0xa0;
-	addr[2] = 0xc6;
-	addr[3] = 0x11;
-	addr[4] = 0x22;
-	addr[5] = 0x33;
-}
-
 /* set MAC address */
 void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr)
 {
