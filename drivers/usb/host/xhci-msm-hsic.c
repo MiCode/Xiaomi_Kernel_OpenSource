@@ -677,6 +677,14 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 	return 0;
 }
 
+static void mxhci_hsic_set_autosuspend_delay(struct usb_device *dev)
+{
+	if (!dev->parent) /*for root hub no delay*/
+		pm_runtime_set_autosuspend_delay(&dev->dev, 0);
+	else
+		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
+}
+
 
 static struct hc_driver mxhci_hsic_hc_driver = {
 	.description =		"xhci-hcd",
@@ -727,6 +735,8 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 
 	/* dbg log support */
 	.log_urb =		xhci_hsic_log_urb,
+
+	.set_autosuspend_delay = mxhci_hsic_set_autosuspend_delay,
 };
 
 static int mxhci_hsic_probe(struct platform_device *pdev)
