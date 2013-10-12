@@ -17,8 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <media/msm_vidc.h>
+#include <media/msm_smem.h>
 #include "msm_vidc_resources.h"
-#include "msm_smem.h"
 
 #define CONTAINS(__a, __sz, __t) ({\
 	int __rc = __t >= __a && \

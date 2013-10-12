@@ -11,11 +11,11 @@
  *
  */
 #include <linux/slab.h>
+#include <media/msm_smem.h>
 
 #include "msm_vidc_internal.h"
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
-#include "msm_smem.h"
 #include "msm_vidc_debug.h"
 
 #define MSM_VENC_DVC_NAME "msm_venc_8974"

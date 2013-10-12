@@ -15,7 +15,6 @@
 
 #include <linux/types.h>
 #include <linux/msm_ion.h>
-#include "msm_vidc_resources.h"
 
 #define HAL_BUFFER_MAX 0xb
 
@@ -60,7 +59,7 @@ enum smem_cache_ops {
 };
 
 void *msm_smem_new_client(enum smem_type mtype,
-				struct msm_vidc_platform_resources *res);
+				void *platform_resources);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		enum hal_buffer buffer_type, int map_kernel);
 void msm_smem_free(void *clt, struct msm_smem *mem);

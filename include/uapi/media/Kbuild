@@ -10,6 +10,7 @@ header-y += msm_mercury.h
 header-y += msm_jpeg.h
 header-y += msm_media_info.h
 header-y += msm_vidc.h
+header-y += msm_smem.h
 header-y += msmb_camera.h
 header-y += msm_cam_sensor.h
 header-y += msmb_isp.h
