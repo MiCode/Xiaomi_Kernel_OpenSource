@@ -401,6 +401,7 @@ struct mdss_overlay_private {
 
 	u32 splash_mem_addr;
 	u32 splash_mem_size;
+	u32 sd_enabled;
 };
 
 struct mdss_mdp_perf_params {
