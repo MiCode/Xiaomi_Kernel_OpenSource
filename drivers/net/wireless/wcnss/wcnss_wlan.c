@@ -639,6 +639,14 @@ void wcnss_pronto_log_debug_regs(void)
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
+#ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
+void wcnss_log_debug_regs_on_bite(void)
+{
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW)
+		wcnss_pronto_log_debug_regs();
+}
+#endif
+
 /* interface to reset wcnss by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {

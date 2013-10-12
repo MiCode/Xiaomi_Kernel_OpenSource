@@ -310,6 +310,16 @@ config WCNSS_MEM_PRE_ALLOC
 	---help---
 	  Pre-allocate memory for the WLAN driver module
 
+config WCNSS_REGISTER_DUMP_ON_BITE
+	bool "Enable/disable WCNSS register dump when there is a WCNSS bite"
+	depends on WCNSS_CORE_PRONTO
+	help
+	 When Apps recieves a WDOG bite from WCNSS, collecting a register dump
+	 of WCNSS is helpful to root cause the failure. WCNSS may not be
+	 properly clocked in some WCNSS bite cases, and that may cause unclocked
+	 register access failures. So this feature is to enable/disable the
+	 register dump on WCNSS WDOG bite.
+
 config CLD_LL_CORE
 	tristate "Qualcomm CORE driver for QCA6714"
 	select WIRELESS_EXT
