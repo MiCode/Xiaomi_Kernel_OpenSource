@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-/include/ "msmsamarium.dtsi"
+#include "msmsamarium.dtsi"
 
 / {
 	model = "Qualcomm MSM SAMARIUM RUMI";

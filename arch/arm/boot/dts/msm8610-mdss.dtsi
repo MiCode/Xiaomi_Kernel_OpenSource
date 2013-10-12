@@ -85,4 +85,4 @@
 	};
 };
 
-/include/ "msm8610-mdss-panels.dtsi"
+#include "msm8610-mdss-panels.dtsi"

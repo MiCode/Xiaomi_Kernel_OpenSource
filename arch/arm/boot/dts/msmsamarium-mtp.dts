@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msmsamarium.dtsi"
-/include/ "msmsamarium-mtp.dtsi"
+#include "msmsamarium.dtsi"
+#include "msmsamarium-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM SAMARIUM MTP";

@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974-leds.dtsi"
-/include/ "msm8974-camera-sensor-cdp.dtsi"
+#include "msm8974-leds.dtsi"
+#include "msm8974-camera-sensor-cdp.dtsi"
 
 / {
 	aliases {

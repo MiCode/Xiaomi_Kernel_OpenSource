@@ -16,7 +16,7 @@
  * msm8974.dtsi file.
  */
 
-/include/ "msm8974-v2.dtsi"
+#include "msm8974-v2.dtsi"
 
 &gdsc_venus {
 	qcom,skip-logic-collapse;

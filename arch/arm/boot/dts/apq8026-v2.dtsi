@@ -16,7 +16,7 @@
  * file.
  */
 
-/include/ "msm8226-v2.dtsi"
+#include "msm8226-v2.dtsi"
 
 / {
 	model = "Qualcomm APQ 8026";

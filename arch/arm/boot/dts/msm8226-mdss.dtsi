@@ -136,4 +136,4 @@
 	};
 };
 
-/include/ "msm8226-mdss-panels.dtsi"
+#include "msm8226-mdss-panels.dtsi"

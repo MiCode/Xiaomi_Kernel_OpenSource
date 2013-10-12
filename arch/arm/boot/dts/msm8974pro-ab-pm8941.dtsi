@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974pro-pm8941.dtsi"
+#include "msm8974pro-pm8941.dtsi"
 
 / {
 	qcom,msm-id = <208 0x10000>,

@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-/include/ "msm8610.dtsi"
+#include "msm8610.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 Simulator";

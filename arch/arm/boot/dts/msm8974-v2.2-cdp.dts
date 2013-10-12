@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msm8974-v2.2.dtsi"
-/include/ "msm8974-cdp.dtsi"
+#include "msm8974-v2.2.dtsi"
+#include "msm8974-cdp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974v2.2 CDP";

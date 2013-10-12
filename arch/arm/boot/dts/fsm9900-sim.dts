@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-/include/ "fsm9900.dtsi"
+#include "fsm9900.dtsi"
 
 / {
 	model = "Qualcomm FSM9900 Simulator";

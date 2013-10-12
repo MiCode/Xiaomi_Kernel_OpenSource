@@ -136,4 +136,4 @@
 	};
 };
 
-/include/ "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"

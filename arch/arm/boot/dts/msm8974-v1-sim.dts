@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msm8974-v1.dtsi"
-/include/ "msm8974-sim.dtsi"
+#include "msm8974-v1.dtsi"
+#include "msm8974-sim.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974 Simulator";

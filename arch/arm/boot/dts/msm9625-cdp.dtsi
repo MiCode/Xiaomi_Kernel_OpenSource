@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm9625-display.dtsi"
-/include/ "qpic-panel-ili-qvga.dtsi"
+#include "msm9625-display.dtsi"
+#include "qpic-panel-ili-qvga.dtsi"
 
 &soc {
 	i2c@f9925000 {

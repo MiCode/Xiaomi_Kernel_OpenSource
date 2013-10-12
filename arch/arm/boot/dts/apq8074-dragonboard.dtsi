@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-sharp-qhd-video.dtsi"
-/include/ "msm8974-camera-sensor-dragonboard.dtsi"
-/include/ "msm8974-leds.dtsi"
+#include "dsi-panel-sharp-qhd-video.dtsi"
+#include "msm8974-camera-sensor-dragonboard.dtsi"
+#include "msm8974-leds.dtsi"
 
 &vph_pwr_vreg {
 	status = "ok";

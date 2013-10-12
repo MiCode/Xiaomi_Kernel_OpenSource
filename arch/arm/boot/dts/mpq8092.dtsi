@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MPQ8092";
@@ -26,13 +26,13 @@
 	soc: soc { };
 };
 
-/include/ "mpq8092-iommu.dtsi"
-/include/ "mpq8092-iommu-domains.dtsi"
-/include/ "msm-gdsc.dtsi"
-/include/ "mpq8092-ion.dtsi"
-/include/ "mpq8092-pinctrl.dtsi"
-/include/ "mpq8092-smp2p.dtsi"
-/include/ "mpq8092-coresight.dtsi"
+#include "mpq8092-iommu.dtsi"
+#include "mpq8092-iommu-domains.dtsi"
+#include "msm-gdsc.dtsi"
+#include "mpq8092-ion.dtsi"
+#include "mpq8092-pinctrl.dtsi"
+#include "mpq8092-smp2p.dtsi"
+#include "mpq8092-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -497,6 +497,6 @@
 	status = "ok";
 };
 
-/include/ "msm-pma8084-rpm-regulator.dtsi"
-/include/ "msm-pma8084.dtsi"
-/include/ "mpq8092-regulator.dtsi"
+#include "msm-pma8084-rpm-regulator.dtsi"
+#include "msm-pma8084.dtsi"
+#include "mpq8092-regulator.dtsi"

@@ -207,4 +207,4 @@
 	};
 };
 
-/include/ "msm8974-mdss-panels.dtsi"
+#include "msm8974-mdss-panels.dtsi"

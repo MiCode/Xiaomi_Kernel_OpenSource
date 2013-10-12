@@ -19,7 +19,7 @@
  * For example:
  * msm8xxx-qrd.dtsi: QRD reference common node
  * msm8xxx-qrd-skuxx.dts:
- * /include/ "msm8610-qrd.dtsi"
+ * #include "msm8610-qrd.dtsi"
  * / {
  *      List skuxx specific node which is different with QRD
  *      reference design.

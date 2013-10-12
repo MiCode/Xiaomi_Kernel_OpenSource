@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8226-camera-sensor-cdp.dtsi"
+#include "msm8226-camera-sensor-cdp.dtsi"
 
 &soc {
 	serial@f991f000 {
