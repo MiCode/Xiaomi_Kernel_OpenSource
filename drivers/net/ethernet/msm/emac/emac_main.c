@@ -190,7 +190,7 @@ static void emac_receive_skb(struct emac_rx_queue *rxque,
 	if (vlan_flag) {
 		u16 vlan;
 		EMAC_TAG_TO_VLAN(vlan_tag, vlan);
-		__vlan_hwaccel_put_tag(skb, vlan);
+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
 	}
 
 	napi_gro_receive(&rxque->napi, skb);
@@ -980,11 +980,11 @@ static int emac_set_features(struct net_device *netdev,
 	struct emac_hw *hw = &adpt->hw;
 	netdev_features_t changed = features ^ netdev->features;
 
-	if (!(changed & (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX)))
+	if (!(changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX)))
 		return 0;
 
 	netdev->features = features;
-	if (netdev->features & NETIF_F_HW_VLAN_RX)
+	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
 		SET_HW_FLAG(VLANSTRIP_EN);
 	else
 		CLI_HW_FLAG(VLANSTRIP_EN);
@@ -2409,8 +2409,8 @@ static int emac_probe(struct platform_device *pdev)
 
 	/* set hw features */
 	netdev->features = NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
-			NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_RX |
-			NETIF_F_HW_VLAN_TX;
+			NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
+			NETIF_F_HW_VLAN_CTAG_TX;
 	netdev->hw_features = netdev->features;
 
 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_HW_CSUM |
@@ -2492,7 +2492,7 @@ static struct of_device_id emac_dt_match[] = {
 
 static struct platform_driver emac_platform_driver = {
 	.probe   = emac_probe,
-	.remove  = __devexit_p(emac_remove),
+	.remove  = emac_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name	= "msm_emac",
