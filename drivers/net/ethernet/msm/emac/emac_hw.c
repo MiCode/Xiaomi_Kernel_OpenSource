@@ -1188,8 +1188,12 @@ void emac_hw_start_mac(struct emac_hw *hw)
 	emac_reg_w32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1, csr1);
 	emac_reg_w32(hw, EMAC, EMAC_MAC_CTRL, mac);
 
-	/* enable interrupt read clear, low power sleep mode and normal state */
-	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL, (INT_RD_CLR_EN | LPW_MODE));
+	/* enable interrupt read clear, low power sleep mode and
+	   the irq moderators
+	*/
+	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL,
+		     (INT_RD_CLR_EN | LPW_MODE |
+		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));
 
 	if (CHK_HW_FLAG(PTP_EN)) {
 		if (hw->link_speed == EMAC_LINK_SPEED_1GB_FULL)

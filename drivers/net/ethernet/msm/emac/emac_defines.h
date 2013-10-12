@@ -19,10 +19,18 @@
 #define DEV_REV_NUM_BMSK                                       0xff0000
 #define DEV_REV_NUM_SHFT                                             16
 #define INT_RD_CLR_EN                                            0x4000
+#define IRQ_MODERATOR2_EN                                         0x800
+#define IRQ_MODERATOR_EN                                          0x400
 #define LPW_CLK_SEL                                                0x80
 #define LPW_STATE                                                  0x20
 #define LPW_MODE                                                   0x10
 #define SOFT_RST                                                    0x1
+
+/* EMAC_IRQ_MOD_TIM_INIT */
+#define IRQ_MODERATOR2_INIT_BMSK                             0xffff0000
+#define IRQ_MODERATOR2_INIT_SHFT                                     16
+#define IRQ_MODERATOR_INIT_BMSK                                  0xffff
+#define IRQ_MODERATOR_INIT_SHFT                                       0
 
 /* EMAC_MDIO_CTRL */
 #define MDIO_MODE                                            0x40000000
