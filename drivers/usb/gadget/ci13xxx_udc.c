@@ -2961,6 +2961,66 @@ delegate:
 	}
 }
 
+/**
+ * ci13xxx_exit_lpm: Exit controller from low power mode
+ * @udc: UDC descriptor
+ * @allow_sleep: Are we in preemptible context or not.
+ *
+ * This function check if controller is in low power mode and if so, exit from
+ * the low power mode.
+ *
+ * In case the controller is in low power mode, registers are not accessible,
+ * therefore this function can be used as utility function to ensure exit from
+ * low power mode before do registers read/write operations.
+ *
+ * Return 0 if not in low power mode and read/write operations are safe.
+ * Return -EAGAIN in case exit from low power mode was initiated, but it is not
+ * safe yet to use read/write operations against the controller registers.
+ */
+static int ci13xxx_exit_lpm(struct ci13xxx *udc, bool allow_sleep)
+{
+	if (!udc)
+		return -ENODEV;
+
+	/* Check if the controller is in low power mode state */
+	if (udc->udc_driver->in_lpm &&
+	    udc->udc_driver->in_lpm(udc) &&
+	    udc->transceiver) {
+
+		dev_dbg(udc->transceiver->dev,
+			"%s: Exit from low power mode\n",
+			__func__);
+
+		/*
+		 * Resume of the controller may be done
+		 * asynchronically in deffered context.
+		 */
+		usb_phy_set_suspend(udc->transceiver, 0);
+
+		/*
+		 * Wait for controller resume to finish in case of non atomic
+		 * context or return EAGAIN otherwise.
+		 */
+		if (allow_sleep) {
+			while (udc->udc_driver->in_lpm(udc))
+				usleep(1);
+		} else {
+			/*
+			 * Return EAGAIN only in case controller resume
+			 * was done asynchronically.
+			 */
+			if (udc->udc_driver->in_lpm(udc)) {
+				dev_err(udc->transceiver->dev,
+					"%s: Unable to exit lpm\n",
+					__func__);
+				return -EAGAIN;
+			}
+		}
+	}
+
+	return 0;
+}
+
 /******************************************************************************
  * ENDPT block
  *****************************************************************************/
@@ -3512,6 +3572,7 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(udc->lock, flags);
 	udc->softconnect = is_active;
@@ -3521,6 +3582,14 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 		return 0;
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
+
+	ret = ci13xxx_exit_lpm(udc, true);
+	if (ret) {
+		dev_err(udc->transceiver->dev,
+			"%s: Unable to exit lpm %d, ignore pullup\n",
+			__func__, ret);
+		return ret;
+	}
 
 	if (is_active)
 		hw_device_state(udc->ep0out.qh.dma);
