@@ -101,6 +101,16 @@
                         "MIC BIAS3 External", "Digital Mic3",
                         "DMIC4", "MIC BIAS3 External",
                         "MIC BIAS3 External", "Digital Mic4";
+
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,sec-auxpcm-gpio-clk  = <&msmgpio 70 0>;
+		qcom,sec-auxpcm-gpio-sync = <&msmgpio 72 0>;
+		qcom,sec-auxpcm-gpio-din  = <&msmgpio 71 0>;
+		qcom,sec-auxpcm-gpio-dout = <&msmgpio 73 0>;
 	};
 };
 
