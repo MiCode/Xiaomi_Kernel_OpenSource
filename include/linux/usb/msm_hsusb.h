@@ -485,7 +485,10 @@ struct ci13xxx_platform_data {
  *              for msm_hsic_host driver.
  * @phy_sof_workaround: Enable ALL PHY SOF bug related workarounds for
 		SUSPEND, RESET and RESUME.
- * @phy_susp_sof_workaround: Enable PHY SOF workaround only for SUSPEND.
+ * @phy_susp_sof_workaround: Enable PHY SOF workaround for
+ *      SUSPEND.
+ * @phy_reset_sof_workaround: Enable PHY SOF workaround for
+ *      RESET.
  * @dis_internal_clk_gating: If set, internal clock gating in controller
  *		is disabled.
  *
@@ -497,6 +500,7 @@ struct msm_hsic_host_platform_data {
 	bool phy_sof_workaround;
 	bool dis_internal_clk_gating;
 	bool phy_susp_sof_workaround;
+	bool phy_reset_sof_workaround;
 	u32 reset_delay;
 	int strobe_pad_offset;
 	int data_pad_offset;

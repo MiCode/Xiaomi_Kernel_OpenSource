@@ -1903,6 +1903,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 					"qcom,disable-internal-clk-gating");
 	pdata->phy_susp_sof_workaround = of_property_read_bool(node,
 					"qcom,phy-susp-sof-workaround");
+	pdata->phy_reset_sof_workaround = of_property_read_bool(node,
+					"qcom,phy-reset-sof-workaround");
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
 					"hsic,ignore-cal-pad-config");
 	of_property_read_u32(node, "hsic,strobe-pad-offset",
@@ -2015,9 +2017,13 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		mehci->ehci.susp_sof_bug = 1;
 		mehci->ehci.reset_sof_bug = 1;
 		mehci->ehci.resume_sof_bug = 1;
-	} else if (pdata->phy_susp_sof_workaround) {
-		/* Only SUSP SOF hardware bug exists, rest all not present */
-		mehci->ehci.susp_sof_bug = 1;
+	} else {
+		if (pdata->phy_susp_sof_workaround)
+			/* SUSP SOF hardware bug exists */
+			mehci->ehci.susp_sof_bug = 1;
+		if (pdata->phy_reset_sof_workaround)
+			/* RESET SOF hardware bug exists */
+			mehci->ehci.reset_sof_bug = 1;
 	}
 
 	if (pdata->reset_delay)
