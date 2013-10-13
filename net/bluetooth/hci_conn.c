@@ -372,6 +372,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 		return NULL;
 
 	bacpy(&conn->dst, dst);
+	bacpy(&conn->src, &hdev->bdaddr);
 	conn->hdev  = hdev;
 	conn->type  = type;
 	conn->mode  = HCI_CM_ACTIVE;
