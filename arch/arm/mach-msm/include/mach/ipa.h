@@ -84,6 +84,17 @@ enum ipa_dp_evt_type {
 };
 
 /**
+ * enum hdr_total_len_or_pad_type - type vof alue held by TOTAL_LEN_OR_PAD
+ * field in header configuration register.
+ * @IPA_HDR_PAD: field is used as padding length
+ * @IPA_HDR_TOTAL_LEN: field is used as total length
+ */
+enum hdr_total_len_or_pad_type {
+	IPA_HDR_PAD = 0,
+	IPA_HDR_TOTAL_LEN = 1,
+};
+
+/**
  * struct ipa_ep_cfg_nat - NAT configuration in IPA end-point
  * @nat_en:	This defines the default NAT mode for the pipe: in case of
  *		filter miss - the default NAT mode defines the NATing operation
@@ -151,6 +162,33 @@ struct ipa_ep_cfg_hdr {
 };
 
 /**
+ * struct ipa_ep_cfg_hdr_ext - extended header configuration in IPA end-point
+ * @hdr_pad_to_alignment: Pad packet to specified alignment
+ *	(2^pad to alignment value), i.e. value of 3 means pad to 2^3 = 8 bytes
+ *	alignment. Alignment is to 0,2 up to 32 bytes (IPAv2 does not support 64
+ *	byte alignment). Valid for Output Pipes only (IPA Producer).
+ * @hdr_total_len_or_pad_offset: Offset to length field containing either
+ *	total length or pad length, per hdr_total_len_or_pad config
+ * @hdr_payload_len_inc_padding: 0-IPA_ENDP_INIT_HDR_n’s HDR_OFST_PKT_SIZE does
+ *	not includes padding bytes size, payload_len = packet length,
+ *	1-IPA_ENDP_INIT_HDR_n’s HDR_OFST_PKT_SIZE includes
+ *	padding bytes size, payload_len = packet length + padding
+ * @hdr_total_len_or_pad: field is used as PAD length ot as Total length
+ *	(header + packet + padding)
+ * @hdr_total_len_or_pad_valid: 0-Ignore TOTAL_LEN_OR_PAD field, 1-Process
+ *	TOTAL_LEN_OR_PAD field
+ * @hdr_little_endian: 0-Big Endian, 1-Little Endian
+ */
+struct ipa_ep_cfg_hdr_ext {
+	u32 hdr_pad_to_alignment;
+	u32 hdr_total_len_or_pad_offset;
+	bool hdr_payload_len_inc_padding;
+	enum hdr_total_len_or_pad_type hdr_total_len_or_pad;
+	bool hdr_total_len_or_pad_valid;
+	bool hdr_little_endian;
+};
+
+/**
  * struct ipa_ep_cfg_mode - mode configuration in IPA end-point
  * @mode:	Valid for Input Pipes only (IPA Consumer)
  * @dst:	This parameter specifies the output pipe to which the packets
@@ -181,12 +219,20 @@ struct ipa_ep_cfg_mode {
  *			there is no aggregation, every packet is sent
  *			independently according to the aggregation structure
  *			Valid for Output Pipes only (IPA Producer)
+ * @aggr_pkt_limit: Defines if EOF close aggregation or not. if set to false
+ *			HW closes aggregation (sends EOT) only based on its
+ *			aggregation config (byte/time limit, etc). if set to
+ *			true EOF closes aggregation in addition to HW based
+ *			aggregation closure. Valid for Output Pipes only (IPA
+ *			Producer). EOF affects only Pipes configured for
+ *			generic aggregation.
  */
 struct ipa_ep_cfg_aggr {
 	enum ipa_aggr_en_type aggr_en;
 	enum ipa_aggr_type aggr;
 	u32 aggr_byte_limit;
 	u32 aggr_time_limit;
+	u32 aggr_pkt_limit;
 };
 
 /**
@@ -212,18 +258,40 @@ struct ipa_ep_cfg_holb {
 };
 
 /**
+ * struct ipa_ep_cfg_deaggr - deaggregation configuration in IPA end-point
+ * @deaggr_hdr_len: Deaggregation Header length in bytes. Valid only for Input
+ *	Pipes, which are configured for ’Generic’ deaggregation.
+ * @packet_offset_valid: - 0: PACKET_OFFSET is not used, 1: PACKET_OFFSET is
+ *	used.
+ * @packet_offset_location: Location of packet offset field, which specifies
+ *	the offset to the packet from the start of the packet offset field.
+ * @max_packet_len: DEAGGR Max Packet Length in Bytes. A Packet with higher
+ *	size wil be treated as an error. 0 - Packet Length is not Bound,
+ *	IPA should not check for a Max Packet Length.
+ */
+struct ipa_ep_cfg_deaggr {
+	u32 deaggr_hdr_len;
+	bool packet_offset_valid;
+	u32 packet_offset_location;
+	u32 max_packet_len;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:	NAT parmeters
  * @hdr:	Header parameters
  * @mode:	Mode parameters
  * @aggr:	Aggregation parameters
+ * @deaggr:	Deaggregation params
  * @route:	Routing parameters
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
 	struct ipa_ep_cfg_hdr hdr;
+	struct ipa_ep_cfg_hdr_ext hdr_ext;
 	struct ipa_ep_cfg_mode mode;
 	struct ipa_ep_cfg_aggr aggr;
+	struct ipa_ep_cfg_deaggr deaggr;
 	struct ipa_ep_cfg_route route;
 };
 
@@ -519,9 +587,15 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg);
 
 int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
 
+int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
+			const struct ipa_ep_cfg_hdr_ext *ipa_ep_cfg);
+
 int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg);
 
 int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg);
+
+int ipa_cfg_ep_deaggr(u32 clnt_hdl,
+		      const struct ipa_ep_cfg_deaggr *ipa_ep_cfg);
 
 int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
 
@@ -793,6 +867,12 @@ static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
 	return -EPERM;
 }
 
+static inline int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
+		const struct ipa_ep_cfg_hdr_ext *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
 static inline int ipa_cfg_ep_mode(u32 clnt_hdl,
 		const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 {
@@ -801,6 +881,12 @@ static inline int ipa_cfg_ep_mode(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_aggr(u32 clnt_hdl,
 		const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_deaggr(u32 clnt_hdl,
+		const struct ipa_ep_cfg_deaggr *ipa_ep_cfg)
 {
 	return -EPERM;
 }

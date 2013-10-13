@@ -12,7 +12,7 @@
 
 #include "ipa_i.h"
 
-static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36 };
+static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 58};
 
 /**
  * ipa_generate_hdr_hw_tbl() - generates the headers table
@@ -178,6 +178,8 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 		bin = IPA_HDR_BIN2;
 	else if (hdr->hdr_len <= ipa_hdr_bin_sz[IPA_HDR_BIN3])
 		bin = IPA_HDR_BIN3;
+	else if (hdr->hdr_len <= ipa_hdr_bin_sz[IPA_HDR_BIN4])
+		bin = IPA_HDR_BIN4;
 	else {
 		IPAERR("unexpected hdr len %d\n", hdr->hdr_len);
 		goto bad_hdr_len;
