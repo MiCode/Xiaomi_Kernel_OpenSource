@@ -37,6 +37,8 @@
 
 &hsic_host {
 	qcom,disable-park-mode;
+	qcom,phy-susp-sof-workaround;
+	qcom,phy-reset-sof-workaround;
 };
 
 &sfpb_spinlock {
