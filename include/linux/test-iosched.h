@@ -266,4 +266,7 @@ void test_iosched_add_urgent_req(struct test_request *test_rq);
 int test_is_req_urgent(struct request *rq);
 
 void check_test_completion(void);
+
+int compare_buffer_to_pattern(struct test_request *test_rq);
+
 #endif /* _LINUX_TEST_IOSCHED_H */
