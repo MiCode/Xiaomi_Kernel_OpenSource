@@ -2113,11 +2113,13 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("",  gcc_pcie_gpio_ldo.c,   ""),
 	CLK_LOOKUP("",  gcc_usb_ss_ldo.c,   ""),
 
-	CLK_LOOKUP("", lnbbclk_clk.c, ""),
+	CLK_LOOKUP("ref_clk", lnbbclk_clk.c, "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("", lnbbclk_a_clk.c, ""),
-	CLK_LOOKUP("", cxo_dwc3_clk.c, ""),
-	CLK_LOOKUP("", gcc_usb2a_phy_sleep_clk.c, ""),
-	CLK_LOOKUP("", gcc_usb2b_phy_sleep_clk.c, ""),
+	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9200000.qcom,ssusb"),
+	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c,
+		   "f9200000.qcom,ssusb"),
+	CLK_LOOKUP("sleep_b_clk", gcc_usb2b_phy_sleep_clk.c,
+		   "f9200000.qcom,ssusb"),
 };
 
 static void __init reg_init(void)
