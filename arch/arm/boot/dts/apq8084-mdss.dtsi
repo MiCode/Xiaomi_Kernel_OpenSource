@@ -193,19 +193,19 @@
 
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-5v-supply = <&pma8084_mvs1>;
+		hpd-5v-en-supply = <&hdmi_vreg>;
 		core-vdda-supply = <&pma8084_l12>;
 		core-vcc-supply = <&pma8084_s4>;
-		qcom,supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
-		qcom,min-voltage-level = <0 0 1800000 1800000>;
-		qcom,max-voltage-level = <0 0 1800000 1800000>;
-		qcom,enable-load = <0 0 300000 0>;
-		qcom,disable-load = <0 0 0 0>;
+		qcom,supply-names = "hpd-gdsc", "hpd-5v", "hpd-5v-en", "core-vdda", "core-vcc";
+		qcom,min-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,max-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,enable-load = <0 0 0 300000 0>;
+		qcom,disable-load = <0 0 0 0 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
-		qcom,hdmi-tx-ext-5v = <&pma8084_mpps 3 0>;
 		qcom,mdss-fb-map = <&mdss_fb1>;
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
