@@ -1648,6 +1648,7 @@ int regulatory_hint_user(const char *alpha2)
 
 	return 0;
 }
+EXPORT_SYMBOL(regulatory_hint_user);
 
 /* Driver hints */
 int regulatory_hint(struct wiphy *wiphy, const char *alpha2)
