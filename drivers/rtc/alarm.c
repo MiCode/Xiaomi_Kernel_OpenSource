@@ -81,7 +81,8 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
+			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
+			base == &alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP];
 
 	if (base->stopped) {
 		pr_alarm(FLOW, "changed alarm while setting the wall time\n");
@@ -423,15 +424,25 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
+	hrtimer_cancel(&alarms[
+			ANDROID_ALARM_RTC_POWEROFF_WAKEUP].timer);
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)
 		wakeup_queue = tmp_queue;
+
 	tmp_queue = &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
 	if (tmp_queue->first && (!wakeup_queue ||
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
+
+	tmp_queue = &alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP];
+	if (tmp_queue->first && (!wakeup_queue ||
+				hrtimer_get_expires(&tmp_queue->timer).tv64 <
+				hrtimer_get_expires(&wakeup_queue->timer).tv64))
+		wakeup_queue = tmp_queue;
+
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		getnstimeofday(&wall_time);
@@ -466,6 +477,8 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 									false);
 			update_timer_locked(&alarms[
 				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
+			update_timer_locked(&alarms[
+					ANDROID_ALARM_RTC_POWEROFF_WAKEUP], false);
 			err = -EBUSY;
 			spin_unlock_irqrestore(&alarm_slock, flags);
 		}
@@ -488,6 +501,8 @@ static int alarm_resume(struct platform_device *pdev)
 	suspended = false;
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP], false);
 	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],
+									false);
+	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP],
 									false);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
