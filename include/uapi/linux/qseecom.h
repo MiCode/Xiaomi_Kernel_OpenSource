@@ -157,12 +157,6 @@ struct qseecom_is_es_activated_req {
 	int is_activated; /* out */
 };
 
-enum qseecom_buffer_protection {
-	QSEOS_UNPROTECTED_BUFFER,
-	QSEOS_PROTECT_BUFFER,
-	QSEOS_UNPROTECT_PROTECTED_BUFFER,
-};
-
 enum qseecom_bandwidth_request_mode {
 	INACTIVE = 0,
 	LOW,
@@ -181,7 +175,6 @@ struct qseecom_send_modfd_listener_resp {
 	void *resp_buf_ptr; /* in */
 	unsigned int resp_len; /* in */
 	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD]; /* in */
-	enum qseecom_buffer_protection protection_mode; /* in */
 };
 
 
@@ -250,10 +243,6 @@ struct qseecom_send_modfd_listener_resp {
 
 #define QSEECOM_IOCTL_SEND_MODFD_RESP \
 	_IOWR(QSEECOM_IOC_MAGIC, 21, struct qseecom_send_modfd_listener_resp)
-
-#define QSEECOM_IOCTL_UNPROTECT_BUF \
-	_IOWR(QSEECOM_IOC_MAGIC, 22, int)
-
 
 #define QSEECOM_IOCTL_SET_BUS_SCALING_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 23, int)
