@@ -33,6 +33,7 @@ int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name)
 	case IPA_RM_RESOURCE_USB_PROD:
 	case IPA_RM_RESOURCE_HSIC_PROD:
 	case IPA_RM_RESOURCE_STD_ECM_PROD:
+	case IPA_RM_RESOURCE_RNDIS_PROD:
 	case IPA_RM_RESOURCE_WWAN_0_PROD:
 	case IPA_RM_RESOURCE_WWAN_1_PROD:
 	case IPA_RM_RESOURCE_WWAN_2_PROD:
@@ -960,6 +961,11 @@ int ipa_rm_resource_producer_print_stat(
 	case IPA_RM_RESOURCE_STD_ECM_PROD:
 		nbytes = scnprintf(buf + cnt, size - cnt,
 			 "STD_ECM_PROD[");
+		cnt += nbytes;
+		break;
+	case IPA_RM_RESOURCE_RNDIS_PROD:
+		nbytes = scnprintf(buf + cnt, size - cnt,
+			"RNDIS_PROD[");
 		cnt += nbytes;
 		break;
 	case IPA_RM_RESOURCE_WWAN_0_PROD:
