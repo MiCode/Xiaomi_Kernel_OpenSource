@@ -21,8 +21,6 @@
 
 #define MSM_HDMI_PCM_RATES	SNDRV_PCM_RATE_48000
 
-static int msm_hdmi_audio_codec_return_value;
-
 struct msm_hdmi_audio_codec_rx_data {
 	struct platform_device *hdmi_core_pdev;
 	struct msm_hdmi_audio_codec_ops hdmi_ops;
@@ -86,18 +84,18 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 		struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	int rv;
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	msm_hdmi_audio_codec_return_value =
-		codec_data->hdmi_ops.hdmi_cable_status(
+	rv = codec_data->hdmi_ops.hdmi_cable_status(
 		codec_data->hdmi_core_pdev, 1);
-	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+	if (IS_ERR_VALUE(rv)) {
 		dev_err(dai->dev,
 			"%s() HDMI core is not ready\n", __func__);
 	}
 
-	return msm_hdmi_audio_codec_return_value;
+	return rv;
 }
 
 static int msm_hdmi_audio_codec_rx_dai_hw_params(
@@ -109,16 +107,17 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
-	int rc = 0;
+	int rv = 0;
 
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	/*refer to HDMI spec CEA-861-E: Table 28 Audio InfoFrame Data Byte 4*/
-	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+	rv = codec_data->hdmi_ops.hdmi_cable_status(
+		codec_data->hdmi_core_pdev, 1);
+	if (IS_ERR_VALUE(rv)) {
 		dev_err(dai->dev,
 			"%s() HDMI core is not ready\n", __func__);
-		return msm_hdmi_audio_codec_return_value;
+		return rv;
 	}
 
 	switch (num_channels) {
@@ -153,16 +152,16 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		__func__, num_channels, params_rate(params),
 		channel_allocation);
 
-	rc = codec_data->hdmi_ops.audio_info_setup(
+	rv = codec_data->hdmi_ops.audio_info_setup(
 			codec_data->hdmi_core_pdev,
 			params_rate(params), num_channels,
 			channel_allocation, level_shift, down_mix);
-	if (IS_ERR_VALUE(rc)) {
+	if (IS_ERR_VALUE(rv)) {
 		dev_err(dai->dev,
 			"%s() HDMI core is not ready\n", __func__);
 	}
 
-	return rc;
+	return rv;
 }
 
 static void msm_hdmi_audio_codec_rx_dai_shutdown(
