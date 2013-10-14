@@ -164,7 +164,7 @@
 		interrupts = <0 44 0>;
 		qcom,clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk";
 		qcom,clock-configs = <0x3 0x0 0x0 0x0>;
-		qcom,load-freq-tbl = <489600 266700000>,
+		qcom,load-freq-tbl = <489600 266670000>,
 			<244800 133330000>,
 			<108000 100000000>,
 			<36000   50000000>;
