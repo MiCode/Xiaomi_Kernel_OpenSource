@@ -1070,6 +1070,15 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	/* Initialize HDCP feature */
 	if (hdmi_ctrl->present_hdcp) {
+		struct resource *res = NULL;
+		res = platform_get_resource_byname(hdmi_ctrl->pdev,
+			IORESOURCE_MEM, hdmi_tx_io_name(HDMI_TX_CORE_IO));
+		if (!res) {
+			DEV_ERR("%s: Error getting HDMI tx core resource\n",
+				__func__);
+			return -ENODEV;
+		}
+		hdcp_init_data.phy_addr = res->start;
 		hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 		hdcp_init_data.qfprom_io =
 			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
