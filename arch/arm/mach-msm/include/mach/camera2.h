@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,11 +115,16 @@ struct eeprom_map_t {
 	uint32_t delay;
 };
 
+struct eeprom_slave_add_t {
+	uint32_t addr;
+};
+
 struct msm_eeprom_memory_map_t {
 	struct eeprom_map_t page;
 	struct eeprom_map_t pageen;
 	struct eeprom_map_t poll;
 	struct eeprom_map_t mem;
+	struct eeprom_slave_add_t saddr;
 };
 
 struct msm_eeprom_memory_block_t {
