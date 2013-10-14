@@ -54,6 +54,18 @@ static struct gpiomux_setting gpio_spi_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_smb_stat_int_act_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_smb_stat_int_sus_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
@@ -77,6 +89,25 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 9,	       /* BLSP1 UART RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 10,	       /* BLSP1 I2C SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 11,	       /* BLSP1 I2C SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 24,	       /* SMB1357 STAT INT GPIO */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_smb_stat_int_sus_config,
+			[GPIOMUX_SUSPENDED] = &gpio_smb_stat_int_act_config,
 		},
 	},
 	{
