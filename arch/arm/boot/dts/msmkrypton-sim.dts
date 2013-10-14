@@ -33,3 +33,7 @@
 		interrupts = <75 0>;
 	};
 };
+
+&qrng {
+	status = "okay";
+};
