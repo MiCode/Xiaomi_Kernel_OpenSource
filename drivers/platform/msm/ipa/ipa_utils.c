@@ -779,6 +779,9 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	if (result)
 		return result;
 
+	result = ipa_cfg_ep_hdr_ext(clnt_hdl, &ipa_ep_cfg->hdr_ext);
+	if (result)
+		return result;
 
 	result = ipa_cfg_ep_aggr(clnt_hdl, &ipa_ep_cfg->aggr);
 	if (result)
@@ -794,6 +797,10 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 			return result;
 
 		result = ipa_cfg_ep_route(clnt_hdl, &ipa_ep_cfg->route);
+		if (result)
+			return result;
+
+		result = ipa_cfg_ep_deaggr(clnt_hdl, &ipa_ep_cfg->deaggr);
 		if (result)
 			return result;
 	}
@@ -1024,6 +1031,100 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_hdr);
 
+static int _ipa_cfg_ep_hdr_ext_v1_1(u32 clnt_hdl,
+				const struct ipa_ep_cfg_hdr_ext *ep_hdr)
+{
+	IPADBG("Not supported for version 1.1\n");
+	return 0;
+}
+
+static int _ipa_cfg_ep_hdr_ext_v2_0(u32 clnt_hdl,
+				const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
+{
+	u32 reg_val = 0;
+	u8 hdr_endianess = ep_hdr_ext->hdr_little_endian ? 0 : 1;
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_offset,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_pad_to_alignment,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_payload_len_inc_padding,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAYLOAD_LEN_INC_PADDING_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAYLOAD_LEN_INC_PADDING_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_valid,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, hdr_endianess,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANESS_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANESS_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_HDR_EXT_n_OFST_v2_0(clnt_hdl), reg_val);
+
+	return 0;
+}
+
+/**
+ * ipa_cfg_ep_hdr_ext() -  IPA end-point extended header configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ep_hdr_ext:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
+		       const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
+{
+	struct ipa_ep_context *ep;
+
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			ep_hdr_ext == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+				clnt_hdl, ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d hdr_pad_to_alignment=%d\n",
+		clnt_hdl,
+		ep_hdr_ext->hdr_pad_to_alignment);
+
+	IPADBG("hdr_total_len_or_pad_offset=%d\n",
+		ep_hdr_ext->hdr_total_len_or_pad_offset);
+
+	IPADBG("hdr_payload_len_inc_padding=%d hdr_total_len_or_pad=%d\n",
+		ep_hdr_ext->hdr_payload_len_inc_padding,
+		ep_hdr_ext->hdr_total_len_or_pad);
+
+	IPADBG("hdr_total_len_or_pad_valid=%d hdr_little_endian=%d\n",
+		ep_hdr_ext->hdr_total_len_or_pad_valid,
+		ep_hdr_ext->hdr_little_endian);
+
+	ep = &ipa_ctx->ep[clnt_hdl];
+
+	/* copy over EP cfg */
+	ep->cfg.hdr_ext = *ep_hdr_ext;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_hdr_ext(clnt_hdl, &ep->cfg.hdr_ext);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_hdr_ext);
+
 const char *ipa_get_mode_type_str(enum ipa_mode_type mode)
 {
 	switch (mode) {
@@ -1249,6 +1350,10 @@ void _ipa_cfg_ep_aggr_v2_0(u32 pipe_number,
 	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_time_limit,
 			IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_SHFT,
 			IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_pkt_limit,
+			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
+			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
 
 	ipa_write_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(pipe_number), reg_val);
@@ -1485,6 +1590,87 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 			ep_holb);
 }
 EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
+
+static int _ipa_cfg_ep_deaggr_v1_1(u32 clnt_hdl,
+				const struct ipa_ep_cfg_deaggr *ep_deaggr)
+{
+	IPADBG("Not supported for version 1.1\n");
+	return 0;
+}
+
+static int _ipa_cfg_ep_deaggr_v2_0(u32 clnt_hdl,
+				   const struct ipa_ep_cfg_deaggr *ep_deaggr)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->deaggr_hdr_len,
+		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->packet_offset_valid,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->packet_offset_location,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->max_packet_len,
+		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_DEAGGR_n_OFST_v2_0(clnt_hdl), reg_val);
+
+	return 0;
+}
+
+/**
+ * ipa_cfg_ep_deaggr() -  IPA end-point deaggregation configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ep_deaggr:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_deaggr(u32 clnt_hdl,
+			const struct ipa_ep_cfg_deaggr *ep_deaggr)
+{
+	struct ipa_ep_context *ep;
+
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			ep_deaggr == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+				clnt_hdl, ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d deaggr_hdr_len=%d\n",
+		clnt_hdl,
+		ep_deaggr->deaggr_hdr_len);
+
+	IPADBG("packet_offset_valid=%d\n",
+		ep_deaggr->packet_offset_valid);
+
+	IPADBG("packet_offset_location=%d max_packet_len=%d\n",
+		ep_deaggr->packet_offset_location,
+		ep_deaggr->max_packet_len);
+
+	ep = &ipa_ctx->ep[clnt_hdl];
+
+	/* copy over EP cfg */
+	ep->cfg.deaggr = *ep_deaggr;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_deaggr(clnt_hdl, &ep->cfg.deaggr);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_deaggr);
 
 /**
  * ipa_dump_buff_internal() - dumps buffer for debug purposes
@@ -1884,7 +2070,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 	case (IPA_HW_v1_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_0;
 		ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v1_1;
+		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v1_1;
 		ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v1_0;
+		ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v1_1;
 		ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v1_0;
 		ctrl->ipa_cfg_ep_mode = _ipa_cfg_ep_mode_v1_0;
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v1_0;
@@ -1899,7 +2087,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
 		ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v1_1;
+		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v1_1;
 		ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v1_1;
+		ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v1_1;
 		ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v1_1;
 		ctrl->ipa_cfg_ep_mode = _ipa_cfg_ep_mode_v1_1;
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v1_1;
@@ -1914,8 +2104,10 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 	case (IPA_HW_v2_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
 		ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v2_0;
+		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_0;
 		ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v2_0;
 		ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v2_0;
+		ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v2_0;
 		ctrl->ipa_cfg_ep_mode = _ipa_cfg_ep_mode_v2_0;
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v2_0;
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_0;

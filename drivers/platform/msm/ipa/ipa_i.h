@@ -104,7 +104,8 @@
 #define IPA_HDR_BIN1 1
 #define IPA_HDR_BIN2 2
 #define IPA_HDR_BIN3 3
-#define IPA_HDR_BIN_MAX 4
+#define IPA_HDR_BIN4 4
+#define IPA_HDR_BIN_MAX 5
 
 #define IPA_EVENT_THRESHOLD 0x10
 
@@ -793,8 +794,12 @@ struct ipa_controller {
 	void (*ipa_sram_read_settings)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
+	int (*ipa_cfg_ep_hdr_ext)(u32 pipe_number,
+		const struct ipa_ep_cfg_hdr_ext *ipa_ep_hdr_ext_cfg);
 	void (*ipa_cfg_ep_aggr)(u32 pipe_number,
 			const struct ipa_ep_cfg_aggr *ipa_ep_agrr_cfg);
+	int (*ipa_cfg_ep_deaggr)(u32 pipe_index,
+			const struct ipa_ep_cfg_deaggr *ep_deaggr);
 	void (*ipa_cfg_ep_nat)(u32 pipe_number,
 			const struct ipa_ep_cfg_nat *ipa_ep_nat_cfg);
 	void (*ipa_cfg_ep_mode)(u32 pipe_number, u32 dst_pipe_number,
