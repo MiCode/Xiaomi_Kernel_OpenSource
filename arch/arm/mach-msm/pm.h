@@ -56,6 +56,13 @@ enum msm_pm_sleep_mode {
 	MSM_PM_SLEEP_MODE_NOT_SELECTED,
 };
 
+enum msm_pm_l2_scm_flag {
+	MSM_SCM_L2_ON = 0,
+	MSM_SCM_L2_OFF = 1,
+	MSM_SCM_L2_RET = 2,
+	MSM_SCM_L2_GDHS = 3,
+};
+
 #define MSM_PM_MODE(cpu, mode_nr)  ((cpu) * MSM_PM_SLEEP_MODE_NR + (mode_nr))
 
 struct msm_pm_time_params {
@@ -137,11 +144,16 @@ void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);
 void __init msm_pm_sleep_status_init(void);
+void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
 static inline void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops) {}
 static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
 static inline void msm_pm_sleep_status_init(void) {};
+static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
+{
+	/* empty */
+}
 #endif
 #ifdef CONFIG_HOTPLUG_CPU
 int msm_platform_secondary_init(unsigned int cpu);
@@ -174,6 +186,5 @@ static inline void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t) {}
 #endif
 
 void msm_pm_set_cpr_ops(struct msm_pm_cpr_ops *ops);
-extern void *msm_pc_debug_counters;
 extern unsigned long msm_pc_debug_counters_phys;
 #endif  /* __ARCH_ARM_MACH_MSM_PM_H */
