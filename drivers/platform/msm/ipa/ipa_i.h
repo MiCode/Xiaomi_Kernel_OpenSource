@@ -129,6 +129,13 @@
 
 #define IPA_EVENT_THRESHOLD 0x10
 
+/*
+ * Due to ZLT issue with USB 3.0 core, IPA BAM threashold need to be set
+ * to max packet size + 1. After setting the threshold, USB core
+ * will not be notified on ZLTs
+ */
+#define IPA_USB_EVENT_THRESHOLD 0x4001
+
 #define IPA_RX_POOL_CEIL 32
 #define IPA_RX_SKB_SIZE 1792
 

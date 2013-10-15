@@ -256,7 +256,11 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	IPADBG("Data FIFO pa=0x%x, size=%d\n", ep->connect.data.phys_base,
 	       ep->connect.data.size);
 
-	ep->connect.event_thresh = IPA_EVENT_THRESHOLD;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
+					IPA_CLIENT_IS_USB_CONS(in->client))
+		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
+	else
+		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;
 	ep->connect.options = SPS_O_AUTO_ENABLE;    /* BAM-to-BAM */
 
 	if (IPA_CLIENT_IS_CONS(in->client))
