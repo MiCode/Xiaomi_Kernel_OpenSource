@@ -648,7 +648,7 @@ static int afe_send_hw_delay(u16 port_id, u32 rate)
 		ret = get_hw_delay(RX_CAL, &delay_entry);
 
 	if (ret != 0) {
-		pr_warn("%s: Failed to get hw delay info\n", __func__);
+		pr_debug("%s: Failed to get hw delay info\n", __func__);
 		goto fail_cmd;
 	}
 	index = q6audio_get_port_index(port_id);
