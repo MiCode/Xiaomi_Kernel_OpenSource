@@ -137,10 +137,10 @@
 			reg = <0x2>;
 			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_gdhs";
-			qcom,latency-us = <10700>;
-			qcom,ss-power = <325>;
-			qcom,energy-overhead = <441250>;
-			qcom,time-overhead = <1020>;
+			qcom,latency-us = <11700>;
+			qcom,ss-power = <372>;
+			qcom,energy-overhead = <738750>;
+			qcom,time-overhead = <1410>;
 		};
 
 		qcom,lpm-level@3 {
@@ -157,7 +157,7 @@
 			reg = <0x4>;
 			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_pc";
-			qcom,latency-us = <11700>;
+			qcom,latency-us = <12700>;
 			qcom,ss-power = <315>;
 			qcom,energy-overhead = <1027150>;
 			qcom,time-overhead = <2400>;
