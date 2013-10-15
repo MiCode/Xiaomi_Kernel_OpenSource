@@ -2,7 +2,7 @@
  *
  * qcelp audio input device
  *
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_qcelp_in.c,
  * Copyright (C) 2008 Google, Inc.
@@ -732,6 +732,7 @@ static long audqcelp_in_ioctl(struct file *file,
 	MM_DBG("\n");
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
 		if (copy_to_user((void *) arg, &stats, sizeof(stats)))
