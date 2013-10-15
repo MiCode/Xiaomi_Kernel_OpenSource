@@ -99,6 +99,9 @@
 		qcom,saw2-spm-cmd-pc = [00 32 b0 10 e0 d0 6b c0 42 f0
 				11 07 01 b0 50 4e 02 02 c0 d0 12 e0 6b 02 32
 				50 f0 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
+		qcom,saw2-spm-cmd-pc-no-rpm = [00 32 b0 10 e0 d0 6b c0 42 f0
+				11 03 01 b0 50 4e 02 02 c0 d0 12 e0 6b 02 32
+				50 f0 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
 		qcom,L2-spm-is-apcs-master;
 	};
 
@@ -130,6 +133,16 @@
 
 		qcom,lpm-level@2 {
 			reg = <0x2>;
+			qcom,mode = "pc";
+			qcom,l2 = "l2_cache_pc_no_rpm";
+			qcom,latency-us = <1000>;
+			qcom,ss-power = <315>;
+			qcom,energy-overhead = <1027150>;
+			qcom,time-overhead = <2400>;
+		};
+
+		qcom,lpm-level@3 {
+			reg = <0x3>;
 			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_pc";
 			qcom,latency-us = <11000>;
