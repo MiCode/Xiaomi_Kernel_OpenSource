@@ -1592,6 +1592,8 @@ static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
 		dev_req->gear_rx = dev_req->gear_tx = min_msm_gear;
 	}
 
+	dev_req->hs_rate = msm_param->hs_rate;
+
 	return 0;
 }
 
