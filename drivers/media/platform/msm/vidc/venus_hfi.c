@@ -1531,6 +1531,7 @@ static int venus_hfi_sys_set_power_control(struct venus_hfi_device *device,
 		}
 	});
 
+	supported = supported && msm_fw_low_power_mode;
 	if (!supported)
 		return 0;
 
@@ -3326,6 +3327,11 @@ static int venus_hfi_enable_hw_power_collapse(struct venus_hfi_device *device)
 {
 	int rc = 0;
 	struct regulator_info *rinfo;
+
+	if (!msm_fw_low_power_mode) {
+		dprintk(VIDC_DBG, "Not enabling hardware power collapse\n");
+		return 0;
+	}
 
 	venus_hfi_for_each_regulator(device, rinfo, {
 		if (rinfo->has_hw_power_collapse) {
