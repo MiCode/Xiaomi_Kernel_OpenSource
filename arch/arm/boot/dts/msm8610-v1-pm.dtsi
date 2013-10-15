@@ -128,7 +128,7 @@
 			qcom,latency-us = <500>;
 			qcom,ss-power = <410>;
 			qcom,energy-overhead = <603400>;
-			qcom,time-overhead = <1200>;
+			qcom,time-overhead = <1410>;
 		};
 
 		qcom,lpm-level@2 {
@@ -145,7 +145,7 @@
 			reg = <0x3>;
 			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_pc";
-			qcom,latency-us = <11000>;
+			qcom,latency-us = <12700>;
 			qcom,ss-power = <315>;
 			qcom,energy-overhead = <1027150>;
 			qcom,time-overhead = <2400>;
