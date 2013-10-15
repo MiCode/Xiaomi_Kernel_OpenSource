@@ -3695,9 +3695,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 				bl = ad->bl_lin[bl >> ad->bl_bright_shift];
 				bl = bl << ad->bl_bright_shift;
 			}
-			mutex_unlock(&bl_mfd->bl_lock);
 		}
-		mutex_unlock(&mfd->bl_lock);
+		mutex_unlock(&bl_mfd->bl_lock);
 		pp_ad_input_write(ad, bl);
 	}
 
