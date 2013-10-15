@@ -314,7 +314,6 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 		return ret;
 	}
 	data->listener.id = 0;
-	data->type = QSEECOM_LISTENER_SERVICE;
 	if (!__qseecom_is_svc_unique(data, &rcvd_lstnr)) {
 		pr_err("Service is not unique and is already registered\n");
 		data->released = true;
@@ -432,7 +431,7 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	uint32_t len;
 
 	/* Copy the relevant information needed for loading the image */
-	if (__copy_from_user(&req, (void __user *)argp, sizeof(req)))
+	if (copy_from_user(&req, (void __user *)argp, sizeof(req)))
 		return -EFAULT;
 
 	/* Get the handle of the shared fd */
@@ -605,7 +604,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	struct qseecom_load_app_ireq load_req;
 
 	/* Copy the relevant information needed for loading the image */
-	if (__copy_from_user(&load_img_req,
+	if (copy_from_user(&load_img_req,
 				(void __user *)argp,
 				sizeof(struct qseecom_load_img_req))) {
 		pr_err("copy_from_user failed\n");
@@ -876,7 +875,7 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	struct qseecom_send_svc_cmd_req req;
 	/*struct qseecom_command_scm_resp resp;*/
 
-	if (__copy_from_user(&req,
+	if (copy_from_user(&req,
 				(void __user *)argp,
 				sizeof(req))) {
 		pr_err("copy_from_user failed\n");
@@ -887,8 +886,6 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		pr_err("cmd buffer or response buffer is null\n");
 		return -EINVAL;
 	}
-
-	data->type = QSEECOM_SECURE_SERVICE;
 
 	switch (req.cmd_id) {
 	case QSEOS_RPMB_PROVISION_KEY_COMMAND:
@@ -901,6 +898,18 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		pr_err("Unsupported cmd_id %d\n", req.cmd_id);
 		return -EINVAL;
 	}
+
+	ret = qsee_vote_for_clock(data, CLK_DFAB);
+	if (ret) {
+		pr_err("Failed to vote for DFAB clock%d\n", ret);
+		return ret;
+	}
+	ret = qsee_vote_for_clock(data, CLK_SFPB);
+	if (ret) {
+		pr_err("Failed to vote for SFPB clock%d\n", ret);
+		goto exit_reset_dfab_freq;
+	}
+
 	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
 				data->client.sb_virt, data->client.sb_length,
 				ION_IOC_CLEAN_INV_CACHES);
@@ -912,7 +921,7 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 				ION_IOC_INV_CACHES);
 	if (ret) {
 		pr_err("qseecom_scm_call failed with err: %d\n", ret);
-		return ret;
+		goto exit_reset_sdfab_freq;
 	}
 
 	switch (resp.result) {
@@ -935,8 +944,11 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		ret = -EINVAL;
 		break;
 	}
+exit_reset_sdfab_freq:
+	qsee_disable_clock_vote(data, CLK_SFPB);
+exit_reset_dfab_freq:
+	qsee_disable_clock_vote(data, CLK_DFAB);
 	return ret;
-
 }
 
 static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
@@ -2077,7 +2089,7 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 	struct qseecom_command_scm_resp resp;
 
 	/* Copy the relevant information needed for loading the image */
-	if (__copy_from_user(&load_img_req,
+	if (copy_from_user(&load_img_req,
 				(void __user *)argp,
 				sizeof(struct qseecom_load_img_req))) {
 		pr_err("copy_from_user failed\n");
@@ -2239,7 +2251,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	unsigned long flags = 0;
 
 	/* Copy the relevant information needed for loading the image */
-	if (__copy_from_user(&query_req,
+	if (copy_from_user(&query_req,
 				(void __user *)argp,
 				sizeof(struct qseecom_qseos_app_load_query))) {
 		pr_err("copy_from_user failed\n");
@@ -2670,6 +2682,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 	case QSEECOM_IOCTL_REGISTER_LISTENER_REQ: {
 		pr_debug("ioctl register_listener_req()\n");
 		atomic_inc(&data->ioctl_count);
+		data->type = QSEECOM_LISTENER_SERVICE;
 		ret = qseecom_register_listener(data, argp);
 		atomic_dec(&data->ioctl_count);
 		wake_up_all(&data->abort_wq);
@@ -2730,6 +2743,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_SET_MEM_PARAM_REQ: {
+		data->type = QSEECOM_CLIENT_APP;
+		pr_debug("SET_MEM_PARAM: qseecom addr = 0x%x\n", (u32)data);
 		ret = qseecom_set_client_mem_param(data, argp);
 		if (ret)
 			pr_err("failed Qqseecom_set_mem_param request: %d\n",
@@ -2737,6 +2752,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_LOAD_APP_REQ: {
+		data->type = QSEECOM_CLIENT_APP;
+		pr_debug("LOAD_APP_REQ: qseecom_addr = 0x%x\n", (u32)data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		if (qseecom.qsee_version > QSEEE_VERSION_00) {
@@ -2755,6 +2772,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_UNLOAD_APP_REQ: {
+		pr_debug("UNLOAD_APP: qseecom_addr = 0x%x\n", (u32)data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_unload_app(data);
@@ -2791,6 +2809,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ: {
+		data->type = QSEECOM_UNAVAILABLE_CLIENT_APP;
 		data->released = true;
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
@@ -2813,14 +2832,17 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_APP_LOADED_QUERY_REQ: {
+		data->type = QSEECOM_CLIENT_APP;
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
+		pr_debug("APP_LOAD_QUERY: qseecom_addr = 0x%x\n", (u32)data);
 		ret = qseecom_query_app_loaded(data, argp);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		break;
 	}
 	case QSEECOM_IOCTL_SEND_CMD_SERVICE_REQ: {
+		data->type = QSEECOM_SECURE_SERVICE;
 		if (qseecom.qsee_version < QSEE_VERSION_03) {
 			pr_err("SEND_CMD_SERVICE_REQ: Invalid qsee version %u\n",
 				qseecom.qsee_version);
@@ -2936,7 +2958,8 @@ static int qseecom_release(struct inode *inode, struct file *file)
 	int ret = 0;
 
 	if (data->released == false) {
-		pr_warn("data->released == false\n");
+		pr_warn("data: released = false, type = %d, data = 0x%x\n",
+			data->type, (u32)data);
 		switch (data->type) {
 		case QSEECOM_LISTENER_SERVICE:
 			ret = qseecom_unregister_listener(data);
@@ -2947,10 +2970,8 @@ static int qseecom_release(struct inode *inode, struct file *file)
 		case QSEECOM_SECURE_SERVICE:
 		case QSEECOM_GENERIC:
 			ret = qseecom_unmap_ion_allocated_memory(data);
-			if (ret) {
+			if (ret)
 				pr_err("Close failed\n");
-				return ret;
-			}
 			break;
 		case QSEECOM_UNAVAILABLE_CLIENT_APP:
 			break;
@@ -3269,9 +3290,10 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 			}
 			rc = scm_call(SCM_SVC_TZSCHEDULER, 1, &req, sizeof(req),
 							&resp, sizeof(resp));
-			if (rc) {
-				pr_err("Failed to send secapp region info %d\n",
-									rc);
+			if (rc || (resp.result != QSEOS_RESULT_SUCCESS)) {
+				pr_err("send secapp reg fail %d resp.res %d\n",
+							rc, resp.result);
+				rc = -EINVAL;
 				goto err;
 			}
 		}

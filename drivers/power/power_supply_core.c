@@ -98,6 +98,23 @@ int power_supply_set_online(struct power_supply *psy, bool enable)
 }
 EXPORT_SYMBOL_GPL(power_supply_set_online);
 
+
+/** power_supply_set_health_state - set health state of the power supply
+ * @psy:       the power supply to control
+ * @health:    sets health property of power supply
+ */
+int power_supply_set_health_state(struct power_supply *psy, int health)
+{
+	const union power_supply_propval ret = {health,};
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_HEALTH,
+		&ret);
+	return -ENXIO;
+}
+EXPORT_SYMBOL(power_supply_set_health_state);
+
+
 /**
  * power_supply_set_scope - set scope of the power supply
  * @psy:	the power supply to control

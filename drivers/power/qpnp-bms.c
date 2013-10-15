@@ -80,8 +80,7 @@
 
 /* Configuration for saving of shutdown soc/iavg */
 #define IGNORE_SOC_TEMP_DECIDEG		50
-#define IAVG_STEP_SIZE_MA		50
-#define IAVG_START			600
+#define IAVG_STEP_SIZE_MA		10
 #define IAVG_INVALID			0xFF
 #define SOC_INVALID			0x7E
 
@@ -1234,7 +1233,6 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 }
 
 #define MIN_IAVG_MA 250
-#define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 					struct soc_params *params,
 					int batt_temp)
@@ -1258,17 +1256,19 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 		chip->iavg_num_samples = IAVG_SAMPLES;
 	}
 
-	/*
-	 * if charging use a nominal avg current to keep
-	 * a reasonable UUC while charging
-	 */
-	if (uuc_iavg_ma < MIN_IAVG_MA)
-		uuc_iavg_ma = MIN_IAVG_MA;
-	chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
-	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
-	chip->iavg_num_samples++;
-	if (chip->iavg_num_samples >= IAVG_SAMPLES)
-		chip->iavg_num_samples = IAVG_SAMPLES;
+	if (params->delta_time_s >= IAVG_MINIMAL_TIME) {
+		/*
+		* if charging use a nominal avg current to keep
+		* a reasonable UUC while charging
+		*/
+		if (uuc_iavg_ma < MIN_IAVG_MA)
+			uuc_iavg_ma = MIN_IAVG_MA;
+		chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
+		chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
+		chip->iavg_num_samples++;
+		if (chip->iavg_num_samples >= IAVG_SAMPLES)
+			chip->iavg_num_samples = IAVG_SAMPLES;
+	}
 
 	/* now that this sample is added calcualte the average */
 	uuc_iavg_ma = 0;
@@ -1299,7 +1299,6 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	uuc_uah_iavg = adjust_uuc(chip, params, pc_unusable,
 					uuc_uah_iavg, batt_temp);
 
-	chip->first_time_calc_uuc = 0;
 	return uuc_uah_iavg;
 }
 
@@ -1608,8 +1607,8 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 	int rc;
 	int iavg_ma = chip->prev_uuc_iavg_ma;
 
-	if (iavg_ma > IAVG_START)
-		temp = (iavg_ma - IAVG_START) / IAVG_STEP_SIZE_MA;
+	if (iavg_ma > MIN_IAVG_MA)
+		temp = (iavg_ma - MIN_IAVG_MA) / IAVG_STEP_SIZE_MA;
 	else
 		temp = 0;
 
@@ -2333,6 +2332,7 @@ done_calculating:
 
 	get_current_time(&chip->last_recalc_time);
 	chip->first_time_calc_soc = 0;
+	chip->first_time_calc_uuc = 0;
 	return chip->calculated_soc;
 }
 
@@ -3293,17 +3293,17 @@ static int read_shutdown_iavg_ma(struct qpnp_bms_chip *chip)
 	if (rc) {
 		pr_err("failed to read addr = %d %d assuming %d\n",
 				chip->base + IAVG_STORAGE_REG, rc,
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else if (iavg == IAVG_INVALID) {
 		pr_err("invalid iavg read from BMS1_DATA_REG_1, using %d\n",
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else {
 		if (iavg == 0)
-			return IAVG_START;
+			return MIN_IAVG_MA;
 		else
-			return IAVG_START + IAVG_STEP_SIZE_MA * (iavg + 1);
+			return MIN_IAVG_MA + IAVG_STEP_SIZE_MA * iavg;
 	}
 }
 

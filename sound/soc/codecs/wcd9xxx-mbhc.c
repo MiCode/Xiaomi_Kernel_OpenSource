@@ -2850,6 +2850,10 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 		/* cancel detect plug */
 		wcd9xxx_cancel_hs_detect_plug(mbhc,
 					      &mbhc->correct_plug_swch);
+		if ((mbhc->current_plug != PLUG_TYPE_NONE) &&
+		    !(snd_soc_read(codec, WCD9XXX_A_MBHC_INSERT_DETECT) &
+				   (1 << 1)))
+			goto exit;
 
 		/* Disable Mic Bias pull down and HPH Switch to GND */
 		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 0x01,
@@ -2902,7 +2906,7 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 			wcd9xxx_turn_onoff_override(mbhc, false);
 		}
 	}
-
+exit:
 	mbhc->in_swch_irq_handler = false;
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 	pr_debug("%s: leave\n", __func__);

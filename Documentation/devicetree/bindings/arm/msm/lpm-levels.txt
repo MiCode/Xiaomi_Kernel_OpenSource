@@ -20,6 +20,7 @@ The required nodes for lpm-levels are:
 		"pc_no_xo_shutdown" - Power Collapse with no XO shutdown
 - qcom,l2: The state of L2 cache. Values are:
 		"l2_cache_pc" - L2 cache in power collapse
+		"l2_cache_pc_no_rpm" - L2 cache in power collapse. This mode wouldn't inform the RPM
 		"l2_cache_retenetion" - L2 cache in retention
 		"l2_cache_gdhs" - L2 cache in GDHS
 		"l2_cache_active" - L2 cache in active mode

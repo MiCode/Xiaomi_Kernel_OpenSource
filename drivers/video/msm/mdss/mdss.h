@@ -68,6 +68,7 @@ struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
+	struct regulator *vdd_cx;
 	u32 max_mdp_clk_rate;
 
 	struct platform_device *pdev;
