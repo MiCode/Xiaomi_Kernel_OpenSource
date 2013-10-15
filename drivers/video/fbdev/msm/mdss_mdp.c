@@ -1944,6 +1944,24 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 	return rc;
 }
 
+static void mdss_mdp_parse_dt_fudge_factors(struct platform_device *pdev,
+	char *prop_name, struct mdss_fudge_factor *ff)
+{
+	int rc;
+	u32 data[2] = {0, 0};
+
+	ff->numer = 1;
+	ff->denom = 1;
+
+	rc = mdss_mdp_parse_dt_handler(pdev, prop_name, data, 2);
+	if (rc) {
+		pr_debug("err reading %s\n", prop_name);
+	} else {
+		ff->numer = data[0];
+		ff->denom = data[1];
+	}
+}
+
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -1967,6 +1985,15 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		 "qcom,mdss-highest-bank-bit", &(mdata->highest_bank_bit));
 	if (rc)
 		pr_debug("Could not read optional property: highest bank bit\n");
+
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-ab-factor",
+		&mdata->ab_factor);
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-ib-factor",
+		&mdata->ib_factor);
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-high-ib-factor",
+		&mdata->high_ib_factor);
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-clk-factor",
+		&mdata->clk_factor);
 
 	return 0;
 }
