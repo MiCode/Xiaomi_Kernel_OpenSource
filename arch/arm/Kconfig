@@ -1852,13 +1852,36 @@ config ARCH_MEMORY_REMOVE
 config ENABLE_DMM
 	def_bool n
 
+choice
+	prompt "Virtual Memory Reclaim"
+	default NO_VM_RECLAIM
+	help
+	  Select the method of reclaiming virtual memory
+
 config DONT_MAP_HOLE_AFTER_MEMBANK0
-	def_bool n
-	depends on ENABLE_VMALLOC_SAVING=n
+	bool "Map around the largest hole"
+	help
+	  Do not map the memory belonging to the largest hole
+	  into the virtual space. This results in more lowmem.
+	  If multiple holes are present, only the largest hole
+	  in the first 256MB of memory is not mapped.
 
 config ENABLE_VMALLOC_SAVING
-	def_bool n
-	depends on DONT_MAP_HOLE_AFTER_MEMBANK0=n
+	bool "Reclaim memory for each subsystem"
+	help
+	  Enable this config to reclaim the virtual space belonging
+	  to any subsystem which is expected to have a lifetime of
+	  the entire system. This feature allows lowmem to be non-
+	  contiguous.
+
+config NO_VM_RECLAIM
+	bool "Do not reclaim memory"
+	help
+	  Do not reclaim any memory. This might result in less lowmem
+	  and wasting virtual memory space which could otherwise be
+	  reclaimed by using any of the other two config options.
+
+endchoice
 
 config HOLES_IN_ZONE
 	def_bool n
