@@ -4527,6 +4527,12 @@ disable_clks:
 			goto set_link_active;
 	}
 
+	if (hba->vops && hba->vops->setup_clocks) {
+		ret = hba->vops->setup_clocks(hba, false);
+		if (ret)
+			goto vops_resume;
+	}
+
 	if (!ufshcd_is_link_active(hba))
 		ufshcd_setup_clocks(hba, false);
 	else
@@ -4540,6 +4546,9 @@ disable_clks:
 	ufshcd_disable_irq(hba);
 	goto out;
 
+vops_resume:
+	if (hba->vops && hba->vops->resume)
+		hba->vops->resume(hba, pm_op);
 set_link_active:
 	if (ufshcd_is_ufs_dev_poweroff(hba))
 		ufshcd_setup_vreg(hba, true);
@@ -4579,6 +4588,12 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ret)
 		goto out;
 
+	if (hba->vops && hba->vops->setup_clocks) {
+		ret = hba->vops->setup_clocks(hba, true);
+		if (ret)
+			goto disable_clks;
+	}
+
 	/* enable the host irq as host controller would be active soon */
 	ufshcd_enable_irq(hba);
 
@@ -4589,7 +4604,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
 
 	if (ret)
-		goto disable_irq_and_clks;
+		goto disable_irq_and_vops_clks;
 
 	/*
 	 * Call vendor specific resume callback. As these callbacks may access
@@ -4637,8 +4652,11 @@ disable_vreg:
 		ufshcd_setup_vreg(hba, false);
 	else if (ufshcd_is_ufs_dev_sleep(hba))
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
-disable_irq_and_clks:
+disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
+	if (hba->vops && hba->vops->setup_clocks)
+		ret = hba->vops->setup_clocks(hba, false);
+disable_clks:
 	ufshcd_setup_clocks(hba, false);
 out:
 	hba->pm_op_in_progress = 0;
