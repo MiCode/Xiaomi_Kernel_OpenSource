@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,42 +20,64 @@
 
 	qcom,csiphy@fda00c00 {
 		cell-index = <0>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v2.2", "qcom,csiphy";
 		reg = <0xfda00c00 0x1f4>;
 		reg-names = "csiphy";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
+		qcom,clock-names = "csiphy_timer_src_clk",
+			"csiphy_timer_clk", "csi_ahb_clk";
+		qcom,clock-rates = <200000000 0 0>;
 	};
 
 	qcom,csiphy@fda01000 {
 		cell-index = <1>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v2.2", "qcom,csiphy";
 		reg = <0xfda01000 0x1f4>;
 		reg-names = "csiphy";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
+		qcom,clock-names = "csiphy_timer_src_clk",
+			"csiphy_timer_clk", "csi_ahb_clk";
+		qcom,clock-rates = <200000000 0 0>;
 	};
 
 	qcom,csid@fda00000 {
 		cell-index = <0>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v2.2", "qcom,csid";
 		reg = <0xfda00000 0x100>;
 		reg-names = "csid";
 		interrupts = <0 50 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
+		qcom,clock-names = "csi_ahb_clk", "csi_src_clk",
+			"csi_clk", "csi0phy_mux_clk", "csi1phy_mux_clk",
+			"csi0pix_mux_clk", "csi0rdi_mux_clk",
+			"csi1rdi_mux_clk", "csi2rdi_mux_clk",
+			"csi_phy_src_clk", "csi_phy_src_clk",
+			"csi_pix_src_clk", "csi_rdi_src_clk",
+			"csi_rdi_src_clk", "csi_rdi_src_clk";
+		qcom,clock-rates = <0 200000000 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 	};
 
 	qcom,csid@fda00400 {
 		cell-index = <1>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v2.2", "qcom,csid";
 		reg = <0xfda00400 0x100>;
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
+		qcom,clock-names = "csi_ahb_clk", "csi_src_clk",
+			"csi_clk", "csi0phy_mux_clk", "csi1phy_mux_clk",
+			"csi0pix_mux_clk", "csi0rdi_mux_clk",
+			"csi1rdi_mux_clk", "csi2rdi_mux_clk",
+			"csi_phy_src_clk", "csi_phy_src_clk",
+			"csi_pix_src_clk", "csi_rdi_src_clk",
+			"csi_rdi_src_clk", "csi_rdi_src_clk";
+		qcom,clock-rates = <0 200000000 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 	};
 
 	qcom,ispif@fda00800 {

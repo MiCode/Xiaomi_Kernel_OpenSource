@@ -20,76 +20,104 @@
 
 	qcom,csiphy@fda0ac00 {
 		cell-index = <0>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0ac00 0x200>,
                       <0xfda00030 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
+		qcom,clock-names = "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csiphy_timer_src_clk",
+			"csiphy_timer_clk";
+		qcom,clock-rates = <0 0 200000000 0>;
 	};
 
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0b000 0x200>,
                       <0xfda00038 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
+		qcom,clock-names = "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csiphy_timer_src_clk",
+			"csiphy_timer_clk";
+		qcom,clock-rates = <0 0 200000000 0>;
 	};
 
 	qcom,csiphy@fda0b400 {
 		cell-index = <2>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0b400 0x200>,
                       <0xfda00040 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
+		qcom,clock-names = "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csiphy_timer_src_clk",
+			"csiphy_timer_clk";
+		qcom,clock-rates = <0 0 200000000 0>;
 	};
 
 	qcom,csid@fda08000  {
 		cell-index = <0>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08000 0x100>;
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
+		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+			"csi_ahb_clk", "csi_src_clk", "csi_clk",
+			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
 	};
 
 	qcom,csid@fda08400 {
 		cell-index = <1>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08400 0x100>;
 		reg-names = "csid";
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
+		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+			"csi_ahb_clk", "csi_src_clk", "csi_clk",
+			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
 	};
 
 	qcom,csid@fda08800 {
 		cell-index = <2>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08800 0x100>;
 		reg-names = "csid";
 		interrupts = <0 53 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
+		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+			"csi_ahb_clk", "csi_src_clk", "csi_clk",
+			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
 	};
 
 	qcom,csid@fda08C00 {
 		cell-index = <3>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08C00 0x100>;
 		reg-names = "csid";
 		interrupts = <0 54 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
+		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+			"csi_ahb_clk", "csi_src_clk", "csi_clk",
+			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
 	};
 
 	qcom,ispif@fda0A000 {

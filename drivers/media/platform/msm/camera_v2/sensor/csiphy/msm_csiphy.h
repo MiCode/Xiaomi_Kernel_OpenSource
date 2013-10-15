@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,39 @@
 
 #define MAX_CSIPHY 3
 
+struct csiphy_reg_parms_t {
+/*MIPI CSI PHY registers*/
+	uint32_t mipi_csiphy_lnn_cfg1_addr;
+	uint32_t mipi_csiphy_lnn_cfg2_addr;
+	uint32_t mipi_csiphy_lnn_cfg3_addr;
+	uint32_t mipi_csiphy_lnn_cfg4_addr;
+	uint32_t mipi_csiphy_lnn_cfg5_addr;
+	uint32_t mipi_csiphy_lnck_cfg1_addr;
+	uint32_t mipi_csiphy_lnck_cfg2_addr;
+	uint32_t mipi_csiphy_lnck_cfg3_addr;
+	uint32_t mipi_csiphy_lnck_cfg4_addr;
+	uint32_t mipi_csiphy_lnck_cfg5_addr;
+	uint32_t mipi_csiphy_lnck_misc1_addr;
+	uint32_t mipi_csiphy_glbl_reset_addr;
+	uint32_t mipi_csiphy_glbl_pwr_cfg_addr;
+	uint32_t mipi_csiphy_glbl_irq_cmd_addr;
+	uint32_t mipi_csiphy_hw_version_addr;
+	uint32_t mipi_csiphy_interrupt_status0_addr;
+	uint32_t mipi_csiphy_interrupt_mask0_addr;
+	uint32_t mipi_csiphy_interrupt_mask_val;
+	uint32_t mipi_csiphy_interrupt_mask_addr;
+	uint32_t mipi_csiphy_interrupt_clear0_addr;
+	uint32_t mipi_csiphy_interrupt_clear_addr;
+	uint32_t mipi_csiphy_mode_config_shift;
+	uint32_t mipi_csiphy_glbl_t_init_cfg0_addr;
+	uint32_t mipi_csiphy_t_wakeup_cfg0_addr;
+	uint32_t csiphy_version;
+};
+
+struct csiphy_ctrl_t {
+	struct csiphy_reg_parms_t csiphy_reg;
+};
+
 enum msm_csiphy_state_t {
 	CSIPHY_POWER_UP,
 	CSIPHY_POWER_DOWN,
@@ -40,7 +73,10 @@ struct csiphy_device {
 	void __iomem *clk_mux_base;
 	struct mutex mutex;
 	uint32_t hw_version;
+	uint32_t hw_dts_version;
 	enum msm_csiphy_state_t csiphy_state;
+	struct csiphy_ctrl_t *ctrl_reg;
+	uint32_t num_clk;
 
 	struct clk *csiphy_clk[8];
 

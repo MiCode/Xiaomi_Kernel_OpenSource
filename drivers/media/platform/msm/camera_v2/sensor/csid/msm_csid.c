@@ -15,15 +15,21 @@
 #include <linux/of.h>
 #include <linux/irqreturn.h>
 #include "msm_csid.h"
-#include "msm_csid_hwreg.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
+#include "include/msm_csid_2_0_hwreg.h"
+#include "include/msm_csid_2_2_hwreg.h"
+#include "include/msm_csid_3_0_hwreg.h"
+#include "include/msm_csid_3_1_hwreg.h"
+#include "include/msm_csid_3_2_hwreg.h"
 
 #define V4L2_IDENT_CSID                            50002
 #define CSID_VERSION_V20                      0x02000011
 #define CSID_VERSION_V22                      0x02001000
 #define CSID_VERSION_V30                      0x30000000
 #define CSID_VERSION_V31                      0x30010000
+#define CSID_VERSION_V31_1                    0x30010001
+#define CSID_VERSION_V32                      0x30020000
 #define CSID_VERSION_V40                      0x40000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
@@ -32,16 +38,28 @@
 #define TRUE   1
 #define FALSE  0
 
+#define CSID_NUM_CLK_MAX  16
+
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
 #else
 #define CDBG(fmt, args...) do { } while (0)
 #endif
+static struct msm_cam_clk_info csid_clk_info[CSID_NUM_CLK_MAX];
+static struct msm_cam_clk_info csid_clk_src_info[CSID_NUM_CLK_MAX];
+
+static struct camera_vreg_t csid_vreg_info[] = {
+	{"qcom,mipi-csi-vdd", REG_LDO, 0, 0, 12000},
+};
+
+static struct camera_vreg_t csid_8960_vreg_info[] = {
+	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
+};
 
 static int msm_csid_cid_lut(
 	struct msm_camera_csid_lut_params *csid_lut_params,
-	void __iomem *csidbase)
+	struct csid_device *csid_dev)
 {
 	int rc = 0, i = 0;
 	uint32_t val = 0;
@@ -64,39 +82,46 @@ static int msm_csid_cid_lut(
 				 __func__, csid_lut_params->vc_cfg[i]->dt);
 			return rc;
 		}
-		val = msm_camera_io_r(csidbase + CSID_CID_LUT_VC_0_ADDR +
+		val = msm_camera_io_r(csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_cid_lut_vc_0_addr +
 			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4)
 			& ~(0xFF << ((csid_lut_params->vc_cfg[i]->cid % 4) *
 			8));
 		val |= (csid_lut_params->vc_cfg[i]->dt <<
 			((csid_lut_params->vc_cfg[i]->cid % 4) * 8));
-		msm_camera_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
+		msm_camera_io_w(val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_cid_lut_vc_0_addr +
 			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4);
 
 		val = (csid_lut_params->vc_cfg[i]->decode_format << 4) | 0x3;
-		msm_camera_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
+		msm_camera_io_w(val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_cid_n_cfg_addr +
 			(csid_lut_params->vc_cfg[i]->cid * 4));
 	}
 	return rc;
 }
 
 #if DBG_CSID
-static void msm_csid_set_debug_reg(void __iomem *csidbase,
+static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params)
 {
 	uint32_t val = 0;
 	val = ((1 << csid_params->lane_cnt) - 1) << 20;
-	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_MASK_ADDR);
-	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
+	msm_camera_io_w(0x7f010800 | val, csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+	msm_camera_io_w(0x7f010800 | val, csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 }
 #else
-static void msm_csid_set_debug_reg(void __iomem *csidbase,
+static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params) {}
 #endif
 
 static void msm_csid_reset(struct csid_device *csid_dev)
 {
-	msm_camera_io_w(CSID_RST_STB_ALL, csid_dev->base + CSID_RST_CMD_ADDR);
+	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
+		csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
 	wait_for_completion_interruptible(&csid_dev->reset_complete);
 	return;
 }
@@ -124,22 +149,27 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	msm_csid_reset(csid_dev);
 
 	val = csid_params->lane_cnt - 1;
-	val |= csid_params->lane_assign << CSID_DL_INPUT_SEL_SHIFT;
+	val |= csid_params->lane_assign <<
+		csid_dev->ctrl_reg->csid_reg.csid_dl_input_sel_shift;
 	if (csid_dev->hw_version < 0x30000000) {
 		val |= (0xF << 10);
-		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_0_ADDR);
+		msm_camera_io_w(val, csidbase +
+		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
 	} else {
-		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_0_ADDR);
-		val = csid_params->phy_sel << CSID_PHY_SEL_SHIFT;
+		msm_camera_io_w(val, csidbase +
+		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+		val = csid_params->phy_sel <<
+			csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift;
 		val |= 0xF;
-		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_1_ADDR);
+		msm_camera_io_w(val, csidbase +
+		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr);
 	}
 
-	rc = msm_csid_cid_lut(&csid_params->lut_params, csidbase);
+	rc = msm_csid_cid_lut(&csid_params->lut_params, csid_dev);
 	if (rc < 0)
 		return rc;
 
-	msm_csid_set_debug_reg(csidbase, csid_params);
+	msm_csid_set_debug_reg(csid_dev, csid_params);
 	return rc;
 }
 
@@ -154,12 +184,15 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
 		return IRQ_HANDLED;
 	}
-	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
+	irq = msm_camera_io_r(csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
 	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
-	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
-			complete(&csid_dev->reset_complete);
-	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
+	if (irq & (0x1 <<
+		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
+		complete(&csid_dev->reset_complete);
+	msm_camera_io_w(irq, csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 	return IRQ_HANDLED;
 }
 
@@ -208,41 +241,55 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		return rc;
 	}
 
-	pr_info("%s: CSID_VERSION = 0x%x\n", __func__, CSID_VERSION);
+	pr_info("%s: CSID_VERSION = 0x%x\n", __func__,
+		csid_dev->ctrl_reg->csid_reg.csid_version);
 	/* power up */
-	rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
-		csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
-		NULL, 0, &csid_dev->csi_vdd, 1);
+	if (csid_dev->ctrl_reg->csid_reg.csid_version < CSID_VERSION_V22) {
+		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 1);
+	} else {
+		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 1);
+	}
 	if (rc < 0) {
 		pr_err("%s: regulator on failed\n", __func__);
 		goto vreg_config_failed;
 	}
-	rc = msm_camera_enable_vreg(&csid_dev->pdev->dev,
-		csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
-		NULL, 0, &csid_dev->csi_vdd, 1);
+	if (csid_dev->ctrl_reg->csid_reg.csid_version < CSID_VERSION_V22) {
+		rc = msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 1);
+	} else {
+		rc = msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 1);
+	}
 	if (rc < 0) {
 		pr_err("%s: regulator enable failed\n", __func__);
 		goto vreg_enable_failed;
 	}
 
-	if (CSID_VERSION == CSID_VERSION_V22) {
+	if (csid_dev->ctrl_reg->csid_reg.csid_version == CSID_VERSION_V22)
 		msm_cam_clk_sel_src(&csid_dev->pdev->dev,
 			&csid_clk_info[3], csid_clk_src_info,
-			ARRAY_SIZE(csid_clk_src_info));
-	}
+			csid_dev->num_clk_src_info);
+
 
 	rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
 			csid_clk_info, csid_dev->csid_clk,
-			ARRAY_SIZE(csid_clk_info), 1);
+			csid_dev->num_clk, 1);
 	if (rc < 0) {
 		pr_err("%s:%d clock enable failed\n",
 			 __func__, __LINE__);
 		goto clk_enable_failed;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
-		csid_dev->hw_version =
-	msm_camera_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
-	CDBG("%s:%d called csid_dev->hw_version 0x%x\n", __func__, __LINE__,
+	csid_dev->hw_version =
+		msm_camera_io_r(csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_hw_version_addr);
+	CDBG("%s:%d called csid_dev->hw_version %x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 	*csid_version = csid_dev->hw_version;
 
@@ -255,13 +302,25 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	return rc;
 
 clk_enable_failed:
+	if (csid_dev->ctrl_reg->csid_reg.csid_version < CSID_VERSION_V22) {
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
+	}
 vreg_enable_failed:
+	if (csid_dev->ctrl_reg->csid_reg.csid_version < CSID_VERSION_V22) {
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else {
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
+	}
 vreg_config_failed:
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
@@ -281,22 +340,67 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	CDBG("%s:%d, hw_version = 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 
-	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
-	msm_camera_io_w(0, csid_dev->base + CSID_IRQ_MASK_ADDR);
+	irq = msm_camera_io_r(csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
+	msm_camera_io_w(irq, csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+	msm_camera_io_w(0, csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
 
 	disable_irq(csid_dev->irq->start);
 
-	msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
-		csid_dev->csid_clk, ARRAY_SIZE(csid_clk_info), 0);
+	if (csid_dev->hw_version == CSID_VERSION_V20) {
+		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
+			csid_dev->csid_clk, csid_dev->num_clk, 0);
 
-	msm_camera_enable_vreg(&csid_dev->pdev->dev,
-		csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
-		NULL, 0, &csid_dev->csi_vdd, 0);
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
 
-	msm_camera_config_vreg(&csid_dev->pdev->dev,
-		csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
-		NULL, 0, &csid_dev->csi_vdd, 0);
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else if (csid_dev->hw_version == CSID_VERSION_V22) {
+		msm_cam_clk_enable(&csid_dev->pdev->dev,
+			csid_clk_info,
+			csid_dev->csid_clk,
+			csid_dev->num_clk, 0);
+
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else if ((csid_dev->hw_version >= CSID_VERSION_V30 &&
+		csid_dev->hw_version < CSID_VERSION_V31) ||
+		(csid_dev->hw_version == CSID_VERSION_V40) ||
+		(csid_dev->hw_version == CSID_VERSION_V31_1)) {
+		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
+			csid_dev->csid_clk, csid_dev->num_clk, 0);
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else if ((csid_dev->hw_version == CSID_VERSION_V31) ||
+		(csid_dev->hw_version == CSID_VERSION_V32))	{
+		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
+			csid_dev->csid_clk, csid_dev->num_clk, 0);
+		msm_camera_enable_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+
+		msm_camera_config_vreg(&csid_dev->pdev->dev,
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
+			NULL, 0, &csid_dev->csi_vdd, 0);
+	} else {
+		pr_err("%s:%d, invalid hw version : 0x%x", __func__, __LINE__,
+			csid_dev->hw_version);
+		return -EINVAL;
+	}
 
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
@@ -429,6 +533,121 @@ static const struct v4l2_subdev_ops msm_csid_subdev_ops = {
 	.core = &msm_csid_subdev_core_ops,
 };
 
+static int msm_csid_get_clk_info(struct csid_device *csid_dev,
+	struct platform_device *pdev)
+{
+	uint32_t count;
+	uint32_t cnt = 0;
+	int i, rc;
+	int ii = 0;
+	uint32_t rates[CSID_NUM_CLK_MAX];
+	const char *clock_name;
+	struct device_node *of_node;
+	of_node = pdev->dev.of_node;
+
+	count = of_property_count_strings(of_node, "qcom,clock-names");
+	csid_dev->num_clk = count;
+
+	CDBG("%s: count = %d\n", __func__, count);
+	if (count == 0) {
+		pr_err("%s: no clocks found in device tree, count=%d",
+			__func__, count);
+		return -EINVAL;
+	}
+
+	if (count > CSID_NUM_CLK_MAX) {
+		pr_err("%s: invalid count=%d, max is %d\n", __func__,
+			count, CSID_NUM_CLK_MAX);
+		return -EINVAL;
+	}
+
+	if (csid_dev->hw_dts_version == CSID_VERSION_V22) {
+		cnt = count;
+		count = 0;
+		CDBG("%s: cnt = %d\n", __func__, cnt);
+		if (cnt == 0) {
+			pr_err("%s: no clocks found in device tree, cnt=%d",
+				__func__, cnt);
+			return -EINVAL;
+		}
+
+		if (cnt > CSID_NUM_CLK_MAX) {
+			pr_err("%s: invalid cnt=%d, max is %d\n", __func__,
+				cnt, CSID_NUM_CLK_MAX);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < cnt; i++) {
+			count++;
+			rc = of_property_read_string_index(of_node,
+				"qcom,clock-names", i, &clock_name);
+			CDBG("%s: clock_names[%d] = %s\n", __func__,
+				i, clock_name);
+			if (rc < 0) {
+				pr_err("%s:%d, failed\n", __func__, __LINE__);
+				return rc;
+			}
+			if (strcmp(clock_name, "csi_phy_src_clk") == 0)
+				break;
+		}
+		csid_dev->num_clk = count;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+				i, &(csid_clk_info[i].clk_name));
+		CDBG("%s: clock-names[%d] = %s\n", __func__,
+			i, csid_clk_info[i].clk_name);
+		if (rc < 0) {
+			pr_err("%s:%d, failed\n", __func__, __LINE__);
+			return rc;
+		}
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s:%d, failed", __func__, __LINE__);
+		return rc;
+	}
+	for (i = 0; i < count; i++) {
+		csid_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
+			csid_clk_info[i].clk_rate);
+	}
+
+	if (csid_dev->hw_dts_version == CSID_VERSION_V22) {
+		csid_dev->num_clk_src_info = cnt - count;
+		CDBG("%s: count = %d\n", __func__, (cnt - count));
+
+		for (i = count; i < cnt; i++) {
+			ii++;
+			rc = of_property_read_string_index(of_node,
+				"qcom,clock-names", i,
+				&(csid_clk_src_info[ii].clk_name));
+			CDBG("%s: clock-names[%d] = %s\n", __func__,
+				ii, csid_clk_src_info[ii].clk_name);
+			if (rc < 0) {
+				pr_err("%s:%d, failed\n", __func__, __LINE__);
+				return rc;
+			}
+		}
+		ii = 0;
+		rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+			rates, cnt);
+		if (rc < 0) {
+			pr_err("%s:%d, failed", __func__, __LINE__);
+			return rc;
+		}
+		for (i = count; i < cnt; i++) {
+			ii++;
+			csid_clk_src_info[ii].clk_rate = rates[i];
+			CDBG("%s: clk_rate[%d] = %ld\n", __func__, ii,
+			csid_clk_src_info[ii].clk_rate);
+		}
+	}
+	return 0;
+}
+
 static int csid_probe(struct platform_device *pdev)
 {
 	struct csid_device *new_csid_dev;
@@ -437,6 +656,14 @@ static int csid_probe(struct platform_device *pdev)
 	new_csid_dev = kzalloc(sizeof(struct csid_device), GFP_KERNEL);
 	if (!new_csid_dev) {
 		pr_err("%s: no enough memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	new_csid_dev->ctrl_reg = NULL;
+	new_csid_dev->ctrl_reg = kzalloc(sizeof(struct csid_ctrl_t),
+		GFP_KERNEL);
+	if (!new_csid_dev->ctrl_reg) {
+		pr_err("%s:%d kzalloc failed\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -468,6 +695,13 @@ static int csid_probe(struct platform_device *pdev)
 		csid_vreg_info[0].min_voltage = csi_vdd_voltage;
 		csid_vreg_info[0].max_voltage = csi_vdd_voltage;
 	}
+
+	rc = msm_csid_get_clk_info(new_csid_dev, pdev);
+	if (rc < 0) {
+		pr_err("%s: msm_csid_get_clk_info() failed", __func__);
+		return -EFAULT;
+	}
+
 
 	new_csid_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "csid");
@@ -519,11 +753,42 @@ static int csid_probe(struct platform_device *pdev)
 		goto csid_no_resource;
 	}
 
+	if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v2.0")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v2_0;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V20;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v2.2")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v2_2;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V22;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.0")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_0;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V30;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v4.0")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_0;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V40;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.1")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_1;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V31;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.2")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_2;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V32;
+	} else {
+		pr_err("%s:%d, invalid hw version : 0x%x", __func__, __LINE__,
+		new_csid_dev->hw_dts_version);
+		return -EINVAL;
+	}
+
 	new_csid_dev->csid_state = CSID_POWER_DOWN;
 	return 0;
 
 csid_no_resource:
 	mutex_destroy(&new_csid_dev->mutex);
+	kfree(new_csid_dev->ctrl_reg);
 	kfree(new_csid_dev);
 	return 0;
 }
