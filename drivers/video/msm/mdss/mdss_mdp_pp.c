@@ -3486,12 +3486,22 @@ int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
 int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 						u32 *copyback)
 {
-	int ret = -1;
-	int counter = cfg->size / (sizeof(uint32_t) * 2);
+	int ret = -1, counter;
 	uint32_t *buff = NULL, *buff_org = NULL;
 	void *ptr;
 	int i = 0;
 
+	if (!cfg) {
+		pr_err("Invalid buffer pointer");
+		return ret;
+	}
+
+	if (cfg->size == 0) {
+		pr_err("Invalid buffer size");
+		return ret;
+	}
+
+	counter = cfg->size / (sizeof(uint32_t) * 2);
 	buff_org = buff = kzalloc(cfg->size, GFP_KERNEL);
 	if (buff == NULL) {
 		pr_err("Allocation failed");
