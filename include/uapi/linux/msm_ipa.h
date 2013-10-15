@@ -690,12 +690,15 @@ struct ipa_ioc_get_rt_tbl {
  *			valid only when ioctl return val is non-negative
  * @num_ext_props:	output parameter, number of ext properties
  *			valid only when ioctl return val is non-negative
+ * @excp_pipe:		exception packets of this interface should be
+ *			routed to this pipe
  */
 struct ipa_ioc_query_intf {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint32_t num_tx_props;
 	uint32_t num_rx_props;
 	uint32_t num_ext_props;
+	enum ipa_client_type excp_pipe;
 };
 
 /**
