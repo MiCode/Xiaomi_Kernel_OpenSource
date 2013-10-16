@@ -43,6 +43,9 @@ struct mdss_mdp_cmd_ctx {
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
 	struct work_struct clk_work;
+	struct work_struct pp_done_work;
+	atomic_t pp_done_cnt;
+
 	/* te config */
 	u8 tear_check;
 	u16 height;	/* panel height */
@@ -311,6 +314,8 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 	complete_all(&ctx->pp_comp);
 
 	if (ctx->koff_cnt) {
+		atomic_inc(&ctx->pp_done_cnt);
+		schedule_work(&ctx->pp_done_work);
 		ctx->koff_cnt--;
 		if (ctx->koff_cnt) {
 			pr_err("%s: too many kickoffs=%d!\n", __func__,
@@ -324,6 +329,16 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 		ctl->num, ctl->intf_num, ctx->pp_num, ctx->koff_cnt);
 
 	spin_unlock(&ctx->clk_lock);
+}
+
+static void pingpong_done_work(struct work_struct *work)
+{
+	struct mdss_mdp_cmd_ctx *ctx =
+		container_of(work, typeof(*ctx), pp_done_work);
+
+	if (ctx->ctl)
+		while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
+			mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 }
 
 static void clk_ctrl_work(struct work_struct *work)
@@ -448,7 +463,6 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 			rc = -EPERM;
 			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
 		} else {
-			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 			rc = 0;
 		}
 	}
@@ -549,6 +563,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 
 	mdss_mdp_cmd_clk_off(ctx);
 
+	flush_work(&ctx->pp_done_work);
+
 	ctx->panel_on = 0;
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
@@ -615,6 +631,8 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	spin_lock_init(&ctx->clk_lock);
 	mutex_init(&ctx->clk_mtx);
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
+	INIT_WORK(&ctx->pp_done_work, pingpong_done_work);
+	atomic_set(&ctx->pp_done_cnt, 0);
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
 
 	ctx->recovery.fxn = mdss_mdp_cmd_underflow_recovery;
