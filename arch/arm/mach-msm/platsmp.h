@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,5 +19,6 @@ int msm_cpu_kill(unsigned int cpu);
 extern struct smp_operations arm_smp_ops;
 extern struct smp_operations msm8960_smp_ops;
 extern struct smp_operations msm8974_smp_ops;
+extern struct smp_operations msm8962_smp_ops;
 extern struct smp_operations msm8625_smp_ops;
 extern struct smp_operations scorpion_smp_ops;
