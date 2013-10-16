@@ -269,6 +269,7 @@ extern int smsm_post_init(void);
 
 extern struct interrupt_config *smd_get_intr_config(uint32_t edge);
 extern int smd_edge_to_remote_pid(uint32_t edge);
+extern int smd_edge_to_local_pid(uint32_t edge);
 extern void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name);
 extern void smd_reset_all_edge_subsys_name(void);
 extern void smd_set_edge_initialized(uint32_t edge);
