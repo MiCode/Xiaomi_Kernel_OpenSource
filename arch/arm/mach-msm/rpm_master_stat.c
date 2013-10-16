@@ -111,7 +111,7 @@ static int msm_rpm_master_copy_stats(
 		SNPRINTF(buf, count, "%s\n",
 				GET_MASTER_NAME(master_cnt, prvdata));
 
-		record.shutdown_req = readll_relaxed(prvdata->reg_base +
+		record.shutdown_req = readq_relaxed(prvdata->reg_base +
 			(master_cnt * pdata->master_offset +
 			offsetof(struct msm_rpm_master_stats, shutdown_req)));
 
@@ -119,7 +119,7 @@ static int msm_rpm_master_copy_stats(
 			GET_FIELD(record.shutdown_req),
 			record.shutdown_req);
 
-		record.wakeup_ind = readll_relaxed(prvdata->reg_base +
+		record.wakeup_ind = readq_relaxed(prvdata->reg_base +
 			(master_cnt * pdata->master_offset +
 			offsetof(struct msm_rpm_master_stats, wakeup_ind)));
 
@@ -127,7 +127,7 @@ static int msm_rpm_master_copy_stats(
 			GET_FIELD(record.wakeup_ind),
 			record.wakeup_ind);
 
-		record.bringup_req = readll_relaxed(prvdata->reg_base +
+		record.bringup_req = readq_relaxed(prvdata->reg_base +
 			(master_cnt * pdata->master_offset +
 			offsetof(struct msm_rpm_master_stats, bringup_req)));
 
@@ -135,7 +135,7 @@ static int msm_rpm_master_copy_stats(
 			GET_FIELD(record.bringup_req),
 			record.bringup_req);
 
-		record.bringup_ack = readll_relaxed(prvdata->reg_base +
+		record.bringup_ack = readq_relaxed(prvdata->reg_base +
 			(master_cnt * pdata->master_offset +
 			offsetof(struct msm_rpm_master_stats, bringup_ack)));
 

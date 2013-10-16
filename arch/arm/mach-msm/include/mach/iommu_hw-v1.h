@@ -17,21 +17,21 @@
 #define CTX_OFFSET 0x8000
 
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
-#define GET_GLOBAL_REG_L(reg, base) (readll_relaxed((base) + (reg)))
+#define GET_GLOBAL_REG_Q(reg, base) (readq_relaxed((base) + (reg)))
 #define GET_CTX_REG(reg, base, ctx) \
 	(readl_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
-#define GET_CTX_REG_L(reg, base, ctx) \
-	(readll_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
+#define GET_CTX_REG_Q(reg, base, ctx) \
+	(readq_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
 
 #define SET_GLOBAL_REG(reg, base, val)	writel_relaxed((val), ((base) + (reg)))
-#define SET_GLOBAL_REG_L(reg, base, val) \
-	(writell_relaxed((val), ((base) + (reg))))
+#define SET_GLOBAL_REG_Q(reg, base, val) \
+	(writeq_relaxed((val), ((base) + (reg))))
 
 #define SET_CTX_REG(reg, base, ctx, val) \
 	writel_relaxed((val), \
 		((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
-#define SET_CTX_REG_L(reg, base, ctx, val) \
-	writell_relaxed((val), \
+#define SET_CTX_REG_Q(reg, base, ctx, val) \
+	writeq_relaxed((val), \
 		((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
 
 /* Wrappers for numbered registers */
@@ -44,8 +44,8 @@
 #define GET_CONTEXT_FIELD(b, c, r, F) \
 	GET_FIELD(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
 			r##_##F##_MASK, r##_##F##_SHIFT)
-#define GET_CONTEXT_FIELD_L(b, c, r, F) \
-	GET_FIELD_L(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
+#define GET_CONTEXT_FIELD_Q(b, c, r, F) \
+	GET_FIELD_Q(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
 			r##_##F##_MASK, r##_##F##_SHIFT)
 
 #define SET_GLOBAL_FIELD(b, r, F, v) \
@@ -53,8 +53,8 @@
 #define SET_CONTEXT_FIELD(b, c, r, F, v) \
 	SET_FIELD(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
 			r##_##F##_MASK, r##_##F##_SHIFT, (v))
-#define SET_CONTEXT_FIELD_L(b, c, r, F, v) \
-	SET_FIELD_L(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
+#define SET_CONTEXT_FIELD_Q(b, c, r, F, v) \
+	SET_FIELD_Q(((b) + CTX_OFFSET + (r) + ((c) << CTX_SHIFT)), \
 			r##_##F##_MASK, r##_##F##_SHIFT, (v))
 
 /* Wrappers for numbered field registers */
@@ -64,8 +64,8 @@
 	GET_FIELD(((b) + ((n) << 2) + (r)), r##_##F##_MASK, r##_##F##_SHIFT)
 
 #define GET_FIELD(addr, mask, shift) ((readl_relaxed(addr) >> (shift)) & (mask))
-#define GET_FIELD_L(addr, mask, shift) \
-	((readll_relaxed(addr) >> (shift)) & (mask))
+#define GET_FIELD_Q(addr, mask, shift) \
+	((readq_relaxed(addr) >> (shift)) & (mask))
 
 #define SET_FIELD(addr, mask, shift, v) \
 do { \
@@ -74,10 +74,10 @@ do { \
 			(mask)) << (shift)), addr); \
 } while (0)
 
-#define SET_FIELD_L(addr, mask, shift, v) \
+#define SET_FIELD_Q(addr, mask, shift, v) \
 do { \
-	u64 t = readll_relaxed(addr); \
-	writell_relaxed((t & ~(((u64) mask) << (shift))) + (((v) & \
+	u64 t = readq_relaxed(addr); \
+	writeq_relaxed((t & ~(((u64) mask) << (shift))) + (((v) & \
 			((u64) mask)) << (shift)), addr); \
 } while (0)
 
@@ -91,7 +91,7 @@ do { \
 #define SET_IDR1(b, N, v)        SET_GLOBAL_REG(IDR1, (b), (v))
 #define SET_IDR2(b, N, v)        SET_GLOBAL_REG(IDR2, (b), (v))
 #define SET_IDR7(b, N, v)        SET_GLOBAL_REG(IDR7, (b), (v))
-#define SET_GFAR(b, v)           SET_GLOBAL_REG_L(GFAR, (b), (v))
+#define SET_GFAR(b, v)           SET_GLOBAL_REG_Q(GFAR, (b), (v))
 #define SET_GFSR(b, v)           SET_GLOBAL_REG(GFSR, (b), (v))
 #define SET_GFSRRESTORE(b, v)    SET_GLOBAL_REG(GFSRRESTORE, (b), (v))
 #define SET_GFSYNR0(b, v)        SET_GLOBAL_REG(GFSYNR0, (b), (v))
@@ -130,7 +130,7 @@ do { \
 #define GET_IDR1(b, N)           GET_GLOBAL_REG(IDR1, (b))
 #define GET_IDR2(b, N)           GET_GLOBAL_REG(IDR2, (b))
 #define GET_IDR7(b, N)           GET_GLOBAL_REG(IDR7, (b))
-#define GET_GFAR(b)              GET_GLOBAL_REG_L(GFAR, (b))
+#define GET_GFAR(b)              GET_GLOBAL_REG_Q(GFAR, (b))
 #define GET_GFSR(b)              GET_GLOBAL_REG(GFSR, (b))
 #define GET_GFSRRESTORE(b)       GET_GLOBAL_REG(GFSRRESTORE, (b))
 #define GET_GFSYNR0(b)           GET_GLOBAL_REG(GFSYNR0, (b))
@@ -219,10 +219,10 @@ do { \
 #define GET_CONTEXTIDR(b, c)     GET_CTX_REG(CB_CONTEXTIDR, (b), (c))
 #define GET_PRRR(b, c)           GET_CTX_REG(CB_PRRR, (b), (c))
 #define GET_NMRR(b, c)           GET_CTX_REG(CB_NMRR, (b), (c))
-#define GET_PAR(b, c)            GET_CTX_REG_L(CB_PAR, (b), (c))
+#define GET_PAR(b, c)            GET_CTX_REG_Q(CB_PAR, (b), (c))
 #define GET_FSR(b, c)            GET_CTX_REG(CB_FSR, (b), (c))
 #define GET_FSRRESTORE(b, c)     GET_CTX_REG(CB_FSRRESTORE, (b), (c))
-#define GET_FAR(b, c)            GET_CTX_REG_L(CB_FAR, (b), (c))
+#define GET_FAR(b, c)            GET_CTX_REG_Q(CB_FAR, (b), (c))
 #define GET_FSYNR0(b, c)         GET_CTX_REG(CB_FSYNR0, (b), (c))
 #define GET_FSYNR1(b, c)         GET_CTX_REG(CB_FSYNR1, (b), (c))
 #define GET_TLBIVA(b, c)         GET_CTX_REG(CB_TLBIVA, (b), (c))
@@ -919,15 +919,15 @@ do { \
 /* LPAE format */
 
 /* Translation Table Base Register 0: CB_TTBR */
-#define SET_TTBR0(b, c, v)       SET_CTX_REG_L(CB_TTBR0, (b), (c), (v))
-#define SET_TTBR1(b, c, v)       SET_CTX_REG_L(CB_TTBR1, (b), (c), (v))
+#define SET_TTBR0(b, c, v)       SET_CTX_REG_Q(CB_TTBR0, (b), (c), (v))
+#define SET_TTBR1(b, c, v)       SET_CTX_REG_Q(CB_TTBR1, (b), (c), (v))
 
-#define SET_CB_TTBR0_ASID(b, c, v)  SET_CONTEXT_FIELD_L(b, c, CB_TTBR0, ASID, v)
-#define SET_CB_TTBR0_ADDR(b, c, v)  SET_CONTEXT_FIELD_L(b, c, CB_TTBR0, ADDR, v)
+#define SET_CB_TTBR0_ASID(b, c, v)  SET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ASID, v)
+#define SET_CB_TTBR0_ADDR(b, c, v)  SET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ADDR, v)
 
-#define GET_CB_TTBR0_ASID(b, c)     GET_CONTEXT_FIELD_L(b, c, CB_TTBR0, ASID)
-#define GET_CB_TTBR0_ADDR(b, c)     GET_CONTEXT_FIELD_L(b, c, CB_TTBR0, ADDR)
-#define GET_CB_TTBR0(b, c)          GET_CTX_REG_L(CB_TTBR0, (b), (c))
+#define GET_CB_TTBR0_ASID(b, c)     GET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ASID)
+#define GET_CB_TTBR0_ADDR(b, c)     GET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ADDR)
+#define GET_CB_TTBR0(b, c)          GET_CTX_REG_Q(CB_TTBR0, (b), (c))
 
 /* Translation Table Base Control Register: CB_TTBCR */
 #define SET_CB_TTBCR_T0SZ(b, c, v)   SET_CONTEXT_FIELD(b, c, CB_TTBCR, T0SZ, v)
