@@ -2147,7 +2147,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": ipa_hw_type = %d", ipa_drv_res->ipa_hw_type);
 
 	/* Get IPA HW mode */
-	result = of_property_read_u32(pdev->dev.of_node, "ipa-hw-mode",
+	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-mode",
 			&ipa_drv_res->ipa_hw_mode);
 	if (result)
 		IPADBG("using default (IPA_MODE_NORMAL) for ipa-hw-mode\n");
