@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -734,7 +734,7 @@ static long audlpa_process_event_req(struct audio *audio, void __user *arg)
 	struct audlpa_event *drv_evt = NULL;
 	int timeout;
 	unsigned long flags;
-
+	memset(&usr_evt, 0, sizeof(usr_evt));
 	if (copy_from_user(&usr_evt, arg, sizeof(struct msm_audio_event)))
 		return -EFAULT;
 
