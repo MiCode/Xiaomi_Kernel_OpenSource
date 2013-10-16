@@ -2036,6 +2036,9 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc317000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc318000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc343000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc338000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33c000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc360000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "f9011038.hwevent"),
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
@@ -2056,6 +2059,9 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc317000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc318000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc343000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc338000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc33c000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc360000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "f9011038.hwevent"),
 
 	/* Misc rcgs without clients */
