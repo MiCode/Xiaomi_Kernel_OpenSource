@@ -340,7 +340,7 @@ static void __init cpufreq_table_init(void)
 
 	/* Construct the freq_table tables from priv->freq_tbl. */
 	for (i = 0; priv->freq_tbl[i].khz != 0
-			&& freq_cnt < ARRAY_SIZE(freq_table); i++) {
+			&& freq_cnt < ARRAY_SIZE(freq_table) - 1; i++) {
 		if (!priv->freq_tbl[i].use_for_scaling)
 			continue;
 		freq_table[freq_cnt].index = freq_cnt;
