@@ -969,7 +969,7 @@ long diagchar_ioctl(struct file *filp,
 	int retry_count = 0, timer = 0;
 	uint16_t support_list = 0, interim_rsp_id, remote_dev;
 	struct diag_dci_client_tbl *dci_params;
-	struct diag_dci_health_stats stats;
+	struct diag_dci_health_stats_proc stats;
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
 	struct real_time_vote_t rt_vote;
@@ -1030,38 +1030,16 @@ long diagchar_ioctl(struct file *filp,
 		break;
 	case DIAG_IOCTL_DCI_HEALTH_STATS:
 		if (copy_from_user(&stats, (void *)ioarg,
-				 sizeof(struct diag_dci_health_stats)))
+				 sizeof(struct diag_dci_health_stats_proc)))
 			return -EFAULT;
 
-		dci_params = diag_dci_get_client_entry();
-		if (!dci_params) {
-			result = DIAG_DCI_NOT_SUPPORTED;
+		result = diag_dci_copy_health_stats(stats.health,
+						    stats.proc);
+		if (result != DIAG_DCI_NO_ERROR)
 			break;
-		}
-		stats.stats.dropped_logs = 0;
-		stats.stats.dropped_events = 0;
-		stats.stats.received_logs = 0;
-		stats.stats.received_events = 0;
-		for (i = 0; i < NUM_DCI_PROC; i++) {
-			stats.stats.dropped_logs +=
-				dci_params->buffers[i].health.dropped_logs;
-			stats.stats.dropped_events +=
-				dci_params->buffers[i].health.dropped_events;
-			stats.stats.received_logs +=
-				dci_params->buffers[i].health.received_logs;
-			stats.stats.received_events +=
-				dci_params->buffers[i].health.received_events;
-			if (!stats.reset_status)
-				continue;
-			mutex_lock(&dci_params->buffers[i].health_mutex);
-			dci_params->buffers[i].health.dropped_logs = 0;
-			dci_params->buffers[i].health.dropped_events = 0;
-			dci_params->buffers[i].health.received_logs = 0;
-			dci_params->buffers[i].health.received_events = 0;
-			mutex_unlock(&dci_params->buffers[i].health_mutex);
-		}
+
 		if (copy_to_user((void *)ioarg, &stats,
-				   sizeof(struct diag_dci_health_stats)))
+				   sizeof(struct diag_dci_health_stats_proc)))
 			return -EFAULT;
 		result = DIAG_DCI_NO_ERROR;
 		break;
@@ -1421,8 +1399,6 @@ drop:
 		}
 		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 			if (driver->smd_dci[i].ch) {
-				diag_dci_try_deactivate_wakeup_source(
-						driver->smd_dci[i].ch);
 				queue_work(driver->diag_dci_wq,
 				&(driver->smd_dci[i].diag_read_smd_work));
 			}
@@ -1432,8 +1408,6 @@ drop:
 				if (!driver->separate_cmdrsp[i])
 					continue;
 				if (driver->smd_dci_cmd[i].ch) {
-					diag_dci_try_deactivate_wakeup_source(
-						driver->smd_dci_cmd[i].ch);
 					queue_work(driver->diag_dci_wq,
 						&(driver->smd_dci_cmd[i].
 							diag_read_smd_work));
@@ -2047,9 +2021,13 @@ static int diagchar_setup_cdev(dev_t devno)
 		return -1;
 	}
 
-	device_create(driver->diagchar_class, NULL, devno,
-				  (void *)driver, "diag");
+	driver->diag_dev = device_create(driver->diagchar_class, NULL, devno,
+					 (void *)driver, "diag");
 
+	if (!driver->diag_dev)
+		return -EIO;
+
+	driver->diag_dev->power.wakeup = wakeup_source_register("DIAG_WS");
 	return 0;
 
 }
