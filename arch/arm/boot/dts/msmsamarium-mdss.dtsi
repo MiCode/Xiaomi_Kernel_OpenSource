@@ -33,8 +33,8 @@
 		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200>;
 		qcom,mdss-pipe-dma-off = <0x00002A00>;
 		qcom,mdss-pipe-vig-fetch-id = <1 4>;
-		qcom,mdss-pipe-rgb-fetch-id = <16 17>;
-		qcom,mdss-pipe-dma-fetch-id = <10>;
+		qcom,mdss-pipe-rgb-fetch-id = <10 11>;
+		qcom,mdss-pipe-dma-fetch-id = <7>;
 		qcom,mdss-smp-data = <12 8192>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800>;
