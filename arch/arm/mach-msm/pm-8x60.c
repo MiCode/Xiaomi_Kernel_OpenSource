@@ -511,15 +511,15 @@ static bool __ref msm_pm_spm_power_collapse(
 
 	collapsed = save_cpu_regs ? msm_pm_collapse() : msm_pm_pc_hotplug();
 
-	if (from_idle && msm_pm_pc_reset_timer)
-		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
-
-	msm_pm_boot_config_after_pc(cpu);
-
 	if (collapsed) {
 		cpu_init();
 		local_fiq_enable();
 	}
+
+	if (from_idle && msm_pm_pc_reset_timer)
+		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
+
+	msm_pm_boot_config_after_pc(cpu);
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: msm_pm_collapse returned, collapsed %d\n",
