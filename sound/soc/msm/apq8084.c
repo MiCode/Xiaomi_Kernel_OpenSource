@@ -1595,6 +1595,42 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_4 amp");
 
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_1 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_3 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_2 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_4 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_ultrasound amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCRight Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCLeft Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic1");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic2");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
+
+	snd_soc_dapm_ignore_suspend(dapm, "EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+
 	snd_soc_dapm_sync(dapm);
 
 	err = apq8084_ext_mclk_gpio_init();
@@ -2613,6 +2649,7 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.init = &msm_stubrx_init,
 		.ops = &apq8084_be_ops,
+		.ignore_suspend = 1,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 	},
@@ -2627,6 +2664,7 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_EXTPROC_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &apq8084_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_STUB_1_TX,
@@ -2643,6 +2681,7 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		 */
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ops = &apq8084_be_ops,
+		.ignore_suspend = 1,
 	},
 };
 
