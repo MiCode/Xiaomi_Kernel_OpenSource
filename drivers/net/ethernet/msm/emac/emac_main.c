@@ -1624,13 +1624,17 @@ static int emac_mii_ioctl(struct net_device *netdev,
 /* IOCTL support for the interface */
 static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 {
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+
 	switch (cmd) {
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
 		return emac_mii_ioctl(netdev, ifr, cmd);
 	case SIOCSHWTSTAMP:
-		return emac_tstamp_ioctl(netdev, ifr, cmd);
+		if (CHK_HW_FLAG(PTP_CAP))
+			return emac_tstamp_ioctl(netdev, ifr, cmd);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -2063,9 +2067,6 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 
 	/* phy */
 	emac_hw_init_phy(hw);
-
-	if (CHK_HW_FLAG(PTP_CAP))
-		emac_ptp_init(hw);
 }
 
 #ifdef CONFIG_PM_RUNTIME
@@ -2440,6 +2441,9 @@ static int emac_probe(struct platform_device *pdev)
 		goto err_register_netdev;
 	}
 
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_init(adpt->netdev);
+
 	pr_info("%s - version %s\n", emac_drv_description, emac_drv_version);
 	emac_dbg(adpt, probe, "EMAC HW ID %d.%d\n", hw->devid, hw->revid);
 	emac_dbg(adpt, probe, "EMAC HW version %d.%d.%d\n",
@@ -2461,10 +2465,14 @@ static int emac_remove(struct platform_device *pdev)
 {
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
 
 	pr_info("exiting %s\n", emac_drv_name);
 
 	unregister_netdev(netdev);
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_remove(netdev);
+
 	emac_release_resources(adpt);
 	free_netdev(netdev);
 	dev_set_drvdata(&pdev->dev, NULL);

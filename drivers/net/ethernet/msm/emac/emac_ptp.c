@@ -162,21 +162,6 @@ static void rtc_adjtime(struct emac_hw *hw, s64 delta)
 	wmb();
 }
 
-int emac_ptp_init(struct emac_hw *hw)
-{
-	int ret = 0;
-
-	if (!CHK_HW_FLAG(PTP_CAP)) {
-		emac_err(hw->adpt, "not ieee-1588 capable\n");
-		return -ENOTSUPP;
-	}
-
-	spin_lock_init(&hw->ptp_lock);
-	ret = emac_hw_1588_core_disable(hw);
-
-	return ret;
-}
-
 int emac_ptp_config(struct emac_hw *hw)
 {
 	struct timespec ts;
@@ -233,37 +218,49 @@ int emac_ptp_set_linkspeed(struct emac_hw *hw, enum emac_mac_speed link_speed)
 	return 0;
 }
 
-int emac_ptp_settime(struct emac_hw *hw, const struct timespec *ts)
+static int emac_ptp_settime(struct emac_hw *hw, const struct timespec *ts)
 {
+	int ret = 0;
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	rtc_settime(hw, ts);
+	if (!CHK_HW_FLAG(PTP_EN))
+		ret = -EPERM;
+	else
+		rtc_settime(hw, ts);
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
-	return 0;
+	return ret;
 }
 
-int emac_ptp_gettime(struct emac_hw *hw, struct timespec *ts)
+static int emac_ptp_gettime(struct emac_hw *hw, struct timespec *ts)
 {
+	int ret = 0;
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	rtc_gettime(hw, ts);
+	if (!CHK_HW_FLAG(PTP_EN))
+		ret = -EPERM;
+	else
+		rtc_gettime(hw, ts);
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
-	return 0;
+	return ret;
 }
 
 int emac_ptp_adjtime(struct emac_hw *hw, s64 delta)
 {
+	int ret = 0;
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	rtc_adjtime(hw, delta);
+	if (!CHK_HW_FLAG(PTP_EN))
+		ret = -EPERM;
+	else
+		rtc_adjtime(hw, delta);
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
-	return 0;
+	return ret;
 }
 
 int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
@@ -271,9 +268,6 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 	struct hwtstamp_config cfg;
-
-	if (!CHK_HW_FLAG(PTP_CAP))
-		return -ENOTSUPP;
 
 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
 		return -EFAULT;
@@ -311,4 +305,78 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 
 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ?
 		-EFAULT : 0;
+}
+
+static int emac_ptp_sysfs_cmd(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct emac_adapter *adpt = netdev_priv(to_net_dev(dev));
+	struct timespec ts;
+	int ret = -EINVAL;
+
+	if (!strncmp(buf, "setTs", 5)) {
+		getnstimeofday(&ts);
+		ret = emac_ptp_settime(&adpt->hw, &ts);
+		if (!ret)
+			ret = count;
+	}
+
+	return ret;
+}
+
+static int emac_ptp_sysfs_tstamp_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	struct emac_adapter *adpt = netdev_priv(to_net_dev(dev));
+	struct timespec ts, ts_now;
+	int count = PAGE_SIZE;
+	int retval;
+
+	retval = emac_ptp_gettime(&adpt->hw, &ts);
+	if (retval)
+		return retval;
+
+	getnstimeofday(&ts_now);
+	retval = snprintf(buf, count,
+			  "%12u.%09u tstamp  %12u.%08u time-of-day\n",
+			  (int)ts.tv_sec, (int)ts.tv_nsec,
+			  (int)ts_now.tv_sec, (int)ts_now.tv_nsec);
+
+	return retval;
+}
+
+static DEVICE_ATTR(cmd, 0222, NULL, emac_ptp_sysfs_cmd);
+static DEVICE_ATTR(tstamp, 0444, emac_ptp_sysfs_tstamp_show, NULL);
+
+static void emac_ptp_sysfs_create(struct net_device *netdev)
+{
+	struct emac_adapter *adpt = netdev_priv(netdev);
+
+	if (device_create_file(&netdev->dev, &dev_attr_cmd) ||
+	    device_create_file(&netdev->dev, &dev_attr_tstamp))
+		emac_err(adpt, "emac_ptp: failed to create sysfs files\n");
+}
+
+static void emac_ptp_sysfs_remove(struct net_device *netdev)
+{
+	device_remove_file(&netdev->dev, &dev_attr_cmd);
+	device_remove_file(&netdev->dev, &dev_attr_tstamp);
+}
+
+int emac_ptp_init(struct net_device *netdev)
+{
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+	int ret = 0;
+
+	spin_lock_init(&hw->ptp_lock);
+	emac_ptp_sysfs_create(netdev);
+	ret = emac_hw_1588_core_disable(hw);
+
+	return ret;
+}
+
+void emac_ptp_remove(struct net_device *netdev)
+{
+	emac_ptp_sysfs_remove(netdev);
 }

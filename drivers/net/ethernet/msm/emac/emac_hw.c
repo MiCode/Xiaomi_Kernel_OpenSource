@@ -646,7 +646,9 @@ void emac_hw_disable_intr(struct emac_hw *hw)
 		emac_reg_w32(hw, EMAC, irq_info->mask_reg, 0);
 	}
 
-	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
+	if (adpt->tstamp_en)
+		emac_reg_w32(hw, EMAC_1588,
+			     EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
 
 	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
 		irq_info = &adpt->irq_info[EMAC_SGMII_PHY_IRQ];
@@ -1195,7 +1197,7 @@ void emac_hw_start_mac(struct emac_hw *hw)
 		     (INT_RD_CLR_EN | LPW_MODE |
 		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));
 
-	if (CHK_HW_FLAG(PTP_EN)) {
+	if (CHK_HW_FLAG(PTP_CAP)) {
 		if (hw->link_speed == EMAC_LINK_SPEED_1GB_FULL)
 			emac_ptp_set_linkspeed(hw, emac_mac_speed_1000);
 		else

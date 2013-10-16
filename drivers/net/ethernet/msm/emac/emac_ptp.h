@@ -15,13 +15,11 @@
 
 #define DEFAULT_RTC_REF_CLKRATE	125000000
 
-int emac_ptp_init(struct emac_hw *hw);
+int emac_ptp_init(struct net_device *netdev);
+void emac_ptp_remove(struct net_device *netdev);
 int emac_ptp_config(struct emac_hw *hw);
 int emac_ptp_stop(struct emac_hw *hw);
 int emac_ptp_set_linkspeed(struct emac_hw *hw, enum emac_mac_speed speed);
-int emac_ptp_settime(struct emac_hw *hw, const struct timespec *ts);
-int emac_ptp_gettime(struct emac_hw *hw, struct timespec *ts);
-int emac_ptp_adjtime(struct emac_hw *hw, s64 delta);
 int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
 
 #endif /* _EMAC_PTP_H_ */
