@@ -33,6 +33,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<11 512 0 0>,
 				<11 512 0 1000>;
+		qcom,msm-enable-remote-spinlock;
 		status = "disabled";
 
 		lpass_q6_fw: qcom,iommu-ctx@fd000000 {
