@@ -111,6 +111,17 @@ config ARCH_VEXPRESS
 	  This enables support for the ARMv8 software model (Versatile
 	  Express).
 
+config ARCH_MSM
+	bool "Qualcomm MSM"
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select CLKDEV_LOOKUP
+	select ARCH_REQUIRE_GPIOLIB
+	select SOC_BUS
+	select PINCTRL
+	help
+	  This enables support for the ARMv8 based Qualcomm chipsets.
+
 endmenu
 
 menu "Bus support"
