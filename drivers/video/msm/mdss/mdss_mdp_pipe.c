@@ -307,7 +307,7 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 						u32 type, u32 off)
 {
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe = NULL;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_pipe *pipe_pool = NULL;
 	u32 npipes;
