@@ -83,7 +83,7 @@ struct msm_iommu_remote_lock {
 
 static struct msm_iommu_remote_lock msm_iommu_remote_lock;
 
-#ifdef CONFIG_MSM_IOMMU_GPU_SYNC
+#ifdef CONFIG_MSM_IOMMU_SYNC
 static void _msm_iommu_remote_spin_lock_init(void)
 {
 	msm_iommu_remote_lock.lock = smem_alloc(SMEM_SPINLOCK_ARRAY, 32);
@@ -202,12 +202,14 @@ static void *_iommu_lock_initialize(void)
 
 static void _iommu_lock_acquire(void)
 {
-	msm_iommu_lock();
+	msm_iommu_mutex_lock();
+	msm_iommu_remote_spin_lock();
 }
 
 static void _iommu_lock_release(void)
 {
-	msm_iommu_unlock();
+	msm_iommu_remote_spin_unlock();
+	msm_iommu_mutex_unlock();
 }
 
 struct iommu_access_ops iommu_access_ops_v0 = {
