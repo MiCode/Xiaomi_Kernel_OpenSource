@@ -85,19 +85,23 @@
 #define DISABLE_AUTO_RECHARGE_BIT	BIT(2)
 #define EN_CHG_INHIBIT_BIT		BIT(0)
 
-#define CHG_16_REG			0x16
+#define CFG_16_REG			0x16
 #define SAFETY_TIME_EN_BIT		BIT(4)
 #define SAFETY_TIME_MINUTES_MASK	SMB135X_MASK(3, 2)
 #define SAFETY_TIME_MINUTES_SHIFT	2
 
-#define CHG_17_REG			0x17
+#define CFG_17_REG			0x17
 #define CHG_STAT_DISABLE_BIT		BIT(0)
 #define CHG_STAT_ACTIVE_HIGH_BIT	BIT(1)
 #define CHG_STAT_IRQ_ONLY_BIT		BIT(4)
 
-#define CHG_19_REG			0x19
+#define CFG_19_REG			0x19
 #define BATT_MISSING_ALGO_BIT		BIT(2)
 #define BATT_MISSING_THERM_BIT		BIT(1)
+
+#define CFG_1A_REG			0x1A
+#define HOT_SOFT_VFLOAT_COMP_EN_BIT	BIT(3)
+#define COLD_SOFT_VFLOAT_COMP_EN_BIT	BIT(2)
 
 #define VFLOAT_REG			0x1E
 
@@ -260,6 +264,7 @@ struct smb135x_chg {
 	int				skip_writes;
 	int				skip_reads;
 	u32				workaround_flags;
+	bool				soft_vfloat_comp_disabled;
 };
 
 static int smb135x_read(struct smb135x_chg *chip, int reg,
@@ -1920,7 +1925,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	if (chip->safety_time != -EINVAL) {
 		if (chip->safety_time == 0) {
 			/* safety timer disabled */
-			rc = smb135x_masked_write(chip, CHG_16_REG,
+			rc = smb135x_masked_write(chip, CFG_16_REG,
 							SAFETY_TIME_EN_BIT, 0);
 			if (rc < 0) {
 				dev_err(chip->dev,
@@ -1935,7 +1940,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 					break;
 				}
 			}
-			rc = smb135x_masked_write(chip, CHG_16_REG,
+			rc = smb135x_masked_write(chip, CFG_16_REG,
 				SAFETY_TIME_EN_BIT | SAFETY_TIME_MINUTES_MASK,
 				SAFETY_TIME_EN_BIT | reg);
 			if (rc < 0) {
@@ -1948,7 +1953,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	}
 
 	/* battery missing detection */
-	rc = smb135x_masked_write(chip, CHG_19_REG,
+	rc = smb135x_masked_write(chip, CFG_19_REG,
 			BATT_MISSING_ALGO_BIT | BATT_MISSING_THERM_BIT,
 			chip->bmd_algo_disabled ? BATT_MISSING_THERM_BIT :
 						BATT_MISSING_ALGO_BIT);
@@ -1965,7 +1970,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 		mask = CHG_STAT_IRQ_ONLY_BIT | CHG_STAT_ACTIVE_HIGH_BIT
 			| CHG_STAT_DISABLE_BIT;
 		reg = CHG_STAT_IRQ_ONLY_BIT;
-		rc = smb135x_masked_write(chip, CHG_17_REG, mask, reg);
+		rc = smb135x_masked_write(chip, CFG_17_REG, mask, reg);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set irq config rc = %d\n",
 					rc);
@@ -2038,6 +2043,25 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 					DCIN_INPUT_MASK, dc_cur_val);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set dc charge current rc = %d\n",
+					rc);
+			return rc;
+		}
+	}
+
+	/*
+	 * on some devices the battery is powered via external sources which
+	 * could raise its voltage above the float voltage. smb135x chips go
+	 * in to reverse boost in such a situation and the workaround is to
+	 * disable float voltage compensation (note that the battery will appear
+	 * hot/cold when powered via external source).
+	 */
+
+	if (chip->soft_vfloat_comp_disabled) {
+		mask = HOT_SOFT_VFLOAT_COMP_EN_BIT
+				| COLD_SOFT_VFLOAT_COMP_EN_BIT;
+		rc = smb135x_masked_write(chip, CFG_1A_REG, mask, 0);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't disable soft vfloat rc = %d\n",
 					rc);
 			return rc;
 		}
@@ -2145,6 +2169,8 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 	if (rc)
 		chip->bms_psy_name = NULL;
 
+	chip->soft_vfloat_comp_disabled = of_property_read_bool(node,
+					"qcom,soft-vfloat-comp-disabled");
 	return 0;
 }
 
