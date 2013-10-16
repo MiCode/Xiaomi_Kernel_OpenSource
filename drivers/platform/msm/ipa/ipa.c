@@ -126,13 +126,6 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata = {
 
 struct ipa_context *ipa_ctx;
 
-static bool polling_mode;
-module_param(polling_mode, bool, 0644);
-MODULE_PARM_DESC(polling_mode,
-		"1 - pure polling mode; 0 - interrupt+polling mode");
-static uint polling_delay_ms = 50;
-module_param(polling_delay_ms, uint, 0644);
-MODULE_PARM_DESC(polling_delay_ms, "set to desired delay between polls");
 static bool hdr_tbl_lcl = 1;
 module_param(hdr_tbl_lcl, bool, 0644);
 MODULE_PARM_DESC(hdr_tbl_lcl, "where hdr tbl resides 1-local; 0-system");
@@ -724,10 +717,19 @@ static int ipa_setup_exception_path(void)
 	hdr->num_hdrs = 1;
 	hdr->commit = 1;
 	hdr_entry = &hdr->hdr[0];
-	strlcpy(hdr_entry->name, IPA_A5_MUX_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 
-	/* set template for the A5_MUX header in header addition block */
-	hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		strlcpy(hdr_entry->name, IPA_A5_MUX_HDR_NAME,
+				IPA_RESOURCE_NAME_MAX);
+		/* set template for the A5_MUX hdr in header addition block */
+		hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
+	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
+		strlcpy(hdr_entry->name, IPA_LAN_RX_HDR_NAME,
+				IPA_RESOURCE_NAME_MAX);
+		hdr_entry->hdr_len = IPA_LAN_RX_HEADER_LENGTH;
+	} else {
+		WARN_ON(1);
+	}
 
 	if (ipa_add_hdr(hdr)) {
 		IPAERR("fail to add exception hdr\n");
@@ -744,8 +746,10 @@ static int ipa_setup_exception_path(void)
 	ipa_ctx->excp_hdr_hdl = hdr_entry->hdr_hdl;
 
 	/* set the route register to pass exception packets to Apps */
-	route.route_def_pipe = IPA_A5_LAN_WAN_IN;
-	route.route_frag_def_pipe = IPA_A5_LAN_WAN_IN;
+	route.route_def_pipe = ipa_get_ep_mapping(ipa_ctx->mode,
+			IPA_CLIENT_A5_LAN_WAN_CONS);
+	route.route_frag_def_pipe = ipa_get_ep_mapping(ipa_ctx->mode,
+			IPA_CLIENT_A5_LAN_WAN_CONS);
 	route.route_def_hdr_table = !ipa_ctx->hdr_tbl_lcl;
 
 	if (ipa_cfg_route(&route)) {
@@ -758,44 +762,6 @@ static int ipa_setup_exception_path(void)
 bail:
 	kfree(hdr);
 	return ret;
-}
-
-static void ipa_poll_function(struct work_struct *work)
-{
-	int ret;
-	int tx_pipes[] = { IPA_A5_CMD, IPA_A5_LAN_WAN_OUT,
-		IPA_A5_WLAN_AMPDU_OUT };
-	int i;
-	int num_tx_pipes;
-	int cnt;
-
-	num_tx_pipes = sizeof(tx_pipes) / sizeof(tx_pipes[0]);
-
-	if (!IPA_MOBILE_AP_MODE(ipa_ctx->mode))
-		num_tx_pipes--;
-
-	do {
-		cnt = 0;
-
-		/* check all the system pipes for tx comp and rx avail */
-		if (ipa_ctx->sys[IPA_A5_LAN_WAN_IN].ep->valid)
-			cnt |= ipa_handle_rx_core(
-					&ipa_ctx->sys[IPA_A5_LAN_WAN_IN],
-					false, true);
-
-		for (i = 0; i < num_tx_pipes; i++)
-			if (ipa_ctx->sys[tx_pipes[i]].ep->valid)
-				cnt |= ipa_handle_tx_core(
-						&ipa_ctx->sys[tx_pipes[i]],
-						false, true);
-	} while (cnt);
-
-	/* re-post the poll work */
-	INIT_DELAYED_WORK(&ipa_ctx->poll_work, ipa_poll_function);
-	ret = schedule_delayed_work_on(smp_processor_id(), &ipa_ctx->poll_work,
-			msecs_to_jiffies(polling_delay_ms));
-
-	return;
 }
 
 static int ipa_setup_apps_pipes(void)
@@ -816,20 +782,6 @@ static int ipa_setup_apps_pipes(void)
 	}
 	IPADBG("Apps to IPA cmd pipe is connected\n");
 
-	/* Start polling, only if needed */
-	if (ipa_ctx->polling_mode) {
-		INIT_DELAYED_WORK(&ipa_ctx->poll_work, ipa_poll_function);
-		result =
-		   schedule_delayed_work_on(smp_processor_id(),
-					&ipa_ctx->poll_work,
-					msecs_to_jiffies(polling_delay_ms));
-		if (!result) {
-			IPAERR(":schedule delayed work failed.\n");
-			goto fail_schedule_delayed_work;
-		}
-		IPADBG("polling mode enabled\n\n");
-	}
-
 	if (ipa_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");
 		result = -EPERM;
@@ -848,13 +800,28 @@ static int ipa_setup_apps_pipes(void)
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_A5_LAN_WAN_CONS;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
-	sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
-	sys_in.ipa_ep_cfg.hdr.hdr_len = 8;  /* size of A5 exception hdr */
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
+		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_A5_MUX_HEADER_LENGTH;
+	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
+		sys_in.notify = ipa_lan_rx_cb;
+		sys_in.priv = NULL;
+		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_LAN_RX_HEADER_LENGTH;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_little_endian = false;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid = true;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad = IPA_HDR_PAD;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding = false;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset = 0;
+		sys_in.ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment = 2;
+	} else {
+		WARN_ON(1);
+	}
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
 		goto fail_schedule_delayed_work;
 	}
+
 	/* LAN-WAN OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_A5_LAN_WAN_PROD;
@@ -885,7 +852,6 @@ fail_cmd:
 
 static void ipa_teardown_apps_pipes(void)
 {
-	cancel_delayed_work(&ipa_ctx->poll_work);
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_out);
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
 	__ipa_del_rt_rule(ipa_ctx->dflt_v6_rt_rule_hdl);
@@ -1609,8 +1575,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_mem_ctx;
 	}
 
-	IPADBG("polling_mode=%u delay_ms=%u\n", polling_mode, polling_delay_ms);
-	ipa_ctx->polling_mode = polling_mode;
 	IPADBG("hdr_lcl=%u ip4_rt=%u ip6_rt=%u ip4_flt=%u ip6_flt=%u\n",
 	       hdr_tbl_lcl, ip4_rt_tbl_lcl, ip6_rt_tbl_lcl, ip4_flt_tbl_lcl,
 	       ip6_flt_tbl_lcl);
@@ -1857,35 +1821,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	mutex_init(&ipa_ctx->lock);
 	mutex_init(&ipa_ctx->nat_mem.lock);
 
-	for (i = 0; i < IPA_A5_SYS_MAX; i++) {
-		INIT_LIST_HEAD(&ipa_ctx->sys[i].head_desc_list);
-		spin_lock_init(&ipa_ctx->sys[i].spinlock);
-		if (i != IPA_A5_WLAN_AMPDU_OUT)
-			ipa_ctx->sys[i].ep = &ipa_ctx->ep[i];
-		else
-			ipa_ctx->sys[i].ep = &ipa_ctx->ep[WLAN_AMPDU_TX_EP];
-		if (ipa_ctx->polling_mode)
-			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 1);
-		else
-			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 0);
-	}
-
-	ipa_ctx->rx_wq = create_singlethread_workqueue("ipa rx wq");
-	if (!ipa_ctx->rx_wq) {
-		IPAERR(":fail to create rx wq\n");
-		result = -ENOMEM;
-		goto fail_rx_wq;
-	}
-
-	ipa_ctx->tx_wq = alloc_workqueue("ipa tx wq", WQ_MEM_RECLAIM |
-			WQ_CPU_INTENSIVE, 1);
-	if (!ipa_ctx->tx_wq) {
-		IPAERR(":fail to create tx wq\n");
-		result = -ENOMEM;
-		goto fail_tx_wq;
-	}
-	IPADBG("workqueues were created\n");
-
 	ipa_ctx->hdr_hdl_tree = RB_ROOT;
 	ipa_ctx->rt_rule_hdl_tree = RB_ROOT;
 	ipa_ctx->rt_tbl_hdl_tree = RB_ROOT;
@@ -1915,10 +1850,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_apps_pipes;
 	}
 	IPADBG("IPA System2Bam pipes were connected\n");
-
-	ipa_replenish_rx_cache();
-	IPADBG("Rx cache was replenished to %d packets wrapper",
-			IPA_RX_POOL_CEIL);
 
 	if (ipa_init_flt_block()) {
 		IPAERR("fail to setup dummy filter rules\n");
@@ -2037,13 +1968,8 @@ fail_alloc_chrdev_region:
 			  ipa_ctx->empty_rt_tbl_mem.base,
 			  ipa_ctx->empty_rt_tbl_mem.phys_base);
 fail_empty_rt_tbl:
-	ipa_cleanup_rx();
 	ipa_teardown_apps_pipes();
 fail_apps_pipes:
-	destroy_workqueue(ipa_ctx->tx_wq);
-fail_tx_wq:
-	destroy_workqueue(ipa_ctx->rx_wq);
-fail_rx_wq:
 	/*
 	 * DMA pool need to be released only for IPA HW v1.0 only.
 	 */

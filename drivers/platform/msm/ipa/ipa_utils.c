@@ -787,6 +787,10 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	if (result)
 		return result;
 
+	result = ipa_cfg_ep_status(clnt_hdl, &ipa_ep_cfg->status);
+	if (result)
+		return result;
+
 	if (IPA_CLIENT_IS_PROD(ipa_ctx->ep[clnt_hdl].client)) {
 		result = ipa_cfg_ep_nat(clnt_hdl, &ipa_ep_cfg->nat);
 		if (result)
@@ -906,6 +910,66 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
 
+static void _ipa_cfg_ep_status_v1_1(u32 clnt_hdl,
+				const struct ipa_ep_cfg_status *ep_status)
+{
+	IPADBG("Not supported for version 1.1\n");
+}
+
+static void _ipa_cfg_ep_status_v2_0(u32 clnt_hdl,
+		const struct ipa_ep_cfg_status *ep_status)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_en,
+			IPA_ENDP_STATUS_n_STATUS_EN_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_ep,
+			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_STATUS_n_OFST(clnt_hdl),
+			reg_val);
+}
+
+/**
+ * ipa_cfg_ep_status() - IPA end-point status configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			ep_status == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+					clnt_hdl,
+					ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, status_en=%d status_ep=%d\n",
+			clnt_hdl,
+			ep_status->status_en,
+			ep_status->status_ep);
+
+	/* copy over EP cfg */
+	ipa_ctx->ep[clnt_hdl].cfg.status = *ep_status;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_status(clnt_hdl, ep_status);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_status);
 
 void _ipa_cfg_ep_hdr_v1_1(u32 pipe_number,
 		const struct ipa_ep_cfg_hdr *ep_hdr)
@@ -1683,7 +1747,7 @@ void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 	int i;
 	u32 *cur = (u32 *)base;
 	u8 *byt;
-	IPADBG("system phys addr=0x%x\n", phy_base);
+	IPADBG("system phys addr=0x%x len=%u\n", phy_base, size);
 	for (i = 0; i < size / 4; i++) {
 		byt = (u8 *)(cur + i);
 		IPADBG("%2d %08x   %02x %02x %02x %02x\n", i, *(cur + i),
@@ -2078,6 +2142,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v1_0;
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v1_0;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v1_0;
+		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_src_clk_rate = IPA_V1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_0;
@@ -2095,6 +2160,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v1_1;
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v1_1;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v1_1;
+		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_src_clk_rate = IPA_V1_1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_1;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
@@ -2112,6 +2178,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v2_0;
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_0;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v2_0;
+		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
 		ctrl->ipa_src_clk_rate = IPA_V2_0_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;

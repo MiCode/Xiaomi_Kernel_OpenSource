@@ -32,6 +32,7 @@
 #define IPA_NUM_PIPES 0x14
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
+#define IPA_LAN_RX_HEADER_LENGTH (2)
 
 #define IPADBG(fmt, args...) \
 	pr_debug(fmt, ## args)
@@ -113,6 +114,7 @@
 #define IPA_RX_SKB_SIZE 1792
 
 #define IPA_A5_MUX_HDR_NAME "ipa_excp_hdr"
+#define IPA_LAN_RX_HDR_NAME "ipa_lan_hdr"
 #define IPA_INVALID_L4_PROTOCOL 0xFF
 
 #define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
@@ -124,20 +126,6 @@
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
 #define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
-
-/**
- * enum ipa_sys_pipe - 5 A5-IPA pipes
- *
- * 5 A5-IPA pipes (all system mode)
- */
-enum ipa_sys_pipe {
-	IPA_A5_UNUSED,
-	IPA_A5_CMD,
-	IPA_A5_LAN_WAN_OUT,
-	IPA_A5_LAN_WAN_IN,
-	IPA_A5_WLAN_AMPDU_OUT,
-	IPA_A5_SYS_MAX
-};
 
 /**
  * enum ipa_operating_mode - IPA operating mode
@@ -361,6 +349,13 @@ struct ipa_ep_context {
 	bool desc_fifo_client_allocated;
 	bool data_fifo_client_allocated;
 	bool suspended;
+	struct ipa_sys_context *sys;
+};
+
+enum ipa_sys_pipe_policy {
+	IPA_POLICY_INTR_MODE,
+	IPA_POLICY_NOINTR_MODE,
+	IPA_POLICY_INTR_POLL_MODE,
 };
 
 /**
@@ -381,6 +376,21 @@ struct ipa_sys_context {
 	struct ipa_ep_context *ep;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
+	enum ipa_sys_pipe_policy policy;
+	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa_sys_context *sys);
+	struct sk_buff *(*get_skb)(unsigned int len, gfp_t flags);
+	void (*free_skb)(struct sk_buff *skb);
+	u32 rx_buff_sz;
+	u32 rx_pool_sz;
+	struct workqueue_struct *wq;
+	struct sk_buff *prev_skb;
+	unsigned int len_rem;
+	unsigned int len_pad;
+	unsigned int len_partial;
+	struct work_struct work;
+	void (*sps_callback)(struct sps_event_notify *notify);
+	enum sps_option sps_option;
+	struct delayed_work replenish_rx_work;
 };
 
 /**
@@ -462,6 +472,8 @@ struct ipa_rx_pkt_wrapper {
 	dma_addr_t dma_address;
 	struct list_head link;
 	u32 len;
+	struct work_struct work;
+	struct ipa_sys_context *sys;
 };
 
 /**
@@ -584,9 +596,6 @@ struct ipa_controller;
  * @tree_node_cache: tree nodes cache
  * @rt_idx_bitmap: routing table index bitmap
  * @lock: this does NOT protect the linked lists within ipa_sys_context
- * @sys: IPA sys context for system-bam pipes
- * @rx_wq: Rx packets work queue
- * @tx_wq: Tx packets work queue
  * @smem_sz: shared memory size available for SW use starting
  *  from non-restricted bytes
  * @smem_restricted_bytes: the bytes that SW should not use in the shared mem
@@ -598,12 +607,9 @@ struct ipa_controller;
  * @excp_hdr_hdl: exception header handle
  * @dflt_v4_rt_rule_hdl: default v4 routing rule handle
  * @dflt_v6_rt_rule_hdl: default v6 routing rule handle
- * @polling_mode: 1 - pure polling mode; 0 - interrupt+polling mode
  * @aggregation_type: aggregation type used on USB client endpoint
  * @aggregation_byte_limit: aggregation byte limit used on USB client endpoint
  * @aggregation_time_limit: aggregation time limit used on USB client endpoint
- * @curr_polling_state: current polling state
- * @poll_work: polling work
  * @hdr_tbl_lcl: where hdr tbl resides 1-local, 0-system
  * @hdr_mem: header memory
  * @ip4_rt_tbl_lcl: where ip4 rt tables reside 1-local; 0-system
@@ -650,9 +656,6 @@ struct ipa_context {
 	struct kmem_cache *tree_node_cache;
 	unsigned long rt_idx_bitmap[IPA_IP_MAX];
 	struct mutex lock;
-	struct ipa_sys_context sys[IPA_A5_SYS_MAX];
-	struct workqueue_struct *rx_wq;
-	struct workqueue_struct *tx_wq;
 	u16 smem_sz;
 	u16 smem_restricted_bytes;
 	struct rb_root hdr_hdl_tree;
@@ -663,11 +666,9 @@ struct ipa_context {
 	u32 excp_hdr_hdl;
 	u32 dflt_v4_rt_rule_hdl;
 	u32 dflt_v6_rt_rule_hdl;
-	bool polling_mode;
 	uint aggregation_type;
 	uint aggregation_byte_limit;
 	uint aggregation_time_limit;
-	struct delayed_work poll_work;
 	bool hdr_tbl_lcl;
 	struct ipa_mem_buffer hdr_mem;
 	bool ip4_rt_tbl_lcl;
@@ -812,6 +813,8 @@ struct ipa_controller {
 	int (*ipa_read_ep_reg)(char *buff, int max_len, int pipe);
 	void (*ipa_write_dbg_cnt)(int option);
 	int (*ipa_read_dbg_cnt)(char *buf, int max_len);
+	void (*ipa_cfg_ep_status)(u32 clnt_hdl,
+			const struct ipa_ep_cfg_status *ep_status);
 };
 
 extern struct ipa_context *ipa_ctx;
@@ -861,14 +864,7 @@ int ipa_controller_static_bind(struct ipa_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa_cfg_route(struct ipa_route *route);
 int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr);
-void ipa_replenish_rx_cache(void);
-void ipa_cleanup_rx(void);
 int ipa_cfg_filter(u32 disable);
-void ipa_wq_write_done(struct work_struct *work);
-int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
-		bool in_poll_state);
-int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
-		bool in_poll_state);
 int ipa_pipe_mem_init(u32 start_ofst, u32 size);
 int ipa_pipe_mem_alloc(u32 *ofst, u32 size);
 int ipa_pipe_mem_free(u32 ofst, u32 size);
@@ -924,5 +920,6 @@ int a2_mux_exit(void);
 void wwan_cleanup(void);
 
 int teth_bridge_driver_init(void);
+void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
 #endif /* _IPA_I_H_ */
