@@ -2941,6 +2941,9 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* try read capactiy (10) first as rc_16 is optional in UFS spec. */
 	sdev->try_rc_10_first = 1;
 
+	/* WRITE_SAME command is not supported*/
+	sdev->no_write_same = 1;
+
 	ufshcd_set_queue_depth(sdev);
 
 	ufshcd_get_lu_power_on_wp_status(hba, sdev);
