@@ -339,8 +339,8 @@ static int emac_refresh_rx_buffer(struct emac_rx_queue *rxque)
 	union emac_sw_rfdesc srfd;
 	struct sk_buff *skb;
 	void *skb_data = NULL;
-	u16 count = 0;
-	u16 next_produce_idx;
+	u32 count = 0;
+	u32 next_produce_idx;
 
 	next_produce_idx = rxque->rfd.produce_idx;
 	if (++next_produce_idx == rxque->rfd.count)
@@ -396,7 +396,7 @@ static void emac_clean_rfdesc(struct emac_rx_queue *rxque,
 			      union emac_sw_rrdesc *srrd)
 {
 	struct emac_buffer *rfbuf = rxque->rfd.rfbuff;
-	u16 consume_idx = srrd->genr.si;
+	u32 consume_idx = srrd->genr.si;
 	u16 i;
 
 	for (i = 0; i < srrd->genr.nor; i++) {
@@ -457,8 +457,8 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 	struct emac_buffer *rfbuf;
 	struct sk_buff *skb;
 
-	u16 hw_consume_idx, num_consume_pkts;
-	u16 count = 0;
+	u32 hw_consume_idx, num_consume_pkts;
+	u32 count = 0;
 	u32 proc_idx;
 
 	hw_consume_idx = emac_reg_field_r32(hw, EMAC, rxque->consume_reg,
@@ -552,7 +552,7 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 {
 	struct emac_hw *hw = &adpt->hw;
 	struct emac_buffer *tpbuf;
-	u16 hw_consume_idx;
+	u32 hw_consume_idx;
 
 	hw_consume_idx = emac_reg_field_r32(hw, EMAC, txque->consume_reg,
 					    txque->consume_mask,
@@ -1043,7 +1043,7 @@ static void emac_clean_tx_queue(struct emac_tx_queue *txque)
 {
 	struct device *dev = txque->dev;
 	unsigned long size;
-	u16 i;
+	u32 i;
 
 	/* ring already cleared, nothing to do */
 	if (!txque->tpd.tpbuff)
@@ -1086,7 +1086,7 @@ static void emac_clean_rx_queue(struct emac_rx_queue *rxque)
 {
 	struct device *dev = rxque->dev;
 	unsigned long size;
-	u16 i;
+	u32 i;
 
 	/* ring already cleared, nothing to do */
 	if (!rxque->rfd.rfbuff)
@@ -1277,7 +1277,15 @@ static int emac_alloc_all_rtx_descriptor(struct emac_adapter *adpt)
 	unsigned int num_tx_descs = adpt->num_txdescs;
 	unsigned int num_rx_descs = adpt->num_rxdescs;
 	struct device *dev = adpt->rx_queue[0].dev;
-	int retval;
+	int retval, que_idx;
+
+	for (que_idx = 0; que_idx < adpt->num_txques; que_idx++)
+		adpt->tx_queue[que_idx].tpd.count = adpt->num_txdescs;
+
+	for (que_idx = 0; que_idx < adpt->num_rxques; que_idx++) {
+		adpt->rx_queue[que_idx].rrd.count = adpt->num_rxdescs;
+		adpt->rx_queue[que_idx].rfd.count = adpt->num_rxdescs;
+	}
 
 	/* Ring DMA buffer. Each ring may need up to 8 bytes for alignment,
 	 * hence the additional padding bytes are allocated.
@@ -1597,6 +1605,14 @@ static int emac_close(struct net_device *netdev)
 
 	CLI_ADPT_FLAG(STATE_RESETTING);
 	return 0;
+}
+
+/* Resize the descriptor rings */
+int emac_resize_rings(struct net_device *netdev)
+{
+	/* close and then re-open interface */
+	emac_close(netdev);
+	return emac_open(netdev);
 }
 
 /* PHY related IOCTLs */
@@ -1940,7 +1956,6 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 	for (que_idx = 0; que_idx < adpt->num_txques; que_idx++) {
 		struct emac_tx_queue *txque = &adpt->tx_queue[que_idx];
 
-		txque->tpd.count = adpt->num_txdescs;
 		txque->que_idx = que_idx;
 		txque->netdev = adpt->netdev;
 		txque->dev = &(pdev->dev);
@@ -1949,8 +1964,6 @@ static void emac_init_rtx_queues(struct platform_device *pdev,
 	for (que_idx = 0; que_idx < adpt->num_rxques; que_idx++) {
 		struct emac_rx_queue *rxque = &adpt->rx_queue[que_idx];
 
-		rxque->rrd.count = adpt->num_rxdescs;
-		rxque->rfd.count = adpt->num_rxdescs;
 		rxque->que_idx = que_idx;
 		rxque->netdev = adpt->netdev;
 		rxque->dev = &(pdev->dev);
@@ -2442,7 +2455,7 @@ static int emac_probe(struct platform_device *pdev)
 	struct emac_hw *hw;
 	int retval;
 	u8 i;
-	uint32_t hw_ver;
+	u32 hw_ver;
 
 	netdev = alloc_etherdev(sizeof(struct emac_adapter));
 	if (netdev == NULL) {

@@ -397,6 +397,34 @@ static int emac_set_intr_coalesce(struct net_device *netdev,
 	return 0;
 }
 
+static void emac_get_ringparam(struct net_device *netdev,
+			       struct ethtool_ringparam *ring)
+{
+	struct emac_adapter *adpt = netdev_priv(netdev);
+
+	ring->rx_max_pending = EMAC_MAX_RX_DESCS;
+	ring->tx_max_pending = EMAC_MAX_TX_DESCS;
+	ring->rx_pending = adpt->num_rxdescs;
+	ring->tx_pending = adpt->num_txdescs;
+}
+
+static int emac_set_ringparam(struct net_device *netdev,
+			      struct ethtool_ringparam *ring)
+{
+	struct emac_adapter *adpt = netdev_priv(netdev);
+
+	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+		return -EINVAL;
+
+	adpt->num_txdescs = clamp_t(u32, ring->tx_pending,
+				    EMAC_MIN_TX_DESCS, EMAC_MAX_TX_DESCS);
+
+	adpt->num_rxdescs = clamp_t(u32, ring->rx_pending,
+				    EMAC_MIN_RX_DESCS, EMAC_MAX_RX_DESCS);
+
+	return emac_resize_rings(netdev);
+}
+
 static int emac_nway_reset(struct net_device *netdev)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
@@ -459,6 +487,8 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.set_msglevel    = emac_set_msglevel,
 	.get_coalesce    = emac_get_intr_coalesce,
 	.set_coalesce    = emac_set_intr_coalesce,
+	.get_ringparam   = emac_get_ringparam,
+	.set_ringparam   = emac_set_ringparam,
 	.nway_reset      = emac_nway_reset,
 	.get_link        = ethtool_op_get_link,
 	.get_sset_count  = emac_get_sset_count,
