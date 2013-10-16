@@ -280,6 +280,36 @@
 		coresight-nr-inports = <0>;
 	};
 
+	cti_modem_cpu0: cti@fc350000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc350000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <23>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+	};
+
+	cti_audio_cpu0: cti@fc354000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc354000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <24>;
+		coresight-name = "coresight-cti-audio-cpu0";
+		coresight-nr-inports = <0>;
+	};
+
+	cti_rpm_cpu0: cti@fc358000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc358000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <25>;
+		coresight-name = "coresight-cti-rpm-cpu0";
+		coresight-nr-inports = <0>;
+	};
+
 	hwevent: hwevent@f9011038 {
 		compatible = "qcom,coresight-hwevent";
 		reg = <0xf9011038 0x8>,
@@ -287,7 +317,7 @@
 		      <0xfc401600 0x80>;
 		reg-names = "apcs-mux", "ppss-mux", "gcc-mux";
 
-		coresight-id = <23>;
+		coresight-id = <26>;
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 	};
@@ -297,7 +327,7 @@
 		reg = <0xfc4be024 0x8>;
 		reg-names = "fuse-base";
 
-		coresight-id = <24>;
+		coresight-id = <27>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
