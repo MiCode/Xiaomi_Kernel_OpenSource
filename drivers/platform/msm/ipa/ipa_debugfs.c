@@ -655,7 +655,7 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 	list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
 		rt_tbl = (struct ipa_rt_tbl *)entry->rule.rt_tbl_hdl;
 		if (rt_tbl == NULL)
-			rt_tbl_idx = ~0;
+			rt_tbl_idx = entry->rule.rt_tbl_idx;
 		else
 			rt_tbl_idx = rt_tbl->idx;
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,

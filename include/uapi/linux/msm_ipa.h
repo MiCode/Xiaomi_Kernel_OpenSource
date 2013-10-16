@@ -52,7 +52,8 @@
 #define IPA_IOCTL_GET_NAT_OFFSET 28
 #define IPA_IOCTL_RM_ADD_DEPENDENCY 29
 #define IPA_IOCTL_RM_DEL_DEPENDENCY 30
-#define IPA_IOCTL_MAX            31
+#define IPA_IOCTL_GENERATE_FLT_EQ 31
+#define IPA_IOCTL_MAX            32
 
 /**
  * max size of the header to be inserted
@@ -285,6 +286,112 @@ struct ipa_rule_attrib {
 	} u;
 };
 
+/*! @brief The maximum number of Mask Equal 32 Eqns */
+#define IPA_IPFLTR_NUM_MEQ_32_EQNS 2
+
+/*! @brief The maximum number of IHL offset Mask Equal 32 Eqns */
+#define IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS 2
+
+/*! @brief The maximum number of Mask Equal 128 Eqns */
+#define IPA_IPFLTR_NUM_MEQ_128_EQNS 2
+
+/*! @brief The maximum number of IHL offset Range Check 16 Eqns */
+#define IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS 2
+
+/*! @brief Offset and 16 bit comparison equation */
+struct ipa_ipfltr_eq_16 {
+	uint8_t offset;
+	uint16_t value;
+};
+
+/*! @brief Offset and 32 bit comparison equation */
+struct ipa_ipfltr_eq_32 {
+	uint8_t offset;
+	uint32_t value;
+};
+
+/*! @brief Offset and 128 bit masked comparison equation */
+struct ipa_ipfltr_mask_eq_128 {
+	uint8_t offset;
+	uint8_t mask[16];
+	uint8_t value[16];
+};
+
+/*! @brief Offset and 32 bit masked comparison equation */
+struct ipa_ipfltr_mask_eq_32 {
+	uint8_t offset;
+	uint32_t mask;
+	uint32_t value;
+};
+
+/*! @brief Equation for identifying a range. Ranges are inclusive */
+struct ipa_ipfltr_range_eq_16 {
+	uint8_t offset;
+	uint16_t range_low;
+	uint16_t range_high;
+};
+
+/*! @brief Rule equations which are set according to DS filter installation */
+struct ipa_ipfltri_rule_eq {
+	/*! 16-bit Bitmask to indicate how many eqs are valid in this rule  */
+	uint16_t rule_eq_bitmap;
+	/*! Specifies if a type of service check rule is present */
+	uint8_t tos_eq_present;
+	/*! The value to check against the type of service (ipv4) field */
+	uint8_t tos_eq;
+	/*! Specifies if a protocol check rule is present */
+	uint8_t protocol_eq_present;
+	/*! The value to check against the protocol (ipv6) field */
+	uint8_t protocol_eq;
+	/*! The number of ip header length offset 16 bit range check
+	 * rules in this rule */
+	uint8_t num_ihl_offset_range_16;
+	/*! An array of the registered ip header length offset 16 bit
+	 * range check rules */
+	struct ipa_ipfltr_range_eq_16
+		ihl_offset_range_16[IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS];
+	/*! The number of mask equal 32 rules present in this rule */
+	uint8_t num_offset_meq_32;
+	/*! An array of all the possible mask equal 32 rules in this rule */
+	struct ipa_ipfltr_mask_eq_32
+		offset_meq_32[IPA_IPFLTR_NUM_MEQ_32_EQNS];
+	/*! Specifies if the traffic class rule is present in this rule */
+	uint8_t tc_eq_present;
+	/*! The value to check the traffic class (ipv4) field against */
+	uint8_t tc_eq;
+	/*! Specifies if the flow equals rule is present in this rule */
+	uint8_t fl_eq_present;
+	/*! The value to check the flow (ipv6) field against */
+	uint32_t fl_eq;
+	/*! The number of ip header length offset 16 bit equations in this
+	 * rule */
+	uint8_t ihl_offset_eq_16_present;
+	/*! The ip header length offset 16 bit equation */
+	struct ipa_ipfltr_eq_16 ihl_offset_eq_16;
+	/*! The number of ip header length offset 32 bit equations in this
+	 * rule */
+	uint8_t ihl_offset_eq_32_present;
+	/*! The ip header length offset 32 bit equation */
+	struct ipa_ipfltr_eq_32 ihl_offset_eq_32;
+	/*! The number of ip header length offset 32 bit mask equations in
+	 * this rule */
+	uint8_t num_ihl_offset_meq_32;
+	/*! The ip header length offset 32 bit mask equation */
+	struct ipa_ipfltr_mask_eq_32
+		ihl_offset_meq_32[IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS];
+	/*! The number of ip header length offset 128 bit equations in this
+	 * rule */
+	uint8_t num_offset_meq_128;
+	/*! The ip header length offset 128 bit equation */
+	struct ipa_ipfltr_mask_eq_128
+		offset_meq_128[IPA_IPFLTR_NUM_MEQ_128_EQNS];
+	/*! The metadata 32 bit masked comparison equation */
+	struct ipa_ipfltr_mask_eq_32 metadata_meq32;
+	/*! The metadata 32 bit masked comparison equation present or not */
+	/* Metadata based rules are added internally by IPA driver */
+	uint8_t metadata_meq32_present;
+};
+
 /**
  * struct ipa_flt_rule - attributes of a filtering rule
  * @retain_hdr: bool switch to instruct IPA core to add back to the packet
@@ -293,6 +400,11 @@ struct ipa_rule_attrib {
  * @action: action field
  * @rt_tbl_hdl: handle of table from "get"
  * @attrib: attributes of the rule
+ * @eq_attrib: attributes of the rule in equation form (valid when
+ * eq_attrib_type is true)
+ * @rt_tbl_idx: index of RT table referred to by filter rule (valid when
+ * eq_attrib_type is true and non-exception action)
+ * @eq_attrib_type: true if equation level form used to specify attributes
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -300,6 +412,9 @@ struct ipa_flt_rule {
 	enum ipa_flt_action action;
 	uint32_t rt_tbl_hdl;
 	struct ipa_rule_attrib attrib;
+	struct ipa_ipfltri_rule_eq eq_attrib;
+	uint32_t rt_tbl_idx;
+	uint8_t eq_attrib_type;
 };
 
 /**
@@ -745,6 +860,11 @@ struct ipa_ioc_rm_dependency {
 	enum ipa_rm_resource_name depends_on_name;
 };
 
+struct ipa_ioc_generate_flt_eq {
+	enum ipa_ip_type ip;
+	struct ipa_rule_attrib attrib;
+	struct ipa_ipfltri_rule_eq eq_attrib;
+};
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -836,6 +956,9 @@ struct ipa_ioc_rm_dependency {
 #define IPA_IOC_RM_DEL_DEPENDENCY _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_RM_DEL_DEPENDENCY, \
 				struct ipa_ioc_rm_dependency *)
+#define IPA_IOC_GENERATE_FLT_EQ _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GENERATE_FLT_EQ, \
+				struct ipa_ioc_generate_flt_eq *)
 
 /*
  * unique magic number of the Tethering bridge ioctls

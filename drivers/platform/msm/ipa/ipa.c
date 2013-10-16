@@ -605,6 +605,27 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
+	case IPA_IOC_GENERATE_FLT_EQ:
+		{
+			struct ipa_ioc_generate_flt_eq flt_eq;
+			if (copy_from_user(&flt_eq, (u8 *)arg,
+				sizeof(struct ipa_ioc_generate_flt_eq))) {
+				retval = -EFAULT;
+				break;
+			}
+			if (ipa_generate_flt_eq(flt_eq.ip, &flt_eq.attrib,
+						&flt_eq.eq_attrib)) {
+				retval = -EFAULT;
+				break;
+			}
+			if (copy_to_user((u8 *)arg, &flt_eq,
+				sizeof(struct ipa_ioc_generate_flt_eq))) {
+				retval = -EFAULT;
+				break;
+			}
+			break;
+		}
+
 	default:        /* redundant, as cmd was checked against MAXNR */
 		ipa_dec_client_disable_clks();
 		return -ENOTTY;
