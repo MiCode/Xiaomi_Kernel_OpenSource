@@ -588,6 +588,11 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 {
 	struct mdss_mdp_ctl *ctl;
 
+	if (!mixer || !mixer->ctl) {
+		pr_err("invalid ctl handle\n");
+		return -ENODEV;
+	}
+
 	ctl = mixer->ctl;
 	mixer->rotator_mode = 0;
 
@@ -910,7 +915,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB888;
 			break;
 		}
-		mdss_mdp_dither_config(ctl, &dither, NULL);
+		mdss_mdp_dither_config(&dither, NULL);
 	}
 
 	return ctl;

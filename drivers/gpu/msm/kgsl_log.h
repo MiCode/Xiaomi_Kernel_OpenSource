@@ -13,8 +13,6 @@
 #ifndef __KGSL_LOG_H
 #define __KGSL_LOG_H
 
-extern unsigned int kgsl_cff_dump_enable;
-
 #define KGSL_LOG_INFO(dev, lvl, fmt, args...) \
 	do { \
 		if ((lvl) >= 6)  \

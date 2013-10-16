@@ -24,7 +24,8 @@
 
 #define VFE32_BURST_LEN 2
 #define VFE32_UB_SIZE 1024
-#define VFE32_EQUAL_SLICE_UB 198
+#define VFE32_EQUAL_SLICE_UB 194
+#define VFE32_AXI_SLICE_UB 792
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
 #define VFE32_RDI_BASE(idx) (idx ? 0x734 + 0x4 * (idx - 1) : 0x06FC)
 #define VFE32_XBAR_BASE(idx) (0x40 + 0x4 * (idx / 4))
@@ -319,6 +320,7 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
+	uint32_t rdi_status;
 	if (!(irq_status0 & 0x20) && !(irq_status1 & 0x1C000000))
 		return;
 
@@ -330,6 +332,18 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_1, ts);
 	if (irq_status1 & BIT(28))
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_2, ts);
+
+	if (vfe_dev->axi_data.stream_update) {
+		rdi_status = msm_camera_io_r(vfe_dev->vfe_base +
+						VFE32_XBAR_BASE(0));
+		rdi_status |= msm_camera_io_r(vfe_dev->vfe_base +
+						VFE32_XBAR_BASE(4));
+
+		if (((rdi_status & BIT(7)) || (rdi_status & BIT(7)) ||
+			(rdi_status & BIT(7)) || (rdi_status & BIT(7))) &&
+			(!(irq_status0 & 0x20)))
+			return;
+	}
 
 	if (vfe_dev->axi_data.stream_update)
 		msm_isp_axi_stream_update(vfe_dev);
@@ -759,11 +773,21 @@ static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
 {
 	int i;
 	uint32_t ub_offset = 0;
+	uint32_t final_ub_slice_size;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		msm_camera_io_w(ub_offset << 16 | (VFE32_EQUAL_SLICE_UB - 1),
-			vfe_dev->vfe_base + VFE32_WM_BASE(i) + 0xC);
-		ub_offset += VFE32_EQUAL_SLICE_UB;
+		if (ub_offset + VFE32_EQUAL_SLICE_UB > VFE32_AXI_SLICE_UB) {
+			final_ub_slice_size = VFE32_AXI_SLICE_UB - ub_offset;
+			msm_camera_io_w(ub_offset << 16 |
+				(final_ub_slice_size - 1), vfe_dev->vfe_base +
+				VFE32_WM_BASE(i) + 0xC);
+			ub_offset += final_ub_slice_size;
+		} else {
+			msm_camera_io_w(ub_offset << 16 |
+				(VFE32_EQUAL_SLICE_UB - 1), vfe_dev->vfe_base +
+				VFE32_WM_BASE(i) + 0xC);
+			ub_offset += VFE32_EQUAL_SLICE_UB;
+		}
 	}
 }
 
@@ -1023,7 +1047,7 @@ static void msm_vfe32_get_error_mask(uint32_t *error_mask0,
 }
 
 struct msm_vfe_axi_hardware_info msm_vfe32_axi_hw_info = {
-	.num_wm = 4,
+	.num_wm = 5,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,

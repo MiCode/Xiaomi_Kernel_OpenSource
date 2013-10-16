@@ -199,12 +199,17 @@ static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
 		usleep_range(50, 50);
 	}
 	/* Notify */
-	if (resmgr->clk_type == WCD9XXX_CLK_RCO)
+	if (resmgr->clk_type == WCD9XXX_CLK_RCO) {
 		wcd9xxx_resmgr_notifier_call(resmgr,
 					     WCD9XXX_EVENT_POST_RCO_OFF);
-	else
+	} else {
+		if (resmgr->codec_type == WCD9XXX_CDC_TYPE_HELICON)
+			snd_soc_update_bits(codec,
+				MSM8X10_WCD_A_CDC_CLK_PDM_CTL, 0x03, 0x00);
+
 		wcd9xxx_resmgr_notifier_call(resmgr,
 					     WCD9XXX_EVENT_POST_MCLK_OFF);
+	}
 	pr_debug("%s: leave\n", __func__);
 }
 

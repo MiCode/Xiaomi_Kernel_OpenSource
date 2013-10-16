@@ -48,6 +48,7 @@
 #include <mach/iommu_domains.h>
 #include <mach/memory.h>
 #include <mach/msm_memtypes.h>
+#include <mach/rpm-regulator-smd.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -699,6 +700,14 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		return -EINVAL;
 	}
 	mdata->fs_ena = false;
+
+	mdata->vdd_cx = devm_regulator_get(&mdata->pdev->dev,
+				"vdd-cx");
+	if (IS_ERR_OR_NULL(mdata->vdd_cx)) {
+		pr_debug("unable to get CX reg. rc=%d\n",
+					PTR_RET(mdata->vdd_cx));
+		mdata->vdd_cx = NULL;
+	}
 
 	if (mdss_mdp_irq_clk_register(mdata, "bus_clk", MDSS_CLK_AXI) ||
 	    mdss_mdp_irq_clk_register(mdata, "iface_clk", MDSS_CLK_AHB) ||
@@ -1931,6 +1940,49 @@ int mdss_panel_get_boot_cfg(void)
 	return rc;
 }
 
+static int mdss_mdp_cx_ctrl(struct mdss_data_type *mdata, int enable)
+{
+	int rc = 0;
+
+	if (!mdata->vdd_cx)
+		return rc;
+
+	if (enable) {
+		rc = regulator_set_voltage(
+				mdata->vdd_cx,
+				RPM_REGULATOR_CORNER_SVS_SOC,
+				RPM_REGULATOR_CORNER_SUPER_TURBO);
+		if (rc < 0)
+			goto vreg_set_voltage_fail;
+
+		pr_debug("Enabling CX power rail\n");
+		rc = regulator_enable(mdata->vdd_cx);
+		if (rc) {
+			pr_err("Failed to enable regulator.\n");
+			return rc;
+		}
+	} else {
+		pr_debug("Disabling CX power rail\n");
+		rc = regulator_disable(mdata->vdd_cx);
+		if (rc) {
+			pr_err("Failed to disable regulator.\n");
+			return rc;
+		}
+		rc = regulator_set_voltage(
+				mdata->vdd_cx,
+				RPM_REGULATOR_CORNER_NONE,
+				RPM_REGULATOR_CORNER_SUPER_TURBO);
+		if (rc < 0)
+			goto vreg_set_voltage_fail;
+	}
+
+	return rc;
+
+vreg_set_voltage_fail:
+	pr_err("Set vltg fail\n");
+	return rc;
+}
+
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {
 	if (!mdata->fs)
@@ -1938,14 +1990,18 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 
 	if (on) {
 		pr_debug("Enable MDP FS\n");
-		if (!mdata->fs_ena)
+		if (!mdata->fs_ena) {
 			regulator_enable(mdata->fs);
+			mdss_mdp_cx_ctrl(mdata, true);
+		}
 		mdata->fs_ena = true;
 	} else {
 		pr_debug("Disable MDP FS\n");
 		mdss_iommu_dettach(mdata);
-		if (mdata->fs_ena)
+		if (mdata->fs_ena) {
 			regulator_disable(mdata->fs);
+			mdss_mdp_cx_ctrl(mdata, false);
+		}
 		mdata->fs_ena = false;
 	}
 }

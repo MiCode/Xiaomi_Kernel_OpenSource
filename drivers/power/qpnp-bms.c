@@ -80,8 +80,7 @@
 
 /* Configuration for saving of shutdown soc/iavg */
 #define IGNORE_SOC_TEMP_DECIDEG		50
-#define IAVG_STEP_SIZE_MA		50
-#define IAVG_START			600
+#define IAVG_STEP_SIZE_MA		10
 #define IAVG_INVALID			0xFF
 #define SOC_INVALID			0x7E
 
@@ -1234,7 +1233,6 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 }
 
 #define MIN_IAVG_MA 250
-#define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 					struct soc_params *params,
 					int batt_temp)
@@ -1258,17 +1256,19 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 		chip->iavg_num_samples = IAVG_SAMPLES;
 	}
 
-	/*
-	 * if charging use a nominal avg current to keep
-	 * a reasonable UUC while charging
-	 */
-	if (uuc_iavg_ma < MIN_IAVG_MA)
-		uuc_iavg_ma = MIN_IAVG_MA;
-	chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
-	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
-	chip->iavg_num_samples++;
-	if (chip->iavg_num_samples >= IAVG_SAMPLES)
-		chip->iavg_num_samples = IAVG_SAMPLES;
+	if (params->delta_time_s >= IAVG_MINIMAL_TIME) {
+		/*
+		* if charging use a nominal avg current to keep
+		* a reasonable UUC while charging
+		*/
+		if (uuc_iavg_ma < MIN_IAVG_MA)
+			uuc_iavg_ma = MIN_IAVG_MA;
+		chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
+		chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
+		chip->iavg_num_samples++;
+		if (chip->iavg_num_samples >= IAVG_SAMPLES)
+			chip->iavg_num_samples = IAVG_SAMPLES;
+	}
 
 	/* now that this sample is added calcualte the average */
 	uuc_iavg_ma = 0;
@@ -1299,7 +1299,6 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	uuc_uah_iavg = adjust_uuc(chip, params, pc_unusable,
 					uuc_uah_iavg, batt_temp);
 
-	chip->first_time_calc_uuc = 0;
 	return uuc_uah_iavg;
 }
 
@@ -1608,8 +1607,8 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 	int rc;
 	int iavg_ma = chip->prev_uuc_iavg_ma;
 
-	if (iavg_ma > IAVG_START)
-		temp = (iavg_ma - IAVG_START) / IAVG_STEP_SIZE_MA;
+	if (iavg_ma > MIN_IAVG_MA)
+		temp = (iavg_ma - MIN_IAVG_MA) / IAVG_STEP_SIZE_MA;
 	else
 		temp = 0;
 
@@ -2333,6 +2332,7 @@ done_calculating:
 
 	get_current_time(&chip->last_recalc_time);
 	chip->first_time_calc_soc = 0;
+	chip->first_time_calc_uuc = 0;
 	return chip->calculated_soc;
 }
 
@@ -2687,7 +2687,8 @@ static void readjust_fcc_table(struct qpnp_bms_chip *chip)
 		return;
 	}
 
-	temp = kzalloc(sizeof(struct single_row_lut), GFP_KERNEL);
+	temp = devm_kzalloc(chip->dev, sizeof(struct single_row_lut),
+			GFP_KERNEL);
 	if (!temp) {
 		pr_err("Cannot allocate memory for adjusted fcc table\n");
 		return;
@@ -2705,7 +2706,7 @@ static void readjust_fcc_table(struct qpnp_bms_chip *chip)
 
 	old = chip->adjusted_fcc_temp_lut;
 	chip->adjusted_fcc_temp_lut = temp;
-	kfree(old);
+	devm_kfree(chip->dev, old);
 }
 
 static int read_fcc_data_from_backup(struct qpnp_bms_chip *chip)
@@ -3293,17 +3294,17 @@ static int read_shutdown_iavg_ma(struct qpnp_bms_chip *chip)
 	if (rc) {
 		pr_err("failed to read addr = %d %d assuming %d\n",
 				chip->base + IAVG_STORAGE_REG, rc,
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else if (iavg == IAVG_INVALID) {
 		pr_err("invalid iavg read from BMS1_DATA_REG_1, using %d\n",
-				IAVG_START);
-		return IAVG_START;
+				MIN_IAVG_MA);
+		return MIN_IAVG_MA;
 	} else {
 		if (iavg == 0)
-			return IAVG_START;
+			return MIN_IAVG_MA;
 		else
-			return IAVG_START + IAVG_STEP_SIZE_MA * (iavg + 1);
+			return MIN_IAVG_MA + IAVG_STEP_SIZE_MA * iavg;
 	}
 }
 
@@ -3442,7 +3443,7 @@ static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 static int set_battery_data(struct qpnp_bms_chip *chip)
 {
 	int64_t battery_id;
-	int rc, dt_data = false;
+	int rc = 0, dt_data = false;
 	struct bms_battery_data *batt_data;
 	struct device_node *node;
 
@@ -3466,41 +3467,52 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 
 		node = of_find_node_by_name(chip->spmi->dev.of_node,
 				"qcom,battery-data");
-		if (node) {
-			batt_data = kzalloc(sizeof(struct bms_battery_data),
-					GFP_KERNEL);
-			batt_data->fcc_temp_lut = kzalloc(
-					sizeof(struct single_row_lut),
-					GFP_KERNEL);
-			batt_data->pc_temp_ocv_lut = kzalloc(
-					sizeof(struct pc_temp_ocv_lut),
-					GFP_KERNEL);
-			batt_data->rbatt_sf_lut = kzalloc(
-					sizeof(struct sf_lut), GFP_KERNEL);
+		if (!node) {
+			pr_warn("No available batterydata, using palladium 1500\n");
+			batt_data = &palladium_1500_data;
+			goto assign_data;
+		}
+		batt_data = devm_kzalloc(chip->dev,
+				sizeof(struct bms_battery_data), GFP_KERNEL);
+		if (!batt_data) {
+			pr_err("Could not alloc battery data\n");
+			batt_data = &palladium_1500_data;
+			goto assign_data;
+		}
+		batt_data->fcc_temp_lut = devm_kzalloc(chip->dev,
+				sizeof(struct single_row_lut),
+				GFP_KERNEL);
+		batt_data->pc_temp_ocv_lut = devm_kzalloc(chip->dev,
+				sizeof(struct pc_temp_ocv_lut),
+				GFP_KERNEL);
+		batt_data->rbatt_sf_lut = devm_kzalloc(chip->dev,
+				sizeof(struct sf_lut),
+				GFP_KERNEL);
 
-			batt_data->max_voltage_uv = -1;
-			batt_data->cutoff_uv = -1;
-			batt_data->iterm_ua = -1;
+		batt_data->max_voltage_uv = -1;
+		batt_data->cutoff_uv = -1;
+		batt_data->iterm_ua = -1;
 
-			rc = of_batterydata_read_data(node,
-					batt_data, battery_id);
-			if (rc) {
-				pr_err("battery data load failed, using palladium 1500\n");
-				kfree(batt_data->fcc_temp_lut);
-				kfree(batt_data->pc_temp_ocv_lut);
-				kfree(batt_data->rbatt_sf_lut);
-				kfree(batt_data);
-				batt_data = &palladium_1500_data;
-			} else {
-				dt_data = true;
-			}
+		/*
+		 * if the alloced luts are 0s, of_batterydata_read_data ignores
+		 * them.
+		 */
+		rc = of_batterydata_read_data(node, batt_data, battery_id);
+		if (rc == 0 && batt_data->fcc_temp_lut
+				&& batt_data->pc_temp_ocv_lut
+				&& batt_data->rbatt_sf_lut) {
+			dt_data = true;
 		} else {
-			pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
-					battery_id);
+			pr_err("battery data load failed, using palladium 1500\n");
+			devm_kfree(chip->dev, batt_data->fcc_temp_lut);
+			devm_kfree(chip->dev, batt_data->pc_temp_ocv_lut);
+			devm_kfree(chip->dev, batt_data->rbatt_sf_lut);
+			devm_kfree(chip->dev, batt_data);
 			batt_data = &palladium_1500_data;
 		}
 	}
 
+assign_data:
 	chip->fcc_mah = batt_data->fcc;
 	chip->fcc_temp_lut = batt_data->fcc_temp_lut;
 	chip->fcc_sf_lut = batt_data->fcc_sf_lut;
@@ -3519,13 +3531,20 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	if (batt_data->iterm_ua >= 0 && dt_data)
 		chip->chg_term_ua = batt_data->iterm_ua;
 
-	if (dt_data)
-		kfree(batt_data);
-
 	if (chip->pc_temp_ocv_lut == NULL) {
-		pr_err("temp ocv lut table is NULL\n");
+		pr_err("temp ocv lut table has not been loaded\n");
+		if (dt_data) {
+			devm_kfree(chip->dev, batt_data->fcc_temp_lut);
+			devm_kfree(chip->dev, batt_data->pc_temp_ocv_lut);
+			devm_kfree(chip->dev, batt_data->rbatt_sf_lut);
+			devm_kfree(chip->dev, batt_data);
+		}
 		return -EINVAL;
 	}
+
+	if (dt_data)
+		devm_kfree(chip->dev, batt_data);
+
 	return 0;
 }
 
@@ -3642,6 +3661,8 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 		chip->fcc_learning_samples = devm_kzalloc(&chip->spmi->dev,
 				(sizeof(struct fcc_sample) *
 				chip->min_fcc_learning_samples), GFP_KERNEL);
+		if (chip->fcc_learning_samples == NULL)
+			return -ENOMEM;
 		pr_debug("min-fcc-soc=%d, min-fcc-pc=%d, min-fcc-cycles=%d\n",
 			chip->min_fcc_learning_soc, chip->min_fcc_ocv_pc,
 			chip->min_fcc_learning_samples);
@@ -3981,7 +4002,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	bool warm_reset;
 	int rc, vbatt;
 
-	chip = kzalloc(sizeof *chip, GFP_KERNEL);
+	chip = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_bms_chip),
+			GFP_KERNEL);
 
 	if (chip == NULL) {
 		pr_err("kzalloc() failed.\n");
@@ -4172,17 +4194,12 @@ error_setup:
 	wake_lock_destroy(&chip->cv_wake_lock);
 error_resource:
 error_read:
-	kfree(chip);
 	return rc;
 }
 
-static int __devexit
-qpnp_bms_remove(struct spmi_device *spmi)
+static int qpnp_bms_remove(struct spmi_device *spmi)
 {
-	struct qpnp_bms_chip *chip = dev_get_drvdata(&spmi->dev);
-
 	dev_set_drvdata(&spmi->dev, NULL);
-	kfree(chip);
 	return 0;
 }
 

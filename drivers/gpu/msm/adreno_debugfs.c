@@ -23,8 +23,6 @@
 
 #include "a2xx_reg.h"
 
-unsigned int kgsl_cff_dump_enable;
-
 DEFINE_SIMPLE_ATTRIBUTE(kgsl_cff_dump_enable_fops, kgsl_cff_dump_enable_get,
 			kgsl_cff_dump_enable_set, "%llu\n");
 

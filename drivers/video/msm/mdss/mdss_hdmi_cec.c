@@ -756,7 +756,7 @@ static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, hdmi_rda_cec_enable,
 	hdmi_wta_cec_enable);
 static DEVICE_ATTR(enable_compliance, S_IRUGO | S_IWUSR,
 	hdmi_rda_cec_enable_compliance, hdmi_wta_cec_enable_compliance);
-static DEVICE_ATTR(logical_addr, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(logical_addr, S_IRUSR | S_IWUSR,
 	hdmi_rda_cec_logical_addr, hdmi_wta_cec_logical_addr);
 static DEVICE_ATTR(rd_msg, S_IRUGO, hdmi_rda_cec_msg,	NULL);
 static DEVICE_ATTR(wr_msg, S_IWUSR, NULL, hdmi_wta_cec_msg);

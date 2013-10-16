@@ -182,10 +182,11 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
-		for (i = 0; i < MDSS_DSI_RST_SEQ_LEN; ++i) {
+		for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
 			gpio_set_value((ctrl_pdata->rst_gpio),
-				ctrl_pdata->rst_seq[i]);
-			msleep(ctrl_pdata->rst_seq[++i]);
+				pdata->panel_info.rst_seq[i]);
+			if (pdata->panel_info.rst_seq[++i])
+				usleep(pdata->panel_info.rst_seq[i] * 1000);
 		}
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
@@ -547,6 +548,35 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 }
 
 
+static int mdss_dsi_parse_reset_seq(struct device_node *np,
+		u32 rst_seq[MDSS_DSI_RST_SEQ_LEN], u32 *rst_len,
+		const char *name)
+{
+	int num = 0, i;
+	int rc;
+	struct property *data;
+	u32 tmp[MDSS_DSI_RST_SEQ_LEN];
+	*rst_len = 0;
+	data = of_find_property(np, name, &num);
+	num /= sizeof(u32);
+	if (!data || !num || num > MDSS_DSI_RST_SEQ_LEN || num % 2) {
+		pr_debug("%s:%d, error reading %s, length found = %d\n",
+			__func__, __LINE__, name, num);
+	} else {
+		rc = of_property_read_u32_array(np, name, tmp, num);
+		if (rc)
+			pr_debug("%s:%d, error reading %s, rc = %d\n",
+				__func__, __LINE__, name, rc);
+		else {
+			for (i = 0; i < num; ++i)
+				rst_seq[i] = tmp[i];
+			*rst_len = num;
+		}
+	}
+	return 0;
+}
+
+
 static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -794,6 +824,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		pinfo->mipi.dsi_phy_db.timing[i] = data[i];
 
 	mdss_dsi_parse_fbc_params(np, pinfo);
+
+	mdss_dsi_parse_reset_seq(np, pinfo->rst_seq, &(pinfo->rst_seq_len),
+		"qcom,mdss-dsi-reset-sequence");
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
 		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
