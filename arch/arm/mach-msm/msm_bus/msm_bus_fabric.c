@@ -766,6 +766,8 @@ static int __devinit msm_bus_fabric_probe(struct platform_device *pdev)
 		pdata = msm_bus_of_get_fab_data(pdev);
 		if (IS_ERR(pdata) || ZERO_OR_NULL_PTR(pdata)) {
 			pr_err("Null platform data\n");
+			kfree(fabric->info.node_info);
+			kfree(fabric);
 			return PTR_ERR(pdata);
 		}
 		msm_bus_board_init(pdata);
