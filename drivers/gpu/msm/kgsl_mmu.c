@@ -459,11 +459,8 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	unsigned int ptsize;
 
 	pagetable = kzalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
-	if (pagetable == NULL) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n",
-			sizeof(struct kgsl_pagetable));
+	if (pagetable == NULL)
 		return NULL;
-	}
 
 	kref_init(&pagetable->refcount);
 

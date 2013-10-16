@@ -172,8 +172,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	if (*data) {
 		memcpy(*data, fw->data, fw->size);
 		*len = fw->size;
-	} else
-		KGSL_MEM_ERR(device, "kmalloc(%d) failed\n", fw->size);
+	}
 
 	release_firmware(fw);
 	return (*data != NULL) ? 0 : -ENOMEM;
