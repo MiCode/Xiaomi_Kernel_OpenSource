@@ -968,7 +968,7 @@ long diagchar_ioctl(struct file *filp,
 	int i, result = -EINVAL, interim_size = 0, client_id = 0, real_time = 0;
 	int retry_count = 0, timer = 0;
 	uint16_t support_list = 0, interim_rsp_id, remote_dev;
-	struct diag_dci_client_tbl *dci_params;
+	struct diag_dci_reg_tbl_t *dci_reg_params;
 	struct diag_dci_health_stats_proc stats;
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
@@ -998,20 +998,19 @@ long diagchar_ioctl(struct file *filp,
 		}
 		break;
 	case DIAG_IOCTL_DCI_REG:
-		dci_params = kzalloc(sizeof(struct diag_dci_client_tbl),
+		dci_reg_params = kzalloc(sizeof(struct diag_dci_reg_tbl_t),
 								 GFP_KERNEL);
-		if (dci_params == NULL) {
+		if (dci_reg_params == NULL) {
 			pr_err("diag: unable to alloc memory\n");
 			return -ENOMEM;
 		}
-		if (copy_from_user(dci_params, (void *)ioarg,
-				 sizeof(struct diag_dci_client_tbl))) {
-			kfree(dci_params);
+		if (copy_from_user(dci_reg_params, (void *)ioarg,
+				 sizeof(struct diag_dci_reg_tbl_t))) {
+			kfree(dci_reg_params);
 			return -EFAULT;
 		}
-		result = diag_dci_register_client(dci_params->list,
-						  dci_params->signal_type);
-		kfree(dci_params);
+		result = diag_dci_register_client(dci_reg_params);
+		kfree(dci_reg_params);
 		break;
 	case DIAG_IOCTL_DCI_DEINIT:
 		result = diag_dci_deinit_client();

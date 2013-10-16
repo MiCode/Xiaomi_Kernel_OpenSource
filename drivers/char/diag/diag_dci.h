@@ -61,6 +61,12 @@ struct dci_pkt_req_tracking_tbl {
 	int tag;
 };
 
+struct diag_dci_reg_tbl_t {
+	uint32_t client_id;
+	uint16_t notification_list;
+	int signal_type;
+};
+
 struct diag_dci_health_t {
 	int dropped_logs;
 	int dropped_events;
@@ -90,9 +96,8 @@ struct diag_dci_buf_peripheral_t {
 };
 
 struct diag_dci_client_tbl {
+	struct diag_dci_reg_tbl_t client_info;
 	struct task_struct *client;
-	uint16_t list;
-	int signal_type;
 	unsigned char *dci_log_mask;
 	unsigned char *dci_event_mask;
 	uint8_t real_time;
@@ -146,7 +151,7 @@ extern struct mutex dci_stat_mutex;
 
 int diag_dci_init(void);
 void diag_dci_exit(void);
-int diag_dci_register_client(uint16_t peripheral_list, int signal);
+int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry);
 int diag_dci_deinit_client(void);
 void diag_update_smd_dci_work_fn(struct work_struct *);
 void diag_dci_notify_client(int peripheral_mask, int data);
