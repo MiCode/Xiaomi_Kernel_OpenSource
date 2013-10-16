@@ -35,7 +35,7 @@
 #define IPA_LAN_RX_HEADER_LENGTH (2)
 
 #define IPADBG(fmt, args...) \
-	pr_debug(fmt, ## args)
+	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPAERR(fmt, args...) \
 	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
@@ -43,7 +43,7 @@
 #define WLAN_PROD_TX_EP  19
 
 #define MAX_NUM_EXCP     8
-#define MAX_NUM_IMM_CMD 17
+#define MAX_NUM_IMM_CMD 20
 
 #define IPA_STATS
 
@@ -658,6 +658,7 @@ struct ipa_context {
 	struct mutex lock;
 	u16 smem_sz;
 	u16 smem_restricted_bytes;
+	u16 smem_reqd_sz;
 	struct rb_root hdr_hdl_tree;
 	struct rb_root rt_rule_hdl_tree;
 	struct rb_root rt_tbl_hdl_tree;
@@ -786,12 +787,6 @@ struct ipa_plat_drv_res {
 
 struct ipa_controller {
 	u32 ipa_src_clk_rate;
-	u32 sram_flt_ipv4_ofst;
-	u32 sram_flt_ipv6_ofst;
-	u32 sram_nat_ipv4_ofst;
-	u32 sram_rt_ipv4_ofst;
-	u32 sram_rt_ipv6_ofst;
-	u32 sram_hdr_ofst;
 	void (*ipa_sram_read_settings)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
@@ -815,6 +810,9 @@ struct ipa_controller {
 	int (*ipa_read_dbg_cnt)(char *buf, int max_len);
 	void (*ipa_cfg_ep_status)(u32 clnt_hdl,
 			const struct ipa_ep_cfg_status *ep_status);
+	int (*ipa_commit_flt)(enum ipa_ip_type ip);
+	int (*ipa_commit_rt)(enum ipa_ip_type ip);
+	int (*ipa_commit_hdr)(void);
 };
 
 extern struct ipa_context *ipa_ctx;
@@ -842,10 +840,6 @@ u8 *ipa_write_8(u8 b, u8 *dest);
 u8 *ipa_pad_to_32(u8 *dest);
 int ipa_init_hw(void);
 struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name);
-void ipa_dump(void);
-int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem);
-int ipa_generate_rt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem);
-int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem);
 int ipa_set_single_ndp_per_mbim(bool);
 int ipa_set_hw_timer_fix_for_mbim_aggr(bool);
 void ipa_debugfs_init(void);
@@ -921,5 +915,12 @@ void wwan_cleanup(void);
 
 int teth_bridge_driver_init(void);
 void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
+
+int __ipa_commit_flt_v1(enum ipa_ip_type ip);
+int __ipa_commit_flt_v2(enum ipa_ip_type ip);
+int __ipa_commit_rt_v1(enum ipa_ip_type ip);
+int __ipa_commit_rt_v2(enum ipa_ip_type ip);
+int __ipa_commit_hdr_v1(void);
+int __ipa_commit_hdr_v2(void);
 
 #endif /* _IPA_I_H_ */

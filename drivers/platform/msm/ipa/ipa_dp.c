@@ -471,6 +471,8 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		if (desc[i].type == IPA_IMM_CMD_DESC) {
 			iovec->size = desc[i].opcode;
 			iovec->flags |= SPS_IOVEC_FLAG_IMME;
+			IPA_DUMP_BUFF(desc[i].pyld,
+					tx_pkt->mem.phys_base, desc[i].len);
 		} else {
 			iovec->size = desc[i].len;
 		}
