@@ -204,27 +204,34 @@ static bool emac_get_rrdesc(struct emac_rx_queue *rxque,
 	struct emac_adapter *adpt = netdev_priv(rxque->netdev);
 	u32 *hrrd = EMAC_RRD(rxque, adpt->rrdesc_size,
 			     rxque->rrd.consume_idx);
-	u8 i = 0;
 
 	/* If time stamping is enabled, it will be added in the beginning of
 	 * the hw rrd (hrrd). In sw rrd (srrd), dwords 4 & 5 are reserved for
 	 * the time stamp; hence the conversion.
+	 * Also, read the rrd word with update flag first; read rest of rrd
+	 * only if update flag is set.
 	 */
+	if (adpt->tstamp_en)
+		srrd->dfmt.dw[3] = *(hrrd + 5);
+	else
+		srrd->dfmt.dw[3] = *(hrrd + 3);
+	rmb();
+
+	if (!srrd->genr.update)
+		return false;
+
 	if (adpt->tstamp_en) {
-		srrd->dfmt.dw[4] = readl_relaxed(hrrd + i); i++;
-		srrd->dfmt.dw[5] = readl_relaxed(hrrd + i); i++;
+		srrd->dfmt.dw[4] = *(hrrd++);
+		srrd->dfmt.dw[5] = *(hrrd++);
 	} else {
 		srrd->dfmt.dw[4] = 0;
 		srrd->dfmt.dw[5] = 0;
 	}
 
-	srrd->dfmt.dw[0] = readl_relaxed(hrrd + i); i++;
-	srrd->dfmt.dw[1] = readl_relaxed(hrrd + i); i++;
-	srrd->dfmt.dw[2] = readl_relaxed(hrrd + i); i++;
-	srrd->dfmt.dw[3] = readl_relaxed(hrrd + i);
-
-	if (!srrd->genr.update)
-		return false;
+	srrd->dfmt.dw[0] = *(hrrd++);
+	srrd->dfmt.dw[1] = *(hrrd++);
+	srrd->dfmt.dw[2] = *(hrrd++);
+	mb(); /* ensure descriptor is read */
 
 	emac_dbg(adpt, rx_status, "RX[%d]:SRRD[%x]: %x:%x:%x:%x:%x:%x\n",
 		 rxque->que_idx, rxque->rrd.consume_idx, srrd->dfmt.dw[0],
@@ -239,7 +246,7 @@ static bool emac_get_rrdesc(struct emac_rx_queue *rxque,
 
 	/* mark rrd as processed */
 	srrd->genr.update = 0;
-	writel_relaxed(srrd->dfmt.dw[3], hrrd + i);
+	*hrrd = srrd->dfmt.dw[3];
 
 	if (++rxque->rrd.consume_idx == rxque->rrd.count)
 		rxque->rrd.consume_idx = 0;
@@ -255,8 +262,8 @@ static bool emac_set_rfdesc(struct emac_rx_queue *rxque,
 	u32 *hrfd = EMAC_RFD(rxque, adpt->rfdesc_size,
 			     rxque->rfd.produce_idx);
 
-	writel_relaxed(srfd->dfmt.dw[0], hrfd);
-	writel_relaxed(srfd->dfmt.dw[1], hrfd + 1);
+	*(hrfd++) = srfd->dfmt.dw[0];
+	*hrfd = srfd->dfmt.dw[1];
 
 	if (++rxque->rfd.produce_idx == rxque->rfd.count)
 		rxque->rfd.produce_idx = 0;
@@ -277,10 +284,10 @@ static bool emac_set_tpdesc(struct emac_tx_queue *txque,
 	if (++txque->tpd.produce_idx == txque->tpd.count)
 		txque->tpd.produce_idx = 0;
 
-	writel_relaxed(stpd->dfmt.dw[0], htpd);
-	writel_relaxed(stpd->dfmt.dw[1], htpd + 1);
-	writel_relaxed(stpd->dfmt.dw[2], htpd + 2);
-	writel_relaxed(stpd->dfmt.dw[3], htpd + 3);
+	*(htpd++) = stpd->dfmt.dw[0];
+	*(htpd++) = stpd->dfmt.dw[1];
+	*(htpd++) = stpd->dfmt.dw[2];
+	*htpd = stpd->dfmt.dw[3];
 
 	emac_dbg(adpt, tx_done, "TX[%d]:STPD[%x]: %x:%x:%x:%x\n",
 		 txque->que_idx, txque->tpd.last_produce_idx, stpd->dfmt.dw[0],
@@ -297,9 +304,9 @@ static void emac_set_tpdesc_lastfrag(struct emac_tx_queue *txque)
 	u32 *htpd = EMAC_TPD(txque, adpt->tpdesc_size,
 			     txque->tpd.last_produce_idx);
 
-	tmp_tpd = readl_relaxed(htpd + 1);
+	tmp_tpd = *(htpd + 1);
 	tmp_tpd |= EMAC_TPD_LAST_FRAGMENT;
-	writel_relaxed(tmp_tpd, htpd + 1);
+	*(htpd + 1) = tmp_tpd;
 }
 
 void emac_set_tpdesc_tstamp_sav(struct emac_tx_queue *txque)
@@ -309,10 +316,9 @@ void emac_set_tpdesc_tstamp_sav(struct emac_tx_queue *txque)
 	u32 *htpd = EMAC_TPD(txque, adpt->tpdesc_size,
 			     txque->tpd.last_produce_idx);
 
-	tmp_tpd = readl_relaxed(htpd + 3);
+	tmp_tpd = *(htpd + 3);
 	tmp_tpd |= EMAC_TPD_TSTAMP_SAVE;
-	writel_relaxed(tmp_tpd, htpd + 3);
-	wmb();
+	*(htpd + 3) = tmp_tpd;
 }
 
 /* Fill up receive queue's RFD with preallocated receive buffers */
