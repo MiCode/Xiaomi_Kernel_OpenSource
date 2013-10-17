@@ -49,26 +49,27 @@ struct devicemode {
 	enum ehandler_mode	handle_flavour;
 } tdevicemode;
 
-#define NFC_DRIVER_NAME			"nfc-nci"
+#define NFC_DRIVER_NAME		"nfc-nci"
 #define NFC_I2C_DRIVER_NAME		"NCI NFC I2C Interface",
 
-#define NCI_I2C_SLAVE			(0x2C)
-#define NFC_I2C_BUS			3	/* 6, 10, 4, 5 */
-#define NFC_SET_PWR			_IOW(0xE9, 0x01, unsigned int)
-#define NFCC_MODE			_IOW(0xE9, 0x02, unsigned int)
+#define NCI_I2C_SLAVE	(0x2C)
+#define NFC_I2C_BUS	3	/* 6, 10, 4, 5 */
+#define NFC_SET_PWR	_IOW(0xE9, 0x01, unsigned int)
+#define NFCC_MODE	_IOW(0xE9, 0x02, unsigned int)
 #define NFC_KERNEL_LOGGING_MODE		_IOW(0xE9, 0x03, unsigned int)
-#define SET_RX_BLOCK			_IOW(0xE9, 0x04, unsigned int)
+#define SET_RX_BLOCK	_IOW(0xE9, 0x04, unsigned int)
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
+#define NFCC_VERSION				_IOW(0xE9, 0x08, unsigned int)
 
-#define NFC_MAX_I2C_TRANSFER		(0x0400)
-#define NFC_MSG_MAX_SIZE		(0x21)
+#define NFC_MAX_I2C_TRANSFER	(0x0400)
+#define NFC_MSG_MAX_SIZE	(0x21)
 
 #define NFC_RX_BUFFER_CNT_START		(0x0)
 
-#define NFC_RX_BUFFER_BLOCK_SIZE	(0x120)		/* Bytes per Block */
+#define NFC_RX_BUFFER_BLOCK_SIZE	(0x120)	/* Bytes per Block */
 #define NFC_RX_BUFFER_PAGE_SIZE		(0x1000)	/* Page size Bytes */
 #define NFC_RX_BUFFER_PAGES		(0x8)
-#define NFC_RX_ORDER_FREE_PAGES		(0x3)		/* Free 8 Pages */
+#define NFC_RX_ORDER_FREE_PAGES	(0x3)	/* Free 8 Pages */
 
 /* The total no. of Blocks */
 #define NFC_RX_BUFFER_CNT_LIMIT		(unsigned short)(	\
@@ -86,10 +87,10 @@ struct devicemode {
 
 /** Power Management Related **/
 
-#define NFCC_WAKE			(0x01)
-#define NFCC_SLEEP			(0x00)
+#define NFCC_WAKE				(0x01)
+#define NFCC_SLEEP				(0x00)
 
-#define XTAL_CLOCK			(0X00)
+#define XTAL_CLOCK				(0X00)
 #define REFERENCE_CLOCK			(0X01)
 
 /* LDO Trim Settings */
@@ -122,8 +123,8 @@ struct devicemode {
 #define LOCALBIASXTAL	(0x20)
 #define BIAS2X_FORCE	(0x10)
 #define BIAS2X		(0x08)
-#define LBIAS2X		(0x04)
-#define SMALLRF		(0x02)
+#define LBIAS2X	(0x04)
+#define SMALLRF	(0x02)
 #define SMALLRBIAS	(0x01)
 
 /* Select as appropriate */

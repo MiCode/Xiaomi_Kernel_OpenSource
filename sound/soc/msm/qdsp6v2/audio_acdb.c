@@ -401,7 +401,7 @@ int get_hw_delay(int32_t path, struct hw_delay_entry *entry)
 		delay = &acdb_data.hw_delay_tx;
 
 	if ((delay == NULL) || ((delay != NULL) && delay->num_entries == 0)) {
-		pr_err("ACDB=> %s Invalid delay/ delay entries\n", __func__);
+		pr_debug("ACDB=> %s Invalid delay/ delay entries\n", __func__);
 		result = -EINVAL;
 		goto done;
 	}
@@ -455,7 +455,7 @@ int store_hw_delay(int32_t path, void *arg)
 	}
 	if ((delay.num_entries <= 0) ||
 		(delay.num_entries > MAX_HW_DELAY_ENTRIES)) {
-		pr_err("ACDB=> %s incorrect no of hw delay entries: %d\n",
+		pr_debug("ACDB=> %s incorrect no of hw delay entries: %d\n",
 		       __func__, delay.num_entries);
 		result = -EINVAL;
 		goto done;
@@ -1120,8 +1120,12 @@ static int acdb_open(struct inode *inode, struct file *f)
 	atomic_set(&acdb_data.valid_asm_custom_top, 1);
 	atomic_inc(&usage_count);
 
+	return result;
+}
+
+static void allocate_hw_delay_entries(void)
+{
 	/* Allocate memory for hw delay entries */
-	mutex_lock(&acdb_data.acdb_mutex);
 	acdb_data.hw_delay_rx.num_entries = 0;
 	acdb_data.hw_delay_tx.num_entries = 0;
 	acdb_data.hw_delay_rx.delay_info =
@@ -1140,9 +1144,6 @@ static int acdb_open(struct inode *inode, struct file *f)
 		pr_err("%s : Failed to allocate av sync delay entries tx\n",
 			__func__);
 	}
-	mutex_unlock(&acdb_data.acdb_mutex);
-
-	return result;
 }
 
 static int unmap_cal_tables(void)
@@ -1194,14 +1195,16 @@ static int deregister_memory(void)
 	int	i;
 	pr_debug("%s\n", __func__);
 
+	mutex_lock(&acdb_data.acdb_mutex);
+	kfree(acdb_data.hw_delay_tx.delay_info);
+	kfree(acdb_data.hw_delay_rx.delay_info);
+
 	if (atomic64_read(&acdb_data.mem_len)) {
-		mutex_lock(&acdb_data.acdb_mutex);
 		/* unmap all cal data */
 		result = unmap_cal_tables();
 		if (result < 0)
 			pr_err("%s: unmap_cal_tables failed, err = %d\n",
 				__func__, result);
-
 
 		atomic64_set(&acdb_data.mem_len, 0);
 
@@ -1214,7 +1217,8 @@ static int deregister_memory(void)
 		acdb_data.ion_handle = NULL;
 		mutex_unlock(&acdb_data.acdb_mutex);
 	}
-	return result;
+	mutex_unlock(&acdb_data.acdb_mutex);
+	return 0;
 }
 
 static int register_memory(void)
@@ -1228,6 +1232,7 @@ static int register_memory(void)
 	pr_debug("%s\n", __func__);
 
 	mutex_lock(&acdb_data.acdb_mutex);
+	allocate_hw_delay_entries();
 	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
 		acdb_data.col_data[i] = kmalloc(MAX_COL_SIZE, GFP_KERNEL);
 		atomic_set(&acdb_data.vocproc_col_cal[i].cal_kvaddr,
@@ -1542,9 +1547,6 @@ static int acdb_release(struct inode *inode, struct file *f)
 		result = -EBUSY;
 	else
 		result = deregister_memory();
-
-	kfree(acdb_data.hw_delay_rx.delay_info);
-	kfree(acdb_data.hw_delay_tx.delay_info);
 
 	return result;
 }

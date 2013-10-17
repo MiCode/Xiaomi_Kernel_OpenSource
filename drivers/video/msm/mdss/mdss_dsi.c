@@ -1069,7 +1069,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
-	u32 tmp[9];
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	bool dynamic_fps;
@@ -1247,15 +1246,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		pr_debug("%s: te_gpio=%d\n", __func__,
 					ctrl_pdata->disp_te_gpio);
 	}
-
-	rc = of_property_read_u32_array(ctrl_pdev->dev.of_node,
-		"qcom,platform-reset-sequence", tmp, MDSS_DSI_RST_SEQ_LEN);
-	if (rc)
-		pr_err("%s:%d, unable to read gpio reset sequence\n",
-						__func__, __LINE__);
-	else
-		for (i = 0; i < MDSS_DSI_RST_SEQ_LEN; ++i)
-			ctrl_pdata->rst_seq[i] = tmp[i];
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);

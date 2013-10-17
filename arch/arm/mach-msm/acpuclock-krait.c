@@ -1092,15 +1092,17 @@ void __init get_krait_bin_format_b(void __iomem *base, struct bin_info *bin)
 
 	pte_efuse = readl_relaxed(base);
 	redundant_sel = (pte_efuse >> 24) & 0x7;
+	bin->pvs_rev = (pte_efuse >> 4) & 0x3;
 	bin->speed = pte_efuse & 0x7;
-	bin->pvs = (pte_efuse >> 6) & 0x7;
+	/* PVS number is in bits 31, 8, 7, 6 */
+	bin->pvs = ((pte_efuse >> 28) & 0x8) | ((pte_efuse >> 6) & 0x7);
 
 	switch (redundant_sel) {
 	case 1:
-		bin->speed = (pte_efuse >> 27) & 0x7;
+		bin->speed = (pte_efuse >> 27) & 0xF;
 		break;
 	case 2:
-		bin->pvs = (pte_efuse >> 27) & 0x7;
+		bin->pvs = (pte_efuse >> 27) & 0xF;
 		break;
 	}
 	bin->speed_valid = true;
@@ -1136,13 +1138,15 @@ static struct pvs_table * __init select_freq_plan(
 	if (bin.pvs_valid) {
 		drv.pvs_bin = bin.pvs;
 		dev_info(drv.dev, "ACPU PVS: %d\n", drv.pvs_bin);
+		drv.pvs_rev = bin.pvs_rev;
+		dev_info(drv.dev, "ACPU PVS REVISION: %d\n", drv.pvs_rev);
 	} else {
 		drv.pvs_bin = 0;
 		dev_warn(drv.dev, "ACPU PVS: Defaulting to %d\n",
 			 drv.pvs_bin);
 	}
 
-	return &params->pvs_tables[drv.speed_bin][drv.pvs_bin];
+	return &params->pvs_tables[drv.pvs_rev][drv.speed_bin][drv.pvs_bin];
 }
 
 static void __init drv_data_init(struct device *dev,

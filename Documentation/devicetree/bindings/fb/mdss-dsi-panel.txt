@@ -244,6 +244,13 @@ Optional properties:
 					"low" = Set GPIO to LOW
 - qcom,partial-update-enabled:		Boolean used to enable partial
 					panel update for command mode panels.
+- qcom,mdss-dsi-reset-sequence:		An array that lists the
+					sequence of reset gpio values and sleeps
+					Each command will have the format defined
+					as below:
+					--> Reset GPIO value
+					--> Sleep value (in ms)
+
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -335,5 +342,6 @@ Example:
 		qcom,mdss-pan-physical-height-dimension = <140>;
 		qcom,mdss-dsi-panel-mode-gpio-state = "low";
 		qcom,partial-update-enabled;
+		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
 	};
 };

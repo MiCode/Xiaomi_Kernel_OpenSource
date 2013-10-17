@@ -295,6 +295,9 @@ static void pp_update_argc_lut(u32 offset,
 				struct mdp_pgc_lut_data *config);
 static void pp_update_hist_lut(char __iomem *base,
 				struct mdp_hist_lut_data *cfg);
+static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config);
+static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
+				u32 base, struct pp_sts_type *pp_sts);
 static void pp_pa_config(unsigned long flags, u32 base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pa_cfg *pa_config);
@@ -1133,7 +1136,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 flush_exit:
 	writel_relaxed(opmode, basel + MDSS_MDP_REG_DSPP_OP_MODE);
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + dspp_num));
+	ctl->flush_bits |= BIT(13 + dspp_num);
 	wmb();
 dspp_exit:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
@@ -1369,14 +1372,11 @@ static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
 	return 0;
 }
 
-int mdss_mdp_pa_config(struct mdss_mdp_ctl *ctl, struct mdp_pa_cfg_data *config,
+int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config,
 			u32 *copyback)
 {
 	int ret = 0;
 	u32 pa_offset, disp_num, dspp_num = 0;
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -1411,8 +1411,6 @@ int mdss_mdp_pa_config(struct mdss_mdp_ctl *ctl, struct mdp_pa_cfg_data *config,
 
 pa_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 
@@ -1542,15 +1540,11 @@ static void pp_update_pcc_regs(u32 offset,
 	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rgb_1);
 }
 
-int mdss_mdp_pcc_config(struct mdss_mdp_ctl *ctl,
-					struct mdp_pcc_cfg_data *config,
+int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config,
 					u32 *copyback)
 {
 	int ret = 0;
 	u32 base, disp_num, dspp_num = 0;
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -1581,8 +1575,6 @@ int mdss_mdp_pcc_config(struct mdss_mdp_ctl *ctl,
 
 pcc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 
@@ -1656,21 +1648,17 @@ int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl)
 	config.c0_c1_data = igc_limited;
 	config.c2_data = igc_limited;
 
-	ret = mdss_mdp_igc_lut_config(ctl, &config, &copyback,
+	ret = mdss_mdp_igc_lut_config(&config, &copyback,
 					copy_from_kernel);
 	return ret;
 }
 
-int mdss_mdp_igc_lut_config(struct mdss_mdp_ctl *ctl,
-					struct mdp_igc_lut_data *config,
+int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 					u32 *copyback, u32 copy_from_kernel)
 {
 	int ret = 0;
 	u32 tbl_idx, igc_offset, disp_num, dspp_num = 0;
 	struct mdp_igc_lut_data local_cfg;
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -1748,8 +1736,6 @@ int mdss_mdp_igc_lut_config(struct mdss_mdp_ctl *ctl,
 
 igc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 static void pp_update_gc_one_lut(u32 offset,
@@ -1864,8 +1850,7 @@ static void pp_update_hist_lut(char __iomem *offset,
 		writel_relaxed(1, offset + 16);
 }
 
-int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
-				struct mdp_pgc_lut_data *config,
+int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 				u32 *copyback)
 {
 	int ret = 0;
@@ -1873,9 +1858,6 @@ int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
 	struct mdp_pgc_lut_data local_cfg;
 	struct mdp_pgc_lut_data *pgc_ptr;
 	u32 tbl_size, r_size, g_size, b_size;
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -1986,19 +1968,13 @@ int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
 	}
 argc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
-int mdss_mdp_hist_lut_config(struct mdss_mdp_ctl *ctl,
-					struct mdp_hist_lut_data *config,
+int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 					u32 *copyback)
 {
 	int i, ret = 0;
 	u32 hist_offset, disp_num, dspp_num = 0;
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -2043,18 +2019,13 @@ int mdss_mdp_hist_lut_config(struct mdss_mdp_ctl *ctl,
 	}
 enhist_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 
-int mdss_mdp_dither_config(struct mdss_mdp_ctl *ctl,
-					struct mdp_dither_cfg_data *config,
+int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
 					u32 *copyback)
 {
 	u32 disp_num;
-	if (!ctl)
-		return -EINVAL;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -2067,15 +2038,35 @@ int mdss_mdp_dither_config(struct mdss_mdp_ctl *ctl,
 	mdss_pp_res->dither_disp_cfg[disp_num] = *config;
 	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_DITHER;
 	mutex_unlock(&mdss_pp_mutex);
-	mdss_mdp_pp_setup(ctl);
 	return 0;
 }
 
-int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
-					struct mdp_gamut_cfg_data *config,
+static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config)
+{
+	if (config->tbl_size[0] != GAMUT_T0_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[1] != GAMUT_T1_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[2] != GAMUT_T2_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[3] != GAMUT_T3_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[4] != GAMUT_T4_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[5] != GAMUT_T5_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[6] != GAMUT_T6_SIZE)
+		return -EINVAL;
+	if (config->tbl_size[7] != GAMUT_T7_SIZE)
+		return -EINVAL;
+
+	return 0;
+}
+
+int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 					u32 *copyback)
 {
-	int i, j, size_total = 0, ret = 0;
+	int i, j, ret = 0;
 	u32 offset, disp_num, dspp_num = 0;
 	uint16_t *tbl_off;
 	struct mdp_gamut_cfg_data local_cfg;
@@ -2084,15 +2075,11 @@ int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
 	uint16_t *b_tbl[MDP_GAMUT_TABLE_NUM];
 
 
-	if (!ctl)
-		return -EINVAL;
-
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
-	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++)
-		size_total += config->tbl_size[i];
-	if (size_total != GAMUT_TOTAL_TABLE_SIZE)
+
+	if (pp_gm_has_invalid_lut_size(config))
 		return -EINVAL;
 
 	mutex_lock(&mdss_pp_mutex);
@@ -2209,8 +2196,6 @@ int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
 	}
 gamut_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 static void pp_hist_read(char __iomem *v_base,
@@ -2253,7 +2238,7 @@ static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
 	hist_info->col_state = HIST_RESET;
 	hist_info->col_en = true;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	hist_info->is_kick_ready = false;
+	hist_info->is_kick_ready = true;
 	mdss_mdp_hist_irq_enable(3 << shift_bit);
 	writel_relaxed(req->frame_cnt, ctl_base + 8);
 	/* Kick out reset start */
@@ -2263,8 +2248,7 @@ exit:
 	return ret;
 }
 
-int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
-				struct mdp_histogram_start_req *req)
+int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req)
 {
 	u32 done_shift_bit;
 	char __iomem *ctl_base;
@@ -2274,8 +2258,6 @@ int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
 	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	if (!ctl)
-		return -EINVAL;
 
 	if ((PP_BLOCK(req->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(req->block) >= MDP_BLOCK_MAX))
@@ -2342,31 +2324,6 @@ int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 hist_exit:
-	if (!ret && (PP_LOCAT(req->block) == MDSS_PP_DSPP_CFG)) {
-		mdss_mdp_pp_setup(ctl);
-		/* wait for a frame to let histrogram enable itself */
-		/* TODO add hysteresis value to be able to remove this sleep */
-		usleep(41666);
-		for (i = 0; i < mixer_cnt; i++) {
-			dspp_num = mixer_id[i];
-			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
-			mutex_lock(&hist_info->hist_mutex);
-			hist_info->is_kick_ready = true;
-			mutex_unlock(&hist_info->hist_mutex);
-		}
-	} else if (!ret) {
-		for (i = 0; i < MDSS_PP_ARG_NUM; i++) {
-			if (!PP_ARG(i, req->block))
-				continue;
-			pr_info("PP_ARG(%d) = %d", i, PP_ARG(i, req->block));
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
-			if (IS_ERR_OR_NULL(pipe))
-				continue;
-			hist_info = &pipe->pp_res.hist;
-			hist_info->is_kick_ready = true;
-			mdss_mdp_pipe_unmap(pipe);
-		}
-	}
 	return ret;
 }
 
@@ -2395,7 +2352,7 @@ exit:
 	return ret;
 }
 
-int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block)
+int mdss_mdp_histogram_stop(u32 block)
 {
 	int i, ret = 0;
 	char __iomem *ctl_base;
@@ -2404,9 +2361,6 @@ int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block)
 	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((PP_BLOCK(block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(block) >= MDP_BLOCK_MAX))
@@ -2472,13 +2426,10 @@ int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block)
 hist_stop_clk:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 hist_stop_exit:
-	if (!ret && (PP_LOCAT(block) == MDSS_PP_DSPP_CFG))
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 
-static int pp_hist_collect(struct mdss_mdp_ctl *ctl,
-				struct mdp_histogram_data *hist,
+static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
 				char __iomem *ctl_base)
 {
@@ -2502,9 +2453,6 @@ static int pp_hist_collect(struct mdss_mdp_ctl *ctl,
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		timeout = HIST_WAIT_TIMEOUT(hist_info->frame_cnt);
 		mutex_unlock(&hist_info->hist_mutex);
-		/* flush updates before wait*/
-		if (PP_LOCAT(hist->block) == MDSS_PP_DSPP_CFG)
-			mdss_mdp_pp_setup(ctl);
 		if (PP_LOCAT(hist->block) == MDSS_PP_SSPP_CFG) {
 			res = container_of(hist_info, struct mdss_pipe_pp_res,
 						hist);
@@ -2565,8 +2513,7 @@ hist_collect_exit:
 	return ret;
 }
 
-int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
-					struct mdp_histogram_data *hist)
+int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 {
 	int i, j, off, ret = 0;
 	struct pp_hist_col_info *hist_info;
@@ -2579,9 +2526,6 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 	u32 pipe_num = MDSS_MDP_SSPP_VIG0;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (!ctl)
-		return -EINVAL;
 
 	if ((PP_BLOCK(hist->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(hist->block) >= MDP_BLOCK_MAX))
@@ -2609,7 +2553,7 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-			ret = pp_hist_collect(ctl, hist, hist_info, ctl_base);
+			ret = pp_hist_collect(hist, hist_info, ctl_base);
 			if (ret)
 				goto hist_collect_exit;
 		}
@@ -2678,7 +2622,7 @@ int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			ret = pp_hist_collect(ctl, hist, hist_info, ctl_base);
+			ret = pp_hist_collect(hist, hist_info, ctl_base);
 			mdss_mdp_pipe_unmap(pipe);
 			if (ret)
 				goto hist_collect_exit;
@@ -2971,8 +2915,6 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 	}
 	mutex_unlock(&ad->lock);
 	ctl = mfd_to_ctl(mfd);
-	if (!ret)
-		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
 
@@ -2980,7 +2922,6 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			struct mdss_ad_input *input, int wait) {
 	int ret = 0;
 	struct mdss_ad_info *ad;
-	struct mdss_mdp_ctl *ctl;
 	u32 bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
@@ -3056,8 +2997,6 @@ error:
 			init_completion(&ad->comp);
 			mutex_unlock(&ad->lock);
 		}
-		ctl = mfd_to_ctl(mfd);
-		mdss_mdp_pp_setup(ctl);
 		if (wait) {
 			ret = wait_for_completion_interruptible_timeout(
 					&ad->comp, HIST_WAIT_TIMEOUT(1));
@@ -3415,7 +3354,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	}
 	mutex_unlock(&ad->lock);
 	mutex_lock(&mfd->lock);
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + ad->num));
+	ctl->flush_bits |= BIT(13 + ad->num);
 	mutex_unlock(&mfd->lock);
 
 	/* Trigger update notify to wake up those waiting for display updates */
@@ -3571,12 +3510,22 @@ int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
 int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 						u32 *copyback)
 {
-	int ret = -1;
-	int counter = cfg->size / (sizeof(uint32_t) * 2);
+	int ret = -1, counter;
 	uint32_t *buff = NULL, *buff_org = NULL;
 	void *ptr;
 	int i = 0;
 
+	if (!cfg) {
+		pr_err("Invalid buffer pointer");
+		return ret;
+	}
+
+	if (cfg->size == 0) {
+		pr_err("Invalid buffer size");
+		return ret;
+	}
+
+	counter = cfg->size / (sizeof(uint32_t) * 2);
 	buff_org = buff = kzalloc(cfg->size, GFP_KERNEL);
 	if (buff == NULL) {
 		pr_err("Allocation failed");
