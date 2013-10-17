@@ -36,7 +36,7 @@ static void config_debug_fs(struct q6audio_aio *audio)
 	}
 }
 #else
-static void config_debug_fs(struct q6audio_aio *)
+static void config_debug_fs(struct q6audio_aio *audio)
 {
 }
 #endif
