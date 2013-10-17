@@ -106,6 +106,7 @@ struct msm_hsphy {
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	bool			suspended;
 
 	/* Using external VBUS/ID notification */
 	bool			ext_vbus_id;
@@ -285,6 +286,12 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	bool host = uphy->flags & PHY_HOST_MODE;
 	bool chg_connected = uphy->flags & PHY_CHARGER_CONNECTED;
 
+	if (!!suspend == phy->suspended) {
+		dev_dbg(uphy->dev, "%s\n", suspend ? "already suspended"
+						   : "already resumed");
+		return 0;
+	}
+
 	if (suspend) {
 		/* Clear interrupt latch register */
 		writel_relaxed(ALT_INTERRUPT_MASK,
@@ -360,6 +367,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 		}
 	}
 
+	phy->suspended = !!suspend; /* double-NOT coerces to bool value */
 	return 0;
 }
 
@@ -477,6 +485,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 
 	phy->ext_vbus_id = of_property_read_bool(dev->of_node,
 						"qcom,ext-vbus-id");
+	phy->phy.dev = dev;
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
@@ -528,7 +537,6 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
-	phy->phy.dev			= dev;
 	phy->phy.init			= msm_hsphy_init;
 	phy->phy.set_suspend		= msm_hsphy_set_suspend;
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;

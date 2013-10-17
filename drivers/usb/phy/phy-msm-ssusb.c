@@ -55,6 +55,7 @@ struct msm_ssphy {
 	void __iomem		*base;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
+	bool			suspended;
 	int			vdd_levels[3]; /* none, low, high */
 	int			deemphasis_val;
 };
@@ -304,6 +305,12 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 	void __iomem *base = phy->base;
 	int ret = 0;
 
+	if (!!suspend == phy->suspended) {
+		dev_dbg(uphy->dev, "%s\n", suspend ? "already suspended"
+						   : "already resumed");
+		return 0;
+	}
+
 	if (suspend) {
 		/* Clear REF_SS_PHY_EN */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, REF_SS_PHY_EN, 0);
@@ -341,6 +348,7 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 		msm_ssphy_set_params(uphy);
 	}
 
+	phy->suspended = !!suspend; /* double-NOT coerces to bool value */
 	return ret;
 }
 
@@ -407,6 +415,7 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	phy->phy.dev = dev;
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
 		dev_err(dev, "unable to get vdd supply\n");
@@ -446,7 +455,6 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 						&phy->deemphasis_val))
 		dev_dbg(dev, "unable to read ssphy deemphasis value\n");
 
-	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_init;
 	phy->phy.set_suspend		= msm_ssphy_set_suspend;
 	phy->phy.set_params		= msm_ssphy_set_params;
