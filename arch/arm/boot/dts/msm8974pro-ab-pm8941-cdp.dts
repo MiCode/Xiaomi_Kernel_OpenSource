@@ -10,15 +10,13 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974pro-pm8941.dtsi"
+/dts-v1/;
+
+/include/ "msm8974pro-ab-pm8941.dtsi"
+/include/ "msm8974-cdp.dtsi"
 
 / {
-	qcom,msm-id = <194 0x10000>,
-		      <210 0x10000>,
-		      <213 0x10000>,
-		      <216 0x10000>;
-};
-
-&sdhc_1 {
-	reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
+	model = "Qualcomm MSM 8974Pro-AA/AB CDP";
+	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };

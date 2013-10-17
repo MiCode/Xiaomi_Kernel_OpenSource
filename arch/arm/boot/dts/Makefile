@@ -109,11 +109,14 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	msm8974-v2.2-fluid.dtb \
 	msm8974-v2.2-liquid.dtb \
 	msm8974-v2.2-mtp.dtb \
-	msm8974pro-ab-cdp.dtb \
-	msm8974pro-ab-fluid.dtb \
-	msm8974pro-ab-liquid.dtb \
-	msm8974pro-ab-mtp.dtb \
-	msm8974pro-ac-mtp.dtb
+	msm8974pro-ab-pm8941-cdp.dtb \
+	msm8974pro-ab-pm8941-fluid.dtb \
+	msm8974pro-ab-pm8941-liquid.dtb \
+	msm8974pro-ab-pm8941-mtp.dtb \
+	msm8974pro-ac-pm8941-cdp.dtb \
+	msm8974pro-ac-pm8941-liquid.dtb \
+	msm8974pro-ac-pm8941-mtp.dtb \
+	msm8974pro-ac-pma8084-pm8941-mtp.dtb
 dtb-$(CONFIG_ARCH_MSM9625) += msm9625-v1-cdp.dtb \
 	msm9625-v1-mtp.dtb \
 	msm9625-v1-rumi.dtb \
