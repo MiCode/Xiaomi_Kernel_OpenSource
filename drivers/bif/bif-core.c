@@ -2336,6 +2336,12 @@ static int bif_add_secondary_slaves(struct bif_slave_dev *primary_slave)
 			} else if (rc == 1) {
 				sdev->present = true;
 				sdev->bdev->selected_sdev = sdev;
+				rc = bif_parse_slave_data(sdev);
+				if (rc) {
+					pr_err("Failed to parse secondary slave data, rc=%d\n",
+						rc);
+					goto free_slave;
+				}
 			} else {
 				sdev->present = false;
 				sdev->bdev->selected_sdev = NULL;
@@ -2459,6 +2465,11 @@ static int bif_perform_uid_search(struct bif_ctrl_dev *bdev)
 			sdev->present = true;
 			sdev->bdev->selected_sdev = sdev;
 			rc = bif_parse_slave_data(sdev);
+			if (rc) {
+				pr_err("Failed to parse secondary slave data, rc=%d\n",
+					rc);
+				return rc;
+			}
 		} else {
 			pr_err("Slave failed to respond to DILC bus command; its UID is thus unverified.\n");
 			sdev->unique_id_bits_known = 0;
