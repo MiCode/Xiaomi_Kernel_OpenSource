@@ -1035,56 +1035,64 @@ static int __init socinfo_init_sysdev(void)
 
 	msm_soc_device = soc_device_to_device(soc_dev);
 	populate_soc_sysfs_files(msm_soc_device);
+
 	err = sysdev_class_register(&soc_sysdev_class);
 	if (err) {
 		pr_err("%s: sysdev_class_register fail (%d)\n",
 		       __func__, err);
-		return err;
+		goto socinfo_init_err;
 	}
+
 	err = sysdev_register(&soc_sys_device);
 	if (err) {
 		pr_err("%s: sysdev_register fail (%d)\n",
 		       __func__, err);
-		return err;
+		goto socinfo_init_err;
 	}
+
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
-		return err;
+		goto socinfo_init_err;
+
 	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
 				ARRAY_SIZE(socinfo_v2_files));
 
 	if (socinfo->v1.format < 3)
-		return err;
+		goto socinfo_init_err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
 				ARRAY_SIZE(socinfo_v3_files));
 
 	if (socinfo->v1.format < 4)
-		return err;
+		goto socinfo_init_err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
 				ARRAY_SIZE(socinfo_v4_files));
 
 	if (socinfo->v1.format < 5)
-		return err;
+		goto socinfo_init_err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
 				ARRAY_SIZE(socinfo_v5_files));
 
 	if (socinfo->v1.format < 6)
-		return err;
+		goto socinfo_init_err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v6_files,
 				ARRAY_SIZE(socinfo_v6_files));
 
 	if (socinfo->v1.format < 7)
-		return err;
+		goto socinfo_init_err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v7_files,
 				ARRAY_SIZE(socinfo_v7_files));
 
 	return 0;
+
+socinfo_init_err:
+	 kfree(soc_dev_attr);
+         return err;
 }
 
 arch_initcall(socinfo_init_sysdev);
