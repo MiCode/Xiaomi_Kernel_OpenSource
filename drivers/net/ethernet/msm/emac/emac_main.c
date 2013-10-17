@@ -2067,6 +2067,10 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 	memset(hw->rss_idt, 0x0, sizeof(hw->rss_idt));
 	memset(hw->rss_key, 0x0, sizeof(hw->rss_key));
 
+	/* irq moderator */
+	hw->irq_mod = ((EMAC_DEF_RX_IRQ_MOD / 2) << IRQ_MODERATOR2_INIT_SHFT) |
+		      ((EMAC_DEF_TX_IRQ_MOD / 2) << IRQ_MODERATOR_INIT_SHFT);
+
 	/* others */
 	hw->preamble = EMAC_PREAMBLE_DEF;
 	adpt->wol = EMAC_WOL_MAGIC | EMAC_WOL_PHY;

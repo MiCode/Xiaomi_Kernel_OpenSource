@@ -214,6 +214,7 @@ struct emac_hw {
 	u32                     rtc_ref_clkrate;
 	spinlock_t              ptp_lock;
 
+	u32                 irq_mod;
 	u32                 preamble;
 	unsigned long       flags;
 };
@@ -283,6 +284,9 @@ struct emac_hw {
 
 #define EMAC_DEF_TX_DESCS       512
 #define EMAC_DEF_RX_DESCS       256
+
+#define EMAC_DEF_RX_IRQ_MOD     250
+#define EMAC_DEF_TX_IRQ_MOD     250
 
 #define EMAC_WATCHDOG_TIME      (5 * HZ)
 
