@@ -772,6 +772,7 @@ static struct rcg_clk usb3_pipe_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_usb30_mock_utmi_clk[] = {
+	F(  19200000,         xo,    1,    0,     0),
 	F(  60000000,      gpll0,   10,    0,     0),
 	F_END
 };
