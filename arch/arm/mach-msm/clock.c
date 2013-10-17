@@ -557,7 +557,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 		return -ENOSYS;
 
 	mutex_lock(&clk->prepare_lock);
-	if (clk->parent == parent)
+	if (clk->parent == parent && !(clk->flags & CLKFLAG_NO_RATE_CACHE))
 		goto out;
 	rc = clk->ops->set_parent(clk, parent);
 	if (!rc)
