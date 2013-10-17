@@ -60,6 +60,7 @@
 
 #define HFI_BUFFER_MODE_STATIC (HFI_OX_BASE + 0x1)
 #define HFI_BUFFER_MODE_RING (HFI_OX_BASE + 0x2)
+#define HFI_BUFFER_MODE_DYNAMIC (HFI_OX_BASE + 0x3)
 
 #define HFI_FLUSH_INPUT (HFI_OX_BASE + 0x1)
 #define HFI_FLUSH_OUTPUT (HFI_OX_BASE + 0x2)
@@ -137,6 +138,8 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_OX_START + 0x008)
 #define HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x009)
+#define  HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED	\
+	(HFI_PROPERTY_PARAM_OX_START + 0x00A)
 
 #define HFI_PROPERTY_CONFIG_OX_START					\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_OX_OFFSET + 0x02000)
@@ -276,6 +279,12 @@ struct hfi_extra_data_header_config {
 struct hfi_interlace_format_supported {
 	u32 buffer_type;
 	u32 format;
+};
+
+struct hfi_buffer_alloc_mode_supported {
+	u32 buffer_type;
+	u32 num_entries;
+	u32 rg_data[1];
 };
 
 struct hfi_mb_error_map {

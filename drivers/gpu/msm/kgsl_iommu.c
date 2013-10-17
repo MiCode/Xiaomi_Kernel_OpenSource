@@ -72,16 +72,18 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 
 static struct iommu_access_ops *iommu_access_ops;
 
-static void _iommu_lock(void)
+static void _iommu_lock(struct kgsl_iommu const *iommu)
 {
 	if (iommu_access_ops && iommu_access_ops->iommu_lock_acquire)
-		iommu_access_ops->iommu_lock_acquire();
+		iommu_access_ops->iommu_lock_acquire(
+						iommu->sync_lock_initialized);
 }
 
-static void _iommu_unlock(void)
+static void _iommu_unlock(struct kgsl_iommu const *iommu)
 {
 	if (iommu_access_ops && iommu_access_ops->iommu_lock_release)
-		iommu_access_ops->iommu_lock_release();
+		iommu_access_ops->iommu_lock_release(
+						iommu->sync_lock_initialized);
 }
 
 struct remote_iommu_petersons_spinlock kgsl_iommu_sync_lock_vars;
@@ -906,6 +908,8 @@ static int kgsl_iommu_start_sync_lock(struct kgsl_mmu *mmu)
 	return 0;
 }
 
+#ifdef CONFIG_MSM_IOMMU_GPU_SYNC
+
 /*
  * kgsl_get_sync_lock - Init Sync Lock between GPU and CPU
  * @mmu - Pointer to mmu device
@@ -973,6 +977,12 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 
 	return status;
 }
+#else
+static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
+{
+	return 0;
+}
+#endif
 
 /*
  * kgsl_iommu_sync_lock - Acquire Sync Lock between GPU and CPU
@@ -1643,7 +1653,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 * changing pagetables we can use this lsb value of the pagetable w/o
 	 * having to read it again
 	 */
-	_iommu_lock();
+	_iommu_lock(iommu);
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
@@ -1682,7 +1692,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		}
 	}
 	kgsl_iommu_lock_rb_in_tlb(mmu);
-	_iommu_unlock();
+	_iommu_unlock(iommu);
 
 	/* For complete CFF */
 	kgsl_cffdump_setmem(mmu->device, mmu->setstate_memory.gpuaddr +
@@ -1788,12 +1798,12 @@ void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 			for (j = 0; j < iommu_unit->dev_count; j++) {
 				if (iommu_unit->dev[j].fault) {
 					kgsl_iommu_enable_clk(mmu, j);
-					_iommu_lock();
+					_iommu_lock(iommu);
 					KGSL_IOMMU_SET_CTX_REG(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						RESUME, 1);
-					_iommu_unlock();
+					_iommu_unlock(iommu);
 					iommu_unit->dev[j].fault = 0;
 				}
 			}
@@ -1912,7 +1922,7 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		kgsl_idle(mmu->device);
 
 	/* Acquire GPU-CPU sync Lock here */
-	_iommu_lock();
+	_iommu_lock(iommu);
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 		if (!msm_soc_version_supports_iommu_v0())
@@ -1979,7 +1989,7 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	}
 
 	/* Release GPU-CPU sync Lock here */
-	_iommu_unlock();
+	_iommu_unlock(iommu);
 
 	/* Disable smmu clock */
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
