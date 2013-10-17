@@ -544,7 +544,8 @@ struct bif_ctrl *bif_ctrl_get(struct device *consumer_dev)
 { return ERR_PTR(-EPERM); }
 static inline void bif_ctrl_put(struct bif_ctrl *ctrl) { return; }
 
-int bif_ctrl_signal_battery_changed(struct bif_ctrl *ctrl) { return -EPERM; }
+static inline int bif_ctrl_signal_battery_changed(struct bif_ctrl *ctrl)
+{ return -EPERM; }
 
 static inline int bif_slave_match_count(const struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria)
@@ -578,18 +579,22 @@ static inline int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf,
 				int len)
 { return -EPERM; }
 
-int bif_slave_is_present(struct bif_slave *slave) { return -EPERM; }
-
-int bif_slave_is_selected(struct bif_slave *slave) { return -EPERM; }
-int bif_slave_select(struct bif_slave *slave) { return -EPERM; }
-
-int bif_ctrl_raw_transaction(struct bif_ctrl *ctrl, int transaction, u8 data)
+static inline int bif_slave_is_present(struct bif_slave *slave)
 { return -EPERM; }
-int bif_ctrl_raw_transaction_read(struct bif_ctrl *ctrl, int transaction,
-					u8 data, int *response)
+
+static inline int bif_slave_is_selected(struct bif_slave *slave)
 { return -EPERM; }
-int bif_ctrl_raw_transaction_query(struct bif_ctrl *ctrl, int transaction,
-		u8 data, bool *query_response)
+static inline int bif_slave_select(struct bif_slave *slave)
+{ return -EPERM; }
+
+static inline int bif_ctrl_raw_transaction(struct bif_ctrl *ctrl,
+				int transaction, u8 data)
+{ return -EPERM; }
+static inline int bif_ctrl_raw_transaction_read(struct bif_ctrl *ctrl,
+				int transaction, u8 data, int *response)
+{ return -EPERM; }
+static inline int bif_ctrl_raw_transaction_query(struct bif_ctrl *ctrl,
+				int transaction, u8 data, bool *query_response)
 { return -EPERM; }
 
 static inline void bif_ctrl_bus_lock(struct bif_ctrl *ctrl)
@@ -601,11 +606,14 @@ static inline u16 bif_crc_ccitt(const u8 *buffer, unsigned int len)
 { return 0; }
 
 static inline int bif_ctrl_measure_rid(struct bif_ctrl *ctrl) { return -EPERM; }
-int bif_ctrl_get_bus_period(struct bif_ctrl *ctrl) { return -EPERM; }
-int bif_ctrl_set_bus_period(struct bif_ctrl *ctrl, int period_ns)
+static inline int bif_ctrl_get_bus_period(struct bif_ctrl *ctrl)
 { return -EPERM; }
-int bif_ctrl_get_bus_state(struct bif_ctrl *ctrl) { return -EPERM; }
-int bif_ctrl_set_bus_state(struct bif_ctrl *ctrl, enum bif_bus_state state)
+static inline int bif_ctrl_set_bus_period(struct bif_ctrl *ctrl, int period_ns)
+{ return -EPERM; }
+static inline int bif_ctrl_get_bus_state(struct bif_ctrl *ctrl)
+{ return -EPERM; }
+static inline int bif_ctrl_set_bus_state(struct bif_ctrl *ctrl,
+				enum bif_bus_state state)
 { return -EPERM; }
 
 #endif
