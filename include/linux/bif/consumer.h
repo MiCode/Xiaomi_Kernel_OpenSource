@@ -472,6 +472,8 @@ int bif_free_irq(struct bif_slave *slave, unsigned int task,
 			struct notifier_block *nb);
 
 int bif_trigger_task(struct bif_slave *slave, unsigned int task);
+int bif_enable_auto_task(struct bif_slave *slave, unsigned int task);
+int bif_disable_auto_task(struct bif_slave *slave, unsigned int task);
 int bif_task_is_busy(struct bif_slave *slave, unsigned int task);
 
 int bif_ctrl_count(void);
@@ -533,6 +535,12 @@ static inline int bif_free_irq(struct bif_slave *slave, unsigned int task,
 			struct notifier_block *nb) { return -EPERM; }
 
 static inline int bif_trigger_task(struct bif_slave *slave, unsigned int task)
+{ return -EPERM; }
+static inline int bif_enable_auto_task(struct bif_slave *slave,
+			unsigned int task)
+{ return -EPERM; }
+static inline int bif_disable_auto_task(struct bif_slave *slave,
+			unsigned int task)
 { return -EPERM; }
 static inline int bif_task_is_busy(struct bif_slave *slave, unsigned int task)
 { return -EPERM; }

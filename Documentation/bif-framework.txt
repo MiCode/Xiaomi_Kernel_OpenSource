@@ -341,11 +341,17 @@ int bif_trigger_task(struct bif_slave *slave, unsigned int task);
 
 int bif_task_is_busy(struct bif_slave *slave, unsigned int task);
 
+int bif_enable_auto_task(struct bif_slave *slave, unsigned int task);
+
+int bif_disable_auto_task(struct bif_slave *slave, unsigned int task);
+
 A consumer can request a slave interrupt and specify a notifier to call when the
 interrupt is triggered.  Once the interrupt is requested the consumer will need
 to call bif_trigger_task() in order to start the task associated with the
 interrupt (both are identified by the same index).  Polling for task completion
-is also supported via the bif_task_is_busy() function.
+is also supported via the bif_task_is_busy() function.  Auto task triggered can
+be enabled and disabled for a given task using bif_enable_auto_task() and
+bif_disable_auto_task() respectively.
 
 Raw BIF bus transactions:
 -------------------------

@@ -577,6 +577,133 @@ static int _bif_slave_write(struct bif_slave_dev *sdev, u16 addr, u8 *buf,
 	return rc;
 }
 
+/* Perform a read-modify-write sequence on a single BIF slave register. */
+static int _bif_slave_masked_write(struct bif_slave_dev *sdev, u16 addr, u8 val,
+			u8 mask)
+{
+	int rc;
+	u8 reg;
+
+	rc = _bif_slave_read(sdev, addr, &reg, 1);
+	if (rc)
+		return rc;
+
+	reg = (reg & ~mask) | (val & mask);
+
+	return _bif_slave_write(sdev, addr, &reg, 1);
+}
+
+static int _bif_check_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	if (IS_ERR_OR_NULL(sdev)) {
+		pr_err("Invalid slave device handle=%ld\n", PTR_ERR(sdev));
+		return -EINVAL;
+	} else if (!sdev->bdev) {
+		pr_err("BIF controller has been removed\n");
+		return -ENXIO;
+	} else if (!sdev->slave_ctrl_function
+			|| sdev->slave_ctrl_function->task_count == 0) {
+		pr_err("BIF slave does not support slave control\n");
+		return -ENODEV;
+	} else if (task >= sdev->slave_ctrl_function->task_count) {
+		pr_err("Requested task: %u greater than max: %u for this slave\n",
+			task, sdev->slave_ctrl_function->task_count);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _bif_task_is_busy(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 reg = 0;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave device or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Check the task busy state. */
+	addr = SLAVE_CTRL_FUNC_TASK_BUSY_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	rc = _bif_slave_read(sdev, addr, &reg, 1);
+	if (rc) {
+		pr_err("BIF slave register read failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	return (reg & BIT(task % SLAVE_CTRL_TASKS_PER_SET)) ? 1 : 0;
+}
+
+static int _bif_enable_auto_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 mask;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave device or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable the auto task within the slave */
+	mask = BIT(task % SLAVE_CTRL_TASKS_PER_SET);
+	addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	if (task / SLAVE_CTRL_TASKS_PER_SET == 0) {
+		/* Set global auto task enable. */
+		mask |= BIT(0);
+	}
+	rc = _bif_slave_masked_write(sdev, addr, 0xFF, mask);
+	if (rc) {
+		pr_err("BIF slave register masked write failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set global auto task enable if task not in set 0. */
+	if (task / SLAVE_CTRL_TASKS_PER_SET != 0) {
+		addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		       sdev->slave_ctrl_function->slave_ctrl_pointer, 0);
+		rc = _bif_slave_masked_write(sdev, addr, 0xFF, BIT(0));
+		if (rc) {
+			pr_err("BIF slave register masked write failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+static int _bif_disable_auto_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 mask;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable the auto task within the slave */
+	mask = BIT(task % SLAVE_CTRL_TASKS_PER_SET);
+	addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	rc = _bif_slave_masked_write(sdev, addr, 0x00, mask);
+	if (rc) {
+		pr_err("BIF slave register masked write failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 /* Takes a mutex if this consumer is not an exclusive bus user. */
 static void bif_ctrl_lock(struct bif_ctrl *ctrl)
 {
@@ -608,22 +735,11 @@ static void bif_slave_ctrl_unlock(struct bif_slave *slave)
 static int bif_check_task(struct bif_slave *slave, unsigned int task)
 {
 	if (IS_ERR_OR_NULL(slave)) {
-		pr_err("Invalid slave handle.\n");
-		return -EINVAL;
-	} else if (!slave->sdev->bdev) {
-		pr_err("BIF controller has been removed.\n");
-		return -ENXIO;
-	} else if (!slave->sdev->slave_ctrl_function
-			|| slave->sdev->slave_ctrl_function->task_count == 0) {
-		pr_err("BIF slave does not support slave control.\n");
-		return -ENODEV;
-	} else if (task >= slave->sdev->slave_ctrl_function->task_count) {
-		pr_err("Requested task: %u greater than max: %u for this slave\n",
-			task, slave->sdev->slave_ctrl_function->task_count);
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
 		return -EINVAL;
 	}
 
-	return 0;
+	return _bif_check_task(slave->sdev, task);
 }
 
 /**
@@ -827,6 +943,61 @@ done:
 EXPORT_SYMBOL(bif_trigger_task);
 
 /**
+ * bif_enable_auto_task() - enable task auto triggering for the specified task
+ * @slave:	BIF slave handle
+ * @task:	BIF task inside of the slave to configure for automatic
+ *		triggering.  This corresponds to the slave control channel
+ *		specified for a given BIF function inside of the slave.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_enable_auto_task(struct bif_slave *slave, unsigned int task)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_enable_auto_task(slave->sdev, task);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_enable_auto_task);
+
+/**
+ * bif_disable_auto_task() - disable task auto triggering for the specified task
+ * @slave:	BIF slave handle
+ * @task:	BIF task inside of the slave to stop automatic triggering on.
+ *		This corresponds to the slave control channel specified for a
+ *		given BIF function inside of the slave.
+ *
+ * This function should be called after bif_enable_auto_task() in a paired
+ * fashion.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_disable_auto_task(struct bif_slave *slave, unsigned int task)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_disable_auto_task(slave->sdev, task);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_disable_auto_task);
+
+/**
  * bif_task_is_busy() - checks the state of a BIF slave task
  * @slave:	BIF slave handle
  * @task:	BIF task inside of the slave to trigger.  This corresponds to
@@ -838,28 +1009,14 @@ EXPORT_SYMBOL(bif_trigger_task);
 int bif_task_is_busy(struct bif_slave *slave, unsigned int task)
 {
 	int rc;
-	u16 addr;
-	u8 reg;
 
-	rc = bif_check_task(slave, task);
-	if (rc) {
-		pr_err("Invalid slave or task, rc=%d\n", rc);
-		return rc;
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
 	}
 
 	bif_slave_ctrl_lock(slave);
-
-	/* Check the task busy state. */
-	addr = SLAVE_CTRL_FUNC_TASK_BUSY_ADDR(
-		slave->sdev->slave_ctrl_function->slave_ctrl_pointer, task);
-	rc = _bif_slave_read(slave->sdev, addr, &reg, 1);
-	if (rc) {
-		pr_err("BIF slave register read failed, rc=%d\n", rc);
-		goto done;
-	}
-
-	rc = (reg & BIT(task % SLAVE_CTRL_TASKS_PER_SET)) ? 1 : 0;
-done:
+	rc = _bif_task_is_busy(slave->sdev, task);
 	bif_slave_ctrl_unlock(slave);
 
 	return rc;
