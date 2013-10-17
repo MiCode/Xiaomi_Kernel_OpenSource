@@ -1526,16 +1526,29 @@ void bif_ctrl_put(struct bif_ctrl *ctrl)
 }
 EXPORT_SYMBOL(bif_ctrl_put);
 
+static bool bif_slave_object_match(const struct bif_object *object,
+		const struct bif_match_criteria *criteria)
+{
+	return (object->type == criteria->obj_type)
+		&& (object->version == criteria->obj_version
+			|| !(criteria->match_mask & BIF_MATCH_OBJ_VERSION))
+		&& (object->manufacturer_id == criteria->obj_manufacturer_id
+		    || !(criteria->match_mask & BIF_MATCH_OBJ_MANUFACTURER_ID));
+}
+
 /*
  * Returns true if all parameters are matched, otherwise false.
  * function_type and function_version mean that their exists some function in
  * the slave which has the specified type and subtype.  ctrl == NULL is treated
  * as a wildcard.
  */
-static bool bif_slave_match(const struct bif_ctrl *ctrl,
+static bool bif_slave_match(struct bif_ctrl *ctrl,
 	struct bif_slave_dev *sdev, const struct bif_match_criteria *criteria)
 {
 	int i, type, version;
+	struct bif_object *object;
+	bool function_found = false;
+	bool object_found = false;
 
 	if (ctrl && (ctrl->bdev != sdev->bdev))
 		return false;
@@ -1563,10 +1576,29 @@ static bool bif_slave_match(const struct bif_ctrl *ctrl,
 			if (type == criteria->function_type &&
 				(version == criteria->function_version
 					|| !(criteria->match_mask
-						& BIF_MATCH_FUNCTION_VERSION)))
-				return true;
+					       & BIF_MATCH_FUNCTION_VERSION))) {
+				function_found = true;
+				break;
+			}
 		}
-		return false;
+		if (!function_found)
+			return false;
+	}
+
+	if (criteria->match_mask & BIF_MATCH_OBJ_TYPE) {
+		if (!sdev->nvm_function)
+			return false;
+		bif_ctrl_lock(ctrl);
+		list_for_each_entry(object, &sdev->nvm_function->object_list,
+					list) {
+			if (bif_slave_object_match(object, criteria)) {
+				object_found = true;
+				break;
+			}
+		}
+		bif_ctrl_unlock(ctrl);
+		if (!object_found)
+			return false;
 	}
 
 	return true;
@@ -1579,7 +1611,7 @@ static bool bif_slave_match(const struct bif_ctrl *ctrl,
  * @ctrl:		BIF controller consumer handle
  * @match_criteria:	Matching criteria used to filter slaves
  */
-int bif_slave_match_count(const struct bif_ctrl *ctrl,
+int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria)
 {
 	struct bif_slave_dev *sdev;
@@ -1610,7 +1642,7 @@ EXPORT_SYMBOL(bif_slave_match_count);
  *
  * Returns a BIF slave handle if successful or an ERR_PTR if not.
  */
-struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria)
 {
 	struct bif_slave_dev *sdev;
@@ -1698,6 +1730,135 @@ int bif_slave_find_function(struct bif_slave *slave, u8 function, u8 *version,
 	return rc;
 }
 EXPORT_SYMBOL(bif_slave_find_function);
+
+static bool bif_object_match(const struct bif_object *object,
+		const struct bif_obj_match_criteria *criteria)
+{
+	return (object->type == criteria->type
+			|| !(criteria->match_mask & BIF_OBJ_MATCH_TYPE))
+		&& (object->version == criteria->version
+			|| !(criteria->match_mask & BIF_OBJ_MATCH_VERSION))
+		&& (object->manufacturer_id == criteria->manufacturer_id
+		    || !(criteria->match_mask & BIF_OBJ_MATCH_MANUFACTURER_ID));
+}
+
+/**
+ * bif_object_match_count() - returns the number of objects associated with the
+ *			specified BIF slave which fit the matching criteria
+ * @slave:		BIF slave handle
+ * @match_criteria:	Matching criteria used to filter objects
+ */
+int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria)
+{
+	struct bif_object *object;
+	int count = 0;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(match_criteria)) {
+		pr_err("Invalid pointer input.\n");
+		return -EINVAL;
+	}
+
+	if (!slave->sdev->nvm_function)
+		return 0;
+
+	bif_slave_ctrl_lock(slave);
+	list_for_each_entry(object, &slave->sdev->nvm_function->object_list,
+			    list) {
+		if (bif_object_match(object, match_criteria))
+			count++;
+	}
+	bif_slave_ctrl_unlock(slave);
+
+	return count;
+}
+EXPORT_SYMBOL(bif_object_match_count);
+
+/**
+ * bif_object_match_get() - get a BIF object handle for the id'th object found
+ *			in the non-volatile memory of the specified BIF slave
+ *			which fits the matching criteria
+ * @slave:		BIF slave handle
+ * @id:			Index into the set of matching objects
+ * @match_criteria:	Matching criteria used to filter objects
+ *
+ * id must be in range [0, bif_object_match_count(slave, match_criteria) - 1].
+ *
+ * Returns a BIF object handle if successful or an ERR_PTR if not.  This handle
+ * must be freed using bif_object_put() when it is no longer needed.
+ */
+struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria)
+{
+	struct bif_object *object;
+	struct bif_object *object_found = NULL;
+	struct bif_object *object_consumer = ERR_PTR(-ENODEV);
+	int count = 0;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(match_criteria)) {
+		pr_err("Invalid pointer input.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!slave->sdev->nvm_function)
+		return object_consumer;
+
+	bif_slave_ctrl_lock(slave);
+	list_for_each_entry(object, &slave->sdev->nvm_function->object_list,
+			    list) {
+		if (bif_object_match(object, match_criteria))
+			count++;
+		if (count == id + 1) {
+			object_found = object;
+			break;
+		}
+	}
+
+	if (object_found) {
+		object_consumer = kmemdup(object_found,
+					sizeof(*object_consumer), GFP_KERNEL);
+		if (!object_consumer) {
+			pr_err("out of memory\n");
+			object_consumer = ERR_PTR(-ENOMEM);
+			goto done;
+		}
+
+		object_consumer->data = kmemdup(object_found->data,
+					  object_found->length - 8, GFP_KERNEL);
+		if (!object_consumer->data) {
+			pr_err("out of memory\n");
+			kfree(object_consumer);
+			object_consumer = ERR_PTR(-ENOMEM);
+			goto done;
+		}
+
+		/*
+		 * Use prev pointer in consumer struct to point to original
+		 * struct in the internal linked list.
+		 */
+		object_consumer->list.prev = &object_found->list;
+	}
+
+done:
+	bif_slave_ctrl_unlock(slave);
+
+	return object_consumer;
+
+}
+EXPORT_SYMBOL(bif_object_match_get);
+
+/**
+ * bif_object_put() - frees the memory allocated for a BIF object pointer
+ *			returned by bif_object_match_get()
+ * @object:		BIF object to free
+ */
+void bif_object_put(struct bif_object *object)
+{
+	if (object)
+		kfree(object->data);
+	kfree(object);
+}
+EXPORT_SYMBOL(bif_object_put);
 
 /**
  * bif_slave_read() - read contiguous memory values from a BIF slave

@@ -235,10 +235,10 @@ registration order.
 Get/put handle for a BIF slave:
 -------------------------------
 
-int bif_slave_match_count(const struct bif_ctrl *ctrl,
+int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria);
 
-struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria);
 
 void bif_slave_put(struct bif_slave *slave);
@@ -293,7 +293,6 @@ int bif_ctrl_notifier_register(struct bif_ctrl *ctrl,
 int bif_ctrl_notifier_unregister(struct bif_ctrl *ctrl,
 				struct notifier_block *nb);
 
-
 Read or write BIF slave registers:
 ----------------------------------
 
@@ -315,6 +314,20 @@ Raw NVM writing may be needed in order to intialize the NVM BIF object list.
 However, its use can be dangerous as it can overwrite existing objects in the
 list and make the list unparsable.
 
+BIF object search in slave non-volatile memory:
+-----------------------------------------------
+int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria);
+
+struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria);
+
+void bif_object_put(struct bif_object *object);
+
+bif_object_match_count() and bif_object_match_get() can be used together in
+order to retrieve the set of BIF objects within a slave which match certain
+criteria.  bif_object_put() is used to free the memory allocated by
+bif_object_match_get().
 
 Get or set the BIF bus state or period:
 ---------------------------------------
