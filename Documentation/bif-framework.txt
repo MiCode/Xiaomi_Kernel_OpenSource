@@ -302,6 +302,20 @@ int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 
 
+BIF slave non-volatile memory manipulation:
+-------------------------------------------
+
+int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+
+int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+
+Raw NVM writing may be needed in order to intialize the NVM BIF object list.
+However, its use can be dangerous as it can overwrite existing objects in the
+list and make the list unparsable.
+
+
 Get or set the BIF bus state or period:
 ---------------------------------------
 

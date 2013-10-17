@@ -342,6 +342,8 @@ struct bif_object {
  *				is used to denote a 256 byte buffer.
  * @nvm_base_address:		BIF slave address where NVM begins
  * @nvm_size:			NVM size in bytes
+ * @nvm_lock_offset:		Offset from the beginning of NVM of the first
+ *				writable address
  * @object_count:		Number of BIF objects read from NVM
  * @object_list:		List of BIF objects read from NVM
  */
@@ -351,6 +353,7 @@ struct bif_nvm_function {
 	u8			write_buffer_size;
 	u16			nvm_base_address;
 	u16			nvm_size;
+	u16			nvm_lock_offset;
 	int			object_count;
 	struct list_head	object_list;
 };
@@ -505,6 +508,11 @@ int bif_slave_find_function(struct bif_slave *slave, u8 function, u8 *version,
 int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 
+int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+
 int bif_slave_is_present(struct bif_slave *slave);
 
 int bif_slave_is_selected(struct bif_slave *slave);
@@ -585,6 +593,13 @@ static inline int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf,
 { return -EPERM; }
 static inline int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf,
 				int len)
+{ return -EPERM; }
+
+static inline int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset,
+				u8 *buf, int len)
+{ return -EPERM; }
+static inline int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset,
+				u8 *buf, int len)
 { return -EPERM; }
 
 static inline int bif_slave_is_present(struct bif_slave *slave)
