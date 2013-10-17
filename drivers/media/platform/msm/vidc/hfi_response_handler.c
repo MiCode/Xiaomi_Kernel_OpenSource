@@ -180,7 +180,19 @@ static void hfi_process_session_error(
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = ((struct hal_session *) pkt->session_id)->
 		session_id;
-	callback(SESSION_ERROR, &cmd_done);
+	dprintk(VIDC_INFO, "Received : SESSION_ERROR with event id : %d\n",
+		pkt->event_data1);
+	switch (pkt->event_data1) {
+	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
+	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
+	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
+		dprintk(VIDC_INFO, "Non Fatal : HFI_EVENT_SESSION_ERROR\n");
+		break;
+	default:
+		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR\n");
+		callback(SESSION_ERROR, &cmd_done);
+		break;
+	}
 }
 static void hfi_process_event_notify(
 		msm_vidc_callback callback, u32 device_id,
@@ -204,7 +216,7 @@ static void hfi_process_event_notify(
 		hfi_process_sys_error(callback, device_id);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
-		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR");
+		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
 		if (!validate_session_pkt(sessions, sess, session_lock))
 			hfi_process_session_error(callback, device_id, pkt);
 		break;
@@ -529,6 +541,39 @@ enum vidc_status hfi_process_sess_init_done_prop_read(
 		{
 			next_offset +=
 				sizeof(struct hfi_intra_refresh);
+			num_properties--;
+			break;
+		}
+		case HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED:
+		{
+			struct hfi_buffer_alloc_mode_supported *prop =
+				(struct hfi_buffer_alloc_mode_supported *)
+				(data_ptr + next_offset);
+			int i;
+			if (prop->buffer_type == HFI_BUFFER_OUTPUT ||
+				prop->buffer_type == HFI_BUFFER_OUTPUT2) {
+				sess_init_done->alloc_mode_out = 0;
+				for (i = 0; i < prop->num_entries; i++) {
+					switch (prop->rg_data[i]) {
+					case HFI_BUFFER_MODE_STATIC:
+						sess_init_done->alloc_mode_out
+						|= HAL_BUFFER_MODE_STATIC;
+						break;
+					case HFI_BUFFER_MODE_DYNAMIC:
+						sess_init_done->alloc_mode_out
+						|= HAL_BUFFER_MODE_DYNAMIC;
+						break;
+					}
+					if (i >= 32) {
+						dprintk(VIDC_ERR,
+						"%s - num_entries: %d from f/w seems suspect\n",
+						__func__, prop->num_entries);
+						break;
+					}
+				}
+			}
+			next_offset += sizeof(*prop) -
+				sizeof(u32) + prop->num_entries * sizeof(u32);
 			num_properties--;
 			break;
 		}
