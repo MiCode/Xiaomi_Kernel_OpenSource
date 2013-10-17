@@ -129,6 +129,7 @@ struct msm_vfe_axi_plane_cfg {
 struct msm_vfe_axi_stream_request_cmd {
 	uint32_t session_id;
 	uint32_t stream_id;
+	uint32_t vt_enable;
 	uint32_t output_format;/*Planar/RAW/Misc*/
 	enum msm_vfe_axi_stream_src stream_src; /*CAMIF/IDEAL/RDIs*/
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];

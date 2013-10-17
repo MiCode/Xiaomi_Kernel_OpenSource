@@ -524,7 +524,16 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
-
+	stream_info->vt_enable = stream_cfg_cmd->vt_enable;
+	if (stream_info->vt_enable) {
+		vfe_dev->vt_enable = stream_info->vt_enable;
+	#ifdef CONFIG_MSM_AVTIMER
+		avcs_core_open();
+		avcs_core_disable_power_collapse(1);
+	#endif
+		vfe_dev->p_avtimer_lsw = ioremap(AVTIMER_LSW_PHY_ADDR, 4);
+		vfe_dev->p_avtimer_msw = ioremap(AVTIMER_MSW_PHY_ADDR, 4);
+	}
 	if (stream_info->num_planes > 1) {
 		msm_isp_axi_reserve_comp_mask(
 			&vfe_dev->axi_data, stream_info);
@@ -783,15 +792,21 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 {
 	int rc;
 	struct msm_isp_event_data buf_event;
+	struct timeval *time_stamp;
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 	uint32_t frame_id = vfe_dev->axi_data.
 		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
 
 	if (buf && ts) {
+		if (vfe_dev->vt_enable) {
+			time_stamp = &ts->vt_time;
+		} else {
+			time_stamp = &ts->buf_time;
+		}
 		if (stream_info->buf_divert) {
 			rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
-				&ts->buf_time, frame_id);
+				time_stamp, frame_id);
 			/* Buf divert return value represent whether the buf
 			 * can be diverted. A positive return value means
 			 * other ISP hardware is still processing the frame.
@@ -800,7 +815,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				buf_event.input_intf =
 					SRC_TO_INTF(stream_info->stream_src);
 				buf_event.frame_id = frame_id;
-				buf_event.timestamp = ts->buf_time;
+				buf_event.timestamp = *time_stamp;
 				buf_event.u.buf_done.session_id =
 					stream_info->session_id;
 				buf_event.u.buf_done.stream_id =
@@ -817,7 +832,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 		} else {
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
-				&ts->buf_time, frame_id,
+				time_stamp, frame_id,
 				stream_info->runtime_output_format);
 		}
 	}
