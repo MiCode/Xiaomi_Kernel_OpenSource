@@ -27,6 +27,7 @@
 
 /include/ "msm8916-ion.dtsi"
 /include/ "msm8916-smp2p.dtsi"
+/include/ "msm8916-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
