@@ -3799,7 +3799,7 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
  */
 static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 {
-	struct ufs_ioctl_query_data *ioct_data;
+	struct ufs_ioctl_query_data *ioctl_data;
 	int err = 0;
 	int length = 0;
 	void *data_ptr;
@@ -3808,8 +3808,8 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	u8 index;
 	u8 *desc = NULL;
 
-	ioct_data = kmalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
-	if (!ioct_data) {
+	ioctl_data = kmalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
+	if (!ioctl_data) {
 		dev_err(hba->dev, "%s: Failed allocating %d bytes\n", __func__,
 				sizeof(struct ufs_ioctl_query_data));
 		err = -ENOMEM;
@@ -3817,7 +3817,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	}
 
 	/* extract params from user buffer */
-	err = copy_from_user(ioct_data, buffer,
+	err = copy_from_user(ioctl_data, buffer,
 			sizeof(struct ufs_ioctl_query_data));
 	if (err) {
 		dev_err(hba->dev,
@@ -3827,9 +3827,9 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	}
 
 	/* verify legal parameters & send query */
-	switch (ioct_data->opcode) {
+	switch (ioctl_data->opcode) {
 	case UPIU_QUERY_OPCODE_READ_DESC:
-		switch (ioct_data->idn) {
+		switch (ioctl_data->idn) {
 		case QUERY_DESC_IDN_DEVICE:
 		case QUERY_DESC_IDN_CONFIGURAION:
 		case QUERY_DESC_IDN_INTERCONNECT:
@@ -3851,7 +3851,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			goto out_einval;
 		}
 		length = min_t(int, QUERY_DESC_MAX_SIZE,
-				ioct_data->buf_size);
+				ioctl_data->buf_size);
 		desc = kmalloc(length, GFP_KERNEL);
 		if (!desc) {
 			dev_err(hba->dev, "%s: Failed allocating %d bytes\n",
@@ -3859,11 +3859,11 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			err = -ENOMEM;
 			goto out_release_mem;
 		}
-		err = ufshcd_query_descriptor(hba, ioct_data->opcode,
-				ioct_data->idn, index, 0, desc, &length);
+		err = ufshcd_query_descriptor(hba, ioctl_data->opcode,
+				ioctl_data->idn, index, 0, desc, &length);
 		break;
 	case UPIU_QUERY_OPCODE_READ_ATTR:
-		switch (ioct_data->idn) {
+		switch (ioctl_data->idn) {
 		case QUERY_ATTR_IDN_BOOT_LU_EN:
 		case QUERY_ATTR_IDN_POWER_MODE:
 		case QUERY_ATTR_IDN_ACTIVE_ICC_LVL:
@@ -3887,11 +3887,11 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 		default:
 			goto out_einval;
 		}
-		err = ufshcd_query_attr(hba, ioct_data->opcode, ioct_data->idn,
-					index, 0, &att);
+		err = ufshcd_query_attr(hba, ioctl_data->opcode,
+					ioctl_data->idn, index, 0, &att);
 		break;
 	case UPIU_QUERY_OPCODE_READ_FLAG:
-		switch (ioct_data->idn) {
+		switch (ioctl_data->idn) {
 		case QUERY_FLAG_IDN_FDEVICEINIT:
 		case QUERY_FLAG_IDN_PERMANENT_WPE:
 		case QUERY_FLAG_IDN_PWR_ON_WPE:
@@ -3903,8 +3903,8 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 		default:
 			goto out_einval;
 		}
-		err = ufshcd_query_flag(hba, ioct_data->opcode, ioct_data->idn,
-					&flag);
+		err = ufshcd_query_flag(hba, ioctl_data->opcode,
+					ioctl_data->idn, &flag);
 		break;
 	default:
 		goto out_einval;
@@ -3912,7 +3912,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 
 	if (err) {
 		dev_err(hba->dev, "%s: Query for idn %d failed\n", __func__,
-				ioct_data->idn);
+					ioctl_data->idn);
 		goto out_release_mem;
 	}
 
@@ -3922,17 +3922,17 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	 * "ioct_data->buf_size". So we are updating "ioct_data->
 	 * buf_size" to what exactly we have read.
 	 */
-	switch (ioct_data->opcode) {
+	switch (ioctl_data->opcode) {
 	case UPIU_QUERY_OPCODE_READ_DESC:
-		ioct_data->buf_size = min_t(int, ioct_data->buf_size, length);
+		ioctl_data->buf_size = min_t(int, ioctl_data->buf_size, length);
 		data_ptr = desc;
 		break;
 	case UPIU_QUERY_OPCODE_READ_ATTR:
-		ioct_data->buf_size = sizeof(u32);
+		ioctl_data->buf_size = sizeof(u32);
 		data_ptr = &att;
 		break;
 	case UPIU_QUERY_OPCODE_READ_FLAG:
-		ioct_data->buf_size = 1;
+		ioctl_data->buf_size = 1;
 		data_ptr = &flag;
 		break;
 	default:
@@ -3940,13 +3940,13 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	}
 
 	/* copy to user */
-	err = copy_to_user(buffer, ioct_data,
+	err = copy_to_user(buffer, ioctl_data,
 			sizeof(struct ufs_ioctl_query_data));
 	if (err)
 		dev_err(hba->dev, "%s: Failed copying back to user.\n",
 			__func__);
 	err = copy_to_user(buffer + sizeof(struct ufs_ioctl_query_data),
-			data_ptr, ioct_data->buf_size);
+			data_ptr, ioctl_data->buf_size);
 	if (err)
 		dev_err(hba->dev, "%s: err %d copying back to user.\n",
 				__func__, err);
@@ -3955,10 +3955,10 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 out_einval:
 	dev_err(hba->dev,
 		"%s: illegal ufs query ioctl data, opcode 0x%x, idn 0x%x\n",
-		__func__, ioct_data->opcode, (unsigned int)ioct_data->idn);
+		__func__, ioctl_data->opcode, (unsigned int)ioctl_data->idn);
 	err = -EINVAL;
 out_release_mem:
-	kfree(ioct_data);
+	kfree(ioctl_data);
 	kfree(desc);
 out:
 	return err;
