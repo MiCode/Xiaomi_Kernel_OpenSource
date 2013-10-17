@@ -563,7 +563,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 					adreno_dev, offset,
 					ADRENO_CP_ADDR_VSC_PIPE_DATA_ADDRESS_0,
 					ADRENO_CP_ADDR_VSC_PIPE_DATA_LENGTH_7);
-			if (reg_index > 0)
+			if (reg_index >= 0)
 				ib_parse_vars->cp_addr_regs[reg_index] =
 								ptr[i + 1];
 			continue;
@@ -575,7 +575,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 					offset,
 					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_0,
 					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15);
-			if (reg_index > 0)
+			if (reg_index >= 0)
 				ib_parse_vars->cp_addr_regs[reg_index] =
 								ptr[i + 1];
 			continue;
@@ -587,7 +587,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 					offset,
 					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_16,
 					ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_31);
-			if (reg_index > 0)
+			if (reg_index >= 0)
 				ib_parse_vars->cp_addr_regs[reg_index] =
 								ptr[i + 1];
 			continue;
