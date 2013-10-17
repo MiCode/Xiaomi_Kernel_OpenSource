@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,9 @@ struct ocmem_notifier *ocmem_notifier_register(int client_id,
 
 	int ret = 0;
 	struct ocmem_notifier *nc_hndl = NULL;
+
+	if (!is_probe_done())
+		return ERR_PTR(-EPROBE_DEFER);
 
 	if (!check_id(client_id)) {
 		pr_err("ocmem: Invalid Client id\n");
