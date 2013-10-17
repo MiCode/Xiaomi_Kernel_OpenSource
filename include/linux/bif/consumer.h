@@ -564,6 +564,15 @@ int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
 int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
 				int len);
 
+int bif_object_write(struct bif_slave *slave, u8 type, u8 version, u16
+			manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_delete(struct bif_slave *slave, const struct bif_object *object);
+
 int bif_slave_is_present(struct bif_slave *slave);
 
 int bif_slave_is_selected(struct bif_slave *slave);
@@ -662,6 +671,19 @@ static inline int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset,
 { return -EPERM; }
 static inline int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset,
 				u8 *buf, int len)
+{ return -EPERM; }
+
+static inline int bif_object_write(struct bif_slave *slave, u8 type, u8 version,
+			u16 manufacturer_id, const u8 *data, int data_len)
+{ return -EPERM; }
+
+static inline int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len)
+{ return -EPERM; }
+
+static inline int bif_object_delete(struct bif_slave *slave,
+		const struct bif_object *object)
 { return -EPERM; }
 
 static inline int bif_slave_is_present(struct bif_slave *slave)
