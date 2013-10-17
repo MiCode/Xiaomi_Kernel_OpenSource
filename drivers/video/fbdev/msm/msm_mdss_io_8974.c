@@ -558,60 +558,32 @@ void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
 	wmb();
 }
 
-void mdss_dsi_phy_enable(struct mdss_dsi_ctrl_pdata *ctrl, int on)
+void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
-	if (on) {
-		MIPI_OUTP(ctrl->ctrl_base + 0x03cc, 0x03);
-		wmb();
-		usleep(100);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0220, 0x006);
-		wmb();
-		usleep(100);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0268, 0x001);
-		wmb();
-		usleep(100);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0268, 0x000);
-		wmb();
-		usleep(100);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0220, 0x007);
-		wmb();
-		MIPI_OUTP(ctrl->ctrl_base + 0x03cc, 0x01);
-		wmb();
-		usleep(100);
+	if (left_ctrl &&
+		(ctrl->panel_data.panel_info.pdest
+					== DISPLAY_1))
+		return;
 
-		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x07e);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x06e);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x06c);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x064);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x065);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x075);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x077);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x07f);
-		wmb();
-	} else {
-		if (left_ctrl &&
-			(ctrl->panel_data.panel_info.pdest
-						== DISPLAY_1))
-			return;
-
-		if (left_ctrl &&
-			(ctrl->panel_data.panel_info.pdest
-						== DISPLAY_2)) {
-			MIPI_OUTP(left_ctrl->ctrl_base + 0x0220, 0x006);
-			MIPI_OUTP(left_ctrl->ctrl_base + 0x0470, 0x000);
-			MIPI_OUTP(left_ctrl->ctrl_base + 0x0598, 0x000);
-		}
-		MIPI_OUTP(ctrl->ctrl_base + 0x0220, 0x006);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x000);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0598, 0x000);
-		wmb();
+	if (left_ctrl &&
+		(ctrl->panel_data.panel_info.pdest
+					== DISPLAY_2)) {
+		MIPI_OUTP(left_ctrl->ctrl_base + 0x0470, 0x000);
+		MIPI_OUTP(left_ctrl->ctrl_base + 0x0598, 0x000);
 	}
+	MIPI_OUTP(ctrl->ctrl_base + 0x0470, 0x000);
+	MIPI_OUTP(ctrl->ctrl_base + 0x0598, 0x000);
+
+	/*
+	 * Wait for the registers writes to complete in order to
+	 * ensure that the phy is completely disabled
+	 */
+	wmb();
 }
 
 void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
