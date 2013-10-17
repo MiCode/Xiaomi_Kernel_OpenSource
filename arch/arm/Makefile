@@ -255,7 +255,6 @@ core-y				+= arch/arm/crypto/
 core-y				+= $(machdirs) $(platdirs)
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/
-core-y				+= arch/arm/perfmon/
 
 libs-y				:= arch/arm/lib/ $(libs-y)
 
