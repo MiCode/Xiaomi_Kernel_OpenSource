@@ -448,8 +448,13 @@ static int _bif_slave_read_no_retry(struct bif_slave_dev *sdev, u16 addr,
 		rc = bdev->desc->ops->read_slave_registers(bdev, addr, buf,
 							   len);
 		if (rc)
-			pr_err("read_slave_registers failed, rc=%d\n", rc);
-		return rc;
+			pr_debug("read_slave_registers failed, rc=%d\n", rc);
+		else
+			return rc;
+		/*
+		 * Fall back on individual transactions if high level register
+		 * read failed.
+		 */
 	}
 
 	for (i = 0; i < len; i++) {
@@ -521,8 +526,13 @@ static int _bif_slave_write_no_retry(struct bif_slave_dev *sdev, u16 addr,
 		rc = bdev->desc->ops->write_slave_registers(bdev, addr, buf,
 							    len);
 		if (rc)
-			pr_err("write_slave_registers failed, rc=%d\n", rc);
-		return rc;
+			pr_debug("write_slave_registers failed, rc=%d\n", rc);
+		else
+			return rc;
+		/*
+		 * Fall back on individual transactions if high level register
+		 * write failed.
+		 */
 	}
 
 	rc = bdev->desc->ops->bus_transaction(bdev, BIF_TRANS_ERA, addr >> 8);
