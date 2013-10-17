@@ -3311,12 +3311,61 @@ static struct of_device_id msm8x10_wcd_of_match[] = {
 	{ },
 };
 
+#ifdef CONFIG_PM
+static int msm8x10_wcd_i2c_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct msm8x10_wcd_priv *priv = i2c_get_clientdata(client);
+	struct msm8x10_wcd *msm8x10;
+	int ret =  0;
+
+	if (client->addr == HELICON_CORE_0_I2C_ADDR) {
+		if (!priv || !priv->codec || !priv->codec->control_data) {
+			ret = -EINVAL;
+			dev_err(dev, "%s: Invalid client data\n", __func__);
+			goto rtn;
+		}
+		msm8x10 = priv->codec->control_data;
+		return wcd9xxx_core_res_resume(&msm8x10->wcd9xxx_res);
+	}
+rtn:
+	return 0;
+}
+
+static int msm8x10_wcd_i2c_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct msm8x10_wcd_priv *priv = i2c_get_clientdata(client);
+	struct msm8x10_wcd *msm8x10;
+	int ret = 0;
+
+	if (client->addr == HELICON_CORE_0_I2C_ADDR) {
+		if (!priv || !priv->codec || !priv->codec->control_data) {
+			ret = -EINVAL;
+			dev_err(dev, "%s: Invalid client data\n", __func__);
+			goto rtn;
+		}
+		msm8x10 = priv->codec->control_data;
+		return wcd9xxx_core_res_suspend(&msm8x10->wcd9xxx_res,
+						PMSG_SUSPEND);
+	}
+
+rtn:
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(msm8x1_wcd_pm_ops, msm8x10_wcd_i2c_suspend,
+			 msm8x10_wcd_i2c_resume);
+#endif
 
 static struct i2c_driver msm8x10_wcd_i2c_driver = {
 	.driver                 = {
 		.owner          = THIS_MODULE,
 		.name           = "msm8x10-wcd-i2c-core",
-		.of_match_table = msm8x10_wcd_of_match
+		.of_match_table = msm8x10_wcd_of_match,
+#ifdef CONFIG_PM
+		.pm = &msm8x1_wcd_pm_ops,
+#endif
 	},
 	.id_table               = msm8x10_wcd_id_table,
 	.probe                  = msm8x10_wcd_i2c_probe,
