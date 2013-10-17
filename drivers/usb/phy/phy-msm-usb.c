@@ -2479,6 +2479,8 @@ static void msm_chg_detect_work(struct work_struct *w)
 	queue_delayed_work(system_nrt_wq, &motg->chg_work, delay);
 }
 
+#define VBUS_INIT_TIMEOUT	msecs_to_jiffies(5000)
+
 /*
  * We support OTG, Peripheral only and Host only configurations. In case
  * of OTG, mode switch (host-->peripheral/peripheral-->host) can happen
@@ -2490,6 +2492,7 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 {
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	u32 otgsc = readl(USB_OTGSC);
+	int ret;
 
 	switch (pdata->mode) {
 	case USB_OTG:
@@ -2525,7 +2528,14 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 			 * VBUS initial state is reported after PMIC
 			 * driver initialization. Wait for it.
 			 */
-			wait_for_completion(&pmic_vbus_init);
+			ret = wait_for_completion_timeout(&pmic_vbus_init,
+							  VBUS_INIT_TIMEOUT);
+			if (!ret) {
+				dev_dbg(motg->phy.dev, "%s: timeout waiting for PMIC VBUS\n",
+					__func__);
+				clear_bit(B_SESS_VLD, &motg->inputs);
+				pmic_vbus_init.done = 1;
+			}
 		}
 		break;
 	case USB_HOST:
@@ -2543,7 +2553,14 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 			 * VBUS initial state is reported after PMIC
 			 * driver initialization. Wait for it.
 			 */
-			wait_for_completion(&pmic_vbus_init);
+			ret = wait_for_completion_timeout(&pmic_vbus_init,
+							  VBUS_INIT_TIMEOUT);
+			if (!ret) {
+				dev_dbg(motg->phy.dev, "%s: timeout waiting for PMIC VBUS\n",
+					__func__);
+				clear_bit(B_SESS_VLD, &motg->inputs);
+				pmic_vbus_init.done = 1;
+			}
 		} else if (pdata->otg_control == OTG_USER_CONTROL) {
 			set_bit(ID, &motg->inputs);
 			set_bit(B_SESS_VLD, &motg->inputs);
@@ -3371,7 +3388,6 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 static void msm_otg_set_vbus_state(int online)
 {
-	static bool init;
 	struct msm_otg *motg = the_msm_otg;
 
 	if (online) {
@@ -3389,12 +3405,11 @@ static void msm_otg_set_vbus_state(int online)
 		 * completion in UNDEFINED state.  Process
 		 * the initial VBUS event in ID_GND state.
 		 */
-		if (init)
+		if (pmic_vbus_init.done)
 			return;
 	}
 
-	if (!init) {
-		init = true;
+	if (!pmic_vbus_init.done) {
 		complete(&pmic_vbus_init);
 		pr_debug("PMIC: BSV init complete\n");
 		return;
