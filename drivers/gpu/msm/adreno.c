@@ -1665,7 +1665,6 @@ static int
 adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
-	struct kgsl_device_platform_data *pdata = NULL;
 	struct adreno_device *adreno_dev;
 	int status = -EINVAL;
 	bool is_dt;
@@ -1702,9 +1701,6 @@ adreno_probe(struct platform_device *pdev)
 	kgsl_pwrscale_init(&pdev->dev, CONFIG_MSM_ADRENO_DEFAULT_GOVERNOR);
 
 	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
-	pdata = kgsl_device_get_drvdata(device);
-
-	adreno_coresight_init(pdev);
 
 	return 0;
 
@@ -1726,7 +1722,7 @@ static int adreno_remove(struct platform_device *pdev)
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 	adreno_dev = ADRENO_DEVICE(device);
 
-	adreno_coresight_remove(pdev);
+	adreno_coresight_remove(device);
 	adreno_profile_close(device);
 
 	kgsl_pwrscale_close(device);
@@ -1758,8 +1754,12 @@ static int adreno_init(struct kgsl_device *device)
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
 
+
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
+
+	/* Initialize coresight for the target */
+	adreno_coresight_init(device);
 
 	if (adreno_ringbuffer_read_pm4_ucode(device)) {
 		KGSL_DRV_ERR(device, "Reading pm4 microcode failed %s\n",
@@ -1886,6 +1886,9 @@ static int adreno_start(struct kgsl_device *device)
 	/* Start the GPU */
 	adreno_dev->gpudev->start(adreno_dev);
 
+	/* Re-initialize the coresight registers if applicable */
+	adreno_coresight_start(adreno_dev);
+
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	device->ftbl->irqctrl(device, 1);
 
@@ -1939,6 +1942,9 @@ static int adreno_stop(struct kgsl_device *device)
 	del_timer_sync(&device->idle_timer);
 
 	adreno_ocmem_gmem_free(adreno_dev);
+
+	/* Save active coresight registers if applicable */
+	adreno_coresight_stop(adreno_dev);
 
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
@@ -2483,6 +2489,9 @@ int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Reinitialize the GPU */
 	adreno_dev->gpudev->start(adreno_dev);
+
+	/* Re-initialize the coresight registers if applicable */
+	adreno_coresight_start(adreno_dev);
 
 	/* Enable IRQ */
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);

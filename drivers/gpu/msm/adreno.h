@@ -92,15 +92,6 @@ enum adreno_gpurev {
 	ADRENO_REV_A420 = 420,
 };
 
-enum coresight_debug_reg {
-	DEBUG_BUS_CTL,
-	TRACE_STOP_CNT,
-	TRACE_START_CNT,
-	TRACE_PERIOD_CNT,
-	TRACE_CMD,
-	TRACE_BUS_CTL,
-};
-
 #define ADRENO_SOFT_FAULT BIT(0)
 #define ADRENO_HARD_FAULT BIT(1)
 #define ADRENO_TIMEOUT_FAULT BIT(2)
@@ -198,11 +189,14 @@ struct adreno_device {
  * @ADRENO_DEVICE_PWRON - Set during init after a power collapse
  * @ADRENO_DEVICE_PWRON_FIXUP - Set if the target requires the shader fixup
  * after power collapse
+ * @ADRENO_DEVICE_CORESIGHT - Set if the coresight (trace bus) registers should
+ * be restored after power collapse
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
 	ADRENO_DEVICE_PWRON_FIXUP = 1,
 	ADRENO_DEVICE_INITIALIZED = 2,
+	ADRENO_DEVICE_CORESIGHT = 3,
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0
@@ -373,6 +367,51 @@ struct adreno_vbif_platform {
 	const struct adreno_vbif_data *vbif;
 };
 
+/**
+ * struct adreno_coresight_register - Definition for a coresight (tracebus)
+ * debug register
+ * @offset: Offset of the debug register in the KGSL mmio region
+ * @initial: Default value to write when coresight is enabled
+ * @value: Current shadow value of the register (to be reprogrammed after power
+ * collapse)
+ */
+struct adreno_coresight_register {
+	unsigned int offset;
+	unsigned int initial;
+	unsigned int value;
+};
+
+struct adreno_coresight_attr {
+	struct device_attribute attr;
+	struct adreno_coresight_register *reg;
+};
+
+ssize_t adreno_coresight_show_register(struct device *device,
+		struct device_attribute *attr, char *buf);
+
+ssize_t adreno_coresight_store_register(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size);
+
+#define ADRENO_CORESIGHT_ATTR(_attrname, _reg) \
+	struct adreno_coresight_attr coresight_attr_##_attrname  = { \
+		__ATTR(_attrname, S_IRUGO | S_IWUSR, \
+		adreno_coresight_show_register, \
+		adreno_coresight_store_register), \
+		(_reg), }
+
+/**
+ * struct adreno_coresight - GPU specific coresight definition
+ * @registers - Array of GPU specific registers to configure trace bus output
+ * @count - Number of registers in the array
+ * @groups - Pointer to an attribute list of control files
+ */
+struct adreno_coresight {
+	struct adreno_coresight_register *registers;
+	unsigned int count;
+	const struct attribute_group **groups;
+};
+
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on different devices,
@@ -385,6 +424,8 @@ struct adreno_gpudev {
 	struct adreno_perfcounters *perfcounters;
 	const struct adreno_invalid_countables
 			*invalid_countables;
+
+	struct adreno_coresight *coresight;
 
 	/* GPU specific function hooks */
 	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
@@ -405,10 +446,6 @@ struct adreno_gpudev {
 		unsigned int group, unsigned int counter);
 	void (*perfcounter_write)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
-	int (*coresight_enable) (struct kgsl_device *device);
-	void (*coresight_disable) (struct kgsl_device *device);
-	void (*coresight_config_debug_reg) (struct kgsl_device *device,
-			int debug_reg, unsigned int val);
 	void (*soft_reset)(struct adreno_device *device);
 	void (*postmortem_dump)(struct adreno_device *adreno_dev);
 };
@@ -474,11 +511,6 @@ extern const unsigned int a4xx_registers[];
 extern const unsigned int a4xx_registers_count;
 
 extern unsigned int ft_detect_regs[];
-
-int adreno_coresight_enable(struct coresight_device *csdev);
-void adreno_coresight_disable(struct coresight_device *csdev);
-void adreno_coresight_remove(struct platform_device *pdev);
-int adreno_coresight_init(struct platform_device *pdev);
 
 int adreno_idle(struct kgsl_device *device);
 bool adreno_isidle(struct kgsl_device *device);
@@ -548,6 +580,13 @@ int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 int adreno_soft_reset(struct kgsl_device *device);
 
 int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev);
+
+int adreno_coresight_init(struct kgsl_device *device);
+
+void adreno_coresight_start(struct adreno_device *adreno_dev);
+void adreno_coresight_stop(struct adreno_device *adreno_dev);
+
+void adreno_coresight_remove(struct kgsl_device *device);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
