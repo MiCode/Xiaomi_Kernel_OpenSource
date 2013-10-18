@@ -596,7 +596,7 @@ static ssize_t acc_read(struct file *fp, char __user *buf,
 {
 	struct acc_dev *dev = fp->private_data;
 	struct usb_request *req;
-	int r = count, xfer;
+	int r = count, xfer, len;
 	int ret = 0;
 
 	pr_debug("acc_read(%d)\n", count);
@@ -606,6 +606,8 @@ static ssize_t acc_read(struct file *fp, char __user *buf,
 
 	if (count > BULK_BUFFER_SIZE)
 		count = BULK_BUFFER_SIZE;
+
+	len = ALIGN(count, dev->ep_out->maxpacket);
 
 	/* we will block until we're online */
 	pr_debug("acc_read: waiting for online\n");
@@ -618,7 +620,7 @@ static ssize_t acc_read(struct file *fp, char __user *buf,
 requeue_req:
 	/* queue a request */
 	req = dev->rx_req[0];
-	req->length = count;
+	req->length = len;
 	dev->rx_done = 0;
 	ret = usb_ep_queue(dev->ep_out, req, GFP_KERNEL);
 	if (ret < 0) {
