@@ -1405,10 +1405,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
 					qpnp_chg_check_usbin_health(chip);
-				if (chip->usbin_health != usbin_health) {
+				if ((chip->usbin_health != usbin_health)
+					&& (usbin_health == USBIN_OVP)) {
 					chip->usbin_health = usbin_health;
-					if (usbin_health == USBIN_OVP)
-						psy_health_sts =
+					psy_health_sts =
 					POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 					power_supply_set_health_state(
 						chip->usb_psy,
@@ -1433,10 +1433,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
 					qpnp_chg_check_usbin_health(chip);
-				if (chip->usbin_health != usbin_health) {
+				if ((chip->usbin_health != usbin_health)
+					&& (usbin_health == USBIN_OK)) {
 					chip->usbin_health = usbin_health;
-					 if (usbin_health == USBIN_OK)
-						psy_health_sts =
+					psy_health_sts =
 						POWER_SUPPLY_HEALTH_GOOD;
 					power_supply_set_health_state(
 						chip->usb_psy,
