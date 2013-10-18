@@ -13,7 +13,6 @@
 #ifndef __A3XX_H
 #define __A3XX_H
 
-void a3xx_err_callback(struct adreno_device *adreno_dev, int bit);
 irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev);
 void a3xx_irq_control(struct adreno_device *adreno_dev, int state);
 unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
@@ -28,4 +27,9 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 void a3xx_perfcounter_disable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter);
 void a3xx_soft_reset(struct adreno_device *adreno_dev);
+void a3xx_irq_setup(struct adreno_device *adreno_dev);
+void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit);
+void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit);
+void a3xx_gpu_idle_callback(struct adreno_device *adreno_dev, int irq);
+void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq);
 #endif /*__A3XX_H */
