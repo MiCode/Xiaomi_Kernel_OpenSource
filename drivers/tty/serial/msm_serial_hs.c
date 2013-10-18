@@ -998,6 +998,14 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mutex_lock(&msm_uport->clk_mutex);
 	msm_hs_write(uport, UART_DM_IMR, 0);
 
+	/* Clear the Rx Ready Ctl bit - This ensures that
+	* flow control lines stop the other side from sending
+	* data while we change the parameters
+	*/
+	data = msm_hs_read(uport, UART_DM_MR1);
+	data &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
+	msm_hs_write(uport, UART_DM_MR1, data);
+
 	/*
 	 * Disable Rx channel of UARTDM
 	 * DMA Rx Stall happens if enqueue and flush of Rx command happens
@@ -1071,18 +1079,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	/* write parity/bits per char/stop bit configuration */
 	msm_hs_write(uport, UART_DM_MR2, data);
 
-	/* Configure HW flow control */
-	data = msm_hs_read(uport, UART_DM_MR1);
-
-	data &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
-
-	if (c_cflag & CRTSCTS) {
-		data |= UARTDM_MR1_CTS_CTL_BMSK;
-		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-	}
-
-	msm_hs_write(uport, UART_DM_MR1, data);
-
 	uport->ignore_status_mask = termios->c_iflag & INPCK;
 	uport->ignore_status_mask |= termios->c_iflag & IGNPAR;
 	uport->ignore_status_mask |= termios->c_iflag & IGNBRK;
@@ -1130,6 +1126,20 @@ static void msm_hs_set_termios(struct uart_port *uport,
 								__func__);
 		}
 	}
+
+	/* Configure HW flow control
+	 * UART Core would see status of CTS line when it is sending data
+	 * to remote uart to confirm that it can receive or not.
+	 * UART Core would trigger RFR if it is not having any space with
+	 * RX FIFO.
+	 */
+	data = msm_hs_read(uport, UART_DM_MR1);
+	data &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
+	if (c_cflag & CRTSCTS) {
+		data |= UARTDM_MR1_CTS_CTL_BMSK;
+		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
+	}
+	msm_hs_write(uport, UART_DM_MR1, data);
 
 	msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
 	mb();
