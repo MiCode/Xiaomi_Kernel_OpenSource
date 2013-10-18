@@ -235,10 +235,10 @@ registration order.
 Get/put handle for a BIF slave:
 -------------------------------
 
-int bif_slave_match_count(const struct bif_ctrl *ctrl,
+int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria);
 
-struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria);
 
 void bif_slave_put(struct bif_slave *slave);
@@ -293,7 +293,6 @@ int bif_ctrl_notifier_register(struct bif_ctrl *ctrl,
 int bif_ctrl_notifier_unregister(struct bif_ctrl *ctrl,
 				struct notifier_block *nb);
 
-
 Read or write BIF slave registers:
 ----------------------------------
 
@@ -301,6 +300,53 @@ int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 
 int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len);
 
+
+BIF slave non-volatile memory manipulation:
+-------------------------------------------
+
+int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+
+int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len);
+
+Raw NVM writing may be needed in order to intialize the NVM BIF object list.
+However, its use can be dangerous as it can overwrite existing objects in the
+list and make the list unparsable.
+
+BIF object search in slave non-volatile memory:
+-----------------------------------------------
+int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria);
+
+struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria);
+
+void bif_object_put(struct bif_object *object);
+
+bif_object_match_count() and bif_object_match_get() can be used together in
+order to retrieve the set of BIF objects within a slave which match certain
+criteria.  bif_object_put() is used to free the memory allocated by
+bif_object_match_get().
+
+BIF object manipulation in slave non-volatile memory:
+-----------------------------------------------------
+int bif_object_write(struct bif_slave *slave, u8 type, u8 version, u16
+			manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len);
+
+int bif_object_delete(struct bif_slave *slave, const struct bif_object *object);
+
+bif_object_write() can be used to write a new BIF data object into the NVM of
+a given slave.  The new object is added to the end of the NVM object list.
+bif_object_overwrite() can be used to overwrite an existing BIF data object
+in the NVM of a slave.  The new object data must be the same size as the
+existing object data.  bif_object_delete() can be used to delete a object from
+the NVM object list and shift all of the objects after it in order to fill the
+deleted object's space.
 
 Get or set the BIF bus state or period:
 ---------------------------------------
@@ -341,11 +387,17 @@ int bif_trigger_task(struct bif_slave *slave, unsigned int task);
 
 int bif_task_is_busy(struct bif_slave *slave, unsigned int task);
 
+int bif_enable_auto_task(struct bif_slave *slave, unsigned int task);
+
+int bif_disable_auto_task(struct bif_slave *slave, unsigned int task);
+
 A consumer can request a slave interrupt and specify a notifier to call when the
 interrupt is triggered.  Once the interrupt is requested the consumer will need
 to call bif_trigger_task() in order to start the task associated with the
 interrupt (both are identified by the same index).  Polling for task completion
-is also supported via the bif_task_is_busy() function.
+is also supported via the bif_task_is_busy() function.  Auto task triggered can
+be enabled and disabled for a given task using bif_enable_auto_task() and
+bif_disable_auto_task() respectively.
 
 Raw BIF bus transactions:
 -------------------------
