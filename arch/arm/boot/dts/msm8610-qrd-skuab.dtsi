@@ -52,11 +52,11 @@
 			reset-gpios = <&msmgpio 0 0x00>;
 			interrupt-gpios = <&msmgpio 1 0x00>;
 			vdd-supply = <&pm8110_l19>;
-			vcc_i2c-supply = <&pm8110_l14>;
+			vcc-i2c-supply = <&pm8110_l14>;
 			goodix,panel-coords = <0 0 540 980>;
 			goodix,display-coords = <0 0 540 960>;
 			goodix,button-map= <139 102 158>;
-			goodix,family-id = <0x0>;
+			goodix,product-id = "915";
 			goodix,cfg-data0 = [
 				46 1C 02 C0 03 0A 05 11 01 08
 				14 3B 46 32 03 05 00 00 00 00
