@@ -205,13 +205,14 @@ static void bif_print_slave_data(struct bif_slave_dev *sdev)
 	}
 
 	if (sdev->nvm_function) {
-		pr_debug("  NVM function: pointer=0x%04X, task=%d, wr_buf_size=%d, nvm_base=0x%04X, nvm_size=%d\n",
+		pr_debug("  NVM function: pointer=0x%04X, task=%d, wr_buf_size=%d, nvm_base=0x%04X, nvm_size=%d, nvm_lock_offset=%d\n",
 			sdev->nvm_function->nvm_pointer,
 			sdev->nvm_function->slave_control_channel,
 			(sdev->nvm_function->write_buffer_size
 				? sdev->nvm_function->write_buffer_size : 0),
 			sdev->nvm_function->nvm_base_address,
-			sdev->nvm_function->nvm_size);
+			sdev->nvm_function->nvm_size,
+			sdev->nvm_function->nvm_lock_offset);
 		if (sdev->nvm_function->object_count)
 			pr_debug("  NVM objects:\n");
 		i = 0;
@@ -448,8 +449,13 @@ static int _bif_slave_read_no_retry(struct bif_slave_dev *sdev, u16 addr,
 		rc = bdev->desc->ops->read_slave_registers(bdev, addr, buf,
 							   len);
 		if (rc)
-			pr_err("read_slave_registers failed, rc=%d\n", rc);
-		return rc;
+			pr_debug("read_slave_registers failed, rc=%d\n", rc);
+		else
+			return rc;
+		/*
+		 * Fall back on individual transactions if high level register
+		 * read failed.
+		 */
 	}
 
 	for (i = 0; i < len; i++) {
@@ -521,8 +527,13 @@ static int _bif_slave_write_no_retry(struct bif_slave_dev *sdev, u16 addr,
 		rc = bdev->desc->ops->write_slave_registers(bdev, addr, buf,
 							    len);
 		if (rc)
-			pr_err("write_slave_registers failed, rc=%d\n", rc);
-		return rc;
+			pr_debug("write_slave_registers failed, rc=%d\n", rc);
+		else
+			return rc;
+		/*
+		 * Fall back on individual transactions if high level register
+		 * write failed.
+		 */
 	}
 
 	rc = bdev->desc->ops->bus_transaction(bdev, BIF_TRANS_ERA, addr >> 8);
@@ -567,6 +578,233 @@ static int _bif_slave_write(struct bif_slave_dev *sdev, u16 addr, u8 *buf,
 	return rc;
 }
 
+/* Perform a read-modify-write sequence on a single BIF slave register. */
+static int _bif_slave_masked_write(struct bif_slave_dev *sdev, u16 addr, u8 val,
+			u8 mask)
+{
+	int rc;
+	u8 reg;
+
+	rc = _bif_slave_read(sdev, addr, &reg, 1);
+	if (rc)
+		return rc;
+
+	reg = (reg & ~mask) | (val & mask);
+
+	return _bif_slave_write(sdev, addr, &reg, 1);
+}
+
+static int _bif_check_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	if (IS_ERR_OR_NULL(sdev)) {
+		pr_err("Invalid slave device handle=%ld\n", PTR_ERR(sdev));
+		return -EINVAL;
+	} else if (!sdev->bdev) {
+		pr_err("BIF controller has been removed\n");
+		return -ENXIO;
+	} else if (!sdev->slave_ctrl_function
+			|| sdev->slave_ctrl_function->task_count == 0) {
+		pr_err("BIF slave does not support slave control\n");
+		return -ENODEV;
+	} else if (task >= sdev->slave_ctrl_function->task_count) {
+		pr_err("Requested task: %u greater than max: %u for this slave\n",
+			task, sdev->slave_ctrl_function->task_count);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _bif_task_is_busy(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 reg = 0;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave device or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Check the task busy state. */
+	addr = SLAVE_CTRL_FUNC_TASK_BUSY_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	rc = _bif_slave_read(sdev, addr, &reg, 1);
+	if (rc) {
+		pr_err("BIF slave register read failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	return (reg & BIT(task % SLAVE_CTRL_TASKS_PER_SET)) ? 1 : 0;
+}
+
+static int _bif_enable_auto_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 mask;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave device or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable the auto task within the slave */
+	mask = BIT(task % SLAVE_CTRL_TASKS_PER_SET);
+	addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	if (task / SLAVE_CTRL_TASKS_PER_SET == 0) {
+		/* Set global auto task enable. */
+		mask |= BIT(0);
+	}
+	rc = _bif_slave_masked_write(sdev, addr, 0xFF, mask);
+	if (rc) {
+		pr_err("BIF slave register masked write failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set global auto task enable if task not in set 0. */
+	if (task / SLAVE_CTRL_TASKS_PER_SET != 0) {
+		addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		       sdev->slave_ctrl_function->slave_ctrl_pointer, 0);
+		rc = _bif_slave_masked_write(sdev, addr, 0xFF, BIT(0));
+		if (rc) {
+			pr_err("BIF slave register masked write failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+static int _bif_disable_auto_task(struct bif_slave_dev *sdev, unsigned int task)
+{
+	int rc;
+	u16 addr;
+	u8 mask;
+
+	rc = _bif_check_task(sdev, task);
+	if (rc) {
+		pr_err("Invalid slave or task, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable the auto task within the slave */
+	mask = BIT(task % SLAVE_CTRL_TASKS_PER_SET);
+	addr = SLAVE_CTRL_FUNC_TASK_AUTO_TRIGGER_ADDR(
+		sdev->slave_ctrl_function->slave_ctrl_pointer, task);
+	rc = _bif_slave_masked_write(sdev, addr, 0x00, mask);
+	if (rc) {
+		pr_err("BIF slave register masked write failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+/*
+ * The MIPI-BIF spec does not define a maximum time in which an NVM write must
+ * complete.  The following delay and recheck count therefore represent
+ * arbitrary but reasonable values.
+ */
+#define NVM_WRITE_POLL_DELAY_MS		20
+#define NVM_WRITE_MAX_POLL_COUNT	50
+
+static int _bif_slave_nvm_raw_write(struct bif_slave_dev *sdev, u16 offset,
+				u8 *buf, int len)
+{
+	int rc = 0;
+	int write_len, poll_count, rc2;
+	u8 write_buf[3];
+
+	if (!sdev->nvm_function) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	} else if (offset + len > sdev->nvm_function->nvm_size) {
+		pr_err("write offset + len = %d > NVM size = %d\n",
+			offset + len, sdev->nvm_function->nvm_size);
+		return -EINVAL;
+	} else if (offset < sdev->nvm_function->nvm_lock_offset) {
+		pr_err("write offset = %d < first writable offset = %d\n",
+			offset, sdev->nvm_function->nvm_lock_offset);
+		return -EINVAL;
+	}
+
+	rc = _bif_enable_auto_task(sdev,
+			sdev->nvm_function->slave_control_channel);
+	if (rc) {
+		pr_err("Failed to enable NVM auto task, rc=%d\n", rc);
+		return rc;
+	}
+
+	while (len > 0) {
+		write_len = sdev->nvm_function->write_buffer_size;
+		if (write_len == 0)
+			write_len = 256;
+		write_len = min(write_len, len);
+
+		write_buf[0] = offset >> 8;
+		write_buf[1] = offset;
+		write_buf[2] = (write_len == 256) ? 0 : write_len;
+
+		/* Write offset and size registers. */
+		rc = _bif_slave_write(sdev, sdev->nvm_function->nvm_pointer + 6,
+					write_buf, 3);
+		if (rc) {
+			pr_err("BIF slave write failed, rc=%d\n", rc);
+			goto done;
+		}
+
+		/* Write to NVM write buffer registers. */
+		rc = _bif_slave_write(sdev, sdev->nvm_function->nvm_pointer + 9,
+					buf, write_len);
+		if (rc) {
+			pr_err("BIF slave write failed, rc=%d\n", rc);
+			goto done;
+		}
+
+		/*
+		 * Wait for completion of the NVM write which was auto-triggered
+		 * by the register write of the last byte in the NVM write
+		 * buffer.
+		 */
+		poll_count = NVM_WRITE_MAX_POLL_COUNT;
+		do {
+			msleep(NVM_WRITE_POLL_DELAY_MS);
+			rc = _bif_task_is_busy(sdev,
+				sdev->nvm_function->slave_control_channel);
+			poll_count--;
+		} while (rc > 0 && poll_count > 0);
+
+		if (rc < 0) {
+			pr_err("Failed to check task state, rc=%d", rc);
+			goto done;
+		} else if (rc > 0) {
+			pr_err("BIF slave NVM write not completed after %d ms\n",
+			    NVM_WRITE_POLL_DELAY_MS * NVM_WRITE_MAX_POLL_COUNT);
+			rc = -ETIMEDOUT;
+			goto done;
+		}
+
+		len -= write_len;
+		offset += write_len;
+		buf += write_len;
+	}
+
+done:
+	rc2 = _bif_disable_auto_task(sdev,
+			sdev->nvm_function->slave_control_channel);
+	if (rc2) {
+		pr_err("Failed to disable NVM auto task, rc=%d\n", rc2);
+		return rc2;
+	}
+
+	return rc;
+}
+
 /* Takes a mutex if this consumer is not an exclusive bus user. */
 static void bif_ctrl_lock(struct bif_ctrl *ctrl)
 {
@@ -595,25 +833,53 @@ static void bif_slave_ctrl_unlock(struct bif_slave *slave)
 	bif_ctrl_unlock(&slave->ctrl);
 }
 
+/**
+ * bif_crc_ccitt() - calculate the CRC-CCITT CRC value of the data specified
+ * @buffer:	Data to calculate the CRC of
+ * @len:	Length of the data buffer in bytes
+ *
+ * MIPI-BIF specifies the usage of CRC-CCITT for BIF data objects.  This
+ * function performs the CRC calculation while taking into account the bit
+ * ordering used by BIF.
+ */
+u16 bif_crc_ccitt(const u8 *buffer, unsigned int len)
+{
+	u16 crc = 0xFFFF;
+
+	while (len--) {
+		crc = crc_ccitt_byte(crc, bitrev8(*buffer));
+		buffer++;
+	}
+	return bitrev16(crc);
+}
+EXPORT_SYMBOL(bif_crc_ccitt);
+
+static u16 bif_object_crc_ccitt(const struct bif_object *object)
+{
+	u16 crc = 0xFFFF;
+	int i;
+
+	crc = crc_ccitt_byte(crc, bitrev8(object->type));
+	crc = crc_ccitt_byte(crc, bitrev8(object->version));
+	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id >> 8));
+	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id));
+	crc = crc_ccitt_byte(crc, bitrev8(object->length >> 8));
+	crc = crc_ccitt_byte(crc, bitrev8(object->length));
+
+	for (i = 0; i < object->length - 8; i++)
+		crc = crc_ccitt_byte(crc, bitrev8(object->data[i]));
+
+	return bitrev16(crc);
+}
+
 static int bif_check_task(struct bif_slave *slave, unsigned int task)
 {
 	if (IS_ERR_OR_NULL(slave)) {
-		pr_err("Invalid slave handle.\n");
-		return -EINVAL;
-	} else if (!slave->sdev->bdev) {
-		pr_err("BIF controller has been removed.\n");
-		return -ENXIO;
-	} else if (!slave->sdev->slave_ctrl_function
-			|| slave->sdev->slave_ctrl_function->task_count == 0) {
-		pr_err("BIF slave does not support slave control.\n");
-		return -ENODEV;
-	} else if (task >= slave->sdev->slave_ctrl_function->task_count) {
-		pr_err("Requested task: %u greater than max: %u for this slave\n",
-			task, slave->sdev->slave_ctrl_function->task_count);
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
 		return -EINVAL;
 	}
 
-	return 0;
+	return _bif_check_task(slave->sdev, task);
 }
 
 /**
@@ -817,6 +1083,61 @@ done:
 EXPORT_SYMBOL(bif_trigger_task);
 
 /**
+ * bif_enable_auto_task() - enable task auto triggering for the specified task
+ * @slave:	BIF slave handle
+ * @task:	BIF task inside of the slave to configure for automatic
+ *		triggering.  This corresponds to the slave control channel
+ *		specified for a given BIF function inside of the slave.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_enable_auto_task(struct bif_slave *slave, unsigned int task)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_enable_auto_task(slave->sdev, task);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_enable_auto_task);
+
+/**
+ * bif_disable_auto_task() - disable task auto triggering for the specified task
+ * @slave:	BIF slave handle
+ * @task:	BIF task inside of the slave to stop automatic triggering on.
+ *		This corresponds to the slave control channel specified for a
+ *		given BIF function inside of the slave.
+ *
+ * This function should be called after bif_enable_auto_task() in a paired
+ * fashion.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_disable_auto_task(struct bif_slave *slave, unsigned int task)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_disable_auto_task(slave->sdev, task);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_disable_auto_task);
+
+/**
  * bif_task_is_busy() - checks the state of a BIF slave task
  * @slave:	BIF slave handle
  * @task:	BIF task inside of the slave to trigger.  This corresponds to
@@ -828,28 +1149,14 @@ EXPORT_SYMBOL(bif_trigger_task);
 int bif_task_is_busy(struct bif_slave *slave, unsigned int task)
 {
 	int rc;
-	u16 addr;
-	u8 reg;
 
-	rc = bif_check_task(slave, task);
-	if (rc) {
-		pr_err("Invalid slave or task, rc=%d\n", rc);
-		return rc;
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
 	}
 
 	bif_slave_ctrl_lock(slave);
-
-	/* Check the task busy state. */
-	addr = SLAVE_CTRL_FUNC_TASK_BUSY_ADDR(
-		slave->sdev->slave_ctrl_function->slave_ctrl_pointer, task);
-	rc = _bif_slave_read(slave->sdev, addr, &reg, 1);
-	if (rc) {
-		pr_err("BIF slave register read failed, rc=%d\n", rc);
-		goto done;
-	}
-
-	rc = (reg & BIT(task % SLAVE_CTRL_TASKS_PER_SET)) ? 1 : 0;
-done:
+	rc = _bif_task_is_busy(slave->sdev, task);
 	bif_slave_ctrl_unlock(slave);
 
 	return rc;
@@ -1258,16 +1565,29 @@ void bif_ctrl_put(struct bif_ctrl *ctrl)
 }
 EXPORT_SYMBOL(bif_ctrl_put);
 
+static bool bif_slave_object_match(const struct bif_object *object,
+		const struct bif_match_criteria *criteria)
+{
+	return (object->type == criteria->obj_type)
+		&& (object->version == criteria->obj_version
+			|| !(criteria->match_mask & BIF_MATCH_OBJ_VERSION))
+		&& (object->manufacturer_id == criteria->obj_manufacturer_id
+		    || !(criteria->match_mask & BIF_MATCH_OBJ_MANUFACTURER_ID));
+}
+
 /*
  * Returns true if all parameters are matched, otherwise false.
  * function_type and function_version mean that their exists some function in
  * the slave which has the specified type and subtype.  ctrl == NULL is treated
  * as a wildcard.
  */
-static bool bif_slave_match(const struct bif_ctrl *ctrl,
+static bool bif_slave_match(struct bif_ctrl *ctrl,
 	struct bif_slave_dev *sdev, const struct bif_match_criteria *criteria)
 {
 	int i, type, version;
+	struct bif_object *object;
+	bool function_found = false;
+	bool object_found = false;
 
 	if (ctrl && (ctrl->bdev != sdev->bdev))
 		return false;
@@ -1295,10 +1615,29 @@ static bool bif_slave_match(const struct bif_ctrl *ctrl,
 			if (type == criteria->function_type &&
 				(version == criteria->function_version
 					|| !(criteria->match_mask
-						& BIF_MATCH_FUNCTION_VERSION)))
-				return true;
+					       & BIF_MATCH_FUNCTION_VERSION))) {
+				function_found = true;
+				break;
+			}
 		}
-		return false;
+		if (!function_found)
+			return false;
+	}
+
+	if (criteria->match_mask & BIF_MATCH_OBJ_TYPE) {
+		if (!sdev->nvm_function)
+			return false;
+		bif_ctrl_lock(ctrl);
+		list_for_each_entry(object, &sdev->nvm_function->object_list,
+					list) {
+			if (bif_slave_object_match(object, criteria)) {
+				object_found = true;
+				break;
+			}
+		}
+		bif_ctrl_unlock(ctrl);
+		if (!object_found)
+			return false;
 	}
 
 	return true;
@@ -1311,7 +1650,7 @@ static bool bif_slave_match(const struct bif_ctrl *ctrl,
  * @ctrl:		BIF controller consumer handle
  * @match_criteria:	Matching criteria used to filter slaves
  */
-int bif_slave_match_count(const struct bif_ctrl *ctrl,
+int bif_slave_match_count(struct bif_ctrl *ctrl,
 			const struct bif_match_criteria *match_criteria)
 {
 	struct bif_slave_dev *sdev;
@@ -1342,7 +1681,7 @@ EXPORT_SYMBOL(bif_slave_match_count);
  *
  * Returns a BIF slave handle if successful or an ERR_PTR if not.
  */
-struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+struct bif_slave *bif_slave_match_get(struct bif_ctrl *ctrl,
 	unsigned int id, const struct bif_match_criteria *match_criteria)
 {
 	struct bif_slave_dev *sdev;
@@ -1431,6 +1770,511 @@ int bif_slave_find_function(struct bif_slave *slave, u8 function, u8 *version,
 }
 EXPORT_SYMBOL(bif_slave_find_function);
 
+static bool bif_object_match(const struct bif_object *object,
+		const struct bif_obj_match_criteria *criteria)
+{
+	return (object->type == criteria->type
+			|| !(criteria->match_mask & BIF_OBJ_MATCH_TYPE))
+		&& (object->version == criteria->version
+			|| !(criteria->match_mask & BIF_OBJ_MATCH_VERSION))
+		&& (object->manufacturer_id == criteria->manufacturer_id
+		    || !(criteria->match_mask & BIF_OBJ_MATCH_MANUFACTURER_ID));
+}
+
+/**
+ * bif_object_match_count() - returns the number of objects associated with the
+ *			specified BIF slave which fit the matching criteria
+ * @slave:		BIF slave handle
+ * @match_criteria:	Matching criteria used to filter objects
+ */
+int bif_object_match_count(struct bif_slave *slave,
+			const struct bif_obj_match_criteria *match_criteria)
+{
+	struct bif_object *object;
+	int count = 0;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(match_criteria)) {
+		pr_err("Invalid pointer input.\n");
+		return -EINVAL;
+	}
+
+	if (!slave->sdev->nvm_function)
+		return 0;
+
+	bif_slave_ctrl_lock(slave);
+	list_for_each_entry(object, &slave->sdev->nvm_function->object_list,
+			    list) {
+		if (bif_object_match(object, match_criteria))
+			count++;
+	}
+	bif_slave_ctrl_unlock(slave);
+
+	return count;
+}
+EXPORT_SYMBOL(bif_object_match_count);
+
+/**
+ * bif_object_match_get() - get a BIF object handle for the id'th object found
+ *			in the non-volatile memory of the specified BIF slave
+ *			which fits the matching criteria
+ * @slave:		BIF slave handle
+ * @id:			Index into the set of matching objects
+ * @match_criteria:	Matching criteria used to filter objects
+ *
+ * id must be in range [0, bif_object_match_count(slave, match_criteria) - 1].
+ *
+ * Returns a BIF object handle if successful or an ERR_PTR if not.  This handle
+ * must be freed using bif_object_put() when it is no longer needed.
+ */
+struct bif_object *bif_object_match_get(struct bif_slave *slave,
+	unsigned int id, const struct bif_obj_match_criteria *match_criteria)
+{
+	struct bif_object *object;
+	struct bif_object *object_found = NULL;
+	struct bif_object *object_consumer = ERR_PTR(-ENODEV);
+	int count = 0;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(match_criteria)) {
+		pr_err("Invalid pointer input.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!slave->sdev->nvm_function)
+		return object_consumer;
+
+	bif_slave_ctrl_lock(slave);
+	list_for_each_entry(object, &slave->sdev->nvm_function->object_list,
+			    list) {
+		if (bif_object_match(object, match_criteria))
+			count++;
+		if (count == id + 1) {
+			object_found = object;
+			break;
+		}
+	}
+
+	if (object_found) {
+		object_consumer = kmemdup(object_found,
+					sizeof(*object_consumer), GFP_KERNEL);
+		if (!object_consumer) {
+			pr_err("out of memory\n");
+			object_consumer = ERR_PTR(-ENOMEM);
+			goto done;
+		}
+
+		object_consumer->data = kmemdup(object_found->data,
+					  object_found->length - 8, GFP_KERNEL);
+		if (!object_consumer->data) {
+			pr_err("out of memory\n");
+			kfree(object_consumer);
+			object_consumer = ERR_PTR(-ENOMEM);
+			goto done;
+		}
+
+		/*
+		 * Use prev pointer in consumer struct to point to original
+		 * struct in the internal linked list.
+		 */
+		object_consumer->list.prev = &object_found->list;
+	}
+
+done:
+	bif_slave_ctrl_unlock(slave);
+
+	return object_consumer;
+
+}
+EXPORT_SYMBOL(bif_object_match_get);
+
+/**
+ * bif_object_put() - frees the memory allocated for a BIF object pointer
+ *			returned by bif_object_match_get()
+ * @object:		BIF object to free
+ */
+void bif_object_put(struct bif_object *object)
+{
+	if (object)
+		kfree(object->data);
+	kfree(object);
+}
+EXPORT_SYMBOL(bif_object_put);
+
+/* Copies the contents of object into buf following MIPI-BIF formatting. */
+static void bif_object_flatten(u8 *buf, const struct bif_object *object)
+{
+	buf[0]			= object->type;
+	buf[1]			= object->version;
+	buf[2]			= object->manufacturer_id >> 8;
+	buf[3]			= object->manufacturer_id;
+	buf[4]			= object->length >> 8;
+	buf[5]			= object->length;
+	memcpy(&buf[6], object->data, object->length - 8);
+	buf[object->length - 2]	= object->crc >> 8;
+	buf[object->length - 1]	= object->crc;
+}
+
+/**
+ * bif_object_write() - writes a new BIF object at the end of the object list in
+ *			the non-volatile memory of a slave
+ * @slave:		BIF slave handle
+ * @type:		Type of the object
+ * @version:		Version of the object
+ * @manufacturer_id:	Manufacturer ID number allocated by MIPI
+ * @data:		Data contained in the object
+ * @data_len:		Length of the data
+ *
+ * Returns 0 on success or errno on failure.  This function will fail if the NVM
+ * lock points to an offset after the BIF object list terminator (0x00).
+ */
+int bif_object_write(struct bif_slave *slave, u8 type, u8 version,
+			u16 manufacturer_id, const u8 *data, int data_len)
+{
+	struct bif_object *object;
+	struct bif_object *tail_object;
+	struct bif_nvm_function	*nvm;
+	int rc;
+	int add_null = 0;
+	u16 offset = 0;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(data)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	if (nvm->object_count > 0) {
+		tail_object = list_entry(nvm->object_list.prev,
+					struct bif_object, list);
+		offset = tail_object->addr - nvm->nvm_base_address
+				+ tail_object->length;
+	}
+
+	if (offset < nvm->nvm_lock_offset) {
+		pr_err("Cannot write BIF object to NVM because the end of the object list is locked (end=%d < lock=%d)\n",
+			offset, nvm->nvm_lock_offset);
+		rc = -EPERM;
+		goto error_unlock;
+	} else if (offset + data_len + 8 > nvm->nvm_size) {
+		pr_err("Cannot write BIF object to NVM because there is not enough remaining space (size=%d > remaining=%d)\n",
+			data_len + 8, nvm->nvm_size - offset);
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (offset + data_len + 8 < nvm->nvm_size)
+		add_null = 1;
+	object = kzalloc(sizeof(*object), GFP_KERNEL);
+	if (!object) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	object->data = kzalloc(data_len, GFP_KERNEL);
+	if (!object->data) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto free_object;
+	}
+
+	buf = kzalloc(data_len + 8 + add_null, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto free_data;
+	}
+
+	object->type		= type;
+	object->version		= version;
+	object->manufacturer_id	= manufacturer_id;
+	object->length		= data_len + 8;
+	memcpy(object->data, data, data_len);
+	object->crc		= bif_object_crc_ccitt(object);
+	object->addr		= offset + nvm->nvm_base_address;
+
+	bif_object_flatten(buf, object);
+	if (add_null)
+		buf[object->length] = BIF_OBJ_END_OF_LIST;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev, offset, buf,
+					object->length + add_null);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto free_data;
+	}
+	kfree(buf);
+
+	list_add_tail(&object->list, &nvm->object_list);
+	nvm->object_count++;
+
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+
+free_data:
+	kfree(object->data);
+free_object:
+	kfree(object);
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+
+}
+EXPORT_SYMBOL(bif_object_write);
+
+/*
+ * Returns a pointer to the internal object referenced by a consumer object
+ * if it exists.  Returns NULL if the internal object cannot be found.
+ */
+static struct bif_object *bif_object_consumer_search(
+	struct bif_nvm_function *nvm, const struct bif_object *consumer_object)
+{
+	struct bif_object *object = NULL;
+	struct bif_object *search_object;
+
+	/*
+	 * Internal struct in object linked list is pointed to by consumer
+	 * object list.prev.
+	 */
+	search_object = list_entry(consumer_object->list.prev,
+					struct bif_object, list);
+
+	list_for_each_entry(object, &nvm->object_list, list) {
+		if (object == search_object)
+			break;
+	}
+
+	if (object != search_object)
+		return NULL;
+
+	return object;
+}
+
+/**
+ * bif_object_overwrite() - overwrites an existing BIF object found in the
+ *			non-volatile memory of a slave
+ * @slave:		BIF slave handle
+ * @object:		Existing object in the slave to overwrite
+ * @type:		Type of the object
+ * @version:		Version of the object
+ * @manufacturer_id:	Manufacturer ID number allocated by MIPI
+ * @data:		Data contained in the object
+ * @data_len:		Length of the data
+ *
+ * Returns 0 on success or errno on failure.  The data stored within 'object'
+ * is updated to the new values upon success.  The new data written to the
+ * object must have exactly the same length as the old data (i.e.
+ * data_len == object->length - 8).
+ *
+ * This function will fail if the NVM lock points to an offset after the
+ * beginning of the existing BIF object.
+ */
+int bif_object_overwrite(struct bif_slave *slave,
+	struct bif_object *object, u8 type, u8 version,
+	u16 manufacturer_id, const u8 *data, int data_len)
+{
+	struct bif_object *edit_object = NULL;
+	struct bif_nvm_function *nvm;
+	int rc;
+	u16 crc;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(object)
+	    || IS_ERR_OR_NULL(data)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	if (data_len + 8 != object->length) {
+		pr_err("New data length=%d is different from existing length=%d\n",
+			data_len, object->length - 8);
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+
+	edit_object = bif_object_consumer_search(nvm, object);
+	if (!edit_object) {
+		pr_err("BIF object not found within slave\n");
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (edit_object->addr - nvm->nvm_base_address < nvm->nvm_lock_offset) {
+		pr_err("Cannot overwrite BIF object in NVM because some portion of it is locked\n");
+		rc = -EPERM;
+		goto error_unlock;
+	}
+
+	buf = kzalloc(data_len + 8, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	buf[0]			= type;
+	buf[1]			= version;
+	buf[2]			= manufacturer_id >> 8;
+	buf[3]			= manufacturer_id;
+	buf[4]			= (data_len + 8) >> 8;
+	buf[5]			= data_len + 8;
+	memcpy(&buf[6], data, data_len);
+	crc			= bif_crc_ccitt(buf, data_len + 6);
+	buf[data_len + 6]	= crc >> 8;
+	buf[data_len + 7]	= crc;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev,
+		object->addr - nvm->nvm_base_address, buf, data_len + 8);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto error_unlock;
+	}
+	kfree(buf);
+
+	/* Update internal object struct. */
+	edit_object->type		= type;
+	edit_object->version		= version;
+	edit_object->manufacturer_id	= manufacturer_id;
+	edit_object->length		= data_len + 8;
+	memcpy(edit_object->data, data, data_len);
+	edit_object->crc		= crc;
+
+	/* Update consumer object struct. */
+	object->type			= type;
+	object->version			= version;
+	object->manufacturer_id		= manufacturer_id;
+	object->length			= data_len + 8;
+	memcpy(object->data, data, data_len);
+	object->crc			= crc;
+
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_object_overwrite);
+
+/**
+ * bif_object_delete() - deletes an existing BIF object found in the
+ *			non-volatile memory of a slave.  Objects found in the
+ *			object list in the NVM of the slave are shifted forward
+ *			in order to fill the hole left by the deleted object
+ * @slave:		BIF slave handle
+ * @object:		Existing object in the slave to delete
+ *
+ * Returns 0 on success or errno on failure.  bif_object_put() must still be
+ * called after this function in order to free the memory in the consumer
+ * 'object' struct pointer.
+ *
+ * This function will fail if the NVM lock points to an offset after the
+ * beginning of the existing BIF object.
+ */
+int bif_object_delete(struct bif_slave *slave, const struct bif_object *object)
+{
+	struct bif_object *del_object = NULL;
+	struct bif_object *tail_object;
+	struct bif_nvm_function *nvm;
+	bool found = false;
+	int pos = 0;
+	int rc;
+	u8 *buf;
+
+	if (IS_ERR_OR_NULL(slave) || IS_ERR_OR_NULL(object)) {
+		pr_err("Invalid input pointer\n");
+		return -EINVAL;
+	}
+
+	nvm = slave->sdev->nvm_function;
+	if (!nvm) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	}
+
+	bif_slave_ctrl_lock(slave);
+
+	del_object = bif_object_consumer_search(nvm, object);
+	if (!del_object) {
+		pr_err("BIF object not found within slave\n");
+		rc = -EINVAL;
+		goto error_unlock;
+	}
+
+	if (del_object->addr - nvm->nvm_base_address < nvm->nvm_lock_offset) {
+		pr_err("Cannot delete BIF object in NVM because some portion of it is locked\n");
+		rc = -EPERM;
+		goto error_unlock;
+	}
+
+	buf = kmalloc(nvm->nvm_size, GFP_KERNEL);
+	if (!buf) {
+		pr_err("kzalloc failed\n");
+		rc = -ENOMEM;
+		goto error_unlock;
+	}
+
+	/*
+	 * Copy the contents of objects after the one to be deleted into a flat
+	 * array.
+	 */
+	list_for_each_entry(tail_object, &nvm->object_list, list) {
+		if (found) {
+			bif_object_flatten(&buf[pos], tail_object);
+			pos += tail_object->length;
+		} else if (tail_object == del_object) {
+			found = true;
+		}
+	}
+
+	/* Add the list terminator. */
+	buf[pos++] = BIF_OBJ_END_OF_LIST;
+
+	rc = _bif_slave_nvm_raw_write(slave->sdev,
+		del_object->addr - nvm->nvm_base_address, buf, pos);
+	if (rc < 0) {
+		pr_err("NVM write failed, rc=%d\n", rc);
+		kfree(buf);
+		goto error_unlock;
+	}
+	kfree(buf);
+
+	/* Update the addresses of the objects after the one to be deleted. */
+	found = false;
+	list_for_each_entry(tail_object, &nvm->object_list, list) {
+		if (found)
+			tail_object->addr -= del_object->length;
+		else if (tail_object == del_object)
+			found = true;
+	}
+
+	list_del(&del_object->list);
+	kfree(del_object->data);
+	kfree(del_object);
+	nvm->object_count--;
+
+error_unlock:
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_object_delete);
+
 /**
  * bif_slave_read() - read contiguous memory values from a BIF slave
  * @slave:	BIF slave handle
@@ -1490,6 +2334,74 @@ int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len)
 	return rc;
 }
 EXPORT_SYMBOL(bif_slave_write);
+
+/**
+ * bif_slave_nvm_raw_read() - read contiguous memory values from a BIF slave's
+ *		non-volatile memory (NVM)
+ * @slave:	BIF slave handle
+ * @offset:	Offset from the beginning of BIF slave NVM to begin reading at
+ * @buf:	Buffer to fill with memory values
+ * @len:	Number of byte to read
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_slave_nvm_raw_read(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len)
+{
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	} else if (IS_ERR_OR_NULL(buf)) {
+		pr_err("Invalid buffer pointer=%ld\n", PTR_ERR(buf));
+		return -EINVAL;
+	} else if (!slave->sdev->nvm_function) {
+		pr_err("BIF slave has no NVM function\n");
+		return -ENODEV;
+	} else if (offset + len > slave->sdev->nvm_function->nvm_size) {
+		pr_err("read offset + len = %d > NVM size = %d\n",
+			offset + len, slave->sdev->nvm_function->nvm_size);
+		return -EINVAL;
+	}
+
+	return bif_slave_read(slave,
+		slave->sdev->nvm_function->nvm_base_address + offset, buf, len);
+}
+EXPORT_SYMBOL(bif_slave_nvm_raw_read);
+
+/**
+ * bif_slave_nvm_raw_write() - write contiguous memory values to a BIF slave's
+ *		non-volatile memory (NVM)
+ * @slave:	BIF slave handle
+ * @offset:	Offset from the beginning of BIF slave NVM to begin writing at
+ * @buf:	Buffer containing values to write
+ * @len:	Number of byte to write
+ *
+ * Note that this function does *not* respect the MIPI-BIF object data
+ * formatting specification.  It can cause corruption of the object data list
+ * stored in NVM if used improperly.
+ *
+ * Returns 0 for success or errno if an error occurred.
+ */
+int bif_slave_nvm_raw_write(struct bif_slave *slave, u16 offset, u8 *buf,
+				int len)
+{
+	int rc;
+
+	if (IS_ERR_OR_NULL(slave)) {
+		pr_err("Invalid slave pointer=%ld\n", PTR_ERR(slave));
+		return -EINVAL;
+	} else if (IS_ERR_OR_NULL(buf)) {
+		pr_err("Invalid buffer pointer=%ld\n", PTR_ERR(buf));
+		return -EINVAL;
+	}
+
+	bif_slave_ctrl_lock(slave);
+	rc = _bif_slave_nvm_raw_write(slave->sdev, offset, buf, len);
+	bif_slave_ctrl_unlock(slave);
+
+	return rc;
+}
+EXPORT_SYMBOL(bif_slave_nvm_raw_write);
 
 /**
  * bif_slave_is_present() - check if a slave is currently physically present
@@ -2032,45 +2944,6 @@ static int bif_initialize_slave_control_function(struct bif_slave_dev *sdev,
 	return rc;
 }
 
-/**
- * bif_crc_ccitt() - calculate the CRC-CCITT CRC value of the data specified
- * @buffer:	Data to calculate the CRC of
- * @len:	Length of the data buffer in bytes
- *
- * MIPI-BIF specifies the usage of CRC-CCITT for BIF data objects.  This
- * function performs the CRC calculation while taking into account the bit
- * ordering used by BIF.
- */
-u16 bif_crc_ccitt(const u8 *buffer, unsigned int len)
-{
-	u16 crc = 0xFFFF;
-
-	while (len--) {
-		crc = crc_ccitt_byte(crc, bitrev8(*buffer));
-		buffer++;
-	}
-	return bitrev16(crc);
-}
-EXPORT_SYMBOL(bif_crc_ccitt);
-
-static u16 bif_object_crc_ccitt(const struct bif_object *object)
-{
-	u16 crc = 0xFFFF;
-	int i;
-
-	crc = crc_ccitt_byte(crc, bitrev8(object->type));
-	crc = crc_ccitt_byte(crc, bitrev8(object->version));
-	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id >> 8));
-	crc = crc_ccitt_byte(crc, bitrev8(object->manufacturer_id));
-	crc = crc_ccitt_byte(crc, bitrev8(object->length >> 8));
-	crc = crc_ccitt_byte(crc, bitrev8(object->length));
-
-	for (i = 0; i < object->length - 8; i++)
-		crc = crc_ccitt_byte(crc, bitrev8(object->data[i]));
-
-	return bitrev16(crc);
-}
-
 /*
  * Check if the specified function is an NVM function and if it is, then
  * instantiate NVM function data for the slave and read all objects.
@@ -2079,7 +2952,7 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		struct bif_ddb_l2_data *func)
 {
 	int rc = 0;
-	int data_len;
+	int data_len, read_size;
 	u8 buf[8], object_type;
 	struct bif_object *object;
 	struct bif_object *temp;
@@ -2109,11 +2982,20 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		return rc;
 	}
 
-	sdev->nvm_function->nvm_pointer		= buf[0] << 8 | buf[1];
+	sdev->nvm_function->nvm_pointer			= buf[0] << 8 | buf[1];
 	sdev->nvm_function->slave_control_channel	= buf[2];
 	sdev->nvm_function->write_buffer_size		= buf[3];
 	sdev->nvm_function->nvm_base_address		= buf[4] << 8 | buf[5];
 	sdev->nvm_function->nvm_size			= buf[6] << 8 | buf[7];
+
+	/* Read NVM lock offset */
+	rc = _bif_slave_read(sdev, sdev->nvm_function->nvm_pointer, buf, 2);
+	if (rc) {
+		pr_err("Slave memory read failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	sdev->nvm_function->nvm_lock_offset		= buf[0] << 8 | buf[1];
 
 	INIT_LIST_HEAD(&sdev->nvm_function->object_list);
 
@@ -2125,8 +3007,7 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 		return rc;
 	}
 
-	/* Object type == 0x00 corresponds to the end of the object list. */
-	while (object_type != 0x00) {
+	while (object_type != BIF_OBJ_END_OF_LIST) {
 		object = kzalloc(sizeof(*object), GFP_KERNEL);
 		if (!object) {
 			pr_err("out of memory\n");
@@ -2178,15 +3059,20 @@ static int bif_initialize_nvm_function(struct bif_slave_dev *sdev,
 			goto free_data;
 		}
 
-		rc = _bif_slave_read(sdev, addr + 6 + data_len, buf, 3);
+		if ((object->length + addr) >= (sdev->nvm_function->nvm_size
+				+ sdev->nvm_function->nvm_base_address))
+			read_size = 2;
+		else
+			read_size = 3;
+		rc = _bif_slave_read(sdev, addr + 6 + data_len, buf, read_size);
 		if (rc) {
 			pr_err("Slave memory read of object CRC failed; addr=0x%04X, len=%d, rc=%d\n",
-				addr + 6 + data_len, 3, rc);
+				addr + 6 + data_len, read_size, rc);
 			goto free_data;
 		}
 
 		object->crc = buf[0] << 8 | buf[1];
-		object_type = buf[2];
+		object_type = (read_size == 3) ? buf[2] : BIF_OBJ_END_OF_LIST;
 		sdev->nvm_function->object_count++;
 
 		crc = bif_object_crc_ccitt(object);
@@ -2336,6 +3222,12 @@ static int bif_add_secondary_slaves(struct bif_slave_dev *primary_slave)
 			} else if (rc == 1) {
 				sdev->present = true;
 				sdev->bdev->selected_sdev = sdev;
+				rc = bif_parse_slave_data(sdev);
+				if (rc) {
+					pr_err("Failed to parse secondary slave data, rc=%d\n",
+						rc);
+					goto free_slave;
+				}
 			} else {
 				sdev->present = false;
 				sdev->bdev->selected_sdev = NULL;
@@ -2459,6 +3351,11 @@ static int bif_perform_uid_search(struct bif_ctrl_dev *bdev)
 			sdev->present = true;
 			sdev->bdev->selected_sdev = sdev;
 			rc = bif_parse_slave_data(sdev);
+			if (rc) {
+				pr_err("Failed to parse secondary slave data, rc=%d\n",
+					rc);
+				return rc;
+			}
 		} else {
 			pr_err("Slave failed to respond to DILC bus command; its UID is thus unverified.\n");
 			sdev->unique_id_bits_known = 0;
