@@ -567,6 +567,9 @@ extern const unsigned int a330_registers_count;
 extern const unsigned int a4xx_registers[];
 extern const unsigned int a4xx_registers_count;
 
+extern const unsigned int a4xx_sp_tp_registers[];
+extern const unsigned int a4xx_sp_tp_registers_count;
+
 extern unsigned int ft_detect_regs[];
 
 int adreno_idle(struct kgsl_device *device);

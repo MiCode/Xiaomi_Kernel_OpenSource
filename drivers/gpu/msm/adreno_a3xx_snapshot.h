@@ -42,10 +42,12 @@ int a3xx_snapshot_vpc_memory(struct kgsl_device *device, void *snapshot,
 static inline void _snapshot_a3xx_regs(struct kgsl_snapshot_registers *regs,
 	struct kgsl_snapshot_registers_list *list,
 	const unsigned int *registers,
-	const unsigned int count)
+	const unsigned int count, int dump)
 {
 	regs[list->count].regs = (unsigned int *)registers;
 	regs[list->count].count = count;
+	regs[list->count].dump = dump;
+	regs[list->count].snap_addr = NULL;
 	list->count++;
 }
 #endif /*__A3XX_SNAPSHOT_H */
