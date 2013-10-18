@@ -4655,6 +4655,13 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_RAM_RADDR, A3XX_CP_ME_RAM_RADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_ADDR, A3XX_CP_SCRATCH_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_UMSK, A3XX_CP_SCRATCH_UMSK),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_ADDR, A4XX_CP_ROQ_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_DATA, A3XX_CP_ROQ_DATA),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_ADDR, A3XX_CP_MERCIU_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_DATA, A3XX_CP_MERCIU_DATA),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_DATA2, A3XX_CP_MERCIU_DATA2),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A3XX_CP_MEQ_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_DATA, A3XX_CP_MEQ_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A3XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A3XX_RBBM_PERFCTR_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
@@ -4670,6 +4677,7 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_AHB_CMD, A3XX_RBBM_AHB_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_CLEAR_CMD,
 				A3XX_RBBM_INT_CLEAR_CMD),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A3XX_RBBM_CLOCK_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_VPC_DEBUG_RAM_SEL,
 				A3XX_VPC_VPC_DEBUG_RAM_SEL),
 	ADRENO_REG_DEFINE(ADRENO_REG_VPC_DEBUG_RAM_READ,
@@ -4709,10 +4717,28 @@ const struct adreno_reg_offsets a3xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
+/*
+ * Defined the size of sections dumped in snapshot, these values
+ * may change after initialization based on the specific core
+ */
+static struct adreno_snapshot_sizes a3xx_snap_sizes = {
+	.cp_state_deb = 0x14,
+	.vpc_mem = 512,
+	.cp_meq = 16,
+	.shader_mem = 0x4000,
+	.cp_merciu = 0,
+	.roq = 128,
+};
+
+static struct adreno_snapshot_data a3xx_snapshot_data = {
+	.sect_sizes = &a3xx_snap_sizes,
+};
+
 struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = &a3xx_reg_offsets,
 	.perfcounters = &a3xx_perfcounters,
 	.irq = &a3xx_irq,
+	.snapshot_data = &a3xx_snapshot_data,
 
 	.ctxt_create = a3xx_drawctxt_create,
 	.rb_init = a3xx_rb_init,

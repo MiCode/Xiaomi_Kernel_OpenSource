@@ -33,4 +33,12 @@ void a4xx_perfcounter_disable_vbif_pwr(struct kgsl_device *device,
 uint64_t a4xx_perfcounter_read_vbif_pwr(struct kgsl_device *dev,
 			unsigned int counter);
 
+void *a4xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
+			int *remain, int hang);
+
+void a4xx_init_debbus(struct kgsl_device *device);
+
+void a4xx_rbbm_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index, unsigned int *val);
+
 #endif

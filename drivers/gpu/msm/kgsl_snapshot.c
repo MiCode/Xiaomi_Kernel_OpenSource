@@ -229,7 +229,7 @@ static int snapshot_os(struct kgsl_device *device,
  * @priv - A pointer to the kgsl_snapshot_indexed_registers data
  *
  * Given a indexed register cmd/data pair and a count, dump each indexed
- * register
+ * register. Used for both a3xx and a4xx snapshot
  */
 
 static int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
@@ -591,7 +591,8 @@ EXPORT_SYMBOL(kgsl_snapshot_dump_regs);
 
 void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 		void *snapshot, int *remain,
-		unsigned int index, unsigned int data, unsigned int start,
+		unsigned int index, unsigned int data,
+		unsigned int start,
 		unsigned int count)
 {
 	struct kgsl_snapshot_indexed_registers iregs;

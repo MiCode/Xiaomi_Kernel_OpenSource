@@ -35,6 +35,7 @@
 #include "adreno_trace.h"
 
 #include "a3xx_reg.h"
+#include "adreno_a3xx_snapshot.h"
 
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
@@ -1598,6 +1599,16 @@ static int adreno_init(struct kgsl_device *device)
 		adreno_a3xx_pwron_fixup_init(adreno_dev);
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
+
+	/* Adjust snapshot section sizes according to core */
+	if ((adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))) {
+		adreno_dev->gpudev->snapshot_data->sect_sizes->cp_state_deb =
+					A320_SNAPSHOT_CP_STATE_SECTION_SIZE;
+		adreno_dev->gpudev->snapshot_data->sect_sizes->roq =
+					A320_SNAPSHOT_ROQ_SECTION_SIZE;
+		adreno_dev->gpudev->snapshot_data->sect_sizes->cp_merciu =
+					A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE;
+	}
 done:
 	return ret;
 }

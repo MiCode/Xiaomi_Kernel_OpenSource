@@ -301,6 +301,13 @@ enum adreno_regs {
 	ADRENO_REG_CP_IB2_BUFSZ,
 	ADRENO_REG_CP_TIMESTAMP,
 	ADRENO_REG_CP_ME_RAM_RADDR,
+	ADRENO_REG_CP_ROQ_ADDR,
+	ADRENO_REG_CP_ROQ_DATA,
+	ADRENO_REG_CP_MERCIU_ADDR,
+	ADRENO_REG_CP_MERCIU_DATA,
+	ADRENO_REG_CP_MERCIU_DATA2,
+	ADRENO_REG_CP_MEQ_ADDR,
+	ADRENO_REG_CP_MEQ_DATA,
 	ADRENO_REG_SCRATCH_ADDR,
 	ADRENO_REG_SCRATCH_UMSK,
 	ADRENO_REG_SCRATCH_REG2,
@@ -317,6 +324,7 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_AHB_CMD,
 	ADRENO_REG_RBBM_INT_CLEAR_CMD,
 	ADRENO_REG_RBBM_SW_RESET_CMD,
+	ADRENO_REG_RBBM_CLOCK_CTL,
 	ADRENO_REG_VPC_DEBUG_RAM_SEL,
 	ADRENO_REG_VPC_DEBUG_RAM_READ,
 	ADRENO_REG_VSC_PIPE_DATA_ADDRESS_0,
@@ -430,6 +438,43 @@ struct adreno_irq {
 	int funcs_count;
 };
 
+/*
+ * struct adreno_debugbus_block - Holds info about debug buses of a chip
+ * @block_id: Bus identifier
+ * @dwords: Number of dwords of data that this block holds
+ */
+struct adreno_debugbus_block {
+	unsigned int block_id;
+	unsigned int dwords;
+};
+
+/*
+ * struct adreno_snapshot_section_sizes - Structure holding the size of
+ * different sections dumped during device snapshot
+ * @cp_state_deb_size: Debug data section size
+ * @vpc_mem_size: VPC memory section size
+ * @cp_meq_size: CP MEQ size
+ * @shader_mem_size: Size of shader memory of 1 shader section
+ * @cp_merciu_size: CP MERCIU size
+ * @roq_size: ROQ size
+ */
+struct adreno_snapshot_sizes {
+	int cp_state_deb;
+	int vpc_mem;
+	int cp_meq;
+	int shader_mem;
+	int cp_merciu;
+	int roq;
+};
+
+/*
+ * struct adreno_snapshot_data - Holds data used in snapshot
+ * @sect_sizes: Has sections sizes
+ */
+struct adreno_snapshot_data {
+	struct adreno_snapshot_sizes *sect_sizes;
+};
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on different devices,
@@ -442,6 +487,7 @@ struct adreno_gpudev {
 	struct adreno_perfcounters *perfcounters;
 	const struct adreno_invalid_countables
 			*invalid_countables;
+	struct adreno_snapshot_data *snapshot_data;
 
 	struct adreno_coresight *coresight;
 

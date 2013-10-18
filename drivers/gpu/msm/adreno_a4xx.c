@@ -14,6 +14,7 @@
 #include "adreno.h"
 #include "a4xx_reg.h"
 #include "adreno_a3xx.h"
+#include "adreno_a4xx.h"
 #include "adreno_cp_parser.h"
 
 /*
@@ -458,6 +459,13 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BUFSZ, A4XX_CP_IB2_BUFSZ),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_TIMESTAMP, A4XX_CP_SCRATCH_REG0),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_RAM_RADDR, A4XX_CP_ME_RAM_RADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_ADDR, A4XX_CP_ROQ_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_DATA, A4XX_CP_ROQ_DATA),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_ADDR, A4XX_CP_MERCIU_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_DATA, A4XX_CP_MERCIU_DATA),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MERCIU_DATA2, A4XX_CP_MERCIU_DATA2),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A4XX_CP_MEQ_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_DATA, A4XX_CP_MEQ_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_ADDR, A4XX_CP_SCRATCH_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_UMSK, A4XX_CP_SCRATCH_UMASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A4XX_RBBM_STATUS),
@@ -475,6 +483,7 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_AHB_ERROR_STATUS,
 					A4XX_RBBM_AHB_ERROR_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_AHB_CMD, A4XX_RBBM_AHB_CMD),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A4XX_RBBM_CLOCK_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_VPC_DEBUG_RAM_SEL,
 					A4XX_VPC_DEBUG_RAM_SEL),
 	ADRENO_REG_DEFINE(ADRENO_REG_VPC_DEBUG_RAM_READ,
@@ -1029,10 +1038,24 @@ static struct adreno_irq a4xx_irq = {
 	.mask = A4XX_INT_MASK,
 };
 
+static struct adreno_snapshot_sizes a4xx_snap_sizes = {
+	.cp_state_deb = 0x14,
+	.vpc_mem = 2048,
+	.cp_meq = 64,
+	.shader_mem = 0x4000,
+	.cp_merciu = 64,
+	.roq = 512,
+};
+
+static struct adreno_snapshot_data a4xx_snapshot_data = {
+	.sect_sizes = &a4xx_snap_sizes,
+};
+
 struct adreno_gpudev adreno_a4xx_gpudev = {
 	.reg_offsets = &a4xx_reg_offsets,
 	.perfcounters = &a4xx_perfcounters,
 	.irq = &a4xx_irq,
+	.snapshot_data = &a4xx_snapshot_data,
 
 	.perfcounter_init = a3xx_perfcounter_init,
 	.perfcounter_close = a3xx_perfcounter_close,
@@ -1047,4 +1070,5 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounter_read = a3xx_perfcounter_read,
 	.invalid_countables = a4xx_perfctr_invalid_countables,
 	.soft_reset = a3xx_soft_reset,
+	.snapshot = a4xx_snapshot,
 };
