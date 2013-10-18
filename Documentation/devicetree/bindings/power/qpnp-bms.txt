@@ -56,10 +56,14 @@ Parent node required properties:
 - qcom,low-voltage-threshold : The battery voltage threshold in micro-volts for
 			when the BMS tries to wake up and hold a wakelock to
 			ensure a clean shutdown.
+- qcom,low-voltage-calculate-soc-ms : The time period between subsequent
+			SoC recalculations when the current voltage is below
+			qcom,low-voltage threshold. This takes precedence over
+			qcom,low-soc-calculate-soc-ms.
 - qcom,low-soc-calculate-soc-ms : The time period between subsequent
 			SoC recalculations when the current SoC is below
-			qcom,low-soc-calculate-soc-threshold or when battery
-			voltage is below qcom,low-voltage-threshold.
+			qcom,low-soc-calculate-soc-threshold. This takes
+			precedence over qcom,calculate-soc-ms.
 - qcom,calculate-soc-ms : The time period between subsequent SoC
 			recalculations when the current SoC is above or equal
 			qcom,low-soc-calculate-soc-threshold.
@@ -160,6 +164,7 @@ pm8941_bms: qcom,bms {
 	qcom,adjust-soc-low-threshold = <15>;
 	qcom,low-soc-calculate-soc-threshold = <15>;
 	qcom,low-voltage-threshold = <3420000>;
+	qcom,low-voltage-calculate-soc-ms = <1000>;
 	qcom,low-soc-calculate-soc-ms = <5000>;
 	qcom,calculate-soc-ms = <20000>;
 	qcom,chg-term-ua = <100000>;

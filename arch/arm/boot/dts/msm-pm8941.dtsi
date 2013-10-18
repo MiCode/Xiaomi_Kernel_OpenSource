@@ -127,6 +127,7 @@
 		qcom,ocv-voltage-high-threshold-uv = <3750000>;
 		qcom,ocv-voltage-low-threshold-uv = <3650000>;
 		qcom,low-soc-calculate-soc-threshold = <15>;
+		qcom,low-voltage-calculate-soc-ms = <1000>;
 		qcom,low-soc-calculate-soc-ms = <5000>;
 		qcom,calculate-soc-ms = <20000>;
 		qcom,chg-term-ua = <100000>;
