@@ -20,7 +20,6 @@
 #include "msm_csiphy.h"
 #include "msm_sd.h"
 #include "msm_csiphy_hwreg.h"
-#include "msm_camera_io_util.h"
 #define DBG_CSIPHY 0
 
 #define V4L2_IDENT_CSIPHY                        50003
@@ -169,23 +168,6 @@ static int msm_csiphy_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static struct msm_cam_clk_info csiphy_8960_clk_info[] = {
-	{"csiphy_timer_src_clk", 177780000},
-	{"csiphy_timer_clk", -1},
-};
-
-static struct msm_cam_clk_info csiphy_8610_clk_info[] = {
-	{"csiphy_timer_src_clk", 200000000},
-	{"csiphy_timer_clk", -1},
-};
-
-static struct msm_cam_clk_info csiphy_8974_clk_info[] = {
-	{"camss_top_ahb_clk", -1},
-	{"ispif_ahb_clk", -1},
-	{"csiphy_timer_src_clk", 200000000},
-	{"csiphy_timer_clk", -1},
-};
-
 #if DBG_CSIPHY
 static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 {
@@ -222,17 +204,11 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
-	if (CSIPHY_VERSION == CSIPHY_VERSION_V20) {
-		CDBG("%s:%d called\n", __func__, __LINE__);
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8960_clk_info), 1);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
-		CDBG("%s:%d called\n", __func__, __LINE__);
-		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8610_clk_info), 1);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V30) {
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 1);
+	} else if (CSIPHY_VERSION >= CSIPHY_VERSION_V30) {
 		if (!csiphy_dev->clk_mux_mem || !csiphy_dev->clk_mux_io) {
 			pr_err("%s clk mux mem %p io %p\n", __func__,
 				csiphy_dev->clk_mux_mem,
@@ -251,8 +227,8 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8974_clk_info), 1);
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 1);
 	} else {
 		pr_err("%s: ERROR Invalid CSIPHY Version %d",
 			 __func__, __LINE__);
@@ -322,20 +298,12 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		rc = -ENOMEM;
 		return rc;
 	}
-	CDBG("%s:%d called\n", __func__, __LINE__);
-
-
-	if (CSIPHY_VERSION == CSIPHY_VERSION_V20) {
+	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8960_clk_info), 1);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
-		CDBG("%s:%d called\n", __func__, __LINE__);
-		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8610_clk_info), 1);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V30) {
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 1);
+	} else if (CSIPHY_VERSION >= CSIPHY_VERSION_V30) {
 		if (!csiphy_dev->clk_mux_mem || !csiphy_dev->clk_mux_io) {
 			pr_err("%s clk mux mem %p io %p\n", __func__,
 				csiphy_dev->clk_mux_mem,
@@ -343,7 +311,6 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 			rc = -ENOMEM;
 			return rc;
 		}
-
 		csiphy_dev->clk_mux_base = ioremap(
 			csiphy_dev->clk_mux_mem->start,
 			resource_size(csiphy_dev->clk_mux_mem));
@@ -352,11 +319,10 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 			rc = -ENOMEM;
 			return rc;
 		}
-
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8974_clk_info), 1);
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 1);
 	} else {
 		pr_err("%s: ERROR Invalid CSIPHY Version %d",
 			 __func__, __LINE__);
@@ -456,21 +422,16 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 	disable_irq(csiphy_dev->irq->start);
 
-	if (CSIPHY_VERSION == CSIPHY_VERSION_V20) {
+	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8960_clk_info), 0);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 0);
+	} else if (CSIPHY_VERSION >= CSIPHY_VERSION_V30) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8610_clk_info), 0);
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V30) {
-		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8974_clk_info), 0);
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 0);
 			iounmap(csiphy_dev->clk_mux_base);
 	}
-
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
@@ -538,20 +499,14 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 
-	if (CSIPHY_VERSION == CSIPHY_VERSION_V20) {
+	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8960_clk_info), 0);
-
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 0);
+	} else if (CSIPHY_VERSION >= CSIPHY_VERSION_V30) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8610_clk_info), 0);
-
-	} else if (CSIPHY_VERSION == CSIPHY_VERSION_V30) {
-		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
-			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
-			ARRAY_SIZE(csiphy_8974_clk_info), 0);
+			csiphy_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_clk_info), 0);
 			iounmap(csiphy_dev->clk_mux_base);
 	}
 

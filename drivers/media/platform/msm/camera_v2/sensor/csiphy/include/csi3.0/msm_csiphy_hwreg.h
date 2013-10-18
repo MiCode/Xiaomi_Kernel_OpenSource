@@ -13,6 +13,8 @@
 #ifndef MSM_CSIPHY_HWREG_H
 #define MSM_CSIPHY_HWREG_H
 
+#include "msm_camera_io_util.h"
+
 /*MIPI CSI PHY registers*/
 #define MIPI_CSIPHY_LNn_CFG1_ADDR                0x0
 #define MIPI_CSIPHY_LNn_CFG2_ADDR                0x4
@@ -39,5 +41,13 @@
 #define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1EC
 #define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1F4
 #define CSIPHY_VERSION                           0x10
+
+
+static struct msm_cam_clk_info csiphy_clk_info[] = {
+	{"camss_top_ahb_clk", -1},
+	{"ispif_ahb_clk", -1},
+	{"csiphy_timer_src_clk", 200000000},
+	{"csiphy_timer_clk", -1},
+};
 
 #endif

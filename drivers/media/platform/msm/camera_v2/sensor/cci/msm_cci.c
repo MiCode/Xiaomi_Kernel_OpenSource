@@ -38,7 +38,7 @@
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #else
-#define CDBG(fmt, args...) do { } while (0)
+#define CDBG(fmt, args...) do {} while (0)
 #endif
 
 /* Max bytes that can be read per CCI read transaction */
@@ -46,8 +46,11 @@
 #define CCI_I2C_READ_MAX_RETRIES 3
 #define CCI_I2C_MAX_READ 8192
 #define CCI_I2C_MAX_WRITE 8192
+#define CCI_NUM_CLK_MAX		16
 
 static struct v4l2_subdev *g_cci_subdev;
+
+static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_MAX];
 
 static void msm_cci_set_clk_param(struct cci_device *cci_dev)
 {
@@ -637,12 +640,6 @@ static int msm_cci_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static struct msm_cam_clk_info cci_clk_info[] = {
-	{"camss_top_ahb_clk", -1},
-	{"cci_src_clk", 19200000},
-	{"cci_ahb_clk", -1},
-	{"cci_clk", -1},
-};
 
 static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
@@ -652,13 +649,13 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	enum cci_i2c_master_t master;
 	cci_dev = v4l2_get_subdevdata(sd);
 
+
 	if (!cci_dev || !c_ctrl) {
 		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
 			__LINE__, cci_dev, c_ctrl);
 		rc = -ENOMEM;
 		return rc;
 	}
-
 	if (cci_dev->ref_count++) {
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
@@ -686,7 +683,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		}
 		return 0;
 	}
-
 	rc = msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 1);
 	if (rc < 0) {
@@ -696,7 +692,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	}
 
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
-		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 1);
+		cci_dev->cci_clk, cci_dev->num_clk, 1);
 	if (rc < 0) {
 		cci_dev->ref_count--;
 		CDBG("%s: clk enable failed\n", __func__);
@@ -706,6 +702,8 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	enable_irq(cci_dev->irq->start);
 	cci_dev->hw_version = msm_camera_io_r(cci_dev->base +
 		CCI_HW_VERSION_ADDR);
+	pr_info("%s:%d: hw_version = 0x%x\n", __func__, __LINE__,
+		cci_dev->hw_version);
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 	msm_camera_io_w(CCI_RESET_CMD_RMSK, cci_dev->base + CCI_RESET_CMD_ADDR);
 	msm_camera_io_w(0x1, cci_dev->base + CCI_RESET_CMD_ADDR);
@@ -732,7 +730,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 reset_complete_failed:
 	disable_irq(cci_dev->irq->start);
 	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
-		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 0);
+		cci_dev->cci_clk, cci_dev->num_clk, 0);
 clk_enable_failed:
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
@@ -760,7 +758,7 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	disable_irq(cci_dev->irq->start);
 
 	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
-		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 0);
+		cci_dev->cci_clk, cci_dev->num_clk, 0);
 
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
@@ -1094,6 +1092,56 @@ struct v4l2_subdev *msm_cci_get_subdev(void)
 	return g_cci_subdev;
 }
 
+static int msm_cci_get_clk_info(struct cci_device *cci_dev,
+	struct platform_device *pdev)
+{
+	uint32_t count;
+	int i, rc;
+	uint32_t rates[CCI_NUM_CLK_MAX];
+
+	struct device_node *of_node;
+	of_node = pdev->dev.of_node;
+
+	count = of_property_count_strings(of_node, "qcom,clock-names");
+	cci_dev->num_clk = count;
+
+	CDBG("%s: count = %d\n", __func__, count);
+	if (count == 0) {
+		pr_err("%s: no clocks found in device tree, count=%d",
+			__func__, count);
+		return 0;
+	}
+
+	if (count > CCI_NUM_CLK_MAX) {
+		pr_err("%s: invalid count=%d, max is %d\n", __func__,
+			count, CCI_NUM_CLK_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+				i, &(cci_clk_info[i].clk_name));
+		CDBG("%s: clock-names[%d] = %s\n", __func__,
+			i, cci_clk_info[i].clk_name);
+		if (rc < 0) {
+			pr_err("%s:%d, failed\n", __func__, __LINE__);
+			return rc;
+		}
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s:%d, failed", __func__, __LINE__);
+		return rc;
+	}
+	for (i = 0; i < count; i++) {
+		cci_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
+			cci_clk_info[i].clk_rate);
+	}
+	return 0;
+}
+
 static int msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
@@ -1115,6 +1163,13 @@ static int msm_cci_probe(struct platform_device *pdev)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
 
+	rc = msm_cci_get_clk_info(new_cci_dev, pdev);
+	if (rc < 0) {
+		pr_err("%s: msm_cci_get_clk_info() failed", __func__);
+		return -EFAULT;
+	}
+
+	new_cci_dev->ref_count = 0;
 	new_cci_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "cci");
 	if (!new_cci_dev->mem) {
@@ -1126,8 +1181,8 @@ static int msm_cci_probe(struct platform_device *pdev)
 					IORESOURCE_IRQ, "cci");
 	CDBG("%s line %d cci irq start %d end %d\n", __func__,
 		__LINE__,
-		new_cci_dev->irq->start,
-		new_cci_dev->irq->end);
+		(int) new_cci_dev->irq->start,
+		(int) new_cci_dev->irq->end);
 	if (!new_cci_dev->irq) {
 		CDBG("%s: no irq resource?\n", __func__);
 		rc = -ENODEV;
