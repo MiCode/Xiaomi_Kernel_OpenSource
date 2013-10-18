@@ -1,7 +1,7 @@
 /*
  * include/linux/ion.h
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -106,7 +106,8 @@ enum cp_mem_usage {
 #define ION_HEAP(bit) (1 << (bit))
 
 #define ION_ADSP_HEAP_NAME	"adsp"
-#define ION_VMALLOC_HEAP_NAME	"vmalloc"
+#define ION_SYSTEM_HEAP_NAME	"system"
+#define ION_VMALLOC_HEAP_NAME	ION_SYSTEM_HEAP_NAME
 #define ION_KMALLOC_HEAP_NAME	"kmalloc"
 #define ION_AUDIO_HEAP_NAME	"audio"
 #define ION_SF_HEAP_NAME	"sf"
