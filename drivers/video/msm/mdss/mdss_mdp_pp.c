@@ -367,9 +367,12 @@ static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
 					struct mdss_ad_info **ad);
 static int pp_update_ad_input(struct msm_fb_data_type *mfd);
 static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
-static void pp_ad_cfg_write(struct mdss_ad_info *ad);
-static void pp_ad_init_write(struct mdss_ad_info *ad);
-static void pp_ad_input_write(struct mdss_ad_info *ad, u32 bl_lvl);
+static void pp_ad_cfg_write(struct mdss_mdp_ad *ad_hw,
+						struct mdss_ad_info *ad);
+static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw,
+						struct mdss_ad_info *ad);
+static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
+						struct mdss_ad_info *ad);
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd);
 static void pp_ad_cfg_lut(char __iomem *addr, u32 *data);
 
@@ -1564,9 +1567,9 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 		ad = &mdata->ad_cfgs[dspp_num];
 
 		if (PP_AD_STATE_CFG & ad->state)
-			pp_ad_cfg_write(ad);
+			pp_ad_cfg_write(&mdata->ad_off[dspp_num], ad);
 		if (PP_AD_STATE_INIT & ad->state)
-			pp_ad_init_write(ad);
+			pp_ad_init_write(&mdata->ad_off[dspp_num], ad);
 		if ((PP_AD_STATE_DATA & ad->state) &&
 			(ad->sts & PP_STS_ENABLE)) {
 			bl = ad->bl_mfd->bl_level;
@@ -1575,7 +1578,8 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 				bl = ad->bl_lin[bl >> ad->bl_bright_shift];
 				bl = bl << ad->bl_bright_shift;
 			}
-			pp_ad_input_write(ad, bl);
+			ad->bl_data = bl;
+			pp_ad_input_write(&mdata->ad_off[dspp_num], ad);
 		}
 		if ((PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr)
 			ctl->add_vsync_handler(ctl, &ad->handle);
@@ -3545,23 +3549,26 @@ error:
 	return ret;
 }
 
-static void pp_ad_input_write(struct mdss_ad_info *ad, u32 bl_lvl)
+static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
+						struct mdss_ad_info *ad)
 {
-	char __iomem *base = ad->base;
+	char __iomem *base;
+
+	base = ad_hw->base;
 	switch (ad->cfg.mode) {
 	case MDSS_AD_MODE_AUTO_BL:
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_AL);
 		break;
 	case MDSS_AD_MODE_AUTO_STR:
-		writel_relaxed(bl_lvl, base + MDSS_MDP_REG_AD_BL);
+		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_AL);
 		break;
 	case MDSS_AD_MODE_TARG_STR:
-		writel_relaxed(bl_lvl, base + MDSS_MDP_REG_AD_BL);
+		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_TARG_STR);
 		break;
 	case MDSS_AD_MODE_MAN_STR:
-		writel_relaxed(bl_lvl, base + MDSS_MDP_REG_AD_BL);
+		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_STR_MAN);
 		break;
 	default:
@@ -3570,10 +3577,12 @@ static void pp_ad_input_write(struct mdss_ad_info *ad, u32 bl_lvl)
 	}
 }
 
-static void pp_ad_init_write(struct mdss_ad_info *ad)
+static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad)
 {
 	u32 temp;
-	char __iomem *base = ad->base;
+	char __iomem *base;
+
+	base = ad_hw->base;
 	writel_relaxed(ad->init.i_control[0] & 0x1F,
 				base + MDSS_MDP_REG_AD_CON_CTRL_0);
 	writel_relaxed(ad->init.i_control[1] << 8,
@@ -3611,10 +3620,12 @@ static void pp_ad_init_write(struct mdss_ad_info *ad)
 }
 
 #define MDSS_PP_AD_DEF_CALIB 0x6E
-static void pp_ad_cfg_write(struct mdss_ad_info *ad)
+static void pp_ad_cfg_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad)
 {
-	char __iomem *base = ad->base;
+	char __iomem *base;
 	u32 temp, temp_calib = MDSS_PP_AD_DEF_CALIB;
+
+	base = ad_hw->base;
 	switch (ad->cfg.mode) {
 	case MDSS_AD_MODE_AUTO_BL:
 		temp = ad->cfg.backlight_max << 16;
@@ -3667,9 +3678,10 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 	struct mdss_ad_info *ad;
+	struct mdss_mdp_ad *ad_hw;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct msm_fb_data_type *bl_mfd;
-	char __iomem *base;
+	struct mdss_data_type *mdata;
 	u32 temp;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
@@ -3684,8 +3696,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		bl_mfd = mfd;
 	}
 
-
-	base = ad->base;
+	mdata = mfd_to_mdata(mfd);
+	ad_hw = &mdata->ad_off[ad->num];
 
 	mutex_lock(&ad->lock);
 	if (ad->sts != last_sts || ad->state != last_state) {
@@ -3715,16 +3727,17 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 				bl = ad->bl_lin[bl >> ad->bl_bright_shift];
 				bl = bl << ad->bl_bright_shift;
 			}
+			ad->bl_data = bl;
 		}
 		mutex_unlock(&bl_mfd->bl_lock);
-		pp_ad_input_write(ad, bl);
+		pp_ad_input_write(ad_hw, ad);
 	}
 
 	if (ad->sts & PP_AD_STS_DIRTY_CFG) {
 		ad->sts &= ~PP_AD_STS_DIRTY_CFG;
 		ad->state |= PP_AD_STATE_CFG;
 
-		pp_ad_cfg_write(ad);
+		pp_ad_cfg_write(ad_hw, ad);
 
 		if (!MDSS_AD_MODE_DATA_MATCH(ad->cfg.mode, ad->ad_data_mode)) {
 			ad->sts &= ~PP_AD_STS_DIRTY_DATA;
@@ -3735,7 +3748,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	if (ad->sts & PP_AD_STS_DIRTY_INIT) {
 		ad->sts &= ~PP_AD_STS_DIRTY_INIT;
 		ad->state |= PP_AD_STATE_INIT;
-		pp_ad_init_write(ad);
+		pp_ad_init_write(ad_hw, ad);
 	}
 
 	/* update ad screen size if it has changed since last configuration */
@@ -3750,7 +3763,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->init.frame_h = ctl->height;
 		temp = ad->init.frame_w << 16;
 		temp |= ad->init.frame_h & 0xFFFF;
-		writel_relaxed(temp, base + MDSS_MDP_REG_AD_FRAME_SIZE);
+		writel_relaxed(temp, ad_hw->base + MDSS_MDP_REG_AD_FRAME_SIZE);
 	}
 
 	if ((ad->sts & PP_STS_ENABLE) && PP_AD_STATE_IS_READY(ad->state)) {
@@ -3793,7 +3806,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		}
 		ad->state &= ~PP_AD_STATE_RUN;
 	}
-	writel_relaxed(bypass, base);
+	writel_relaxed(bypass, ad_hw->base);
 
 	if (PP_AD_STS_DIRTY_VSYNC & ad->sts) {
 		pr_debug("dirty vsync, calc_itr = %d", ad->calc_itr);
@@ -3825,6 +3838,8 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl;
 	struct msm_fb_data_type *mfd, *bl_mfd;
+	struct mdss_data_type *mdata;
+	char __iomem *base;
 	u32 bl, calc_done = 0;
 	ad = container_of(work, struct mdss_ad_info, calc_work);
 
@@ -3836,6 +3851,9 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	mfd = ad->mfd;
 	bl_mfd = ad->bl_mfd;
 	ctl = mfd_to_ctl(ad->mfd);
+	mdata = mfd_to_mdata(ad->mfd);
+
+	base = mdata->ad_off[ad->num].base;
 
 	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
 		mutex_unlock(&ad->lock);
@@ -3845,20 +3863,20 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	if (PP_AD_STATE_RUN & ad->state) {
 		/* Kick off calculation */
 		ad->calc_itr--;
-		writel_relaxed(1, ad->base + MDSS_MDP_REG_AD_START_CALC);
+		writel_relaxed(1, base + MDSS_MDP_REG_AD_START_CALC);
 	}
 	if (ad->state & PP_AD_STATE_RUN) {
 		do {
-			calc_done = readl_relaxed(ad->base +
+			calc_done = readl_relaxed(base +
 				MDSS_MDP_REG_AD_CALC_DONE);
 			if (!calc_done)
 				usleep(MDSS_PP_AD_SLEEP);
 		} while (!calc_done && (ad->state & PP_AD_STATE_RUN));
 		if (calc_done) {
-			ad->last_str = 0xFF & readl_relaxed(ad->base +
+			ad->last_str = 0xFF & readl_relaxed(base +
 						MDSS_MDP_REG_AD_STR_OUT);
 			if (MDSS_AD_RUNNING_AUTO_BL(ad)) {
-				bl = 0xFFFF & readl_relaxed(ad->base +
+				bl = 0xFFFF & readl_relaxed(base +
 						MDSS_MDP_REG_AD_BL_OUT);
 				if (ad->state & PP_AD_STATE_BL_LIN) {
 					bl = bl >> ad->bl_bright_shift;
@@ -3912,23 +3930,34 @@ static void pp_ad_cfg_lut(char __iomem *addr, u32 *data)
 			addr + ((PP_AD_LUT_LEN - 1) * 2));
 }
 
-int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off)
+int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 {
 	u32 i;
 	int rc = 0;
 
-	mdata->ad_cfgs = devm_kzalloc(&mdata->pdev->dev,
-				sizeof(struct mdss_ad_info) * mdata->nad_cfgs,
+	mdata->ad_off = devm_kzalloc(&mdata->pdev->dev,
+				sizeof(struct mdss_mdp_ad) * mdata->nad_cfgs,
 				GFP_KERNEL);
+
+	if (!mdata->ad_off) {
+		pr_err("unable to setup assertive display hw:devm_kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	mdata->ad_cfgs = devm_kzalloc(&mdata->pdev->dev,
+			sizeof(struct mdss_ad_info) * mdata->nad_cfgs,
+			GFP_KERNEL);
 
 	if (!mdata->ad_cfgs) {
 		pr_err("unable to setup assertive display:devm_kzalloc fail\n");
+		devm_kfree(&mdata->pdev->dev, mdata->ad_off);
 		return -ENOMEM;
 	}
 
 	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
 	for (i = 0; i < mdata->nad_cfgs; i++) {
-		mdata->ad_cfgs[i].base = mdata->mdp_base + ad_off[i];
+		mdata->ad_off[i].base = mdata->mdp_base + ad_offsets[i];
+		mdata->ad_off[i].num = i;
 		mdata->ad_cfgs[i].num = i;
 		mdata->ad_cfgs[i].calc_itr = 0;
 		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
