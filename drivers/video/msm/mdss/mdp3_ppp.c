@@ -54,6 +54,7 @@ static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
 	[MDP_YCRYCB_H2V1] = true,
 	[MDP_Y_CBCR_H2V1] = true,
 	[MDP_Y_CRCB_H2V1] = true,
+	[MDP_BGRX_8888] = true,
 };
 
 #define MAX_LIST_WINDOW 16
@@ -554,8 +555,9 @@ static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
 			tmp_v =
 				(MDP_SCALE_Q_FACTOR * blit_op->dst.roi.height) /
 				MDP_MAX_X_SCALE_FACTOR +
-				(MDP_SCALE_Q_FACTOR * blit_op->dst.roi.height) %
-				MDP_MAX_X_SCALE_FACTOR ? 1 : 0;
+				((MDP_SCALE_Q_FACTOR *
+				blit_op->dst.roi.height) %
+				MDP_MAX_X_SCALE_FACTOR ? 1 : 0);
 
 			/* move x location as roi width gets bigger */
 			blit_op->src.roi.x -= tmp_v - blit_op->src.roi.width;
@@ -565,8 +567,9 @@ static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
 			tmp_v =
 				(MDP_SCALE_Q_FACTOR * blit_op->dst.roi.height) /
 				MDP_MIN_X_SCALE_FACTOR +
-				(MDP_SCALE_Q_FACTOR * blit_op->dst.roi.height) %
-				MDP_MIN_X_SCALE_FACTOR ? 1 : 0;
+				((MDP_SCALE_Q_FACTOR *
+				blit_op->dst.roi.height) %
+				MDP_MIN_X_SCALE_FACTOR ? 1 : 0);
 
 			/*
 			 * we don't move x location for continuity of
