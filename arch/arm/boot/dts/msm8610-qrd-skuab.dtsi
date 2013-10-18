@@ -13,6 +13,16 @@
 /include/ "msm8610-qrd.dtsi"
 
 &soc {
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "disabled";
+
+		gpio_flash: gpio-flash {
+			gpios = <&pm8110_gpios 1 0>;
+			label = "gpio-flash";
+			linux,default-trigger = "gpio_flash_trigger";
+		};
+	};
     sound {
         qcom,model = "msm8x10-skuab-snd-card";
 
