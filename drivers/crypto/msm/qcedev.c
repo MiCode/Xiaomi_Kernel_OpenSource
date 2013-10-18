@@ -1602,11 +1602,6 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 static int qcedev_check_cipher_key(struct qcedev_cipher_op_req *req,
 						struct qcedev_control *podev)
 {
-
-	if (req->encklen < 0) {
-		pr_err("%s: Invalid key size: %d\n", __func__, req->encklen);
-		return -EINVAL;
-	}
 	/* if intending to use HW key make sure key fields are set
 	 * correctly and HW key is indeed supported in target
 	 */
