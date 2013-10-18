@@ -6040,10 +6040,11 @@ static struct measure_clk measure_clk = {
  * clocks they need to control
  */
 static struct clk_lookup mpq_clocks_8092_rumi[] = {
-	CLK_DUMMY("core_clk",	BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
-	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
-	CLK_DUMMY("core_clk",	BLSP1_UART_CLK, "msm_serial_hsl.1", OFF),
-	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK, "msm_serial_hsl.1", OFF),
+	CLK_DUMMY("xo",	cxo_pil_lpass_clk.c,	"fe200000.qcom,lpass", OFF),
+	CLK_DUMMY("core_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.0", OFF),
+	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.0", OFF),
+	CLK_DUMMY("core_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.1", OFF),
+	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.1", OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
@@ -6150,7 +6151,8 @@ static struct clk_lookup mpq_clocks_8092_rumi[] = {
 	CLK_DUMMY("",	gcc_gp3_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_klm_core_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_klm_s_clk.c,	"", OFF),
-	CLK_DUMMY("",	gcc_lpass_q6_axi_clk.c,	"", OFF),
+	CLK_DUMMY("bus_clk",	gcc_lpass_q6_axi_clk.c,
+					"fe200000.qcom,lpass", OFF),
 	CLK_DUMMY("",	gcc_sys_noc_lpass_mport_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_sys_noc_lpass_sway_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_mmss_a5ss_axi_clk.c,	"", OFF),
@@ -6357,6 +6359,7 @@ static struct clk_lookup mpq_clocks_8092_rumi[] = {
 };
 
 static struct clk_lookup mpq_clocks_8092[] = {
+	CLK_LOOKUP("xo",	cxo_pil_lpass_clk.c,	"fe200000.qcom,lpass"),
 	/* RPM clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
@@ -6469,7 +6472,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_klm_core_clk.c,	""),
 	CLK_LOOKUP("",	gcc_klm_s_clk.c,	""),
 	CLK_LOOKUP("",	gcc_sec_ctrl_klm_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_lpass_q6_axi_clk.c,	""),
+	CLK_LOOKUP("bus_clk",	gcc_lpass_q6_axi_clk.c,	"fe200000.qcom,lpass"),
 	CLK_LOOKUP("",	gcc_sys_noc_lpass_mport_clk.c,	""),
 	CLK_LOOKUP("",	gcc_sys_noc_lpass_sway_clk.c,	""),
 	CLK_LOOKUP("",	gcc_mmss_a5ss_axi_clk.c,	""),
