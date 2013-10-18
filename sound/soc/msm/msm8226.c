@@ -1317,6 +1317,19 @@ static struct snd_soc_dai_link msm8226_common_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.be_id = MSM_FRONTEND_DAI_QCHAT,
 	},
+	{/* hw:x,19 */
+		.name = "VoIP2",
+		.stream_name = "VoIP2",
+		.cpu_dai_name   = "VoIP2",
+		.platform_name  = "msm-voip-dsp",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
