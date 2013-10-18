@@ -2019,7 +2019,7 @@ int adreno_reset(struct kgsl_device *device)
  *
  * This is a common routine to write to FT sysfs files.
  */
-static int _ft_sysfs_store(const char *buf, size_t count, unsigned int *ptr)
+static ssize_t _ft_sysfs_store(const char *buf, size_t count, unsigned int *ptr)
 {
 	char temp[20];
 	unsigned long val;
@@ -2063,12 +2063,12 @@ struct adreno_device *_get_adreno_dev(struct device *dev)
  * KGSL_FT_SKIPFRAME -> BIT(3) Set to skip frame
  * by default set FT policy to KGSL_FT_DEFAULT_POLICY
  */
-static int _ft_policy_store(struct device *dev,
+static ssize_t _ft_policy_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
-	int ret;
+	ssize_t ret;
 	if (adreno_dev == NULL)
 		return 0;
 
@@ -2087,7 +2087,7 @@ static int _ft_policy_store(struct device *dev,
  *
  * This is a routine to read current FT policy
  */
-static int _ft_policy_show(struct device *dev,
+static ssize_t _ft_policy_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
@@ -2114,7 +2114,7 @@ static int _ft_policy_show(struct device *dev,
  * KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT -> BIT(3) Set to log only one
  * pagefault per INT.
  */
-static int _ft_pagefault_policy_store(struct device *dev,
+static ssize_t _ft_pagefault_policy_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
@@ -2139,7 +2139,7 @@ static int _ft_pagefault_policy_store(struct device *dev,
  *
  * This is a routine to read current FT pagefault policy
  */
-static int _ft_pagefault_policy_show(struct device *dev,
+static ssize_t _ft_pagefault_policy_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
@@ -2160,7 +2160,7 @@ static int _ft_pagefault_policy_show(struct device *dev,
  * 0x1 - Enable fast hang detection
  * 0x0 - Disable fast hang detection
  */
-static int _ft_fast_hang_detect_store(struct device *dev,
+static ssize_t _ft_fast_hang_detect_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
@@ -2184,7 +2184,7 @@ static int _ft_fast_hang_detect_store(struct device *dev,
  * @attr: Device attribute
  * @buf: value read
  */
-static int _ft_fast_hang_detect_show(struct device *dev,
+static ssize_t _ft_fast_hang_detect_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
@@ -2206,7 +2206,7 @@ static int _ft_fast_hang_detect_show(struct device *dev,
  * 0x0 - Enable long IB detection
  * 0x1 - Disable long IB detection
  */
-static int _ft_long_ib_detect_store(struct device *dev,
+static ssize_t _ft_long_ib_detect_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
@@ -2230,7 +2230,7 @@ static int _ft_long_ib_detect_store(struct device *dev,
  * @attr: Device attribute
  * @buf: value read
  */
-static int _ft_long_ib_detect_show(struct device *dev,
+static ssize_t _ft_long_ib_detect_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
