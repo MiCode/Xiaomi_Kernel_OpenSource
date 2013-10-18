@@ -98,10 +98,18 @@ struct buf_info {
 	struct vb2_buffer *buf;
 };
 
+enum buffer_owner {
+	DRIVER,
+	FIRMWARE,
+	CLIENT,
+	MAX_OWNER
+};
+
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
 	struct msm_smem *handle;
+	enum buffer_owner buffer_ownership;
 };
 
 struct msm_vidc_format {
@@ -212,6 +220,7 @@ struct msm_vidc_inst {
 	struct list_head pendingq;
 	struct list_head internalbufs;
 	struct list_head persistbufs;
+	struct list_head outputbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
