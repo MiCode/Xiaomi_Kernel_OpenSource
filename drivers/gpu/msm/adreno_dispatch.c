@@ -1384,9 +1384,11 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	 */
 
 	mutex_lock(&device->mutex);
-	if (count && dispatcher->inflight == 0)
+	if (count && dispatcher->inflight == 0) {
 		kgsl_active_count_put(device);
-	else
+		/* Queue back up the event processor to catch stragglers */
+		queue_work(device->work_queue, &device->ts_expired_ws);
+	} else
 		kgsl_pwrscale_update(device);
 	mutex_unlock(&device->mutex);
 
