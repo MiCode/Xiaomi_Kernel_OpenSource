@@ -1805,6 +1805,8 @@ static int determine_initial_status(struct smb135x_chg *chip)
 
 	if (chip->usb_present)
 		handle_usb_insertion(chip);
+	else
+		handle_usb_removal(chip);
 
 	return 0;
 }
