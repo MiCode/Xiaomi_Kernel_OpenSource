@@ -803,7 +803,8 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VDEC_PICTURE_TYPE_DECODE;
 		hfi = (struct hfi_enable_picture *) &pkt->rg_property_data[1];
-		hfi->picture_type = (u32) pdata;
+		hfi->picture_type =
+			((struct hfi_enable_picture *)pdata)->picture_type;
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
