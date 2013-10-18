@@ -537,7 +537,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i]);
+		pool = ion_page_pool_create(gfp_flags, orders[i], true);
 		if (!pool)
 			goto err_create_cached_pool;
 		iommu_heap->cached_pools[i] = pool;
@@ -551,7 +551,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i]);
+		pool = ion_page_pool_create(gfp_flags, orders[i], false);
 		if (!pool)
 			goto err_create_uncached_pool;
 		iommu_heap->uncached_pools[i] = pool;

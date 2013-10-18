@@ -80,11 +80,18 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 		if (order > 4)
 			gfp_flags = high_order_gfp_flags;
 		trace_alloc_pages_sys_start(gfp_flags, order);
-		page = alloc_pages(gfp_flags, order);
+		page = alloc_pages(gfp_flags & ~__GFP_ZERO, order);
 		trace_alloc_pages_sys_end(gfp_flags, order);
 		if (!page) {
 			trace_alloc_pages_sys_fail(gfp_flags, order);
 			return 0;
+		}
+		if (gfp_flags & __GFP_ZERO) {
+			if (ion_heap_high_order_page_zero(
+					page, order, false)) {
+				__free_pages(page, order);
+				return NULL;
+			}
 		}
 		sg_init_table(&sg, 1);
 		sg_set_page(&sg, page, PAGE_SIZE << order, 0);
@@ -351,7 +358,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 
 		if (orders[i] > 4)
 			gfp_flags = high_order_gfp_flags;
-		pool = ion_page_pool_create(gfp_flags, orders[i]);
+		pool = ion_page_pool_create(gfp_flags, orders[i], false);
 		if (!pool)
 			goto err_create_pool;
 		heap->pools[i] = pool;
