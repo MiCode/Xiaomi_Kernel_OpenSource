@@ -6357,8 +6357,6 @@ static struct clk_lookup mpq_clocks_8092_rumi[] = {
 };
 
 static struct clk_lookup mpq_clocks_8092[] = {
-	CLK_DUMMY("core_clk",	BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
-
 	/* RPM clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
@@ -6397,7 +6395,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_tsif_ref_clk.c,	""),
 
 	/* BLSP1 */
-	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"msm_serial_hsl.0"),
+	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f991f000.serial"),
 	CLK_LOOKUP("",	gcc_blsp1_qup1_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup1_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup2_i2c_apps_clk.c,	""),
@@ -6411,7 +6409,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_blsp1_qup6_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_qup6_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart1_apps_clk.c, ""),
-	CLK_LOOKUP("",	gcc_blsp1_uart2_apps_clk.c, ""),
+	CLK_LOOKUP("core_clk",	gcc_blsp1_uart2_apps_clk.c, "f991f000.serial"),
 	CLK_LOOKUP("",	gcc_blsp1_uart3_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart4_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp1_uart5_apps_clk.c,	""),
