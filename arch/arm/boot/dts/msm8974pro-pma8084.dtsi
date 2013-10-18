@@ -20,7 +20,7 @@
 
 /include/ "msm-pma8084-rpm-regulator.dtsi"
 /include/ "msm-pma8084.dtsi"
-/include/ "msm8974pro-ac-regulator.dtsi"
+/include/ "msm8974pro-pma8084-regulator.dtsi"
 
 /*
  * Override PM8841 and PM8941 resources with proper PMA8084 resources for
