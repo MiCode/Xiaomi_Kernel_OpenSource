@@ -39,6 +39,7 @@
 #include "wcd9xxx-resmgr.h"
 #include "msm8x10_wcd_registers.h"
 #include "../msm/qdsp6v2/q6core.h"
+#include "wcd9xxx-common.h"
 
 #define MSM8X10_WCD_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
@@ -62,6 +63,15 @@
 #define CODEC_DT_MAX_PROP_SIZE	40
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH 64
 #define HELICON_MCLK_CLK_9P6MHZ				9600000
+
+/*
+ * Multiplication factor to compute impedance on codec
+ * This is computed from (Vx / (m*Ical)) = (10mV/(180*30uA))
+ */
+#define MSM8X10_WCD_ZDET_MUL_FACTOR 1852
+
+/* RX_HPH_CNP_WG_TIME increases by 0.24ms */
+#define MSM8X10_WCD_WG_TIME_FACTOR_US  240
 
 enum {
 	MSM8X10_WCD_I2C_TOP_LEVEL = 0,
@@ -168,6 +178,12 @@ struct msm8x10_wcd_priv {
 
 	struct delayed_work hs_detect_work;
 	struct wcd9xxx_mbhc_config *mbhc_cfg;
+
+	/*
+	 * list used to save/restore registers at start and
+	 * end of impedance measurement
+	 */
+	struct list_head reg_save_restore;
 };
 
 static unsigned short rx_digital_gain_reg[] = {
@@ -435,8 +451,8 @@ static int __msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd,
 				__func__, reg);
 	else
 		dev_dbg(msm8x10_wcd->dev,
-				"%s: Codec reg 0x%x written with value 0x%x\n",
-				__func__, reg, val);
+			"%s: Write %x to R%d(0x%x)\n",
+			__func__, val, reg, reg);
 
 	return ret;
 }
@@ -2689,6 +2705,228 @@ static void msm8x10_wcd_enable_mb_vddio(struct snd_soc_codec *codec, bool on)
 			    0x40, on ? 0x40 : 0x00);
 }
 
+static void msm8x10_wcd_prepare_hph_pa(struct snd_soc_codec *codec,
+				       struct list_head *lh)
+{
+	int i;
+	u32 delay;
+
+	const struct wcd9xxx_reg_mask_val reg_set_paon[] = {
+		{MSM8X10_WCD_A_CDC_RX1_B6_CTL, 0xFF, 0x01},
+		{MSM8X10_WCD_A_CDC_RX2_B6_CTL, 0xFF, 0x01},
+		{MSM8X10_WCD_A_RX_HPH_L_GAIN, 0xFF, 0x2C},
+		{MSM8X10_WCD_A_RX_HPH_R_GAIN, 0xFF, 0x2C},
+		{MSM8X10_WCD_A_CDC_CLK_RX_B1_CTL, 0xFF, 0x01},
+		{MSM8X10_WCD_A_RX_COM_BIAS, 0xFF, 0x80},
+		{MSM8X10_WCD_A_CP_EN, 0xFF, 0xE7},
+		{MSM8X10_WCD_A_CP_STATIC, 0xFF, 0x13},
+		{MSM8X10_WCD_A_CP_STATIC, 0xFF, 0x1B},
+		{MSM8X10_WCD_A_CDC_RX2_B6_CTL, 0xFF, 0x01},
+		{MSM8X10_WCD_A_CDC_CLK_RX_B1_CTL, 0xFF, 0x03},
+		{MSM8X10_WCD_A_CDC_ANA_CLK_CTL, 0xFF, 0x22},
+		{MSM8X10_WCD_A_CDC_ANA_CLK_CTL, 0xFF, 0x23},
+		{MSM8X10_WCD_A_RX_HPH_CNP_WG_CTL, 0xFF, 0xDA},
+		{MSM8X10_WCD_A_CDC_DIG_CLK_CTL, 0xFF, 0x01},
+		{MSM8X10_WCD_A_CDC_DIG_CLK_CTL, 0xFF, 0x03},
+		{MSM8X10_WCD_A_RX_HPH_CHOP_CTL, 0xFF, 0xA4},
+		{MSM8X10_WCD_A_RX_HPH_OCP_CTL, 0xFF, 0x67},
+		{MSM8X10_WCD_A_RX_HPH_L_TEST, 0x01, 0x00},
+		{MSM8X10_WCD_A_RX_HPH_R_TEST, 0x01, 0x00},
+		{MSM8X10_WCD_A_RX_HPH_BIAS_WG_OCP, 0xFF, 0x1A},
+		{MSM8X10_WCD_A_RX_HPH_CNP_WG_CTL, 0xFF, 0xDB},
+		{MSM8X10_WCD_A_RX_HPH_CNP_WG_TIME, 0xFF, 0xDB},
+		{MSM8X10_WCD_A_RX_HPH_L_DAC_CTL, 0xFF, 0x40},
+		{MSM8X10_WCD_A_RX_HPH_L_DAC_CTL, 0xFF, 0xC0},
+		{MSM8X10_WCD_A_RX_HPH_R_DAC_CTL, 0xFF, 0x40},
+		{MSM8X10_WCD_A_RX_HPH_R_DAC_CTL, 0xFF, 0xC0},
+		{MSM8X10_WCD_A_RX_HPH_L_DAC_CTL, 0x03, 0x01},
+		{MSM8X10_WCD_A_RX_HPH_R_DAC_CTL, 0x03, 0x01},
+	};
+
+	for (i = 0; i < ARRAY_SIZE(reg_set_paon); i++) {
+		delay = 0;
+		wcd9xxx_soc_update_bits_push(codec, lh,
+					     reg_set_paon[i].reg,
+					     reg_set_paon[i].mask,
+					     reg_set_paon[i].val, delay);
+	}
+	dev_dbg(codec->dev, "%s: PAs are prepared\n", __func__);
+	return;
+}
+
+static int msm8x10_wcd_enable_static_pa(struct snd_soc_codec *codec,
+					bool enable)
+{
+	int wg_time = snd_soc_read(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME) *
+				MSM8X10_WCD_WG_TIME_FACTOR_US;
+
+	wg_time += (int) (wg_time * 35) / 100;
+
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_RX_HPH_CNP_EN, 0x30,
+			    enable ? 0x30 : 0x0);
+	/* Wait for wave gen time to avoid pop noise */
+	usleep_range(wg_time, wg_time + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_RX1_B6_CTL, 0xFF, 0x00);
+	snd_soc_update_bits(codec, MSM8X10_WCD_A_CDC_RX2_B6_CTL, 0xFF, 0x00);
+
+	dev_dbg(codec->dev, "%s: PAs are %s as static mode (wg_time %d)\n",
+		__func__, enable ? "enabled" : "disabled", wg_time);
+	return 0;
+}
+
+static int msm8x10_wcd_setup_zdet(struct wcd9xxx_mbhc *mbhc,
+				  enum mbhc_impedance_detect_stages stage)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct msm8x10_wcd_priv *wcd_priv = snd_soc_codec_get_drvdata(codec);
+	const int mux_wait_us = 25;
+
+#define __wr(reg, mask, value)					\
+	do {							\
+		ret = wcd9xxx_soc_update_bits_push(codec,	\
+				&wcd_priv->reg_save_restore,	\
+				reg, mask, value, 0);		\
+		if (ret < 0)					\
+			return ret;				\
+	 } while (0)
+
+	switch (stage) {
+	case PRE_MEAS:
+		dev_dbg(codec->dev, "%s: PRE_MEAS\n", __func__);
+		INIT_LIST_HEAD(&wcd_priv->reg_save_restore);
+		/* Configure PA */
+		msm8x10_wcd_prepare_hph_pa(mbhc->codec,
+					   &wcd_priv->reg_save_restore);
+
+		/* Setup MBHC */
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_1, 0x7F, 0x40);
+		__wr(WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
+		__wr(0x171, 0xFF, 0x90);
+		__wr(WCD9XXX_A_TX_7_MBHC_EN, 0xFF, 0xF0);
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B4_CTL, 0xFF, 0x45);
+		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B5_CTL, 0xFF, 0x80);
+
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x0A);
+		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x2);
+		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x02);
+
+		/* Enable Impedance Detection */
+		__wr(WCD9XXX_A_MBHC_HPH, 0xFF, 0xC8);
+
+		/*
+		 * CnP setup for 0mV
+		 * Route static data as input to noise shaper
+		 */
+		__wr(MSM8X10_WCD_A_CDC_RX1_B3_CTL, 0xFF, 0x02);
+		__wr(MSM8X10_WCD_A_CDC_RX2_B3_CTL, 0xFF, 0x02);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_TEST,
+				    0x02, 0x00);
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_R_TEST,
+				    0x02, 0x00);
+
+		/* Reset the HPHL static data pointer */
+		__wr(MSM8X10_WCD_A_CDC_RX1_B2_CTL, 0xFF, 0x00);
+		/* Four consecutive writes to set 0V as static data input */
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x00);
+
+		/* Reset the HPHR static data pointer */
+		__wr(MSM8X10_WCD_A_CDC_RX2_B2_CTL, 0xFF, 0x00);
+		/* Four consecutive writes to set 0V as static data input */
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x00);
+
+		/* Enable the HPHL and HPHR PA */
+		msm8x10_wcd_enable_static_pa(mbhc->codec, true);
+		break;
+
+	case POST_MEAS:
+		dev_dbg(codec->dev, "%s: POST_MEAS\n", __func__);
+		/* Turn off ICAL */
+		snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_2, 0xF0);
+
+		msm8x10_wcd_enable_static_pa(mbhc->codec, false);
+
+		/*
+		 * Setup CnP wavegen to ramp to the desired
+		 * output using a 40ms ramp
+		 */
+
+		/* CnP wavegen current to 0.5uA */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_BIAS_WG_OCP, 0x1A);
+		/* Set the current division ratio to 2000 */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_CNP_WG_CTL, 0xDF);
+		/* Set the wavegen timer to max (60msec) */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME, 0xA0);
+		/* Set the CnP reference current to sc_bias */
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x6D);
+
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B2_CTL, 0x00);
+		/* Four consecutive writes to set -10mV as static data input */
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x1F);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0xE3);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX1_B1_CTL, 0x08);
+
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B2_CTL, 0x00);
+		/* Four consecutive writes to set -10mV as static data input */
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x00);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x1F);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0xE3);
+		snd_soc_write(codec, MSM8X10_WCD_A_CDC_RX2_B1_CTL, 0x08);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_TEST,
+				    0x02, 0x02);
+		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_R_TEST,
+				    0x02, 0x02);
+		/* Enable the HPHL and HPHR PA and wait for 60mS */
+		msm8x10_wcd_enable_static_pa(mbhc->codec, true);
+
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				    0x7F, 0x40);
+		usleep_range(mux_wait_us,
+				mux_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case PA_DISABLE:
+		dev_dbg(codec->dev, "%s: PA_DISABLE\n", __func__);
+		msm8x10_wcd_enable_static_pa(mbhc->codec, false);
+		wcd9xxx_restore_registers(codec, &wcd_priv->reg_save_restore);
+		break;
+	}
+#undef __wr
+
+	return ret;
+}
+
+static void msm8x10_wcd_compute_impedance(s16 *l, s16 *r, uint32_t *zl,
+					  uint32_t *zr)
+{
+	int zln, zld;
+	int zrn, zrd;
+	int rl = 0, rr = 0;
+
+	zln = (l[1] - l[0]) * MSM8X10_WCD_ZDET_MUL_FACTOR;
+	zld = (l[2] - l[0]);
+	if (zld)
+		rl = zln / zld;
+
+	zrn = (r[1] - r[0]) * MSM8X10_WCD_ZDET_MUL_FACTOR;
+	zrd = (r[2] - r[0]);
+	if (zrd)
+		rr = zrn / zrd;
+
+	*zl = rl;
+	*zr = rr;
+}
+
+
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mux_bias_block = msm8x10_wcd_enable_mux_bias_block,
 	.cfilt_fast_mode = msm8x10_wcd_put_cfilt_fast_mode,
@@ -2701,6 +2939,8 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.enable_mb_source = msm8x10_wcd_enable_ext_mb_source,
 	.setup_int_rbias = msm8x10_wcd_micb_internal,
 	.pull_mb_to_vddio = msm8x10_wcd_enable_mb_vddio,
+	.setup_zdet = msm8x10_wcd_setup_zdet,
+	.compute_impedance = msm8x10_wcd_compute_impedance,
 };
 
 static void delayed_hs_detect_fn(struct work_struct *work)
@@ -2892,7 +3132,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	ret = wcd9xxx_mbhc_init(&msm8x10_wcd_priv->mbhc,
 				&msm8x10_wcd_priv->resmgr,
 				codec, NULL, &mbhc_cb, &cdc_intr_ids,
-				HELICON_MCLK_CLK_9P6MHZ, false);
+				HELICON_MCLK_CLK_9P6MHZ, true);
 	if (ret) {
 		pr_err("%s: Failed to initialize mbhc\n", __func__);
 		goto exit_probe;

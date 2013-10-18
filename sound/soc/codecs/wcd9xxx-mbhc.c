@@ -4363,13 +4363,7 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	 */
 	mutex_lock(&codec->mutex);
 
-	/*
-	 * Fast(mbhc) mode bandagap doesn't need to be enabled explicitly
-	 * since fast mode is set by MBHC hardware when override is on.
-	 * Enable bandgap mode to avoid unnecessary RCO disable and enable
-	 * during clock source change.
-	 */
-	wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, true);
+	wcd9xxx_onoff_ext_mclk(mbhc, true);
 
 	wcd9xxx_turn_onoff_override(mbhc, true);
 	pr_debug("%s: Setting impedance detection\n", __func__);
@@ -4417,7 +4411,7 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 
 	mutex_unlock(&codec->mutex);
 
-	wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, false);
+	wcd9xxx_onoff_ext_mclk(mbhc, false);
 
 	wcd9xxx_turn_onoff_override(mbhc, false);
 	mbhc->mbhc_cb->compute_impedance(l, r, zl, zr);
@@ -4487,7 +4481,6 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->intr_ids = mbhc_cdc_intr_ids;
 	mbhc->impedance_detect = impedance_det_en;
-	impedance_detect_en = impedance_det_en ? 1 : 0;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
@@ -4535,6 +4528,14 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	}
 
 	wcd9xxx_init_debugfs(mbhc);
+
+
+	/* Disable Impedance detection by default for certain codec types */
+	if (mbhc->mbhc_cb &&
+	    mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_HELICON)
+		impedance_detect_en = 0;
+	else
+		impedance_detect_en = impedance_det_en ? 1 : 0;
 
 	core_res = mbhc->resmgr->core_res;
 	ret = wcd9xxx_request_irq(core_res, mbhc->intr_ids->insertion,
