@@ -114,6 +114,11 @@ ghsic_send_cpkt_tomodem(u8 portno, void *buf, size_t len)
 		return -ENODEV;
 	}
 
+	if (!len) {
+		pr_debug("%s: dropping 0 len command\n", __func__);
+		return 0;
+	}
+
 	cbuf = kmalloc(len, GFP_ATOMIC);
 	if (!cbuf)
 		return -ENOMEM;
