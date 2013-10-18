@@ -16,6 +16,7 @@
 #include <asm/byteorder.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
+#include <linux/clk.h>
 
 /* Device IDs */
 #define EMAC_DEV_ID                0x0040
@@ -34,6 +35,12 @@
 #define EMAC_WOL_IRQ          4
 #define EMAC_SGMII_PHY_IRQ    5
 #define EMAC_NUM_IRQ          6
+
+/* emac clock */
+#define EMAC_SGMII_125M_CLK	0
+#define EMAC_SGMII_SYS_25M_CLK	1
+#define EMAC_SGMII_TX_CLK	2
+#define EMAC_NUM_CLK		3
 
 /* mdio/mdc gpios */
 #define EMAC_NUM_GPIO         2
@@ -483,6 +490,11 @@ struct emac_gpio_info {
 	char *name;
 };
 
+struct emac_clk_info {
+	struct clk *clk;
+	char *name;
+};
+
 /* emac_ring_header represents a single, contiguous block of DMA space
  * mapped for the three descriptor rings (tpd, rfd, rrd)
  */
@@ -588,6 +600,7 @@ struct emac_adapter {
 
 	struct emac_irq_info  irq_info[EMAC_NUM_IRQ];
 	struct emac_gpio_info gpio_info[EMAC_NUM_GPIO];
+	struct emac_clk_info  clk_info[EMAC_NUM_CLK];
 
 	/* dma parameters */
 	u64                             dma_mask;
