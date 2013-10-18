@@ -6041,10 +6041,10 @@ static struct measure_clk measure_clk = {
  */
 static struct clk_lookup mpq_clocks_8092_rumi[] = {
 	CLK_DUMMY("xo",	cxo_pil_lpass_clk.c,	"fe200000.qcom,lpass", OFF),
-	CLK_DUMMY("core_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.0", OFF),
-	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.0", OFF),
-	CLK_DUMMY("core_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.1", OFF),
-	CLK_DUMMY("iface_clk",	BLSP1_UART_CLK,	"msm_serial_hsl.1", OFF),
+	CLK_DUMMY("core_clk",   BLSP1_UART2_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART2_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("core_clk",   BLSP1_UART5_CLK, "f9922000.serial", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART5_CLK, "f9922000.serial", OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
 	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
