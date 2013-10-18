@@ -141,6 +141,7 @@ static long q6_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	case AUDIO_GET_CONFIG: {
 		struct msm_audio_config config;
+		memset(&config, 0, sizeof(config));
 		config.buffer_size = pcm->buffer_size;
 		config.buffer_count = 2;
 		config.sample_rate = pcm->sample_rate;

@@ -31,6 +31,8 @@
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
 #define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
+#define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
+		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 
 #define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
 	(__height >> 4) * (__width >> 4) * __fps; \
@@ -471,14 +473,72 @@ static void handle_event_change(enum command_response cmd, void *data)
 		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 			break;
+		case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
+			{
+				struct v4l2_event buf_event = {0};
+				struct buffer_info *binfo = NULL;
+				u32 *ptr = NULL;
+
+				dprintk(VIDC_DBG,
+					"%s - inst: %p buffer: %p extra: %p\n",
+					__func__, inst,
+					event_notify->packet_buffer,
+					event_notify->exra_data_buffer);
+
+				/*
+				* Get the buffer_info entry for the
+				* device address.
+				*/
+				binfo = device_to_uvaddr(inst,
+					&inst->registered_bufs,
+					(u32)event_notify->packet_buffer);
+				if (!binfo) {
+					dprintk(VIDC_ERR,
+						"%s buffer not found in registered list\n",
+						__func__);
+					return;
+				}
+
+				/* Fill event data to be sent to client*/
+				buf_event.type =
+					V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
+				ptr = (u32 *)buf_event.u.data;
+				ptr[0] = binfo->fd[0];
+				ptr[1] = binfo->buff_off[0];
+
+				dprintk(VIDC_DBG,
+					"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
+					ptr[0], ptr[1]);
+
+				/* Decrement buffer reference count*/
+				buf_ref_put(inst, binfo);
+
+				/*
+				* Release buffer and remove from list
+				* if reference goes to zero.
+				*/
+				if (unmap_and_deregister_buf(inst, binfo))
+					dprintk(VIDC_ERR,
+					"%s: buffer unmap failed\n", __func__);
+
+				/*send event to client*/
+				v4l2_event_queue_fh(&inst->event_handler,
+					&buf_event);
+				wake_up(&inst->kernel_event_queue);
+				return;
+			}
 		default:
 			break;
 		}
 		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
 			inst->reconfig_height = event_notify->height;
 			inst->reconfig_width = event_notify->width;
 			inst->in_reconfig = true;
 		} else {
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
 			inst->prop.height = event_notify->height;
 			inst->prop.width = event_notify->width;
 		}
@@ -807,6 +867,107 @@ static void handle_ebd(enum command_response cmd, void *data)
 	}
 }
 
+int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo)
+{
+	int cnt = 0;
+
+	if (!inst || !binfo)
+		return -EINVAL;
+
+	mutex_lock(&inst->lock);
+	atomic_inc(&binfo->ref_count);
+	cnt = atomic_read(&binfo->ref_count);
+	if (cnt > 2) {
+		dprintk(VIDC_ERR, "%s: invalid ref_cnt: %d\n", __func__, cnt);
+		cnt = -EINVAL;
+	}
+	dprintk(VIDC_DBG, "REF_GET[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
+	mutex_unlock(&inst->lock);
+	return cnt;
+}
+
+int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
+{
+	int rc = 0;
+	int cnt;
+	bool release_buf = false;
+	bool qbuf_again = false;
+
+	if (!inst || !binfo)
+		return -EINVAL;
+
+	mutex_lock(&inst->lock);
+	atomic_dec(&binfo->ref_count);
+	cnt = atomic_read(&binfo->ref_count);
+	dprintk(VIDC_DBG, "REF_PUT[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
+	if (cnt == 0)
+		release_buf = true;
+	else if (cnt == 1)
+		qbuf_again = true;
+	else {
+		dprintk(VIDC_ERR, "%s: invalid ref_cnt: %d\n", __func__, cnt);
+		cnt = -EINVAL;
+	}
+	mutex_unlock(&inst->lock);
+
+	if (cnt < 0)
+		return cnt;
+
+	rc = output_buffer_cache_invalidate(inst, binfo);
+	if (rc)
+		return rc;
+
+	if (release_buf) {
+		/*
+		* We can not delete binfo here as we need to set the user
+		* virtual address saved in binfo->uvaddr to the dequeued v4l2
+		* buffer.
+		*
+		* We will set the pending_deletion flag to true here and delete
+		* binfo from registered list in dqbuf after setting the uvaddr.
+		*/
+		dprintk(VIDC_DBG, "fd[0] = %d -> pending_deletion = true\n",
+			binfo->fd[0]);
+		binfo->pending_deletion = true;
+	} else if (qbuf_again) {
+		rc = qbuf_dynamic_buf(inst, binfo);
+		if (!rc)
+			return rc;
+	}
+	return cnt;
+}
+
+static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
+					u32 device_addr, u32 flags)
+{
+	struct buffer_info *binfo = NULL;
+
+	/*
+	 * Update reference count and release OR queue back the buffer,
+	 * only when firmware is not holding a reference.
+	 */
+	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
+		binfo = device_to_uvaddr(inst, &inst->registered_bufs,
+				device_addr);
+		if (!binfo) {
+			dprintk(VIDC_ERR,
+				"%s buffer not found in registered list\n",
+				__func__);
+			return;
+		}
+		if (flags & HAL_BUFFERFLAG_READONLY) {
+			dprintk(VIDC_DBG,
+				"_F_B_D_ fd[0] = %d -> Reference with f/w",
+				binfo->fd[0]);
+		} else {
+			dprintk(VIDC_DBG,
+				"_F_B_D_ fd[0] = %d -> FBD_ref_released\n",
+				binfo->fd[0]);
+			buf_ref_put(inst, binfo);
+		}
+	}
+}
+
 static void handle_fbd(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -850,6 +1011,10 @@ static void handle_fbd(enum command_response cmd, void *data)
 		}
 		vb->v4l2_buf.flags = 0;
 
+		handle_dynamic_buffer(inst, (u32)fill_buf_done->packet_buffer1,
+					fill_buf_done->flags1);
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_READONLY)
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_READONLY;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
@@ -2400,6 +2565,67 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 	return;
 }
+
+void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
+{
+	struct buffer_info *binfo = NULL, *dummy = NULL;
+	struct list_head *list = NULL;
+
+	if (inst->buffer_mode_set[CAPTURE_PORT] != HAL_BUFFER_MODE_DYNAMIC)
+		return;
+
+	/*
+	* dynamic buffer mode:- if flush is called during seek
+	* driver should not queue any new buffer it has been holding.
+	*
+	* Each dynamic o/p buffer can have one of following ref_count:
+	* ref_count : 0 - f/w has released reference and sent fbd back.
+	*		  The buffer has been returned back to client.
+	*
+	* ref_count : 1 - f/w is holding reference. f/w may have released
+	*                 fbd as read_only OR fbd is pending. f/w will
+	*		  release reference before sending flush_done.
+	*
+	* ref_count : 2 - f/w is holding reference, f/w has released fbd as
+	*                 read_only, which client has queued back to driver.
+	*                 driver holds this buffer and will queue back
+	*                 only when f/w releases the reference. During
+	*		  flush_done, f/w will release the reference but driver
+	*		  should not queue back the buffer to f/w.
+	*		  Flush all buffers with ref_count 2.
+	*/
+	mutex_lock(&inst->lock);
+	if (!list_empty(&inst->registered_bufs)) {
+		struct v4l2_event buf_event = {0};
+		u32 *ptr = NULL;
+		list = &inst->registered_bufs;
+		list_for_each_entry_safe(binfo, dummy, list, list) {
+			if (binfo &&
+			(binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+			(atomic_read(&binfo->ref_count) == 2)) {
+				atomic_dec(&binfo->ref_count);
+				buf_event.type =
+				V4L2_EVENT_MSM_VIDC_RELEASE_UNQUEUED_BUFFER;
+				ptr = (u32 *)buf_event.u.data;
+				ptr[0] = binfo->fd[0];
+				ptr[1] = binfo->buff_off[0];
+				ptr[2] = binfo->uvaddr[0];
+				ptr[3] = (u32) binfo->timestamp.tv_sec;
+				ptr[4] = (u32) binfo->timestamp.tv_usec;
+				ptr[5] = binfo->v4l2_index;
+				dprintk(VIDC_DBG,
+					"released buffer held in driver before issuing flush: 0x%x fd[0]: %d\n",
+					binfo->device_addr[0], binfo->fd[0]);
+				/*send event to client*/
+				v4l2_event_queue_fh(&inst->event_handler,
+					&buf_event);
+				wake_up(&inst->kernel_event_queue);
+			}
+		}
+	}
+	mutex_unlock(&inst->lock);
+}
+
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 {
 	int rc =  0;
@@ -2475,6 +2701,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
+
+		msm_comm_flush_dynamic_buffers(inst);
+
 		/*Do not send flush in case of session_error */
 		if (!(inst->state == MSM_VIDC_CORE_INVALID &&
 			  core->state != VIDC_CORE_INVALID))
