@@ -21,3 +21,16 @@
 	compatible = "qcom,msm8610-qrd", "qcom,msm8610", "qcom,qrd";
 	qcom,board-id = <0x2000b 3>;
 };
+
+&soc {
+	gpio-leds {
+		status = "ok";
+	};
+};
+
+&pm8110_gpios {
+	gpio@c000 { /* GPIO 1 */
+		reg = <0xc000 0x100>;
+		qcom,pin-num = <1>;
+	};
+};
