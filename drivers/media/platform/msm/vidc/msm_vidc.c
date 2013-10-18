@@ -199,12 +199,497 @@ int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 	return -EINVAL;
 }
 
+struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
+		struct v4l2_buffer *b, int idx, int *plane)
+{
+	struct buffer_info *temp;
+	struct buffer_info *ret = NULL;
+	int i;
+	struct list_head *list = &inst->registered_bufs;
+	int fd = b->m.planes[idx].reserved[0];
+	u32 buff_off = b->m.planes[idx].reserved[1];
+	u32 size = b->m.planes[idx].length;
+	u32 device_addr = b->m.planes[idx].m.userptr;
+
+	if (!list || fd < 0 || !plane) {
+		dprintk(VIDC_ERR, "Invalid input\n");
+		goto err_invalid_input;
+	}
+
+	*plane = 0;
+	mutex_lock(&inst->lock);
+	list_for_each_entry(temp, list, list) {
+		for (i = 0; (i < temp->num_planes)
+			&& (i < VIDEO_MAX_PLANES); i++) {
+			if (temp &&
+				((fd == temp->fd[i]) ||
+				(device_addr == temp->device_addr[i])) &&
+				(CONTAINS(temp->buff_off[i],
+				temp->size[i], buff_off)
+				|| CONTAINS(buff_off,
+				size, temp->buff_off[i])
+				|| OVERLAPS(buff_off, size,
+				temp->buff_off[i],
+				temp->size[i]))) {
+					dprintk(VIDC_DBG,
+						"This memory region is already mapped\n");
+					ret = temp;
+					*plane = i;
+					break;
+			}
+		}
+		if (ret)
+			break;
+	}
+	mutex_unlock(&inst->lock);
+err_invalid_input:
+	return ret;
+}
+
+struct buffer_info *get_same_fd_buffer(struct msm_vidc_inst *inst,
+			struct list_head *list, int fd, int *plane)
+{
+	struct buffer_info *temp;
+	struct buffer_info *ret = NULL;
+	int i;
+	if (fd == 0)
+		return NULL;
+	if (!list || fd < 0 || !plane) {
+		dprintk(VIDC_ERR, "Invalid input\n");
+		goto err_invalid_input;
+	}
+	*plane = 0;
+	mutex_lock(&inst->lock);
+	list_for_each_entry(temp, list, list) {
+		for (i = 0; (i < temp->num_planes)
+			&& (i < VIDEO_MAX_PLANES); i++) {
+			if (temp && temp->fd[i] == fd)  {
+				temp->same_fd_ref[i]++;
+				dprintk(VIDC_INFO,
+				"Found same fd buffer\n");
+				ret = temp;
+				*plane = i;
+				break;
+			}
+		}
+		if (ret)
+			break;
+	}
+	mutex_unlock(&inst->lock);
+err_invalid_input:
+	return ret;
+}
+
+struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
+				struct list_head *list, u32 device_addr)
+{
+	struct buffer_info *temp = NULL;
+	struct buffer_info *dummy = NULL;
+	int found = 0;
+	int i;
+	if (!list || !device_addr || !inst) {
+		dprintk(VIDC_ERR,
+			"Invalid input- list: %p device_addr: %u inst: %p\n",
+			list, device_addr, inst);
+		goto err_invalid_input;
+	}
+	mutex_lock(&inst->lock);
+	list_for_each_entry_safe(temp, dummy, list, list) {
+		for (i = 0; (i < temp->num_planes)
+			&& (i < VIDEO_MAX_PLANES); i++) {
+			if (temp && !temp->inactive &&
+				temp->device_addr[i] == device_addr)  {
+				dprintk(VIDC_INFO,
+				"Found same fd buffer\n");
+				found = 1;
+				break;
+			}
+		}
+		if (found)
+			break;
+	}
+	mutex_unlock(&inst->lock);
+err_invalid_input:
+	return temp;
+}
+
+static inline void populate_buf_info(struct buffer_info *binfo,
+			struct v4l2_buffer *b, u32 i)
+{
+	binfo->type = b->type;
+	binfo->fd[i] = b->m.planes[i].reserved[0];
+	binfo->buff_off[i] = b->m.planes[i].reserved[1];
+	binfo->size[i] = b->m.planes[i].length;
+	binfo->uvaddr[i] = b->m.planes[i].m.userptr;
+	binfo->num_planes = b->length;
+	binfo->memory = b->memory;
+	binfo->v4l2_index = b->index;
+	binfo->dequeued = false;
+	binfo->timestamp.tv_sec = b->timestamp.tv_sec;
+	binfo->timestamp.tv_usec = b->timestamp.tv_usec;
+	dprintk(VIDC_DBG, "%s: fd[%d] = %d b->index = %d",
+			__func__, i, binfo->fd[0], b->index);
+}
+
+static inline void repopulate_v4l2_buffer(struct v4l2_buffer *b,
+					struct buffer_info *binfo)
+{
+	int i = 0;
+	b->type = binfo->type;
+	b->length = binfo->num_planes;
+	b->memory = binfo->memory;
+	b->index = binfo->v4l2_index;
+	b->timestamp.tv_sec = binfo->timestamp.tv_sec;
+	b->timestamp.tv_usec = binfo->timestamp.tv_usec;
+	for (i = 0; i < binfo->num_planes; ++i) {
+		b->m.planes[i].reserved[0] = binfo->fd[i];
+		b->m.planes[i].reserved[1] = binfo->buff_off[i];
+		b->m.planes[i].length = binfo->size[i];
+		b->m.planes[i].m.userptr = binfo->device_addr[i];
+		dprintk(VIDC_DBG, "%s %d %d %d %u\n", __func__, binfo->fd[i],
+				binfo->buff_off[i], binfo->size[i],
+				binfo->device_addr[i]);
+	}
+}
+
+static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
+		struct v4l2_plane *p, enum hal_buffer buffer_type)
+{
+	struct msm_smem *handle = NULL;
+	handle = msm_smem_user_to_kernel(inst->mem_client,
+				p->reserved[0],
+				p->reserved[1],
+				buffer_type);
+	if (!handle) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to get device buffer address\n", __func__);
+		return NULL;
+	}
+	if (msm_smem_cache_operations(inst->mem_client, handle,
+			SMEM_CACHE_CLEAN))
+		dprintk(VIDC_WARN,
+			"CACHE Clean failed: %d, %d, %d\n",
+				p->reserved[0],
+				p->reserved[1],
+				p->length);
+	return handle;
+}
+
+static inline enum hal_buffer get_hal_buffer_type(
+		struct msm_vidc_inst *inst, struct v4l2_buffer *b)
+{
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			return HAL_BUFFER_INPUT;
+		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+			return HAL_BUFFER_OUTPUT;
+	} else {
+		/* FIXME in the future.  See comment in msm_comm_get_\
+		 * domain_partition. Same problem here. */
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			return HAL_BUFFER_OUTPUT;
+		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+			return HAL_BUFFER_INPUT;
+	}
+	return -EINVAL;
+}
+
+static inline bool is_dynamic_output_buffer_mode(struct v4l2_buffer *b,
+				struct msm_vidc_inst *inst)
+{
+	return ((b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+		(inst->buffer_mode_set[CAPTURE_PORT] ==
+		HAL_BUFFER_MODE_DYNAMIC));
+}
+
+
+static inline void save_v4l2_buffer(struct v4l2_buffer *b,
+						struct buffer_info *binfo)
+{
+	int i = 0;
+	for (i = 0; i < b->length; ++i) {
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].length) {
+			continue;
+		}
+		populate_buf_info(binfo, b, i);
+	}
+}
+
+int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
+{
+	struct buffer_info *binfo = NULL;
+	struct buffer_info *temp = NULL;
+	int plane = 0;
+	int i = 0, rc = 0;
+
+	if (!b || !inst) {
+		dprintk(VIDC_ERR, "%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+	if (!binfo) {
+		dprintk(VIDC_ERR, "Out of memory\n");
+		rc = -ENOMEM;
+		goto exit;
+	}
+	if (b->length > VIDEO_MAX_PLANES) {
+		dprintk(VIDC_ERR, "Num planes exceeds max: %d, %d\n",
+			b->length, VIDEO_MAX_PLANES);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	dprintk(VIDC_DBG, "[MAP] Create binfo = %p fd = %d type = %d\n",
+			binfo, b->m.planes[0].reserved[0], b->type);
+
+	for (i = 0; i < b->length; ++i) {
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].length) {
+			continue;
+		}
+		temp = get_registered_buf(inst, b, i, &plane);
+		if (temp && !is_dynamic_output_buffer_mode(b, inst)) {
+			dprintk(VIDC_DBG,
+				"This memory region has already been prepared\n");
+			rc = -EINVAL;
+			goto exit;
+		}
+
+		if (temp && is_dynamic_output_buffer_mode(b, inst) &&
+			(i == 0)) {
+			/*
+			* Buffer is already present in registered list
+			* increment ref_count, populate new values of v4l2
+			* buffer in existing buffer_info struct.
+			*
+			* We will use the saved buffer info and queue it when
+			* we receive RELEASE_BUFFER_REFERENCE EVENT from f/w.
+			*/
+			dprintk(VIDC_DBG, "[MAP] Buffer already prepared\n");
+			rc = buf_ref_get(inst, temp);
+			if (rc < 0)
+				return rc;
+			save_v4l2_buffer(b, temp);
+			rc = -EEXIST;
+			goto exit;
+		}
+
+		temp = get_same_fd_buffer(inst, &inst->registered_bufs,
+					b->m.planes[i].reserved[0], &plane);
+
+		populate_buf_info(binfo, b, i);
+		if (temp) {
+			binfo->device_addr[i] =
+			temp->handle[plane]->device_addr + binfo->buff_off[i];
+			b->m.planes[i].m.userptr = binfo->device_addr[i];
+			binfo->mapped[i] = false;
+		} else {
+			if (inst->map_output_buffer) {
+				binfo->handle[i] =
+					map_buffer(inst, &b->m.planes[i],
+						get_hal_buffer_type(inst, b));
+				if (!binfo->handle[i]) {
+					rc = -EINVAL;
+					goto exit;
+				}
+				dprintk(VIDC_DBG,
+					"[MAP] - mapped handle[%d] = %p fd[%d] = %d",
+					i, binfo->handle[i], i, binfo->fd[i]);
+				binfo->mapped[i] = true;
+				binfo->device_addr[i] =
+					binfo->handle[i]->device_addr +
+					binfo->buff_off[i];
+				b->m.planes[i].m.userptr =
+					binfo->device_addr[i];
+			} else {
+				binfo->device_addr[i] =
+					b->m.planes[i].m.userptr;
+			}
+			dprintk(VIDC_DBG, "Registering buffer: %d, %d, %d\n",
+					b->m.planes[i].reserved[0],
+					b->m.planes[i].reserved[1],
+					b->m.planes[i].length);
+		}
+		/* We maintain one ref count for all planes*/
+		if ((i == 0) && is_dynamic_output_buffer_mode(b, inst)) {
+			rc = buf_ref_get(inst, binfo);
+			if (rc < 0)
+				return rc;
+		}
+	}
+	dprintk(VIDC_DBG, "[MAP] Adding binfo = %p to list\n", binfo);
+	mutex_lock(&inst->lock);
+	list_add_tail(&binfo->list, &inst->registered_bufs);
+	mutex_unlock(&inst->lock);
+	return 0;
+exit:
+	kfree(binfo);
+	return rc;
+}
+int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo)
+{
+	int i = 0;
+	struct buffer_info *temp = NULL;
+	struct buffer_info *dummy = NULL;
+	struct list_head *list;
+	bool found = false, keep_node = false;
+
+	if (!inst || !binfo) {
+		dprintk(VIDC_ERR, "%s invalid param: %p %p\n",
+			__func__, inst, binfo);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->lock);
+	list = &inst->registered_bufs;
+	/*
+	* Make sure the buffer to be unmapped and deleted
+	* from the registered list is present in the list.
+	*/
+	list_for_each_entry_safe(temp, dummy, list, list) {
+		if (temp == binfo) {
+			found = true;
+			break;
+		}
+	}
+
+	/*
+	* Free the buffer info only if
+	* - buffer info has not been deleted from registered list
+	* - vidc client has called dqbuf on the buffer
+	* - no references are held on the buffer
+	*/
+	if (!found || !temp || !temp->pending_deletion || !temp->dequeued)
+		goto exit;
+
+	for (i = 0; i < temp->num_planes; i++) {
+		/*
+		* Unmap the handle only if the buffer has been mapped and no
+		* other buffer has a reference to this buffer.
+		* In case of buffers with same fd, we will map the buffer only
+		* once and subsequent buffers will refer to the mapped buffer's
+		* device address.
+		* For buffers which share the same fd, do not unmap and keep
+		* the buffer info in registered list.
+		*/
+		if (temp->handle[i] && temp->mapped[i] &&
+			!temp->same_fd_ref[i]) {
+			dprintk(VIDC_DBG,
+				"[UNMAP] - handle[%d] = %p fd[%d] = %d",
+				i, temp->handle[i], i, temp->fd[i]);
+			msm_smem_free(inst->mem_client,
+				temp->handle[i]);
+		}
+
+		if (temp->same_fd_ref[i])
+			keep_node = true;
+		else {
+			temp->fd[i] = 0;
+			temp->handle[i] = 0;
+			temp->device_addr[i] = 0;
+			temp->uvaddr[i] = 0;
+		}
+	}
+	if (!keep_node) {
+		dprintk(VIDC_DBG, "[UNMAP] AND-FREED binfo: %p\n", temp);
+		list_del(&temp->list);
+		kfree(temp);
+	} else {
+		temp->inactive = true;
+		dprintk(VIDC_DBG, "[UNMAP] NOT-FREED binfo: %p\n", temp);
+	}
+exit:
+	mutex_unlock(&inst->lock);
+	return 0;
+}
+
+
+int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo)
+{
+	struct v4l2_buffer b = {0};
+	struct v4l2_plane plane[VIDEO_MAX_PLANES] = { {0} };
+
+	if (!binfo) {
+		dprintk(VIDC_ERR, "%s invalid param: %p\n", __func__, binfo);
+		return -EINVAL;
+	}
+	dprintk(VIDC_DBG, "%s fd[0] = %d\n", __func__, binfo->fd[0]);
+
+	b.m.planes = plane;
+	repopulate_v4l2_buffer(&b, binfo);
+
+	if (inst->session_type == MSM_VIDC_DECODER)
+		return msm_vdec_qbuf(inst, &b);
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_qbuf(inst, &b);
+
+	return -EINVAL;
+}
+
+int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
+				struct buffer_info *binfo)
+{
+	int i = 0;
+	int rc = 0;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid inst: %p\n", __func__, inst);
+		return -EINVAL;
+	}
+
+	if (!inst->map_output_buffer)
+		return 0;
+
+	if (!binfo) {
+		dprintk(VIDC_ERR, "%s: invalid buffer info: %p\n",
+			__func__, inst);
+		return -EINVAL;
+	}
+
+	if (binfo->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		return 0;
+
+
+	for (i = 0; i < binfo->num_planes; i++) {
+		if (binfo->handle[i]) {
+			rc = msm_smem_cache_operations(inst->mem_client,
+				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s: Failed to clean caches: %d\n",
+					__func__, rc);
+				return -EINVAL;
+			}
+		}
+	}
+	return 0;
+}
+
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
 
 	if (!inst || !b)
 		return -EINVAL;
+
+	if (is_dynamic_output_buffer_mode(b, inst)) {
+		dprintk(VIDC_ERR, "%s: not supported in dynamic buffer mode\n",
+				__func__);
+		return -EINVAL;
+	}
+
+	/* Map the buffer only for non-kernel clients*/
+	if (b->m.planes[0].reserved[0]) {
+		inst->map_output_buffer = true;
+		if (map_and_register_buf(inst, b))
+			return -EINVAL;
+	}
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_prepare_buf(instance, b);
@@ -213,18 +698,58 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 	return -EINVAL;
 }
 
-int msm_vidc_release_buf(void *instance, struct v4l2_buffer *b)
+int msm_vidc_release_buffers(void *instance, int buffer_type)
 {
+	struct list_head *ptr, *next;
 	struct msm_vidc_inst *inst = instance;
+	struct buffer_info *bi;
+	struct v4l2_buffer buffer_info;
+	struct v4l2_plane plane[VIDEO_MAX_PLANES];
+	int i, rc = 0;
 
-	if (!inst || !b)
+	if (!inst)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_release_buf(instance, b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_release_buf(instance, b);
-	return -EINVAL;
+	list_for_each_safe(ptr, next, &inst->registered_bufs) {
+		bi = list_entry(ptr, struct buffer_info, list);
+		if (bi->type == buffer_type) {
+			buffer_info.type = bi->type;
+			for (i = 0; (i < bi->num_planes)
+				&& (i < VIDEO_MAX_PLANES); i++) {
+				plane[i].reserved[0] = bi->fd[i];
+				plane[i].reserved[1] = bi->buff_off[i];
+				plane[i].length = bi->size[i];
+				plane[i].m.userptr = bi->device_addr[i];
+				buffer_info.m.planes = plane;
+				dprintk(VIDC_DBG,
+					"Releasing buffer: %d, %d, %d\n",
+					buffer_info.m.planes[i].reserved[0],
+					buffer_info.m.planes[i].reserved[1],
+					buffer_info.m.planes[i].length);
+			}
+			buffer_info.length = bi->num_planes;
+			if (inst->session_type == MSM_VIDC_DECODER)
+				rc = msm_vdec_release_buf(instance,
+					&buffer_info);
+			if (inst->session_type == MSM_VIDC_ENCODER)
+				rc = msm_venc_release_buf(instance,
+					&buffer_info);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed Release buffer: %d, %d, %d\n",
+					buffer_info.m.planes[0].reserved[0],
+					buffer_info.m.planes[0].reserved[1],
+					buffer_info.m.planes[0].length);
+			list_del(&bi->list);
+			for (i = 0; i < bi->num_planes; i++) {
+				if (bi->handle[i])
+					msm_smem_free(inst->mem_client,
+							bi->handle[i]);
+			}
+			kfree(bi);
+		}
+	}
+	return rc;
 }
 
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc)
@@ -246,29 +771,149 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+	struct buffer_info *binfo;
+	int plane = 0;
+	int rc = 0;
+	int i;
 
 	if (!inst || !b)
 		return -EINVAL;
+
+	if (b->length > VIDEO_MAX_PLANES) {
+		dprintk(VIDC_ERR, "num planes exceeds max: %d\n",
+			b->length);
+		return -EINVAL;
+	}
+
+	if (is_dynamic_output_buffer_mode(b, inst)) {
+		if (b->m.planes[0].reserved[0])
+			inst->map_output_buffer = true;
+
+		rc = map_and_register_buf(inst, b);
+		if (rc == -EEXIST)
+			return 0;
+		if (rc)
+			return rc;
+	}
+
+	for (i = 0; i < b->length; ++i) {
+		if (!inst->map_output_buffer)
+			continue;
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].length) {
+			b->m.planes[i].m.userptr = 0;
+			continue;
+		}
+
+		binfo = get_registered_buf(inst, b, i, &plane);
+		if (!binfo) {
+			dprintk(VIDC_ERR,
+				"This buffer is not registered: %d, %d, %d\n",
+				b->m.planes[i].reserved[0],
+				b->m.planes[i].reserved[1],
+				b->m.planes[i].length);
+			goto err_invalid_buff;
+		}
+		b->m.planes[i].m.userptr = binfo->device_addr[i];
+		dprintk(VIDC_DBG, "Queueing device address = 0x%x\n",
+				binfo->device_addr[i]);
+
+		if ((inst->fmts[OUTPUT_PORT]->fourcc ==
+			V4L2_PIX_FMT_HEVC_HYBRID) &&  binfo->handle[i] &&
+			(b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+			rc = msm_smem_cache_operations(inst->mem_client,
+				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to inv caches: %d\n", rc);
+				goto err_invalid_buff;
+			}
+		}
+
+		if (binfo->handle[i] &&
+			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+			rc = msm_smem_cache_operations(inst->mem_client,
+					binfo->handle[i], SMEM_CACHE_CLEAN);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to clean caches: %d\n", rc);
+				goto err_invalid_buff;
+			}
+		}
+	}
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_qbuf(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
 		return msm_venc_qbuf(instance, b);
+
+err_invalid_buff:
 	return -EINVAL;
 }
 
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+	struct buffer_info *buffer_info = NULL;
+	int i = 0, rc = 0;
 
 	if (!inst || !b)
 		return -EINVAL;
 
+	if (b->length > VIDEO_MAX_PLANES) {
+		dprintk(VIDC_ERR, "num planes exceed maximum: %d\n",
+			b->length);
+		return -EINVAL;
+	}
+
 	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_dqbuf(instance, b);
+		rc = msm_vdec_dqbuf(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_dqbuf(instance, b);
-	return -EINVAL;
+		rc = msm_venc_dqbuf(instance, b);
+
+	if (rc)
+		return rc;
+
+	for (i = 0; i < b->length; i++) {
+		if (!inst->map_output_buffer)
+			continue;
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].m.userptr) {
+			continue;
+		}
+		buffer_info = device_to_uvaddr(inst,
+			&inst->registered_bufs,
+			b->m.planes[i].m.userptr);
+
+		if (!buffer_info) {
+			dprintk(VIDC_ERR,
+				"%s no buffer info registered for buffer addr: 0x%lx\n",
+				__func__, b->m.planes[i].m.userptr);
+			return -EINVAL;
+		}
+
+		b->m.planes[i].m.userptr = buffer_info->uvaddr[i];
+		if (!b->m.planes[i].m.userptr) {
+			dprintk(VIDC_ERR,
+			"%s: Failed to find user virtual address, 0x%lx, %d, %d\n",
+			__func__, b->m.planes[i].m.userptr, b->type, i);
+			return -EINVAL;
+		}
+	}
+
+	if (is_dynamic_output_buffer_mode(b, inst)) {
+		mutex_lock(&inst->lock);
+		buffer_info->dequeued = true;
+		mutex_unlock(&inst->lock);
+		dprintk(VIDC_DBG, "[DEQUEUED]: fd[0] = %d\n",
+			buffer_info->fd[0]);
+		rc = unmap_and_deregister_buf(inst, buffer_info);
+	} else
+		rc = output_buffer_cache_invalidate(inst, buffer_info);
+
+	return rc;
 }
 
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
@@ -450,9 +1095,11 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->internalbufs);
 	INIT_LIST_HEAD(&inst->persistbufs);
 	INIT_LIST_HEAD(&inst->ctrl_clusters);
+	INIT_LIST_HEAD(&inst->registered_bufs);
 	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
+	inst->map_output_buffer = false;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -572,11 +1219,26 @@ int msm_vidc_close(void *instance)
 	struct msm_vidc_inst *temp;
 	struct msm_vidc_core *core;
 	struct list_head *ptr, *next;
+	struct buffer_info *bi;
 	int rc = 0;
 	int i;
 
 	if (!inst)
 		return -EINVAL;
+
+	list_for_each_safe(ptr, next, &inst->registered_bufs) {
+		bi = list_entry(ptr, struct buffer_info, list);
+		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			list_del(&bi->list);
+			for (i = 0; (i < bi->num_planes)
+				&& (i < VIDEO_MAX_PLANES); i++) {
+				if (bi->handle[i])
+					msm_smem_free(inst->mem_client,
+							bi->handle[i]);
+			}
+			kfree(bi);
+		}
+	}
 
 	core = inst->core;
 	mutex_lock(&core->sync_lock);

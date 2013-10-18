@@ -14,7 +14,9 @@
 #ifndef _MSM_VIDC_INTERNAL_H_
 #define _MSM_VIDC_INTERNAL_H_
 
+#include <linux/atomic.h>
 #include <linux/list.h>
+#include <linux/time.h>
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/wait.h>
@@ -228,6 +230,9 @@ struct msm_vidc_inst {
 	struct buf_count count;
 	enum msm_vidc_modes flags;
 	struct msm_vidc_core_capability capability;
+	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
+	struct list_head registered_bufs;
+	bool map_output_buffer;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -257,4 +262,35 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 
+struct buffer_info {
+	struct list_head list;
+	int type;
+	int num_planes;
+	int fd[VIDEO_MAX_PLANES];
+	int buff_off[VIDEO_MAX_PLANES];
+	int size[VIDEO_MAX_PLANES];
+	u32 uvaddr[VIDEO_MAX_PLANES];
+	u32 device_addr[VIDEO_MAX_PLANES];
+	struct msm_smem *handle[VIDEO_MAX_PLANES];
+	enum v4l2_memory memory;
+	u32 v4l2_index;
+	bool pending_deletion;
+	atomic_t ref_count;
+	bool dequeued;
+	bool inactive;
+	bool mapped[VIDEO_MAX_PLANES];
+	int same_fd_ref[VIDEO_MAX_PLANES];
+	struct timeval timestamp;
+};
+
+struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
+			struct list_head *list, u32 device_addr);
+int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
+int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo);
+int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
+				struct buffer_info *binfo);
+int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo);
+int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
+			struct buffer_info *binfo);
 #endif
