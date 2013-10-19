@@ -282,6 +282,7 @@ struct mdss_mdp_ad {
 
 struct mdss_ad_info {
 	u8 num;
+	u8 calc_hw_num;
 	u32 sts;
 	u32 reg_sts;
 	u32 state;
