@@ -2133,21 +2133,21 @@ static int _disp_stats(int id)
 	int len = 0;
 
 	pstat = &_qcedev_stat;
-	len = snprintf(_debug_read_buf, DEBUG_MAX_RW_BUF - 1,
+	len = scnprintf(_debug_read_buf, DEBUG_MAX_RW_BUF - 1,
 			"\nQualcomm QCE dev driver %d Statistics:\n",
 				id + 1);
 
-	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   Encryption operation success       : %d\n",
 					pstat->qcedev_enc_success);
-	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   Encryption operation fail   : %d\n",
 					pstat->qcedev_enc_fail);
-	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   Decryption operation success     : %d\n",
 					pstat->qcedev_dec_success);
 
-	len += snprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
+	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
 			"   Encryption operation fail          : %d\n",
 					pstat->qcedev_dec_fail);
 
