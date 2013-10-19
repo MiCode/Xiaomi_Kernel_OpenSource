@@ -122,6 +122,10 @@
 	status = "ok";
 };
 
+&xhci_hsic_host {
+	status = "ok";
+};
+
 &mdm0 {
 	interrupt-map = <0 &msmgpio 111 0x3
 			1 &msmgpio 109 0x3

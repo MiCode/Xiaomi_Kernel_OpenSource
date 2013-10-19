@@ -1740,6 +1740,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<85 512 0 0>,
 			<85 512 40000 160000>;
+
+		status = "disabled";
 	};
 
 	qcom,ocmem@fdd00000 {
