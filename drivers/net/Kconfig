@@ -307,6 +307,15 @@ source "drivers/net/wan/Kconfig"
 
 source "drivers/net/ieee802154/Kconfig"
 
+config DANIPC
+	tristate "DAN IPC network device"
+	depends on PACKET
+	help
+		Linux implementation of DANIPC (Inter Processor Communication)
+		driver. DANIPC is a hardware block providing the means to
+		enable an efficient and reliable communication between
+		the different processors in the SoC.
+
 config XEN_NETDEV_FRONTEND
 	tristate "Xen network device frontend driver"
 	depends on XEN
