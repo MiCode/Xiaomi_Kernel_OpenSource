@@ -203,6 +203,8 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define PP_STS_PA_SIX_ZONE_VAL_MASK	0x800
 #define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
 
+#define PP_AD_BAD_HW_NUM 255
+
 #define PP_AD_STATE_INIT	0x2
 #define PP_AD_STATE_CFG		0x4
 #define PP_AD_STATE_DATA	0x8
@@ -374,6 +376,8 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw,
 static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 						struct mdss_ad_info *ad);
 static void pp_ad_bypass_config(struct mdss_ad_info *ad, u32 *opmode);
+static int pp_ad_setup_hw_nums(struct msm_fb_data_type *mfd,
+						struct mdss_ad_info *ad);
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd);
 static void pp_ad_cfg_lut(char __iomem *addr, u32 *data);
 
@@ -3709,6 +3713,21 @@ static void pp_ad_bypass_config(struct mdss_ad_info *ad, u32 *opmode)
 		*opmode = MDSS_PP_AD_BYPASS_DEF;
 }
 
+static int pp_ad_setup_hw_nums(struct msm_fb_data_type *mfd,
+						struct mdss_ad_info *ad)
+{
+	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
+	u32 mixer_num;
+
+	mixer_num = mdss_mdp_get_ctl_mixers(mfd->index, mixer_id);
+	if (!mixer_num)
+		return -EINVAL;
+
+	/* default to left mixer */
+	ad->calc_hw_num = mixer_id[0];
+	return 0;
+}
+
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
@@ -3786,8 +3805,13 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	}
 	if (ad->sts & PP_AD_STS_DIRTY_INIT) {
 		ad->sts &= ~PP_AD_STS_DIRTY_INIT;
-		ad->state |= PP_AD_STATE_INIT;
-		ad->reg_sts |= PP_AD_STS_DIRTY_INIT;
+		if (pp_ad_setup_hw_nums(mfd, ad)) {
+			pr_warn("failed to setup ad master");
+			ad->calc_hw_num = PP_AD_BAD_HW_NUM;
+		} else {
+			ad->state |= PP_AD_STATE_INIT;
+			ad->reg_sts |= PP_AD_STS_DIRTY_INIT;
+		}
 	}
 
 	/* update ad screen size if it has changed since last configuration */
@@ -3829,6 +3853,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			ad->ad_data_mode = 0;
 			ad->last_bl = 0;
 			ad->calc_itr = 0;
+			ad->calc_hw_num = PP_AD_BAD_HW_NUM;
 			memset(&ad->bl_lin, 0, sizeof(uint32_t) *
 								AD_BL_LIN_LEN);
 			memset(&ad->bl_lin_inv, 0, sizeof(uint32_t) *
@@ -3894,7 +3919,13 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	ctl = mfd_to_ctl(ad->mfd);
 	mdata = mfd_to_mdata(ad->mfd);
 
-	base = mdata->ad_off[ad->num].base;
+	if (!mdata || ad->calc_hw_num > mdata->nad_cfgs) {
+		mutex_unlock(&ad->lock);
+		return;
+	}
+
+
+	base = mdata->ad_off[ad->calc_hw_num].base;
 
 	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
 		mutex_unlock(&ad->lock);
