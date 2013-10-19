@@ -435,10 +435,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 
 	data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size, &idx);
 	if (size < fbytes) {
-		pr_err("%s: size mismatch error size %d fbytes %d\n",
-		__func__ , size , fbytes);
-		ret = -EFAULT;
-		goto fail;
+		fbytes = size;
 	}
 	bufptr = data;
 	if (bufptr) {
