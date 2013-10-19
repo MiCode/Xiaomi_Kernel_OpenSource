@@ -144,7 +144,9 @@ static int ipa_generate_hw_rule_from_eq(
 		*buf = ipa_pad_to_32(*buf);
 	}
 
-	/* no frag equation supported */
+	if (attrib->ipv4_frag_eq_present)
+		*buf = ipa_pad_to_32(*buf);
+
 	return 0;
 }
 

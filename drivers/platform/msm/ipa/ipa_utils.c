@@ -1046,10 +1046,9 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
-			IPAERR("Frg eq unsupported at eq level\n");
-			return -EPERM;
+			*en_rule |= IPA_IPV4_IS_FRAG;
+			eq_atrb->ipv4_frag_eq_present = 1;
 		}
-
 	} else if (ip == IPA_IP_v6) {
 
 		/* v6 code below assumes no extension headers TODO: fix this */

@@ -395,11 +395,13 @@ struct ipa_ipfltri_rule_eq {
 	/*! The ip header length offset 128 bit equation */
 	struct ipa_ipfltr_mask_eq_128
 		offset_meq_128[IPA_IPFLTR_NUM_MEQ_128_EQNS];
-	/*! The metadata 32 bit masked comparison equation */
-	struct ipa_ipfltr_mask_eq_32 metadata_meq32;
 	/*! The metadata 32 bit masked comparison equation present or not */
 	/* Metadata based rules are added internally by IPA driver */
 	uint8_t metadata_meq32_present;
+	/*! The metadata 32 bit masked comparison equation */
+	struct ipa_ipfltr_mask_eq_32 metadata_meq32;
+	/*! Specifies if the IPv4 Fragment equation is present in this rule */
+	uint8_t ipv4_frag_eq_present;
 };
 
 /**
@@ -734,6 +736,7 @@ struct ipa_ioc_query_intf_tx_props {
  * @action: action field
  * @rt_tbl_idx: index of RT table referred to by filter rule
  * @mux_id: MUX_ID
+ * @filter_hdl: handle of filter (as specified by provider of filter rule)
  */
 struct ipa_ioc_ext_intf_prop {
 	enum ipa_ip_type ip;
@@ -741,6 +744,7 @@ struct ipa_ioc_ext_intf_prop {
 	enum ipa_flt_action action;
 	uint32_t rt_tbl_idx;
 	uint8_t mux_id;
+	uint32_t filter_hdl;
 };
 
 /**
