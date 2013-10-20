@@ -260,6 +260,49 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting auxpcm_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting auxpcm_sus_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+/* Primary AUXPCM port sharing GPIO lines with Primary MI2S */
+static struct msm_gpiomux_config samarium_pri_pri_auxpcm_cfg[] __initdata = {
+	{
+		.gpio = 65,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 66,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 67,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 68,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+};
 static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 	{
 		.gpio      = 14,	       /* TOUCH INT GPIO */
@@ -316,6 +359,8 @@ void __init msmsamarium_init_gpiomux(void)
 #endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
+	msm_gpiomux_install(samarium_pri_pri_auxpcm_cfg,
+			ARRAY_SIZE(samarium_pri_pri_auxpcm_cfg));
 	msm_gpiomux_install(msm_touch_configs, ARRAY_SIZE(msm_touch_configs));
 	msm_gpiomux_install(sd_card_det, ARRAY_SIZE(sd_card_det));
 	msm_gpiomux_install(wcnss_5wire_interface,
