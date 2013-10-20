@@ -256,6 +256,8 @@ struct smb135x_chg {
 	bool				batt_warm;
 	bool				batt_cool;
 
+	struct completion		resumed;
+	bool				resume_completed;
 	bool				usb_suspended;
 	bool				dc_suspended;
 
@@ -1447,6 +1449,12 @@ static irqreturn_t smb135x_chg_stat_handler(int irq, void *dev_id)
 	int rc;
 	int handler_count = 0;
 
+	init_completion(&chip->resumed);
+	if (!chip->resume_completed) {
+		dev_dbg(chip->dev, "IRQ triggered before device-resume\n");
+		wait_for_completion_interruptible(&chip->resumed);
+	}
+
 	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
 		rc = smb135x_read(chip, handlers[i].stat_reg,
 						&handlers[i].val);
@@ -2266,6 +2274,9 @@ static int smb135x_charger_probe(struct i2c_client *client,
 		}
 	}
 
+	chip->resume_completed = true;
+	init_completion(&chip->resumed);
+
 	/* STAT irq configuration */
 	if (client->irq) {
 		rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
@@ -2442,6 +2453,16 @@ static int smb135x_suspend(struct device *dev)
 	return 0;
 }
 
+static int smb135x_resume_noirq(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb135x_chg *chip = i2c_get_clientdata(client);
+
+	chip->resume_completed = false;
+
+	return 0;
+}
+
 static int smb135x_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -2457,10 +2478,14 @@ static int smb135x_resume(struct device *dev)
 				"Couldn't restore irq cfg regs rc=%d\n", rc);
 	}
 
+	chip->resume_completed = true;
+	complete(&chip->resumed);
+
 	return 0;
 }
 
 static const struct dev_pm_ops smb135x_pm_ops = {
+	.resume_noirq	= smb135x_resume_noirq,
 	.resume		= smb135x_resume,
 	.suspend	= smb135x_suspend,
 };
