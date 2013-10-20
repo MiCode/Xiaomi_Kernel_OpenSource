@@ -344,6 +344,7 @@
 		qcom,recharge-thresh-mv = <200>;
 		qcom,iterm-ma = <100>;
 		regulator-name = "smb1359_otg_supply";
+		qcom,soft-vfloat-comp-disabled;
 	};
 };
 
