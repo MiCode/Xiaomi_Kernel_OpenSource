@@ -59,12 +59,13 @@
  */
 #define VIDEO_NUM_OF_PES_PACKETS			500
 
-#define VIDEO_META_DATA_BUFFER_SIZE              \
-	(VIDEO_NUM_OF_PES_PACKETS *                  \
-	  (DVB_RINGBUFFER_PKTHDRSIZE +               \
-	   sizeof(struct mpq_streambuffer_packet_header) + \
-	   sizeof(struct mpq_adapter_video_meta_data)))
+#define VIDEO_META_DATA_PACKET_SIZE	\
+	(DVB_RINGBUFFER_PKTHDRSIZE +	\
+		sizeof(struct mpq_streambuffer_packet_header) + \
+		sizeof(struct mpq_adapter_video_meta_data))
 
+#define VIDEO_META_DATA_BUFFER_SIZE	\
+	(VIDEO_NUM_OF_PES_PACKETS * VIDEO_META_DATA_PACKET_SIZE)
 
 /* Number of demux devices, has default of linux configuration */
 static int mpq_demux_device_num = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
@@ -1798,7 +1799,12 @@ static inline int mpq_dmx_check_decoder_fullness(
 	struct mpq_streambuffer *sbuff,
 	size_t required_space)
 {
-	u32 free = mpq_streambuffer_data_free(sbuff);
+	ssize_t free = mpq_streambuffer_data_free(sbuff);
+	ssize_t free_meta = mpq_streambuffer_metadata_free(sbuff);
+
+	/* Verify meta-data buffer can contain at least 1 packet */
+	if (free_meta < VIDEO_META_DATA_PACKET_SIZE)
+		return 0;
 
 	/*
 	 * For linear buffers, verify there's enough space for this TSP
