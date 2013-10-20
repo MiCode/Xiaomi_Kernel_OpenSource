@@ -803,8 +803,11 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	int rc;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
-	if (mdp5_data->ctl->power_on)
+	if (mdp5_data->ctl->power_on) {
+		if (!mdp5_data->mdata->batfet)
+			mdss_mdp_batfet_ctrl(mdp5_data->mdata, true);
 		return 0;
+	}
 
 	pr_debug("starting fb%d overlay\n", mfd->index);
 
