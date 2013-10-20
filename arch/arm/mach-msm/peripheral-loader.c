@@ -466,10 +466,16 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 
 static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
 {
+	int ret = 0;
 	struct pil_seg *seg_a = list_entry(a, struct pil_seg, list);
 	struct pil_seg *seg_b = list_entry(b, struct pil_seg, list);
 
-	return seg_a->paddr - seg_b->paddr;
+	if (seg_a->paddr < seg_b->paddr)
+		ret = -1;
+	else if (seg_a->paddr > seg_b->paddr)
+		ret = 1;
+
+	return ret;
 }
 
 static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
