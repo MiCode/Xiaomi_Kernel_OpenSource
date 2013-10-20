@@ -40,7 +40,12 @@ Optional Properties:
 				Possible values in mA - 50, 100, 150, 200, 250, 300, 500, 600.
 - qcom,iterm-disabled		Disables the termination current feature. This is a bool
 				property.
-- regulator-name		A string used as a descriptive name for OTG regulator.
+- qcom,soft-vfloat-comp-disabled	Set this property when the battery is powered via external
+					source and could go above the float voltage.  smb135x chips
+					go in to unintentional reverse boost in such a situation and
+					the float voltage compensation needs to be disabled to avoid
+					that reverse boost.
+- regulator-name			A string used as a descriptive name for OTG regulator.
 
 Example:
 	i2c@f9967000 {
