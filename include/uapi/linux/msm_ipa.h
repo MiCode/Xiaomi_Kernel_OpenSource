@@ -54,7 +54,8 @@
 #define IPA_IOCTL_RM_DEL_DEPENDENCY 30
 #define IPA_IOCTL_GENERATE_FLT_EQ 31
 #define IPA_IOCTL_QUERY_INTF_EXT_PROPS 32
-#define IPA_IOCTL_MAX            33
+#define IPA_IOCTL_QUERY_EP_MAPPING 33
+#define IPA_IOCTL_MAX            34
 
 /**
  * max size of the header to be inserted
@@ -1010,6 +1011,9 @@ struct ipa_ioc_generate_flt_eq {
 #define IPA_IOC_GENERATE_FLT_EQ _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GENERATE_FLT_EQ, \
 				struct ipa_ioc_generate_flt_eq *)
+#define IPA_IOC_QUERY_EP_MAPPING _IOR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_QUERY_EP_MAPPING, \
+				uint32_t)
 
 /*
  * unique magic number of the Tethering bridge ioctls
