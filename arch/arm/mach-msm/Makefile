@@ -117,7 +117,8 @@ obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 obj-$(CONFIG_CPU_IDLE) += cpuidle.o
 
 obj-$(CONFIG_ARCH_FSM9900) += board-fsm9900.o board-fsm9900-gpiomux.o
-
+obj-$(CONFIG_ARCH_FSM9900) += clock-local2.o clock-pll.o clock-fsm9900.o clock-rpm.o clock-voter.o
+obj-$(CONFIG_ARCH_FSM9900) += clock-krait-8974.o
 obj-$(CONFIG_MSM_WATCHDOG_V2) += msm_watchdog_v2.o
 obj-$(CONFIG_MSM_MEMORY_DUMP) += msm_memory_dump.o
 obj-$(CONFIG_PM8921_BMS) += bms-batterydata.o bms-batterydata-desay.o batterydata-lib.o

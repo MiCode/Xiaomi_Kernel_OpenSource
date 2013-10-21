@@ -48,68 +48,6 @@ static void __init fsm9900_early_memory(void)
 {
 }
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP2_UART_CLK, "f9960000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP2_UART_CLK, "f9960000.serial", OFF),
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("core_clk",   BLSP2_I2C_CLK,  "f9966000.i2c",    OFF),
-	CLK_DUMMY("iface_clk",  BLSP2_I2C_CLK,  "f9966000.i2c",    OFF),
-	CLK_DUMMY("core_clk",   BLSP1_I2C_CLK,  "f9924000.i2c",    OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_I2C_CLK,  "f9924000.i2c",    OFF),
-	CLK_DUMMY("core_clk",   NULL,           "f9a55000.usb",    OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "f9a55000.usb",    OFF),
-	CLK_DUMMY("phy_clk",    NULL,           "f9a55000.usb",    OFF),
-	CLK_DUMMY("xo",         NULL,           "f9a55000.usb",    OFF),
-	CLK_DUMMY("core_clk",   NULL,           "msm_ehci_host",   OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "msm_ehci_host",   OFF),
-	CLK_DUMMY("sleep_clk",  NULL,           "msm_ehci_host",   OFF),
-	CLK_DUMMY("xo",         NULL,           "msm_ehci_host",   OFF),
-	CLK_DUMMY("core_clk",   NULL,           "f9824900.sdhci_msm", OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "f9824900.sdhci_msm", OFF),
-	CLK_DUMMY("core_clk",   NULL,           "f98a4900.sdhci_msm", OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "f98a4900.sdhci_msm", OFF),
-	CLK_DUMMY("core_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
-	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
-	CLK_DUMMY("core_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
-	CLK_DUMMY("iface_clk",	SDC2_P_CLK,	"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-
-	CLK_DUMMY("core_clk",     NULL,         "fd440000.qcom,qcrypto", OFF),
-	CLK_DUMMY("iface_clk",    NULL,         "fd440000.qcom,qcrypto", OFF),
-	CLK_DUMMY("bus_clk",      NULL,         "fd440000.qcom,qcrypto", OFF),
-	CLK_DUMMY("core_clk_src", NULL,         "fd440000.qcom,qcrypto", OFF),
-
-	CLK_DUMMY("core_clk",     NULL,         "fe040000.qcom,qcrypto", OFF),
-	CLK_DUMMY("iface_clk",    NULL,         "fe040000.qcom,qcrypto", OFF),
-	CLK_DUMMY("bus_clk",      NULL,         "fe040000.qcom,qcrypto", OFF),
-	CLK_DUMMY("core_clk_src", NULL,         "fe040000.qcom,qcrypto", OFF),
-
-	CLK_DUMMY("core_clk",     NULL,         "fe000000.qcom,qcrypto", OFF),
-	CLK_DUMMY("iface_clk",    NULL,         "fe000000.qcom,qcrypto", OFF),
-	CLK_DUMMY("bus_clk",      NULL,         "fe000000.qcom,qcrypto", OFF),
-	CLK_DUMMY("core_clk_src", NULL,         "fe000000.qcom,qcrypto", OFF),
-
-	CLK_DUMMY("core_clk",     NULL,         "fe140000.qcom,qcota", OFF),
-	CLK_DUMMY("iface_clk",    NULL,         "fe140000.qcom,qcota", OFF),
-	CLK_DUMMY("bus_clk",      NULL,         "fe140000.qcom,qcota", OFF),
-	CLK_DUMMY("core_clk_src", NULL,         "fe140000.qcom,qcota", OFF),
-
-	CLK_DUMMY("core_clk",     NULL,         "fe0c0000.qcom,qcota", OFF),
-	CLK_DUMMY("iface_clk",    NULL,         "fe0c0000.qcom,qcota", OFF),
-	CLK_DUMMY("bus_clk",      NULL,         "fe0c0000.qcom,qcota", OFF),
-	CLK_DUMMY("core_clk_src", NULL,         "fe0c0000.qcom,qcota", OFF),
-
-	CLK_DUMMY("dma_bam_pclk", NULL,         "msm_sps",             OFF),
-	CLK_DUMMY("dfab_clk",     NULL,         "msm_sps",             OFF),
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -119,7 +57,10 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 void __init fsm9900_add_drivers(void)
 {
 	msm_smd_init();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	if (of_board_is_rumi())
+		msm_clock_init(&fsm9900_dummy_clock_init_data);
+	else
+		msm_clock_init(&fsm9900_clock_init_data);
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
 }
