@@ -188,7 +188,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Intra Period for B frames",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 2,
+		.maximum = 3,
 		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
@@ -1379,7 +1379,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		 * Ideally we adjust _NUM_B_FRAMES as well but we'll leave it
 		 * alone for now */
 		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD) {
-			num_p = ctrl->val - 1 - num_b;
+			num_p = ctrl->val;
 			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES;
 			update_ctrl.val = num_p;
 		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES) {
