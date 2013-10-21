@@ -10,6 +10,10 @@ Required properties:
 - qcom,flash-type : Should contain type flash device
     - 1 for LED flash
     - 2 for strobe flash
+    - 3 for simple led flash controlled by one gpio
+      This is a low cost led used for camera flash, the led is driven by
+      system power, and use a transistor controlled by external pin to
+      gate its on/off state.
 - qcom,flash-source : Should contain array of phandles to flash source nodes.
     - pm8941_flash0 pm8941_flash1
 
