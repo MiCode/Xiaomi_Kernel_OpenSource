@@ -423,7 +423,6 @@ enum mdss_screen_state {
 	MDSS_SCREEN_FORCE_BLANK,
 };
 
-#define is_vig_pipe(_pipe_id_) ((_pipe_id_) <= MDSS_MDP_SSPP_VIG2)
 static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
 				      u32 reg, u32 val)
 {
@@ -433,6 +432,17 @@ static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
 static inline u32 mdss_mdp_ctl_read(struct mdss_mdp_ctl *ctl, u32 reg)
 {
 	return readl_relaxed(ctl->base + reg);
+}
+
+static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
+	u32 reg, u32 val)
+{
+	writel_relaxed(val, mixer->base + reg);
+}
+
+static inline u32 mdp_mixer_read(struct mdss_mdp_mixer *mixer, u32 reg)
+{
+	return readl_relaxed(mixer->base + reg);
 }
 
 static inline void mdss_mdp_pingpong_write(struct mdss_mdp_mixer *mixer,
