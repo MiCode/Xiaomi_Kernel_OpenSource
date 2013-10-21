@@ -1076,7 +1076,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	}
 
 	dev = kzalloc(sizeof(struct msm_slim_ctrl), GFP_KERNEL);
-	if (IS_ERR(dev)) {
+	if (IS_ERR_OR_NULL(dev)) {
 		dev_err(&pdev->dev, "no memory for MSM slimbus controller\n");
 		return PTR_ERR(dev);
 	}
