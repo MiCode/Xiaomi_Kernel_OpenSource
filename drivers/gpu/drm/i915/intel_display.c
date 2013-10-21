@@ -2499,6 +2499,11 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 
 	crtc = obj_to_crtc(obj);
 	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+	if (!crtc->enabled) {
+		DRM_ERROR("[CRTC:%d] not active\n", crtc->base.id);
+		return -EINVAL;
+	}
+
 	intel_crtc = to_intel_crtc(crtc);
 	pipe = intel_crtc->pipe;
 
