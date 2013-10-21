@@ -58,8 +58,7 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 	start = buf;
 	rule_hdr = (struct ipa_rt_rule_hw_hdr *)buf;
-	pipe_idx = ipa_get_ep_mapping(ipa_ctx->mode,
-			entry->rule.dst);
+	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
 		WARN_ON(1);

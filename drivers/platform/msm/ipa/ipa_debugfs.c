@@ -23,28 +23,43 @@
 
 const char *ipa_client_name[] = {
 	__stringify(IPA_CLIENT_HSIC1_PROD),
+	__stringify(IPA_CLIENT_WLAN1_PROD),
 	__stringify(IPA_CLIENT_HSIC2_PROD),
+	__stringify(IPA_CLIENT_USB2_PROD),
 	__stringify(IPA_CLIENT_HSIC3_PROD),
+	__stringify(IPA_CLIENT_USB3_PROD),
 	__stringify(IPA_CLIENT_HSIC4_PROD),
+	__stringify(IPA_CLIENT_USB4_PROD),
 	__stringify(IPA_CLIENT_HSIC5_PROD),
 	__stringify(IPA_CLIENT_USB_PROD),
 	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
 	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
 	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
-	__stringify(IPA_CLIENT_A5_LAN_WAN_PROD),
-	__stringify(IPA_CLIENT_A5_CMD_PROD),
+	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_APPS_CMD_PROD),
 	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_Q6_CMD_PROD),
+
 	__stringify(IPA_CLIENT_HSIC1_CONS),
+	__stringify(IPA_CLIENT_WLAN1_CONS),
 	__stringify(IPA_CLIENT_HSIC2_CONS),
+	__stringify(IPA_CLIENT_USB2_CONS),
+	__stringify(IPA_CLIENT_WLAN2_CONS),
 	__stringify(IPA_CLIENT_HSIC3_CONS),
+	__stringify(IPA_CLIENT_USB3_CONS),
+	__stringify(IPA_CLIENT_WLAN3_CONS),
 	__stringify(IPA_CLIENT_HSIC4_CONS),
+	__stringify(IPA_CLIENT_USB4_CONS),
+	__stringify(IPA_CLIENT_WLAN4_CONS),
 	__stringify(IPA_CLIENT_HSIC5_CONS),
 	__stringify(IPA_CLIENT_USB_CONS),
 	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
 	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
 	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_LAN_CONS),
+	__stringify(IPA_CLIENT_APPS_WAN_CONS),
 	__stringify(IPA_CLIENT_Q6_LAN_CONS),
-	__stringify(IPA_CLIENT_MAX),
+	__stringify(IPA_CLIENT_Q6_WAN_CONS),
 };
 
 const char *ipa_ic_name[] = {
@@ -617,11 +632,10 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 					entry->tbl->idx, entry->tbl->name,
 					entry->tbl->ref_cnt, i, entry->rule.dst,
 					ipa_client_name[entry->rule.dst],
-					ipa_get_ep_mapping(ipa_ctx->mode,
-						entry->rule.dst),
-					   !ipa_ctx->hdr_tbl_lcl,
-					   hdr_ofst >> 2,
-					   entry->rule.attrib.attrib_mask);
+					ipa_get_ep_mapping(entry->rule.dst),
+					!ipa_ctx->hdr_tbl_lcl,
+					hdr_ofst >> 2,
+					entry->rule.attrib.attrib_mask);
 			cnt += nbytes;
 			cnt += ipa_attrib_dump(dbg_buff + cnt,
 					   IPA_MAX_MSG_LEN - cnt,
@@ -679,7 +693,7 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 				rt_tbl_idx = ~0;
 			else
 				rt_tbl_idx = rt_tbl->idx;
-			k = ipa_get_client_mapping(ipa_ctx->mode, j);
+			k = ipa_get_client_mapping(j);
 			nbytes = scnprintf(dbg_buff + cnt,
 					IPA_MAX_MSG_LEN - cnt,
 					"ep_idx:%d name:%s rule_idx:%d act:%d rt_tbl_idx:%d "

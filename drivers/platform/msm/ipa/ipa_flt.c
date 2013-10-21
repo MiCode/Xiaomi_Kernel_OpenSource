@@ -1034,7 +1034,7 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 
 		return -EINVAL;
 	}
-	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, ep);
+	ipa_ep_idx = ipa_get_ep_mapping(ep);
 	if (ipa_ep_idx == IPA_FLT_TABLE_INDEX_NOT_FOUND) {
 		IPAERR("ep not valid ep=%d\n", ep);
 		return -EINVAL;

@@ -559,7 +559,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 
 	IPADBG("sending command\n");
 
-	ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, IPA_CLIENT_A5_CMD_PROD);
+	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
 	sys = ipa_ctx->ep[ep_idx].sys;
 
 	ipa_inc_client_enable_clks();
@@ -872,7 +872,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
-	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, sys_in->client);
+	ipa_ep_idx = ipa_get_ep_mapping(sys_in->client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("Invalid client.\n");
 		goto fail_gen;
@@ -1120,11 +1120,10 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 *
 	 */
 	if (IPA_CLIENT_IS_CONS(dst)) {
-		src_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode,
-				IPA_CLIENT_A5_LAN_WAN_PROD);
-		dst_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, dst);
+		src_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+		dst_ep_idx = ipa_get_ep_mapping(dst);
 	} else {
-		src_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, dst);
+		src_ep_idx = ipa_get_ep_mapping(dst);
 		if (meta && meta->pkt_init_dst_ep_valid)
 			dst_ep_idx = meta->pkt_init_dst_ep;
 		else
@@ -1641,7 +1640,7 @@ static void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		struct ipa_sys_context *sys)
 {
-	if (in->client == IPA_CLIENT_A5_CMD_PROD) {
+	if (in->client == IPA_CLIENT_APPS_CMD_PROD) {
 		sys->policy = IPA_POLICY_INTR_MODE;
 		sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
 		sys->sps_callback = ipa_sps_irq_tx_no_aggr_notify;
@@ -1649,7 +1648,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 	}
 
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		if (in->client == IPA_CLIENT_A5_LAN_WAN_PROD) {
+		if (in->client == IPA_CLIENT_APPS_LAN_WAN_PROD) {
 			sys->policy = IPA_POLICY_INTR_POLL_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
 					SPS_O_ACK_TRANSFERS);
@@ -1658,7 +1657,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
 				switch_to_intr_tx_work_func);
 			atomic_set(&sys->curr_polling_state, 0);
-		} else if (in->client == IPA_CLIENT_A5_LAN_WAN_CONS) {
+		} else if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 			sys->policy = IPA_POLICY_INTR_POLL_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
 					SPS_O_ACK_TRANSFERS | SPS_O_NO_DISABLE);
@@ -1690,13 +1689,12 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			sys->sps_option = SPS_O_AUTO_ENABLE;
 			sys->sps_callback = NULL;
 			in->ipa_ep_cfg.status.status_ep =
-				ipa_get_ep_mapping(ipa_ctx->mode,
-						IPA_CLIENT_A5_LAN_WAN_CONS);
+				ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
 		} else {
 			sys->policy = IPA_POLICY_INTR_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
 			sys->sps_callback = ipa_sps_irq_rx_no_aggr_notify;
-			if (in->client == IPA_CLIENT_A5_LAN_WAN_CONS) {
+			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 				INIT_DELAYED_WORK(&sys->replenish_rx_work,
 						replenish_rx_work_func);
 				sys->rx_buff_sz = IPA_LAN_RX_BUFF_SZ;

@@ -664,7 +664,7 @@ int ipa_setup_dflt_rt_tables(void)
 
 	rt_rule_entry = &rt_rule->rules[0];
 	rt_rule_entry->at_rear = 1;
-	rt_rule_entry->rule.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
+	rt_rule_entry->rule.dst = IPA_CLIENT_APPS_LAN_CONS;
 	rt_rule_entry->rule.hdr_hdl = ipa_ctx->excp_hdr_hdl;
 
 	if (ipa_add_rt_rule(rt_rule)) {
@@ -742,10 +742,9 @@ static int ipa_setup_exception_path(void)
 	ipa_ctx->excp_hdr_hdl = hdr_entry->hdr_hdl;
 
 	/* set the route register to pass exception packets to Apps */
-	route.route_def_pipe = ipa_get_ep_mapping(ipa_ctx->mode,
-			IPA_CLIENT_A5_LAN_WAN_CONS);
-	route.route_frag_def_pipe = ipa_get_ep_mapping(ipa_ctx->mode,
-			IPA_CLIENT_A5_LAN_WAN_CONS);
+	route.route_def_pipe = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	route.route_frag_def_pipe = ipa_get_ep_mapping(
+		IPA_CLIENT_APPS_LAN_CONS);
 	route.route_def_hdr_table = !ipa_ctx->hdr_tbl_lcl;
 
 	if (ipa_cfg_route(&route)) {
@@ -1030,10 +1029,10 @@ static int ipa_setup_apps_pipes(void)
 
 	/* CMD OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_A5_CMD_PROD;
+	sys_in.client = IPA_CLIENT_APPS_CMD_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
-	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
+	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_APPS_LAN_CONS;
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_cmd)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
@@ -1064,9 +1063,9 @@ static int ipa_setup_apps_pipes(void)
 	}
 	IPADBG("default routing was set\n");
 
-	/* LAN-WAN IN (IPA->A5) */
+	/* LAN IN (IPA->A5) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_A5_LAN_WAN_CONS;
+	sys_in.client = IPA_CLIENT_APPS_LAN_CONS;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
@@ -1092,10 +1091,9 @@ static int ipa_setup_apps_pipes(void)
 
 	/* LAN-WAN OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_A5_LAN_WAN_PROD;
+	sys_in.client = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
-	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
@@ -1747,9 +1745,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		result = -ENODEV;
 		goto fail_flt_rule_cache;
 	}
-
-	/* set up the default op mode */
-	ipa_ctx->mode = IPA_MODE_MOBILE_AP_WAN;
 
 	/* init the lookaside cache */
 	ipa_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",

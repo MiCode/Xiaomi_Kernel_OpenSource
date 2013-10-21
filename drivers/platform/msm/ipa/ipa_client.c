@@ -143,6 +143,8 @@ static void ipa_program_holb(struct ipa_ep_context *ep, int ipa_ep_idx)
 	if (IPA_CLIENT_IS_PROD(ep->client))
 		return;
 
+	memset(&holb, 0, sizeof(holb));
+
 	switch (ep->client) {
 	case IPA_CLIENT_A2_TETHERED_CONS:
 	case IPA_CLIENT_A2_EMBEDDED_CONS:
@@ -187,8 +189,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		return -EINVAL;
 	}
 
-
-	ipa_ep_idx = ipa_get_ep_mapping(ipa_ctx->mode, in->client);
+	ipa_ep_idx = ipa_get_ep_mapping(in->client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("fail to alloc EP.\n");
 		goto fail;
