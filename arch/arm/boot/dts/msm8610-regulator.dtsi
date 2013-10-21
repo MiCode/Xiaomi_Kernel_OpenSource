@@ -215,7 +215,7 @@
 		status = "okay";
 		pm8110_l5: regulator-l5 {
 			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1300000>;
 			status = "okay";
 		};
@@ -325,7 +325,7 @@
 		status = "okay";
 		pm8110_l16: regulator-l16 {
 			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3000000>;
+			regulator-max-microvolt = <3350000>;
 			qcom,init-voltage = <3000000>;
 			status = "okay";
 		};
