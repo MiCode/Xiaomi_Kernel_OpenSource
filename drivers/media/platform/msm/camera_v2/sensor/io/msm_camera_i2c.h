@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,6 +115,10 @@ int32_t msm_camera_qup_i2c_write_table_w_microdelay(
 int32_t msm_camera_qup_i2c_write_conf_tbl(
 	struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl, uint16_t size,
+	enum msm_camera_i2c_data_type data_type);
+
+int32_t msm_camera_qup_i2c_poll(struct msm_camera_i2c_client *client,
+	uint32_t addr, uint16_t data,
 	enum msm_camera_i2c_data_type data_type);
 
 #endif
