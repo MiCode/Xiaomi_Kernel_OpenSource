@@ -280,8 +280,6 @@ enum mdss_mdp_stage_index {
 	MDSS_MDP_MAX_STAGE
 };
 
-#define MDSS_MDP_REG_LM_OFFSET(lm) (0x03200 + ((lm) * 0x400))
-
 #define MDSS_MDP_REG_LM_OP_MODE				0x000
 #define MDSS_MDP_REG_LM_OUT_SIZE			0x004
 #define MDSS_MDP_REG_LM_BORDER_COLOR_0			0x008
