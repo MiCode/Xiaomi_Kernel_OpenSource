@@ -128,21 +128,6 @@
 #define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
 
 /**
- * enum ipa_operating_mode - IPA operating mode
- *
- * IPA operating mode
- */
-enum ipa_operating_mode {
-	IPA_MODE_USB_DONGLE,
-	IPA_MODE_MSM,
-	IPA_MODE_EXT_APPS,
-	IPA_MODE_MOBILE_AP_WAN,
-	IPA_MODE_MOBILE_AP_WLAN,
-	IPA_MODE_MOBILE_AP_ETH,
-	IPA_MODE_MAX
-};
-
-/**
  * struct ipa_mem_buffer - IPA memory buffer
  * @base: base
  * @phys_base: physical base address
@@ -639,7 +624,6 @@ struct ipa_context {
 	u32 bam_handle;
 	struct ipa_ep_context ep[IPA_NUM_PIPES];
 	struct ipa_flt_tbl flt_tbl[IPA_NUM_PIPES][IPA_IP_MAX];
-	enum ipa_operating_mode mode;
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
 	struct ipa_flt_tbl glob_flt_tbl[IPA_IP_MAX];
@@ -827,9 +811,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
-int ipa_get_ep_mapping(enum ipa_operating_mode mode,
-		       enum ipa_client_type client);
-int ipa_get_client_mapping(enum ipa_operating_mode mode, int pipe_idx);
+int ipa_get_ep_mapping(enum ipa_client_type client);
+int ipa_get_client_mapping(int pipe_idx);
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
 			 u8 **buf,

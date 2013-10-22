@@ -580,7 +580,7 @@ bool ipa_emb_ul_pipes_empty(void)
 {
 	struct sps_pipe *emb_ipa_ul =
 		ipa_ctx->ep[ipa_get_ep_mapping(
-			ipa_ctx->mode, IPA_CLIENT_A5_LAN_WAN_PROD)].ep_hdl;
+			IPA_CLIENT_APPS_LAN_WAN_PROD)].ep_hdl;
 	struct sps_pipe *emb_ipa_to_dma =
 		bridge[IPA_BRIDGE_TYPE_EMBEDDED].pipe[IPA_UL_FROM_IPA].pipe;
 	struct sps_pipe *emb_dma_to_a2 =
