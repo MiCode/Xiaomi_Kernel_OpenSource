@@ -6491,6 +6491,18 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.compute_impedance = taiko_compute_impedance,
 };
 
+static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {
+	.poll_plug_rem = WCD9XXX_IRQ_MBHC_REMOVAL,
+	.shortavg_complete = WCD9XXX_IRQ_MBHC_SHORT_TERM,
+	.potential_button_press = WCD9XXX_IRQ_MBHC_PRESS,
+	.button_release = WCD9XXX_IRQ_MBHC_RELEASE,
+	.dce_est_complete = WCD9XXX_IRQ_MBHC_POTENTIAL,
+	.insertion = WCD9XXX_IRQ_MBHC_INSERTION,
+	.hph_left_ocp = WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
+	.hph_right_ocp = WCD9XXX_IRQ_HPH_PA_OCPR_FAULT,
+	.hs_jack_switch = WCD9320_IRQ_MBHC_JACK_SWITCH,
+};
+
 static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -6536,7 +6548,8 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 		ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 					taiko_enable_mbhc_micbias,
-					&mbhc_cb, rco_clk_rate, true);
+					&mbhc_cb, &cdc_intr_ids,
+					rco_clk_rate, true);
 		if (ret)
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		else
@@ -6725,7 +6738,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 				taiko_enable_mbhc_micbias,
-				&mbhc_cb, rco_clk_rate, true);
+				&mbhc_cb, &cdc_intr_ids,
+				rco_clk_rate, true);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_init;
