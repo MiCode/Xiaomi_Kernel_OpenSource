@@ -837,17 +837,28 @@ static const struct file_operations debug_fdiag_ops = {
 struct dentry *dent_diag;
 static void fdiag_debugfs_init(void)
 {
+	struct dentry *dent_diag_status;
 	dent_diag = debugfs_create_dir("usb_diag", 0);
-	if (IS_ERR(dent_diag))
+	if (!dent_diag || IS_ERR(dent_diag))
 		return;
 
-	debugfs_create_file("status", 0444, dent_diag, 0, &debug_fdiag_ops);
+	dent_diag_status = debugfs_create_file("status", 0444, dent_diag, 0,
+			&debug_fdiag_ops);
+
+	if (!dent_diag_status || IS_ERR(dent_diag_status)) {
+		debugfs_remove(dent_diag);
+		dent_diag = NULL;
+		return;
+	}
+}
+
+static void fdiag_debugfs_remove(void)
+{
+	debugfs_remove_recursive(dent_diag);
 }
 #else
-static void fdiag_debugfs_init(void)
-{
-	return;
-}
+static inline void fdiag_debugfs_init(void) {}
+static inline void fdiag_debugfs_remove(void) {}
 #endif
 
 static void diag_cleanup(void)
@@ -856,7 +867,7 @@ static void diag_cleanup(void)
 	struct usb_diag_ch *_ch;
 	unsigned long flags;
 
-	debugfs_remove_recursive(dent_diag);
+	fdiag_debugfs_remove();
 
 	list_for_each_safe(act, tmp, &usb_diag_ch_list) {
 		_ch = list_entry(act, struct usb_diag_ch, list);
