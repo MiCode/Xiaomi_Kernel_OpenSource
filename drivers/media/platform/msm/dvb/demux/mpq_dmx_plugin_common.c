@@ -4470,6 +4470,14 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 			return;
 		}
 
+		if (!header.payload_length) {
+			MPQ_DVB_DBG_PRINT(
+				"%s: warnning - video frame with 0 length, dropping\n",
+				__func__);
+			spin_unlock(&mpq_feed->video_info.video_buffer_lock);
+			continue;
+		}
+
 		packet.raw_data_len = header.payload_length;
 		packet.user_data_len = sizeof(meta_data);
 		mpq_streambuffer_get_buffer_handle(sbuf, 0,
