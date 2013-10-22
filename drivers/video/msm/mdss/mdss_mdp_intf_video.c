@@ -583,7 +583,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
-int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
+	bool handoff)
 {
 	struct mdss_panel_data *pdata;
 	int i, ret = 0, off;
@@ -598,43 +599,48 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 
 	pdata->panel_info.cont_splash_enabled = 0;
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
-				      NULL);
-	if (ret) {
-		pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n",
-					__func__);
-		return ret;
-	}
-
-	/* clear up mixer0 and mixer1 */
-	flush = 0;
-	for (i = 0; i < 2; i++) {
-		data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_LAYER(i));
-		if (data) {
-			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i),
-						MDSS_MDP_LM_BORDER_COLOR);
-			flush |= (0x40 << i);
+	if (!handoff) {
+		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
+					      NULL);
+		if (ret) {
+			pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n"
+				, __func__);
+			return ret;
 		}
+
+		/* clear up mixer0 and mixer1 */
+		flush = 0;
+		for (i = 0; i < 2; i++) {
+			data = mdss_mdp_ctl_read(ctl,
+				MDSS_MDP_REG_CTL_LAYER(i));
+			if (data) {
+				mdss_mdp_ctl_write(ctl,
+					MDSS_MDP_REG_CTL_LAYER(i),
+					MDSS_MDP_LM_BORDER_COLOR);
+				flush |= (0x40 << i);
+			}
+		}
+		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
+
+		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
+
+		if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
+			mdss_v2_intf_off =  0xEC00;
+
+		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
+				mdss_v2_intf_off, 0);
+		/* wait for 1 VSYNC for the pipe to be unstaged */
+		msleep(20);
+
+		ret = mdss_mdp_ctl_intf_event(ctl,
+			MDSS_EVENT_CONT_SPLASH_FINISH, NULL);
 	}
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
-
-	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-
-	if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
-		mdss_v2_intf_off =  0xEC00;
-
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
-			mdss_v2_intf_off, 0);
-	/* wait for 1 VSYNC for the pipe to be unstaged */
-	msleep(20);
 
 	/* Give back the reserved memory to the system */
 	memblock_free(mdp5_data->splash_mem_addr, mdp5_data->splash_mem_size);
 	free_bootmem_late(mdp5_data->splash_mem_addr,
 				 mdp5_data->splash_mem_size);
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
-			NULL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return ret;
 }
