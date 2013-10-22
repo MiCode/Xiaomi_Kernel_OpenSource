@@ -762,28 +762,6 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 	arizona_of_get_named_gpio(arizona, "wlf,reset", true, &pdata->reset);
 	arizona_of_get_named_gpio(arizona, "wlf,ldoena", true, &pdata->ldoena);
 
-	arizona_of_read_u32(arizona, "wlf,micd-detect-debounce", false,
-			    &pdata->micd_detect_debounce);
-
-	arizona_of_get_named_gpio(arizona, "wlf,micd-pol-gpio", false,
-				  &pdata->micd_pol_gpio);
-
-	arizona_of_read_u32(arizona, "wlf,micd-bias-start-time", false,
-			    &pdata->micd_bias_start_time);
-
-	arizona_of_read_u32(arizona, "wlf,micd-rate", false,
-			    &pdata->micd_rate);
-
-	arizona_of_read_u32(arizona, "wlf,micd-dbtime", false,
-			    &pdata->micd_dbtime);
-
-	arizona_of_read_u32(arizona, "wlf,micd-timeout", false,
-			    &pdata->micd_timeout);
-
-	pdata->micd_force_micbias =
-		of_property_read_bool(arizona->dev->of_node,
-				      "wlf,micd-force-micbias");
-
 	arizona_of_get_micd_ranges(arizona, "wlf,micd-ranges");
 	arizona_of_get_micd_configs(arizona, "wlf,micd-configs");
 

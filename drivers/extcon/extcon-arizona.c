@@ -26,6 +26,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
+#include <linux/of.h>
 
 #include <sound/soc.h>
 
@@ -1143,6 +1144,35 @@ static void arizona_micd_set_level(struct arizona *arizona, int index,
 	regmap_update_bits(arizona->regmap, reg, mask, level);
 }
 
+static int arizona_extcon_get_pdata(struct arizona *arizona)
+{
+	struct arizona_pdata *pdata = &arizona->pdata;
+
+	arizona_of_read_u32(arizona, "wlf,micd-detect-debounce", false,
+			    &pdata->micd_detect_debounce);
+
+	arizona_of_get_named_gpio(arizona, "wlf,micd-pol-gpio", false,
+				  &pdata->micd_pol_gpio);
+
+	arizona_of_read_u32(arizona, "wlf,micd-bias-start-time", false,
+			    &pdata->micd_bias_start_time);
+
+	arizona_of_read_u32(arizona, "wlf,micd-rate", false,
+			    &pdata->micd_rate);
+
+	arizona_of_read_u32(arizona, "wlf,micd-dbtime", false,
+			    &pdata->micd_dbtime);
+
+	arizona_of_read_u32(arizona, "wlf,micd-timeout", false,
+			    &pdata->micd_timeout);
+
+	pdata->micd_force_micbias =
+		of_property_read_bool(arizona->dev->of_node,
+				      "wlf,micd-force-micbias");
+
+	return 0;
+}
+
 static int arizona_extcon_probe(struct platform_device *pdev)
 {
 	struct arizona *arizona = dev_get_drvdata(pdev->dev.parent);
@@ -1154,6 +1184,8 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 
 	if (!arizona->dapm || !arizona->dapm->card)
 		return -EPROBE_DEFER;
+
+	arizona_extcon_get_pdata(arizona);
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info) {
