@@ -285,7 +285,7 @@ static void ion_iommu_heap_unmap_iommu(struct ion_iommu_map *data)
 static struct ion_iommu_map *__ion_iommu_map(struct ion_iommu_meta *meta,
 		int domain_num, int partition_num, unsigned long align,
 		unsigned long iova_length, unsigned long flags,
-		unsigned long *iova)
+		ion_phys_addr_t *iova)
 {
 	struct ion_iommu_map *data;
 	int ret;
@@ -367,7 +367,7 @@ static void ion_iommu_meta_put(struct ion_iommu_meta *meta)
 
 int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num, unsigned long align,
-			unsigned long iova_length, unsigned long *iova,
+			unsigned long iova_length, ion_phys_addr_t *iova,
 			unsigned long *buffer_size,
 			unsigned long flags, unsigned long iommu_flags)
 {
