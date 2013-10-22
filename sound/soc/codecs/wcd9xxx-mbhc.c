@@ -2904,6 +2904,11 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 		}
 
 		if (is_removed) {
+			snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				      0x00);
+			snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
+					    0x02, 0x00);
+
 			/* Enable Mic Bias pull down and HPH Switch to GND */
 			snd_soc_update_bits(codec,
 					mbhc->mbhc_bias_regs.ctl_reg, 0x01,
