@@ -227,7 +227,7 @@ struct dwc3_msm {
 	struct power_supply	usb_psy;
 	struct power_supply	*ext_vbus_psy;
 	unsigned int		online;
-	unsigned int		host_mode;
+	unsigned int		scope;
 	unsigned int		voltage_max;
 	unsigned int		current_max;
 	unsigned int		tx_fifo_size;
@@ -1513,7 +1513,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	else
 		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
 
-	host_bus_suspend = mdwc->host_mode == 1;
+	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 	can_suspend_ssphy = !(host_bus_suspend && host_ss_active);
 
 	if (!dcp && !host_bus_suspend)
@@ -1613,7 +1613,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	else
 		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
 
-	host_bus_suspend = mdwc->host_mode == 1;
+	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 
 	if (mdwc->lpm_flags & MDWC3_TCXO_SHUTDOWN) {
 		/* Vote for TCXO while waking up USB HSPHY */
@@ -1845,7 +1845,7 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 								usb_psy);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_SCOPE:
-		val->intval = mdwc->host_mode;
+		val->intval = mdwc->scope;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = mdwc->voltage_max;
@@ -1878,8 +1878,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_SCOPE:
-		mdwc->host_mode = val->intval;
-		if (mdwc->host_mode)
+		mdwc->scope = val->intval;
+		if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
 			mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		else
 			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
@@ -2697,7 +2697,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	} else {
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
-		mdwc->host_mode = 1;
+		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		mdwc->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
 		if (IS_ERR(mdwc->vbus_otg)) {
