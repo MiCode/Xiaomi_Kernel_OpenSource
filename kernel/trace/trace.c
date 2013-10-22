@@ -383,8 +383,11 @@ int __trace_puts(unsigned long ip, const char *str, int size)
 	if (entry->buf[size - 1] != '\n') {
 		entry->buf[size] = '\n';
 		entry->buf[size + 1] = '\0';
-	} else
+		stm_log(OST_ENTITY_TRACE_PRINTK, entry->buf, size + 2);
+	} else {
 		entry->buf[size] = '\0';
+		stm_log(OST_ENTITY_TRACE_PRINTK, entry->buf, size + 1);
+	}
 
 	__buffer_unlock_commit(buffer, event);
 
@@ -415,6 +418,7 @@ int __trace_bputs(unsigned long ip, const char *str)
 	entry = ring_buffer_event_data(event);
 	entry->ip			= ip;
 	entry->str			= str;
+	stm_log(OST_ENTITY_TRACE_PRINTK, entry->str, strlen(entry->str)+1);
 
 	__buffer_unlock_commit(buffer, event);
 
