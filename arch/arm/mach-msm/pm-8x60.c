@@ -893,6 +893,7 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 	int ret = -ENODEV;
 	int notify_rpm = false;
 	bool timer_halted = false;
+	uint32_t l2_stat_id = MSM_SPM_L2_MODE_LAST;
 
 	sleep_mode = msm_pm_idle_prepare(dev, drv, index,
 		&msm_pm_idle_rs_limits, states);
@@ -923,6 +924,8 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 			msm_pm_idle_rs_limits, true, notify_rpm);
 	if (ret)
 		goto cpuidle_enter_bail;
+
+	l2_stat_id = *(uint32_t *)msm_pm_idle_rs_limits;
 
 	switch (sleep_mode) {
 	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
@@ -974,6 +977,9 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 				notify_rpm, collapsed);
 
 	time = ktime_to_ns(ktime_get()) - time;
+
+	msm_pm_l2_add_stat(l2_stat_id, time);
+
 	msm_pm_ftrace_lpm_exit(smp_processor_id(), sleep_mode, collapsed);
 	if (exit_stat >= 0)
 		msm_pm_add_stat(exit_stat, time);
@@ -1079,6 +1085,7 @@ EXPORT_SYMBOL(msm_pm_enable_retention);
 static int64_t suspend_time, suspend_period;
 static int collapsed;
 static int suspend_power_collapsed;
+static uint32_t l2_stat_id = MSM_SPM_L2_MODE_LAST;
 
 static int msm_pm_enter(suspend_state_t state)
 {
@@ -1127,6 +1134,8 @@ static int msm_pm_enter(suspend_state_t state)
 		if (pm_sleep_ops.lowest_limits)
 			rs_limits = pm_sleep_ops.lowest_limits(false,
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE, &time_param, &power);
+
+		l2_stat_id =  *(uint32_t *)rs_limits;
 
 		if (rs_limits) {
 			if (pm_sleep_ops.enter_sleep)
@@ -1186,8 +1195,10 @@ static void msm_suspend_wake(void)
 	if (suspend_power_collapsed) {
 		suspend_time = msm_pm_timer_exit_suspend(suspend_time,
 				suspend_period);
-		if (collapsed)
+		if (collapsed) {
 			msm_pm_add_stat(MSM_PM_STAT_SUSPEND, suspend_time);
+			msm_pm_l2_add_stat(l2_stat_id, suspend_time);
+		}
 		else
 			msm_pm_add_stat(MSM_PM_STAT_FAILED_SUSPEND,
 					suspend_time);

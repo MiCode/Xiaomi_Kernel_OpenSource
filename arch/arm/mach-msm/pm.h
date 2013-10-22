@@ -170,10 +170,12 @@ enum msm_pm_time_stats_id {
 #ifdef CONFIG_MSM_IDLE_STATS
 void msm_pm_add_stats(enum msm_pm_time_stats_id *enable_stats, int size);
 void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t);
+void msm_pm_l2_add_stat(uint32_t id, int64_t t);
 #else
 static inline void msm_pm_add_stats(enum msm_pm_time_stats_id *enable_stats,
 		int size) {}
 static inline void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t) {}
+static inline void msm_pm_l2_add_stat(uint32_t id, int64_t t) {}
 #endif
 
 void msm_pm_set_cpr_ops(struct msm_pm_cpr_ops *ops);

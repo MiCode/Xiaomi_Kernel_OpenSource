@@ -570,6 +570,7 @@ config MSM7X00A_IDLE_SPIN_TIME
 
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
+	depends on MSM_PM8X60
 	default y
 	help
 	  Collect idle statistics and export them in proc/msm_pm_stats.
