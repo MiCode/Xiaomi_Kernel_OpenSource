@@ -29,10 +29,21 @@ enum venc_event {
 	VENC_EVENT_HARDWARE_ERROR,
 };
 
+/*
+ * Converts a dma_addr_t (which _might_ be 64 bits) to a void *, which
+ * might be 32 bits. See dma_addr_to_u32 in mdp-subdev.h for more details.
+ */
+static inline void *dma_addr_to_void_ptr(dma_addr_t x)
+{
+	u32 temp = (u32)x;
+	WARN_ON((dma_addr_t)temp != x);
+	return (void *)temp;
+}
+
 struct mem_region {
 	struct list_head list;
 	u8 *kvaddr;
-	dma_addr_t paddr;
+	u8 *paddr;
 	u32 size;
 	u32 offset;
 	u32 fd;
