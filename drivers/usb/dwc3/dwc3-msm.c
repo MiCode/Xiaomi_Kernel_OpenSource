@@ -1505,6 +1505,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
+	if (dwc->revision < DWC3_REVISION_230A)
+		return;
+
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev, "DWC3_CONTROLLER_ERROR_EVENT received\n");
@@ -1526,6 +1529,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 					DWC3_CONTROLLER_POST_RESET_EVENT);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
+	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
+		/* clear LANE0_PWR_PRESENT bit after initialization is done */
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 24),
+									0x0);
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
 		break;
