@@ -414,6 +414,7 @@ void __init msm_map_fsm9xxx_io(void)
 static struct map_desc fsm9900_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, FSM9900),
 	MSM_CHIP_DEVICE(TLMM, FSM9900),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, FSM9900),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
