@@ -277,31 +277,38 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	bool sha1 = false;
 	struct sps_command_element *pce = NULL;
+	bool use_hw_key = false;
+	bool use_pipe_key = false;
+	uint32_t authk_size_in_word = SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
+	uint32_t auth_cfg;
 
 	if ((sreq->alg == QCE_HASH_SHA1_HMAC) ||
 			(sreq->alg == QCE_HASH_SHA256_HMAC) ||
 			(sreq->alg ==  QCE_HASH_AES_CMAC)) {
-		uint32_t authk_size_in_word = sreq->authklen/sizeof(uint32_t);
 
-		_byte_stream_to_net_words(mackey32, sreq->authkey,
-						sreq->authklen);
 
-		/* check for null key. If null, use hw key*/
-		for (i = 0; i < authk_size_in_word; i++) {
-			if (mackey32[i] != 0)
-				break;
-		}
-
+		/* no more check for null key. use flag */
+		if ((sreq->flags & QCRYPTO_CTX_USE_HW_KEY)
+						== QCRYPTO_CTX_USE_HW_KEY)
+			use_hw_key = true;
+		else if ((sreq->flags & QCRYPTO_CTX_USE_PIPE_KEY) ==
+						QCRYPTO_CTX_USE_PIPE_KEY)
+			use_pipe_key = true;
 		pce = cmdlistinfo->go_proc;
-		if (i == authk_size_in_word) {
+		if (use_hw_key == true) {
 			pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
 							pce_dev->phy_iobase);
 		} else {
 			pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
 							pce_dev->phy_iobase);
 			pce = cmdlistinfo->auth_key;
-			for (i = 0; i < authk_size_in_word; i++, pce++)
-				pce->data = mackey32[i];
+			if (use_pipe_key == false) {
+				_byte_stream_to_net_words(mackey32,
+						sreq->authkey,
+						sreq->authklen);
+				for (i = 0; i < authk_size_in_word; i++, pce++)
+					pce->data = mackey32[i];
+			}
 		}
 	}
 
@@ -356,14 +363,19 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 
 	/* Set/reset  last bit in CFG register  */
 	pce = cmdlistinfo->auth_seg_cfg;
+	auth_cfg = pce->data & ~(1 << CRYPTO_LAST |
+				1 << CRYPTO_FIRST |
+				1 << CRYPTO_USE_PIPE_KEY_AUTH |
+				1 << CRYPTO_USE_HW_KEY_AUTH);
 	if (sreq->last_blk)
-		pce->data |= 1 << CRYPTO_LAST;
-	else
-		pce->data &= ~(1 << CRYPTO_LAST);
+		auth_cfg |= 1 << CRYPTO_LAST;
 	if (sreq->first_blk)
-		pce->data |= 1 << CRYPTO_FIRST;
-	else
-		pce->data &= ~(1 << CRYPTO_FIRST);
+		auth_cfg |= 1 << CRYPTO_FIRST;
+	if (use_hw_key)
+		auth_cfg |= 1 << CRYPTO_USE_HW_KEY_AUTH;
+	if (use_pipe_key)
+		auth_cfg |= 1 << CRYPTO_USE_PIPE_KEY_AUTH;
+	pce->data = auth_cfg;
 go_proc:
 	/* write auth seg size */
 	pce = cmdlistinfo->auth_seg_size;
@@ -452,7 +464,7 @@ static int _ce_setup_aead(struct qce_device *pce_dev, struct qce_req *q_req,
 		uint32_t totallen_in, uint32_t coffset,
 		struct qce_cmdlist_info *cmdlistinfo)
 {
-	int32_t authk_size_in_word = q_req->authklen/sizeof(uint32_t);
+	int32_t authk_size_in_word = SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
 	int i;
 	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {0};
 	struct sps_command_element *pce;
@@ -1033,9 +1045,12 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
 	uint32_t diglen;
 	bool use_hw_key = false;
+	bool use_pipe_key = false;
 	int i;
 	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	uint32_t authk_size_in_word =
+			SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
 	bool sha1 = false;
 	uint32_t auth_cfg = 0;
 
@@ -1082,25 +1097,25 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 	if ((sreq->alg == QCE_HASH_SHA1_HMAC) ||
 			(sreq->alg == QCE_HASH_SHA256_HMAC) ||
 			(sreq->alg ==  QCE_HASH_AES_CMAC)) {
-		uint32_t authk_size_in_word = sreq->authklen/sizeof(uint32_t);
 
 		_byte_stream_to_net_words(mackey32, sreq->authkey,
 						sreq->authklen);
 
-		/* check for null key. If null, use hw key*/
-		for (i = 0; i < authk_size_in_word; i++) {
-			if (mackey32[i] != 0)
-				break;
-		}
+		/* no more check for null key. use flag to check*/
 
-		if (i == authk_size_in_word)
+		if ((sreq->flags & QCRYPTO_CTX_USE_HW_KEY) ==
+					QCRYPTO_CTX_USE_HW_KEY) {
 			use_hw_key = true;
-		else
-			/* Clear auth_ivn, auth_keyn registers  */
+		} else if ((sreq->flags & QCRYPTO_CTX_USE_PIPE_KEY) ==
+						QCRYPTO_CTX_USE_PIPE_KEY) {
+			use_pipe_key = true;
+		} else {
+			/* setup key */
 			for (i = 0; i < authk_size_in_word; i++)
 				writel_relaxed(mackey32[i], (pce_dev->iobase +
 					(CRYPTO_AUTH_KEY0_REG +
 							i*sizeof(uint32_t))));
+		}
 	}
 
 	if (sreq->alg ==  QCE_HASH_AES_CMAC)
@@ -1174,6 +1189,10 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 		auth_cfg |= 1 << CRYPTO_FIRST;
 	else
 		auth_cfg &= ~(1 << CRYPTO_FIRST);
+	if (use_hw_key)
+		auth_cfg |= 1 << CRYPTO_USE_HW_KEY_AUTH;
+	if (use_pipe_key)
+		auth_cfg |= 1 << CRYPTO_USE_PIPE_KEY_AUTH;
 go_proc:
 	 /* write seg_cfg */
 	writel_relaxed(auth_cfg, pce_dev->iobase + CRYPTO_AUTH_SEG_CFG_REG);
@@ -1209,7 +1228,7 @@ go_proc:
 static int _ce_setup_aead_direct(struct qce_device *pce_dev,
 		struct qce_req *q_req, uint32_t totallen_in, uint32_t coffset)
 {
-	int32_t authk_size_in_word = q_req->authklen/sizeof(uint32_t);
+	int32_t authk_size_in_word = SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
 	int i;
 	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {0};
 	uint32_t a_cfg;
