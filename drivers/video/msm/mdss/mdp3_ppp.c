@@ -36,7 +36,6 @@
 #define MDP_PPP_MAX_BPP 4
 #define MDP_PPP_DYNAMIC_FACTOR 3
 #define MDP_PPP_MAX_READ_WRITE 3
-#define MDP_SOLID_FILL_COLOR	0x0
 #define ENABLE_SOLID_FILL	0x2
 #define DISABLE_SOLID_FILL	0x0
 
@@ -403,7 +402,7 @@ void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 		MDP3_REG_WRITE(0x10144, 0);
 		MDP3_REG_WRITE(0x10148, 0);
 		MDP3_REG_WRITE(MDP3_TFETCH_FILL_COLOR,
-					MDP_SOLID_FILL_COLOR);
+					blit_op->solid_fill_color);
 		MDP3_REG_WRITE(MDP3_TFETCH_SOLID_FILL,
 					ENABLE_SOLID_FILL);
 	} else {
@@ -522,6 +521,10 @@ static void mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 			blit_op->src.color_fmt = MDP_RGBX_8888;
 		if (blit_op->dst.color_fmt == MDP_RGBA_8888)
 			blit_op->dst.color_fmt = MDP_RGBX_8888;
+		blit_op->solid_fill_color = (req->const_color.g & 0xFF)|
+				(req->const_color.b & 0xFF) << 8 |
+				(req->const_color.r & 0xFF)  << 16 |
+				(req->const_color.alpha & 0xFF) << 24;
 	} else {
 		blit_op->solid_fill = false;
 	}
