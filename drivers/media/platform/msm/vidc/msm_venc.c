@@ -876,8 +876,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				"Failed to get buffer requirements: %d\n", rc);
 			break;
 		}
-		inst->capability.pixelprocess_capabilities =
-			call_hfi_op(hdev, get_core_capabilities);
 		*num_planes = 1;
 		mutex_lock(&inst->lock);
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
@@ -1993,12 +1991,11 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 
 	int rc = 0, c = 0;
-	struct hfi_device *hdev;
 
 	struct msm_vidc_inst *inst = container_of(ctrl->handler,
 					struct msm_vidc_inst, ctrl_handler);
 
-	if (!inst || !inst->core || !inst->core->device) {
+	if (!inst) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
 	}
@@ -2010,10 +2007,6 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 			"Failed to move inst: %p to start done state\n", inst);
 		goto failed_open_done;
 	}
-
-	hdev = inst->core->device;
-	inst->capability.pixelprocess_capabilities =
-		call_hfi_op(hdev, get_core_capabilities);
 
 	for (c = 0; c < ctrl->ncontrols; ++c) {
 		if (ctrl->cluster[c]->is_new) {
@@ -2344,8 +2337,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				dprintk(VIDC_ERR, "Failed to open instance\n");
 				goto exit;
 			}
-			inst->capability.pixelprocess_capabilities =
-				call_hfi_op(hdev, get_core_capabilities);
 			frame_sz.width = inst->prop.width[CAPTURE_PORT];
 			frame_sz.height = inst->prop.height[CAPTURE_PORT];
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT;

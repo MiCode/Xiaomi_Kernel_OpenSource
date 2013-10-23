@@ -1209,7 +1209,7 @@ void hfi_process_sys_property_info(
 				version[i] = ' ';
 		}
 		version[i] = '\0';
-		dprintk(VIDC_INFO, "F/W version: %s\n", version);
+		dprintk(VIDC_DBG, "F/W version: %s\n", version);
 	}
 
 	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
