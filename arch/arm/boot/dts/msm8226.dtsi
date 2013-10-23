@@ -189,14 +189,14 @@
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
-				qcom,vidc-partition-buffer-types = <0x1ff>,
-							<0x200>;
+				qcom,vidc-partition-buffer-types = <0x7ff>,
+							<0x800>;
 			};
 
 			qcom,domain-cp {
 				qcom,vidc-domain-phandle = <&venus_domain_cp>;
-				qcom,vidc-partition-buffer-types = <0x2>,
-							<0x1f1>;
+				qcom,vidc-partition-buffer-types = <0x6>,
+							<0x7c1>;
 			};
 		};
 	};

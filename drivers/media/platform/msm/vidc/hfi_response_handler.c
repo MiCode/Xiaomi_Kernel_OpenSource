@@ -957,6 +957,7 @@ static void hfi_process_session_ftb_done(
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =
 			pkt->extra_data_buffer;
+		data_done.output_done.buffer_type = HAL_BUFFER_OUTPUT;
 		dprintk(VIDC_DBG, "FBD: Received buf: %p, of len: %d\n",
 				   pkt->packet_buffer, pkt->filled_len);
 	} else if (is_decoder == 1) {
@@ -1209,7 +1210,7 @@ void hfi_process_sys_property_info(
 				version[i] = ' ';
 		}
 		version[i] = '\0';
-		dprintk(VIDC_INFO, "F/W version: %s\n", version);
+		dprintk(VIDC_DBG, "F/W version: %s\n", version);
 	}
 
 	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,

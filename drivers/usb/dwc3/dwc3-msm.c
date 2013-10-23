@@ -69,6 +69,10 @@ static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 
+static int ss_phy_override_deemphasis;
+module_param(ss_phy_override_deemphasis, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(ss_phy_override_deemphasis, "Override SSPHY demphasis value");
+
 /* Enable Proprietary charger detection */
 static bool prop_chg_detect;
 module_param(prop_chg_detect, bool, S_IRUGO | S_IWUSR);
@@ -198,6 +202,7 @@ struct dwc3_msm {
 	atomic_t		in_lpm;
 	int			hs_phy_irq;
 	int			hsphy_init_seq;
+	int			deemphasis_val;
 	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
@@ -1037,10 +1042,13 @@ void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enabled)
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
-	if (qdss_enabled)
+	if (qdss_enabled) {
+		dwc->tx_fifo_reduced = true;
 		dwc->tx_fifo_size = mdwc->qdss_tx_fifo_size;
-	else
+	} else {
+		dwc->tx_fifo_reduced = false;
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
+	}
 }
 EXPORT_SYMBOL(dwc3_tx_fifo_resize_request);
 
@@ -1416,7 +1424,12 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *mdwc)
 	 */
 	data = dwc3_msm_ssusb_read_phycreg(mdwc->base, 0x1002);
 	data &= ~0x3F80;
-	data |= (0x16 << 7);
+	if (ss_phy_override_deemphasis)
+		mdwc->deemphasis_val = ss_phy_override_deemphasis;
+	if (mdwc->deemphasis_val)
+		data |= (mdwc->deemphasis_val << 7);
+	else
+		data |= (0x16 << 7);
 	data &= ~0x7F;
 	data |= (0x7F | (1 << 14));
 	dwc3_msm_ssusb_write_phycreg(mdwc->base, 0x1002, data);
@@ -2977,6 +2990,10 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "unable to read hsphy init seq\n");
 	else if (!mdwc->hsphy_init_seq)
 		dev_warn(&pdev->dev, "incorrect hsphyinitseq.Using PORvalue\n");
+
+	if (of_property_read_u32(node, "qcom,dwc-ssphy-deemphasis-value",
+						&mdwc->deemphasis_val))
+		dev_dbg(&pdev->dev, "unable to read ssphy deemphasis value\n");
 
 	pm_runtime_set_active(mdwc->dev);
 	pm_runtime_enable(mdwc->dev);
