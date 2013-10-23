@@ -787,6 +787,132 @@ static const struct adreno_invalid_countables
 	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(uche, UCHE),
 };
 
+static struct adreno_coresight_register a4xx_coresight_registers[] = {
+	{ A4XX_RBBM_CFG_DEBBUS_CTLT },
+	{ A4XX_RBBM_CFG_DEBBUS_SEL_A },
+	{ A4XX_RBBM_CFG_DEBBUS_SEL_B },
+	{ A4XX_RBBM_CFG_DEBBUS_SEL_C },
+	{ A4XX_RBBM_CFG_DEBBUS_SEL_D },
+	{ A4XX_RBBM_CFG_DEBBUS_OPL },
+	{ A4XX_RBBM_CFG_DEBBUS_OPE },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTL_0 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTL_1 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTL_2 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTL_3 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKL_0 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKL_1 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKL_2 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKL_3 },
+	{ A4XX_RBBM_CFG_DEBBUS_BYTEL_0 },
+	{ A4XX_RBBM_CFG_DEBBUS_BYTEL_1 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTE_0 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTE_1 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTE_2 },
+	{ A4XX_RBBM_CFG_DEBBUS_IVTE_3 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKE_0 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKE_1 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKE_2 },
+	{ A4XX_RBBM_CFG_DEBBUS_MASKE_3 },
+	{ A4XX_RBBM_CFG_DEBBUS_NIBBLEE },
+	{ A4XX_RBBM_CFG_DEBBUS_PTRC0 },
+	{ A4XX_RBBM_CFG_DEBBUS_PTRC1 },
+	{ A4XX_RBBM_CFG_DEBBUS_CLRC },
+	{ A4XX_RBBM_CFG_DEBBUS_LOADIVT },
+	{ A4XX_RBBM_CFG_DEBBUS_IDX },
+	{ A4XX_RBBM_CFG_DEBBUS_LOADREG },
+	{ A4XX_RBBM_EXT_TRACE_BUS_CTL },
+	{ A4XX_RBBM_CFG_DEBBUS_CTLM },
+};
+
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ctrlt, &a4xx_coresight_registers[0]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_sela, &a4xx_coresight_registers[1]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_selb, &a4xx_coresight_registers[2]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_selc, &a4xx_coresight_registers[3]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_seld, &a4xx_coresight_registers[4]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_opl, &a4xx_coresight_registers[5]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ope, &a4xx_coresight_registers[6]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivtl0, &a4xx_coresight_registers[7]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivtl1, &a4xx_coresight_registers[8]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivtl2, &a4xx_coresight_registers[9]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivtl3, &a4xx_coresight_registers[10]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maskl0, &a4xx_coresight_registers[11]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maskl1, &a4xx_coresight_registers[12]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maskl2, &a4xx_coresight_registers[13]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maskl3, &a4xx_coresight_registers[14]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_bytel0, &a4xx_coresight_registers[15]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_bytel1, &a4xx_coresight_registers[16]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivte0, &a4xx_coresight_registers[17]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivte1, &a4xx_coresight_registers[18]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivte2, &a4xx_coresight_registers[19]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ivte3, &a4xx_coresight_registers[20]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maske0, &a4xx_coresight_registers[21]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maske1, &a4xx_coresight_registers[22]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maske2, &a4xx_coresight_registers[23]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_maske3, &a4xx_coresight_registers[24]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_nibblee, &a4xx_coresight_registers[25]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ptrc0, &a4xx_coresight_registers[26]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ptrc1, &a4xx_coresight_registers[27]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_clrc, &a4xx_coresight_registers[28]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_loadivt, &a4xx_coresight_registers[29]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_idx, &a4xx_coresight_registers[30]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_loadreg, &a4xx_coresight_registers[31]);
+static ADRENO_CORESIGHT_ATTR(ext_tracebus_ctl, &a4xx_coresight_registers[32]);
+static ADRENO_CORESIGHT_ATTR(cfg_debbus_ctrlm, &a4xx_coresight_registers[33]);
+
+
+static struct attribute *a4xx_coresight_attrs[] = {
+	&coresight_attr_cfg_debbus_ctrlt.attr.attr,
+	&coresight_attr_cfg_debbus_sela.attr.attr,
+	&coresight_attr_cfg_debbus_selb.attr.attr,
+	&coresight_attr_cfg_debbus_selc.attr.attr,
+	&coresight_attr_cfg_debbus_seld.attr.attr,
+	&coresight_attr_cfg_debbus_opl.attr.attr,
+	&coresight_attr_cfg_debbus_ope.attr.attr,
+	&coresight_attr_cfg_debbus_ivtl0.attr.attr,
+	&coresight_attr_cfg_debbus_ivtl1.attr.attr,
+	&coresight_attr_cfg_debbus_ivtl2.attr.attr,
+	&coresight_attr_cfg_debbus_ivtl3.attr.attr,
+	&coresight_attr_cfg_debbus_maskl0.attr.attr,
+	&coresight_attr_cfg_debbus_maskl1.attr.attr,
+	&coresight_attr_cfg_debbus_maskl2.attr.attr,
+	&coresight_attr_cfg_debbus_maskl3.attr.attr,
+	&coresight_attr_cfg_debbus_bytel0.attr.attr,
+	&coresight_attr_cfg_debbus_bytel1.attr.attr,
+	&coresight_attr_cfg_debbus_ivte0.attr.attr,
+	&coresight_attr_cfg_debbus_ivte1.attr.attr,
+	&coresight_attr_cfg_debbus_ivte2.attr.attr,
+	&coresight_attr_cfg_debbus_ivte3.attr.attr,
+	&coresight_attr_cfg_debbus_maske0.attr.attr,
+	&coresight_attr_cfg_debbus_maske1.attr.attr,
+	&coresight_attr_cfg_debbus_maske2.attr.attr,
+	&coresight_attr_cfg_debbus_maske3.attr.attr,
+	&coresight_attr_cfg_debbus_nibblee.attr.attr,
+	&coresight_attr_cfg_debbus_ptrc0.attr.attr,
+	&coresight_attr_cfg_debbus_ptrc1.attr.attr,
+	&coresight_attr_cfg_debbus_clrc.attr.attr,
+	&coresight_attr_cfg_debbus_loadivt.attr.attr,
+	&coresight_attr_cfg_debbus_idx.attr.attr,
+	&coresight_attr_cfg_debbus_loadreg.attr.attr,
+	&coresight_attr_ext_tracebus_ctl.attr.attr,
+	&coresight_attr_cfg_debbus_ctrlm.attr.attr,
+	NULL,
+};
+
+static const struct attribute_group a4xx_coresight_group = {
+	.attrs = a4xx_coresight_attrs,
+};
+
+static const struct attribute_group *a4xx_coresight_groups[] = {
+	&a4xx_coresight_group,
+	NULL,
+};
+
+static struct adreno_coresight a4xx_coresight = {
+	.registers = a4xx_coresight_registers,
+	.count = ARRAY_SIZE(a4xx_coresight_registers),
+	.groups = a4xx_coresight_groups,
+};
+
 struct adreno_gpudev adreno_a4xx_gpudev = {
 	.reg_offsets = &a4xx_reg_offsets,
 	.perfcounters = &a4xx_perfcounters,
@@ -796,6 +922,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.irq_handler = a3xx_irq_handler,
 	.irq_pending = a3xx_irq_pending,
 	.busy_cycles = a3xx_busy_cycles,
+	.coresight = &a4xx_coresight,
 	.start = a4xx_start,
 	.perfcounter_enable = a3xx_perfcounter_enable,
 	.perfcounter_read = a3xx_perfcounter_read,
