@@ -33,6 +33,9 @@
 		status = "disabled";
 	};
 
+	emac0:qcom,emac@feb20000 {
+		status = "ok";
+	};
 };
 
 
