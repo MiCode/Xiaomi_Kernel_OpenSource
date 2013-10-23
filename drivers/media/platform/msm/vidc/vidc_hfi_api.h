@@ -76,6 +76,7 @@ enum vidc_status {
 	VIDC_ERR_NO_VALID_SESSION,
 	VIDC_ERR_TIMEOUT,
 	VIDC_ERR_CMDQFULL,
+	VIDC_ERR_START_CODE_NOT_FOUND,
 	VIDC_ERR_CLIENT_PRESENT = 0x90000001,
 	VIDC_ERR_CLIENT_FATAL,
 	VIDC_ERR_CMD_QUEUE_FULL,
@@ -182,6 +183,7 @@ enum hal_property {
 	HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC,
 	HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY,
 	HAL_PARAM_VDEC_CONCEAL_COLOR,
+	HAL_PARAM_VDEC_SCS_THRESHOLD,
 };
 
 enum hal_domain {
@@ -906,6 +908,10 @@ enum buffer_mode_type {
 struct hal_buffer_alloc_mode {
 	enum hal_buffer buffer_type;
 	enum buffer_mode_type buffer_mode;
+};
+
+struct hfi_scs_threshold {
+	u32 threshold_value;
 };
 
 /* HAL Response */

@@ -930,6 +930,13 @@ static void handle_ebd(enum command_response cmd, void *data)
 				vb->v4l2_buf.flags |=
 					V4L2_QCOM_BUF_DATA_CORRUPT;
 			}
+			if (empty_buf_done->status ==
+				VIDC_ERR_START_CODE_NOT_FOUND) {
+				vb->v4l2_buf.flags |=
+					V4L2_MSM_VIDC_BUF_START_CODE_NOT_FOUND;
+				dprintk(VIDC_INFO,
+					"Failed: Start code not found\n");
+			}
 		}
 		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
