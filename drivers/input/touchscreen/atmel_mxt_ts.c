@@ -2531,7 +2531,7 @@ static int mxt_suspend(struct device *dev)
 		if (error < 0) {
 			dev_err(dev, "mxt_stop failed in suspend\n");
 			mutex_unlock(&input_dev->mutex);
-			return error;
+			goto err_mxt_stop;
 		}
 	}
 
@@ -2543,18 +2543,29 @@ static int mxt_suspend(struct device *dev)
 		error = mxt_regulator_lpm(data, true);
 		if (error < 0) {
 			dev_err(dev, "failed to enter low power mode\n");
-			return error;
+			goto err_reg_lpm;
 		}
 	} else {
 		error = mxt_power_on(data, false);
 		if (error < 0) {
 			dev_err(dev, "failed to disable regulators\n");
-			return error;
+			goto err_reg_lpm;
 		}
 	}
 
 	data->dev_sleep = true;
 	return 0;
+
+err_reg_lpm:
+	mutex_lock(&input_dev->mutex);
+	if (input_dev->users)
+		mxt_start(data);
+	mutex_unlock(&input_dev->mutex);
+err_mxt_stop:
+	enable_irq(data->irq);
+
+	return error;
+
 }
 
 static int mxt_resume(struct device *dev)
@@ -2595,7 +2606,7 @@ static int mxt_resume(struct device *dev)
 		if (error < 0) {
 			dev_err(dev, "mxt_start failed in resume\n");
 			mutex_unlock(&input_dev->mutex);
-			return error;
+			goto err_mxt_start;
 		}
 	}
 
@@ -2614,6 +2625,20 @@ static int mxt_resume(struct device *dev)
 
 	data->dev_sleep = false;
 	return 0;
+
+err_mxt_start:
+	/* put regulators in low power mode */
+	if (data->lpm_support) {
+		error = mxt_regulator_lpm(data, true);
+		if (error < 0)
+			dev_err(dev, "failed to enter low power mode\n");
+	} else {
+		error = mxt_power_on(data, false);
+		if (error < 0)
+			dev_err(dev, "failed to disable regulators\n");
+	}
+	return error;
+
 }
 
 static const struct dev_pm_ops mxt_pm_ops = {
