@@ -1176,6 +1176,8 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 	pdata->jd_gpio5_nopull = of_property_read_bool(arizona->dev->of_node,
 						       "wlf,jd-gpio-nopull");
 
+	arizona_of_read_u32(arizona, "wlf,gpsw", false, &pdata->gpsw);
+
 	return 0;
 }
 
@@ -1271,6 +1273,10 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		info->micd_modes = micd_default_modes;
 		info->micd_num_modes = ARRAY_SIZE(micd_default_modes);
 	}
+
+	if (arizona->pdata.gpsw > 0)
+		regmap_update_bits(arizona->regmap, ARIZONA_GP_SWITCH_1,
+				   ARIZONA_SW1_MODE_MASK, arizona->pdata.gpsw);
 
 	if (arizona->pdata.micd_pol_gpio > 0) {
 		if (info->micd_modes[0].gpio)

@@ -100,6 +100,9 @@ Optional properties:
   - wlf,usr-jd-gpio-nopull : Internal pull on GPIO is disabled when used for
     jack detection.
 
+  - wlf,gpsw : Settings for the general purpose switch, set as per the
+    SW1_MODE bits in the GP Switch 1 register
+
 Example:
 
 codec: wm5102@1a {
@@ -135,6 +138,8 @@ codec: wm5102@1a {
 
 	wlf,dmic-ref = <0 0 1 0>;
 	wlf,inmode = <0 0 2 0>;
+
+	wlf,gpsw = <0x3>;
 
 	wlf,gpio-defaults = <
 		0x00000000 /* AIF1TXLRCLK */
