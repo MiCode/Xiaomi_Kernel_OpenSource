@@ -4318,6 +4318,9 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	/* Turn on the GPU busy counter and let it run free */
 
 	adreno_dev->gpu_cycles = 0;
+
+	/* the CP_DEBUG register offset and value are same as A2XX */
+	kgsl_regwrite(device, REG_CP_DEBUG, A2XX_CP_DEBUG_DEFAULT);
 }
 
 static struct adreno_coresight_register a3xx_coresight_registers[] = {
