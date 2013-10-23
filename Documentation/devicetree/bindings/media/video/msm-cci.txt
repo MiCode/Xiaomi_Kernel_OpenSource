@@ -154,6 +154,8 @@ Optional properties:
 - qcom,vdd-cx-supply : should contain regulator from which cx voltage is
     supplied
 - qcom,vdd-cx-name : should contain names of cx regulator
+- qcom,eeprom-src : if eeprom memory is supported by this sensor, this
+   property should contain phandle of respective eeprom nodes
 
 * Qualcomm MSM ACTUATOR
 
@@ -209,6 +211,7 @@ Example:
                qcom,csiphy-sd-index = <2>;
                qcom,csid-sd-index = <0>;
                qcom,actuator-src = <&actuator0>;
+               qcom,eeprom-src = <&eeprom0 &eeprom1>;
                qcom,led-flash-src = <&led_flash0>;
                qcom,mount-angle = <90>;
                qcom,sensor-name = "s5k3l1yx";

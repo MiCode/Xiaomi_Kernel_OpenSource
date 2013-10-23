@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "MSM-SENSOR-DRIVER %s:%d " fmt "\n", __func__, __LINE__
-
 #define SENSOR_DRIVER_I2C "camera"
 /* Header file declaration */
 #include "msm_sensor.h"
@@ -137,6 +135,81 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
+	return rc;
+}
+
+static int32_t msm_sensor_fill_eeprom_subdevid_by_name(
+				struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	const char *eeprom_name;
+	struct device_node *src_node = NULL;
+	uint32_t val = 0, count = 0, eeprom_name_len;
+	int i;
+	int32_t *eeprom_subdev_id;
+	struct  msm_sensor_info_t *sensor_info;
+	struct device_node *of_node = s_ctrl->of_node;
+	const void *p;
+
+	if (!s_ctrl->sensordata->eeprom_name || !of_node)
+		return -EINVAL;
+
+	eeprom_name_len = strlen(s_ctrl->sensordata->eeprom_name);
+	if (eeprom_name_len >= MAX_SENSOR_NAME)
+		return -EINVAL;
+
+	sensor_info = s_ctrl->sensordata->sensor_info;
+	eeprom_subdev_id = &sensor_info->subdev_id[SUB_MODULE_EEPROM];
+	/*
+	 * string for eeprom name is valid, set sudev id to -1
+	 *  and try to found new id
+	 */
+	*eeprom_subdev_id = -1;
+
+	if (0 == eeprom_name_len)
+		return 0;
+
+	CDBG("Try to find eeprom subdev for %s\n",
+			s_ctrl->sensordata->eeprom_name);
+	p = of_get_property(of_node, "qcom,eeprom-src", &count);
+	if (!p || !count)
+		return 0;
+
+	count /= sizeof(uint32_t);
+	for (i = 0; i < count; i++) {
+		eeprom_name = NULL;
+		src_node = of_parse_phandle(of_node, "qcom,eeprom-src", i);
+		if (!src_node) {
+			pr_err("eeprom src node NULL\n");
+			continue;
+		}
+		rc = of_property_read_string(src_node, "qcom,eeprom-name",
+			&eeprom_name);
+		if (rc < 0) {
+			pr_err("failed\n");
+			of_node_put(src_node);
+			continue;
+		}
+		if (strcmp(eeprom_name, s_ctrl->sensordata->eeprom_name))
+			continue;
+
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+
+		CDBG("%s qcom,eeprom cell index %d, rc %d\n", __func__,
+			val, rc);
+		if (rc < 0) {
+			pr_err("failed\n");
+			of_node_put(src_node);
+			continue;
+		}
+
+		*eeprom_subdev_id = val;
+		CDBG("Done. Eeprom subdevice id is %d\n", val);
+		of_node_put(src_node);
+		src_node = NULL;
+		break;
+	}
+
 	return rc;
 }
 
@@ -360,9 +433,21 @@ int32_t msm_sensor_driver_probe(void *setting)
 		goto FREE_CAMERA_INFO;
 	}
 
-	/* Update sensor, actuator and eeprom name in
-	*  sensor control structure */
+	/*
+	 *  Update sensor, actuator and eeprom name in
+	 *  sensor control structure.
+	 */
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
+	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
+
+	/*
+	 * Update eeporm subdevice Id by input eeprom name
+	 */
+	rc = msm_sensor_fill_eeprom_subdevid_by_name(s_ctrl);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto FREE_POWER_SETTING;
+	}
 
 	/* Power up and probe sensor */
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
