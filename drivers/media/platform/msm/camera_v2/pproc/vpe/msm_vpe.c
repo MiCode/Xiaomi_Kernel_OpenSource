@@ -512,7 +512,6 @@ static int vpe_init_hardware(struct vpe_device *vpe_dev)
 	rc = msm_cam_clk_enable(&vpe_dev->pdev->dev, vpe_clk_info,
 				vpe_dev->vpe_clk, ARRAY_SIZE(vpe_clk_info), 1);
 	if (rc < 0) {
-		rc = -ENODEV;
 		pr_err("clk enable failed\n");
 		goto disable_and_put_regulator;
 	}
@@ -602,7 +601,6 @@ static int vpe_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		if (rc < 0) {
 			pr_err("%s: Couldn't init vpe hardware\n", __func__);
 			vpe_dev->vpe_open_cnt--;
-			rc = -ENODEV;
 			goto err_fixup_sub_list;
 		}
 		rc = vpe_init_mem(vpe_dev);
@@ -1565,7 +1563,6 @@ static int vpe_probe(struct platform_device *pdev)
 	rc = vpe_init_hardware(vpe_dev);
 	if (rc < 0) {
 		pr_err("%s: Couldn't init vpe hardware\n", __func__);
-		rc = -ENODEV;
 		goto err_unregister_sd;
 	}
 	vpe_reset(vpe_dev);
