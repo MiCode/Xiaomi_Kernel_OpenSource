@@ -1170,6 +1170,12 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 		of_property_read_bool(arizona->dev->of_node,
 				      "wlf,micd-force-micbias");
 
+	pdata->jd_gpio5 = of_property_read_bool(arizona->dev->of_node,
+						"wlf,use-jd-gpio");
+
+	pdata->jd_gpio5_nopull = of_property_read_bool(arizona->dev->of_node,
+						       "wlf,jd-gpio-nopull");
+
 	return 0;
 }
 

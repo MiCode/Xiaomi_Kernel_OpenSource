@@ -96,6 +96,10 @@ Optional properties:
     specified. 0 indicates Differential, 1 indicates Single Ended and 2
     indicates a digital microphone.
 
+  - wlf,use-jd-gpio : Use GPIO input for jack detection.
+  - wlf,usr-jd-gpio-nopull : Internal pull on GPIO is disabled when used for
+    jack detection.
+
 Example:
 
 codec: wm5102@1a {
