@@ -223,3 +223,9 @@ struct nfc_i2c_platform_data {
 	unsigned int	reg;
 };
 #endif
+/* enable LDO */
+struct vregs_info {
+	const char * const name;
+	struct regulator *regulator;
+};
+struct vregs_info regulators = {"vlogic", NULL};
