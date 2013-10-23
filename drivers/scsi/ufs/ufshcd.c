@@ -2059,9 +2059,6 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	u32 hs_rate = PA_HS_MODE_B;
 	int ret;
 
-	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
-		msleep(1000);
-
 	/* Get the connected lane count */
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &lanes[RX]);
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &lanes[TX]);
