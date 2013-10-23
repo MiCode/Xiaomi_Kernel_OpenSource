@@ -71,6 +71,7 @@ struct msm_rpm_driver_data {
 #define INV_RSC "resource does not exist"
 #define ERR "err\0"
 #define MAX_ERR_BUFFER_SIZE 128
+#define MAX_WAIT_ON_ACK 24
 #define INIT_ERROR 1
 
 static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
@@ -130,7 +131,6 @@ struct slp_buf {
 	bool valid;
 };
 static struct rb_root tr_root = RB_ROOT;
-
 static int msm_rpm_send_smd_buffer(char *buf, int size, bool noirq);
 static uint32_t msm_rpm_get_next_msg_id(void);
 
@@ -386,10 +386,15 @@ static void msm_rpm_print_sleep_buffer(struct slp_buf *s)
 	printk(buf);
 }
 
+static struct msm_rpm_driver_data msm_rpm_data;
+
 static int msm_rpm_flush_requests(bool print)
 {
 	struct rb_node *t;
 	int ret;
+	int pkt_sz;
+	char buf[MAX_ERR_BUFFER_SIZE] = {0};
+	int count = 0;
 
 	for (t = rb_first(&tr_root); t; t = rb_next(t)) {
 
@@ -404,12 +409,23 @@ static int msm_rpm_flush_requests(bool print)
 		get_msg_id(s->buf) = msm_rpm_get_next_msg_id();
 		ret = msm_rpm_send_smd_buffer(s->buf,
 				get_buf_len(s->buf), true);
-		/* By not adding the message to a wait list we can reduce
-		 * latency involved in waiting for a ACK from RPM. The ACK
-		 * messages will be processed when we wakeup from sleep but
-		 * processing should be minimal
-		 * msm_rpm_wait_for_ack_noirq(get_msg_id(s->buf));
+
+		/*
+		 * RPM acks need to be handled here if we have sent over
+		 * 24 messages such that we do not overrun SMD buffer. Since
+		 * we expect only sleep sets at this point (RPM PC would be
+		 * disallowed if we had pending active requests), we need not
+		 * process these sleep set acks.
 		 */
+		count++;
+		if (count > MAX_WAIT_ON_ACK) {
+			int len;
+			pkt_sz = smd_cur_packet_size(msm_rpm_data.ch_info);
+			if (pkt_sz)
+				len = smd_read(msm_rpm_data.ch_info, buf,
+							pkt_sz);
+			count--;
+		}
 
 		WARN_ON(ret != get_buf_len(s->buf));
 
@@ -421,13 +437,10 @@ static int msm_rpm_flush_requests(bool print)
 		s->valid = false;
 	}
 	return 0;
-
 }
 
 
 static atomic_t msm_rpm_msg_id = ATOMIC_INIT(0);
-
-static struct msm_rpm_driver_data msm_rpm_data;
 
 struct msm_rpm_request {
 	struct rpm_request_header req_hdr;
