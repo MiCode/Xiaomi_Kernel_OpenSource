@@ -6288,6 +6288,15 @@ static struct clk_lookup mpq_clocks_8092_rumi[] = {
 	CLK_DUMMY("",	venus0_core1_vcodec_clk.c, "", OFF),
 	CLK_DUMMY("mem_clk", venus0_ocmemnoc_clk.c, "fdce0000.qcom,venus", OFF),
 	CLK_DUMMY("core_clk", venus0_vcodec0_clk.c, "fdce0000.qcom,venus", OFF),
+
+	CLK_DUMMY("iface_clk", vpu_ahb_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("bus_clk", vpu_axi_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("vdp_clk", vpu_vdp_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("vdp_bus_clk", vpu_bus_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("cxo_clk", vpu_cxo_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("core_clk", vpu_maple_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+	CLK_DUMMY("sleep_clk", vpu_sleep_clk.c, "fde0b000.qcom,pil-vpu", OFF),
+
 	CLK_DUMMY("",	vpu_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	vpu_axi_clk.c,	"", OFF),
 	CLK_DUMMY("",	vpu_bus_clk.c,	"", OFF),
@@ -6575,6 +6584,14 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_clk",	venus0_vcodec0_clk.c,
 						 "fdce0000.qcom,venus"),
 	CLK_LOOKUP("",	vcodec0_clk_src.c,	""),
+
+	CLK_LOOKUP("iface_clk", vpu_ahb_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("bus_clk", vpu_axi_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("vdp_clk", vpu_vdp_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("vdp_bus_clk", vpu_bus_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("core_clk", vpu_maple_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("sleep_clk", vpu_sleep_clk.c, "fde0b000.qcom,pil-vpu"),
+
 	CLK_LOOKUP("",	vpu_ahb_clk.c,	""),
 	CLK_LOOKUP("",	vpu_axi_clk.c,	""),
 	CLK_LOOKUP("",	vpu_bus_clk.c,	""),
