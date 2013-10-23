@@ -19,10 +19,6 @@ config MSM_CAMERA_DEBUG
 	help
 	  Enable printk() debug for msm camera
 
-if MSM_CAMERA
-source "drivers/media/platform/msm/camera_v1/Kconfig"
-endif # MSM_CAMERA
-
 menuconfig MSMB_CAMERA
 	bool "Qualcomm MSM camera and video capture 2.0 support"
 	depends on ARCH_MSM && VIDEO_V4L2 && I2C
