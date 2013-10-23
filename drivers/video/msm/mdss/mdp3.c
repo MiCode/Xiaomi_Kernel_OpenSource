@@ -586,41 +586,6 @@ static int mdp3_irq_setup(void)
 	return 0;
 }
 
-struct reg_dump {
-	int start_addr;
-	int num_reads;
-};
-
-struct reg_dump ppp_reg[] = {
-	{0x10108, 3},
-	{0x10118, 6},
-	{0x10138, 9},
-	{0x10158, 1},
-	{0x10164, 7},
-	{0x1019C, 1},
-	{0x101b8, 2},
-	{0x101c0, 8},
-};
-
-static int mdp3_iommu_fault_handler(struct iommu_domain *domain,
-		struct device *dev, unsigned long iova, int flags, void *token)
-{
-	unsigned int addr, val;
-	int i, j;
-	pr_err("MDP IOMMU page fault: iova 0x%lx\n", iova);
-	for (i = 0; i < ARRAY_SIZE(ppp_reg); i++) {
-		for (j = 0; j < ppp_reg[i].num_reads; j++) {
-			addr = ppp_reg[i].start_addr + (j*4);
-			val = MDP3_REG_READ(addr);
-			pr_err("TMsg: Addr= 0x%08x, val= 0x%08x\n",
-				(unsigned int)addr, (unsigned int)val);
-		}
-	}
-	panic("PPP pagefault, shutting down for easier debugging\n");
-	return 0;
-}
-
-
 int mdp3_iommu_attach(int context)
 {
 	struct mdp3_iommu_ctx_map *context_map;
@@ -696,9 +661,6 @@ int mdp3_iommu_domain_init(void)
 			else
 				return PTR_ERR(mdp3_iommu_domains[i].domain);
 		}
-		iommu_set_fault_handler(mdp3_iommu_domains[i].domain,
-			mdp3_iommu_fault_handler,
-			NULL);
 	}
 
 	mdp3_res->domains = mdp3_iommu_domains;
