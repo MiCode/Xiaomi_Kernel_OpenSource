@@ -29,6 +29,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk/msm-clk.h>
 
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
@@ -45,7 +46,6 @@
 #include <linux/mhl_8334.h>
 
 #include <mach/scm.h>
-#include <mach/clk.h>
 #include <mach/mpm.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>

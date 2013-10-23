@@ -13,7 +13,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_DSI_8610
 #define __ARCH_ARM_MACH_MSM_CLOCK_DSI_8610
 
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 
 struct dsi_pll_vco_clk {
 	const unsigned long vco_clk_min;

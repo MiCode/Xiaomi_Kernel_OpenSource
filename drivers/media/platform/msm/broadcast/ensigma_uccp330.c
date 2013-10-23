@@ -35,11 +35,11 @@
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/msm-clk.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
-#include <mach/clk.h>
 
 #define DRV_NAME_DEMOD "demod"
 #define DRVDBG(fmt, args...)\

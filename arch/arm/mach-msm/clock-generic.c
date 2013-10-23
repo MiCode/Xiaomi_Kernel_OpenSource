@@ -16,8 +16,8 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/clk/msm-clk-provider.h>
 
-#include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
 
 /* ==================== Mux clock ==================== */

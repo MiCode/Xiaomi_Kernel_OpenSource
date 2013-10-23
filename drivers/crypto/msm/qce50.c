@@ -28,10 +28,10 @@
 #include <linux/crypto.h>
 #include <linux/qcedev.h>
 #include <linux/bitops.h>
+#include <linux/clk/msm-clk.h>
 #include <crypto/hash.h>
 #include <crypto/sha.h>
 #include <mach/dma.h>
-#include <mach/clk.h>
 #include <mach/socinfo.h>
 #include <mach/qcrypto.h>
 

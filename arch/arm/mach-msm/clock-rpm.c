@@ -13,7 +13,7 @@
 
 #include <linux/err.h>
 #include <linux/mutex.h>
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 
 #include "clock-rpm.h"
 

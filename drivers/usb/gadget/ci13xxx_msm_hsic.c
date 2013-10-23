@@ -22,12 +22,12 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/usb.h>
+#include <linux/clk/msm-clk.h>
 
 #include <linux/usb/gadget.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/msm_hsusb.h>
 
-#include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>

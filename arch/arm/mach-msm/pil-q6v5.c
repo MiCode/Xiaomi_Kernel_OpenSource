@@ -20,8 +20,8 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/msm-clk.h>
 #include <mach/rpm-regulator-smd.h>
-#include <mach/clk.h>
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 

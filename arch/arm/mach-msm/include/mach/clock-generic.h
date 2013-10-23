@@ -14,7 +14,7 @@
 #ifndef __MACH_CLOCK_GENERIC_H
 #define __MACH_CLOCK_GENERIC_H
 
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 
 /* ==================== Mux clock ==================== */
 

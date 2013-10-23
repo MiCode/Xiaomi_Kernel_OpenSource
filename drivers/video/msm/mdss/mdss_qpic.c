@@ -28,9 +28,9 @@
 #include <linux/uaccess.h>
 #include <linux/bootmem.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/sps.h>
-#include <mach/clk.h>
 #include <mach/hardware.h>
 
 #include "mdss_fb.h"

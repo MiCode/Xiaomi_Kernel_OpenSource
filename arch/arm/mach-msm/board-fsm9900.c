@@ -19,6 +19,7 @@
 #include <linux/memory.h>
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
+#include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -27,7 +28,6 @@
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
-#include <mach/clk-provider.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"

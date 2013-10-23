@@ -26,6 +26,7 @@
 #include <linux/memory.h>
 #include <linux/regulator/qpnp-regulator.h>
 #include <linux/msm_tsens.h>
+#include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
@@ -36,7 +37,6 @@
 #include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
-#include <mach/clk-provider.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>

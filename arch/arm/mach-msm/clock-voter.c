@@ -13,7 +13,7 @@
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 #include "clock-voter.h"
 
 static DEFINE_MUTEX(voter_clk_lock);

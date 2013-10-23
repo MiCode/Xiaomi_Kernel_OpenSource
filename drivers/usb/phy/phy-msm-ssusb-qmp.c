@@ -23,7 +23,7 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/clk.h>
-#include <mach/clk.h>
+#include <linux/clk/msm-clk.h>
 
 #define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
