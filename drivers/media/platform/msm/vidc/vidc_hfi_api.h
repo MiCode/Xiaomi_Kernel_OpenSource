@@ -1045,6 +1045,14 @@ enum fw_info {
 	FW_INFO_MAX,
 };
 
+enum dev_info {
+	DEV_CLOCK_COUNT,
+	DEV_CLOCK_ENABLED,
+	DEV_PWR_COUNT,
+	DEV_PWR_ENABLED,
+	DEV_INFO_MAX
+};
+
 #define call_hfi_op(q, op, args...)			\
 	(((q) && (q)->op) ? ((q)->op(args)) : 0)
 
@@ -1098,6 +1106,7 @@ struct hfi_device {
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
+	int (*get_info) (void *dev, enum dev_info info);
 	int (*get_stride_scanline)(int color_fmt, int width,
 		int height,	int *stride, int *scanlines);
 	int (*capability_check)(u32 fourcc, u32 width,

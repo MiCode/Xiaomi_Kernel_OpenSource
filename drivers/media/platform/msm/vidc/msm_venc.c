@@ -25,9 +25,9 @@
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000
 #define BIT_RATE_STEP 100
-#define MIN_FRAME_RATE 65536
-#define MAX_FRAME_RATE 15728640
-#define DEFAULT_FRAME_RATE 1966080
+#define MIN_FRAME_RATE 1
+#define MAX_FRAME_RATE 240
+#define DEFAULT_FRAME_RATE 15
 #define DEFAULT_IR_MBS 30
 #define MAX_SLICE_BYTE_SIZE 1024
 #define MIN_SLICE_BYTE_SIZE 1024
@@ -1257,8 +1257,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (!__temp) { \
 			dprintk(VIDC_ERR, "Can't find %s (%x) in cluster", \
 				#__ctrl_id, __ctrl_id); \
-			rc = -ENOENT; \
-			break; \
+			/* Clusters are hardcoded, if we can't find */ \
+			/* something then things are massively screwed up */ \
+			BUG_ON(1); \
 		} \
 		__temp; \
 	})
@@ -1270,11 +1271,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		idr_period.idr_period = ctrl->val;
 		pdata = &idr_period;
 		break;
-	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD: {
-		struct v4l2_ctrl *b;
-		b = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
+	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
+	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
+	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
+	{
+		int num_p, num_b;
+		struct v4l2_ctrl update_ctrl = {.id = 0, .val = 0};
 
-		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
+		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD &&
+			inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
 			inst->fmts[CAPTURE_PORT]->fourcc !=
 				V4L2_PIX_FMT_H264_NO_SC) {
 			dprintk(VIDC_ERR, "Control 0x%x only valid for H264",
@@ -1283,110 +1288,115 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		/*
-		 * We can't set the I-period explicitly. So set it implicitly
-		 * by setting the number of P and B frames per I-period
-		 */
-		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
-		intra_period.pframes = (ctrl->val - 1) - b->val;
-		intra_period.bframes = b->val;
-		pdata = &intra_period;
-		break;
-	}
-	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
 
-		property_id =
-			HAL_CONFIG_VENC_INTRA_PERIOD;
-		intra_period.pframes = ctrl->val;
-		intra_period.bframes = temp_ctrl->val;
-		pdata = &intra_period;
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
+		num_b = temp_ctrl->val;
+
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES);
-		intra_period.bframes = ctrl->val;
-		intra_period.pframes = temp_ctrl->val;
-		if (intra_period.bframes) {
+		num_p = temp_ctrl->val;
+
+		/* V4L2_CID_MPEG_VIDEO_H264_I_PERIOD and _NUM_P_FRAMES are
+		 * implicitly tied to each other.  If either is adjusted,
+		 * the other needs to be adjusted in a complementary manner.
+		 * Ideally we adjust _NUM_B_FRAMES as well but we'll leave it
+		 * alone for now */
+		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD) {
+			num_p = ctrl->val - 1 - num_b;
+			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES;
+			update_ctrl.val = num_p;
+		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES) {
+			num_p = ctrl->val;
+			update_ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+			update_ctrl.val = num_p + num_b;
+		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES) {
+			num_b = ctrl->val;
+			update_ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+			update_ctrl.val = num_p + num_b;
+		}
+
+		if (update_ctrl.id) {
+			temp_ctrl = TRY_GET_CTRL(update_ctrl.id);
+			temp_ctrl->val = update_ctrl.val;
+		}
+
+		if (num_b) {
 			u32 max_num_b_frames = MAX_NUM_B_FRAMES;
-			property_id =
-				HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
+			property_id = HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
 			pdata = &max_num_b_frames;
 			rc = call_hfi_op(hdev, session_set_property,
 				(void *)inst->session, property_id, pdata);
 			if (rc) {
 				dprintk(VIDC_ERR,
-					"Failed : Setprop MAX_NUM_B_FRAMES"
-					"%d", rc);
+					"Failed : Setprop MAX_NUM_B_FRAMES %d",
+					rc);
 				break;
 			}
 		}
-		property_id =
-			HAL_CONFIG_VENC_INTRA_PERIOD;
+
+		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
+		intra_period.pframes = num_p;
+		intra_period.bframes = num_b;
 		pdata = &intra_period;
+
 		break;
+	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
 		property_id =
 			HAL_CONFIG_VENC_REQUEST_IFRAME;
 		request_iframe.enable = true;
 		pdata = &request_iframe;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 	{
-		bool cfr = true, cbr = true;
 		int final_mode = 0;
+		struct v4l2_ctrl update_ctrl = {.id = 0, .val = 0};
 
-		temp_ctrl = TRY_GET_CTRL(
-			V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
-
-		switch (temp_ctrl->val) {
-		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_OFF:
-			/* Let's assume CFR */
-		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
-		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
-			cfr = true;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR:
-		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR:
-			cfr = false;
-			break;
-		default:
-			dprintk(VIDC_WARN, "Unknown framerate mode");
-		}
-
-		switch (ctrl->val) {
-		case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
-			cbr = false;
-			break;
-		case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
-			cbr = true;
-			break;
-		default:
-			dprintk(VIDC_WARN, "Unknown bitrate mode");
-		}
-
-		if (!cfr && !cbr)
-			final_mode =
-				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR;
-		else if (!cfr && cbr)
-			final_mode =
-				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR;
-		else if (cfr && !cbr)
-			final_mode =
+		/* V4L2_CID_MPEG_VIDEO_BITRATE_MODE and _RATE_CONTROL
+		 * manipulate the same thing.  If one control's state
+		 * changes, try to mirror the state in the other control's
+		 * value */
+		if (ctrl->id == V4L2_CID_MPEG_VIDEO_BITRATE_MODE) {
+			if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
+				final_mode = HAL_RATE_CONTROL_VBR_CFR;
+				update_ctrl.val =
 				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR;
-		else /* ... if (cfr && cbr) */
-			final_mode =
+			} else {/* ...if (ctrl->val == _BITRATE_MODE_CBR) */
+				final_mode = HAL_RATE_CONTROL_CBR_CFR;
+				update_ctrl.val =
 				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR;
+			}
+
+			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL;
+
+		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL) {
+			switch (ctrl->val) {
+			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_OFF:
+			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR:
+			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
+				update_ctrl.val =
+					V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
+			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR:
+			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
+				update_ctrl.val =
+					V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+			}
+
+			final_mode = ctrl->val;
+			update_ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE;
+		}
+
+		if (update_ctrl.id) {
+			temp_ctrl = TRY_GET_CTRL(update_ctrl.id);
+			temp_ctrl->val = update_ctrl.val;
+		}
 
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
 		property_val = final_mode;
 		pdata = &property_val;
+
 		break;
 	}
-	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
-		property_id = HAL_PARAM_VENC_RATE_CONTROL;
-		property_val = ctrl->val;
-		pdata = &property_val;
-		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
 		property_id =
 			HAL_CONFIG_VENC_TARGET_BITRATE;
