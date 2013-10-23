@@ -51,6 +51,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	int rc = 0;
 	struct msm_camera_led_cfg_t *cfg = (struct msm_camera_led_cfg_t *)data;
 	uint32_t i;
+	uint32_t curr_l, max_curr_l;
 	CDBG("called led_state %d\n", cfg->cfgtype);
 
 	if (!fctrl) {
@@ -68,18 +69,38 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 	case MSM_CAMERA_LED_LOW:
-		if (fctrl->torch_trigger)
+		if (fctrl->torch_trigger) {
+			max_curr_l = fctrl->torch_max_current;
+			if (cfg->led_current > 0 &&
+					cfg->led_current < max_curr_l) {
+				curr_l = cfg->led_current;
+			} else {
+				curr_l = fctrl->torch_op_current;
+				pr_err("LED current clamped to %d\n",
+					curr_l);
+			}
 			led_trigger_event(fctrl->torch_trigger,
-				fctrl->torch_op_current);
+				curr_l);
+		}
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
 		if (fctrl->torch_trigger)
 			led_trigger_event(fctrl->torch_trigger, 0);
 		for (i = 0; i < fctrl->num_sources; i++)
-			if (fctrl->flash_trigger[i])
+			if (fctrl->flash_trigger[i]) {
+				max_curr_l = fctrl->flash_max_current[i];
+				if (cfg->led_current > 0 &&
+						cfg->led_current < max_curr_l) {
+					curr_l = cfg->led_current;
+				} else {
+					curr_l = fctrl->flash_op_current[i];
+					pr_err("LED current clamped to %d\n",
+						curr_l);
+				}
 				led_trigger_event(fctrl->flash_trigger[i],
-					fctrl->flash_op_current[i]);
+					curr_l);
+			}
 		break;
 
 	case MSM_CAMERA_LED_INIT:
@@ -116,7 +137,7 @@ static struct platform_driver msm_led_trigger_driver = {
 
 static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 {
-	int32_t rc = 0, i = 0;
+	int32_t rc = 0, rc_1 = 0, i = 0;
 	struct device_node *of_node = pdev->dev.of_node;
 	struct device_node *flash_src_node = NULL;
 	uint32_t count = 0;
@@ -181,7 +202,10 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				rc = of_property_read_u32(flash_src_node,
 					"qcom,current",
 					&fctrl.flash_op_current[i]);
-				if (rc < 0) {
+				rc_1 = of_property_read_u32(flash_src_node,
+					"qcom,max-current",
+					&fctrl.flash_max_current[i]);
+				if ((rc < 0) || (rc_1 < 0)) {
 					pr_err("current: read failed\n");
 					of_node_put(flash_src_node);
 					continue;
@@ -229,7 +253,11 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				rc = of_property_read_u32(flash_src_node,
 					"qcom,current",
 					&fctrl.torch_op_current);
-				if (rc < 0) {
+				rc_1 = of_property_read_u32(flash_src_node,
+					"qcom,max-current",
+					&fctrl.torch_max_current);
+
+				if ((rc < 0) || (rc_1 < 0)) {
 					pr_err("current: read failed\n");
 					goto torch_failed;
 				}
