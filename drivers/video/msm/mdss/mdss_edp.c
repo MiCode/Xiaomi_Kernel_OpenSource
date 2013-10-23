@@ -604,6 +604,8 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	}
 	pr_debug("%s:+, cont_splash=%d\n", __func__, edp_drv->cont_splash);
 
+	/* wait until link training is completed */
+	mutex_lock(&edp_drv->train_mutex);
 
 	INIT_COMPLETION(edp_drv->idle_comp);
 	mdss_edp_state_ctrl(edp_drv, ST_PUSH_IDLE);
@@ -637,6 +639,8 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 
 	pr_debug("%s-: state_ctrl=%x\n", __func__,
 				edp_read(edp_drv->base + 0x8));
+
+	mutex_unlock(&edp_drv->train_mutex);
 	return 0;
 }
 
@@ -821,7 +825,6 @@ static void mdss_edp_do_link_train(struct mdss_edp_drv_pdata *ep)
 	if (ep->cont_splash)
 		return;
 
-	INIT_COMPLETION(ep->train_comp);
 	mdss_edp_link_train(ep);
 }
 
