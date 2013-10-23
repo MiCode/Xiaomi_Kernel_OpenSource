@@ -57,6 +57,7 @@ struct bam_data_ch_info {
 
 struct bam_data_port {
 	unsigned			port_num;
+	unsigned int                    ref_count;
 	struct data_port		*port_usb;
 	struct bam_data_ch_info		data_ch;
 
@@ -337,8 +338,13 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 static void bam2bam_data_port_free(int portno)
 {
-	kfree(bam2bam_data_ports[portno]);
-	bam2bam_data_ports[portno] = NULL;
+	if (bam2bam_data_ports[portno] == NULL)
+		return;
+
+	if (--bam2bam_data_ports[portno]->ref_count == 0) {
+		kfree(bam2bam_data_ports[portno]);
+		bam2bam_data_ports[portno] = NULL;
+	}
 }
 
 static int bam2bam_data_port_alloc(int portno)
@@ -346,11 +352,17 @@ static int bam2bam_data_port_alloc(int portno)
 	struct bam_data_port	*port = NULL;
 	struct bam_data_ch_info	*d = NULL;
 
+	if (bam2bam_data_ports[portno] != NULL) {
+		bam2bam_data_ports[portno]->ref_count++;
+		goto done;
+	}
+
 	port = kzalloc(sizeof(struct bam_data_port), GFP_KERNEL);
 	if (!port)
 		return -ENOMEM;
 
-	port->port_num = portno;
+	port->port_num  = portno;
+	port->ref_count = 1;
 
 	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
 	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
@@ -364,6 +376,7 @@ static int bam2bam_data_port_alloc(int portno)
 	d->ipa_params.src_client = IPA_CLIENT_USB_PROD;
 	d->ipa_params.dst_client = IPA_CLIENT_USB_CONS;
 
+done:
 	pr_debug("port:%p portno:%d\n", port, portno);
 
 	return 0;
@@ -387,6 +400,11 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	}
 
 	port = bam2bam_data_ports[port_num];
+
+	if (!port) {
+		pr_err("port %u is NULL", port_num);
+		return;
+	}
 
 	if (port->port_usb && port->port_usb->in &&
 	  port->port_usb->in->driver_data) {
