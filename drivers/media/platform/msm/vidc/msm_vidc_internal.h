@@ -128,8 +128,8 @@ struct msm_video_device {
 };
 
 struct session_prop {
-	u32 width;
-	u32 height;
+	u32 width[MAX_PORT_NUM];
+	u32 height[MAX_PORT_NUM];
 	u32 fps;
 	u32 bitrate;
 };
@@ -180,6 +180,8 @@ struct msm_vidc_core_capability {
 	struct hal_capability_supported height;
 	struct hal_capability_supported frame_rate;
 	u32 pixelprocess_capabilities;
+	struct hal_capability_supported scale_x;
+	struct hal_capability_supported scale_y;
 	u32 capability_set;
 	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 };
