@@ -312,12 +312,12 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf,
 	 * Include the start (1), version (1), length (2) and the end
 	 * (1) bytes while checking. Total = 5 bytes
 	 */
-	if ((write_len <= 0) && ((write_len+5) > len)) {
+	write_len -= cmd_code_len;
+	if ((write_len <= 0) || (write_len > (len - 5))) {
 		pr_err("diag: Invalid length in %s, len: %d, write_len: %d",
 						__func__, len, write_len);
 		return;
 	}
-	write_len -= cmd_code_len;
 	pr_debug("diag: len = %d\n", write_len);
 	/* look up DCI client with tag */
 	for (i = 0; i < dci_max_reg; i++) {
