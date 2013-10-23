@@ -251,6 +251,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_writeback_arg *wb_args;
 	struct mdss_mdp_rotator_session *rot;
 	struct mdss_data_type *mdata;
+	struct mdss_mdp_format_params *fmt;
 	u32 format;
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
@@ -288,8 +289,15 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 
 	ctx->rot90 = !!(rot->flags & MDP_ROT_90);
 
+	fmt = mdss_mdp_get_format_params(rot->format);
+	if (!fmt) {
+		pr_err("invalid pipe format %d\n", rot->format);
+		return -EINVAL;
+	}
+
 	if (ctx->bwc_mode || (ctx->rot90 &&
-			     (mdata->mdp_rev < MDSS_MDP_HW_REV_102)))
+			((mdata->mdp_rev < MDSS_MDP_HW_REV_102)
+			|| !fmt->is_yuv)))
 		format = mdss_mdp_get_rotator_dst_format(rot->format, 1);
 	else
 		format = mdss_mdp_get_rotator_dst_format(rot->format, 0);
