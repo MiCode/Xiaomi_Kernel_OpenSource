@@ -1212,6 +1212,19 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE:
+			return HAL_ROTATE_NONE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90:
+			return HAL_ROTATE_90;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_180:
+			return HAL_ROTATE_180;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270:
+			return HAL_ROTATE_270;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -1538,9 +1551,19 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+		if (ctrl->val && !(inst->capability.pixelprocess_capabilities &
+			HAL_VIDEO_ENCODER_ROTATION_CAPABILITY)) {
+			dprintk(VIDC_ERR, "Rotation not supported: 0x%x",
+				ctrl->id);
+			rc = -ENOTSUPP;
+			break;
+		}
 		property_id =
 			HAL_CONFIG_VPE_OPERATIONS;
-		operations.rotate = ctrl->val;
+		operations.rotate = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
+				ctrl->val);
+		operations.flip = HAL_FLIP_NONE;
 		pdata = &operations;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP: {
@@ -1906,8 +1929,16 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 
 	int rc = 0, c = 0;
+	struct hfi_device *hdev;
+
 	struct msm_vidc_inst *inst = container_of(ctrl->handler,
 					struct msm_vidc_inst, ctrl_handler);
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
 	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 
 	if (rc) {
@@ -1915,6 +1946,10 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 			"Failed to move inst: %p to start done state\n", inst);
 		goto failed_open_done;
 	}
+
+	hdev = inst->core->device;
+	inst->capability.pixelprocess_capabilities =
+		call_hfi_op(hdev, get_core_capabilities);
 
 	for (c = 0; c < ctrl->ncontrols; ++c) {
 		if (ctrl->cluster[c]->is_new) {
@@ -1965,6 +2000,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.fps = 15;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->capability.pixelprocess_capabilities = 0;
 	return rc;
 }
 
@@ -2160,6 +2196,8 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto exit;
 		}
+		inst->prop.width = f->fmt.pix_mp.width;
+		inst->prop.height = f->fmt.pix_mp.height;
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct hal_uncompressed_format_select hal_fmt = {0};
 		struct hal_frame_size frame_sz;
@@ -2236,9 +2274,23 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		inst->fmts[fmt->type] = fmt;
 		if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			struct hal_frame_size frame_sz;
 			rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 			if (rc) {
 				dprintk(VIDC_ERR, "Failed to open instance\n");
+				goto exit;
+			}
+			inst->capability.pixelprocess_capabilities =
+				call_hfi_op(hdev, get_core_capabilities);
+			frame_sz.width = inst->prop.width;
+			frame_sz.height = inst->prop.height;
+			frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, HAL_PARAM_FRAME_SIZE,
+				&frame_sz);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to set OUTPUT framesize\n");
 				goto exit;
 			}
 		}

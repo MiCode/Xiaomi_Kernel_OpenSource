@@ -186,6 +186,14 @@ enum hal_domain {
 	HAL_UNUSED_DOMAIN = 0x10000000,
 };
 
+enum hal_core_capabilities {
+	HAL_VIDEO_ENCODER_ROTATION_CAPABILITY = 0x00000001,
+	HAL_VIDEO_ENCODER_SCALING_CAPABILITY = 0x00000002,
+	HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY = 0x00000004,
+	HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY = 0x00000008,
+	HAL_VIDEO_UNUSED_CAPABILITY      = 0x10000000,
+};
+
 enum hal_video_codec {
 	HAL_VIDEO_CODEC_UNKNOWN  = 0x00000000,
 	HAL_VIDEO_CODEC_MVC      = 0x00000001,
@@ -1112,6 +1120,7 @@ struct hfi_device {
 	int (*capability_check)(u32 fourcc, u32 width,
 		u32 *max_width, u32 *max_height);
 	int (*session_clean)(void *sess);
+	int (*get_core_capabilities)(void);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,

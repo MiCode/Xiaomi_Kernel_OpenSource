@@ -3342,6 +3342,14 @@ int venus_hfi_get_stride_scanline(int color_fmt,
 	return 0;
 }
 
+int venus_hfi_get_core_capabilities(void)
+{
+	return HAL_VIDEO_ENCODER_ROTATION_CAPABILITY |
+		HAL_VIDEO_ENCODER_SCALING_CAPABILITY |
+		HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY |
+		HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY;
+}
+
 int venus_hfi_capability_check(u32 fourcc, u32 width,
 		u32 *max_width, u32 *max_height)
 {
@@ -3519,6 +3527,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->get_info = venus_hfi_get_info;
 	hdev->get_stride_scanline = venus_hfi_get_stride_scanline;
 	hdev->capability_check = venus_hfi_capability_check;
+	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
