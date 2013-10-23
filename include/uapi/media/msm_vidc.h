@@ -43,6 +43,30 @@ struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int disp_width;
 	unsigned int disp_height;
 };
+struct msm_vidc_input_crop_payload {
+	unsigned int size;
+	unsigned int version;
+	unsigned int port_index;
+	unsigned int left;
+	unsigned int top;
+	unsigned int width;
+	unsigned int height;
+};
+struct msm_vidc_digital_zoom_payload {
+	unsigned int size;
+	unsigned int version;
+	unsigned int port_index;
+	unsigned int zoom_width;
+	unsigned int zoom_height;
+};
+struct msm_vidc_extradata_index {
+	unsigned int type;
+	union {
+		struct msm_vidc_input_crop_payload input_crop;
+		struct msm_vidc_digital_zoom_payload digital_zoom;
+		struct msm_vidc_aspect_ratio_payload aspect_ratio;
+	};
+};
 struct msm_vidc_panscan_window {
 	unsigned int panscan_height_offset;
 	unsigned int panscan_width_offset;
@@ -79,6 +103,8 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_STREAM_USERDATA = 0x0000000E,
 	MSM_VIDC_EXTRADATA_FRAME_QP = 0x0000000F,
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
+	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
+	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	MSM_VIDC_EXTRADATA_INDEX = 0x7F100002,

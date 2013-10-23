@@ -971,6 +971,7 @@ static void hfi_process_session_etb_done(
 	data_done.input_done.offset = pkt->offset;
 	data_done.input_done.filled_len = pkt->filled_len;
 	data_done.input_done.packet_buffer = pkt->packet_buffer;
+	data_done.input_done.extra_data_buffer = pkt->extra_data_buffer;
 	data_done.input_done.status =
 		hfi_map_err_status((u32) pkt->error_type);
 	callback(SESSION_ETB_DONE, &data_done);

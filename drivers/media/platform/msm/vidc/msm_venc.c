@@ -866,7 +866,9 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	struct hfi_device *hdev;
 	struct hal_buffer_requirements *buff_req;
 	struct v4l2_ctrl *ctrl = NULL;
-	u32 extradata = 0;
+	u32 extradata = 0, extra_idx = 0;
+	struct hal_buffer_requirements *buff_req_buffer = NULL;
+
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input\n");
 		return -EINVAL;
@@ -901,7 +903,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		if (ctrl)
 			extradata = v4l2_ctrl_g_ctrl(ctrl);
-		if (extradata)
+		if (extradata == V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO)
 			*num_planes = *num_planes + 1;
 		inst->fmts[CAPTURE_PORT]->num_planes = *num_planes;
 		for (i = 0; i < *num_planes; i++) {
@@ -936,16 +938,30 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
+		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
+		if (ctrl)
+			extradata = v4l2_ctrl_g_ctrl(ctrl);
+		if (extradata == V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP)
+			*num_planes = *num_planes + 1;
+		inst->fmts[OUTPUT_PORT]->num_planes = *num_planes;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 					property_id, &new_buf_count);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
 				inst->buff_req.buffer[0].buffer_alignment,
 				inst->buff_req.buffer[0].buffer_count_actual);
-		for (i = 0; i < *num_planes; i++) {
-			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
-					i, inst->prop.height[OUTPUT_PORT],
-					inst->prop.width[OUTPUT_PORT]);
+		sizes[0] = inst->fmts[OUTPUT_PORT]->get_frame_size(
+				0, inst->prop.height[OUTPUT_PORT],
+				inst->prop.width[OUTPUT_PORT]);
+		extra_idx =
+			EXTRADATA_IDX(inst->fmts[OUTPUT_PORT]->num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+				HAL_BUFFER_EXTRADATA_INPUT);
+			sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
 		}
 		break;
 	default:
@@ -2429,6 +2445,18 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					"Failed to set OUTPUT framesize\n");
 				goto exit;
 			}
+		} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			struct hal_buffer_requirements *buff_req_buffer = NULL;
+			int extra_idx = 0;
+			extra_idx = EXTRADATA_IDX(fmt->num_planes);
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+				buff_req_buffer =
+					get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
+				f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
+					buff_req_buffer ?
+					buff_req_buffer->buffer_size : 0;
+			}
 		}
 	} else {
 		dprintk(VIDC_ERR, "Buf type not recognized, type = %d\n",
@@ -2446,7 +2474,7 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int i;
 	u32 height, width;
 	int extra_idx = 0;
-	struct hal_buffer_requirements *buff_req_buffer;
+	struct hal_buffer_requirements *buff_req_buffer = NULL;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -2474,9 +2502,15 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-			buff_req_buffer =
-				get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
+			if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+				buff_req_buffer =
+					get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_OUTPUT);
+			else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+				buff_req_buffer =
+					get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
+
 			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
 				buff_req_buffer ?
 				buff_req_buffer->buffer_size : 0;

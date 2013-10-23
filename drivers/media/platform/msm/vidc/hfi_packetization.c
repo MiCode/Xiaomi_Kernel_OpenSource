@@ -368,6 +368,8 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		ret = HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB;
 		break;
 	case HAL_EXTRADATA_ASPECT_RATIO:
+	case HAL_EXTRADATA_INPUT_CROP:
+	case HAL_EXTRADATA_DIGITAL_ZOOM:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
@@ -384,6 +386,26 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
+		break;
+	}
+	return ret;
+}
+
+static int get_hfi_extradata_id(enum hal_extradata_id index)
+{
+	int ret = 0;
+	switch (index) {
+	case HAL_EXTRADATA_ASPECT_RATIO:
+		ret = MSM_VIDC_EXTRADATA_ASPECT_RATIO;
+		break;
+	case HAL_EXTRADATA_INPUT_CROP:
+		ret = MSM_VIDC_EXTRADATA_INPUT_CROP;
+		break;
+	case HAL_EXTRADATA_DIGITAL_ZOOM:
+		ret = MSM_VIDC_EXTRADATA_DIGITAL_ZOOM;
+		break;
+	default:
+		ret = get_hfi_extradata_index(index);
 		break;
 	}
 	return ret;
@@ -544,6 +566,7 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->filled_len = input_frame->filled_len;
 	pkt->input_tag = input_frame->clnt_data;
 	pkt->packet_buffer = (u8 *) input_frame->device_addr;
+	pkt->extra_data_buffer = (u8 *) input_frame->extradata_addr;
 
 	if (!pkt->packet_buffer)
 		return -EINVAL;
@@ -1358,23 +1381,20 @@ int create_pkt_cmd_session_set_property(
 	{
 		struct hfi_index_extradata_config *hfi;
 		struct hal_extradata_enable *extra = pdata;
-		int index = 0;
+		int id = 0;
 		pkt->rg_property_data[0] =
 			get_hfi_extradata_index(extra->index);
 		hfi =
 			(struct hfi_index_extradata_config *)
 			&pkt->rg_property_data[1];
 		hfi->enable = extra->enable;
-		if (extra->index == HAL_EXTRADATA_ASPECT_RATIO)
-			index = MSM_VIDC_EXTRADATA_ASPECT_RATIO;
-		else
-			index = get_hfi_extradata_index(extra->index);
-		if (index)
-			hfi->index_extra_data_id = index;
+		id = get_hfi_extradata_id(extra->index);
+		if (id)
+			hfi->index_extra_data_id = id;
 		else {
 			dprintk(VIDC_WARN,
-				"Failed to find extradata index: %d\n",
-				index);
+				"Failed to find extradata id: %d\n",
+				id);
 			rc = -EINVAL;
 		}
 		pkt->size += sizeof(u32) +
