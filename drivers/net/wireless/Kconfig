@@ -298,6 +298,18 @@ config WCNSS_CORE
 	---help---
 	  Core driver for the Qualcomm WCNSS triple play connectivity subsystem
 
+config CNSS
+	tristate "CNSS driver for PCIe wifi module"
+	depends on MIGHT_HAVE_PCI
+	depends on PCI
+	depends on PCI_MSI
+	depends on MSM_PCIE
+	---help---
+	  This module adds support for the CNSS connectivity subsystem used
+	  for wifi devices based on the QCA AR6320 chipset running over PCIe.
+	  This driver also adds support to integrate PCIe WLAN module to subsystem
+	  restart framework.
+
 config WCNSS_CORE_PRONTO
 	tristate "Qualcomm WCNSS Pronto Support"
 	depends on WCNSS_CORE
