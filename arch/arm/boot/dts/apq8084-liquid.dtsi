@@ -62,6 +62,7 @@
 			"MIC BIAS3 External", "Digital Mic6";
 
 		qcom,cdc-micbias2-headset-only;
+		qcom,hdmi-audio-rx;
 		qcom,ext-spk-amp-supply = <&hdmi_vreg>;
 		qcom,ext-spk-amp-gpio = <&pma8084_mpps 6 0>;
 		qcom,dock-plug-det-irq = <&msmgpio 103 0>;
