@@ -4698,6 +4698,25 @@ struct asm_stream_cmd_open_write_compressed {
 
 } __packed;
 
+
+/*
+    Indicates the number of samples per channel to be removed from the
+    beginning of the stream.
+*/
+#define ASM_DATA_CMD_REMOVE_INITIAL_SILENCE 0x00010D67
+/*
+    Indicates the number of samples per channel to be removed from
+    the end of the stream.
+*/
+#define ASM_DATA_CMD_REMOVE_TRAILING_SILENCE 0x00010D68
+struct asm_data_cmd_remove_silence {
+	struct apr_hdr hdr;
+	u32	num_samples_to_remove;
+	/**< Number of samples per channel to be removed.
+
+	   @values 0 to (2@sscr{32}-1) */
+} __packed;
+
 #define ASM_STREAM_CMD_OPEN_READ_COMPRESSED                        0x00010D95
 
 struct asm_stream_cmd_open_read_compressed {
