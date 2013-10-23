@@ -560,7 +560,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
 				hi_val = msm_camera_io_r(vfe_dev->vfe_base +
 					vfe_dev->hw_info->dmi_reg_offset);
-				*hi_tbl_ptr++ = hi_val;
+				*hi_tbl_ptr = hi_val;
+				hi_tbl_ptr += 2;
 			}
 
 			lo_val = msm_camera_io_r(vfe_dev->vfe_base +
@@ -572,6 +573,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 				lo_val |= lo_val1 << 16;
 			}
 			*lo_tbl_ptr++ = lo_val;
+			if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT)
+				lo_tbl_ptr++;
 		}
 		break;
 	}
