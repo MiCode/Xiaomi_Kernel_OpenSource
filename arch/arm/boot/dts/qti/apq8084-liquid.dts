@@ -14,6 +14,7 @@
 
 #include "apq8084.dtsi"
 #include "apq8084-liquid.dtsi"
+#include "apq8084-camera-sensor-liquid.dtsi"
 
 / {
 	model = "Qualcomm APQ 8084 LIQUID";

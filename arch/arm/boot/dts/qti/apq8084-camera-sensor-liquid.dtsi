@@ -34,7 +34,7 @@
 		cam_vana-supply = <&pma8084_l17>;
 		cam_vaf-supply = <&pma8084_l23>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
-				     "cam_vaf";
+				"cam_vaf";
 		qcom,cam-vreg-type = <0 1 0 0>;
 		qcom,cam-vreg-min-voltage = <1050000 0 2800000 2700000>;
 		qcom,cam-vreg-max-voltage = <1050000 0 2800000 2700000>;
@@ -48,8 +48,8 @@
 		qcom,gpio-req-tbl-num = <0 1 2>;
 		qcom,gpio-req-tbl-flags = <1 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
-					  "CAM_RESET1",
-					  "CAM_STANDBY";
+				"CAM_RESET1",
+				"CAM_STANDBY";
 		qcom,gpio-set-tbl-num = <1 1>;
 		qcom,gpio-set-tbl-flags = <0 2>;
 		qcom,gpio-set-tbl-delay = <1000 30000>;
@@ -57,7 +57,7 @@
 		qcom,csi-lane-mask = <0x1F>;
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
-	        qcom,sensor-type = <0>;
+		qcom,sensor-type = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -68,9 +68,9 @@
 		qcom,slave-id = <0x6c 0x0 0x0132>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <0>;
 		qcom,sensor-name = "imx132";
-        cam_vana-supply = <&pma8084_l17>;
+		cam_vana-supply = <&pma8084_l17>;
 		cam_vdig-supply = <&pma8084_l15>;
 		cam_vio-supply = <&pma8084_lvs4>;
 		qcom,cam-vreg-name =  "cam_vana", "cam_vdig", "cam_vio";
@@ -80,12 +80,12 @@
 		qcom,cam-vreg-op-mode = <80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 17 0>,
-			    <&msmgpio 25 0>;
+			<&msmgpio 25 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-req-tbl-num = <0 1>;
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
-					  "CAM_XSHUTDOWN";
+				"CAM_XSHUTDOWN";
 		qcom,gpio-set-tbl-num = <1 1>;
 		qcom,gpio-set-tbl-flags = <0 2>;
 		qcom,gpio-set-tbl-delay = <1000 4000>;
@@ -103,6 +103,7 @@
 		reg = <0x00>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
 		cam_vdig-supply = <&pma8084_l27>;
 		cam_vio-supply = <&pma8084_lvs4>;
@@ -133,7 +134,6 @@
 		cell-index = <1>;
 		compatible = "qcom,camera";
 		reg = <0x01>;
-		qcom,slave-id = <0x6c 0x0 0x0132>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <270>;
@@ -147,7 +147,7 @@
 		qcom,cam-vreg-op-mode = <80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 17 0>,
-			    <&msmgpio 25 0>;
+			<&msmgpio 25 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-req-tbl-num = <0 1>;
 		qcom,gpio-req-tbl-flags = <1 0>;

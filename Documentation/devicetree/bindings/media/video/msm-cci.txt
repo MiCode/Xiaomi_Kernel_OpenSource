@@ -58,17 +58,12 @@ Required properties:
     - "shinetech,hi256"
     - "shinetech,s5k4e1"
 - reg : should contain i2c slave address of the device
-- qcom,slave-id : should contain i2c slave address, device id address
-    and expected id read value
 - qcom,csiphy-sd-index : should contain csiphy instance that will used to
     receive sensor data
     - 0, 1, 2
 - qcom,csid-sd-index : should contain csid core instance that will used to
     receive sensor data
     - 0, 1, 2, 3
-- qcom,sensor-name : should contain unique sensor name to differentiate from
-    other sensor
-    - "s5k3l1yx"
 - cam_vdig-supply : should contain regulator from which digital voltage is
     supplied
 - cam_vana-supply : should contain regulator from which analog voltage is
@@ -86,6 +81,13 @@ Required properties:
     regulators mentioned in qcom,cam-vreg-name property (in the same order)
 - qcom,cam-vreg-op-mode : should contain optimum voltage level for regulators
     mentioned in qcom,cam-vreg-name property (in the same order)
+
+Optional properties:
+- qcom,slave-id : should contain i2c slave address, device id address
+    and expected id read value
+- qcom,sensor-name : should contain unique sensor name to differentiate from
+    other sensor
+    - "s5k3l1yx"
 - qcom,sensor-mode : should contain sensor mode supported
     - 0 -> back camera 2D
     - 1 -> front camera 2D
@@ -94,8 +96,6 @@ Required properties:
 - qcom,sensor-type : should contain format of data that sensor streams
     - 0 -> bayer format
     - 1 -> yuv format
-
-Optional properties:
 - qcom,is-vpe : should be enabled if VPE module is required for post processing
     of this sensor
     - 1 if required, 0 otherwise
