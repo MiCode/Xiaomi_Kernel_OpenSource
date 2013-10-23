@@ -79,8 +79,11 @@ enum device_status {
 	STATUS_DEVICE_FAILURE = 0x03,
 	STATUS_CONFIG_CRC_FAILURE = 0x04,
 	STATUS_FIRMWARE_CRC_FAILURE = 0x05,
-	STATUS_CRC_IN_PROGRESS = 0x06
+	STATUS_CRC_IN_PROGRESS = 0x06,
+	STATUS_UNCONFIGURED = 0x80
 };
+
+#define DEVICE_CONFIGURED 0x1
 
 #define RMI4_VTG_MIN_UV		2700000
 #define RMI4_VTG_MAX_UV		3300000
@@ -167,6 +170,20 @@ struct synaptics_rmi4_f01_device_status {
 			unsigned char reserved:2;
 			unsigned char flash_prog:1;
 			unsigned char unconfigured:1;
+		} __packed;
+		unsigned char data[1];
+	};
+};
+
+struct synaptics_rmi4_f01_device_control_0 {
+	union {
+		struct {
+			unsigned char sleep_mode:2;
+			unsigned char nosleep:1;
+			unsigned char reserved:2;
+			unsigned char charger_input:1;
+			unsigned char report_rate:1;
+			unsigned char configured:1;
 		} __packed;
 		unsigned char data[1];
 	};
@@ -2654,8 +2671,6 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 				goto err_reset_gpio_dir;
 			}
 
-			gpio_set_value(rmi4_data->board->reset_gpio, 0);
-			usleep(RMI4_GPIO_SLEEP_LOW_US);
 			gpio_set_value(rmi4_data->board->reset_gpio, 1);
 			msleep(rmi4_data->board->reset_delay);
 		} else
@@ -3088,12 +3103,12 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
-	unsigned char device_ctrl;
+	struct synaptics_rmi4_f01_device_control_0 device_ctrl;
 
 	retval = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
+			device_ctrl.data,
+			sizeof(device_ctrl.data));
 	if (retval < 0) {
 		dev_err(&(rmi4_data->input_dev->dev),
 				"%s: Failed to enter sleep mode\n",
@@ -3102,13 +3117,13 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 		return;
 	}
 
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (device_ctrl | NO_SLEEP_OFF | SENSOR_SLEEP);
+	device_ctrl.sleep_mode = SENSOR_SLEEP;
+	device_ctrl.nosleep = NO_SLEEP_OFF;
 
 	retval = synaptics_rmi4_i2c_write(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
+			device_ctrl.data,
+			sizeof(device_ctrl.data));
 	if (retval < 0) {
 		dev_err(&(rmi4_data->input_dev->dev),
 				"%s: Failed to enter sleep mode\n",
@@ -3132,12 +3147,12 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
-	unsigned char device_ctrl;
+	struct synaptics_rmi4_f01_device_control_0 device_ctrl;
 
 	retval = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
+			device_ctrl.data,
+			sizeof(device_ctrl.data));
 	if (retval < 0) {
 		dev_err(&(rmi4_data->input_dev->dev),
 				"%s: Failed to wake from sleep mode\n",
@@ -3146,13 +3161,13 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 		return;
 	}
 
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (device_ctrl | NO_SLEEP_OFF | NORMAL_OPERATION);
+	device_ctrl.sleep_mode = NORMAL_OPERATION;
+	device_ctrl.nosleep = NO_SLEEP_OFF;
 
 	retval = synaptics_rmi4_i2c_write(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
+			device_ctrl.data,
+			sizeof(device_ctrl.data));
 	if (retval < 0) {
 		dev_err(&(rmi4_data->input_dev->dev),
 				"%s: Failed to wake from sleep mode\n",
@@ -3365,6 +3380,51 @@ fail_regulator_hpm:
 	return retval;
 }
 
+static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
+						*rmi4_data)
+{
+	int retval;
+	struct synaptics_rmi4_f01_device_control_0 device_control;
+	struct synaptics_rmi4_f01_device_status device_status;
+
+	retval = synaptics_rmi4_i2c_read(rmi4_data,
+			rmi4_data->f01_data_base_addr,
+			device_status.data,
+			sizeof(device_status.data));
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Failed to read device status, rc=%d\n", retval);
+		return retval;
+	}
+
+	if (device_status.unconfigured) {
+		retval = synaptics_rmi4_query_device(rmi4_data);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Failed to query device, rc=%d\n", retval);
+			return retval;
+		}
+
+		retval = synaptics_rmi4_i2c_read(rmi4_data,
+				rmi4_data->f01_ctrl_base_addr,
+				device_control.data,
+				sizeof(device_control.data));
+		if (retval < 0)
+			return retval;
+
+		device_control.configured = DEVICE_CONFIGURED;
+
+		retval = synaptics_rmi4_i2c_write(rmi4_data,
+				rmi4_data->f01_ctrl_base_addr,
+				device_control.data,
+				sizeof(device_control.data));
+		if (retval < 0)
+			return retval;
+	}
+
+	return 0;
+}
+
  /**
  * synaptics_rmi4_suspend()
  *
@@ -3447,24 +3507,29 @@ static int synaptics_rmi4_resume(struct device *dev)
 		return 0;
 	}
 
+	retval = synaptics_rmi4_regulator_lpm(rmi4_data, false);
+	if (retval < 0) {
+		dev_err(dev, "Failed to enter active power mode\n");
+		return retval;
+	}
+
 	if (rmi4_data->board->disable_gpios) {
 		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
 		if (retval < 0) {
-			dev_err(dev, "failed to put gpios in active state\n");
+			dev_err(dev, "Failed to put gpios in active state\n");
 			return retval;
 		}
-	}
-
-	retval = synaptics_rmi4_regulator_lpm(rmi4_data, false);
-	if (retval < 0) {
-		dev_err(dev, "failed to enter active power mode\n");
-		return retval;
 	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	rmi4_data->touch_stopped = false;
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 
+	retval = synaptics_rmi4_check_configuration(rmi4_data);
+	if (retval < 0) {
+		dev_err(dev, "Failed to check configuration\n");
+		return retval;
+	}
 	rmi4_data->suspended = false;
 
 	return 0;
