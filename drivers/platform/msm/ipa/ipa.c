@@ -651,6 +651,11 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 			break;
 		}
+	case IPA_IOC_QUERY_EP_MAPPING:
+		{
+			retval = ipa_get_ep_mapping(arg);
+			break;
+		}
 
 	default:        /* redundant, as cmd was checked against MAXNR */
 		ipa_dec_client_disable_clks();
