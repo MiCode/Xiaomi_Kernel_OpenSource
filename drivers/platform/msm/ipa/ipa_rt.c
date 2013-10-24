@@ -843,8 +843,11 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 					 &tbl->head_rt_rule_list, link) {
 			node = ipa_search(&ipa_ctx->rt_rule_hdl_tree,
 					  (u32)rule);
-			if (node == NULL)
+			if (node == NULL) {
 				WARN_ON(1);
+				mutex_unlock(&ipa_ctx->lock);
+				return -EFAULT;
+			}
 
 			/*
 			 * for the "default" routing tbl, remove all but the
@@ -866,8 +869,11 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 		}
 
 		node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, (u32)tbl);
-		if (node  == NULL)
+		if (node  == NULL) {
 			WARN_ON(1);
+			mutex_unlock(&ipa_ctx->lock);
+			return -EFAULT;
+		}
 
 		/* do not remove the "default" routing tbl which has index 0 */
 		if (tbl->idx != 0) {
