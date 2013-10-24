@@ -294,6 +294,56 @@ struct ipa_ep_cfg_status {
 };
 
 /**
+ * enum ipa_cs_offload - checksum offload setting
+ */
+enum ipa_cs_offload {
+	IPA_DISABLE_CS_OFFLOAD,
+	IPA_ENABLE_CS_OFFLOAD_UL,
+	IPA_ENABLE_CS_OFFLOAD_DL,
+	IPA_CS_RSVD
+};
+
+/**
+ * struct ipa_ep_cfg_cfg - IPA ENDP_INIT Configuration register
+ * @frag_offload_en: - 0 - IP packet fragment handling is disabled. IP packet
+ *	fragments should be sent to SW. SW is responsible for
+ *	configuring filter rules, and IP packet filter exception should be
+ *	used to send all fragments to SW. 1 - IP packet fragment
+ *	handling is enabled. IPA checks for fragments and uses frag
+ *	rules table for processing fragments. Valid only for Input Pipes
+ *	(IPA Consumer)
+ * @cs_offload_en: Checksum offload enable: 00: Disable checksum offload, 01:
+ *	Enable checksum calculation offload (UL) - For output pipe
+ *	(IPA producer) specifies that checksum trailer is to be added.
+ *	For input pipe (IPA consumer) specifies presence of checksum
+ *	header and IPA checksum calculation accordingly. 10: Enable
+ *	checksum calculation offload (DL) - For output pipe (IPA
+ *	producer) specifies that checksum trailer is to be added. For
+ *	input pipe (IPA consumer) specifies IPA checksum calculation.
+ *	11: Reserved
+ * @cs_metadata_hdr_offset: Offset in Words (4 bytes) within header in which
+ *	checksum meta info header (4 bytes) starts (UL). Values are 0-15, which
+ *	mean 0 - 60 byte checksum header offset. Valid for input
+ *	pipes only (IPA consumer)
+ */
+struct ipa_ep_cfg_cfg {
+	bool frag_offload_en;
+	enum ipa_cs_offload cs_offload_en;
+	u8 cs_metadata_hdr_offset;
+};
+
+/**
+ * struct ipa_ep_cfg_metadata_mask - Endpoint initialization hdr metadata mask
+ * @metadata_mask: Mask specifying which metadata bits to write to
+ *	IPA_ENDP_INIT_HDR_n.s HDR_OFST_METADATA. Only
+ *	masked metadata bits (set to 1) will be written. Valid for Output
+ *	Pipes only (IPA Producer)
+ */
+struct ipa_ep_cfg_metadata_mask {
+	u32 metadata_mask;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:	NAT parmeters
  * @hdr:	Header parameters
@@ -312,6 +362,8 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_deaggr deaggr;
 	struct ipa_ep_cfg_route route;
 	struct ipa_ep_cfg_status status;
+	struct ipa_ep_cfg_cfg cfg;
+	struct ipa_ep_cfg_metadata_mask metadata_mask;
 };
 
 typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
@@ -625,6 +677,11 @@ int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
 
 int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
 
+int ipa_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *ipa_ep_cfg);
+
+int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
+		*ipa_ep_cfg);
+
 int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
 
@@ -929,6 +986,18 @@ static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_status(u32 clnt_hdl,
 		const struct ipa_ep_cfg_status *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_cfg(u32 clnt_hdl,
+		const struct ipa_ep_cfg_cfg *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_metadata_mask(u32 clnt_hdl,
+		const struct ipa_ep_cfg_metadata_mask *ipa_ep_cfg)
 {
 	return -EPERM;
 }

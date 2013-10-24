@@ -881,8 +881,27 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep = &ipa_ctx->ep[ipa_ep_idx];
 
 	if (ep->valid == 1) {
-		IPAERR("EP already allocated.\n");
-		goto fail_gen;
+		if (sys_in->client != IPA_CLIENT_APPS_LAN_WAN_PROD) {
+			IPAERR("EP already allocated.\n");
+			goto fail_gen;
+		} else {
+			if (ipa_cfg_ep_hdr(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.hdr)) {
+				IPAERR("fail to configure hdr prop of EP.\n");
+				return -EFAULT;
+			}
+			if (ipa_cfg_ep_cfg(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.cfg)) {
+				IPAERR("fail to configure cfg prop of EP.\n");
+				return -EFAULT;
+			}
+			IPADBG("client %d (ep: %d) overlay ok sys=%p\n",
+					sys_in->client, ipa_ep_idx, ep->sys);
+			ep->client_notify = sys_in->notify;
+			ep->priv = sys_in->priv;
+			*clnt_hdl = ipa_ep_idx;
+			return 0;
+		}
 	}
 
 	memset(ep, 0, sizeof(struct ipa_ep_context));
@@ -953,7 +972,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->connect.options = ep->sys->sps_option;
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
 	ep->connect.desc.base = dma_alloc_coherent(NULL, ep->connect.desc.size,
-			   &dma_addr, 0);
+			&dma_addr, 0);
 	ep->connect.desc.phys_base = dma_addr;
 	if (ep->connect.desc.base == NULL) {
 		IPAERR("fail to get DMA desc memory.\n");

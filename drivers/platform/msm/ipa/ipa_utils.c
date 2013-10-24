@@ -1338,6 +1338,10 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	if (result)
 		return result;
 
+	result = ipa_cfg_ep_cfg(clnt_hdl, &ipa_ep_cfg->cfg);
+	if (result)
+		return result;
+
 	if (IPA_CLIENT_IS_PROD(ipa_ctx->ep[clnt_hdl].client)) {
 		result = ipa_cfg_ep_nat(clnt_hdl, &ipa_ep_cfg->nat);
 		if (result)
@@ -1352,6 +1356,11 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 			return result;
 
 		result = ipa_cfg_ep_deaggr(clnt_hdl, &ipa_ep_cfg->deaggr);
+		if (result)
+			return result;
+	} else {
+		result = ipa_cfg_ep_metadata_mask(clnt_hdl,
+				&ipa_ep_cfg->metadata_mask);
 		if (result)
 			return result;
 	}
@@ -1517,6 +1526,126 @@ int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_cfg_ep_status);
+
+static void _ipa_cfg_ep_cfg_v1_1(u32 clnt_hdl,
+				const struct ipa_ep_cfg_cfg *cfg)
+{
+	IPADBG("Not supported for version 1.1\n");
+}
+
+static void _ipa_cfg_ep_cfg_v2_0(u32 clnt_hdl,
+		const struct ipa_ep_cfg_cfg *cfg)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, cfg->frag_offload_en,
+			IPA_ENDP_INIT_CFG_n_FRAG_OFFLOAD_EN_SHFT,
+			IPA_ENDP_INIT_CFG_n_FRAG_OFFLOAD_EN_BMSK);
+	IPA_SETFIELD_IN_REG(reg_val, cfg->cs_offload_en,
+			IPA_ENDP_INIT_CFG_n_CS_OFFLOAD_EN_SHFT,
+			IPA_ENDP_INIT_CFG_n_CS_OFFLOAD_EN_BMSK);
+	IPA_SETFIELD_IN_REG(reg_val, cfg->cs_metadata_hdr_offset,
+			IPA_ENDP_INIT_CFG_n_CS_METADATA_HDR_OFFSET_SHFT,
+			IPA_ENDP_INIT_CFG_n_CS_METADATA_HDR_OFFSET_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_CFG_n_OFST(clnt_hdl),
+			reg_val);
+}
+
+/**
+ * ipa_cfg_ep_cfg() - IPA end-point cfg configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			cfg == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+					clnt_hdl,
+					ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, frag_ofld_en=%d cs_ofld_en=%d mdata_hdr_ofst=%d\n",
+			clnt_hdl,
+			cfg->frag_offload_en,
+			cfg->cs_offload_en,
+			cfg->cs_metadata_hdr_offset);
+
+	/* copy over EP cfg */
+	ipa_ctx->ep[clnt_hdl].cfg.cfg = *cfg;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_cfg(clnt_hdl, cfg);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_cfg);
+
+static void _ipa_cfg_ep_metadata_mask_v1_1(u32 clnt_hdl,
+			const struct ipa_ep_cfg_metadata_mask *metadata_mask)
+{
+	IPADBG("Not supported for version 1.1\n");
+}
+
+static void _ipa_cfg_ep_metadata_mask_v2_0(u32 clnt_hdl,
+		const struct ipa_ep_cfg_metadata_mask *metadata_mask)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, metadata_mask->metadata_mask,
+			IPA_ENDP_INIT_HDR_METADATA_MASK_n_METADATA_MASK_SHFT,
+			IPA_ENDP_INIT_HDR_METADATA_MASK_n_METADATA_MASK_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HDR_METADATA_MASK_n_OFST(clnt_hdl),
+			reg_val);
+}
+
+/**
+ * ipa_cfg_ep_metadata_mask() - IPA end-point meta-data mask configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
+		*metadata_mask)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			metadata_mask == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+					clnt_hdl,
+					ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, metadata_mask=0x%x\n",
+			clnt_hdl,
+			metadata_mask->metadata_mask);
+
+	/* copy over EP cfg */
+	ipa_ctx->ep[clnt_hdl].cfg.metadata_mask = *metadata_mask;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_metadata_mask(clnt_hdl, metadata_mask);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_metadata_mask);
 
 void _ipa_cfg_ep_hdr_v1_1(u32 pipe_number,
 		const struct ipa_ep_cfg_hdr *ep_hdr)
@@ -2653,6 +2782,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v1_0;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v1_0;
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
+		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
+		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
 		ctrl->ipa_src_clk_rate = IPA_V1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_0;
@@ -2674,6 +2805,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v1_1;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v1_1;
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
+		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
+		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
 		ctrl->ipa_src_clk_rate = IPA_V1_1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_1;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
@@ -2695,6 +2828,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_0;
 		ctrl->ipa_cfg_route = _ipa_cfg_route_v2_0;
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
+		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
+		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
 		ctrl->ipa_src_clk_rate = IPA_V2_0_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
