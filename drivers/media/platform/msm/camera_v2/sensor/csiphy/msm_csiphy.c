@@ -177,6 +177,7 @@ static struct msm_cam_clk_info csiphy_8960_clk_info[] = {
 static struct msm_cam_clk_info csiphy_8610_clk_info[] = {
 	{"csiphy_timer_src_clk", 200000000},
 	{"csiphy_timer_clk", -1},
+	{"csi_ahb_clk", -1},
 };
 
 static struct msm_cam_clk_info csiphy_8974_clk_info[] = {
