@@ -105,7 +105,7 @@ struct kgsl_iommu_register_list {
 		iommu->ctx_offset)
 
 #define KGSL_IOMMU_GET_CTX_REG_LL(iommu, iommu_unit, ctx, REG)		\
-		readl_relaxed(						\
+		readll_relaxed(						\
 		iommu_unit->reg_map.hostptr +				\
 		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
 		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
