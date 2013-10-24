@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,9 +118,6 @@ static void lpm_populate_name(struct lpm_level_stat *stat,
 	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
 		strlcat(nm, "WFI ", BUF_SIZE);
 		break;
-	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
-		strlcat(nm, "WFI voltage Rampdown ", BUF_SIZE);
-		break;
 	case MSM_PM_SLEEP_MODE_RETENTION:
 		strlcat(nm, "Retention ", BUF_SIZE);
 		break;
@@ -130,9 +127,8 @@ static void lpm_populate_name(struct lpm_level_stat *stat,
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
 		strlcat(nm, "Idle Power collapse ", BUF_SIZE);
 		break;
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND:
-		strlcat(nm, "Suspend Power collapse ", BUF_SIZE);
-		break;
+	case MSM_PM_MODE_POWER_COLLASE_SUSPEND:
+		strlcat(nm, "Suspend Power collapse", BUF_SIZE);
 	default:
 		strlcat(nm, "Invalid Mode ", BUF_SIZE);
 		break;

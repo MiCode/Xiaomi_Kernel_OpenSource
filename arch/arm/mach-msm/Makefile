@@ -80,8 +80,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 
-obj-$(CONFIG_CPU_IDLE) += cpuidle.o
-
 obj-$(CONFIG_ARCH_FSM9900) += board-fsm9900.o board-fsm9900-gpiomux.o
 obj-$(CONFIG_ARCH_FSM9900) += clock-local2.o clock-pll.o clock-fsm9900.o clock-rpm.o clock-voter.o
 obj-$(CONFIG_ARCH_FSM9900) += clock-krait-8974.o
@@ -110,13 +108,13 @@ obj-$(CONFIG_ARCH_MSM8610) += clock-dsi-8610.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-local2.o clock-pll.o clock-9630.o clock-rpm.o clock-voter.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-alpha-pll.o
 
-obj-$(CONFIG_MSM_PM) += msm-pm.o pm-data.o
+obj-$(CONFIG_MSM_PM) += msm-pm.o pm-data.o lpm_levels.o
 
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android
 
 obj-$(CONFIG_MSM_RMT_STORAGE_CLIENT) += rmt_storage_client.o
 obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
-obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd.o lpm_levels.o
+obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd-debug.o
 endif
