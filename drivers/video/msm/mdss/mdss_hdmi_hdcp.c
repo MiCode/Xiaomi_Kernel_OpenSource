@@ -289,6 +289,10 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	}
 	DEV_DBG("%s: %s: BCAPS=%02x\n", __func__, HDCP_STATE_NAME, bcaps);
 
+	/* receiver (0), repeater (1) */
+	hdcp_ctrl->current_tp.ds_type =
+		(bcaps & BIT(6)) >> 6 ? DS_REPEATER : DS_RECEIVER;
+
 	/*
 	 * HDCP setup prior to enabling HDCP_CTRL.
 	 * Setup seed values for random number An.
@@ -644,40 +648,12 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	memset(ksv_fifo, 0,
 		sizeof(hdcp_ctrl->current_tp.ksv_list));
 
-	/* Read BCAPS at offset 0x40 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x40;
-	ddc_data.data_buf = &bcaps;
-	ddc_data.data_len = 1;
-	ddc_data.request_len = 1;
-	ddc_data.retry = 5;
-	ddc_data.what = "Bcaps";
-	ddc_data.no_align = false;
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
-	if (rc) {
-		DEV_ERR("%s: %s: BCAPS read failed\n", __func__,
-			HDCP_STATE_NAME);
-		goto error;
-	}
-	DEV_DBG("%s: %s: BCAPS=%02x (%s)\n", __func__, HDCP_STATE_NAME, bcaps,
-		(bcaps & BIT(6)) ? "repeater" : "no repeater");
-
-	/* receiver (0), repeater (1) */
-	hdcp_ctrl->current_tp.ds_type =
-		(bcaps & BIT(6)) >> 6 ? DS_REPEATER : DS_RECEIVER;
-
-	/* if REPEATER (Bit 6), perform Part2 Authentication */
-	if (!(bcaps & BIT(6))) {
-		DEV_INFO("%s: %s: auth part II skipped, no repeater\n",
-			__func__, HDCP_STATE_NAME);
-		return 0;
-	}
-
-	/* Wait until READY bit is set in BCAPS */
+	/*
+	 * Wait until READY bit is set in BCAPS, as per HDCP specifications
+	 * maximum permitted time to check for READY bit is five seconds.
+	 */
 	timeout_count = 50;
-	while (!(bcaps & BIT(5)) && timeout_count) {
-		msleep(100);
+	do {
 		timeout_count--;
 		/* Read BCAPS at offset 0x40 */
 		memset(&ddc_data, 0, sizeof(ddc_data));
@@ -695,7 +671,8 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 				HDCP_STATE_NAME);
 			goto error;
 		}
-	}
+		msleep(100);
+	} while (!(bcaps & BIT(5)) && timeout_count);
 
 	/* Read BSTATUS at offset 0x41 */
 	memset(&ddc_data, 0, sizeof(ddc_data));
@@ -976,11 +953,15 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 		goto error;
 	}
 
-	rc = hdmi_hdcp_authentication_part2(hdcp_ctrl);
-	if (rc) {
-		DEV_DBG("%s: %s: HDCP Auth Part II failed\n", __func__,
-			HDCP_STATE_NAME);
-		goto error;
+	if (hdcp_ctrl->current_tp.ds_type == DS_REPEATER) {
+		rc = hdmi_hdcp_authentication_part2(hdcp_ctrl);
+		if (rc) {
+			DEV_DBG("%s: %s: HDCP Auth Part II failed\n", __func__,
+				HDCP_STATE_NAME);
+			goto error;
+		}
+	} else {
+		DEV_INFO("%s: Downstream device is not a repeater\n", __func__);
 	}
 	/* Disabling software DDC before going into part3 to make sure
 	 * there is no Arbitration between software and hardware for DDC */
