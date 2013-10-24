@@ -6058,6 +6058,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"msm_pcie"),
 	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_0_pipe_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_0_slv_axi_clk.c, "msm_pcie"),
+	CLK_LOOKUP("pcie_0_ref_clk_src", rf_clk3.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_1_aux_clk", gcc_pcie_1_aux_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_1_cfg_ahb_clk", gcc_pcie_1_cfg_ahb_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_1_mstr_axi_clk", gcc_pcie_1_mstr_axi_clk.c,
@@ -6065,6 +6066,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("pcie_1_pipe_clk", gcc_pcie_1_pipe_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_1_slv_axi_clk", gcc_pcie_1_slv_axi_clk.c,
 			"msm_pcie"),
+	CLK_LOOKUP("pcie_1_ref_clk_src", rf_clk3.c, "msm_pcie"),
 
 	/* CoreSight clocks */
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc326000.tmc"),
