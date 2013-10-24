@@ -299,6 +299,14 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_ME_RAM_DATA		0x227
 #define A4XX_CP_PFP_UCODE_ADDR		0x223
 #define A4XX_CP_PFP_UCODE_DATA		0x224
+
+#define A4XX_CP_DEBUG			0x22e
+/*
+ * CP debug settings for A4xx cores
+ * MIU_128BIT_WRITE_ENABLE [25] - Allow 128 bit writes to the VBIF
+ */
+#define A4XX_CP_DEBUG_DEFAULT (1 << 25)
+
 #define A4XX_CP_PROTECT_CTRL		0x250
 #define A4XX_CP_DEBUG			0x22e
 #define A4XX_CP_PERFCTR_CP_SEL_0	0x500

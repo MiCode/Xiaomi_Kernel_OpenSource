@@ -305,6 +305,10 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, UCHE_TRAP_BASE_LO, 0xffff0000);
 	kgsl_regwrite(device, UCHE_TRAP_BASE_HI, 0xffff0000);
 
+	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
+	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |
+			(adreno_is_a420(adreno_dev) ? (1 << 29) : 0));
+
 }
 
 int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
