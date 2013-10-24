@@ -3143,21 +3143,27 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A3XX_INT_RBBM_AHB_ERROR: {
 		unsigned int reg;
 
-		kgsl_regread(device, A3XX_RBBM_AHB_ERROR_STATUS, &reg);
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_AHB_ERROR_STATUS,
+				&reg);
 
 		/*
 		 * Return the word address of the erroring register so that it
 		 * matches the register specification
 		 */
-
 		KGSL_DRV_CRIT(device,
 			"RBBM | AHB bus error | %s | addr=%x | ports=%x:%x\n",
 			reg & (1 << 28) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2, (reg >> 20) & 0x3,
-			(reg >> 24) & 0x3);
+			(reg >> 24) & 0xF);
 
 		/* Clear the error */
-		kgsl_regwrite(device, A3XX_RBBM_AHB_CMD, (1 << 3));
+		if (adreno_is_a4xx(adreno_dev))
+			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_AHB_CMD,
+					(1 << 4));
+		else
+			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_AHB_CMD,
+					(1 << 3));
+
 		goto done;
 	}
 	case A3XX_INT_RBBM_REG_TIMEOUT:
