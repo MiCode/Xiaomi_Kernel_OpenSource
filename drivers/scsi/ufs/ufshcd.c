@@ -2367,8 +2367,30 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 		/* failed to get the link up... retire */
 		goto out;
 	} else {
-		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 0);
-		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 1);
+		int device_tx_lanes;
+		int hc_tx_lanes;
+		int i;
+
+		ufshcd_dme_get(hba,
+			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &hc_tx_lanes);
+
+		ufshcd_dme_peer_get(hba,
+			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES),
+						&device_tx_lanes);
+
+		for (i = 0; i < hc_tx_lanes; ++i)
+			ufshcd_dme_set(hba,
+				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
+
+		for (i = 0; i < device_tx_lanes; ++i)
+			ufshcd_dme_peer_st_set(hba,
+				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
+
+		/*
+		 * some devices might need a power mode change to apply
+		 * the above values
+		 */
+		ufshcd_uic_change_pwr_mode(hba, UNCHANGED << 4 | UNCHANGED);
 	}
 
 	/* Include any host controller configuration via UIC commands */
