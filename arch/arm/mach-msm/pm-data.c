@@ -43,7 +43,7 @@ struct msm_pm_platform_data msm_pm_sleep_modes[] = {
 	},
 
 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
-		.idle_supported = 0,
+		.idle_supported = 1,
 		.suspend_supported = 1,
 		.idle_enabled = 0,
 		.suspend_enabled = 1,
@@ -71,7 +71,7 @@ struct msm_pm_platform_data msm_pm_sleep_modes[] = {
 	},
 
 	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
-		.idle_supported = 0,
+		.idle_supported = 1,
 		.suspend_supported = 1,
 		.idle_enabled = 0,
 		.suspend_enabled = 1,
@@ -99,7 +99,7 @@ struct msm_pm_platform_data msm_pm_sleep_modes[] = {
 	},
 
 	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
-		.idle_supported = 0,
+		.idle_supported = 1,
 		.suspend_supported = 1,
 		.idle_enabled = 0,
 		.suspend_enabled = 1,

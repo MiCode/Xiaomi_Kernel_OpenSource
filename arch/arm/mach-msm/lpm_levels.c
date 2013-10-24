@@ -19,63 +19,108 @@
 #include <linux/mutex.h>
 #include <linux/cpu.h>
 #include <linux/of.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
+#include <linux/tick.h>
+#include <linux/suspend.h>
+#include <linux/pm_qos.h>
+#include <linux/of_platform.h>
 #include <mach/mpm.h>
+#include <mach/cpuidle.h>
+#include <mach/event_timer.h>
 #include "pm.h"
 #include "rpm-notifier.h"
 #include "spm.h"
 #include "idle.h"
+
+#define SCLK_HZ (32768)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
 	MSM_LPM_LVL_DBG_IDLE_LIMITS = BIT(1),
 };
 
-struct msm_rpmrs_level {
-	enum msm_pm_sleep_mode sleep_mode;
-	uint32_t l2_cache;
-	bool available;
+struct power_params {
 	uint32_t latency_us;
-	uint32_t steady_state_power;
+	uint32_t ss_power;
 	uint32_t energy_overhead;
 	uint32_t time_overhead_us;
+	uint32_t target_residency_us;
 };
+
+struct lpm_cpu_level {
+	const char *name;
+	enum msm_pm_sleep_mode mode;
+	struct power_params pwr;
+	bool use_bc_timer;
+	bool sync;
+};
+
+struct lpm_system_level {
+	const char *name;
+	uint32_t l2_mode;
+	struct power_params pwr;
+	bool notify_rpm;
+	bool available;
+	bool sync;
+};
+
+struct lpm_system_state {
+	struct lpm_cpu_level *cpu_level;
+	int num_cpu_levels;
+	struct lpm_system_level *system_level;
+	int num_system_levels;
+	bool allow_synched_levels;
+	bool no_l2_saw;
+};
+
+static struct lpm_system_state sys_state;
+static bool suspend_in_progress;
 
 struct lpm_lookup_table {
 	uint32_t modes;
 	const char *mode_name;
 };
 
-static void msm_lpm_level_update(void);
-
-static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
+static void lpm_system_level_update(void);
+static void setup_broadcast_timer(void *arg);
+static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 				unsigned long action, void *hcpu);
 
-static struct notifier_block __refdata msm_lpm_cpu_nblk = {
-	.notifier_call = msm_lpm_cpu_callback,
+static struct notifier_block __refdata lpm_cpu_nblk = {
+	.notifier_call = lpm_cpu_callback,
 };
 
 static uint32_t allowed_l2_mode;
 static uint32_t sysfs_dbg_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
 static uint32_t default_l2_mode;
 
-static bool no_l2_saw;
 
-static ssize_t msm_lpm_levels_attr_show(
+static ssize_t lpm_levels_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
+static ssize_t lpm_levels_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count);
 
-static int msm_lpm_lvl_dbg_msk;
+
+static int lpm_lvl_dbg_msk;
 
 module_param_named(
-	debug_mask, msm_lpm_lvl_dbg_msk, int, S_IRUGO | S_IWUSR | S_IWGRP
+	debug_mask, lpm_lvl_dbg_msk, int, S_IRUGO | S_IWUSR | S_IWGRP
 );
 
-static struct msm_rpmrs_level *msm_lpm_levels;
-static int msm_lpm_level_count;
+static bool menu_select;
+module_param_named(
+	menu_select, menu_select, bool, S_IRUGO | S_IWUSR | S_IWGRP
+);
+
+static int msm_pm_sleep_time_override;
+module_param_named(sleep_time_override,
+	msm_pm_sleep_time_override, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static struct hrtimer lpm_hrtimer;
 
 static struct kobj_attribute lpm_l2_kattr = __ATTR(l2,  S_IRUGO|S_IWUSR,\
-		msm_lpm_levels_attr_show, msm_lpm_levels_attr_store);
+		lpm_levels_attr_show, lpm_levels_attr_store);
 
 static struct attribute *lpm_levels_attr[] = {
 	&lpm_l2_kattr.attr,
@@ -87,7 +132,7 @@ static struct attribute_group lpm_levels_attr_grp = {
 };
 
 /* SYSFS */
-static ssize_t msm_lpm_levels_attr_show(
+static ssize_t lpm_levels_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	struct kernel_param kp;
@@ -105,7 +150,7 @@ static ssize_t msm_lpm_levels_attr_show(
 	return rc;
 }
 
-static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
+static ssize_t lpm_levels_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	struct kernel_param kp;
@@ -118,58 +163,42 @@ static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
 		return rc;
 
 	sysfs_dbg_l2_mode = temp;
-	msm_lpm_level_update();
+	lpm_system_level_update();
 
 	return count;
 }
 
-static int msm_pm_get_sleep_mode_value(struct device_node *node,
-			const char *key, uint32_t *sleep_mode_val)
+static int msm_pm_get_sleep_mode_value(const char *mode_name)
 {
-	int i;
-	struct lpm_lookup_table {
-		uint32_t modes;
-		const char *mode_name;
-	};
 	struct lpm_lookup_table pm_sm_lookup[] = {
 		{MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
 			"wfi"},
-		{MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT,
-			"ramp_down_and_wfi"},
 		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
 			"standalone_pc"},
 		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 			"pc"},
 		{MSM_PM_SLEEP_MODE_RETENTION,
 			"retention"},
-		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND,
-			"pc_suspend"},
-		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN,
-			"pc_no_xo_shutdown"}
 	};
-	int ret;
-	const char *mode_name;
+	int i;
+	int ret = -EINVAL;
 
-	ret = of_property_read_string(node, key, &mode_name);
-	if (!ret) {
-		ret = -EINVAL;
-		for (i = 0; i < ARRAY_SIZE(pm_sm_lookup); i++) {
-			if (!strcmp(mode_name, pm_sm_lookup[i].mode_name)) {
-				*sleep_mode_val = pm_sm_lookup[i].modes;
-				ret = 0;
-				break;
-			}
+	for (i = 0; i < ARRAY_SIZE(pm_sm_lookup); i++) {
+		if (!strcmp(mode_name, pm_sm_lookup[i].mode_name)) {
+			ret = pm_sm_lookup[i].modes;
+			break;
 		}
 	}
 	return ret;
 }
 
-static int msm_lpm_set_l2_mode(int sleep_mode)
+static int lpm_set_l2_mode(struct lpm_system_state *system_state,
+				int sleep_mode)
 {
 	int lpm = sleep_mode;
 	int rc = 0;
 
-	if (no_l2_saw)
+	if (system_state->no_l2_saw)
 		goto bail_set_l2_mode;
 
 	msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
@@ -201,15 +230,14 @@ static int msm_lpm_set_l2_mode(int sleep_mode)
 			pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
 			__func__, lpm, rc);
 	}
-
 bail_set_l2_mode:
 	return rc;
 }
 
-static void msm_lpm_level_update(void)
+static void lpm_system_level_update(void)
 {
-	int lpm_level;
-	struct msm_rpmrs_level *level = NULL;
+	int i;
+	struct lpm_system_level *l = NULL;
 	uint32_t max_l2_mode;
 	static DEFINE_MUTEX(lpm_lock);
 
@@ -217,212 +245,268 @@ static void msm_lpm_level_update(void)
 
 	max_l2_mode = min(allowed_l2_mode, sysfs_dbg_l2_mode);
 
-	for (lpm_level = 0; lpm_level < msm_lpm_level_count; lpm_level++) {
-		level = &msm_lpm_levels[lpm_level];
-		level->available = !(level->l2_cache > max_l2_mode);
+	for (i = 0; i < sys_state.num_system_levels; i++) {
+		l = &sys_state.system_level[i];
+		l->available = !(l->l2_mode > max_l2_mode);
 	}
 	mutex_unlock(&lpm_lock);
 }
 
-int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
-		bool from_idle, bool notify_rpm)
+static int lpm_system_mode_select(
+		struct lpm_system_state *system_state,
+		uint32_t sleep_us, bool from_idle)
 {
-	int ret = 0;
-	int debug_mask;
-	uint32_t l2 = *(uint32_t *)limits;
+	int best_level = -1;
+	int i;
+	uint32_t best_level_pwr = ~0UL;
+	uint32_t pwr;
+	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+
+	if (!system_state->system_level)
+		return -EINVAL;
+
+	for (i = 0; i < system_state->num_system_levels; i++) {
+		struct lpm_system_level *system_level =
+			&system_state->system_level[i];
+		struct power_params *pwr_param = &system_level->pwr;
+
+		if (!system_level->available)
+			continue;
+
+		if (latency_us < pwr_param->latency_us)
+			continue;
+
+		if (sleep_us < pwr_param->time_overhead_us)
+			continue;
+
+		/*
+		 * After the suspend prepare notifications its possible
+		 * for the CPU to enter a system sleep mode. But MPM would have
+		 * already requested a XO clock based on the wakeup irqs. To
+		 * prevent suspend votes from being overriden by idle irqs, MPM
+		 * doesn't send an updated MPM vote after suspend_prepare
+		 * callback.
+		 * To ensure that XO sleep vote isn't used if and when the
+		 * device enters idle PC after suspend prepare callback,
+		 * disallow any low power modes that notifies RPM after suspend
+		 * prepare function is called
+		 */
+		if (suspend_in_progress && system_level->notify_rpm &&
+				from_idle)
+			continue;
+
+		if ((sleep_us >> 10) > pwr_param->time_overhead_us) {
+			pwr = pwr_param->ss_power;
+		} else {
+			pwr = pwr_param->ss_power;
+			pwr -= (pwr_param->time_overhead_us
+					* pwr_param->ss_power) / sleep_us;
+			pwr += pwr_param->energy_overhead / sleep_us;
+		}
+
+		if (best_level_pwr >= pwr) {
+			best_level = i;
+			best_level_pwr = pwr;
+		}
+	}
+	return best_level;
+
+}
+
+static void lpm_system_prepare(struct lpm_system_state *system_state,
+		int index, bool from_idle)
+{
+	struct lpm_system_level *lvl;
+	uint32_t sclk;
+	int64_t us = 0;
+	int dbg_mask;
+	int ret;
 
 	if (from_idle)
-		debug_mask = msm_lpm_lvl_dbg_msk &
-			MSM_LPM_LVL_DBG_IDLE_LIMITS;
+		dbg_mask = lpm_lvl_dbg_msk & MSM_LPM_LVL_DBG_IDLE_LIMITS;
 	else
-		debug_mask = msm_lpm_lvl_dbg_msk &
-			MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
+		dbg_mask = lpm_lvl_dbg_msk & MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
 
-	if (debug_mask)
-		pr_info("%s(): l2:%d", __func__, l2);
+	lvl = &system_state->system_level[index];
 
-	ret = msm_lpm_set_l2_mode(l2);
+	ret = lpm_set_l2_mode(system_state, lvl->l2_mode);
 
+	if (ret && ret != -ENXIO) {
+		pr_warn("%s(): Cannot set L2 Mode %d, ret:%d\n",
+				__func__, lvl->l2_mode, ret);
+		goto bail_system_sleep;
+	}
+
+	if (!lvl->notify_rpm)
+		return;
+
+	ret = msm_rpm_enter_sleep(dbg_mask);
 	if (ret) {
-		if (ret == -ENXIO)
-			ret = 0;
-		else {
-			pr_warn("%s(): Failed to set L2 SPM Mode %d",
-					__func__, l2);
-			goto bail;
-		}
+		pr_info("msm_rpm_enter_sleep() failed with rc = %d\n", ret);
+		goto bail_system_sleep;
 	}
 
-	if (notify_rpm) {
-		ret = msm_rpm_enter_sleep(debug_mask);
-		if (ret) {
-			pr_warn("%s(): RPM failed to enter sleep err:%d\n",
-					__func__, ret);
-			goto bail;
-		}
+	if (!from_idle)
+		us = USEC_PER_SEC * msm_pm_sleep_time_override;
 
-		msm_mpm_enter_sleep(sclk_count, from_idle);
-	}
-bail:
-	return ret;
-}
-
-static void msm_lpm_exit_sleep(void *limits, bool from_idle,
-		bool notify_rpm, bool collapsed)
-{
-
-	msm_lpm_set_l2_mode(default_l2_mode);
-
-	if (notify_rpm) {
-		msm_mpm_exit_sleep(from_idle);
-		msm_rpm_exit_sleep();
-	}
-}
-
-void msm_lpm_show_resources(void)
-{
-	/* TODO */
+	do_div(us, USEC_PER_SEC/SCLK_HZ);
+	sclk = (uint32_t)us;
+	msm_mpm_enter_sleep(sclk, from_idle);
 	return;
+bail_system_sleep:
+	lpm_set_l2_mode(system_state, default_l2_mode);
+}
+
+static void lpm_system_unprepare(struct lpm_system_state *system_state,
+		int index, bool from_idle)
+{
+	if (default_l2_mode != system_state->system_level[index].l2_mode)
+		lpm_set_l2_mode(system_state, default_l2_mode);
+
+	if (system_state->system_level[index].notify_rpm) {
+		msm_rpm_exit_sleep();
+		msm_mpm_exit_sleep(from_idle);
+	}
 }
 
 s32 msm_cpuidle_get_deep_idle_latency(void)
 {
 	int i;
-	struct msm_rpmrs_level *level = msm_lpm_levels, *best = level;
+	struct lpm_cpu_level *level = sys_state.cpu_level;
 
 	if (!level)
 		return 0;
 
-	for (i = 0; i < msm_lpm_level_count; i++, level++) {
-		if (!level->available)
-			continue;
-		if (level->sleep_mode != MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
-			continue;
-		/* Pick the first power collapse mode by default */
-		if (best->sleep_mode != MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
-			best = level;
-		/* Find the lowest latency for power collapse */
-		if (level->latency_us < best->latency_us)
-			best = level;
+	for (i = 0; i < sys_state.num_cpu_levels; i++, level++) {
+		if (level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+			break;
 	}
-	return best->latency_us - 1;
+
+	if (i ==  sys_state.num_cpu_levels)
+		return 0;
+	else
+		return level->pwr.latency_us;
 }
 
-static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
+static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	unsigned long action, void *hcpu)
 {
-	switch (action) {
+	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
-	case CPU_UP_PREPARE_FROZEN:
 		allowed_l2_mode = default_l2_mode;
-		msm_lpm_level_update();
+		lpm_system_level_update();
 		break;
-	case CPU_DEAD_FROZEN:
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
-	case CPU_UP_CANCELED_FROZEN:
 		if (num_online_cpus() == 1)
 			allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
-		msm_lpm_level_update();
+		lpm_system_level_update();
+		break;
+	case CPU_ONLINE:
+		smp_call_function_single((unsigned long)hcpu,
+				setup_broadcast_timer, (void *)true, 1);
+		break;
+	default:
 		break;
 	}
 	return NOTIFY_OK;
 }
 
-static void *msm_lpm_lowest_limits(bool from_idle,
-		enum msm_pm_sleep_mode sleep_mode,
-		struct msm_pm_time_params *time_param, uint32_t *power)
+static enum hrtimer_restart lpm_hrtimer_cb(struct hrtimer *h)
 {
-	unsigned int cpu = smp_processor_id();
-	struct msm_rpmrs_level *best_level = NULL;
-	uint32_t best_level_pwr = 0;
-	uint32_t pwr;
+	return HRTIMER_NORESTART;
+}
+
+static void msm_pm_set_timer(uint32_t modified_time_us)
+{
+	u64 modified_time_ns = modified_time_us * NSEC_PER_USEC;
+	ktime_t modified_ktime = ns_to_ktime(modified_time_ns);
+	lpm_hrtimer.function = lpm_hrtimer_cb;
+	hrtimer_start(&lpm_hrtimer, modified_ktime, HRTIMER_MODE_REL);
+}
+
+static int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
+{
+	int best_level = -1;
+	uint32_t best_level_pwr = ~0UL;
+	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	uint32_t sleep_us =
+		(uint32_t)(ktime_to_us(tick_nohz_get_sleep_length()));
+	uint32_t modified_time_us = 0;
+	uint32_t next_event_us = 0;
+	uint32_t power;
 	int i;
-	bool modify_event_timer;
-	uint32_t next_wakeup_us = time_param->sleep_us;
 
-	if (!msm_lpm_levels)
-		return NULL;
+	if (!sys_state.cpu_level)
+		return -EINVAL;
 
-	for (i = 0; i < msm_lpm_level_count; i++) {
-		struct msm_rpmrs_level *level = &msm_lpm_levels[i];
+	if (!dev->cpu)
+		next_event_us = (uint32_t)(ktime_to_us(get_next_event_time()));
 
-		modify_event_timer = false;
+	for (i = 0; i < sys_state.num_cpu_levels; i++) {
+		struct lpm_cpu_level *level = &sys_state.cpu_level[i];
+		struct power_params *pwr = &level->pwr;
+		uint32_t next_wakeup_us = sleep_us;
+		enum msm_pm_sleep_mode mode = level->mode;
+		bool allow;
 
-		if (!level->available)
+		if (level->sync && num_online_cpus() > 1)
 			continue;
 
-		if (sleep_mode != level->sleep_mode)
+		allow = msm_cpu_pm_check_mode(dev->cpu, mode, true);
+
+		if (!allow)
 			continue;
 
-		if (time_param->latency_us < level->latency_us)
+		if (latency_us < pwr->latency_us)
 			continue;
 
-		if (time_param->next_event_us &&
-			time_param->next_event_us < level->latency_us)
-			continue;
+		if (next_event_us)
+			if (next_event_us < pwr->latency_us)
+				continue;
 
-		if (time_param->next_event_us) {
-			if ((time_param->next_event_us < time_param->sleep_us)
-			|| ((time_param->next_event_us - level->latency_us) <
-				time_param->sleep_us)) {
-				modify_event_timer = true;
-				next_wakeup_us = time_param->next_event_us -
-						level->latency_us;
+			if (((next_event_us - pwr->latency_us) < sleep_us)
+					|| (next_event_us < sleep_us)) {
+				next_wakeup_us = next_event_us
+					- pwr->latency_us;
 			}
-		}
 
-		if (next_wakeup_us <= level->time_overhead_us)
+		if (next_wakeup_us <= pwr->time_overhead_us)
 			continue;
 
-		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
-			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
-			if (!cpu && msm_rpm_waiting_for_ack())
+		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == mode)
+			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode))
+			if (!dev->cpu && msm_rpm_waiting_for_ack())
 					break;
 
-		if (next_wakeup_us <= 1) {
-			pwr = level->energy_overhead;
-		} else if (next_wakeup_us <= level->time_overhead_us) {
-			pwr = level->energy_overhead / next_wakeup_us;
-		} else if ((next_wakeup_us >> 10)
-				> level->time_overhead_us) {
-			pwr = level->steady_state_power;
+		if ((next_wakeup_us >> 10) > pwr->latency_us) {
+			power = pwr->ss_power;
 		} else {
-			pwr = level->steady_state_power;
-			pwr -= (level->time_overhead_us *
-				level->steady_state_power) /
-						next_wakeup_us;
-			pwr += level->energy_overhead / next_wakeup_us;
+			power = pwr->ss_power;
+			power -= (pwr->latency_us * pwr->ss_power)
+					/ next_wakeup_us;
+			power += pwr->energy_overhead / next_wakeup_us;
 		}
 
-		if (!best_level || (best_level_pwr >= pwr)) {
-
-			best_level = level;
-			best_level_pwr = pwr;
-			if (power)
-				*power = pwr;
-			if (modify_event_timer &&
-				(sleep_mode !=
-					MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
-				time_param->modified_time_us =
-					time_param->next_event_us -
-						best_level->latency_us;
+		if (best_level_pwr >= power) {
+			best_level = i;
+			best_level_pwr = power;
+			if (next_event_us < sleep_us &&
+				(mode != MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
+				modified_time_us = next_event_us
+							- pwr->latency_us;
 			else
-				time_param->modified_time_us = 0;
+				modified_time_us = 0;
 		}
 	}
 
-	return best_level ? &best_level->l2_cache : NULL;
+	if (modified_time_us && !dev->cpu)
+		msm_pm_set_timer(modified_time_us);
+
+	return best_level;
 }
 
-static struct msm_pm_sleep_ops msm_lpm_ops = {
-	.lowest_limits = msm_lpm_lowest_limits,
-	.enter_sleep = msm_lpm_enter_sleep,
-	.exit_sleep = msm_lpm_exit_sleep,
-};
-
-static int msm_lpm_get_l2_cache_value(struct device_node *node,
-			char *key, uint32_t *l2_val)
+static int lpm_get_l2_cache_value(const char *l2_str)
 {
 	int i;
 	struct lpm_lookup_table l2_mode_lookup[] = {
@@ -432,24 +516,14 @@ static int msm_lpm_get_l2_cache_value(struct device_node *node,
 		{MSM_SPM_L2_MODE_RETENTION, "l2_cache_retention"},
 		{MSM_SPM_L2_MODE_DISABLED, "l2_cache_active"}
 	};
-	const char *l2_str;
-	int ret;
 
-	ret = of_property_read_string(node, key, &l2_str);
-	if (!ret) {
-		ret = -EINVAL;
-		for (i = 0; i < ARRAY_SIZE(l2_mode_lookup); i++) {
-			if (!strcmp(l2_str, l2_mode_lookup[i].mode_name)) {
-				*l2_val = l2_mode_lookup[i].modes;
-				ret = 0;
-				break;
-			}
-		}
-	}
-	return ret;
+	for (i = 0; i < ARRAY_SIZE(l2_mode_lookup); i++)
+		if (!strcmp(l2_str, l2_mode_lookup[i].mode_name))
+			return  l2_mode_lookup[i].modes;
+	return -EINVAL;
 }
 
-static int __devinit msm_lpm_levels_sysfs_add(void)
+static int lpm_levels_sysfs_add(void)
 {
 	struct kobject *module_kobj = NULL;
 	struct kobject *low_power_kobj = NULL;
@@ -476,126 +550,475 @@ resource_sysfs_add_exit:
 	if (rc) {
 		if (low_power_kobj) {
 			sysfs_remove_group(low_power_kobj,
-						&lpm_levels_attr_grp);
+					&lpm_levels_attr_grp);
 			kobject_del(low_power_kobj);
 		}
 	}
 
 	return rc;
 }
-
-static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
+static int lpm_cpu_menu_select(struct cpuidle_device *dev, int *index)
 {
-	struct msm_rpmrs_level *levels = NULL;
-	struct msm_rpmrs_level *level = NULL;
+	int j;
+
+	for (; *index >= 0; (*index)--) {
+		int mode = 0;
+		bool allow = false;
+
+		allow = msm_cpu_pm_check_mode(dev->cpu, mode, true);
+
+		if (!allow)
+			continue;
+
+		for (j = sys_state.num_cpu_levels; j >= 0; j--) {
+			struct lpm_cpu_level *l = &sys_state.cpu_level[j];
+			if (mode == l->mode)
+				return j;
+		}
+	}
+	return -EPERM;
+}
+
+static inline void lpm_cpu_prepare(struct lpm_cpu_level *cpu_level,
+		unsigned int cpu, bool from_idle)
+{
+	if (from_idle && cpu_level->use_bc_timer)
+		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
+}
+
+static inline void lpm_cpu_unprepare(struct lpm_cpu_level *cpu_level,
+		unsigned int cpu, bool from_idle)
+{
+	if (from_idle && cpu_level->use_bc_timer)
+		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
+}
+
+static int lpm_system_select(struct lpm_system_state *system_state,
+		int cpu_index, bool from_idle)
+{
+	uint64_t us;
+	struct clock_event_device *ed = tick_get_broadcast_device()->evtdev;
+
+	if (!system_state->cpu_level[cpu_index].sync)
+		return -EINVAL;
+
+	if (!system_state->system_level)
+		return -EINVAL;
+
+	if (from_idle)
+		us = ktime_to_us(ktime_sub(ed->next_event, ktime_get()));
+	else
+		us = (~0ULL);
+
+	return lpm_system_mode_select(system_state, (uint32_t)(us), from_idle);
+}
+
+static void lpm_enter_low_power(struct lpm_system_state *system_state,
+		int cpu_index, bool from_idle)
+{
+	int idx;
+	unsigned int cpu = smp_processor_id();
+	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
+
+	lpm_cpu_prepare(cpu_level, cpu, from_idle);
+
+	idx = lpm_system_select(system_state, cpu_index, from_idle);
+
+	if (idx > 0)
+		lpm_system_prepare(system_state, idx, from_idle);
+
+	msm_cpu_pm_enter_sleep(cpu_level->mode, from_idle);
+
+	if (idx > 0)
+		lpm_system_unprepare(system_state, idx, from_idle);
+
+	lpm_cpu_unprepare(cpu_level, cpu, from_idle);
+}
+
+static int lpm_cpuidle_enter(struct cpuidle_device *dev,
+		struct cpuidle_driver *drv, int index)
+{
+	int64_t time = ktime_to_ns(ktime_get());
+	int idx;
+
+	idx = menu_select ? lpm_cpu_menu_select(dev, &index) :
+			lpm_cpu_power_select(dev, &index);
+	if (idx < 0) {
+		local_irq_enable();
+		return -EPERM;
+	}
+
+	lpm_enter_low_power(&sys_state, idx, true);
+
+	time = ktime_to_ns(ktime_get()) - time;
+	do_div(time, 1000);
+	dev->last_residency = (int)time;
+	local_irq_enable();
+	return index;
+}
+
+static int lpm_suspend_enter(suspend_state_t state)
+{
+	int i;
+
+	for (i = sys_state.num_cpu_levels - 1; i >= 0; i--) {
+		bool allow = msm_cpu_pm_check_mode(smp_processor_id(),
+				sys_state.cpu_level[i].mode, false);
+		if (allow)
+			break;
+	}
+
+	if (i < 0)
+		return -EINVAL;
+
+	lpm_enter_low_power(&sys_state, i,  false);
+
+	return 0;
+}
+
+static int lpm_suspend_prepare(void)
+{
+	suspend_in_progress = true;
+	msm_mpm_suspend_prepare();
+	return 0;
+}
+
+static void lpm_suspend_wake(void)
+{
+	msm_mpm_suspend_wake();
+	suspend_in_progress = false;
+}
+
+
+static struct platform_device lpm_dev = {
+	.name = "msm_pm",
+	.id = -1,
+};
+
+static const struct platform_suspend_ops lpm_suspend_ops = {
+	.enter = lpm_suspend_enter,
+	.valid = suspend_valid_only_mem,
+	.prepare_late = lpm_suspend_prepare,
+	.wake = lpm_suspend_wake,
+};
+
+static void setup_broadcast_timer(void *arg)
+{
+	unsigned long reason = (unsigned long)arg;
+	int cpu = smp_processor_id();
+
+	reason = reason ?
+		CLOCK_EVT_NOTIFY_BROADCAST_ON : CLOCK_EVT_NOTIFY_BROADCAST_OFF;
+
+	clockevents_notify(reason, &cpu);
+}
+static struct cpuidle_driver msm_cpuidle_driver = {
+	.name = "msm_idle",
+	.owner = THIS_MODULE,
+};
+
+static void lpm_cpuidle_init(void)
+{
+	int i = 0;
+	int state_count = 0;
+
+	if (!sys_state.cpu_level)
+		return;
+	BUG_ON(sys_state.num_cpu_levels > CPUIDLE_STATE_MAX);
+
+	for (i = 0; i < sys_state.num_cpu_levels; i++) {
+		struct cpuidle_state *st = &msm_cpuidle_driver.states[i];
+		struct lpm_cpu_level *cpu_level = &sys_state.cpu_level[i];
+		snprintf(st->name, CPUIDLE_NAME_LEN, "C%u\n", i);
+		snprintf(st->desc, CPUIDLE_DESC_LEN, cpu_level->name);
+		st->flags = 0;
+		st->exit_latency = cpu_level->pwr.latency_us;
+		st->power_usage = cpu_level->pwr.ss_power;
+		st->target_residency = 0;
+		st->enter = lpm_cpuidle_enter;
+		state_count++;
+	}
+	msm_cpuidle_driver.state_count = state_count;
+	msm_cpuidle_driver.safe_state_index = 0;
+
+	if (cpuidle_register(&msm_cpuidle_driver, NULL))
+		pr_err("%s(): Failed to register CPUIDLE device\n", __func__);
+}
+
+static int lpm_parse_power_params(struct device_node *node,
+		struct power_params *pwr)
+{
+	char *key;
+	int ret;
+
+	key = "qcom,latency-us";
+	ret  = of_property_read_u32(node, key, &pwr->latency_us);
+	if (ret)
+		goto fail;
+
+	key = "qcom,ss-power";
+	ret = of_property_read_u32(node, key, &pwr->ss_power);
+	if (ret)
+		goto fail;
+
+	key = "qcom,energy-overhead";
+	ret = of_property_read_u32(node, key, &pwr->energy_overhead);
+	if (ret)
+		goto fail;
+
+	key = "qcom,time-overhead";
+	ret = of_property_read_u32(node, key, &pwr->time_overhead_us);
+	if (ret)
+		goto fail;
+fail:
+	if (ret)
+		pr_err("%s(): Error reading %s\n", __func__, key);
+	return ret;
+}
+
+static int lpm_cpu_probe(struct platform_device *pdev)
+{
+	struct lpm_cpu_level *level = NULL, *l;
 	struct device_node *node = NULL;
-	char *key = NULL;
-	uint32_t val = 0;
-	int ret = 0;
-	uint32_t num_levels = 0;
-	int idx = 0;
+	int num_levels = 0;
+	char *key;
+	int ret;
+
+	for_each_child_of_node(pdev->dev.of_node, node)
+		num_levels++;
+	pr_info("NUM_LEVELs:%d\n", num_levels);
+
+	level = kzalloc(num_levels * sizeof(struct lpm_cpu_level),
+			GFP_KERNEL);
+
+	if (!level)
+		return -ENOMEM;
+
+	l = &level[0];
+	for_each_child_of_node(pdev->dev.of_node, node) {
+
+		key = "qcom,mode";
+		ret = of_property_read_string(node, key, &l->name);
+
+		if (ret) {
+			pr_err("%s(): Cannot read cpu mode%s\n", __func__, key);
+			goto fail;
+		}
+
+		l->mode = msm_pm_get_sleep_mode_value(l->name);
+
+		if (l->mode < 0) {
+			pr_err("%s():Cannot parse cpu mode:%s\n", __func__,
+					l->name);
+			goto fail;
+		}
+
+		if (l->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+			l->sync = true;
+
+		key = "qcom,use-broadcast-timer";
+		l->use_bc_timer = of_property_read_bool(node, key);
+
+		ret = lpm_parse_power_params(node, &l->pwr);
+		if (ret) {
+			pr_err("%s(): cannot Parse power params\n", __func__);
+			goto fail;
+		}
+		l++;
+	}
+	sys_state.cpu_level = level;
+	sys_state.num_cpu_levels = num_levels;
+	return ret;
+fail:
+	kfree(level);
+	return ret;
+}
+
+static int lpm_system_probe(struct platform_device *pdev)
+{
+	struct lpm_system_level *level = NULL, *l;
+	int num_levels = 0;
+	struct device_node *node;
+	char *key;
+	int ret;
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
 
-	levels = kzalloc(num_levels * sizeof(struct msm_rpmrs_level),
+	level = kzalloc(num_levels * sizeof(struct lpm_system_level),
 			GFP_KERNEL);
-	if (!levels)
+
+	if (!level)
 		return -ENOMEM;
 
+	l = &level[0];
 	for_each_child_of_node(pdev->dev.of_node, node) {
-		level = &levels[idx++];
-		level->available = false;
-
-		key = "qcom,mode";
-		ret = msm_pm_get_sleep_mode_value(node, key, &val);
-		if (ret)
-			goto fail;
-		level->sleep_mode = val;
-
 		key = "qcom,l2";
-		ret = msm_lpm_get_l2_cache_value(node, key, &val);
-		if (ret)
+		ret = of_property_read_string(node, key, &l->name);
+		if (ret) {
+			pr_err("%s(): Failed to read L2 mode\n", __func__);
 			goto fail;
-		level->l2_cache = val;
+		}
 
-		key = "qcom,latency-us";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
+		l->l2_mode = lpm_get_l2_cache_value(l->name);
+
+		if (l->l2_mode < 0) {
+			pr_err("%s(): Failed to read l2 cache mode\n",
+					__func__);
 			goto fail;
-		level->latency_us = val;
+		}
 
-		key = "qcom,ss-power";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
+		if (l->l2_mode == MSM_SPM_L2_MODE_GDHS ||
+				l->l2_mode == MSM_SPM_L2_MODE_POWER_COLLAPSE)
+			l->notify_rpm = true;
+
+		if (l->l2_mode >= MSM_SPM_L2_MODE_GDHS)
+			l->sync = true;
+
+		ret = lpm_parse_power_params(node, &l->pwr);
+		if (ret) {
+			pr_err("%s(): Failed to parse power params\n",
+					__func__);
 			goto fail;
-		level->steady_state_power = val;
+		}
 
-		key = "qcom,energy-overhead";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->energy_overhead = val;
-
-		key = "qcom,time-overhead";
-		ret = of_property_read_u32(node, key, &val);
-		if (ret)
-			goto fail;
-		level->time_overhead_us = val;
-
-		level->available = true;
+		l++;
 	}
+	sys_state.system_level = level;
+	sys_state.num_system_levels = num_levels;
+	return ret;
+fail:
+	kfree(level);
+	return ret;
+}
+
+static int lpm_probe(struct platform_device *pdev)
+{
+	struct device_node *node = NULL;
+	char *key = NULL;
+	int ret;
 
 	node = pdev->dev.of_node;
 	key = "qcom,no-l2-saw";
-	no_l2_saw = of_property_read_bool(node, key);
 
-	msm_lpm_levels = levels;
-	msm_lpm_level_count = idx;
+	sys_state.no_l2_saw = of_property_read_bool(pdev->dev.of_node, key);
 
-	if (num_online_cpus() == 1)
-		allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	if (ret)
+		goto fail;
 
 	/* Do the following two steps only if L2 SAW is present */
-	if (!no_l2_saw) {
+	if (!sys_state.no_l2_saw) {
+		int ret;
+		const char *l2;
 		key = "qcom,default-l2-state";
-		if (msm_lpm_get_l2_cache_value(node, key, &default_l2_mode))
+		ret = of_property_read_string(node, key, &l2);
+		if (ret) {
+			pr_err("%s(): Failed to read defaiult L2 mode\n",
+					__func__);
 			goto fail;
+		}
 
-		if (msm_lpm_levels_sysfs_add())
+		default_l2_mode = lpm_get_l2_cache_value(l2);
+		if (default_l2_mode < 0) {
+			pr_err("%s(): Unable to parse default L2 mode\n",
+					__func__);
 			goto fail;
-		register_hotcpu_notifier(&msm_lpm_cpu_nblk);
-		msm_pm_set_l2_flush_flag(0);
+		}
+
+		if (lpm_levels_sysfs_add())
+			goto fail;
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
 	} else {
-		msm_pm_set_l2_flush_flag(1);
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
 		default_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
 	}
 
-	msm_lpm_level_update();
-	msm_pm_set_sleep_ops(&msm_lpm_ops);
+	get_cpu();
+	on_each_cpu(setup_broadcast_timer, (void *)true, 1);
+	put_cpu();
+
+	register_hotcpu_notifier(&lpm_cpu_nblk);
+
+	lpm_system_level_update();
+	platform_device_register(&lpm_dev);
+	suspend_set_ops(&lpm_suspend_ops);
+	hrtimer_init(&lpm_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	lpm_cpuidle_init();
 	return 0;
 fail:
 	pr_err("%s: Error in name %s key %s\n", __func__, node->full_name, key);
-	kfree(levels);
 	return -EFAULT;
 }
 
-static struct of_device_id msm_lpm_levels_match_table[] = {
+static struct of_device_id cpu_modes_mtch_tbl[] = {
+	{.compatible = "qcom,cpu-modes"},
+	{},
+};
+
+static struct platform_driver cpu_modes_driver = {
+	.probe = lpm_cpu_probe,
+	.driver = {
+		.name = "cpu-modes",
+		.owner = THIS_MODULE,
+		.of_match_table = cpu_modes_mtch_tbl,
+	},
+};
+
+static struct of_device_id system_modes_mtch_tbl[] = {
+	{.compatible = "qcom,system-modes"},
+	{},
+};
+
+static struct platform_driver system_modes_driver = {
+	.probe = lpm_system_probe,
+	.driver = {
+		.name = "system-modes",
+		.owner = THIS_MODULE,
+		.of_match_table = system_modes_mtch_tbl,
+	},
+};
+
+static struct of_device_id lpm_levels_match_table[] = {
 	{.compatible = "qcom,lpm-levels"},
 	{},
 };
 
-static struct platform_driver msm_lpm_levels_driver = {
-	.probe = msm_lpm_levels_probe,
+static struct platform_driver lpm_levels_driver = {
+	.probe = lpm_probe,
 	.driver = {
 		.name = "lpm-levels",
 		.owner = THIS_MODULE,
-		.of_match_table = msm_lpm_levels_match_table,
+		.of_match_table = lpm_levels_match_table,
 	},
 };
 
-static int __init msm_lpm_levels_module_init(void)
+static int __init lpm_levels_module_init(void)
 {
-	return platform_driver_register(&msm_lpm_levels_driver);
+	int rc;
+	rc = platform_driver_register(&cpu_modes_driver);
+	if (rc) {
+		pr_info("Error registering %s\n", cpu_modes_driver.driver.name);
+		goto fail;
+	}
+
+	rc = platform_driver_register(&system_modes_driver);
+	if (rc) {
+		platform_driver_unregister(&cpu_modes_driver);
+		pr_info("Error registering %s\n",
+				system_modes_driver.driver.name);
+		goto fail;
+	}
+
+	rc = platform_driver_register(&lpm_levels_driver);
+	if (rc) {
+		platform_driver_unregister(&cpu_modes_driver);
+		platform_driver_unregister(&system_modes_driver);
+		pr_info("Error registering %s\n",
+				lpm_levels_driver.driver.name);
+	}
+fail:
+	return rc;
 }
-late_initcall(msm_lpm_levels_module_init);
+late_initcall(lpm_levels_module_init);

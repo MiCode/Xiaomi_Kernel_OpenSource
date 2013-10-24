@@ -1,52 +1,98 @@
 * Low Power Management Levels
 
 The application processor in MSM can do a variety of C-States for low power
-management. These C-States are invoked by the CPUIdle framework when the core
-becomes idle. But based on the time available until the next scheduled wakeup,
-the system can do several low power modes. The combination is captured in the
-device tree as lpm-level.
+management. The LPM module performs the CPU and System low power modes based
+on it latency and residency information of the individual CPU/System low power
+levels.
 
-The required nodes for lpm-levels are:
+The first level node represents the properties of the system and includes
+second level node to represent the low power modes of cpu and system.
+
+[First Level Nodes]
+Required properties:
 
 - compatible: "qcom,lpm-levels"
-- reg: The numeric level id
+
+The optional nodes for the First level nodes are:
+- qcom,no-l2-saw: Indicates if this target has an L2 SAW (SPM and AVS wrapper).
+- qcom,default-l2-state: Indicates what the default low power state of the L2 SAW should be. This property should be mentioned when there is a l2 saw.
+
+[Second Level Nodes]
+Required properties to define CPU low power modes :
+- compatible = "qcom,cpu-modes";
 - qcom,mode: The sleep mode of the processor, values for the property are:
 		"wfi" - Wait for Interrupt
-		"ramp_down_and_wfi" - Ramp down and wait for interrupt
+		"retention" - Retention
 		"standalone_pc" - Standalone power collapse
 		"pc" - Power Collapse
-		"retention" - Retention
-		"pc_suspend" - Suspended Power Collapse
-		"pc_no_xo_shutdown" - Power Collapse with no XO shutdown
+- qcom,latency-us: The latency in handling the interrupt if this level was
+		chosen, in uSec
+- qcom,ss-power: The steady state power expelled when the processor is in this
+		 level in mWatts
+- qcom,energy-overhead: The energy used up in entering and exiting this level
+		 in mWatts.uSec
+- qcom,time-overhead: The time spent in entering and exiting this level in uS
+
+Required propertieis to define System low power mode :
+- compatible: "qcom,system-modes"
 - qcom,l2: The state of L2 cache. Values are:
 		"l2_cache_pc" - L2 cache in power collapse
-		"l2_cache_pc_no_rpm" - L2 cache in power collapse. This mode wouldn't inform the RPM
+		"l2_cache_pc_no_rpm" - L2 cache in power collapse. This mode
+				wouldn't inform the RPM
 		"l2_cache_retenetion" - L2 cache in retention
 		"l2_cache_gdhs" - L2 cache in GDHS
 		"l2_cache_active" - L2 cache in active mode
+
 - qcom,latency-us: The latency in handling the interrupt if this level was
-	chosen, in uSec
+		chosen, in uSec
 - qcom,ss-power: The steady state power expelled when the processor is in this
-	level in mWatts
+		 level in mWatts
 - qcom,energy-overhead: The energy used up in entering and exiting this level
-	in mWatts.uSec
+		 in mWatts.uSec
 - qcom,time-overhead: The time spent in entering and exiting this level in uS
 
-The optional nodes for lpm-levels are :
--  qcom,no-l2-saw: Indicates if this target has an L2 SAW (SPM and AVS wrapper).
--  qcom,default-l2-state: Indicates what the default low power state of the L2 SAW should be. This property is used only when there is an L2 SAW.
-
 Example:
-
 qcom,lpm-levels {
-	qcom,no-l2-saw;
-	qcom,lpm-level@0 {
-		reg = <0>;
-		qcom,mode = "wfi";
-		qcom,l2 = "l2_cache_active";
-		qcom,latency-us = <100>;
-		qcom,ss-power = <650>;
-		qcom,energy-overhead = <801>;
-		qcom,time-overhead = <200>;
-	};
+		compatible = "qcom,lpm-levels";
+		qcom,default-l2-state = "l2_cache_retention";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,cpu-modes {
+			compatible = "qcom,cpu-modes";
+			qcom,cpu-mode@0 {
+				qcom,mode = "wfi";
+				qcom,latency-us = <1>;
+				qcom,ss-power = <715>;
+				qcom,energy-overhead = <17700>;
+				qcom,time-overhead = <2>;
+			};
+
+			qcom,cpu-mode@1 {
+				qcom,mode = "retention";
+				qcom,latency-us = <35>;
+				qcom,ss-power = <542>;
+				qcom,energy-overhead = <34920>;
+				qcom,time-overhead = <40>;
+			};
+		};
+		qcom,system-modes {
+			compatible = "qcom,system-modes";
+
+			qcom,system-mode@0 {
+				qcom,l2 = "l2_cache_gdhs";
+				qcom,latency-us = <20000>;
+				qcom,ss-power = <163>;
+				qcom,energy-overhead = <1577736>;
+				qcom,time-overhead = <5067>;
+			};
+
+			qcom,system-mode@1 {
+				qcom,l2 = "l2_cache_pc";
+				qcom,latency-us = <30000>;
+				qcom,ss-power = <83>;
+				qcom,energy-overhead = <2274420>;
+				qcom,time-overhead = <6605>;
+			};
+		};
 };
