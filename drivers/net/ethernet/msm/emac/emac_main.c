@@ -527,6 +527,17 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 	}
 }
 
+/* get the number of free transmit descriptors */
+static u32 emac_get_num_free_tpdescs(struct emac_tx_queue *txque)
+{
+	u32 produce_idx = txque->tpd.produce_idx;
+	u32 consume_idx = txque->tpd.consume_idx;
+
+	return (consume_idx > produce_idx) ?
+		(consume_idx - produce_idx - 1) :
+		(txque->tpd.count + consume_idx - produce_idx - 1);
+}
+
 /* Process transmit event */
 static void emac_handle_tx(struct emac_adapter *adpt,
 			   struct emac_tx_queue *txque)
@@ -560,9 +571,9 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 	}
 
 	if (netif_queue_stopped(adpt->netdev) &&
-	    netif_carrier_ok(adpt->netdev)) {
+	    netif_carrier_ok(adpt->netdev) &&
+	    (emac_get_num_free_tpdescs(txque) >= (txque->tpd.count / 8)))
 		netif_wake_queue(adpt->netdev);
-	}
 }
 
 /* NAPI */
@@ -593,15 +604,12 @@ quit_polling:
 	return work_done;
 }
 
-/* Check if enough transmit descriptors available */
+/* Check if enough transmit descriptors are available */
 static bool emac_check_num_tpdescs(struct emac_tx_queue *txque,
 				   const struct sk_buff *skb)
 {
-	u16 num_required = 1;
-	u16 num_available = 0;
-	u16 produce_idx = txque->tpd.produce_idx;
-	u16 consume_idx = txque->tpd.consume_idx;
-	u16 i = 0;
+	u32 num_required = 1;
+	u16 i;
 
 	u16 proto_hdr_len = 0;
 	if (skb_is_gso(skb)) {
@@ -615,11 +623,7 @@ static bool emac_check_num_tpdescs(struct emac_tx_queue *txque,
 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 		num_required++;
 
-	num_available = (u16)(consume_idx > produce_idx) ?
-		(consume_idx - produce_idx - 1) :
-		(txque->tpd.count + consume_idx - produce_idx - 1);
-
-	return num_required < num_available;
+	return num_required < emac_get_num_free_tpdescs(txque);
 }
 
 /* Fill up transmit descriptors with TSO and Checksum offload information */
