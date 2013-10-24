@@ -25,6 +25,8 @@
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
 
+RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_MAPD);
+
 /* ***************** Local Definitions ************************************** */
 struct agg_work {
 	struct delayed_work work;

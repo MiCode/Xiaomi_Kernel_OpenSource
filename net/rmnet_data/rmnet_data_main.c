@@ -27,6 +27,10 @@ unsigned int rmnet_data_log_level = RMNET_LOG_LVL_ERR | RMNET_LOG_LVL_HI;
 module_param(rmnet_data_log_level, uint,  S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(log_level, "Logging level");
 
+unsigned int rmnet_data_log_module_mask;
+module_param(rmnet_data_log_module_mask, uint,  S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rmnet_data_log_module_mask, "Logging module mask");
+
 /* ***************** Startup/Shutdown *************************************** */
 
 /**

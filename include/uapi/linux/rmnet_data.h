@@ -66,6 +66,11 @@ struct rmnet_nl_msg_s {
 			uint32_t id;
 			uint8_t  vnd_name[RMNET_MAX_STR_LEN];
 		} vnd;
+		struct {
+			uint32_t id;
+			uint32_t map_flow_id;
+			uint32_t tc_flow_id;
+		} flow_control;
 	};
 };
 
@@ -186,7 +191,24 @@ enum rmnet_netlink_message_types_e {
 	 * Args: int32_t node number
 	 * Returns: status code
 	 */
-	RMNET_NETLINK_FREE_VND
+	RMNET_NETLINK_FREE_VND,
+
+	/*
+	 * RMNET_NETLINK_ADD_VND_TC_FLOW - Add flow control handle on VND
+	 * Args: int32_t node number
+	 *       uint32_t MAP Flow Handle
+	 *       uint32_t TC Flow Handle
+	 * Returns: status code
+	 */
+	RMNET_NETLINK_ADD_VND_TC_FLOW,
+
+	/*
+	 * RMNET_NETLINK_DEL_VND_TC_FLOW - Removes flow control handle on VND
+	 * Args: int32_t node number
+	 *       uint32_t MAP Flow Handle
+	 * Returns: status code
+	 */
+	RMNET_NETLINK_DEL_VND_TC_FLOW
 };
 
 enum rmnet_config_endpoint_modes_e {
@@ -205,7 +227,8 @@ enum rmnet_config_return_codes_e {
 	RMNET_CONFIG_INVALID_REQUEST,
 	RMNET_CONFIG_NO_SUCH_DEVICE,
 	RMNET_CONFIG_BAD_ARGUMENTS,
-	RMNET_CONFIG_BAD_EGRESS_DEVICE
+	RMNET_CONFIG_BAD_EGRESS_DEVICE,
+	RMNET_CONFIG_TC_HANDLE_FULL
 };
 
 #endif /* _RMNET_DATA_H_ */

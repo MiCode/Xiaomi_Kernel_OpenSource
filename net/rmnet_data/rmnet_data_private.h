@@ -22,6 +22,7 @@
 #define RMNET_ETHERNET_HEADER_LENGTH    14
 
 extern unsigned int rmnet_data_log_level;
+extern unsigned int rmnet_data_log_module_mask;
 
 #define RMNET_INIT_OK     0
 #define RMNET_INIT_ERROR  1
@@ -31,6 +32,15 @@ extern unsigned int rmnet_data_log_level;
 #define RMNET_LOG_LVL_MED (1<<2)
 #define RMNET_LOG_LVL_HI  (1<<1)
 #define RMNET_LOG_LVL_ERR (1<<0)
+
+#define RMNET_LOG_MODULE(X) \
+	static uint32_t rmnet_mod_mask = X
+
+#define RMNET_DATA_LOGMASK_CONFIG  (1<<0)
+#define RMNET_DATA_LOGMASK_HANDLER (1<<1)
+#define RMNET_DATA_LOGMASK_VND     (1<<2)
+#define RMNET_DATA_LOGMASK_MAPD    (1<<3)
+#define RMNET_DATA_LOGMASK_MAPC    (1<<4)
 
 #define LOGE(fmt, ...) do { if (rmnet_data_log_level & RMNET_LOG_LVL_ERR) \
 			pr_err(fmt, ##__VA_ARGS__); \
@@ -49,9 +59,13 @@ extern unsigned int rmnet_data_log_level;
 			pr_notice(fmt, ##__VA_ARGS__); \
 			} while (0)
 
-#define LOGD(fmt, ...) do { if (unlikely \
-			(rmnet_data_log_level & RMNET_LOG_LVL_DBG)) \
-			pr_debug(fmt, ##__VA_ARGS__); \
+/* Don't use pr_debug as it is compiled out of the kernel. We can be sure of
+ * minimal impact as LOGD is not enabled by default.
+ */
+#define LOGD(fmt, ...) do { if (unlikely( \
+			    (rmnet_data_log_level & RMNET_LOG_LVL_DBG) \
+			    && (rmnet_data_log_module_mask & rmnet_mod_mask))) \
+			pr_notice(fmt, ##__VA_ARGS__); \
 			} while (0)
 
 #endif /* _RMNET_DATA_PRIVATE_H_ */

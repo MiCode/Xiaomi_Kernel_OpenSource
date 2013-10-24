@@ -22,19 +22,47 @@
 #include <linux/if_arp.h>
 #include <linux/spinlock.h>
 #include <net/pkt_sched.h>
+#include <linux/atomic.h>
 #include "rmnet_data_config.h"
 #include "rmnet_data_handlers.h"
 #include "rmnet_data_private.h"
 #include "rmnet_map.h"
 
+RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_VND);
+
+#define RMNET_MAP_FLOW_NUM_TC_HANDLE 3
+#define RMNET_VND_UF_ACTION_ADD 0
+#define RMNET_VND_UF_ACTION_DEL 1
+enum {
+	RMNET_VND_UPDATE_FLOW_OK,
+	RMNET_VND_UPDATE_FLOW_NO_ACTION,
+	RMNET_VND_UPDATE_FLOW_NO_MORE_ROOM,
+	RMNET_VND_UPDATE_FLOW_NO_VALID_LEFT
+};
+
 struct net_device *rmnet_devices[RMNET_DATA_MAX_VND];
+
+struct rmnet_map_flow_mapping_s {
+	struct list_head list;
+	uint32_t map_flow_id;
+	uint32_t tc_flow_valid[RMNET_MAP_FLOW_NUM_TC_HANDLE];
+	uint32_t tc_flow_id[RMNET_MAP_FLOW_NUM_TC_HANDLE];
+	atomic_t v4_seq;
+	atomic_t v6_seq;
+};
 
 struct rmnet_vnd_private_s {
 	uint8_t qos_mode:1;
 	uint8_t reserved:7;
 	struct rmnet_logical_ep_conf_s local_ep;
-	struct rmnet_map_flow_control_s flows;
+
+	rwlock_t flow_map_lock;
+	struct list_head flow_head;
 };
+
+#define RMNET_VND_FC_QUEUED      0
+#define RMNET_VND_FC_NOT_ENABLED 1
+#define RMNET_VND_FC_KMALLOC_ERR 2
 
 /* ***************** Helper Functions *************************************** */
 
@@ -210,12 +238,63 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 
 	return rc;
 }
+
+struct rmnet_vnd_fc_work {
+	struct work_struct work;
+	struct net_device *dev;
+	uint32_t tc_handle;
+	int enable;
+};
+
+static void _rmnet_vnd_wq_flow_control(struct work_struct *work)
+{
+	struct rmnet_vnd_fc_work *fcwork;
+	fcwork = (struct rmnet_vnd_fc_work *)work;
+
+	rtnl_lock();
+	tc_qdisc_flow_control(fcwork->dev, fcwork->tc_handle, fcwork->enable);
+	rtnl_unlock();
+
+	LOGL("%s(): [%s] handle:%08X enable:%d\n",
+	     __func__, fcwork->dev->name, fcwork->tc_handle, fcwork->enable);
+
+	kfree(work);
+}
+
+static int _rmnet_vnd_do_flow_control(struct net_device *dev,
+					     uint32_t tc_handle,
+					     int enable)
+{
+	struct rmnet_vnd_fc_work *fcwork;
+
+	fcwork = (struct rmnet_vnd_fc_work *)
+			kmalloc(sizeof(struct rmnet_vnd_fc_work), GFP_ATOMIC);
+	if (!fcwork)
+		return RMNET_VND_FC_KMALLOC_ERR;
+	memset(fcwork, 0, sizeof(struct rmnet_vnd_fc_work));
+
+	INIT_WORK((struct work_struct *)fcwork, _rmnet_vnd_wq_flow_control);
+	fcwork->dev = dev;
+	fcwork->tc_handle = tc_handle;
+	fcwork->enable = enable;
+
+	schedule_work((struct work_struct *)fcwork);
+	return RMNET_VND_FC_QUEUED;
+}
 #else
 static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 				   struct ifreq *ifr,
 				   int cmd)
 {
 	return -EINVAL;
+}
+
+static inline int _rmnet_vnd_do_flow_control(struct net_device *dev,
+					     uint32_t tc_handle,
+					     int enable)
+{
+	LOGD("%s(): [%s] called with no QoS support", __func__, dev->name);
+	return RMNET_VND_FC_NOT_ENABLED;
 }
 #endif /* CONFIG_RMNET_DATA_FC */
 
@@ -322,8 +401,9 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	dev->hard_header_len = 0;
 	dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
 
-	/* Flow control locks */
-	rwlock_init(&dev_conf->flows.flow_map_lock);
+	/* Flow control */
+	rwlock_init(&dev_conf->flow_map_lock);
+	INIT_LIST_HEAD(&dev_conf->flow_head);
 }
 
 /* ***************** Exposed API ******************************************** */
@@ -515,70 +595,306 @@ struct rmnet_logical_ep_conf_s *rmnet_vnd_get_le_config(struct net_device *dev)
 }
 
 /**
- * rmnet_vnd_get_flow_mapping() - Retrieve QoS flow mapping.
- * @dev: Virtual network device node to do lookup on
- * @map_flow_id: Flow ID
- * @tc_handle: Pointer to TC qdisc flow handle. Results stored here
- * @v4_seq: pointer to IPv4 indication sequence number. Caller can modify value
- * @v6_seq: pointer to IPv6 indication sequence number. Caller can modify value
+ * _rmnet_vnd_get_flow_map() - Gets object representing a MAP flow handle
+ * @dev_conf: Private configuration structure for virtual network device
+ * @map_flow: MAP flow handle IF
  *
- * Sets flow_map to 0 on error or if no flow is configured
- * todo: Add flow specific mappings
- * todo: Standardize return codes.
+ * Loops through available flow mappings and compares the MAP flow handle.
+ * Returns when mapping is found.
+ *
+ * Return:
+ *      - Null if no mapping was found
+ *      - Pointer to mapping otherwise
+ */
+static struct rmnet_map_flow_mapping_s *_rmnet_vnd_get_flow_map
+					(struct rmnet_vnd_private_s *dev_conf,
+					 uint32_t map_flow)
+{
+	struct list_head *p;
+	struct rmnet_map_flow_mapping_s *itm;
+
+	list_for_each(p, &(dev_conf->flow_head)) {
+		itm = list_entry(p, struct rmnet_map_flow_mapping_s, list);
+
+		if (unlikely(!itm))
+			BUG();
+
+		if (itm->map_flow_id == map_flow)
+			return itm;
+	}
+	return 0;
+}
+
+/**
+ * _rmnet_vnd_update_flow_map() - Add or remove individual TC flow handles
+ * @action: One of RMNET_VND_UF_ACTION_ADD / RMNET_VND_UF_ACTION_DEL
+ * @itm: Flow mapping object
+ * @map_flow: TC flow handle
+ *
+ * RMNET_VND_UF_ACTION_ADD:
+ * Will check for a free mapping slot in the mapping object. If one is found,
+ * valid for that slot will be set to 1 and the value will be set.
+ *
+ * RMNET_VND_UF_ACTION_DEL:
+ * Will check for matching tc handle. If found, valid for that slot will be
+ * set to 0 and the value will also be zeroed.
+ *
+ * Return:
+ *      - RMNET_VND_UPDATE_FLOW_OK tc flow handle is added/removed ok
+ *      - RMNET_VND_UPDATE_FLOW_NO_MORE_ROOM if there are no more tc handles
+ *      - RMNET_VND_UPDATE_FLOW_NO_VALID_LEFT if flow mapping is now empty
+ *      - RMNET_VND_UPDATE_FLOW_NO_ACTION if no action was taken
+ */
+static int _rmnet_vnd_update_flow_map(uint8_t action,
+				      struct rmnet_map_flow_mapping_s *itm,
+				      uint32_t tc_flow)
+{
+	int rc, i, j;
+	rc = RMNET_VND_UPDATE_FLOW_OK;
+
+	switch (action) {
+	case RMNET_VND_UF_ACTION_ADD:
+		rc = RMNET_VND_UPDATE_FLOW_NO_MORE_ROOM;
+		for (i = 0; i < RMNET_MAP_FLOW_NUM_TC_HANDLE; i++) {
+			if (itm->tc_flow_valid[i] == 0) {
+				itm->tc_flow_valid[i] = 1;
+				itm->tc_flow_id[i] = tc_flow;
+				rc = RMNET_VND_UPDATE_FLOW_OK;
+				LOGD("%s(): {%p}->tc_flow_id[%d] = %08X\n",
+				     __func__, itm, i, tc_flow);
+				break;
+			}
+		}
+		break;
+
+	case RMNET_VND_UF_ACTION_DEL:
+		j = 0;
+		rc = RMNET_VND_UPDATE_FLOW_OK;
+		for (i = 0; i < RMNET_MAP_FLOW_NUM_TC_HANDLE; i++) {
+			if (itm->tc_flow_valid[i] == 1) {
+				if (itm->tc_flow_id[i] == tc_flow) {
+					itm->tc_flow_valid[i] = 0;
+					itm->tc_flow_id[i] = 0;
+					j++;
+					LOGD("%s(): {%p}->tc_flow_id[%d] = 0\n",
+					     __func__, itm, i);
+				}
+			} else {
+				j++;
+			}
+		}
+		if (j == RMNET_MAP_FLOW_NUM_TC_HANDLE)
+			rc = RMNET_VND_UPDATE_FLOW_NO_VALID_LEFT;
+		break;
+
+	default:
+		rc = RMNET_VND_UPDATE_FLOW_NO_ACTION;
+		break;
+	}
+	return rc;
+}
+
+/**
+ * rmnet_vnd_add_tc_flow() - Add a MAP/TC flow handle mapping
+ * @id: Virtual network device ID
+ * @map_flow: MAP flow handle
+ * @tc_flow: TC flow handle
+ *
+ * Checkes for an existing flow mapping object corresponding to map_flow. If one
+ * is found, then it will try to add to the existing mapping object. Otherwise,
+ * a new mapping object is created.
+ *
+ * Return:
+ *      - RMNET_CONFIG_OK if successful
+ *      - RMNET_CONFIG_TC_HANDLE_FULL if there is no more room in the map object
+ *      - RMNET_CONFIG_NOMEM failed to allocate a new map object
+ */
+int rmnet_vnd_add_tc_flow(uint32_t id, uint32_t map_flow, uint32_t tc_flow)
+{
+	struct rmnet_map_flow_mapping_s *itm;
+	struct net_device *dev;
+	struct rmnet_vnd_private_s *dev_conf;
+	int r;
+	unsigned long flags;
+
+	if ((id < 0) || (id >= RMNET_DATA_MAX_VND) || !rmnet_devices[id]) {
+		LOGM("%s(): Invalid id [%d]\n", __func__, id);
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+	}
+
+	dev = rmnet_devices[id];
+	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
+
+	if (!dev_conf)
+		BUG();
+
+	write_lock_irqsave(&dev_conf->flow_map_lock, flags);
+	itm = _rmnet_vnd_get_flow_map(dev_conf, map_flow);
+	if (itm) {
+		r = _rmnet_vnd_update_flow_map(RMNET_VND_UF_ACTION_ADD,
+					       itm, tc_flow);
+		if (r != RMNET_VND_UPDATE_FLOW_OK) {
+			write_unlock_irqrestore(&dev_conf->flow_map_lock,
+						flags);
+			return RMNET_CONFIG_TC_HANDLE_FULL;
+		}
+		write_unlock_irqrestore(&dev_conf->flow_map_lock, flags);
+		return RMNET_CONFIG_OK;
+	}
+	write_unlock_irqrestore(&dev_conf->flow_map_lock, flags);
+
+	itm = (struct rmnet_map_flow_mapping_s *)
+		kmalloc(sizeof(struct rmnet_map_flow_mapping_s), GFP_KERNEL);
+
+	if (!itm) {
+		LOGM("%s(): failure allocating flow mapping\n", __func__);
+		return RMNET_CONFIG_NOMEM;
+	}
+	memset(itm, 0, sizeof(struct rmnet_map_flow_mapping_s));
+
+	itm->map_flow_id = map_flow;
+	itm->tc_flow_valid[0] = 1;
+	itm->tc_flow_id[0] = tc_flow;
+
+	/* How can we dynamically init these safely? Kernel only provides static
+	 * initializers for atomic_t
+	 */
+	itm->v4_seq.counter =  0; /* Init is broken: ATOMIC_INIT(0); */
+	itm->v6_seq.counter =  0; /* Init is broken: ATOMIC_INIT(0); */
+
+	write_lock_irqsave(&dev_conf->flow_map_lock, flags);
+	list_add(&(itm->list), &(dev_conf->flow_head));
+	write_unlock_irqrestore(&dev_conf->flow_map_lock, flags);
+
+	LOGD("%s(): Created flow mapping [%s][0x%08X][0x%08X]@%p\n", __func__,
+		     dev->name, itm->map_flow_id, itm->tc_flow_id[0], itm);
+
+	return RMNET_CONFIG_OK;
+}
+
+/**
+ * rmnet_vnd_del_tc_flow() - Delete a MAP/TC flow handle mapping
+ * @id: Virtual network device ID
+ * @map_flow: MAP flow handle
+ * @tc_flow: TC flow handle
+ *
+ * Checkes for an existing flow mapping object corresponding to map_flow. If one
+ * is found, then it will try to remove the existing tc_flow mapping. If the
+ * mapping object no longer contains any mappings, then it is freed. Otherwise
+ * the mapping object is left in the list
+ *
+ * Return:
+ *      - RMNET_CONFIG_OK if successful or if there was no such tc_flow
+ *      - RMNET_CONFIG_INVALID_REQUEST if there is no such map_flow
+ */
+int rmnet_vnd_del_tc_flow(uint32_t id, uint32_t map_flow, uint32_t tc_flow)
+{
+	struct rmnet_vnd_private_s *dev_conf;
+	struct net_device *dev;
+	struct rmnet_map_flow_mapping_s *itm;
+	int r;
+	unsigned long flags;
+	int rc = RMNET_CONFIG_OK;
+
+	if ((id < 0) || (id >= RMNET_DATA_MAX_VND) || !rmnet_devices[id]) {
+		LOGM("%s(): Invalid id [%d]\n", __func__, id);
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+	}
+
+	dev = rmnet_devices[id];
+	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
+
+	if (!dev_conf)
+		BUG();
+
+	r = RMNET_VND_UPDATE_FLOW_NO_ACTION;
+	write_lock_irqsave(&dev_conf->flow_map_lock, flags);
+	itm = _rmnet_vnd_get_flow_map(dev_conf, map_flow);
+	if (!itm) {
+		rc = RMNET_CONFIG_INVALID_REQUEST;
+	} else {
+		r = _rmnet_vnd_update_flow_map(RMNET_VND_UF_ACTION_DEL,
+					       itm, tc_flow);
+		if (r ==  RMNET_VND_UPDATE_FLOW_NO_VALID_LEFT)
+			list_del(&(itm->list));
+	}
+	write_unlock_irqrestore(&dev_conf->flow_map_lock, flags);
+
+	if (r ==  RMNET_VND_UPDATE_FLOW_NO_VALID_LEFT) {
+		if (itm)
+			LOGD("%s(): Removed flow mapping [%s][0x%08X]@%p\n",
+			__func__, dev->name, itm->map_flow_id, itm);
+		kfree(itm);
+	}
+
+	return rc;
+}
+
+/**
+ * rmnet_vnd_do_flow_control() - Process flow control request
+ * @dev: Virtual network device node to do lookup on
+ * @map_flow_id: Flow ID from MAP message
+ * @v4_seq: pointer to IPv4 indication sequence number
+ * @v6_seq: pointer to IPv6 indication sequence number
+ * @enable: boolean to enable/disable flow.
  *
  * Return:
  *      - 0 if successful
  *      - 1 if no mapping is found
  *      - 2 if dev is not RmNet virtual network device node
  */
-int rmnet_vnd_get_flow_mapping(struct net_device *dev,
+int rmnet_vnd_do_flow_control(struct net_device *dev,
 			       uint32_t map_flow_id,
-			       uint32_t *tc_handle,
-			       uint64_t **v4_seq,
-			       uint64_t **v6_seq)
+			       uint16_t v4_seq,
+			       uint16_t v6_seq,
+			       int enable)
 {
 	struct rmnet_vnd_private_s *dev_conf;
-	struct rmnet_map_flow_mapping_s *flowmap;
-	int i;
-	int error = 0;
+	struct rmnet_map_flow_mapping_s *itm;
+	int do_fc, error, i;
+	error = 0;
+	do_fc = 0;
 
-	if (!dev || !tc_handle)
+	if (unlikely(!dev))
 		BUG();
 
 	if (!rmnet_vnd_is_vnd(dev)) {
-		*tc_handle = 0;
 		return 2;
 	} else {
 		dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 	}
 
-	if (!dev_conf)
+	if (unlikely(!dev_conf))
 		BUG();
 
-	if (map_flow_id == 0xFFFFFFFF) {
-		*tc_handle = dev_conf->flows.default_tc_handle;
-		*v4_seq = &dev_conf->flows.default_v4_seq;
-		*v6_seq = &dev_conf->flows.default_v6_seq;
-		if (*tc_handle == 0)
-			error = 1;
-	} else {
-		flowmap = &dev_conf->flows.flowmap[0];
-		for (i = 0; i < RMNET_MAP_MAX_FLOWS; i++) {
-			if ((flowmap[i].flow_id != 0)
-			     && (flowmap[i].flow_id == map_flow_id)) {
+	read_lock(&dev_conf->flow_map_lock);
+	itm = _rmnet_vnd_get_flow_map(dev_conf, map_flow_id);
 
-				*tc_handle = flowmap[i].tc_handle;
-				*v4_seq = &flowmap[i].v4_seq;
-				*v6_seq = &flowmap[i].v6_seq;
-				error = 0;
-				break;
+	if (!itm) {
+		LOGL("%s(): Got flow control request for unknown flow %08X\n",
+		     __func__, map_flow_id);
+		goto fcdone;
+	}
+	if (v4_seq == 0 || v4_seq >= atomic_read(&(itm->v4_seq))) {
+		atomic_set(&(itm->v4_seq), v4_seq);
+		for (i = 0; i < RMNET_MAP_FLOW_NUM_TC_HANDLE; i++) {
+			if (itm->tc_flow_valid[i] == 1) {
+				LOGD("%s(): Found [%s][0x%08X][%d:0x%08X]\n",
+				     __func__, dev->name, itm->map_flow_id, i,
+				     itm->tc_flow_id[i]);
+
+				_rmnet_vnd_do_flow_control(dev,
+							   itm->tc_flow_id[i],
+							   enable);
 			}
 		}
-		*v4_seq = 0;
-		*v6_seq = 0;
-		*tc_handle = 0;
-		error = 1;
+	} else {
+		LOGD("%s(): Internal seq(%hd) higher than called(%hd)\n",
+		     __func__, atomic_read(&(itm->v4_seq)), v4_seq);
 	}
+
+fcdone:
+	read_unlock(&dev_conf->flow_map_lock);
 
 	return error;
 }
