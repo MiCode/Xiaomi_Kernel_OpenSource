@@ -6,7 +6,7 @@ a configurable divider. This hw is different than normal rcgs in that it may
 optionally have a register which encodes the maximum rate supported by hw.
 
 Required properties:
-- compatible: "qcom,clock-a7-8226"
+- compatible: "qcom,clock-a7-8226", "qcom,clock-a7-krypton"
 - reg: pairs of physical address and region size
 - reg-names: "rcg-base" is expected
 - clock-names: list of names of clock inputs
