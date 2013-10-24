@@ -86,6 +86,9 @@ Optional properties for MPP LED:
 - qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
 - qcom,min-brightness - Lowest possible brightness supported on this LED other than 0.
 - qcom,current-setting: default current value for wled used as button backlight in mA
+- mpp-power-supply: regulator support for MPP LED
+- qcom,mpp-power-max-voltage - maximum voltage for MPP LED regulator. This should not be specified when no regulator is in use.
+- qcom,mpp-power-min-voltage - minimum voltage for MPP LED regulator. This should not be specified when no regulator is in use.
 
 Required properties for PWM mode only:
 - qcom,pwm-channel: pwm channel the led will operate on
