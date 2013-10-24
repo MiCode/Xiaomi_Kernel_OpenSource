@@ -83,6 +83,23 @@ struct intel_limit {
 	intel_p2_t	    p2;
 };
 
+/* Color space conversion coff's */
+static u32 csc_softlut[I915_MAX_PIPES][CSC_MAX_COEFF_REG_COUNT] = {
+	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
+	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
+	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
+};
+
+/* CSC Preoffset*/
+static u32 csc_preoffset[I915_MAX_PIPES][CSC_MAX_OFFSET_COUNT] = {
+			{0, 0, 0}, {0, 0, 0}, {0, 0, 0},
+};
+/* CSC Postoffset*/
+static u32 csc_postoffset[I915_MAX_PIPES][CSC_MAX_OFFSET_COUNT] = {
+			{0, 0, 0}, {0, 0, 0}, {0, 0, 0},
+};
+static u32 csc_mode;
+
 int
 intel_pch_rawclk(struct drm_device *dev)
 {
@@ -6771,7 +6788,7 @@ static void intel_set_pipe_csc(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
+	int pipe = intel_crtc->pipe, i;
 	uint16_t coeff = 0x7800; /* 1.0 */
 
 	/*
@@ -6781,38 +6798,40 @@ static void intel_set_pipe_csc(struct drm_crtc *crtc)
 	 * consideration.
 	 */
 
-	if (intel_crtc->config.limited_color_range)
+	if (intel_crtc->config.limited_color_range) {
 		coeff = ((235 - 16) * (1 << 12) / 255) & 0xff8; /* 0.xxx... */
 
-	/*
-	 * GY/GU and RY/RU should be the other way around according
-	 * to BSpec, but reality doesn't agree. Just set them up in
-	 * a way that results in the correct picture.
-	 */
-	I915_WRITE(PIPE_CSC_COEFF_RY_GY(pipe), coeff << 16);
-	I915_WRITE(PIPE_CSC_COEFF_BY(pipe), 0);
+		csc_softlut[pipe][0] = coeff << 16;
+		csc_softlut[pipe][1] = 0;
+		csc_softlut[pipe][2] = coeff;
+		csc_softlut[pipe][3] = 0;
+		csc_softlut[pipe][4] = 0;
+		csc_softlut[pipe][5] = coeff << 16;
+	}
 
-	I915_WRITE(PIPE_CSC_COEFF_RU_GU(pipe), coeff);
-	I915_WRITE(PIPE_CSC_COEFF_BU(pipe), 0);
+	for (i = 0; i < CSC_MAX_COEFF_REG_COUNT; i++)
+		I915_WRITE(PIPE_CSC_COEFF_RY_GY(pipe) + (i * 4),
+						csc_softlut[pipe][i]);
 
-	I915_WRITE(PIPE_CSC_COEFF_RV_GV(pipe), 0);
-	I915_WRITE(PIPE_CSC_COEFF_BV(pipe), coeff << 16);
-
-	I915_WRITE(PIPE_CSC_PREOFF_HI(pipe), 0);
-	I915_WRITE(PIPE_CSC_PREOFF_ME(pipe), 0);
-	I915_WRITE(PIPE_CSC_PREOFF_LO(pipe), 0);
+	for (i = 0; i < CSC_MAX_OFFSET_COUNT; i++)
+		I915_WRITE(PIPE_CSC_PREOFF_HI(pipe) + (i*4),
+						csc_preoffset[pipe][i]);
 
 	if (INTEL_INFO(dev)->gen > 6) {
 		uint16_t postoff = 0;
 
-		if (intel_crtc->config.limited_color_range)
+		if (intel_crtc->config.limited_color_range) {
 			postoff = (16 * (1 << 12) / 255) & 0x1fff;
+			csc_postoffset[pipe][0] = postoff;
+			csc_postoffset[pipe][1] = postoff;
+			csc_postoffset[pipe][2] = postoff;
+		}
 
-		I915_WRITE(PIPE_CSC_POSTOFF_HI(pipe), postoff);
-		I915_WRITE(PIPE_CSC_POSTOFF_ME(pipe), postoff);
-		I915_WRITE(PIPE_CSC_POSTOFF_LO(pipe), postoff);
+		for (i = 0; i < CSC_MAX_OFFSET_COUNT; i++)
+			I915_WRITE(PIPE_CSC_POSTOFF_HI(pipe) + (i*4),
+						csc_postoffset[pipe][i]);
 
-		I915_WRITE(PIPE_CSC_MODE(pipe), 0);
+		I915_WRITE(PIPE_CSC_MODE(pipe), csc_mode);
 	} else {
 		uint32_t mode = CSC_MODE_YUV_TO_RGB;
 
@@ -6821,6 +6840,51 @@ static void intel_set_pipe_csc(struct drm_crtc *crtc)
 
 		I915_WRITE(PIPE_CSC_MODE(pipe), mode);
 	}
+}
+
+/*
+ * Implementation for Ioctl I915_SET_CSC to modify the CSC parameters
+ */
+int intel_configure_csc(struct drm_device *dev, void *data,
+						struct drm_file *priv)
+{
+	struct csc_coeff *csc_coeff_t = NULL;
+	struct drm_mode_object *obj;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	int pipe, i = 0;
+
+	csc_coeff_t = (struct csc_coeff *)data;
+
+	obj = drm_mode_object_find(dev, csc_coeff_t->crtc_id,
+				DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_ERROR("Unknown CRTC ID %d\n", csc_coeff_t->crtc_id);
+		return -EINVAL;
+	}
+
+	crtc = obj_to_crtc(obj);
+
+	intel_crtc = to_intel_crtc(crtc);
+	pipe = intel_crtc->pipe;
+
+	if (csc_coeff_t->param_valid & CSC_COEFF_VALID_MASK) {
+		for (i = 0; i < CSC_MAX_COEFF_REG_COUNT; i++)
+			csc_softlut[pipe][i] = csc_coeff_t->csc_coeff[i];
+	}
+
+	if (csc_coeff_t->param_valid & CSC_OFFSET_VALID_MASK)
+		for (i = 0; i < CSC_MAX_OFFSET_COUNT; i++) {
+			csc_preoffset[pipe][i] = csc_coeff_t->csc_preoffset[i];
+			csc_postoffset[pipe][i] =
+						csc_coeff_t->csc_postoffset[i];
+		}
+
+	if (csc_coeff_t->param_valid & CSC_MODE_VALID_MASK)
+		csc_mode = csc_coeff_t->csc_mode;
+
+	intel_set_pipe_csc(crtc);
+	return 0;
 }
 
 static void haswell_set_pipeconf(struct drm_crtc *crtc)

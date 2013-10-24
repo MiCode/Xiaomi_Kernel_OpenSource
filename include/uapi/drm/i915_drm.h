@@ -153,6 +153,29 @@ typedef struct _drm_i915_sarea {
 
 } drm_i915_sarea_t;
 
+#define CSC_MAX_COEFF_REG_COUNT		6
+#define CSC_MAX_OFFSET_COUNT		3
+
+#define CSC_COEFF_VALID_MASK		0x1
+#define CSC_OFFSET_VALID_MASK		0x2
+#define CSC_MODE_VALID_MASK		0x4
+
+struct csc_coeff {
+	unsigned int crtc_id;
+	/*
+	 * param_valid : Bits
+	 * XXX1b : Coeff Valid
+	 * XX1Xb : Offset Valid
+	 * X1XXb : Mode Valid
+	 * X000b : Invalid
+	 */
+	unsigned int param_valid;
+	unsigned int csc_coeff[CSC_MAX_COEFF_REG_COUNT];
+	unsigned int csc_preoffset[CSC_MAX_OFFSET_COUNT];
+	unsigned int csc_postoffset[CSC_MAX_OFFSET_COUNT];
+	unsigned int csc_mode;
+};
+
 /* due to userspace building against these headers we need some compat here */
 #define planeA_x pipeA_x
 #define planeA_y pipeA_y
@@ -225,6 +248,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GET_RESET_STATS	0x32
 #define DRM_I915_GEM_USERPTR		0x33
 #define DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	0x37
+#define DRM_I915_SET_CSC		0x39
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
@@ -283,6 +307,8 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_GEM_ACCESS_USERDATA	\
 		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_ACCESS_USERDATA, \
 		struct drm_i915_gem_access_userdata)
+#define DRM_IOCTL_I915_SET_CSC DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_SET_CSC, \
+		struct csc_coeff)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
