@@ -44,9 +44,7 @@
 #define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
 	do {							\
 		if (hba->ufs_stats.enabled) {			\
-			mutex_lock(&hba->ufs_stats.lock);	\
 			hba->ufs_stats.tag_stats[tag]++;	\
-			mutex_unlock(&hba->ufs_stats.lock);	\
 		}						\
 	} while (0);
 
