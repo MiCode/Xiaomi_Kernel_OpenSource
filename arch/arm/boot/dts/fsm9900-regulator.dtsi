@@ -1,0 +1,243 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Stub Regulator */
+/ {
+	pma8084_l12_ao: regulator-l12-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_l12_ao";
+		qcom,set = <1>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+	pma8084_s2_corner_ao: regulator-s2-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_s2_corner_ao";
+		qcom,set = <1>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+};
+
+
+
+/* QPNP controlled regulators: */
+
+&spmi_bus {
+	qcom,pma8084@1 {
+		pma8084_s1: regulator@1400 {
+
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		pma8084_s2: regulator@1700 {
+			regulator-min-microvolt = <915000>;
+			regulator-max-microvolt = <915000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		/* eMMC SMPS4*/
+		pma8084_s4: regulator@1d00 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		pma8084_s8: regulator@2900 {
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		/* PCIE1/2_0P9_VDDA; SGMII1/2_VDDA */
+		pma8084_l3: regulator@4200 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* LVDDA_BBRX_CHx; GPSADC_AVDD_1P3 */
+		pma8084_l4: regulator@4300 {
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* PMIC: RFCLK */
+		pma8084_l5: regulator@4400 {
+			regulator-min-microvolt = <1740000>;
+			regulator-max-microvolt = <1740000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* PMIC: HKADC */
+		pma8084_l8: regulator@4700 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* VDDPX_5 (UIM) */
+		pma8084_l9: regulator@4800 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* VDDPX_6(GMAC) */
+		pma8084_l10: regulator@4900 {
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* RFICs LDO11*/
+		pma8084_l11: regulator@4a00 {
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* HVDDA_BBRX_CHx; VDDA_TXDACx */
+		pma8084_l14: regulator@4d00 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* RFICs LDO15*/
+		pma8084_l15: regulator@4e00 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* EXT RF Switch */
+		pma8084_l18: regulator@5100 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* 2.05V to WTR1605/2605 */
+		pma8084_l19: regulator@5200 {
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* eMMC LDO20 */
+		pma8084_l20: regulator@5300 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* SDC2 VDD LDO21 */
+		pma8084_l21: regulator@5400 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		/* FTR1 LDO23*/
+		pma8084_l23: regulator@5600 {
+			regulator-min-microvolt = <2200000>;
+			regulator-max-microvolt = <2200000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* FTR2_VDD_2P2 */
+		pma8084_l24: regulator@5700 {
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* FTR2 LDO25*/
+		pma8084_l25: regulator@5800 {
+			regulator-min-microvolt = <2200000>;
+			regulator-max-microvolt = <2200000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* QFPROM_BLOW_VDD */
+		pma8084_lvs1: regulator@8000 {
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+	};
+};
+
+&rpm_bus {
+
+};
