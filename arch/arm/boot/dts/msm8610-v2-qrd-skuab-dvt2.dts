@@ -34,3 +34,13 @@
 		qcom,pin-num = <1>;
 	};
 };
+
+&led_flash0 {
+	status = "ok";
+};
+
+&i2c {
+	qcom,camera@20 {
+		qcom,led-flash-src = <&led_flash0>;
+	};
+};
