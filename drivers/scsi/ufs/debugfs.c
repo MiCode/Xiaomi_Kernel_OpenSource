@@ -28,6 +28,7 @@ static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 	int i;
 	int max_depth;
 	bool is_tag_empty = true;
+	unsigned long flags;
 
 	if (!hba)
 		goto exit;
@@ -41,11 +42,11 @@ static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 
 	max_depth = hba->nutrs;
 
-	mutex_lock(&ufs_stats->lock);
-
 	pr_debug("%s: UFS tag statistics:\n", __func__);
 	pr_debug("%s: Max tagged command queue depth is %d",
 		__func__, max_depth);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
 
 	for (i = 0 ; i < max_depth ; ++i) {
 		if (hba->ufs_stats.tag_stats[i] != 0) {
@@ -58,7 +59,7 @@ static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 				__func__, i, ufs_stats->tag_stats[i]);
 		}
 	}
-	mutex_unlock(&ufs_stats->lock);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (is_tag_empty)
 		pr_debug("%s: All tags statistics are empty", __func__);
@@ -80,6 +81,7 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 	struct ufs_stats *ufs_stats;
 	int val = 0;
 	int ret;
+	unsigned long flags;
 
 	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
 	if (ret) {
@@ -88,7 +90,7 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 	}
 
 	ufs_stats = &hba->ufs_stats;
-	mutex_lock(&ufs_stats->lock);
+	spin_lock_irqsave(hba->host->host_lock, flags);
 
 	if (!val) {
 		ufs_stats->enabled = false;
@@ -101,7 +103,7 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 		       sizeof(unsigned int) * hba->nutrs);
 	}
 
-	mutex_unlock(&ufs_stats->lock);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return cnt;
 }
 
@@ -114,8 +116,6 @@ static const struct file_operations ufsdbg_tag_stats_fops = {
 static int ufshcd_init_tag_statistics(struct ufs_hba *hba)
 {
 	int ret = 0;
-
-	mutex_init(&hba->ufs_stats.lock);
 
 	hba->ufs_stats.tag_stats = kzalloc(hba->nutrs * sizeof(u64),
 					   GFP_KERNEL);

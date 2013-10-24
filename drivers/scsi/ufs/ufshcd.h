@@ -336,7 +336,6 @@ struct ufs_init_prefetch {
 #ifdef CONFIG_DEBUG_FS
 struct ufs_stats {
 	u64 *tag_stats;
-	struct mutex lock;
 	bool enabled;
 };
 
