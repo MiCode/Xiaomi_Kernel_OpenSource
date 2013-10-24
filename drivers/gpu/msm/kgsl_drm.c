@@ -37,14 +37,8 @@
 
 #define DRM_KGSL_GEM_FLAG_MAPPED (1 << 0)
 
-#define ENTRY_EMPTY -1
-#define ENTRY_NEEDS_CLEANUP -2
-
 #define DRM_KGSL_NOT_INITED -1
 #define DRM_KGSL_INITED   1
-
-#define DRM_KGSL_NUM_FENCE_ENTRIES (DRM_KGSL_HANDLE_WAIT_ENTRIES << 2)
-#define DRM_KGSL_HANDLE_WAIT_ENTRIES 5
 
 /* Returns true if the memory type is in PMEM */
 
@@ -78,34 +72,6 @@
 #define TYPE_IS_SECURE(_t) \
 	((_t & DRM_KGSL_GEM_TYPE_MEM_MASK) == DRM_KGSL_GEM_TYPE_MEM_SECURE)
 
-struct drm_kgsl_gem_object_wait_list_entry {
-	struct list_head list;
-	int pid;
-	int in_use;
-	wait_queue_head_t process_wait_q;
-};
-
-struct drm_kgsl_gem_object_fence {
-	int32_t fence_id;
-	unsigned int num_buffers;
-	int ts_valid;
-	unsigned int timestamp;
-	int ts_device;
-	int lockpid;
-	struct list_head buffers_in_fence;
-};
-
-struct drm_kgsl_gem_object_fence_list_entry {
-	struct list_head list;
-	int in_use;
-	struct drm_gem_object *gem_obj;
-};
-
-static int32_t fence_id = 0x1;
-
-static struct drm_kgsl_gem_object_fence
-			  gem_buf_fence[DRM_KGSL_NUM_FENCE_ENTRIES];
-
 struct drm_kgsl_gem_object {
 	struct drm_gem_object *obj;
 	uint32_t type;
@@ -134,14 +100,7 @@ struct drm_kgsl_gem_object {
 	 * Last user of this memory CPU/GPU
 	 */
 	uint32_t user_pdata;
-	/* Put these here to avoid allocing all the time */
-	struct drm_kgsl_gem_object_wait_list_entry
-	wait_entries[DRM_KGSL_HANDLE_WAIT_ENTRIES];
-	/* Each object can only appear in a single fence */
-	struct drm_kgsl_gem_object_fence_list_entry
-	fence_entries[DRM_KGSL_NUM_FENCE_ENTRIES];
 
-	struct list_head wait_list;
 };
 
 static struct ion_client *kgsl_drm_ion_client;
@@ -490,7 +449,7 @@ kgsl_gem_init_obj(struct drm_device *dev,
 		  int *handle)
 {
 	struct drm_kgsl_gem_object *priv;
-	int ret, i;
+	int ret;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -505,19 +464,6 @@ kgsl_gem_init_obj(struct drm_device *dev,
 	ret = drm_gem_handle_create(file_priv, obj, handle);
 
 	drm_gem_object_unreference(obj);
-	INIT_LIST_HEAD(&priv->wait_list);
-
-	for (i = 0; i < DRM_KGSL_HANDLE_WAIT_ENTRIES; i++) {
-		INIT_LIST_HEAD((struct list_head *) &priv->wait_entries[i]);
-		priv->wait_entries[i].pid = 0;
-		init_waitqueue_head(&priv->wait_entries[i].process_wait_q);
-	}
-
-	for (i = 0; i < DRM_KGSL_NUM_FENCE_ENTRIES; i++) {
-		INIT_LIST_HEAD((struct list_head *) &priv->fence_entries[i]);
-		priv->fence_entries[i].in_use = 0;
-		priv->fence_entries[i].gem_obj = obj;
-	}
 
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
@@ -1323,357 +1269,6 @@ int kgsl_gem_phys_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	}
 }
 
-void
-cleanup_fence(struct drm_kgsl_gem_object_fence *fence, int check_waiting)
-{
-	int j;
-	struct drm_kgsl_gem_object_fence_list_entry *this_fence_entry = NULL;
-	struct drm_kgsl_gem_object *unlock_obj;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object_wait_list_entry *lock_next;
-
-	fence->ts_valid = 0;
-	fence->timestamp = -1;
-	fence->ts_device = -1;
-
-	/* Walk the list of buffers in this fence and clean up the */
-	/* references. Note that this can cause memory allocations */
-	/* to be freed */
-	for (j = fence->num_buffers; j > 0; j--) {
-		this_fence_entry =
-				(struct drm_kgsl_gem_object_fence_list_entry *)
-				fence->buffers_in_fence.prev;
-
-		this_fence_entry->in_use = 0;
-		obj = this_fence_entry->gem_obj;
-		unlock_obj = obj->driver_private;
-
-		/* Delete it from the list */
-
-		list_del(&this_fence_entry->list);
-
-		/* we are unlocking - see if there are other pids waiting */
-		if (check_waiting) {
-			if (!list_empty(&unlock_obj->wait_list)) {
-				lock_next =
-				(struct drm_kgsl_gem_object_wait_list_entry *)
-					unlock_obj->wait_list.prev;
-
-				list_del((struct list_head *)&lock_next->list);
-
-				unlock_obj->lockpid = 0;
-				wake_up_interruptible(
-						&lock_next->process_wait_q);
-				lock_next->pid = 0;
-
-			} else {
-				/* List is empty so set pid to 0 */
-				unlock_obj->lockpid = 0;
-			}
-		}
-
-		drm_gem_object_unreference(obj);
-	}
-	/* here all the buffers in the fence are released */
-	/* clear the fence entry */
-	fence->fence_id = ENTRY_EMPTY;
-}
-
-int
-find_empty_fence(void)
-{
-	int i;
-
-	for (i = 0; i < DRM_KGSL_NUM_FENCE_ENTRIES; i++) {
-		if (gem_buf_fence[i].fence_id == ENTRY_EMPTY) {
-			gem_buf_fence[i].fence_id = fence_id++;
-			gem_buf_fence[i].ts_valid = 0;
-			INIT_LIST_HEAD(&(gem_buf_fence[i].buffers_in_fence));
-			if (fence_id == 0xFFFFFFF0)
-				fence_id = 1;
-			return i;
-		} else {
-
-			/* Look for entries to be cleaned up */
-			if (gem_buf_fence[i].fence_id == ENTRY_NEEDS_CLEANUP)
-				cleanup_fence(&gem_buf_fence[i], 0);
-		}
-	}
-
-	return ENTRY_EMPTY;
-}
-
-int
-find_fence(int index)
-{
-	int i;
-
-	for (i = 0; i < DRM_KGSL_NUM_FENCE_ENTRIES; i++) {
-		if (gem_buf_fence[i].fence_id == index)
-			return i;
-	}
-
-	return ENTRY_EMPTY;
-}
-
-void
-wakeup_fence_entries(struct drm_kgsl_gem_object_fence *fence)
-{
-    struct drm_kgsl_gem_object_fence_list_entry *this_fence_entry = NULL;
-	struct drm_kgsl_gem_object_wait_list_entry *lock_next;
-	struct drm_kgsl_gem_object *unlock_obj;
-	struct drm_gem_object *obj;
-
-	/* TS has expired when we get here */
-	fence->ts_valid = 0;
-	fence->timestamp = -1;
-	fence->ts_device = -1;
-
-	list_for_each_entry(this_fence_entry, &fence->buffers_in_fence, list) {
-		obj = this_fence_entry->gem_obj;
-		unlock_obj = obj->driver_private;
-
-		if (!list_empty(&unlock_obj->wait_list)) {
-			lock_next =
-				(struct drm_kgsl_gem_object_wait_list_entry *)
-					unlock_obj->wait_list.prev;
-
-			/* Unblock the pid */
-			lock_next->pid = 0;
-
-			/* Delete it from the list */
-			list_del((struct list_head *)&lock_next->list);
-
-			unlock_obj->lockpid = 0;
-			wake_up_interruptible(&lock_next->process_wait_q);
-
-		} else {
-			/* List is empty so set pid to 0 */
-			unlock_obj->lockpid = 0;
-		}
-	}
-	fence->fence_id = ENTRY_NEEDS_CLEANUP;  /* Mark it as needing cleanup */
-}
-
-int
-kgsl_gem_lock_handle_ioctl(struct drm_device *dev, void *data,
-						   struct drm_file *file_priv)
-{
-	/* The purpose of this function is to lock a given set of handles. */
-	/* The driver will maintain a list of locked handles. */
-	/* If a request comes in for a handle that's locked the thread will */
-	/* block until it's no longer in use. */
-
-	struct drm_kgsl_gem_lock_handles *args = data;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object *priv;
-	struct drm_kgsl_gem_object_fence_list_entry *this_fence_entry = NULL;
-	struct drm_kgsl_gem_object_fence *fence;
-	struct drm_kgsl_gem_object_wait_list_entry *lock_item;
-	int i, j;
-	int result = 0;
-	uint32_t *lock_list;
-	uint32_t *work_list = NULL;
-	int32_t fence_index;
-
-	/* copy in the data from user space */
-	lock_list = kzalloc(sizeof(uint32_t) * args->num_handles, GFP_KERNEL);
-	if (!lock_list) {
-		DRM_ERROR("Unable allocate memory for lock list\n");
-		result = -ENOMEM;
-		goto error;
-	}
-
-	if (copy_from_user(lock_list, args->handle_list,
-			   sizeof(uint32_t) * args->num_handles)) {
-		DRM_ERROR("Unable to copy the lock list from the user\n");
-		result = -EFAULT;
-		goto free_handle_list;
-	}
-
-
-	work_list = lock_list;
-	mutex_lock(&dev->struct_mutex);
-
-	/* build the fence for this group of handles */
-	fence_index = find_empty_fence();
-	if (fence_index == ENTRY_EMPTY) {
-		DRM_ERROR("Unable to find a empty fence\n");
-		args->lock_id = 0xDEADBEEF;
-		result = -EFAULT;
-		goto out_unlock;
-	}
-
-	fence = &gem_buf_fence[fence_index];
-	gem_buf_fence[fence_index].num_buffers = args->num_handles;
-	args->lock_id = gem_buf_fence[fence_index].fence_id;
-
-	for (j = args->num_handles; j > 0; j--, lock_list++) {
-		obj = drm_gem_object_lookup(dev, file_priv, *lock_list);
-
-		if (obj == NULL) {
-			DRM_ERROR("Invalid GEM handle %x\n", *lock_list);
-			result = -EBADF;
-			goto out_unlock;
-		}
-
-		priv = obj->driver_private;
-		this_fence_entry = NULL;
-
-		/* get a fence entry to hook into the fence */
-		for (i = 0; i < DRM_KGSL_NUM_FENCE_ENTRIES; i++) {
-			if (!priv->fence_entries[i].in_use) {
-				this_fence_entry = &priv->fence_entries[i];
-				this_fence_entry->in_use = 1;
-				break;
-			}
-		}
-
-		if (this_fence_entry == NULL) {
-			fence->num_buffers = 0;
-			fence->fence_id = ENTRY_EMPTY;
-			args->lock_id = 0xDEADBEAD;
-			result = -EFAULT;
-			drm_gem_object_unreference(obj);
-			goto out_unlock;
-		}
-
-		/* We're trying to lock - add to a fence */
-		list_add((struct list_head *)this_fence_entry,
-				 &gem_buf_fence[fence_index].buffers_in_fence);
-		if (priv->lockpid) {
-
-			if (priv->lockpid == args->pid) {
-				/* now that things are running async this  */
-				/* happens when an op isn't done */
-				/* so it's already locked by the calling pid */
-					continue;
-			}
-
-
-			/* if a pid already had it locked */
-			/* create and add to wait list */
-			for (i = 0; i < DRM_KGSL_HANDLE_WAIT_ENTRIES; i++) {
-				if (priv->wait_entries[i].in_use == 0) {
-					/* this one is empty */
-					lock_item = &priv->wait_entries[i];
-				    lock_item->in_use = 1;
-					lock_item->pid = args->pid;
-					INIT_LIST_HEAD((struct list_head *)
-						&priv->wait_entries[i]);
-					break;
-				}
-			}
-
-			if (i == DRM_KGSL_HANDLE_WAIT_ENTRIES) {
-
-				result =  -EFAULT;
-				drm_gem_object_unreference(obj);
-				goto out_unlock;
-			}
-
-			list_add_tail((struct list_head *)&lock_item->list,
-							&priv->wait_list);
-			mutex_unlock(&dev->struct_mutex);
-			/* here we need to block */
-			wait_event_interruptible_timeout(
-					priv->wait_entries[i].process_wait_q,
-					(priv->lockpid == 0),
-					msecs_to_jiffies(64));
-			mutex_lock(&dev->struct_mutex);
-			lock_item->in_use = 0;
-		}
-
-		/* Getting here means no one currently holds the lock */
-		priv->lockpid = args->pid;
-
-		args->lock_id = gem_buf_fence[fence_index].fence_id;
-	}
-	fence->lockpid = args->pid;
-
-out_unlock:
-	mutex_unlock(&dev->struct_mutex);
-
-free_handle_list:
-	kfree(work_list);
-
-error:
-	return result;
-}
-
-int
-kgsl_gem_unlock_handle_ioctl(struct drm_device *dev, void *data,
-			 struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_unlock_handles *args = data;
-	int result = 0;
-	int32_t fence_index;
-
-	mutex_lock(&dev->struct_mutex);
-	fence_index = find_fence(args->lock_id);
-	if (fence_index == ENTRY_EMPTY) {
-		DRM_ERROR("Invalid lock ID: %x\n", args->lock_id);
-		result = -EFAULT;
-		goto out_unlock;
-	}
-
-	cleanup_fence(&gem_buf_fence[fence_index], 1);
-
-out_unlock:
-	mutex_unlock(&dev->struct_mutex);
-
-	return result;
-}
-
-
-int
-kgsl_gem_unlock_on_ts_ioctl(struct drm_device *dev, void *data,
-			struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_unlock_on_ts *args = data;
-	int result = 0;
-	int ts_done = 0;
-	int32_t fence_index, ts_device;
-	struct drm_kgsl_gem_object_fence *fence;
-	struct kgsl_device *device;
-
-	if (args->type == DRM_KGSL_GEM_TS_3D)
-		ts_device = KGSL_DEVICE_3D0;
-	else if (args->type == DRM_KGSL_GEM_TS_2D)
-		ts_device = KGSL_DEVICE_2D0;
-	else {
-		result = -EINVAL;
-		goto error;
-	}
-
-	device = kgsl_get_device(ts_device);
-	ts_done = kgsl_check_timestamp(device, NULL, args->timestamp);
-
-	mutex_lock(&dev->struct_mutex);
-
-	fence_index = find_fence(args->lock_id);
-	if (fence_index == ENTRY_EMPTY) {
-		DRM_ERROR("Invalid lock ID: %x\n", args->lock_id);
-		result = -EFAULT;
-		goto out_unlock;
-	}
-
-	fence = &gem_buf_fence[fence_index];
-	fence->ts_device = ts_device;
-
-	if (!ts_done)
-		fence->ts_valid = 1;
-	else
-		cleanup_fence(fence, 1);
-
-
-out_unlock:
-	mutex_unlock(&dev->struct_mutex);
-
-error:
-	return result;
-}
-
 struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_CREATE, kgsl_gem_create_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_PREP, kgsl_gem_prep_ioctl, 0),
@@ -1699,12 +1294,6 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_USERDATA, kgsl_gem_set_userdata, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_USERDATA, kgsl_gem_get_userdata, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_CACHE_OPS, kgsl_gem_cache_ops, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_LOCK_HANDLE,
-				  kgsl_gem_lock_handle_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_UNLOCK_HANDLE,
-				  kgsl_gem_unlock_handle_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_UNLOCK_ON_TS,
-				  kgsl_gem_unlock_on_ts_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_CREATE_FD, kgsl_gem_create_fd_ioctl,
 		      DRM_MASTER),
 };
@@ -1735,8 +1324,6 @@ static struct drm_driver driver = {
 
 int kgsl_drm_init(struct platform_device *dev)
 {
-	int i;
-
 	/* Only initialize once */
 	if (kgsl_drm_inited == DRM_KGSL_INITED)
 		return 0;
@@ -1746,12 +1333,6 @@ int kgsl_drm_init(struct platform_device *dev)
 	driver.num_ioctls = DRM_ARRAY_SIZE(kgsl_drm_ioctls);
 
 	INIT_LIST_HEAD(&kgsl_mem_list);
-
-	for (i = 0; i < DRM_KGSL_NUM_FENCE_ENTRIES; i++) {
-		gem_buf_fence[i].num_buffers = 0;
-		gem_buf_fence[i].ts_valid = 0;
-		gem_buf_fence[i].fence_id = ENTRY_EMPTY;
-	}
 
 	/* Create ION Client */
 	kgsl_drm_ion_client = msm_ion_client_create(
