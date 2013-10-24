@@ -445,7 +445,6 @@ struct debugfs_files {
 struct ufs_stats {
 #ifdef CONFIG_DEBUG_FS
 	u64 *tag_stats;
-	struct mutex lock;
 	bool enabled;
 #endif
 	u32 hibern8_exit_cnt;
