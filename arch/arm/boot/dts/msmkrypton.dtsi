@@ -535,6 +535,32 @@
 		qcom,slope = <2901 2846 3200 3200 3200>;
 		qcom,calib-mode = "fuse_map1";
 	};
+
+	qcom,clock-a7@f9010008 {
+		compatible = "qcom,clock-a7-krypton";
+		reg = <0xf9010008 0x8>;
+		reg-names = "rcg-base";
+
+		clock-names = "clk-1", "clk-5";
+		qcom,speed0-bin-v0 =
+			<         0 0>,
+			< 300000000 4>,
+			< 748800000 5>,
+			< 998400000 7>;
+
+		cpu-vdd-supply = <&pmd9635_l3_corner>;
+	};
+
+	qcom,msm-cpufreq@0 {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpu-mem-ports = <1 512>;
+		qcom,cpufreq-table =
+			<  300000 1332 /* 166.5 MHz */ >,
+			<  600000 1332 /* 166.5 MHz */ >,
+			<  748800 2664 /* 333 MHz */ >,
+			<  998400 3200 /* 400 MHz */ >;
+	};
 };
 
 &gdsc_pcie_0 {
