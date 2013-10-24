@@ -450,8 +450,11 @@ int ipa_reset_hdr(void)
 			continue;
 
 		node = ipa_search(&ipa_ctx->hdr_hdl_tree, (u32) entry);
-		if (node == NULL)
+		if (node == NULL) {
 			WARN_ON(1);
+			mutex_unlock(&ipa_ctx->lock);
+			return -EFAULT;
+		}
 		list_del(&entry->link);
 		entry->cookie = 0;
 		kmem_cache_free(ipa_ctx->hdr_cache, entry);
