@@ -616,3 +616,28 @@
 			01 ff 19 02 00];
 	};
 };
+
+&spmi_bus {
+	qcom,pma8084@0 {
+		qcom,leds@a300 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa300 0x100>;
+			label = "mpp";
+			status = "okay";
+			mpp-power-supply = <&pma8084_l17>;
+			qcom,mpp-power-min-voltage = <2800000>;
+			qcom,mpp-power-max-voltage = <2800000>;
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,name = "led:privacy";
+				linux-default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,mode = "manual";
+			};
+		};
+	};
+};
