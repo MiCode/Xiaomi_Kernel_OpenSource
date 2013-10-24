@@ -34,6 +34,8 @@ Optional properties:
   - wlf,reset : GPIO specifier for the GPIO controlling /RESET
   - wlf,ldoena : GPIO specifier for the GPIO controlling LDOENA
 
+  - wlf,micd-software-compare : Use a software comparison to determine mic
+    presence
   - wlf,micd-detect-debounce : Additional software microphone detection
     debounce specified in milliseconds
   - wlf,micd-pol-gpio : GPIO specifier for the GPIO controlling the headset

@@ -1170,6 +1170,10 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 		of_property_read_bool(arizona->dev->of_node,
 				      "wlf,micd-force-micbias");
 
+	pdata->micd_software_compare =
+			of_property_read_bool(arizona->dev->of_node,
+					      "wlf,micd-software-compare");
+
 	pdata->jd_gpio5 = of_property_read_bool(arizona->dev->of_node,
 						"wlf,use-jd-gpio");
 
