@@ -826,25 +826,28 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		mbhc->current_plug = PLUG_TYPE_NONE;
 		mbhc->polling_active = false;
 	} else {
-		if (mbhc->mbhc_cfg->detect_extn_cable) {
-			/* Report removal of current jack type */
-			if (mbhc->hph_status && mbhc->hph_status != jack_type) {
-				if (mbhc->micbias_enable &&
-				    mbhc->micbias_enable_cb &&
-				    mbhc->hph_status == SND_JACK_HEADSET) {
-					pr_debug("%s: Disabling micbias\n",
-						 __func__);
-					mbhc->micbias_enable_cb(mbhc->codec,
-								false);
-					mbhc->micbias_enable = false;
-				}
-				pr_debug("%s: Reporting removal (%x)\n",
-						__func__, mbhc->hph_status);
-				mbhc->zl = mbhc->zr = 0;
-				wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
-						    0, WCD9XXX_JACK_MASK);
-				mbhc->hph_status = 0;
+		/*
+		 * Report removal of current jack type.
+		 * Headphone to headset shouldn't report headphone
+		 * removal.
+		 */
+		if (mbhc->mbhc_cfg->detect_extn_cable &&
+		    !(mbhc->current_plug == PLUG_TYPE_HEADPHONE &&
+		      jack_type == SND_JACK_HEADSET) &&
+		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
+			if (mbhc->micbias_enable && mbhc->micbias_enable_cb &&
+			    mbhc->hph_status == SND_JACK_HEADSET) {
+				pr_debug("%s: Disabling micbias\n", __func__);
+				mbhc->micbias_enable_cb(mbhc->codec, false);
+				mbhc->micbias_enable = false;
 			}
+
+			pr_debug("%s: Reporting removal (%x)\n",
+				 __func__, mbhc->hph_status);
+			mbhc->zl = mbhc->zr = 0;
+			wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
+					    0, WCD9XXX_JACK_MASK);
+			mbhc->hph_status = 0;
 		}
 		/* Report insertion */
 		mbhc->hph_status |= jack_type;
