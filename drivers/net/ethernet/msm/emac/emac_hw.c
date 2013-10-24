@@ -1193,6 +1193,7 @@ void emac_hw_start_mac(struct emac_hw *hw)
 	/* enable interrupt read clear, low power sleep mode and
 	   the irq moderators
 	*/
+	emac_reg_w32(hw, EMAC, EMAC_IRQ_MOD_TIM_INIT, hw->irq_mod);
 	emac_reg_w32(hw, EMAC, EMAC_DMA_MAS_CTRL,
 		     (INT_RD_CLR_EN | LPW_MODE |
 		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));

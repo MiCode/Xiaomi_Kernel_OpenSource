@@ -368,14 +368,11 @@ static int emac_get_intr_coalesce(struct net_device *netdev,
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
-	u32 val;
-
-	val = emac_reg_r32(hw, EMAC, EMAC_IRQ_MOD_TIM_INIT);
 
 	/* irq moderator timers have resolution of 2us */
-	ec->tx_coalesce_usecs = ((val & IRQ_MODERATOR_INIT_BMSK) >>
+	ec->tx_coalesce_usecs = ((hw->irq_mod & IRQ_MODERATOR_INIT_BMSK) >>
 				 IRQ_MODERATOR_INIT_SHFT) * 2;
-	ec->rx_coalesce_usecs = ((val & IRQ_MODERATOR2_INIT_BMSK) >>
+	ec->rx_coalesce_usecs = ((hw->irq_mod & IRQ_MODERATOR2_INIT_BMSK) >>
 				 IRQ_MODERATOR2_INIT_SHFT) * 2;
 
 	return 0;
@@ -395,6 +392,7 @@ static int emac_set_intr_coalesce(struct net_device *netdev,
 		IRQ_MODERATOR_INIT_BMSK;
 
 	emac_reg_w32(hw, EMAC, EMAC_IRQ_MOD_TIM_INIT, val);
+	hw->irq_mod = val;
 
 	return 0;
 }
