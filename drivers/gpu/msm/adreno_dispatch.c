@@ -189,10 +189,9 @@ static inline int adreno_dispatcher_requeue_cmdbatch(
 		return -EINVAL;
 	}
 
-	prev = drawctxt->cmdqueue_head - 1;
-
-	if (prev < 0)
-		prev = ADRENO_CONTEXT_CMDQUEUE_SIZE - 1;
+	prev = drawctxt->cmdqueue_head == 0 ?
+		(ADRENO_CONTEXT_CMDQUEUE_SIZE - 1) :
+		(drawctxt->cmdqueue_head - 1);
 
 	/*
 	 * The maximum queue size always needs to be one less then the size of
@@ -349,9 +348,6 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 
 		cmdbatch = adreno_dispatcher_get_cmdbatch(drawctxt);
 
-		if (cmdbatch == NULL)
-			break;
-
 		/*
 		 * adreno_context_get_cmdbatch returns -EAGAIN if the current
 		 * cmdbatch has pending sync points so no more to do here.
@@ -359,8 +355,9 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		 * reqeueued
 		 */
 
-		if (IS_ERR(cmdbatch) && PTR_ERR(cmdbatch) == -EAGAIN) {
-			requeued = 1;
+		if (IS_ERR_OR_NULL(cmdbatch)) {
+			if (IS_ERR(cmdbatch) && PTR_ERR(cmdbatch) == -EAGAIN)
+				requeued = 1;
 			break;
 		}
 
