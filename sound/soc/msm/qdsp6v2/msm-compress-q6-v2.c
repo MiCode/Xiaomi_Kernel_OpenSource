@@ -417,13 +417,15 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 6;
+	prtd->compr_cap.num_codecs = 8;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
 	prtd->compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
 	prtd->compr_cap.codecs[4] = SND_AUDIOCODEC_MP2;
 	prtd->compr_cap.codecs[5] = SND_AUDIOCODEC_PCM;
+	prtd->compr_cap.codecs[6] = SND_AUDIOCODEC_WMA;
+	prtd->compr_cap.codecs[7] = SND_AUDIOCODEC_WMA_PRO;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -432,6 +434,8 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	struct snd_compr_runtime *runtime = cstream->runtime;
 	struct msm_compr_audio *prtd = runtime->private_data;
 	struct asm_aac_cfg aac_cfg;
+	struct asm_wma_cfg wma_cfg;
+	struct asm_wmapro_cfg wma_pro_cfg;
 	int ret = 0;
 	uint16_t bit_width = 16;
 
@@ -450,9 +454,11 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 
 		break;
 	case FORMAT_MP3:
+		pr_debug("SND_AUDIOCODEC_MP3\n");
 		/* no media format block needed */
 		break;
 	case FORMAT_MPEG4_AAC:
+		pr_debug("SND_AUDIOCODEC_AAC\n");
 		memset(&aac_cfg, 0x0, sizeof(struct asm_aac_cfg));
 		aac_cfg.aot = AAC_ENC_MODE_EAAC_P;
 		aac_cfg.format = 0x03;
@@ -464,8 +470,57 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			pr_err("%s: CMD Format block failed\n", __func__);
 		break;
 	case FORMAT_AC3:
+		pr_debug("SND_AUDIOCODEC_AC3\n");
 		break;
 	case FORMAT_EAC3:
+		pr_debug("SND_AUDIOCODEC_EAC3\n");
+		break;
+	case FORMAT_WMA_V9:
+		pr_debug("SND_AUDIOCODEC_WMA\n");
+		memset(&wma_cfg, 0x0, sizeof(struct asm_wma_cfg));
+		wma_cfg.format_tag = prtd->codec_param.codec.format;
+		wma_cfg.ch_cfg = prtd->codec_param.codec.ch_in;
+		wma_cfg.sample_rate = prtd->sample_rate;
+		wma_cfg.avg_bytes_per_sec =
+			prtd->codec_param.codec.bit_rate/8;
+		wma_cfg.block_align =
+			prtd->codec_param.codec.options.wma.super_block_align;
+		wma_cfg.valid_bits_per_sample =
+		prtd->codec_param.codec.options.wma.bits_per_sample;
+		wma_cfg.ch_mask =
+			prtd->codec_param.codec.options.wma.channelmask;
+		wma_cfg.encode_opt =
+			prtd->codec_param.codec.options.wma.encodeopt;
+		ret = q6asm_media_format_block_wma(prtd->audio_client,
+					&wma_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	case FORMAT_WMA_V10PRO:
+		pr_debug("SND_AUDIOCODEC_WMA_PRO\n");
+		memset(&wma_pro_cfg, 0x0, sizeof(struct asm_wmapro_cfg));
+		wma_pro_cfg.format_tag = prtd->codec_param.codec.format;
+		wma_pro_cfg.ch_cfg = prtd->codec_param.codec.ch_in;
+		wma_pro_cfg.sample_rate =
+			prtd->sample_rate;
+		wma_pro_cfg.avg_bytes_per_sec =
+			prtd->codec_param.codec.bit_rate/8;
+		wma_cfg.block_align =
+			prtd->codec_param.codec.options.wma.super_block_align;
+		wma_pro_cfg.valid_bits_per_sample =
+			prtd->codec_param.codec.options.wma.bits_per_sample;
+		wma_pro_cfg.ch_mask =
+			prtd->codec_param.codec.options.wma.channelmask;
+		wma_pro_cfg.encode_opt =
+			prtd->codec_param.codec.options.wma.encodeopt;
+		wma_pro_cfg.adv_encode_opt =
+			prtd->codec_param.codec.options.wma.encodeopt1;
+		wma_pro_cfg.adv_encode_opt2 =
+			prtd->codec_param.codec.options.wma.encodeopt2;
+		ret = q6asm_media_format_block_wmapro(prtd->audio_client,
+				&wma_pro_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
 		break;
 	case FORMAT_MP2:
 		pr_debug("%s: SND_AUDIOCODEC_MP2\n", __func__);
@@ -828,12 +883,14 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	}
 
 	case SND_AUDIOCODEC_AC3: {
+		pr_debug("SND_AUDIOCODEC_AC3\n");
 		prtd->codec = FORMAT_AC3;
 		frame_sz = AC3_OUTPUT_FRAME_SZ;
 		break;
 	}
 
 	case SND_AUDIOCODEC_EAC3: {
+		pr_debug("SND_AUDIOCODEC_EAC3\n");
 		prtd->codec = FORMAT_EAC3;
 		frame_sz = EAC3_OUTPUT_FRAME_SZ;
 		break;
@@ -842,6 +899,18 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_MP2: {
 		pr_debug("SND_AUDIOCODEC_MP2\n");
 		prtd->codec = FORMAT_MP2;
+		break;
+	}
+
+	case SND_AUDIOCODEC_WMA: {
+		pr_debug("SND_AUDIOCODEC_WMA\n");
+		prtd->codec = FORMAT_WMA_V9;
+		break;
+	}
+
+	case SND_AUDIOCODEC_WMA_PRO: {
+		pr_debug("SND_AUDIOCODEC_WMA_PRO\n");
+		prtd->codec = FORMAT_WMA_V10PRO;
 		break;
 	}
 
