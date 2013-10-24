@@ -1077,7 +1077,7 @@ extern void slim_ctrl_add_boarddevs(struct slim_controller *ctrl);
 extern int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned n);
 #else
-int slim_register_board_info(struct slim_boardinfo const *info,
+static inline int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned n)
 {
 	return 0;
