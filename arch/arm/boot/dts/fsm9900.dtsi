@@ -528,6 +528,12 @@
 		status = "disabled";
 	};
 
+	qcom,msm-rng@f9bff000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x200>;
+		qcom,msm-rng-iface-clk;
+	};
+
 	emac0: qcom,emac@feb20000 {
 		cell-index = <0>;
 		compatible = "qcom,emac";
