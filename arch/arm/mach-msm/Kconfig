@@ -952,12 +952,6 @@ config MSM_AVS_HW
 	  fine tune the voltages based on the feedback from the ring
 	  oscillators.
 
-config MSM_HW3D
-	tristate "MSM Hardware 3D Register Driver"
-	help
-	  Provides access to registers needed by the userspace OpenGL|ES
-	  library.
-
 config RTAC
 	bool "MSM8K real-time audio calibration support"
 	default y

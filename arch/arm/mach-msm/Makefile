@@ -90,7 +90,6 @@ obj-$(CONFIG_MSM_RPCSERVER_WATCHDOG) += rpc_server_dog_keepalive.o
 obj-$(CONFIG_MSM_RPCSERVER_TIME_REMOTE) += rpc_server_time_remote.o
 obj-$(CONFIG_MSM_RPCSERVER_HANDSET) += rpc_server_handset.o
 obj-$(CONFIG_MSM_AUDIO_QDSP6V2) += qdsp6v2/
-obj-$(CONFIG_MSM_HW3D) += hw3d.o
 obj-$(CONFIG_PM) += pm-boot.o
 obj-$(CONFIG_MSM_IDLE_STATS) += pm-stats.o
 obj-$(CONFIG_MSM_NOPM) += no-pm.o
