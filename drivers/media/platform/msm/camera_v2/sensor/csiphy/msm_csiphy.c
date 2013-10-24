@@ -204,7 +204,11 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
-	if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
+	if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8610_clk_info), 1);
+	} else if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_clk_info), 1);
@@ -298,7 +302,11 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		rc = -ENOMEM;
 		return rc;
 	}
-	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
+	if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8610_clk_info), 1);
+	} else if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_clk_info, csiphy_dev->csiphy_clk,
@@ -422,7 +430,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 	disable_irq(csiphy_dev->irq->start);
 
-	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
+	if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8610_clk_info), 0);
+	} else if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_clk_info), 0);
@@ -499,7 +511,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 
-	if (CSIPHY_VERSION <= CSIPHY_VERSION_V22) {
+	if (CSIPHY_VERSION == CSIPHY_VERSION_V22) {
+		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8610_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8610_clk_info), 0);
+	} else if (CSIPHY_VERSION < CSIPHY_VERSION_V30) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_clk_info), 0);
