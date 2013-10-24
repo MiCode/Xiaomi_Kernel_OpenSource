@@ -23,6 +23,7 @@
 
 &soc {
 	i2c@f9927000 { /* BLSP1 QUP5 */
+		qcom,i2c-bus-freq = <100000>;
 		focaltech@38 {
 			compatible = "focaltech,5x06";
 			reg = <0x38>;
