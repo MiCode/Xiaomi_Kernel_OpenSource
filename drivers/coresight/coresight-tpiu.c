@@ -67,7 +67,9 @@ do {									\
 enum tpiu_out_mode {
 	TPIU_OUT_MODE_NONE,
 	TPIU_OUT_MODE_MICTOR,
-	TPIU_OUT_MODE_SDC,
+	TPIU_OUT_MODE_SDC_TRACE,
+	TPIU_OUT_MODE_SDC_SWDUART,
+	TPIU_OUT_MODE_SDC_SWDTRC,
 };
 
 enum tpiu_set {
@@ -101,6 +103,7 @@ struct tpiu_drvdata {
 	unsigned int		*setb_gpios;
 	struct gpiomux_setting	*setb_cfgs;
 	bool			enable;
+	bool			nidnt;
 };
 
 struct gpiomux_setting old_cfg;
@@ -121,6 +124,17 @@ static void tpiu_flush_and_stop(struct tpiu_drvdata *drvdata)
 		udelay(1);
 	WARN(count == 0, "timeout while flushing TPIU, TPIU_FFCR: %#x\n",
 	     tpiu_readl(drvdata, TPIU_FFCR));
+}
+
+static void __tpiu_enable(struct tpiu_drvdata *drvdata, uint32_t portsz,
+			  uint32_t ffcr)
+{
+	TPIU_UNLOCK(drvdata);
+
+	tpiu_writel(drvdata, portsz, TPIU_CURR_PORTSZ);
+	tpiu_writel(drvdata, ffcr, TPIU_FFCR);
+
+	TPIU_LOCK(drvdata);
 }
 
 static int __tpiu_enable_seta(struct tpiu_drvdata *drvdata)
@@ -213,12 +227,7 @@ static int __tpiu_enable_to_mictor(struct tpiu_drvdata *drvdata)
 			return ret;
 	}
 
-	TPIU_UNLOCK(drvdata);
-
-	tpiu_writel(drvdata, 0x8000, TPIU_CURR_PORTSZ);
-	tpiu_writel(drvdata, 0x101, TPIU_FFCR);
-
-	TPIU_LOCK(drvdata);
+	__tpiu_enable(drvdata, 0x8000, 0x101);
 
 	return 0;
 }
@@ -273,16 +282,6 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	if (ret)
 		goto err5;
 
-	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x16D);
-	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
-
-	TPIU_UNLOCK(drvdata);
-
-	tpiu_writel(drvdata, 0x8, TPIU_CURR_PORTSZ);
-	tpiu_writel(drvdata, 0x103, TPIU_FFCR);
-
-	TPIU_LOCK(drvdata);
-
 	return 0;
 err5:
 	regulator_disable(drvdata->reg_io);
@@ -299,6 +298,85 @@ err0:
 	return ret;
 }
 
+static int __tpiu_enable_to_sdc_trace(struct tpiu_drvdata *drvdata)
+{
+	int ret;
+
+	ret = __tpiu_enable_to_sdc(drvdata);
+	if (ret)
+		return ret;
+
+	__tpiu_enable(drvdata, 0x8, 0x103);
+
+	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x16D);
+	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
+	return 0;
+}
+
+static int __tpiu_enable_to_sdc_swduart(struct tpiu_drvdata *drvdata)
+{
+	int ret;
+
+	/*
+	 * Vote for clk on since tracing may or may not be enabled in
+	 * swduart mode and hence the clk is not guaranteed to be enabled.
+	 */
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	ret = __tpiu_enable_to_sdc(drvdata);
+	if (ret)
+		goto err;
+
+	/*
+	 * Required sequence to prevent SRST asserstion: set trace to
+	 * continuous mode followed by setting ETM MODE to 1 before switching
+	 * to swd.
+	 */
+	__tpiu_enable(drvdata, 0x8, 0x103);
+
+	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
+
+	/* Pull down sdc cmd line */
+	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x96D);
+	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 2);
+err:
+	return ret;
+}
+
+static int __tpiu_enable_to_sdc_swdtrc(struct tpiu_drvdata *drvdata)
+{
+	int ret;
+
+	/*
+	 * Vote for clk on since tracing may or may not be enabled in
+	 * swdtrc mode and hence the clk is not guaranteed to be enabled.
+	 */
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	ret = __tpiu_enable_to_sdc(drvdata);
+	if (ret)
+		goto err;
+
+	/*
+	 * Required sequence to prevent SRST asserstion: set trace to
+	 * continuous mode followed by setting ETM MODE to 1 before switching
+	 * to swd.
+	 */
+	__tpiu_enable(drvdata, 0x2, 0x103);
+
+	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 1);
+
+	/* Pull down sdc cmd line */
+	msm_tlmm_misc_reg_write(TLMM_SDC2_HDRV_PULL_CTL, 0x96D);
+	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 3);
+err:
+	return ret;
+}
+
 static int tpiu_enable(struct coresight_device *csdev)
 {
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
@@ -310,10 +388,14 @@ static int tpiu_enable(struct coresight_device *csdev)
 
 	mutex_lock(&drvdata->mutex);
 
+	/*
+	 * swd modes are enabled when stored in out_mode to allow debugging
+	 * in swd modes.
+	 */
 	if (drvdata->out_mode == TPIU_OUT_MODE_MICTOR)
 		ret = __tpiu_enable_to_mictor(drvdata);
-	else
-		ret = __tpiu_enable_to_sdc(drvdata);
+	else if (drvdata->out_mode == TPIU_OUT_MODE_SDC_TRACE)
+		ret = __tpiu_enable_to_sdc_trace(drvdata);
 	if (ret)
 		goto err;
 	drvdata->enable = true;
@@ -355,6 +437,10 @@ static void __tpiu_disable_setb(struct tpiu_drvdata *drvdata)
 
 static void __tpiu_disable_to_mictor(struct tpiu_drvdata *drvdata)
 {
+	/* mictor mode needs to be disbled only when tracing is enabled */
+	if (!drvdata->enable)
+		return;
+
 	__tpiu_disable(drvdata);
 
 	if (drvdata->set == TPIU_SET_A)
@@ -365,8 +451,6 @@ static void __tpiu_disable_to_mictor(struct tpiu_drvdata *drvdata)
 
 static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 {
-	__tpiu_disable(drvdata);
-
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 0);
 
 	clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
@@ -380,6 +464,47 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 	tpiu_reg_set_optimum_mode(drvdata->reg_io, 0);
 }
 
+static void __tpiu_disable_to_sdc_trace(struct tpiu_drvdata *drvdata)
+{
+	/* sdc mode needs to be disabled only when tracing is enabled */
+	if (!drvdata->enable)
+		return;
+
+	__tpiu_disable(drvdata);
+
+	__tpiu_disable_to_sdc(drvdata);
+}
+
+static void __tpiu_disable_to_sdc_swduart(struct tpiu_drvdata *drvdata)
+{
+	__tpiu_disable(drvdata);
+
+	__tpiu_disable_to_sdc(drvdata);
+
+	clk_disable_unprepare(drvdata->clk);
+}
+
+static void __tpiu_disable_to_sdc_swdtrc(struct tpiu_drvdata *drvdata)
+{
+	__tpiu_disable(drvdata);
+
+	__tpiu_disable_to_sdc(drvdata);
+
+	clk_disable_unprepare(drvdata->clk);
+}
+
+static void __tpiu_disable_to_out_mode(struct tpiu_drvdata *drvdata)
+{
+	if (drvdata->out_mode == TPIU_OUT_MODE_MICTOR)
+		__tpiu_disable_to_mictor(drvdata);
+	else if (drvdata->out_mode == TPIU_OUT_MODE_SDC_TRACE)
+		__tpiu_disable_to_sdc_trace(drvdata);
+	else if (drvdata->out_mode == TPIU_OUT_MODE_SDC_SWDUART)
+		__tpiu_disable_to_sdc_swduart(drvdata);
+	else if (drvdata->out_mode == TPIU_OUT_MODE_SDC_SWDTRC)
+		__tpiu_disable_to_sdc_swdtrc(drvdata);
+}
+
 static void tpiu_disable(struct coresight_device *csdev)
 {
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
@@ -388,8 +513,8 @@ static void tpiu_disable(struct coresight_device *csdev)
 
 	if (drvdata->out_mode == TPIU_OUT_MODE_MICTOR)
 		__tpiu_disable_to_mictor(drvdata);
-	else
-		__tpiu_disable_to_sdc(drvdata);
+	else if (drvdata->out_mode == TPIU_OUT_MODE_SDC_TRACE)
+		__tpiu_disable_to_sdc_trace(drvdata);
 	drvdata->enable = false;
 
 	mutex_unlock(&drvdata->mutex);
@@ -418,15 +543,24 @@ static ssize_t tpiu_show_out_mode(struct device *dev,
 				      struct device_attribute *attr, char *buf)
 {
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t len;
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			 drvdata->out_mode == TPIU_OUT_MODE_MICTOR ?
-			 "mictor" : "sdc");
+	mutex_lock(&drvdata->mutex);
+
+	len = scnprintf(buf, PAGE_SIZE, "%s\n",
+			drvdata->out_mode == TPIU_OUT_MODE_MICTOR ?
+			"mictor" : (drvdata->out_mode ==
+			TPIU_OUT_MODE_SDC_TRACE ? "sdc" :
+			(drvdata->out_mode == TPIU_OUT_MODE_SDC_SWDUART ?
+			"swduart" : "swdtrc")));
+
+	mutex_unlock(&drvdata->mutex);
+	return len;
 }
 
 static ssize_t tpiu_store_out_mode(struct device *dev,
-				       struct device_attribute *attr,
-				       const char *buf, size_t size)
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
 {
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	char str[10] = "";
@@ -438,15 +572,18 @@ static ssize_t tpiu_store_out_mode(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
+
 	if (!strcmp(str, "mictor")) {
 		if (drvdata->out_mode == TPIU_OUT_MODE_MICTOR)
 			goto out;
+
+		__tpiu_disable_to_out_mode(drvdata);
 
 		if (!drvdata->enable) {
 			drvdata->out_mode = TPIU_OUT_MODE_MICTOR;
 			goto out;
 		}
-		__tpiu_disable_to_sdc(drvdata);
+
 		ret = __tpiu_enable_to_mictor(drvdata);
 		if (ret) {
 			dev_err(drvdata->dev, "failed to enable mictor\n");
@@ -454,20 +591,58 @@ static ssize_t tpiu_store_out_mode(struct device *dev,
 		}
 		drvdata->out_mode = TPIU_OUT_MODE_MICTOR;
 	} else if (!strcmp(str, "sdc")) {
-		if (drvdata->out_mode == TPIU_OUT_MODE_SDC)
+		if (drvdata->out_mode == TPIU_OUT_MODE_SDC_TRACE)
 			goto out;
 
+		__tpiu_disable_to_out_mode(drvdata);
+
 		if (!drvdata->enable) {
-			drvdata->out_mode = TPIU_OUT_MODE_SDC;
+			drvdata->out_mode = TPIU_OUT_MODE_SDC_TRACE;
 			goto out;
 		}
-		__tpiu_disable_to_mictor(drvdata);
-		ret = __tpiu_enable_to_sdc(drvdata);
+
+		ret = __tpiu_enable_to_sdc_trace(drvdata);
 		if (ret) {
 			dev_err(drvdata->dev, "failed to enable sdc\n");
 			goto err;
 		}
-		drvdata->out_mode = TPIU_OUT_MODE_SDC;
+		drvdata->out_mode = TPIU_OUT_MODE_SDC_TRACE;
+	} else if (!strcmp(str, "swduart")) {
+		if (!drvdata->nidnt) {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		if (drvdata->out_mode == TPIU_OUT_MODE_SDC_SWDUART)
+			goto out;
+
+		/* Allow enabling swd modes even without tracing enabled */
+		__tpiu_disable_to_out_mode(drvdata);
+
+		ret = __tpiu_enable_to_sdc_swduart(drvdata);
+		if (ret) {
+			dev_err(drvdata->dev, "failed to enable swd uart\n");
+			goto err;
+		}
+		drvdata->out_mode = TPIU_OUT_MODE_SDC_SWDUART;
+	} else if (!strcmp(str, "swdtrc")) {
+		if (!drvdata->nidnt) {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		if (drvdata->out_mode == TPIU_OUT_MODE_SDC_SWDTRC)
+			goto out;
+
+		/* Allow enabling swd modes even without tracing enabled */
+		__tpiu_disable_to_out_mode(drvdata);
+
+		ret = __tpiu_enable_to_sdc_swdtrc(drvdata);
+		if (ret) {
+			dev_err(drvdata->dev, "failed to enable swd trace\n");
+			goto err;
+		}
+		drvdata->out_mode = TPIU_OUT_MODE_SDC_SWDTRC;
 	}
 out:
 	mutex_unlock(&drvdata->mutex);
@@ -765,6 +940,8 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 		dev_err(dev, "setb gpios not specified\n");
 	}
 
+	drvdata->nidnt = of_property_read_bool(pdev->dev.of_node,
+					       "qcom,nidnt");
 	return 0;
 }
 

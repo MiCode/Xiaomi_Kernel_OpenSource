@@ -146,6 +146,8 @@ Optional properties:
 		spi/ppi, b is the interrupt number and c is the mask,
 - interrupt-names : a list of strings that map in order to the list of
 		    interrupts specified in the 'interrupts' property.
+- qcom,nidnt : indicates NIDnT serial wire debug support present. Used for tpiu
+	       component
 
 Examples:
 
