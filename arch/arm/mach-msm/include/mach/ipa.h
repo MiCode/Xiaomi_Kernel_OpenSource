@@ -440,6 +440,16 @@ struct ipa_rx_intf {
 };
 
 /**
+ * struct ipa_ext_intf - interface ext properties
+ * @num_props:	number of ext properties
+ * @prop:	the ext properties array
+ */
+struct ipa_ext_intf {
+	u32 num_props;
+	struct ipa_ioc_ext_intf_prop *prop;
+};
+
+/**
  * struct ipa_sys_connect_params - information needed to setup an IPA end-point
  * in system-BAM mode
  * @ipa_ep_cfg:	IPA EP configuration
@@ -752,6 +762,9 @@ int ipa_deregister_pull_msg(struct ipa_msg_meta *meta);
  */
 int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx);
+int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
+		       const struct ipa_rx_intf *rx,
+		       const struct ipa_ext_intf *ext);
 int ipa_deregister_intf(const char *name);
 
 /*
@@ -1148,6 +1161,14 @@ static inline int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
 static inline int ipa_register_intf(const char *name,
 				     const struct ipa_tx_intf *tx,
 				     const struct ipa_rx_intf *rx)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_intf_ext(const char *name,
+		const struct ipa_tx_intf *tx,
+		const struct ipa_rx_intf *rx,
+		const struct ipa_ext_intf *ext)
 {
 	return -EPERM;
 }

@@ -894,6 +894,7 @@ int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count);
 int ipa_query_intf(struct ipa_ioc_query_intf *lookup);
 int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx);
 int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx);
+int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext);
 
 int a2_mux_init(void);
 int a2_mux_exit(void);
