@@ -441,10 +441,14 @@ struct ipa_rx_intf {
 
 /**
  * struct ipa_ext_intf - interface ext properties
+ * @excp_pipe_valid:	is next field valid?
+ * @excp_pipe:	exception packets should be routed to this pipe
  * @num_props:	number of ext properties
  * @prop:	the ext properties array
  */
 struct ipa_ext_intf {
+	bool excp_pipe_valid;
+	enum ipa_client_type excp_pipe;
 	u32 num_props;
 	struct ipa_ioc_ext_intf_prop *prop;
 };

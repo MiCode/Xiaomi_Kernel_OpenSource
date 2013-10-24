@@ -23,6 +23,7 @@ struct ipa_intf {
 	struct ipa_ioc_tx_intf_prop *tx;
 	struct ipa_ioc_rx_intf_prop *rx;
 	struct ipa_ioc_ext_intf_prop *ext;
+	enum ipa_client_type excp_pipe;
 };
 
 struct ipa_push_msg {
@@ -134,6 +135,11 @@ int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 		memcpy(intf->ext, ext->prop, len);
 	}
 
+	if (ext && ext->excp_pipe_valid)
+		intf->excp_pipe = ext->excp_pipe;
+	else
+		intf->excp_pipe = IPA_CLIENT_APPS_LAN_CONS;
+
 	mutex_lock(&ipa_ctx->lock);
 	list_add_tail(&intf->link, &ipa_ctx->intf_list);
 	mutex_unlock(&ipa_ctx->lock);
@@ -209,6 +215,7 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
 			lookup->num_tx_props = entry->num_tx_props;
 			lookup->num_rx_props = entry->num_rx_props;
 			lookup->num_ext_props = entry->num_ext_props;
+			lookup->excp_pipe = entry->excp_pipe;
 			result = 0;
 			break;
 		}
