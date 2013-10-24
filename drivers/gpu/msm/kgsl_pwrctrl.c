@@ -648,10 +648,10 @@ static ssize_t __force_on_show(struct device *dev,
 					char *buf, int flag)
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	int i = test_bit(flag, &device->pwrctrl.ctrl_flags);
 	if (device == NULL)
 		return 0;
-	return snprintf(buf, PAGE_SIZE, "%d\n", i);
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+		test_bit(flag, &device->pwrctrl.ctrl_flags));
 }
 
 static ssize_t __force_on_store(struct device *dev,
