@@ -37,6 +37,9 @@ void diag_clean_reg_fn(struct work_struct *work)
 	diag_clear_reg(smd_info->peripheral);
 	reg_dirty ^= smd_info->peripheral_mask;
 
+	/* Reset the feature mask flag */
+	driver->rcvd_feature_mask[smd_info->peripheral] = 0;
+
 	smd_info->notify_context = 0;
 }
 
@@ -158,14 +161,21 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			msg = buf+HDR_SIZ;
 			range = buf+HDR_SIZ+
 					sizeof(struct diag_ctrl_msg);
+			if (msg->count_entries == 0) {
+				pr_debug("diag: In %s, received reg tbl with no entries\n",
+								__func__);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
+			}
 			pkt_params->count = msg->count_entries;
 			pkt_params->params = kzalloc(pkt_params->count *
 				sizeof(struct bindpkt_params), GFP_KERNEL);
-			if (ZERO_OR_NULL_PTR(pkt_params->params)) {
-				pr_alert("diag: In %s, Memory alloc fail\n",
-					__func__);
-				kfree(pkt_params);
-				return flag;
+			if (!pkt_params->params) {
+				pr_alert("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
+						__func__, msg->cmd_code,
+						msg->subsysid);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
 			}
 			temp = pkt_params->params;
 			for (j = 0; j < pkt_params->count; j++) {
@@ -195,6 +205,8 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			int feature_mask_len = *(int *)(buf+8);
 			if (feature_mask_len > 0) {
 				int periph = smd_info->peripheral;
+				driver->rcvd_feature_mask[smd_info->peripheral]
+									= 1;
 				feature_mask = *(uint8_t *)(buf+12);
 				if (periph == MODEM_DATA)
 					driver->log_on_demand_support =
