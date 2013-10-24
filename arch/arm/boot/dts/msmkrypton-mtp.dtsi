@@ -13,6 +13,20 @@
 &soc {
 };
 
+&i2c_1 {
+	smb1357_otg_supply: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <24 0x3>;	/* MDM GPIO 24 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_supply";
+	};
+};
+
 &uartdm3{
 	status = "ok";
 };
