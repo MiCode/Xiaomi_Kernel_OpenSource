@@ -208,10 +208,26 @@
 			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
+			<0xff 35>,  /* WDT_barkInt */
+			<0xff 40>,  /* qtimer_phy_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 74>,  /* osmmu_CIrpt[1] */
+			<0xff 75>,  /* osmmu_CIrpt[0] */
+			<0xff 77>,  /* osmmu_CIrpt[0] */
+			<0xff 78>,  /* osmmu_CIrpt[0] */
+			<0xff 79>,  /* osmmu_CIrpt[0] */
+			<0xff 94>,  /* osmmu_CIrpt[0] */
+			<0xff 99>,  /* msm_iommu_pmon_nonsecure_irq */
+			<0xff 102>,  /* osmmu_CIrpt[1] */
+			<0xff 109>,  /* ocmem_dm_nonsec_irq */
+			<0xff 126>,  /* bam_irq[0] */
+			<0xff 155>,  /* sdcc_irq[0] */
+			<0xff 163>,  /* usb30_ee1_irq */
+			<0xff 170>,  /* sdcc_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
@@ -230,6 +246,7 @@
 			<0xff 195>, /* lpass_irq_out_apcs(7) */
 			<0xff 196>, /* lpass_irq_out_apcs(8) */
 			<0xff 197>, /* lpass_irq_out_apcs(9) */
+			<0xff 198>, /* coresight-tmc-etr interrupt */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
@@ -238,7 +255,10 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
-			<0xff 240>; /* summary_irq_kpss */
+			<0xff 240>, /* summary_irq_kpss */
+			<0xff 268>, /* bam_irq[1] */
+			<0xff 270>, /* bam_irq[0] */
+			<0xff 271>; /* bam_irq[0] */
 
 		qcom,gpio-parent = <&msmgpio>;
 		qcom,gpio-map = <3  102>,
