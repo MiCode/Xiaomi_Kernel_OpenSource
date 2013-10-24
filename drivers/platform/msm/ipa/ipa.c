@@ -963,7 +963,7 @@ static int ipa_update_connections_info(struct device_node *node,
 	enum ipa_pipe_mem_type mem_type;
 
 	if (!pipe_connection || !node)
-		goto err;
+		return -EINVAL;
 
 	key = "qcom,src-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
