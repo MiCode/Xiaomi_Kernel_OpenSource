@@ -45,6 +45,8 @@
 
 		qcom,vdd-io-voltage-level = <2950000 2950000>;
 		qcom,vdd-io-current-level = <200 50000>;
+
+		qcom,nidnt;
 	};
 
 	replicator: replicator@fc324000 {
