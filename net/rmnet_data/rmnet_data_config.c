@@ -237,7 +237,7 @@ static void _rmnet_netlink_unassociate_network_device
 	resp_rmnet->return_code = rmnet_unassociate_network_device(dev);
 }
 
-static inline void _rmnet_netlink_get_link_egress_data_format
+static void _rmnet_netlink_get_link_egress_data_format
 					(struct rmnet_nl_msg_s *rmnet_header,
 					 struct rmnet_nl_msg_s *resp_rmnet)
 {
@@ -267,7 +267,7 @@ static inline void _rmnet_netlink_get_link_egress_data_format
 	resp_rmnet->data_format.agg_size  = config->egress_agg_size;
 }
 
-static inline void _rmnet_netlink_get_link_ingress_data_format
+static void _rmnet_netlink_get_link_ingress_data_format
 					(struct rmnet_nl_msg_s *rmnet_header,
 					 struct rmnet_nl_msg_s *resp_rmnet)
 {
@@ -293,6 +293,27 @@ static inline void _rmnet_netlink_get_link_ingress_data_format
 	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNDATA;
 	resp_rmnet->arg_length = RMNET_NL_MSG_SIZE(data_format);
 	resp_rmnet->data_format.flags = config->ingress_data_format;
+}
+
+static void _rmnet_netlink_get_vnd_name
+					(struct rmnet_nl_msg_s *rmnet_header,
+					 struct rmnet_nl_msg_s *resp_rmnet)
+{
+	int r;
+	_RMNET_NETLINK_NULL_CHECKS();
+	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
+
+	r = rmnet_vnd_get_name(rmnet_header->vnd.id, resp_rmnet->vnd.vnd_name,
+			       RMNET_MAX_STR_LEN);
+
+	if (r != 0) {
+		resp_rmnet->return_code = RMNET_CONFIG_INVALID_REQUEST;
+		return;
+	}
+
+	/* Begin Data */
+	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNDATA;
+	resp_rmnet->arg_length = RMNET_NL_MSG_SIZE(vnd);
 }
 
 /**
@@ -384,6 +405,17 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 		resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
 		resp_rmnet->return_code =
 					 rmnet_create_vnd(rmnet_header->vnd.id);
+		break;
+
+	case RMNET_NETLINK_NEW_VND_WITH_PREFIX:
+		resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
+		resp_rmnet->return_code = rmnet_create_vnd_prefix(
+						rmnet_header->vnd.id,
+						rmnet_header->vnd.vnd_name);
+		break;
+
+	case RMNET_NETLINK_GET_VND_NAME:
+		_rmnet_netlink_get_vnd_name(rmnet_header, resp_rmnet);
 		break;
 
 	default:
@@ -669,5 +701,21 @@ int rmnet_create_vnd(int id)
 	struct net_device *dev;
 	ASSERT_RTNL();
 	LOGL("%s(%d);", __func__, id);
-	return rmnet_vnd_create_dev(id, &dev);
+	return rmnet_vnd_create_dev(id, &dev, NULL);
+}
+
+/**
+ * rmnet_create_vnd() - Create virtual network device node
+ * @id:       RmNet virtual device node id
+ * @prefix:   String prefix for device name
+ *
+ * Return:
+ *      - result of rmnet_vnd_create_dev()
+ */
+int rmnet_create_vnd_prefix(int id, const char *prefix)
+{
+	struct net_device *dev;
+	ASSERT_RTNL();
+	LOGL("%s(%d, \"%s\");", __func__, id, prefix);
+	return rmnet_vnd_create_dev(id, &dev, prefix);
 }
