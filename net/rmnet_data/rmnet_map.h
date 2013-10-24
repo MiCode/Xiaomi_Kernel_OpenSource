@@ -17,8 +17,6 @@
 #ifndef _RMNET_MAP_H_
 #define _RMNET_MAP_H_
 
-#define RMNET_MAP_MAX_FLOWS 8
-
 struct rmnet_map_header_s {
 #ifndef RMNET_USE_BIG_ENDIAN_STRUCTS
 	uint8_t  pad_len:6;
@@ -59,21 +57,6 @@ struct rmnet_map_control_command_s {
 		} flow_control;
 	};
 }  __aligned(1);
-
-struct rmnet_map_flow_mapping_s {
-	uint32_t flow_id;
-	uint32_t tc_handle;
-	uint64_t v4_seq;
-	uint64_t v6_seq;
-};
-
-struct rmnet_map_flow_control_s {
-	rwlock_t flow_map_lock;
-	uint32_t default_tc_handle;
-	uint64_t default_v4_seq;
-	uint64_t default_v6_seq;
-	struct rmnet_map_flow_mapping_s flowmap[RMNET_MAP_MAX_FLOWS];
-};
 
 enum rmnet_map_results_e {
 	RMNET_MAP_SUCCESS,
@@ -138,7 +121,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 #define RMNET_MAP_GET_CD_BIT(Y) (((struct rmnet_map_header_s *)Y->data)->cd_bit)
 #define RMNET_MAP_GET_PAD(Y) (((struct rmnet_map_header_s *)Y->data)->pad_len)
 #define RMNET_MAP_GET_CMD_START(Y) ((struct rmnet_map_control_command_s *) \
-				    Y->data + sizeof(struct rmnet_map_header_s))
+				  (Y->data + sizeof(struct rmnet_map_header_s)))
 #define RMNET_MAP_GET_LENGTH(Y) (ntohs( \
 			       ((struct rmnet_map_header_s *)Y->data)->pkt_len))
 
