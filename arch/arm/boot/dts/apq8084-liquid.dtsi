@@ -291,6 +291,10 @@
 	};
 };
 
+&usb3 {
+	qcom,charging-disabled;
+};
+
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <0>;
