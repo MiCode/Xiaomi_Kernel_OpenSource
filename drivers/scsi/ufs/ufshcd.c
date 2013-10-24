@@ -2418,6 +2418,44 @@ static int ufshcd_verify_dev_init(struct ufs_hba *hba)
 }
 
 /**
+ * ufshcd_set_queue_depth - set lun queue depth
+ * @sdev: pointer to SCSI device
+ *
+ * Read bLUQueueDepth value and activate scsi tagged command
+ * queueing. For WLUN, queue depth is set to 1. For best-effort
+ * cases (bLUQueueDepth = 0) the queue depth is set to a maximum
+ * value that host can queue.
+ */
+static void ufshcd_set_queue_depth(struct scsi_device *sdev)
+{
+	int ret = 0;
+	u8 lun_qdepth;
+	struct ufs_hba *hba;
+
+	hba = shost_priv(sdev->host);
+
+	lun_qdepth = hba->nutrs;
+	ret = ufshcd_read_unit_desc_param(hba,
+					  ufshcd_scsi_to_upiu_lun(sdev->lun),
+					  UNIT_DESC_PARAM_LU_Q_DEPTH,
+					  &lun_qdepth,
+					  sizeof(lun_qdepth));
+
+	/* Some WLUN doesn't support unit descriptor */
+	if (ret == -EOPNOTSUPP)
+		lun_qdepth = 1;
+	else if (!lun_qdepth)
+		/* eventually, we can figure out the real queue depth */
+		lun_qdepth = hba->nutrs;
+	else
+		lun_qdepth = min_t(int, lun_qdepth, hba->nutrs);
+
+	dev_dbg(hba->dev, "%s: activate tcq with queue depth %d\n",
+			__func__, lun_qdepth);
+	scsi_activate_tcq(sdev, lun_qdepth);
+}
+
+/**
  * ufshcd_slave_alloc - handle initial SCSI device configurations
  * @sdev: pointer to SCSI device
  *
@@ -2426,8 +2464,6 @@ static int ufshcd_verify_dev_init(struct ufs_hba *hba)
 static int ufshcd_slave_alloc(struct scsi_device *sdev)
 {
 	struct ufs_hba *hba;
-	u8 lun_qdepth;
-	int ret;
 
 	hba = shost_priv(sdev->host);
 	sdev->tagged_supported = 1;
@@ -2448,20 +2484,7 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* WRITE_SAME command is not supported*/
 	sdev->no_write_same = 1;
 
-	ret = ufshcd_read_unit_desc_param(hba,
-					  ufshcd_scsi_to_upiu_lun(sdev->lun),
-					  UNIT_DESC_PARAM_LU_Q_DEPTH,
-					  &lun_qdepth,
-					  sizeof(lun_qdepth));
-	if (!ret || !lun_qdepth)
-		/* eventually, we can figure out the real queue depth */
-		lun_qdepth = hba->nutrs;
-	else
-		lun_qdepth = min_t(int, lun_qdepth, hba->nutrs);
-
-	dev_dbg(hba->dev, "%s: activate tcq with queue depth %d\n",
-			__func__, lun_qdepth);
-	scsi_activate_tcq(sdev, lun_qdepth);
+	ufshcd_set_queue_depth(sdev);
 
 	/*
 	 * For selecting the UFS device power mode (Active / UFS_Sleep /
