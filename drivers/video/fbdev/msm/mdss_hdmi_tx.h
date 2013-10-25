@@ -84,6 +84,9 @@ struct hdmi_tx_ctrl {
 
 	struct hdmi_tx_ddc_ctrl ddc_ctrl;
 
+	void (*hdmi_tx_hpd_done) (void *data);
+	void *downstream_data;
+
 	void *feature_data[HDMI_TX_FEAT_MAX];
 };
 
