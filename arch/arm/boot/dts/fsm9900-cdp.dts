@@ -32,6 +32,9 @@
 	qcom,wdt@f9017000 {
 		status = "disabled";
 	};
+	emac1:qcom,emac@feb00000 {
+		status = "ok";
+	};
 };
 
 

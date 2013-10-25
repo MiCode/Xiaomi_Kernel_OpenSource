@@ -527,4 +527,74 @@
 		qcom,blow-status-offset = <0x2048>;
 		status = "disabled";
 	};
+
+	emac0: qcom,emac@feb20000 {
+		cell-index = <0>;
+		compatible = "qcom,emac";
+		reg-names = "emac", "emac_csr", "emac_1588",
+			"emac_qserdes", "emac_sgmii_phy";
+		reg = <0xfeb20000 0x10000>,
+			<0xfeb36000 0x1000>,
+			<0xfeb3c000 0x4000>,
+			<0xfeb38000 0x300>,
+			<0xfeb38300 0x100>;
+		#address-cells = <0>;
+		interrupt-parent = <&emac0>;
+		#interrupt-cells = <1>;
+		interrupts = <0 1 2 3 4 5>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 76 0
+			1 &intc 0 77 0
+			2 &intc 0 78 0
+			3 &intc 0 79 0
+			4 &intc 0 80 0
+			5 &msmgpio 5 0x8>;
+		interrupt-names = "emac_core0_irq",
+			"emac_core1_irq",
+			"emac_core2_irq",
+			"emac_core3_irq",
+			"emac_sgmii_irq",
+			"emac_wol_irq";
+		qcom,emac-gpio-mdc = <&msmgpio 123 0>;
+		qcom,emac-gpio-mdio = <&msmgpio 124 0>;
+		qcom,emac-tstamp-en;
+		phy-mode = "sgmii";
+		phy-addr = <0>;
+		status = "disable";
+	};
+
+	emac1: qcom,emac@feb00000 {
+		cell-index = <1>;
+		compatible = "qcom,emac";
+		reg-names = "emac", "emac_csr", "emac_1588",
+			"emac_qserdes", "emac_sgmii_phy";
+		reg = <0xfeb00000 0x10000>,
+			<0xfeb16000 0x1000>,
+			<0xfeb1c000 0x4000>,
+			<0xfeb18000 0x300>,
+			<0xfeb18300 0x100>;
+		#address-cells = <0>;
+		interrupt-parent = <&emac1>;
+		#interrupt-cells = <1>;
+		interrupts = <0 1 2 3 4 5>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 136 0
+			1 &intc 0 119 0
+			2 &intc 0 120 0
+			3 &intc 0 121 0
+			4 &intc 0 122 0
+			5 &msmgpio 4 0x8>;
+		interrupt-names = "emac_core0_irq",
+			"emac_core1_irq",
+			"emac_core2_irq",
+			"emac_core3_irq",
+			"emac_sgmii_irq",
+			"emac_wol_irq";
+		qcom,emac-gpio-mdc = <&msmgpio 125 0>;
+		qcom,emac-gpio-mdio = <&msmgpio 126 0>;
+		qcom,emac-tstamp-en;
+		phy-mode = "sgmii";
+		phy-addr = <1>;
+		status = "disable";
+	};
 };
