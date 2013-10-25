@@ -38,10 +38,9 @@
 		qcom,mdss-dsi-v-top-border = <0>;
 		qcom,mdss-dsi-v-bottom-border = <0>;
 		qcom,mdss-dsi-bpp = <24>;
-		qcom,mdss-dsi-color-order = <0>;
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
-		qcom,mdss-dsi-pixel-packing = <0>;
+		qcom,mdss-dsi-pixel-packing = "tight";
 		qcom,mdss-dsi-on-command = [29 01 00 00 00 00 06 F0 55 AA 52 08 00
 				29 01 00 00 00 00 03 B1 68 21
 				23 01 00 00 00 00 02 B5 C8
@@ -252,8 +251,7 @@
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-h-sync-pulse = <1>;
-		qcom,mdss-dsi-traffic-mode = <2>;
-		qcom,mdss-dsi-lane-map = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
 		qcom,mdss-dsi-lane-0-state;
@@ -265,8 +263,8 @@
 		qcom,mdss-dsi-t-clk-pre = <0x2D>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <255>;
-		qcom,mdss-dsi-dma-trigger = <4>;
-		qcom,mdss-dsi-mdp-trigger = <0>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 1>, <1 20>;
 

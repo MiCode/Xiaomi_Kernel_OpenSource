@@ -366,6 +366,49 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
+{
+	const char *data;
+
+	*dlane_swap = DSI_LANE_MAP_0123;
+	data = of_get_property(np, "qcom,mdss-dsi-lane-map", NULL);
+	if (data) {
+		if (!strcmp(data, "lane_map_3012"))
+			*dlane_swap = DSI_LANE_MAP_3012;
+		else if (!strcmp(data, "lane_map_2301"))
+			*dlane_swap = DSI_LANE_MAP_2301;
+		else if (!strcmp(data, "lane_map_1230"))
+			*dlane_swap = DSI_LANE_MAP_1230;
+		else if (!strcmp(data, "lane_map_0321"))
+			*dlane_swap = DSI_LANE_MAP_0321;
+		else if (!strcmp(data, "lane_map_1032"))
+			*dlane_swap = DSI_LANE_MAP_1032;
+		else if (!strcmp(data, "lane_map_2103"))
+			*dlane_swap = DSI_LANE_MAP_2103;
+		else if (!strcmp(data, "lane_map_3210"))
+			*dlane_swap = DSI_LANE_MAP_3210;
+	}
+}
+
+static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
+		char *trigger_key)
+{
+	const char *data;
+
+	*trigger = DSI_CMD_TRIGGER_SW;
+	data = of_get_property(np, trigger_key, NULL);
+	if (data) {
+		if (!strcmp(data, "none"))
+			*trigger = DSI_CMD_TRIGGER_NONE;
+		else if (!strcmp(data, "trigger_te"))
+			*trigger = DSI_CMD_TRIGGER_TE;
+		else if (!strcmp(data, "trigger_sw_seof"))
+			*trigger = DSI_CMD_TRIGGER_SW_SEOF;
+		else if (!strcmp(data, "trigger_sw_te"))
+			*trigger = DSI_CMD_TRIGGER_SW_TE;
+	}
+}
+
 
 static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
@@ -652,8 +695,10 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	data = of_get_property(np, "qcom,mdss-dsi-panel-type", NULL);
 	if (data && !strncmp(data, "dsi_cmd_mode", 12))
 		pinfo->mipi.mode = DSI_CMD_MODE;
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-pixel-packing", &tmp);
-	tmp = (!rc ? tmp : 0);
+	tmp = 0;
+	data = of_get_property(np, "qcom,mdss-dsi-pixel-packing", NULL);
+	if (data && !strcmp(data, "loose"))
+		tmp = 1;
 	rc = mdss_panel_dt_get_dst_fmt(pinfo->bpp,
 		pinfo->mipi.mode, tmp,
 		&(pinfo->mipi.dst_format));
@@ -761,10 +806,14 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		"qcom,mdss-dsi-bllp-power-mode");
 	pinfo->mipi.eof_bllp_power_stop = of_property_read_bool(
 		np, "qcom,mdss-dsi-bllp-eof-power-mode");
-	rc = of_property_read_u32(np,
-		"qcom,mdss-dsi-traffic-mode", &tmp);
-	pinfo->mipi.traffic_mode =
-			(!rc ? tmp : DSI_NON_BURST_SYNCH_PULSE);
+	pinfo->mipi.traffic_mode = DSI_NON_BURST_SYNCH_PULSE;
+	data = of_get_property(np, "qcom,mdss-dsi-traffic-mode", NULL);
+	if (data) {
+		if (!strcmp(data, "non_burst_sync_event"))
+			pinfo->mipi.traffic_mode = DSI_NON_BURST_SYNCH_EVENT;
+		else if (!strcmp(data, "burst_mode"))
+			pinfo->mipi.traffic_mode = DSI_BURST_MODE;
+	}
 	rc = of_property_read_u32(np,
 		"qcom,mdss-dsi-te-dcs-command", &tmp);
 	pinfo->mipi.insert_dcs_cmd =
@@ -783,8 +832,20 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			(!rc ? tmp : 1);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-virtual-channel-id", &tmp);
 	pinfo->mipi.vc = (!rc ? tmp : 0);
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-color-order", &tmp);
-	pinfo->mipi.rgb_swap = (!rc ? tmp : DSI_RGB_SWAP_RGB);
+	pinfo->mipi.rgb_swap = DSI_RGB_SWAP_RGB;
+	data = of_get_property(np, "mdss-dsi-color-order", NULL);
+	if (data) {
+		if (!strcmp(data, "rgb_swap_rbg"))
+			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_RBG;
+		else if (!strcmp(data, "rgb_swap_bgr"))
+			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_BGR;
+		else if (!strcmp(data, "rgb_swap_brg"))
+			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_BRG;
+		else if (!strcmp(data, "rgb_swap_grb"))
+			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_GRB;
+		else if (!strcmp(data, "rgb_swap_gbr"))
+			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_GBR;
+	}
 	pinfo->mipi.data_lane0 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-0-state");
 	pinfo->mipi.data_lane1 = of_property_read_bool(np,
@@ -794,9 +855,6 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.data_lane3 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-3-state");
 
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-lane-map", &tmp);
-	pinfo->mipi.dlane_swap = (!rc ? tmp : 0);
-
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-t-clk-pre", &tmp);
 	pinfo->mipi.t_clk_pre = (!rc ? tmp : 0x24);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-t-clk-post", &tmp);
@@ -805,26 +863,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-stream", &tmp);
 	pinfo->mipi.stream = (!rc ? tmp : 0);
 
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-mdp-trigger", &tmp);
-	pinfo->mipi.mdp_trigger =
-			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
-	if (pinfo->mipi.mdp_trigger > 6) {
-		pr_err("%s:%d, Invalid mdp trigger. Forcing to sw trigger",
-						 __func__, __LINE__);
-		pinfo->mipi.mdp_trigger =
-					DSI_CMD_TRIGGER_SW;
-	}
-
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-dma-trigger", &tmp);
-	pinfo->mipi.dma_trigger =
-			(!rc ? tmp : DSI_CMD_TRIGGER_SW);
-	if (pinfo->mipi.dma_trigger > 6) {
-		pr_err("%s:%d, Invalid dma trigger. Forcing to sw trigger",
-						 __func__, __LINE__);
-		pinfo->mipi.dma_trigger =
-					DSI_CMD_TRIGGER_SW;
-	}
-	data = of_get_property(np, "qcom,mdss-dsi-panel-mode-gpio-state", &tmp);
+	data = of_get_property(np, "qcom,mdss-dsi-panel-mode-gpio-state", NULL);
 	if (data) {
 		if (!strcmp(data, "high"))
 			pinfo->mode_gpio_state = MODE_GPIO_HIGH;
@@ -853,6 +892,14 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.init_delay = (!rc ? tmp : 0);
 
 	mdss_dsi_parse_fbc_params(np, pinfo);
+
+	mdss_dsi_parse_trigger(np, &(pinfo->mipi.mdp_trigger),
+		"qcom,mdss-dsi-mdp-trigger");
+
+	mdss_dsi_parse_trigger(np, &(pinfo->mipi.dma_trigger),
+		"qcom,mdss-dsi-dma-trigger");
+
+	mdss_dsi_parse_lane_swap(np, &(pinfo->mipi.dlane_swap));
 
 	mdss_dsi_parse_reset_seq(np, pinfo->rst_seq, &(pinfo->rst_seq_len),
 		"qcom,mdss-dsi-reset-sequence");
