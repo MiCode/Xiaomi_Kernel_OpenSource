@@ -1032,7 +1032,7 @@ int qpnp_adc_get_revid_version(struct device *dev)
 
 	revid_data = get_revid_data(revid_dev_node);
 	if (IS_ERR(revid_data)) {
-		pr_err("revid error rc = %ld\n", PTR_ERR(revid_data));
+		pr_debug("revid error rc = %ld\n", PTR_ERR(revid_data));
 		return -EINVAL;
 	}
 
