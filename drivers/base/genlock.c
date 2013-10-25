@@ -788,6 +788,8 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		if (ret < 0)
 			return ret;
 
+		memset(&param, 0, sizeof(param));
+
 		param.fd = ret;
 
 		if (copy_to_user((void __user *) arg, &param,

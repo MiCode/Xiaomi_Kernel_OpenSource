@@ -391,6 +391,7 @@ struct mmc_card {
 	unsigned int		idle_timeout;
 	struct notifier_block        reboot_notify;
 	bool issue_long_pon;
+	u8 cached_ext_csd;
 };
 
 /*

@@ -1098,6 +1098,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->persistbufs);
 	INIT_LIST_HEAD(&inst->ctrl_clusters);
 	INIT_LIST_HEAD(&inst->registered_bufs);
+	INIT_LIST_HEAD(&inst->outputbufs);
 	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -1144,7 +1145,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 
-	setup_event_queue(inst, &core->vdev[core_id].vdev);
+	setup_event_queue(inst, &core->vdev[session_type].vdev);
 
 	mutex_lock(&core->sync_lock);
 	list_add_tail(&inst->list, &core->instances);
@@ -1195,6 +1196,17 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		}
 		if (!list_empty(&inst->persistbufs)) {
 			list_for_each_safe(ptr, next, &inst->persistbufs) {
+				buf = list_entry(ptr, struct internal_buf,
+						list);
+				list_del(&buf->list);
+				mutex_unlock(&inst->lock);
+				msm_smem_free(inst->mem_client, buf->handle);
+				kfree(buf);
+				mutex_lock(&inst->lock);
+			}
+		}
+		if (!list_empty(&inst->outputbufs)) {
+			list_for_each_safe(ptr, next, &inst->outputbufs) {
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);

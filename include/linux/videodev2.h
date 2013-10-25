@@ -1892,12 +1892,11 @@ enum v4l2_mpeg_vidc_video_vp8_profile_level {
 };
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 34)
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 34)
 enum v4l2_mpeg_vidc_video_deinterlace {
 	V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED = 0,
 	V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_ENABLED = 1
 };
-
 #define V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 35)
 enum v4l2_mpeg_vidc_video_decoder_multi_stream {

@@ -197,6 +197,7 @@ long audio_in_ioctl(struct file *file,
 
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
 		if (copy_to_user((void *) arg, &stats, sizeof(stats)))
