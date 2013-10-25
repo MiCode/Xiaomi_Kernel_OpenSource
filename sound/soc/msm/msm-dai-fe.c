@@ -281,6 +281,17 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 			.rate_min =	8000,
 			.rate_max = 192000,
 		},
+		.capture = {
+			.stream_name = "MultiMedia8 Capture",
+			.aif_name = "MM_UL8",
+			.rates = (SNDRV_PCM_RATE_8000_48000|
+					SNDRV_PCM_RATE_KNOT),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 8,
+			.rate_min =     8000,
+			.rate_max =	48000,
+		},
 		.ops = &msm_fe_Multimedia_dai_ops,
 		.name = "MultiMedia8",
 	},

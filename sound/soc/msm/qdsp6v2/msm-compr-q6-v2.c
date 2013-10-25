@@ -52,6 +52,9 @@
 #define COMPRESSED_LR_VOL_MAX_STEPS	0x20002000
 
 #define MAX_AC3_PARAM_SIZE		(18*2*sizeof(int))
+#define AMR_WB_BAND_MODE 8
+#define AMR_WB_DTX_MODE 0
+
 
 const DECLARE_TLV_DB_LINEAR(compr_rx_vol_gain, 0,
 			    COMPRESSED_LR_VOL_MAX_STEPS);
@@ -108,11 +111,29 @@ static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
 };
 
+/* Add supported codecs for compress capture path */
+static uint32_t supported_compr_capture_codecs[] = {
+	SND_AUDIOCODEC_AMRWB
+};
+
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.count = ARRAY_SIZE(supported_sample_rates),
 	.list = supported_sample_rates,
 	.mask = 0,
 };
+
+static bool msm_compr_capture_codecs(uint32_t req_codec)
+{
+	int i;
+	pr_debug("%s req_codec:%d\n", __func__, req_codec);
+	if (req_codec == 0)
+		return false;
+	for (i = 0; i < ARRAY_SIZE(supported_compr_capture_codecs); i++) {
+		if (req_codec == supported_compr_capture_codecs[i])
+			return true;
+	}
+	return false;
+}
 
 static void compr_event_handler(uint32_t opcode,
 		uint32_t token, uint32_t *payload, void *priv)
@@ -428,6 +449,11 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
 
+	if (!msm_compr_capture_codecs(codec->id)) {
+		/*request codec invalid or not supported,
+		use default compress format*/
+		codec->id = SND_AUDIOCODEC_AMRWB;
+	}
 	/* rate and channels are sent to audio driver */
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
@@ -441,8 +467,12 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 		pr_debug("SND_AUDIOCODEC_AMRWB\n");
 		ret = q6asm_enc_cfg_blk_amrwb(prtd->audio_client,
 			MAX_NUM_FRAMES_PER_BUFFER,
-			codec->options.generic.reserved[0] /*bitrate 0-8*/,
-			codec->options.generic.reserved[1] /*dtx mode 0/1*/);
+			/* use fixed band mode and dtx mode
+			 *  band mode - 23.85 kbps
+                         */
+			AMR_WB_BAND_MODE,
+			/* dtx mode - disable */
+			AMR_WB_DTX_MODE);
 		if (ret < 0)
 			pr_err("%s: CMD Format block" \
 				"failed: %d\n", __func__, ret);
@@ -500,6 +530,13 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		prtd->pcm_irq_pos = 0;
 
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			if (!msm_compr_capture_codecs(
+				compr->info.codec_param.codec.id)) {
+				/*request codec invalid or not supported,
+				use default compress format*/
+				compr->info.codec_param.codec.id =
+				SND_AUDIOCODEC_AMRWB;
+			}
 			switch (compr->info.codec_param.codec.id) {
 			case SND_AUDIOCODEC_AMRWB:
 				break;
@@ -834,6 +871,13 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
 				__func__, ret);
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (!msm_compr_capture_codecs(
+			compr->info.codec_param.codec.id)) {
+			/*request codec invalid or not supported,
+			use default compress format*/
+			compr->info.codec_param.codec.id =
+				SND_AUDIOCODEC_AMRWB;
+		}
 		switch (compr->info.codec_param.codec.id) {
 		case SND_AUDIOCODEC_AMRWB:
 			pr_debug("q6asm_open_read(FORMAT_AMRWB)\n");
