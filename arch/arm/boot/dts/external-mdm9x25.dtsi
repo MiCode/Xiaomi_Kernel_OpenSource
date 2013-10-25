@@ -29,7 +29,8 @@
                 qcom,ramdump-timeout-ms = <120000>;
                 qcom,vddmin-modes  = "normal";
                 qcom,vddmin-drive-strength = <8>;
-		qcom,sysmon-subsys-id = <19>;
+		qcom,sfr-query = <1>;
+		qcom,sysmon-subsys-id = <20>;
 		status = "disabled";
 	};
 };
