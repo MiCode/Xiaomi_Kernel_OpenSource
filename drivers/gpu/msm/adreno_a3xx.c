@@ -4223,7 +4223,7 @@ static struct adreno_perfcounters a3xx_perfcounters = {
  * a3xx_perfcounter_init
  * @adreno_dev: The device for which counters were initialized
  */
-static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
+void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
 {
 	adreno_perfcounter_put(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
 		SP_FS_FULL_ALU_INSTRUCTIONS,
@@ -4239,7 +4239,7 @@ static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
 		PERFCOUNTER_FLAG_KERNEL);
 }
 
-static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
+int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 {
 	int ret;
 	/* SP[3] counter is broken on a330 so disable it if a330 device */

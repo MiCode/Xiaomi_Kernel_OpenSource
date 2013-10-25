@@ -1030,6 +1030,8 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounters = &a4xx_perfcounters,
 	.irq = &a4xx_irq,
 
+	.perfcounter_init = a3xx_perfcounter_init,
+	.perfcounter_close = a3xx_perfcounter_close,
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
