@@ -325,7 +325,6 @@ static struct {
 	void __iomem *wlan_tx_phy_aborts;
 	void __iomem *wlan_brdg_err_source;
 	void __iomem *fiq_reg;
-	int	ssr_boot;
 	int	nv_downloaded;
 	unsigned char *fw_cal_data;
 	unsigned char *user_cal_data;
@@ -727,8 +726,6 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 	case SMD_EVENT_CLOSE:
 		pr_debug("wcnss: closing WCNSS SMD channel :%s",
 				WCNSS_CTRL_CHANNEL);
-		/* This SMD is closed only during SSR */
-		penv->ssr_boot = true;
 		penv->nv_downloaded = 0;
 		break;
 
@@ -1300,6 +1297,17 @@ void extract_cal_data(int len)
 		goto exit;
 	}
 
+	if (penv->fw_cal_available) {
+		/* ignore cal upload from SSR */
+		smd_read(penv->smd_ch, NULL, calhdr.frag_size);
+		penv->fw_cal_exp_frag++;
+		if (calhdr.msg_flags & LAST_FRAGMENT) {
+			penv->fw_cal_exp_frag = 0;
+			goto exit;
+		}
+		return;
+	}
+
 	if (0 == calhdr.frag_number) {
 		if (calhdr.total_size > MAX_CALIBRATED_DATA_SIZE) {
 			pr_err("wcnss: Invalid cal data size %d",
@@ -1450,7 +1458,6 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		break;
 
 	case WCNSS_CALDATA_UPLD_REQ:
-		penv->fw_cal_available = 0;
 		extract_cal_data(len);
 		break;
 
@@ -1699,21 +1706,12 @@ static void wcnss_nvbin_dnld_main(struct work_struct *worker)
 		while (!penv->user_cal_available && retry++ < 5)
 			msleep(500);
 	}
-
-	/* only cal data is sent during ssr (if available) */
-	if (penv->fw_cal_available && penv->ssr_boot) {
-		pr_info_ratelimited("wcnss: cal download during SSR, using fw cal");
-		wcnss_caldata_dnld(penv->fw_cal_data, penv->fw_cal_rcvd, false);
-		return;
-
-	} else if (penv->user_cal_available && penv->ssr_boot) {
-		pr_info_ratelimited("wcnss: cal download during SSR, using user cal");
-		wcnss_caldata_dnld(penv->user_cal_data,
-		penv->user_cal_rcvd, false);
-		return;
+	if (penv->fw_cal_available) {
+		pr_info_ratelimited("wcnss: cal download, using fw cal");
+		wcnss_caldata_dnld(penv->fw_cal_data, penv->fw_cal_rcvd, true);
 
 	} else if (penv->user_cal_available) {
-		pr_info_ratelimited("wcnss: cal download during cold boot, using user cal");
+		pr_info_ratelimited("wcnss: cal download, using user cal");
 		wcnss_caldata_dnld(penv->user_cal_data,
 		penv->user_cal_rcvd, true);
 	}
