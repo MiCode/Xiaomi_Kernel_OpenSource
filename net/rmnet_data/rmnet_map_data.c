@@ -85,7 +85,7 @@ struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
  * @config:     Physical endpoint configuration of the ingress device
  *
  * Source skb is cloned with skb_clone(). The new skb data and tail pointers are
- * modified to contain a single MAP frame. Clone happens with GFP_KERNEL flags
+ * modified to contain a single MAP frame. Clone happens with GFP_ATOMIC flags
  * set. User should keep calling deaggregate() on the source skb until 0 is
  * returned, indicating that there are no more packets to deaggregate.
  *
@@ -111,7 +111,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 		return 0;
 	}
 
-	skbn = skb_clone(skb, GFP_ATOMIC);
+	skbn = skb_copy(skb, GFP_ATOMIC);
 	if (!skbn)
 		return 0;
 

@@ -183,7 +183,8 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 
 		case RX_HANDLER_PASS:
 			skb->pkt_type = PACKET_HOST;
-			return  RX_HANDLER_ANOTHER;
+			netif_receive_skb(skb);
+			return RX_HANDLER_CONSUMED;
 		}
 		return RX_HANDLER_PASS;
 
