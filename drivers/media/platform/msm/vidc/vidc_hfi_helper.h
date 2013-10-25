@@ -438,6 +438,11 @@ struct hfi_idr_period {
 	u32 idr_period;
 };
 
+struct hfi_operations_type {
+	u32 rotation;
+	u32 flip;
+};
+
 struct hfi_max_num_b_frames {
 	u32 max_num_b_frames;
 };
