@@ -20,6 +20,8 @@
 #include <linux/qpnp/clkdiv.h>
 #include <linux/regulator/consumer.h>
 #include <linux/io.h>
+#include <linux/pm_runtime.h>
+#include <linux/slimbus/slimbus.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -1880,6 +1882,37 @@ static struct snd_soc_ops apq8084_be_ops = {
 	.shutdown = apq8084_snd_shudown,
 };
 
+static int apq8084_slimbus_1_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		  __func__, rtd->dai_link->stream_name,
+		  rtd->dai_link->cpu_dai_name,
+		  rtd->dai_link->codec_dai_name);
+
+	if (slim != NULL)
+		pm_runtime_get_sync(slim->dev.parent);
+
+	return 0;
+}
+
+static void apq8084_slimbus_1_shudown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		  __func__, rtd->dai_link->stream_name,
+		  rtd->dai_link->cpu_dai_name, rtd->dai_link->codec_dai_name);
+
+	if (slim != NULL) {
+		pm_runtime_mark_last_busy(slim->dev.parent);
+		pm_runtime_put(slim->dev.parent);
+	}
+}
+
 static int apq8084_slimbus_2_hw_params(struct snd_pcm_substream *substream,
 				       struct snd_pcm_hw_params *params)
 {
@@ -2001,9 +2034,9 @@ end:
 }
 
 static struct snd_soc_ops apq8084_slimbus_1_be_ops = {
-	.startup = apq8084_snd_startup,
+	.startup = apq8084_slimbus_1_startup,
 	.hw_params = apq8084_slimbus_1_hw_params,
-	.shutdown = apq8084_snd_shudown,
+	.shutdown = apq8084_slimbus_1_shudown,
 };
 
 static struct snd_soc_ops apq8084_slimbus_2_be_ops = {
