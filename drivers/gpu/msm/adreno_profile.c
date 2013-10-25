@@ -214,7 +214,7 @@ static inline void shared_buf_inc(unsigned int max_size,
 	*offset = (*offset + inc) % max_size;
 }
 
-static inline void log_buf_wrapcnt(unsigned int cnt, unsigned int *off)
+static inline void log_buf_wrapcnt(unsigned int cnt, uintptr_t *off)
 {
 	*off = (*off + cnt) % ADRENO_PROFILE_LOG_BUF_SIZE_DWORDS;
 }
@@ -231,16 +231,16 @@ static inline void log_buf_wrapinc(unsigned int *profile_log_buffer,
 static inline unsigned int log_buf_available(struct adreno_profile *profile,
 		unsigned int *head_ptr)
 {
-	unsigned int tail, head;
+	uintptr_t tail, head;
 
-	tail = (unsigned int) profile->log_tail -
-		(unsigned int) profile->log_buffer;
-	head = (unsigned int) head_ptr - (unsigned int) profile->log_buffer;
+	tail = (uintptr_t) profile->log_tail -
+		(uintptr_t) profile->log_buffer;
+	head = (uintptr_t)head_ptr - (uintptr_t) profile->log_buffer;
 	if (tail > head)
-		return (tail - head) / sizeof(unsigned int);
+		return (tail - head) / sizeof(uintptr_t);
 	else
 		return ADRENO_PROFILE_LOG_BUF_SIZE_DWORDS - ((head - tail) /
-				sizeof(unsigned int));
+				sizeof(uintptr_t));
 }
 
 static inline unsigned int shared_buf_available(struct adreno_profile *profile)
@@ -400,11 +400,12 @@ static void transfer_results(struct kgsl_device *device,
 		 */
 		while (log_buf_available(profile, log_ptr) <=
 				SIZE_LOG_ENTRY(cnt)) {
-			unsigned int size_tail, boff;
+			unsigned int size_tail;
+			uintptr_t boff;
 			size_tail = SIZE_LOG_ENTRY(0xffff &
 					*(profile->log_tail));
-			boff = ((unsigned int) profile->log_tail -
-				(unsigned int) log_base) / sizeof(unsigned int);
+			boff = ((uintptr_t) profile->log_tail -
+				(uintptr_t) log_base) / sizeof(uintptr_t);
 			log_buf_wrapcnt(size_tail, &boff);
 			profile->log_tail = log_base + boff;
 		}

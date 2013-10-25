@@ -25,7 +25,7 @@
 #define GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS     (sizeof(unsigned char) * 8)
 #define GSL_TLBFLUSH_FILTER_GET(superpte)			     \
 	      (*((unsigned char *)				    \
-	      (((unsigned int)gpummu_pt->tlbflushfilter.base)    \
+	      (((uintptr_t)gpummu_pt->tlbflushfilter.base)    \
 	      + (superpte / GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS))))
 #define GSL_TLBFLUSH_FILTER_SETDIRTY(superpte)				\
 	      (GSL_TLBFLUSH_FILTER_GET((superpte)) |= 1 <<	    \
