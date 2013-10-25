@@ -577,6 +577,16 @@
 			<  748800 2664 /* 333 MHz */ >,
 			<  998400 3200 /* 400 MHz */ >;
 	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0x0>;
+	};
 };
 
 &gdsc_pcie_0 {
