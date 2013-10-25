@@ -871,7 +871,8 @@ void __init apq8084_init_gpiomux(void)
 	}
 	msm_gpiomux_install(apq8084_hsic_configs,
 			ARRAY_SIZE(apq8084_hsic_configs));
-	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
+	msm_gpiomux_install_nowrite(msm_lcd_configs,
+			ARRAY_SIZE(msm_lcd_configs));
 	msm_gpiomux_install(apq8084_pri_ter_auxpcm_configs,
 			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
