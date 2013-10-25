@@ -23,8 +23,8 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
+#include <linux/clk/msm-clock-generic.h>
 
-#include <mach/clock-generic.h>
 #include "clock-local2.h"
 
 #define UPDATE_CHECK_MAX_LOOPS 200

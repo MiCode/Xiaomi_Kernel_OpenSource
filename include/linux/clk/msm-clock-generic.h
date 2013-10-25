@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MACH_CLOCK_GENERIC_H
-#define __MACH_CLOCK_GENERIC_H
+#ifndef __MSM_CLOCK_GENERIC_H
+#define __MSM_CLOCK_GENERIC_H
 
 #include <linux/clk/msm-clk-provider.h>
 

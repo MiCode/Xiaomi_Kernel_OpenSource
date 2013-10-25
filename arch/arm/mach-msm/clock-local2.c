@@ -24,8 +24,7 @@
 #include <linux/clk.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
-
-#include <mach/clock-generic.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include "clock-local2.h"
 

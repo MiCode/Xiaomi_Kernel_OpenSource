@@ -19,10 +19,10 @@
 #include <linux/clk.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include <asm/processor.h>
 #include <mach/msm_iomap.h>
-#include <mach/clock-generic.h>
 
 #include "clock-mdss-8974.h"
 

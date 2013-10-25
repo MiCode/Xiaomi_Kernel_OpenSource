@@ -22,8 +22,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
-
-#include <mach/clock-generic.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include <dt-bindings/clock/msm-clocks-8974.h>
 
