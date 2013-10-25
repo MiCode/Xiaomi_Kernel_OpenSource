@@ -106,112 +106,6 @@ static void debug_diag(struct seq_file *s)
 	smd_diag();
 }
 
-static void dump_ch(struct seq_file *s, int n,
-		   void *half_ch_s,
-		   void *half_ch_r,
-		   struct smd_half_channel_access *half_ch_funcs,
-		   unsigned size)
-{
-	seq_printf(s, "ch%02d:"
-		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c <->"
-		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c : %5x\n", n,
-		chstate(half_ch_funcs->get_state(half_ch_s)),
-		half_ch_funcs->get_tail(half_ch_s),
-		half_ch_funcs->get_head(half_ch_s),
-		half_ch_funcs->get_fDSR(half_ch_s) ? 'D' : 'd',
-		half_ch_funcs->get_fCTS(half_ch_s) ? 'C' : 'c',
-		half_ch_funcs->get_fCD(half_ch_s) ? 'C' : 'c',
-		half_ch_funcs->get_fRI(half_ch_s) ? 'I' : 'i',
-		half_ch_funcs->get_fHEAD(half_ch_s) ? 'W' : 'w',
-		half_ch_funcs->get_fTAIL(half_ch_s) ? 'R' : 'r',
-		half_ch_funcs->get_fSTATE(half_ch_s) ? 'S' : 's',
-		half_ch_funcs->get_fBLOCKREADINTR(half_ch_s) ? 'B' : 'b',
-		chstate(half_ch_funcs->get_state(half_ch_r)),
-		half_ch_funcs->get_tail(half_ch_r),
-		half_ch_funcs->get_head(half_ch_r),
-		half_ch_funcs->get_fDSR(half_ch_r) ? 'D' : 'd',
-		half_ch_funcs->get_fCTS(half_ch_r) ? 'C' : 'c',
-		half_ch_funcs->get_fCD(half_ch_r) ? 'C' : 'c',
-		half_ch_funcs->get_fRI(half_ch_r) ? 'I' : 'i',
-		half_ch_funcs->get_fHEAD(half_ch_r) ? 'W' : 'w',
-		half_ch_funcs->get_fTAIL(half_ch_r) ? 'R' : 'r',
-		half_ch_funcs->get_fSTATE(half_ch_r) ? 'S' : 's',
-		half_ch_funcs->get_fBLOCKREADINTR(half_ch_r) ? 'B' : 'b',
-		size
-		);
-}
-
-#if (!defined(CONFIG_MSM_SMD_PKG4) && !defined(CONFIG_MSM_SMD_PKG3))
-static void debug_read_ch(struct seq_file *s)
-{
-	void *shared;
-	int n;
-	struct smd_alloc_elm *ch_tbl;
-	unsigned ch_type;
-	unsigned shared_size;
-
-	ch_tbl = smem_find(ID_CH_ALLOC_TBL, sizeof(*ch_tbl) * 64);
-	if (!ch_tbl)
-		return;
-
-	for (n = 0; n < SMD_CHANNELS; n++) {
-		ch_type = SMD_CHANNEL_TYPE(ch_tbl[n].type);
-		if (is_word_access_ch(ch_type))
-			shared_size =
-				sizeof(struct smd_half_channel_word_access);
-		else
-			shared_size = sizeof(struct smd_half_channel);
-		shared = smem_find(ID_SMD_CHANNELS + n,
-				2 * shared_size + SMD_BUF_SIZE);
-
-		if (shared == 0)
-			continue;
-		dump_ch(s, n, shared,
-			     (shared + shared_size +
-			     SMD_BUF_SIZE), get_half_ch_funcs(ch_type),
-			     SMD_BUF_SIZE);
-	}
-}
-#else
-static void debug_read_ch(struct seq_file *s)
-{
-	void *shared, *buffer;
-	unsigned buffer_sz;
-	int n;
-	struct smd_alloc_elm *ch_tbl;
-	unsigned ch_type;
-	unsigned shared_size;
-
-	ch_tbl = smem_find(ID_CH_ALLOC_TBL, sizeof(*ch_tbl) * 64);
-	if (!ch_tbl)
-		return;
-
-	for (n = 0; n < SMD_CHANNELS; n++) {
-		ch_type = SMD_CHANNEL_TYPE(ch_tbl[n].type);
-		if (is_word_access_ch(ch_type))
-			shared_size =
-				sizeof(struct smd_half_channel_word_access);
-		else
-			shared_size = sizeof(struct smd_half_channel);
-
-		shared = smem_find(ID_SMD_CHANNELS + n, 2 * shared_size);
-
-		if (shared == 0)
-			continue;
-
-		buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + n, &buffer_sz);
-
-		if (buffer == 0)
-			continue;
-
-		dump_ch(s, n, shared,
-			     (shared + shared_size),
-			     get_half_ch_funcs(ch_type),
-			     buffer_sz / 2);
-	}
-}
-#endif
-
 /* NNV: revist, it may not be smd version */
 static void debug_read_smd_version(struct seq_file *s)
 {
@@ -229,24 +123,169 @@ static void debug_read_smd_version(struct seq_file *s)
 		}
 }
 
-static void debug_read_alloc_tbl(struct seq_file *s)
+/**
+ * pid_to_str - Convert a numeric processor id value into a human readable
+ *		string value.
+ *
+ * @pid: the processor id to convert
+ * @returns: a string representation of @pid
+ */
+static char *pid_to_str(int pid)
 {
-	struct smd_alloc_elm *shared;
+	switch (pid) {
+	case SMD_APPS:
+		return "APPS";
+	case SMD_MODEM:
+		return "MDMSW";
+	case SMD_Q6:
+		return "ADSP";
+	case SMD_TZ:
+		return "TZ";
+	case SMD_WCNSS:
+		return "WCNSS";
+	case SMD_MODEM_Q6_FW:
+		return "MDMFW";
+	case SMD_RPM:
+		return "RPM";
+	default:
+		return "???";
+	}
+}
+
+/**
+ * print_half_ch_state - Print the state of half of a SMD channel in a human
+ *			readable format.
+ *
+ * @s: the sequential file to print to
+ * @half_ch: half of a SMD channel that should have its state printed
+ * @half_ch_funcs: the relevant channel access functions for @half_ch
+ * @size: size of the fifo in bytes associated with @half_ch
+ * @proc: the processor id that owns the part of the SMD channel associated with
+ *		@half_ch
+ */
+static void print_half_ch_state(struct seq_file *s,
+				void *half_ch,
+				struct smd_half_channel_access *half_ch_funcs,
+				unsigned size,
+				int proc)
+{
+	seq_printf(s, "%-5s|%-7s|0x%05X|0x%05X|0x%05X|%c%c%c%c%c%c%c%c|0x%05X",
+			pid_to_str(proc),
+			chstate(half_ch_funcs->get_state(half_ch)),
+			size,
+			half_ch_funcs->get_tail(half_ch),
+			half_ch_funcs->get_head(half_ch),
+			half_ch_funcs->get_fDSR(half_ch) ? 'D' : 'd',
+			half_ch_funcs->get_fCTS(half_ch) ? 'C' : 'c',
+			half_ch_funcs->get_fCD(half_ch) ? 'C' : 'c',
+			half_ch_funcs->get_fRI(half_ch) ? 'I' : 'i',
+			half_ch_funcs->get_fHEAD(half_ch) ? 'W' : 'w',
+			half_ch_funcs->get_fTAIL(half_ch) ? 'R' : 'r',
+			half_ch_funcs->get_fSTATE(half_ch) ? 'S' : 's',
+			half_ch_funcs->get_fBLOCKREADINTR(half_ch) ? 'B' : 'b',
+			(half_ch_funcs->get_head(half_ch) -
+				half_ch_funcs->get_tail(half_ch)) & (size - 1));
+}
+
+/**
+ * smd_xfer_type_to_str - Convert a numeric transfer type value into a human
+ *		readable string value.
+ *
+ * @xfer_type: the processor id to convert
+ * @returns: a string representation of @xfer_type
+ */
+static char *smd_xfer_type_to_str(uint32_t xfer_type)
+{
+	if (xfer_type == 1)
+		return "S"; /* streaming type */
+	else if (xfer_type == 2)
+		return "P"; /* packet type */
+	else
+		return "L"; /* legacy type */
+}
+
+/**
+ * debug_ch - Print the current state of every valid SMD channel in a human
+ *		readable formatted table.
+ *
+ * @s: the sequential file to print to
+ */
+static void debug_ch(struct seq_file *s)
+{
+	struct smd_alloc_elm *tbl;
+	unsigned tbl_size;
+	void *half_ch;
+	unsigned half_ch_size;
+	uint32_t ch_type;
+	void *buffer;
+	unsigned buffer_size;
 	int n;
 
-	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(struct smd_alloc_elm[64]));
+	tbl = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size);
 
-	if (!shared)
+	if (!tbl) {
+		seq_puts(s, "Channel allocation table not found\n");
 		return;
+	}
 
-	for (n = 0; n < 64; n++) {
-		seq_printf(s, "name=%s cid=%d ch type=%d "
-				"xfer type=%d ref_count=%d\n",
-				shared[n].name,
-				shared[n].cid,
-				SMD_CHANNEL_TYPE(shared[n].type),
-				SMD_XFER_TYPE(shared[n].type),
-				shared[n].ref_count);
+/*
+ * formatted, human readable channel state output, ie:
+ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
+-------------------------------------------------------------------------------
+00|DS                 |S|APPS |CLOSED |0x02000|0x00000|0x00000|dcCiwrsb|0x00000
+  |                   | |MDMSW|OPENING|0x02000|0x00000|0x00000|dcCiwrsb|0x00000
+-------------------------------------------------------------------------------
+ */
+
+	seq_printf(s, "%2s|%-19s|%1s|%-5s|%-7s|%-7s|%-7s|%-7s|%-8s|%-7s\n",
+								"ID",
+								"CHANNEL NAME",
+								"T",
+								"PROC",
+								"STATE",
+								"FIFO SZ",
+								"RDPTR",
+								"WRPTR",
+								"FLAGS",
+								"DATAPEN");
+	seq_puts(s,
+		"-------------------------------------------------------------------------------\n");
+	for (n = 0; n < tbl_size / sizeof(*tbl); ++n) {
+		if (strlen(tbl[n].name) == 0)
+			continue;
+
+		seq_printf(s, "%2u|%-19s|%s|", tbl[n].cid, tbl[n].name,
+			smd_xfer_type_to_str(SMD_XFER_TYPE(tbl[n].type)));
+		ch_type = SMD_CHANNEL_TYPE(tbl[n].type);
+		if (is_word_access_ch(ch_type))
+			half_ch_size =
+				sizeof(struct smd_half_channel_word_access);
+		else
+			half_ch_size = sizeof(struct smd_half_channel);
+
+		half_ch = smem_find(ID_SMD_CHANNELS + n, 2 * half_ch_size);
+		buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + n,
+								&buffer_size);
+		if (half_ch && buffer)
+			print_half_ch_state(s,
+					half_ch,
+					get_half_ch_funcs(ch_type),
+					buffer_size / 2,
+					smd_edge_to_local_pid(ch_type));
+
+		seq_puts(s, "\n");
+		seq_printf(s, "%2s|%-19s|%1s|", "", "", "");
+
+		if (half_ch && buffer)
+			print_half_ch_state(s,
+					half_ch + half_ch_size,
+					get_half_ch_funcs(ch_type),
+					buffer_size / 2,
+					smd_edge_to_remote_pid(ch_type));
+
+		seq_puts(s, "\n");
+		seq_puts(s,
+			"-------------------------------------------------------------------------------\n");
 	}
 }
 
@@ -290,9 +329,8 @@ static int __init smd_debugfs_init(void)
 	if (IS_ERR(dent))
 		return PTR_ERR(dent);
 
-	debug_create("ch", 0444, dent, debug_read_ch);
+	debug_create("ch", 0444, dent, debug_ch);
 	debug_create("version", 0444, dent, debug_read_smd_version);
-	debug_create("tbl", 0444, dent, debug_read_alloc_tbl);
 	debug_create("print_diag", 0444, dent, debug_diag);
 	debug_create("int_stats", 0444, dent, debug_int_stats);
 	debug_create("int_stats_reset", 0444, dent, debug_int_stats_reset);
