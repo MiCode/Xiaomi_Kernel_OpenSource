@@ -3317,6 +3317,20 @@ int smd_edge_to_remote_pid(uint32_t edge)
 }
 
 /**
+ * smd_get_edge_local_pid() - Get the local processor ID
+ * @edge:	edge type identifies local and remote processor
+ * @returns:	local processor ID
+ *
+ * This function returns local processor ID based on edge type.
+ */
+int smd_edge_to_local_pid(uint32_t edge)
+{
+	if (edge >= ARRAY_SIZE(edge_to_pids))
+		return -EINVAL;
+	return edge_to_pids[edge].local_pid;
+}
+
+/**
  * smd_set_edge_subsys_name() - Set the subsystem name
  * @edge:		edge type identifies local and remote processor
  * @sussys_name:	pointer to subsystem name
