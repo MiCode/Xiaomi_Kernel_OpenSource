@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <asm/cputype.h>
-#include "avs.h"
+#include <mach/avs.h>
 #include "spm.h"
 
 u32 avs_get_avscsr(void)

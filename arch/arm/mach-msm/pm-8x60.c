@@ -34,6 +34,7 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/cpu.h>
+#include <mach/avs.h>
 #include <mach/socinfo.h>
 #include <mach/scm.h>
 #include <mach/socinfo.h>
@@ -53,7 +54,6 @@
 #include <asm/vfp.h>
 #endif
 #include "clock.h"
-#include "avs.h"
 #include <mach/cpuidle.h>
 #include "idle.h"
 #include "pm.h"
