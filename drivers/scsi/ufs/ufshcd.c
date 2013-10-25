@@ -1895,6 +1895,10 @@ int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 	uic_cmd.argument2 = UIC_ARG_ATTR_TYPE(attr_set);
 	uic_cmd.argument3 = mib_val;
 
+	/* for stability purposes */
+	if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
+		usleep_range(1000, 1100);
+
 	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 	if (ret)
 		dev_err(hba->dev, "%s: attr-id 0x%x val 0x%x error code %d\n",
@@ -1927,6 +1931,10 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 	uic_cmd.command = peer ?
 		UIC_CMD_DME_PEER_GET : UIC_CMD_DME_GET;
 	uic_cmd.argument1 = attr_sel;
+
+	/* for stability purposes */
+	if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
+		usleep_range(1000, 1100);
 
 	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 	if (ret) {

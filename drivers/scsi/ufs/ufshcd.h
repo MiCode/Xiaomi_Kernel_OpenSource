@@ -397,6 +397,12 @@ struct ufs_hba {
 	/* runtime pm or system suspend/resume is broken */
 	#define UFSHCD_QUIRK_BROKEN_SUSPEND              (1 << 6)
 
+	/*
+	 * delay before each dme command is required as the unipro
+	 * layer has shown instabilities
+	 */
+	#define UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS        (1 << 7)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
