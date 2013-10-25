@@ -173,6 +173,13 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 			pr_info("%s:%d, reset gpio not specified\n",
 							__func__, __LINE__);
 	}
+
+	ctrl_pdata->bklt_en_gpio = of_get_named_gpio(np,
+					"qcom,platform-bklight-en-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
+		pr_err("%s:%d, bklt_en gpio not specified\n",
+						__func__, __LINE__);
+
 	return 0;
 }
 
@@ -228,8 +235,18 @@ int dsi_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		ctrl_pdata->mode_gpio_requested = 1;
 	}
 
+	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
+		rc = gpio_request(ctrl_pdata->bklt_en_gpio, "bklt_enable");
+		if (rc)
+			goto gpio_request_err0;
+		ctrl_pdata->bklt_en_gpio_requested = 1;
+	}
+
 	return rc;
 
+gpio_request_err0:
+	if (gpio_is_valid(ctrl_pdata->mode_gpio))
+		gpio_free(ctrl_pdata->mode_gpio);
 gpio_request_err1:
 	if (gpio_is_valid(ctrl_pdata->disp_te_gpio))
 		gpio_free(ctrl_pdata->disp_te_gpio);
@@ -264,6 +281,10 @@ void dsi_ctrl_gpio_free(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	if (ctrl_pdata->mode_gpio_requested) {
 		gpio_free(ctrl_pdata->mode_gpio);
 		ctrl_pdata->mode_gpio_requested = 0;
+	}
+	if (ctrl_pdata->bklt_en_gpio_requested) {
+		gpio_free(ctrl_pdata->bklt_en_gpio);
+		ctrl_pdata->bklt_en_gpio_requested = 0;
 	}
 }
 
