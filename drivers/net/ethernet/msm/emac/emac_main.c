@@ -90,6 +90,12 @@ static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
 	{ 0, "qcom,emac-gpio-mdio" },
 };
 
+static struct emac_clk_info emac_clk[EMAC_NUM_CLK] = {
+	{ 0, "125m_clk" },
+	{ 0, "25m_clk" },
+	{ 0, "tx_clk" },
+};
+
 /* reinitialize */
 void emac_reinit_locked(struct emac_adapter *adpt)
 {
@@ -2208,6 +2214,49 @@ static int emac_resume(struct device *device)
 }
 #endif
 
+/* Get the clock */
+static int emac_get_clk(struct platform_device *pdev,
+			struct emac_adapter *adpt)
+{
+	struct emac_clk_info *clk_info;
+	struct clk *clk;
+	int retval = 0;
+	u8 i;
+
+	/* currently all clocks are sgmii clocks */
+	if (adpt->phy_mode != PHY_INTERFACE_MODE_SGMII)
+		return 0;
+
+	for (i = 0; i < EMAC_NUM_CLK; i++) {
+		clk_info = &adpt->clk_info[i];
+		clk = clk_get(&pdev->dev, clk_info->name);
+		if (IS_ERR(clk)) {
+			emac_err(adpt, "can't get clk %s\n", clk_info->name);
+			retval = PTR_ERR(clk);
+			while (--i >= 0) {
+				if (adpt->clk_info[i].clk)
+					clk_put(adpt->clk_info[i].clk);
+			}
+			break;
+		}
+		clk_info->clk = clk;
+	}
+
+	return retval;
+}
+
+static void emac_prepare_enable_clk(struct emac_adapter *adpt)
+{
+	struct emac_clk_info *clk_info;
+	u8 i;
+
+	for (i = 0; i < EMAC_NUM_CLK; i++) {
+		clk_info = &adpt->clk_info[i];
+		if (clk_info->clk)
+			clk_prepare_enable(clk_info->clk);
+	}
+}
+
 /* Get the resources */
 static int emac_get_resources(struct platform_device *pdev,
 			      struct emac_adapter *adpt)
@@ -2283,6 +2332,10 @@ static int emac_get_resources(struct platform_device *pdev,
 		irq_info->irq = retval;
 	}
 
+	retval = emac_get_clk(pdev, adpt);
+	if (retval)
+		return retval;
+
 	/* get register addresses */
 	retval = 0;
 	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
@@ -2315,8 +2368,16 @@ static int emac_get_resources(struct platform_device *pdev,
 		while (--i >= 0)
 			if (adpt->hw.reg_addr[i])
 				iounmap(adpt->hw.reg_addr[i]);
-	} else {
-		netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
+		goto err_reg_res;
+	}
+
+	netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
+	return 0;
+
+err_reg_res:
+	for (i = 0; i < EMAC_NUM_CLK; i++) {
+		if (adpt->clk_info[i].clk)
+			clk_put(adpt->clk_info[i].clk);
 	}
 
 	return retval;
@@ -2330,6 +2391,11 @@ static void emac_release_resources(struct emac_adapter *adpt)
 	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
 		if (adpt->hw.reg_addr[i])
 			iounmap(adpt->hw.reg_addr[i]);
+	}
+
+	for (i = 0; i < EMAC_NUM_CLK; i++) {
+		if (adpt->clk_info[i].clk)
+			clk_put(adpt->clk_info[i].clk);
 	}
 }
 
@@ -2367,6 +2433,7 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
+	memcpy(&adpt->clk_info, emac_clk, sizeof(emac_clk));
 	memcpy(adpt->gpio_info, emac_gpio, sizeof(adpt->gpio_info));
 	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
@@ -2379,6 +2446,8 @@ static int emac_probe(struct platform_device *pdev)
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
 		goto err_res;
+
+	emac_prepare_enable_clk(adpt);
 
 	hw_ver = emac_reg_r32(hw, EMAC, EMAC_CORE_HW_VERSION);
 
