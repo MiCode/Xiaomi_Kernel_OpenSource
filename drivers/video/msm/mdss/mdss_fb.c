@@ -87,6 +87,8 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
 static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma);
 static void mdss_fb_release_fences(struct msm_fb_data_type *mfd);
+static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
+		unsigned long val, void *data);
 
 static int __mdss_fb_display_thread(void *data);
 static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
@@ -388,6 +390,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			pr_err("%s: cannot create time line", __func__);
 			return -ENOMEM;
 		}
+		mfd->mdp_sync_pt_data.notifier.notifier_call =
+			__mdss_fb_sync_buf_done_callback;
 	}
 	if (mfd->panel.type == WRITEBACK_PANEL)
 		mfd->mdp_sync_pt_data.threshold = 1;
@@ -1336,6 +1340,38 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd)
 	mutex_unlock(&sync_pt_data->sync_mutex);
 }
 
+/**
+ * __mdss_fb_sync_buf_done_callback() - process async display events
+ * @p:		Notifier block registered for async events.
+ * @event:	Event enum to identify the event.
+ * @data:	Optional argument provided with the event.
+ *
+ * See enum mdp_notify_event for events handled.
+ */
+static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
+		unsigned long event, void *data)
+{
+	struct msm_sync_pt_data *sync_pt_data;
+
+	sync_pt_data = container_of(p, struct msm_sync_pt_data, notifier);
+
+	switch (event) {
+	case MDP_NOTIFY_FRAME_FLUSHED:
+		pr_debug("%s: frame flushed\n", sync_pt_data->fence_name);
+		sync_pt_data->flushed = true;
+		break;
+	case MDP_NOTIFY_FRAME_TIMEOUT:
+		pr_err("%s: frame timeout\n", sync_pt_data->fence_name);
+		mdss_fb_signal_timeline(sync_pt_data);
+		break;
+	case MDP_NOTIFY_FRAME_DONE:
+		pr_debug("%s: frame done\n", sync_pt_data->fence_name);
+		mdss_fb_signal_timeline(sync_pt_data);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
 
 /**
  * mdss_fb_pan_idle() - wait for panel programming to be idle
@@ -1469,6 +1505,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 	int ret = -ENOSYS;
 
 	mdss_fb_wait_for_fence(sync_pt_data);
+	sync_pt_data->flushed = false;
 
 	if (fb_backup->disp_commit.flags & MDP_DISPLAY_COMMIT_OVERLAY) {
 		if (mfd->mdp.kickoff_fnc)
@@ -1487,7 +1524,8 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 	if (!ret)
 		mdss_fb_update_backlight(mfd);
 
-	mdss_fb_signal_timeline(sync_pt_data);
+	if (IS_ERR_VALUE(ret) || !sync_pt_data->flushed)
+		mdss_fb_signal_timeline(sync_pt_data);
 
 	return ret;
 }
