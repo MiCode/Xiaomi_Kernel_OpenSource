@@ -146,7 +146,7 @@ static int snapshot_os(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct task_struct *task;
 	pid_t pid;
-	int hang = (int) priv;
+	int hang = *((int *) priv);
 	int ctxtcount = 0;
 	int size = sizeof(*header);
 	phys_addr_t temp_ptbase;
@@ -671,7 +671,7 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 
 	/* Build the Linux specific header */
 	snapshot = kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
-		snapshot, &remain, snapshot_os, (void *) hang);
+		snapshot, &remain, snapshot_os, &hang);
 
 	/* Get the device specific sections */
 	if (device->ftbl->snapshot)
