@@ -385,6 +385,7 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 			ctl->ref_cnt++;
 			ctl->mdata = mdata;
 			mutex_init(&ctl->lock);
+			BLOCKING_INIT_NOTIFIER_HEAD(&ctl->notifier_head);
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
 			break;
 		}
@@ -1893,6 +1894,23 @@ done:
 	mutex_unlock(&ctl->lock);
 
 	return ret;
+}
+
+void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
+	struct notifier_block *notifier)
+{
+	blocking_notifier_chain_register(&ctl->notifier_head, notifier);
+}
+
+void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
+	struct notifier_block *notifier)
+{
+	blocking_notifier_chain_unregister(&ctl->notifier_head, notifier);
+}
+
+int mdss_mdp_ctl_notify(struct mdss_mdp_ctl *ctl, int event)
+{
+	return blocking_notifier_call_chain(&ctl->notifier_head, event, ctl);
 }
 
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)

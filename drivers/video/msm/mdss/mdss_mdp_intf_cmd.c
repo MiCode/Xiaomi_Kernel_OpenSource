@@ -12,9 +12,9 @@
  */
 
 #include <linux/kernel.h>
-#include "mdss_panel.h"
+
 #include "mdss_mdp.h"
-#include "mdss_dsi.h"
+#include "mdss_panel.h"
 
 #define VSYNC_EXPIRE_TICK 4
 
@@ -446,8 +446,11 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
 			rc = -EPERM;
-		} else
+			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+		} else {
+			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 			rc = 0;
+		}
 	}
 
 	return rc;

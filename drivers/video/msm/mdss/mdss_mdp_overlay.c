@@ -752,6 +752,9 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_ctl_start(mdp5_data->ctl);
 	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
+
+		mdss_mdp_ctl_notifier_register(mdp5_data->ctl,
+				&mfd->mdp_sync_pt_data.notifier);
 	} else {
 		pr_err("overlay start failed.\n");
 		mdss_mdp_ctl_destroy(mdp5_data->ctl);
@@ -783,7 +786,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_mdp_ctl *tmp;
-	int ret;
+	int ret = 0;
 	int sd_in_pipe = 0;
 
 	if (ctl->shared_lock)
@@ -818,6 +821,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		if (0 == mdss_mdp_overlay_sd_ctrl(mfd, 0))
 			mdp5_data->sd_enabled = 0;
 	}
+
+	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
 
 	if (data)
 		mdss_mdp_set_roi(ctl, data);
@@ -913,10 +918,18 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	mdss_mdp_overlay_cleanup(mfd);
+	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);
 
 	mutex_unlock(&mdp5_data->ov_lock);
 	if (ctl->shared_lock)
 		mutex_unlock(ctl->shared_lock);
+
+	if (!IS_ERR_VALUE(ret)) {
+		ret = mdss_mdp_display_wait4pingpong(mdp5_data->ctl);
+		if (ret)
+			pr_warn("wait for ping pong on fb%d failed!\n",
+					mfd->index);
+	}
 
 	return ret;
 }
@@ -2098,7 +2111,6 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	case MSMFB_OVERLAY_COMMIT:
 		mdss_fb_wait_for_fence(&(mfd->mdp_sync_pt_data));
 		ret = mfd->mdp.kickoff_fnc(mfd, NULL);
-		mdss_fb_signal_timeline(&(mfd->mdp_sync_pt_data));
 		break;
 	case MSMFB_METADATA_SET:
 		ret = copy_from_user(&metadata, argp, sizeof(metadata));
@@ -2232,6 +2244,8 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl);
 	if (rc == 0) {
 		__mdss_mdp_overlay_free_list_purge(mfd);
+		mdss_mdp_ctl_notifier_unregister(mdp5_data->ctl,
+				&mfd->mdp_sync_pt_data.notifier);
 
 		if (!mfd->ref_cnt) {
 			mdp5_data->borderfill_enable = false;
