@@ -134,8 +134,8 @@ int wm_adsp2_early_event(struct snd_soc_dapm_widget *w,
 int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol, int event);
 
-extern bool wm_adsp_compress_supported(const struct wm_adsp* adsp,
-				       const struct snd_compr_stream* stream);
+extern bool wm_adsp_compress_supported(const struct wm_adsp *adsp,
+				       const struct snd_compr_stream *stream);
 extern bool wm_adsp_format_supported(const struct wm_adsp *adsp,
 				     const struct snd_compr_stream *stream,
 				     const struct snd_compr_params *params);
@@ -143,9 +143,9 @@ extern void wm_adsp_get_caps(const struct wm_adsp *adsp,
 			     const struct snd_compr_stream *stream,
 			     struct snd_compr_caps *caps);
 
-extern int wm_adsp_stream_alloc(struct wm_adsp* adsp,
+extern int wm_adsp_stream_alloc(struct wm_adsp *adsp,
 				const struct snd_compr_params *params);
-extern int wm_adsp_stream_free(struct wm_adsp* adsp);
+extern int wm_adsp_stream_free(struct wm_adsp *adsp);
 extern int wm_adsp_stream_start(struct wm_adsp *adsp);
 extern int wm_adsp_stream_capture(struct wm_adsp *adsp);
 extern int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf,

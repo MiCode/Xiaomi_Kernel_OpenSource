@@ -42,7 +42,7 @@ struct florida_compr {
 	struct mutex lock;
 
 	struct snd_compr_stream *stream;
-	struct wm_adsp* adsp;
+	struct wm_adsp *adsp;
 
 	size_t total_copied;
 	bool trig;
@@ -627,7 +627,7 @@ static const struct snd_kcontrol_new florida_memory_mux[] = {
 	SOC_DAPM_ENUM_VIRT("DSP3 Virtual Input", florida_memory_enum),
 };
 
-static const char *florida_aec_loopback_texts[] = {
+static const char * const florida_aec_loopback_texts[] = {
 	"HPOUT1L", "HPOUT1R", "HPOUT2L", "HPOUT2R", "HPOUT3L", "HPOUT3R",
 	"SPKOUTL", "SPKOUTR", "SPKDAT1L", "SPKDAT1R", "SPKDAT2L", "SPKDAT2R",
 };
