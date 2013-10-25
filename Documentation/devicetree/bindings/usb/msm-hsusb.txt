@@ -181,10 +181,6 @@ Optional properties :
   update USB PID and serial numbers used by bootloader in DLOAD mode.
 - qcom,android-usb-swfi-latency : value to be used by device to vote
   for DMA latency in microsecs.
-- qcom,android-usb-cdrom : if this property is present then device creates
-  a new LUN as CD-ROM
-- qcom,android-usb-internal-ums : if this property is present then device
-  creates a new LUN as internal usb mass storage
 Example Android USB device node :
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";

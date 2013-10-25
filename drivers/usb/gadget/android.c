@@ -2011,6 +2011,8 @@ static struct android_usb_function ecm_function = {
 	.attributes	= ecm_function_attributes,
 };
 
+#define MAX_LUN_STR_LEN 25
+static char lun_info[MAX_LUN_STR_LEN] = {'\0'};
 struct mass_storage_function_config {
 	struct fsg_config fsg;
 	struct fsg_common *common;
@@ -2019,7 +2021,6 @@ struct mass_storage_function_config {
 static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
-	struct android_dev *dev = cdev_to_android_dev(cdev);
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
 	int err;
@@ -2027,27 +2028,14 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	const char *name[2];
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
-								GFP_KERNEL);
-	if (!config)
+							GFP_KERNEL);
+	if (!config) {
+		pr_err("Memory allocation failed.\n");
 		return -ENOMEM;
+	}
 
 	config->fsg.nluns = 1;
 	name[0] = "lun";
-	if (dev->pdata && dev->pdata->cdrom) {
-		config->fsg.luns[config->fsg.nluns].cdrom = 1;
-		config->fsg.luns[config->fsg.nluns].ro = 1;
-		config->fsg.luns[config->fsg.nluns].removable = 0;
-		name[config->fsg.nluns] = "lun0";
-		config->fsg.nluns++;
-	}
-	if (dev->pdata && dev->pdata->internal_ums) {
-		config->fsg.luns[config->fsg.nluns].cdrom = 0;
-		config->fsg.luns[config->fsg.nluns].ro = 0;
-		config->fsg.luns[config->fsg.nluns].removable = 1;
-		name[config->fsg.nluns] = "lun1";
-		config->fsg.nluns++;
-	}
-
 	config->fsg.luns[0].removable = 1;
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
@@ -2068,12 +2056,51 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	f->config = config;
 	return 0;
 error:
-	for (; i > 0 ; i--)
+	for (; i > 0; i--)
 		sysfs_remove_link(&f->dev->kobj, name[i-1]);
 
 	fsg_common_release(&common->ref);
 	kfree(config);
 	return err;
+}
+
+static int mass_storage_lun_init(struct android_usb_function *f,
+						char *lun_info)
+{
+	struct mass_storage_function_config *config = f->config;
+	bool inc_lun = true;
+	int i = config->fsg.nluns, index, length;
+	static int number_of_luns;
+
+	length = strlen(lun_info);
+	if (!length) {
+		pr_err("LUN_INFO is null.\n");
+		return -EINVAL;
+	}
+
+	index = i + number_of_luns;
+	if (index >= FSG_MAX_LUNS) {
+		pr_err("Number of LUNs exceed the limit.\n");
+		return -EINVAL;
+	}
+
+	if (!strcmp(lun_info, "disk")) {
+		config->fsg.luns[index].removable = 1;
+	} else if (!strcmp(lun_info, "rom")) {
+		config->fsg.luns[index].cdrom = 1;
+		config->fsg.luns[index].removable = 0;
+		config->fsg.luns[index].ro = 1;
+	} else {
+		pr_err("Invalid LUN info.\n");
+		inc_lun = false;
+		return -EINVAL;
+	}
+
+	if (inc_lun)
+		number_of_luns++;
+
+	pr_debug("number_of_luns:%d\n", number_of_luns);
+	return number_of_luns;
 }
 
 static void mass_storage_function_cleanup(struct android_usb_function *f)
@@ -2082,11 +2109,70 @@ static void mass_storage_function_cleanup(struct android_usb_function *f)
 	f->config = NULL;
 }
 
+static void mass_storage_function_enable(struct android_usb_function *f)
+{
+	struct usb_composite_dev *cdev = f->android_dev->cdev;
+	struct mass_storage_function_config *config = f->config;
+	struct fsg_common *common = config->common;
+	char *lun_type;
+	int i, err;
+	char buf[MAX_LUN_STR_LEN], *b;
+	int number_of_luns = 0;
+	char buf1[5];
+	char *lun_name = buf1;
+	static int msc_initialized;
+
+	if (msc_initialized)
+		return;
+
+	if (lun_info[0] != '\0') {
+		strlcpy(buf, lun_info, sizeof(buf));
+		b = strim(buf);
+
+		while (b) {
+			lun_type = strsep(&b, ",");
+			if (lun_type)
+				number_of_luns =
+					mass_storage_lun_init(f, lun_type);
+				if (number_of_luns <= 0)
+					return;
+		}
+	} else {
+		pr_debug("No extra msc lun required.\n");
+		return;
+	}
+
+	err = fsg_add_lun(common, cdev, &config->fsg, number_of_luns);
+	if (err) {
+		pr_err("Failed adding LUN.\n");
+		return;
+	}
+
+	pr_debug("fsg.nluns:%d\n", config->fsg.nluns);
+	for (i = 1; i < config->fsg.nluns; i++) {
+		snprintf(lun_name, sizeof(buf), "lun%d", (i-1));
+		pr_debug("sysfs: LUN name:%s\n", lun_name);
+		err = sysfs_create_link(&f->dev->kobj,
+			&common->luns[i].dev.kobj, lun_name);
+		if (err)
+			pr_err("sysfs file creation failed: lun%d err:%d\n",
+								i, err);
+	}
+
+	msc_initialized = 1;
+}
+
 static int mass_storage_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct mass_storage_function_config *config = f->config;
-	return fsg_bind_config(c->cdev, c, config->common);
+	int ret;
+
+	ret = fsg_bind_config(c->cdev, c, config->common);
+	if (ret)
+		pr_err("fsg_bind_config failed. ret:%x\n", ret);
+
+	return ret;
 }
 
 static ssize_t mass_storage_inquiry_show(struct device *dev,
@@ -2113,8 +2199,27 @@ static DEVICE_ATTR(inquiry_string, S_IRUGO | S_IWUSR,
 					mass_storage_inquiry_show,
 					mass_storage_inquiry_store);
 
+static ssize_t mass_storage_lun_info_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", lun_info);
+}
+
+static ssize_t mass_storage_lun_info_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	strlcpy(lun_info, buf, sizeof(lun_info));
+	return size;
+}
+
+static DEVICE_ATTR(luns, S_IRUGO | S_IWUSR,
+				mass_storage_lun_info_show,
+				mass_storage_lun_info_store);
+
 static struct device_attribute *mass_storage_function_attributes[] = {
 	&dev_attr_inquiry_string,
+	&dev_attr_luns,
 	NULL
 };
 
@@ -2124,6 +2229,7 @@ static struct android_usb_function mass_storage_function = {
 	.cleanup	= mass_storage_function_cleanup,
 	.bind_config	= mass_storage_function_bind_config,
 	.attributes	= mass_storage_function_attributes,
+	.enable		= mass_storage_function_enable,
 };
 
 
@@ -3177,10 +3283,6 @@ static int android_probe(struct platform_device *pdev)
 		of_property_read_u32(pdev->dev.of_node,
 				"qcom,android-usb-swfi-latency",
 				&pdata->swfi_latency);
-		pdata->cdrom = of_property_read_bool(pdev->dev.of_node,
-				"qcom,android-usb-cdrom");
-		pdata->internal_ums = of_property_read_bool(pdev->dev.of_node,
-				"qcom,android-usb-internal-ums");
 	} else {
 		pdata = pdev->dev.platform_data;
 	}
