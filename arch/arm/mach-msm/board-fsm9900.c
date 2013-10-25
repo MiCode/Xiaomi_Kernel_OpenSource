@@ -11,6 +11,7 @@
  */
 
 #include <linux/err.h>
+#include <linux/etherdevice.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -32,6 +33,10 @@
 #include "devices.h"
 #include "platsmp.h"
 
+#define FSM9900_MAC0_FUSE_PHYS	0xFC4B8440
+#define FSM9900_MAC1_FUSE_PHYS	0xFC4B8448
+#define FSM9900_MAC_FUSE_SIZE	0x10
+
 static struct of_dev_auxdata fsm9900_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
@@ -39,6 +44,8 @@ static struct of_dev_auxdata fsm9900_auxdata_lookup[] __initdata = {
 			"msm_sdcc.2", NULL),
 	{}
 };
+
+static const char mac_addr_prop_name[] = "mac-address";
 
 void __init fsm9900_reserve(void)
 {
@@ -70,6 +77,81 @@ static void __init fsm9900_map_io(void)
 	msm_map_fsm9900_io();
 }
 
+static int emac_dt_update(int cell, phys_addr_t addr, unsigned long size)
+{
+	/*
+	 * Use an array for the fuse. Corrected fuse data may be located
+	 * at a different offsets.
+	 */
+	static int offset[ETH_ALEN] = { 0, 1, 2, 3, 4, 5};
+	void __iomem *fuse_reg;
+	struct device_node *np = NULL;
+	struct property *pmac = NULL;
+	struct property *pp = NULL;
+	u8 buf[ETH_ALEN];
+	int n;
+	int retval = 0;
+
+	fuse_reg = ioremap(addr, size);
+	if (!fuse_reg) {
+		pr_err("failed to ioremap efuse to read mac address");
+		return -ENOMEM;
+	}
+
+	for (n = 0; n < ETH_ALEN; n++)
+		buf[n] = ioread8(fuse_reg + offset[n]);
+
+	iounmap(fuse_reg);
+
+	if (!is_valid_ether_addr(buf)) {
+		pr_err("invalid MAC address in efuse\n");
+		return -ENODATA;
+	}
+
+	pmac = kzalloc(sizeof(*pmac) + ETH_ALEN, GFP_KERNEL);
+	if (!pmac) {
+		pr_err("failed to alloc memory for mac address\n");
+		return -ENOMEM;
+	}
+
+	pmac->value = pmac + 1;
+	pmac->length = ETH_ALEN;
+	pmac->name = (char *)mac_addr_prop_name;
+	memcpy(pmac->value, buf, ETH_ALEN);
+
+	for_each_compatible_node(np, NULL, "qcom,emac") {
+		if (of_property_read_u32(np, "cell-index", &n))
+			continue;
+		if (n == cell)
+			break;
+	}
+
+	if (!np) {
+		pr_err("failed to find dt node for emac%d", cell);
+		retval = -ENODEV;
+		goto out;
+	}
+
+	pp = of_find_property(np, pmac->name, NULL);
+	if (pp)
+		of_update_property(np, pmac);
+	else
+		of_add_property(np, pmac);
+
+out:
+	if (retval && pmac)
+		kfree(pmac);
+
+	return retval;
+}
+
+int __init fsm9900_emac_dt_update(void)
+{
+	emac_dt_update(0, FSM9900_MAC0_FUSE_PHYS, FSM9900_MAC_FUSE_SIZE);
+	emac_dt_update(1, FSM9900_MAC1_FUSE_PHYS, FSM9900_MAC_FUSE_SIZE);
+	return 0;
+}
+
 void __init fsm9900_init(void)
 {
 	struct of_dev_auxdata *adata = fsm9900_auxdata_lookup;
@@ -79,6 +161,8 @@ void __init fsm9900_init(void)
 
 	fsm9900_init_gpiomux();
 	board_dt_populate(adata);
+	fsm9900_emac_dt_update();
+
 	fsm9900_add_drivers();
 }
 
