@@ -197,6 +197,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON_FIXUP = 1,
 	ADRENO_DEVICE_INITIALIZED = 2,
 	ADRENO_DEVICE_CORESIGHT = 3,
+	ADRENO_DEVICE_HANG_INTR = 4,
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0
@@ -412,6 +413,17 @@ struct adreno_coresight {
 };
 
 
+struct adreno_irq_funcs {
+	void (*func)(struct adreno_device *, int);
+};
+#define ADRENO_IRQ_CALLBACK(_c) { .func = _c }
+
+struct adreno_irq {
+	unsigned int mask;
+	struct adreno_irq_funcs *funcs;
+	int funcs_count;
+};
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on different devices,
@@ -427,11 +439,13 @@ struct adreno_gpudev {
 
 	struct adreno_coresight *coresight;
 
+	struct adreno_irq *irq;
 	/* GPU specific function hooks */
 	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
 	irqreturn_t (*irq_handler)(struct adreno_device *);
 	void (*irq_control)(struct adreno_device *, int);
 	unsigned int (*irq_pending)(struct adreno_device *);
+	void (*irq_setup)(struct adreno_device *);
 	void * (*snapshot)(struct adreno_device *, void *, int *, int);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*perfcounter_init)(struct adreno_device *);

@@ -14,6 +14,18 @@
 #ifndef _A4XX_REG_H
 #define _A4XX_REG_H
 
+/* A4XX interrupt bit that are different from A3XX */
+#define A4XX_INT_RBBM_ETS_MS_TIMEOUT		5
+#define A4XX_INT_RBBM_ASYNC_OVERFLOW		6
+#define A4XX_INT_RBBM_GPC_ERR			7
+#define A4XX_INT_CP_OPCODE_ERR			9
+#define A4XX_INT_CP_SW				8
+#define A4XX_INT_RBBM_ATB_BUS_OVERFLOW		22
+#define A4XX_INT_RBBM_DPM_CALC_ERR		28
+#define A4XX_INT_RBBM_DPM_EPOCH_ERR		29
+#define A4XX_INT_RBBM_DPM_THERMAL_YELLOW_ERR	30
+#define A4XX_INT_RBBM_DPM_THERMAL_RED_ERR	31
+
 /* RB registers */
 #define A4XX_RB_GMEM_BASE_ADDR		0xcc0
 
