@@ -2099,8 +2099,11 @@ static void blk_account_io_completion(struct request *req, unsigned int bytes)
 		struct hd_struct *part;
 		int cpu;
 
-		cpu = part_stat_lock();
 		part = req->part;
+		if (!part)
+			return;
+
+		cpu = part_stat_lock();
 		part_stat_add(cpu, part, sectors[rw], bytes >> 9);
 		part_stat_unlock();
 	}
@@ -2119,14 +2122,15 @@ static void blk_account_io_done(struct request *req)
 		struct hd_struct *part;
 		int cpu;
 
-		cpu = part_stat_lock();
 		part = req->part;
+		if (!req->part)
+			return;
 
+		cpu = part_stat_lock();
 		part_stat_inc(cpu, part, ios[rw]);
 		part_stat_add(cpu, part, ticks[rw], duration);
 		part_round_stats(cpu, part);
 		part_dec_in_flight(part, rw);
-
 		hd_struct_put(part);
 		part_stat_unlock();
 	}
