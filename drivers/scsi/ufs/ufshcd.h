@@ -508,6 +508,12 @@ struct ufs_hba {
 	/* UFSHC advertises 64-bit not supported even though it supports */
 	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0        (1 << 3)
 
+	/*
+	 * delay before each dme command is required as the unipro
+	 * layer has shown instabilities
+	 */
+	#define UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS        (1 << 7)
+
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
 	struct completion *uic_async_done;
