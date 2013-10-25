@@ -189,7 +189,6 @@ __v7_ca9mp_setup:
 	b	1f
 __v7_ca7mp_setup:
 __v7_ca15mp_setup:
-__v7_ca53mp_setup:
 	mov	r10, #0
 1:
 #ifdef CONFIG_SMP
@@ -199,6 +198,17 @@ __v7_ca53mp_setup:
 	orreq	r0, r0, #(1 << 6)		@ Enable SMP/nAMP mode
 	orreq	r0, r0, r10			@ Enable CPU-specific SMP bits
 	mcreq	p15, 0, r0, c1, c0, 1
+#endif
+	b	__v7_setup
+__v7_ca53mp_setup:
+	mov	r10, #0
+#ifdef CONFIG_SMP
+	ALT_SMP(mrrc	p15, 1, r0, r6, c15)	@ Read CPU Extended Control Reg
+	ALT_UP(mov	r0, #(1 << 6))		@ fake it for UP
+	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
+	orreq	r0, r0, #(1 << 6)		@ Enable SMP/nAMP mode
+	orreq	r0, r0, r10			@ Enable CPU-specific SMP bits
+	mcrr	p15, 1, r0, r6, c15		@ Write CPU Extended Control Reg
 #endif
 	b	__v7_setup
 
