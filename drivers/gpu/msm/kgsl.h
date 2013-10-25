@@ -355,8 +355,10 @@ static inline bool kgsl_addr_range_overlap(unsigned int gpuaddr1,
 		unsigned int size1,
 		unsigned int gpuaddr2, unsigned int size2)
 {
-	return !(((gpuaddr1 + size1) < gpuaddr2) ||
-		(gpuaddr1 > (gpuaddr2 + size2)));
+	if ((size1 > (UINT_MAX - gpuaddr1)) || (size2 > (UINT_MAX - gpuaddr2)))
+		return false;
+	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
+		(gpuaddr1 >= (gpuaddr2 + size2)));
 }
 
 #endif /* __KGSL_H */
