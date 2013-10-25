@@ -891,7 +891,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 			create_ramdump_device("audio-ocmem", &pdev->dev);
 
 		if (!audio_ocmem_lcl.ocmem_ramdump_dev)
-			pr_err("%s: audio-ocmem ramdump device failed\n",
+			pr_info("%s: audio-ocmem ramdump device failed\n",
 				__func__);
 	} else {
 		pr_err("%s: ocmem dump memory alloc failed\n", __func__);
@@ -903,16 +903,18 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	if (!audio_ocmem_lcl.audio_ocmem_workqueue) {
 		pr_err("%s: Failed to create ocmem audio work queue\n",
 			__func__);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto destroy_ramdump;
 	}
 
 	audio_ocmem_lcl.voice_ocmem_workqueue =
 		alloc_workqueue("ocmem_audio_client_driver_voice",
 					WQ_NON_REENTRANT, 0);
 	if (!audio_ocmem_lcl.voice_ocmem_workqueue) {
-		pr_err("%s: Failed to create ocmem voice work queue\n",
+		pr_info("%s: Failed to create ocmem voice work queue\n",
 			__func__);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto destroy_audio_wq;
 	}
 
 	init_waitqueue_head(&audio_ocmem_lcl.audio_wait);
@@ -929,7 +931,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "%s: failed to populate platform data, rc = %d\n",
 						__func__, ret);
-		return -ENODEV;
+		goto destroy_voice_wq;
 	}
 	audio_ocmem_bus_scale_pdata = dev_get_drvdata(&pdev->dev);
 
@@ -939,7 +941,8 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	if (!audio_ocmem_lcl.audio_ocmem_bus_client) {
 		pr_err("%s: msm_bus_scale_register_client() failed\n",
 		__func__);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto destroy_voice_wq;
 	}
 	audio_ocmem_lcl.audio_hdl = ocmem_notifier_register(OCMEM_LP_AUDIO,
 						&audio_ocmem_client_nb);
@@ -949,6 +952,23 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	}
 	audio_ocmem_lcl.lp_memseg_ptr = NULL;
 	return 0;
+destroy_voice_wq:
+	if (audio_ocmem_lcl.voice_ocmem_workqueue) {
+		destroy_workqueue(audio_ocmem_lcl.voice_ocmem_workqueue);
+		audio_ocmem_lcl.voice_ocmem_workqueue = NULL;
+	}
+destroy_audio_wq:
+	if (audio_ocmem_lcl.audio_ocmem_workqueue) {
+		destroy_workqueue(audio_ocmem_lcl.audio_ocmem_workqueue);
+		audio_ocmem_lcl.audio_ocmem_workqueue = NULL;
+	}
+destroy_ramdump:
+	if (audio_ocmem_lcl.ocmem_ramdump_dev)
+		destroy_ramdump_device(audio_ocmem_lcl.ocmem_ramdump_dev);
+	if (audio_ocmem_lcl.ocmem_dump_addr)
+		free_contiguous_memory_by_paddr(
+		    audio_ocmem_lcl.ocmem_dump_addr);
+	return ret;
 }
 
 static int ocmem_audio_client_remove(struct platform_device *pdev)
@@ -961,7 +981,12 @@ static int ocmem_audio_client_remove(struct platform_device *pdev)
 	msm_bus_cl_clear_pdata(audio_ocmem_bus_scale_pdata);
 	ocmem_notifier_unregister(audio_ocmem_lcl.audio_hdl,
 					&audio_ocmem_client_nb);
-	free_contiguous_memory_by_paddr(audio_ocmem_lcl.ocmem_dump_addr);
+	if (audio_ocmem_lcl.ocmem_ramdump_dev)
+		destroy_ramdump_device(audio_ocmem_lcl.ocmem_ramdump_dev);
+	if (audio_ocmem_lcl.ocmem_dump_addr)
+		free_contiguous_memory_by_paddr(
+		    audio_ocmem_lcl.ocmem_dump_addr);
+
 	return 0;
 }
 static const struct of_device_id msm_ocmem_audio_dt_match[] = {
