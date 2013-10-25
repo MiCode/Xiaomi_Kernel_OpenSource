@@ -816,6 +816,12 @@ static struct gpiomux_setting gpio_qca1530_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_qca1530_config_mpp7 = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 static struct msm_gpiomux_config msm_qca1530_cdp_configs[] __initdata = {
 	{
 		.gpio = 133,    /* qca1530 reset */
@@ -835,7 +841,7 @@ static struct msm_gpiomux_config msm_qca1530_liquid_configs[] __initdata = {
 	{
 		.gpio = 66,     /* qca1530 power extra */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_qca1530_config,
+			[GPIOMUX_SUSPENDED] = &gpio_qca1530_config_mpp7,
 		},
 	},
 };
