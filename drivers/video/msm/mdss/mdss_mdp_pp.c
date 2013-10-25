@@ -1705,11 +1705,13 @@ int mdss_mdp_pp_init(struct device *dev)
 		if (mdss_pp_res == NULL) {
 			pr_err("%s mdss_pp_res allocation failed!", __func__);
 			ret = -ENOMEM;
-		}
-
-		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
-			mutex_init(&mdss_pp_res->dspp_hist[i].hist_mutex);
-			spin_lock_init(&mdss_pp_res->dspp_hist[i].hist_lock);
+		} else {
+			for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
+				mutex_init(
+					&mdss_pp_res->dspp_hist[i].hist_mutex);
+				spin_lock_init(
+					&mdss_pp_res->dspp_hist[i].hist_lock);
+			}
 		}
 	}
 	if (mdata) {
