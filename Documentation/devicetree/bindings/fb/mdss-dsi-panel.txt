@@ -178,34 +178,33 @@ Optional properties:
 - qcom,mdss-dsi-bllp-power-mode:	Boolean to determine DSI lane state during
 					blanking low power period (BLLP) mode.
 - qcom,mdss-dsi-traffic-mode:		Specifies the panel traffic mode.
-					0 = non burst with sync pulses (default mode).
-					1 = non burst with sync start event.
-					2 = burst mode.
+					"non_burst_sync_pulse" = non burst with sync pulses (default).
+					"non_burst_sync_event" = non burst with sync start event.
+					"burst_mode" = burst mode.
 - qcom,mdss-dsi-pixel-packing:		Specifies if pixel packing is used (in case of RGB666).
-					0 = Tight packing (default value).
-					1 = Loose packing.
+					"tight" = Tight packing (default value).
+					"loose" = Loose packing.
 - qcom,mdss-dsi-virtual-channel-id:	Specifies the virtual channel identefier.
 					0 = default value.
 - qcom,mdss-dsi-color-order:		Specifies the R, G and B channel ordering.
-					0 = DSI_RGB_SWAP_RGB (default value)
-					1 = DSI_RGB_SWAP_RBG
-					2 = DSI_RGB_SWAP_BGR
-					3 = DSI_RGB_SWAP_BRG
-					4 = DSI_RGB_SWAP_GRB
-					5 = DSI_RGB_SWAP_GBR
+					"rgb_swap_rgb" = DSI_RGB_SWAP_RGB (default value)
+					"rgb_swap_rbg" = DSI_RGB_SWAP_RBG
+					"rgb_swap_brg" = DSI_RGB_SWAP_BRG
+					"rgb_swap_grb" = DSI_RGB_SWAP_GRB
+					"rgb_swap_gbr" = DSI_RGB_SWAP_GBR
 - qcom,mdss-dsi-lane-0-state:		Boolean that specifies whether data lane 0 is enabled.
 - qcom,mdss-dsi-lane-1-state:		Boolean that specifies whether data lane 1 is enabled.
 - qcom,mdss-dsi-lane-2-state:		Boolean that specifies whether data lane 2 is enabled.
 - qcom,mdss-dsi-lane-3-state:		Boolean that specifies whether data lane 3 is enabled.
 - qcom,mdss-dsi-lane-map:		Specifies the data lane swap configuration.
-					0 = <0 1 2 3> (default value)
-					1 = <3 0 1 2>
-					2 = <2 3 0 1>
-					3 = <1 2 3 0>
-					4 = <0 3 2 1>
-					5 = <1 0 3 2>
-					6 = <2 1 0 3>
-					7 = <3 2 1 0>
+					"lane_map_0123" = <0 1 2 3> (default value)
+					"lane_map_3012" = <3 0 1 2>
+					"lane_map_2301" = <2 3 0 1>
+					"lane_map_1230" = <1 2 3 0>
+					"lane_map_0321" = <0 3 2 1>
+					"lane_map_1032" = <1 0 3 2>
+					"lane_map_2103" = <2 1 0 3>
+					"lane_map_3210" = <3 2 1 0>
 - qcom,mdss-dsi-t-clk-post:		Specifies the byte clock cycles after mode switch.
 					0x03 = default value.
 - qcom,mdss-dsi-t-clk-pre:		Specifies the byte clock cycles before mode switch.
@@ -214,16 +213,16 @@ Optional properties:
 					0 = stream 0 (default)
 					1 = stream 1
 - qcom,mdss-dsi-mdp-trigger:		Specifies the trigger mechanism to be used for MDP path.
-					0 = no trigger
-					2 = Tear check signal line used for trigger
-					4 = Triggered by software (default)
-					6 = Software trigger and TE
+					"none" = no trigger
+					"trigger_te" = Tear check signal line used for trigger
+					"trigger_sw" = Triggered by software (default)
+					"trigger_sw_te" = Software trigger and TE
 - qcom,mdss-dsi-dma-trigger:		Specifies the trigger mechanism to be used for DMA path.
-					0 = no trigger
-					2 = Tear check signal line used for trigger
-					4 = Triggered by software (default)
-					5 = Software trigger and start/end of frame trigger.
-					6 = Software trigger and TE
+					"none" = no trigger
+					"trigger_te" = Tear check signal line used for trigger
+					"trigger_sw" = Triggered by software (default)
+					"trigger_sw_seof" = Software trigger and start/end of frame trigger.
+					"trigger_sw_te" = Software trigger and TE
 - qcom,mdss-dsi-panel-framerate:	Specifies the frame rate for the panel.
 					60 = 60 frames per second (default)
 - qcom,mdss-dsi-panel-clockrate:	Specifies the panel clock speed in Hz.
