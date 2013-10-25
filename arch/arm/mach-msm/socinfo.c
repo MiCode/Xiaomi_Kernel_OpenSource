@@ -58,6 +58,7 @@ enum {
 	HW_PLATFORM_QRD	= 11,
 	HW_PLATFORM_HRD	= 13,
 	HW_PLATFORM_DTV	= 14,
+	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_INVALID
 };
 
@@ -74,6 +75,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_QRD] = "QRD",
 	[HW_PLATFORM_HRD] = "HRD",
 	[HW_PLATFORM_DTV] = "DTV",
+	[HW_PLATFORM_STP] = "STP",
 };
 
 enum {
