@@ -4134,13 +4134,13 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 		&(chip->thermal_levels));
 
 	if (chip->thermal_levels > sizeof(int)) {
-		chip->thermal_mitigation = kzalloc(
+		chip->thermal_mitigation = devm_kzalloc(chip->dev,
 			chip->thermal_levels,
 			GFP_KERNEL);
 
 		if (chip->thermal_mitigation == NULL) {
 			pr_err("thermal mitigation kzalloc() failed.\n");
-			return rc;
+			return -ENOMEM;
 		}
 
 		chip->thermal_levels /= sizeof(int);
@@ -4165,7 +4165,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	struct spmi_resource *spmi_resource;
 	int rc = 0;
 
-	chip = kzalloc(sizeof *chip, GFP_KERNEL);
+	chip = devm_kzalloc(&spmi->dev,
+			sizeof(struct qpnp_chg_chip), GFP_KERNEL);
 	if (chip == NULL) {
 		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
@@ -4197,7 +4198,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
 	if (rc)
-		goto fail_chg_enable;
+		return rc;
 
 	/*
 	 * Check if bat_if is set in DT and make sure VADC is present
@@ -4509,9 +4510,6 @@ unregister_batt:
 fail_chg_enable:
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
-	kfree(chip->thermal_mitigation);
-	kfree(chip);
-	dev_set_drvdata(&spmi->dev, NULL);
 	return rc;
 }
 
@@ -4524,14 +4522,26 @@ qpnp_charger_remove(struct spmi_device *spmi)
 		qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev,
 							&chip->adc_param);
 	}
-	cancel_work_sync(&chip->adc_measure_work);
+
+	cancel_delayed_work_sync(&chip->aicl_check_work);
+	power_supply_unregister(&chip->dc_psy);
+	cancel_work_sync(&chip->soc_check_work);
+	cancel_delayed_work_sync(&chip->usbin_health_check);
+	cancel_delayed_work_sync(&chip->arb_stop_work);
 	cancel_delayed_work_sync(&chip->eoc_work);
+	cancel_work_sync(&chip->adc_disable_work);
+	cancel_work_sync(&chip->adc_measure_work);
+	power_supply_unregister(&chip->batt_psy);
+	cancel_work_sync(&chip->batfet_lcl_work);
+	cancel_work_sync(&chip->insertion_ocv_work);
+	cancel_work_sync(&chip->reduce_power_stage_work);
+	alarm_cancel(&chip->reduce_power_stage_alarm);
+
+	mutex_destroy(&chip->batfet_vreg_lock);
+	mutex_destroy(&chip->jeita_configure_lock);
 
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
-
-	dev_set_drvdata(&spmi->dev, NULL);
-	kfree(chip);
 
 	return 0;
 }
