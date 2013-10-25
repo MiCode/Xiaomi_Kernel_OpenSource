@@ -2456,6 +2456,10 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 	mutex_unlock(&hdmi_ctrl->mutex);
 
 	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
+
+	if (hdmi_ctrl->hdmi_tx_hpd_done)
+		hdmi_ctrl->hdmi_tx_hpd_done(
+			hdmi_ctrl->downstream_data);
 } /* hdmi_tx_power_off_work */
 
 static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
@@ -2557,6 +2561,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		hdmi_tx_is_dvi_mode(hdmi_ctrl) ? "ON" : "OFF");
 
 	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_DISCONNECT_POLARITY);
+
+	if (hdmi_ctrl->hdmi_tx_hpd_done)
+		hdmi_ctrl->hdmi_tx_hpd_done(hdmi_ctrl->downstream_data);
 
 	return 0;
 } /* hdmi_tx_power_on */
