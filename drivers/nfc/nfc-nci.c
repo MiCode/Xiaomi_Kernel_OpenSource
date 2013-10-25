@@ -923,6 +923,19 @@ static int qca199x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 
+	regulators.regulator = regulator_get(&client->dev, regulators.name);
+	if (IS_ERR(regulators.regulator)) {
+		r = PTR_ERR(regulators.regulator);
+		pr_err("regulator get of %s failed (%d)\n", regulators.name, r);
+	} else {
+		/* Enable the regulator */
+		r = regulator_enable(regulators.regulator);
+		if (r) {
+			pr_err("vreg %s enable failed (%d)\n",
+				regulators.name, r);
+		}
+	}
+
 	logging_level = 0;
 	/* request irq.  The irq is set whenever the chip has data available
 	* for reading.  It is cleared when all data has been read.
