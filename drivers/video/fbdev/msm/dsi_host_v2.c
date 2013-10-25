@@ -223,6 +223,9 @@ irqreturn_t msm_dsi_isr_handler(int irq, void *ptr)
 
 	spin_unlock(&ctrl->mdp_lock);
 
+	if (isr & DSI_INTR_BTA_DONE)
+		complete(&ctrl->bta_comp);
+
 	return IRQ_HANDLED;
 }
 
@@ -1171,6 +1174,35 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static int msm_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 0;
+
+	if (ctrl_pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&ctrl_pdata->cmd_mutex);
+	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
+	INIT_COMPLETION(ctrl_pdata->bta_comp);
+
+	/* BTA trigger */
+	MIPI_OUTP(dsi_host_private->dsi_base + DSI_CMD_MODE_BTA_SW_TRIGGER,
+									0x01);
+	wmb();
+	ret = wait_for_completion_killable_timeout(&ctrl_pdata->bta_comp,
+									HZ/10);
+	msm_dsi_clear_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
+	mutex_unlock(&ctrl_pdata->cmd_mutex);
+
+	if (ret <= 0)
+		pr_err("%s: DSI BTA error: %i\n", __func__, __LINE__);
+
+	pr_debug("%s: BTA done with ret: %d\n", __func__, ret);
+	return ret;
+}
+
 static void msm_dsi_debug_enable_clock(int on)
 {
 	if (dsi_host_private->debug_enable_clk)
@@ -1334,6 +1366,7 @@ void msm_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	init_completion(&ctrl->dma_comp);
 	init_completion(&ctrl->mdp_comp);
+	init_completion(&ctrl->bta_comp);
 	init_completion(&ctrl->video_comp);
 	spin_lock_init(&ctrl->irq_lock);
 	spin_lock_init(&ctrl->mdp_lock);
@@ -1344,6 +1377,7 @@ void msm_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
 	ctrl->cmdlist_commit = msm_dsi_cmdlist_commit;
 	ctrl->panel_mode = ctrl->panel_data.panel_info.mipi.mode;
+	ctrl->check_status = msm_dsi_bta_status_check;
 }
 
 static int msm_dsi_probe(struct platform_device *pdev)
