@@ -3489,7 +3489,7 @@ static void load_shutdown_data(struct qpnp_bms_chip *chip)
 			|| shutdown_soc_out_of_limit) {
 		chip->battery_removed = true;
 		chip->shutdown_soc_invalid = true;
-		chip->shutdown_iavg_ma = 0;
+		chip->shutdown_iavg_ma = MIN_IAVG_MA;
 		pr_debug("Ignoring shutdown SoC: invalid = %d, offmode = %d, out_of_limit = %d\n",
 				invalid_stored_soc, offmode_battery_replaced,
 				shutdown_soc_out_of_limit);
