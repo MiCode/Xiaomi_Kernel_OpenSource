@@ -2195,8 +2195,8 @@ static void qce_sps_release_bam(struct qce_device *pce_dev)
 	list_del(&pbam->qlist);
 	kfree(pbam);
 
-ret:
 	pce_dev->pbam = NULL;
+ret:
 	mutex_unlock(&bam_register_lock);
 }
 
