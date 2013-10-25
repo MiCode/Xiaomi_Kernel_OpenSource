@@ -24,6 +24,10 @@ struct wsm *wsm_create(void *virt_addr, uint32_t len, uint32_t handle,
 	struct wsm *wsm;
 
 	wsm = kzalloc(sizeof(*wsm), GFP_KERNEL);
+	if (wsm == NULL) {
+		MCDRV_DBG_ERROR(mc_kapi, "Allocation failure");
+		return NULL;
+	}
 	wsm->virt_addr = virt_addr;
 	wsm->len = len;
 	wsm->handle = handle;
@@ -37,6 +41,10 @@ struct mcore_device_t *mcore_device_create(uint32_t device_id,
 	struct mcore_device_t *dev;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (dev == NULL) {
+		MCDRV_DBG_ERROR(mc_kapi, "Allocation failure");
+		return NULL;
+	}
 	dev->device_id = device_id;
 	dev->connection = connection;
 
@@ -102,6 +110,8 @@ bool mcore_device_create_new_session(struct mcore_device_t *dev,
 	}
 	struct session *session =
 			session_create(session_id, dev->instance, connection);
+	if (session == NULL)
+		return false;
 	list_add_tail(&(session->list), &(dev->session_vector));
 	return true;
 }
@@ -162,6 +172,10 @@ struct wsm *mcore_device_allocate_contiguous_wsm(struct mcore_device_t *dev,
 
 		/* Register (vaddr,paddr) with device */
 		wsm = wsm_create(virt_addr, len, handle, phys_addr);
+		if (wsm == NULL) {
+			mobicore_free_wsm(dev->instance, handle);
+			break;
+		}
 
 		list_add_tail(&(wsm->list), &(dev->wsm_l2_vector));
 

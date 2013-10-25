@@ -152,6 +152,10 @@ static int __init mcapi_init(void)
 	netlink_cfg.bind = NULL;
 
 	mod_ctx = kzalloc(sizeof(struct mc_kernelapi_ctx), GFP_KERNEL);
+	if (mod_ctx == NULL) {
+		MCDRV_DBG_ERROR(mc_kapi, "Allocation failure");
+		return -ENOMEM;
+	}
 	/* start kernel thread */
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK,
 						    &netlink_cfg);
