@@ -137,29 +137,13 @@ static void __iomem *pll_vote_clk_list_registers(struct clk *c, int n,
 	static struct clk_register_data data1[] = {
 		{"APPS_VOTE", 0x0},
 	};
-	/* Not compatible with 8960 & friends */
-	static struct clk_register_data data2[] = {
-		{"MODE", 0x0},
-		{"L", 0x4},
-		{"M", 0x8},
-		{"N", 0xC},
-		{"USER", 0x10},
-		{"CONFIG", 0x14},
-		{"STATUS", 0x1C},
-	};
 
-	switch (n) {
-	case 0:
-		*regs = data1;
-		*size = ARRAY_SIZE(data1);
-		return PLL_EN_REG(pllv);
-	case 1:
-		*regs = data2;
-		*size = ARRAY_SIZE(data2);
-		return PLL_STATUS_REG(pllv) - 0x1C;
-	default:
+	if (n)
 		return ERR_PTR(-EINVAL);
-	}
+
+	*regs = data1;
+	*size = ARRAY_SIZE(data1);
+	return PLL_EN_REG(pllv);
 }
 
 struct clk_ops clk_ops_pll_vote = {
