@@ -324,6 +324,18 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = NULL,
 		.cluster = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SCS_THRESHOLD,
+		.name = "Video start code search threshold",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = INT_MAX,
+		.default_value = INT_MAX,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -1520,6 +1532,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_extradata_enable extra;
 	struct hal_buffer_alloc_mode alloc_mode;
 	struct hal_multi_stream multi_stream;
+	struct hfi_scs_threshold scs_threshold;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1647,7 +1660,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &alloc_mode;
 		inst->buffer_mode_set[CAPTURE_PORT] = alloc_mode.buffer_mode;
 		break;
-
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 		if (ctrl->val && !(inst->capability.pixelprocess_capabilities &
 				HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY)) {
@@ -1711,6 +1723,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SCS_THRESHOLD:
+		property_id = HAL_PARAM_VDEC_SCS_THRESHOLD;
+		scs_threshold.threshold_value = ctrl->val;
+		pdata = &scs_threshold;
 		break;
 	default:
 		break;

@@ -1446,6 +1446,17 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
+	case HAL_PARAM_VDEC_SCS_THRESHOLD:
+	{
+		struct hfi_scs_threshold *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VDEC_SCS_THRESHOLD;
+		hfi = (struct hfi_scs_threshold *) &pkt->rg_property_data[1];
+		hfi->threshold_value =
+			((struct hfi_scs_threshold *) pdata)->threshold_value;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_scs_threshold);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:

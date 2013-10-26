@@ -70,6 +70,9 @@ static enum vidc_status hfi_map_err_status(int hfi_err)
 	case HFI_ERR_SESSION_SYNC_FRAME_NOT_DETECTED:
 		vidc_err = VIDC_ERR_IFRAME_EXPECTED;
 		break;
+	case HFI_ERR_SESSION_START_CODE_NOT_FOUND:
+		vidc_err = VIDC_ERR_START_CODE_NOT_FOUND;
+		break;
 	case HFI_ERR_SESSION_EMPTY_BUFFER_DONE_OUTPUT_PENDING:
 	default:
 		vidc_err = VIDC_ERR_FAIL;
