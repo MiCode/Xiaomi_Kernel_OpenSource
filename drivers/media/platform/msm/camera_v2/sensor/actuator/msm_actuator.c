@@ -201,10 +201,18 @@ static int32_t msm_actuator_piezo_move_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t dest_step_position = move_params->dest_step_pos;
+	struct damping_params_t ringing_params_kernel;
 	int32_t rc = 0;
 	int32_t num_steps = move_params->num_steps;
 	struct msm_camera_i2c_reg_setting reg_setting;
 	CDBG("Enter\n");
+
+	if (copy_from_user(&ringing_params_kernel,
+		&(move_params->ringing_params[0]),
+		sizeof(struct damping_params_t))) {
+		pr_err("copy_from_user failed\n");
+		return -EFAULT;
+	}
 
 	if (num_steps == 0)
 		return rc;
@@ -213,7 +221,7 @@ static int32_t msm_actuator_piezo_move_focus(
 	a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 		(num_steps *
 		a_ctrl->region_params[0].code_per_step),
-		move_params->ringing_params[0].hw_params, 0);
+		ringing_params_kernel.hw_params, 0);
 
 	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
 	reg_setting.data_type = a_ctrl->i2c_data_type;
@@ -235,6 +243,7 @@ static int32_t msm_actuator_move_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
+	struct damping_params_t ringing_params_kernel;
 	int8_t sign_dir = move_params->sign_dir;
 	uint16_t step_boundary = 0;
 	uint16_t target_step_pos = 0;
@@ -244,6 +253,14 @@ static int32_t msm_actuator_move_focus(
 	int dir = move_params->dir;
 	int32_t num_steps = move_params->num_steps;
 	struct msm_camera_i2c_reg_setting reg_setting;
+
+	if (copy_from_user(&ringing_params_kernel,
+		&(move_params->ringing_params[a_ctrl->curr_region_index]),
+		sizeof(struct damping_params_t))) {
+		pr_err("copy_from_user failed\n");
+		return -EFAULT;
+	}
+
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
@@ -267,9 +284,7 @@ static int32_t msm_actuator_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&(move_params->
-						ringing_params[a_ctrl->
-						curr_region_index]),
+					&ringing_params_kernel,
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
@@ -280,8 +295,7 @@ static int32_t msm_actuator_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&(move_params->ringing_params[a_ctrl->
-						curr_region_index]),
+					&ringing_params_kernel,
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
