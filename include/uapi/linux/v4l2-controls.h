@@ -813,6 +813,8 @@ enum v4l2_mpeg_vidc_video_decoder_multi_stream {
 	V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY = 0,
 	V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY = 1,
 };
+#define V4L2_CID_MPEG_VIDC_VIDEO_SCS_THRESHOLD \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 39)
 
 /*  Camera class control IDs */
 
