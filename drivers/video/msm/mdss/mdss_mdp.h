@@ -316,8 +316,9 @@ struct mdss_pipe_pp_res {
 };
 
 struct mdss_mdp_pipe_smp_map {
-	DECLARE_BITMAP(reserved, MDSS_MDP_SMP_MMB_BLOCKS);
-	DECLARE_BITMAP(allocated, MDSS_MDP_SMP_MMB_BLOCKS);
+	DECLARE_BITMAP(reserved, MAX_DRV_SUP_MMB_BLKS);
+	DECLARE_BITMAP(allocated, MAX_DRV_SUP_MMB_BLKS);
+	DECLARE_BITMAP(fixed, MAX_DRV_SUP_MMB_BLKS);
 };
 
 struct mdss_mdp_pipe {
