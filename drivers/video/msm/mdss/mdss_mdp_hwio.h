@@ -419,8 +419,6 @@ enum mdss_mpd_intf_index {
 	MDSS_MDP_MAX_INTF
 };
 
-#define MDSS_MDP_REG_INTF_OFFSET(intf)		(0x20F00 + ((intf) * 0x200))
-
 #define MDSS_MDP_REG_INTF_TIMING_ENGINE_EN		0x000
 #define MDSS_MDP_REG_INTF_CONFIG			0x004
 #define MDSS_MDP_REG_INTF_HSYNC_CTL			0x008

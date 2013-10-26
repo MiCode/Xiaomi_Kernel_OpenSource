@@ -330,6 +330,7 @@ struct mdss_mdp_pipe {
 	atomic_t ref_cnt;
 	u32 play_cnt;
 	int pid;
+	bool is_handed_off;
 
 	u32 flags;
 	u32 bwc_mode;
@@ -399,6 +400,7 @@ struct mdss_overlay_private {
 	int free_list_size;
 	int ad_state;
 
+	bool handoff;
 	u32 splash_mem_addr;
 	u32 splash_mem_size;
 	u32 sd_enabled;
@@ -485,9 +487,11 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 					struct msm_fb_data_type *mfd);
-int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl);
-int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl);
-int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
+		bool handoff);
+int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
+		bool handoff);
+int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff);
 int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 		struct mdss_panel_data *pdata);
@@ -503,6 +507,8 @@ void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
 void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 
+int mdss_mdp_mixer_handoff(struct mdss_mdp_ctl *ctl, u32 num,
+	struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
 int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux);
@@ -556,6 +562,8 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off);
 int mdss_mdp_calib_mode(struct msm_fb_data_type *mfd,
 				struct mdss_calib_cfg *cfg);
 
+int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe);
+int mdss_mdp_smp_handoff(struct mdss_data_type *mdata);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 					  u32 type);
 struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx);
