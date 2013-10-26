@@ -182,7 +182,7 @@
 		compatible = "qcom,msm-vidc";
 		qcom,vidc-ns-map = <0x40000000 0x40000000>;
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
-						<0x1fe 0x2>;
+						<0x7fe 0x2>;
 		qcom,hfi = "q6";
 		qcom,max-hw-load = <244800>; /* 1080p @ 30 * 1 */
 		qcom,vidc-iommu-domains {
