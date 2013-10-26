@@ -611,13 +611,13 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	return 0;
 }
 
-int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff)
 {
 	switch (ctl->panel_data->panel_info.type) {
 	case MIPI_VIDEO_PANEL:
-		return mdss_mdp_video_reconfigure_splash_done(ctl);
+		return mdss_mdp_video_reconfigure_splash_done(ctl, handoff);
 	case MIPI_CMD_PANEL:
-		return mdss_mdp_cmd_reconfigure_splash_done(ctl);
+		return mdss_mdp_cmd_reconfigure_splash_done(ctl, handoff);
 	default:
 		return 0;
 	}
@@ -1079,9 +1079,12 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 
 	pr_debug("ctl_num=%d\n", ctl->num);
 
-	nmixers = MDSS_MDP_INTF_MAX_LAYERMIXER + MDSS_MDP_WB_MAX_LAYERMIXER;
-	for (i = 0; i < nmixers; i++)
-		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
+	if (!ctl->panel_data->panel_info.cont_splash_enabled) {
+		nmixers = MDSS_MDP_INTF_MAX_LAYERMIXER +
+			MDSS_MDP_WB_MAX_LAYERMIXER;
+		for (i = 0; i < nmixers; i++)
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
+	}
 
 	mixer = ctl->mixer_left;
 	mdss_mdp_pp_resume(ctl, mixer->num);
@@ -1987,4 +1990,67 @@ static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 		return MDSS_MDP_REG_CTL_LAYER(mixer->num +
 				MDSS_MDP_INTF_LAYERMIXER3);
 	}
+}
+
+static int __mdss_mdp_mixer_handoff_helper(struct mdss_mdp_mixer *mixer,
+	struct mdss_mdp_pipe *pipe)
+{
+	int rc = 0;
+
+	if (!mixer) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED] != NULL) {
+		pr_err("More than one pipe staged on mixer num %d\n",
+			mixer->num);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pr_debug("Staging pipe num %d on mixer num %d\n",
+		pipe->num, mixer->num);
+	mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED] = pipe;
+	pipe->mixer = mixer;
+	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
+
+error:
+	return rc;
+}
+
+/**
+ * mdss_mdp_mixer_handoff() - Stages a given pipe on the appropriate mixer
+ * @ctl:  pointer to the control structure associated with the overlay device.
+ * @num:  the mixer number on which the pipe needs to be staged.
+ * @pipe: pointer to the pipe to be staged.
+ *
+ * Function stages a given pipe on either the left mixer or the right mixer
+ * for the control structre based on the mixer number. If the input mixer
+ * number does not match either of the mixers then an error is returned.
+ * This function is called during overlay handoff when certain pipes are
+ * already staged by the bootloader.
+ */
+int mdss_mdp_mixer_handoff(struct mdss_mdp_ctl *ctl, u32 num,
+	struct mdss_mdp_pipe *pipe)
+{
+	int rc = 0;
+	struct mdss_mdp_mixer *mx_left = ctl->mixer_left;
+	struct mdss_mdp_mixer *mx_right = ctl->mixer_right;
+
+	/*
+	 * For performance calculations, stage the handed off pipe
+	 * as MDSS_MDP_STAGE_UNUSED
+	 */
+	if (mx_left && (mx_left->num == num)) {
+		rc = __mdss_mdp_mixer_handoff_helper(mx_left, pipe);
+	} else if (mx_right && (mx_right->num == num)) {
+		rc = __mdss_mdp_mixer_handoff_helper(mx_right, pipe);
+	} else {
+		pr_err("pipe num %d staged on unallocated mixer num %d\n",
+			pipe->num, num);
+		rc = -EINVAL;
+	}
+
+	return rc;
 }

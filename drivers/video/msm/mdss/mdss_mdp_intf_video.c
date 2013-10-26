@@ -587,46 +587,52 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
-int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
+	bool handoff)
 {
-	struct mdss_panel_data *pdata;
-	int ret = 0, off;
-	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
-	int mdss_v2_intf_off = 0;
+	struct mdss_panel_data *pdata = ctl->panel_data;
+	int i, ret = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_data_type *mdata = ctl->mdata;
 
-	off = 0;
-
-	pdata = ctl->panel_data;
-
-	pdata->panel_info.cont_splash_enabled = 0;
-
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
-				      NULL);
-	if (ret) {
-		pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n",
-					__func__);
-		return ret;
+	i = ctl->intf_num - MDSS_MDP_INTF0;
+	if (i < mdata->nintf) {
+		ctx = ((struct mdss_mdp_video_ctx *) mdata->video_intf) + i;
+		pr_debug("video Intf #%d base=%p", ctx->intf_num, ctx->base);
+	} else {
+		pr_err("Invalid intf number: %d\n", ctl->intf_num);
+		ret = -EINVAL;
+		goto error;
 	}
 
-	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
-	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
+	if (!handoff) {
+		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
+					      NULL);
+		if (ret) {
+			pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n"
+				, __func__);
+			return ret;
+		}
 
-	if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
-		mdss_v2_intf_off =  0xEC00;
+		mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
-			mdss_v2_intf_off, 0);
-	/* wait for 1 VSYNC for the pipe to be unstaged */
-	msleep(20);
+		/* wait for 1 VSYNC for the pipe to be unstaged */
+		msleep(20);
+
+		ret = mdss_mdp_ctl_intf_event(ctl,
+			MDSS_EVENT_CONT_SPLASH_FINISH, NULL);
+	}
+
+error:
+	pdata->panel_info.cont_splash_enabled = 0;
 
 	/* Give back the reserved memory to the system */
 	memblock_free(mdp5_data->splash_mem_addr, mdp5_data->splash_mem_size);
 	free_bootmem_late(mdp5_data->splash_mem_addr,
 				 mdp5_data->splash_mem_size);
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
-			NULL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return ret;
 }

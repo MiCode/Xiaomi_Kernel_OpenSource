@@ -10,7 +10,7 @@ Required properties:
 - cell-index: eeprom hardware core index
 - compatible :
     - "qcom,eeprom"
-- reg : offset and length of eeprom device registers.
+- reg : offset of eeprom device registers.
 - qcom,eeprom-name : should specify relevant names of the eeprom module
     library.
 - qcom,slave-addr : should specify the slave address of the eeprom.
@@ -29,7 +29,6 @@ Required properties:
     data type, delay in ms. size 0 stand for not used.
     - address type : 1 byte, 2 word.
     - data type : 1 byte, 2 word.
-- cam_vdig-supply : should contain regulator to be used for the digital vdd.
 - cam_vio-supply : should contain regulator to be used for the IO vdd.
 - qcom,cam-vreg-name : should specify the regulator name to be used for
     this eeprom.
@@ -57,6 +56,7 @@ Required properties:
 Optional properties:
 - qcom,pageen%d : number %d page enable reg size, start address, address type,
     data, data type, delay in ms. size 0 stand for not used.
+- cam_vdig-supply : should contain regulator to be used for the digital vdd.
 
 Example:
 
