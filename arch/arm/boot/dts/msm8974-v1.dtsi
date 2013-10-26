@@ -134,7 +134,7 @@
 	qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
 	qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 	qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-					<0x1fe 0x2>;
+					<0x7fe 0x2>;
 };
 
 &sfpb_spinlock {
