@@ -1828,7 +1828,7 @@ static bool _kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
 	for (i = 0; i < cmdbatch->ibcount; i++) {
 		if (cmdbatch->ibdesc[i].sizedwords == 0) {
 			KGSL_DRV_ERR(dev_priv->device,
-				"invalid size ctx %d ib(%d) %X/%X\n",
+				"invalid size ctx %d ib(%d) %lX/%X\n",
 				cmdbatch->context->id, i,
 				cmdbatch->ibdesc[i].gpuaddr,
 				cmdbatch->ibdesc[i].sizedwords);
@@ -1839,7 +1839,7 @@ static bool _kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
 		if (!kgsl_mmu_gpuaddr_in_range(private->pagetable,
 			cmdbatch->ibdesc[i].gpuaddr)) {
 			KGSL_DRV_ERR(dev_priv->device,
-				"Invalid address ctx %d ib(%d) %X/%X\n",
+				"Invalid address ctx %d ib(%d) %lX/%X\n",
 				cmdbatch->context->id, i,
 				cmdbatch->ibdesc[i].gpuaddr,
 				cmdbatch->ibdesc[i].sizedwords);
@@ -2207,7 +2207,7 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 
 	entry = kgsl_sharedmem_find(private, param->gpuaddr);
 	if (!entry) {
-		KGSL_MEM_INFO(dev_priv->device, "invalid gpuaddr %08x\n",
+		KGSL_MEM_INFO(dev_priv->device, "invalid gpuaddr %08lx\n",
 				param->gpuaddr);
 		return -EINVAL;
 	}
@@ -2855,7 +2855,7 @@ kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
 		entry = kgsl_sharedmem_find(private, param->gpuaddr);
 		if (entry == NULL) {
 			KGSL_MEM_INFO(dev_priv->device,
-					"can't find gpuaddr %x\n",
+					"can't find gpuaddr %lx\n",
 					param->gpuaddr);
 			return -EINVAL;
 		}
@@ -2974,7 +2974,7 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	entry = kgsl_sharedmem_find(private, param->gpuaddr);
 	if (entry == NULL) {
 		KGSL_MEM_INFO(dev_priv->device,
-				"can't find gpuaddr %x\n",
+				"can't find gpuaddr %lx\n",
 				param->gpuaddr);
 		return -EINVAL;
 	}
