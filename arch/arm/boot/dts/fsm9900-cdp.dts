@@ -32,6 +32,12 @@
 	qcom,wdt@f9017000 {
 		status = "disabled";
 	};
+
+	qcom,fuse@fc4b8000 {
+		status = "ok";
+		vdd-blow-supply = <&pma8084_lvs1>;
+	};
+
 	emac1:qcom,emac@feb00000 {
 		status = "ok";
 	};
