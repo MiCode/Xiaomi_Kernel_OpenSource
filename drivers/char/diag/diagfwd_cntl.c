@@ -37,6 +37,9 @@ void diag_clean_reg_fn(struct work_struct *work)
 	diag_clear_reg(smd_info->peripheral);
 	reg_dirty ^= smd_info->peripheral_mask;
 
+	/* Reset the feature mask flag */
+	driver->rcvd_feature_mask[smd_info->peripheral] = 0;
+
 	smd_info->notify_context = 0;
 }
 
@@ -158,14 +161,21 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			msg = buf+HDR_SIZ;
 			range = buf+HDR_SIZ+
 					sizeof(struct diag_ctrl_msg);
+			if (msg->count_entries == 0) {
+				pr_debug("diag: In %s, received reg tbl with no entries\n",
+								__func__);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
+			}
 			pkt_params->count = msg->count_entries;
 			pkt_params->params = kzalloc(pkt_params->count *
 				sizeof(struct bindpkt_params), GFP_KERNEL);
-			if (ZERO_OR_NULL_PTR(pkt_params->params)) {
-				pr_alert("diag: In %s, Memory alloc fail\n",
-					__func__);
-				kfree(pkt_params);
-				return flag;
+			if (!pkt_params->params) {
+				pr_alert("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
+						__func__, msg->cmd_code,
+						msg->subsysid);
+				buf = buf + HDR_SIZ + data_len;
+				continue;
 			}
 			temp = pkt_params->params;
 			for (j = 0; j < pkt_params->count; j++) {
@@ -195,6 +205,8 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			int feature_mask_len = *(int *)(buf+8);
 			if (feature_mask_len > 0) {
 				int periph = smd_info->peripheral;
+				driver->rcvd_feature_mask[smd_info->peripheral]
+									= 1;
 				feature_mask = *(uint8_t *)(buf+12);
 				if (periph == MODEM_DATA)
 					driver->log_on_demand_support =
@@ -262,31 +274,39 @@ void diag_real_time_work_fn(struct work_struct *work)
 {
 	int temp_real_time = MODE_REALTIME, i;
 
-	/* If any of the process is voting for Real time, then Diag
-	   should be in real time mode irrespective of other clauses. If
-	   USB is connected, check what the memory device process is
-	   voting for. If it is voting for Non real time, the final mode
-	   should be Non real time, real time otherwise. If USB is
-	   disconncted and no process is voting for real time, the
-	   resultant mode should be Non Real Time.
-	*/
-	if ((driver->proc_rt_vote_mask & driver->proc_active_mask) &&
-					(driver->proc_active_mask != 0))
-			temp_real_time = MODE_REALTIME;
-	else if (driver->usb_connected)
+	if (driver->proc_active_mask == 0) {
+		/* There are no DCI or Memory Device processes. Diag should
+		 * be in Real Time mode irrespective of USB connection
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (driver->proc_rt_vote_mask & driver->proc_active_mask) {
+		/* Atleast one process is alive and is voting for Real Time
+		 * data - Diag should be in real time mode irrespective of USB
+		 * connection.
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (driver->usb_connected) {
+		/* If USB is connected, check individual process. If Memory
+		 * Device Mode is active, set the mode requested by Memory
+		 * Device process. Set to realtime mode otherwise.
+		 */
 		if ((driver->proc_rt_vote_mask & DIAG_PROC_MEMORY_DEVICE) == 0)
 			temp_real_time = MODE_NONREALTIME;
 		else
 			temp_real_time = MODE_REALTIME;
-	else
+	} else {
+		/* We come here if USB is not connected and the active
+		 * processes are voting for Non realtime mode.
+		 */
 		temp_real_time = MODE_NONREALTIME;
+	}
 
 	if (temp_real_time != driver->real_time_mode) {
 		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
 			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
 							temp_real_time);
 	} else {
-		pr_info("diag: did not update real time mode, already in the req mode %d",
+		pr_debug("diag: did not update real time mode, already in the req mode %d",
 					temp_real_time);
 	}
 	if (driver->real_time_update_busy > 0)
@@ -297,9 +317,15 @@ void diag_real_time_work_fn(struct work_struct *work)
 {
 	int temp_real_time = MODE_REALTIME, i;
 
-	if (!(driver->proc_rt_vote_mask & driver->proc_active_mask) &&
-					(driver->proc_active_mask != 0))
+	if (driver->proc_active_mask == 0) {
+		/* There are no DCI or Memory Device processes. Diag should
+		 * be in Real Time mode.
+		 */
+		temp_real_time = MODE_REALTIME;
+	} else if (!(driver->proc_rt_vote_mask & driver->proc_active_mask)) {
+		/* No active process is voting for real time mode */
 		temp_real_time = MODE_NONREALTIME;
+	}
 
 	if (temp_real_time != driver->real_time_mode) {
 		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)

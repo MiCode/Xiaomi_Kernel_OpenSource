@@ -271,7 +271,6 @@
 
 		vdd-io-supply = <&pm8110_l6>;
 		qcom,vdd-io-always-on;
-		qcom,vdd-io-lpm-sup;
 		qcom,vdd-io-voltage-level = <1800000 1800000>;
 		qcom,vdd-io-current-level = <9000 60000>;
 
