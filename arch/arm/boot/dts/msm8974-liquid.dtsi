@@ -26,6 +26,8 @@
 
         qcom,mdss_mdp@fd900000 {
                 qcom,mdss-pref-prim-intf = "edp";
+		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
+		qcom,panel-pwm-period = <53>;
         };
 
 	i2c@f9967000 {
