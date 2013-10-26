@@ -165,7 +165,18 @@ struct measure_clk {
 	u64 sample_ticks;
 	u32 multiplier;
 	u32 divider;
+
 	struct clk c;
+};
+
+struct measure_clk_data {
+	struct clk *cxo;
+	u32 plltest_reg;
+	u32 plltest_val;
+	u32 xo_div4_cbcr;
+	u32 ctl_reg;
+	u32 status_reg;
+	void *const __iomem *base;
 };
 
 static inline struct measure_clk *to_measure_clk(struct clk *clk)
@@ -219,6 +230,7 @@ extern struct clk_mux_ops mux_reg_ops;
 
 enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);
+unsigned long measure_get_rate(struct clk *c);
 
 /*
  * Clock definition macros
