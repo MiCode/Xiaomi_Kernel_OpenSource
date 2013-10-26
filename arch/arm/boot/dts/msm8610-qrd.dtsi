@@ -367,3 +367,7 @@
 	qcom,android-usb-cdrom;
 	qcom,android-usb-internal-ums;
 };
+
+&mdss_mdp {
+	batfet-supply = <&pm8110_chg_batif>;
+};
