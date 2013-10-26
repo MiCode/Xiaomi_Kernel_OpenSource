@@ -310,6 +310,13 @@
 		reg-names = "fuse-base";
 	};
 
+	jtag_mm: jtagmm@fc342000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0xfc342000 0x1000>,
+		      <0xfc340000 0x1000>;
+		reg-names = "etm-base","debug-base";
+	};
+
 	qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v55-mss";
 		reg = <0xfc880000 0x100>,
