@@ -328,7 +328,8 @@ static int emac_ptp_sysfs_tstamp_show(struct device *dev,
 				      struct device_attribute *attr, char *buf)
 {
 	struct emac_adapter *adpt = netdev_priv(to_net_dev(dev));
-	struct timespec ts, ts_now;
+	struct timespec ts = { 0 };
+	struct timespec ts_now = { 0 };
 	int count = PAGE_SIZE;
 	int retval;
 
