@@ -547,7 +547,6 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	for (i = 0; i < cnt; i++) {
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, cm);
-		msm_dsi_cmd_dma_tx(tp);
 		rc = msm_dsi_cmd_dma_tx(tp);
 		if (IS_ERR_VALUE(rc)) {
 			pr_err("%s: failed to call cmd_dma_tx\n", __func__);
