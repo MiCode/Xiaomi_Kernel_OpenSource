@@ -426,7 +426,7 @@ static void mdm_update_gpio_configs(struct mdm_device *mdev,
 static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
-	int status, ret = 0;
+	int status, i, ret = 0;
 	struct mdm_device *mdev = filp->private_data;
 	struct mdm_modem_drv *mdm_drv;
 
@@ -531,12 +531,31 @@ static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		if (!mdm_drv->pdata->send_shdn)
 			break;
 		atomic_set(&mdm_drv->mdm_ready, 0);
-		if (mdm_debug_mask & MDM_DEBUG_MASK_SHDN_LOG)
-			pr_debug("Sending shutdown request to mdm\n");
+		pr_debug("Sending shutdown request to mdm\n");
 		ret = sysmon_send_shutdown(mdm_drv->pdata->sysmon_subsys_id);
-		if (ret)
+		if (ret) {
 			pr_err("%s:Graceful shutdown of mdm failed, ret = %d\n",
 			   __func__, ret);
+			break;
+		}
+		pr_debug("%s: Waiting for status gpio to go low for mdm %d\n",
+				__func__,
+				mdm_drv->device_id);
+		for (i = 100; i > 0; i--) {
+			if (gpio_get_value(MDM_GPIO(MDM2AP_STATUS)) == 0) {
+				pr_debug("%s:id %d: Status gpio went low=%d\n",
+						__func__,
+						mdm_drv->device_id, i);
+				break;
+			}
+			msleep(100);
+		}
+		if (i == 0) {
+			pr_err("%s: Status gpio failed to go low for mdm %d\n",
+					__func__,
+					mdm_drv->device_id);
+			ret = -1;
+		}
 		break;
 	default:
 		pr_err("%s: invalid ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
