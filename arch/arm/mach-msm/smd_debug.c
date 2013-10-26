@@ -205,28 +205,30 @@ static char *smd_xfer_type_to_str(uint32_t xfer_type)
 }
 
 /**
- * debug_ch - Print the current state of every valid SMD channel in a human
- *		readable formatted table.
+ * print_smd_ch_table - Print the current state of every valid SMD channel in a
+ *			specific SMD channel allocation table to a human
+ *			readable formatted output.
  *
  * @s: the sequential file to print to
+ * @tbl: a valid pointer to the channel allocation table to print from
+ * @num_tbl_entries: total number of entries in the table referenced by @tbl
+ * @ch_base_id: the SMEM item id corresponding to the array of channel
+ *		structures for the channels found in @tbl
+ * @fifo_base_id: the SMEM item id corresponding to the array of channel fifos
+ *		for the channels found in @tbl
  */
-static void debug_ch(struct seq_file *s)
+static void print_smd_ch_table(struct seq_file *s,
+				struct smd_alloc_elm *tbl,
+				unsigned num_tbl_entries,
+				unsigned ch_base_id,
+				unsigned fifo_base_id)
 {
-	struct smd_alloc_elm *tbl;
-	unsigned tbl_size;
 	void *half_ch;
 	unsigned half_ch_size;
 	uint32_t ch_type;
 	void *buffer;
 	unsigned buffer_size;
 	int n;
-
-	tbl = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size);
-
-	if (!tbl) {
-		seq_puts(s, "Channel allocation table not found\n");
-		return;
-	}
 
 /*
  * formatted, human readable channel state output, ie:
@@ -250,7 +252,7 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 								"DATAPEN");
 	seq_puts(s,
 		"-------------------------------------------------------------------------------\n");
-	for (n = 0; n < tbl_size / sizeof(*tbl); ++n) {
+	for (n = 0; n < num_tbl_entries; ++n) {
 		if (strlen(tbl[n].name) == 0)
 			continue;
 
@@ -263,9 +265,8 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 		else
 			half_ch_size = sizeof(struct smd_half_channel);
 
-		half_ch = smem_find(ID_SMD_CHANNELS + n, 2 * half_ch_size);
-		buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + n,
-								&buffer_size);
+		half_ch = smem_find(ch_base_id + n, 2 * half_ch_size);
+		buffer = smem_get_entry(fifo_base_id + n, &buffer_size);
 		if (half_ch && buffer)
 			print_half_ch_state(s,
 					half_ch,
@@ -286,6 +287,37 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 		seq_puts(s, "\n");
 		seq_puts(s,
 			"-------------------------------------------------------------------------------\n");
+	}
+}
+
+/**
+ * debug_ch - Print the current state of every valid SMD channel in a human
+ *		readable formatted table.
+ *
+ * @s: the sequential file to print to
+ */
+static void debug_ch(struct seq_file *s)
+{
+	struct smd_alloc_elm *tbl;
+	unsigned tbl_size;
+
+	tbl = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size);
+
+	if (!tbl) {
+		seq_puts(s, "Channel allocation table not found\n");
+		return;
+	}
+
+	seq_puts(s, "Primary allocation table:\n");
+	print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl), ID_SMD_CHANNELS,
+							SMEM_SMD_FIFO_BASE_ID);
+
+	tbl = smem_get_entry(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size);
+	if (tbl) {
+		seq_puts(s, "\n\nSecondary allocation table:\n");
+		print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl),
+						SMEM_SMD_BASE_ID_2,
+						SMEM_SMD_FIFO_BASE_ID_2);
 	}
 }
 
