@@ -1060,9 +1060,6 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
 		hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
 
-		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
-			DEV_WARN("%s: Failed to disable ddc power\n", __func__);
-
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 		DEV_INFO("%s: sense cable DISCONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
@@ -2430,6 +2427,9 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 		DEV_DBG("%s: Turning off HDCP\n", __func__);
 		hdmi_hdcp_off(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
 	}
+
+	if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
+		DEV_WARN("%s: Failed to disable ddc power\n", __func__);
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
