@@ -83,7 +83,7 @@
 
 #define TSENS_9900_EEPROM(n)			((n) + 0xd0)
 #define TSENS_9900_EEPROM_REDUNDANCY_SEL(n)	((n) + 0x1c4)
-#define TSENS_9900_EEPROM_BACKUP_REGION(n)	((n) + 0x440)
+#define TSENS_9900_EEPROM_BACKUP_REGION(n)	((n) + 0x450)
 #define TSENS_9900_CALIB_ADDR_RANGE	4
 
 
