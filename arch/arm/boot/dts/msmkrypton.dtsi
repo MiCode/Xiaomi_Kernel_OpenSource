@@ -317,6 +317,12 @@
 		reg-names = "etm-base","debug-base";
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x1000>; /* 4K EBI1 buffer */
+	};
+
 	qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v55-mss";
 		reg = <0xfc880000 0x100>,
