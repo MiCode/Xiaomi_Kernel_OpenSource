@@ -922,9 +922,9 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 				goto error;
 			}
 		} else {
-			if (rule->rt_tbl_idx > (ip == IPA_IP_v4) ?
+			if (rule->rt_tbl_idx > ((ip == IPA_IP_v4) ?
 					IPA_v2_V4_MODEM_RT_INDEX_HI :
-					IPA_v2_V6_MODEM_RT_INDEX_HI) {
+					IPA_v2_V6_MODEM_RT_INDEX_HI)) {
 				IPAERR("invalid RT tbl\n");
 				goto error;
 			}
