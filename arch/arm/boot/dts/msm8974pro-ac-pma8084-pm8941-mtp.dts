@@ -12,16 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ac-pm8941.dtsi"
-/include/ "msm8974pro-ac-mtp.dtsi"
+/include/ "msm8974pro-ac-pma8084-pm8941.dtsi"
+/include/ "msm8974pro-pma8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro-AC MTP";
+	model = "Qualcomm MSM 8974Pro-AC + PMA8084 MTP";
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
-	qcom,msm-id = <194 8 0x10000>,
-		      <210 8 0x10000>,
-		      <213 8 0x10000>,
-		      <216 8 0x10000>;
+	qcom,board-id = <8 1>;
 };
 
 &pma8084_vadc {
@@ -122,13 +119,4 @@
 		qcom,btm-channel-number = <0x78>;
 		qcom,thermal-node;
 	};
-};
-
-&sdhc_1 {
-	reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000 384000000>;
-	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
-
-	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
-	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
 };

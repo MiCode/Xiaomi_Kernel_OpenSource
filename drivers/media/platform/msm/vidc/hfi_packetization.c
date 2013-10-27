@@ -275,11 +275,17 @@ static u32 get_hfi_buffer(int hal_buffer)
 	case HAL_BUFFER_OUTPUT:
 		buffer = HFI_BUFFER_OUTPUT;
 		break;
+	case HAL_BUFFER_OUTPUT2:
+		buffer = HFI_BUFFER_OUTPUT2;
+		break;
 	case HAL_BUFFER_EXTRADATA_INPUT:
 		buffer = HFI_BUFFER_EXTRADATA_INPUT;
 		break;
 	case HAL_BUFFER_EXTRADATA_OUTPUT:
 		buffer = HFI_BUFFER_EXTRADATA_OUTPUT;
+		break;
+	case HAL_BUFFER_EXTRADATA_OUTPUT2:
+		buffer = HFI_BUFFER_EXTRADATA_OUTPUT2;
 		break;
 	case HAL_BUFFER_INTERNAL_SCRATCH:
 		buffer = HFI_BUFFER_INTERNAL_SCRATCH;
@@ -1178,7 +1184,50 @@ int create_pkt_cmd_session_set_property(
 		break;
 	}
 	case HAL_CONFIG_VPE_OPERATIONS:
+	{
+		struct hfi_operations_type *hfi;
+		struct hal_operations *prop =
+			(struct hal_operations *) pdata;
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VPE_OPERATIONS;
+		hfi = (struct hfi_operations_type *) &pkt->rg_property_data[1];
+		switch (prop->rotate) {
+		case HAL_ROTATE_NONE:
+			hfi->rotation = HFI_ROTATE_NONE;
+			break;
+		case HAL_ROTATE_90:
+			hfi->rotation = HFI_ROTATE_90;
+			break;
+		case HAL_ROTATE_180:
+			hfi->rotation = HFI_ROTATE_180;
+			break;
+		case HAL_ROTATE_270:
+			hfi->rotation = HFI_ROTATE_270;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Invalid rotation setting: 0x%x",
+				prop->rotate);
+			rc = -EINVAL;
+			break;
+		}
+		switch (prop->flip) {
+		case HAL_FLIP_NONE:
+			hfi->flip = HFI_FLIP_NONE;
+			break;
+		case HAL_FLIP_HORIZONTAL:
+			hfi->flip = HFI_FLIP_HORIZONTAL;
+			break;
+		case HAL_FLIP_VERTICAL:
+			hfi->flip = HFI_FLIP_VERTICAL;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Invalid flip setting: 0x%x",
+				prop->flip);
+			rc = -EINVAL;
+			break;
+		}
+		pkt->size += sizeof(u32) + sizeof(struct hfi_operations_type);
 		break;
+	}
 	case HAL_PARAM_VENC_INTRA_REFRESH:
 	{
 		struct hfi_intra_refresh *hfi;
@@ -1302,7 +1351,15 @@ int create_pkt_cmd_session_set_property(
 		break;
 	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
+	{
+		struct hfi_enable *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VPE_DEINTERLACE;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
+	}
 	case HAL_PARAM_VENC_H264_GENERATE_AUDNAL:
 	{
 		struct hfi_enable *hfi;

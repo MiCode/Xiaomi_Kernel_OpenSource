@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,21 @@
 #include <sound/soc.h>
 #include <sound/pcm.h>
 
-static struct snd_pcm_ops msm_pcm_hostless_ops = {};
+
+static int msm_pcm_hostless_prepare(struct snd_pcm_substream *substream)
+{
+	if (!substream) {
+		pr_err("%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	if (pm_qos_request_active(&substream->latency_pm_qos_req))
+		pm_qos_remove_request(&substream->latency_pm_qos_req);
+	return 0;
+}
+
+static struct snd_pcm_ops msm_pcm_hostless_ops = {
+	.prepare = msm_pcm_hostless_prepare
+};
 
 static struct snd_soc_platform_driver msm_soc_hostless_platform = {
 	.ops		= &msm_pcm_hostless_ops,

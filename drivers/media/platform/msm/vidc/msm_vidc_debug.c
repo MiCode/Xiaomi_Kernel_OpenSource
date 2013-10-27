@@ -86,6 +86,18 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "irq: %u\n",
 		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
 					FW_IRQ));
+	write_str(&dbg_buf, "clock count: %d\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_CLOCK_COUNT));
+	write_str(&dbg_buf, "clock enabled: %u\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_CLOCK_ENABLED));
+	write_str(&dbg_buf, "power count: %d\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_PWR_COUNT));
+	write_str(&dbg_buf, "power enabled: %u\n",
+		call_hfi_op(hdev, get_info, hdev->hfi_device_data,
+					DEV_PWR_ENABLED));
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?

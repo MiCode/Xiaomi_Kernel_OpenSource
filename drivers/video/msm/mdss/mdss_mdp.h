@@ -395,6 +395,7 @@ struct mdss_overlay_private {
 
 	u32 splash_mem_addr;
 	u32 splash_mem_size;
+	u32 sd_enabled;
 };
 
 struct mdss_mdp_perf_params {
@@ -450,6 +451,7 @@ int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 
 void mdss_mdp_footswitch_ctrl_splash(int on);
+void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable);
 int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota);
 void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
@@ -608,4 +610,5 @@ int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 #define mfd_to_wb(mfd) (((struct mdss_overlay_private *)\
 				(mfd->mdp.private1))->wb)
 
+int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl);
 #endif /* MDSS_MDP_H */
