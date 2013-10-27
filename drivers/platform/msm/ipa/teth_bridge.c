@@ -570,11 +570,9 @@ static int add_mbim_hdr(u16 mbim_stream_id)
 	/* Save the header handle in order to delete it later */
 	idx = teth_ctx->hdr_del->num_hdls++;
 	teth_ctx->hdr_del->hdl[idx].hdl = mbim_hdr->hdr[0].hdr_hdl;
-
-	kfree(mbim_hdr);
 	TETH_DBG_FUNC_EXIT();
-
 bail:
+	kfree(mbim_hdr);
 	return res;
 }
 
