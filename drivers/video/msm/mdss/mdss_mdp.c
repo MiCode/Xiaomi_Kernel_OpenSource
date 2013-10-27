@@ -1042,6 +1042,10 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	mdata->nmax_concurrent_ad_hw =
 		(mdata->mdp_rev < MDSS_MDP_HW_REV_103) ? 1 : 2;
 
+	if (mdata->mdp_rev == MDSS_MDP_HW_REV_200)
+		for (i = 0; i < mdata->nvig_pipes; i++)
+			mdss_mdp_hscl_init(&vig[i]);
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	pr_debug("MDP hw init done\n");
 
