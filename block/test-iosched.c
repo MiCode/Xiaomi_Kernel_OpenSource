@@ -352,6 +352,7 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 	rq->__sector = start_sec;
 	rq->cmd_type |= REQ_TYPE_FS;
 	rq->cmd_flags |= REQ_SORTED;
+	rq->cmd_flags &= ~REQ_IO_STAT;
 
 	if (rq->bio) {
 		rq->bio->bi_sector = start_sec;
