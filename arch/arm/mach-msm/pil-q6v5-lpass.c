@@ -24,10 +24,10 @@
 #include <linux/sysfs.h>
 #include <linux/of_gpio.h>
 #include <linux/clk/msm-clk.h>
+#include <soc/qcom/scm.h>
 
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
-#include <mach/scm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_bus_board.h>
 #include <mach/sysmon.h>

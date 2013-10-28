@@ -26,6 +26,7 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_address.h>
+#include <soc/qcom/scm.h>
 
 #include <asm/cacheflush.h>
 
@@ -33,7 +34,6 @@
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/irqs.h>
-#include <mach/scm.h>
 #include "msm_watchdog.h"
 #include "timer.h"
 #include "wdog_debug.h"

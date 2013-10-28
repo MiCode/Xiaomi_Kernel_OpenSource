@@ -19,7 +19,7 @@
 #include <linux/io.h>
 #include <linux/ftrace.h>
 #include <linux/msm_adreno_devfreq.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include "governor.h"
 
 static DEFINE_SPINLOCK(tz_lock);

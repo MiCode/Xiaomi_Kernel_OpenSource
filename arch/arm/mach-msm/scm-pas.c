@@ -17,10 +17,10 @@
 #include <linux/string.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <soc/qcom/scm.h>
 
 #include <asm/cacheflush.h>
 
-#include <mach/scm.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>

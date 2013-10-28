@@ -20,8 +20,8 @@
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
+#include <soc/qcom/scm.h>
 
-#include <mach/scm.h>
 
 static struct rb_root secure_root;
 DEFINE_MUTEX(secure_buffer_mutex);

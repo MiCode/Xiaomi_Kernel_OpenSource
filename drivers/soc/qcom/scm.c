@@ -17,10 +17,10 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/init.h>
+#include <soc/qcom/scm.h>
 
 #include <asm/cacheflush.h>
 
-#include <mach/scm.h>
 
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4

@@ -24,11 +24,11 @@
 #include <linux/msm_mdp.h>
 #include <linux/memblock.h>
 #include <linux/sw_sync.h>
+#include <soc/qcom/scm.h>
 
 #include <linux/msm_iommu_domains.h>
 #include <mach/event_timer.h>
 #include <mach/msm_bus.h>
-#include <mach/scm.h>
 #include "mdss.h"
 #include "mdss_debug.h"
 #include "mdss_fb.h"

@@ -14,10 +14,10 @@
 #include <linux/mutex.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <soc/qcom/scm.h>
 
 #include <mach/ocmem_priv.h>
 #include <mach/rpm-smd.h>
-#include <mach/scm.h>
 
 static unsigned num_regions;
 static unsigned num_macros;

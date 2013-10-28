@@ -25,13 +25,13 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/cpu_pm.h>
+#include <soc/qcom/scm.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
 #include <asm/outercache.h>
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
-#include <mach/scm.h>
 #include <mach/msm_bus.h>
 #include <mach/jtag.h>
 #include <mach/avs.h>

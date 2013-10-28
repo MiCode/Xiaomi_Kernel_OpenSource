@@ -26,7 +26,7 @@
 #include <linux/slab.h>
 #include <linux/gfp.h>
 #include <linux/regulator/consumer.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/rpm-smd.h>
 
 #include <uapi/media/msm_vpu.h>

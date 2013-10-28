@@ -16,7 +16,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mutex.h>
 #include <soc/qcom/msm_qmi_interface.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include "msm_memshare.h"
 #include "heap_mem_ext_v01.h"
 #define MEM_SHARE_SERVICE_SVC_ID 0x00000034

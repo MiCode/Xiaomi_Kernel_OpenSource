@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/kmemleak.h>
+#include <soc/qcom/scm.h>
 
 #include <asm/sizes.h>
 
@@ -33,7 +34,6 @@
 #include <mach/iommu_hw-v1.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
-#include <mach/scm.h>
 #include <mach/memory.h>
 
 /* bitmap of the page sizes currently supported */

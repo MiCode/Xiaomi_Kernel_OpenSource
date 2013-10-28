@@ -16,8 +16,8 @@
 #include <linux/cpu.h>
 #include <linux/smp.h>
 #include <linux/sysfs.h>
+#include <soc/qcom/scm.h>
 
-#include <mach/scm.h>
 
 #define CPU_CONFIG_CMD 5
 #define CPU_CONFIG_QUERY_CMD 6

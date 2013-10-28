@@ -12,8 +12,8 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <soc/qcom/scm.h>
 
-#include <mach/scm.h>
 
 #define ERR_FATAL_ENABLE 0x0
 #define ERR_FATAL_DISABLE 0x1

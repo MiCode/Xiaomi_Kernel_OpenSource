@@ -23,7 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/msm_cache_dump.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_memory_dump.h>

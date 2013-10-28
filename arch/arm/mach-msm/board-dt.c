@@ -13,9 +13,9 @@
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <soc/qcom/scm.h>
 #include <asm/mach/map.h>
 #include <mach/msm_iomap.h>
-#include <mach/scm.h>
 
 #include "board-dt.h"
 

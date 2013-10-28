@@ -26,7 +26,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/jtag.h>
 
 /* Coresight management registers */

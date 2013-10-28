@@ -27,8 +27,8 @@
 #include <linux/slab.h>
 #include <linux/printk.h>
 #include <linux/msm_ion.h>
+#include <soc/qcom/scm.h>
 #include <asm/smcmod.h>
-#include <mach/scm.h>
 #include <mach/socinfo.h>
 
 static DEFINE_MUTEX(ioctl_lock);

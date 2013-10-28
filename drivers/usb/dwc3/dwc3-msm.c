@@ -43,10 +43,10 @@
 #include <linux/cdev.h>
 #include <linux/completion.h>
 #include <linux/clk/msm-clk.h>
+#include <soc/qcom/scm.h>
 
 #include <mach/rpm-regulator.h>
 #include <mach/msm_bus.h>
-#include <mach/scm.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
