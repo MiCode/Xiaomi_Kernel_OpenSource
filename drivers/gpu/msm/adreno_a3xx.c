@@ -4206,9 +4206,12 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 
 	/* Turn on hang detection - this spews a lot of useful information
 	 * into the RBBM registers on a hang */
-
-	kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
-			(1 << 16) | 0xFFF);
+	if (adreno_is_a330v2(adreno_dev))
+		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+				(1 << 31) | 0xFFFF);
+	else
+		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+				(1 << 16) | 0xFFF);
 
 	/* Enable 64-byte cacheline size. HW Default is 32-byte (0x000000E0). */
 	kgsl_regwrite(device, A3XX_UCHE_CACHE_MODE_CONTROL_REG, 0x00000001);
