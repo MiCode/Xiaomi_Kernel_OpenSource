@@ -44,3 +44,15 @@
 		qcom,led-flash-src = <&led_flash0>;
 	};
 };
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8389b_qhd_vid>;
+};
+
+&dsi_hx8389b_qhd_vid {
+	qcom,cont-splash-enabled;
+};
