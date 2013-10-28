@@ -1805,6 +1805,10 @@ void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						RESUME, 1);
+					KGSL_IOMMU_SET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						FSR, 0);
 					_iommu_unlock(iommu);
 					iommu_unit->dev[j].fault = 0;
 				}
