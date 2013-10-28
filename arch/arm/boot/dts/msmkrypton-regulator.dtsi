@@ -208,4 +208,10 @@
 		startup-delay-us = <1000>;
 		enable-active-high;
 	};
+
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		regulator-always-on;
+	};
 };
