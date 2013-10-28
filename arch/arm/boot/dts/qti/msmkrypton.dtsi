@@ -23,6 +23,15 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	memory {
+		audio_mem: audio_region {
+			linux,contiguous-region;
+			linux,reserve-region;
+			reg = <0 0xAF000>;
+			label = "audio_mem";
+		};
+	};
+
 	soc: soc { };
 };
 
@@ -31,6 +40,7 @@
 #include "msm-gdsc.dtsi"
 #include "msmkrypton-pm.dtsi"
 #include "msmkrypton-bus.dtsi"
+#include "msmkrypton-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
