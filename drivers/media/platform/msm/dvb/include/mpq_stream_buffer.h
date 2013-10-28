@@ -441,5 +441,12 @@ int mpq_streambuffer_get_data_rw_offset(
 	u32 *read_offset,
 	u32 *write_offset);
 
+/**
+ * mpq_streambuffer_metadata_free - returns number of free bytes in the meta
+ * data buffer, or error status.
+ * @sbuff: the stream buffer object
+ */
+ssize_t mpq_streambuffer_metadata_free(struct mpq_streambuffer *sbuff);
+
 #endif /* _MPQ_STREAM_BUFFER_H */
 

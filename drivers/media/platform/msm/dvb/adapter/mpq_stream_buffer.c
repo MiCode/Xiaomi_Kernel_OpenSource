@@ -252,7 +252,8 @@ int mpq_streambuffer_pkt_write(
 		packet->user_data_len;
 
 	/* Make sure enough space available for packet header */
-	if (dvb_ringbuffer_free(&sbuff->packet_data) < len) {
+	if (dvb_ringbuffer_free(&sbuff->packet_data) <
+		(len + DVB_RINGBUFFER_PKTHDRSIZE)) {
 		spin_unlock(&sbuff->packet_data.lock);
 		return -ENOSPC;
 	}
@@ -727,3 +728,27 @@ int mpq_streambuffer_get_data_rw_offset(
 	return 0;
 }
 EXPORT_SYMBOL(mpq_streambuffer_get_data_rw_offset);
+
+ssize_t mpq_streambuffer_metadata_free(struct mpq_streambuffer *sbuff)
+{
+	ssize_t free;
+
+	if (NULL == sbuff)
+		return -EINVAL;
+
+	spin_lock(&sbuff->packet_data.lock);
+
+	/* check if buffer was released */
+	if (sbuff->packet_data.error == -ENODEV) {
+		spin_unlock(&sbuff->packet_data.lock);
+		return -ENODEV;
+	}
+
+	free = dvb_ringbuffer_free(&sbuff->packet_data);
+
+	spin_unlock(&sbuff->packet_data.lock);
+
+	return free;
+}
+EXPORT_SYMBOL(mpq_streambuffer_metadata_free);
+
