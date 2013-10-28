@@ -62,6 +62,7 @@
 #include "mpq8092-smp2p.dtsi"
 #include "mpq8092-coresight.dtsi"
 #include "mpq8092-bus.dtsi"
+#include "mpq8092-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
