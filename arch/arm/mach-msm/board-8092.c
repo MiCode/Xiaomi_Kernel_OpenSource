@@ -41,6 +41,8 @@
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
+#include "spm.h"
+#include "pm.h"
 
 static void __init mpq8092_early_memory(void)
 {
@@ -76,6 +78,8 @@ void __init mpq8092_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
+	msm_pm_sleep_status_init();
+	msm_spm_device_init();
 	rpm_smd_regulator_driver_init();
 	qpnp_regulator_init();
 	krait_power_init();
