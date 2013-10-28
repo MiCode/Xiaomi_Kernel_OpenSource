@@ -299,6 +299,19 @@ static int msm_ssphy_set_params(struct usb_phy *uphy)
 	return 0;
 }
 
+static int msm_ssphy_post_init(struct usb_phy *uphy)
+{
+	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
+	u32 val;
+
+	/* read initial value */
+	val = readl_relaxed(phy->base + SS_PHY_CTRL_REG);
+	val &= ~LANE0_PWR_PRESENT;
+	writel_relaxed(val, phy->base + SS_PHY_CTRL_REG);
+
+	return 0;
+}
+
 static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 {
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
@@ -458,6 +471,7 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 	phy->phy.init			= msm_ssphy_init;
 	phy->phy.set_suspend		= msm_ssphy_set_suspend;
 	phy->phy.set_params		= msm_ssphy_set_params;
+	phy->phy.post_init		= msm_ssphy_post_init;
 	phy->phy.notify_connect		= msm_ssphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_notify_disconnect;
 	phy->phy.type			= USB_PHY_TYPE_USB3;

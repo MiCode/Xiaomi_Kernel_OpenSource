@@ -106,6 +106,9 @@ struct usb_phy {
 	/* set additional settings parameters post-init */
 	int	(*set_params)(struct usb_phy *x);
 
+	/* do additional settings after complete initialization */
+	int	(*post_init)(struct usb_phy *x);
+
 	/* effective for B devices, ignored for A-peripheral */
 	int	(*set_power)(struct usb_phy *x,
 				unsigned mA);
@@ -198,6 +201,15 @@ usb_phy_set_params(struct usb_phy *x)
 {
 	if (x && x->set_params)
 		return x->set_params(x);
+
+	return 0;
+}
+
+static inline int
+usb_phy_post_init(struct usb_phy *x)
+{
+	if (x && x->post_init)
+		return x->post_init(x);
 
 	return 0;
 }
