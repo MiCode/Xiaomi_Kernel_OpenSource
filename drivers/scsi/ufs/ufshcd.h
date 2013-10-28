@@ -577,14 +577,24 @@ static inline void ufshcd_rmwl(struct ufs_hba *hba, u32 mask, u32 val, u32 reg)
 int ufshcd_alloc_host(struct device *, struct ufs_hba **);
 int ufshcd_init(struct ufs_hba * , void __iomem * , unsigned int);
 void ufshcd_remove(struct ufs_hba *);
-
+int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
+				u32 val, unsigned long interval_us,
+				unsigned long timeout_ms, bool can_sleep);
 /**
  * ufshcd_hba_stop - Send controller to reset state
  * @hba: per adapter instance
+ * @can_sleep: perform sleep or just spin
  */
-static inline void ufshcd_hba_stop(struct ufs_hba *hba)
+static inline void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep)
 {
+	int err;
+
 	ufshcd_writel(hba, CONTROLLER_DISABLE,  REG_CONTROLLER_ENABLE);
+	err = ufshcd_wait_for_register(hba, REG_CONTROLLER_ENABLE,
+					CONTROLLER_ENABLE, CONTROLLER_DISABLE,
+					10, 1, can_sleep);
+	if (err)
+		dev_err(hba->dev, "%s: Controller disable failed\n", __func__);
 }
 
 static inline void check_upiu_size(void)
