@@ -131,8 +131,9 @@
 #define FT_FW_PKT_DLY_MS	20
 #define FT_FW_LAST_PKT		0x6ffa
 #define FT_EARSE_DLY_MS		100
+#define FT_55_AA_DLY_NS		5000
 
-#define FT_UPGRADE_LOOP		10
+#define FT_UPGRADE_LOOP		30
 #define FT_CAL_START		0x04
 #define FT_CAL_FIN		0x00
 #define FT_CAL_STORE		0x05
@@ -141,6 +142,30 @@
 #define FT_CAL_MASK		0x70
 
 #define FT_INFO_MAX_LEN		512
+
+#define FT_BLOADER_SIZE_OFF	12
+#define FT_BLOADER_NEW_SIZE	30
+#define FT_DATA_LEN_OFF_OLD_FW	8
+#define FT_DATA_LEN_OFF_NEW_FW	14
+#define FT_FINISHING_PKT_LEN_OLD_FW	6
+#define FT_FINISHING_PKT_LEN_NEW_FW	12
+#define FT_MAGIC_BLOADER_Z7	0x7bfa
+#define FT_MAGIC_BLOADER_LZ4	0x6ffa
+#define FT_MAGIC_BLOADER_GZF_30	0x7ff4
+#define FT_MAGIC_BLOADER_GZF	0x7bf4
+
+enum {
+	FT_BLOADER_VERSION_LZ4 = 0,
+	FT_BLOADER_VERSION_Z7 = 1,
+	FT_BLOADER_VERSION_GZF = 2,
+};
+
+enum {
+	FT_FT5336_FAMILY_ID_0x11 = 0x11,
+	FT_FT5336_FAMILY_ID_0x12 = 0x12,
+	FT_FT5336_FAMILY_ID_0x13 = 0x13,
+	FT_FT5336_FAMILY_ID_0x14 = 0x14,
+};
 
 #define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_vkey_support, \
 			fw_name, fw_maj, fw_min, fw_sub_min) \
@@ -645,11 +670,20 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	u8 reset_reg;
 	u8 w_buf[FT_MAX_WR_BUF] = {0}, r_buf[FT_MAX_RD_BUF] = {0};
 	u8 pkt_buf[FT_FW_PKT_LEN + FT_FW_PKT_META_LEN];
-	int rc, i, j, temp;
+	int i, j, temp;
 	u32 pkt_num, pkt_len;
+	u8 is_5336_new_bootloader = false;
+	u8 is_5336_fwsize_30 = false;
 	u8 fw_ecc;
 
+	/* determine firmware size */
+	if (*(data + data_len - FT_BLOADER_SIZE_OFF) == FT_BLOADER_NEW_SIZE)
+		is_5336_fwsize_30 = true;
+	else
+		is_5336_fwsize_30 = false;
+
 	for (i = 0, j = 0; i < FT_UPGRADE_LOOP; i++) {
+		msleep(FT_EARSE_DLY_MS);
 		/* reset - write 0xaa and 0x55 to reset register */
 		if (ts_data->family_id == FT6X06_ID)
 			reset_reg = FT_RST_CMD_REG2;
@@ -660,16 +694,17 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		msleep(info.delay_aa);
 
 		ft5x0x_write_reg(client, reset_reg, FT_UPGRADE_55);
-		msleep(info.delay_55);
+		if (i <= (FT_UPGRADE_LOOP / 2))
+			msleep(info.delay_55 + i * 3);
+		else
+			msleep(info.delay_55 - (i - (FT_UPGRADE_LOOP / 2)) * 2);
 
 		/* Enter upgrade mode */
 		w_buf[0] = FT_UPGRADE_55;
-		w_buf[1] = FT_UPGRADE_AA;
-		do {
-			j++;
-			rc = ft5x06_i2c_write(client, w_buf, 2);
-			msleep(FT_RETRY_DLY);
-		} while (rc <= 0 && j < FT_MAX_TRIES);
+		ft5x06_i2c_write(client, w_buf, 1);
+		usleep(FT_55_AA_DLY_NS);
+		w_buf[0] = FT_UPGRADE_AA;
+		ft5x06_i2c_write(client, w_buf, 1);
 
 		/* check READ_ID */
 		msleep(info.delay_readid);
@@ -692,17 +727,40 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		return -EIO;
 	}
 
+	w_buf[0] = 0xcd;
+	ft5x06_i2c_read(client, w_buf, 1, r_buf, 1);
+
+	if (r_buf[0] <= 4)
+		is_5336_new_bootloader = FT_BLOADER_VERSION_LZ4;
+	else if (r_buf[0] == 7)
+		is_5336_new_bootloader = FT_BLOADER_VERSION_Z7;
+	else if (r_buf[0] >= 0x0f &&
+		((ts_data->family_id == FT_FT5336_FAMILY_ID_0x11) ||
+		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x12) ||
+		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x13) ||
+		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x14)))
+		is_5336_new_bootloader = FT_BLOADER_VERSION_GZF;
+	else
+		is_5336_new_bootloader = FT_BLOADER_VERSION_LZ4;
+
 	/* erase app and panel paramenter area */
 	w_buf[0] = FT_ERASE_APP_REG;
 	ft5x06_i2c_write(client, w_buf, 1);
 	msleep(info.delay_erase_flash);
 
-	w_buf[0] = FT_ERASE_PANEL_REG;
-	ft5x06_i2c_write(client, w_buf, 1);
+	if (is_5336_fwsize_30) {
+		w_buf[0] = FT_ERASE_PANEL_REG;
+		ft5x06_i2c_write(client, w_buf, 1);
+	}
 	msleep(FT_EARSE_DLY_MS);
 
 	/* program firmware */
-	data_len = data_len - 8;
+	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4
+		|| is_5336_new_bootloader == FT_BLOADER_VERSION_Z7)
+		data_len = data_len - FT_DATA_LEN_OFF_OLD_FW;
+	else
+		data_len = data_len - FT_DATA_LEN_OFF_NEW_FW;
+
 	pkt_num = (data_len) / FT_FW_PKT_LEN;
 	pkt_len = FT_FW_PKT_LEN;
 	pkt_buf[0] = FT_FW_START_REG;
@@ -745,17 +803,45 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	}
 
 	/* send the finishing packet */
-	for (i = 0; i < 6; i++) {
-		temp = FT_FW_LAST_PKT + i;
-		pkt_buf[2] = (u8) (temp >> 8);
-		pkt_buf[3] = (u8) temp;
-		temp = 1;
-		pkt_buf[4] = (u8) (temp >> 8);
-		pkt_buf[5] = (u8) temp;
-		pkt_buf[6] = data[data_len + i];
-		fw_ecc ^= pkt_buf[6];
-		ft5x06_i2c_write(client, pkt_buf, temp + FT_FW_PKT_META_LEN);
-		msleep(FT_FW_PKT_DLY_MS);
+	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4 ||
+		is_5336_new_bootloader == FT_BLOADER_VERSION_Z7) {
+		for (i = 0; i < FT_FINISHING_PKT_LEN_OLD_FW; i++) {
+			if (is_5336_new_bootloader  == FT_BLOADER_VERSION_Z7)
+				temp = FT_MAGIC_BLOADER_Z7 + i;
+			else if (is_5336_new_bootloader ==
+						FT_BLOADER_VERSION_LZ4)
+				temp = FT_MAGIC_BLOADER_LZ4 + i;
+			pkt_buf[2] = (u8)(temp >> 8);
+			pkt_buf[3] = (u8)temp;
+			temp = 1;
+			pkt_buf[4] = (u8)(temp >> 8);
+			pkt_buf[5] = (u8)temp;
+			pkt_buf[6] = data[data_len + i];
+			fw_ecc ^= pkt_buf[6];
+
+			ft5x06_i2c_write(client,
+				pkt_buf, temp + FT_FW_PKT_META_LEN);
+			msleep(FT_FW_PKT_DLY_MS);
+		}
+	} else if (is_5336_new_bootloader == FT_BLOADER_VERSION_GZF) {
+		for (i = 0; i < FT_FINISHING_PKT_LEN_NEW_FW; i++) {
+			if (is_5336_fwsize_30)
+				temp = FT_MAGIC_BLOADER_GZF_30 + i;
+			else
+				temp = FT_MAGIC_BLOADER_GZF + i;
+			pkt_buf[2] = (u8)(temp >> 8);
+			pkt_buf[3] = (u8)temp;
+			temp = 1;
+			pkt_buf[4] = (u8)(temp >> 8);
+			pkt_buf[5] = (u8)temp;
+			pkt_buf[6] = data[data_len + i];
+			fw_ecc ^= pkt_buf[6];
+
+			ft5x06_i2c_write(client,
+				pkt_buf, temp + FT_FW_PKT_META_LEN);
+			msleep(FT_FW_PKT_DLY_MS);
+
+		}
 	}
 
 	/* verify checksum */
