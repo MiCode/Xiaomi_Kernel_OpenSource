@@ -1555,6 +1555,17 @@
 			< 2265600 1728000 7448 /* 931 MHz */ >,
 			< 2457600 1728000 7448 /* 931 MHz */ >;
 	};
+
+	sound {
+		reg = <0xfe02c000 0x4>,
+		      <0xfe02d000 0x4>,
+		      <0xfe02e000 0x4>,
+		      <0xfe02f000 0x4>;
+		reg-names = "lpaif_pri_mode_muxsel",
+			    "lpaif_sec_mode_muxsel",
+			    "lpaif_tert_mode_muxsel",
+			    "lpaif_quat_mode_muxsel";
+	};
 };
 
 /* GPU overrides */
