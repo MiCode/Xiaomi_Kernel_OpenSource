@@ -28,11 +28,14 @@
 
 #define DRV_NAME "ipa"
 #define IPA_COOKIE 0x57831603
+#define MTU_BYTE 1500
 
 #define IPA_NUM_PIPES 0x14
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
+#define IPA_QMAP_HEADER_LENGTH (4)
+#define IPA_DL_CHECKSUM_LENGTH (8)
 
 #define IPADBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
