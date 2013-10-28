@@ -1507,6 +1507,8 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 
 	if (chip->dc_present ^ dc_present) {
 		chip->dc_present = dc_present;
+		if (qpnp_chg_is_otg_en_set(chip))
+			qpnp_chg_force_run_on_batt(chip, !dc_present ? 1 : 0);
 		if (!dc_present && !qpnp_chg_is_usb_chg_plugged_in(chip)) {
 			chip->delta_vddmax_mv = 0;
 			qpnp_chg_set_appropriate_vddmax(chip);
@@ -1711,10 +1713,12 @@ switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
 	if (qpnp_chg_is_otg_en_set(chip))
 		return 0;
 
-	rc = qpnp_chg_force_run_on_batt(chip, 1);
-	if (rc) {
-		pr_err("Failed to disable charging rc = %d\n", rc);
-		return rc;
+	if (!qpnp_chg_is_dc_chg_plugged_in(chip)) {
+		rc = qpnp_chg_force_run_on_batt(chip, 1);
+		if (rc) {
+			pr_err("Failed to disable charging rc = %d\n", rc);
+			return rc;
+		}
 	}
 
 	/* force usb ovp fet off */
