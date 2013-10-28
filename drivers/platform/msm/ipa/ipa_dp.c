@@ -1502,6 +1502,184 @@ begin:
 	return rc;
 }
 
+static struct sk_buff *join_prev_skb(struct sk_buff *prev_skb,
+		struct sk_buff *skb, unsigned int len)
+{
+	struct sk_buff *skb2;
+
+	skb2 = skb_copy_expand(prev_skb, 0,
+			len, GFP_KERNEL);
+	if (likely(skb2)) {
+		memcpy(skb_put(skb2, len),
+			skb->data, len);
+	} else {
+		IPAERR("copy expand failed\n");
+		skb2 = NULL;
+	}
+	dev_kfree_skb_any(prev_skb);
+
+	return skb2;
+}
+
+static void wan_rx_handle_splt_pyld(struct sk_buff *skb,
+		struct ipa_sys_context *sys)
+{
+	struct sk_buff *skb2;
+
+	IPADBG("rem %d skb %d\n", sys->len_rem, skb->len);
+	if (sys->len_rem <= skb->len) {
+		if (sys->prev_skb) {
+			skb2 = join_prev_skb(sys->prev_skb, skb,
+					sys->len_rem);
+			if (likely(skb2)) {
+				IPADBG(
+					"removing Status element from skb and sending to WAN client");
+				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
+				sys->ep->client_notify(sys->ep->priv,
+					IPA_RECEIVE,
+					(unsigned long)(skb2));
+			}
+		}
+		skb_pull(skb, sys->len_rem);
+		sys->prev_skb = NULL;
+		sys->len_rem = 0;
+	} else {
+		if (sys->prev_skb) {
+			skb2 = join_prev_skb(sys->prev_skb, skb,
+					skb->len);
+			sys->prev_skb = skb2;
+		}
+		sys->len_rem -= skb->len;
+		skb_pull(skb, skb->len);
+	}
+}
+
+static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
+		struct ipa_sys_context *sys)
+{
+	int rc = 0;
+	struct ipa_hw_pkt_status *status;
+	struct sk_buff *skb2;
+	u16 pkt_len_with_pad;
+	u32 qmap_hdr;
+	int checksum_trailer_exists;
+	int frame_len;
+	int ep_idx;
+
+	IPA_DUMP_BUFF(skb->data, 0, skb->len);
+	if (skb->len == 0) {
+		IPAERR("ZLT\n");
+		goto bail;
+	}
+	/*
+	 * payload splits across 2 buff or more,
+	 * take the start of the payload from prev_skb
+	 */
+	if (sys->len_rem)
+		wan_rx_handle_splt_pyld(skb, sys);
+
+	while (skb->len) {
+		IPADBG("LEN_REM %d\n", skb->len);
+		if (skb->len < IPA_PKT_STATUS_SIZE) {
+			IPAERR("status straddles buffer\n");
+			WARN_ON(1);
+			goto bail;
+		}
+		status = (struct ipa_hw_pkt_status *)skb->data;
+		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
+				status->status_opcode, status->endp_src_idx,
+				status->endp_dest_idx, status->pkt_len);
+		if (status->status_opcode != IPA_HW_STATUS_OPCODE_PACKET) {
+			IPAERR("unsupported opcode\n");
+			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			continue;
+		}
+		if (status->endp_dest_idx >= IPA_NUM_PIPES ||
+			status->endp_src_idx >= IPA_NUM_PIPES ||
+			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
+			IPAERR("status fields invalid\n");
+			WARN_ON(1);
+			goto bail;
+		}
+		if (status->pkt_len == 0) {
+			IPADBG("Skip aggr close status\n");
+			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			continue;
+		}
+		ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+		if (status->endp_dest_idx != ep_idx) {
+			IPAERR("expected endp_dest_idx %d received %d\n",
+					ep_idx, status->endp_dest_idx);
+			WARN_ON(1);
+			goto bail;
+		}
+		/* RX data */
+		if (skb->len == IPA_PKT_STATUS_SIZE) {
+			IPAERR("Ins header in next buffer\n");
+			WARN_ON(1);
+			goto bail;
+		}
+		qmap_hdr = *(u32 *)(status+1);
+		/*
+		 * Take the pkt_len_with_pad from the last 2 bytes of the QMAP
+		 * header
+		 */
+
+		/*QMAP is BE: convert the pkt_len field from BE to LE*/
+		pkt_len_with_pad = ntohs((qmap_hdr>>16) & 0xffff);
+		IPADBG("pkt_len with pad %d\n", pkt_len_with_pad);
+		/*get the CHECKSUM_PROCESS bit*/
+		checksum_trailer_exists = status->status_mask &
+				IPA_HW_PKT_STATUS_MASK_CKSUM_PROCESS;
+		IPADBG("checksum_trailer_exists %d\n",
+				checksum_trailer_exists);
+
+		frame_len = IPA_PKT_STATUS_SIZE +
+			    IPA_QMAP_HEADER_LENGTH +
+			    pkt_len_with_pad;
+		if (checksum_trailer_exists)
+			frame_len += IPA_DL_CHECKSUM_LENGTH;
+		IPADBG("frame_len %d\n", frame_len);
+
+		skb2 = skb_clone(skb, GFP_KERNEL);
+		if (likely(skb2)) {
+			/*
+			 * the len of actual data is smaller than expected
+			 * payload split across 2 buff
+			 */
+			if (skb->len < frame_len) {
+				IPADBG("SPL skb len %d len %d\n",
+						skb->len, frame_len);
+				sys->prev_skb = skb2;
+				sys->len_rem = frame_len - skb->len;
+				skb_pull(skb, skb->len);
+			} else {
+				skb_trim(skb2, frame_len);
+				IPADBG("rx avail for %d\n",
+						status->endp_dest_idx);
+				IPADBG(
+					"removing Status element from skb and sending to WAN client");
+				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
+				sys->ep->client_notify(sys->ep->priv,
+					IPA_RECEIVE, (unsigned long)(skb2));
+				skb_pull(skb, frame_len);
+			}
+		} else {
+			IPAERR("fail to clone\n");
+			if (skb->len < frame_len) {
+				sys->prev_skb = NULL;
+				sys->len_rem = frame_len - skb->len;
+				skb_pull(skb, skb->len);
+			} else {
+				skb_pull(skb, frame_len);
+			}
+		}
+	};
+bail:
+	sys->free_skb(skb);
+	return rc;
+}
+
 static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
 {
 	struct ipa_a5_mux_hdr *mux_hdr;
@@ -1713,12 +1891,12 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			sys->policy = IPA_POLICY_INTR_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
 			sys->sps_callback = ipa_sps_irq_rx_no_aggr_notify;
-			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
+			if (in->client == IPA_CLIENT_APPS_LAN_CONS ||
+					IPA_CLIENT_APPS_WAN_CONS) {
 				INIT_DELAYED_WORK(&sys->replenish_rx_work,
 						replenish_rx_work_func);
 				sys->rx_buff_sz = IPA_LAN_RX_BUFF_SZ;
 				sys->rx_pool_sz = IPA_GENERIC_RX_POOL_SZ;
-				sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
@@ -1729,6 +1907,12 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_GENERIC_AGGR_TIME_LIMIT;
 				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
 					IPA_GENERIC_AGGR_PKT_LIMIT;
+				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
+					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
+				} else if (in->client ==
+						IPA_CLIENT_APPS_WAN_CONS) {
+					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
+				}
 			} else {
 				IPAERR("Need to install a RX pipe hdlr\n");
 				WARN_ON(1);

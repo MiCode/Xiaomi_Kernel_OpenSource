@@ -58,7 +58,6 @@
 #define TETH_AGGR_MAX_DATAGRAMS_DEFAULT 16
 #define TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT (8*1024)
 
-#define TETH_MTU_BYTE 1500
 
 #define TETH_INACTIVITY_TIME_MSEC (1000)
 
@@ -1251,7 +1250,7 @@ static int prepare_ipa_aggr_struct(
 	 * byte limit is honored .
 	 */
 	ipa_aggr_params->aggr_byte_limit =
-		(teth_aggr_params->max_transfer_size_byte - TETH_MTU_BYTE) /
+		(teth_aggr_params->max_transfer_size_byte - MTU_BYTE) /
 		1024;
 	ipa_aggr_params->aggr_time_limit = TETH_DEFAULT_AGGR_TIME_LIMIT;
 	TETH_DBG_FUNC_EXIT();
