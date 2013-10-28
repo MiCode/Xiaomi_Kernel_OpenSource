@@ -24,6 +24,7 @@
 #define CSID_VERSION_V22                      0x02001000
 #define CSID_VERSION_V30                      0x30000000
 #define CSID_VERSION_V31                      0x30010000
+#define CSID_VERSION_V40                      0x40000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
 #define DBG_CSID 0
@@ -308,8 +309,9 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (csid_dev->hw_version >= CSID_VERSION_V30 &&
-	  csid_dev->hw_version < CSID_VERSION_V31) {
+	} else if ((csid_dev->hw_version >= CSID_VERSION_V30 &&
+		csid_dev->hw_version < CSID_VERSION_V31) ||
+		csid_dev->hw_version == CSID_VERSION_V40) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
 			csid_dev->csid_clk, ARRAY_SIZE(csid_clk_info), 0);
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
