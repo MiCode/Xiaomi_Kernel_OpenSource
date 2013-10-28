@@ -89,7 +89,6 @@
 #define MSM_CFG_CTL_BASE	IOMEM(0xFA105000)	/*  4K */
 #define MSM_CLK_CTL_SH2_BASE	IOMEM(0xFA106000)	/*  4K */
 #define MSM_MPM2_PSHOLD_BASE	IOMEM(0xFA107000)	/*  4k */
-#define MSM_SHARED_RAM_BASE	IOMEM(0xFA400000)	/*  2M  */
 #define MSM_SIC_NON_SECURE_BASE	IOMEM(0xFA600000)	/* 64K	*/
 #define MSM_QFPROM_BASE		IOMEM(0xFA700000)	/*  4K  */
 #define MSM_L2CC_BASE		IOMEM(0xFA701000)	/*  4K  */
@@ -111,16 +110,6 @@
 
 #define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
 #define MSM8625_CPU_PHYS		0x0FE00000
-
-
-#if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27) \
-	|| defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM9625) \
-	|| defined(CONFIG_ARCH_MSM8610) || defined(CONFIG_ARCH_MSM8226) \
-	|| defined(CONFIG_ARCH_MSMKRYPTON)
-#define MSM_SHARED_RAM_SIZE	SZ_1M
-#else
-#define MSM_SHARED_RAM_SIZE	SZ_2M
-#endif
 
 #include "msm_iomap-7xxx.h"
 #include "msm_iomap-7x30.h"
