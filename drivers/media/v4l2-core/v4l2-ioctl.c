@@ -2331,7 +2331,6 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 	size_t  array_size = 0;
 	void __user *user_ptr = NULL;
 	void	**kernel_ptr = NULL;
-	bool	heap_allocate = false;
 
 	/*  Copy arguments into temp kernel buffer  */
 	if (_IOC_DIR(cmd) != _IOC_NONE) {
@@ -2343,7 +2342,6 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 			if (NULL == mbuf)
 				return -ENOMEM;
 			parg = mbuf;
-			heap_allocate = true;
 		}
 
 		err = -EFAULT;
@@ -2425,8 +2423,6 @@ out_array_args:
 
 out:
 	kfree(mbuf);
-	if (heap_allocate)
-		kfree(parg);
 	return err;
 }
 EXPORT_SYMBOL(video_usercopy);
