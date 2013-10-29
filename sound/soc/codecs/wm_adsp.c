@@ -905,7 +905,6 @@ static void wm_adsp_ctl_work(struct work_struct *work)
 
 static int wm_adsp_create_control(struct wm_adsp *dsp,
 				  const struct wm_adsp_alg_region *region)
-
 {
 	struct wm_coeff_ctl *ctl;
 	struct wmfw_ctl_work *ctl_work;
@@ -938,8 +937,8 @@ static int wm_adsp_create_control(struct wm_adsp *dsp,
 		goto err_name;
 	}
 
-	snprintf(name, PAGE_SIZE, "DSP%d %s %x",
-		 dsp->num, region_name, region->alg);
+	snprintf(name, PAGE_SIZE, "DSP%d %s %x:%d",
+		 dsp->num, region_name, region->alg, region->block);
 
 	list_for_each_entry(ctl, &dsp->ctl_list,
 			    list) {
@@ -999,6 +998,50 @@ err_ctl:
 err_name:
 	kfree(name);
 	return ret;
+}
+
+static int wm_adsp_create_grouped_control(struct wm_adsp *dsp,
+					  struct wm_adsp_alg_region *region)
+{
+	size_t len = region->len, offset = 0;
+	struct wm_adsp_alg_region *r;
+	int ret;
+
+	region->block = 0;
+	/* This is the quick case for control groups of a single block */
+	if (region->len <= 512)
+		return wm_adsp_create_control(dsp, region);
+
+	/* The passed `region' is already in the list
+	 * of algorithm regions so just create the control for it and don't
+	 * add it to the list */
+	region->len = 512;
+	ret = wm_adsp_create_control(dsp, region);
+	if (ret < 0)
+		return ret;
+	offset += 512;
+
+	/* Carve up the entire region into 512-byte chunks */
+	do {
+		r = kzalloc(sizeof(*r), GFP_KERNEL);
+		if (!r)
+			return -ENOMEM;
+		r->block = offset / 512;
+		r->type = region->type;
+		r->alg = region->alg;
+		r->base = region->base + offset / 4;
+		if (len - offset > 512)
+			r->len = 512;
+		else
+			r->len = len - offset;
+		offset += r->len;
+		list_add_tail(&r->list, &dsp->alg_regions);
+		ret = wm_adsp_create_control(dsp, r);
+		if (ret < 0)
+			return ret;
+	} while (offset < len);
+
+	return 0;
 }
 
 static int wm_adsp_setup_algs(struct wm_adsp *dsp)
@@ -1188,7 +1231,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp)
 				region->len = be32_to_cpu(adsp1_alg[i + 1].dm);
 				region->len -= be32_to_cpu(adsp1_alg[i].dm);
 				region->len *= 4;
-				wm_adsp_create_control(dsp, region);
+				wm_adsp_create_grouped_control(dsp, region);
 			} else {
 				adsp_warn(dsp, "Missing length info for region DM with ID %x\n",
 					  be32_to_cpu(adsp1_alg[i].alg.id));
@@ -1206,7 +1249,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp)
 				region->len = be32_to_cpu(adsp1_alg[i + 1].zm);
 				region->len -= be32_to_cpu(adsp1_alg[i].zm);
 				region->len *= 4;
-				wm_adsp_create_control(dsp, region);
+				wm_adsp_create_grouped_control(dsp, region);
 			} else {
 				adsp_warn(dsp, "Missing length info for region ZM with ID %x\n",
 					  be32_to_cpu(adsp1_alg[i].alg.id));
@@ -1236,7 +1279,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp)
 				region->len = be32_to_cpu(adsp2_alg[i + 1].xm);
 				region->len -= be32_to_cpu(adsp2_alg[i].xm);
 				region->len *= 4;
-				wm_adsp_create_control(dsp, region);
+				wm_adsp_create_grouped_control(dsp, region);
 			} else {
 				adsp_warn(dsp, "Missing length info for region XM with ID %x\n",
 					  be32_to_cpu(adsp2_alg[i].alg.id));
@@ -1254,7 +1297,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp)
 				region->len = be32_to_cpu(adsp2_alg[i + 1].ym);
 				region->len -= be32_to_cpu(adsp2_alg[i].ym);
 				region->len *= 4;
-				wm_adsp_create_control(dsp, region);
+				wm_adsp_create_grouped_control(dsp, region);
 			} else {
 				adsp_warn(dsp, "Missing length info for region YM with ID %x\n",
 					  be32_to_cpu(adsp2_alg[i].alg.id));
@@ -1272,7 +1315,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp)
 				region->len = be32_to_cpu(adsp2_alg[i + 1].zm);
 				region->len -= be32_to_cpu(adsp2_alg[i].zm);
 				region->len *= 4;
-				wm_adsp_create_control(dsp, region);
+				wm_adsp_create_grouped_control(dsp, region);
 			} else {
 				adsp_warn(dsp, "Missing length info for region ZM with ID %x\n",
 					  be32_to_cpu(adsp2_alg[i].alg.id));
