@@ -33,7 +33,6 @@
 		smd8 = &smdtty_data4;
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
-		smd27 = &smdtty_gps_nmea;
 		smd36 = &smdtty_loopback;
 	};
 	soc: soc { };
