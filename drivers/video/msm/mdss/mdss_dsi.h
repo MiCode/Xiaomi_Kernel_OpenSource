@@ -320,6 +320,7 @@ struct mdss_dsi_ctrl_pdata {
 	unsigned char *ctrl_base;
 	int reg_size;
 	u32 clk_cnt;
+	struct clk *mdp_core_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *byte_clk;
