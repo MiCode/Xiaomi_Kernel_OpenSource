@@ -99,7 +99,7 @@ int audio_in_enable(struct q6audio_in  *audio)
 int audio_in_disable(struct q6audio_in  *audio)
 {
 	int rc = 0;
-	if (audio->opened) {
+	if (!audio->stopped) {
 		audio->enabled = 0;
 		audio->opened = 0;
 		pr_debug("%s:session id %d: inbytes[%d] insamples[%d]\n",
