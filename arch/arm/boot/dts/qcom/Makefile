@@ -109,6 +109,7 @@ dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb \
 	apq8084-smb1357-mdm9x35-cdp.dtb \
 	apq8084-smb1357-mdm9x35-alt-cdp.dtb \
 	apq8084-sbc.dtb
+dtb-$(CONFIG_ARCH_MSM) += msmplutonium-sim.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)
