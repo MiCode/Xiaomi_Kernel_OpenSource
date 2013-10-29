@@ -355,6 +355,7 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 	if (temp == NULL) {
 		pr_err("%s: allocation failure\n", __func__);
 		rv = -ENOMEM;
+		goto out;
 	}
 
 	hdr->dst_module = SNS_OCMEM_MODULE_ADSP;
@@ -387,6 +388,7 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 
 	kfree(temp);
 
+out:
 	return rv;
 }
 
