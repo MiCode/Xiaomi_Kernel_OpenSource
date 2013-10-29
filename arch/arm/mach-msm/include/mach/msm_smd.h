@@ -325,6 +325,16 @@ int __init msm_smd_init(void);
  */
 int smd_remote_ss_to_edge(const char *name);
 
+/**
+ * smd_edge_to_pil_str - Returns the PIL string used to load the remote side of
+ *			the indicated edge.
+ *
+ * @type - Edge definition
+ * @returns - The PIL string to load the remove side of @type or NULL if the
+ *		PIL string does not exist.
+ */
+const char *smd_edge_to_pil_str(uint32_t type);
+
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -460,6 +470,11 @@ static inline int __init msm_smd_init(void)
 static inline int smd_remote_ss_to_edge(const char *name)
 {
 	return -EINVAL;
+}
+
+static inline const char *smd_edge_to_pil_str(uint32_t type)
+{
+	return NULL;
 }
 #endif
 

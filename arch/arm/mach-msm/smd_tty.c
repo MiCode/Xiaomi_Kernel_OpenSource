@@ -431,7 +431,7 @@ static int smd_tty_port_activate(struct tty_port *tport,
 		goto out;
 	}
 
-	peripheral = smd_edge_to_subsystem(smd_tty[n].edge);
+	peripheral = smd_edge_to_pil_str(smd_tty[n].edge);
 	if (peripheral) {
 		info->pil = subsystem_get(peripheral);
 		if (IS_ERR(info->pil)) {
@@ -449,42 +449,42 @@ static int smd_tty_port_activate(struct tty_port *tport,
 			res = PTR_ERR(info->pil);
 			goto platform_unregister;
 		}
+	}
 
-		/* Wait for the modem SMSM to be inited for the SMD
-		 * Loopback channel to be allocated at the modem. Since
-		 * the wait need to be done atmost once, using msleep
-		 * doesn't degrade the performance.
-		 */
-		if (n == LOOPBACK_IDX) {
-			if (!is_modem_smsm_inited())
-				msleep(5000);
-			smsm_change_state(SMSM_APPS_STATE,
-					  0, SMSM_SMD_LOOPBACK);
-			msleep(100);
-		}
+	/* Wait for the modem SMSM to be inited for the SMD
+	 * Loopback channel to be allocated at the modem. Since
+	 * the wait need to be done atmost once, using msleep
+	 * doesn't degrade the performance.
+	 */
+	if (n == LOOPBACK_IDX) {
+		if (!is_modem_smsm_inited())
+			msleep(5000);
+		smsm_change_state(SMSM_APPS_STATE,
+				  0, SMSM_SMD_LOOPBACK);
+		msleep(100);
+	}
 
-		/*
-		 * Wait for a channel to be allocated so we know
-		 * the modem is ready enough.
-		 */
-		if (smd_tty[n].open_wait) {
-			res = wait_for_completion_interruptible_timeout(
-					&info->ch_allocated,
-					msecs_to_jiffies(smd_tty[n].open_wait *
-									1000));
+	/*
+	 * Wait for a channel to be allocated so we know
+	 * the modem is ready enough.
+	 */
+	if (smd_tty[n].open_wait) {
+		res = wait_for_completion_interruptible_timeout(
+				&info->ch_allocated,
+				msecs_to_jiffies(smd_tty[n].open_wait *
+								1000));
 
-			if (res == 0) {
-				SMD_TTY_INFO(
-					"Timed out waiting for SMD channel %s",
-					info->ch_name);
-				res = -ETIMEDOUT;
-				goto release_pil;
-			} else if (res < 0) {
-				SMD_TTY_INFO(
-					"Error waiting for SMD channel %s : %d\n",
-					info->ch_name, res);
-				goto release_pil;
-			}
+		if (res == 0) {
+			SMD_TTY_INFO(
+				"Timed out waiting for SMD channel %s",
+				info->ch_name);
+			res = -ETIMEDOUT;
+			goto release_pil;
+		} else if (res < 0) {
+			SMD_TTY_INFO(
+				"Error waiting for SMD channel %s : %d\n",
+				info->ch_name, res);
+			goto release_pil;
 		}
 	}
 

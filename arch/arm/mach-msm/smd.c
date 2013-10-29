@@ -650,6 +650,7 @@ struct remote_proc_info {
 	struct list_head ch_list;
 	/* 2 total supported tables of channels */
 	unsigned char ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS * 2];
+	bool skip_pil;
 };
 
 static struct remote_proc_info remote_info[NUM_SMD_SUBSYSTEMS];
@@ -822,6 +823,29 @@ int smd_remote_ss_to_edge(const char *name)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(smd_remote_ss_to_edge);
+
+/**
+ * smd_edge_to_pil_str - Returns the PIL string used to load the remote side of
+ *			 the indicated edge.
+ *
+ * @type -	Edge definition
+ * @returns -	The PIL string to load the remove side of @type or NULL if the
+ *		PIL string does not exist.
+ */
+const char *smd_edge_to_pil_str(uint32_t type)
+{
+	const char *pil_str = NULL;
+
+	if (type < ARRAY_SIZE(edge_to_pids)) {
+		if (!remote_info[smd_edge_to_remote_pid(type)].skip_pil) {
+			pil_str = edge_to_pids[type].subsys_name;
+			if (pil_str[0] == 0x0)
+				pil_str = NULL;
+		}
+	}
+	return pil_str;
+}
+EXPORT_SYMBOL(smd_edge_to_pil_str);
 
 /*
  * Returns a pointer to the subsystem name or NULL if no
@@ -3330,25 +3354,43 @@ int smd_edge_to_local_pid(uint32_t edge)
 }
 
 /**
+ * smd_proc_set_skip_pil() - Mark if the indicated processor is be loaded by PIL
+ * @pid:		the processor id to mark
+ * @skip_pil:		true if @pid cannot by loaded by PIL
+ */
+void smd_proc_set_skip_pil(unsigned pid, bool skip_pil)
+{
+	if (pid >= NUM_SMD_SUBSYSTEMS) {
+		pr_err("%s: invalid pid:%d\n", __func__, pid);
+		return;
+	}
+	remote_info[pid].skip_pil = skip_pil;
+}
+
+/**
  * smd_set_edge_subsys_name() - Set the subsystem name
  * @edge:		edge type identifies local and remote processor
- * @sussys_name:	pointer to subsystem name
+ * @subsys_name:	pointer to subsystem name
  *
  * This function is used to set the subsystem name for given edge type.
  */
 void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name)
 {
 	if (edge < ARRAY_SIZE(edge_to_pids))
-		strlcpy(edge_to_pids[edge].subsys_name,
-			subsys_name, SMD_MAX_CH_NAME_LEN);
+		if (subsys_name)
+			strlcpy(edge_to_pids[edge].subsys_name,
+				subsys_name, SMD_MAX_CH_NAME_LEN);
+		else
+			strlcpy(edge_to_pids[edge].subsys_name,
+				"", SMD_MAX_CH_NAME_LEN);
 	else
 		pr_err("%s: Invalid edge type[%d]\n", __func__, edge);
 }
 
 /**
- * smd_reset_all_edge_subsys_name() - Reset the PIL string
+ * smd_reset_all_edge_subsys_name() - Reset the subsystem name
  *
- * This function is used to reset the PIL string of all edges in
+ * This function is used to reset the subsystem name of all edges in
  * targets where configuration information is available through
  * device tree.
  */
