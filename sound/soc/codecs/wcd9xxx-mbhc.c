@@ -4193,10 +4193,11 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			   (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR))
 				wcd9xxx_switch_micbias(mbhc, 1);
 			/*
-			 * Disable MBHC TxFE, in case it was enabled
-			 * earlier when micbias was enabled.
+			 * Disable MBHC TxFE, in case it was enabled earlier
+			 * when micbias was enabled and polling is not active.
 			 */
-			wcd9xxx_enable_mbhc_txfe(mbhc, false);
+			if (!mbhc->polling_active)
+				wcd9xxx_enable_mbhc_txfe(mbhc, false);
 		}
 		break;
 	/* PA usage change */
