@@ -17,8 +17,8 @@
 
 	qcom,pma8084@1 {
 		pma8084_s1: regulator@1400 {
-			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <900000>;
+			regulator-min-microvolt = <1350000>;
+			regulator-max-microvolt = <1350000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			qcom,system-load = <100000>;
@@ -26,8 +26,8 @@
 		};
 
 		pma8084_s3: regulator@1a00 {
-			regulator-min-microvolt = <1350000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-min-microvolt = <1400000>;
+			regulator-max-microvolt = <1400000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
@@ -54,16 +54,17 @@
 		};
 
 		pma8084_s6: regulator@2300 {
-			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <900000>;
+			regulator-min-microvolt = <945000>;
+			regulator-max-microvolt = <945000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
+			regulator-always-on;
 			status = "okay";
 		};
 
 		pma8084_s12: regulator@3500 {
-			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <900000>;
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <1500000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
@@ -72,12 +73,11 @@
 		};
 
 		pma8084_l1: regulator@4000 {
-			parent-supply = <&pma8084_s3>;
+			parent-supply = <&pma8084_s1>;
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
-			regulator-always-on;
 			qcom,system-load = <10000>;
 			status = "okay";
 		};
@@ -93,8 +93,8 @@
 
 		pma8084_l3: regulator@4200 {
 			parent-supply = <&pma8084_s3>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
@@ -102,14 +102,24 @@
 
 		pma8084_l4: regulator@4300 {
 			parent-supply = <&pma8084_s3>;
-			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1050000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
+			regulator-always-on;
 			status = "okay";
 		};
 
 		pma8084_l6: regulator@4500 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
+		pma8084_l8: regulator@4700 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,enable-time = <200>;
@@ -134,9 +144,9 @@
 		};
 
 		pma8084_l11: regulator@4a00 {
-			parent-supply = <&pma8084_s3>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
+			parent-supply = <&pma8084_s1>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
@@ -160,16 +170,16 @@
 		};
 
 		pma8084_l14: regulator@4d00 {
-			regulator-min-microvolt = <950000>;
-			regulator-max-microvolt = <950000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
 		};
 
 		pma8084_l15: regulator@4e00 {
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
@@ -190,12 +200,13 @@
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			qcom,system-load = <100000>;
+			regulator-always-on;
 			status = "okay";
 		};
 
 		pma8084_l18: regulator@5100 {
-			regulator-min-microvolt = <2850000>;
-			regulator-max-microvolt = <2850000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
@@ -203,8 +214,8 @@
 
 		pma8084_l19: regulator@5200 {
 			parent-supply = <&pma8084_s5>;
-			regulator-min-microvolt = <1500000>;
-			regulator-max-microvolt = <1500000>;
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
@@ -271,8 +282,8 @@
 		};
 		pma8084_l27: regulator@5A00 {
 			parent-supply = <&pma8084_s3>;
-			regulator-min-microvolt = <1000000>;
-			regulator-max-microvolt = <1000000>;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
 			qcom,enable-time = <200>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
