@@ -166,7 +166,8 @@ config PINCTRL_MSM_TLMM_V3
 	select GENERIC_PINCONF
 
 config PINCTRL_MSM_TLMM_V4
-	depends on OF
+	bool "MSM TLMMv4 pinctrl driver"
+	depends on OF && ARCH_MSM
 	bool
 	select PINMUX
 	select GENERIC_PINCONF
