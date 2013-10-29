@@ -284,6 +284,7 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"4.2",
 		"5",
 		"5.1",
+		"5.2",
 		NULL,
 	};
 	static const char * const h264_loop_filter[] = {
