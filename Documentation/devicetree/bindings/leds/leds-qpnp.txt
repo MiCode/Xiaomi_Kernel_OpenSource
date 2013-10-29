@@ -23,7 +23,8 @@ WLED is primarily used as display backlight. Display subsystem uses
 LED triggers for WLED to control the brightness as needed.
 
 Optional properties for WLED:
-- qcom,num-strings: number of wled strings supported
+- qcom,num-strings: number of wled strings to be configured
+- qcom,num-physical-strings: number of physical wled strings supported
 - qcom,ovp-val: over voltage protection threshold,
 		follows enum wled_ovp_threshold
 - qcom,boost-curr-lim: boot currnet limit, follows enum wled_current_bost_limit
