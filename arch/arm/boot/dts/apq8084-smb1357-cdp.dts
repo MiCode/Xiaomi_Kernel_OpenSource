@@ -1,0 +1,46 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "apq8084.dtsi"
+/include/ "apq8084-cdp.dtsi"
+
+/ {
+	model = "Qualcomm APQ 8084, SMB1357 CDP";
+	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
+	qcom,board-id = <1 2>,
+			<1 3>,
+			<1 4>,
+			<21 2>,
+			<21 3>,
+			<21 4>;
+};
+
+&i2c_0 {
+	smb1357_otg_vreg: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_vreg";
+		qcom,soft-vfloat-comp-disabled;
+	};
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_vreg>;
+};
