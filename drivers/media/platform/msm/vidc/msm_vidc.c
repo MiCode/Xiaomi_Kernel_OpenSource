@@ -1143,6 +1143,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->ctrl_clusters);
 	INIT_LIST_HEAD(&inst->registered_bufs);
 	INIT_LIST_HEAD(&inst->outputbufs);
+	INIT_LIST_HEAD(&inst->pending_getpropq);
 	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -1269,6 +1270,7 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		mutex_unlock(&inst->lock);
 		msm_smem_delete_client(inst->mem_client);
 		debugfs_remove_recursive(inst->debugfs_root);
+		WARN_ON(!list_empty(&inst->pending_getpropq));
 	}
 }
 

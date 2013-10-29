@@ -662,6 +662,33 @@ int create_pkt_cmd_session_flush(struct hfi_cmd_session_flush_packet *pkt,
 	return rc;
 }
 
+int create_pkt_cmd_session_get_property(
+		struct hfi_cmd_session_get_property_packet *pkt,
+		u32 session_id, enum hal_property ptype)
+{
+	int rc = 0;
+	if (!pkt || !session_id) {
+		dprintk(VIDC_ERR, "%s Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	pkt->size = sizeof(struct hfi_cmd_session_get_property_packet);
+	pkt->packet_type = HFI_CMD_SESSION_GET_PROPERTY;
+	pkt->session_id = session_id;
+	pkt->num_properties = 1;
+	switch (ptype) {
+	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
+			pkt->rg_property_data[0] =
+				HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s cmd:0x%x not supported\n", __func__,
+			ptype);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
 int create_pkt_cmd_session_set_property(
 		struct hfi_cmd_session_set_property_packet *pkt,
 		u32 session_id, enum hal_property ptype, void *pdata)

@@ -221,6 +221,7 @@ struct msm_vidc_inst {
 	struct list_head internalbufs;
 	struct list_head persistbufs;
 	struct list_head outputbufs;
+	struct list_head pending_getpropq;
 	struct buffer_requirements buff_req;
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -261,6 +262,7 @@ struct msm_vidc_ctrl {
 	s32 default_value;
 	u32 step;
 	u32 menu_skip_mask;
+	u32 flags;
 	const char * const *qmenu;
 	u32 cluster;
 	struct v4l2_ctrl *priv;

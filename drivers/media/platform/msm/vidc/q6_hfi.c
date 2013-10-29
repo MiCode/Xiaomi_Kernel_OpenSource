@@ -1048,12 +1048,12 @@ err_create_pkt:
 }
 
 static int q6_hfi_session_get_property(void *sess,
-	enum hal_property ptype, void *pdata)
+	enum hal_property ptype)
 {
 	struct hal_session *session = sess;
 	struct q6_hfi_device *dev;
 
-	if (!session || !pdata || !session->device) {
+	if (!session || !session->device) {
 		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}

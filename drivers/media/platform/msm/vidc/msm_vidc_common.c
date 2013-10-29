@@ -47,6 +47,12 @@
 	u32 __mbs = (__h >> 4) * (__w >> 4);\
 	__mbs;\
 })
+
+struct getprop_buf {
+	struct list_head list;
+	void *data;
+};
+
 static bool is_turbo_requested(struct msm_vidc_core *core,
 		enum session_type type)
 {
@@ -591,8 +597,8 @@ static void handle_event_change(enum command_response cmd, void *data)
 static void handle_session_prop_info(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
+	struct getprop_buf *getprop;
 	struct msm_vidc_inst *inst;
-	int i;
 	if (!response || !response->data) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for prop info\n");
@@ -600,20 +606,32 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 	}
 	inst = (struct msm_vidc_inst *)response->session_id;
 	mutex_lock(&inst->lock);
-	memcpy(&inst->buff_req, response->data,
-			sizeof(struct buffer_requirements));
-	mutex_unlock(&inst->lock);
-	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		dprintk(VIDC_DBG,
-			"buffer type: %d, count : %d, size: %d\n",
-			inst->buff_req.buffer[i].buffer_type,
-			inst->buff_req.buffer[i].buffer_count_actual,
-			inst->buff_req.buffer[i].buffer_size);
+	getprop = kzalloc(sizeof(*getprop), GFP_KERNEL);
+	if (!getprop) {
+		dprintk(VIDC_ERR, "%s: getprop kzalloc failed\n", __func__);
+		goto failed;
 	}
-	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
-			inst->buff_req.buffer[0].buffer_count_actual,
-			inst->buff_req.buffer[1].buffer_count_actual);
+	getprop->data = kzalloc(response->size, GFP_KERNEL);
+	if (!getprop->data) {
+		dprintk(VIDC_ERR, "%s: getprop->data kzalloc failed\n",
+					__func__);
+		kfree(getprop);
+		goto failed;
+	}
+	getprop->data = kmemdup(response->data, response->size, GFP_KERNEL);
+	if (!getprop->data) {
+		dprintk(VIDC_ERR, "%s: kmemdup failed\n", __func__);
+		kfree(getprop->data);
+		kfree(getprop);
+		goto failed;
+	}
+	list_add_tail(&getprop->list, &inst->pending_getpropq);
+	mutex_unlock(&inst->lock);
 	signal_session_msg_receipt(cmd, inst);
+	return;
+failed:
+	mutex_unlock(&inst->lock);
+	return;
 }
 
 static void handle_load_resource_done(enum command_response cmd, void *data)
@@ -2500,8 +2518,40 @@ err_no_mem:
 
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
+	struct buffer_requirements buf_req;
+	int rc = 0;
+	int i = 0;
+	union hal_get_property hprop;
+
+	rc = msm_comm_try_get_prop(inst,
+					HAL_PARAM_GET_BUFFER_REQUIREMENTS,
+					&hprop);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s Error rc:%d", __func__, rc);
+		return rc;
+	}
+	buf_req = hprop.buf_req;
+	memcpy(&inst->buff_req, &buf_req,
+			sizeof(struct buffer_requirements));
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		dprintk(VIDC_DBG,
+				"buffer type: %d, count : %d, size: %d\n",
+				inst->buff_req.buffer[i].buffer_type,
+				inst->buff_req.buffer[i].buffer_count_actual,
+				inst->buff_req.buffer[i].buffer_size);
+	}
+	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
+			inst->buff_req.buffer[0].buffer_count_actual,
+			inst->buff_req.buffer[1].buffer_count_actual);
+	return rc;
+}
+
+int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
+				union hal_get_property *hprop)
+{
 	int rc = 0;
 	struct hfi_device *hdev;
+	struct getprop_buf *buf;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -2511,23 +2561,43 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
 			inst->core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
-				"Core is in bad state can't query get_bufreqs()");
-		return -EINVAL;
+			"Core is in bad state can't query get_bufreqs()\n");
+		return -EAGAIN;
 	}
 	hdev = inst->core->device;
 	mutex_lock(&inst->sync_lock);
 	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
 		dprintk(VIDC_ERR,
-			"Not in proper state to query buffer requirements\n");
+			"%s Not in proper state\n", __func__);
 		rc = -EAGAIN;
 		goto exit;
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
-	rc = call_hfi_op(hdev, session_get_buf_req, (void *) inst->session);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to get property\n");
-		goto exit;
+	switch (ptype) {
+	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
+		rc = call_hfi_op(hdev, session_get_property,
+					(void *) inst->session, ptype);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s Failed: PROFILE_LEVEL_INFO\n",
+						__func__);
+			rc = -EAGAIN;
+			goto exit;
+		}
+		break;
+	case HAL_PARAM_GET_BUFFER_REQUIREMENTS:
+		rc = call_hfi_op(hdev, session_get_buf_req,
+						(void *) inst->session);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to get property\n");
+			rc = -EAGAIN;
+			goto exit;
+		}
+		break;
+	default:
+		rc = -EAGAIN;
+		dprintk(VIDC_ERR, "%s id:%d not supported\n", __func__, ptype);
+		break;
 	}
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)],
@@ -2540,11 +2610,24 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 		rc = -EIO;
 		goto exit;
 	}
-	rc = 0;
+
+	if (!list_empty(&inst->pending_getpropq)) {
+		buf = list_first_entry(&inst->pending_getpropq,
+					struct getprop_buf, list);
+		*hprop = *((union hal_get_property *) buf->data);
+		kfree(buf->data);
+		list_del(&buf->list);
+		kfree(buf);
+		rc = 0;
+	} else {
+		dprintk(VIDC_ERR, "%s getprop list empty\n", __func__);
+		rc = -EINVAL;
+	}
 exit:
 	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
+
 int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 {
 	struct msm_smem *handle;

@@ -89,6 +89,37 @@ static const char *const perf_level[] = {
 	"Turbo"
 };
 
+static const char *const h263_level[] = {
+	"1.0",
+	"2.0",
+	"3.0",
+	"4.0",
+	"4.5",
+	"5.0",
+	"6.0",
+	"7.0",
+};
+
+static const char *const h263_profile[] = {
+	"Baseline",
+	"H320 Coding",
+	"Backward Compatible",
+	"ISWV2",
+	"ISWV3",
+	"High Compression",
+	"Internet",
+	"Interlace",
+	"High Latency",
+};
+
+static const char *const vp8_profile_level[] = {
+	"Unused",
+	"0.0",
+	"1.0",
+	"2.0",
+	"3.0",
+};
+
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
@@ -321,7 +352,137 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.menu_skip_mask = 0,
 		.step = 1,
 		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE,
+		.name = "MPEG4 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE,
+		.maximum =
+		V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_CODING_EFFICIENCY,
+		.default_value = V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE,
+		.step = 1,
+		.menu_skip_mask = 0,
 		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
+		.name = "MPEG4 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_MPEG4_LEVEL_0,
+		.maximum = V4L2_MPEG_VIDEO_MPEG4_LEVEL_5,
+		.default_value = V4L2_MPEG_VIDEO_MPEG4_LEVEL_0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+		.name = "H264 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
+		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
+		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+		.name = "H264 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
+		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
+		.step = 0,
+		.menu_skip_mask = 0,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE,
+		.name = "H263 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHLATENCY,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_H320CODING) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BACKWARDCOMPATIBLE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV3) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHCOMPRESSION) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERNET) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERLACE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHLATENCY)
+		),
+		.qmenu = h263_profile,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL,
+		.name = "H263 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_7_0,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_2_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_3_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_4_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_5_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_6_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_7_0)
+		),
+		.qmenu = h263_level,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
+		.name = "VP8 Profile Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
+		.menu_skip_mask = ~(
+			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
+		),
+		.qmenu = vp8_profile_level,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE,
+		.name = "MPEG2 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_HIGH,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL,
+		.name = "MPEG2 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_3,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.cluster = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_SCS_THRESHOLD,
@@ -1531,6 +1692,63 @@ static int check_tz_dynamic_buffer_support(void)
 	return rc;
 }
 
+static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_profile_level profile_level;
+	union hal_get_property hprop;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+	dprintk(VIDC_DBG, "%s ctrl->id:%x\n", __func__, ctrl->id);
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		rc = msm_comm_try_get_prop(inst,
+						HAL_PARAM_PROFILE_LEVEL_CURRENT,
+						&hprop);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s Error rc:%d\n", __func__, rc);
+			return rc;
+		}
+		profile_level = hprop.profile_level;
+		ctrl->val = profile_level.profile;
+		dprintk(VIDC_DBG, "%s: PROFILE ctrl->id:%x ctrl->val:%d\n",
+					__func__, ctrl->id, ctrl->val);
+		break;
+	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		rc = msm_comm_try_get_prop(inst,
+						HAL_PARAM_PROFILE_LEVEL_CURRENT,
+						&hprop);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s Error rc:%d\n", __func__, rc);
+			return rc;
+		}
+		profile_level = hprop.profile_level;
+		ctrl->val = profile_level.level;
+		dprintk(VIDC_DBG, "%s: LEVEL ctrl->id:%x ctrl->val:%d\n",
+					__func__, ctrl->id, ctrl->val);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s id:%x not supported\n",
+					__func__, ctrl->id);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
 static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1791,7 +2009,33 @@ failed_open_done:
 
 static int msm_vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
-	return 0;
+	int rc = 0, c = 0;
+	struct msm_vidc_inst *inst = container_of(ctrl->handler,
+				struct msm_vidc_inst, ctrl_handler);
+	struct v4l2_ctrl *master = ctrl->cluster[0];
+
+	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to move inst: %p to start done state\n", inst);
+		goto failed_open_done;
+	}
+	for (c = 0; c < master->ncontrols; ++c) {
+		if (master->cluster[c]->id == ctrl->id) {
+			rc = try_get_ctrl(inst, ctrl);
+			if (rc) {
+				dprintk(VIDC_ERR, "Failed getting %x",
+					ctrl->id);
+				return rc;
+			}
+		}
+	}
+	return rc;
+
+failed_open_done:
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to get hal property\n");
+	return rc;
 }
 
 static const struct v4l2_ctrl_ops msm_vdec_ctrl_ops = {
@@ -1889,6 +2133,18 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 					msm_vdec_ctrls[idx].step,
 					msm_vdec_ctrls[idx].default_value);
 			}
+		}
+
+		switch (msm_vdec_ctrls[idx].id) {
+		case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
+		case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+		case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
+		case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
+		case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+			ctrl->flags |= msm_vdec_ctrls[idx].flags;
+			break;
 		}
 
 		ret_val = inst->ctrl_handler.error;

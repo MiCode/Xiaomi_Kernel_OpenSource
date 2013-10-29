@@ -426,6 +426,22 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"Advanced Coding Efficency",
 		NULL,
 	};
+	static const char * const mpeg_mpeg2_level[] = {
+		"1",
+		"2",
+		"4",
+		"8",
+		NULL,
+	};
+	static const char * const mpeg2_profile[] = {
+		"Simple",
+		"Main",
+		"422",
+		"SNR Scalable",
+		"Spatial Scalable",
+		"High",
+		NULL,
+	};
 
 	static const char * const flash_led_mode[] = {
 		"Off",
@@ -556,6 +572,10 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		return dv_rgb_range;
 	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
 		return mpeg_video_intra_refresh_mode;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		return mpeg_mpeg2_level;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		return mpeg2_profile;
 	default:
 		return NULL;
 	}
@@ -700,6 +720,10 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP:			return "MPEG4 Maximum QP Value";
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:			return "MPEG4 Level";
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:			return "MPEG4 Profile";
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		return "MPEG2 Level";
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		return "MPEG2 Profile";
 	case V4L2_CID_MPEG_VIDEO_MPEG4_QPEL:			return "Quarter Pixel Search Enable";
 	case V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR:
 		return "CodecConfig with sync frame";
@@ -931,6 +955,8 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
 	case V4L2_CID_JPEG_CHROMA_SUBSAMPLING:
 	case V4L2_CID_ISO_SENSITIVITY_AUTO:
 	case V4L2_CID_EXPOSURE_METERING:
