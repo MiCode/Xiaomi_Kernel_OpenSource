@@ -136,6 +136,22 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_sd_card_vreg_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir  = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config msm_sd_card_configs[] __initdata = {
+	{
+		.gpio      = 51,		/* SD CARD VREG EN GPIO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_sd_card_vreg_config,
+		},
+	},
+};
+
 void __init msmkrypton_init_gpiomux(void)
 {
 	int rc;
@@ -147,6 +163,8 @@ void __init msmkrypton_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(msm_sd_card_configs,
+			ARRAY_SIZE(msm_sd_card_configs));
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm_eth_config, ARRAY_SIZE(msm_eth_config));
 #endif
