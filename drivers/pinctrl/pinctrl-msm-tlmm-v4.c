@@ -21,7 +21,6 @@
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
-#include <asm/mach/irq.h>
 #include "pinctrl-msm.h"
 
 /* config translations */
