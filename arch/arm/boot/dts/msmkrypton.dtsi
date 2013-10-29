@@ -238,9 +238,9 @@
 		qcom,num-locks = <8>;
 	};
 
-	qcom,smem@2200000 {
+	qcom,smem@1100000 {
 		compatible = "qcom,smem";
-		reg = <0x2200000 0x100000>,
+		reg = <0x1100000 0x100000>,
 			<0xf9011000 0x1000>,
 			<0xfc428000 0x4000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
