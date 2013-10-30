@@ -244,6 +244,7 @@ struct msm_vidc_inst {
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct list_head registered_bufs;
 	bool map_output_buffer;
+	atomic_t get_seq_hdr_cnt;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
