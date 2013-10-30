@@ -20,7 +20,7 @@
 
 #define GET_VIRT_ADDR(x)  \
 		((uint32_t)pce_dev->coh_vmem +			\
-		((uint32_t)x - pce_dev->coh_pmem))
+		((uint32_t)x - (uint32_t)pce_dev->coh_pmem))
 #define GET_PHYS_ADDR(x)  \
 		(pce_dev->coh_pmem + (x - (uint32_t)pce_dev->coh_vmem))
 

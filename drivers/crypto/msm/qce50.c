@@ -2551,9 +2551,9 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	sps_event->xfer_done = NULL;
 	sps_event->user = (void *)pce_dev;
 
-	pr_debug("success, %s : pipe_handle=0x%x, desc fifo base (phy) = 0x%x\n",
+	pr_debug("success, %s : pipe_handle=0x%x, desc fifo base (phy) = 0x%pa\n",
 		is_producer ? "PRODUCER(RX/OUT)" : "CONSUMER(TX/IN)",
-		(u32)sps_pipe_info, sps_connect_info->desc.phys_base);
+		(u32)sps_pipe_info, &sps_connect_info->desc.phys_base);
 	goto out;
 
 sps_connect_err:
