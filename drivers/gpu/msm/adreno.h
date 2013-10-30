@@ -362,7 +362,7 @@ struct adreno_ft_data {
 	unsigned int replay_for_snapshot;
 };
 
-#define FT_DETECT_REGS_COUNT 12
+#define FT_DETECT_REGS_COUNT 14
 
 struct log_field {
 	bool show;
