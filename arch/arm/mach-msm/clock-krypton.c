@@ -959,13 +959,14 @@ static struct local_vote_clk gcc_bam_dma_ahb_clk = {
 	},
 };
 
-static struct branch_clk gcc_bam_dma_inactivity_timers_clk = {
+static struct local_vote_clk gcc_bam_dma_inactivity_timers_clk = {
 	.cbcr_reg = BAM_DMA_INACTIVITY_TIMERS_CBCR,
-	.has_sibling = 1,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(11),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_bam_dma_inactivity_timers_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_bam_dma_inactivity_timers_clk.c),
 	},
 };
