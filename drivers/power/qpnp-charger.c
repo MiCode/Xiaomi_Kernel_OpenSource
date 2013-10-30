@@ -315,6 +315,7 @@ struct qpnp_chg_chip {
 	bool				duty_cycle_100p;
 	bool				ibat_calibration_enabled;
 	bool				aicl_settled;
+	bool				use_external_rsense;
 	unsigned int			bpd_detection;
 	unsigned int			max_bat_chg_current;
 	unsigned int			warm_bat_chg_ma;
@@ -367,6 +368,7 @@ struct qpnp_chg_chip {
 	bool				batfet_ext_en;
 	struct work_struct		batfet_lcl_work;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_iadc_chip		*iadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct mutex			jeita_configure_lock;
 	struct mutex			batfet_vreg_lock;
@@ -2449,11 +2451,20 @@ static void
 qpnp_chg_trim_ibat(struct qpnp_chg_chip *chip, u8 ibat_trim)
 {
 	int ibat_now_ma, ibat_diff_ma, rc;
+	struct qpnp_iadc_result i_result;
+	enum qpnp_iadc_channels iadc_channel;
 
-	ibat_now_ma = get_prop_current_now(chip) / 1000;
+	iadc_channel = chip->use_external_rsense ?
+				EXTERNAL_RSENSE : INTERNAL_RSENSE;
+	rc = qpnp_iadc_read(chip->iadc_dev, iadc_channel, &i_result);
+	if (rc) {
+		pr_err("Unable to read bat rc=%d\n", rc);
+		return;
+	}
+
+	ibat_now_ma = i_result.result_ua / 1000;
 
 	if (qpnp_chg_is_ibat_loop_active(chip)) {
-		ibat_now_ma *= -1;
 		ibat_diff_ma = ibat_now_ma - IBAT_TRIM_TGT_MA;
 
 		if (abs(ibat_diff_ma) > 50) {
@@ -2492,6 +2503,9 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 	 * which can show IBAT_MAX out of spec.
 	 */
 	if (!chip->ibat_calibration_enabled)
+		return 0;
+
+	if (chip->type != SMBB)
 		return 0;
 
 	rc = qpnp_chg_read(chip, &reg,
@@ -2556,7 +2570,16 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 			qpnp_chg_trim_ibat(chip, ibat_trim);
 		else
 			pr_debug("ibat loop not active\n");
+
+		/* read the adjusted ibat_trim for further adjustments */
+		rc = qpnp_chg_read(chip, &ibat_trim,
+			chip->buck_base + BUCK_CTRL_TRIM3, 1);
+		if (rc) {
+			pr_err("failed to read BUCK_CTRL_TRIM3 rc=%d\n", rc);
+			break;
+		}
 	}
+
 	/* restore IBATMAX */
 	rc = qpnp_chg_ibatmax_set(chip, ibat_max_ma);
 	if (rc)
@@ -4295,6 +4318,11 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 			return rc;
 	}
 
+	/* Get the use-external-rsense property */
+	chip->use_external_rsense = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,use-external-rsense");
+
 	/* Get the btc-disabled property */
 	chip->btc_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,btc-disabled");
@@ -4437,6 +4465,17 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				if (rc != -EPROBE_DEFER)
 					pr_err("vadc property missing\n");
 				goto fail_chg_enable;
+			}
+
+			if (subtype == SMBB_BAT_IF_SUBTYPE) {
+				chip->iadc_dev = qpnp_get_iadc(chip->dev,
+						"chg");
+				if (IS_ERR(chip->iadc_dev)) {
+					rc = PTR_ERR(chip->iadc_dev);
+					if (rc != -EPROBE_DEFER)
+						pr_err("iadc property missing\n");
+					goto fail_chg_enable;
+				}
 			}
 
 			rc = qpnp_chg_load_battery_data(chip);
