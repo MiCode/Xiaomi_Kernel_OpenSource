@@ -2107,6 +2107,10 @@ static struct clk_lookup msm_clocks_krypton[] = {
 		   "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("sleep_clk",	gcc_usb30_sleep_clk.c,	"f9200000.qcom,ssusb"),
 
+	CLK_LOOKUP("mem_iface_clk",   gcc_sys_noc_usb3_axi_clk.c,
+		   "f9304000.qcom,usbbam"),
+	CLK_LOOKUP("mem_clk",   gcc_usb30_master_clk.c, "f9304000.qcom,usbbam"),
+
 	CLK_LOOKUP("",	ce1_clk_src.c,	""),
 	CLK_LOOKUP("",  gcc_usb3_phy_com_reset.c,       ""),
 	CLK_LOOKUP("",  gcc_usb3_phy_reset.c,   ""),
