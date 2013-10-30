@@ -431,17 +431,19 @@ static struct miscdevice ksb_efs_usb_dev = {
 	.fops = &efs_fops,
 };
 static const struct usb_device_id ksb_usb_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9008),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
 	.driver_info = (unsigned long)&ksb_fboot_dev, },
-	{ USB_DEVICE(0x5c6, 0x9048),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
-	{ USB_DEVICE(0x5c6, 0x904C),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904C, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
-	{ USB_DEVICE(0x5c6, 0x9075),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
-	{ USB_DEVICE(0x5c6, 0x9079),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9079, 2),
 	.driver_info = (unsigned long)&ksb_efs_usb_dev, },
-	{ USB_DEVICE(0x5c6, 0x908A),
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 2),
+	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 3),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 
 	{} /* terminating entry */
@@ -629,8 +631,6 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 	switch (id->idProduct) {
 	case 0x9008:
-		if (ifc_num != 0)
-			return -ENODEV;
 		ksb = __ksb[bus_id];
 		mdev = &fbdev[bus_id];
 		break;
@@ -638,8 +638,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	case 0x904C:
 	case 0x9075:
 	case 0x908A:
-		if (ifc_num != 2)
-			return -ENODEV;
+	case 0x908E:
 		ksb = __ksb[EFS_HSIC_BRIDGE_INDEX];
 		break;
 	case 0x9079:

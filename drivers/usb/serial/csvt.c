@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,24 +47,17 @@ struct csvt_ctrl_dev {
 };
 
 static const struct usb_device_id id_table[] = {
-	{ USB_DEVICE_AND_INTERFACE_INFO(0x05c6 , 0x904c, 0xff, 0xfe, 0xff)},
-	{ USB_DEVICE_AND_INTERFACE_INFO(0x05c6 , 0x9075, 0xff, 0xfe, 0xff)},
-	{ USB_DEVICE_AND_INTERFACE_INFO(0x05c6 , 0x908A, 0xff, 0xfe, 0xff)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x904c, 4)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x9075, 4)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x908A, 4)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x908E, 6)},
 	{}, /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, id_table);
 
-#define CSVT_IFC_NUM	4
-
 static int csvt_probe(struct usb_serial *serial, const struct usb_device_id *id)
 {
-	struct usb_host_interface	*intf =
-		serial->interface->cur_altsetting;
-
 	pr_debug("%s:\n", __func__);
-
-	if (intf->desc.bInterfaceNumber != CSVT_IFC_NUM)
-		return -ENODEV;
 
 	usb_enable_autosuspend(serial->dev);
 
