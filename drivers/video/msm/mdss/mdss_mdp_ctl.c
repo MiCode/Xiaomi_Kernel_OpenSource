@@ -1782,6 +1782,8 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 {
 	int ret;
+	u32 reg_data, flush_data;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	ret = mutex_lock_interruptible(&ctl->lock);
 	if (ret)
@@ -1800,8 +1802,19 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 		ctl->perf_changed = 0;
 	}
 
-	mutex_unlock(&ctl->lock);
+	if (mdata->mdp_rev == MDSS_MDP_HW_REV_103) {
+		reg_data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH);
+		flush_data = readl_relaxed(mdata->mdp_base + AHB_CLK_OFFSET);
+		if ((reg_data != ctl->flush_reg_data) &&
+						 (flush_data & BIT(28))) {
+			flush_data &= ~(BIT(28));
+			writel_relaxed(reg_data,
+					 mdata->mdp_base + AHB_CLK_OFFSET);
+			ctl->flush_reg_data = 0;
+		}
+	}
 
+	mutex_unlock(&ctl->lock);
 	return ret;
 }
 
@@ -1903,6 +1916,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		sctl->flush_bits = 0;
 	}
 	wmb();
+	ctl->flush_reg_data = ctl->flush_bits;
 	ctl->flush_bits = 0;
 
 	if (ctl->display_fnc)

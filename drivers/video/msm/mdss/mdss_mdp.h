@@ -35,6 +35,7 @@
 #define MAX_MIXER_HEIGHT	2400
 #define MAX_IMG_WIDTH		0x3FFF
 #define MAX_IMG_HEIGHT		0x3FFF
+#define AHB_CLK_OFFSET		0x3B4
 #define MAX_DST_W		MAX_MIXER_WIDTH
 #define MAX_DST_H		MAX_MIXER_HEIGHT
 #define MAX_PLANES		4
@@ -152,6 +153,7 @@ struct mdss_mdp_ctl {
 
 	u32 opmode;
 	u32 flush_bits;
+	u32 flush_reg_data;
 
 	bool is_video_mode;
 	u32 play_cnt;
