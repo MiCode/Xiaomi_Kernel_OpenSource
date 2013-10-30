@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/string.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
@@ -3179,6 +3180,10 @@ static int mxt_probe(struct i2c_client *client,
 
 	error = mxt_initialize(data);
 	if (error)
+		goto err_irq_gpio_req;
+
+	error = irq_of_parse_and_map(client->dev.of_node, 0);
+	if (!error)
 		goto err_irq_gpio_req;
 
 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
