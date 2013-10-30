@@ -374,6 +374,7 @@ struct qpnp_chg_chip {
 	struct alarm			reduce_power_stage_alarm;
 	struct work_struct		reduce_power_stage_work;
 	bool				power_stage_workaround_running;
+	bool				power_stage_workaround_enable;
 };
 
 
@@ -2185,7 +2186,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 			if ((chip->flags & POWER_STAGE_WA)
 			&& ((ret.intval / 1000) > USB_WALL_THRESHOLD_MA)
-			&& !chip->power_stage_workaround_running) {
+			&& !chip->power_stage_workaround_running
+			&& chip->power_stage_workaround_enable) {
 				chip->power_stage_workaround_running = true;
 				pr_debug("usb wall chg inserted starting power stage workaround charger_monitor = %d\n",
 						charger_monitor);
@@ -4325,6 +4327,10 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	chip->ibat_calibration_enabled =
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ibat-calibration-enabled");
+
+	chip->power_stage_workaround_enable =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,power-stage-reduced");
 
 	of_get_property(chip->spmi->dev.of_node, "qcom,thermal-mitigation",
 		&(chip->thermal_levels));
