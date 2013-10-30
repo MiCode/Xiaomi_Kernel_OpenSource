@@ -123,6 +123,8 @@ extern struct clk_ops clk_ops_ext;
 #define DEFINE_FIXED_DIV_CLK(clk_name, _div, _parent) \
 static struct div_clk clk_name = {	\
 	.data = {				\
+		.max_div = _div,		\
+		.min_div = _div,		\
 		.div = _div,			\
 	},					\
 	.c = {					\
@@ -136,6 +138,8 @@ static struct div_clk clk_name = {	\
 #define DEFINE_FIXED_SLAVE_DIV_CLK(clk_name, _div, _parent) \
 static struct div_clk clk_name = {	\
 	.data = {				\
+		.max_div = _div,		\
+		.min_div = _div,		\
 		.div = _div,			\
 	},					\
 	.c = {					\
