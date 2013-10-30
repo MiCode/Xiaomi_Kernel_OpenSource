@@ -25,8 +25,6 @@
  * @bam_pipe_idx_cons index of BAM's consumer pipe
  * @bam_pipe_idx_prod index of BAM's producer pipe
  * @bam_disable disables DMA transfers.
- * @gpio_scl clock GPIO pin number
- * @gpio_sda data GPIO pin number
  * @noise_rjct_scl number of low samples on clock line to consider it low.
  * @noise_rjct_sda number of low samples on data  line to consider it low.
  * @active_only when set, votes when system active and removes the vote when
@@ -41,8 +39,6 @@ struct i2c_msm_v2_platform_data {
 	u32  bam_pipe_idx_cons;
 	u32  bam_pipe_idx_prod;
 	bool bam_disable;
-	int  gpio_scl;
-	int  gpio_sda;
 	int  noise_rjct_scl;
 	int  noise_rjct_sda;
 	bool active_only;

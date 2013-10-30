@@ -495,13 +495,15 @@ struct qup_i2c_clk_path_vote {
  * @base I2C controller virtual base address
  */
 struct i2c_msm_resources {
-	struct resource           *mem;
-	void __iomem              *base; /* virtual */
-	struct clk                *core_clk;
-	struct clk                *iface_clk;
+	struct resource			*mem;
+	void __iomem			*base; /* virtual */
+	struct clk			*core_clk;
+	struct clk			*iface_clk;
 	struct qup_i2c_clk_path_vote clk_path_vote;
-	int                        gpios[ARRAY_SIZE(i2c_msm_gpio_names)];
-	int                        irq;
+	int				irq;
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*gpio_state_active;
+	struct pinctrl_state		*gpio_state_suspend;
 };
 
 /*

@@ -29,15 +29,12 @@
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
-#include <linux/gpio.h>
 #include <linux/dma-mapping.h>
 #include <linux/i2c.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 #include <linux/debugfs.h>
 #include <mach/i2c-msm.h>
-#include <mach/gpiomux.h>
 #include <mach/sps.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
@@ -399,34 +396,6 @@ static void i2c_msm_dbg_xfer_dump(struct i2c_msm_ctrl *ctrl)
 		xfer->tx_ovrhd_cnt, jiffies_to_msecs(xfer->timeout),
 		xfer->cur_buf.msg_idx, xfer->cur_buf.is_rx, fifo->tx_bc,
 		fifo->rx_bc);
-}
-
-static void i2c_msm_dbg_gpio_dump(struct i2c_msm_ctrl *ctrl, int gpio_num,
-							const char *gpio_name)
-{
-	struct gpiomux_setting cur_conf;
-	if (msm_gpiomux_write(gpio_num, GPIOMUX_ACTIVE, NULL, &cur_conf)) {
-		dev_err(ctrl->dev, "error reading %s-gpio:#%d active setting\n",
-							gpio_name, gpio_num);
-		return;
-	}
-	dev_info(ctrl->dev,
-		"dump %s-gpio:#%d state: func:%d drv:%d pull:%d dir:%d\n",
-		gpio_name, gpio_num, cur_conf.func, cur_conf.drv, cur_conf.pull,
-		cur_conf.dir);
-
-	if (msm_gpiomux_write(gpio_num, GPIOMUX_ACTIVE, &cur_conf, NULL))
-		dev_err(ctrl->dev,
-			"error restoring %s-gpio:#%d active setting\n",
-			gpio_name, gpio_num);
-}
-
-static void i2c_msm_dbg_gpios_dump(struct i2c_msm_ctrl *ctrl)
-{
-	i2c_msm_dbg_gpio_dump(ctrl, ctrl->rsrcs.gpios[I2C_MSM_GPIO_SDA],
-									"sda");
-	i2c_msm_dbg_gpio_dump(ctrl, ctrl->rsrcs.gpios[I2C_MSM_GPIO_SCL],
-									"scl");
 }
 
 static const char * const i2c_msm_dbg_tag_val_to_str_tbl[] = {
@@ -2672,7 +2641,6 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_dbg_xfer_dump(ctrl);
 		i2c_msm_dbg_qup_reg_dump(ctrl);
 		i2c_msm_dbg_inp_fifo_dump(ctrl);
-		i2c_msm_dbg_gpios_dump(ctrl);
 		xfer->err |= I2C_MSM_ERR_TIMEOUT;
 		ret = -EIO;
 	} else {
@@ -2899,7 +2867,6 @@ enum i2c_msm_dt_entry_status {
 
 enum i2c_msm_dt_entry_type {
 	DT_U32,
-	DT_GPIO,
 	DT_BOOL,
 	DT_ID,   /* of_alias_get_id() */
 };
@@ -2922,13 +2889,6 @@ static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
 
 	for (; itr->dt_name ; ++itr) {
 		switch (itr->type) {
-		case DT_GPIO:
-			ret = of_get_named_gpio(node, itr->dt_name, 0);
-			if (gpio_is_valid(ret)) {
-				*((int *) itr->ptr_data) = ret;
-				ret = 0;
-			}
-			break;
 		case DT_U32:
 			ret = of_property_read_u32(node, itr->dt_name,
 							 (u32 *) itr->ptr_data);
@@ -3012,10 +2972,6 @@ static int i2c_msm_rsrcs_dt_to_pdata(struct i2c_msm_ctrl *ctrl,
 			&(*pdata)->noise_rjct_scl,       DT_OPT,  DT_U32,  0},
 		{"qcom,noise-rjct-sda",
 			&(*pdata)->noise_rjct_sda,       DT_OPT,  DT_U32,  0},
-		{"qcom,gpio-scl",
-			&(*pdata)->gpio_scl,             DT_SGST, DT_GPIO, 0},
-		{"qcom,gpio-sda",
-			&(*pdata)->gpio_sda,             DT_SGST, DT_GPIO, 0},
 		{NULL,  NULL,                            0,       0,       0},
 		};
 
@@ -3109,60 +3065,50 @@ static void i2c_msm_rsrcs_irq_teardown(struct i2c_msm_ctrl *ctrl)
 }
 
 /*
- * i2c_msm_rsrcs_gpio_init: initializes the GPIO entries in driver struct
+ * i2c_msm_rsrcs_gpio_pinctrl_init: initializes the pinctrl for i2c gpios
  *
  * @pre platform data must be initialized
  */
-static void i2c_msm_rsrcs_gpio_init(struct i2c_msm_ctrl *ctrl)
+static int i2c_msm_rsrcs_gpio_pinctrl_init(struct i2c_msm_ctrl *ctrl)
 {
-	int i;
-	/* invalidate all */
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i)
-		ctrl->rsrcs.gpios[i] = -EINVAL;
-
-	ctrl->rsrcs.gpios[I2C_MSM_GPIO_SCL] = ctrl->pdata->gpio_scl;
-	ctrl->rsrcs.gpios[I2C_MSM_GPIO_SDA] = ctrl->pdata->gpio_sda;
-}
-
-static int i2c_msm_pm_gpio_acquire(struct i2c_msm_ctrl *ctrl)
-{
-	int i, ret;
-
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0) {
-			ret = gpio_request(gpio_num, i2c_msm_gpio_names[i]);
-			if (ret) {
-				dev_err(ctrl->dev,
-				     "gpio_request(num:%d, name=%s) err:%d\n",
-				     gpio_num, i2c_msm_gpio_names[i], ret);
-				goto error;
-			}
-		}
+	ctrl->rsrcs.pinctrl = devm_pinctrl_get(ctrl->dev);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.pinctrl)) {
+		dev_err(ctrl->dev, "failed to get pinctrl\n");
+		return PTR_ERR(ctrl->rsrcs.pinctrl);
 	}
+
+	ctrl->rsrcs.gpio_state_active
+		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
+				PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_active))
+		dev_info(ctrl->dev, "can not get default pinstate\n");
+
+	ctrl->rsrcs.gpio_state_suspend
+		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
+				PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_suspend))
+		dev_info(ctrl->dev, "can not get sleep pinstate\n");
 	return 0;
-
-error:
-	while (--i >= 0) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0)
-			gpio_free(gpio_num);
-	}
-	return ret;
 }
 
-static void i2c_msm_pm_gpio_release(struct i2c_msm_ctrl *ctrl)
+static void i2c_msm_pm_pinctrl_state(struct i2c_msm_ctrl *ctrl,
+				bool runtime_active)
 {
-	int i;
+	int ret;
+	struct pinctrl_state *pins_state;
 
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0)
-			gpio_free(gpio_num);
-	}
+	pins_state = runtime_active ? ctrl->rsrcs.gpio_state_active
+					: ctrl->rsrcs.gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(ctrl->rsrcs.pinctrl, pins_state);
+		if (ret)
+			dev_err(ctrl->dev, "can not set %s pins\n",
+				runtime_active ? PINCTRL_STATE_DEFAULT
+						: PINCTRL_STATE_SLEEP);
+	} else
+		dev_err(ctrl->dev, "not a valid '%s' pinstate\n",
+				runtime_active ? PINCTRL_STATE_DEFAULT
+						: PINCTRL_STATE_SLEEP);
 }
 
 /*
@@ -3446,7 +3392,7 @@ static int i2c_msm_pm_suspend_impl(struct device *dev)
 
 	disable_irq(ctrl->rsrcs.irq);
 	i2c_msm_pm_clk_unvote(ctrl);
-	i2c_msm_pm_gpio_release(ctrl);
+	i2c_msm_pm_pinctrl_state(ctrl, false);
 
 	return 0;
 }
@@ -3457,7 +3403,7 @@ static int  i2c_msm_pm_resume_impl(struct device *dev)
 
 	i2c_msm_dbg(ctrl, MSM_DBG, "resuming...");
 
-	i2c_msm_pm_gpio_acquire(ctrl);
+	i2c_msm_pm_pinctrl_state(ctrl, true);
 	i2c_msm_pm_clk_vote(ctrl);
 	enable_irq(ctrl->rsrcs.irq);
 	(*ctrl->ver.init)(ctrl);
@@ -3671,7 +3617,10 @@ static int i2c_msm_probe(struct platform_device *pdev)
 
 	i2c_msm_pm_clk_unvote(ctrl);
 
-	i2c_msm_rsrcs_gpio_init(ctrl);
+	ret = i2c_msm_rsrcs_gpio_pinctrl_init(ctrl);
+	if (ret)
+		goto err_no_pinctrl;
+
 	i2c_msm_pm_rt_init(ctrl->dev);
 
 	/* allocate xfer modes */
@@ -3702,6 +3651,7 @@ rcrcs_err:
 	i2c_msm_rsrcs_irq_teardown(ctrl);
 irq_err:
 	(*ctrl->ver.destroy)(ctrl);
+err_no_pinctrl:
 ver_err:
 	i2c_msm_pm_clk_unvote(ctrl);
 	i2c_msm_rsrcs_clk_teardown(ctrl);
