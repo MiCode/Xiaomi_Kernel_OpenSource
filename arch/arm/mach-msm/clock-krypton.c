@@ -252,6 +252,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AUX_CMD_RCGR                                  (0x1E00)
 #define PCIE_GPIO_LDO_EN                                   (0x1E40)
 #define USB_SS_LDO_EN                                      (0x1E44)
+#define USB_PHY_CFG_AHB_CBCR                               (0x1B84)
 
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
 
@@ -1450,6 +1451,17 @@ static struct branch_clk gcc_usb2b_phy_sleep_clk = {
 	},
 };
 
+static struct branch_clk gcc_usb_phy_cfg_ahb_clk = {
+	.cbcr_reg = USB_PHY_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb_phy_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb_phy_cfg_ahb_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb3_aux_clk = {
 	.cbcr_reg = USB3_AUX_CBCR,
 	.has_sibling = 0,
@@ -1675,6 +1687,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_usb30_master_clk.c,              GCC_BASE, 0x0050},
 	{&gcc_usb30_sleep_clk.c,               GCC_BASE, 0x0051},
 	{&gcc_usb30_mock_utmi_clk.c,           GCC_BASE, 0x0052},
+	{&gcc_usb_phy_cfg_ahb_clk.c,           GCC_BASE, 0x0053},
 	{&gcc_usb3_pipe_clk.c,                 GCC_BASE, 0x0054},
 	{&gcc_usb3_aux_clk.c,                  GCC_BASE, 0x0055},
 	{&gcc_usb_hsic_ahb_clk.c,              GCC_BASE, 0x0058},
@@ -2126,6 +2139,8 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("utmi_clk",	gcc_usb30_mock_utmi_clk.c,
 		   "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("sleep_clk",	gcc_usb30_sleep_clk.c,	"f9200000.qcom,ssusb"),
+	CLK_LOOKUP("cfg_ahb_clk", gcc_usb_phy_cfg_ahb_clk.c,
+						"f9b38000.ssphy"),
 
 	CLK_LOOKUP("",	ce1_clk_src.c,	""),
 	CLK_LOOKUP("",  gcc_usb3_phy_com_reset.c,       ""),
