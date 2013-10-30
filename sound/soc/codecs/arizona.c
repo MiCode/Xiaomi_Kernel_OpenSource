@@ -1775,6 +1775,17 @@ int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(arizona_set_hpdet_cb);
 
+int arizona_set_ez2ctrl_cb(struct snd_soc_codec *codec,
+			   void (*ez2ctrl_trigger)(void))
+{
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+
+	arizona->pdata.ez2ctrl_trigger = ez2ctrl_trigger;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_set_ez2ctrl_cb);
+
 MODULE_DESCRIPTION("ASoC Wolfson Arizona class device support");
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_LICENSE("GPL");

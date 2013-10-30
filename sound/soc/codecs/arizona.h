@@ -257,5 +257,7 @@ int arizona_set_output_mode(struct snd_soc_codec *codec, int output,
 
 extern int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
 				void (*hpdet_cb)(unsigned int));
+extern int arizona_set_ez2ctrl_cb(struct snd_soc_codec *codec,
+				  void (*ez2ctrl_trigger)(void));
 
 #endif

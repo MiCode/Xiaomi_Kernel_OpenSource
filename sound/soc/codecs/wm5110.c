@@ -1653,6 +1653,10 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 
 	mutex_lock(&wm5110->compr_info.lock);
 
+	if (wm5110->core.arizona->pdata.ez2ctrl_trigger &&
+	    !wm5110->compr_info.total_copied)
+		wm5110->core.arizona->pdata.ez2ctrl_trigger();
+
 	ret = wm_adsp_stream_capture(wm5110->compr_info.adsp);
 	if (ret < 0) {
 		dev_err(wm5110->core.arizona->dev,

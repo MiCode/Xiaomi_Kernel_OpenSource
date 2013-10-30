@@ -197,6 +197,9 @@ struct arizona_pdata {
 
 	/** General purpose switch control */
 	int gpsw;
+
+	/** Callback which is called when the trigger phrase is detected */
+	void (*ez2ctrl_trigger)(void);
 };
 
 #endif
