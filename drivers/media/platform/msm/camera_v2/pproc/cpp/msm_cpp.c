@@ -1738,9 +1738,39 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		break;
 	}
+	case VIDIOC_MSM_CPP_POP_STREAM_BUFFER: {
+		struct msm_buf_mngr_info buff_mgr_info;
+		struct msm_cpp_frame_info_t frame_info;
+		rc = (copy_from_user(&frame_info,
+			(void __user *)ioctl_ptr->ioctl_ptr,
+			sizeof(struct msm_cpp_frame_info_t)) ? -EFAULT : 0);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			break;
+		}
+		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
+		buff_mgr_info.session_id =
+			((frame_info.identity >> 16) & 0xFFFF);
+		buff_mgr_info.stream_id = (frame_info.identity & 0xFFFF);
+		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
+			&buff_mgr_info);
+		if (rc < 0) {
+			rc = -EAGAIN;
+			pr_err("error getting buffer rc:%d\n", rc);
+			break;
+		}
+		buff_mgr_info.frame_id = frame_info.frame_id;
+		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_BUF_DONE,
+			&buff_mgr_info);
+		if (rc < 0) {
+			pr_err("error in buf done\n");
+			rc = -EAGAIN;
+		}
+		break;
+	}
 	default:
 		pr_err("invalid value: cmd=0x%x\n", cmd);
-		return -EINVAL;
+		break;
 	}
 	mutex_unlock(&cpp_dev->mutex);
 	CPP_DBG("X\n");
