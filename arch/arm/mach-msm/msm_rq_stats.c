@@ -190,6 +190,18 @@ static int cpufreq_transition_handler(struct notifier_block *nb,
 	return 0;
 }
 
+static void update_related_cpus(void)
+{
+	unsigned cpu;
+
+	for_each_cpu(cpu, cpu_online_mask) {
+		struct cpu_load_data *this_cpu = &per_cpu(cpuload, cpu);
+		struct cpufreq_policy cpu_policy;
+
+		cpufreq_get_policy(&cpu_policy, cpu);
+		cpumask_copy(this_cpu->related_cpus, cpu_policy.cpus);
+	}
+}
 static int cpu_hotplug_handler(struct notifier_block *nb,
 			unsigned long val, void *data)
 {
@@ -200,6 +212,7 @@ static int cpu_hotplug_handler(struct notifier_block *nb,
 	case CPU_ONLINE:
 		if (!this_cpu->cur_freq)
 			this_cpu->cur_freq = acpuclk_get_rate(cpu);
+		update_related_cpus();
 	case CPU_ONLINE_FROZEN:
 		this_cpu->avg_load_maxfreq = 0;
 	}
