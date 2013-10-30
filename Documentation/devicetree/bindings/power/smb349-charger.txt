@@ -31,6 +31,16 @@ Optional Properties:
 				when the charger is removed.
 - qcom,bms-psy-name		This is a string and it points to the bms
 				power supply name.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 100, 200, 300, 400, 500, 600, 700.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3460mV to 4720mV
+- qcom,recharge-mv		Recharge threshold in mV - the offset from the float-volatge
+				as which the charger restarts charging. Possible
+				values are 50mV and 100mV.
+- qcom,recharge-disabled	Boolean value which disables the auto-recharge.
 
 Example:
 	i2c@f9967000 {
