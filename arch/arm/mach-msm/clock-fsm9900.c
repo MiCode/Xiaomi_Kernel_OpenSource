@@ -347,6 +347,7 @@ static void __iomem *virt_bases[N_BASES];
 #define sdcc1_gnd_source_val 6
 #define pcie_pipe_source_val 2
 #define emac0_125m_source_val 1
+#define emac0_tx_source_val 2
 
 #define F(f, s, div, m, n) \
 	{ \
@@ -2198,7 +2199,7 @@ static struct branch_clk gcc_emac1_sys_25m_clk = {
 
 static struct clk_freq_tbl ftbl_gcc_emac0_1_tx_clk[] = {
 	F(     19200000,              xo,    1, 0, 0),
-	F_EXT( 125000000,      emac0_125m,   1, 0, 0),
+	F_EXT( 125000000,       emac0_tx,    1, 0, 0),
 	F_END
 };
 
@@ -2630,6 +2631,9 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("aux_clk",   gpll0_ao_clk_src.c,
 					"f9016000.qcom,clock-krait"),
 	CLK_LOOKUP("xo_clk",    xo_clk_src.c, ""),
+
+	/* MPM */
+	CLK_LOOKUP("xo", xo_clk_src.c, "fc4281d0.qcom,mpm"),
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
