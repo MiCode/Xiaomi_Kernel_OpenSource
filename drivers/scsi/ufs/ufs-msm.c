@@ -421,11 +421,11 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_RX_PWM_CNTRL1(1),
 	},
 	{
-		.cfg_value = 0xf2,
+		.cfg_value = 0x22,
 		.reg_offset = QSERDES_RX_CDR_CONTROL(0),
 	},
 	{
-		.cfg_value = 0x2a,
+		.cfg_value = 0x12,
 		.reg_offset = QSERDES_RX_CDR_CONTROL_HALF(0),
 	},
 	{
@@ -433,11 +433,11 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 		.reg_offset = QSERDES_RX_CDR_CONTROL_QUARTER(0),
 	},
 	{
-		.cfg_value = 0xf2,
+		.cfg_value = 0x22,
 		.reg_offset = QSERDES_RX_CDR_CONTROL(1),
 	},
 	{
-		.cfg_value = 0x2a,
+		.cfg_value = 0x12,
 		.reg_offset = QSERDES_RX_CDR_CONTROL_HALF(1),
 	},
 	{
