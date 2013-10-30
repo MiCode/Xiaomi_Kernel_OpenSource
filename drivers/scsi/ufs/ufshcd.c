@@ -3769,6 +3769,41 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 }
 
 /**
+ * ufshcd_get_device_ref_clk - get the device bRefClkFreq
+ * @hba: per-adapter instance
+ *
+ * Returns zero on success, non-zero error value on failure.
+ */
+static int ufshcd_get_device_ref_clk(struct ufs_hba *hba)
+{
+	int err = 0;
+	int val = -1;
+	int retries;
+	char *arr[] = {"19.2 MHz", "26 MHz", "38.4 MHz", "52 MHz"};
+
+	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		/* write attribute */
+		err = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &val);
+		if (!err)
+			break;
+
+		dev_dbg(hba->dev, "%s: failed with error %d\n", __func__, err);
+	}
+
+	if (err || val >= sizeof(arr) || val < 0) {
+		dev_err(hba->dev, "%s: err = %d, val = %d",
+			 __func__, err, val);
+		goto out;
+	}
+
+	dev_info(hba->dev, "%s: bRefClkFreq = %s", __func__, arr[val]);
+
+out:
+	return err;
+}
+
+/**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
  *
@@ -3792,6 +3827,14 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ret = ufshcd_complete_dev_init(hba);
 	if (ret)
 		goto out;
+
+	ret = ufshcd_get_device_ref_clk(hba);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: Failed reading bRefClkFreq attribute\n",
+			__func__);
+		ret = 0;
+	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
