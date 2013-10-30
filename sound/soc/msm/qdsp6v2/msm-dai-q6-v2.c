@@ -778,12 +778,14 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case SLIMBUS_2_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
+	case SLIMBUS_6_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
 	case SLIMBUS_5_TX:
+	case SLIMBUS_6_TX:
 		rc = msm_dai_q6_slim_bus_hw_params(params, dai,
 				substream->stream);
 		break;
@@ -889,6 +891,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	case SLIMBUS_2_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
+	case SLIMBUS_6_RX:
 		/*
 		 * channel number to be between 128 and 255.
 		 * For RX port use channel numbers
@@ -916,6 +919,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
 	case SLIMBUS_5_TX:
+	case SLIMBUS_6_TX:
 		/*
 		 * channel number to be between 128 and 255.
 		 * For TX port use channel numbers
@@ -1457,6 +1461,24 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.probe = msm_dai_q6_dai_probe,
 		.remove = msm_dai_q6_dai_remove,
 	},
+	{
+		.playback = {
+			.stream_name = "SLIM6_RX Playback",
+			.aif_name = "SLIMBUS_6_RX",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+			SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+			 SNDRV_PCM_FMTBIT_S24_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_ops,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
+	},
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
@@ -1554,6 +1576,22 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.channels_max = 8,
 			.rate_min = 8000,
 			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_ops,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "SLIM6_TX Capture",
+			.aif_name = "SLIMBUS_6_TX",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+			SNDRV_PCM_RATE_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.probe = msm_dai_q6_dai_probe,
@@ -2367,6 +2405,9 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		goto register_slim_playback;
 	case SLIMBUS_4_RX:
 		strlcpy(stream_name, "SLIM4_RX Playback", 80);
+		goto register_slim_playback;
+	case SLIMBUS_6_RX:
+		strlcpy(stream_name, "SLIM6_RX Playback", 80);
 register_slim_playback:
 		rc = -ENODEV;
 		len = strnlen(stream_name , 80);
@@ -2402,6 +2443,9 @@ register_slim_playback:
 		goto register_slim_capture;
 	case SLIMBUS_5_TX:
 		strlcpy(stream_name, "SLIM5_TX Capture", 80);
+		goto register_slim_capture;
+	case SLIMBUS_6_TX:
+		strlcpy(stream_name, "SLIM6_TX Capture", 80);
 register_slim_capture:
 		rc = -ENODEV;
 		len = strnlen(stream_name , 80);

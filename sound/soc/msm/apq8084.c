@@ -191,9 +191,14 @@ enum {
 	SLIM_3_RX_2 = 168, /* External echo-cancellation ref */
 	SLIM_3_TX_1 = 169, /* HDMI RX */
 	SLIM_3_TX_2 = 170, /* HDMI RX */
-	SLIM_4_TX_1 = 163, /* In-call recording RX */
-	SLIM_4_TX_2 = 164, /* In-call recording RX */
-	SLIM_4_RX_1 = 165, /* In-call music delivery TX */
+	SLIM_6_TX_1 = 163, /* In-call recording RX */
+	SLIM_6_TX_2 = 164, /* In-call recording RX */
+	SLIM_6_RX_1 = 165, /* In-call music delivery TX */
+};
+
+enum {
+	INCALL_REC_MONO,
+	INCALL_REC_STEREO,
 };
 
 static struct platform_device *spdev;
@@ -215,6 +220,7 @@ static int msm_slim_1_rate = SAMPLING_RATE_8KHZ;
 static int msm_slim_1_rx_ch = 1;
 static int msm_slim_1_tx_ch = 1;
 static int msm_slim_3_rx_ch = 1;
+static int rec_mode = INCALL_REC_MONO;
 
 static struct mutex cdc_mclk_mutex;
 static struct clk *codec_clk;
@@ -1392,6 +1398,45 @@ static int msm_slim_3_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_slim_6_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+
+	rate->min = rate->max = 48000;
+	if (rec_mode == INCALL_REC_STEREO)
+		channels->min = channels->max = 2;
+	else
+		channels->min = channels->max = 1;
+
+	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
+		 channels->min, channels->max);
+	return 0;
+}
+
+static int msm_slim_6_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = 1;
+
+	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
+		 channels->min, channels->max);
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params)
 {
@@ -1402,6 +1447,22 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = 48000;
 	return 0;
 }
+
+static int msm_incall_rec_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = rec_mode;
+	return 0;
+}
+
+static int msm_incall_rec_mode_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	rec_mode = ucontrol->value.integer.value[0];
+	pr_debug("%s: rec_mode:%d\n", __func__, rec_mode);
+	return 0;
+}
+
 
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
@@ -1444,6 +1505,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_slim_1_rate_get, msm_slim_1_rate_put),
 	SOC_ENUM_EXT("SLIM_3_RX Channels", msm_snd_enum[10],
 			msm_slim_3_rx_ch_get, msm_slim_3_rx_ch_put),
+	SOC_SINGLE_EXT("Incall Rec Mode", SND_SOC_NOPM, 0, 1, 0,
+		msm_incall_rec_mode_get, msm_incall_rec_mode_put),
 };
 
 static bool apq8084_swap_gnd_mic(struct snd_soc_codec *codec)
@@ -2033,6 +2096,46 @@ end:
 	return ret;
 }
 
+static int apq8084_slimbus_6_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch = SLIM_6_RX_1, tx_ch[2];
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: SLIMBUS_6_RX -> MDM TX shared ch %d\n",
+			 __func__, rx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_6 RX channel map\n",
+				__func__, ret);
+		}
+	} else {
+		if (rec_mode == INCALL_REC_STEREO) {
+			tx_ch[0] = SLIM_6_TX_1;
+			tx_ch[1] = SLIM_6_TX_2;
+			ret = snd_soc_dai_set_channel_map(cpu_dai, 2,
+							  tx_ch, 0, 0);
+		} else {
+			tx_ch[0] = SLIM_6_TX_1;
+			ret = snd_soc_dai_set_channel_map(cpu_dai, 1,
+							  tx_ch, 0, 0);
+		}
+		pr_debug("%s: Incall Record shared tx_ch[0]:%d, tx_ch[1]:%d\n",
+			__func__, tx_ch[0], tx_ch[1]);
+
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_6 TX channel map\n",
+				__func__, ret);
+
+		}
+	}
+	return ret;
+}
+
 static struct snd_soc_ops apq8084_slimbus_1_be_ops = {
 	.startup = apq8084_slimbus_1_startup,
 	.hw_params = apq8084_slimbus_1_hw_params,
@@ -2048,6 +2151,12 @@ static struct snd_soc_ops apq8084_slimbus_2_be_ops = {
 static struct snd_soc_ops apq8084_slimbus_3_be_ops = {
 	.startup = apq8084_snd_startup,
 	.hw_params = apq8084_slimbus_3_hw_params,
+	.shutdown = apq8084_snd_shudown,
+};
+
+static struct snd_soc_ops apq8084_slimbus_6_be_ops = {
+	.startup = apq8084_snd_startup,
+	.hw_params = apq8084_slimbus_6_hw_params,
 	.shutdown = apq8084_snd_shudown,
 };
 
@@ -2714,6 +2823,33 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		 */
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ops = &apq8084_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_6_RX,
+		.stream_name = "Slimbus6 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16396",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_6_RX,
+		.be_hw_params_fixup = msm_slim_6_rx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_6_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_6_TX,
+		.stream_name = "Slimbus6 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16397",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_6_TX,
+		.be_hw_params_fixup = msm_slim_6_tx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_6_be_ops,
 		.ignore_suspend = 1,
 	},
 };

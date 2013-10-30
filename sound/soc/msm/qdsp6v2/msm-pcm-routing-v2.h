@@ -55,6 +55,8 @@
 #define LPASS_BE_SLIMBUS_4_RX "SLIMBUS_4_RX"
 #define LPASS_BE_SLIMBUS_4_TX "SLIMBUS_4_TX"
 #define LPASS_BE_SLIMBUS_5_TX "SLIMBUS_5_TX"
+#define LPASS_BE_SLIMBUS_6_RX "SLIMBUS_6_RX"
+#define LPASS_BE_SLIMBUS_6_TX "SLIMBUS_6_TX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -130,6 +132,8 @@ enum {
 	MSM_BACKEND_DAI_AUDIO_I2S_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+	MSM_BACKEND_DAI_SLIMBUS_6_RX,
+	MSM_BACKEND_DAI_SLIMBUS_6_TX,
 	MSM_BACKEND_DAI_MAX,
 };
 

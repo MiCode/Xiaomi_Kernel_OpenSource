@@ -240,6 +240,8 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ AUDIO_PORT_ID_I2S_RX,           0, 0, 0, 0, 0},
 	{ AFE_PORT_ID_SECONDARY_PCM_RX,	  0, 0, 0, 0, 0},
 	{ AFE_PORT_ID_SECONDARY_PCM_TX,   0, 0, 0, 0, 0},
+	{ SLIMBUS_6_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_6_TX, 0, 0, 0, 0, 0},
 };
 
 
@@ -1754,6 +1756,15 @@ static const struct snd_kcontrol_new slimbus_4_rx_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 };
 
+static const struct snd_kcontrol_new slimbus_6_rx_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_SLIMBUS_6_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia2", MSM_BACKEND_DAI_SLIMBUS_6_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+};
+
 static const struct snd_kcontrol_new int_bt_sco_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_INT_BT_SCO_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
@@ -1948,6 +1959,9 @@ static const struct snd_kcontrol_new mmul1_mixer_controls[] = {
 		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
 		msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("SLIM_4_TX", MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+		msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("SLIM_6_TX", MSM_BACKEND_DAI_SLIMBUS_6_TX,
 		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
 		msm_routing_put_audio_mixer),
 };
@@ -3255,6 +3269,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("STUB_1_TX", "Stub1 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_3_RX", "Slimbus3 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_3_TX", "Slimbus3 Capture", 0, 0, 0, 0),
+	/* In- call recording */
+	SND_SOC_DAPM_AIF_OUT("SLIMBUS_6_RX", "Slimbus6 Playback", 0, 0, 0 , 0),
+	SND_SOC_DAPM_AIF_IN("SLIMBUS_6_TX", "Slimbus6 Capture", 0, 0, 0, 0),
 
 	/* Switch Definitions */
 	SND_SOC_DAPM_SWITCH("SLIMBUS_DL_HL", SND_SOC_NOPM, 0, 0,
@@ -3321,6 +3338,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_MIXER("SLIMBUS_4_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	slimbus_4_rx_mixer_controls,
 	ARRAY_SIZE(slimbus_4_rx_mixer_controls)),
+	SND_SOC_DAPM_MIXER("SLIMBUS_6_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
+	slimbus_6_rx_mixer_controls,
+	ARRAY_SIZE(slimbus_6_rx_mixer_controls)),
 	/* Voice Mixer */
 	SND_SOC_DAPM_MIXER("PRI_RX_Voice Mixer",
 				SND_SOC_NOPM, 0, 0, pri_rx_voice_mixer_controls,
@@ -3490,12 +3510,16 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_4_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"SLIMBUS_4_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
 	{"SLIMBUS_4_RX", NULL, "SLIMBUS_4_RX Audio Mixer"},
+	{"SLIMBUS_6_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"SLIMBUS_6_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"SLIMBUS_6_RX", NULL, "SLIMBUS_6_RX Audio Mixer"},
 
 	{"MultiMedia1 Mixer", "VOC_REC_UL", "INCALL_RECORD_TX"},
 	{"MultiMedia4 Mixer", "VOC_REC_UL", "INCALL_RECORD_TX"},
 	{"MultiMedia1 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia4 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia1 Mixer", "SLIM_4_TX", "SLIMBUS_4_TX"},
+	{"MultiMedia1 Mixer", "SLIM_6_TX", "SLIMBUS_6_TX"},
 	{"MultiMedia4 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia4 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"MultiMedia5 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
@@ -3877,6 +3901,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"BE_OUT", NULL, "SLIMBUS_1_RX"},
 	{"BE_OUT", NULL, "SLIMBUS_3_RX"},
 	{"BE_OUT", NULL, "SLIMBUS_4_RX"},
+	{"BE_OUT", NULL, "SLIMBUS_6_RX"},
 	{"BE_OUT", NULL, "HDMI"},
 	{"BE_OUT", NULL, "MI2S_RX"},
 	{"BE_OUT", NULL, "QUAT_MI2S_RX"},
@@ -3909,6 +3934,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_3_TX", NULL, "BE_IN" },
 	{"SLIMBUS_4_TX", NULL, "BE_IN" },
 	{"SLIMBUS_5_TX", NULL, "BE_IN" },
+	{"SLIMBUS_6_TX", NULL, "BE_IN" },
 	{"INT_BT_SCO_TX", NULL, "BE_IN"},
 	{"INT_FM_TX", NULL, "BE_IN"},
 	{"PCM_TX", NULL, "BE_IN"},
