@@ -406,7 +406,9 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	mutex_lock(&device->mutex);
 
-	kgsl_active_count_get(device);
+	result = kgsl_active_count_get(device);
+	if (result)
+		goto error_active_count;
 
 	if (cmdbatch == NULL) {
 		result = EINVAL;
@@ -515,7 +517,7 @@ error:
 		*timestamp, cmdbatch ? cmdbatch->flags : 0, result, 0);
 
 	kgsl_active_count_put(device);
-
+error_active_count:
 	mutex_unlock(&device->mutex);
 
 	return (int)result;
