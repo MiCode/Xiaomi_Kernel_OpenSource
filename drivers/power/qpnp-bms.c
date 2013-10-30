@@ -922,14 +922,67 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	}
 }
 
+#define SIGN(x) ((x) < 0 ? -1 : 1)
+#define UV_PER_SPIN 50000
+static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
+{
+	int new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv_mv;
+	int delta_mv = 5;
+	int max_spin_count;
+	int count = 0;
+	int sign, new_sign;
+
+	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
+
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
+	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
+						/ UV_PER_SPIN;
+	sign = SIGN(pc - new_pc);
+
+	while (abs(new_pc - pc) != 0 && count < max_spin_count) {
+		/*
+		 * If the newly interpolated pc is larger than the lookup pc,
+		 * the ocv should be reduced and vice versa
+		 */
+		new_sign = SIGN(pc - new_pc);
+		/*
+		 * If the sign has changed, then we have passed the lookup pc.
+		 * reduce the ocv step size to get finer results.
+		 *
+		 * If we have already reduced the ocv step size and still
+		 * passed the lookup pc, just stop and use the current ocv.
+		 * This can only happen if the batterydata profile is
+		 * non-monotonic anyways.
+		 */
+		if (new_sign != sign) {
+			if (delta_mv > 1)
+				delta_mv = 1;
+			else
+				break;
+		}
+		sign = new_sign;
+
+		ocv_mv = ocv_mv + delta_mv * sign;
+		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
+				batt_temp_degc, ocv_mv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n",
+			new_pc, ocv_mv);
+		count++;
+	}
+
+	return ocv_mv * 1000;
+}
+
 #define OCV_RAW_UNINITIALIZED	0xFFFF
 #define MIN_OCV_UV		2000000
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
 				int batt_temp)
 {
-	int warm_reset;
-	int rc;
+	int warm_reset, rc;
 
 	mutex_lock(&chip->bms_output_lock);
 
@@ -977,8 +1030,8 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		chip->done_charging = false;
 		/* if we just finished charging, reset CC and fake 100% */
 		chip->ocv_reading_at_100 = raw->last_good_ocv_raw;
-		chip->last_ocv_uv = chip->max_voltage_uv;
-		raw->last_good_ocv_uv = chip->max_voltage_uv;
+		chip->last_ocv_uv = find_ocv_for_pc(chip, batt_temp, 100);
+		raw->last_good_ocv_uv = chip->last_ocv_uv;
 		raw->cc = 0;
 		raw->shdw_cc = 0;
 		reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
@@ -1353,60 +1406,6 @@ static int find_pc_for_soc(struct qpnp_bms_chip *chip,
 			soc, params->fcc_uah, params->uuc_uah,
 			ocv_charge_uah, pc);
 	return pc;
-}
-
-#define SIGN(x) ((x) < 0 ? -1 : 1)
-#define UV_PER_SPIN 50000
-static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
-{
-	int new_pc;
-	int batt_temp_degc = batt_temp / 10;
-	int ocv_mv;
-	int delta_mv = 5;
-	int max_spin_count;
-	int count = 0;
-	int sign, new_sign;
-
-	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
-
-	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
-	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
-	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
-						/ UV_PER_SPIN;
-	sign = SIGN(pc - new_pc);
-
-	while (abs(new_pc - pc) != 0 && count < max_spin_count) {
-		/*
-		 * If the newly interpolated pc is larger than the lookup pc,
-		 * the ocv should be reduced and vice versa
-		 */
-		new_sign = SIGN(pc - new_pc);
-		/*
-		 * If the sign has changed, then we have passed the lookup pc.
-		 * reduce the ocv step size to get finer results.
-		 *
-		 * If we have already reduced the ocv step size and still
-		 * passed the lookup pc, just stop and use the current ocv.
-		 * This can only happen if the batterydata profile is
-		 * non-monotonic anyways.
-		 */
-		if (new_sign != sign) {
-			if (delta_mv > 1)
-				delta_mv = 1;
-			else
-				break;
-		}
-		sign = new_sign;
-
-		ocv_mv = ocv_mv + delta_mv * sign;
-		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
-				batt_temp_degc, ocv_mv);
-		pr_debug("test revlookup pc = %d for ocv = %d\n",
-			new_pc, ocv_mv);
-		count++;
-	}
-
-	return ocv_mv * 1000;
 }
 
 static int get_current_time(unsigned long *now_tm_sec)
