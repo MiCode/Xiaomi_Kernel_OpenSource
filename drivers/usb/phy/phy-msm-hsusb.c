@@ -81,8 +81,9 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define DPSEHV_LO_INTEN			BIT(9)
 #define DMSEHV_HI_INTEN			BIT(10)
 #define DMSEHV_LO_INTEN			BIT(11)
+#define LINESTATE_INTEN			BIT(12)
 #define DPDMHV_INT_MASK			(0xFC0)
-#define ALT_INTERRUPT_MASK		(0xFFF)
+#define ALT_INTERRUPT_MASK		(0x1FFF)
 
 #define TCSR_USB30_CONTROL		BIT(8)
 #define TCSR_HSPHY_ARES			BIT(11)
@@ -299,9 +300,16 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 
 		if (host) {
 			/* Enable DP and DM HV interrupts */
-			msm_usb_write_readback(phy->base, ALT_INTERRUPT_EN_REG,
-						DPDMHV_INT_MASK,
-						DPDMHV_INT_MASK);
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+							ALT_INTERRUPT_EN_REG,
+							LINESTATE_INTEN,
+							LINESTATE_INTEN);
+			else
+				msm_usb_write_readback(phy->base,
+							ALT_INTERRUPT_EN_REG,
+							DPDMHV_INT_MASK,
+							DPDMHV_INT_MASK);
 			udelay(5);
 		} else {
 			/* set the following:
@@ -352,8 +360,14 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			/* Clear interrupt latch register */
 			writel_relaxed(0x0, phy->base + HS_PHY_IRQ_STAT_REG);
 			/* Disable DP and DM HV interrupt */
-			msm_usb_write_readback(phy->base, ALT_INTERRUPT_EN_REG,
-						DPDMHV_INT_MASK, 0);
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+							ALT_INTERRUPT_EN_REG,
+							LINESTATE_INTEN, 0);
+			else
+				msm_usb_write_readback(phy->base,
+							ALT_INTERRUPT_EN_REG,
+							DPDMHV_INT_MASK, 0);
 		} else {
 			/* Disable PHY retention */
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
