@@ -1396,17 +1396,17 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 		adreno_is_a4xx(adreno_dev)))
 		return 0;
 
-	/* OCMEM is only needed once, do not support consective allocation */
-	if (adreno_dev->ocmem_hdl != NULL)
-		return 0;
+	if (adreno_dev->ocmem_hdl == NULL) {
+		adreno_dev->ocmem_hdl =
+			ocmem_allocate(OCMEM_GRAPHICS, adreno_dev->gmem_size);
+		if (IS_ERR_OR_NULL(adreno_dev->ocmem_hdl)) {
+			adreno_dev->ocmem_hdl = NULL;
+			return -ENOMEM;
+		}
 
-	adreno_dev->ocmem_hdl =
-		ocmem_allocate(OCMEM_GRAPHICS, adreno_dev->gmem_size);
-	if (adreno_dev->ocmem_hdl == NULL)
-		return -ENOMEM;
-
-	adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
-	adreno_dev->ocmem_base = adreno_dev->ocmem_hdl->addr;
+		adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
+		adreno_dev->ocmem_base = adreno_dev->ocmem_hdl->addr;
+	}
 
 	return 0;
 }
@@ -1414,17 +1414,10 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 static void
 adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
 {
-	if (!(adreno_is_a330(adreno_dev) ||
-		adreno_is_a305b(adreno_dev) ||
-		adreno_is_a310(adreno_dev) ||
-		adreno_is_a4xx(adreno_dev)))
-		return;
-
-	if (adreno_dev->ocmem_hdl == NULL)
-		return;
-
-	ocmem_free(OCMEM_GRAPHICS, adreno_dev->ocmem_hdl);
-	adreno_dev->ocmem_hdl = NULL;
+	if (adreno_dev->ocmem_hdl != NULL) {
+		ocmem_free(OCMEM_GRAPHICS, adreno_dev->ocmem_hdl);
+		adreno_dev->ocmem_hdl = NULL;
+	}
 }
 #else
 static int
