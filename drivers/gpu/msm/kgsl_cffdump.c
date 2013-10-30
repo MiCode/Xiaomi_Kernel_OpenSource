@@ -515,10 +515,11 @@ int kgsl_cffdump_waitirq(struct kgsl_device *device)
 EXPORT_SYMBOL(kgsl_cffdump_waitirq);
 
 static int subbuf_start_handler(struct rchan_buf *buf,
-	void *subbuf, void *prev_subbuf, uint prev_padding)
+	void *subbuf, void *prev_subbuf, size_t prev_padding)
 {
 	pr_debug("kgsl: cffdump: subbuf_start_handler(subbuf=%p, prev_subbuf"
-		"=%p, prev_padding=%08x)\n", subbuf, prev_subbuf, prev_padding);
+		+"=%p, prev_padding=%08zx)\n", subbuf, prev_subbuf,
+		 prev_padding);
 
 	if (relay_buf_full(buf)) {
 		if (!suspended) {
