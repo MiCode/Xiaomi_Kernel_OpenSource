@@ -3677,9 +3677,9 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
  *
  * Returns calculated max ICC level for specific regulator
  */
-static u8 ufshcd_get_max_icc_level(int sup_curr_uA, u8 start_scan, char *buff)
+static u32 ufshcd_get_max_icc_level(int sup_curr_uA, u32 start_scan, char *buff)
 {
-	u8 i;
+	int i;
 	int curr_uA;
 	u16 data;
 	u16 unit;
@@ -3706,7 +3706,12 @@ static u8 ufshcd_get_max_icc_level(int sup_curr_uA, u8 start_scan, char *buff)
 		if (sup_curr_uA >= curr_uA)
 			break;
 	}
-	return i;
+	if (i < 0) {
+		i = 0;
+		pr_err("%s: Couldn't find valid icc_level = %d", __func__, i);
+	}
+
+	return (u32)i;
 }
 
 /**
@@ -3718,10 +3723,10 @@ static u8 ufshcd_get_max_icc_level(int sup_curr_uA, u8 start_scan, char *buff)
  *
  * Returns calculated ICC level
  */
-static u8 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
+static u32 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
 							u8 *desc_buf, int len)
 {
-	u8 icc_level = 0;
+	u32 icc_level = 0;
 
 	if (!hba->vreg_info.vcc || !hba->vreg_info.vccq ||
 						!hba->vreg_info.vccq2) {
