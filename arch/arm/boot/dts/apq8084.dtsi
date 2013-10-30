@@ -631,10 +631,11 @@
 			<0xf909a000 0x20>,
 			<0xf90aa000 0x20>,
 			<0xf90ba000 0x20>,
-			<0xfc4b80b0 0x08>;
+			<0xfc4b80b0 0x08>,
+			<0xf9011000 0x50>;
 		reg-names = "hfpll_l2_clk", "hfpll0_clk",
 				"hfpll1_clk", "hfpll2_clk",
-				"hfpll3_clk", "efuse";
+				"hfpll3_clk", "efuse", "meas";
 		cpu0-supply = <&krait0_vreg>;
 		cpu1-supply = <&krait1_vreg>;
 		cpu2-supply = <&krait2_vreg>;
