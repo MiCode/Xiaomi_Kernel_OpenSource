@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -358,8 +358,9 @@ static size_t read_cpu_stats(struct seq_file *m,
 
 		mode = stats[id].sleep_mode;
 		idx = MSM_PM_MODE(cpu, mode);
-		if ((!msm_pm_sleep_modes[idx].idle_supported) &&
-				(!msm_pm_sleep_modes[idx].suspend_supported))
+
+		if (!msm_pm_sleep_mode_supported(cpu, mode, true) &&
+				!msm_pm_sleep_mode_supported(cpu, mode, false))
 			continue;
 
 		s = stats[id].total_time;

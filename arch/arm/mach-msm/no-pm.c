@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011, 2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2011,2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,9 +21,6 @@ void arch_idle(void)
 {
 	cpu_do_idle();
 }
-
-void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count)
-{ }
 
 void msm_pm_cpu_enter_lowpower(unsigned cpu)
 {
