@@ -3237,6 +3237,8 @@ static void ufshcd_tmc_handler(struct ufs_hba *hba)
  */
 static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
+	ufsdbg_fail_request(hba, &intr_status);
+
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
 	if (hba->errors)
 		ufshcd_check_errors(hba);
