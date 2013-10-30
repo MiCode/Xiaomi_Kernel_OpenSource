@@ -394,14 +394,21 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 	mdata = mdss_mdp_get_mdata();
 	switch (block) {
 	case MDSS_MDP_BLOCK_SSPP:
-		if (blk_idx < mdata->nvig_pipes) {
-			pipe = mdata->vig_pipes + blk_idx;
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		if (!pipe) {
+			pr_err("invalid blk index=%d\n", blk_idx);
+			ret = -EINVAL;
+			break;
+		}
+		if (mdss_mdp_pipe_is_yuv(pipe)) {
 			base = pipe->base;
 			if (tbl_idx == 1)
 				base += MDSS_MDP_REG_VIG_CSC_1_BASE;
 			else
 				base += MDSS_MDP_REG_VIG_CSC_0_BASE;
 		} else {
+			pr_err("non ViG pipe %d for CSC is not allowed\n",
+				blk_idx);
 			ret = -EINVAL;
 		}
 		break;
@@ -418,7 +425,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 		break;
 	}
 	if (ret != 0) {
-		pr_err("unsupported block id for csc\n");
+		pr_err("unsupported block id %d for csc\n", blk_idx);
 		return ret;
 	}
 
