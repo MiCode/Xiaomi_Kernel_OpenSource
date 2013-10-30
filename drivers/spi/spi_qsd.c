@@ -90,28 +90,64 @@ static inline void msm_spi_register_init(struct msm_spi *dd)
 		writel_relaxed(0x00000000, dd->base + QUP_OPERATIONAL_MASK);
 }
 
+static int msm_spi_pinctrl_init(struct msm_spi *dd)
+{
+
+	dd->pinctrl = devm_pinctrl_get(dd->dev);
+	if (IS_ERR_OR_NULL(dd->pinctrl)) {
+		dev_err(dd->dev, "Failed to get pin ctrl\n");
+		return PTR_ERR(dd->pinctrl);
+	}
+	dd->pins_active = pinctrl_lookup_state(dd->pinctrl,
+				PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(dd->pins_active)) {
+		dev_err(dd->dev, "Failed to lookup pinctrl defualt state\n");
+		return PTR_ERR(dd->pins_active);
+	}
+	dd->pins_sleep = pinctrl_lookup_state(dd->pinctrl,
+				PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(dd->pins_sleep)) {
+		dev_err(dd->dev, "Failed to lookup pinctrl sleep state\n");
+		return PTR_ERR(dd->pins_sleep);
+	}
+
+	return 0;
+}
+
 static inline int msm_spi_request_gpios(struct msm_spi *dd)
 {
-	int i;
+	int i = 0;
 	int result = 0;
 
-	for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
-		if (dd->spi_gpios[i] >= 0) {
-			result = gpio_request(dd->spi_gpios[i], spi_rsrcs[i]);
-			if (result) {
-				dev_err(dd->dev, "%s: gpio_request for pin %d "
-					"failed with error %d\n", __func__,
-					dd->spi_gpios[i], result);
-				goto error;
+	if (!dd->pdata->use_pinctrl) {
+		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
+			if (dd->spi_gpios[i] >= 0) {
+				result = gpio_request(dd->spi_gpios[i],
+						spi_rsrcs[i]);
+				if (result) {
+					dev_err(dd->dev,
+					"%s: gpio_request for pin %d "
+					"failed with error %d\n"
+					, __func__, dd->spi_gpios[i], result);
+					goto error;
+				}
 			}
+		}
+	} else {
+		result = pinctrl_select_state(dd->pinctrl, dd->pins_active);
+		if (result) {
+			dev_err(dd->dev, "%s: Can not set %s pins\n",
+			__func__, PINCTRL_STATE_DEFAULT);
+			goto error;
 		}
 	}
 	return 0;
-
 error:
-	for (; --i >= 0;) {
-		if (dd->spi_gpios[i] >= 0)
-			gpio_free(dd->spi_gpios[i]);
+	if (!dd->pdata->use_pinctrl) {
+		for (; --i >= 0;) {
+			if (dd->spi_gpios[i] >= 0)
+				gpio_free(dd->spi_gpios[i]);
+		}
 	}
 	return result;
 }
@@ -119,17 +155,25 @@ error:
 static inline void msm_spi_free_gpios(struct msm_spi *dd)
 {
 	int i;
+	int result = 0;
 
-	for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
-		if (dd->spi_gpios[i] >= 0)
-			gpio_free(dd->spi_gpios[i]);
-	}
+	if (!dd->pdata->use_pinctrl) {
+		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
+			if (dd->spi_gpios[i] >= 0)
+				gpio_free(dd->spi_gpios[i]);
+			}
 
-	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
-		if (dd->cs_gpios[i].valid) {
-			gpio_free(dd->cs_gpios[i].gpio_num);
-			dd->cs_gpios[i].valid = 0;
+		for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
+			if (dd->cs_gpios[i].valid) {
+				gpio_free(dd->cs_gpios[i].gpio_num);
+				dd->cs_gpios[i].valid = 0;
+			}
 		}
+	} else {
+		result = pinctrl_select_state(dd->pinctrl, dd->pins_sleep);
+		if (result)
+			dev_err(dd->dev, "%s: Can not set %s pins\n",
+			__func__, PINCTRL_STATE_SLEEP);
 	}
 }
 
@@ -2863,6 +2907,8 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			&pdata->ver_reg_exists,          DT_OPT,  DT_BOOL,  0},
 		{"qcom,use-bam",
 			&pdata->use_bam,                 DT_OPT,  DT_BOOL,  0},
+		{"qcom,use-pinctrl",
+			&pdata->use_pinctrl,             DT_OPT,  DT_BOOL,  0},
 		{"qcom,bam-consumer-pipe-index",
 			&pdata->bam_consumer_pipe_index, DT_OPT,  DT_U32,   0},
 		{"qcom,bam-producer-pipe-index",
@@ -3030,6 +3076,13 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 
 	dd->mem_phys_addr = resource->start;
 	dd->mem_size = resource_size(resource);
+
+	if (dd->pdata->use_pinctrl) {
+		dd->dev = &pdev->dev;
+		rc = msm_spi_pinctrl_init(dd);
+		if (rc)
+			goto err_pinctrl;
+	}
 
 	if (pdata) {
 		if (pdata->dma_config) {
@@ -3232,6 +3285,7 @@ err_probe_pclk_get:
 err_probe_clk_get:
 	if (locked)
 		mutex_unlock(&dd->core_lock);
+err_pinctrl:
 err_probe_reqmem:
 err_probe_res:
 	spi_master_put(master);
