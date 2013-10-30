@@ -134,6 +134,7 @@ struct mock_cb_data {
 };
 
 void smp2p_debug_create(const char *name, void (*show)(struct seq_file *));
+void smp2p_debug_create_u32(const char *name, uint32_t *value);
 static inline int smp2p_test_notify(struct notifier_block *self,
 	unsigned long event, void *data);
 

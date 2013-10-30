@@ -43,6 +43,8 @@ struct rpm_spinlock_test {
 	uint32_t rpm_lock_count;
 };
 
+static uint32_t ut_remote_spinlock_run_time = 1;
+
 /**
  * smp2p_ut_remote_spinlock_core - Verify remote spinlock.
  *
@@ -64,12 +66,12 @@ static void smp2p_ut_remote_spinlock_core(struct seq_file *s, int remote_pid,
 	struct mock_cb_data cb_in;
 	unsigned long flags;
 	unsigned n;
-	unsigned test_num;
 	bool have_lock;
 	bool timeout;
 	int failed_tmp;
 	int spinlock_owner;
 	remote_spinlock_t *smem_spinlock;
+	unsigned long end;
 
 	seq_printf(s, "Running %s for '%s' remote pid %d\n",
 		   __func__, smp2p_pid_to_name(remote_pid), remote_pid);
@@ -149,7 +151,12 @@ static void smp2p_ut_remote_spinlock_core(struct seq_file *s, int remote_pid,
 		spinlock_owner = 0;
 		test_request = 0x0;
 		SMP2P_SET_RMT_CMD_TYPE_REQ(test_request);
-		for (test_num = 0; !failed && test_num < 10000; ++test_num) {
+		end = jiffies + (ut_remote_spinlock_run_time * HZ);
+		if (ut_remote_spinlock_run_time < 300)
+				seq_printf(s,
+					"\tRunning test for %u seconds; on physical hardware please run >= 300 seconds by doing 'echo 300 >  ut_remote_spinlock_time'\n",
+					ut_remote_spinlock_run_time);
+		while (time_is_after_jiffies(end)) {
 			/* try to acquire spinlock */
 			if (use_trylock) {
 				unsigned long j_start = jiffies;
@@ -481,6 +488,8 @@ static int __init smp2p_debugfs_init(void)
 		smp2p_ut_remote_spinlock_wcnss);
 	smp2p_debug_create("ut_remote_spinlock_rpm",
 		smp2p_ut_remote_spinlock_rpm);
+	smp2p_debug_create_u32("ut_remote_spinlock_time",
+		&ut_remote_spinlock_run_time);
 
 	return 0;
 }

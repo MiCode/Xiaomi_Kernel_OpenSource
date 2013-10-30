@@ -986,6 +986,15 @@ void smp2p_debug_create(const char *name,
 		pr_err("%s: unable to create file '%s'\n", __func__, name);
 }
 
+void smp2p_debug_create_u32(const char *name, uint32_t *value)
+{
+	struct dentry *file;
+
+	file = debugfs_create_u32(name, S_IRUGO | S_IWUSR, dent, value);
+	if (!file)
+		pr_err("%s: unable to create file '%s'\n", __func__, name);
+}
+
 static int __init smp2p_debugfs_init(void)
 {
 	dent = debugfs_create_dir("smp2p_test", 0);
