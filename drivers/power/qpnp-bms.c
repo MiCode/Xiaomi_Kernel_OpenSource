@@ -1817,8 +1817,15 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 					chip->catch_up_time_sec,
 					soc, chip->last_soc);
 
-		soc_change = min((int)abs(chip->last_soc - soc),
-			time_since_last_change_sec / SOC_CHANGE_PER_SEC);
+		/* if the battery is close to cutoff allow more change */
+		if (wake_lock_active(&chip->low_voltage_wake_lock))
+			soc_change = min((int)abs(chip->last_soc - soc),
+				time_since_last_change_sec);
+		else
+			soc_change = min((int)abs(chip->last_soc - soc),
+				time_since_last_change_sec
+					/ SOC_CHANGE_PER_SEC);
+
 		if (chip->last_soc_unbound) {
 			chip->last_soc_unbound = false;
 		} else {
@@ -2049,9 +2056,10 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 	 * because we might pull it low
 	 * and cause a bad user experience
 	 */
-	if (soc_est == soc
-		|| soc_est > chip->adjust_soc_low_threshold
-		|| soc >= NO_ADJUST_HIGH_SOC_THRESHOLD)
+	if (!wake_lock_active(&chip->low_voltage_wake_lock) &&
+			(soc_est == soc
+			|| soc_est > chip->adjust_soc_low_threshold
+			|| soc >= NO_ADJUST_HIGH_SOC_THRESHOLD))
 		goto out;
 
 	if (chip->last_soc_est == -EINVAL)
@@ -2096,8 +2104,11 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
 
-	if (wake_lock_active(&chip->low_voltage_wake_lock))
+	if (wake_lock_active(&chip->low_voltage_wake_lock)) {
+		/* when in the cutoff region, do not correct upwards */
+		delta_ocv_uv = max(0, delta_ocv_uv);
 		goto skip_limits;
+	}
 
 	if (chip->last_ocv_uv > chip->flat_ocv_threshold_uv)
 		correction_limit_uv = chip->high_ocv_correction_limit_uv;
