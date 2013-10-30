@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/kthread.h>
 #include <mach/msm_qmi_interface.h>
+#include <mach/subsystem_notif.h>
 
 /* Per spec.max 40 bytes per received message */
 #define SLIM_MSGQ_BUF_LEN	40
@@ -206,6 +207,11 @@ struct msm_slim_qmi {
 	struct work_struct		ssr_up;
 };
 
+struct msm_slim_mdm {
+	struct notifier_block nb;
+	void *ssr;
+};
+
 struct msm_slim_pdata {
 	u32 apps_pipes;
 	u32 eapc;
@@ -254,6 +260,7 @@ struct msm_slim_ctrl {
 	struct work_struct	slave_notify;
 	struct msm_slim_qmi	qmi;
 	struct msm_slim_pdata	pdata;
+	struct msm_slim_mdm	mdm;
 };
 
 struct msm_sat_chan {
@@ -318,4 +325,5 @@ void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);
+int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev);
 #endif

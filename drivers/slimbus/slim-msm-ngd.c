@@ -83,6 +83,7 @@ enum ngd_status {
 };
 
 static int ngd_slim_runtime_resume(struct device *device);
+static int ngd_slim_power_up(struct msm_slim_ctrl *dev);
 
 static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 {
@@ -178,6 +179,41 @@ static int ngd_qmi_available(struct notifier_block *n, unsigned long code,
 		break;
 	}
 	return 0;
+}
+
+static int mdm_ssr_notify_cb(struct notifier_block *n, unsigned long code,
+				void *_cmd)
+{
+	struct msm_slim_mdm *mdm = container_of(n, struct msm_slim_mdm, nb);
+	struct msm_slim_ctrl *dev = container_of(mdm, struct msm_slim_ctrl,
+						mdm);
+	int ret;
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		/* make sure runtime-pm doesn't suspend during modem SSR */
+		pm_runtime_get_noresume(dev->dev);
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		ret = msm_slim_qmi_check_framer_request(dev);
+		dev_err(dev->dev,
+			"%s:SLIM %lu external_modem SSR notify cb, ret %d",
+			__func__, code, ret);
+		/*
+		 * Next codec transaction will reinit the HW
+		 * if it was suspended
+		 */
+		if (pm_runtime_suspended(dev->dev) ||
+			dev->state >= MSM_CTRL_ASLEEP) {
+			break;
+		} else {
+			ngd_slim_power_up(dev);
+			msm_slim_put_ctrl(dev);
+		}
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
 }
 
 static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
@@ -771,6 +807,7 @@ capability_retry:
 		ret = ngd_xfer_msg(&dev->ctrl, &txn);
 		if (!ret) {
 			enum msm_ctrl_state prev_state = dev->state;
+			pr_info("SLIM SAT: capability exchange successful");
 			dev->state = MSM_CTRL_AWAKE;
 			if (prev_state >= MSM_CTRL_ASLEEP)
 				complete(&dev->reconf);
@@ -842,7 +879,7 @@ capability_retry:
 static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 {
 	void __iomem *ngd;
-	int timeout, ret;
+	int timeout, ret = 0;
 	enum msm_ctrl_state cur_state = dev->state;
 	u32 laddr;
 	u32 ngd_int = (NGD_INT_TX_NACKED_2 |
@@ -857,10 +894,13 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 			pr_err("slimbus QMI init timed out");
 	}
 
-	ret = msm_slim_qmi_power_request(dev, true);
-	if (ret) {
-		pr_err("SLIM QMI power request failed:%d", ret);
-		return ret;
+	/* No need to vote if contorller is not in low power mode */
+	if (cur_state == MSM_CTRL_DOWN || cur_state == MSM_CTRL_ASLEEP) {
+		ret = msm_slim_qmi_power_request(dev, true);
+		if (ret) {
+			pr_err("SLIM QMI power request failed:%d", ret);
+			return ret;
+		}
 	}
 	if (!dev->ver) {
 		dev->ver = readl_relaxed(dev->base);
@@ -871,14 +911,35 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 	laddr = readl_relaxed(ngd + NGD_STATUS);
 	if (laddr & NGD_LADDR) {
 		/*
+		 * external MDM restart case where ADSP itself was active framer
+		 * For example, modem restarted when playback was active
+		 */
+		if (cur_state == MSM_CTRL_AWAKE) {
+			pr_err("SLIM MDM restart: ADSP active framer:NO OP");
+			return 0;
+		}
+		/*
 		 * ADSP power collapse case, where HW wasn't reset.
 		 * Reconnect BAM pipes if disconnected
 		 */
 		ngd_slim_setup_msg_path(dev);
 		return 0;
-	} else if (cur_state != MSM_CTRL_DOWN) {
-		pr_info("ADSP P.C. CTRL state:%d NGD not enumerated:0x%x",
+	} else if (cur_state == MSM_CTRL_ASLEEP) {
+		pr_debug("ADSP P.C. CTRL state:%d NGD not enumerated:0x%x",
 					dev->state, laddr);
+	} else if (cur_state == MSM_CTRL_IDLE || cur_state == MSM_CTRL_AWAKE) {
+		/*
+		 * external MDM SSR when only voice call is in progress.
+		 * ADSP will reset slimbus HW. disconnect BAM pipes so that
+		 * they can be connected after capability message is received.
+		 * Set device state to ASLEEP to be synchronous with the HW
+		 */
+		pr_err("SLIM MDM restart: MDM active framer: reinit HW");
+		dev->state = MSM_CTRL_ASLEEP;
+		msm_slim_disconnect_endp(dev, &dev->rx_msgq,
+					&dev->use_rx_msgqs);
+		msm_slim_disconnect_endp(dev, &dev->tx_msgq,
+					&dev->use_tx_msgqs);
 	}
 	/* ADSP SSR scenario, need to disconnect pipe before connecting */
 	if (dev->use_rx_msgqs == MSM_MSGQ_DOWN) {
@@ -909,7 +970,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 
 	timeout = wait_for_completion_timeout(&dev->reconf, HZ);
 	if (!timeout) {
-		pr_err("failed to received master capability");
+		pr_err("Failed to receive master capability");
 		return -ETIMEDOUT;
 	}
 	if (cur_state == MSM_CTRL_DOWN)
@@ -1071,6 +1132,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	struct resource		*irq, *bam_irq;
 	enum apr_subsys_state q6_state;
 	bool			rxreg_access = false;
+	bool			slim_mdm = false;
 
 	q6_state = apr_get_q6_state();
 	if (q6_state == APR_SUBSYS_DOWN) {
@@ -1139,6 +1201,8 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 					&dev->pdata.apps_pipes);
 		of_property_read_u32(pdev->dev.of_node, "qcom,ea-pc",
 					&dev->pdata.eapc);
+		slim_mdm = of_property_read_bool(pdev->dev.of_node,
+					"qcom,slim-mdm");
 	} else {
 		dev->ctrl.nr = pdev->id;
 	}
@@ -1208,6 +1272,16 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev->dev);
 	pm_runtime_enable(dev->dev);
 
+	if (slim_mdm) {
+		dev->mdm.nb.notifier_call = mdm_ssr_notify_cb;
+		dev->mdm.ssr = subsys_notif_register_notifier("external_modem",
+							&dev->mdm.nb);
+		if (IS_ERR_OR_NULL(dev->mdm.ssr))
+			dev_err(dev->dev,
+				"subsys_notif_register_notifier failed %p",
+				dev->mdm.ssr);
+	}
+
 	INIT_WORK(&dev->slave_notify, ngd_laddr_lookup);
 	INIT_WORK(&dev->qmi.ssr_down, ngd_adsp_down);
 	INIT_WORK(&dev->qmi.ssr_up, ngd_adsp_up);
@@ -1265,6 +1339,8 @@ static int __devexit ngd_slim_remove(struct platform_device *pdev)
 				SLIMBUS_QMI_SVC_V1,
 				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
 	pm_runtime_disable(&pdev->dev);
+	if (!IS_ERR_OR_NULL(dev->mdm.ssr))
+		subsys_notif_unregister_notifier(dev->mdm.ssr, &dev->mdm.nb);
 	free_irq(dev->irq, dev);
 	slim_del_controller(&dev->ctrl);
 	kthread_stop(dev->rx_msgq_thread);
