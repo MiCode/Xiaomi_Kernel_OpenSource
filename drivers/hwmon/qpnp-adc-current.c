@@ -370,6 +370,8 @@ static int32_t qpnp_iadc_read_conversion_result(struct qpnp_iadc_chip *iadc,
 #define QPNP_COEFF_24					84
 #define QPNP_COEFF_25					33
 #define QPNP_COEFF_26					22
+#define QPNP_COEFF_27					53
+#define QPNP_COEFF_28					48
 
 static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 							int64_t die_temp)
@@ -562,6 +564,39 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 				} else {
 					coeff_a = QPNP_COEFF_24;
 					coeff_b = -QPNP_COEFF_23;
+				}
+			}
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8110_2_0:
+		die_temp -= 25000;
+		/* pm8110 rev 2.0 */
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_27;
+					coeff_b = 0;
+				}
+			}
+			break;
+		case COMP_ID_SMIC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_28;
+					coeff_b = 0;
 				}
 			}
 			break;
