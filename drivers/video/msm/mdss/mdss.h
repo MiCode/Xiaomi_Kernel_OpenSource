@@ -66,6 +66,19 @@ struct mdss_debug_inf {
 	void (*debug_enable_clock)(int on);
 };
 
+#define MDSS_IRQ_SUSPEND	-1
+#define MDSS_IRQ_RESUME		1
+#define MDSS_IRQ_REQ		0
+
+struct mdss_intr {
+	/* requested intr */
+	u32 req;
+	/* currently enabled intr */
+	u32 curr;
+	int state;
+	spinlock_t lock;
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -135,6 +148,8 @@ struct mdss_data_type {
 	u32 nad_cfgs;
 	u32 nmax_concurrent_ad_hw;
 	struct workqueue_struct *ad_calc_wq;
+
+	struct mdss_intr hist_intr;
 
 	struct ion_client *iclient;
 	int iommu_attached;
