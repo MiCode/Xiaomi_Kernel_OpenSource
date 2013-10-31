@@ -69,6 +69,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 	unsigned long wait_time_part;
 	unsigned int prev_reg_val[FT_DETECT_REGS_COUNT];
 	unsigned int rptr;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
@@ -107,17 +108,16 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 
 		/* Dont wait for timeout, detect hang faster.
 		 */
+
+		if (kgsl_atomic_read(&adreno_dev->hang_intr_set))
+			goto hang_detected;
+
 		if (time_after(jiffies, wait_time_part)) {
 			wait_time_part = jiffies +
 				msecs_to_jiffies(KGSL_TIMEOUT_PART);
-			if ((adreno_ft_detect(rb->device,
-						prev_reg_val))){
-				KGSL_DRV_ERR(rb->device,
-				"Hang detected while waiting for freespace in"
-				"ringbuffer rptr: 0x%x, wptr: 0x%x\n",
-				rptr, rb->wptr);
-				goto err;
-			}
+
+			if ((adreno_ft_detect(rb->device, prev_reg_val)))
+				goto hang_detected;
 		}
 
 		if (time_after(jiffies, wait_time)) {
@@ -128,6 +128,12 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 		}
 
 		continue;
+
+hang_detected:
+		KGSL_DRV_ERR(rb->device,
+			"Hang detected while waiting for freespace in"
+			"ringbuffer rptr: 0x%x, wptr: 0x%x\n",
+			rptr, rb->wptr);
 
 err:
 		if (!adreno_dump_and_exec_ft(rb->device)) {

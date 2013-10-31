@@ -1833,11 +1833,12 @@ irqreturn_t a2xx_irq_handler(struct adreno_device *adreno_dev)
 	return result;
 }
 
-static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
+static void a2xx_irq_control(struct adreno_device *adreno_dev,
+							 unsigned int mask)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (state) {
+	if (mask) {
 		kgsl_regwrite(device, REG_RBBM_INT_CNTL, RBBM_INT_MASK);
 		kgsl_regwrite(device, REG_CP_INT_CNTL, CP_INT_MASK);
 		kgsl_regwrite(device, MH_INTERRUPT_MASK,

@@ -502,7 +502,6 @@ static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
 
 	src_w = req->src_rect.w;
 	dst_h = blit_op->dst.roi.height;
-	pr_err("TMsg: In workaround. srcw= %d, dstH=%d\n", src_w, dst_h);
 	/* bg tile fetching HW workaround */
 	for (i = 0; i < (req->dst_rect.h / 16); i++) {
 		/* this tile size */

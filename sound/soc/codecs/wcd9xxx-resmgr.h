@@ -137,6 +137,8 @@ struct wcd9xxx_resmgr {
 
 	struct wcd9xxx_pdata *pdata;
 
+	struct wcd9xxx_micbias_setting *micbias_pdata;
+
 	struct blocking_notifier_head notifier;
 	/* Notifier needs mbhc pointer with resmgr */
 	struct wcd9xxx_mbhc *mbhc;
@@ -162,6 +164,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
 			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
+			struct wcd9xxx_micbias_setting *micbias_pdata,
 			struct wcd9xxx_reg_address *reg_addr,
 			enum wcd9xxx_cdc_type cdc_type);
 void wcd9xxx_resmgr_deinit(struct wcd9xxx_resmgr *resmgr);

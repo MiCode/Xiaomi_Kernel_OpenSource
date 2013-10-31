@@ -75,6 +75,7 @@ static struct msm_mdp_interface *mdp_instance;
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
 static int mdss_fb_release(struct fb_info *info, int user);
+static int mdss_fb_release_all(struct fb_info *info, bool release_all);
 static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
 			       struct fb_info *info);
 static int mdss_fb_check_var(struct fb_var_screeninfo *var,
@@ -293,10 +294,9 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	for (; mfd->ref_cnt > 1; mfd->ref_cnt--)
-		pm_runtime_put(mfd->fbi->dev);
-
-	mdss_fb_release(mfd->fbi, 0);
+	lock_fb_info(mfd->fbi);
+	mdss_fb_release_all(mfd->fbi, true);
+	unlock_fb_info(mfd->fbi);
 }
 
 static int mdss_fb_probe(struct platform_device *pdev)
@@ -1168,10 +1168,10 @@ static int mdss_fb_open(struct fb_info *info, int user)
 	return 0;
 }
 
-static int mdss_fb_release(struct fb_info *info, int user)
+static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	struct mdss_fb_proc_info *pinfo = NULL;
+	struct mdss_fb_proc_info *pinfo = NULL, *temp_pinfo = NULL;
 	int ret = 0;
 	int pid = current->tgid;
 
@@ -1181,27 +1181,26 @@ static int mdss_fb_release(struct fb_info *info, int user)
 	}
 
 	mdss_fb_pan_idle(mfd);
-	mfd->ref_cnt--;
 
-	list_for_each_entry(pinfo, &mfd->proc_list, list) {
-		if (pinfo->pid == pid)
-			break;
-	}
+	pr_debug("release_all = %s\n", release_all ? "true" : "false");
 
-	if (!pinfo || (pinfo->pid != pid)) {
-		pr_warn("unable to find process info for fb%d pid=%d\n",
-				mfd->index, pid);
-		if (mfd->mdp.release_fnc) {
-			ret = mfd->mdp.release_fnc(mfd);
-			if (ret)
-				pr_err("error releasing fb%d resources\n",
-						mfd->index);
-		}
-	} else {
-		pr_debug("found process entry pid=%d ref=%d\n",
-				pinfo->pid, pinfo->ref_cnt);
+	list_for_each_entry_safe(pinfo, temp_pinfo, &mfd->proc_list, list) {
+		if (!release_all && (pinfo->pid != pid))
+			continue;
 
-		pinfo->ref_cnt--;
+		pr_debug("found process entry pid=%d ref=%d\n", pinfo->pid,
+			pinfo->ref_cnt);
+
+		do {
+			if (mfd->ref_cnt < pinfo->ref_cnt)
+				pr_warn("WARN:mfd->ref_cnt < pinfo->ref_cnt\n");
+			else
+				mfd->ref_cnt--;
+
+			pinfo->ref_cnt--;
+			pm_runtime_put(info->dev);
+		} while (release_all && pinfo->ref_cnt);
+
 		if (pinfo->ref_cnt == 0) {
 			if (mfd->mdp.release_fnc) {
 				ret = mfd->mdp.release_fnc(mfd);
@@ -1216,15 +1215,20 @@ static int mdss_fb_release(struct fb_info *info, int user)
 
 	if (!mfd->ref_cnt) {
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
-				       mfd->op_enable);
+			mfd->op_enable);
 		if (ret) {
-			pr_err("can't turn off fb%d! rc=%d\n", mfd->index, ret);
+			pr_err("can't turn off fb%d! rc=%d\n",
+				mfd->index, ret);
 			return ret;
 		}
 	}
 
-	pm_runtime_put(info->dev);
 	return ret;
+}
+
+static int mdss_fb_release(struct fb_info *info, int user)
+{
+	return mdss_fb_release_all(info, false);
 }
 
 static void mdss_fb_power_setting_idle(struct msm_fb_data_type *mfd)

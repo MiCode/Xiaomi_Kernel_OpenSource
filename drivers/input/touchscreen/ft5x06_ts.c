@@ -288,7 +288,7 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	struct ft5x06_ts_data *data = dev_id;
 	struct input_dev *ip_dev;
 	int rc, i;
-	u32 id, x, y, pressure, status, num_touches;
+	u32 id, x, y, status, num_touches;
 	u8 reg = 0x00, *buf;
 	bool update_input = false;
 
@@ -329,11 +329,9 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 
 		input_mt_slot(ip_dev, id);
 		if (status == FT_TOUCH_DOWN || status == FT_TOUCH_CONTACT) {
-			pressure = FT_PRESS;
 			input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 1);
 			input_report_abs(ip_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(ip_dev, ABS_MT_POSITION_Y, y);
-			input_report_abs(ip_dev, ABS_MT_PRESSURE, pressure);
 		} else {
 			input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 0);
 		}
@@ -479,7 +477,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 		input_mt_slot(data->input_dev, i);
 		input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, 0);
 	}
-	input_report_key(data->input_dev, BTN_TOUCH, 0);
+	input_mt_report_pointer_emulation(data->input_dev, false);
 	input_sync(data->input_dev);
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
@@ -1369,7 +1367,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			     pdata->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
 			     pdata->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, FT_PRESS, 0, 0);
 
 	err = input_register_device(input_dev);
 	if (err) {
