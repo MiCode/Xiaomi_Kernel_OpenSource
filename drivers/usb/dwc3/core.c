@@ -545,27 +545,12 @@ static int dwc3_probe(struct platform_device *pdev)
 	host_only_mode = of_property_read_bool(node, "host-only-mode");
 	dwc->maximum_speed = of_usb_get_maximum_speed(node);
 
-	/* host only mode doesnt use PHY xcvr; define nop ones */
-	if (host_only_mode) {
-		dwc->usb2_phy = devm_kzalloc(&pdev->dev, sizeof(struct usb_phy),
-								GFP_KERNEL);
-		if (!dwc->usb2_phy) {
-			dev_err(&pdev->dev, "unable to allocate dwc3nop phy\n");
-			return -ENOMEM;
-		}
-		dwc->usb3_phy = dwc->usb2_phy;
+	if (node) {
+		dwc->usb2_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
+		dwc->usb3_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 1);
 	} else {
-		if (node) {
-			dwc->usb2_phy =
-				devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
-			dwc->usb3_phy =
-				devm_usb_get_phy_by_phandle(dev, "usb-phy", 1);
-		} else {
-			dwc->usb2_phy =
-				devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
-			dwc->usb3_phy =
-				devm_usb_get_phy(dev, USB_PHY_TYPE_USB3);
-		}
+		dwc->usb2_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
+		dwc->usb3_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB3);
 	}
 
 	/* default to superspeed if no maximum_speed passed */
