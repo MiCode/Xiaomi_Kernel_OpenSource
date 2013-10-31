@@ -448,6 +448,15 @@
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
+
+	qcom,pil-vpu@fde0b000 {
+		compatible = "qcom,pil-vpu";
+		reg = <0xfde0b000 0x80>;
+		reg-names = "maple_csr_base";
+		vdd-supply = <&gdsc_vpu>;
+
+		qcom,firmware-name = "vpu";
+	};
 };
 
 &gdsc_venus {
