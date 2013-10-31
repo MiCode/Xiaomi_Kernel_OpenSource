@@ -29,6 +29,7 @@
 #include <linux/iommu.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
+#include <mach/msm_bus.h>
 #include <mach/msm_tspp2.h>
 
 #define TSPP2_MODULUS_OP(val, mod)	((val) & ((mod) - 1))
@@ -96,6 +97,7 @@ enum tspp2_operation_opcode {
 #define TSIF_STS_CTL_INV_ENABLE		BIT(18)
 #define TSIF_STS_CTL_INV_DATA		BIT(17)
 #define TSIF_STS_CTL_INV_CLOCK		BIT(16)
+#define TSIF_STS_CTL_PARALLEL		BIT(14)
 #define TSIF_STS_CTL_EN_NULL		BIT(11)
 #define TSIF_STS_CTL_EN_ERROR		BIT(10)
 #define TSIF_STS_CTL_LAST_BIT		BIT(9)
@@ -777,6 +779,7 @@ struct tspp2_iommu_info {
  * struct tspp2_device - TSPP2 device
  *
  * @dev_id:			TSPP2 device ID.
+ * @opened:			A flag to indicate whether the device is open.
  * @pdev:			Platform device.
  * @dev:			Device structure, used for driver prints.
  * @base:			TSPP2 Device memory base address.
@@ -790,8 +793,12 @@ struct tspp2_iommu_info {
  *				data structures that happen from APIs and ISRs.
  * @mutex:			A mutex for mutual exclusion between API calls.
  * @tsif_devices:		An array of TSIF devices.
+ * @gdsc:			GDSC power regulator.
+ * @bus_client:			Client for bus bandwidth voting.
  * @tspp2_ahb_clk:		TSPP2 AHB clock.
  * @tspp2_core_clk:		TSPP2 core clock.
+ * @tspp2_vbif_clk:		TSPP2 VBIF clock.
+ * @tspp2_klm_ahb_clk:		TSPP2 KLM AHB clock.
  * @tsif_ref_clk:		TSIF reference clock.
  * @batches:			An array of filter batch objects.
  * @contexts:			An array of context indexes. The index in this
@@ -819,6 +826,7 @@ struct tspp2_iommu_info {
  */
 struct tspp2_device {
 	u32 dev_id;
+	int opened;
 	struct platform_device *pdev;
 	struct device *dev;
 	void __iomem *base;
@@ -831,8 +839,12 @@ struct tspp2_device {
 	spinlock_t spinlock;
 	struct mutex mutex;
 	struct tspp2_tsif_device tsif_devices[TSPP2_NUM_TSIF_INPUTS];
+	struct regulator *gdsc;
+	uint32_t bus_client;
 	struct clk *tspp2_ahb_clk;
 	struct clk *tspp2_core_clk;
+	struct clk *tspp2_vbif_clk;
+	struct clk *tspp2_klm_ahb_clk;
 	struct clk *tsif_ref_clk;
 	struct tspp2_filter_batch batches[TSPP2_NUM_BATCHES];
 	int contexts[TSPP2_NUM_CONTEXTS];
@@ -864,6 +876,9 @@ static int debugfs_iomem_x32_set(void *data, u64 val)
 	int ret;
 	struct tspp2_device *device = tspp2_devices[0]; /* Assuming device 0 */
 
+	if (!device->opened)
+		return -ENODEV;
+
 	ret = pm_runtime_get_sync(device->dev);
 	if (ret < 0)
 		return ret;
@@ -882,6 +897,9 @@ static int debugfs_iomem_x32_get(void *data, u64 *val)
 	int ret;
 	struct tspp2_device *device = tspp2_devices[0]; /* Assuming device 0 */
 
+	if (!device->opened)
+		return -ENODEV;
+
 	ret = pm_runtime_get_sync(device->dev);
 	if (ret < 0)
 		return ret;
@@ -896,6 +914,31 @@ static int debugfs_iomem_x32_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x32, debugfs_iomem_x32_get,
 			debugfs_iomem_x32_set, "0x%08llX");
+
+static int debugfs_dev_open_set(void *data, u64 val)
+{
+	int ret = 0;
+
+	/* Assuming device 0 */
+	if (val == 1)
+		ret = tspp2_device_open(0);
+	else
+		ret = tspp2_device_close(0);
+
+	return ret;
+}
+
+static int debugfs_dev_open_get(void *data, u64 *val)
+{
+	struct tspp2_device *device = tspp2_devices[0]; /* Assuming device 0 */
+
+	*val = device->opened;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_device_open, debugfs_dev_open_get,
+			debugfs_dev_open_set, "0x%08llX");
 
 /**
  * tspp2_tsif_debugfs_init() - TSIF device debugfs initialization.
@@ -990,6 +1033,10 @@ static void tspp2_debugfs_init(struct tspp2_device *device)
 
 	if (!device->debugfs_entry)
 		return;
+
+	/* Support device open/close */
+	debugfs_create_file("open", TSPP2_S_RW, device->debugfs_entry,
+				NULL, &fops_device_open);
 
 	dentry = debugfs_create_dir("regs", device->debugfs_entry);
 	if (dentry) {
@@ -1281,7 +1328,8 @@ static int tspp2_tsif_start(struct tspp2_tsif_device *tsif_device)
 
 	ctl = (TSIF_STS_CTL_EN_IRQ | TSIF_STS_CTL_EN_DM |
 		TSIF_STS_CTL_PACK_AVAIL | TSIF_STS_CTL_OVERFLOW |
-		TSIF_STS_CTL_LOST_SYNC | TSIF_STS_CTL_TIMEOUT);
+		TSIF_STS_CTL_LOST_SYNC | TSIF_STS_CTL_TIMEOUT |
+		TSIF_STS_CTL_PARALLEL);
 
 	if (tsif_device->clock_inverse)
 		ctl |= TSIF_STS_CTL_INV_CLOCK;
@@ -1361,20 +1409,46 @@ static void tspp2_tsif_stop(struct tspp2_tsif_device *tsif_device)
 
 static int tspp2_reg_clock_start(struct tspp2_device *device)
 {
+	int rc;
+
 	if (device->tspp2_ahb_clk &&
 		clk_prepare_enable(device->tspp2_ahb_clk) != 0) {
-		pr_err("%s: Can't start tspp2_ahb_clk", __func__);
+		pr_err("%s: Can't start tspp2_ahb_clk\n", __func__);
 		return -EBUSY;
 	}
 
-	/* TODO: add minimal bandwidth bus voting required for registers */
+	if (device->tspp2_core_clk &&
+		clk_prepare_enable(device->tspp2_core_clk) != 0) {
+		pr_err("%s: Can't start tspp2_core_clk\n", __func__);
+		if (device->tspp2_ahb_clk)
+			clk_disable_unprepare(device->tspp2_ahb_clk);
+		return -EBUSY;
+	}
+
+	/* Request minimal bandwidth on the bus, required for register access */
+	if (device->bus_client) {
+		rc = msm_bus_scale_client_update_request(device->bus_client, 1);
+		if (rc) {
+			pr_err("%s: Can't enable bus\n", __func__);
+			if (device->tspp2_core_clk)
+				clk_disable_unprepare(device->tspp2_core_clk);
+			if (device->tspp2_ahb_clk)
+				clk_disable_unprepare(device->tspp2_ahb_clk);
+			return -EBUSY;
+		}
+	}
 
 	return 0;
 }
 
 static int tspp2_reg_clock_stop(struct tspp2_device *device)
 {
-	/* TODO: minimize bandwidth bus voting */
+	/* Minimize bandwidth bus voting */
+	if (device->bus_client)
+		msm_bus_scale_client_update_request(device->bus_client, 0);
+
+	if (device->tspp2_core_clk)
+		clk_disable_unprepare(device->tspp2_core_clk);
 
 	if (device->tspp2_ahb_clk)
 		clk_disable_unprepare(device->tspp2_ahb_clk);
@@ -1391,35 +1465,83 @@ static int tspp2_reg_clock_stop(struct tspp2_device *device)
  */
 static int tspp2_clock_start(struct tspp2_device *device)
 {
+	int tspp2_ahb_clk = 0;
+	int tspp2_core_clk = 0;
+	int tspp2_vbif_clk = 0;
+	int tspp2_klm_ahb_clk = 0;
+	int tsif_ref_clk = 0;
+
 	if (device == NULL) {
 		pr_err("%s: Can't start clocks, invalid device\n", __func__);
 		return -EINVAL;
 	}
 
-	if (device->tspp2_ahb_clk &&
-		clk_prepare_enable(device->tspp2_ahb_clk) != 0) {
-		pr_err("%s: Can't start tspp2_ahb_clk", __func__);
-		return -EBUSY;
+	if (device->tspp2_ahb_clk) {
+		if (clk_prepare_enable(device->tspp2_ahb_clk) != 0) {
+			pr_err("%s: Can't start tspp2_ahb_clk\n", __func__);
+			goto err_clocks;
+		}
+		tspp2_ahb_clk = 1;
 	}
 
-	if (device->tspp2_core_clk &&
-		clk_prepare_enable(device->tspp2_core_clk) != 0) {
-		pr_err("%s: Can't start tspp2_core_clk", __func__);
-		clk_disable_unprepare(device->tspp2_ahb_clk);
-		return -EBUSY;
+	if (device->tspp2_core_clk) {
+		if (clk_prepare_enable(device->tspp2_core_clk) != 0) {
+			pr_err("%s: Can't start tspp2_core_clk\n", __func__);
+			goto err_clocks;
+		}
+		tspp2_core_clk = 1;
 	}
 
-	if (device->tsif_ref_clk &&
-		clk_prepare_enable(device->tsif_ref_clk) != 0) {
-		pr_err("%s: Can't start tsif_ref_clk", __func__);
-		clk_disable_unprepare(device->tspp2_core_clk);
-		clk_disable_unprepare(device->tspp2_ahb_clk);
-		return -EBUSY;
+	if (device->tspp2_vbif_clk) {
+		if (clk_prepare_enable(device->tspp2_vbif_clk) != 0) {
+			pr_err("%s: Can't start tspp2_vbif_clk\n", __func__);
+			goto err_clocks;
+		}
+		tspp2_vbif_clk = 1;
 	}
 
-	/* TODO: add bus voting for full operation */
+	if (device->tspp2_klm_ahb_clk) {
+		if (clk_prepare_enable(device->tspp2_klm_ahb_clk) != 0) {
+			pr_err("%s: Can't start tspp2_klm_ahb_clk\n", __func__);
+			goto err_clocks;
+		}
+		tspp2_klm_ahb_clk = 1;
+	}
+
+	if (device->tsif_ref_clk) {
+		if (clk_prepare_enable(device->tsif_ref_clk) != 0) {
+			pr_err("%s: Can't start tsif_ref_clk\n", __func__);
+			goto err_clocks;
+		}
+		tsif_ref_clk = 1;
+	}
+
+	/* Request Max bandwidth on the bus, required for full operation */
+	if (device->bus_client &&
+		msm_bus_scale_client_update_request(device->bus_client, 2)) {
+			pr_err("%s: Can't enable bus\n", __func__);
+			goto err_clocks;
+	}
 
 	return 0;
+
+err_clocks:
+	if (tspp2_ahb_clk)
+		clk_disable_unprepare(device->tspp2_ahb_clk);
+
+	if (tspp2_core_clk)
+		clk_disable_unprepare(device->tspp2_core_clk);
+
+	if (tspp2_vbif_clk)
+		clk_disable_unprepare(device->tspp2_vbif_clk);
+
+	if (tspp2_klm_ahb_clk)
+		clk_disable_unprepare(device->tspp2_klm_ahb_clk);
+
+	if (tsif_ref_clk)
+		clk_disable_unprepare(device->tsif_ref_clk);
+
+	return -EBUSY;
 }
 
 /**
@@ -1434,10 +1556,18 @@ static void tspp2_clock_stop(struct tspp2_device *device)
 		return;
 	}
 
-	/* TODO: remove bus voting for full operation */
+	/* Minimize bandwidth bus voting */
+	if (device->bus_client)
+		msm_bus_scale_client_update_request(device->bus_client, 0);
 
 	if (device->tsif_ref_clk)
 		clk_disable_unprepare(device->tsif_ref_clk);
+
+	if (device->tspp2_klm_ahb_clk)
+		clk_disable_unprepare(device->tspp2_klm_ahb_clk);
+
+	if (device->tspp2_vbif_clk)
+		clk_disable_unprepare(device->tspp2_vbif_clk);
 
 	if (device->tspp2_core_clk)
 		clk_disable_unprepare(device->tspp2_core_clk);
@@ -1476,7 +1606,8 @@ static void tspp2_filter_counters_reset(struct tspp2_device *device,
 /**
  * tspp2_global_hw_reset() - Reset TSPP2 device registers to a default state.
  *
- * @device:	TSPP2 device.
+ * @device:		TSPP2 device.
+ * @enable_intr:	Enable specific interrupts or disable them.
  *
  * A helper function called from probe() and remove(), this function resets both
  * TSIF devices' SW structures and verifies the TSIF HW is stopped. It resets
@@ -1486,7 +1617,8 @@ static void tspp2_filter_counters_reset(struct tspp2_device *device,
  *
  * Return 0 on success, error value otherwise.
  */
-static int tspp2_global_hw_reset(struct tspp2_device *device)
+static int tspp2_global_hw_reset(struct tspp2_device *device,
+				int enable_intr)
 {
 	int i, n;
 	unsigned long rate_in_hz = 0;
@@ -1634,15 +1766,29 @@ static int tspp2_global_hw_reset(struct tspp2_device *device)
 	 * TSP Invalid Length:			Enabled
 	 * TSP Invalid AF Control:		Enabled
 	 */
-	writel_relaxed(0x00FF03EF, device->base + TSPP2_GLOBAL_IRQ_ENABLE);
+	if (enable_intr)
+		writel_relaxed(0x00FF03EF,
+			device->base + TSPP2_GLOBAL_IRQ_ENABLE);
+	else
+		writel_relaxed(0, device->base + TSPP2_GLOBAL_IRQ_ENABLE);
 
-	/* Enable all pipe related interrupts */
-	writel_relaxed(0x7FFFFFFF,
-		device->base + TSPP2_UNEXPECTED_RST_IRQ_ENABLE);
-	writel_relaxed(0x7FFFFFFF,
-		device->base + TSPP2_WRONG_PIPE_DIR_IRQ_ENABLE);
-	writel_relaxed(0x7FFFFFFF,
-		device->base + TSPP2_QSB_RESPONSE_ERROR_IRQ_ENABLE);
+	if (enable_intr) {
+		/* Enable all pipe related interrupts */
+		writel_relaxed(0x7FFFFFFF,
+			device->base + TSPP2_UNEXPECTED_RST_IRQ_ENABLE);
+		writel_relaxed(0x7FFFFFFF,
+			device->base + TSPP2_WRONG_PIPE_DIR_IRQ_ENABLE);
+		writel_relaxed(0x7FFFFFFF,
+			device->base + TSPP2_QSB_RESPONSE_ERROR_IRQ_ENABLE);
+	} else {
+		/* Disable all pipe related interrupts */
+		writel_relaxed(0,
+			device->base + TSPP2_UNEXPECTED_RST_IRQ_ENABLE);
+		writel_relaxed(0,
+			device->base + TSPP2_WRONG_PIPE_DIR_IRQ_ENABLE);
+		writel_relaxed(0,
+			device->base + TSPP2_QSB_RESPONSE_ERROR_IRQ_ENABLE);
+	}
 
 	/* Disable Key Ladder interrupts */
 	writel_relaxed(0, device->base + TSPP2_KEY_NOT_READY_IRQ_ENABLE);
@@ -1713,21 +1859,18 @@ static int tspp2_device_initialize(struct tspp2_device *device)
 
 	ret = sps_register_bam_device(&device->bam_props, &device->bam_handle);
 	if (ret) {
-		pr_err("%s: failed to register BAM", __func__);
+		pr_err("%s: failed to register BAM\n", __func__);
 		return ret;
 	}
 	ret = sps_device_reset(device->bam_handle);
 	if (ret) {
 		sps_deregister_bam_device(device->bam_handle);
-		pr_err("%s: error resetting bam", __func__);
+		pr_err("%s: error resetting BAM\n", __func__);
 		return ret;
 	}
 
 	spin_lock_init(&device->spinlock);
-	mutex_init(&device->mutex);
 	wakeup_source_init(&device->wakeup_src, dev_name(&device->pdev->dev));
-
-	tspp2_debugfs_init(device);
 
 	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++)
 		tspp2_tsif_debugfs_init(&device->tsif_devices[i]);
@@ -1763,8 +1906,7 @@ static int tspp2_device_initialize(struct tspp2_device *device)
 		device->pipes[i].device = device;
 
 	/*
-	 * Note: tsif_devices are initialized as part of probe()
-	 * or tspp2_global_hw_reset()
+	 * Note: tsif_devices are initialized as part of tspp2_global_hw_reset()
 	 */
 
 	device->work_queue =
@@ -1810,12 +1952,10 @@ static int tspp2_device_uninitialize(struct tspp2_device *device)
 
 	destroy_workqueue(device->work_queue);
 
-	tspp2_debugfs_exit(device);
-
 	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++)
 		tspp2_tsif_debugfs_exit(&device->tsif_devices[i]);
 
-	/* Need to start AHB clock for BAM de-registration */
+	/* Need to start clocks for BAM de-registration */
 	if (pm_runtime_get_sync(device->dev) >= 0) {
 		sps_deregister_bam_device(device->bam_handle);
 		pm_runtime_mark_last_busy(device->dev);
@@ -1823,12 +1963,235 @@ static int tspp2_device_uninitialize(struct tspp2_device *device)
 	}
 
 	wakeup_source_trash(&device->wakeup_src);
-	mutex_destroy(&device->mutex);
 
 	dev_dbg(device->dev, "%s: successful\n", __func__);
 
 	return 0;
 }
+
+/**
+ * tspp2_src_disable_internal() - Helper function to disable a source.
+ *
+ * @src: Source to disable.
+ *
+ * Return 0 on success, error value otherwise.
+ */
+static int tspp2_src_disable_internal(struct tspp2_src *src)
+{
+	u32 reg;
+
+	if (!src) {
+		pr_err("%s: Invalid source handle\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!src->opened) {
+		pr_err("%s: Source not opened\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!src->enabled) {
+		pr_warn("%s: Source already disabled\n", __func__);
+		return 0;
+	}
+
+	if ((src->input == TSPP2_INPUT_TSIF0) ||
+		(src->input == TSPP2_INPUT_TSIF1)) {
+		reg = readl_relaxed(src->device->base +
+			TSPP2_TSIF_INPUT_SRC_CONFIG(src->input));
+		reg &= ~(0x1 << TSIF_INPUT_SRC_CONFIG_INPUT_EN_OFFS);
+		writel_relaxed(reg, src->device->base +
+			TSPP2_TSIF_INPUT_SRC_CONFIG(src->input));
+
+		tspp2_tsif_stop(&src->device->tsif_devices[src->input]);
+	} else {
+		reg = readl_relaxed(src->device->base +
+			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
+		reg &= ~(0x1 << MEM_INPUT_SRC_CONFIG_INPUT_EN_OFFS);
+		writel_relaxed(reg, src->device->base +
+			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
+	}
+
+	/*
+	 * HW requires we wait for up to 1ms here before closing the pipes
+	 * attached to (and used by) this source
+	 */
+	udelay(1000);
+
+	src->enabled = 0;
+	src->device->num_enabled_sources--;
+
+	if (src->device->num_enabled_sources == 0) {
+		__pm_relax(&src->device->wakeup_src);
+		tspp2_clock_stop(src->device);
+	}
+
+	return 0;
+}
+
+/* TSPP2 device open / close API */
+
+/**
+ * tspp2_device_open() - Open a TSPP2 device for use.
+ *
+ * @dev_id:	TSPP2 device ID.
+ *
+ * Return 0 on success, error value otherwise.
+ */
+int tspp2_device_open(u32 dev_id)
+{
+	int rc;
+	u32 reg = 0;
+	struct tspp2_device *device;
+
+	if (dev_id >= TSPP2_NUM_DEVICES) {
+		pr_err("%s: Invalid device ID %d\n", __func__, dev_id);
+		return -ENODEV;
+	}
+
+	device = tspp2_devices[dev_id];
+	if (!device) {
+		pr_err("%s: Invalid device\n", __func__);
+		return -ENODEV;
+	}
+
+	if (mutex_lock_interruptible(&device->mutex))
+		return -ERESTARTSYS;
+
+	if (device->opened) {
+		pr_err("%s: Device already opened\n", __func__);
+		mutex_unlock(&device->mutex);
+		return -EPERM;
+	}
+
+	/* Enable power regulator */
+	rc = regulator_enable(device->gdsc);
+	if (rc)
+		goto err_mutex_unlock;
+
+	/* Start HW clocks before accessing registers */
+	rc = tspp2_reg_clock_start(device);
+	if (rc)
+		goto err_regulator_disable;
+
+	rc = tspp2_global_hw_reset(device, 1);
+	if (rc)
+		goto err_stop_clocks;
+
+	rc = tspp2_device_initialize(device);
+	if (rc)
+		goto err_stop_clocks;
+
+	reg = readl_relaxed(device->base + TSPP2_VERSION);
+	pr_info("TSPP2 HW Version: Major = %d, Minor = %d, Step = %d\n",
+		((reg & 0xF0000000) >> VERSION_MAJOR_OFFS),
+		((reg & 0x0FFF0000) >> VERSION_MINOR_OFFS),
+		((reg & 0x0000FFFF) >> VERSION_STEP_OFFS));
+
+	/* Stop HW clocks to save power */
+	tspp2_reg_clock_stop(device);
+
+	/* Enable runtime power management */
+	pm_runtime_set_active(device->dev);
+	pm_runtime_set_autosuspend_delay(device->dev, MSEC_PER_SEC);
+	pm_runtime_use_autosuspend(device->dev);
+	pm_runtime_enable(device->dev);
+
+	device->opened = 1;
+
+	mutex_unlock(&device->mutex);
+
+	dev_dbg(device->dev, "%s: successful\n", __func__);
+
+	return 0;
+
+err_stop_clocks:
+	tspp2_reg_clock_stop(device);
+err_regulator_disable:
+	regulator_disable(device->gdsc);
+err_mutex_unlock:
+	mutex_unlock(&device->mutex);
+
+	return rc;
+}
+EXPORT_SYMBOL(tspp2_device_open);
+
+/**
+ * tspp2_device_close() - Close a TSPP2 device.
+ *
+ * @dev_id:	TSPP2 device ID.
+ *
+ * Return 0 on success, error value otherwise.
+ */
+int tspp2_device_close(u32 dev_id)
+{
+	int i;
+	int ret = 0;
+	struct tspp2_device *device;
+
+	if (dev_id >= TSPP2_NUM_DEVICES) {
+		pr_err("%s: Invalid device ID %d\n", __func__, dev_id);
+		return -ENODEV;
+	}
+
+	device = tspp2_devices[dev_id];
+	if (!device) {
+		pr_err("%s: Invalid device\n", __func__);
+		return -ENODEV;
+	}
+
+	ret = pm_runtime_get_sync(device->dev);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&device->mutex);
+
+	if (!device->opened) {
+		pr_err("%s: Device already closed\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
+	}
+	device->opened = 0;
+
+	/*
+	 * In case the user has not disabled all the enabled sources, we need
+	 * to disable them here, specifically in order to call tspp2_clock_stop,
+	 * because the calls to enable and disable the clocks should be
+	 * symmetrical (otherwise we cannot put the clocks).
+	 */
+	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++) {
+		if (device->tsif_sources[i].enabled)
+			tspp2_src_disable_internal(&device->tsif_sources[i]);
+	}
+	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++) {
+		if (device->mem_sources[i].enabled)
+			tspp2_src_disable_internal(&device->mem_sources[i]);
+	}
+
+	/* bring HW registers back to a known state */
+	tspp2_global_hw_reset(device, 0);
+
+	tspp2_device_uninitialize(device);
+
+	pm_runtime_mark_last_busy(device->dev);
+	pm_runtime_put_autosuspend(device->dev);
+
+	/* Disable runtime power management */
+	pm_runtime_disable(device->dev);
+	pm_runtime_set_suspended(device->dev);
+
+	if (regulator_disable(device->gdsc))
+		pr_err("%s: Error disabling power regulator\n", __func__);
+
+	mutex_unlock(&device->mutex);
+
+	dev_dbg(device->dev, "%s: successful\n", __func__);
+
+	return 0;
+}
+EXPORT_SYMBOL(tspp2_device_close);
 
 /* Global configuration API */
 
@@ -1874,6 +2237,14 @@ int tspp2_config_set(u32 dev_id, const struct tspp2_config *cfg)
 		pm_runtime_mark_last_busy(device->dev);
 		pm_runtime_put_autosuspend(device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
 	}
 
 	if (cfg->pcr_on_discontinuity)
@@ -1932,6 +2303,14 @@ int tspp2_config_get(u32 dev_id, struct tspp2_config *cfg)
 		pm_runtime_mark_last_busy(device->dev);
 		pm_runtime_put_autosuspend(device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
 	}
 
 	reg = readl_relaxed(device->base + TSPP2_PCR_GLOBAL_CONFIG);
@@ -2001,6 +2380,14 @@ int tspp2_indexing_prefix_set(u32 dev_id,
 		pm_runtime_mark_last_busy(device->dev);
 		pm_runtime_put_autosuspend(device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
 	}
 
 	table = &device->indexing_tables[table_id];
@@ -2088,6 +2475,14 @@ int tspp2_indexing_patterns_add(u32 dev_id,
 		return -ERESTARTSYS;
 	}
 
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
+	}
+
 	table = &device->indexing_tables[table_id];
 
 	if ((table->num_valid_entries + patterns_num) >
@@ -2170,6 +2565,14 @@ int tspp2_indexing_patterns_clear(u32 dev_id,
 		pm_runtime_mark_last_busy(device->dev);
 		pm_runtime_put_autosuspend(device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
 	}
 
 	table = &device->indexing_tables[table_id];
@@ -2674,6 +3077,14 @@ int tspp2_pipe_open(u32 dev_id,
 		return -ERESTARTSYS;
 	}
 
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
+	}
+
 	/* Find a free pipe */
 	for (i = 0; i < TSPP2_NUM_PIPES; i++) {
 		pipe = &device->pipes[i];
@@ -2776,6 +3187,14 @@ int tspp2_pipe_close(u32 pipe_handle)
 
 	mutex_lock(&pipe->device->mutex);
 
+	if (!pipe->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&pipe->device->mutex);
+		pm_runtime_mark_last_busy(pipe->device->dev);
+		pm_runtime_put_autosuspend(pipe->device->dev);
+		return -EPERM;
+	}
+
 	if (!pipe->opened) {
 		pr_err("%s: Pipe already closed\n", __func__);
 		mutex_unlock(&pipe->device->mutex);
@@ -2867,6 +3286,14 @@ int tspp2_src_open(u32 dev_id,
 		pm_runtime_mark_last_busy(device->dev);
 		pm_runtime_put_autosuspend(device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
 	}
 
 	input = cfg->input;
@@ -2991,6 +3418,12 @@ int tspp2_src_close(u32 src_handle)
 
 	mutex_lock(&src->device->mutex);
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source already closed\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -3071,6 +3504,14 @@ int tspp2_src_parsing_option_set(u32 src_handle,
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -3173,6 +3614,14 @@ int tspp2_src_parsing_option_get(u32 src_handle,
 		return -ERESTARTSYS;
 	}
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -3245,8 +3694,19 @@ int tspp2_src_sync_byte_config_set(u32 src_handle,
 	if (ret < 0)
 		return ret;
 
-	if (mutex_lock_interruptible(&src->device->mutex))
+	if (mutex_lock_interruptible(&src->device->mutex)) {
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
 
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
@@ -3317,6 +3777,14 @@ int tspp2_src_sync_byte_config_get(u32 src_handle,
 		return -ERESTARTSYS;
 	}
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -3376,6 +3844,14 @@ int tspp2_src_scrambling_config_set(u32 src_handle,
 		return -ERESTARTSYS;
 	}
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -3403,6 +3879,8 @@ int tspp2_src_scrambling_config_set(u32 src_handle,
 
 	writel_relaxed(reg, src->device->base +
 			TSPP2_SRC_CONFIG(src->hw_index));
+
+	src->scrambling_bits_monitoring = cfg->scrambling_bits_monitoring;
 
 	mutex_unlock(&src->device->mutex);
 
@@ -3447,6 +3925,14 @@ int tspp2_src_scrambling_config_get(u32 src_handle,
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -3506,6 +3992,14 @@ int tspp2_src_packet_format_set(u32 src_handle,
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -3610,6 +4104,14 @@ int tspp2_src_pipe_attach(u32 src_handle,
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -3752,6 +4254,14 @@ int tspp2_src_pipe_detach(u32 src_handle, u32 pipe_handle)
 
 	mutex_lock(&src->device->mutex);
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		goto err_inval;
@@ -3855,6 +4365,14 @@ int tspp2_src_enable(u32 src_handle)
 		return -ERESTARTSYS;
 	}
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -3927,16 +4445,16 @@ int tspp2_src_enable(u32 src_handle)
 EXPORT_SYMBOL(tspp2_src_enable);
 
 /**
- * tspp2_src_disable_internal() - Helper function to disable a source.
+ * tspp2_src_disable() - Disable source.
  *
- * @src: Source to disable.
+ * @src_handle:	Source to disable.
  *
  * Return 0 on success, error value otherwise.
  */
-static int tspp2_src_disable_internal(struct tspp2_src *src)
+int tspp2_src_disable(u32 src_handle)
 {
+	struct tspp2_src *src = (struct tspp2_src *)src_handle;
 	int ret;
-	u32 reg;
 
 	if (!src) {
 		pr_err("%s: Invalid source handle\n", __func__);
@@ -3949,74 +4467,20 @@ static int tspp2_src_disable_internal(struct tspp2_src *src)
 
 	mutex_lock(&src->device->mutex);
 
-	if (!src->opened) {
-		pr_err("%s: Source not opened\n", __func__);
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
 		mutex_unlock(&src->device->mutex);
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
-		return -EINVAL;
+		return -EPERM;
 	}
 
-	if (!src->enabled) {
-		pr_warn("%s: Source already disabled\n", __func__);
-		mutex_unlock(&src->device->mutex);
-		pm_runtime_mark_last_busy(src->device->dev);
-		pm_runtime_put_autosuspend(src->device->dev);
-		return 0;
-	}
-
-	if ((src->input == TSPP2_INPUT_TSIF0) ||
-		(src->input == TSPP2_INPUT_TSIF1)) {
-		reg = readl_relaxed(src->device->base +
-			TSPP2_TSIF_INPUT_SRC_CONFIG(src->input));
-		reg &= ~(0x1 << TSIF_INPUT_SRC_CONFIG_INPUT_EN_OFFS);
-		writel_relaxed(reg, src->device->base +
-			TSPP2_TSIF_INPUT_SRC_CONFIG(src->input));
-
-		tspp2_tsif_stop(&src->device->tsif_devices[src->input]);
-	} else {
-		reg = readl_relaxed(src->device->base +
-			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
-		reg &= ~(0x1 << MEM_INPUT_SRC_CONFIG_INPUT_EN_OFFS);
-		writel_relaxed(reg, src->device->base +
-			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
-	}
-
-	/*
-	 * HW requires we wait for up to 1ms here before closing the pipes
-	 * attached to (and used by) this source
-	 */
-	udelay(1000);
-
-	src->enabled = 0;
-	src->device->num_enabled_sources--;
-
-	if (src->device->num_enabled_sources == 0) {
-		__pm_relax(&src->device->wakeup_src);
-		tspp2_clock_stop(src->device);
-	}
+	ret = tspp2_src_disable_internal(src);
 
 	mutex_unlock(&src->device->mutex);
 
 	pm_runtime_mark_last_busy(src->device->dev);
 	pm_runtime_put_autosuspend(src->device->dev);
-
-	return 0;
-}
-
-/**
- * tspp2_src_disable() - Disable source.
- *
- * @src_handle:	Source to disable.
- *
- * Return 0 on success, error value otherwise.
- */
-int tspp2_src_disable(u32 src_handle)
-{
-	struct tspp2_src *src = (struct tspp2_src *)src_handle;
-	int ret;
-
-	ret = tspp2_src_disable_internal(src);
 
 	if (!ret)
 		dev_dbg(src->device->dev, "%s: successful\n", __func__);
@@ -4166,6 +4630,14 @@ int tspp2_src_filters_clear(u32 src_handle)
 
 	mutex_lock(&src->device->mutex);
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		mutex_unlock(&src->device->mutex);
@@ -4267,6 +4739,14 @@ int tspp2_filter_open(u32 src_handle, u16 pid, u16 mask, u32 *filter_handle)
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -4467,6 +4947,14 @@ int tspp2_filter_close(u32 filter_handle)
 
 	mutex_lock(&device->mutex);
 
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		pm_runtime_mark_last_busy(device->dev);
+		pm_runtime_put_autosuspend(device->dev);
+		return -EPERM;
+	}
+
 	if (!filter->opened) {
 		pr_err("%s: Filter already closed\n", __func__);
 		mutex_unlock(&device->mutex);
@@ -4642,6 +5130,14 @@ int tspp2_filter_enable(u32 filter_handle)
 		return -ERESTARTSYS;
 	}
 
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
+	}
+
 	if (!filter->opened) {
 		pr_err("%s: Filter not opened\n", __func__);
 		mutex_unlock(&filter->device->mutex);
@@ -4700,6 +5196,14 @@ int tspp2_filter_disable(u32 filter_handle)
 		return ret;
 
 	mutex_lock(&filter->device->mutex);
+
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
+	}
 
 	if (!filter->opened) {
 		pr_err("%s: Filter not opened\n", __func__);
@@ -5577,6 +6081,14 @@ int tspp2_filter_operations_set(u32 filter_handle,
 		return -ERESTARTSYS;
 	}
 
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
+	}
+
 	if (!filter->opened) {
 		pr_err("%s: Filter not opened\n", __func__);
 		mutex_unlock(&filter->device->mutex);
@@ -5621,6 +6133,14 @@ int tspp2_filter_operations_clear(u32 filter_handle)
 		return ret;
 
 	mutex_lock(&filter->device->mutex);
+
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
+	}
 
 	if (!filter->opened) {
 		pr_err("%s: Filter not opened\n", __func__);
@@ -5690,6 +6210,14 @@ int tspp2_filter_current_scrambling_bits_get(u32 filter_handle,
 		pm_runtime_mark_last_busy(filter->device->dev);
 		pm_runtime_put_autosuspend(filter->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
 	}
 
 	if (!filter->opened) {
@@ -5773,6 +6301,14 @@ int tspp2_pipe_descriptor_get(u32 pipe_handle, struct sps_iovec *desc)
 		return -ERESTARTSYS;
 	}
 
+	if (!pipe->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&pipe->device->mutex);
+		pm_runtime_mark_last_busy(pipe->device->dev);
+		pm_runtime_put_autosuspend(pipe->device->dev);
+		return -EPERM;
+	}
+
 	if (!pipe->opened) {
 		pr_err("%s: Pipe not opened\n", __func__);
 		mutex_unlock(&pipe->device->mutex);
@@ -5823,6 +6359,14 @@ int tspp2_pipe_descriptor_put(u32 pipe_handle, u32 addr, u32 size, u32 flags)
 		pm_runtime_mark_last_busy(pipe->device->dev);
 		pm_runtime_put_autosuspend(pipe->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!pipe->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&pipe->device->mutex);
+		pm_runtime_mark_last_busy(pipe->device->dev);
+		pm_runtime_put_autosuspend(pipe->device->dev);
+		return -EPERM;
 	}
 
 	if (!pipe->opened) {
@@ -5876,6 +6420,14 @@ int tspp2_pipe_last_address_used_get(u32 pipe_handle, u32 *address)
 		pm_runtime_mark_last_busy(pipe->device->dev);
 		pm_runtime_put_autosuspend(pipe->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!pipe->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&pipe->device->mutex);
+		pm_runtime_mark_last_busy(pipe->device->dev);
+		pm_runtime_put_autosuspend(pipe->device->dev);
+		return -EPERM;
 	}
 
 	if (!pipe->opened) {
@@ -5940,6 +6492,14 @@ int tspp2_data_write(u32 src_handle, u32 offset, u32 size)
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -6049,6 +6609,14 @@ int tspp2_tsif_data_write(u32 src_handle, u32 *data)
 		return -ERESTARTSYS;
 	}
 
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
+	}
+
 	if (!src->opened) {
 		pr_err("%s: Source not opened\n", __func__);
 		goto err_inval;
@@ -6150,6 +6718,12 @@ int tspp2_global_event_notification_register(u32 dev_id,
 	if (mutex_lock_interruptible(&device->mutex))
 		return -ERESTARTSYS;
 
+	if (!device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&device->mutex);
+		return -EPERM;
+	}
+
 	spin_lock_irqsave(&device->spinlock, flags);
 	device->event_callback = callback;
 	device->event_cookie = cookie;
@@ -6204,6 +6778,14 @@ int tspp2_src_event_notification_register(u32 src_handle,
 		pm_runtime_mark_last_busy(src->device->dev);
 		pm_runtime_put_autosuspend(src->device->dev);
 		return -ERESTARTSYS;
+	}
+
+	if (!src->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&src->device->mutex);
+		pm_runtime_mark_last_busy(src->device->dev);
+		pm_runtime_put_autosuspend(src->device->dev);
+		return -EPERM;
 	}
 
 	if (!src->opened) {
@@ -6309,6 +6891,14 @@ int tspp2_filter_event_notification_register(u32 filter_handle,
 		return -ERESTARTSYS;
 	}
 
+	if (!filter->device->opened) {
+		pr_err("%s: Device must be opened first\n", __func__);
+		mutex_unlock(&filter->device->mutex);
+		pm_runtime_mark_last_busy(filter->device->dev);
+		pm_runtime_put_autosuspend(filter->device->dev);
+		return -EPERM;
+	}
+
 	if (!filter->opened) {
 		pr_err("%s: Filter not opened\n", __func__);
 		mutex_unlock(&filter->device->mutex);
@@ -6381,6 +6971,12 @@ msm_tspp2_dt_to_pdata(struct platform_device *pdev)
 		return NULL;
 	}
 
+	/* Get power regulator */
+	if (!of_get_property(node, "vdd-supply", NULL)) {
+		pr_err("%s: Could not find vdd-supply property\n", __func__);
+		return NULL;
+	}
+
 	/* Get clocks information */
 	rc = of_property_read_string(node, "qcom,tspp2-ahb-clk",
 					&data->tspp2_ahb_clk);
@@ -6393,6 +6989,20 @@ msm_tspp2_dt_to_pdata(struct platform_device *pdev)
 					&data->tspp2_core_clk);
 	if (rc) {
 		pr_err("%s: Could not find tspp2-core-clk property, err = %d\n",
+			__func__, rc);
+		return NULL;
+	}
+	rc = of_property_read_string(node, "qcom,tspp2-vbif-clk",
+					&data->tspp2_vbif_clk);
+	if (rc) {
+		pr_err("%s: Could not find tspp2-vbif-clk property, err = %d\n",
+			__func__, rc);
+		return NULL;
+	}
+	rc = of_property_read_string(node, "qcom,tspp2-klm-ahb-clk",
+					&data->tspp2_klm_ahb_clk);
+	if (rc) {
+		pr_err("%s: Could not find tspp2-klm-ahb-clk property, err = %d\n",
 			__func__, rc);
 		return NULL;
 	}
@@ -6539,6 +7149,12 @@ static void tspp2_clocks_put(struct tspp2_device *device)
 	if (device->tsif_ref_clk)
 		clk_put(device->tsif_ref_clk);
 
+	if (device->tspp2_klm_ahb_clk)
+		clk_put(device->tspp2_klm_ahb_clk);
+
+	if (device->tspp2_vbif_clk)
+		clk_put(device->tspp2_vbif_clk);
+
 	if (device->tspp2_core_clk)
 		clk_put(device->tspp2_core_clk);
 
@@ -6547,9 +7163,9 @@ static void tspp2_clocks_put(struct tspp2_device *device)
 
 	device->tspp2_ahb_clk = NULL;
 	device->tspp2_core_clk = NULL;
+	device->tspp2_vbif_clk = NULL;
+	device->tspp2_klm_ahb_clk = NULL;
 	device->tsif_ref_clk = NULL;
-
-	/* TODO: disable regulator */
 }
 
 /**
@@ -6564,43 +7180,78 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 						struct tspp2_device *device)
 {
 	int ret = 0;
+	unsigned long rate_in_hz = 0;
+	struct clk *tspp2_core_clk_src = NULL;
 
 	struct msm_tspp2_platform_data *data = pdev->dev.platform_data;
 
-	/* TODO: get regulator (GDSC) and enable it. */
-
-	/* TODO: remove debug message after bring-up. */
+	/* Get power regulator (GDSC) */
+	device->gdsc = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(device->gdsc)) {
+		pr_err("%s: Failed to get vdd power regulator\n", __func__);
+		ret = PTR_ERR(device->gdsc);
+		device->gdsc = NULL;
+		return ret;
+	}
 
 	device->tspp2_ahb_clk = NULL;
 	device->tspp2_core_clk = NULL;
+	device->tspp2_vbif_clk = NULL;
+	device->tspp2_klm_ahb_clk = NULL;
 	device->tsif_ref_clk = NULL;
 
 	if (data->tspp2_ahb_clk) {
 		device->tspp2_ahb_clk =
 			clk_get(&pdev->dev, data->tspp2_ahb_clk);
 		if (IS_ERR(device->tspp2_ahb_clk)) {
-			pr_debug("%s: Failed to get %s",
+			pr_err("%s: Failed to get %s",
 				__func__, data->tspp2_ahb_clk);
 			ret = PTR_ERR(device->tspp2_ahb_clk);
 			device->tspp2_ahb_clk = NULL;
 			goto err_clocks;
 		}
 	}
+
 	if (data->tspp2_core_clk) {
 		device->tspp2_core_clk =
 			clk_get(&pdev->dev, data->tspp2_core_clk);
 		if (IS_ERR(device->tspp2_core_clk)) {
-			pr_debug("%s: Failed to get %s",
+			pr_err("%s: Failed to get %s",
 				__func__, data->tspp2_core_clk);
 			ret = PTR_ERR(device->tspp2_core_clk);
 			device->tspp2_core_clk = NULL;
 			goto err_clocks;
 		}
 	}
+
+	if (data->tspp2_vbif_clk) {
+		device->tspp2_vbif_clk =
+			clk_get(&pdev->dev, data->tspp2_vbif_clk);
+		if (IS_ERR(device->tspp2_vbif_clk)) {
+			pr_err("%s: Failed to get %s",
+				__func__, data->tspp2_vbif_clk);
+			ret = PTR_ERR(device->tspp2_vbif_clk);
+			device->tspp2_vbif_clk = NULL;
+			goto err_clocks;
+		}
+	}
+
+	if (data->tspp2_klm_ahb_clk) {
+		device->tspp2_klm_ahb_clk =
+			clk_get(&pdev->dev, data->tspp2_klm_ahb_clk);
+		if (IS_ERR(device->tspp2_klm_ahb_clk)) {
+			pr_err("%s: Failed to get %s",
+				__func__, data->tspp2_klm_ahb_clk);
+			ret = PTR_ERR(device->tspp2_klm_ahb_clk);
+			device->tspp2_klm_ahb_clk = NULL;
+			goto err_clocks;
+		}
+	}
+
 	if (data->tsif_ref_clk) {
 		device->tsif_ref_clk = clk_get(&pdev->dev, data->tsif_ref_clk);
 		if (IS_ERR(device->tsif_ref_clk)) {
-			pr_debug("%s: Failed to get %s",
+			pr_err("%s: Failed to get %s",
 				__func__, data->tsif_ref_clk);
 			ret = PTR_ERR(device->tsif_ref_clk);
 			device->tsif_ref_clk = NULL;
@@ -6608,7 +7259,27 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 		}
 	}
 
-	/* TODO: Set clock rates. */
+	/* Set relevant clock rates */
+	rate_in_hz = clk_round_rate(device->tsif_ref_clk, 1);
+	if (clk_set_rate(device->tsif_ref_clk, rate_in_hz)) {
+		pr_err("%s: Failed to set rate %lu to %s\n", __func__,
+			rate_in_hz, data->tsif_ref_clk);
+		goto err_clocks;
+	}
+
+	/* We need to set the rate of tspp2_core_clk_src */
+	tspp2_core_clk_src = clk_get_parent(device->tspp2_core_clk);
+	if (tspp2_core_clk_src) {
+		rate_in_hz = clk_round_rate(tspp2_core_clk_src, 1);
+		if (clk_set_rate(tspp2_core_clk_src, rate_in_hz)) {
+			pr_err("%s: Failed to set rate %lu to tspp2_core_clk_src\n",
+				__func__, rate_in_hz);
+			goto err_clocks;
+		}
+	} else {
+		pr_err("%s: Failed to get tspp2_core_clk parent\n", __func__);
+		goto err_clocks;
+	}
 
 	return 0;
 
@@ -7088,11 +7759,10 @@ request_irq_err:
 /* Device driver probe function */
 static int msm_tspp2_probe(struct platform_device *pdev)
 {
-	u32 reg;
-	int i;
 	int rc = 0;
 	struct msm_tspp2_platform_data *data;
 	struct tspp2_device *device;
+	struct msm_bus_scale_pdata *tspp2_bus_pdata = NULL;
 
 	if (pdev->dev.of_node) {
 		/* Get information from device tree */
@@ -7103,19 +7773,20 @@ static int msm_tspp2_probe(struct platform_device *pdev)
 		if (rc)
 			pdev->id = -1;
 
+		tspp2_bus_pdata = msm_bus_cl_get_pdata(pdev);
 		pdev->dev.platform_data = data;
 	} else {
 		/* Get information from platform data */
 		data = pdev->dev.platform_data;
 	}
 	if (!data) {
-		pr_err("%s: Platform data not available", __func__);
+		pr_err("%s: Platform data not available\n", __func__);
 		return -EINVAL;
 	}
 
 	/* Verify device id is valid */
 	if ((pdev->id < 0) || (pdev->id >= TSPP2_NUM_DEVICES)) {
-		pr_err("%s: Invalid device ID %d", __func__, pdev->id);
+		pr_err("%s: Invalid device ID %d\n", __func__, pdev->id);
 		return -EINVAL;
 	}
 
@@ -7123,18 +7794,31 @@ static int msm_tspp2_probe(struct platform_device *pdev)
 				sizeof(struct tspp2_device),
 				GFP_KERNEL);
 	if (!device) {
-		pr_err("%s: Failed to allocate memory for device", __func__);
+		pr_err("%s: Failed to allocate memory for device\n", __func__);
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, device);
 	device->pdev = pdev;
 	device->dev = &pdev->dev;
 	device->dev_id = pdev->id;
+	device->opened = 0;
+
+	/* Register bus client */
+	if (tspp2_bus_pdata) {
+		device->bus_client =
+			msm_bus_scale_register_client(tspp2_bus_pdata);
+		if (!device->bus_client)
+			pr_err("%s: Unable to register bus client\n", __func__);
+	} else {
+		pr_err("%s: Platform bus client data not available\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	rc = msm_tspp2_iommu_info_get(pdev, device);
 	if (rc) {
-		pr_err("%s: Failed to get IOMMU information", __func__);
-		return rc;
+		pr_err("%s: Failed to get IOMMU information\n", __func__);
+		goto err_bus_client;
 	}
 
 	rc = msm_tspp2_clocks_setup(pdev, device);
@@ -7149,49 +7833,13 @@ static int msm_tspp2_probe(struct platform_device *pdev)
 	if (rc)
 		goto err_map_irq;
 
-	/* Start HW clocks before writing to registers */
-	rc = tspp2_reg_clock_start(device);
-	if (rc)
-		goto err_free_irq;
-
-	reg = readl_relaxed(device->base + TSPP2_VERSION);
-	pr_info("TSPP2 HW Version: Major = %d, Minor = %d, Step = %d\n",
-		((reg & 0xF0000000) >> VERSION_MAJOR_OFFS),
-		((reg & 0x0FFF0000) >> VERSION_MINOR_OFFS),
-		((reg & 0x0000FFFF) >> VERSION_STEP_OFFS));
-
-	rc = tspp2_global_hw_reset(device);
-	if (rc)
-		goto err_stop_clocks;
-
-	rc = tspp2_device_initialize(device);
-	if (rc)
-		goto err_stop_clocks;
-
-	/* Stop HW clocks to save power */
-	tspp2_reg_clock_stop(device);
-
-	/* Enable runtime power management */
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, MSEC_PER_SEC);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+	mutex_init(&device->mutex);
 
 	tspp2_devices[pdev->id] = device;
 
+	tspp2_debugfs_init(device);
+
 	return rc;
-
-err_stop_clocks:
-	tspp2_reg_clock_stop(device);
-
-err_free_irq:
-	if (device->tspp2_irq)
-		free_irq(device->tspp2_irq, device);
-
-	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++)
-		if (device->tsif_devices[i].tsif_irq)
-			free_irq(device->tsif_devices[i].tsif_irq,
-				&device->tsif_devices[i]);
 
 err_map_irq:
 	iounmap(device->base);
@@ -7205,6 +7853,10 @@ err_map_io_memory:
 err_clocks_setup:
 	msm_tspp2_iommu_info_free(device);
 
+err_bus_client:
+	if (device->bus_client)
+		msm_bus_scale_unregister_client(device->bus_client);
+
 	return rc;
 }
 
@@ -7215,34 +7867,7 @@ static int msm_tspp2_remove(struct platform_device *pdev)
 	int rc = 0;
 	struct tspp2_device *device = platform_get_drvdata(pdev);
 
-	/* In case the user has not disabled all the enabled sources, we need
-	 * to disable them here, specifically in order to call tspp2_clock_stop,
-	 * because the calls to enable and disable the clocks should be
-	 * symmetrical (otherwise we cannot put the clocks).
-	 * Note we use the tspp2_src_disable_internal() function which still
-	 * uses the mutex, so this needs to be done here before calling
-	 * tspp2_device_uninitialize().
-	 */
-	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++) {
-		if (device->tsif_sources[i].enabled)
-			tspp2_src_disable_internal(&device->tsif_sources[i]);
-	}
-	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++) {
-		if (device->mem_sources[i].enabled)
-			tspp2_src_disable_internal(&device->mem_sources[i]);
-	}
-
-	rc = tspp2_device_uninitialize(device);
-
-	pm_runtime_get_sync(device->dev);
-
-	/* bring HW registers back to a known state */
-	tspp2_global_hw_reset(device);
-
-	pm_runtime_put_sync_suspend(device->dev);
-
-	pm_runtime_disable(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
+	tspp2_debugfs_exit(device);
 
 	if (device->tspp2_irq)
 		free_irq(device->tspp2_irq, device);
@@ -7260,7 +7885,10 @@ static int msm_tspp2_remove(struct platform_device *pdev)
 
 	msm_tspp2_iommu_info_free(device);
 
-	/* TODO: unregister from bus voting? */
+	if (device->bus_client)
+		msm_bus_scale_unregister_client(device->bus_client);
+
+	mutex_destroy(&device->mutex);
 
 	tspp2_clocks_put(device);
 
@@ -7277,13 +7905,20 @@ static int tspp2_runtime_suspend(struct device *dev)
 
 	/*
 	 * HW manages power collapse automatically.
-	 * Disabling AHB clock and "cancelling" bus bandwidth voting.
+	 * Disabling AHB and Core clocsk and "cancelling" bus bandwidth voting.
 	 */
 
 	pdev = container_of(dev, struct platform_device, dev);
 	device = platform_get_drvdata(pdev);
 
-	ret = tspp2_reg_clock_stop(device);
+	mutex_lock(&device->mutex);
+
+	if (!device->opened)
+		ret = -EPERM;
+	else
+		ret = tspp2_reg_clock_stop(device);
+
+	mutex_unlock(&device->mutex);
 
 	dev_dbg(dev, "%s\n", __func__);
 
@@ -7298,14 +7933,21 @@ static int tspp2_runtime_resume(struct device *dev)
 
 	/*
 	 * HW manages power collapse automatically.
-	 * Enabling AHB clock to allow access to unit registers,
+	 * Enabling AHB and Core clocks to allow access to unit registers,
 	 * and voting for the required bus bandwidth for register access.
 	 */
 
 	pdev = container_of(dev, struct platform_device, dev);
 	device = platform_get_drvdata(pdev);
 
-	ret = tspp2_reg_clock_start(device);
+	mutex_lock(&device->mutex);
+
+	if (!device->opened)
+		ret = -EPERM;
+	else
+		ret = tspp2_reg_clock_start(device);
+
+	mutex_unlock(&device->mutex);
 
 	dev_dbg(dev, "%s\n", __func__);
 
@@ -7345,7 +7987,8 @@ static int __init tspp2_module_init(void)
 
 	rc = platform_driver_register(&msm_tspp2_driver);
 	if (rc)
-		pr_err("%s: platform_driver_register failed: %d", __func__, rc);
+		pr_err("%s: platform_driver_register failed: %d\n",
+			__func__, rc);
 
 	return rc;
 }
