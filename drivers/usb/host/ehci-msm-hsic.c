@@ -1951,7 +1951,6 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		pdev->dev.platform_data = msm_hsic_dt_to_pdata(pdev);
-		dev_set_name(&pdev->dev, ehci_msm_hsic_driver.driver.name);
 	} else {
 		/* explicitly pass wakeup_irq flag for !DT */
 		wakeup_irq_flags = IRQF_TRIGGER_HIGH;
