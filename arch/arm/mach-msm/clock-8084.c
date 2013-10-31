@@ -5968,12 +5968,16 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk_src", ce2_clk_src.c,     "fd440000.qcom,qcrypto"),
 
 	/* SATA clocks */
-	CLK_LOOKUP("",	gcc_sata_asic0_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sata_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sata_cfg_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sata_pmalive_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sata_rx_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sata_rx_oob_clk.c,	""),
+	CLK_LOOKUP("core_clk", gcc_sata_axi_clk.c,             "fc580000.sata"),
+	CLK_LOOKUP("iface_clk", gcc_sata_cfg_ahb_clk.c,        "fc580000.sata"),
+	CLK_LOOKUP("rxoob_clk", gcc_sata_rx_oob_clk.c,         "fc580000.sata"),
+	CLK_LOOKUP("pmalive_clk", gcc_sata_pmalive_clk.c,      "fc580000.sata"),
+	CLK_LOOKUP("asic0_clk", gcc_sata_asic0_clk.c,          "fc580000.sata"),
+	CLK_LOOKUP("rbc0_clk", gcc_sata_rx_clk.c,              "fc580000.sata"),
+	CLK_LOOKUP("ref_clk_src", rf_clk3.c,                "fc581000.sataphy"),
+	CLK_LOOKUP("ref_clk_parent", pcie_1_phy_ldo.c,      "fc581000.sataphy"),
+	CLK_LOOKUP("ref_clk", sata_phy_ldo.c,               "fc581000.sataphy"),
+	CLK_LOOKUP("rxoob_clk", gcc_sata_rx_oob_clk.c,      "fc581000.sataphy"),
 
 	/* SDCC clocks */
 	CLK_LOOKUP("iface_clk",	gcc_sdcc1_ahb_clk.c,	"msm_sdcc.1"),
