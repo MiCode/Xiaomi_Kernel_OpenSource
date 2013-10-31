@@ -252,8 +252,6 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AUX_CMD_RCGR                                  (0x1E00)
 #define PCIE_GPIO_LDO_EN                                   (0x1E40)
 #define USB_SS_LDO_EN                                      (0x1E44)
-#define Q6SS_AHB_LFABIF_CBCR                               (0x22000)
-#define Q6SS_AHBM_CBCR                                     (0x22004)
 
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
 
@@ -1609,28 +1607,6 @@ static struct branch_clk gcc_usb_hsic_xcvr_fs_clk = {
 	},
 };
 
-static struct branch_clk q6ss_ahb_lfabif_clk = {
-	.cbcr_reg = Q6SS_AHB_LFABIF_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "q6ss_ahb_lfabif_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(q6ss_ahb_lfabif_clk.c),
-	},
-};
-
-static struct branch_clk q6ss_ahbm_clk = {
-	.cbcr_reg = Q6SS_AHBM_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "q6ss_ahbm_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(q6ss_ahbm_clk.c),
-	},
-};
-
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_clk, &cnoc_clk.c, LONG_MAX);
@@ -1647,7 +1623,6 @@ static DEFINE_CLK_VOTER(pnoc_sdcc3_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
-static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo.c);
 
@@ -1933,11 +1908,11 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("clk-5", a7sspll.c, "f9010008.qcom,clock-a7"),
 
 	/* PIL-LPASS */
-	CLK_LOOKUP("xo",          cxo_pil_lpass_clk.c, "fe200000.qcom,lpass"),
-	CLK_LOOKUP("bus_clk",  gcc_lpass_q6_axi_clk.c, "fe200000.qcom,lpass"),
-	CLK_LOOKUP("core_clk",    cxo_pil_lpass_clk.c, "fe200000.qcom,lpass"),
-	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "fe200000.qcom,lpass"),
-	CLK_LOOKUP("reg_clk",         q6ss_ahbm_clk.c, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("xo",        dummy_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("bus_clk",   dummy_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("core_clk",  dummy_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("iface_clk", dummy_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("reg_clk",   dummy_clk, "fe200000.qcom,lpass"),
 
 	/* PIL-MODEM */
 	CLK_LOOKUP("xo",              cxo_pil_mss_clk.c, "fc880000.qcom,mss"),
