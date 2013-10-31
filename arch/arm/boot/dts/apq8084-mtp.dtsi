@@ -482,16 +482,6 @@
 	};
 };
 
-&i2c_0 {
-	smb349_otg_supply: smb349-charger@1b {
-		compatible = "qcom,smb349-charger";
-		reg = <0x1b>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x00 0xcd 0x0>; /* PMIC8084 GPIO 14 */
-		regulator-name = "smb349_otg_supply";
-	};
-};
-
 &i2c_2 {
 	isa1200@48 {
 		status = "okay";
@@ -513,8 +503,4 @@
 			regulator-max-microamp = <9360>;
 		};
 	};
-};
-
-&usb3 {
-	vbus_dwc3-supply = <&smb349_otg_supply>;
 };

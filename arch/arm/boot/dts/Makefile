@@ -172,10 +172,12 @@ dtb-$(CONFIG_ARCH_MSMSAMARIUM) += msmsamarium-sim.dtb \
 dtb-$(CONFIG_ARCH_MPQ8092) += mpq8092-sim.dtb \
 	mpq8092-rumi.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb \
-	apq8084-cdp.dtb \
 	apq8084-interposer-cdp.dtb \
 	apq8084-liquid.dtb \
-	apq8084-mtp.dtb
+	apq8084-smb1357-cdp.dtb \
+	apq8084-smb1357-mtp.dtb \
+	apq8084-smb349-cdp.dtb \
+	apq8084-smb349-mtp.dtb
 dtb-$(CONFIG_ARCH_MVEBU) += armada-370-db.dtb \
 	armada-370-mirabox.dtb \
 	armada-370-rd.dtb \

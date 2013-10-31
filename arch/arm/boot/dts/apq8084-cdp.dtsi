@@ -203,21 +203,6 @@
 	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
 };
 
-&i2c_0 {
-	smb349_otg_supply: smb349-charger@1B {
-		compatible = "qcom,smb349-charger";
-		reg = <0x1B>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x00 0xCD 0x0>; /* PMIC8084 GPIO 14 */
-		qcom,charging-disabled;
-		regulator-name = "smb349_otg_supply";
-	};
-};
-
-&usb3 {
-	vbus_dwc3-supply = <&smb349_otg_supply>;
-};
-
 &sdhc_1 {
 	vdd-supply = <&pma8084_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
