@@ -829,6 +829,21 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
+	qcom,mpm@fc4281d0 {
+		compatible = "qcom,mpm-v2";
+		reg = <0xfc4281d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		    <0xf9011008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupts = <0 171 1>;
+
+		qcom,ipc-bit-offset = <1>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <2 216>; /* tsens_upper_lower_int */
+
+		qcom,gpio-parent = <&msmgpio>;
+		qcom,gpio-map = <3 1>;
+	};
 };
 
 /include/ "msm-pma8084.dtsi"
