@@ -680,6 +680,8 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 			memcpy(buf_dst, &data_len_value, sizeof(uint32_t));
 			temp_ei = temp_ei + 1;
 			buf_dst = out_c_struct + temp_ei->offset;
+			if (dec_level == 1 && tlv_len)
+				tlv_len -= data_len_sz;
 			UPDATE_DECODE_VARIABLES(buf_src, decoded_bytes, rc);
 		}
 
