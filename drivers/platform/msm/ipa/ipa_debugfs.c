@@ -13,6 +13,7 @@
 #ifdef CONFIG_DEBUG_FS
 
 #include <linux/debugfs.h>
+#include <linux/kernel.h>
 #include <linux/stringify.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
@@ -765,7 +766,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 		cnt += nbytes;
 	}
 
-	for (i = 0; i < MAX_NUM_IMM_CMD; i++) {
+	for (i = 0; i < ARRAY_SIZE(ipa_ic_name); i++) {
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
 				"IC[%2u:%22s]=%u\n", i, ipa_ic_name[i],
 				ipa_ctx->stats.imm_cmds[i]);
