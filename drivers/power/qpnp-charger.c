@@ -325,6 +325,7 @@ struct qpnp_chg_chip {
 	unsigned int			warm_bat_mv;
 	unsigned int			cool_bat_mv;
 	unsigned int			resume_delta_mv;
+	int				insertion_ocv_uv;
 	int				term_current;
 	int				soc_resume_limit;
 	bool				resuming_charging;
@@ -354,6 +355,7 @@ struct qpnp_chg_chip {
 	struct delayed_work		usbin_health_check;
 	struct work_struct		soc_check_work;
 	struct delayed_work		aicl_check_work;
+	struct work_struct		insertion_ocv_work;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_chg_regulator	batfet_vreg;
@@ -965,6 +967,11 @@ qpnp_chg_usb_suspend_enable(struct qpnp_chg_chip *chip, int enable)
 static int
 qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
 {
+	if (chip->insertion_ocv_uv == 0 && enable) {
+		pr_debug("Battery not present, skipping\n");
+		return 0;
+	}
+	pr_debug("charging %s\n", enable ? "enabled" : "disabled");
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
 			CHGR_CHG_EN,
 			enable ? CHGR_CHG_EN : 0, 1);
@@ -1476,6 +1483,12 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 	pr_debug("batt-pres triggered: %d\n", batt_present);
 
 	if (chip->batt_present ^ batt_present) {
+		if (batt_present) {
+			schedule_work(&chip->insertion_ocv_work);
+		} else {
+			chip->insertion_ocv_uv = 0;
+			qpnp_chg_charge_en(chip, 0);
+		}
 		chip->batt_present = batt_present;
 		pr_debug("psy changed batt_psy\n");
 		power_supply_changed(&chip->batt_psy);
@@ -1764,6 +1777,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_WARM_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 };
 
 static char *pm_power_supplied_to[] = {
@@ -2183,6 +2197,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = get_prop_battery_voltage_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+		val->intval = chip->insertion_ocv_uv;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_prop_batt_temp(chip);
@@ -2889,6 +2906,32 @@ stop_eoc:
 	vbat_low_count = 0;
 	count = 0;
 	pm_relax(chip->dev);
+}
+
+static void
+qpnp_chg_insertion_ocv_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip, insertion_ocv_work);
+	u8 bat_if_sts = 0, charge_en = 0;
+	int rc;
+
+	chip->insertion_ocv_uv = get_prop_battery_voltage_now(chip);
+
+	rc = qpnp_chg_read(chip, &bat_if_sts, INT_RT_STS(chip->bat_if_base), 1);
+	if (rc)
+		pr_err("failed to read bat_if sts %d\n", rc);
+
+	rc = qpnp_chg_read(chip, &charge_en,
+			chip->chgr_base + CHGR_CHG_CTRL, 1);
+	if (rc)
+		pr_err("failed to read bat_if sts %d\n", rc);
+
+	pr_debug("batfet sts = %02x, charge_en = %02x ocv = %d\n",
+			bat_if_sts, charge_en, chip->insertion_ocv_uv);
+	qpnp_chg_charge_en(chip, !chip->charging_disabled);
+	pr_debug("psy changed batt_psy\n");
+	power_supply_changed(&chip->batt_psy);
 }
 
 static void
@@ -4141,6 +4184,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	mutex_init(&chip->batfet_vreg_lock);
 	INIT_WORK(&chip->batfet_lcl_work,
 			qpnp_chg_batfet_lcl_work);
+	INIT_WORK(&chip->insertion_ocv_work,
+			qpnp_chg_insertion_ocv_work);
 
 	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
@@ -4321,6 +4366,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
 
+	chip->insertion_ocv_uv = -EINVAL;
+	chip->batt_present = qpnp_chg_is_batt_present(chip);
 	if (chip->bat_if_base) {
 		chip->batt_psy.name = "battery";
 		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
