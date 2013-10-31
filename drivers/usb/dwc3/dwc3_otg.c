@@ -33,7 +33,7 @@ MODULE_PARM_DESC(max_chgr_retry_count, "Max invalid charger retry count");
 static struct dwc3_otg *the_dotg;
 
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
-
+static int dwc3_otg_set_host(struct usb_otg *otg, struct usb_bus *host);
 static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
@@ -75,25 +75,6 @@ static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 		reg |= DWC3_GCTL_PWRDNSCALE(2);
 		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 	}
-}
-
-static int dwc3_otg_set_suspend(struct usb_phy *phy, int suspend)
-{
-	struct usb_otg *otg = phy->otg;
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-
-	if (dotg->host_bus_suspend == suspend)
-		return 0;
-
-	dotg->host_bus_suspend = suspend;
-	if (suspend) {
-		pm_runtime_put_sync(phy->dev);
-	} else {
-		pm_runtime_get_noresume(phy->dev);
-		pm_runtime_resume(phy->dev);
-	}
-
-	return 0;
 }
 
 static void dwc3_otg_set_hsphy_auto_suspend(struct dwc3_otg *dotg, bool susp)
@@ -181,6 +162,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct dwc3 *dwc = dotg->dwc;
+	struct usb_hcd *hcd;
 	int ret = 0;
 
 	if (!dwc->xhci)
@@ -228,7 +210,10 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
+		hcd = platform_get_drvdata(dwc->xhci);
+		dwc3_otg_set_host(otg, &hcd->self);
 		dwc3_otg_notify_host_mode(otg, on);
+
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
@@ -247,9 +232,11 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			dev_err(otg->phy->dev, "unable to disable vbus_otg\n");
 			return ret;
 		}
-		dwc3_otg_notify_host_mode(otg, on);
 
+		dwc3_otg_notify_host_mode(otg, on);
+		dwc3_otg_set_host(otg, NULL);
 		platform_device_del(dwc->xhci);
+
 		/*
 		 * Perform USB hardware RESET (both core reset and DBM reset)
 		 * when moving from host to peripheral. This is required for
@@ -441,9 +428,6 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
 			/* ext_xceiver would have taken h/w out of LPM by now */
 			ret = pm_runtime_get(phy->dev);
-			if ((phy->state == OTG_STATE_A_HOST) &&
-							dotg->host_bus_suspend)
-				dotg->host_bus_suspend = 0;
 			if (ret == -EACCES) {
 				/* pm_runtime_get may fail during system
 				   resume with -EACCES error */
@@ -872,6 +856,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				phy->state = OTG_STATE_A_IDLE;
 				pm_runtime_put_sync(phy->dev);
 				return;
+			} else {
+				/* xHCI increments PM child count as needed */
+				dev_dbg(phy->dev, "a_host state entered. Allow runtime suspend.\n");
+				pm_runtime_put_sync(phy->dev);
 			}
 		}
 		break;
@@ -883,6 +871,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			phy->state = OTG_STATE_B_IDLE;
 			dotg->vbus_retry_count = 0;
 			work = 1;
+		} else {
+			dev_dbg(phy->dev, "a_host state entered. Allow runtime suspend.\n");
+			pm_runtime_put_sync(phy->dev);
 		}
 		break;
 
@@ -964,7 +955,6 @@ int dwc3_otg_register_phys(struct platform_device *pdev)
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->dev = &pdev->dev;
 	dotg->otg.phy->set_power = dwc3_otg_set_power;
-	dotg->otg.phy->set_suspend = dwc3_otg_set_suspend;
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.set_host = dwc3_otg_set_host;
 
