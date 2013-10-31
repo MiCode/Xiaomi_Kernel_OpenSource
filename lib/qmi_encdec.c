@@ -117,8 +117,9 @@ static int qmi_calc_max_msg_len(struct elem_info *ei_array,
 					sizeof(uint8_t) : sizeof(uint16_t));
 			continue;
 		} else if (temp_ei->data_type == QMI_STRUCT) {
-			max_msg_len += qmi_calc_max_msg_len(temp_ei->ei_array,
-							    (level + 1));
+			max_msg_len += (temp_ei->elem_len *
+					qmi_calc_max_msg_len(temp_ei->ei_array,
+							    (level + 1)));
 		} else {
 			max_msg_len += (temp_ei->elem_len * temp_ei->elem_size);
 		}
