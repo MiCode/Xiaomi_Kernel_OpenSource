@@ -896,7 +896,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
 				int batt_temp)
 {
-	bool warm_reset = false;
+	int warm_reset;
 	int rc;
 
 	mutex_lock(&chip->bms_output_lock);
@@ -3171,7 +3171,7 @@ static void batfet_status_check(struct qpnp_bms_chip *chip)
 
 static void battery_insertion_check(struct qpnp_bms_chip *chip)
 {
-	bool present = is_battery_present(chip);
+	int present = (int)is_battery_present(chip);
 
 	mutex_lock(&chip->vbat_monitor_mutex);
 	if (chip->battery_present != present) {
