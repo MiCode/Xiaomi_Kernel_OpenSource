@@ -28,7 +28,7 @@ struct rmnet_map_header_s {
 	uint8_t  cd_bit:1;
 	uint8_t  reserved_bit:1;
 	uint8_t  pad_len:6;
-#endif /* LITTLE_ENDIAN */
+#endif /* RMNET_USE_BIG_ENDIAN_STRUCTS */
 	uint8_t  mux_id;
 	uint16_t pkt_len;
 }  __aligned(1);
@@ -41,7 +41,7 @@ struct rmnet_map_control_command_s {
 #else
 	uint8_t  reserved:6;
 	uint8_t  cmd_type:2;
-#endif /* LITTLE_ENDIAN */
+#endif /* RMNET_USE_BIG_ENDIAN_STRUCTS */
 	uint16_t reserved2;
 	uint32_t   transaction_id;
 	union {
@@ -53,9 +53,9 @@ struct rmnet_map_control_command_s {
 #else
 			uint16_t  reserved:14;
 			uint16_t  ip_family:2;
-#endif /* LITTLE_ENDIAN */
+#endif /* RMNET_USE_BIG_ENDIAN_STRUCTS */
 			uint16_t  flow_control_seq_num;
-			uint32_t	qos_id;
+			uint32_t  qos_id;
 		} flow_control;
 	};
 }  __aligned(1);
