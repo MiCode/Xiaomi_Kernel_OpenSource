@@ -535,6 +535,10 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		strlcpy(ext_cmd.u.if_name, unet->driver_name,
 			sizeof(ext_cmd.u.if_name));
 		break;
+	case RMNET_IOCTL_GET_EPID:
+		ext_cmd.u.data =
+			unet->intf->cur_altsetting->desc.bInterfaceNumber;
+		break;
 	}
 
 	rc = copy_to_user(ifr->ifr_ifru.ifru_data, &ext_cmd,
