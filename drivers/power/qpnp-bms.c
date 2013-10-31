@@ -209,6 +209,7 @@ struct qpnp_bms_chip {
 
 	uint16_t			ocv_reading_at_100;
 	uint16_t			prev_last_good_ocv_raw;
+	int				insertion_ocv_uv;
 	int				last_ocv_uv;
 	int				charging_adjusted_ocv;
 	int				last_ocv_temp;
@@ -769,7 +770,7 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
-		/* if battery has been registered, use the status property */
+		/* if battery has been registered, use the present property */
 		chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_PRESENT, &ret);
 		return ret.intval;
@@ -778,6 +779,35 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 	/* Default to false if the battery power supply is not registered. */
 	pr_debug("battery power supply is not registered\n");
 	return false;
+}
+
+static int get_battery_insertion_ocv_uv(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+	int rc, vbat;
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the ocv property */
+		rc = chip->batt_psy->get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_OCV, &ret);
+		if (rc) {
+			/*
+			 * Default to vbatt if the battery OCV is not
+			 * registered.
+			 */
+			pr_debug("Battery psy does not have voltage ocv\n");
+			rc = get_battery_voltage(chip, &vbat);
+			if (rc)
+				return -EINVAL;
+			return vbat;
+		}
+		return ret.intval;
+	}
+
+	pr_debug("battery power supply is not registered\n");
+	return -EINVAL;
 }
 
 static bool is_batfet_closed(struct qpnp_bms_chip *chip)
@@ -859,7 +889,7 @@ static int estimate_ocv(struct qpnp_bms_chip *chip)
 
 static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 {
-	chip->last_ocv_uv = estimate_ocv(chip);
+	chip->last_ocv_uv = chip->insertion_ocv_uv;
 	mutex_lock(&chip->last_soc_mutex);
 	chip->last_soc = -EINVAL;
 	chip->last_soc_invalid = true;
@@ -3172,11 +3202,19 @@ static void batfet_status_check(struct qpnp_bms_chip *chip)
 static void battery_insertion_check(struct qpnp_bms_chip *chip)
 {
 	int present = (int)is_battery_present(chip);
+	int insertion_ocv_uv = get_battery_insertion_ocv_uv(chip);
+	int insertion_ocv_taken = (insertion_ocv_uv > 0);
 
 	mutex_lock(&chip->vbat_monitor_mutex);
-	if (chip->battery_present != present) {
+	if (chip->battery_present != present
+			&& (present == insertion_ocv_taken
+				|| chip->battery_present == -EINVAL)) {
+		pr_debug("status = %d, shadow status = %d, insertion_ocv_uv = %d\n",
+				present, chip->battery_present,
+				insertion_ocv_uv);
 		if (chip->battery_present != -EINVAL) {
 			if (present) {
+				chip->insertion_ocv_uv = insertion_ocv_uv;
 				setup_vbat_monitoring(chip);
 				chip->new_battery = true;
 			} else {
