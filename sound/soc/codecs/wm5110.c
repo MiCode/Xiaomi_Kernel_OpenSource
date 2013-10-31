@@ -589,6 +589,19 @@ ARIZONA_MUX_ENUMS(ISRC3DEC2, ARIZONA_ISRC3DEC2MIX_INPUT_1_SOURCE);
 ARIZONA_MUX_ENUMS(ISRC3DEC3, ARIZONA_ISRC3DEC3MIX_INPUT_1_SOURCE);
 ARIZONA_MUX_ENUMS(ISRC3DEC4, ARIZONA_ISRC3DEC4MIX_INPUT_1_SOURCE);
 
+static const char * const wm5110_dsp_output_texts[] = {
+	"None",
+	"DSP3",
+};
+
+static const struct soc_enum wm5110_dsp_output_enum =
+	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(wm5110_dsp_output_texts),
+			wm5110_dsp_output_texts);
+
+static const struct snd_kcontrol_new wm5110_dsp_output_mux[] = {
+	SOC_DAPM_ENUM_VIRT("DSP Virtual Output Mux", wm5110_dsp_output_enum),
+};
+
 static const char * const wm5110_memory_mux_texts[] = {
 	"None",
 	"Shared Memory",
@@ -654,6 +667,8 @@ SND_SOC_DAPM_INPUT("IN4R"),
 
 SND_SOC_DAPM_OUTPUT("DRC1 Signal Activity"),
 SND_SOC_DAPM_OUTPUT("DRC2 Signal Activity"),
+
+SND_SOC_DAPM_OUTPUT("DSP Virtual Output"),
 
 SND_SOC_DAPM_PGA_E("IN1L PGA", ARIZONA_INPUT_ENABLES, ARIZONA_IN1L_ENA_SHIFT,
 		   0, NULL, 0, arizona_in_ev,
@@ -1034,6 +1049,9 @@ SND_SOC_DAPM_VIRT_MUX("DSP2 Virtual Input", SND_SOC_NOPM, 0, 0,
 SND_SOC_DAPM_VIRT_MUX("DSP3 Virtual Input", SND_SOC_NOPM, 0, 0,
 		      &wm5110_memory_mux[1]),
 
+SND_SOC_DAPM_VIRT_MUX("DSP Virtual Output Mux", SND_SOC_NOPM, 0, 0,
+		      &wm5110_dsp_output_mux[0]),
+
 ARIZONA_MUX_WIDGETS(ISRC1DEC1, "ISRC1DEC1"),
 ARIZONA_MUX_WIDGETS(ISRC1DEC2, "ISRC1DEC2"),
 ARIZONA_MUX_WIDGETS(ISRC1DEC3, "ISRC1DEC3"),
@@ -1404,6 +1422,10 @@ static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
 	{ "DSP2 Virtual Input", "Shared Memory", "DSP3" },
 	{ "DSP3", NULL, "DSP3 Virtual Input" },
 	{ "DSP3 Virtual Input", "Shared Memory", "DSP2" },
+
+	{ "DSP Virtual Output", NULL, "DSP Virtual Output Mux" },
+	{ "DSP Virtual Output Mux", "DSP3", "DSP3" },
+	{ "DSP Virtual Output", NULL, "SYSCLK" },
 
 	ARIZONA_MUX_ROUTES("ISRC1INT1", "ISRC1INT1"),
 	ARIZONA_MUX_ROUTES("ISRC1INT2", "ISRC1INT2"),
