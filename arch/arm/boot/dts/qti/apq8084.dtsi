@@ -1845,7 +1845,6 @@
 		qti,sensors = <11>;
 		qti,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 				3200 3200>;
-		qti,calib-mode = "fuse_map1";
 	};
 
 	xhci_hsic_host: qcom,xhci-msm-hsic@0xf9c00000 {

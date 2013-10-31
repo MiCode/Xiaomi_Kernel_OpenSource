@@ -625,15 +625,13 @@
 	};
 
 	tsens: tsens@fc4a8000 {
-		compatible = "qti,msm-tsens";
+		compatible = "qti,msmkrypton-tsens";
 		reg = <0xfc4a8000 0x2000>,
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
 		qti,sensors = <5>;
-		qti,calibration-less-mode;
 		qti,slope = <2901 2846 3200 3200 3200>;
-		qti,calib-mode = "fuse_map1";
 	};
 
 	qcom,clock-a7@f9010008 {

@@ -2149,7 +2149,6 @@
 		qti,sensors = <11>;
 		qti,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 				3200 3200>;
-		qti,calib-mode = "fuse_map1";
 	};
 
 	jtag_fuse: jtagfuse@fc4be024 {

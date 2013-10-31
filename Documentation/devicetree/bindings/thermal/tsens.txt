@@ -12,7 +12,13 @@ threshold events.
 TSENS node
 
 Required properties:
-- compatible : should be "qti,msm-tsens" for MSM8974 TSENS driver.
+- compatible : should be "qti,msm-tsens" for 8974, 9625, 8084, Samarium TSENS driver.
+	       should be "qti,msm8x10-tsens" for 8x10 TSENS driver.
+	       should be "qti,msm8x26-tsens" for 8x26 TSENS driver.
+	       should be "qti,fsm9900-tsens" for 9900 TSENS driver.
+	       should be "qti,msmkrypton-tsens" for krypton TSENS driver.
+	       The compatible property is used to identify the respective fusemap to use
+	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
 - reg : offset and length of the QFPROM registers used for storing
 	the calibration data for the individual sensors.
@@ -29,11 +35,6 @@ Required properties:
 	       sensor used to compute the offset. Slope is represented
 	       as ADC code/DegC and the value is multipled by a factor
 	       of 1000.
-- qti,calib-mode : Calibration masks to use to abstract the offset data from efuse.
-		    Select from the following strings.
-		    "fuse_map1" : Used for 8974/9x25 fuse calibration map.
-		    "fuse_map2" : Used for 8x26 fuse calibration map.
-		    "fuse_map3" : Used for 8x10 fuse calibration map.
 
 Optional properties:
 - qti,calibration-less-mode : If present the pre-characterized data for offsets
@@ -59,5 +60,4 @@ tsens@fc4a8000 {
 	qti,sensors = <11>;
 	qti,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 			3200>;
-	qti,calib-mode = "fuse_map1";
 };
