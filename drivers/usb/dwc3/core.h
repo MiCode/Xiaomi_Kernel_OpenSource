@@ -663,6 +663,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_CORE_PM_COMPLETE_EVENT			4
 #define DWC3_CORE_PM_SUSPEND_EVENT			5
 #define DWC3_CORE_PM_RESUME_EVENT			6
+#define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
