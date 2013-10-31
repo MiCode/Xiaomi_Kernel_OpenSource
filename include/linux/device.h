@@ -555,6 +555,9 @@ ssize_t device_store_bool(struct device *dev, struct device_attribute *attr,
 #define DEVICE_ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store) \
 	struct device_attribute dev_attr_##_name =		\
 		__ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store)
+#define DEVICE_POWER_HAL_SUSPEND_ATTR(_store) \
+	DEVICE_ATTR(power_HAL_suspend, S_IWUSR|S_IWGRP, \
+		NULL, _store)
 
 extern int device_create_file(struct device *device,
 			      const struct device_attribute *entry);
