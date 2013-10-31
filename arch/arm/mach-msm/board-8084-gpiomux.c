@@ -297,6 +297,35 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	}
 };
 
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+static struct gpiomux_setting gpio_eth_config = {
+	.pull = GPIOMUX_PULL_UP,
+	.drv = GPIOMUX_DRV_2MA,
+	.func = GPIOMUX_FUNC_GPIO,
+};
+
+static struct msm_gpiomux_config msm_eth_configs[] __initdata = {
+	{
+		.gpio	  = 60,			/* SPI IRQ */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+		}
+	},
+	{
+		.gpio	  = 116,		/* CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+		}
+	},
+	{
+		.gpio      = 117,		/* BLSP1 QUP1 SPI_CS2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+};
+#endif
+
 static struct msm_gpiomux_config msm_blsp1_uart6_configs[] __initdata = {
 	{
 		.gpio      = 43,		/* BLSP1 UART6 TX */
@@ -889,4 +918,10 @@ void __init apq8084_init_gpiomux(void)
 	if (of_board_is_cdp())
 		msm_gpiomux_install(eth_pwr, ARRAY_SIZE(eth_pwr));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
+
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+	if (of_board_is_cdp())
+		msm_gpiomux_install(msm_eth_configs,
+			ARRAY_SIZE(msm_eth_configs));
+#endif
 }

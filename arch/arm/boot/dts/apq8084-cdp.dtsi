@@ -483,3 +483,16 @@
 		};
 	};
 };
+
+&spi_0 {
+	ethernet-switch@2 {
+		compatible = "micrel,ks8851";
+		reg = <2>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <60 0>;
+		spi-max-frequency = <4800000>;
+		rst-gpio = <&msmgpio 59 0>;
+		vdd-io-supply = <&spi_eth_vreg>;
+		vdd-phy-supply = <&spi_eth_vreg>;
+	};
+};
