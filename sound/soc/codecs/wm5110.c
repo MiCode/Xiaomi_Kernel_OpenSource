@@ -45,6 +45,7 @@ struct wm5110_compr {
 	struct wm_adsp* adsp;
 
 	size_t total_copied;
+	bool trig;
 };
 
 struct wm5110_priv {
@@ -173,6 +174,16 @@ static int wm5110_sysclk_ev(struct snd_soc_dapm_widget *w,
 	default:
 		break;
 	}
+
+	return 0;
+}
+
+static int wm5110_virt_dsp_power_ev(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *kcontrol, int event)
+{
+	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(w->codec);
+
+	wm5110->compr_info.trig = false;
 
 	return 0;
 }
@@ -1049,8 +1060,9 @@ SND_SOC_DAPM_VIRT_MUX("DSP2 Virtual Input", SND_SOC_NOPM, 0, 0,
 SND_SOC_DAPM_VIRT_MUX("DSP3 Virtual Input", SND_SOC_NOPM, 0, 0,
 		      &wm5110_memory_mux[1]),
 
-SND_SOC_DAPM_VIRT_MUX("DSP Virtual Output Mux", SND_SOC_NOPM, 0, 0,
-		      &wm5110_dsp_output_mux[0]),
+SND_SOC_DAPM_VIRT_MUX_E("DSP Virtual Output Mux", SND_SOC_NOPM, 0, 0,
+		      &wm5110_dsp_output_mux[0], wm5110_virt_dsp_power_ev,
+		      SND_SOC_DAPM_POST_PMU),
 
 ARIZONA_MUX_WIDGETS(ISRC1DEC1, "ISRC1DEC1"),
 ARIZONA_MUX_WIDGETS(ISRC1DEC2, "ISRC1DEC2"),
@@ -1676,8 +1688,13 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 	mutex_lock(&wm5110->compr_info.lock);
 
 	if (wm5110->core.arizona->pdata.ez2ctrl_trigger &&
-	    !wm5110->compr_info.total_copied)
+	    !wm5110->compr_info.trig) {
 		wm5110->core.arizona->pdata.ez2ctrl_trigger();
+		wm5110->compr_info.trig = true;
+	}
+
+	if (!wm5110->compr_info.stream)
+		goto out;
 
 	ret = wm_adsp_stream_capture(wm5110->compr_info.adsp);
 	if (ret < 0) {
@@ -1776,6 +1793,7 @@ static int wm5110_free(struct snd_compr_stream *stream)
 
 	wm5110->compr_info.stream = NULL;
 	wm5110->compr_info.total_copied = 0;
+	wm5110->compr_info.trig = false;
 
 	wm_adsp_stream_free(wm5110->compr_info.adsp);
 
