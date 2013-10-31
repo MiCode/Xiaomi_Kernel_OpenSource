@@ -68,7 +68,7 @@ struct msm_watchdog_data {
 
 /*
  * On the kernel command line specify
- * msm_watchdog.enable=1 to enable the watchdog
+ * msm_watchdog_v2.enable=1 to enable the watchdog
  * By default watchdog is turned on
  */
 static int enable = 1;
@@ -76,7 +76,7 @@ module_param(enable, int, 0);
 
 /*
  * On the kernel command line specify
- * msm_watchdog.WDT_HZ=<clock val in HZ> to set Watchdog
+ * msm_watchdog_v2.WDT_HZ=<clock val in HZ> to set Watchdog
  * ticks. By default it is set to 32765.
  */
 static long WDT_HZ = 32765;
