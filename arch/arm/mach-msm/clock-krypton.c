@@ -1754,6 +1754,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&pnoc_clk.c,                          GCC_BASE, 0x0010},
 	{&snoc_clk.c,                          GCC_BASE, 0x0000},
 	{&ipa_clk.c,                           GCC_BASE, 0x01E0},
+	{&qpic_clk.c,                          GCC_BASE, 0x01D8},
 
 	{&a7_m_clk,			  APCS_GCC_BASE,    0x3},
 	{&dummy_clk,				N_BASES, 0x0000},
@@ -2164,6 +2165,9 @@ static struct clk_lookup msm_clocks_krypton[] = {
 		   "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("sleep_b_clk", gcc_usb2b_phy_sleep_clk.c,
 		   "f9200000.qcom,ssusb"),
+
+	CLK_LOOKUP("", qpic_clk.c, ""),
+	CLK_LOOKUP("", qpic_a_clk.c, ""),
 };
 
 static void __init reg_init(void)
