@@ -879,6 +879,15 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 
 	pr_debug("%s\n", __func__);
 
+	audio_ocmem_lcl.audio_hdl = ocmem_notifier_register(OCMEM_LP_AUDIO,
+						&audio_ocmem_client_nb);
+	if (PTR_RET(audio_ocmem_lcl.audio_hdl) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+	else if (!audio_ocmem_lcl.audio_hdl) {
+		pr_err("%s: Failed to get ocmem handle %d\n", __func__,
+						OCMEM_LP_AUDIO);
+		return -ENODEV;
+	}
 	subsys_notif_register_notifier("adsp", &anb);
 
 	audio_ocmem_lcl.ocmem_dump_addr =
@@ -943,12 +952,6 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 		__func__);
 		ret = -EFAULT;
 		goto destroy_voice_wq;
-	}
-	audio_ocmem_lcl.audio_hdl = ocmem_notifier_register(OCMEM_LP_AUDIO,
-						&audio_ocmem_client_nb);
-	if (audio_ocmem_lcl.audio_hdl == NULL) {
-		pr_err("%s: Failed to get ocmem handle %d\n", __func__,
-						OCMEM_LP_AUDIO);
 	}
 	audio_ocmem_lcl.lp_memseg_ptr = NULL;
 	return 0;
