@@ -145,7 +145,23 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 				    unsigned int magic)
 {
 	struct arizona *arizona = info->arizona;
+	unsigned int mask = 0, val = 0;
 	int ret;
+
+	switch (arizona->type) {
+	case WM5110:
+		mask = 0x0007;
+		if (magic)
+			val = 0x0001;
+		else
+			val = 0x0006;
+		break;
+	default:
+		mask = 0x4000;
+		if (magic)
+			val = 0x4000;
+		break;
+	};
 
 	mutex_lock(&arizona->dapm->card->dapm_mutex);
 
@@ -163,14 +179,12 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 				 ret);
 	}
 
-	ret = regmap_update_bits(arizona->regmap, 0x225, 0x4000,
-				 magic);
+	ret = regmap_update_bits(arizona->regmap, 0x225, mask, val);
 	if (ret != 0)
 		dev_warn(arizona->dev, "Failed to do magic: %d\n",
 				 ret);
 
-	ret = regmap_update_bits(arizona->regmap, 0x226, 0x4000,
-				 magic);
+	ret = regmap_update_bits(arizona->regmap, 0x226, mask, val);
 	if (ret != 0)
 		dev_warn(arizona->dev, "Failed to do magic: %d\n",
 			 ret);
