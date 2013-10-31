@@ -12,12 +12,6 @@ Required properties:
 Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
-- qcom,vidc-cp-map : start and size of device virtual address range for
-  secure buffers. Video hardware uses this address range to identify if
-  the buffers are secure or non-secure.
-- qcom,vidc-ns-map : start and size of device virtual address range for
-  non-secure buffers. Video hardware uses this address range to identify
-  if the buffers are secure or non-secure.
 - qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
   clock required for optimal performance in descending order.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
@@ -83,15 +77,13 @@ Example:
 		venus-supply = <&gdsc>;
 		venus-core0-supply = <&gdsc1>;
 		venus-core1-supply = <&gdsc2>;
-		qcom,vidc-cp-map = <0x1000000 0x40000000>;
-		qcom,vidc-ns-map = <0x40000000 0x40000000>;
 		qcom,load-freq-tbl = <979200 410000000>,
 				<560145 266670000>,
 				<421161 200000000>,
 				<243000 133330000>,
 				<108000 100000000>,
 				<36000 50000000>;
-		qcom,has-ocmem;
+		qcom,ocmem-size = <4096>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
