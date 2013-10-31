@@ -3032,7 +3032,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 			struct v4l2_ext_controls *ctrl)
 {
 	int retval = 0;
-	int bytes_to_copy;
+	size_t bytes_to_copy;
 	struct hci_fm_tx_ps tx_ps;
 	struct hci_fm_tx_rt tx_rt;
 	struct hci_fm_def_data_wr_req default_data;
@@ -3041,14 +3041,20 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
 
+	if ((ctrl == NULL) || (ctrl->controls == NULL)
+		|| (ctrl->count == 0)) {
+		retval = -EINVAL;
+		return retval;
+	}
+
 	switch ((ctrl->controls[0]).id) {
 	case V4L2_CID_RDS_TX_PS_NAME:
 		FMDBG("In V4L2_CID_RDS_TX_PS_NAME\n");
 		/*Pass a sample PS string */
 
 		memset(tx_ps.ps_data, 0, MAX_PS_LENGTH);
-		bytes_to_copy = min((int)(ctrl->controls[0]).size,
-			MAX_PS_LENGTH);
+		bytes_to_copy = min_t(size_t, ctrl->controls[0].size,
+					MAX_PS_LENGTH);
 		data = (ctrl->controls[0]).string;
 
 		if (copy_from_user(tx_ps.ps_data,
@@ -3065,7 +3071,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		break;
 	case V4L2_CID_RDS_TX_RADIO_TEXT:
 		bytes_to_copy =
-		    min((int)(ctrl->controls[0]).size, MAX_RT_LENGTH);
+		    min_t(size_t, (ctrl->controls[0]).size, MAX_RT_LENGTH);
 		data = (ctrl->controls[0]).string;
 
 		memset(tx_rt.rt_data, 0, MAX_RT_LENGTH);
