@@ -1605,13 +1605,6 @@ config SENSORS_ADSP
 	  such as for lower-power OCMEM use cases, and for time syncing
 	  with ADSP clock.
 
-config MSM_RTB
-	bool "Register tracing"
-	help
-	  Add support for logging different events to a small uncached
-	  region. This is designed to aid in debugging reset cases where the
-	  caches may not be flushed before the target resets.
-
 config USE_PINCTRL_IRQ
 	default n
 	bool "Use Pinctrl IRQ chip"
@@ -1620,16 +1613,6 @@ config USE_PINCTRL_IRQ
 	 associated with gpio lib. The pinctrl irq chip allows the pin
 	 attributes to be configured, prior to configuring them as
 	 interrupt triggers.
-
-config MSM_RTB_SEPARATE_CPUS
-	bool "Separate entries for each cpu"
-	depends on MSM_RTB
-	depends on SMP
-	help
-	  Under some circumstances, it may be beneficial to give dedicated space
-	  for each cpu to log accesses. Selecting this option will log each cpu
-	  separately. This will guarantee that the last acesses for each cpu
-	  will be logged but there will be fewer entries per cpu
 
 config MSM_EBI_ERP
 	bool "External Bus Interface (EBI) error reporting"

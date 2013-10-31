@@ -15,13 +15,12 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/percpu.h>
+#include <linux/msm_rtb.h>
 
 #include <asm/mmu_context.h>
 #include <asm/smp_plat.h>
 #include <asm/thread_notify.h>
 #include <asm/tlbflush.h>
-
-#include <mach/msm_rtb.h>
 
 /*
  * On ARMv6, we have the following structure in the Context ID:
