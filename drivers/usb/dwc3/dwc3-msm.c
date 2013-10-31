@@ -2345,8 +2345,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
 	struct device	*dev = &pdev->dev;
-	struct usb_phy	*usb2_xceiv;
 	struct dwc3_msm *mdwc;
+	struct dwc3	*dwc;
 	struct resource *res;
 	void __iomem *tcsr;
 	unsigned long flags;
@@ -2616,17 +2616,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	usb2_xceiv = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 	if (node) {
-		/* Register USB PHYs before DWC3 init if DWC3 running as OTG */
-		if (IS_ERR(usb2_xceiv)) {
-			ret = dwc3_otg_register_phys(pdev);
-			if (ret) {
-				dev_err(&pdev->dev, "failed to register dwc3 phys\n");
-				goto put_psupply;
-			}
-		}
-
 		ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 		if (ret) {
 			dev_err(&pdev->dev,
@@ -2639,14 +2629,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
-		goto put_otg;
+		goto put_psupply;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
 	of_node_put(dwc3_node);
 	if (!mdwc->dwc3) {
 		dev_err(&pdev->dev, "failed to get dwc3 platform device\n");
-		goto put_otg;
+		goto put_psupply;
 	}
 
 	mdwc->hs_phy = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
@@ -2677,13 +2667,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
 
-	mdwc->otg_xceiv = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
-	if (IS_ERR(mdwc->otg_xceiv))
-		mdwc->otg_xceiv = NULL;
+	dwc = platform_get_drvdata(mdwc->dwc3);
+	if (dwc && dwc->dotg)
+		mdwc->otg_xceiv = dwc->dotg->otg.phy;
 
-	/* Register with OTG if present, ignore USB2 OTG using other PHY */
-	if (mdwc->otg_xceiv &&
-			!(mdwc->otg_xceiv->flags & ENABLE_SECONDARY_PHY)) {
+	/* Register with OTG if present */
+	if (mdwc->otg_xceiv) {
 		/* Skip charger detection for simulator targets */
 		if (!mdwc->charger.skip_chg_detect) {
 			mdwc->charger.start_detection = dwc3_start_chg_det;
@@ -2721,8 +2710,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
 			}
 		}
-		mdwc->otg_xceiv = NULL;
 	}
+
 	if (mdwc->ext_xceiv.otg_capability && mdwc->charger.start_detection) {
 		ret = dwc3_msm_setup_cdev(mdwc);
 		if (ret)
@@ -2745,8 +2734,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
-put_otg:
-	dwc3_otg_deregister_phys(pdev);
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
@@ -2789,10 +2776,8 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		qpnp_adc_tm_usbid_end(mdwc->adc_tm_dev);
 	if (dwc3_debugfs_root)
 		debugfs_remove_recursive(dwc3_debugfs_root);
-	if (mdwc->otg_xceiv) {
+	if (mdwc->otg_xceiv)
 		dwc3_start_chg_det(&mdwc->charger, false);
-		dwc3_otg_deregister_phys(pdev);
-	}
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
 	if (mdwc->vbus_otg)
