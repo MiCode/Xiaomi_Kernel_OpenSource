@@ -12,6 +12,20 @@
 
 /* Stub Regulator */
 / {
+	pma8084_s1: regulator-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_s1";
+		qcom,set = <1>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <950000>;
+	};
+	pma8084_s2: regulator-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_s2";
+		qcom,set = <1>;
+		regulator-min-microvolt = <915000>;
+		regulator-max-microvolt = <915000>;
+	};
 	pma8084_l12_ao: regulator-l12-ao {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "8084_l12_ao";
@@ -28,33 +42,10 @@
 	};
 };
 
-
-
 /* QPNP controlled regulators: */
 
 &spmi_bus {
 	qcom,pma8084@1 {
-		pma8084_s1: regulator@1400 {
-
-			regulator-min-microvolt = <950000>;
-			regulator-max-microvolt = <950000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
-		};
-
-		pma8084_s2: regulator@1700 {
-			regulator-min-microvolt = <915000>;
-			regulator-max-microvolt = <915000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			qcom,system-load = <100000>;
-			status = "okay";
-		};
-
 		/* eMMC SMPS4*/
 		pma8084_s4: regulator@1d00 {
 			regulator-min-microvolt = <1800000>;
