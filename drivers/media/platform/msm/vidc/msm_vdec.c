@@ -119,6 +119,11 @@ static const char *const vp8_profile_level[] = {
 	"3.0",
 };
 
+static const char *const mpeg_vidc_video_h264_mvc_layout[] = {
+	"Frame packing arrangement sequential",
+	"Frame packing arrangement top-bottom",
+};
+
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
@@ -383,25 +388,23 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 		.name = "H264 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
 		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
-		.step = 1,
 		.menu_skip_mask = 0,
 		.cluster = 0,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
 		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
 		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.step = 0,
 		.menu_skip_mask = 0,
 		.cluster = 0,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE,
@@ -497,6 +500,19 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = NULL,
 		.cluster = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MVC_BUFFER_LAYOUT,
+		.name = "MVC buffer layout",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_MVC_TOP_BOTTOM,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_MVC_SEQUENTIAL,
+		.menu_skip_mask = ~(
+			(1 << V4L2_MPEG_VIDC_VIDEO_MVC_SEQUENTIAL) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_MVC_TOP_BOTTOM)
+			),
+		.qmenu = mpeg_vidc_video_h264_mvc_layout,
+		.cluster = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -511,6 +527,43 @@ static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
 	return (width * height * 3/2)/2;
+}
+
+static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
+					struct v4l2_ctrl *ctrl)
+{
+	int rc = 0;
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDC_VIDEO_MVC_BUFFER_LAYOUT:
+		if (inst->fmts[OUTPUT_PORT]->fourcc != V4L2_PIX_FMT_H264_MVC) {
+			dprintk(VIDC_ERR, "Control 0x%x only valid for MVC",
+					ctrl->id);
+			rc = -ENOTSUPP;
+			break;
+		}
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
+			ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH) {
+			dprintk(VIDC_ERR, "Profile 0x%x not supported for MVC",
+					ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
+			ctrl->val >= V4L2_MPEG_VIDEO_H264_LEVEL_5_2) {
+			dprintk(VIDC_ERR, "Level 0x%x not supported for MVC",
+					ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	return rc;
 }
 
 struct msm_vidc_format vdec_formats[] = {
@@ -566,6 +619,14 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "H264_MVC",
+		.description = "H264_MVC compressed format",
+		.fourcc = V4L2_PIX_FMT_H264_MVC,
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
@@ -1772,12 +1833,17 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_buffer_alloc_mode alloc_mode;
 	struct hal_multi_stream multi_stream;
 	struct hfi_scs_threshold scs_threshold;
+	struct hal_mvc_buffer_layout layout;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	rc = is_ctrl_valid_for_codec(inst, ctrl);
+	if (rc)
+		return rc;
 
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
@@ -1968,6 +2034,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		scs_threshold.threshold_value = ctrl->val;
 		pdata = &scs_threshold;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MVC_BUFFER_LAYOUT:
+	{
+		property_id = HAL_PARAM_MVC_BUFFER_LAYOUT;
+		layout.layout_type = msm_comm_get_hal_buffer_layout(ctrl->val);
+		layout.bright_view_first = 0;
+		layout.ngap = 0;
+		pdata = &layout;
+		break;
+	}
 	default:
 		break;
 	}

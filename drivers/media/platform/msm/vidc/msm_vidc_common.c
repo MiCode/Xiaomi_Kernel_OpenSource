@@ -1641,6 +1641,9 @@ enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_H264_NO_SC:
 		codec = HAL_VIDEO_CODEC_H264;
 		break;
+	case V4L2_PIX_FMT_H264_MVC:
+		codec = HAL_VIDEO_CODEC_MVC;
+		break;
 	case V4L2_PIX_FMT_H263:
 		codec = HAL_VIDEO_CODEC_H263;
 		break;
@@ -1666,10 +1669,6 @@ enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_DIVX:
 		codec = HAL_VIDEO_CODEC_DIVX;
 		break;
-		/*HAL_VIDEO_CODEC_MVC
-		  HAL_VIDEO_CODEC_SPARK
-		  HAL_VIDEO_CODEC_VP6
-		  HAL_VIDEO_CODEC_VP7*/
 	case V4L2_PIX_FMT_HEVC:
 		codec = HAL_VIDEO_CODEC_HEVC;
 		break;
@@ -3221,6 +3220,23 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	}
 	return ret;
 };
+
+enum hal_buffer_layout_type msm_comm_get_hal_buffer_layout(
+	enum v4l2_mpeg_vidc_video_mvc_layout index)
+{
+	int ret = 0;
+	switch (index) {
+	case V4L2_MPEG_VIDC_VIDEO_MVC_SEQUENTIAL:
+		ret = HAL_BUFFER_LAYOUT_SEQ;
+		break;
+	case V4L2_MPEG_VIDC_VIDEO_MVC_TOP_BOTTOM:
+		ret = HAL_BUFFER_LAYOUT_TOP_BOTTOM;
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
 
 int msm_comm_get_domain_partition(struct msm_vidc_inst *inst, u32 flags,
 	enum v4l2_buf_type buf_type, int *domain, int *partition)
