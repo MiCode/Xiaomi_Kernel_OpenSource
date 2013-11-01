@@ -16,7 +16,6 @@
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
-#include "a2xx_reg.h"
 #include "a3xx_reg.h"
 #include "adreno_cp_parser.h"
 

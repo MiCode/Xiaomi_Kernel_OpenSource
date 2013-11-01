@@ -417,7 +417,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		return ERR_PTR(ret);
 	}
 
-	drawctxt->bin_base_offset = 0;
 	drawctxt->timestamp = 0;
 
 	drawctxt->base.flags = *flags & (KGSL_CONTEXT_PREAMBLE |
@@ -635,27 +634,6 @@ static inline int context_save(struct adreno_device *adreno_dev,
 		return 0;
 
 	return context->ops->save(adreno_dev, context);
-}
-
-/**
- * adreno_drawctxt_set_bin_base_offset - set bin base offset for the context
- * @device - KGSL device that owns the context
- * @context- Generic KGSL context container for the context
- * @offset - Offset to set
- *
- * Set the bin base offset for A2XX devices.  Not valid for A3XX devices.
- */
-
-void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
-				      struct kgsl_context *context,
-				      unsigned int offset)
-{
-	struct adreno_context *drawctxt;
-
-	if (context == NULL)
-		return;
-	drawctxt = ADRENO_CONTEXT(context);
-	drawctxt->bin_base_offset = offset;
 }
 
 /**

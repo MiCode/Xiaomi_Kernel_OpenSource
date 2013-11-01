@@ -14,8 +14,6 @@
 #define __ADRENO_DRAWCTXT_H
 
 #include "adreno_pm4types.h"
-#include "a2xx_reg.h"
-
 
 /* Symbolic table for the adreno draw context type */
 #define ADRENO_DRAWCTXT_TYPES \
@@ -53,14 +51,11 @@ struct gmem_shadow_t {
 	 * textures are used
 	*/
 
-	enum COLORFORMATX format; /* Unused on A3XX */
 	unsigned int size;	/* Size of surface used to store GMEM */
 	unsigned int width;	/* Width of surface used to store GMEM */
 	unsigned int height;	/* Height of surface used to store GMEM */
 	unsigned int pitch;	/* Pitch of surface used to store GMEM */
 	unsigned int gmem_pitch;	/* Pitch value used for GMEM */
-	unsigned int *gmem_save_commands;    /* Unused on A3XX */
-	unsigned int *gmem_restore_commands; /* Unused on A3XX */
 	unsigned int gmem_save[3];
 	unsigned int gmem_restore[3];
 	struct kgsl_memdesc quad_vertices;
@@ -110,7 +105,6 @@ extern const struct adreno_context_ops adreno_preamble_ctx_ops;
  * @reg_save: A2XX command buffer to save context registers
  * @shader_fixup: A2XX command buffer to "fix" shaders on restore
  * @chicken_restore: A2XX command buffer to "fix" register restore
- * @bin_base_offset: Saved value of the A2XX BIN_BASE_OFFSET register
  * @regconstant_save: A3XX command buffer to save some registers
  * @constant_retore: A3XX command buffer to restore some registers
  * @hslqcontrol_restore: A3XX command buffer to restore HSLSQ registers
@@ -151,7 +145,6 @@ struct adreno_context {
 	unsigned int reg_save[3];
 	unsigned int shader_fixup[3];
 	unsigned int chicken_restore[3];
-	unsigned int bin_base_offset;
 
 	/* A3XX specific items */
 	unsigned int regconstant_save[3];
@@ -219,9 +212,6 @@ void adreno_drawctxt_sched(struct kgsl_device *device,
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags);
-void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
-					struct kgsl_context *context,
-					unsigned int offset);
 
 int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
@@ -265,8 +255,6 @@ static inline unsigned int *reg_range(unsigned int *cmd, unsigned int start,
 static inline void calc_gmemsize(struct gmem_shadow_t *shadow, int gmem_size)
 {
 	int w = 64, h = 64;
-
-	shadow->format = COLORX_8_8_8_8;
 
 	/* convert from bytes to 32-bit words */
 	gmem_size = (gmem_size + 3) / 4;
