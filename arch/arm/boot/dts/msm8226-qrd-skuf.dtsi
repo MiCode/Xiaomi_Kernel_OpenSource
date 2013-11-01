@@ -82,7 +82,7 @@
 			avdd-supply = <&tp_power>;
 			goodix,panel-coords = <0 0 720 1200>;
 			goodix,display-coords = <0 0 720 1080>;
-			goodix,button-map= <158 102 139>;
+			goodix,button-map= <139 172 158>;
 			goodix,product-id = "915";
 			goodix,cfg-data0 = [
 				41 D0 02 00 05 05 35 11 01 0F

@@ -46,6 +46,7 @@
 #define GOODIX_SUSPEND_LEVEL 1
 #endif
 
+#define MAX_BUTTONS 4
 #define GOODIX_MAX_CFG_GROUP	6
 #define GTP_FW_NAME_MAXSIZE	50
 
@@ -69,6 +70,8 @@ struct goodix_ts_platform_data {
 	bool enable_power_off;
 	size_t config_data_len[GOODIX_MAX_CFG_GROUP];
 	u8 *config_data[GOODIX_MAX_CFG_GROUP];
+	u32 button_map[MAX_BUTTONS];
+	u8 num_button;
 };
 struct goodix_ts_data {
 	spinlock_t irq_lock;
