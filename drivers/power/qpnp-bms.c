@@ -203,6 +203,7 @@ struct qpnp_bms_chip {
 	int				low_voltage_threshold;
 	int				low_soc_calc_threshold;
 	int				low_soc_calculate_soc_ms;
+	int				low_voltage_calculate_soc_ms;
 	int				calculate_soc_ms;
 	struct bms_wakeup_source	soc_wake_source;
 	struct wake_lock		cv_wake_lock;
@@ -2547,22 +2548,26 @@ static void recalculate_work(struct work_struct *work)
 	recalculate_soc(chip);
 }
 
+static int get_calculation_delay_ms(struct qpnp_bms_chip *chip)
+{
+	if (wake_lock_active(&chip->low_voltage_wake_lock))
+		return chip->low_voltage_calculate_soc_ms;
+	else if (chip->calculated_soc < chip->low_soc_calc_threshold)
+		return chip->low_soc_calculate_soc_ms;
+	else
+		return chip->calculate_soc_ms;
+}
+
 static void calculate_soc_work(struct work_struct *work)
 {
 	struct qpnp_bms_chip *chip = container_of(work,
 				struct qpnp_bms_chip,
 				calculate_soc_delayed_work.work);
-	int soc = recalculate_soc(chip);
 
-	if (soc < chip->low_soc_calc_threshold
-			|| wake_lock_active(&chip->low_voltage_wake_lock))
-		schedule_delayed_work(&chip->calculate_soc_delayed_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(chip->low_soc_calculate_soc_ms)));
-	else
-		schedule_delayed_work(&chip->calculate_soc_delayed_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(chip->calculate_soc_ms)));
+	recalculate_soc(chip);
+	schedule_delayed_work(&chip->calculate_soc_delayed_work,
+		round_jiffies_relative(msecs_to_jiffies
+		(get_calculation_delay_ms(chip))));
 }
 
 static void configure_vbat_monitor_low(struct qpnp_bms_chip *chip)
@@ -3712,6 +3717,8 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			"low-soc-calculate-soc-threshold", rc);
 	SPMI_PROP_READ(low_soc_calculate_soc_ms,
 			"low-soc-calculate-soc-ms", rc);
+	SPMI_PROP_READ(low_voltage_calculate_soc_ms,
+			"low-voltage-calculate-soc-ms", rc);
 	SPMI_PROP_READ(calculate_soc_ms, "calculate-soc-ms", rc);
 	SPMI_PROP_READ(high_ocv_correction_limit_uv,
 			"high-ocv-correction-limit-uv", rc);
@@ -4320,10 +4327,7 @@ static int bms_resume(struct device *dev)
 	if (rc) {
 		pr_err("Could not read current time: %d\n", rc);
 	} else {
-		if (chip->calculated_soc < chip->low_soc_calc_threshold)
-			soc_calc_period = chip->low_soc_calculate_soc_ms;
-		else
-			soc_calc_period = chip->calculate_soc_ms;
+		soc_calc_period = get_calculation_delay_ms(chip);
 		time_since_last_recalc = tm_now_sec - chip->last_recalc_time;
 		pr_debug("Time since last recalc: %lu\n",
 				time_since_last_recalc);
