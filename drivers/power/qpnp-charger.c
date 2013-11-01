@@ -868,7 +868,7 @@ qpnp_chg_vinmin_set(struct qpnp_chg_chip *chip, int voltage)
 	}
 	if (voltage >= QPNP_CHG_VINMIN_HIGH_MIN_MV) {
 		temp = QPNP_CHG_VINMIN_HIGH_MIN_VAL;
-		temp += (voltage - QPNP_CHG_VINMIN_MIN_MV)
+		temp += (voltage - QPNP_CHG_VINMIN_HIGH_MIN_MV)
 			/ QPNP_CHG_VINMIN_STEP_HIGH_MV;
 	} else {
 		temp = QPNP_CHG_VINMIN_MIN_VAL;
@@ -896,7 +896,7 @@ qpnp_chg_vinmin_get(struct qpnp_chg_chip *chip)
 
 	if (vin_min == 0)
 		vin_min_mv = QPNP_CHG_I_MAX_MIN_100;
-	else if (vin_min > QPNP_CHG_VINMIN_HIGH_MIN_VAL)
+	else if (vin_min >= QPNP_CHG_VINMIN_HIGH_MIN_VAL)
 		vin_min_mv = QPNP_CHG_VINMIN_HIGH_MIN_MV +
 			(vin_min - QPNP_CHG_VINMIN_HIGH_MIN_VAL)
 				* QPNP_CHG_VINMIN_STEP_HIGH_MV;
