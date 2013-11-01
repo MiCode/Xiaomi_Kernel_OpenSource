@@ -754,6 +754,7 @@ static struct rcg_clk usb3_aux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_usb3_pipe_clk[] = {
+	F(          19200000,            xo,    1,    0,     0),
 	F_EXT_SRC( 125000000, usb3_pipe_clk,    1,    0,     0),
 	F_END
 };
