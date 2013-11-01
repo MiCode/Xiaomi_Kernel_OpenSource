@@ -1080,7 +1080,7 @@ static struct device_attribute image_crm_version =
 			msm_get_image_crm_version, msm_set_image_crm_version);
 
 static struct device_attribute select_image =
-	__ATTR(select_image, S_IRUGO | S_IWUGO,
+	__ATTR(select_image, S_IRUGO | S_IWUSR,
 			msm_get_image_number, msm_select_image);
 
 static struct sysdev_class soc_sysdev_class = {
