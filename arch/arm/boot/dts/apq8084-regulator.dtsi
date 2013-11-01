@@ -453,7 +453,7 @@
 			qcom,retention-voltage = <675000>;
 			qcom,ldo-default-voltage = <750000>;
 			qcom,ldo-threshold-voltage = <850000>;
-			qcom,ldo-delta-voltage = <50000>;
+			qcom,ldo-delta-voltage = <25000>;
 			qcom,cpu-num = <0>;
 		};
 
@@ -469,7 +469,7 @@
 			qcom,retention-voltage = <675000>;
 			qcom,ldo-default-voltage = <750000>;
 			qcom,ldo-threshold-voltage = <850000>;
-			qcom,ldo-delta-voltage = <50000>;
+			qcom,ldo-delta-voltage = <25000>;
 			qcom,cpu-num = <1>;
 		};
 
@@ -485,7 +485,7 @@
 			qcom,retention-voltage = <675000>;
 			qcom,ldo-default-voltage = <750000>;
 			qcom,ldo-threshold-voltage = <850000>;
-			qcom,ldo-delta-voltage = <50000>;
+			qcom,ldo-delta-voltage = <25000>;
 			qcom,cpu-num = <2>;
 		};
 
@@ -501,7 +501,7 @@
 			qcom,retention-voltage = <675000>;
 			qcom,ldo-default-voltage = <750000>;
 			qcom,ldo-threshold-voltage = <850000>;
-			qcom,ldo-delta-voltage = <50000>;
+			qcom,ldo-delta-voltage = <25000>;
 			qcom,cpu-num = <3>;
 		};
 	};
