@@ -73,6 +73,27 @@
 		};
 	};
 
+	memory {
+		secure_mem: secure_region@0 {
+			linux,contiguous-region;
+			reg = <0 0 0 0x6D00000>;
+			label = "secure_mem";
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			linux,contiguous-region;
+			reg = <0 0 0 0xd00000>;
+			label = "qseecom_mem";
+		};
+
+		audio_mem: audio_region@0 {
+			linux,contiguous-region;
+			linux,reserve-region;
+			reg = <0 0 0 0x314000>;
+			label = "audio_mem";
+		};
+	};
+
 	soc: soc { };
 };
 
