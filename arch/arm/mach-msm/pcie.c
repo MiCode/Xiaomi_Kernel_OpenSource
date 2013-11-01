@@ -34,6 +34,7 @@
 #include <mach/gpiomux.h>
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
+#include <mach/clk.h>
 
 #include "pcie.h"
 
@@ -95,6 +96,7 @@
 #define XMLH_LINK_UP                          0x400
 #define MAX_LINK_RETRIES 5
 #define MAX_BUS_NUM 3
+#define MAX_PROP_SIZE 32
 
 /* Config Space Offsets */
 #define BDF_OFFSET(bus, device, function) \
@@ -123,9 +125,9 @@ static struct msm_pcie_dev_t msm_pcie_dev[MAX_RC_NUM];
 
 /* regulators */
 static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
-	{NULL, "vreg-3.3",	   0,       0,	     0},
-	{NULL, "vreg-1.8", 1800000, 1800000,    1000},
-	{NULL, "vreg-0.9", 1000000, 1000000,   24000}
+	{NULL, "vreg-3.3", 0, 0, 0, false},
+	{NULL, "vreg-1.8", 1800000, 1800000, 1000, true},
+	{NULL, "vreg-0.9", 1000000, 1000000, 24000, true}
 };
 
 /* GPIOs */
@@ -139,20 +141,20 @@ static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 static struct msm_pcie_clk_info_t
 	msm_pcie_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_CLK] = {
 	{
-	{NULL, "pcie_0_ref_clk_src", 0},
-	{NULL, "pcie_0_aux_clk", 1010000},
-	{NULL, "pcie_0_cfg_ahb_clk", 0},
-	{NULL, "pcie_0_mstr_axi_clk", 0},
-	{NULL, "pcie_0_slv_axi_clk", 0},
-	{NULL, "pcie_0_ldo", 0}
+	{NULL, "pcie_0_ref_clk_src", 0, false},
+	{NULL, "pcie_0_aux_clk", 1010000, true},
+	{NULL, "pcie_0_cfg_ahb_clk", 0, true},
+	{NULL, "pcie_0_mstr_axi_clk", 0, true},
+	{NULL, "pcie_0_slv_axi_clk", 0, true},
+	{NULL, "pcie_0_ldo", 0, true}
 	},
 	{
-	{NULL, "pcie_1_ref_clk_src", 0},
-	{NULL, "pcie_1_aux_clk", 1010000},
-	{NULL, "pcie_1_cfg_ahb_clk", 0},
-	{NULL, "pcie_1_mstr_axi_clk", 0},
-	{NULL, "pcie_1_slv_axi_clk", 0},
-	{NULL, "pcie_1_ldo", 0}
+	{NULL, "pcie_1_ref_clk_src", 0, false},
+	{NULL, "pcie_1_aux_clk", 1010000, true},
+	{NULL, "pcie_1_cfg_ahb_clk", 0, true},
+	{NULL, "pcie_1_mstr_axi_clk", 0, true},
+	{NULL, "pcie_1_slv_axi_clk", 0, true},
+	{NULL, "pcie_1_ldo", 0, true}
 	}
 };
 
@@ -160,14 +162,12 @@ static struct msm_pcie_clk_info_t
 static struct msm_pcie_clk_info_t
 	msm_pcie_pipe_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_CLK] = {
 	{
-	{NULL, "pcie_0_pipe_clk", 250000000},
+	{NULL, "pcie_0_pipe_clk", 250000000, true},
 	},
 	{
-	{NULL, "pcie_1_pipe_clk", 250000000},
+	{NULL, "pcie_1_pipe_clk", 250000000, true},
 	}
 };
-
-
 
 /* resources */
 static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
@@ -400,9 +400,12 @@ static int msm_pcie_vreg_init(u32 rc_idx, struct device *dev)
 		pcie_drv.vreg_on = true;
 	}
 
-	for (i = 0; i < msm_pcie_dev[rc_idx].vreg_n; i++) {
+	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
 		info = &msm_pcie_dev[rc_idx].vreg[i];
 		vreg = info->hdl;
+
+		if (!vreg)
+			continue;
 
 		PCIE_DBG("Vreg %s is being enabled\n", info->name);
 		if (info->max_v) {
@@ -432,8 +435,12 @@ static int msm_pcie_vreg_init(u32 rc_idx, struct device *dev)
 	}
 
 	if (rc)
-		while (i--)
-			regulator_disable(msm_pcie_dev[rc_idx].vreg[i].hdl);
+		while (i--) {
+			struct regulator *hdl =
+				msm_pcie_dev[rc_idx].vreg[i].hdl;
+			if (hdl)
+				regulator_disable(hdl);
+		}
 
 	if (rc)
 		pcie_drv.vreg_on = false;
@@ -452,10 +459,12 @@ static void msm_pcie_vreg_deinit(u32 rc_idx)
 		return;
 	}
 
-	for (i = msm_pcie_dev[rc_idx].vreg_n - 1; i >= 0; i--) {
-		PCIE_DBG("Vreg %s is being disabled\n",
-					msm_pcie_dev[rc_idx].vreg[i].name);
-		regulator_disable(msm_pcie_dev[rc_idx].vreg[i].hdl);
+	for (i = MSM_PCIE_MAX_VREG - 1; i >= 0; i--) {
+		if (msm_pcie_dev[rc_idx].vreg[i].hdl) {
+			PCIE_DBG("Vreg %s is being disabled\n",
+				msm_pcie_dev[rc_idx].vreg[i].name);
+			regulator_disable(msm_pcie_dev[rc_idx].vreg[i].hdl);
+		}
 	}
 }
 
@@ -483,6 +492,9 @@ static int msm_pcie_clk_init(u32 rc_idx, struct device *dev)
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
 		info = &msm_pcie_dev[rc_idx].clk[i];
 
+		if (!info->hdl)
+			continue;
+
 		if (info->freq) {
 			rc = clk_set_rate(info->hdl, info->freq);
 			if (rc) {
@@ -502,8 +514,12 @@ static int msm_pcie_clk_init(u32 rc_idx, struct device *dev)
 
 	if (rc) {
 		PCIE_DBG("disable clocks for error handling\n");
-		while (i--)
-			clk_disable_unprepare(msm_pcie_dev[rc_idx].clk[i].hdl);
+		while (i--) {
+			struct clk *hdl = msm_pcie_dev[rc_idx].clk[i].hdl;
+			if (hdl)
+				clk_disable_unprepare(hdl);
+		}
+
 		regulator_disable(msm_pcie_dev[rc_idx].gdsc);
 	}
 
@@ -515,7 +531,9 @@ static void msm_pcie_clk_deinit(u32 rc_idx)
 	int i;
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
-		clk_disable_unprepare(msm_pcie_dev[rc_idx].clk[i].hdl);
+		if (msm_pcie_dev[rc_idx].clk[i].hdl)
+			clk_disable_unprepare(msm_pcie_dev[rc_idx].clk[i].hdl);
+
 	regulator_disable(msm_pcie_dev[rc_idx].gdsc);
 }
 
@@ -535,6 +553,11 @@ static int msm_pcie_pipe_clk_init(u32 rc_idx, struct device *dev)
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++) {
 		info = &msm_pcie_dev[rc_idx].pipeclk[i];
+
+		if (!info->hdl)
+			continue;
+
+		clk_reset(info->hdl, CLK_RESET_DEASSERT);
 
 		if (info->freq) {
 			rc = clk_set_rate(info->hdl, info->freq);
@@ -556,8 +579,9 @@ static int msm_pcie_pipe_clk_init(u32 rc_idx, struct device *dev)
 	if (rc) {
 		PCIE_DBG("disable pipe clocks for error handling\n");
 		while (i--)
-			clk_disable_unprepare(
-			   msm_pcie_dev[rc_idx].pipeclk[i].hdl);
+			if (msm_pcie_dev[rc_idx].pipeclk[i].hdl)
+				clk_disable_unprepare(
+					msm_pcie_dev[rc_idx].pipeclk[i].hdl);
 	}
 
 	return rc;
@@ -568,7 +592,9 @@ static void msm_pcie_pipe_clk_deinit(u32 rc_idx)
 	int i;
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++)
-		clk_disable_unprepare(msm_pcie_dev[rc_idx].pipeclk[i].hdl);
+		if (msm_pcie_dev[rc_idx].pipeclk[i].hdl)
+			clk_disable_unprepare(
+				msm_pcie_dev[rc_idx].pipeclk[i].hdl);
 }
 
 
@@ -636,7 +662,7 @@ static void msm_pcie_config_controller(u32 rc_idx)
 
 static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 {
-	int i, ret = 0;
+	int i, len, cnt, ret = 0;
 	struct msm_pcie_vreg_info_t *vreg_info;
 	struct msm_pcie_gpio_info_t *gpio_info;
 	struct msm_pcie_clk_info_t  *clk_info;
@@ -644,6 +670,30 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 	struct msm_pcie_res_info_t *res_info;
 	struct msm_pcie_irq_info_t *irq_info;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
+	char prop_name[MAX_PROP_SIZE];
+	const __be32 *prop;
+	u32 *clkfreq = NULL;
+
+	cnt = of_property_count_strings((&pdev->dev)->of_node,
+			"clock-names");
+	if (cnt > 0) {
+		clkfreq = kzalloc(cnt * sizeof(*clkfreq),
+					GFP_KERNEL);
+		if (!clkfreq) {
+			pr_err("%s: memory alloc failed\n",
+					__func__);
+			return -ENOMEM;
+		}
+		ret = of_property_read_u32_array(
+			(&pdev->dev)->of_node,
+			"max-clock-frequency-hz", clkfreq, cnt);
+		if (ret) {
+			pr_err(
+				"%s: invalid max-clock-frequency-hz property, %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
 
 	PCIE_DBG("\n");
 
@@ -651,11 +701,34 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		vreg_info = &dev->vreg[i];
 		vreg_info->hdl =
 				devm_regulator_get(&pdev->dev, vreg_info->name);
+
 		if (IS_ERR(vreg_info->hdl)) {
-			PCIE_DBG("Vreg %s doesn't exist\n", vreg_info->name);
-			return PTR_ERR(vreg_info->hdl);
-		} else
+			if (vreg_info->required) {
+				PCIE_DBG("Vreg %s doesn't exist\n",
+					vreg_info->name);
+				return PTR_ERR(vreg_info->hdl);
+			} else {
+				PCIE_DBG("Optional Vreg %s doesn't exist\n",
+					vreg_info->name);
+				vreg_info->hdl = NULL;
+			}
+		} else {
 			dev->vreg_n++;
+			snprintf(prop_name, MAX_PROP_SIZE,
+				"qcom,%s-voltage-level", vreg_info->name);
+			prop = of_get_property((&pdev->dev)->of_node,
+						prop_name, &len);
+			if (!prop || (len != (3 * sizeof(__be32)))) {
+				PCIE_DBG("%s %s property\n",
+					prop ? "invalid format" :
+					"no", prop_name);
+			} else {
+				vreg_info->max_v = be32_to_cpup(&prop[0]);
+				vreg_info->min_v = be32_to_cpup(&prop[1]);
+				vreg_info->opt_mode =
+					be32_to_cpup(&prop[2]);
+			}
+		}
 	}
 
 	dev->gdsc = devm_regulator_get(&pdev->dev, "gdsc_vdd");
@@ -691,8 +764,21 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		clk_info->hdl = devm_clk_get(&pdev->dev, clk_info->name);
 
 		if (IS_ERR(clk_info->hdl)) {
-			PCIE_DBG("Clock %s isn't available\n", clk_info->name);
-			return PTR_ERR(clk_info->hdl);
+			if (clk_info->required) {
+				PCIE_DBG("Clock %s isn't available:%ld\n",
+				clk_info->name, PTR_ERR(clk_info->hdl));
+				return PTR_ERR(clk_info->hdl);
+			} else {
+				PCIE_DBG("Ignoring Clock %s\n", clk_info->name);
+				clk_info->hdl = NULL;
+			}
+		} else {
+			if (clkfreq != NULL) {
+				clk_info->freq = clkfreq[i +
+					MSM_PCIE_MAX_PIPE_CLK];
+				PCIE_DBG("Freq of Clock %s is:%d\n",
+					clk_info->name, clk_info->freq);
+			}
 		}
 	}
 
@@ -702,8 +788,20 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		clk_info->hdl = devm_clk_get(&pdev->dev, clk_info->name);
 
 		if (IS_ERR(clk_info->hdl)) {
-			PCIE_DBG("Clock %s isn't available\n", clk_info->name);
-			return PTR_ERR(clk_info->hdl);
+			if (clk_info->required) {
+				PCIE_DBG("Clock %s isn't available:%ld\n",
+				clk_info->name, PTR_ERR(clk_info->hdl));
+				return PTR_ERR(clk_info->hdl);
+			} else {
+				PCIE_DBG("Ignoring Clock %s\n", clk_info->name);
+				clk_info->hdl = NULL;
+			}
+		} else {
+			if (clkfreq != NULL) {
+				clk_info->freq = clkfreq[i];
+				PCIE_DBG("Freq of Clock %s is:%d\n",
+					clk_info->name, clk_info->freq);
+			}
 		}
 	}
 

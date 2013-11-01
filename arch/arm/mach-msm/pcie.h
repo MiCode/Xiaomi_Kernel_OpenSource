@@ -100,6 +100,7 @@ struct msm_pcie_vreg_info_t {
 	uint32_t           max_v;
 	uint32_t           min_v;
 	uint32_t           opt_mode;
+	bool               required;
 };
 
 /* clock info structure */
@@ -107,6 +108,7 @@ struct msm_pcie_clk_info_t {
 	struct clk  *hdl;
 	char        *name;
 	u32         freq;
+	bool        required;
 };
 
 /* resource info structure */

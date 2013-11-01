@@ -35,6 +35,17 @@ Required properties:
     vreg-3.3-supply: phandle to the analog supply for the PCIe controller.
     vreg-0.9-supply: phandle to the analog supply for the PCIe controller.
 
+Optional Properties:
+  - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
+    Should be specified in pairs (max, min, optimal), units uV.
+  - clock-names: list of names of clock inputs.
+		     Should be "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+  - max-clock-frequency-hz: list of the maximum operating frequencies stored
+				in the same order of clock names;
+
 Example:
 
 	pcie0: qcom,pcie@fc520000 {
@@ -80,4 +91,14 @@ Example:
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l4>;
 		vreg-3.3-supply = <&wlan_vreg>;
+
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
+						<0>, <0>, <0>, <0>;
 	};
