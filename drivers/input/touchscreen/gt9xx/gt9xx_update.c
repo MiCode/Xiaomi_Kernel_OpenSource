@@ -31,7 +31,6 @@
  *          2. support firmware header array update.
  *                          By Meta, 2013/03/11
  */
-#include <linux/kthread.h>
 #include "gt9xx.h"
 
 #if GTP_HEADER_FW_UPDATE
@@ -1728,17 +1727,20 @@ file_fail:
 	return FAIL;
 }
 
+static void gup_update_work(struct work_struct *work)
+{
+	if (gup_update_proc(NULL) == FAIL)
+		pr_err("Goodix update work fail!\n");
+}
+
 #if GTP_AUTO_UPDATE
 u8 gup_init_update_proc(struct goodix_ts_data *ts)
 {
-	struct task_struct *thread = NULL;
+	dev_dbg(&ts->client->dev, "Ready to run update work.");
 
-	pr_info("Ready to run update thread.");
-	thread = kthread_run(gup_update_proc, (void *)NULL, "guitar_update");
-	if (IS_ERR(thread)) {
-		pr_err("Failed to create update thread.\n");
-		return -EINVAL;
-	}
+	INIT_DELAYED_WORK(&ts->goodix_update_work, gup_update_work);
+	schedule_delayed_work(&ts->goodix_update_work,
+		msecs_to_jiffies(3000));
 
 	return 0;
 }
