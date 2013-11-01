@@ -28,6 +28,8 @@
 
 #if defined(CONFIG_DEBUG_FS)
 
+#define SZ_SMEM_ALLOCATION_TABLE 8192
+
 static void debug_f3(struct seq_file *s)
 {
 	char *x;
@@ -149,13 +151,24 @@ static void debug_read_diag_msg(struct seq_file *s)
 static void debug_read_mem(struct seq_file *s)
 {
 	unsigned n;
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	struct smem_heap_entry *toc = shared->heap_toc;
+	struct smem_heap_info *heap_info;
+	struct smem_heap_entry *toc;
+
+	heap_info = smem_find(SMEM_HEAP_INFO, sizeof(struct smem_heap_info));
+	if (!heap_info) {
+		seq_puts(s, "SMEM_HEAP_INFO is NULL\n");
+		return;
+	}
+	toc = smem_find(SMEM_ALLOCATION_TABLE, SZ_SMEM_ALLOCATION_TABLE);
+	if (!toc) {
+		seq_puts(s, "SMEM_ALLOCATION_TABLE is NULL\n");
+		return;
+	}
 
 	seq_printf(s, "heap: init=%d free=%d remain=%d\n",
-		       shared->heap_info.initialized,
-		       shared->heap_info.free_offset,
-		       shared->heap_info.heap_remaining);
+		       heap_info->initialized,
+		       heap_info->free_offset,
+		       heap_info->heap_remaining);
 
 	for (n = 0; n < SMEM_NUM_ITEMS; n++) {
 		if (toc[n].allocated == 0)
@@ -167,11 +180,10 @@ static void debug_read_mem(struct seq_file *s)
 
 static void debug_read_smem_version(struct seq_file *s)
 {
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	uint32_t n, version;
 
 	for (n = 0; n < 32; n++) {
-		version = shared->version[n];
+		version = smem_get_version(n);
 		seq_printf(s, "entry %d: smem = %d  proc_comm = %d\n", n,
 			       version >> 16,
 			       version & 0xffff);
