@@ -33,6 +33,7 @@ struct wm_adsp_alg_region {
 	unsigned int alg;
 	int type;
 	unsigned int base;
+	unsigned int offset;
 	size_t len;
 };
 
@@ -86,6 +87,7 @@ struct wm_adsp {
 
 	int fw;
 	bool running;
+	int fw_ver;
 
 	struct regulator *dvfs;
 
