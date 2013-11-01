@@ -1225,6 +1225,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 					data->payload_size))
 				break;
 		case ASM_SESSION_CMD_PAUSE:
+		case ASM_SESSION_CMD_SUSPEND:
 		case ASM_DATA_CMD_EOS:
 		case ASM_STREAM_CMD_CLOSE:
 		case ASM_STREAM_CMD_FLUSH:
@@ -3868,6 +3869,11 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	case CMD_PAUSE:
 		pr_debug("%s:CMD_PAUSE\n", __func__);
 		hdr.opcode = ASM_SESSION_CMD_PAUSE;
+		state = &ac->cmd_state;
+		break;
+	case CMD_SUSPEND:
+		pr_debug("%s:CMD_SUSPEND\n", __func__);
+		hdr.opcode = ASM_SESSION_CMD_SUSPEND;
 		state = &ac->cmd_state;
 		break;
 	case CMD_FLUSH:
