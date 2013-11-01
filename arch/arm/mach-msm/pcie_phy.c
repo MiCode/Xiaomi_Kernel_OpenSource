@@ -25,6 +25,64 @@ static inline void write_phy(void *base, u32 offset, u32 value)
 	wmb();
 }
 
+#ifdef CONFIG_ARCH_MSMKRYPTON
+void pcie_phy_init(struct msm_pcie_dev_t *dev)
+{
+
+	PCIE_DBG("Initializing 28nm QMP phy - 19.2MHz\n");
+
+	write_phy(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0x03);
+
+	write_phy(dev->phy, QSERDES_COM_SYSCLK_EN_SEL_TXBAND, 0x08);
+	write_phy(dev->phy, QSERDES_COM_DEC_START1, 0x82);
+	write_phy(dev->phy, QSERDES_COM_DEC_START2, 0x03);
+	write_phy(dev->phy, QSERDES_COM_DIV_FRAC_START1, 0xD5);
+	write_phy(dev->phy, QSERDES_COM_DIV_FRAC_START2, 0xAA);
+	write_phy(dev->phy, QSERDES_COM_DIV_FRAC_START3, 0x4D);
+	write_phy(dev->phy, QSERDES_COM_PLLLOCK_CMP_EN, 0x01);
+	write_phy(dev->phy, QSERDES_COM_PLLLOCK_CMP1, 0x2B);
+	write_phy(dev->phy, QSERDES_COM_PLLLOCK_CMP2, 0x68);
+	write_phy(dev->phy, QSERDES_COM_PLL_CRCTRL, 0x7C);
+	write_phy(dev->phy, QSERDES_COM_PLL_CP_SETI, 0x02);
+	write_phy(dev->phy, QSERDES_COM_PLL_IP_SETP, 0x1F);
+	write_phy(dev->phy, QSERDES_COM_PLL_CP_SETP, 0x0F);
+	write_phy(dev->phy, QSERDES_COM_PLL_IP_SETI, 0x01);
+	write_phy(dev->phy, QSERDES_COM_IE_TRIM, 0x0F);
+	write_phy(dev->phy, QSERDES_COM_IP_TRIM, 0x0F);
+	write_phy(dev->phy, QSERDES_COM_PLL_CNTRL, 0x46);
+
+	/* CDR Settings */
+	write_phy(dev->phy, QSERDES_RX_CDR_CONTROL1, 0xF3);
+	write_phy(dev->phy, QSERDES_RX_CDR_CONTROL_HALF, 0x2B);
+
+	/* Calibration Settings */
+	write_phy(dev->phy, QSERDES_COM_RESETSM_CNTRL, 0x90);
+	write_phy(dev->phy, QSERDES_COM_RESETSM_CNTRL2, 0x05);
+
+	/* Additional writes */
+	write_phy(dev->phy, QSERDES_COM_RES_CODE_START_SEG1, 0x20);
+	write_phy(dev->phy, QSERDES_COM_RES_CODE_CAL_CSR, 0x77);
+	write_phy(dev->phy, QSERDES_COM_RES_TRIM_CONTROL, 0x15);
+	write_phy(dev->phy, QSERDES_TX_RCV_DETECT_LVL, 0x03);
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_GAIN1_LSB, 0xFF);
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_GAIN1_MSB, 0x1F);
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_GAIN2_LSB, 0xFF);
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_GAIN2_MSB, 0x00);
+	write_phy(dev->phy, QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2, 0x1A);
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1, 0x80);
+	write_phy(dev->phy, QSERDES_RX_SIGDET_ENABLES, 0x40);
+	write_phy(dev->phy, QSERDES_RX_SIGDET_CNTRL, 0x70);
+	write_phy(dev->phy, QSERDES_RX_SIGDET_DEGLITCH_CNTRL, 0x06);
+	write_phy(dev->phy, QSERDES_COM_PLL_RXTXEPCLK_EN, 0x10);
+	write_phy(dev->phy, PCIE_PHY_ENDPOINT_REFCLK_DRIVE, 0x10);
+	write_phy(dev->phy, PCIE_PHY_POWER_STATE_CONFIG1, 0x23);
+	write_phy(dev->phy, PCIE_PHY_POWER_STATE_CONFIG2, 0xCB);
+	write_phy(dev->phy, QSERDES_RX_RX_RCVR_IQ_EN, 0x31);
+
+	write_phy(dev->phy, PCIE_PHY_SW_RESET, 0x00);
+	write_phy(dev->phy, PCIE_PHY_START, 0x03);
+}
+#else
 void pcie_phy_init(struct msm_pcie_dev_t *dev)
 {
 
@@ -56,6 +114,7 @@ void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	write_phy(dev->phy, PCIE_PHY_SW_RESET,			0x00);
 	write_phy(dev->phy, PCIE_PHY_START,				0x03);
 }
+#endif
 
 bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
