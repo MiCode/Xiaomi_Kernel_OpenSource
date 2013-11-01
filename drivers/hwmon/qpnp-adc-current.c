@@ -1188,10 +1188,12 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 		result->result_uv = -result->result_uv;
 		result_current = -result_current;
 	}
+	result_current *= -1;
 	rc = qpnp_iadc_comp_result(iadc, &result_current);
 	if (rc < 0)
 		pr_err("Error during compensating the IADC\n");
 	rc = 0;
+	result_current *= -1;
 
 	result->result_ua = (int32_t) result_current;
 fail:
