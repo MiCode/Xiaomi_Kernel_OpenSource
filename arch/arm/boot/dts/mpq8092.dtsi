@@ -32,6 +32,7 @@
 /include/ "mpq8092-ion.dtsi"
 /include/ "mpq8092-pinctrl.dtsi"
 /include/ "mpq8092-smp2p.dtsi"
+/include/ "mpq8092-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
