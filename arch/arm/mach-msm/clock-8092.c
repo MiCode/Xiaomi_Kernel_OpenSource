@@ -6766,6 +6766,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc352000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc353000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fd828018.hwevent"),
+
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc320000.tpiu"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc324000.replicator"),
@@ -6795,6 +6797,9 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc352000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc353000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fd828018.hwevent"),
+
+	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent"),
 };
 
 static void __init reg_init(void)
