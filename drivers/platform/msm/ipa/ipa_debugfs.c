@@ -80,6 +80,9 @@ const char *ipa_ic_name[] = {
 	__stringify_1(IPA_NAT_DMA),
 	__stringify_1(IPA_IP_PACKET_TAG),
 	__stringify_1(IPA_IP_PACKET_INIT),
+	__stringify_1(IPA_IP_UNUSED),
+	__stringify_1(IPA_IP_UNUSED),
+	__stringify_1(IPA_DMA_SHARED_MEM),
 };
 
 const char *ipa_excp_name[] = {
