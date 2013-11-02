@@ -297,6 +297,20 @@ static struct mem_type mem_types[] = {
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE,
 		.domain    = DOMAIN_KERNEL,
 	},
+#ifdef CONFIG_ARM_LPAE
+	[MT_MEMORY_R] = {
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP2 | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RW] = {
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RX] = {
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP2,
+		.domain    = DOMAIN_KERNEL,
+	},
+#else
 	[MT_MEMORY_R] = {
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
 		.domain    = DOMAIN_KERNEL,
@@ -309,6 +323,7 @@ static struct mem_type mem_types[] = {
 		.prot_sect = PMD_TYPE_SECT,
 		.domain    = DOMAIN_KERNEL,
 	},
+#endif
 	[MT_ROM] = {
 		.prot_sect = PMD_TYPE_SECT,
 		.domain    = DOMAIN_KERNEL,
@@ -1464,7 +1479,11 @@ void mem_text_address_writeable(unsigned long addr)
 	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) != PMD_TYPE_SECT)
 		return;
 
+#ifdef CONFIG_ARM_LPAE
+	*mem_unprotect.pmd &= ~PMD_SECT_AP2;
+#else
 	*mem_unprotect.pmd &= ~PMD_SECT_APX;
+#endif
 
 	flush_pmd_entry(mem_unprotect.pmd_to_flush);
 	flush_tlb_kernel_page(mem_unprotect.addr);
