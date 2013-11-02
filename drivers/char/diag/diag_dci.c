@@ -618,6 +618,11 @@ static void copy_dci_log_from_apps(unsigned char *buf, int len,
 		return;
 
 	log_length = *(uint16_t *)(buf + 2);
+	if (log_length > USHRT_MAX - 4) {
+		pr_err("diag: Integer overflow in %s, log_len: %d",
+				__func__, log_length);
+		return;
+	}
 	total_length = 4 + log_length;
 
 	/* Check if we are within the len. The check should include the
