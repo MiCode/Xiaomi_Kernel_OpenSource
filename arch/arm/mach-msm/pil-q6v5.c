@@ -44,6 +44,7 @@
 
 /* QDSP6SS_GFMUX_CTL */
 #define Q6SS_CLK_ENA			BIT(1)
+#define Q6SS_CLK_SRC_SEL_C		BIT(3)
 
 /* QDSP6SS_PWR_CTL */
 #define Q6SS_L2DATA_SLP_NRET_N_0	BIT(0)
@@ -246,6 +247,10 @@ static int __pil_q6v5_reset(struct pil_desc *pil)
 	/* Turn on core clock */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_GFMUX_CTL);
 	val |= Q6SS_CLK_ENA;
+
+	/* Need a different clock source for v5.2.0 */
+	if (drv->qdsp6v5_2_0)
+		val |= Q6SS_CLK_SRC_SEL_C;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_GFMUX_CTL);
 
 	/* Start core execution */
@@ -358,6 +363,20 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	if (!drv->reg_base)
 		return ERR_PTR(-ENOMEM);
 
+	desc = &drv->desc;
+	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+				      &desc->name);
+	if (ret)
+		return ERR_PTR(ret);
+
+	desc->dev = &pdev->dev;
+
+	drv->qdsp6v5_2_0 = of_device_is_compatible(pdev->dev.of_node,
+						   "qcom,pil-femto-modem");
+
+	if (drv->qdsp6v5_2_0)
+		return drv;
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "halt_base");
 	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
@@ -368,12 +387,6 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 						"qcom,pil-q6v55-mss");
 	drv->qdsp6v55 |= of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v55-lpass");
-
-	desc = &drv->desc;
-	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
-				      &desc->name);
-	if (ret)
-		return ERR_PTR(ret);
 
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
@@ -407,8 +420,6 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	} else {
 		 drv->vreg_pll = NULL;
 	}
-
-	desc->dev = &pdev->dev;
 
 	return drv;
 }
