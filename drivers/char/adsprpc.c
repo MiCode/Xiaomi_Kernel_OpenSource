@@ -843,8 +843,8 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 		goto bail;
 	if (FASTRPC_MODE_PARALLEL == mode)
 		inv_args(sc, rpra, obuf.used);
-	VERIFY(err, 0 == (interrupted =
-			wait_for_completion_interruptible(&ctx->work)));
+	interrupted = wait_for_completion_interruptible(&ctx->work);
+	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
 	VERIFY(err, 0 == (err = ctx->retval));
@@ -855,9 +855,8 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 		goto bail;
  bail:
 	if (interrupted) {
-		if (!kernel)
-			(void)fastrpc_release_current_dsp_process();
-		wait_for_completion(&ctx->work);
+		if (kernel)
+			wait_for_completion(&ctx->work);
 	}
 	context_free(ctx);
 
