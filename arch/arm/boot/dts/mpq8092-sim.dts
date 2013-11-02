@@ -25,6 +25,27 @@
 };
 
 &soc {
+	etm0: etm@fc34c000 {
+		status = "disabled";
+	};
+
+	etm1: etm@fc34d000 {
+		status = "disabled";
+	};
+
+	etm2: etm@fc34e000 {
+		status = "disabled";
+	};
+
+	etm3: etm@fc34f000 {
+		status = "disabled";
+	};
+	hwevent: hwevent@fd828018 {
+		status = "disabled";
+	};
+	tpiu: tpiu@fc320000 {
+		status = "disabled";
+	};
 };
 
 &blsp1_uart2 {
