@@ -32,15 +32,6 @@
 		qcom,hsusb-otg-phy-init-seq =
 		<0x44 0x80 0x6a 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
 	};
-};
-
-/ {
-	qrd_batterydata: qcom,battery-data {
-		qcom,rpull-up-kohm = <100>;
-		qcom,vref-batt-therm = <1800000>;
-
-		/include/ "batterydata-qrd-4v2-1300mah.dtsi"
-	};
 
 	i2c@f9925000 { /* BLSP-1 QUP-3 */
 		nfc-nci@e {
@@ -55,6 +46,15 @@
 			qcom,clk-gpio = <&msmgpio 75 0x00>;
 			vlogic-supply = <&pm8110_l14>;
 		};
+	};
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		/include/ "batterydata-qrd-4v2-1300mah.dtsi"
 	};
 
 };
