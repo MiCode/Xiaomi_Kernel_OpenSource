@@ -6747,6 +6747,10 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc355000.funnel"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc36c000.funnel"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc302000.stm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34c000.etm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34d000.etm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34e000.etm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34f000.etm"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc324000.replicator"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc325000.tmc"),
@@ -6757,6 +6761,10 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc355000.funnel"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc36c000.funnel"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc302000.stm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34c000.etm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34d000.etm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34e000.etm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34f000.etm"),
 };
 
 static void __init reg_init(void)
