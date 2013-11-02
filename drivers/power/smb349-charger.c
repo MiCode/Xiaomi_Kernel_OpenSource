@@ -30,6 +30,7 @@
 #define CHG_CURRENT_CTRL_REG		0x0
 #define CHG_OTH_CURRENT_CTRL_REG	0x1
 #define VARIOUS_FUNC_REG		0x2
+#define VFLOAT_REG			0x3
 #define CHG_CTRL_REG			0x4
 #define CHG_PIN_EN_CTRL_REG		0x6
 #define THERM_A_CTRL_REG		0x7
@@ -67,10 +68,13 @@
 #define CHG_CTRL_CURR_TERM_END_CHG_BIT		0x0
 #define CHG_CTRL_BATT_MISSING_DET_THERM_IO	(BIT(5) | BIT(4))
 #define CHG_CTRL_AUTO_RECHARGE_MASK		BIT(7)
-#define CHG_CTRL_CURR_TERM_END_MSAK		BIT(6)
+#define CHG_CTRL_CURR_TERM_END_MASK		BIT(6)
 #define CHG_CTRL_BATT_MISSING_DET_MASK		(BIT(5) | BIT(4))
+#define CHG_CTRL_RECHG_100MV_BIT		BIT(3)
+#define CHG_CTRL_RECHG_50_100_MASK		BIT(3)
 #define CHG_OTH_CTRL_USB_2_3_REG_CTRL_BIT	0
 #define CHG_OTH_CTRL_USB_2_3_PIN_REG_MASK	BIT(1)
+#define CHG_ITERM_MASK				0x1C
 #define CHG_PIN_CTRL_USBCS_REG_BIT		0x0
 #define CHG_PIN_CTRL_CHG_EN_LOW_PIN_BIT		(BIT(5) | BIT(6))
 #define CHG_PIN_CTRL_CHG_EN_LOW_REG_BIT		0x0
@@ -97,6 +101,7 @@
 #define STATUS_INT_LOW_BATT_BIT			BIT(0)
 #define THERM_A_THERM_MONITOR_EN_BIT		0x0
 #define THERM_A_THERM_MONITOR_EN_MASK		BIT(4)
+#define VFLOAT_MASK				0x3F
 
 /* IRQ status bits */
 #define IRQ_A_TEMP_HARD_LIMIT			(BIT(6) | BIT(4))
@@ -156,6 +161,11 @@ struct smb349_charger {
 	struct i2c_client	*client;
 	struct device		*dev;
 
+	bool			recharge_disabled;
+	int			recharge_mv;
+	bool			iterm_disabled;
+	int			iterm_ma;
+	int			vfloat_mv;
 	int			chg_valid_gpio;
 	int			chg_valid_act_low;
 	int			chg_present;
@@ -284,6 +294,25 @@ static int smb349_fastchg_current_set(struct smb349_charger *chip)
 				SMB_FAST_CHG_CURRENT_MASK, temp);
 }
 
+#define MIN_FLOAT_MV		3460
+#define MAX_FLOAT_MV		4720
+#define VFLOAT_STEP_MV		20
+
+static int smb349_float_voltage_set(struct smb349_charger *chip, int vfloat_mv)
+{
+	u8 temp;
+
+	if ((vfloat_mv < MIN_FLOAT_MV) || (vfloat_mv > MAX_FLOAT_MV)) {
+		dev_err(chip->dev, "bad float voltage mv =%d asked to set\n",
+					vfloat_mv);
+		return -EINVAL;
+	}
+
+	temp = (vfloat_mv - MIN_FLOAT_MV) / VFLOAT_STEP_MV;
+
+	return smb349_masked_write(chip, VFLOAT_REG, VFLOAT_MASK, temp);
+}
+
 static int smb349_chg_otg_regulator_enable(struct regulator_dev *rdev)
 {
 	int rc = 0;
@@ -369,6 +398,14 @@ static int smb349_regulator_init(struct smb349_charger *chip)
 	return rc;
 }
 
+#define CHG_ITERM_100MA			0x18
+#define CHG_ITERM_200MA			0x0
+#define CHG_ITERM_300MA			0x04
+#define CHG_ITERM_400MA			0x08
+#define CHG_ITERM_500MA			0x0C
+#define CHG_ITERM_600MA			0x10
+#define CHG_ITERM_700MA			0x14
+
 static int smb349_hw_init(struct smb349_charger *chip)
 {
 	int rc;
@@ -391,11 +428,8 @@ static int smb349_hw_init(struct smb349_charger *chip)
 	}
 
 	/* setup defaults for CHG_CNTRL_REG */
-	reg = CHG_CTRL_AUTO_RECHARGE_ENABLE_BIT |
-		CHG_CTRL_CURR_TERM_END_CHG_BIT |
-		CHG_CTRL_BATT_MISSING_DET_THERM_IO;
-	mask = CHG_CTRL_AUTO_RECHARGE_MASK | CHG_CTRL_CURR_TERM_END_MSAK |
-						CHG_CTRL_BATT_MISSING_DET_MASK;
+	reg = CHG_CTRL_BATT_MISSING_DET_THERM_IO;
+	mask = CHG_CTRL_BATT_MISSING_DET_MASK;
 	rc = smb349_masked_write(chip, CHG_CTRL_REG, mask, reg);
 	if (rc) {
 		dev_err(chip->dev, "Couldn't set CHG_CTRL_REG rc=%d\n", rc);
@@ -463,6 +497,95 @@ static int smb349_hw_init(struct smb349_charger *chip)
 		dev_err(chip->dev, "Couldn't set fastchg current rc=%d\n", rc);
 		return rc;
 	}
+
+	/* set the float voltage */
+	if (chip->vfloat_mv != -EINVAL) {
+		rc = smb349_float_voltage_set(chip, chip->vfloat_mv);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't set float voltage rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	/* set iterm */
+	if (chip->iterm_ma != -EINVAL) {
+		if (chip->iterm_disabled) {
+			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
+			return -EINVAL;
+		} else {
+			if (chip->iterm_ma <= 100)
+				reg = CHG_ITERM_100MA;
+			else if (chip->iterm_ma <= 200)
+				reg = CHG_ITERM_200MA;
+			else if (chip->iterm_ma <= 300)
+				reg = CHG_ITERM_300MA;
+			else if (chip->iterm_ma <= 400)
+				reg = CHG_ITERM_400MA;
+			else if (chip->iterm_ma <= 500)
+				reg = CHG_ITERM_500MA;
+			else if (chip->iterm_ma <= 600)
+				reg = CHG_ITERM_600MA;
+			else
+				reg = CHG_ITERM_700MA;
+
+			rc = smb349_masked_write(chip, CHG_OTH_CURRENT_CTRL_REG,
+							CHG_ITERM_MASK, reg);
+			if (rc) {
+				dev_err(chip->dev,
+					"Couldn't set iterm rc = %d\n", rc);
+				return rc;
+			}
+
+			rc = smb349_masked_write(chip, CHG_CTRL_REG,
+						CHG_CTRL_CURR_TERM_END_MASK, 0);
+			if (rc) {
+				dev_err(chip->dev,
+					"Couldn't enable iterm rc = %d\n", rc);
+				return rc;
+			}
+		}
+	} else  if (chip->iterm_disabled) {
+		rc = smb349_masked_write(chip, CHG_CTRL_REG,
+					CHG_CTRL_CURR_TERM_END_MASK,
+					CHG_CTRL_CURR_TERM_END_MASK);
+		if (rc) {
+			dev_err(chip->dev, "Couldn't set iterm rc = %d\n",
+								rc);
+			return rc;
+		}
+	}
+
+	/* set recharge-threshold */
+	if (chip->recharge_mv != -EINVAL) {
+		if (chip->recharge_disabled) {
+			dev_err(chip->dev, "Error: Both recharge_disabled and recharge_mv set\n");
+			return -EINVAL;
+		} else {
+			reg = 0;
+			if (chip->recharge_mv > 50)
+				reg = CHG_CTRL_RECHG_100MV_BIT;
+
+			rc = smb349_masked_write(chip, CHG_CTRL_REG,
+					CHG_CTRL_RECHG_50_100_MASK |
+					CHG_CTRL_AUTO_RECHARGE_MASK, reg);
+			if (rc) {
+				dev_err(chip->dev,
+					"Couldn't set rechg-cfg rc = %d\n", rc);
+				return rc;
+			}
+		}
+	} else if (chip->recharge_disabled) {
+		rc = smb349_masked_write(chip, CHG_CTRL_REG,
+				CHG_CTRL_AUTO_RECHARGE_MASK,
+				CHG_CTRL_AUTO_RECHARGE_MASK);
+		if (rc) {
+			dev_err(chip->dev,
+				"Couldn't disable auto-rechg rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	/* enable/disable charging */
 	rc = smb349_masked_write(chip, CMD_A_REG, CMD_A_CHG_ENABLE_BIT,
 			chip->charging_disabled ? 0 : CMD_A_CHG_ENABLE_BIT);
@@ -1151,6 +1274,26 @@ static int smb_parse_dt(struct smb349_charger *chip)
 						&chip->fastchg_current_max_ma);
 	if (rc)
 		chip->fastchg_current_max_ma = SMB349_FAST_CHG_MAX_MA;
+
+	chip->iterm_disabled = of_property_read_bool(node,
+					"qcom,iterm-disabled");
+
+	rc = of_property_read_u32(node, "qcom,iterm-ma", &chip->iterm_ma);
+	if (rc < 0)
+		chip->iterm_ma = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
+						&chip->vfloat_mv);
+	if (rc < 0)
+		chip->vfloat_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,recharge-mv",
+						&chip->recharge_mv);
+	if (rc < 0)
+		chip->recharge_mv = -EINVAL;
+
+	chip->recharge_disabled = of_property_read_bool(node,
+					"qcom,recharge-disabled");
 
 	return 0;
 }
