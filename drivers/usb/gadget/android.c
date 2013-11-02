@@ -535,10 +535,11 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	struct functionfs_config *config = ffs_function.config;
 	int ret = 0;
 
-
-	ret = functionfs_bind(ffs, dev->cdev);
-	if (ret)
-		return ret;
+	if (dev) {
+		ret = functionfs_bind(ffs, dev->cdev);
+		if (ret)
+			return ret;
+	}
 
 	/* dev is null in case ADB is not in the composition */
 	if (dev)
