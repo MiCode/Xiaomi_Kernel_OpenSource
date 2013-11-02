@@ -1363,7 +1363,7 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 	if (!mdp3_session)
 		return -ENODEV;
 
-	if (!mdp3_session->status) {
+	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET) {
 		pr_err("mdp3_ctrl_ioctl_handler, display off!\n");
 		return -EPERM;
 	}

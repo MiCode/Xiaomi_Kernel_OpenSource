@@ -1407,32 +1407,39 @@ static int tmc_etr_byte_cntr_dev_register(struct tmc_drvdata *drvdata)
 
 	ret = alloc_chrdev_region(&dev, 0, 1, drvdata->byte_cntr_node);
 	if (ret)
-		goto dev_err0;
+		goto err0;
+
 	cdev_init(&drvdata->byte_cntr_dev, &byte_cntr_fops);
+
 	drvdata->byte_cntr_dev.owner = THIS_MODULE;
 	drvdata->byte_cntr_dev.ops = &byte_cntr_fops;
 	ret = cdev_add(&drvdata->byte_cntr_dev, dev, 1);
 	if (ret)
-		goto dev_err1;
+		goto err1;
+
 	drvdata->byte_cntr_class = class_create(THIS_MODULE,
 						drvdata->byte_cntr_node);
-	if (!drvdata->byte_cntr_class)
-		goto dev_err2;
+	if (IS_ERR(drvdata->byte_cntr_class)) {
+		ret = PTR_ERR(drvdata->byte_cntr_class);
+		goto err2;
+	}
+
 	device = device_create(drvdata->byte_cntr_class, NULL,
 			       drvdata->byte_cntr_dev.dev, drvdata,
 			       drvdata->byte_cntr_node);
 	if (IS_ERR(device)) {
 		ret = PTR_ERR(device);
-		goto dev_err3;
+		goto err3;
 	}
+
 	return 0;
-dev_err3:
+err3:
 	class_destroy(drvdata->byte_cntr_class);
-dev_err2:
+err2:
 	cdev_del(&drvdata->byte_cntr_dev);
-dev_err1:
+err1:
 	unregister_chrdev_region(drvdata->byte_cntr_dev.dev, 1);
-dev_err0:
+err0:
 	return ret;
 }
 
@@ -1466,6 +1473,7 @@ static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Byte-cntr-irq not specified\n");
 		goto err;
 	}
+
 	ret = devm_request_irq(&pdev->dev, drvdata->byte_cntr_irq,
 			tmc_etr_byte_cntr_irq,
 			IRQF_TRIGGER_RISING | IRQF_SHARED,
@@ -1474,17 +1482,27 @@ static int tmc_etr_byte_cntr_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Request irq failed\n");
 		goto err;
 	}
+
 	init_waitqueue_head(&drvdata->wq);
 	node_size += strlen(node_name);
+
 	drvdata->byte_cntr_node = devm_kzalloc(&pdev->dev,
-				node_size, GFP_KERNEL);
+					       node_size, GFP_KERNEL);
+	if (!drvdata->byte_cntr_node) {
+		dev_err(&pdev->dev, "Byte cntr node name allocation failed\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	strlcpy(drvdata->byte_cntr_node, node_name, node_size);
 	strlcat(drvdata->byte_cntr_node, "-stream", node_size);
+
 	ret = tmc_etr_byte_cntr_dev_register(drvdata);
 	if (ret) {
 		dev_err(&pdev->dev, "Byte cntr node not registered\n");
 		goto err;
 	}
+
 	dev_info(&pdev->dev, "Byte Counter feature enabled\n");
 	return 0;
 err:
