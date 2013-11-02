@@ -1091,6 +1091,12 @@ static const struct usb_device_id bridge_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 5),
 	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
 	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 5),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 7),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
+	},
 
 	{ } /* Terminating entry */
 };
