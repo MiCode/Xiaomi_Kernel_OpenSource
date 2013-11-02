@@ -26,6 +26,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/clk-provider.h>
@@ -68,6 +69,7 @@ void __init msmkrypton_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
+	rpm_regulator_smd_driver_init();
 	msm_clock_init(&msmkrypton_clock_init_data);
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
