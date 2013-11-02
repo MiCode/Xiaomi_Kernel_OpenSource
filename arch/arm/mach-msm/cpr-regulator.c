@@ -32,6 +32,10 @@
 
 /* Register Offsets for RB-CPR and Bit Definitions */
 
+/* RBCPR Version Register */
+#define REG_RBCPR_VERSION		0
+#define RBCPR_VER_2			0x02
+
 /* RBCPR Gate Count and Target Registers */
 #define REG_RBCPR_GCNT_TARGET(n)	(0x60 + 4 * n)
 
@@ -130,6 +134,7 @@
 
 #define BYTES_PER_FUSE_ROW		8
 
+#define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
 
@@ -675,6 +680,9 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
 	reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
+	if (cpr_vreg->flags & FLAGS_IGNORE_1ST_IRQ_STATUS)
+		reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
+
 	cpr_debug_irq("IRQ_STATUS = 0x%02X\n", reg_val);
 
 	if (!cpr_is_allowed(cpr_vreg)) {
@@ -967,6 +975,10 @@ static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
 		(cpr_vreg->cpr_fuse_ro_sel[CPR_CORNER_TURBO]);
 
 	cpr_irq_set(cpr_vreg, CPR_INT_DEFAULT);
+
+	val = cpr_read(cpr_vreg, REG_RBCPR_VERSION);
+	if (val <= RBCPR_VER_2)
+		cpr_vreg->flags |= FLAGS_IGNORE_1ST_IRQ_STATUS;
 
 	cpr_corner_save(cpr_vreg, CPR_CORNER_SVS);
 	cpr_corner_save(cpr_vreg, CPR_CORNER_NORMAL);
