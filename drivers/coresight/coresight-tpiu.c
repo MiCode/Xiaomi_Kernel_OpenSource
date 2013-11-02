@@ -96,11 +96,11 @@ struct tpiu_drvdata {
 	unsigned int            reg_lpm_io;
 	unsigned int            reg_hpm_io;
 	enum tpiu_set		set;
-	unsigned int		seta_gpiocnt;
-	unsigned int		*seta_gpios;
+	int			seta_gpiocnt;
+	int			*seta_gpios;
 	struct gpiomux_setting	*seta_cfgs;
-	unsigned int		setb_gpiocnt;
-	unsigned int		*setb_gpios;
+	int			setb_gpiocnt;
+	int			*setb_gpios;
 	struct gpiomux_setting	*setb_cfgs;
 	bool			enable;
 	bool			nidnt;
@@ -805,7 +805,7 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 	drvdata->set = TPIU_SET_B;
 
 	drvdata->seta_gpiocnt = of_gpio_named_count(node, "qcom,seta-gpios");
-	if (drvdata->seta_gpiocnt) {
+	if (drvdata->seta_gpiocnt > 0) {
 		drvdata->seta_gpios = devm_kzalloc(dev,
 				sizeof(*drvdata->seta_gpios) *
 				drvdata->seta_gpiocnt, GFP_KERNEL);
@@ -873,7 +873,7 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 	}
 
 	drvdata->setb_gpiocnt = of_gpio_named_count(node, "qcom,setb-gpios");
-	if (drvdata->setb_gpiocnt) {
+	if (drvdata->setb_gpiocnt > 0) {
 		drvdata->setb_gpios = devm_kzalloc(dev,
 				sizeof(*drvdata->setb_gpios) *
 				drvdata->setb_gpiocnt, GFP_KERNEL);
