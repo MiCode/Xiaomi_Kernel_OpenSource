@@ -27,8 +27,10 @@
 		reg = <0x1b>;
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x00 0xcd 0x0>; /* PMA8084 GPIO 14 */
-		qcom,charging-disabled;
 		regulator-name = "smb349_otg_vreg";
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <100>;
+		qcom,recharge-mv = <50>;
 	};
 };
 
