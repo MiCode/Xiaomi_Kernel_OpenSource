@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +64,7 @@ static void z180_dump_regs(struct kgsl_device *device)
 	for (i = 0; i < ARRAY_SIZE(regs_to_dump); i++) {
 		kgsl_regread(device,
 				regs_to_dump[i]/sizeof(unsigned int), &reg_val);
-		KGSL_LOG_DUMP(device, "REG: %04X: %08X\n",
+		KGSL_LOG_DUMP(device, "REG: %04zX: %08X\n",
 				regs_to_dump[i]/sizeof(unsigned int), reg_val);
 	}
 }
@@ -102,7 +102,7 @@ static void z180_dump_ringbuffer(struct kgsl_device *device)
 				WORDS_PER_LINE*sizeof(unsigned int),
 				sizeof(unsigned int), linebuf,
 				sizeof(linebuf), false);
-		KGSL_LOG_DUMP(device, "RB: %04X: %s\n",
+		KGSL_LOG_DUMP(device, "RB: %04zX: %s\n",
 				rb_gpuaddr + i*sizeof(unsigned int), linebuf);
 	}
 }
@@ -176,7 +176,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 
 			ib_size = entry->memdesc.size;
 			KGSL_LOG_DUMP(device,
-				"IB size: %dbytes, IB size in words: %d\n",
+				"IB size: %dbytes, IB size in words: %zd\n",
 				ib_size,
 				ib_size/sizeof(unsigned int));
 
@@ -186,7 +186,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 				hex_dump_to_buffer(ib_hostptr+j, len, rowsize,
 						sizeof(unsigned int), linebuf,
 						sizeof(linebuf), false);
-				KGSL_LOG_DUMP(device, "IB%d: %04X: %s\n",
+				KGSL_LOG_DUMP(device, "IB%d: %04zX: %s\n",
 						rb_slot_num,
 						(rb_gpuaddr +
 						j*sizeof(unsigned int)),

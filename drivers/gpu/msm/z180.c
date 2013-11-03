@@ -957,7 +957,7 @@ static void z180_power_stats(struct kgsl_device *device,
 	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
 	s64 tmp = ktime_to_us(ktime_get());
 
-	memset(stats, 0, sizeof(stats));
+	memset(stats, 0, sizeof(*stats));
 	if (pwrscale->on_time == 0) {
 		pwrscale->on_time = tmp;
 		stats->busy_time = 0;

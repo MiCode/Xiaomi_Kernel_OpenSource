@@ -311,7 +311,7 @@ struct kgsl_device_waittimestamp_ctxtid {
  */
 struct kgsl_ringbuffer_issueibcmds {
 	unsigned int drawctxt_id;
-	unsigned int ibdesc_addr;
+	unsigned long ibdesc_addr;
 	unsigned int numibs;
 	unsigned int timestamp; /*output param */
 	unsigned int flags;
