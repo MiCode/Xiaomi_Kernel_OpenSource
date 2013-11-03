@@ -3229,6 +3229,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 	struct dmxdev_feed *feed;
 	void *mem;
 	int ret, i;
+	size_t tsp_size;
 
 	if (filter->state < DMXDEV_STATE_SET)
 		return -EINVAL;
@@ -3370,6 +3371,15 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			filter->buffer.size)
 			filter->params.pes.rec_chunk_size =
 				filter->buffer.size >> 2;
+
+		/* Align rec-chunk based on output format */
+		if (filter->dmx_tsp_format == DMX_TSP_FORMAT_188)
+			tsp_size = 188;
+		else
+			tsp_size = 192;
+
+		filter->params.pes.rec_chunk_size /= tsp_size;
+		filter->params.pes.rec_chunk_size *= tsp_size;
 
 		if (filter->params.pes.output == DMX_OUT_TS_TAP)
 			dmxdev->dvr_output_events.data_read_event_masked =
