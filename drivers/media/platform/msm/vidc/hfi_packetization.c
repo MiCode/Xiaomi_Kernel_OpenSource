@@ -1336,7 +1336,7 @@ int create_pkt_cmd_session_set_property(
 			&pkt->rg_property_data[1];
 		hfi->enable = extra->enable;
 		if (extra->index == HAL_EXTRADATA_ASPECT_RATIO)
-			index = EXTRADATA_ASPECT_RATIO;
+			index = MSM_VIDC_EXTRADATA_ASPECT_RATIO;
 		else
 			index = get_hfi_extradata_index(extra->index);
 		if (index)
