@@ -448,6 +448,32 @@
 			qcom,hw-sel = "NoC";
 		};
 
+		mas-sata {
+			cell-id = <46>;
+			label = "mas-sata";
+			qcom,masterp = <15>;
+			qcom,tier = <2>;
+			qcom,qport = <13>;
+			qcom,mode = "Fixed";
+			qcom,mas-hw-id = <67>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+			qcom,hw-sel = "NoC";
+		};
+
+		mas-ufs {
+			cell-id = <95>;
+			label = "mas-ufs";
+			qcom,masterp = <16>;
+			qcom,tier = <2>;
+			qcom,qport = <6>;
+			qcom,mode = "Fixed";
+			qcom,mas-hw-id = <68>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+			qcom,hw-sel = "NoC";
+		};
+
 		mas-usb3 {
 			cell-id = <61>;
 			label = "mas-usb3";
@@ -1140,6 +1166,24 @@
 			qcom,tier = <2>;
 			qcom,buswidth = <8>;
 			qcom,slv-hw-id = <74>;
+		};
+
+		slv-sata-cfg {
+			cell-id = <582>;
+			label = "slv-sata-cfg";
+			qcom,slavep = <37>;
+			qcom,tier = <2>;
+			qcom,buswidth = <8>;
+			qcom,slv-hw-id = <90>;
+		};
+
+		slv-ufs-cfg {
+			cell-id = <650>;
+			label = "slv-ufs-cfg";
+			qcom,slavep = <39>;
+			qcom,tier = <2>;
+			qcom,buswidth = <8>;
+			qcom,slv-hw-id = <92>;
 		};
 
 		slv-service-cnoc {
