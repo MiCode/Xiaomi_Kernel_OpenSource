@@ -1876,7 +1876,7 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 		if (batt_terminal_uv >= chip->max_voltage_uv - VDD_MAX_ERR) {
 			chip->soc_at_cv = soc;
 			chip->prev_chg_soc = soc;
-			chip->ibat_at_cv_ua = ibat_ua;
+			chip->ibat_at_cv_ua = params->iavg_ua;
 			pr_debug("CC_TO_CV ibat_ua = %d CHG SOC %d\n",
 					ibat_ua, soc);
 		} else {
@@ -1927,7 +1927,7 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	soc_ibat = bound_soc(linear_interpolate(chip->soc_at_cv,
 					chip->ibat_at_cv_ua,
 					100, -1 * chip->chg_term_ua,
-					ibat_ua));
+					params->iavg_ua));
 	weight_ibat = bound_soc(linear_interpolate(1, chip->soc_at_cv,
 					100, 100, chip->prev_chg_soc));
 	weight_cc = 100 - weight_ibat;
