@@ -67,6 +67,7 @@
 			goodix,display-coords = <0 0 540 960>;
 			goodix,button-map= <139 102 158>;
 			goodix,product-id = "915";
+			goodix,enable-power-off;
 			goodix,cfg-data0 = [
 				46 1C 02 C0 03 0A 05 11 01 08
 				14 3B 46 32 03 05 00 00 00 00
