@@ -79,6 +79,8 @@ int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
 
 int msm_ion_unsecure_table(struct sg_table *table);
 
+bool msm_secure_v2_is_supported(void);
+
 #else
 static inline int ion_cp_change_chunks_state(unsigned long chunks,
 			unsigned int nchunks, unsigned int chunk_size,
@@ -123,6 +125,12 @@ int msm_ion_unsecure_table(struct sg_table *table)
 {
 	return -ENODEV;
 }
+
+bool msm_secure_v2_is_supported(void)
+{
+	return false;
+}
+
 #endif
 
 #endif
