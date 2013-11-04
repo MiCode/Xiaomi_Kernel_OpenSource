@@ -1519,8 +1519,6 @@ static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
 	int arr[NUM_OF_SUPPORTED_MODES] = {0};
 	int i;
 	int min_power;
-	int min_dev_lanes;
-	int min_msm_lanes;
 	int min_msm_gear;
 	int min_dev_gear;
 	bool is_max_dev_hs;
@@ -1559,15 +1557,12 @@ static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
 	}
 
 	/**
-	 * we would like rx and tx to work in the same number of lanes
-	 * the minimum number of lanes between rx and tx of the device
-	 * capabilities and the vendor preferences determines to how many
-	 * lanes we shall configure the device
+	 * we would like tx to work in the minimum number of lanes
+	 * between device capability and vendor preferences.
+	 * the same decision will be made for rx.
 	 */
-	min_dev_lanes = min_t(u32, dev_max->lane_rx, dev_max->lane_tx);
-	min_msm_lanes = min_t(u32, msm_param->rx_lanes, msm_param->tx_lanes);
-	dev_req->lane_rx = dev_req->lane_tx =
-			min_t(u32, min_dev_lanes, min_msm_lanes);
+	dev_req->lane_tx = min_t(u32, dev_max->lane_tx, msm_param->tx_lanes);
+	dev_req->lane_rx = min_t(u32, dev_max->lane_rx, msm_param->rx_lanes);
 
 	if (dev_max->pwr_rx == SLOW_MODE ||
 	    dev_max->pwr_rx == SLOWAUTO_MODE)
