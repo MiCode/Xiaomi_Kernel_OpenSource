@@ -216,12 +216,16 @@ static char *smd_xfer_type_to_str(uint32_t xfer_type)
  *		structures for the channels found in @tbl
  * @fifo_base_id: the SMEM item id corresponding to the array of channel fifos
  *		for the channels found in @tbl
+ * @pid: processor id to use for any SMEM operations
+ * @flags: flags to use for any SMEM operations
  */
 static void print_smd_ch_table(struct seq_file *s,
 				struct smd_alloc_elm *tbl,
 				unsigned num_tbl_entries,
 				unsigned ch_base_id,
-				unsigned fifo_base_id)
+				unsigned fifo_base_id,
+				unsigned pid,
+				unsigned flags)
 {
 	void *half_ch;
 	unsigned half_ch_size;
@@ -265,8 +269,10 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 		else
 			half_ch_size = sizeof(struct smd_half_channel);
 
-		half_ch = smem_find(ch_base_id + n, 2 * half_ch_size);
-		buffer = smem_get_entry(fifo_base_id + n, &buffer_size);
+		half_ch = smem_find_to_proc(ch_base_id + n, 2 * half_ch_size,
+								pid, flags);
+		buffer = smem_get_entry_to_proc(fifo_base_id + n, &buffer_size,
+								pid, flags);
 		if (half_ch && buffer)
 			print_half_ch_state(s,
 					half_ch,
@@ -299,9 +305,14 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 static void debug_ch(struct seq_file *s)
 {
 	struct smd_alloc_elm *tbl;
+	struct smd_alloc_elm *default_pri_tbl;
+	struct smd_alloc_elm *default_sec_tbl;
 	unsigned tbl_size;
+	int i;
 
-	tbl = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size);
+	tbl = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &tbl_size, 0,
+							SMEM_ANY_HOST_FLAG);
+	default_pri_tbl = tbl;
 
 	if (!tbl) {
 		seq_puts(s, "Channel allocation table not found\n");
@@ -310,14 +321,49 @@ static void debug_ch(struct seq_file *s)
 
 	seq_puts(s, "Primary allocation table:\n");
 	print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl), ID_SMD_CHANNELS,
-							SMEM_SMD_FIFO_BASE_ID);
+							SMEM_SMD_FIFO_BASE_ID,
+							0,
+							SMEM_ANY_HOST_FLAG);
 
-	tbl = smem_get_entry(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size);
+	tbl = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size, 0,
+							SMEM_ANY_HOST_FLAG);
+	default_sec_tbl = tbl;
 	if (tbl) {
 		seq_puts(s, "\n\nSecondary allocation table:\n");
 		print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl),
 						SMEM_SMD_BASE_ID_2,
-						SMEM_SMD_FIFO_BASE_ID_2);
+						SMEM_SMD_FIFO_BASE_ID_2,
+						0,
+						SMEM_ANY_HOST_FLAG);
+	}
+
+	for (i = 1; i < NUM_SMD_SUBSYSTEMS; ++i) {
+		tbl = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &tbl_size, i, 0);
+		if (tbl && tbl != default_pri_tbl) {
+			seq_puts(s, "\n\n");
+			seq_printf(s, "%s <-> %s Primary allocation table:\n",
+							pid_to_str(SMD_APPS),
+							pid_to_str(i));
+			print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl),
+							ID_SMD_CHANNELS,
+							SMEM_SMD_FIFO_BASE_ID,
+							i,
+							0);
+		}
+
+		tbl = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2,
+							&tbl_size, i, 0);
+		if (tbl && tbl != default_sec_tbl) {
+			seq_puts(s, "\n\n");
+			seq_printf(s, "%s <-> %s Secondary allocation table:\n",
+							pid_to_str(SMD_APPS),
+							pid_to_str(i));
+			print_smd_ch_table(s, tbl, tbl_size / sizeof(*tbl),
+						SMEM_SMD_BASE_ID_2,
+						SMEM_SMD_FIFO_BASE_ID_2,
+						i,
+						0);
+		}
 	}
 }
 
