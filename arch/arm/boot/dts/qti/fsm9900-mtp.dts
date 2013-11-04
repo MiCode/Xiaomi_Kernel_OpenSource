@@ -43,7 +43,7 @@
 	};
 
 	emac1:qti,emac@feb00000 {
-		phy-addr = <4>;
+		qti,no-external-phy;
 		status = "ok";
 	};
 };

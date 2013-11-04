@@ -30,6 +30,8 @@ Required properties:
 - qti,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
 - qti,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
 - phy-addr : Specifies phy address on MDIO bus.
+	      Required if the optional property "qti,no-external-phy"
+	      is not specified.
 - phy-mode : Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
 	     For "sgmii", the "emac_sgmii" register base and
 	     "emac_sgmii_irq" interrupt must be specified.
@@ -44,6 +46,9 @@ Optional properties:
 		      placeholder for the MAC address. The correct MAC
 		      address is populated in device tree during platform
 		      initialization.
+- qti,no-external-phy : Indicates there is no external PHY connected to EMAC.
+			 Include this only if the EMAC is directly connected to
+			 the peer end without EPHY.
 
 Example:
 	emac0: qti,emac@feb20000 {

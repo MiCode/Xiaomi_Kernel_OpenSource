@@ -286,6 +286,7 @@
 
 /* EMAC_EMAC_WRAPPER_CSR2 */
 #define WOL_EN                                                     0x80
+#define PHY_RESET                                                  0x01
 
 /* EMAC_EMAC_WRAPPER_CSR10 */
 #define RD_CLR_1588                                                 0x2
@@ -451,6 +452,8 @@
 #define L0_DRV_LVL_SHFT                                               0
 
 /* EMAC_SGMII_PHY_AUTONEG_CFG2 */
+#define FORCE_AN_TX_CFG                                            0x20
+#define FORCE_AN_RX_CFG                                            0x10
 #define AN_ENABLE                                                  0x01
 
 /* EMAC_SGMII_PHY_SPEED_CFG1 */

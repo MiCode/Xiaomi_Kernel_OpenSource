@@ -389,9 +389,14 @@ int emac_hw_reset_sgmii(struct emac_hw *hw)
 	if (retval)
 		return retval;
 
-	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_RESET_CTRL,
-		     PHY_SW_RESET);
+	/* It may take about 100ms to reset the SGMII PHY*/
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2,
+			  PHY_RESET, PHY_RESET);
 	wmb();
+	msleep(50);
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, PHY_RESET, 0);
+	wmb();
+	msleep(50);
 
 	return emac_hw_init_sgmii(hw);
 }
@@ -403,15 +408,18 @@ int emac_hw_init_phy(struct emac_hw *hw)
 
 	spin_lock_init(&hw->mdio_lock);
 
-	retval = emac_read_phy_reg(hw, MII_PHYSID1, &phy_id[0]);
-	if (retval)
-		return retval;
-	retval = emac_read_phy_reg(hw, MII_PHYSID2, &phy_id[1]);
-	if (retval)
-		return retval;
+	if (hw->adpt->no_ephy == false) {
+		retval = emac_read_phy_reg(hw, MII_PHYSID1, &phy_id[0]);
+		if (retval)
+			return retval;
+		retval = emac_read_phy_reg(hw, MII_PHYSID2, &phy_id[1]);
+		if (retval)
+			return retval;
 
-	hw->phy_id[0] = phy_id[0];
-	hw->phy_id[1] = phy_id[1];
+		hw->phy_id[0] = phy_id[0];
+		hw->phy_id[1] = phy_id[1];
+	}
+
 	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
 
 	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
@@ -427,6 +435,28 @@ int emac_hw_reset_phy(struct emac_hw *hw)
 }
 
 /* LINK */
+static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
+				    bool autoneg, bool fc)
+{
+	u32 val;
+
+	val = emac_reg_r32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_AUTONEG_CFG2);
+
+	if (autoneg) {
+		val &= ~(FORCE_AN_RX_CFG | FORCE_AN_TX_CFG);
+		val |= AN_ENABLE;
+		emac_reg_w32(hw, EMAC_SGMII_PHY,
+			     EMAC_SGMII_PHY_AUTONEG_CFG2, val);
+		wmb();
+	} else {
+		emac_warn(hw->adpt, hw,
+			  "No support to turn off SGMII-autoneg\n");
+		return -ENOTSUPP;
+	}
+
+	return 0;
+}
+
 static int emac_hw_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg,
 				  bool fc)
 {
@@ -487,6 +517,16 @@ int emac_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg, bool fc)
 {
 	int retval = 0;
 
+	if (hw->adpt->no_ephy == true) {
+		if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+			return emac_hw_sgmii_setup_link(hw, speed, autoneg, fc);
+		} else {
+			emac_err(hw->adpt,
+				 "can't setup phy link without ephy\n");
+			return -ENOTSUPP;
+		}
+	}
+
 	if (emac_hw_setup_phy_link(hw, speed, autoneg, fc)) {
 		emac_err(hw->adpt, "error when init phy speed and fc\n");
 		retval = -EINVAL;
@@ -507,6 +547,16 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 {
 	u16 bmsr, pssr;
 	int retval;
+
+	if (hw->adpt->no_ephy == true) {
+		if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+			return emac_check_sgmii_link(hw, speed, link_up);
+		} else {
+			emac_err(hw->adpt,
+				 "can't check phy link without ephy\n");
+			return -ENOTSUPP;
+		}
+	}
 
 	retval = emac_read_phy_reg(hw, MII_BMSR, &bmsr);
 	if (retval)
@@ -559,6 +609,17 @@ int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed)
 {
 	int retval;
 	u16 lpa, stat1000;
+	bool link;
+
+	if (hw->adpt->no_ephy == true) {
+		if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+			return emac_check_sgmii_link(hw, speed, &link);
+		} else {
+			emac_err(hw->adpt,
+				 "can't get lpa speed without ephy\n");
+			return -ENOTSUPP;
+		}
+	}
 
 	retval = emac_read_phy_reg(hw, MII_LPA, &lpa);
 	retval |= emac_read_phy_reg(hw, MII_STAT1000, &stat1000);
@@ -583,6 +644,7 @@ int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed)
 int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
 {
 	u32 status;
+	int i;
 
 	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_INTERRUPT_CLEAR,
 		     irq_bits);
@@ -590,8 +652,17 @@ int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
 		     IRQ_GLOBAL_CLEAR);
 	wmb();
 
-	status = emac_reg_r32(hw, EMAC_SGMII_PHY,
-			      EMAC_SGMII_PHY_INTERRUPT_STATUS);
+	/* After set the IRQ_GLOBAL_CLEAR bit, the status clearing must
+	 * be confirmed before clear the bits in other registers.
+	 * It takes a few cycles for hw to clear the interrupt status.
+	 */
+	for (i = 0; i < SGMII_PHY_IRQ_CLR_WAIT_TIME; i++) {
+		udelay(1);
+		status = emac_reg_r32(hw, EMAC_SGMII_PHY,
+				      EMAC_SGMII_PHY_INTERRUPT_STATUS);
+		if (!(status & irq_bits))
+			break;
+	}
 	if (status & irq_bits) {
 		emac_err(hw->adpt,
 			 "failed to clear SGMII irq: status 0x%x bits 0x%x\n",
@@ -603,6 +674,40 @@ int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
 	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_INTERRUPT_CLEAR, 0);
 	wmb();
 
+	return 0;
+}
+
+int emac_check_sgmii_link(struct emac_hw *hw, u32 *speed, bool *link_up)
+{
+	u32 val;
+
+	val = emac_reg_r32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_AUTONEG_CFG2);
+	if (val & AN_ENABLE)
+		return emac_check_sgmii_autoneg(hw, speed, link_up);
+
+	val = emac_reg_r32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_SPEED_CFG1);
+	val &= DUPLEX_MODE | SPDMODE_BMSK;
+	switch (val) {
+	case DUPLEX_MODE | SPDMODE_1000:
+		*speed = EMAC_LINK_SPEED_1GB_FULL;
+		break;
+	case DUPLEX_MODE | SPDMODE_100:
+		*speed = EMAC_LINK_SPEED_100_FULL;
+		break;
+	case SPDMODE_100:
+		*speed = EMAC_LINK_SPEED_100_HALF;
+		break;
+	case DUPLEX_MODE | SPDMODE_10:
+		*speed = EMAC_LINK_SPEED_10_FULL;
+		break;
+	case SPDMODE_10:
+		*speed = EMAC_LINK_SPEED_10_HALF;
+		break;
+	default:
+		*speed = EMAC_LINK_SPEED_UNKNOWN;
+		break;
+	}
+	*link_up = true;
 	return 0;
 }
 

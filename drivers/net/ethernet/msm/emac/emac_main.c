@@ -1443,7 +1443,7 @@ static int emac_up(struct emac_adapter *adpt)
 	emac_hw_config_mac(hw);
 	emac_config_rss(adpt);
 
-	for (i = 0; i < EMAC_NUM_GPIO; i++) {
+	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++) {
 		struct emac_gpio_info *gpio_info = &adpt->gpio_info[i];
 		retval = gpio_request(gpio_info->gpio, gpio_info->name);
 		if (retval) {
@@ -1457,11 +1457,13 @@ static int emac_up(struct emac_adapter *adpt)
 
 	for (i = 0; i < EMAC_NUM_IRQ; i++) {
 		struct emac_irq_info *irq_info = &adpt->irq_info[i];
+		u32 flag = (i == EMAC_SGMII_PHY_IRQ) ? IRQF_TRIGGER_RISING : 0;
+
 		if (irq_info->irq == 0)
 			continue;
 
-		retval = request_irq(irq_info->irq, irq_info->handler,
-				     0, irq_info->name, irq_info);
+		retval = request_irq(irq_info->irq, irq_info->handler, flag,
+				     irq_info->name, irq_info);
 		if (retval) {
 			emac_err(adpt, "Unable to allocate interrupt %d: %d\n",
 				 irq_info->irq, retval);
@@ -1490,7 +1492,7 @@ static int emac_up(struct emac_adapter *adpt)
 	return retval;
 
 err_request_irq:
-	for (i = 0; i < EMAC_NUM_GPIO; i++)
+	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
 err_request_gpio:
 	return retval;
@@ -1515,7 +1517,7 @@ static void emac_down(struct emac_adapter *adpt, u32 ctrl)
 		if (adpt->irq_info[i].irq)
 			free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
 
-	for (i = 0; i < EMAC_NUM_GPIO; i++)
+	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
 
 	CLI_ADPT_FLAG(TASK_LSC_REQ);
@@ -1852,9 +1854,6 @@ static void emac_sgmii_task_routine(struct emac_adapter *adpt)
 		goto sgmii_task_done;
 
 	emac_err(adpt, "SGMII CDR not locked\n");
-	emac_down(adpt, 0);
-	emac_hw_reset_sgmii(hw);
-	emac_up(adpt);
 
 sgmii_task_done:
 	CLI_ADPT_FLAG(STATE_RESETTING);
@@ -2283,10 +2282,16 @@ static int emac_get_resources(struct platform_device *pdev,
 	/* get time stamp enable flag */
 	adpt->tstamp_en = of_property_read_bool(node, "qti,emac-tstamp-en");
 
+	/* get no_ephy attribute */
+	adpt->no_ephy = of_property_read_bool(node, "qti,no-external-phy");
+
 	/* get phy address on MDIO bus */
-	retval = of_property_read_u32(node, "phy-addr", &adpt->hw.phy_addr);
-	if (retval)
-		return retval;
+	if (adpt->no_ephy == false) {
+		retval = of_property_read_u32(node, "phy-addr",
+					      &adpt->hw.phy_addr);
+		if (retval)
+			return retval;
+	}
 
 	/* get phy mode */
 	retval = of_get_phy_mode(node);
@@ -2296,7 +2301,7 @@ static int emac_get_resources(struct platform_device *pdev,
 	adpt->phy_mode = retval;
 
 	/* get gpios */
-	for (i = 0; i < EMAC_NUM_GPIO; i++) {
+	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++) {
 		gpio_info = &adpt->gpio_info[i];
 		retval = of_get_named_gpio(node, gpio_info->name, 0);
 		if (retval < 0)
