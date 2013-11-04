@@ -35,11 +35,7 @@
 
 /* module parameters for load time configuration: */
 static int threshold = DMX_TSIF_PACKETS_IN_CHUNK_DEF;
-static int tsif_mode = DMX_TSIF_DRIVER_MODE_DEF;
-static int clock_inv;
 module_param(threshold, int, S_IRUGO);
-module_param(tsif_mode, int, S_IRUGO | S_IWUSR);
-module_param(clock_inv, int, S_IRUGO | S_IWUSR);
 
 
 /*
@@ -256,6 +252,8 @@ static int mpq_tsif_dmx_start(struct mpq_demux *mpq_demux)
 {
 	int ret = 0;
 	int tsif;
+	int tsif_mode = mpq_dmx_get_param_tsif_mode();
+	int clock_inv = mpq_dmx_get_param_clock_inv();
 	struct tsif_driver_info *tsif_driver;
 
 	MPQ_DVB_DBG_PRINT("%s executed\n", __func__);
@@ -550,6 +548,7 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 
 	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA |
 		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING;
+	caps->recording_max_video_pids_indexed = 0;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 	caps->num_pid_filters = dvb_demux->feednum;
@@ -569,37 +568,43 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 	/* Buffer requirements */
 	caps->section.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->section.max_buffer_num = 1;
 	caps->section.max_size = 0xFFFFFFFF;
 	caps->section.size_alignment = 0;
 	caps->pes.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->pes.max_buffer_num = 1;
 	caps->pes.max_size = 0xFFFFFFFF;
 	caps->pes.size_alignment = 0;
 	caps->recording_188_tsp.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->recording_188_tsp.max_buffer_num = 1;
 	caps->recording_188_tsp.max_size = 0xFFFFFFFF;
 	caps->recording_188_tsp.size_alignment = 0;
 	caps->recording_192_tsp.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->recording_192_tsp.max_buffer_num = 1;
 	caps->recording_192_tsp.max_size = 0xFFFFFFFF;
 	caps->recording_192_tsp.size_alignment = 0;
 	caps->playback_188_tsp.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->playback_188_tsp.max_buffer_num = 1;
 	caps->playback_188_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_188_tsp.size_alignment = 0;
 	caps->playback_192_tsp.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
-		DMX_BUFFER_INTERNAL_SUPPORT;
+		DMX_BUFFER_INTERNAL_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->playback_192_tsp.max_buffer_num = 1;
 	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_192_tsp.size_alignment = 0;
@@ -607,7 +612,8 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 		DMX_BUFFER_SECURED_IF_DECRYPTED	|
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
 		DMX_BUFFER_INTERNAL_SUPPORT	|
-		DMX_BUFFER_LINEAR_GROUP_SUPPORT;
+		DMX_BUFFER_LINEAR_GROUP_SUPPORT |
+		DMX_BUFFER_CACHED;
 	caps->decoder.max_buffer_num = DMX_MAX_DECODER_BUFFER_NUM;
 	caps->decoder.max_size = 0xFFFFFFFF;
 	caps->decoder.size_alignment = SZ_4K;
@@ -677,6 +683,8 @@ static int mpq_tsif_dmx_init(
 		DMX_CRC_CHECKING		|
 		DMX_TS_DESCRAMBLING;
 
+	mpq_demux->decoder_alloc_flags = ION_FLAG_CACHED;
+
 	/* Set dvb-demux "virtual" function pointers */
 	mpq_demux->demux.priv = (void *)mpq_demux;
 	mpq_demux->demux.filternum = DMX_TSIF_MAX_SECTION_FILTER_NUM;
@@ -741,6 +749,7 @@ static int __init mpq_dmx_tsif_plugin_init(void)
 {
 	int i;
 	int ret;
+	int tsif_mode = mpq_dmx_get_param_tsif_mode();
 
 	MPQ_DVB_DBG_PRINT("%s executed\n", __func__);
 

@@ -409,7 +409,7 @@ struct dmx_marker_event_info {
 
 /* Indexing information associated with DMX_EVENT_NEW_INDEX_ENTRY event */
 struct dmx_index_event_info {
-	/* Index entry type, one of of DMX_IDX_* */
+	/* Index entry type, one of DMX_IDX_* */
 	__u64 type;
 
 	/*
@@ -499,6 +499,9 @@ struct dmx_buffer_requirement {
 
 /* Filter output can be output to a linear buffer group */
 #define DMX_BUFFER_LINEAR_GROUP_SUPPORT		0x10
+
+/* Buffer may be allocated as cached buffer */
+#define DMX_BUFFER_CACHED		0x20
 };
 
 /* Out-of-band (OOB) command */
@@ -578,6 +581,13 @@ typedef struct dmx_caps {
 
 	/* Max possible value of STC reported by demux, in 27MHz */
 	__u64 max_stc;
+
+	/*
+	 * For indexing support (DMX_CAP_VIDEO_INDEXING capability) this is
+	 * the max number of video pids that can be indexed for a single
+	 * recording filter. If 0, means there is not limitation.
+	 */
+	int recording_max_video_pids_indexed;
 
 	struct dmx_buffer_requirement section;
 

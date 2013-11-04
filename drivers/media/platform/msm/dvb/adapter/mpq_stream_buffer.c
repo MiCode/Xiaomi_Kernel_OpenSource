@@ -223,7 +223,7 @@ int mpq_streambuffer_pkt_dispose(
 	spin_unlock(&sbuff->packet_data.lock);
 
 	if (sbuff->cb)
-		sbuff->cb(sbuff, sbuff->cb_user_data);
+		sbuff->cb(sbuff, &packet, sbuff->cb_user_data);
 
 	return 0;
 }
