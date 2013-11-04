@@ -836,7 +836,7 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 		return -EBUSY;
 
 	if (ocmem_debugfs_init(pdev))
-		return -EBUSY;
+		dev_err(dev, "ocmem: No debugfs node available\n");
 
 	if (ocmem_core_init(pdev))
 		return -EBUSY;
