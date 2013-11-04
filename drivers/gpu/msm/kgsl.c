@@ -110,29 +110,6 @@ void hang_timer(unsigned long data)
 }
 
 /**
- * kgsl_hang_intr_work() - GPU hang interrupt work
- * @dev: device ptr
- *
- * This function is called when GPU hang interrupt happens. In
- * this fuction we check the device state and trigger fault
- * tolerance.
- */
-void kgsl_hang_intr_work(struct work_struct *work)
-{
-	struct kgsl_device *device = container_of(work, struct kgsl_device,
-							hang_intr_ws);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	/* If hang_intr_set is set, turn it off and trigger FT */
-	mutex_lock(&device->mutex);
-	if ((device->state == KGSL_STATE_ACTIVE) &&
-		(atomic_cmpxchg(&adreno_dev->hang_intr_set, 1, 0)))
-			adreno_dump_and_exec_ft(device);
-	mutex_unlock(&device->mutex);
-
-}
-
-/**
  * kgsl_trace_issueibcmds() - Call trace_issueibcmds by proxy
  * device: KGSL device
  * id: ID of the context submitting the command
