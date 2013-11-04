@@ -35,6 +35,7 @@
 #include "clock.h"
 #include "devices.h"
 #include "modem_notifier.h"
+#include "spm.h"
 
 static struct memtype_reserve msmkrypton_reserve_table[] __initdata = {
 	[MEMTYPE_EBI1] = {
@@ -70,6 +71,7 @@ void __init msmkrypton_add_drivers(void)
 	msm_smd_init();
 	msm_rpm_driver_init();
 	rpm_regulator_smd_driver_init();
+	msm_spm_device_init();
 	msm_clock_init(&msmkrypton_clock_init_data);
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
