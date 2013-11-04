@@ -79,6 +79,7 @@ struct msm_mdp_interface mdp5 = {
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
+static DEFINE_MUTEX(bus_bw_lock);
 
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
 	{						\
@@ -608,9 +609,58 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
+/**
+ * mdss_bus_bandwidth_ctrl() -- place bus bandwidth request
+ * @enable:	value of enable or disable
+ *
+ * Function place bus bandwidth request to allocate saved bandwidth
+ * if enabled or free bus bandwidth allocation if disabled.
+ * Bus bandwidth is required by mdp.For dsi, it only requires to send
+ * dcs coammnd.
+ */
+void mdss_bus_bandwidth_ctrl(int enable)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	static int bus_bw_cnt;
+	int changed = 0;
+
+	mutex_lock(&bus_bw_lock);
+	if (enable) {
+		if (bus_bw_cnt == 0)
+			changed++;
+		bus_bw_cnt++;
+	} else {
+		if (bus_bw_cnt) {
+			bus_bw_cnt--;
+			if (bus_bw_cnt == 0)
+				changed++;
+		} else {
+			pr_err("Can not be turned off\n");
+		}
+	}
+
+	pr_debug("bw_cnt=%d changed=%d enable=%d\n",
+			bus_bw_cnt, changed, enable);
+
+	if (changed) {
+		if (!enable) {
+			msm_bus_scale_client_update_request(
+				mdata->bus_hdl, 0);
+			pm_runtime_put(&mdata->pdev->dev);
+		} else {
+			pm_runtime_get_sync(&mdata->pdev->dev);
+			msm_bus_scale_client_update_request(
+				mdata->bus_hdl, mdata->current_bus_idx);
+		}
+	}
+
+	mutex_unlock(&bus_bw_lock);
+}
+EXPORT_SYMBOL(mdss_bus_bandwidth_ctrl);
+
 void mdss_mdp_clk_ctrl(int enable, int isr)
 {
-	struct mdss_data_type *mdata = mdss_res;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int mdp_clk_cnt;
 	int changed = 0;
 
@@ -620,9 +670,13 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 			changed++;
 		mdp_clk_cnt++;
 	} else {
-		mdp_clk_cnt--;
-		if (mdp_clk_cnt == 0)
-			changed++;
+		if (mdp_clk_cnt) {
+			mdp_clk_cnt--;
+			if (mdp_clk_cnt == 0)
+				changed++;
+		} else {
+			pr_err("Can not be turned off\n");
+		}
 	}
 
 	pr_debug("%s: clk_cnt=%d changed=%d enable=%d\n",
@@ -640,14 +694,10 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
-		if (!enable) {
-			msm_bus_scale_client_update_request(
-				mdss_res->bus_hdl, 0);
+		mdss_bus_bandwidth_ctrl(enable);
+
+		if (!enable)
 			pm_runtime_put(&mdata->pdev->dev);
-		} else {
-			msm_bus_scale_client_update_request(
-				mdss_res->bus_hdl, mdss_res->current_bus_idx);
-		}
 	}
 
 	mutex_unlock(&mdp_clk_lock);
@@ -1771,7 +1821,8 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	u32 num;
 	u32 data[2];
-	int rc;
+	int rc, len;
+	const u32 *arr;
 
 	num = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-smp-data");
 
@@ -1793,7 +1844,49 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 		"qcom,mdss-smp-mb-per-pipe", data);
 	mdata->smp_mb_per_pipe = (!rc ? data[0] : 0);
 
-	return 0;
+	rc = 0;
+	arr = of_get_property(pdev->dev.of_node,
+		"qcom,mdss-pipe-rgb-fixed-mmb", &len);
+	if (arr) {
+		int i, j, k;
+		u32 cnt, mmb;
+
+		len /= sizeof(u32);
+		for (i = 0, k = 0; i < len; k++) {
+			struct mdss_mdp_pipe *pipe = NULL;
+
+			if (k >= mdata->nrgb_pipes) {
+				pr_err("invalid fixed mmbs for rgb pipes\n");
+				return -EINVAL;
+			}
+
+			pipe = &mdata->rgb_pipes[k];
+
+			cnt = be32_to_cpu(arr[i++]);
+			if (cnt == 0)
+				continue;
+
+			for (j = 0; j < cnt; j++) {
+				mmb = be32_to_cpu(arr[i++]);
+				if (mmb > mdata->smp_mb_cnt) {
+					pr_err("overflow mmb%d: rgb%d: max%d\n",
+						mmb, k, mdata->smp_mb_cnt);
+					return -EINVAL;
+				}
+				/* rgb pipes fetches only single plane */
+				set_bit(mmb, pipe->smp_map[0].fixed);
+			}
+			if (bitmap_intersects(pipe->smp_map[0].fixed,
+				mdata->mmb_alloc_map, mdata->smp_mb_cnt)) {
+				pr_err("overlapping fixed mmb map\n");
+				return -EINVAL;
+			}
+			bitmap_or(mdata->mmb_alloc_map, pipe->smp_map[0].fixed,
+				mdata->mmb_alloc_map, mdata->smp_mb_cnt);
+		}
+	}
+
+	return rc;
 }
 
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)

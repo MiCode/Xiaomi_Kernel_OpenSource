@@ -190,6 +190,7 @@ struct data_filter {
 
 struct stk3x1x_data {
 	struct i2c_client *client;
+	struct stk3x1x_platform_data *pdata;
 #if (!defined(STK_POLL_PS) || !defined(STK_POLL_ALS))
     int32_t irq;
     struct work_struct stk_work;
@@ -257,6 +258,7 @@ static int32_t stk3x1x_set_ps_thd_l(struct stk3x1x_data *ps_data, uint16_t thd_l
 static int32_t stk3x1x_set_ps_thd_h(struct stk3x1x_data *ps_data, uint16_t thd_h);
 static int32_t stk3x1x_set_als_thd_l(struct stk3x1x_data *ps_data, uint16_t thd_l);
 static int32_t stk3x1x_set_als_thd_h(struct stk3x1x_data *ps_data, uint16_t thd_h);
+static int stk3x1x_device_ctl(struct stk3x1x_data *ps_data, bool enable);
 //static int32_t stk3x1x_set_ps_aoffset(struct stk3x1x_data *ps_data, uint16_t offset);
 
 inline uint32_t stk_alscode2lux(struct stk3x1x_data *ps_data, uint32_t alscode)
@@ -600,6 +602,12 @@ static int32_t stk3x1x_enable_ps(struct stk3x1x_data *ps_data, uint8_t enable)
 	if(curr_ps_enable == enable)
 		return 0;
 
+	if (enable) {
+		ret = stk3x1x_device_ctl(ps_data, enable);
+		if (ret)
+			return ret;
+	}
+
     ret = i2c_smbus_read_byte_data(ps_data->client, STK_STATE_REG);
     if (ret < 0)
     {
@@ -662,6 +670,12 @@ static int32_t stk3x1x_enable_ps(struct stk3x1x_data *ps_data, uint8_t enable)
 #endif
 		ps_data->ps_enabled = false;
 	}
+	if (!enable) {
+		ret = stk3x1x_device_ctl(ps_data, enable);
+		if (ret)
+			return ret;
+	}
+
 	return ret;
 }
 
@@ -674,6 +688,11 @@ static int32_t stk3x1x_enable_als(struct stk3x1x_data *ps_data, uint8_t enable)
 	if(curr_als_enable == enable)
 		return 0;
 
+	if (enable) {
+		ret = stk3x1x_device_ctl(ps_data, enable);
+		if (ret)
+			return ret;
+	}
 #ifndef STK_POLL_ALS
     if (enable)
 	{
@@ -724,6 +743,12 @@ static int32_t stk3x1x_enable_als(struct stk3x1x_data *ps_data, uint8_t enable)
 			disable_irq(ps_data->irq);
 #endif
 	}
+	if (!enable) {
+		ret = stk3x1x_device_ctl(ps_data, enable);
+		if (ret)
+			return ret;
+	}
+
     return ret;
 }
 
@@ -1817,11 +1842,6 @@ static int32_t stk3x1x_init_all_setting(struct i2c_client *client, struct stk3x1
 	int32_t ret;
 	struct stk3x1x_data *ps_data = i2c_get_clientdata(client);
 
-	mutex_lock(&ps_data->io_lock);
-	ps_data->als_enabled = false;
-	ps_data->ps_enabled = false;
-	mutex_unlock(&ps_data->io_lock);
-
 	ret = stk3x1x_software_reset(ps_data);
 	if(ret < 0)
 		return ret;
@@ -1946,7 +1966,7 @@ static void stk3x1x_late_resume(struct early_suspend *h)
 }
 #endif	//#ifdef CONFIG_HAS_EARLYSUSPEND
 
-static int stk3x1x_power_on(struct stk3x1x_data *data, bool on)
+static int stk3x1x_power_ctl(struct stk3x1x_data *data, bool on)
 {
 	int ret = 0;
 
@@ -1963,7 +1983,11 @@ static int stk3x1x_power_on(struct stk3x1x_data *data, bool on)
 			dev_err(&data->client->dev,
 				"Regulator vio disable failed ret=%d\n", ret);
 			regulator_enable(data->vdd);
+			return ret;
 		}
+		data->power_enabled = on;
+		dev_dbg(&data->client->dev, "stk3x1x_power_ctl on=%d\n",
+				on);
 	} else if (on && !data->power_enabled) {
 
 		ret = regulator_enable(data->vdd);
@@ -1978,7 +2002,11 @@ static int stk3x1x_power_on(struct stk3x1x_data *data, bool on)
 			dev_err(&data->client->dev,
 				"Regulator vio enable failed ret=%d\n", ret);
 			regulator_disable(data->vdd);
+			return ret;
 		}
+		data->power_enabled = on;
+		dev_dbg(&data->client->dev, "stk3x1x_power_ctl on=%d\n",
+				on);
 	} else {
 		dev_warn(&data->client->dev,
 				"Power on=%d. enabled=%d\n",
@@ -2057,6 +2085,43 @@ reg_vdd_put:
 	return ret;
 }
 
+static int stk3x1x_device_ctl(struct stk3x1x_data *ps_data, bool enable)
+{
+	int ret;
+	struct device *dev = &ps_data->client->dev;
+
+	if (enable && !ps_data->power_enabled) {
+		ret = stk3x1x_power_ctl(ps_data, true);
+		if (ret) {
+			dev_err(dev, "Failed to enable device power\n");
+			goto err_exit;
+		}
+		ret = stk3x1x_init_all_setting(ps_data->client, ps_data->pdata);
+		if (ret < 0) {
+			stk3x1x_power_ctl(ps_data, false);
+			dev_err(dev, "Failed to re-init device setting\n");
+			goto err_exit;
+		}
+	} else if (!enable && ps_data->power_enabled) {
+		if (!ps_data->als_enabled && !ps_data->ps_enabled) {
+			ret = stk3x1x_power_ctl(ps_data, false);
+			if (ret) {
+				dev_err(dev, "Failed to disable device power\n");
+				goto err_exit;
+			}
+		} else {
+			dev_dbg(dev, "device control: als_enabled=%d, ps_enabled=%d\n",
+				ps_data->als_enabled, ps_data->ps_enabled);
+		}
+	} else {
+		dev_dbg(dev, "device control: enable=%d, power_enabled=%d\n",
+			enable, ps_data->power_enabled);
+	}
+	return 0;
+
+err_exit:
+	return ret;
+}
 #ifdef CONFIG_OF
 static int stk3x1x_parse_dt(struct device *dev,
 			struct stk3x1x_platform_data *pdata)
@@ -2205,6 +2270,7 @@ static int stk3x1x_probe(struct i2c_client *client,
 	ps_data->als_transmittance = plat_data->transmittance;
 	ps_data->int_pin = plat_data->int_pin;
 	ps_data->use_fir = plat_data->use_fir;
+	ps_data->pdata = plat_data;
 
 	if (ps_data->als_transmittance == 0) {
 		dev_err(&client->dev,
@@ -2285,24 +2351,28 @@ static int stk3x1x_probe(struct i2c_client *client,
 	if (err)
 		goto err_power_init;
 
-	err = stk3x1x_power_on(ps_data, true);
+	err = stk3x1x_power_ctl(ps_data, true);
 	if (err)
 		goto err_power_on;
 
-	err = stk3x1x_init_all_setting(client, plat_data);
-	if(err < 0)
-		goto err_init_all_setting;
+	ps_data->als_enabled = false;
+	ps_data->ps_enabled = false;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	ps_data->stk_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ps_data->stk_early_suspend.suspend = stk3x1x_early_suspend;
 	ps_data->stk_early_suspend.resume = stk3x1x_late_resume;
 	register_early_suspend(&ps_data->stk_early_suspend);
 #endif
-	printk(KERN_INFO "%s: probe successfully", __func__);
+	/* enable device power only when it is enabled */
+	err = stk3x1x_power_ctl(ps_data, false);
+	if (err)
+		goto err_init_all_setting;
+
+	dev_dbg(&client->dev, "%s: probe successfully", __func__);
 	return 0;
 
 err_init_all_setting:
-	stk3x1x_power_on(ps_data, false);
+	stk3x1x_power_ctl(ps_data, false);
 err_power_on:
 	stk3x1x_power_init(ps_data, false);
 err_power_init:

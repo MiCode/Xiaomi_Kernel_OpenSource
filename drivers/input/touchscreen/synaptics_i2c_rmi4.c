@@ -2681,8 +2681,22 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 		if (rmi4_data->board->disable_gpios) {
 			if (gpio_is_valid(rmi4_data->board->irq_gpio))
 				gpio_free(rmi4_data->board->irq_gpio);
-			if (gpio_is_valid(rmi4_data->board->reset_gpio))
+			if (gpio_is_valid(rmi4_data->board->reset_gpio)) {
+				/*
+				 * This is intended to save leakage current
+				 * only. Even if the call(gpio_direction_input)
+				 * fails, only leakage current will be more but
+				 * functionality will not be affected.
+				 */
+				retval = gpio_direction_input(rmi4_data->
+							board->reset_gpio);
+				if (retval) {
+					dev_err(&rmi4_data->i2c_client->dev,
+					"unable to set direction for gpio "
+					"[%d]\n", rmi4_data->board->irq_gpio);
+				}
 				gpio_free(rmi4_data->board->reset_gpio);
+			}
 		}
 
 		return 0;

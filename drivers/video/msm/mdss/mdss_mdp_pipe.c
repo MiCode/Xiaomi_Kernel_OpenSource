@@ -27,10 +27,10 @@
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
-static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
-static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp);
+static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
+	struct mdss_data_type *mdata, int client_id);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -43,21 +43,29 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
-static u32 mdss_mdp_smp_mmb_reserve(unsigned long *existing,
-	unsigned long *reserve, size_t n)
+static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
+	size_t n)
 {
 	u32 i, mmb;
+	u32 fixed_cnt = bitmap_weight(smp_map->fixed, SMP_MB_CNT);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (n <= fixed_cnt)
+		return fixed_cnt;
+	else
+		n -= fixed_cnt;
 
 	/* reserve more blocks if needed, but can't free mmb at this point */
-	for (i = bitmap_weight(existing, SMP_MB_CNT); i < n; i++) {
-		if (bitmap_full(mdss_mdp_smp_mmb_pool, SMP_MB_CNT))
+	for (i = bitmap_weight(smp_map->allocated, SMP_MB_CNT); i < n; i++) {
+		if (bitmap_full(mdata->mmb_alloc_map, SMP_MB_CNT))
 			break;
 
-		mmb = find_first_zero_bit(mdss_mdp_smp_mmb_pool, SMP_MB_CNT);
-		set_bit(mmb, reserve);
-		set_bit(mmb, mdss_mdp_smp_mmb_pool);
+		mmb = find_first_zero_bit(mdata->mmb_alloc_map, SMP_MB_CNT);
+		set_bit(mmb, smp_map->reserved);
+		set_bit(mmb, mdata->mmb_alloc_map);
 	}
-	return i;
+
+	return i + fixed_cnt;
 }
 
 static int mdss_mdp_smp_mmb_set(int client_id, unsigned long *smp)
@@ -86,18 +94,15 @@ static void mdss_mdp_smp_mmb_amend(unsigned long *smp, unsigned long *extra)
 
 static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
 	if (!bitmap_empty(smp, SMP_MB_CNT)) {
 		if (write)
 			mdss_mdp_smp_mmb_set(0, smp);
-		bitmap_andnot(mdss_mdp_smp_mmb_pool, mdss_mdp_smp_mmb_pool,
+		bitmap_andnot(mdata->mmb_alloc_map, mdata->mmb_alloc_map,
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
 	}
-}
-
-static int __mdss_mdp_pipe_smp_mmb_is_empty(unsigned long *smp)
-{
-	return bitmap_weight(smp, SMP_MB_CNT) == 0;
 }
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
@@ -229,8 +234,8 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
-		reserved = mdss_mdp_smp_mmb_reserve(pipe->smp_map[i].allocated,
-			pipe->smp_map[i].reserved, num_blks);
+		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp_map[i],
+			num_blks);
 		if (reserved < num_blks)
 			break;
 	}
@@ -246,7 +251,21 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 	return rc;
 }
-
+/*
+ * mdss_mdp_smp_alloc() -- set smp mmb and and wm levels for a staged pipe
+ * @pipe: pointer to a pipe
+ *
+ * Function amends reserved smp mmbs to allocated bitmap and ties respective
+ * mmbs to their pipe fetch_ids. Based on the number of total allocated mmbs
+ * for a staged pipe, it also sets the watermark levels (wm).
+ *
+ * This function will be called on every commit where pipe params might not
+ * have changed. In such cases, we need to ensure that wm levels are not
+ * wiped out. Also in some rare situations hw might have reset and wiped out
+ * smp mmb programming but new smp reservation is not done. In such cases we
+ * need to ensure that for a staged pipes, mmbs are set properly based on
+ * allocated bitmap.
+ */
 static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 {
 	int i;
@@ -254,8 +273,14 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
-		if (__mdss_mdp_pipe_smp_mmb_is_empty(pipe->smp_map[i].reserved))
+		cnt += bitmap_weight(pipe->smp_map[i].fixed, SMP_MB_CNT);
+
+		if (bitmap_empty(pipe->smp_map[i].reserved, SMP_MB_CNT)) {
+			cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
+				pipe->smp_map[i].allocated);
 			continue;
+		}
+
 		mdss_mdp_smp_mmb_amend(pipe->smp_map[i].allocated,
 			pipe->smp_map[i].reserved);
 		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
@@ -282,6 +307,80 @@ int mdss_mdp_smp_setup(struct mdss_data_type *mdata, u32 cnt, u32 size)
 	mdata->smp_mb_size = size;
 
 	return 0;
+}
+
+/**
+ * mdss_mdp_smp_handoff() - Handoff SMP MMBs in use by staged pipes
+ * @mdata: pointer to the global mdss data structure.
+ *
+ * Iterate through the list of all SMP MMBs and check to see if any
+ * of them are assigned to a pipe being marked as being handed-off.
+ * If so, update the corresponding software allocation map to reflect
+ * this.
+ *
+ * This function would typically be called during MDP probe for the case
+ * when certain pipes might be programmed in the bootloader to display
+ * the splash screen.
+ */
+int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
+{
+	int rc = 0;
+	int i, client_id, prev_id = 0;
+	u32 off, s, data;
+	struct mdss_mdp_pipe *pipe = NULL;
+
+	/*
+	 * figure out what SMP MMBs are allocated for each of the pipes
+	 * that need to be handed off.
+	 */
+	for (i = 0; i < SMP_MB_CNT; i++) {
+		off = (i / 3) * 4;
+		s = (i % 3) * 8;
+		data = MDSS_MDP_REG_READ(MDSS_MDP_REG_SMP_ALLOC_W0 + off);
+		client_id = (data >> s) & 0xFF;
+		if (test_bit(i, mdata->mmb_alloc_map)) {
+			/*
+			 * Certain pipes may have a dedicated set of
+			 * SMP MMBs statically allocated to them. In
+			 * such cases, we do not need to do anything
+			 * here.
+			 */
+			pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)"
+				, i, pipe->num, client_id);
+			continue;
+		}
+
+		if (client_id) {
+			if (client_id != prev_id) {
+				pipe = mdss_mdp_pipe_search_by_client_id(mdata,
+					client_id);
+				prev_id = client_id;
+			}
+
+			if (!pipe) {
+				pr_warn("Invalid client id %d for SMP MMB %d\n",
+					client_id, i);
+				continue;
+			}
+
+			if (!pipe->is_handed_off) {
+				pr_warn("SMP MMB %d assigned to a pipe not marked for handoff (client id %d)"
+					, i, client_id);
+				continue;
+			}
+
+			/*
+			 * Assume that the source format only has
+			 * one plane
+			 */
+			pr_debug("Assigning smp mmb %d to pipe %d (client_id %d)\n"
+				, i, pipe->num, client_id);
+			set_bit(i, pipe->smp_map[0].allocated);
+			set_bit(i, mdata->mmb_alloc_map);
+		}
+	}
+
+	return rc;
 }
 
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe)
@@ -427,6 +526,29 @@ error:
 	return pipe;
 }
 
+static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
+	struct mdss_data_type *mdata, int client_id)
+{
+	u32 i;
+
+	for (i = 0; i < mdata->nrgb_pipes; i++) {
+		if (mdata->rgb_pipes[i].ftch_id == client_id)
+			return &mdata->rgb_pipes[i];
+	}
+
+	for (i = 0; i < mdata->nvig_pipes; i++) {
+		if (mdata->vig_pipes[i].ftch_id == client_id)
+			return &mdata->vig_pipes[i];
+	}
+
+	for (i = 0; i < mdata->ndma_pipes; i++) {
+		if (mdata->dma_pipes[i].ftch_id == client_id)
+			return &mdata->dma_pipes[i];
+	}
+
+	return NULL;
+}
+
 struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 						  u32 ndx)
 {
@@ -479,6 +601,67 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 
 	return 0;
 
+}
+
+/**
+ * mdss_mdp_pipe_handoff() - Handoff staged pipes during bootup
+ * @pipe: pointer to the pipe to be handed-off
+ *
+ * Populate the software structures for the pipe based on the current
+ * configuration of the hardware pipe by the reading the appropriate MDP
+ * registers.
+ *
+ * This function would typically be called during MDP probe for the case
+ * when certain pipes might be programmed in the bootloader to display
+ * the splash screen.
+ */
+int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
+{
+	int rc = 0;
+	u32 src_fmt, reg = 0, bpp = 0;
+
+	/*
+	 * todo: for now, only reading pipe src and dest size details
+	 * from the registers. This is needed for appropriately
+	 * calculating perf metrics for the handed off pipes.
+	 * We may need to parse some more details at a later date.
+	 */
+	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE);
+	pipe->src.h = reg >> 16;
+	pipe->src.w = reg & 0xFFFF;
+	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_OUT_SIZE);
+	pipe->dst.h = reg >> 16;
+	pipe->dst.w = reg & 0xFFFF;
+
+	/* Assume that the source format is RGB */
+	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT);
+	bpp = ((reg >> 9) & 0x3) + 1;
+	switch (bpp) {
+	case 4:
+		src_fmt = MDP_RGBA_8888;
+		break;
+	case 3:
+		src_fmt = MDP_RGB_888;
+		break;
+	case 2:
+		src_fmt = MDP_RGB_565;
+		break;
+	default:
+		pr_err("Invalid bpp=%d found\n", bpp);
+		rc = -EINVAL;
+		goto error;
+	}
+	pipe->src_fmt = mdss_mdp_get_format_params(src_fmt);
+
+	pr_debug("Pipe settings: src.h=%d src.w=%d dst.h=%d dst.w=%d bpp=%d\n"
+		, pipe->src.h, pipe->src.w, pipe->dst.h, pipe->dst.w,
+		pipe->src_fmt->bpp);
+
+	pipe->is_handed_off = true;
+	atomic_inc(&pipe->ref_cnt);
+
+error:
+	return rc;
 }
 
 void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,

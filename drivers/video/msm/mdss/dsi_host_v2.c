@@ -547,7 +547,6 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	for (i = 0; i < cnt; i++) {
 		dsi_buf_init(tp);
 		dsi_cmd_dma_add(tp, cm);
-		msm_dsi_cmd_dma_tx(tp);
 		rc = msm_dsi_cmd_dma_tx(tp);
 		if (IS_ERR_VALUE(rc)) {
 			pr_err("%s: failed to call cmd_dma_tx\n", __func__);
@@ -591,6 +590,17 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 {
 	int cnt, len, diff, pkt_size, rc = 0;
 	char cmd;
+	unsigned char *ctrl_base = dsi_host_private->dsi_base;
+	u32 dsi_ctrl, data;
+	int video_mode;
+
+	/* turn on cmd mode for video mode */
+	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
+	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+	if (video_mode) {
+		data = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+		MIPI_OUTP(ctrl_base + DSI_CTRL, data);
+	}
 
 	if (pdata->panel_info.mipi.no_max_pkt_size)
 		rlen = ALIGN(rlen, 4); /* Only support rlen = 4*n */
@@ -699,6 +709,9 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		break;
 	}
 
+	if (video_mode)
+		MIPI_OUTP(ctrl_base + DSI_CTRL,
+					dsi_ctrl); /* restore */
 end:
 	return rp->len;
 }

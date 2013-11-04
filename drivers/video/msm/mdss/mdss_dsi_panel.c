@@ -106,8 +106,8 @@ static struct dsi_cmd_desc dcs_read_cmd = {
 	dcs_cmd
 };
 
-u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
-			char cmd0, char cmd1)
+u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+		char cmd1, void (*fxn)(int), char *rbuf, int len)
 {
 	struct dcs_cmd_req cmdreq;
 
@@ -117,8 +117,9 @@ u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
 	cmdreq.cmds = &dcs_read_cmd;
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
-	cmdreq.rlen = 1;
-	cmdreq.cb = NULL; /* call back */
+	cmdreq.rlen = len;
+	cmdreq.rbuf = rbuf;
+	cmdreq.cb = fxn; /* call back */
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 	/*
 	 * blocked here, until call back called

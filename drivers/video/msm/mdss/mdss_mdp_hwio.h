@@ -419,8 +419,6 @@ enum mdss_mpd_intf_index {
 	MDSS_MDP_MAX_INTF
 };
 
-#define MDSS_MDP_REG_INTF_OFFSET(intf)		(0x20F00 + ((intf) * 0x200))
-
 #define MDSS_MDP_REG_INTF_TIMING_ENGINE_EN		0x000
 #define MDSS_MDP_REG_INTF_CONFIG			0x004
 #define MDSS_MDP_REG_INTF_HSYNC_CTL			0x008
@@ -498,8 +496,6 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_MDP_REG_SMP_ALLOC_W0			0x00180
 #define MDSS_MDP_REG_SMP_ALLOC_R0			0x00230
-
-#define MDSS_MDP_SMP_MMB_BLOCKS			44
 
 #define MDSS_MDP_LP_MISR_SEL			0x450
 #define MDSS_MDP_LP_MISR_CTRL_MDP		0x454

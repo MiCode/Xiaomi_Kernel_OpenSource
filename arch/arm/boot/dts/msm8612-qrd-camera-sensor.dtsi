@@ -11,6 +11,17 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+
+	led_flash0: qcom,camera-led-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-led-flash";
+		qcom,flash-type = <3>;
+		qcom,flash-source = <&gpio_flash>;
+		qcom,torch-source = <&gpio_flash>;
+		status = "disabled";
+	};
+};
 &i2c {
 
 	qcom,camera@20 {
@@ -67,6 +78,7 @@
 		gpios = <&msmgpio 14 0>,
 				<&msmgpio 15 0>,
 				<&msmgpio 85 0>;
+		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
 		qcom,gpio-req-tbl-flags = <1 0 0>;
