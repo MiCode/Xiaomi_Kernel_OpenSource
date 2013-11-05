@@ -3113,6 +3113,8 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("xo",        cxo_acpu_clk.c, "f9011050.qcom,acpuclk"),
 	CLK_LOOKUP("gpll0", gpll0_ao_clk_src.c, "f9011050.qcom,acpuclk"),
 	CLK_LOOKUP("a7sspll",        a7sspll.c, "f9011050.qcom,acpuclk"),
+	CLK_LOOKUP("clk-4",  gpll0_ao_clk_src.c, "f9011050.qcom,clock-a7"),
+	CLK_LOOKUP("clk-5", a7sspll.c, "f9011050.qcom,clock-a7"),
 
 	CLK_LOOKUP("measure_clk", apc0_m_clk, ""),
 	CLK_LOOKUP("measure_clk", apc1_m_clk, ""),
