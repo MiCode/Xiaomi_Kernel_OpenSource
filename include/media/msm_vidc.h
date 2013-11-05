@@ -97,6 +97,10 @@ struct msm_vidc_panscan_window_payload {
 	unsigned int num_panscan_windows;
 	struct msm_vidc_panscan_window wnd[1];
 };
+struct msm_vidc_stream_userdata_payload {
+	unsigned int type;
+	unsigned int data[1];
+};
 enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_NONE = 0x00000000,
 	MSM_VIDC_EXTRADATA_MB_QUANTIZATION = 0x00000001,
@@ -109,6 +113,7 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_PANSCAN_WINDOW = 0x00000008,
 	MSM_VIDC_EXTRADATA_RECOVERY_POINT_SEI = 0x00000009,
 	MSM_VIDC_EXTRADATA_MPEG2_SEQDISP = 0x0000000D,
+	MSM_VIDC_EXTRADATA_STREAM_USERDATA = 0x0000000E,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	MSM_VIDC_EXTRADATA_INDEX = 0x7F100002,
@@ -126,5 +131,10 @@ enum msm_vidc_recovery_sei {
 	MSM_VIDC_FRAME_RECONSTRUCTION_INCORRECT = 0x0,
 	MSM_VIDC_FRAME_RECONSTRUCTION_CORRECT = 0x01,
 	MSM_VIDC_FRAME_RECONSTRUCTION_APPROXIMATELY_CORRECT = 0x02,
+};
+enum msm_vidc_userdata_type {
+	MSM_VIDC_USERDATA_TYPE_FRAME = 0x1,
+	MSM_VIDC_USERDATA_TYPE_TOP_FIELD = 0x2,
+	MSM_VIDC_USERDATA_TYPE_BOTTOM_FIELD = 0x3,
 };
 #endif
