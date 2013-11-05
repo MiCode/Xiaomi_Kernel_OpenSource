@@ -14,7 +14,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <media/msm_vidc.h>
-#include <media/msm_smem.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
 #include "msm_vdec.h"
@@ -96,18 +95,6 @@ int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
 		partition);
 }
 EXPORT_SYMBOL(msm_vidc_get_iommu_domain_partition);
-
-void *msm_vidc_get_resources(void *instance)
-{
-	struct msm_vidc_inst *inst = instance;
-	struct msm_vidc_platform_resources *res = NULL;
-
-	if (inst != NULL && inst->core != NULL)
-		res = &inst->core->resources;
-
-	return res;
-}
-EXPORT_SYMBOL(msm_vidc_get_resources);
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {

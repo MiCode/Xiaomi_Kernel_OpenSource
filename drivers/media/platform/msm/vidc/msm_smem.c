@@ -12,8 +12,9 @@
  */
 
 #include <linux/slab.h>
+#include <linux/msm_ion.h>
+#include <linux/types.h>
 #include <mach/iommu_domains.h>
-#include <media/msm_smem.h>
 #include "msm_vidc_resources.h"
 #include "msm_vidc_debug.h"
 
@@ -320,7 +321,6 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	}
 	return mem;
 }
-EXPORT_SYMBOL(msm_smem_user_to_kernel);
 
 static int ion_cache_operations(struct smem_client *client,
 	struct msm_smem *mem, enum smem_cache_ops cache_op)
@@ -393,7 +393,6 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 	}
 	return rc;
 }
-EXPORT_SYMBOL(msm_smem_cache_operations);
 
 void *msm_smem_new_client(enum smem_type mtype,
 		void *platform_resources)
@@ -422,7 +421,6 @@ void *msm_smem_new_client(enum smem_type mtype,
 	}
 	return client;
 }
-EXPORT_SYMBOL(msm_smem_new_client);
 
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		enum hal_buffer buffer_type, int map_kernel)
@@ -462,7 +460,6 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 	}
 	return mem;
 }
-EXPORT_SYMBOL(msm_smem_alloc);
 
 void msm_smem_free(void *clt, struct msm_smem *mem)
 {
@@ -481,7 +478,6 @@ void msm_smem_free(void *clt, struct msm_smem *mem)
 	}
 	kfree(mem);
 };
-EXPORT_SYMBOL(msm_smem_free);
 
 void msm_smem_delete_client(void *clt)
 {
@@ -500,7 +496,6 @@ void msm_smem_delete_client(void *clt)
 	}
 	kfree(client);
 }
-EXPORT_SYMBOL(msm_smem_delete_client);
 
 int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 		buffer_type, int *domain_num, int *partition_num)
@@ -539,5 +534,4 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 			*domain_num, *partition_num);
 	return 0;
 }
-EXPORT_SYMBOL(msm_smem_get_domain_partition);
 

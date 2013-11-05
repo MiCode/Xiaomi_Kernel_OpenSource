@@ -5,7 +5,54 @@
 
 #include <linux/poll.h>
 #include <linux/videodev2.h>
-#include <media/msm_smem.h>
+#include <linux/types.h>
+#include <linux/msm_ion.h>
+
+#define HAL_BUFFER_MAX 0xb
+
+enum smem_type {
+	SMEM_ION,
+};
+
+enum smem_prop {
+	SMEM_CACHED = ION_FLAG_CACHED,
+	SMEM_SECURE = ION_FLAG_SECURE,
+};
+
+/* NOTE: if you change this enum you MUST update the
+ * "buffer-type-tz-usage-table" for any affected target
+ * in arch/arm/boot/dts/<arch>.dtsi
+ */
+enum hal_buffer {
+	HAL_BUFFER_INPUT = 0x1,
+	HAL_BUFFER_OUTPUT = 0x2,
+	HAL_BUFFER_OUTPUT2 = 0x4,
+	HAL_BUFFER_EXTRADATA_INPUT = 0x8,
+	HAL_BUFFER_EXTRADATA_OUTPUT = 0x10,
+	HAL_BUFFER_EXTRADATA_OUTPUT2 = 0x20,
+	HAL_BUFFER_INTERNAL_SCRATCH = 0x40,
+	HAL_BUFFER_INTERNAL_SCRATCH_1 = 0x80,
+	HAL_BUFFER_INTERNAL_SCRATCH_2 = 0x100,
+	HAL_BUFFER_INTERNAL_PERSIST = 0x200,
+	HAL_BUFFER_INTERNAL_PERSIST_1 = 0x400,
+	HAL_BUFFER_INTERNAL_CMD_QUEUE = 0x800,
+};
+
+struct msm_smem {
+	int mem_type;
+	size_t size;
+	void *kvaddr;
+	unsigned long device_addr;
+	u32 flags;
+	void *smem_priv;
+	enum hal_buffer buffer_type;
+};
+
+enum smem_cache_ops {
+	SMEM_CACHE_CLEAN,
+	SMEM_CACHE_INVALIDATE,
+	SMEM_CACHE_CLEAN_INVALIDATE,
+};
 
 enum core_id {
 	MSM_VIDC_CORE_0 = 0,
@@ -38,7 +85,6 @@ int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
 int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
 		enum v4l2_buf_type, int *domain, int *partition);
-void *msm_vidc_get_resources(void *instance);
 int msm_vidc_subscribe_event(void *instance,
 		const struct v4l2_event_subscription *sub);
 int msm_vidc_unsubscribe_event(void *instance,

@@ -17,8 +17,6 @@
 #include <linux/kernel.h>
 #include <asm/div64.h>
 #include <mach/subsystem_restart.h>
-#include <media/msm_smem.h>
-
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
