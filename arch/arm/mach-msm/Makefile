@@ -12,6 +12,7 @@ obj-$(CONFIG_KEXEC) += msm_kexec.o
 
 obj-y += acpuclock.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += clock-krait.o
+obj-$(CONFIG_MSM_CORTEX_A7) += clock-a7.o
 obj-$(CONFIG_HW_PERF_EVENTS) += perf_trace_counters.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += msm-krait-l2-accessors.o perf_event_msm_krait_l2.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += krait-scm.o
@@ -149,7 +150,7 @@ obj-$(CONFIG_ARCH_MSM8610) += clock-local2.o clock-pll.o clock-8610.o clock-rpm.
 obj-$(CONFIG_ARCH_MSM8610) += acpuclock-8226.o acpuclock-cortex.o
 obj-$(CONFIG_ARCH_MSM8610) += clock-dsi-8610.o
 obj-$(CONFIG_ARCH_MSMKRYPTON) += clock-local2.o clock-pll.o clock-krypton.o clock-rpm.o clock-voter.o
-obj-$(CONFIG_ARCH_MSMKRYPTON) += clock-alpha-pll.o clock-a7.o
+obj-$(CONFIG_ARCH_MSMKRYPTON) += clock-alpha-pll.o
 
 obj-$(CONFIG_MSM_PM8X60) += pm-8x60.o pm-data.o
 
