@@ -1,0 +1,21 @@
+CI (CAM) Bridge Over SPI
+
+Required properties:
+
+- compatible: "smartv,cimax"
+- reg: SPI chip-select
+- spi-max-frequency: Max allowed frequency of SPI interface
+- smartv,cimax-int-gpio: CIMax interrupt gpio pin
+- smartv,cimax-rst-gpio: CIMax reset gpio pin
+
+Example:
+
+	spi@f9923000 {
+	   ci-bridge-spi@0 {
+			compatible = "smartv,cimax";
+			reg = <0>;
+			spi-max-frequency = <15000000>;
+			smartv,cimax-int-gpio = <&msmgpio 133 0>;
+			smartv,cimax-rst-gpio = <&ioexp_gpios 5 0>;
+	   };
+	};

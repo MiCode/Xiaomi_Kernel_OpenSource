@@ -27,7 +27,8 @@
 #include <linux/uaccess.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
-
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/ci-bridge-spi.h>
 
 #define CI_MAX_BUFFER_SIZE	(64 * 1024)
@@ -47,25 +48,67 @@ struct ci_bridge {
 
 };
 
+static struct of_device_id cibridge_match_table[] = {
+	{.compatible = "smartv,cimax"},
+	{}
+};
+
 static struct ci_bridge ci;
+
+static int ci_bridge_spi_dt_to_pdata(struct spi_device *spi,
+			struct ci_bridge_platform_data *pdata)
+{
+	struct device_node *node = spi->dev.of_node;
+
+	pdata->reset_pin = of_get_named_gpio(node, "smartv,cimax-rst-gpio", 0);
+	if (pdata->reset_pin < 0) {
+		pr_err("%s: Could not find reset gpio, err %d\n",
+			__func__, pdata->reset_pin);
+		return -EINVAL;
+	}
+
+	pdata->interrupt_pin = of_get_named_gpio(node,
+		"smartv,cimax-int-gpio", 0);
+	if (pdata->interrupt_pin < 0) {
+		pr_err("%s: Could not find interrupt gpio, err %d\n",
+			__func__, pdata->reset_pin);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int ci_bridge_spi_probe(struct spi_device *spi)
 {
 	int ret;
-	struct ci_bridge_platform_data *pdata;
 
-	if (spi->dev.platform_data == NULL) {
-		pr_err("%s: platform data is missing\n", __func__);
-		return -EINVAL;
+	if (spi->dev.of_node) {
+		struct ci_bridge_platform_data pdata;
+
+		/* get information from device tree */
+		ret = ci_bridge_spi_dt_to_pdata(spi, &pdata);
+		if (ret < 0) {
+			pr_err("%s: parsing DT failed %d\n", __func__, ret);
+			return ret;
+		}
+
+		ci.gpio_reset_pin = pdata.reset_pin;
+		ci.gpio_interrupt_pin = pdata.interrupt_pin;
+	} else {
+		struct ci_bridge_platform_data *pdata = spi->dev.platform_data;
+		if (!pdata) {
+			pr_err("%s: platform data is missing\n", __func__);
+			return -EINVAL;
+		}
+
+		ci.gpio_reset_pin = pdata->reset_pin;
+		ci.gpio_interrupt_pin = pdata->interrupt_pin;
 	}
 
 	ci.spi = spi;
 	ci.num_opened = 0;
 	mutex_init(&ci.lock);
 	spi_set_drvdata(spi, &ci);
-	pdata = spi->dev.platform_data;
-	ci.gpio_reset_pin = pdata->reset_pin;
-	ci.gpio_interrupt_pin = pdata->interrupt_pin;
 
 	ret = gpio_request(ci.gpio_reset_pin, "ci_bridge_spi");
 	if (ret) {
@@ -120,6 +163,7 @@ static int ci_bridge_spi_remove(struct spi_device *spi)
 static struct spi_driver ci_bridge_driver = {
 	.driver = {
 		.name = "ci_bridge_spi",
+		.of_match_table = cibridge_match_table,
 		.owner = THIS_MODULE,
 	},
 	.probe = ci_bridge_spi_probe,
@@ -377,7 +421,6 @@ static int __init ci_bridge_init(void)
 		pr_err("Error calling cdev_add: %d\n", ret);
 		goto class_destroy;
 	}
-
 
 	ci.bridge_dev = device_create(ci.bridge_class, NULL, ci.cdev.dev,
 				     &ci, "ci_bridge_spi0");
