@@ -325,6 +325,7 @@ void kgsl_process_events(struct work_struct *work);
 /* the context has caused a pagefault */
 #define KGSL_CONTEXT_PAGEFAULT 1
 
+struct kgsl_process_private;
 /**
  * struct kgsl_context - Master structure for a KGSL context object
  * @refcount: kref object for reference counting the context
@@ -351,9 +352,9 @@ struct kgsl_context {
 	pid_t pid;
 	pid_t tid;
 	struct kgsl_device_private *dev_priv;
+	struct kgsl_process_private *proc_priv;
 	unsigned long priv;
 	struct kgsl_device *device;
-	struct kgsl_pagetable *pagetable;
 	unsigned int reset_status;
 	bool wait_on_invalid_ts;
 	struct sync_timeline *timeline;

@@ -459,8 +459,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	if (!kref_get_unless_zero(&dev_priv->process_priv->refcount))
 		goto fail_free_id;
 	context->device = dev_priv->device;
-	context->pagetable = dev_priv->process_priv->pagetable;
 	context->dev_priv = dev_priv;
+	context->proc_priv = dev_priv->process_priv;
 	context->pid = task_tgid_nr(current);
 	context->tid = task_pid_nr(current);
 
@@ -552,7 +552,7 @@ kgsl_context_destroy(struct kref *kref)
 	write_unlock(&device->context_lock);
 	kgsl_sync_timeline_destroy(context);
 	kgsl_put_process_private(device,
-				context->dev_priv->process_priv);
+				context->proc_priv);
 
 	device->ftbl->drawctxt_destroy(context);
 }
