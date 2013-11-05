@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+
 #ifndef MPQ_DVB_VIDEO_INTERNAL_H
 #define MPQ_DVB_VIDEO_INTERNAL_H
 
@@ -17,7 +18,6 @@
 #define MPQ_VID_DEC_NAME "mpq_vidc_dec"
 
 extern int mpq_debug;
-
 enum {
 	MPQ_ERR = 0x001,
 	MPQ_WRN = 0x002,
@@ -32,10 +32,12 @@ enum {
 		} \
 	} while (0)
 
+
 #define DBG(x...)	dprintk(MPQ_DBG, ## x)
 #define INF(x...)	dprintk(MPQ_INF, ## x)
 #define WRN(x...)	dprintk(MPQ_WRN, ## x)
 #define ERR(x...)	dprintk(MPQ_ERR, ## x)
+
 
 #define DVB_MPQ_NUM_VIDEO_DEVICES	4
 #define SAFE_GAP			16
@@ -50,10 +52,12 @@ enum {
 #define MPQ_DVB_INPUT_STREAMON_BIT		0x00000040
 #define MPQ_DVB_OUTPUT_STREAMON_BIT		0x00000080
 #define MPQ_DVB_FLUSH_DONE_BIT			0x00000100
+#define MPQ_DVB_FLUSH_IN_PROGRESS_BIT	0x00000200
 
 #define DEFAULT_INPUT_BUF_SIZE	        (1024*1024)
 #define DEFAULT_INPUT_BUF_NUM		16
 
+#define MPQ_VID_DEC_NAME "mpq_vidc_dec"
 #define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
 
 enum {
@@ -77,7 +81,7 @@ enum {
 	MPQ_STATE_READY,
 	MPQ_STATE_RUNNING,
 	MPQ_STATE_IDLE,
-	MPQ_STATE_CLOSED
+	MPQ_STATE_STOPPED
 };
 
 struct mpq_inq_msg {
@@ -95,7 +99,16 @@ struct mpq_msg_q_msg {
 	struct list_head	list;
 	u32			msg_type;
 };
-
+#ifdef EXTRADATA_HANDLING
+struct mpq_extradata {
+	int index;
+	u32	uaddr;
+	u32 length;
+	u32 bytesused;
+	int	ion_fd;
+	int fd_offset;
+};
+#endif
 struct buffer_info {
 	int			index;
 	enum v4l2_buf_type	buf_type;
@@ -108,6 +121,9 @@ struct buffer_info {
 	u32			kernel_vaddr;
 	u32			buf_offset;
 	struct msm_smem     *handle;
+#ifdef EXTRADATA_HANDLING
+	struct mpq_extradata extradata;
+#endif
 };
 
 struct mpq_ring_buffer {
@@ -116,6 +132,7 @@ struct mpq_ring_buffer {
 	size_t			write_idx;
 	size_t			read_idx;
 	size_t			release_idx;
+	u32				flush_buffer;
 	wait_queue_head_t	write_wait;
 	wait_queue_head_t	read_wait;
 	struct semaphore	sem;
@@ -125,49 +142,52 @@ struct v4l2_instance {
 	struct msm_vidc_instance	*vidc_inst;
 	void	                    *mem_client;
 	struct mutex                lock;
-	struct list_head			msg_queue;
-	struct semaphore			msg_sem;
-	wait_queue_head_t			msg_wait;
-	struct list_head			inq;
-	struct semaphore			inq_sem;
-	wait_queue_head_t			inq_wait;
-	struct list_head			outq;
-	struct semaphore			outq_sem;
-	wait_queue_head_t			outq_wait;
+	struct list_head		msg_queue;
+	struct semaphore		msg_sem;
+	wait_queue_head_t		msg_wait;
+	struct list_head		inq;
+	struct semaphore		inq_sem;
+	wait_queue_head_t		inq_wait;
+	struct list_head		outq;
+	struct semaphore		outq_sem;
+	wait_queue_head_t		outq_wait;
+	int						video_codec;
 	struct v4l2_requestbuffers	bufreq[MAX_PORTS];
-	struct v4l2_format			fmt[MAX_PORTS];
-	u32							input_mode;
+	struct v4l2_format		fmt[MAX_PORTS];
+	struct buffer_info		buf_info[MAX_PORTS][MAX_NUM_BUFS];
+	u32				input_mode;
 	struct mpq_ring_buffer	    *ringbuf;
-	u32		num_input_buffers;
-	u32		input_buf_count;
-	u32		num_output_buffers;
-	u32		output_buf_count;
-	u32		flag;
-	u32		state;
-	struct buffer_info buf_info[MAX_PORTS][MAX_NUM_BUFS];
+
+	u32				num_input_buffers;
+	u32				input_buf_count;
+	u32				num_output_buffers;
+	u32				output_buf_count;
+	u32				flag;
+	u32				state;
 };
 
 struct mpq_dmx_source {
 	struct mpq_streambuffer *stream_buffer;
+	wait_queue_head_t		dmx_wait;
 };
 
 struct mpq_dvb_video_instance {
-	struct dvb_device			*video_dev;
+	struct dvb_device		*video_dev;
 	video_stream_source_t		source;
 	struct mpq_dmx_source		*dmx_src_data;
 	struct v4l2_instance		*v4l2_inst;
-	struct task_struct			*input_task;
-	struct task_struct			*event_task;
-	struct task_struct			*demux_task;
+	struct task_struct		*input_task;
+	struct task_struct		*event_task;
+	struct task_struct		*demux_task;
 };
 
 struct mpq_dvb_video_device {
-	s32						device_handle;
-	u32						num_clients;
+	s32				device_handle;
+	u32				num_clients;
 	struct mutex			lock;
 	struct dvb_adapter		*mpq_adapter;
 	struct mpq_dvb_video_instance	dev_inst[DVB_MPQ_NUM_VIDEO_DEVICES];
-	struct ion_client				*ion_clnt;
+	struct ion_client		*ion_clnt;
 };
 
 #endif /* MPQ_DVB_VIDEO_INTERNAL_H */
