@@ -1892,7 +1892,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
 			sys->sps_callback = ipa_sps_irq_rx_no_aggr_notify;
 			if (in->client == IPA_CLIENT_APPS_LAN_CONS ||
-					IPA_CLIENT_APPS_WAN_CONS) {
+			    in->client == IPA_CLIENT_APPS_WAN_CONS) {
 				INIT_DELAYED_WORK(&sys->replenish_rx_work,
 						replenish_rx_work_func);
 				sys->rx_buff_sz = IPA_LAN_RX_BUFF_SZ;
