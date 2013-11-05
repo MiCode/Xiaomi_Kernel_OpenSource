@@ -72,7 +72,6 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 		enum smem_cache_ops);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 				enum hal_buffer buffer_type);
-int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem);
 int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 		buffer_type, int *domain_num, int *partition_num);
 #endif
