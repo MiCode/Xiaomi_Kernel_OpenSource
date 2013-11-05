@@ -4036,6 +4036,13 @@ static int mpq_sdmx_section_filtering(struct mpq_feed *mpq_feed,
 				__func__);
 			return ret;
 		}
+
+		if (mpq_feed->sdmx_filter_handle ==
+			SDMX_INVALID_FILTER_HANDLE) {
+			MPQ_DVB_DBG_PRINT("%s: filter was stopped\n",
+				__func__);
+			return -ENODEV;
+		}
 	}
 
 	if (mpq_feed->sdmx_buf.pread + header->payload_length <
@@ -4088,6 +4095,13 @@ static int mpq_sdmx_check_ts_stall(struct mpq_demux *mpq_demux,
 			__func__, ret);
 
 		mutex_lock(&mpq_demux->mutex);
+
+		if (mpq_feed->sdmx_filter_handle ==
+			SDMX_INVALID_FILTER_HANDLE) {
+			MPQ_DVB_DBG_PRINT("%s: filter was stopped\n",
+					__func__);
+			return -ENODEV;
+		}
 
 		return ret;
 	}
