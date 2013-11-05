@@ -25,6 +25,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/mutex.h>
 
 /* Config/Control registers */
 #define CHG_CURRENT_CTRL_REG		0x0
@@ -174,6 +175,9 @@ struct smb349_charger {
 	bool			battery_missing;
 	bool			supply_update;
 	const char		*bms_psy_name;
+	struct completion	resumed;
+	bool			resume_completed;
+	bool			irq_waiting;
 
 	int			charging_disabled;
 	int			fastchg_current_max_ma;
@@ -183,6 +187,7 @@ struct smb349_charger {
 	struct power_supply	batt_psy;
 
 	struct smb349_regulator	otg_vreg;
+	struct mutex		irq_complete;
 
 	struct dentry		*debug_root;
 };
@@ -1132,6 +1137,15 @@ static irqreturn_t smb349_chg_stat_handler(int irq, void *dev_id)
 	u8 changed;
 	u8 rt_stat;
 
+	mutex_lock(&chip->irq_complete);
+
+	INIT_COMPLETION(chip->resumed);
+	chip->irq_waiting = true;
+	if (!chip->resume_completed) {
+		dev_dbg(chip->dev, "IRQ triggered before device-resume\n");
+		wait_for_completion_interruptible(&chip->resumed);
+	}
+	chip->irq_waiting = false;
 	chip->supply_update = false;
 
 	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
@@ -1174,6 +1188,8 @@ static irqreturn_t smb349_chg_stat_handler(int irq, void *dev_id)
 	}
 
 	dump_regs(chip);
+	mutex_unlock(&chip->irq_complete);
+
 	return IRQ_HANDLED;
 }
 
@@ -1380,6 +1396,10 @@ static int smb349_charger_probe(struct i2c_client *client,
 	chip->batt_psy.num_properties	= ARRAY_SIZE(smb349_battery_properties);
 	chip->batt_psy.external_power_changed = smb349_external_power_changed;
 
+	chip->resume_completed = true;
+	init_completion(&chip->resumed);
+	mutex_init(&chip->irq_complete);
+
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
 		dev_err(&client->dev, "Couldn't register batt psy rc=%d\n",
@@ -1508,9 +1528,50 @@ static int smb349_charger_remove(struct i2c_client *client)
 	if (gpio_is_valid(chip->chg_valid_gpio))
 		gpio_free(chip->chg_valid_gpio);
 
+	mutex_destroy(&chip->irq_complete);
 	debugfs_remove_recursive(chip->debug_root);
 	return 0;
 }
+
+static int smb349_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb349_charger *chip = i2c_get_clientdata(client);
+
+	mutex_lock(&chip->irq_complete);
+	chip->resume_completed = false;
+	mutex_unlock(&chip->irq_complete);
+
+	return 0;
+}
+
+static int smb349_suspend_noirq(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb349_charger *chip = i2c_get_clientdata(client);
+
+	if (chip->irq_waiting) {
+		pr_err_ratelimited("Aborting suspend, an interrupt was detected while suspending\n");
+		return -EBUSY;
+	}
+	return 0;
+}
+
+static int smb349_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct smb349_charger *chip = i2c_get_clientdata(client);
+
+	chip->resume_completed = true;
+	complete(&chip->resumed);
+	return 0;
+}
+
+static const struct dev_pm_ops smb349_pm_ops = {
+	.suspend	= smb349_suspend,
+	.suspend_noirq	= smb349_suspend_noirq,
+	.resume		= smb349_resume,
+};
 
 static struct of_device_id smb349_match_table[] = {
 	{ .compatible = "qcom,smb349-charger",},
@@ -1528,6 +1589,7 @@ static struct i2c_driver smb349_charger_driver = {
 		.name		= "smb349-charger",
 		.owner		= THIS_MODULE,
 		.of_match_table	= smb349_match_table,
+		.pm		= &smb349_pm_ops,
 	},
 	.probe		= smb349_charger_probe,
 	.remove		= smb349_charger_remove,
