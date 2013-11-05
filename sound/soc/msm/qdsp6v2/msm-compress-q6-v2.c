@@ -183,7 +183,7 @@ static void compr_event_handler(uint32_t opcode,
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2:
-		spin_lock_irq(&prtd->lock);
+		spin_lock(&prtd->lock);
 
 		if (payload[3]) {
 			pr_err("WRITE FAILED w/ err 0x%x !, paddr 0x%x"
@@ -208,7 +208,7 @@ static void compr_event_handler(uint32_t opcode,
 			/* Writes must be restarted from _copy() */
 			pr_debug("write_done received while not started, treat as xrun");
 			atomic_set(&prtd->xrun, 1);
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock(&prtd->lock);
 			break;
 		}
 
@@ -226,7 +226,7 @@ static void compr_event_handler(uint32_t opcode,
 		} else
 			msm_compr_send_buffer(prtd);
 
-		spin_unlock_irq(&prtd->lock);
+		spin_unlock(&prtd->lock);
 		break;
 	case ASM_DATA_EVENT_RENDERED_EOS:
 		pr_debug("ASM_DATA_CMDRSP_EOS\n");
@@ -254,7 +254,7 @@ static void compr_event_handler(uint32_t opcode,
 			/* check if the first buffer need to be sent to DSP */
 			pr_debug("ASM_SESSION_CMD_RUN_V2\n");
 
-			spin_lock_irq(&prtd->lock);
+			spin_lock(&prtd->lock);
 			/* FIXME: A state is a much better way of dealing with this */
 			if (!prtd->copied_total) {
 				bytes_available = prtd->bytes_received - prtd->copied_total;
@@ -264,7 +264,7 @@ static void compr_event_handler(uint32_t opcode,
 				} else
 					msm_compr_send_buffer(prtd);
 			}
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock(&prtd->lock);
 			break;
 		case ASM_STREAM_CMD_FLUSH:
 			pr_debug("ASM_STREAM_CMD_FLUSH\n");
@@ -599,6 +599,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 	uint32_t *volume = pdata->volume[rtd->dai_link->be_id];
 	int rc = 0;
 	int bytes_to_write;
+	unsigned long flags;
 
 	if (cstream->direction != SND_COMPRESS_PLAYBACK) {
 		pr_err("%s: Unsupported stream type\n", __func__);
@@ -618,7 +619,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_STOP\n", __func__);
-		spin_lock_irq(&prtd->lock);
+		spin_lock_irqsave(&prtd->lock, flags);
 
 		atomic_set(&prtd->start, 0);
 		if (atomic_read(&prtd->eos)) {
@@ -632,7 +633,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		pr_debug("issue CMD_FLUSH \n");
 		prtd->cmd_ack = 0;
-		spin_unlock_irq(&prtd->lock);
+		spin_unlock_irqrestore(&prtd->lock, flags);
 		rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
 		if (rc < 0) {
 			pr_err("%s: flush cmd failed rc=%d\n",
@@ -647,14 +648,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		} else
 			rc = 0; /* prtd->cmd_status == OK? 0 : -EPERM */
 
-		spin_lock_irq(&prtd->lock);
+		spin_lock_irqsave(&prtd->lock, flags);
 		/* FIXME. only reset if flush was successful */
 		prtd->byte_offset  = 0;
 		prtd->copied_total = 0;
 		prtd->app_pointer  = 0;
 		prtd->bytes_received = 0;
 		atomic_set(&prtd->xrun, 0);
-		spin_unlock_irq(&prtd->lock);
+		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_PUSH\n");
@@ -671,13 +672,13 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 	case SND_COMPR_TRIGGER_DRAIN:
 		pr_debug("%s: SNDRV_COMPRESS_DRAIN\n", __func__);
 		/* Make sure all the data is sent to DSP before sending EOS */
-		spin_lock_irq(&prtd->lock);
+		spin_lock_irqsave(&prtd->lock, flags);
 
 		if (!atomic_read(&prtd->start)) {
 			pr_err("%s: stream is not in started state\n",
 				__func__);
 			rc = -EPERM;
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock_irqrestore(&prtd->lock, flags);
 			break;
 		}
 		atomic_set(&prtd->eos, 1);
@@ -685,7 +686,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		if (prtd->bytes_received > prtd->copied_total) {
 			atomic_set(&prtd->drain, 1);
 			prtd->drain_ready = 0;
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock_irqrestore(&prtd->lock, flags);
 			pr_debug("%s: wait till all the data is sent to dsp\n",
 				__func__);
 
@@ -701,7 +702,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 						      prtd->cmd_interrupt || prtd->drain_ready ||
 						      atomic_read(&prtd->xrun));
 
-			spin_lock_irq(&prtd->lock);
+			spin_lock_irqsave(&prtd->lock, flags);
 			if (!prtd->cmd_interrupt) {
 				bytes_to_write = prtd->bytes_received - prtd->copied_total;
 				WARN(bytes_to_write > runtime->fragment_size,
@@ -721,7 +722,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			pr_debug("%s: stream is not started (interrupted by flush?)\n", __func__);
 			rc = -EINTR;
 			prtd->cmd_interrupt = 0;
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock_irqrestore(&prtd->lock, flags);
 			break;
 		}
 
@@ -730,7 +731,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		prtd->cmd_ack = 0;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 
-		spin_unlock_irq(&prtd->lock);
+		spin_unlock_irqrestore(&prtd->lock, flags);
 
 /*
 		if (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN) {
@@ -753,17 +754,17 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		/*FIXME : what if a flush comes while PC is here */
 		if (rc == 0 && (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN)) {
-			spin_lock_irq(&prtd->lock);
+			spin_lock_irqsave(&prtd->lock, flags);
 			pr_debug("%s: issue CMD_PAUSE ", __func__);
 			q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 			prtd->cmd_ack = 0;
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock_irqrestore(&prtd->lock, flags);
 			pr_debug("%s: issue CMD_FLUSH", __func__);
 			q6asm_cmd(prtd->audio_client, CMD_FLUSH);
 			wait_event_timeout(prtd->flush_wait,
 					   prtd->cmd_ack, 1 * HZ / 4);
 
-			spin_lock_irq(&prtd->lock);
+			spin_lock_irqsave(&prtd->lock, flags);
 			prtd->byte_offset = 0;
 			prtd->app_pointer  = 0;
 			/* Don't reset these as these vars map
@@ -777,7 +778,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			atomic_set(&prtd->xrun, 1);
 			pr_debug("%s: issue CMD_RESUME", __func__);
 			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
-			spin_unlock_irq(&prtd->lock);
+			spin_unlock_irqrestore(&prtd->lock, flags);
 		}
 		pr_debug("%s: out of drain", __func__);
 
@@ -799,15 +800,16 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 	struct snd_compr_tstamp tstamp;
 	uint64_t timestamp = 0;
 	int rc = 0;
+	unsigned long flags;
 
 	pr_debug("%s\n", __func__);
 	memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
 
-	spin_lock_irq(&prtd->lock);
+	spin_lock_irqsave(&prtd->lock, flags);
 	tstamp.sampling_rate = prtd->sample_rate;
 	tstamp.byte_offset = prtd->byte_offset;
 	tstamp.copied_total = prtd->copied_total;
-	spin_unlock_irq(&prtd->lock);
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	/*
 	 Query timestamp from DSP if some data is with it.
@@ -838,6 +840,7 @@ static int msm_compr_ack(struct snd_compr_stream *cstream,
 	struct msm_compr_audio *prtd = runtime->private_data;
 	void *src, *dstn;
 	size_t copy;
+	unsigned long flags;
 
 	WARN(1, "This path is untested");
 	return -EINVAL;
@@ -864,7 +867,7 @@ static int msm_compr_ack(struct snd_compr_stream *cstream,
 	 * copied to DSP, the newly received bytes should be
 	 * sent right away
 	 */
-	spin_lock_irq(&prtd->lock);
+	spin_lock_irqsave(&prtd->lock, flags);
 
 	if (atomic_read(&prtd->start) &&
 		prtd->bytes_received == prtd->copied_total) {
@@ -873,7 +876,7 @@ static int msm_compr_ack(struct snd_compr_stream *cstream,
 	} else
 		prtd->bytes_received += count;
 
-	spin_unlock_irq(&prtd->lock);
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	return 0;
 }
@@ -886,6 +889,7 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 	void *dstn;
 	size_t copy;
 	size_t bytes_available = 0;
+	unsigned long flags;
 
 	pr_debug("%s: count = %d\n", __func__, count);
 	if (!prtd->buffer) {
@@ -911,7 +915,7 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 	 * If stream is started and there has been an xrun,
 	 * since the available bytes fits fragment_size, copy the data right away
 	 */
-	spin_lock_irq(&prtd->lock);
+	spin_lock_irqsave(&prtd->lock, flags);
 
 	prtd->bytes_received += count;
 	if (atomic_read(&prtd->start)) {
@@ -928,7 +932,7 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 		} /* writes will continue on the next write_done */
 	}
 
-	spin_unlock_irq(&prtd->lock);
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	return count;
 }
