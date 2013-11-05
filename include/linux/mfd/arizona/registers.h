@@ -120,6 +120,12 @@
 #define ARIZONA_MIC_BIAS_CTRL_1                  0x218
 #define ARIZONA_MIC_BIAS_CTRL_2                  0x219
 #define ARIZONA_MIC_BIAS_CTRL_3                  0x21A
+#define ARIZONA_HP_CTRL_1L                       0x225
+#define ARIZONA_HP_CTRL_1R                       0x226
+#define ARIZONA_HP_CTRL_2L                       0x227
+#define ARIZONA_HP_CTRL_2R                       0x228
+#define ARIZONA_HP_CTRL_3L                       0x229
+#define ARIZONA_HP_CTRL_3R                       0x22A
 #define ARIZONA_ACCESSORY_DETECT_MODE_1          0x293
 #define ARIZONA_HEADPHONE_DETECT_1               0x29B
 #define ARIZONA_HEADPHONE_DETECT_2               0x29C
@@ -167,6 +173,7 @@
 #define ARIZONA_DMIC4R_CONTROL                   0x32E
 #define ARIZONA_OUTPUT_ENABLES_1                 0x400
 #define ARIZONA_OUTPUT_STATUS_1                  0x401
+#define ARIZONA_OUTPUT_STANDBY_1                 0x405
 #define ARIZONA_RAW_OUTPUT_STATUS_1              0x406
 #define ARIZONA_OUTPUT_RATE_1                    0x408
 #define ARIZONA_OUTPUT_VOLUME_RAMP               0x409
