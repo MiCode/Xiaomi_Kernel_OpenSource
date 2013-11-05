@@ -30,14 +30,6 @@
 
 #define GSL_RB_NOP_SIZEDWORDS				2
 
-/*
- * CP DEBUG settings for all cores:
- * DYNAMIC_CLK_DISABLE [27] - turn off the dynamic clock control
- * PROG_END_PTR_ENABLE [25] - Allow 128 bit writes to the VBIF
- */
-
-#define CP_DEBUG_DEFAULT ((1 << 27) | (1 << 25))
-
 void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
@@ -234,7 +226,6 @@ int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device,
 	KGSL_DRV_INFO(device, "loading pm4 ucode version: %d\n",
 		adreno_dev->pm4_fw_version);
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_DEBUG, CP_DEBUG_DEFAULT);
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_WADDR, addr);
 	for (i = start; i < adreno_dev->pm4_fw_size; i++)
 		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_DATA,
