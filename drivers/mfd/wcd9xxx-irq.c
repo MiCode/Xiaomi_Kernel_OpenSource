@@ -150,13 +150,15 @@ bool wcd9xxx_lock_sleep(
 				      msm_cpuidle_get_deep_idle_latency());
 	}
 	mutex_unlock(&wcd9xxx_res->pm_lock);
-	os = wcd9xxx_pm_cmpxchg(wcd9xxx_res,
-					WCD9XXX_PM_SLEEPABLE,
-					WCD9XXX_PM_AWAKE);
+
 	if (!wait_event_timeout(wcd9xxx_res->pm_wq,
-			(os  == WCD9XXX_PM_SLEEPABLE ||
-			 os == WCD9XXX_PM_AWAKE),
-			msecs_to_jiffies(WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
+				((os =  wcd9xxx_pm_cmpxchg(wcd9xxx_res,
+						  WCD9XXX_PM_SLEEPABLE,
+						  WCD9XXX_PM_AWAKE)) ==
+							WCD9XXX_PM_SLEEPABLE ||
+					(os == WCD9XXX_PM_AWAKE)),
+				msecs_to_jiffies(
+					WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
 		pr_warn("%s: system didn't resume within %dms, s %d, w %d\n",
 			__func__,
 			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, wcd9xxx_res->pm_state,

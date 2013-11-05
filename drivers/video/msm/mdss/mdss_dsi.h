@@ -266,8 +266,6 @@ struct dsi_panel_cmds {
 
 #define CMD_REQ_MAX     4
 
-typedef void (*fxn)(u32 data);
-
 #define CMD_REQ_RX      0x0001
 #define CMD_REQ_COMMIT  0x0002
 #define CMD_CLK_CTRL    0x0004
@@ -278,7 +276,8 @@ struct dcs_cmd_req {
 	int cmds_cnt;
 	u32 flags;
 	int rlen;       /* rx length */
-	fxn cb;
+	char *rbuf;	/* rx buf */
+	void (*cb)(int data);
 };
 
 struct dcs_cmd_list {
@@ -320,6 +319,7 @@ struct mdss_dsi_ctrl_pdata {
 	unsigned char *ctrl_base;
 	int reg_size;
 	u32 clk_cnt;
+	struct clk *mdp_core_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *byte_clk;
@@ -382,7 +382,7 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct dsi_cmd_desc *cmds, int cnt);
 
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
-			struct dsi_cmd_desc *cmds, int rlen, u32 rx_flags);
+			struct dsi_cmd_desc *cmds, int rlen);
 
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				struct mdss_panel_data *pdata);

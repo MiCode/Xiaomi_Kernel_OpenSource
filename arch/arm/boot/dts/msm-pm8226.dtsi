@@ -199,6 +199,7 @@
 			qcom,ocv-voltage-high-threshold-uv = <3750000>;
 			qcom,ocv-voltage-low-threshold-uv = <3650000>;
 			qcom,low-soc-calculate-soc-threshold = <15>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
 			qcom,low-soc-calculate-soc-ms = <5000>;
 			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
@@ -425,6 +426,16 @@
 			chan@0 {
 				label = "internal_rsense";
 				reg = <0>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+			chan@1 {
+				label = "external_rsense";
+				reg = <1>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";

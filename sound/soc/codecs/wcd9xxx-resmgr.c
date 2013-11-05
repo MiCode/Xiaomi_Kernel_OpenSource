@@ -561,6 +561,8 @@ void wcd9xxx_resmgr_put_clk_block(struct wcd9xxx_resmgr *resmgr,
 		if (--resmgr->clk_rco_users == 0 &&
 		    resmgr->clk_type == WCD9XXX_CLK_RCO) {
 			wcd9xxx_disable_clock_block(resmgr);
+			snd_soc_update_bits(resmgr->codec,
+					WCD9XXX_A_RC_OSC_FREQ, 0x80, 0x00);
 			resmgr->clk_type = WCD9XXX_CLK_OFF;
 		}
 		break;
@@ -658,7 +660,7 @@ int wcd9xxx_resmgr_get_k_val(struct wcd9xxx_resmgr *resmgr,
 			     unsigned int cfilt_mv)
 {
 	int rc = -EINVAL;
-	unsigned int ldoh_v = resmgr->pdata->micbias.ldoh_v;
+	unsigned int ldoh_v = resmgr->micbias_pdata->ldoh_v;
 	unsigned min_mv, max_mv;
 
 	switch (ldoh_v) {
@@ -843,6 +845,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct snd_soc_codec *codec,
 			struct wcd9xxx_core_resource *core_res,
 			struct wcd9xxx_pdata *pdata,
+			struct wcd9xxx_micbias_setting *micbias_pdata,
 			struct wcd9xxx_reg_address *reg_addr,
 			enum wcd9xxx_cdc_type cdc_type)
 {
@@ -856,6 +859,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 	/* This gives access of core handle to lock/unlock suspend */
 	resmgr->core_res = core_res;
 	resmgr->pdata = pdata;
+	resmgr->micbias_pdata = micbias_pdata;
 	resmgr->reg_addr = reg_addr;
 
 	INIT_LIST_HEAD(&resmgr->update_bit_cond_h);

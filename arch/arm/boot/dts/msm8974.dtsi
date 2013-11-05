@@ -600,7 +600,7 @@
 		#size-cells = <0>;
 		reg-names = "spi_physical", "spi_bam_physical";
 		reg = <0xf9966000 0x1000>,
-		      <0xf9944000 0x15000>;
+		      <0xf9944000 0x19000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 104 0>, <0 239 0>;
 		spi-max-frequency = <19200000>;
@@ -804,7 +804,7 @@
 		interrupts = <0 105 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <50000000>;
+		qcom,i2c-src-freq = <19200000>;
 		qcom,master-id = <84>;
 	};
 
@@ -847,7 +847,7 @@
 		#size-cells = <0>;
 		reg-names = "spi_physical", "spi_bam_physical";
 		reg = <0xf9923000 0x1000>,
-		      <0xf9904000 0xf000>;
+		      <0xf9904000 0x19000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 95 0>, <0 238 0>;
 		spi-max-frequency = <19200000>;

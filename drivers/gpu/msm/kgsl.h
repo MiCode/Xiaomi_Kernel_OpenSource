@@ -205,9 +205,24 @@ struct kgsl_mem_entry {
 #define MMU_CONFIG 1
 #endif
 
+void kgsl_hang_intr_work(struct work_struct *work);
 void kgsl_hang_check(struct work_struct *work);
 void kgsl_mem_entry_destroy(struct kref *kref);
 int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
+
+static inline void kgsl_atomic_set(atomic_t *addr, unsigned int val)
+{
+	atomic_set(addr, val);
+	/* make sure above write is posted */
+	wmb();
+}
+
+static inline int kgsl_atomic_read(atomic_t *addr)
+{
+	/* make sure below read is read from memory */
+	rmb();
+	return atomic_read(addr);
+}
 
 struct kgsl_mem_entry *kgsl_get_mem_entry(struct kgsl_device *device,
 		phys_addr_t ptbase, unsigned int gpuaddr, unsigned int size);

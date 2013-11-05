@@ -469,13 +469,17 @@ error:
 	return status;
 } /* hdmi_edid_read_block */
 
+#define EDID_BLK_LEN 128
+#define EDID_DTD_LEN 18
 static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 	u8 type, u8 *len)
 {
 	/* the start of data block collection, start of Video Data Block */
 	u32 offset = start_offset;
-	u32 end_dbc_offset = in_buf[2];
+	u32 dbc_offset = in_buf[2];
 
+	if (dbc_offset >= EDID_BLK_LEN - EDID_DTD_LEN)
+		return NULL;
 	*len = 0;
 
 	/*
@@ -484,14 +488,15 @@ static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 	 * * edid buffer 1, byte 2 being 0 menas no non-DTD/DATA block
 	 *   collection present and no DTD data present.
 	 */
-	if ((end_dbc_offset == 0) || (end_dbc_offset == 4)) {
+	if ((dbc_offset == 0) || (dbc_offset == 4)) {
 		DEV_WARN("EDID: no DTD or non-DTD data present\n");
 		return NULL;
 	}
 
-	while (offset < end_dbc_offset) {
+	while (offset < dbc_offset) {
 		u8 block_len = in_buf[offset] & 0x1F;
-		if ((in_buf[offset] >> 5) == type) {
+		if ((offset + block_len <= dbc_offset) &&
+		    (in_buf[offset] >> 5) == type) {
 			*len = block_len;
 			DEV_DBG("%s: EDID: block=%d found @ 0x%x w/ len=%d\n",
 				__func__, type, offset, block_len);
@@ -695,7 +700,7 @@ static u32 hdmi_edid_extract_ieee_reg_id(struct hdmi_edid_ctrl *edid_ctrl,
 	}
 
 	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3, &len);
-	if (vsd == NULL)
+	if (vsd == NULL || len < 8)
 		return 0;
 
 	DEV_DBG("%s: EDID: VSD PhyAddr=%04x, MaxTMDS=%dMHz\n", __func__,
@@ -885,7 +890,7 @@ static void hdmi_edid_add_sink_video_format(
 	}
 } /* hdmi_edid_add_sink_video_format */
 
-static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
+static int hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 	struct hdmi_edid_sink_data *sink_data, u32 num_of_cea_blocks)
 {
 	u8 len, offset, present_multi_3d, hdmi_vic_len;
@@ -896,22 +901,34 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 				3, &len) : NULL;
 	int i;
 
+	if (!vsd)
+		return -ENXIO;
+
 	offset = HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd);
+	if (offset >= len - 1)
+		return -ETOOSMALL;
+
 	present_multi_3d = (vsd[offset] & 0x60) >> 5;
 
 	offset += 1;
+
 	hdmi_vic_len = (vsd[offset] >> 5) & 0x7;
 	hdmi_3d_len = vsd[offset] & 0x1F;
 	DEV_DBG("%s: EDID[3D]: HDMI_VIC_LEN = %d, HDMI_3D_LEN = %d\n", __func__,
 		hdmi_vic_len, hdmi_3d_len);
 
 	offset += (hdmi_vic_len + 1);
+	if (offset >= len - 1)
+		return -ETOOSMALL;
+
 	if (present_multi_3d == 1 || present_multi_3d == 2) {
 		DEV_DBG("%s: EDID[3D]: multi 3D present (%d)\n", __func__,
 			present_multi_3d);
 		/* 3d_structure_all */
 		structure_all = (vsd[offset] << 8) | vsd[offset + 1];
 		offset += 2;
+		if (offset >= len - 1)
+			return -ETOOSMALL;
 		hdmi_3d_len -= 2;
 		if (present_multi_3d == 2) {
 			/* 3d_structure_mask */
@@ -958,16 +975,18 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 
 	i = 0;
 	while (hdmi_3d_len > 0) {
+		if (offset >= len - 1)
+			return -ETOOSMALL;
 		DEV_DBG("%s: EDID: 3D_Structure_%d @ 0x%x: %02x\n",
 			__func__, i + 1, offset, vsd[offset]);
-
 		if ((vsd[offset] >> 4) >=
 			sink_data->disp_multi_3d_mode_list_cnt) {
 			if ((vsd[offset] & 0x0F) >= 8) {
 				offset += 1;
 				hdmi_3d_len -= 1;
 				DEV_DBG("%s:EDID:3D_Detail_%d @ 0x%x: %02x\n",
-					__func__, i + 1, offset, vsd[offset]);
+					__func__, i + 1, offset,
+					vsd[min_t(u32, offset, (len - 1))]);
 			}
 			i += 1;
 			offset += 1;
@@ -1003,12 +1022,13 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 			hdmi_3d_len -= 1;
 			DEV_DBG("%s: EDID[3D]: 3D_Detail_%d @ 0x%x: %02x\n",
 				__func__, i + 1, offset,
-				vsd[offset]);
+				vsd[min_t(u32, offset, (len - 1))]);
 		}
 		i += 1;
 		offset += 1;
 		hdmi_3d_len -= 1;
 	}
+	return 0;
 } /* hdmi_edid_get_display_vsd_3d_mode */
 
 static void hdmi_edid_get_extended_video_formats(
@@ -1061,6 +1081,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 	u32 video_format = HDMI_VFRMT_640x480p60_4_3;
 	u32 has480p = false;
 	u8 len;
+	int rc;
 	const u8 *edid_blk0 = NULL;
 	const u8 *edid_blk1 = NULL;
 	const u8 *svd = NULL;
@@ -1311,8 +1332,10 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 		}
 
 		/* 3d format described in Vendor Specific Data */
-		hdmi_edid_get_display_vsd_3d_mode(data_buf, sink_data,
+		rc = hdmi_edid_get_display_vsd_3d_mode(data_buf, sink_data,
 			num_of_cea_blocks);
+		if (!rc)
+			pr_debug("%s: 3D formats in VSD\n", __func__);
 	}
 
 	/*

@@ -29,6 +29,7 @@
 extern int32_t msm_led_torch_create_classdev(
 				struct platform_device *pdev, void *data);
 
+static enum flash_type flashtype;
 static struct msm_led_flash_ctrl_t fctrl;
 
 static int32_t msm_led_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
@@ -119,6 +120,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 	struct device_node *of_node = pdev->dev.of_node;
 	struct device_node *flash_src_node = NULL;
 	uint32_t count = 0;
+	struct led_trigger *temp = NULL;
 
 	CDBG("called\n");
 
@@ -137,11 +139,18 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 	}
 	CDBG("pdev id %d\n", pdev->id);
 
+	rc = of_property_read_u32(of_node,
+			"qcom,flash-type", &flashtype);
+	if (rc < 0) {
+		pr_err("flash-type: read failed\n");
+		return -EINVAL;
+	}
+
 	if (of_get_property(of_node, "qcom,flash-source", &count)) {
 		count /= sizeof(uint32_t);
 		CDBG("count %d\n", count);
 		if (count > MAX_LED_TRIGGERS) {
-			pr_err("failed\n");
+			pr_err("invalid count\n");
 			return -EINVAL;
 		}
 		fctrl.num_sources = count;
@@ -157,7 +166,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				"linux,default-trigger",
 				&fctrl.flash_trigger_name[i]);
 			if (rc < 0) {
-				pr_err("failed\n");
+				pr_err("default-trigger: read failed\n");
 				of_node_put(flash_src_node);
 				continue;
 			}
@@ -165,12 +174,18 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 			CDBG("default trigger %s\n",
 				fctrl.flash_trigger_name[i]);
 
-			rc = of_property_read_u32(flash_src_node,
-				"qcom,current", &fctrl.flash_op_current[i]);
-			if (rc < 0) {
-				pr_err("failed rc %d\n", rc);
-				of_node_put(flash_src_node);
-				continue;
+			if (flashtype == GPIO_FLASH) {
+				/* use fake current */
+				fctrl.flash_op_current[i] = LED_FULL;
+			} else {
+				rc = of_property_read_u32(flash_src_node,
+					"qcom,current",
+					&fctrl.flash_op_current[i]);
+				if (rc < 0) {
+					pr_err("current: read failed\n");
+					of_node_put(flash_src_node);
+					continue;
+				}
 			}
 
 			of_node_put(flash_src_node);
@@ -180,6 +195,10 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 
 			led_trigger_register_simple(fctrl.flash_trigger_name[i],
 				&fctrl.flash_trigger[i]);
+
+			if (flashtype == GPIO_FLASH)
+				if (fctrl.flash_trigger[i])
+					temp = fctrl.flash_trigger[i];
 		}
 
 		/* Torch source */
@@ -190,25 +209,39 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				"linux,default-trigger",
 				&fctrl.torch_trigger_name);
 			if (rc < 0) {
-				pr_err("failed\n");
-			} else {
-				CDBG("default trigger %s\n",
-					fctrl.torch_trigger_name);
+				pr_err("default-trigger: read failed\n");
+				goto torch_failed;
+			}
 
+			CDBG("default trigger %s\n",
+				fctrl.torch_trigger_name);
+
+			if (flashtype == GPIO_FLASH) {
+				/* use fake current */
+				fctrl.torch_op_current = LED_FULL;
+				if (temp)
+					fctrl.torch_trigger = temp;
+				else
+					led_trigger_register_simple(
+						fctrl.torch_trigger_name,
+						&fctrl.torch_trigger);
+			} else {
 				rc = of_property_read_u32(flash_src_node,
 					"qcom,current",
 					&fctrl.torch_op_current);
 				if (rc < 0) {
-					pr_err("failed rc %d\n", rc);
-				} else {
-					CDBG("torch max_current %d\n",
-						fctrl.torch_op_current);
-
-					led_trigger_register_simple(
-						fctrl.torch_trigger_name,
-						&fctrl.torch_trigger);
+					pr_err("current: read failed\n");
+					goto torch_failed;
 				}
+
+				CDBG("torch max_current %d\n",
+					fctrl.torch_op_current);
+
+				led_trigger_register_simple(
+					fctrl.torch_trigger_name,
+					&fctrl.torch_trigger);
 			}
+torch_failed:
 			of_node_put(flash_src_node);
 		}
 	}

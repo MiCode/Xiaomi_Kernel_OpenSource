@@ -58,11 +58,33 @@ static long aac_in_ioctl(struct file *file,
 			break;
 		}
 
-		rc = audio_in_buf_alloc(audio);
-		if (rc < 0) {
-			pr_err("%s:session id %d: buffer allocation failed\n",
-				__func__, audio->ac->session);
-			break;
+		if (audio->opened) {
+			rc = audio_in_buf_alloc(audio);
+			if (rc < 0) {
+				pr_err("%s:session id %d: buffer allocation failed\n",
+					 __func__, audio->ac->session);
+				break;
+			}
+		} else {
+			if(audio->feedback == NON_TUNNEL_MODE){
+				pr_debug("%s: starting in non_tunnel mode",__func__);
+				rc = q6asm_open_read_write(audio->ac, FORMAT_MPEG4_AAC,
+						FORMAT_LINEAR_PCM);
+				if (rc < 0) {
+					pr_err("%s:open read write failed\n", __func__);
+					break;
+				}
+			}
+			if(audio->feedback == TUNNEL_MODE){
+				pr_debug("%s: starting in tunnel mode",__func__);
+				rc = q6asm_open_read(audio->ac,FORMAT_MPEG4_AAC);
+
+				if (rc < 0) {
+					pr_err("%s:open read failed\n", __func__);
+					break;
+				}
+			}
+		audio->stopped = 0;
 		}
 
 		pr_debug("%s:sbr_ps_flag = %d, sbr_flag = %d\n", __func__,

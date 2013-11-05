@@ -49,10 +49,14 @@ static unsigned char c_byt_pair_index;
 static char utf_8_flag;
 static char rt_ert_flag;
 static char formatting_dir;
+static unsigned char sig_blend = CTRL_ON;
 static DEFINE_MUTEX(iris_fm);
 
 module_param(rds_buf, uint, 0);
 MODULE_PARM_DESC(rds_buf, "RDS buffer entries: *100*");
+
+module_param(sig_blend, byte, S_IWUSR | S_IRUGO);
+MODULE_PARM_DESC(sig_blend, "signal blending switch: 0:OFF 1:ON");
 
 static void radio_hci_cmd_task(unsigned long arg);
 static void radio_hci_rx_task(unsigned long arg);
@@ -4141,7 +4145,7 @@ static int initialise_recv(struct iris_device *radio)
 	}
 
 	radio->stereo_mode.stereo_mode = CTRL_OFF;
-	radio->stereo_mode.sig_blend = CTRL_ON;
+	radio->stereo_mode.sig_blend = sig_blend;
 	radio->stereo_mode.intf_blend = CTRL_ON;
 	radio->stereo_mode.most_switch = CTRL_ON;
 	retval = hci_set_fm_stereo_mode(&radio->stereo_mode,

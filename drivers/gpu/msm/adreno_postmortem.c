@@ -406,9 +406,11 @@ int adreno_dump(struct kgsl_device *device, int manual)
 	const uint32_t *rb_vaddr;
 	int num_item = 0;
 	int read_idx, write_idx;
-	unsigned int ts_processed = 0xdeaddead;
+	unsigned int ts_processed = 0;
+	unsigned int curr_global_ts = 0;
 	struct kgsl_context *context;
 	unsigned int context_id;
+	static char pid_name[TASK_COMM_LEN] = "unknown";
 	unsigned int rbbm_status;
 
 	static struct ib_list ib_list;
@@ -459,8 +461,36 @@ int adreno_dump(struct kgsl_device *device, int manual)
 		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ),
 		&cp_ib2_bufsz);
 
+	kgsl_sharedmem_readl(&device->memstore,
+			(unsigned int *) &context_id,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				current_context));
+	context = idr_find(&device->context_idr, context_id);
+	if (context)
+		ts_processed = kgsl_readtimestamp(device, context,
+					  KGSL_TIMESTAMP_RETIRED);
+
 	/* If postmortem dump is not enabled, dump minimal set and return */
 	if (!device->pm_dump_enable) {
+		struct task_struct *task = NULL;
+		/* Read the current global timestamp here */
+		kgsl_sharedmem_readl(&device->memstore,
+			&curr_global_ts,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+			eoptimestamp));
+
+		if (context)
+			task = find_task_by_vpid(context->pid);
+
+		if (task)
+			get_task_comm(pid_name, task);
+
+		KGSL_LOG_DUMP(device,
+			"Proc %s, ctxt_id %d ts %d triggered fault tolerance"
+			" on global ts %d\n", pid_name,
+			context ? context->id : 0,
+			ts_processed ? ts_processed + 1 : 0,
+			curr_global_ts ? curr_global_ts + 1 : 0);
 
 		KGSL_LOG_DUMP(device,
 			"STATUS %08X | IB1:%08X/%08X | IB2: %08X/%08X"
@@ -471,19 +501,10 @@ int adreno_dump(struct kgsl_device *device, int manual)
 		return 0;
 	}
 
-	kgsl_sharedmem_readl(&device->memstore,
-			(unsigned int *) &context_id,
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-				current_context));
-
-	context = kgsl_context_get(device, context_id);
-
-	if (context) {
-		ts_processed = kgsl_readtimestamp(device, context,
-						  KGSL_TIMESTAMP_RETIRED);
+	if (ts_processed)
 		KGSL_LOG_DUMP(device, "FT CTXT: %d  TIMESTM RTRD: %08X\n",
 				context->id, ts_processed);
-	} else
+	else
 		KGSL_LOG_DUMP(device, "BAD CTXT: %d\n", context_id);
 
 	kgsl_context_put(context);
