@@ -1397,7 +1397,8 @@ static int diag_dci_probe(struct platform_device *pdev)
 
 	if (pdev->id == SMD_APPS_MODEM) {
 		index = MODEM_DATA;
-		err = smd_open("DIAG_2",
+		err = smd_named_open_on_edge("DIAG_2",
+			SMD_APPS_MODEM,
 			&driver->smd_dci[index].ch,
 			&driver->smd_dci[index],
 			diag_smd_notify);
