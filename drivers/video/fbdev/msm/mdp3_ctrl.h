@@ -45,6 +45,7 @@ struct mdp3_session_data {
 	int vsync_period;
 	struct sysfs_dirent *vsync_event_sd;
 	struct mdp_overlay overlay;
+	struct mdp_overlay req_overlay;
 	struct mdp3_buffer_queue bufq_in;
 	struct mdp3_buffer_queue bufq_out;
 	int histo_status;
