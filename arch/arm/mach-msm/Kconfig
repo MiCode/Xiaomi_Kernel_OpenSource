@@ -770,15 +770,6 @@ config MSM_SMD_TTY
 
 	  If in doubt, say yes.
 
-config MSM_SMD_QMI
-	bool "SMD QMI Driver"
-	depends on MSM_SMD
-	default y
-	help
-	  Manages network data connections.
-
-	  If in doubt, say yes.
-
 config MSM_SMD_PKT
 	bool "SMD Packet Driver"
 	depends on MSM_SMD
