@@ -866,7 +866,17 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 				struct snd_compr_metadata *metadata)
 {
 	pr_debug("%s\n", __func__);
-	return -ENXIO;
+
+	if (!metadata || !cstream)
+		return -EINVAL;
+
+	if (metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) {
+		pr_debug("%s, got encoder padding %u", __func__, metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_ENCODER_DELAY) {
+		pr_debug("%s, got encoder delay %u", __func__, metadata->value[0]);
+	}
+
+	return 0;
 }
 
 static int msm_compr_volume_put(struct snd_kcontrol *kcontrol,
