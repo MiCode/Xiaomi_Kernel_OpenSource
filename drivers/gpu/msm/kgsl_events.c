@@ -17,7 +17,6 @@
 #include <kgsl_device.h>
 
 #include "kgsl_trace.h"
-#include "adreno.h"
 
 static inline struct list_head *_get_list_head(struct kgsl_device *device,
 		struct kgsl_context *context)
@@ -214,10 +213,8 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 {
 	int ret;
 	struct kgsl_event *event;
-	unsigned int cur_ts;
+	unsigned int queued, cur_ts;
 	struct kgsl_context *context = NULL;
-	struct adreno_context *drawctxt;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
@@ -228,16 +225,15 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 		context = kgsl_context_get(device, id);
 		if (context == NULL)
 			return -EINVAL;
-		/* Do not allow registering of event with invalid timestamp */
-		drawctxt = ADRENO_CONTEXT(context);
-		if (timestamp_cmp(ts, drawctxt->timestamp) > 0) {
-			kgsl_context_put(context);
-			return -EINVAL;
-		}
-	} else {
-		if (timestamp_cmp(ts, adreno_dev->ringbuffer.global_ts) > 0)
-			return -EINVAL;
 	}
+
+	queued = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED);
+
+	if (timestamp_cmp(ts, queued) > 0) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
+
 	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
 	/*
