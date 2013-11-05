@@ -57,6 +57,31 @@ static void __iomem *prcgr;
 
 static int msm_sec_mi2s_rx_ch = 1;
 static int msm_pri_mi2s_tx_ch = 1;
+static int msm_sec_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+
+static inline int param_is_mask(int p)
+{
+	return ((p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
+			(p <= SNDRV_PCM_HW_PARAM_LAST_MASK));
+}
+
+static inline struct snd_mask *param_to_mask(struct snd_pcm_hw_params *p, int n)
+{
+	return &(p->masks[n - SNDRV_PCM_HW_PARAM_FIRST_MASK]);
+}
+
+static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
+{
+	if (bit >= SNDRV_MASK_MAX)
+		return;
+	if (param_is_mask(n)) {
+		struct snd_mask *m = param_to_mask(p, n);
+		m->bits[0] = 0;
+		m->bits[1] = 0;
+		m->bits[bit >> 5] |= (1 << (bit & 31));
+	}
+}
+
 
 static void *def_msm8x10_wcd_mbhc_cal(void);
 static int msm8x10_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -238,6 +263,8 @@ static int msm_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	pr_debug("%s(): channel:%d\n", __func__, msm_pri_mi2s_tx_ch);
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+					msm_sec_mi2s_rx_bit_format);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_sec_mi2s_rx_ch;
 
