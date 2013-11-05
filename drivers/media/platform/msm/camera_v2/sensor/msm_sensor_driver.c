@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt) "MSM-SENSOR-DRIVER %s:%d " fmt "\n", __func__, __LINE__
 
+#define SENSOR_DRIVER_I2C "camera"
 /* Header file declaration */
 #include "msm_sensor.h"
 #include "msm_sd.h"
@@ -78,12 +79,72 @@ static struct v4l2_subdev_info msm_sensor_driver_subdev_info[] = {
 	},
 };
 
+static int32_t msm_sensor_driver_create_i2c_v4l_subdev
+			(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	uint32_t session_id = 0;
+	struct i2c_client *client = s_ctrl->sensor_i2c_client->client;
+
+	CDBG("%s %s I2c probe succeeded\n", __func__, client->name);
+	rc = camera_init_v4l2(&client->dev, &session_id);
+	if (rc < 0) {
+		pr_err("failed: camera_init_i2c_v4l2 rc %d", rc);
+		return rc;
+	}
+	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
+	snprintf(s_ctrl->msm_sd.sd.name,
+		sizeof(s_ctrl->msm_sd.sd.name), "%s",
+		s_ctrl->sensordata->sensor_name);
+	v4l2_i2c_subdev_init(&s_ctrl->msm_sd.sd, client,
+		s_ctrl->sensor_v4l2_subdev_ops);
+	v4l2_set_subdevdata(&s_ctrl->msm_sd.sd, client);
+	s_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	media_entity_init(&s_ctrl->msm_sd.sd.entity, 0, NULL, 0);
+	s_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
+	s_ctrl->msm_sd.sd.entity.name =	s_ctrl->msm_sd.sd.name;
+	s_ctrl->sensordata->sensor_info->session_id = session_id;
+	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
+	msm_sd_register(&s_ctrl->msm_sd);
+	CDBG("%s:%d\n", __func__, __LINE__);
+	return rc;
+}
+
+static int32_t msm_sensor_driver_create_v4l_subdev
+			(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	uint32_t session_id = 0;
+
+	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
+	if (rc < 0) {
+		pr_err("failed: camera_init_v4l2 rc %d", rc);
+		return rc;
+	}
+	CDBG("rc %d session_id %d", rc, session_id);
+	s_ctrl->sensordata->sensor_info->session_id = session_id;
+
+	/* Create /dev/v4l-subdevX device */
+	v4l2_subdev_init(&s_ctrl->msm_sd.sd, s_ctrl->sensor_v4l2_subdev_ops);
+	snprintf(s_ctrl->msm_sd.sd.name, sizeof(s_ctrl->msm_sd.sd.name), "%s",
+		s_ctrl->sensordata->sensor_name);
+	v4l2_set_subdevdata(&s_ctrl->msm_sd.sd, s_ctrl->pdev);
+	s_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	media_entity_init(&s_ctrl->msm_sd.sd.entity, 0, NULL, 0);
+	s_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
+	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
+	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
+	msm_sd_register(&s_ctrl->msm_sd);
+	return rc;
+}
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting)
 {
 	int32_t                              rc = 0;
 	uint16_t                             i = 0, size = 0;
-	uint32_t                             session_id = 0;
 	struct msm_sensor_ctrl_t            *s_ctrl = NULL;
 	struct msm_camera_cci_client        *cci_client = NULL;
 	struct msm_camera_sensor_slave_info *slave_info = NULL;
@@ -202,6 +263,9 @@ int32_t msm_sensor_driver_probe(void *setting)
 	}
 	/* Fill sensor address type */
 	s_ctrl->sensor_i2c_client->addr_type = slave_info->addr_type;
+	if (s_ctrl->sensor_i2c_client->client)
+		s_ctrl->sensor_i2c_client->client->addr =
+			camera_info->sensor_slave_addr;
 
 	cci_client = s_ctrl->sensor_i2c_client->cci_client;
 	if (!cci_client) {
@@ -247,32 +311,26 @@ int32_t msm_sensor_driver_probe(void *setting)
 	 * Create /dev/videoX node, comment for now until dummy /dev/videoX
 	 * node is created and used by HAL
 	 */
-	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
-	if (rc < 0) {
-		pr_err("failed: camera_init_v4l2 rc %d", rc);
-		goto FREE_POWER_SETTING;
-	}
-	CDBG("rc %d session_id %d", rc, session_id);
-	s_ctrl->sensordata->sensor_info->session_id = session_id;
 
-	/* Create /dev/v4l-subdevX device */
-	v4l2_subdev_init(&s_ctrl->msm_sd.sd, s_ctrl->sensor_v4l2_subdev_ops);
-	snprintf(s_ctrl->msm_sd.sd.name, sizeof(s_ctrl->msm_sd.sd.name), "%s",
-		s_ctrl->sensordata->sensor_name);
-	v4l2_set_subdevdata(&s_ctrl->msm_sd.sd, s_ctrl->pdev);
-	s_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	media_entity_init(&s_ctrl->msm_sd.sd.entity, 0, NULL, 0);
-	s_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
-	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
-	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
-	msm_sd_register(&s_ctrl->msm_sd);
+	if (s_ctrl->sensor_device_type == MSM_CAMERA_PLATFORM_DEVICE)
+		rc = msm_sensor_driver_create_v4l_subdev(s_ctrl);
+	else
+		rc = msm_sensor_driver_create_i2c_v4l_subdev(s_ctrl);
+	if (rc < 0) {
+		pr_err("failed: camera creat v4l2 rc %d", rc);
+		goto CAMERA_POWER_DOWN;
+	}
 
 	/* Power down */
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 
+	/*Save sensor info*/
+	s_ctrl->sensordata->cam_slave_info = slave_info;
+
 	return rc;
 
+CAMERA_POWER_DOWN:
+	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 FREE_POWER_SETTING:
 	kfree(power_setting);
 FREE_SLAVE_INFO:
@@ -344,12 +402,12 @@ FREE_GPIO_CONF:
 	return rc;
 }
 
-static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl,
-	struct platform_device *pdev)
+static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t                              rc = 0;
 	struct msm_camera_sensor_board_info *sensordata = NULL;
-	struct device_node                  *of_node = pdev->dev.of_node;
+	struct device_node                  *of_node = s_ctrl->of_node;
+	uint32_t cell_id;
 
 	s_ctrl->sensordata = kzalloc(sizeof(*sensordata), GFP_KERNEL);
 	if (!s_ctrl->sensordata) {
@@ -363,22 +421,23 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl,
 	 * Read cell index - this cell index will be the camera slot where
 	 * this camera will be mounted
 	 */
-	rc = of_property_read_u32(of_node, "cell-index", &pdev->id);
+	rc = of_property_read_u32(of_node, "cell-index", &cell_id);
 	if (rc < 0) {
 		pr_err("failed: cell-index rc %d", rc);
 		goto FREE_SENSOR_DATA;
 	}
+	s_ctrl->id = cell_id;
 
-	/* Validate pdev->id */
-	if (pdev->id >= MAX_CAMERAS) {
-		pr_err("failed: invalid pdev->id %d", pdev->id);
+	/* Validate cell_id */
+	if (cell_id >= MAX_CAMERAS) {
+		pr_err("failed: invalid cell_id %d", cell_id);
 		rc = -EINVAL;
 		goto FREE_SENSOR_DATA;
 	}
 
-	/* Check whether g_sctrl is already filled for this pdev id */
-	if (g_sctrl[pdev->id]) {
-		pr_err("failed: sctrl already filled for id %d", pdev->id);
+	/* Check whether g_sctrl is already filled for this cell_id */
+	if (g_sctrl[cell_id]) {
+		pr_err("failed: sctrl already filled for cell_id %d", cell_id);
 		rc = -EINVAL;
 		goto FREE_SENSOR_DATA;
 	}
@@ -448,27 +507,13 @@ FREE_SENSOR_DATA:
 	return rc;
 }
 
-static int32_t msm_sensor_driver_parse(struct platform_device *pdev)
+static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t                   rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl = NULL;
 
 	CDBG("Enter");
 	/* Validate input parameters */
-	if (!pdev || !pdev->dev.of_node) {
-		pr_err("failed: invalid params");
-		return -EINVAL;
-	}
 
-	/* Create sensor control structure */
-	s_ctrl = kzalloc(sizeof(*s_ctrl), GFP_KERNEL);
-	if (!s_ctrl) {
-		pr_err("failed: no memory s_ctrl %p", s_ctrl);
-		return -ENOMEM;
-	}
-
-	/* Fill platform device */
-	s_ctrl->pdev = pdev;
 
 	/* Allocate memory for sensor_i2c_client */
 	s_ctrl->sensor_i2c_client = kzalloc(sizeof(*s_ctrl->sensor_i2c_client),
@@ -476,7 +521,7 @@ static int32_t msm_sensor_driver_parse(struct platform_device *pdev)
 	if (!s_ctrl->sensor_i2c_client) {
 		pr_err("failed: no memory sensor_i2c_client %p",
 			s_ctrl->sensor_i2c_client);
-		goto FREE_SCTRL;
+		return -ENOMEM;
 	}
 
 	/* Allocate memory for mutex */
@@ -489,14 +534,11 @@ static int32_t msm_sensor_driver_parse(struct platform_device *pdev)
 	}
 
 	/* Parse dt information and store in sensor control structure */
-	rc = msm_sensor_driver_get_dt_data(s_ctrl, pdev);
+	rc = msm_sensor_driver_get_dt_data(s_ctrl);
 	if (rc < 0) {
 		pr_err("failed: rc %d", rc);
 		goto FREE_MUTEX;
 	}
-
-	/* Fill device in power info */
-	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 
 	/* Initialize mutex */
 	mutex_init(s_ctrl->msm_sensor_mutex);
@@ -514,8 +556,8 @@ static int32_t msm_sensor_driver_parse(struct platform_device *pdev)
 	}
 
 	/* Store sensor control structure in static database */
-	g_sctrl[pdev->id] = s_ctrl;
-	pr_err("g_sctrl[%d] %p", pdev->id, g_sctrl[pdev->id]);
+	g_sctrl[s_ctrl->id] = s_ctrl;
+	pr_err("g_sctrl[%d] %p", s_ctrl->id, g_sctrl[s_ctrl->id]);
 
 	return rc;
 
@@ -529,10 +571,125 @@ FREE_MUTEX:
 	kfree(s_ctrl->msm_sensor_mutex);
 FREE_SENSOR_I2C_CLIENT:
 	kfree(s_ctrl->sensor_i2c_client);
-FREE_SCTRL:
+	return rc;
+}
+
+static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	struct msm_sensor_ctrl_t *s_ctrl = NULL;
+
+
+	/* Create sensor control structure */
+	s_ctrl = kzalloc(sizeof(*s_ctrl), GFP_KERNEL);
+	if (!s_ctrl) {
+		pr_err("failed: no memory s_ctrl %p", s_ctrl);
+		return -ENOMEM;
+	}
+
+	platform_set_drvdata(pdev, s_ctrl);
+
+	/* Initialize sensor device type */
+	s_ctrl->sensor_device_type = MSM_CAMERA_PLATFORM_DEVICE;
+	s_ctrl->of_node = pdev->dev.of_node;
+
+	rc = msm_sensor_driver_parse(s_ctrl);
+	if (rc < 0) {
+		pr_err("failed: msm_sensor_driver_parse rc %d", rc);
+		goto FREE_S_CTRL;
+	}
+
+	/* Fill platform device */
+	pdev->id = s_ctrl->id;
+	s_ctrl->pdev = pdev;
+
+	/* Fill device in power info */
+	s_ctrl->sensordata->power_info.dev = &pdev->dev;
+
+	return rc;
+FREE_S_CTRL:
 	kfree(s_ctrl);
 	return rc;
 }
+
+static int32_t msm_sensor_driver_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	int32_t rc = 0;
+	struct msm_sensor_ctrl_t *s_ctrl;
+
+	CDBG("\n\nEnter: msm_sensor_driver_i2c_probe");
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		pr_err("%s %s i2c_check_functionality failed\n",
+			__func__, client->name);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	/* Create sensor control structure */
+	s_ctrl = kzalloc(sizeof(*s_ctrl), GFP_KERNEL);
+	if (!s_ctrl) {
+		pr_err("failed: no memory s_ctrl %p", s_ctrl);
+		return -ENOMEM;
+	}
+
+	i2c_set_clientdata(client, s_ctrl);
+
+	/* Initialize sensor device type */
+	s_ctrl->sensor_device_type = MSM_CAMERA_I2C_DEVICE;
+	s_ctrl->of_node = client->dev.of_node;
+
+	rc = msm_sensor_driver_parse(s_ctrl);
+	if (rc < 0) {
+		pr_err("failed: msm_sensor_driver_parse rc %d", rc);
+		goto FREE_S_CTRL;
+	}
+
+	if (s_ctrl->sensor_i2c_client != NULL) {
+		s_ctrl->sensor_i2c_client->client = client;
+		s_ctrl->sensordata->power_info.dev = &client->dev;
+
+	}
+
+	return rc;
+FREE_S_CTRL:
+	kfree(s_ctrl);
+	return rc;
+}
+
+static int msm_sensor_driver_i2c_remove(struct i2c_client *client)
+{
+	struct msm_sensor_ctrl_t  *s_ctrl = i2c_get_clientdata(client);
+
+	pr_err("%s: sensor FREE\n", __func__);
+
+	if (!s_ctrl) {
+		pr_err("%s: sensor device is NULL\n", __func__);
+		return 0;
+	}
+
+	g_sctrl[s_ctrl->id] = NULL;
+	msm_sensor_free_sensor_data(s_ctrl);
+	kfree(s_ctrl->msm_sensor_mutex);
+	kfree(s_ctrl->sensor_i2c_client);
+	kfree(s_ctrl);
+
+	return 0;
+}
+
+static const struct i2c_device_id i2c_id[] = {
+	{SENSOR_DRIVER_I2C, (kernel_ulong_t)NULL},
+	{ }
+};
+
+static struct i2c_driver msm_sensor_driver_i2c = {
+	.id_table = i2c_id,
+	.probe  = msm_sensor_driver_i2c_probe,
+	.remove = msm_sensor_driver_i2c_remove,
+	.driver = {
+		.name = SENSOR_DRIVER_I2C,
+	},
+};
 
 static int __init msm_sensor_driver_init(void)
 {
@@ -540,9 +697,15 @@ static int __init msm_sensor_driver_init(void)
 
 	CDBG("Enter");
 	rc = platform_driver_probe(&msm_sensor_platform_driver,
-		msm_sensor_driver_parse);
-	if (!rc)
-		pr_info("probe success");
+		msm_sensor_driver_platform_probe);
+	if (!rc) {
+		CDBG("probe success");
+		return rc;
+	} else {
+		CDBG("probe i2c");
+		rc = i2c_add_driver(&msm_sensor_driver_i2c);
+	}
+
 	return rc;
 }
 
@@ -551,6 +714,7 @@ static void __exit msm_sensor_driver_exit(void)
 {
 	CDBG("Enter");
 	platform_driver_unregister(&msm_sensor_platform_driver);
+	i2c_del_driver(&msm_sensor_driver_i2c);
 	return;
 }
 
