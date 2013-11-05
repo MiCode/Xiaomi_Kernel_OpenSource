@@ -43,6 +43,8 @@
 #define IPA_ROUTING_RULE_BYTE_SIZE (4)
 #define IPA_BAM_CNFG_BITS_VALv1_1 (0x7FFFE004)
 #define IPA_BAM_CNFG_BITS_VALv2_0 (0xFFFFE004)
+#define IPA_STATUS_CLEAR_OFST (0x3f28)
+#define IPA_STATUS_CLEAR_SIZE (32)
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
@@ -817,14 +819,20 @@ static int ipa_init_sram(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd = {0};
+	struct ipa_desc desc = {0};
+	struct ipa_mem_buffer mem;
+	int rc = 0;
 
 	phys_addr = ipa_ctx->ipa_wrapper_base + IPA_REG_BASE_OFST +
 		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
 				ipa_ctx->smem_restricted_bytes / 4);
 	ipa_sram_mmio = ioremap(phys_addr,
 			ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
-	if (!ipa_sram_mmio)
+	if (!ipa_sram_mmio) {
+		IPAERR("fail to ioremap IPA SRAM\n");
 		return -ENOMEM;
+	}
 
 #define IPA_SRAM_SET(ofst, val) (ipa_sram_mmio[(ofst - 4) / 4] = val)
 
@@ -839,7 +847,31 @@ static int ipa_init_sram(void)
 	IPA_SRAM_SET(IPA_v2_RAM_END_OFST, IPA_CANARY_VAL);
 
 	iounmap(ipa_sram_mmio);
-	return 0;
+
+	mem.size = IPA_STATUS_CLEAR_SIZE;
+	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+			GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
+		return -ENOMEM;
+	}
+	memset(mem.base, 0, mem.size);
+
+	cmd.size = mem.size;
+	cmd.system_addr = mem.phys_base;
+	cmd.local_addr = IPA_STATUS_CLEAR_OFST;
+	desc.opcode = IPA_DMA_SHARED_MEM;
+	desc.pyld = &cmd;
+	desc.len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc.type = IPA_IMM_CMD_DESC;
+
+	if (ipa_send_cmd(1, &desc)) {
+		IPAERR("fail to send immediate command\n");
+		rc = -EFAULT;
+	}
+
+	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	return rc;
 }
 
 static int ipa_init_hdr(void)
