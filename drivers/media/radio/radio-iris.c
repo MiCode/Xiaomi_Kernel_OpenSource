@@ -3479,8 +3479,13 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->riva_data_req.cmd_params.length = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
-		memcpy(radio->riva_data_req.data, (void *)ctrl->value,
+		retval = copy_from_user(radio->riva_data_req.data,
+					(void *)ctrl->value,
 					radio->riva_data_req.cmd_params.length);
+		if (retval != 0) {
+			retval = -retval;
+			break;
+		}
 		radio->riva_data_req.cmd_params.subopcode = RIVA_POKE_OPCODE;
 		retval = hci_poke_data(&radio->riva_data_req , radio->fm_hdev);
 		break;
