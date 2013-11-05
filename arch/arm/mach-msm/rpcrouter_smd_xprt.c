@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,7 +295,8 @@ static int rpcrouter_smd_remote_probe(struct platform_device *pdev)
 	smd_remote_xprt.xprt.priv = NULL;
 
 	/* Open up SMD channel */
-	rc = smd_open("RPCCALL", &smd_remote_xprt.channel, NULL,
+	rc = smd_named_open_on_edge("RPCCALL", SMD_APPS_MODEM,
+		      &smd_remote_xprt.channel, NULL,
 		      rpcrouter_smd_remote_notify);
 	if (rc < 0)
 		return rc;
