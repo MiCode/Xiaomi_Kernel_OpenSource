@@ -471,7 +471,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	return &drawctxt->base;
 err:
-	kgsl_context_put(&drawctxt->base);
+	kgsl_context_detach(&drawctxt->base);
 	return ERR_PTR(ret);
 }
 
