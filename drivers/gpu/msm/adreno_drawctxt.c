@@ -278,6 +278,27 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	wake_up_interruptible_all(&drawctxt->wq);
 }
 
+/*
+ * Set the priority of the context based on the flags passed into context
+ * create.  If the priority is not set in the flags, then the kernel can
+ * assign any priority it desires for the context.
+ */
+#define KGSL_CONTEXT_PRIORITY_MED	0x8
+
+static inline void _set_context_priority(struct adreno_context *drawctxt)
+{
+	/* If the priority is not set by user, set it for them */
+	if ((drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) ==
+			KGSL_CONTEXT_PRIORITY_UNDEF)
+		drawctxt->base.flags |= (KGSL_CONTEXT_PRIORITY_MED <<
+				KGSL_CONTEXT_PRIORITY_SHIFT);
+
+	/* Store the context priority */
+	drawctxt->base.priority =
+		(drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) >>
+		KGSL_CONTEXT_PRIORITY_SHIFT;
+}
+
 /**
  * adreno_drawctxt_create - create a new adreno draw context
  * @dev_priv: the owner of the context
@@ -313,6 +334,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_USER_GENERATED_TS |
 		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
 		KGSL_CONTEXT_CTX_SWITCH |
+		KGSL_CONTEXT_PRIORITY_MASK |
 		KGSL_CONTEXT_TYPE_MASK);
 
 	/* Always enable per-context timestamps */
@@ -322,13 +344,14 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	init_waitqueue_head(&drawctxt->wq);
 	init_waitqueue_head(&drawctxt->waiting);
 
-	/*
-	 * Set up the plist node for the dispatcher.  For now all contexts have
-	 * the same priority, but later the priority will be set at create time
-	 * by the user
-	 */
+	/* Set the context priority */
+	_set_context_priority(drawctxt);
 
-	plist_node_init(&drawctxt->pending, ADRENO_CONTEXT_DEFAULT_PRIORITY);
+	/*
+	 * Set up the plist node for the dispatcher.  Insert the node into the
+	 * drawctxt pending list based on priority.
+	 */
+	plist_node_init(&drawctxt->pending, drawctxt->base.priority);
 
 	if (adreno_dev->gpudev->ctxt_create) {
 		ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);

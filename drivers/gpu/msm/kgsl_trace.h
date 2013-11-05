@@ -646,14 +646,17 @@ TRACE_EVENT(kgsl_context_create,
 	),
 
 	TP_printk(
-		"d_name=%s ctx=%u flags=0x%x %s",
+		"d_name=%s ctx=%u flags=0x%x %s priority=%u",
 		__get_str(device_name), __entry->id, __entry->flags,
 		__entry->flags ? __print_flags(__entry->flags, "|",
 			{ KGSL_CONTEXT_NO_GMEM_ALLOC , "NO_GMEM_ALLOC" },
 			{ KGSL_CONTEXT_PREAMBLE, "PREAMBLE" },
 			{ KGSL_CONTEXT_TRASH_STATE, "TRASH_STATE" },
 			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" })
-			: "None"
+			: "None",
+		(__entry->flags & KGSL_CONTEXT_PRIORITY_MASK) >
+			KGSL_CONTEXT_PRIORITY_SHIFT
+
 	)
 );
 

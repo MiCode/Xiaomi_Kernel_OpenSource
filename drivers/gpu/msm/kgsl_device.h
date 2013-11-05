@@ -382,6 +382,7 @@ struct kgsl_process_private;
 struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
+	uint32_t priority;
 	pid_t pid;
 	pid_t tid;
 	struct kgsl_device_private *dev_priv;
