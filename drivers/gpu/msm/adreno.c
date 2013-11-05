@@ -1342,12 +1342,7 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 		&pdata->init_level))
 		pdata->init_level = 1;
 
-	/*
-	 * qcom,step-pwrlevel isn't required so don't spam the kernel log
-	 * if it isn't found
-	 */
-
-	if (of_property_read_u32(parent, "qcom,step-pwrlevel",
+	if (adreno_of_read_property(parent, "qcom,step-pwrlevel",
 		&pdata->step_mul))
 		pdata->step_mul = 1;
 
