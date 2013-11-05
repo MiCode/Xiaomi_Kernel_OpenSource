@@ -930,21 +930,16 @@ int kgsl_close_device(struct kgsl_device *device)
 	device->open_count--;
 	if (device->open_count == 0) {
 
-		/* Wait for the active count to go to 1 */
-		kgsl_active_count_wait(device, 1);
+		/* Wait for the active count to go to 0 */
+		kgsl_active_count_wait(device, 0);
 
 		/* Fail if the wait times out */
-		BUG_ON(atomic_read(&device->active_cnt) > 1);
+		BUG_ON(atomic_read(&device->active_cnt) > 0);
 
+		/* Force power on to do the stop */
+		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
-		/*
-		 * active_cnt special case: we just stopped the device,
-		 * so no need to use kgsl_active_count_put()
-		 */
-		atomic_dec(&device->active_cnt);
-	} else {
-		kgsl_active_count_put(device);
 	}
 	return result;
 
@@ -960,10 +955,11 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	struct kgsl_context *context;
 	int next = 0;
 
+	bool have_active_count = false;
+
 	filep->private_data = NULL;
 
 	mutex_lock(&device->mutex);
-	kgsl_active_count_get(device);
 
 	while (1) {
 		read_lock(&device->context_lock);
@@ -980,6 +976,11 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 			 */
 
 			if (_kgsl_context_get(context)) {
+				if (!have_active_count) {
+					result = kgsl_active_count_get(device);
+					BUG_ON(result);
+					have_active_count = true;
+				}
 				kgsl_context_detach(context);
 				kgsl_context_put(context);
 			}
@@ -994,6 +995,9 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	 * it is still in use by the GPU.
 	 */
 	kgsl_cancel_events(device, dev_priv);
+
+	if (have_active_count)
+		kgsl_active_count_put(device);
 
 	result = kgsl_close_device(device);
 	mutex_unlock(&device->mutex);

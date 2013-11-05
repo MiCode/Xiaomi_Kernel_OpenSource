@@ -666,7 +666,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 	size_t size = 0;
 	char *buf, *pbuf;
 	bool remove_assignment = false;
-	int groupid, countable;
+	int groupid, countable, ret;
 
 	if (len >= PAGE_SIZE || len == 0)
 		return -EINVAL;
@@ -681,7 +681,9 @@ static ssize_t profile_assignments_write(struct file *filep,
 		goto error_unlock;
 	}
 
-	kgsl_active_count_get(device);
+	ret = kgsl_active_count_get(device);
+	if (ret)
+		return -EINVAL;
 
 	/*
 	 * When adding/removing assignments, ensure that the GPU is done with
