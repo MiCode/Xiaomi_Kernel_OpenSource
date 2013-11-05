@@ -98,7 +98,7 @@ static int grmnet_ctrl_qti_send_cpkt_tomodem(u8 portno,
 		return -EINVAL;
 	}
 
-	if (portno > NR_QTI_PORTS) {
+	if (portno >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, portno);
 		return -ENODEV;
 	}
@@ -140,7 +140,7 @@ gqti_ctrl_notify_modem(void *gptr, u8 portno, int val)
 {
 	struct rmnet_ctrl_qti_port *port;
 
-	if (portno > NR_QTI_PORTS) {
+	if (portno >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, portno);
 		return;
 	}
@@ -158,7 +158,7 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num)
 	unsigned long		flags;
 
 	pr_debug("%s: grmnet:%p\n", __func__, gr);
-	if (port_num > NR_QTI_PORTS) {
+	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
 		return -ENODEV;
 	}
@@ -169,7 +169,7 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num)
 		return -ENODEV;
 	}
 
-	if (port_num > NR_QTI_PORTS) {
+	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
 		return -ENODEV;
 	}
@@ -203,7 +203,7 @@ void gqti_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 		return;
 	}
 
-	if (port_num > NR_QTI_PORTS) {
+	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
 		return;
 	}
