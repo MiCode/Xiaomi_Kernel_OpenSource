@@ -2178,10 +2178,8 @@ static int hdmi_vco_prepare(struct clk *c)
 
 	pr_debug("%s: rate=%ld\n", __func__, vco->rate);
 
-	if (!vco->rate_set)
+	if (!vco->rate_set && vco->rate)
 		ret = hdmi_vco_set_rate(c, vco->rate);
-
-	vco->rate_set = false;
 
 	if (!ret)
 		ret = clk_prepare(mdss_ahb_clk);
@@ -2191,6 +2189,10 @@ static int hdmi_vco_prepare(struct clk *c)
 
 static void hdmi_vco_unprepare(struct clk *c)
 {
+	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
+
+	vco->rate_set = false;
+
 	clk_unprepare(mdss_ahb_clk);
 }
 
