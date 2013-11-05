@@ -3130,117 +3130,6 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 	adreno_dispatcher_schedule(device);
 }
 
-/**
- * struct a3xx_perfcounter_register - Define a performance counter register
- * @load_bit: the bit to set in RBBM_LOAD_CMD0/RBBM_LOAD_CMD1 to force the RBBM
- * to load the reset value into the appropriate counter
- * @select: The dword offset of the register to write the selected
- * countable into
- */
-
-struct a3xx_perfcounter_register {
-	unsigned int load_bit;
-	unsigned int select;
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_cp[] = {
-	{ 0, A3XX_CP_PERFCOUNTER_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_rbbm[] = {
-	{ 1, A3XX_RBBM_PERFCOUNTER0_SELECT },
-	{ 2, A3XX_RBBM_PERFCOUNTER1_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_pc[] = {
-	{ 3, A3XX_PC_PERFCOUNTER0_SELECT },
-	{ 4, A3XX_PC_PERFCOUNTER1_SELECT },
-	{ 5, A3XX_PC_PERFCOUNTER2_SELECT },
-	{ 6, A3XX_PC_PERFCOUNTER3_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_vfd[] = {
-	{ 7, A3XX_VFD_PERFCOUNTER0_SELECT },
-	{ 8, A3XX_VFD_PERFCOUNTER1_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_hlsq[] = {
-	{ 9, A3XX_HLSQ_PERFCOUNTER0_SELECT },
-	{ 10, A3XX_HLSQ_PERFCOUNTER1_SELECT },
-	{ 11, A3XX_HLSQ_PERFCOUNTER2_SELECT },
-	{ 12, A3XX_HLSQ_PERFCOUNTER3_SELECT },
-	{ 13, A3XX_HLSQ_PERFCOUNTER4_SELECT },
-	{ 14, A3XX_HLSQ_PERFCOUNTER5_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_vpc[] = {
-	{ 15, A3XX_VPC_PERFCOUNTER0_SELECT },
-	{ 16, A3XX_VPC_PERFCOUNTER1_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_tse[] = {
-	{ 17, A3XX_GRAS_PERFCOUNTER0_SELECT },
-	{ 18, A3XX_GRAS_PERFCOUNTER1_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_ras[] = {
-	{ 19, A3XX_GRAS_PERFCOUNTER2_SELECT },
-	{ 20, A3XX_GRAS_PERFCOUNTER3_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_uche[] = {
-	{ 21, A3XX_UCHE_PERFCOUNTER0_SELECT },
-	{ 22, A3XX_UCHE_PERFCOUNTER1_SELECT },
-	{ 23, A3XX_UCHE_PERFCOUNTER2_SELECT },
-	{ 24, A3XX_UCHE_PERFCOUNTER3_SELECT },
-	{ 25, A3XX_UCHE_PERFCOUNTER4_SELECT },
-	{ 26, A3XX_UCHE_PERFCOUNTER5_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_tp[] = {
-	{ 27, A3XX_TP_PERFCOUNTER0_SELECT },
-	{ 28, A3XX_TP_PERFCOUNTER1_SELECT },
-	{ 29, A3XX_TP_PERFCOUNTER2_SELECT },
-	{ 30, A3XX_TP_PERFCOUNTER3_SELECT },
-	{ 31, A3XX_TP_PERFCOUNTER4_SELECT },
-	{ 32, A3XX_TP_PERFCOUNTER5_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_sp[] = {
-	{ 33, A3XX_SP_PERFCOUNTER0_SELECT },
-	{ 34, A3XX_SP_PERFCOUNTER1_SELECT },
-	{ 35, A3XX_SP_PERFCOUNTER2_SELECT },
-	{ 36, A3XX_SP_PERFCOUNTER3_SELECT },
-	{ 37, A3XX_SP_PERFCOUNTER4_SELECT },
-	{ 38, A3XX_SP_PERFCOUNTER5_SELECT },
-	{ 39, A3XX_SP_PERFCOUNTER6_SELECT },
-	{ 40, A3XX_SP_PERFCOUNTER7_SELECT },
-};
-
-static struct a3xx_perfcounter_register a3xx_perfcounter_reg_rb[] = {
-	{ 41, A3XX_RB_PERFCOUNTER0_SELECT },
-	{ 42, A3XX_RB_PERFCOUNTER1_SELECT },
-};
-
-#define REGCOUNTER_GROUP(_x) { (_x), ARRAY_SIZE((_x)) }
-
-static struct {
-	struct a3xx_perfcounter_register *regs;
-	int count;
-} a3xx_perfcounter_reglist[] = {
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_cp),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_rbbm),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_pc),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_vfd),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_hlsq),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_vpc),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_tse),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_ras),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_uche),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_tp),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_sp),
-	REGCOUNTER_GROUP(a3xx_perfcounter_reg_rb),
-};
 
 static void a3xx_perfcounter_enable_pwr(struct kgsl_device *device,
 	unsigned int countable)
@@ -3339,7 +3228,7 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int val = 0;
-	struct a3xx_perfcounter_register *reg;
+	struct adreno_perfcount_register *reg;
 
 	/* Special cases */
 	if (group == KGSL_PERFCOUNTER_GROUP_PWR)
@@ -3349,13 +3238,14 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	else if (group == KGSL_PERFCOUNTER_GROUP_VBIF_PWR)
 		return a3xx_perfcounter_enable_vbif_pwr(device, countable);
 
-	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
+	if (group >= adreno_dev->gpudev->perfcounters->group_count)
 		return;
 
-	if (counter >= a3xx_perfcounter_reglist[group].count)
+	if (counter >=
+		adreno_dev->gpudev->perfcounters->groups[group].reg_count)
 		return;
 
-	reg = &(a3xx_perfcounter_reglist[group].regs[counter]);
+	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
 
 	/* Select the desired perfcounter */
 	kgsl_regwrite(device, reg->select, countable);
@@ -3370,27 +3260,29 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 }
 
 static uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
-	unsigned int group, unsigned int counter,
-	unsigned int offset)
+	unsigned int group, unsigned int counter)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct a3xx_perfcounter_register *reg = NULL;
+	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
 	unsigned int val;
+	unsigned int offset;
 
-	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
+	if (group >= adreno_dev->gpudev->perfcounters->group_count)
 		return 0;
 
-	if (counter >= a3xx_perfcounter_reglist[group].count)
+	if (counter >=
+		adreno_dev->gpudev->perfcounters->groups[group].reg_count)
 		return 0;
 
-	reg = &(a3xx_perfcounter_reglist[group].regs[counter]);
+	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
 
 	/* Freeze the counter */
 	kgsl_regread(device, A3XX_RBBM_PERFCTR_CTL, &val);
 	val &= ~reg->load_bit;
 	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, val);
 
+	offset = reg->offset;
 	/* Read the values */
 	kgsl_regread(device, offset, &lo);
 	kgsl_regread(device, offset + 1, &hi);
@@ -3654,118 +3546,160 @@ static struct {
  */
 
 static struct adreno_perfcount_register a3xx_perfcounters_cp[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_CP_0_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_CP_0_LO,
+		0, A3XX_CP_PERFCOUNTER_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_rbbm[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RBBM_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RBBM_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RBBM_0_LO,
+		1, A3XX_RBBM_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RBBM_1_LO,
+		2, A3XX_RBBM_PERFCOUNTER1_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_pc[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_2_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_3_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_0_LO,
+		3, A3XX_PC_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_1_LO,
+		4, A3XX_PC_PERFCOUNTER1_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_2_LO,
+		5, A3XX_PC_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PC_3_LO,
+		6, A3XX_PC_PERFCOUNTER3_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_vfd[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VFD_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VFD_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VFD_0_LO,
+		7, A3XX_VFD_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VFD_1_LO,
+		8, A3XX_VFD_PERFCOUNTER1_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_hlsq[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_2_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_3_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_4_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_5_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_0_LO,
+		9, A3XX_HLSQ_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_1_LO,
+		10, A3XX_HLSQ_PERFCOUNTER1_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_2_LO,
+		11, A3XX_HLSQ_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_3_LO,
+		12, A3XX_HLSQ_PERFCOUNTER3_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_4_LO,
+		13, A3XX_HLSQ_PERFCOUNTER4_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_HLSQ_5_LO,
+		14, A3XX_HLSQ_PERFCOUNTER5_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_vpc[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VPC_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VPC_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VPC_0_LO,
+		15, A3XX_VPC_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_VPC_1_LO,
+		16, A3XX_VPC_PERFCOUNTER1_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_tse[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TSE_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TSE_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TSE_0_LO,
+		17, A3XX_GRAS_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TSE_1_LO,
+		18, A3XX_GRAS_PERFCOUNTER1_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_ras[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RAS_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RAS_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RAS_0_LO,
+		19, A3XX_GRAS_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RAS_1_LO,
+		20, A3XX_GRAS_PERFCOUNTER3_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_uche[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_2_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_3_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_4_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_5_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_0_LO,
+		21, A3XX_UCHE_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_1_LO,
+		22, A3XX_UCHE_PERFCOUNTER1_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_2_LO,
+		23, A3XX_UCHE_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_3_LO,
+		24, A3XX_UCHE_PERFCOUNTER3_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_4_LO,
+		25, A3XX_UCHE_PERFCOUNTER4_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_UCHE_5_LO,
+		26, A3XX_UCHE_PERFCOUNTER5_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_tp[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_2_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_3_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_4_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_5_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_0_LO,
+		27, A3XX_TP_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_1_LO,
+		28, A3XX_TP_PERFCOUNTER1_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_2_LO,
+		29, A3XX_TP_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_3_LO,
+		30, A3XX_TP_PERFCOUNTER3_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_4_LO,
+		31, A3XX_TP_PERFCOUNTER4_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_TP_5_LO,
+		32, A3XX_TP_PERFCOUNTER5_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_sp[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_2_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_3_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_4_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_5_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_6_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_7_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_0_LO,
+		33, A3XX_SP_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_1_LO,
+		34, A3XX_SP_PERFCOUNTER1_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_2_LO,
+		35, A3XX_SP_PERFCOUNTER2_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_3_LO,
+		36, A3XX_SP_PERFCOUNTER3_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_4_LO,
+		37, A3XX_SP_PERFCOUNTER4_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_5_LO,
+		38, A3XX_SP_PERFCOUNTER5_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_6_LO,
+		39, A3XX_SP_PERFCOUNTER6_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_SP_7_LO,
+		40, A3XX_SP_PERFCOUNTER7_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_rb[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RB_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RB_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RB_0_LO,
+		41, A3XX_RB_PERFCOUNTER0_SELECT },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_RB_1_LO,
+		42, A3XX_RB_PERFCOUNTER1_SELECT },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_pwr[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_0_LO,
+		-1, 0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_RBBM_PERFCTR_PWR_1_LO,
+		-1, 0 },
 };
 
 static struct adreno_perfcount_register a3xx_perfcounters_vbif[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_CNT0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_CNT1_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_CNT0_LO, -1, 0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_CNT1_LO, -1, 0 },
 };
 static struct adreno_perfcount_register a3xx_perfcounters_vbif_pwr[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT0_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT1_LO },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT2_LO },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT0_LO, -1, 0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT1_LO, -1, 0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT2_LO, -1, 0 },
 };
 
-#define A3XX_PERFCOUNTER_GROUP(name) { a3xx_perfcounters_##name, \
-	ARRAY_SIZE(a3xx_perfcounters_##name), __stringify(name) }
-
 static struct adreno_perfcount_group a3xx_perfcounter_groups[] = {
-	A3XX_PERFCOUNTER_GROUP(cp),
-	A3XX_PERFCOUNTER_GROUP(rbbm),
-	A3XX_PERFCOUNTER_GROUP(pc),
-	A3XX_PERFCOUNTER_GROUP(vfd),
-	A3XX_PERFCOUNTER_GROUP(hlsq),
-	A3XX_PERFCOUNTER_GROUP(vpc),
-	A3XX_PERFCOUNTER_GROUP(tse),
-	A3XX_PERFCOUNTER_GROUP(ras),
-	A3XX_PERFCOUNTER_GROUP(uche),
-	A3XX_PERFCOUNTER_GROUP(tp),
-	A3XX_PERFCOUNTER_GROUP(sp),
-	A3XX_PERFCOUNTER_GROUP(rb),
-	A3XX_PERFCOUNTER_GROUP(pwr),
-	A3XX_PERFCOUNTER_GROUP(vbif),
-	A3XX_PERFCOUNTER_GROUP(vbif_pwr),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, cp),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, rbbm),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, pc),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, vfd),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, hlsq),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, vpc),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, tse),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, ras),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, uche),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, tp),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, sp),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, rb),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, pwr),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, vbif),
+	ADRENO_PERFCOUNTER_GROUP(a3xx, vbif_pwr),
 };
 
 static struct adreno_perfcounters a3xx_perfcounters = {

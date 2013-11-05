@@ -210,12 +210,16 @@ enum adreno_device_flags {
  * @kernelcount: number of user space users of the register
  * @usercount: number of kernel users of the register
  * @offset: register hardware offset
+ * @load_bit: The bit number in LOAD register which corresponds to this counter
+ * @select: The countable register offset
  */
 struct adreno_perfcount_register {
 	unsigned int countable;
 	unsigned int kernelcount;
 	unsigned int usercount;
 	unsigned int offset;
+	int load_bit;
+	unsigned int select;
 };
 
 /**
@@ -239,6 +243,9 @@ struct adreno_perfcounters {
 	struct adreno_perfcount_group *groups;
 	unsigned int group_count;
 };
+
+#define ADRENO_PERFCOUNTER_GROUP(core, name) { core##_perfcounters_##name, \
+	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
 
 /**
  * adreno_regs: List of registers that are used in kgsl driver for all
@@ -342,8 +349,7 @@ struct adreno_gpudev {
 	void (*perfcounter_enable)(struct adreno_device *, unsigned int group,
 		unsigned int counter, unsigned int countable);
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
-		unsigned int group, unsigned int counter,
-		unsigned int offset);
+		unsigned int group, unsigned int counter);
 	int (*coresight_enable) (struct kgsl_device *device);
 	void (*coresight_disable) (struct kgsl_device *device);
 	void (*coresight_config_debug_reg) (struct kgsl_device *device,
