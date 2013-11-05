@@ -2437,6 +2437,8 @@
 		reg = <0xfde0b000 0x80>;
 		reg-names = "maple_csr_base";
 		vdd-supply = <&gdsc_vpu>;
+		clock-names = "core_clk", "iface_clk", "bus_clk", "vdp_clk",
+					"vdp_bus_clk", "cxo_clk", "sleep_clk", "maple_bus_clk";
 
 		qcom,firmware-name = "vpu";
 	};

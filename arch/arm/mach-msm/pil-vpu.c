@@ -25,6 +25,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <mach/ramdump.h>
+#include <mach/clk-provider.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -32,24 +33,14 @@
 /* PIL proxy vote timeout */
 #define VPU_PROXY_TIMEOUT_MS				10000
 
-static const char * const clk_names[] = {
-	"core_clk",
-	"iface_clk",
-	"bus_clk",
-	"vdp_clk",
-	"vdp_bus_clk",
-	"cxo_clk",
-	"sleep_clk",
-	"maple_bus_clk"
-};
-
 struct vpu_data {
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct regulator *gdsc;
-	struct clk *clks[ARRAY_SIZE(clk_names)];
+	struct clk **clks;
 	void *ramdump_dev;
+	int clock_count;
 };
 
 #define subsys_to_drv(d) container_of(d, struct vpu_data, subsys_desc)
@@ -60,12 +51,32 @@ static int vpu_clock_setup(struct device *dev)
 	struct vpu_data *drv = dev_get_drvdata(dev);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(drv->clks); i++) {
-		drv->clks[i] = devm_clk_get(dev, clk_names[i]);
+	if (!of_find_property(dev->of_node, "clock-names", NULL)) {
+		dev_err(dev, "missing clock-names property\n");
+		return -EINVAL;
+	}
+
+	drv->clock_count = of_property_count_strings(dev->of_node,
+							"clock-names");
+	if (IS_ERR_VALUE(drv->clock_count)) {
+		dev_err(dev, "Failed to get clock names\n");
+		return -EINVAL;
+	}
+
+	drv->clks = devm_kzalloc(dev,
+			sizeof(struct clk *) * drv->clock_count, GFP_KERNEL);
+	if (!drv->clks)
+		return -ENOMEM;
+	for (i = 0; i < drv->clock_count; i++) {
+		const char *clock_name;
+		of_property_read_string_index(dev->of_node,
+						"clock-names", i, &clock_name);
+		drv->clks[i] = devm_clk_get(dev, clock_name);
 		if (IS_ERR(drv->clks[i])) {
-			dev_err(dev, "failed to get %s\n",
-				clk_names[i]);
-			return PTR_ERR(drv->clks[i]);
+			int rc = PTR_ERR(drv->clks[i]);
+			if (rc != -EPROBE_DEFER)
+				dev_err(dev, "Failed to get %s\n", clock_name);
+			return rc;
 		}
 		/* Make sure rate-settable clocks' rates are set */
 		if (clk_get_rate(drv->clks[i]) == 0)
@@ -81,11 +92,11 @@ static int vpu_clock_prepare_enable(struct device *dev)
 	struct vpu_data *drv = dev_get_drvdata(dev);
 	int rc, i;
 
-	for (i = 0; i < ARRAY_SIZE(drv->clks); i++) {
+	for (i = 0; i < drv->clock_count; i++) {
 		rc = clk_prepare_enable(drv->clks[i]);
 		if (rc) {
 			dev_err(dev, "failed to enable %s\n",
-				clk_names[i]);
+						drv->clks[i]->dbg_name);
 			for (i--; i >= 0; i--)
 				clk_disable_unprepare(drv->clks[i]);
 			return rc;
@@ -100,7 +111,7 @@ static void vpu_clock_disable_unprepare(struct device *dev)
 	struct vpu_data *drv = dev_get_drvdata(dev);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(drv->clks); i++)
+	for (i = 0; i < drv->clock_count; i++)
 		clk_disable_unprepare(drv->clks[i]);
 }
 
