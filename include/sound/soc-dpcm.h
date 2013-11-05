@@ -120,6 +120,8 @@ int dpcm_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream);
 int dpcm_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int tream);
 int dpcm_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd);
 int dpcm_be_dai_prepare(struct snd_soc_pcm_runtime *fe, int stream);
+int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
+	int dir, const char *stream, int event);
 
 static inline void dpcm_path_put(struct snd_soc_dapm_widget_list **list)
 {
