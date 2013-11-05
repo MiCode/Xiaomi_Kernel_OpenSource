@@ -3587,7 +3587,7 @@ int q6asm_async_write(struct audio_client *ac,
 	if (ac->io_mode == liomode)
 		lbuf_addr_lsw = (write.buf_addr_lsw - 32);
 	else if (ac->io_mode == io_compressed)
-		lbuf_addr_lsw = (write.buf_addr_lsw - 0x40);
+		lbuf_addr_lsw = (write.buf_addr_lsw - param->metadata_len);
 	else
 		lbuf_addr_lsw = write.buf_addr_lsw;
 
