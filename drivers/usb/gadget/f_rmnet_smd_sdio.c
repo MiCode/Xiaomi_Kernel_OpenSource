@@ -916,8 +916,8 @@ static int rmnet_mux_smd_enable(struct rmnet_mux_dev *dev)
 	if (test_bit(RMNET_MUX_CH_OPENED, &smd_dev->smd_data.flags))
 		goto smd_alloc_req;
 
-	ret = smd_open(rmnet_mux_smd_data_ch, &smd_dev->smd_data.ch,
-			dev, rmnet_mux_smd_notify);
+	ret = smd_named_open_on_edge(rmnet_mux_smd_data_ch, SMD_APPS_MODEM,
+			&smd_dev->smd_data.ch, dev, rmnet_mux_smd_notify);
 	if (ret) {
 		ERROR(cdev, "Unable to open data smd channel\n");
 		return ret;
