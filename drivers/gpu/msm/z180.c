@@ -863,9 +863,13 @@ static int z180_waittimestamp(struct kgsl_device *device,
 	if (msecs == -1)
 		msecs = Z180_IDLE_TIMEOUT;
 
-	mutex_unlock(&device->mutex);
-	status = z180_wait(device, context, timestamp, msecs);
-	mutex_lock(&device->mutex);
+	status = kgsl_active_count_get(device);
+	if (!status) {
+		mutex_unlock(&device->mutex);
+		status = z180_wait(device, context, timestamp, msecs);
+		mutex_lock(&device->mutex);
+		kgsl_active_count_put(device);
+	}
 
 	return status;
 }
