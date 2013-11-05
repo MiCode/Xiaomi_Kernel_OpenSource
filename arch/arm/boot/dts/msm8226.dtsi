@@ -450,6 +450,10 @@
 		compatible = "qcom,msm-compr-dsp";
 	};
 
+	qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
+	};
+
 	qcom,msm-voip-dsp {
 		compatible = "qcom,msm-voip-dsp";
 	};
