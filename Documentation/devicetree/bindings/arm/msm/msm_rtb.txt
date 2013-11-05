@@ -8,14 +8,15 @@ Documentation/devicetree/bindings/arm/msm/memory-reserve.txt).
 Required properties
 
 - compatible: "qcom,msm-rtb"
-- qcom,memory-reservation-size: size of reserved memory for the RTB buffer
-- qcom,memory-reservation-type: type of memory to be reserved
-(see memory-reserve.txt for information about memory reservations)
+- qcom,rtb-size: size of the RTB buffer in bytes
+
+Optional properties:
+
+- linux,contiguous-region: phandle reference to a CMA region
 
 Example:
 
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
-		qcom,memory-reservation-type = "EBI1";
-		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+		qcom,rtb-size = <0x100000>;
 	};
