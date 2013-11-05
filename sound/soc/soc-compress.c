@@ -83,6 +83,10 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 	struct snd_soc_platform *platform = fe->platform;
 	struct snd_soc_dpcm_params *dpcm;
 	struct snd_soc_dapm_widget_list *list;
+
+	struct snd_soc_dai *cpu_dai = fe->cpu_dai;
+	struct snd_soc_dai *codec_dai = fe->codec_dai;
+
 	int stream;
 	int ret = 0;
 
@@ -137,6 +141,19 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_OPEN;
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_NO;
+
+	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
+		cpu_dai->playback_active++;
+		codec_dai->playback_active++;
+	} else {
+		cpu_dai->capture_active++;
+		codec_dai->capture_active++;
+	}
+
+	cpu_dai->active++;
+	codec_dai->active++;
+	fe->codec->active++;
+
 	mutex_unlock(&fe->card->mutex);
 
 	return 0;
@@ -247,12 +264,29 @@ static int soc_compr_free_fe(struct snd_compr_stream *cstream)
 	struct snd_soc_dpcm_params *dpcm;
 	int stream, ret;
 
+	struct snd_soc_dai *cpu_dai = fe->cpu_dai;
+	struct snd_soc_dai *codec_dai = fe->codec_dai;
+	struct snd_soc_codec *codec = fe->codec;
+
 	if (cstream->direction == SND_COMPRESS_PLAYBACK)
 		stream = SNDRV_PCM_STREAM_PLAYBACK;
 	else
 		stream = SNDRV_PCM_STREAM_CAPTURE;
 
 	mutex_lock_nested(&fe->card->mutex, SND_SOC_CARD_CLASS_RUNTIME);
+
+	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
+		cpu_dai->playback_active--;
+		codec_dai->playback_active--;
+		snd_soc_dai_digital_mute(codec_dai, 1);
+	} else {
+		cpu_dai->capture_active--;
+		codec_dai->capture_active--;
+	}
+
+	cpu_dai->active--;
+	codec_dai->active--;
+	codec->active--;
 
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
