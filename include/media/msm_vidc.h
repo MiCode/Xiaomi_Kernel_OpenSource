@@ -18,6 +18,41 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
+/* NOTE: if you change this enum you MUST update the
+ * "buffer-type-tz-usage-table" for any affected target
+ * in arch/arm/boot/dts/<arch>.dtsi
+ */
+enum hal_buffer {
+	HAL_BUFFER_INPUT = 0x1,
+	HAL_BUFFER_OUTPUT = 0x2,
+	HAL_BUFFER_OUTPUT2 = 0x4,
+	HAL_BUFFER_EXTRADATA_INPUT = 0x8,
+	HAL_BUFFER_EXTRADATA_OUTPUT = 0x10,
+	HAL_BUFFER_EXTRADATA_OUTPUT2 = 0x20,
+	HAL_BUFFER_INTERNAL_SCRATCH = 0x40,
+	HAL_BUFFER_INTERNAL_SCRATCH_1 = 0x80,
+	HAL_BUFFER_INTERNAL_SCRATCH_2 = 0x100,
+	HAL_BUFFER_INTERNAL_PERSIST = 0x200,
+	HAL_BUFFER_INTERNAL_PERSIST_1 = 0x400,
+	HAL_BUFFER_INTERNAL_CMD_QUEUE = 0x800,
+};
+
+struct msm_smem {
+	int mem_type;
+	size_t size;
+	void *kvaddr;
+	unsigned long device_addr;
+	u32 flags;
+	void *smem_priv;
+	enum hal_buffer buffer_type;
+};
+
+enum smem_cache_ops {
+	SMEM_CACHE_CLEAN,
+	SMEM_CACHE_INVALIDATE,
+	SMEM_CACHE_CLEAN_INVALIDATE,
+};
+
 void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
@@ -47,6 +82,18 @@ int msm_vidc_dqevent(void *instance, struct v4l2_event *event);
 int msm_vidc_wait(void *instance);
 int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
+struct msm_smem *msm_vidc_smem_alloc(void *instance,
+			size_t size, u32 align, u32 flags,
+			enum hal_buffer buffer_type, int map_kernel);
+void msm_vidc_smem_free(void *instance, struct msm_smem *mem);
+int msm_vidc_smem_cache_operations(void *instance,
+		struct msm_smem *mem, enum smem_cache_ops);
+struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance,
+			int fd, u32 offset, enum hal_buffer buffer_type);
+int msm_vidc_smem_get_domain_partition(void *instance,
+		u32 flags, enum hal_buffer buffer_type,
+		int *domain_num, int *partition_num);
+void *msm_vidc_smem_get_client(void *instance);
 #endif
 struct msm_vidc_interlace_payload {
 	unsigned int format;
