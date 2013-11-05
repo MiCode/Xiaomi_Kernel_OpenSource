@@ -813,6 +813,17 @@ int snd_compress_new(struct snd_card *card, int device,
 }
 EXPORT_SYMBOL_GPL(snd_compress_new);
 
+/*
+ * snd_compress_free: free compress device
+ * @card: sound card pointer
+ * @compr: compress device pointer
+ */
+void snd_compress_free(struct snd_card *card, struct snd_compr *compr)
+{
+	snd_device_free(card, compr);
+}
+EXPORT_SYMBOL_GPL(snd_compress_free);
+
 static int snd_compress_add_device(struct snd_compr *device)
 {
 	int ret;
