@@ -16,44 +16,6 @@
 #include "adreno_pm4types.h"
 #include "a2xx_reg.h"
 
-/* Flags */
-
-#define CTXT_FLAGS_NOT_IN_USE		0x00000000
-#define CTXT_FLAGS_IN_USE		BIT(0)
-
-/* state shadow memory allocated */
-#define CTXT_FLAGS_STATE_SHADOW		BIT(1)
-
-/* gmem shadow memory allocated */
-#define CTXT_FLAGS_GMEM_SHADOW		BIT(2)
-/* gmem must be copied to shadow */
-#define CTXT_FLAGS_GMEM_SAVE		BIT(3)
-/* gmem can be restored from shadow */
-#define CTXT_FLAGS_GMEM_RESTORE		BIT(4)
-/* preamble packed in cmdbuffer for context switching */
-#define CTXT_FLAGS_PREAMBLE		BIT(5)
-/* shader must be copied to shadow */
-#define CTXT_FLAGS_SHADER_SAVE		BIT(6)
-/* shader can be restored from shadow */
-#define CTXT_FLAGS_SHADER_RESTORE	BIT(7)
-/* Context has caused a GPU hang */
-#define CTXT_FLAGS_GPU_HANG		BIT(8)
-/* Specifies there is no need to save GMEM */
-#define CTXT_FLAGS_NOGMEMALLOC          BIT(9)
-/* Trash state for context */
-#define CTXT_FLAGS_TRASHSTATE		BIT(10)
-/* per context timestamps enabled */
-#define CTXT_FLAGS_PER_CONTEXT_TS	BIT(11)
-/* Context has caused a GPU hang and fault tolerance successful */
-#define CTXT_FLAGS_GPU_HANG_FT	BIT(12)
-/* User mode generated timestamps enabled */
-#define CTXT_FLAGS_USER_GENERATED_TS    BIT(14)
-/* Context skip till EOF */
-#define CTXT_FLAGS_SKIP_EOF             BIT(15)
-/* Context no fault tolerance */
-#define CTXT_FLAGS_NO_FAULT_TOLERANCE  BIT(16)
-/* Force the preamble for the next submission */
-#define CTXT_FLAGS_FORCE_PREAMBLE      BIT(17)
 
 /* Symbolic table for the adreno draw context type */
 #define ADRENO_DRAWCTXT_TYPES \
@@ -136,7 +98,6 @@ extern const struct adreno_context_ops adreno_preamble_ctx_ops;
  * @internal_timestamp: Global timestamp of the last issued command
  *			NOTE: guarded by device->mutex, not drawctxt->mutex!
  * @state: Current state of the context
- * @flags: Bitfield controlling behavior of the context
  * @priv: Internal flags
  * @type: Context type (GL, CL, RS)
  * @mutex: Mutex to protect the cmdqueue
@@ -176,7 +137,6 @@ struct adreno_context {
 	unsigned int timestamp;
 	unsigned int internal_timestamp;
 	int state;
-	uint32_t flags;
 	unsigned long priv;
 	unsigned int type;
 	struct mutex mutex;
@@ -223,10 +183,27 @@ struct adreno_context {
 /**
  * enum adreno_context_priv - Private flags for an adreno draw context
  * @ADRENO_CONTEXT_FAULT - set if the context has faulted (and recovered)
+ * @ADRENO_CONTEXT_GMEM_SAVE - gmem must be copied to shadow
+ * @ADRENO_CONTEXT_GMEM_RESTORE - gmem can be restored from shadow
+ * @ADRENO_CONTEXT_SHADER_SAVE - shader must be copied to shadow
+ * @ADRENO_CONTEXT_SHADER_RESTORE - shader can be restored from shadow
+ * @ADRENO_CONTEXT_GPU_HANG - Context has caused a GPU hang
+ * @ADRENO_CONTEXT_GPU_HANG_FT - Context has caused a GPU hang
+ *      and fault tolerance was successful
+ * @ADRENO_CONTEXT_SKIP_EOF - Context skip IBs until the next end of frame
+ *      marker.
+ * @ADRENO_CONTEXT_FORCE_PREAMBLE - Force the preamble for the next submission.
  */
-
 enum adreno_context_priv {
 	ADRENO_CONTEXT_FAULT = 0,
+	ADRENO_CONTEXT_GMEM_SAVE,
+	ADRENO_CONTEXT_GMEM_RESTORE,
+	ADRENO_CONTEXT_SHADER_SAVE,
+	ADRENO_CONTEXT_SHADER_RESTORE,
+	ADRENO_CONTEXT_GPU_HANG,
+	ADRENO_CONTEXT_GPU_HANG_FT,
+	ADRENO_CONTEXT_SKIP_EOF,
+	ADRENO_CONTEXT_FORCE_PREAMBLE,
 };
 
 struct kgsl_context *adreno_drawctxt_create(struct kgsl_device_private *,
