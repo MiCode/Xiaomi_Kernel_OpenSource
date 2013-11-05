@@ -119,6 +119,62 @@ struct qce_f8_multi_pkt_req {
 };
 
 /**
+ * struct qce_f8_variable_multi_pkt_req - qce f8 multiple packet request
+ *                      Muliptle packets with variable size, and
+ *                      F8 ciphering parameters can be ciphered in a
+ *                      single request.
+ *
+ * @num_pkt:            number of packets.
+ *
+ * @cipher_iov[]:       array of iov of packets to be ciphered.
+ *
+ *
+ * @qce_f8_req:         description of the packet and F8 parameters.
+ *                      The following fields have special meaning for
+ *                      multiple packet operation,
+ *
+ *      @data_len:      ignored.
+ *
+ *      @data_in:       ignored.
+ *
+ *      @data_out:      ignored.
+ *
+ *      @count_c:       count-C of the first packet, 32 bit.
+ *
+ *
+ *   In one request, multiple packets can be ciphered.
+ *
+ *   The i-th packet are defined in cipher_iov[i-1].
+ *   The ciphering of i-th packet starts from offset 0 of the PDU specified
+ *   by cipher_iov[i-1].addr, for cipher_iov[i-1].size bytes of data.
+ *   If the PDU is not byte aligned, set the cipher_iov[i-1].size value
+ *   to the rounded up value of the packet size. Eg, PDU size of
+ *   253 bits, set the packet size to 32 bytes.
+ *
+ *   Ciphering are done in place. That is, the ciphering
+ *   input and output data are both in cipher_iov[i-1].addr for the i-th
+ *   packet.
+ *
+ *   For each packet the input arguments of bearer, direction,
+ *   ckey, algoritm have to be the same. count_c is the ciphering sequence
+ *   number of the first packet. The 2nd packet's ciphering sequence
+ *   number is assumed to be count_c + 1. The 3rd packet's ciphering sequence
+ *   number is count_c + 2.....
+ */
+
+#define MAX_NUM_V_MULTI_PKT 20
+struct cipher_iov {
+	unsigned char  *addr;
+	unsigned short  size;
+};
+
+struct qce_f8_varible_multi_pkt_req {
+	unsigned short    num_pkt;
+	struct cipher_iov cipher_iov[MAX_NUM_V_MULTI_PKT];
+	struct qce_f8_req qce_f8_req;
+};
+
+/**
  * struct qce_f9_req - qce f9 request
  * @message:	message
  * @msize:	message size in bytes (include the last partial byte).
@@ -148,5 +204,7 @@ struct qce_f9_req {
 #define QCOTA_F8_REQ _IOWR(QCOTA_IOC_MAGIC, 1, struct qce_f8_req)
 #define QCOTA_F8_MPKT_REQ _IOWR(QCOTA_IOC_MAGIC, 2, struct qce_f8_multi_pkt_req)
 #define QCOTA_F9_REQ _IOWR(QCOTA_IOC_MAGIC, 3, struct qce_f9_req)
+#define QCOTA_F8_V_MPKT_REQ _IOWR(QCOTA_IOC_MAGIC, 4,\
+				struct qce_f8_varible_multi_pkt_req)
 
 #endif /* _UAPI_QCOTA_H */
