@@ -618,8 +618,8 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	u8 apid = d->hwirq;
 	unsigned long flags;
 	u32 status;
-	u8 data = BIT(irq);
 	u8 prev_enabled_irq_mask;
+	u8 buf[2];
 
 	prev_enabled_irq_mask = pa->apid_data[apid].enabled_irq_mask;
 	pa->apid_data[apid].enabled_irq_mask &= ~BIT(irq);
@@ -637,7 +637,17 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 		raw_spin_unlock_irqrestore(&pa->lock, flags);
 	}
 
-	qpnpint_spmi_write(d, QPNPINT_REG_EN_SET, &data, 1);
+	qpnpint_spmi_read(d, QPNPINT_REG_EN_SET, &buf[0], 1);
+	if (!(buf[0] & BIT(irq))) {
+		/*
+		 * Since the interrupt is currently disabled, write to both the
+		 * LATCHED_CLR and EN_SET registers so that a spurious interrupt
+		 * cannot be triggered when the interrupt is enabled
+		 */
+		buf[0] = BIT(irq);
+		buf[1] = BIT(irq);
+		qpnpint_spmi_write(d, QPNPINT_REG_LATCHED_CLR, &buf, 2);
+	}
 }
 
 static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
