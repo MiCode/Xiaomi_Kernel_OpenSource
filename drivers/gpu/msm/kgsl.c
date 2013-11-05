@@ -621,7 +621,9 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	device->ftbl->drain(device);
 
 	/* Wait for the active count to hit zero */
-	kgsl_active_count_wait(device, 0);
+	status = kgsl_active_count_wait(device, 0);
+	if (status)
+		goto end;
 
 	/*
 	 * An interrupt could have snuck in and requested NAP in
@@ -661,6 +663,12 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	status = 0;
 
 end:
+	if (status) {
+		/* On failure, re-resume normal activity */
+		if (device->ftbl->resume)
+			device->ftbl->resume(device);
+	}
+
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "suspend end\n");
 	return status;
