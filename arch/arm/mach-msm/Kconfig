@@ -435,6 +435,7 @@ config ARCH_MSMKRYPTON
 	select SPARSE_IRQ
 	select MEMORY_HOLE_CARVEOUT
 	select QMI_ENCDEC
+	select MSM_CORTEX_A7
 
 config ARCH_MSM8610
 	bool "MSM8610"
@@ -461,6 +462,7 @@ config ARCH_MSM8610
 	select MSM_PM8X60 if PM
 	select MEMORY_HOLE_CARVEOUT
 	select MSM_BUS_SCALING
+	select MSM_CORTEX_A7
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select MSM_PIL
@@ -501,6 +503,7 @@ config ARCH_MSM8226
 	select MSM_PM8X60 if PM
 	select MEMORY_HOLE_CARVEOUT
 	select MSM_BUS_SCALING
+	select MSM_CORTEX_A7
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select MSM_PIL
@@ -572,6 +575,9 @@ config  ARCH_MSM_SCORPION
 config  ARCH_MSM_KRAIT
 	bool
 	select ARM_L1_CACHE_SHIFT_6
+
+config  MSM_CORTEX_A7
+	bool
 
 config  MSM_SMP
 	select HAVE_SMP
