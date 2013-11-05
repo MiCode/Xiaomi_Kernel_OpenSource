@@ -110,7 +110,7 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 		if (!rtd->pmdown_time || codec->ignore_pmdown_time ||
 		    rtd->dai_link->ignore_pmdown_time) {
 			snd_soc_dapm_stream_event(rtd,
-					SNDRV_PCM_STREAM_PLAYBACK,
+					codec_dai->driver->playback.stream_name,
 					SND_SOC_DAPM_STREAM_STOP);
 		} else
 			codec_dai->pop_wait = 1;
@@ -119,7 +119,7 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 	} else {
 		/* capture streams can be powered down now */
 		snd_soc_dapm_stream_event(rtd,
-			SNDRV_PCM_STREAM_CAPTURE,
+			codec_dai->driver->capture.stream_name,
 			SND_SOC_DAPM_STREAM_STOP);
 	}
 
@@ -174,7 +174,8 @@ static int soc_compr_set_params(struct snd_compr_stream *cstream,
 			return ret;
 	}
 
-	snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_PLAYBACK,
+	snd_soc_dapm_stream_event(rtd,
+				codec_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_START);
 
 	return ret;
