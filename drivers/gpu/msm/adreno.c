@@ -1640,6 +1640,8 @@ static int __devexit adreno_remove(struct platform_device *pdev)
 	adreno_ringbuffer_close(&adreno_dev->ringbuffer);
 	kgsl_device_platform_remove(device);
 
+	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
+
 	return 0;
 }
 
@@ -1649,6 +1651,12 @@ static int adreno_init(struct kgsl_device *device)
 	int i;
 
 	kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+	/*
+	 * initialization only needs to be done once initially until
+	 * device is shutdown
+	 */
+	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
+		return 0;
 
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
@@ -1674,6 +1682,7 @@ static int adreno_init(struct kgsl_device *device)
 		BUG_ON(1);
 	}
 
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 	/*
 	 * Check if firmware supports the sync lock PM4 packets needed
 	 * for IOMMUv1
@@ -1709,6 +1718,8 @@ static int adreno_init(struct kgsl_device *device)
 	/* Enable the power on shader corruption fix for all A3XX targets */
 	if (adreno_is_a3xx(adreno_dev))
 		adreno_a3xx_pwron_fixup_init(adreno_dev);
+
+	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
 	return 0;
 }
