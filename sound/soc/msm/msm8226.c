@@ -148,6 +148,30 @@ static int clk_users;
 static int ext_spk_amp_gpio = -1;
 static int vdd_spkr_gpio = -1;
 static int msm_proxy_rx_ch = 2;
+static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+
+static inline int param_is_mask(int p)
+{
+	return ((p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
+			(p <= SNDRV_PCM_HW_PARAM_LAST_MASK));
+}
+
+static inline struct snd_mask *param_to_mask(struct snd_pcm_hw_params *p, int n)
+{
+	return &(p->masks[n - SNDRV_PCM_HW_PARAM_FIRST_MASK]);
+}
+
+static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
+{
+	if (bit >= SNDRV_MASK_MAX)
+		return;
+	if (param_is_mask(n)) {
+		struct snd_mask *m = param_to_mask(p, n);
+		m->bits[0] = 0;
+		m->bits[1] = 0;
+		m->bits[bit >> 5] |= (1 << (bit & 31));
+	}
+}
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
@@ -489,6 +513,45 @@ static int msm_proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
 						msm_proxy_rx_ch);
 	return 1;
 }
+
+static int slim0_rx_bit_format_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+
+	switch (slim0_rx_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: slim0_rx_bit_format = %d, ucontrol value = %ld\n",
+			__func__, slim0_rx_bit_format,
+			ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int slim0_rx_bit_format_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		slim0_rx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	return 0;
+}
+
+
 static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -654,6 +717,9 @@ static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	pr_debug("%s()\n", __func__);
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+					slim0_rx_bit_format);
+
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_slim_0_rx_ch;
 
@@ -721,6 +787,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 		     msm_btsco_rate_get, msm_btsco_rate_put),
 	SOC_ENUM_EXT("PROXY_RX Channels", msm_snd_enum[2],
 			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
+	SOC_ENUM_EXT("SLIM_0_RX Format", msm_snd_enum[3],
+			slim0_rx_bit_format_get, slim0_rx_bit_format_put),
+
 };
 
 static int msm_afe_set_config(struct snd_soc_codec *codec)
