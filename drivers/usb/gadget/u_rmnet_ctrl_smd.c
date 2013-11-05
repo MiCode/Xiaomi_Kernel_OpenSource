@@ -385,7 +385,8 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 		return;
 	}
 
-	ret = smd_open(c->name, &c->ch, port, grmnet_ctrl_smd_notify);
+	ret = smd_named_open_on_edge(c->name, SMD_APPS_MODEM, &c->ch, port,
+							grmnet_ctrl_smd_notify);
 	if (ret) {
 		if (ret == -EAGAIN) {
 			/* port not ready  - retry */
