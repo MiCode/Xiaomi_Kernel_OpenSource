@@ -78,6 +78,8 @@
 
 #define KGSL_MEMFREE_HIST_SIZE	((int)(PAGE_SIZE * 2))
 
+#define KGSL_MAX_NUMIBS 100000
+
 struct kgsl_memfree_hist_elem {
 	unsigned int pid;
 	unsigned int gpuaddr;
@@ -141,6 +143,7 @@ extern struct kgsl_driver kgsl_driver;
 
 struct kgsl_pagetable;
 struct kgsl_memdesc;
+struct kgsl_cmdbatch;
 
 struct kgsl_memdesc_ops {
 	int (*vmflags)(struct kgsl_memdesc *);
@@ -205,7 +208,6 @@ struct kgsl_mem_entry {
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_hang_check(struct work_struct *work);
 void kgsl_mem_entry_destroy(struct kref *kref);
 int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
 
@@ -237,7 +239,7 @@ void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
 		unsigned int value);
 
 void kgsl_trace_issueibcmds(struct kgsl_device *device, int id,
-		struct kgsl_ibdesc *ibdesc, int numibs,
+		struct kgsl_cmdbatch *cmdbatch,
 		unsigned int timestamp, unsigned int flags,
 		int result, unsigned int type);
 
@@ -318,10 +320,10 @@ static inline int timestamp_cmp(unsigned int a, unsigned int b)
 	return ((a > b) && (a - b <= KGSL_TIMESTAMP_WINDOW)) ? 1 : -1;
 }
 
-static inline void
+static inline int
 kgsl_mem_entry_get(struct kgsl_mem_entry *entry)
 {
-	kref_get(&entry->refcount);
+	return kref_get_unless_zero(&entry->refcount);
 }
 
 static inline void

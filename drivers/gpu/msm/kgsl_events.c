@@ -17,6 +17,7 @@
 #include <kgsl_device.h>
 
 #include "kgsl_trace.h"
+#include "adreno.h"
 
 static inline struct list_head *_get_list_head(struct kgsl_device *device,
 		struct kgsl_context *context)
@@ -48,7 +49,8 @@ static inline void _do_signal_event(struct kgsl_device *device,
 {
 	int id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
 
-	trace_kgsl_fire_event(id, timestamp, type, jiffies - event->created);
+	trace_kgsl_fire_event(id, timestamp, type, jiffies - event->created,
+		event->func);
 
 	if (event->func)
 		event->func(device, event->priv, id, timestamp, type);
@@ -214,6 +216,8 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	struct kgsl_event *event;
 	unsigned int cur_ts;
 	struct kgsl_context *context = NULL;
+	struct adreno_context *drawctxt;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
@@ -223,6 +227,15 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	if (id != KGSL_MEMSTORE_GLOBAL) {
 		context = kgsl_context_get(device, id);
 		if (context == NULL)
+			return -EINVAL;
+		/* Do not allow registering of event with invalid timestamp */
+		drawctxt = ADRENO_CONTEXT(context);
+		if (timestamp_cmp(ts, drawctxt->timestamp) > 0) {
+			kgsl_context_put(context);
+			return -EINVAL;
+		}
+	} else {
+		if (timestamp_cmp(ts, adreno_dev->ringbuffer.global_ts) > 0)
 			return -EINVAL;
 	}
 	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
@@ -235,7 +248,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	 */
 
 	if (timestamp_cmp(cur_ts, ts) >= 0) {
-		trace_kgsl_fire_event(id, cur_ts, ts, 0);
+		trace_kgsl_fire_event(id, cur_ts, ts, 0, func);
 
 		func(device, priv, id, ts, KGSL_EVENT_TIMESTAMP_RETIRED);
 		kgsl_context_put(context);
@@ -266,7 +279,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	event->owner = owner;
 	event->created = jiffies;
 
-	trace_kgsl_register_event(id, ts);
+	trace_kgsl_register_event(id, ts, func);
 
 	/* Add the event to either the owning context or the global list */
 
@@ -333,7 +346,11 @@ void kgsl_cancel_event(struct kgsl_device *device, struct kgsl_context *context,
 		void *priv)
 {
 	struct kgsl_event *event;
-	struct list_head *head = _get_list_head(device, context);
+	struct list_head *head;
+
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	head = _get_list_head(device, context);
 
 	event = _find_event(device, head, timestamp, func, priv);
 
@@ -400,10 +417,19 @@ void kgsl_process_events(struct work_struct *work)
 	struct kgsl_context *context, *tmp;
 	uint32_t timestamp;
 
+	/*
+	 * Bail unless the global timestamp has advanced.  We can safely do this
+	 * outside of the mutex for speed
+	 */
+
+	timestamp = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
+	if (timestamp == device->events_last_timestamp)
+		return;
+
 	mutex_lock(&device->mutex);
 
-	/* Process expired global events */
-	timestamp = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
+	device->events_last_timestamp = timestamp;
+
 	_retire_events(device, &device->events, timestamp);
 	_mark_next_event(device, &device->events);
 
@@ -415,15 +441,17 @@ void kgsl_process_events(struct work_struct *work)
 		 * Increment the refcount to make sure that the list_del_init
 		 * is called with a valid context's list
 		 */
-		_kgsl_context_get(context);
-		/*
-		 * If kgsl_timestamp_expired_context returns 0 then it no longer
-		 * has any pending events and can be removed from the list
-		 */
+		if (_kgsl_context_get(context)) {
+			/*
+			 * If kgsl_timestamp_expired_context returns 0 then it
+			 * no longer has any pending events and can be removed
+			 * from the list
+			 */
 
-		if (kgsl_process_context_events(device, context) == 0)
-			list_del_init(&context->events_list);
-		kgsl_context_put(context);
+			if (kgsl_process_context_events(device, context) == 0)
+				list_del_init(&context->events_list);
+			kgsl_context_put(context);
+		}
 	}
 
 	mutex_unlock(&device->mutex);
