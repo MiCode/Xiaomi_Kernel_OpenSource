@@ -920,11 +920,16 @@ z180_drawctxt_create(struct kgsl_device_private *dev_priv,
 static int
 z180_drawctxt_detach(struct kgsl_context *context)
 {
+	int ret;
 	struct kgsl_device *device;
 	struct z180_device *z180_dev;
 
 	device = context->device;
 	z180_dev = Z180_DEVICE(device);
+
+	ret = kgsl_active_count_get(device);
+	if (ret)
+		return ret;
 
 	z180_idle(device);
 
@@ -937,6 +942,7 @@ z180_drawctxt_detach(struct kgsl_context *context)
 				KGSL_MMUFLAGS_PTUPDATE);
 	}
 
+	kgsl_active_count_put(device);
 	return 0;
 }
 

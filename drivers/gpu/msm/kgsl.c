@@ -955,8 +955,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	struct kgsl_context *context;
 	int next = 0;
 
-	bool have_active_count = false;
-
 	filep->private_data = NULL;
 
 	mutex_lock(&device->mutex);
@@ -976,11 +974,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 			 */
 
 			if (_kgsl_context_get(context)) {
-				if (!have_active_count) {
-					result = kgsl_active_count_get(device);
-					BUG_ON(result);
-					have_active_count = true;
-				}
 				kgsl_context_detach(context);
 				kgsl_context_put(context);
 			}
@@ -995,9 +988,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	 * it is still in use by the GPU.
 	 */
 	kgsl_cancel_events(device, dev_priv);
-
-	if (have_active_count)
-		kgsl_active_count_put(device);
 
 	result = kgsl_close_device(device);
 	mutex_unlock(&device->mutex);
@@ -3293,7 +3283,6 @@ typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
 		{ .cmd = (_cmd), .func = (_func), .flags = (_flags) }
 
 #define KGSL_IOCTL_LOCK		BIT(0)
-#define KGSL_IOCTL_WAKE		BIT(1)
 
 static const struct {
 	unsigned int cmd;
@@ -3330,7 +3319,7 @@ static const struct {
 			KGSL_IOCTL_LOCK),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DRAWCTXT_DESTROY,
 			kgsl_ioctl_drawctxt_destroy,
-			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
+			KGSL_IOCTL_LOCK),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_MAP_USER_MEM,
 			kgsl_ioctl_map_user_mem, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FROM_PMEM,
@@ -3368,7 +3357,7 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	struct kgsl_device_private *dev_priv = filep->private_data;
 	unsigned int nr;
 	kgsl_ioctl_func_t func;
-	int lock, ret, use_hw = 0;
+	int lock, ret;
 	char ustack[64];
 	void *uptr = NULL;
 
@@ -3426,7 +3415,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 		func = kgsl_ioctl_funcs[nr].func;
 		lock = kgsl_ioctl_funcs[nr].flags & KGSL_IOCTL_LOCK;
-		use_hw = kgsl_ioctl_funcs[nr].flags & KGSL_IOCTL_WAKE;
 	} else {
 		func = dev_priv->device->ftbl->ioctl;
 		if (!func) {
@@ -3438,23 +3426,13 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		lock = 1;
 	}
 
-	if (lock) {
+	if (lock)
 		mutex_lock(&dev_priv->device->mutex);
-		if (use_hw) {
-			ret = kgsl_active_count_get(dev_priv->device);
-			if (ret < 0)
-				goto unlock;
-		}
-	}
 
 	ret = func(dev_priv, cmd, uptr);
 
-unlock:
-	if (lock) {
-		if (use_hw)
-			kgsl_active_count_put(dev_priv->device);
+	if (lock)
 		mutex_unlock(&dev_priv->device->mutex);
-	}
 
 	/*
 	 * Still copy back on failure, but assume function took
