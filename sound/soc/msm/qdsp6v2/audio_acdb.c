@@ -108,7 +108,7 @@ uint32_t get_voice_rx_topology(void)
 	return acdb_data.voice_rx_topology;
 }
 
-void store_voice_rx_topology(uint32_t topology)
+static void store_voice_rx_topology(uint32_t topology)
 {
 	acdb_data.voice_rx_topology = topology;
 }
@@ -118,7 +118,7 @@ uint32_t get_voice_tx_topology(void)
 	return acdb_data.voice_tx_topology;
 }
 
-void store_voice_tx_topology(uint32_t topology)
+static void store_voice_tx_topology(uint32_t topology)
 {
 	acdb_data.voice_tx_topology = topology;
 }
@@ -128,7 +128,7 @@ uint32_t get_adm_rx_topology(void)
 	return acdb_data.adm_topology[RX_CAL];
 }
 
-void store_adm_rx_topology(uint32_t topology)
+static void store_adm_rx_topology(uint32_t topology)
 {
 	acdb_data.adm_topology[RX_CAL] = topology;
 }
@@ -138,7 +138,7 @@ uint32_t get_adm_tx_topology(void)
 	return acdb_data.adm_topology[TX_CAL];
 }
 
-void store_adm_tx_topology(uint32_t topology)
+static void store_adm_tx_topology(uint32_t topology)
 {
 	acdb_data.adm_topology[TX_CAL] = topology;
 }
@@ -148,7 +148,7 @@ uint32_t get_asm_topology(void)
 	return acdb_data.asm_topology;
 }
 
-void store_asm_topology(uint32_t topology)
+static void store_asm_topology(uint32_t topology)
 {
 	acdb_data.asm_topology = topology;
 }
@@ -189,7 +189,7 @@ done:
 	return result;
 }
 
-int store_adm_custom_topology(struct cal_block *cal_block)
+static int store_adm_custom_topology(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -238,7 +238,7 @@ done:
 	return result;
 }
 
-int store_asm_custom_topology(struct cal_block *cal_block)
+static int store_asm_custom_topology(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -295,7 +295,7 @@ done:
 	return result;
 }
 
-int store_aanc_cal(struct cal_block *cal_block)
+static int store_aanc_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -334,7 +334,7 @@ done:
 	return result;
 }
 
-int store_lsm_cal(struct cal_block *cal_block)
+static int store_lsm_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -411,7 +411,7 @@ ret:
 	return result;
 }
 
-int store_hw_delay(int32_t path, void *arg)
+static int store_hw_delay(int32_t path, void *arg)
 {
 	int result = 0;
 	struct hw_delay delay;
@@ -487,7 +487,7 @@ done:
 	return result;
 }
 
-int store_anc_cal(struct cal_block *cal_block)
+static int store_anc_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -508,7 +508,7 @@ done:
 	return result;
 }
 
-int store_afe_cal(int32_t path, struct cal_block *cal_block)
+static int store_afe_cal(int32_t path, struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s, path = %d\n", __func__, path);
@@ -559,7 +559,7 @@ done:
 	return result;
 }
 
-int store_audproc_cal(int32_t path, struct cal_block *cal_block)
+static int store_audproc_cal(int32_t path, struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s, path = %d\n", __func__, path);
@@ -610,7 +610,7 @@ done:
 	return result;
 }
 
-int store_audstrm_cal(int32_t path, struct cal_block *cal_block)
+static int store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s, path = %d\n", __func__, path);
@@ -661,7 +661,7 @@ done:
 	return result;
 }
 
-int store_audvol_cal(int32_t path, struct cal_block *cal_block)
+static int store_audvol_cal(int32_t path, struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s, path = %d\n", __func__, path);
@@ -712,7 +712,7 @@ done:
 	return result;
 }
 
-int store_voice_col_data(uint32_t vocproc_type, uint32_t cal_size,
+static int store_voice_col_data(uint32_t vocproc_type, uint32_t cal_size,
 			  uint32_t *cal_block)
 {
 	int result = 0;
@@ -774,7 +774,7 @@ done:
 	return result;
 }
 
-int store_vocproc_dev_cfg_cal(struct cal_block *cal_block)
+static int store_vocproc_dev_cfg_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -818,7 +818,7 @@ done:
 
 
 
-int store_vocproc_cal(struct cal_block *cal_block)
+static int store_vocproc_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -859,7 +859,7 @@ done:
 	return result;
 }
 
-int store_vocstrm_cal(struct cal_block *cal_block)
+static int store_vocstrm_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -900,7 +900,7 @@ done:
 	return result;
 }
 
-int store_vocvol_cal(struct cal_block *cal_block)
+static int store_vocvol_cal(struct cal_block *cal_block)
 {
 	int result = 0;
 	pr_debug("%s,\n", __func__);
@@ -940,7 +940,7 @@ done:
 	return result;
 }
 
-void store_sidetone_cal(struct sidetone_cal *cal_data)
+static void store_sidetone_cal(struct sidetone_cal *cal_data)
 {
 	pr_debug("%s,\n", __func__);
 
