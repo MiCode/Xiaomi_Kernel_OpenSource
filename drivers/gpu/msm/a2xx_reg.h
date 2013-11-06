@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,7 +252,15 @@ union reg_cp_rb_cntl {
 #define REG_CP_CSQ_IB1_STAT              0x01FE
 #define REG_CP_CSQ_IB2_STAT              0x01FF
 #define REG_CP_CSQ_RB_STAT               0x01FD
+
 #define REG_CP_DEBUG                     0x01FC
+/*
+ * CP DEBUG settings for a3xx and a2xx cores:
+ * DYNAMIC_CLK_DISABLE [27] - turn off the dynamic clock control
+ * MIU_128BIT_WRITE_ENABLE [25] - Allow 128 bit writes to the VBIF
+ */
+#define A2XX_CP_DEBUG_DEFAULT ((1 << 27) | (1 << 25))
+
 #define REG_CP_IB1_BASE                  0x0458
 #define REG_CP_IB1_BUFSZ                 0x0459
 #define REG_CP_IB2_BASE                  0x045A
