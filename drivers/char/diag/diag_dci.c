@@ -419,6 +419,8 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 
 	/* Notify the DCI process that the peripheral DCI Channel is up */
 	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		if (!driver->dci_client_tbl[i].client)
+			continue;
 		if (driver->dci_client_tbl[i].list & peripheral_mask) {
 			info.si_signo = driver->dci_client_tbl[i].signal_type;
 			stat = send_sig_info(
