@@ -81,6 +81,9 @@
 /* maximum number of link-startup retries */
 #define DME_LINKSTARTUP_RETRIES 3
 
+/* maximum number of reset retries before giving up */
+#define MAX_HOST_RESET_RETRIES 5
+
 /* Expose the flag value from utp_upiu_query.value */
 #define MASK_QUERY_UPIU_FLAG_LOC 0xFF
 
@@ -3592,8 +3595,11 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 {
 	int err = 0;
 	unsigned long flags;
+	int retries = MAX_HOST_RESET_RETRIES;
 
-	err = ufshcd_host_reset_and_restore(hba);
+	do {
+		err = ufshcd_host_reset_and_restore(hba);
+	} while (err && --retries);
 
 	/*
 	 * After reset the door-bell might be cleared, complete
