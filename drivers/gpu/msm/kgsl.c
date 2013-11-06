@@ -3603,14 +3603,11 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	if (ret)
 		return ret;
 
-	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc) || (flags & MAP_FIXED)) {
-		/*
-		 * If we're not going to use the same mapping on the gpu,
-		 * any address is fine.
-		 * For MAP_FIXED, hopefully the caller knows what they're doing,
-		 * but we may fail in mmap() if there is already something
-		 * at the virtual address chosen.
-		 */
+	/*
+	 * If we're not going to use CPU map feature, get an ordinary mapping
+	 * with nothing more to be done.
+	 */
+	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		ret = get_unmapped_area(NULL, addr, len, pgoff, flags);
 		goto put;
 	}
@@ -3702,7 +3699,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 		} else {
 			ret = -EBUSY;
 		}
-	} while (mmap_range_valid(addr, len));
+	} while (!(flags & MAP_FIXED) && mmap_range_valid(addr, len));
 
 	if (IS_ERR_VALUE(ret))
 		KGSL_MEM_ERR(device,
