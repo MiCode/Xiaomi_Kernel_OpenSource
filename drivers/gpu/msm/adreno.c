@@ -330,8 +330,7 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 			if (group->regs[i].countable == list[j].countable) {
 				list[j].value =
 					adreno_dev->gpudev->perfcounter_read(
-					adreno_dev, list[j].groupid,
-					i, group->regs[i].offset);
+					adreno_dev, list[j].groupid, i);
 				break;
 			}
 		}
