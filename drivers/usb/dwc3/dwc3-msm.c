@@ -1162,8 +1162,10 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
 static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 {
-	/* Set XHCI_REV bit (2) to 1 - XHCI version 1.0 */
-	dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG, 0x4);
+	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) < DWC3_REVISION_250A)
+		/* On older cores set XHCI_REV bit to specify revision 1.0 */
+		dwc3_msm_write_reg_field(mdwc->base, QSCRATCH_GENERAL_CFG,
+					 BIT(2), 1);
 
 	/*
 	 * Enable master clock for RAMs to allow BAM to access RAMs when
