@@ -141,8 +141,6 @@ struct kgsl_mmu_ops {
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	phys_addr_t (*mmu_get_current_ptbase)
 			(struct kgsl_mmu *mmu);
-	void (*mmu_pagefault_resume)
-			(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk_on_ts)
 		(struct kgsl_mmu *mmu, uint32_t ts, bool ts_valid);
 	int (*mmu_enable_clk)
