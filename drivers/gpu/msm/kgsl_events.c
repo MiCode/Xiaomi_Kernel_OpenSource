@@ -417,19 +417,9 @@ void kgsl_process_events(struct work_struct *work)
 	struct kgsl_context *context, *tmp;
 	uint32_t timestamp;
 
-	/*
-	 * Bail unless the global timestamp has advanced.  We can safely do this
-	 * outside of the mutex for speed
-	 */
-
-	timestamp = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
-	if (timestamp == device->events_last_timestamp)
-		return;
-
 	mutex_lock(&device->mutex);
 
-	device->events_last_timestamp = timestamp;
-
+	timestamp = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
 	_retire_events(device, &device->events, timestamp);
 	_mark_next_event(device, &device->events);
 
