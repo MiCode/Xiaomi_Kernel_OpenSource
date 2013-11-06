@@ -564,7 +564,7 @@ static int get_timestamp(struct adreno_context *drawctxt,
 		return 0;
 	}
 
-	if (drawctxt->flags & CTXT_FLAGS_USER_GENERATED_TS) {
+	if (drawctxt->base.flags & KGSL_CONTEXT_USER_GENERATED_TS) {
 		/*
 		 * User specified timestamps need to be greater than the last
 		 * issued timestamp in the context
@@ -608,10 +608,8 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	 * to run (if it exists) regardless of the context state.
 	 */
 
-	if (drawctxt->flags & CTXT_FLAGS_FORCE_PREAMBLE) {
+	if (test_and_clear_bit(ADRENO_CONTEXT_FORCE_PREAMBLE, &drawctxt->priv))
 		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
-		drawctxt->flags &= ~CTXT_FLAGS_FORCE_PREAMBLE;
-	}
 
 	/*
 	 * If we are waiting for the end of frame and it hasn't appeared yet,
@@ -619,7 +617,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	 * through the pipeline but it won't actually send any commands
 	 */
 
-	if (drawctxt->flags & CTXT_FLAGS_SKIP_EOF) {
+	if (test_bit(ADRENO_CONTEXT_SKIP_EOF, &drawctxt->priv)) {
 		set_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv);
 
 		/*
@@ -628,14 +626,13 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 		 */
 
 		if (cmdbatch->flags & KGSL_CONTEXT_END_OF_FRAME) {
-			drawctxt->flags &= ~CTXT_FLAGS_SKIP_EOF;
+			clear_bit(ADRENO_CONTEXT_SKIP_EOF, &drawctxt->priv);
 
 			/*
 			 * Force the preamble on the next command to ensure that
 			 * the state is correct
 			 */
-
-			drawctxt->flags |= CTXT_FLAGS_FORCE_PREAMBLE;
+			set_bit(ADRENO_CONTEXT_FORCE_PREAMBLE, &drawctxt->priv);
 		}
 	}
 
@@ -681,10 +678,10 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	/*
 	 * Set the fault tolerance policy for the command batch - assuming the
-	 * context hsn't disabled FT use the current device policy
+	 * context hasn't disabled FT use the current device policy
 	 */
 
-	if (drawctxt->flags & CTXT_FLAGS_NO_FAULT_TOLERANCE)
+	if (drawctxt->base.flags & KGSL_CONTEXT_NO_FAULT_TOLERANCE)
 		set_bit(KGSL_FT_DISABLE, &cmdbatch->fault_policy);
 	else
 		cmdbatch->fault_policy = adreno_dev->ft_policy;
@@ -776,7 +773,7 @@ static void cmdbatch_skip_frame(struct kgsl_cmdbatch *cmdbatch,
 	 */
 
 	if (skip && drawctxt)
-		drawctxt->flags |= CTXT_FLAGS_SKIP_EOF;
+		set_bit(ADRENO_CONTEXT_SKIP_EOF, &drawctxt->priv);
 
 	/*
 	 * If we did see the EOF flag then force the preamble on for the
@@ -784,7 +781,7 @@ static void cmdbatch_skip_frame(struct kgsl_cmdbatch *cmdbatch,
 	 */
 
 	if (!skip && drawctxt)
-		drawctxt->flags |= CTXT_FLAGS_FORCE_PREAMBLE;
+		set_bit(ADRENO_CONTEXT_FORCE_PREAMBLE, &drawctxt->priv);
 }
 
 static void remove_invalidated_cmdbatches(struct kgsl_device *device,
@@ -1301,7 +1298,7 @@ static void adreno_dispatcher_work(struct work_struct *work)
 		 */
 
 		if (!adreno_dev->long_ib_detect ||
-			drawctxt->flags & CTXT_FLAGS_NO_FAULT_TOLERANCE)
+			drawctxt->base.flags & KGSL_CONTEXT_NO_FAULT_TOLERANCE)
 			break;
 
 		/*
