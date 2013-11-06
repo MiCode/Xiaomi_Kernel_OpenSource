@@ -2796,8 +2796,17 @@ static long adreno_ioctl(struct kgsl_device_private *dev_priv,
 	}
 	case IOCTL_KGSL_PERFCOUNTER_GET: {
 		struct kgsl_perfcounter_get *get = data;
+		/*
+		 * adreno_perfcounter_get() is called by kernel clients
+		 * during start(), so it is not safe to take an
+		 * active count inside this function.
+		 */
+		result = kgsl_active_count_get(device);
+		if (result)
+			break;
 		result = adreno_perfcounter_get(adreno_dev, get->groupid,
 			get->countable, &get->offset, PERFCOUNTER_FLAG_NONE);
+		kgsl_active_count_put(device);
 		break;
 	}
 	case IOCTL_KGSL_PERFCOUNTER_PUT: {
@@ -2815,8 +2824,12 @@ static long adreno_ioctl(struct kgsl_device_private *dev_priv,
 	}
 	case IOCTL_KGSL_PERFCOUNTER_READ: {
 		struct kgsl_perfcounter_read *read = data;
+		result = kgsl_active_count_get(device);
+		if (result)
+			break;
 		result = adreno_perfcounter_read_group(adreno_dev,
 			read->reads, read->count);
+		kgsl_active_count_put(device);
 		break;
 	}
 	default:
