@@ -1626,17 +1626,19 @@ static int _check_active_count(struct kgsl_device *device, int count)
  */
 int kgsl_active_count_wait(struct kgsl_device *device, int count)
 {
-	int ret = 0;
+	int result = 0;
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	if (atomic_read(&device->active_cnt) > count) {
+		int ret;
 		mutex_unlock(&device->mutex);
 		ret = wait_event_timeout(device->active_cnt_wq,
 			_check_active_count(device, count), HZ);
 		mutex_lock(&device->mutex);
+		result = ret == 0 ? -ETIMEDOUT : 0;
 	}
 
-	return ret == 0 ? -ETIMEDOUT : 0;
+	return result;
 }
 EXPORT_SYMBOL(kgsl_active_count_wait);
