@@ -136,9 +136,9 @@
 		<3240000 1600000>,
 		<4048000 1600000>,
 		<4264000 1600000>;
-	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
-					<0x42 0x2>,
-					<0x120 0x3>;
+	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
+					<0x106 0x2>,
+					<0x480 0x3>;
 	qcom,vidc-iommu-domains {
 		qcom,domain-ns {
 			qcom,vidc-domain-phandle = <&venus_domain_ns>;
