@@ -94,6 +94,8 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VANA,
 	SENSOR_GPIO_VDIG,
 	SENSOR_GPIO_VAF,
+	SENSOR_GPIO_FL_EN,
+	SENSOR_GPIO_FL_NOW,
 	SENSOR_GPIO_MAX,
 };
 
