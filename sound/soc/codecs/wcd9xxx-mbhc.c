@@ -1302,6 +1302,7 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 	const struct wcd9xxx_mbhc_plug_type_cfg *plug_type =
 	    WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 	s16 hs_max, no_mic, dce_z;
+	int highhph_cnt = 0;
 
 	pr_debug("%s: enter\n", __func__);
 	pr_debug("%s: event_state 0x%lx\n", __func__, event_state);
@@ -1326,9 +1327,10 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		d->_vdces = vdce;
 		if (d->_vdces < no_mic)
 			d->_type = PLUG_TYPE_HEADPHONE;
-		else if (d->_vdces >= hs_max)
+		else if (d->_vdces >= hs_max) {
 			d->_type = PLUG_TYPE_HIGH_HPH;
-		else
+			highhph_cnt++;
+		} else
 			d->_type = PLUG_TYPE_HEADSET;
 
 		pr_debug("%s: DCE #%d, %04x, V %04d(%04d), HPHL %d TYPE %d\n",
@@ -1363,7 +1365,8 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		goto exit;
 	}
 
-	delta_thr = highhph ? WCD9XXX_MB_MEAS_DELTA_MAX_MV :
+	delta_thr = ((highhph_cnt == sz) || highhph) ?
+			      WCD9XXX_MB_MEAS_DELTA_MAX_MV :
 			      WCD9XXX_CS_MEAS_DELTA_MAX_MV;
 
 	for (i = 0, d = dt; i < sz; i++, d++) {
