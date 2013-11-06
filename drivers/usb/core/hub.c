@@ -1743,6 +1743,9 @@ hub_ioctl(struct usb_interface *intf, unsigned int code, void *user_data)
 	struct usb_device *hdev = interface_to_usbdev (intf);
 	struct usb_hub *hub = usb_hub_to_struct_hub(hdev);
 
+	if (!hub)
+		return -ENODEV;
+
 	/* assert ifno == 0 (part of hub spec) */
 	switch (code) {
 	case USBDEVFS_HUB_PORTINFO: {
@@ -1781,7 +1784,7 @@ static int find_port_owner(struct usb_device *hdev, unsigned port1,
 {
 	struct usb_hub *hub = usb_hub_to_struct_hub(hdev);
 
-	if (hdev->state == USB_STATE_NOTATTACHED)
+	if (!hub || (hdev->state == USB_STATE_NOTATTACHED))
 		return -ENODEV;
 	if (port1 == 0 || port1 > hdev->maxchild)
 		return -EINVAL;
@@ -1843,7 +1846,11 @@ bool usb_device_is_owned(struct usb_device *udev)
 
 	if (udev->state == USB_STATE_NOTATTACHED || !udev->parent)
 		return false;
+
 	hub = usb_hub_to_struct_hub(udev->parent);
+	if (!hub)
+		return false;
+
 	return !!hub->ports[udev->portnum - 1]->port_owner;
 }
 
@@ -2040,7 +2047,7 @@ void usb_disconnect(struct usb_device **pdev)
 
 	/* Free up all the children before we remove this device */
 	for (i = 0; i < udev->maxchild; i++) {
-		if (hub->ports[i]->child)
+		if (hub && hub->ports[i]->child)
 			usb_disconnect(&hub->ports[i]->child);
 	}
 
@@ -2054,15 +2061,20 @@ void usb_disconnect(struct usb_device **pdev)
 
 	if (udev->parent) {
 		struct usb_hub *hub = usb_hub_to_struct_hub(udev->parent);
-		struct usb_port	*port_dev = hub->ports[udev->portnum - 1];
+		struct usb_port	*port_dev = NULL;
+
+		if (hub)
+			port_dev = hub->ports[udev->portnum - 1];
 
 		sysfs_remove_link(&udev->dev.kobj, "port");
-		sysfs_remove_link(&port_dev->dev.kobj, "device");
 
-		if (!port_dev->did_runtime_put)
-			pm_runtime_put(&port_dev->dev);
-		else
-			port_dev->did_runtime_put = false;
+		if (port_dev) {
+			sysfs_remove_link(&port_dev->dev.kobj, "device");
+			if (!port_dev->did_runtime_put)
+				pm_runtime_put(&port_dev->dev);
+			else
+				port_dev->did_runtime_put = false;
+		}
 	}
 
 	usb_remove_ep_devs(&udev->ep0);
@@ -2294,6 +2306,8 @@ static void set_usb_port_removable(struct usb_device *udev)
 		return;
 
 	hub = usb_hub_to_struct_hub(udev->parent);
+	if (!hub)
+		return;
 
 	wHubCharacteristics = le16_to_cpu(hub->descriptor->wHubCharacteristics);
 
@@ -2402,7 +2416,14 @@ int usb_new_device(struct usb_device *udev)
 	/* Create link files between child device and usb port device. */
 	if (udev->parent) {
 		struct usb_hub *hub = usb_hub_to_struct_hub(udev->parent);
-		struct usb_port	*port_dev = hub->ports[udev->portnum - 1];
+		struct usb_port	*port_dev;
+
+		if (!hub)
+			goto fail;
+
+		port_dev = hub->ports[udev->portnum - 1];
+		if (!port_dev)
+			goto fail;
 
 		err = sysfs_create_link(&udev->dev.kobj,
 				&port_dev->dev.kobj, "port");
@@ -2957,12 +2978,16 @@ static int usb_disable_function_remotewakeup(struct usb_device *udev)
 int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 {
 	struct usb_hub	*hub = usb_hub_to_struct_hub(udev->parent);
-	struct usb_port *port_dev = hub->ports[udev->portnum - 1];
+	struct usb_port *port_dev;
 	enum pm_qos_flags_status pm_qos_stat;
 	int		port1 = udev->portnum;
 	int		status;
 	bool		really_suspend = true;
 
+	if (!hub)
+		return -ENODEV;
+
+	port_dev = hub->ports[udev->portnum - 1];
 	/* enable remote wakeup when appropriate; this lets the device
 	 * wake up the upstream hub (including maybe the root hub).
 	 *
@@ -3238,11 +3263,15 @@ static int finish_port_resume(struct usb_device *udev)
 int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 {
 	struct usb_hub	*hub = usb_hub_to_struct_hub(udev->parent);
-	struct usb_port *port_dev = hub->ports[udev->portnum  - 1];
+	struct usb_port *port_dev;
 	int		port1 = udev->portnum;
 	int		status;
 	u16		portchange, portstatus;
 
+	if (!hub)
+		return -ENODEV;
+
+	port_dev = hub->ports[udev->portnum - 1];
 	if (port_dev->did_runtime_put) {
 		status = pm_runtime_get_sync(&port_dev->dev);
 		port_dev->did_runtime_put = false;
