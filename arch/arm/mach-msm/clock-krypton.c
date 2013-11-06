@@ -250,6 +250,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AXI_MSTR_CBCR                                 (0x1C2C)
 #define PCIE_PIPE_CMD_RCGR                                 (0x1C14)
 #define PCIE_AUX_CMD_RCGR                                  (0x1E00)
+#define PCIEPHY_PHY_BCR                                    (0x1E1C)
 #define PCIE_GPIO_LDO_EN                                   (0x1E40)
 #define USB_SS_LDO_EN                                      (0x1E44)
 #define USB_PHY_CFG_AHB_CBCR                               (0x1B84)
@@ -1314,6 +1315,7 @@ static struct branch_clk gcc_pcie_cfg_ahb_clk = {
 
 static struct branch_clk gcc_pcie_pipe_clk = {
 	.cbcr_reg = PCIE_PIPE_CBCR,
+	.bcr_reg = PCIEPHY_PHY_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
