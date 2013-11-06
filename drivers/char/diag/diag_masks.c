@@ -288,8 +288,8 @@ static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 	driver->log_status = DIAG_CTRL_MASK_INVALID;
 	if (!buf || (equip_id < 0 || equip_id >= MAX_EQUIP_ID) ||
 							num_items < 1) {
-		pr_err("diag: Invalid params in %s, buf: %x equip_id: %d, num_items: %d\n",
-		       __func__, (unsigned int)buf, equip_id, num_items);
+		pr_err("diag: Invalid params in %s, buf: %p equip_id: %d, num_items: %d\n",
+		       __func__, buf, equip_id, num_items);
 		mutex_unlock(&driver->log_mask_mutex);
 		return;
 	}

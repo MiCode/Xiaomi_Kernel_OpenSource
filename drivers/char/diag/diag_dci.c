@@ -1950,8 +1950,8 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 
 	if (!buf || (peripheral < 0 || peripheral > NUM_SMD_DCI_CHANNELS)
 								|| len < 0) {
-		pr_err("diag: In %s, invalid data 0x%x, peripheral: %d, len: %d\n",
-				__func__, (unsigned int)buf, peripheral, len);
+		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
+				__func__, buf, peripheral, len);
 		return -EINVAL;
 	}
 

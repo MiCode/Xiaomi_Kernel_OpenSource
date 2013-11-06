@@ -1135,7 +1135,7 @@ long diagchar_ioctl(struct file *filp,
 	return result;
 }
 
-static int diagchar_read(struct file *file, char __user *buf, size_t count,
+static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
 	struct diag_dci_client_tbl *entry;
@@ -1425,7 +1425,7 @@ exit:
 	return ret;
 }
 
-static int diagchar_write(struct file *file, const char __user *buf,
+static ssize_t diagchar_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type, token_offset = 0;
@@ -1852,8 +1852,8 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	/* This is to check if after HDLC encoding, we are still within the
 	 limits of aggregation buffer. If not, we write out the current buffer
 	and start aggregation in a newly allocated buffer */
-	if ((unsigned int) enc.dest >=
-		 (unsigned int)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
+	if ((uintptr_t)enc.dest >=
+		 (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
 			ret = -EIO;
@@ -1873,7 +1873,10 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		diag_hdlc_encode(&send, &enc);
 	}
 
-	driver->used = (uint32_t) enc.dest - (uint32_t) buf_hdlc;
+	driver->used = ((uintptr_t)enc.dest - (uintptr_t)buf_hdlc <
+						HDLC_OUT_BUF_SIZE) ?
+			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
+						HDLC_OUT_BUF_SIZE;
 	if (pkt_type == DATA_TYPE_RESPONSE) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {

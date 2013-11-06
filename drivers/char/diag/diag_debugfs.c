@@ -41,16 +41,16 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 	}
 
 	ret = scnprintf(buf, DEBUG_BUF_SIZE,
-		"modem ch: 0x%x\n"
-		"lpass ch: 0x%x\n"
-		"riva ch: 0x%x\n"
-		"modem dci ch: 0x%x\n"
-		"lpass dci ch: 0x%x\n"
-		"modem cntl_ch: 0x%x\n"
-		"lpass cntl_ch: 0x%x\n"
-		"riva cntl_ch: 0x%x\n"
-		"modem cmd ch: 0x%x\n"
-		"modem dci cmd ch: 0x%x\n"
+		"modem ch: 0x%p\n"
+		"lpass ch: 0x%p\n"
+		"riva ch: 0x%p\n"
+		"modem dci ch: 0x%p\n"
+		"lpass dci ch: 0x%p\n"
+		"modem cntl_ch: 0x%p\n"
+		"lpass cntl_ch: 0x%p\n"
+		"riva cntl_ch: 0x%p\n"
+		"modem cmd ch: 0x%p\n"
+		"modem dci cmd ch: 0x%p\n"
 		"CPU Tools id: %d\n"
 		"Apps only: %d\n"
 		"Apps master: %d\n"
@@ -111,16 +111,16 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Received Feature mask from WCNSS: %d\n"
 		"logging_mode: %d\n"
 		"real_time_mode: %d\n",
-		(unsigned int)driver->smd_data[MODEM_DATA].ch,
-		(unsigned int)driver->smd_data[LPASS_DATA].ch,
-		(unsigned int)driver->smd_data[WCNSS_DATA].ch,
-		(unsigned int)driver->smd_dci[MODEM_DATA].ch,
-		(unsigned int)driver->smd_dci[LPASS_DATA].ch,
-		(unsigned int)driver->smd_cntl[MODEM_DATA].ch,
-		(unsigned int)driver->smd_cntl[LPASS_DATA].ch,
-		(unsigned int)driver->smd_cntl[WCNSS_DATA].ch,
-		(unsigned int)driver->smd_cmd[MODEM_DATA].ch,
-		(unsigned int)driver->smd_dci_cmd[MODEM_DATA].ch,
+		driver->smd_data[MODEM_DATA].ch,
+		driver->smd_data[LPASS_DATA].ch,
+		driver->smd_data[WCNSS_DATA].ch,
+		driver->smd_dci[MODEM_DATA].ch,
+		driver->smd_dci[LPASS_DATA].ch,
+		driver->smd_cntl[MODEM_DATA].ch,
+		driver->smd_cntl[LPASS_DATA].ch,
+		driver->smd_cntl[WCNSS_DATA].ch,
+		driver->smd_cmd[MODEM_DATA].ch,
+		driver->smd_dci_cmd[MODEM_DATA].ch,
 		chk_config_get_id(),
 		chk_apps_only(),
 		chk_apps_master(),
