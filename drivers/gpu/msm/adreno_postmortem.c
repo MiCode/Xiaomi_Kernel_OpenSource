@@ -22,6 +22,7 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_pwrctrl.h"
+#include "adreno_trace.h"
 
 #include "a2xx_reg.h"
 #include "a3xx_reg.h"
@@ -395,8 +396,8 @@ EXPORT_SYMBOL(adreno_dump_fields);
 
 int adreno_dump(struct kgsl_device *device, int manual)
 {
-	unsigned int cp_ib1_base, cp_ib1_bufsz;
-	unsigned int cp_ib2_base, cp_ib2_bufsz;
+	unsigned int cp_ib1_base;
+	unsigned int cp_ib2_base;
 	phys_addr_t pt_base, cur_pt_base;
 	unsigned int cp_rb_base, cp_rb_ctrl, rb_count;
 	unsigned int cp_rb_wptr, cp_rb_rptr;
@@ -409,7 +410,6 @@ int adreno_dump(struct kgsl_device *device, int manual)
 	unsigned int ts_processed = 0xdeaddead;
 	struct kgsl_context *context;
 	unsigned int context_id;
-	unsigned int rbbm_status;
 
 	static struct ib_list ib_list;
 
@@ -419,16 +419,10 @@ int adreno_dump(struct kgsl_device *device, int manual)
 
 	mb();
 
-	if (device->pm_dump_enable) {
-		msm_clk_dump_debug_info();
+	msm_clk_dump_debug_info();
 
-		if (adreno_dev->gpudev->postmortem_dump)
-			adreno_dev->gpudev->postmortem_dump(adreno_dev);
-	}
-
-	kgsl_regread(device,
-			adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS),
-			&rbbm_status);
+	if (adreno_dev->gpudev->postmortem_dump)
+		adreno_dev->gpudev->postmortem_dump(adreno_dev);
 
 	pt_base = kgsl_mmu_get_current_ptbase(&device->mmu);
 	cur_pt_base = pt_base;
@@ -450,26 +444,8 @@ int adreno_dump(struct kgsl_device *device, int manual)
 		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB1_BASE),
 		&cp_ib1_base);
 	kgsl_regread(device,
-		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ),
-		&cp_ib1_bufsz);
-	kgsl_regread(device,
 		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB2_BASE),
 		&cp_ib2_base);
-	kgsl_regread(device,
-		adreno_getreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ),
-		&cp_ib2_bufsz);
-
-	/* If postmortem dump is not enabled, dump minimal set and return */
-	if (!device->pm_dump_enable) {
-
-		KGSL_LOG_DUMP(device,
-			"STATUS %08X | IB1:%08X/%08X | IB2: %08X/%08X"
-			" | RPTR: %04X | WPTR: %04X\n",
-			rbbm_status,  cp_ib1_base, cp_ib1_bufsz, cp_ib2_base,
-			cp_ib2_bufsz, cp_rb_rptr, cp_rb_wptr);
-
-		return 0;
-	}
 
 	kgsl_sharedmem_readl(&device->memstore,
 			(unsigned int *) &context_id,
@@ -644,5 +620,9 @@ int adreno_dump(struct kgsl_device *device, int manual)
 error_vfree:
 	vfree(rb_copy);
 end:
+	/* Restart the dispatcher after a manually triggered dump */
+	if (manual)
+		adreno_dispatcher_start(adreno_dev);
+
 	return result;
 }
