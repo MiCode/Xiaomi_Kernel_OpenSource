@@ -32,8 +32,6 @@ unsigned int get_memory_bank_start(unsigned int);
 
 enum {
 	MEMTYPE_NONE = -1,
-	MEMTYPE_SMI_KERNEL = 0,
-	MEMTYPE_SMI,
 	MEMTYPE_EBI0,
 	MEMTYPE_EBI1,
 	MEMTYPE_MAX,

@@ -64,8 +64,6 @@ void invalidate_caches(unsigned long vstart,
 }
 
 char *memtype_name[] = {
-	"SMI_KERNEL",
-	"SMI",
 	"EBI0",
 	"EBI1"
 };
@@ -187,8 +185,6 @@ void store_ttbr0(void)
 }
 
 static char * const memtype_names[] = {
-	[MEMTYPE_SMI_KERNEL] = "SMI_KERNEL",
-	[MEMTYPE_SMI]	= "SMI",
 	[MEMTYPE_EBI0] = "EBI0",
 	[MEMTYPE_EBI1] = "EBI1",
 };

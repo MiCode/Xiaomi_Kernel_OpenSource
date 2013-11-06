@@ -42,8 +42,6 @@
 #include "modem_notifier.h"
 
 static struct memtype_reserve mpq8092_reserve_table[] __initdata = {
-	[MEMTYPE_SMI] = {
-	},
 	[MEMTYPE_EBI0] = {
 		.flags  =       MEMTYPE_FLAGS_1M_ALIGN,
 		},

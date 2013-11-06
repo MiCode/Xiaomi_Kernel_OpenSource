@@ -56,8 +56,6 @@ static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
 };
 
 static struct memtype_reserve msmsamarium_reserve_table[] __initdata = {
-	[MEMTYPE_SMI] = {
-	},
 	[MEMTYPE_EBI0] = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
