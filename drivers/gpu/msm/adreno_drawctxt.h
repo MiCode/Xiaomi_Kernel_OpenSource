@@ -46,8 +46,6 @@
 #define CTXT_FLAGS_PER_CONTEXT_TS	BIT(11)
 /* Context has caused a GPU hang and fault tolerance successful */
 #define CTXT_FLAGS_GPU_HANG_FT	BIT(12)
-/* Context is being destroyed so dont save it */
-#define CTXT_FLAGS_BEING_DESTROYED	BIT(13)
 /* User mode generated timestamps enabled */
 #define CTXT_FLAGS_USER_GENERATED_TS    BIT(14)
 /* Context skip till EOF */
@@ -108,6 +106,29 @@ struct gmem_shadow_t {
 	struct kgsl_memdesc quad_vertices_restore;
 };
 
+struct adreno_context;
+
+/**
+ * struct adreno_context_ops - context state management functions
+ * @save: optional hook for saving context state
+ * @restore: required hook for restoring state,
+ *		adreno_context_restore() may be used directly here.
+ * @draw_workaround: optional hook for a workaround after every IB
+ * @detach: optional hook for freeing state tracking memory.
+ */
+struct adreno_context_ops {
+	int (*save)(struct adreno_device *, struct adreno_context *);
+	int (*restore)(struct adreno_device *, struct adreno_context *);
+	int (*draw_workaround)(struct adreno_device *,
+				struct adreno_context *);
+	void (*detach)(struct adreno_context *);
+};
+
+int adreno_context_restore(struct adreno_device *, struct adreno_context *);
+
+/* generic context ops for preamble context switch */
+extern const struct adreno_context_ops adreno_preamble_ctx_ops;
+
 /**
  * struct adreno_context - Adreno GPU draw context
  * @id: Unique integer ID of the context
@@ -147,6 +168,7 @@ struct gmem_shadow_t {
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
  * @queued: Number of commands queued in the cmdqueue
+ * @ops: Context switch functions for this context.
  */
 struct adreno_context {
 	struct kgsl_context base;
@@ -194,6 +216,8 @@ struct adreno_context {
 	wait_queue_head_t waiting;
 
 	int queued;
+
+	const struct adreno_context_ops *ops;
 };
 
 /**
