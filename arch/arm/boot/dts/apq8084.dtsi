@@ -1880,6 +1880,7 @@
 			<0xf9011000 0x1000>,
 			<0xfc428000 0x4000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
+		mpu-enabled;
 
 		qcom,smd-adsp {
 			compatible = "qcom,smd";
