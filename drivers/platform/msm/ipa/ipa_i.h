@@ -773,7 +773,7 @@ struct ipa_plat_drv_res {
 };
 
 struct ipa_controller {
-	u32 ipa_src_clk_rate;
+	u32 ipa_clk_rate;
 	void (*ipa_sram_read_settings)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
@@ -804,6 +804,9 @@ struct ipa_controller {
 			const struct ipa_ep_cfg_cfg *cfg);
 	void (*ipa_cfg_ep_metadata_mask)(u32 clnt_hdl,
 			const struct ipa_ep_cfg_metadata_mask *metadata_mask);
+	void (*ipa_enable_clks)(void);
+	void (*ipa_disable_clks)(void);
+
 };
 
 extern struct ipa_context *ipa_ctx;
@@ -871,6 +874,10 @@ void _ipa_write_dbg_cnt_v1(int option);
 void _ipa_write_dbg_cnt_v2_0(int option);
 int _ipa_read_dbg_cnt_v1(char *buf, int max_len);
 int _ipa_read_dbg_cnt_v2_0(char *buf, int max_len);
+void _ipa_enable_clks_v1(void);
+void _ipa_enable_clks_v2_0(void);
+void _ipa_disable_clks_v1(void);
+void _ipa_disable_clks_v2_0(void);
 
 static inline u32 ipa_read_reg(void *base, u32 offset)
 {
