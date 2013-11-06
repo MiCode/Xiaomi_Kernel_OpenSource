@@ -2497,7 +2497,8 @@ struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
 		if (context == NULL)
 			break;
 
-		if (kgsl_mmu_pt_equal(&device->mmu, context->pagetable,
+		if (kgsl_mmu_pt_equal(&device->mmu,
+					context->proc_priv->pagetable,
 					pt_base)) {
 			struct adreno_context *adreno_context;
 
