@@ -622,7 +622,7 @@ error_vfree:
 end:
 	/* Restart the dispatcher after a manually triggered dump */
 	if (manual)
-		adreno_dispatcher_start(adreno_dev);
+		adreno_dispatcher_start(device);
 
 	return result;
 }

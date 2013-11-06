@@ -242,6 +242,7 @@ struct kgsl_device {
 	struct kgsl_mh mh;
 	struct kgsl_mmu mmu;
 	struct completion hwaccess_gate;
+	struct completion cmdbatch_gate;
 	const struct kgsl_functable *ftbl;
 	struct work_struct idle_check_ws;
 	struct timer_list idle_timer;
@@ -305,6 +306,7 @@ void kgsl_process_events(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
+	.cmdbatch_gate = COMPLETION_INITIALIZER((_dev).cmdbatch_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
 	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
