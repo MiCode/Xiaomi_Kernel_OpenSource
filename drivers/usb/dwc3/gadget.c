@@ -3099,7 +3099,11 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 
 	/* Enable USB2 LPM and automatic phy suspend only on recent versions */
 	if (dwc->revision >= DWC3_REVISION_194A) {
-		dwc3_gadget_usb2_phy_suspend(dwc, true);
+		/*
+		 * Clear autosuspend bit in dwc3 register for USB2. It will be
+		 * enabled before setting run/stop bit.
+		 */
+		dwc3_gadget_usb2_phy_suspend(dwc, false);
 		dwc3_gadget_usb3_phy_suspend(dwc, true);
 	}
 

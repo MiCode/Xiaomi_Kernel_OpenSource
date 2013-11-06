@@ -96,6 +96,19 @@ static int dwc3_otg_set_suspend(struct usb_phy *phy, int suspend)
 	return 0;
 }
 
+static void dwc3_otg_set_hsphy_auto_suspend(struct dwc3_otg *dotg, bool susp)
+{
+	struct dwc3 *dwc = dotg->dwc;
+	u32 reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (susp)
+		reg |= DWC3_GUSB2PHYCFG_SUSPHY;
+	else
+		reg &= ~(DWC3_GUSB2PHYCFG_SUSPHY);
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+}
+
 /**
  * dwc3_otg_set_host_power - Enable port power control for host operation
  *
@@ -197,6 +210,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		 * remove_hcd, But we may not use standard set_host method
 		 * anymore.
 		 */
+		dwc3_otg_set_hsphy_auto_suspend(dotg, true);
 		dwc3_otg_set_host_regs(dotg);
 		/*
 		 * FIXME If micro A cable is disconnected during system suspend,
@@ -245,6 +259,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 						ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(ext_xceiv, true);
 
+		dwc3_otg_set_hsphy_auto_suspend(dotg, false);
 		dwc3_otg_set_peripheral_regs(dotg);
 
 		/* re-init core and OTG registers as block reset clears these */
@@ -315,6 +330,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 						ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(ext_xceiv, false);
 
+		dwc3_otg_set_hsphy_auto_suspend(dotg, true);
 		dwc3_otg_set_peripheral_regs(dotg);
 		usb_gadget_vbus_connect(otg->gadget);
 	} else {
@@ -323,6 +339,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		usb_gadget_vbus_disconnect(otg->gadget);
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
+		dwc3_otg_set_hsphy_auto_suspend(dotg, false);
 	}
 
 	return 0;

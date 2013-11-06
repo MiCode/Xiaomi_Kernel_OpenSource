@@ -1897,8 +1897,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (mdwc->otg_xceiv && !mdwc->ext_inuse &&
 		    (mdwc->ext_xceiv.otg_capability || !init)) {
 			mdwc->ext_xceiv.bsv = val->intval;
+			/*
+			 * Set debouncing delay to 120ms. Otherwise battery
+			 * charging CDP complaince test fails if delay > 120ms.
+			 */
 			queue_delayed_work(system_nrt_wq,
-							&mdwc->resume_work, 20);
+							&mdwc->resume_work, 12);
 
 			if (!init)
 				init = true;
