@@ -715,6 +715,44 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int _mark_context(int id, void *ptr, void *data)
+{
+	unsigned int guilty = *((unsigned int *) data);
+	struct kgsl_context *context = ptr;
+
+	/*
+	 * If the context is guilty mark it as such.  Otherwise mark it as
+	 * innocent if it had not already been marked as guilty.  If id is
+	 * passed as 0 then mark EVERYBODY guilty (recovery failed)
+	 */
+
+	if (guilty == 0 || guilty == context->id)
+		context->reset_status =
+			KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+	else if (context->reset_status !=
+		KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT)
+		context->reset_status =
+			KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
+
+	return 0;
+}
+
+/**
+ * mark_guilty_context() - Mark the given context as guilty (failed recovery)
+ * @device: Pointer to a KGSL device structure
+ * @id: Context ID of the guilty context (or 0 to mark all as guilty)
+ *
+ * Mark the given (or all) context(s) as guilty (failed recovery)
+ */
+static void mark_guilty_context(struct kgsl_device *device, unsigned int id)
+{
+	/* Mark the status for all the contexts in the device */
+
+	read_lock(&device->context_lock);
+	idr_for_each(&device->context_idr, _mark_context, &id);
+	read_unlock(&device->context_lock);
+}
+
 /*
  * If an IB inside of the command batch has a gpuaddr that matches the base
  * passed in then zero the size which effectively skips it when it is submitted
@@ -948,6 +986,9 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	if (replay == NULL) {
 		unsigned int ptr = dispatcher->head;
 
+		/* Recovery failed - mark everybody guilty */
+		mark_guilty_context(device, 0);
+
 		while (ptr != dispatcher->tail) {
 			struct kgsl_context *context =
 				dispatcher->cmdqueue[ptr]->context;
@@ -991,6 +1032,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		pr_fault(device, cmdbatch, "gpu skipped ctx %d ts %d\n",
 			cmdbatch->context->id, cmdbatch->timestamp);
 
+		mark_guilty_context(device, cmdbatch->context->id);
 		adreno_drawctxt_invalidate(device, cmdbatch->context);
 	}
 
@@ -1086,6 +1128,9 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	pr_fault(device, cmdbatch, "gpu failed ctx %d ts %d\n",
 		cmdbatch->context->id, cmdbatch->timestamp);
 
+	/* Mark the context as failed */
+	mark_guilty_context(device, cmdbatch->context->id);
+
 	/* Invalidate the context */
 	adreno_drawctxt_invalidate(device, cmdbatch->context);
 
@@ -1145,6 +1190,9 @@ replay:
 			pr_fault(device, replay[i],
 				"gpu reset failed ctx %d ts %d\n",
 				replay[i]->context->id, replay[i]->timestamp);
+
+			/* Mark this context as guilty (failed recovery) */
+			mark_guilty_context(device, replay[i]->context->id);
 
 			adreno_drawctxt_invalidate(device, replay[i]->context);
 			remove_invalidated_cmdbatches(device, &replay[i],
