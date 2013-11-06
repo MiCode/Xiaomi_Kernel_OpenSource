@@ -1640,6 +1640,7 @@ static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &xo.c);
 
 static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, 171430000);
 static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 171430000);
@@ -1915,6 +1916,9 @@ static struct measure_clk measure_clk = {
 static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("xo",	xo.c,	""),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
+
+	/* LPM Resources */
+	CLK_LOOKUP("xo", cxo_lpm_clk.c, "fc4281d0.qcom,mpm"),
 
 	/* PLLS */
 	CLK_LOOKUP("",	gpll0.c,	""),
