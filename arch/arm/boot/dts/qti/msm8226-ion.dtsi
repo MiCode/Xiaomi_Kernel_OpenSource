@@ -52,10 +52,8 @@
 		qcom,ion-heap@28 { /* AUDIO HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <28>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x314000>;
-			qcom,ion-heap-type = "CARVEOUT";
+			linux,contiguous-region = <&audio_mem>;
+			qcom,ion-heap-type = "DMA";
 		};
 
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
