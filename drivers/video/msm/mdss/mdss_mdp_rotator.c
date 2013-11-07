@@ -137,7 +137,6 @@ static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
 {
 	int ret;
 	struct mdss_mdp_writeback_arg wb_args = {
-		.callback_fnc = NULL,
 		.data = dst_data,
 		.priv_data = rot,
 	};

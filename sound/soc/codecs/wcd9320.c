@@ -4974,12 +4974,6 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		/*Enable spkr VI clocks*/
 		snd_soc_update_bits(codec,
 		TAIKO_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0xC, 0xC);
-		/*Enable Voltage Decimator*/
-		snd_soc_update_bits(codec,
-		TAIKO_A_CDC_CONN_TX_SB_B9_CTL, 0x1F, 0x12);
-		/*Enable Current Decimator*/
-		snd_soc_update_bits(codec,
-		TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x1F, 0x13);
 		(void) taiko_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 					dai->rate, dai->bit_width,
@@ -4991,13 +4985,6 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		if (ret)
 			pr_err("%s error in close_slim_sch_tx %d\n",
 				__func__, ret);
-		/*Disable Voltage decimator*/
-		snd_soc_update_bits(codec,
-		TAIKO_A_CDC_CONN_TX_SB_B9_CTL, 0x1F, 0x0);
-		/*Disable Current decimator*/
-		snd_soc_update_bits(codec,
-		TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x1F, 0x0);
-		/*Disable spkr VI clocks*/
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_TX_CLK_EN_B2_CTL,
 				0xC, 0x0);
 		/*Disable V&I sensing*/

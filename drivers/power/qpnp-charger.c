@@ -2128,6 +2128,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		if (chip->prev_usb_max_ma == ret.intval)
 			goto skip_set_iusb_max;
 
+		chip->prev_usb_max_ma = ret.intval;
+
 		if (ret.intval <= 2 && !chip->use_default_batt_values &&
 						get_prop_batt_present(chip)) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
@@ -2156,7 +2158,6 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 				schedule_work(&chip->reduce_power_stage_work);
 			}
 		}
-		chip->prev_usb_max_ma = ret.intval;
 	}
 
 skip_set_iusb_max:

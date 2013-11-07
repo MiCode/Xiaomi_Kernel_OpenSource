@@ -336,7 +336,7 @@
 		pm8226_l16: regulator-l16 {
 			regulator-name = "8226_l16";
 			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3300000>;
+			regulator-max-microvolt = <3350000>;
 			qcom,init-voltage = <3300000>;
 			status = "okay";
 		};
@@ -423,7 +423,7 @@
 		pm8226_l24: regulator-l24 {
 			regulator-name = "8226_l24";
 			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1300000>;
 			status = "okay";
 		};

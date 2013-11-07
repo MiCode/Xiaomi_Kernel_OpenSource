@@ -2304,12 +2304,18 @@ static int
 _adreno_ft_restart_device(struct kgsl_device *device,
 			   struct kgsl_context *context)
 {
-	/* If device soft reset fails try hard reset */
-	if (adreno_soft_reset(device))
-		KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
-	else
-		/* Soft reset is successful */
-		goto reset_done;
+	/*
+	 * If device soft reset fails try hard reset, but don't attempt
+	 * soft reset on page faults. In cases of page faults, go straight
+	 * to hard reset.
+	 */
+	if (!(device->mmu.fault)) {
+		if (adreno_soft_reset(device))
+			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+		else
+			/* Soft reset is successful */
+			goto reset_done;
+	}
 
 	/* restart device */
 	if (adreno_stop(device)) {
@@ -2432,7 +2438,6 @@ _adreno_ft(struct kgsl_device *device,
 	struct adreno_context *last_active_ctx = adreno_dev->drawctxt_active;
 	unsigned int long_ib = 0;
 	static int no_context_ft;
-	struct kgsl_mmu *mmu = &device->mmu;
 
 	context = kgsl_context_get(device, ft_data->context_id);
 
@@ -2507,8 +2512,6 @@ _adreno_ft(struct kgsl_device *device,
 
 	/* Do not try to replay if hang is due to a pagefault */
 	if (context && test_bit(KGSL_CONTEXT_PAGEFAULT, &context->priv)) {
-		/* Resume MMU */
-		mmu->mmu_ops->mmu_pagefault_resume(mmu);
 		if ((ft_data->context_id == context->id) &&
 			(ft_data->global_eop == context->pagefault_ts)) {
 			ft_data->ft_policy &= ~KGSL_FT_REPLAY;

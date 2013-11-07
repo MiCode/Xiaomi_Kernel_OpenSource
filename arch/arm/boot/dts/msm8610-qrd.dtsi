@@ -210,8 +210,9 @@
 			status = "okay";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "wled-homerow";
-				linux-default-trigger = "hr-trigger";
+				linux,name = "button-backlight";
+				linux,default-trigger = "hr-trigger";
+				qcom,current-setting = <20>;
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
@@ -287,7 +288,7 @@
 	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
-	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+	qcom,clk-rates = <400000 25000000 50000000>;
 
 	#address-cells = <0>;
 	interrupt-parent = <&sdhc_2>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -355,6 +355,7 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 	if (temp == NULL) {
 		pr_err("%s: allocation failure\n", __func__);
 		rv = -ENOMEM;
+		goto out;
 	}
 
 	hdr->dst_module = SNS_OCMEM_MODULE_ADSP;
@@ -387,6 +388,7 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 
 	kfree(temp);
 
+out:
 	return rv;
 }
 
@@ -874,7 +876,7 @@ static int sns_ocmem_map_send(void)
 
 	vectors = ocmem_get_vectors(SNS_OCMEM_CLIENT_ID, sns_ctl.buf);
 	if ((vectors != NULL)) {
-		memcpy(&msg.vectors, vectors, sizeof(vectors));
+		memcpy(&msg.vectors, vectors, sizeof(*vectors));
 		/* TODO: set vectors_len */
 		msg.vectors_valid = true;
 		msg.vectors_len = 0;
