@@ -379,6 +379,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_FRAME_QP:
 		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_FRAME_BITS_INFO:
+		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_BITS_INFO_EXTRADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
