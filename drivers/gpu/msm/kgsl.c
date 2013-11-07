@@ -2946,7 +2946,7 @@ kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 	if (full_flush) {
 		trace_kgsl_mem_sync_full_cache(actual_count, op_size,
 					       param->op);
-		__cpuc_flush_kern_all();
+		flush_cache_all();
 	}
 
 	for (i = 0; i < actual_count; i++) {
