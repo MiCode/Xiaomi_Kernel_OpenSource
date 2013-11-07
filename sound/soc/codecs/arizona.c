@@ -1764,6 +1764,17 @@ int arizona_set_output_mode(struct snd_soc_codec *codec, int output, bool diff)
 }
 EXPORT_SYMBOL_GPL(arizona_set_output_mode);
 
+int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
+			 void (*hpdet_cb)(unsigned int))
+{
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+
+	arizona->pdata.hpdet_cb = hpdet_cb;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_set_hpdet_cb);
+
 MODULE_DESCRIPTION("ASoC Wolfson Arizona class device support");
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_LICENSE("GPL");

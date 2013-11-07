@@ -136,6 +136,9 @@ struct arizona_pdata {
 	/** GPIO used for mic isolation with HPDET */
 	int hpdet_id_gpio;
 
+	/** Callback notifying HPDET result */
+	void (*hpdet_cb)(unsigned int measurement);
+
 	/** Use software comparison to determine mic presence */
 	bool micd_software_compare;
 
