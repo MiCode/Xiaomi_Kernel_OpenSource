@@ -44,7 +44,6 @@ static int msm_pm_get_boot_config_mode(struct device_node *dev,
 		{MSM_PM_BOOT_CONFIG_TZ, "tz"},
 		{MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS, "reset_vector_phys"},
 		{MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT, "reset_vector_virt"},
-		{MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR, "remap_boot_addr"}
 	};
 	int ret;
 	int i;
@@ -148,8 +147,6 @@ void msm_pm_boot_config_after_pc(unsigned int cpu)
 int msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 {
 	int ret = 0;
-	unsigned long entry;
-	void __iomem *warm_boot_ptr;
 
 	switch (pdata->mode) {
 	case MSM_PM_BOOT_CONFIG_TZ:
@@ -170,86 +167,6 @@ int msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			= msm_pm_config_rst_vector_before_pc;
 		msm_pm_boot_after_pc
 			= msm_pm_config_rst_vector_after_pc;
-		break;
-	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
-		if (!cpu_is_msm8625() && !cpu_is_msm8625q()) {
-			void *remapped;
-
-			/*
-			 * Set the boot remap address and enable remapping of
-			 * reset vector
-			 */
-			if (!pdata->p_addr || !pdata->v_addr)
-				return -ENODEV;
-
-			remapped = ioremap_nocache(pdata->p_addr, SZ_8);
-			ret = msm_pm_boot_reset_vector_init(remapped);
-
-			__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
-					pdata->v_addr);
-
-			msm_pm_boot_before_pc
-				= msm_pm_config_rst_vector_before_pc;
-			msm_pm_boot_after_pc
-				= msm_pm_config_rst_vector_after_pc;
-		} else {
-			uint32_t mpa5_boot_remap_addr[2] = {0x34, 0x4C};
-			uint32_t mpa5_cfg_ctl[2] = {0x30, 0x48};
-
-			warm_boot_ptr = ioremap_nocache(
-						MSM8625_WARM_BOOT_PHYS, SZ_64);
-			ret = msm_pm_boot_reset_vector_init(warm_boot_ptr);
-
-			entry = virt_to_phys(msm_pm_boot_entry);
-
-			/*
-			 * Below sequence is a work around for cores
-			 * to come out of GDFS properly on 8625 target.
-			 * On 8625 while cores coming out of GDFS observed
-			 * the memory corruption at very first memory read.
-			 */
-			msm_pm_reset_vector[0] = 0xE59F000C; /* ldr r0, 0x14 */
-			msm_pm_reset_vector[1] = 0xE59F1008; /* ldr r1, 0x14 */
-			msm_pm_reset_vector[2] = 0xE1500001; /* cmp r0, r1 */
-			msm_pm_reset_vector[3] = 0x1AFFFFFB; /* bne 0x0 */
-			msm_pm_reset_vector[4] = 0xE12FFF10; /* bx  r0 */
-			msm_pm_reset_vector[5] = entry; /* 0x14 */
-
-			/*
-			 * Here upper 16bits[16:31] used by CORE1
-			 * lower 16bits[0:15] used by CORE0
-			 */
-			entry = (MSM8625_WARM_BOOT_PHYS |
-				((MSM8625_WARM_BOOT_PHYS & 0xFFFF0000) >> 16));
-
-			/* write 'entry' to boot remapper register */
-			__raw_writel(entry, (pdata->v_addr +
-						mpa5_boot_remap_addr[0]));
-
-			/*
-			 * Enable boot remapper for C0 [bit:25th]
-			 * Enable boot remapper for C1 [bit:26th]
-			 */
-			__raw_writel(readl_relaxed(pdata->v_addr +
-					mpa5_cfg_ctl[0]) | (0x3 << 25),
-					pdata->v_addr + mpa5_cfg_ctl[0]);
-
-			/* 8x25Q changes */
-			if (cpu_is_msm8625q()) {
-				/* write 'entry' to boot remapper register */
-				__raw_writel(entry, (pdata->v_addr +
-						mpa5_boot_remap_addr[1]));
-
-				/*
-				 * Enable boot remapper for C2 [bit:25th]
-				 * Enable boot remapper for C3 [bit:26th]
-				 */
-				__raw_writel(readl_relaxed(pdata->v_addr +
-					mpa5_cfg_ctl[1]) | (0x3 << 25),
-					pdata->v_addr + mpa5_cfg_ctl[1]);
-			}
-			msm_pm_boot_before_pc = msm_pm_write_boot_vector;
-		}
 		break;
 	default:
 		__WARN();
@@ -296,18 +213,6 @@ static int msm_pm_boot_probe(struct platform_device *pdev)
 			goto fail;
 
 		pdata.v_addr = (void *)vaddr_val;
-		break;
-	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
-		if (!vaddr_val)
-			goto fail;
-
-		pdata.v_addr = ioremap_nocache(vaddr_val, SZ_8);
-
-		pdata.p_addr = allocate_contiguous_ebi_nomap(SZ_8, SZ_64K);
-		if (!pdata.p_addr) {
-			key = "qcom,phy-addr";
-			goto fail;
-		}
 		break;
 	case MSM_PM_BOOT_CONFIG_TZ:
 		break;
