@@ -602,6 +602,13 @@ config TI_DRV2667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
 
+config APQ8084_DOCKING_STATION
+	tristate "QTI APQ8084 Docking Station USB/Ethernet support"
+	depends on OF_GPIO
+	help
+	  This option enables support for the USB and Ethernet ports found on
+	  the QTI APQ8084 Docking Station.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
