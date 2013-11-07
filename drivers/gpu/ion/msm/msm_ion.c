@@ -28,7 +28,6 @@
 #include <linux/memblock.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
-#include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
@@ -366,17 +365,9 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 
 }
 
-static ion_phys_addr_t msm_ion_get_base(unsigned long size, int memory_type,
-				    unsigned int align)
+static ion_phys_addr_t msm_ion_get_base(unsigned long size, unsigned int align)
 {
-	switch (memory_type) {
-	case ION_EBI_TYPE:
-		return allocate_contiguous_ebi_nomap(size, align);
-		break;
-	default:
-		pr_err("%s: Unknown memory type %d\n", __func__, memory_type);
-		return 0;
-	}
+	return allocate_contiguous_ebi_nomap(size, align);
 }
 
 static void msm_ion_allocate(struct ion_platform_heap *heap)
@@ -402,7 +393,6 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 		}
 		if (align && !heap->base) {
 			heap->base = msm_ion_get_base(heap->size,
-						      heap->memory_type,
 						      align);
 			if (!heap->base)
 				pr_err("%s: could not get memory for heap %s "
@@ -554,11 +544,6 @@ static void free_pdata(const struct ion_platform_data *pdata)
 	kfree(pdata);
 }
 
-static int memtype_to_ion_memtype[] = {
-	[MEMTYPE_EBI0] = ION_EBI_TYPE,
-	[MEMTYPE_EBI1] = ION_EBI_TYPE,
-};
-
 static void msm_ion_get_heap_align(struct device_node *node,
 				   struct ion_platform_heap *heap)
 {
@@ -595,31 +580,11 @@ static int msm_ion_get_heap_size(struct device_node *node,
 	unsigned int val;
 	int ret = 0;
 	u32 out_values[2];
-	const char *memory_name_prop;
 	struct device_node *pnode;
 
 	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
-	if (!ret) {
+	if (!ret)
 		heap->size = val;
-		ret = of_property_read_string(node,
-					      "qcom,memory-reservation-type",
-					      &memory_name_prop);
-
-		if (!ret && memory_name_prop) {
-			val = msm_get_memory_type_from_name(memory_name_prop);
-			if (val < 0) {
-				ret = -EINVAL;
-				goto out;
-			}
-			heap->memory_type = memtype_to_ion_memtype[val];
-		}
-		if (heap->size && (ret || !memory_name_prop)) {
-			pr_err("%s: Need to specify reservation type\n",
-				__func__);
-			ret = -EINVAL;
-		}
-		goto out;
-	}
 
 	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
 								out_values, 2);

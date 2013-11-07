@@ -20,7 +20,6 @@
 
 #include <linux/err.h>
 #include <uapi/linux/ion.h>
-#include <mach/ion.h>
 
 struct ion_device;
 struct ion_heap;
@@ -58,7 +57,6 @@ struct ion_platform_heap {
 	const char *name;
 	ion_phys_addr_t base;
 	size_t size;
-	enum ion_memory_types memory_type;
 	unsigned int has_outer_cache;
 	void *extra_data;
 	ion_phys_addr_t align;
