@@ -154,6 +154,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
 #define WCNSS_VERSION_LEN			30
+#define WCNSS_MAX_BUILD_VER_LEN		256
 
 /* message types */
 #define WCNSS_CTRL_MSG_START	0x01000000
@@ -166,6 +167,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_CALDATA_DNLD_REQ        (WCNSS_CTRL_MSG_START + 6)
 #define	WCNSS_CALDATA_DNLD_RSP        (WCNSS_CTRL_MSG_START + 7)
 #define	WCNSS_VBATT_LEVEL_IND         (WCNSS_CTRL_MSG_START + 8)
+#define	WCNSS_BUILD_VER_REQ           (WCNSS_CTRL_MSG_START + 9)
+#define	WCNSS_BUILD_VER_RSP           (WCNSS_CTRL_MSG_START + 10)
 
 
 #define VALID_VERSION(version) \
@@ -1411,7 +1414,9 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 	int len = 0;
 	int rc = 0;
 	unsigned char buf[sizeof(struct wcnss_version)];
+	unsigned char build[WCNSS_MAX_BUILD_VER_LEN+1];
 	struct smd_msg_hdr *phdr;
+	struct smd_msg_hdr smd_msg;
 	struct wcnss_version *pversion;
 	int hw_type;
 	unsigned char fw_status = 0;
@@ -1468,6 +1473,12 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 			break;
 
 		case WCNSS_PRONTO_HW:
+			smd_msg.msg_type = WCNSS_BUILD_VER_REQ;
+			smd_msg.msg_len = sizeof(smd_msg);
+			rc = wcnss_smd_tx(&smd_msg, smd_msg.msg_len);
+			if (rc < 0)
+				pr_err("wcnss: smd tx failed: %s\n", __func__);
+
 			/* supported only if pronto major >= 1 and minor >= 4 */
 			if ((pversion->major >= 1) && (pversion->minor >= 4)) {
 				pr_info("wcnss: schedule dnld work for pronto\n");
@@ -1480,6 +1491,21 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 				hw_type);
 			break;
 		}
+		break;
+
+	case WCNSS_BUILD_VER_RSP:
+		if (len > WCNSS_MAX_BUILD_VER_LEN) {
+			pr_err("wcnss: invalid build version data from wcnss %d\n",
+					len);
+			return;
+		}
+		rc = smd_read(penv->smd_ch, build, len);
+		if (rc < len) {
+			pr_err("wcnss: incomplete data read from smd\n");
+			return;
+		}
+		build[len] = 0;
+		pr_info("wcnss: build version %s\n", build);
 		break;
 
 	case WCNSS_NVBIN_DNLD_RSP:
