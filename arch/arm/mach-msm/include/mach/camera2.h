@@ -79,6 +79,7 @@ struct msm_camera_power_ctrl_t {
 struct msm_camera_sensor_board_info {
 	const char *sensor_name;
 	const char *eeprom_name;
+	const char *actuator_name;
 	struct msm_camera_slave_info *slave_info;
 	struct msm_camera_csi_lane_params *csi_lane_params;
 	struct msm_camera_sensor_strobe_flash_data *strobe_flash_data;
