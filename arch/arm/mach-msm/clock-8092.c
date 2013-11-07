@@ -6884,6 +6884,31 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fd828018.hwevent"),
 
 	CLK_LOOKUP("core_mmss_clk", mmss_misc_ahb_clk.c, "fd828018.hwevent"),
+
+	/* IOMMU clocks */
+	CLK_LOOKUP("iface_clk", camss_jpeg_jpeg_ahb_clk.c,
+						"fda64000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", camss_jpeg_jpeg_axi_clk.c,
+						"fda64000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", camss_top_ahb_clk.c,
+						"fda64000.qcom,iommu"),
+	CLK_LOOKUP("alt_iface_clk", camss_micro_ahb_clk.c,
+						"fda64000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c , "fd92a000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", mdss_axi_clk.c , "fd92a000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb10000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc84000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", venus0_vcodec0_clk.c, "fdc84000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", venus0_axi_clk.c, "fdc84000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", vpu_ahb_clk.c, "fdee4000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", vpu_axi_clk.c, "fdee4000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", vpu_bus_clk.c, "fdee4000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", bcc_vbif_ahb_clk.c, "fc734000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", bcc_vbif_axi_clk.c, "fc734000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", vcap_ahb_clk.c, "fdfb6000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", vcap_axi_clk.c, "fdfb6000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", vcap_vp_clk_src.c, "fdfb6000.qcom,iommu"),
 };
 
 static void __init reg_init(void)
