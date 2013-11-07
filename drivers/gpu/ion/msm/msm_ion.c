@@ -365,39 +365,12 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 
 }
 
-static ion_phys_addr_t msm_ion_get_base(unsigned long size, unsigned int align)
-{
-	return allocate_contiguous_ebi_nomap(size, align);
-}
-
 static void msm_ion_allocate(struct ion_platform_heap *heap)
 {
 
 	if (!heap->base && heap->extra_data) {
-		unsigned int align = 0;
-		switch ((int) heap->type) {
-		case ION_HEAP_TYPE_CARVEOUT:
-			align =
-			((struct ion_co_heap_pdata *) heap->extra_data)->align;
-			break;
-		case ION_HEAP_TYPE_CP:
-		{
-			struct ion_cp_heap_pdata *data =
-				(struct ion_cp_heap_pdata *)
-				heap->extra_data;
-			align = data->align;
-			break;
-		}
-		default:
-			break;
-		}
-		if (align && !heap->base) {
-			heap->base = msm_ion_get_base(heap->size,
-						      align);
-			if (!heap->base)
-				pr_err("%s: could not get memory for heap %s "
-				   "(id %x)\n", __func__, heap->name, heap->id);
-		}
+		WARN(1, "Specifying carveout heaps without a base is deprecated. Convert to the DMA heap type instead");
+		return;
 	}
 }
 

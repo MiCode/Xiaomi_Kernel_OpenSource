@@ -40,7 +40,6 @@ enum ion_permission_type {
  * @release_region:	function to be called when the number of allocations
  *			goes from 1 -> 0
  * @setup_region:	function to be called upon ion registration
- * @memory_type:Memory type used for the heap
  * @allow_nonsecure_alloc: allow non-secure allocations from this heap. For
  *			secure heaps, this flag must be set so allow non-secure
  *			allocations. For non-secure heaps, this flag is ignored.
