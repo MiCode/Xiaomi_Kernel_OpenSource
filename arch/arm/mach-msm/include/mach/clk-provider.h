@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/list.h>
 #include <linux/clkdev.h>
+#include <linux/of.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
@@ -225,5 +226,11 @@ static inline bool is_better_rate(unsigned long req, unsigned long best,
 
 	return (req <= new && new < best) || (best < req && best < new);
 }
+
+extern int of_clk_add_provider(struct device_node *np,
+			struct clk *(*clk_src_get)(struct of_phandle_args *args,
+						   void *data),
+			void *data);
+extern void of_clk_del_provider(struct device_node *np);
 
 #endif
