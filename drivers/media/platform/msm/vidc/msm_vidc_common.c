@@ -3126,6 +3126,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP:
 		ret = HAL_EXTRADATA_FRAME_QP;
 		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO:
+		ret = HAL_EXTRADATA_FRAME_BITS_INFO;
+		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_LTR:
 		ret = HAL_EXTRADATA_LTR_INFO;
 		break;
