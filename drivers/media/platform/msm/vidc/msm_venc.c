@@ -2872,7 +2872,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
 			ARRAY_SIZE(venc_formats), f->fmt.pix_mp.pixelformat,
 			OUTPUT_PORT);
-		if (fmt && fmt->type != OUTPUT_PORT) {
+		if (!fmt || fmt->type != OUTPUT_PORT) {
 			dprintk(VIDC_ERR,
 				"Format: %d not supported on OUTPUT port\n",
 				f->fmt.pix_mp.pixelformat);
