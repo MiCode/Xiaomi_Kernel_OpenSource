@@ -78,7 +78,7 @@ static struct msm_iommu_remote_lock msm_iommu_remote_lock;
 #ifdef CONFIG_MSM_IOMMU_SYNC
 static void _msm_iommu_remote_spin_lock_init(void)
 {
-	msm_iommu_remote_lock.lock = smem_alloc(SMEM_SPINLOCK_ARRAY, 32);
+	msm_iommu_remote_lock.lock = smem_find(SMEM_SPINLOCK_ARRAY, 32);
 	memset(msm_iommu_remote_lock.lock, 0,
 			sizeof(*msm_iommu_remote_lock.lock));
 }
