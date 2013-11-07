@@ -465,6 +465,94 @@
 
 		qcom,firmware-name = "bcss";
 	};
+
+	msm_vidc: qcom,vidc@fdc00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0xfdc00000 0xff000>;
+		interrupts = <0 44 0>;
+		qcom,hfi = "venus";
+		qcom,ocmem-size = <524288>; /* 512 * 1024*/
+		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+		qcom,clock-names= "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk", "mem_clk";
+		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
+		qcom,load-freq-tbl = <979200 465000000>,
+			<783360 465000000>,
+			<489600 266670000>,
+			<244800 133330000>;
+		qcom,bus-ports = <1>;
+		qcom,reg-presets = <0x800B0 0x00101001>,
+			<0x800B0 0x00101001>,
+			<0x800B4 0x00101010>,
+			<0x800B8 0x10100010>,
+			<0x800BC 0x00001010>,
+			<0x800C0 0x1000100f>,
+			<0x800C4 0x10000000>,
+			<0x800C8 0x10001000>,
+			<0x800CC 0x00001000>,
+			<0x80070 0x00013FFF>,
+			<0x80074 0x000000A4>,
+			<0x800A8 0x00003FFF>,
+			<0xe0020 0x5555556>,
+			<0xe0024 0x5555556>,
+			<0x80124 0x3>;
+		qcom,enc-ocmem-ab-ib = <0 0>,
+			<138000 1034000>,
+			<414000 1034000>,
+			<940000 1034000>,
+			<1880000 2068000>,
+			<3008000 3309000>,
+			<3760000 4136000>,
+			<4468000 2457000>;
+		qcom,dec-ocmem-ab-ib = <0 0>,
+			<176000 519000>,
+			<456000 519000>,
+			<864000 519000>,
+			<1728000 1038000>,
+			<2766000 1661000>,
+			<3456000 2076000>,
+			<3662000 2198000>;
+		qcom,enc-ddr-ab-ib = <0 0>,
+			<120000 302000>,
+			<364000 302000>,
+			<804000 302000>,
+			<1608000 604000>,
+			<2576000 967000>,
+			<4680000 1404000>,
+			<49880000 1496000>;
+		qcom,dec-ddr-ab-ib = <0 0>,
+			<208000 303000>,
+			<536000 303000>,
+			<1012000 303000>,
+			<2024000 606000>,
+			<3240000 970000>,
+			<4048000 1212000>,
+			<4264000 1279000>;
+		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
+			<0x106 0x2>,
+			<0x480 0x3>;
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x7ff>,
+					<0x800>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+				qcom,vidc-partition-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+				qcom,vidc-partition-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+	};
 };
 
 &gdsc_venus {
