@@ -739,6 +739,61 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 	.set_autosuspend_delay = mxhci_hsic_set_autosuspend_delay,
 };
 
+static ssize_t config_imod_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd *xhci;
+	struct mxhci_hsic_hcd *mxhci;
+	u32 temp;
+	u32 imod;
+	unsigned long flags;
+
+	sscanf(buff, "%u", &imod);
+	imod &= ER_IRQ_INTERVAL_MASK;
+
+	mxhci = hcd_to_hsic(hcd);
+	xhci = hcd_to_xhci(hcd);
+
+	if (mxhci->in_lpm)
+		return -EACCES;
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	temp = xhci_readl(xhci, &xhci->ir_set->irq_control);
+	temp &= ~ER_IRQ_INTERVAL_MASK;
+	temp |= imod;
+	xhci_writel(xhci, temp, &xhci->ir_set->irq_control);
+	spin_unlock_irqrestore(&xhci->lock, flags);
+
+	return size;
+}
+
+static ssize_t config_imod_show(struct device *pdev,
+		struct device_attribute *attr, char *buff)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd *xhci;
+	struct mxhci_hsic_hcd *mxhci;
+	u32 temp;
+	unsigned long flags;
+
+	mxhci = hcd_to_hsic(hcd);
+	xhci = hcd_to_xhci(hcd);
+
+	if (mxhci->in_lpm)
+		return -EACCES;
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	temp = xhci_readl(xhci, &xhci->ir_set->irq_control) &
+			ER_IRQ_INTERVAL_MASK;
+	spin_unlock_irqrestore(&xhci->lock, flags);
+
+	return snprintf(buff, PAGE_SIZE, "%08x\n", temp);
+}
+
+static DEVICE_ATTR(config_imod, S_IRUGO | S_IWUSR,
+		config_imod_show, config_imod_store);
+
 static int mxhci_hsic_probe(struct platform_device *pdev)
 {
 	struct hc_driver *driver;
@@ -965,6 +1020,11 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
+	if (ret)
+		dev_dbg(&pdev->dev, "%s: unable to create imod sysfs entry\n",
+					__func__);
+
 	/* Enable HSIC PHY */
 	mxhci_hsic_ulpi_write(mxhci, 0x01, MSM_HSIC_CFG_SET);
 
@@ -1011,6 +1071,8 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	writel_relaxed(reg & 0xfdffffff, TLMM_GPIO_HSIC_DATA_PAD_CTL);
 
 	mb();
+
+	device_remove_file(&pdev->dev, &dev_attr_config_imod);
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
