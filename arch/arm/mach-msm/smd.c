@@ -339,7 +339,7 @@ static inline void notify_modem_smd(smd_channel_t *ch)
 
 	log_notify(SMD_APPS_MODEM, ch);
 	if (intr->out_base) {
-		++interrupt_stats[SMD_MODEM].smd_out_config_count;
+		++interrupt_stats[SMD_MODEM].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -352,7 +352,7 @@ static inline void notify_dsp_smd(smd_channel_t *ch)
 
 	log_notify(SMD_APPS_QDSP, ch);
 	if (intr->out_base) {
-		++interrupt_stats[SMD_Q6].smd_out_config_count;
+		++interrupt_stats[SMD_Q6].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -365,7 +365,7 @@ static inline void notify_dsps_smd(smd_channel_t *ch)
 
 	log_notify(SMD_APPS_DSPS, ch);
 	if (intr->out_base) {
-		++interrupt_stats[SMD_DSPS].smd_out_config_count;
+		++interrupt_stats[SMD_DSPS].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -378,7 +378,7 @@ static inline void notify_wcnss_smd(struct smd_channel *ch)
 
 	log_notify(SMD_APPS_WCNSS, ch);
 	if (intr->out_base) {
-		++interrupt_stats[SMD_WCNSS].smd_out_config_count;
+		++interrupt_stats[SMD_WCNSS].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -391,7 +391,7 @@ static inline void notify_rpm_smd(smd_channel_t *ch)
 
 	if (intr->out_base) {
 		log_notify(SMD_APPS_RPM, ch);
-		++interrupt_stats[SMD_RPM].smd_out_config_count;
+		++interrupt_stats[SMD_RPM].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -405,7 +405,7 @@ static inline void notify_modem_smsm(void)
 	SMSM_POWER_INFO("SMSM Apps->%s", "MODEM");
 
 	if (intr->out_base) {
-		++interrupt_stats[SMD_MODEM].smsm_out_config_count;
+		++interrupt_stats[SMD_MODEM].smsm_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -419,7 +419,7 @@ static inline void notify_dsp_smsm(void)
 	SMSM_POWER_INFO("SMSM Apps->%s", "ADSP");
 
 	if (intr->out_base) {
-		++interrupt_stats[SMD_Q6].smsm_out_config_count;
+		++interrupt_stats[SMD_Q6].smsm_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -433,7 +433,7 @@ static inline void notify_dsps_smsm(void)
 	SMSM_POWER_INFO("SMSM Apps->%s", "DSPS");
 
 	if (intr->out_base) {
-		++interrupt_stats[SMD_DSPS].smsm_out_config_count;
+		++interrupt_stats[SMD_DSPS].smsm_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -447,7 +447,7 @@ static inline void notify_wcnss_smsm(void)
 	SMSM_POWER_INFO("SMSM Apps->%s", "WCNSS");
 
 	if (intr->out_base) {
-		++interrupt_stats[SMD_WCNSS].smsm_out_config_count;
+		++interrupt_stats[SMD_WCNSS].smsm_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
