@@ -544,6 +544,13 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
+	demod: msm-demod@fc600000 {
+		compatible = "qti,msm-demod";
+		reg = <0xfc600000 0xd0008>,<0xfc747000 0x1000>;
+		reg-names = "msm-demod", "top-bcss";
+		vdd-supply = <&gdsc_bcss>;
+	};
+
 	qcom,pil-vpu@fde0b000 {
 		compatible = "qcom,pil-vpu";
 		reg = <0xfde0b000 0x80>;
