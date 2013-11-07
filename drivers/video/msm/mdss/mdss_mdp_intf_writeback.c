@@ -46,8 +46,6 @@ struct mdss_mdp_writeback_ctx {
 
 	struct mdss_mdp_plane_sizes dst_planes;
 
-	void (*callback_fnc) (void *arg);
-	void *callback_arg;
 	spinlock_t wb_lock;
 	struct list_head vsync_handlers;
 };
@@ -365,6 +363,8 @@ static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 				NULL, NULL);
 
+		complete_all(&ctx->wb_comp);
+
 		ctl->priv_data = NULL;
 		ctx->ref_cnt--;
 	}
@@ -388,9 +388,6 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	pr_debug("intr wb_num=%d\n", ctx->wb_num);
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
-
-	if (ctx->callback_fnc)
-		ctx->callback_fnc(ctx->callback_arg);
 
 	spin_lock(&ctx->wb_lock);
 	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
@@ -467,9 +464,6 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 		   mdss_mdp_writeback_intr_done, ctl);
 
-	ctx->callback_fnc = wb_args->callback_fnc;
-	ctx->callback_arg = wb_args->priv_data;
-
 	flush_bits = BIT(16); /* WB */
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS, ctl->is_secure);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
@@ -529,6 +523,8 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 {
+	int ret = 0;
+
 	if (ctl->shared_lock && !mutex_is_locked(ctl->shared_lock)) {
 		pr_err("shared mutex is not locked before commit on ctl=%d\n",
 			ctl->num);
@@ -542,5 +538,10 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 			ctl->mixer_right->params_changed++;
 	}
 
-	return mdss_mdp_display_commit(ctl, arg);
+	ret = mdss_mdp_display_commit(ctl, arg);
+
+	if (!IS_ERR_VALUE(ret))
+		mdss_mdp_display_wait4comp(ctl);
+
+	return ret;
 }
