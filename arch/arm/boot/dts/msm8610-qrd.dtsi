@@ -210,8 +210,9 @@
 			status = "okay";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "wled-homerow";
-				linux-default-trigger = "hr-trigger";
+				linux,name = "button-backlight";
+				linux,default-trigger = "hr-trigger";
+				qcom,current-setting = <20>;
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
