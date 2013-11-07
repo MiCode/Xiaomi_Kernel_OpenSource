@@ -379,89 +379,6 @@ static ion_phys_addr_t msm_ion_get_base(unsigned long size, int memory_type,
 	}
 }
 
-static struct ion_platform_heap *find_heap(const struct ion_platform_heap
-					   heap_data[],
-					   unsigned int nr_heaps,
-					   int heap_id)
-{
-	unsigned int i;
-	for (i = 0; i < nr_heaps; ++i) {
-		const struct ion_platform_heap *heap = &heap_data[i];
-		if (heap->id == heap_id)
-			return (struct ion_platform_heap *) heap;
-	}
-	return 0;
-}
-
-static void ion_set_base_address(struct ion_platform_heap *heap,
-			    struct ion_platform_heap *shared_heap,
-			    struct ion_co_heap_pdata *co_heap_data,
-			    struct ion_cp_heap_pdata *cp_data)
-{
-	heap->base = msm_ion_get_base(heap->size + shared_heap->size,
-					shared_heap->memory_type,
-					co_heap_data->align);
-	if (heap->base) {
-		shared_heap->base = heap->base + heap->size;
-		cp_data->secure_base = heap->base;
-		cp_data->secure_size = heap->size + shared_heap->size;
-	} else {
-		pr_err("%s: could not get memory for heap %s (id %x)\n",
-			__func__, heap->name, heap->id);
-	}
-}
-
-static void allocate_co_memory(struct ion_platform_heap *heap,
-			       struct ion_platform_heap heap_data[],
-			       unsigned int nr_heaps)
-{
-	struct ion_co_heap_pdata *co_heap_data =
-		(struct ion_co_heap_pdata *) heap->extra_data;
-
-	if (co_heap_data->adjacent_mem_id != INVALID_HEAP_ID) {
-		struct ion_platform_heap *shared_heap =
-			find_heap(heap_data, nr_heaps,
-				  co_heap_data->adjacent_mem_id);
-		if (shared_heap) {
-			struct ion_cp_heap_pdata *cp_data =
-			   (struct ion_cp_heap_pdata *) shared_heap->extra_data;
-			if (cp_data->fixed_position == FIXED_MIDDLE) {
-				if (!cp_data->secure_base) {
-					cp_data->secure_base = heap->base;
-					cp_data->secure_size =
-						heap->size + shared_heap->size;
-				}
-			} else if (!heap->base) {
-				ion_set_base_address(heap, shared_heap,
-					co_heap_data, cp_data);
-			}
-		}
-	}
-}
-
-/* Fixup heaps in board file to support two heaps being adjacent to each other.
- * A flag (adjacent_mem_id) in the platform data tells us that the heap phy
- * memory location must be adjacent to the specified heap. We do this by
- * carving out memory for both heaps and then splitting up the memory to the
- * two heaps. The heap specifying the "adjacent_mem_id" get the base of the
- * memory while heap specified in "adjacent_mem_id" get base+size as its
- * base address.
- * Note: Modifies platform data and allocates memory.
- */
-static void msm_ion_heap_fixup(struct ion_platform_heap heap_data[],
-			       unsigned int nr_heaps)
-{
-	unsigned int i;
-
-	for (i = 0; i < nr_heaps; i++) {
-		struct ion_platform_heap *heap = &heap_data[i];
-		if (heap->type == ION_HEAP_TYPE_CARVEOUT) {
-			if (heap->extra_data)
-				allocate_co_memory(heap, heap_data, nr_heaps);
-		}
-	}
-}
-
 static void msm_ion_allocate(struct ion_platform_heap *heap)
 {
 
@@ -1097,8 +1014,6 @@ static int msm_ion_probe(struct platform_device *pdev)
 		err = PTR_ERR(new_dev);
 		goto freeheaps;
 	}
-
-	msm_ion_heap_fixup(pdata->heaps, num_heaps);
 
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < num_heaps; i++) {
