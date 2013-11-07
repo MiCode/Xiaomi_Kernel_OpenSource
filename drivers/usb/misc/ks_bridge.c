@@ -26,7 +26,7 @@
 #include <linux/usb.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-#include <linux/miscdevice.h>
+#include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/wait.h>
 
@@ -68,6 +68,10 @@ struct data_pkt {
 #define MAX_DATA_PKT_SIZE	16384
 #define PENDING_URB_TIMEOUT	10
 
+struct ksb_dev_info {
+	const char *name;
+};
+
 struct ks_bridge {
 	char			*name;
 	spinlock_t		lock;
@@ -78,9 +82,16 @@ struct ks_bridge {
 	struct list_head	to_ks_list;
 	wait_queue_head_t	ks_wait_q;
 	wait_queue_head_t	pending_urb_wait;
-	struct miscdevice	fs_dev;
 	atomic_t		tx_pending_cnt;
 	atomic_t		rx_pending_cnt;
+
+	struct ksb_dev_info	id_info;
+
+	/* cdev interface */
+	dev_t			cdev_start_no;
+	struct cdev		cdev;
+	struct class		*class;
+	struct device		*device;
 
 	/* usb specific */
 	struct usb_device	*udev;
@@ -198,7 +209,7 @@ read_start:
 
 		ret = copy_to_user(buf + copied, pkt->buf + pkt->n_read, len);
 		if (ret) {
-			dev_err(ksb->fs_dev.this_device,
+			dev_err(ksb->device,
 					"copy_to_user failed err:%d\n", ret);
 			ksb_free_data_pkt(pkt);
 			return -EFAULT;
@@ -232,7 +243,7 @@ read_start:
 
 	dbg_log_event(ksb, "KS_READ", copied, 0);
 
-	dev_dbg(ksb->fs_dev.this_device, "count:%d space:%d copied:%d", count,
+	dev_dbg(ksb->device, "count:%d space:%d copied:%d", count,
 			space, copied);
 
 	return copied;
@@ -251,7 +262,7 @@ static void ksb_tx_cb(struct urb *urb)
 
 	if (urb->status < 0)
 		pr_err_ratelimited("%s: urb failed with err:%d",
-				ksb->fs_dev.name, urb->status);
+				ksb->id_info.name, urb->status);
 
 	ksb_free_data_pkt(pkt);
 
@@ -278,7 +289,7 @@ static void ksb_tomdm_work(struct work_struct *w)
 		urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
 			pr_err_ratelimited("%s: unable to allocate urb",
-					ksb->fs_dev.name);
+					ksb->id_info.name);
 			ksb_free_data_pkt(pkt);
 			return;
 		}
@@ -286,7 +297,7 @@ static void ksb_tomdm_work(struct work_struct *w)
 		ret = usb_autopm_get_interface(ksb->ifc);
 		if (ret < 0 && ret != -EAGAIN && ret != -EACCES) {
 			pr_err_ratelimited("%s: autopm_get failed:%d",
-					ksb->fs_dev.name, ret);
+					ksb->id_info.name, ret);
 			usb_free_urb(urb);
 			ksb_free_data_pkt(pkt);
 			return;
@@ -333,14 +344,14 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 
 	pkt = ksb_alloc_data_pkt(count, GFP_KERNEL, ksb);
 	if (IS_ERR(pkt)) {
-		dev_err(ksb->fs_dev.this_device,
+		dev_err(ksb->device,
 				"unable to allocate data packet");
 		return PTR_ERR(pkt);
 	}
 
 	ret = copy_from_user(pkt->buf, buf, count);
 	if (ret) {
-		dev_err(ksb->fs_dev.this_device,
+		dev_err(ksb->device,
 				"copy_from_user failed: err:%d", ret);
 		ksb_free_data_pkt(pkt);
 		return ret;
@@ -357,15 +368,15 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 
 static int ksb_fs_open(struct inode *ip, struct file *fp)
 {
-	struct miscdevice *mdev = fp->private_data;
-	struct ks_bridge *ksb = container_of(mdev, struct ks_bridge, fs_dev);
+	struct ks_bridge *ksb =
+			container_of(ip->i_cdev, struct ks_bridge, cdev);
 
 	if (IS_ERR(ksb)) {
 		pr_err("ksb device not found");
 		return -ENODEV;
 	}
 
-	dev_dbg(ksb->fs_dev.this_device, ":%s", ksb->fs_dev.name);
+	dev_dbg(ksb->device, ":%s", ksb->id_info.name);
 	dbg_log_event(ksb, "FS-OPEN", 0, 0);
 
 	fp->private_data = ksb;
@@ -381,7 +392,7 @@ static int ksb_fs_release(struct inode *ip, struct file *fp)
 {
 	struct ks_bridge	*ksb = fp->private_data;
 
-	dev_dbg(ksb->fs_dev.this_device, ":%s", ksb->fs_dev.name);
+	dev_dbg(ksb->device, ":%s", ksb->id_info.name);
 	dbg_log_event(ksb, "FS-RELEASE", 0, 0);
 
 	clear_bit(FILE_OPENED, &ksb->flags);
@@ -398,37 +409,21 @@ static const struct file_operations ksb_fops = {
 	.release = ksb_fs_release,
 };
 
-static struct miscdevice ksb_fboot_dev[] = {
+static struct ksb_dev_info ksb_fboot_dev[] = {
 	{
-		.minor = MISC_DYNAMIC_MINOR,
 		.name = "ks_hsic_bridge",
-		.fops = &ksb_fops,
 	},
 	{
-		.minor = MISC_DYNAMIC_MINOR,
 		.name = "ks_usb_bridge",
-		.fops = &ksb_fops,
 	},
 };
 
-static const struct file_operations efs_fops = {
-	.owner = THIS_MODULE,
-	.read = ksb_fs_read,
-	.write = ksb_fs_write,
-	.open = ksb_fs_open,
-	.release = ksb_fs_release,
-};
-
-static struct miscdevice ksb_efs_hsic_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
+static struct ksb_dev_info ksb_efs_hsic_dev = {
 	.name = "efs_hsic_bridge",
-	.fops = &efs_fops,
 };
 
-static struct miscdevice ksb_efs_usb_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
+static struct ksb_dev_info ksb_efs_usb_dev = {
 	.name = "efs_usb_bridge",
-	.fops = &efs_fops,
 };
 static const struct usb_device_id ksb_usb_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
@@ -518,7 +513,7 @@ static void ksb_rx_cb(struct urb *urb)
 		if (urb->status != -ESHUTDOWN && urb->status != -ENOENT
 				&& urb->status != -EPROTO)
 			pr_err_ratelimited("%s: urb failed with err:%d",
-					ksb->fs_dev.name, urb->status);
+					ksb->id_info.name, urb->status);
 		ksb_free_data_pkt(pkt);
 		goto done;
 	}
@@ -555,7 +550,7 @@ static void ksb_start_rx_work(struct work_struct *w)
 	if (ret < 0) {
 		if (ret != -EAGAIN && ret != -EACCES) {
 			pr_err_ratelimited("%s: autopm_get failed:%d",
-					ksb->fs_dev.name, ret);
+					ksb->id_info.name, ret);
 			return;
 		}
 		put = false;
@@ -613,14 +608,15 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	struct ks_bridge		*ksb;
 	unsigned long			flags;
 	struct data_pkt			*pkt;
-	struct miscdevice		*mdev, *fbdev;
+	struct ksb_dev_info		*mdev, *fbdev;
 	struct usb_device		*udev;
 	unsigned int			bus_id;
+	int ret;
 
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
 
 	udev = interface_to_usbdev(ifc);
-	fbdev = mdev = (struct miscdevice *)id->driver_info;
+	fbdev = mdev = (struct ksb_dev_info *)id->driver_info;
 
 	bus_id = str_to_busid(udev->bus->bus_name);
 	if (bus_id == BUS_UNDEF) {
@@ -658,6 +654,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ksb->udev = usb_get_dev(interface_to_usbdev(ifc));
 	ksb->ifc = ifc;
 	ifc_desc = ifc->cur_altsetting;
+	ksb->id_info = *mdev;
 
 	for (i = 0; i < ifc_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &ifc_desc->endpoint[i].desc;
@@ -703,8 +700,33 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	}
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
-	ksb->fs_dev = *mdev;
-	misc_register(&ksb->fs_dev);
+	ret = alloc_chrdev_region(&ksb->cdev_start_no, 0, 1, mdev->name);
+	if (ret < 0) {
+		dbg_log_event(ksb, "chr reg failed", ret, 0);
+		goto fail_chrdev_region;
+	}
+
+	ksb->class = class_create(THIS_MODULE, mdev->name);
+	if (IS_ERR(ksb->class)) {
+		dbg_log_event(ksb, "clscr failed", PTR_ERR(ksb->class), 0);
+		goto fail_class_create;
+	}
+
+	cdev_init(&ksb->cdev, &ksb_fops);
+	ksb->cdev.owner = THIS_MODULE;
+
+	ret = cdev_add(&ksb->cdev, ksb->cdev_start_no, 1);
+	if (ret < 0) {
+		dbg_log_event(ksb, "cdev_add failed", ret, 0);
+		goto fail_class_create;
+	}
+
+	ksb->device = device_create(ksb->class, NULL, ksb->cdev_start_no,
+				NULL, mdev->name);
+	if (IS_ERR(ksb->device)) {
+		dbg_log_event(ksb, "devcrfailed", PTR_ERR(ksb->device), 0);
+		goto fail_device_create;
+	}
 
 	if (device_can_wakeup(&ksb->udev->dev)) {
 		ifc->needs_remote_wakeup = 1;
@@ -714,6 +736,17 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	dev_dbg(&udev->dev, "usb dev connected");
 
 	return 0;
+
+fail_device_create:
+	cdev_del(&ksb->cdev);
+fail_class_create:
+	unregister_chrdev_region(ksb->cdev_start_no, 1);
+fail_chrdev_region:
+	usb_set_intfdata(ifc, NULL);
+	clear_bit(USB_DEV_CONNECTED, &ksb->flags);
+
+	return -ENODEV;
+
 }
 
 static int ksb_usb_suspend(struct usb_interface *ifc, pm_message_t message)
@@ -767,7 +800,10 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	cancel_work_sync(&ksb->to_mdm_work);
 	cancel_work_sync(&ksb->start_rx_work);
 
-	misc_deregister(&ksb->fs_dev);
+	device_destroy(ksb->class, ksb->cdev_start_no);
+	cdev_del(&ksb->cdev);
+	class_destroy(ksb->class);
+	unregister_chrdev_region(ksb->cdev_start_no, 1);
 
 	usb_kill_anchored_urbs(&ksb->submitted);
 
