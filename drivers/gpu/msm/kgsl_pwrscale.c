@@ -196,6 +196,14 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 
 	pwr = &device->pwrctrl;
+	if (flags & DEVFREQ_FLAG_WAKEUP_MAXFREQ) {
+		/*
+		 * The GPU is about to get suspended,
+		 * but it needs to be at the max power level when waking up
+		*/
+		pwr->wakeup_maxpwrlevel = 1;
+		return 0;
+	}
 
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
