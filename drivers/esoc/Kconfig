@@ -24,4 +24,12 @@ config ESOC_DEBUG
 	help
 	  Say yes here to enable debugging support in the ESOC framework
 	  and individual esoc drivers.
+
+config ESOC_MDM_4x
+	bool "Add support for external mdm9x25/mdm9x35"
+	help
+	  In some qualcomm boards, an external modem such as mdm9x25 or mdm9x35
+	  is connected to a primary msm. The primary soc can control/monitor
+	  the modem via gpios. The data communication with such modems can
+	  occur over PCIE or HSIC.
 endif
