@@ -10,3 +10,4 @@ header-y += midi.h
 header-y += msm_ext_chg.h
 header-y += tmc.h
 header-y += video.h
+header-y += ccid_bridge.h

@@ -1,0 +1,161 @@
+Introduction
+============
+
+This feature requires supporting Mass Storage and Integrated Circuit Card
+interfaces exposed by the UICC (Universal Integrated Circuit Card) device.
+The MSM acts as a USB host and UICC acts as a peripheral. The UICC device
+that is used here is also referred to as Mega-SIM. This feature will be
+supported on MSM8x26.
+
+Hardware description
+====================
+
+The USB3503 HSIC (High Speed Inter Chip) hub's down stream port is modified
+to support Inter-Chip USB for connecting the UICC device. The USB3503 is
+connected to MSM via HSIC interface. The UICC device operates in Full Speed
+mode.
+
+The UICC device will support CCID (Integrated Circuit Card interface Device)
+specification. This interface supports 1 Bulk In, 1 Bulk Out and 1 Interrupt
+endpoint. The Interrupt endpoint is used by the device to send asynchronous
+notifications like card insertion/removal and hardware error events.
+The Bulk endpoints are used for the data communication.
+
+The UICC device will support the Mass Storage Bulk Only 1.0 specification.
+It supports SCSI Transparent subclass '06', corresponding to support of the
+SCSI Primary Command set. It implements SCSI Peripheral Device Type '00'
+(TYPE_DISK) corresponding to a direct access SCSI block device.
+
+Software description
+====================
+
+The MSM HSIC controller driver(drivers/usb/host/ehci-msm-hsic.c)  takes care
+of HSIC PHY and link management. The USB3503 HSIC hub is managed by the SMSC
+hub driver(drivers/misc/smsc_hubc.c). Both these drivers are well tested on
+APQ8074 dragon board and are re-used to support this feature.
+
+The mass storage interface is managed by the standard Linux USB storage driver.
+This driver interfaces with SCSI and block layers to export the disk to
+user space.
+
+A new USB driver is implemented to manage the CCID interface. This driver is
+referred to as USB CCID driver in this document. This driver is implemented
+as a pass-through module and provides the character device interface to
+user space. The CCID specification is implemented in the user space.
+
+The CCID command and responses are exchanged over the Bulk endpoints. The
+user space application uses write() and read() calls to send commands and
+receive responses.
+
+The CCID class specific requests are sent over the control endpoint. As
+control requests have a specific format, ioctls are implemented.
+
+The UICC device sends asynchronous notifications over the interrupt endpoint.
+The card insertion/removal and hardware error events are sent to user space
+via an ioctl().
+
+Design Goals:
+============
+
+1. Re-use the existing services available in user space. This is achieved
+by implementing the kernel USB CCID driver as a pass-through module.
+
+2. Support runtime card insertion/removal.
+
+3. Support runtime power management.
+
+4. Support Multiple card configuration. More than 1 IC can be connected to
+the USB UICC device.
+
+Power Management
+================
+
+The USB core uses the runtime PM framework to auto suspend the USB devices that
+are not in use. The Auto-suspend is forbidden for all devices except hub class
+devices. The USB CCID driver enables auto-suspend for the UICC device.
+
+An USB device can be suspended only when all of its interfaces are suspended.
+The USB storage interface device acts as a parent device to the underlying
+SCSI host, target and block devices. Runtime PM must be enabled for the
+SCSI device to allow USB storage interface suspend. The SCSI device runtime
+suspend and auto-suspend timeout will be configured from user space via sysfs
+files.
+
+The HSIC platform device and USB3503 HUB device will be runtime suspended
+only after the USB UICC device is suspended.
+
+SMP/multi-core
+==============
+
+The USB CCID driver does not allow multiple clients to open the device file
+concurrently. -EBUSY will be returned if open() is attempted when the
+file is already opened.
+
+The write() and read() methods are implemented synchronously. If another
+write() is called when a previous write() is in progress, -EBUSY is
+returned. The same is applicable to read().
+
+Mutexes will be used to prevent concurrent open(), read() and write() access.
+
+Interface
+=========
+
+A character device file (/dev/ccid_bridge) will be exposed by the USB CCID
+driver. open(), read(), write(), ioctl() and close() methods are implemented.
+This device node is accessible only to the root by default.  User space init
+or udev scripts should change the permissions of this device file if it needs
+to be accessed by non-root applications.
+
+open(): The open() is blocked until the UICC device is detected and the CCID
+interface probe is completed. Returns the appropriate error code in case of
+failure.
+
+read(): An URB is submitted on the Bulk In endpoint. The read() is blocked
+until the URB is completed and the data is copied to the user space buffer
+upon success. An appropriate error code is returned in case of failure.
+-ENODEV must be treated as a serious error and no further I/O will be
+attempted.
+
+write(): An URB is submitted on the Bulk Out endpoint. The write() is blocked
+until the URB is completed. An appropriate error code is returned in case of
+failure. -ENODEV must be treated as a serious error and no further I/O will be
+attempted.
+
+ioctl(): The ioctl() method is required for facilitating Control transfers and
+Interrupt transfers.
+
+USB_CCID_GET_CLASS_DESC: This read-only ioctl returns the smart card class
+descriptor as described in the 5.1 section of USB smart card class spec.
+
+USB_CCID_ABORT: This write-only ioctl sends A ABORT class specific request on
+control endpoint. The class request details are mentioned in section 5.3.1.
+
+USB_CCID_GET_CLOCK_FREQUENCIES: This read and write ioctl returns the clock
+frequencies supported by the CCID device. A GET_CLOCK_FREQUENCIES class request
+is sent on the control endpoint. The class request details are mentioned in
+section 5.3.2.
+
+USB_CCID_GET_DATA_RATES: This read and write ioctl returns the data rates
+supported by the CCID device. A GET_DATA_RATES class request is sent on the
+control endpoint. The class request details are mentioned in section 5.3.3.
+
+USB_CCID_GET_EVENT: This read-only ioctl returns the asynchronous event sent
+by the UICC device. The ioctl() is blocked until such event is received from
+the UICC device. This ioctl() returns -ENOENT error code when the device
+does not have an interrupt endpoint and does not support remote wakeup
+capability.
+
+close(): Cancels any ongoing I/O before it returns.
+
+Config options
+==============
+
+Turn on USB_EHCI_MSM_HSIC, USB_HSIC_SMSC_HUB and USB_CCID_BRIDGE configs to
+enable this feature.
+
+References
+==========
+
+Specification for Integrated Circuit(s) Cards Interface Devices
+
+Smart Cards; UICC-Terminal interface; Physical and logical characteristics
