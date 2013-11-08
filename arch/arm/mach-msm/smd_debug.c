@@ -112,7 +112,7 @@ static void debug_read_smd_version(struct seq_file *s)
 	uint32_t *smd_ver;
 	uint32_t n, version;
 
-	smd_ver = smem_alloc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
+	smd_ver = smem_find(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
 
 	if (smd_ver)
 		for (n = 0; n < 32; n++) {
