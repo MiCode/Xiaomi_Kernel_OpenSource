@@ -1788,6 +1788,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	unsigned long flags;
 	u8 ctrl;
 	struct mmc_host *mmc = host->mmc;
+	int ret;
 
 	if (host->flags & SDHCI_DEVICE_DEAD) {
 		if (!IS_ERR(mmc->supply.vmmc) &&
@@ -1800,6 +1801,25 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		(ios->power_mode == MMC_POWER_UP) &&
 		!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN))
 		sdhci_enable_preset_value(host, false);
+
+	/*
+	 * The controller clocks may be off during power-up and we may end up
+	 * enabling card clock before giving power to the card. Hence, during
+	 * MMC_POWER_UP enable the controller clock and turn-on the regulators.
+	 * The mmc_power_up would provide the necessary delay before turning on
+	 * the clocks to the card.
+	 */
+	if (ios->power_mode & MMC_POWER_UP) {
+		if (host->ops->enable_controller_clock) {
+			ret = host->ops->enable_controller_clock(host);
+			if (ret) {
+				pr_err("%s: enabling controller clock: failed: %d\n",
+				       mmc_hostname(host->mmc), ret);
+			} else {
+				sdhci_set_power(host, ios->power_mode, ios->vdd);
+			}
+		}
+	}
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (!ios->clock || ios->clock != host->clock) {
@@ -1822,7 +1842,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	if (ios->power_mode & (MMC_POWER_UP | MMC_POWER_ON))
+	if (!host->ops->enable_controller_clock && (ios->power_mode &
+						    (MMC_POWER_UP |
+						     MMC_POWER_ON)))
 		sdhci_set_power(host, ios->power_mode, ios->vdd);
 
 	spin_lock_irqsave(&host->lock, flags);
