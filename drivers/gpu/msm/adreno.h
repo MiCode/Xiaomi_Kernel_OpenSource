@@ -547,9 +547,6 @@ uint8_t *adreno_convertaddr(struct kgsl_device *device,
 	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size,
 	struct kgsl_mem_entry **entry);
 
-struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
-	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size);
-
 void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		int hang);
 
