@@ -3,7 +3,7 @@
  * Virtual Ethernet Interface for MSM7K Networking
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -488,7 +488,8 @@ static int __rmnet_open(struct net_device *dev)
 	mutex_unlock(&p->pil_lock);
 
 	if (!p->ch) {
-		r = smd_open(p->chname, &p->ch, dev, smd_net_notify);
+		r = smd_named_open_on_edge(p->chname, SMD_APPS_MODEM, &p->ch,
+							dev, smd_net_notify);
 
 		if (r < 0)
 			return -ENODEV;
