@@ -1403,20 +1403,6 @@ static int ipa_get_clks(struct device *dev)
 	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
 		return 0;
 
-	ipa_cnoc_clk = clk_get(dev, "iface_clk");
-	if (IS_ERR(ipa_cnoc_clk)) {
-		ipa_cnoc_clk = NULL;
-		IPAERR("fail to get cnoc clk\n");
-		return -ENODEV;
-	}
-
-	ipa_clk_src = clk_get(dev, "core_src_clk");
-	if (IS_ERR(ipa_clk_src)) {
-		ipa_clk_src = NULL;
-		IPAERR("fail to get ipa clk src\n");
-		return -ENODEV;
-	}
-
 	ipa_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(ipa_clk)) {
 		ipa_clk = NULL;
@@ -1424,35 +1410,53 @@ static int ipa_get_clks(struct device *dev)
 		return -ENODEV;
 	}
 
-	sys_noc_ipa_axi_clk = clk_get(dev, "bus_clk");
-	if (IS_ERR(sys_noc_ipa_axi_clk)) {
-		sys_noc_ipa_axi_clk = NULL;
-		IPAERR("fail to get sys_noc_ipa_axi clk\n");
-		return -ENODEV;
-	}
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_0) {
+		ipa_cnoc_clk = clk_get(dev, "iface_clk");
+		if (IS_ERR(ipa_cnoc_clk)) {
+			ipa_cnoc_clk = NULL;
+			IPAERR("fail to get cnoc clk\n");
+			return -ENODEV;
+		}
 
-	ipa_inactivity_clk = clk_get(dev, "inactivity_clk");
-	if (IS_ERR(ipa_inactivity_clk)) {
-		ipa_inactivity_clk = NULL;
-		IPAERR("fail to get inactivity clk\n");
-		return -ENODEV;
+		ipa_clk_src = clk_get(dev, "core_src_clk");
+		if (IS_ERR(ipa_clk_src)) {
+			ipa_clk_src = NULL;
+			IPAERR("fail to get ipa clk src\n");
+			return -ENODEV;
+		}
+
+		sys_noc_ipa_axi_clk = clk_get(dev, "bus_clk");
+		if (IS_ERR(sys_noc_ipa_axi_clk)) {
+			sys_noc_ipa_axi_clk = NULL;
+			IPAERR("fail to get sys_noc_ipa_axi clk\n");
+			return -ENODEV;
+		}
+
+		ipa_inactivity_clk = clk_get(dev, "inactivity_clk");
+		if (IS_ERR(ipa_inactivity_clk)) {
+			ipa_inactivity_clk = NULL;
+			IPAERR("fail to get inactivity clk\n");
+			return -ENODEV;
+		}
 	}
 
 	return 0;
 }
 
-/**
-* ipa_enable_clks() - Turn on IPA clocks
-*
-* Return codes:
-* None
-*/
-void ipa_enable_clks(void)
+void _ipa_enable_clks_v2_0(void)
 {
-	IPADBG("enabling IPA clocks and bus voting\n");
+	IPADBG("enabling gcc_ipa_clk\n");
+	if (ipa_clk) {
+		clk_prepare(ipa_clk);
+		clk_enable(ipa_clk);
+		clk_set_rate(ipa_clk, ipa_ctx->ctrl->ipa_clk_rate);
+	} else {
+		WARN_ON(1);
+	}
+}
 
-	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
-		return;
+void _ipa_enable_clks_v1(void)
+{
 
 	if (ipa_cnoc_clk) {
 		clk_prepare(ipa_cnoc_clk);
@@ -1464,7 +1468,7 @@ void ipa_enable_clks(void)
 
 	if (ipa_clk_src)
 		clk_set_rate(ipa_clk_src,
-				ipa_ctx->ctrl->ipa_src_clk_rate);
+				ipa_ctx->ctrl->ipa_clk_rate);
 	else
 		WARN_ON(1);
 
@@ -1498,22 +1502,29 @@ void ipa_enable_clks(void)
 	else
 		WARN_ON(1);
 
-	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 1))
-		WARN_ON(1);
 }
 
 /**
-* ipa_disable_clks() - Turn off IPA clocks
+* ipa_enable_clks() - Turn on IPA clocks
 *
 * Return codes:
 * None
 */
-void ipa_disable_clks(void)
+void ipa_enable_clks(void)
 {
-	IPADBG("disabling IPA clocks and bus voting\n");
+	IPADBG("enabling IPA clocks and bus voting\n");
 
 	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
-			return;
+		return;
+
+	ipa_ctx->ctrl->ipa_enable_clks();
+
+	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 1))
+		WARN_ON(1);
+}
+
+void _ipa_disable_clks_v1(void)
+{
 
 	if (ipa_inactivity_clk)
 		clk_disable_unprepare(ipa_inactivity_clk);
@@ -1535,10 +1546,35 @@ void ipa_disable_clks(void)
 	else
 		WARN_ON(1);
 
-	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 0))
+}
+
+void _ipa_disable_clks_v2_0(void)
+{
+	IPADBG("disabling gcc_ipa_clk\n");
+	if (ipa_clk)
+		clk_disable_unprepare(ipa_clk);
+	else
 		WARN_ON(1);
 }
 
+/**
+* ipa_disable_clks() - Turn off IPA clocks
+*
+* Return codes:
+* None
+*/
+void ipa_disable_clks(void)
+{
+	IPADBG("disabling IPA clocks and bus voting\n");
+
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_NORMAL)
+			return;
+
+	ipa_ctx->ctrl->ipa_disable_clks();
+
+	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 0))
+		WARN_ON(1);
+}
 /**
 * ipa_inc_client_enable_clks() - Increase active clients counter, and
 * enable ipa clocks if necessary

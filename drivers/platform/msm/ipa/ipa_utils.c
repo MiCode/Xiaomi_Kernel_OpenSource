@@ -2783,7 +2783,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
-		ctrl->ipa_src_clk_rate = IPA_V1_CLK_RATE;
+		ctrl->ipa_clk_rate = IPA_V1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
@@ -2791,6 +2791,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_flt = __ipa_commit_flt_v1;
 		ctrl->ipa_commit_rt = __ipa_commit_rt_v1;
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
+		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
+		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		break;
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
@@ -2806,7 +2808,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
-		ctrl->ipa_src_clk_rate = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate = IPA_V1_1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_1;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
@@ -2814,6 +2816,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_flt = __ipa_commit_flt_v1;
 		ctrl->ipa_commit_rt = __ipa_commit_rt_v1;
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
+		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
+		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		break;
 	case (IPA_HW_v2_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
@@ -2829,7 +2833,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
-		ctrl->ipa_src_clk_rate = IPA_V2_0_CLK_RATE;
+		ctrl->ipa_clk_rate = IPA_V2_0_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
@@ -2837,6 +2841,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_flt = __ipa_commit_flt_v2;
 		ctrl->ipa_commit_rt = __ipa_commit_rt_v2;
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
+		ctrl->ipa_enable_clks = _ipa_enable_clks_v2_0;
+		ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
 		break;
 	default:
 		return -EPERM;
