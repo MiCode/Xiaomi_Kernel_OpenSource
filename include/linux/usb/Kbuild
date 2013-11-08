@@ -1,4 +1,5 @@
 header-y += audio.h
+header-y += ccid_bridge.h
 header-y += cdc.h
 header-y += ch9.h
 header-y += ch11.h
