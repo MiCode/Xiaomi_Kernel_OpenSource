@@ -977,7 +977,7 @@
 		qcom,scl-gpio = <&msmgpio 11 0>;
 		qcom,master-id = <86>;
 	};
-	i2c@f9926000 { /* BLSP-1 QUP-4 */
+	i2c_0: i2c@f9926000 { /* BLSP-1 QUP-4 */
 		cell-index = <0>;
 		compatible = "qcom,i2c-qup";
 		reg = <0xf9926000 0x1000>;
@@ -987,6 +987,8 @@
 		interrupts = <0 98 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,master-id = <86>;
 	};
 
 	i2c@f9927000 { /* BLSP1 QUP5 */
