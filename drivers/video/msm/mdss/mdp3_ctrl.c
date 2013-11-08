@@ -1525,6 +1525,10 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 		goto init_done;
 	}
 
+	rc = mdp3_create_sysfs_link(dev);
+	if (rc)
+		pr_warn("problem creating link to mdp sysfs\n");
+
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
 
