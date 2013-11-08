@@ -265,22 +265,6 @@ phys_addr_t smem_virt_to_phys(void *smem_address)
 EXPORT_SYMBOL(smem_virt_to_phys);
 
 /**
- * smem_alloc_to_proc - Find existing item with security support
- *
- * @id:       ID of SMEM item
- * @size:     Size of the SMEM item
- * @to_proc:  SMEM host that shares the item with apps
- * @flags:    Item attribute flags
- * @returns:  Pointer to SMEM item or NULL if it doesn't exist
- */
-void *smem_alloc_to_proc(unsigned id, unsigned size, unsigned to_proc,
-								unsigned flags)
-{
-	return smem_find_to_proc(id, size, to_proc, flags);
-}
-EXPORT_SYMBOL(smem_alloc_to_proc);
-
-/**
  * __smem_get_entry - Get pointer and size of existing SMEM item
  *
  * @id:              ID of SMEM item
