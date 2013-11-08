@@ -35,6 +35,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
+#include <linux/msm_thermal_ioctl.h>
 
 #define MAX_RAILS 5
 #define MAX_THRESHOLD 2
@@ -94,6 +95,8 @@ struct cpu_info {
 	bool hotplug_thresh_clear;
 	struct sensor_threshold threshold[THRESHOLD_MAX_NR];
 	bool max_freq;
+	uint32_t user_max_freq;
+	uint32_t user_min_freq;
 	uint32_t limited_max_freq;
 	uint32_t limited_min_freq;
 	bool freq_thresh_clear;
@@ -1174,7 +1177,7 @@ init_kthread:
 static __ref int do_freq_mitigation(void *data)
 {
 	int ret = 0;
-	uint32_t cpu = 0, max_freq_req = 0;
+	uint32_t cpu = 0, max_freq_req = 0, min_freq_req = 0;
 
 	while (!kthread_should_stop()) {
 		wait_for_completion(&freq_mitigation_complete);
@@ -1185,17 +1188,23 @@ static __ref int do_freq_mitigation(void *data)
 			max_freq_req = (cpus[cpu].max_freq) ?
 					msm_thermal_info.freq_limit :
 					UINT_MAX;
+			max_freq_req = min(max_freq_req,
+					cpus[cpu].user_max_freq);
+
+			min_freq_req = max(min_freq_limit,
+					cpus[cpu].user_min_freq);
 
 			if ((max_freq_req == cpus[cpu].limited_max_freq)
-				&& (min_freq_limit ==
+				&& (min_freq_req ==
 				cpus[cpu].limited_min_freq))
 				goto reset_threshold;
 
 			cpus[cpu].limited_max_freq = max_freq_req;
-			cpus[cpu].limited_min_freq = min_freq_limit;
+			cpus[cpu].limited_min_freq = min_freq_req;
 			update_cpu_freq(cpu);
 reset_threshold:
-			if (cpus[cpu].freq_thresh_clear) {
+			if (freq_mitigation_enabled &&
+				cpus[cpu].freq_thresh_clear) {
 				set_threshold(cpus[cpu].sensor_id,
 				&cpus[cpu].threshold[FREQ_THRESHOLD_HIGH]);
 
@@ -1257,8 +1266,10 @@ static void freq_mitigation_init(void)
 	uint32_t cpu = 0;
 	struct sensor_threshold *hi_thresh = NULL, *low_thresh = NULL;
 
-	if (!freq_mitigation_enabled || freq_mitigation_task)
+	if (freq_mitigation_task)
 		return;
+	if (!freq_mitigation_enabled)
+		goto init_freq_thread;
 
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.freq_mitig_control_mask & BIT(cpu)))
@@ -1277,7 +1288,7 @@ static void freq_mitigation_init(void)
 
 		set_threshold(cpus[cpu].sensor_id, hi_thresh);
 	}
-
+init_freq_thread:
 	init_completion(&freq_mitigation_complete);
 	freq_mitigation_task = kthread_run(do_freq_mitigation, NULL,
 		"msm_thermal:freq_mitig");
@@ -1287,6 +1298,41 @@ static void freq_mitigation_init(void)
 				KBUILD_MODNAME);
 		return;
 	}
+}
+
+int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq, bool is_max)
+{
+	int ret = 0;
+
+	if (cpu >= num_possible_cpus()) {
+		pr_err("%s: Invalid input\n", KBUILD_MODNAME);
+		ret = -EINVAL;
+		goto set_freq_exit;
+	}
+
+	if (is_max) {
+		if (cpus[cpu].user_max_freq == freq)
+			goto set_freq_exit;
+
+		cpus[cpu].user_max_freq = freq;
+	} else {
+		if (cpus[cpu].user_min_freq == freq)
+			goto set_freq_exit;
+
+		cpus[cpu].user_min_freq = freq;
+	}
+
+	if (freq_mitigation_task) {
+		complete(&freq_mitigation_complete);
+	} else {
+		pr_err("%s: Frequency mitigation task is not initialized\n",
+			KBUILD_MODNAME);
+		ret = -ESRCH;
+		goto set_freq_exit;
+	}
+
+set_freq_exit:
+	return ret;
 }
 
 /*
@@ -2097,6 +2143,8 @@ static int probe_freq_mitigation(struct device_node *node,
 	freq_mitigation_enabled = 1;
 	for_each_possible_cpu(cpu) {
 		cpus[cpu].max_freq = false;
+		cpus[cpu].user_max_freq = UINT_MAX;
+		cpus[cpu].user_min_freq = 0;
 		cpus[cpu].limited_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
 		cpus[cpu].freq_thresh_clear = false;
@@ -2176,6 +2224,7 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 		msm_thermal_add_vdd_rstr_nodes();
 		vdd_rstr_nodes_called = false;
 	}
+	msm_thermal_ioctl_init();
 	ret = msm_thermal_init(&data);
 
 	return ret;
@@ -2189,6 +2238,7 @@ fail:
 
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
+	msm_thermal_ioctl_cleanup();
 	return 0;
 }
 
