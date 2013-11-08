@@ -1183,42 +1183,78 @@ static void hfi_process_session_get_seq_hdr_done(
 	callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
 
-void hfi_process_sys_property_info(
-		struct hfi_property_sys_image_version_info_type *pkt)
+static void hfi_process_sys_get_prop_image_version(
+		struct hfi_msg_sys_property_info_packet *pkt)
 {
 	int i = 0;
 	u32 smem_block_size = 0;
 	u8 *smem_table_ptr;
 	char version[256];
+	const u32 version_string_size = 128;
 	const u32 smem_image_index_venus = 14 * 128;
+	u8 *str_image_version;
+	int req_bytes;
 
-	if (!pkt || !pkt->string_size) {
+	req_bytes = pkt->size - sizeof(*pkt);
+	if (req_bytes < version_string_size ||
+			!pkt->rg_property_data[1] ||
+			pkt->num_properties > 1) {
+		dprintk(VIDC_ERR,
+				"hfi_process_sys_get_prop_image_version:bad_pkt: %d",
+				req_bytes);
+		return;
+	}
+	str_image_version = (u8 *)&pkt->rg_property_data[1];
+	/*
+	 * The version string returned by firmware includes null
+	 * characters at the start and in between. Replace the null
+	 * characters with space, to print the version info.
+	 */
+	for (i = 0; i < version_string_size; i++) {
+		if (str_image_version[i] != '\0')
+			version[i] = str_image_version[i];
+		else
+			version[i] = ' ';
+	}
+	version[i] = '\0';
+	dprintk(VIDC_DBG, "F/W version: %s\n", version);
+
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
+			&smem_block_size);
+	if (smem_table_ptr &&
+			((smem_image_index_venus +
+				version_string_size) <= smem_block_size))
+		memcpy(smem_table_ptr + smem_image_index_venus,
+				str_image_version, version_string_size);
+}
+
+static void hfi_process_sys_property_info(
+		struct hfi_msg_sys_property_info_packet *pkt)
+{
+	if (!pkt) {
 		dprintk(VIDC_ERR, "%s: invalid param\n", __func__);
 		return;
 	}
-
-	if (pkt->string_size < sizeof(version)) {
-		/*
-		 * The version string returned by firmware includes null
-		 * characters at the start and in between. Replace the null
-		 * characters with space, to print the version info.
-		 */
-		for (i = 0; i < pkt->string_size; i++) {
-			if (pkt->str_image_version[i] != '\0')
-				version[i] = pkt->str_image_version[i];
-			else
-				version[i] = ' ';
-		}
-		version[i] = '\0';
-		dprintk(VIDC_DBG, "F/W version: %s\n", version);
+	if (pkt->size < sizeof(*pkt)) {
+		dprintk(VIDC_ERR,
+				"hfi_process_sys_property_info: bad_pkt_size\n");
+		return;
+	}
+	if (pkt->num_properties == 0) {
+		dprintk(VIDC_ERR,
+				"hfi_process_sys_property_info: no_properties\n");
+		return;
 	}
 
-	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
-						&smem_block_size);
-	if (smem_table_ptr &&
-		((smem_image_index_venus + 128) <= smem_block_size))
-		memcpy(smem_table_ptr + smem_image_index_venus,
-			   (u8 *)pkt->str_image_version, 128);
+	switch (pkt->rg_property_data[0]) {
+	case HFI_PROPERTY_SYS_IMAGE_VERSION:
+		hfi_process_sys_get_prop_image_version(pkt);
+		break;
+	default:
+		dprintk(VIDC_ERR,
+				"hfi_process_sys_property_info:unknown_prop_id: %d\n",
+				pkt->rg_property_data[0]);
+	}
 }
 
 u32 hfi_process_msg_packet(
@@ -1263,7 +1299,7 @@ u32 hfi_process_msg_packet(
 		break;
 	case HFI_MSG_SYS_PROPERTY_INFO:
 		hfi_process_sys_property_info(
-		   (struct hfi_property_sys_image_version_info_type *)
+		   (struct hfi_msg_sys_property_info_packet *)
 			msg_hdr);
 		break;
 	case HFI_MSG_SYS_SESSION_END_DONE:
