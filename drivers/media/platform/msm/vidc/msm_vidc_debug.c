@@ -127,6 +127,58 @@ static const struct file_operations ssr_fops = {
 	.write = trigger_ssr_write,
 };
 
+struct dentry *msm_vidc_debugfs_init_drv(void)
+{
+	struct dentry *dir = debugfs_create_dir("msm_vidc", NULL);
+	if (IS_ERR_OR_NULL(dir)) {
+		dir = NULL;
+		goto failed_create_dir;
+	}
+
+	if (!debugfs_create_u32("debug_level", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_debug)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("fw_level", S_IRUGO | S_IWUSR,
+			dir, &msm_fw_debug)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("fw_debug_mode", S_IRUGO | S_IWUSR,
+			dir, &msm_fw_debug_mode)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("fw_low_power_mode", S_IRUGO | S_IWUSR,
+			dir, &msm_fw_low_power_mode)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("vp8_low_tier", S_IRUGO | S_IWUSR,
+			dir, &msm_vp8_low_tier)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("debug_output", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_debug_out)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("hw_rsp_timeout", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_hw_rsp_timeout)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	return dir;
+
+failed_create_dir:
+	if (dir)
+		debugfs_remove_recursive(vidc_driver->debugfs_root);
+
+	return NULL;
+}
+
 struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent)
 {
@@ -147,43 +199,8 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
-	if (!debugfs_create_u32("debug_level", S_IRUGO | S_IWUSR,
-			parent,	&msm_vidc_debug)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("fw_level", S_IRUGO | S_IWUSR,
-			parent, &msm_fw_debug)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
 	if (!debugfs_create_file("trigger_ssr", S_IWUSR,
 			dir, core, &ssr_fops)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("fw_debug_mode", S_IRUGO | S_IWUSR,
-			parent, &msm_fw_debug_mode)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("fw_low_power_mode", S_IRUGO | S_IWUSR,
-			parent, &msm_fw_low_power_mode)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("vp8_low_tier", S_IRUGO | S_IWUSR,
-			parent, &msm_vp8_low_tier)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("debug_output", S_IRUGO | S_IWUSR,
-			parent, &msm_vidc_debug_out)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("hw_rsp_timeout", S_IRUGO | S_IWUSR,
-			parent, &msm_vidc_hw_rsp_timeout)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
