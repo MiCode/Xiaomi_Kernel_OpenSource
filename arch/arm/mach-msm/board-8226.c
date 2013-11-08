@@ -82,6 +82,8 @@ static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 			"msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9864900, \
 			"msm_sdcc.3", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),
+
 	{}
 };
 

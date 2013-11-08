@@ -183,8 +183,8 @@
 			<268000 348000>,
 			<505000 657000>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-			<0x2 0x2>,
-			<0x1f0 0x3>;
+			<0x6 0x2>,
+			<0x7C0 0x3>;
 		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {

@@ -10,13 +10,13 @@ Each LED module is represented as a node of "leds-qpnp". This
 node will further contain the type of LED supported and its
 properties.  At least one child node is required for each LED
 module.  Each must have the required properties below, in addition
-to the properties for the LED type, WLED, Flash or RGB.
+to the properties for the LED type, WLED, Flash, RGB and MPP.
 
 Required properties for each child node, WLED, Flash and RGB:
 - compatible		: should be "qcom,leds-qpnp"
 - qcom,id		: must be one of values supported in enum qpnp_led
 - label			: type of led that will be used, ie "wled"
-- qcom,max-current	: maximum current that the LED can sustain
+- qcom,max-current	: maximum current that the LED can sustain in mA
 - linux,name		: name of the led that is used in led framework
 
 WLED is primarily used as display backlight. Display subsystem uses
@@ -85,6 +85,7 @@ Optional properties for MPP LED:
 - qcom,vin-ctrl: select input source, supported values are 0 to 3
 - qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
 - qcom,min-brightness - Lowest possible brightness supported on this LED other than 0.
+- qcom,current-setting: default current value for wled used as button backlight in mA
 
 Required properties for PWM mode only:
 - qcom,pwm-channel: pwm channel the led will operate on
@@ -130,6 +131,22 @@ Optional properties for LPG mode only:
 - qcom,lut-flags: flags to be used in lut configuration
 
 Example:
+
+	qcom,leds@a100 {
+		status = "okay";
+		qcom,led_mpp_2 {
+			label = "mpp";
+			linux,name = "button-backlight";
+			linux,default-trigger = "hr-trigger";
+			qcom,default-state = "off";
+			qcom,current-setting = <20>;
+			qcom,max-current = <40>;
+			qcom,id = <6>;
+			qcom,source-sel = <1>;
+			qcom,mode-ctrl = <0x61>;
+			qcom,mode = "manual";
+		};
+	};
 
 	qcom,leds@a200 {
 		status = "okay";

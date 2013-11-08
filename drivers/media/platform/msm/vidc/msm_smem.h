@@ -28,6 +28,10 @@ enum smem_prop {
 	SMEM_SECURE = ION_FLAG_SECURE,
 };
 
+/* NOTE: if you change this enum you MUST update the
+ * "buffer-type-tz-usage-table" for any affected target
+ * in arch/arm/boot/dts/<arch>.dtsi
+ */
 enum hal_buffer {
 	HAL_BUFFER_INPUT = 0x1,
 	HAL_BUFFER_OUTPUT = 0x2,
