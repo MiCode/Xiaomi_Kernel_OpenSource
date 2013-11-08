@@ -10,13 +10,14 @@
  * GNU General Public License for more details.
  */
 
+
 /dts-v1/;
-/include/ "msm8226-v2.dtsi"
-/include/ "msm8226-mtp.dtsi"
+/include/ "msm8926.dtsi"
+/include/ "msm8226-720p-mtp.dtsi"
 /include/ "msm8226-camera-sensor-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226v2 MTP";
-	compatible = "qcom,msm8226-mtp", "qcom,msm8226", "qcom,mtp";
+	model = "Qualcomm MSM 8926 MTP";
+	compatible = "qcom,msm8926-mtp", "qcom,msm8926", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };
