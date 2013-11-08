@@ -474,7 +474,7 @@ static struct pll_vote_clk gpll4_clk_src = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &xo_clk_src.c,
-		.rate = 800000000,
+		.rate = 288000000,
 		.dbg_name = "gpll4_clk_src",
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll4_clk_src.c),
@@ -1183,7 +1183,6 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_4_apps_clk[] = {
 	F( 50000000,      gpll0,   12, 0, 0),
 	F(100000000,      gpll0,    6, 0, 0),
 	F(200000000,      gpll0,    3, 0, 0),
-	F(400000000,      gpll4,    2, 0, 0),
 	F_END
 };
 
@@ -2647,16 +2646,16 @@ static struct pll_config_regs gpll4_regs __initdata = {
 	.base = &virt_bases[GCC_BASE],
 };
 
-/* PLL4 at 800 MHz, main output enabled. LJ mode. */
+/* PLL4 at 288 MHz, main output enabled. LJ mode. */
 static struct pll_config gpll4_config __initdata = {
-	.l = 0x29,
-	.m = 0x2,
-	.n = 0x3,
+	.l = 0x1e,
+	.m = 0x0,
+	.n = 0x1,
 	.vco_val = 0x1,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
 	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
+	.post_div_val = BIT(8),
 	.post_div_mask = BM(9, 8),
 	.mn_ena_val = BIT(24),
 	.mn_ena_mask = BIT(24),
