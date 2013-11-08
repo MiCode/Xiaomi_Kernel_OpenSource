@@ -156,7 +156,6 @@ enum {
 };
 
 #ifdef CONFIG_MSM_SMD
-void *smem_alloc2(unsigned id, unsigned size_in);
 void *smem_get_entry(unsigned id, unsigned *size);
 void *smem_find(unsigned id, unsigned size);
 
@@ -183,7 +182,7 @@ void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out);
 /**
  * smem_virt_to_phys() - Convert SMEM address to physical address.
  *
- * @smem_address: Virtual address returned by smem_alloc()/smem_alloc2()
+ * @smem_address: Virtual address returned by smem_alloc()
  * @returns: Physical address (or NULL if there is a failure)
  *
  * This function should only be used if an SMEM item needs to be handed
@@ -199,10 +198,6 @@ phys_addr_t smem_virt_to_phys(void *smem_address);
 int __init msm_smem_init(void);
 
 #else
-static inline void *smem_alloc2(unsigned id, unsigned size_in)
-{
-	return NULL;
-}
 static inline void *smem_get_entry(unsigned id, unsigned *size)
 {
 	return NULL;
