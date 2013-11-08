@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,6 +257,27 @@ void mdss_mdp_intersect_rect(struct mdss_mdp_img_rect *res_rect,
 	else
 		*res_rect = (struct mdss_mdp_img_rect){l, t, (r-l), (b-t)};
 }
+
+void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
+	struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect)
+{
+	struct mdss_mdp_img_rect res;
+	mdss_mdp_intersect_rect(&res, dst_rect, sci_rect);
+
+	if (res.w && res.h) {
+		if ((res.w != dst_rect->w) || (res.h != dst_rect->h)) {
+			src_rect->x = src_rect->x + (res.x - dst_rect->x);
+			src_rect->y = src_rect->y + (res.y - dst_rect->y);
+			src_rect->w = res.w;
+			src_rect->h = res.h;
+		}
+		*dst_rect = (struct mdss_mdp_img_rect)
+			{(res.x - sci_rect->x), (res.y - sci_rect->y),
+			res.w, res.h};
+	}
+}
+
 int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			       struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps)
