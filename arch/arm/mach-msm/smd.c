@@ -1732,20 +1732,20 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 
 	if (is_word_access_ch(ch->type)) {
 		struct smd_shared_v2_word_access *shared2;
-		shared2 = smem_alloc_to_proc(base_id + ch->n, sizeof(*shared2),
+		shared2 = smem_find_to_proc(base_id + ch->n, sizeof(*shared2),
 							r_info->remote_pid, 0);
 		if (!shared2) {
-			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
+			SMD_INFO("smem_find failed ch=%d\n", ch->n);
 			return -EINVAL;
 		}
 		ch->send = &shared2->ch0;
 		ch->recv = &shared2->ch1;
 	} else {
 		struct smd_shared_v2 *shared2;
-		shared2 = smem_alloc_to_proc(base_id + ch->n, sizeof(*shared2),
+		shared2 = smem_find_to_proc(base_id + ch->n, sizeof(*shared2),
 							r_info->remote_pid, 0);
 		if (!shared2) {
-			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
+			SMD_INFO("smem_find failed ch=%d\n", ch->n);
 			return -EINVAL;
 		}
 		ch->send = &shared2->ch0;
@@ -1788,7 +1788,7 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 static int smd_alloc_v1(struct smd_channel *ch)
 {
 	struct smd_shared_v1 *shared1;
-	shared1 = smem_alloc_to_proc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1),
+	shared1 = smem_find_to_proc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1),
 							0, SMEM_ANY_HOST_FLAG);
 	if (!shared1) {
 		pr_err("smd_alloc_channel() cid %d does not exist\n", ch->n);
@@ -2534,7 +2534,7 @@ static int smsm_init(void)
 	}
 	remote_spin_unlock_irqrestore(remote_spinlock, flags);
 
-	smsm_size_info = smem_alloc_to_proc(SMEM_SMSM_SIZE_INFO,
+	smsm_size_info = smem_find_to_proc(SMEM_SMSM_SIZE_INFO,
 				sizeof(struct smsm_size_info_type), 0,
 				SMEM_ANY_HOST_FLAG);
 	if (smsm_size_info) {
