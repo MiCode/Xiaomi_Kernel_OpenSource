@@ -243,7 +243,7 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
 
 		dev_err(hba->dev, "UPIU[%d] - Transfer Request Descriptor",
 				tag);
-		ufshcd_hex_dump("UPIU TRD: ", &lrbp->utr_descriptor_ptr,
+		ufshcd_hex_dump("UPIU TRD: ", lrbp->utr_descriptor_ptr,
 				sizeof(struct utp_transfer_req_desc));
 		dev_err(hba->dev, "UPIU[%d] - Request UPIU", tag);
 		ufshcd_hex_dump("UPIU REQ: ", lrbp->ucd_req_ptr,
