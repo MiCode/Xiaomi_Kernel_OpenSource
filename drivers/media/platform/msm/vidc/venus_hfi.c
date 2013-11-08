@@ -1826,132 +1826,31 @@ static int venus_hfi_session_set_property(void *sess,
 }
 
 static int venus_hfi_session_get_property(void *sess,
-				enum hal_property ptype, void *pdata)
+					enum hal_property ptype)
 {
+	struct hfi_cmd_session_get_property_packet pkt = {0};
 	struct hal_session *session;
-
-	if (!sess || !pdata) {
+	int rc = 0;
+	if (!sess) {
 		dprintk(VIDC_ERR, "Invalid Params in ");
 		return -EINVAL;
 	} else {
 		session = sess;
 	}
-	dprintk(VIDC_INFO, "IN func: , with property id: %d", ptype);
+	dprintk(VIDC_INFO, "%s: property id: %d", __func__, ptype);
 
-	switch (ptype) {
-	case HAL_CONFIG_FRAME_RATE:
-		break;
-	case HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT:
-		break;
-	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO:
-		break;
-	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_INFO:
-		break;
-	case HAL_PARAM_EXTRA_DATA_HEADER_CONFIG:
-		break;
-	case HAL_PARAM_FRAME_SIZE:
-		break;
-	case HAL_CONFIG_REALTIME:
-		break;
-	case HAL_PARAM_BUFFER_COUNT_ACTUAL:
-		break;
-	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
-		break;
-	case HAL_PARAM_VDEC_OUTPUT_ORDER:
-		break;
-	case HAL_PARAM_VDEC_PICTURE_TYPE_DECODE:
-		break;
-	case HAL_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO:
-		break;
-	case HAL_CONFIG_VDEC_POST_LOOP_DEBLOCKER:
-		break;
-	case HAL_PARAM_VDEC_MULTI_STREAM:
-		break;
-	case HAL_PARAM_VDEC_DISPLAY_PICTURE_BUFFER_COUNT:
-		break;
-	case HAL_PARAM_DIVX_FORMAT:
-		break;
-	case HAL_CONFIG_VDEC_MB_ERROR_MAP_REPORTING:
-		break;
-	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
-		break;
-	case HAL_CONFIG_VDEC_MB_ERROR_MAP:
-		break;
-	case HAL_CONFIG_VENC_REQUEST_IFRAME:
-		break;
-	case HAL_PARAM_VENC_MPEG4_SHORT_HEADER:
-		break;
-	case HAL_PARAM_VENC_MPEG4_AC_PREDICTION:
-		break;
-	case HAL_CONFIG_VENC_TARGET_BITRATE:
-		break;
-	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-		break;
-	case HAL_PARAM_VENC_H264_ENTROPY_CONTROL:
-		break;
-	case HAL_PARAM_VENC_RATE_CONTROL:
-		break;
-	case HAL_PARAM_VENC_MPEG4_TIME_RESOLUTION:
-		break;
-	case HAL_PARAM_VENC_MPEG4_HEADER_EXTENSION:
-		break;
-	case HAL_PARAM_VENC_H264_DEBLOCK_CONTROL:
-		break;
-	case HAL_PARAM_VENC_SESSION_QP:
-		break;
-	case HAL_CONFIG_VENC_INTRA_PERIOD:
-		break;
-	case HAL_CONFIG_VENC_IDR_PERIOD:
-		break;
-	case HAL_CONFIG_VPE_OPERATIONS:
-		break;
-	case HAL_PARAM_VENC_INTRA_REFRESH:
-		break;
-	case HAL_PARAM_VENC_MULTI_SLICE_CONTROL:
-		break;
-	case HAL_CONFIG_VPE_DEINTERLACE:
-		break;
-	case HAL_SYS_DEBUG_CONFIG:
-		break;
-	case HAL_PARAM_BUFFER_ALLOC_MODE:
-		break;
-	case HAL_PARAM_VDEC_FRAME_ASSEMBLY:
-		break;
-	case HAL_PARAM_VDEC_SCS_THRESHOLD:
-		break;
-	/*FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET*/
-	case HAL_CONFIG_BUFFER_REQUIREMENTS:
-	case HAL_CONFIG_PRIORITY:
-	case HAL_CONFIG_BATCH_INFO:
-	case HAL_PARAM_METADATA_PASS_THROUGH:
-	case HAL_SYS_IDLE_INDICATOR:
-	case HAL_PARAM_UNCOMPRESSED_FORMAT_SUPPORTED:
-	case HAL_PARAM_INTERLACE_FORMAT_SUPPORTED:
-	case HAL_PARAM_CHROMA_SITE:
-	case HAL_PARAM_PROPERTIES_SUPPORTED:
-	case HAL_PARAM_PROFILE_LEVEL_SUPPORTED:
-	case HAL_PARAM_CAPABILITY_SUPPORTED:
-	case HAL_PARAM_NAL_STREAM_FORMAT_SUPPORTED:
-	case HAL_PARAM_MULTI_VIEW_FORMAT:
-	case HAL_PARAM_MAX_SEQUENCE_HEADER_SIZE:
-	case HAL_PARAM_CODEC_SUPPORTED:
-	case HAL_PARAM_VDEC_MULTI_VIEW_SELECT:
-	case HAL_PARAM_VDEC_MB_QUANTIZATION:
-	case HAL_PARAM_VDEC_NUM_CONCEALED_MB:
-	case HAL_PARAM_VDEC_H264_ENTROPY_SWITCHING:
-	case HAL_PARAM_VENC_SLICE_DELIVERY_MODE:
-	case HAL_PARAM_VENC_MPEG4_DATA_PARTITIONING:
-
-	case HAL_CONFIG_BUFFER_COUNT_ACTUAL:
-	case HAL_CONFIG_VDEC_MULTI_STREAM:
-	case HAL_PARAM_VENC_MULTI_SLICE_INFO:
-	case HAL_CONFIG_VENC_TIMESTAMP_SCALE:
-	case HAL_PARAM_VENC_LOW_LATENCY:
-	default:
-		dprintk(VIDC_INFO, "DEFAULT: Calling 0x%x", ptype);
-		break;
+	rc = create_pkt_cmd_session_get_property(
+					&pkt, (u32)session, ptype);
+	if (rc) {
+		dprintk(VIDC_ERR, "get property profile: pkt failed");
+		goto err_create_pkt;
 	}
-	return 0;
+	if (venus_hfi_iface_cmdq_write(session->device, &pkt)) {
+		rc = -ENOTEMPTY;
+		dprintk(VIDC_ERR, "%s cmdq_write error\n", __func__);
+	}
+err_create_pkt:
+	return rc;
 }
 
 static void venus_hfi_set_default_sys_properties(
