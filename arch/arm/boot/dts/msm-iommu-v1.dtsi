@@ -1212,7 +1212,6 @@
 		interrupt-names = "pmon",
 				"global_cfg_NS_irq", "global_client_NS_irq",
 				"global_cfg_S_irq", "global_client_S_irq";
-		qcom,needs-alt-core-clk;
 		label = "bcast_iommu";
 		status = "disabled";
 
