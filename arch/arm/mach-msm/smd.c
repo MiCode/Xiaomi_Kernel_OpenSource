@@ -2553,7 +2553,7 @@ static int smsm_init(void)
 			"smsm_snapshot");
 
 	if (!smsm_info.state) {
-		smsm_info.state = smem_alloc2_to_proc(ID_SHARED_STATE,
+		smsm_info.state = smem_alloc(ID_SHARED_STATE,
 						SMSM_NUM_ENTRIES *
 						sizeof(uint32_t), 0,
 						SMEM_ANY_HOST_FLAG);
@@ -2567,8 +2567,7 @@ static int smsm_init(void)
 	}
 
 	if (!smsm_info.intr_mask) {
-		smsm_info.intr_mask = smem_alloc2_to_proc(
-						SMEM_SMSM_CPU_INTR_MASK,
+		smsm_info.intr_mask = smem_alloc(SMEM_SMSM_CPU_INTR_MASK,
 						SMSM_NUM_ENTRIES *
 						SMSM_NUM_HOSTS *
 						sizeof(uint32_t), 0,
@@ -2587,7 +2586,7 @@ static int smsm_init(void)
 	}
 
 	if (!smsm_info.intr_mux)
-		smsm_info.intr_mux = smem_alloc2_to_proc(SMEM_SMD_SMSM_INTR_MUX,
+		smsm_info.intr_mux = smem_alloc(SMEM_SMD_SMSM_INTR_MUX,
 							SMSM_NUM_INTR_MUX *
 							sizeof(uint32_t), 0,
 							SMEM_ANY_HOST_FLAG);

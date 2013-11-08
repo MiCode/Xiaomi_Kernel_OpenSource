@@ -357,7 +357,7 @@ static void *smp2p_get_local_smem_item(int remote_pid)
 
 			if (!item_ptr) {
 				size = sizeof(struct smp2p_smem_item);
-				item_ptr = smem_alloc2_to_proc(smem_id, size,
+				item_ptr = smem_alloc(smem_id, size,
 								remote_pid, 0);
 			}
 		}

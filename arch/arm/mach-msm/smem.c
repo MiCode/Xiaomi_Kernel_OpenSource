@@ -697,8 +697,8 @@ void *smem_alloc2(unsigned id, unsigned size_in)
 EXPORT_SYMBOL(smem_alloc2);
 
 /**
- * smem_alloc2_to_proc - Find an existing item, otherwise allocate it with
- *				security support
+ * smem_alloc - Find an existing item, otherwise allocate it with security
+ *		support
  *
  * @id:       ID of SMEM item
  * @size_in:  Size of the SMEM item
@@ -706,7 +706,7 @@ EXPORT_SYMBOL(smem_alloc2);
  * @flags:    Item attribute flags
  * @returns:  Pointer to SMEM item or NULL if it couldn't be found/allocated
  */
-void *smem_alloc2_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
+void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags)
 {
 	unsigned long lflags;
@@ -775,7 +775,7 @@ void *smem_alloc2_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
 	remote_spin_unlock_irqrestore(&remote_spinlock, lflags);
 	return ret;
 }
-EXPORT_SYMBOL(smem_alloc2_to_proc);
+EXPORT_SYMBOL(smem_alloc);
 
 void *smem_get_entry(unsigned id, unsigned *size)
 {
