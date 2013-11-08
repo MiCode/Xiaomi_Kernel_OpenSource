@@ -957,8 +957,7 @@ static struct adreno_coresight a4xx_coresight = {
 };
 
 #define A4XX_INT_MASK \
-	((1 << A3XX_INT_RBBM_GPU_IDLE) |		\
-	 (1 << A3XX_INT_RBBM_AHB_ERROR) |		\
+	((1 << A3XX_INT_RBBM_AHB_ERROR) |		\
 	 (1 << A3XX_INT_RBBM_REG_TIMEOUT) |		\
 	 (1 << A3XX_INT_RBBM_ME_MS_TIMEOUT) |		\
 	 (1 << A3XX_INT_RBBM_PFP_MS_TIMEOUT) |		\
@@ -980,7 +979,7 @@ static struct adreno_coresight a4xx_coresight = {
 	 (1 << A4XX_INT_RBBM_DPM_THERMAL_RED_ERR))
 
 static struct adreno_irq_funcs a4xx_irq_funcs[] = {
-	ADRENO_IRQ_CALLBACK(a3xx_gpu_idle_callback), /* 0 - RBBM_GPU_IDLE */
+	ADRENO_IRQ_CALLBACK(NULL),                   /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a3xx_a4xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a3xx_a4xx_err_callback), /* 2 - RBBM_REG_TIMEOUT */
 	/* 3 - RBBM_ME_MS_TIMEOUT */
