@@ -283,7 +283,7 @@ void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
 	pr_info("SMEM_SMSM_SLEEP_DELAY: %x\n", sleep_delay);
 	pr_info("SMEM_SMSM_LIMIT_SLEEP: %x\n", sleep_limit);
 
-	ptr = smem_alloc(SMEM_SLEEP_POWER_COLLAPSE_DISABLED, sizeof(*ptr));
+	ptr = smem_find(SMEM_SLEEP_POWER_COLLAPSE_DISABLED, sizeof(*ptr));
 	if (ptr)
 		pr_info("SMEM_SLEEP_POWER_COLLAPSE_DISABLED: %x\n", *ptr);
 	else
@@ -292,7 +292,7 @@ void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
 	pr_info("SMEM_SMSM_INT_INFO %x %x %x\n",
 		irq_mask, pending_irqs, wakeup_reason);
 
-	gpio = smem_alloc(SMEM_GPIO_INT, sizeof(*gpio));
+	gpio = smem_find(SMEM_GPIO_INT, sizeof(*gpio));
 	if (gpio) {
 		int i;
 		for (i = 0; i < NUM_GPIO_INT_REGISTERS; i++)
