@@ -490,11 +490,6 @@ static int profile_enable_set(void *data, u64 val)
 
 	mutex_lock(&device->mutex);
 
-	if (adreno_is_a2xx(adreno_dev)) {
-		mutex_unlock(&device->mutex);
-		return 0;
-	}
-
 	profile->enabled = val;
 
 	check_close_profile(profile);
@@ -514,9 +509,6 @@ static ssize_t profile_assignments_read(struct file *filep,
 	int len = 0, max_size = PAGE_SIZE;
 	char *buf, *pos;
 	ssize_t size = 0;
-
-	if (adreno_is_a2xx(adreno_dev))
-		return -EINVAL;
 
 	mutex_lock(&device->mutex);
 
@@ -671,9 +663,6 @@ static ssize_t profile_assignments_write(struct file *filep,
 
 	if (len >= PAGE_SIZE || len == 0)
 		return -EINVAL;
-
-	if (adreno_is_a2xx(adreno_dev))
-		return -ENOSPC;
 
 	mutex_lock(&device->mutex);
 
@@ -867,9 +856,6 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 	char *usr_buf = ubuf;
 	int status = 0;
 
-	if (adreno_is_a2xx(adreno_dev))
-		return 0;
-
 	/*
 	 * this file not seekable since it only supports streaming, ignore
 	 * ppos <> 0
@@ -925,10 +911,6 @@ static int profile_groups_print(struct seq_file *s, void *unused)
 	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
 	struct adreno_perfcount_group *group;
 	int i, j, used;
-
-	/* perfcounter list not allowed on a2xx */
-	if (adreno_is_a2xx(adreno_dev))
-		return -EINVAL;
 
 	mutex_lock(&device->mutex);
 
