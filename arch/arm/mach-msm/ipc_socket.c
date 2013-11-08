@@ -589,17 +589,24 @@ static const struct net_proto_family msm_ipc_family_ops = {
 };
 
 static const struct proto_ops msm_ipc_proto_ops = {
-	.owner		= THIS_MODULE,
 	.family         = AF_MSM_IPC,
+	.owner		= THIS_MODULE,
+	.release        = msm_ipc_router_close,
 	.bind		= msm_ipc_router_bind,
 	.connect	= sock_no_connect,
+	.socketpair	= sock_no_socketpair,
+	.accept		= sock_no_accept,
+	.getname	= sock_no_getname,
+	.poll           = msm_ipc_router_poll,
+	.ioctl          = msm_ipc_router_ioctl,
+	.listen		= sock_no_listen,
+	.shutdown	= sock_no_shutdown,
+	.setsockopt     = sock_no_setsockopt,
+	.getsockopt     = sock_no_getsockopt,
 	.sendmsg	= msm_ipc_router_sendmsg,
 	.recvmsg	= msm_ipc_router_recvmsg,
-	.ioctl		= msm_ipc_router_ioctl,
-	.poll		= msm_ipc_router_poll,
-	.setsockopt	= sock_no_setsockopt,
-	.getsockopt	= sock_no_getsockopt,
-	.release	= msm_ipc_router_close,
+	.mmap		= sock_no_mmap,
+	.sendpage	= sock_no_sendpage,
 };
 
 static struct proto msm_ipc_proto = {
