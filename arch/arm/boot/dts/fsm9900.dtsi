@@ -552,10 +552,11 @@
 			<0xf909a000 0x20>,
 			<0xf90aa000 0x20>,
 			<0xf90ba000 0x20>,
-			<0xfc4b80b0 0x08>;
+			<0xfc4b80b0 0x08>,
+			<0xf9011000 0x50>;
 		reg-names = "hfpll_l2_clk", "hfpll0_clk",
 				"hfpll1_clk", "hfpll2_clk",
-				"hfpll3_clk", "efuse";
+				"hfpll3_clk", "efuse", "meas";
 		cpu0-supply = <&pma8084_s8>;
 		cpu1-supply = <&pma8084_s8>;
 		cpu2-supply = <&pma8084_s8>;

@@ -11,7 +11,8 @@ Required properties:
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
 			bases are:
-			"hfpll_l2_clk", "hfpll0_clk", ... "hfpllN_clk", "efuse"
+			"hfpll_l2_clk", "hfpll0_clk", ... "hfpllN_clk", "efuse",
+			"meas"
 - cpuX-supply:		The regulator powering the CPUX.
 - l2-dig-supply:	The regulator powering the L2 digital logic.
 - hfpll-dig-supply:	The regulator powering the HFPLL digital domains.
