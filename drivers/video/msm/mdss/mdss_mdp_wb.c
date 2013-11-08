@@ -534,6 +534,11 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		.priv_data = &comp,
 	};
 
+	if (!ctl) {
+		pr_err("no ctl attached to fb=%d devicet\n", mfd->index);
+		return -ENODEV;
+	}
+
 	if (!ctl->power_on)
 		return 0;
 
