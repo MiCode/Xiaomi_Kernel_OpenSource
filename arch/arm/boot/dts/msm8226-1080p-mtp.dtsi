@@ -494,3 +494,16 @@
 		qcom,cdc-micbias1-ext-cap;
 	};
 };
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,platform-enable-gpio = <&msmgpio 109 0>;
+};
+
+&dsi_jdi_1080_vid {
+	qcom,cont-splash-enabled;
+};
