@@ -126,7 +126,7 @@
 
 &dsi_dual0_jdi_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
 	qcom,cont-splash-enabled;
