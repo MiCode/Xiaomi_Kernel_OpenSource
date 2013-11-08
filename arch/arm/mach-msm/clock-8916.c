@@ -227,6 +227,10 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("core_clk", qdss_clk.c, "859000.cti", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "85a000.cti", OFF),
 	CLK_DUMMY("core_clk", qdss_clk.c, "85b000.cti", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "830000.cti", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "835000.cti", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "838000.cti", OFF),
+	CLK_DUMMY("core_clk", qdss_clk.c, "83c000.cti", OFF),
 
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "826000.tmc", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "824000.replicator", OFF),
@@ -248,6 +252,10 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "859000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "85a000.cti", OFF),
 	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "85b000.cti", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "830000.cti", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "835000.cti", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "838000.cti", OFF),
+	CLK_DUMMY("core_a_clk", qdss_a_clk.c, "83c000.cti", OFF),
 
 };
 
