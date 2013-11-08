@@ -108,9 +108,7 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		break;
 	case RESET_EVENTS:
 		pr_debug("%s: Received opcode:0x%x\n", __func__, opcode);
-		audio->event_abort = 1;
 		audio->stopped = 1;
-		audio->enabled = 0;
 		wake_up(&audio->event_wait);
 		break;
 	default:
