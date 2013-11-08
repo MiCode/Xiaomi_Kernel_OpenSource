@@ -260,26 +260,26 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
-	qcom,vpu@fde0b000 {
-		compatible = "qcom,vpu";
+	qti,vpu@fde0b000 {
+		compatible = "qti,vpu";
 		reg = <0xfde0b000 0x1000>,
 			<0x0f800000 0x200000>;
-		reg-names = "maple_csr_reg", "maple_smem_reg";
+		reg-names = "vpu_csr", "vpu_smem";
 		interrupts = <0 24 0>, <0 26 0>;
-		interrupt-names = "maple_wdog_irq", "maple_apps_irq";
-		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
+		interrupt-names = "vpu_wdog", "vpu_hfi";
+		qti,maple-clk-load-freq-tbl = <100000 50000000>,
 			<200000 100000000>,
 			<300000 200000000>,
 			<400000 320000000>,
 			<500000 400000000>;
-		qcom,vdp-clk-load-freq-tbl = <100000 50000000>,
+		qti,vdp-clk-load-freq-tbl = <100000 50000000>,
 			<200000 100000000>,
 			<300000 200000000>,
 			<400000 320000000>,
 			<500000 400000000>;
-		qcom,bus-clk-load-freq-tbl = <100000 40000000>,
+		qti,bus-clk-load-freq-tbl = <100000 40000000>,
 			<200000 80000000>;
-		qcom,bus-load-vector-tbl = <0 0 0>,
+		qti,bus-load-vector-tbl = <0 0 0>,
 			<36000  208000  303000>,
 			<110400 536000  303000>,
 			<244800 1012000 303000>,
@@ -287,7 +287,7 @@
 			<783360 3240000 970000>,
 			<979200 4048000 1212000>,
 			<9792000 4264000 1279000>;
-		qcom,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
+		qti,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
 		vdd-supply = <&gdsc_vpu>;
 	};
 
