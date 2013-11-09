@@ -43,6 +43,27 @@ struct wm_adsp_buffer_region {
 	unsigned int base_addr;
 };
 
+struct wm_adsp_buffer_region_def {
+	unsigned int mem_type;
+	unsigned int base_offset;
+	unsigned int size_offset;
+};
+
+struct wm_adsp_fw_caps {
+	u32 id;
+	struct snd_codec_desc desc;
+	int num_host_regions;
+	struct wm_adsp_buffer_region_def *host_region_defs;
+};
+
+struct wm_adsp_fw_defs {
+	const char *file;
+	const char *binfile;
+	int compr_direction;
+	int num_caps;
+	const struct wm_adsp_fw_caps *caps;
+};
+
 struct wm_adsp {
 	const char *part;
 	int num;
@@ -78,6 +99,9 @@ struct wm_adsp {
 	int capt_buf_size;
 	struct wm_adsp_buffer_region *host_regions;
 	bool buffer_drain_pending;
+
+	int num_firmwares;
+	struct wm_adsp_fw_defs *firmwares;
 
 	struct list_head ctl_list;
 
