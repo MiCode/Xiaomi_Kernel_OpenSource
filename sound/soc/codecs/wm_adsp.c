@@ -326,6 +326,7 @@ static const struct wm_adsp_fw_caps ez2control_caps[] = {
 
 static const struct {
 	const char *file;
+	const char *binfile;
 	int compr_direction;
 	int num_caps;
 	const struct wm_adsp_fw_caps *caps;
@@ -1348,8 +1349,12 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 	if (file == NULL)
 		return -ENOMEM;
 
-	snprintf(file, PAGE_SIZE, "%s-dsp%d-%s.bin", dsp->part, dsp->num,
-		 wm_adsp_fw[dsp->fw].file);
+	if (wm_adsp_fw[dsp->fw].binfile)
+		snprintf(file, PAGE_SIZE, "%s-dsp%d-%s.bin", dsp->part,
+			 dsp->num, wm_adsp_fw[dsp->fw].binfile);
+	else
+		snprintf(file, PAGE_SIZE, "%s-dsp%d-%s.bin", dsp->part,
+			 dsp->num, wm_adsp_fw[dsp->fw].file);
 	file[PAGE_SIZE - 1] = '\0';
 
 	ret = request_firmware(&firmware, file, dsp->dev);
