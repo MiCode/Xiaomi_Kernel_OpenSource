@@ -19,7 +19,6 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
-#include <linux/memory_alloc.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_device.h>

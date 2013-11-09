@@ -20,7 +20,6 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
-#include <linux/memory_alloc.h>
 #include <linux/debugfs.h>
 #include <linux/time.h>
 #include <linux/atomic.h>
