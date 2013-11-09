@@ -1355,13 +1355,15 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 	int rc = -EINVAL;
 	struct mdp3_session_data *mdp3_session;
 	struct msmfb_metadata metadata;
-	struct mdp_overlay req;
+	struct mdp_overlay *req = NULL;
 	struct msmfb_overlay_data ov_data;
 	int val;
 
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 	if (!mdp3_session)
 		return -ENODEV;
+
+	req = &mdp3_session->req_overlay;
 
 	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET) {
 		pr_err("mdp3_ctrl_ioctl_handler, display off!\n");
@@ -1402,23 +1404,23 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 			rc = copy_to_user(argp, &metadata, sizeof(metadata));
 		break;
 	case MSMFB_OVERLAY_GET:
-		rc = copy_from_user(&req, argp, sizeof(req));
+		rc = copy_from_user(req, argp, sizeof(*req));
 		if (!rc) {
-			rc = mdp3_overlay_get(mfd, &req);
+			rc = mdp3_overlay_get(mfd, req);
 
 		if (!IS_ERR_VALUE(rc))
-			rc = copy_to_user(argp, &req, sizeof(req));
+			rc = copy_to_user(argp, req, sizeof(*req));
 		}
 		if (rc)
 			pr_err("OVERLAY_GET failed (%d)\n", rc);
 		break;
 	case MSMFB_OVERLAY_SET:
-		rc = copy_from_user(&req, argp, sizeof(req));
+		rc = copy_from_user(req, argp, sizeof(*req));
 		if (!rc) {
-			rc = mdp3_overlay_set(mfd, &req);
+			rc = mdp3_overlay_set(mfd, req);
 
 		if (!IS_ERR_VALUE(rc))
-			rc = copy_to_user(argp, &req, sizeof(req));
+			rc = copy_to_user(argp, req, sizeof(*req));
 		}
 		if (rc)
 			pr_err("OVERLAY_SET failed (%d)\n", rc);
