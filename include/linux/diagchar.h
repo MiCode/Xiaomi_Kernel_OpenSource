@@ -726,25 +726,27 @@ static const uint32_t msg_bld_masks_22[] = {
 };
 
 /* LOG CODES */
+static const uint32_t log_code_last_tbl[] = {
+	0x0,	/* EQUIP ID 0 */
+	0x182F,	/* EQUIP ID 1 */
+	0x0,	/* EQUIP ID 2 */
+	0x0,	/* EQUIP ID 3 */
+	0x4910,	/* EQUIP ID 4 */
+	0x5420,	/* EQUIP ID 5 */
+	0x0,	/* EQUIP ID 6 */
+	0x74FF,	/* EQUIP ID 7 */
+	0x0,	/* EQUIP ID 8 */
+	0x0,	/* EQUIP ID 9 */
+	0xA38A,	/* EQUIP ID 10 */
+	0xB201,	/* EQUIP ID 11 */
+	0x0,	/* EQUIP ID 12 */
+	0x0,	/* EQUIP ID 13 */
+	0x0,	/* EQUIP ID 14 */
+	0x0,	/* EQUIP ID 15 */
+};
 
-#define LOG_0	0x0
-#define LOG_1	0x1808
-#define LOG_2	0x0
-#define LOG_3	0x0
-#define LOG_4	0x4910
-#define LOG_5	0x5420
-#define LOG_6	0x0
-#define LOG_7	0x74FF
-#define LOG_8	0x0
-#define LOG_9	0x0
-#define LOG_10	0xA38A
-#define LOG_11	0xB201
-#define LOG_12	0x0
-#define LOG_13	0x0
-#define LOG_14	0x0
-#define LOG_15	0x0
-
-#define LOG_GET_ITEM_NUM(xx_code) (xx_code & 0x0FFF)
-#define LOG_GET_EQUIP_ID(xx_code) ((xx_code & 0xF000) >> 12)
+#define LOG_GET_ITEM_NUM(xx_code)	(xx_code & 0x0FFF)
+#define LOG_GET_EQUIP_ID(xx_code)	((xx_code & 0xF000) >> 12)
+#define LOG_ITEMS_TO_SIZE(num_items)	((num_items+7)/8)
 
 #endif

@@ -82,11 +82,14 @@
  * And there are MSG_MASK_TBL_CNT rows.
  */
 #define MSG_MASK_SIZE		((MAX_SSID_PER_RANGE+3) * 4 * MSG_MASK_TBL_CNT)
-#define LOG_MASK_SIZE 8000
+#define MAX_EQUIP_ID		16
+#define MAX_ITEMS_PER_EQUIP_ID	512
+#define LOG_MASK_ITEM_SIZE	(5 + MAX_ITEMS_PER_EQUIP_ID)
+#define LOG_MASK_SIZE		(MAX_EQUIP_ID * LOG_MASK_ITEM_SIZE)
 #define EVENT_MASK_SIZE 1000
 #define USER_SPACE_DATA 8192
 #define PKT_SIZE 4096
-#define MAX_EQUIP_ID 15
+
 #define DIAG_CTRL_MSG_LOG_MASK	9
 #define DIAG_CTRL_MSG_EVENT_MASK	10
 #define DIAG_CTRL_MSG_F3_MASK	11
@@ -334,6 +337,7 @@ struct diagchar_dev {
 	struct diag_ctrl_log_mask *log_mask;
 	struct diag_ctrl_msg_mask *msg_mask;
 	struct diag_ctrl_feature_mask *feature_mask;
+	struct mutex log_mask_mutex;
 	/* State for diag forwarding */
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
@@ -380,7 +384,6 @@ struct diagchar_dev {
 	uint8_t msg_status;
 	uint8_t *log_masks;
 	uint8_t log_status;
-	int log_masks_length;
 	uint8_t *event_masks;
 	uint8_t event_status;
 	uint8_t log_on_demand_support;
