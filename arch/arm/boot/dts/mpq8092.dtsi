@@ -459,6 +459,12 @@
 
 		qcom,firmware-name = "vpu";
 	};
+
+	qcom,pil-bcss {
+		compatible = "qcom,pil-bcss";
+
+		qcom,firmware-name = "bcss";
+	};
 };
 
 &gdsc_venus {
