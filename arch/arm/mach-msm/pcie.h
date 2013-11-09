@@ -78,6 +78,12 @@ enum msm_pcie_gpio {
 	MSM_PCIE_MAX_GPIO
 };
 
+enum msm_pcie_link_status {
+	MSM_PCIE_LINK_DEINIT,
+	MSM_PCIE_LINK_ENABLED,
+	MSM_PCIE_LINK_DISABLED
+};
+
 /* gpio info structure */
 struct msm_pcie_gpio_info_t {
 	char      *name;
@@ -152,6 +158,8 @@ struct msm_pcie_dev_t {
 
 	struct irq_domain            *irq_domain;
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_NR_IRQS);
+
+	enum msm_pcie_link_status    link_status;
 };
 
 extern void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev);
