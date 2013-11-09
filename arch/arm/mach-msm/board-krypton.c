@@ -35,22 +35,6 @@
 #include "clock.h"
 #include "spm.h"
 
-static struct memtype_reserve msmkrypton_reserve_table[] __initdata = {
-	[MEMTYPE_EBI1] = {
-		.flags = MEMTYPE_FLAGS_1M_ALIGN,
-	},
-};
-
-static int msmkrypton_paddr_to_memtype(unsigned int paddr)
-{
-	return MEMTYPE_EBI1;
-}
-
-static struct reserve_info msmkrypton_reserve_info __initdata = {
-	.memtype_reserve_table = msmkrypton_reserve_table,
-	.paddr_to_memtype = msmkrypton_paddr_to_memtype,
-};
-
 static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, "msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qti,msm_pcie", 0xFC520000, "msm_pcie", NULL),
@@ -76,14 +60,11 @@ void __init msmkrypton_add_drivers(void)
 
 void __init msmkrypton_reserve(void)
 {
-	reserve_info = &msmkrypton_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msmkrypton_reserve_table);
-	msm_reserve();
+	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
 static void __init msmkrypton_early_memory(void)
 {
-	reserve_info = &msmkrypton_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_hole, msmkrypton_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
 }
 static void __init msmkrypton_map_io(void)
 {
