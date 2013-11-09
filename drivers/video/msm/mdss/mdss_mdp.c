@@ -30,7 +30,6 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
-#include <linux/memory_alloc.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
