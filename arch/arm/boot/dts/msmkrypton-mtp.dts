@@ -18,5 +18,5 @@
 / {
 	model = "Qualcomm MSM KRYPTON MTP";
 	compatible = "qcom,msmkrypton-mtp", "qcom,msmkrypton", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <7 0>;
 };
