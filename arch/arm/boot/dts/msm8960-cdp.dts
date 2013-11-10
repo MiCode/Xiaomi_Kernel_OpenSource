@@ -1,6 +1,6 @@
 /dts-v1/;
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MSM8960 CDP";

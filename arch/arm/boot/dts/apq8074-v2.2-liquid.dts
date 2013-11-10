@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "apq8074-v2.2.dtsi"
-/include/ "msm8974-liquid.dtsi"
+#include "apq8074-v2.2.dtsi"
+#include "msm8974-liquid.dtsi"
 
 / {
 	model = "Qualcomm APQ 8074v2.2 LIQUID";

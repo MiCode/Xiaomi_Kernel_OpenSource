@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton64.dtsi"
+#include "skeleton64.dtsi"
 
 / {
 	model = "Qualcomm APQ 8084";
@@ -51,18 +51,18 @@
         };
 };
 
-/include/ "msm-gdsc.dtsi"
-/include/ "apq8084-ion.dtsi"
-/include/ "apq8084-iommu.dtsi"
-/include/ "apq8084-iommu-domains.dtsi"
-/include/ "apq8084-smp2p.dtsi"
-/include/ "apq8084-coresight.dtsi"
-/include/ "apq8084-mdss.dtsi"
-/include/ "apq8084-gpu.dtsi"
-/include/ "apq8084-pm.dtsi"
-/include/ "apq8084-bus.dtsi"
-/include/ "apq8084-iommu-domains.dtsi"
-/include/ "apq8084-camera.dtsi"
+#include "msm-gdsc.dtsi"
+#include "apq8084-ion.dtsi"
+#include "apq8084-iommu.dtsi"
+#include "apq8084-iommu-domains.dtsi"
+#include "apq8084-smp2p.dtsi"
+#include "apq8084-coresight.dtsi"
+#include "apq8084-mdss.dtsi"
+#include "apq8084-gpu.dtsi"
+#include "apq8084-pm.dtsi"
+#include "apq8084-bus.dtsi"
+#include "apq8084-iommu-domains.dtsi"
+#include "apq8084-camera.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -2607,9 +2607,9 @@
 	status = "ok";
 };
 
-/include/ "msm-pma8084-rpm-regulator.dtsi"
-/include/ "msm-pma8084.dtsi"
-/include/ "apq8084-regulator.dtsi"
+#include "msm-pma8084-rpm-regulator.dtsi"
+#include "msm-pma8084.dtsi"
+#include "apq8084-regulator.dtsi"
 
 &pma8084_vadc {
 	chan@73 {

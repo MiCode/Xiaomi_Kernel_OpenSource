@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8226-camera-sensor-mtp.dtsi"
+#include "msm8226-camera-sensor-mtp.dtsi"
 
 &soc {
 	serial@f991f000 {
@@ -479,8 +479,8 @@
 		qcom,rpull-up-kohm = <100>;
 		qcom,vref-batt-therm = <1800000>;
 
-		/include/ "batterydata-palladium.dtsi"
-		/include/ "batterydata-mtp-3000mah.dtsi"
+		#include "batterydata-palladium.dtsi"
+		#include "batterydata-mtp-3000mah.dtsi"
 	};
 };
 

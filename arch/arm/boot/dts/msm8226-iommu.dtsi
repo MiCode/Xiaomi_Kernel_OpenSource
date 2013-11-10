@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm-iommu-v1.dtsi"
+#include "msm-iommu-v1.dtsi"
 
 &jpeg_iommu {
 	status = "ok";

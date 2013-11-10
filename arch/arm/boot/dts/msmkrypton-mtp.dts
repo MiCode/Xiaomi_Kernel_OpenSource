@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msmkrypton.dtsi"
-/include/ "msmkrypton-mtp.dtsi"
+#include "msmkrypton.dtsi"
+#include "msmkrypton-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM KRYPTON MTP";

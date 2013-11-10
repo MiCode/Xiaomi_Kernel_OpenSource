@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MSM KRYPTON";
@@ -26,9 +26,9 @@
 	soc: soc { };
 };
 
-/include/ "msmkrypton-smp2p.dtsi"
-/include/ "msmkrypton-coresight.dtsi"
-/include/ "msm-gdsc.dtsi"
+#include "msmkrypton-smp2p.dtsi"
+#include "msmkrypton-coresight.dtsi"
+#include "msm-gdsc.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -642,9 +642,9 @@
 	reg = <0xfc401b80 0x4>;
 };
 
-/include/ "msm-pmd9635-rpm-regulator.dtsi"
-/include/ "msm-pmd9635.dtsi"
-/include/ "msmkrypton-regulator.dtsi"
+#include "msm-pmd9635-rpm-regulator.dtsi"
+#include "msm-pmd9635.dtsi"
+#include "msmkrypton-regulator.dtsi"
 
 &pmd9635_vadc {
 	chan@31 {

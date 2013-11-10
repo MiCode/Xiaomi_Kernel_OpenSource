@@ -121,8 +121,8 @@
 	};
 };
 
-/include/ "dsi-panel-jdi-dualmipi0-video.dtsi"
-/include/ "dsi-panel-jdi-dualmipi1-video.dtsi"
+#include "dsi-panel-jdi-dualmipi0-video.dtsi"
+#include "dsi-panel-jdi-dualmipi1-video.dtsi"
 
 &dsi_dual0_jdi_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";

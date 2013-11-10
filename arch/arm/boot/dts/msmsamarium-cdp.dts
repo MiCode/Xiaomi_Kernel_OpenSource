@@ -12,10 +12,10 @@
 
 /dts-v1/;
 
-/include/ "msmsamarium.dtsi"
-/include/ "msmsamarium-cdp.dtsi"
-/include/ "msmsamarium-camera.dtsi"
-/include/ "msmsamarium-camera-sensor-cdp.dtsi"
+#include "msmsamarium.dtsi"
+#include "msmsamarium-cdp.dtsi"
+#include "msmsamarium-camera.dtsi"
+#include "msmsamarium-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm MSM SAMARIUM CDP";

@@ -12,13 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm8974pro-ac-pma8084.dtsi"
+#include "msm8974pro-ac-pma8084.dtsi"
 &soc {
 	i2c_chg: i2c@f9967000 { /* BLSP#11 */
 	};
 };
-/include/ "msmsamarium-cdp.dtsi"
-/include/ "msmsamarium-camera-sensor-cdp-interposer.dtsi"
+#include "msmsamarium-cdp.dtsi"
+#include "msmsamarium-camera-sensor-cdp-interposer.dtsi"
 
 / {
         model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";

@@ -12,8 +12,8 @@
 
 
 /dts-v1/;
-/include/ "apq8026-v1.dtsi"
-/include/ "msm8226-720p-cdp.dtsi"
+#include "apq8026-v1.dtsi"
+#include "msm8226-720p-cdp.dtsi"
 
 / {
 	model = "Qualcomm APQ 8026 CDP";

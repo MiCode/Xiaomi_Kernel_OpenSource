@@ -16,7 +16,7 @@
  * msm9625.dtsi file.
  */
 
-/include/ "msm9625.dtsi"
+#include "msm9625.dtsi"
 
 &soc {
 	qcom,msm-imem@fc42a800 {

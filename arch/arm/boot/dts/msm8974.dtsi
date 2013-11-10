@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974";
@@ -98,16 +98,16 @@
 	soc: soc { };
 };
 
-/include/ "msm8974-camera.dtsi"
-/include/ "msm8974-coresight.dtsi"
-/include/ "msm-gdsc.dtsi"
-/include/ "msm8974-ion.dtsi"
-/include/ "msm8974-gpu.dtsi"
-/include/ "msm8974-mdss.dtsi"
-/include/ "msm8974-smp2p.dtsi"
-/include/ "msm8974-bus.dtsi"
-/include/ "msm8974-ipcrouter.dtsi"
-/include/ "msm-rdbg.dtsi"
+#include "msm8974-camera.dtsi"
+#include "msm8974-coresight.dtsi"
+#include "msm-gdsc.dtsi"
+#include "msm8974-ion.dtsi"
+#include "msm8974-gpu.dtsi"
+#include "msm8974-mdss.dtsi"
+#include "msm8974-smp2p.dtsi"
+#include "msm8974-bus.dtsi"
+#include "msm8974-ipcrouter.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;

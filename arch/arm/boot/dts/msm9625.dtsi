@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MSM 9625";
@@ -24,10 +24,10 @@
 	soc: soc { };
 };
 
-/include/ "msm9625-ion.dtsi"
-/include/ "msm9625-pm.dtsi"
-/include/ "msm9625-coresight.dtsi"
-/include/ "msm9625-smp2p.dtsi"
+#include "msm9625-ion.dtsi"
+#include "msm9625-pm.dtsi"
+#include "msm9625-coresight.dtsi"
+#include "msm9625-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1029,9 +1029,9 @@
 
 };
 
-/include/ "msm-pm8019-rpm-regulator.dtsi"
-/include/ "msm-pm8019.dtsi"
-/include/ "msm9625-regulator.dtsi"
+#include "msm-pm8019-rpm-regulator.dtsi"
+#include "msm-pm8019.dtsi"
+#include "msm9625-regulator.dtsi"
 
 &pm8019_vadc {
 	chan@31 {

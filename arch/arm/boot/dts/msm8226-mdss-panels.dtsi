@@ -10,10 +10,10 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-hx8394a-720p-video.dtsi"
-/include/ "dsi-panel-nt35590-720p-video.dtsi"
-/include/ "dsi-panel-nt35521-720p-video.dtsi"
-/include/ "dsi-panel-nt35596-1080p-video.dtsi"
-/include/ "dsi-panel-nt35590-720p-cmd.dtsi"
-/include/ "dsi-panel-ssd2080m-720p-video.dtsi"
-/include/ "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-hx8394a-720p-video.dtsi"
+#include "dsi-panel-nt35590-720p-video.dtsi"
+#include "dsi-panel-nt35521-720p-video.dtsi"
+#include "dsi-panel-nt35596-1080p-video.dtsi"
+#include "dsi-panel-nt35590-720p-cmd.dtsi"
+#include "dsi-panel-ssd2080m-720p-video.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"

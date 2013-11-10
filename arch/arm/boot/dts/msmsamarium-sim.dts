@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msmsamarium.dtsi"
-/include/ "msm-pmi8962.dtsi"
+#include "msmsamarium.dtsi"
+#include "msm-pmi8962.dtsi"
 
 / {
 	model = "Qualcomm MSM SAMARIUM SIM";

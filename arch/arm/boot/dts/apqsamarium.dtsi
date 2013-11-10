@@ -15,7 +15,7 @@
  * file. Device definitions should be placed inside the msmsamarium.dtsi file.
  */
 
-/include/ "msmsamarium.dtsi"
+#include "msmsamarium.dtsi"
 
 / {
 	model = "Qualcomm APQ SAMARIUM";

@@ -12,8 +12,8 @@
 
 
 /dts-v1/;
-/include/ "apq8026-v2.dtsi"
-/include/ "msm8226-720p-mtp.dtsi"
+#include "apq8026-v2.dtsi"
+#include "msm8226-720p-mtp.dtsi"
 
 / {
 	model = "Qualcomm APQ 8026v2 MTP";

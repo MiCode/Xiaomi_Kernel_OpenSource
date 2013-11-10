@@ -16,8 +16,8 @@
  * msm8610.dtsi file.
  */
 
-/include/ "msm8610.dtsi"
-/include/ "msm8610-v1-pm.dtsi"
+#include "msm8610.dtsi"
+#include "msm8610-v1-pm.dtsi"
 
 / {
 	qcom,msm-id = <147 1000>, <165 1000>, <161 1000>, <162 1000>,

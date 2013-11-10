@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "apq8084.dtsi"
-/include/ "apq8084-mtp.dtsi"
+#include "apq8084.dtsi"
+#include "apq8084-mtp.dtsi"
 
 / {
 	model = "Qualcomm APQ 8084, SMB1357 MTP";

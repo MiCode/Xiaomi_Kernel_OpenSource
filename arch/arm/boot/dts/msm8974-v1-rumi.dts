@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msm8974-v1.dtsi"
-/include/ "msm8974-rumi.dtsi"
+#include "msm8974-v1.dtsi"
+#include "msm8974-rumi.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974 RUMI";

@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-sim-video.dtsi"
-/include/ "msm8974-leds.dtsi"
-/include/ "msm8974-camera-sensor-cdp.dtsi"
+#include "dsi-panel-sim-video.dtsi"
+#include "msm8974-leds.dtsi"
+#include "msm8974-camera-sensor-cdp.dtsi"
 
 &soc {
 	qcom,mdss_dsi@fd922800 {

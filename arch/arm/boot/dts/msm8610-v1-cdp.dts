@@ -12,9 +12,9 @@
 
 /dts-v1/;
 
-/include/ "msm8610-v1.dtsi"
-/include/ "msm8610-cdp.dtsi"
-/include/ "msm8610-camera-sensor-cdp-mtp.dtsi"
+#include "msm8610-v1.dtsi"
+#include "msm8610-cdp.dtsi"
+#include "msm8610-camera-sensor-cdp-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 CDP";

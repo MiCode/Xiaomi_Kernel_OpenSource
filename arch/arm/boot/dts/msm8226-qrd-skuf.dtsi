@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8226-qrd.dtsi"
+#include "msm8226-qrd.dtsi"
 
 &soc {
 	sound {
@@ -173,7 +173,7 @@
 	qcom,rpull-up-kohm = <100>;
 	qcom,vref-batt-therm = <1800000>;
 
-	/include/ "batterydata-qrd-4v35-2500mah.dtsi"
+	#include "batterydata-qrd-4v35-2500mah.dtsi"
 };
 
 &pm8226_bms {

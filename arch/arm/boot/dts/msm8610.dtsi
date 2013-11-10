@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "skeleton.dtsi"
+#include "skeleton.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610";
@@ -42,17 +42,17 @@
 	soc: soc { };
 };
 
-/include/ "msm8610-camera.dtsi"
-/include/ "msm-iommu-v0.dtsi"
-/include/ "msm8610-ion.dtsi"
-/include/ "msm8610-gpu.dtsi"
-/include/ "msm-gdsc.dtsi"
-/include/ "msm8610-coresight.dtsi"
-/include/ "msm8610-smp2p.dtsi"
-/include/ "msm8610-bus.dtsi"
-/include/ "msm8610-pinctrl.dtsi"
-/include/ "msm8610-mdss.dtsi"
-/include/ "msm-rdbg.dtsi"
+#include "msm8610-camera.dtsi"
+#include "msm-iommu-v0.dtsi"
+#include "msm8610-ion.dtsi"
+#include "msm8610-gpu.dtsi"
+#include "msm-gdsc.dtsi"
+#include "msm8610-coresight.dtsi"
+#include "msm8610-smp2p.dtsi"
+#include "msm8610-bus.dtsi"
+#include "msm8610-pinctrl.dtsi"
+#include "msm8610-mdss.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1019,11 +1019,11 @@
 	status = "ok";
 };
 
-/include/ "msm8610-iommu-domains.dtsi"
+#include "msm8610-iommu-domains.dtsi"
 
-/include/ "msm-pm8110-rpm-regulator.dtsi"
-/include/ "msm-pm8110.dtsi"
-/include/ "msm8610-regulator.dtsi"
+#include "msm-pm8110-rpm-regulator.dtsi"
+#include "msm-pm8110.dtsi"
+#include "msm8610-regulator.dtsi"
 
 &pm8110_vadc {
 	chan@0 {

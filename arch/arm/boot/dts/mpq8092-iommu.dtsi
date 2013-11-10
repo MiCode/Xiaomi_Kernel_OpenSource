@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm-iommu-v1.dtsi"
+#include "msm-iommu-v1.dtsi"
 
 &soc {
 	mdp_iommu_8092: qcom,iommu@fd92a000 {

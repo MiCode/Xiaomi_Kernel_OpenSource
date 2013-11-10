@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974pro-ac-pma8084.dtsi"
+#include "msm8974pro-ac-pma8084.dtsi"
 &spmi_bus {
 	pm8941_lsid0: qcom,pm8941@2 {
 		reg = <0x2>;
@@ -19,7 +19,7 @@
 		reg = <0x3>;
 	};
 };
-/include/ "msm-pm8941.dtsi"
+#include "msm-pm8941.dtsi"
 
 &pm8941_lsid0 {
 	qcom,power-on@800 {

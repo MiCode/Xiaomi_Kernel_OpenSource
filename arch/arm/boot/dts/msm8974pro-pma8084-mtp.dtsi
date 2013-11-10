@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974-mtp.dtsi"
+#include "msm8974-mtp.dtsi"
 
 &cci {
 	qcom,camera@6e {

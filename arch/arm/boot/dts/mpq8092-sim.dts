@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-/include/ "mpq8092.dtsi"
+#include "mpq8092.dtsi"
 
 / {
 	model = "Qualcomm MPQ8092 Simulator";

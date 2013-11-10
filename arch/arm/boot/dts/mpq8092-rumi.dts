@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "mpq8092.dtsi"
-/include/ "mpq8092-rumi.dtsi"
+#include "mpq8092.dtsi"
+#include "mpq8092-rumi.dtsi"
 
 / {
 	model = "Qualcomm MPQ8092 RUMI";
