@@ -40,6 +40,10 @@
 #include "sdhci-pltfm.h"
 
 #define SDHCI_VER_100		0x2B
+
+#define CORE_VERSION_MAJOR_MASK		0xF0000000
+#define CORE_VERSION_MAJOR_SHIFT	28
+
 #define CORE_HC_MODE		0x78
 #define HC_MODE_EN		0x1
 #define FF_CLK_SW_RST_DIS	(1 << 13)
@@ -97,6 +101,10 @@
 #define CORE_HC_SELECT_IN_MASK	(7 << 19)
 
 #define CORE_VENDOR_SPEC_CAPABILITIES0	0x11C
+#define CORE_8_BIT_SUPPORT		(1 << 18)
+#define CORE_3_3V_SUPPORT		(1 << 24)
+#define CORE_3_0V_SUPPORT		(1 << 25)
+#define CORE_1_8V_SUPPORT		(1 << 26)
 #define CORE_SYS_BUS_SUPPORT_64_BIT	28
 
 #define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
@@ -143,6 +151,8 @@
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
 
 #define INVALID_TUNING_PHASE	-1
+
+#define CORE_VERSION_TARGET_MASK	0x000000FF
 
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
@@ -2468,6 +2478,31 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.enable_controller_clock = sdhci_msm_enable_controller_clock,
 };
 
+static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
+		struct sdhci_host *host)
+{
+	u32 version, caps;
+	u16 minor;
+	u8 major;
+
+	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
+	major = (version & CORE_VERSION_MAJOR_MASK) >>
+			CORE_VERSION_MAJOR_SHIFT;
+	minor = version & CORE_VERSION_TARGET_MASK;
+
+	/*
+	 * Starting with SDCC 5 controller (core major version = 1)
+	 * controller won't advertise 3.0v features except for
+	 * some targets.
+	 */
+	if (major >= 1 && minor != 0x11 && minor != 0x12) {
+		caps = CORE_3_0V_SUPPORT;
+		writel_relaxed(
+			(readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES) |
+			caps), host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
+	}
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -2638,6 +2673,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_HC_MODE) |
 			FF_CLK_SW_RST_DIS, msm_host->core_mem + CORE_HC_MODE);
 
+	sdhci_set_default_hw_caps(msm_host, host);
 	/*
 	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
 	 * was either BUS_ON or IO_HIGH_V. So before we enable the power irq
