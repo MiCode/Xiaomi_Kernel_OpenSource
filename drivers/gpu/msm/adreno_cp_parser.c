@@ -618,6 +618,14 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 				ib_parse_vars->cp_addr_regs[
 					ADRENO_CP_ADDR_SP_FS_OBJ_START_REG] =
 						ptr[i + 1];
+			else if ((offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_UCHE_INVALIDATE0)) ||
+				(offset == adreno_cp_parser_getreg(adreno_dev,
+					ADRENO_CP_UCHE_INVALIDATE1)))
+					adreno_ib_add_range(device, ptbase,
+					ptr[i + 1] & 0xFFFFFFC0, 0,
+					SNAPSHOT_GPU_OBJECT_GENERIC,
+					ib_obj_list);
 		}
 	}
 	ib_add_type0_entries(device, ptbase, ib_obj_list,
