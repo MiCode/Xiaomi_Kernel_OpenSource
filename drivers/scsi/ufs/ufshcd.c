@@ -3479,6 +3479,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 
 	/* Print Transfer Request of aborted task */
 	dev_err(hba->dev, "%s: Device abort task at tag %d", __func__, tag);
+	scsi_print_command(hba->lrb[tag].cmd);
 	ufshcd_print_host_regs(hba);
 	ufshcd_print_trs(hba, 1 << tag, true);
 
