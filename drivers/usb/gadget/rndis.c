@@ -995,6 +995,9 @@ void rndis_free_response(int configNr, u8 *buf)
 	list_for_each_safe(act, tmp,
 			&(rndis_per_dev_params[configNr].resp_queue))
 	{
+		if (!act)
+			continue;
+
 		r = list_entry(act, rndis_resp_t, list);
 		if (r && r->buf == buf) {
 			list_del(&r->list);
