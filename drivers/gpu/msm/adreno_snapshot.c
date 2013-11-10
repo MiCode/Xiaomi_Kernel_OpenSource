@@ -429,7 +429,7 @@ static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
 
 		*data++ = entry->memdesc.gpuaddr;
 		*data++ = entry->memdesc.size;
-		*data++ = (entry->memdesc.priv & KGSL_MEMTYPE_MASK) >>
+		*data++ = (entry->memdesc.flags & KGSL_MEMTYPE_MASK) >>
 							KGSL_MEMTYPE_SHIFT;
 	}
 	spin_unlock(&private->mem_lock);
