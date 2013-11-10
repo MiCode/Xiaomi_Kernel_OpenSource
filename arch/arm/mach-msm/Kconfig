@@ -752,15 +752,6 @@ config MSM_IPC_LOGGING
 
 	  If in doubt, say no.
 
-config MSM_SMD_NMEA
-	bool "NMEA GPS Driver"
-	depends on MSM_SMD
-	default y
-	help
-	  Enable this to support the NMEA GPS device.
-
-	  If in doubt, say yes.
-
 config MSM_SMD_TTY
 	bool "SMD TTY Driver"
 	depends on MSM_SMD
