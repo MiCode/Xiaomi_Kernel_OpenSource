@@ -26,6 +26,7 @@
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
+#include "spm.h"
 
 static struct memtype_reserve msm8916_reserve_table[] __initdata = {
 	[MEMTYPE_EBI0] = {
@@ -80,6 +81,7 @@ void __init msm8916_add_drivers(void)
 {
 	msm_smem_init();
 	msm_smd_init();
+	msm_spm_device_init();
 }
 
 static void __init msm8916_init(void)
