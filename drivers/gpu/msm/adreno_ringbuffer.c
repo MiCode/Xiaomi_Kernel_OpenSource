@@ -1042,7 +1042,7 @@ static inline bool _ringbuffer_verify_ib(struct kgsl_device_private *dev_priv,
 
 	/* Check that the size of the IBs is under the allowable limit */
 	if (ibdesc->sizedwords == 0 || ibdesc->sizedwords > 0xFFFFF) {
-		KGSL_DRV_ERR(device, "Invalid IB size 0x%X\n",
+		KGSL_DRV_ERR(device, "Invalid IB size 0x%zX\n",
 				ibdesc->sizedwords);
 		return false;
 	}

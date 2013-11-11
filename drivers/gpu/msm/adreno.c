@@ -2116,7 +2116,7 @@ void adreno_ft_uninit_sysfs(struct kgsl_device *device)
 static int adreno_getproperty(struct kgsl_device *device,
 				enum kgsl_property_type type,
 				void *value,
-				unsigned int sizebytes)
+				size_t sizebytes)
 {
 	int status = -EINVAL;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);

@@ -413,7 +413,7 @@ void kgsl_cffdump_user_event(struct kgsl_device *device,
 
 void kgsl_cffdump_syncmem(struct kgsl_device *device,
 			  struct kgsl_memdesc *memdesc, uint gpuaddr,
-			  uint sizebytes, bool clean_cache)
+			  size_t sizebytes, bool clean_cache)
 {
 	const void *src;
 
@@ -726,7 +726,7 @@ int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 			ibdesc[i].sizedwords);
 		if (ret) {
 			KGSL_DRV_ERR(device,
-			"Fail cff capture, IB %x, size %x\n",
+			"Fail cff capture, IB %lx, size %zx\n",
 			ibdesc[i].gpuaddr,
 			ibdesc[i].sizedwords << 2);
 			break;

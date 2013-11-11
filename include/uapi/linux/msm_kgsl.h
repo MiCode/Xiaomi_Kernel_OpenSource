@@ -148,13 +148,13 @@ struct kgsl_devinfo {
 	*/
 	unsigned int chip_id;
 	unsigned int mmu_enabled;
-	unsigned int gmem_gpubaseaddr;
+	unsigned long gmem_gpubaseaddr;
 	/*
 	* This field contains the adreno revision
 	* number 200, 205, 220, etc...
 	*/
 	unsigned int gpu_id;
-	unsigned int gmem_sizebytes;
+	size_t gmem_sizebytes;
 };
 
 /* this structure defines the region of memory that can be mmap()ed from this
@@ -201,7 +201,7 @@ enum kgsl_property_type {
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
-	unsigned int size;
+	size_t size;
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
@@ -247,8 +247,8 @@ struct kgsl_version {
 /* structure holds list of ibs */
 struct kgsl_ibdesc {
 	unsigned long gpuaddr;
-	unsigned int __pad;
-	unsigned int sizedwords;
+	unsigned long __pad;
+	size_t sizedwords;
 	unsigned int ctrl;
 };
 
@@ -268,7 +268,7 @@ struct kgsl_ibdesc {
 struct kgsl_device_getproperty {
 	unsigned int type;
 	void __user *value;
-	unsigned int sizebytes;
+	size_t sizebytes;
 };
 
 #define IOCTL_KGSL_DEVICE_GETPROPERTY \
@@ -381,8 +381,8 @@ struct kgsl_drawctxt_destroy {
 struct kgsl_map_user_mem {
 	int fd;
 	unsigned long gpuaddr;   /*output param */
-	unsigned int len;
-	unsigned int offset;
+	size_t len;
+	size_t offset;
 	unsigned long hostptr;   /*input param */
 	enum kgsl_user_mem_type memtype;
 	unsigned int flags;
@@ -537,7 +537,7 @@ struct kgsl_gpumem_alloc {
 
 struct kgsl_cff_syncmem {
 	unsigned long gpuaddr;
-	unsigned int len;
+	size_t len;
 	unsigned int __pad[2]; /* For future binary compatibility */
 };
 
@@ -610,11 +610,11 @@ struct kgsl_timestamp_event_fence {
 struct kgsl_gpumem_alloc_id {
 	unsigned int id;
 	unsigned int flags;
-	unsigned int size;
-	unsigned int mmapsize;
+	size_t size;
+	size_t mmapsize;
 	unsigned long gpuaddr;
 /* private: reserved for future use*/
-	unsigned int __pad[2];
+	unsigned long __pad[2];
 };
 
 #define IOCTL_KGSL_GPUMEM_ALLOC_ID \
@@ -656,11 +656,11 @@ struct kgsl_gpumem_get_info {
 	unsigned long gpuaddr;
 	unsigned int id;
 	unsigned int flags;
-	unsigned int size;
-	unsigned int mmapsize;
+	size_t size;
+	size_t mmapsize;
 	unsigned long useraddr;
 /* private: reserved for future use*/
-	unsigned int __pad[4];
+	unsigned long __pad[4];
 };
 
 #define IOCTL_KGSL_GPUMEM_GET_INFO\
@@ -682,7 +682,7 @@ struct kgsl_gpumem_sync_cache {
 	unsigned int id;
 	unsigned int op;
 /* private: reserved for future use*/
-	unsigned int __pad[2]; /* For future binary compatibility */
+	unsigned long __pad[2]; /* For future binary compatibility */
 };
 
 #define KGSL_GPUMEM_CACHE_CLEAN (1 << 0)
@@ -857,7 +857,7 @@ struct kgsl_cmd_syncpoint_fence {
 struct kgsl_cmd_syncpoint {
 	int type;
 	void __user *priv;
-	unsigned int size;
+	size_t size;
 };
 
 /**

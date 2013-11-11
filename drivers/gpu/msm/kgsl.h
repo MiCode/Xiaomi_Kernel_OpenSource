@@ -171,7 +171,7 @@ struct kgsl_memdesc {
 	unsigned long useraddr; /* userspace address */
 	unsigned int gpuaddr;
 	phys_addr_t physaddr;
-	unsigned int size;
+	size_t size;
 	unsigned int priv; /* Internal flags and settings */
 	struct scatterlist *sg;
 	unsigned int sglen; /* Active entries in the sglist */
@@ -266,7 +266,7 @@ static inline void kgsl_drm_exit(void)
 #endif
 
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
-				unsigned int gpuaddr, unsigned int size)
+				unsigned int gpuaddr, size_t size)
 {
 	/* set a minimum size to search for */
 	if (!size)
