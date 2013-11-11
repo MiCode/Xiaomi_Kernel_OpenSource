@@ -125,7 +125,7 @@ struct msm_pcie_irq_info_t {
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device       *pdev;
-
+	struct pci_dev *dev;
 	struct regulator *gdsc;
 	struct msm_pcie_vreg_info_t  vreg[MSM_PCIE_MAX_VREG];
 	struct msm_pcie_gpio_info_t  gpio[MSM_PCIE_MAX_GPIO];
@@ -160,6 +160,8 @@ struct msm_pcie_dev_t {
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_NR_IRQS);
 
 	enum msm_pcie_link_status    link_status;
+	bool                         user_suspend;
+	struct pci_saved_state	     *saved_state;
 };
 
 extern void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev);
