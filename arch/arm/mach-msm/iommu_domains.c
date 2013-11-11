@@ -553,7 +553,8 @@ int msm_unregister_domain(struct iommu_domain *domain)
 	ida_simple_remove(&domain_nums, data->domain_num);
 
 	for (i = 0; i < data->npools; ++i)
-		gen_pool_destroy(data->pools[i].gpool);
+		if (data->pools[i].gpool)
+			gen_pool_destroy(data->pools[i].gpool);
 
 	kfree(data->pools);
 	kfree(data);
