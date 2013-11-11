@@ -407,7 +407,10 @@ int ssm_oem_driver_intf(int cmd, char *mode, int len)
 
 	/* Open modem SMD interface */
 	if (!ssm_drv->ready) {
-		rc = smd_open(ssm_drv->channel_name, &ssm_drv->ch, ssm_drv,
+		rc = smd_named_open_on_edge(ssm_drv->channel_name,
+							SMD_APPS_MODEM,
+							&ssm_drv->ch,
+							ssm_drv,
 							modem_request);
 		if (rc) {
 			rc = -EAGAIN;
