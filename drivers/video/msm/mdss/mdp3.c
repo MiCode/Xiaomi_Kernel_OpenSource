@@ -1859,6 +1859,52 @@ static void mdp3_dma_underrun_intr_handler(int type, void *arg)
 			mdp3_res->underrun_cnt);
 }
 
+static ssize_t mdp3_show_capabilities(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t len = PAGE_SIZE;
+	int cnt = 0;
+
+#define SPRINT(fmt, ...) \
+		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
+
+	SPRINT("mdp_version=3\n");
+	SPRINT("hw_rev=%d\n", 304);
+	SPRINT("dma_pipes=%d\n", 1);
+	SPRINT("\n");
+
+	return cnt;
+}
+
+static DEVICE_ATTR(caps, S_IRUGO, mdp3_show_capabilities, NULL);
+
+static struct attribute *mdp3_fs_attrs[] = {
+	&dev_attr_caps.attr,
+	NULL
+};
+
+static struct attribute_group mdp3_fs_attr_group = {
+	.attrs = mdp3_fs_attrs
+};
+
+static int mdp3_register_sysfs(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int rc;
+
+	rc = sysfs_create_group(&dev->kobj, &mdp3_fs_attr_group);
+
+	return rc;
+}
+
+int mdp3_create_sysfs_link(struct device *dev)
+{
+	int rc;
+	rc = sysfs_create_link_nowarn(&dev->kobj,
+			&mdp3_res->pdev->dev.kobj, "mdp");
+
+	return rc;
+}
 
 static int mdp3_probe(struct platform_device *pdev)
 {
@@ -1917,6 +1963,10 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdp debugging\n");
 		goto probe_done;
 	}
+
+	rc = mdp3_register_sysfs(pdev);
+	if (rc)
+		pr_err("unable to register mdp sysfs nodes\n");
 
 	rc = mdss_fb_register_mdp_instance(&mdp3_interface);
 	if (rc)
