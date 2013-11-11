@@ -80,12 +80,17 @@ struct cti_drvdata {
 static LIST_HEAD(cti_list);
 static DEFINE_MUTEX(cti_lock);
 
-static int cti_verify_bounds(int trig, int ch)
+static int cti_verify_trigger_bound(int trig)
 {
-	if (trig >= CTI_MAX_TRIGGERS)
+	if (trig < 0 || trig >= CTI_MAX_TRIGGERS)
 		return -EINVAL;
 
-	if (ch >= CTI_MAX_CHANNELS)
+	return 0;
+}
+
+static int cti_verify_channel_bound(int ch)
+{
+	if (ch < 0 || ch >= CTI_MAX_CHANNELS)
 		return -EINVAL;
 
 	return 0;
@@ -141,8 +146,10 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	if (IS_ERR_OR_NULL(cti))
 		return -EINVAL;
-
-	ret = cti_verify_bounds(trig, ch);
+	ret = cti_verify_trigger_bound(trig);
+	if (ret)
+		return ret;
+	ret = cti_verify_channel_bound(ch);
 	if (ret)
 		return ret;
 
@@ -189,8 +196,10 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	if (IS_ERR_OR_NULL(cti))
 		return -EINVAL;
-
-	ret = cti_verify_bounds(trig, ch);
+	ret = cti_verify_trigger_bound(trig);
+	if (ret)
+		return ret;
+	ret = cti_verify_channel_bound(ch);
 	if (ret)
 		return ret;
 
@@ -242,8 +251,9 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	if (IS_ERR_OR_NULL(cti))
 		return;
-
-	if (cti_verify_bounds(trig, ch))
+	if (cti_verify_trigger_bound(trig))
+		return;
+	if (cti_verify_channel_bound(ch))
 		return;
 
 	drvdata = to_cti_drvdata(cti);
@@ -283,8 +293,9 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	if (IS_ERR_OR_NULL(cti))
 		return;
-
-	if (cti_verify_bounds(trig, ch))
+	if (cti_verify_trigger_bound(trig))
+		return;
+	if (cti_verify_channel_bound(ch))
 		return;
 
 	drvdata = to_cti_drvdata(cti);
