@@ -136,7 +136,7 @@ Required properties:
 
  - compatible : "qcom,msm-dai-q6-dev"
  - qcom,msm-dai-q6-dev-id : The slimbus multi channel port ID
-                            Value is from 16384 to 16393
+                            Value is from 16384 to 16397
                             BT SCO port ID value from 12288 to 12289
                             RT Proxy port ID values from 224 to 225 and 240 to
 			    241
@@ -327,6 +327,16 @@ Example:
 		qcom,msm-dai-q6-sb-4-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
+		qcom,msm-dai-q6-sb-6-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16396>;
+		};
+
+		qcom,msm-dai-q6-sb-6-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16397>;
 		};
 
 		qcom,msm-dai-q6-bt-sco-rx {
