@@ -532,3 +532,4 @@
 };
 
 /include/ "msm8916-regulator.dtsi"
+/include/ "msm8916-pm.dtsi"
