@@ -963,16 +963,15 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
 {
 	int new_pc;
-	int batt_temp_degc = batt_temp / 10;
 	int ocv_mv;
 	int delta_mv = 5;
 	int max_spin_count;
 	int count = 0;
 	int sign, new_sign;
 
-	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
+	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp, pc);
 
-	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp, ocv_mv);
 	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
 	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
 						/ UV_PER_SPIN;
@@ -1003,7 +1002,7 @@ static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
 
 		ocv_mv = ocv_mv + delta_mv * sign;
 		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
-				batt_temp_degc, ocv_mv);
+				batt_temp, ocv_mv);
 		pr_debug("test revlookup pc = %d for ocv = %d\n",
 			new_pc, ocv_mv);
 		count++;
@@ -1101,7 +1100,7 @@ static int calculate_pc(struct qpnp_bms_chip *chip, int ocv_uv,
 	int pc;
 
 	pc = interpolate_pc(chip->pc_temp_ocv_lut,
-			batt_temp / 10, ocv_uv / 1000);
+			batt_temp, ocv_uv / 1000);
 	pr_debug("pc = %u %% for ocv = %d uv batt_temp = %d\n",
 					pc, ocv_uv, batt_temp);
 	/* Multiply the initial FCC value by the scale factor. */
@@ -1224,7 +1223,6 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 		return rbatt_mohm;
 	}
 	/* Convert the batt_temp to DegC from deciDegC */
-	batt_temp = batt_temp / 10;
 	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
 						batt_temp, soc_rbatt_mohm);
 	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
@@ -1268,7 +1266,6 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 	int unusable_uv, pc_unusable, uuc_uah;
 	int i = 0;
 	int ocv_mv;
-	int batt_temp_degc = batt_temp / 10;
 	int rbatt_mohm;
 	int delta_uv;
 	int prev_delta_uv = 0;
@@ -1277,7 +1274,7 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 
 	for (i = 0; i <= 100; i++) {
 		ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
-				batt_temp_degc, i);
+				batt_temp, i);
 		rbatt_mohm = get_rbatt(chip, i, batt_temp);
 		unusable_uv = (rbatt_mohm * uuc_iavg_ma)
 							+ (chip->v_cutoff_uv);
@@ -1314,7 +1311,6 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 			int batt_temp)
 {
 	int new_unusable_mv, new_iavg_ma;
-	int batt_temp_degc = batt_temp / 10;
 	int max_percent_change;
 
 	max_percent_change = max(params->delta_time_s
@@ -1337,7 +1333,7 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 
 	/* also find update the iavg_ma accordingly */
 	new_unusable_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
-			batt_temp_degc, chip->prev_pc_unusable);
+			batt_temp, chip->prev_pc_unusable);
 	if (new_unusable_mv < chip->v_cutoff_uv/1000)
 		new_unusable_mv = chip->v_cutoff_uv/1000;
 
@@ -3128,7 +3124,7 @@ static void fcc_learning_config(struct qpnp_bms_chip *chip, bool start)
 
 	if (start) {
 		chip->start_pc = interpolate_pc(chip->pc_temp_ocv_lut,
-			batt_temp / 10, raw.last_good_ocv_uv / 1000);
+			batt_temp, raw.last_good_ocv_uv / 1000);
 		chip->start_cc_uah = calculate_cc(chip, raw.cc, CC, NORESET);
 		chip->start_real_soc = calculate_real_soc(chip,
 				batt_temp, &raw, chip->start_cc_uah);

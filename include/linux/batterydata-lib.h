@@ -27,6 +27,7 @@
 #define MAX_SINGLE_LUT_COLS	20
 
 #define MAX_BATT_ID_NUM		4
+#define DEGC_SCALE		10
 
 struct single_row_lut {
 	int x[MAX_SINGLE_LUT_COLS];
