@@ -2285,6 +2285,9 @@ static ssize_t send_write_packing_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2383,6 +2386,9 @@ static ssize_t err_check_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2491,6 +2497,9 @@ static ssize_t send_invalid_packed_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2605,6 +2614,9 @@ static ssize_t write_packing_control_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2730,6 +2742,9 @@ static ssize_t bkops_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2818,6 +2833,9 @@ static ssize_t long_sequential_read_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -2978,6 +2996,9 @@ static ssize_t long_sequential_write_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
@@ -3051,6 +3072,9 @@ static ssize_t new_req_notification_test_read(struct file *file,
 			       size_t count,
 			       loff_t *offset)
 {
+	if (!access_ok(VERIFY_WRITE, buffer, count))
+		return count;
+
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
