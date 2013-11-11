@@ -215,6 +215,8 @@ struct mdss_mdp_mixer {
 	u16 height;
 	struct mdss_mdp_img_rect roi;
 	u8 cursor_enabled;
+	u16 cursor_hotx;
+	u16 cursor_hoty;
 	u8 rotator_mode;
 
 	struct mdss_mdp_ctl *ctl;
