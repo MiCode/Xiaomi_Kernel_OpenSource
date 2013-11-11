@@ -229,7 +229,9 @@ enum usb_vdd_value {
  *              between 1 to 7.
  * @l1_supported: enable link power management support.
  * @dpdm_pulldown_added: Indicates whether pull down resistors are
-		connected on data lines or not.
+ *		connected on data lines or not.
+ * @enable_ahb2ahb_bypass: Indicates whether enable AHB2AHB BYPASS
+ *		mode with controller in device mode.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -258,6 +260,7 @@ struct msm_otg_platform_data {
 	int log2_itc;
 	bool l1_supported;
 	bool dpdm_pulldown_added;
+	bool enable_ahb2ahb_bypass;
 };
 
 /* phy related flags */
@@ -462,6 +465,7 @@ struct ci13xxx_platform_data {
 	int log2_itc;
 	void *prv_data;
 	bool l1_supported;
+	bool enable_ahb2ahb_bypass;
 };
 
 /**

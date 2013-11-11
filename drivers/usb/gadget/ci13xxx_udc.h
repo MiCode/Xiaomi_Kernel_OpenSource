@@ -136,6 +136,7 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_DISABLE_STREAMING	BIT(3)
 #define CI13XXX_ZERO_ITC		BIT(4)
 #define CI13XXX_IS_OTG			BIT(5)
+#define CI13XXX_ENABLE_AHB2AHB_BYPASS	BIT(6)
 
 #define CI13XXX_CONTROLLER_RESET_EVENT			0
 #define CI13XXX_CONTROLLER_CONNECT_EVENT		1
@@ -196,6 +197,9 @@ struct ci13xxx {
 
 /* TESTMODE */
 #define TESTMODE_FORCE        BIT(0)
+
+/* AHB_MODE */
+#define AHB2AHB_BYPASS	      BIT(31)
 
 /* USBCMD */
 #define USBCMD_RS             BIT(0)
