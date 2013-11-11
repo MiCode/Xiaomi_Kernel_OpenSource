@@ -2017,7 +2017,8 @@ static int dvb_dmxdev_get_scrambling_bits(struct dmxdev_filter *filter,
 static void dvb_dmxdev_ts_insertion_work(struct work_struct *worker)
 {
 	struct ts_insertion_buffer *ts_buffer =
-		container_of(worker, struct ts_insertion_buffer, dwork.work);
+		container_of(to_delayed_work(worker),
+			struct ts_insertion_buffer, dwork);
 	struct dmxdev_feed *feed;
 	size_t free_bytes;
 	struct dmx_ts_feed *ts;

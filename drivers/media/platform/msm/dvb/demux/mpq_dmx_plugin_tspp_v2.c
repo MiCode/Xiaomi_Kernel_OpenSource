@@ -760,36 +760,27 @@ static int mpq_dmx_tspp2_stream_buffer_event_check(struct dvb_demux_feed *feed,
 }
 
 /**
- * mpq_dmx_tspp2_filter_event_cb() - filter event notification handler
+ * mpq_dmx_tspp2_sbm_work() - filter scrambling bit monitor
  *
- * @cookie:		Filter object for which notification was received
- * @event_bitmask:	Events notified
- *
- * Note: current design assumes the callback is performed in a non-atomic
- * context so sleeping is allowed.
+ * @worker:		work object of filter delayed work
  */
-static void mpq_dmx_tspp2_filter_event_cb(void *cookie, u32 event_bitmask)
+static void mpq_dmx_tspp2_sbm_work(struct work_struct *worker)
 {
-	struct mpq_dmx_tspp2_filter *filter = cookie;
+	struct mpq_dmx_tspp2_filter *filter =
+		container_of(to_delayed_work(worker),
+			struct mpq_dmx_tspp2_filter, dwork);
 	struct dvb_demux *dvb_demux;
 	struct dvb_demux_feed *feed;
 	struct mpq_feed *mpq_feed;
 	struct mpq_tspp2_feed *tspp2_feed;
 	struct dmx_data_ready event;
 	u8 scramble_bits;
-	int scramble_high = event_bitmask & TSPP2_FILTER_EVENT_SCRAMBLING_HIGH;
-	int scramble_low = event_bitmask & TSPP2_FILTER_EVENT_SCRAMBLING_LOW;
 	int ret;
-
-	MPQ_DVB_DBG_PRINT("%s\n", __func__);
-
-	if (!scramble_high && !scramble_low)
-		return;
 
 	if (mutex_lock_interruptible(&mpq_dmx_tspp2_info.mutex))
 		return;
 
-	/* Filter was closed */
+	/* Check filter was not closed */
 	if (filter->handle == TSPP2_INVALID_HANDLE)
 		goto end;
 
@@ -797,47 +788,88 @@ static void mpq_dmx_tspp2_filter_event_cb(void *cookie, u32 event_bitmask)
 		&scramble_bits);
 	if (ret) {
 		MPQ_DVB_ERR_PRINT(
-			"%s: tspp2_filter_current_scrambling_bits_get failed, ret=%d\n",
-			__func__, ret);
+			"%s: tspp2_filter_current_scrambling_bits_get failed, pid=%u, ret=%d\n",
+			__func__, filter->pid, ret);
 		goto end;
 	}
 
+	if (scramble_bits != filter->scm_prev_val) {
+		filter->scm_count = 0;
+		filter->scm_prev_val = scramble_bits;
+	}
+
+	/* Prevent overflow to the counter */
+	if (filter->scm_count >= TSPP2_DMX_SB_MONITOR_THRESHOLD)
+		goto end;
+
+	filter->scm_count++;
+
+	/* Scrambling bit status not stable enough yet */
+	if (filter->scm_count < TSPP2_DMX_SB_MONITOR_THRESHOLD)
+		goto end;
+
+	/* Scrambling bit change is stable enough and can be reported */
 	event.status = DMX_OK_SCRAMBLING_STATUS;
+	event.data_length = 0;
 
 	dvb_demux = &filter->source_info->demux_src.mpq_demux->demux;
 	spin_lock(&dvb_demux->lock);
 	list_for_each_entry(feed, &dvb_demux->feed_list, list_head) {
 		mpq_feed = feed->priv;
 		tspp2_feed = mpq_feed->plugin_priv;
-		if (tspp2_feed->filter != filter)
+		if ((feed->type == DMX_TYPE_TS &&
+			!feed->feed.ts.is_filtering) ||
+			(feed->type == DMX_TYPE_SEC &&
+				!feed->feed.sec.is_filtering) ||
+			tspp2_feed->filter != filter ||
+			feed->scrambling_bits == scramble_bits)
 			continue;
-		/*
-		 * Filter spurious events and report only
-		 * if previous & current state match the reported
-		 * scrambling bit transition.
-		 */
-		if ((scramble_high && /* clear -> scrambled */
-			!feed->scrambling_bits && scramble_bits) ||
-			(scramble_low && /* scrambled -> clear */
-			feed->scrambling_bits && !scramble_bits)) {
-			event.scrambling_bits.pid = feed->pid;
-			event.scrambling_bits.old_value =
-				feed->scrambling_bits;
-			event.scrambling_bits.new_value = scramble_bits;
 
+		/*
+		 * Notify on scrambling status change only when we move from
+		 * clear (0) to non-clear and vise-versa.
+		 */
+		if ((!feed->scrambling_bits && scramble_bits) ||
+			(feed->scrambling_bits && !scramble_bits)) {
+			event.scrambling_bits.pid = feed->pid;
+			event.scrambling_bits.old_value = feed->scrambling_bits;
+			event.scrambling_bits.new_value = scramble_bits;
 			if (feed->type == DMX_TYPE_TS)
 				feed->data_ready_cb.ts(&feed->feed.ts, &event);
 			else
 				dvb_dmx_notify_section_event(feed, &event, 0);
 		}
+
 		/* Update current state */
 		feed->scrambling_bits = scramble_bits;
 	}
 	spin_unlock(&dvb_demux->lock);
 
 end:
+	if (filter->handle != TSPP2_INVALID_HANDLE)
+		schedule_delayed_work(&filter->dwork,
+			msecs_to_jiffies(TSPP2_DMX_SB_MONITOR_INTERVAL));
+
 	mutex_unlock(&mpq_dmx_tspp2_info.mutex);
 	return;
+}
+
+static void mpq_dmx_tspp2_start_scramble_bit_monitor(
+	struct mpq_dmx_tspp2_filter *filter)
+{
+	/* Monitor only filters for specific PID */
+	if (filter->pid == 0x2000)
+		return;
+
+	MPQ_DVB_DBG_PRINT(
+		"%s: started scrambling bit monitor (pid=%u)\n",
+		__func__, filter->pid);
+
+	filter->scm_prev_val = 0;
+	filter->scm_count = 0;
+	INIT_DELAYED_WORK(&filter->dwork, mpq_dmx_tspp2_sbm_work);
+	schedule_delayed_work(&filter->dwork,
+		msecs_to_jiffies(TSPP2_DMX_SB_MONITOR_INTERVAL));
 }
 
 /**
@@ -907,6 +939,7 @@ static struct mpq_dmx_tspp2_filter *mpq_dmx_tspp2_get_filter(u16 pid,
 static int mpq_dmx_tspp2_close_filter(struct mpq_dmx_tspp2_filter *filter)
 {
 	int ret;
+	bool cancelled;
 
 	/* Filter is still being used */
 	if (filter->num_ops)
@@ -942,6 +975,13 @@ static int mpq_dmx_tspp2_close_filter(struct mpq_dmx_tspp2_filter *filter)
 
 	filter->handle = TSPP2_INVALID_HANDLE;
 	filter->source_info = NULL;
+
+	if (filter->pid != 0x2000) {
+		cancelled = cancel_delayed_work(&filter->dwork);
+		MPQ_DVB_DBG_PRINT(
+			"%s: canceling scrambling bit monitor work (canceled=%d)\n",
+			__func__, cancelled);
+	}
 
 	return ret;
 }
@@ -989,11 +1029,12 @@ static int mpq_dmx_tspp2_set_filter_ops(struct mpq_dmx_tspp2_filter *filter)
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_raw_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info, enum dmx_tsp_format_t tsp_out_format)
+	struct mpq_dmx_tspp2_filter *filter,
+	enum dmx_tsp_format_t tsp_out_format)
 {
-	struct mpq_dmx_tspp2_filter *filter;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *mpq_tspp2_feed = mpq_feed->plugin_priv;
+	struct source_info *source_info = filter->source_info;
 	struct pipe_info *pipe_info;
 	struct mpq_dmx_tspp2_filter_op *rec_op;
 	enum tspp2_operation_timestamp_mode timestamp_mode;
@@ -1005,10 +1046,6 @@ static int mpq_dmx_tspp2_init_raw_filter(struct dvb_demux_feed *feed,
 	}
 
 	pipe_info = mpq_tspp2_feed->main_pipe;
-
-	filter = mpq_dmx_tspp2_get_filter(feed->pid, source_info);
-	if (filter == NULL || filter->num_ops == TSPP2_MAX_OPS_PER_FILTER)
-		return -ENOMEM;
 
 	mpq_tspp2_feed->op_count = 0;
 	rec_op = &mpq_tspp2_feed->ops[mpq_tspp2_feed->op_count];
@@ -1076,7 +1113,6 @@ remove_op:
 	filter->num_ops--;
 release_op:
 	mpq_tspp2_feed->op_count = 0;
-	mpq_dmx_tspp2_close_filter(filter);
 
 	return ret;
 }
@@ -1090,9 +1126,8 @@ release_op:
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_pcr_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
-	struct mpq_dmx_tspp2_filter *filter;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *mpq_tspp2_feed = mpq_feed->plugin_priv;
 	struct pipe_info *pipe_info;
@@ -1105,10 +1140,6 @@ static int mpq_dmx_tspp2_init_pcr_filter(struct dvb_demux_feed *feed,
 	}
 
 	pipe_info = mpq_tspp2_feed->main_pipe;
-
-	filter = mpq_dmx_tspp2_get_filter(feed->pid, source_info);
-	if (filter == NULL  || filter->num_ops == TSPP2_MAX_OPS_PER_FILTER)
-		return -ENOMEM;
 
 	mpq_tspp2_feed->op_count = 0;
 	pcr_op = &mpq_tspp2_feed->ops[mpq_tspp2_feed->op_count];
@@ -1144,7 +1175,6 @@ remove_op:
 	list_del(&pcr_op->next);
 	filter->num_ops--;
 	mpq_tspp2_feed->op_count = 0;
-	mpq_dmx_tspp2_close_filter(filter);
 	return ret;
 }
 
@@ -1195,7 +1225,7 @@ static void mpq_dmx_tspp2_del_pes_analysis_op(
 }
 
 /**
- * mpq_dmx_tspp2_init_index_filter() - initialize an filter with indexing
+ * mpq_dmx_tspp2_init_index_filter() - initialize a filter with indexing
  *
  * @feed: dvb demux feed object
  * @source_info: source associated with the filter
@@ -1203,9 +1233,8 @@ static void mpq_dmx_tspp2_del_pes_analysis_op(
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_index_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
-	struct mpq_dmx_tspp2_filter *filter;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *tspp2_feed = mpq_feed->plugin_priv;
 	struct pipe_info *pipe_info;
@@ -1219,7 +1248,6 @@ static int mpq_dmx_tspp2_init_index_filter(struct dvb_demux_feed *feed,
 		return -EINVAL;
 	}
 
-	filter = tspp2_feed->filter;
 	if (filter->indexing_enabled) {
 		MPQ_DVB_ERR_PRINT(
 			"%s(pid=%u): Indexing can be done only once\n",
@@ -1374,9 +1402,8 @@ remove_op:
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_pes_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
-	struct mpq_dmx_tspp2_filter *filter;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *mpq_tspp2_feed = mpq_feed->plugin_priv;
 	struct pipe_info *pipe_info;
@@ -1389,10 +1416,6 @@ static int mpq_dmx_tspp2_init_pes_filter(struct dvb_demux_feed *feed,
 	}
 
 	pipe_info = mpq_tspp2_feed->main_pipe;
-
-	filter = mpq_dmx_tspp2_get_filter(feed->pid, source_info);
-	if (filter == NULL || filter->num_ops == TSPP2_MAX_OPS_PER_FILTER)
-		return -ENOMEM;
 
 	mpq_tspp2_feed->op_count = 0;
 	pes_op = &mpq_tspp2_feed->ops[mpq_tspp2_feed->op_count];
@@ -1413,8 +1436,6 @@ static int mpq_dmx_tspp2_init_pes_filter(struct dvb_demux_feed *feed,
 			"%s: mpq_dmx_tspp2_setup_pes_op(0x%0x) failed, ret=%d\n",
 			__func__, filter->handle, ret);
 
-		mpq_dmx_tspp2_close_filter(filter);
-
 		return ret;
 	}
 
@@ -1433,21 +1454,20 @@ static int mpq_dmx_tspp2_init_pes_filter(struct dvb_demux_feed *feed,
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_sec_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
-	return mpq_dmx_tspp2_init_raw_filter(feed, source_info,
+	return mpq_dmx_tspp2_init_raw_filter(feed, filter,
 		DMX_TSP_FORMAT_188);
 }
 
 static int mpq_dmx_tspp2_init_rec_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
 	int ret;
 
-	ret = mpq_dmx_tspp2_init_raw_filter(feed, source_info,
-		feed->tsp_out_format);
+	ret = mpq_dmx_tspp2_init_raw_filter(feed, filter, feed->tsp_out_format);
 	if (!ret && feed->idx_params.enable && feed->pattern_num)
-		ret = mpq_dmx_tspp2_init_index_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_index_filter(feed, filter);
 
 	return ret;
 }
@@ -1461,9 +1481,8 @@ static int mpq_dmx_tspp2_init_rec_filter(struct dvb_demux_feed *feed,
  * Return  0 on success, error code otherwise
  */
 static int mpq_dmx_tspp2_init_decoder_filter(struct dvb_demux_feed *feed,
-	struct source_info *source_info)
+	struct mpq_dmx_tspp2_filter *filter)
 {
-	struct mpq_dmx_tspp2_filter *filter;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *mpq_tspp2_feed = mpq_feed->plugin_priv;
 	struct pipe_info *pipe_info;
@@ -1479,10 +1498,6 @@ static int mpq_dmx_tspp2_init_decoder_filter(struct dvb_demux_feed *feed,
 
 	pipe_info = mpq_tspp2_feed->main_pipe;
 	header_pipe_info = mpq_tspp2_feed->secondary_pipe;
-
-	filter = mpq_dmx_tspp2_get_filter(feed->pid, source_info);
-	if (filter == NULL || filter->num_ops == TSPP2_MAX_OPS_PER_FILTER)
-		return -ENOMEM;
 
 	mpq_tspp2_feed->op_count = 0;
 	spes_op = &mpq_tspp2_feed->ops[mpq_tspp2_feed->op_count];
@@ -1502,8 +1517,6 @@ static int mpq_dmx_tspp2_init_decoder_filter(struct dvb_demux_feed *feed,
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_dmx_tspp2_setup_pes_op(0x%0x) failed, ret=%d\n",
 			__func__, filter->handle, ret);
-
-		mpq_dmx_tspp2_close_filter(filter);
 
 		return ret;
 	}
@@ -1528,24 +1541,32 @@ static int mpq_dmx_tspp2_init_filter(struct dvb_demux_feed *feed,
 	int ret;
 	struct mpq_feed *mpq_feed = feed->priv;
 	struct mpq_tspp2_feed *tspp2_feed = mpq_feed->plugin_priv;
+	struct mpq_dmx_tspp2_filter *filter;
+	bool start_sb_monitor;
+
+	filter = mpq_dmx_tspp2_get_filter(feed->pid, source_info);
+	if (filter == NULL || filter->num_ops == TSPP2_MAX_OPS_PER_FILTER)
+		return -ENOMEM;
+
+	/* Start the scrambling bit monitor once per filter */
+	start_sb_monitor = (filter->num_ops == 0);
 
 	if (feed->type == DMX_TYPE_SEC)
-		ret = mpq_dmx_tspp2_init_sec_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_sec_filter(feed, filter);
 	else if (dvb_dmx_is_pcr_feed(feed))
-		ret = mpq_dmx_tspp2_init_pcr_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_pcr_filter(feed, filter);
 	else if (dvb_dmx_is_video_feed(feed))
-		ret = mpq_dmx_tspp2_init_decoder_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_decoder_filter(feed, filter);
 	else if (feed->ts_type & TS_PAYLOAD_ONLY)
-		ret = mpq_dmx_tspp2_init_pes_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_pes_filter(feed, filter);
 	else /* Recording case */
-		ret = mpq_dmx_tspp2_init_rec_filter(feed, source_info);
+		ret = mpq_dmx_tspp2_init_rec_filter(feed, filter);
 
-	if (!ret)
-		tspp2_filter_event_notification_register(
-			tspp2_feed->filter->handle,
-			TSPP2_FILTER_EVENT_SCRAMBLING_HIGH |
-			TSPP2_FILTER_EVENT_SCRAMBLING_LOW,
-			mpq_dmx_tspp2_filter_event_cb, tspp2_feed->filter);
+	if (!ret && start_sb_monitor)
+		mpq_dmx_tspp2_start_scramble_bit_monitor(tspp2_feed->filter);
+
+	if (ret)
+		mpq_dmx_tspp2_close_filter(filter);
 
 	return ret;
 }
@@ -5014,8 +5035,7 @@ static int mpq_dmx_tspp2_set_indexing(struct dvb_demux_feed *feed)
 			goto end;
 		}
 		tspp2_feed->index_table = codec;
-		ret = mpq_dmx_tspp2_init_index_filter(feed,
-			tspp2_feed->main_pipe->source_info);
+		ret = mpq_dmx_tspp2_init_index_filter(feed, tspp2_feed->filter);
 		if (ret) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: mpq_dmx_tspp2_init_index_filter failed, ret=%d, PID=%u\n",
@@ -6741,7 +6761,7 @@ static int mpq_dmx_tsppv2_init(struct dvb_adapter *mpq_adapter,
 		goto init_failed_dvbdmx_release;
 	}
 
-	mpq_tspp2_demux = vmalloc(sizeof(struct mpq_tspp2_demux));
+	mpq_tspp2_demux = vzalloc(sizeof(struct mpq_tspp2_demux));
 	if (!mpq_tspp2_demux) {
 		result = -ENOMEM;
 		goto init_failed_dmxdev_release;
