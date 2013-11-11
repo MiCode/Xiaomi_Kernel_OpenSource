@@ -562,7 +562,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			spin_unlock_irq(&prtd->lock);
 
 		spin_lock_irq(&prtd->lock);
-		/* only reset if flush was successful */
+		/* FIXME. only reset if flush was successful */
 		prtd->byte_offset  = 0;
 		prtd->copied_total = 0;
 		prtd->app_pointer  = 0;
@@ -589,6 +589,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		if (!atomic_read(&prtd->start)) {
 			pr_err("%s: stream is not in started state\n",
 				__func__);
+			rc = -EPERM;
 			spin_unlock_irq(&prtd->lock);
 			break;
 		}
@@ -601,12 +602,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			pr_debug("%s: wait till all the data is sent to dsp\n",
 				__func__);
 			rc = wait_event_interruptible(prtd->drain_wait,
-					prtd->drain_ready);
+							prtd->cmd_interrupt || prtd->drain_ready);
 		} else
 			spin_unlock_irq(&prtd->lock);
 
-		if (!atomic_read(&prtd->start)) {
+		if (!atomic_read(&prtd->start) || prtd->cmd_interrupt) {
 			pr_err("%s: stream is not started\n", __func__);
+			rc = -EINTR;
+			prtd->cmd_interrupt = 0;
 			break;
 		}
 
@@ -616,7 +619,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 
 		if (cmd == SND_COMPR_TRIGGER_PARTIAL_DRAIN) {
-			pr_err("PARTIAL DRAIN, do not send EOS now, why!?");
+			pr_err("PARTIAL DRAIN, do not wait for EOS ack");
 			break;
 		}
 
@@ -640,7 +643,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		break;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int msm_compr_pointer(struct snd_compr_stream *cstream,
