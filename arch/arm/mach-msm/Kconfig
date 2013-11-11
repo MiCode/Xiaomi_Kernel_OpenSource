@@ -119,7 +119,8 @@ config ARCH_MSM8916
 	select SPARSE_IRQ
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V4
-	select MSM_NOPM
+	select MSM_PM if PM
+	select MSM_RPM_SMD
 	select MEMORY_HOLE_CARVEOUT
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select QMI_ENCDEC
