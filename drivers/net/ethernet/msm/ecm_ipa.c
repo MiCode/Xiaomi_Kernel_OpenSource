@@ -656,6 +656,7 @@ void ecm_ipa_cleanup(void *priv)
 	ecm_ipa_ctx->state = next_state;
 	ECM_IPA_STATE_DEBUG(ecm_ipa_ctx);
 
+	ecm_ipa_rules_destroy(ecm_ipa_ctx);
 	ecm_ipa_destory_rm_resource(ecm_ipa_ctx);
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 
@@ -665,7 +666,7 @@ void ecm_ipa_cleanup(void *priv)
 	pr_debug("cleanup done\n");
 	ECM_IPA_LOG_EXIT();
 
-	return ;
+	return;
 }
 EXPORT_SYMBOL(ecm_ipa_cleanup);
 
@@ -1228,7 +1229,8 @@ static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
 	u32 apps_to_ipa_hdl = 2;
 	ECM_IPA_LOG_ENTRY();
 	/* Apps to IPA - override the configuration made by IPA driver
-	 * in order to allow data path on older platforms*/
+	 * in order to allow data path on older platforms
+	 */
 	memset(&cfg_mode, 0 , sizeof(cfg_mode));
 	cfg_mode.mode = IPA_DMA;
 	cfg_mode.dst = IPA_CLIENT_USB_CONS;
