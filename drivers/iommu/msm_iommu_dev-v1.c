@@ -579,10 +579,9 @@ static int __init msm_iommu_driver_init(void)
 {
 	int ret;
 
-	if (!msm_soc_version_supports_iommu_v0()) {
-		msm_set_iommu_access_ops(&iommu_access_ops_v1);
-		msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);
-	}
+	msm_set_iommu_access_ops(&iommu_access_ops_v1);
+	msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);
+
 	ret = platform_driver_register(&msm_iommu_driver);
 	if (ret != 0) {
 		pr_err("Failed to register IOMMU driver\n");
