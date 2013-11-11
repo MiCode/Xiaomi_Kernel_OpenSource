@@ -130,4 +130,18 @@ config SSM
 	  This driver uses Secure Channel Manager interface for trustzone
 	  communication and communicates with modem over SMD channel.
 
+config QCA1530
+	tristate "QCA1530 SoC GNSS Driver"
+	depends on REGULATOR && OF
+	depends on GPIOLIB && OF_GPIO
+	depends on CLKDEV_LOOKUP
+	help
+	  Say Y here to include support for QCA1530 SOC chip.
+
+	  QCA1530 chip enables support for GPS- and GLONASS-based position
+	  determination.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called qca1530.
+
 endmenu

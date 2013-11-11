@@ -1,0 +1,128 @@
+Introduction
+============
+
+The qca1530 driver is required for configuration and control of qca1530 SoC
+hardware. The driver does not connect to the chip itself, however it provides
+control of reset line, power, clock and xLNA (external low-noise amplifier)
+facilties. Driver also exports control interface to user space.
+
+qca1530 is a System on Chip that enables GNSS position computation. The chip
+holds firmware for satellite signal reception and preprocessing. Usually the
+chip interfaces with serial or i2c interface. For proper operation, the chip
+might require optional configuration of power regulator, xLNA, clock and reset
+line.
+
+Hardware description
+====================
+
+The hardware requires serial or i2c connection, power supply, clock and reset
+line. In case xLNA is available, xLNA must be also configured.
+
+Software description
+====================
+
+When configured, the driver initializes GPIOs, clock, and power supplies for
+proper chip operation.
+
+Typical scenario:
+
+* Configure Reset GPIO
+* Configure RTC clock GPIO/power supply
+* Configure xLNA power supply
+* Configure qca1530 chip power supply
+
+After successful loading, the driver exports chip control functionality to
+user space (described below).
+
+In case of configuration error, driver releases acquired resources and fails
+to load.
+
+In case of error while performing service call from user space, driver signals
+error condition to client application.
+
+Design
+======
+
+Design goal is to provide flexible driver that can adapt to various hardware
+platforms and provide stable user space control interface for the following
+tasks:
+
+* Controlling reset
+* Controlling power
+* Controlling RTC
+* Controlling xLNA
+
+The driver uses ARM DTS configuration for all items except RTC. The following
+APIs are used:
+
+* Power regulator consumer API
+* GPIO API
+* Clock consumer API
+* sysfs
+
+Power Management
+================
+
+Driver can control power for the following components:
+
+* qca1530 chip
+* RTCs
+* xLNA
+
+When loading, driver configures and turns on power supply for all components.
+User space software may alter power supplies via interface.
+
+Interface
+=========
+
+User with sufficient priviledges can perform following tasks:
+
+* Control the reset line (on/off)
+* Control power supply (on/off)
+* Control RTC (on/off)
+* Control xLNA (on/off)
+* Query status of any of the controlled items
+
+The following sysfs nodes are provided at /sys/class/gnss/qca1530:
+
+reset: This node is used to control and query the chip reset state.
+Valid values are: 0 - reset is off, 1 - reset is on.
+
+power: This node is used to control and query the chip power supply.
+Possible values are: 0 - off, 1 - on.
+
+rtc: This node is used to control and query RTC clock (SLEEP_CLK) and TCXO
+inputs. Possible values are: 0 - off, 1 - on.
+
+xlna: This node is used to control and query xLNA facility. Possible values
+are: 0 - off, 1 - on.
+
+If the control for particular item is not available, the respective sysfs node
+is not present.
+
+Driver parameters
+=================
+
+No module or kernel command line parameters supported.
+
+Config options
+==============
+
+This driver is enabled using the CONFIG_QCA1530 kernel config option.
+
+Dependencies
+============
+
+In case required, GPIO, RTC and Power Regulator modules must be present.
+
+To do
+=====
+
+* Separate driver into platform-specific option and userspace interface part.
+Platform-specific part will contain platform integration code and provide
+internal interface for controlling qca1530. The common part will contain user
+space interface implementation.
+* Add voltage/current control options. Currently driver expects power supply
+to be preconfigured with proper voltage and current options. For better power
+management the driver will also need to support entering low-power mode.
+* Add clock configuration support via DTS.
