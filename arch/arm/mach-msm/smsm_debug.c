@@ -22,8 +22,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/msm_smem.h>
-
-#include "smd_private.h"
+#include <mach/msm_smsm.h>
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -33,7 +32,7 @@ static void debug_read_smsm_state(struct seq_file *s)
 	uint32_t *smsm;
 	int n;
 
-	smsm = smem_find(ID_SHARED_STATE,
+	smsm = smem_find(SMEM_SMSM_SHARED_STATE,
 			 SMSM_NUM_ENTRIES * sizeof(uint32_t));
 
 	if (smsm)
