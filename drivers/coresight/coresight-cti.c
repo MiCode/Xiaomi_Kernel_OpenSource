@@ -216,6 +216,9 @@ static void cti_disable(struct cti_drvdata *drvdata)
 {
 	CTI_UNLOCK(drvdata);
 
+	/* Clear any pending triggers */
+	cti_writel(drvdata, BM(0, (CTI_MAX_CHANNELS - 1)), CTIAPPCLEAR);
+
 	cti_writel(drvdata, 0x0, CTICONTROL);
 
 	CTI_LOCK(drvdata);
@@ -340,6 +343,69 @@ void coresight_cti_reset(struct coresight_cti *cti)
 	mutex_unlock(&drvdata->mutex);
 }
 EXPORT_SYMBOL(coresight_cti_reset);
+
+static int __cti_set_trig(struct cti_drvdata *drvdata, int ch)
+{
+	if (!drvdata->refcnt)
+		return -EINVAL;
+
+	CTI_UNLOCK(drvdata);
+
+	cti_writel(drvdata, (1 << ch), CTIAPPSET);
+
+	CTI_LOCK(drvdata);
+
+	return 0;
+}
+
+int coresight_cti_set_trig(struct coresight_cti *cti, int ch)
+{
+	struct cti_drvdata *drvdata;
+	int ret;
+
+	if (IS_ERR_OR_NULL(cti))
+		return -EINVAL;
+	ret = cti_verify_channel_bound(ch);
+	if (ret)
+		return ret;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	ret = __cti_set_trig(drvdata, ch);
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(coresight_cti_set_trig);
+
+static void __cti_clear_trig(struct cti_drvdata *drvdata, int ch)
+{
+	if (!drvdata->refcnt)
+		return;
+
+	CTI_UNLOCK(drvdata);
+
+	cti_writel(drvdata, (1 << ch), CTIAPPCLEAR);
+
+	CTI_LOCK(drvdata);
+}
+
+void coresight_cti_clear_trig(struct coresight_cti *cti, int ch)
+{
+	struct cti_drvdata *drvdata;
+
+	if (IS_ERR_OR_NULL(cti))
+		return;
+	if (cti_verify_channel_bound(ch))
+		return;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	__cti_clear_trig(drvdata, ch);
+	mutex_unlock(&drvdata->mutex);
+}
+EXPORT_SYMBOL(coresight_cti_clear_trig);
 
 static int __cti_pulse_trig(struct cti_drvdata *drvdata, int ch)
 {
@@ -559,6 +625,76 @@ err:
 }
 static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
 
+static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long ch;
+	uint32_t ctiset;
+	ssize_t size = 0;
+
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
+
+	ctiset = cti_readl(drvdata, CTIAPPSET);
+	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
+		if (ctiset & (1 << ch)) {
+			/* Ensure we do not write more than PAGE_SIZE
+			 * bytes of data including \n character and null
+			 * terminator
+			 */
+			size += scnprintf(&buf[size], PAGE_SIZE - size -
+					  1, " %#lx,", ch);
+			if (size >= PAGE_SIZE - 2) {
+				dev_err(dev, "show buffer full\n");
+				goto err;
+			}
+
+		}
+	}
+err:
+	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
+	return size;
+}
+static DEVICE_ATTR(show_trig, S_IRUGO, cti_show_trig, NULL);
+
+static ssize_t cti_store_set_trig(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+	int ret;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	ret = coresight_cti_set_trig(&drvdata->cti, val);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(set_trig, S_IWUSR, NULL, cti_store_set_trig);
+
+static ssize_t cti_store_clear_trig(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	coresight_cti_clear_trig(&drvdata->cti, val);
+
+	return size;
+}
+static DEVICE_ATTR(clear_trig, S_IWUSR, NULL, cti_store_clear_trig);
+
 static ssize_t cti_store_pulse_trig(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t size)
@@ -586,6 +722,9 @@ static struct attribute *cti_attrs[] = {
 	&dev_attr_reset.attr,
 	&dev_attr_show_trigin.attr,
 	&dev_attr_show_trigout.attr,
+	&dev_attr_show_trig.attr,
+	&dev_attr_set_trig.attr,
+	&dev_attr_clear_trig.attr,
 	&dev_attr_pulse_trig.attr,
 	NULL,
 };
