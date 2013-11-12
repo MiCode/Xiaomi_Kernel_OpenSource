@@ -16,6 +16,8 @@
 #define ISP_SCRATCH_BUF_BIT   (0x10000 << 4)
 #define ISP_STATS_STREAM_BIT  0x80000000
 
+struct msm_vfe_cfg_cmd_list;
+
 enum ISP_START_PIXEL_PATTERN {
 	ISP_BAYER_RGRGRG,
 	ISP_BAYER_GRGRGR,
@@ -239,6 +241,12 @@ struct msm_vfe_cfg_cmd2 {
 	uint16_t cmd_len;
 	void __user *cfg_data;
 	void __user *cfg_cmd;
+};
+
+struct msm_vfe_cfg_cmd_list {
+	struct msm_vfe_cfg_cmd2      cfg_cmd;
+	struct msm_vfe_cfg_cmd_list *next;
+	uint32_t                     next_size;
 };
 
 struct msm_vfe_reg_rw_info {
