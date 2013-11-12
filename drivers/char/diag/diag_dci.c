@@ -830,10 +830,10 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 	/* Notify the DCI process that the peripheral DCI Channel is up */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->list & peripheral_mask) {
-			info.si_signo = entry->signal_type;
-			stat = send_sig_info(entry->signal_type, &info,
-								entry->client);
+		if (entry->client_info.notification_list & peripheral_mask) {
+			info.si_signo = entry->client_info.signal_type;
+			stat = send_sig_info(entry->client_info.signal_type,
+					     &info, entry->client);
 			if (stat)
 				pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
 							info.si_int, stat);
@@ -1712,11 +1712,14 @@ void diag_dci_try_deactivate_wakeup_source()
 	spin_unlock_irqrestore(&ws_lock, ws_lock_flags);
 }
 
-int diag_dci_register_client(uint16_t peripheral_list, int signal)
+int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 {
 	int i, err = 0;
 	struct diag_dci_client_tbl *new_entry = NULL;
 	struct diag_dci_buf_peripheral_t *proc_buf = NULL;
+
+	if (!reg_entry)
+		return DIAG_DCI_NO_REG;
 
 	if (driver->dci_state == DIAG_DCI_NO_REG)
 		return DIAG_DCI_NO_REG;
@@ -1727,7 +1730,7 @@ int diag_dci_register_client(uint16_t peripheral_list, int signal)
 	new_entry = kzalloc(sizeof(struct diag_dci_client_tbl), GFP_KERNEL);
 	if (new_entry == NULL) {
 		pr_err("diag: unable to alloc memory\n");
-		return -ENOMEM;
+		return DIAG_DCI_NO_REG;
 	}
 
 	mutex_lock(&driver->dci_mutex);
@@ -1740,8 +1743,10 @@ int diag_dci_register_client(uint16_t peripheral_list, int signal)
 	}
 
 	new_entry->client = current;
-	new_entry->list = peripheral_list;
-	new_entry->signal_type = signal;
+	new_entry->client_info.notification_list =
+				reg_entry->notification_list;
+	new_entry->client_info.signal_type =
+				reg_entry->signal_type;
 	new_entry->real_time = MODE_REALTIME;
 	new_entry->in_service = 0;
 	INIT_LIST_HEAD(&new_entry->list_write_buf);
@@ -1794,6 +1799,8 @@ int diag_dci_register_client(uint16_t peripheral_list, int signal)
 
 	list_add_tail(&new_entry->track, &driver->dci_client_list);
 	driver->dci_client_id++;
+	new_entry->client_info.client_id = driver->dci_client_id;
+	reg_entry->client_id = driver->dci_client_id;
 	driver->num_dci_client++;
 	if (driver->num_dci_client == 1)
 		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP);
