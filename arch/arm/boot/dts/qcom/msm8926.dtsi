@@ -47,6 +47,18 @@
 		onnn,discharge-enable;
 		onnn,restore-reg;
 	};
+
+	fan53555: fan53555-regulator@60 {
+		compatible = "fairchild,fan53555-regulator";
+		reg = <0x60>;
+		fairchild,backup-vsel = <1>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1350000>;
+		regulator-ramp-delay = <8000>;
+		fairchild,vsel-gpio = <&msmgpio 2 1>;
+		fairchild,restore-reg;
+		fairchild,disable-suspend;
+	};
 };
 
 &soc {
