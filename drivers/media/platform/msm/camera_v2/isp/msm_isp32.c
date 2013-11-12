@@ -620,7 +620,10 @@ static void msm_vfe32_update_camif_state(
 		msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x1E0);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
 	} else if (update_state == DISABLE_CAMIF_IMMEDIATELY) {
-		msm_camera_io_w_mb(0x2, vfe_dev->vfe_base + 0x1E0);
+		msm_camera_io_w_mb(0x6, vfe_dev->vfe_base + 0x1E0);
+		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev);
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev);
+		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
 	}
 }
