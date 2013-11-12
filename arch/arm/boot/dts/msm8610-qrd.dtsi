@@ -309,6 +309,7 @@
 
 	qcom,chgr@1000 {
 		status = "ok";
+		qcom,tchg-mins = <250>;
 	};
 
 	qcom,buck@1100 {
