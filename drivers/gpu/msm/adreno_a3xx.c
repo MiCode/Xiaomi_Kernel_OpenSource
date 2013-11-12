@@ -3263,20 +3263,6 @@ void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dispatcher_irq_fault(device);
 }
 
-void a3xx_gpu_idle_callback(struct adreno_device *adreno_dev,
-					int irq)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-
-	if (device->requested_state == KGSL_STATE_NONE) {
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-		queue_work(device->work_queue, &device->idle_check_ws);
-	}
-
-	mod_timer_pending(&device->idle_timer,
-		jiffies + device->pwrctrl.interval_timeout);
-}
-
 /*
  * a3xx_cp_callback() - CP interrupt handler
  * @adreno_dev: Adreno device pointer
@@ -3289,6 +3275,7 @@ void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	device->pwrctrl.irq_last = 1;
 	queue_work(device->work_queue, &device->ts_expired_ws);
 	adreno_dispatcher_schedule(device);
 }
@@ -3740,8 +3727,7 @@ static void a3xx_perfcounter_restore(struct adreno_device *adreno_dev)
 }
 
 #define A3XX_INT_MASK \
-	((1 << A3XX_INT_RBBM_GPU_IDLE) |         \
-	 (1 << A3XX_INT_RBBM_AHB_ERROR) |        \
+	((1 << A3XX_INT_RBBM_AHB_ERROR) |        \
 	 (1 << A3XX_INT_RBBM_ATB_BUS_OVERFLOW) | \
 	 (1 << A3XX_INT_CP_T0_PACKET_IN_IB) |    \
 	 (1 << A3XX_INT_CP_OPCODE_ERROR) |       \
@@ -3755,7 +3741,7 @@ static void a3xx_perfcounter_restore(struct adreno_device *adreno_dev)
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
 
 static struct adreno_irq_funcs a3xx_irq_funcs[] = {
-	ADRENO_IRQ_CALLBACK(a3xx_gpu_idle_callback), /* 0 - RBBM_GPU_IDLE */
+	ADRENO_IRQ_CALLBACK(NULL),                    /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a3xx_a4xx_err_callback),  /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a3xx_a4xx_err_callback),  /* 2 - RBBM_REG_TIMEOUT */
 	/* * 3 - RBBM_ME_MS_TIMEOUT */
