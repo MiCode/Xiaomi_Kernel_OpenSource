@@ -369,29 +369,22 @@ void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	kgsl_sharedmem_set(rb->device, &rb->memptrs_desc, 0, 0,
-			   sizeof(struct kgsl_rbmemptrs));
-
 	kgsl_sharedmem_set(rb->device, &rb->buffer_desc, 0, 0xAA,
 			   (rb->sizedwords << 2));
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
-	 * representation of the size in quadwords (sizedwords / 2)
-	 * blksize is the log2 of the number of quadwords to read before
-	 * updating the memory RPTR
+	 * representation of the size in quadwords (sizedwords / 2).
+	 * Also disable the host RPTR shadow register as it might be unreliable
+	 * in certain circumstances.
 	 */
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
 		(ilog2(rb->sizedwords >> 1) & 0x3F) |
-		((ilog2(KGSL_RB_BLKSIZE >> 3) & 0x3F) << 8));
+		(1 << 27));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
 					rb->buffer_desc.gpuaddr);
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_RPTR_ADDR,
-				rb->memptrs_desc.gpuaddr +
-				GSL_RB_MEMPTRS_RPTR_OFFSET);
 
 	/* setup scratch/timestamp */
 	adreno_writereg(adreno_dev, ADRENO_REG_SCRATCH_ADDR,
@@ -579,20 +572,6 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 		return status;
 	}
 
-	/* allocate memory for polling and timestamps */
-	/* This really can be at 4 byte alignment boundry but for using MMU
-	 * we need to make it at page boundary */
-	status = kgsl_allocate_contiguous(&rb->memptrs_desc,
-		sizeof(struct kgsl_rbmemptrs));
-
-	if (status != 0) {
-		adreno_ringbuffer_close(rb);
-		return status;
-	}
-
-	/* overlay structure on memptrs memory */
-	rb->memptrs = (struct kgsl_rbmemptrs *) rb->memptrs_desc.hostptr;
-
 	rb->global_ts = 0;
 
 	return 0;
@@ -603,7 +582,6 @@ void adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
 	kgsl_sharedmem_free(&rb->buffer_desc);
-	kgsl_sharedmem_free(&rb->memptrs_desc);
 
 	kfree(adreno_dev->pfp_fw);
 	kfree(adreno_dev->pm4_fw);
