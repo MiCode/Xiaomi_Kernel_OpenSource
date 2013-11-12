@@ -264,7 +264,7 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 					MSM_ISP_BUFFER_STATE_INITIALIZED)
 			continue;
 
-		if (!BUF_SRC(bufq->stream_id)) {
+		if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id)) {
 			if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
 			buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED)
 				buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
@@ -318,7 +318,8 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		}
 	}
 
-	if (BUF_SRC(bufq->stream_id)) {
+	switch (BUF_SRC(bufq->stream_id)) {
+	case MSM_ISP_BUFFER_SRC_NATIVE:
 		list_for_each_entry(temp_buf_info, &bufq->head, list) {
 			if (temp_buf_info->state ==
 					MSM_ISP_BUFFER_STATE_QUEUED) {
@@ -328,7 +329,8 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				break;
 			}
 		}
-	} else {
+		break;
+	case MSM_ISP_BUFFER_SRC_HAL:
 		vb2_buf = buf_mgr->vb2_ops->get_buf(
 			bufq->session_id, bufq->stream_id);
 		if (vb2_buf) {
@@ -342,6 +344,17 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				rc = -EINVAL;
 			}
 		}
+		break;
+	case MSM_ISP_BUFFER_SRC_SCRATCH:
+		/* In scratch buf case we have only on buffer in queue.
+		 * We return every time same buffer. */
+		*buf_info = list_entry(bufq->head.next, typeof(**buf_info),
+				list);
+		break;
+	default:
+		pr_err("%s: Incorrect buf source.\n", __func__);
+		rc = -EINVAL;
+		return rc;
 	}
 
 	if (!(*buf_info)) {
@@ -395,11 +408,13 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	switch (buf_info->state) {
 	case MSM_ISP_BUFFER_STATE_PREPARED:
+		if (MSM_ISP_BUFFER_SRC_SCRATCH == BUF_SRC(bufq->stream_id))
+			list_add_tail(&buf_info->list, &bufq->head);
 	case MSM_ISP_BUFFER_STATE_DEQUEUED:
 	case MSM_ISP_BUFFER_STATE_DIVERTED:
-		if (BUF_SRC(bufq->stream_id))
+		if (MSM_ISP_BUFFER_SRC_NATIVE == BUF_SRC(bufq->stream_id))
 			list_add_tail(&buf_info->list, &bufq->head);
-		else
+		else if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id))
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
 		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
@@ -461,19 +476,19 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		}
 		buf_info->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
-		if ((BUF_SRC(bufq->stream_id))) {
+		if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id)) {
+			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
+			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
+			buf_info->vb2_buf->v4l2_buf.reserved  = output_format;
+			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
+				bufq->session_id, bufq->stream_id);
+		} else {
 			rc = msm_isp_put_buf(buf_mgr, buf_info->bufq_handle,
 						buf_info->buf_idx);
 			if (rc < 0) {
 				pr_err("%s: Buf put failed\n", __func__);
 				return rc;
 			}
-		} else {
-			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
-			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
-			buf_info->vb2_buf->v4l2_buf.reserved = output_format;
-			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
-				bufq->session_id, bufq->stream_id);
 		}
 	}
 
@@ -586,7 +601,7 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 		}
 	} else {
 		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-		if (BUF_SRC(bufq->stream_id)) {
+		if (MSM_ISP_BUFFER_SRC_HAL != BUF_SRC(bufq->stream_id)) {
 			rc = msm_isp_put_buf(buf_mgr,
 					info->handle, info->buf_idx);
 			if (rc < 0) {
@@ -608,6 +623,21 @@ static int msm_isp_get_bufq_handle(struct msm_isp_buf_mgr *buf_mgr,
 			return buf_mgr->bufq[i].bufq_handle;
 		}
 	}
+	return 0;
+}
+
+static int msm_isp_get_buf_src(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t bufq_handle, uint32_t *buf_src)
+{
+	struct msm_isp_bufq *bufq = NULL;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq\n", __func__);
+		return -EINVAL;
+	}
+	*buf_src = BUF_SRC(bufq->stream_id);
+
 	return 0;
 }
 
@@ -798,6 +828,7 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.enqueue_buf = msm_isp_buf_enqueue,
 	.release_buf = msm_isp_release_bufq,
 	.get_bufq_handle = msm_isp_get_bufq_handle,
+	.get_buf_src = msm_isp_get_buf_src,
 	.get_buf = msm_isp_get_buf,
 	.put_buf = msm_isp_put_buf,
 	.flush_buf = msm_isp_flush_buf,

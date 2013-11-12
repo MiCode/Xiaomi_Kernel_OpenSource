@@ -9,10 +9,11 @@
 #define ISP_VERSION_44        44
 #define ISP_VERSION_40        40
 #define ISP_VERSION_32        32
-#define ISP_NATIVE_BUF_BIT    0x10000
-#define ISP0_BIT              0x20000
-#define ISP1_BIT              0x40000
-#define ISP_META_CHANNEL_BIT  0x80000
+#define ISP_NATIVE_BUF_BIT    (0x10000 << 0)
+#define ISP0_BIT              (0x10000 << 1)
+#define ISP1_BIT              (0x10000 << 2)
+#define ISP_META_CHANNEL_BIT  (0x10000 << 3)
+#define ISP_SCRATCH_BUF_BIT   (0x10000 << 4)
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 enum ISP_START_PIXEL_PATTERN {
@@ -166,11 +167,13 @@ enum msm_vfe_axi_stream_update_type {
 	DISABLE_STREAM_BUF_DIVERT,
 	UPDATE_STREAM_FRAMEDROP_PATTERN,
 	UPDATE_STREAM_AXI_CONFIG,
+	UPDATE_STREAM_REQUEST_FRAMES,
 };
 
 struct msm_vfe_axi_stream_cfg_update_info {
 	uint32_t stream_handle;
 	uint32_t output_format;
+	uint32_t request_frm_num;
 	enum msm_vfe_frame_skip_pattern skip_pattern;
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 };
