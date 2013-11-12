@@ -142,6 +142,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define MSM_PRONTO_PLL_BASE				0xfb21b1c0
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
 
+#define MSM_PRONTO_TXP_STATUS           0xfb08040c
 #define MSM_PRONTO_TXP_PHY_ABORT        0xfb080488
 #define MSM_PRONTO_BRDG_ERR_SRC         0xfb080fb0
 
@@ -333,6 +334,7 @@ static struct {
 	void __iomem *pronto_ccpu_base;
 	void __iomem *pronto_saw2_base;
 	void __iomem *pronto_pll_base;
+	void __iomem *wlan_tx_status;
 	void __iomem *wlan_tx_phy_aborts;
 	void __iomem *wlan_brdg_err_source;
 	void __iomem *fiq_reg;
@@ -508,6 +510,10 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  PRONTO_PMU_SOFT_RESET %08x\n",
 						__func__, reg);
 
+	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_STS_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: PRONTO_SAW2_SPM_STS %08x\n", __func__, reg);
+
 	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_COM_GDSCR_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s:  PRONTO_PMU_COM_GDSCR %08x\n",
@@ -555,10 +561,6 @@ void wcnss_pronto_log_debug_regs(void)
 	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
-
-	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_STS_OFFSET;
-	reg = readl_relaxed(reg_addr);
-	pr_info_ratelimited("%s: PRONTO_SAW2_SPM_STS %08x\n", __func__, reg);
 
 	reg_addr = penv->pronto_pll_base + PRONTO_PLL_STATUS_OFFSET;
 	reg = readl_relaxed(reg_addr);
@@ -657,6 +659,8 @@ void wcnss_pronto_log_debug_regs(void)
 	reg = readl_relaxed(penv->wlan_brdg_err_source);
 	pr_info_ratelimited("%s: WLAN_BRDG_ERR_SOURCE %08x\n", __func__, reg);
 
+	reg = readl_relaxed(penv->wlan_tx_status);
+	pr_info_ratelimited("%s: WLAN_TX_STATUS %08x\n", __func__, reg);
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
@@ -1950,7 +1954,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 			pr_err("%s: ioremap wlan BRDG ERR failed\n", __func__);
 			goto fail_ioremap8;
 		}
-
+		penv->wlan_tx_status = ioremap(MSM_PRONTO_TXP_STATUS, SZ_8);
+		if (!penv->wlan_tx_status) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wlan TX STATUS failed\n", __func__);
+			goto fail_ioremap9;
+		}
 	}
 	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
 	if (IS_ERR(penv->adc_tm_dev)) {
@@ -1976,6 +1985,9 @@ wcnss_trigger_config(struct platform_device *pdev)
 fail_pil:
 	if (penv->riva_ccu_base)
 		iounmap(penv->riva_ccu_base);
+	if (penv->wlan_tx_status)
+		iounmap(penv->wlan_tx_status);
+fail_ioremap9:
 	if (penv->wlan_brdg_err_source)
 		iounmap(penv->wlan_brdg_err_source);
 fail_ioremap8:
