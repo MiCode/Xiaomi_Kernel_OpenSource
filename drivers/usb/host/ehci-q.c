@@ -683,7 +683,7 @@ qh_urb_transaction (
 		if ((maxpacket & (this_qtd_len + (maxpacket - 1))) == 0)
 			token ^= QTD_TOGGLE;
 
-		if (likely(this_sg_len <= 0)) {
+		if (likely(sg && (this_sg_len <= 0))) {
 			if (--i <= 0 || len <= 0)
 				break;
 			sg = sg_next(sg);
