@@ -1697,7 +1697,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 			}
 			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
 				iommu_unit->dev[j].default_ttbr0 =
-						KGSL_IOMMU_GET_CTX_REG_LL(iommu,
+						KGSL_IOMMU_GET_CTX_REG_Q(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						TTBR0);
@@ -1969,7 +1969,7 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 			pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 			pt_val |= pt_base;
 			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
-				KGSL_IOMMU_SET_CTX_REG_LL(iommu,
+				KGSL_IOMMU_SET_CTX_REG_Q(iommu,
 					(&iommu->iommu_units[i]),
 					KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
 			} else {

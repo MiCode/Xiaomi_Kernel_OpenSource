@@ -97,15 +97,15 @@ struct kgsl_iommu_register_list {
 #define KGSL_IOMMU_MAX_DEVS_PER_UNIT 2
 
 /* Macros to read/write IOMMU registers */
-#define KGSL_IOMMU_SET_CTX_REG_LL(iommu, iommu_unit, ctx, REG, val)	\
-		writell_relaxed(val,					\
+#define KGSL_IOMMU_SET_CTX_REG_Q(iommu, iommu_unit, ctx, REG, val)	\
+		writeq_relaxed(val,					\
 		iommu_unit->reg_map.hostptr +				\
 		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
 		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
 		iommu->ctx_offset)
 
-#define KGSL_IOMMU_GET_CTX_REG_LL(iommu, iommu_unit, ctx, REG)		\
-		readll_relaxed(						\
+#define KGSL_IOMMU_GET_CTX_REG_Q(iommu, iommu_unit, ctx, REG)		\
+		readq_relaxed(						\
 		iommu_unit->reg_map.hostptr +				\
 		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
 		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
