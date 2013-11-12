@@ -6009,6 +6009,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("iface_clk", gcc_ufs_ahb_clk.c,       "msm_ufs.1"),
 	CLK_LOOKUP("core_clk", gcc_ufs_axi_clk.c,        "msm_ufs.1"),
 	CLK_LOOKUP("core_clk_src", ufs_axi_clk_src.c, "msm_ufs.1"),
+	CLK_LOOKUP("iface_clk", gcc_sys_noc_ufs_axi_clk.c,  "msm_bus_ufs"),
 	CLK_LOOKUP("rx_lane0_sync_clk", gcc_ufs_rx_symbol_0_clk.c,
 							"msm_ufs.1"),
 	CLK_LOOKUP("rx_lane1_sync_clk", gcc_ufs_rx_symbol_1_clk.c,
