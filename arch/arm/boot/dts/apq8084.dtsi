@@ -2520,6 +2520,16 @@
 		compatible = "qcom,msm-pcm-hostless";
 	};
 
+	qcom,msm-ocmem-audio {
+		compatible = "qcom,msm-ocmem-audio";
+		qcom,msm-bus,name = "audio-ocmem";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<11 604 0 0>,
+			<11 604 32506 32506>;
+	};
+
 	qcom,pil-vpu@fde0b000{
 		compatible = "qcom,pil-vpu";
 		reg = <0xfde0b000 0x80>;
