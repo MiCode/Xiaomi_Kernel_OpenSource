@@ -170,6 +170,7 @@ struct smb349_charger {
 	int			chg_valid_gpio;
 	int			chg_valid_act_low;
 	int			chg_present;
+	int			fake_battery_soc;
 	bool			chg_autonomous_mode;
 	bool			disable_apsd;
 	bool			battery_missing;
@@ -643,6 +644,9 @@ static int smb349_get_prop_batt_capacity(struct smb349_charger *chip)
 {
 	union power_supply_propval ret = {0, };
 
+	if (chip->fake_battery_soc >= 0)
+		return chip->fake_battery_soc;
+
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
@@ -788,6 +792,7 @@ smb349_batt_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CAPACITY:
 		return 1;
 	default:
 		break;
@@ -806,6 +811,10 @@ static int smb349_battery_set_property(struct power_supply *psy,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		smb349_charging(chip, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		chip->fake_battery_soc = val->intval;
+		power_supply_changed(&chip->batt_psy);
 		break;
 	default:
 		return -EINVAL;
@@ -1370,6 +1379,7 @@ static int smb349_charger_probe(struct i2c_client *client,
 	chip->client = client;
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
+	chip->fake_battery_soc = -EINVAL;
 
 	/* probe the device to check if its actually connected */
 	rc = smb349_read_reg(chip, CHG_OTH_CURRENT_CTRL_REG, &reg);
