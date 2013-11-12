@@ -45,6 +45,9 @@
 #include "unipro.h"
 #include "debugfs.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/ufs.h>
+
 #ifdef CONFIG_DEBUG_FS
 #define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
 	do {							\
@@ -4376,6 +4379,7 @@ out:
 static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
 	int ret;
+	ktime_t start = ktime_get();
 
 	ret = ufshcd_link_startup(hba);
 	if (ret)
@@ -4460,6 +4464,8 @@ out:
 		ufshcd_hba_exit(hba);
 	}
 
+	trace_ufshcd_init(dev_name(hba->dev), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return ret;
 }
 
@@ -5579,6 +5585,7 @@ out:
 int ufshcd_system_suspend(struct ufs_hba *hba)
 {
 	int ret = 0;
+	ktime_t start = ktime_get();
 
 	if (!hba || !hba->is_powered)
 		return 0;
@@ -5608,6 +5615,8 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
 
 	ret = ufshcd_suspend(hba, UFS_SYSTEM_PM);
 out:
+	trace_ufshcd_system_suspend(dev_name(hba->dev), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
 	if (!ret)
 		hba->is_sys_suspended = true;
 	return ret;
@@ -5623,14 +5632,21 @@ EXPORT_SYMBOL(ufshcd_system_suspend);
 
 int ufshcd_system_resume(struct ufs_hba *hba)
 {
+	int ret = 0;
+	ktime_t start = ktime_get();
+
 	if (!hba || !hba->is_powered || pm_runtime_suspended(hba->dev))
 		/*
 		 * Let the runtime resume take care of resuming
 		 * if runtime suspended.
 		 */
-		return 0;
-
-	return ufshcd_resume(hba, UFS_SYSTEM_PM);
+		goto out;
+	else
+		ret = ufshcd_resume(hba, UFS_SYSTEM_PM);
+out:
+	trace_ufshcd_system_resume(dev_name(hba->dev), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_resume);
 
@@ -5644,10 +5660,18 @@ EXPORT_SYMBOL(ufshcd_system_resume);
  */
 int ufshcd_runtime_suspend(struct ufs_hba *hba)
 {
-	if (!hba || !hba->is_powered)
-		return 0;
+	int ret = 0;
+	ktime_t start = ktime_get();
 
-	return ufshcd_suspend(hba, UFS_RUNTIME_PM);
+	if (!hba || !hba->is_powered)
+		goto out;
+	else
+		ret = ufshcd_suspend(hba, UFS_RUNTIME_PM);
+out:
+	trace_ufshcd_runtime_suspend(dev_name(hba->dev), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
+	return ret;
+
 }
 EXPORT_SYMBOL(ufshcd_runtime_suspend);
 
@@ -5674,10 +5698,17 @@ EXPORT_SYMBOL(ufshcd_runtime_suspend);
  */
 int ufshcd_runtime_resume(struct ufs_hba *hba)
 {
+	int ret = 0;
+	ktime_t start = ktime_get();
+
 	if (!hba || !hba->is_powered)
-		return 0;
+		goto out;
 	else
-		return ufshcd_resume(hba, UFS_RUNTIME_PM);
+		ret = ufshcd_resume(hba, UFS_RUNTIME_PM);
+out:
+	trace_ufshcd_runtime_resume(dev_name(hba->dev), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_resume);
 
