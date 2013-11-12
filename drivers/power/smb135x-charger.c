@@ -235,6 +235,7 @@ struct smb135x_chg {
 	int				vfloat_mv;
 	int				safety_time;
 	int				resume_delta_mv;
+	int				fake_battery_soc;
 	struct dentry			*debug_root;
 	int				usb_current_arr_size;
 	u8				irq_cfg_mask[3];
@@ -531,6 +532,8 @@ static int smb135x_get_prop_batt_capacity(struct smb135x_chg *chip)
 {
 	union power_supply_propval ret = {0, };
 
+	if (chip->fake_battery_soc >= 0)
+		return chip->fake_battery_soc;
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
@@ -858,6 +861,10 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		smb135x_charging(chip, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		chip->fake_battery_soc = val->intval;
+		power_supply_changed(&chip->batt_psy);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -872,6 +879,7 @@ static int smb135x_battery_is_writeable(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = 1;
 		break;
 	default:
@@ -2215,6 +2223,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	chip->client = client;
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
+	chip->fake_battery_soc = -EINVAL;
 
 	/* probe the device to check if its actually connected */
 	rc = smb135x_read(chip, CFG_4_REG, &reg);
