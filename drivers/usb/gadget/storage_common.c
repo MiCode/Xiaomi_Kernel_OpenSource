@@ -632,6 +632,9 @@ static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
 			rc = PTR_ERR(p);
 		else {
 			rc = strlen(p);
+			if (rc > PAGE_SIZE - 2)
+				rc = PAGE_SIZE - 2;
+
 			memmove(buf, p, rc);
 			buf[rc] = '\n';		/* Add a newline */
 			buf[++rc] = 0;
