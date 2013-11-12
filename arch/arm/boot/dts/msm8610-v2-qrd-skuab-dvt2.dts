@@ -63,3 +63,18 @@
 		};
 	};
 };
+
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	#include "batterydata-qrd-4v2-2200mah.dtsi"
+};
+
+&pm8110_bms {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8110_chg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
