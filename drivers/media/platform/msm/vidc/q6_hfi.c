@@ -560,17 +560,28 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 		dprintk(VIDC_ERR, "session_init: failed to create packet");
 		goto err_session_init;
 	}
+	/*
+	 * Add session id to the list entry and then send the apr pkt.
+	 * This will avoid scenarios where apr_send_pkt is taking more
+	 * time and Q6 is returning an ack even before the session id
+	 * gets added to the session list.
+	 */
+	mutex_lock(&dev->session_lock);
+	list_add_tail(&new_session->list, &dev->sess_head);
+	mutex_unlock(&dev->session_lock);
 
 	rc = apr_send_pkt(dev->apr, (uint32_t *)&apr);
 	if (rc != apr.hdr.pkt_size) {
 		dprintk(VIDC_ERR, "%s: apr_send_pkt failed rc: %d",
 				__func__, rc);
+		/* Delete the session id as the send pkt is not successful */
+		mutex_lock(&dev->session_lock);
+		list_del(&new_session->list);
+		mutex_unlock(&dev->session_lock);
 		rc = -EBADE;
 		goto err_session_init;
 	}
-	mutex_lock(&dev->session_lock);
-	list_add_tail(&new_session->list, &dev->sess_head);
-	mutex_unlock(&dev->session_lock);
+
 	return new_session;
 
 err_session_init:

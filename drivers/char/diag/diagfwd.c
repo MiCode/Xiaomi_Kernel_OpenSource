@@ -1294,22 +1294,38 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		driver->apps_rsp_buf[0] = 0x73;
 		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
 		*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success code */
-		*(int *)(driver->apps_rsp_buf + 12) = LOG_GET_ITEM_NUM(LOG_0);
-		*(int *)(driver->apps_rsp_buf + 16) = LOG_GET_ITEM_NUM(LOG_1);
-		*(int *)(driver->apps_rsp_buf + 20) = LOG_GET_ITEM_NUM(LOG_2);
-		*(int *)(driver->apps_rsp_buf + 24) = LOG_GET_ITEM_NUM(LOG_3);
-		*(int *)(driver->apps_rsp_buf + 28) = LOG_GET_ITEM_NUM(LOG_4);
-		*(int *)(driver->apps_rsp_buf + 32) = LOG_GET_ITEM_NUM(LOG_5);
-		*(int *)(driver->apps_rsp_buf + 36) = LOG_GET_ITEM_NUM(LOG_6);
-		*(int *)(driver->apps_rsp_buf + 40) = LOG_GET_ITEM_NUM(LOG_7);
-		*(int *)(driver->apps_rsp_buf + 44) = LOG_GET_ITEM_NUM(LOG_8);
-		*(int *)(driver->apps_rsp_buf + 48) = LOG_GET_ITEM_NUM(LOG_9);
-		*(int *)(driver->apps_rsp_buf + 52) = LOG_GET_ITEM_NUM(LOG_10);
-		*(int *)(driver->apps_rsp_buf + 56) = LOG_GET_ITEM_NUM(LOG_11);
-		*(int *)(driver->apps_rsp_buf + 60) = LOG_GET_ITEM_NUM(LOG_12);
-		*(int *)(driver->apps_rsp_buf + 64) = LOG_GET_ITEM_NUM(LOG_13);
-		*(int *)(driver->apps_rsp_buf + 68) = LOG_GET_ITEM_NUM(LOG_14);
-		*(int *)(driver->apps_rsp_buf + 72) = LOG_GET_ITEM_NUM(LOG_15);
+		*(int *)(driver->apps_rsp_buf + 12) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[0]);
+		*(int *)(driver->apps_rsp_buf + 16) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[1]);
+		*(int *)(driver->apps_rsp_buf + 20) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[2]);
+		*(int *)(driver->apps_rsp_buf + 24) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[3]);
+		*(int *)(driver->apps_rsp_buf + 28) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[4]);
+		*(int *)(driver->apps_rsp_buf + 32) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[5]);
+		*(int *)(driver->apps_rsp_buf + 36) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[6]);
+		*(int *)(driver->apps_rsp_buf + 40) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[7]);
+		*(int *)(driver->apps_rsp_buf + 44) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[8]);
+		*(int *)(driver->apps_rsp_buf + 48) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[9]);
+		*(int *)(driver->apps_rsp_buf + 52) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[10]);
+		*(int *)(driver->apps_rsp_buf + 56) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[11]);
+		*(int *)(driver->apps_rsp_buf + 60) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[12]);
+		*(int *)(driver->apps_rsp_buf + 64) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[13]);
+		*(int *)(driver->apps_rsp_buf + 68) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[14]);
+		*(int *)(driver->apps_rsp_buf + 72) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[15]);
 		encode_rsp_and_send(75);
 		return 0;
 	}

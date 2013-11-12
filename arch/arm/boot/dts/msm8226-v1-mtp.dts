@@ -12,7 +12,7 @@
 
 /dts-v1/;
 /include/ "msm8226-v1.dtsi"
-/include/ "msm8226-mtp.dtsi"
+/include/ "msm8226-720p-mtp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226 MTP";
