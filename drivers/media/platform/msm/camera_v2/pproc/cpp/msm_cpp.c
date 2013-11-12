@@ -926,35 +926,35 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	cpp_dev->cpp_open_cnt--;
 	if (cpp_dev->cpp_open_cnt == 0) {
-		pr_err("%s: irq_status: 0x%x\n", __func__,
+		pr_debug("irq_status: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4));
-		pr_err("%s: DEBUG_SP: 0x%x\n", __func__,
+		pr_debug("DEBUG_SP: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x40));
-		pr_err("%s: DEBUG_T: 0x%x\n", __func__,
+		pr_debug("DEBUG_T: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x44));
-		pr_err("%s: DEBUG_N: 0x%x\n", __func__,
+		pr_debug("DEBUG_N: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x48));
-		pr_err("%s: DEBUG_R: 0x%x\n", __func__,
+		pr_debug("DEBUG_R: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4C));
-		pr_err("%s: DEBUG_OPPC: 0x%x\n", __func__,
+		pr_debug("DEBUG_OPPC: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x50));
-		pr_err("%s: DEBUG_MO: 0x%x\n", __func__,
+		pr_debug("DEBUG_MO: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x54));
-		pr_err("%s: DEBUG_TIMER0: 0x%x\n", __func__,
+		pr_debug("DEBUG_TIMER0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x60));
-		pr_err("%s: DEBUG_TIMER1: 0x%x\n", __func__,
+		pr_debug("DEBUG_TIMER1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x64));
-		pr_err("%s: DEBUG_GPI: 0x%x\n", __func__,
+		pr_debug("DEBUG_GPI: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x70));
-		pr_err("%s: DEBUG_GPO: 0x%x\n", __func__,
+		pr_debug("DEBUG_GPO: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x74));
-		pr_err("%s: DEBUG_T0: 0x%x\n", __func__,
+		pr_debug("DEBUG_T0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x80));
-		pr_err("%s: DEBUG_R0: 0x%x\n", __func__,
+		pr_debug("DEBUG_R0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x84));
-		pr_err("%s: DEBUG_T1: 0x%x\n", __func__,
+		pr_debug("DEBUG_T1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
-		pr_err("%s: DEBUG_R1: 0x%x\n", __func__,
+		pr_debug("DEBUG_R1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 		cpp_deinit_mem(cpp_dev);
