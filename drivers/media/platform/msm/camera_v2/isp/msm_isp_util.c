@@ -623,6 +623,12 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		goto reg_cfg_failed;
 	}
 
+	if (!proc_cmd->cmd_len) {
+		pr_err("%s: Passed cmd_len as 0\n", __func__);
+		rc = -EINVAL;
+		goto cfg_data_failed;
+	}
+
 	cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
 	if (!cfg_data) {
 		pr_err("%s: cfg_data alloc failed\n", __func__);

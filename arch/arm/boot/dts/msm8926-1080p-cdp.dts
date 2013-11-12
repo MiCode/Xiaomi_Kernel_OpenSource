@@ -13,11 +13,26 @@
 
 /dts-v1/;
 /include/ "msm8926.dtsi"
-/include/ "msm8226-mtp.dtsi"
-/include/ "msm8226-camera-sensor-mtp.dtsi"
+/include/ "msm8226-1080p-cdp.dtsi"
+/include/ "msm8226-camera-sensor-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926 MTP";
-	compatible = "qcom,msm8926-mtp", "qcom,msm8926", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	model = "Qualcomm MSM 8926 CDP";
+	compatible = "qcom,msm8926-cdp", "qcom,msm8926", "qcom,cdp";
+	qcom,board-id = <1 2>;
+};
+
+&pm8226_chg {
+	status = "ok";
+	qcom,charging-disabled;
+	qcom,use-default-batt-values;
+
+	qcom,bat-if@1200 {
+		status = "disabled";
+	};
+
+};
+
+&hsic_host {
+	status = "ok";
 };

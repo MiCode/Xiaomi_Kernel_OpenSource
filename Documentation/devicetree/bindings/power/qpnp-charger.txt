@@ -93,6 +93,10 @@ Parent node optional properties:
 					set, the charger ovp status is monitored in software.
 - qcom,ext-ovp-present			Indicates if an external OVP exists which reduces the
 					overall input resistance of the charge path.
+- qcom,power-stage-reduced		Indicates if power stage workaround is enabled. This work
+					around reduces the power stage segments while charging
+					under high load during low battery voltages. It's for
+					improving IADC accuracy while board has a bad layout.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
