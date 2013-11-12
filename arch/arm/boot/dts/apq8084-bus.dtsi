@@ -472,6 +472,7 @@
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
+			qcom,iface-clk-node = "msm_bus_ufs";
 		};
 
 		mas-usb3 {
