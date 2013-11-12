@@ -128,6 +128,13 @@
 #define NUM_SMD_CMD_CHANNELS 1
 #define NUM_SMD_DCI_CMD_CHANNELS 1
 
+/*
+ * Indicates number of peripherals that can support DCI and Apps
+ * processor. This doesn't mean that a peripheral has the
+ * feature.
+ */
+#define NUM_DCI_PROC	(NUM_SMD_DATA_CHANNELS + 1)
+
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
