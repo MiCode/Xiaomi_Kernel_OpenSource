@@ -56,27 +56,24 @@ static void debug_int_stats(struct seq_file *s)
 	const char *subsys_name;
 
 	seq_puts(s,
-		"   Subsystem    | Interrupt ID |    In     | Out (Hardcoded) |"
-		" Out (Configured)|\n");
+		"   Subsystem    | Interrupt ID |    In     |    Out    |\n");
 
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		subsys_name = smd_pid_to_subsystem(subsys);
 		if (subsys_name) {
 			seq_printf(s,
-				"%-10s %4s |    %9d | %9u |       %9u |       %9u |\n",
+				"%-10s %4s |    %9d | %9u | %9u |\n",
 				smd_pid_to_subsystem(subsys), "smd",
 				stats->smd_interrupt_id,
 				stats->smd_in_count,
-				stats->smd_out_hardcode_count,
-				stats->smd_out_config_count);
+				stats->smd_out_count);
 
 			seq_printf(s,
-				"%-10s %4s |    %9d | %9u |       %9u |       %9u |\n",
+				"%-10s %4s |    %9d | %9u | %9u |\n",
 				smd_pid_to_subsystem(subsys), "smsm",
 				stats->smsm_interrupt_id,
 				stats->smsm_in_count,
-				stats->smsm_out_hardcode_count,
-				stats->smsm_out_config_count);
+				stats->smsm_out_count);
 		}
 		++stats;
 	}
@@ -91,11 +88,9 @@ static void debug_int_stats_reset(struct seq_file *s)
 
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		stats->smd_in_count = 0;
-		stats->smd_out_hardcode_count = 0;
-		stats->smd_out_config_count = 0;
+		stats->smd_out_count = 0;
 		stats->smsm_in_count = 0;
-		stats->smsm_out_hardcode_count = 0;
-		stats->smsm_out_config_count = 0;
+		stats->smsm_out_count = 0;
 		++stats;
 	}
 }
