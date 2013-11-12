@@ -27,7 +27,7 @@
 #include <asm/byteorder.h>
 #include <asm/memory.h>
 #include <asm-generic/pci_iomap.h>
-#include <mach/msm_rtb.h>
+#include <linux/msm_rtb.h>
 
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.
