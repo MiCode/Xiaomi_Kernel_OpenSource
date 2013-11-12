@@ -22,9 +22,9 @@
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
+#include <mach/msm_smsm.h>
 
 #include "ipc_router.h"
-#include "smd_private.h"
 
 static int msm_ipc_router_smd_xprt_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_smd_xprt_debug_mask,
