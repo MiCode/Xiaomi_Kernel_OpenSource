@@ -180,6 +180,7 @@ ENTRY(msm_pm_collapse)
 	mov	r2, #1
 	and	r1, r2, r1, ASR #30 /* Check if the cache is write back */
 	orr	r1, r0, r1
+	and	r1, r1, #1
 	cmp	r1, #1
 	bne	skip
 	bl	v7_flush_dcache_all
