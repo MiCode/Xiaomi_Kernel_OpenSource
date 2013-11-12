@@ -881,13 +881,18 @@ static int ehci_hub_control (
 ) {
 	struct ehci_hcd	*ehci = hcd_to_ehci (hcd);
 	int		ports = HCS_N_PORTS (ehci->hcs_params);
-	u32 __iomem	*status_reg = &ehci->regs->port_status[
-				(wIndex & 0xff) - 1];
-	u32 __iomem	*hostpc_reg = &ehci->regs->hostpc[(wIndex & 0xff) - 1];
+	u32 __iomem	*status_reg;
+	u32 __iomem	*hostpc_reg;
 	u32		temp, temp1, status;
 	unsigned long	flags;
 	int		retval = 0;
 	unsigned	selector;
+
+	if ((wIndex & 0xff) == 0x0)
+		return -EINVAL;
+
+	status_reg = &ehci->regs->port_status[(wIndex & 0xff) - 1];
+	hostpc_reg = &ehci->regs->hostpc[(wIndex & 0xff) - 1];
 
 	/*
 	 * FIXME:  support SetPortFeatures USB_PORT_FEAT_INDICATOR.
