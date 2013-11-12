@@ -148,6 +148,9 @@ config ARCH_MDM9630
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_CPUBW
 	select MSM_IRQ
+	select MSM_QDSP6_APRV2
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
 
 config ARCH_MSM8610
 	bool "MSM8610"
