@@ -156,11 +156,17 @@ void __init fsm9900_init(void)
 {
 	struct of_dev_auxdata *adata = fsm9900_auxdata_lookup;
 
+	/*
+	 * populate devices from DT first so smem probe will get called as part
+	 * of msm_smem_init.  socinfo_init needs smem support so call
+	 * msm_smem_init before it.
+	 */
+	board_dt_populate(adata);
+
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	fsm9900_init_gpiomux();
-	board_dt_populate(adata);
 	fsm9900_emac_dt_update();
 
 	fsm9900_add_drivers();
