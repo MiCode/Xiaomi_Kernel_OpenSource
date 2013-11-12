@@ -37,8 +37,8 @@
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_ipc_logging.h>
+#include <mach/msm_smsm.h>
 
-#include "smd_private.h"
 #ifdef CONFIG_ARCH_FSM9XXX
 #define DEFAULT_NUM_SMD_PKT_PORTS 4
 #else
