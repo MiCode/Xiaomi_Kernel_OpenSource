@@ -28,6 +28,8 @@
 #define DCI_LOG_CON_MIN_LEN		14
 #define DCI_EVENT_CON_MIN_LEN		16
 
+#define DIAG_DATA_TYPE		1
+#define DIAG_CNTL_TYPE		2
 
 #define DCI_BUF_PRIMARY		1
 #define DCI_BUF_SECONDARY	2
@@ -106,6 +108,11 @@ struct diag_dci_health_stats {
 	int reset_status;
 };
 
+struct diag_dci_health_stats_proc {
+	struct diag_dci_health_stats *health;
+	int proc;
+};
+
 /* This is used for querying DCI Log
    or Event Mask */
 struct diag_log_event_stats {
@@ -129,6 +136,7 @@ struct diag_dci_data_info {
 	unsigned long iteration;
 	int data_size;
 	char time_stamp[DIAG_TS_SIZE];
+	uint8_t peripheral;
 	uint8_t ch_type;
 };
 
@@ -157,22 +165,25 @@ void create_dci_log_mask_tbl(unsigned char *tbl_buf);
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask);
 void diag_dci_invalidate_cumulative_log_mask(void);
-int diag_send_dci_log_mask(smd_channel_t *ch);
+int diag_send_dci_log_mask(void);
 void extract_dci_log(unsigned char *buf, int len, int data_source);
 int diag_dci_clear_log_mask(void);
 int diag_dci_query_log_mask(uint16_t log_code);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
 void diag_dci_invalidate_cumulative_event_mask(void);
-int diag_send_dci_event_mask(smd_channel_t *ch);
+int diag_send_dci_event_mask(void);
 void extract_dci_events(unsigned char *buf, int len, int data_source);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
 int diag_dci_clear_event_mask(void);
 int diag_dci_query_event_mask(uint16_t event_id);
-void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type);
+void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type,
+			      uint8_t peripheral);
 uint8_t diag_dci_get_cumulative_real_time(void);
 int diag_dci_set_real_time(uint8_t real_time);
+int diag_dci_copy_health_stats(struct diag_dci_health_stats *stats, int proc);
 /* Functions related to DCI wakeup sources */
-void diag_dci_try_activate_wakeup_source(smd_channel_t *channel);
-void diag_dci_try_deactivate_wakeup_source(smd_channel_t *channel);
+void diag_dci_try_activate_wakeup_source(void);
+void diag_dci_try_deactivate_wakeup_source(void);
+int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len);
 #endif

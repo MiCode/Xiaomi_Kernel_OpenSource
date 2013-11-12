@@ -69,6 +69,7 @@
 
 #define MAX_SSID_PER_RANGE	200
 
+#define ALL_PROC		-1
 #define MODEM_DATA		0
 #define LPASS_DATA		1
 #define WCNSS_DATA		2
@@ -124,7 +125,7 @@
 
 #define NUM_SMD_DATA_CHANNELS 3
 #define NUM_SMD_CONTROL_CHANNELS NUM_SMD_DATA_CHANNELS
-#define NUM_SMD_DCI_CHANNELS 1
+#define NUM_SMD_DCI_CHANNELS 2
 #define NUM_SMD_CMD_CHANNELS 1
 #define NUM_SMD_DCI_CMD_CHANNELS 1
 
@@ -291,6 +292,7 @@ struct diagchar_dev {
 	char *name;
 	int dropped_count;
 	struct class *diagchar_class;
+	struct device *diag_dev;
 	int ref_count;
 	struct mutex diagchar_mutex;
 	wait_queue_head_t wait_q;
@@ -373,8 +375,6 @@ struct diagchar_dev {
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
-	struct device *dci_device;
-	struct device *dci_cmd_device;
 	/* Variables for non real time mode */
 	int real_time_mode;
 	int real_time_update_busy;
