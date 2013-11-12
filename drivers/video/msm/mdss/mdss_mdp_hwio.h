@@ -407,6 +407,11 @@ enum mdss_mdp_writeback_index {
 #define MDSS_MDP_REG_AD_STR_OUT				0x14C
 #define MDSS_MDP_REG_AD_BL_OUT				0x154
 #define MDSS_MDP_REG_AD_CALC_DONE			0x158
+#define MDSS_MDP_REG_AD_FRAME_END			0x15C
+#define MDSS_MDP_REG_AD_PROCS_END			0x160
+#define MDSS_MDP_REG_AD_FRAME_START			0x164
+#define MDSS_MDP_REG_AD_PROCS_START			0x168
+#define MDSS_MDP_REG_AD_TILE_CTRL			0x16C
 
 enum mdss_mdp_dspp_index {
 	MDSS_MDP_DSPP0,
