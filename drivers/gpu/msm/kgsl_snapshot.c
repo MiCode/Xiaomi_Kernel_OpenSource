@@ -977,14 +977,18 @@ static struct kobj_type ktype_snapshot = {
 int kgsl_device_snapshot_init(struct kgsl_device *device)
 {
 	int ret;
+	unsigned int size;
+
+	if (kgsl_property_read_u32(device, "qcom,snapshot-size", &size))
+		size = KGSL_SNAPSHOT_MEMSIZE;
 
 	if (device->snapshot == NULL)
-		device->snapshot = kzalloc(KGSL_SNAPSHOT_MEMSIZE, GFP_KERNEL);
+		device->snapshot = kzalloc(size, GFP_KERNEL);
 
 	if (device->snapshot == NULL)
 		return -ENOMEM;
 
-	device->snapshot_maxsize = KGSL_SNAPSHOT_MEMSIZE;
+	device->snapshot_maxsize = size;
 	device->snapshot_timestamp = 0;
 	device->snapshot_faultcount = 0;
 
