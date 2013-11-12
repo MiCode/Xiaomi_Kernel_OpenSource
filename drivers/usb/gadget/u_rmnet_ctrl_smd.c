@@ -592,6 +592,11 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	struct smd_ch_info	*c;
 	struct platform_driver	*pdrv;
 
+	if (portno >= MAX_CTRL_PORT) {
+		pr_err("Illegal port number.\n");
+		return -EINVAL;
+	}
+
 	port = kzalloc(sizeof(struct rmnet_ctrl_port), GFP_KERNEL);
 	if (!port)
 		return -ENOMEM;
