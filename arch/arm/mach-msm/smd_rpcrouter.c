@@ -47,11 +47,11 @@
 #include <mach/msm_smd.h>
 #include <mach/smem_log.h>
 #include <mach/subsystem_notif.h>
+#include <mach/msm_smsm.h>
 
 #include "smd_rpcrouter.h"
 #include "modem_notifier.h"
 #include "smd_rpc_sym.h"
-#include "smd_private.h"
 
 enum {
 	SMEM_LOG = 1U << 0,
