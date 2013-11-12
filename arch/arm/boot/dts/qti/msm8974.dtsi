@@ -1954,6 +1954,7 @@
 		vdd_mss-supply = <&pm8841_s3>;
 		vdd_cx-supply = <&pm8841_s2_corner>;
 		vdd_mx-supply = <&pm8841_s1>;
+		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pm8941_l12>;
 		qcom,vdd_pll = <1800000>;
 		qcom,firmware-name = "mba";

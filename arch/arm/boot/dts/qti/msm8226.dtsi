@@ -1131,6 +1131,7 @@
 		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pm8226_s1_corner>;
 		vdd_mx-supply = <&pm8226_l3>;
+		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pm8226_l8>;
 		qcom,vdd_pll = <1800000>;
 

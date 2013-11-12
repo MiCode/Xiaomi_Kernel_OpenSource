@@ -14,6 +14,7 @@ Required properties:
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
+- vdd_mx-uV:          Voltage setting for the mx rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
 
 Optional properties:
@@ -49,6 +50,7 @@ Example:
 		vdd_mss-supply = <&pm8841_s3>;
 		vdd_cx-supply = <&pm8841_s2>;
 		vdd_mx-supply = <&pm8841_s1>;
+		vdd_mx-uV = <105000>;
 
 		qcom,is-not-loadable;
 		qcom,firmware-name = "mba";
