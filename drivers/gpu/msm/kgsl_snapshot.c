@@ -187,7 +187,6 @@ static int snapshot_os(struct kgsl_device *device,
 	header->power_level = pwr->active_pwrlevel;
 	header->power_interval_timeout = pwr->interval_timeout;
 	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
-	header->busclk = kgsl_get_clkrate(pwr->ebi1_clk);
 
 	/* Save the last active context */
 	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
