@@ -21,7 +21,6 @@
 #include <linux/of_irq.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
-#include <asm/mach-types.h>
 #include <asm/sizes.h>
 #include "scm-boot.h"
 #include "idle.h"

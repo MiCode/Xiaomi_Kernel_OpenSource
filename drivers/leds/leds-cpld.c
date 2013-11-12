@@ -24,7 +24,6 @@
 #include <linux/ctype.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <asm/mach-types.h>
 
 #define DEBUG_LED_CHANGE 0
 

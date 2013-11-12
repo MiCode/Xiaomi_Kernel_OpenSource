@@ -52,7 +52,6 @@
 #include <mach/board.h>
 #include <mach/msm_serial_hs_lite.h>
 #include <mach/msm_bus.h>
-#include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
 /*

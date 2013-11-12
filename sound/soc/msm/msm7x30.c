@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2011, 2013, The Linux Foundation. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -35,7 +35,6 @@
 #include <linux/msm_audio.h>
 
 #include "msm7kv2-pcm.h"
-#include <asm/mach-types.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
 #include <mach/qdsp5v2/afe.h>

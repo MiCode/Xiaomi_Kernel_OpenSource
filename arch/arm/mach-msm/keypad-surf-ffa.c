@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2009, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2009, 2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -16,8 +16,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/gpio_event.h>
-
-#include <asm/mach-types.h>
 
 /* don't turn this on without updating the ffa support */
 #define SCAN_FUNCTION_KEYS 0

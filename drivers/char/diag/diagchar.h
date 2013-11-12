@@ -24,7 +24,6 @@
 #include <linux/wakelock.h>
 #include <mach/msm_smd.h>
 #include <asm/atomic.h>
-#include <asm/mach-types.h>
 
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096

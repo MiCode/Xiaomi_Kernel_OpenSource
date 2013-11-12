@@ -18,7 +18,6 @@
 #include <linux/mutex.h>
 #include <linux/msm_audio_ion.h>
 
-#include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <mach/qdsp6v2/apr_tal.h>
 

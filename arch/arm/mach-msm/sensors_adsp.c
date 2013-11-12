@@ -29,7 +29,6 @@
 #include <linux/of_device.h>
 #include <linux/msm_dsps.h>
 #include <linux/uaccess.h>
-#include <asm/mach-types.h>
 #include <asm/arch_timer.h>
 #include <mach/subsystem_restart.h>
 #include <mach/ocmem.h>

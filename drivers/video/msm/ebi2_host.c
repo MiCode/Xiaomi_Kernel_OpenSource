@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,8 +27,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <mach/clk.h>
 #include <mach/hardware.h>
 #include "msm_fb.h"

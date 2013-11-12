@@ -27,7 +27,6 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <sound/apr_audio-v2.h>
-#include <asm/mach-types.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smd.h>
 #include <mach/qdsp6v2/apr.h>

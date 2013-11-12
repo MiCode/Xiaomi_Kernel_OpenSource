@@ -26,7 +26,6 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/power-on.h>
 
-#include <asm/mach-types.h>
 #include <asm/cacheflush.h>
 
 #include <mach/msm_iomap.h>
@@ -299,14 +298,11 @@ void msm_restart(char mode, const char *cmd)
 
 	if (!use_restart_v2()) {
 		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-		if (!(machine_is_msm8x60_fusion() ||
-		      machine_is_msm8x60_fusn_ffa())) {
 			mb();
 			 /* Actually reset the chip */
 			__raw_writel(0, PSHOLD_CTL_SU);
 			mdelay(5000);
 			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
-		}
 
 		__raw_writel(1, msm_tmr0_base + WDT0_RST);
 		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);

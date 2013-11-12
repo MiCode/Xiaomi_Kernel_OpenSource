@@ -30,8 +30,6 @@
 #include <linux/msm_mdp.h>
 #include <linux/file.h>
 #include <linux/major.h>
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>

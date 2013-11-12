@@ -29,8 +29,6 @@
 #include <mach/hardware.h>
 #include <linux/io.h>
 
-#include <asm/system.h>
-#include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/msm_kgsl.h>
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,6 @@
 #include <linux/platform_device.h>
 #include <mach/rpm.h>
 #include <mach/msm_iomap.h>
-#include <asm/mach-types.h>
 #include <linux/io.h>
 #include <mach/socinfo.h>
 #include <mach/mpm.h>

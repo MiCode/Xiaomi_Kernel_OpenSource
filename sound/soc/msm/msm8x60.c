@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,6 @@
 #include <sound/control.h>
 #include <sound/q6afe.h>
 #include <asm/dma.h>
-#include <asm/mach-types.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/q6voice.h>
 

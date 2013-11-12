@@ -118,10 +118,6 @@ static int has_device_tree(void)
 
 int chk_config_get_id(void)
 {
-	/* For all Fusion targets,  Modem will always be present */
-	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
-		return 0;
-
 	switch (socinfo_get_msm_cpu()) {
 	case MSM_CPU_8X60:
 		return APQ8060_TOOLS_ID;

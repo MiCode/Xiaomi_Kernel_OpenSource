@@ -20,8 +20,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 
-#include <asm/system.h>
-
 #include <mach/msm_iomap.h>
 #include <mach/remote_spinlock.h>
 #include <mach/dal.h>

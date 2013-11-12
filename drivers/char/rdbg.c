@@ -24,7 +24,6 @@
 #include <linux/mutex.h>
 #include <mach/msm_smsm.h>
 #include <linux/uaccess.h>
-#include <asm/system.h>
 
 #define SMP2P_NUM_PROCS 8
 

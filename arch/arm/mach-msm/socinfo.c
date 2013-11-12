@@ -25,8 +25,6 @@
 #include <linux/stat.h>
 #include <linux/types.h>
 
-#include <asm/mach-types.h>
-
 #include <mach/socinfo.h>
 #include <mach/msm_smem.h>
 
