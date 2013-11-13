@@ -1267,7 +1267,7 @@ static int rmt_storage_get_ramfs(struct rmt_storage_srv *srv)
 	if (srv->prog != MSM_RMT_STORAGE_APIPROG)
 		return 0;
 
-	ramfs_table = smem_alloc(SMEM_SEFS_INFO,
+	ramfs_table = smem_find(SMEM_SEFS_INFO,
 			sizeof(struct shared_ramfs_table));
 
 	if (!ramfs_table) {
@@ -1442,7 +1442,7 @@ static int rmt_storage_init_ramfs(struct rmt_storage_srv *srv)
 	if (srv->prog != MSM_RMT_STORAGE_APIPROG)
 		return 0;
 
-	ramfs_table = smem_alloc(SMEM_SEFS_INFO,
+	ramfs_table = smem_find(SMEM_SEFS_INFO,
 				 sizeof(struct shared_ramfs_table));
 
 	if (!ramfs_table) {
