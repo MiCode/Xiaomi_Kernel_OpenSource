@@ -162,8 +162,6 @@ void *smem_find(unsigned id, unsigned size);
 
 void *smem_alloc2_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags);
-void *smem_alloc_to_proc(unsigned id, unsigned size, unsigned to_proc,
-								unsigned flags);
 void *smem_find_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags);
 void *smem_get_entry_to_proc(unsigned id, unsigned *size, unsigned to_proc,
@@ -214,11 +212,6 @@ static inline void *smem_find(unsigned id, unsigned size)
 	return NULL;
 }
 void *smem_alloc2_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
-								unsigned flags)
-{
-	return NULL;
-}
-static void *smem_alloc_to_proc(unsigned id, unsigned size, unsigned to_proc,
 								unsigned flags)
 {
 	return NULL;
