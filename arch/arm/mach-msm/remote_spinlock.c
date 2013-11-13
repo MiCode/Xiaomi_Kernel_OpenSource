@@ -573,7 +573,7 @@ static int remote_spinlock_init_address_smem(int id, _remote_spinlock_t *lock)
 	if (id >= SMEM_SPINLOCK_COUNT)
 		return -EINVAL;
 
-	spinlock_start = smem_alloc(SMEM_SPINLOCK_ARRAY,
+	spinlock_start = smem_find(SMEM_SPINLOCK_ARRAY,
 				    SMEM_SPINLOCK_ARRAY_SIZE);
 	if (spinlock_start == NULL)
 		return -ENXIO;
