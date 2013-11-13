@@ -806,7 +806,7 @@ struct ipa_controller {
 			const struct ipa_ep_cfg_metadata_mask *metadata_mask);
 	void (*ipa_enable_clks)(void);
 	void (*ipa_disable_clks)(void);
-
+	struct msm_bus_scale_pdata *msm_bus_data_ptr;
 };
 
 extern struct ipa_context *ipa_ctx;

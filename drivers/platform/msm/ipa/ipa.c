@@ -67,65 +67,6 @@ static struct clk *sys_noc_ipa_axi_clk;
 static struct clk *ipa_cnoc_clk;
 static struct clk *ipa_inactivity_clk;
 
-static struct msm_bus_vectors ipa_init_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_BAM_DMA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_BAM_DMA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors ipa_max_perf_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 50000000,
-		.ib = 960000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_BAM_DMA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 50000000,
-		.ib = 960000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_BAM_DMA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 50000000,
-		.ib = 960000000,
-	},
-};
-
-static struct msm_bus_paths ipa_usecases[]  = {
-	{
-		ARRAY_SIZE(ipa_init_vectors),
-		ipa_init_vectors,
-	},
-	{
-		ARRAY_SIZE(ipa_max_perf_vectors),
-		ipa_max_perf_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata ipa_bus_client_pdata = {
-	ipa_usecases,
-	ARRAY_SIZE(ipa_usecases),
-	.name = "ipa",
-};
-
 struct ipa_context *ipa_ctx;
 
 static int ipa_load_pipe_connection(struct platform_device *pdev,
@@ -1798,7 +1739,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	/* get BUS handle */
 	ipa_ctx->ipa_bus_hdl =
-		msm_bus_scale_register_client(&ipa_bus_client_pdata);
+		msm_bus_scale_register_client(ipa_ctx->ctrl->msm_bus_data_ptr);
 	if (!ipa_ctx->ipa_bus_hdl) {
 		IPAERR("fail to register with bus mgr!\n");
 		result = -ENODEV;
