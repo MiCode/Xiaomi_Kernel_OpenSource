@@ -851,10 +851,14 @@ static int _smem_log_init(void)
 
 	inst[GEN].which_log = GEN;
 	inst[GEN].events =
-		(struct smem_log_item *)smem_alloc2(SMEM_SMEM_LOG_EVENTS,
-						  SMEM_LOG_EVENTS_SIZE);
-	inst[GEN].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_LOG_IDX,
-					     sizeof(uint32_t));
+		(struct smem_log_item *)smem_alloc(SMEM_SMEM_LOG_EVENTS,
+						  SMEM_LOG_EVENTS_SIZE,
+						  0,
+						  SMEM_ANY_HOST_FLAG);
+	inst[GEN].idx = (uint32_t *)smem_alloc(SMEM_SMEM_LOG_IDX,
+					     sizeof(uint32_t),
+					     0,
+					     SMEM_ANY_HOST_FLAG);
 	if (!inst[GEN].events || !inst[GEN].idx)
 		pr_info("%s: no log or log_idx allocated\n", __func__);
 
@@ -867,10 +871,14 @@ static int _smem_log_init(void)
 	inst[STA].which_log = STA;
 	inst[STA].events =
 		(struct smem_log_item *)
-		smem_alloc2(SMEM_SMEM_STATIC_LOG_EVENTS,
-			   SMEM_STATIC_LOG_EVENTS_SIZE);
-	inst[STA].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_STATIC_LOG_IDX,
-						     sizeof(uint32_t));
+		smem_alloc(SMEM_SMEM_STATIC_LOG_EVENTS,
+			   SMEM_STATIC_LOG_EVENTS_SIZE,
+			   0,
+			   SMEM_ANY_HOST_FLAG);
+	inst[STA].idx = (uint32_t *)smem_alloc(SMEM_SMEM_STATIC_LOG_IDX,
+						     sizeof(uint32_t),
+						     0,
+						     SMEM_ANY_HOST_FLAG);
 	if (!inst[STA].events || !inst[STA].idx)
 		pr_info("%s: no static log or log_idx allocated\n", __func__);
 
@@ -883,10 +891,14 @@ static int _smem_log_init(void)
 	inst[POW].which_log = POW;
 	inst[POW].events =
 		(struct smem_log_item *)
-		smem_alloc2(SMEM_SMEM_LOG_POWER_EVENTS,
-			   SMEM_POWER_LOG_EVENTS_SIZE);
-	inst[POW].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_LOG_POWER_IDX,
-						     sizeof(uint32_t));
+		smem_alloc(SMEM_SMEM_LOG_POWER_EVENTS,
+			   SMEM_POWER_LOG_EVENTS_SIZE,
+			   0,
+			   SMEM_ANY_HOST_FLAG);
+	inst[POW].idx = (uint32_t *)smem_alloc(SMEM_SMEM_LOG_POWER_IDX,
+						     sizeof(uint32_t),
+						     0,
+						     SMEM_ANY_HOST_FLAG);
 	if (!inst[POW].events || !inst[POW].idx)
 		pr_info("%s: no power log or log_idx allocated\n", __func__);
 
