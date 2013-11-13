@@ -1144,7 +1144,7 @@ static int hci_fm_get_ch_det_th(struct radio_hci_dev *hdev,
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
 
-static int radio_hci_err(__u16 code)
+static int radio_hci_err(__u32 code)
 {
 	switch (code) {
 	case 0:
