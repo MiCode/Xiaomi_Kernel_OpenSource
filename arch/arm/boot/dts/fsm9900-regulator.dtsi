@@ -95,6 +95,15 @@
 			status = "okay";
 		};
 
+		/* PMIC: USB */
+		pma8084_l6: regulator@4500 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
 		/* PMIC: HKADC */
 		pma8084_l8: regulator@4700 {
 			regulator-min-microvolt = <1800000>;
